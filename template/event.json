@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "run_id": "{{run-id}}",
+  "request_id": "{{unique-request-id}}",
+  "actor": {
+    "role": "test-runner",
+    "instance_id": "{{host-bound-instance}}"
+  },
+  "assignment_id": "{{assignment-id}}",
+  "module_id": "M001",
+  "expected_revision": 0,
+  "causation_event_id": "{{parent-event-id}}",
+  "event_type": "test_run_recorded",
+  "payload": {
+    "test_run_id": "{{test-run-id}}",
+    "result_ref": "{{absolute-result-path}}",
+    "freeze_id": "{{freeze-id}}",
+    "code_baseline": "{{tree-or-commit}}"
+  },
+  "artifacts": [
+    {
+      "path": "{{absolute-result-path}}",
+      "sha256": "{{sha256}}"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "project_id": "{{stable-project-id}}",
+  "request_id": "{{unique-request-id}}",
+  "expected_revision": 0,
+  "patch": {},
+  "source_ref": {
+    "path": "{{absolute-user-input-record}}",
+    "sha256": "{{actual-sha256}}"
+  }
+}

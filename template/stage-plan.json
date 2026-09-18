@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "module_id": "M001",
+  "definitions": [
+    {
+      "kind": "proposal",
+      "path": "{{absolute-evidence-path}}",
+      "sha256": "{{sha256}}"
+    },
+    {
+      "kind": "spec",
+      "path": "{{absolute-evidence-path}}",
+      "sha256": "{{sha256}}",
+      "capability": "feature-capability"
+    },
+    {
+      "kind": "design",
+      "path": "{{absolute-evidence-path}}",
+      "sha256": "{{sha256}}"
+    },
+    {
+      "kind": "tasks",
+      "path": "{{absolute-evidence-path}}",
+      "sha256": "{{sha256}}"
+    },
+    {
+      "kind": "checklist",
+      "path": "{{absolute-evidence-path}}",
+      "sha256": "{{sha256}}"
+    },
+    {
+      "kind": "test-design",
+      "path": "{{absolute-evidence-path}}",
+      "sha256": "{{sha256}}"
+    },
+    {
+      "kind": "global-contract",
+      "path": "{{absolute-evidence-path}}",
+      "sha256": "{{sha256}}"
+    }
+  ],
+  "paths": [
+    {
+      "path_id": "PATH-M001-001",
+      "name": "{{name}}",
+      "case_id": "CASE-GLOBAL-001",
+      "requirement_id": "REQ-M001-001",
+      "required": true,
+      "expected_assertions": [
+        {
+          "assertion_id": "ASSERT-M001-001",
+          "expected": "{{expected-value}}"
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "TASK-M001-001",
+      "requirement_ids": [
+        "REQ-M001-001"
+      ],
+      "path_ids": [
+        "PATH-M001-001"
+      ],
+      "global_requirement_ids": [
+        "REQ-GLOBAL-001"
+      ]
+    }
+  ],
+  "source_closure": {
+    "entry": "{{entry}}",
+    "execution_chain": [
+      "{{handler}}",
+      "{{repository}}"
+    ],
+    "observable_result": "{{result}}",
+    "production_binding": "{{binding}}",
+    "evidence_refs": [
+      {
+        "path": "{{absolute-evidence-path}}",
+        "sha256": "{{sha256}}"
+      }
+    ],
+    "unresolved": []
+  },
+  "target_feasibility": {
+    "verdict": "pending",
+    "evidence_refs": [
+      {
+        "path": "{{absolute-evidence-path}}",
+        "sha256": "{{sha256}}"
+      }
+    ]
+  },
+  "decision_envelope": {
+    "scope": [
+      "{{scope}}"
+    ],
+    "acceptance": [
+      "{{acceptance}}"
+    ],
+    "allowed_alternatives": [],
+    "forbidden_changes": [
+      "scope-reduction",
+      "provider-substitution"
+    ]
+  },
+  "freeze_checks_passed": false
+}

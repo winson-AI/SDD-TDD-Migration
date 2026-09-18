@@ -1,0 +1,4 @@
+{
+  "argv": ["{{absolute-python-with-harmony-dependencies}}", "{{package_root}}/skills/migration-test/scripts/harmony_adapter.py", "--config", "{{absolute-host-harmony-config.json}}"],
+  "timeout": 1860
+}

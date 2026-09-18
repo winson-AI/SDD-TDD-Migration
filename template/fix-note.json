@@ -1,0 +1,6 @@
+{
+  "root_cause": "{{confirmed-or-qualified-cause}}",
+  "strategy": "{{minimal-fix-and-task-ids}}",
+  "applicability": "{{matching-condition-and-contract-version}}",
+  "risks": "{{known-limits-and-required-regressions}}"
+}

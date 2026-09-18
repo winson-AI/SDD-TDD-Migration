@@ -1,0 +1,20 @@
+{
+  "path_id": "PATH-M001-001",
+  "name": "{{readable-name}}",
+  "case_id": "CASE-M001-001",
+  "requirement_id": "REQ-M001-001",
+  "required": true,
+  "scope": "module",
+  "preconditions": ["{{approved-fixture-and-app-state}}"],
+  "steps": ["{{action-1}}", "{{action-2}}"],
+  "parameters": {},
+  "dependency_refs": [],
+  "expected_assertions": [{
+    "assertion_id": "ASSERT-M001-001",
+    "expected": true,
+    "description": "{{specific-observable-predicate-from-SPEC}}",
+    "matcher": "exact",
+    "verification": "one_image_assert",
+    "after_step": 2
+  }]
+}

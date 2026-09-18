@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "run_id": "{{run-id}}",
+  "last_sequence": 0,
+  "revision": 0,
+  "execution_status": "pending",
+  "quality": "yellow-blocked",
+  "reason_code": "untested",
+  "input_ref": "{{input-artifact}}",
+  "modules": [
+    {
+      "module_id": "M001",
+      "name": "{{feature-name}}",
+      "change_name": "{{change-name}}",
+      "input_ref": "{{module-input-artifact}}",
+      "phase": "context",
+      "quality": "yellow-blocked",
+      "reason_code": "untested"
+    }
+  ],
+  "dag_edges": [],
+  "locks": [],
+  "dependency_subscriptions": [],
+  "global_case_mapping": [],
+  "unresolved": [],
+  "audit_ref": null,
+  "archive_ref": null,
+  "next_action": "plan"
+}

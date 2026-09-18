@@ -1,0 +1,50 @@
+{
+  "device": "{{explicit-device-serial}}",
+  "ip": "127.0.0.1",
+  "port": 8710,
+  "recording_ref": null,
+  "knowledge_ref": null,
+  "models": {
+    "decision_models": [
+      {
+        "name": "{{planner-model}}",
+        "base_url": "{{planner-endpoint}}",
+        "api_key": {
+          "env": "HARMONY_PLANNER_API_KEY"
+        },
+        "provider": "openai"
+      }
+    ],
+    "execute_model_name": "{{executor-model}}",
+    "execute_base_url": "{{executor-endpoint}}",
+    "execute_api_key": {
+      "env": "HARMONY_EXECUTOR_API_KEY"
+    },
+    "execute_mode": "mcp",
+    "execute_provider": "hypium_mcp_agent",
+    "execute_max_steps": 5,
+    "verify_model_name": "{{verify-model}}",
+    "verify_base_url": "{{verify-endpoint}}",
+    "verify_api_key": {
+      "env": "HARMONY_VERIFY_API_KEY"
+    },
+    "verify_video_enable": true,
+    "keep_raw_video": true,
+    "max_steps": 100,
+    "task_timeout": 1800,
+    "context_compression": {
+      "enabled": true,
+      "max_tokens": 50000,
+      "max_recent_messages": 5
+    },
+    "reflection": {
+      "enabled": false,
+      "initial_step": 10,
+      "interval": 10,
+      "recent_messages": 10
+    },
+    "special_test": {
+      "enabled": false
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "decision_id": "{{decision-id}}",
+  "run_id": "{{run-id}}",
+  "module_id": "M001",
+  "question_id": "{{question-id}}",
+  "kind": "freeze",
+  "spec_revision": 1,
+  "subject_sha256": "{{reviewed-manifest-or-question-hash}}",
+  "code_baseline": null,
+  "decision": "pending",
+  "answers": [],
+  "rationale": "{{human-rationale}}",
+  "actor": "{{human-identity}}",
+  "human_source_ref": "{{actual-user-message-or-signed-record}}",
+  "recorded_at": "{{utc-time}}",
+  "supersedes": null,
+  "decision_envelope_sha256": "{{envelope-hash}}",
+  "additional_rounds": null
+}

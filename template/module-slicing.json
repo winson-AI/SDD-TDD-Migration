@@ -1,0 +1,18 @@
+{
+  "modules": [
+    {
+      "module_id": "M001",
+      "name": "{{business-module-name}}",
+      "functional_path": "{{level-1/level-2-functional-directory}}",
+      "scope": {
+        "in": ["{{included-behavior}}"],
+        "out": ["{{excluded-behavior}}"]
+      },
+      "requirement_ids": ["REQ-GLOBAL-001"],
+      "case_ids": ["CASE-GLOBAL-001"],
+      "legacy_read_paths": ["{{absolute-legacy-module}}"],
+      "target_write_paths": ["{{absolute-target-module}}"],
+      "dependencies": []
+    }
+  ]
+}

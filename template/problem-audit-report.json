@@ -1,0 +1,19 @@
+{
+  "assignment_id": "{{problem-assignment-id}}",
+  "snapshot": "{{problem-snapshot-digest}}",
+  "modules": [
+    {
+      "module_id": "M001",
+      "quality": "yellow-blocked",
+      "result": null,
+      "action": "wait",
+      "root_cause": {
+        "category": "dependency",
+        "summary": "{{unavailable-prerequisite}}",
+        "confidence": "confirmed",
+        "owner": "{{responsible-module-or-external-owner}}",
+        "next_action": "{{resolution-condition}}"
+      }
+    }
+  ]
+}

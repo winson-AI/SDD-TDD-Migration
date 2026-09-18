@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "run_id": "{{run-id}}",
+  "module_id": "M001",
+  "spec_revision": 1,
+  "freeze_id": "{{freeze-id}}",
+  "definitions": [
+    {
+      "kind": "proposal",
+      "path": "{{absolute-proposal-snapshot}}",
+      "sha256": "{{sha256}}"
+    },
+    {
+      "kind": "spec",
+      "path": "{{absolute-spec-snapshot}}",
+      "sha256": "{{sha256}}"
+    },
+    {
+      "kind": "design",
+      "path": "{{absolute-design-snapshot}}",
+      "sha256": "{{sha256}}"
+    },
+    {
+      "kind": "tasks",
+      "path": "{{absolute-tasks-snapshot}}",
+      "sha256": "{{sha256}}"
+    },
+    {
+      "kind": "checklist",
+      "path": "{{absolute-checklist-snapshot}}",
+      "sha256": "{{sha256}}"
+    },
+    {
+      "kind": "test-design",
+      "path": "{{absolute-test-design-snapshot}}",
+      "sha256": "{{sha256}}"
+    },
+    {
+      "kind": "global-contract",
+      "path": "{{absolute-global-contract-snapshot}}",
+      "sha256": "{{sha256}}"
+    }
+  ],
+  "manifest_sha256": "{{sha256-of-definition-manifest}}",
+  "human_decision_refs": [],
+  "retained_decision_impact_ref": null,
+  "module_acceptance_event": null,
+  "frozen": false,
+  "decision_envelope": {
+    "scope": [
+      "{{approved-scope}}"
+    ],
+    "acceptance": [
+      "{{approved-behavior}}"
+    ],
+    "allowed_alternatives": [],
+    "forbidden_changes": [
+      "unapproved-provider-substitution",
+      "scope-reduction",
+      "acceptance-weakening"
+    ]
+  },
+  "approval_subject_sha256": "{{plan-hash}}",
+  "execution_baseline_sha256": "{{current-plan-hash}}",
+  "change_class": "initial",
+  "impact_ref": null
+}

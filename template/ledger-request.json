@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "request_id": "{{unique-id}}",
+  "run_id": "{{run-id}}",
+  "module_id": "M001",
+  "expected_revision": 0,
+  "operation": "plan",
+  "payload": {
+    "plan_ref": {
+      "path": "{{absolute-evidence-path}}",
+      "sha256": "{{sha256}}"
+    }
+  }
+}

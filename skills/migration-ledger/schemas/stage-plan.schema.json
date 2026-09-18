@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "module_id",
+    "definitions",
+    "paths",
+    "tasks",
+    "source_closure",
+    "target_feasibility",
+    "decision_envelope",
+    "freeze_checks_passed"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "module_id": {
+      "type": "string"
+    },
+    "definitions": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "paths": {
+      "type": "array",
+      "minItems": 1
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1
+    },
+    "source_closure": {
+      "type": "object"
+    },
+    "target_feasibility": {
+      "type": "object"
+    },
+    "decision_envelope": {
+      "type": "object",
+      "required": [
+        "scope",
+        "acceptance",
+        "allowed_alternatives",
+        "forbidden_changes"
+      ]
+    },
+    "freeze_checks_passed": {
+      "const": true
+    }
+  }
+}

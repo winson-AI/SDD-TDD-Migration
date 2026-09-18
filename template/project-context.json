@@ -1,0 +1,27 @@
+{
+  "package_root": "{{absolute-package-root}}",
+  "legacy_root": "{{absolute-legacy-root}}",
+  "target_root": "{{absolute-target-root}}",
+  "architecture_path": "{{absolute-architecture-document}}",
+  "requirements_path": null,
+  "test_cases_path": null,
+  "project_rules_path": null,
+  "test_adapter": null,
+  "runtime": null,
+  "human_owner": null,
+  "defaults": {
+    "entry_mode": "project",
+    "budgets": {
+      "max_parallel_modules": 3,
+      "max_fix_rounds": 3,
+      "max_audit_rounds": 3,
+      "max_no_progress_rounds": 2
+    },
+    "quality_gates": {},
+    "repair_policy": {
+      "local_automatic_rounds": 1,
+      "confirmed_dependency_or_peripheral": "defer-to-auditor",
+      "after_failed_round": "defer-to-auditor"
+    }
+  }
+}

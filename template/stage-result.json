@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "kind": "tests",
+  "run_id": "{{run-id}}",
+  "module_id": "M001",
+  "assignment_id": "{{assignment-id}}",
+  "actor_instance_id": "{{host-bound-instance}}",
+  "freeze_id": "{{plan-hash}}",
+  "code_baseline": "{{code-manifest-hash}}",
+  "paths": [
+    {
+      "path_id": "PATH-M001-001",
+      "test_run_id": "{{test-run-id}}",
+      "quality": "yellow-blocked",
+      "executed": false,
+      "assertions": [],
+      "execution_receipt": null,
+      "retest_of": null,
+      "root_cause": {
+        "category": "untested",
+        "summary": "尚未执行",
+        "confidence": "confirmed",
+        "owner": "test-runner",
+        "next_action": "execute"
+      }
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "run_id": "{{run-id}}",
+  "module_id": "M001",
+  "name": "{{feature-name}}",
+  "change_name": "{{run-id}}-m001",
+  "run_root": "{{absolute-run-root}}",
+  "change_root": "{{absolute-run-root}}/openspec/changes/{{run-id}}-m001",
+  "scope": {
+    "in": [
+      "{{business-slice}}"
+    ],
+    "out": [
+      "{{excluded-behavior}}"
+    ],
+    "requirement_ids": [
+      "REQ-M001-001"
+    ],
+    "capabilities": [
+      "{{capability}}"
+    ]
+  },
+  "global_input_ref": {
+    "path": "{{absolute-run-root}}/input.json",
+    "sha256": "{{sha256}}"
+  },
+  "legacy_read_paths": [
+    "{{absolute-legacy-module}}"
+  ],
+  "target_write_paths": [
+    "{{absolute-target-module}}"
+  ],
+  "test_cases": [
+    {
+      "case_id": "CASE-M001-001",
+      "global_case_id": "CASE-GLOBAL-001",
+      "name": "{{case-name}}",
+      "requirement_ids": [
+        "REQ-M001-001"
+      ],
+      "required": true,
+      "steps": [
+        "{{step}}"
+      ],
+      "expected_assertions": [
+        "{{expectation}}"
+      ]
+    }
+  ],
+  "global_case_participation": [
+    {
+      "case_id": "CASE-GLOBAL-001",
+      "owner": "global",
+      "participants": [
+        "M001"
+      ],
+      "integration_contract": "{{contract}}"
+    }
+  ],
+  "dependencies": [],
+  "resource_claims": [
+    {
+      "resource": "{{absolute-target-module}}",
+      "mode": "write"
+    }
+  ],
+  "baseline": {
+    "legacy_commit_or_tree": "{{revision}}",
+    "target_commit_or_tree": "{{revision}}"
+  },
+  "context_refs": [],
+  "created_event_id": "{{event-id}}",
+  "source_closure_ref": null,
+  "target_feasibility_ref": null,
+  "owner": "M001"
+}

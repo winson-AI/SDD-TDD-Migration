@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "run_id": "{{run-id}}",
+  "module_id": "M001",
+  "spec_revision": 1,
+  "paths": [
+    {
+      "path_id": "PATH-M001-001",
+      "name": "{{readable-path-name}}",
+      "case_id": "CASE-M001-001",
+      "requirement_id": "REQ-M001-001",
+      "priority": "P0",
+      "required": true,
+      "scope": "module",
+      "preconditions": [
+        "{{precondition}}"
+      ],
+      "steps": [
+        "{{step}}"
+      ],
+      "parameters": {},
+      "parameter_hash": "{{sha256}}",
+      "expected_assertions": [
+        {
+          "assertion_id": "ASSERT-M001-001",
+          "expected": "{{observable-expectation}}"
+        }
+      ],
+      "dependency_refs": [],
+      "script_ref": null,
+      "query": {
+        "path_id": "PATH-M001-001",
+        "name": "{{readable-path-name}}",
+        "case_id": "CASE-M001-001",
+        "parameters": {}
+      }
+    }
+  ]
+}

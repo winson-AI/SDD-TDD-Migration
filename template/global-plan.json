@@ -1,0 +1,24 @@
+{
+  "global_spec": {
+    "path": "{{absolute-evidence-path}}",
+    "sha256": "{{sha256}}"
+  },
+  "new_architecture": {
+    "path": "{{absolute-evidence-path}}",
+    "sha256": "{{sha256}}"
+  },
+  "requirement_owners": {
+    "REQ-GLOBAL-001": [
+      "M001"
+    ]
+  },
+  "case_owners": {
+    "CASE-GLOBAL-001": [
+      "M001",
+      "GLOBAL"
+    ]
+  },
+  "boundary_review": {
+    "issues": []
+  }
+}

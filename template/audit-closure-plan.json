@@ -1,0 +1,43 @@
+{
+  "routes": [
+    {
+      "source_module_id": "M002",
+      "action": "fix",
+      "source_context": {
+        "freeze_id": "{{freeze-id}}",
+        "code_baseline": "{{baseline}}",
+        "spec_ref": {
+          "path": "{{absolute-path}}",
+          "sha256": "{{sha256}}"
+        },
+        "test_paths": "{{copy-exact-test-path-array-from-audit-batch-contexts}}"
+      },
+      "analysis_ref": {
+        "path": "{{absolute-path}}",
+        "sha256": "{{sha256}}"
+      },
+      "root_cause": {
+        "category": "dependency",
+        "summary": "{{root-cause}}",
+        "confidence": "confirmed",
+        "owner": "M001",
+        "next_action": "fix-and-retest"
+      },
+      "finding_id": "{{finding-id-from-audit-batch}}",
+      "owner_module_ids": [
+        "M001"
+      ],
+      "owner_contexts": {
+        "M001": {
+          "freeze_id": "{{freeze-id}}",
+          "code_baseline": "{{baseline}}",
+          "spec_ref": {
+            "path": "{{absolute-path}}",
+            "sha256": "{{sha256}}"
+          },
+          "test_paths": "{{copy-exact-test-path-array-from-audit-batch-contexts}}"
+        }
+      }
+    }
+  ]
+}

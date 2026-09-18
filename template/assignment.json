@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "assignment_id": "{{assignment-id}}",
+  "run_id": "{{run-id}}",
+  "module_id": "M001",
+  "role": "implementer",
+  "actor_instance_id": "{{host-bound-id}}",
+  "created_event_id": "{{event-id}}",
+  "expected_revision": 0,
+  "package_root": "{{absolute-package-root}}",
+  "run_root": "{{absolute-run-root}}",
+  "change_root": "{{absolute-change-root}}",
+  "input_refs": [
+    {
+      "path": "{{absolute-frozen-artifact}}",
+      "sha256": "{{sha256}}"
+    }
+  ],
+  "freeze_id": "{{freeze-id}}",
+  "code_baseline": "{{tree-or-commit}}",
+  "allow_read": [
+    "{{absolute-input-path}}"
+  ],
+  "allow_write": [
+    "{{absolute-staging-path}}",
+    "{{absolute-target-scope}}"
+  ],
+  "lock_tokens": [
+    {
+      "resource": "{{absolute-target-scope}}",
+      "fencing_token": 1
+    }
+  ],
+  "output_event_types": [
+    "implementation_submitted"
+  ],
+  "deadline": "{{utc-deadline}}",
+  "session_id": null,
+  "resume_policy": "prefer-original",
+  "checkpoint_ref": null,
+  "recovery_cycle": 0,
+  "owner_module_id": "M001"
+}

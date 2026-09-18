@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "project_id": "{{stable-project-id}}",
+  "request_id": "{{unique-prepare-request-id}}",
+  "run_id": "{{run-id}}",
+  "entry_mode": "project",
+  "module_name": null,
+  "overrides": {},
+  "source_ref": {
+    "path": "{{absolute-user-request-record}}",
+    "sha256": "{{actual-sha256}}"
+  }
+}

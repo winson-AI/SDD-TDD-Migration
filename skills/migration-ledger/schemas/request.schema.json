@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "request_id",
+    "run_id",
+    "expected_revision",
+    "operation",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "module_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "operation": {
+      "enum": [
+        "init",
+        "register",
+        "decision",
+        "plan",
+        "freeze",
+        "change",
+        "assign",
+        "submit",
+        "accept",
+        "diagnose",
+        "suspend",
+        "dependency-ready",
+        "resume",
+        "recover",
+        "session",
+        "revoke",
+        "invalidate",
+        "complete",
+        "audit-assign",
+        "audit",
+        "audit-revoke",
+        "diagnosis-accept",
+        "audit-route",
+        "repair-accept",
+        "global-plan",
+        "audit-defer",
+        "problem-assign",
+        "problem-audit",
+        "audit-resume",
+        "audit-collect",
+        "audit-plan",
+        "audit-route-batch",
+        "audit-work",
+        "audit-retest",
+        "audit-verdict",
+        "audit-block",
+        "audit-release"
+      ]
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}

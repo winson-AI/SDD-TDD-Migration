@@ -1,0 +1,58 @@
+# 模板实例化索引
+
+所有 `{{...}}` 均为待填字段，不代表真实运行值。实例化后必须消除占位符；初始 pending/null/untested 保持真实状态，不得为模板完整而改成通过。缺失输入进入澄清，不能随意填入。
+
+| 模板 | 作者及用途 |
+| --- | --- |
+| [global-input.json](global-input.json) | Global 从固定项目上下文生成本轮输入；宿主保存 input.json，Ledger 绑定引用及快照 |
+| [module-input.json](module-input.json) | Global 生成功能切片输入，Ledger 写 modules/Mxxx/_input.json |
+| [global-ledger.json](global-ledger.json) | Ledger 维护全局缓存；不得当事实日志直接修改 |
+| [assignment.json](assignment.json) | 宿主身份绑定的单次任务；Ledger 创建 |
+| [event.json](event.json) | 入站事件信封；Ledger 补服务端事件 ID/sequence/time |
+| [proposal.md](proposal.md) | Spec-Designer：六件套 proposal |
+| [spec.md](spec.md) | Spec-Designer：实例化为 specs/<capability>/spec.md 的 delta |
+| [design.md](design.md) | Spec-Designer：旧→新架构与测试设计 |
+| [tasks.md](tasks.md) | Spec-Designer 定义计划；Ledger 投影完成进度 |
+| [status.md](status.md) | MO 决策，Ledger 将其中 JSON 同步为 modules/Mxxx.json 与 status.md |
+| [checklist.md](checklist.md) | 冻结定义与 DoD 定义；Ledger 更新证据 |
+| [freeze.json](freeze.json) | Spec-Designer 提案、Human/MO 审核、Ledger 接受 |
+| [test-paths.json](test-paths.json) | Test-Runner：冻结前路径设计；实现后脚本绑定 |
+| [test-result.json](test-result.json) | Test-Runner/Auditor 记录实际执行；Fixer 自测标明 producer |
+| [implementation.md](implementation.md) | Implementer/Fixer：提交与 tasks 追溯、回归、回滚 |
+| [diagnosis.md](diagnosis.md) | Diagnostician：只读根因报告 |
+| [change-request.md](change-request.md) | Fixer 提建议；Spec-Designer/MO 审核 |
+| [escalation.md](escalation.md) | Escalation：人工问题与超时 |
+| [human-decision.json](human-decision.json) | 真实人类反馈引用，Escalation 规范化、Ledger 接受 |
+| [audit-report.md](audit-report.md) | Auditor：全局快照、复测与最终裁决 |
+| [workflow-verification.md](workflow-verification.md) | 宿主适配后的行为验收矩阵 |
+
+运行根目录与 ACL 见 [runtime.md](../skills/migration-protocol/references/runtime.md)。JSON 字段为 v1 交换契约示例；宿主还须执行身份、版本、状态门禁与非空证据校验，JSON 可解析并不代表业务有效。
+
+## 本地控制器附加模板
+
+- [ledger-request.json](ledger-request.json)：CLI 请求，operation 与 payload 见 local-runtime。
+- [stage-plan.json](stage-plan.json)：六件套引用、冻结路径与任务、理解证据、批准边界。
+- [stage-result.json](stage-result.json)：阶段 tests 结果；implementation 结构见 local-runtime。
+- [test-adapter.json](test-adapter.json)：宿主审核过的实际 argv，不是任意用户文本执行入口。
+
+这些模板字段由 contracts.py 做运行期校验；JSON schema 文件位于 migration-ledger/schemas，描述基本交换形状，不能替代业务守卫。
+
+- [global-plan.json](global-plan.json)：全局需求/用例归属验收输入。
+- [fix-note.json](fix-note.json)：Fixer 必填修复记忆；通过阶段结果 fix_note_ref 引用。
+- [problem-audit-report.json](problem-audit-report.json)：问题审计报告；可执行模块须提供真实 tests result，此模板展示不可执行的 Yellow。
+
+- [audit-closure-plan.json](audit-closure-plan.json)：Auditor 按 finding_id 路由到一个或多个修复模块，精确绑定各方 SPEC 与测试路径。
+
+## Harmony 测试
+
+- [harmony-test-path.json](harmony-test-path.json)：逐 ASSERT 的冻结谓词、验证类型、匹配和时序。
+- [harmony-config.json](harmony-config.json)：设备、模型环境引用、压缩/反思/视频配置。
+- [harmony-test-adapter.json](harmony-test-adapter.json)：Main argv 与任务超时；不依赖源项目绝对路径。
+
+- [module-slicing.json](module-slicing.json)：global-input.module_slicing.module_import_ref 指向的可选人工模块方案；字段与优先级见 [切片规约](../skills/migration-global/references/slicing.md)。
+
+- [single-module-input.json](single-module-input.json)：单模块入口的两个参数示例（entry_mode/module_name），合并已有项目上下文；模块 ID、scope、SPEC/Testing list 全部由 Global 生成，沿用 Global→MO→Auditor 全流程。
+
+- [project-context.json](project-context.json)：项目长期 config 内容模板，宿主根据用户输入整理，无 run/module 状态。
+- [project-context-request.json](project-context-request.json)：init/update 的 patch、CAS revision、幂等 ID 和用户来源引用。
+- [run-request.json](run-request.json)：本次选择、临时覆盖与宿主元数据，prepare 固化后交 Global；用户单模块选择仍只有模式和名称。
