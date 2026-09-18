@@ -34,6 +34,7 @@
     "operation": {
       "enum": [
         "init",
+        "context-submit",
         "register",
         "decision",
         "plan",
@@ -69,7 +70,10 @@
         "audit-retest",
         "audit-verdict",
         "audit-block",
-        "audit-release"
+        "audit-release",
+        "decompose",
+        "decompose-accept",
+        "module-summary"
       ]
     },
     "payload": {

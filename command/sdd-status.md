@@ -42,3 +42,7 @@ status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接
 ledger.py status；若 observed_invalidations 非空交守卫处理。具体 payload/命令用法见 [local-runtime.md](../skills/migration-protocol/references/local-runtime.md)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
 
 编排读取 `status.next_steps` 与 `global_next_step`，按 ready/reason 决定下一动作；用 session_id 恢复对应角色，只传事件和工件引用。ready 只是当前快照建议，提交时必须带 expected_revision 再过门禁；阻塞或预算不足不能自行跳步。
+
+同时展示 module_rounds 的 registered/settled/unfinished/active/ready 模块清单及 blockers。quality 为全局聚合，不代表每个模块的测试结果或执行结束；必须分别展示各模块 phase/quality。遇到 await-all-module-rounds 时，按 continue_modules 继续执行、按 wait_for_modules 等待结果，不把等待审计的状态回写为其他模块失败。
+
+status.module_inputs 给出每个父/子 MO 的权威 scope、context_refs、CASE、写范围和依赖；子包包含 parent_context。它与全局 planning_context 一起用于认领、规划与核对范围，不代表已启动 Agent。

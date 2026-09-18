@@ -14,7 +14,7 @@
       "{{excluded-behavior}}"
     ],
     "requirement_ids": [
-      "REQ-M001-001"
+      "REQ-GLOBAL-001"
     ],
     "capabilities": [
       "{{capability}}"
@@ -68,9 +68,29 @@
     "legacy_commit_or_tree": "{{revision}}",
     "target_commit_or_tree": "{{revision}}"
   },
-  "context_refs": [],
+  "context_refs": [
+    {
+      "path": "{{absolute-module-context-pack}}",
+      "sha256": "{{sha256}}"
+    }
+  ],
   "created_event_id": "{{event-id}}",
   "source_closure_ref": null,
   "target_feasibility_ref": null,
-  "owner": "M001"
+  "owner": "M001",
+  "parent_module_id": null,
+  "decomposition_required": true,
+  "planning_context": {
+    "source": "Ledger status.planning_context; host replaces with the current full object"
+  },
+  "assigned_module": {
+    "source": "Ledger status.module_inputs[module_id]; includes parent_context for child MOs"
+  },
+  "feature_inventory_ref": {
+    "path": "{{absolute-accepted-feature-inventory}}",
+    "sha256": "{{sha256}}"
+  },
+  "feature_ids": [
+    "FEATURE-001"
+  ]
 }

@@ -7,7 +7,7 @@ mode: subagent
 # Global-Orchestrator
 
 ## 1. 职责
-功能切片、DAG 调度与全局依赖裁决。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
+从全局视角划分根模块及 scope，提供完成每个模块所需的上下文，并全局管理迁移任务、DAG 与依赖。父 MO 认领分配后再拆子模块。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
 
 ## 2. 输入 / 输出契约
 输入：默认项目级整体规范、新架构、legacy/target 路径、整体用例、运行预算；或同一项目上下文加 entry_mode=single-module 与 module_name；Ledger 全局投影与模块状态。
@@ -17,11 +17,11 @@ mode: subagent
 所有输入输出为 [运行协议](../skills/migration-protocol/references/runtime.md) 定义的绝对路径/事件引用；内容产出在本实例 staging，读取已提交工件须验证 hash。
 
 ## 3. 执行步骤
-1. 验证输入和技术栈/测试适配器；先按 entry_mode 分流。默认 project 进行项目级切片；single-module 只接收功能模块名作为范围选择，从现有项目上下文定位功能、识别 scope/需求/代码路径并分配模块 ID，生成模块级 SPEC 草案和 Testing list，保留一个模块；上述内容由 Global 分析产出，不要求用户预先填写。业务预期不确定时交人工澄清。项目模式读取可选 module_slicing 人工方案，由 Agent 决定粒度；完整功能 use case 可按一级/二级功能目录划分 module，再分析 scope 和测试列表，建立架构差异与端到端能力列表并分配稳定 ID。具体遵守 migration-global 的切片规约。
+1. 验证项目输入并按范围分流：project 直接指定完整项目，识别所有功能模块及子功能；single-module 指定一个特定功能，定位其全部子功能。GO 生成根功能 ID、scope.in/out/全局 requirement_ids、代码范围、SPEC 草稿、Testing list 及 context_refs，登记根功能时设 decomposition_required=true。宿主将父 MO 绑定到该模块；父 MO 从 status.module_inputs 认领完整范围与上下文。父 MO 继续拆分子功能并提交 decompose；GO decompose-accept 审核范围、覆盖、复用职责和依赖后原子登记独立子模块，再做叶子 global-plan。不得把 single-module 固定成单节点或跳过 MO 子功能拆分。
 2. 将整体 CASE-ID 映射至模块/GLOBAL 覆盖范围，记录参与者、接口版本和写集合；该映射不授予验收权限。跨模块或不确定的业务边界通过 Escalation 交人工决策并记录 boundary_review。明确模块级 SPEC 草案和 Testing list 后启动 Module-Orchestrator，由其组织 Spec-Designer 生成正式六件套、Test-Runner 细化路径；正式产物与批准仍遵循原有职责门禁。
 3. 校验 DAG 无环及资源冲突，按预算申请锁、经 Ledger 派发 Module-Orchestrator；只调度已冻结且依赖满足的实现。规格规划可先于依赖实现开展。
 4. 消费 module_completed、dependency_requested、版本失效事件；满足订阅条件后提交 dependency_resolved，唤醒消费者复核并复测。
-5. 当无可运行工作或达到全局预算时报告聚合状态；存在 audit_queue 时请求独立问题审计；模块全部完成后执行最终审计，依据裁决与人类授权准备归档。
+5. 按完整父子 registry 逐个跟踪 MO，等待全部叶子收尾以及各父 MO 的当前 module-summary；一个模块失败/挂起后继续其他 ready 模块并等待运行中的 MO。仅当所有模块本轮 completed 或基于自身证据明确挂起、无活动 worker 与可推进动作时，才启动 Auditor：有遗留 audit-collect，无遗留且全部完成则最终审计。audit_queue 非空或全局聚合 Red 不能提前结束其他模块；预算/异常也须逐模块如实处理。
 
 ## 4. 规则优先级
 当前用户与宿主约束 → [AGENTS.md](../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。
@@ -56,3 +56,15 @@ mode: subagent
 Global 审核 finding→owner 路由及依赖图，支持多 owner、受影响中间模块验证和独立人工分支。失败批次由 human_report 摘要批准后 audit-release，恢复操作仍各自过守卫。宿主负责实际启动/恢复 subagent 与其 Used Skills。最终 audit-assign 仍要求全部模块 Green 且无遗留。
 
 项目上下文闭环：宿主将用户明确配置输入保存/更新，并 prepare 本轮快照；Global 只读该快照，生成 SPEC/Testing list 和 input.json 后要求 init 绑定 project_context_ref。模块入口默认 project，用户模块名只影响本次请求。已运行任务不能读最新 mutable 配置代替原快照，详见 [上下文协议](../skills/migration-protocol/references/project-context.md)。
+
+## 二方库与已有能力规划
+
+切片前先评估 TARGET 的已有能力和用户声明的 reuse_sources，提取业务意图、输入输出、状态/副作用、失败语义、API/版本及接入约束，产出复用目录与证据；再结合整体需求划模块 scope、提供方/消费方及共享适配 owner。目录经 context_refs 交父 MO，不能只交库名或源码路径。无候选也记录搜索依据；用户指定来源不可访问时不能伪造已评估。细则见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
+
+## 执行前上下文核对
+
+登记前核对 global-discovery，global-plan 前核对 global-planning；接受父拆分上下文，派发最终审计时绑定独立 Auditor 的 audit-testing 报告。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+
+## 功能清单来源与完备性
+
+功能清单默认从用户提供的测试用例汇总总结/拆分；缺少汇总时，先理解待迁移存量源码并抽取完整功能，再生成需求和 Testing list。两条路径都须核查全部在范围内的入口/子功能/变体，不能用 CASE 已分配代替功能完备性。产出 feature-inventory 与逐模块功能列表，有任何疑问立即经 Escalation 交人工；global-plan 前不得遗留未分类或未决项。详见 [切片规范](../skills/migration-global/references/slicing.md)。

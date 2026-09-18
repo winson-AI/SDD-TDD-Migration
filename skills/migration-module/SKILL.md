@@ -38,3 +38,9 @@ Auditor 跨模块收尾使用 audit-work/audit-retest；守住负责模块与发
 审计批次按 finding 和依赖推进，audit-retest 也可用于受影响的原 Green 中间模块。失败只停关联分支；证据受阻用 audit-block，人工摘要批准后的 audit-release 由 Global 执行，再恢复通常的 plan/freeze/resume/recover 守卫。
 
 模块范围的 CASE/PATH 由本模块 MO 唯一验收；正式测试完整 Green 且 DoD 满足即直接记录，无额外会签。审计中的模块守卫不代替 Auditor 验收。新增跨模块或不确定业务边界须人工决策，批准后才走相应 CR/冻结/恢复。
+
+各 MO 独立运行：只依据本模块的测试证据和已确认依赖判断状态，禁止复制其他模块的失败或全局聚合颜色。并行同伴失败时继续自身合法动作；真实依赖等待保留本模块既有结果并记录 Yellow 阻塞原因。模块本轮结束以自身 DoD 或明确挂起记录和 worker 收尾为准，见 [模块隔离规则](../migration-protocol/references/state-machine.md#模块隔离与全量收尾)。
+
+父子分工：GO 划分模块 scope/所需上下文；父 MO 读取全局规划上下文、认领 status.module_inputs 分配包，在获分配范围内拆子模块 scope/context 并 decompose；GO decompose-accept 后启动独立子 MO。父 MO 管理范围、覆盖与依赖，逐个等候子 MO，并 module-summary 汇总；子 MO 基于子 scope/context 拆 tasks，不再创建 MO，各自冻结、编码、测试与验收。规划须绑定 assigned_module，不能自行扩大范围。父子均需读取全局存量/目标代码、架构、知识及最新分工，优先复用目标已有能力，写权限仍按本模块 scope/锁。必读 [父子 MO 与规划上下文](../migration-protocol/references/module-decomposition.md)。
+
+父 MO 将能力目录映射到模块需求，统一共享适配并分发子上下文；子 MO 冻结逐需求的 reuse/adapt/reference/new 决策及 task/PATH 映射，验收实际接线和完整测试。详见 [二方库复用协议](../migration-protocol/references/reuse-dependencies.md)。

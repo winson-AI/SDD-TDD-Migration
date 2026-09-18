@@ -1,0 +1,40 @@
+{
+  "parent_module_id": "M001",
+  "rationale": "{{behavior-and-test-based-subfunction-boundaries}}",
+  "planning_context": {
+    "source": "Ledger status.planning_context; replace with the current full object"
+  },
+  "children": [
+    {
+      "module_id": "M002",
+      "name": "{{subfunction-name}}",
+      "case_ids": [
+        "CASE-GLOBAL-001"
+      ],
+      "write_paths": [
+        "{{absolute-approved-target-subpath}}"
+      ],
+      "dependencies": [],
+      "scope": {
+        "in": [
+          "{{subfunction-within-parent-scope}}"
+        ],
+        "out": [
+          "{{inherited-parent-exclusion}}"
+        ],
+        "requirement_ids": [
+          "REQ-GLOBAL-001"
+        ]
+      },
+      "context_refs": [
+        {
+          "path": "{{absolute-subfunction-context-pack}}",
+          "sha256": "{{sha256}}"
+        }
+      ]
+    }
+  ],
+  "assigned_module": {
+    "source": "Ledger status.module_inputs[parent_module_id]; replace with the current full object"
+  }
+}

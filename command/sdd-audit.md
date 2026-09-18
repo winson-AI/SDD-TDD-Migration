@@ -9,7 +9,7 @@ description: /sdd-audit <run-id> — 独立全局复测与修复委派
 
 ## 2. 编排步骤
 1. 读取 [AGENTS.md](../AGENTS.md)、[运行协议](../skills/migration-protocol/references/runtime.md)，解析参数为绝对路径及规范 ID。
-2. 前置门控：模块 registry 和整体用例完整；实例与实现/修复/脚本作者分离；可冻结候选版本；未生成的代码不能测试，只报告 Yellow。
+2. 前置门控：完整 registry 中所有 MO 本轮独立完成或基于自身证据明确挂起，无活动 worker、无可推进动作；手工调用本命令也不得跳过等待，不得为审计强制结束其他 MO。模块 registry 和整体用例完整；实例与实现/修复/脚本作者分离；可冻结候选版本；未生成的代码不能测试，只报告 Yellow。
 3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
 4. 由宿主向 Ledger 提交 audit_requested；收到 ACK 后派发对应角色。聚合所有模块，重跑非 Green/过期/未运行，再跑整体测试与受影响回归；失败经 MO 委派修复，Auditor 复测并按上限输出报告。
 5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
@@ -33,6 +33,10 @@ status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接
 
 ## 7. 对应规格
 [状态机](../skills/migration-protocol/references/state-machine.md)、[OpenSpec 契约](../skills/migration-protocol/references/openspec.md)。
+
+## 上下文就绪门禁
+
+全部 MO 收尾后，Auditor audit-plan 前提交 audit-analysis，audit-verdict 前提交当前证据的 audit-verdict，最终 audit-assign 前提交 audit-testing；Fixer/Testing 仍独立预检。预检不替代独立复测与裁决。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
 
 ## 8. 自查
 参数与前置有效；工具实际存在；没有越权写入；回执来源可信；恢复指令与 phase 一致。

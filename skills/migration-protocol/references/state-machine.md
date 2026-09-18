@@ -10,6 +10,14 @@
 
 模块聚合：有效结果中任何 Red → Red；否则有 Yellow、漏测、未运行、stale、冻结/DoD未完成 → Yellow；仅全部必需路径有效 Green 且 DoD 满足 → Green。Red 与 Yellow 可以同时存在，aggregate 取 Red，但 unresolved 列表保留两类全部问题。全局还须覆盖整体用例、独立审计和集成基线；没有模块或没有必需测试不能为 Green。
 
+## 模块隔离与全量收尾
+
+1. **独立执行与验收**：GO 切片后，以已接受 global-plan 对应的完整 registry 为本轮集合。每个 MO 独立拥有 phase、CASE/PATH 结果、修复预算、DoD 与恢复点。单模块 Red/Yellow、异常或超限不得取消无关 MO，不得修改无关模块的质量、结果、revision、assignment 或预算。全局 quality 只从模块结果聚合，不向模块反向传播。
+2. **逐个等待**：宿主按 module_id 收集成功、失败和异常，采用 all-settled 语义；收到首个失败后继续其他 ready 模块并等待运行中的 MO。worker 退出/抛错只结束该 assignment；MO 仍需接受证据、执行修复/恢复或显式挂起。未派发、排队、锁等待、无活动 worker、全局 Red 均不等于模块本轮结束。
+3. **真实依赖限定范围**：只有已登记依赖不可用或确认本模块受影响时，才能记录该模块阻塞；不得把独立同伴作为依赖原因。跨模块新增业务边界须人工决策。受影响模块保留自己的历史断言，依赖缺证据记 Yellow，不复制生产者 Red；无关模块继续执行。已完成模块仅因真实基线/契约失效才重开。
+4. **全量收尾门禁**：每个已登记模块必须有自身 DoD 完成记录，或基于自身证据的 waiting-auditor / waiting-dependency / waiting-human 记录；所有 worker 结束且没有 ready 的推进/恢复动作。禁止为凑齐门禁给其他模块批量挂起。只有上述条件同时成立，GO 才提交 audit-collect 或符合全 Green 门禁的 audit-assign；兼容 problem-assign 同样受约束。
+5. **阶段区分**：本轮结束不等于全部通过。Auditor 统一启动后才收集各模块真实遗留；审计内部仍按已批准 finding 与依赖交错修复，失败只隔离相关分支。模块期末的全量等待不要求审计内每一修复步骤全批同步。
+
 ## Module-Orchestrator 唯一模块守卫
 
 | 当前 phase | 下阶段 / 动作 | 必须证据与守卫 |
@@ -54,7 +62,7 @@ DoD checklist 要求：当前冻结有效；所有任务有提交/文件/需求/
 
 ## Auditor 与全局完成
 
-Auditor 分问题审计与最终审计。问题审计处理 waiting-auditor 队列，不要求所有模块完成；最终审计仍要求全部完成且队列清空，才可发布全局 Green。
+Auditor 分问题审计与最终审计。两者都须等待全部模块本轮独立结束；问题审计允许部分模块基于自身证据明确挂起，无需全部 Green。最终审计要求全部模块 DoD 完成且队列清空，才可发布全局 Green。
 
 Auditor 从 Ledger 固定 sequence 与 target tree/commit、SPEC revision、环境/测试定义摘要构成 audit snapshot。先重跑所有历史未解决非 Green/过期/未运行路径，再执行全部整体测试和受影响回归；即便各模块全 Green，也不能跳过全局集成测试。
 
@@ -79,3 +87,13 @@ Auditor 可执行既有脚本并生成日志，不能编辑源码/脚本。发�
 OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义不被动态勾选修改。问题审计/全局覆盖/物化字段详见 [当前策略](local-runtime.md#当前策略全局验收问题审计openspec-与修复-memory)。
 
 当前默认在所有模块本轮 completed/明确挂起且无可推进动作后，统一采用 audit-collect 批次：Auditor 绑定发现/负责模块 SPEC 与测试路径，Global 路由审核，MO 接受一轮 Fixer；按 finding 路由及依赖交错 Testing；失败关联分支待人工，其他分支继续，汇总后 awaiting-human；批准 audit-release 后再进入正常恢复。旧 problem-* 重复问题审计保留兼容，详见 [默认收尾](local-runtime.md#当前默认-auditor-收尾修复后验证失败待人工)。
+
+## 父子 MO 的规划与汇总
+
+根功能 context → MO decompose → GO decompose-accept → 父节点 coordinating + 独立子模块 context。GO 分配根模块 scope/context；父 MO 认领后只在其范围内拆子模块并分配 scope/context；子 MO 认领后拆 tasks，不再创建 MO，沿本页原状态机执行。父 MO 不编码、不重复验收子 CASE；所有子 MO 逐个结束后，父 MO 按当前版本 module-summary。Auditor 门禁同时检查所有叶子和父汇总，见 [父子 MO 协议](module-decomposition.md)。
+
+二方库复用评估在冻结前完成，实际提供方测试在 Coding 接受后执行。新的子 plan/prepare 运行要求 reuse_plan_ref，所选 provider/API 或接入证据变更被 current 校验识别为 stale；按 invalidate/CR 重新规划冻结，不直接恢复 Green。根因确认是提供方/外围问题则沿 audit-defer 进入统一收尾。详见 [二方库协议](reuse-dependencies.md)。
+
+## 上下文门禁嵌入原状态机
+
+各阶段先通过 context-submit 留证，原 plan/freeze/assign/audit 操作接受报告；该事件不改变业务 phase、不消费修复预算、不直接赋予 Green。缺失经既有 suspend/audit-defer/audit-block 记录后才可作为明确收尾；无关兄弟继续。详见 [上下文就绪协议](context-readiness.md)。

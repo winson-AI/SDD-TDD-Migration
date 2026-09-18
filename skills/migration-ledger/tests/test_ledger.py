@@ -22,7 +22,7 @@ class FlowTests(unittest.TestCase):
         self.legacy = self.base / 'legacy'; self.legacy.mkdir()
         self.root = self.base / 'run'
         self.n = 0
-        self.call('init', {'target_root': str(self.target), 'legacy_root': str(self.legacy),
+        self.call('init', {'context_readiness_required': False, 'target_root': str(self.target), 'legacy_root': str(self.legacy),
                           'case_ids': ['C1'], 'requirement_ids': ['R1'],
                           'global_spec': self.ref('global-spec.md', 'R1 spec'), 'new_architecture': self.ref('architecture.md', 'target architecture'), 'global_paths': [{'path_id': 'GP1', 'case_id': 'C1', 'expected_assertions': [{'assertion_id': 'A1', 'expected': 2}]}], 'max_fix_rounds': 1}, role='host')
         self.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'dependencies': [],
@@ -62,12 +62,39 @@ class FlowTests(unittest.TestCase):
                 'decision_envelope': {'scope': ['feature'], 'acceptance': ['R1'], 'allowed_alternatives': [],
                                       'forbidden_changes': ['reduce-scope']}, 'freeze_checks_passed': True}
 
+    def attach_reuse(self, plan):
+        import reuse
+        sources = reuse.sources(self.state())
+        catalog = {'schema_version': 1, 'sources': sources, 'capabilities': [],
+                   'source_reviews': [{'source_id': s['source_id'], 'status': 'reviewed',
+                     'scanned_paths': s['module_paths'], 'conclusion': 'no equivalent behavior in fixture',
+                     'evidence_refs': [self.ref('reuse-search.md', 'Reviewed target empty implementation and architecture')]} for s in sources]}
+        plan['reuse_plan_ref'] = self.ref('reuse-'+plan['module_id']+'.json', {
+            'schema_version': 1, 'module_id': plan['module_id'],
+            'catalog_ref': self.ref('reuse-catalog.json', catalog),
+            'mappings': [{'mapping_id': 'MAP1', 'requirement_ids': ['R1'],
+                          'task_ids': ['T1'], 'path_ids': [plan['paths'][0]['path_id']],
+                          'capability_id': None, 'decision': 'new', 'rationale': 'no candidate exists',
+                          'behavior_delta': 'implement R1', 'binding_plan': 'production entry',
+                          'verification': 'existing acceptance asserts R1'}]})
+        return plan
+
     def global_plan(self):
         state = self.state()
         plan = {'global_spec': state['global_spec'], 'new_architecture': state['new_architecture'],
                 'boundary_review': {'issues': []},
                 'requirement_owners': {'R1': list(state['modules'])},
                 'case_owners': {'C1': list(state['modules']) + ['GLOBAL']}}
+        if state.get('context_readiness_required'):
+            evidence = self.ref('feature-discovery.md', 'Reviewed legacy entry and complete R1 behavior in fixture')
+            inventory = {'schema_version': 1, 'legacy_root': state['legacy_root'], 'entry_mode': state['entry_mode'],
+                'single_module_id': state.get('single_module_id'), 'source_mode': 'legacy-source', 'test_summary_ref': None,
+                'features': [{'feature_id': 'F1', 'name': 'fixture behavior', 'functional_path': 'Feature/Result',
+                    'trigger': 'invoke', 'observable_result': 'result', 'requirement_ids': ['R1'], 'case_ids': ['C1'], 'evidence_refs': [evidence]}],
+                'source_units': [{'unit_id': 'U1', 'kind': 'legacy-entry', 'locator': state['legacy_root'], 'feature_ids': ['F1'], 'evidence_refs': [evidence]}],
+                'coverage': {'status': 'complete', 'unclassified': [], 'unresolved_questions': []}, 'questions': []}
+            plan['feature_inventory_ref'] = self.ref(f'feature-inventory-{self.n}.json', inventory)
+            plan['feature_owners'] = {'F1': list(state['modules'])}
         self.call('global-plan', {'plan_ref': self.ref(f'global-plan-{self.n}.json', plan), 'review_ref': self.ref('coverage.md', 'all covered')},
                   role='global-orchestrator', module=None)
 

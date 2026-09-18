@@ -35,3 +35,5 @@ HarmonyOS UI/端到端测试读取 [Harmony 运行协议](references/harmony-run
 - execute：通过 host execute_test 调用 [harmony_adapter.py](scripts/harmony_adapter.py)，再用 [harmony_stage.py](scripts/harmony_stage.py) 组装全路径结果，按 Ledger submit/accept。
 - 固定 ASSERT ID 绑定冻结谓词；零断言、最终通过文本、旧回放结果不能代替本次验证。原生 memory 是候选执行素材，复用与修复裁决仍受 Ledger 控制。
 - 内核的 Planner/Executor/Verify 仅是当前 Test-Runner 内部组件；不能承担外层 Spec/Fixer/Auditor 权限。其他平台继续使用原 Main 适配器。
+
+测试设计增加二方库接线、版本配置、语义差异及真实提供方集成路径；Coding 后正式 Main 执行，完整业务验收不得因复用而缩减。见 [二方库复用协议](../migration-protocol/references/reuse-dependencies.md)。

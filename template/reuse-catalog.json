@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {"source_id": "TARGET", "root": "{{absolute-target-root}}", "module_paths": ["{{absolute-target-root}}"], "description": "Target project existing capabilities"}
+  ],
+  "source_reviews": [
+    {
+      "source_id": "TARGET",
+      "status": "reviewed",
+      "scanned_paths": ["{{absolute-target-module-path}}"],
+      "conclusion": "{{searched-behavior-and-candidate-or-no-match-conclusion}}",
+      "evidence_refs": [{"path": "{{absolute-semantic-extraction-report}}", "sha256": "{{sha256}}"}]
+    }
+  ],
+  "capabilities": [
+    {
+      "capability_id": "CAP-SEARCH-001",
+      "source_id": "TARGET",
+      "name": "{{business-capability-name}}",
+      "version": "{{resolved-version-or-source-tree-digest}}",
+      "semantics": {
+        "intent": "{{business-outcome-and-behavior}}",
+        "inputs": ["{{input-model-unit-and-nullability}}"],
+        "outputs": ["{{observable-output-and-ordering}}"],
+        "preconditions": ["{{auth-state-and-initialization}}"],
+        "side_effects": ["{{network-storage-cache-or-explicit-none}}"],
+        "errors": ["{{failure-cancellation-retry-and-timeout}}"],
+        "state_lifecycle": ["{{threading-lifecycle-and-state-ownership}}"]
+      },
+      "api_surface": ["{{entry-symbol-and-call-chain}}"],
+      "constraints": ["{{platform-framework-transitive-dependency-and-version-constraints}}"],
+      "provider_refs": [{"path": "{{absolute-provider-source-or-API-file-within-declared-module}}", "sha256": "{{sha256}}"}]
+    }
+  ]
+}

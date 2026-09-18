@@ -20,5 +20,14 @@
   },
   "boundary_review": {
     "issues": []
+  },
+  "feature_inventory_ref": {
+    "path": "{{absolute-feature-inventory}}",
+    "sha256": "{{sha256}}"
+  },
+  "feature_owners": {
+    "FEATURE-001": [
+      "M001"
+    ]
   }
 }

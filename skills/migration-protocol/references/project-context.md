@@ -61,7 +61,7 @@
 2. 合并本次 overrides；读取 entry_mode/module_name，分配 run_id。验证目录、模式与配置。
 3. 在独立 run_root 保存 snapshot.json，固定 project_id、project_revision、原配置摘要、有效配置、本次选择与用户来源；架构/需求/用例/规则和测试环境说明复制到本轮证据目录。JSON 来源按不透明文件保存，不能被误当作需要跟随内嵌路径的 Ledger 请求。
 4. prepare 返回 project_context_ref 和 `input`，作为 Global 的分析输入；其中 global_spec/需求/CASE/PATH 待 Global 生成。宿主将 Global 完成的高层输入保存为 `<run_root>/input.json`，计算 input_ref，再构造原有 Ledger init 请求。未生成完整非空规范/用例前不得启动严格 init。
-5. init payload 必须传 project_context_ref、input_ref、Global 生成的 global_spec/requirement_ids/case_ids/global_paths，以及快照对应的 legacy_root/target_root/new_architecture、entry_mode/module_name 和四项可执行预算。single_module_id 由 Global 生成，用户仍只输入模块名。预算取高层 input.budgets，摊平为低层字段。
+5. init payload 必须传 project_context_ref、input_ref、Global 生成的 global_spec/requirement_ids/case_ids/global_paths，以及快照对应的 legacy_root/target_root/new_architecture、entry_mode/module_name 和四项可执行预算。single_module_id 由 Global 生成，标识选定根功能；父 MO 随后拆分子功能，用户仍只输入模块名。预算取高层 input.budgets，摊平为低层字段。
 6. Ledger 校验快照所属 run/root、路径、模式/模块名、架构引用及预算。运行状态保存 project_id/project_revision/project_context_ref；已有快照时不能漏传引用。后续事务和 status 校验冻结证据，禁止换用最新配置。
 
 prepare 同一请求重试返回原快照，即使项目配置已经更新。相同 run_root 的新请求不能覆盖旧快照；初始化过的旧运行也不能后补快照伪造启动依据。prepare 的返回只代表上下文已固化，init ACK 才代表运行进入 Ledger。
@@ -99,3 +99,11 @@ python3 "$package_root/skills/migration-ledger/scripts/project_context.py" prepa
 新入口先初始化/更新项目配置再 prepare。用户提供旧 global-input 时，宿主将代码根目录、架构 path、执行器、runtime 等提取到项目 config；预算/门禁/修复策略放入 defaults。整体规范路径可映射 requirements_path；已有整体用例可保存为项目用例文件并引用 test_cases_path。run_id/module_name/基线及生成产物不写项目配置。导入后仍由 Global 为本轮生成范围正确的规范和测试列表。
 
 旧 Ledger 运行没有 project_context_ref 时按旧协议继续，不伪造历史快照；旧直接 init 在没有预备快照时仍兼容。新宿主入口应始终走本页流程，不能以兼容路径跳过上下文固化。
+
+## 父子共同规划视野与知识资料
+
+可选 knowledge_paths 是知识文档绝对路径数组，首次保存、增量更新/删除沿用配置版本协议；数组整体替换。prepare 把每份知识文档复制并绑定摘要到 source_refs.knowledge_paths，旧运行继续读取原快照。父 MO 与子 MO 都从 status.planning_context 读取完整 legacy_root/target_root、global_spec、new_architecture、project_context_ref/project_sources（包括规则与知识），以及最新父子分工/依赖。全局代码目录用于只读理解和复用检查；目标源码不是全文复制快照，实际代码变化仍受 baseline/锁/冻结约束。缺失必要知识或未声明公共能力 owner 时先记录问题，不能凭局部信息重复实现。
+
+## 二方库/其他项目模块来源
+
+新增可选 reuse_sources 数组，元素使用 [reuse-source.json](../../../template/reuse-source.json)：source_id、绝对 root、范围内 module_paths、description。目标项目 TARGET 自动作为来源；外部输入仍只读。init/update 保存并按数组替换规则更新，prepare 检查目录/模块可访问并将来源配置固化，旧运行不跟随新配置。prepared_input 输出 reuse_required=true；bind_run 从快照恢复来源，显式不匹配输入被拒绝。源码不全文快照，语义抽取及选中 provider/version 的内容证据另由 Agent 经 Ledger 记录；详见 [复用协议](reuse-dependencies.md)。

@@ -13,6 +13,16 @@
 
 这些 slash command 是待宿主加载的命令定义，未安装到用户配置；本包已提供本地 Ledger 控制器、阶段校验和测试调用适配器；没有常驻 Agent 调度服务或内置业务测试。本地控制器实现事件提交、单写者和模块资源占用检查；宿主仍须提供身份认证、写权限隔离、Agent 派发与项目真实测试适配器。具体能力见 [本地运行指南](skills/migration-protocol/references/local-runtime.md)。仅加载 Markdown 不会产生操作系统级权限隔离。没有这些能力时应显式阻塞，不能宣称端到端迁移已执行。
 
+## 二方库与已有能力
+
+迁移规划先评估目标项目已有能力及用户指定的其他项目模块：**来源登记 → 功能语义抽取 → 结合需求映射 → 冻结接入/适配 tasks → Coding → 真实依赖验证**。GO 建目录，父 MO 统一复用分工，子 MO 形成 reuse/adapt/reference/new 决策；依赖变化按消费者范围复测，最终由 Auditor 裁决。
+
+用户指定其他项目时，通过项目配置的可选 `reuse_sources` 保存 root/module_paths/用途；目标项目自动纳入评估。规则、配置实例及控制器边界见 [二方库复用协议](skills/migration-protocol/references/reuse-dependencies.md)。
+
+## 流程图
+
+按三层编排阅读 [完整图集](diagrams/README.md)：[总览](diagrams/workflow.svg) → [子 MO 执行与修复](diagrams/module-execution.svg) → [Auditor 跨模块处理](diagrams/auditor-closure.svg)，另见贯穿各阶段的 [二方库语义与复用](diagrams/reuse-dependencies.svg)。每张均提供 PNG 和可再生成的源文件。
+
 ## 目录
 
 | 目录 | 用途 |
@@ -21,6 +31,7 @@
 | `skills/` | 共享协议与 10 个职责技能，按需读取 |
 | `command/` | 9 个命令入口，负责上下文配置、参数、门控和派发 |
 | `template/` | 全局输入、模块输入、六件套及诊断、测试、事件、人工决策等运行工件模板 |
+| `diagrams/` | 三层编排总览、子 MO/Auditor 细节图及生成源文件 |
 
 运行期在目标仓 `openspec/` 下实例化，包目录自身不存迁移状态。模块 ID 永久稳定，如 `M001`；OpenSpec change 名如 `migration-demo-m001-account`。新增模块只追加编号，不因排序改变历史 ID。
 
@@ -65,6 +76,10 @@
 
 实现前 global-plan 覆盖验收；Red/Yellow 本地优先一轮修复，确认的依赖/外围问题直接进入 waiting-auditor；problem-audit 可在模块未全 Green 时统一复核，最终 audit 仍执行完整全局门禁。Ledger 自动生成 OpenSpec 六件套与可复用修复 memory。精确操作与兼容性见 [本地运行指南](skills/migration-protocol/references/local-runtime.md)。
 
+## 并行 MO 独立执行与统一收尾
+
+GO 拆分并登记模块后，各 MO 独立执行和验收。某个模块失败/挂起时，其他无关模块继续，已完成模块保留有效 Green；全局 Red 只是聚合结论。宿主逐个收集结果，直到完整 registry 中全部模块完成或基于自身证据明确挂起、所有 worker 结束且无可推进动作，才统一启动 Auditor。详见 [隔离与全量收尾规则](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾)。
+
 ## 模块 Coding 与 Testing 顺序
 
 项目级和指定单模块均执行：
@@ -97,11 +112,11 @@ Coding → MO 接受代码 → Testing
 
 ## 单个功能模块入口
 
-默认 [global-input.json](template/global-input.json) 的 `entry_mode=project`：Global 分析项目并划分 modules。
+默认 [global-input.json](template/global-input.json) 的 `entry_mode=project`：直接指定完整项目，GO 识别各功能模块及子功能。`single-module` 选择其中一个特定功能；两种模式都在父 MO 阶段继续拆分子功能。
 
 单模块只是同一入口的两个参数：`entry_mode=single-module` 与 `module_name`（如“用户登录”）。沿用当前项目输入，用户无需提供模块描述、scope、模块代码路径、SPEC 或 Testing list；全部由 Global 根据模块名识别生成。[single-module-input.json](template/single-module-input.json) 仅展示这两个参数，不是独立运行资料包。
 
-完整流程：用户指定模块 → **Global 识别并生成模块级 SPEC 草案 + Testing list** → 注册唯一模块/覆盖规划 → **Module-Orchestrator** 组织六件套、测试路径、澄清冻结、实现、自测 → **Auditor** 独立复核。Global 负责生成输入，Spec-Designer/Test-Runner 负责下游正式规格及路径设计，所有冻结与审计门禁保留。宿主整理为完整非空输入后才调用 Ledger init。
+完整流程：用户选择项目或根功能 → **GO 划分根模块 scope + 上下文 + SPEC 草稿 / Testing list** → **父 MO 认领，在范围内拆子模块 scope + 上下文 / GO 审核登记** → **独立子 MO 拆 tasks**，组织六件套、测试路径、冻结、实现、自测 → **父 MO 等待并汇总全部孩子** → **GO 统一启动 Auditor**。父子 MO 都读取全局存量/目标代码、架构规范、知识与分工，检查复用及交叉工作。详见 [父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
 
 宿主接入命令后，可按以下阶段执行（路径和 run-id 为示例，冻结前仍需真实澄清与批准）：
 
@@ -122,3 +137,11 @@ Coding → MO 接受代码 → Testing
 例如“目标工程改为 /workspace/new-target”更新项目配置；随后“single-module，用户登录”使用新版本，由 Global 生成全部模块输入和规格/测试。跨模块或不确定业务边界仍按原规则澄清。
 
 输入结构、更新语义、运行绑定和 CLI 示例见 [项目上下文协议](skills/migration-protocol/references/project-context.md)。自然语言提取、生成 SPEC 与真正派发 Agent 仍由宿主完成。
+
+## 按阶段验证上下文就绪
+
+新运行已在 GO 发现/覆盖规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发及 Auditor 分析/裁决/最终测试中加入上下文门禁。执行者只读预检 → Ledger context-submit → 原节点验收；缺项/过期拒绝推进，按原阻塞机制恢复。查看 [节点与角色清单](skills/migration-protocol/references/context-readiness.md) 和 [报告模板](template/context-readiness.json)。
+
+## 功能清单来源与完备性
+
+默认从测试用例汇总形成完整功能列表并切片；缺少汇总则先理解存量源码、完整抽取功能，再生成需求与测试草案。每项功能必须可追溯到来源、需求/CASE 和执行模块；未知、冲突或可能遗漏立即交人工，未解决不得接受规划。见 [切片规范](skills/migration-global/references/slicing.md) 与 [功能清单模板](template/feature-inventory.json)。

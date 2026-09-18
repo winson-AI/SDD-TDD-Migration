@@ -50,6 +50,9 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | --- | --- | --- |
 | init | host | target_root、legacy_root、非空唯一 case_ids；必填 global_spec/new_architecture 文件引用、非空唯一 requirement_ids；可选 global_paths、max_fix_rounds/max_no_progress_rounds/max_parallel_modules/max_audit_rounds；默认 3/2/3/3 |
 | register | Global | module_id、case_ids、write_paths、dependencies；按拓扑顺序登记，依赖必须已存在，从而拒绝环/未知模块 |
+| decompose | 父 MO / 父 module_id | plan_ref；planning_context + assigned_module，子功能 scope/context_refs/CASE/写范围/依赖提案 |
+| decompose-accept | Global / 父 module_id | review_ref；复核 MO 提案并原子登记子模块，父移入 module_groups |
+| module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
 | decision | host | decision_id、decision=approved、module_id、subject_sha256、human_source_ref；保存真实人类决定引用 |
 | global-plan | Global | plan_ref + review_ref；验收全部需求/用例归属，绑定当前 registry；新增模块后必须重审，通过前禁止实现派发 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
@@ -230,6 +233,10 @@ pending / interrupted / awaiting-regression / failed / verified 区分修复事�
 - 未完成的 context/specifying/clarifying/frozen/testing/dod 等阶段不能被当作遗留直接收走。正常模块继续推进；需人工澄清的模块由 MO 明确 suspend，不能仅因“当前没人运行”就启动审计。
 - 尚不能运行的下游模块可记录依赖阻塞并挂起；这表示本轮明确受阻，不表示测试通过。已确认依赖/外围问题与本地一轮未修复问题执行 audit-defer 后退出。
 
+模块失败只影响自身记录和有证据的依赖影响范围；全局 quality=Red 不得反向改写其他 MO，也不能触发取消其他并行 worker。宿主逐个收集 MO 结果、继续 ready 模块、等待运行中的 MO，不能使用首个失败即取消整组的策略。suspend(kind=dependency) 必须存在已登记且尚未满足的依赖，Ledger 保存 dependency_module_ids；无关同伴失败不能充当依赖。human/tooling 挂起须有本模块的真实阻塞原因，不能用它们规避全量等待。
+
+status.module_rounds 返回 registered_modules、settled_modules、unfinished_modules、active_modules、ready_modules、blockers 和 all_settled；这些字段表示调度进度，与质量结论分离。存在遗留但其他模块尚未结束时，global_next_step.operation=null、ready=false、reason=await-all-module-rounds，并分别通过 continue_modules / wait_for_modules 指明继续与等待对象；next_steps 保留每个 MO 的下一动作。all_settled 不是审计授权，提交仍校验 global-plan、版本、预算和独立身份。
+
 Global 等上述条件全部满足才统一启动 Auditor。`status.global_next_step.module_barrier` 列出未收尾原因；直接调用 audit-collect 也会重新验证，不能绕过状态建议。全部模块已 Green 时直接进入最终 audit-assign，无需空收尾批次。
 
 ### 2. 收集、根因分析与 finding 路由
@@ -294,16 +301,33 @@ global-plan 必须增加 `boundary_review: {"issues": []}`。无边界问题时 
 
 ## 单模块完整运行入口
 
-高层入口默认 entry_mode=project。单模块只增加 entry_mode=single-module 与 module_name 两个参数，见 [参数示例](../../../template/single-module-input.json)。宿主沿用项目上下文，由 Global 按模块名定位功能，自主生成 ID、scope、读写路径、模块级 SPEC 草案、Testing list 和审计路径。用户无需提供模块资料包，也无需传 null 或空列表来触发生成；原项目规范/用例作为分析来源，Global 产出仅覆盖选定功能的新运行输入。命令可用 --mode single-module --module-name "功能模块名"，由宿主解释，与 JSON 字段等价。无法定位名称、名称有歧义或业务边界不明确时，先分析候选与证据，再询问具体决策。
+高层入口默认 project，直接指定完整项目及功能树；single-module 仅选择一个根功能及其子功能。用户仍只填写模式/名称，GO 从项目上下文生成根功能 ID/scope/SPEC 草稿/Testing list；MO 阶段继续拆分子功能，由独立子 MO 执行、父 MO 汇总。
 
-完成输入整理后，宿主才映射到 Ledger init；规范引用、需求/用例必须非空，审计路径完整。可在 init payload 附 input_ref（已整理高层输入的 path/sha256），现有 preserve_refs 会保存该完整输入及其嵌套引用快照，供注册/派发经事件引用读取。初始化分析阶段工件仅是 staging，不能宣称 Ledger 已接受或私下派发模块 worker；ledger.py 不自动生成 SPEC/测试。entry_mode 为 project 或 single-module（省略默认 project）；single_module_id 仅在 single-module 模式必填，取 Global 生成的稳定 module_id；用户 module_name 只供功能定位，不能直接作为低层 ID。global_spec/requirement_ids/case_ids/global_paths 对应本次功能范围；后续 register 使用该模块的 case_ids、target_write_paths 和空 dependencies。Ledger 固定该模式与模块 ID，拒绝额外模块、不同 ID、非空内部依赖或漏分输入 CASE。实际单模块 scope、SPEC 内容与测试语义仍需 Global/模块角色审核。
+Ledger init.single_module_id 固定选定根功能 ID；初次 register 只接受该根功能及其全部 CASE，设置 decomposition_required=true。后续子模块经 MO decompose→GO decompose-accept 原子登记，允许选定范围内的多个孩子与内部 DAG，拒绝新增范围外根功能。project 可登记多个根功能，每个父 MO 分别拆分。父节点保存在 module_groups，执行叶子保存在 modules。父节点不额外占一份实现/测试身份；global-plan 的 CASE/需求执行覆盖指向叶子。
 
-所有 global-plan、plan/freeze、测试、DoD、问题收尾和最终审计守卫原样适用。Global 保留用户指定的模块边界，负责生成模块级 SPEC 草案/Testing list、registry、覆盖验收、派发与审计启动；MO 组织正式六件套和 CASE→PATH 设计、澄清冻结及实现测试；最终 audit 仍要求本次所有模块路径和 global_paths 的独立执行证据。单节点图没有跨模块调度，但设备/环境/外部契约问题仍按 Yellow 流程记录。
+全部父子 MO 读取共同的全局代码、架构、知识与分工；GO 分配模块 scope/context，父 MO 认领后在范围内分配子 scope/context，子 MO 拆 tasks；拆分/子 plan 同时绑定 planning_context 与 status.module_inputs 对应的 assigned_module。所有叶子正式 SPEC、冻结、Testing/Fixer、DoD 保留；所有叶子收尾且各父 MO 提交当前 module-summary 后才能统一 Auditor。具体格式、操作和兼容语义见 [父子 MO 协议](module-decomposition.md)。
 
-已有 run 未存 entry_mode 时按 project 解释；模式在 init 确定，不提供就地模式切换。已接入的宿主需传递新增模式字段，否则低层省略字段会按默认 project 处理。
+既有扁平 run 不静默转树；无 decomposition_required 的旧叶子按原流程执行。新宿主在 GO 登记根功能时必须设置该字段，并执行拆分阶段。已经冻结/编码的节点不能直接拆分，须按正式变更/新运行处理。模式在 init 后不就地切换。
 
 ## 项目上下文闭环
 
 已新增 [project_context.py](../../migration-ledger/scripts/project_context.py) 的 init/update/show/history/prepare，精确请求格式见 [项目上下文协议](project-context.md)。配置默认在当前迁移工作目录 `.sdd-migration`，宿主自然语言提取后直接持久化明确字段。prepare 返回 project_context_ref 和待 Global 补齐的高层 input；宿主完成 input.json 后，init 带快照引用、module_name 和对应预算，单模块低层 ID 仍由 Global 分配。
 
 Ledger 保存 project_id/project_revision/project_context_ref，在初始化校验路径、模式、架构和预算，后续操作验证快照及文档 hash。新的项目配置不修改既有 run。旧无快照运行兼容，但不能补造原始配置；新入口必须固化。早期“沿用宿主上下文”现在由本节的持久化协议具体落实。
+
+## 二方库与功能复用的本地接入
+
+- 项目配置新增 reuse_sources；prepare 固定外部来源范围，TARGET 自动包含在 status.planning_context.reuse_sources。原 input 初始化也支持 reuse_sources/reuse_required。
+- 子 MO plan、新 prepare 运行、显式外部来源或主动提供 reuse_plan_ref 的计划，需通过 reuse.py 校验：来源评审、功能语义、范围、逐需求 task/PATH 映射、依赖接入约束。涉及其他执行模块写范围的 target provider 须登记模块依赖。
+- stage-plan.reuse_plan_ref 指向 [映射模板](../../../template/reuse-plan.json)，其 catalog_ref 指向 [语义目录](../../../template/reuse-catalog.json)；定义经既有 Ledger 事件归档，不新增私有状态总线。OpenSpec change/reuse.md 投影冻结映射。
+- implementation JSON（Implementer/Fixer）增加 reuse_trace；选中映射必须逐条提交 mapping_id/resolved_version/files/binding_evidence_ref。只有 new 映射时可为空。
+- freeze、派发、结果验收、DoD 和最终审计通过 verify_plan 复核所选提供方和接入证据；未选候选变化不自动使消费者失效。恢复提供方或重选方案仍需既有版本/CR/重新冻结门禁。
+- 控制器不自动扫描语义、解析包管理器或证明功能等价；Agent/宿主仍须完成抽取、评审、源码/API 分析、生产绑定与实际测试。完整流程见 [二方库协议](reuse-dependencies.md)。
+
+## 上下文就绪控制节点
+
+新增 context-submit（全局或模块 scope，由对应阶段实际角色提交 report_ref）。status.context_requirements 给出 stage/subject/必需检查/必读引用，next_steps 的 context_gate 给出缺项门禁。register/global-plan/decompose/plan/assign/audit-plan/audit-verdict/audit-assign/problem-assign 增加 context_ref；freeze/decompose-accept 自动复核提案报告。缺项不能派发；新 prepare 强制启用，旧 run 保留兼容。完整操作、权限与恢复见 [上下文就绪协议](context-readiness.md)。
+
+## 功能清单来源与完备性
+
+新标准运行 global-plan 必填 feature_inventory_ref 与 feature_owners；校验来源选择、每项功能详情、来源单元映射、需求/CASE 全覆盖、执行模块归属、无未分类/未决项；已发现疑问须纳入 boundary_review 走原有人工批准。planning_guard 重验清单与来源证据，status.module_inputs 提供各模块 feature_ids，planning_context 提供全局清单与归属。详见 [切片规范](../../migration-global/references/slicing.md)。

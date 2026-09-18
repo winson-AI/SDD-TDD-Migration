@@ -51,3 +51,7 @@ mode: subagent
 诊断补充：反馈必须包含 owner_module_id、owner_role、根因置信度、source/target 证据、受影响 PATH、建议 next_action 与是否可能改变 decision_envelope。owner 表示路由建议，MO 审核后派发，不赋予诊断者修改权限。
 
 本地操作 diagnose 仅提交，不推进 phase；MO diagnosis-accept 后才能派 Fixer。活动复测未结束时不能提交诊断。
+
+## 复用问题归因
+
+沿 requirement → reuse mapping → provider/version → task/PATH 追踪，区分模块接线/适配缺陷、提供方行为差异、版本冲突及外围不可用；标明受影响消费者和确认程度。只读分析，不凭库名判等价，不把提供方 Red 复制成消费者 Red。见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。

@@ -15,7 +15,7 @@ description: /sdd-init [input.json绝对路径] [--mode single-module --module-n
 1. 读取 [AGENTS.md](../AGENTS.md)、[运行协议](../skills/migration-protocol/references/runtime.md)，解析参数为绝对路径及规范 ID。
 2. 读取/初始化当前项目配置；对用户明确更新执行 project_context.py update，临时条件进入 overrides。宿主生成 run-request 和 run_id；prepare 复制文档并固化项目版本，返回 Global 的分析输入。快照相同请求可幂等恢复，不允许覆盖已有 run 快照。
 3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
-4. Global 只使用 prepare 固化的项目上下文分析；project 执行项目切片，single-module 按模式和名称定位模块，生成 ID/scope/代码路径及 SPEC 草案、Testing list 和审计路径。宿主保存完整 input.json，校验非空规范/用例后，带 project_context_ref/input_ref 提交严格 Ledger init；收到 ACK 后 Global register/global-plan，再派 MO。初始化分析工件仅为 staged，不提前派模块 worker 或编码。
+4. Global 只使用 prepare 固化的项目上下文分析；project 执行项目切片，single-module 按模式和名称定位模块，生成 ID/scope/代码路径及 SPEC 草案、Testing list 和审计路径。宿主保存完整 input.json，校验非空规范/用例后，带 project_context_ref/input_ref 提交严格 Ledger init；收到 ACK 后 Global register 根功能（decomposition_required=true），派父 MO decompose；GO decompose-accept 登记子功能后 global-plan，再由独立子 MO 推进。初始化分析工件仅为 staged，不提前派模块 worker 或编码。
 5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
 
 ## 3. 调用契约
@@ -49,4 +49,14 @@ project_context init/update → prepare → Global 生成完整运行输入 → 
 
 解析可选 module_slicing：验证人工导入引用及摘要；完整功能 use case 可按一级/二级功能目录初分，由 Global 核对 scope/用例。跨模块或不确定业务边界先经人工裁决，再提交带 boundary_review 的 global-plan。详见 [切片规约](../skills/migration-global/references/slicing.md)。
 
-入口模式：默认 `entry_mode=project`，Global 分析项目并切片。`entry_mode=single-module` 时只需 module_name；Global 从项目上下文定位功能并生成模块 ID、scope、代码范围、global_spec/global_test_cases、需求 ID 和审计路径。宿主把 Global 生成的模块 ID 映射到 Ledger init.single_module_id，按生成的写范围 register，完整启动 Global→MO→Auditor。该低层 ID 不是用户模块名，也不是用户必填字段。单模块不能绕过 global-plan、冻结或最终审计。[单模块参数示例](../template/single-module-input.json) 仅含两个入口参数。
+入口范围：project 指完整项目及各功能/子功能；single-module 指一个特定根功能及其子功能。用户仍只给 entry_mode/module_name；GO 生成根功能 SPEC 草稿/Testing list，父 MO 在规划阶段继续拆分子功能，独立子 MO 执行。single_module_id 映射根功能 ID，不限制叶子数量。完整走 GO→父 MO 拆分→子 MO→父汇总→Auditor；详见 [父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md)。
+
+复用输入：宿主保存可选 reuse_sources（用户指定其他项目模块）；TARGET 自动纳入评估。prepare 固化来源范围，GO 提取能力语义目录并结合需求切片，将目录作为 context_refs 交父 MO。新 prepare 运行自动要求复用规划，详见 [二方库协议](../skills/migration-protocol/references/reuse-dependencies.md)。
+
+## 初始化上下文门禁
+
+prepare 与新 Ledger init 默认启用 context_readiness_required。GO 初始化分析后，先提交 global-discovery 报告再 register；父拆分有独立 decomposition 报告，全部子模块登记后再提交 global-planning 报告接受覆盖。用户不需手写预检材料，由对应 Agent/宿主生成。见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+
+## 功能清单来源与完备性
+
+功能发现默认使用提供的测试用例汇总；未提供时由 GO 先理解存量源码、抽取完整功能清单，再生成非空需求/CASE 与 input.json，不要求用户先手写用例。汇总存在也须对照源码查漏；歧义/未知功能先人工介入，明确后再推进受影响规划。

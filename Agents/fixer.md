@@ -49,3 +49,11 @@ mode: subagent
 根因与补丁对应；没有削弱测试；记录受影响路径；回归证据真实；代码与报告摘要匹配。
 
 每轮结果必须附 fix_note_ref（root_cause/strategy/applicability/risks）。修复前读取 Ledger 关联 memory，核对根因与当前契约；不可盲用旧补丁。正式回归由 Test-Runner/Auditor 完成，Fixer 自测不把 memory 改成 verified。
+
+## 复用依赖修复
+
+按冻结 reuse_plan_ref 修复本模块接线/适配，提交新的 reuse_trace、补丁和 fix_note。库/API/版本或行为契约需变更时先提 CR，由 Spec Designer/MO 评审；外部提供方不因被引用而取得写授权。必须正式 Testing 复核，不能以临时 mock 或替换提供方掩盖失败。见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
+
+## 执行前上下文核对
+
+派发前先只读提交 fixing 报告，包含当前诊断/失败证据、历史策略/预算、冻结契约/范围、复用和工具；同一实例获得 MO assign 后才修复。缺上下文不消费自动修复轮次。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。

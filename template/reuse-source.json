@@ -1,0 +1,6 @@
+{
+  "source_id": "LIB-SEARCH",
+  "root": "{{absolute-user-specified-other-project-root}}",
+  "module_paths": ["{{absolute-selected-module-path-within-that-project}}"],
+  "description": "{{user-described-reusable-business-capability}}"
+}

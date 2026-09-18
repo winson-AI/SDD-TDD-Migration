@@ -60,3 +60,11 @@ Fixer 自回归记录 `producer=fixer`，是补丁证据，不能替代 Test-Run
 - 全局审计阶段：本次独立 Auditor 唯一验收审计范围 CASE/PATH；正式复测完整 Green 且覆盖、基线门禁满足后直接提交 audit-verdict/audit。MO 仍接收 worker 结果并守护修复模块 DoD，但不能批准或替代审计结论。
 - 无需为 Green 验收额外请求人类或 Global 会签；SPEC 冻结、业务边界、语义变更及最终交付授权保留原有门禁。
 - `case_owners` 表示覆盖范围，`owner_module_ids` 表示修复责任；均不表示验收人。验收事件的宿主身份、模块/审计 assignment、CASE/PATH、基线和证据共同确定唯一验收范围。不同阶段分别保留历史，不覆盖此前失败或把模块 Green 当审计通过。
+
+## 二方库验证与根因
+
+基于冻结需求和 reuse-plan 中的行为差异设计真实提供方接线/版本/配置、边界/异常及适配路径；完整模块和全局用例仍须覆盖。mock/编译通过不替代必要集成测试。结果缺真实证据为 Yellow，实际断言错误为 Red；根因带 source/capability/mapping/version 和影响消费者。所选提供方变化使旧证据失效，Auditor 按 finding 依赖图重测，详见 [复用协议](reuse-dependencies.md)。
+
+## 测试启动前的上下文门禁
+
+Test Runner 先提交 testing 报告，Auditor 最终验证先提交 audit-testing 报告；包括已接受代码、冻结 PATH/assert、提供方、工具/环境/数据与 execution.argv/cwd/environment_ref。原 assign/audit-assign 接受后 execute_test 再核对命令和环境引用；不匹配须重新预检和派发，不能换命令绕过。缺条件不生成假测试结果。见 [上下文就绪协议](context-readiness.md)。

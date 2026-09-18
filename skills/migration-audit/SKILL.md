@@ -34,3 +34,5 @@ description: 独立全局复测、快照冻结、修复委派与最终裁决，�
 按 finding_id 路由，支持不同问题分别修复及单问题多 owner；按依赖交错 Testing，不等待全批 owner。宿主实际启动 subagent 与 Used Skills。
 
 Auditor 是审计范围 CASE/PATH 的唯一验收 owner；正式复测完整 Green、证据有效且覆盖门禁满足即直接记录审计结论，无额外会签。MO 保留模块执行守卫。新增跨模块或不确定业务边界交人工决定；不得以多 repair owner 推导多人共同验收。
+
+审计读取语义目录、需求映射和实际二方库版本，按依赖图验证共享提供方与受影响消费者；不越权修改外部来源，失败输出根因待人工。见 [复用协议](../migration-protocol/references/reuse-dependencies.md)。

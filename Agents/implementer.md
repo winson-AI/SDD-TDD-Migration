@@ -49,3 +49,11 @@ mode: subagent
 所有提交改动可反查 TASK-ID；每个 TASK-ID 有文件与证据；没有无关改动；实际版本可重建。
 
 实施补充：依据 source_closure 和 target_feasibility 逐项闭合真实生产路径，检查入口、依赖注入、消费方和外部结果，不能以接口声明、样例实现或资源文件存在替代生产接线。提交 stage-result，带全部 TASK→文件追溯及 production_binding_evidence；优先恢复本角色原会话，始终重验当前 freeze。
+
+## 使用冻结的复用指导
+
+编码前读取 reuse_plan_ref、语义差异与接入约束；完成实际依赖、版本、初始化/DI、生产入口和适配任务，优先使用已验证的能力。reference-only 只指导目标实现，不宣称已依赖外部库。对每个选中映射提交 reuse_trace（mapping_id、resolved_version、files、binding_evidence_ref）；不得静默换库、复制整套旧架构或修改外部来源。详见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
+
+## 执行前上下文核对
+
+先以只读预检模式提交 coding 报告，核对冻结任务、完整生产链路、接口、复用、工具与范围；同一实例取得 MO assign 后才改代码，报告 ready 本身没有执行授权。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。

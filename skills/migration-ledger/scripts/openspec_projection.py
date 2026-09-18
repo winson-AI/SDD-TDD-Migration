@@ -63,6 +63,13 @@ def materialize(root, state, sequence):
         write(change / 'memory.md', '# Repair memory (generated)\n\nOnly verified entries may inform a new repair; recheck applicability and current SPEC.\n\n```json\n' +
               json.dumps(m.get('fix_memory', []), ensure_ascii=False, indent=2) + '\n```\n')
         manifest['files'] += ['status.md', 'memory.md']
+        if m['plan'].get('reuse_plan_ref'):
+            ref = m['plan']['reuse_plan_ref']
+            write(change / 'reuse.md', '# Reuse guidance (Ledger plan projection)\n\n' +
+                  'Executable only after freeze acceptance. Requirements remain the acceptance authority; verify selected provider versions before use.\n\n```json\n' +
+                  definition(root, ref) + '\n```\n')
+            manifest['reuse_plan_ref'] = ref
+            manifest['files'].append('reuse.md')
         previous = change / 'manifest.json'
         if previous.exists():
             for obsolete in set(json.loads(previous.read_text()).get('files', [])) - set(manifest['files']):

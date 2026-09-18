@@ -11,6 +11,16 @@
 - [ ] F06 无未决阻断问题；R1/R2 人类决定绑定当前内容或合法沿用；证据：{{ref}}
 - [ ] F07 六件套定义与测试设计摘要已固定，满足 MO 接受冻结的所有前置条件；证据：{{ref}}
 
+- [ ] F08 planning 上下文报告与当前 plan_ref 匹配；全局/父/子、生产链路、接口与复用核对齐备；证据：{{context_ref}}
+
+## Execution Context Gates
+
+- [ ] E01 Coding 前实际 Implementer 预检已由 MO 接受，身份/版本/任务/工具/范围齐备；证据：{{context_ref}}
+- [ ] E02 Testing 前实际 Test Runner 预检已接受，PATH/代码/真实提供方/环境与数据齐备；证据：{{context_ref}}
+- [ ] E03 如触发 Fixer，每轮先核对诊断、历史策略、预算与冻结范围；证据：{{context_ref-or-not-applicable-evidence}}
+
+执行门禁按阶段核对；冻结时不要求 E01–E03 已完成，也不能用这些勾选替代 Ledger 事件。
+
 ## DoD Gate — R3 / Delivery Readiness
 - [ ] D01 当前 freeze 有效，代码版本可重建；证据：{{ref}}
 - [ ] D02 所有必需 tasks 已验收，无无归属代码；证据：{{ref}}

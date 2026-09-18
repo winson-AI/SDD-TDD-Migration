@@ -51,3 +51,11 @@ mode: subagent
 ## 10. Harmony 执行器
 
 HarmonyOS 路径按 [Harmony 运行协议](../skills/migration-test/references/harmony-runtime.md) 运行。内部保留 Planner/Executor/Verify、工具回放与视频验证；正式结论只采用逐条冻结 ASSERT 的本次证据。宿主绑定已部署构建与代码基线、分配设备锁；一个 PATH 一个进程。失败交回 Ledger，不在内部擅自修业务代码或调整验收。
+
+## 二方库验证
+
+design 阶段读取需求与已审核的复用语义/差异，设计真实提供方接线、版本配置、正常/边界/异常及适配回归；验收标准来自需求，不能从实现反推。execute 在 Coding 接受后验证完整业务路径；只有 mock、导入或编译证据不能代替要求的真实集成测试。依赖受阻保留 Yellow 和 capability/mapping/version 根因。详见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
+
+## 执行前上下文核对
+
+execute 前先提交 testing 报告，核对冻结 PATH、已接受代码、提供方、完整环境/数据，绑定实际 argv/cwd/environment_ref；MO assign 后才启动 Main。设计阶段检查进入 planning 报告，由 Spec Designer 汇总，不能据此提前执行测试。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。

@@ -103,5 +103,8 @@
     "functional_directory_level": null
   },
   "module_name": null,
-  "project_context_ref": null
+  "project_context_ref": null,
+  "reuse_sources": [],
+  "reuse_required": true,
+  "context_readiness_required": true
 }

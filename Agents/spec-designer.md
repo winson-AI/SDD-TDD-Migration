@@ -50,3 +50,13 @@ OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment
 六件套齐全；所有验收可验证；tasks 有范围与完成证据；已批准的决策可追溯到冻结内容。
 
 实施补充：冻结前核实最小源码闭环（入口→事件/状态→数据/平台→可观察结果）和目标能力/依赖证据。把允许路线和禁止变化写入 decision_envelope；外部证据只引用 path/hash，不把源码全文复制进 OpenSpec。初始批准与当前执行版本分开记录，边界内任务修订仍经 MO 发布新 freeze。
+
+子 MO 负责子功能任务拆解，Spec Designer 按其分配组织正式六件套和可执行 tasks。子模块正式 plan 必须绑定 status.planning_context 及 status.module_inputs[module_id] 对应的 assigned_module；tasks 的全局需求映射和 CASE 限于获分配 scope；MO 与 Spec Designer 在规划前共同读取全局代码、架构、知识及兄弟分工，确认复用与唯一实现 owner。父节点只保留功能草稿/拆分/汇总，正式六件套归执行叶子。
+
+## 复用分析进入六件套
+
+读取 GO/父 MO 的二方库语义目录，按子功能需求核验行为等价与差异，而非按 API 名称匹配。proposal 说明策略，design 明确提供方、版本、DI/接线和适配边界，tasks 分解接入/缺口工作；spec 保持用户需求。冻结 plan.reuse_plan_ref，逐需求覆盖 capability/decision/task/PATH；不合适候选可拒绝，但需说明依据。详见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
+
+## 执行前上下文核对
+
+plan 前提交 planning 报告并绑定同一 plan_ref，核对全局/父/子范围、source_closure、target_feasibility、接口、测试设计和复用映射；MO freeze 再验。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。

@@ -26,3 +26,15 @@
 
 - fix_note_ref: {{fix-note.json 的绝对路径与 sha256}}
 - 内容包括根因、修复策略、适用条件、风险；Ledger 绑定本次补丁与正式回归证据后决定是否 verified。
+
+## 二方库 / 已有能力的实际使用
+
+- reuse_plan_ref: {{冻结的需求—能力—任务—PATH 映射}}
+- 每个 reuse/adapt/reference 映射提交 reuse_trace；new 映射继续使用 Task Trace。
+- 正式 implementation JSON 中每条 reuse_trace 含 mapping_id、resolved_version、files（属于对应 task_trace）和 binding_evidence_ref（绝对 path/sha256）。Implementer 与 Fixer 都需要提交。
+
+| 映射 ID | 来源 / 能力 / 实际版本 | 接入文件 / DI / 调用入口 | 适配差异 | 真实提供方绑定证据 |
+| --- | --- | --- | --- | --- |
+| {{mapping}} | {{source/capability/version}} | {{files-and-binding}} | {{delta}} | {{evidence-ref}} |
+
+reference-only 说明借鉴了哪些业务语义及目标实现差异，不宣称已建立运行时依赖。provider_refs 用于核验依据版本，不授予修改来源项目的权限。

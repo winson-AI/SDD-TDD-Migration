@@ -194,3 +194,72 @@ prepare 固化本次项目版本、临时覆盖、模式/模块名及引用文�
 结构校验：25 个 JSON 模板、3 个变更 Python 文件 AST、150 个相关文档内链有效；migration-global/ledger/protocol 三个技能校验通过。
 
 本轮使用临时目录和本地进程验证真实配置读写/归档/Ledger 绑定。未为用户实际项目创建配置，未启动真实迁移 Agent 或设备测试。自然语言字段提取、生成业务 SPEC/Testing list 和宿主命令注册仍由宿主执行；配置脚本不提供额外身份认证、整个源码树/设备快照或活动 run 上下文就地替换。需要采用新配置的迁移使用新 run 并重新满足已有门禁。
+
+## 并行 MO 独立执行与全量收尾（2026-09-18）
+
+纠正 GO 主步骤中“队列非空即请求审计”与全量门禁的冲突说明。AGENTS、角色/技能、命令与共享状态机明确：每个 MO 独立推进；全局 Red/Yellow 只做聚合；宿主逐 module_id 收集结果，单个异常不取消其他实例，不批量标失败/挂起。完整 registry 中所有模块基于自身证据完成或明确挂起，且无活动 worker/可推进动作后才统一启动 Auditor。
+
+控制器新增 status.module_rounds，分别列出 registered/settled/unfinished/active/ready 模块与 blockers。有遗留但其他模块未结束时，不返回可启动的审计 operation，而返回 continue_modules / wait_for_modules。audit-collect、兼容 problem-assign、最终 audit-assign 均检查全量收尾门禁；空 registry 和缺少挂起记录不能算收尾。suspend(kind=dependency) 必须有真实不可用的已登记依赖，并保存 dependency_module_ids，拒绝把无关同伴失败当作依赖。
+
+验证：Ledger 全部 **104 项通过**（原 99 项 + 新增 5 项），migration-global/module/protocol 三项 skill 校验通过，git diff --check 通过。新增回归覆盖：Red 经本地一轮修复/失败交接时运行中的独立同伴状态完全不变；同伴仍可正式执行测试并独立 Green；三种审计入口在同伴未结束时拒绝；Yellow 不抑制其他 ready 模块；未开始模块不能跳过；已 Green 同伴保留 Green；无真实依赖的挂起被拒绝；真实依赖仅影响消费者。
+
+测试使用临时目录、真实 Ledger 事务与本地测试适配器进程；未启动真实业务迁移或宿主 Agent。实际 subagent 并行等待、身份和写权限隔离仍由宿主实现，更新后的包要求宿主采用逐模块收尾语义。
+
+## 入口范围、父子 MO 与全局规划上下文（2026-09-18）
+
+本节取代此前 single-module 固定单节点、不再拆分的定义。project 直接指定完整项目；single-module 指定一个根功能及其全部子功能。根功能父 MO 提交拆分，GO 接受后登记独立子 MO；父 MO 负责管理/汇总。根功能初始登记要求 decomposition_required=true；旧扁平节点保留兼容，不静默改写已冻结/执行的历史。
+
+新增 decomposition.py 和 decompose / decompose-accept / module-summary 操作。父节点保存在 module_groups，执行叶子保存在 modules；CASE 全覆盖、写范围包含、全树唯一 ID、内部 DAG 无环与上下文一致性在提交时检查。父只汇总不重复执行，子仍独立 Coding/Testing/Fixer/DoD。全部叶子收尾、各层父 MO 完成当前版本汇总后统一 Auditor；审计补丁导致父汇总失效时须重新汇总。
+
+status.planning_context 为父/子 MO 提供完整 legacy_root/target_root、整体规范、目标架构、本轮项目/规则/知识引用及全局父子分工。拆分和子 plan 绑定当前对象，冻结/派发复核，防止使用过期分工。全局代码只读理解与模块写范围分离；源码语义、重复实现识别和复用方案仍由 Agent 审核，控制器不声称证明 Agent 实际阅读过所有源码。
+
+项目配置新增可选 knowledge_paths；prepare 固化各知识文件内容与摘要。原知识更新不改变旧运行，修改运行快照被拒绝。父子规划引用相同快照，写权限仍由模块 scope、assignment 与锁约束。角色、命令、技能、协议、模板及 SVG/PNG 流程图已同步。
+
+验证：Ledger 全部 **115 项通过**（上一轮 104 项 + 10 项父子编排测试 + 1 项知识快照测试）。覆盖单功能多孩子与内部依赖、project 多根功能、嵌套父 MO 自下而上汇总、兄弟独立进展、父/子共同上下文、越界/环/身份拒绝、过期汇总拒绝、已冻结代码禁止直接拆分、真实审计修复后的重新汇总及最终审计门禁。4 项变更技能校验通过，JSON 模板解析/Python AST/git diff --check 通过；流程图已渲染并目视检查。
+
+未执行真实宿主的业务迁移/设备测试，未自动启动父子 Agent。宿主仍须按新角色协议加载工具与身份、传递全局只读上下文、落实读写隔离及逐模块等待；当前修改未提交或推送。
+
+## 三层作用域与认领契约（当前定义）
+
+本节将上一轮可递归拆 MO 的规划收敛为用户指定的三层：GO 全局划分模块 scope/所需上下文并管理迁移；父 MO 认领模块，在范围内分配子 scope/上下文并看护整个模块；子 MO 认领子功能后拆 tasks，不再创建 MO。旧递归记录保留读取/汇总兼容，新拆分不增加层级。
+
+新增 status.module_inputs 权威分配包（子包保留 parent_context）；父拆分、子 plan 用 assigned_module 确认认领范围，同时保留共同 planning_context 全局可读视野。新根模块/孩子必须提供 scope.in/out/全局 requirement_ids 与 context_refs。检查父子需求/CASE 包含及完整覆盖、父排除项继承、上下文 hash、分配包一致性、子 task 全局需求映射、测试 CASE 范围；global-plan 的需求 owner 也须匹配获分配子范围。正式子 plan、freeze、dispatch 重验。宿主继续负责实例与模块绑定、业务语义审核和实际调度，分配包不是自报身份授权。
+
+验证：Ledger 全部 **120 项通过**。替换嵌套拆分测试为子 MO 只拆 tasks 的测试，新增父分配确认/子边界继承、task/CASE 越界拒绝、上下文被改后的派发拒绝、GO 根登记输入门禁、父子需求覆盖检查。已有独立 MO、父汇总和 Auditor 修复复测回归保持通过。4 项技能校验、JSON 模板解析、Python AST 和 git diff --check 通过；SVG/PNG 已更新并目视检查。
+
+本轮未运行真实宿主迁移或设备测试；修改保留在本地工作区。
+
+## 二方库与功能语义复用（2026-09-18）
+
+新增复用协议和 reuse-source / reuse-catalog / reuse-plan 模板。TARGET 自动纳入能力评估；用户指定的其他项目模块使用 reuse_sources 保存/更新并按 prepare 固化，父子共同上下文可见。GO 建功能语义目录并结合需求切片；父 MO 统一复用/适配分工；子 MO 将直接复用、适配、语义参考或新实现映射至每条需求、tasks 和 PATH，stage-plan.reuse_plan_ref 纳入冻结。角色、技能、入口、OpenSpec/Testing/上下文协议及流程图已同步。
+
+reuse.py 校验来源和证据范围、完整功能语义字段、来源评审、需求/任务/路径覆盖、集成方式/版本与可行性证据。目标提供方属于另一执行模块的写范围时，需登记真实依赖。Implementer/Fixer 提交 reuse_trace，逐映射证明版本、对应 task 文件及绑定证据。verify_plan 在冻结、派发、结果接收、DoD 和审计中检查已选 provider/API/接入证据；未选候选源码变化不单独使消费者失效。OpenSpec reuse.md 与 manifest 暴露当前 plan 的复用映射，冻结前不表示可执行。
+
+完整 Ledger 回归 **133 项通过**（原 120 项 + 11 项复用测试 + 2 项项目上下文测试）。覆盖 TARGET 规划与派发、语义不完整/未评审/未知能力/错误来源、越界 task/PATH 映射、选中版本漂移与未选候选隔离、冻结时版本变化、缺少/版本错误/越界实现绑定拒绝及有效绑定接受、外部 source-module/reference 语义区分、来源模块边界、无候选的新实现、其他 MO 提供方依赖、显式外部来源强制规划，以及配置更新/旧运行隔离/来源错配。所有 11 个技能校验、JSON 模板解析、Python AST 和 git diff --check 通过。四张 SVG/PNG 重新渲染，总览与新增复用图已目视检查。
+
+测试为本地临时目录中的控制器/证据契约回归，未迁移真实业务项目、安装实际二方库或运行设备测试。控制器不会自动提取功能语义、解析包管理器、证明行为等价或提供操作系统级外部写隔离；这些仍由宿主 Agent、项目工具和执行器落实。
+
+## 本轮：上下文就绪落实到控制节点
+
+新增 context_readiness.py 与 context-submit，将上下文核对接入 GO 根登记/覆盖规划、父拆分/GO 接受、子 plan/freeze、Coding/Testing/Fixer assign、Auditor 分析/裁决/最终测试。新 init 默认启用，prepare 强制启用；既有无该字段 run 保留兼容。
+
+完整 **149 项测试通过**（原有 133 项 + 新增 16 项）。新增验证覆盖：
+
+- 缺失报告拒绝登记、规划、Coding/Testing/Fixer 派发、审计分析/裁决及最终审计；不消耗修复预算或推进阶段。
+- 实际提交身份、必读引用、草稿绑定与版本检查；较新的 blocked 不能被旧 ready 绕过。
+- 证据变更阻止冻结；测试命令替换或环境证据变化在启动子进程前被拒绝。
+- 新入口默认启用、prepare 禁止关闭；早于全量收尾的 Auditor 预检被拒绝。
+- 父 MO 拆分与 GO 接受、首次 Coding、真实 Main、首轮 Fixer/复测、跨模块 Auditor 修复与正式复核、最终独立审计均走通。
+- 无关兄弟的预检/阻塞信息不使当前独立任务失效，不回写兄弟质量。
+
+包级验证：11 个控制器/图集 Python 文件 AST 解析通过、33 个模板/schema JSON 可解析、4 个 SVG 有效、60 个索引与新增协议链接有效；2 个修改的 Skill 通过 quick_validate；git diff --check 通过。四张 SVG/PNG 已重新生成并逐张检查。
+
+验证仅覆盖本地控制器与隔离测试执行器，不代表真实业务工程、设备、宿主自动派发或语义理解质量已验证。宿主仍负责只读预检隔离、身份与工具能力；对应 owner 审核上下文内容是否足够。
+
+## 本轮：功能清单默认来源与完备性
+
+功能列表默认由测试用例汇总抽取；无汇总时先理解存量源码、抽取完整功能，再生成需求/CASE。新增 feature-inventory 模板和 global-plan 的 feature_inventory_ref/feature_owners；GO/父 MO/子规划预检增加 feature-inventory。清单接受后，planning_context 和分配包提供全局清单、归属与各模块 feature_ids；旧运行无清单时保留原上下文结构。
+
+完整 **153 项测试通过**。本轮新增 4 项覆盖：用例汇总优先/源码回退及模块功能列表；未分类、未决、缺少来源/CASE/owner 拒绝；功能疑问必须经真实人工决定后接受；来源证据变化阻止 Coding。既有父子拆分、上下文、修复和审计回归保持通过。
+
+Python/JSON/SVG 解析、相关链接、migration-global Skill 校验及 git diff --check 通过；图集重新生成，总览与子 MO 图已目视检查。验证证明已登记清单的结构/追溯门禁，不证明实际业务源码已被穷尽分析；运行时 Agent 必须逐入口核查，有疑问立即交人工，不得以校验通过宣称无遗漏。

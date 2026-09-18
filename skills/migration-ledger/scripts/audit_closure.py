@@ -4,6 +4,7 @@ import re
 
 from contracts import require, check_ref, read_json, digest, keyed, baseline, verify_plan
 import workflow
+import decomposition
 
 OPS = {'audit-collect', 'audit-plan', 'audit-route-batch', 'audit-work', 'audit-retest', 'audit-verdict', 'audit-release', 'audit-block'}
 GLOBAL_OPS = OPS - {'audit-work', 'audit-retest', 'audit-block'}
@@ -18,7 +19,7 @@ def collection_blockers(s):
     # Local import avoids a module initialization cycle. The cursor and mutation use
     # the same guard, so callers cannot bypass the all-modules barrier via raw JSON.
     from ledger import next_step
-    blockers = []
+    blockers = [] if s['modules'] else [{'module_id': None, 'reason': 'no-modules'}]
     released = s.get('audit_batch', {})
     if released.get('status') == 'released':
         for mid, snapshot in released.get('recovery_contexts', {}).items():
@@ -26,15 +27,41 @@ def collection_blockers(s):
             if {'context': context(m), 'blocked': m.get('blocked')} == snapshot:
                 blockers.append({'module_id': mid, 'reason': 'human-recovery-not-applied'})
     for mid, m in s['modules'].items():
-        if any(not a.get('closed') for a in m['assignments'].values()):
+        if m.get('effective_quality') == 'yellow-blocked':
+            blockers.append({'module_id': mid, 'reason': 'module-evidence-stale'})
+        elif any(not a.get('closed') for a in m['assignments'].values()):
             blockers.append({'module_id': mid, 'reason': 'worker-running'})
         elif m['phase'] not in TERMINAL:
             blockers.append({'module_id': mid, 'reason': 'module-round-unfinished', 'phase': m['phase']})
+        elif m['phase'] != 'completed' and not m.get('blocked'):
+            blockers.append({'module_id': mid, 'reason': 'suspension-record-missing'})
         else:
             step = next_step(s, m)
             if step.get('ready'):
                 blockers.append({'module_id': mid, 'reason': 'module-work-ready', 'operation': step['operation']})
+    for mid, group in s.get('module_groups', {}).items():
+        if not decomposition.summary_current(s, group):
+            step = decomposition.group_step(s, group)
+            blockers.append({'module_id': mid, 'reason': 'parent-summary-required', 'operation': step['operation']})
     return blockers
+
+
+def module_rounds(s, steps):
+    """Separate per-module progress from aggregate quality; never mutate peers."""
+    blockers = collection_blockers(s)
+    unfinished = {item['module_id'] for item in blockers}
+    return {
+        'all_settled': not blockers,
+        'registered_modules': sorted(set(s['modules']) | set(s.get('module_groups', {}))),
+        'leaf_modules': sorted(s['modules']),
+        'parent_modules': sorted(s.get('module_groups', {})),
+        'settled_modules': sorted((set(s['modules']) | set(s.get('module_groups', {}))) - unfinished),
+        'unfinished_modules': sorted(mid for mid in unfinished if mid is not None),
+        'active_modules': sorted(mid for mid, m in s['modules'].items()
+                                 if any(not a.get('closed') for a in m['assignments'].values())),
+        'ready_modules': sorted(step['module_id'] for step in steps if step['ready']),
+        'blockers': blockers,
+    }
 
 
 def leftovers(s):

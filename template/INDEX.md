@@ -51,8 +51,24 @@
 
 - [module-slicing.json](module-slicing.json)：global-input.module_slicing.module_import_ref 指向的可选人工模块方案；字段与优先级见 [切片规约](../skills/migration-global/references/slicing.md)。
 
-- [single-module-input.json](single-module-input.json)：单模块入口的两个参数示例（entry_mode/module_name），合并已有项目上下文；模块 ID、scope、SPEC/Testing list 全部由 Global 生成，沿用 Global→MO→Auditor 全流程。
+- [single-module-input.json](single-module-input.json)：单模块入口的两个参数示例（entry_mode/module_name），合并已有项目上下文；根功能 ID、scope、SPEC/Testing list 由 Global 生成，父 MO 继续拆子功能，独立子 MO 执行，父汇总后统一 Auditor。
 
 - [project-context.json](project-context.json)：项目长期 config 内容模板，宿主根据用户输入整理，无 run/module 状态。
 - [project-context-request.json](project-context-request.json)：init/update 的 patch、CAS revision、幂等 ID 和用户来源引用。
 - [run-request.json](run-request.json)：本次选择、临时覆盖与宿主元数据，prepare 固化后交 Global；用户单模块选择仍只有模式和名称。
+
+- [module-decomposition.json](module-decomposition.json)：父 MO 的子功能拆分方案，绑定全局 planning_context 和认领的 assigned_module，逐子分配 scope/context_refs；GO 接受后登记独立子模块。
+- module-input 的 parent_module_id/decomposition_required、scope/context_refs 与子 stage-plan.planning_context/assigned_module 由宿主/角色填充；不增加用户入口参数。project-context.knowledge_paths 用于固化父子共享知识文档。
+
+- [reuse-source.json](reuse-source.json)：project-context/global-input.reuse_sources 的可选外部来源元素；TARGET 自动包含。
+- [reuse-catalog.json](reuse-catalog.json)：GO 的功能语义抽取目录，父/子 MO 按需求进一步核验细化。
+- [reuse-plan.json](reuse-plan.json)：子模块逐需求的能力选择、差异、task/PATH 和接入映射；由 stage-plan.reuse_plan_ref 冻结，Ledger 投影到 change/reuse.md。
+- implementation.md 说明新增 reuse_trace；控制器检查选中映射的实际版本、task 文件和生产绑定证据。
+
+## 上下文预检工件
+
+[context-readiness.json](context-readiness.json) 是 Coding 的 blocked 起始模板；其他 stage 根据 status.context_requirements 生成完整检查项。经 context-submit 提交，原操作 context_ref 接受；assignment 保留同一报告引用。见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+
+## 功能清单来源与完备性
+
+[feature-inventory.json](feature-inventory.json)：GO 抽取的完整功能清单及源码/用例来源映射；默认用例汇总优先，缺失则源码抽取。global-plan.feature_inventory_ref/feature_owners 接受清单并分配叶子，疑问通过 boundary_review 人工决策。

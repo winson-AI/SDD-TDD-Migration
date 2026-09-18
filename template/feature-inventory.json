@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "legacy_root": "{{absolute-legacy-root}}",
+  "entry_mode": "project",
+  "single_module_id": null,
+  "source_mode": "test-case-summary",
+  "test_summary_ref": {
+    "path": "{{absolute-evidence-path}}",
+    "sha256": "{{sha256}}"
+  },
+  "features": [
+    {
+      "feature_id": "FEATURE-001",
+      "name": "{{concrete-feature-name}}",
+      "functional_path": "{{root/subfeature/variant}}",
+      "trigger": "{{business-trigger}}",
+      "observable_result": "{{observable-business-result}}",
+      "requirement_ids": [
+        "REQ-GLOBAL-001"
+      ],
+      "case_ids": [
+        "CASE-GLOBAL-001"
+      ],
+      "evidence_refs": [
+        {
+          "path": "{{absolute-evidence-path}}",
+          "sha256": "{{sha256}}"
+        }
+      ]
+    }
+  ],
+  "source_units": [
+    {
+      "unit_id": "SOURCE-001",
+      "kind": "test-case-group",
+      "locator": "{{test-case-group-or-functional-path}}",
+      "feature_ids": [
+        "FEATURE-001"
+      ],
+      "evidence_refs": [
+        {
+          "path": "{{absolute-evidence-path}}",
+          "sha256": "{{sha256}}"
+        }
+      ]
+    },
+    {
+      "unit_id": "SOURCE-002",
+      "kind": "legacy-entry",
+      "locator": "{{production-entry-and-call-chain}}",
+      "feature_ids": [
+        "FEATURE-001"
+      ],
+      "evidence_refs": [
+        {
+          "path": "{{absolute-evidence-path}}",
+          "sha256": "{{sha256}}"
+        }
+      ]
+    }
+  ],
+  "coverage": {
+    "status": "draft",
+    "unclassified": [
+      "{{all-unreviewed-entries}}"
+    ],
+    "unresolved_questions": [
+      "{{questions-requiring-human}}"
+    ]
+  },
+  "questions": []
+}

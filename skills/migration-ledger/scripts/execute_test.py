@@ -13,6 +13,7 @@ import subprocess
 import sys
 import uuid
 import workflow
+import context_readiness
 
 from contracts import baseline, file_ref, read_json, require
 from ledger import status, atomic, audit_scope
@@ -34,6 +35,7 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
         else:
             a = m['assignments'][assignment_id]
         require(not a['closed'] and ((a['role'] == 'test-runner' and m['phase'] == 'testing') or a.get('mode') == 'problem'), 'test assignment required')
+    context_readiness.check_execution(s, a, argv, cwd)
     require(baseline(m['code_files']) == m['code_baseline'], 'code changed before execution')
     path = next(p for p in m['plan']['paths'] if p['path_id'] == path_id)
     out = Path(output).resolve()

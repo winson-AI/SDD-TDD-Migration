@@ -16,10 +16,85 @@ def registry(s):
 def planning_guard(s):
     plan = s.get('global_plan')
     require(plan and plan['registry_hash'] == digest(registry(s)), 'global coverage review required')
+    require(not any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values()),
+            'complete MO decomposition before implementation/audit')
+    for group in s.get('module_groups', {}).values():
+        check_ref(group['decomposition_ref']); check_ref(group['decomposition_review_ref'])
     for ref in (s['global_spec'], s['new_architecture'], plan['plan_ref'], plan['review_ref']):
         check_ref(ref)
+    if plan['content'].get('feature_inventory_ref'):
+        inventory = read_json(check_ref(plan['content']['feature_inventory_ref']))
+        for item in inventory['features'] + inventory['source_units']:
+            for ref in item['evidence_refs']:
+                check_ref(ref)
+        if inventory.get('test_summary_ref'):
+            check_ref(inventory['test_summary_ref'])
     if plan.get('boundary_decision_id'):
         check_ref(s['decisions'][plan['boundary_decision_id']]['human_source_ref'])
+
+
+def feature_inventory(s, plan):
+    """Enforce explicit enumeration/traceability; semantic completeness is reviewed by GO."""
+    ref = plan.get('feature_inventory_ref')
+    if not s.get('context_readiness_required') and not ref:
+        return  # Existing runs retain their original coverage contract.
+    inventory = read_json(check_ref(ref))
+    require(inventory.get('schema_version') == 1 and inventory.get('legacy_root') == s['legacy_root']
+            and inventory.get('entry_mode') == s['entry_mode'], 'feature inventory scope mismatch')
+    if s['entry_mode'] == 'single-module':
+        require(inventory.get('single_module_id') == s['single_module_id'], 'feature inventory selected root mismatch')
+    summary = inventory.get('test_summary_ref')
+    require(inventory.get('source_mode') == ('test-case-summary' if summary else 'legacy-source'),
+            'feature inventory must default to supplied test summary or fall back to legacy source')
+    if summary:
+        check_ref(summary)
+    if s.get('project_context_ref'):
+        supplied = read_json(check_ref(s['project_context_ref'])).get('source_refs', {}).get('test_cases_path')
+        require(not supplied or summary == supplied, 'feature inventory must use supplied test case summary')
+    coverage = inventory.get('coverage', {})
+    require(coverage.get('status') == 'complete' and coverage.get('unclassified') == []
+            and coverage.get('unresolved_questions') == [], 'feature enumeration incomplete; human clarification required')
+    features = keyed(inventory.get('features'), 'feature_id')
+    require(features, 'complete feature list required')
+    reqs, cases = set(), set()
+    for item in features.values():
+        require(all(item.get(k) for k in ('name', 'functional_path', 'trigger', 'observable_result')), 'feature behavior details required')
+        rids = set(nonempty(item.get('requirement_ids'), 'feature requirements'))
+        cids = set(nonempty(item.get('case_ids'), 'feature cases; derive cases from source when absent'))
+        require(rids <= set(s['requirement_ids']) and cids <= set(s['case_ids']), 'feature references unknown requirement/case')
+        reqs.update(rids); cases.update(cids)
+    require(reqs == set(s['requirement_ids']) and cases == set(s['case_ids']), 'feature inventory misses requirements/cases')
+    units = keyed(inventory.get('source_units'), 'unit_id')
+    require(units and any(u.get('kind') == 'legacy-entry' for u in units.values()), 'legacy entrypoint completeness review required')
+    if summary:
+        require(any(u.get('kind') == 'test-case-group' for u in units.values()), 'test case summary extraction required')
+    mapped = set()
+    for item in units.values():
+        require(item.get('kind') in ('legacy-entry', 'test-case-group', 'non-functional') and item.get('locator'), 'source unit kind/location required')
+        ids = item.get('feature_ids')
+        require(isinstance(ids, list) and set(ids) <= set(features), 'source unit contains unknown feature')
+        require(ids or (item['kind'] == 'non-functional' and item.get('reason')), 'unclassified source unit; human clarification required')
+        mapped.update(ids)
+    require(mapped == set(features), 'feature lacks extraction evidence mapping')
+    for item in list(features.values()) + list(units.values()):
+        for evidence in nonempty(item.get('evidence_refs'), 'feature/source evidence'):
+            check_ref(evidence)
+    owners = plan.get('feature_owners', {})
+    require(set(owners) == set(features), 'every feature requires module ownership')
+    for fid, mids in owners.items():
+        require(mids and len(set(mids)) == len(mids) and set(mids) <= set(s['modules']), 'feature owners must be execution modules')
+        for rid in features[fid]['requirement_ids']:
+            require(set(mids) <= set(plan['requirement_owners'][rid]), 'feature/requirement owner mismatch')
+        for cid in features[fid]['case_ids']:
+            require(set(mids) <= set(plan['case_owners'][cid]), 'feature/case owner mismatch')
+    require({mid for mids in owners.values() for mid in mids} == set(s['modules']), 'module missing functional list')
+    questions = inventory.get('questions')
+    require(isinstance(questions, list), 'explicit feature questions list required')
+    issues = {item['question_id']: item for item in plan.get('boundary_review', {}).get('issues', [])}
+    for question in questions:
+        require(question.get('question_id') in issues and question.get('question') and
+                issues[question['question_id']].get('question') == question['question'],
+                'feature doubt requires human boundary review; do not omit questions')
 
 
 def boundary_review(s, plan, decision_id):
@@ -122,6 +197,8 @@ def handle(s, req, actor):
     if op == 'global-plan':
         role(actor, 'global-orchestrator')
         require(s['modules'], 'no modules')
+        require(not any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values()),
+                'complete MO decomposition before global coverage acceptance')
         require(not audit_active(s), 'audit active')
         plan = read_json(check_ref(p.get('plan_ref')))
         check_ref(p.get('review_ref'))
@@ -147,6 +224,10 @@ def handle(s, req, actor):
         for module_id, module in s['modules'].items():
             require(all(module_id in cases[cid] for cid in module['case_ids']), 'module case missing owner mapping')
             require(any(module_id in owners for owners in requirements.values()), 'module missing requirement ownership')
+            if module.get('parent_module_id'):
+                require({rid for rid, owners in requirements.items() if module_id in owners} ==
+                        set(module['scope']['requirement_ids']), 'global ownership must match assigned submodule requirements')
+        feature_inventory(s, plan)
         boundary_review(s, plan, p.get('boundary_decision_id'))
         s['global_plan'] = {**p, 'content': plan, 'registry_hash': digest(registry(s))}
     elif op == 'audit-defer':

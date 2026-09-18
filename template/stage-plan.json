@@ -106,5 +106,15 @@
       "provider-substitution"
     ]
   },
-  "freeze_checks_passed": false
+  "freeze_checks_passed": false,
+  "planning_context": {
+    "source": "Ledger status.planning_context; host replaces with the current full object for child plans"
+  },
+  "assigned_module": {
+    "source": "Ledger status.module_inputs[module_id]; replace with the current full object for child plans"
+  },
+  "reuse_plan_ref": {
+    "path": "{{absolute-module-reuse-plan}}",
+    "sha256": "{{sha256}}"
+  }
 }

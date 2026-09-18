@@ -11,7 +11,7 @@ description: /sdd-run <run-id> — 并行推进就绪模块
 1. 读取 [AGENTS.md](../AGENTS.md)、[运行协议](../skills/migration-protocol/references/runtime.md)，解析参数为绝对路径及规范 ID。
 2. 前置门控：run 已初始化；可调度工作存在；宿主提供隔离实例/身份与单写 Ledger；max_parallel_modules 合法。
 3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
-4. 由宿主向 Ledger 提交 resume_requested；收到 ACK 后派发对应角色。Global 在 DAG 与锁约束内派发模块；仅已冻结模块可以编码。消费事件推进至全部完成或无可运行工作；不得绕过待澄清模块，也不因它阻止其他模块。完成后请求独立审计。
+4. 由宿主向 Ledger 提交 resume_requested；收到 ACK 后派发对应角色。Global 在 DAG 与锁约束内派发模块；仅已冻结模块可以编码。按 module_id 分别消费事件，单个失败不取消或标失败其他 MO；继续就绪模块并等待仍在执行的模块。完整 registry 中全部模块完成或各自明确挂起、无活动 worker 与可推进动作后，才请求独立审计。暂时没有 ready 动作不代表运行中的 MO 已结束。
 5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
 
 ## 3. 调用契约
@@ -46,3 +46,11 @@ Global 选择 ready 模块 → MO assign/accept。具体 payload/命令用法见
 当前策略：本地优先修复一轮，确认依赖/外围或一轮未通过则 audit-defer 并退出。Global 必须等待全部模块本轮 completed 或明确挂起，且没有活动 worker/可推进动作，再统一 audit-collect。正常依赖解除和已有批准的 resume 先执行；不能仅因当前没有 worker 就拉起 Auditor。
 
 活动批次按 finding 路由、按依赖交错修复与 Testing，失败仅挂起关联分支。部分成功汇总后待人工；audit-release 需要当前报告摘要批准。主循环及 subagent/skills 调用均由宿主执行，Ledger 返回游标并在每次提交复核门禁。
+
+宿主等待多个 MO 时须逐个收集结果（all-settled 语义）：一次异常只归属对应 module_id，继续等待其他实例；不得使用首次异常即取消整组的 fail-fast 行为。每次收到事件重读 Ledger，继续 ready_modules，保留 active_modules 的会话；不得因 global_next_step.ready=false 或全局 Red 而批量关闭模块。
+
+父子模式下 next_steps 也包含父节点的 decompose/decompose-accept/module-summary；GO 负责接受拆分，父 MO 负责拆分与当前版本汇总。不能只等待 status.modules（叶子），还必须检查 module_groups 和完整 module_rounds。
+
+## 上下文预检调度
+
+先读 context_gate/context_requirements。原操作因 context-readiness-required 未就绪时，宿主启动该角色只读预检，提交 context-submit 后重读 revision，再携 context_ref 执行原操作。不得因 ready=false 停止补上下文或提前审计；缺项由 MO 按自身证据明确挂起。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。

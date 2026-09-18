@@ -30,3 +30,5 @@ description: OpenSpec 六件套、plan 澄清冻结和 CR 影响分析，用于 
 实施补充：冻结前核实最小源码闭环（入口→事件/状态→数据/平台→可观察结果）和目标能力/依赖证据。把允许路线和禁止变化写入 decision_envelope；外部证据只引用 path/hash，不把源码全文复制进 OpenSpec。初始批准与当前执行版本分开记录，边界内任务修订仍经 MO 发布新 freeze。
 
 保持测试设计提前；本地 SPEC 定义须包含合法 delta heading 与 requirement/scenario。Ledger 自动物化六件套及动态视图；改变定义提交新 plan/CR，不直接改生成文件。
+
+复用目录与需求语义对齐后，把提供方、差异适配、接线和验证写进 design/tasks/checklist；以 stage-plan.reuse_plan_ref 冻结映射，原始需求仍控制验收。见 [二方库复用协议](../migration-protocol/references/reuse-dependencies.md)。

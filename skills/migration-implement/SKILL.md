@@ -28,3 +28,5 @@ description: 冻结任务驱动的 legacy 迁移、新架构实现和双向追�
 使用 [主要模板](../../template/implementation.md)；其他工件由 [模板索引](../../template/INDEX.md) 定位。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
 实施补充：依据 source_closure 和 target_feasibility 逐项闭合真实生产路径，检查入口、依赖注入、消费方和外部结果，不能以接口声明、样例实现或资源文件存在替代生产接线。提交 stage-result，带全部 TASK→文件追溯及 production_binding_evidence；优先恢复本角色原会话，始终重验当前 freeze。
+
+依据冻结的复用映射完成依赖/DI/生产接线与适配，提交 reuse_trace 和实际解析版本证据；不因外部源码可读便复制或修改整个来源项目。reference-only 与真实运行依赖明确区分。见 [二方库复用协议](../migration-protocol/references/reuse-dependencies.md)。

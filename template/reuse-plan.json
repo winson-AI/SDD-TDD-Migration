@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "module_id": "M001",
+  "catalog_ref": {"path": "{{absolute-reuse-catalog-path}}", "sha256": "{{sha256}}"},
+  "mappings": [
+    {
+      "mapping_id": "REUSE-M001-001",
+      "requirement_ids": ["REQ-GLOBAL-001"],
+      "capability_id": "CAP-SEARCH-001",
+      "decision": "adapt",
+      "rationale": "{{semantic-fit-and-selection-reason}}",
+      "behavior_delta": "{{matched-behavior-gaps-and-explicit-adaptations}}",
+      "binding_plan": "{{production-entry-DI-adapter-and-consumer}}",
+      "task_ids": ["TASK-M001-001"],
+      "path_ids": ["PATH-M001-001"],
+      "verification": "{{required-business-contract-boundary-error-and-real-provider-assertions}}",
+      "integration": {
+        "mode": "existing-target",
+        "locator": "{{target-module-api-or-package-coordinate}}",
+        "version": "{{resolved-version-or-source-tree-digest}}",
+        "configuration": "{{initialization-and-injection-or-explicit-none}}",
+        "transitive_dependencies": ["{{dependency-or-explicit-none}}"],
+        "compatibility": "{{verified-platform-framework-ABI-lifecycle-and-architecture-compatibility}}",
+        "evidence_refs": [{"path": "{{absolute-feasibility-and-resolution-evidence}}", "sha256": "{{sha256}}"}]
+      }
+    }
+  ]
+}

@@ -39,5 +39,9 @@
   "resume_policy": "prefer-original",
   "checkpoint_ref": null,
   "recovery_cycle": 0,
-  "owner_module_id": "M001"
+  "owner_module_id": "M001",
+  "context_ref": {
+    "path": "{{absolute-accepted-context-report}}",
+    "sha256": "{{sha256}}"
+  }
 }

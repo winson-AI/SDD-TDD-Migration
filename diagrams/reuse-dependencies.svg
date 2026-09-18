@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2270" viewBox="0 0 1600 2270" role="img" aria-labelledby="title desc">
+<title id="title">二方库 · 从功能语义到真实复用</title>
+<desc id="desc">复用能力辅助需求实现；业务要求控制验收，已有库的行为不能替代用户需求</desc>
+<style>text {font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;}</style>
+<defs>
+<marker id="arrow-blue" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#2563eb"/></marker>
+<marker id="arrow-orange" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#ea580c"/></marker>
+<marker id="arrow-green" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#059669"/></marker>
+<marker id="arrow-purple" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#7c3aed"/></marker>
+<marker id="arrow-gray" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#6b7280"/></marker>
+</defs>
+<rect width="1600" height="2270" fill="white"/>
+<text x="60" y="56" font-size="21.00" fill="#6b7280" text-anchor="start" font-weight="400">04  /  SDD-TDD-Migration</text>
+<text x="60" y="108" font-size="38.00" fill="#111827" text-anchor="start" font-weight="700">二方库 · 从功能语义到真实复用</text>
+<text x="60" y="145" font-size="21.00" fill="#6b7280" text-anchor="start" font-weight="400">复用能力辅助需求实现；业务要求控制验收，已有库的行为不能替代用户需求</text>
+<rect x="70" y="205" width="700" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="420.0" y="251.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">TARGET · 目标项目已有能力</text>
+<text x="420.0" y="285.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">业务模块 / 公共服务 / 已接入二方库及封装</text>
+<text x="420.0" y="314.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">自动纳入评估，优先检查生产实现，避免重复迁移</text>
+<rect x="830" y="205" width="700" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="1180.0" y="251.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">用户指定 · 其他项目模块</text>
+<text x="1180.0" y="285.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">reuse_sources：root / module_paths / 用途</text>
+<text x="1180.0" y="314.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">配置保存 → prepare 固化；源码只读，接入方式另行核验</text>
+<path d="M420,340 L420,395 L800,395" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M1180,340 L1180,395 L800,395" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M800,395 L800,450" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="400" y="450" width="800" height="160" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<rect x="405" y="455" width="790" height="150" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
+<text x="800.0" y="494.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">GO · 语义抽取与初始需求对齐</text>
+<text x="800.0" y="528.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">业务意图 / 输入输出 / 前置与状态 / 副作用 / 异常</text>
+<text x="800.0" y="557.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">公开 API / 版本 / 平台架构 / 传递依赖 / 生产调用链</text>
+<text x="800.0" y="586.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">reuse-catalog.json + 源码/API 证据与摘要 + 需求缺口</text>
+<path d="M800,610 L800,680" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="400" y="680" width="800" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<rect x="405" y="685" width="790" height="130" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
+<text x="800.0" y="729.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父 MO · 模块需求映射与统一分工</text>
+<text x="800.0" y="763.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">筛选适用能力，核对语义差异，统一共享适配 owner</text>
+<text x="800.0" y="792.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">分配子 scope + 复用上下文；记录提供方 / 消费方依赖</text>
+<path d="M800,820 L800,880" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="400" y="880" width="800" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="800.0" y="921.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO / Spec Designer · 逐需求决策</text>
+<text x="800.0" y="955.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">requirement → capability / decision → task → PATH</text>
+<text x="800.0" y="984.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">接线、差异、版本及验证进入 design/tasks 与 reuse-plan.json</text>
+<path d="M800,1005 L800,1060" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M225,1060 L1365,1060" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M225,1060 L225,1120" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="60" y="1120" width="330" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="225.0" y="1161.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">reuse · 直接使用</text>
+<text x="225.0" y="1195.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">语义和架构兼容</text>
+<text x="225.0" y="1224.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">真实接入现有能力</text>
+<path d="M225,1245 L225,1305" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M605,1060 L605,1120" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="440" y="1120" width="330" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="605.0" y="1161.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">adapt · 适配使用</text>
+<text x="605.0" y="1195.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">明确输入/状态等差异</text>
+<text x="605.0" y="1224.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">补适配 tasks 与回归</text>
+<path d="M605,1245 L605,1305" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M985,1060 L985,1120" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="820" y="1120" width="330" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="985.0" y="1161.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">reference · 仅参考</text>
+<text x="985.0" y="1195.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">提取可用的业务语义</text>
+<text x="985.0" y="1224.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">在目标架构内实现</text>
+<path d="M985,1245 L985,1305" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M1365,1060 L1365,1120" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="1200" y="1120" width="330" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="1365.0" y="1161.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">new · 自行实现</text>
+<text x="1365.0" y="1195.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">记录无匹配/拒绝理由</text>
+<text x="1365.0" y="1224.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实现需求剩余缺口</text>
+<path d="M1365,1245 L1365,1305" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M225,1305 L1365,1305" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M800,1305 L800,1365" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="400" y="1365" width="800" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="800.0" y="1394.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Plan 澄清 → 复用决策与 SPEC 一并冻结</text>
+<text x="800.0" y="1428.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">接入位置 / 版本 / 传递依赖 / 可行性证据齐备；未决问题先解决</text>
+<text x="800.0" y="1457.5" font-size="21.11" fill="#4b5563" text-anchor="middle" font-weight="400">stage-plan.reuse_plan_ref → reuse-plan.json → reuse-catalog.json</text>
+<text x="800.0" y="1486.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">用户需求控制验收；冻结 checklist 通过后才允许 Coding</text>
+<path d="M800,1495 L800,1555" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="400" y="1555" width="800" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="800.0" y="1589.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Implementer / Fixer · 上下文预检后按冻结映射 Coding</text>
+<text x="800.0" y="1623.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实际依赖 / 解析版本 / 初始化与 DI / 生产入口 / 差异适配</text>
+<text x="800.0" y="1652.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Task Trace + reuse_trace + 真实提供方绑定证据</text>
+<text x="800.0" y="1681.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">换库或改行为需 CR；引用外部来源不授予修改权限</text>
+<path d="M800,1695 L800,1765" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="400" y="1765" width="800" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="800.0" y="1799.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">代码经 MO 接受 → Testing 预检 → 验证完整业务</text>
+<text x="800.0" y="1833.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">正常 / 边界 / 异常 / 取消；真实提供方接线与适配差异</text>
+<text x="800.0" y="1862.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编译、导入或 mock 通过，不能代替必要的集成验证</text>
+<text x="800.0" y="1891.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">本模块可修复先一轮 Fixer；提供方/外围问题留证待 Auditor</text>
+<path d="M800,1905 L800,1970" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="400" y="1970" width="800" height="145" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
+<text x="800.0" y="2007.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">全量收尾后 → Auditor 跨模块验证</text>
+<text x="800.0" y="2041.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">定位 source / capability / mapping / version 与影响消费者</text>
+<text x="800.0" y="2070.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按依赖图修复和正式复测；失败保留根因待人工</text>
+<text x="800.0" y="2099.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全部必需路径与最终全局审计通过，才记录 Green</text>
+<rect x="60" y="690" width="290" height="255" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
+<text x="205.0" y="738.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">重要边界</text>
+<text x="205.0" y="772.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">API 同名不等于语义等价</text>
+<text x="205.0" y="801.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">候选不等于运行依赖</text>
+<text x="205.0" y="830.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">reference 不宣称已接库</text>
+<text x="205.0" y="859.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">复用不缩减验收范围</text>
+<text x="205.0" y="888.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">外部来源默认只读</text>
+<text x="205.0" y="917.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">未决业务边界交人工</text>
+<rect x="60" y="440" width="290" height="210" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
+<text x="205.0" y="480.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">来源评审门禁</text>
+<text x="205.0" y="514.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">声明来源不可用 → 阻塞</text>
+<text x="205.0" y="543.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不能当作无候选直接 new</text>
+<text x="205.0" y="572.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已评审且无匹配才选 new</text>
+<text x="205.0" y="601.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">保留搜索与拒绝理由</text>
+<text x="205.0" y="630.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">未决问题禁止冻结</text>
+<rect x="1250" y="690" width="290" height="255" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
+<text x="1395.0" y="724.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">接入可行性</text>
+<text x="1395.0" y="758.0" font-size="18.25" fill="#4b5563" text-anchor="middle" font-weight="400">existing-target / package</text>
+<text x="1395.0" y="787.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">source-module</text>
+<text x="1395.0" y="816.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">reference-only</text>
+<text x="1395.0" y="845.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">可读源码不等于可接入</text>
+<text x="1395.0" y="874.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核实定位 / 版本 / 平台</text>
+<text x="1395.0" y="903.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">证据绑定路径与 sha256</text>
+<text x="1395.0" y="932.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">稳定库不虚设待完成 MO</text>
+<rect x="1250" y="1535" width="290" height="195" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
+<text x="1395.0" y="1582.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">选中提供方证据变化</text>
+<text x="1395.0" y="1616.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">相关计划 / 旧测试失效</text>
+<text x="1395.0" y="1645.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅相关消费者回到规划</text>
+<text x="1395.0" y="1674.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">CR → 冻结 → 正式复测</text>
+<text x="1395.0" y="1703.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无关模块继续</text>
+<path d="M1540,1630 L1560,1630 L1560,1030 L1230,1030 L1230,945 L1200,945" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#arrow-purple)"/>
+<text x="800" y="2180" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">来源、目录、映射和绑定证据均经 Ledger；语义分析由 Agent 完成，结构校验不能证明行为等价。</text>
+<path d="M65,2220 L113,2220" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<text x="125" y="2227" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">流程推进</text>
+<path d="M345,2220 L393,2220" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
+<text x="405" y="2227" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">条件 / 阻塞</text>
+<path d="M625,2220 L673,2220" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
+<text x="685" y="2227" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">修复 / 恢复</text>
+<text x="1535" y="2227" font-size="18.00" fill="#6b7280" text-anchor="end" font-weight="400">所有交接均通过 Ledger；箭头不表示 Agent 私聊</text>
+</svg>

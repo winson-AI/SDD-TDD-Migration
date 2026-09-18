@@ -31,7 +31,7 @@ class WorkflowTests(unittest.TestCase):
         original = self.state()
         self.root = self.base / f'entry-run-{self.n}'
         return self.call('init', {**{key: original[key] for key in
-            ('target_root', 'legacy_root', 'case_ids', 'requirement_ids', 'global_spec', 'new_architecture', 'global_paths')},
+            ('context_readiness_required', 'target_root', 'legacy_root', 'case_ids', 'requirement_ids', 'global_spec', 'new_architecture', 'global_paths')},
             **config}, role='host')
 
     def register_entry_module(self, mid='M001', cases=None, dependencies=None):

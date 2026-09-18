@@ -11,7 +11,7 @@ description: /sdd-plan <run-id> <module-id> — 生成六件套并完成 plan �
 1. 读取 [AGENTS.md](../AGENTS.md)、[运行协议](../skills/migration-protocol/references/runtime.md)，解析参数为绝对路径及规范 ID。
 2. 前置门控：run/module 已注册；处于 context/specifying/clarifying/change-review 或等待澄清；持有当前 assignment。
 3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
-4. 由宿主向 Ledger 提交 plan_requested；收到 ACK 后派发对应角色。由 MO 派 Spec-Designer 与 Test-Runner design，冻结前请 Escalation 展示必须的人工决定；未获所需答案保存 waiting-human，已获批准且 hash 有效才冻结。
+4. 宿主先让父/子 MO 读取全局代码、架构、知识及分工。根功能先 decompose→GO decompose-accept，派独立子 MO；已拆分父节点只管理/汇总，不进入代码或测试。叶子由 MO 派 Spec-Designer 与 Test-Runner design，冻结前请 Escalation 展示必须的人工决定；未获所需答案保存 waiting-human，已获批准且 hash 有效才冻结。
 5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
 
 ## 3. 调用契约
@@ -40,3 +40,15 @@ status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接
 ## 本地实现接入
 
 Spec plan → host decision → MO freeze。具体 payload/命令用法见 [local-runtime.md](../skills/migration-protocol/references/local-runtime.md)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
+
+规划按三层分工推进：GO 分配模块 scope/context；父 MO 认领后拆子模块 scope/context；子 MO 拆 tasks 并组织正式六件套。父 decompose、子 plan 都绑定 status.planning_context 和 status.module_inputs 对应的 assigned_module，保留全局可读视野，执行限于分配范围。
+
+正式子 plan 必须提供 reuse_plan_ref：读取目标及已声明外部模块的能力目录，逐需求映射 reuse/adapt/reference/new 决策、tasks 与 PATH；无候选也记录来源评审和新实现理由。版本和生产接线方案一起冻结。见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
+
+## 上下文就绪门禁
+
+父 decompose 前提交 decomposition 预检，子 plan 前提交 planning 预检并绑定同一 plan_ref；GO decompose-accept / 子 MO freeze 再验原报告。缺项或证据失效时不得冻结。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+
+## 功能清单来源与完备性
+
+global-plan 需绑定 feature_inventory_ref 与 feature_owners；功能清单默认来自测试用例汇总，无汇总则先从源码抽取。父/子 MO 核对所属功能完整覆盖，疑问同步 boundary_review 并交人工；未分类、未决、遗漏归属不得接受规划。

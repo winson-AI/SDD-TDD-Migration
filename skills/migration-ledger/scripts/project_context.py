@@ -12,11 +12,13 @@ import re
 import sys
 import tempfile
 
+import reuse
+
 from contracts import require, digest, file_ref, check_ref, read_json
 
 FIELDS = {'package_root', 'legacy_root', 'target_root', 'architecture_path', 'requirements_path',
           'test_cases_path', 'project_rules_path', 'test_adapter', 'runtime', 'human_owner',
-          'escalation_timeout_hours', 'module_slicing', 'defaults'}
+          'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources'}
 DOCUMENTS = ('architecture_path', 'requirements_path', 'test_cases_path', 'project_rules_path')
 BUDGETS = {'max_parallel_modules': 3, 'max_fix_rounds': 3, 'max_audit_rounds': 3, 'max_no_progress_rounds': 2}
 
@@ -87,6 +89,11 @@ def merge(config, patch):
 
 def validate(config):
     require(isinstance(config, dict) and set(config) <= FIELDS, 'unknown project configuration field')
+    knowledge = config.get('knowledge_paths', [])
+    require(isinstance(knowledge, list) and all(isinstance(p, str) and Path(p).is_absolute() for p in knowledge),
+            'knowledge_paths must be absolute file paths')
+    if 'knowledge_paths' in config:
+        config['knowledge_paths'] = list(dict.fromkeys(str(Path(p).resolve()) for p in knowledge))
     for key in ('package_root', 'legacy_root', 'target_root') + DOCUMENTS:
         if key in config:
             require(isinstance(config[key], str) and Path(config[key]).is_absolute(), key + ' must be absolute')
@@ -94,6 +101,8 @@ def validate(config):
     if config.get('legacy_root') and config.get('target_root'):
         a, b = Path(config['legacy_root']), Path(config['target_root'])
         require(not (a.is_relative_to(b) or b.is_relative_to(a)), 'legacy/target overlap')
+    if 'reuse_sources' in config:
+        config['reuse_sources'] = reuse.normalize_sources(config['reuse_sources'], config.get('target_root'))
     defaults = config.get('defaults', {})
     require(isinstance(defaults, dict) and set(defaults) <= {'entry_mode', 'budgets', 'quality_gates', 'repair_policy'}, 'invalid defaults')
     require(defaults.get('entry_mode', 'project') == 'project', 'persistent default must remain project')
@@ -196,8 +205,8 @@ def prepared_input(ref):
     snapshot = verify_snapshot(ref); config = snapshot['effective_config']; sources = snapshot['source_refs']
     defaults = config.get('defaults', {})
     return {**{k: copy.deepcopy(config[k]) for k in ('package_root', 'legacy_root', 'target_root', 'test_adapter',
-                'runtime', 'human_owner', 'escalation_timeout_hours', 'module_slicing') if k in config},
-            'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
+                'runtime', 'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources') if k in config},
+            'context_readiness_required': True, 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
             'module_name': snapshot['module_name'], 'project_context_ref': ref, 'project_sources': sources,
             'new_architecture': sources['architecture_path'], 'global_spec': None, 'global_test_cases': [],
             'requirement_ids': [], 'global_test_paths': [],
@@ -237,11 +246,14 @@ def prepare(root, run_root, request, actor):
         for key in ('legacy_root', 'target_root'):
             require(key in effective and Path(effective[key]).is_dir(), 'missing directory: ' + key)
         require(effective.get('architecture_path'), 'architecture_path required before prepare')
+        reuse.normalize_sources(effective.get('reuse_sources', []), effective['target_root'], existing=True)
         files = run_root / 'context/files'
         sources = {key: copy_ref(files, file_ref(effective[key])) for key in DOCUMENTS if effective.get(key)}
+        if 'knowledge_paths' in effective:
+            sources['knowledge_paths'] = [copy_ref(files, file_ref(path)) for path in effective['knowledge_paths']]
         effective = freeze_refs(files, effective)
         for key, source in sources.items():
-            effective[key] = source['path']
+            effective[key] = [ref['path'] for ref in source] if isinstance(source, list) else source['path']
         adapter = effective.get('test_adapter', {})
         if adapter.get('environment_ref'):
             sources['test_environment'] = copy_ref(files, file_ref(adapter['environment_ref']))
@@ -269,10 +281,14 @@ def bind_run(ref, run_root, run_id, payload):
     require(payload.get('entry_mode', 'project') == snapshot['entry_mode'] and
             payload.get('module_name') == snapshot['module_name'], 'run/config scope mismatch')
     require(payload.get('new_architecture') == snapshot['source_refs']['architecture_path'], 'run must use frozen architecture')
+    if 'reuse_sources' in payload:
+        require(payload['reuse_sources'] == config.get('reuse_sources', []), 'run/config reuse sources mismatch')
     budgets = config.get('defaults', {}).get('budgets', {})
     for key, fallback in BUDGETS.items():
         require(payload.get(key, fallback) == budgets.get(key, fallback), 'run/config budget mismatch: ' + key)
-    return {'project_context_ref': ref, 'project_id': snapshot['project_id'],
+    require(payload.get('context_readiness_required', True) is True, 'prepared run requires context readiness')
+    return {'context_readiness_required': True, 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
+            'project_context_ref': ref, 'project_id': snapshot['project_id'],
             'project_revision': snapshot['project_revision'], 'module_name': snapshot['module_name']}
 
 

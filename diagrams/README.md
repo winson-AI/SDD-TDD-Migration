@@ -1,0 +1,37 @@
+# 迁移流程图
+
+按当前三层编排重新整理。先看总览，再按需要展开子 MO、Auditor 或二方库复用；SVG 可放大，PNG 便于分享。
+
+| 图 | 关注点 | SVG | PNG |
+| --- | --- | --- | --- |
+| 01 · 三层编排总览 | GO 分配模块 scope/context；父 MO 拆子模块；子 MO 拆 tasks；独立并行与全量收尾 | [总览](workflow.svg) | [总览](workflow.png) |
+| 02 · 子 MO 执行与首轮修复 | SPEC/测试设计 → 澄清冻结 → Coding → Testing → 一轮 Fixer → 复测/DoD 或明确挂起 | [子 MO](module-execution.svg) | [子 MO](module-execution.png) |
+| 03 · Auditor 跨模块处理 | 收集遗留、SPEC/路径与根因路由、Fixer/Testing、失败待人工、最终独立审计 | [Auditor](auditor-closure.svg) | [Auditor](auditor-closure.png) |
+| 04 · 二方库语义与复用 | 来源评审 → 语义抽取 → 四类复用决策 → 冻结 → Coding → 真实依赖验证；版本变化后的恢复 | [二方库](reuse-dependencies.svg) | [二方库](reuse-dependencies.png) |
+
+## 阅读约定
+
+- 总览以 project 的多个父模块举例；single-module 只保留选定根模块及其父 MO，子功能仍由独立子 MO 执行。
+- 功能列表默认从测试用例汇总抽取；没有汇总则先理解存量源码、完整列出功能，再生成需求/测试草案。两种方式都要对照源码查漏，任何疑问立即人工介入；功能清单与逐模块归属通过 global-plan 门禁。
+- GO 在目标已有能力与指定外部来源中提取语义目录，结合模块需求形成复用与缺口任务；父/子 MO 逐层细化，验证真实接线与行为等价。
+- 先评审来源与接入可行性，再选择 reuse / adapt / reference / new，并将映射与 SPEC 一起冻结。声明来源不可用是阻塞，不能视作“已评审但无匹配”而直接新实现。
+- 选中提供方或接入证据变化时，相关计划与旧测试证据失效；受影响消费者经影响分析、CR/重规划、重新冻结和正式复测恢复，无关模块继续。外部源码默认只读，无修改授权的问题走人工路由。
+- GO 分配根模块范围和所需上下文，父 MO 在认领范围内继续分配子范围和上下文，子 MO 基于子范围拆 tasks。父子均保留全局代码、架构、知识的读取视野。
+- 箭头表示经 Ledger 的交接或控制关系，不表示 Agent 私聊。宿主实际启动/恢复实例、绑定模块、加载 Used Skills；分配包不自行产生执行权限。
+- 子 MO 独立运行。父 MO 持续看护范围、覆盖、复用与依赖，并等待全部孩子收尾；一个 Red/Yellow 不结束无关模块。
+- 本轮收尾允许基于自身证据明确挂起，但不能将排队、写锁等待或 worker 退出视为已收尾。全部子 MO 收尾、父汇总有效、无在途 worker 与可推进动作后，GO 才统一启动 Auditor。
+- 图 03 展开有遗留的问题审计。无遗留且全部 DoD 完成时直接进入最终独立审计；依赖图决定具体修复与验证顺序，不能把图中的角色列表理解为强制先后顺序。
+- Green 不需新增人工会签；人工参与澄清冻结、跨模块/不确定边界、失败恢复与交付授权。SPEC 修改、依赖恢复或人工批准均不能直接将测试改成 Green。
+- 上下文预检已进入 GO 发现/覆盖规划、父拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发及 Auditor 分析/裁决/最终测试。执行者先只读核对并提交 `context-submit`，原节点验收后推进；缺项或过期阻止相关阶段，不消耗修复预算、不提前收尾。
+
+## 依据与再生成
+
+以 [三层作用域协议](../skills/migration-protocol/references/module-decomposition.md)、[状态机](../skills/migration-protocol/references/state-machine.md)、[上下文就绪协议](../skills/migration-protocol/references/context-readiness.md)、[二方库复用协议](../skills/migration-protocol/references/reuse-dependencies.md)、[本地运行契约](../skills/migration-protocol/references/local-runtime.md) 为准。
+
+源文件为 [generate_workflows.py](generate_workflows.py)。在包目录执行：
+
+```sh
+python3 diagrams/generate_workflows.py
+```
+
+需要 Python 3 与 `rsvg-convert`；生成四个 SVG 及宽 1920px 的 PNG。修改布局后需重新查看 PNG，核对箭头端点、文字和业务分支。

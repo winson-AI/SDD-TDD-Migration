@@ -23,5 +23,7 @@
       "confirmed_dependency_or_peripheral": "defer-to-auditor",
       "after_failed_round": "defer-to-auditor"
     }
-  }
+  },
+  "knowledge_paths": [],
+  "reuse_sources": []
 }

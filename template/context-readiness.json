@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "run_id": "{{run-id}}",
+  "module_id": "M001",
+  "stage": "coding",
+  "producer": {
+    "role": "implementer",
+    "instance_id": "{{host-bound-instance}}"
+  },
+  "subject_sha256": "{{status.context_requirements.M001.coding.subject_sha256}}",
+  "read_refs": [
+    {
+      "path": "{{absolute-evidence-path}}",
+      "sha256": "{{sha256}}"
+    }
+  ],
+  "checks": {
+    "frozen-spec": {
+      "status": "blocked",
+      "summary": "{{what-was-reviewed-and-understood}}",
+      "evidence_refs": [],
+      "missing": [
+        "{{required-material-or-condition}}"
+      ],
+      "owner": "{{responsible-role-or-module}}",
+      "next_action": "{{how-to-supply-or-resolve}}"
+    },
+    "task-trace": {
+      "status": "blocked",
+      "summary": "{{what-was-reviewed-and-understood}}",
+      "evidence_refs": [],
+      "missing": [
+        "{{required-material-or-condition}}"
+      ],
+      "owner": "{{responsible-role-or-module}}",
+      "next_action": "{{how-to-supply-or-resolve}}"
+    },
+    "source-closure": {
+      "status": "blocked",
+      "summary": "{{what-was-reviewed-and-understood}}",
+      "evidence_refs": [],
+      "missing": [
+        "{{required-material-or-condition}}"
+      ],
+      "owner": "{{responsible-role-or-module}}",
+      "next_action": "{{how-to-supply-or-resolve}}"
+    },
+    "target-feasibility": {
+      "status": "blocked",
+      "summary": "{{what-was-reviewed-and-understood}}",
+      "evidence_refs": [],
+      "missing": [
+        "{{required-material-or-condition}}"
+      ],
+      "owner": "{{responsible-role-or-module}}",
+      "next_action": "{{how-to-supply-or-resolve}}"
+    },
+    "interfaces-ownership": {
+      "status": "blocked",
+      "summary": "{{what-was-reviewed-and-understood}}",
+      "evidence_refs": [],
+      "missing": [
+        "{{required-material-or-condition}}"
+      ],
+      "owner": "{{responsible-role-or-module}}",
+      "next_action": "{{how-to-supply-or-resolve}}"
+    },
+    "reuse-mapping": {
+      "status": "blocked",
+      "summary": "{{what-was-reviewed-and-understood}}",
+      "evidence_refs": [],
+      "missing": [
+        "{{required-material-or-condition}}"
+      ],
+      "owner": "{{responsible-role-or-module}}",
+      "next_action": "{{how-to-supply-or-resolve}}"
+    },
+    "permissions-tools": {
+      "status": "blocked",
+      "summary": "{{what-was-reviewed-and-understood}}",
+      "evidence_refs": [],
+      "missing": [
+        "{{required-material-or-condition}}"
+      ],
+      "owner": "{{responsible-role-or-module}}",
+      "next_action": "{{how-to-supply-or-resolve}}"
+    }
+  },
+  "verdict": "blocked"
+}

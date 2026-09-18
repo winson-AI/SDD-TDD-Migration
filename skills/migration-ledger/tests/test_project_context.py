@@ -54,6 +54,63 @@ class ProjectContextTests(unittest.TestCase):
         return ledger.apply(root or self.run, {'schema_version': 1, 'request_id': 'ledger-init', 'run_id': 'r1',
                         'operation': 'init', 'module_id': None, 'expected_revision': 0, 'payload': payload}, self.actor)
 
+    def test_reuse_sources_are_saved_frozen_updated_and_visible(self):
+        library = self.base / 'library'; library.mkdir()
+        module = library / 'search'; module.mkdir()
+        declared = [{'source_id': 'LIB', 'root': str(library), 'module_paths': [str(module)], 'description': 'Search capability'}]
+        pc.update(self.root, self.request('reuse', 1, {'reuse_sources': declared}), self.actor)
+        prepared = self.prepare()
+        pc.update(self.root, self.request('remove-reuse', 2, {'reuse_sources': []}), self.actor)
+        self.assertEqual(prepared['input']['reuse_sources'], declared)
+        self.assertEqual(self.prepare()['input']['reuse_sources'], declared)
+        self.start(self.init_payload(prepared))
+        sources = ledger.status(self.run)['planning_context']['reuse_sources']
+        self.assertEqual([s['source_id'] for s in sources], ['TARGET', 'LIB'])
+        self.assertEqual(sources[1]['module_paths'], [str(module)])
+        next_run = pc.prepare(self.root, self.base / 'runs/r2', self.run_request('r2'), self.actor)
+        self.assertEqual(next_run['input']['reuse_sources'], [])
+
+    def test_prepared_run_requires_context_readiness(self):
+        prepared = self.prepare()
+        self.assertTrue(prepared['input']['context_readiness_required'])
+        payload = self.init_payload(prepared)
+        payload['context_readiness_required'] = False
+        with self.assertRaisesRegex(Rejected, 'requires context readiness'):
+            self.start(payload)
+        payload.pop('context_readiness_required')
+        self.start(payload)
+        self.assertTrue(ledger.status(self.run)['context_readiness_required'])
+
+    def test_reuse_sources_reject_escape_duplicates_and_input_override(self):
+        library = self.base / 'library'; library.mkdir()
+        source = {'source_id': 'LIB', 'root': str(library), 'module_paths': [str(library)]}
+        for sources in ([source, source], [{**source, 'source_id': 'TARGET'}],
+                        [{**source, 'module_paths': [str(self.target)]}], [{**source, 'root': 'relative'}]):
+            with self.assertRaises(Rejected):
+                pc.update(self.root, self.request('bad-reuse', 1, {'reuse_sources': sources}), self.actor)
+        pc.update(self.root, self.request('reuse', 1, {'reuse_sources': [source]}), self.actor)
+        prepared = self.prepare(); payload = self.init_payload(prepared); payload['reuse_sources'] = []
+        with self.assertRaisesRegex(Rejected, 'reuse sources mismatch'):
+            self.start(payload)
+
+    def test_global_knowledge_is_frozen_and_visible_to_module_planning(self):
+        knowledge = self.base / 'knowledge.md'
+        knowledge.write_text('shared domain contracts v1')
+        pc.update(self.root, self.request('knowledge', 1, {'knowledge_paths': [str(knowledge)]}), self.actor)
+        result = self.prepare()
+        ref = result['input']['project_sources']['knowledge_paths'][0]
+        knowledge.write_text('shared domain contracts v2')
+        self.assertEqual(check_ref(ref).read_text(), 'shared domain contracts v1')
+        self.start(self.init_payload(result))
+        context = ledger.status(self.run)['planning_context']
+        self.assertEqual(context['project_sources']['knowledge_paths'], [ref])
+        self.assertEqual(context['legacy_root'], str(self.legacy))
+        self.assertEqual(context['target_root'], str(self.target))
+        self.assertEqual(context['new_architecture'], result['input']['new_architecture'])
+        check_ref(ref).write_text('tampered snapshot')
+        with self.assertRaises(Rejected):
+            ledger.status(self.run)
+
     def test_initialize_incremental_update_delete_and_history(self):
         pc.update(self.root, self.request('change', 1, {'test_adapter': {'args': ['other.py']},
                   'defaults': {'budgets': {'max_fix_rounds': 4}}, 'project_rules_path': str(self.arch)}), self.actor)

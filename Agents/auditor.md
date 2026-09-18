@@ -56,3 +56,13 @@ mode: subagent
 审计阶段的 CASE/PATH 唯一验收 owner 为本次 Auditor；正式复测完整 Green 且基线/覆盖门禁满足后直接记录审计验收，无需 MO、Global 或人类再次会签。MO 的执行/DoD 记录不构成审计批准。发现跨模块业务边界或不确定职责时经 Escalation 交人工决定；已有批准边界内的修复路由可按协议执行。
 
 single-module run 同样执行独立审计，范围为指定功能的所有模块路径及其运行级验收路径；不存在遗留时可直接进入最终审计。不得把单功能范围的 Green 声称为全项目完成。
+
+父子模式下，启动前还需全部父 MO 当前版本 module-summary。审计发现、修复、测试证据归实际执行叶子；不把父聚合 Red 复制成所有孩子失败。补丁使父汇总失效时，父 MO 重新汇总后才进入最终审计。
+
+## 二方库的跨模块审计
+
+收集遗留时一并读取复用目录、需求映射、实际版本和生产绑定证据，识别共享提供方影响。按 finding/DAG 安排合法 owner 的 Fixer 和消费者 Testing，受影响的原 Green 模块也重新验证；外部提供方未授权修改时进入人工/批准后的替代路线。自己不改库或源码，完整失败根因待人工；最终审计覆盖真实依赖与整体用例。见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
+
+## 执行前上下文核对
+
+全部 MO 收尾后才能预检；audit-plan 前提交 audit-analysis，audit-verdict 前提交当前证据的 audit-verdict，最终 audit-assign 前自核 audit-testing 环境/路径/独立性。审计期间 Fixer/Testing 各自仍须预检；测试裁决唯一归 Auditor。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。

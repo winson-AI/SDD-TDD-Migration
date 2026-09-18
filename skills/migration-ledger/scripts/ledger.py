@@ -12,7 +12,10 @@ import sys
 
 import workflow
 import audit_closure
+import decomposition
+import reuse
 import project_context
+import context_readiness
 from openspec_projection import materialize
 
 from contracts import (Rejected, baseline, check_ref, digest, file_ref, keyed, nonempty,
@@ -43,9 +46,11 @@ def refresh(s):
         qualities = [p['quality'] for p in m['results'].values()] + [p['quality'] for p in m.get('repair_findings', {}).values()]
         m['quality'] = ('red-bug' if 'red-bug' in qualities else
                         'green-passed' if m['phase'] == 'completed' and not m['stale'] else 'yellow-blocked')
+    decomposition.refresh_groups(s)
     mods = list(s['modules'].values())
     s['quality'] = ('red-bug' if any(m['quality'] == 'red-bug' for m in mods) or s.get('audit', {}).get('quality') == 'red-bug' else
                     'green-passed' if mods and all(m['quality'] == 'green-passed' for m in mods)
+                    and all(decomposition.summary_current(s, group) for group in s.get('module_groups', {}).values())
                     and s.get('audit', {}).get('quality') == 'green-passed' else 'yellow-blocked')
 
 
@@ -73,6 +78,8 @@ def project(root, s, sequence):
     atomic(root / 'ledger/global.json', {**s, 'last_sequence': sequence})
     for mid, m in s['modules'].items():
         atomic(root / f'ledger/modules/{mid}.json', {**m, 'last_sequence': sequence})
+    for mid, group in s.get('module_groups', {}).items():
+        atomic(root / f'ledger/modules/{mid}.json', {**group, 'last_sequence': sequence})
     materialize(root, {**s, 'projection_steps': {mid: next_step(s, m) for mid, m in s['modules'].items()}}, sequence)
 
 
@@ -167,6 +174,8 @@ def pending_repairs(s):
 
 def dispatch_guard(s, m, worker):
     workflow.planning_guard(s)
+    if m.get('parent_module_id'):
+        decomposition.check_module_plan(s, m, m['plan'])
     if audit_closure.active(s):
         b = s['audit_batch']
         require(b['status'] == 'repairing' and m.get('audit_batch_id') == b['batch_id'], 'audit closure owns dispatch; human review may be required')
@@ -208,7 +217,7 @@ def resume_guard(s, m, p):
         current(m)
 
 
-def next_step(s, m):
+def _next_step(s, m):
     """Derived dispatch guidance only; every mutation must still pass its own guards."""
     batch_step = audit_closure.module_step(s, m)
     if batch_step is not None:
@@ -248,6 +257,10 @@ def next_step(s, m):
         step.update(operation='accept' if submitted else 'await-result',
                     role='module-orchestrator' if submitted else active['role'], ready=submitted,
                     reason=None if submitted else 'worker-running')
+    elif m.get('decomposition_submission'):
+        step.update(operation='decompose-accept', role='global-orchestrator', ready=True)
+    elif m.get('decomposition_required') and m['phase'] in ('context', 'specifying', 'clarifying'):
+        step.update(operation='decompose', role='module-orchestrator', ready=True)
     elif m['phase'] in ('completed', 'testing') and any(m['module_id'] in r.get('module_ids', []) and m['module_id'] not in r.get('accepted_by', [])
              for r in pending_repairs(s).values()):
         step.update(operation='repair-accept', role='module-orchestrator', ready=True,
@@ -321,6 +334,10 @@ def next_step(s, m):
     return step
 
 
+def next_step(s, m):
+    return context_readiness.annotate(s, m['module_id'], _next_step(s, m))
+
+
 def new_module(p):
     require(re.fullmatch(r'M[0-9]{3,}', p.get('module_id', '')), 'invalid module id')
     nonempty(p.get('case_ids'), 'module cases')
@@ -348,15 +365,24 @@ def mutate(s, req, principal, events):
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')
     global_ops = {'register', 'decision', 'audit-assign', 'audit', 'audit-revoke', 'audit-route'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS
+    if op == 'context-submit' and mid is None:
+        global_ops.add(op)
     require((mid is None) == (op in global_ops), 'operation has incorrect global/module scope')
-    m = s['modules'].get(mid)
+    m = s['modules'].get(mid) or s.get('module_groups', {}).get(mid)
     if mid:
         require(m is not None, 'module not registered')
+        if mid in s.get('module_groups', {}):
+            require(op in ('module-summary', 'session'), 'parent MO only coordinates/summarizes; execute code and tests in child modules')
     if workflow.audit_active(s) and op not in ('audit', 'problem-audit', 'audit-revoke', 'decision'):
         raise Rejected('audit snapshot locked; close or revoke audit before mutation')
-    if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'revoke', 'session'}:
+    if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'revoke', 'session', 'module-summary', 'context-submit'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
-    if op in audit_closure.OPS:
+    context_readiness.gate(s, req, principal)
+    if op == 'context-submit':
+        context_readiness.submit(s, req, principal)
+    elif op in decomposition.OPERATIONS:
+        decomposition.handle(s, req, principal)
+    elif op in audit_closure.OPS:
         audit_closure.handle(s, req, principal)
     elif op in workflow.OPERATIONS:
         workflow.handle(s, req, principal)
@@ -366,13 +392,19 @@ def mutate(s, req, principal, events):
         role(principal, 'global-orchestrator')
         mid = p['module_id']
         if s.get('entry_mode', 'project') == 'single-module':
-            require(mid == s['single_module_id'] and not s['modules'], 'single-module run only permits the selected module')
-            require(not p.get('dependencies'), 'single-module input must be independent')
+            # Direct registration selects the root; accepted MO decomposition
+            # registers its children (and their internal DAG) atomically.
+            require(mid == s['single_module_id'] and not s['modules'], 'single-module run only permits the selected module as a root; register children via decompose-accept')
+            require(not p.get('dependencies'), 'single-module input must be independent of other roots; internal child dependencies are allowed')
             require(set(p.get('case_ids', [])) == set(s['case_ids']), 'single-module case coverage mismatch')
-        require(mid not in s['modules'], 'module already registered')
+        require(mid not in s['modules'] and mid not in s.get('module_groups', {}), 'module already registered')
         require(set(p.get('dependencies', [])) <= set(s['modules']), 'register dependencies first; cycles/missing modules forbidden')
         require(set(p['case_ids']) <= set(s['case_ids']), 'unknown global case')
         require(all(Path(x).resolve().is_relative_to(Path(s['target_root'])) for x in p['write_paths']), 'write scope outside target')
+        require(not p.get('parent_module_id'), 'register GO root modules; children require decompose-accept')
+        if p.get('decomposition_required'):
+            decomposition.check_scope(p)
+            require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in root scope')
         s['modules'][mid] = new_module(p)
         s['global_plan'] = None
     elif op == 'decision':
@@ -383,9 +415,14 @@ def mutate(s, req, principal, events):
         s['decisions'][p['decision_id']] = {**p, 'consumed': False}
     elif op == 'plan':
         role(principal, 'spec-designer')
+        require(not m.get('decomposition_required') and not m.get('decomposition_submission'), 'finish MO decomposition before leaf SPEC planning')
         require(m['phase'] in ('context', 'specifying', 'clarifying', 'change-review'), 'plan not editable in this phase')
         plan = read_json(check_ref(p['plan_ref']))
+        if m.get('parent_module_id'):
+            decomposition.check_module_plan(s, m, plan)
         plan_hash = validate_plan(plan, m)
+        if m.get('parent_module_id') or s.get('reuse_required') or plan.get('reuse_plan_ref'):
+            reuse.validate_plan(plan, m, reuse.sources(s), s['modules'])
         occupied = {path['path_id'] for path in s['global_paths']}
         occupied.update(path['path_id'] for other in s['modules'].values() if other['module_id'] != mid
                         and other.get('plan') for path in other['plan']['paths'])
@@ -394,7 +431,10 @@ def mutate(s, req, principal, events):
         m.update(plan=plan, plan_ref=p['plan_ref'], plan_hash=plan_hash, phase='clarifying')
     elif op == 'freeze':
         role(principal, 'module-orchestrator')
+        if m.get('parent_module_id'):
+            decomposition.check_module_plan(s, m, m['plan'])
         require(m['phase'] == 'clarifying' and not m.get('blocked'), 'freeze requires unblocked clarifying')
+        verify_plan(m['plan'])
         require(validate_plan(m['plan'], m) == m['plan_hash'], 'plan changed')
         decision = s['decisions'].get(p.get('decision_id'), {})
         if p.get('change_class') == 'within-envelope':
@@ -501,7 +541,17 @@ def mutate(s, req, principal, events):
         require(p.get('reason') and p.get('root_cause') and p.get('owner'), 'structured blocker required')
         require(p.get('kind') in ('dependency', 'human', 'tooling'), 'invalid blocker')
         require(not any(not a.get('closed') for a in m['assignments'].values()), 'stop/revoke workers before suspension')
+        blocked_on = []
+        if p['kind'] == 'dependency':
+            for dep in m['dependencies']:
+                try:
+                    dependencies_ready(s, {'dependencies': [dep]})
+                except (Rejected, OSError):
+                    blocked_on.append(dep)
+            require(blocked_on, 'dependency suspension requires an unavailable registered dependency; peer failure is not a blocker')
         m['blocked'] = {**p, 'resume_phase': m['phase']}
+        if blocked_on:
+            m['blocked']['dependency_module_ids'] = blocked_on
         m['phase'] = 'waiting-dependency' if p['kind'] == 'dependency' else 'waiting-human'
     elif op == 'dependency-ready':
         role(principal, 'global-orchestrator')
@@ -579,6 +629,7 @@ def mutate(s, req, principal, events):
     elif op == 'audit-assign':
         role(principal, 'global-orchestrator')
         workflow.planning_guard(s)
+        require(not audit_closure.collection_blockers(s), 'all module rounds must settle before Auditor')
         require(not audit_closure.active(s), 'audit closure incomplete')
         require(not s.get('audit_queue'), 'problem audit queue unresolved')
         require(not pending_repairs(s), 'audit repairs require routing and MO acceptance')
@@ -732,7 +783,12 @@ def apply(root, req, principal):
                 check_ref(p.get(field))
             nonempty(p.get('requirement_ids'), 'global requirements')
             require(len(set(p['requirement_ids'])) == len(p['requirement_ids']), 'duplicate global requirement')
-            s = {'entry_mode': entry_mode, 'single_module_id': selected_module,
+            reuse_sources = reuse.normalize_sources(p.get('reuse_sources', []), p['target_root'], existing=True)
+            require(type(p.get('reuse_required', False)) is bool, 'reuse_required must be boolean')
+            require(type(p.get('context_readiness_required', True)) is bool, 'context_readiness_required must be boolean')
+            s = {'context_readiness_required': p.get('context_readiness_required', True),
+                 'reuse_sources': reuse_sources, 'reuse_required': bool(reuse_sources) or p.get('reuse_required', False),
+                 'entry_mode': entry_mode, 'single_module_id': selected_module,
                  'global_spec': p['global_spec'], 'new_architecture': p['new_architecture'], 'requirement_ids': p['requirement_ids'],
                  'global_plan': None, 'audit_queue': {}, 'run_id': req['run_id'], 'revision': 1, 'target_root': str(Path(p['target_root']).resolve()),
                  'legacy_root': str(Path(p['legacy_root']).resolve()), 'case_ids': p['case_ids'],
@@ -752,7 +808,7 @@ def apply(root, req, principal):
                 require(not (root / 'context/snapshot.json').exists(), 'prepared run requires project_context_ref')
         else:
             require(s and req.get('run_id') == s['run_id'], 'run mismatch')
-            scope = s['modules'].get(req.get('module_id')) if req.get('module_id') else s
+            scope = (s['modules'].get(req.get('module_id')) or s.get('module_groups', {}).get(req.get('module_id'))) if req.get('module_id') else s
             require(scope is not None and req.get('expected_revision') == scope['revision'], 'stale revision')
             mutate(s, req, principal, events)
         # Store immutable event facts, not a second mutable state authority.
@@ -789,8 +845,11 @@ def status(root):
                 except (Rejected, OSError) as exc:
                     observed.append({'module_id': mid, 'reason': str(exc)})
                     m['effective_quality'] = 'yellow-blocked'
+        decomposition.refresh_groups(s)
         project(root, s, len(events))
         cursor = [next_step(s, m) for m in s['modules'].values()]
+        cursor += [decomposition.group_step(s, group) for group in s.get('module_groups', {}).values()]
+        rounds = audit_closure.module_rounds(s, cursor)
         audit = s.get('audit_assignment', {})
         if audit_closure.active(s):
             global_next = audit_closure.global_step(s)
@@ -802,12 +861,17 @@ def status(root):
                            'assignment_id': audit['assignment_id'], 'ready': False,
                            'reason': 'audit-running' if fresh else 'audit-snapshot-stale'}
         elif not s.get('global_plan'):
-            global_next = {'operation': 'global-plan', 'role': 'global-orchestrator', 'ready': bool(s['modules']), 'reason': 'coverage-review-required'}
+            splitting = any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values())
+            global_next = {'operation': None if splitting else 'global-plan', 'role': 'global-orchestrator',
+                           'ready': bool(s['modules']) and not splitting,
+                           'reason': 'module-decomposition-required' if splitting else 'coverage-review-required',
+                           'continue_modules': rounds['ready_modules']}
         elif audit_closure.leftovers(s):
-            blockers = audit_closure.collection_blockers(s)
-            global_next = {'operation': 'audit-collect', 'role': 'global-orchestrator', 'ready': not blockers,
+            blockers = rounds['blockers']
+            global_next = {'operation': None if blockers else 'audit-collect', 'role': 'global-orchestrator', 'ready': not blockers,
                            'reason': 'await-all-module-rounds' if blockers else 'collect-all-leftovers',
-                           'module_barrier': blockers}
+                           'module_barrier': blockers, 'continue_modules': rounds['ready_modules'],
+                           'wait_for_modules': rounds['active_modules']}
         elif pending_repairs(s):
             unassigned = [pid for pid, item in pending_repairs(s).items() if not item['module_ids']]
             global_next = {'operation': 'audit-route' if unassigned else None, 'role': 'global-orchestrator',
@@ -816,13 +880,20 @@ def status(root):
         elif s['quality'] == 'green-passed' and not observed:
             global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'await-delivery-authorization'}
         elif cursor and all(m['phase'] == 'completed' for m in s['modules'].values()) and not observed:
-            ready = bool(s.get('global_paths')) and s.get('audit_attempts', 0) < s['max_audit_rounds']
-            global_next = {'operation': 'audit-assign', 'role': 'global-orchestrator', 'ready': ready,
-                           'reason': None if ready else 'audit-design-or-budget-missing'}
+            ready = rounds['all_settled'] and bool(s.get('global_paths')) and s.get('audit_attempts', 0) < s['max_audit_rounds']
+            global_next = {'operation': 'audit-assign' if rounds['all_settled'] else None, 'role': 'global-orchestrator', 'ready': ready,
+                           'reason': 'await-parent-summaries' if not rounds['all_settled'] else None if ready else 'audit-design-or-budget-missing',
+                           'continue_modules': rounds['ready_modules']}
         else:
             global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'module-work-remaining'}
-        return {**s, 'last_sequence': len(events), 'observed_invalidations': observed,
-                'next_steps': cursor, 'global_next_step': global_next, 'ready_modules': [x['module_id'] for x in cursor if x['ready']],
+        global_next = context_readiness.annotate(s, None, global_next)
+        return {**s, 'context_requirements': context_readiness.requirements(s),
+                'last_sequence': len(events), 'observed_invalidations': observed,
+                'next_steps': cursor, 'global_next_step': global_next, 'ready_modules': rounds['ready_modules'],
+                'module_rounds': rounds,
+                'planning_context': decomposition.planning_context(s),
+                'module_inputs': {mid: decomposition.assigned_module(s, m) for mid, m in
+                                  {**s.get('module_groups', {}), **s['modules']}.items()},
                 'quality': 'yellow-blocked' if observed and s['quality'] != 'red-bug' else s['quality']}
 
 

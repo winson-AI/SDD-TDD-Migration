@@ -30,3 +30,5 @@ description: 只读根因、依赖链与生成代码缺陷归因，用于 SDD-TD
 诊断补充：反馈必须包含 owner_module_id、owner_role、根因置信度、source/target 证据、受影响 PATH、建议 next_action 与是否可能改变 decision_envelope。owner 表示路由建议，MO 审核后派发，不赋予诊断者修改权限。
 
 本地 diagnose 仅提交报告；MO diagnosis-accept 核验问题版本后推进阶段。诊断者不能自批，活动 worker 未关闭时不得提交。
+
+二方库问题沿需求→能力映射→提供方版本→调用链→PATH 只读追踪，区分接线/适配缺陷与提供方/外围阻塞，保留影响消费者与根因证据。见 [复用协议](../migration-protocol/references/reuse-dependencies.md)。
