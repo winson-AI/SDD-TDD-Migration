@@ -44,3 +44,5 @@ Auditor 跨模块收尾使用 audit-work/audit-retest；守住负责模块与发
 父子分工：GO 划分模块 scope/所需上下文；父 MO 读取全局规划上下文、认领 status.module_inputs 分配包，在获分配范围内拆子模块 scope/context 并 decompose；GO decompose-accept 后启动独立子 MO。父 MO 管理范围、覆盖与依赖，逐个等候子 MO，并 module-summary 汇总；子 MO 基于子 scope/context 拆 tasks，不再创建 MO，各自冻结、编码、测试与验收。规划须绑定 assigned_module，不能自行扩大范围。父子均需读取全局存量/目标代码、架构、知识及最新分工，优先复用目标已有能力，写权限仍按本模块 scope/锁。必读 [父子 MO 与规划上下文](../migration-protocol/references/module-decomposition.md)。
 
 父 MO 将能力目录映射到模块需求，统一共享适配并分发子上下文；子 MO 冻结逐需求的 reuse/adapt/reference/new 决策及 task/PATH 映射，验收实际接线和完整测试。详见 [二方库复用协议](../migration-protocol/references/reuse-dependencies.md)。
+
+Test-Runner 按 test_scope 先 build 后 automation；环境缺测通过 automation-unavailable 明确本轮收尾，下游代码调度与 Green 验收分开。读取 [双环节协议](../migration-protocol/references/build-automation.md)。

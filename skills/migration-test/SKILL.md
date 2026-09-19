@@ -1,6 +1,6 @@
 ---
 name: migration-test
-description: SDD-TDD-Migration 的测试设计与执行；支持项目 Main 及 Harmony 分层 UI 自动测试、截图/视频断言、录制回放、证据和三态归档。
+description: SDD-TDD-Migration 的测试设计、编译构建与自动化执行；支持项目 Main 及 Harmony 分层 UI 自动测试、截图/视频断言、录制回放、证据和三态归档。
 ---
 
 # migration-test
@@ -14,9 +14,9 @@ description: SDD-TDD-Migration 的测试设计与执行；支持项目 Main 及 
 所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
 
 ## 3. 标准模式
-推荐：先 design 定义可验证期望，code accepted 后 execute 记录 path 级结果；失败保留实际值与原因。
+先 design 冻结两类路径；code accepted 后 execute/build 编译构建并记录三态，Green 后 execute/automation 校验环境并逐用例执行。错误交 Fixer；仅自动化环境不可启动时 Yellow/未执行并收尾，让其他任务继续。必读 [双环节协议](../migration-protocol/references/build-automation.md)。
 
-禁止：自然语言 query 当 shell；只看 exit 0；无断言或 skip 当通过；重跑只保留最好一次。
+禁止：自然语言 query 当 shell；以构建 exit 0 代替业务用例通过；无断言或 skip 当通过；重跑只保留最好一次。
 
 ## 4. 接口契约
 输入 assignment_ref + event_ref + absolute artifact refs；输出角色权限矩阵许可的事件及模板工件。文件已生成不等于已接受，必须收到 Ledger ACK。
@@ -37,3 +37,5 @@ HarmonyOS UI/端到端测试读取 [Harmony 运行协议](references/harmony-run
 - 内核的 Planner/Executor/Verify 仅是当前 Test-Runner 内部组件；不能承担外层 Spec/Fixer/Auditor 权限。其他平台继续使用原 Main 适配器。
 
 测试设计增加二方库接线、版本配置、语义差异及真实提供方集成路径；Coding 后正式 Main 执行，完整业务验收不得因复用而缩减。见 [二方库复用协议](../migration-protocol/references/reuse-dependencies.md)。
+
+保真断言以已审核的存量源码行为与需求为依据，绑定 reuse-plan.fidelity 的 PATH/ASSERT；Main 必须留真实复现结果，不能以库的行为或对齐报告替代通过证据。

@@ -63,6 +63,7 @@
 - [reuse-source.json](reuse-source.json)：project-context/global-input.reuse_sources 的可选外部来源元素；TARGET 自动包含。
 - [reuse-catalog.json](reuse-catalog.json)：GO 的功能语义抽取目录，父/子 MO 按需求进一步核验细化。
 - [reuse-plan.json](reuse-plan.json)：子模块逐需求的能力选择、差异、task/PATH 和接入映射；由 stage-plan.reuse_plan_ref 冻结，Ledger 投影到 change/reuse.md。
+- [reuse-fidelity.md](reuse-fidelity.md)：存量源码与选中能力逐行为对齐；reuse-plan.fidelity 绑定源码、报告和复现 PATH/ASSERT，正式结果沿 Main/Ledger 留档。
 - implementation.md 说明新增 reuse_trace；控制器检查选中映射的实际版本、task 文件和生产绑定证据。
 
 ## 上下文预检工件
@@ -72,3 +73,7 @@
 ## 功能清单来源与完备性
 
 [feature-inventory.json](feature-inventory.json)：GO 抽取的完整功能清单及源码/用例来源映射；默认用例汇总优先，缺失则源码抽取。global-plan.feature_inventory_ref/feature_owners 接受清单并分配叶子，疑问通过 boundary_review 人工决策。
+
+## 构建与自动化
+
+project-context/global-input 的 build 为可选配置，空对象表示由 GO 发现命令。stage-plan/test-paths 示例含 kind=build 和 kind=automation；build.command.selection_ref 冻结选择依据。assign 增加 test_scope。automation-unavailable / automation-resume / audit-unavailable 的 payload.context_ref 引用实际角色提交的报告。详见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。

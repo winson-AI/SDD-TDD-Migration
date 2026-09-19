@@ -1,0 +1,172 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2850" viewBox="0 0 1600 2850" role="img" aria-labelledby="title desc">
+<title id="title">Automation · 输入、执行与验收闭环</title>
+<desc id="desc">构建是前置门禁；每条 PATH 独立执行；环境缺测不传播失败，完整 Green 才能验收通过</desc>
+<style>text {font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;}</style>
+<defs>
+<marker id="arrow-blue" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#2563eb"/></marker>
+<marker id="arrow-orange" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#ea580c"/></marker>
+<marker id="arrow-green" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#059669"/></marker>
+<marker id="arrow-purple" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#7c3aed"/></marker>
+<marker id="arrow-gray" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#6b7280"/></marker>
+</defs>
+<rect width="1600" height="2850" fill="white"/>
+<text x="60" y="56" font-size="21.00" fill="#6b7280" text-anchor="start" font-weight="400">05  /  SDD-TDD-Migration</text>
+<text x="60" y="108" font-size="38.00" fill="#111827" text-anchor="start" font-weight="700">Automation · 输入、执行与验收闭环</text>
+<text x="60" y="145" font-size="21.00" fill="#6b7280" text-anchor="start" font-weight="400">构建是前置门禁；每条 PATH 独立执行；环境缺测不传播失败，完整 Green 才能验收通过</text>
+<path d="M478,190 H1100 L1082,320 H460 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
+<text x="780.0" y="234.0" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">测试输入 → 冻结 PATH</text>
+<text x="780.0" y="268.0" font-size="20.34" fill="#4b5563" text-anchor="middle" font-weight="400">SPEC / CASE → PATH ID + Name / 参数 / 步骤 / ASSERT</text>
+<text x="780.0" y="297.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">测试设计先完成；冻结后禁止自行放宽预期</text>
+<rect x="60" y="190" width="340" height="210" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
+<text x="230.0" y="245.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">项目上下文</text>
+<text x="230.0" y="279.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">存量 / 目标 / 架构 / 测试</text>
+<text x="230.0" y="308.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">二方库行为对齐与 fidelity</text>
+<text x="230.0" y="337.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">adapter + 环境 / fixture</text>
+<text x="230.0" y="366.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">项目配置 → 本轮快照</text>
+<path d="M400,255 L460,255" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M780,320 L780,375" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="460" y="375" width="640" height="115" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="780.0" y="411.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Coding 接受 → 当前 build Green</text>
+<text x="780.0" y="445.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编译失败先诊断 / Fixer；新代码必须重新构建</text>
+<text x="780.0" y="474.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">构建通过不代表任何业务 CASE 已通过</text>
+<path d="M780,490 L780,550" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="460" y="550" width="640" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<rect x="465" y="555" width="630" height="130" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
+<text x="780.0" y="584.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Test-Runner · testing 预检</text>
+<text x="780.0" y="618.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">冻结规格 / 路径 / 代码 / 提供方 / 环境 / 权限</text>
+<text x="780.0" y="647.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">提交 context-submit；绑定实际 argv / cwd / 环境</text>
+<text x="780.0" y="676.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">宿主负责实际启动、角色身份和资源锁</text>
+<path d="M780,690 L780,735" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M780,735.0 L945.0,800 L780,865.0 L615.0,800 Z" fill="#fff7ed" stroke="#ea580c" stroke-width="1.8"/>
+<text x="780" y="800" font-size="24.00" fill="#111827" text-anchor="middle" font-weight="650">预检结果</text>
+<text x="780" y="829" font-size="19.00" fill="#6b7280" text-anchor="middle" font-weight="400">是否具备执行条件</text>
+<path d="M615,800 L400,800" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
+<rect x="456.0" y="760" width="98" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="505" y="780" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">其他缺项</text>
+<rect x="60" y="745" width="340" height="145" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
+<text x="230.0" y="782.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">补齐相关上下文</text>
+<text x="230.0" y="816.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅阻塞相关模块阶段</text>
+<text x="230.0" y="845.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不派发 Main，不制造结果</text>
+<text x="230.0" y="874.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无关 MO 继续</text>
+<path d="M945,800 L1160,800" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
+<rect x="986.0" y="760" width="118" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="1045" y="780" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">仅环境缺失</text>
+<rect x="1160" y="725" width="380" height="230" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
+<rect x="1165" y="730" width="370" height="220" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
+<text x="1350.0" y="775.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO · 缺测旁路</text>
+<text x="1350.0" y="809.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">automation-unavailable</text>
+<text x="1350.0" y="838.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">→ automation-deferred</text>
+<text x="1350.0" y="867.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">逐 PATH：Yellow / 未执行</text>
+<text x="1350.0" y="896.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">保留 build Green，不耗修复轮次</text>
+<text x="1350.0" y="925.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不能掩盖已观察到的 Red</text>
+<path d="M780,865 L780,940" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="742.5" y="890" width="75.0" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="780" y="910" font-size="20.00" fill="#6b7280" text-anchor="middle" font-weight="400">ready</text>
+<rect x="460" y="940" width="640" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="780.0" y="981.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">assignment → 宿主 execute_test</text>
+<text x="780.0" y="1015.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">scope=automation；重验代码 / 环境 / 命令</text>
+<text x="780.0" y="1044.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">每条 PATH 新目录 + 新进程；写完整 query.json</text>
+<path d="M780,1065 L780,1120" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="460" y="1120" width="640" height="145" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<rect x="465" y="1125" width="630" height="135" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
+<text x="780.0" y="1157.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">逐 PATH 调用项目 Main</text>
+<text x="780.0" y="1191.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">argv + --query-file … --result-file …</text>
+<text x="780.0" y="1220.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Harmony：Planner / Executor / Verify（图 06）</text>
+<text x="780.0" y="1249.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">其他平台：项目真实 adapter</text>
+<rect x="60" y="1080" width="340" height="190" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
+<text x="230.0" y="1125.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">两层执行结果</text>
+<text x="230.0" y="1159.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">包装器 exit 0：已写回执</text>
+<text x="230.0" y="1188.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不等于 CASE 通过</text>
+<text x="230.0" y="1217.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">超时 124 / 启动失败 127</text>
+<text x="230.0" y="1246.0" font-size="19.95" fill="#4b5563" text-anchor="middle" font-weight="400">以 receipt / assertions 为准</text>
+<path d="M780,1265 L780,1320" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M478,1320 H1100 L1082,1450 H460 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
+<text x="780.0" y="1364.0" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">单路径执行工件</text>
+<text x="780.0" y="1398.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">result.json + 日志 / 媒体 / observations</text>
+<text x="780.0" y="1427.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">receipt.json：身份 / 时间 / argv / 退出码 / hash</text>
+<path d="M780,1450 L780,1505" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M478,1505 H1100 L1082,1630 H460 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
+<text x="780.0" y="1546.5" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">汇总 stage-result.json</text>
+<text x="780.0" y="1580.5" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">本 assignment scope 的所有 PATH 均须记账</text>
+<text x="780.0" y="1609.5" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">每条：三态 / ASSERT / 根因 / receipt / retest_of</text>
+<path d="M780,1630 L780,1685" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="460" y="1685" width="640" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<rect x="465" y="1690" width="630" height="130" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
+<text x="780.0" y="1719.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Ledger submit → owner 接受</text>
+<text x="780.0" y="1753.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">两次核对版本 / 覆盖 / 回执 / 断言 / 证据摘要</text>
+<text x="780.0" y="1782.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">模块 CASE：MO；审计 CASE：Auditor</text>
+<text x="780.0" y="1811.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">缺证据或不匹配被拒绝，不能按通过处理</text>
+<path d="M780,1825 L780,1875" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M780,1875.0 L945.0,1940 L780,2005.0 L615.0,1940 Z" fill="#fff7ed" stroke="#ea580c" stroke-width="1.8"/>
+<text x="780" y="1940" font-size="24.00" fill="#111827" text-anchor="middle" font-weight="650">正式三态</text>
+<text x="780" y="1969" font-size="19.00" fill="#6b7280" text-anchor="middle" font-weight="400">以本次证据为准</text>
+<path d="M615,1940 L400,1940" fill="none" stroke="#059669" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-green)"/>
+<rect x="467.5" y="1900" width="75.0" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="505" y="1920" font-size="20.00" fill="#059669" text-anchor="middle" font-weight="400">Green</text>
+<rect x="60" y="1870" width="340" height="170" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
+<rect x="65" y="1875" width="330" height="160" rx="10" fill="none" stroke="#059669" stroke-opacity="0.28"/>
+<text x="230.0" y="1905.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO · 完整 DoD</text>
+<text x="230.0" y="1939.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">build + automation 全覆盖</text>
+<text x="230.0" y="1968.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">当前基线全部 Green</text>
+<text x="230.0" y="1997.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">任务追溯 / checklist 完整</text>
+<text x="230.0" y="2026.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">记录模块通过</text>
+<path d="M945,1940 L1160,1940" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
+<rect x="967.6" y="1900" width="154.8" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="1045" y="1920" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">Red / Yellow</text>
+<rect x="1160" y="1855" width="380" height="180" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
+<text x="1350.0" y="1895.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">诊断 → 修复路由</text>
+<text x="1350.0" y="1929.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">可修复：本地先一轮 Fixer</text>
+<text x="1350.0" y="1958.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">补丁接受 → 重建 → 正式复测</text>
+<text x="1350.0" y="1987.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">依赖 / 外围 / 仍失败：留证</text>
+<text x="1350.0" y="2016.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">待统一 Auditor，不终止兄弟</text>
+<rect x="1160" y="1505" width="380" height="170" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
+<text x="1350.0" y="1540.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">修复返回 B</text>
+<text x="1350.0" y="1574.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">入口 B = Coding 接受 / build</text>
+<text x="1350.0" y="1603.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">新 code_baseline，旧构建失效</text>
+<text x="1350.0" y="1632.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">保留失败与 repair memory</text>
+<text x="1350.0" y="1661.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">复测必须关联 retest_of</text>
+<path d="M1350,1855 L1350,1675" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
+<rect x="1291.0" y="1750" width="118" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="1350" y="1770" font-size="20.00" fill="#7c3aed" text-anchor="middle" font-weight="400">修复获接受</text>
+<rect x="1004.6" y="340" width="80.8" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="1045" y="360" font-size="20.00" fill="#7c3aed" text-anchor="middle" font-weight="400">入口 B</text>
+<rect x="1160" y="1020" width="380" height="190" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
+<text x="1350.0" y="1065.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">环境恢复返回 A</text>
+<text x="1350.0" y="1099.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">新 testing ready 报告</text>
+<text x="1350.0" y="1128.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">automation-resume → 新派发</text>
+<text x="1350.0" y="1157.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">入口 A = testing 预检</text>
+<text x="1350.0" y="1186.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不额外要求人工恢复批准</text>
+<path d="M1350,955 L1350,1020" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#arrow-purple)"/>
+<rect x="1004.6" y="515" width="80.8" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="1045" y="535" font-size="20.00" fill="#7c3aed" text-anchor="middle" font-weight="400">入口 A</text>
+<path d="M230,2040 L230,2170 L780,2170" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M1350,2035 L1350,2170 L780,2170" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round"/>
+<rect x="1291.0" y="2080" width="118" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="1350" y="2100" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">遗留已留证</text>
+<path d="M1540,840 L1570,840 L1570,2170 L1350,2170" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="7 5"/>
+<path d="M780,2170 L780,2230" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="460" y="2230" width="640" height="130" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
+<rect x="465" y="2235" width="630" height="120" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
+<text x="780.0" y="2274.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父汇总 → GO 全量收尾门禁</text>
+<text x="780.0" y="2308.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全部叶子本轮结束，全部父汇总当前有效</text>
+<text x="780.0" y="2337.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无 worker / ready 动作，才统一启动 Auditor</text>
+<path d="M780,2360 L780,2410" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="460" y="2410" width="640" height="150" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<rect x="465" y="2415" width="630" height="140" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
+<text x="780.0" y="2449.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Auditor · 独立闭环</text>
+<text x="780.0" y="2483.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实际遗留：SPEC / PATH → 根因 → Fixer → Testing</text>
+<text x="780.0" y="2512.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">裁决失败：结构化根因待人工；缺环境保留未验证</text>
+<text x="780.0" y="2541.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">最终固定快照，覆盖 global + module PATH</text>
+<path d="M780,2560 L780,2620" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M318,2620 H1260 L1242,2745 H300 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
+<text x="780.0" y="2661.5" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">最终输出：通过 / 问题待决 / 缺测清单</text>
+<text x="780.0" y="2695.5" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">全覆盖真实 Green 才通过；纯缺环境可 completed-with-unverified-tests（Yellow）</text>
+<text x="780.0" y="2724.5" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">模块原始结果、审计结果与历次失败均保留；收尾不等于验证通过</text>
+<path d="M65,2800 L113,2800" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<text x="125" y="2807" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">流程推进</text>
+<path d="M345,2800 L393,2800" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
+<text x="405" y="2807" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">条件 / 阻塞</text>
+<path d="M625,2800 L673,2800" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
+<text x="685" y="2807" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">修复 / 恢复</text>
+<text x="1535" y="2807" font-size="18.00" fill="#6b7280" text-anchor="end" font-weight="400">所有交接均通过 Ledger；箭头不表示 Agent 私聊</text>
+</svg>

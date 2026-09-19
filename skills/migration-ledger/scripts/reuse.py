@@ -65,7 +65,32 @@ def catalog(ref, expected_sources):
     return data, caps
 
 
-def validate_plan(plan, module, expected_sources, modules=None):
+def validate_fidelity(row, plan, legacy_root=None):
+    """Bind source alignment to real frozen assertions; agents still judge semantic fidelity."""
+    fidelity = row.get('fidelity', {})
+    root = fidelity.get('legacy_root')
+    require(isinstance(root, str) and Path(root).is_absolute(), 'reuse fidelity needs legacy root')
+    if legacy_root is not None:
+        require(Path(root).resolve() == Path(legacy_root).resolve(), 'reuse fidelity legacy root mismatch')
+    for ref in nonempty(fidelity.get('legacy_source_refs'), 'reuse fidelity legacy source evidence'):
+        require(check_ref(ref).resolve().is_relative_to(Path(root).resolve()), 'fidelity baseline outside legacy source')
+    check_ref(fidelity.get('alignment_ref'))
+    scenarios = keyed(fidelity.get('scenarios'), 'scenario_id')
+    require(bool(scenarios), 'reuse fidelity scenarios required')
+    paths = {p['path_id']: p for p in plan['paths']}
+    covered = set()
+    for scenario in scenarios.values():
+        pid = scenario.get('path_id')
+        require(pid in row['path_ids'] and pid in paths, 'fidelity path outside reuse mapping')
+        aids = set(nonempty(scenario.get('assertion_ids'), 'fidelity assertions'))
+        require(aids <= {a['assertion_id'] for a in paths[pid]['expected_assertions']}, 'fidelity assertion not frozen in path')
+        require(all(scenario.get(k) for k in ('legacy_behavior', 'reuse_behavior', 'reproduction_strategy')),
+                'fidelity needs source behavior, reuse comparison and reproduction strategy')
+        covered.add(pid)
+    require(covered == set(row['path_ids']), 'fidelity must cover every mapped path')
+
+
+def validate_plan(plan, module, expected_sources, modules=None, legacy_root=None):
     review = read_json(check_ref(plan.get('reuse_plan_ref')))
     require(review.get('schema_version') == 1 and review.get('module_id') == module['module_id'], 'reuse plan module mismatch')
     _, caps = catalog(review.get('catalog_ref'), expected_sources)
@@ -102,6 +127,7 @@ def validate_plan(plan, module, expected_sources, modules=None):
             require(all(integration.get(k) for k in ('locator', 'configuration', 'transitive_dependencies', 'compatibility')), 'incomplete dependency integration guidance')
             for evidence in nonempty(integration.get('evidence_refs'), 'integration feasibility evidence'):
                 check_ref(evidence)
+            validate_fidelity(row, plan, legacy_root)
         covered.update(reqs)
     require(covered == allowed, 'reuse decisions must cover every module requirement')
     return review
@@ -122,6 +148,7 @@ def verify(plan):
             continue
         for ref in caps[row['capability_id']]['provider_refs'] + row['integration']['evidence_refs']:
             check_ref(ref)
+        validate_fidelity(row, plan)
     return review
 
 

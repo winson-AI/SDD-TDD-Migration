@@ -63,3 +63,7 @@ memory.md 与 ledger/repair-memory.json 保存 Red/Yellow 修复的根因、策�
 ## 二方库语义与需求映射
 
 proposal/design/tasks/checklist 明确复用决策、语义差异、接线、版本与验证，spec 保持用户行为要求。stage-plan.reuse_plan_ref 纳入冻结摘要；Ledger 根据已归档映射生成 change/reuse.md，manifest 记录引用。它是六件套的辅助依据，不新增第七个验收权威。变更所选能力或接入契约须影响分析及正常 CR/重新冻结；见 [复用协议](reuse-dependencies.md)。
+
+选中能力时还需冻结 fidelity：存量源码基线、逐行为对齐报告及复现 PATH/ASSERT。spec 记录应保留的源行为，design/tasks 记录库差异与适配，checklist 检查对齐完整与复现证据，status 经 Ledger 记录实际进度。规划检查完成与运行保真通过分别记录；源码行为与需求冲突须人工决定。
+
+构建和自动化是冻结 plan.paths 中独立的 kind；build.command 与退出码断言也纳入冻结。仅因自动化环境缺失不会删除验收路径或改 SPEC，Ledger 保存 Yellow 未执行和 automation-deferred；恢复后补测。见 [双环节协议](build-automation.md)。

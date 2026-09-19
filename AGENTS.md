@@ -62,6 +62,8 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 复用评估贯穿 GO 切片、父 MO 分工、子 MO tasks 和 Coding/Testing。先读取 TARGET 及用户指定 reuse_sources 的功能语义目录，再结合需求决定直接使用、适配、仅参考或新实现；不得按同名 API 认定等价、重复实现已有能力，或为迁就库削弱需求。目录/映射经 Ledger 传递、版本冻结、实际接线及完整测试验证；外部来源只读，跨模块/不确定边界交人工。详见 [二方库复用协议](skills/migration-protocol/references/reuse-dependencies.md)。
 
+**全局 fidelity 规范**：每次选择目标已有能力或外部二方库，必须与存量源码项目对应功能逐行为对齐，明确直接复用/适配如何复现原功能，并记录源码基线、差异、PATH/ASSERT 和正式复现证据。语义参考同样适用；接口可用、库测试通过或对齐报告完成均不能代表迁移功能通过。规划记录随 SPEC 冻结，编码后 Main 验证，MO/Auditor 按阶段唯一验收；行为不一致为 Red，依据或执行条件不足为 Yellow，不能凭复用决策跳过保真验证。明确需求与存量行为冲突须人工决定并留痕。
+
 ## 阶段上下文就绪
 
 新运行在 GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发与 Auditor 分析/裁决/最终验证前，执行 [上下文就绪协议](skills/migration-protocol/references/context-readiness.md)。实际执行实例先只读核对并经 Ledger context-submit 留证，原控制节点接受；缺项不得执行，必须补齐或显式记录该模块阻塞，无关模块继续。
@@ -69,3 +71,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 ## 功能清单来源与完备性
 
 功能列表默认从测试用例汇总总结/拆分；缺少汇总则先理解存量待迁移源码并完整抽取，再生成测试草案。完整性覆盖本轮范围的全部根功能、子功能和行为分支，任何疑问立即人工介入；不得以没有 CASE、准备复用二方库或难以理解为由遗漏。遵守 [切片规范](skills/migration-global/references/slicing.md)。
+
+## Test-Runner 双环节与自动化缺测例外
+
+Test-Runner 在 Coding 接受后先编译构建，再执行自动化测试；构建命令优先用户指定，否则全目标搜索脚本并默认评估 Gradle assemble。构建/真实用例错误记录三态与根因，修复仍由 Fixer。仅自动化环境不可启动时，保留当前构建 Green，逐用例记录 Yellow/未执行，经 automation-unavailable 进入 automation-deferred；独立任务及依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复。全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。规范见 [构建与自动化分流](skills/migration-protocol/references/build-automation.md)。本节细化既有“缺条件挂起”规则，不允许跳过构建或吞掉已观察到的 Red。

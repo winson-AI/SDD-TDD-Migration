@@ -42,6 +42,12 @@ description: SDD-TDD-Migration 各角色共享的读取、Ledger、冻结和三�
 
 GO/父子 MO、Spec Designer、Implementer、Testing/Fixer/Auditor 涉及规划、编码和验证时读取 [reuse-dependencies.md](references/reuse-dependencies.md)：TARGET/外部来源、功能语义抽取、需求映射、冻结接入指导与版本变化后的复测。复用是重要的规划依据，不能替代需求与完整测试。
 
+复用必须逐行为对齐存量源码功能并保证 fidelity：记录源码基线、差异和复现 PATH/ASSERT；冻结后编码、Main 留证、对应 MO/Auditor 验收。具体记录及门禁见该协议第 7 节。
+
 ## 11. 阶段上下文就绪
 
 规划、派发、恢复或审计前读取 [上下文就绪协议](references/context-readiness.md)：实际执行者先提交身份/版本绑定的核对报告，原节点接受后推进；报告 ready 不替代冻结、权限、正式测试或 DoD。
+
+## 12. 编译构建与自动化分流
+
+GO/MO、Spec Designer、Test-Runner、Fixer、Auditor 与宿主必读 [build-automation.md](references/build-automation.md)。同一 Test-Runner 先构建再自动化；仅自动化环境缺失可 Yellow 收尾并放行其他可执行任务，质量验收不变 Green。

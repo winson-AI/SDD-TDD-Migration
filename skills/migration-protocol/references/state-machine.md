@@ -3,7 +3,7 @@
 ## 三种不同字段
 
 - `phase` 是工作阶段，不是测试结论。
-- `execution_status = pending | running | suspended | completed | failed` 描述调度生命周期；failed 指基础设施或执行异常，不能直接等同产品缺陷。
+- `execution_status = pending | running | suspended | completed | failed（最终报告另可为 completed-with-unverified-tests）` 描述调度生命周期；failed 指基础设施或执行异常，不能直接等同产品缺陷。
 - `quality = green-passed | red-bug | yellow-blocked` 用于测试路径和模块两层；全局继续聚合模块与全局用例。未运行、缺证据或过期统一 Yellow，并用 reason_code 区分 untested / stale / dependency / environment / human / tooling / flaky / incomplete。Green 不是空集合默认值。
 
 路径 Red 表示实际断言/构建等质量门禁证明实现有错；Yellow 表示不能确定验收是否成立。Red/Yellow 均必填 root_cause，证据不足时明确 confidence=unknown、hypothesis 与 next_action，禁止编造已确认根因。
@@ -15,7 +15,7 @@
 1. **独立执行与验收**：GO 切片后，以已接受 global-plan 对应的完整 registry 为本轮集合。每个 MO 独立拥有 phase、CASE/PATH 结果、修复预算、DoD 与恢复点。单模块 Red/Yellow、异常或超限不得取消无关 MO，不得修改无关模块的质量、结果、revision、assignment 或预算。全局 quality 只从模块结果聚合，不向模块反向传播。
 2. **逐个等待**：宿主按 module_id 收集成功、失败和异常，采用 all-settled 语义；收到首个失败后继续其他 ready 模块并等待运行中的 MO。worker 退出/抛错只结束该 assignment；MO 仍需接受证据、执行修复/恢复或显式挂起。未派发、排队、锁等待、无活动 worker、全局 Red 均不等于模块本轮结束。
 3. **真实依赖限定范围**：只有已登记依赖不可用或确认本模块受影响时，才能记录该模块阻塞；不得把独立同伴作为依赖原因。跨模块新增业务边界须人工决策。受影响模块保留自己的历史断言，依赖缺证据记 Yellow，不复制生产者 Red；无关模块继续执行。已完成模块仅因真实基线/契约失效才重开。
-4. **全量收尾门禁**：每个已登记模块必须有自身 DoD 完成记录，或基于自身证据的 waiting-auditor / waiting-dependency / waiting-human 记录；所有 worker 结束且没有 ready 的推进/恢复动作。禁止为凑齐门禁给其他模块批量挂起。只有上述条件同时成立，GO 才提交 audit-collect 或符合全 Green 门禁的 audit-assign；兼容 problem-assign 同样受约束。
+4. **全量收尾门禁**：每个已登记模块必须有自身 DoD 完成记录，或基于自身证据的 waiting-auditor / waiting-dependency / waiting-human / automation-deferred 记录；所有 worker 结束且没有 ready 的推进/恢复动作。禁止为凑齐门禁给其他模块批量挂起。只有上述条件同时成立，GO 才提交 audit-collect 或符合全 Green 门禁的 audit-assign；兼容 problem-assign 同样受约束。
 5. **阶段区分**：本轮结束不等于全部通过。Auditor 统一启动后才收集各模块真实遗留；审计内部仍按已批准 finding 与依赖交错修复，失败只隔离相关分支。模块期末的全量等待不要求审计内每一修复步骤全批同步。
 
 ## Module-Orchestrator 唯一模块守卫
@@ -27,7 +27,10 @@
 | clarifying | frozen | R1/R2 人工决定绑定冻结内容摘要；所有 freeze checklist 通过；无未决阻断问题；MO 接受 |
 | frozen | implementing | 全局覆盖验收通过、冻结内容摘要匹配、依赖满足、目标写锁有效、tasks 非空 |
 | implementing | testing | implementation_submitted 被 MO 接受；测试路径与断言已在冻结前定义，现绑定实际代码、脚本和环境执行 |
-| testing | dod | 当前全部必需路径 Green |
+| testing / build | testing / automation | 当前代码全部 build PATH Green；同一 Test-Runner 职责切换 |
+| testing / automation | automation-deferred | 仅自动化环境缺失，automation-unavailable 留逐 PATH Yellow/未执行；构建保持 Green |
+| automation-deferred | testing / automation | 新 testing ready 报告 + automation-resume；无需人工批准，仍须真实补测 |
+| testing | dod | 当前全部构建及自动化必需路径 Green |
 | testing | diagnosing | 存在未解决问题；Diagnostician 仅提交报告，MO 接受当前版本诊断；无活动 worker |
 | diagnosing | fixing | 根因报告、模块本地一轮或 Auditor 明确授权一轮、总预算内、合法写锁；不需改验收的补丁任务 |
 | fixing | testing | 补丁与回归证据已接收、代码版本更新、受影响路径标 stale；正式 Test-Runner 复测 |
@@ -42,7 +45,7 @@
 | dod | completed | 所有 DoD 检查与证据齐全，MO 提 module_completed，Ledger 提交 |
 | completed | testing / specifying | 审计问题经 MO repair-accept 进入 testing；代码/证据失效经 invalidate 进入 specifying；不能保留旧 Green |
 
-模块执行严格为 Coding → 接受代码 → Testing。测试设计保留在冻结前，实际测试执行在 Coding 后。Testing 的可修复 Red/Yellow 均先诊断并由 MO 自动派发一轮 Fixer，接受补丁后回到 Test-Runner/Main 正式复测；不能用 Fixer 自测代替复测，也不能跳过可修复问题的本地首轮而直接等待 Auditor。复测 Green 且 DoD 满足由 MO 验收；一轮仍未通过则记录根因、结果、修复 memory 和恢复点，交 Auditor 收尾。已确认依赖/外围问题沿用直接记录/挂起规则。在 pre-code 阶段发现此类问题时不得测试或修复尚未生成的代码。
+模块执行严格为 Coding → 接受代码 → Test-Runner 编译构建 → 自动化预检/Testing。测试设计保留在冻结前，实际测试执行在 Coding 后。Testing 的可修复 Red/Yellow 均先诊断并由 MO 自动派发一轮 Fixer，接受补丁后回到 Test-Runner/Main 正式复测；不能用 Fixer 自测代替复测，也不能跳过可修复问题的本地首轮而直接等待 Auditor。复测 Green 且 DoD 满足由 MO 验收；一轮仍未通过则记录根因、结果、修复 memory 和恢复点，交 Auditor 收尾。已确认依赖/外围问题沿用直接记录/挂起规则。在 pre-code 阶段发现此类问题时不得测试或修复尚未生成的代码。
 
 `resume_phase` 只能由原暂停点及新基线验证计算，不能接受外部随意指定。Ledger 只持久化合法且带 MO 批准的模块迁移；Global 的唤醒事件不等于模块迁移批准。
 
@@ -68,7 +71,7 @@ Auditor 从 Ledger 固定 sequence 与 target tree/commit、SPEC revision、环�
 
 Auditor 可执行既有脚本并生成日志，不能编辑源码/脚本。发现问题经 repair_requested → MO 审核/派发 → Fixer；结果仍由 Auditor 独立重跑和裁决。每轮新补丁会使旧 snapshot 失效，重新固定快照，重跑受影响路径及整体集成用例。不能混用不同代码树的结果出最终 Green。
 
-最终报告列清所有非 Green 及原因；仅无遗留问题、全部必需用例/路径覆盖且同一最终基线通过，audit_verdict 才为 Green。Global 仍需人类交付/核心架构/合并授权后才归档；普通 module completed 不代表已合并或已交付。
+最终报告列清所有非 Green 及原因；仅无遗留问题、全部必需用例/路径覆盖且同一最终基线通过，audit_verdict 才为 Green。仅自动化环境缺失时，本轮允许 completed-with-unverified-tests + Yellow 收尾，不等于功能验收；其他可执行工作继续，不以缺测强制全局等待人工。Global 仍需人类交付/核心架构/合并授权后才归档；普通 module completed 不代表已合并或已交付。
 
 ## 本地控制器映射（P2–P4）
 
@@ -97,3 +100,7 @@ OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义�
 ## 上下文门禁嵌入原状态机
 
 各阶段先通过 context-submit 留证，原 plan/freeze/assign/audit 操作接受报告；该事件不改变业务 phase、不消费修复预算、不直接赋予 Green。缺失经既有 suspend/audit-defer/audit-block 记录后才可作为明确收尾；无关兄弟继续。详见 [上下文就绪协议](context-readiness.md)。
+
+## 自动化缺测与代码依赖就绪
+
+遵守 [双环节协议](build-automation.md)。dependencies_ready 允许 completed 或当前构建通过且未过期的 automation-deferred 上游；构建失败或实际不可用依赖仍阻塞实际消费者。仅自动化环境缺失不走普通 tooling→waiting-human 分支。build/automation 分开记录，父汇总接受缺测收尾，Auditor 最终保留完整缺测清单。

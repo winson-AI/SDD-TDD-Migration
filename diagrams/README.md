@@ -2,12 +2,18 @@
 
 按当前三层编排重新整理。先看总览，再按需要展开子 MO、Auditor 或二方库复用；SVG 可放大，PNG 便于分享。
 
+Test-Runner 已拆为编译构建与自动化测试。仅自动化环境缺失时保留 Yellow/未执行，其他可执行任务继续，本轮可以带缺测清单收尾；这不等于功能验收通过。详细门禁见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
+
 | 图 | 关注点 | SVG | PNG |
 | --- | --- | --- | --- |
 | 01 · 三层编排总览 | GO 分配模块 scope/context；父 MO 拆子模块；子 MO 拆 tasks；独立并行与全量收尾 | [总览](workflow.svg) | [总览](workflow.png) |
-| 02 · 子 MO 执行与首轮修复 | SPEC/测试设计 → 澄清冻结 → Coding → Testing → 一轮 Fixer → 复测/DoD 或明确挂起 | [子 MO](module-execution.svg) | [子 MO](module-execution.png) |
+| 02 · 子 MO 执行与首轮修复 | SPEC/测试设计 → 冻结 → Coding → 构建 → 自动化；错误经 Fixer，缺自动化环境单独 Yellow 收尾 | [子 MO](module-execution.svg) | [子 MO](module-execution.png) |
 | 03 · Auditor 跨模块处理 | 收集遗留、SPEC/路径与根因路由、Fixer/Testing、失败待人工、最终独立审计 | [Auditor](auditor-closure.svg) | [Auditor](auditor-closure.png) |
 | 04 · 二方库语义与复用 | 来源评审 → 语义抽取 → 四类复用决策 → 冻结 → Coding → 真实依赖验证；版本变化后的恢复 | [二方库](reuse-dependencies.svg) | [二方库](reuse-dependencies.png) |
+| 05 · Automation 外层闭环 | 输入分层、环境预检、逐 PATH 执行、三层结果、修复与审计；缺测旁路 | [自动化](automation-flow.svg) | [自动化](automation-flow.png) |
+| 06 · Harmony 单 PATH 内核 | Planner / Executor / Verify、录制回放、媒体断言、观察落盘与三态汇总 | [内核](automation-engine.svg) | [内核](automation-engine.png) |
+
+自动化输入输出的字段、JSON 示例、调用方法和当前实现边界见 [自动化测试说明](automation-input-output.md)。
 
 ## 阅读约定
 
@@ -35,3 +41,9 @@ python3 diagrams/generate_workflows.py
 ```
 
 需要 Python 3 与 `rsvg-convert`；生成四个 SVG 及宽 1920px 的 PNG。修改布局后需重新查看 PNG，核对箭头端点、文字和业务分支。
+
+图 05/06 单独生成，复用同一绘图组件：
+
+```sh
+python3 diagrams/generate_automation.py
+```

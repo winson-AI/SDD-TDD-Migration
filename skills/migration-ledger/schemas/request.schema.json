@@ -73,7 +73,10 @@
         "audit-release",
         "decompose",
         "decompose-accept",
-        "module-summary"
+        "module-summary",
+        "automation-unavailable",
+        "automation-resume",
+        "audit-unavailable"
       ]
     },
     "payload": {

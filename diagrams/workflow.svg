@@ -66,7 +66,7 @@
 <text x="215.0" y="1272.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · A1</text>
 <text x="215.0" y="1306.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按阶段核对上下文</text>
 <text x="215.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">拆 tasks → 冻结</text>
-<text x="215.0" y="1364.5" font-size="21.93" fill="#4b5563" text-anchor="middle" font-weight="400">Coding / Testing</text>
+<text x="215.0" y="1364.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编码→构建→自动化</text>
 <text x="215.0" y="1393.5" font-size="21.91" fill="#4b5563" text-anchor="middle" font-weight="400">修复 / DoD / 挂起</text>
 <path d="M480,1220 L480,1240" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="365" y="1240" width="230" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -74,7 +74,7 @@
 <text x="480.0" y="1272.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · A2</text>
 <text x="480.0" y="1306.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按阶段核对上下文</text>
 <text x="480.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">拆 tasks → 冻结</text>
-<text x="480.0" y="1364.5" font-size="21.93" fill="#4b5563" text-anchor="middle" font-weight="400">Coding / Testing</text>
+<text x="480.0" y="1364.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编码→构建→自动化</text>
 <text x="480.0" y="1393.5" font-size="21.91" fill="#4b5563" text-anchor="middle" font-weight="400">修复 / DoD / 挂起</text>
 <path d="M745,1220 L745,1240" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="630" y="1240" width="230" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -82,7 +82,7 @@
 <text x="745.0" y="1272.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · B1</text>
 <text x="745.0" y="1306.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按阶段核对上下文</text>
 <text x="745.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">拆 tasks → 冻结</text>
-<text x="745.0" y="1364.5" font-size="21.93" fill="#4b5563" text-anchor="middle" font-weight="400">Coding / Testing</text>
+<text x="745.0" y="1364.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编码→构建→自动化</text>
 <text x="745.0" y="1393.5" font-size="21.91" fill="#4b5563" text-anchor="middle" font-weight="400">修复 / DoD / 挂起</text>
 <path d="M1010,1220 L1010,1240" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="895" y="1240" width="230" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -90,7 +90,7 @@
 <text x="1010.0" y="1272.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · B…</text>
 <text x="1010.0" y="1306.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按阶段核对上下文</text>
 <text x="1010.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">拆 tasks → 冻结</text>
-<text x="1010.0" y="1364.5" font-size="21.93" fill="#4b5563" text-anchor="middle" font-weight="400">Coding / Testing</text>
+<text x="1010.0" y="1364.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编码→构建→自动化</text>
 <text x="1010.0" y="1393.5" font-size="21.91" fill="#4b5563" text-anchor="middle" font-weight="400">修复 / DoD / 挂起</text>
 <path d="M215,1405 L215,1480" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M480,1405 L480,1480" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
@@ -114,18 +114,18 @@
 <rect x="100" y="1710" width="1020" height="140" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <rect x="105" y="1715" width="1010" height="130" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
 <text x="610.0" y="1759.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">GO · 全量收尾门禁</text>
-<text x="610.0" y="1793.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">所有子 MO：DoD 完成，或基于自身证据明确挂起</text>
+<text x="610.0" y="1793.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">所有子 MO：DoD 完成 / 自动化缺测已记录 / 其他问题明确挂起</text>
 <text x="610.0" y="1822.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">所有父汇总有效；无活动 worker，也无可推进 / 恢复动作</text>
 <path d="M610,1850 L610,1910" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="100" y="1910" width="1020" height="110" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="610.0" y="1944.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">统一 Auditor · 问题收尾</text>
 <text x="610.0" y="1978.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">有遗留：收集 Red / Yellow → 根因 → Fixer → Testing → 裁决（详图 03）</text>
-<text x="610.0" y="2007.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无遗留且全部 DoD 完成：直接进入最终独立审计</text>
+<text x="610.0" y="2007.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">纯自动化缺环境：保留未验证清单，其他可执行任务继续</text>
 <path d="M610,2020 L610,2080" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="100" y="2080" width="1020" height="125" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
 <text x="610.0" y="2121.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">最终独立审计 → 全局报告</text>
-<text x="610.0" y="2155.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全部模块 Green + 队列清空 + 父汇总有效 → 固定最终基线，执行全局与模块路径</text>
-<text x="610.0" y="2184.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">失败：根因 / 受控修复 / 复测；通过：全局 Green，按授权交付</text>
+<text x="610.0" y="2155.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">模块已构建 / 可执行工作收尾 + 父汇总有效 → 固定基线，执行可用验证</text>
+<text x="610.0" y="2184.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全通过才 Green；仅缺自动化环境：Yellow / 未执行报告，本轮可结束</text>
 <rect x="1210" y="190" width="330" height="280" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="1375.0" y="251.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">全局读取视野</text>
 <text x="1375.0" y="285.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GO / 父 MO / 子 MO</text>
@@ -160,7 +160,7 @@
 <rect x="1210" y="1530" width="330" height="280" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1375.0" y="1576.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">收尾 ≠ 全部通过</text>
 <text x="1375.0" y="1610.5" font-size="21.90" fill="#4b5563" text-anchor="middle" font-weight="400">Green：真实复测与 DoD 完成</text>
-<text x="1375.0" y="1639.5" font-size="20.22" fill="#4b5563" text-anchor="middle" font-weight="400">Red / Yellow：留证并明确挂起</text>
+<text x="1375.0" y="1639.5" font-size="21.44" fill="#4b5563" text-anchor="middle" font-weight="400">仅缺自动化环境：Yellow 收尾</text>
 <text x="1375.0" y="1668.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">排队、锁等待、worker 退出</text>
 <text x="1375.0" y="1697.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">均不能独立算作 MO 收尾</text>
 <text x="1375.0" y="1726.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400"></text>

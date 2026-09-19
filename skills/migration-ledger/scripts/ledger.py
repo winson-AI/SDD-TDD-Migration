@@ -16,6 +16,7 @@ import decomposition
 import reuse
 import project_context
 import context_readiness
+import test_validation as tv
 from openspec_projection import materialize
 
 from contracts import (Rejected, baseline, check_ref, digest, file_ref, keyed, nonempty,
@@ -116,7 +117,7 @@ def invalidate_dependents(s, mid):
 
 
 def dependencies_ready(s, m):
-    require(all(s['modules'][d]['phase'] == 'completed' and not s['modules'][d]['stale']
+    require(all(tv.available(s['modules'][d])
                 for d in m['dependencies']), 'dependencies not complete')
     for d in m['dependencies']:
         current(s['modules'][d])
@@ -163,7 +164,8 @@ def idle(m):
 
 def complete_guard(s, m):
     require(m['phase'] == 'dod' and not m['stale'] and m['results'] and
-            all(r['quality'] == 'green-passed' for r in m['results'].values()), 'DoD requires all paths Green')
+            all(r['quality'] == 'green-passed' for r in m['results'].values()) and
+            set(m['results']) == {p['path_id'] for p in m['plan']['paths']}, 'DoD requires all paths Green')
     current(m); dependencies_ready(s, m)
 
 
@@ -195,7 +197,7 @@ def dispatch_guard(s, m, worker):
             require(not any(overlaps(x, y) for x in m['write_paths'] for y in other['write_paths']), 'resource lock conflict')
     require(m['phase'] == {'implementer': 'frozen', 'fixer': 'diagnosing', 'test-runner': 'testing'}[worker], 'worker phase gate rejected')
     if worker == 'test-runner':
-        require(not (unresolved(m) and workflow.defer_reason(m)), 'unresolved failure awaits Auditor')
+        require(not (unresolved(m) and workflow.defer_reason(m)) or m.get('automation_retry_ready'), 'unresolved failure awaits Auditor')
         require(m['code_baseline'], 'code must be accepted before testing')
     if worker == 'fixer':
         require(not workflow.defer_reason(m), 'local repair deferred to Auditor')
@@ -228,6 +230,15 @@ def _next_step(s, m):
             'session_id': None, 'assignment_id': active['assignment_id'] if active else None}
     if m.get('effective_quality') == 'yellow-blocked':
         step.update(operation='revoke' if active else 'invalidate', role='host' if active else 'module-orchestrator', reason='evidence-stale')
+    elif m['phase'] == 'automation-deferred':
+        step.update(role='module-orchestrator', reason='automation-not-run; other work may continue')
+        for receipt in m.get('context_receipts', {}).values():
+            try:
+                context_readiness.validate(s, m['module_id'], 'testing', receipt['report_ref'])
+                step.update(operation='automation-resume', ready=True, payload={'context_ref': receipt['report_ref']})
+                break
+            except (Rejected, OSError, ValueError):
+                pass
     elif m['phase'] == 'waiting-auditor':
         resolution = s.get('audit_resolutions', {}).get(m['module_id'])
         step.update(operation='audit-resume' if resolution else None, role='module-orchestrator',
@@ -241,7 +252,7 @@ def _next_step(s, m):
             step.update(operation='revoke', role='host', reason='stop-invalidated-worker')
         elif m['blocked']['kind'] == 'dependency':
             deps = {d: s['modules'][d]['code_baseline'] for d in m['dependencies']}
-            available = all(s['modules'][d]['phase'] == 'completed' and not s['modules'][d]['stale']
+            available = all(tv.available(s['modules'][d])
                             and s['modules'][d].get('effective_quality') != 'yellow-blocked' for d in m['dependencies'])
             released = m.get('dependency_release') == deps
             step.update(operation='resume' if released else 'dependency-ready',
@@ -284,7 +295,7 @@ def _next_step(s, m):
                     reason=None if decision or eligible else 'approval-or-impact-review-required')
     elif m['phase'] in ('frozen', 'testing', 'diagnosing'):
         bad = unresolved(m)
-        if m['phase'] == 'testing' and bad:
+        if m['phase'] == 'testing' and bad and not m.get('automation_retry_ready'):
             draft = m.get('diagnosis_submission')
             categories = {r.get('root_cause', {}).get('category') for r in bad.values()}
             if draft and draft['subject'] == diagnosis_subject(m):
@@ -304,6 +315,9 @@ def _next_step(s, m):
                          m['fix_rounds_used'] >= m.get('fix_budget', s['max_fix_rounds']))
             step.update(operation='recover' if exhausted else 'assign', role='module-orchestrator',
                         worker_role=worker, ready=not exhausted, reason='budget-exhausted' if exhausted else None)
+            if worker == 'test-runner' and tv.split(m):
+                step['test_scope'] = 'automation' if tv.build_ready(m) else 'build'
+                step['payload'] = {'test_scope': step['test_scope']}
             if step['ready']:
                 try:
                     dispatch_guard(s, m, worker)
@@ -357,14 +371,15 @@ def audit_scope(s):
     return {'freeze_id': digest({k:v['freeze_id'] for k,v in s['modules'].items()}),
             'code_files': refs, 'code_baseline': baseline(refs),
             'plan': {'definitions': [], 'paths': s['global_paths'] + [p for m in s['modules'].values() for p in m['plan']['paths']]},
-            'results': s.get('audit_results', {}), 'stale': False}
+            'results': {**{pid: r for m in s['modules'].values() for pid, r in m['results'].items()
+                             if r['quality'] != 'green-passed'}, **s.get('audit_results', {})}, 'stale': False}
 
 
 def mutate(s, req, principal, events):
     op, p = req['operation'], req.get('payload', {})
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')
-    global_ops = {'register', 'decision', 'audit-assign', 'audit', 'audit-revoke', 'audit-route'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS
+    global_ops = {'register', 'decision', 'audit-assign', 'audit', 'audit-revoke', 'audit-route', 'audit-unavailable'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS
     if op == 'context-submit' and mid is None:
         global_ops.add(op)
     require((mid is None) == (op in global_ops), 'operation has incorrect global/module scope')
@@ -375,11 +390,13 @@ def mutate(s, req, principal, events):
             require(op in ('module-summary', 'session'), 'parent MO only coordinates/summarizes; execute code and tests in child modules')
     if workflow.audit_active(s) and op not in ('audit', 'problem-audit', 'audit-revoke', 'decision'):
         raise Rejected('audit snapshot locked; close or revoke audit before mutation')
-    if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'revoke', 'session', 'module-summary', 'context-submit'}:
+    if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
     context_readiness.gate(s, req, principal)
     if op == 'context-submit':
         context_readiness.submit(s, req, principal)
+    elif op in tv.OPS:
+        tv.handle(s, req, principal)
     elif op in decomposition.OPERATIONS:
         decomposition.handle(s, req, principal)
     elif op in audit_closure.OPS:
@@ -421,8 +438,10 @@ def mutate(s, req, principal, events):
         if m.get('parent_module_id'):
             decomposition.check_module_plan(s, m, plan)
         plan_hash = validate_plan(plan, m)
+        if s.get('split_testing_required') or any(path.get('kind') == 'build' for path in plan['paths']):
+            tv.plan_check(plan, s['target_root'])
         if m.get('parent_module_id') or s.get('reuse_required') or plan.get('reuse_plan_ref'):
-            reuse.validate_plan(plan, m, reuse.sources(s), s['modules'])
+            reuse.validate_plan(plan, m, reuse.sources(s), s['modules'], s['legacy_root'])
         occupied = {path['path_id'] for path in s['global_paths']}
         occupied.update(path['path_id'] for other in s['modules'].values() if other['module_id'] != mid
                         and other.get('plan') for path in other['plan']['paths'])
@@ -461,6 +480,8 @@ def mutate(s, req, principal, events):
         if audit_closure.active(s):
             require(p.get('instance_id') != s['audit_batch']['auditor_instance_id'], 'Auditor cannot implement or author verification')
         dispatch_guard(s, m, p['role'])
+        if p['role'] == 'test-runner' and tv.split(m):
+            require(p.get('test_scope') == ('automation' if tv.build_ready(m) else 'build'), 'build must precede automation')
         if p['instance_id'] not in m['authors']:
             m['authors'].append(p['instance_id'])
         if p['role'] in ('implementer', 'fixer'):
@@ -507,19 +528,31 @@ def mutate(s, req, principal, events):
                 memory = next(x for x in m['fix_memory'] if x['assignment_id'] == aid)
                 memory.update(after_baseline=result['code_baseline'], implementation_ref=sub['ref'],
                               fix_note_ref=result['fix_note_ref'], status='awaiting-regression')
-            m.update(code_files=result['code_files'], code_baseline=result['code_baseline'], phase='testing', stale=True)
+            m.update(code_files=result['code_files'], code_baseline=result['code_baseline'], phase='testing', stale=True, build_baseline=None)
+            m.pop('automation_retry_ready', None)
             invalidate_dependents(s, mid)
         else:
             previous_fingerprint = failure_fingerprint(m['results'])
-            m['results'] = {x['path_id']: x for x in result['paths']}
-            bad = sorted(k for k,v in m['results'].items() if v['quality'] != 'green-passed')
+            if tv.split(m):
+                m['results'].update({x['path_id']: {**x, 'code_baseline': m['code_baseline']} for x in result['paths']})
+                if assignment.get('test_scope') == 'build':
+                    m['build_baseline'] = m['code_baseline'] if all(x['quality'] == 'green-passed' for x in result['paths']) else None
+                else:
+                    m.pop('automation_retry_ready', None)
+            else:
+                m['results'] = {x['path_id']: x for x in result['paths']}
+            build_only = tv.split(m) and assignment.get('test_scope') == 'build'
+            bad = sorted(x['path_id'] for x in result['paths'] if x['quality'] != 'green-passed') if build_only else sorted(k for k,v in m['results'].items() if v['quality'] != 'green-passed')
+            if build_only and not bad:
+                m['automation_retry_ready'] = True
             m['no_progress_rounds'] = m['no_progress_rounds'] + 1 if bad and failure_fingerprint(m['results']) == previous_fingerprint else 0
             for memory in m.get('fix_memory', []):
-                if memory['status'] == 'awaiting-regression' and memory.get('after_baseline') == m['code_baseline']:
+                if not build_only and memory['status'] == 'awaiting-regression' and memory.get('after_baseline') == m['code_baseline']:
                     memory.update(status='verified' if not bad else 'failed', reusable=not bad,
                                   regression_ref=sub['ref'], regression_paths=copy.deepcopy(result['paths']))
-            m.update(stale=False, phase='dod' if not bad else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
-            audit_closure.test_accepted(s, m, result, sub['ref'])
+            m.update(stale=False, phase='dod' if not bad and not build_only else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
+            if not build_only:
+                audit_closure.test_accepted(s, m, result, sub['ref'])
     elif op == 'diagnose':
         role(principal, 'diagnostician')
         require(m['phase'] == 'testing' and not m.get('blocked') and unresolved(m), 'no unresolved test failure')
@@ -633,7 +666,7 @@ def mutate(s, req, principal, events):
         require(not audit_closure.active(s), 'audit closure incomplete')
         require(not s.get('audit_queue'), 'problem audit queue unresolved')
         require(not pending_repairs(s), 'audit repairs require routing and MO acceptance')
-        require(s['modules'] and all(x['phase'] == 'completed' and not x['stale'] for x in s['modules'].values()), 'modules incomplete')
+        require(s['modules'] and all(tv.available(x) for x in s['modules'].values()), 'modules incomplete')
         require(not s.get('audit_assignment') or s['audit_assignment'].get('closed'), 'audit already active')
         require(p.get('instance_id') and p.get('assignment_id'), 'audit identity required')
         require(p['assignment_id'] not in s.get('audit_assignment_ids', []), 'audit assignment id already used')
@@ -652,7 +685,7 @@ def mutate(s, req, principal, events):
         assignment = s.get('audit_assignment', {})
         require(assignment.get('mode') != 'problem', 'use problem-audit for problem assignment')
         require(not assignment.get('closed', True) and assignment.get('instance_id') == principal['instance_id'], 'audit assignment inactive/mismatch')
-        require(s['modules'] and all(x['phase'] == 'completed' and not x['stale'] for x in s['modules'].values()), 'modules incomplete')
+        require(s['modules'] and all(tv.available(x) for x in s['modules'].values()), 'modules incomplete')
         for mod in s['modules'].values():
             current(mod)
         report = read_json(check_ref(p['report_ref']))
@@ -669,6 +702,15 @@ def mutate(s, req, principal, events):
                                 'module_ids': [owners[r['path_id']]] if r['path_id'] in owners else [],
                                 'accepted_by': []}
                               for r in report['paths'] if r['quality'] != 'green-passed'}
+        for mod in s['modules'].values():
+            if tv.deferred(mod):
+                module_rows = [r for r in report['paths'] if r['path_id'] in {x['path_id'] for x in mod['plan']['paths']}]
+                mod['results'] = {r['path_id']: {**r, 'code_baseline': mod['code_baseline'],
+                                  'module_retest_of': mod['results'].get(r['path_id'], {}).get('test_run_id')} for r in module_rows}
+                passed = all(r['quality'] == 'green-passed' for r in module_rows)
+                mod.update(phase='dod' if passed else 'testing', blocked=None, stale=False, audit_acceptance_ref=p['report_ref'])
+                if not all(mod['results'][x['path_id']]['quality'] == 'green-passed' for x in tv.paths(mod, 'build')):
+                    mod['build_baseline'] = None
         assignment['closed'] = True
     elif op == 'audit-route':
         role(principal, 'global-orchestrator')
@@ -785,8 +827,10 @@ def apply(root, req, principal):
             require(len(set(p['requirement_ids'])) == len(p['requirement_ids']), 'duplicate global requirement')
             reuse_sources = reuse.normalize_sources(p.get('reuse_sources', []), p['target_root'], existing=True)
             require(type(p.get('reuse_required', False)) is bool, 'reuse_required must be boolean')
+            require(type(p.get('split_testing_required', True)) is bool, 'split_testing_required must be boolean')
             require(type(p.get('context_readiness_required', True)) is bool, 'context_readiness_required must be boolean')
-            s = {'context_readiness_required': p.get('context_readiness_required', True),
+            require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
+            s = {'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True),
                  'reuse_sources': reuse_sources, 'reuse_required': bool(reuse_sources) or p.get('reuse_required', False),
                  'entry_mode': entry_mode, 'single_module_id': selected_module,
                  'global_spec': p['global_spec'], 'new_architecture': p['new_architecture'], 'requirement_ids': p['requirement_ids'],
@@ -854,7 +898,7 @@ def status(root):
         if audit_closure.active(s):
             global_next = audit_closure.global_step(s)
         elif audit and not audit.get('closed'):
-            fresh = not observed and all(m['phase'] == 'completed' and not m['stale'] for m in s['modules'].values()) and audit['snapshot'] == {k:v['code_baseline'] for k,v in s['modules'].items()}
+            fresh = not observed and all(tv.available(m) for m in s['modules'].values()) and audit['snapshot'] == {k:v['code_baseline'] for k,v in s['modules'].items()}
             if audit.get('mode') == 'problem':
                 fresh = audit['snapshot'] == workflow.problem_snapshot(s, audit['module_ids'])
             global_next = {'operation': ('problem-audit' if audit.get('mode') == 'problem' else 'audit') if fresh else 'audit-revoke', 'role': 'auditor' if fresh else 'host',
@@ -879,7 +923,10 @@ def status(root):
                            'reason': 'repair-owner-required' if unassigned else 'await-module-repair-acceptance'}
         elif s['quality'] == 'green-passed' and not observed:
             global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'await-delivery-authorization'}
-        elif cursor and all(m['phase'] == 'completed' for m in s['modules'].values()) and not observed:
+        elif tv.final_deferred_current(s) and not observed:
+            global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False,
+                           'reason': 'completed-with-unverified-tests', 'quality': 'yellow-blocked'}
+        elif cursor and all(tv.available(m) for m in s['modules'].values()) and not observed:
             ready = rounds['all_settled'] and bool(s.get('global_paths')) and s.get('audit_attempts', 0) < s['max_audit_rounds']
             global_next = {'operation': 'audit-assign' if rounds['all_settled'] else None, 'role': 'global-orchestrator', 'ready': ready,
                            'reason': 'await-parent-summaries' if not rounds['all_settled'] else None if ready else 'audit-design-or-budget-missing',

@@ -25,5 +25,6 @@
     }
   },
   "knowledge_paths": [],
-  "reuse_sources": []
+  "reuse_sources": [],
+  "build": {}
 }

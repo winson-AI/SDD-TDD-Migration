@@ -18,7 +18,7 @@ from contracts import require, digest, file_ref, check_ref, read_json
 
 FIELDS = {'package_root', 'legacy_root', 'target_root', 'architecture_path', 'requirements_path',
           'test_cases_path', 'project_rules_path', 'test_adapter', 'runtime', 'human_owner',
-          'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources'}
+          'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources', 'build'}
 DOCUMENTS = ('architecture_path', 'requirements_path', 'test_cases_path', 'project_rules_path')
 BUDGETS = {'max_parallel_modules': 3, 'max_fix_rounds': 3, 'max_audit_rounds': 3, 'max_no_progress_rounds': 2}
 
@@ -113,8 +113,17 @@ def validate(config):
         require(isinstance(defaults.get(key, {}), dict), 'invalid ' + key)
     if 'repair_policy' in defaults:
         require(defaults['repair_policy'].get('local_automatic_rounds', 1) == 1, 'local automatic repair must remain one round')
-    for key in ('test_adapter', 'runtime', 'module_slicing'):
+    for key in ('test_adapter', 'runtime', 'module_slicing', 'build'):
         if key in config: require(isinstance(config[key], dict), key + ' must be an object')
+    build = config.get('build', {})
+    require(set(build) <= {'argv', 'cwd', 'timeout_seconds', 'environment_ref'}, 'unknown build configuration')
+    if build.get('argv') is not None:
+        require(isinstance(build['argv'], list) and build['argv'] and all(isinstance(x, str) and x for x in build['argv']), 'build argv must be a nonempty string array')
+    for key in ('cwd', 'environment_ref'):
+        if build.get(key) is not None:
+            require(isinstance(build[key], str) and Path(build[key]).is_absolute(), 'absolute build ' + key + ' required')
+    if 'timeout_seconds' in build:
+        require(type(build['timeout_seconds']) is int and build['timeout_seconds'] > 0, 'invalid build timeout')
     adapter = config.get('test_adapter', {})
     for key in ('executable', 'cwd', 'environment_ref'):
         if adapter.get(key) is not None:
@@ -206,7 +215,7 @@ def prepared_input(ref):
     defaults = config.get('defaults', {})
     return {**{k: copy.deepcopy(config[k]) for k in ('package_root', 'legacy_root', 'target_root', 'test_adapter',
                 'runtime', 'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources') if k in config},
-            'context_readiness_required': True, 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
+            'context_readiness_required': True, 'split_testing_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
             'module_name': snapshot['module_name'], 'project_context_ref': ref, 'project_sources': sources,
             'new_architecture': sources['architecture_path'], 'global_spec': None, 'global_test_cases': [],
             'requirement_ids': [], 'global_test_paths': [],
@@ -258,6 +267,10 @@ def prepare(root, run_root, request, actor):
         if adapter.get('environment_ref'):
             sources['test_environment'] = copy_ref(files, file_ref(adapter['environment_ref']))
             adapter['environment_ref'] = sources['test_environment']['path']
+        build = effective.get('build', {})
+        if build.get('environment_ref'):
+            sources['build_environment'] = copy_ref(files, file_ref(build['environment_ref']))
+            build['environment_ref'] = sources['build_environment']['path']
         snapshot = {'schema_version': 1, 'project_id': record['project_id'], 'project_revision': record['revision'],
                     'project_revision_hash': digest(record), 'project_config': freeze_refs(files, record['config']), 'effective_config': effective,
                     'run_id': request['run_id'], 'run_root': str(run_root), 'entry_mode': mode, 'module_name': name,
@@ -286,8 +299,11 @@ def bind_run(ref, run_root, run_id, payload):
     budgets = config.get('defaults', {}).get('budgets', {})
     for key, fallback in BUDGETS.items():
         require(payload.get(key, fallback) == budgets.get(key, fallback), 'run/config budget mismatch: ' + key)
+    require(payload.get('split_testing_required', True) is True, 'prepared run requires split testing')
+    if 'build' in payload:
+        require(payload['build'] == config.get('build', {}), 'run/config build mismatch')
     require(payload.get('context_readiness_required', True) is True, 'prepared run requires context readiness')
-    return {'context_readiness_required': True, 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
+    return {'context_readiness_required': True, 'split_testing_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
             'project_context_ref': ref, 'project_id': snapshot['project_id'],
             'project_revision': snapshot['project_revision'], 'module_name': snapshot['module_name']}
 

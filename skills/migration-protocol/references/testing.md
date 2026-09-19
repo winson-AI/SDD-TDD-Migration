@@ -1,10 +1,10 @@
 # 测试路径、Main 与复测契约
 
-## 两阶段 Test-Runner
+## 设计模式与执行模式
 
 design 模式：冻结前只读整体/模块测试输入及规格，补齐正常/边界/异常、权限/数据等适用路径，输出 CASE-ID → PATH-ID/Name 与验收映射；不读取实现源码推导预期、不执行测试。缺失业务预期经 Spec-Designer 澄清。
 
-execute 模式：代码已生成并经 MO 接受后，把已批准路径落实为技术栈真实脚本/选择器/数据参数。若发现新验收语义，发 CR，不自行补成新标准。设计与执行可由不同实例担任，仍属于同一角色。Auditor 不能是该轮脚本作者。
+execute 模式分 build 和 automation，按 [双环节协议](build-automation.md) 执行。代码已生成并经 MO 接受后，把已批准路径落实为技术栈真实脚本/选择器/数据参数。若发现新验收语义，发 CR，不自行补成新标准。设计与执行可由不同实例担任，仍属于同一角色。Auditor 不能是该轮脚本作者。
 
 Main 是项目提供的主验证入口，不是固定 `main.py`，也不是某个产品特有 Agent。输入 `test_adapter` 指定 executable/args/cwd、query 传输和结构化结果路径；未配置或不可用 → Yellow tooling。模板不包含假测试或自动通过的适配器。
 
@@ -44,7 +44,7 @@ Fixer 自回归记录 `producer=fixer`，是补丁证据，不能替代 Test-Run
 
 执行回执来源可信依赖宿主保护其上下文和证据目录。本地检查不能独立证明一份任意可写 JSON 来自可信执行；宿主不得让业务 worker 伪造 host-context 或执行回执。全局 Auditor 同样需实际执行回执，不能只提交文字“已复测”。
 
-模块结果需覆盖全部冻结路径，未执行项明确 Yellow。超时/缺报告可提交 executed=false 的 Yellow 并附诊断证据；不能将残缺报告提升为 Green。旧非 Green 与 stale 路径需新的 test_run_id 和 retest_of。
+新拆分运行每次结果覆盖 assignment.test_scope 对应的全部冻结路径，Ledger 合并构建和自动化两部分；DoD 仍检查完整集合，未执行项明确 Yellow。超时/缺报告可提交 executed=false 的 Yellow 并附诊断证据；不能将残缺报告提升为 Green。旧非 Green 与 stale 路径需新的 test_run_id 和 retest_of。
 
 本地一轮策略与问题审计：Red/Yellow 可修复根因先自动一轮，确认依赖/外围或仍失败时 audit-defer；问题审计独立执行有效代码，缺代码/前置时只记 Yellow。Auditor 对正式复测证据直接作审计验收；MO 只接收模块恢复/修复任务并执行模块门禁，不会签审计结论；最终审计不能跳过。
 
@@ -65,6 +65,10 @@ Fixer 自回归记录 `producer=fixer`，是补丁证据，不能替代 Test-Run
 
 基于冻结需求和 reuse-plan 中的行为差异设计真实提供方接线/版本/配置、边界/异常及适配路径；完整模块和全局用例仍须覆盖。mock/编译通过不替代必要集成测试。结果缺真实证据为 Yellow，实际断言错误为 Red；根因带 source/capability/mapping/version 和影响消费者。所选提供方变化使旧证据失效，Auditor 按 finding 依赖图重测，详见 [复用协议](reuse-dependencies.md)。
 
+对 reuse/adapt/reference，design 从已审核的存量行为基线与需求建立 fidelity.scenarios 的复现断言；execute 用同场景前置/输入/状态验证真实目标链路，记录实际输出及副作用。每个 scenario 关联冻结 PATH/ASSERT 与 Main 回执，不能用库的当前返回值重写 expected。未确定基线先澄清，未执行不能 Green；对齐报告不是测试通过证据。MO/Auditor 验收沿用同一条完整证据链。
+
 ## 测试启动前的上下文门禁
 
-Test Runner 先提交 testing 报告，Auditor 最终验证先提交 audit-testing 报告；包括已接受代码、冻结 PATH/assert、提供方、工具/环境/数据与 execution.argv/cwd/environment_ref。原 assign/audit-assign 接受后 execute_test 再核对命令和环境引用；不匹配须重新预检和派发，不能换命令绕过。缺条件不生成假测试结果。见 [上下文就绪协议](context-readiness.md)。
+Test Runner 编译前提交 building、自动化前提交 testing 报告，Auditor 最终验证先提交 audit-testing 报告；包括已接受代码、冻结 PATH/assert、提供方、工具/环境/数据与 execution.argv/cwd/environment_ref。原 assign/audit-assign 接受后 execute_test 再核对命令和环境引用；不匹配须重新预检和派发，不能换命令绕过。缺条件不生成假测试结果。见 [上下文就绪协议](context-readiness.md)。
+
+仅自动化环境缺失采用 automation-unavailable/automation-deferred 专门分流；不耗修复轮次、不阻塞可执行的下游或并行工作，也不冒充 Green。Auditor 可记录完整缺测清单后完成本轮；其余真实 Red/Yellow 保持原诊断修复流程。

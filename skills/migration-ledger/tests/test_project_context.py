@@ -70,6 +70,22 @@ class ProjectContextTests(unittest.TestCase):
         next_run = pc.prepare(self.root, self.base / 'runs/r2', self.run_request('r2'), self.actor)
         self.assertEqual(next_run['input']['reuse_sources'], [])
 
+    def test_build_config_updates_and_environment_snapshot_is_frozen(self):
+        env = self.base / 'build-env.md'; env.write_text('JDK and SDK v1')
+        build = {'argv': [sys.executable, '-c', 'pass'], 'cwd': str(self.target),
+                 'timeout_seconds': 90, 'environment_ref': str(env)}
+        pc.update(self.root, self.request('build', 1, {'build': build}), self.actor)
+        prepared = self.prepare()
+        self.assertTrue(prepared['input']['split_testing_required'])
+        frozen = prepared['input']['build']
+        env.write_text('JDK and SDK v2')
+        self.assertEqual(Path(frozen['environment_ref']).read_text(), 'JDK and SDK v1')
+        pc.update(self.root, self.request('change-build', 2, {'build': {'argv': [sys.executable, '-V']}}), self.actor)
+        self.start(self.init_payload(prepared))
+        self.assertEqual(ledger.status(self.run)['planning_context']['build'], frozen)
+        next_run = pc.prepare(self.root, self.base / 'runs/r2', self.run_request('r2'), self.actor)
+        self.assertEqual(next_run['input']['build']['argv'], [sys.executable, '-V'])
+
     def test_prepared_run_requires_context_readiness(self):
         prepared = self.prepare()
         self.assertTrue(prepared['input']['context_readiness_required'])

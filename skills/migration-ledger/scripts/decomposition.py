@@ -10,7 +10,7 @@ from pathlib import Path
 from contracts import Rejected, check_ref, digest, nonempty, read_json, require
 
 OPERATIONS = {'decompose', 'decompose-accept', 'module-summary'}
-TERMINAL = {'completed', 'waiting-auditor', 'waiting-dependency', 'waiting-human'}
+TERMINAL = {'completed', 'waiting-auditor', 'waiting-dependency', 'waiting-human', 'automation-deferred'}
 
 
 def planning_context(s):
@@ -21,6 +21,7 @@ def planning_context(s):
     result = {
         'legacy_root': s['legacy_root'], 'target_root': s['target_root'],
         'reuse_sources': reuse.sources(s),
+        **({'build': copy.deepcopy(s.get('build', {})), 'split_testing_required': True} if s.get('split_testing_required') else {}),
         'global_spec': s['global_spec'], 'new_architecture': s['new_architecture'],
         'project_context_ref': s.get('project_context_ref'), 'project_sources': sources,
         'modules': {mid: {key: m.get(key) for key in ('parent_module_id', 'scope', 'context_refs', 'case_ids', 'write_paths', 'dependencies')}

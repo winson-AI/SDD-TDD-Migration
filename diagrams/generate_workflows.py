@@ -112,7 +112,7 @@ def overview():
     for x,title,subtitle in [(100,'子 MO · A1','子 scope A1'),(365,'子 MO · A2','子 scope A2'),(630,'子 MO · B1','子 scope B1'),(895,'子 MO · B…','其他子 scope')]:
         cx=x+115
         d.arrow([(cx,1220),(cx,1240)])
-        d.box(x,1240,230,165,title,['按阶段核对上下文','拆 tasks → 冻结','Coding / Testing','修复 / DoD / 挂起'],controller=True)
+        d.box(x,1240,230,165,title,['按阶段核对上下文','拆 tasks → 冻结','编码→构建→自动化','修复 / DoD / 挂起'],controller=True)
     for centers,summaryx in [((215,480),100),((745,1010),640)]:
         for cx in centers: d.arrow([(cx,1405),(cx,1480)],end=False)
         d.arrow([(centers[0],1480),(centers[1],1480)],end=False)
@@ -122,16 +122,16 @@ def overview():
     for x in (340,880): d.arrow([(x,1635),(x,1670),(610,1670)],end=False)
     d.arrow([(610,1670),(610,1710)],'orange')
     d.box(100,1710,1020,140,'GO · 全量收尾门禁',[
-        '所有子 MO：DoD 完成，或基于自身证据明确挂起',
+        '所有子 MO：DoD 完成 / 自动化缺测已记录 / 其他问题明确挂起',
         '所有父汇总有效；无活动 worker，也无可推进 / 恢复动作'], 'orange',True)
     d.arrow([(610,1850),(610,1910)])
     d.box(100,1910,1020,110,'统一 Auditor · 问题收尾',[
         '有遗留：收集 Red / Yellow → 根因 → Fixer → Testing → 裁决（详图 03）',
-        '无遗留且全部 DoD 完成：直接进入最终独立审计'])
+        '纯自动化缺环境：保留未验证清单，其他可执行任务继续'])
     d.arrow([(610,2020),(610,2080)])
     d.box(100,2080,1020,125,'最终独立审计 → 全局报告',[
-        '全部模块 Green + 队列清空 + 父汇总有效 → 固定最终基线，执行全局与模块路径',
-        '失败：根因 / 受控修复 / 复测；通过：全局 Green，按授权交付'], 'green')
+        '模块已构建 / 可执行工作收尾 + 父汇总有效 → 固定基线，执行可用验证',
+        '全通过才 Green；仅缺自动化环境：Yellow / 未执行报告，本轮可结束'], 'green')
     # Shared planes: explanatory cards, deliberately not direct agent channels.
     d.box(1210,190,330,280,'全局读取视野',[
         'GO / 父 MO / 子 MO', '均可读全局存量与目标代码', '架构 / 知识 / 分工 / 复用来源', '', '局部 context pack 聚焦任务', '不截断全局只读上下文'], 'gray')
@@ -142,7 +142,7 @@ def overview():
     d.box(1210,1230,330,230,'宿主执行层',[
         '实际启动 / 恢复 subagent', '绑定实例、模块及 Used Skills', '遵守 DAG / 写锁 / 预算', '', '状态投影不代表 Agent 已启动'], 'gray')
     d.box(1210,1530,330,280,'收尾 ≠ 全部通过',[
-        'Green：真实复测与 DoD 完成', 'Red / Yellow：留证并明确挂起', '排队、锁等待、worker 退出', '均不能独立算作 MO 收尾', '', '有 ready 动作继续推进', '一个失败不提前拉起 Auditor'], 'orange')
+        'Green：真实复测与 DoD 完成', '仅缺自动化环境：Yellow 收尾', '排队、锁等待、worker 退出', '均不能独立算作 MO 收尾', '', '有 ready 动作继续推进', '一个失败不提前拉起 Auditor'], 'orange')
     d.text(1375,1935,'细节阅读',24,weight=650)
     d.text(1375,1985,'02 · 子 MO 执行与修复',21,'#4b5563')
     d.text(1375,2025,'03 · Auditor 跨模块收尾',21,'#4b5563')
@@ -164,10 +164,10 @@ def module_execution():
     d.arrow([(800,685),(800,745)])
     d.box(560,745,480,125,'Coding 预检 → 实现 → MO 接受',[
         '按冻结 tasks + 复用映射实现','提交代码 / reuse_trace / 实际绑定','依赖满足 / 写锁 / 全局覆盖 / 预算'])
-    d.arrow([(800,870),(800,930)])
-    d.box(560,930,480,120,'Testing 预检 → Main',[
-        '核对路径 / 代码 / 提供方 / 环境','批准 argv/cwd → 执行 query/assert'])
-    d.arrow([(800,1050),(800,1105)])
+    d.arrow([(800,870),(800,920)])
+    d.box(560,920,480,150,'Test-Runner · 构建 → 自动化',[
+        'build Green 后预检自动化环境','可用：Main 按用例路径验证','缺环境：Yellow / 未执行（旁路）'])
+    d.arrow([(800,1070),(800,1105)])
     d.diamond(800,1170,310,130,'三态结果','Green / Red / Yellow')
     d.arrow([(645,1170),(500,1170)],'orange');d.label(570,1152,'Green','green')
     d.box(70,1100,430,150,'子 MO · DoD 验收',[
@@ -176,7 +176,7 @@ def module_execution():
     d.label(285,1380,'DoD 满足','green')
     d.box(70,1500,430,130,'模块完成 → Ledger',[
         '子 MO 为模块阶段唯一验收 owner','记录结果、版本与修复 memory'], 'green')
-    d.arrow([(955,1170),(1110,1170)],'orange');d.label(1030,1148,'非 Green','orange')
+    d.arrow([(955,1170),(1110,1170)],'orange');d.label(1030,1148,'其他非 Green','orange')
     d.box(1110,1100,410,140,'Diagnostician · 根因',[
         '只读分析；Red / Yellow 留根因','子 MO 接受当前版本诊断', '确认依赖 / 外围问题直接留待审计'], 'orange')
     d.arrow([(1315,1240),(1315,1315)],'orange')
@@ -186,12 +186,17 @@ def module_execution():
     d.box(1110,700,410,135,'Fixer 预检 → 自动一轮',[
         '最小补丁 + 自验证 + fix_note','子 MO 接受补丁，旧结果失效','修复记录保留为 memory'], 'purple')
     d.arrow([(1110,767),(1080,767),(1080,990),(1040,990)],'purple')
-    d.label(1305,882,'必须回到 Main 正式复测','purple')
+    d.label(1305,882,'重新构建，再正式自动化复测','purple')
     d.arrow([(1315,1445),(1315,1540)],'orange');d.label(1315,1495,'否 / 一轮仍未通过','orange')
     d.box(1110,1540,410,130,'留证 → 明确挂起',[
         'audit-defer / 依赖 / 人工阻塞','保留根因、路径、结果与恢复点','无关兄弟继续推进'], 'orange')
     d.arrow([(285,1630),(285,1720),(600,1720),(600,1770)])
     d.arrow([(1315,1670),(1315,1720),(1000,1720),(1000,1770)],'orange')
+    d.arrow([(800,1235),(800,1365)],'orange')
+    d.label(800,1305,'仅自动化环境缺失','orange')
+    d.box(560,1365,480,180,'Yellow 缺测 → 本轮收尾',[
+        '当前 build Green；自动用例未执行','记录 automation-deferred','可执行的下游 / 并行任务继续','不是 DoD 或功能验收通过'], 'orange')
+    d.arrow([(800,1545),(800,1770)],'orange')
     d.box(400,1770,800,115,'本子 MO 收尾 → 父 MO 检查与汇总',[
         '当前子 MO 已收尾不触发提前审计；仍等待其他子 MO 和其他父模块'])
     d.box(1110,190,410,190,'编码前阻塞',[
@@ -243,7 +248,7 @@ def auditor_closure():
         '前置条件已恢复 / 无需补丁','仍须新 Main 结果','不能沿用旧非 Green 直接通过'])
     d.arrow([(300,965),(300,1155),(590,1155)],'purple')
     d.arrow([(800,965),(800,1080)])
-    d.box(590,1080,420,155,'Testing 预检 → 完整模块 DoD',[
+    d.box(590,1080,420,155,'构建 → 自动化 → 记录结果',[
         '按 finding 依赖图交错推进','验证 owner / source / 中间与下游','原 Green 受影响也须正式复测','发现模块与负责模块相同时合并证据'])
     d.arrow([(1010,1155),(1120,1155)],'orange')
     d.label(1067,1136,'失败','orange')
@@ -254,18 +259,18 @@ def auditor_closure():
     d.arrow([(800,1295),(800,1360)])
     d.label(800,1330,'剩余可执行分支已结束','gray')
     d.box(500,1360,600,145,'Auditor · 核对当前证据 → 裁决',[
-        'audit-verdict：统一审阅 owner / source 新证据','resolved_findings + human_issues + 测试报告','Fixer 自测不能代替 Testing 与独立审计'],controller=True)
+        'audit-verdict：统一审阅 owner / source 新证据','已解决 / 缺测未验证 / 人工问题分别记录','Fixer 自测不能代替 Testing 与独立审计'],controller=True)
     d.arrow([(640,1505),(640,1540),(400,1540),(400,1590)])
-    d.label(430,1540,'全部通过','green')
+    d.label(430,1540,'通过 / 仅自动化缺测','green')
     d.arrow([(960,1505),(960,1540),(1200,1540),(1200,1590)],'orange')
-    d.label(1190,1540,'仍有 Red / Yellow','orange')
-    d.box(90,1590,620,145,'批次 verified → 刷新父汇总',[
-        '修复导致父汇总失效时重新核验并提交','全部子模块 DoD Green、遗留队列清空','完整跨模块验证后，修复 memory 才可复用'], 'green')
+    d.label(1190,1540,'Red / 其他 Yellow','orange')
+    d.box(90,1590,620,145,'批次收尾 → 刷新父汇总',[
+        '修复导致父汇总失效时重新核验并提交','保留 Green 或自动化未验证清单；不空等','完整跨模块验证后，修复 memory 才可复用'], 'green')
     d.box(890,1590,620,145,'根因报告 → 等待人工审核',[
         'awaiting-human：保留各次断言、证据与问题归属','审核决定绑定当前报告摘要；不自动追加修复'], 'orange')
     d.arrow([(400,1735),(400,1795)])
     d.box(90,1795,620,155,'最终独立审计 → 全局报告',[
-        '先通过 audit-testing 预检，再按最终快照独立重跑','全通过 → 全局 Green → 按授权交付','非 Green → 保留根因，走受控修复与新独立审计'], 'green')
+        '先通过 audit-testing 预检，再按最终快照独立重跑','全通过 → 全局 Green → 按授权交付','仅缺自动化环境 → Yellow / 未执行报告收尾'], 'green')
     d.arrow([(1200,1735),(1200,1795)],'purple')
     d.box(890,1795,620,155,'人工批准 → GO 释放批次 → 受控恢复',[
         'audit-release 后按原因 resume / recover / CR','需要时重新 plan / freeze；恢复不会直接 Green','再次满足全量收尾门禁，才可创建新审计批次'], 'purple')
@@ -318,7 +323,7 @@ def reuse_flow():
         'Task Trace + reuse_trace + 真实提供方绑定证据',
         '换库或改行为需 CR；引用外部来源不授予修改权限'])
     d.arrow([(800,1695),(800,1765)])
-    d.box(400,1765,800,140,'代码经 MO 接受 → Testing 预检 → 验证完整业务',[
+    d.box(400,1765,800,140,'代码接受 → 构建 → 自动化与保真验证',[
         '正常 / 边界 / 异常 / 取消；真实提供方接线与适配差异',
         '编译、导入或 mock 通过，不能代替必要的集成验证',
         '本模块可修复先一轮 Fixer；提供方/外围问题留证待 Auditor'])

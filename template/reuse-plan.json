@@ -14,6 +14,21 @@
       "task_ids": ["TASK-M001-001"],
       "path_ids": ["PATH-M001-001"],
       "verification": "{{required-business-contract-boundary-error-and-real-provider-assertions}}",
+      "fidelity": {
+        "legacy_root": "{{absolute-legacy-root-from-run}}",
+        "legacy_source_refs": [{"path": "{{absolute-legacy-entry-or-call-chain-source-file}}", "sha256": "{{sha256}}"}],
+        "alignment_ref": {"path": "{{absolute-reuse-fidelity-report}}", "sha256": "{{sha256}}"},
+        "scenarios": [
+          {
+            "scenario_id": "FID-M001-001",
+            "path_id": "PATH-M001-001",
+            "assertion_ids": ["ASSERT-M001-001"],
+            "legacy_behavior": "{{source-preconditions-input-state-output-and-side-effects}}",
+            "reuse_behavior": "{{provider-observed-or-source-derived-behavior-and-differences}}",
+            "reproduction_strategy": "{{binding-adaptation-fixtures-actions-and-frozen-expected-assertions}}"
+          }
+        ]
+      },
       "integration": {
         "mode": "existing-target",
         "locator": "{{target-module-api-or-package-coordinate}}",

@@ -15,7 +15,9 @@ def build(root, module_id, assignment_id, receipts):
     m = audit_scope(s) if module_id == 'GLOBAL' else s['modules'][module_id]
     a = s['audit_assignment'] if module_id == 'GLOBAL' else m['assignments'][assignment_id]
     require(not a['closed'] and a['assignment_id'] == assignment_id, 'active assignment required')
-    paths = {p['path_id']:p for p in m['plan']['paths']}
+    import test_validation as tv
+    selected = tv.paths(m, a['test_scope']) if module_id != 'GLOBAL' and tv.split(m) else m['plan']['paths']
+    paths = {p['path_id']:p for p in selected}
     rows = {}
     for receipt_ref in receipts:
         r = read_json(check_ref(receipt_ref))
@@ -26,8 +28,8 @@ def build(root, module_id, assignment_id, receipts):
         require(pid in paths and pid not in rows, 'unknown/duplicate receipt path; do not pick the best attempt')
         row = {'path_id':pid, 'test_run_id':r['test_run_id'], 'execution_receipt':receipt_ref}
         report = read_json(check_ref(r['result_ref'])) if r.get('result_ref') else None
-        if report and report.get('producer') == 'harmony-adapter' and r['exit_code'] in (0,1,2):
-            row.update({k:report[k] for k in ('quality','assertions','root_cause','flaky')})
+        if report and (report.get('producer') == 'harmony-adapter' and r['exit_code'] in (0,1,2) or report.get('producer') == 'build-executor'):
+            row.update({k:report[k] for k in ('quality','assertions','root_cause','flaky') if k in report})
             row['executed'] = True
         else:
             row.update({'quality':'yellow-blocked', 'executed':False,

@@ -12,6 +12,7 @@ CHECKS = {
     'decomposition': ('global-inputs', 'feature-inventory', 'assigned-scope', 'source-target', 'interfaces-ownership', 'reuse-sources'),
     'planning': ('global-inputs', 'feature-inventory', 'assigned-scope', 'source-closure', 'target-feasibility', 'interfaces-ownership', 'test-design', 'reuse-mapping'),
     'coding': ('frozen-spec', 'task-trace', 'source-closure', 'target-feasibility', 'interfaces-ownership', 'reuse-mapping', 'permissions-tools'),
+    'building': ('frozen-spec', 'accepted-code', 'build-command', 'build-environment', 'permissions-tools'),
     'testing': ('frozen-spec', 'test-paths', 'accepted-code', 'provider-binding', 'test-environment', 'permissions-tools'),
     'fixing': ('frozen-spec', 'task-trace', 'interfaces-ownership', 'reuse-mapping', 'failure-diagnosis', 'repair-history', 'permissions-tools'),
     'audit-analysis': ('module-summaries', 'findings', 'spec-paths', 'dependency-owners', 'reuse-mapping', 'independence'),
@@ -21,7 +22,7 @@ CHECKS = {
 ROLES = {stage: ('auditor' if stage.startswith('audit-') else
                  'global-orchestrator' if stage.startswith('global-') else
                  {'decomposition': 'module-orchestrator', 'planning': 'spec-designer',
-                  'coding': 'implementer', 'testing': 'test-runner', 'fixing': 'fixer'}[stage])
+                  'coding': 'implementer', 'building': 'test-runner', 'testing': 'test-runner', 'fixing': 'fixer'}[stage])
          for stage in CHECKS}
 GLOBAL = {stage for stage in CHECKS if stage.startswith(('global-', 'audit-'))}
 WORKERS = {'implementer': 'coding', 'test-runner': 'testing', 'fixer': 'fixing'}
@@ -45,7 +46,7 @@ def subject(s, mid, stage):
     if mid:
         m = scope(s, mid)
         value['assigned_module'] = decomposition.assigned_module(s, m)
-        if stage in WORKERS.values():
+        if stage in set(WORKERS.values()) | {'building'}:
             value['execution'] = {k: m.get(k) for k in (
                 'plan_ref', 'freeze_id', 'code_baseline', 'recovery_cycle', 'diagnosis',
                 'results', 'repair_findings', 'fix_memory', 'local_fix_used', 'audit_fix_grant')}
@@ -90,7 +91,7 @@ def input_refs(s, mid, stage):
         parent = decomposition.assigned_module(s, m).get('parent_context')
         if parent:
             refs += parent['context_refs']
-        if stage in WORKERS.values() and m.get('plan_ref'):
+        if stage in set(WORKERS.values()) | {'building'} and m.get('plan_ref'):
             refs.append(m['plan_ref'])
             if m['plan'].get('reuse_plan_ref'):
                 refs.append(m['plan']['reuse_plan_ref'])
@@ -114,7 +115,7 @@ def submit(s, req, actor):
         if not audit_closure.active(s):
             require(not audit_closure.collection_blockers(s), 'all module rounds must settle before Auditor context review')
         require(all(actor['instance_id'] not in m['authors'] for m in s['modules'].values()), 'Auditor must be independent')
-        if s.get('audit_batch', {}).get('status') not in (None, 'released', 'verified'):
+        if s.get('audit_batch', {}).get('status') not in (None, 'released', 'verified', 'completed-with-unverified-tests'):
             require(actor['instance_id'] == s['audit_batch']['auditor_instance_id'], 'context auditor mismatch')
     checks = report.get('checks')
     require(isinstance(checks, dict) and set(checks) == set(CHECKS[stage]), 'context checklist incomplete/unknown')
@@ -133,7 +134,7 @@ def submit(s, req, actor):
         require(all(ref in reads for ref in input_refs(s, mid, stage)), 'context mandatory input not acknowledged')
         if report.get('draft_ref'):
             require(report['draft_ref'] in reads, 'context draft not acknowledged')
-        if stage in ('testing', 'audit-testing'):
+        if stage in ('building', 'testing', 'audit-testing'):
             execution = report.get('execution', {})
             argv = execution.get('argv')
             require(isinstance(argv, list) and argv and all(isinstance(arg, str) for arg in argv)
@@ -150,7 +151,7 @@ def submit(s, req, actor):
 
 def requirement(op, p):
     if op == 'assign':
-        return WORKERS.get(p.get('role'))
+        return 'building' if p.get('role') == 'test-runner' and p.get('test_scope') == 'build' else WORKERS.get(p.get('role'))
     return {'register': 'global-discovery', 'global-plan': 'global-planning',
             'decompose': 'decomposition', 'decompose-accept': 'decomposition',
             'plan': 'planning', 'freeze': 'planning', 'audit-plan': 'audit-analysis',
@@ -158,7 +159,7 @@ def requirement(op, p):
             'audit-verdict': 'audit-verdict'}.get(op)
 
 
-def validate(s, mid, stage, ref, instance=None, draft=None):
+def validate(s, mid, stage, ref, instance=None, draft=None, allow_blocked=False):
     report = read_json(check_ref(ref))
     require(report.get('stage') == stage, 'wrong context stage')
     producer = report.get('producer', {})
@@ -167,7 +168,7 @@ def validate(s, mid, stage, ref, instance=None, draft=None):
     receipt = scope(s, mid).get('context_receipts', {}).get(stage + ':' + producer.get('instance_id', ''))
     require(receipt and receipt['report_ref'] == ref and receipt['report'] == report, 'context receipt not submitted/current')
     require(report['subject_sha256'] == subject(s, mid, stage), 'context subject stale; re-read and resubmit')
-    require(report['verdict'] == 'ready', 'context blocked; record suspension or resolve missing inputs')
+    require(report['verdict'] == 'ready' or allow_blocked, 'context blocked; record suspension or resolve missing inputs')
     if draft:
         require(report.get('draft_ref') == draft, 'context report must bind the reviewed draft')
     verify_refs(report)
@@ -201,7 +202,7 @@ def requirements(s):
         return {}
     result = {}
     for mid in [None, *s['modules']]:
-        stages = GLOBAL if mid is None else ('decomposition',) if s['modules'][mid].get('decomposition_required') else ('planning', 'coding', 'testing', 'fixing')
+        stages = GLOBAL if mid is None else ('decomposition',) if s['modules'][mid].get('decomposition_required') else ('planning', 'coding', 'building', 'testing', 'fixing')
         result[mid or 'GLOBAL'] = {stage: {'subject_sha256': subject(s, mid, stage),
             'producer_role': ROLES[stage], 'required_checks': list(CHECKS[stage]),
             'required_input_refs': input_refs(s, mid, stage)} for stage in sorted(stages)}
@@ -209,7 +210,7 @@ def requirements(s):
 
 
 def annotate(s, mid, step):
-    stage = requirement(step.get('operation'), {'role': step.get('worker_role')})
+    stage = requirement(step.get('operation'), {'role': step.get('worker_role'), 'test_scope': step.get('test_scope')})
     if not enabled(s) or not stage:
         return step
     step = copy.deepcopy(step)
@@ -232,18 +233,34 @@ def annotate(s, mid, step):
             pass
     step['context_gate']['ready_receipts'] = available
     if step.get('ready') and not available:
+        if stage in ('testing', 'audit-testing'):
+            import test_validation as tv
+            for receipt in scope(s, mid).get('context_receipts', {}).values():
+                ref = receipt['report_ref']
+                try:
+                    tv.blocked_report(s, mid, ref, stage)
+                    if mid:
+                        require(tv.build_ready(s['modules'][mid]), 'build not ready')
+                        require(not any(r['quality'] == 'red-bug' and r.get('code_baseline', s['modules'][mid]['code_baseline']) == s['modules'][mid]['code_baseline']
+                                        for r in s['modules'][mid]['results'].values()), 'observed failure')
+                    step.update(operation='automation-unavailable' if mid else 'audit-unavailable',
+                                role='module-orchestrator' if mid else 'auditor', ready=True,
+                                payload={'context_ref': ref}, reason='record-automation-not-run-and-continue')
+                    return step
+                except (Rejected, OSError, ValueError):
+                    pass
         step.update(ready=False, reason='context-readiness-required', context_next_action='context-submit or record explicit blocker')
         if step.get('operation') in ('freeze', 'decompose-accept'):
             step['context_next_action'] = 'refresh context-submit and resubmit plan/decompose, or record explicit blocker'
     return step
 
 
-def check_execution(s, assignment, argv, cwd):
+def check_execution(s, assignment, argv, cwd, path_id=None):
     if not enabled(s):
         return
     report = read_json(check_ref(assignment.get('context_ref')))
-    require(report['stage'] in ('testing', 'audit-testing') and report['verdict'] == 'ready', 'test context missing')
+    require(report['stage'] in ('building', 'testing', 'audit-testing') and report['verdict'] == 'ready', 'test context missing')
     verify_refs(report)
-    expected = report['execution']
+    expected = report['execution'].get('commands', {}).get(path_id, report['execution'])
     require(argv == expected['argv'] and str(Path(cwd).resolve()) == str(Path(expected['cwd']).resolve()),
             'test command differs from approved context; obtain a new preflight/assignment')

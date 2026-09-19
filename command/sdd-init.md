@@ -60,3 +60,5 @@ prepare 与新 Ledger init 默认启用 context_readiness_required。GO 初始�
 ## 功能清单来源与完备性
 
 功能发现默认使用提供的测试用例汇总；未提供时由 GO 先理解存量源码、抽取完整功能清单，再生成非空需求/CASE 与 input.json，不要求用户先手写用例。汇总存在也须对照源码查漏；歧义/未知功能先人工介入，明确后再推进受影响规划。
+
+输入可选 build 命令/环境配置；省略时 GO 全目标搜索构建脚本并默认评估 Gradle assemble。新运行启用 split_testing_required，区分构建与自动化环境；后者缺失不阻止已可执行工作。见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。

@@ -107,3 +107,7 @@ python3 "$package_root/skills/migration-ledger/scripts/project_context.py" prepa
 ## 二方库/其他项目模块来源
 
 新增可选 reuse_sources 数组，元素使用 [reuse-source.json](../../../template/reuse-source.json)：source_id、绝对 root、范围内 module_paths、description。目标项目 TARGET 自动作为来源；外部输入仍只读。init/update 保存并按数组替换规则更新，prepare 检查目录/模块可访问并将来源配置固化，旧运行不跟随新配置。prepared_input 输出 reuse_required=true；bind_run 从快照恢复来源，显式不匹配输入被拒绝。源码不全文快照，语义抽取及选中 provider/version 的内容证据另由 Agent 经 Ledger 记录；详见 [复用协议](reuse-dependencies.md)。
+
+## 独立构建配置
+
+可选 build 保存 argv/cwd/timeout_seconds/environment_ref，用户更新直接按原协议更新，prepare 固化命令与环境文档。没有指定命令时 GO 全目标搜索脚本、默认评估 Gradle assemble；宿主将旧 quality_gates.build_argv 迁入 build.argv。新输入 split_testing_required=true，不能通过缺自动化环境关闭编译门禁。详见 [构建与自动化协议](build-automation.md)。

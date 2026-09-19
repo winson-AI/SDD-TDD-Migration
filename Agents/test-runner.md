@@ -58,4 +58,12 @@ design 阶段读取需求与已审核的复用语义/差异，设计真实提供
 
 ## 执行前上下文核对
 
+复用 fidelity 的预期来自已审核的存量行为与需求；按冻结 scenario → PATH/ASSERT 复现同一业务场景。Main 保存真实结果、状态/副作用及回执；缺证据为 Yellow、行为偏差为 Red，不能从目标实现或库当前返回值倒推 expected。
+
 execute 前先提交 testing 报告，核对冻结 PATH、已接受代码、提供方、完整环境/数据，绑定实际 argv/cwd/environment_ref；MO assign 后才启动 Main。设计阶段检查进入 planning 报告，由 Spec Designer 汇总，不能据此提前执行测试。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+
+## 两个独立执行环节
+
+执行职责明确为 build（编译构建）和 automation（自动化用例）：构建前读取目标全局脚本/用户命令与环境，默认评估 Gradle assemble，逐模块冻结命令和构建 PATH；build Green 后才进入自动化预检。编译错误或可修复 Yellow 经 MO 派发 Fixer，再由本角色重新构建；本角色不修源码。
+
+自动化环境不可启动，提交仅 test-environment=blocked 的证据，由 MO automation-unavailable 留逐 PATH Yellow/未执行并结束本轮，不能阻塞其他并行/下游代码任务。环境可启动则执行全用例路径。详细命令、三态、恢复与审计遵守 [双环节协议](../skills/migration-protocol/references/build-automation.md)。

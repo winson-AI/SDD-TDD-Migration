@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2230" viewBox="0 0 1600 2230" role="img" aria-labelledby="title desc">
+<title id="title">Harmony · 单 PATH 自动化内核</title>
+<desc id="desc">内核属于同一次 Test-Runner 执行；只负责设备操作与断言取证，不承担外层修复或验收权限</desc>
+<style>text {font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;}</style>
+<defs>
+<marker id="arrow-blue" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#2563eb"/></marker>
+<marker id="arrow-orange" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#ea580c"/></marker>
+<marker id="arrow-green" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#059669"/></marker>
+<marker id="arrow-purple" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#7c3aed"/></marker>
+<marker id="arrow-gray" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,4 L0,8 Z" fill="#6b7280"/></marker>
+</defs>
+<rect width="1600" height="2230" fill="white"/>
+<text x="60" y="56" font-size="21.00" fill="#6b7280" text-anchor="start" font-weight="400">06  /  SDD-TDD-Migration</text>
+<text x="60" y="108" font-size="38.00" fill="#111827" text-anchor="start" font-weight="700">Harmony · 单 PATH 自动化内核</text>
+<text x="60" y="145" font-size="21.00" fill="#6b7280" text-anchor="start" font-weight="400">内核属于同一次 Test-Runner 执行；只负责设备操作与断言取证，不承担外层修复或验收权限</text>
+<path d="M458,190 H1160 L1142,320 H440 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
+<text x="800.0" y="234.0" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">完整 query + 引擎配置</text>
+<text x="800.0" y="268.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">冻结步骤 / 参数 / ASSERT / after_step / 当前代码身份</text>
+<text x="800.0" y="297.0" font-size="20.21" fill="#4b5563" text-anchor="middle" font-weight="400">设备 / 三类模型 / 预算 / 可选 knowledge_ref 与 recording_ref</text>
+<path d="M800,320 L800,375" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="440" y="375" width="720" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="800.0" y="416.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">adapter 校验与隔离</text>
+<text x="800.0" y="450.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">验证字段与引用 hash → 设备互斥锁 → 本次独立目录</text>
+<text x="800.0" y="479.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">注册 Verify wrapper；加载技能 / 自定义工具</text>
+<path d="M800,500 L800,555" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="440" y="555" width="720" height="110" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="800.0" y="603.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">task_text：步骤与冻结断言交错</text>
+<text x="800.0" y="637.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">每条 verify 使用单个 [ASSERT:id]；知识只辅助执行</text>
+<path d="M800,665 L800,715" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M800,715.0 L965.0,780 L800,845.0 L635.0,780 Z" fill="#fff7ed" stroke="#ea580c" stroke-width="1.8"/>
+<text x="800" y="780" font-size="24.00" fill="#111827" text-anchor="middle" font-weight="650">显式录制？</text>
+<text x="800" y="809" font-size="19.00" fill="#6b7280" text-anchor="middle" font-weight="400">hash / 任务文本须匹配</text>
+<path d="M635,780 L380,780 L380,880" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="451.0" y="740" width="78" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="490" y="760" font-size="20.00" fill="#6b7280" text-anchor="middle" font-weight="400">无录制</text>
+<path d="M965,780 L1220,780 L1220,880" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="1051.0" y="740" width="98" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="1100" y="760" font-size="20.00" fill="#6b7280" text-anchor="middle" font-weight="400">有效录制</text>
+<rect x="80" y="880" width="600" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<rect x="85" y="885" width="590" height="130" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
+<text x="380.0" y="914.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Planner → Executor</text>
+<text x="380.0" y="948.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Observe → 单步工具 / execute → 实际反馈</text>
+<text x="380.0" y="977.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">general / glm / MCP / Hypium MCP</text>
+<text x="380.0" y="1006.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">压缩上下文 / 可选反思 / 技能 / XPath 缓存</text>
+<rect x="920" y="880" width="600" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<rect x="925" y="885" width="590" height="130" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
+<text x="1220.0" y="914.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">ToolPlayer · 导航回放</text>
+<text x="1220.0" y="948.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">坐标 / XPath / 输入 / 进度条 / 临时控件</text>
+<text x="1220.0" y="977.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">意外弹窗处理；验证不复用旧通过结果</text>
+<text x="1220.0" y="1006.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">失败时携带历史，在剩余预算内重规划</text>
+<rect x="539.6" y="845" width="80.8" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="580" y="865" font-size="20.00" fill="#7c3aed" text-anchor="middle" font-weight="400">入口 C</text>
+<rect x="1379.6" y="845" width="80.8" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="1420" y="865" font-size="20.00" fill="#7c3aed" text-anchor="middle" font-weight="400">入口 D</text>
+<path d="M920,950 L680,950" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
+<rect x="741.0" y="910" width="118" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="800" y="930" font-size="20.00" fill="#7c3aed" text-anchor="middle" font-weight="400">失败重规划</text>
+<path d="M380,1020 L380,1070 L800,1070" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M1220,1020 L1220,1070 L800,1070" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M800,1070 L800,1130" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="440" y="1130" width="720" height="120" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="800.0" y="1169.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">到断言时机 → Verify wrapper</text>
+<text x="800.0" y="1203.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">ASSERT ID 找回冻结谓词与 matcher，防止改写期望</text>
+<text x="800.0" y="1232.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">固定 verification 强制保留；auto 才动态选择</text>
+<path d="M800,1250 L800,1300" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="440" y="1300" width="720" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="800.0" y="1332.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">真实媒体验证</text>
+<text x="800.0" y="1366.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">单图 / 双图 / 跨步骤 / 参考图 / 视频</text>
+<text x="800.0" y="1395.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">时间线取证；视频录制 / 时间映射 / 裁剪 / 压缩</text>
+<text x="800.0" y="1424.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">输出布尔结果 + 原始理由 + 实际工具 + 媒体引用</text>
+<path d="M800,1435 L800,1485" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M458,1485 H1160 L1142,1605 H440 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
+<text x="800.0" y="1524.0" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">ObservationSink · 每次立即落盘</text>
+<text x="800.0" y="1558.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">sequence / ASSERT ID / result / reason / tool / error</text>
+<text x="800.0" y="1587.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">evidence_refs = 实际媒体路径 + SHA256</text>
+<rect x="80" y="1270" width="290" height="195" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
+<text x="225.0" y="1317.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">继续原执行分支</text>
+<text x="225.0" y="1351.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Planner 返回 C</text>
+<text x="225.0" y="1380.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">ToolPlayer 返回 D</text>
+<text x="225.0" y="1409.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仍受步骤 / 超时预算限制</text>
+<text x="225.0" y="1438.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">禁止重启或放宽验收</text>
+<path d="M440,1545 L225,1545 L225,1465" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
+<rect x="1230" y="1270" width="310" height="235" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
+<text x="1385.0" y="1323.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">留存全部证据</text>
+<text x="1385.0" y="1357.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">截图 / 布局 / 视频</text>
+<text x="1385.0" y="1386.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">原生 HTML / MD / JSON</text>
+<text x="1385.0" y="1415.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">engine.log / 工具时间线</text>
+<text x="1385.0" y="1444.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">候选录制与执行记忆</text>
+<text x="1385.0" y="1473.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不是已验证的修复 memory</text>
+<path d="M800,1605 L800,1675" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="676.8" y="1628" width="246.4" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="800" y="1648" font-size="20.00" fill="#6b7280" text-anchor="middle" font-weight="400">完成 / 异常 / 预算耗尽</text>
+<rect x="440" y="1675" width="720" height="170" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<rect x="445" y="1680" width="710" height="160" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
+<text x="800.0" y="1710.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">report() · 汇总全部观察</text>
+<text x="800.0" y="1744.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Yellow 优先：缺断言 / 媒体 / 异常 / 歧义 / flaky</text>
+<text x="800.0" y="1773.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无阻断但有有效 false → Red；完整 true → Green</text>
+<text x="800.0" y="1802.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">保留失败观察；同 ASSERT 混合 pass/fail 不挑最好一次</text>
+<text x="800.0" y="1831.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">final_output 文本不能生成通过结论</text>
+<path d="M800,1845 L800,1900" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M458,1900 H1160 L1142,2045 H440 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
+<text x="800.0" y="1937.0" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">result.json → 宿主 receipt → tests stage</text>
+<text x="800.0" y="1971.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">quality / assertions / root_cause / flaky / 上下文身份</text>
+<text x="800.0" y="2000.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">观察 / 环境 / 全部工件 / 源快照引用</text>
+<text x="800.0" y="2029.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">交 Ledger 校验，MO 或 Auditor 按阶段验收</text>
+<text x="800" y="2110" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">时序和 exact 仍含模型判断；宿主需提供真实 App 安装与环境证据，文件摘要不能代替真机验证。</text>
+<path d="M65,2180 L113,2180" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<text x="125" y="2187" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">执行 / 证据</text>
+<path d="M345,2180 L393,2180" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
+<text x="405" y="2187" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">条件判断</text>
+<path d="M625,2180 L673,2180" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
+<text x="685" y="2187" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">恢复 / 继续</text>
+<text x="1535" y="2187" font-size="18.00" fill="#6b7280" text-anchor="end" font-weight="400">内核内部调用；跨编排角色的交接才经 Ledger</text>
+</svg>

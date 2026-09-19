@@ -74,3 +74,7 @@ single-module 选定一个根功能，父 MO 仍拆分子功能；每个子功�
 ## 功能清单来源与完备性
 
 父 MO 认领模块功能列表，在 scope 内拆分时核对孩子功能并集完整；子 MO 依据 assigned_module.feature_ids 与 feature_inventory_ref 将每项功能追溯到需求、TASK 和 PATH。功能未知、遗漏、重复或行为不明确时立即人工介入；不能自行删除或缩减功能。
+
+## 构建与自动化分流
+
+Test-Runner assignment 明确 test_scope=build|automation；先接受构建，再派发自动化。当前构建通过且仅自动化环境缺失时，接受 automation-unavailable，逐路径 Yellow，模块 automation-deferred 可进入父汇总；不取消兄弟、不挡住可消费当前代码的下游。恢复使用 ready 报告和 automation-resume，无新增人工批准；不能用该入口掩盖真实 Red。详见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。

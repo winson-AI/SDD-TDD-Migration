@@ -19,6 +19,8 @@
 
 用户指定其他项目时，通过项目配置的可选 `reuse_sources` 保存 root/module_paths/用途；目标项目自动纳入评估。规则、配置实例及控制器边界见 [二方库复用协议](skills/migration-protocol/references/reuse-dependencies.md)。
 
+全局 fidelity 要求：复用前与存量源码对应功能逐行为对齐，固定原行为、差异及复现 PATH/ASSERT；Coding 后 Main 验证真实生产链路并留证。接口相似或库自身通过不等于迁移通过。对齐记录使用 [reuse-fidelity.md](template/reuse-fidelity.md)，随 reuse-plan 冻结，MO/Auditor 按各自阶段验收。
+
 ## 流程图
 
 按三层编排阅读 [完整图集](diagrams/README.md)：[总览](diagrams/workflow.svg) → [子 MO 执行与修复](diagrams/module-execution.svg) → [Auditor 跨模块处理](diagrams/auditor-closure.svg)，另见贯穿各阶段的 [二方库语义与复用](diagrams/reuse-dependencies.svg)。每张均提供 PNG 和可再生成的源文件。
@@ -145,3 +147,7 @@ Coding → MO 接受代码 → Testing
 ## 功能清单来源与完备性
 
 默认从测试用例汇总形成完整功能列表并切片；缺少汇总则先理解存量源码、完整抽取功能，再生成需求与测试草案。每项功能必须可追溯到来源、需求/CASE 和执行模块；未知、冲突或可能遗漏立即交人工，未解决不得接受规划。见 [切片规范](skills/migration-global/references/slicing.md) 与 [功能清单模板](template/feature-inventory.json)。
+
+## Test-Runner：先编译，再自动化
+
+新运行将验证拆为 build 与 automation。构建命令优先用户指定，默认搜索目标 Gradle wrapper/脚本并评估 assemble；错误留根因，经 Fixer 后重新构建。仅自动化环境无法启动时，记录每条用例 Yellow/未执行并收尾，其他并行及可消费当前代码的下游继续；Auditor 最终可输出 completed-with-unverified-tests，质量仍 Yellow。配置、操作和恢复见 [完整协议](skills/migration-protocol/references/build-automation.md)。

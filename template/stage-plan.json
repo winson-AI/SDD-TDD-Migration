@@ -41,6 +41,33 @@
   ],
   "paths": [
     {
+      "path_id": "BUILD-M001-001",
+      "kind": "build",
+      "name": "目标模块编译构建",
+      "case_id": "CASE-GLOBAL-001",
+      "requirement_id": "REQ-M001-001",
+      "required": true,
+      "expected_assertions": [
+        {
+          "assertion_id": "ASSERT-BUILD-M001-EXIT",
+          "expected": 0
+        }
+      ],
+      "command": {
+        "argv": [
+          "/bin/sh",
+          "{{absolute-target-root}}/gradlew",
+          "{{module-assemble-task}}"
+        ],
+        "cwd": "{{absolute-target-root}}",
+        "timeout_seconds": 900,
+        "selection_ref": {
+          "path": "{{absolute-build-selection-report}}",
+          "sha256": "{{sha256}}"
+        }
+      }
+    },
+    {
       "path_id": "PATH-M001-001",
       "name": "{{name}}",
       "case_id": "CASE-GLOBAL-001",
@@ -51,7 +78,8 @@
           "assertion_id": "ASSERT-M001-001",
           "expected": "{{expected-value}}"
         }
-      ]
+      ],
+      "kind": "automation"
     }
   ],
   "tasks": [
@@ -61,6 +89,7 @@
         "REQ-M001-001"
       ],
       "path_ids": [
+        "BUILD-M001-001",
         "PATH-M001-001"
       ],
       "global_requirement_ids": [

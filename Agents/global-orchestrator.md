@@ -68,3 +68,7 @@ Global 审核 finding→owner 路由及依赖图，支持多 owner、受影响�
 ## 功能清单来源与完备性
 
 功能清单默认从用户提供的测试用例汇总总结/拆分；缺少汇总时，先理解待迁移存量源码并抽取完整功能，再生成需求和 Testing list。两条路径都须核查全部在范围内的入口/子功能/变体，不能用 CASE 已分配代替功能完备性。产出 feature-inventory 与逐模块功能列表，有任何疑问立即经 Escalation 交人工；global-plan 前不得遗留未分类或未决项。详见 [切片规范](../skills/migration-global/references/slicing.md)。
+
+## 构建入口与缺测调度
+
+GO 在目标全项目发现 Gradle/构建脚本，优先用户指定 build 配置，按模块 scope 把编译命令/选择依据交下游冻结。构建通过、仅缺自动化环境的 automation-deferred 模块可供应当前代码依赖；不将 Yellow 传播给其他模块。等待所有独立 MO 和父汇总后统一审计，最终可保留 Yellow 缺测报告结束本轮。详见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。

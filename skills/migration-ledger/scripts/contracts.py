@@ -107,6 +107,9 @@ def verify_plan(plan):
     require(isinstance(plan, dict), 'SPEC not frozen/prepared')
     for ref in plan['definitions']:
         check_ref(ref)
+    for path in plan['paths']:
+        if path.get('kind') == 'build':
+            check_ref(path['command']['selection_ref'])
     import reuse
     reuse.verify(plan)
 
@@ -150,6 +153,12 @@ def validate_result(result, module, assignment):
     require(baseline(module['code_files']) == module['code_baseline'], 'current code changed')
     tests = keyed(result.get('paths'), 'path_id')
     planned = {p['path_id']: p for p in module['plan']['paths']}
+    import test_validation as tv
+    if tv.split(module) and assignment.get('role') == 'test-runner':
+        scope = assignment.get('test_scope')
+        require(scope in ('build', 'automation'), 'test scope required')
+        require(scope == 'build' or tv.build_ready(module), 'build must pass before automation')
+        planned = {p['path_id']: p for p in tv.paths(module, scope)}
     require(set(tests) == set(planned), 'result must account for every required path')
     for pid, record in tests.items():
         quality = record.get('quality')
@@ -176,6 +185,9 @@ def validate_result(result, module, assignment):
                 receipt.get('started_at') and receipt.get('finished_at'), 'invalid host execution receipt')
         check_ref(receipt.get('log_ref'))
         captured = read_json(check_ref(receipt.get('result_ref')))
+        if planned[pid].get('kind') == 'build':
+            require(captured.get('producer') == 'build-executor' and receipt['argv'] == planned[pid]['command']['argv']
+                    and receipt['cwd'] == str(Path(planned[pid]['command']['cwd']).resolve()), 'invalid build execution receipt')
         if captured.get('producer') == 'harmony-adapter':
             require(captured.get('quality') == quality and captured.get('flaky') == record.get('flaky', False),
                     'Harmony classification cannot be overridden')

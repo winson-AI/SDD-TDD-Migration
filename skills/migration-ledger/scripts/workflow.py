@@ -1,5 +1,6 @@
 """Global coverage, one-round repair policy, and independent problem audit contracts."""
 import copy
+import test_validation as tv
 
 from contracts import check_ref, digest, keyed, nonempty, read_json, require, baseline, validate_result, verify_plan
 
@@ -177,7 +178,7 @@ def runnable(s, mid):
         require(baseline(m['code_files']) == m['code_baseline'], 'stale code')
         for dep in m['dependencies']:
             producer = s['modules'][dep]
-            require(producer['phase'] == 'completed' and not producer['stale'], 'dependency incomplete')
+            require(tv.available(producer), 'dependency incomplete')
             require(baseline(producer['code_files']) == producer['code_baseline'], 'dependency stale')
         return True
     except (ValueError, OSError, KeyError, TypeError):

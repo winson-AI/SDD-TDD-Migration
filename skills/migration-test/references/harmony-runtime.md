@@ -97,3 +97,7 @@ python <harmony_stage.py> --root <run_root> --module M001 --assignment <id>
 ## 验证边界
 
 原录制回放单测与适配器/账本测试用于验证逻辑兼容、身份绑定、三态、证据及超时行为；模拟设备/模型的 native 集成测试只验证接线、报告和录制。没有用真实设备、真实模型或业务 App 宣称“能力无劣化”。上线前在相同用例/设备/模型/预算下对照源版，覆盖五类验证、回放重规划、输入、临时控件、视频时间映射及完整报告；比较断言、动作、遗漏、误报和证据可读性，不只比较最终通过率。
+
+## 编译与自动化环境分离
+
+Harmony 内核仅运行 automation PATH；build PATH 由 Test-Runner 经通用 execute_test 直接执行目标构建命令，harmony_stage 支持两种回执并按 test_scope 组装。Harmony 缺设备/模型/运行环境不能阻止已授权编译及其他任务；留原始诊断证据后按 [双环节协议](../../migration-protocol/references/build-automation.md) 提交 automation-unavailable，保持原自动化内核能力和逐 ASSERT 验证。

@@ -65,4 +65,10 @@ single-module run 同样执行独立审计，范围为指定功能的所有模�
 
 ## 执行前上下文核对
 
+复用审计同时读取存量源码基线、fidelity 对齐报告及关联 PATH/ASSERT，确认真实目标行为复现源功能；提供方/适配变化需覆盖受影响消费者。修复后正式复测，仍失败保留差异、根因和证据待人工；不能仅凭库通过或旧对齐结论关闭 finding。
+
 全部 MO 收尾后才能预检；audit-plan 前提交 audit-analysis，audit-verdict 前提交当前证据的 audit-verdict，最终 audit-assign 前自核 audit-testing 环境/路径/独立性。审计期间 Fixer/Testing 各自仍须预检；测试裁决唯一归 Auditor。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+
+## 自动化环境缺测的审计收尾
+
+纯自动化环境缺失作为未验证清单汇总，不强制走 Fixer/人工审批；审计内其他可执行分支继续。保留 unverified_findings，不得标 resolved。最终环境不可用时，独立预检后 audit-unavailable 生成 Yellow 未执行报告并结束本轮；恢复后正式补测。原有 Red/其他阻塞仍走原修复裁决。详见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。

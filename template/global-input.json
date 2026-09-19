@@ -47,9 +47,6 @@
     "environment_ref": "{{absolute-environment-description}}"
   },
   "quality_gates": {
-    "build_argv": [
-      "{{build-executable}}"
-    ],
     "static_check_argv": [
       "{{static-check-executable}}"
     ],
@@ -106,5 +103,7 @@
   "project_context_ref": null,
   "reuse_sources": [],
   "reuse_required": true,
-  "context_readiness_required": true
+  "context_readiness_required": true,
+  "build": {},
+  "split_testing_required": true
 }

@@ -263,3 +263,27 @@ reuse.py 校验来源和证据范围、完整功能语义字段、来源评审�
 完整 **153 项测试通过**。本轮新增 4 项覆盖：用例汇总优先/源码回退及模块功能列表；未分类、未决、缺少来源/CASE/owner 拒绝；功能疑问必须经真实人工决定后接受；来源证据变化阻止 Coding。既有父子拆分、上下文、修复和审计回归保持通过。
 
 Python/JSON/SVG 解析、相关链接、migration-global Skill 校验及 git diff --check 通过；图集重新生成，总览与子 MO 图已目视检查。验证证明已登记清单的结构/追溯门禁，不证明实际业务源码已被穷尽分析；运行时 Agent 必须逐入口核查，有疑问立即交人工，不得以校验通过宣称无遗漏。
+
+## 本轮：复用必须对齐存量源码并保真复现
+
+全局规范统一覆盖 TARGET 与外部来源的 reuse/adapt/reference。reuse-plan.fidelity 固定 legacy_root、存量源码引用、逐行为对齐报告及 scenario → PATH/ASSERT；新增 reuse-fidelity.md 模板。GO/父 MO 提供源功能上下文，Spec Designer 冻结差异及适配方案，Coding 后 Main 留真实复现记录，MO/Auditor 按原阶段验收；需求冲突仍交人工，Fixer memory 保留源行为、偏差与复测引用。
+
+控制器在 plan 检查存量根与运行一致、源码引用范围及证据、全部映射路径的冻结断言关联；verify_plan 后续检查源码与报告漂移。旧复用计划缺字段需补录/重新冻结。执行证据沿用现有 Main 回执、assert expected/actual、版本和结果链，不增设第二份验收状态。
+
+复用专项 **15 项通过**；完整 Ledger 回归 **157 项通过**。新增 4 项覆盖：reuse/adapt/reference 缺 fidelity 拒绝；错误 legacy_root/提供方冒充存量源码/无源证据拒绝；缺报告、路径/断言错误或缺复现方案拒绝；源码或报告变化后派发拒绝并暴露失效。原接线测试追加正式 Main 结果接受，确认冻结复现路径可按原测试流程记录 Green。模板 JSON、变更 Python AST、协议链接、2 个修改技能 quick_validate 及 git diff --check 均通过。
+
+以上为隔离目录的控制器/契约测试，不代表真实二方库或业务项目已完成保真验证；结构、引用和断言关联不能自动证明语义等价或功能枚举完备。真实场景的源行为分析与生产链路复现仍须运行角色/宿主提供证据。
+
+## 编译构建与自动化拆分（2026-09-19）
+
+Test-Runner 按 build/automation 执行，Fixer 负责修复。新 init 默认、prepare 强制 split_testing_required；冻结两类 PATH，build.command 固定命令及选择依据。新增只读 discover_build 搜索目标脚本，用户命令优先，否则评估 Gradle wrapper/assemble；项目 build 配置和环境文档按 prepare 固化。
+
+构建与自动化分别预检、派发、记录三态并合并结果。新代码使构建失效，构建错误经诊断/Fixer/重建；DoD 检查完整路径。仅自动化环境缺失经 automation-unavailable 进入 automation-deferred，逐路径 Yellow/未执行，不影响可消费当前构建代码的下游。环境恢复使用 automation-resume，不需人工恢复批准；不得借缺环境掩盖当前 Red。
+
+审计缺测保留 unverified_findings，不计 resolved 或 reusable；最终 audit-unavailable 输出 Yellow、completed-with-unverified-tests 并结束本轮。独立 Auditor 实际补测 Green 后可推进模块 DoD，发现实际 Red 则重新进入修复。
+
+完整 **169 项回归通过**。新增 **11 项拆分测试 + 1 项配置快照测试**：构建先于自动化、构建失败及 Fixer 后重建、缺测不伪造 Green/不消费轮次、实际依赖消费者继续、恢复复测链、拒绝隐藏真实失败/其他上下文缺失、审计缺测收尾、独立审计补测后 DoD/发现 Red 后重开、命令发现/用户优先/多根歧义及配置更新隔离。
+
+Python AST、模板/schema JSON、SVG、相关文档链接、3 个修改 Skill 的 quick_validate 及 git diff --check 通过。四张图重新渲染并目视检查，子 MO 图增加自动化环境缺失的独立收尾分支。
+
+测试使用临时 Python 构建/测试进程；未执行用户真实 Gradle 工程或设备业务测试。宿主仍负责真实构建目标/环境、执行隔离、共享资源锁和可信证据。

@@ -331,3 +331,15 @@ Ledger 保存 project_id/project_revision/project_context_ref，在初始化校�
 ## 功能清单来源与完备性
 
 新标准运行 global-plan 必填 feature_inventory_ref 与 feature_owners；校验来源选择、每项功能详情、来源单元映射、需求/CASE 全覆盖、执行模块归属、无未分类/未决项；已发现疑问须纳入 boundary_review 走原有人工批准。planning_guard 重验清单与来源证据，status.module_inputs 提供各模块 feature_ids，planning_context 提供全局清单与归属。详见 [切片规范](../../migration-global/references/slicing.md)。
+
+## 当前执行规则：构建与自动化分开
+
+新 init 默认 split_testing_required=true；prepare 强制启用。历史低层运行可显式 false 保留旧契约。Test-Runner assign 需 test_scope=build|automation；其 context stage 分别是 building/testing。stage-plan 的 build PATH 冻结 command，execute_test 直接执行，不追加 query 参数；tests 结果覆盖本 scope 全路径，accept 合并后判定整体 DoD。
+
+| 操作 | 角色/范围 | 门禁与结果 |
+| --- | --- | --- |
+| automation-unavailable | MO / module | payload.context_ref 为 Test-Runner 当前 testing blocked；仅环境缺失、当前 build Green、无活动 worker/当前 Red；逐路径 Yellow，automation-deferred |
+| automation-resume | MO / module | payload.context_ref 为新 testing ready；当前构建/代码有效，恢复 automation，不需 human decision |
+| audit-unavailable | Auditor / GLOBAL | payload.context_ref 为独立 audit-testing blocked；全量收尾、无其他待处理缺陷；保存 Yellow 完整缺测报告，completed-with-unverified-tests |
+
+仅缺自动化环境时，既有“tooling 挂起需人工恢复”不适用；可执行下游和并行任务继续。宿主跟随 context 游标接受明确收尾，不空等 blocked。审计批次可保留 unverified_findings 完成本轮，不计 resolved；最终报告由独立 Auditor 负责。详细输入、Gradle 发现及证据见 [双环节协议](build-automation.md)。

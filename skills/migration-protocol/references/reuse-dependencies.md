@@ -92,3 +92,39 @@ Testing 至少验证正常、边界、异常/取消，以及真实提供方接�
 - Auditor 不修改二方库或业务源码；修复委派给合法 owner，外部源码未授权则人工处理或经批准选择新接入方案。复核失败输出根因和证据待人工，不无限重试。
 
 当前脚本在 plan 验证语义结构/映射和来源范围，freeze/dispatch/结果接受/DoD/审计复核已选 provider 与接入证据 hash；未选候选变化不单独使消费者失效。实际包解析、依赖隔离、外部写保护、语义判断和运行测试仍由宿主/Agent/项目执行器完成。不要将结构检查称为完成了功能迁移。
+
+## 7. 全局保真规范：复用必须复现存量功能
+
+对 TARGET 和外部来源统一执行；`reuse`、`adapt`、`reference` 均不得跳过。以**存量源码项目对应功能的实际业务行为**为对齐基准，结合明确需求确认应保留的契约。提供方有类似功能、API 可调用、库自身测试通过，都不能证明本次迁移保真。源码中的偶然行为/缺陷与明确需求冲突时，Spec Designer 将差异交人工决定，经 Ledger/CR 冻结；不能自行照搬缺陷或接受库默认行为。
+
+### 7.1 落到控制节点
+
+| 节点 | 必须完成与保留的记录 |
+| --- | --- |
+| GO 发现/规划 | 按功能清单定位存量入口、调用链、可观察结果和必要状态；将候选库与该功能对齐。全局规范无开关，不要求用户额外填写保真材料 |
+| 父 MO 拆分 | 子 scope/context_refs 带对应存量基线和候选差异；明确共享适配 owner、消费者及跨模块复现路径，不能因复用删除功能 |
+| 子 MO / Spec Designer planning → freeze | 每个选中映射填写 fidelity；逐场景明确原行为、库行为与复现方案。差异落入 tasks，预期行为落入 SPEC，独立 Test Runner 将基线与验收转成 PATH/ASSERT。未决行为交人工；有差异但已有明确适配方案可冻结，不要求规划期已经通过运行测试 |
+| Coding / Fixer | 按冻结对齐方案接线/适配，reuse_trace 留实际版本和绑定证据；不能用库的行为替换冻结预期。修复记忆引用 mapping/scenario、源行为、偏差、策略与复测记录 |
+| Testing → MO 验收 | code accepted 后，用对应前置条件、输入/状态与真实生产提供方运行 Main；保存 expected/actual、断言与回执，验证结果、状态和副作用。全部必需路径及保真断言正式 Green 才验收 |
+| 全量收尾 → Auditor | 读取各相关 SPEC、冻结对齐记录、PATH 和失败证据，沿共享库/适配器影响范围委派 Fixer 与 Testing；独立复核原功能是否复现。失败输出根因待人工；不以历史对齐结论代替本次复测 |
+
+### 7.2 对齐记录与证据链
+
+`reuse-plan.mappings[].fidelity` 包含：
+
+- `legacy_root`：必须等于本轮 Ledger 的存量项目根目录。
+- `legacy_source_refs`：该目录内真实入口/调用链源码的 path/sha256；不能以提供方源码冒充存量基线。
+- `alignment_ref`：按 [reuse-fidelity.md](../../../template/reuse-fidelity.md) 形成的逐行为对齐报告引用。正常/边界/失败、默认值、输入输出、状态/生命周期、副作用等逐项核对，不适用项有理由。
+- `scenarios`：稳定 scenario_id、legacy_behavior、reuse_behavior、reproduction_strategy，以及现有冻结的 path_id/assertion_ids；必须覆盖该映射全部 path_ids。scenario 通过 mapping 的 requirement_ids/task_ids 和 PATH 的 case_id 关联需求及用例，不另建验收状态机。
+
+报告必须区分**源码分析得出的基线**与**已有真实运行证据**。规划/design 只读分析；不能为了完成对齐在代码生成前运行目标测试。已有存量运行轨迹可辅助固化场景；没有轨迹不能伪造，记录未执行/限制。源码与明确需求足以确定行为时可据此冻结；无法确定预期、基线缺失或存在疑问时先补材料/人工澄清。正式目标复现仍必须执行 Main。
+
+复现不是要求新旧内部实现完全相同，而是满足冻结的业务可观察契约；数据/平台差异的转换及允许偏差必须有明确依据，不能用宽泛的“相似”替代断言。Test Runner 从已审核的存量契约与需求设计预期，不从目标实现或提供方返回值倒推验收。
+
+记录链固定为：**存量源码引用 → alignment_ref → mapping/scenario → REQ/CASE/TASK/PATH/ASSERT → 冻结版本 → reuse_trace → Main 结果/回执 → MO 或 Auditor 裁决**。规划报告保持不可变；结果沿现有测试记录保留 test_run_id、freeze_id、code_baseline、环境、日志、expected/actual 和 execution_receipt，通过 PATH/ASSERT 关联。所有共享记录经 Ledger，不新建可手改的第二份通过状态。
+
+### 7.3 失败、变化与实现边界
+
+- 真实行为与冻结基线不符为 Red；缺真实提供方、数据、环境或无法证明为 Yellow，并记录根因/owner/next_action。可修复问题先一轮 Fixer 再 Main；已确认依赖/外围原因直接留待统一 Auditor，无关 MO 继续。
+- 原源码基线、对齐报告、提供方/版本或接线依据改变，相关旧依据失效；按原 invalidate/CR/重新冻结和复测机制更新，保留旧证据。旧计划缺少 fidelity 时需补录并重新冻结，不能将历史 Green 宣称满足新增规范。
+- 控制器在 plan 检查存量根、源码范围、引用及 PATH/ASSERT 覆盖，在后续 verify_plan 检查基线和报告漂移；既有测试门禁验证每条冻结断言的真实回执及 expected/actual。**结构和 hash 检查不能证明语义等价或对齐完备**，实际分析、场景质量及真实复现仍由角色/宿主负责，并由阶段验收 owner 审核。

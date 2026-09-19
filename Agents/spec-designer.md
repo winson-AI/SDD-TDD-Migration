@@ -59,4 +59,8 @@ OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment
 
 ## 执行前上下文核对
 
+选中复用能力时，按全局 fidelity 规范读取对应存量源码，形成逐行为对齐报告，并在 reuse-plan.fidelity 绑定基线、差异、复现 PATH/ASSERT。差异落入适配 tasks，需求冲突/不确定交人工；报告完成不表示功能已通过。
+
 plan 前提交 planning 报告并绑定同一 plan_ref，核对全局/父/子范围、source_closure、target_feasibility、接口、测试设计和复用映射；MO freeze 再验。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+
+新叶子计划冻结 kind=build 与 kind=automation 两类 PATH，build.command 包含目标编译命令、cwd、超时和选择证据，tasks 覆盖两类路径。无需自动化设备就绪才冻结或编码；其缺失按 [双环节协议](../skills/migration-protocol/references/build-automation.md) 留作 Yellow 缺测，不能删验收路径。

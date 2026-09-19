@@ -5,14 +5,15 @@ import re
 from contracts import require, check_ref, read_json, digest, keyed, baseline, verify_plan
 import workflow
 import decomposition
+import test_validation as tv
 
 OPS = {'audit-collect', 'audit-plan', 'audit-route-batch', 'audit-work', 'audit-retest', 'audit-verdict', 'audit-release', 'audit-block'}
 GLOBAL_OPS = OPS - {'audit-work', 'audit-retest', 'audit-block'}
-TERMINAL = {'completed', 'waiting-auditor', 'waiting-dependency', 'waiting-human'}
+TERMINAL = {'completed', 'waiting-auditor', 'waiting-dependency', 'waiting-human', 'automation-deferred'}
 
 
 def active(s):
-    return s.get('audit_batch', {}).get('status') not in (None, 'verified', 'released')
+    return s.get('audit_batch', {}).get('status') not in (None, 'verified', 'released', 'completed-with-unverified-tests')
 
 
 def collection_blockers(s):
@@ -67,6 +68,8 @@ def module_rounds(s, steps):
 def leftovers(s):
     found = {}
     for mid, m in s['modules'].items():
+        if tv.deferred(m):
+            continue  # Recorded in final Auditor coverage, never routed as a code defect.
         bad = {pid: r for pid, r in {**m['results'], **m.get('repair_findings', {})}.items() if r['quality'] != 'green-passed'}
         if bad or mid in s.get('audit_queue', {}) or m.get('blocked'):
             found[mid] = {'results': copy.deepcopy(bad), 'blocker': copy.deepcopy(m.get('blocked')),
@@ -110,6 +113,8 @@ def proof(b, mid):
 
 def completed(s, b, mid):
     m = s['modules'][mid]
+    if tv.deferred(m):
+        return mid not in b.get('work_modules', []) or mid in b.get('automation_deferred', {})
     if m['phase'] != 'completed' or m['stale']:
         return False
     if mid in b.get('work_modules', []):
@@ -315,21 +320,29 @@ def handle(s, req, actor):
         require(all(completed(s,b,mid) for mid in pending_modules(b)), 'verification incomplete')
         try:
             for mid in pending_modules(b):
-                m = s['modules'][mid]; pr = proof(b,mid); check_ref(pr['result_ref'])
+                m = s['modules'][mid]
+                if mid in b.get('automation_deferred', {}):
+                    require(tv.deferred(m), 'deferred automation evidence changed')
+                    continue
+                pr = proof(b,mid); check_ref(pr['result_ref'])
                 require(pr['freeze_id'] == m['freeze_id'] and pr['code_baseline'] == baseline(m['code_files']), 'verification stale')
                 require(all(r['quality'] == 'green-passed' for r in pr['paths']), 'unresolved verification')
         except (ValueError, OSError, KeyError, TypeError) as exc:
             stop(s, str(exc), evidence=p['review_ref']); return
-        b['resolved_findings'] = [fid for fid in b['findings'] if fid not in b['human_issues']]
+        b['unverified_findings'] = [fid for fid, r in b['routes'].items() if
+                                    {r['source_module_id'], *r['owner_module_ids']}.intersection(b.get('automation_deferred', {}))]
+        b['resolved_findings'] = [fid for fid in b['findings'] if fid not in b['human_issues'] and fid not in b['unverified_findings']]
         b['verdict_ref'] = p['review_ref']
         if b['human_issues']:
             b['status'] = 'awaiting-human'; human_report(s, 'partial-audit-requires-human', evidence=p['review_ref'])
         else:
-            b['status'] = 'verified'
+            b['status'] = 'completed-with-unverified-tests' if b['unverified_findings'] else 'verified'
+            b['quality'] = 'yellow-blocked' if b['unverified_findings'] else 'green-passed'
             for owner in owners(b):
                 for memory in s['modules'][owner].get('fix_memory', []):
-                    if memory.get('audit_batch_id') == b['batch_id']: memory.update(status='verified', reusable=True, audit_verdict_ref=p['review_ref'])
-        for source in {b['findings'][fid]['source_module_id'] for fid in b['resolved_findings']}:
+                    if memory.get('audit_batch_id') == b['batch_id'] and not any(owner in b['routes'][fid]['owner_module_ids'] for fid in b['unverified_findings']):
+                        memory.update(status='verified', reusable=True, audit_verdict_ref=p['review_ref'])
+        for source in {b['findings'][fid]['source_module_id'] for fid in b['resolved_findings'] + b['unverified_findings']}:
             if not any(f['source_module_id'] == source and fid in b['human_issues'] for fid,f in b['findings'].items()):
                 s.get('audit_queue', {}).pop(source, None); s.get('audit_resolutions', {}).pop(source, None)
     elif op == 'audit-block':
