@@ -215,7 +215,7 @@ def prepared_input(ref):
     defaults = config.get('defaults', {})
     return {**{k: copy.deepcopy(config[k]) for k in ('package_root', 'legacy_root', 'target_root', 'test_adapter',
                 'runtime', 'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources') if k in config},
-            'context_readiness_required': True, 'split_testing_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
+            'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
             'module_name': snapshot['module_name'], 'project_context_ref': ref, 'project_sources': sources,
             'new_architecture': sources['architecture_path'], 'global_spec': None, 'global_test_cases': [],
             'requirement_ids': [], 'global_test_paths': [],
@@ -302,8 +302,9 @@ def bind_run(ref, run_root, run_id, payload):
     require(payload.get('split_testing_required', True) is True, 'prepared run requires split testing')
     if 'build' in payload:
         require(payload['build'] == config.get('build', {}), 'run/config build mismatch')
+    require(payload.get('dimension_slicing_required', True) is True, 'prepared run requires dimension slicing')
     require(payload.get('context_readiness_required', True) is True, 'prepared run requires context readiness')
-    return {'context_readiness_required': True, 'split_testing_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
+    return {'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
             'project_context_ref': ref, 'project_id': snapshot['project_id'],
             'project_revision': snapshot['project_revision'], 'module_name': snapshot['module_name']}
 

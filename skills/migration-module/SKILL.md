@@ -46,3 +46,7 @@ Auditor 跨模块收尾使用 audit-work/audit-retest；守住负责模块与发
 父 MO 将能力目录映射到模块需求，统一共享适配并分发子上下文；子 MO 冻结逐需求的 reuse/adapt/reference/new 决策及 task/PATH 映射，验收实际接线和完整测试。详见 [二方库复用协议](../migration-protocol/references/reuse-dependencies.md)。
 
 Test-Runner 按 test_scope 先 build 后 automation；环境缺测通过 automation-unavailable 明确本轮收尾，下游代码调度与 Green 验收分开。读取 [双环节协议](../migration-protocol/references/build-automation.md)。
+
+## 四维分配与冻结
+
+父 MO decompose、子 MO plan/freeze/accept/DoD 依 [四维协议](../migration-protocol/references/dimension-slicing.md) 遵守先划子模块再做子模块四维分析、先划任务再做任务四维分析；检查 scope 绑定、具体实现指导、父项覆盖、条件 N/A、任务/断言追溯与实现证据。

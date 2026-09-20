@@ -57,3 +57,7 @@ mode: subagent
 ## 执行前上下文核对
 
 先以只读预检模式提交 coding 报告，核对冻结任务、完整生产链路、接口、复用、工具与范围；同一实例取得 MO assign 后才改代码，报告 ready 本身没有执行授权。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+
+## 四维实现证据
+
+先读冻结 task.scope 和 task.dimension_analysis，按逐维 implementation 指导完成实现，task_trace 文件不得超出该任务写范围；按 dimension_trace 完成所有适用项；提交 dimension_evidence（item_id/task_ids/summary/evidence_refs），Resource 再附真实 target_resource_ref/consumer_ref。复用同样验证真实生产接线，禁止以 demo/mock 替代。详见 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)。

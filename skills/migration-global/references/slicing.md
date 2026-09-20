@@ -126,3 +126,7 @@ GO 在根登记前的 global-discovery 预检中核对功能草案；父 MO deco
 ## 切片前的二方库语义分析
 
 先将整体需求与 TARGET/用户指定外部模块的业务能力对齐，建立 reuse-catalog；功能相同不等于 API 同名。依据可复用能力及语义缺口分配模块 scope、共享适配 owner 和消费者，避免按技术包直接切业务模块。父 MO 继续细化需求映射，子 MO 将复用/适配/参考/新实现决策落为 tasks 与 PATH。复用提供方若也在迁移，应登记真实模块依赖；现存稳定库使用版本/接线约束，不虚构待执行 MO。详见 [二方库协议](../../migration-protocol/references/reuse-dependencies.md)。
+
+## 功能切片后的四维深读
+
+GO 先据全局上下文/功能清单划模块，再逐模块按 UI → Logic → Adhesive → Resource 分析；父 MO 先划子模块，再对每个子模块分析；子 MO 先划 tasks.scope，再逐任务四维分析以直接指导实现和测试断言；[四维协议](../../migration-protocol/references/dimension-slicing.md) 为接受分配与冻结的必要检查。

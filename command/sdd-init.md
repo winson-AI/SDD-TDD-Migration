@@ -62,3 +62,7 @@ prepare 与新 Ledger init 默认启用 context_readiness_required。GO 初始�
 功能发现默认使用提供的测试用例汇总；未提供时由 GO 先理解存量源码、抽取完整功能清单，再生成非空需求/CASE 与 input.json，不要求用户先手写用例。汇总存在也须对照源码查漏；歧义/未知功能先人工介入，明确后再推进受影响规划。
 
 输入可选 build 命令/环境配置；省略时 GO 全目标搜索构建脚本并默认评估 Gradle assemble。新运行启用 split_testing_required，区分构建与自动化环境；后者缺失不阻止已可执行工作。见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
+
+## 四维规划输入
+
+新运行默认启用 dimension_slicing_required；由 GO 生成每个根模块 dimension_analysis_ref，用户无需手写四维清单。按 [四维协议](../skills/migration-protocol/references/dimension-slicing.md) 先按上下文/功能清单划分模块 scope，再在 register 前完成各模块四维分析；父 MO 先划子模块再分析、子 MO 先划任务再分析，N/A 有证据、未知先澄清。

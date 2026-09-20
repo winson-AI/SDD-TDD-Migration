@@ -38,3 +38,18 @@
 | {{mapping}} | {{source/capability/version}} | {{files-and-binding}} | {{delta}} | {{evidence-ref}} |
 
 reference-only 说明借鉴了哪些业务语义及目标实现差异，不宣称已建立运行时依赖。provider_refs 用于核验依据版本，不授予修改来源项目的权限。
+
+## 四维实现证据（Implementer / Fixer）
+
+先核对每个冻结 task.scope 与 task.dimension_analysis，按 implementation 指导实现；task_trace 文件不得超出对应任务写范围。正式 implementation JSON 的 dimension_evidence 对冻结的每个 item 提交 item_id、task_ids、summary、evidence_refs；Resource 另附 target_resource_ref 与 consumer_ref，路径与规划中 target_resource/consumer 的文件部分相同（符号用 # 分隔）。复用文件可不在改动集合中，但必须存在并有真实生产消费者。详见 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)。
+
+```json
+{
+  "dimension_evidence": [{
+    "item_id": "DIM-M001-LOGIC-001",
+    "task_ids": ["TASK-M001-001"],
+    "summary": "{{actual-behavior-and-production-binding}}",
+    "evidence_refs": [{"path": "{{absolute-evidence-file}}", "sha256": "{{sha256}}"}]
+  }]
+}
+```

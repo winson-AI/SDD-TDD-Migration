@@ -230,7 +230,7 @@ class ReuseTests(unittest.TestCase):
         previous = self.state()
         self.root = self.base / 'external-run'
         library = self.base / 'library'; library.mkdir()
-        self.call('init', {**{k: previous[k] for k in ('split_testing_required', 'context_readiness_required', 'legacy_root', 'target_root', 'global_spec',
+        self.call('init', {**{k: previous[k] for k in ('dimension_slicing_required', 'split_testing_required', 'context_readiness_required', 'legacy_root', 'target_root', 'global_spec',
                         'new_architecture', 'case_ids', 'requirement_ids', 'global_paths')},
                   'reuse_sources': [{'source_id': 'LIB', 'root': str(library)}]}, role='host')
         self.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'write_paths': [str(self.target / 'm1')]},

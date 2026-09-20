@@ -32,7 +32,7 @@ class DecompositionTests(unittest.TestCase):
     def root_scope(self, mode='single-module'):
         original = self.state()
         self.root = self.base / 'hierarchical-run'
-        self.call('init', {**{k: original[k] for k in ('split_testing_required', 'context_readiness_required', 'target_root', 'legacy_root', 'case_ids',
+        self.call('init', {**{k: original[k] for k in ('dimension_slicing_required', 'split_testing_required', 'context_readiness_required', 'target_root', 'legacy_root', 'case_ids',
                     'requirement_ids', 'global_spec', 'new_architecture', 'global_paths')},
                     'entry_mode': mode, 'single_module_id': 'M010' if mode == 'single-module' else None}, role='host')
         self.call('register', {'module_id': 'M010', 'name': 'Search', 'case_ids': ['C1'],

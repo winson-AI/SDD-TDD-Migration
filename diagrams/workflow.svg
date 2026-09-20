@@ -23,10 +23,10 @@
 <text x="1136" y="404" font-size="19.00" fill="#6b7280" text-anchor="end" font-weight="400">全局管理迁移、DAG、锁与依赖</text>
 <rect x="100" y="425" width="1020" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="105" y="430" width="1010" height="155" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
-<text x="610.0" y="457.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">GO 上下文预检 → 完整功能清单 → 复用映射 → 切片</text>
+<text x="610.0" y="457.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">GO 上下文 / 功能清单 → 划模块 → 模块四维分析</text>
 <text x="610.0" y="491.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">默认从测试用例汇总抽取；无汇总则先理解存量源码；查漏，有疑问即人工</text>
 <text x="610.0" y="520.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">TARGET + 指定二方库：reuse-catalog / 功能语义 / 行为差异 / 接入可行性</text>
-<text x="610.0" y="549.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">模块 ID + scope + 复用上下文 + SPEC 草稿 + Testing list</text>
+<text x="610.0" y="549.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先确定模块 scope，再按 UI → Logic → Adhesive → Resource 分析实现</text>
 <text x="610.0" y="578.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">project：多个根模块；single-module：一个根模块，其子功能仍须拆分</text>
 <path d="M610,590 L610,690" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M340,690 L880,690" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
@@ -38,23 +38,23 @@
 <rect x="100" y="700" width="480" height="170" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="105" y="705" width="470" height="160" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="340.0" y="735.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父 MO · 根模块 A</text>
-<text x="340.0" y="769.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">认领 scope A + 能力语义目录</text>
-<text x="340.0" y="798.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">拆分预检：范围 / 接口 / owner</text>
-<text x="340.0" y="827.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">范围内拆子模块 A1 / A2</text>
-<text x="340.0" y="856.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">统一适配 owner，逐子分配上下文</text>
+<text x="340.0" y="769.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">认领模块 / 实现 / 四维上下文</text>
+<text x="340.0" y="798.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先划子模块 A1 / A2 的 scope</text>
+<text x="340.0" y="827.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">再逐子模块四维分析</text>
+<text x="340.0" y="856.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">明确实现指导 / owner / 完整性</text>
 <rect x="640" y="700" width="480" height="170" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="645" y="705" width="470" height="160" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="880.0" y="735.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父 MO · 其他根模块 × N</text>
 <text x="880.0" y="769.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">project 按根模块分别建立父 MO</text>
-<text x="880.0" y="798.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">结合模块需求评估语义与复用</text>
-<text x="880.0" y="827.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">每个父 MO 在认领范围内拆分</text>
+<text x="880.0" y="798.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先划子模块范围，再逐个分析</text>
+<text x="880.0" y="827.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">继承实现 / 复用 / 四维上下文</text>
 <text x="880.0" y="856.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">single-module 仅保留选定根模块</text>
 <path d="M340,870 L340,940 L610,940" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M880,870 L880,940 L610,940" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M610,940 L610,980" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="100" y="980" width="1020" height="110" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="610.0" y="1028.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">GO 审核拆分 → 登记子模块 → 全局覆盖验收</text>
-<text x="610.0" y="1062.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核验范围包含 / 需求与 CASE 全覆盖 / 复用 owner / DAG；登记后派发独立子 MO</text>
+<text x="610.0" y="1062.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核验父子四维覆盖 / N/A 依据 / CASE / 复用 owner / DAG；派发独立子 MO</text>
 <path d="M610,1090 L610,1220" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M215,1220 L1010,1220" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <rect x="60" y="1170" width="1100" height="265" rx="20" fill="none" stroke="#d1d5db" stroke-width="1.4"/>
@@ -64,32 +64,32 @@
 <rect x="100" y="1240" width="230" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="105" y="1245" width="220" height="155" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="215.0" y="1272.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · A1</text>
-<text x="215.0" y="1306.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按阶段核对上下文</text>
-<text x="215.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">拆 tasks → 冻结</text>
+<text x="215.0" y="1306.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先划任务 scope</text>
+<text x="215.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">四维分析 → 冻结</text>
 <text x="215.0" y="1364.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编码→构建→自动化</text>
 <text x="215.0" y="1393.5" font-size="21.91" fill="#4b5563" text-anchor="middle" font-weight="400">修复 / DoD / 挂起</text>
 <path d="M480,1220 L480,1240" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="365" y="1240" width="230" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="370" y="1245" width="220" height="155" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="480.0" y="1272.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · A2</text>
-<text x="480.0" y="1306.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按阶段核对上下文</text>
-<text x="480.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">拆 tasks → 冻结</text>
+<text x="480.0" y="1306.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先划任务 scope</text>
+<text x="480.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">四维分析 → 冻结</text>
 <text x="480.0" y="1364.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编码→构建→自动化</text>
 <text x="480.0" y="1393.5" font-size="21.91" fill="#4b5563" text-anchor="middle" font-weight="400">修复 / DoD / 挂起</text>
 <path d="M745,1220 L745,1240" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="630" y="1240" width="230" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="635" y="1245" width="220" height="155" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="745.0" y="1272.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · B1</text>
-<text x="745.0" y="1306.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按阶段核对上下文</text>
-<text x="745.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">拆 tasks → 冻结</text>
+<text x="745.0" y="1306.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先划任务 scope</text>
+<text x="745.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">四维分析 → 冻结</text>
 <text x="745.0" y="1364.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编码→构建→自动化</text>
 <text x="745.0" y="1393.5" font-size="21.91" fill="#4b5563" text-anchor="middle" font-weight="400">修复 / DoD / 挂起</text>
 <path d="M1010,1220 L1010,1240" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="895" y="1240" width="230" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="900" y="1245" width="220" height="155" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="1010.0" y="1272.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · B…</text>
-<text x="1010.0" y="1306.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按阶段核对上下文</text>
-<text x="1010.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">拆 tasks → 冻结</text>
+<text x="1010.0" y="1306.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先划任务 scope</text>
+<text x="1010.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">四维分析 → 冻结</text>
 <text x="1010.0" y="1364.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编码→构建→自动化</text>
 <text x="1010.0" y="1393.5" font-size="21.91" fill="#4b5563" text-anchor="middle" font-weight="400">修复 / DoD / 挂起</text>
 <path d="M215,1405 L215,1480" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
@@ -140,7 +140,7 @@
 <text x="1375.0" y="659.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">父 MO → 子模块 scope</text>
 <text x="1375.0" y="688.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子 MO → tasks</text>
 <text x="1375.0" y="717.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400"></text>
-<text x="1375.0" y="746.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">下层不能自行扩大分配范围</text>
+<text x="1375.0" y="746.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">范围先定，四维分析指导实现</text>
 <text x="1375.0" y="775.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">跨模块或不确定处交人工</text>
 <rect x="1210" y="880" width="330" height="280" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
 <text x="1375.0" y="941.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Ledger · 唯一总线</text>

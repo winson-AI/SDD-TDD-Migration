@@ -21,7 +21,7 @@ class SplitTestingTests(unittest.TestCase):
         original = f.state()
         f.root = f.base / 'split-run'
         f.call('init', {**{k: original[k] for k in ('target_root', 'legacy_root', 'case_ids', 'requirement_ids',
-                 'global_spec', 'new_architecture', 'global_paths')}, 'split_testing_required': True}, role='host')
+                 'global_spec', 'new_architecture', 'global_paths')}, 'dimension_slicing_required': False, 'split_testing_required': True}, role='host')
         f.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'write_paths': [str(f.target / 'm1')]},
                role='global-orchestrator', module=None)
         self.build_code = 'raise SystemExit(0)'
@@ -251,7 +251,7 @@ class SplitTestingTests(unittest.TestCase):
     def test_empty_global_audits_only_yellow_preserving_passed_build(self):
         f = self.f; original = f.state(); f.root = f.base / 'empty-global-run'
         f.call('init', {**{k: original[k] for k in ('target_root', 'legacy_root', 'case_ids', 'requirement_ids',
-                 'global_spec', 'new_architecture')}, 'global_paths': [], 'split_testing_required': True}, role='host')
+                 'global_spec', 'new_architecture')}, 'global_paths': [], 'dimension_slicing_required': False, 'split_testing_required': True}, role='host')
         f.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'write_paths': [str(f.target / 'm1')]},
                role='global-orchestrator', module=None)
         self.run_final_audit()

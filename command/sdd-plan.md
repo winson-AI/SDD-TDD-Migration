@@ -52,3 +52,5 @@ Spec plan → host decision → MO freeze。具体 payload/命令用法见 [loca
 ## 功能清单来源与完备性
 
 global-plan 需绑定 feature_inventory_ref 与 feature_owners；功能清单默认来自测试用例汇总，无汇总则先从源码抽取。父/子 MO 核对所属功能完整覆盖，疑问同步 boundary_review 并交人工；未分类、未决、遗漏归属不得接受规划。
+
+规划须读取 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)，先基于认领子模块实现/分析等上下文划定任务 scope，再逐任务完成四维分析，将具体实现指导及认领条目完整映射至 design/spec/tasks、PATH 与 ASSERT，禁止删除上游适用项；缺口回上游澄清后再冻结。

@@ -105,5 +105,6 @@
   "reuse_required": true,
   "context_readiness_required": true,
   "build": {},
-  "split_testing_required": true
+  "split_testing_required": true,
+  "dimension_slicing_required": true
 }

@@ -1,6 +1,7 @@
 """Global coverage, one-round repair policy, and independent problem audit contracts."""
 import copy
 import test_validation as tv
+import dimensions
 
 from contracts import check_ref, digest, keyed, nonempty, read_json, require, baseline, validate_result, verify_plan
 
@@ -19,6 +20,8 @@ def planning_guard(s):
     require(plan and plan['registry_hash'] == digest(registry(s)), 'global coverage review required')
     require(not any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values()),
             'complete MO decomposition before implementation/audit')
+    for module in {**s.get('module_groups', {}), **s['modules']}.values():
+        dimensions.allocation(s, module)
     for group in s.get('module_groups', {}).values():
         check_ref(group['decomposition_ref']); check_ref(group['decomposition_review_ref'])
     for ref in (s['global_spec'], s['new_architecture'], plan['plan_ref'], plan['review_ref']):
@@ -228,6 +231,8 @@ def handle(s, req, actor):
             if module.get('parent_module_id'):
                 require({rid for rid, owners in requirements.items() if module_id in owners} ==
                         set(module['scope']['requirement_ids']), 'global ownership must match assigned submodule requirements')
+        for module in {**s.get('module_groups', {}), **s['modules']}.values():
+            dimensions.allocation(s, module)
         feature_inventory(s, plan)
         boundary_review(s, plan, p.get('boundary_decision_id'))
         s['global_plan'] = {**p, 'content': plan, 'registry_hash': digest(registry(s))}

@@ -1,0 +1,200 @@
+{
+  "schema_version": 1,
+  "module_id": "M001",
+  "parent_ref": null,
+  "source_reviews": {
+    "legacy": {
+      "conclusion": "{{review-result-including-no-candidate-or-not-applicable-with-evidence}}",
+      "evidence_refs": [
+        {
+          "path": "{{absolute-immutable-evidence-path}}",
+          "sha256": "{{sha256}}"
+        }
+      ]
+    },
+    "architecture": {
+      "conclusion": "{{review-result-including-no-candidate-or-not-applicable-with-evidence}}",
+      "evidence_refs": [
+        {
+          "path": "{{absolute-immutable-evidence-path}}",
+          "sha256": "{{sha256}}"
+        }
+      ]
+    },
+    "reuse": {
+      "conclusion": "{{review-result-including-no-candidate-or-not-applicable-with-evidence}}",
+      "evidence_refs": [
+        {
+          "path": "{{absolute-immutable-evidence-path}}",
+          "sha256": "{{sha256}}"
+        }
+      ]
+    },
+    "target": {
+      "conclusion": "{{review-result-including-no-candidate-or-not-applicable-with-evidence}}",
+      "evidence_refs": [
+        {
+          "path": "{{absolute-immutable-evidence-path}}",
+          "sha256": "{{sha256}}"
+        }
+      ]
+    }
+  },
+  "dimensions": [
+    {
+      "dimension": "UI",
+      "status": "unresolved",
+      "reason": "{{decide-applicable-or-not-applicable-from-assigned-function; N/A-items-must-be-empty}}",
+      "evidence_refs": [
+        {
+          "path": "{{absolute-immutable-evidence-path}}",
+          "sha256": "{{sha256}}"
+        }
+      ],
+      "items": [
+        {
+          "item_id": "DIM-M001-UI-001",
+          "behavior": "{{complete-observable-behavior-or-supporting-capability}}",
+          "requirement_ids": [
+            "REQ-GLOBAL-001"
+          ],
+          "case_ids": [
+            "CASE-GLOBAL-001"
+          ],
+          "source_locator": "{{source-path#symbol-or-resource-and-closure}}",
+          "target_strategy": "new",
+          "target_binding": "{{target-path#production-consumer-and-binding}}",
+          "acceptance": "{{source-fidelity-and-observable-expectation}}",
+          "evidence_refs": [
+            {
+              "path": "{{absolute-immutable-evidence-path}}",
+              "sha256": "{{sha256}}"
+            }
+          ],
+          "parent_item_ids": []
+        }
+      ]
+    },
+    {
+      "dimension": "Logic",
+      "status": "unresolved",
+      "reason": "{{decide-applicable-or-not-applicable-from-assigned-function; N/A-items-must-be-empty}}",
+      "evidence_refs": [
+        {
+          "path": "{{absolute-immutable-evidence-path}}",
+          "sha256": "{{sha256}}"
+        }
+      ],
+      "items": [
+        {
+          "item_id": "DIM-M001-LOGIC-001",
+          "behavior": "{{complete-observable-behavior-or-supporting-capability}}",
+          "requirement_ids": [
+            "REQ-GLOBAL-001"
+          ],
+          "case_ids": [
+            "CASE-GLOBAL-001"
+          ],
+          "source_locator": "{{source-path#symbol-or-resource-and-closure}}",
+          "target_strategy": "new",
+          "target_binding": "{{target-path#production-consumer-and-binding}}",
+          "acceptance": "{{source-fidelity-and-observable-expectation}}",
+          "evidence_refs": [
+            {
+              "path": "{{absolute-immutable-evidence-path}}",
+              "sha256": "{{sha256}}"
+            }
+          ],
+          "parent_item_ids": []
+        }
+      ]
+    },
+    {
+      "dimension": "Adhesive",
+      "status": "unresolved",
+      "reason": "{{decide-applicable-or-not-applicable-from-assigned-function; N/A-items-must-be-empty}}",
+      "evidence_refs": [
+        {
+          "path": "{{absolute-immutable-evidence-path}}",
+          "sha256": "{{sha256}}"
+        }
+      ],
+      "items": [
+        {
+          "item_id": "DIM-M001-ADHESIVE-001",
+          "behavior": "{{complete-observable-behavior-or-supporting-capability}}",
+          "requirement_ids": [
+            "REQ-GLOBAL-001"
+          ],
+          "case_ids": [
+            "CASE-GLOBAL-001"
+          ],
+          "source_locator": "{{source-path#symbol-or-resource-and-closure}}",
+          "target_strategy": "new",
+          "target_binding": "{{target-path#production-consumer-and-binding}}",
+          "acceptance": "{{source-fidelity-and-observable-expectation}}",
+          "evidence_refs": [
+            {
+              "path": "{{absolute-immutable-evidence-path}}",
+              "sha256": "{{sha256}}"
+            }
+          ],
+          "parent_item_ids": []
+        }
+      ]
+    },
+    {
+      "dimension": "Resource",
+      "status": "unresolved",
+      "reason": "{{decide-applicable-or-not-applicable-from-assigned-function; N/A-items-must-be-empty}}",
+      "evidence_refs": [
+        {
+          "path": "{{absolute-immutable-evidence-path}}",
+          "sha256": "{{sha256}}"
+        }
+      ],
+      "items": [
+        {
+          "item_id": "DIM-M001-RESOURCE-001",
+          "behavior": "{{complete-observable-behavior-or-supporting-capability}}",
+          "requirement_ids": [
+            "REQ-GLOBAL-001"
+          ],
+          "case_ids": [
+            "CASE-GLOBAL-001"
+          ],
+          "source_locator": "{{source-path#symbol-or-resource-and-closure}}",
+          "target_strategy": "new",
+          "target_binding": "{{target-path#production-consumer-and-binding}}",
+          "acceptance": "{{source-fidelity-and-observable-expectation}}",
+          "evidence_refs": [
+            {
+              "path": "{{absolute-immutable-evidence-path}}",
+              "sha256": "{{sha256}}"
+            }
+          ],
+          "parent_item_ids": [],
+          "source_resource": "{{legacy-resource-path#id}}",
+          "target_resource": "{{absolute-target-resource-path#accessor}}",
+          "consumer": "{{absolute-production-consumer-path#symbol}}",
+          "conversion": "{{exact-copy/exact-conversion/semantic-adaptation-and-evidence}}",
+          "qualifiers": "{{locale/theme/density/font-scale/state/packaging-or-proven-none}}"
+        }
+      ]
+    }
+  ],
+  "unresolved": [
+    "{{resolve-all-doubts; this-template-is-not-approved-evidence}}"
+  ],
+  "scope": {
+    "in": [
+      "{{already-allocated-business-scope}}"
+    ],
+    "out": [
+      "{{excluded-behavior}}"
+    ],
+    "requirement_ids": [
+      "REQ-GLOBAL-001"
+    ]
+  }
+}

@@ -5,6 +5,7 @@ This keeps code/test evidence owned by exactly the MO that executed the leaf.
 """
 import copy
 import reuse
+import dimensions
 from pathlib import Path
 
 from contracts import Rejected, check_ref, digest, nonempty, read_json, require
@@ -34,9 +35,15 @@ def planning_context(s):
                     for mid, m in s['modules'].items()},
         'parents': {mid: group['children'] for mid, group in s.get('module_groups', {}).items()},
     }
+    if s.get('dimension_slicing_required'):
+        result['dimension_slicing_required'] = True
     plan = (s.get('global_plan') or {}).get('content', {})
     if plan.get('feature_inventory_ref'):
         result.update(feature_inventory_ref=plan['feature_inventory_ref'], feature_owners=plan['feature_owners'])
+    allocations = {mid: m['dimension_analysis_ref'] for mid, m in
+        {**s.get('module_groups', {}), **s['modules']}.items() if m.get('dimension_analysis_ref')}
+    if allocations or s.get('dimension_slicing_required'):
+        result['dimension_allocations'] = allocations
     return result
 
 
@@ -62,11 +69,17 @@ def assigned_module(s, module):
     parent = s.get('module_groups', {}).get(module.get('parent_module_id'))
     result['parent_context'] = ({key: copy.deepcopy(parent[key]) for key in
                                 ('module_id', 'scope', 'context_refs')} if parent else None)
+    if s.get('dimension_slicing_required'):
+        result['dimension_slicing_required'] = True
     plan = (s.get('global_plan') or {}).get('content', {})
     if plan.get('feature_inventory_ref'):
         result['feature_inventory_ref'] = copy.deepcopy(plan['feature_inventory_ref'])
         owned = set(leaves(s, module['module_id'])) if module['module_id'] in s.get('module_groups', {}) else {module['module_id']}
         result['feature_ids'] = sorted(fid for fid, owners in plan['feature_owners'].items() if owned.intersection(owners))
+    if module.get('dimension_analysis_ref'):
+        result['dimension_analysis_ref'] = module['dimension_analysis_ref']
+    if parent and parent.get('dimension_analysis_ref'):
+        result['parent_context']['dimension_analysis_ref'] = parent['dimension_analysis_ref']
     return result
 
 
@@ -188,6 +201,7 @@ def validate(s, parent, plan):
         requirements.update(child['scope']['requirement_ids'])
     require(cases == set(parent['case_ids']), 'submodules must cover every parent case')
     require(requirements == set(parent['scope']['requirement_ids']), 'submodules must cover every parent requirement')
+    dimensions.partition(s, parent, plan)
     graph = {mid: list(m['dependencies']) for mid, m in s['modules'].items() if mid != parent['module_id']}
     for mid, deps in graph.items():
         graph[mid] = sorted((set(deps) - {parent['module_id']}) | (set(ids) if parent['module_id'] in deps else set()))

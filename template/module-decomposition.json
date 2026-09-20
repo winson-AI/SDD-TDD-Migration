@@ -31,10 +31,18 @@
           "path": "{{absolute-subfunction-context-pack}}",
           "sha256": "{{sha256}}"
         }
-      ]
+      ],
+      "dimension_analysis_ref": {
+        "path": "{{absolute-child-dimension-analysis-path}}",
+        "sha256": "{{sha256}}"
+      }
     }
   ],
   "assigned_module": {
     "source": "Ledger status.module_inputs[parent_module_id]; replace with the current full object"
+  },
+  "dimension_partition_review_ref": {
+    "path": "{{absolute-immutable-evidence-path}}",
+    "sha256": "{{sha256}}"
   }
 }

@@ -48,3 +48,7 @@ CASE 覆盖归属与验收角色分开：模块阶段唯一验收 owner 为对�
 ## 父 MO 名称与最终报告
 
 父 MO 一律显示为 `parent-mo-<module_id>`（如 parent-mo-M010），派发/恢复使用 `status.parent_mo_names`，技术实例 ID 与显示名分开。GO 在本轮收尾后必须向用户提供完整 CASE 状态清单，非 Green 逐项汇总根因、责任方、下一步及证据；无测试环境不能仅称“迁移成功”。按 [GO 报告协议](../migration-protocol/references/migration-report.md) 读取 status.migration_report，不重复验收或触发全量测试。
+
+## 切片完整性
+
+GO 的 register、decompose-accept、global-plan 执行 [四维协议](../migration-protocol/references/dimension-slicing.md)；先据上下文/功能清单划模块 scope，再逐模块分析 UI → Logic → Adhesive → Resource，既有目标能力/二方库须对齐源码功能。

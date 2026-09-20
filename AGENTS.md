@@ -83,3 +83,7 @@ Test-Runner 在 Coding 接受后先编译构建，再执行自动化测试；构
 ## 编排名称与收尾报告
 
 父 MO 统一命名 `parent-mo-<module_id>`，例如 parent-mo-M010；宿主读取 status.parent_mo_names，并在创建/恢复时保持可见名称一致。GO 收尾必须向用户提供全部测试 CASE 状态，非 Green 汇总原因与证据；读取 Ledger 生成的 status.migration_report，不省略缺测、不用构建 Green 代替功能验证。详见 [报告协议](skills/migration-protocol/references/migration-report.md)。
+
+## 四维深度切片
+
+GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 scope 后再按 UI → Logic → Adhesive → Resource 核查源闭包、架构、二方库和目标已有能力；适用项逐层映射到子功能、TASK/PATH/ASSERT，不适用项记录依据。流程节点、字段与门禁必读 [四维完整性协议](skills/migration-protocol/references/dimension-slicing.md)。

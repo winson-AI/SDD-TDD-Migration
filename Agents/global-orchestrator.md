@@ -74,3 +74,7 @@ Global 审核 finding→owner 路由及依赖图，支持多 owner、受影响�
 ## 构建入口与缺测调度
 
 GO 在目标全项目发现 Gradle/构建脚本，优先用户指定 build 配置，按模块 scope 把编译命令/选择依据交下游冻结。构建通过、仅缺自动化环境的 automation-deferred 模块可供应当前代码依赖；不将 Yellow 传播给其他模块。等待所有独立 MO 和父汇总后统一审计，最终可保留 Yellow 缺测报告结束本轮。详见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
+
+## 四维规划门禁
+
+先读取全局上下文/功能清单并划定模块 scope，再针对每个已划分模块按 UI → Logic → Adhesive → Resource 交叉分析存量源码/架构/二方库/目标能力，生成逐根模块 dimension_analysis_ref，并体现于 SPEC 草案和 Testing list；审核 decompose 的子项并集、唯一写 owner 与拆分证据，global-plan 再核对覆盖。详见 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)。

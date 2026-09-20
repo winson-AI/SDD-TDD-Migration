@@ -86,10 +86,10 @@ def overview():
         '宿主 init / update 配置；prepare 固化本轮快照'], 'gray')
     d.arrow([(610,330),(610,425)])
     d.band(60,365,1100,230,'GO  ·  全局规划','全局管理迁移、DAG、锁与依赖')
-    d.box(100,425,1020,165,'GO 上下文预检 → 完整功能清单 → 复用映射 → 切片',[
+    d.box(100,425,1020,165,'GO 上下文 / 功能清单 → 划模块 → 模块四维分析',[
         '默认从测试用例汇总抽取；无汇总则先理解存量源码；查漏，有疑问即人工',
         'TARGET + 指定二方库：reuse-catalog / 功能语义 / 行为差异 / 接入可行性',
-        '模块 ID + scope + 复用上下文 + SPEC 草稿 + Testing list',
+        '先确定模块 scope，再按 UI → Logic → Adhesive → Resource 分析实现',
         'project：多个根模块；single-module：一个根模块，其子功能仍须拆分'],controller=True)
     # Fan out through a shared branch; two parents show project multiplicity.
     d.arrow([(610,590),(610,690)],end=False)
@@ -97,22 +97,22 @@ def overview():
     for x in (340,880): d.arrow([(x,690),(x,700)])
     d.band(60,635,1100,265,'父 MO  ·  认领与拆分','每个父 MO 持续看护自己认领的整个模块')
     d.box(100,700,480,170,'父 MO · 根模块 A',[
-        '认领 scope A + 能力语义目录', '拆分预检：范围 / 接口 / owner', '范围内拆子模块 A1 / A2', '统一适配 owner，逐子分配上下文'],controller=True)
+        '认领模块 / 实现 / 四维上下文', '先划子模块 A1 / A2 的 scope', '再逐子模块四维分析', '明确实现指导 / owner / 完整性'],controller=True)
     d.box(640,700,480,170,'父 MO · 其他根模块 × N',[
-        'project 按根模块分别建立父 MO', '结合模块需求评估语义与复用', '每个父 MO 在认领范围内拆分', 'single-module 仅保留选定根模块'],controller=True)
+        'project 按根模块分别建立父 MO', '先划子模块范围，再逐个分析', '继承实现 / 复用 / 四维上下文', 'single-module 仅保留选定根模块'],controller=True)
     # Anchor branch endpoints to the cards (container crossings remain open).
     for x in (340,880):
         d.arrow([(x,870),(x,940),(610,940)],end=False)
     d.arrow([(610,940),(610,980)])
     d.box(100,980,1020,110,'GO 审核拆分 → 登记子模块 → 全局覆盖验收',[
-        '核验范围包含 / 需求与 CASE 全覆盖 / 复用 owner / DAG；登记后派发独立子 MO'])
+        '核验父子四维覆盖 / N/A 依据 / CASE / 复用 owner / DAG；派发独立子 MO'])
     d.arrow([(610,1090),(610,1220)],end=False)
     d.arrow([(215,1220),(1010,1220)],end=False)
     d.band(60,1170,1100,265,'子 MO  ·  任务规划与独立执行','单个失败不取消或污染无关子模块')
     for x,title,subtitle in [(100,'子 MO · A1','子 scope A1'),(365,'子 MO · A2','子 scope A2'),(630,'子 MO · B1','子 scope B1'),(895,'子 MO · B…','其他子 scope')]:
         cx=x+115
         d.arrow([(cx,1220),(cx,1240)])
-        d.box(x,1240,230,165,title,['按阶段核对上下文','拆 tasks → 冻结','编码→构建→自动化','修复 / DoD / 挂起'],controller=True)
+        d.box(x,1240,230,165,title,['先划任务 scope','四维分析 → 冻结','编码→构建→自动化','修复 / DoD / 挂起'],controller=True)
     for centers,summaryx in [((215,480),100),((745,1010),640)]:
         for cx in centers: d.arrow([(cx,1405),(cx,1480)],end=False)
         d.arrow([(centers[0],1480),(centers[1],1480)],end=False)
@@ -136,7 +136,7 @@ def overview():
     d.box(1210,190,330,280,'全局读取视野',[
         'GO / 父 MO / 子 MO', '均可读全局存量与目标代码', '架构 / 知识 / 分工 / 复用来源', '', '局部 context pack 聚焦任务', '不截断全局只读上下文'], 'gray')
     d.box(1210,540,330,270,'范围逐层细化',[
-        'GO → 根模块 scope', '父 MO → 子模块 scope', '子 MO → tasks', '', '下层不能自行扩大分配范围', '跨模块或不确定处交人工'], 'orange')
+        'GO → 根模块 scope', '父 MO → 子模块 scope', '子 MO → tasks', '', '范围先定，四维分析指导实现', '跨模块或不确定处交人工'], 'orange')
     d.box(1210,880,330,280,'Ledger · 唯一总线',[
         '分配包 / 事件 / 状态 / 证据', 'planning_context：全局视野', 'module_inputs：认领范围', 'context-submit：预检留证', '原节点接受后才允许推进', '父聚合颜色不回写子模块'], 'green')
     d.box(1210,1230,330,230,'宿主执行层',[
@@ -153,17 +153,17 @@ def overview():
 
 def module_execution():
     d=Diagram('module-execution',1970,'02','子 MO · 执行与首轮修复','每个子 MO 独立维护 SPEC、tasks、测试结果、修复预算和 DoD；父 MO 持续看护并等待')
-    d.box(560,190,480,130,'认领 → 拆 tasks',[
-        '读取全局 / 父 / 子上下文与功能清单','功能 → 需求 → 复用 / TASK / PATH','禁止再次创建下一层 MO'],controller=True)
+    d.box(560,190,480,130,'认领上下文 → 划定任务 scope',[
+        '子模块实现 / 四维分析 / 全局上下文','划任务：职责 / 排除 / 允许写范围','禁止再次创建下一层 MO'],controller=True)
     d.arrow([(800,320),(800,380)])
-    d.box(560,380,480,140,'规划预检 → SPEC / 测试设计',[
-        'Spec Designer：OpenSpec 六件套','Test Runner：CASE → PATH / Name','形成复用映射、差异与 assert'])
+    d.box(560,380,480,140,'任务四维分析 → SPEC / 测试设计',[
+        'UI → Logic → Adhesive → Resource','绑定任务 scope，明确具体实现指导','OpenSpec / PATH / ASSERT；N/A 留证'])
     d.arrow([(800,520),(800,580)])
     d.box(560,580,480,105,'Plan 澄清 → 冻结',[
-        'Human 决策 + freeze checklist','子 MO 接受当前版本冻结'])
+        'Human 决策 + 四维覆盖 checklist','子 MO 接受当前版本冻结'])
     d.arrow([(800,685),(800,745)])
     d.box(560,745,480,125,'Coding 预检 → 实现 → MO 接受',[
-        '按冻结 tasks + 复用映射实现','提交代码 / reuse_trace / 实际绑定','依赖满足 / 写锁 / 全局覆盖 / 预算'])
+        '按任务 scope + 四维指导实现','提交四维证据 / 资源及真实消费者','依赖满足 / 写锁 / 全局覆盖 / 预算'])
     d.arrow([(800,870),(800,920)])
     d.box(560,920,480,150,'Test-Runner · 构建 → 自动化',[
         'build Green 后预检自动化环境','可用：Main 按用例路径验证','缺环境：Yellow / 未执行（旁路）'])

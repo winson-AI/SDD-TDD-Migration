@@ -82,3 +82,7 @@ Test-Runner assignment 明确 test_scope=build|automation；先接受构建，�
 ## 父 MO 命名信号
 
 父 MO 使用 `parent-mo-<module_id>`，例如 `parent-mo-M010`。根模块待拆分、协调子模块、提交汇总及冷恢复均保持此名称；宿主从 `status.parent_mo_names` / 父 next_step.agent_name 读取。session(role=module-orchestrator) 自动记录该 agent_name，显式提交其他名称会被拒绝。角色仍为 module-orchestrator，真实 instance_id/session_id 仍由宿主绑定；子 MO 不套用 parent-mo 前缀。规则见 [父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md#父-mo-统一命名)。
+
+## 四维职责与验收
+
+父 MO 认领模块并读取模块实现、GO 四维分析等上下文，先在 scope 内划分子模块，再分别生成子模块四维分析及 dimension_partition_review_ref，保证父项无遗漏、共享代码不重复。子 MO 认领并读取子模块实现/分析等上下文，先划 tasks.scope，再逐任务生成 dimension_analysis，实现指导及 tasks/PATH/ASSERT 一起冻结，接受实现时检查 dimension_evidence，DoD 用正式测试而非结构表格判定。N/A 必须有源证据；未知或跨边界走人工。详见 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)。

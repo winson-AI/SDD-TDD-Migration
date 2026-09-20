@@ -165,3 +165,7 @@ Harmony 已提供独立 [uv sandbox 与使用说明](skills/migration-test/runti
 ### 父 MO 名称与 GO 收尾报告
 
 父 MO 统一命名 `parent-mo-M010`（模块 M010），派发与恢复均保持一致。GO 在本轮收尾后提供全部测试用例状态表，Red/Yellow 附根因、责任方、下一步和证据。Ledger 自动生成 `<run_root>/reports/migration-report.md` / `.json`，由 `status.migration_report` 定位；未执行/过期证据保留 Yellow。详见 [GO 报告协议](skills/migration-protocol/references/migration-report.md)。
+
+## UI → Logic → Adhesive → Resource 深度切片
+
+GO 读取上下文/功能清单 → 划分模块 → 模块四维分析；父 MO 认领并读取模块实现/分析等上下文 → 划分子模块 → 子模块四维分析；子 MO 认领并读取子模块实现/分析等上下文 → 划分任务 → 任务四维分析 → 冻结/实现。范围先确定，四维分析直接指导实现，完整关联 TASK/PATH/ASSERT。各维度按实际功能决定 applicable / 有证据的 not-applicable，未知项禁止冻结。分析顺序不强制编码顺序，不改变业务模块划分。参见 [控制节点、字段与案例](skills/migration-protocol/references/dimension-slicing.md)，[分析模板](template/dimension-analysis.json)。

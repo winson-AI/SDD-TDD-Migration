@@ -51,3 +51,7 @@ GO/父子 MO、Spec Designer、Implementer、Testing/Fixer/Auditor 涉及规划�
 ## 12. 编译构建与自动化分流
 
 GO/MO、Spec Designer、Test-Runner、Fixer、Auditor 与宿主必读 [build-automation.md](references/build-automation.md)。同一 Test-Runner 先构建再自动化；仅自动化环境缺失可 Yellow 收尾并放行其他可执行任务，质量验收不变 Green。
+
+## 13. 四维完整性
+
+GO、父/子 MO、Spec-Designer 在规划时，以及 Implementer/Fixer/Test-Runner/Auditor 在执行/验收时读取 [dimension-slicing.md](references/dimension-slicing.md)：有序分析、条件 N/A、父子完整覆盖与 OpenSpec/TASK/PATH/ASSERT 追溯。

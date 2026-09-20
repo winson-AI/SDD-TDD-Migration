@@ -32,3 +32,12 @@
 - [ ] D08 模块独立验收完成，全局上报内容齐全且可在 module_completed 提交时同步记录；证据：{{ref}}
 
 模块 DoD 不代表全局审计或人类合并授权。归档前另核验全局整体测试、Auditor 裁决与具体版本的交付批准。
+
+## 四维覆盖门禁
+
+- [ ] F-DIM UI → Logic → Adhesive → Resource 有序分析，N/A 有依据，未决项为空；父子条目无遗漏；证据：{{dimension_analysis_ref}}
+- [ ] F-TRACE design/spec/tasks 的 item ID 与 dimension_trace 一致，TASK/PATH/ASSERT 完整，资源消费者与真实接线明确；证据：{{ref}}
+- [ ] D-DIM 全部适用条目实现证据齐全，资源实物及消费者已核验，正式测试/fidelity 通过；证据：{{dimension_evidence-and-test-results}}
+
+- [ ] F-TASK-SCOPE 先定义每项任务 scope，再完成 scope_sha256 绑定的四维分析；逐维 implementation 指导明确，N/A 留证，TASK/PATH/ASSERT 覆盖完整；证据：{{stage-plan}}
+- [ ] D-TASK-SCOPE task_trace 文件属于对应任务 write_paths，实现符合冻结任务四维分析；证据：{{implementation-result}}

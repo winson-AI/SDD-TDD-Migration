@@ -86,3 +86,7 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 - 宿主创建/恢复父 MO 时，将该名称用于支持的 name/title/可见标签。若工具限制技术 ID 字符集，技术 ID 保持合法，展示标签与 Ledger agent_name 仍使用上述格式。
 - `session` 的 role 仍为 module-orchestrator；父 session 未提供 agent_name 时自动补全，提供不同名称则拒绝。instance_id、session_id 是宿主真实身份，不以名称替代认证或授权。
 - 名称是运行展示元数据，不加入冻结 assigned_module/planning_context，旧 run 的 SPEC/分配摘要不因命名增强失效；无需改写旧事件。
+
+## 四维父子覆盖
+
+父 MO 认领并读取模块实现/四维分析等上下文，先划子模块 scope，再按 [四维协议](dimension-slicing.md) 生成子 dimension_analysis_ref（绑定 parent_ref/parent_item_ids）和 dimension_partition_review_ref；GO 两次审查 proposal/accept，拒绝遗漏父项或重复子 item ID。scope、CASE、写锁与共享提供方 owner 原规则继续有效。

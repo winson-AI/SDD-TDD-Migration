@@ -13,6 +13,7 @@ import sys
 import workflow
 import audit_closure
 import decomposition
+import dimensions
 import reuse
 import project_context
 import context_readiness
@@ -90,6 +91,7 @@ def role(principal, *roles):
 
 def current(m):
     verify_plan(m['plan'])
+    dimensions.current(m)
     if m.get('code_files'):
         require(baseline(m['code_files']) == m['code_baseline'], 'code evidence stale; invalidate before continuing')
 
@@ -442,6 +444,7 @@ def mutate(s, req, principal, events):
         if p.get('decomposition_required'):
             decomposition.check_scope(p)
             require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in root scope')
+        dimensions.allocation(s, p)
         s['modules'][mid] = new_module(p)
         s['global_plan'] = None
     elif op == 'decision':
@@ -544,6 +547,8 @@ def mutate(s, req, principal, events):
         assignment['closed'] = True
         if kind == 'implementation':
             m['accepted_task_ids'] = [t['task_id'] for t in result['task_trace']]
+            if m['plan'].get('dimension_analysis_ref'):
+                m['dimension_evidence'] = copy.deepcopy(result['dimension_evidence'])
             if assignment['role'] == 'fixer':
                 memory = next(x for x in m['fix_memory'] if x['assignment_id'] == aid)
                 memory.update(after_baseline=result['code_baseline'], implementation_ref=sub['ref'],
@@ -855,11 +860,12 @@ def apply(root, req, principal):
             nonempty(p.get('requirement_ids'), 'global requirements')
             require(len(set(p['requirement_ids'])) == len(p['requirement_ids']), 'duplicate global requirement')
             reuse_sources = reuse.normalize_sources(p.get('reuse_sources', []), p['target_root'], existing=True)
+            require(type(p.get('dimension_slicing_required', True)) is bool, 'dimension_slicing_required must be boolean')
             require(type(p.get('reuse_required', False)) is bool, 'reuse_required must be boolean')
             require(type(p.get('split_testing_required', True)) is bool, 'split_testing_required must be boolean')
             require(type(p.get('context_readiness_required', True)) is bool, 'context_readiness_required must be boolean')
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
-            s = {'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True),
+            s = {'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True),
                  'reuse_sources': reuse_sources, 'reuse_required': bool(reuse_sources) or p.get('reuse_required', False),
                  'entry_mode': entry_mode, 'single_module_id': selected_module,
                  'global_spec': p['global_spec'], 'new_architecture': p['new_architecture'], 'requirement_ids': p['requirement_ids'],

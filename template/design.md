@@ -31,3 +31,7 @@
 
 ## Decision Envelope
 {{scope / acceptance / allowed_alternatives / forbidden_changes；用户批准的替代方案必须具体；不允许以“可优化”之类泛化措辞绕过验收变更}}
+
+## UI → Logic → Adhesive → Resource
+
+模块/子模块先确定 scope，再按顺序逐维填写适用性、N/A 理由及证据；任务也先划 scope，再填写任务四维分析及具体实现指导；关联冻结 dimension_analysis_ref。适用项逐 item ID 说明源行为闭包、架构位置、二方库/目标已有能力决策与差异、真实接线、实现 owner 及 PATH/ASSERT。Resource 明确源素材/目标访问器/生产消费者及 qualifier；本节与调度资源锁分开。

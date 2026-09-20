@@ -22,7 +22,7 @@ class FlowTests(unittest.TestCase):
         self.legacy = self.base / 'legacy'; self.legacy.mkdir()
         self.root = self.base / 'run'
         self.n = 0
-        self.call('init', {'split_testing_required': False, 'context_readiness_required': False, 'target_root': str(self.target), 'legacy_root': str(self.legacy),
+        self.call('init', {'dimension_slicing_required': False, 'split_testing_required': False, 'context_readiness_required': False, 'target_root': str(self.target), 'legacy_root': str(self.legacy),
                           'case_ids': ['C1'], 'requirement_ids': ['R1'],
                           'global_spec': self.ref('global-spec.md', 'R1 spec'), 'new_architecture': self.ref('architecture.md', 'target architecture'), 'global_paths': [{'path_id': 'GP1', 'case_id': 'C1', 'expected_assertions': [{'assertion_id': 'A1', 'expected': 2}]}], 'max_fix_rounds': 1}, role='host')
         self.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'dependencies': [],

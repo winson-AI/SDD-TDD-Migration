@@ -350,3 +350,7 @@ Ledger 保存 project_id/project_revision/project_context_ref，在初始化校�
 `status.parent_mo_names` 派生统一父名称 parent-mo-M<编号>；父 MO next_steps.agent_name 同步给宿主。父 session(role=module-orchestrator) 自动补全 agent_name，显式错名拒绝；不改变 role/instance/session 身份规则及冻结分配包。
 
 Ledger 在事件接受/状态重建时生成 `<run_root>/reports/migration-report.json` 与 `.md`。`status.migration_report` 返回路径和 sequence。报告完整列出 case_ids 对应的 CASE、模块/PATH 明细及非 Green 原因和证据；尚无路径/结果同样列入 Yellow。GO 在迁移本轮收尾时读取并交付该报告，人工待决/缺测不得省略。它是可重建投影，不是新的状态或验收权威。字段、证据规则见 [GO 报告协议](migration-report.md)。
+
+## 四维分配与冻结字段
+
+新 init 默认 dimension_slicing_required=true，prepare 固化开启。register 必填 dimension_analysis_ref；decompose 的每个 child 也必填该引用，并由父 MO 提交 dimension_partition_review_ref。子分析绑定 parent_ref/parent_item_ids，plan 绑定认领分析和 dimension_trace，并包含先划定的 tasks[].scope 与随后生成、通过 scope_sha256 绑定的 tasks[].dimension_analysis，implementation 提交 dimension_evidence。status 的 planning_context.dimension_allocations 与 module_inputs 提供权威交接引用，OpenSpec 自动生成 dimensions.md。字段定义及历史格式兼容见 [四维协议](dimension-slicing.md)。

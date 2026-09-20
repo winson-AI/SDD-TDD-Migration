@@ -61,6 +61,20 @@
           "pattern": "^[0-9a-f]{64}$"
         }
       }
+    },
+    "dimension_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Required for implementation against a dimension-bound plan; resources additionally require target_resource_ref and consumer_ref.",
+      "items": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "task_ids",
+          "summary",
+          "evidence_refs"
+        ]
+      }
     }
   },
   "allOf": [

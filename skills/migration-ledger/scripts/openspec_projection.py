@@ -70,6 +70,16 @@ def materialize(root, state, sequence):
                   definition(root, ref) + '\n```\n')
             manifest['reuse_plan_ref'] = ref
             manifest['files'].append('reuse.md')
+        if m['plan'].get('dimension_analysis_ref'):
+            ref = m['plan']['dimension_analysis_ref']
+            write(change / 'dimensions.md', '# Dimension coverage (Ledger projection)\n\n' +
+                  'Analysis order: UI -> Logic -> Adhesive -> Resource. N/A requires source evidence.\n\n```json\n' +
+                  definition(root, ref) + '\n```\n\n## Task / PATH / ASSERT trace\n\n```json\n' +
+                  json.dumps(m['plan']['dimension_trace'], ensure_ascii=False, indent=2) + '\n```\n\n## Task scope and dimension analysis\n\n```json\n' +
+                  json.dumps([{k: task[k] for k in ('task_id', 'scope', 'dimension_analysis')}
+                              for task in m['plan']['tasks']], ensure_ascii=False, indent=2) + '\n```\n')
+            manifest['dimension_analysis_ref'] = ref
+            manifest['files'].append('dimensions.md')
         previous = change / 'manifest.json'
         if previous.exists():
             for obsolete in set(json.loads(previous.read_text()).get('files', [])) - set(manifest['files']):

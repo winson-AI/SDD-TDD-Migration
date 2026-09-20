@@ -64,3 +64,7 @@ OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment
 plan 前提交 planning 报告并绑定同一 plan_ref，核对全局/父/子范围、source_closure、target_feasibility、接口、测试设计和复用映射；MO freeze 再验。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
 
 新叶子计划冻结 kind=build 与 kind=automation 两类 PATH，build.command 包含目标编译命令、cwd、超时和选择证据，tasks 覆盖两类路径。无需自动化设备就绪才冻结或编码；其缺失按 [双环节协议](../skills/migration-protocol/references/build-automation.md) 留作 Yellow 缺测，不能删验收路径。
+
+## 四维 SPEC
+
+遵循 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)：基于认领子模块实现/四维上下文，协助子 MO 先划定 tasks.scope，再对每个任务按 UI → Logic → Adhesive → Resource 分析具体实现并绑定 scope_sha256，把 item ID 与实现指导写入 design/spec/tasks；生成完整 dimension_trace，规划审查 N/A 依据、真实接线和资源消费者，未决项禁止冻结。

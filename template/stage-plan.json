@@ -94,7 +94,90 @@
       ],
       "global_requirement_ids": [
         "REQ-GLOBAL-001"
-      ]
+      ],
+      "scope": {
+        "in": [
+          "{{specific-task-responsibility}}"
+        ],
+        "out": [
+          "{{inherited-submodule-exclusion}}"
+        ],
+        "write_paths": [
+          "{{absolute-task-write-path-within-submodule}}"
+        ]
+      },
+      "dimension_analysis": {
+        "scope_sha256": "{{contracts.digest(task.scope)-after-scope-definition}}",
+        "parent_ref": {
+          "path": "{{absolute-dimension-analysis-path}}",
+          "sha256": "{{sha256}}"
+        },
+        "unresolved": [
+          "{{resolve-task-specific-implementation-questions}}"
+        ],
+        "dimensions": [
+          {
+            "dimension": "UI",
+            "status": "unresolved",
+            "reason": "{{analyze-this-task-scope; N/A-requires-evidence-and-empty-item_ids}}",
+            "item_ids": [
+              "DIM-M001-UI-001"
+            ],
+            "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
+            "evidence_refs": [
+              {
+                "path": "{{absolute-task-analysis-evidence-path}}",
+                "sha256": "{{sha256}}"
+              }
+            ]
+          },
+          {
+            "dimension": "Logic",
+            "status": "unresolved",
+            "reason": "{{analyze-this-task-scope; N/A-requires-evidence-and-empty-item_ids}}",
+            "item_ids": [
+              "DIM-M001-LOGIC-001"
+            ],
+            "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
+            "evidence_refs": [
+              {
+                "path": "{{absolute-task-analysis-evidence-path}}",
+                "sha256": "{{sha256}}"
+              }
+            ]
+          },
+          {
+            "dimension": "Adhesive",
+            "status": "unresolved",
+            "reason": "{{analyze-this-task-scope; N/A-requires-evidence-and-empty-item_ids}}",
+            "item_ids": [
+              "DIM-M001-ADHESIVE-001"
+            ],
+            "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
+            "evidence_refs": [
+              {
+                "path": "{{absolute-task-analysis-evidence-path}}",
+                "sha256": "{{sha256}}"
+              }
+            ]
+          },
+          {
+            "dimension": "Resource",
+            "status": "unresolved",
+            "reason": "{{analyze-this-task-scope; N/A-requires-evidence-and-empty-item_ids}}",
+            "item_ids": [
+              "DIM-M001-RESOURCE-001"
+            ],
+            "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
+            "evidence_refs": [
+              {
+                "path": "{{absolute-task-analysis-evidence-path}}",
+                "sha256": "{{sha256}}"
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "source_closure": {
@@ -145,5 +228,71 @@
   "reuse_plan_ref": {
     "path": "{{absolute-module-reuse-plan}}",
     "sha256": "{{sha256}}"
-  }
+  },
+  "dimension_analysis_ref": {
+    "path": "{{absolute-dimension-analysis-path}}",
+    "sha256": "{{sha256}}"
+  },
+  "dimension_trace": [
+    {
+      "item_id": "DIM-M001-UI-001",
+      "task_ids": [
+        "TASK-M001-001"
+      ],
+      "path_ids": [
+        "PATH-M001-001"
+      ],
+      "assertions": [
+        {
+          "path_id": "PATH-M001-001",
+          "assertion_id": "ASSERT-M001-001"
+        }
+      ]
+    },
+    {
+      "item_id": "DIM-M001-LOGIC-001",
+      "task_ids": [
+        "TASK-M001-001"
+      ],
+      "path_ids": [
+        "PATH-M001-001"
+      ],
+      "assertions": [
+        {
+          "path_id": "PATH-M001-001",
+          "assertion_id": "ASSERT-M001-001"
+        }
+      ]
+    },
+    {
+      "item_id": "DIM-M001-ADHESIVE-001",
+      "task_ids": [
+        "TASK-M001-001"
+      ],
+      "path_ids": [
+        "PATH-M001-001"
+      ],
+      "assertions": [
+        {
+          "path_id": "PATH-M001-001",
+          "assertion_id": "ASSERT-M001-001"
+        }
+      ]
+    },
+    {
+      "item_id": "DIM-M001-RESOURCE-001",
+      "task_ids": [
+        "TASK-M001-001"
+      ],
+      "path_ids": [
+        "PATH-M001-001"
+      ],
+      "assertions": [
+        {
+          "path_id": "PATH-M001-001",
+          "assertion_id": "ASSERT-M001-001"
+        }
+      ]
+    }
+  ]
 }

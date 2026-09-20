@@ -67,3 +67,7 @@ proposal/design/tasks/checklist 明确复用决策、语义差异、接线、版
 选中能力时还需冻结 fidelity：存量源码基线、逐行为对齐报告及复现 PATH/ASSERT。spec 记录应保留的源行为，design/tasks 记录库差异与适配，checklist 检查对齐完整与复现证据，status 经 Ledger 记录实际进度。规划检查完成与运行保真通过分别记录；源码行为与需求冲突须人工决定。
 
 构建和自动化是冻结 plan.paths 中独立的 kind；build.command 与退出码断言也纳入冻结。仅因自动化环境缺失不会删除验收路径或改 SPEC，Ledger 保存 Yellow 未执行和 automation-deferred；恢复后补测。见 [双环节协议](build-automation.md)。
+
+## 四维完整性索引
+
+按 [四维协议](dimension-slicing.md) 冻结 dimension_analysis_ref、dimension_trace 及先划定的 tasks.scope / 随后生成的任务 dimension_analysis；design/spec/tasks 都保留适用 item ID，N/A 的源码依据写入设计。Ledger 从不可变分析生成 dimensions.md。它是辅助索引，不替代六件套或正式验证。

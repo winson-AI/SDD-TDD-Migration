@@ -92,5 +92,9 @@
   },
   "feature_ids": [
     "FEATURE-001"
-  ]
+  ],
+  "dimension_analysis_ref": {
+    "path": "{{absolute-dimension-analysis-path}}",
+    "sha256": "{{sha256}}"
+  }
 }

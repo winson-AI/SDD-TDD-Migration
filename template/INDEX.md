@@ -81,3 +81,5 @@ project-context/global-input 的 build 为可选配置，空对象表示由 GO �
 - [audit-review.json](audit-review.json)：Auditor 待验证清单为空时的独立证据审阅；不能用于跳过 Red/Yellow。
 
 - [migration-report.md](migration-report.md)：GO 收尾展示契约，包含完整 CASE 状态、父 MO 名称及非 Green 原因/证据；本地运行优先使用 Ledger 自动生成的报告。
+
+- [dimension-analysis.json](dimension-analysis.json)：GO/父 MO 四维源闭包、条件适用、目标映射与父子分配；先绑定模块/子模块 scope；下游 stage-plan 先划 tasks.scope，再生成任务四维分析并关联 PATH/ASSERT。

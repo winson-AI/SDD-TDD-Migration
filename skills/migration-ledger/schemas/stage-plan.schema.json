@@ -65,6 +65,94 @@
     },
     "freeze_checks_passed": {
       "const": true
+    },
+    "dimension_analysis_ref": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "description": "Required when module allocation carries dimension_analysis_ref."
+    },
+    "dimension_trace": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "task_ids",
+          "path_ids",
+          "assertions"
+        ]
+      }
     }
-  }
+  },
+  "dependentRequired": {
+    "dimension_analysis_ref": [
+      "dimension_trace"
+    ]
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "dimension_analysis_ref"
+        ]
+      },
+      "then": {
+        "properties": {
+          "tasks": {
+            "items": {
+              "type": "object",
+              "required": [
+                "scope",
+                "dimension_analysis"
+              ],
+              "properties": {
+                "scope": {
+                  "type": "object",
+                  "required": [
+                    "in",
+                    "out",
+                    "write_paths"
+                  ]
+                },
+                "dimension_analysis": {
+                  "type": "object",
+                  "required": [
+                    "scope_sha256",
+                    "parent_ref",
+                    "dimensions",
+                    "unresolved"
+                  ],
+                  "properties": {
+                    "scope_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "dimensions": {
+                      "type": "array",
+                      "minItems": 4,
+                      "maxItems": 4,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "dimension",
+                          "status",
+                          "reason",
+                          "item_ids",
+                          "evidence_refs"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

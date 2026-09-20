@@ -41,7 +41,7 @@ def subject(s, mid, stage):
     require(stage in CHECKS and ((mid is None) == (stage in GLOBAL)), 'context stage/scope mismatch')
     shared = decomposition.planning_context(s)
     if stage == 'global-discovery':
-        shared = {k: v for k, v in shared.items() if k not in ('modules', 'parents')}
+        shared = {k: v for k, v in shared.items() if k not in ('modules', 'parents', 'dimension_allocations')}
     value = {'run_id': s['run_id'], 'module_id': mid, 'stage': stage, 'planning_context': shared}
     if mid:
         m = scope(s, mid)
@@ -88,16 +88,23 @@ def input_refs(s, mid, stage):
     if mid:
         m = scope(s, mid)
         refs += m.get('context_refs', [])
+        if m.get('dimension_analysis_ref'):
+            refs.append(m['dimension_analysis_ref'])
         parent = decomposition.assigned_module(s, m).get('parent_context')
         if parent:
             refs += parent['context_refs']
+            if parent.get('dimension_analysis_ref'):
+                refs.append(parent['dimension_analysis_ref'])
         if stage in set(WORKERS.values()) | {'building'} and m.get('plan_ref'):
             refs.append(m['plan_ref'])
             if m['plan'].get('reuse_plan_ref'):
                 refs.append(m['plan']['reuse_plan_ref'])
     elif stage.startswith('audit-'):
+        refs += [m['dimension_analysis_ref'] for m in s['modules'].values() if m.get('dimension_analysis_ref')]
         refs += [m['plan_ref'] for m in s['modules'].values() if m.get('plan_ref')]
         refs += [g['summary_ref'] for g in s.get('module_groups', {}).values() if g.get('summary_ref')]
+    if stage == 'global-planning':
+        refs += list(decomposition.planning_context(s).get('dimension_allocations', {}).values())
     return list({(ref['path'], ref['sha256']): ref for ref in refs}.values())
 
 

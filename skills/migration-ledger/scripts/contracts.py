@@ -100,6 +100,8 @@ def validate_plan(plan, module):
     nonempty(envelope['scope'], 'approved scope')
     nonempty(envelope['acceptance'], 'approved acceptance')
     require(plan.get('freeze_checks_passed') is True, 'freeze checklist incomplete')
+    import dimensions
+    dimensions.validate_plan(plan, module)
     return digest(plan)
 
 
@@ -112,6 +114,8 @@ def verify_plan(plan):
             check_ref(path['command']['selection_ref'])
     import reuse
     reuse.verify(plan)
+    import dimensions
+    dimensions.verify(plan)
 
 
 def baseline(refs):
@@ -144,10 +148,14 @@ def validate_result(result, module, assignment):
         check_ref(result['production_binding_evidence'])
         import reuse
         reuse.validate_implementation(module['plan'], result)
+        import dimensions
+        dimensions.implementation(module['plan'], result)
         if assignment['role'] == 'fixer':
             note = read_json(check_ref(result.get('fix_note_ref')))
             require(all(note.get(k) for k in ('root_cause', 'strategy', 'applicability', 'risks')), 'repair memory note incomplete')
         return kind
+    import dimensions
+    dimensions.current(module)
     if kind == 'audit-review':
         require(assignment['role'] == 'auditor' and assignment.get('scope_policy') == 'non-green-only', 'review owner/scope mismatch')
         require(not module['plan']['paths'] and result.get('paths') == [], 'review cannot skip unresolved paths')

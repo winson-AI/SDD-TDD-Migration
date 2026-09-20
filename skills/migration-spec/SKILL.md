@@ -32,3 +32,7 @@ description: OpenSpec 六件套、plan 澄清冻结和 CR 影响分析，用于 
 保持测试设计提前；本地 SPEC 定义须包含合法 delta heading 与 requirement/scenario。Ledger 自动物化六件套及动态视图；改变定义提交新 plan/CR，不直接改生成文件。
 
 复用目录与需求语义对齐后，把提供方、差异适配、接线和验证写进 design/tasks/checklist；以 stage-plan.reuse_plan_ref 冻结映射，原始需求仍控制验收。见 [二方库复用协议](../migration-protocol/references/reuse-dependencies.md)。
+
+## 四维语义落入 OpenSpec
+
+读取 [四维协议](../migration-protocol/references/dimension-slicing.md)，先协助划定任务范围，再生成绑定 scope 的任务四维分析，将具体实现指导、分配 item ID、可观察行为、目标差异及验证映射写入 design/spec/tasks；dimension_analysis_ref + dimension_trace 与六件套一起冻结。

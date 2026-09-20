@@ -17,3 +17,7 @@
 | REQ-ID | 设计章节 | TASK-ID | CASE-ID | PATH-ID | 源文件 | 代码版本 | 证据事件 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | {{req}} | {{design}} | {{task}} | {{case}} | {{path}} | {{file}} | pending | pending |
+
+## 四维追溯规则
+
+先定义每个 TASK 的 scope.in/out/write_paths，再逐任务按 UI → Logic → Adhesive → Resource 分析适用性、源码依据和具体 implementation，使用 scope_sha256 绑定范围。每个可执行 TASK 关联至少一个认领的 DIM item ID；全部 applicable item 必须在任务定义中出现，配套 CASE/PATH/ASSERT。跨维度任务可合并；not-applicable 不生成空任务，依赖决定实际执行顺序。

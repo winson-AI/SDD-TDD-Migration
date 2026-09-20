@@ -77,6 +77,7 @@ class ProjectContextTests(unittest.TestCase):
         pc.update(self.root, self.request('build', 1, {'build': build}), self.actor)
         prepared = self.prepare()
         self.assertTrue(prepared['input']['split_testing_required'])
+        self.assertTrue(prepared['input']['dimension_slicing_required'])
         frozen = prepared['input']['build']
         env.write_text('JDK and SDK v2')
         self.assertEqual(Path(frozen['environment_ref']).read_text(), 'JDK and SDK v1')

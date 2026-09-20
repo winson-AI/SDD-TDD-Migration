@@ -15,26 +15,26 @@
 <text x="60" y="145" font-size="21.00" fill="#6b7280" text-anchor="start" font-weight="400">每个子 MO 独立维护 SPEC、tasks、测试结果、修复预算和 DoD；父 MO 持续看护并等待</text>
 <rect x="560" y="190" width="480" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="565" y="195" width="470" height="120" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
-<text x="800.0" y="219.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">认领 → 拆 tasks</text>
-<text x="800.0" y="253.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">读取全局 / 父 / 子上下文与功能清单</text>
-<text x="800.0" y="282.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">功能 → 需求 → 复用 / TASK / PATH</text>
+<text x="800.0" y="219.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">认领上下文 → 划定任务 scope</text>
+<text x="800.0" y="253.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子模块实现 / 四维分析 / 全局上下文</text>
+<text x="800.0" y="282.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">划任务：职责 / 排除 / 允许写范围</text>
 <text x="800.0" y="311.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">禁止再次创建下一层 MO</text>
 <path d="M800,320 L800,380" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="560" y="380" width="480" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
-<text x="800.0" y="414.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">规划预检 → SPEC / 测试设计</text>
-<text x="800.0" y="448.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Spec Designer：OpenSpec 六件套</text>
-<text x="800.0" y="477.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Test Runner：CASE → PATH / Name</text>
-<text x="800.0" y="506.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">形成复用映射、差异与 assert</text>
+<text x="800.0" y="414.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">任务四维分析 → SPEC / 测试设计</text>
+<text x="800.0" y="448.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">UI → Logic → Adhesive → Resource</text>
+<text x="800.0" y="477.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">绑定任务 scope，明确具体实现指导</text>
+<text x="800.0" y="506.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">OpenSpec / PATH / ASSERT；N/A 留证</text>
 <path d="M800,520 L800,580" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="560" y="580" width="480" height="105" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="611.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Plan 澄清 → 冻结</text>
-<text x="800.0" y="645.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Human 决策 + freeze checklist</text>
+<text x="800.0" y="645.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Human 决策 + 四维覆盖 checklist</text>
 <text x="800.0" y="674.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子 MO 接受当前版本冻结</text>
 <path d="M800,685 L800,745" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="560" y="745" width="480" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="772.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Coding 预检 → 实现 → MO 接受</text>
-<text x="800.0" y="806.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按冻结 tasks + 复用映射实现</text>
-<text x="800.0" y="835.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">提交代码 / reuse_trace / 实际绑定</text>
+<text x="800.0" y="806.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按任务 scope + 四维指导实现</text>
+<text x="800.0" y="835.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">提交四维证据 / 资源及真实消费者</text>
 <text x="800.0" y="864.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">依赖满足 / 写锁 / 全局覆盖 / 预算</text>
 <path d="M800,870 L800,920" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="560" y="920" width="480" height="150" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
