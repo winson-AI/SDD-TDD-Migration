@@ -30,3 +30,5 @@ description: 冻结任务驱动的 legacy 迁移、新架构实现和双向追�
 实施补充：依据 source_closure 和 target_feasibility 逐项闭合真实生产路径，检查入口、依赖注入、消费方和外部结果，不能以接口声明、样例实现或资源文件存在替代生产接线。提交 stage-result，带全部 TASK→文件追溯及 production_binding_evidence；优先恢复本角色原会话，始终重验当前 freeze。
 
 依据冻结的复用映射完成依赖/DI/生产接线与适配，提交 reuse_trace 和实际解析版本证据；不因外部源码可读便复制或修改整个来源项目。reference-only 与真实运行依赖明确区分。见 [二方库复用协议](../migration-protocol/references/reuse-dependencies.md)。
+
+无法直接复用时，按当前功能和已知上下文，结合存量源码、新架构与目标现状继续实现 adapt/reference/new；更换冻结方案先走 CR。仅核验替代实现也不可行时，通过 Ledger 提交证据交 MO 审阅并生成“未实现”提醒，不用占位实现冒充交付。入口与核验材料见该协议第 8 节。

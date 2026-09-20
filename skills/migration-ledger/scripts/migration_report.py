@@ -29,6 +29,11 @@ def refs(value):
 
 def build(root, s, sequence):
     rows = []
+    gaps = [{'module_id': mid, 'label': '未实现', 'review': copy.deepcopy(m['blocked']['implementation_gap']),
+             'review_ref': m['blocked']['implementation_gap_ref'], 'owner': m['blocked']['owner'],
+             'next_action': m['blocked']['next_action']}
+            for mid, m in s['modules'].items() if (m.get('blocked') or {}).get('implementation_gap')
+            and m['blocked'].get('implementation_gap_ref')]
     names = dc.parent_mo_names(s)
     snapshot = {mid: m.get('code_baseline') for mid, m in s['modules'].items()}
     code_refs = [r for m in s['modules'].values() for r in m.get('code_files', [])]
@@ -55,8 +60,10 @@ def build(root, s, sequence):
                            '尚无已接受的测试结果' if path else '尚无此用例的冻结测试路径',
                            'owner': mid, 'next_action': 'retest-current-baseline' if record else 'continue-module-work'})
         blocker = (m or {}).get('blocked')
+        gap = (blocker or {}).get('implementation_gap', {})
+        not_implemented = cid in gap.get('case_ids', [])
         if q != 'green-passed' and blocker:
-            causes.append({'category': blocker.get('kind', 'blocked'), 'summary': blocker.get('reason', '模块受阻'),
+            causes.append({'category': 'not-implemented' if not_implemented else blocker.get('kind', 'blocked'), 'summary': blocker.get('reason', '模块受阻'),
                            'owner': blocker.get('owner', mid), 'next_action': blocker.get('next_action', 'resolve-blocker')})
         if q != 'green-passed' and not causes:
             causes.append({'category': 'cause-not-recorded', 'summary': 'Ledger 未记录根因，须补充诊断证据',
@@ -69,6 +76,7 @@ def build(root, s, sequence):
         rows.append({'case_id': cid, 'module_id': mid, 'parent_mo_name': names.get((m or {}).get('parent_module_id')) or names.get(mid),
                      'path_id': pid, 'name': (path or {}).get('name', pid or cid), 'kind': (path or {}).get('kind', 'test'),
                      'quality': q, 'recorded_quality': record.get('quality'), 'executed': record.get('executed', False),
+                     'implementation_status': 'not-implemented' if not_implemented else None,
                      'stale': bool(record and stale), 'test_run_id': record.get('test_run_id'), 'retest_of': record.get('retest_of'),
                      'code_baseline': record.get('code_baseline', (m or {}).get('code_baseline')),
                      'assertions': copy.deepcopy(record.get('assertions', [])), 'root_causes': causes,
@@ -107,6 +115,7 @@ def build(root, s, sequence):
             'parent_mo_names': names, 'snapshot': snapshot, 'audit': copy.deepcopy(s.get('audit', {})),
             'case_counts': {q: Counter(c['quality'] for c in cases)[q] for q in ('green-passed', 'red-bug', 'yellow-blocked')},
             'cases': cases, 'paths': rows, 'non_green': [r for r in rows if r['quality'] != 'green-passed'],
+            'unimplemented': gaps,
             'human_report': copy.deepcopy(batch.get('human_report')),
             'human_report_path': str(root / 'audit-reports' / (batch['batch_id'] + '.json')) if batch.get('human_report') else None}
 
@@ -123,6 +132,13 @@ def render(report):
             '## 全部测试用例', '', '| CASE-ID | 模块 | 状态 | 路径数 | 曾执行数 |', '| --- | --- | --- | --- | --- |']
     for c in report['cases']:
         text.append('| ' + ' | '.join(cell(v) for v in (c['case_id'], ', '.join(c['module_ids']), c['quality'], c['path_count'], c['executed_count'])) + ' |')
+    if report.get('unimplemented'):
+        text += ['', '## 未实现：需要人工决策', '']
+        for gap in report['unimplemented']:
+            review, ref = gap['review'], gap['review_ref']
+            text += [f"- {cell(gap['module_id'])} · REQ={cell(review['requirement_ids'])} · CASE={cell(review['case_ids'])} · TASK={cell(review['task_ids'])}：{cell(review['goal'])}",
+                     f"  - 核验：{cell(review['verification']['summary'])}；owner={cell(gap['owner'])}；next={cell(gap['next_action'])}",
+                     f"  - 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}"]
     text += ['', '## 路径明细', '', '| CASE-ID | 模块 / 父 MO | PATH / Name | 类型 | 状态 | executed / stale | test_run |', '| --- | --- | --- | --- | --- | --- | --- |']
     for r in report['paths']:
         text.append('| ' + ' | '.join(cell(v) for v in (r['case_id'], f"{r['module_id']} / {r['parent_mo_name'] or '—'}", f"{r['path_id'] or '—'} / {r['name']}",

@@ -33,3 +33,6 @@
 | WF-27 | 无可执行动作且无 worker，或 worker 超时、连续同原因拒绝三次 | workflow_progress 提供 owner/证据/下一步并提示人工；无关 ready 任务继续，不自动改质量或放锁 |
 | WF-28 | 构建通过但 automation 环境缺失 | 模块 Yellow/未执行收尾，下游可继续；Auditor 审查后可 completed-with-unverified-tests，不能伪 Green |
 | WF-29 | 拒绝诊断文件损坏 | 状态仍可查询，提示修复诊断，合法派发不受影响；被拒操作不写业务事件 |
+| WF-30 | 二方库无可用候选，但可自主实现 | new 映射经过冻结后正常 Coding/Testing，不生成未实现提醒 |
+| WF-31 | 适配/参考/自主实现经核验均不可行 | MO 接受带范围/revision/证据的未实现记录；status 和 GO 报告提醒人工，独立模块继续 |
+| WF-32 | 无核验材料、仍有可行路线或报告范围/版本错误 | 拒绝未实现声明；原状态和事件保持不变 |

@@ -607,6 +607,11 @@ def mutate(s, req, principal, events):
         require(p.get('reason') and p.get('root_cause') and p.get('owner'), 'structured blocker required')
         require(p.get('kind') in ('dependency', 'human', 'tooling'), 'invalid blocker')
         require(not any(not a.get('closed') for a in m['assignments'].values()), 'stop/revoke workers before suspension')
+        gap = None
+        require('implementation_gap' not in p, 'implementation gap is derived from reviewed evidence')
+        if p.get('reason_code') == 'not-implemented' or p.get('implementation_gap_ref'):
+            require(p.get('reason_code') == 'not-implemented', 'implementation gap needs not-implemented reason code')
+            gap = reuse.implementation_gap(s, m, p)
         blocked_on = []
         if p['kind'] == 'dependency':
             for dep in m['dependencies']:
@@ -616,6 +621,9 @@ def mutate(s, req, principal, events):
                     blocked_on.append(dep)
             require(blocked_on, 'dependency suspension requires an unavailable registered dependency; peer failure is not a blocker')
         m['blocked'] = {**p, 'resume_phase': m['phase']}
+        if gap:
+            m['blocked']['implementation_gap'] = gap
+            m['stale'] = True
         if blocked_on:
             m['blocked']['dependency_module_ids'] = blocked_on
         m['phase'] = 'waiting-dependency' if p['kind'] == 'dependency' else 'waiting-human'

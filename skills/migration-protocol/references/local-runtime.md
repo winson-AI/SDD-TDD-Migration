@@ -334,6 +334,8 @@ Ledger 保存 project_id/project_revision/project_context_ref，在初始化校�
 
 ### 停滞信号与 invalidate 恢复
 
+“未实现”沿用 suspend，额外传 kind=human、reason_code=not-implemented、next_action 和 implementation_gap_ref；报告绑定最新 module_revision 与当前上下文，列出具体 REQ/CASE/TASK、adapt/reference/new 不可行证据及核验结果。仅不能直接复用库时应继续可行替代 Coding。控制器校验后生成 workflow_progress 人工信号与 GO 报告 unimplemented 清单；细则及请求见 [复用协议第 8 节](reuse-dependencies.md)。
+
 `status.workflow_progress` 提供可推进动作、门禁原因/owner/证据、worker 无进展提醒及 `notify_user`；同步生成 `ledger/progress.json` 与 `reports/workflow-attention.md`。被拒操作在业务日志之外保存最新诊断 `reports/rejected-operation.json`，不改业务状态；连续同原因拒绝 3 次需人工感知。init 可选 `worker_stall_timeout_seconds`，默认 900，控制提醒阈值而非 worker 自动终止。
 
 invalidate 将旧 plan/freeze/代码/结果移入 planning_history，撤下旧受管 OpenSpec 定义并清空当前 plan，进入 specifying；分配有效则 next_step=plan，否则 allocation-review-required 交 GO。不清零预算、不抹历史结果、不绕过冻结批准。宿主响应与自动化缺测分流见 [进度恢复协议](progress-recovery.md)。

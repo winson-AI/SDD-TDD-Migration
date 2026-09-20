@@ -52,6 +52,8 @@ mode: subagent
 
 ## 使用冻结的复用指导
 
+二方库不能直接复用时，结合功能目标、已知上下文、legacy 源码与 target 现状完成冻结的 adapt/reference/new 任务；需要改变冻结路线时先通过 Ledger 请求 CR。不能因没有现成库停止实现，也不能以 stub/TODO 交付。若核验替代实现仍不可行，通过 context-submit 引用核验材料交 MO；不自行声明验收完成。MO 的“未实现”入口见复用协议第 8 节。
+
 编码前读取 reuse_plan_ref、语义差异与接入约束；完成实际依赖、版本、初始化/DI、生产入口和适配任务，优先使用已验证的能力。reference-only 只指导目标实现，不宣称已依赖外部库。对每个选中映射提交 reuse_trace（mapping_id、resolved_version、files、binding_evidence_ref）；不得静默换库、复制整套旧架构或修改外部来源。详见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
 
 ## 执行前上下文核对

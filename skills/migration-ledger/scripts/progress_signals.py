@@ -43,6 +43,13 @@ def build(root, state, events, steps, global_step, at=None):
     at = at or datetime.now(timezone.utc)
     signals, watches = [], []
     timeout = state.get('worker_stall_timeout_seconds', 900)
+    for mid, module in state['modules'].items():
+        blocker = module.get('blocked') or {}
+        if blocker.get('reason_code') == 'not-implemented' and blocker.get('implementation_gap') and blocker.get('implementation_gap_ref'):
+            signals.append({'module_id': mid, 'reason': 'not-implemented', 'label': '未实现',
+                            'owner': blocker['owner'], 'next_action': blocker['next_action'], 'severity': 'human',
+                            'evidence': {'sequence': len(events), 'review_ref': blocker['implementation_gap_ref'],
+                                         'review': blocker['implementation_gap']}})
     for step in steps + [{'module_id': None, **global_step}]:
         mid, reason = step.get('module_id'), step.get('reason')
         if step.get('ready'):

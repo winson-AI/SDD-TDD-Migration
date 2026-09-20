@@ -50,3 +50,5 @@ status.module_inputs 给出每个父/子 MO 的权威 scope、context_refs、CAS
 同时输出 `parent_mo_names`（父 MO 统一名，如 parent-mo-M010）与 `migration_report` 的 JSON/Markdown 绝对路径和 sequence。报告包含全部 CASE/PATH 状态与非 Green 原因/证据；运行中报告明确 in-progress，不作为完成验收。GO 收尾使用 [报告协议](../skills/migration-protocol/references/migration-report.md)。
 
 必须展示 `workflow_progress.state/signals/runnable_actions/worker_watches` 及其报告路径；`notify_user=true` 时明确告知用户受影响模块、owner、原因/证据和下一步，不能只返回 ready=false。该命令只查询；真正恢复和继续调度由宿主/编排器按 [进度恢复协议](../skills/migration-protocol/references/progress-recovery.md) 执行。仅 automation 缺测按既有出口推进到 Auditor，最终 Yellow 缺测收尾不会被当作无动作死锁。
+
+遇到 `reason=not-implemented`，突出展示“未实现”及受影响 REQ/CASE/TASK、替代实现核验证据和所需人工决策；同时链接 GO 报告的 unimplemented 清单。不能把一般复用失败或自动化未执行解释为未实现。

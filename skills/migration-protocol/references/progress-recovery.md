@@ -34,6 +34,7 @@ OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；�
 | `worker_watches` | 活动 assignment 最近一次同作用域事件后的无进展时长；宿主核实进程是否仍存活 |
 | `worker-progress-overdue` | 默认 900 秒无同作用域事件，提醒人工/宿主核实；init 可设置正整数 `worker_stall_timeout_seconds`。不是自动取消或释放锁 |
 | `operation-rejected` | 最近一次被拒操作及原因。同一作用域 revision/操作/原因连续拒绝 3 次升级人工信号，禁止原样重试空转 |
+| `not-implemented` / `label=未实现` | MO 核验替代实现均不可行后接受的具体功能缺口；立即展示范围、核验证据及所需人工决策。无可复用库本身不构成该信号，详见 [复用协议第 8 节](reuse-dependencies.md) |
 
 拒绝请求仍返回非零退出码；在日志可读、诊断可写时持久化 `reports/rejected-operation.json`，不提交业务事件、不改变质量。作用域 revision 前进后，旧拒绝不再作为当前阻塞提示。诊断是可重建/可替换的提示，不是第二条业务总线。
 

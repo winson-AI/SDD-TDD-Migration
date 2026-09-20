@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "module_id": "M001",
+  "module_revision": 0,
+  "goal": "<当前功能目标与具体未实现行为，不是整个模块的笼统结论>",
+  "requirement_ids": ["REQ-001"],
+  "case_ids": ["CASE-001"],
+  "task_ids": [],
+  "legacy_root": "/absolute/legacy",
+  "target_root": "/absolute/target",
+  "global_spec": {"path": "/absolute/global-spec.md", "sha256": "<actual>"},
+  "new_architecture": {"path": "/absolute/architecture.md", "sha256": "<actual>"},
+  "context_review_ref": {"path": "/absolute/review-source-target-context.md", "sha256": "<actual>"},
+  "reuse_unavailable_ref": {"path": "/absolute/reuse-rejection.md", "sha256": "<actual>"},
+  "alternatives": {
+    "adapt": {"conclusion": "not-feasible", "reason": "<适配方案的具体障碍>", "evidence_refs": [{"path": "/absolute/adapt-review.md", "sha256": "<actual>"}]},
+    "reference": {"conclusion": "not-feasible", "reason": "<参考语义后在目标实现的具体障碍>", "evidence_refs": [{"path": "/absolute/reference-review.md", "sha256": "<actual>"}]},
+    "new": {"conclusion": "not-feasible", "reason": "<结合原源码自主实现仍不可行的具体障碍>", "evidence_refs": [{"path": "/absolute/new-review.md", "sha256": "<actual>"}]}
+  },
+  "verification": {
+    "method": "constraint-analysis",
+    "summary": "<核验方法、真实尝试及结果；没有编码尝试时说明已证实的硬约束>",
+    "evidence_refs": [{"path": "/absolute/verification.md", "sha256": "<actual>"}]
+  },
+  "conclusion": "not-implementable-under-current-constraints"
+}

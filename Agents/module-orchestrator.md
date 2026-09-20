@@ -87,4 +87,6 @@ Test-Runner assignment 明确 test_scope=build|automation；先接受构建，�
 
 ## 四维职责与验收
 
+复用失败优先推动可行替代路线进入 tasks/冻结/Coding；只有审阅证据确认适配、参考实现及自主实现均不可行时，接受 suspend(reason_code=not-implemented, implementation_gap_ref=核验报告)，按最新 revision 记录具体 REQ/CASE/TASK 并提醒人工。普通复用失败不构成该结论；不改需求、不删用例、不影响独立兄弟。详见 [复用协议第 8 节](../skills/migration-protocol/references/reuse-dependencies.md)。
+
 父 MO 认领模块并读取模块实现、GO 四维分析等上下文，先在 scope 内划分子模块，再分别生成子模块四维分析及 dimension_partition_review_ref，保证父项无遗漏、共享代码不重复。子 MO 认领并读取子模块实现/分析等上下文，先划 tasks.scope，再逐任务生成 dimension_analysis，实现指导及 tasks/PATH/ASSERT 一起冻结，接受实现时检查 dimension_evidence，DoD 用正式测试而非结构表格判定。N/A 必须有源证据；未知或跨边界走人工。详见 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)。

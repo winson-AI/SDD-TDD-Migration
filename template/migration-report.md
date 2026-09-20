@@ -20,4 +20,8 @@
 
 完整路径/断言和复测链：{{migration-report.json 链接}}。
 
+## 未实现：需要人工决策
+
+{{存在 implementation-gap 时逐项列出模块、目标行为、REQ/CASE/TASK、替代实现核验结论、报告引用、owner 和 next_action。读取 Ledger unimplemented 清单；不可直接复用但已转 Coding 的功能不列入，自动化缺测不列入。}}
+
 构建通过不代表功能通过；未运行保持 Yellow；历史 Green 失效须标注。无非 Green 时明确写“无”，但不替代 DoD 和 Auditor 的完成门禁。本地运行使用 Ledger 生成的同名 Markdown/JSON 投影，不由 GO 手写新的验收事实。

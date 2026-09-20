@@ -64,6 +64,8 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 **全局 fidelity 规范**：每次选择目标已有能力或外部二方库，必须与存量源码项目对应功能逐行为对齐，明确直接复用/适配如何复现原功能，并记录源码基线、差异、PATH/ASSERT 和正式复现证据。语义参考同样适用；接口可用、库测试通过或对齐报告完成均不能代表迁移功能通过。规划记录随 SPEC 冻结，编码后 Main 验证，MO/Auditor 按阶段唯一验收；行为不一致为 Red，依据或执行条件不足为 Yellow，不能凭复用决策跳过保真验证。明确需求与存量行为冲突须人工决定并留痕。
 
+二方库不能直接复用时，基于功能目标、已知上下文、存量源码和目标现状选择 adapt/reference/new，冻结任务后继续 Coding。只有替代实现也经核验证实不可行，MO 才通过 suspend(reason_code=not-implemented) 留证并向用户展示“未实现”；独立模块继续。具体核验及提醒见复用协议第 8 节。
+
 ## 阶段上下文就绪
 
 新运行在 GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发与 Auditor 分析/裁决/最终验证前，执行 [上下文就绪协议](skills/migration-protocol/references/context-readiness.md)。实际执行实例先只读核对并经 Ledger context-submit 留证，原控制节点接受；缺项不得执行，必须补齐或显式记录该模块阻塞，无关模块继续。

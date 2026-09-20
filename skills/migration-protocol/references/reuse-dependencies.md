@@ -11,6 +11,8 @@
 
 二方库在这里是组织内部维护的可复用组件；任意外部项目源码不自动成为已发布、可接入的库。`reuse` / `adapt` 表示实际使用能力，`reference` 表示仅借鉴语义，`new` 表示评估后自行实现。目标已有实现优先评估，不强制采用不匹配的能力。禁止按类名、接口名或目录名相似直接宣称功能等价。
 
+**不能直接复用时继续完成当前功能。** 结合已知上下文、存量源码、新架构与目标现状选择 adapt/reference/new，并落实到冻结 tasks 后启动 Coding；不能仅因缺少可复用二方库就挂起、跳过功能或等人工。“未实现”仅用于替代实现路线也经核验证实在当前约束下不可行的情况，入口见第 8 节。
+
 读取复用来源不授予修改权限：外部来源默认只读；编码仍限 target 中获分配的 scope/write_paths。确需改提供方、改变公共契约或新增跨模块业务边界时，通过 Ledger 的 CR/依赖/人工决策机制处理，不能把外部仓库静默纳入本次迁移。
 
 ## 2. 用户输入、持久化与运行版本
@@ -128,3 +130,46 @@ Testing 至少验证正常、边界、异常/取消，以及真实提供方接�
 - 真实行为与冻结基线不符为 Red；缺真实提供方、数据、环境或无法证明为 Yellow，并记录根因/owner/next_action。可修复问题先一轮 Fixer 再 Main；已确认依赖/外围原因直接留待统一 Auditor，无关 MO 继续。
 - 原源码基线、对齐报告、提供方/版本或接线依据改变，相关旧依据失效；按原 invalidate/CR/重新冻结和复测机制更新，保留旧证据。旧计划缺少 fidelity 时需补录并重新冻结，不能将历史 Green 宣称满足新增规范。
 - 控制器在 plan 检查存量根、源码范围、引用及 PATH/ASSERT 覆盖，在后续 verify_plan 检查基线和报告漂移；既有测试门禁验证每条冻结断言的真实回执及 expected/actual。**结构和 hash 检查不能证明语义等价或对齐完备**，实际分析、场景质量及真实复现仍由角色/宿主负责，并由阶段验收 owner 审核。
+
+## 8. 复用不可行 → Coding；确实无法实现 → “未实现”提醒
+
+### 8.1 默认继续实现
+
+1. GO/父 MO/子 MO 先明确当前功能目标、scope、需求/CASE，读取全局和本模块上下文、存量源码闭包、新架构、目标生产实现/资源/接线及已有分工。
+2. 记录二方库不能直接复用的具体原因，评估适配、借鉴语义后实现、自主实现。至少一个路线可行时，由 Spec-Designer 将源码行为、目标差异、实现方案及完整测试映射到 tasks；在任务 scope 内做四维分析。`new` 不要求存在可复用 capability，不能虚构库依赖或等待不存在的提供方 MO。
+3. 完成既有澄清/冻结后，MO assign Implementer，宿主真正启动 Coding；按目标架构完成真实功能。已冻结计划需要改路线时走 CR/影响分析及重新冻结，不能由 Implementer 私改 SPEC。已有批准范围内的普通实现选择无需新增人工会签；跨范围或业务预期不确定仍按原规则交人工。
+4. Coding → build → automation → MO 验收保持完整。自主实现也要保留源行为、真实生产接线及完整断言；不能用 stub、mock、空返回、TODO 或删 CASE 代替交付。
+
+### 8.2 核验后才能声明未实现
+
+“库不能直接用”只说明候选路线不可用。若适配/参考/自主实现均有已证实障碍，记录**当前条件下具体未实现的功能**，不得声称永久不可能，也不要求为已证实的硬约束进行无意义编码尝试。
+
+使用 [implementation-gap.json](../../../template/implementation-gap.json)，记录功能目标、已分配 REQ/CASE/TASK、当前 module_revision、全局规范/架构及代码根目录、上下文审阅、复用失败原因、三种替代方案及证据、实际实现尝试或约束核验结果。context_review_ref 应具体引用源入口/行为、新架构、知识内容、目标已有能力和缺口，不能只写“已了解”。未进入正式任务规划时 task_ids 可为空，不编造任务；有对应任务则逐项列出。
+
+发现者通过本角色 `context-submit` 的 blocked 检查项 evidence_refs 引用核验材料，经 Ledger 交 MO；不得私传或直接写状态。MO 读取已提交材料并独立核验，按最新 module_revision 生成审阅后的报告。仍有可行路线则返回规划/Coding；确实不可行才接受下面的专用标记。
+
+```json
+{
+  "operation": "suspend",
+  "module_id": "M001",
+  "payload": {
+    "kind": "human",
+    "reason_code": "not-implemented",
+    "reason": "具体功能在当前约束下未实现：<已证实原因>",
+    "root_cause": {"category": "capability", "summary": "<核验结论>", "evidence_refs": [{"path": "/absolute/verification.md", "sha256": "<actual>"}]},
+    "owner": "module-orchestrator",
+    "next_action": "<需要人工补充的能力、材料或架构/范围决策>",
+    "implementation_gap_ref": {"path": "/absolute/implementation-gap.json", "sha256": "<actual>"}
+  }
+}
+```
+
+这是现有 suspend 的专用入口；外层仍补 run_id/request_id/expected_revision 和宿主身份。只允许 MO 接受，活动 worker 先真实停止并 revoke。控制器校验报告范围、revision、上下文、三种替代路线和证据；语义上是否确实不可行仍由 MO 审阅，字段齐全不能代替核验。
+
+### 8.3 可见信号与恢复
+
+- `status.workflow_progress.signals` 输出 `reason=not-implemented`、`label=未实现`、人工提醒、owner、next_action 和完整核验证据。宿主必须向用户展示具体功能及 REQ/CASE/TASK。
+- GO 报告新增 `unimplemented` 清单和“未实现：需要人工决策”入口；对应路径标记 `implementation_status=not-implemented`。这是实现缺口标记，质量仍使用原 Green/Red/Yellow；历史测试不会改写为“本轮已实现”。
+- 模块进入既有 waiting-human，旧证据失效；未执行仍 Yellow，历史真实失败保留。独立模块继续，全量收尾后 Auditor 读取该缺口和对应 SPEC/路径审查；缺代码不能伪造复测。不要用普通 dependency/tooling 文本隐藏已核实的未实现功能。
+- 人工补充条件后按原 resume/invalidate/CR/重新冻结恢复，再 Coding 和正式测试。当前提醒随阻塞解除撤下，旧报告及事件永久保留；解除阻塞不代表功能已实现或测试 Green。
+- 仅 automation 环境缺失使用 automation-unavailable；它表示功能缺少测试证据，不适用“未实现”入口。

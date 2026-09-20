@@ -168,3 +168,43 @@ def validate_implementation(plan, result):
         files = set(nonempty(trace.get('files'), 'reuse binding files'))
         require(files <= {p for tid in row['task_ids'] for p in task_files[tid]}, 'reuse binding not traced to mapped task files')
         check_ref(trace.get('binding_evidence_ref'))
+
+
+def implementation_gap(state, module, payload):
+    """MO-reviewed inability under current constraints, not merely missing reuse."""
+    require(payload.get('kind') == 'human' and payload.get('next_action'),
+            'not-implemented requires human review and next action')
+    report = read_json(check_ref(payload.get('implementation_gap_ref')))
+    require(report.get('schema_version') == 1 and report.get('module_id') == module['module_id'],
+            'implementation gap module mismatch')
+    require(report.get('module_revision') == module['revision'], 'implementation gap review stale')
+    require(report.get('conclusion') == 'not-implementable-under-current-constraints' and report.get('goal'),
+            'implementation gap requires verified current constraints')
+    for key in ('legacy_root', 'target_root', 'global_spec', 'new_architecture'):
+        require(report.get(key) == state[key], 'implementation gap context mismatch: ' + key)
+    check_ref(report['global_spec']); check_ref(report['new_architecture'])
+    allowed = module.get('scope', {}).get('requirement_ids') or [rid for rid, owners in
+        (state.get('global_plan') or {}).get('content', {}).get('requirement_owners', {}).items()
+        if module['module_id'] in owners]
+    require(set(nonempty(report.get('requirement_ids'), 'unimplemented requirements')) <= set(allowed),
+            'implementation gap outside assigned requirements')
+    require(set(nonempty(report.get('case_ids'), 'unimplemented cases')) <= set(module['case_ids']),
+            'implementation gap outside assigned cases')
+    tasks = report.get('task_ids')
+    require(isinstance(tasks, list) and set(tasks) <= {t['task_id'] for t in (module.get('plan') or {}).get('tasks', [])},
+            'implementation gap outside planned tasks')
+    for key in ('context_review_ref', 'reuse_unavailable_ref'):
+        check_ref(report.get(key))
+    alternatives = report.get('alternatives', {})
+    require(isinstance(alternatives, dict) and set(alternatives) == {'adapt', 'reference', 'new'}, 'assess adaptation, reference and new implementation first')
+    for alternative in alternatives.values():
+        require(isinstance(alternative, dict) and alternative.get('conclusion') == 'not-feasible' and alternative.get('reason'),
+                'viable alternative must proceed to planning/coding')
+        for ref in nonempty(alternative.get('evidence_refs'), 'alternative feasibility evidence'):
+            check_ref(ref)
+    verification = report.get('verification', {})
+    require(isinstance(verification, dict) and verification.get('summary') and verification.get('method') in ('implementation-attempt', 'constraint-analysis'),
+            'implementation gap verification required')
+    for ref in nonempty(verification.get('evidence_refs'), 'implementation gap verification evidence'):
+        check_ref(ref)
+    return report

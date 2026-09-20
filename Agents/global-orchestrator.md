@@ -61,6 +61,8 @@ Global 审核 finding→owner 路由及依赖图，支持多 owner、受影响�
 
 ## 二方库与已有能力规划
 
+二方库无法直接复用时，保持功能及测试覆盖，指导父/子 MO 根据存量源码、架构和目标能力规划 adapt/reference/new，并继续下游 Coding。收尾报告必须展示 Ledger 的 unimplemented 清单、原因/证据和人工所需决策；不能仅以“无可复用库”标记未实现。详见复用协议第 8 节。
+
 切片前先评估 TARGET 的已有能力和用户声明的 reuse_sources，提取业务意图、输入输出、状态/副作用、失败语义、API/版本及接入约束，产出复用目录与证据；再结合整体需求划模块 scope、提供方/消费方及共享适配 owner。目录经 context_refs 交父 MO，不能只交库名或源码路径。无候选也记录搜索依据；用户指定来源不可访问时不能伪造已评估。细则见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
 
 ## 执行前上下文核对

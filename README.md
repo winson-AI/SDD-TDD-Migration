@@ -172,6 +172,8 @@ GO 读取上下文/功能清单 → 划分模块 → 模块四维分析；父 MO
 
 ## 运行停滞与恢复
 
+二方库不能直接复用时，按功能目标、全局/模块上下文、存量源码及目标现状选择适配/参考/自主实现，落实冻结 tasks 后继续 Coding。只有核验替代方案也不可行，MO 才接受带证据的“未实现”记录；status.workflow_progress 提醒人工，GO 报告展示 unimplemented 清单及恢复所需条件。详见 [复用与未实现入口](skills/migration-protocol/references/reuse-dependencies.md)。
+
 全量分析检查在 global-plan 接受时执行；运行期只校验当前模块、父级分配及实际依赖。invalidate 保留旧证据并清空当前旧 plan，下一步明确为重新规划或 GO 分配审查。`ledger.py status` 返回 `workflow_progress`，同步生成 `ledger/progress.json`、`reports/workflow-attention.md`：列出阻塞原因/owner/证据、可推进动作、worker 无进展与人工提醒。
 
 宿主须在 ACK/拒绝/worker 返回后刷新状态，等待期间至少每 60 秒检查；900 秒无作用域事件默认提醒，不自动停进程或放锁。仅自动化环境缺失仍走 Yellow 缺测收尾，其他任务及 Auditor 继续。无后台 watchdog，人工通知与真实调度由宿主落实。详见 [进度恢复协议](skills/migration-protocol/references/progress-recovery.md)。

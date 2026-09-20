@@ -44,6 +44,8 @@ GO/父子 MO、Spec Designer、Implementer、Testing/Fixer/Auditor 涉及规划�
 
 复用必须逐行为对齐存量源码功能并保证 fidelity：记录源码基线、差异和复现 PATH/ASSERT；冻结后编码、Main 留证、对应 MO/Auditor 验收。具体记录及门禁见该协议第 7 节。
 
+不能直接复用时，结合当前功能、上下文、源代码与目标现状推进适配或自主 Coding；只有核验替代方案仍不可行才走“未实现”人工提醒，见该协议第 8 节。
+
 ## 11. 阶段上下文就绪
 
 规划、派发、恢复或审计前读取 [上下文就绪协议](references/context-readiness.md)：实际执行者先提交身份/版本绑定的核对报告，原节点接受后推进；报告 ready 不替代冻结、权限、正式测试或 DoD。
