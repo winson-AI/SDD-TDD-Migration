@@ -28,6 +28,8 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
         a = s.get('audit_assignment', {})
         require(not a.get('closed', True) and a.get('assignment_id') == assignment_id and a.get('snapshot') ==
                 {k:v['code_baseline'] for k,v in s['modules'].items()}, 'audit assignment required')
+        require(a.get('scope_policy') == 'non-green-only', 'legacy full audit assignment; revoke and reassign')
+        require(path_id in a.get('path_ids', []), 'path outside collected audit scope')
     else:
         m = s['modules'][module_id]
         if s.get('audit_assignment', {}).get('mode') == 'problem' and s['audit_assignment'].get('assignment_id') == assignment_id:

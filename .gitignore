@@ -7,3 +7,10 @@ venv/
 .env
 .env.*
 !.env.example
+
+# Harmony local sandbox inputs/outputs. Public defaults and uv.lock are tracked.
+skills/migration-test/runtime/harmony/config.local.json
+skills/migration-test/runtime/harmony/adapter.local.json
+skills/migration-test/runtime/harmony/runs/
+skills/migration-test/runtime/harmony/reports/
+skills/migration-test/runtime/harmony/memory/

@@ -85,9 +85,9 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | audit-route | Global | path_id、非空唯一 module_ids、reason_ref；给尚无负责模块的全局审计问题分配责任，不修改模块阶段 |
 | repair-accept | MO | 非空唯一 path_ids；接受分配给本模块的审计问题，在依赖就绪且无 worker/blocker 时从 completed/testing 重开 testing；保留原失败供诊断分流 |
 | audit-revoke | host | assignment_id、stopped_worker_ref；停止活动审计，保留已用次数，才能分配下一轮 |
-| audit | Auditor | report_ref；按 tests 结构提交全部 global_paths + 全部模块 PATH 独立执行结果，并带 snapshot |
+| audit | Auditor | report_ref；按 tests 提交 assignment.path_ids 的复核结果；空清单按 audit-review 提交独立审阅；均带 snapshot |
 
-`init` 的 case_ids/global_paths 来源于 global-input 的整体用例及 global_test_paths；Global 负责把其余规范/架构信息引用进每个 stage-plan，控制器不替模型拆分需求。global_paths 缺失时能规划模块，但最终 audit-assign 必须拒绝。不同模块及全局 PATH ID 必须全局唯一。全局审计重跑完整集合，暂不自动裁剪影响范围。
+`init` 的 case_ids/global_paths 来源于 global-input 的整体用例及 global_test_paths；Global 负责把其余规范/架构信息引用进每个 stage-plan，控制器不替模型拆分需求。global_paths 为可选项，缺失或 [] 都不阻止 Auditor。不同模块及全局 PATH ID 必须全局唯一。audit-assign 从遗留状态生成 path_ids，排除有效 Green；空清单只做独立审阅，详见 [审计范围协议](audit-scope.md)。
 
 本地角色身份校验不自动完成业务审核：source_closure 是否真实完整、测试语义是否正确、envelope 是否被违反、DoD 内容是否成立均需对应独立角色审查。脚本校验的是工件与守卫条件，不能用布尔 `checks_passed` 替代人工/Agent 的实际审核过程。
 
@@ -121,7 +121,7 @@ python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> -
 
 每条执行使用新目录，不覆盖历史。`receipt.json` 包含 test_run_id、代码/SPEC/路径绑定、实际 argv/cwd、时间、退出码及 result/log/query refs。执行结束不直接推进 Ledger：Test-Runner 整理完整 paths 后 submit，MO 再 accept。缺报告、超时、适配器异常保留日志并报告 Yellow；不拼造 Green。不得把同基线 flaky 结果择优记绿；稳定性判断由 Test-Runner/Auditor 承担，本地字段 `flaky=true` 会拒绝 Green，跨进程历史 flaky 自动识别尚不提供。
 
-全局审计由 Global audit-assign 后，使用 `--module GLOBAL --assignment <audit-id>` 对 global_paths 及各模块 PATH 分别执行。报告 kind=tests、module_id=GLOBAL，freeze_id/code_baseline 来自 `ledger.audit_scope(state)`，另带 `snapshot={module_id: code_baseline}`。非 Green 报告生成 audit_repairs：模块 PATH 自动对应所属模块；全局 PATH 由 Global audit-route 分配一个或多个责任模块，MO repair-accept 后重开。Auditor 不改源码。
+全局审计由 Global audit-assign 后，使用 `--module GLOBAL --assignment <audit-id>` 仅对 audit_assignment.path_ids 分别执行。报告 kind=tests、module_id=GLOBAL，freeze_id/code_baseline 来自 `ledger.audit_scope(state)`，另带 `snapshot={module_id: code_baseline}`。非 Green 报告生成 audit_repairs：模块 PATH 自动对应所属模块；全局 PATH 由 Global audit-route 分配一个或多个责任模块，MO repair-accept 后重开。Auditor 不改源码。
 
 ## 恢复与预算
 
@@ -200,7 +200,7 @@ Auditor 裁决：
 - wait：依赖/外围问题未解除，保留队列；先解决前置，再按问题审计预算重新复测。
 - human：人工裁决；批准 subject=digest(audit_resolution)，MO 接受后重新规划与冻结。
 
-问题审计不发布全局 Green。最终审计仍要求 audit_queue 清空、全部模块 completed，运行全部模块与整体路径；失败沿用 audit-route/repair-accept 闭环，保留独立性。问题审计与最终审计各自受 max_audit_rounds 限制，次数在撤销后不返还。
+问题审计不发布全局 Green。收尾仍要求 audit_queue 清空、模块完成或合法 automation-deferred；只处理剩余待验证路径，空清单使用 audit-review。失败沿用 audit-route/repair-accept 闭环，保留独立性。问题审计与最终审计各自受 max_audit_rounds 限制，次数在撤销后不返还。
 
 审计期间冻结业务操作和 worker 派发；旧进程必须真正停止。使用既有 audit-revoke 撤销问题/最终审计，附宿主停止证据。问题快照绑定模块 revision/phase/freeze/code/blocker/results；源码或定义变动会使执行不可用或结果拒收，不能混用新旧证据。
 
@@ -237,7 +237,7 @@ pending / interrupted / awaiting-regression / failed / verified 区分修复事�
 
 status.module_rounds 返回 registered_modules、settled_modules、unfinished_modules、active_modules、ready_modules、blockers 和 all_settled；这些字段表示调度进度，与质量结论分离。存在遗留但其他模块尚未结束时，global_next_step.operation=null、ready=false、reason=await-all-module-rounds，并分别通过 continue_modules / wait_for_modules 指明继续与等待对象；next_steps 保留每个 MO 的下一动作。all_settled 不是审计授权，提交仍校验 global-plan、版本、预算和独立身份。
 
-Global 等上述条件全部满足才统一启动 Auditor。`status.global_next_step.module_barrier` 列出未收尾原因；直接调用 audit-collect 也会重新验证，不能绕过状态建议。全部模块已 Green 时直接进入最终 audit-assign，无需空收尾批次。
+Global 等上述条件全部满足才统一启动 Auditor。`status.global_next_step.module_barrier` 列出未收尾原因；直接调用 audit-collect 也会重新验证，不能绕过状态建议。全部模块已 Green 时直接进入 audit-assign；若无额外待验证路径，则 audit-review 记录 no-retest-needed，无需空收尾批次和测试环境。
 
 ### 2. 收集、根因分析与 finding 路由
 
@@ -252,9 +252,9 @@ Auditor 读取对应 SPEC/tasks/CASE/PATH、断言及日志，提交 [audit-clos
 
 旧单 owner 写法仅在该 source 恰好一个 finding 时转换；多个 finding 必须显式按 ID 路由，避免隐含遗漏。Global 审核路由；声明依赖加 source→owner 形成执行前置图，出现环拒绝该计划，修正后重新提交。
 
-### 3. 按依赖交错修复和完整测试
+### 3. 按问题依赖交错修复和回归
 
-负责模块 MO audit-work 接受该模块所有相关 finding，委派一轮 Fixer。Fixer 按自身冻结 tasks 与写范围修复，提交补丁、任务追溯和 fix_note。相同 owner 的多个问题合并为这一轮修复，不能越过累计预算。
+仅 finding 来源、根因 owner 和依赖图上受影响模块进入 work_modules；无关有效 Green 不进入执行集合，禁止追加全项目回归。当前模块级基线模型对这些受影响模块保守执行完整模块回归（并按需重建），不是将全部 registry 的测试重新运行。负责模块 MO audit-work 接受该模块所有相关 finding，委派一轮 Fixer。Fixer 按自身冻结 tasks 与写范围修复，提交补丁、任务追溯和 fix_note。相同 owner 的多个问题合并为这一轮修复，不能越过累计预算。
 
 调度不等待全批所有 owner。每个模块只等自身上游：
 
@@ -285,7 +285,7 @@ Red/Yellow 复核失败、worker 中断、预算不足、证据失效通过 test
 | audit-block | MO / 指定模块 | reason、evidence_ref；活动收尾中的证据/执行条件受阻，挂起关联分支 |
 | audit-release | Global / module_id=null | decision_id；当前报告摘要批准、无在途 worker，结束失败批次以进入正常恢复 |
 
-修复 memory 在 owner 测试后仍为 awaiting-cross-verification、reusable=false；关联失败记录 failed。只有完整批次 audit-verdict 通过才能变为 verified/reusable=true。部分成功的证据会保留，但不将未完成跨模块验证的 memory 提升为可复用。最终全局集成审计始终单独执行。
+修复 memory 在 owner 测试后仍为 awaiting-cross-verification、reusable=false；关联失败记录 failed。只有完整批次 audit-verdict 通过才能变为 verified/reusable=true。部分成功的证据会保留，但不将未完成跨模块验证的 memory 提升为可复用。最后独立审阅收尾；问题已复核通过不再重复执行。
 
 兼容边界：运行中的旧 v1 批次没有 finding/依赖图，不能静默按 v2 解释。旧批次应由旧版本完成/归档；未开始批次的运行可直接使用 v2。awaiting-human 的旧批次可按现有报告批准后 audit-release，再走正常恢复与新批次。
 

@@ -33,6 +33,9 @@ def plan_check(plan, target):
     builds = [p for p in plan['paths'] if p.get('kind') == 'build']
     require(builds and len(builds) < len(plan['paths']), 'split testing requires build and automation paths')
     require(all(p.get('kind') in ('build', 'automation') for p in plan['paths']), 'test path kind required')
+    require({p.get('case_id') for p in plan['paths']} ==
+            {p.get('case_id') for p in plan['paths'] if p['kind'] == 'automation'},
+            'every module case needs an automation path; build cannot cover a business case')
     for path in builds:
         command = path.get('command', {})
         require(isinstance(command.get('argv'), list) and command['argv'] and
@@ -74,15 +77,16 @@ def handle(s, req, actor):
         workflow.role(actor, 'auditor')
         workflow.planning_guard(s)
         require(not ac.active(s) and not workflow.audit_active(s) and not ac.collection_blockers(s), 'audit barrier not settled')
-        from ledger import pending_repairs
+        from ledger import pending_repairs, audit_scope
         require(not pending_repairs(s), 'resolve pending audit repairs first')
         require(not ac.leftovers(s) and not s.get('audit_queue'), 'resolve non-environment findings first')
         require(all(available(m) for m in s['modules'].values()) and s['modules'], 'modules not operationally ready')
         require(all(actor['instance_id'] not in m['authors'] for m in s['modules'].values()), 'Auditor must be independent')
         report = blocked_report(s, None, p.get('context_ref'), 'audit-testing', actor['instance_id'])
-        all_paths = s['global_paths'] + [x for m in s['modules'].values() for x in m['plan']['paths']]
-        rows = [untested(x, p['context_ref'], report, req['request_id'], s.get('audit_results', {}).get(x['path_id'])) for x in all_paths]
-        s['audit_results'] = {r['path_id']: r for r in rows}
+        scope = audit_scope(s)
+        require(scope['plan']['paths'], 'no unresolved paths; submit independent audit-review')
+        rows = [untested(x, p['context_ref'], report, req['request_id'], scope['results'].get(x['path_id'])) for x in scope['plan']['paths']]
+        s.setdefault('audit_results', {}).update({r['path_id']: r for r in rows})
         s['audit'] = {'quality': 'yellow-blocked', 'environment_deferred': True,
                       'report_ref': p['context_ref'], 'paths': rows,
                       'snapshot': {k: v['code_baseline'] for k, v in s['modules'].items()},

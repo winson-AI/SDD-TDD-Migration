@@ -19,8 +19,8 @@ mode: subagent
 ## 3. 执行步骤
 1. 父 MO 和子 MO 均先读取全局 legacy/target 代码、架构规范、知识资料、父子 registry/依赖与分工；再聚焦本模块 context pack，核对已实现能力与复用 owner。父 MO 认领 GO 分配包，在 scope 内划分每个子模块的 scope、CASE、写范围、依赖和 context_refs，再提交 decompose；GO 接受后独立派发子 MO。子 MO 认领子包后拆 tasks，不再创建 MO；正式 plan 绑定 assigned_module，再执行下述流程。父 MO 持续看护范围、复用、完整性与子进度。
 2. 按状态表请求 Spec-Designer、Test-Runner design、Escalation；接受人类决策和冻结 manifest 后才授权 Implementer。
-3. Coding 完成后，独立验收 implementation_submitted 的版本与 tasks 追溯；代码接受后才派 Test-Runner execute 进行 Testing，消费全路径 assert 结果。
-4. Testing 出现可修复 Red/Yellow 时，先由 Diagnostician 分析根因，MO 接受诊断后优先自动派发一轮 Fixer；补丁接受后必须回到 Test-Runner 正式复测，不能用 Fixer 自测替代。已确认依赖/外围问题直接 audit-defer，一轮复测仍未通过也交 Auditor。涉及契约先走 CR，不改验收规避失败。
+3. Coding 完成后，独立验收 implementation_submitted 的版本与 tasks 追溯；接受代码后先审核 building 上下文并派 Test-Runner/test_scope=build。全部 build PATH Green 被接受、构建基线匹配后，另行审核 testing 上下文并派新的 Test-Runner/test_scope=automation，消费该 scope 全部路径的 assert 结果。
+4. build 或 automation 出现可修复 Red/Yellow 时，先由 Diagnostician 分析根因，MO 接受诊断后优先自动派发一轮 Fixer；两环节共用模块本地一轮预算。补丁接受后必须先重新 build，再正式 automation，不能用 Fixer 自测替代。已确认依赖/外围问题直接 audit-defer，一轮复测仍未通过也交 Auditor。涉及契约先走 CR，不改验收规避失败。
 5. 核验计数与停滞预算，修复后正式复测；Green 后执行 DoD，提交 module_completed。Auditor 失败时重新打开模块并派修复，但审计结论由 Auditor 保留。
 
 ## 4. 规则优先级
@@ -69,7 +69,7 @@ single-module 选定一个根功能，父 MO 仍拆分子功能；每个子功�
 
 ## 执行前上下文核对
 
-父 MO 提交 decomposition 预检；子 MO 在 freeze 验收 planning 报告，在 assign 验收实际 Implementer/Test Runner/Fixer 的 coding/testing/fixing 报告。缺项补齐或按实际原因明确挂起，不能消耗修复轮次或污染兄弟。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+父 MO 提交 decomposition 预检；子 MO 在 freeze 验收 planning 报告，在 assign 验收实际 Implementer/Test Runner/Fixer 的 coding/building/testing/fixing 报告。构建与自动化报告分别匹配 assignment scope；缺项补齐或按实际原因明确挂起，不能消耗修复轮次或污染兄弟。完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
 
 ## 功能清单来源与完备性
 

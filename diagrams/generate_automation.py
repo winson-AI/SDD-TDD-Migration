@@ -76,7 +76,7 @@ def automation_flow():
           ['全部叶子本轮结束，全部父汇总当前有效', '无 worker / ready 动作，才统一启动 Auditor'], 'orange', True)
     d.arrow([(780, 2360), (780, 2410)])
     d.box(460, 2410, 640, 150, 'Auditor · 独立闭环',
-          ['实际遗留：SPEC / PATH → 根因 → Fixer → Testing', '裁决失败：结构化根因待人工；缺环境保留未验证', '最终固定快照，覆盖 global + module PATH'], controller=True)
+          ['实际遗留：SPEC / PATH → 根因 → Fixer → Testing', '裁决失败：结构化根因待人工；缺环境保留未验证', '只复核遗留 / 受影响路径；空清单只审阅'], controller=True)
     d.arrow([(780, 2560), (780, 2620)])
     artifact(d, 300, 2620, 960, 125, '最终输出：通过 / 问题待决 / 缺测清单',
              ['全覆盖真实 Green 才通过；纯缺环境可 completed-with-unverified-tests（Yellow）', '模块原始结果、审计结果与历次失败均保留；收尾不等于验证通过'])

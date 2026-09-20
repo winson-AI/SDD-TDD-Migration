@@ -1,0 +1,31 @@
+[project]
+name = "sdd-harmony-sandbox"
+version = "0.1.0"
+description = "Isolated runtime for SDD-TDD-Migration Harmony automation"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "openai==2.15.0",
+    "openai-agents==0.7.0",
+    "pillow>=12.1.0",
+    "pyyaml>=6.0.3",
+    "python-dotenv>=1.2.1",
+    "hypium==6.0.7.210",
+    "opencv-python>=4.13.0.90",
+    "numpy>=2.2.6",
+    "ffmpeg-python>=0.2.0",
+    "imageio-ffmpeg>=0.6.0",
+    "hypium-mcp==0.6.5",
+    "fastmcp>=2.0.0,<3",
+]
+
+[tool.uv]
+package = false
+# Keep the official SDK family on the reference project's tested release.
+constraint-dependencies = [
+    "xdevice==6.0.7.210",
+    "xdevice-devicetest==6.0.7.210",
+    "xdevice-ohos==6.0.7.210",
+]
+
+[tool.uv.sources]
+hypium-mcp = { path = "resources/hypium_mcp-0.6.5-py3-none-any.whl" }

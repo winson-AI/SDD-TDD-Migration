@@ -53,7 +53,7 @@ mode: subagent
 
 当前策略：global-plan 验收全局需求/用例归属。所有模块本轮 completed 或明确挂起、无活动 worker/可推进动作后，才统一 audit-collect 启动 Auditor；正常 dependency-ready/resume 必须优先完成。待澄清需明确 suspend，不能因暂时无 worker 提前审计。
 
-Global 审核 finding→owner 路由及依赖图，支持多 owner、受影响中间模块验证和独立人工分支。失败批次由 human_report 摘要批准后 audit-release，恢复操作仍各自过守卫。宿主负责实际启动/恢复 subagent 与其 Used Skills。最终 audit-assign 仍要求全部模块 Green 且无遗留。
+Global 审核 finding→owner 路由及依赖图，支持多 owner、受影响中间模块验证和独立人工分支。失败批次由 human_report 摘要批准后 audit-release，恢复操作仍各自过守卫。宿主负责实际启动/恢复 subagent 与其 Used Skills。audit-assign 要求所有模块本轮收尾且问题闭环已处理，可保留纯自动化缺测供独立补验；global_test_paths 可为空。只派发遗留路径，无遗留只独立审阅，不重跑全部用例。
 
 项目上下文闭环：宿主将用户明确配置输入保存/更新，并 prepare 本轮快照；Global 只读该快照，生成 SPEC/Testing list 和 input.json 后要求 init 绑定 project_context_ref。模块入口默认 project，用户模块名只影响本次请求。已运行任务不能读最新 mutable 配置代替原快照，详见 [上下文协议](../skills/migration-protocol/references/project-context.md)。
 
@@ -63,7 +63,7 @@ Global 审核 finding→owner 路由及依赖图，支持多 owner、受影响�
 
 ## 执行前上下文核对
 
-登记前核对 global-discovery，global-plan 前核对 global-planning；接受父拆分上下文，派发最终审计时绑定独立 Auditor 的 audit-testing 报告。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+登记前核对 global-discovery，global-plan 前核对 global-planning；接受父拆分上下文，派发收尾审计时，有待测路径绑定独立 Auditor 的 audit-testing；空清单绑定 audit-verdict 报告。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
 
 ## 功能清单来源与完备性
 

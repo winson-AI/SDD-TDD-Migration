@@ -129,8 +129,8 @@ def overview():
         '有遗留：收集 Red / Yellow → 根因 → Fixer → Testing → 裁决（详图 03）',
         '纯自动化缺环境：保留未验证清单，其他可执行任务继续'])
     d.arrow([(610,2020),(610,2080)])
-    d.box(100,2080,1020,125,'最终独立审计 → 全局报告',[
-        '模块已构建 / 可执行工作收尾 + 父汇总有效 → 固定基线，执行可用验证',
+    d.box(100,2080,1020,125,'独立审阅收尾 → 全局报告',[
+        '固定基线，只复核遗留 / 受影响路径；无遗留只审阅，不全量重跑',
         '全通过才 Green；仅缺自动化环境：Yellow / 未执行报告，本轮可结束'], 'green')
     # Shared planes: explanatory cards, deliberately not direct agent channels.
     d.box(1210,190,330,280,'全局读取视野',[
@@ -224,7 +224,7 @@ def auditor_closure():
     d=Diagram('auditor-closure',2110,'03','Auditor · 跨模块处理与最终裁决','独立 Auditor 保留审计验收权；修复由负责模块的 MO 派发 Fixer，正式 Testing 必须复核')
     d.box(340,195,920,115,'入口：GO 全量收尾门禁已满足',[
         '全部子 MO 本轮结束 + 所有父汇总有效 + 无活动 worker / 可推进动作',
-        '本图展开有遗留的处理；无遗留且全部 DoD 完成时直接最终审计'], 'orange')
+        '本图展开遗留处理；global_paths 可为空；无遗留只独立审阅'], 'orange')
     d.arrow([(800,310),(800,370)])
     d.box(500,370,600,135,'收集遗留 → Auditor 上下文预检',[
         'audit-collect：Red / Yellow / blocked → finding','读取发现模块与负责模块的 SPEC / tasks','绑定 PATH、复用映射、提供方版本及测试证据'])
@@ -269,12 +269,12 @@ def auditor_closure():
     d.box(890,1590,620,145,'根因报告 → 等待人工审核',[
         'awaiting-human：保留各次断言、证据与问题归属','审核决定绑定当前报告摘要；不自动追加修复'], 'orange')
     d.arrow([(400,1735),(400,1795)])
-    d.box(90,1795,620,155,'最终独立审计 → 全局报告',[
-        '先通过 audit-testing 预检，再按最终快照独立重跑','全通过 → 全局 Green → 按授权交付','仅缺自动化环境 → Yellow / 未执行报告收尾'], 'green')
+    d.box(90,1795,620,155,'独立审阅收尾 → 全局报告',[
+        '遗留需 audit-testing；空清单只审阅证据','全通过 → 全局 Green → 按授权交付','仅缺自动化环境 → Yellow / 未执行报告收尾'], 'green')
     d.arrow([(1200,1735),(1200,1795)],'purple')
     d.box(890,1795,620,155,'人工批准 → GO 释放批次 → 受控恢复',[
         'audit-release 后按原因 resume / recover / CR','需要时重新 plan / freeze；恢复不会直接 Green','再次满足全量收尾门禁，才可创建新审计批次'], 'purple')
-    d.text(800,2015,'即使模块阶段全部 Green，也必须执行最终独立审计；Auditor 与 Fixer 始终为不同实例。',22,'#4b5563')
+    d.text(800,2015,'遍历全部模块 ≠ 重跑全部用例；无遗留只独立审阅，Auditor 与 Fixer 始终分离。',22,'#4b5563')
     d.legend(2060)
     d.save()
 

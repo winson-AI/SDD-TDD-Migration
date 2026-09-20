@@ -75,3 +75,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 ## Test-Runner 双环节与自动化缺测例外
 
 Test-Runner 在 Coding 接受后先编译构建，再执行自动化测试；构建命令优先用户指定，否则全目标搜索脚本并默认评估 Gradle assemble。构建/真实用例错误记录三态与根因，修复仍由 Fixer。仅自动化环境不可启动时，保留当前构建 Green，逐用例记录 Yellow/未执行，经 automation-unavailable 进入 automation-deferred；独立任务及依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复。全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。规范见 [构建与自动化分流](skills/migration-protocol/references/build-automation.md)。本节细化既有“缺条件挂起”规则，不允许跳过构建或吞掉已观察到的 Red。
+
+## Auditor 范围
+
+全量收尾指等待全部 MO 实现/测试本轮结束，不代表测试全量重跑。Auditor 收集 Ledger 的 Red/Yellow，读取对应 SPEC/CASE/PATH，分析根因、委派必要的一轮 Fixer并正式复核；失败输出根因待人工。无关有效 Green 保留证据；无遗留只独立审阅。global_test_paths/global_paths 允许为空，不能作为启动前置。遵守 [审计范围协议](skills/migration-protocol/references/audit-scope.md)。

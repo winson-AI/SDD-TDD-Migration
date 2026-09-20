@@ -8,7 +8,7 @@
 
 路径 Red 表示实际断言/构建等质量门禁证明实现有错；Yellow 表示不能确定验收是否成立。Red/Yellow 均必填 root_cause，证据不足时明确 confidence=unknown、hypothesis 与 next_action，禁止编造已确认根因。
 
-模块聚合：有效结果中任何 Red → Red；否则有 Yellow、漏测、未运行、stale、冻结/DoD未完成 → Yellow；仅全部必需路径有效 Green 且 DoD 满足 → Green。Red 与 Yellow 可以同时存在，aggregate 取 Red，但 unresolved 列表保留两类全部问题。全局还须覆盖整体用例、独立审计和集成基线；没有模块或没有必需测试不能为 Green。
+模块聚合：有效结果中任何 Red → Red；否则有 Yellow、漏测、未运行、stale、冻结/DoD未完成 → Yellow；仅全部必需路径有效 Green 且 DoD 满足 → Green。Red 与 Yellow 可以同时存在，aggregate 取 Red，但 unresolved 列表保留两类全部问题。全局还须覆盖本轮已声明用例、独立遗留审计和当前基线；没有模块或没有必需测试不能为 Green。
 
 ## 模块隔离与全量收尾
 
@@ -67,7 +67,7 @@ DoD checklist 要求：当前冻结有效；所有任务有提交/文件/需求/
 
 Auditor 分问题审计与最终审计。两者都须等待全部模块本轮独立结束；问题审计允许部分模块基于自身证据明确挂起，无需全部 Green。最终审计要求全部模块 DoD 完成且队列清空，才可发布全局 Green。
 
-Auditor 从 Ledger 固定 sequence 与 target tree/commit、SPEC revision、环境/测试定义摘要构成 audit snapshot。先重跑所有历史未解决非 Green/过期/未运行路径，再执行全部整体测试和受影响回归；即便各模块全 Green，也不能跳过全局集成测试。
+Auditor 从 Ledger 固定 sequence 与 target tree/commit、SPEC revision、环境/测试定义摘要构成 audit snapshot。只复核收集到的 Red/Yellow 遗留，按 SPEC/CASE/PATH 分析根因、必要时委派一轮 Fixer，再以正式 Testing 验证；仍失败输出根因待人工。修复导致失效的相关模块按依赖图补回归，无关有效 Green 不重跑。无遗留只独立审阅现有证据；global_test_paths=[] 不阻止启动，绝不默认全量重跑。详见 [审计范围协议](audit-scope.md)。
 
 Auditor 可执行既有脚本并生成日志，不能编辑源码/脚本。发现问题经 repair_requested → MO 审核/派发 → Fixer；结果仍由 Auditor 独立重跑和裁决。每轮新补丁会使旧 snapshot 失效，重新固定快照，重跑受影响路径及整体集成用例。不能混用不同代码树的结果出最终 Green。
 

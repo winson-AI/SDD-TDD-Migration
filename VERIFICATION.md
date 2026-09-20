@@ -287,3 +287,30 @@ Test-Runner 按 build/automation 执行，Fixer 负责修复。新 init 默认�
 Python AST、模板/schema JSON、SVG、相关文档链接、3 个修改 Skill 的 quick_validate 及 git diff --check 通过。四张图重新渲染并目视检查，子 MO 图增加自动化环境缺失的独立收尾分支。
 
 测试使用临时 Python 构建/测试进程；未执行用户真实 Gradle 工程或设备业务测试。宿主仍负责真实构建目标/环境、执行隔离、共享资源锁和可信证据。
+
+## Harmony 独立 uv 环境与 CASE 覆盖边界（2026-09-19）
+
+新增独立 pyproject、Python 3.12 版本选择、uv.lock、sandbox.py、公开默认模型配置、无密钥 .env.example 和专用 README。默认模型/endpoint/角色凭证回退取自用户提供的 MobileAgenticOperator；关键 SDK 对齐其版本，依赖从包仓库和已保留的相对路径 wheel 安装，不绑定源项目的机器绝对路径。真实凭证仅复制到 Git 忽略、0600 权限的本地 .env，不进入源码或公开配置。
+
+`uv sync` 已完成实际安装；离线 doctor 中全部 Python 依赖、默认 LLM 配置读取及 PATH 上的 HDC 就绪，未指定 Harmony 设备，因此结果为 Yellow/未执行。general/glm/mcp_agent/hypium_mcp_agent 四种执行器类在新环境中均可加载。未调用真实 LLM、连接设备或执行业务 App。
+
+新增 CASE 门禁：每个模块 CASE 都必须有 automation PATH；build PATH 不能代替业务测试覆盖。Ledger 完整回归 **170 项通过**，包含新增的 build-only CASE 拒绝/补齐后允许检查。Harmony 契约、模拟原生集成与 sandbox 共 **20 项通过**，覆盖环境变量回退/覆盖及脱敏、默认配置、指定 .env 与进程变量优先级、从其他 cwd 使用生成 adapter 且缺设备返回结构化 Yellow、UI 无需 XMind 凭证。
+
+本轮修改保持 SPEC/assignment/host receipt/完整 scope/三态/复测门禁。依赖环境初始化及独立调试不等于模块或全局验收通过；正式测试必须经 Ledger。业务功能与边界枚举仍需角色审核，结构覆盖门禁不证明语义完备。
+
+## 构建、Fixer 与 automation 的宿主衔接（2026-09-19）
+
+将 Test-Runner / MO 角色主步骤和 sdd-module 命令统一为 building 预检 → build assignment → MO 接受全部构建结果 → testing 预检 → 新 automation assignment。双环节协议新增逐节点状态/动作表、模块共享一轮预算、安装包与代码基线证据边界；不增加自动部署或常驻调度服务。
+
+拆分测试 **14 项通过**。扩展原构建修复测试，验证 Ledger 下一步确实在 Fixer 后返回 build，再要求独立 testing 预检并完成 automation/DoD；只有构建通过时修复 memory 仍 awaiting-regression，完整回归通过后才 reusable。新增两项验证：构建已成功但未 accept 时不具备 build_ready、building 报告不能授权 automation；构建已使用一轮 Fixer 后若 automation 失败，下一步为 audit-defer，不能重置本地预算。
+
+本次未改变运行时逻辑；测试使用临时构建/测试子进程，没有运行真实 Gradle 工程或设备 App。
+
+## Auditor 遗留范围与空 global_paths 恢复（2026-09-20）
+
+- 去掉 audit-assign/status 对 global_paths 非空的门禁；原 init=[] 的运行可以继续原事件链，无需重建。
+- 最终执行集合从当前非 Green 生成并绑定 assignment.path_ids；宿主执行器拒绝额外 Green PATH。额外声明的运行级路径若未验证/基线失效仍须验证，不能隐式通过。
+- 空集合采用独立 audit-review + audit-verdict 上下文门禁，必须有审阅证据；不运行自动化、不伪造测试结果。旧全量 assignment 先停止/撤销后重派。
+- 缺测补验合并结果，保留已有构建 Green；跨模块修复仍依据 finding/owner/依赖图做受影响模块回归，一轮失败转人工。
+- Ledger **178 项通过**；新增空 init 审阅、空 init 跨模块修复/失败人工、Red/Yellow 选集与拒绝空审阅掩盖问题、缺测补验保留构建、有效全局 Green 复用及失效复测链等验证。
+- Harmony **20 项通过**（测试替身，不代表真实设备/LLM 测试）。技能校验、Python AST、JSON、文档链接及 git diff --check 通过；三张受影响流程图已重新生成并目视检查。

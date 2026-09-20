@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "kind": "audit-review",
+  "run_id": "<run-id>",
+  "module_id": "GLOBAL",
+  "assignment_id": "<audit-assignment-id>",
+  "actor_instance_id": "<independent-auditor-instance-id>",
+  "freeze_id": "<ledger.audit_scope(state).freeze_id>",
+  "code_baseline": "<ledger.audit_scope(state).code_baseline>",
+  "snapshot": {"<module-id>": "<current-code-baseline>"},
+  "paths": [],
+  "execution_status": "no-retest-needed",
+  "review_ref": {"path": "/absolute/staging/audit-review.md", "sha256": "<sha256>"}
+}

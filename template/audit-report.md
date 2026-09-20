@@ -19,8 +19,15 @@
 ## Repair Delegation / Rounds
 {{repair_requested → MO acceptance → Fixer patch → independent retest；已用轮次、停滞判断、版本失效/重跑集合}}
 
-## Global Tests
-{{整体测试及跨模块真实集成的 query、版本、断言与日志；不能只列模块单测}}
+## Scope Selection
+- policy: non-green-only
+- collected_red_yellow: {{PATH IDs、原 test_run、SPEC/CASE 引用}}
+- affected_regression: {{finding → owner/依赖边 → 受影响模块/路径；没有则空}}
+- retained_green: {{未重跑、仍有效的已有证据引用}}
+- optional_global_paths: {{已声明但未验证/失效/非 Green 的额外路径；允许空}}
+- execution_status: {{reviewed|no-retest-needed|completed-with-unverified-tests}}
+
+无待验证路径时只记录独立审阅，不填造本轮 test_run；不得默认重跑全部测试。
 
 ## Verdict
 - quality: {{green-passed|red-bug|yellow-blocked}}

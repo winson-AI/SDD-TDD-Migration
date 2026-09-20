@@ -78,6 +78,16 @@ class SplitTestingTests(unittest.TestCase):
         self.assertEqual(f.state()['modules']['M001']['quality'], 'green-passed')
         self.assertEqual(set(f.state()['modules']['M001']['results']), {'B1', 'P1'})
 
+    def test_build_only_case_cannot_count_as_automation_coverage(self):
+        plan = self.f.plan()
+        plan['paths'][1]['case_id'] = 'BUILD-ONLY-CASE'
+        with self.assertRaisesRegex(Rejected, 'every module case needs an automation path'):
+            tv.plan_check(plan, self.f.target)
+        path = copy.deepcopy(plan['paths'][0])
+        path.update(path_id='P2', case_id='BUILD-ONLY-CASE')
+        plan['paths'].append(path)
+        tv.plan_check(plan, self.f.target)
+
     def test_automation_cannot_run_before_build_or_conceal_compile_failure(self):
         f = self.f; self.prepare()
         ref = f.record(f.report('testing'))
@@ -87,7 +97,7 @@ class SplitTestingTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'current build'):
             self.defer()
 
-    def test_build_red_enters_fixer_then_rebuild(self):
+    def repair_build(self):
         f = self.f
         self.build_code = "from pathlib import Path; raise SystemExit(0 if '3' in Path('m1/code.py').read_text() else 1)"
         self.prepare(); self.compile()
@@ -98,11 +108,60 @@ class SplitTestingTests(unittest.TestCase):
         f.call('diagnose', {'diagnosis_ref': f.ref('diagnosis.md', 'Compiler log and source show cause'),
                            'owner': 'M001', 'root_cause': cause}, role='diagnostician')
         f.call('diagnosis-accept')
+        self.assertEqual(f.state()['next_steps'][0]['worker_role'], 'fixer')
         f.implementation('fixer', 'FIX1')
+        m = f.state()['modules']['M001']
+        self.assertIsNone(m['build_baseline'])
+        self.assertTrue(m['stale'])
+        step = f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['test_scope']), ('assign', 'build'))
+        self.assertEqual(step['context_gate']['stage'], 'building')
         self.compile('BUILD2')
         self.assertEqual(f.state()['modules']['M001']['fix_rounds_used'], 1)
         self.assertEqual(f.state()['modules']['M001']['results']['B1']['quality'], 'green-passed')
         self.assertEqual(f.state()['next_steps'][0]['test_scope'], 'automation')
+
+    def test_build_red_enters_fixer_then_rebuild(self):
+        f = self.f; self.repair_build()
+        step = f.state()['next_steps'][0]
+        self.assertEqual(step['context_gate']['stage'], 'testing')
+        self.assertFalse(step['ready'])  # A fresh automation preflight is still required.
+        memory = f.state()['modules']['M001']['fix_memory'][0]
+        self.assertEqual(memory['status'], 'awaiting-regression')
+        self.assertFalse(memory['reusable'])
+        a, result = f.make_test_result()
+        f.submit(result, a); f.call('accept', {'assignment_id': a['assignment_id']})
+        m = f.state()['modules']['M001']
+        self.assertEqual(m['phase'], 'dod')
+        self.assertTrue(m['fix_memory'][0]['reusable'])
+        self.assertTrue(m['results']['B1']['retest_of'])
+        f.call('complete', {'dod_ref': f.ref('dod.md', 'Rebuilt current code and verified all paths'), 'checks_passed': True})
+        self.assertEqual(f.state()['modules']['M001']['quality'], 'green-passed')
+
+    def test_build_repair_and_automation_share_one_local_round(self):
+        f = self.f; self.repair_build()
+        a, result = f.make_test_result(quality='red-bug')
+        f.submit(result, a); f.call('accept', {'assignment_id': a['assignment_id']})
+        s = f.state()
+        self.assertEqual(s['modules']['M001']['local_fix_used'], 1)
+        self.assertEqual(s['modules']['M001']['fix_memory'][0]['status'], 'failed')
+        self.assertEqual(s['next_steps'][0]['operation'], 'audit-defer')
+        self.assertEqual(s['next_steps'][0]['root_cause']['category'], 'local-round-exhausted')
+
+    def test_build_process_success_requires_accept_and_separate_testing_context(self):
+        f = self.f; self.prepare()
+        a = f.assign('test-runner', 'BUILD1')
+        command = f.state()['modules']['M001']['plan']['paths'][1]['command']
+        receipt = execute(f.root, 'M001', 'BUILD1', 'B1', command['argv'], command['cwd'], f.base / 'BUILD1')
+        f.submit(stage_result(f.root, 'M001', 'BUILD1', [receipt]), a)
+        self.assertFalse(tv.build_ready(f.state()['modules']['M001']))
+        self.assertEqual(f.state()['next_steps'][0]['operation'], 'accept')
+        f.call('accept', {'assignment_id': 'BUILD1'})
+        self.assertTrue(tv.build_ready(f.state()['modules']['M001']))
+        wrong_context = f.record(f.report('building'))
+        with self.assertRaises(Rejected):
+            f.raw('assign', {'assignment_id': 'WRONG-CONTEXT', 'role': 'test-runner',
+                            'instance_id': 'test-runner', 'test_scope': 'automation', 'context_ref': wrong_context})
 
     def test_environment_omission_settles_without_green_or_human_gate(self):
         f = self.f; self.prepare(); self.compile(); self.defer()
@@ -188,6 +247,23 @@ class SplitTestingTests(unittest.TestCase):
                   'code_baseline': scope['code_baseline'], 'snapshot': {'M001': f.state()['modules']['M001']['code_baseline']}, 'paths': rows}
         f.raw('audit', {'report_ref': f.ref('final.json', result)}, role='auditor', module=None)
         return f
+
+    def test_empty_global_audits_only_yellow_preserving_passed_build(self):
+        f = self.f; original = f.state(); f.root = f.base / 'empty-global-run'
+        f.call('init', {**{k: original[k] for k in ('target_root', 'legacy_root', 'case_ids', 'requirement_ids',
+                 'global_spec', 'new_architecture')}, 'global_paths': [], 'split_testing_required': True}, role='host')
+        f.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'write_paths': [str(f.target / 'm1')]},
+               role='global-orchestrator', module=None)
+        self.run_final_audit()
+        s = f.state()
+        self.assertEqual(s['audit_assignment']['path_ids'], ['P1'])
+        self.assertEqual([r['path_id'] for r in s['audit']['paths']], ['P1'])
+        build = s['modules']['M001']['results']['B1']
+        self.assertEqual(build['quality'], 'green-passed')
+        self.assertNotIn('module_retest_of', build)
+        self.assertEqual(s['modules']['M001']['phase'], 'dod')
+        f.call('complete', {'dod_ref': f.ref('dod-final.md', 'Retained build and independent automation evidence'), 'checks_passed': True})
+        self.assertEqual(f.state()['quality'], 'green-passed')
 
     def test_independent_auditor_can_verify_previously_unrun_module(self):
         f = self.run_final_audit()

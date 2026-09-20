@@ -11,7 +11,7 @@ description: /sdd-module <run-id> <module-id> — 推进单模块实现与自测
 1. 读取 [AGENTS.md](../AGENTS.md)、[运行协议](../skills/migration-protocol/references/runtime.md)，解析参数为绝对路径及规范 ID。
 2. 前置门控：模块已冻结；依赖满足或可记录 dependency Yellow；目标 baseline 和锁可验证。
 3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
-4. 由宿主向 Ledger 提交 resume_requested；收到 ACK 后派发对应角色。按状态机推进 Coding→代码接受→Testing；可修复 Red/Yellow 优先诊断并自动派发一轮 Fixer，补丁接受后由 Testing 正式复测，Green 后检查 DoD。确认依赖/外围或一轮仍未通过时记录根因/memory 并交 Auditor；遇人工阻塞或预算上限保存 checkpoint 退出。
+4. 由宿主向 Ledger 提交 resume_requested；收到 ACK 后派发对应角色。按状态机推进 Coding→代码接受→building 预检→build assignment→构建结果接受→testing 预检→automation assignment。可修复 Red/Yellow 优先诊断并自动派发一轮 Fixer；补丁接受后先重建再自动化，两环节共用模块本地一轮修复预算。全部路径有效 Green 后检查 DoD。确认依赖/外围或一轮仍未通过时记录根因/memory 并交 Auditor；遇人工阻塞或预算上限保存 checkpoint 退出。
 5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
 
 ## 3. 调用契约
@@ -36,7 +36,7 @@ status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接
 
 ## 上下文就绪门禁
 
-子模块执行前按阶段核对 context_gate：实际 Implementer / Test Runner / Fixer 分别提交 coding / testing / fixing 报告，MO assign 携带已提交 context_ref；只读预检不授予代码写入或测试执行权限。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+子模块执行前按阶段核对 context_gate：Implementer 提交 coding；Test Runner 分别提交 building（构建）和 testing（自动化）；Fixer 提交 fixing。MO assign 携带匹配 scope 的已提交 context_ref；只读预检不授予代码写入或测试执行权限。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
 
 ## 8. 自查
 参数与前置有效；工具实际存在；没有越权写入；回执来源可信；恢复指令与 phase 一致。

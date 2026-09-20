@@ -43,10 +43,13 @@
 
 ## 2. 宿主配置
 
+推荐先使用 [独立 uv sandbox](../runtime/harmony/README.md)：`uv sync --locked` 安装本目录 `.venv`；`sandbox.py` 提供离线 doctor、用例导入、单 PATH 调试和宿主 adapter 生成。公开默认 LLM 配置复用 MobileAgenticOperator；`.env` 只留本地，角色密钥优先于公共密钥，支持用户自定义配置。独立调试不能代替 host receipt 和 Ledger 验收。
+
 使用 [harmony-config.json](../../../template/harmony-config.json) 和 [harmony-test-adapter.json](../../../template/harmony-test-adapter.json)，替换占位符后由宿主审核并提交为受控输入。
 
 - Python 需兼容原引擎（至少 3.10）；SDK、Hypium/HDC、图像/视频依赖见 [requirements.txt](../runtime/harmony/requirements.txt)。wheel 已保留，安装时 cwd 应是该 requirements 所在目录。源 pyproject 中机器专属的 Hypium 开发包路径没有迁移，宿主提供相应运行环境。
 - `models` 使用原 `AppConfig` 字段；模型密钥用 `{"env":"变量名"}`，运行时解析，不把密钥写入模板。支持多 Planner 模型、执行器选择、Verify、压缩、反思和 special_test 配置。
+- 密钥也可用 `{"env":["角色变量","公共变量"]}` 按顺序回退；sandbox 加载指定 `.env` 且不覆盖进程同名变量。设备可由 `--device`、配置或 `HARMONY_DEVICE` 按优先级指定。UI 不要求 XMind 转换密钥，XMind 导入只读取转换所需模型配置。
 - `execute_provider` 决定工厂实现，例如 `hypium_mcp_agent`；不是模型 HTTP 协议名。所有原执行器仍可配置。
 - 必填设备序列号，不自动挑选设备。Global 仍分配设备资源锁，adapter 另外用本机文件锁防止并行路径争抢同一设备；多台宿主共同连接一个设备时需要全局锁协调。
 - 对 `video_assert` 必须开启视频；默认模板开启，adapter 强制保留原始视频。

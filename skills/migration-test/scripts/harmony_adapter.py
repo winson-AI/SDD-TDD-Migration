@@ -24,9 +24,13 @@ ENGINE = Path(__file__).resolve().parents[1] / 'runtime/harmony'
 def resolve_env(value):
     if isinstance(value, dict):
         if set(value) == {'env'}:
-            name = value['env']
-            if not os.environ.get(name): raise ValueError(f'missing environment variable: {name}')
-            return os.environ[name]
+            names = value['env']
+            names = [names] if isinstance(names, str) else names
+            if not isinstance(names, list) or not names or not all(isinstance(n, str) and n for n in names):
+                raise ValueError('environment reference requires a name or nonempty name list')
+            for name in names:
+                if os.environ.get(name): return os.environ[name]
+            raise ValueError('missing environment variable: ' + ' / '.join(names))
         return {k:resolve_env(v) for k,v in value.items()}
     if isinstance(value, list): return [resolve_env(v) for v in value]
     return value
@@ -55,7 +59,8 @@ def device_lock(device, ip, port):
 def configure(raw):
     from dataclasses import fields
     from AutoTest.config import AppConfig, ContextCompressionConfig, ReflectionConfig, SpecialTestConfig, config_manager
-    data = resolve_env(raw)
+    # XMind import is a separate operation; UI execution needs no converter key.
+    data = resolve_env({k: v for k, v in raw.items() if k != 'xmind_convert_models'})
     allowed = {f.name for f in fields(AppConfig)}
     if set(data) - allowed: raise ValueError('unknown AppConfig keys: ' + str(sorted(set(data) - allowed)))
     for key, typ in [('context_compression', ContextCompressionConfig), ('reflection', ReflectionConfig), ('special_test', SpecialTestConfig)]:
@@ -149,6 +154,7 @@ async def run_engine(q, config, out, sink):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     for key in ('query-file','result-file','config'): p.add_argument('--' + key, required=True)
+    p.add_argument('--device', help='Explicit Harmony serial; overrides config and HARMONY_DEVICE')
     a = p.parse_args()
     q = json.loads(Path(a.query_file).read_text())
     result_path = Path(a.result_file).resolve()
@@ -159,6 +165,7 @@ def main():
     try:
         validate_query(q)
         config = json.loads(Path(a.config).read_text())
+        config['device'] = a.device or config.get('device') or os.environ.get('HARMONY_DEVICE', '')
         environment.update({'config_ref':ref(a.config), 'device':config.get('device'),
                             'ip':config.get('ip','127.0.0.1'), 'port':config.get('port',8710),
                             'recording_ref':config.get('recording_ref'), 'knowledge_ref':config.get('knowledge_ref')})

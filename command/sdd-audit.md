@@ -1,5 +1,5 @@
 ---
-description: /sdd-audit <run-id> — 独立全局复测与修复委派
+description: /sdd-audit <run-id> — 独立遗留复核与一轮修复委派
 ---
 
 # /sdd-audit
@@ -11,7 +11,7 @@ description: /sdd-audit <run-id> — 独立全局复测与修复委派
 1. 读取 [AGENTS.md](../AGENTS.md)、[运行协议](../skills/migration-protocol/references/runtime.md)，解析参数为绝对路径及规范 ID。
 2. 前置门控：完整 registry 中所有 MO 本轮独立完成或基于自身证据明确挂起，无活动 worker、无可推进动作；手工调用本命令也不得跳过等待，不得为审计强制结束其他 MO。模块 registry 和整体用例完整；实例与实现/修复/脚本作者分离；可冻结候选版本；未生成的代码不能测试，只报告 Yellow。
 3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
-4. 由宿主向 Ledger 提交 audit_requested；收到 ACK 后派发对应角色。聚合所有模块，重跑非 Green/过期/未运行，再跑整体测试与受影响回归；失败经 MO 委派修复，Auditor 复测并按上限输出报告。
+4. 由宿主向 Ledger 提交 audit_requested；收到 ACK 后派发对应角色。遍历所有模块，收集 Red/Yellow 遗留；读取对应 SPEC/CASE/PATH，分析根因并安排复核、必要的一轮 Fixer 与修复后 Testing。仍失败输出根因待人工；无关有效 Green 不重跑，不追加全项目全量测试。
 5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
 
 ## 3. 调用契约
@@ -36,17 +36,19 @@ status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接
 
 ## 上下文就绪门禁
 
-全部 MO 收尾后，Auditor audit-plan 前提交 audit-analysis，audit-verdict 前提交当前证据的 audit-verdict，最终 audit-assign 前提交 audit-testing；Fixer/Testing 仍独立预检。预检不替代独立复测与裁决。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+全部 MO 收尾后，Auditor audit-plan 前提交 audit-analysis，audit-verdict 前提交当前证据的 audit-verdict，audit-assign 有待测路径时提交 audit-testing，空清单时提交 audit-verdict；Fixer/Testing 仍独立预检。预检不替代独立复测与裁决。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+
+global_test_paths 可为空，不是 Auditor 触发条件；旧运行无需重新 init。完整规则与恢复方式见 [审计范围协议](../skills/migration-protocol/references/audit-scope.md)。
 
 ## 8. 自查
 参数与前置有效；工具实际存在；没有越权写入；回执来源可信；恢复指令与 phase 一致。
 
 ## 本地实现接入
 
-Global audit-assign → Auditor execute_test --module GLOBAL → audit。具体 payload/命令用法见 [local-runtime.md](../skills/migration-protocol/references/local-runtime.md)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
+Global audit-assign → 对 assignment.path_ids 执行 Auditor execute_test --module GLOBAL → audit；path_ids=[] 时仅提交独立 audit-review。具体 payload/命令用法见 [local-runtime.md](../skills/migration-protocol/references/local-runtime.md)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
 
 本地审计失败后的下一步为 audit-route / repair-accept，不能立即循环 audit-assign。模块修复复测完成后才开启下一轮，报告需关联上一轮非 Green 的 test_run_id。
 
-当前入口必须等全部模块本轮结束/明确挂起，且无活动或可推进工作，才统一扫描所有并行遗留：audit-collect → Auditor audit-plan → Global audit-route-batch → 负责模块 MO audit-work → Fixer → Test-Runner → 原发现模块 audit-retest → audit-verdict。按 finding 与依赖顺序执行，失败关联分支待人工，独立分支继续；汇总后须批准 audit-release 才能进入常规恢复，不再循环 problem-assign。全部完成后做最终 audit-assign/audit。
+当前入口必须等全部模块本轮结束/明确挂起，且无活动或可推进工作，才统一扫描所有并行遗留：audit-collect → Auditor audit-plan → Global audit-route-batch → 负责模块 MO audit-work → Fixer → Test-Runner → 原发现模块 audit-retest → audit-verdict。按 finding 与依赖顺序执行，失败关联分支待人工，独立分支继续；汇总后须批准 audit-release 才能进入常规恢复，不再循环 problem-assign。问题闭环完成后做 audit-assign/audit 收尾审阅；仅剩未验证路径才执行测试，绝不再次执行所有用例。
 
 纯自动化环境缺测不作为必须修复的代码缺陷，也不强制进入人工审批。等待全量收尾后汇总缺测 PATH；最终环境仍不可用，独立预检后 audit-unavailable 留 Yellow 报告结束本轮；不能宣称 Green。见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。

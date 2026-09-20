@@ -156,7 +156,7 @@
 <text x="780.0" y="2449.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Auditor · 独立闭环</text>
 <text x="780.0" y="2483.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实际遗留：SPEC / PATH → 根因 → Fixer → Testing</text>
 <text x="780.0" y="2512.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">裁决失败：结构化根因待人工；缺环境保留未验证</text>
-<text x="780.0" y="2541.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">最终固定快照，覆盖 global + module PATH</text>
+<text x="780.0" y="2541.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只复核遗留 / 受影响路径；空清单只审阅</text>
 <path d="M780,2560 L780,2620" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M318,2620 H1260 L1242,2745 H300 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="780.0" y="2661.5" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">最终输出：通过 / 问题待决 / 缺测清单</text>

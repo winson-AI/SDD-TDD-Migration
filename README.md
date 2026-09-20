@@ -8,7 +8,7 @@
 2. 首次提供项目资料，宿主根据 [project-context.json](template/project-context.json) 保存到工作目录 `.sdd-migration/project-context.json`；后续自动读取，用户明确更新时增量保存。无需每次重填运行输入。
 3. 在支持此包的宿主中执行 `/sdd-init`，先固定项目配置和本次请求快照，再由 Global 生成 [运行输入](template/global-input.json)、SPEC/Testing list、账本和模块规划；`/sdd-plan <run-id> <module-id>` 完成正式六件套与人工冻结。旧 input.json 也可导入。
 4. `/sdd-run <run-id>` 调度已冻结且依赖就绪的模块，单模块也可用 `/sdd-module <run-id> <module-id>`。模块内自动推进到完成、挂起或预算耗尽。
-5. 用 `/sdd-status <run-id>` 冷读状态；用 `/sdd-resume <run-id> [module-id] [decision.json绝对路径]` 恢复；用 `/sdd-audit <run-id>` 执行独立全局复测。
+5. 用 `/sdd-status <run-id>` 冷读状态；用 `/sdd-resume <run-id> [module-id] [decision.json绝对路径]` 恢复；用 `/sdd-audit <run-id>` 执行独立遗留复核与收尾审阅。
 6. 全局审计通过后，`/sdd-archive <run-id> <decision.json绝对路径>` 验证人类交付授权并同步、归档 OpenSpec。授权必须绑定具体版本。
 
 这些 slash command 是待宿主加载的命令定义，未安装到用户配置；本包已提供本地 Ledger 控制器、阶段校验和测试调用适配器；没有常驻 Agent 调度服务或内置业务测试。本地控制器实现事件提交、单写者和模块资源占用检查；宿主仍须提供身份认证、写权限隔离、Agent 派发与项目真实测试适配器。具体能力见 [本地运行指南](skills/migration-protocol/references/local-runtime.md)。仅加载 Markdown 不会产生操作系统级权限隔离。没有这些能力时应显式阻塞，不能宣称端到端迁移已执行。
@@ -108,6 +108,12 @@ Coding → MO 接受代码 → Testing
 
 入口：[Harmony 运行协议与能力映射](skills/migration-test/references/harmony-runtime.md)，[配置模板](template/harmony-config.json)，[验证记录](VERIFICATION.md)。Harmony 接入时 208 项本地/源回归通过；本轮收尾调度回归见验证记录；真实设备与模型的效果对照待指定用例后进行。
 
+### 独立 uv 环境与默认 LLM
+
+Harmony 已提供独立 [uv sandbox 与使用说明](skills/migration-test/runtime/harmony/README.md)：在该目录执行 `uv sync --locked`，配置本地 `.env`，再执行 `uv run --locked sandbox.py doctor`。默认复用 MobileAgenticOperator 的 `qwen3.7-plus`（Planner/Executor/Verify）、`deepseek-v4-flash-0731`（XMind）和 DashScope endpoint；支持公共/角色密钥、`--config`、`--env-file`、`--device` 覆盖。真实 `.env` 与 `.venv` 均已忽略，只提交无密钥示例与公开配置。uv 提供依赖隔离，宿主继续负责设备和执行权限。
+
+测试覆盖按模块 CASE → automation PATH → ASSERT 追溯；每个 CASE 必须有自动化路径，不能用 build PATH 代替业务覆盖。独立调试不产生 Ledger 验收，正式执行仍经 assignment、host receipt、完整 scope 汇总及 MO/Auditor 验收。完整命令、缺环境 Yellow 分流与模块边界见上述 README。
+
 ## 切片输入与验收责任
 
 默认由 Agent 决定切片粒度；global-input 的可选 module_slicing 支持人工模块方案导入。完整功能 use case 可按一级/二级功能目录划分 module，再分析 scope/测试列表并生成 SPEC。跨模块或不确定的业务边界交人工决策。模块阶段由 MO 唯一验收，审计阶段由 Auditor 唯一验收；完整 Green 且已有门禁满足后直接记录。字段示例与约束见 [切片规约](skills/migration-global/references/slicing.md)。
@@ -151,3 +157,7 @@ Coding → MO 接受代码 → Testing
 ## Test-Runner：先编译，再自动化
 
 新运行将验证拆为 build 与 automation。构建命令优先用户指定，默认搜索目标 Gradle wrapper/脚本并评估 assemble；错误留根因，经 Fixer 后重新构建。仅自动化环境无法启动时，记录每条用例 Yellow/未执行并收尾，其他并行及可消费当前代码的下游继续；Auditor 最终可输出 completed-with-unverified-tests，质量仍 Yellow。配置、操作和恢复见 [完整协议](skills/migration-protocol/references/build-automation.md)。
+
+### Auditor 遗留复核范围
+
+所有 MO 本轮实现/测试收尾后，Auditor 统一收集 Red/Yellow，依据对应 SPEC/CASE/PATH 分析、委派一轮必要修复并复核；仍失败输出根因待人工。有效且无关的 Green 不重跑。`global_test_paths: []` 不阻止启动；无待测路径只提交独立 `audit-review`，不要求自动化环境。旧 run 可直接用更新后的 Ledger 查询下一步，无需重新 init。细则与恢复见 [审计范围协议](skills/migration-protocol/references/audit-scope.md)。

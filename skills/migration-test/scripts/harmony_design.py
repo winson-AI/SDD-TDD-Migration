@@ -38,7 +38,9 @@ async def convert(source, output, config, app_name):
     from AutoTest.config import AppConfig
     from agents import set_tracing_disabled
     set_tracing_disabled(True)
-    data = resolve_env(config)
+    # Importing cases must not require unrelated device/executor credentials.
+    key = 'xmind_convert_models' if config.get('xmind_convert_models') else 'decision_models'
+    data = {key: resolve_env(config.get(key, []))}
     cfg = AppConfig(decision_models=data.get('decision_models',[]), xmind_convert_models=data.get('xmind_convert_models',[]))
     text = extract_tree(str(source))
     (output / 'xmind-tree.txt').write_text(text)

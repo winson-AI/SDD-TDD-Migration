@@ -71,7 +71,7 @@ class ContextReadinessTests(unittest.TestCase):
         p = copy.deepcopy(payload or {})
         if op == 'init':
             p.pop('context_readiness_required', None)  # Exercise the new default.
-        stage = cr.requirement(op, p)
+        stage = cr.requirement(op, p, self.state() if op == 'audit-assign' else None)
         if self.auto_context and stage and op not in ('freeze', 'decompose-accept'):
             producer = p.get('instance_id') if op in ('assign', 'audit-assign', 'problem-assign') else instance or role
             report = self.report(stage, module, producer, p.get('plan_ref'))

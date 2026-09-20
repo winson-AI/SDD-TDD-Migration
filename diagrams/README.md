@@ -26,7 +26,7 @@ Test-Runner 已拆为编译构建与自动化测试。仅自动化环境缺失�
 - 箭头表示经 Ledger 的交接或控制关系，不表示 Agent 私聊。宿主实际启动/恢复实例、绑定模块、加载 Used Skills；分配包不自行产生执行权限。
 - 子 MO 独立运行。父 MO 持续看护范围、覆盖、复用与依赖，并等待全部孩子收尾；一个 Red/Yellow 不结束无关模块。
 - 本轮收尾允许基于自身证据明确挂起，但不能将排队、写锁等待或 worker 退出视为已收尾。全部子 MO 收尾、父汇总有效、无在途 worker 与可推进动作后，GO 才统一启动 Auditor。
-- 图 03 展开有遗留的问题审计。无遗留且全部 DoD 完成时直接进入最终独立审计；依赖图决定具体修复与验证顺序，不能把图中的角色列表理解为强制先后顺序。
+- 图 03 展开有遗留的问题审计。无遗留且全部 DoD 完成时只做独立证据审阅，不重跑测试；依赖图决定具体修复与验证顺序，不能把图中的角色列表理解为强制先后顺序。
 - Green 不需新增人工会签；人工参与澄清冻结、跨模块/不确定边界、失败恢复与交付授权。SPEC 修改、依赖恢复或人工批准均不能直接将测试改成 Green。
 - 上下文预检已进入 GO 发现/覆盖规划、父拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发及 Auditor 分析/裁决/最终测试。执行者先只读核对并提交 `context-submit`，原节点验收后推进；缺项或过期阻止相关阶段，不消耗修复预算、不提前收尾。
 
@@ -47,3 +47,5 @@ python3 diagrams/generate_workflows.py
 ```sh
 python3 diagrams/generate_automation.py
 ```
+
+Auditor 遍历所有模块以收集 Red/Yellow，但不会全量重跑测试。global_test_paths 可为空；范围与空清单报告遵守 [审计范围协议](../skills/migration-protocol/references/audit-scope.md)。

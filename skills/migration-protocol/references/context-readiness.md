@@ -20,7 +20,7 @@
 | 首轮或审计 Fixer 派发前 | fixing / Fixer | 冻结契约、TASK、接口、复用映射、失败 PATH/assert、当前诊断、历史尝试/预算、最小修复范围 | MO assign；缺上下文不消耗修复轮次 |
 | 全部 MO 收尾、收集遗留后 | audit-analysis / Auditor | 父汇总、finding、各相关 SPEC/PATH、依赖 owner、复用映射和独立性 | Auditor audit-plan；GO 后续审核路由 |
 | 修复批次裁决前 | audit-verdict / Auditor | 当前汇总/遗留、SPEC/PATH、每个验证结果与受阻根因、独立性 | Auditor audit-verdict；不以预检 ready 代替验证结果 |
-| 最终独立测试前 | audit-testing / Auditor | 当前汇总、SPEC/PATH、代码与真实提供方、完整环境、独立性 | Auditor 自核就绪，GO audit-assign 绑定该实例；测试验收仍唯一归 Auditor |
+| 遗留路径独立复核前 | audit-testing / Auditor | 当前汇总、SPEC/PATH、代码与真实提供方、完整环境、独立性 | Auditor 自核就绪，GO audit-assign 绑定该实例；测试验收仍唯一归 Auditor |
 
 兼容 problem-assign 同样使用 audit-testing，因为该入口可执行测试。审计期间下游 Fixer/Testing 仍分别通过 fixing/testing，不沿用 Auditor 的报告。
 
@@ -83,3 +83,5 @@ blocked 报告提交会保留缺失项，但**不会自动将整个 MO 标记收
 global-discovery/global-planning/decomposition/planning 必需检查 feature-inventory。GO 先形成完整功能草案，父 MO 核对子清单；global-plan 接受最终清单与执行叶子归属后，planning_context 和 module_inputs 提供 feature_inventory_ref/feature_ids，后续预检将清单作为必读引用。疑问不是 ready，须按 [功能发现与完备性规范](../../migration-global/references/slicing.md) 交人工。
 
 同一 assignment 需运行多个构建命令或最终审计混合路径时，可在 execution.commands 按 path_id 保存各自 argv/cwd；环境证据仍由 environment_ref 绑定。execute_test 逐路径校验该命令，build 另核对冻结 command。
+
+收尾 audit-assign 的阶段由 Ledger 实际选集决定：有路径用 audit-testing；无待验证路径用 audit-verdict，仅核验已接受证据与独立性，不要求设备/自动化环境。空 global_paths 不影响此选择。见 [审计范围协议](audit-scope.md)。

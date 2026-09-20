@@ -1,0 +1,43 @@
+{
+  "device": "",
+  "ip": "127.0.0.1",
+  "port": 8710,
+  "recording_ref": null,
+  "knowledge_ref": null,
+  "models": {
+    "decision_models": [{
+      "name": "qwen3.7-plus",
+      "provider": "openai",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "api_key": {"env": ["DECISION_MODEL_API_KEY", "DASHSCOPE_API_KEY"]},
+      "temperature": 1.0,
+      "top_p": 1.0,
+      "frequency_penalty": 0.0
+    }],
+    "execute_model_name": "qwen3.7-plus",
+    "execute_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "execute_api_key": {"env": ["EXECUTE_MODEL_API_KEY", "DASHSCOPE_API_KEY"]},
+    "execute_provider": "general",
+    "execute_mode": "mcp",
+    "execute_max_steps": 5,
+    "verify_model_name": "qwen3.7-plus",
+    "verify_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "verify_api_key": {"env": ["VERIFY_MODEL_API_KEY", "DASHSCOPE_API_KEY"]},
+    "verify_video_enable": true,
+    "keep_raw_video": true,
+    "xmind_convert_models": [{
+      "name": "deepseek-v4-flash-0731",
+      "provider": "openai",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "api_key": {"env": ["XMIND_CONVERT_MODEL_API_KEY", "DASHSCOPE_API_KEY"]},
+      "temperature": 0.2,
+      "top_p": 0.9,
+      "frequency_penalty": 0.0
+    }],
+    "max_steps": 100,
+    "task_timeout": 1800,
+    "context_compression": {"enabled": true, "max_tokens": 50000, "max_recent_messages": 5},
+    "reflection": {"enabled": false, "initial_step": 10, "interval": 10, "recent_messages": 10},
+    "special_test": {"enabled": false}
+  }
+}

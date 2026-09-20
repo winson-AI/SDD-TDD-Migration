@@ -16,7 +16,7 @@
 <rect x="340" y="195" width="920" height="115" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="800.0" y="231.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">入口：GO 全量收尾门禁已满足</text>
 <text x="800.0" y="265.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全部子 MO 本轮结束 + 所有父汇总有效 + 无活动 worker / 可推进动作</text>
-<text x="800.0" y="294.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">本图展开有遗留的处理；无遗留且全部 DoD 完成时直接最终审计</text>
+<text x="800.0" y="294.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">本图展开遗留处理；global_paths 可为空；无遗留只独立审阅</text>
 <path d="M800,310 L800,370" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="500" y="370" width="600" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="402.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">收集遗留 → Auditor 上下文预检</text>
@@ -100,8 +100,8 @@
 <text x="1200.0" y="1704.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">审核决定绑定当前报告摘要；不自动追加修复</text>
 <path d="M400,1735 L400,1795" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="90" y="1795" width="620" height="155" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
-<text x="400.0" y="1837.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">最终独立审计 → 全局报告</text>
-<text x="400.0" y="1871.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先通过 audit-testing 预检，再按最终快照独立重跑</text>
+<text x="400.0" y="1837.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">独立审阅收尾 → 全局报告</text>
+<text x="400.0" y="1871.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">遗留需 audit-testing；空清单只审阅证据</text>
 <text x="400.0" y="1900.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全通过 → 全局 Green → 按授权交付</text>
 <text x="400.0" y="1929.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅缺自动化环境 → Yellow / 未执行报告收尾</text>
 <path d="M1200,1735 L1200,1795" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
@@ -110,7 +110,7 @@
 <text x="1200.0" y="1871.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">audit-release 后按原因 resume / recover / CR</text>
 <text x="1200.0" y="1900.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">需要时重新 plan / freeze；恢复不会直接 Green</text>
 <text x="1200.0" y="1929.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">再次满足全量收尾门禁，才可创建新审计批次</text>
-<text x="800" y="2015" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">即使模块阶段全部 Green，也必须执行最终独立审计；Auditor 与 Fixer 始终为不同实例。</text>
+<text x="800" y="2015" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">遍历全部模块 ≠ 重跑全部用例；无遗留只独立审阅，Auditor 与 Fixer 始终分离。</text>
 <path d="M65,2060 L113,2060" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <text x="125" y="2067" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">流程推进</text>
 <path d="M345,2060 L393,2060" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>

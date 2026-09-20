@@ -46,6 +46,8 @@ Coding 接受 → Test-Runner building 预检 → 编译构建
 
 新运行要求 `split_testing_required=true`；每个执行叶子的 stage-plan.paths 必须同时包含 `kind=build` 和 `kind=automation`，ID 全局唯一。build 是技术门禁 PATH，关联现有模块 REQ/CASE/TASK，不计作业务测试用例通过。
 
+覆盖门禁同时要求每个已分配 CASE 至少关联一个 automation PATH；不得只给某 CASE 关联 build PATH 来满足整体 CASE 映射。模块边界和 uv 执行方式见 [Harmony sandbox README](../../migration-test/runtime/harmony/README.md)。
+
 MO 派发同一 test-runner 角色时明确 `test_scope=build|automation`。控制器只允许先 build，当前 build 全绿后才 automation；每次 Coding/Fixer 接受新代码，旧构建失效，必须重新 build。
 
 - building 预检只检查冻结方案、代码、构建命令、构建环境和权限，不检查设备/UI/自动化账号。
@@ -72,7 +74,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 审计修复或复核期间再次缺自动化环境，MO 同样提交 automation-unavailable；该分支记录到批次 automation_deferred，其他分支继续。Auditor 裁决保留 unverified_findings，不能写入 resolved_findings；仅因缺测不进入 awaiting-human，批次可完成为 completed-with-unverified-tests。
 
-最终独立自动化环境也不可用时，Auditor 提交当前 blocked audit-testing 报告，并执行 **audit-unavailable**。门禁仍要求全量收尾、独立实例、无其他待处理缺陷/审计批次。Ledger 保存未执行路径清单与 Yellow 最终报告，global_next_step.reason=completed-with-unverified-tests，停止空转；已有模块构建证据保留，但不得称独立审计通过。环境可用则照常执行最终 audit-assign/audit，不省略用例验证。
+最终独立自动化环境也不可用时，Auditor 提交当前 blocked audit-testing 报告，并执行 **audit-unavailable**。门禁仍要求全量收尾、独立实例、无其他待处理缺陷/审计批次。Ledger 保存未执行路径清单与 Yellow 最终报告，global_next_step.reason=completed-with-unverified-tests，停止空转；已有模块构建证据保留，但不得称独立审计通过。环境可用则 audit-assign/audit 仅复核尚未验证的路径，保留有效构建 Green；清单为空只做独立 audit-review。
 
 环境恢复时，新 testing ready 报告 → MO **automation-resume** → 新 assignment → Main 逐路径复测；不额外请求人工恢复批准。旧 Yellow 和缺测证据保留，新结果链接 retest_of。代码/构建已变化则先走正常重建，不直接恢复自动测试。所有完整路径真实 Green 后才完成 DoD；全局 Green 仍需最终独立审计。
 
@@ -80,4 +82,30 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 新 init 默认启用拆分，prepare 强制启用；历史没有该字段的 run、显式低层 split_testing_required=false 保留旧契约，不能据此宣称完成新流程。脚本不自动安装 SDK、创建设备、发放账号或证明命令确实覆盖了目标模块；Agent/宿主必须审核范围、环境和真实日志。构建成功只证明该命令通过，不等于业务自动化或复用保真通过。
 
-若最终 Auditor 环境可用且对原缺测模块全部路径真实复测 Green，Ledger 将审计结果关联回模块并进入 dod，由 MO 完成管理性 DoD/父汇总；测试验收 owner 仍是 Auditor，不要求再跑同一轮测试或再次会签。原 Yellow 通过 retest_of/module_retest_of 保留追溯。
+若最终 Auditor 环境可用且对原缺测模块的 Yellow 自动化路径真实复测 Green（当前已通过构建证据保留），Ledger 将审计结果关联回模块并进入 dod，由 MO 完成管理性 DoD/父汇总；测试验收 owner 仍是 Auditor，不要求再跑同一轮测试或再次会签。原 Yellow 通过 retest_of/module_retest_of 保留追溯。
+
+## 7. 宿主如何从 build 推进到 automation
+
+责任分工：Test-Runner 执行并取证；MO 接受结果和请求派发；Ledger 决定合法下一步；宿主真正启动进程/Agent。`next_steps` 返回动作不代表命令已经执行，也不是 Test-Runner 私自串联第二阶段的授权。
+
+| 节点 | Ledger 状态 / 游标 | 宿主及角色动作 |
+| --- | --- | --- |
+| Coding/Fixer 代码已接受 | `phase=testing`，`stale=true`，`build_baseline=null`；下一 scope 为 build | 实际 Test-Runner 提交 building 报告；MO assign build，宿主启动 |
+| 构建进程已退出，但结果未接受 | 当前 assignment 仍未关闭；不能开启 automation | 保存 receipt，汇总全部 build PATH，submit；MO accept |
+| build 非 Green 已接受 | 留在 testing；游标 diagnose 或 audit-defer | Diagnostician → MO diagnosis-accept → fixing 预检 → Fixer；依赖/外围或已用完本地一轮则留证待 Auditor |
+| Fixer 补丁已接受 | 新 code_baseline；旧结果 stale，旧构建失效 | 再次 building 预检及 build assignment；不得直接沿用旧 Green 或启动 automation |
+| 当前 build 全部 Green 已接受 | `build_baseline=code_baseline`；仍在 testing；下一 scope 为 automation | 提交单独 testing 报告，核对设备/安装包/fixture/模型/工具；MO assign automation |
+| automation 结果接受且完整 Green | `phase=dod`；修复 memory 有完整回归后才 verified/reusable | MO 完成 DoD；父汇总，全量收尾后统一 Auditor |
+| 仅自动化环境缺失 | `automation-unavailable → automation-deferred`，逐 PATH Yellow/未执行 | 保存缺测证据，其他任务继续；环境恢复后再预检和正式复测 |
+
+宿主每次事件 ACK 后重新查询状态，不缓存旧 assignment、scope 或 context_ref。若 `context_gate` 尚未 ready，先由实际执行实例只读预检并 context-submit；派发时携带该阶段的当前报告。`building` 报告不能授权 `automation`，即使由同一个 Test-Runner 实例完成，也要重新派发并绑定独立 assignment。
+
+构建使用 `execute_test.py` 直接运行冻结 argv；automation 使用同一宿主包装器传递完整 query 到 Main。模块派发和实际执行均检查 build_ready；结果 submit/accept 再检查覆盖、版本和证据。构建 CLI 外层退出码 0 仅表示已写回执，应读取 receipt/result 并等待接受，不能凭这一个退出码转阶段。
+
+### 本地一轮的预算单位
+
+`local_fix_used` 是模块级计数，build 与 automation 共用；不是每种失败或每个阶段各有一轮。构建已使用 Fixer 后，必须允许重新构建和正式 automation 完成这一轮的验证；若其中仍有问题，再交 Auditor。只有完整正式回归通过才允许将该修复 memory 标为可复用。增加轮次或改成两个独立预算须显式修改策略，不能由宿主自行重置计数。
+
+### 构建产物与设备安装
+
+构建 Green 只证明所选命令通过。当前没有自动安装/部署步骤，Harmony adapter 也不安装 App；宿主在 testing 预检里提供已安装包与当前构建/代码基线的关联证据及 fixture。uv sandbox 只准备 Python 执行环境，不替代部署。安装/设备等仅自动化环境条件缺失时沿缺测分流；不得把旧安装包上的测试当作当前代码的通过证据。

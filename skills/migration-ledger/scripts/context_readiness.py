@@ -149,7 +149,10 @@ def submit(s, req, actor):
         'report_ref': copy.deepcopy(p['report_ref']), 'report': report}
 
 
-def requirement(op, p):
+def requirement(op, p, s=None):
+    if op == 'audit-assign' and s is not None:
+        from ledger import audit_scope
+        return 'audit-testing' if audit_scope(s)['plan']['paths'] else 'audit-verdict'
     if op == 'assign':
         return 'building' if p.get('role') == 'test-runner' and p.get('test_scope') == 'build' else WORKERS.get(p.get('role'))
     return {'register': 'global-discovery', 'global-plan': 'global-planning',
@@ -180,7 +183,7 @@ def gate(s, req, actor):
     if not enabled(s):
         return
     op, p, mid = req['operation'], req.get('payload', {}), req.get('module_id')
-    stage = requirement(op, p)
+    stage = requirement(op, p, s)
     if not stage:
         return
     obj = scope(s, mid)
@@ -210,7 +213,7 @@ def requirements(s):
 
 
 def annotate(s, mid, step):
-    stage = requirement(step.get('operation'), {'role': step.get('worker_role'), 'test_scope': step.get('test_scope')})
+    stage = requirement(step.get('operation'), {'role': step.get('worker_role'), 'test_scope': step.get('test_scope')}, s)
     if not enabled(s) or not stage:
         return step
     step = copy.deepcopy(step)

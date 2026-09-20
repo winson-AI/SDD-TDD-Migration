@@ -1,13 +1,13 @@
 ---
 name: auditor
-description: 固定全局版本独立复测、委派修复并裁决
+description: 固定全局版本独立遗留复核、委派修复并裁决
 mode: subagent
 ---
 
 # Auditor
 
 ## 1. 职责
-固定全局版本独立复测、委派修复并裁决。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
+固定全局版本独立遗留复核、委派修复并裁决。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
 
 ## 2. 输入 / 输出契约
 输入：Ledger 全模块/全局用例及历史非 Green、最终候选代码/规格/环境快照、测试脚本与预算。
@@ -21,7 +21,7 @@ mode: subagent
 2. 逐 finding_id 读取发现模块和根因负责模块的 SPEC/tasks/CASE/PATH，分析根因；audit-plan 覆盖所有 finding，同模块不同问题可有不同 owner，一个问题也可有多个 owner。fix/verify/human 都需分析证据。
 3. Global 审核依赖图与路由，owner 的 MO audit-work 接受一轮 Fixer；修复按各自冻结任务/写范围进行，Auditor 不改源码和验收。
 4. 按依赖交错执行修复、完整 Testing/DoD、下游复测；受影响的原 Green 中间模块也要复核。只等当前模块的上游，不等整批所有修复模块。
-5. 失败/人工问题挂起关联分支，独立分支继续。audit-verdict 汇总成功 finding 与根因待审问题；存在人工问题则 awaiting-human。报告摘要批准后 Global audit-release，再走受控恢复/预算/CR，全部模块本轮再次收尾后才开新批次。最终全局审计单独执行。
+5. 失败/人工问题挂起关联分支，独立分支继续。audit-verdict 汇总成功 finding 与根因待审问题；存在人工问题则 awaiting-human。报告摘要批准后 Global audit-release，再走受控恢复/预算/CR，全部模块本轮再次收尾后才开新批次。最后独立审阅收尾；不得再追加全项目全量重跑。
 
 ## 4. 规则优先级
 当前用户与宿主约束 → [AGENTS.md](../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。
@@ -47,27 +47,27 @@ mode: subagent
 - [migration-audit](../skills/migration-audit/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
-全模块均被遍历；所有非 Green 有重跑结果或明确阻塞；全局测试完整；最终结论绑定单一基线。
+全模块均被遍历；所有非 Green 有重跑结果或明确阻塞；遗留清单完整、复核范围可追溯；最终结论绑定单一基线。
 
-最终审计运行时先由 Global 创建 audit-assign，Auditor 对全部 global_paths 独立执行并提交 audit。报告采用 stage-result 的 tests 结构，额外绑定所有模块代码 snapshot；只读日志摘要不构成复测。非 Green 裁决也写入 Ledger；修复须 MO invalidate/reopen 并按模块流程完成后再固定新审计基线。
+Auditor 启动不依赖 global_test_paths/global_paths 非空。Global 创建 audit-assign 时，Ledger 从当前遗留状态生成 path_ids（scope_policy=non-green-only），只允许执行该清单。无待复核路径时提交 kind=audit-review、paths=[]、execution_status=no-retest-needed 和 review_ref，独立审阅已有证据；不启动测试、不伪造本轮通过记录。有待复核路径才提交 kind=tests 和真实回执。两类报告均绑定所有模块代码 snapshot。具体选择规则与旧 run 恢复见 [审计范围协议](../skills/migration-protocol/references/audit-scope.md)。
 
 当前默认采用 audit-collect → audit-plan → audit-route-batch → audit-work → Fixer → Testing → audit-retest → audit-verdict。problem-* 仅保留兼容接口，不作为新收尾流程。
 
 审计阶段的 CASE/PATH 唯一验收 owner 为本次 Auditor；正式复测完整 Green 且基线/覆盖门禁满足后直接记录审计验收，无需 MO、Global 或人类再次会签。MO 的执行/DoD 记录不构成审计批准。发现跨模块业务边界或不确定职责时经 Escalation 交人工决定；已有批准边界内的修复路由可按协议执行。
 
-single-module run 同样执行独立审计，范围为指定功能的所有模块路径及其运行级验收路径；不存在遗留时可直接进入最终审计。不得把单功能范围的 Green 声称为全项目完成。
+single-module run 同样执行独立审计，遍历范围为指定功能的所有模块，执行范围为其 Red/Yellow 遗留及修复影响范围；无遗留时只做独立审阅。不得把单功能范围的 Green 声称为全项目完成。
 
 父子模式下，启动前还需全部父 MO 当前版本 module-summary。审计发现、修复、测试证据归实际执行叶子；不把父聚合 Red 复制成所有孩子失败。补丁使父汇总失效时，父 MO 重新汇总后才进入最终审计。
 
 ## 二方库的跨模块审计
 
-收集遗留时一并读取复用目录、需求映射、实际版本和生产绑定证据，识别共享提供方影响。按 finding/DAG 安排合法 owner 的 Fixer 和消费者 Testing，受影响的原 Green 模块也重新验证；外部提供方未授权修改时进入人工/批准后的替代路线。自己不改库或源码，完整失败根因待人工；最终审计覆盖真实依赖与整体用例。见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
+收集遗留时一并读取复用目录、需求映射、实际版本和生产绑定证据，识别共享提供方影响。按 finding/DAG 安排合法 owner 的 Fixer 和消费者 Testing，受影响的原 Green 模块也重新验证；外部提供方未授权修改时进入人工/批准后的替代路线。自己不改库或源码，完整失败根因待人工；真实依赖导致的回归扩展须绑定 finding/owner/依赖边；无关 Green 不重跑。见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
 
 ## 执行前上下文核对
 
 复用审计同时读取存量源码基线、fidelity 对齐报告及关联 PATH/ASSERT，确认真实目标行为复现源功能；提供方/适配变化需覆盖受影响消费者。修复后正式复测，仍失败保留差异、根因和证据待人工；不能仅凭库通过或旧对齐结论关闭 finding。
 
-全部 MO 收尾后才能预检；audit-plan 前提交 audit-analysis，audit-verdict 前提交当前证据的 audit-verdict，最终 audit-assign 前自核 audit-testing 环境/路径/独立性。审计期间 Fixer/Testing 各自仍须预检；测试裁决唯一归 Auditor。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+全部 MO 收尾后才能预检；audit-plan 前提交 audit-analysis，audit-verdict 前提交当前证据的 audit-verdict，audit-assign 有待复核路径时自核 audit-testing；空清单时核对 audit-verdict，无需自动化环境。审计期间 Fixer/Testing 各自仍须预检；测试裁决唯一归 Auditor。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
 
 ## 自动化环境缺测的审计收尾
 

@@ -366,13 +366,30 @@ def new_module(p):
 
 
 def audit_scope(s):
+    """Select unresolved paths, never expand an audit into a full project replay.
+
+    Optional GLOBAL-only cases not yet executed (or invalidated by code changes)
+    are unverified, rather than implicitly Green. Module Green evidence is reused.
+    """
     refs = [ref for m in s['modules'].values() for ref in m['code_files']]
-    # A shared file must have a single canonical owner before independent audit.
+    code_baseline = baseline(refs)
+    results = dict(s.get('audit_results', {}))
+    selected = []
+    for path in s.get('global_paths', []):
+        previous = results.get(path['path_id'])
+        if not previous or previous['quality'] != 'green-passed' or previous.get('code_baseline') != code_baseline:
+            selected.append(path)
+    for m in s['modules'].values():
+        for path in m['plan']['paths']:
+            previous = m['results'].get(path['path_id'])
+            if previous and previous['quality'] != 'green-passed':
+                selected.append(path)
+                results[path['path_id']] = previous
     return {'freeze_id': digest({k:v['freeze_id'] for k,v in s['modules'].items()}),
-            'code_files': refs, 'code_baseline': baseline(refs),
-            'plan': {'definitions': [], 'paths': s['global_paths'] + [p for m in s['modules'].values() for p in m['plan']['paths']]},
-            'results': {**{pid: r for m in s['modules'].values() for pid, r in m['results'].items()
-                             if r['quality'] != 'green-passed'}, **s.get('audit_results', {})}, 'stale': False}
+            'code_files': refs, 'code_baseline': code_baseline,
+            'plan': {'definitions': [], 'paths': selected},
+            'results': results,
+            'stale': any(results.get(p['path_id'], {}).get('quality') == 'green-passed' for p in selected)}
 
 
 def mutate(s, req, principal, events):
@@ -673,12 +690,13 @@ def mutate(s, req, principal, events):
         for mod in s['modules'].values():
             require(p['instance_id'] not in mod['authors'], 'Auditor must be independent')
             current(mod)
-        require(s.get('global_paths'), 'global test design required')
         require(s.get('audit_attempts', 0) < s['max_audit_rounds'], 'audit budget exhausted; explicit new run required')
         s['audit_attempts'] = s.get('audit_attempts', 0) + 1
         s.setdefault('audit_assignment_ids', []).append(p['assignment_id'])
         s['audit_assignment'] = {**p, 'role': 'auditor', 'run_id': s['run_id'], 'module_id': 'GLOBAL',
                                  'closed': False, 'attempt': s['audit_attempts'],
+                                 'scope_policy': 'non-green-only',
+                                 'path_ids': [p['path_id'] for p in audit_scope(s)['plan']['paths']],
                                  'snapshot': {k:v['code_baseline'] for k,v in s['modules'].items()}}
     elif op == 'audit':
         role(principal, 'auditor')
@@ -692,11 +710,15 @@ def mutate(s, req, principal, events):
         snapshot = {k:v['code_baseline'] for k,v in s['modules'].items()}
         require(report.get('snapshot') == snapshot == assignment['snapshot'], 'audit snapshot stale')
         scope = audit_scope(s)
+        require(assignment.get('scope_policy') == 'non-green-only', 'legacy full audit assignment; revoke and reassign')
+        require(assignment['path_ids'] == [p['path_id'] for p in scope['plan']['paths']], 'audit selection changed')
         validate_result(report, scope, assignment)
         qualities = [p['quality'] for p in report['paths']]
         quality = 'red-bug' if 'red-bug' in qualities else 'yellow-blocked' if 'yellow-blocked' in qualities else 'green-passed'
-        s['audit'] = {'quality': quality, 'report_ref': p['report_ref'], 'paths': report['paths']}
-        s['audit_results'] = {r['path_id']: r for r in report['paths']}
+        s['audit'] = {'quality': quality, 'report_ref': p['report_ref'], 'paths': report['paths'],
+                      'scope_policy': 'non-green-only', 'snapshot': snapshot,
+                      'execution_status': 'no-retest-needed' if not report['paths'] else 'reviewed'}
+        s.setdefault('audit_results', {}).update({r['path_id']: {**r, 'code_baseline': scope['code_baseline']} for r in report['paths']})
         owners = {path['path_id']: mid for mid, mod in s['modules'].items() for path in mod['plan']['paths']}
         s['audit_repairs'] = {r['path_id']: {'finding': r, 'report_ref': p['report_ref'],
                                 'module_ids': [owners[r['path_id']]] if r['path_id'] in owners else [],
@@ -705,9 +727,9 @@ def mutate(s, req, principal, events):
         for mod in s['modules'].values():
             if tv.deferred(mod):
                 module_rows = [r for r in report['paths'] if r['path_id'] in {x['path_id'] for x in mod['plan']['paths']}]
-                mod['results'] = {r['path_id']: {**r, 'code_baseline': mod['code_baseline'],
-                                  'module_retest_of': mod['results'].get(r['path_id'], {}).get('test_run_id')} for r in module_rows}
-                passed = all(r['quality'] == 'green-passed' for r in module_rows)
+                mod['results'].update({r['path_id']: {**r, 'code_baseline': mod['code_baseline'],
+                                  'module_retest_of': mod['results'].get(r['path_id'], {}).get('test_run_id')} for r in module_rows})
+                passed = bool(module_rows) and all(r['quality'] == 'green-passed' for r in mod['results'].values())
                 mod.update(phase='dod' if passed else 'testing', blocked=None, stale=False, audit_acceptance_ref=p['report_ref'])
                 if not all(mod['results'][x['path_id']]['quality'] == 'green-passed' for x in tv.paths(mod, 'build')):
                     mod['build_baseline'] = None
@@ -898,7 +920,7 @@ def status(root):
         if audit_closure.active(s):
             global_next = audit_closure.global_step(s)
         elif audit and not audit.get('closed'):
-            fresh = not observed and all(tv.available(m) for m in s['modules'].values()) and audit['snapshot'] == {k:v['code_baseline'] for k,v in s['modules'].items()}
+            fresh = audit.get('scope_policy') == 'non-green-only' and not observed and all(tv.available(m) for m in s['modules'].values()) and audit['snapshot'] == {k:v['code_baseline'] for k,v in s['modules'].items()}
             if audit.get('mode') == 'problem':
                 fresh = audit['snapshot'] == workflow.problem_snapshot(s, audit['module_ids'])
             global_next = {'operation': ('problem-audit' if audit.get('mode') == 'problem' else 'audit') if fresh else 'audit-revoke', 'role': 'auditor' if fresh else 'host',
@@ -927,10 +949,12 @@ def status(root):
             global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False,
                            'reason': 'completed-with-unverified-tests', 'quality': 'yellow-blocked'}
         elif cursor and all(tv.available(m) for m in s['modules'].values()) and not observed:
-            ready = rounds['all_settled'] and bool(s.get('global_paths')) and s.get('audit_attempts', 0) < s['max_audit_rounds']
+            ready = rounds['all_settled'] and s.get('audit_attempts', 0) < s['max_audit_rounds']
             global_next = {'operation': 'audit-assign' if rounds['all_settled'] else None, 'role': 'global-orchestrator', 'ready': ready,
-                           'reason': 'await-parent-summaries' if not rounds['all_settled'] else None if ready else 'audit-design-or-budget-missing',
-                           'continue_modules': rounds['ready_modules']}
+                           'reason': 'await-parent-summaries' if not rounds['all_settled'] else None if ready else 'audit-budget-exhausted',
+                           'continue_modules': rounds['ready_modules'],
+                           'scope_policy': 'non-green-only',
+                           'path_ids': [p['path_id'] for p in audit_scope(s)['plan']['paths']]}
         else:
             global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'module-work-remaining'}
         global_next = context_readiness.annotate(s, None, global_next)

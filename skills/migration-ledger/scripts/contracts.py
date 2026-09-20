@@ -148,6 +148,13 @@ def validate_result(result, module, assignment):
             note = read_json(check_ref(result.get('fix_note_ref')))
             require(all(note.get(k) for k in ('root_cause', 'strategy', 'applicability', 'risks')), 'repair memory note incomplete')
         return kind
+    if kind == 'audit-review':
+        require(assignment['role'] == 'auditor' and assignment.get('scope_policy') == 'non-green-only', 'review owner/scope mismatch')
+        require(not module['plan']['paths'] and result.get('paths') == [], 'review cannot skip unresolved paths')
+        require(result.get('execution_status') == 'no-retest-needed', 'explicit no-retest conclusion required')
+        require(result.get('code_baseline') == module['code_baseline'] == baseline(module['code_files']), 'review baseline mismatch')
+        check_ref(result.get('review_ref'))
+        return kind
     require(kind == 'tests' and assignment['role'] in ('test-runner', 'auditor'), 'unsupported result kind/owner')
     require(result.get('code_baseline') == module['code_baseline'], 'test baseline mismatch')
     require(baseline(module['code_files']) == module['code_baseline'], 'current code changed')

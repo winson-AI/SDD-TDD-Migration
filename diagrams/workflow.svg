@@ -123,8 +123,8 @@
 <text x="610.0" y="2007.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">纯自动化缺环境：保留未验证清单，其他可执行任务继续</text>
 <path d="M610,2020 L610,2080" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="100" y="2080" width="1020" height="125" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
-<text x="610.0" y="2121.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">最终独立审计 → 全局报告</text>
-<text x="610.0" y="2155.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">模块已构建 / 可执行工作收尾 + 父汇总有效 → 固定基线，执行可用验证</text>
+<text x="610.0" y="2121.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">独立审阅收尾 → 全局报告</text>
+<text x="610.0" y="2155.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">固定基线，只复核遗留 / 受影响路径；无遗留只审阅，不全量重跑</text>
 <text x="610.0" y="2184.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全通过才 Green；仅缺自动化环境：Yellow / 未执行报告，本轮可结束</text>
 <rect x="1210" y="190" width="330" height="280" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="1375.0" y="251.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">全局读取视野</text>

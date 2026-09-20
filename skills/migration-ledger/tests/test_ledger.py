@@ -84,7 +84,7 @@ class FlowTests(unittest.TestCase):
         plan = {'global_spec': state['global_spec'], 'new_architecture': state['new_architecture'],
                 'boundary_review': {'issues': []},
                 'requirement_owners': {'R1': list(state['modules'])},
-                'case_owners': {'C1': list(state['modules']) + ['GLOBAL']}}
+                'case_owners': {'C1': list(state['modules']) + (['GLOBAL'] if state['global_paths'] else [])}}
         if state.get('context_readiness_required'):
             evidence = self.ref('feature-discovery.md', 'Reviewed legacy entry and complete R1 behavior in fixture')
             inventory = {'schema_version': 1, 'legacy_root': state['legacy_root'], 'entry_mode': state['entry_mode'],
@@ -177,12 +177,10 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
                   'snapshot': {'M001': self.state()['modules']['M001']['code_baseline']},
                   'paths': [{'path_id': 'GP1', 'quality': 'green-passed', 'executed': True,
                              'test_run_id': receipt['test_run_id'], 'execution_receipt': rr, 'assertions': assertions}]}
-        rr2 = execute(self.root, 'GLOBAL', 'AUDIT', 'P1', [sys.executable, str(self.base / 'adapter.py')],
-                      str(self.target), self.base / 'module-independent-exec')
-        receipt2 = json.loads(Path(rr2['path']).read_text())
-        report['paths'].append({'path_id': 'P1', 'quality': 'green-passed', 'executed': True,
-                                'test_run_id': receipt2['test_run_id'], 'execution_receipt': rr2, 'assertions': assertions,
-                                'retest_of': result['paths'][0]['test_run_id']})
+        self.assertEqual([p['path_id'] for p in scope['plan']['paths']], ['GP1'])
+        with self.assertRaisesRegex(Rejected, 'outside collected audit scope'):
+            execute(self.root, 'GLOBAL', 'AUDIT', 'P1', [sys.executable, str(self.base / 'adapter.py')],
+                    str(self.target), self.base / 'must-not-replay-green')
         self.call('audit', {'report_ref': self.ref('audit.json', report)}, role='auditor', module=None)
         self.assertEqual(self.state()['quality'], 'green-passed')
 
@@ -580,15 +578,15 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
 
     def test_audit_failure_routes_repair_and_preserves_retest_chain(self):
         self.finish_module()
-        report = self.audit_report('AUD1', failed=['GP1', 'P1'])
+        report = self.audit_report('AUD1', failed=['GP1'])
         self.call('audit', {'report_ref': self.ref('audit1.json', report)}, role='auditor', module=None)
         self.assertEqual(self.state()['global_next_step']['operation'], 'audit-route')
         with self.assertRaises(Rejected):
             self.call('audit-assign', {'assignment_id': 'EARLY', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         self.call('audit-route', {'path_id': 'GP1', 'module_ids': ['M001'], 'reason_ref': self.ref('route.md', 'owner reviewed')},
                   role='global-orchestrator', module=None)
-        with self.assertRaises(Rejected): self.call('repair-accept', {'path_ids': ['GP1', 'P1']}, role='auditor')
-        self.call('repair-accept', {'path_ids': ['GP1', 'P1']})
+        with self.assertRaises(Rejected): self.call('repair-accept', {'path_ids': ['GP1']}, role='auditor')
+        self.call('repair-accept', {'path_ids': ['GP1']})
         self.assertEqual(self.state()['next_steps'][0]['operation'], 'diagnose')
         self.call('diagnose', {'diagnosis_ref': self.ref('audit-diag.md', 'cause'), 'owner': 'M001', 'root_cause': 'code'}, role='diagnostician')
         self.call('diagnosis-accept'); self.implementation(role='fixer', aid='FIX1')
