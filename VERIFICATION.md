@@ -314,3 +314,10 @@ Python AST、模板/schema JSON、SVG、相关文档链接、3 个修改 Skill �
 - 缺测补验合并结果，保留已有构建 Green；跨模块修复仍依据 finding/owner/依赖图做受影响模块回归，一轮失败转人工。
 - Ledger **178 项通过**；新增空 init 审阅、空 init 跨模块修复/失败人工、Red/Yellow 选集与拒绝空审阅掩盖问题、缺测补验保留构建、有效全局 Green 复用及失效复测链等验证。
 - Harmony **20 项通过**（测试替身，不代表真实设备/LLM 测试）。技能校验、Python AST、JSON、文档链接及 git diff --check 通过；三张受影响流程图已重新生成并目视检查。
+
+## 父 MO 命名与 GO 用例报告（2026-09-20）
+
+- 父名称统一 parent-mo-M<编号>，从待拆根模块到父汇总/冷恢复保持一致；status.parent_mo_names 与父 next_step.agent_name 提供宿主信号，父 session 自动补全名称并拒绝显式错名。不更改冻结分配包或真实实例身份。
+- Ledger 自动投影 reports/migration-report.md/json，status 返回绝对路径及 sequence；GO 收尾展示全部 CASE 状态、PATH 明细与非 Green 根因/证据。
+- 报告保留未规划/未运行/自动化缺测；过期 Green 降为有效 Yellow并保留历史值。当前 Auditor 结果可覆盖旧模块结果，空 audit-review 沿用真实 CASE 证据，不生成假测试。构建 Green 不掩盖业务缺测；跨模块 CASE 聚合失败不覆盖无关已通过路径。
+- Ledger **188 项测试通过**，其中新增 10 项覆盖名称/会话恢复、完整 Green、Red 断言与引用、缺路径/缺测、代码过期、Auditor 补验/空审阅、共享 CASE 聚合和人工审核证据。技能校验、Python AST、文档链接与 git diff --check 通过。验证使用隔离临时运行及测试执行器，不代表完成真实项目迁移或设备测试。

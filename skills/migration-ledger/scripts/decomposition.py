@@ -13,6 +13,12 @@ OPERATIONS = {'decompose', 'decompose-accept', 'module-summary'}
 TERMINAL = {'completed', 'waiting-auditor', 'waiting-dependency', 'waiting-human', 'automation-deferred'}
 
 
+def parent_mo_names(s):
+    """Stable host display names, deliberately outside frozen allocation content."""
+    ids = set(s.get('module_groups', {})) | {mid for mid, m in s['modules'].items() if m.get('decomposition_required')}
+    return {mid: 'parent-mo-' + mid for mid in sorted(ids)}
+
+
 def planning_context(s):
     """Global read context, separate from any particular module's write scope."""
     sources = {}
@@ -119,7 +125,8 @@ def group_step(s, group):
     from ledger import current, next_step
     step = {'module_id': group['module_id'], 'phase': group['phase'],
             'expected_revision': group['revision'], 'operation': None,
-            'role': 'module-orchestrator', 'ready': False, 'reason': 'await-child-modules'}
+            'role': 'module-orchestrator', 'agent_name': 'parent-mo-' + group['module_id'],
+            'ready': False, 'reason': 'await-child-modules'}
     for mid in leaves(s, group['module_id']):
         m = s['modules'][mid]
         if m.get('plan'):

@@ -76,7 +76,7 @@ def read_events(root):
 
 
 def project(root, s, sequence):
-    atomic(root / 'ledger/global.json', {**s, 'last_sequence': sequence})
+    atomic(root / 'ledger/global.json', {**s, 'last_sequence': sequence, 'parent_mo_names': decomposition.parent_mo_names(s)})
     for mid, m in s['modules'].items():
         atomic(root / f'ledger/modules/{mid}.json', {**m, 'last_sequence': sequence})
     for mid, group in s.get('module_groups', {}).items():
@@ -349,7 +349,10 @@ def _next_step(s, m):
 
 
 def next_step(s, m):
-    return context_readiness.annotate(s, m['module_id'], _next_step(s, m))
+    step = context_readiness.annotate(s, m['module_id'], _next_step(s, m))
+    if m.get('decomposition_required') and step['role'] == 'module-orchestrator':
+        step['agent_name'] = 'parent-mo-' + m['module_id']
+    return step
 
 
 def new_module(p):
@@ -638,6 +641,10 @@ def mutate(s, req, principal, events):
         role(principal, 'module-orchestrator')
         name = p['role']
         require(p.get('session_id'), 'session id required')
+        parent_name = decomposition.parent_mo_names(s).get(mid)
+        if name == 'module-orchestrator' and parent_name:
+            require(p.get('agent_name', parent_name) == parent_name, 'parent MO name must be ' + parent_name)
+            p = {**p, 'agent_name': parent_name}
         previous = m['sessions'].get(name)
         if previous and previous['session_id'] != p['session_id']:
             require(p.get('reason') == 'session-unavailable' and p.get('checkpoint_ref'), 'replacement requires cold recovery record')
@@ -959,6 +966,9 @@ def status(root):
             global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'module-work-remaining'}
         global_next = context_readiness.annotate(s, None, global_next)
         return {**s, 'context_requirements': context_readiness.requirements(s),
+                'parent_mo_names': decomposition.parent_mo_names(s),
+                'migration_report': {'json': str(root / 'reports/migration-report.json'),
+                                     'markdown': str(root / 'reports/migration-report.md'), 'sequence': len(events)},
                 'last_sequence': len(events), 'observed_invalidations': observed,
                 'next_steps': cursor, 'global_next_step': global_next, 'ready_modules': rounds['ready_modules'],
                 'module_rounds': rounds,

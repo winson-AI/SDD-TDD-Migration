@@ -79,3 +79,7 @@ Test-Runner 在 Coding 接受后先编译构建，再执行自动化测试；构
 ## Auditor 范围
 
 全量收尾指等待全部 MO 实现/测试本轮结束，不代表测试全量重跑。Auditor 收集 Ledger 的 Red/Yellow，读取对应 SPEC/CASE/PATH，分析根因、委派必要的一轮 Fixer并正式复核；失败输出根因待人工。无关有效 Green 保留证据；无遗留只独立审阅。global_test_paths/global_paths 允许为空，不能作为启动前置。遵守 [审计范围协议](skills/migration-protocol/references/audit-scope.md)。
+
+## 编排名称与收尾报告
+
+父 MO 统一命名 `parent-mo-<module_id>`，例如 parent-mo-M010；宿主读取 status.parent_mo_names，并在创建/恢复时保持可见名称一致。GO 收尾必须向用户提供全部测试 CASE 状态，非 Green 汇总原因与证据；读取 Ledger 生成的 status.migration_report，不省略缺测、不用构建 Green 代替功能验证。详见 [报告协议](skills/migration-protocol/references/migration-report.md)。

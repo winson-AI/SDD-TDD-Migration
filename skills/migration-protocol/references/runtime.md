@@ -19,6 +19,8 @@ openspec/
     ledger/events.jsonl                       # 唯一事实日志，只追加
     ledger/global.json                        # 可重建投影
     ledger/modules/M001.json                   # 可重建投影
+    reports/migration-report.json             # GO 全 CASE/PATH 状态及非 Green 证据投影
+    reports/migration-report.md               # 同一 sequence 的可读报告
     assignments/<assignment-id>.json
     modules/M001/_input.json
     artifacts/<artifact-id>/...                # 提交后的不可变快照、报告、冻结内容

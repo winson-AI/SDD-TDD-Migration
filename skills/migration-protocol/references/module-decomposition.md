@@ -77,3 +77,12 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 ## 7. 拆分与任务规划的上下文验收
 
 父 MO 在 decompose 前提交 decomposition 报告，GO 在 decompose-accept 核对同一依据；子 Spec Designer 在 plan 前提交 planning 报告，由子 MO freeze 再验。不可只传目录或摘要，须包含权威输入、生产链路、接口 owner 和可执行任务依据。详见 [上下文就绪协议](context-readiness.md)。
+
+## 父 MO 统一命名
+
+父 MO 的名称固定为 `parent-mo-<module_id>`，模块 ID 保留原来的大写 M 与编号，例如 M010 → parent-mo-M010。GO 登记根模块后即使用该名称，拆分为 module_groups 后保持不变；跨会话冷恢复仍使用同一名称。project 的各父 MO 分别命名；single-module 的唯一根父 MO 同样遵守。不同 run 以 run_id 区分，不修改该名称格式。
+
+- Ledger `status.parent_mo_names` 返回父 ID → 名称；父 MO 的 next_steps 条目包含 agent_name，GO 接受拆分等其他角色动作不冒用父名称。
+- 宿主创建/恢复父 MO 时，将该名称用于支持的 name/title/可见标签。若工具限制技术 ID 字符集，技术 ID 保持合法，展示标签与 Ledger agent_name 仍使用上述格式。
+- `session` 的 role 仍为 module-orchestrator；父 session 未提供 agent_name 时自动补全，提供不同名称则拒绝。instance_id、session_id 是宿主真实身份，不以名称替代认证或授权。
+- 名称是运行展示元数据，不加入冻结 assigned_module/planning_context，旧 run 的 SPEC/分配摘要不因命名增强失效；无需改写旧事件。

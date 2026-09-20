@@ -78,3 +78,7 @@ single-module 选定一个根功能，父 MO 仍拆分子功能；每个子功�
 ## 构建与自动化分流
 
 Test-Runner assignment 明确 test_scope=build|automation；先接受构建，再派发自动化。当前构建通过且仅自动化环境缺失时，接受 automation-unavailable，逐路径 Yellow，模块 automation-deferred 可进入父汇总；不取消兄弟、不挡住可消费当前代码的下游。恢复使用 ready 报告和 automation-resume，无新增人工批准；不能用该入口掩盖真实 Red。详见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
+
+## 父 MO 命名信号
+
+父 MO 使用 `parent-mo-<module_id>`，例如 `parent-mo-M010`。根模块待拆分、协调子模块、提交汇总及冷恢复均保持此名称；宿主从 `status.parent_mo_names` / 父 next_step.agent_name 读取。session(role=module-orchestrator) 自动记录该 agent_name，显式提交其他名称会被拒绝。角色仍为 module-orchestrator，真实 instance_id/session_id 仍由宿主绑定；子 MO 不套用 parent-mo 前缀。规则见 [父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md#父-mo-统一命名)。

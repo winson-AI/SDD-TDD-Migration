@@ -87,3 +87,9 @@ def materialize(root, state, sequence):
             report = json.dumps(b['human_report'], ensure_ascii=False, indent=2)
             write(root / 'audit-reports' / (b['batch_id'] + '.json'), report + '\n')
             write(root / 'audit-reports' / (b['batch_id'] + '.md'), '# Audit failure — human review required\n\n```json\n' + report + '\n```\n')
+
+    # GO reads this complete case inventory when reporting the run outcome.
+    import migration_report
+    report = migration_report.build(root, state, sequence)
+    write(root / 'reports/migration-report.json', json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+    write(root / 'reports/migration-report.md', migration_report.render(report))

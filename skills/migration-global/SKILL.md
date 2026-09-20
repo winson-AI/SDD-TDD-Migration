@@ -44,3 +44,7 @@ CASE 覆盖归属与验收角色分开：模块阶段唯一验收 owner 为对�
 ## 功能清单来源与完备性
 
 默认从测试用例汇总提取模块功能列表；没有汇总时，先完整理解存量源码并抽取功能，之后生成需求/CASE。逐项核对源码入口、功能与用例的双向覆盖；任何疑问立即人工介入。新运行 global-plan 必填 feature_inventory_ref 和 feature_owners，完备性与处理流程见 [切片规范](references/slicing.md#功能清单完备性门禁)。
+
+## 父 MO 名称与最终报告
+
+父 MO 一律显示为 `parent-mo-<module_id>`（如 parent-mo-M010），派发/恢复使用 `status.parent_mo_names`，技术实例 ID 与显示名分开。GO 在本轮收尾后必须向用户提供完整 CASE 状态清单，非 Green 逐项汇总根因、责任方、下一步及证据；无测试环境不能仅称“迁移成功”。按 [GO 报告协议](../migration-protocol/references/migration-report.md) 读取 status.migration_report，不重复验收或触发全量测试。

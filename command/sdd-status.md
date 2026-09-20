@@ -46,3 +46,5 @@ ledger.py status；若 observed_invalidations 非空交守卫处理。具体 pay
 同时展示 module_rounds 的 registered/settled/unfinished/active/ready 模块清单及 blockers。quality 为全局聚合，不代表每个模块的测试结果或执行结束；必须分别展示各模块 phase/quality。遇到 await-all-module-rounds 时，按 continue_modules 继续执行、按 wait_for_modules 等待结果，不把等待审计的状态回写为其他模块失败。
 
 status.module_inputs 给出每个父/子 MO 的权威 scope、context_refs、CASE、写范围和依赖；子包包含 parent_context。它与全局 planning_context 一起用于认领、规划与核对范围，不代表已启动 Agent。
+
+同时输出 `parent_mo_names`（父 MO 统一名，如 parent-mo-M010）与 `migration_report` 的 JSON/Markdown 绝对路径和 sequence。报告包含全部 CASE/PATH 状态与非 Green 原因/证据；运行中报告明确 in-progress，不作为完成验收。GO 收尾使用 [报告协议](../skills/migration-protocol/references/migration-report.md)。

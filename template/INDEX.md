@@ -79,3 +79,5 @@
 project-context/global-input 的 build 为可选配置，空对象表示由 GO 发现命令。stage-plan/test-paths 示例含 kind=build 和 kind=automation；build.command.selection_ref 冻结选择依据。assign 增加 test_scope。automation-unavailable / automation-resume / audit-unavailable 的 payload.context_ref 引用实际角色提交的报告。详见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
 
 - [audit-review.json](audit-review.json)：Auditor 待验证清单为空时的独立证据审阅；不能用于跳过 Red/Yellow。
+
+- [migration-report.md](migration-report.md)：GO 收尾展示契约，包含完整 CASE 状态、父 MO 名称及非 Green 原因/证据；本地运行优先使用 Ledger 自动生成的报告。

@@ -161,3 +161,7 @@ Harmony 已提供独立 [uv sandbox 与使用说明](skills/migration-test/runti
 ### Auditor 遗留复核范围
 
 所有 MO 本轮实现/测试收尾后，Auditor 统一收集 Red/Yellow，依据对应 SPEC/CASE/PATH 分析、委派一轮必要修复并复核；仍失败输出根因待人工。有效且无关的 Green 不重跑。`global_test_paths: []` 不阻止启动；无待测路径只提交独立 `audit-review`，不要求自动化环境。旧 run 可直接用更新后的 Ledger 查询下一步，无需重新 init。细则与恢复见 [审计范围协议](skills/migration-protocol/references/audit-scope.md)。
+
+### 父 MO 名称与 GO 收尾报告
+
+父 MO 统一命名 `parent-mo-M010`（模块 M010），派发与恢复均保持一致。GO 在本轮收尾后提供全部测试用例状态表，Red/Yellow 附根因、责任方、下一步和证据。Ledger 自动生成 `<run_root>/reports/migration-report.md` / `.json`，由 `status.migration_report` 定位；未执行/过期证据保留 Yellow。详见 [GO 报告协议](skills/migration-protocol/references/migration-report.md)。

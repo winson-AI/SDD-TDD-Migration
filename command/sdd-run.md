@@ -54,3 +54,7 @@ Global 选择 ready 模块 → MO assign/accept。具体 payload/命令用法见
 ## 上下文预检调度
 
 先读 context_gate/context_requirements。原操作因 context-readiness-required 未就绪时，宿主启动该角色只读预检，提交 context-submit 后重读 revision，再携 context_ref 执行原操作。不得因 ready=false 停止补上下文或提前审计；缺项由 MO 按自身证据明确挂起。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+
+## 命名与收尾信号
+
+宿主创建父 MO 时按 `status.parent_mo_names` 命名为 parent-mo-M<编号>。本轮收尾后 GO 必须提供全部测试用例状态清单，非 Green 附原因和证据，不能仅给“已完成”一句话；复用 `status.migration_report` 指向的报告，遵守 [报告协议](../skills/migration-protocol/references/migration-report.md)。

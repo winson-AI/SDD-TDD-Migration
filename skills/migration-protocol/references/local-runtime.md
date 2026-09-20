@@ -343,3 +343,10 @@ Ledger 保存 project_id/project_revision/project_context_ref，在初始化校�
 | audit-unavailable | Auditor / GLOBAL | payload.context_ref 为独立 audit-testing blocked；全量收尾、无其他待处理缺陷；保存 Yellow 完整缺测报告，completed-with-unverified-tests |
 
 仅缺自动化环境时，既有“tooling 挂起需人工恢复”不适用；可执行下游和并行任务继续。宿主跟随 context 游标接受明确收尾，不空等 blocked。审计批次可保留 unverified_findings 完成本轮，不计 resolved；最终报告由独立 Auditor 负责。详细输入、Gradle 发现及证据见 [双环节协议](build-automation.md)。
+
+
+## 父 MO 命名与 GO 报告投影
+
+`status.parent_mo_names` 派生统一父名称 parent-mo-M<编号>；父 MO next_steps.agent_name 同步给宿主。父 session(role=module-orchestrator) 自动补全 agent_name，显式错名拒绝；不改变 role/instance/session 身份规则及冻结分配包。
+
+Ledger 在事件接受/状态重建时生成 `<run_root>/reports/migration-report.json` 与 `.md`。`status.migration_report` 返回路径和 sequence。报告完整列出 case_ids 对应的 CASE、模块/PATH 明细及非 Green 原因和证据；尚无路径/结果同样列入 Yellow。GO 在迁移本轮收尾时读取并交付该报告，人工待决/缺测不得省略。它是可重建投影，不是新的状态或验收权威。字段、证据规则见 [GO 报告协议](migration-report.md)。
