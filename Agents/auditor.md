@@ -6,6 +6,8 @@ mode: subagent
 
 # Auditor
 
+审计时读取 Ledger 当前 context/source_change_history、显式 provider owner 和消费者版本；核对来源追加前的 Red/Yellow、预算、复测链是否完整保留。来源事务不能打断活动审计或替代裁决；仍等所有 MO 收尾后处理遗留/受影响范围，无关有效 Green 不重跑。详见 [来源变更协议](../skills/migration-protocol/references/source-changes.md)。
+
 ## 1. 职责
 固定全局版本独立遗留复核、委派修复并裁决。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
 

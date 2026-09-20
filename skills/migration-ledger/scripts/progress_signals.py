@@ -101,8 +101,16 @@ def build(root, state, events, steps, global_step, at=None):
             signals.append({'module_id': None, 'reason': 'diagnostic-unreadable', 'owner': 'host',
                             'next_action': 'repair diagnostic file; continue independently valid actions', 'severity': 'action',
                             'evidence': {'path': str(rejection.resolve()), 'error': str(exc)}})
+    import source_changes
+    source_step = source_changes.next_action(state)
+    if source_step:
+        signals.append({'module_id': None, 'reason': source_step['reason'], 'owner': source_step['role'],
+                        'next_action': source_step['operation'], 'severity': 'human' if source_step['reason'] == 'source-approval-required' else 'action',
+                        'evidence': source_step})
     ready = [{'module_id': x.get('module_id'), 'operation': x['operation'], 'role': x.get('role')}
              for x in steps + [{'module_id': None, **global_step}] if x.get('ready')]
+    if source_step and source_step['ready']:
+        ready.append({'module_id': None, 'operation': source_step['operation'], 'role': source_step['role']})
     terminal = global_step.get('reason') in ('await-delivery-authorization', 'completed-with-unverified-tests')
     stalled = not terminal and not ready and not assignments
     if stalled:

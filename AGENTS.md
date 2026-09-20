@@ -66,6 +66,12 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 二方库不能直接复用时，基于功能目标、已知上下文、存量源码和目标现状选择 adapt/reference/new，冻结任务后继续 Coding。只有替代实现也经核验证实不可行，MO 才通过 suspend(reason_code=not-implemented) 留证并向用户展示“未实现”；独立模块继续。具体核验及提醒见复用协议第 8 节。
 
+目标已有功能实现时，同样必须读取复用/依赖二方库并检查业务冗余。确认重复且复用/适配可行后，在分配范围内直接重构目标实现、切换真实依赖并清理冗余；不能重复造轮子，也不能仅加依赖却保留旧生产逻辑。按冻结任务执行并验证 fidelity/受影响消费者，细则见复用协议第 9 节。
+
+新 v2 能力目录明确 provider owner：null 为经评审的已有稳定能力，非空为本轮唯一叶子 owner；write_paths 仅控制权限/互斥，不能推断业务归属。GO 规划归属，父 MO 分配共享改动并收窄写集合，子 MO 冻结复用与适配任务。需改提供方本体走旧基线→授权 owner 变更→新版本→消费者重新冻结/复测；不得以 adapt 绕过 hash。
+
+同 run 新增只读来源按 [来源变更协议](skills/migration-protocol/references/source-changes.md) 执行 GO source-review → Host 绑定用户决策 → reconfigure-sources：新快照、完整影响评审、仅受影响闭包重新规划。保留无关模块有效结果、Red/Yellow、预算和历史；相关阻塞可凭明确决策恢复，无关阻塞不能被顺带解除。宿主消费 source_change_next_step，不能因等待版本切换取消其他 MO。
+
 ## 阶段上下文就绪
 
 新运行在 GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发与 Auditor 分析/裁决/最终验证前，执行 [上下文就绪协议](skills/migration-protocol/references/context-readiness.md)。实际执行实例先只读核对并经 Ledger context-submit 留证，原控制节点接受；缺项不得执行，必须补齐或显式记录该模块阻塞，无关模块继续。

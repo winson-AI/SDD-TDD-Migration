@@ -15,6 +15,8 @@
 
 ## 二方库与已有能力
 
+新目录使用 v2 显式 provider owner：已有稳定能力用经评审的 null，本轮交付用唯一叶子 MO；写权限/资源锁不再推断 v2 业务归属。运行中补充来源可走 **GO source-review → Host reconfigure-sources → 受影响子 MO 重规划/冻结/复测 → 父 MO 汇总 → Auditor 收尾**，保留无关有效结果与历史失败/预算。接口、模板及边界见 [来源变更协议](skills/migration-protocol/references/source-changes.md)。
+
 迁移规划先评估目标项目已有能力及用户指定的其他项目模块：**来源登记 → 功能语义抽取 → 结合需求映射 → 冻结接入/适配 tasks → Coding → 真实依赖验证**。GO 建目录，父 MO 统一复用分工，子 MO 形成 reuse/adapt/reference/new 决策；依赖变化按消费者范围复测，最终由 Auditor 裁决。
 
 用户指定其他项目时，通过项目配置的可选 `reuse_sources` 保存 root/module_paths/用途；目标项目自动纳入评估。规则、配置实例及控制器边界见 [二方库复用协议](skills/migration-protocol/references/reuse-dependencies.md)。
@@ -141,6 +143,8 @@ Harmony 已提供独立 [uv sandbox 与使用说明](skills/migration-test/runti
 ## 持久化项目上下文
 
 已提供实际 [project_context.py](skills/migration-ledger/scripts/project_context.py)：init/update/show/history/prepare。首次输入保存项目配置，更新只合并明确字段并保留版本；本次模块选择和临时 overrides 不写回默认值。prepare 固化配置及文档副本，Ledger init 绑定该快照；新配置只影响新运行，旧运行保持原版本。
+
+context/files 中的 Markdown 会同步固化链接到的文档/框架代码/图片，生成正确跳转的阅读副本及独立 hash；OpenSpec 也更新内部互链和指向上下文的链接。原始证据保持不变，缺失或未固化链接输出 warning。旧快照不能直接改链接/hash，需新 run prepare 才能采用完整映射。详见 [上下文链接协议](skills/migration-protocol/references/project-context.md#contextfiles-的跨文件链接)。
 
 例如“目标工程改为 /workspace/new-target”更新项目配置；随后“single-module，用户登录”使用新版本，由 Global 生成全部模块输入和规格/测试。跨模块或不确定业务边界仍按原规则澄清。
 

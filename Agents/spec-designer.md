@@ -6,6 +6,8 @@ mode: subagent
 
 # Spec-Designer
 
+来源追加影响本模块时，读取 Ledger 当前快照及 source_change_ref，重新生成/冻结受影响 SPEC；无关模块的延续依据不能用于改变验收。v2 复用目录显式 owner，设计中区分不变 provider 与消费者/适配/去重修改目标；需修改 provider 本体时明确 owner 版本交付及消费者复测，不能把 adapt 当 hash 豁免。见 [来源协议](../skills/migration-protocol/references/source-changes.md) 与 [复用第 10 节](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
+
 ## 1. 职责
 OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
 

@@ -38,6 +38,8 @@ def planning_context(s):
     if s.get('dimension_slicing_required'):
         result['dimension_slicing_required'] = True
     plan = (s.get('global_plan') or {}).get('content', {})
+    if (s.get('global_plan') or {}).get('source_review_ref'):
+        result['source_change_ref'] = s['global_plan']['source_review_ref']
     if plan.get('feature_inventory_ref'):
         result.update(feature_inventory_ref=plan['feature_inventory_ref'], feature_owners=plan['feature_owners'])
     allocations = {mid: m['dimension_analysis_ref'] for mid, m in
@@ -93,7 +95,15 @@ def check_assignment(s, module, plan):
 
 
 def check_module_plan(s, module, plan):
-    check_planning_context(s, plan)
+    continued = module.get('source_context_continuation', {})
+    if continued and continued.get('plan_hash') == digest(plan) and continued.get('context_ref') == s.get('project_context_ref'):
+        check_ref(continued['review_ref'])
+        context = copy.deepcopy(plan['planning_context'])
+        context.update(project_context_ref=s['project_context_ref'], reuse_sources=reuse.sources(s))
+        context['source_change_ref'] = continued['review_ref']
+        check_planning_context(s, {'planning_context': context})
+    else:
+        check_planning_context(s, plan)
     check_assignment(s, module, plan)
     allowed = set(module['scope']['requirement_ids'])
     requirements = set()

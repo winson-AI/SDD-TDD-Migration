@@ -78,6 +78,9 @@ def verify_refs(value):
 
 def input_refs(s, mid, stage):
     refs = [s['global_spec'], s['new_architecture']]
+    if (s.get('global_plan') or {}).get('source_review_ref'):
+        change_ref = s['global_plan']['source_review_ref']
+        refs += [change_ref, read_json(check_ref(change_ref))['catalog_ref']]
     inventory = (s.get('global_plan') or {}).get('content', {}).get('feature_inventory_ref')
     if inventory:
         refs.append(inventory)
@@ -162,7 +165,7 @@ def requirement(op, p, s=None):
         return 'audit-testing' if audit_scope(s)['plan']['paths'] else 'audit-verdict'
     if op == 'assign':
         return 'building' if p.get('role') == 'test-runner' and p.get('test_scope') == 'build' else WORKERS.get(p.get('role'))
-    return {'register': 'global-discovery', 'global-plan': 'global-planning',
+    return {'register': 'global-discovery', 'global-plan': 'global-planning', 'source-review': 'global-planning',
             'decompose': 'decomposition', 'decompose-accept': 'decomposition',
             'plan': 'planning', 'freeze': 'planning', 'audit-plan': 'audit-analysis',
             'audit-assign': 'audit-testing', 'problem-assign': 'audit-testing',
@@ -199,9 +202,10 @@ def gate(s, req, actor):
         ref = obj.get('context_acceptances', {}).get('plan' if op == 'freeze' else 'decompose', {}).get('report_ref')
     require(ref, 'context readiness receipt required for ' + op)
     instance = p.get('instance_id') if op in ('assign', 'audit-assign', 'problem-assign') else None
-    if op in ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict'):
+    if op in ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review'):
         instance = actor['instance_id']
     draft = p.get('plan_ref') if op in ('global-plan', 'decompose', 'plan', 'audit-plan') else obj.get('plan_ref') if op == 'freeze' else None
+    if op == 'source-review': draft = p.get('report_ref')
     validate(s, mid, stage, ref, instance, draft)
     obj.setdefault('context_acceptances', {})[op] = {'report_ref': copy.deepcopy(ref), 'accepted_by': copy.deepcopy(actor)}
 

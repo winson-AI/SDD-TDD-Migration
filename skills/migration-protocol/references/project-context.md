@@ -21,6 +21,8 @@
 <run_root>/
   context/snapshot.json           # 本轮冻结上下文
   context/files/<sha256>.*        # 本轮架构、规则、来源等证据副本
+  context/files/<sha256>.links.json # 原路径、原始副本、可读副本的版本映射与未解析链接
+  context/files/linked/<bundle-hash>/<source-hash>.md # 重定位链接的知识文档，支持循环引用
   ledger/events.jsonl             # 原有迁移事件总线
 ```
 
@@ -66,9 +68,21 @@
 
 prepare 同一请求重试返回原快照，即使项目配置已经更新。相同 run_root 的新请求不能覆盖旧快照；初始化过的旧运行也不能后补快照伪造启动依据。prepare 的返回只代表上下文已固化，init ACK 才代表运行进入 Ledger。
 
-配置更新只影响后续新运行。既有运行继续使用冻结版本；需要采用新配置时，由 Global 分析影响，使用新 run_id/run_root 准备运行，相关规格按原门禁重新澄清/冻结/复测，不能继承旧 Green 或把配置更新当作批准。本地本轮不提供活动运行的快照就地替换。
+配置更新只影响后续新运行。既有运行继续使用冻结版本；需要采用一般新配置时，由 Global 分析影响，使用新 run_id/run_root 准备运行，相关规格按原门禁重新澄清/冻结/复测。唯一的受控例外是 [同 run 只读来源追加](source-changes.md)：GO 评审所有模块影响，Host 提交绑定批准的版本事务，生成 context/revisions 新快照，保留原文件。受影响模块重新冻结/复测，无关有效证据有明确延续记录；不能把配置更新当作测试通过。
 
 快照固定配置和引用文档；业务源码、执行器二进制及设备环境仍由已有 code baseline/测试执行回执验证，不声称复制了整个工程或设备环境。
+
+### context/files 的跨文件链接
+
+prepare 保存 UTF-8 Markdown 时，递归收集正文中的本地文件链接，将链接指向的文档、框架/代码文件、图片一并固化。原始字节保存在 `<sha256>.*`；需要重定位的 Markdown 另生成版本化阅读副本，并按重写后的内容重新计算 sha256。`source_refs` 指向可读版本，其 `link_manifest_ref` 指向不可变映射：source_path → original_ref → readable_ref。`source_paths` 记录本次实际输入（包括 overrides），OpenSpec 据此映射到正确的本轮副本，不推测源路径。
+
+链接处理支持相对/绝对路径、file://、Markdown 行内/引用式链接、图片以及 Markdown 内的 HTML href/src；保留标题、查询和锚点。代码块、行内代码、远程 URL、纯页内锚点不改写，远程内容不抓取。链接到的源代码作为知识基线保存，不代替 live code baseline，也不自动执行代码或遍历 import。
+
+循环引用使用固定 bundle 地址重写，避免文件互相引用导致 hash 无法收敛；bundle-hash 绑定整组来源与内容，source-hash 仅用于寻址，每份阅读文件的实际内容 sha256 以 manifest 为准。链接目标内容更新后，新 prepare 会生成新的阅读地址/hash，并同步更新引用它的文档；旧 run 保持原版本。verify_snapshot 会同时验证原始副本、阅读副本和映射，关联文件被篡改不能继续使用。
+
+缺失文件、目录链接、超出单文档链接闭包限制（256 文件/32 MiB）及敏感凭证文件不静默作为已固化知识；prepare 返回 `input.document_link_warnings`，manifest 保留原因。未固化链接只重定位为原绝对地址，不能声称离线可读。宿主审阅 warning：若属于该阶段必需知识，补齐输入后重做 prepare 或经对应模块的 context-submit 记录缺项；无关模块不因此伪造失败。
+
+旧快照不原地改正文、链接或 hash，不改 sealed snapshot 来绕过校验。已有旧 run 无链接闭包映射时无法证明相邻文件当时的版本，不能从今天源码补成历史证据；需要采用修复后的完整知识包时，按原协议新建 run 并 prepare。原始 artifacts 继续用于审计；跨文件阅读使用 source_refs/readable_ref 和生成的 OpenSpec 视图。
 
 ## CLI
 

@@ -26,7 +26,7 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 1. 生成完整六件套草稿；冻结前 Test-Runner design 模式独立补齐测试用例与路径大纲，不运行代码。
 2. Spec-Designer 把明确的问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复须绑定 question_id、spec_revision、内容摘要。既有明确答复可复用，若绑定内容已变则重新裁决。
 3. 冻结 manifest 列出 proposal、所有 delta specs、design、tasks 定义、checklist 定义、test design 与全局输入契约的实际 path+sha256。保留不可变副本，生成 freeze_id/spec_revision。
-4. `status`、tasks 完成勾选、checklist 证据等运行字段不纳入语义冻结 hash；冻结的原始定义始终存在不可变 artifacts，动态视图不得更改定义文本。验证时比较定义快照，不以可变文件整体 hash 误判失效。
+4. `status`、tasks 完成勾选、checklist 证据等运行字段不纳入语义冻结 hash；冻结的原始定义始终存在不可变 artifacts。动态视图可按已固化映射重定位文档链接及更新运行勾选，不得改变需求、设计和断言语义。验证时比较定义快照，不以可变文件整体 hash 误判失效。
 5. Human R1/R2 批准具体 manifest；MO 独立核验 checklist 后接受 freeze；Ledger 提交 freeze_accepted 并物化状态。Spec-Designer 不能自批。
 6. 每次编码/修复验证当前冻结引用与 assignment 输入一致。缺失/摘要不符停止，不得自行补成“已冻结”。
 
@@ -57,6 +57,8 @@ Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/
 ## Ledger 物化与修复记忆
 
 本地默认 change_root 为 `<run_root>/openspec/changes/<run-id>-<module-id小写>`。每个已接受 plan 的定义快照会自动生成 proposal/spec/design/tasks/checklist，status 从状态机生成；tasks 勾选绑定 accepted task trace，checklist 保留定义并附机器证据。manifest 标记 structural-only，正式 CLI 验证结果不得伪造。删除视图后 status 可重建，视图修改不能更改冻结内容。
+
+生成视图同时更新跳转：六件套内部引用指向对应的实际生成位置（特别是 specs/<capability>/spec.md）；架构、知识及其中的框架/代码链接，按本轮 context 的 source_paths/link_manifest_ref 指向固化后的文件位置。锚点与标题保留，不能把链接留在旧目录或换成最新工作文件。原始定义及 hash 不修改，重建只使用既有快照。未收录目标记录在 change/manifest.json 的 link_warnings，不能默认当作有效知识链。context/files 的关联文件固化及旧 run 兼容见 [项目上下文协议](project-context.md#contextfiles-的跨文件链接)。
 
 invalidate 后旧 plan 进入 planning_history，当前 plan/freeze 清空；Ledger 撤下 manifest 管理的旧定义视图并生成重新规划 status，保留事件及 artifacts 历史快照。旧计划不能继续阻塞新计划提交，也不能冒充当前冻结定义；新计划仍须正常审核/冻结。分配依据失效交 GO，具体出口见 [恢复协议](progress-recovery.md)。
 

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "sources": [
     {"source_id": "TARGET", "root": "{{absolute-target-root}}", "module_paths": ["{{absolute-target-root}}"], "description": "Target project existing capabilities"}
   ],
@@ -16,6 +16,8 @@
     {
       "capability_id": "CAP-SEARCH-001",
       "source_id": "TARGET",
+      "provider_owner_module_id": null,
+      "ownership_evidence_ref": {"path": "{{absolute-reviewed-baseline-or-leaf-ownership-report}}", "sha256": "{{sha256}}"},
       "name": "{{business-capability-name}}",
       "version": "{{resolved-version-or-source-tree-digest}}",
       "semantics": {

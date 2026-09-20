@@ -19,6 +19,7 @@ import project_context
 import context_readiness
 import test_validation as tv
 import progress_signals
+import source_changes
 from openspec_projection import materialize
 
 from contracts import (Rejected, baseline, check_ref, digest, file_ref, keyed, nonempty,
@@ -117,6 +118,21 @@ def invalidate_dependents(s, mid):
                 m['revision'] += 1
                 pending.append(m['module_id'])
     s['audit'] = {}
+
+
+def reset_plan(m, reason='invalidated', evidence_ref=None):
+    """Preserve failures/budgets and old evidence while returning to explicit planning."""
+    history = {k: copy.deepcopy(m.get(k)) for k in
+        ('revision', 'plan', 'plan_ref', 'plan_hash', 'freeze_id', 'code_files', 'code_baseline',
+         'results', 'repair_findings', 'blocked', 'dimension_evidence', 'provider_owners')}
+    history.update(reason=reason, evidence_ref=evidence_ref)
+    m.setdefault('planning_history', []).append(history)
+    m.update(stale=True, phase='specifying', blocked=None, freeze_id=None, diagnosis_submission=None,
+             plan=None, plan_ref=None, plan_hash=None, build_baseline=None, accepted_task_ids=[],
+             code_files=[], code_baseline=None, provider_owners=[])
+    for key in ('dimension_evidence', 'effective_quality', 'context_acceptances', 'automation_retry_ready',
+                'dependency_release', 'source_context_continuation'):
+        m.pop(key, None)
 
 
 def dependencies_ready(s, m):
@@ -405,11 +421,11 @@ def audit_scope(s):
             'stale': any(results.get(p['path_id'], {}).get('quality') == 'green-passed' for p in selected)}
 
 
-def mutate(s, req, principal, events):
+def mutate(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')
-    global_ops = {'register', 'decision', 'audit-assign', 'audit', 'audit-revoke', 'audit-route', 'audit-unavailable'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS
+    global_ops = {'register', 'decision', 'audit-assign', 'audit', 'audit-revoke', 'audit-route', 'audit-unavailable'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS | source_changes.OPS
     if op == 'context-submit' and mid is None:
         global_ops.add(op)
     require((mid is None) == (op in global_ops), 'operation has incorrect global/module scope')
@@ -425,6 +441,8 @@ def mutate(s, req, principal, events):
     context_readiness.gate(s, req, principal)
     if op == 'context-submit':
         context_readiness.submit(s, req, principal)
+    elif op in source_changes.OPS:
+        source_changes.handle(root, s, req, principal)
     elif op in tv.OPS:
         tv.handle(s, req, principal)
     elif op in decomposition.OPERATIONS:
@@ -478,7 +496,7 @@ def mutate(s, req, principal, events):
                         and other.get('plan') for path in other['plan']['paths'])
         require(not occupied.intersection(path['path_id'] for path in plan['paths']), 'PATH IDs must be globally unique')
         # Plan is content; the artifact remains immutable and is checked at freeze/dispatch.
-        m.update(plan=plan, plan_ref=p['plan_ref'], plan_hash=plan_hash, phase='clarifying')
+        m.update(plan=plan, plan_ref=p['plan_ref'], plan_hash=plan_hash, phase='clarifying', provider_owners=reuse.selected_owners(plan))
     elif op == 'freeze':
         role(principal, 'module-orchestrator')
         if m.get('parent_module_id'):
@@ -693,18 +711,7 @@ def mutate(s, req, principal, events):
         if m.get('blocked'):
             m.pop('approved_envelope', None)
             m.pop('approved_acceptance', None)
-        m.setdefault('planning_history', []).append({k: copy.deepcopy(m.get(k)) for k in
-            ('revision', 'plan', 'plan_ref', 'plan_hash', 'freeze_id', 'code_files', 'code_baseline',
-             'results', 'dimension_evidence')})
-        m.update(stale=True, phase='specifying', blocked=None, freeze_id=None, diagnosis_submission=None,
-                 plan=None, plan_ref=None, plan_hash=None, build_baseline=None, accepted_task_ids=[])
-        m.pop('dimension_evidence', None)
-        m.pop('effective_quality', None)
-        m.pop('context_acceptances', None)
-        m.pop('automation_retry_ready', None)
-        m.pop('dependency_release', None)
-        m['code_files'] = []
-        m['code_baseline'] = None
+        reset_plan(m, p['reason'])
         invalidate_dependents(s, mid)
     elif op == 'complete':
         role(principal, 'module-orchestrator')
@@ -923,7 +930,7 @@ def _apply(root, req, principal):
             require(s and req.get('run_id') == s['run_id'], 'run mismatch')
             scope = (s['modules'].get(req.get('module_id')) or s.get('module_groups', {}).get(req.get('module_id'))) if req.get('module_id') else s
             require(scope is not None and req.get('expected_revision') == scope['revision'], 'stale revision')
-            mutate(s, req, principal, events)
+            mutate(s, req, principal, events, root)
         # Store immutable event facts, not a second mutable state authority.
         effect = s if before is None else {k:v for k,v in s.items() if before.get(k) != v}
         e = {'schema_version': 1, 'event_id': f'E{len(events)+1:08d}', 'sequence': len(events)+1,
@@ -1009,7 +1016,8 @@ def status(root):
         atomic(root / 'ledger/progress.json', progress)
         from openspec_projection import write
         write(root / 'reports/workflow-attention.md', progress_signals.render(progress))
-        return {**s, 'workflow_progress': progress, 'context_requirements': context_readiness.requirements(s),
+        return {**s, 'source_change_next_step': source_changes.next_action(s),
+                'workflow_progress': progress, 'context_requirements': context_readiness.requirements(s),
                 'parent_mo_names': decomposition.parent_mo_names(s),
                 'migration_report': {'json': str(root / 'reports/migration-report.json'),
                                      'markdown': str(root / 'reports/migration-report.md'), 'sequence': len(events)},

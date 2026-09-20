@@ -5,6 +5,8 @@ description: 模块状态机门禁、DoD、子任务验收与循环控制，用�
 
 # migration-module
 
+父 MO 给共享实现分配唯一叶子 owner，收窄写集合并审核消费者；子 MO 分清稳定 provider 与任务修改目标，按最新影响评审重新规划受影响部分。来源追加不清除旧失败/预算，无关模块保留有效结果，父摘要仍由父 MO 接受。详见 [来源变更协议](../migration-protocol/references/source-changes.md) 及 [provider 变更闭环](../migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
+
 ## 1. 定位
 服务 Module-Orchestrator；先读取 [共享协议](../migration-protocol/SKILL.md)，再读 [职责协议](../migration-protocol/references/state-machine.md)。
 

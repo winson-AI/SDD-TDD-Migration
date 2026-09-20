@@ -12,6 +12,7 @@
 - [ ] F07 六件套定义与测试设计摘要已固定，满足 MO 接受冻结的所有前置条件；证据：{{ref}}
 
 - [ ] F08 planning 上下文报告与当前 plan_ref 匹配；全局/父/子、生产链路、接口与复用核对齐备；证据：{{context_ref}}
+- [ ] F09 已核对目标实现与二方库冗余；确认可替代部分已规划 reuse/adapt、唯一重构 owner、依赖切换/清理 tasks 和受影响回归；无冗余需提供检查依据；证据：{{reuse-alignment-ref}}
 
 ## Execution Context Gates
 
@@ -30,10 +31,15 @@
 - [ ] D06 依赖版本匹配、CR 闭环、无未决人工阻塞；证据：{{ref}}
 - [ ] D07 冻结文档/追溯/实现日志/测试证据可冷读，无孤儿工件；证据：{{ref}}
 - [ ] D08 模块独立验收完成，全局上报内容齐全且可在 module_completed 提交时同步记录；证据：{{ref}}
+- [ ] D09 冗余目标实现已按冻结方案重构为真实库依赖/必要适配，调用迁移及清理完成，保留兼容入口有依据，fidelity/受影响消费者已正式验证；无冗余引用检查依据；证据：{{implementation-and-test-refs}}
 
 模块 DoD 不代表全局审计或人类合并授权。归档前另核验全局整体测试、Auditor 裁决与具体版本的交付批准。
 
 ## 四维覆盖门禁
+
+- [ ] F-OWNER v2 capability 的 baseline/叶子 owner 有证据，消费者依赖与写授权正确；共享实现唯一 owner、写锁范围具体，稳定 provider 与修改目标分离；证据：{{ownership-and-allocation-refs}}
+- [ ] F-SOURCE 如发生来源追加，已读取 Ledger 当前快照/影响报告，受影响计划重新冻结；无关计划延续有精确 hash 依据，未借来源变化重置预算或抹掉失败；证据：{{source-change-event-or-not-applicable}}
+- [ ] D-PROVIDER 如变更 provider，本轮版本交付、消费者映射和正式复测链完整；旧副本不能代替 live 验证；证据：{{owner-consumer-version-and-retest-refs}}
 
 - [ ] F-DIM UI → Logic → Adhesive → Resource 有序分析，N/A 有依据，未决项为空；父子条目无遗漏；证据：{{dimension_analysis_ref}}
 - [ ] F-TRACE design/spec/tasks 的 item ID 与 dimension_trace 一致，TASK/PATH/ASSERT 完整，资源消费者与真实接线明确；证据：{{ref}}

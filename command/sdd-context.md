@@ -13,3 +13,5 @@ description: /sdd-context [show|init|update|history] — 保存和复用当前�
 5. 用户同时要求启动迁移时继续 prepare → Global → Ledger init/register/global-plan → MO → Auditor；普通配置更新不自行启动迁移，也不改进行中运行的快照。
 
 写入身份为宿主，配置更新是用户已明确请求的动作，无额外确认。业务边界、SPEC 冻结与验收门禁仍按原协议执行。
+
+用户明确要求把新增只读二方库来源用于正在运行的 run 时，定位该 run 的当前 project_context_ref，按 [来源追加协议](../skills/migration-protocol/references/source-changes.md) 组织 GO source-review 与 Host reconfigure-sources；来源/影响批准绑定具体摘要，普通 update 或旧 prepare 不能代替该事务。是否同时保存为项目默认值以用户输入为准，不自动双写。

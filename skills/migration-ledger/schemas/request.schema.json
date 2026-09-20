@@ -59,6 +59,8 @@
         "audit-route",
         "repair-accept",
         "global-plan",
+        "source-review",
+        "reconfigure-sources",
         "audit-defer",
         "problem-assign",
         "problem-audit",

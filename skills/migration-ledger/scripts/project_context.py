@@ -13,6 +13,7 @@ import sys
 import tempfile
 
 import reuse
+import context_links
 
 from contracts import require, digest, file_ref, check_ref, read_json
 
@@ -58,6 +59,8 @@ def copy_ref(directory, ref):
     path = check_ref(ref)
     data = path.read_bytes()
     require(hashlib.sha256(data).hexdigest() == ref['sha256'], 'source changed during snapshot')
+    if path.suffix.lower() in context_links.MARKDOWN:
+        return context_links.freeze(directory, ref, archive)
     # Source JSON is opaque evidence, not a Ledger envelope whose inner paths
     # should be followed later against a mutable project directory.
     suffix = '.json.source' if path.suffix == '.json' else path.suffix
@@ -201,7 +204,9 @@ def verify_snapshot(ref):
     require(sealed.is_file() and sealed.read_bytes() == path.read_bytes(), 'run context edited outside prepare protocol')
     def verify(value):
         if isinstance(value, dict):
-            if 'path' in value and 'sha256' in value: check_ref(value)
+            if 'path' in value and 'sha256' in value:
+                check_ref(value)
+                if value.get('link_manifest_ref'): context_links.verify(value['link_manifest_ref'])
             else:
                 for item in value.values(): verify(item)
         elif isinstance(value, list):
@@ -217,7 +222,8 @@ def prepared_input(ref):
                 'runtime', 'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources') if k in config},
             'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
             'module_name': snapshot['module_name'], 'project_context_ref': ref, 'project_sources': sources,
-            'new_architecture': sources['architecture_path'], 'global_spec': None, 'global_test_cases': [],
+            'new_architecture': sources['architecture_path'], 'document_link_warnings': context_links.mapping(snapshot)[1],
+            'global_spec': None, 'global_test_cases': [],
             'requirement_ids': [], 'global_test_paths': [],
             'budgets': {**BUDGETS, **defaults.get('budgets', {})}, 'quality_gates': defaults.get('quality_gates', {}),
             'repair_policy': defaults.get('repair_policy', {'local_automatic_rounds': 1}),
@@ -260,6 +266,7 @@ def prepare(root, run_root, request, actor):
         sources = {key: copy_ref(files, file_ref(effective[key])) for key in DOCUMENTS if effective.get(key)}
         if 'knowledge_paths' in effective:
             sources['knowledge_paths'] = [copy_ref(files, file_ref(path)) for path in effective['knowledge_paths']]
+        source_paths = {key: copy.deepcopy(effective[key]) for key in DOCUMENTS + ('knowledge_paths',) if effective.get(key)}
         effective = freeze_refs(files, effective)
         for key, source in sources.items():
             effective[key] = [ref['path'] for ref in source] if isinstance(source, list) else source['path']
@@ -274,7 +281,7 @@ def prepare(root, run_root, request, actor):
         snapshot = {'schema_version': 1, 'project_id': record['project_id'], 'project_revision': record['revision'],
                     'project_revision_hash': digest(record), 'project_config': freeze_refs(files, record['config']), 'effective_config': effective,
                     'run_id': request['run_id'], 'run_root': str(run_root), 'entry_mode': mode, 'module_name': name,
-                    'request_hash': fingerprint, 'source_refs': sources,
+                    'request_hash': fingerprint, 'source_refs': sources, 'source_paths': source_paths,
                     'request_source_ref': copy_ref(files, request.get('source_ref')),
                     'config_source_ref': copy_ref(files, record['source_ref']),
                     'created_at': datetime.now(timezone.utc).isoformat()}

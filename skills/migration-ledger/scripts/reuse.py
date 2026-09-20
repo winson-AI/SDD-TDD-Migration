@@ -40,7 +40,7 @@ def in_source(path, source):
 
 def catalog(ref, expected_sources):
     data = read_json(check_ref(ref))
-    require(data.get('schema_version') == 1 and data.get('sources') == expected_sources, 'reuse catalogue source set mismatch')
+    require(data.get('schema_version') in (1, 2) and data.get('sources') == expected_sources, 'reuse catalogue source set mismatch')
     by_source = {s['source_id']: s for s in expected_sources}
     reviews = keyed(data.get('source_reviews'), 'source_id')
     require(set(reviews) == set(by_source), 'every reuse source must be reviewed')
@@ -54,6 +54,12 @@ def catalog(ref, expected_sources):
     require(isinstance(capabilities, list), 'reuse capabilities list required (may be empty)')
     caps = keyed(capabilities, 'capability_id') if capabilities else {}
     for cap in caps.values():
+        if data['schema_version'] == 2:
+            require('provider_owner_module_id' in cap, 'explicit provider owner required (null means reviewed baseline)')
+            owner = cap['provider_owner_module_id']
+            require(owner is None or (isinstance(owner, str) and re.fullmatch(r'M[0-9]{3,}', owner)), 'invalid provider owner')
+            require(cap.get('source_id') == 'TARGET' or owner is None, 'external provider must be read-only baseline')
+            check_ref(cap.get('ownership_evidence_ref'))
         require(cap.get('source_id') in by_source and cap.get('name') and cap.get('version'), 'reuse capability source/name/version required')
         semantic = cap.get('semantics', {})
         require(all(semantic.get(k) for k in ('intent', 'inputs', 'outputs', 'preconditions', 'side_effects', 'errors', 'state_lifecycle')), 'incomplete functional semantics')
@@ -93,7 +99,9 @@ def validate_fidelity(row, plan, legacy_root=None):
 def validate_plan(plan, module, expected_sources, modules=None, legacy_root=None):
     review = read_json(check_ref(plan.get('reuse_plan_ref')))
     require(review.get('schema_version') == 1 and review.get('module_id') == module['module_id'], 'reuse plan module mismatch')
-    _, caps = catalog(review.get('catalog_ref'), expected_sources)
+    data, caps = catalog(review.get('catalog_ref'), expected_sources)
+    if data['schema_version'] == 2:
+        validate_owners(caps, modules or {})
     mappings = keyed(review.get('mappings'), 'mapping_id')
     tasks = {t['task_id']: t for t in plan['tasks']}
     paths = {p['path_id'] for p in plan['paths']}
@@ -115,10 +123,20 @@ def validate_plan(plan, module, expected_sources, modules=None, legacy_root=None
             cap = caps.get(row.get('capability_id'))
             require(cap, 'unknown reusable capability')
             if cap['source_id'] == 'TARGET':
-                for mid, owner in (modules or {}).items():
-                    if mid != module['module_id'] and any(in_source(ref['path'], {'module_paths': owner['write_paths']})
-                                                         for ref in cap['provider_refs']):
-                        require(mid in module.get('dependencies', []), 'reused provider under another module requires registered dependency')
+                if data['schema_version'] == 2:
+                    owner = cap['provider_owner_module_id']
+                    require(owner in (None, module['module_id']) or owner in module.get('dependencies', []),
+                            'explicit provider owner requires registered dependency')
+                    for peer_id, peer in (modules or {}).items():
+                        if peer_id == module['module_id']: continue
+                        for existing in peer.get('provider_owners', []):
+                            if existing['source_id'] == cap['source_id'] and existing['capability_id'] == cap['capability_id']:
+                                require(existing['owner'] == owner, 'conflicting active capability owners; review and invalidate affected plans')
+                else:
+                    for mid, owner in (modules or {}).items():
+                        if mid != module['module_id'] and any(in_source(ref['path'], {'module_paths': owner['write_paths']})
+                                                             for ref in cap['provider_refs']):
+                            require(mid in module.get('dependencies', []), 'reused provider under another module requires registered dependency')
             integration = row.get('integration', {})
             require(integration.get('mode') in ('existing-target', 'package', 'source-module', 'reference-only') and
                     integration.get('version') == cap['version'], 'reuse integration mode/version mismatch')
@@ -131,6 +149,34 @@ def validate_plan(plan, module, expected_sources, modules=None, legacy_root=None
         covered.update(reqs)
     require(covered == allowed, 'reuse decisions must cover every module requirement')
     return review
+
+
+def validate_owners(caps, modules):
+    """Ownership is semantic evidence; write scope only limits authorized changes."""
+    for cap in caps.values():
+        owner = cap['provider_owner_module_id']
+        if owner is not None:
+            require(owner in modules and not modules[owner].get('decomposition_required'), 'provider owner must be an execution leaf')
+            require(all(in_source(ref['path'], {'module_paths': modules[owner]['write_paths']})
+                        for ref in cap['provider_refs']), 'provider outside owner write scope')
+    visiting, visited = set(), set()
+    def visit(mid):
+        require(mid in modules and mid not in visiting, 'provider dependency cycle or missing module')
+        if mid in visited: return
+        visiting.add(mid)
+        for dependency in modules[mid].get('dependencies', []): visit(dependency)
+        visiting.remove(mid); visited.add(mid)
+    for mid in modules: visit(mid)
+
+
+def selected_owners(plan):
+    if not plan.get('reuse_plan_ref'): return []
+    review = read_json(check_ref(plan['reuse_plan_ref']))
+    data = read_json(check_ref(review['catalog_ref']))
+    if data.get('schema_version') != 2: return []
+    selected = {row.get('capability_id') for row in review['mappings'] if row['decision'] != 'new'}
+    return [{'source_id': cap['source_id'], 'capability_id': cap['capability_id'], 'owner': cap['provider_owner_module_id']}
+            for cap in data['capabilities'] if cap['capability_id'] in selected]
 
 
 def verify(plan):
@@ -146,6 +192,8 @@ def verify(plan):
     for row in review['mappings']:
         if row['decision'] == 'new':
             continue
+        if data.get('schema_version') == 2:
+            check_ref(caps[row['capability_id']]['ownership_evidence_ref'])
         for ref in caps[row['capability_id']]['provider_refs'] + row['integration']['evidence_refs']:
             check_ref(ref)
         validate_fidelity(row, plan)

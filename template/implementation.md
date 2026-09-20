@@ -39,6 +39,8 @@
 
 reference-only 说明借鉴了哪些业务语义及目标实现差异，不宣称已建立运行时依赖。provider_refs 用于核验依据版本，不授予修改来源项目的权限。
 
+目标实现存在冗余时，补充实际重构证据：已切换的生产调用/DI → 二方库入口，已删除/替换的重复文件或符号，必要适配/兼容入口的保留理由，受影响消费者及回归 PATH。仅添加依赖或保留两套重复生产逻辑不算完成；无冗余时引用检查依据。
+
 ## 四维实现证据（Implementer / Fixer）
 
 先核对每个冻结 task.scope 与 task.dimension_analysis，按 implementation 指导实现；task_trace 文件不得超出对应任务写范围。正式 implementation JSON 的 dimension_evidence 对冻结的每个 item 提交 item_id、task_ids、summary、evidence_refs；Resource 另附 target_resource_ref 与 consumer_ref，路径与规划中 target_resource/consumer 的文件部分相同（符号用 # 分隔）。复用文件可不在改动集合中，但必须存在并有真实生产消费者。详见 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)。

@@ -62,6 +62,7 @@
 
 - [reuse-source.json](reuse-source.json)：project-context/global-input.reuse_sources 的可选外部来源元素；TARGET 自动包含。
 - [reuse-catalog.json](reuse-catalog.json)：GO 的功能语义抽取目录，父/子 MO 按需求进一步核验细化。
+- [source-impact.json](source-impact.json)：GO 的同 run 来源追加影响报告，完整来源集合、v2 catalog、全部叶子 replan/unchanged 与父分配评审；与 source-review/reconfigure-sources 配套。
 - [reuse-plan.json](reuse-plan.json)：子模块逐需求的能力选择、差异、task/PATH 和接入映射；由 stage-plan.reuse_plan_ref 冻结，Ledger 投影到 change/reuse.md。
 - [reuse-fidelity.md](reuse-fidelity.md)：存量源码与选中能力逐行为对齐；reuse-plan.fidelity 绑定源码、报告和复现 PATH/ASSERT，正式结果沿 Main/Ledger 留档。
 - [implementation-gap.json](implementation-gap.json)：适配/参考/自主实现均经核验证实不可行时，MO 通过 suspend(reason_code=not-implemented) 接受，生成“未实现”人工提醒；没有可复用库本身不能作为结论。

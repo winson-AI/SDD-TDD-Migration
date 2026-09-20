@@ -1,5 +1,16 @@
 # 本地运行指南：P1–P4
 
+## 同 run 来源追加
+
+新增两个全局 Ledger operation，均通过既有 CLI apply、CAS 和宿主身份接入：
+
+| 操作 | 角色 | payload / 门禁 |
+| --- | --- | --- |
+| source-review | GO | report_ref 指向 source-impact.json，context_ref 为绑定该草稿的 global-planning receipt；评审所有叶子和父分配、新来源 catalog 与依赖闭包 |
+| reconfigure-sources | Host | 仅 decision_id、subject_sha256；真实批准绑定已接受评审，worker 协调结束、无活动审计，生成新版本上下文并局部重新规划 |
+
+status.source_change_next_step 与 workflow_progress 显示下一步；它不替代其他模块 next_steps。运行中读 Ledger 当前 project_context_ref，不能重用初始 input/prepare 作为当前事实。详见 [事务与恢复协议](source-changes.md)。
+
 ## 已实现与宿主责任
 
 本地实现使用 Python 3.10+ 标准库，在 macOS/Linux 上用 `fcntl.flock` 串行提交；不支持 Windows 原生文件锁。单进程或多个 CLI 进程都通过同一个 run root 的锁写日志。模块工作可并行，只有事务提交串行。

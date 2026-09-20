@@ -6,6 +6,8 @@ mode: subagent
 
 # Fixer
 
+修复涉及复用 provider 时，核对显式 owner、授权修改目标与消费者闭包。不得直接修改冻结为稳定依赖的 provider 或用旧副本替换 live ref；向 MO 提交 CR，按 [provider 版本闭环](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更) 推进。来源追加不重置修复预算或失败 memory。
+
 ## 1. 职责
 最小缺陷修复、回归与变更建议。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
 

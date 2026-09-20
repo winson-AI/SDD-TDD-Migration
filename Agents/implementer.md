@@ -6,6 +6,8 @@ mode: subagent
 
 # Implementer
 
+编码前区分冻结的稳定 provider 与任务修改目标；v2 owner 不扩大 write_paths，adapt 不豁免 provider hash。计划修改提供方本体时先由 MO/GO 完成授权变更与消费者影响处理，不能直接修改后补 hash，也不能用历史副本冒充 live provider。接收新来源时只读取 Ledger 当前快照/影响报告及冻结 tasks，详见 [provider 版本闭环](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
+
 ## 1. 职责
 按冻结 tasks 完成功能迁移并提交追溯。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
 
@@ -51,6 +53,8 @@ mode: subagent
 实施补充：依据 source_closure 和 target_feasibility 逐项闭合真实生产路径，检查入口、依赖注入、消费方和外部结果，不能以接口声明、样例实现或资源文件存在替代生产接线。提交 stage-result，带全部 TASK→文件追溯及 production_binding_evidence；优先恢复本角色原会话，始终重验当前 freeze。
 
 ## 使用冻结的复用指导
+
+目标已有实现与二方库功能冗余时，按冻结任务直接重构为真实依赖复用/必要适配，切换所有受影响消费者并清理被替代的重复实现；不能只声明依赖、留下两套业务逻辑或复制库内部逻辑到适配层。必要兼容入口记录保留理由与证据。详见复用协议第 9 节。
 
 二方库不能直接复用时，结合功能目标、已知上下文、legacy 源码与 target 现状完成冻结的 adapt/reference/new 任务；需要改变冻结路线时先通过 Ledger 请求 CR。不能因没有现成库停止实现，也不能以 stub/TODO 交付。若核验替代实现仍不可行，通过 context-submit 引用核验材料交 MO；不自行声明验收完成。MO 的“未实现”入口见复用协议第 8 节。
 

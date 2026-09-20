@@ -1,5 +1,49 @@
 # P1–P4 / P6 验证记录
 
+## 显式 provider 归属与同 run 来源追加（2026-09-20）
+
+本轮在当前工作区完成以下控制流调整：
+
+- 新 reuse-catalog v2 明确稳定 baseline 或唯一叶子 owner，校验权限、依赖环和活动归属冲突；v1 保持旧校验，选中 provider/ownership/fidelity 的 live hash 不放宽。
+- GO source-review 接受全体叶子及父分配的来源影响；Host reconfigure-sources 绑定具体用户批准，创建新版本快照，保留初始快照、链接映射、项目 defaults 和事件历史。
+- 受影响依赖闭包回到规划/冻结，无关冻结计划与 Green 保留；阶段上下文需重读。相关 blocker 可按明确批准恢复，其他阻塞、Red/Yellow、已耗预算和修复 memory 保留。
+- 来源切换协调 worker，禁止打断活动审计；父 MO 自行重汇总，Auditor 按原遗留范围收尾。provider 本体修改的三层协作沿用既有 CR/invalidate/冻结/依赖恢复，协议中明确旧基线→owner 新版本→消费者复测。
+
+实际执行：Ledger 全套 **235 项通过**（43.701 秒）；测试适配/sandbox **20 项通过**，共 **255 项，无失败、无跳过**。本轮新增 20 项（7 项 ownership + 13 项 source change），包括：
+
+- 宽写范围不推断 v2 baseline 依赖，明确 owner 的权限/依赖、自身 owner、外部 owner/缺字段/循环拒绝、冲突 owner 和 v1 兼容；provider 与归属证据漂移仍拒绝。
+- 使用真实 prepare、父子拆分、四维分析与 context receipts，通过 source-review/decision/reconfigure-sources；新旧快照/配置/日志不串写，重试及事件提交后投影失败可恢复。
+- 红色模块与绿色兄弟同时存在时，只重新规划受影响模块；真实 Python 子进程 Build/业务断言复测保留 retest_of，父 MO 重新汇总后独立 Auditor 审阅通过，无关 Green 不重跑。
+- 真实 Fixer 一轮仍失败后补充来源，预算、失败 memory 和结果不清零；再次失败仍送 Auditor。
+- 相关/无关阻塞分离、遗漏父子影响/消费者闭包、错角色/批准/越界配置、来源删除改写、评审过期、活动 worker/审计拒绝及可见恢复信号。
+
+35 个 Ledger Python 文件 AST、38 个 JSON 模板/schema、11 个 Skill 和变更 Markdown 链接目标检查通过；git diff --check 通过。未运行真实业务 Gradle 工程、设备/LLM，未直接使用附件候选补丁或修改用户业务仓。语义归属、影响完备性及四维实现策略仍由运行角色审查；脚本不自动证明语义正确。本轮没有重复执行未修改的 Harmony 录制/回放内核测试，前次 128 项结果见下节。
+
+## 此前全量复查（2026-09-20）
+
+在当前工作区（包含 context/files 链接固化修复与目标已有实现冗余重构规范）重新执行，**363 项测试全部通过，无失败、无跳过**：
+
+| 测试集 | 结果 | 证明范围 |
+| --- | --- | --- |
+| migration-ledger/tests | 215 通过 | 冻结/身份/版本门禁、父子 MO 分配与并行隔离、构建→Fixer→重建→自动化、Yellow 缺测分流、Auditor 非 Green 范围与空 global_paths、失效重规划/进度提醒、复用 fidelity 与上下文链接快照 |
+| migration-test/tests | 20 通过 | 测试输入输出契约、模拟原生执行、sandbox 配置及缺设备 Yellow；从其他工作目录调用适配器 |
+| runtime/harmony/tests | 128 通过 | 录制、脱敏、XPath/坐标、回放与重规划；设备/模型使用测试替身 |
+
+在包根执行前两组：
+
+```sh
+skills/migration-test/runtime/harmony/.venv/bin/python -m unittest discover -s skills/migration-ledger/tests -v
+skills/migration-test/runtime/harmony/.venv/bin/python -m unittest discover -s skills/migration-test/tests -v
+```
+
+Harmony `.venv` 未安装 pytest，首次启动源测试集因缺依赖未执行；随后使用同一个 Python 3.12，在 `sys.path` 末尾追加本机已有 pytest 的 site-packages，只读加载后运行 `pytest.main(['-q', '-p', 'no:cacheprovider', 'tests/test_tool_recorder.py', 'tests/test_tool_player.py'])`，128 项通过。未安装或升级运行环境。第三方 hypium 有 1 条无效转义 SyntaxWarning，不影响测试结果。
+
+结构核查通过：32 个 Ledger Python 文件与 5 个测试适配脚本 AST、34 个 JSON 模板与 3 个 Ledger schema 解析、11 个 Skill 校验、变更 Markdown 中 144 个本地链接目标存在、`git diff --check`。链接目标检查不代表所有文档锚点已验证。
+
+**结论边界**：本次验证证明本地控制器与测试适配契约在隔离环境中保持可控，未运行真实业务 Gradle 构建、设备/LLM 测试或宿主自动派发。二方库冗余识别与目标实现清理是新增的 Agent/MO 审查规范；现有测试覆盖复用映射、实际接线证据和 fidelity 门禁，不自动证明业务语义等价或真实目标仓已去重。无须修改运行时代码。
+
+---
+
 本轮修改范围是 SDD-TDD-Migration 工作流包。参考上传的 android-to-kmp 机制，自行实现通用本地控制器；未执行上传包的迁移指令，也没有修改上传目录。
 
 ## 实际执行

@@ -6,6 +6,10 @@ mode: subagent
 
 # Global-Orchestrator
 
+## 来源追加与提供方归属
+
+新复用目录采用 v2 显式 owner，区别已有稳定能力与本轮叶子交付；不能依据宽 write_paths 推断所有权。同 run 新来源先核查全部叶子（包括 new 路线）和父分配，提交 source-review；给 Host 提供精确影响/阻塞恢复摘要，受影响依赖闭包 replan，无关有效结果延续。变更不改 registry；确需重新分工须独立处理。按 [来源变更协议](../skills/migration-protocol/references/source-changes.md) 与 [provider 变更闭环](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更) 调度，旧失败/预算不清零。
+
 ## 1. 职责
 从全局视角划分根模块及 scope，提供完成每个模块所需的上下文，并全局管理迁移任务、DAG 与依赖。父 MO 认领分配后再拆子模块。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
 

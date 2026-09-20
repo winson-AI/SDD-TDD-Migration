@@ -5,6 +5,8 @@ description: 功能切片、架构差异解析、DAG 与全局三态调度，用
 
 # migration-global
 
+来源/归属变化时遵守 [来源追加协议](../migration-protocol/references/source-changes.md)：完整来源和影响评审经 source-review 接受，Host 绑定批准后版本切换；所有叶子（包括 new 路线）与父分配都须评审，仅受影响闭包重规划。新 capability 采用 v2 显式 owner，写集合不能当作业务归属。
+
 ## 1. 定位
 服务 Global-Orchestrator；先读取 [共享协议](../migration-protocol/SKILL.md)，再读 [职责协议](../migration-protocol/references/runtime.md)。
 

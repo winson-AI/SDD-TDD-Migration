@@ -43,6 +43,8 @@ def planning_guard(s, module_id=None):
             'complete MO decomposition before implementation/audit')
     for ref in (s['global_spec'], s['new_architecture'], plan['plan_ref'], plan['review_ref']):
         check_ref(ref)
+    if plan.get('source_review_ref'):
+        check_ref(plan['source_review_ref'])
     if module_id:
         runtime_allocations(s, module_id)
     # Global semantic/source coverage is accepted once by global-plan. Runtime
@@ -253,7 +255,9 @@ def handle(s, req, actor):
             check_ref(group['decomposition_ref']); check_ref(group['decomposition_review_ref'])
         feature_inventory(s, plan)
         boundary_review(s, plan, p.get('boundary_decision_id'))
+        source_review = (s.get('global_plan') or {}).get('source_review_ref')
         s['global_plan'] = {**p, 'content': plan, 'registry_hash': digest(registry(s))}
+        if source_review: s['global_plan']['source_review_ref'] = source_review
     elif op == 'audit-defer':
         role(actor, 'module-orchestrator'); idle(m)
         require(not audit_active(s), 'audit active')

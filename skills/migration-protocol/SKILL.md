@@ -46,6 +46,8 @@ GO/父子 MO、Spec Designer、Implementer、Testing/Fixer/Auditor 涉及规划�
 
 不能直接复用时，结合当前功能、上下文、源代码与目标现状推进适配或自主 Coding；只有核验替代方案仍不可行才走“未实现”人工提醒，见该协议第 8 节。
 
+目标已有实现也要与二方库核对；确认冗余且可复用/适配时，直接重构目标依赖、调用链并清理重复逻辑，沿用冻结和正式测试门禁，不重复造轮子。职责节点及完成准则见该协议第 9 节。
+
 ## 11. 阶段上下文就绪
 
 规划、派发、恢复或审计前读取 [上下文就绪协议](references/context-readiness.md)：实际执行者先提交身份/版本绑定的核对报告，原节点接受后推进；报告 ready 不替代冻结、权限、正式测试或 DoD。
@@ -61,3 +63,7 @@ GO、父/子 MO、Spec-Designer 在规划时，以及 Implementer/Fixer/Test-Run
 ## 14. 局部恢复与进度信号
 
 宿主、GO/MO 与 Ledger 在调度、等待或恢复时必读 [progress-recovery.md](references/progress-recovery.md)：运行期局部校验、invalidate 历史保留与重规划出口、workflow_progress 人工信号及自动化缺测收尾。禁止在 ready=false 或命令拒绝后无提示地退出。
+
+## 15. 来源与 provider 版本变化
+
+GO/父子 MO/Host 在运行中追加只读来源时读 [source-changes.md](references/source-changes.md)：GO 完整影响评审、Host 绑定批准与新快照事务、相关阻塞恢复及无关模块证据延续。v2 显式 owner、资源锁与 provider 变更闭环见 [复用协议第 10 节](references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。来源变化不自动清除失败、重置预算或批准代码。

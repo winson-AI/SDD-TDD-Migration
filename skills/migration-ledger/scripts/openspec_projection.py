@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 
 from contracts import require
+import context_links
+import project_context
 
 
 def write(path, text):
@@ -23,6 +25,10 @@ def definition(root, ref):
 
 
 def materialize(root, state, sequence):
+    targets, context_warnings = {}, []
+    if state.get('project_context_ref'):
+        snapshot = project_context.verify_snapshot(state['project_context_ref'])
+        targets, context_warnings = context_links.mapping(snapshot)
     for mid, m in state['modules'].items():
         if not m.get('plan'):
             if m.get('planning_history'):
@@ -43,12 +49,18 @@ def materialize(root, state, sequence):
         change = root / 'openspec' / 'changes' / f"{state['run_id']}-{mid.lower()}"
         manifest = {'sequence': sequence, 'module_id': mid, 'freeze_id': m['freeze_id'],
                     'validation': 'structural-only', 'definitions': m['plan']['definitions'], 'files': []}
+        destinations = {**targets, **{str(Path(ref['path']).resolve()): str(change / (
+            f"specs/{ref.get('capability', mid.lower())}/spec.md" if ref['kind'] == 'spec' else ref['kind'] + '.md'))
+            for ref in m['plan']['definitions'] if ref['kind'] in ('proposal', 'spec', 'design', 'tasks', 'checklist')}}
+        manifest['link_warnings'] = list(context_warnings)
         for ref in m['plan']['definitions']:
             kind = ref['kind']
             if kind not in ('proposal', 'spec', 'design', 'tasks', 'checklist'):
                 continue
             relative = f"specs/{ref.get('capability', mid.lower())}/spec.md" if kind == 'spec' else kind + '.md'
             text = definition(root, ref)
+            text, warnings = context_links.rewrite(text, ref['path'], destinations)
+            manifest['link_warnings'].extend(warnings)
             if kind == 'tasks':
                 completed = set(m.get('accepted_task_ids', [])) if m.get('code_baseline') else set()
                 for task in m['plan']['tasks']:

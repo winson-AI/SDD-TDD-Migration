@@ -4,6 +4,8 @@ description: /sdd-status <run-id> — 冷读全局与模块状态
 
 # /sdd-status
 
+来源追加时同时展示 `source_change_next_step`、具体评审引用及 workflow_progress 的待批准/评审过期/等待 worker 或审计信号。继续列出各模块独立 next_steps，不能将全局来源切换等待当作全部模块失败。状态查询不自动提交配置事务。
+
 ## 1. 用法
 `/sdd-status <run-id>`
 
