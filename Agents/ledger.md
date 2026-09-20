@@ -48,3 +48,5 @@ mode: subagent
 
 ## 9. Checkpoints
 重复请求不重复派发；过期写被拒；产物先于事件可见；投影可重建；每次状态变化有授权与证据。
+
+status 同时生成 workflow_progress 和 workflow-attention 报告，提供门禁拒绝、无可执行动作、worker 无进展与人工通知信号；提示不能直接改质量/释放锁。拒绝诊断与已接受业务事件分开，损坏的诊断不能阻止合法状态读取。见 [进度恢复协议](../skills/migration-protocol/references/progress-recovery.md)。

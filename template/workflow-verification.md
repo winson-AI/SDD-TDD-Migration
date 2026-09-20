@@ -28,3 +28,8 @@
 | WF-22 | 已归档候选基线之后又出现代码变化 | 旧审计/批准失效，拒绝本次归档 |
 | WF-23 | 初次测试直接通过 | 保留 not-observed RED，不伪造 TDD 失败日志 |
 | WF-24 | 提交旧版本人工答案或假身份 | 拒绝恢复；保留问题与当前版本绑定 |
+| WF-25 | 无关模块的四维证据漂移 | 本模块仍可派发；实际依赖/父级漂移仍阻塞；global-plan 全量检查拒绝坏证据 |
+| WF-26 | invalidate 后旧 plan 证据已失效 | 旧 plan/快照留历史，当前 plan 清空，进入 plan 或 GO 分配审查，不能反复 invalidate |
+| WF-27 | 无可执行动作且无 worker，或 worker 超时、连续同原因拒绝三次 | workflow_progress 提供 owner/证据/下一步并提示人工；无关 ready 任务继续，不自动改质量或放锁 |
+| WF-28 | 构建通过但 automation 环境缺失 | 模块 Yellow/未执行收尾，下游可继续；Auditor 审查后可 completed-with-unverified-tests，不能伪 Green |
+| WF-29 | 拒绝诊断文件损坏 | 状态仍可查询，提示修复诊断，合法派发不受影响；被拒操作不写业务事件 |

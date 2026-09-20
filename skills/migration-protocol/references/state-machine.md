@@ -104,3 +104,7 @@ OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义�
 ## 自动化缺测与代码依赖就绪
 
 遵守 [双环节协议](build-automation.md)。dependencies_ready 允许 completed 或当前构建通过且未过期的 automation-deferred 上游；构建失败或实际不可用依赖仍阻塞实际消费者。仅自动化环境缺失不走普通 tooling→waiting-human 分支。build/automation 分开记录，父汇总接受缺测收尾，Auditor 最终保留完整缺测清单。
+
+## 失效恢复与停滞感知
+
+证据失效 → 实际停止/revoke 活动 worker → invalidate 归档旧 plan 并进入 specifying → 分配有效则 plan，分配无效则 GO allocation-review-required。旧计划不能反复挡住重新规划；新 SPEC 仍须冻结。status.workflow_progress 对无动作且无 worker、超时 worker、连续门禁拒绝和人工待决给出责任与证据；宿主继续独立动作并明确提醒用户。详见 [进度恢复协议](progress-recovery.md)。

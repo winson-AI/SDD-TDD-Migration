@@ -78,3 +78,5 @@ GO 在目标全项目发现 Gradle/构建脚本，优先用户指定 build 配�
 ## 四维规划门禁
 
 先读取全局上下文/功能清单并划定模块 scope，再针对每个已划分模块按 UI → Logic → Adhesive → Resource 交叉分析存量源码/架构/二方库/目标能力，生成逐根模块 dimension_analysis_ref，并体现于 SPEC 草案和 Testing list；审核 decompose 的子项并集、唯一写 owner 与拆分证据，global-plan 再核对覆盖。详见 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)。
+
+全量证据检查保留在 global-plan 接受节点；运行期仅校验当前模块、父级及实际依赖。GO 持续消费 `workflow_progress`，处理 allocation-review-required、无可推进动作和人工信号，并继续独立 ready 模块。分配变化需保留历史后重新规划，不能改旧 hash 解除门禁。宿主响应规则见 [进度恢复协议](../skills/migration-protocol/references/progress-recovery.md)。

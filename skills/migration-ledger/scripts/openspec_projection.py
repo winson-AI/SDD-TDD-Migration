@@ -25,6 +25,20 @@ def definition(root, ref):
 def materialize(root, state, sequence):
     for mid, m in state['modules'].items():
         if not m.get('plan'):
+            if m.get('planning_history'):
+                change = root / 'openspec' / 'changes' / f"{state['run_id']}-{mid.lower()}"
+                previous = change / 'manifest.json'
+                if previous.exists():
+                    for relative in json.loads(previous.read_text()).get('files', []):
+                        candidate = (change / relative).resolve()
+                        require(candidate.is_relative_to(change.resolve()), 'invalid projection manifest path')
+                        candidate.unlink(missing_ok=True)
+                status = {'phase': m['phase'], 'freeze_id': None, 'sequence': sequence,
+                          'next_action': 'replan-or-review-allocation', 'history_preserved': True}
+                write(change / 'status.md', '# Replanning required — previous plan is historical\n\n```json\n' +
+                      json.dumps(status, ensure_ascii=False, indent=2) + '\n```\n')
+                write(previous, json.dumps({**status, 'module_id': mid, 'files': ['status.md'],
+                      'historical_plan_ref': m['planning_history'][-1]['plan_ref']}, ensure_ascii=False, indent=2) + '\n')
             continue
         change = root / 'openspec' / 'changes' / f"{state['run_id']}-{mid.lower()}"
         manifest = {'sequence': sequence, 'module_id': mid, 'freeze_id': m['freeze_id'],

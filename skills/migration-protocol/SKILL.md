@@ -55,3 +55,7 @@ GO/MO、Spec Designer、Test-Runner、Fixer、Auditor 与宿主必读 [build-aut
 ## 13. 四维完整性
 
 GO、父/子 MO、Spec-Designer 在规划时，以及 Implementer/Fixer/Test-Runner/Auditor 在执行/验收时读取 [dimension-slicing.md](references/dimension-slicing.md)：有序分析、条件 N/A、父子完整覆盖与 OpenSpec/TASK/PATH/ASSERT 追溯。
+
+## 14. 局部恢复与进度信号
+
+宿主、GO/MO 与 Ledger 在调度、等待或恢复时必读 [progress-recovery.md](references/progress-recovery.md)：运行期局部校验、invalidate 历史保留与重规划出口、workflow_progress 人工信号及自动化缺测收尾。禁止在 ready=false 或命令拒绝后无提示地退出。

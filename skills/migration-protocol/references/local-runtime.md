@@ -330,7 +330,13 @@ Ledger 保存 project_id/project_revision/project_context_ref，在初始化校�
 
 ## 功能清单来源与完备性
 
-新标准运行 global-plan 必填 feature_inventory_ref 与 feature_owners；校验来源选择、每项功能详情、来源单元映射、需求/CASE 全覆盖、执行模块归属、无未分类/未决项；已发现疑问须纳入 boundary_review 走原有人工批准。planning_guard 重验清单与来源证据，status.module_inputs 提供各模块 feature_ids，planning_context 提供全局清单与归属。详见 [切片规范](../../migration-global/references/slicing.md)。
+新标准运行 global-plan 必填 feature_inventory_ref 与 feature_owners；校验来源选择、每项功能详情、来源单元映射、需求/CASE 全覆盖、执行模块归属、无未分类/未决项；已发现疑问须纳入 boundary_review 走原有人工批准。全量来源证据在 global-plan 接受时验证；运行 planning_guard 检查已接受的全局契约与清单引用，仅遍历当前模块、父级分配及实际依赖的四维证据，不递归校验无关来源。status.module_inputs 提供各模块 feature_ids，planning_context 提供全局清单与归属。详见 [切片规范](../../migration-global/references/slicing.md)。
+
+### 停滞信号与 invalidate 恢复
+
+`status.workflow_progress` 提供可推进动作、门禁原因/owner/证据、worker 无进展提醒及 `notify_user`；同步生成 `ledger/progress.json` 与 `reports/workflow-attention.md`。被拒操作在业务日志之外保存最新诊断 `reports/rejected-operation.json`，不改业务状态；连续同原因拒绝 3 次需人工感知。init 可选 `worker_stall_timeout_seconds`，默认 900，控制提醒阈值而非 worker 自动终止。
+
+invalidate 将旧 plan/freeze/代码/结果移入 planning_history，撤下旧受管 OpenSpec 定义并清空当前 plan，进入 specifying；分配有效则 next_step=plan，否则 allocation-review-required 交 GO。不清零预算、不抹历史结果、不绕过冻结批准。宿主响应与自动化缺测分流见 [进度恢复协议](progress-recovery.md)。
 
 ## 当前执行规则：构建与自动化分开
 

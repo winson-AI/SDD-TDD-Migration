@@ -15,24 +15,40 @@ def registry(s):
             for mid, m in s['modules'].items()}
 
 
-def planning_guard(s):
+def runtime_allocations(s, module_id):
+    """Only this leaf, its actual dependency closure, and their parent allocations."""
+    pending, visited = [module_id], set()
+    while pending:
+        mid = pending.pop()
+        if mid in visited:
+            continue
+        visited.add(mid)
+        module = s['modules'].get(mid) or s.get('module_groups', {}).get(mid)
+        require(module, 'allocated module/dependency missing')
+        dimensions.allocation(s, module)
+        parent = module.get('parent_module_id')
+        if parent:
+            pending.append(parent)
+        if mid in s['modules']:
+            pending.extend(module['dependencies'])
+        else:
+            check_ref(module['decomposition_ref']); check_ref(module['decomposition_review_ref'])
+    return visited
+
+
+def planning_guard(s, module_id=None):
     plan = s.get('global_plan')
     require(plan and plan['registry_hash'] == digest(registry(s)), 'global coverage review required')
     require(not any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values()),
             'complete MO decomposition before implementation/audit')
-    for module in {**s.get('module_groups', {}), **s['modules']}.values():
-        dimensions.allocation(s, module)
-    for group in s.get('module_groups', {}).values():
-        check_ref(group['decomposition_ref']); check_ref(group['decomposition_review_ref'])
     for ref in (s['global_spec'], s['new_architecture'], plan['plan_ref'], plan['review_ref']):
         check_ref(ref)
+    if module_id:
+        runtime_allocations(s, module_id)
+    # Global semantic/source coverage is accepted once by global-plan. Runtime
+    # dispatch must not recursively revalidate unrelated modules' source evidence.
     if plan['content'].get('feature_inventory_ref'):
-        inventory = read_json(check_ref(plan['content']['feature_inventory_ref']))
-        for item in inventory['features'] + inventory['source_units']:
-            for ref in item['evidence_refs']:
-                check_ref(ref)
-        if inventory.get('test_summary_ref'):
-            check_ref(inventory['test_summary_ref'])
+        check_ref(plan['content']['feature_inventory_ref'])
     if plan.get('boundary_decision_id'):
         check_ref(s['decisions'][plan['boundary_decision_id']]['human_source_ref'])
 
@@ -233,6 +249,8 @@ def handle(s, req, actor):
                         set(module['scope']['requirement_ids']), 'global ownership must match assigned submodule requirements')
         for module in {**s.get('module_groups', {}), **s['modules']}.values():
             dimensions.allocation(s, module)
+        for group in s.get('module_groups', {}).values():
+            check_ref(group['decomposition_ref']); check_ref(group['decomposition_review_ref'])
         feature_inventory(s, plan)
         boundary_review(s, plan, p.get('boundary_decision_id'))
         s['global_plan'] = {**p, 'content': plan, 'registry_hash': digest(registry(s))}

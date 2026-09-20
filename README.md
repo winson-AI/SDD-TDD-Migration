@@ -169,3 +169,9 @@ Harmony 已提供独立 [uv sandbox 与使用说明](skills/migration-test/runti
 ## UI → Logic → Adhesive → Resource 深度切片
 
 GO 读取上下文/功能清单 → 划分模块 → 模块四维分析；父 MO 认领并读取模块实现/分析等上下文 → 划分子模块 → 子模块四维分析；子 MO 认领并读取子模块实现/分析等上下文 → 划分任务 → 任务四维分析 → 冻结/实现。范围先确定，四维分析直接指导实现，完整关联 TASK/PATH/ASSERT。各维度按实际功能决定 applicable / 有证据的 not-applicable，未知项禁止冻结。分析顺序不强制编码顺序，不改变业务模块划分。参见 [控制节点、字段与案例](skills/migration-protocol/references/dimension-slicing.md)，[分析模板](template/dimension-analysis.json)。
+
+## 运行停滞与恢复
+
+全量分析检查在 global-plan 接受时执行；运行期只校验当前模块、父级分配及实际依赖。invalidate 保留旧证据并清空当前旧 plan，下一步明确为重新规划或 GO 分配审查。`ledger.py status` 返回 `workflow_progress`，同步生成 `ledger/progress.json`、`reports/workflow-attention.md`：列出阻塞原因/owner/证据、可推进动作、worker 无进展与人工提醒。
+
+宿主须在 ACK/拒绝/worker 返回后刷新状态，等待期间至少每 60 秒检查；900 秒无作用域事件默认提醒，不自动停进程或放锁。仅自动化环境缺失仍走 Yellow 缺测收尾，其他任务及 Auditor 继续。无后台 watchdog，人工通知与真实调度由宿主落实。详见 [进度恢复协议](skills/migration-protocol/references/progress-recovery.md)。

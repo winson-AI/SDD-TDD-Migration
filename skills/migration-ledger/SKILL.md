@@ -35,6 +35,8 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 
 编排状态查询还会派生 next_steps/ready_modules/global_next_step；它们不是第二套状态源。阶段接收、精确恢复、审计关闭/撤销和根因停滞摘要均在 ledger.py 内验证，详细语义见本地运行指南的 2026-09-17 补充。
 
+[progress_signals.py](scripts/progress_signals.py) 派生 workflow_progress、停滞/worker 超时/重复拒绝信号及人工提醒，不改变业务状态。invalidate 保留 planning_history，解除当前旧 plan 阻塞；宿主必须消费这些信号，见 [进度恢复协议](../migration-protocol/references/progress-recovery.md)。
+
 [audit_closure.py](scripts/audit_closure.py) 实现全模块本轮收尾门禁、finding/多 owner 路由、按依赖交错修复与完整测试、关联分支挂起，以及人工批准的 audit-release；这是默认 Auditor 收尾入口。
 
 [project_context.py](scripts/project_context.py) 提供宿主项目配置 init/update/show/history/prepare；配置 revision 与 run revision 分离。Ledger init 验证并保存 project_context_ref，后续操作验证冻结证据。协议及 CLI 见 [项目上下文](../migration-protocol/references/project-context.md)。

@@ -18,6 +18,7 @@ import reuse
 import project_context
 import context_readiness
 import test_validation as tv
+import progress_signals
 from openspec_projection import materialize
 
 from contracts import (Rejected, baseline, check_ref, digest, file_ref, keyed, nonempty,
@@ -177,7 +178,7 @@ def pending_repairs(s):
 
 
 def dispatch_guard(s, m, worker):
-    workflow.planning_guard(s)
+    workflow.planning_guard(s, m['module_id'])
     if m.get('parent_module_id'):
         decomposition.check_module_plan(s, m, m['plan'])
     if audit_closure.active(s):
@@ -231,7 +232,8 @@ def _next_step(s, m):
             'operation': None, 'role': None, 'ready': False, 'reason': None,
             'session_id': None, 'assignment_id': active['assignment_id'] if active else None}
     if m.get('effective_quality') == 'yellow-blocked':
-        step.update(operation='revoke' if active else 'invalidate', role='host' if active else 'module-orchestrator', reason='evidence-stale')
+        step.update(operation='revoke' if active else 'invalidate', role='host' if active else 'module-orchestrator', ready=True, reason='evidence-stale',
+                    payload={'reason': 'evidence-stale'} if not active else {})
     elif m['phase'] == 'automation-deferred':
         step.update(role='module-orchestrator', reason='automation-not-run; other work may continue')
         for receipt in m.get('context_receipts', {}).values():
@@ -281,6 +283,12 @@ def _next_step(s, m):
                               and m['module_id'] not in r.get('accepted_by', [])])
     elif m['phase'] in ('context', 'specifying', 'change-review'):
         step.update(operation='plan', role='spec-designer', ready=True)
+        try:
+            workflow.runtime_allocations(s, m['module_id'])
+        except (Rejected, OSError) as exc:
+            step.update(operation=None, role='global-orchestrator', ready=False,
+                        reason='allocation-review-required', detail=str(exc),
+                        recovery_action='restore-approved-allocation-or-GO-replan-new-run')
     elif m['phase'] == 'clarifying':
         decision = approval(s, m, m['plan_hash'])
         impact = m.get('change_request', {}).get('impact_ref')
@@ -677,7 +685,15 @@ def mutate(s, req, principal, events):
         if m.get('blocked'):
             m.pop('approved_envelope', None)
             m.pop('approved_acceptance', None)
-        m.update(stale=True, phase='specifying', blocked=None, freeze_id=None, diagnosis_submission=None)
+        m.setdefault('planning_history', []).append({k: copy.deepcopy(m.get(k)) for k in
+            ('revision', 'plan', 'plan_ref', 'plan_hash', 'freeze_id', 'code_files', 'code_baseline',
+             'results', 'dimension_evidence')})
+        m.update(stale=True, phase='specifying', blocked=None, freeze_id=None, diagnosis_submission=None,
+                 plan=None, plan_ref=None, plan_hash=None, build_baseline=None, accepted_task_ids=[])
+        m.pop('dimension_evidence', None)
+        m.pop('effective_quality', None)
+        m.pop('context_acceptances', None)
+        m.pop('automation_retry_ready', None)
         m.pop('dependency_release', None)
         m['code_files'] = []
         m['code_baseline'] = None
@@ -823,6 +839,15 @@ def preserve_refs(root, value, seen=None):
 
 
 def apply(root, req, principal):
+    try:
+        return _apply(root, req, principal)
+    except (Rejected, OSError, ValueError, KeyError, TypeError) as exc:
+        # Diagnostic only; rejected requests never mutate business events/quality.
+        progress_signals.record_rejection(root, req, principal, str(exc))
+        raise
+
+
+def _apply(root, req, principal):
     root = Path(root).resolve()
     root.mkdir(parents=True, exist_ok=True)
     with (root / '.ledger.lock').open('a+') as lock:
@@ -865,7 +890,8 @@ def apply(root, req, principal):
             require(type(p.get('split_testing_required', True)) is bool, 'split_testing_required must be boolean')
             require(type(p.get('context_readiness_required', True)) is bool, 'context_readiness_required must be boolean')
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
-            s = {'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True),
+            require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
+            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True),
                  'reuse_sources': reuse_sources, 'reuse_required': bool(reuse_sources) or p.get('reuse_required', False),
                  'entry_mode': entry_mode, 'single_module_id': selected_module,
                  'global_spec': p['global_spec'], 'new_architecture': p['new_architecture'], 'requirement_ids': p['requirement_ids'],
@@ -971,7 +997,11 @@ def status(root):
         else:
             global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'module-work-remaining'}
         global_next = context_readiness.annotate(s, None, global_next)
-        return {**s, 'context_requirements': context_readiness.requirements(s),
+        progress = progress_signals.build(root, s, events, cursor, global_next)
+        atomic(root / 'ledger/progress.json', progress)
+        from openspec_projection import write
+        write(root / 'reports/workflow-attention.md', progress_signals.render(progress))
+        return {**s, 'workflow_progress': progress, 'context_requirements': context_readiness.requirements(s),
                 'parent_mo_names': decomposition.parent_mo_names(s),
                 'migration_report': {'json': str(root / 'reports/migration-report.json'),
                                      'markdown': str(root / 'reports/migration-report.md'), 'sequence': len(events)},
@@ -1004,7 +1034,10 @@ def main():
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except (Rejected, OSError, ValueError, KeyError, TypeError) as exc:
-        print(json.dumps({'status': 'rejected', 'reason': str(exc)}, ensure_ascii=False), file=sys.stderr)
+        diagnostic = Path(args.root).resolve() / 'reports/rejected-operation.json'
+        print(json.dumps({'status': 'rejected', 'reason': str(exc),
+                          'next_action': 'read status.workflow_progress; resolve gate or escalate; do not stop unrelated modules',
+                          'diagnostic_path': str(diagnostic) if diagnostic.is_file() else None}, ensure_ascii=False), file=sys.stderr)
         return 1
 
 

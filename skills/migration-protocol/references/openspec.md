@@ -58,6 +58,8 @@ Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/
 
 本地默认 change_root 为 `<run_root>/openspec/changes/<run-id>-<module-id小写>`。每个已接受 plan 的定义快照会自动生成 proposal/spec/design/tasks/checklist，status 从状态机生成；tasks 勾选绑定 accepted task trace，checklist 保留定义并附机器证据。manifest 标记 structural-only，正式 CLI 验证结果不得伪造。删除视图后 status 可重建，视图修改不能更改冻结内容。
 
+invalidate 后旧 plan 进入 planning_history，当前 plan/freeze 清空；Ledger 撤下 manifest 管理的旧定义视图并生成重新规划 status，保留事件及 artifacts 历史快照。旧计划不能继续阻塞新计划提交，也不能冒充当前冻结定义；新计划仍须正常审核/冻结。分配依据失效交 GO，具体出口见 [恢复协议](progress-recovery.md)。
+
 memory.md 与 ledger/repair-memory.json 保存 Red/Yellow 修复的根因、策略、适用条件、风险、前后基线和正式回归证据；这是定义之外的运行记忆，不能覆盖需求。只有 verified/reusable=true 条目可作为已验证方案参考；依然必须符合本轮冻结任务与验收并重新测试。
 
 ## 二方库语义与需求映射

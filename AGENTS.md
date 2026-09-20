@@ -87,3 +87,7 @@ Test-Runner 在 Coding 接受后先编译构建，再执行自动化测试；构
 ## 四维深度切片
 
 GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 scope 后再按 UI → Logic → Adhesive → Resource 核查源闭包、架构、二方库和目标已有能力；适用项逐层映射到子功能、TASK/PATH/ASSERT，不适用项记录依据。流程节点、字段与门禁必读 [四维完整性协议](skills/migration-protocol/references/dimension-slicing.md)。
+
+## 阻塞感知与恢复
+
+全量分析在 GO global-plan 接受节点校验；运行派发只校验当前模块、父级分配和实际依赖。invalidate 保存旧证据，清除当前旧 plan，明确进入重新规划或 GO 分配审查。宿主消费 status.workflow_progress：继续独立 ready 动作，展示人工信号，检查超时 worker；不能因一个门禁拒绝静默终止整轮。超时不能自动放锁、绕过批准或改 Green。必读 [恢复与进度协议](skills/migration-protocol/references/progress-recovery.md)。

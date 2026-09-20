@@ -53,6 +53,8 @@ freeze/DoD 两套门禁不混用；当前路径完整；所有 CR 已处理；�
 
 参考 next_steps 的阶段动作与 session_id 续作；阶段结果只在当前合法 phase 接收。禁止重复 suspend 覆盖 resume_phase、禁止已关闭任务 revoke 回退新阶段。根因/路径 fingerprint 用于停滞计数，问题真实变化由诊断证据支持。
 
+invalidate 保留 planning_history/事件/快照，清空当前旧 plan 并回到 specifying；分配有效则交 Spec-Designer 重规划，分配失效则交 GO，不重复 invalidate 空转。读取 workflow_progress 的原因、owner、下一步和证据，人工信号必须向用户展示；兄弟模块继续独立执行。具体见 [进度恢复协议](../skills/migration-protocol/references/progress-recovery.md)。
+
 当前策略：Red/Yellow 先诊断，本地优先修复一轮；确认依赖/外围或一轮未通过则 audit-defer，保存结果、原因与恢复点后退出。正常待依赖/待人工须显式记录；Global 等所有模块本轮执行完毕后才统一启动 Auditor。
 
 审计中按 finding 接受本模块的 audit-work；上游修复/完整验证后，audit-retest 验证发现模块及受影响中间模块。失败只挂起相关分支，禁止私自追加修复。证据失效用 audit-block 上报。人工批准后 Global audit-release，再走正常 resume/recover/invalidate/CR 守卫；SPEC 未重新冻结不能编码。正式 memory 验收仍经过 Ledger。

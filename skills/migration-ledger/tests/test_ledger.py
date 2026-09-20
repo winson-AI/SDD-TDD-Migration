@@ -475,7 +475,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         (self.target / 'm1/code.py').write_text('changed externally')
         step = self.state()['next_steps'][0]
         self.assertEqual(step['operation'], 'invalidate')
-        self.assertFalse(step['ready'])
+        self.assertTrue(step['ready'])  # Recovery is actionable; coding remains forbidden.
 
     def test_complete_module_cannot_be_suspended(self):
         self.finish_module()
