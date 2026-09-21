@@ -118,8 +118,8 @@
 <text x="610.0" y="1822.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">所有父汇总有效；无活动 worker，也无可推进 / 恢复动作</text>
 <path d="M610,1850 L610,1910" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="100" y="1910" width="1020" height="110" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
-<text x="610.0" y="1944.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">统一 Auditor · 问题收尾</text>
-<text x="610.0" y="1978.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">有遗留：收集 Red / Yellow → 根因 → Fixer → Testing → 裁决（详图 03）</text>
+<text x="610.0" y="1944.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">统一 Auditor · 代码治理 → 遗留复核</text>
+<text x="610.0" y="1978.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先审查改动 / 冗余 / 二方库 / 公共能力；委派治理后再处理 Red / Yellow</text>
 <text x="610.0" y="2007.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">纯自动化缺环境：保留未验证清单，其他可执行任务继续</text>
 <path d="M610,2020 L610,2080" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="100" y="2080" width="1020" height="125" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>

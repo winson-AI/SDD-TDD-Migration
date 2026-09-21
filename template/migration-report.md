@@ -6,6 +6,14 @@
 - 全局质量 / Auditor 结论：{{状态、裁决及证据}}
 - 父 MO：{{M010 → parent-mo-M010}}
 
+## 本次代码修改清单
+
+- 清单：{{code_governance.change_inventory_ref 对应的版本化 Markdown 链接及 sha256}}
+- 摘要：{{功能点、文件新增/修改/删除/重命名、直接/下游影响范围、对应 CASE/PATH；来源为已接受清单}}
+- 当前审查有效性 / 待处理治理问题：{{code_governance.current / pending_findings；清单过期不能称最新}}
+
+清单采用 [audit-change-inventory.md](audit-change-inventory.md)，与当前 Auditor 审查及候选版本一致。
+
 ## 全部测试用例
 
 | CASE-ID | 参与模块 / PATH | 状态 | executed / stale | 结果证据 |

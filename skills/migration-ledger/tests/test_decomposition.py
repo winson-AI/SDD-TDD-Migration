@@ -141,6 +141,7 @@ class DecompositionTests(unittest.TestCase):
         self.assertEqual(self.state()['module_groups']['M010']['quality'], 'green-passed')
         self.assertTrue(self.state()['module_rounds']['all_settled'])
         self.assertNotEqual(self.state()['quality'], 'green-passed')
+        test_ledger.code_review(self)
         self.call('audit-assign', {'assignment_id': 'A1', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         self.assertEqual(set(self.state()['audit_assignment']['snapshot']), {'M001', 'M002'})
 
@@ -155,6 +156,7 @@ class DecompositionTests(unittest.TestCase):
         with self.assertRaises(Rejected):
             self.call('audit-collect', {'batch_id': 'B1', 'auditor_instance_id': 'auditor'}, role='global-orchestrator', module=None)
         self.summarize()
+        test_ledger.code_review(self)
         self.call('audit-collect', {'batch_id': 'B1', 'auditor_instance_id': 'auditor'}, role='global-orchestrator', module=None)
         self.assertEqual(set(self.state()['audit_batch']['sources']), {'M001'})
         self.assertEqual(self.state()['modules']['M002']['quality'], 'green-passed')
@@ -288,7 +290,7 @@ class DecompositionTests(unittest.TestCase):
         self.call('audit-verdict', {'review_ref': self.ref('verdict.md', 'verified')}, role='auditor', module=None)
         self.assertEqual(self.state()['global_next_step']['reason'], 'await-parent-summaries')
         self.summarize()
-        self.assertEqual(self.state()['global_next_step']['operation'], 'audit-assign')
+        self.assertEqual(self.state()['global_next_step']['operation'], 'audit-code-review')
 
     def test_frozen_leaf_cannot_be_decomposed_to_escape_its_contract(self):
         self.root_scope(); self.split(); self.global_plan(); self.prepare_leaf('M001')

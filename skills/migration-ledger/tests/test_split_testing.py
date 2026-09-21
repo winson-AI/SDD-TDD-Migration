@@ -1,4 +1,5 @@
 """Build-first validation, explicit automation omissions, dependency progress and recovery."""
+import test_ledger
 import copy
 from pathlib import Path
 import sys
@@ -172,7 +173,8 @@ class SplitTestingTests(unittest.TestCase):
         self.assertEqual(m['results']['B1']['quality'], 'green-passed')
         self.assertEqual(m['fix_rounds_used'], 0)
         self.assertTrue(s['module_rounds']['all_settled'])
-        self.assertEqual(s['global_next_step']['operation'], 'audit-assign')
+        self.assertEqual(s['global_next_step']['operation'], 'audit-code-review')
+        test_ledger.code_review(f)
         with self.assertRaises(Rejected):
             f.call('complete', {'dod_ref': f.ref('false-dod.md', 'not tested'), 'checks_passed': True})
         report = f.record(f.report('audit-testing', module=None, instance='auditor', blocked='test-environment'))
@@ -227,6 +229,7 @@ class SplitTestingTests(unittest.TestCase):
         adapter = f.base / 'adapter.py'
         adapter.write_text("import argparse,json\np=argparse.ArgumentParser();p.add_argument('--query-file');p.add_argument('--result-file');a=p.parse_args();json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':True}]},open(a.result_file,'w'))")
         adapter.write_text(adapter.read_text().replace("'actual':2,'passed':True", f"'actual':{actual},'passed':{actual == 2}"))
+        test_ledger.code_review(f)
         report = f.report('audit-testing', module=None, instance='auditor')
         command = f.state()['modules']['M001']['plan']['paths'][1]['command']
         report['execution']['commands'] = {'B1': {'argv': command['argv'], 'cwd': command['cwd']}}
@@ -284,6 +287,7 @@ class SplitTestingTests(unittest.TestCase):
         cause = {'category': 'environment', 'summary': 'automation service absent', 'confidence': 'confirmed',
                  'owner': 'host', 'next_action': 'verify availability'}
         f.raw('audit-defer', {'root_cause': cause, 'evidence_ref': f.ref('env-issue.md', 'Service unavailable')})
+        test_ledger.code_review(f)
         f.raw('audit-collect', {'batch_id': 'A1', 'auditor_instance_id': 'auditor'}, role='global-orchestrator', module=None)
         b = f.state()['audit_batch']; fid = next(iter(b['findings']))
         plan = {'routes': [{'finding_id': fid, 'source_module_id': 'M001', 'action': 'verify',

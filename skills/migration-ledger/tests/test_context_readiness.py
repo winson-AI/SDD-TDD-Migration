@@ -74,7 +74,7 @@ class ContextReadinessTests(unittest.TestCase):
         stage = cr.requirement(op, p, self.state() if op == 'audit-assign' else None)
         if self.auto_context and stage and op not in ('freeze', 'decompose-accept'):
             producer = p.get('instance_id') if op in ('assign', 'audit-assign', 'problem-assign') else instance or role
-            report = self.report(stage, module, producer, p.get('plan_ref'))
+            report = self.report(stage, module, producer, p.get('report_ref') if op == 'audit-code-review' else p.get('plan_ref'))
             p['context_ref'] = self.record(report)
         return self.raw(op, p, role=role, module=module, instance=instance, request=request)
 
@@ -222,6 +222,7 @@ class ContextReadinessTests(unittest.TestCase):
 
     def test_audit_analysis_and_verdict_cannot_skip_context_receipts(self):
         self.cross_module_failure()
+        test_ledger.code_review(self)
         self.call('audit-collect', {'batch_id': 'B1', 'auditor_instance_id': 'auditor'}, role='global-orchestrator', module=None)
         with self.assertRaisesRegex(Rejected, 'context readiness receipt required'):
             self.raw('audit-plan', {'plan_ref': self.ref('unreviewed.json', {})}, role='auditor', module=None)

@@ -33,7 +33,7 @@ CASE 覆盖归属与验收角色分开：模块阶段唯一验收 owner 为对�
 
 ## Auditor 启动门禁
 
-必须等所有模块本轮完成或明确挂起、无在途 worker 与可推进动作，再统一拉起 Auditor。dependency-ready/resume 优先；audit-collect 会重复校验。宿主实际启动/恢复各 subagent 及 Used Skills。finding 路由、依赖复测与人工释放见 [当前运行契约](../migration-protocol/references/local-runtime.md)。
+必须等所有模块本轮完成或明确挂起、无在途 worker 与可推进动作，再统一拉起 Auditor 执行 [整体代码审查/治理](../migration-protocol/references/audit-code-review.md)，然后处理剩余 Red/Yellow。dependency-ready/resume 优先；audit-code-review/audit-collect 会重复校验。宿主实际启动/恢复各 subagent 及 Used Skills。finding 路由、依赖复测与人工释放见 [当前运行契约](../migration-protocol/references/local-runtime.md)。
 
 跨模块或不确定的业务边界必须交人工决策，记录 boundary_review 及批准后再接受 global-plan；Global 只执行已批准的边界、依赖和路由。已批准范围内的常规调度无需重复询问。
 

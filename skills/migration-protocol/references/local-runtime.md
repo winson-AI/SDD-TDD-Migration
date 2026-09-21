@@ -373,3 +373,7 @@ Ledger 在事件接受/状态重建时生成 `<run_root>/reports/migration-repor
 ## 四维分配与冻结字段
 
 新 init 默认 dimension_slicing_required=true，prepare 固化开启。register 必填 dimension_analysis_ref；decompose 的每个 child 也必填该引用，并由父 MO 提交 dimension_partition_review_ref。子分析绑定 parent_ref/parent_item_ids，plan 绑定认领分析和 dimension_trace，并包含先划定的 tasks[].scope 与随后生成、通过 scope_sha256 绑定的 tasks[].dimension_analysis，implementation 提交 dimension_evidence。status 的 planning_context.dimension_allocations 与 module_inputs 提供权威交接引用，OpenSpec 自动生成 dimensions.md。字段定义及历史格式兼容见 [四维协议](dimension-slicing.md)。
+
+## Auditor 整体代码治理前置
+
+新增全局 operation `audit-code-review`，actor=auditor，payload={report_ref, context_ref}。全部 MO 收尾后先提交 audit-code-review context receipt（draft_ref=report_ref），报告绑定 status.global_next_step.snapshot，覆盖所有执行叶子，并以必填 change_inventory_ref 引用 [本次代码修改清单](../../../template/audit-change-inventory.md)。Ledger 验证清单 hash，GO migration-report 提供同版链接；旧报告缺少清单须补交新版审查。`audit-collect` 有 CR-* 治理 finding 时先生成治理批次；无治理发现才收集剩余 Red/Yellow。代码变更后必须刷新整体审查；无问题报告 findings=[]。旧 run 无需重新初始化，但不能跳过新门禁。`audit-assign`/`audit-unavailable` 必须当前审查有效且无待处理治理发现。详见 [代码治理协议](audit-code-review.md)，模板 [audit-code-review.json](../../../template/audit-code-review.json)。

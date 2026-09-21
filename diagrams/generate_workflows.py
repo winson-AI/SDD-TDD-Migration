@@ -125,8 +125,8 @@ def overview():
         '所有子 MO：DoD 完成 / 自动化缺测已记录 / 其他问题明确挂起',
         '所有父汇总有效；无活动 worker，也无可推进 / 恢复动作'], 'orange',True)
     d.arrow([(610,1850),(610,1910)])
-    d.box(100,1910,1020,110,'统一 Auditor · 问题收尾',[
-        '有遗留：收集 Red / Yellow → 根因 → Fixer → Testing → 裁决（详图 03）',
+    d.box(100,1910,1020,110,'统一 Auditor · 代码治理 → 遗留复核',[
+        '先审查改动 / 冗余 / 二方库 / 公共能力；委派治理后再处理 Red / Yellow',
         '纯自动化缺环境：保留未验证清单，其他可执行任务继续'])
     d.arrow([(610,2020),(610,2080)])
     d.box(100,2080,1020,125,'独立审阅收尾 → 全局报告',[
@@ -224,15 +224,15 @@ def auditor_closure():
     d=Diagram('auditor-closure',2110,'03','Auditor · 跨模块处理与最终裁决','独立 Auditor 保留审计验收权；修复由负责模块的 MO 派发 Fixer，正式 Testing 必须复核')
     d.box(340,195,920,115,'入口：GO 全量收尾门禁已满足',[
         '全部子 MO 本轮结束 + 所有父汇总有效 + 无活动 worker / 可推进动作',
-        '本图展开遗留处理；global_paths 可为空；无遗留只独立审阅'], 'orange')
+        '先整体代码审查 / 治理，再收集剩余 Red / Yellow；global_paths 可为空'], 'orange')
     d.arrow([(800,310),(800,370)])
-    d.box(500,370,600,135,'收集遗留 → Auditor 上下文预检',[
-        'audit-collect：Red / Yellow / blocked → finding','读取发现模块与负责模块的 SPEC / tasks','绑定 PATH、复用映射、提供方版本及测试证据'])
+    d.box(500,370,600,135,'整体代码审查 → 分批收集',[
+        'audit-code-review：改动 / 冗余 / 复用 / 公共能力','audit-collect：先治理 CR-*，再剩余 Red / Yellow','绑定 SPEC / PATH / provider 与消费者证据'])
     d.arrow([(800,505),(800,565)])
     d.box(500,565,600,135,'根因分析 → 路由审核',[
-        'Auditor 给出 fix / verify / human 方案','GO 审核提供方 owner、消费者及依赖图','无有效冻结 SPEC / 代码：转人工恢复规划'],controller=True)
-    d.box(90,370,330,200,'二方库问题归属',[
-        '提供方缺陷 / 不可用 / 版本漂移',
+        '治理用 fix / human；遗留可 fix / verify / human','GO 审核提供方 owner、消费者及依赖图','无有效冻结 SPEC / 代码：转人工恢复规划'],controller=True)
+    d.box(90,370,330,200,'复用与公共能力治理',[
+        '重复实现 / 接线 / 公共能力',
         '核对已选映射与影响消费者',
         '外部源码默认只读',
         '无修改授权 → human 路由'], 'orange')
@@ -265,7 +265,7 @@ def auditor_closure():
     d.arrow([(960,1505),(960,1540),(1200,1540),(1200,1590)],'orange')
     d.label(1190,1540,'Red / 其他 Yellow','orange')
     d.box(90,1590,620,145,'批次收尾 → 刷新父汇总',[
-        '修复导致父汇总失效时重新核验并提交','保留 Green 或自动化未验证清单；不空等','完整跨模块验证后，修复 memory 才可复用'], 'green')
+        '修复导致父汇总失效时重新核验并提交','保留 Green 或自动化未验证清单；不空等','新基线重新审查，再收集剩余问题'], 'green')
     d.box(890,1590,620,145,'根因报告 → 等待人工审核',[
         'awaiting-human：保留各次断言、证据与问题归属','审核决定绑定当前报告摘要；不自动追加修复'], 'orange')
     d.arrow([(400,1735),(400,1795)])
@@ -274,7 +274,7 @@ def auditor_closure():
     d.arrow([(1200,1735),(1200,1795)],'purple')
     d.box(890,1795,620,155,'人工批准 → GO 释放批次 → 受控恢复',[
         'audit-release 后按原因 resume / recover / CR','需要时重新 plan / freeze；恢复不会直接 Green','再次满足全量收尾门禁，才可创建新审计批次'], 'purple')
-    d.text(800,2015,'遍历全部模块 ≠ 重跑全部用例；无遗留只独立审阅，Auditor 与 Fixer 始终分离。',22,'#4b5563')
+    d.text(800,2015,'先整体审查代码，再治理与复核；测试覆盖遗留及全部受影响用例，Auditor 与 Fixer 始终分离。',22,'#4b5563')
     d.legend(2060)
     d.save()
 

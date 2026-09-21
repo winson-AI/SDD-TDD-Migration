@@ -70,3 +70,7 @@ execute/build 前提交 building 报告；execute/automation 前提交新的 tes
 执行职责明确为 build（编译构建）和 automation（自动化用例）：构建前读取目标全局脚本/用户命令与环境，默认评估 Gradle assemble，逐模块冻结命令和构建 PATH；build Green 后才进入自动化预检。编译错误或可修复 Yellow 经 MO 派发 Fixer，再由本角色重新构建；本角色不修源码。
 
 自动化环境不可启动，提交仅 test-environment=blocked 的证据，由 MO automation-unavailable 留逐 PATH Yellow/未执行并结束本轮，不能阻塞其他并行/下游代码任务。环境可启动则执行全用例路径。详细命令、三态、恢复与审计遵守 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
+
+## 代码治理后的回归
+
+Auditor 委派的重构/二方库接入/公共能力变更同样先 Build 成功并装机，再执行受影响模块的完整用例及依赖下游；即使这些用例原本 Green 也必须复测并关联 retest_of。无关有效 Green 保留，自动化不可用仍留 Yellow/未测试，不阻塞独立分支。执行范围来自 Ledger 的治理 finding/owner/消费者及依赖证据，验收归 Auditor。

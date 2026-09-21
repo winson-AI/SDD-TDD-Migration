@@ -6,6 +6,7 @@ from html import escape
 from contracts import digest
 import decomposition as dc
 import test_validation as tv
+import audit_code_review
 
 
 def quality(values):
@@ -104,9 +105,15 @@ def build(root, s, sequence):
     settled = (bool(s['modules']) and all(tv.available(m) for m in s['modules'].values()) and
                not any(not a.get('closed') for m in s['modules'].values() for a in m['assignments'].values()) and
                all(dc.summary_current(s, g) for g in s.get('module_groups', {}).values()))
-    stage = ('completed' if settled and not invalid and s.get('quality') == 'green-passed' and
+    governance = {'report_ref': s.get('audit_code_review', {}).get('report_ref'),
+                  'change_inventory_ref': s.get('audit_code_review', {}).get('change_inventory_ref'),
+                  'current': audit_code_review.current(s), 'pending_findings': list(audit_code_review.pending(s).values()),
+                  'verification_deferral_history': audit_code_review.deferred(s),
+                  'history_refs': [r['report_ref'] for r in s.get('audit_code_review_history', [])]}
+    reviewed = governance['current'] and not governance['pending_findings']
+    stage = ('completed' if settled and reviewed and not invalid and s.get('quality') == 'green-passed' and
              all(c['quality'] == 'green-passed' for c in cases) else
-             'completed-with-unverified-tests' if settled and not invalid and tv.final_deferred_current(s) else
+             'completed-with-unverified-tests' if settled and reviewed and not invalid and tv.final_deferred_current(s) else
              'awaiting-human' if batch.get('status') == 'awaiting-human' else 'in-progress')
     return {'schema_version': 1, 'run_id': s['run_id'], 'sequence': sequence, 'report_stage': stage,
             'quality': quality([s.get('quality', 'yellow-blocked'), *[c['quality'] for c in cases]]),
@@ -115,7 +122,7 @@ def build(root, s, sequence):
             'parent_mo_names': names, 'snapshot': snapshot, 'audit': copy.deepcopy(s.get('audit', {})),
             'case_counts': {q: Counter(c['quality'] for c in cases)[q] for q in ('green-passed', 'red-bug', 'yellow-blocked')},
             'cases': cases, 'paths': rows, 'non_green': [r for r in rows if r['quality'] != 'green-passed'],
-            'unimplemented': gaps,
+            'unimplemented': gaps, 'code_governance': governance,
             'human_report': copy.deepcopy(batch.get('human_report')),
             'human_report_path': str(root / 'audit-reports' / (batch['batch_id'] + '.json')) if batch.get('human_report') else None}
 
@@ -132,6 +139,17 @@ def render(report):
             '## 全部测试用例', '', '| CASE-ID | 模块 | 状态 | 路径数 | 曾执行数 |', '| --- | --- | --- | --- | --- |']
     for c in report['cases']:
         text.append('| ' + ' | '.join(cell(v) for v in (c['case_id'], ', '.join(c['module_ids']), c['quality'], c['path_count'], c['executed_count'])) + ' |')
+    governance = report.get('code_governance', {})
+    text += ['', '## 整体代码治理', '', f"当前基线审查有效：{governance.get('current', False)}；待处理治理发现：{len(governance.get('pending_findings', []))}"]
+    if governance.get('report_ref'):
+        ref = governance['report_ref']
+        text.append(f"- 审查证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}")
+    if governance.get('change_inventory_ref'):
+        ref = governance['change_inventory_ref']
+        text.append(f"- 本次代码修改清单：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}")
+    for finding in governance.get('pending_findings', []):
+        cause, ref = finding['root_cause'], finding['analysis_ref']
+        text.append(f"- {cell(finding['finding_id'])} / {cell(finding['category'])}：{cell(cause['summary'])}；owner={cell(cause['owner'])}；next={cell(cause['next_action'])}；证据：[{cell(ref['path'])}](<{ref['path']}>)")
     if report.get('unimplemented'):
         text += ['', '## 未实现：需要人工决策', '']
         for gap in report['unimplemented']:

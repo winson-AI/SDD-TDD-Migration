@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "run_id": "{{run-id}}",
+  "auditor_instance_id": "{{independent-auditor-instance}}",
+  "snapshot": "{{copy-status.global_next_step.snapshot}}",
+  "modules": [
+    {
+      "module_id": "M001",
+      "diff_refs": [
+        {
+          "path": "{{absolute-evidence-path}}",
+          "sha256": "{{sha256}}"
+        }
+      ],
+      "checks": {
+        "changes": {
+          "conclusion": "satisfied",
+          "reason": "{{review-conclusion-with-source-and-target-evidence}}",
+          "evidence_refs": [
+            {
+              "path": "{{absolute-evidence-path}}",
+              "sha256": "{{sha256}}"
+            }
+          ]
+        },
+        "refactoring": {
+          "conclusion": "satisfied",
+          "reason": "{{review-conclusion-with-source-and-target-evidence}}",
+          "evidence_refs": [
+            {
+              "path": "{{absolute-evidence-path}}",
+              "sha256": "{{sha256}}"
+            }
+          ]
+        },
+        "redundancy": {
+          "conclusion": "satisfied",
+          "reason": "{{review-conclusion-with-source-and-target-evidence}}",
+          "evidence_refs": [
+            {
+              "path": "{{absolute-evidence-path}}",
+              "sha256": "{{sha256}}"
+            }
+          ]
+        },
+        "library-reuse": {
+          "conclusion": "satisfied",
+          "reason": "{{review-conclusion-with-source-and-target-evidence}}",
+          "evidence_refs": [
+            {
+              "path": "{{absolute-evidence-path}}",
+              "sha256": "{{sha256}}"
+            }
+          ]
+        },
+        "shared-capabilities": {
+          "conclusion": "satisfied",
+          "reason": "{{review-conclusion-with-source-and-target-evidence}}",
+          "evidence_refs": [
+            {
+              "path": "{{absolute-evidence-path}}",
+              "sha256": "{{sha256}}"
+            }
+          ]
+        },
+        "fidelity": {
+          "conclusion": "satisfied",
+          "reason": "{{review-conclusion-with-source-and-target-evidence}}",
+          "evidence_refs": [
+            {
+              "path": "{{absolute-evidence-path}}",
+              "sha256": "{{sha256}}"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "findings": [],
+  "recovery_resolutions": [],
+  "change_inventory_ref": {
+    "path": "{{absolute-path-to-audit-change-inventory-revision.md}}",
+    "sha256": "{{sha256}}"
+  }
+}

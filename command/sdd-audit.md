@@ -1,5 +1,5 @@
 ---
-description: /sdd-audit <run-id> — 独立遗留复核与一轮修复委派
+description: /sdd-audit <run-id> — 整体代码审查、代码治理与独立遗留复核
 ---
 
 # /sdd-audit
@@ -11,7 +11,7 @@ description: /sdd-audit <run-id> — 独立遗留复核与一轮修复委派
 1. 读取 [AGENTS.md](../AGENTS.md)、[运行协议](../skills/migration-protocol/references/runtime.md)，解析参数为绝对路径及规范 ID。
 2. 前置门控：完整 registry 中所有 MO 本轮独立完成或基于自身证据明确挂起，无活动 worker、无可推进动作；手工调用本命令也不得跳过等待，不得为审计强制结束其他 MO。模块 registry 和整体用例完整；实例与实现/修复/脚本作者分离；可冻结候选版本；未生成的代码不能测试，只报告 Yellow。
 3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
-4. 由宿主向 Ledger 提交 audit_requested；收到 ACK 后派发对应角色。遍历所有模块，收集 Red/Yellow 遗留；读取对应 SPEC/CASE/PATH，分析根因并安排复核、必要的一轮 Fixer 与修复后 Testing。仍失败输出根因待人工；无关有效 Green 不重跑，不追加全项目全量测试。
+4. 由宿主向 Ledger 提交 audit_requested；收到 ACK 后派发对应角色。先按 [代码治理协议](../skills/migration-protocol/references/audit-code-review.md) 执行 audit-code-review，遍历全部模块的代码改动、冗余、二方库和公共能力；治理发现先委派修正及受影响回归并刷新审查。随后收集剩余 Red/Yellow 遗留；读取对应 SPEC/CASE/PATH，分析根因并安排复核、必要的一轮 Fixer 与修复后 Testing。仍失败输出根因待人工；无关有效 Green 不重跑，不追加全项目全量测试。
 5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
 
 ## 3. 调用契约
@@ -43,12 +43,14 @@ global_test_paths 可为空，不是 Auditor 触发条件；旧运行无需重�
 ## 8. 自查
 参数与前置有效；工具实际存在；没有越权写入；回执来源可信；恢复指令与 phase 一致。
 
+整体代码审查必须提交 [本次代码修改清单](../template/audit-change-inventory.md)，由 audit-code-review.json.change_inventory_ref 绑定同版工件；清单列功能点、逐文件修改/路径、影响范围、CASE/PATH/测试脚本及结果证据。GO 收尾展示该链接，修复后刷新版本；不能只返回审查结论而省略清单。
+
 ## 本地实现接入
 
 Global audit-assign → 对 assignment.path_ids 执行 Auditor execute_test --module GLOBAL → audit；path_ids=[] 时仅提交独立 audit-review。具体 payload/命令用法见 [local-runtime.md](../skills/migration-protocol/references/local-runtime.md)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
 
 本地审计失败后的下一步为 audit-route / repair-accept，不能立即循环 audit-assign。模块修复复测完成后才开启下一轮，报告需关联上一轮非 Green 的 test_run_id。
 
-当前入口必须等全部模块本轮结束/明确挂起，且无活动或可推进工作，才统一扫描所有并行遗留：audit-collect → Auditor audit-plan → Global audit-route-batch → 负责模块 MO audit-work → Fixer → Test-Runner → 原发现模块 audit-retest → audit-verdict。按 finding 与依赖顺序执行，失败关联分支待人工，独立分支继续；汇总后须批准 audit-release 才能进入常规恢复，不再循环 problem-assign。问题闭环完成后做 audit-assign/audit 收尾审阅；仅剩未验证路径才执行测试，绝不再次执行所有用例。
+当前入口必须等全部模块本轮结束/明确挂起，且无活动或可推进工作，才先 audit-code-review 及治理闭环，再统一扫描所有并行遗留：audit-collect → Auditor audit-plan → Global audit-route-batch → 负责模块 MO audit-work → Fixer → Test-Runner → 原发现模块 audit-retest → audit-verdict。按 finding 与依赖顺序执行，失败关联分支待人工，独立分支继续；汇总后须批准 audit-release 才能进入常规恢复，不再循环 problem-assign。问题闭环完成后做 audit-assign/audit 收尾审阅；仅剩未验证路径才执行测试，绝不再次执行所有用例。
 
 纯自动化环境缺测不作为必须修复的代码缺陷，也不强制进入人工审批。等待全量收尾后汇总缺测 PATH；最终环境仍不可用，独立预检后 audit-unavailable 留 Yellow 报告结束本轮；不能宣称 Green。见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。

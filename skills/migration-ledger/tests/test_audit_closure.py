@@ -81,6 +81,7 @@ class ClosureTests(unittest.TestCase):
         self.call('audit-defer', {'root_cause': result['paths'][0]['root_cause'], 'evidence_ref': self.ref('handoff.md', 'module round ended with confirmed dependency failure')}, module='M002')
 
     def route(self):
+        test_ledger.code_review(self)
         self.call('audit-collect', {'batch_id': 'B1', 'auditor_instance_id': 'auditor'}, role='global-orchestrator', module=None)
         b = self.state()['audit_batch']
         self.assertEqual(set(b['sources']), {'M002'})  # The module execution round explicitly handed off before collection.
@@ -103,7 +104,7 @@ class ClosureTests(unittest.TestCase):
         s = self.state()
         self.assertEqual(s['audit_batch']['status'], 'verified')
         self.assertTrue(s['modules']['M001']['fix_memory'][0]['reusable'])
-        self.assertEqual(s['global_next_step']['operation'], 'audit-assign')
+        self.assertEqual(s['global_next_step']['operation'], 'audit-code-review')
 
     def test_failed_consumer_verification_stops_for_human(self):
         self.cross_module_failure(); self.route()
@@ -123,6 +124,7 @@ class ClosureTests(unittest.TestCase):
 
     def test_context_binding_and_auditor_separation(self):
         self.cross_module_failure()
+        test_ledger.code_review(self)
         self.call('audit-collect', {'batch_id': 'B1', 'auditor_instance_id': 'auditor'}, role='global-orchestrator', module=None)
         b = self.state()['audit_batch']
         bad = {'routes': [{'source_module_id': 'M002', 'owner_module_id': 'M001', 'action': 'fix',

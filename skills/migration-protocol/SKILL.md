@@ -64,6 +64,10 @@ GO、父/子 MO、Spec-Designer 在规划时，以及 Implementer/Fixer/Test-Run
 
 宿主、GO/MO 与 Ledger 在调度、等待或恢复时必读 [progress-recovery.md](references/progress-recovery.md)：运行期局部校验、invalidate 历史保留与重规划出口、workflow_progress 人工信号及自动化缺测收尾。禁止在 ready=false 或命令拒绝后无提示地退出。
 
-## 15. 来源与 provider 版本变化
+## 15. Auditor 代码治理
+
+所有 MO 收尾后，先按 [整体代码治理](references/audit-code-review.md) 独立审查全部代码修改、冗余、二方库及公共能力，委派治理和受影响完整回归，再处理剩余 Red/Yellow。Auditor 不兼代码作者；新增任务/接口/边界仍走 CR 与重新冻结。
+
+## 16. 来源与 provider 版本变化
 
 GO/父子 MO/Host 在运行中追加只读来源时读 [source-changes.md](references/source-changes.md)：GO 完整影响评审、Host 绑定批准与新快照事务、相关阻塞恢复及无关模块证据延续。v2 显式 owner、资源锁与 provider 变更闭环见 [复用协议第 10 节](references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。来源变化不自动清除失败、重置预算或批准代码。

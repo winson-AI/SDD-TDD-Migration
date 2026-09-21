@@ -12,6 +12,7 @@ import sys
 
 import workflow
 import audit_closure
+import audit_code_review
 import decomposition
 import dimensions
 import reuse
@@ -425,7 +426,7 @@ def mutate(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')
-    global_ops = {'register', 'decision', 'audit-assign', 'audit', 'audit-revoke', 'audit-route', 'audit-unavailable'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS | source_changes.OPS
+    global_ops = {'register', 'decision', 'audit-code-review', 'audit-assign', 'audit', 'audit-revoke', 'audit-route', 'audit-unavailable'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS | source_changes.OPS
     if op == 'context-submit' and mid is None:
         global_ops.add(op)
     require((mid is None) == (op in global_ops), 'operation has incorrect global/module scope')
@@ -441,6 +442,8 @@ def mutate(s, req, principal, events, root=None):
     context_readiness.gate(s, req, principal)
     if op == 'context-submit':
         context_readiness.submit(s, req, principal)
+    elif op == 'audit-code-review':
+        audit_code_review.accept(s, p, principal)
     elif op in source_changes.OPS:
         source_changes.handle(root, s, req, principal)
     elif op in tv.OPS:
@@ -722,6 +725,8 @@ def mutate(s, req, principal, events, root=None):
     elif op == 'audit-assign':
         role(principal, 'global-orchestrator')
         workflow.planning_guard(s)
+        audit_code_review.require_current(s, p.get('instance_id'))
+        require(not audit_code_review.pending(s), 'code governance findings require closure before final audit')
         require(not audit_closure.collection_blockers(s), 'all module rounds must settle before Auditor')
         require(not audit_closure.active(s), 'audit closure incomplete')
         require(not s.get('audit_queue'), 'problem audit queue unresolved')
@@ -986,7 +991,10 @@ def status(root):
                            'ready': bool(s['modules']) and not splitting,
                            'reason': 'module-decomposition-required' if splitting else 'coverage-review-required',
                            'continue_modules': rounds['ready_modules']}
-        elif audit_closure.leftovers(s):
+        elif rounds['all_settled'] and not audit_code_review.current(s):
+            global_next = {'operation': 'audit-code-review', 'role': 'auditor', 'ready': True,
+                           'reason': 'review-whole-change-before-defects', 'snapshot': audit_code_review.snapshot(s)}
+        elif audit_code_review.pending(s) or audit_closure.leftovers(s):
             blockers = rounds['blockers']
             global_next = {'operation': None if blockers else 'audit-collect', 'role': 'global-orchestrator', 'ready': not blockers,
                            'reason': 'await-all-module-rounds' if blockers else 'collect-all-leftovers',

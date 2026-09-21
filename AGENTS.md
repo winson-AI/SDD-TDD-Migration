@@ -21,7 +21,7 @@
 | Test-Runner | [定义](Agents/test-runner.md) | design/execute 两模式隔离，Main 自测 |
 | Diagnostician | [定义](Agents/diagnostician.md) | 只读根因与结构化报告 |
 | Fixer | [定义](Agents/fixer.md) | 最小修复、自验证及 CR 建议 |
-| Auditor | [定义](Agents/auditor.md) | 独立复测、修复委派和最终裁决 |
+| Auditor | [定义](Agents/auditor.md) | 整体代码治理、独立复测、修复委派和最终裁决 |
 | Escalation | [定义](Agents/escalation.md) | 人工阻塞封装与反馈决策 |
 | Ledger | [定义](Agents/ledger.md) | 唯一事件总线、状态投影和追溯 |
 
@@ -86,7 +86,7 @@ Test-Runner 在 Coding 接受后先编译构建，再执行自动化测试；构
 
 ## Auditor 范围
 
-全量收尾指等待全部 MO 实现/测试本轮结束，不代表测试全量重跑。Auditor 收集 Ledger 的 Red/Yellow，读取对应 SPEC/CASE/PATH，分析根因、委派必要的一轮 Fixer并正式复核；失败输出根因待人工。无关有效 Green 保留证据；无遗留只独立审阅。global_test_paths/global_paths 允许为空，不能作为启动前置。遵守 [审计范围协议](skills/migration-protocol/references/audit-scope.md)。
+全量收尾指等待全部 MO 实现/测试本轮结束，不代表测试全量重跑。Auditor 先整体审查本轮代码修改、重构、冗余、二方库接入和公共能力提取；先委派治理及影响范围回归，再收集剩余问题。新入口与门禁遵守 [代码治理协议](skills/migration-protocol/references/audit-code-review.md)。Auditor 收集 Ledger 的 Red/Yellow，读取对应 SPEC/CASE/PATH，分析根因、委派必要的一轮 Fixer并正式复核；失败输出根因待人工。无关有效 Green 保留证据；无遗留只独立审阅。global_test_paths/global_paths 允许为空，不能作为启动前置。遵守 [审计范围协议](skills/migration-protocol/references/audit-scope.md)。
 
 ## 编排名称与收尾报告
 

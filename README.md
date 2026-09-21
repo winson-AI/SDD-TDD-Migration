@@ -181,3 +181,9 @@ GO 读取上下文/功能清单 → 划分模块 → 模块四维分析；父 MO
 全量分析检查在 global-plan 接受时执行；运行期只校验当前模块、父级分配及实际依赖。invalidate 保留旧证据并清空当前旧 plan，下一步明确为重新规划或 GO 分配审查。`ledger.py status` 返回 `workflow_progress`，同步生成 `ledger/progress.json`、`reports/workflow-attention.md`：列出阻塞原因/owner/证据、可推进动作、worker 无进展与人工提醒。
 
 宿主须在 ACK/拒绝/worker 返回后刷新状态，等待期间至少每 60 秒检查；900 秒无作用域事件默认提醒，不自动停进程或放锁。仅自动化环境缺失仍走 Yellow 缺测收尾，其他任务及 Auditor 继续。无后台 watchdog，人工通知与真实调度由宿主落实。详见 [进度恢复协议](skills/migration-protocol/references/progress-recovery.md)。
+
+## Auditor：先整体代码治理，再复核遗留
+
+全部 MO 收尾及父汇总有效 → **整体审查本轮代码修改/重构/冗余/二方库/公共能力/fidelity** → 委派合法 owner 的 Fixer（新增任务/边界走 CR）→ Build/Automation 及受影响完整回归 → 刷新代码审查 → 收集剩余 Red/Yellow → 一轮修复和独立复测 → GO 报告。Auditor 负责裁决，独立执行者负责代码修改。
+
+完整复测范围为 Red/Yellow 加本次变化影响到的全部用例，包含受影响的 Green 与下游，保留无关有效 Green。新运行和旧 run 均由 status 提示 `audit-code-review`；无自动化环境仍可审查代码并如实 Yellow 收尾。详见 [代码治理协议](skills/migration-protocol/references/audit-code-review.md) 与 [报告模板](template/audit-code-review.json)。

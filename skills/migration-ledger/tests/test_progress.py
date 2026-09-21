@@ -136,6 +136,7 @@ class AutomationProgressTests(unittest.TestCase):
         self.assertEqual((step['operation'],step['ready']),('automation-unavailable',True))
         f.raw('automation-unavailable',{'context_ref':report})
         self.assertTrue(f.state()['module_rounds']['all_settled'])
+        test_ledger.code_review(f)
         report=f.record(f.report('audit-testing',module=None,instance='auditor',blocked='test-environment'))
         step=f.state()['global_next_step']
         self.assertEqual((step['operation'],step['ready']),('audit-unavailable',True))

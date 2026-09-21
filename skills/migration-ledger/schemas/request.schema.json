@@ -65,6 +65,7 @@
         "problem-assign",
         "problem-audit",
         "audit-resume",
+        "audit-code-review",
         "audit-collect",
         "audit-plan",
         "audit-route-batch",

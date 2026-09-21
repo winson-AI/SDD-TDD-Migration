@@ -1,10 +1,14 @@
-# Auditor：遗留复核与一轮修复
+# Auditor：整体代码治理、遗留复核与一轮修复
 
 ## 入口与范围
 
 Auditor 在所有父/子 MO 的本轮实现、编译构建、自动化测试及本地修复收尾后统一启动。完成 DoD 或有本模块证据的明确挂起/automation-deferred，父汇总有效、无活动 worker、无可推进动作，才满足门禁；不要求所有模块已经 Green。单模块失败不能提前启动 Auditor 或结束其他 MO。
 
 **遍历全部模块，收集 Red/Yellow；绝不默认重跑全部测试用例。** `global_test_paths`（Ledger 中为 `global_paths`）是可选的额外运行级用例，不是启动开关，缺省或 `[]` 均合法。复核的主要依据来自模块自己的冻结 SPEC、Testing list、PATH/ASSERT 和 Ledger 结果。
+
+## 代码治理前置
+
+先执行 [audit-code-review](audit-code-review.md)：审查所有模块改动、重构、冗余、二方库复用与公共能力。即使测试全 Green，也不能跳过。治理批次先委派 Fixer（需新任务/边界则 CR/人工重规划）、完整回归实际影响范围；刷新当前基线审查后，再收集剩余 Red/Yellow。Auditor 自己不写代码。
 
 ## 问题处理
 

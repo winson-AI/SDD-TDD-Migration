@@ -1,5 +1,23 @@
 # P1–P4 / P6 验证记录
 
+## Auditor 本次代码修改清单（2026-09-21）
+
+新增 template/audit-change-inventory.md：本轮起点至候选的模块/功能、逐文件修改前后路径、代码影响/公共能力/消费者、CASE/PATH/query/脚本/ASSERT/结果证据与映射缺口。审查 JSON 的 change_inventory_ref 必填，Ledger 校验工件及 hash；GO 报告提供同版链接，旧审查缺少清单或证据变化须补交新版。源码定位与归档证据分开，删除/重命名使用前后快照，避免历史跨文件链接失效。
+
+验证：Ledger 全套 **245 项通过**（46.387 秒），包含新增清单缺失拒绝、历史报告补齐、引用投影和篡改失效测试。相关 Python AST、JSON、migration-audit Skill、117 个本地 Markdown 链接目标与 git diff --check 通过。Markdown 清单的语义内容及追溯完备性由 Auditor 审查，控制器仅验证引用/版本，不自动生成或解析表格。未运行真实业务工程、设备/LLM；本轮未修改自动化执行器，未重复其测试。
+
+## Auditor 整体代码治理前置（2026-09-20）
+
+- 全部 MO 收尾与父汇总有效后，新增独立 audit-code-review：检查全部模块的代码改动、重构、冗余、二方库接入、公共能力和 fidelity，绑定当前 SPEC/code/context。全 Green 不能跳过。
+- CR-* 治理发现优先进入既有 audit-collect/plan/route/work/Testing/verdict 闭环，再处理剩余 Red/Yellow；不改写用例三态。实际消费者和依赖下游先等 owner，再完整回归；失败和缺测不能由 owner Green 掩盖。
+- 代码/SPEC/context 变化后重新审查；历史快照用摘要绑定，避免旧报告引用 mutable 源码妨碍 Fixer 留证。未解决 finding 不能静默删除，重复发现转人工；批准释放并重新规划实现后，以 recovery_resolutions 绑定决策和新基线独立结案。
+- 自动化缺测保留 unverified_findings/历史，不重复 Fixer 或锁住独立下游；代码审查不需要自动化环境。最终审计和缺测收尾均校验当前审查。
+- 已同步角色、技能、命令、协议、报告模板和工作流/审计 SVG+PNG。
+
+验证：Ledger 全套 **244 项通过**（46.721 秒），测试适配/sandbox **20 项通过**（0.956 秒），共 **264 项，无失败、无跳过**。新增 9 项治理测试，含真实 Python 补丁/断言执行、Green 治理、旧 Red 保留、消费者失败、自动化缺测、人工恢复及身份/证据/门禁。AST、JSON、4 个变更 Skill、310 个本地 Markdown 链接目标和 git diff --check 通过；两张更新流程图已目视检查。
+
+未运行真实业务工程、设备或 LLM。语义冗余、公共能力必要性、影响范围和 diff 完备性由 Auditor/GO/MO 审查；Ledger 校验覆盖、身份、引用、版本及控制流，不能自动证明语义正确。Harmony 录制/回放内核未修改，本轮没有重复其历史 128 项测试。
+
 ## 显式 provider 归属与同 run 来源追加（2026-09-20）
 
 本轮在当前工作区完成以下控制流调整：

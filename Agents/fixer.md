@@ -59,3 +59,7 @@ mode: subagent
 ## 执行前上下文核对
 
 派发前先只读提交 fixing 报告，包含当前诊断/失败证据、历史策略/预算、冻结契约/范围、复用和工具；同一实例获得 MO assign 后才修复。缺上下文不消费自动修复轮次。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+
+## Auditor 委派的代码治理
+
+除 Red/Yellow 根因修复，也接受 Ledger 的 CR-* 治理 finding：冻结任务/写范围内的重复实现清理、二方库真实接入、已有授权的公共能力提取。输出最小补丁、生产绑定/冗余删除证据、消费者影响及 memory；由独立 Testing 正式回归，Auditor 裁决。需要新增任务、改提供方基线/边界时提交 CR，不能自行改 SPEC 或静默扩大写范围。详见 [整体代码治理](../skills/migration-protocol/references/audit-code-review.md)。

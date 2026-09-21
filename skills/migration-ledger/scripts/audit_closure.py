@@ -6,6 +6,7 @@ from contracts import require, check_ref, read_json, digest, keyed, baseline, ve
 import workflow
 import decomposition
 import test_validation as tv
+import audit_code_review
 
 OPS = {'audit-collect', 'audit-plan', 'audit-route-batch', 'audit-work', 'audit-retest', 'audit-verdict', 'audit-release', 'audit-block'}
 GLOBAL_OPS = OPS - {'audit-work', 'audit-retest', 'audit-block'}
@@ -132,6 +133,17 @@ def pending_modules(b):
     return set(b.get('work_modules', [])) - set(b.get('blocked_modules', []))
 
 
+def finding_impact(b, fid):
+    route = b['routes'][fid]
+    affected = {route['source_module_id'], *route['owner_module_ids'],
+                *b['findings'][fid].get('affected_module_ids', [])}
+    while True:
+        more = {mid for mid, deps in b['dependencies'].items() if affected.intersection(deps)} - affected
+        if not more:
+            return affected
+        affected.update(more)
+
+
 def human_report(s, reason, mid=None, evidence=None):
     b = s['audit_batch']
     causes = [item['root_cause'] for item in b.get('human_issues', {}).values()]
@@ -155,7 +167,8 @@ def stop(s, reason, module_id=None, evidence=None, finding_id=None):
         for mid, deps in b.get('dependencies', {}).items():
             if affected.intersection(deps): affected.add(mid)
         for fid, r in b['routes'].items():
-            if r['source_module_id'] in affected or affected.intersection(r['owner_module_ids']):
+            if r['source_module_id'] in affected or affected.intersection(r['owner_module_ids']) or (
+                    b.get('code_review_ref') and affected.intersection(finding_impact(b, fid))):
                 affected.add(r['source_module_id'])
                 causes = evidence.get('root_causes') if isinstance(evidence, dict) else None
                 cause = causes[0] if causes else r['root_cause'] if finding_id == fid else {
@@ -207,6 +220,9 @@ def build_graph(s, b):
     deps = {mid: set(m['dependencies']) for mid, m in s['modules'].items()}
     for r in b['routes'].values():
         deps[r['source_module_id']].update(set(r['owner_module_ids']) - {r['source_module_id']})
+        for consumer in b['findings'][r['finding_id']].get('affected_module_ids', []):
+            if consumer not in r['owner_module_ids']:
+                deps[consumer].update(set(r['owner_module_ids']) - {consumer})
     visiting, visited = set(), set()
     def visit(mid):
         require(mid not in visiting, 'audit ownership creates dependency cycle; revise routing')
@@ -216,6 +232,8 @@ def build_graph(s, b):
         visiting.remove(mid); visited.add(mid)
     for mid in deps: visit(mid)
     work = set(b['sources']) | owners(b)
+    for finding in b['findings'].values():
+        work.update(finding.get('affected_module_ids', []))
     changed = True
     while changed:
         before = set(work)
@@ -234,13 +252,18 @@ def handle(s, req, actor):
         require(not active(s), 'release failed audit with human approval before new collection')
         blockers = collection_blockers(s)
         require(not blockers, 'all module rounds must finish or suspend before Auditor: ' + str(blockers))
-        sources = leftovers(s); require(sources, 'no leftover issues')
+        audit_code_review.require_current(s, p.get('auditor_instance_id'))
+        sources, code_findings = audit_code_review.collection(s)
+        require(sources, 'no leftover issues')
         require(re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]*', p.get('batch_id', '')) and p.get('auditor_instance_id'), 'batch and auditor identity required')
         require(p['batch_id'] not in s.get('audit_batch_ids', []), 'batch id reused')
         require(all(p['auditor_instance_id'] not in m['authors'] for m in s['modules'].values()), 'Auditor must be independent')
         s.setdefault('audit_batch_ids', []).append(p['batch_id'])
+        if s.get('audit_batch') and s['audit_batch']['status'] in ('verified', 'completed-with-unverified-tests'):
+            s.setdefault('audit_batch_history', []).append(copy.deepcopy(s['audit_batch']))
         s['audit_batch'] = {'schema_version': 2, 'batch_id': p['batch_id'], 'auditor_instance_id': p['auditor_instance_id'],
-                            'status': 'collected', 'sources': sources, 'findings': findings(sources),
+                            'status': 'collected', 'sources': sources, 'findings': code_findings or findings(sources),
+                            'code_review_ref': s['audit_code_review']['report_ref'] if code_findings else None,
                             'round_snapshot': {k: {'phase':m['phase'], 'revision':m['revision']} for k,m in s['modules'].items()},
                             'contexts': {k: context(v) for k, v in s['modules'].items()},
                             'routes': {}, 'started_owners': [], 'owner_tests': {}, 'source_tests': {}, 'human_issues': {}, 'blocked_modules': []}
@@ -259,6 +282,9 @@ def handle(s, req, actor):
             workflow.root_cause(r.get('root_cause')); check_ref(r.get('analysis_ref'))
             require(r.get('action') in ('fix', 'verify', 'human'), 'invalid finding action')
             r['owner_module_ids'] = r.get('owner_module_ids', [r['owner_module_id']] if r.get('owner_module_id') else [])
+            if b.get('code_review_ref'):
+                require(r['action'] in ('fix', 'human'), 'code governance requires delegated change or human decision')
+                require(not f.get('requires_human') or r['action'] == 'human', 'persistent governance finding requires human review; no second automatic fix')
             mids = r['owner_module_ids']
             require(len(set(mids)) == len(mids) and set(mids) <= set(s['modules']), 'unknown/duplicate repair owner')
             require(bool(mids) == (r['action'] == 'fix'), 'only fix routes must specify repair owners')
@@ -329,8 +355,8 @@ def handle(s, req, actor):
                 require(all(r['quality'] == 'green-passed' for r in pr['paths']), 'unresolved verification')
         except (ValueError, OSError, KeyError, TypeError) as exc:
             stop(s, str(exc), evidence=p['review_ref']); return
-        b['unverified_findings'] = [fid for fid, r in b['routes'].items() if
-                                    {r['source_module_id'], *r['owner_module_ids']}.intersection(b.get('automation_deferred', {}))]
+        b['unverified_findings'] = [fid for fid in b['routes'] if
+                                    finding_impact(b, fid).intersection(b.get('automation_deferred', {}))]
         b['resolved_findings'] = [fid for fid in b['findings'] if fid not in b['human_issues'] and fid not in b['unverified_findings']]
         b['verdict_ref'] = p['review_ref']
         if b['human_issues']:

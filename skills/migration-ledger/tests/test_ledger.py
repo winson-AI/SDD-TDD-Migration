@@ -11,6 +11,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from contracts import Rejected, baseline, digest, file_ref
 import ledger
 from execute_test import execute
+import audit_code_review
+
+
+def code_review(f, findings=None, recovery_resolutions=None):
+    """An explicit independent review fixture; no automatic Ledger gate bypass."""
+    s = f.state()
+    if findings is None and audit_code_review.current(s):
+        return
+    proof = f.ref(f'code-review-evidence-{f.n}.md', 'Reviewed fixture before/after code, production binding, reuse and fidelity.')
+    items = findings or []
+    report = {'schema_version': 1, 'run_id': s['run_id'], 'auditor_instance_id': 'auditor',
+              'change_inventory_ref': f.ref(f'change-inventory-{f.n}.md', 'Fixture R1 / T1 -> code.py -> C1 / P1; frozen diff and consumer impact reviewed.'),
+              'snapshot': audit_code_review.snapshot(s), 'findings': items, 'recovery_resolutions': recovery_resolutions or [],
+              'modules': [{'module_id': mid, 'diff_refs': [proof], 'checks': {
+                  c: {'conclusion': 'finding' if any(x['source_module_id'] == mid and x['category'] == c for x in items) else 'satisfied',
+                      'reason': 'Inspected small fixture implementation', 'evidence_refs': [proof]} for c in audit_code_review.CHECKS}}
+                  for mid in s['modules']]}
+    f.call('audit-code-review', {'report_ref': f.ref(f'code-review-{f.n}.json', report)}, role='auditor', module=None)
+
 
 
 class FlowTests(unittest.TestCase):
@@ -165,6 +184,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         self.assertEqual(self.state()['quality'], 'yellow-blocked')
         with self.assertRaises(Rejected):
             self.call('audit-assign', {'assignment_id': 'AUDIT', 'instance_id': 'implementer'}, role='global-orchestrator', module=None)
+        code_review(self)
         self.call('audit-assign', {'assignment_id': 'AUDIT', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         scope = ledger.audit_scope(self.state())
         rr = execute(self.root, 'GLOBAL', 'AUDIT', 'GP1', [sys.executable, str(self.base / 'adapter.py')],
@@ -447,12 +467,14 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
 
     def test_audit_assignment_cannot_be_overwritten_and_cancel_keeps_attempts(self):
         self.finish_module()
+        code_review(self)
         self.call('audit-assign', {'assignment_id': 'A1', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         with self.assertRaises(Rejected):
             self.call('audit-assign', {'assignment_id': 'A2', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         self.call('audit-revoke', {'assignment_id': 'A1', 'stopped_worker_ref': self.ref('audit-stop.txt', 'host stopped')}, role='host', module=None)
         with self.assertRaises(Rejected):
             self.call('audit-assign', {'assignment_id': 'A1', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
+        code_review(self)
         self.call('audit-assign', {'assignment_id': 'A2', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         self.assertEqual(self.state()['audit_attempts'], 2)
         self.assertEqual(self.state()['global_next_step']['operation'], 'audit')
@@ -553,6 +575,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         self.assertEqual(self.state()['modules']['M001']['phase'], 'frozen')
 
     def audit_report(self, aid, failed=()):
+        code_review(self)
         self.call('audit-assign', {'assignment_id': aid, 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         state = self.state(); scope = ledger.audit_scope(state)
         report = {'schema_version': 1, 'kind': 'tests', 'run_id': 'demo', 'module_id': 'GLOBAL',

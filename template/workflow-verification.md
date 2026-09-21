@@ -47,3 +47,10 @@
 | WF-41 | 来源评审过期、旧来源被修改/删除、worker/审计活动中 | 拒绝事务并显示具体动作；不得取消其他 MO、覆盖配置或重置审计 |
 | WF-42 | 来源切换后投影失败或同请求重试 | 事件为唯一提交点；重试恢复投影、只切换一次；旧 snapshot/链接/事件仍可校验 |
 | WF-43 | 稳定 provider 必须修改本体 | owner 先获授权任务/版本方案，消费者失效并重规划；新版本交付后正式复测；adapt 不绕过 live hash |
+
+## WF-44：整体代码治理前置
+
+- 全 Green 仍需 audit-code-review；未审查/证据过期不能 audit-assign 或 audit-unavailable。
+- CR-* 先于剩余 Red/Yellow 收集，不能伪造测试 Red；治理不能 verify 旧 Green 后直接关闭。
+- 合法 owner 的一轮 Fixer → 完整 Testing → 受影响消费者回归 → Auditor 裁决；新增任务/边界走 CR。
+- 变更后重新审查，失败保留根因待人工；无关 Green 与模块结果保留；自动化缺失不阻止代码审查。

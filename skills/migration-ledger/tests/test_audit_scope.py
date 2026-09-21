@@ -1,4 +1,5 @@
 """Empty init paths remain recoverable; audit execution excludes valid Green paths."""
+import test_ledger
 import copy
 import unittest
 
@@ -21,6 +22,7 @@ class AuditScopeTests(unittest.TestCase):
         return f
 
     def review(self, f):
+        test_ledger.code_review(f)
         f.call('audit-assign', {'assignment_id': 'REVIEW', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         s = f.state(); scope = ledger.audit_scope(s)
         return {'schema_version': 1, 'kind': 'audit-review', 'run_id': 'demo', 'module_id': 'GLOBAL',
@@ -30,7 +32,7 @@ class AuditScopeTests(unittest.TestCase):
                 'review_ref': f.ref('review.md', 'Read all module evidence: no unresolved cases; no tests rerun.')}
 
     def test_empty_init_recovers_to_independent_review_without_automation_environment(self):
-        f = self.fixture(); f.completed()
+        f = self.fixture(); f.completed(); test_ledger.code_review(f)
         s = f.state(); original = copy.deepcopy(s['modules']['M001']['results'])
         self.assertEqual(s['global_paths'], [])
         self.assertEqual(s['global_next_step']['operation'], 'audit-assign')

@@ -36,3 +36,15 @@
 - next_action: {{继续修复/人工介入/等待交付批准}}
 
 最终通过须绑定同一最终快照；修改后的旧 Green 若受影响必须复测。
+
+## 整体代码治理（先于遗留复核）
+
+- 本次代码修改清单：{{change_inventory_ref 对应的版本化 Markdown 链接及 sha256；格式见 audit-change-inventory.md}}
+- 清单覆盖：{{功能点、CHG/修改前后路径、影响范围、CASE/PATH/脚本对应关系、未映射缺口与证据}}
+- audit-code-review report / 起止基线 / 全量改动清单：{{refs}}
+- 冗余及二方库对齐结论、实际接线/删除冗余证据：{{refs}}
+- 公共能力、唯一 owner、真实消费者、目录/SPEC 版本：{{refs}}
+- CR-* → owner/冻结 TASK → 补丁 → 影响范围与完整回归：{{trace}}
+- 治理后当前基线重新审查、剩余治理发现/根因/人工下一步：{{refs}}
+
+代码治理发现不改写 CASE 三态；Auditor 不自行编写重构补丁。

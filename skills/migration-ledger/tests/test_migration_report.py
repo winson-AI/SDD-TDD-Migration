@@ -90,6 +90,7 @@ class MigrationReportTests(unittest.TestCase):
     def test_automation_unavailable_is_yellow_despite_green_build(self):
         fixture = self.fixture(test_split_testing.SplitTestingTests); f = fixture.f
         fixture.prepare(); fixture.compile(); fixture.defer()
+        test_ledger.code_review(f)
         context_ref = f.record(f.report('audit-testing', module=None, instance='auditor', blocked='test-environment'))
         f.raw('audit-unavailable', {'context_ref': context_ref}, role='auditor', module=None)
         report = self.report(f)

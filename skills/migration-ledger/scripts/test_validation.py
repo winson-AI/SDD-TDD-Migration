@@ -74,6 +74,9 @@ def handle(s, req, actor):
     import context_readiness as cr
     op, p, mid = req['operation'], req['payload'], req.get('module_id')
     if op == 'audit-unavailable':
+        import audit_code_review
+        audit_code_review.require_current(s, actor['instance_id'])
+        require(not audit_code_review.pending(s), 'code governance findings require closure before final audit')
         workflow.role(actor, 'auditor')
         workflow.planning_guard(s)
         require(not ac.active(s) and not workflow.audit_active(s) and not ac.collection_blockers(s), 'audit barrier not settled')

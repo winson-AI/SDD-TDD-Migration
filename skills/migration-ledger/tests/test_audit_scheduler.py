@@ -1,4 +1,5 @@
 """Audit barriers, finding routing, dependency scheduling and approved recovery."""
+import test_ledger
 import copy
 import unittest
 
@@ -181,6 +182,7 @@ class AuditSchedulerTests(unittest.TestCase):
                           'write_paths':[str(f.target/'m3')]},role='global-orchestrator',module=None)
         f.global_plan()
         f.call('suspend',{'kind':'human','reason':'missing SPEC decision','root_cause':'scope unclear','owner':'human'},module='M003')
+        test_ledger.code_review(f)
         f.call('audit-collect',{'batch_id':'B1','auditor_instance_id':'auditor'},role='global-orchestrator',module=None)
         b=f.state()['audit_batch'];routes=[]
         for fid, finding in b['findings'].items():

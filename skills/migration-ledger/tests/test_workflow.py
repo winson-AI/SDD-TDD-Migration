@@ -80,6 +80,7 @@ class WorkflowTests(unittest.TestCase):
         self.new_entry_run({'entry_mode': 'single-module', 'single_module_id': 'M001'})
         self.register_entry_module()
         self.failed_module('environment'); self.defer('environment')
+        test_ledger.code_review(self)
         self.call('audit-collect', {'batch_id': 'SINGLE-AUDIT', 'auditor_instance_id': 'auditor'},
                   role='global-orchestrator', module=None)
         batch = self.state()['audit_batch']
@@ -262,7 +263,7 @@ class WorkflowTests(unittest.TestCase):
         self.submit(r2, a); self.call('accept', {'assignment_id': 'TEST2'})
         self.call('complete', {'dod_ref': self.ref('dod.md', 'reviewed'), 'checks_passed': True})
         self.assertEqual(self.state()['quality'], 'yellow-blocked')
-        self.assertEqual(self.state()['global_next_step']['operation'], 'audit-assign')
+        self.assertEqual(self.state()['global_next_step']['operation'], 'audit-code-review')
 
     def test_problem_auditor_delegates_fix_and_memory_is_verified(self):
         r = self.failed_module('external'); self.defer('external'); self.start_problem()

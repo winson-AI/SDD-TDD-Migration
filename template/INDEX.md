@@ -85,3 +85,6 @@ project-context/global-input 的 build 为可选配置，空对象表示由 GO �
 - [migration-report.md](migration-report.md)：GO 收尾展示契约，包含完整 CASE 状态、父 MO 名称及非 Green 原因/证据；本地运行优先使用 Ledger 自动生成的报告。
 
 - [dimension-analysis.json](dimension-analysis.json)：GO/父 MO 四维源闭包、条件适用、目标映射与父子分配；先绑定模块/子模块 scope；下游 stage-plan 先划 tasks.scope，再生成任务四维分析并关联 PATH/ASSERT。
+
+- [audit-code-review.json](audit-code-review.json)：全部 MO 收尾后的独立整体代码审查，含全模块改动/冗余/复用/公共能力/fidelity；CR-* 治理发现先于剩余 Red/Yellow 进入闭环。
+- [audit-change-inventory.md](audit-change-inventory.md)：Auditor 必交的本次代码修改清单；模块/功能点、逐文件修改路径及前后快照、代码影响范围、CASE/PATH/query/脚本/断言映射与缺口。由 audit-code-review.json.change_inventory_ref 引用，GO 报告提供同版链接。

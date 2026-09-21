@@ -85,3 +85,7 @@ global-discovery/global-planning/decomposition/planning 必需检查 feature-inv
 同一 assignment 需运行多个构建命令或最终审计混合路径时，可在 execution.commands 按 path_id 保存各自 argv/cwd；环境证据仍由 environment_ref 绑定。execute_test 逐路径校验该命令，build 另核对冻结 command。
 
 收尾 audit-assign 的阶段由 Ledger 实际选集决定：有路径用 audit-testing；无待验证路径用 audit-verdict，仅核验已接受证据与独立性，不要求设备/自动化环境。空 global_paths 不影响此选择。见 [审计范围协议](audit-scope.md)。
+
+## Auditor 代码审查预检
+
+`audit-code-review` 是全部 MO 收尾后的首个独立审计动作；同名 context stage 要求 module-summaries、whole-change-diff、spec-paths、dependency-owners、reuse-mapping、shared-capabilities、fidelity、independence，draft_ref 绑定代码审查报告。无需自动化运行环境。后续 audit-analysis/verdict/testing 同时读取已提交的代码审查报告。见 [代码治理协议](audit-code-review.md)。

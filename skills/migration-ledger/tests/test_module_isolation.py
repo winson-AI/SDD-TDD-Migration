@@ -97,7 +97,8 @@ class ModuleIsolationTests(unittest.TestCase):
         self.assertEqual(s['modules']['M001']['quality'], 'red-bug')
         self.assertEqual(s['modules']['M002']['quality'], 'green-passed')
         self.assertTrue(s['module_rounds']['all_settled'])
-        self.assertEqual(s['global_next_step']['operation'], 'audit-collect')
+        self.assertEqual(s['global_next_step']['operation'], 'audit-code-review')
+        test_ledger.code_review(f)
         f.call('audit-collect', {'batch_id': 'B1', 'auditor_instance_id': 'auditor'}, role='global-orchestrator', module=None)
         self.assertEqual(set(f.state()['audit_batch']['sources']), {'M001'})
 

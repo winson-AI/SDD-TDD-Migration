@@ -16,6 +16,7 @@ CHECKS = {
     'testing': ('frozen-spec', 'test-paths', 'accepted-code', 'provider-binding', 'test-environment', 'permissions-tools'),
     'fixing': ('frozen-spec', 'task-trace', 'interfaces-ownership', 'reuse-mapping', 'failure-diagnosis', 'repair-history', 'permissions-tools'),
     'audit-analysis': ('module-summaries', 'findings', 'spec-paths', 'dependency-owners', 'reuse-mapping', 'independence'),
+    'audit-code-review': ('module-summaries', 'whole-change-diff', 'spec-paths', 'dependency-owners', 'reuse-mapping', 'shared-capabilities', 'fidelity', 'independence'),
     'audit-testing': ('module-summaries', 'spec-paths', 'accepted-code', 'provider-binding', 'test-environment', 'independence'),
     'audit-verdict': ('module-summaries', 'findings', 'spec-paths', 'verification-results', 'independence'),
 }
@@ -62,6 +63,7 @@ def subject(s, mid, stage):
         value['audit_queue'] = s.get('audit_queue')
         value['global_paths'] = s['global_paths']
         value['audit_assignment'] = s.get('audit_assignment')
+        value['audit_code_review'] = s.get('audit_code_review')
     return digest(value)
 
 
@@ -106,6 +108,9 @@ def input_refs(s, mid, stage):
         refs += [m['dimension_analysis_ref'] for m in s['modules'].values() if m.get('dimension_analysis_ref')]
         refs += [m['plan_ref'] for m in s['modules'].values() if m.get('plan_ref')]
         refs += [g['summary_ref'] for g in s.get('module_groups', {}).values() if g.get('summary_ref')]
+        refs += [m['plan']['reuse_plan_ref'] for m in s['modules'].values() if (m.get('plan') or {}).get('reuse_plan_ref')]
+        if stage != 'audit-code-review' and s.get('audit_code_review'):
+            refs.append(s['audit_code_review']['report_ref'])
     if stage == 'global-planning':
         refs += list(decomposition.planning_context(s).get('dimension_allocations', {}).values())
     return list({(ref['path'], ref['sha256']): ref for ref in refs}.values())
@@ -167,7 +172,7 @@ def requirement(op, p, s=None):
         return 'building' if p.get('role') == 'test-runner' and p.get('test_scope') == 'build' else WORKERS.get(p.get('role'))
     return {'register': 'global-discovery', 'global-plan': 'global-planning', 'source-review': 'global-planning',
             'decompose': 'decomposition', 'decompose-accept': 'decomposition',
-            'plan': 'planning', 'freeze': 'planning', 'audit-plan': 'audit-analysis',
+            'plan': 'planning', 'freeze': 'planning', 'audit-plan': 'audit-analysis', 'audit-code-review': 'audit-code-review',
             'audit-assign': 'audit-testing', 'problem-assign': 'audit-testing',
             'audit-verdict': 'audit-verdict'}.get(op)
 
@@ -202,10 +207,10 @@ def gate(s, req, actor):
         ref = obj.get('context_acceptances', {}).get('plan' if op == 'freeze' else 'decompose', {}).get('report_ref')
     require(ref, 'context readiness receipt required for ' + op)
     instance = p.get('instance_id') if op in ('assign', 'audit-assign', 'problem-assign') else None
-    if op in ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review'):
+    if op in ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'audit-code-review'):
         instance = actor['instance_id']
     draft = p.get('plan_ref') if op in ('global-plan', 'decompose', 'plan', 'audit-plan') else obj.get('plan_ref') if op == 'freeze' else None
-    if op == 'source-review': draft = p.get('report_ref')
+    if op in ('source-review', 'audit-code-review'): draft = p.get('report_ref')
     validate(s, mid, stage, ref, instance, draft)
     obj.setdefault('context_acceptances', {})[op] = {'report_ref': copy.deepcopy(ref), 'accepted_by': copy.deepcopy(actor)}
 
