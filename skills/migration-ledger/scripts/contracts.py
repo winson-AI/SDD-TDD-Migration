@@ -102,6 +102,8 @@ def validate_plan(plan, module):
     require(plan.get('freeze_checks_passed') is True, 'freeze checklist incomplete')
     import dimensions
     dimensions.validate_plan(plan, module)
+    import telemetry
+    telemetry.validate(plan)
     return digest(plan)
 
 
@@ -116,6 +118,8 @@ def verify_plan(plan):
     reuse.verify(plan)
     import dimensions
     dimensions.verify(plan)
+    import telemetry
+    telemetry.verify(plan)
 
 
 def baseline(refs):

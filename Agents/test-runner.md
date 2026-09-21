@@ -74,3 +74,7 @@ execute/build 前提交 building 报告；execute/automation 前提交新的 tes
 ## 代码治理后的回归
 
 Auditor 委派的重构/二方库接入/公共能力变更同样先 Build 成功并装机，再执行受影响模块的完整用例及依赖下游；即使这些用例原本 Green 也必须复测并关联 retest_of。无关有效 Green 保留，自动化不可用仍留 Yellow/未测试，不阻塞独立分支。执行范围来自 Ledger 的治理 finding/owner/消费者及依赖证据，验收归 Auditor。
+
+## 埋点测试
+
+仅对 applicable 事件执行冻结的结构化 PATH/ASSERT，使用项目 adapter，明确 emitted/sdk-dispatched/server-received 层级；UI截图或构建通过不能代替事件上报证据。N/A 不创建空用例或跳过记录。观测不足记录相关 PATH Yellow，保留其他已执行结果，独立任务继续；整段自动化不可启动才走既有 automation-unavailable 条件。详见 [埋点协议](../skills/migration-protocol/references/telemetry.md)。

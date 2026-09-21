@@ -74,3 +74,7 @@ single-module run 同样执行独立审计，遍历范围为指定功能的所�
 ## 自动化环境缺测的审计收尾
 
 纯自动化环境缺失作为未验证清单汇总，不强制走 Fixer/人工审批；审计内其他可执行分支继续。保留 unverified_findings，不得标 resolved。最终环境不可用时，独立预检后 audit-unavailable 生成 Yellow 未执行报告并结束本轮；恢复后正式补测。原有 Red/其他阻塞仍走原修复裁决。详见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
+
+## 埋点审查
+
+整体代码审查显式核对有无范围内埋点遗漏/重复、参数或触发变化、二方库/SDK真实接线及受影响消费者。无埋点模块/任务核对 N/A 理由即可，不要求 SDK、上报后端或新增测试。存在事件时将事件 ID 纳入代码修改清单及 CASE/PATH/证据，治理和 Red/Yellow 沿原闭环；不把截图通过当上报通过，也不因一个观测环境缺口取消无关任务。见 [埋点协议](../skills/migration-protocol/references/telemetry.md)。

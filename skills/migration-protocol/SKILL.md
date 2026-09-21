@@ -71,3 +71,7 @@ GO、父/子 MO、Spec-Designer 在规划时，以及 Implementer/Fixer/Test-Run
 ## 16. 来源与 provider 版本变化
 
 GO/父子 MO/Host 在运行中追加只读来源时读 [source-changes.md](references/source-changes.md)：GO 完整影响评审、Host 绑定批准与新快照事务、相关阻塞恢复及无关模块证据延续。v2 显式 owner、资源锁与 provider 变更闭环见 [复用协议第 10 节](references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。来源变化不自动清除失败、重置预算或批准代码。
+
+## 17. 埋点上报
+
+功能发现、四维分析、规划、编码、测试与审计显式读取 [埋点协议](references/telemetry.md)：先判断适用性，无埋点模块/任务以有据 N/A 正常推进；有埋点才做源→目标事件/参数/生产接线映射及分层验收。沿现有阶段、范围、三态和修复机制，不新增全局埋点门禁。

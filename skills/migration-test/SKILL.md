@@ -39,3 +39,5 @@ HarmonyOS UI/端到端测试读取 [Harmony 运行协议](references/harmony-run
 测试设计增加二方库接线、版本配置、语义差异及真实提供方集成路径；Coding 后正式 Main 执行，完整业务验收不得因复用而缩减。见 [二方库复用协议](../migration-protocol/references/reuse-dependencies.md)。
 
 保真断言以已审核的存量源码行为与需求为依据，绑定 reuse-plan.fidelity 的 PATH/ASSERT；Main 必须留真实复现结果，不能以库的行为或对齐报告替代通过证据。
+
+埋点只在适用模块/任务中测试：按 [埋点协议](../migration-protocol/references/telemetry.md) 冻结事件及观测层级、使用项目结构化 adapter 留真实证据。无埋点 N/A 不新增用例/依赖；缺观测环境是相关路径 Yellow，不能改成 N/A，也不能用 Harmony 图片推断服务端收到了事件。

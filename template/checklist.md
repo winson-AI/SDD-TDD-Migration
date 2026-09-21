@@ -47,3 +47,8 @@
 
 - [ ] F-TASK-SCOPE 先定义每项任务 scope，再完成 scope_sha256 绑定的四维分析；逐维 implementation 指导明确，N/A 留证，TASK/PATH/ASSERT 覆盖完整；证据：{{stage-plan}}
 - [ ] D-TASK-SCOPE task_trace 文件属于对应任务 write_paths，实现符合冻结任务四维分析；证据：{{implementation-result}}
+
+## 埋点适用性（不新增全局门禁）
+
+- [ ] F-TELEMETRY 已检查范围内埋点；无埋点模块/任务以有据 N/A 满足此检查，无需 SDK/用例/环境；适用事件已映射到任务/业务PATH/ASSERT及验收层级；证据：{{scope-review-or-telemetry-contract}}
+- [ ] D-TELEMETRY 无埋点仅核对 N/A；有埋点时当前冻结层级的真实接线与结果可追溯，未验证如实 Yellow，不能用截图/构建或库测试替代；证据：{{N/A-or-real-results}}

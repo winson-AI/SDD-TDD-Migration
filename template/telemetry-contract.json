@@ -1,0 +1,50 @@
+{
+  "status": "applicable",
+  "reason": "{{scope-has-source-telemetry-behavior}}",
+  "evidence_refs": [
+    {
+      "path": "{{absolute-frozen-telemetry-analysis-or-source-snapshot}}",
+      "sha256": "{{sha256}}"
+    }
+  ],
+  "events": [
+    {
+      "event_id": "EVENT-M001-001",
+      "legacy_event": "{{legacy-event-name}}",
+      "target_event": "{{target-event-name}}",
+      "trigger": "{{business-trigger-timing-and-count}}",
+      "non_triggers": "{{conditions-that-must-not-report-or-justified-none}}",
+      "payload_contract": "{{field-names-types-required-defaults-sources-and-mapping}}",
+      "delivery_semantics": "{{actual-initialization-state-retry-cache-failure-behavior}}",
+      "production_binding": "{{real-target-sdk-provider-version-and-entry}}",
+      "verification_level": "sdk-dispatched",
+      "task_ids": [
+        "TASK-M001-001"
+      ],
+      "tests": [
+        {
+          "path_id": "PATH-M001-001",
+          "assertion_ids": [
+            "ASSERT-M001-001"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        {
+          "path": "{{absolute-frozen-telemetry-analysis-or-source-snapshot}}",
+          "sha256": "{{sha256}}"
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "TASK-M001-001",
+      "status": "applicable",
+      "reason": "{{task-owns-trigger-or-provider-or-config}}",
+      "event_ids": [
+        "EVENT-M001-001"
+      ]
+    }
+  ]
+}

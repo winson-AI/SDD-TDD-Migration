@@ -72,3 +72,7 @@ Fixer 自回归记录 `producer=fixer`，是补丁证据，不能替代 Test-Run
 Test Runner 编译前提交 building、自动化前提交 testing 报告，Auditor 最终验证先提交 audit-testing 报告；包括已接受代码、冻结 PATH/assert、提供方、工具/环境/数据与 execution.argv/cwd/environment_ref。原 assign/audit-assign 接受后 execute_test 再核对命令和环境引用；不匹配须重新预检和派发，不能换命令绕过。缺条件不生成假测试结果。见 [上下文就绪协议](context-readiness.md)。
 
 仅自动化环境缺失采用 automation-unavailable/automation-deferred 专门分流；不耗修复轮次、不阻塞可执行的下游或并行工作，也不冒充 Green。Auditor 可记录完整缺测清单后完成本轮；其余真实 Red/Yellow 保持原诊断修复流程。
+
+## 埋点上报断言
+
+遵守 [埋点协议](telemetry.md)：测试预期从已审核的源行为冻结，事件存在才生成/关联业务 PATH/ASSERT；无埋点不增加测试或 skip。明确 emitted/sdk-dispatched/server-received 验收层级，验证正确事件/参数/次数及适用的禁止触发/边界情况，项目 adapter 留原始观测/回执。部分路径缺证据单独 Yellow，其余可执行路径继续；不得用图片、空实现或被 mock 的核心逻辑充当上报验收。

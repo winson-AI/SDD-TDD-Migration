@@ -67,3 +67,7 @@ mode: subagent
 ## 四维实现证据
 
 先读冻结 task.scope 和 task.dimension_analysis，按逐维 implementation 指导完成实现，task_trace 文件不得超出该任务写范围；按 dimension_trace 完成所有适用项；提交 dimension_evidence（item_id/task_ids/summary/evidence_refs），Resource 再附真实 target_resource_ref/consumer_ref。复用同样验证真实生产接线，禁止以 demo/mock 替代。详见 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)。
+
+## 条件适用的埋点实现
+
+任务无埋点职责时正常实现，不加 SDK/占位埋点；存在职责时依冻结事件/参数/时机/接线任务复现源行为，正确复用二方库及公共能力，避免重复/漏报。实现证据包含事件、代码路径与实际生产绑定，日志占位不能替代上报。见 [埋点协议](../skills/migration-protocol/references/telemetry.md)。

@@ -130,3 +130,7 @@ GO 在根登记前的 global-discovery 预检中核对功能草案；父 MO deco
 ## 功能切片后的四维深读
 
 GO 先据全局上下文/功能清单划模块，再逐模块按 UI → Logic → Adhesive → Resource 分析；父 MO 先划子模块，再对每个子模块分析；子 MO 先划 tasks.scope，再逐任务四维分析以直接指导实现和测试断言；[四维协议](../../migration-protocol/references/dimension-slicing.md) 为接受分配与冻结的必要检查。
+
+## 埋点事件的功能归属
+
+对照源码检查页面曝光/点击、业务成功失败、生命周期、后台事件以及公共 SDK/包装/拦截/配置接线。已有用例没有列埋点时仍核查范围内遗漏，将存在的事件及可观察副作用纳入功能清单与模块分配。公共提供方唯一 owner，业务模块各自保留触发/消费职责；不机械创建埋点模块。确认无埋点记录检查依据与 N/A，不增加功能/用例或阻塞；不确定时只澄清相关范围。遵守 [埋点协议](../../migration-protocol/references/telemetry.md)。

@@ -90,3 +90,7 @@ GO 在目标全项目发现 Gradle/构建脚本，优先用户指定 build 配�
 ## Auditor 代码治理入口
 
 全部 MO 本轮收尾和父汇总有效后，优先调度 Auditor `audit-code-review`。整体代码审查即使全 Green 也必需；先路由代码治理 finding，再收集剩余 Red/Yellow。GO 审核唯一公共能力 owner、跨模块影响和资源锁；仅已批准边界内可直接委派，不自行扩大 scope。最终报告同时提供治理发现/证据及 CASE 状态。见 [整体代码治理](../skills/migration-protocol/references/audit-code-review.md)。
+
+## 埋点发现与分配
+
+范围内源码/用例显式核查埋点触发、事件契约、公共提供方和目标复用能力，形成事件→功能→模块归属；没有埋点记录有据 N/A 并继续，不生成空 MO。公共能力唯一 owner，消费者按实际依赖安排；不确定边界交人工且独立模块继续。必读 [埋点协议](../skills/migration-protocol/references/telemetry.md)。

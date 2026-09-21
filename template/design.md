@@ -14,6 +14,10 @@
 ## Decisions
 {{候选方案、选择及理由；接口入出参/错误码、数据模型/状态、鉴权、兼容性与资源释放}}
 
+## 埋点上报（条件适用）
+
+{{applicable / not-applicable 及范围内源码检查依据。N/A 到此结束，不加 SDK/环境/空任务；适用时引用 telemetry-analysis.md 的实例，记录事件/参数/触发/禁止条件、真实 provider 接线与版本、实际已有失败/重试语义、任务/消费者及 emitted/sdk-dispatched/server-received 验收层级，绑定 stage-plan.telemetry 与 PATH/ASSERT。}}
+
 ## Dependencies / Resources
 {{DAG 上游、契约版本、owner、唤醒条件；源码/公共文件/测试环境读写锁}}
 

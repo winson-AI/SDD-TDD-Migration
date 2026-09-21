@@ -1,5 +1,31 @@
 # P1–P4 / P6 验证记录
 
+## 最新全量回归（2026-09-21）
+
+对当前工作区（含埋点适用性增强）重新运行全部三个测试目录，**398 项全部通过，无失败、无跳过**：
+
+| 测试集 | 结果 | 耗时 |
+| --- | --- | --- |
+| `skills/migration-ledger/tests` | 250 通过 | 50.407 秒 |
+| `skills/migration-test/tests` | 20 通过 | 1.311 秒 |
+| `skills/migration-test/runtime/harmony/tests` | 128 通过 | 0.85 秒 |
+
+关键控制流覆盖：SPEC 冻结与身份/版本门禁、GO/父子 MO 范围和并行隔离、全部模块收尾后的 Auditor 门禁、Build→Fixer→重建→Automation、自动化环境缺失的 Yellow 分流与下游继续、无全局路径时的遗留问题审计、代码治理及受影响消费者复测、失效重新规划/人工进度信号，以及埋点 N/A 正常完成与证据失效只阻止相关模块。
+
+在包根执行 Ledger 和测试适配器的 `python -m unittest discover -s <测试目录> -v`，使用 Harmony `.venv/bin/python`（Python 3.12）。在 Harmony 目录执行内核全目录 `pytest.main(['-q', '-p', 'no:cacheprovider', 'tests'])`；沿用只读追加本机已有 `/Users/winson/Library/Python/3.9/lib/python/site-packages` 的方式加载 pytest 8.4.2，设置 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`，未安装/升级运行依赖。三组均设置 `PYTHONDONTWRITEBYTECODE=1`。本次日志保存在本机临时文件 `/tmp/sdd-full-ledger.log`、`/tmp/sdd-full-adapters.log`、`/tmp/sdd-full-harmony.log`。
+
+结构检查通过：包内 131 个 Python 文件 AST、42 个 JSON 解析、11 个工作流 Skill 格式校验、工作流 Markdown 中 595 处本地链接目标存在，以及 `git diff --check`。链接检查排除 Harmony 原生文档、代码块和占位符，不证明文档锚点有效；JSON 解析不替代运行时契约测试。检查日志为 `/tmp/sdd-full-structure.log`。
+
+本次未发现需要修改运行时代码的问题，仅补充验证记录。结论限于现有自动化测试覆盖的控制器、适配器和录制/回放契约；未运行真实业务 Gradle 构建、设备/LLM、埋点 SDK/服务端、宿主实际派发或 OpenSpec CLI 集成。业务行为穷尽、语义 fidelity 与影响范围完备性仍需实际项目验证，不能仅凭 398 项通过断言所有真实迁移场景均完备。
+
+## 埋点上报条件控制流（2026-09-21）
+
+GO 功能发现、父子 MO 分配/任务规划、SPEC、四维分析、复用/Coding、Testing 和 Auditor 显式检查埋点适用性；有埋点才做事件/参数/接线与验收层级映射，无埋点有据 N/A 不新增状态、事件、测试、依赖或全局门禁。新增 telemetry-analysis.md、telemetry-contract.json，stage-plan 提供 N/A 示例。可选 telemetry 索引校验任务/业务 PATH/ASSERT 及不可变证据，旧计划缺字段兼容，不视作已证明无埋点。
+
+Ledger 全套 **250 项通过**（47.950 秒，无失败/跳过）；新增 5 项测试覆盖旧计划继续、N/A 模块正常 DoD、不新增测试/修复、适用模块普通任务 N/A、非法事件/构建断言/未知任务拒绝，以及埋点证据失效不阻止独立兄弟派发。Python AST、模板 JSON、变更 Skill、Markdown 链接及 git diff --check 检查通过。
+
+本轮未运行真实埋点 SDK/后端/设备，也未修改自动化内核。事件穷尽、行为映射与断言正确性由 Agent/人工语义审查；本包提供控制和证据契约，实际 emitted/sdk-dispatched/server-received 观测依赖项目 adapter。未知/真实失败仍按原范围与三态处理，不自动承诺 Green。
+
 ## Auditor 本次代码修改清单（2026-09-21）
 
 新增 template/audit-change-inventory.md：本轮起点至候选的模块/功能、逐文件修改前后路径、代码影响/公共能力/消费者、CASE/PATH/query/脚本/ASSERT/结果证据与映射缺口。审查 JSON 的 change_inventory_ref 必填，Ledger 校验工件及 hash；GO 报告提供同版链接，旧审查缺少清单或证据变化须补交新版。源码定位与归档证据分开，删除/重命名使用前后快照，避免历史跨文件链接失效。

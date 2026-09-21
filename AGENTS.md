@@ -99,3 +99,7 @@ GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 sc
 ## 阻塞感知与恢复
 
 全量分析在 GO global-plan 接受节点校验；运行派发只校验当前模块、父级分配和实际依赖。invalidate 保存旧证据，清除当前旧 plan，明确进入重新规划或 GO 分配审查。宿主消费 status.workflow_progress：继续独立 ready 动作，展示人工信号，检查超时 worker；不能因一个门禁拒绝静默终止整轮。超时不能自动放锁、绕过批准或改 Green。必读 [恢复与进度协议](skills/migration-protocol/references/progress-recovery.md)。
+
+## 埋点上报适用性
+
+GO/父子 MO 明确检查认领范围的埋点事件、公共接入与配置，遵守 [埋点协议](skills/migration-protocol/references/telemetry.md)。无埋点模块/任务记录有源码依据的 not-applicable 并直接推进，不创建空任务、用例、SDK依赖或全局门禁；有埋点才映射事件/参数/接线到冻结 TASK/PATH/ASSERT。未知或真实失败只影响相关范围，无关任务继续；观测环境缺失不等于无埋点，也不能用截图通过代替上报通过。

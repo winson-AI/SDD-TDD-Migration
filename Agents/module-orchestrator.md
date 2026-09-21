@@ -102,3 +102,7 @@ Test-Runner assignment 明确 test_scope=build|automation；先接受构建，�
 ## 审计代码治理的 MO 分工
 
 父 MO 配合 Auditor 核对模块间冗余、公共能力 owner 和消费者，沿已划定范围协调子 MO；子 MO 依据冻结任务接受治理工作，Fixer 修正后先 Build 再 Automation，并回归受影响完整用例。新增任务/提供方接口/业务边界走 CR 或人工，不在活动批次越权改 SPEC。刷新父汇总与治理证据，独立兄弟继续，最终审计验收归 Auditor。见 [代码治理协议](../skills/migration-protocol/references/audit-code-review.md)。
+
+## 模块与任务的埋点适用性
+
+父 MO 按认领 scope 分配存在的事件和公共接入职责，允许孩子 N/A；子 MO 在 SPEC/任务规划中区分 applicable 与 not-applicable，允许同一模块内部分普通任务 N/A。无埋点不新增环境/用例/修复门禁；有埋点的真实失败或缺证据不能伪装 N/A。实际修改/验收依 [埋点协议](../skills/migration-protocol/references/telemetry.md) 走原路径，独立兄弟正常推进。

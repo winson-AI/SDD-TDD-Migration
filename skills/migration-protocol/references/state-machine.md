@@ -108,3 +108,7 @@ OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义�
 ## 失效恢复与停滞感知
 
 证据失效 → 实际停止/revoke 活动 worker → invalidate 归档旧 plan 并进入 specifying → 分配有效则 plan，分配无效则 GO allocation-review-required。旧计划不能反复挡住重新规划；新 SPEC 仍须冻结。status.workflow_progress 对无动作且无 worker、超时 worker、连续门禁拒绝和人工待决给出责任与证据；宿主继续独立动作并明确提醒用户。详见 [进度恢复协议](progress-recovery.md)。
+
+## 埋点适用性不产生新状态
+
+按 [埋点协议](telemetry.md)，无埋点模块/任务的 not-applicable 只记录范围判断，不转换为 waiting/Yellow/skip，不消耗修复预算，不增加全局等待条件。有埋点时沿已有 SPEC冻结→Coding→Build→业务Testing→三态/Fixer→Auditor；真实未知或失败仅影响本模块及实际依赖，其他 MO 继续。

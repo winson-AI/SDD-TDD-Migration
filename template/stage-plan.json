@@ -294,5 +294,24 @@
         }
       ]
     }
-  ]
+  ],
+  "telemetry": {
+    "status": "not-applicable",
+    "reason": "{{after-source-review-no-telemetry-in-this-scope-or-replace-with-applicable-contract}}",
+    "evidence_refs": [
+      {
+        "path": "{{absolute-scope-review-snapshot}}",
+        "sha256": "{{sha256}}"
+      }
+    ],
+    "events": [],
+    "tasks": [
+      {
+        "task_id": "TASK-M001-001",
+        "status": "not-applicable",
+        "reason": "{{reviewed-task-has-no-telemetry-trigger-provider-or-config-change}}",
+        "event_ids": []
+      }
+    ]
+  }
 }

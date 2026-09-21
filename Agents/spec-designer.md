@@ -70,3 +70,7 @@ plan 前提交 planning 报告并绑定同一 plan_ref，核对全局/父/子范
 ## 四维 SPEC
 
 遵循 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)：基于认领子模块实现/四维上下文，协助子 MO 先划定 tasks.scope，再对每个任务按 UI → Logic → Adhesive → Resource 分析具体实现并绑定 scope_sha256，把 item ID 与实现指导写入 design/spec/tasks；生成完整 dimension_trace，规划审查 N/A 依据、真实接线和资源消费者，未决项禁止冻结。
+
+## 埋点契约
+
+按 [埋点协议](../skills/migration-protocol/references/telemetry.md) 将已审核的源事件、参数、触发/禁止条件、生产接线和验收层级写入 SPEC/design/tasks。stage-plan.telemetry 可索引事件→TASK/PATH/ASSERT；无埋点记有据 N/A、events=[]，不新增空测试。测试预期未知交人工，不能从目标实现推导通过标准。

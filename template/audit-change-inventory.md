@@ -76,3 +76,7 @@ PATH 是测试场景路径标识，脚本路径是文件系统位置，两者分
 | {{稳定 CR-ID 或待澄清项}} | {{关联 ID}} | {{实际根因或尚待诊断；固化链接}} | {{唯一 owner 及消费者}} | {{Fixer/CR重新冻结/Testing/人工/自动化缺测记录}} | {{event / finding / batch 引用}} |
 
 本清单用于代码审查、委派及审计报告，不直接扩展写权限、修改 SPEC、改变测试质量或启动额外全项目测试。后续补丁形成新的清单版本并关联上一版，旧版与失败证据保留。
+
+## 埋点补充（条件适用）
+
+记录模块/任务 applicable 或有据 N/A；N/A 不要求事件/环境/新用例。适用时在功能、CHG及测试映射表关联 event_id、源→目标事件/参数、真实 SDK 接线、影响消费者和 emitted/sdk-dispatched/server-received 层级；漏报/重复/参数错误及观测缺口分别留根因与证据。详见 [telemetry-analysis.md](telemetry-analysis.md)。

@@ -88,3 +88,6 @@ project-context/global-input 的 build 为可选配置，空对象表示由 GO �
 
 - [audit-code-review.json](audit-code-review.json)：全部 MO 收尾后的独立整体代码审查，含全模块改动/冗余/复用/公共能力/fidelity；CR-* 治理发现先于剩余 Red/Yellow 进入闭环。
 - [audit-change-inventory.md](audit-change-inventory.md)：Auditor 必交的本次代码修改清单；模块/功能点、逐文件修改路径及前后快照、代码影响范围、CASE/PATH/query/脚本/断言映射与缺口。由 audit-code-review.json.change_inventory_ref 引用，GO 报告提供同版链接。
+
+- [telemetry-analysis.md](telemetry-analysis.md)：GO/父子 MO/Spec/Auditor 的埋点适用性、事件/参数保真、接入与测试证据；N/A 不创建空任务/用例。
+- [telemetry-contract.json](telemetry-contract.json)：适用事件的 stage-plan.telemetry 片段（不是独立 Ledger 请求）；包含事件、任务及业务 PATH/ASSERT。无埋点参照 stage-plan.json 的 N/A 示例。
