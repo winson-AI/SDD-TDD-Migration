@@ -54,3 +54,5 @@ Global audit-assign → 对 assignment.path_ids 执行 Auditor execute_test --mo
 当前入口必须等全部模块本轮结束/明确挂起，且无活动或可推进工作，才先 audit-code-review 及治理闭环，再统一扫描所有并行遗留：audit-collect → Auditor audit-plan → Global audit-route-batch → 负责模块 MO audit-work → Fixer → Test-Runner → 原发现模块 audit-retest → audit-verdict。按 finding 与依赖顺序执行，失败关联分支待人工，独立分支继续；汇总后须批准 audit-release 才能进入常规恢复，不再循环 problem-assign。问题闭环完成后做 audit-assign/audit 收尾审阅；仅剩未验证路径才执行测试，绝不再次执行所有用例。
 
 纯自动化环境缺测不作为必须修复的代码缺陷，也不强制进入人工审批。等待全量收尾后汇总缺测 PATH；最终环境仍不可用，独立预检后 audit-unavailable 留 Yellow 报告结束本轮；不能宣称 Green。见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
+
+GO 交付收尾报告前运行只读门禁 `verify_openspec.py --root <run>`；`verified=false` 说明该 run 未经 Ledger 投影（无 events.jsonl 等），不能据 `ledger/module-registry.json`、散文报告或空 openspec 目录等手写产物宣称审计完成，须回到 prepare → init → apply 重跑。见 [投影完整性收尾门禁](../skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。

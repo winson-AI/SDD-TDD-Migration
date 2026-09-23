@@ -985,8 +985,7 @@ def status(root):
     with run_storage.file_lock(root / '.ledger.lock'):
         s, events = read_events(root)
         require(s, 'run not initialized')
-        if s.get('project_context_ref'):
-            run_storage.for_state(root, s)
+        layout = run_storage.for_state(root, s) if s.get('project_context_ref') else None
         observed = []
         for mid, m in s['modules'].items():
             if m.get('plan'):
@@ -1072,6 +1071,10 @@ def status(root):
                 'parent_mo_names': decomposition.parent_mo_names(s),
                 'migration_report': {'json': str(root / 'reports/migration-report.json'),
                                      'markdown': str(root / 'reports/migration-report.md'), 'sequence': len(events)},
+                'openspec_binding': {'bound': bool(layout),
+                                     'location': 'top-level' if layout else 'in-run-fallback',
+                                     'openspec_root': layout['openspec_root'] if layout else str(root / 'openspec'),
+                                     'note': None if layout else 'run not bound to a prepared storage_layout; OpenSpec projects inside .sdd-runs/<run_id>/openspec, not workspace/openspec — recreate via prepare -> init(project_context_ref)'},
                 'last_sequence': len(events), 'observed_invalidations': observed,
                 'next_steps': cursor, 'global_next_step': global_next, 'ready_modules': rounds['ready_modules'],
                 'module_rounds': rounds,

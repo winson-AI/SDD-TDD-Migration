@@ -31,7 +31,10 @@ python3 <package>/skills/migration-ledger/scripts/ledger.py apply --root <run> -
 python3 <package>/skills/migration-ledger/scripts/ledger.py status --root <run>
 python3 <package>/skills/migration-ledger/scripts/ledger.py resume --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/ledger.py recover --root <run> --request <request.json> --host-context <principal.json>
+python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run>
 ```
+
+`verify_openspec.py` 是只读收尾门禁：fail-closed 校验本 run 确经 prepare → init → apply 产出顶层 OpenSpec 投影（`events.jsonl`/绑定快照/中枢/各 change `manifest.json`）；`verified=false` 表示绕过 Ledger，收尾不得据自述报告宣称完成。它不改状态、不写投影，见 [留存布局](storage-layout.md#openspec-投影完整性收尾门禁)。
 
 `init/resume/recover` 是对同名 operation 的入口校验，仍经过同一事务函数。成功返回 event_id/sequence/duplicate，拒绝返回 exit 1 和原因。业务状态以日志/投影为准，CLI exit 0 仅说明请求已接受。
 

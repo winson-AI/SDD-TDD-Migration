@@ -9,7 +9,7 @@ description: /sdd-archive <run-id> <decision.json绝对路径> — 核验交付�
 
 ## 2. 编排步骤
 1. 读取 [AGENTS.md](../AGENTS.md)、[运行协议](../skills/migration-protocol/references/runtime.md)，解析参数为绝对路径及规范 ID。
-2. 前置门控：全部模块 DoD Green、最终审计 Green、批准绑定当前代码与 SPEC；无 stale；OpenSpec 工具与 capability 写锁可用。
+2. 前置门控：全部模块 DoD Green、最终审计 Green、批准绑定当前代码与 SPEC；无 stale；OpenSpec 工具与 capability 写锁可用。归档前必须运行只读门禁 `verify_openspec.py --root <run>` 校验本 run 确经 prepare → init → apply 产出顶层 OpenSpec 投影（events.jsonl/绑定快照/中枢/各 change manifest）；`verified=false` 表示绕过 Ledger，拒绝归档，须重跑管道。见 [投影完整性收尾门禁](../skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。
 3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
 4. 由宿主向 Ledger 提交 archive_requested；收到 ACK 后派发对应角色。审核决策后做 delta 合并预演、冲突审阅并记录；按核对过的 OpenSpec CLI 同步/归档并保留追溯。代码合并须另有具体授权，不能把归档当作合并。
 5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。

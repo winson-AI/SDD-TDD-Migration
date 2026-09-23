@@ -54,3 +54,7 @@ status.module_inputs 给出每个父/子 MO 的权威 scope、context_refs、CAS
 必须展示 `workflow_progress.state/signals/runnable_actions/worker_watches` 及其报告路径；`notify_user=true` 时明确告知用户受影响模块、owner、原因/证据和下一步，不能只返回 ready=false。该命令只查询；真正恢复和继续调度由宿主/编排器按 [进度恢复协议](../skills/migration-protocol/references/progress-recovery.md) 执行。仅 automation 缺测按既有出口推进到 Auditor，最终 Yellow 缺测收尾不会被当作无动作死锁。
 
 遇到 `reason=not-implemented`，突出展示“未实现”及受影响 REQ/CASE/TASK、替代实现核验证据和所需人工决策；同时链接 GO 报告的 unimplemented 清单。不能把一般复用失败或自动化未执行解释为未实现。
+
+收尾核验 OpenSpec 投影用只读 `verify_openspec.py --root <run>`（与 status 分开）；`verified=false` 表示该 run 绕过 Ledger（无 events.jsonl 等），此时任何 openspec 目录或迁移报告都是手写产物，不代表已执行。它 fail-closed 校验 events.jsonl/绑定快照/顶层中枢/各 change manifest/migration-report.json 投影，只读不改状态。见 [投影完整性收尾门禁](../skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。
+
+同时读取 status 的 `openspec_binding`：`location=top-level` 表示已绑定预备布局、投影落顶层 openspec；`location=in-run-fallback` 表示未 prepare/未绑定 project_context_ref，OpenSpec 落在 run 内回退目录，须走预备管道后再收尾，不能当作已完成。

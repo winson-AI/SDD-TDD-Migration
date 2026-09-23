@@ -112,6 +112,20 @@ OpenSpec 中枢展示 Ledger 当前 sequence、全局及父/子状态、global_n
 
 已有顶层 `openspec/specs` 的正式基线与 archive 属于单独的发布动作。当前控制器不自动发布/归档、不覆盖其他 run 或未声明归属的 change。manifest 的 structural-only 不表示已执行 OpenSpec CLI 验证。
 
+## OpenSpec 投影完整性收尾门禁
+
+顶层 `<workspace_root>/openspec/` 是投影,不能手写:它仅在 prepare → `ledger init`（绑定 `project_context_ref`）→ `apply` 真正跑通、且状态绑定 prepare 固化的 `storage_layout` 时产生（位置由 [workflow_hub.location](../../migration-ledger/scripts/workflow_hub.py) 与 [run_storage.change_root](../../migration-ledger/scripts/run_storage.py) 从 `for_state` 解析）。缺 `storage_layout` 会静默回退到 `.sdd-runs/<run_id>/openspec`；整条管道未跑时，即使回退目录也只是手搓骨架。**唯一判据：run 内没有 `ledger/events.jsonl`（唯一事实源），就说明 Ledger 控制器从未运行**——`ledger/module-registry.json`（本包从不产生此文件名）、散文报告或空 `openspec` 目录都是手写产物，不代表迁移已执行。
+
+收尾（GO 交付报告、`/sdd-audit`、`/sdd-archive`）必须通过只读门禁 [verify_openspec.py](../../migration-ledger/scripts/verify_openspec.py)，它 fail-closed 校验：`events.jsonl` 非空且事件链完整、`context/snapshot.json` 存在、状态绑定 `project_context_ref`、顶层 `openspec/runs/<run_id>/workflow.{json,md}` 存在、无 in-run 回退目录、每个已规划叶子的 `openspec/changes/<run-id>-<mid>` 有归属正确的 `manifest.json`（投影引擎签名，手写目录没有），以及 `reports/migration-report.json` 为结构化投影（`schema_version/run_id/report_stage/cases/paths`；投影每次同时写 `.json` 与 `.md`，手写 case 只有散文 `.md`）。
+
+```sh
+python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <workspace_root>/.sdd-runs/<run_id>
+```
+
+`verified=false` 表示该 run 绕过了 Ledger，GO/Auditor 不得据其自述报告宣称完成，须回到 prepare → init → apply 重跑。门禁只读，不改状态、不补写投影、不搬迁历史。
+
+回退不再静默：`ledger.py status` 返回 `openspec_binding`，`location=top-level` 表示绑定了 prepare 固化的 `storage_layout`、投影落在顶层 `workspace/openspec`；`location=in-run-fallback`（未 prepare/未绑定 `project_context_ref`）说明本 run 的 OpenSpec 落在 `.sdd-runs/<run_id>/openspec`，宿主据此立即感知需要走预备管道，而非事后才发现顶层目录缺失。旧兼容 run 只读重放不受影响。
+
 ## 启动与二次启动
 
 ```sh
