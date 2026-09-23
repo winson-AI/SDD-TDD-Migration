@@ -260,8 +260,7 @@ def annotate(s, mid, step):
                     tv.blocked_report(s, mid, ref, stage)
                     if mid:
                         require(tv.build_ready(s['modules'][mid]), 'build not ready')
-                        require(not any(r['quality'] == 'red-bug' and r.get('code_baseline', s['modules'][mid]['code_baseline']) == s['modules'][mid]['code_baseline']
-                                        for r in s['modules'][mid]['results'].values()), 'observed failure')
+                        require(tv.can_defer(s['modules'][mid]), 'observed failure')
                     step.update(operation='automation-unavailable' if mid else 'audit-unavailable',
                                 role='module-orchestrator' if mid else 'auditor', ready=True,
                                 payload={'context_ref': ref}, reason='record-automation-not-run-and-continue')

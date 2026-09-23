@@ -55,7 +55,7 @@ GO：全部根功能及子模块本轮收尾 → Auditor 遗留处理 / 最终�
 {
   "module_slicing": {
     "module_import_ref": {
-      "path": "/workspace/inputs/module-slicing.json",
+      "path": "/workspace/migration/.sdd-migration/inputs/module-slicing.json",
       "sha256": "<实际文件摘要>"
     },
     "functional_use_cases_complete": true,

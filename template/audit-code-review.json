@@ -8,7 +8,7 @@
       "module_id": "M001",
       "diff_refs": [
         {
-          "path": "{{absolute-evidence-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
           "sha256": "{{sha256}}"
         }
       ],
@@ -18,7 +18,7 @@
           "reason": "{{review-conclusion-with-source-and-target-evidence}}",
           "evidence_refs": [
             {
-              "path": "{{absolute-evidence-path}}",
+              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
               "sha256": "{{sha256}}"
             }
           ]
@@ -28,7 +28,7 @@
           "reason": "{{review-conclusion-with-source-and-target-evidence}}",
           "evidence_refs": [
             {
-              "path": "{{absolute-evidence-path}}",
+              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
               "sha256": "{{sha256}}"
             }
           ]
@@ -38,7 +38,7 @@
           "reason": "{{review-conclusion-with-source-and-target-evidence}}",
           "evidence_refs": [
             {
-              "path": "{{absolute-evidence-path}}",
+              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
               "sha256": "{{sha256}}"
             }
           ]
@@ -48,7 +48,7 @@
           "reason": "{{review-conclusion-with-source-and-target-evidence}}",
           "evidence_refs": [
             {
-              "path": "{{absolute-evidence-path}}",
+              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
               "sha256": "{{sha256}}"
             }
           ]
@@ -58,7 +58,7 @@
           "reason": "{{review-conclusion-with-source-and-target-evidence}}",
           "evidence_refs": [
             {
-              "path": "{{absolute-evidence-path}}",
+              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
               "sha256": "{{sha256}}"
             }
           ]
@@ -68,7 +68,7 @@
           "reason": "{{review-conclusion-with-source-and-target-evidence}}",
           "evidence_refs": [
             {
-              "path": "{{absolute-evidence-path}}",
+              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
               "sha256": "{{sha256}}"
             }
           ]
@@ -79,7 +79,7 @@
   "findings": [],
   "recovery_resolutions": [],
   "change_inventory_ref": {
-    "path": "{{absolute-path-to-audit-change-inventory-revision.md}}",
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{path-to-audit-change-inventory-revision.md}}",
     "sha256": "{{sha256}}"
   }
 }

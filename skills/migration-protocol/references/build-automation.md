@@ -24,6 +24,8 @@ Coding 接受 → Test-Runner building 预检 → 编译构建
 
 项目配置增加可选 `build`，按既有 init/update/prepare 保存并固化，下游通过 planning_context 读取；用户不用手工写 SPEC 或构建 PATH。
 
+自动发现排除 `.sdd-migration`、`.sdd-runs`、`openspec` 及指向其内部脚本的文件链接，防止目标工程内的迁移记录被当作当前构建入口。用户明确指定的命令仍优先，候选选择不替代后续冻结和执行预检。
+
 ```json
 {
   "build": {
@@ -62,7 +64,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 接受后逐 automation PATH 记录 `quality=yellow-blocked`、`executed=false`、`reason_code=automation-not-run`、结构化根因、版本关联及旧结果的 retest_of；保留 build Green。模块进入 `automation-deferred`，不耗 Fixer 轮次，不需要人工批准，不反复尝试启动不可用环境。游标会提示该操作，不停留在无动作的 blocked 预检。
 
-若已启动后才发现无法运行，先保存启动日志/原始回执，结束或 revoke 活动 assignment，再提交上述报告，引用已有失败证据。已经观察到真实断言失败时，不能以环境缺失覆盖成“未执行”。
+若已启动后才发现无法运行，先保存启动日志/原始回执，结束或 revoke 活动 assignment，再提交上述报告，引用已有失败证据。已经观察到真实断言失败时，不能以环境缺失覆盖成“未执行”。该检查同时覆盖“先断言失败、后环境中断”而整体归为 Yellow 的结果：保留失败断言与环境原因，继续原诊断/审计路径；不能仅检查 Red 颜色。缺失观测的 actual=null 不等于已观察到业务失败。缺测转换保留当前代码基线已有 Green 路径，只为尚未验证的路径记录未执行。
 
 下游仍需真实代码和依赖接口可用。仅自动化缺测的上游可作为代码依赖继续编译/实现/验证，质量 Yellow 不向消费者传播；消费者自己缺环境则独立记录。上游代码或 SPEC 变更仍使相关下游失效，不能利用缺测绕过版本/边界校验。
 
@@ -109,3 +111,27 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 ### 构建产物与设备安装
 
 构建 Green 只证明所选命令通过。当前没有自动安装/部署步骤，Harmony adapter 也不安装 App；宿主在 testing 预检里提供已安装包与当前构建/代码基线的关联证据及 fixture。uv sandbox 只准备 Python 执行环境，不替代部署。安装/设备等仅自动化环境条件缺失时沿缺测分流；不得把旧安装包上的测试当作当前代码的通过证据。
+
+
+## 构建资产位置
+
+冻结 build PATH 时同时审核构建输出位置，遵守 [留存文件系统](storage-layout.md)。正式执行输出为 runs/build/<新 attempt>，执行器绑定临时目录和工具缓存；直接 Gradle/gradlew 入口加载本轮 init.d，把常规 buildDirectory/项目缓存定向到 runner 并保存策略。冻结任务参数保留；实际命令仅扩展明确的缓存目录参数，回执校验禁止夹带其他改动。自定义构建脚本必须显式使用 SDD_RUNNER_DIR 下的 outputs/cache；禁止把 APK、构建报告、测试脚本留在目标源码旁。存在硬编码自定义输出时先调整冻结任务/构建配置，再执行；工程不支持时如实记录局部构建问题，沿 Diagnostician/Fixer/Yellow 机制推进其他模块。安装步骤从本轮实际 APK 路径读取，不再假定 target/app/build。
+
+## 构建和自动化异常回执
+
+可捕获的执行器中断（KeyboardInterrupt/SystemExit）及启动后的运行异常同样先停止本 attempt、限时回收并保存 execution.log、cleanup.json、receipt.json，再向宿主重新抛出原异常。CLI 的 SIGTERM 转为 SystemExit(143)，SIGINT 为 KeyboardInterrupt；不修改调用 Python API 的宿主信号处理器。回执 termination.executor_aborted=true，保留异常类型及退出码（中断通常 130/143，运行异常 125），不能作为普通完成结果接受；Host 核验停止/隔离并留证后走 revoke/audit-revoke。用户取消不自动重启、不自动派发 Fixer，不影响无关模块。退出未确认时保留 temp；强制 SIGKILL/断电等无法捕获情况仍由 Host 根据运行记录核验与恢复。
+
+执行超时后，Host executor 向本 attempt 的进程组发送 SIGKILL；输出回收另限 2 秒，不能因脱离进程组的子进程持有 stdout/stderr 再无限等待。回执 termination 分别记录信号结果、direct_process_exited、output_drained、descendants_status 和 host_stop_required；仅发送信号或得到管道 EOF 不代表所有外部子进程已停止。
+
+若回收仍超时、直接进程未确认退出或信号失败，及时保存已捕获日志、exit_code=124 及诊断回执，host_stop_required=true；当前 attempt 与嵌套 Harmony temp 保留，cleanup.json 说明 process-stop-unconfirmed。Host 必须先核验/停止或隔离相关进程，保留本回执和 stopped_worker_ref，再按原 revoke（全局审计用 audit-revoke）恢复；该回执不可通过 submit/accept 关闭 assignment，不能被当成普通自动化缺测放行。保持已有失败观测，不自动重授资源锁或删除仍在使用的临时目录；无关模块继续。停机/隔离确认后由 Host 清理该 attempt，后续测试用新 attempt。正常回收的超时仍沿以下既有三态机制提交。
+
+Auditor 批次中的构建 Red/Yellow 同样属于验证失败：接受构建结果时直接记录 build-verification-failed、结果引用及编译/超时根因，关联分支等待人工审核，独立审计分支继续。不再推荐批次内禁止的 audit-defer；构建 Green 只开放 Automation，不写入自动化通过证明。纯自动化环境缺失仍走原缺测出口，不能用于跳过失败构建。
+
+Automation 正式执行器在进程退出后保留原始 result.json 和已落盘 observations.json，并将部分观测摘要引用绑定到 receipt.partial_observations_ref。汇总与 Ledger 验收共同使用 host_completion_version=1 的确定性判定：
+
+- 合法失败报告随后超时/异常退出：保留失败断言、原根因及退出原因；不能覆盖为“未执行”。
+- 报告未完成但有有效部分观测：逐冻结 ASSERT 恢复有证据的观测，缺项仍未知；整体 Yellow，混合 pass/fail 保留失败与 flaky，不推断 Green。
+- JSON 截断、编码/内容格式错误：保留原件与回执，生成包含解析原因的 Yellow。没有有效观测才 executed=false；正常 submit/accept 后关闭 assignment，不一直 await-result。
+- 引用 hash、身份、冻结 query 或媒体证据不匹配仍拒绝；验收重算结果，禁止删掉失败、篡改根因或提升为 Green。原始报告、观测和 hash 不被重写。
+
+具有失败观测的 Yellow 仍不能 automation-unavailable；只有没有已观察失败的环境缺测可按原规则收尾。

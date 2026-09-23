@@ -60,12 +60,18 @@
     {
       "path": "AutoTest/devices/hdc/screenshot.py",
       "source_sha256": "2f6010263c4e5cded242a1b3604035169f9bde19403e39e3a271579c6bf9130a",
-      "vendored_sha256": "2f6010263c4e5cded242a1b3604035169f9bde19403e39e3a271579c6bf9130a"
+      "vendored_sha256": "179615109c7964c96a1856d10b1f8f12d5151106d9df617916ad7c11d3381a8c",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "AutoTest/devices/hdc_device.py",
       "source_sha256": "0c18c7683c56bdd2d8aae31c06e003b78bc42e6e5eb1c82b1beeb095a0af6917",
-      "vendored_sha256": "0c18c7683c56bdd2d8aae31c06e003b78bc42e6e5eb1c82b1beeb095a0af6917"
+      "vendored_sha256": "d001329f9fe9cf67357d3b4115307db93c8d99dfdb9edd1cd5a5374a9dba3093",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "AutoTest/execute_agents/__init__.py",
@@ -160,7 +166,10 @@
     {
       "path": "AutoTest/execute_agents/hypium_mcp_agent/mcp_extension.py",
       "source_sha256": "d8aebcc08a1a281a39ba6abd2707a0599afecf7fe067b552533eca2690ed56ad",
-      "vendored_sha256": "d8aebcc08a1a281a39ba6abd2707a0599afecf7fe067b552533eca2690ed56ad"
+      "vendored_sha256": "4bc7017fa6e5e8db0bc25b1bc1756610f319f4160817abb9d260052095c1a0d5",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "AutoTest/execute_agents/hypium_mcp_agent/prompts.py",
@@ -220,7 +229,11 @@
     {
       "path": "AutoTest/layered_agent_cli/mcp_tools.py",
       "source_sha256": "f3a48a1def7c9dd3764e78379d29d481e939024484fed8c26c0e54ee1e69231d",
-      "vendored_sha256": "f3a48a1def7c9dd3764e78379d29d481e939024484fed8c26c0e54ee1e69231d"
+      "vendored_sha256": "7952f75ab9571e966c9238d3135113bab5ab7357b0399c425131764ac7e4aaa8",
+      "local_changes": [
+        "Constrain CLI/extension outputs to managed Harmony runners; preserve execution and report semantics.",
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "AutoTest/layered_agent_cli/model_factory.py",
@@ -246,7 +259,10 @@
     {
       "path": "AutoTest/logger.py",
       "source_sha256": "c10cc88078abec7fa8283c739f18c782f4d039260ce7b3371e3359eeb2951452",
-      "vendored_sha256": "c10cc88078abec7fa8283c739f18c782f4d039260ce7b3371e3359eeb2951452"
+      "vendored_sha256": "ba0ba515e41cb9b3ffec8ac007b44568c1fb1f8dd287c1cea8d9c329051a4ab7",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "AutoTest/memory/__init__.py",
@@ -276,7 +292,10 @@
     {
       "path": "AutoTest/memory/tool_recorder.py",
       "source_sha256": "c4c3ecac5e35edadd089c0e5e2f02757c86e5725c0df2106dda47bdb88726a65",
-      "vendored_sha256": "c4c3ecac5e35edadd089c0e5e2f02757c86e5725c0df2106dda47bdb88726a65"
+      "vendored_sha256": "bd16f61710a4d92704bf5b95345bd32e3d47f2b99fdbc25d4638cd32c67ed579",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "AutoTest/memory/xpath_cache.py",
@@ -291,7 +310,10 @@
     {
       "path": "AutoTest/reporter/generator.py",
       "source_sha256": "4ce904fc33cb9f16068049711ccd647f49fbd0b8668f1679e881c56bae238eb5",
-      "vendored_sha256": "4ce904fc33cb9f16068049711ccd647f49fbd0b8668f1679e881c56bae238eb5"
+      "vendored_sha256": "86ab293503ecc5bc839ea685ffc2655512fce014e63fc3f1af707a3034975f9e",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "AutoTest/reporter/reporter_abs.py",
@@ -306,7 +328,10 @@
     {
       "path": "AutoTest/reporter/summary.py",
       "source_sha256": "8c40bc2520377edee1ef473cdf659ad2556bb0b8c41478248c200e815e811e3f",
-      "vendored_sha256": "8c40bc2520377edee1ef473cdf659ad2556bb0b8c41478248c200e815e811e3f"
+      "vendored_sha256": "280181669cbea2d69003edbd7941e8364a7b474d4a99b43dee1b1b7b40bedca5",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "AutoTest/testcase_preprocessor/__init__.py",
@@ -321,7 +346,10 @@
     {
       "path": "AutoTest/testcase_preprocessor/pipeline.py",
       "source_sha256": "562657530226a370722f12c3ab16b302b81d310ee3330b08518a722118018470",
-      "vendored_sha256": "562657530226a370722f12c3ab16b302b81d310ee3330b08518a722118018470"
+      "vendored_sha256": "9bdc3890fae74b99423aeab4964266c889c5124bf2a01198cb15a20afc0cb673",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "AutoTest/testcase_preprocessor/skill_prompt.py",
@@ -331,7 +359,10 @@
     {
       "path": "AutoTest/testcase_preprocessor/xmind-to-testcase/SKILL.md",
       "source_sha256": "66fd50ddccb055cdd8c5522807228b0e2c3b2a5e65f5457f2d872ca6adf31d3e",
-      "vendored_sha256": "66fd50ddccb055cdd8c5522807228b0e2c3b2a5e65f5457f2d872ca6adf31d3e"
+      "vendored_sha256": "33fff75733c57c593b2ee54f375b41d4507f9cded3ddfc75bba76382896cfea7",
+      "local_changes": [
+        "Focus on XMind-to-standard-Markdown conversion; use macOS managed run paths and preserve ambiguous acceptance for review."
+      ]
     },
     {
       "path": "AutoTest/testcase_preprocessor/xmind_parser.py",
@@ -362,13 +393,19 @@
     {
       "path": "AutoTest/verify_agent/verify_tools.py",
       "source_sha256": "a68243c8a968c931c640d6b1ae9d3a8a199d89fb27d0e42c7bfec33b75559dc2",
-      "vendored_sha256": "ebd54a3f1bd84a55f703d547ac7834e9d0b8a9d72438d7bb877aa5d2cab37465",
-      "local_change": "Fail-closed explicit conclusion parser; safe early-return cleanup; unique clip names; preserve merged video and mappings when keep_raw_video."
+      "vendored_sha256": "1bf15cfc5ed69d0583e1b5d5d7af07928a812076a50de9627cd0b9fbc217a22a",
+      "local_change": "Fail-closed explicit conclusion parser; safe early-return cleanup; unique clip names; preserve merged video and mappings when keep_raw_video.",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "AutoTest/verify_agent/video_tools.py",
       "source_sha256": "c5d99b4eebba89e71e17ddf2e96daeab69e0d37b58c55c7f459a01461d876266",
-      "vendored_sha256": "c5d99b4eebba89e71e17ddf2e96daeab69e0d37b58c55c7f459a01461d876266"
+      "vendored_sha256": "b954ff9e31ff0245b59dc4e704ed2dd01345205e65729918708fa662cf3df247",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "LICENSE",
@@ -378,12 +415,20 @@
     {
       "path": "generate_combined_report.py",
       "source_sha256": "a8961b3a810863cf4576f807dae592fd698a182f30c8dc8d0eddf66f1d26a36c",
-      "vendored_sha256": "a8961b3a810863cf4576f807dae592fd698a182f30c8dc8d0eddf66f1d26a36c"
+      "vendored_sha256": "0d9afba0461552f24056b25073878953f9d2be771b6baa631f7cbaeed4409db6",
+      "local_changes": [
+        "Route new runtime output into the owning Harmony run; retain historical inputs as read-only sources.",
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "main.py",
       "source_sha256": "5a2451b6df3f308b780818b79be5e084dd28a3290cafd46e373664118e39835e",
-      "vendored_sha256": "5a2451b6df3f308b780818b79be5e084dd28a3290cafd46e373664118e39835e"
+      "vendored_sha256": "720ebe3ab6a501fce2b136e20d3c6bcadfb8656e6b06c4edafdbd883636286a4",
+      "local_changes": [
+        "Route new runtime output into the owning Harmony run; retain historical inputs as read-only sources.",
+        "Copy native reference configuration and credentials into the shared run sandbox before execution."
+      ]
     },
     {
       "path": "mcp_tools/__init__.py",
@@ -393,7 +438,10 @@
     {
       "path": "mcp_tools/media_generator.py",
       "source_sha256": "309bcfea0820b58d06457412e14ad4db11b318c13193e9bd45bdf127cc9d724b",
-      "vendored_sha256": "309bcfea0820b58d06457412e14ad4db11b318c13193e9bd45bdf127cc9d724b"
+      "vendored_sha256": "11906fe73efa6ffdaacdf854a5e233c43aa7d20496c896be0728c673da077e19",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "requirements.txt",
@@ -453,12 +501,18 @@
     {
       "path": "tests/test_tool_player.py",
       "source_sha256": "d5302906ec9fe87d0f38f66543bf515219a6ef0e36810b9bb24c0e0bba13e728",
-      "vendored_sha256": "d5302906ec9fe87d0f38f66543bf515219a6ef0e36810b9bb24c0e0bba13e728"
+      "vendored_sha256": "e7729676d73d652f6b14a808f16306d91f50a437269863afa8486657d29ff086",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     },
     {
       "path": "tests/test_tool_recorder.py",
       "source_sha256": "61209cff260af5d6999026cd3e820971c46094766c20288c24532c855bf54bac",
-      "vendored_sha256": "61209cff260af5d6999026cd3e820971c46094766c20288c24532c855bf54bac"
+      "vendored_sha256": "51cea776c62998722fd6f83724333fd2bfeebee294871d13bfeca3b9ae0b5517",
+      "local_changes": [
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+      ]
     }
   ],
   "excluded": [
@@ -466,5 +520,8 @@
     "historical reports/screenshots/memory/knowledge",
     "local environments and lockfile with developer absolute paths",
     "obsolete 0.5.21 wheel (Git LFS pointer)"
+  ],
+  "local_additions": [
+    "AutoTest/storage.py"
   ]
 }

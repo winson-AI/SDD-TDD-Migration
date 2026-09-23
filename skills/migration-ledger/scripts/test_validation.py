@@ -29,6 +29,19 @@ def available(m):
     return (m['phase'] == 'completed' and not m['stale']) or deferred(m)
 
 
+def observed_failure(record):
+    # Yellow may include a real failed assertion followed by an environment error.
+    # Missing observations have actual=None and are not observed business failures.
+    return record.get('quality') == 'red-bug' or any(
+        a.get('passed') is False and a.get('actual') is not None
+        for a in record.get('assertions', []))
+
+
+def can_defer(m):
+    return not any(observed_failure(r) and r.get('code_baseline', m['code_baseline']) == m['code_baseline']
+                   for r in m['results'].values())
+
+
 def plan_check(plan, target):
     builds = [p for p in plan['paths'] if p.get('kind') == 'build']
     require(builds and len(builds) < len(plan['paths']), 'split testing requires build and automation paths')
@@ -88,6 +101,8 @@ def handle(s, req, actor):
         report = blocked_report(s, None, p.get('context_ref'), 'audit-testing', actor['instance_id'])
         scope = audit_scope(s)
         require(scope['plan']['paths'], 'no unresolved paths; submit independent audit-review')
+        require(not any(observed_failure(r) for r in scope['results'].values()),
+                'cannot conceal observed failure as missing environment')
         rows = [untested(x, p['context_ref'], report, req['request_id'], scope['results'].get(x['path_id'])) for x in scope['plan']['paths']]
         s.setdefault('audit_results', {}).update({r['path_id']: r for r in rows})
         s['audit'] = {'quality': 'yellow-blocked', 'environment_deferred': True,
@@ -109,8 +124,11 @@ def handle(s, req, actor):
         return
     require(m['phase'] == 'testing' and not m.get('blocked'), 'automation deferral requires testing phase')
     report = blocked_report(s, mid, p.get('context_ref'), 'testing')
-    require(not any(r['quality'] == 'red-bug' and r.get('code_baseline', m['code_baseline']) == m['code_baseline'] for r in m['results'].values()), 'cannot conceal observed failure as missing environment')
+    require(can_defer(m), 'cannot conceal observed failure as missing environment')
     for path in paths(m, 'automation'):
+        previous = m['results'].get(path['path_id'], {})
+        if previous.get('quality') == 'green-passed' and previous.get('code_baseline') == m['code_baseline']:
+            continue
         m['results'][path['path_id']] = untested(path, p['context_ref'], report, req['request_id'], m['results'].get(path['path_id']))
     m.update(phase='automation-deferred', stale=False,
              blocked={'kind': 'automation', 'reason': 'automation-not-run', 'context_ref': p['context_ref']})

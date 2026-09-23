@@ -3,23 +3,22 @@
 import argparse
 import copy
 from datetime import datetime, timezone
-import fcntl
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
 import sys
-import tempfile
+sys.dont_write_bytecode = True
 
 import reuse
 import context_links
+import run_storage
 
 from contracts import require, digest, file_ref, check_ref, read_json
 
 FIELDS = {'package_root', 'legacy_root', 'target_root', 'architecture_path', 'requirements_path',
           'test_cases_path', 'project_rules_path', 'test_adapter', 'runtime', 'human_owner',
-          'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources', 'build'}
+          'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources', 'build', 'workspace_root', 'watchdog'}
 DOCUMENTS = ('architecture_path', 'requirements_path', 'test_cases_path', 'project_rules_path')
 BUDGETS = {'max_parallel_modules': 3, 'max_fix_rounds': 3, 'max_audit_rounds': 3, 'max_no_progress_rounds': 2}
 
@@ -29,17 +28,7 @@ def host(actor):
 
 
 def atomic(path, content):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temp = tempfile.mkstemp(dir=path.parent, prefix='.context-')
-    try:
-        with os.fdopen(fd, 'wb') as stream:
-            stream.write(content); stream.flush(); os.fsync(stream.fileno())
-        os.replace(temp, path)
-        directory = os.open(path.parent, os.O_RDONLY)
-        try: os.fsync(directory)
-        finally: os.close(directory)
-    finally:
-        if os.path.exists(temp): os.unlink(temp)
+    run_storage.atomic_bytes(path, content)
 
 
 def encoded(value):
@@ -47,7 +36,7 @@ def encoded(value):
 
 
 def archive(directory, data, suffix=''):
-    path = directory / (hashlib.sha256(data).hexdigest() + suffix)
+    path = run_storage.checked_path(directory / (hashlib.sha256(data).hexdigest() + suffix), directory)
     if path.exists():
         require(path.read_bytes() == data, 'context archive corrupt')
     else:
@@ -92,12 +81,15 @@ def merge(config, patch):
 
 def validate(config):
     require(isinstance(config, dict) and set(config) <= FIELDS, 'unknown project configuration field')
+    if 'watchdog' in config:
+        from watchdog import policy
+        config['watchdog'] = policy(config['watchdog'])
     knowledge = config.get('knowledge_paths', [])
     require(isinstance(knowledge, list) and all(isinstance(p, str) and Path(p).is_absolute() for p in knowledge),
             'knowledge_paths must be absolute file paths')
     if 'knowledge_paths' in config:
         config['knowledge_paths'] = list(dict.fromkeys(str(Path(p).resolve()) for p in knowledge))
-    for key in ('package_root', 'legacy_root', 'target_root') + DOCUMENTS:
+    for key in ('package_root', 'legacy_root', 'target_root', 'workspace_root') + DOCUMENTS:
         if key in config:
             require(isinstance(config[key], str) and Path(config[key]).is_absolute(), key + ' must be absolute')
             config[key] = str(Path(config[key]).resolve())
@@ -168,8 +160,7 @@ def update(root, request, actor, initialize=False):
     require(request.get('schema_version') == 1 and request.get('request_id'), 'version/request id required')
     require(isinstance(request.get('project_id'), str) and re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', request['project_id']), 'invalid project id')
     fingerprint = digest({'request': request, 'actor': actor, 'initialize': initialize})
-    with (root / '.context.lock').open('a+') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with run_storage.file_lock(root / '.context.lock'):
         exists = (root / 'project-context.json').exists()
         rows = history(root) if exists else []
         for row in rows:
@@ -183,6 +174,8 @@ def update(root, request, actor, initialize=False):
         patch = request.get('patch')
         require(isinstance(patch, dict) and set(patch) <= FIELDS, 'unknown project patch field')
         config = validate(merge(old['config'] if old else {}, patch))
+        config.setdefault('workspace_root', str(root.parent))
+        require(root == Path(config['workspace_root']) / '.sdd-migration', 'project store must be <workspace_root>/.sdd-migration')
         source = copy_ref(root / 'sources', request.get('source_ref'))
         previous = file_ref(root / 'history' / (file_ref(root / 'project-context.json')['sha256'] + '.json')) if old else None
         record = {'schema_version': 1, 'project_id': request['project_id'], 'revision': request['expected_revision'] + 1,
@@ -202,6 +195,8 @@ def verify_snapshot(ref):
     require(snapshot.get('schema_version') == 1, 'invalid context snapshot')
     sealed = Path(snapshot['run_root']) / 'context/files' / (ref['sha256'] + '.snapshot')
     require(sealed.is_file() and sealed.read_bytes() == path.read_bytes(), 'run context edited outside prepare protocol')
+    if snapshot.get('storage_layout'):
+        run_storage.validate(snapshot['storage_layout'], snapshot['run_root'], snapshot['run_id'])
     def verify(value):
         if isinstance(value, dict):
             if 'path' in value and 'sha256' in value:
@@ -218,10 +213,11 @@ def verify_snapshot(ref):
 def prepared_input(ref):
     snapshot = verify_snapshot(ref); config = snapshot['effective_config']; sources = snapshot['source_refs']
     defaults = config.get('defaults', {})
-    return {**{k: copy.deepcopy(config[k]) for k in ('package_root', 'legacy_root', 'target_root', 'test_adapter',
+    return {**{k: copy.deepcopy(config[k]) for k in ('workspace_root', 'package_root', 'legacy_root', 'target_root', 'test_adapter',
                 'runtime', 'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources') if k in config},
             'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
             'module_name': snapshot['module_name'], 'project_context_ref': ref, 'project_sources': sources,
+            'run_root': snapshot['run_root'], 'storage_layout': snapshot.get('storage_layout'),
             'new_architecture': sources['architecture_path'], 'document_link_warnings': context_links.mapping(snapshot)[1],
             'global_spec': None, 'global_test_cases': [],
             'requirement_ids': [], 'global_test_paths': [],
@@ -231,6 +227,105 @@ def prepared_input(ref):
 
 
 def prepare(root, run_root, request, actor):
+    """One project/run_id maps to one immutable location, including on restart."""
+    host(actor)
+    rid = request.get('run_id')
+    require(isinstance(rid, str) and re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', rid), 'invalid run id')
+    root = Path(root).resolve()
+    require(root.is_dir(), 'project context not initialized')
+    with run_storage.file_lock(root / '.context.lock'):
+        record = current(root)
+        require(request.get('project_id') == record['project_id'], 'wrong project context')
+        require('workspace_root' not in request.get('overrides', {}), 'workspace_root is project-owned, not a run override')
+        storage = run_storage.layout(record['config'].get('workspace_root', root.parent), rid)
+        index = root / 'runs' / (rid + '.json')
+        registered = read_json(index) if index.exists() else None
+        chosen = Path(run_root).resolve() if run_root else Path(registered['run_root'] if registered else storage['run_root'])
+        if registered:
+            snap = verify_snapshot(registered['project_context_ref'])
+            require(registered['project_id'] == record['project_id'] and snap['project_id'] == record['project_id']
+                    and snap['run_id'] == rid and snap['run_root'] == str(chosen)
+                    and registered['run_root'] == str(chosen), 'run already registered at a different root')
+        elif not (chosen / 'context/snapshot.json').exists():
+            require(str(chosen) == storage['run_root'], 'new run root must be <workspace_root>/.sdd-runs/<run_id>')
+        pending = run_storage.checked_path(root / 'preparations' / (rid + '.json'))
+        receipt = read_json(pending) if pending.exists() else None
+        if receipt:
+            require(receipt['run_root'] == str(chosen) and receipt['project_id'] == record['project_id'],
+                    'preparation belongs to a different project or run root')
+        if not (chosen / 'context/snapshot.json').exists():
+            preflight(record, request)
+            check_owner(root, chosen, request, storage, record)
+            receipt = {'schema_version': 1, 'project_id': record['project_id'], 'run_id': rid,
+                       'run_root': str(chosen), 'phase': 'preparing',
+                       'request_hash': digest({'request': request, 'actor': actor, 'project_root': str(root)}),
+                       'failures': receipt.get('failures', []) if receipt else [],
+                       'next_action': 'retry-prepare'}
+            atomic(pending, encoded(receipt))
+        try:
+            result = _prepare(root, chosen, request, actor, storage)
+            if not registered:
+                atomic(index, encoded({'schema_version': 1, 'project_id': record['project_id'], 'run_id': rid,
+                    'run_root': str(chosen), 'project_context_ref': result['project_context_ref']}))
+            if receipt and receipt['phase'] != 'prepared':
+                receipt.update(phase='prepared', next_action='initialize-or-resume-ledger')
+                atomic(pending, encoded(receipt))
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            if receipt and receipt['phase'] != 'prepared':
+                receipt.update(phase='failed', next_action='correct-input-or-storage-and-retry-prepare')
+                receipt['failures'].append({'reason': str(exc), 'request_hash': receipt['request_hash']})
+                atomic(pending, encoded(receipt))
+            raise
+        result['run_root'] = str(chosen)
+        return result
+
+
+def preflight(record, request):
+    """Validate available inputs before creating a run or an OpenSpec namespace."""
+    require(request.get('schema_version') == 1 and request.get('request_id'), 'version/request id required')
+    mode, name = request.get('entry_mode', 'project'), request.get('module_name')
+    require(mode in ('project', 'single-module'), 'invalid entry mode')
+    require((mode == 'single-module' and isinstance(name, str) and bool(name.strip())) or
+            (mode == 'project' and name is None), 'single-module requires a name; project has no module name')
+    if 'expected_revision' in request:
+        require(request['expected_revision'] == record['revision'], 'stale project revision')
+    overrides = request.get('overrides', {})
+    require(isinstance(overrides, dict) and set(overrides) <= FIELDS, 'unknown override field')
+    effective = validate(merge(record['config'], overrides))
+    for key in ('legacy_root', 'target_root'):
+        require(key in effective and Path(effective[key]).is_dir(), 'missing directory: ' + key)
+    require(effective.get('architecture_path'), 'architecture_path required before prepare')
+    reuse.normalize_sources(effective.get('reuse_sources', []), effective['target_root'], existing=True)
+    for path in [effective[k] for k in DOCUMENTS if effective.get(k)] + effective.get('knowledge_paths', []):
+        file_ref(path)
+    for key in ('build', 'test_adapter'):
+        if effective.get(key, {}).get('environment_ref'): file_ref(effective[key]['environment_ref'])
+    def verify(value):
+        if isinstance(value, dict):
+            if 'path' in value and 'sha256' in value:
+                check_ref(value)
+            else:
+                for item in value.values(): verify(item)
+        elif isinstance(value, list):
+            for item in value: verify(item)
+    verify(effective); verify(record['config'])
+    check_ref(request.get('source_ref')); check_ref(record['source_ref'])
+
+
+def check_owner(root, run_root, request, storage, record):
+    owner = run_storage.checked_path(Path(storage['hub_root']) / 'owner.json')
+    ownership = {'schema_version': 1, 'project_id': record['project_id'], 'run_id': request['run_id'],
+                 'project_root': str(root), 'run_root': str(run_root)}
+    if owner.exists():
+        require(read_json(owner) == ownership, 'OpenSpec run namespace already owned')
+    else:
+        changes = run_storage.checked_path(Path(storage['openspec_root']) / 'changes')
+        require(not any(re.fullmatch(re.escape(request['run_id']) + r'-m[0-9]{3,}', p.name)
+                        for p in changes.glob('*')), 'existing OpenSpec changes require an owned run namespace')
+    return owner, ownership
+
+
+def _prepare(root, run_root, request, actor, storage):
     host(actor)
     require(request.get('schema_version') == 1 and request.get('request_id'), 'version/request id required')
     require(isinstance(request.get('run_id'), str) and re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', request['run_id']), 'invalid run id')
@@ -242,12 +337,14 @@ def prepare(root, run_root, request, actor):
     require(root != run_root and not root.is_relative_to(run_root) and not run_root.is_relative_to(root), 'project store and run root must be separate')
     run_root.mkdir(parents=True, exist_ok=True)
     # Same lock as Ledger prevents preparation racing with init.
-    with (run_root / '.ledger.lock').open('a+') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with run_storage.file_lock(run_root / '.ledger.lock'):
         path = run_root / 'context/snapshot.json'
         fingerprint = digest({'request': request, 'actor': actor, 'project_root': str(root)})
         if path.exists():
             ref = file_ref(path); snap = verify_snapshot(ref)
+            require(snap['project_id'] == request['project_id'], 'context belongs to a different project')
+            require(snap['run_id'] == request['run_id'], 'context belongs to a different run id')
+            require(snap['run_root'] == str(run_root), 'context belongs to a different run root')
             require(snap['request_hash'] == fingerprint, 'run context already frozen; use a new run')
             return {'project_context_ref': ref, 'input': prepared_input(ref), 'duplicate': True}
         require(not (run_root / 'ledger/events.jsonl').exists(), 'cannot attach context after run initialization')
@@ -262,6 +359,9 @@ def prepare(root, run_root, request, actor):
             require(key in effective and Path(effective[key]).is_dir(), 'missing directory: ' + key)
         require(effective.get('architecture_path'), 'architecture_path required before prepare')
         reuse.normalize_sources(effective.get('reuse_sources', []), effective['target_root'], existing=True)
+        owner, ownership = check_owner(root, run_root, request, storage, record)
+        if not owner.exists():
+            atomic(owner, encoded(ownership))
         files = run_root / 'context/files'
         sources = {key: copy_ref(files, file_ref(effective[key])) for key in DOCUMENTS if effective.get(key)}
         if 'knowledge_paths' in effective:
@@ -285,6 +385,7 @@ def prepare(root, run_root, request, actor):
                     'request_source_ref': copy_ref(files, request.get('source_ref')),
                     'config_source_ref': copy_ref(files, record['source_ref']),
                     'created_at': datetime.now(timezone.utc).isoformat()}
+        snapshot.update(storage_layout=storage, storage_owner_ref=file_ref(owner))
         data = encoded(snapshot)
         archive(files, data, '.snapshot')
         atomic(path, data)
@@ -329,11 +430,14 @@ def main():
             require(args.request and args.host_context, 'request and host context required')
             req, actor = read_json(args.request), read_json(args.host_context)
             if args.command == 'prepare':
-                require(args.run_root, 'run root required'); result = prepare(args.root, args.run_root, req, actor)
+                result = prepare(args.root, args.run_root, req, actor)
             else:
                 result = update(args.root, req, actor, initialize=args.command == 'init')
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
+    except run_storage.LockTimeout as exc:
+        print(json.dumps(exc.diagnostic, ensure_ascii=False), file=sys.stderr)
+        return 1
     except (ValueError, OSError, KeyError, TypeError) as exc:
         print(json.dumps({'status': 'rejected', 'reason': str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 1

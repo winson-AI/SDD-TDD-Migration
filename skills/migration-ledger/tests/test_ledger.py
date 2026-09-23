@@ -244,7 +244,9 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
 
     def test_projection_loss_and_post_commit_crash_replay(self):
         with patch.object(ledger, 'project', side_effect=OSError('crash')):
-            with self.assertRaises(OSError): self.call('session', {'role': 'implementer', 'session_id': 'S1'})
+            ack = self.call('session', {'role': 'implementer', 'session_id': 'S1'})
+            self.assertTrue(ack['committed'])
+            self.assertEqual(ack['projection']['status'], 'pending')
         (self.root / 'ledger/global.json').write_text('{"quality":"green-passed"}')
         self.assertEqual(self.state()['modules']['M001']['sessions']['implementer']['session_id'], 'S1')
         self.assertEqual(self.state()['quality'], 'yellow-blocked')
@@ -399,11 +401,15 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         self.assertNotEqual(original.read_bytes(), archived.read_bytes())
         self.assertTrue(self.state()['observed_invalidations'] or original.name == 'plan.json')
 
-    def test_cli_status_smoke(self):
+    def test_cli_history_is_readonly_and_old_root_cannot_write_status(self):
         script = Path(ledger.__file__)
-        proc = subprocess.run([sys.executable, str(script), 'status', '--root', str(self.root)], capture_output=True, text=True)
+        before = {str(p): p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        proc = subprocess.run([sys.executable, str(script), 'history', '--root', str(self.root)], capture_output=True, text=True)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(json.loads(proc.stdout)['run_id'], 'demo')
+        rejected = subprocess.run([sys.executable, str(script), 'status', '--root', str(self.root)], capture_output=True, text=True)
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertEqual(before, {str(p): p.read_bytes() for p in self.root.rglob('*') if p.is_file()})
 
     def test_real_red_fix_and_new_green_retest(self):
         self.prepare(); self.implementation()

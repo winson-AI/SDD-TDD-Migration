@@ -60,7 +60,7 @@ class ContextLinkTests(unittest.TestCase):
         original_code=next(e for e in old['entries'] if e['source_path']==str(code))['readable_ref']
         code.write_text('class NewType')
         self.assertTrue(f.prepare()['duplicate'])
-        second=pc.prepare(f.root,f.base/'runs/r2',f.run_request('r2'),f.actor)
+        second=pc.prepare(f.root,f.base/'.sdd-runs/r2',f.run_request('r2'),f.actor)
         self.assertNotEqual(old_ref['path'],second['input']['new_architecture']['path'])
         self.assertEqual(check_ref(original_code).read_text(),'class OriginalType')
         pc.verify_snapshot(first['project_context_ref'])
@@ -94,8 +94,10 @@ class ContextLinkTests(unittest.TestCase):
                 ref.update(file_ref(p))
         flow.call('plan',{'plan_ref':flow.ref('plan-with-links.json',plan)},role='spec-designer')
         state=flow.state(); state['project_context_ref']=prepared['project_context_ref']
-        projection.materialize(flow.root,state,state['last_sequence'])
-        change=flow.root/'openspec/changes/demo-m001'
+        state['run_id']='r1'
+        shutil.copytree(flow.root/'artifacts', f.run/'artifacts')
+        projection.materialize(f.run,state,state['last_sequence'])
+        change=f.base/'openspec/changes/r1-m001'
         spec=change/'specs/m001/spec.md'
         self.assertIn(str(change/'design.md')+'#decision',spec.read_text())
         self.assertIn(prepared['input']['new_architecture']['path'],spec.read_text())
@@ -103,5 +105,5 @@ class ContextLinkTests(unittest.TestCase):
         self.assertFalse(json.loads((change/'manifest.json').read_text())['link_warnings'])
         # Rebuild from sealed context and raw definition artifacts, after deleting live originals.
         f.arch.unlink(); shutil.rmtree(f.base/'guide'); shutil.rmtree(flow.base/'defs'); shutil.rmtree(change)
-        projection.materialize(flow.root,state,state['last_sequence'])
+        projection.materialize(f.run,state,state['last_sequence'])
         self.assertIn(prepared['input']['new_architecture']['path'],spec.read_text())

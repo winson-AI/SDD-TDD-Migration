@@ -13,7 +13,7 @@
   "code_baseline": "{{tree-or-commit}}",
   "test_definition_hash": "{{sha256}}",
   "environment_hash": "{{sha256}}",
-  "query_ref": "{{absolute-query-path}}",
+  "query_ref": "{{absolute-run-root}}/runs/harmony/automation/{{attempt-id}}/query.json",
   "argv": [],
   "cwd": "{{absolute-working-dir}}",
   "started_at": null,

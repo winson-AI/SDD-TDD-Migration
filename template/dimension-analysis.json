@@ -7,7 +7,7 @@
       "conclusion": "{{review-result-including-no-candidate-or-not-applicable-with-evidence}}",
       "evidence_refs": [
         {
-          "path": "{{absolute-immutable-evidence-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
           "sha256": "{{sha256}}"
         }
       ]
@@ -16,7 +16,7 @@
       "conclusion": "{{review-result-including-no-candidate-or-not-applicable-with-evidence}}",
       "evidence_refs": [
         {
-          "path": "{{absolute-immutable-evidence-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
           "sha256": "{{sha256}}"
         }
       ]
@@ -25,7 +25,7 @@
       "conclusion": "{{review-result-including-no-candidate-or-not-applicable-with-evidence}}",
       "evidence_refs": [
         {
-          "path": "{{absolute-immutable-evidence-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
           "sha256": "{{sha256}}"
         }
       ]
@@ -34,7 +34,7 @@
       "conclusion": "{{review-result-including-no-candidate-or-not-applicable-with-evidence}}",
       "evidence_refs": [
         {
-          "path": "{{absolute-immutable-evidence-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
           "sha256": "{{sha256}}"
         }
       ]
@@ -47,7 +47,7 @@
       "reason": "{{decide-applicable-or-not-applicable-from-assigned-function; N/A-items-must-be-empty}}",
       "evidence_refs": [
         {
-          "path": "{{absolute-immutable-evidence-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
           "sha256": "{{sha256}}"
         }
       ],
@@ -67,7 +67,7 @@
           "acceptance": "{{source-fidelity-and-observable-expectation}}",
           "evidence_refs": [
             {
-              "path": "{{absolute-immutable-evidence-path}}",
+              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
               "sha256": "{{sha256}}"
             }
           ],
@@ -81,7 +81,7 @@
       "reason": "{{decide-applicable-or-not-applicable-from-assigned-function; N/A-items-must-be-empty}}",
       "evidence_refs": [
         {
-          "path": "{{absolute-immutable-evidence-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
           "sha256": "{{sha256}}"
         }
       ],
@@ -101,7 +101,7 @@
           "acceptance": "{{source-fidelity-and-observable-expectation}}",
           "evidence_refs": [
             {
-              "path": "{{absolute-immutable-evidence-path}}",
+              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
               "sha256": "{{sha256}}"
             }
           ],
@@ -115,7 +115,7 @@
       "reason": "{{decide-applicable-or-not-applicable-from-assigned-function; N/A-items-must-be-empty}}",
       "evidence_refs": [
         {
-          "path": "{{absolute-immutable-evidence-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
           "sha256": "{{sha256}}"
         }
       ],
@@ -135,7 +135,7 @@
           "acceptance": "{{source-fidelity-and-observable-expectation}}",
           "evidence_refs": [
             {
-              "path": "{{absolute-immutable-evidence-path}}",
+              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
               "sha256": "{{sha256}}"
             }
           ],
@@ -149,7 +149,7 @@
       "reason": "{{decide-applicable-or-not-applicable-from-assigned-function; N/A-items-must-be-empty}}",
       "evidence_refs": [
         {
-          "path": "{{absolute-immutable-evidence-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
           "sha256": "{{sha256}}"
         }
       ],
@@ -169,7 +169,7 @@
           "acceptance": "{{source-fidelity-and-observable-expectation}}",
           "evidence_refs": [
             {
-              "path": "{{absolute-immutable-evidence-path}}",
+              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
               "sha256": "{{sha256}}"
             }
           ],

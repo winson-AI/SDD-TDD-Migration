@@ -37,6 +37,10 @@ def planning_context(s):
     }
     if s.get('dimension_slicing_required'):
         result['dimension_slicing_required'] = True
+    if s.get('project_context_ref'):
+        layout = read_json(check_ref(s['project_context_ref'])).get('storage_layout')
+        if layout:
+            result['storage_layout'] = copy.deepcopy(layout)
     plan = (s.get('global_plan') or {}).get('content', {})
     if (s.get('global_plan') or {}).get('source_review_ref'):
         result['source_change_ref'] = s['global_plan']['source_review_ref']

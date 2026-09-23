@@ -56,7 +56,7 @@ Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/
 
 ## Ledger 物化与修复记忆
 
-本地默认 change_root 为 `<run_root>/openspec/changes/<run-id>-<module-id小写>`。每个已接受 plan 的定义快照会自动生成 proposal/spec/design/tasks/checklist，status 从状态机生成；tasks 勾选绑定 accepted task trace，checklist 保留定义并附机器证据。manifest 标记 structural-only，正式 CLI 验证结果不得伪造。删除视图后 status 可重建，视图修改不能更改冻结内容。
+本地默认 change_root 为 `<workspace_root>/openspec/changes/<run-id>-<module-id小写>`。每个已接受 plan 的定义快照会自动生成 proposal/spec/design/tasks/checklist，status 从状态机生成；tasks 勾选绑定 accepted task trace，checklist 保留定义并附机器证据。manifest 标记 structural-only，正式 CLI 验证结果不得伪造。删除视图后 status 可重建，视图修改不能更改冻结内容。
 
 生成视图同时更新跳转：六件套内部引用指向对应的实际生成位置（特别是 specs/<capability>/spec.md）；架构、知识及其中的框架/代码链接，按本轮 context 的 source_paths/link_manifest_ref 指向固化后的文件位置。锚点与标题保留，不能把链接留在旧目录或换成最新工作文件。原始定义及 hash 不修改，重建只使用既有快照。未收录目标记录在 change/manifest.json 的 link_warnings，不能默认当作有效知识链。context/files 的关联文件固化及旧 run 兼容见 [项目上下文协议](project-context.md#contextfiles-的跨文件链接)。
 

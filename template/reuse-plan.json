@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "module_id": "M001",
-  "catalog_ref": {"path": "{{absolute-reuse-catalog-path}}", "sha256": "{{sha256}}"},
+  "catalog_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{reuse-catalog-path}}", "sha256": "{{sha256}}"},
   "mappings": [
     {
       "mapping_id": "REUSE-M001-001",
@@ -17,7 +17,7 @@
       "fidelity": {
         "legacy_root": "{{absolute-legacy-root-from-run}}",
         "legacy_source_refs": [{"path": "{{absolute-legacy-entry-or-call-chain-source-file}}", "sha256": "{{sha256}}"}],
-        "alignment_ref": {"path": "{{absolute-reuse-fidelity-report}}", "sha256": "{{sha256}}"},
+        "alignment_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{reuse-fidelity-report}}", "sha256": "{{sha256}}"},
         "scenarios": [
           {
             "scenario_id": "FID-M001-001",
@@ -36,7 +36,7 @@
         "configuration": "{{initialization-and-injection-or-explicit-none}}",
         "transitive_dependencies": ["{{dependency-or-explicit-none}}"],
         "compatibility": "{{verified-platform-framework-ABI-lifecycle-and-architecture-compatibility}}",
-        "evidence_refs": [{"path": "{{absolute-feasibility-and-resolution-evidence}}", "sha256": "{{sha256}}"}]
+        "evidence_refs": [{"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{feasibility-and-resolution-evidence}}", "sha256": "{{sha256}}"}]
       }
     }
   ]

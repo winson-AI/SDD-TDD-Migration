@@ -6,6 +6,10 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'runtime/harmony'))
+from AutoTest.storage import output_path
 
 
 def digest(value):
@@ -18,7 +22,7 @@ def ref(path):
 
 
 def write(path, value):
-    Path(path).write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+    output_path(path).write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
 
 
 def validate_query(q):
@@ -116,7 +120,7 @@ class ObservationSink:
         cause = None
         if quality != 'green-passed':
             cause = {'category': 'flaky' if flaky else ('tooling' if blocked else 'behavior'),
-                     'summary': '; '.join(blocked or [f'Failed frozen assertions: {failed}']),
+                     'summary': '; '.join(blocked + ([f'Failed frozen assertions: {failed}'] if failed else [])),
                      'confidence': 'observed' if not blocked else 'suspected',
                      'owner': self.query['module_id'], 'suspected_owner': self.query['module_id'],
                      'evidence_refs': [raw_ref], 'next_action': 'diagnose'}

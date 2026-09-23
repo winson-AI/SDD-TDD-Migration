@@ -44,7 +44,7 @@
 {
   "operation": "context-submit",
   "module_id": "M001",
-  "payload": {"report_ref": {"path": "/absolute/staging/context.json", "sha256": "<actual-sha256>"}}
+  "payload": {"report_ref": {"path": "/workspace/migration/.sdd-runs/run-demo/staging/context.json", "sha256": "<actual-sha256>"}}
 }
 ```
 

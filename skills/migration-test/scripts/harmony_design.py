@@ -6,8 +6,11 @@ import json
 from pathlib import Path
 import re
 import sys
+sys.dont_write_bytecode = True
 from harmony_contract import digest, ref, write
 from harmony_adapter import ENGINE, resolve_env
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'migration-ledger/scripts'))
+from runner_storage import harmony_output, scope
 
 
 def draft(markdown, module_id, source_ref):
@@ -32,6 +35,8 @@ def draft(markdown, module_id, source_ref):
 
 
 async def convert(source, output, config, app_name):
+    from AutoTest.storage import output_path
+    output = output_path(output)
     sys.path.insert(0, str(ENGINE))
     from AutoTest.testcase_preprocessor.xmind_parser import extract_tree
     from AutoTest.testcase_preprocessor.converter import convert_tree_to_md
@@ -53,11 +58,18 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     for key in ('input','module','output'): p.add_argument('--'+key, required=True)
     p.add_argument('--config'); p.add_argument('--app-name')
+    p.add_argument('--root', help='Workflow run root; output must be inside runs/harmony/sandbox')
     args = p.parse_args()
-    source = Path(args.input).resolve(); out = Path(args.output).resolve(); out.mkdir(exist_ok=False)
+    source = Path(args.input).resolve()
+    out = harmony_output(args.root, args.output, 'sandbox')
+    out.mkdir(parents=True, exist_ok=False)
     if source.suffix.lower() == '.xmind':
-        if not args.config: p.error('--config required for model-based XMind conversion')
-        md = asyncio.run(convert(source,out,json.loads(Path(args.config).read_text())['models'],args.app_name))
+        from harmony_environment import prepare_environment, load_environment
+        run_root = next(x for x in out.parents if x.parent.name == '.sdd-runs')
+        config_path, env_path = prepare_environment(run_root, args.config)
+        load_environment(env_path)
+        with scope(out / 'runtime'):
+            md = asyncio.run(convert(source,out,json.loads(config_path.read_text())['models'],args.app_name))
     else: md = source.read_text()
     result = draft(md,args.module,ref(source))
     (out/'source.md').write_text(md)

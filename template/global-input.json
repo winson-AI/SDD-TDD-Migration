@@ -1,4 +1,6 @@
 {
+  "workspace_root": "{{absolute-migration-workspace}}",
+  "run_root": "{{absolute-migration-workspace}}/.sdd-runs/{{run-id}}",
   "schema_version": 1,
   "entry_mode": "project",
   "run_id": "{{run-id}}",
@@ -6,7 +8,7 @@
   "target_root": "{{absolute-target-root}}",
   "legacy_root": "{{absolute-legacy-root}}",
   "global_spec": {
-    "path": "{{absolute-spec-path}}",
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{spec-path}}",
     "sha256": "{{sha256}}"
   },
   "new_architecture": {
@@ -44,7 +46,7 @@
     "query_transport": "query-file",
     "result_format": "migration-test-result-v1",
     "timeout_seconds": 300,
-    "environment_ref": "{{absolute-environment-description}}"
+    "environment_ref": "{{absolute-run-root}}/runs/harmony/sandbox/{{request-id}}/environment.json"
   },
   "quality_gates": {
     "static_check_argv": [

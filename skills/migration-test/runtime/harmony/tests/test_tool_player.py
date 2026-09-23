@@ -107,7 +107,7 @@ def player_with_driver(mock_device):
 @pytest.fixture
 def tmp_recording(tmp_path):
     """创建一个临时录制文件并返回路径。"""
-    memory_dir = str(tmp_path / "memory")
+    memory_dir = str(tmp_path.resolve() / ".sdd-runs/test/runs/harmony/automation/attempt/memory")
     r = ToolRecorder(task="回放测试任务", memory_dir=memory_dir)
     r.record_tool_call("execute", {"message": "点击播放按钮"}, "成功")
     r.record_tool_call("verify", {"description": "检查播放状态"}, '{"result": true}')
@@ -733,7 +733,7 @@ class TestPlayAsync:
 
     def test_skip_replay_tools(self, mock_device, tmp_path):
         """load_skill 等工具被跳过。"""
-        memory_dir = str(tmp_path / "memory")
+        memory_dir = str(tmp_path.resolve() / ".sdd-runs/test/runs/harmony/automation/attempt/memory")
         r = ToolRecorder(task="跳过测试", memory_dir=memory_dir)
         r.record_tool_call("load_skill", {"skill_name": "test"}, "loaded")
         file_path = r.save_to_file()
@@ -747,7 +747,7 @@ class TestPlayAsync:
 
     def test_timeout_handling(self, mock_device, tmp_path):
         """超时返回 timeout 标记。"""
-        memory_dir = str(tmp_path / "memory")
+        memory_dir = str(tmp_path.resolve() / ".sdd-runs/test/runs/harmony/automation/attempt/memory")
         r = ToolRecorder(task="超时测试", memory_dir=memory_dir)
         r.record_tool_call("execute", {"message": "步骤1"}, "ok")
         file_path = r.save_to_file()

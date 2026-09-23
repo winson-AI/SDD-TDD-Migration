@@ -4,10 +4,13 @@ import argparse
 import json
 from pathlib import Path
 import sys
+sys.dont_write_bytecode = True
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'migration-ledger/scripts'))
 from contracts import check_ref, file_ref, read_json, require
 from ledger import status, audit_scope
+from runner_storage import harmony_output
+from test_completion import interpret
 
 
 def build(root, module_id, assignment_id, receipts):
@@ -27,15 +30,7 @@ def build(root, module_id, assignment_id, receipts):
         pid = r['path_id']
         require(pid in paths and pid not in rows, 'unknown/duplicate receipt path; do not pick the best attempt')
         row = {'path_id':pid, 'test_run_id':r['test_run_id'], 'execution_receipt':receipt_ref}
-        report = read_json(check_ref(r['result_ref'])) if r.get('result_ref') else None
-        if report and (report.get('producer') == 'harmony-adapter' and r['exit_code'] in (0,1,2) or report.get('producer') == 'build-executor'):
-            row.update({k:report[k] for k in ('quality','assertions','root_cause','flaky') if k in report})
-            row['executed'] = True
-        else:
-            row.update({'quality':'yellow-blocked', 'executed':False,
-                        'root_cause':{'category':'tooling', 'summary':f'Host exit {r["exit_code"]}: missing/invalid Harmony completion',
-                                      'confidence':'observed', 'owner':module_id, 'next_action':'diagnose',
-                                      'evidence_refs':[receipt_ref, r['log_ref']]}})
+        row.update(interpret(r, paths[pid]))
         previous = m.get('results',{}).get(pid)
         if previous: row['retest_of'] = previous['test_run_id']
         rows[pid] = row
@@ -47,10 +42,16 @@ def build(root, module_id, assignment_id, receipts):
     return result
 
 
+def save(root, output, result):
+    path = harmony_output(root, output, 'sandbox')
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('x') as f: json.dump(result, f, ensure_ascii=False, indent=2)
+
+
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     for key in ('root','module','assignment','output'): p.add_argument('--'+key, required=True)
     p.add_argument('--receipt', action='append', required=True)
     args = p.parse_args()
     result = build(args.root, args.module, args.assignment, [file_ref(p) for p in args.receipt])
-    with open(args.output, 'x') as f: json.dump(result, f, ensure_ascii=False, indent=2)
+    save(args.root, args.output, result)

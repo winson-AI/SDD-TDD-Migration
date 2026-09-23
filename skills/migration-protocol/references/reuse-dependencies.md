@@ -158,10 +158,10 @@ Testing 至少验证正常、边界、异常/取消，以及真实提供方接�
     "kind": "human",
     "reason_code": "not-implemented",
     "reason": "具体功能在当前约束下未实现：<已证实原因>",
-    "root_cause": {"category": "capability", "summary": "<核验结论>", "evidence_refs": [{"path": "/absolute/verification.md", "sha256": "<actual>"}]},
+    "root_cause": {"category": "capability", "summary": "<核验结论>", "evidence_refs": [{"path": "/workspace/migration/.sdd-runs/run-demo/staging/module-orchestrator/gap-review/verification.md", "sha256": "<actual>"}]},
     "owner": "module-orchestrator",
     "next_action": "<需要人工补充的能力、材料或架构/范围决策>",
-    "implementation_gap_ref": {"path": "/absolute/implementation-gap.json", "sha256": "<actual>"}
+    "implementation_gap_ref": {"path": "/workspace/migration/.sdd-runs/run-demo/staging/module-orchestrator/gap-review/implementation-gap.json", "sha256": "<actual>"}
   }
 }
 ```

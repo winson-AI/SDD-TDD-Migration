@@ -32,7 +32,7 @@ class SplitTestingTests(unittest.TestCase):
             p['paths'].append({'path_id': 'B1', 'kind': 'build', 'name': 'compile', 'case_id': 'C1',
                 'requirement_id': 'R1', 'required': True,
                 'expected_assertions': [{'assertion_id': 'BUILD-EXIT', 'expected': 0}],
-                'command': {'argv': [sys.executable, '-c', self.build_code], 'cwd': str(f.target), 'timeout_seconds': 20,
+                'command': {'argv': [sys.executable, '-c', self.build_code], 'cwd': str(f.target), 'timeout_seconds': getattr(self, 'build_timeout', 20),
                             'selection_ref': f.ref('build-selection.md', 'Fixture compile-only command, chosen for target module')}})
             p['tasks'][0]['path_ids'].append('B1')
             return p
@@ -78,6 +78,56 @@ class SplitTestingTests(unittest.TestCase):
         f.call('complete', {'dod_ref': f.ref('dod.md', 'build and all cases passed'), 'checks_passed': True})
         self.assertEqual(f.state()['modules']['M001']['quality'], 'green-passed')
         self.assertEqual(set(f.state()['modules']['M001']['results']), {'B1', 'P1'})
+
+    def test_timed_out_build_cleans_owned_scratch_and_keeps_receipt(self):
+        self.build_timeout = 1
+        self.build_code = ('import tempfile,time;'
+                           'f=tempfile.NamedTemporaryFile(delete=False);f.write(b"scratch");f.close();'
+                           'print(f.name,flush=True);time.sleep(30)')
+        f = self.f; self.prepare(); f.assign('test-runner', 'TIMEOUT')
+        command = f.state()['modules']['M001']['plan']['paths'][1]['command']
+        out = f.root / 'runs/build/timeout'
+        receipt_ref = execute(f.root, 'M001', 'TIMEOUT', 'B1', command['argv'], command['cwd'], out)
+        receipt = read_json(receipt_ref['path'])
+        self.assertEqual(receipt['exit_code'], 124)
+        self.assertEqual(read_json(out / 'result.json')['quality'], 'yellow-blocked')
+        self.assertFalse((out / 'temp').exists())
+        self.assertIn(str(out.resolve() / 'temp'), (out / 'execution.log').read_text())
+        self.assertEqual(read_json(receipt['cleanup_ref']['path'])['scratch']['status'], 'removed')
+        self.assertFalse(tv.build_ready(f.state()['modules']['M001']))
+
+    def test_gradle_wrapper_receives_owned_cache_and_retained_output_policy(self):
+        f = self.f
+        wrapper = f.target / 'gradlew'
+        wrapper.write_text('test -f "$GRADLE_USER_HOME/init.d/sdd-storage.init.gradle" || exit 9\n'
+                           'test -d "$TMPDIR" || exit 10\nprintf "%s" "$SDD_RUNNER_DIR"\n')
+        old_plan = f.plan
+        def plan():
+            value = old_plan()
+            value['paths'][1]['command']['argv'] = ['/bin/sh', str(wrapper), 'assemble']
+            return value
+        f.plan = plan
+        self.prepare(); assignment = f.assign('test-runner', 'GRADLE')
+        command = f.state()['modules']['M001']['plan']['paths'][1]['command']
+        out = f.root / 'runs/build/gradle'
+        receipt_ref = execute(f.root, 'M001', 'GRADLE', 'B1', command['argv'], command['cwd'], out)
+        receipt = read_json(receipt_ref['path'])
+        self.assertEqual(receipt['exit_code'], 0)
+        self.assertEqual(receipt['requested_argv'], command['argv'])
+        from runner_storage import build_command
+        self.assertEqual(receipt['argv'], build_command(command['argv'], out))
+        self.assertTrue(Path(receipt['storage_policy_ref']['path']).is_relative_to(out.resolve()))
+        self.assertFalse((f.target / '.gradle').exists())
+        self.assertFalse((out / 'temp').exists())
+        from contracts import validate_result
+        result = stage_result(f.root, 'M001', 'GRADLE', [receipt_ref])
+        module = f.state()['modules']['M001']
+        self.assertEqual(validate_result(result, module, assignment), 'tests')
+        tampered = copy.deepcopy(result)
+        tampered['paths'][0]['execution_receipt'] = f.ref('tampered-receipt.json',
+            {**receipt, 'argv': [*receipt['argv'], '--offline']})
+        with self.assertRaisesRegex(Rejected, 'invalid build execution receipt'):
+            validate_result(tampered, module, assignment)
 
     def test_build_only_case_cannot_count_as_automation_coverage(self):
         plan = self.f.plan()
@@ -317,3 +367,22 @@ class SplitTestingTests(unittest.TestCase):
         for name in ('one', 'two'):
             folder = f.target / name; folder.mkdir(); (folder / 'gradlew').write_text('exit 99')
         self.assertEqual(discover(f.target)['status'], 'needs-selection')
+
+    def test_build_discovery_excludes_managed_assets_and_links_into_them(self):
+        target = self.f.target.resolve()
+        for name in ('.sdd-migration', '.sdd-runs', 'openspec'):
+            folder = target / name / 'old/staging'; folder.mkdir(parents=True)
+            (folder / 'gradlew').write_text('historical build script')
+            (folder / 'build.sh').write_text('historical build script')
+        generated = target / '.sdd-runs/old/staging/gradlew'
+        (target / 'gradlew').symlink_to(generated)
+        found = discover(target)
+        self.assertEqual(found['candidates'], [])
+        self.assertEqual(found['source'], 'gradle-default')
+        (target / 'gradlew').unlink()
+        real = target / 'app'; real.mkdir(); (real / 'gradlew').write_text('real module build')
+        found = discover(target)
+        self.assertEqual(found['candidates'], [str(real / 'gradlew')])
+        self.assertEqual(found['cwd'], str(real))
+        selected = discover(target, {'argv': ['/bin/sh', str(generated), 'assemble']})
+        self.assertEqual(selected['source'], 'user')

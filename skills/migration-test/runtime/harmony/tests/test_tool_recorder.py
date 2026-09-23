@@ -38,7 +38,7 @@ from AutoTest.memory.tool_recorder import (
 @pytest.fixture
 def tmp_memory_dir(tmp_path):
     """每次测试使用独立的临时 memory 目录。"""
-    return str(tmp_path / "memory")
+    return str(tmp_path.resolve() / ".sdd-runs/test/runs/harmony/automation/attempt/memory")
 
 
 @pytest.fixture

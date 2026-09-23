@@ -1,8 +1,12 @@
 import os
 import json
 import sys
+sys.dont_write_bytecode = True
 import re
+import argparse
+from pathlib import Path
 from datetime import datetime
+from AutoTest.storage import output_path
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "", "")))
 
@@ -18,6 +22,7 @@ def format_duration(seconds):
 
 def generate_summary_report(results, total_duration, output_dir):
     """生成批量执行汇总HTML报告"""
+    output_dir = str(output_path(output_dir))
     success_count = sum(1 for r in results if r.get('status') == 'success')
     fail_count = sum(1 for r in results if r.get('status') == 'fail')
     pass_rate = (success_count / len(results) * 100) if len(results) > 0 else 0
@@ -280,7 +285,7 @@ def generate_summary_report(results, total_duration, output_dir):
     # 保存汇总报告
     os.makedirs(output_dir, exist_ok=True)
     summary_path = os.path.join(output_dir, "index.html")
-    with open(summary_path, "w", encoding="utf-8") as f:
+    with open(output_path(summary_path), "w", encoding="utf-8") as f:
         f.write(html_content)
 
     print("汇总报告已生成: file://{}".format(os.path.abspath(summary_path).replace('\\', '/')))
@@ -400,9 +405,17 @@ def parse_history_reports(history_dir, output_dir=None):
 
 
 def main():
-    history_dir = os.path.join(os.path.dirname(__file__), "reports", "0812")
-    
-    report_dir = os.path.join(os.path.dirname(__file__), "reports")
+    parser = argparse.ArgumentParser(description='Aggregate existing Harmony history reports without executing tests.')
+    parser.add_argument('--history-dir', required=True, help='Directory containing per-test report folders')
+    parser.add_argument('--output', required=True, help='New directory for index.html')
+    parser.add_argument('--root', help='Workflow run root; output must be inside runs/harmony/sandbox')
+    args = parser.parse_args()
+    history_dir = Path(args.history_dir).resolve()
+    if not history_dir.is_dir(): parser.error('--history-dir must exist')
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'migration-ledger/scripts'))
+    from runner_storage import harmony_output
+    report_dir = harmony_output(args.root, args.output, 'sandbox')
+    if report_dir.exists(): parser.error('--output must be a new directory')
 
     print(f"正在从历史目录读取报告: {history_dir}")
 

@@ -193,10 +193,17 @@ def stop(s, reason, module_id=None, evidence=None, finding_id=None):
         b['status'] = 'awaiting-human'
 
 
-def test_accepted(s, m, result, result_ref):
+def test_accepted(s, m, result, result_ref, build_only=False):
     b = s.get('audit_batch', {})
     if not b or m.get('audit_batch_id') != b.get('batch_id') or b.get('status') != 'repairing': return
     mid = m['module_id']
+    if build_only:
+        bad = [r for r in result['paths'] if r['quality'] != 'green-passed']
+        if bad:
+            stop(s, 'build-verification-failed', mid,
+                 {'result_ref': result_ref, 'root_causes': [r['root_cause'] for r in bad]})
+        # A successful build is a prerequisite, never proof of automation coverage.
+        return
     p = {'result_ref': result_ref, 'code_baseline': m['code_baseline'], 'freeze_id': m['freeze_id'], 'paths': copy.deepcopy(result['paths'])}
     stage = m.get('audit_test_stage')
     require(stage in ('owner', 'source'), 'audit verification stage missing')

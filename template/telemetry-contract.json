@@ -3,7 +3,7 @@
   "reason": "{{scope-has-source-telemetry-behavior}}",
   "evidence_refs": [
     {
-      "path": "{{absolute-frozen-telemetry-analysis-or-source-snapshot}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{frozen-telemetry-analysis-or-source-snapshot}}",
       "sha256": "{{sha256}}"
     }
   ],
@@ -31,7 +31,7 @@
       ],
       "evidence_refs": [
         {
-          "path": "{{absolute-frozen-telemetry-analysis-or-source-snapshot}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{frozen-telemetry-analysis-or-source-snapshot}}",
           "sha256": "{{sha256}}"
         }
       ]

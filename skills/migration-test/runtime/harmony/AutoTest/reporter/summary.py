@@ -2,12 +2,12 @@
 import os
 import datetime
 from ..logger import logger
+from ..storage import output_path
 
 
 def generate_summary_report(results, total_duration, output_dir):
     """生成批量执行汇总HTML报告"""
-    if not output_dir:
-        return
+    output_dir = str(output_path(output_dir, default='reports'))
 
     success_count = sum(1 for r in results if r.get('case_result') == 'PASS')
     fail_count = sum(1 for r in results if r.get('case_result') == 'FAIL')
@@ -243,7 +243,7 @@ def generate_summary_report(results, total_duration, output_dir):
     # 保存汇总报告
     os.makedirs(output_dir, exist_ok=True)
     summary_path = os.path.join(output_dir, "index.html")
-    with open(summary_path, "w", encoding="utf-8") as f:
+    with open(output_path(summary_path), "w", encoding="utf-8") as f:
         f.write(html_content)
 
     logger.info("汇总报告已生成: file://{}".format(os.path.abspath(summary_path).replace('\\', '/')))

@@ -45,7 +45,7 @@ python3 <package>/skills/migration-ledger/scripts/ledger.py recover --root <run>
   "module_id": "M001",
   "expected_revision": 3,
   "operation": "plan",
-  "payload": {"plan_ref": {"path": "/absolute/staging/stage-plan.json", "sha256": "actual-sha256"}}
+  "payload": {"plan_ref": {"path": "/workspace/migration/.sdd-runs/run-demo/staging/stage-plan.json", "sha256": "actual-sha256"}}
 }
 ```
 
@@ -125,7 +125,7 @@ tests 另需 paths，见 [stage-result.json](../../../template/stage-result.json
 宿主先审核并配置 [test-adapter.json](../../../template/test-adapter.json) 的 argv，再运行：
 
 ```text
-python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-M001-001 --adapter <adapter.json> --cwd <target> --output <new-evidence-directory>
+python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-M001-001 --adapter <adapter.json> --cwd <target> --output <run>/runs/harmony/automation/<new-attempt>
 ```
 
 适配器接收 `--query-file <json> --result-file <json>`，写 `{"assertions":[{"assertion_id":"A1","expected":2,"actual":2,"passed":true}]}`。具体测试逻辑来自真实项目，本包只负责调用与采集。
@@ -217,7 +217,7 @@ Auditor 裁决：
 
 ### OpenSpec 自动物化
 
-提交事件后及 status 重放时，生成 `<run_root>/openspec/changes/<run-id>-<module-id小写>/`：proposal.md、specs/<capability>/spec.md、design.md、tasks.md、status.md、checklist.md，以及 memory.md/manifest.json。定义作者仍为 Spec-Designer；Ledger 复制已提交的不可变定义快照，不凭空发明需求。spec 引用可带合法 capability；默认使用小写模块编号。
+提交事件后及 status 重放时，生成 `<workspace_root>/openspec/changes/<run-id>-<module-id小写>/`：proposal.md、specs/<capability>/spec.md、design.md、tasks.md、status.md、checklist.md，以及 memory.md/manifest.json。定义作者仍为 Spec-Designer；Ledger 复制已提交的不可变定义快照，不凭空发明需求。spec 引用可带合法 capability；默认使用小写模块编号。
 
 tasks 定义必须含每个 TASK-ID 对应的 Markdown checkbox；依据已接受 task_trace 更新 `- [ ] TASK-ID` 勾选；checklist 保留定义并追加机器证据，status 记录阶段、有效三态和下一步。更新视图不会改定义快照、freeze_id 或验收。视图丢失/被改后可由日志重建，旧生成的能力文件由 manifest 清理。可见文件是投影，不可直接编辑作为新 SPEC；变更必须提交 plan/CR。
 
@@ -322,7 +322,7 @@ Ledger init.single_module_id 固定选定根功能 ID；初次 register 只接�
 
 ## 项目上下文闭环
 
-已新增 [project_context.py](../../migration-ledger/scripts/project_context.py) 的 init/update/show/history/prepare，精确请求格式见 [项目上下文协议](project-context.md)。配置默认在当前迁移工作目录 `.sdd-migration`，宿主自然语言提取后直接持久化明确字段。prepare 返回 project_context_ref 和待 Global 补齐的高层 input；宿主完成 input.json 后，init 带快照引用、module_name 和对应预算，单模块低层 ID 仍由 Global 分配。
+已新增 [project_context.py](../../migration-ledger/scripts/project_context.py) 的 init/update/show/history/prepare，精确请求格式见 [项目上下文协议](project-context.md)。配置固定在 `<workspace_root>/.sdd-migration`；仅首次未指定 --root 时从当前目录初始化，后续显式传入原配置目录。宿主自然语言提取后直接持久化明确字段。prepare 返回 project_context_ref 和待 Global 补齐的高层 input；宿主完成 input.json 后，init 带快照引用、module_name 和对应预算，单模块低层 ID 仍由 Global 分配。
 
 Ledger 保存 project_id/project_revision/project_context_ref，在初始化校验路径、模式、架构和预算，后续操作验证快照及文档 hash。新的项目配置不修改既有 run。旧无快照运行兼容，但不能补造原始配置；新入口必须固化。早期“沿用宿主上下文”现在由本节的持久化协议具体落实。
 
@@ -377,3 +377,6 @@ Ledger 在事件接受/状态重建时生成 `<run_root>/reports/migration-repor
 ## Auditor 整体代码治理前置
 
 新增全局 operation `audit-code-review`，actor=auditor，payload={report_ref, context_ref}。全部 MO 收尾后先提交 audit-code-review context receipt（draft_ref=report_ref），报告绑定 status.global_next_step.snapshot，覆盖所有执行叶子，并以必填 change_inventory_ref 引用 [本次代码修改清单](../../../template/audit-change-inventory.md)。Ledger 验证清单 hash，GO migration-report 提供同版链接；旧报告缺少清单须补交新版审查。`audit-collect` 有 CR-* 治理 finding 时先生成治理批次；无治理发现才收集剩余 Red/Yellow。代码变更后必须刷新整体审查；无问题报告 findings=[]。旧 run 无需重新初始化，但不能跳过新门禁。`audit-assign`/`audit-unavailable` 必须当前审查有效且无待处理治理发现。详见 [代码治理协议](audit-code-review.md)，模板 [audit-code-review.json](../../../template/audit-code-review.json)。
+
+
+文件留存门禁：正式 Ledger CLI 必须使用 prepare 固化的 `.sdd-runs/<run_id>`，init 绑定 project_context_ref；历史任意根目录使用 `ledger.py history --root <旧根>` 只读重放。重新执行应 prepare 新 run，不修改旧引用 hash。详见 [留存文件系统](storage-layout.md)。

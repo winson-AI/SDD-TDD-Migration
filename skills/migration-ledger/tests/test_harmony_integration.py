@@ -15,6 +15,7 @@ from execute_test import execute
 class HarmonyLedgerTests(unittest.TestCase):
     def setUp(self):
         self.f=test_ledger.FlowTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
+        self.outputs=self.f.base.resolve()/'.sdd-runs/fixture/runs/harmony/automation'
         original=self.f.plan
         def plan():
             p=original();path=p['paths'][0];path['steps']=['read target value']
@@ -41,7 +42,7 @@ s.record('[ASSERT:A1]',value==2,'observed fixture value','one_image_assert',[med
 r=s.report();write(a.result_file,r)
 sys.exit(0 if r['quality']=='green-passed' else 2)
 ''')
-        rr=execute(self.f.root,'M001','H1','P1',[sys.executable,str(script)],str(self.f.target),self.f.base/'exec')
+        rr=execute(self.f.root,'M001','H1','P1',[sys.executable,str(script)],str(self.f.target),self.outputs/'exec')
         return build(self.f.root,'M001','H1',[rr])
 
     def test_receipt_stage_ledger_round_trip(self):
@@ -56,7 +57,7 @@ sys.exit(0 if r['quality']=='green-passed' else 2)
         with self.assertRaises(Rejected):self.f.submit(r,a)
 
     def test_changed_media_is_rejected_on_submit(self):
-        r=self.run_adapter();(self.f.base/'exec/fixture-observation.txt').write_text('tampered')
+        r=self.run_adapter();(self.outputs/'exec/fixture-observation.txt').write_text('tampered')
         a=self.f.state()['modules']['M001']['assignments']['H1']
         with self.assertRaises(Rejected):self.f.submit(r,a)
 
@@ -65,7 +66,7 @@ sys.exit(0 if r['quality']=='green-passed' else 2)
         script=self.f.base/'spawn.py'
         child="import time;from pathlib import Path;time.sleep(0.8);Path("+repr(str(marker))+").write_text('bad')"
         script.write_text('import subprocess,sys,time\nsubprocess.Popen([sys.executable,"-c",'+repr(child)+'])\nprint("started",flush=True)\ntime.sleep(20)\n')
-        rr=execute(self.f.root,'M001','H1','P1',[sys.executable,str(script)],str(self.f.target),self.f.base/'timeout',timeout=0.2)
+        rr=execute(self.f.root,'M001','H1','P1',[sys.executable,str(script)],str(self.f.target),self.outputs/'timeout',timeout=0.2)
         receipt=json.loads(Path(rr['path']).read_text())
         self.assertEqual(receipt['exit_code'],124)
         self.assertIn('started',Path(receipt['log_ref']['path']).read_text())
@@ -75,6 +76,6 @@ sys.exit(0 if r['quality']=='green-passed' else 2)
         self.f.submit(r,a);self.f.call('accept',{'assignment_id':'H1'})
 
     def test_missing_executable_produces_receipt_and_yellow(self):
-        rr=execute(self.f.root,'M001','H1','P1',['/nonexistent/sdd-adapter'],str(self.f.target),self.f.base/'unavailable')
+        rr=execute(self.f.root,'M001','H1','P1',['/nonexistent/sdd-adapter'],str(self.f.target),self.outputs/'unavailable')
         r=build(self.f.root,'M001','H1',[rr]);self.assertEqual(r['paths'][0]['quality'],'yellow-blocked')
         self.assertEqual(json.loads(Path(rr['path']).read_text())['exit_code'],127)

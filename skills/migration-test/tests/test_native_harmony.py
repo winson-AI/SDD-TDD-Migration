@@ -13,6 +13,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from harmony_adapter import ENGINE, run_engine
 from harmony_contract import ObservationSink
 from test_harmony import query
+from runner_storage import scope
 
 
 @unittest.skipUnless(importlib.util.find_spec('agents') and importlib.util.find_spec('hypium'), 'native runtime dependencies unavailable')
@@ -22,7 +23,8 @@ class NativeIntegrationTests(unittest.TestCase):
         from AutoTest.layered_agent_cli.agent_registry import agent_registry
         from AutoTest.verify_agent.agent import VerifyAgent
         with tempfile.TemporaryDirectory() as tmp:
-            out=Path(tmp);sink=ObservationSink(query(),out)
+            out=Path(tmp).resolve()/'.sdd-runs/test/runs/harmony/automation/attempt'
+            out.mkdir(parents=True);sink=ObservationSink(query(),out)
             media=out/'screen.png';media.write_bytes(b'fake device fixture')
             class Device:
                 def __init__(self,*args,**kwargs):pass
@@ -36,7 +38,7 @@ class NativeIntegrationTests(unittest.TestCase):
             old=Path.cwd()
             try:
                 os.chdir(out)
-                with patch('AutoTest.devices.hdc_device.HDCDevice',Device), \
+                with scope(out), patch('AutoTest.devices.hdc_device.HDCDevice',Device), \
                      patch('AutoTest.layered_agent_cli.decision.create_planner_agent',return_value=SimpleNamespace(name='fixture')), \
                      patch('AutoTest.layered_agent_cli.decision.Runner.run',side_effect=runner), \
                      patch.object(VerifyAgent,'_verify',return_value=(True,'通过','one_image_assert',[str(media)])):

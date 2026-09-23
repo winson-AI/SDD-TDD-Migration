@@ -1,40 +1,44 @@
 """Read-only scheduling diagnostics. Never approve, cancel, or recolor work."""
 from datetime import datetime, timezone
-import fcntl
 import json
 from pathlib import Path
 
 from contracts import digest
+import run_storage
 
 
 def record_rejection(root, req, actor, reason):
     """Keep the latest rejected action visible outside the accepted event journal."""
-    root = Path(root)
+    root = Path(root).resolve()
     if not root.is_dir():
         return
     try:
         from ledger import atomic, read_events
-        with (root / '.ledger.lock').open('a+') as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
+        with run_storage.file_lock(root / '.ledger.lock'):
             state, events = read_events(root)
+            if state:
+                run_storage.for_state(root, state)
             mid = req.get('module_id')
             scope = ((state or {}).get('modules', {}).get(mid) or
                      (state or {}).get('module_groups', {}).get(mid)) if mid else state
             revision = (scope or {}).get('revision')
             fingerprint = digest([mid, req.get('operation'), reason, revision])
-            path = root / 'reports/rejected-operation.json'
+            path = run_storage.checked_path(root / 'reports/rejected-operation.json')
+            scoped = run_storage.checked_path(root / 'reports/rejections' / (fingerprint + '.json'))
             try:
-                previous = json.loads(path.read_text()) if path.exists() else {}
+                previous = json.loads((scoped if scoped.exists() else path).read_text()) if scoped.exists() or path.exists() else {}
             except (OSError, ValueError):
                 previous = {}
             if not isinstance(previous, dict):
                 previous = {}
-            atomic(path, {'module_id': mid, 'operation': req.get('operation'), 'reason': reason,
+            record = {'module_id': mid, 'operation': req.get('operation'), 'reason': reason,
                           'request_id': req.get('request_id'), 'actor_role': actor.get('role'),
                           'revision': revision, 'sequence': len(events), 'fingerprint': fingerprint,
                           'attempts': previous.get('attempts', 0) + 1 if previous.get('fingerprint') == fingerprint else 1,
                           'recorded_at': datetime.now(timezone.utc).isoformat(),
-                          'next_action': 'read-current-status; resolve gate or record evidenced suspension; do not retry unchanged request'})
+                          'next_action': 'read-current-status; resolve gate or record evidenced suspension; do not retry unchanged request'}
+            atomic(scoped, record)
+            atomic(path, record)  # Compatibility/latest navigation, not the counter store.
     except (OSError, ValueError, KeyError, TypeError):
         pass  # The original failure is returned even if diagnostic persistence fails.
 
@@ -50,6 +54,10 @@ def build(root, state, events, steps, global_step, at=None):
                             'owner': blocker['owner'], 'next_action': blocker['next_action'], 'severity': 'human',
                             'evidence': {'sequence': len(events), 'review_ref': blocker['implementation_gap_ref'],
                                          'review': blocker['implementation_gap']}})
+    if global_step.get('reason') == 'audit-snapshot-stale':
+        signals.append({'module_id': None, 'reason': 'audit-snapshot-stale', 'owner': 'host',
+                        'next_action': 'confirm auditor stopped; audit-revoke before module invalidation', 'severity': 'human',
+                        'evidence': {'sequence': len(events), 'step': global_step}})
     for step in steps + [{'module_id': None, **global_step}]:
         mid, reason = step.get('module_id'), step.get('reason')
         if step.get('ready'):
@@ -85,15 +93,28 @@ def build(root, state, events, steps, global_step, at=None):
         if elapsed >= timeout:
             signals.append({**watch, 'reason': 'worker-progress-overdue', 'severity': 'human',
                             'evidence': {'sequence': len(events), 'last_event_at': stamp}})
-    rejection = Path(root) / 'reports/rejected-operation.json'
-    if rejection.exists():
+    latest = Path(root) / 'reports/rejected-operation.json'
+    try:
+        directory = run_storage.checked_path(Path(root) / 'reports/rejections')
+        rejection_paths = sorted(directory.glob('*.json')) if directory.is_dir() else []
+    except (OSError, ValueError) as exc:
+        rejection_paths = []
+        signals.append({'module_id': None, 'reason': 'diagnostic-unreadable', 'owner': 'host',
+                        'next_action': 'repair diagnostic path; continue independently valid actions', 'severity': 'action',
+                        'evidence': {'error': str(exc)}})
+    if latest.exists(): rejection_paths.append(latest)
+    seen = set()
+    for rejection in rejection_paths:
         try:
+            run_storage.checked_path(rejection)
             rejected = json.loads(rejection.read_text())
             if not isinstance(rejected, dict):
                 raise ValueError('invalid rejection diagnostic')
             mid = rejected.get('module_id')
             scope = (state['modules'].get(mid) or state.get('module_groups', {}).get(mid)) if mid else state
-            if scope and scope.get('revision') == rejected.get('revision'):
+            fingerprint = rejected.get('fingerprint') or str(rejection)
+            if scope and scope.get('revision') == rejected.get('revision') and fingerprint not in seen:
+                seen.add(fingerprint)
                 signals.append({'module_id': mid, 'reason': 'operation-rejected', 'owner': rejected['actor_role'],
                                 'next_action': rejected['next_action'], 'severity': 'human' if rejected['attempts'] >= 3 else 'action',
                                 'evidence': {'path': str(rejection.resolve()), 'rejection': rejected}})
@@ -123,6 +144,15 @@ def build(root, state, events, steps, global_step, at=None):
             'runnable_actions': ready, 'worker_watches': watches,
             'host_contract': 'continue independent runnable actions; check workers; surface human signals; never exit silently on ready=false',
             'report_path': str((Path(root) / 'reports/workflow-attention.md').resolve())}
+
+
+def projection_attention(progress, errors):
+    if errors:
+        progress['signals'] = [s for s in progress['signals'] if s['reason'] != 'projection-pending']
+        progress['signals'].append({'module_id': None, 'reason': 'projection-pending', 'owner': 'host',
+            'severity': 'human', 'next_action': 'repair reported projection; refresh status; preserve committed events and continue independent actions',
+            'evidence': {'errors': list(errors)}})
+        progress['notify_user'] = True
 
 
 def render(progress):

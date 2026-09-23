@@ -10,5 +10,5 @@
   "snapshot": {"<module-id>": "<current-code-baseline>"},
   "paths": [],
   "execution_status": "no-retest-needed",
-  "review_ref": {"path": "/absolute/staging/audit-review.md", "sha256": "<sha256>"}
+  "review_ref": {"path": "/workspace/migration/.sdd-runs/run-demo/staging/audit-review.md", "sha256": "<sha256>"}
 }

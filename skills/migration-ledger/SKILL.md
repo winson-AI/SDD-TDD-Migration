@@ -54,3 +54,5 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 新运行启用 context-submit 与各原节点的 context_ref 验收，维护 context_receipts/context_acceptances 和 status.context_requirements；不把预检失败自动扩散或标作模块收尾。按 [阶段协议](../migration-protocol/references/context-readiness.md) 校验身份、必读引用、草稿与版本，保留失败与恢复证据。
 
 Auditor 收尾先接受 `audit-code-review` 的独立全模块代码审查；`audit-collect` 优先代码治理批次，再处理剩余 Red/Yellow；最终 audit-assign/audit-unavailable 均校验当前审查及无待治理发现。接口、证据和恢复见 [代码治理协议](../migration-protocol/references/audit-code-review.md)。
+
+[run_storage.py](scripts/run_storage.py) 统一派生三个顶层目录，校验 run_id/路径归属及测试输出范围；[workflow_hub.py](scripts/workflow_hub.py) 生成顶层 OpenSpec 的本轮导航与状态视图。新入口遵守 [留存布局](../migration-protocol/references/storage-layout.md)，不自动搬迁历史快照。

@@ -91,7 +91,8 @@ class ToolRecorder:
         """
         self.task = task
         self.task_hash = self._generate_hash(task)
-        self.memory_dir = memory_dir
+        from ..storage import output_path
+        self.memory_dir = str(output_path(memory_dir))
         self._call_records: List[ToolCallRecord] = []
         self._call_order = 0
 
@@ -193,7 +194,8 @@ class ToolRecorder:
             created_at=datetime.now().isoformat(timespec='seconds')
         )
 
-        file_path = self.get_record_path()
+        from ..storage import output_path
+        file_path = str(output_path(self.get_record_path(), boundary=self.memory_dir))
 
         try:
             with open(file_path, 'w', encoding='utf-8') as f:

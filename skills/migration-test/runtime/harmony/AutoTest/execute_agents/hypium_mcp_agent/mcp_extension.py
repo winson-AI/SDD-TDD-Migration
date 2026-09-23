@@ -4,6 +4,7 @@ from typing import List, Any, Optional
 from dataclasses import dataclass
 from ...devices.device_protocol import DeviceProtocol
 from ...logger import logger
+from ...storage import output_path, temp_directory
 
 
 @dataclass
@@ -38,9 +39,18 @@ class MCPExtension:
         self.device_sn = device.device_id
         self.ip = device.ip
         self.port = device.port
+        import tempfile
+        from pathlib import Path
+        if Path(tempfile.gettempdir()).resolve() != temp_directory():
+            raise ValueError('SDK execution requires runner_storage.scope for managed temporary files')
+        sdk_path = output_path(default='sdk')
+        os.environ['HYPIUM_MCP_OUTPUT_DIR'] = str(sdk_path)
+        os.environ['HYPIUM_MCP_WORKING_DIR'] = str(sdk_path.parent)
         try:
             from hypium_mcp.config.config import get_config
             config = get_config()
+            config.output_dir = str(sdk_path)
+            config.working_dir = str(sdk_path.parent)
             get_config().include_module = "app_manager,basic,general_gesture,plugins,screen"
             config.device_id = self.device_sn
             config.hdc_host = self.ip

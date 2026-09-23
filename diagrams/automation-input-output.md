@@ -68,7 +68,7 @@ Harmony 配置的独立输入见 [harmony-config.json](../template/harmony-confi
 
 ### 2.2 测试用例导入的输入/输出
 
-`harmony_design.py --input <MD/XMind> --module M001 --output <新目录>`：
+工作流内：`harmony_design.py --root <run_root> --input <MD/XMind> --module M001 --output <run_root>/runs/harmony/sandbox/test-designer/<新请求>`；省略 --root 仅用于独立导入。
 
 | 输入 | 实际处理 | 输出 |
 | --- | --- | --- |
@@ -132,9 +132,9 @@ Harmony 配置的独立输入见 [harmony-config.json](../template/harmony-confi
 
 ```sh
 python3 /work/SDD-TDD-Migration/skills/migration-ledger/scripts/execute_test.py \
-  --root /work/runs/RUN-DEMO --module M001 --assignment ASG-DEMO \
-  --path-id PATH-M001-001 --adapter /work/context/harmony-test-adapter.json \
-  --cwd /work/target --output /work/runs/RUN-DEMO/executions/PATH-M001-001/attempt-001
+  --root /work/migration/.sdd-runs/run-demo --module M001 --assignment ASG-DEMO \
+  --path-id PATH-M001-001 --adapter /work/migration/.sdd-runs/run-demo/runs/harmony/sandbox/host/adapter/adapter.json \
+  --cwd /work/target --output /work/migration/.sdd-runs/run-demo/runs/harmony/automation/path-m001-001-attempt-001
 ```
 
 **注意两层退出码**：Harmony 子进程为 0/1/2，含义分别为 Green/Red/Yellow，记录在 receipt.exit_code。外层 `execute_test.py` CLI 正常完成回执写入时返回 0，即使子进程测试失败；宿主必须读取 receipt/result，不能把包装器退出成功当测试成功。
@@ -158,7 +158,7 @@ python3 /work/SDD-TDD-Migration/skills/migration-ledger/scripts/execute_test.py 
 ### 4.1 文件系统
 
 ```text
-<新的单 PATH 执行目录>/
+<run_root>/runs/harmony/automation/<新的单 PATH attempt>/
 ├── query.json             # 宿主组装的完整冻结路径
 ├── result.json            # Main 的结构化断言结果；崩溃时可能不存在
 ├── execution.log          # 宿主捕获 stdout/stderr
@@ -171,7 +171,7 @@ python3 /work/SDD-TDD-Migration/skills/migration-ledger/scripts/execute_test.py 
     ├── memory/            # 候选工具录制；是否保存受内核执行结果影响
     └── <媒体工件>          # 视频、裁剪/映射等；实际位置由内核产生
 
-<角色 staging 目录>/stage-result.json   # 全 scope 汇总，尚未验收
+<run_root>/runs/harmony/sandbox/<角色>/<请求>/stage-result.json # 全 scope 汇总，尚未验收
 <run_root>/...                         # Ledger 事件与状态投影，接受后更新
 ```
 

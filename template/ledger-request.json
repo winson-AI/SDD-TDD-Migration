@@ -7,7 +7,7 @@
   "operation": "plan",
   "payload": {
     "plan_ref": {
-      "path": "{{absolute-evidence-path}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}"
     }
   }

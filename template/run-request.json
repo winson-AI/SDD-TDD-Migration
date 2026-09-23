@@ -7,7 +7,7 @@
   "module_name": null,
   "overrides": {},
   "source_ref": {
-    "path": "{{absolute-user-request-record}}",
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{user-request-record}}",
     "sha256": "{{actual-sha256}}"
   }
 }

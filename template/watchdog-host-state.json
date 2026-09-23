@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "run_id": "{{run_id}}",
+  "host": {
+    "source": "host-api",
+    "provider": "{{actual-host-provider}}",
+    "execution_id": "{{actual-host-execution-id}}",
+    "instance_id": "{{actual-host-instance-id}}",
+    "status": "unknown",
+    "control": "running",
+    "observed_at": "{{actual-observation-time-ISO8601-with-timezone}}",
+    "heartbeat_at": "{{actual-host-heartbeat-time-ISO8601-with-timezone}}"
+  },
+  "workers": [
+    {
+      "source": "host-api",
+      "provider": "{{actual-host-provider}}",
+      "execution_id": "{{actual-worker-execution-id}}",
+      "instance_id": "{{assignment-instance-id}}",
+      "module_id": "{{module_id}}",
+      "assignment_id": "{{assignment_id}}",
+      "status": "unknown",
+      "observed_at": "{{actual-observation-time-ISO8601-with-timezone}}",
+      "last_progress_at": "{{actual-business-progress-time-ISO8601-with-timezone}}"
+    }
+  ]
+}

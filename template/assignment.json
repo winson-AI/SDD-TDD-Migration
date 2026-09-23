@@ -12,7 +12,7 @@
   "change_root": "{{absolute-change-root}}",
   "input_refs": [
     {
-      "path": "{{absolute-frozen-artifact}}",
+      "path": "{{absolute-run-root}}/artifacts/{{sha256}}",
       "sha256": "{{sha256}}"
     }
   ],
@@ -41,7 +41,7 @@
   "recovery_cycle": 0,
   "owner_module_id": "M001",
   "context_ref": {
-    "path": "{{absolute-accepted-context-report}}",
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{accepted-context-report}}",
     "sha256": "{{sha256}}"
   }
 }

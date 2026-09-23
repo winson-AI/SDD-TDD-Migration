@@ -26,7 +26,7 @@
 
 ## 1. design：用例导入与冻结
 
-[harmony_design.py](../scripts/harmony_design.py) 接受 `--input <MD或XMind绝对路径> --module M001 --output <新目录>`。XMind 另需 `--config <配置JSON> --app-name <被测应用>`，只运行转换模型，不连接设备。
+[harmony_design.py](../scripts/harmony_design.py) 在工作流内接受 `--root <run_root> --input <MD或XMind绝对路径> --module M001 --output <run_root>/runs/harmony/sandbox/test-designer/<新请求>`；独立导入可从同样结构的输出路径推导 run_root。XMind 另需 `--config <配置JSON> --app-name <被测应用>`，只运行转换模型，不连接设备。
 
 输出保留输入摘要、完整原始用例、规范化 Markdown、XMind 主题树，以及 `draft-not-executable` 的测试候选。不会复用仅同名但内容可能过期的转换文件，也不静默补齐验收语义。Test Designer 完成 CASE/REQ 映射、参数路径展开、操作与断言时序；每条参数实例独立 PATH。候选 ID 在审核时与全局已有 ID 对齐，冻结后不因名称修改而重编号。
 
@@ -86,10 +86,10 @@ python <execute_test.py> --root <run_root> --module M001 --assignment <id>
 
 ```text
 python <harmony_stage.py> --root <run_root> --module M001 --assignment <id>
-  --receipt <PATH1/receipt.json> --receipt <PATH2/receipt.json> --output <新stage-result.json>
+  --receipt <PATH1/receipt.json> --receipt <PATH2/receipt.json> --output <run_root>/runs/harmony/sandbox/test-runner/<新请求>/stage-result.json
 ```
 
-它只生成 staging 工件，不自动提交或验收；要求所有冻结路径各有一个 receipt，自动连接旧结果 `retest_of`。超时/缺报告以 executed=false Yellow 保留 receipt/log。随后照现有流程 submit/accept，GLOBAL 最终测试可用 `--module GLOBAL`。Ledger 再核对 query/context/三态、assertions 和媒体摘要，不能把 adapter 的 Yellow 改报 Green。证据损坏会拒绝接受，需要重新取证或显式记录不可执行 Yellow，不能伪造新摘要。
+它只生成 runs/harmony/sandbox 工件，不自动提交或验收；要求所有冻结路径各有一个 receipt，自动连接旧结果 `retest_of`。超时/缺报告以 executed=false Yellow 保留 receipt/log。随后照现有流程 submit/accept，GLOBAL 最终测试可用 `--module GLOBAL`。Ledger 再核对 query/context/三态、assertions 和媒体摘要，不能把 adapter 的 Yellow 改报 Green。证据损坏会拒绝接受，需要重新取证或显式记录不可执行 Yellow，不能伪造新摘要。
 
 ## 5. 回放、memory 与 Auditor
 
@@ -104,3 +104,13 @@ python <harmony_stage.py> --root <run_root> --module M001 --assignment <id>
 ## 编译与自动化环境分离
 
 Harmony 内核仅运行 automation PATH；build PATH 由 Test-Runner 经通用 execute_test 直接执行目标构建命令，harmony_stage 支持两种回执并按 test_scope 组装。Harmony 缺设备/模型/运行环境不能阻止已授权编译及其他任务；留原始诊断证据后按 [双环节协议](../../migration-protocol/references/build-automation.md) 提交 automation-unavailable，保持原自动化内核能力和逐 ASSERT 验证。
+
+## 本轮共享环境准备
+
+Test-Runner 首次设计转换或 automation 预检前执行 `sandbox.py prepare --root <run_root>`；参考/default 复制到 `runs/harmony/sandbox/environment/config.json` 和 `.env` 后使用，所有子模块共享这一份配置，各执行仍独立 attempt。显式 --config/--env-file 是首次复制来源；既有本轮配置不随来源更新。生成 adapter 绑定本轮配置及 root；凭证不入 Ledger。缺环境仍 Yellow/未执行且不影响独立任务。操作示例见 [sandbox README](../runtime/harmony/README.md#4-本轮共享配置与离线检查)。
+
+## 异常完成与部分证据
+
+Host execute_test 在当前 attempt 内保留原始 result.json、observations.json、execution.log 和 receipt.json；observations 优先取本 attempt 的 harmony/observations.json，兼容根部 observations.json，引用绑定到 receipt.partial_observations_ref。不改写原结果，也不重新采样来替换失败。
+
+harmony_stage 与 Ledger 共用 test_completion.interpret：完整失败报告不因 Host 124/异常退出消失；不完整报告从已绑定的部分观测恢复有媒体证据的 ASSERT，整条路径保持 Yellow；截断/非法格式报告形成带解析原因的 Yellow。阶段结果包含 host_completion_version=1，验收根据原回执重新计算，核对身份、query、hash 和媒体；不能用解释结果绕过原冻结验收标准。正常 accept 关闭 Test-Runner assignment，后续继续 MO/Auditor 原分流；已有真实失败仍禁止作为纯环境缺测退出。

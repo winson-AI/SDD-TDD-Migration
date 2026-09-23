@@ -4,8 +4,10 @@
 
 ## 从这里开始
 
+可选旁路 [Watchdog](skills/migration-protocol/references/watchdog.md) 提供 `check/watch` 状态监听与通知、`ack` 交付确认；未确认通知可重放，Host 按 notice_id 去重展示。支持真实本机进程检查及宿主 API 状态导出；未接入时显示 unknown。不会自动启动、派发 Agent、提交恢复操作或影响迁移门禁。
+
 1. 读取 [AGENTS.md](AGENTS.md)，按角色索引渐进加载。
-2. 首次提供项目资料，宿主根据 [project-context.json](template/project-context.json) 保存到工作目录 `.sdd-migration/project-context.json`；后续自动读取，用户明确更新时增量保存。无需每次重填运行输入。
+2. 首次提供项目资料，宿主根据 [project-context.json](template/project-context.json) 保存到固定 `<workspace_root>/.sdd-migration/project-context.json`（首次未指定 workspace_root 时取配置目录父级）；后续按该目录读取，用户明确更新时增量保存。无需每次重填运行输入。
 3. 在支持此包的宿主中执行 `/sdd-init`，先固定项目配置和本次请求快照，再由 Global 生成 [运行输入](template/global-input.json)、SPEC/Testing list、账本和模块规划；`/sdd-plan <run-id> <module-id>` 完成正式六件套与人工冻结。旧 input.json 也可导入。
 4. `/sdd-run <run-id>` 调度已冻结且依赖就绪的模块，单模块也可用 `/sdd-module <run-id> <module-id>`。模块内自动推进到完成、挂起或预算耗尽。
 5. 用 `/sdd-status <run-id>` 冷读状态；用 `/sdd-resume <run-id> [module-id] [decision.json绝对路径]` 恢复；用 `/sdd-audit <run-id>` 执行独立遗留复核与收尾审阅。
@@ -37,7 +39,7 @@
 | `template/` | 全局输入、模块输入、六件套及诊断、测试、事件、人工决策等运行工件模板 |
 | `diagrams/` | 三层编排总览、子 MO/Auditor 细节图及生成源文件 |
 
-运行期在目标仓 `openspec/` 下实例化，包目录自身不存迁移状态。模块 ID 永久稳定，如 `M001`；OpenSpec change 名如 `migration-demo-m001-account`。新增模块只追加编号，不因排序改变历史 ID。
+运行期资产集中在固定 `workspace_root`，其下 `.sdd-migration`（长期配置）、`.sdd-runs/<run_id>`（运行证据）、`openspec`（规格与状态中枢）顶层并列；包目录自身不存迁移状态。Harmony 执行统一在 `.sdd-runs/<run_id>/runs/harmony/`（automation/sandbox），构建资产在 runs/build；临时文件归 runner，结束清理，失败留存原因。项目模型参考配置/凭证在 `.sdd-migration/harmony/`；Test-Runner 首次准备时复制到本轮 `runs/harmony/sandbox/environment/`，各模块共享本轮副本。入口为 `openspec/runs/<run_id>/workflow.md`。见 [完整留存布局与二次启动](skills/migration-protocol/references/storage-layout.md)。模块 ID 永久稳定，如 `M001`；OpenSpec change 名如 `migration-demo-m001`。新增模块只追加编号，不因排序改变历史 ID。
 
 ## 对现有 guidance 的适配
 
@@ -180,7 +182,7 @@ GO 读取上下文/功能清单 → 划分模块 → 模块四维分析；父 MO
 
 全量分析检查在 global-plan 接受时执行；运行期只校验当前模块、父级分配及实际依赖。invalidate 保留旧证据并清空当前旧 plan，下一步明确为重新规划或 GO 分配审查。`ledger.py status` 返回 `workflow_progress`，同步生成 `ledger/progress.json`、`reports/workflow-attention.md`：列出阻塞原因/owner/证据、可推进动作、worker 无进展与人工提醒。
 
-宿主须在 ACK/拒绝/worker 返回后刷新状态，等待期间至少每 60 秒检查；900 秒无作用域事件默认提醒，不自动停进程或放锁。仅自动化环境缺失仍走 Yellow 缺测收尾，其他任务及 Auditor 继续。无后台 watchdog，人工通知与真实调度由宿主落实。详见 [进度恢复协议](skills/migration-protocol/references/progress-recovery.md)。
+宿主须在 ACK/拒绝/worker 返回后刷新状态，等待期间至少每 60 秒检查；900 秒无作用域事件默认提醒，不自动停进程或放锁。仅自动化环境缺失仍走 Yellow 缺测收尾，其他任务及 Auditor 继续。可显式启动旁路 watchdog，通知展示与真实调度由宿主落实。详见 [进度恢复协议](skills/migration-protocol/references/progress-recovery.md)。
 
 ## Auditor：先整体代码治理，再复核遗留
 
@@ -191,3 +193,8 @@ GO 读取上下文/功能清单 → 划分模块 → 模块四维分析；父 MO
 ## 埋点上报：有则迁移，无则正常推进
 
 GO → 父 MO → 子 MO/任务显式判断埋点适用性；有埋点做事件/参数/真实接线与测试追溯，无埋点记录有据 N/A，不创建空任务、用例、SDK依赖或全局等待。原有 Build、三态、Fixer 和 Auditor 流程保持；UI截图不能证明网络上报。见 [埋点协议](skills/migration-protocol/references/telemetry.md)、[分析模板](template/telemetry-analysis.md) 和 [适用事件索引](template/telemetry-contract.json)。
+
+
+## 异常恢复补强
+
+授权 Fixer/Implementer 工作期间的范围内改码不触发错误撤销；Yellow 内已有失败断言不能被缺测覆盖。Ledger ACK 区分事件已提交与投影待恢复，已验证归属的损坏 manifest 先留存原件再重建，其他模块继续。控制器/配置锁默认等待最多 10 秒，Host 可设置 `SDD_LOCK_TIMEOUT_SECONDS`；超时返回诊断，保留锁所有权。详见 [恢复协议](skills/migration-protocol/references/progress-recovery.md#授权改码投影恢复与文件锁等待)。

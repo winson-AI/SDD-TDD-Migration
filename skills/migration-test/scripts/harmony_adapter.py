@@ -3,7 +3,6 @@
 import argparse
 import asyncio
 from contextlib import contextmanager
-import fcntl
 import hashlib
 import importlib.util
 import importlib.metadata
@@ -13,9 +12,13 @@ from pathlib import Path
 import re
 import shutil
 import sys
-import tempfile
+import socket
 from types import SimpleNamespace
 
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'migration-ledger/scripts'))
+from runner_storage import harmony_output, scope
+from run_storage import checked_path
 from harmony_contract import ObservationSink, digest, ref, task_text, validate_query, write
 
 ENGINE = Path(__file__).resolve().parents[1] / 'runtime/harmony'
@@ -47,13 +50,13 @@ def public_config(value):
 
 @contextmanager
 def device_lock(device, ip, port):
+    # A machine-wide lease without a persistent /tmp lock inode. Binding is
+    # atomic and the OS releases it even on SIGKILL; collisions fail closed.
     key = digest([device, ip, port])
-    path = Path(tempfile.gettempdir()) / f'sdd-harmony-device-{key}.lock'
-    with path.open('a') as f:
-        try: fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError: raise ValueError('device busy: another test owns the device lease')
-        try: yield
-        finally: fcntl.flock(f, fcntl.LOCK_UN)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as lease:
+        try: lease.bind(('127.0.0.1', 20000 + int(key[:8], 16) % 30000))
+        except OSError as exc: raise ValueError('device busy: local device lease unavailable') from exc
+        yield
 
 
 def configure(raw):
@@ -153,20 +156,41 @@ async def run_engine(q, config, out, sink):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    for key in ('query-file','result-file','config'): p.add_argument('--' + key, required=True)
+    for key in ('query-file','result-file'): p.add_argument('--' + key, required=True)
+    p.add_argument('--config', help='Initial reference configuration for this run')
+    p.add_argument('--env-file', help='Initial credential source for this run')
     p.add_argument('--device', help='Explicit Harmony serial; overrides config and HARMONY_DEVICE')
+    p.add_argument('--root', help='Run root; otherwise inferred from the canonical result path')
     a = p.parse_args()
-    q = json.loads(Path(a.query_file).read_text())
-    result_path = Path(a.result_file).resolve()
+    query_bytes = Path(a.query_file).read_bytes()
+    q = json.loads(query_bytes)
+    result_path = harmony_output(a.root, a.result_file, 'automation')
+    if result_path.exists() or result_path.is_symlink():
+        raise FileExistsError('result file must be new: ' + str(result_path))
+    result_path = result_path.resolve()
     out = result_path.parent / 'harmony'
-    out.mkdir(exist_ok=False)
+    out.mkdir(parents=True, exist_ok=False)
+    # Standalone/legacy input may live elsewhere; preserve this execution's exact
+    # query beside its result, just as the formal host executor does.
+    query_snapshot = checked_path(result_path.parent / 'query.json')
+    if query_snapshot.exists():
+        if query_snapshot.read_bytes() != query_bytes:
+            raise ValueError('existing query snapshot differs from execution input')
+    else:
+        with query_snapshot.open('xb') as stream: stream.write(query_bytes)
     sink = ObservationSink(q, out)
-    environment = {'python':sys.version, 'engine_snapshot_ref':ref(ENGINE / 'UPSTREAM.json')}
+    environment = {'python':sys.version, 'engine_snapshot_ref':ref(ENGINE / 'UPSTREAM.json'),
+                   'runner_root': str(out), 'query_ref': ref(query_snapshot),
+                   'sdk_output': str(out / 'sdk'), 'temporary_directory': str(out / 'temp')}
     try:
         validate_query(q)
-        config = json.loads(Path(a.config).read_text())
+        from harmony_environment import prepare_environment, load_environment
+        run_root = next(x for x in result_path.parents if x.parent.name == '.sdd-runs')
+        config_path, env_path = prepare_environment(run_root, a.config, a.env_file)
+        load_environment(env_path)
+        config = json.loads(config_path.read_text())
         config['device'] = a.device or config.get('device') or os.environ.get('HARMONY_DEVICE', '')
-        environment.update({'config_ref':ref(a.config), 'device':config.get('device'),
+        environment.update({'config_ref':ref(config_path), 'device':config.get('device'),
                             'ip':config.get('ip','127.0.0.1'), 'port':config.get('port',8710),
                             'recording_ref':config.get('recording_ref'), 'knowledge_ref':config.get('knowledge_ref')})
         environment['configuration'] = public_config(config)
@@ -176,14 +200,11 @@ def main():
             except importlib.metadata.PackageNotFoundError: environment['packages'][name] = None
         if not config.get('device'): raise ValueError('explicit device serial required')
         # Native relative media/memory files are contained in the attempt directory.
-        old_cwd = Path.cwd()
         with device_lock(config['device'], config.get('ip','127.0.0.1'), config.get('port',8710)):
-            try:
-                os.chdir(out)
+            with scope(out):
                 sink.final_output = asyncio.run(run_engine(q, config, out, sink))
                 if not sink.final_output or str(sink.final_output).startswith('Error:'):
                     sink.error = 'engine stopped without a complete run; inspect engine.log'
-            finally: os.chdir(old_cwd)
     except Exception as exc:
         # Do not copy model exception text (may include credentials) into public receipts.
         detail = str(exc) if isinstance(exc, (ImportError, FileNotFoundError)) else 'engine unavailable or invalid configuration; inspect host environment'

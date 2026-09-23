@@ -9,7 +9,7 @@ description: /sdd-init [input.json绝对路径] [--mode single-module --module-n
 
 默认 project，按项目范围切片。两个可选参数等价于高层输入中的 entry_mode/module_name，显式命令参数优先；共同覆盖本次运行的选择，不改写原项目输入。也可通过自然语言指定“single-module，模块名为用户登录”。宿主解析名称为字符串，不把它作为 shell 命令。
 
-默认加载当前工作目录 `.sdd-migration/project-context.json`。首次用户提供项目资料由宿主保存；明确修改通过 update 增量持久化。旧 JSON 入口可导入长期配置。单模块只需两个选择参数，不新增需要用户填写的模块描述、scope、模块代码路径或 SPEC/用例文件。详细遵守 [项目上下文协议](../skills/migration-protocol/references/project-context.md)。
+加载已定位项目的 `<workspace_root>/.sdd-migration/project-context.json`，后续 CLI 显式传入该配置目录。仅首次初始化未指定 --root 时使用当前目录下的 `.sdd-migration`，并固化其父级为 workspace_root；切换 cwd 不新建项目配置。首次用户提供项目资料由宿主保存；明确修改通过 update 增量持久化。旧 JSON 入口可导入长期配置。单模块只需两个选择参数，不新增需要用户填写的模块描述、scope、模块代码路径或 SPEC/用例文件。详细遵守 [项目上下文协议](../skills/migration-protocol/references/project-context.md)。
 
 ## 2. 编排步骤
 1. 读取 [AGENTS.md](../AGENTS.md)、[运行协议](../skills/migration-protocol/references/runtime.md)，解析参数为绝对路径及规范 ID。
@@ -66,3 +66,7 @@ prepare 与新 Ledger init 默认启用 context_readiness_required。GO 初始�
 ## 四维规划输入
 
 新运行默认启用 dimension_slicing_required；由 GO 生成每个根模块 dimension_analysis_ref，用户无需手写四维清单。按 [四维协议](../skills/migration-protocol/references/dimension-slicing.md) 先按上下文/功能清单划分模块 scope，再在 register 前完成各模块四维分析；父 MO 先划子模块再分析、子 MO 先划任务再分析，N/A 有证据、未知先澄清。
+
+## 运行位置与再次启动
+
+先定位固定 workspace_root/.sdd-migration；prepare 省略 --run-root，按 run_id 自动派生 .sdd-runs/<run_id>。宿主使用返回的 run_root 调用 Ledger，打开 status.openspec_hub 指向顶层 openspec/runs/<run_id>/workflow.md。同 run 恢复读取现有状态与 assignment，不能重置预算或重新 init；新迁移分配新 run_id 并 prepare。详见 [留存布局](../skills/migration-protocol/references/storage-layout.md)。

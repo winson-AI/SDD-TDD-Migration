@@ -2,13 +2,13 @@
 
 import base64
 import os
-import tempfile
 from dataclasses import dataclass
 from io import BytesIO
 
 from PIL import Image
 from hypium import UiDriver
 from ...logger import logger
+from ...storage import output_path, temp_directory
 
 
 @dataclass
@@ -36,8 +36,11 @@ def get_screenshot(driver: UiDriver | None = None) -> Screenshot:
         If the screenshot fails (e.g., on sensitive screens like payment pages),
         a black fallback image is returned with is_sensitive=True.
     """
+    temporary = temp_directory()
     try:
-        page = driver.UiTree.dump_page_info(tempfile.gettempdir())
+        page = driver.UiTree.dump_page_info(str(temporary))
+        output_path(page.screenshot_path, boundary=temporary)
+        output_path(page.layout_path, boundary=temporary)
 
         if not os.path.exists(page.screenshot_path):
             return _create_fallback_screenshot(is_sensitive=False)
@@ -132,6 +135,8 @@ def start_screen_record(driver: UiDriver) -> None:
 
 
 def stop_screen_record(driver: UiDriver, path: str = None) -> None:
+    if path:
+        path = str(output_path(path))
     driver.shell('aa stop-service -b com.huawei.hmos.screenrecorder -a com.huawei.hmos.screenrecorder.ServiceExtAbility')
     driver.wait(1)
 

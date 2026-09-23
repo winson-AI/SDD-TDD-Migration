@@ -22,6 +22,7 @@ from agents import function_tool
 from hypium import UiDriver
 
 from ..logger import logger
+from ..storage import output_path
 from ..config import config_manager
 from ..layered_agent_cli.model_factory import create_multi_model
 from ..utils.utils import extract_text_from_response
@@ -44,7 +45,21 @@ def _run_shell_command_sync(
     env: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """Synchronously run a shell command and return structured result."""
-    shell_env = dict(os.environ)
+    try:
+        base = output_path(default='.')
+        directory = output_path(cwd) if cwd else base
+        if not directory.is_relative_to(base):
+            raise ValueError('cwd outside current runner')
+        from runner_storage import environment
+        shell_env = environment(base)
+        cwd = str(directory)
+        protected = ('SDD_RUNNER_DIR', 'TMPDIR', 'TMP', 'TEMP', 'XDG_CACHE_HOME',
+                     'UV_CACHE_DIR', 'PIP_CACHE_DIR', 'GRADLE_USER_HOME',
+                     'HYPIUM_MCP_OUTPUT_DIR', 'HYPIUM_MCP_WORKING_DIR', 'PYTHONDONTWRITEBYTECODE')
+        if env and any(k in env and env[k] != shell_env[k] for k in protected):
+            raise ValueError('cannot override runner storage environment')
+    except ValueError as exc:
+        return {"success": False, "returncode": -1, "output": str(exc), "cwd": cwd}
     if env:
         shell_env.update(env)
 
@@ -304,8 +319,8 @@ def _run_python_skill_script_in_process_sync(
     module_name = f"_skill_script_{re.sub(r'[^0-9a-zA-Z_]', '_', skill_name)}_{int(time.time() * 1000)}"
 
     try:
+        os.chdir(output_path(default='.'))
         if skill_dir:
-            os.chdir(skill_dir)
             if skill_dir not in sys.path:
                 sys.path.insert(0, skill_dir)
                 added_sys_path = True
@@ -794,7 +809,7 @@ async def _run_skill_script_impl(skill_name: str, script_name: str, args: str = 
     result = await asyncio.to_thread(
         _run_shell_command_sync,
         command,
-        skill_dir,
+        os.environ.get("SDD_RUNNER_DIR") or skill_dir,
         timeout,
     )
 

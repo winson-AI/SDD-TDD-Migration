@@ -12,6 +12,7 @@ from ..devices.device_protocol import (
 
 from . import hdc
 from ..config import AppConfig
+from ..storage import output_path
 from hypium import UiDriver
 
 
@@ -32,7 +33,7 @@ class HDCDevice(DeviceProtocol):
             report_generator: Optional report generator for saving screenshots
             config: config
         """
-        report_dir = report_generator.report_dir if report_generator else None
+        report_dir = str(output_path(report_generator.report_dir if report_generator else None, default='sdk'))
         self._driver = UiDriver.connect(device_sn=device_sn, connector_server=(ip, port),
                                         report_path=report_dir)
         self._device_sn = self._driver._device.device_sn
@@ -63,10 +64,10 @@ class HDCDevice(DeviceProtocol):
                     if not self._config.keep_raw_video:
                         # 清理 screen_record 和 final.mp4
                         if os.path.exists(final_path):
-                            os.remove(final_path)
+                            output_path(final_path).unlink()
                         for f in Path(self._report_generator.video_dir).glob("screen_record*.mp4"):
                             try:
-                                f.unlink()
+                                output_path(f).unlink()
                                 logger.info(f"[teardown] 清理 screen_record: {f}")
                             except Exception as e:
                                 logger.warning(f"[teardown] 清理 screen_record 失败: {f}, 错误: {e}")
@@ -74,7 +75,7 @@ class HDCDevice(DeviceProtocol):
                         segment_meta = Path(self._report_generator.video_dir) / "_segment_starts.json"
                         if segment_meta.exists():
                             try:
-                                segment_meta.unlink()
+                                output_path(segment_meta).unlink()
                             except Exception as e:
                                 logger.warning(f"[teardown] 清理片段元数据失败: {e}")
                 else:

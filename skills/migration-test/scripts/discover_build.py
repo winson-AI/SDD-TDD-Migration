@@ -6,22 +6,27 @@ import os
 from pathlib import Path
 import shutil
 
+EXCLUDED_DIRECTORIES = ('.git', '.gradle', 'build', 'node_modules', '.idea',
+                        '.sdd-migration', '.sdd-runs', 'openspec')
+
 
 def discover(target, override=None):
     root = Path(target).resolve()
     if not root.is_dir(): raise ValueError('target root missing')
     candidates = []
     for directory, dirs, files in os.walk(root, followlinks=False):
-        dirs[:] = sorted(d for d in dirs if d not in ('.git', '.gradle', 'build', 'node_modules', '.idea'))
+        dirs[:] = sorted(d for d in dirs if d not in EXCLUDED_DIRECTORIES)
         for name in sorted(files):
             p = Path(directory) / name
-            if not p.resolve().is_relative_to(root): continue
+            resolved = p.resolve()
+            if not resolved.is_relative_to(root): continue
+            if any(part in EXCLUDED_DIRECTORIES for part in resolved.relative_to(root).parts[:-1]): continue
             if name in ('gradlew', 'gradlew.bat', 'build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts') or (
                     p.suffix in ('.sh', '.bat', '.ps1') or p.suffix in ('.yml', '.yaml') and
                     ('.github/workflows' in p.as_posix() or any(k in name.lower() for k in ('build', 'compile', 'gradle')))):
                 candidates.append(str(p))
     result = {'target_root': str(root), 'candidates': candidates, 'executed': False,
-              'excluded_directories': ['.git', '.gradle', 'build', 'node_modules', '.idea']}
+              'excluded_directories': list(EXCLUDED_DIRECTORIES)}
     override = override or {}
     if override.get('argv'):
         argv = list(override['argv'])

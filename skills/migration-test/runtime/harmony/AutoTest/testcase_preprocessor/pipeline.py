@@ -7,6 +7,7 @@ from typing import List, Optional
 
 from ..config import AppConfig
 from ..logger import logger
+from ..storage import output_path
 from .converter import XMindConvertError, convert_tree_to_md
 from .xmind_parser import XMindParseError, extract_tree, parse_task_file_md
 
@@ -20,14 +21,13 @@ def resolve_output_path(xmind_path: str, output: Optional[str]) -> str:
     """确定转换后的 md 输出路径。
 
     --xmind-output 指向一个目录；转换后的 md 写入该目录下、与 xmind 同名的 .md 文件。
-    未指定时输出到 xmind 同目录、同文件名（.md）。
+    未指定时使用当前 runner/design；没有 runner 时必须显式指定受管目录。
     """
     if output and os.path.exists(output) and not os.path.isdir(output):
         raise XMindParseError(f"--xmind-output 必须是目录，但传入的是文件: {output}")
-    stem = os.path.splitext(xmind_path)[0]
-    if output:
-        return os.path.join(output, os.path.basename(stem) + ".md")
-    return stem + ".md"
+    directory = output_path(output, default='design')
+    name = os.path.splitext(os.path.basename(xmind_path))[0] + '.md'
+    return str(output_path(directory / name, boundary=directory))
 
 
 async def ensure_task_file(task_file: str, config: AppConfig, project_root: str,
@@ -80,7 +80,7 @@ async def ensure_task_file(task_file: str, config: AppConfig, project_root: str,
     out_dir = os.path.dirname(os.path.abspath(md_path))
     os.makedirs(out_dir, exist_ok=True)
 
-    with open(md_path, "w", encoding="utf-8") as f:
+    with open(output_path(md_path), "w", encoding="utf-8") as f:
         f.write(md_text)
     logger.info(f"[Pipeline] 转换完成，已写入: {md_path}")
     return md_path

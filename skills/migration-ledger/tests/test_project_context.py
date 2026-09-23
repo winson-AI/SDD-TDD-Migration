@@ -17,7 +17,7 @@ class ProjectContextTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.base = Path(self.tmp.name).resolve()
-        self.root = self.base / '.sdd-migration'; self.run = self.base / 'runs/r1'
+        self.root = self.base / '.sdd-migration'; self.run = self.base / '.sdd-runs/r1'
         self.legacy = self.base / 'legacy'; self.legacy.mkdir()
         self.target = self.base / 'target'; self.target.mkdir()
         self.arch = self.base / 'architecture.md'; self.arch.write_text('architecture v1')
@@ -67,7 +67,7 @@ class ProjectContextTests(unittest.TestCase):
         sources = ledger.status(self.run)['planning_context']['reuse_sources']
         self.assertEqual([s['source_id'] for s in sources], ['TARGET', 'LIB'])
         self.assertEqual(sources[1]['module_paths'], [str(module)])
-        next_run = pc.prepare(self.root, self.base / 'runs/r2', self.run_request('r2'), self.actor)
+        next_run = pc.prepare(self.root, self.base / '.sdd-runs/r2', self.run_request('r2'), self.actor)
         self.assertEqual(next_run['input']['reuse_sources'], [])
 
     def test_build_config_updates_and_environment_snapshot_is_frozen(self):
@@ -84,7 +84,7 @@ class ProjectContextTests(unittest.TestCase):
         pc.update(self.root, self.request('change-build', 2, {'build': {'argv': [sys.executable, '-V']}}), self.actor)
         self.start(self.init_payload(prepared))
         self.assertEqual(ledger.status(self.run)['planning_context']['build'], frozen)
-        next_run = pc.prepare(self.root, self.base / 'runs/r2', self.run_request('r2'), self.actor)
+        next_run = pc.prepare(self.root, self.base / '.sdd-runs/r2', self.run_request('r2'), self.actor)
         self.assertEqual(next_run['input']['build']['argv'], [sys.executable, '-V'])
 
     def test_prepared_run_requires_context_readiness(self):
@@ -163,11 +163,11 @@ class ProjectContextTests(unittest.TestCase):
         self.assertEqual(pc.current(self.root)['revision'], 2)
 
     def test_partial_config_can_be_saved_but_not_prepared(self):
-        root = self.base / 'partial'
+        root = self.base / 'partial/.sdd-migration'
         pc.update(root, self.request('partial', 0, {'legacy_root': str(self.legacy)}), self.actor, initialize=True)
         self.assertEqual(pc.current(root)['revision'], 1)
         with self.assertRaisesRegex(Rejected, 'missing directory'):
-            pc.prepare(root, self.run, self.run_request(), self.actor)
+            pc.prepare(root, None, self.run_request(), self.actor)
         self.assertFalse((self.run / 'context/snapshot.json').exists())
 
     def test_configuration_rejects_worker_and_run_selection_fields(self):
@@ -187,7 +187,7 @@ class ProjectContextTests(unittest.TestCase):
         self.assertTrue(retry['duplicate']); self.assertEqual(retry['project_context_ref'], original_ref)
         self.assertEqual(retry['input']['target_root'], str(self.target))
         self.assertEqual(check_ref(retry['input']['new_architecture']).read_text(), 'architecture v1')
-        result2 = pc.prepare(self.root, self.base / 'runs/r2', self.run_request('r2'), self.actor)
+        result2 = pc.prepare(self.root, self.base / '.sdd-runs/r2', self.run_request('r2'), self.actor)
         self.assertEqual(result2['input']['target_root'], str(new_target))
         self.assertEqual(result2['input']['entry_mode'], 'project')
         self.assertIsNone(result2['input']['module_name'])
@@ -261,7 +261,7 @@ class ProjectContextTests(unittest.TestCase):
         path = Path(result['project_context_ref']['path'])
         snapshot = json.loads(path.read_text()); snapshot['effective_config']['human_owner'] = 'other'
         path.write_text(json.dumps(snapshot))
-        with self.assertRaisesRegex(Rejected, 'outside prepare protocol'):
+        with self.assertRaisesRegex(Rejected, 'outside prepare protocol|hash mismatch'):
             self.prepare()
 
 

@@ -1,8 +1,9 @@
 {
+  "workspace_root": "{{absolute-migration-workspace}}",
   "package_root": "{{absolute-package-root}}",
   "legacy_root": "{{absolute-legacy-root}}",
   "target_root": "{{absolute-target-root}}",
-  "architecture_path": "{{absolute-architecture-document}}",
+  "architecture_path": "{{absolute-workspace-root}}/.sdd-migration/inputs/architecture.md",
   "requirements_path": null,
   "test_cases_path": null,
   "project_rules_path": null,
@@ -26,5 +27,13 @@
   },
   "knowledge_paths": [],
   "reuse_sources": [],
-  "build": {}
+  "build": {},
+  "watchdog": {
+    "enabled": true,
+    "mode": "observe-only",
+    "interval_seconds": 60,
+    "host_stale_seconds": 180,
+    "worker_stall_seconds": 900,
+    "check_timeout_seconds": 10
+  }
 }

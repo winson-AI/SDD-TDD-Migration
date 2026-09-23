@@ -1,4 +1,207 @@
+# 收尾投影异常通知与诊断持久化（2026-09-23）
+
+按用户确认修复两处通知遗漏：status 先尝试输出 workflow-attention.md，再保存包含末端错误的 progress.json；机器诊断首次失败最多补写一次，持续失败明确返回给 Host，不循环等待、不追加业务事件。watchdog 在业务终态仍存在 projection-pending 时显示 completed-with-pending-diagnostics，保留通知并继续观察；ack 只确认交付，正常 Host status 重建后关闭告警。显式暂停/停止仍有效，业务质量、调度和验收门禁保持不变。
+
+新增 **6 项**回归：末端报告失败进入持久化诊断、机器诊断暂时失败的有界补写、两个出口持续失败时返回全部错误、真实两叶子完成运行的报告故障与通知 ACK/恢复闭环、Yellow 终态观察输入及显式停止、常驻 watch 等待诊断恢复。新增用例在修复前复现 5 项失败，修复后全部通过；验证观察前后业务资产字节及 mtime、Ledger 事件、质量及独立模块路由保持不变。
+
+全量 **504 项通过，无失败/跳过**：Ledger 329（99.000 秒）、适配层 47（1.625 秒）、Harmony 128（1.22 秒）。静态检查：146 个 Python AST、43 个 JSON、91 个 vendored 摘要、git diff --check 通过。同步旁路监听、进度恢复及留存说明，不新增目录或配置开关。
+
+使用隔离夹具，临时文件随夹具清理；进程查询与 loopback 租约测试获工具许可，不连接真实设备、外部 LLM 或业务 Gradle。原有 engine.log ResourceWarning 保持原状。没有启动业务监听服务、提交或推送 Git。两个诊断出口均不可写时，旧投影可能仍存在，Host 必须处理命令返回错误，不能仅依赖 watchdog。
+
+---
+
+# 执行器中断收尾与 Harmony 整套环境固化（2026-09-22）
+
+本轮修复两组已确认问题：
+
+- 执行器遇到 KeyboardInterrupt/SystemExit 或启动后运行异常，先限时停止/回收当前 attempt，再留存日志、清理状态和取消回执，最后重新抛出原异常。CLI SIGTERM 映射为 SystemExit(143)，保留退出意图；未确认退出时保留临时目录，已取消回执不能接受为正常完成，Host 使用既有停止核验与 revoke/audit-revoke。没有自动续跑或取消其他任务。
+- Harmony 以 preparation.json 保存整套私密恢复内容，完成成员写入后提交 manifest.json。失败重试使用原内容；提交后核验全体摘要和 native 缺省，配置不跟随参考变化。完整旧环境按现有内容建立兼容基线，不完整旧环境要求 Host 核验或新 run；不宣称可以验证旧环境的历史版本一致性。准备内容和凭证只留在本 run 私密 environment，提交后删除准备文件，不进入 Ledger/artifacts。
+
+新增 **10 项**故障回归：中断传播/回执与进程退出、运行 I/O 异常、独立写进程尚存时保留 temp、SystemExit 退出码，以及真实 CLI SIGTERM；环境部分写入后参考源删除的恢复、提交标记失败后幂等恢复、native 缺省冻结及新 run 接入、修改/不完整旧环境拒绝、完整旧环境兼容。原并发 prepare 用例继续通过，确认各调用方只获得完整环境。
+
+共 **498 项验证通过**：Ledger 全套 322（85.575 秒），随后新增 CLI SIGTERM 独立回归 1（0.156 秒）；适配层 47（1.626 秒）；Harmony 128（1.41 秒）。无失败/跳过。静态校验：146 个 Python AST、43 个 JSON、91 个 vendored 摘要及 git diff --check。
+
+使用隔离夹具及测试自身进程；真实 CLI 取消测试实际发送 SIGTERM。进程存活测试获准查询本轮进程，设备租约仅绑定本机 loopback。未连接真实设备、外部 LLM 或业务 Gradle；已有 engine.log ResourceWarning 保持原状。强制 SIGKILL/断电无法保证执行 finally，仍按已有 Host 恢复规则处理。未启动业务 watchdog，未提交或推送 Git。
+
+---
+
+# 测试超时回收与 Watchdog 通知交付（2026-09-22）
+
+修复只读复审中复现的两处问题：
+
+- execute_test 的超时后 communicate 再限时 2 秒，保留部分 stdout/stderr；回执 termination 记录信号结果、直接进程退出、输出回收和 Host 待核验事项。脱离进程组的子进程持有管道时及时返回，不宣称所有子进程已停止；临时目录及嵌套 Harmony temp 留在原 attempt。host_stop_required 的回执不能通过验收关闭 assignment，Host 核验停止/隔离后走原 revoke/audit-revoke。正常回收的超时继续原三态与修复流程。
+- Watchdog 原子保留带 active 检查点的 notice，通知与状态去重分离。state/latest 写入失败或 stdout 丢失后按同一 notice_id 重放；Host 展示或可靠接收后调用 ack，确认绑定本 run 通知摘要且幂等。ack 使用独立观察器锁，常驻 watch 持锁时仍可确认；全部记录只进入 runs/watchdog、reports/watchdog，不触碰 Ledger、OpenSpec 或业务调度。
+
+新增 **9 项**回归：真实独立进程组持管道的有界回收/部分日志/保留 temp/验收拒绝及停止后 revoke；普通超时回收/清理/验收；latest 写失败、state 写失败、stdout 断开后的重放；旧 notice 兼容；常驻观察锁与业务锁同时持有时仍能幂等 ack；告警关闭再开启的独立通知；未知 ID/符号链接拒绝。原去重测试增加未确认重放及确认后静默，业务资产内容和 mtime 保持不变。
+
+全量 **488 项通过，无失败/跳过**：Ledger 318（86.374 秒）、适配层 42（1.579 秒）、Harmony 128（1.38 秒）。静态检查：146 个 Python AST、43 个 JSON、git diff --check 通过。
+
+使用隔离夹具，测试创建的独立子进程在 finally 清理。真实存活测试获准查询本轮测试进程，设备租约测试仅绑定本机 loopback；未执行真实设备、外部 LLM 或业务 Gradle。原有 engine.log ResourceWarning 仍存在。未安装后台服务、未启动业务 watchdog、未提交/推送 Git；生产 Host 仍须接入实际状态接口及通知展示/ack。
+
+---
+
+# 旁路 Watchdog 与并行恢复信号（2026-09-22）
+
+按用户确认的唯一原则：Watchdog 只观察、留存诊断和通知，不影响工作流/控制流，不提交恢复请求或操作，不派发/恢复 Agent，不获取 Ledger/项目锁，不改变状态、预算、测试结果。check/watch 使用有时限的只读子进程，直接读取已验证事件、进度投影及 Host 导出；不调用会写投影的 ledger.status。自身锁、状态和通知仅在本 run runs/watchdog、reports/watchdog。
+
+同时修正两处已批准的控制器问题：拒绝计数按作用域/revision/operation/reason 的 fingerprint 独立留存并聚合；活动全局审计快照失效时优先提示 Host 确认停止并 audit-revoke，撤销前不再推荐被审计锁禁止的模块 invalidate。停止证据和原权限门禁保持有效。
+
+宿主状态支持实际本机 ps 查询（核对 PID 与启动标识）及 Host API 真实查询导出；未接入、过期、身份不匹配或无进程查询权限时明确 unknown。API 导出必须由宿主接入其实际接口，不将测试夹具或模板当作生产接入。程序只输出通知 JSON/文件，Host 负责展示；没有安装系统服务、启动常驻监听或发送外部消息。
+
+新增 **14 项**回归：并行计数和旧 revision 历史、审计撤销顺序/停止证据、业务文件内容及 mtime 完全不变、真实本地进程/PID 身份、API 导出/过期/暂停、无 assignment 编排进度、持有 Ledger 锁时仍可观察、观察器自身互斥不阻塞 Ledger、超时/损坏日志不修写且不误报恢复、配置冻结/禁止自动模式、符号链接/非法根拒绝、禁用无资产、持续 ready 仅去重通知、明确 Host 停止后监听退出、worker 已退出仍不关闭 assignment。
+
+全套 **479 项通过，无失败/跳过**：Ledger 309（85.636 秒）、适配器 42（1.718 秒）、Harmony 内核 128（0.99 秒）；最后的观察信号调整另回归上述 14 项通过。静态校验通过：146 个 Python AST、43 个 JSON、91 个 vendored 摘要、git diff --check。
+
+受限环境禁止 ps 时先验证到权限限制，获准后完成本次创建的子进程只读查询测试；运行程序在权限不足时返回 unknown，不升级权限。适配器设备租约夹具获准绑定本机 loopback，无外部设备/LLM/真实业务 Gradle；既有原生夹具仍有 engine.log ResourceWarning。隔离夹具均按 cleanup 清理，未提交或推送 Git。
+
+---
+
+# 控制流异常恢复回归（2026-09-21）
+
+本轮修正四项已确认的问题：
+
+- status 识别有效 Implementer/Fixer 的授权工作副本，范围内改码不错误推荐 revoke；SPEC、外部证据、路径重定向与已撤销 worker 的未接受改动仍校验。新基线必须由 submit/accept 验证。
+- Yellow 中真实失败断言不会被 automation-unavailable 覆盖为未执行；Harmony 根因摘要同时保留环境问题与失败 ASSERT。当前基线已有 Green 路径保留，纯缺测仍独立收尾。
+- Ledger ACK 返回 committed 与 projection 状态；单模块投影失败不会伪装成事务拒绝。已验证所有权的损坏 manifest 原件留存 reports/projection-recovery 后重建；其他归属及符号链接保持原样并报警。
+- Ledger、项目配置、Harmony 准备锁默认最多等待 10 秒，SDD_LOCK_TIMEOUT_SECONDS 可配置正有限值；超时输出结构化诊断，不窃取锁、不取消 worker，不再次等待同锁来记录拒绝。
+
+新增 12 项控制器异常回归和 1 项 Harmony 混合失败根因回归，并增强既有全生命周期模拟：在正式 prepared 三目录运行的 Fixer 提交前插入 status，确保不会误撤销，随后真实夹具修复、构建、测试、审计完成；同 run 恢复与新 run 隔离继续验证。投影测试覆盖已提交 ACK、幂等重试、不影响另一模块、损坏原件留存及无权覆盖拒绝；锁测试使用真实进程争用。
+
+全量 **454 项通过，无失败、无跳过**：Ledger 284（68.355 秒）、适配器/留存 42（1.396 秒）、Harmony 内核 128（0.90 秒）。Python AST 142、JSON 42、vendored 文件摘要 91 及 git diff --check 通过。
+
+使用既有 Harmony Python 3.12，不安装依赖；内核 pytest 只读借用本机已有包并禁用自动插件/缓存。适配器初次运行的两项端口互斥测试受执行沙箱限制，获工具许可后复跑全套 42 项通过，只绑定本机 loopback。测试夹具仍出现已有日志文件句柄 ResourceWarning，不影响断言结果。本轮未执行真实业务 Gradle、移动设备、LLM 或实际宿主 Agent 调度；没有新增后台 watchdog。修复证据来自隔离夹具，结束后清理，不保留系统临时测试日志。
+
+---
+
+# 底层写入器留存门禁回归（2026-09-21）
+
+针对“入口已约束、底层仍使用 cwd/来源旁/系统 temp”的差异，新增 AutoTest/storage.py 共用既有 run 布局检查。XMind 未指定输出时仅使用当前 runner/design，无 runner 则拒绝；报告/汇总、日志、录制、图片/视频、时间映射和 Harmony 结果 JSON 在实际写入处校验。临时媒体显式指定受管 temp。HDC 报告与 Hypium MCP 接入绑定本轮输出，SDK 需已进入 runner scope；shell/扩展 skill 不再缺省使用包目录，不能覆盖存储环境变量。视频验证外部来源保持只读，裁剪证据留本轮目录，清理拒绝外部文件。
+
+新增 7 项直接 API 回归覆盖：XMind 不写回源文件旁；各写入器在创建目录前拒绝外部位置；默认输出落入 runner；跨 run/符号链接及创建后的文件重定向拒绝；无 runner 的截图/临时文件拒绝且不触发设备调用；外部视频及 sidecar 不被删除；shell 缺失上下文/覆盖存储变量被拒绝且正常写入留在本轮。既有原生录制/回放、Ledger-Harmony 集成夹具仅调整为受管路径，不添加校验豁免。
+
+全套 **441 项通过，无失败、无跳过**：Ledger 272（66.137 秒）、适配器/留存 41（1.398 秒）、Harmony 128（0.82 秒）。静态检查：141 个 Python AST、42 个 JSON、91 个上游文件摘要及 git diff --check 通过。使用既有 Python 3.12 和本机只读 pytest；禁用字节码、pytest 自动插件和缓存。设备互斥测试获准绑定本机 loopback；没有连接外部设备/模型，没有执行真实业务构建或 LLM 转换。
+
+验证证明本包路径门禁、失败/缺测路由及受控夹具行为。任意外部脚本/插件仍可自行使用绝对路径或改变 cwd，需 Host 按冻结命令与文件权限约束；不是 OS 沙箱。历史低层 Ledger 回归兼容、工具安装/开发验证及设备端目录仍遵守各自已声明边界。
+
+---
+
+# XMind 技能与 run 级 sandbox 配置验证（2026-09-21）
+
+XMind 内置技能改为标准用例 Markdown 转换规则，移除 Windows 临时路径与 PowerShell 教程，使用 macOS 三目录内的输入/输出示例。保留用例分支、参数、预期和优先级；歧义留待审核。
+
+Test-Runner 使用 sandbox.py prepare 将显式参考、长期项目参考或公开 default 复制到 .sdd-runs/<run_id>/runs/harmony/sandbox/environment。配置/凭证跨模块共享，加锁幂等、目录 700/文件 600；adapter 指向本轮副本，原始配置被删除或修改不改变既有 run。原生 YAML 兼容入口同样读取本轮副本。旧本地 adapter.local.json 已移除；包内 .env 保留为显式复制来源，未读取或自动迁移其中密钥。运行配置不可用时，test 入口产出结构化 Yellow；prepare/adapter 的准备错误由 Test-Runner 按环境预检失败处理，独立任务继续。
+
+本次相关回归 **162 项通过**：适配器/存储 34 项（1.570 秒），Harmony 内核 128 项（0.79 秒），无跳过。新增 3 项覆盖配置隔离、私密权限、参考源变化不覆盖、缺失来源不半写、并发准备；原 adapter 测试新增删除参考源后仍可执行及不泄露凭证断言。设备互斥测试使用获准的本地 loopback 绑定，不连接外部设备或模型。XMind Skill 格式、Python AST/JSON、91 个 vendored 摘要及 git diff --check 校验通过。未重跑未修改的 Ledger 全套，未进行真实 LLM 转换或设备测试。
+
+---
+
+# 运行资产与 Harmony 路径治理验证
+
+本轮将构建输出限定为 runs/build/<attempt>，Harmony 的执行/辅助产物限定为 runs/harmony/automation 与 runs/harmony/sandbox；独立入口也需相同 .sdd-runs/run_id 结构，可从显式输出推导 root。项目模型配置/凭证默认读取 .sdd-migration/harmony；公开默认配置与安装依赖仍属包资产。完整原位置→新位置映射见 [留存文件系统](skills/migration-protocol/references/storage-layout.md)。
+
+runner 绑定 TMPDIR/TMP/TEMP、Python tempfile、SDK 输出/工作目录及工具缓存；正常/异常返回清理 temp，清理失败保留在 run 并写 cleanup.json；执行器超时终止进程组后补做清理，receipt 归档 cleanup_ref。设备互斥改为本机端口租约，强杀自动释放，不产生系统临时锁文件。扩展 skill 使用 runner cwd。独立执行复制 query 原文到本次结果目录，保留完整输入依据。
+
+直接 Gradle/gradlew 的实际 argv 仅追加确定的缓存目录参数，保留 requested_argv；验收端重新计算并拒绝夹带其他参数。init.d 的 sdd-storage.init.gradle 保存为 storage_policy_ref，常规 buildDirectory 指向 runner outputs，外部覆盖被拒绝。正式 Ledger CLI 需要 prepare 布局；history 只读重放旧根，旧 init/status/apply 等不能继续外写；低层 API 为历史夹具兼容保留，不是宿主绕过门禁的入口。
+
+全量 **431 项通过，无失败、无跳过**：Ledger 272（65.819 秒）、适配器/存储 31（1.700 秒）、Harmony 内核 128（0.72 秒）。新增覆盖异常清理、清理失败留存、强杀后受管残留、兄弟 attempt 不受清理影响、SDK 外部路径覆盖、跨进程设备互斥/强杀释放、构建超时清理、Gradle wrapper 存储策略与冻结命令追溯/篡改拒绝；既有首轮完成/同 run 重启/第二 run 隔离模拟继续通过。
+
+日志：/tmp/sdd-governance-ledger-final.log、/tmp/sdd-governance-adapter-final.log、/tmp/sdd-governance-harmony-final.log。静态检查：138 Python AST、43 JSON（含忽略的本地 adapter）、1 TOML、80 Markdown 的 615 个本地链接目标、91 上游文件摘要、11 Skill 校验与 git diff --check 通过；日志 /tmp/sdd-governance-static.log。包自身验证日志属于开发验证例外，不是业务迁移 run 资产。
+
+使用既有 Python 3.12/pytest，不安装依赖、不读取包内 .env。端口租约测试因执行环境禁止 loopback bind，获工具执行许可后在允许本地绑定的环境运行；不连接外部设备/LLM 服务。未执行真实 Gradle：Gradle wrapper 为受控 shell 夹具，证明命令/环境/回执/验收控制，不能替代目标 Gradle/插件的构建兼容性验证。任意外部脚本绝对输出及设备端写入仍需宿主权限和前置审核；目录治理不是 OS 沙箱，也不把设备强杀后的清理称为已完成。历史外部资产不自动搬迁/删除或重写 hash。
+
+---
+
 # P1–P4 / P6 验证记录
+
+## 缺失索引时的快照恢复校验（2026-09-21）
+
+经用户批准修复 prepare 的已有快照恢复分支：在返回 duplicate 和登记位置索引之前，显式核对 project_id、run_id、快照 run_root 与请求及实际目录一致。索引和准备记录均缺失时，错误复制目录被拒绝，不写位置索引；原目录随后可正常恢复。无 storage_layout 的合法旧运行仍可在原位置补登记，快照不迁移、不改写。
+
+新增 2 项回归分别覆盖错误副本拒绝/原目录恢复/幂等重试，以及合法旧布局恢复/默认按索引定位。存储专项 19 项通过；全量 **423 项通过，无失败、无跳过**：Ledger 270 项（63.977 秒）、测试适配器 25 项（1.538 秒）、Harmony 内核 128 项（0.81 秒）。日志：`/tmp/sdd-recovery-ledger.log`、`/tmp/sdd-recovery-test.log`、`/tmp/sdd-recovery-harmony.log`。
+
+结构检查通过：136 个 Python、42 个 JSON、1 个 TOML、80 个 Markdown 中 612 处本地链接目标、91 个上游文件摘要与 git diff --check。日志 `/tmp/sdd-recovery-static.log`。使用既有 Harmony Python 3.12 和只读加载的本机 pytest，禁用字节码、自动插件与缓存；未安装依赖或运行真实设备/LLM/业务 Gradle。测试中的旧布局由隔离夹具构造，不提供手工重写真实快照的操作入口。
+
+## 第二轮路径审计修复与全量回归（2026-09-21）
+
+经用户批准落实只读复审的 5 项问题：统一 Ledger/context/OpenSpec 受管写入的路径检查与随机临时文件；自动构建发现排除迁移资产目录及指向其中脚本的链接；Ledger 查询/变更/拒绝诊断前置运行根与 run_id 绑定检查；更新自动化说明中的旧 executions 路径和缺失的 --root；独立 Harmony test 自动创建缺失结果父目录并拒绝覆盖已有结果/attempt。
+
+全量 **421 项通过，无失败、无跳过**：
+
+| 测试集 | 结果 | 耗时 |
+| --- | --- | --- |
+| migration-ledger/tests | 268 通过 | 66.862 秒 |
+| migration-test/tests | 25 通过 | 1.616 秒 |
+| runtime/harmony/tests | 128 通过 | 0.87 秒 |
+
+新增 6 项回归覆盖：Ledger 固定临时名/目标链接防护；journal/artifacts 路径防护；context/files 链接视图和临时文件保护；复制 run 被拒绝后原件/副本的事件、投影及诊断文件均不变；构建发现排除历史目录和链接且保留真实模块构建/显式命令；独立 sandbox 在新嵌套目录输出环境 Yellow、重复运行和已有结果不被覆盖。现有全生命周期及同 run/新 run 恢复测试继续通过。
+
+回归过程中修正了运行根规范化的兼容问题：macOS /var 与 /private/var 的系统目录别名先在运行入口规范化，随后仍严格检查运行根内部的 journal、工件和投影路径；新增构建测试预期同样使用规范路径。没有通过放宽内部路径边界消除失败。
+
+环境沿用 Harmony Python 3.12、本机只读 pytest；禁用字节码、pytest 自动插件与缓存，未安装新依赖。最终日志：`/tmp/sdd-path-round2-ledger-final2.log`、`/tmp/sdd-path-round2-test-final.log`、`/tmp/sdd-path-round2-harmony-final.log`。结构检查：136 个 Python、42 个 JSON、1 个 TOML、80 个 Markdown 中 612 处本地链接目标、11 个工作流 Skill、91 个上游文件摘要及 git diff --check 通过，日志 `/tmp/sdd-path-round2-static.log`。
+
+验证限于控制器、适配器、路径故障注入与受控夹具；未运行真实业务 Gradle、移动设备/LLM 或宿主派发。历史运行兼容入口、独立测试模式与工具安装目录保留；路径检查不替代宿主对任意外部命令的操作系统级写权限隔离。
+
+## 路径审计五项修复后的全量回归（2026-09-21）
+
+在只读审计确认并经用户批准后，落实：OpenSpec 投影写入前持久化模块归属、中断缺 manifest 可恢复；写入/清理深层路径拒绝符号链接；prepare 预检与 preparing/failed/prepared 初始化记录；工作流测试辅助输出限定本轮 staging/runs 并创建缺失父目录；统一文档 change 命名、固定配置目录，以及历史报告工具显式输入/输出。独立测试工具模式保留，业务状态仍以 Ledger 为唯一事实。完整目录见 [留存文件系统](skills/migration-protocol/references/storage-layout.md)。
+
+全量 **415 项通过，无失败、无跳过**：
+
+| 测试集 | 结果 | 耗时 |
+| --- | --- | --- |
+| migration-ledger/tests | 263 通过 | 63.745 秒 |
+| migration-test/tests | 24 通过 | 1.384 秒 |
+| runtime/harmony/tests | 128 通过 | 0.86 秒 |
+
+本轮新增 10 项回归：输入缺失不创建运行资产；freeze I/O 中断记录原因并恢复，重复 prepare 不改文件；测试辅助路径限当前 staging；事件已提交而 design 投影中断后的无 manifest 恢复；深层/文件/固定临时名符号链接保护；adapter 命令绑定 run_root；MD 设计的嵌套输出与独立兼容；stage 防覆盖/越界；组合 HTML 显式路径、明细链接与独立兼容。
+
+测试环境沿用 Harmony Python 3.12 和只读加载的本机 pytest，禁用字节码/pytest 插件/缓存；未安装新依赖。全量日志：`/tmp/sdd-path-final-ledger.log`、`/tmp/sdd-path-final-adapters.log`、`/tmp/sdd-path-final-harmony.log`。
+
+独立重跑 [simulate_storage.py](skills/migration-ledger/tests/simulate_storage.py)：首轮两叶子完成，包含 Red→Fixer→正式复测、父汇总及独立 Auditor，最终 Green、sequence=62。
+
+| 检查点 | 工作区文件数 | 相比上一阶段 |
+| --- | ---: | --- |
+| 首次 prepare | 14 | 配置、快照、位置索引、准备记录、OpenSpec owner |
+| 首轮规划/冻结 | 159 | 新增 145，含模块 projection-owners |
+| 首轮完成 | 280 | 新增 121、修改 21、删除 0 |
+| 恢复同 run | 280 | 新增/修改/删除均为 0 |
+| 更新输入/配置并启动新 run、完成规划 | 435 | 新增 155、修改 3、删除 0 |
+
+仅主动更新的 architecture.md、user.md 和 project-context.json 被修改；首轮 run/OpenSpec 的内容 hash 保持不变。第二轮仅规划/冻结，未复用旧 Green。证据：`/tmp/sdd-path-lifecycle-final/evidence/report.md`，其中链接首轮/二次启动完整文件清单和逐文件 hash/增删改记录。准备阶段失败证据保留在 preparations，不通过删除历史或绕过审批恢复。
+
+静态回归：136 个 Python AST、42 个 JSON、1 个 TOML、612 个本地 Markdown 目标、11 个工作流 Skill、上游来源清单全部 vendored_sha256 和 git diff --check 通过。日志：`/tmp/sdd-path-final-structure.log`。本地链接检查不证明锚点；故障注入与模拟使用受控 Python 夹具，未执行真实业务 Gradle、设备/LLM、宿主 Agent 派发或 OpenSpec CLI。路径约束不替代宿主对外部命令的文件写权限隔离。
+
+以下保留前次实现与各阶段验证记录。
+
+## 统一资产根、顶层 OpenSpec 与二次启动（2026-09-21）
+
+新项目保存 workspace_root；`.sdd-migration`、`.sdd-runs`、`openspec` 顶层并列。prepare 按 run_id 派生运行根并登记不可变位置索引，同请求重试使用旧快照；不同位置的同 run_id 被拒绝。新运行六件套投影到 `openspec/changes/<run_id>-<module_id>`，`openspec/runs/<run_id>/workflow.md/.json` 作为规格/状态/路由中枢，Ledger 仍是唯一事件事实。测试输出校验本轮 runs 目录；布局传递给下游 planning_context。旧运行按原布局兼容，不自动改写历史 hash 或搬迁文件。完整目录与写入责任见 [留存文件系统](skills/migration-protocol/references/storage-layout.md)。
+
+全量测试 **405 项通过，无失败、无跳过**：
+
+| 测试集 | 结果 | 耗时 |
+| --- | --- | --- |
+| migration-ledger/tests | 257 通过 | 58.326 秒 |
+| migration-test/tests | 20 通过 | 1.314 秒 |
+| runtime/harmony/tests | 128 通过 | 1.19 秒 |
+
+新增 7 项存储测试覆盖默认 CLI 三目录布局/中枢恢复、幂等重启与配置更新隔离、run_id 路径冲突/override/符号链接拒绝、已有 OpenSpec 内容不覆盖、测试输出归属、旧低层运行布局兼容，以及真实控制器全生命周期。首轮全量发现 2 处旧测试夹具路径假设（跨 run 注入新快照、读取旧 OpenSpec 地址），已改成匹配的新 run/顶层路径，保留原链接重建与重新规划断言，最终全套通过。
+
+使用同一 Harmony Python 3.12 跑两个 unittest 目录；pytest 8.4.2 只读借用本机已安装 site-packages，禁用自动插件和缓存，运行 Harmony 全 tests。未安装/升级运行依赖。日志：`/tmp/sdd-storage-ledger-final.log`、`/tmp/sdd-storage-adapters.log`、`/tmp/sdd-storage-harmony.log`。
+
+独立模拟脚本 [simulate_storage.py](skills/migration-ledger/tests/simulate_storage.py) 实际执行：配置→prepare→GO/父子 MO 规划/冻结→两个叶子构建与断言→M001 Red/Fixer/复测→父汇总→Auditor 独立审查→Green（sequence=62）。随后恢复同 run；再更新输入与配置，以新 run_id 启动并完成两个叶子规划/冻结，新 run 尚未执行代码或测试。
+
+| 检查点 | 工作区文件数 | 相比上一阶段 |
+| --- | ---: | --- |
+| 首次 prepare | 13 | 初始配置、冻结上下文、位置索引、OpenSpec owner |
+| 首轮规划/冻结 | 156 | 新增 143 |
+| 首轮完成 | 277 | 新增 121、修改 21、删除 0 |
+| 恢复同 run | 277 | 新增/修改/删除均为 0；事件 sequence 不变 |
+| 更新配置并启动新 run、完成规划 | 429 | 新增 152、修改 3、删除 0 |
+
+3 个修改文件是主动更新的 `.sdd-migration/inputs/architecture.md`、`inputs/user.md`、`project-context.json`。首轮 `.sdd-runs/demo`、`openspec/changes/demo-*`、`openspec/runs/demo` 全部保持内容 hash；新 run 新建对应目录与规格，未复用旧 Green。模拟每阶段保存完整路径→内容 hash 清单和逐文件增删改；本机留存入口为 `/tmp/sdd-storage-lifecycle-reviewed/evidence/report.md`，可用脚本在全新目录重跑。
+
+结构检查：135 个 Python 文件 AST、42 个 JSON、11 个工作流 Skill、605 处本地工作流 Markdown 链接目标及 git diff --check 通过。另核对模拟生成的 OpenSpec 中枢本地链接 16 处，无缺失目标。链接目标检查不保证锚点。模拟使用真实 Ledger/prepare/子进程执行器与受控 Python 夹具；语义分析、审批和角色由测试构造，不代表真实宿主派发、业务 Gradle/移动设备/LLM/OpenSpec CLI 验证。任意外部工具写权限仍由宿主限制；构建工具原生工程产物不由本布局强制搬迁。
 
 ## 最新全量回归（2026-09-21）
 
@@ -409,3 +612,18 @@ Python AST、模板/schema JSON、SVG、相关文档链接、3 个修改 Skill �
 - Ledger 自动投影 reports/migration-report.md/json，status 返回绝对路径及 sequence；GO 收尾展示全部 CASE 状态、PATH 明细与非 Green 根因/证据。
 - 报告保留未规划/未运行/自动化缺测；过期 Green 降为有效 Yellow并保留历史值。当前 Auditor 结果可覆盖旧模块结果，空 audit-review 沿用真实 CASE 证据，不生成假测试。构建 Green 不掩盖业务缺测；跨模块 CASE 聚合失败不覆盖无关已通过路径。
 - Ledger **188 项测试通过**，其中新增 10 项覆盖名称/会话恢复、完整 Green、Red 断言与引用、缺路径/缺测、代码过期、Auditor 补验/空审阅、共享 CASE 聚合和人工审核证据。技能校验、Python AST、文档链接与 git diff --check 通过。验证使用隔离临时运行及测试执行器，不代表完成真实项目迁移或设备测试。
+# 审计构建与自动化异常闭环（2026-09-22）
+
+按用户批准修复三项复审发现：
+
+- Auditor 批次的构建 Red/Yellow 经 accept 进入 build-verification-failed，报告保留结果引用与编译/超时根因，仅关联分支等待人工；独立分支继续。构建 Green 仍须 Automation，不生成自动化通过证明。
+- execute_test 在原 attempt 留存并绑定 partial_observations_ref。harmony_stage 与 Ledger 验收共用 test_completion.interpret：完整失败报告后超时仍保留失败 ASSERT、原根因分类和退出异常；部分观测恢复为 Yellow，混合 pass/fail 保留失败和 flaky。不能把已观察失败改成纯环境缺测，不能由不完整完成记录得到 Green。
+- 原结果 JSON 截断、编码或格式错误转为有证据和解析原因的 Yellow，submit/accept 后关闭 assignment；原 result/observations 不改写。身份/query/hash/媒体不匹配仍拒绝，验收重新计算派生结果。
+
+新增 **11 项**真实子进程/状态机回归：完整失败后超时、部分失败与混合重试、成功报告后超时不得 Green、截断 JSON 关闭 assignment、错误 JSON 形状、回执身份/原件 hash 篡改拒绝、部分媒体篡改拒绝、审计构建 Red/Yellow 人工出口、Green 构建继续自动化、独立审计分支保持可执行。
+
+全套 **465 项通过**：Ledger 295（82.096 秒）、适配器 42（2.085 秒）、Harmony 内核 128（0.95 秒），无失败/跳过。静态检查：144 个 Python AST、42 个 JSON、91 个 vendored 文件摘要及 git diff --check 通过。测试使用既有 Python 3.12、只读 pytest，禁用字节码和 pytest 缓存；本机 loopback 租约测试获准执行，不连接外部设备或模型。原生测试须将 Harmony 根加入 import path；初次收集缺少该路径，修正启动参数后全部通过，未安装依赖。
+
+未执行真实移动设备、LLM 或业务 Gradle。既有原生测试夹具仍有 engine.log 未关闭 ResourceWarning；不影响断言结果。隔离夹具按 cleanup 清理，修改集中于本包控制器、测试和协议说明；未提交或推送 Git。
+
+---

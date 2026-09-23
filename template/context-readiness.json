@@ -10,7 +10,7 @@
   "subject_sha256": "{{status.context_requirements.M001.coding.subject_sha256}}",
   "read_refs": [
     {
-      "path": "{{absolute-evidence-path}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}"
     }
   ],

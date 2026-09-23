@@ -1,4 +1,4 @@
 {
-  "argv": ["{{absolute-python-with-harmony-dependencies}}", "{{package_root}}/skills/migration-test/scripts/harmony_adapter.py", "--config", "{{absolute-host-harmony-config.json}}"],
+  "argv": ["{{absolute-python-with-harmony-dependencies}}", "{{package_root}}/skills/migration-test/runtime/harmony/sandbox.py", "test", "--root", "{{absolute-run-root}}", "--config", "{{absolute-run-root}}/runs/harmony/sandbox/environment/config.json", "--env-file", "{{absolute-run-root}}/runs/harmony/sandbox/environment/.env"],
   "timeout": 1860
 }

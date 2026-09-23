@@ -7,37 +7,37 @@
   "definitions": [
     {
       "kind": "proposal",
-      "path": "{{absolute-proposal-snapshot}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{proposal-snapshot}}",
       "sha256": "{{sha256}}"
     },
     {
       "kind": "spec",
-      "path": "{{absolute-spec-snapshot}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{spec-snapshot}}",
       "sha256": "{{sha256}}"
     },
     {
       "kind": "design",
-      "path": "{{absolute-design-snapshot}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{design-snapshot}}",
       "sha256": "{{sha256}}"
     },
     {
       "kind": "tasks",
-      "path": "{{absolute-tasks-snapshot}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{tasks-snapshot}}",
       "sha256": "{{sha256}}"
     },
     {
       "kind": "checklist",
-      "path": "{{absolute-checklist-snapshot}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{checklist-snapshot}}",
       "sha256": "{{sha256}}"
     },
     {
       "kind": "test-design",
-      "path": "{{absolute-test-design-snapshot}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{test-design-snapshot}}",
       "sha256": "{{sha256}}"
     },
     {
       "kind": "global-contract",
-      "path": "{{absolute-global-contract-snapshot}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{global-contract-snapshot}}",
       "sha256": "{{sha256}}"
     }
   ],

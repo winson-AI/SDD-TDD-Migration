@@ -2,8 +2,8 @@
 
 import logging
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Optional, Any
+from .storage import output_path
 
 
 def configure_logger(console_level: str = "INFO", log_file: Optional[str] = None):
@@ -28,10 +28,10 @@ def configure_logger(console_level: str = "INFO", log_file: Optional[str] = None
     # Create file handler if log_file is provided
     if log_file:
         # Create directory if it doesn't exist
-        log_path = Path(log_file)
+        log_path = output_path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
-        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        file_handler = logging.FileHandler(log_path, encoding="utf-8")
         file_handler.setLevel(logging.DEBUG)
         file_formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

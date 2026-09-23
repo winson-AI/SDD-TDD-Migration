@@ -26,9 +26,9 @@ from harmony_stage import build as stage_result
 class SourceChangeTests(unittest.TestCase):
     def setUp(self):
         self.f = f = test_context_readiness.ContextReadinessTests(); f.setUp(); self.addCleanup(f.doCleanups)
-        old = f.state(); f.root = (f.base/'source-run').resolve()
+        old = f.state(); f.root = (f.base/'.sdd-runs/demo').resolve()
         actor = {'role': 'host', 'instance_id': 'host'}
-        self.config_root = f.base/'project-config'
+        self.config_root = f.base/'.sdd-migration'
         self.config = {'legacy_root': str(f.legacy), 'target_root': str(f.target),
                        'architecture_path': old['new_architecture']['path']}
         pc.update(self.config_root, {'schema_version': 1, 'project_id': 'demo', 'request_id': 'config',
@@ -141,7 +141,8 @@ class SourceChangeTests(unittest.TestCase):
             aid = scope+'-'+mid+'-'+str(f.n)
             if scope == 'build': argv = [sys.executable, '-c', 'pass']
             else:
-                script = f.base/(aid+'.py')
+                script = f.root/'staging/test-runner'/(aid+'.py')
+                script.parent.mkdir(parents=True, exist_ok=True)
                 script.write_text('import argparse,json,runpy\np=argparse.ArgumentParser();p.add_argument("--query-file");p.add_argument("--result-file");a=p.parse_args()\n'
                     +f'v=runpy.run_path({str(code)!r})["value"]; passed=v==2\n'
                     +'r={"flaky":False,"quality":"green-passed" if passed else "red-bug",'
@@ -155,7 +156,7 @@ class SourceChangeTests(unittest.TestCase):
             f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner',
                 'test_scope': scope, 'context_ref': receipt}, module=mid)
             a = f.state()['modules'][mid]['assignments'][aid]
-            rr = execute(f.root, mid, aid, mid+suffix, argv, str(f.target), f.base/aid)
+            rr = execute(f.root, mid, aid, mid+suffix, argv, str(f.target), f.root/('runs/build' if scope == 'build' else 'runs/harmony/automation')/aid)
             if scope == 'build':
                 result = stage_result(f.root, mid, aid, [rr])
             else:
@@ -274,7 +275,7 @@ class SourceChangeTests(unittest.TestCase):
         self.assertEqual(peer['freeze_id'], before['freeze_id']); self.assertEqual(peer['plan'], old)
         self.assertIsNone(s['modules']['M001']['plan'])
         self.assertFalse((f.root/'openspec/changes/demo-m001/tasks.md').exists())
-        self.assertIn('Replanning required', (f.root/'openspec/changes/demo-m001/status.md').read_text())
+        self.assertIn('Replanning required', (f.base/'openspec/changes/demo-m001/status.md').read_text())
         f.call('assign', {'role': 'implementer', 'assignment_id': 'PEER', 'instance_id': 'coder'}, module='M002')
         self.assertEqual(f.state()['modules']['M002']['phase'], 'implementing')
 
@@ -338,8 +339,10 @@ class SourceChangeTests(unittest.TestCase):
         req = {'schema_version': 1, 'run_id': 'demo', 'request_id': 'crash-source', 'expected_revision': f.state()['revision'],
                'module_id': None, 'operation': 'reconfigure-sources', 'payload': p}
         actor = {'role': 'host', 'instance_id': 'host'}
-        with patch('ledger.project', side_effect=OSError('projection crash')), self.assertRaises(OSError):
-            ledger.apply(f.root, req, actor)
+        with patch('ledger.project', side_effect=OSError('projection crash')):
+            ack = ledger.apply(f.root, req, actor)
+            self.assertTrue(ack['committed'])
+            self.assertEqual(ack['projection']['status'], 'pending')
         self.assertTrue(ledger.apply(f.root, req, actor)['duplicate'])
         self.assertEqual(f.state()['source_change_review']['status'], 'applied')
 

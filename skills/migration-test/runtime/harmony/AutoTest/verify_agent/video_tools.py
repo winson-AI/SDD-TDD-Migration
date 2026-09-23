@@ -18,6 +18,7 @@ from datetime import datetime
 import ffmpeg
 import imageio_ffmpeg
 from ..logger import logger
+from ..storage import output_path as managed_output, temp_directory
 
 # 配置 ffmpeg 使用 imageio-ffmpeg 提供的二进制文件
 os.environ['FFMPEG_BINARY'] = imageio_ffmpeg.get_ffmpeg_exe()
@@ -136,7 +137,7 @@ def _load_segment_metadata(dir_path: str) -> dict:
 
 def _save_segment_metadata(dir_path: str, metadata: dict) -> None:
     """保存片段元数据"""
-    meta_path = _get_segment_metadata_path(dir_path)
+    meta_path = managed_output(_get_segment_metadata_path(dir_path))
     try:
         with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
@@ -241,7 +242,7 @@ def _get_mapping_sidecar_path(merged_video_path: Union[str, Path]) -> Path:
 
 def _save_time_mapping(mapping: dict, merged_video_path: Union[str, Path]) -> None:
     """保存时间映射表到 sidecar 文件"""
-    mapping_path = _get_mapping_sidecar_path(merged_video_path)
+    mapping_path = managed_output(_get_mapping_sidecar_path(merged_video_path))
     try:
         with open(mapping_path, "w", encoding="utf-8") as f:
             json.dump(mapping, f, ensure_ascii=False, indent=2)
@@ -372,7 +373,7 @@ def prepare_video_for_verification(
         return str(video_path.absolute())
 
     if output_path is None:
-        with tempfile.NamedTemporaryFile(suffix=video_path.suffix or ".mp4", delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(dir=temp_directory(video_path), suffix=video_path.suffix or ".mp4", delete=False) as temp_file:
             output_path = temp_file.name
 
     if task_start_timestamp is not None:
@@ -426,7 +427,9 @@ def merge_videos(
 
     # 转换为 Path 对象
     video_paths = [Path(p) for p in video_paths]
-    output_path = Path(output_path)
+    output_path = managed_output(output_path)
+    if delete_temp:
+        video_paths = [managed_output(p) for p in video_paths]
 
     logger.info(f"开始合并视频，共 {len(video_paths)} 个文件")
     logger.debug(f"输入视频: {[str(p) for p in video_paths]}")
@@ -462,7 +465,7 @@ def merge_videos(
     if delete_temp:
         logger.info(f"删除临时视频文件")
         for video_path in video_paths:
-            video_path.unlink()
+            managed_output(video_path).unlink()
             logger.debug(f"已删除: {video_path}")
 
     logger.info(f"视频合并成功: {output_path.absolute()}")
@@ -475,8 +478,9 @@ def _merge_with_concat(video_paths: List[Path], output_path: Path) -> None:
     使用 concat demuxer 方法合并视频（无损，速度快）
     适用于相同编码格式的视频
     """
+    output_path = managed_output(output_path)
     # 创建临时文件列表
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
+    with tempfile.NamedTemporaryFile(dir=temp_directory(output_path), mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
         for video_path in video_paths:
             # 使用绝对路径并转义
             abs_path = video_path.absolute()
@@ -515,8 +519,9 @@ def _merge_with_re_encode(video_paths: List[Path], output_path: Path) -> None:
     重新编码并合并视频
     适用于不同编码格式的视频
     """
+    output_path = managed_output(output_path)
     # 创建临时文件列表
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
+    with tempfile.NamedTemporaryFile(dir=temp_directory(output_path), mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
         for video_path in video_paths:
             abs_path = video_path.absolute()
             path_str = str(abs_path).replace('\\', '/')
@@ -561,6 +566,7 @@ def _merge_unified_orientation(video_paths: List[Path], output_path: Path,
         output_path: 输出视频路径
         target_orientation: 目标方向，"portrait" 竖屏 或 "landscape" 横屏
     """
+    output_path = managed_output(output_path)
     # 获取每个片段的尺寸，判断方向
     seg_infos = []
     for vp in video_paths:
@@ -693,7 +699,7 @@ def trim_video_by_timestamp(
         >>> trim_video_by_timestamp("input.mp4", "output.mp4", 1710844800, 1710845100, video_start_timestamp=1710844700)
     """
     video_path = Path(video_path)
-    output_path = Path(output_path)
+    output_path = managed_output(output_path)
 
     logger.info(f"开始裁剪视频: {video_path}")
     logger.debug(f"输出路径: {output_path}")
@@ -840,7 +846,7 @@ def trim_video_by_seconds(
         >>> trim_video_by_seconds("input.mp4", "output.mp4", 5, 15)
     """
     video_path = Path(video_path)
-    output_path = Path(output_path)
+    output_path = managed_output(output_path)
 
     logger.info(f"开始裁剪视频: {video_path}")
     logger.debug(f"输出路径: {output_path}")
@@ -912,7 +918,7 @@ def compress_video(
         压缩后的视频文件路径
     """
     input_path = Path(input_path)
-    output_path = Path(output_path)
+    output_path = managed_output(output_path)
 
     logger.info(f"开始压缩视频: {input_path}")
     logger.debug(f"输出路径: {output_path}")
@@ -998,6 +1004,7 @@ def _trim_video(
         end_seconds: 结束秒数
         re_encode: 是否重新编码
     """
+    output_path = managed_output(output_path)
     try:
         ffmpeg_path = get_ffmpeg_path()
         logger.debug(f"使用 ffmpeg: {ffmpeg_path}")
@@ -1080,7 +1087,7 @@ def find_video_and_merge(dir_path: str, keep_raw: bool = False,
             return str(video_path)
         # 复制一份为 merged_video，保留原始 screen_record 到任务结束
         merge_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        merged_output = Path(dir_path) / f"merged_video_{merge_timestamp}.mp4"
+        merged_output = managed_output(Path(dir_path) / f"merged_video_{merge_timestamp}.mp4")
         try:
             import shutil
             shutil.copy2(str(video_path), str(merged_output))

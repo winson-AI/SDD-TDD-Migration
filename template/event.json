@@ -13,13 +13,13 @@
   "event_type": "test_run_recorded",
   "payload": {
     "test_run_id": "{{test-run-id}}",
-    "result_ref": "{{absolute-result-path}}",
+    "result_ref": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/result.json",
     "freeze_id": "{{freeze-id}}",
     "code_baseline": "{{tree-or-commit}}"
   },
   "artifacts": [
     {
-      "path": "{{absolute-result-path}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{result-path}}",
       "sha256": "{{sha256}}"
     }
   ]

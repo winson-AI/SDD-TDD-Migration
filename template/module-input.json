@@ -5,7 +5,7 @@
   "name": "{{feature-name}}",
   "change_name": "{{run-id}}-m001",
   "run_root": "{{absolute-run-root}}",
-  "change_root": "{{absolute-run-root}}/openspec/changes/{{run-id}}-m001",
+  "change_root": "{{absolute-workspace-root}}/openspec/changes/{{run-id}}-m001",
   "scope": {
     "in": [
       "{{business-slice}}"
@@ -70,7 +70,7 @@
   },
   "context_refs": [
     {
-      "path": "{{absolute-module-context-pack}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{module-context-pack}}",
       "sha256": "{{sha256}}"
     }
   ],
@@ -87,14 +87,14 @@
     "source": "Ledger status.module_inputs[module_id]; includes parent_context for child MOs"
   },
   "feature_inventory_ref": {
-    "path": "{{absolute-accepted-feature-inventory}}",
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{accepted-feature-inventory}}",
     "sha256": "{{sha256}}"
   },
   "feature_ids": [
     "FEATURE-001"
   ],
   "dimension_analysis_ref": {
-    "path": "{{absolute-dimension-analysis-path}}",
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{dimension-analysis-path}}",
     "sha256": "{{sha256}}"
   }
 }

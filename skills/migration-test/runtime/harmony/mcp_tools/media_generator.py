@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import time
 from AutoTest.logger import logger
+from AutoTest.storage import output_path as managed_output, temp_directory
 from AutoTest.layered_agent_cli.mcp_tools import collect_function_tool, get_driver
 
 
@@ -14,6 +15,7 @@ def generate_random_gradient_image(width=1920, height=1080, output_path="gradien
     """
     Generates an image with a random vertical gradient.
     """
+    output_path = str(managed_output(output_path))
     image = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(image)
 
@@ -37,6 +39,7 @@ def generate_random_gradient_video(width=1920, height=1080, duration=5, fps=30, 
     Requires opencv-python and numpy.
     """
 
+    output_path = str(managed_output(output_path))
     # Check if output directory exists, if not create it (based on path)
     output_dir = os.path.dirname(output_path)
     if output_dir and not os.path.exists(output_dir):
@@ -106,7 +109,7 @@ def send_file_to_media(driver: UiDriver, file_path: str):
 
 def _generate_random_gradient_image_to_device() -> str:
     driver = get_driver()
-    tmp_file = f"{int(time.time() * 1000)}.jpeg"
+    tmp_file = str(temp_directory() / f"{time.time_ns()}.jpeg")
     try:
         generate_random_gradient_image(output_path=tmp_file)
         if os.path.exists(tmp_file):
@@ -127,7 +130,7 @@ async def generate_random_gradient_image_to_device() -> str:
 
 def _generate_random_gradient_video_to_device() -> str:
     driver = get_driver()
-    tmp_file = f"{int(time.time() * 1000)}.mp4"
+    tmp_file = str(temp_directory() / f"{time.time_ns()}.mp4")
     try:
         generate_random_gradient_video(output_path=tmp_file)
         if os.path.exists(tmp_file):

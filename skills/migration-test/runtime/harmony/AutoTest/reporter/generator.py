@@ -15,6 +15,7 @@ from openai.types.responses import ResponseReasoningItem, ResponseFunctionToolCa
 from .reporter_abs import ReporterAbs
 from .reporter_types import ReportEvent, EventType, Step
 from ..logger import logger
+from ..storage import output_path
 
 
 class ReportGenerator(ReporterAbs):
@@ -25,13 +26,13 @@ class ReportGenerator(ReporterAbs):
         Initialize report generator.
 
         Args:
-            output_dir: Directory to save reports and screenshots. If None, uses "reports" and creates timestamped subdirectory.
+            output_dir: Managed output directory. If None, uses the current runner's reports directory.
         """
         if output_dir:
-            self.base_output_dir = Path(output_dir)
+            self.base_output_dir = output_path(output_dir)
             self.use_timestamp_dir = False
         else:
-            self.base_output_dir = Path("reports")
+            self.base_output_dir = output_path(default='reports')
             self.use_timestamp_dir = True
 
         self.base_output_dir.mkdir(parents=True, exist_ok=True)
@@ -394,13 +395,13 @@ class ReportGenerator(ReporterAbs):
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filename = f"{prefix}_{timestamp}.jpeg"
-        filepath = self.screenshot_dir / filename
+        filepath = output_path(self.screenshot_dir / filename, boundary=self.screenshot_dir)
 
         image_data = base64.b64decode(base64_data)
         with open(filepath, "wb") as f:
             f.write(image_data)
 
-        layout_filepath = self.layout_dir / f"{prefix}_{timestamp}.json"
+        layout_filepath = output_path(self.layout_dir / f"{prefix}_{timestamp}.json", boundary=self.layout_dir)
         with open(layout_filepath, "w", encoding="utf-8") as f:
             f.write(layout_data)
 
@@ -969,18 +970,19 @@ class ReportGenerator(ReporterAbs):
         if not self.test_case:
             self.test_case = os.path.basename(self.report_dir)
 
+        self.report_dir = output_path(self.report_dir)
         self.report_dir.mkdir(parents=True, exist_ok=True)
 
         # Create screenPath subdirectory for screenshots
-        self.screenshot_dir = self.report_dir / "screenPath"
+        self.screenshot_dir = output_path(self.report_dir / "screenPath")
         self.screenshot_dir.mkdir(exist_ok=True)
 
         # Create layout subdirectory for layout
-        self.layout_dir = self.report_dir / "layout"
+        self.layout_dir = output_path(self.report_dir / "layout")
         self.layout_dir.mkdir(exist_ok=True)
 
         # video path
-        self.video_dir = self.report_dir / "videoPath"
+        self.video_dir = output_path(self.report_dir / "videoPath")
         self.video_dir.mkdir(exist_ok=True)
 
     def save_all(self, base_filename: Optional[str] = None) -> dict[str, str]:
@@ -1002,17 +1004,17 @@ class ReportGenerator(ReporterAbs):
 
         saved_files = {}
 
-        html_path = self.report_dir / f"{base_filename}.html"
+        html_path = output_path(self.report_dir / f"{base_filename}.html", boundary=self.report_dir)
         with open(html_path, "w", encoding="utf-8") as f:
             f.write(self.generate_html())
         saved_files["html"] = str(html_path)
 
-        md_path = self.report_dir / f"{base_filename}.md"
+        md_path = output_path(self.report_dir / f"{base_filename}.md", boundary=self.report_dir)
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(self.generate_markdown())
         saved_files["markdown"] = str(md_path)
 
-        json_path = self.report_dir / f"{base_filename}.json"
+        json_path = output_path(self.report_dir / f"{base_filename}.json", boundary=self.report_dir)
         with open(json_path, "w", encoding="utf-8") as f:
             f.write(self.generate_json())
         saved_files["json"] = str(json_path)

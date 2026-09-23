@@ -1,12 +1,12 @@
 """Freeze linked Markdown knowledge and relocate OpenSpec links without editing evidence."""
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
 from urllib.parse import quote, unquote, urlsplit
 
 from contracts import check_ref, digest, file_ref, read_json, require
+import run_storage
 
 MARKDOWN = {'.md', '.markdown', '.mdx'}
 LINK = re.compile(r'(?<!\\)\[[^\]\n]*\]\(\s*(<[^>\n]+>|(?:\\.|[^\\()\s]|\([^()\n]*\))+)(?=\s|\))')
@@ -99,14 +99,11 @@ def freeze(directory, ref, archive, max_files=256, max_bytes=32 * 1024 * 1024):
     for path, data in content.items():
         if path in markdown:
             data = rewrite(data.decode('utf-8'), path, mapping)[0].encode('utf-8')
-            view = Path(mapping[path]); view.parent.mkdir(parents=True, exist_ok=True)
+            view = run_storage.checked_path(mapping[path], directory)
             if view.exists():
                 require(view.read_bytes() == data, 'linked context view corrupt')
             else:
-                temporary = view.with_suffix('.tmp')
-                with temporary.open('wb') as stream:
-                    stream.write(data); stream.flush(); os.fsync(stream.fileno())
-                os.replace(temporary, view)
+                run_storage.atomic_bytes(view, data)
         entries.append({'source_path': path, 'original_ref': originals[path], 'readable_ref': file_ref(mapping[path])})
     manifest = {'schema_version': 1, 'entries': entries, 'warnings': warnings}
     manifest_ref = archive(directory, (json.dumps(manifest, ensure_ascii=False, sort_keys=True, indent=2)+'\n').encode(), '.links.json')

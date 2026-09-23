@@ -10,7 +10,7 @@
 
 ## 固定位置与身份
 
-默认项目配置目录是 `<迁移工作目录>/.sdd-migration`，CLI `--root` 可显式指定。一个目录对应一个稳定 project_id；宿主先从当前项目定位目录，再读配置。多项目不能共用同一个配置文件；项目不明确时先定位，不套用其他项目上下文。配置目录独立于 legacy/target，目标路径更新不搬迁配置。
+项目配置目录是 `<workspace_root>/.sdd-migration`。初始化未提供 workspace_root 时取配置目录父级并持久化；CLI `--root` 指向该配置目录，后续启动显式传入，避免 cwd 改变导致误选项目。一个目录对应一个稳定 project_id；宿主先从当前项目定位目录，再读配置。多项目不能共用同一个配置文件；项目不明确时先定位，不套用其他项目上下文。配置目录独立于 legacy/target，目标路径更新不搬迁配置。workspace_root 与配置目录必须对应，不能以 update/override 改位置。新 run 自动使用同级 .sdd-runs；同级 openspec 以 run_id 隔离，见 [留存布局](storage-layout.md)。
 
 ```text
 <工作目录>/.sdd-migration/
@@ -18,7 +18,8 @@
   history/<sha256>.json           # 不可变历史版本，previous_ref 串联
   sources/<sha256>.*             # 用户输入来源的副本
   .context.lock                  # 单写者文件锁
-<run_root>/
+  runs/<run_id>.json              # 不可变位置索引，不记录模块状态
+<workspace_root>/.sdd-runs/<run_id>/
   context/snapshot.json           # 本轮冻结上下文
   context/files/<sha256>.*        # 本轮架构、规则、来源等证据副本
   context/files/<sha256>.links.json # 原路径、原始副本、可读副本的版本映射与未解析链接
@@ -49,7 +50,7 @@
   "request_id": "change-target-002",
   "expected_revision": 1,
   "patch": {"target_root": "/workspace/new-target"},
-  "source_ref": {"path": "/workspace/user-input/update-002.md", "sha256": "<实际摘要>"}
+  "source_ref": {"path": "/workspace/migration/.sdd-migration/inputs/update-002.md", "sha256": "<实际摘要>"}
 }
 ```
 
@@ -66,7 +67,7 @@
 5. init payload 必须传 project_context_ref、input_ref、Global 生成的 global_spec/requirement_ids/case_ids/global_paths，以及快照对应的 legacy_root/target_root/new_architecture、entry_mode/module_name 和四项可执行预算。single_module_id 由 Global 生成，标识选定根功能；父 MO 随后拆分子功能，用户仍只输入模块名。预算取高层 input.budgets，摊平为低层字段。
 6. Ledger 校验快照所属 run/root、路径、模式/模块名、架构引用及预算。运行状态保存 project_id/project_revision/project_context_ref；已有快照时不能漏传引用。后续事务和 status 校验冻结证据，禁止换用最新配置。
 
-prepare 同一请求重试返回原快照，即使项目配置已经更新。相同 run_root 的新请求不能覆盖旧快照；初始化过的旧运行也不能后补快照伪造启动依据。prepare 的返回只代表上下文已固化，init ACK 才代表运行进入 Ledger。
+prepare 同一请求重试从 `.sdd-migration/runs/<run_id>.json` 找回原位置并返回原快照，即使项目配置已经更新。相同 run_id 指向另一目录会被拒绝；新任务必须使用新 run_id。相同 run_root 的新请求不能覆盖旧快照；初始化过的旧运行也不能后补快照伪造启动依据。prepare 的返回只代表上下文已固化，init ACK 才代表运行进入 Ledger。
 
 配置更新只影响后续新运行。既有运行继续使用冻结版本；需要采用一般新配置时，由 Global 分析影响，使用新 run_id/run_root 准备运行，相关规格按原门禁重新澄清/冻结/复测。唯一的受控例外是 [同 run 只读来源追加](source-changes.md)：GO 评审所有模块影响，Host 提交绑定批准的版本事务，生成 context/revisions 新快照，保留原文件。受影响模块重新冻结/复测，无关有效证据有明确延续记录；不能把配置更新当作测试通过。
 
@@ -86,24 +87,24 @@ prepare 保存 UTF-8 Markdown 时，递归收集正文中的本地文件链接�
 
 ## CLI
 
-以下是实际 Python 命令；`/sdd-context`、`/sdd-init` 仍是宿主需接入的命令定义。配置目录参数指向 `.sdd-migration` 本身，run_root 与其分离。请求 JSON 由宿主根据真实用户输入整理。
+以下是实际 Python 命令；`/sdd-context`、`/sdd-init` 仍是宿主需接入的命令定义。配置目录参数指向 `.sdd-migration` 本身；prepare 根据请求 run_id 派生 `.sdd-runs/<run_id>`，返回 run_root/storage_layout，宿主使用返回值调用 Ledger。请求 JSON 由宿主根据真实用户输入整理。
 
 ```bash
 package_root="/Users/winson/CodeBase/WF-Designer/SDD-TDD-Migration"
 context_root="/workspace/migration/.sdd-migration"
 
 python3 "$package_root/skills/migration-ledger/scripts/project_context.py" init \
-  --root "$context_root" --request /workspace/context-init.json --host-context /workspace/host.json
+  --root "$context_root" --request /workspace/migration/.sdd-migration/inputs/context-init.json --host-context /workspace/migration/.sdd-migration/inputs/host.json
 
 python3 "$package_root/skills/migration-ledger/scripts/project_context.py" update \
-  --root "$context_root" --request /workspace/context-update.json --host-context /workspace/host.json
+  --root "$context_root" --request /workspace/migration/.sdd-migration/inputs/context-update.json --host-context /workspace/migration/.sdd-migration/inputs/host.json
 
 python3 "$package_root/skills/migration-ledger/scripts/project_context.py" show --root "$context_root"
 python3 "$package_root/skills/migration-ledger/scripts/project_context.py" history --root "$context_root"
 
 python3 "$package_root/skills/migration-ledger/scripts/project_context.py" prepare \
-  --root "$context_root" --run-root /workspace/migration/runs/login-v1 \
-  --request /workspace/run-request.json --host-context /workspace/host.json
+  --root "$context_root" \
+  --request /workspace/migration/.sdd-migration/inputs/run-request.json --host-context /workspace/migration/.sdd-migration/inputs/host.json
 ```
 
 [run-request.json](../../../template/run-request.json) 中的元数据、项目标识、来源引用由宿主生成；用户的单模块选择仍只有 `single-module + 功能模块名`。

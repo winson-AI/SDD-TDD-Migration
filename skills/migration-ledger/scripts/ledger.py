@@ -3,12 +3,12 @@
 import argparse
 import copy
 from datetime import datetime, timezone
-import fcntl
 import json
 import os
 from pathlib import Path
 import re
 import sys
+sys.dont_write_bytecode = True
 
 import workflow
 import audit_closure
@@ -21,7 +21,8 @@ import context_readiness
 import test_validation as tv
 import progress_signals
 import source_changes
-from openspec_projection import materialize
+import run_storage
+from openspec_projection import materialize, attempt as project_attempt
 
 from contracts import (Rejected, baseline, check_ref, digest, file_ref, keyed, nonempty,
                        read_json, require, validate_plan, validate_result, verify_plan)
@@ -32,13 +33,7 @@ def now():
 
 
 def atomic(path, value):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + '.tmp')
-    with temp.open('w') as f:
-        json.dump(value, f, ensure_ascii=False, indent=2)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(temp, path)
+    run_storage.atomic_bytes(path, json.dumps(value, ensure_ascii=False, indent=2).encode('utf-8'))
 
 
 def overlaps(a, b):
@@ -60,7 +55,8 @@ def refresh(s):
 
 
 def read_events(root):
-    path = root / 'ledger/events.jsonl'
+    root = Path(root).resolve()
+    path = run_storage.checked_path(root / 'ledger/events.jsonl', root)
     state, events, prev = None, [], None
     if not path.exists():
         return state, events
@@ -80,23 +76,46 @@ def read_events(root):
 
 
 def project(root, s, sequence):
-    atomic(root / 'ledger/global.json', {**s, 'last_sequence': sequence, 'parent_mo_names': decomposition.parent_mo_names(s)})
+    errors = []
+    project_attempt(errors, 'global-state', lambda: atomic(root / 'ledger/global.json', {**s, 'last_sequence': sequence, 'parent_mo_names': decomposition.parent_mo_names(s)}))
     for mid, m in s['modules'].items():
-        atomic(root / f'ledger/modules/{mid}.json', {**m, 'last_sequence': sequence})
+        project_attempt(errors, 'module-state', lambda: atomic(root / f'ledger/modules/{mid}.json', {**m, 'last_sequence': sequence}), mid)
     for mid, group in s.get('module_groups', {}).items():
-        atomic(root / f'ledger/modules/{mid}.json', {**group, 'last_sequence': sequence})
-    materialize(root, {**s, 'projection_steps': {mid: next_step(s, m) for mid, m in s['modules'].items()}}, sequence)
+        project_attempt(errors, 'parent-state', lambda: atomic(root / f'ledger/modules/{mid}.json', {**group, 'last_sequence': sequence}), mid)
+    errors.extend(project_attempt(errors, 'openspec', lambda: materialize(root,
+        {**s, 'projection_steps': {mid: next_step(s, m) for mid, m in s['modules'].items()}}, sequence)) or [])
+    return {'sequence': sequence, 'status': 'pending' if errors else 'current', 'errors': errors}
+
+
+def project_outcome(root, s, sequence):
+    errors = []
+    return project_attempt(errors, 'projection', lambda: project(root, s, sequence)) or {
+        'sequence': sequence, 'status': 'pending', 'errors': errors}
 
 
 def role(principal, *roles):
     require(principal.get('role') in roles and principal.get('instance_id'), 'principal role denied')
 
 
-def current(m):
+def current(m, observe_worker=False):
     verify_plan(m['plan'])
-    dimensions.current(m)
+    worker = next((a for a in m['assignments'].values() if not a.get('closed')), None)
+    writing = bool(observe_worker and worker and not m.get('blocked') and
+                   worker['role'] in ('implementer', 'fixer') and
+                   m['phase'] == ('implementing' if worker['role'] == 'implementer' else 'fixing') and
+                   worker['freeze_id'] == m['freeze_id'])
+    mutable = m['write_paths'] if writing else []
+    dimensions.current(m, mutable)
     if m.get('code_files'):
-        require(baseline(m['code_files']) == m['code_baseline'], 'code evidence stale; invalidate before continuing')
+        if writing:
+            # Old accepted bytes remain in artifacts. Only the assigned working
+            # copy may change; submit/accept must validate the new full manifest.
+            for ref in m['code_files']:
+                path = run_storage.checked_path(ref['path'])
+                if not any(path.is_relative_to(Path(p).resolve()) for p in mutable):
+                    check_ref(ref)
+        else:
+            require(baseline(m['code_files']) == m['code_baseline'], 'code evidence stale; invalidate before continuing')
 
 
 def invalidate_dependents(s, mid):
@@ -241,6 +260,10 @@ def resume_guard(s, m, p):
 
 def _next_step(s, m):
     """Derived dispatch guidance only; every mutation must still pass its own guards."""
+    if workflow.audit_active(s):
+        return {'module_id': m['module_id'], 'phase': m['phase'], 'expected_revision': m['revision'],
+                'operation': None, 'role': 'host', 'ready': False, 'reason': 'await-auditor',
+                'assignment_id': None, 'session_id': None}
     batch_step = audit_closure.module_step(s, m)
     if batch_step is not None:
         return batch_step
@@ -605,8 +628,7 @@ def mutate(s, req, principal, events, root=None):
                     memory.update(status='verified' if not bad else 'failed', reusable=not bad,
                                   regression_ref=sub['ref'], regression_paths=copy.deepcopy(result['paths']))
             m.update(stale=False, phase='dod' if not bad and not build_only else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
-            if not build_only:
-                audit_closure.test_accepted(s, m, result, sub['ref'])
+            audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only)
     elif op == 'diagnose':
         role(principal, 'diagnostician')
         require(m['phase'] == 'testing' and not m.get('blocked') and unresolved(m), 'no unresolved test failure')
@@ -836,7 +858,7 @@ def preserve_refs(root, value, seen=None):
                 return []
             seen.add(key)
             path = check_ref(value)
-            blob = root / 'artifacts' / value['sha256']
+            blob = run_storage.checked_path(root / 'artifacts' / value['sha256'], root / 'artifacts')
             blob.parent.mkdir(exist_ok=True)
             if not blob.exists():
                 with blob.open('xb') as f:
@@ -861,6 +883,9 @@ def preserve_refs(root, value, seen=None):
 def apply(root, req, principal):
     try:
         return _apply(root, req, principal)
+    except run_storage.LockTimeout:
+        # Reacquiring the same lock for a rejection diagnostic would wait again.
+        raise
     except (Rejected, OSError, ValueError, KeyError, TypeError) as exc:
         # Diagnostic only; rejected requests never mutate business events/quality.
         progress_signals.record_rejection(root, req, principal, str(exc))
@@ -870,18 +895,18 @@ def apply(root, req, principal):
 def _apply(root, req, principal):
     root = Path(root).resolve()
     root.mkdir(parents=True, exist_ok=True)
-    with (root / '.ledger.lock').open('a+') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with run_storage.file_lock(root / '.ledger.lock'):
         s, events = read_events(root)
         if s and s.get('project_context_ref'):
-            project_context.verify_snapshot(s['project_context_ref'])
+            run_storage.for_state(root, s)
         require(req.get('schema_version') == 1 and req.get('request_id'), 'version/request id required')
         request_hash = digest({'request': req, 'principal': principal})
         for e in events:
             if e['request_id'] == req['request_id']:
                 require(e['request_hash'] == request_hash, 'request id reused with different content/actor')
-                project(root, s, len(events))
-                return {'event_id': e['event_id'], 'sequence': e['sequence'], 'duplicate': True}
+                projection = project_outcome(root, s, len(events))
+                return {'event_id': e['event_id'], 'sequence': e['sequence'], 'duplicate': True,
+                        'committed': True, 'projection': projection}
         before = copy.deepcopy(s)
         if req['operation'] == 'init':
             role(principal, 'host')
@@ -944,34 +969,34 @@ def _apply(root, req, principal):
              'previous_hash': events[-1]['sha256'] if events else None, 'effect': effect,
              'artifact_snapshots': preserve_refs(root, req.get('payload', {}))}
         e['sha256'] = digest(e)
-        journal = root / 'ledger/events.jsonl'
+        journal = run_storage.checked_path(root / 'ledger/events.jsonl', root)
         journal.parent.mkdir(exist_ok=True)
         with journal.open('a') as f:
             f.write(json.dumps(e, ensure_ascii=False, sort_keys=True) + '\n')
             f.flush(); os.fsync(f.fileno())
-        project(root, s, e['sequence'])
-        return {'event_id': e['event_id'], 'sequence': e['sequence'], 'duplicate': False}
+        projection = project_outcome(root, s, e['sequence'])
+        return {'event_id': e['event_id'], 'sequence': e['sequence'], 'duplicate': False,
+                'committed': True, 'projection': projection}
 
 
 def status(root):
     root = Path(root).resolve()
     require(root.is_dir(), 'run root missing')
-    with (root / '.ledger.lock').open('a+') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with run_storage.file_lock(root / '.ledger.lock'):
         s, events = read_events(root)
         require(s, 'run not initialized')
         if s.get('project_context_ref'):
-            project_context.verify_snapshot(s['project_context_ref'])
+            run_storage.for_state(root, s)
         observed = []
         for mid, m in s['modules'].items():
             if m.get('plan'):
                 try:
-                    current(m)
+                    current(m, observe_worker=True)
                 except (Rejected, OSError) as exc:
                     observed.append({'module_id': mid, 'reason': str(exc)})
                     m['effective_quality'] = 'yellow-blocked'
         decomposition.refresh_groups(s)
-        project(root, s, len(events))
+        projection = project_outcome(root, s, len(events))
         cursor = [next_step(s, m) for m in s['modules'].values()]
         cursor += [decomposition.group_step(s, group) for group in s.get('module_groups', {}).values()]
         rounds = audit_closure.module_rounds(s, cursor)
@@ -983,7 +1008,7 @@ def status(root):
             if audit.get('mode') == 'problem':
                 fresh = audit['snapshot'] == workflow.problem_snapshot(s, audit['module_ids'])
             global_next = {'operation': ('problem-audit' if audit.get('mode') == 'problem' else 'audit') if fresh else 'audit-revoke', 'role': 'auditor' if fresh else 'host',
-                           'assignment_id': audit['assignment_id'], 'ready': False,
+                           'assignment_id': audit['assignment_id'], 'ready': not fresh,
                            'reason': 'audit-running' if fresh else 'audit-snapshot-stale'}
         elif not s.get('global_plan'):
             splitting = any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values())
@@ -1021,10 +1046,28 @@ def status(root):
             global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'module-work-remaining'}
         global_next = context_readiness.annotate(s, None, global_next)
         progress = progress_signals.build(root, s, events, cursor, global_next)
-        atomic(root / 'ledger/progress.json', progress)
+        errors = projection['errors']
         from openspec_projection import write
-        write(root / 'reports/workflow-attention.md', progress_signals.render(progress))
+        from workflow_hub import materialize as hub
+        hub_paths = project_attempt(errors, 'workflow-routing', lambda: hub(root, {**s, 'quality': 'yellow-blocked' if observed and s['quality'] != 'red-bug' else s['quality']},
+                        len(events), {'global_next_step': global_next, 'next_steps': cursor,
+                                      'source_change_next_step': source_changes.next_action(s), 'module_rounds': rounds}))
+        progress_signals.projection_attention(progress, errors)
+        project_attempt(errors, 'workflow-attention', lambda: write(root / 'reports/workflow-attention.md', progress_signals.render(progress)))
+        progress_signals.projection_attention(progress, errors)
+        # Persist after human-readable outputs so observers see their failures.
+        before_progress = len(errors)
+        project_attempt(errors, 'progress-state', lambda: atomic(root / 'ledger/progress.json', progress))
+        if len(errors) != before_progress:
+            progress_signals.projection_attention(progress, errors)
+            # One bounded retry records a transient write failure; permanent I/O
+            # failure remains in the Host response without blocking other work.
+            project_attempt(errors, 'progress-state-retry', lambda: atomic(root / 'ledger/progress.json', progress))
+            progress_signals.projection_attention(progress, errors)
+        projection['status'] = 'pending' if errors else 'current'
         return {**s, 'source_change_next_step': source_changes.next_action(s),
+                'projection': projection,
+                'run_root': str(root), 'openspec_hub': hub_paths,
                 'workflow_progress': progress, 'context_requirements': context_readiness.requirements(s),
                 'parent_mo_names': decomposition.parent_mo_names(s),
                 'migration_report': {'json': str(root / 'reports/migration-report.json'),
@@ -1041,22 +1084,39 @@ def status(root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('init', 'apply', 'status', 'resume', 'recover'))
+    parser.add_argument('command', choices=('init', 'apply', 'status', 'resume', 'recover', 'history'))
     parser.add_argument('--root', required=True)
     parser.add_argument('--request')
     parser.add_argument('--host-context', help='Host-protected principal JSON; CLI does not authenticate humans')
     args = parser.parse_args()
     try:
+        if args.command == 'history':
+            state, _ = read_events(Path(args.root).resolve())
+            require(state, 'run not initialized')
+            print(json.dumps(state, ensure_ascii=False, indent=2))
+            return 0
+        root = Path(args.root).resolve()
+        require(root.parent.name == '.sdd-runs', 'managed CLI requires .sdd-runs/<run_id>; use history for old read-only evidence')
+        run_storage.layout(root.parent.parent, root.name)
+        snapshot = project_context.verify_snapshot(file_ref(root / 'context/snapshot.json'))
+        require(snapshot.get('storage_layout'), 'prepared storage layout required; use history for old read-only evidence')
+        run_storage.validate(snapshot['storage_layout'], root, root.name)
         if args.command == 'status':
             result = status(args.root)
         else:
             require(args.request and args.host_context, 'request and host context required')
             req = read_json(args.request)
+            require(req.get('run_id') == root.name, 'request run_id differs from run directory')
+            if req.get('operation') == 'init':
+                require(req.get('payload', {}).get('project_context_ref'), 'init must bind prepared project context')
             if args.command != 'apply':
                 require(req.get('operation') == args.command, 'command/operation mismatch')
             result = apply(args.root, req, read_json(args.host_context))
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
+    except run_storage.LockTimeout as exc:
+        print(json.dumps(exc.diagnostic, ensure_ascii=False), file=sys.stderr)
+        return 1
     except (Rejected, OSError, ValueError, KeyError, TypeError) as exc:
         diagnostic = Path(args.root).resolve() / 'reports/rejected-operation.json'
         print(json.dumps({'status': 'rejected', 'reason': str(exc),

@@ -4,6 +4,8 @@ import asyncio
 import re
 import sys
 import os
+
+sys.dont_write_bytecode = True
 import hashlib
 import datetime
 
@@ -275,15 +277,22 @@ async def main():
                         help="Test case name. If not provided, defaults to report-dir name.")
     parser.add_argument("--playback", action='store_true',
                         help="Enable playback mode, automatically finds recording based on task hash")
-    parser.add_argument("--memory-dir", default="memory", help="Directory for recordings")
+    parser.add_argument("--memory-dir", default=None, help="Optional historical recording directory to copy into this execution")
     parser.add_argument("--task-file", help="MD格式测试用例文件路径，批量执行多个任务")
     parser.add_argument("--xmind-output", default=None,
-                        help="xmind 转换后的 md 输出目录，未指定则在 xmind 同目录生成同名 md")
+                        help="XMind 转换输出必须位于 runs/harmony/sandbox；默认当前执行 design 目录")
     parser.add_argument("--force-overwrite", action='store_true',
                         help="强制重新转换 xmind（即使已存在对应 md 也覆盖）")
     parser.add_argument("--app-name", default=None,
                         help="被测应用名称（如 抖音）；使用 --task-file 批量执行时为必填")
     args = parser.parse_args()
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'migration-ledger/scripts'))
+    from runner_storage import harmony_output, scope
+    from run_storage import checked_path
+    if not args.report_dir:
+        parser.error('--report-dir must be under .sdd-runs/<run_id>/runs/harmony/automation/')
+    args.report_dir = str(harmony_output(None, args.report_dir, 'automation'))
 
     if args.report_dir:
         run_dir = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
@@ -302,7 +311,27 @@ async def main():
     else:
         log_file = None
 
-    config_manager.load_file_config()
+    import shutil
+    recordings = Path(args.memory_dir).resolve() if args.memory_dir else None
+    args.memory_dir = str(checked_path(Path(args.report_dir) / 'memory', args.report_dir))
+    if recordings:
+        if not recordings.is_dir(): parser.error('--memory-dir must be an existing recording source')
+        Path(args.memory_dir).mkdir()
+        for source in recordings.glob('*.json'):
+            shutil.copyfile(source, Path(args.memory_dir) / source.name)
+    args.xmind_output = str(harmony_output(next(p for p in Path(args.report_dir).parents if p.parent.name == '.sdd-runs'), args.xmind_output, 'sandbox') if args.xmind_output else Path(args.report_dir) / 'design')
+    with scope(Path(args.report_dir)):
+        return await run_native(args, log_file)
+
+
+async def run_native(args, log_file):
+    from pathlib import Path
+    root = next(p for p in Path(args.report_dir).parents if p.parent.name == ".sdd-runs")
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
+    from harmony_environment import prepare_environment, load_environment
+    config_path, env_path = prepare_environment(root)
+    load_environment(env_path)
+    config_manager.load_file_config(str(config_path.parent / 'config.native.yaml'))
     config = config_manager.get_effective_config()
 
     configure_logger(console_level="DEBUG" if config.verbose else "INFO", log_file=log_file)
@@ -327,7 +356,7 @@ async def main():
             logger.error(f"xmind 预处理失败: {e}")
             return
 
-        knowledge_path = os.path.join(os.path.dirname(__file__), 'knowledge', f'{args.app_name}.json')
+        knowledge_path = str(root.parent.parent / '.sdd-migration/harmony/knowledge' / f'{args.app_name}.json')
         test_cases = parse_task_file(task_file, knowledge_path)
         if not test_cases:
             logger.error("未解析到有效测试用例，请检查用例文件格式")

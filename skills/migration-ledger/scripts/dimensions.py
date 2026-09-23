@@ -199,12 +199,20 @@ def implementation(plan, result):
                 require(expected.is_absolute() and actual.resolve() == expected.resolve(), 'resource evidence differs from planned ' + field)
 
 
-def current(module):
+def current(module, mutable_paths=()):
     """Keep reused, unchanged resource/consumer evidence live after acceptance."""
     if not module.get('code_files'):
         return
+    def verify(ref):
+        path = Path(ref['path'])
+        if any(path.is_relative_to(Path(p).resolve()) for p in mutable_paths):
+            from run_storage import checked_path
+            checked_path(path)
+        else:
+            check_ref(ref)
     for trace in module.get('dimension_evidence', []):
-        evidence(trace['evidence_refs'], 'accepted dimension evidence')
+        for ref in trace['evidence_refs']:
+            verify(ref)
         for field in ('target_resource_ref', 'consumer_ref'):
             if trace.get(field):
-                check_ref(trace[field])
+                verify(trace[field])

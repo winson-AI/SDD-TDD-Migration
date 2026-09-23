@@ -190,11 +190,15 @@ def validate_result(result, module, assignment):
         if quality != 'green-passed':
             cause = record.get('root_cause', {})
             require(all(cause.get(k) for k in ('category', 'summary', 'confidence', 'owner', 'next_action')), 'root cause/owner required')
-        if quality == 'yellow-blocked' and not record.get('executed'):
+        if quality == 'yellow-blocked' and not record.get('executed') and not record.get('execution_receipt'):
+            require(record.get('host_completion_version') is None, 'host completion receipt required')
             continue
-        require(record.get('executed') is True, 'execution evidence required')
         # Receipt must come from the host execution adapter, not the worker's prose.
         receipt = read_json(check_ref(record.get('execution_receipt')))
+        require(not receipt.get('termination', {}).get('executor_aborted'),
+                'executor aborted; Host must review cancellation and revoke with stop/isolation evidence')
+        require(not receipt.get('termination', {}).get('host_stop_required'),
+                'execution process stop unconfirmed; Host must verify stop/isolation and revoke with evidence')
         for field, expected in (('run_id', result['run_id']), ('module_id', result['module_id']),
                                 ('path_id', pid), ('test_run_id', record['test_run_id']),
                                 ('code_baseline', module['code_baseline']), ('freeze_id', module['freeze_id']),
@@ -203,9 +207,26 @@ def validate_result(result, module, assignment):
         require(receipt.get('producer') == 'host-executor' and receipt.get('argv') and
                 receipt.get('started_at') and receipt.get('finished_at'), 'invalid host execution receipt')
         check_ref(receipt.get('log_ref'))
-        captured = read_json(check_ref(receipt.get('result_ref')))
+        normalized = record.get('host_completion_version') is not None
+        if normalized or not record.get('executed'):
+            from test_completion import interpret
+            captured = interpret(receipt, planned[pid])
+            if normalized:
+                require(all(record.get(k) == v for k, v in captured.items()), 'host completion interpretation changed')
+            if not record.get('executed'):
+                require(quality == 'yellow-blocked' and not captured['executed'], 'cannot conceal captured execution')
+                continue
+        else:
+            captured = read_json(check_ref(receipt.get('result_ref')))
+        require(record.get('executed') is True, 'execution evidence required')
         if planned[pid].get('kind') == 'build':
-            require(captured.get('producer') == 'build-executor' and receipt['argv'] == planned[pid]['command']['argv']
+            expected_argv = planned[pid]['command']['argv']
+            if receipt.get('storage_command_version') == 1:
+                from runner_storage import build_command
+                require(receipt.get('requested_argv') == expected_argv, 'requested build command differs from frozen plan')
+                expected_argv = build_command(expected_argv, check_ref(receipt.get('query_ref')).parent)
+            build_report = read_json(check_ref(receipt.get('result_ref')))
+            require(build_report.get('producer') == 'build-executor' and receipt['argv'] == expected_argv
                     and receipt['cwd'] == str(Path(planned[pid]['command']['cwd']).resolve()), 'invalid build execution receipt')
         if captured.get('producer') == 'harmony-adapter':
             require(captured.get('quality') == quality and captured.get('flaky') == record.get('flaky', False),

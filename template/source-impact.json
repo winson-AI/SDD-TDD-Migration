@@ -4,23 +4,23 @@
   "reuse_sources": [
     {"source_id": "LIB-EXTRA", "root": "{{absolute-library-root}}", "module_paths": ["{{absolute-library-module}}"], "description": "{{new-read-only-capability-source}}"}
   ],
-  "catalog_ref": {"path": "{{absolute-v2-catalog-for-complete-source-set}}", "sha256": "{{sha256}}"},
+  "catalog_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{v2-catalog-for-complete-source-set}}", "sha256": "{{sha256}}"},
   "parent_reviews": {
-    "M010": {"path": "{{absolute-parent-allocation-impact-review}}", "sha256": "{{sha256}}"}
+    "M010": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{parent-allocation-impact-review}}", "sha256": "{{sha256}}"}
   },
   "modules": [
     {
       "module_id": "M001",
       "action": "replan",
       "reason": "{{new-source-impact-on-reuse-adapt-reference-new-and-dependents}}",
-      "evidence_refs": [{"path": "{{absolute-impact-analysis}}", "sha256": "{{sha256}}"}],
+      "evidence_refs": [{"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{impact-analysis}}", "sha256": "{{sha256}}"}],
       "resume_blocker_sha256": null
     },
     {
       "module_id": "M002",
       "action": "unchanged",
       "reason": "{{evidence-why-frozen-plan-and-provider-version-remain-valid}}",
-      "evidence_refs": [{"path": "{{absolute-unaffected-analysis}}", "sha256": "{{sha256}}"}],
+      "evidence_refs": [{"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{unaffected-analysis}}", "sha256": "{{sha256}}"}],
       "resume_blocker_sha256": null
     }
   ]

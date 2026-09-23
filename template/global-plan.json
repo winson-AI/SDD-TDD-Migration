@@ -1,10 +1,10 @@
 {
   "global_spec": {
-    "path": "{{absolute-evidence-path}}",
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
     "sha256": "{{sha256}}"
   },
   "new_architecture": {
-    "path": "{{absolute-evidence-path}}",
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
     "sha256": "{{sha256}}"
   },
   "requirement_owners": {
@@ -22,7 +22,7 @@
     "issues": []
   },
   "feature_inventory_ref": {
-    "path": "{{absolute-feature-inventory}}",
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{feature-inventory}}",
     "sha256": "{{sha256}}"
   },
   "feature_owners": {

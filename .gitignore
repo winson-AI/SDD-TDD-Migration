@@ -14,3 +14,7 @@ skills/migration-test/runtime/harmony/adapter.local.json
 skills/migration-test/runtime/harmony/runs/
 skills/migration-test/runtime/harmony/reports/
 skills/migration-test/runtime/harmony/memory/
+
+# Project runtime/private assets if a migration workspace is inside this repo.
+.sdd-migration/
+.sdd-runs/

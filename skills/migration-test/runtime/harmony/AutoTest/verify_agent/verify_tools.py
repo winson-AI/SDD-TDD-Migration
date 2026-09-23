@@ -12,6 +12,7 @@ from openai import OpenAI, AzureOpenAI
 
 from ..config import AppConfig
 from ..logger import logger
+from ..storage import output_path as managed_output, temp_directory
 from .video_tools import (
     encode_video_base64,
     get_video_mime_type,
@@ -602,7 +603,7 @@ def video_assert_tool(
 
         temp_clip_path: Optional[Path] = None
 
-        with tempfile.NamedTemporaryFile(suffix=video_file.suffix or ".mp4", delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(dir=temp_directory(video_file), suffix=video_file.suffix or ".mp4", delete=False) as temp_file:
             temp_clip_path = Path(temp_file.name)
 
         clip_path = Path(
@@ -633,7 +634,8 @@ def video_assert_tool(
         # 将裁剪后的视频移动到 videoPath 目录
         if temp_clip_path and temp_clip_path.exists():
             try:
-                clip_output = video_file.parent / f"clip_{int(start_time)}_{int(end_time)}_{temp_clip_path.stem}.mp4"
+                clip_output = managed_output(temp_directory(video_file).parent / "reports/videoPath" / f"clip_{int(start_time)}_{int(end_time)}_{temp_clip_path.stem}.mp4")
+                clip_output.parent.mkdir(parents=True, exist_ok=True)
                 temp_clip_path.rename(clip_output)
                 logger.info(f"[video_assert_tool] 裁剪视频已保存: {clip_output}")
             except Exception as e:
@@ -642,7 +644,7 @@ def video_assert_tool(
         # merged_video 裁剪后必须删除
         if video_file and video_file.name.startswith("merged_video") and not config.keep_raw_video:
             try:
-                video_file.unlink(missing_ok=True)
+                managed_output(video_file).unlink(missing_ok=True)
                 logger.info(f"[video_assert_tool] 删除合并视频: {video_file}")
             except Exception as e:
                 logger.warning(f"[video_assert_tool] 删除合并视频失败: {video_file}, 错误: {e}")
@@ -650,7 +652,7 @@ def video_assert_tool(
             mapping_file = video_file.with_suffix(".mapping.json")
             if mapping_file.exists():
                 try:
-                    mapping_file.unlink(missing_ok=True)
+                    managed_output(mapping_file).unlink(missing_ok=True)
                 except Exception as e:
                     logger.warning(f"[video_assert_tool] 删除映射表失败: {mapping_file}, 错误: {e}")
 

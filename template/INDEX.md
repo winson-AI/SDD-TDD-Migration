@@ -91,3 +91,10 @@ project-context/global-input 的 build 为可选配置，空对象表示由 GO �
 
 - [telemetry-analysis.md](telemetry-analysis.md)：GO/父子 MO/Spec/Auditor 的埋点适用性、事件/参数保真、接入与测试证据；N/A 不创建空任务/用例。
 - [telemetry-contract.json](telemetry-contract.json)：适用事件的 stage-plan.telemetry 片段（不是独立 Ledger 请求）；包含事件、任务及业务 PATH/ASSERT。无埋点参照 stage-plan.json 的 N/A 示例。
+
+
+## 路径实例化约束
+
+[watchdog-host-state.json](watchdog-host-state.json) 是 Host 的真实状态导出模板，保存到本 run runs/watchdog/host-state.json；不是 Ledger 请求，也不能用模板假冒存活证明。配置与仅监听边界见 [watchdog 协议](../skills/migration-protocol/references/watchdog.md)。
+
+`absolute-run-root` 固定为 `workspace_root/.sdd-runs/run_id`。生成记录的路径模板指向本轮 staging；该路径后的 evidence-path/artifact-name 等占位符只代表文件名/局部相对路径，不得再填绝对根或 ..。Harmony 测试生成配置、导入设计和汇总使用 runs/harmony/sandbox，正式结果使用 runs/harmony/automation/<attempt>；非 Harmony 构建输出使用 runs/build/<attempt>。已提交内容寻址记录以 Ledger 返回的 artifacts 引用为准。输入源码/二方库可外部只读，长期项目模型参考与凭证在 .sdd-migration/harmony，Test-Runner 经 sandbox prepare 复制到本 run runs/harmony/sandbox/environment 后生成 adapter；不得将 .env 填为 evidence_ref。

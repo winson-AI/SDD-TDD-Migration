@@ -26,7 +26,9 @@ def query():
 class ContractTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
-        self.out = Path(self.tmp.name)
+        self.base = Path(self.tmp.name).resolve()
+        self.out = self.base / '.sdd-runs/contract/runs/harmony/automation/attempt'
+        self.out.mkdir(parents=True)
         self.media = self.out/'screen.png'; self.media.write_bytes(b'observed pixels fixture')
         self.sink = ObservationSink(query(), self.out)
 
@@ -61,6 +63,16 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(self.sink.report()['quality'],'yellow-blocked')
         self.sink.observations=[];self.observe(evidence=[])
         self.assertEqual(self.sink.report()['quality'],'yellow-blocked')
+
+    def test_failure_followed_by_environment_error_retains_both_causes(self):
+        self.observe(False)
+        self.sink.error = 'device disconnected after assertion'
+        report = self.sink.report()
+        self.assertEqual(report['quality'], 'yellow-blocked')
+        self.assertIs(report['assertions'][0]['actual'], False)
+        self.assertIn('device disconnected', report['root_cause']['summary'])
+        self.assertIn('Failed frozen assertions', report['root_cause']['summary'])
+        self.assertIn('A1', report['root_cause']['summary'])
 
     def test_unknown_combined_and_wrong_mode_block(self):
         for opts in ({'description':'[ASSERT:OTHER]'},{'description':'[ASSERT:A1][ASSERT:A2]'}, {'tool':'video_assert'}):
@@ -114,11 +126,12 @@ class ContractTests(unittest.TestCase):
     def test_missing_device_produces_structured_yellow_subprocess(self):
         q=self.out/'query.json';q.write_text(json.dumps(query()))
         config=self.out/'config.json';config.write_text('{}')
-        result=self.out/'result.json'
+        result=self.base/'.sdd-runs/standalone/runs/harmony/automation/attempt/result.json'
         p=subprocess.run([sys.executable,str(SCRIPTS/'harmony_adapter.py'),'--query-file',str(q),
                           '--result-file',str(result),'--config',str(config)],capture_output=True,text=True)
         self.assertEqual(p.returncode,2,p.stderr)
         r=json.loads(result.read_text());self.assertEqual(r['quality'],'yellow-blocked')
+        self.assertEqual((result.parent/'query.json').read_bytes(), q.read_bytes())
         self.assertEqual(r['assertions'][0]['actual'],None)
         self.assertEqual(r['producer'],'harmony-adapter')
 

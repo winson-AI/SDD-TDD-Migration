@@ -29,7 +29,7 @@
 
 1. Auditor 与 Fixer 使用不同 agent_instance_id；同一次审计中审计者也不得是 Implementer 或测试脚本作者。能力不足则阻塞独立审计。
 2. Fixer 不改需求、验收标准或冻结 tasks，只提 CR；Spec-Designer 提修订、Module-Orchestrator 审核，语义变化需要 Human 决策。
-3. 所有跨层信息只走 Ledger。角色的产出写入自己的 staging 空间，再提交事件；上游已提交工件经 Ledger 引用才可被下游读取。不得私聊、直接修改别人的状态或利用 Agent 返回文本绕过总线。
+3. 所有跨层信息只走 Ledger。角色的产出写入自己的 staging 空间（Harmony 辅助产物使用 runs/harmony/sandbox 的专属待提交目录），再提交事件；上游已提交工件经 Ledger 引用才可被下游读取。不得私聊、直接修改别人的状态或利用 Agent 返回文本绕过总线。
 4. SPEC 未冻结不生成代码；代码未生成不执行任何目标代码测试；非 Green 未复测不算通过。锁释放、依赖恢复、人工回答均不能直接把测试改 Green。
 
 ## 并行模块隔离与 Auditor 全量收尾
@@ -98,8 +98,14 @@ GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 sc
 
 ## 阻塞感知与恢复
 
+可选 watchdog 是宿主侧旁路监听程序，仅观察和通知；不派发/恢复 Agent、不写 Ledger、不改变门禁。Host 状态无法核实时明确 unknown。它不自动启动，缺失或失败都不能阻塞任何模块。配置、真实状态导出和留存见 [watchdog](skills/migration-protocol/references/watchdog.md)。
+
 全量分析在 GO global-plan 接受节点校验；运行派发只校验当前模块、父级分配和实际依赖。invalidate 保存旧证据，清除当前旧 plan，明确进入重新规划或 GO 分配审查。宿主消费 status.workflow_progress：继续独立 ready 动作，展示人工信号，检查超时 worker；不能因一个门禁拒绝静默终止整轮。超时不能自动放锁、绕过批准或改 Green。必读 [恢复与进度协议](skills/migration-protocol/references/progress-recovery.md)。
 
 ## 埋点上报适用性
 
 GO/父子 MO 明确检查认领范围的埋点事件、公共接入与配置，遵守 [埋点协议](skills/migration-protocol/references/telemetry.md)。无埋点模块/任务记录有源码依据的 not-applicable 并直接推进，不创建空任务、用例、SDK依赖或全局门禁；有埋点才映射事件/参数/接线到冻结 TASK/PATH/ASSERT。未知或真实失败只影响相关范围，无关任务继续；观测环境缺失不等于无埋点，也不能用截图通过代替上报通过。
+
+## 统一迁移资产根
+
+所有角色遵守 [留存文件系统](skills/migration-protocol/references/storage-layout.md)。新运行资产固定在 workspace_root 下的 .sdd-migration、.sdd-runs、openspec 三个并列目录；读取 prepare 返回的 run_root/storage_layout 和 status.openspec_hub，不按 cwd 猜目录，不在目标仓另建一份 SPEC。一般生成工件放当前 run staging；Harmony 辅助产物放 runs/harmony/sandbox，正式自动化放 runs/harmony/automation，构建放 runs/build；临时目录归当前 runner，结束清理或留存 cleanup 原因；工作流状态变更仍经 Ledger。

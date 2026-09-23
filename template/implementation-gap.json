@@ -8,19 +8,19 @@
   "task_ids": [],
   "legacy_root": "/absolute/legacy",
   "target_root": "/absolute/target",
-  "global_spec": {"path": "/absolute/global-spec.md", "sha256": "<actual>"},
-  "new_architecture": {"path": "/absolute/architecture.md", "sha256": "<actual>"},
-  "context_review_ref": {"path": "/absolute/review-source-target-context.md", "sha256": "<actual>"},
-  "reuse_unavailable_ref": {"path": "/absolute/reuse-rejection.md", "sha256": "<actual>"},
+  "global_spec": {"path": "/workspace/migration/.sdd-runs/run-demo/staging/global-orchestrator/planning/global-spec.md", "sha256": "<actual>"},
+  "new_architecture": {"path": "/workspace/migration/.sdd-migration/inputs/architecture.md", "sha256": "<actual>"},
+  "context_review_ref": {"path": "/workspace/migration/.sdd-runs/run-demo/staging/module-orchestrator/gap-review/review-source-target-context.md", "sha256": "<actual>"},
+  "reuse_unavailable_ref": {"path": "/workspace/migration/.sdd-runs/run-demo/staging/module-orchestrator/gap-review/reuse-rejection.md", "sha256": "<actual>"},
   "alternatives": {
-    "adapt": {"conclusion": "not-feasible", "reason": "<适配方案的具体障碍>", "evidence_refs": [{"path": "/absolute/adapt-review.md", "sha256": "<actual>"}]},
-    "reference": {"conclusion": "not-feasible", "reason": "<参考语义后在目标实现的具体障碍>", "evidence_refs": [{"path": "/absolute/reference-review.md", "sha256": "<actual>"}]},
-    "new": {"conclusion": "not-feasible", "reason": "<结合原源码自主实现仍不可行的具体障碍>", "evidence_refs": [{"path": "/absolute/new-review.md", "sha256": "<actual>"}]}
+    "adapt": {"conclusion": "not-feasible", "reason": "<适配方案的具体障碍>", "evidence_refs": [{"path": "/workspace/migration/.sdd-runs/run-demo/staging/module-orchestrator/gap-review/adapt-review.md", "sha256": "<actual>"}]},
+    "reference": {"conclusion": "not-feasible", "reason": "<参考语义后在目标实现的具体障碍>", "evidence_refs": [{"path": "/workspace/migration/.sdd-runs/run-demo/staging/module-orchestrator/gap-review/reference-review.md", "sha256": "<actual>"}]},
+    "new": {"conclusion": "not-feasible", "reason": "<结合原源码自主实现仍不可行的具体障碍>", "evidence_refs": [{"path": "/workspace/migration/.sdd-runs/run-demo/staging/module-orchestrator/gap-review/new-review.md", "sha256": "<actual>"}]}
   },
   "verification": {
     "method": "constraint-analysis",
     "summary": "<核验方法、真实尝试及结果；没有编码尝试时说明已证实的硬约束>",
-    "evidence_refs": [{"path": "/absolute/verification.md", "sha256": "<actual>"}]
+    "evidence_refs": [{"path": "/workspace/migration/.sdd-runs/run-demo/staging/module-orchestrator/gap-review/verification.md", "sha256": "<actual>"}]
   },
   "conclusion": "not-implementable-under-current-constraints"
 }

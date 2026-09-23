@@ -4,38 +4,38 @@
   "definitions": [
     {
       "kind": "proposal",
-      "path": "{{absolute-evidence-path}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}"
     },
     {
       "kind": "spec",
-      "path": "{{absolute-evidence-path}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}",
       "capability": "feature-capability"
     },
     {
       "kind": "design",
-      "path": "{{absolute-evidence-path}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}"
     },
     {
       "kind": "tasks",
-      "path": "{{absolute-evidence-path}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}"
     },
     {
       "kind": "checklist",
-      "path": "{{absolute-evidence-path}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}"
     },
     {
       "kind": "test-design",
-      "path": "{{absolute-evidence-path}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}"
     },
     {
       "kind": "global-contract",
-      "path": "{{absolute-evidence-path}}",
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}"
     }
   ],
@@ -62,7 +62,7 @@
         "cwd": "{{absolute-target-root}}",
         "timeout_seconds": 900,
         "selection_ref": {
-          "path": "{{absolute-build-selection-report}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{build-selection-report}}",
           "sha256": "{{sha256}}"
         }
       }
@@ -109,7 +109,7 @@
       "dimension_analysis": {
         "scope_sha256": "{{contracts.digest(task.scope)-after-scope-definition}}",
         "parent_ref": {
-          "path": "{{absolute-dimension-analysis-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{dimension-analysis-path}}",
           "sha256": "{{sha256}}"
         },
         "unresolved": [
@@ -126,7 +126,7 @@
             "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
             "evidence_refs": [
               {
-                "path": "{{absolute-task-analysis-evidence-path}}",
+                "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{task-analysis-evidence-path}}",
                 "sha256": "{{sha256}}"
               }
             ]
@@ -141,7 +141,7 @@
             "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
             "evidence_refs": [
               {
-                "path": "{{absolute-task-analysis-evidence-path}}",
+                "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{task-analysis-evidence-path}}",
                 "sha256": "{{sha256}}"
               }
             ]
@@ -156,7 +156,7 @@
             "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
             "evidence_refs": [
               {
-                "path": "{{absolute-task-analysis-evidence-path}}",
+                "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{task-analysis-evidence-path}}",
                 "sha256": "{{sha256}}"
               }
             ]
@@ -171,7 +171,7 @@
             "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
             "evidence_refs": [
               {
-                "path": "{{absolute-task-analysis-evidence-path}}",
+                "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{task-analysis-evidence-path}}",
                 "sha256": "{{sha256}}"
               }
             ]
@@ -190,7 +190,7 @@
     "production_binding": "{{binding}}",
     "evidence_refs": [
       {
-        "path": "{{absolute-evidence-path}}",
+        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
         "sha256": "{{sha256}}"
       }
     ],
@@ -200,7 +200,7 @@
     "verdict": "pending",
     "evidence_refs": [
       {
-        "path": "{{absolute-evidence-path}}",
+        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
         "sha256": "{{sha256}}"
       }
     ]
@@ -226,11 +226,11 @@
     "source": "Ledger status.module_inputs[module_id]; replace with the current full object for child plans"
   },
   "reuse_plan_ref": {
-    "path": "{{absolute-module-reuse-plan}}",
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{module-reuse-plan}}",
     "sha256": "{{sha256}}"
   },
   "dimension_analysis_ref": {
-    "path": "{{absolute-dimension-analysis-path}}",
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{dimension-analysis-path}}",
     "sha256": "{{sha256}}"
   },
   "dimension_trace": [
@@ -300,7 +300,7 @@
     "reason": "{{after-source-review-no-telemetry-in-this-scope-or-replace-with-applicable-contract}}",
     "evidence_refs": [
       {
-        "path": "{{absolute-scope-review-snapshot}}",
+        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{scope-review-snapshot}}",
         "sha256": "{{sha256}}"
       }
     ],

@@ -78,3 +78,13 @@ Auditor 委派的重构/二方库接入/公共能力变更同样先 Build 成功
 ## 埋点测试
 
 仅对 applicable 事件执行冻结的结构化 PATH/ASSERT，使用项目 adapter，明确 emitted/sdk-dispatched/server-received 层级；UI截图或构建通过不能代替事件上报证据。N/A 不创建空用例或跳过记录。观测不足记录相关 PATH Yellow，保留其他已执行结果，独立任务继续；整段自动化不可启动才走既有 automation-unavailable 条件。详见 [埋点协议](../skills/migration-protocol/references/telemetry.md)。
+
+## run 级共享 sandbox 配置
+
+Test-Runner 在首次设计转换或 automation 环境预检前调用 `sandbox.py prepare --root <run_root>`，从用户指定参考配置、`.sdd-migration/harmony` 或包内 default 复制生成 `runs/harmony/sandbox/environment/config.json` 与 `.env`（目录 700、文件 600）。所有父/子 MO 的测试共享本 run 的环境配置，prepare 加锁且幂等；并行路径只在自己的 automation attempt 写执行结果。
+
+`--config/--env-file` 是首次复制的来源；配置已存在时不跟随外部更新，显式不同来源内容被拒绝，应准备新 run 并重新预检。进程注入环境变量仍可覆盖 `.env`，由 Host 在预检后保持一致。包内 `.env.example/config.default.json` 仅为参考；旧包内 `.env` 仅能经显式来源导入，不直接作为执行环境。生成 adapter 必须指向本轮环境目录并绑定 run_root。不得将 `.env` 内容提交 Ledger、报告或 Git；环境不可用仍按 Yellow/未执行处理，独立任务继续。
+
+## 文件留存执行门禁
+
+使用 CLI 或直接调用底层库都必须遵守同一 storage_layout：不能把输出省略交给 cwd、输入文件所在目录或 SDK 默认 dumps。XMind/报告/录制/日志/媒体显式选择本轮受管目录；需要默认路径或 SDK 调用时进入 runner scope。路径拒绝作为本模块环境/执行问题留证，沿现有 Yellow 路由处理；不得绕过校验、删除外部输入或中止无关模块。构建/外部脚本仍由 Host 审核冻结命令的实际输出并限制文件权限。

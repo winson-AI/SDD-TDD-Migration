@@ -5,7 +5,7 @@
   "single_module_id": null,
   "source_mode": "test-case-summary",
   "test_summary_ref": {
-    "path": "{{absolute-evidence-path}}",
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
     "sha256": "{{sha256}}"
   },
   "features": [
@@ -23,7 +23,7 @@
       ],
       "evidence_refs": [
         {
-          "path": "{{absolute-evidence-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
           "sha256": "{{sha256}}"
         }
       ]
@@ -39,7 +39,7 @@
       ],
       "evidence_refs": [
         {
-          "path": "{{absolute-evidence-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
           "sha256": "{{sha256}}"
         }
       ]
@@ -53,7 +53,7 @@
       ],
       "evidence_refs": [
         {
-          "path": "{{absolute-evidence-path}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
           "sha256": "{{sha256}}"
         }
       ]

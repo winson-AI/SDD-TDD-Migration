@@ -75,3 +75,7 @@ GO/父子 MO/Host 在运行中追加只读来源时读 [source-changes.md](refer
 ## 17. 埋点上报
 
 功能发现、四维分析、规划、编码、测试与审计显式读取 [埋点协议](references/telemetry.md)：先判断适用性，无埋点模块/任务以有据 N/A 正常推进；有埋点才做源→目标事件/参数/生产接线映射及分层验收。沿现有阶段、范围、三态和修复机制，不新增全局埋点门禁。
+
+## 18. 迁移资产布局
+
+所有角色及 Host 读取 [留存文件系统](references/storage-layout.md)：长期配置、运行证据、顶层 OpenSpec 并列，以 workspace_root/run_id 固定归属；OpenSpec 是规格与状态阅读入口，Ledger 是唯一事件权威。

@@ -5,7 +5,7 @@
   "expected_revision": 0,
   "patch": {},
   "source_ref": {
-    "path": "{{absolute-user-input-record}}",
+    "path": "{{absolute-workspace-root}}/.sdd-migration/inputs/{{input-record-name}}",
     "sha256": "{{actual-sha256}}"
   }
 }

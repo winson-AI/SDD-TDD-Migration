@@ -26,7 +26,7 @@
         "cwd": "{{absolute-target-root}}",
         "timeout_seconds": 900,
         "selection_ref": {
-          "path": "{{absolute-build-selection-report}}",
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{build-selection-report}}",
           "sha256": "{{sha256}}"
         }
       }

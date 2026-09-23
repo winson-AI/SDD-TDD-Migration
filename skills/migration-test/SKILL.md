@@ -41,3 +41,9 @@ HarmonyOS UI/端到端测试读取 [Harmony 运行协议](references/harmony-run
 保真断言以已审核的存量源码行为与需求为依据，绑定 reuse-plan.fidelity 的 PATH/ASSERT；Main 必须留真实复现结果，不能以库的行为或对齐报告替代通过证据。
 
 埋点只在适用模块/任务中测试：按 [埋点协议](../migration-protocol/references/telemetry.md) 冻结事件及观测层级、使用项目结构化 adapter 留真实证据。无埋点 N/A 不新增用例/依赖；缺观测环境是相关路径 Yellow，不能改成 N/A，也不能用 Harmony 图片推断服务端收到了事件。
+
+新运行构建输出放 `.sdd-runs/<run_id>/runs/build/<new-attempt>`；自动化放 `runs/harmony/automation/<new-attempt>`，Harmony 测试设计、适配器和汇总放 `runs/harmony/sandbox/<request>`。各 runner 的 temp 在结束后清理，清理失败留在原 run 并记录 cleanup；长期参考配置/凭证放 `.sdd-migration/harmony`，Test-Runner 通过 `sandbox.py prepare --root <run_root>` 复制到本轮共享 `runs/harmony/sandbox/environment` 后执行。读取 planning_context.storage_layout，不在目标仓或工作流包旁另建报告目录。详见 [留存布局](../migration-protocol/references/storage-layout.md)。
+
+工作流调用 sandbox design/adapter/test、harmony_design 或兼容报告生成器时显式传 `--root <run_root>`，校验本轮输出归属；harmony_stage 必须传 --root 且输出只允许 runs/harmony/sandbox。省略 --root 的模式仅供独立调试，不作为工作流入口。先项目 prepare，再执行 sandbox prepare 初始化本轮共享配置，然后生成本轮 adapter，将带 --root 的完整命令提交 testing 预检。
+
+底层直接调用也执行留存门禁：未绑定 runner 时不允许相对/缺省输出；XMind 不写回源文件旁，报告/录制/媒体/日志须明确受管位置，外部输入只读。详见 [底层留存规则](../migration-protocol/references/storage-layout.md#底层直接调用同样遵守留存规则)。
