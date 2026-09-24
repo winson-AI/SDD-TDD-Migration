@@ -11,7 +11,7 @@ description: /sdd-run <run-id> — 并行推进就绪模块
 
 ## 2. 编排步骤
 1. 读取 [AGENTS.md](../AGENTS.md)、[运行协议](../skills/migration-protocol/references/runtime.md)，解析参数为绝对路径及规范 ID。
-2. 前置门控：run 已初始化；可调度工作存在；宿主提供隔离实例/身份与单写 Ledger；max_parallel_modules 合法。
+2. 前置门控：run 已初始化；可调度工作存在；宿主提供隔离实例/身份与单写 Ledger；max_parallel_modules 合法。派发前先运行只读门禁 `verify_openspec.py --root <run>`（或 `/sdd-verify`）确认本 run 确经 Ledger 管道（events.jsonl/绑定快照/顶层 openspec 投影）；`verified=false` 说明该 run 被手写模拟绕过，拒绝推进并回到 prepare → init → apply。见 [投影完整性收尾门禁](../skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。
 3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
 4. 由宿主向 Ledger 提交 resume_requested；收到 ACK 后派发对应角色。Global 在 DAG 与锁约束内派发模块；仅已冻结模块可以编码。按 module_id 分别消费事件，单个失败不取消或标失败其他 MO；继续就绪模块并等待仍在执行的模块。完整 registry 中全部模块完成或各自明确挂起、无活动 worker 与可推进动作后，才请求独立审计。暂时没有 ready 动作不代表运行中的 MO 已结束。
 5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。

@@ -15,6 +15,8 @@
 
 这些 slash command 是待宿主加载的命令定义，未安装到用户配置；本包已提供本地 Ledger 控制器、阶段校验和测试调用适配器；没有常驻 Agent 调度服务或内置业务测试。本地控制器实现事件提交、单写者和模块资源占用检查；宿主仍须提供身份认证、写权限隔离、Agent 派发与项目真实测试适配器。具体能力见 [本地运行指南](skills/migration-protocol/references/local-runtime.md)。仅加载 Markdown 不会产生操作系统级权限隔离。没有这些能力时应显式阻塞，不能宣称端到端迁移已执行。
 
+要在其他仓库真实跑起来（每步提交真实 Ledger 事件、每个角色由真实派发的 Agent 执行，而非手写文件模拟），按 [宿主接入契约](skills/migration-protocol/references/host-integration.md) 逐阶段接线并做一次接入自检；每次推进/收尾用 `/sdd-verify` 核验投影完整性。
+
 ## 二方库与已有能力
 
 新目录使用 v2 显式 provider owner：已有稳定能力用经评审的 null，本轮交付用唯一叶子 MO；写权限/资源锁不再推断 v2 业务归属。运行中补充来源可走 **GO source-review → Host reconfigure-sources → 受影响子 MO 重规划/冻结/复测 → 父 MO 汇总 → Auditor 收尾**，保留无关有效结果与历史失败/预算。接口、模板及边界见 [来源变更协议](skills/migration-protocol/references/source-changes.md)。
@@ -35,7 +37,7 @@
 | --- | --- |
 | `Agents/` | 10 个角色定义，含输入输出、边界、Skill 依赖与自查 |
 | `skills/` | 共享协议与 10 个职责技能，按需读取 |
-| `command/` | 9 个命令入口，负责上下文配置、参数、门控和派发 |
+| `command/` | 10 个命令入口，负责上下文配置、参数、门控、派发与投影完整性核验 |
 | `template/` | 全局输入、模块输入、六件套及诊断、测试、事件、人工决策等运行工件模板 |
 | `diagrams/` | 三层编排总览、子 MO/Auditor 细节图及生成源文件 |
 
