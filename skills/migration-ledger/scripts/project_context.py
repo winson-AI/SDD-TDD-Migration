@@ -110,6 +110,10 @@ def validate(config):
         require(defaults['repair_policy'].get('local_automatic_rounds', 1) == 1, 'local automatic repair must remain one round')
     for key in ('test_adapter', 'runtime', 'module_slicing', 'build'):
         if key in config: require(isinstance(config[key], dict), key + ' must be an object')
+    routing = (config.get('runtime') or {}).get('model_routing')
+    if routing is not None:
+        import model_routing
+        model_routing.validate_config(routing)
     build = config.get('build', {})
     require(set(build) <= {'argv', 'cwd', 'timeout_seconds', 'environment_ref'}, 'unknown build configuration')
     if build.get('argv') is not None:

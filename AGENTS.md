@@ -48,6 +48,8 @@ Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `descript
 
 宿主要真实走完控制流（每步提交真实 Ledger 事件、每个角色由真实派发的 Agent 执行真实工作，而非手写文件模拟）须遵守 [宿主接入契约](skills/migration-protocol/references/host-integration.md)：逐阶段的必提 op、宿主真实工作与自证方式，含部署一次的接入自检。进入 Ledger 后阶段=事件=hash 链不可跳步；推进/收尾前用 `/sdd-verify` 核验，`verified=false` 拒绝推进。
 
+派发用哪个模型由宿主决定，但控制器给出档位建议并留痕：`status.next_steps[].model_tier` 建议弱推理步（执行/观察）用低成本模型、强推理步（设计/根因/裁决）用配置强模型；strong-only 步骤禁止降级；宿主把实际模型回填 `assign`/`session` payload，投影到 `ledger/model-usage.json` 供排查。配置与策略见 [模型路由协议](skills/migration-protocol/references/model-routing.md)。
+
 ## 本轮增强的读取入口
 
 运行本地控制器时，再读 [local-runtime.md](skills/migration-protocol/references/local-runtime.md)。默认优先恢复同角色原 session；缺失时按 checkpoint 冷恢复，不要求永久保留一个已失效的宿主会话。角色只在当前阶段需要时创建，9+1 职责不变。所有恢复/修复请求仍经过 Ledger，不能恢复为角色私聊。

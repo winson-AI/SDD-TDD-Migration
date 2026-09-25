@@ -36,12 +36,15 @@ item 不带 `semantic_model` 时完全不校验——可在子 MO 逐个 UI/Logi
 - `source.origin` 合法;`target_strategy == new` **禁止** `origin == legacy`(无参考,基于目标项目创建);legacy/target origin 必须带 `locator`;`evidence_refs` 可归档。
 - `implementation_location.target_path` 为绝对路径。
 
-校验点在 [dimensions.load](../../migration-ledger/scripts/dimensions.py) 单一钩子,覆盖 GO allocation / 父 MO partition / 子 MO plan / freeze verify 全路径。实现接受时 [semantics.implementation](../../migration-ledger/scripts/semantics.py) 额外校验 `implementation_location` 文件真实存在。
+校验点在 [dimensions.load](../../migration-ledger/scripts/dimensions.py) 单一钩子,覆盖 GO allocation / 父 MO partition / 子 MO plan / freeze verify 全路径。
+
+**下游必用(保证理解使用)**:实现接受时 [semantics.implementation](../../migration-ledger/scripts/semantics.py) 校验 `implementation_location` 文件真实存在,且该 item 的 `dimension_evidence` 必须带 `semantic_conformance`——其 `model_ref` 回指冻结模型、`evidence_refs` 提供实现落点证据。Implementer 不能无视冻结模型自行实现:缺 conformance 则实现被拒。
 
 ## 冻结与投影（保证下游理解使用）
 
 - **冻结**:模型随四维分析进入 `freeze verify`,`freeze_id = plan_hash` hash 锁定;coding 前的冻结即包含这些设计输出。model_ref 字节经 `preserve_refs` 归档到 `artifacts/<sha256>`,不可变。
-- **投影**:OpenSpec change 目录生成 `semantics.md`(逐 item 列 kind/source/implementation_location/model_ref),从 `artifacts/` 不可变副本重建,供下游 Agent 直接读取;`manifest.json` 记入文件清单。
+- **投影(逐模块)**:OpenSpec change 目录生成 `semantics.md`(逐 item 列 kind/source/implementation_location/model_ref),从 `artifacts/` 不可变副本重建,供下游 Agent 直接读取;`manifest.json` 记入文件清单。
+- **全局语义上下文**:[openspec_projection](../../migration-ledger/scripts/openspec_projection.py) 聚合所有模块的语义模型为 `ledger/semantic-index.json`(`models` 逐条含 module_id/kind/source/位置/model_ref;`coverage` 逐模块列 applicable / with_model / **missing**),`status.semantic_index` 给出路径。下游/GO 据此看到整个语义上下文,并从 `coverage.missing` 直接看出哪些 applicable UI/Logic/Resource item 尚未附模型(presence-triggered 的覆盖可见性)。
 
 ## 任务驱动与新建
 

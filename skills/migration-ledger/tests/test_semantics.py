@@ -77,15 +77,29 @@ class SemanticsTests(unittest.TestCase):
         item['semantic_model']['implementation_location'] = {'target_path': 'relative/Out.kt'}
         self.bad(item, 'must be absolute')
 
-    def test_implementation_requires_existing_location(self):
-        items = {'i1': self.item('Resource', 'icu-messages', {'k': 'v'})}
-        self.bad_impl(items, 'does not exist')
+    def test_implementation_location_and_conformance(self):
+        item = self.item('Resource', 'icu-messages', {'k': 'v'})
+        items = {'i1': item}
+        ev = self.ref('conf.json', {'ok': True})
+        good = {'i1': {'semantic_conformance': {'model_ref': item['semantic_model']['model_ref'], 'evidence_refs': [ev]}}}
+        self.bad_impl(items, 'does not exist', good)          # location missing
         (self.base / 'Out.kt').write_text('done')
-        semantics.implementation(items)  # now exists
+        self.bad_impl(items, 'semantic_conformance', None)    # exists but implementer recorded no conformance
+        semantics.implementation(items, good)                 # exists + conformance -> ok
 
-    def bad_impl(self, items, msg):
+    def test_models_and_coverage_from_analysis(self):
+        analysis = {'dimensions': [
+            {'dimension': 'UI', 'status': 'applicable', 'items': [
+                {'item_id': 'u1', 'semantic_model': {'kind': 'ui-component-spec'}}, {'item_id': 'u2'}]},
+            {'dimension': 'Logic', 'status': 'not-applicable', 'items': []}]}
+        rows = semantics.models_from_analysis(analysis, 'M001')
+        self.assertEqual([(r['module_id'], r['item_id']) for r in rows], [('M001', 'u1')])
+        self.assertEqual(semantics.coverage_from_analysis(analysis),
+                         {'applicable': ['u1', 'u2'], 'with_model': ['u1'], 'missing': ['u2']})
+
+    def bad_impl(self, items, msg, traces=None):
         with self.assertRaises((Rejected, OSError, ValueError)) as ctx:
-            semantics.implementation(items)
+            semantics.implementation(items, traces)
         self.assertIn(msg, str(ctx.exception))
 
 

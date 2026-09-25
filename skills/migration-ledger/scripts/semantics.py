@@ -10,7 +10,7 @@ reference, so it is authored from the target project (origin target/authored).
 """
 from pathlib import Path
 
-from contracts import check_ref, read_json, require
+from contracts import check_ref, nonempty, read_json, require
 
 # Which model kinds each dimension may carry. Adhesive keeps its existing structure.
 KINDS = {
@@ -107,15 +107,43 @@ def has_models(items):
     return any(item.get('semantic_model') for item in items.values())
 
 
-def rows(items):
-    return [{'item_id': iid, 'dimension': item['dimension'], **item['semantic_model']}
-            for iid, item in items.items() if item.get('semantic_model')]
+def models_from_analysis(analysis, module_id=None):
+    """Extract semantic-model rows straight from an archived dimension analysis."""
+    rows = []
+    for drow in analysis.get('dimensions', []):
+        for item in drow.get('items', []):
+            if item.get('semantic_model'):
+                rows.append({**({'module_id': module_id} if module_id is not None else {}),
+                             'item_id': item['item_id'], 'dimension': drow['dimension'], **item['semantic_model']})
+    return rows
 
 
-def implementation(items):
-    """After coding, the recorded implementation location must actually exist."""
-    for item in items.values():
+def coverage_from_analysis(analysis):
+    """Which applicable UI/Logic/Resource items carry a semantic model (presence visibility)."""
+    applicable, with_model = [], []
+    for drow in analysis.get('dimensions', []):
+        if drow.get('dimension') not in KINDS or drow.get('status') != 'applicable':
+            continue
+        for item in drow.get('items', []):
+            applicable.append(item['item_id'])
+            if item.get('semantic_model'):
+                with_model.append(item['item_id'])
+    return {'applicable': sorted(applicable), 'with_model': sorted(with_model),
+            'missing': sorted(set(applicable) - set(with_model))}
+
+
+def implementation(items, traces=None):
+    """After coding: the implementation location must exist AND the implementer must record
+    conformance binding the frozen model, so downstream provably consumed the design output."""
+    traces = traces or {}
+    for iid, item in items.items():
         model = item.get('semantic_model')
-        if model:
-            path = Path(model['implementation_location']['target_path'])
-            require(path.exists(), 'semantic implementation_location does not exist: ' + str(path))
+        if not model:
+            continue
+        path = Path(model['implementation_location']['target_path'])
+        require(path.exists(), 'semantic implementation_location does not exist: ' + str(path))
+        conformance = (traces.get(iid) or {}).get('semantic_conformance')
+        require(conformance and conformance.get('model_ref') == model['model_ref'],
+                'implementation must record semantic_conformance binding the frozen model for ' + iid)
+        for ref in nonempty(conformance.get('evidence_refs'), 'semantic conformance evidence for ' + iid):
+            check_ref(ref)

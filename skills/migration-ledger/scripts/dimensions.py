@@ -181,10 +181,10 @@ def implementation(plan, result):
     if not plan.get('dimension_analysis_ref'):
         return
     _, items = load(plan['dimension_analysis_ref'], plan['module_id'])
-    import semantics
-    semantics.implementation(items)
     traces = keyed(result.get('dimension_evidence'), 'item_id')
     require(set(traces) == set(items), 'implementation dimension evidence incomplete')
+    import semantics
+    semantics.implementation(items, traces)
     planned = {t['item_id']: t for t in plan['dimension_trace']}
     tasks = {t['task_id']: t for t in plan['tasks']}
     for trace in result.get('task_trace', []):

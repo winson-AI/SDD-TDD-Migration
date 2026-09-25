@@ -15,6 +15,7 @@ import audit_closure
 import audit_code_review
 import decomposition
 import dimensions
+import model_routing
 import reuse
 import project_context
 import context_readiness
@@ -75,9 +76,30 @@ def read_events(root):
     return state, events
 
 
+def model_usage(s):
+    """Actual host-reported model per dispatch, for after-the-fact task tracing."""
+    rows = []
+    scopes = {**{mid: m for mid, m in s['modules'].items()}, **s.get('module_groups', {})}
+    for mid, m in scopes.items():
+        for name, sess in m.get('sessions', {}).items():
+            if sess.get('model'):
+                rows.append({'scope': mid, 'kind': 'session', 'role': name, 'session_id': sess.get('session_id'),
+                             'model': sess['model'], 'model_tier': sess.get('model_tier')})
+        for aid, a in m.get('assignments', {}).items():
+            if a.get('model'):
+                rows.append({'scope': mid, 'kind': 'assignment', 'role': a.get('role'), 'assignment_id': aid,
+                             'model': a['model'], 'model_tier': a.get('model_tier'), 'closed': a.get('closed', False)})
+    audit = s.get('audit_assignment', {})
+    if audit.get('model'):
+        rows.append({'scope': 'GLOBAL', 'kind': 'audit', 'role': 'auditor', 'assignment_id': audit.get('assignment_id'),
+                     'model': audit['model'], 'model_tier': audit.get('model_tier'), 'closed': audit.get('closed', False)})
+    return rows
+
+
 def project(root, s, sequence):
     errors = []
     project_attempt(errors, 'global-state', lambda: atomic(root / 'ledger/global.json', {**s, 'last_sequence': sequence, 'parent_mo_names': decomposition.parent_mo_names(s)}))
+    project_attempt(errors, 'model-usage', lambda: atomic(root / 'ledger/model-usage.json', {'sequence': sequence, 'usage': model_usage(s)}))
     for mid, m in s['modules'].items():
         project_attempt(errors, 'module-state', lambda: atomic(root / f'ledger/modules/{mid}.json', {**m, 'last_sequence': sequence}), mid)
     for mid, group in s.get('module_groups', {}).items():
@@ -398,10 +420,22 @@ def _next_step(s, m):
     return step
 
 
+def reasoning_escalated(m):
+    """Ambiguous/unconfirmed failures need strong reasoning even on otherwise weak steps."""
+    if m.get('no_progress_rounds', 0) > 0 or m.get('repair_findings'):
+        return True
+    results = {**m.get('results', {}), **m.get('repair_findings', {})}
+    return any(r.get('quality') != 'green-passed' and r.get('root_cause', {}).get('confidence') != 'confirmed'
+               for r in results.values())
+
+
 def next_step(s, m):
     step = context_readiness.annotate(s, m['module_id'], _next_step(s, m))
     if m.get('decomposition_required') and step['role'] == 'module-orchestrator':
         step['agent_name'] = 'parent-mo-' + m['module_id']
+    if step.get('role'):
+        step['model_tier'] = model_routing.advise(step['role'], step.get('operation'),
+                                                   step.get('worker_role'), escalate=reasoning_escalated(m))
     return step
 
 
@@ -552,6 +586,7 @@ def mutate(s, req, principal, events, root=None):
         role(principal, 'module-orchestrator')
         require(p.get('role') in ('implementer', 'fixer', 'test-runner'), 'unsupported worker role')
         require(p.get('instance_id') and p.get('assignment_id') not in m['assignments'], 'invalid/duplicate assignment')
+        usage = model_routing.record(p, role=p['role'])
         if audit_closure.active(s):
             require(p.get('instance_id') != s['audit_batch']['auditor_instance_id'], 'Auditor cannot implement or author verification')
         dispatch_guard(s, m, p['role'])
@@ -573,7 +608,7 @@ def mutate(s, req, principal, events, root=None):
             m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
         m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
             'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
-            'fencing_token': len(events) + 1}
+            'fencing_token': len(events) + 1, **(usage or {})}
     elif op == 'submit':
         assignment = m['assignments'].get(p.get('assignment_id'), {})
         require(not assignment.get('closed', True), 'assignment inactive')
@@ -705,6 +740,7 @@ def mutate(s, req, principal, events, root=None):
         role(principal, 'module-orchestrator')
         name = p['role']
         require(p.get('session_id'), 'session id required')
+        usage = model_routing.record(p, role=name)
         parent_name = decomposition.parent_mo_names(s).get(mid)
         if name == 'module-orchestrator' and parent_name:
             require(p.get('agent_name', parent_name) == parent_name, 'parent MO name must be ' + parent_name)
@@ -714,7 +750,7 @@ def mutate(s, req, principal, events, root=None):
             require(p.get('reason') == 'session-unavailable' and p.get('checkpoint_ref'), 'replacement requires cold recovery record')
             check_ref(p['checkpoint_ref'])
             require(not any(not a.get('closed') for a in m['assignments'].values()), 'revoke old worker before cold recovery')
-        m['sessions'][name] = p
+        m['sessions'][name] = {**p, **(usage or {})}
     elif op == 'revoke':
         role(principal, 'host')
         a = m['assignments'].get(p.get('assignment_id'), {})
@@ -763,11 +799,12 @@ def mutate(s, req, principal, events, root=None):
         require(s.get('audit_attempts', 0) < s['max_audit_rounds'], 'audit budget exhausted; explicit new run required')
         s['audit_attempts'] = s.get('audit_attempts', 0) + 1
         s.setdefault('audit_assignment_ids', []).append(p['assignment_id'])
+        audit_usage = model_routing.record(p, role='auditor')
         s['audit_assignment'] = {**p, 'role': 'auditor', 'run_id': s['run_id'], 'module_id': 'GLOBAL',
                                  'closed': False, 'attempt': s['audit_attempts'],
                                  'scope_policy': 'non-green-only',
                                  'path_ids': [p['path_id'] for p in audit_scope(s)['plan']['paths']],
-                                 'snapshot': {k:v['code_baseline'] for k,v in s['modules'].items()}}
+                                 'snapshot': {k:v['code_baseline'] for k,v in s['modules'].items()}, **(audit_usage or {})}
     elif op == 'audit':
         role(principal, 'auditor')
         assignment = s.get('audit_assignment', {})
@@ -1044,7 +1081,10 @@ def status(root):
         else:
             global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'module-work-remaining'}
         global_next = context_readiness.annotate(s, None, global_next)
+        if global_next.get('role'):
+            global_next['model_tier'] = model_routing.advise(global_next['role'], global_next.get('operation'))
         progress = progress_signals.build(root, s, events, cursor, global_next)
+        progress['model_usage'] = model_usage(s)
         errors = projection['errors']
         from openspec_projection import write
         from workflow_hub import materialize as hub
@@ -1071,11 +1111,13 @@ def status(root):
                 'parent_mo_names': decomposition.parent_mo_names(s),
                 'migration_report': {'json': str(root / 'reports/migration-report.json'),
                                      'markdown': str(root / 'reports/migration-report.md'), 'sequence': len(events)},
+                'semantic_index': str(root / 'ledger/semantic-index.json'),
                 'openspec_binding': {'bound': bool(layout),
                                      'location': 'top-level' if layout else 'in-run-fallback',
                                      'openspec_root': layout['openspec_root'] if layout else str(root / 'openspec'),
                                      'note': None if layout else 'run not bound to a prepared storage_layout; OpenSpec projects inside .sdd-runs/<run_id>/openspec, not workspace/openspec — recreate via prepare -> init(project_context_ref)'},
                 'last_sequence': len(events), 'observed_invalidations': observed,
+                'model_usage': model_usage(s),
                 'next_steps': cursor, 'global_next_step': global_next, 'ready_modules': rounds['ready_modules'],
                 'module_rounds': rounds,
                 'planning_context': decomposition.planning_context(s),

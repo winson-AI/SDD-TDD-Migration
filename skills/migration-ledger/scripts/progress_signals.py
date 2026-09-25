@@ -164,4 +164,7 @@ def render(progress):
                   'Severity: ' + item['severity'], '', '```json', json.dumps(item['evidence'], ensure_ascii=False, indent=2), '```', '']
     lines += ['## Runnable actions / worker watches', '', '```json',
               json.dumps({k: progress[k] for k in ('runnable_actions', 'worker_watches')}, ensure_ascii=False, indent=2), '```', '']
+    if progress.get('model_usage'):
+        lines += ['## Model usage (advised tier vs actual model)', '', '```json',
+                  json.dumps(progress['model_usage'], ensure_ascii=False, indent=2), '```', '']
     return '\n'.join(lines)

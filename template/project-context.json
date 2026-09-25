@@ -8,7 +8,14 @@
   "test_cases_path": null,
   "project_rules_path": null,
   "test_adapter": null,
-  "runtime": null,
+  "runtime": {
+    "model_routing": {
+      "strong": {"model": "{{strong-model-id}}", "endpoint": "{{endpoint}}", "api_key": {"env": "SDD_STRONG_MODEL_KEY"}},
+      "low_cost": {"model": "{{low-cost-model-id}}", "endpoint": "{{endpoint}}", "api_key": {"env": "SDD_LOW_COST_MODEL_KEY"}},
+      "default_tier": "strong",
+      "overrides": {}
+    }
+  },
   "human_owner": null,
   "defaults": {
     "entry_mode": "project",

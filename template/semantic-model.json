@@ -24,6 +24,21 @@
       "implementation_location": {"target_path": "{{absolute-target-root}}/ui/theme/Tokens.kt"}
     }
   },
+  "conformance_evidence_example": {
+    "_note": "At implementation, each item's dimension_evidence must bind the frozen model so downstream provably consumed it.",
+    "dimension_evidence": [
+      {
+        "item_id": "M001-Logic",
+        "task_ids": ["TASK-M001-001"],
+        "summary": "Ported the frozen statechart into SettingsViewModel.reducer",
+        "evidence_refs": [{"path": "{{absolute-run-root}}/staging/implementer/{{request-id}}/binding.md", "sha256": "{{sha256}}"}],
+        "semantic_conformance": {
+          "model_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/logic.statechart.json", "sha256": "{{sha256}}"},
+          "evidence_refs": [{"path": "{{absolute-target-root}}/ui/settings/SettingsViewModel.kt", "sha256": "{{sha256}}"}]
+        }
+      }
+    ]
+  },
   "model_schemas": {
     "ui-component-spec": {"root": {"type": "Column", "props": {}, "children": [{"type": "SwitchRow", "props": {"titleKey": "settings.notifications"}, "bindings": {"checked": "state.notificationsEnabled"}}]}},
     "logic-statechart": {"id": "settings", "initial": "idle", "states": {"idle": {"on": {"TOGGLE": {"target": "saving", "cond": {"==": [{"var": "network"}, "online"]}}}}, "saving": {"on": {"DONE": "idle"}}}},

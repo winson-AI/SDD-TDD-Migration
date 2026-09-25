@@ -1,5 +1,6 @@
 """Four-dimension planning gates, inheritance and frozen evidence in real Ledger transitions."""
 import copy
+import json
 from pathlib import Path
 import unittest
 
@@ -151,6 +152,10 @@ class DimensionTests(unittest.TestCase):
         self.assertIn('logic-statechart', text)
         self.assertIn('M001-Logic', text)
         self.assertIn('implementation_location', text)
+        # Global semantic context is aggregated across modules with per-module coverage.
+        index = json.loads((f.root / 'ledger/semantic-index.json').read_text())
+        self.assertTrue(any(r['module_id'] == 'M001' and r['kind'] == 'logic-statechart' for r in index['models']))
+        self.assertIn('M001-Logic', index['coverage']['M001']['with_model'])
 
     def test_semantic_model_kind_must_match_dimension(self):
         # A UI-kind model on a Logic item is rejected at plan load (structural gate).

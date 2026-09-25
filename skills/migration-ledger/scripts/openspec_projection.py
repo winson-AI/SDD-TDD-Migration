@@ -110,10 +110,8 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings):
         manifest['dimension_analysis_ref'] = ref
         manifest['files'].append('dimensions.md')
         # Read the immutable archived analysis (not the possibly-removed staging path).
-        analysis = json.loads(definition(root, ref))
-        sem_rows = [{'item_id': item['item_id'], 'dimension': drow['dimension'], **item['semantic_model']}
-                    for drow in analysis.get('dimensions', []) for item in drow.get('items', [])
-                    if item.get('semantic_model')]
+        import semantics
+        sem_rows = semantics.models_from_analysis(json.loads(definition(root, ref)))
         if sem_rows:
             write(change / 'semantics.md', '# Semantic extraction (Ledger projection)\n\n' +
                   'Machine-readable UI/Logic/Resource models frozen with the SPEC. Each records result '
@@ -136,6 +134,23 @@ def materialize(root, state, sequence):
     errors = []
     for mid, m in state['modules'].items():
         attempt(errors, 'openspec-module', lambda: module_view(root, state, sequence, mid, m, targets, context_warnings), mid)
+    # Global semantic context: aggregate every module's frozen UI/Logic/Resource models and coverage.
+    import semantics
+    index = {'sequence': sequence, 'models': [], 'coverage': {}}
+    for mid, m in state['modules'].items():
+        ref = (m.get('plan') or {}).get('dimension_analysis_ref')
+        if not ref:
+            continue
+        try:
+            analysis = json.loads(definition(root, ref))
+        except (OSError, ValueError, KeyError):
+            continue
+        index['models'] += semantics.models_from_analysis(analysis, mid)
+        coverage = semantics.coverage_from_analysis(analysis)
+        if coverage['applicable']:
+            index['coverage'][mid] = coverage
+    if index['models'] or index['coverage']:
+        attempt(errors, 'semantic-index', lambda: write(root / 'ledger/semantic-index.json', json.dumps(index, ensure_ascii=False, indent=2) + '\n'))
     memories = [{'module_id': mid, **entry} for mid, m in state['modules'].items() for entry in m.get('fix_memory', [])]
     attempt(errors, 'repair-memory', lambda: write(root / 'ledger' / 'repair-memory.json', json.dumps({'sequence': sequence, 'entries': memories}, ensure_ascii=False, indent=2) + '\n'))
 
