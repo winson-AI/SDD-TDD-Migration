@@ -109,6 +109,17 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings):
                           for task in m['plan']['tasks']], ensure_ascii=False, indent=2) + '\n```\n')
         manifest['dimension_analysis_ref'] = ref
         manifest['files'].append('dimensions.md')
+        # Read the immutable archived analysis (not the possibly-removed staging path).
+        analysis = json.loads(definition(root, ref))
+        sem_rows = [{'item_id': item['item_id'], 'dimension': drow['dimension'], **item['semantic_model']}
+                    for drow in analysis.get('dimensions', []) for item in drow.get('items', [])
+                    if item.get('semantic_model')]
+        if sem_rows:
+            write(change / 'semantics.md', '# Semantic extraction (Ledger projection)\n\n' +
+                  'Machine-readable UI/Logic/Resource models frozen with the SPEC. Each records result '
+                  '(model_ref), source (origin/locator) and target implementation_location.\n\n```json\n' +
+                  json.dumps(sem_rows, ensure_ascii=False, indent=2) + '\n```\n')
+            manifest['files'].append('semantics.md')
     previous = change / 'manifest.json'
     if previous.exists():
         for obsolete in set(json.loads(previous.read_text()).get('files', [])) - set(manifest['files']):

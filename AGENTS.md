@@ -98,6 +98,8 @@ Test-Runner 在 Coding 接受后先编译构建，再执行自动化测试；构
 
 GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 scope 后再按 UI → Logic → Adhesive → Resource 核查源闭包、架构、二方库和目标已有能力；适用项逐层映射到子功能、TASK/PATH/ASSERT，不适用项记录依据。流程节点、字段与门禁必读 [四维完整性协议](skills/migration-protocol/references/dimension-slicing.md)。
 
+子 MO 规划实现时，可为 UI/Logic/Resource 的 applicable item 附机器可读语义模型（UI=JSON Component Spec、Logic=Statechart+JSON-Logic、Resource=Design Tokens/ICU），记录抽象结果/来源/实现位置，随四维分析结构门禁校验并 hash 冻结、投影为 `semantics.md` 供下游读取；presence-triggered、任务驱动，`new` 策略基于目标项目创建。见 [代码语义抽取协议](skills/migration-protocol/references/semantic-extraction.md)。
+
 ## 阻塞感知与恢复
 
 可选 watchdog 是宿主侧旁路监听程序，仅观察和通知；不派发/恢复 Agent、不写 Ledger、不改变门禁。Host 状态无法核实时明确 unknown。它不自动启动，缺失或失败都不能阻塞任何模块。配置、真实状态导出和留存见 [watchdog](skills/migration-protocol/references/watchdog.md)。

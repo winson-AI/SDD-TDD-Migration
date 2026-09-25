@@ -1,0 +1,33 @@
+{
+  "_note": "Optional `semantic_model` attached to an applicable UI/Logic/Resource dimension item. Presence-triggered: validated only when present. model_ref points to a machine-readable JSON of the matching kind; it is archived to artifacts/ and frozen with the dimension analysis.",
+  "ui_item_example": {
+    "semantic_model": {
+      "kind": "ui-component-spec",
+      "model_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/ui.component.json", "sha256": "{{sha256}}"},
+      "source": {"origin": "legacy", "locator": "ui/SettingsActivity.java#SettingsAdapter", "evidence_refs": []},
+      "implementation_location": {"target_path": "{{absolute-target-root}}/ui/settings/SettingsScreen.kt", "symbol": "SettingsScreen"}
+    }
+  },
+  "logic_item_example": {
+    "semantic_model": {
+      "kind": "logic-statechart",
+      "model_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/logic.statechart.json", "sha256": "{{sha256}}"},
+      "source": {"origin": "target", "locator": "ui/settings/SettingsViewModel.kt", "evidence_refs": []},
+      "implementation_location": {"target_path": "{{absolute-target-root}}/ui/settings/SettingsViewModel.kt", "symbol": "reducer"}
+    }
+  },
+  "resource_item_example": {
+    "semantic_model": {
+      "kind": "design-tokens",
+      "model_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/tokens.json", "sha256": "{{sha256}}"},
+      "source": {"origin": "authored", "evidence_refs": []},
+      "implementation_location": {"target_path": "{{absolute-target-root}}/ui/theme/Tokens.kt"}
+    }
+  },
+  "model_schemas": {
+    "ui-component-spec": {"root": {"type": "Column", "props": {}, "children": [{"type": "SwitchRow", "props": {"titleKey": "settings.notifications"}, "bindings": {"checked": "state.notificationsEnabled"}}]}},
+    "logic-statechart": {"id": "settings", "initial": "idle", "states": {"idle": {"on": {"TOGGLE": {"target": "saving", "cond": {"==": [{"var": "network"}, "online"]}}}}, "saving": {"on": {"DONE": "idle"}}}},
+    "design-tokens": {"color": {"primary": {"$type": "color", "$value": "#2AABEE"}}, "space": {"sm": {"$type": "dimension", "$value": "8px"}}},
+    "icu-messages": {"settings.notifications": "Notifications", "settings.saved": "{count, plural, one {# change saved} other {# changes saved}}"}
+  }
+}

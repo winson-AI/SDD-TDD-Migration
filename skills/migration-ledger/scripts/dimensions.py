@@ -50,6 +50,8 @@ def load(ref, module_id):
                     require(item.get(field), 'resource mapping missing ' + field)
             items[iid] = {**item, 'dimension': row['dimension']}
     require(items, 'functional module must contain applicable dimension work')
+    import semantics
+    semantics.validate_items(items)
     return data, items
 
 
@@ -179,6 +181,8 @@ def implementation(plan, result):
     if not plan.get('dimension_analysis_ref'):
         return
     _, items = load(plan['dimension_analysis_ref'], plan['module_id'])
+    import semantics
+    semantics.implementation(items)
     traces = keyed(result.get('dimension_evidence'), 'item_id')
     require(set(traces) == set(items), 'implementation dimension evidence incomplete')
     planned = {t['item_id']: t for t in plan['dimension_trace']}

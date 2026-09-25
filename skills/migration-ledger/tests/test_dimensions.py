@@ -15,7 +15,7 @@ class DimensionTests(unittest.TestCase):
         f.setUp()
         self.addCleanup(f.doCleanups)
 
-    def analysis(self, mid='M010', kinds=('Logic',), parent_ref=None):
+    def analysis(self, mid='M010', kinds=('Logic',), parent_ref=None, semantic=False):
         f = self.f
         proof = f.ref('dimension-source.md', 'Versioned source/target review: entry -> handler -> repository -> consumer')
         rows = []
@@ -27,6 +27,13 @@ class DimensionTests(unittest.TestCase):
             if kind == 'Resource':
                 item.update(source_resource='legacy/icon.svg', target_resource=str(f.target / 'm1/icon.svg'),
                             consumer=str(f.target / 'm1/app.py'), conversion='exact-copy', qualifiers='default only; inspected')
+            if semantic and kind == 'Logic':
+                # strategy is 'new', so the model is authored from the target (never legacy origin).
+                item['semantic_model'] = {'kind': 'logic-statechart',
+                    'model_ref': f.ref(mid + '-statechart.json', {'id': mid, 'initial': 'idle',
+                        'states': {'idle': {'on': {'GO': {'target': 'run', 'cond': {'==': [1, 1]}}}}, 'run': {}}}),
+                    'source': {'origin': 'authored', 'evidence_refs': []},
+                    'implementation_location': {'target_path': str(f.target / 'm1/Logic.kt'), 'symbol': 'reducer'}}
             rows.append({'dimension': kind, 'status': 'applicable' if kind in kinds else 'not-applicable',
                          'reason': 'source-backed scope analysis', 'evidence_refs': [proof],
                          'items': [item] if kind in kinds else []})
@@ -54,13 +61,13 @@ class DimensionTests(unittest.TestCase):
         self.root_ref = module['dimension_analysis_ref']
         return module
 
-    def proposal(self, kinds=('Logic',), ids=('M001',)):
+    def proposal(self, kinds=('Logic',), ids=('M001',), semantic=False):
         f = self.f
         p = f.proposal(ids=ids)
         p['dimension_partition_review_ref'] = f.ref('partition-review.md', 'Subfunctions partition source behaviors; shared providers have one writer')
         for child in p['children']:
             child['dimension_analysis_ref'] = f.ref(child['module_id'] + '-dimensions.json',
-                self.analysis(child['module_id'], kinds, self.root_ref))
+                self.analysis(child['module_id'], kinds, self.root_ref, semantic))
         return p
 
     def leaf_plan(self):
@@ -129,6 +136,31 @@ class DimensionTests(unittest.TestCase):
         f.complete_leaf('M001'); f.summarize()
         self.assertEqual(f.state()['modules']['M001']['quality'], 'green-passed')
         self.assertEqual(f.state()['module_groups']['M010']['phase'], 'completed')
+
+    def test_semantic_model_frozen_and_projected(self):
+        f = self.f
+        self.root(kinds=tuple(dimensions.ORDER)); f.split(self.proposal(tuple(dimensions.ORDER), semantic=True)); f.global_plan()
+        p = self.leaf_plan()
+        f.call('plan', {'plan_ref': f.ref('plan-dimensions.json', p)}, role='spec-designer')
+        f.call('decision', {'decision_id': 'D', 'decision': 'approved', 'module_id': 'M001', 'subject_sha256': digest(p),
+                           'human_source_ref': f.ref('approve.md', 'User approved concrete plan')}, role='host', module=None)
+        f.call('freeze', {'decision_id': 'D'})
+        view = f.root / 'openspec/changes/demo-m001/semantics.md'
+        self.assertTrue(view.exists())
+        text = view.read_text()
+        self.assertIn('logic-statechart', text)
+        self.assertIn('M001-Logic', text)
+        self.assertIn('implementation_location', text)
+
+    def test_semantic_model_kind_must_match_dimension(self):
+        # A UI-kind model on a Logic item is rejected at plan load (structural gate).
+        self.root(kinds=('Logic',))
+        analysis = self.analysis('M001', ('Logic',), self.root_ref, semantic=True)
+        for row in analysis['dimensions']:
+            if row['dimension'] == 'Logic':
+                row['items'][0]['semantic_model']['kind'] = 'ui-component-spec'
+        with self.assertRaisesRegex(Rejected, 'kind does not match'):
+            dimensions.load(self.f.ref('bad-semantics.json', analysis), 'M001')
 
     def test_reused_resource_consumer_change_invalidates_accepted_evidence(self):
         f = self.f
