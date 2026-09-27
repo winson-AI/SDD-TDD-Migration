@@ -157,6 +157,21 @@ class DimensionTests(unittest.TestCase):
         self.assertTrue(any(r['module_id'] == 'M001' and r['kind'] == 'logic-statechart' for r in index['models']))
         self.assertIn('M001-Logic', index['coverage']['M001']['with_model'])
 
+    def test_dependency_ladder_strategies(self):
+        f = self.f
+
+        def load_with(strategy, **extra):
+            a = self.analysis('M001', ('Logic',))
+            for row in a['dimensions']:
+                if row['dimension'] == 'Logic':
+                    row['items'][0].update(target_strategy=strategy, **extra)
+            return dimensions.load(f.ref('ladder-' + strategy + str(extra) + '.json', a), 'M001')
+
+        load_with('subclosure-port')                                   # pinned-SCM subclosure port ok
+        load_with('capture-fixture', replaceable_boundary='repo:AuthRepository')  # fixture behind boundary ok
+        with self.assertRaisesRegex(Rejected, 'replaceable'):
+            load_with('capture-fixture')                               # fixture without boundary rejected
+
     def test_semantic_model_kind_must_match_dimension(self):
         # A UI-kind model on a Logic item is rejected at plan load (structural gate).
         self.root(kinds=('Logic',))

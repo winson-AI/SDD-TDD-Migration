@@ -139,6 +139,19 @@ def models_from_analysis(analysis, module_id=None):
     return rows
 
 
+def ui_fidelity_gaps(analysis):
+    """Applicable UI items lacking a semantic model bound to capture evidence (ui_evidence)."""
+    gaps = []
+    for drow in analysis.get('dimensions', []):
+        if drow.get('dimension') != 'UI' or drow.get('status') != 'applicable':
+            continue
+        for item in drow.get('items', []):
+            model = item.get('semantic_model')
+            if not (model and model.get('kind') == 'ui-component-spec' and model.get('ui_evidence')):
+                gaps.append(item['item_id'])
+    return gaps
+
+
 def coverage_from_analysis(analysis):
     """Which applicable UI/Logic/Resource items carry a semantic model (presence visibility)."""
     applicable, with_model = [], []

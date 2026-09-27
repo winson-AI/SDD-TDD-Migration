@@ -41,7 +41,9 @@ def load(ref, module_id):
             require(iid not in items, 'duplicate dimension item')
             require(all(item.get(k) for k in ('behavior', 'source_locator', 'target_strategy', 'target_binding', 'acceptance')),
                     'dimension item needs source, behavior, target binding and acceptance')
-            require(item['target_strategy'] in ('reuse', 'adapt', 'reference', 'new'), 'invalid dimension target strategy')
+            require(item['target_strategy'] in ('reuse', 'adapt', 'reference', 'new', 'subclosure-port', 'capture-fixture'), 'invalid dimension target strategy')
+            if item['target_strategy'] == 'capture-fixture':
+                require(item.get('replaceable_boundary'), 'capture-fixture requires a replaceable repository/datasource boundary')
             nonempty(item.get('requirement_ids'), 'dimension requirements')
             nonempty(item.get('case_ids'), 'dimension cases')
             evidence(item.get('evidence_refs'), 'dimension item evidence')

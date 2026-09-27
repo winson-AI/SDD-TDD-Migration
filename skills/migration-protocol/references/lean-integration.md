@@ -30,14 +30,9 @@ python3 <pkg>/skills/migration-ledger/scripts/lean_adapter.py visual-alignment -
 
 其余映射（implementation-result → dimension_evidence/code_files/task_trace；validation-result checks → tests 三态；resource-result → Resource 维证据）字段较多、含 SDD 专属元数据（freeze_id/assignment_id/断言集合），由宿主按上表所有权对照组装 SDD payload，适配器只固化最清晰、直接服务 UI 保真的两项转换。
 
-## Wave-1 吸收（协议 + 轻量脚本，规划）
+## Wave-1 吸收
 
-从 lean 吸收、融入 SDD 冻结/修复门禁：
-
-1. **Foundation/迁移知识 gate**：引入策展 `knowledge-index` + `query_knowledge`（按切片触发主题、按稳定错误 diagnose→cookbook）+ `foundation_gate resolve`（冻结前解析 target 敏感依赖的确切版本与 API 子闭包）。融入 [reuse.py](../../migration-ledger/scripts/reuse.py)，作为 `dependency_resolution_ref` 冻结前置。
-2. **依赖决策阶梯**：在 reuse 的 `reuse/adapt/reference/new` 之外补 `subclosure-port`（按 pin 版查 SCM 源做最小隔离子闭包）与 `capture-fixture`（capture 派生 fixture 置于可替换 Repository/DataSource 边界，OpenSpec/结果/裁决须披露）。
-3. **Grill 纪律**：澄清门只问不可逆的用户产品决策，不问可从源码/目标/SDK/capture 查得的事实——降低人工门噪音，融入上下文就绪与 boundary_review。
-4. **Git 纪律**：pre-migration baseline commit、`a2c/<change-id>` 分支、`generatedTrackedPaths` 处理、单一迁移 commit、不 stage 既有脏文件——作为宿主归档/合并纪律（SDD 不自动合并）。
+知识 gate、依赖决策阶梯（`subclosure-port`/`capture-fixture` 已在 [dimensions.py](../../migration-ledger/scripts/dimensions.py) 实现）、Grill 纪律、Git 纪律，详见 [Wave-1 纪律](wave1-disciplines.md)。
 
 ## 边界（诚实）
 

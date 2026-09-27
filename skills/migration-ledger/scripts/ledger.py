@@ -17,6 +17,7 @@ import decomposition
 import dimensions
 import model_routing
 import reuse
+import ui_fidelity
 import project_context
 import context_readiness
 import test_validation as tv
@@ -564,6 +565,7 @@ def mutate(s, req, principal, events, root=None):
         require(m['phase'] == 'clarifying' and not m.get('blocked'), 'freeze requires unblocked clarifying')
         verify_plan(m['plan'])
         require(validate_plan(m['plan'], m) == m['plan_hash'], 'plan changed')
+        ui_fidelity.freeze_gate(s, m)
         decision = s['decisions'].get(p.get('decision_id'), {})
         if p.get('change_class') == 'within-envelope':
             within_envelope(m, p.get('impact_ref'))
@@ -987,9 +989,10 @@ def _apply(root, req, principal):
             require(type(p.get('reuse_required', False)) is bool, 'reuse_required must be boolean')
             require(type(p.get('split_testing_required', True)) is bool, 'split_testing_required must be boolean')
             require(type(p.get('context_readiness_required', True)) is bool, 'context_readiness_required must be boolean')
+            require(type(p.get('ui_fidelity_required', False)) is bool, 'ui_fidelity_required must be boolean')
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
             require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
-            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True),
+            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False),
                  'reuse_sources': reuse_sources, 'reuse_required': bool(reuse_sources) or p.get('reuse_required', False),
                  'entry_mode': entry_mode, 'single_module_id': selected_module,
                  'global_spec': p['global_spec'], 'new_architecture': p['new_architecture'], 'requirement_ids': p['requirement_ids'],
