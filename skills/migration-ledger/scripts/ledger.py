@@ -884,8 +884,16 @@ def mutate(s, req, principal, events, root=None):
     refresh(s)
 
 
-def preserve_refs(root, value, seen=None):
-    """Archive evidence bytes before commit; keep live refs for stale-code detection."""
+def preserve_refs(root, value, seen=None, nested=False, target_root=None):
+    """Archive evidence bytes before commit; keep live refs for stale-code detection.
+
+    Refs discovered inside archived JSON evidence are preserved best-effort for
+    live target code only: target files legitimately drift after accepted
+    implementations (code_baseline/reuse.verify remain the business gates), so
+    nested drift under target_root is recorded in the event trail instead of
+    rejecting the commit. Top-level payload refs and nested immutable evidence
+    (legacy sources, staging/context artifacts) remain strictly validated.
+    """
     seen = set() if seen is None else seen
     saved = []
     if isinstance(value, dict):
@@ -894,7 +902,15 @@ def preserve_refs(root, value, seen=None):
             if key in seen:
                 return []
             seen.add(key)
-            path = check_ref(value)
+            try:
+                path = check_ref(value)
+            except ValueError:
+                live_target = nested and target_root and isinstance(value.get('path'), str) and \
+                    Path(value['path']).resolve().is_relative_to(Path(target_root).resolve())
+                if not live_target:
+                    raise
+                return [{'source_path': value.get('path'), 'expected_sha256': value.get('sha256'),
+                         'status': 'drifted-or-missing-live-target-code'}]
             blob = run_storage.checked_path(root / 'artifacts' / value['sha256'], root / 'artifacts')
             blob.parent.mkdir(exist_ok=True)
             if not blob.exists():
@@ -904,16 +920,16 @@ def preserve_refs(root, value, seen=None):
             saved.append({'source_path': str(path), **file_ref(blob)})
             if path.suffix == '.json':
                 try:
-                    nested = read_json(path)
+                    nested_value = read_json(path)
                 except ValueError:
-                    nested = None
-                saved.extend(preserve_refs(root, nested, seen))
+                    nested_value = None
+                saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root))
         else:
             for item in value.values():
-                saved.extend(preserve_refs(root, item, seen))
+                saved.extend(preserve_refs(root, item, seen, nested, target_root))
     elif isinstance(value, list):
         for item in value:
-            saved.extend(preserve_refs(root, item, seen))
+            saved.extend(preserve_refs(root, item, seen, nested, target_root))
     return saved
 
 
@@ -1004,7 +1020,7 @@ def _apply(root, req, principal):
              'timestamp': now(), 'request_id': req['request_id'], 'request_hash': request_hash,
              'actor': principal, 'operation': req['operation'], 'module_id': req.get('module_id'),
              'previous_hash': events[-1]['sha256'] if events else None, 'effect': effect,
-             'artifact_snapshots': preserve_refs(root, req.get('payload', {}))}
+             'artifact_snapshots': preserve_refs(root, req.get('payload', {}), target_root=s.get('target_root'))}
         e['sha256'] = digest(e)
         journal = run_storage.checked_path(root / 'ledger/events.jsonl', root)
         journal.parent.mkdir(exist_ok=True)
