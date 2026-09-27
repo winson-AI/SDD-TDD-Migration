@@ -87,6 +87,27 @@ class SemanticsTests(unittest.TestCase):
         self.bad_impl(items, 'semantic_conformance', None)    # exists but implementer recorded no conformance
         semantics.implementation(items, good)                 # exists + conformance -> ok
 
+    def test_ui_evidence_boundary(self):
+        tree = self.ref('ui-tree.json', {'screen': 'login'})
+        ev = {'coverage': 'login:phone:viewport', 'ui_tree_ref': tree, 'visual_mode': 'runtime'}
+        self.ok(self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}}, ui_evidence=ev))
+        self.bad(self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}}, ui_evidence={**ev, 'coverage': 'bad'}), 'coverage must be')
+        self.bad(self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}},
+                           ui_evidence={'coverage': 'login:phone:viewport', 'ui_tree_ref': tree}), 'visual_mode required')
+        self.bad(self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}},
+                           ui_evidence={'coverage': 'login:phone:viewport', 'visual_mode': 'runtime'}), None)  # missing ui_tree_ref
+
+    def test_ui_visual_alignment_required_at_implementation(self):
+        tree = self.ref('ui-tree.json', {'screen': 'login'})
+        item = self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}},
+                         ui_evidence={'coverage': 'login:phone:viewport', 'ui_tree_ref': tree, 'visual_mode': 'runtime'})
+        items = {'i1': item}
+        (self.base / 'Out.kt').write_text('x')
+        base = {'model_ref': item['semantic_model']['model_ref'], 'evidence_refs': [self.ref('conf.json', {'ok': 1})]}
+        self.bad_impl(items, 'visual_alignment', {'i1': {'semantic_conformance': base}})
+        aligned = {'i1': {'semantic_conformance': {**base, 'visual_alignment': {'status': 'aligned', 'result_ref': self.ref('align.json', {'status': 'ALIGNED'})}}}}
+        semantics.implementation(items, aligned)  # aligned -> ok
+
     def test_models_and_coverage_from_analysis(self):
         analysis = {'dimensions': [
             {'dimension': 'UI', 'status': 'applicable', 'items': [

@@ -13,6 +13,8 @@
 
 Adhesive 维暂不纳入语义模型，沿用现有 item 结构。字段示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
+UI 模型可绑定 `ui_evidence`（存量抽取的 UI 树 `ui_tree_ref` + `page:state:coverage` + `visual_mode`），实现时其 conformance 须含 `visual_alignment`（aligned/source-only + result_ref），随冻结/实现门禁——把 UI 还原从散文 fidelity 提升为证据+截图 parity。详见 [UI 保真控制道](ui-fidelity.md) 与 [lean 集成](lean-integration.md)。
+
 ## item 上的记录（结果 / 来源 / 位置）
 
 ```jsonc

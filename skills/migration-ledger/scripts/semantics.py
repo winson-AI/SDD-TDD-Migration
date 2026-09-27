@@ -9,8 +9,12 @@ existing item -> TASK -> PATH trace (task-driven). Strategy `new` has no legacy
 reference, so it is authored from the target project (origin target/authored).
 """
 from pathlib import Path
+import re
 
 from contracts import check_ref, nonempty, read_json, require
+
+# UI capture boundary: page_id:state_id:coverage, coverage in {viewport, scroll} (lean-derived).
+COVERAGE = re.compile(r'^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9/_-]*:(viewport|scroll)$')
 
 # Which model kinds each dimension may carry. Adhesive keeps its existing structure.
 KINDS = {
@@ -75,6 +79,21 @@ VALIDATORS = {'ui-component-spec': _ui_component_spec, 'logic-statechart': _stat
               'design-tokens': _design_tokens, 'icu-messages': _icu_messages}
 
 
+def _ui_evidence(model):
+    """UI fidelity boundary: bind extracted UI-tree evidence and a capture coverage target.
+
+    Presence-triggered; absorbed from the lean UI pipeline so a UI model is anchored to real
+    source/runtime evidence and a page:state:coverage scope rather than prose alone.
+    """
+    evidence = model.get('ui_evidence')
+    if evidence is None:
+        return
+    require(isinstance(evidence, dict), 'ui_evidence must be an object')
+    require(COVERAGE.match(evidence.get('coverage', '')), 'ui_evidence.coverage must be page:state:(viewport|scroll)')
+    check_ref(evidence.get('ui_tree_ref'))
+    require(evidence.get('visual_mode') in ('runtime', 'source-only'), 'ui_evidence.visual_mode required (runtime/source-only)')
+
+
 def validate_item(item):
     """Presence-triggered structural gate for one dimension item's semantic model."""
     model = item.get('semantic_model')
@@ -85,6 +104,8 @@ def validate_item(item):
     kind = model.get('kind')
     require(kind in KINDS[dimension], 'semantic model kind does not match its dimension')
     VALIDATORS[kind](read_json(check_ref(model.get('model_ref'))))
+    if kind == 'ui-component-spec':
+        _ui_evidence(model)
     source = model.get('source', {})
     require(source.get('origin') in ORIGINS, 'semantic source origin required (legacy/target/authored)')
     require(item.get('target_strategy') != 'new' or source['origin'] != 'legacy',
@@ -147,3 +168,11 @@ def implementation(items, traces=None):
                 'implementation must record semantic_conformance binding the frozen model for ' + iid)
         for ref in nonempty(conformance.get('evidence_refs'), 'semantic conformance evidence for ' + iid):
             check_ref(ref)
+        # A UI model anchored to capture evidence must show visual parity, not prose fidelity.
+        if model.get('kind') == 'ui-component-spec' and model.get('ui_evidence'):
+            alignment = conformance.get('visual_alignment')
+            require(alignment and alignment.get('status') in ('aligned', 'source-only'),
+                    'UI item requires visual_alignment status (aligned/source-only) for ' + iid)
+            require(alignment['status'] != 'source-only' or model['ui_evidence']['visual_mode'] == 'source-only',
+                    'source-only alignment requires source-only capture evidence for ' + iid)
+            check_ref(alignment.get('result_ref'))

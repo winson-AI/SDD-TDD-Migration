@@ -4,6 +4,11 @@
     "semantic_model": {
       "kind": "ui-component-spec",
       "model_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/ui.component.json", "sha256": "{{sha256}}"},
+      "ui_evidence": {
+        "ui_tree_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/ui-tree.json", "sha256": "{{sha256}}"},
+        "coverage": "settings:base:viewport",
+        "visual_mode": "runtime"
+      },
       "source": {"origin": "legacy", "locator": "ui/SettingsActivity.java#SettingsAdapter", "evidence_refs": []},
       "implementation_location": {"target_path": "{{absolute-target-root}}/ui/settings/SettingsScreen.kt", "symbol": "SettingsScreen"}
     }
@@ -34,7 +39,9 @@
         "evidence_refs": [{"path": "{{absolute-run-root}}/staging/implementer/{{request-id}}/binding.md", "sha256": "{{sha256}}"}],
         "semantic_conformance": {
           "model_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/logic.statechart.json", "sha256": "{{sha256}}"},
-          "evidence_refs": [{"path": "{{absolute-target-root}}/ui/settings/SettingsViewModel.kt", "sha256": "{{sha256}}"}]
+          "evidence_refs": [{"path": "{{absolute-target-root}}/ui/settings/SettingsViewModel.kt", "sha256": "{{sha256}}"}],
+          "_ui_note": "UI items whose model carries ui_evidence must also add visual_alignment here",
+          "visual_alignment": {"status": "aligned", "result_ref": {"path": "{{absolute-run-root}}/runs/harmony/automation/{{attempt}}/alignment-result.json", "sha256": "{{sha256}}"}}
         }
       }
     ]
