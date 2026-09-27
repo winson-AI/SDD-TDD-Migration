@@ -14,6 +14,22 @@ SDD 是治理/控制面（事务化 Ledger、并行 MO、独立审计、四维/�
 
 宿主按 [宿主接入契约](host-integration.md) 派发对应 skill，把其 result 文件经 `submit`/`accept`/`audit` 提交 Ledger；lean 的 session 复用与 handoff-minimization 与 SDD 的 session/checkpoint 对齐。`/sdd-verify` 与四维/语义门禁照常校验。
 
+## 产物转换（lean → SDD 证据）
+
+[lean_adapter.py](../../migration-ledger/scripts/lean_adapter.py) 把 lean 的 UI 保真产物转成 SDD 证据形状（结构校验、绝不伪造 ALIGNED）：
+
+| lean 产物 | 适配器 | → SDD 证据 |
+|---|---|---|
+| capture manifest 条目 `{page_id,state_id,coverage,status}` + 抽取的 ui-tree | `ui-evidence` | `semantic_model.ui_evidence{ui_tree_ref, coverage=page:state:coverage, visual_mode}`（COMPLETE→runtime、SOURCE_ONLY→source-only） |
+| alignment-result `{status}` | `visual-alignment` | `semantic_conformance.visual_alignment{status, result_ref}`（ALIGNED→aligned、RUNNABLE_PARTIAL→source-only、其余拒绝并 NEEDS_UI_FIX 回 owner） |
+
+```sh
+python3 <pkg>/skills/migration-ledger/scripts/lean_adapter.py ui-evidence --capture <entry.json> --ui-tree <ui-tree.json>
+python3 <pkg>/skills/migration-ledger/scripts/lean_adapter.py visual-alignment --alignment <alignment-result.json>
+```
+
+其余映射（implementation-result → dimension_evidence/code_files/task_trace；validation-result checks → tests 三态；resource-result → Resource 维证据）字段较多、含 SDD 专属元数据（freeze_id/assignment_id/断言集合），由宿主按上表所有权对照组装 SDD payload，适配器只固化最清晰、直接服务 UI 保真的两项转换。
+
 ## Wave-1 吸收（协议 + 轻量脚本，规划）
 
 从 lean 吸收、融入 SDD 冻结/修复门禁：
