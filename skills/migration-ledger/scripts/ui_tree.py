@@ -1,16 +1,20 @@
-"""Structural validation of the extracted UI tree (absorbed from the lean UI pipeline).
+"""The merged source+runtime UI tree contract, as the lean UI pipeline actually emits it.
 
-A frozen ui_evidence.ui_tree_ref stops being an opaque blob: nodes carry stable ids, every
-direct presentation reference is recorded, code-owned runtime presentation changes appear as
-dynamicRules, and conflicts stay in an explicit `unresolved` list instead of being dropped.
-Structural gates only; semantic completeness stays with the analysing agent.
+A frozen ui_tree_ref is not an opaque blob. Each screen has one recursive source-backed root plus
+typed attachments; every node keeps stable ids and every direct presentation reference; code-owned
+presentation mutations appear as dynamicRules; contradictions stay in an explicit `unresolved` list.
+`generatedFrom` records which source/runtime indexes produced it, so a source-only tree cannot carry
+invented runtime observations. Structural gates only — semantic completeness stays with the
+analysing agent.
 """
 import re
 
 from contracts import nonempty, require
 
-# Stable ids shared with OpenSpec: screen:/node:/binding:/event:/resource:/interaction:
-ID = re.compile(r'^(screen|node|binding|event|resource|interaction):[A-Za-z0-9][A-Za-z0-9/_.\-]*$')
+# Stable ids shared with OpenSpec.
+ID = re.compile(r'^(screen|state|node|binding|event|resource|interaction):[A-Za-z0-9][A-Za-z0-9/_.\-]*$')
+# Typed attachments a screen may carry beside its root (repeated rows are represented once).
+ATTACHMENTS = ('drawers', 'dialogs', 'menus', 'overlays', 'pagerPages', 'listItems', 'headers', 'footers')
 
 
 def _refs(value, label):
@@ -20,8 +24,8 @@ def _refs(value, label):
     return value
 
 
-def _node(node, label='nodes'):
-    require(isinstance(node, dict), label + ' entry must be an object')
+def _node(node, label, runtime_merged):
+    require(isinstance(node, dict), label + ' must be an object')
     nid = node.get('id', '')
     require(isinstance(nid, str) and nid.startswith('node:') and ID.match(nid), label + ' needs a stable node:<id>')
     presentation = node.get('presentation', {})
@@ -35,33 +39,81 @@ def _node(node, label='nodes'):
     for rule in rules:
         require(isinstance(rule, dict) and rule.get('condition'), nid + ' dynamicRule needs a condition')
         _refs(rule.get('resourceRefs', []), nid + ' dynamicRule resourceRefs')
+    require(isinstance(node.get('capabilities', []), list), nid + ' capabilities must be a list')
+    observations = node.get('runtimeObservations', [])
+    require(isinstance(observations, list), nid + ' runtimeObservations must be a list')
+    require(not observations or runtime_merged,
+            nid + ' carries runtimeObservations but the tree has no runtime index')
+    for observation in observations:
+        require(isinstance(observation, dict) and observation.get('pageId') and observation.get('stateId'),
+                nid + ' runtimeObservation needs pageId/stateId')
     children = node.get('children', [])
     require(isinstance(children, list), nid + ' children must be a list')
     for child in children:
-        _node(child, nid)
+        _node(child, nid + ' child', runtime_merged)
+
+
+def _screen(screen, runtime_merged):
+    require(isinstance(screen, dict), 'screen must be an object')
+    sid = screen.get('id', '')
+    require(isinstance(sid, str) and sid.startswith('screen:') and ID.match(sid), 'screen needs a stable screen:<id>')
+    _node(screen.get('root'), sid + ' root', runtime_merged)
+    attachments = screen.get('attachments', {})
+    require(isinstance(attachments, dict), sid + ' attachments must be an object')
+    require(set(attachments) <= set(ATTACHMENTS), sid + ' attachments must be typed: ' + ', '.join(ATTACHMENTS))
+    for kind, nodes in attachments.items():
+        require(isinstance(nodes, list), sid + ' ' + kind + ' must be a list')
+        for node in nodes:
+            _node(node, sid + ' ' + kind, runtime_merged)
+
+
+def merged_runtime(tree):
+    """True when a runtime capture index was merged in (source-only trees have none)."""
+    return bool((tree.get('generatedFrom') or {}).get('runtimeIndex'))
 
 
 def validate(tree):
-    require(isinstance(tree, dict) and tree.get('schema_version') == 1, 'ui tree schema_version 1 required')
-    screen = tree.get('screen', '')
-    require(isinstance(screen, str) and screen.startswith('screen:') and ID.match(screen),
-            'ui tree needs a stable screen:<id>')
-    for node in nonempty(tree.get('nodes'), 'ui tree nodes'):
-        _node(node)
-    require(isinstance(tree.get('unresolved'), list), 'ui tree must keep an explicit unresolved list')
+    require(isinstance(tree, dict) and tree.get('schemaVersion') == 1, 'ui tree schemaVersion 1 required')
+    require(isinstance(tree.get('scope'), str) and tree['scope'], 'ui tree needs its change scope')
+    origin = tree.get('generatedFrom')
+    require(isinstance(origin, dict), 'ui tree needs generatedFrom provenance')
+    for key in ('sourceIndex', 'sourceIndexSha256'):
+        require(isinstance(origin.get(key), str) and origin[key], 'generatedFrom needs ' + key)
+    require(bool(origin.get('runtimeIndex')) == bool(origin.get('runtimeIndexSha256')),
+            'runtimeIndex and runtimeIndexSha256 must both be present or both be null')
+    runtime_merged = merged_runtime(tree)
+    for screen in nonempty(tree.get('screens'), 'ui tree screens'):
+        _screen(screen, runtime_merged)
+    for key in ('layoutClosure', 'criticalLayoutContracts', 'unresolved'):
+        require(isinstance(tree.get(key), list), 'ui tree must keep an explicit ' + key + ' list')
     return tree
+
+
+def nodes(tree):
+    """Every node in the tree, roots and typed attachments alike."""
+    found = []
+
+    def walk(node):
+        found.append(node)
+        for child in node.get('children', []):
+            walk(child)
+    for screen in tree.get('screens', []):
+        walk(screen.get('root') or {})
+        for group in (screen.get('attachments') or {}).values():
+            for node in group:
+                walk(node)
+    return found
+
+
+def node_ids(tree):
+    return sorted({node['id'] for node in nodes(tree) if node.get('id')})
 
 
 def resource_refs(tree):
     """Every presentation reference the tree declares, including code-owned runtime overrides."""
     found = []
-
-    def walk(node):
+    for node in nodes(tree):
         found.extend(node.get('presentation', {}).get('resourceRefs', []))
         for rule in node.get('dynamicRules', []):
             found.extend(rule.get('resourceRefs', []))
-        for child in node.get('children', []):
-            walk(child)
-    for node in tree.get('nodes', []):
-        walk(node)
     return sorted(set(found))

@@ -3,30 +3,68 @@
   "ui_item_example": {
     "semantic_model": {
       "kind": "ui-component-spec",
-      "model_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/ui.component.json", "sha256": "{{sha256}}"},
-      "ui_evidence": {
-        "ui_tree_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/ui-tree.json", "sha256": "{{sha256}}"},
-        "coverage": "settings:base:viewport",
-        "visual_mode": "runtime"
+      "model_ref": {
+        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/ui.component.json",
+        "sha256": "{{sha256}}"
       },
-      "source": {"origin": "legacy", "locator": "ui/SettingsActivity.java#SettingsAdapter", "evidence_refs": []},
-      "implementation_location": {"target_path": "{{absolute-target-root}}/ui/settings/SettingsScreen.kt", "symbol": "SettingsScreen"}
+      "ui_evidence": {
+        "ui_tree_ref": {
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/ui-tree.json",
+          "sha256": "{{sha256}}"
+        },
+        "coverage": "settings:base:viewport",
+        "visual_mode": "runtime",
+        "legacy_executable": true,
+        "baseline_refs": [
+          {
+            "path": "{{absolute-run-root}}/staging/capture/{{request-id}}/shot.png",
+            "sha256": "{{sha256}}"
+          }
+        ]
+      },
+      "source": {
+        "origin": "legacy",
+        "locator": "ui/SettingsActivity.java#SettingsAdapter",
+        "evidence_refs": []
+      },
+      "implementation_location": {
+        "target_path": "{{absolute-target-root}}/ui/settings/SettingsScreen.kt",
+        "symbol": "SettingsScreen"
+      }
     }
   },
   "logic_item_example": {
     "semantic_model": {
       "kind": "logic-statechart",
-      "model_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/logic.statechart.json", "sha256": "{{sha256}}"},
-      "source": {"origin": "target", "locator": "ui/settings/SettingsViewModel.kt", "evidence_refs": []},
-      "implementation_location": {"target_path": "{{absolute-target-root}}/ui/settings/SettingsViewModel.kt", "symbol": "reducer"}
+      "model_ref": {
+        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/logic.statechart.json",
+        "sha256": "{{sha256}}"
+      },
+      "source": {
+        "origin": "target",
+        "locator": "ui/settings/SettingsViewModel.kt",
+        "evidence_refs": []
+      },
+      "implementation_location": {
+        "target_path": "{{absolute-target-root}}/ui/settings/SettingsViewModel.kt",
+        "symbol": "reducer"
+      }
     }
   },
   "resource_item_example": {
     "semantic_model": {
       "kind": "design-tokens",
-      "model_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/tokens.json", "sha256": "{{sha256}}"},
-      "source": {"origin": "authored", "evidence_refs": []},
-      "implementation_location": {"target_path": "{{absolute-target-root}}/ui/theme/Tokens.kt"}
+      "model_ref": {
+        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/tokens.json",
+        "sha256": "{{sha256}}"
+      },
+      "source": {
+        "origin": "authored",
+        "evidence_refs": []
+      },
+      "implementation_location": {
+        "target_path": "{{absolute-target-root}}/ui/theme/Tokens.kt"
+      }
     }
   },
   "conformance_evidence_example": {
@@ -34,22 +72,166 @@
     "dimension_evidence": [
       {
         "item_id": "M001-Logic",
-        "task_ids": ["TASK-M001-001"],
+        "task_ids": [
+          "TASK-M001-001"
+        ],
         "summary": "Ported the frozen statechart into SettingsViewModel.reducer",
-        "evidence_refs": [{"path": "{{absolute-run-root}}/staging/implementer/{{request-id}}/binding.md", "sha256": "{{sha256}}"}],
+        "evidence_refs": [
+          {
+            "path": "{{absolute-run-root}}/staging/implementer/{{request-id}}/binding.md",
+            "sha256": "{{sha256}}"
+          }
+        ],
         "semantic_conformance": {
-          "model_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/logic.statechart.json", "sha256": "{{sha256}}"},
-          "evidence_refs": [{"path": "{{absolute-target-root}}/ui/settings/SettingsViewModel.kt", "sha256": "{{sha256}}"}],
-          "_ui_note": "UI items whose model carries ui_evidence must also add visual_alignment here",
-          "visual_alignment": {"status": "aligned", "result_ref": {"path": "{{absolute-run-root}}/runs/harmony/automation/{{attempt}}/alignment-result.json", "sha256": "{{sha256}}"}}
+          "model_ref": {
+            "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/logic.statechart.json",
+            "sha256": "{{sha256}}"
+          },
+          "evidence_refs": [
+            {
+              "path": "{{absolute-target-root}}/ui/settings/SettingsViewModel.kt",
+              "sha256": "{{sha256}}"
+            }
+          ],
+          "_ui_note": "UI items whose model carries ui_evidence must add baseline_conformance citing what guided the coding",
+          "baseline_conformance": {
+            "_runtime": "previewable legacy: repeat ui_evidence.baseline_refs exactly",
+            "baseline_refs": [
+              {
+                "path": "{{absolute-run-root}}/staging/capture/{{request-id}}/shot.png",
+                "sha256": "{{sha256}}"
+              }
+            ],
+            "_source_only": "non-previewable legacy: cite ui_evidence.ui_tree_ref instead"
+          }
         }
       }
     ]
   },
   "model_schemas": {
-    "ui-component-spec": {"root": {"type": "Column", "props": {}, "children": [{"type": "SwitchRow", "props": {"titleKey": "settings.notifications"}, "bindings": {"checked": "state.notificationsEnabled"}}]}},
-    "logic-statechart": {"id": "settings", "initial": "idle", "states": {"idle": {"on": {"TOGGLE": {"target": "saving", "cond": {"==": [{"var": "network"}, "online"]}}}}, "saving": {"on": {"DONE": "idle"}}}},
-    "design-tokens": {"color": {"primary": {"$type": "color", "$value": "#2AABEE"}}, "space": {"sm": {"$type": "dimension", "$value": "8px"}}},
-    "icu-messages": {"settings.notifications": "Notifications", "settings.saved": "{count, plural, one {# change saved} other {# changes saved}}"}
+    "ui-component-spec": {
+      "root": {
+        "type": "Column",
+        "props": {},
+        "children": [
+          {
+            "type": "SwitchRow",
+            "props": {
+              "titleKey": "settings.notifications"
+            },
+            "bindings": {
+              "checked": "state.notificationsEnabled"
+            }
+          }
+        ]
+      }
+    },
+    "logic-statechart": {
+      "id": "settings",
+      "initial": "idle",
+      "states": {
+        "idle": {
+          "on": {
+            "TOGGLE": {
+              "target": "saving",
+              "cond": {
+                "==": [
+                  {
+                    "var": "network"
+                  },
+                  "online"
+                ]
+              }
+            }
+          }
+        },
+        "saving": {
+          "on": {
+            "DONE": "idle"
+          }
+        }
+      }
+    },
+    "design-tokens": {
+      "color": {
+        "primary": {
+          "$type": "color",
+          "$value": "#2AABEE"
+        }
+      },
+      "space": {
+        "sm": {
+          "$type": "dimension",
+          "$value": "8px"
+        }
+      }
+    },
+    "icu-messages": {
+      "settings.notifications": "Notifications",
+      "settings.saved": "{count, plural, one {# change saved} other {# changes saved}}"
+    }
+  },
+  "ui_tree_contract": {
+    "_note": "ui_evidence.ui_tree_ref points at a lean-produced merged source+runtime UI tree; validated by ui_tree.py.",
+    "schemaVersion": 1,
+    "scope": "{{change-id}}",
+    "generatedFrom": {
+      "sourceIndex": "ui-source-index.json",
+      "sourceIndexSha256": "{{sha256}}",
+      "runtimeIndex": "runtime-ui-index.json (null when the legacy screen cannot be previewed)",
+      "runtimeIndexSha256": "{{sha256 or null}}"
+    },
+    "screens": [
+      {
+        "id": "screen:settings",
+        "root": {
+          "id": "node:root",
+          "presentation": {
+            "resourceRefs": [
+              "@dimen/margin",
+              "@color/text"
+            ]
+          },
+          "bindings": [
+            "binding:enabled"
+          ],
+          "events": [
+            "event:toggle"
+          ],
+          "dynamicRules": [
+            {
+              "condition": "selected",
+              "resourceRefs": [
+                "@color/selected"
+              ]
+            }
+          ],
+          "capabilities": [
+            "clickable"
+          ],
+          "runtimeObservations": [
+            {
+              "pageId": "settings",
+              "stateId": "base",
+              "text": "Settings"
+            }
+          ],
+          "children": []
+        },
+        "attachments": {
+          "dialogs": [
+            {
+              "id": "node:confirm",
+              "presentation": {
+                "resourceRefs": []
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "layoutClosure": [],
+    "criticalLayoutContracts": [],
+    "unresolved": []
   }
 }

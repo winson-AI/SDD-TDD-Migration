@@ -90,9 +90,11 @@ def _ui_evidence(model):
         return
     require(isinstance(evidence, dict), 'ui_evidence must be an object')
     require(COVERAGE.match(evidence.get('coverage', '')), 'ui_evidence.coverage must be page:state:(viewport|scroll)')
-    import ui_tree
-    ui_tree.validate(read_json(check_ref(evidence.get('ui_tree_ref'))))
     require(evidence.get('visual_mode') in ('runtime', 'source-only'), 'ui_evidence.visual_mode required (runtime/source-only)')
+    import ui_tree
+    tree = ui_tree.validate(read_json(check_ref(evidence.get('ui_tree_ref'))))
+    require(ui_tree.merged_runtime(tree) == (evidence['visual_mode'] == 'runtime'),
+            'ui tree runtime merge must agree with visual_mode (runtime needs a runtime index)')
     executable = evidence.get('legacy_executable')
     if executable is not None:
         require(isinstance(executable, bool), 'ui_evidence.legacy_executable must be boolean')

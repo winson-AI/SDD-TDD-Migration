@@ -11,7 +11,7 @@ import semantics
 from contracts import Rejected, file_ref
 
 
-TREE = {'schema_version': 1, 'screen': 'screen:login', 'nodes': [{'id': 'node:root', 'presentation': {'resourceRefs': []}}], 'unresolved': []}
+TREE = {'schemaVersion': 1, 'scope': 'migrate-login', 'generatedFrom': {'sourceIndex': 'ui-source-index.json', 'sourceIndexSha256': 'a'*0 + 'aa', 'runtimeIndex': 'runtime-ui-index.json', 'runtimeIndexSha256': 'bb'}, 'screens': [{'id': 'screen:login', 'root': {'id': 'node:root', 'presentation': {'resourceRefs': []}}}], 'layoutClosure': [], 'criticalLayoutContracts': [], 'unresolved': []}
 
 
 class SemanticsTests(unittest.TestCase):
@@ -91,7 +91,7 @@ class SemanticsTests(unittest.TestCase):
         semantics.implementation(items, good)                 # exists + conformance -> ok
 
     def test_ui_evidence_boundary(self):
-        tree = self.ref('ui-tree.json', {'schema_version': 1, 'screen': 'screen:login', 'nodes': [{'id': 'node:root', 'presentation': {'resourceRefs': []}}], 'unresolved': []})
+        tree = self.ref('ui-tree.json', {'schemaVersion': 1, 'scope': 'migrate-login', 'generatedFrom': {'sourceIndex': 'ui-source-index.json', 'sourceIndexSha256': 'a'*0 + 'aa', 'runtimeIndex': 'runtime-ui-index.json', 'runtimeIndexSha256': 'bb'}, 'screens': [{'id': 'screen:login', 'root': {'id': 'node:root', 'presentation': {'resourceRefs': []}}}], 'layoutClosure': [], 'criticalLayoutContracts': [], 'unresolved': []})
         ev = {'coverage': 'login:phone:viewport', 'ui_tree_ref': tree, 'visual_mode': 'runtime'}
         self.ok(self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}}, ui_evidence=ev))
         self.bad(self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}}, ui_evidence={**ev, 'coverage': 'bad'}), 'coverage must be')

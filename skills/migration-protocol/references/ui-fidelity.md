@@ -10,46 +10,36 @@ UI scope 不再用散文墙，改为可校验载体：
 - **稳定 id**：`screen:` / `node:` / `binding:` / `event:` / `resource:` / `interaction:`，SPEC 与 UI 模型互引。
 - **显式 exclusions**：范围外界面态/手势/资源逐条声明（如 ForgotPassword 恢复流不呈现）。
 
-## UI 证据绑定（攻克“UI 还原度”，P1 已实现）
+## UI 证据绑定
 
-`ui-component-spec` 语义模型可携带 `ui_evidence`，随冻结经 [semantics.py](../../migration-ledger/scripts/semantics.py) 结构校验：
+`ui-component-spec` 语义模型携带 `ui_evidence`，随冻结经 [semantics.py](../../migration-ledger/scripts/semantics.py) 结构校验：
 
 ```jsonc
 "semantic_model": {
   "kind": "ui-component-spec",
   "model_ref": {"path": "...", "sha256": "..."},
   "ui_evidence": {
-    "ui_tree_ref": {"path": "...ui-tree.json", "sha256": "..."},   // 存量源码(+运行时)抽取的 UI 树
+    "ui_tree_ref": {"path": "...ui-tree.json", "sha256": "..."},   // lean 产出的合并 source+runtime UI 树
     "coverage": "login:phone:viewport",                            // page:state:coverage
-    "visual_mode": "runtime | source-only"                         // 有截图证据 / 仅源码(显式限制)
+    "legacy_executable": true,                                     // 冻结前判定：存量能否预览
+    "visual_mode": "runtime",                                      // runtime ⟺ 可预览（须与树的 runtimeIndex 一致）
+    "baseline_refs": [{"path": "...shot.png", "sha256": "..."}]     // 存量截图基线；source-only 时省略
   },
+  "interactions": [ ... ],                                          // 可选：Spec 显式声明的手势
   "source": {"origin": "...", "locator": "...", "evidence_refs": []},
   "implementation_location": {"target_path": "/abs", "symbol": "..."}
 }
 ```
 
-`ui_tree_ref` 归档进 artifacts、hash 冻结；`coverage` 必须匹配 `page:state:(viewport|scroll)`；`visual_mode` 必填。UI 树由映射的 lean skill（`android-to-kmp-lean` 的 collect/select/validate_ui_tree）产出。
+`ui_tree_ref` 与 `baseline_refs` 归档进 artifacts、hash 冻结；`coverage` 必须匹配 `page:state:(viewport|scroll)`。UI 树由映射的 lean skill（`android-to-kmp-lean` 的 collect/select/validate_ui_tree）产出，截图由 `mobile-ui-snapshot-capture` 的 `android-reference` 阶段产出。
 
-## 视觉对齐（攻克“UI 还原度”，P1 已实现）
-
-带 `ui_evidence` 的 UI item，实现接受时其 `dimension_evidence[].semantic_conformance` 必须含 `visual_alignment`：
-
-```jsonc
-"semantic_conformance": {
-  "model_ref": { ... },
-  "evidence_refs": [ ... ],
-  "visual_alignment": {"status": "aligned | source-only", "result_ref": {"path": "...", "sha256": "..."}}
-}
-```
-
-`status=aligned` 需 `result_ref` 指向对齐结果（映射的 `kmp-ui-visual-aligner` 产出 `ALIGNED`）；`source-only` 仅当 `ui_evidence.visual_mode=source-only`（显式无截图证据），须在报告记差异。无 visual_alignment 的 UI 实现被拒——UI 还原不能以散文 fidelity 顶替截图 parity。
-
-## 强制开关（P2，已实现）
+## 强制开关
 
 `ui_fidelity_required`（init/prepare 开关，默认关、向后兼容；UI 迁移建议开）由 [ui_fidelity.py](../../migration-ledger/scripts/ui_fidelity.py) 强制：
 
-- **冻结门禁**：开启后，模块四维分析中每个 applicable UI item 必须携带绑定 `ui_evidence`（ui_tree_ref + coverage）的 `ui-component-spec` 模型，否则 `freeze` 被拒（`semantics.ui_fidelity_gaps` 列出缺口 item）。这使"UI 从散文凭想象实现、无证据"无法冻结。
-- **视觉 parity**：带 `ui_evidence` 的 UI item，实现接受时其 conformance 必须含通过的 `visual_alignment`（P1，`semantics.implementation` 强制）——冻结要证据、实现要 parity，二者合力 fail-closed。
+- **冻结门禁**：每个 applicable UI item 必须携带绑定 `ui_evidence` 的 `ui-component-spec` 模型（`semantics.ui_fidelity_gaps` 列缺口）；必须已判定存量可执行性；资源闭包不得缩减；`source_closure.ui_renderers` 必填；有基线的目标必须有 visual 路径。
+- **实现门禁**：conformance 用 `baseline_conformance` 引用真正指导 coding 的基线或中间表征。
+- **完成门禁**：`completion_gate` 拒绝仍带 `blocked` 资源的模块完成。
 - **覆盖看板**：`status.semantic_index.coverage.missing` 暴露未附模型的 UI item。
 
 ## 基线前移：截图指导实现，而非事后比对（已实现）
@@ -105,7 +95,7 @@ build → Green
 
 **③ blocked 不得计入 Green** —— `completion_gate` 拒绝仍带 `blocked` 资源的模块完成。
 
-**④ UI 树白盒** —— [ui_tree.py](../../migration-ledger/scripts/ui_tree.py) 校验 `ui_tree_ref` 内容：`schema_version`、稳定 `screen:`/`node:`/`binding:`/`event:` id、`presentation.resourceRefs`、`dynamicRules{condition,resourceRefs}`、显式 `unresolved` 列表（冲突保留不得丢弃）。
+**④ UI 树白盒（按 lean 真实契约）** —— [ui_tree.py](../../migration-ledger/scripts/ui_tree.py) 校验 `ui_tree_ref` 内容：`schemaVersion:1` + `scope`；`generatedFrom{sourceIndex,sourceIndexSha256,runtimeIndex,runtimeIndexSha256}` 合并溯源（runtime 两字段同有或同无）；`screens[]` 每屏一个递归 source-backed `root` + 分类 `attachments`（drawers/dialogs/menus/overlays/pagerPages/listItems/headers/footers，重复行只记一次）；节点含稳定 `node:` id、`presentation.resourceRefs`、`bindings`/`events`（稳定 id）、`dynamicRules{condition,resourceRefs}`、`capabilities`、`children`、可选 `runtimeObservations{pageId,stateId,…}`；`layoutClosure`/`criticalLayoutContracts`/`unresolved` 均为显式列表（冲突保留不得丢弃）。**source-only 树不得携带 runtimeObservations**；`visual_mode` 必须与 `generatedFrom.runtimeIndex` 是否存在一致——这保证 SDD 能直接消费 lean `validate_ui_tree.py` 的产物，稳定 id 也正是 visual 路径 `node_ids` 的来源。
 
 **⑤ 源闭包含 mutating renderer** —— UI 适用时 `source_closure.ui_renderers` 必填：仅有 layout 不完整，必须点名真正改变可见状态的 Activity/Fragment/Adapter/ViewHolder/自定义 View 渲染者。
 

@@ -10,8 +10,13 @@ import semantics
 import ui_fidelity
 from contracts import Rejected
 
-TREE = {'schema_version': 1, 'screen': 'screen:login', 'unresolved': [],
-        'nodes': [{'id': 'node:root', 'presentation': {'resourceRefs': []}}]}
+def tree(refs=()):
+    return {'schemaVersion': 1, 'scope': 'migrate-login',
+            'generatedFrom': {'sourceIndex': 'ui-source-index.json', 'sourceIndexSha256': 'aa',
+                              'runtimeIndex': 'runtime-ui-index.json', 'runtimeIndexSha256': 'bb'},
+            'screens': [{'id': 'screen:login',
+                         'root': {'id': 'node:root', 'presentation': {'resourceRefs': list(refs)}}}],
+            'layoutClosure': [], 'criticalLayoutContracts': [], 'unresolved': []}
 
 
 class UiFidelityTests(unittest.TestCase):
@@ -23,10 +28,9 @@ class UiFidelityTests(unittest.TestCase):
         a = self.d.analysis('M001', kinds)
         for row in a['dimensions']:
             if row['dimension'] == 'UI' and ui_evidence:
-                tree = dict(TREE, nodes=[{'id': 'node:root', 'presentation': {'resourceRefs': list(refs)}}])
                 row['items'][0]['semantic_model'] = {
                     'kind': 'ui-component-spec', 'model_ref': self.f.ref('ui.json', {'root': {'type': 'Col'}}),
-                    'ui_evidence': {'ui_tree_ref': self.f.ref('ui-tree.json', tree),
+                    'ui_evidence': {'ui_tree_ref': self.f.ref('ui-tree.json', tree(refs)),
                                     'coverage': 'login:phone:viewport', 'visual_mode': 'runtime',
                                     'legacy_executable': True,
                                     'baseline_refs': [self.f.ref('baseline.png', {'shot': 1})]},
