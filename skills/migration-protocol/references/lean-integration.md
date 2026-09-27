@@ -21,11 +21,11 @@ SDD 是治理/控制面（事务化 Ledger、并行 MO、独立审计、四维/�
 | lean 产物 | 适配器 | → SDD 证据 |
 |---|---|---|
 | capture manifest 条目 `{page_id,state_id,coverage,status}` + 抽取的 ui-tree | `ui-evidence` | `semantic_model.ui_evidence{ui_tree_ref, coverage=page:state:coverage, visual_mode}`（COMPLETE→runtime、SOURCE_ONLY→source-only） |
-| alignment-result `{status}` | `visual-alignment` | `semantic_conformance.visual_alignment{status, result_ref}`（ALIGNED→aligned、RUNNABLE_PARTIAL→source-only、其余拒绝并 NEEDS_UI_FIX 回 owner） |
+| alignment-result `{target_results}` | `visual-results` | visual 测试层的逐目标三态行（ALIGNED/ALIGNED_CARRIED→Green、NEEDS_UI_FIX/NEEDS_IMPLEMENTATION_FIX→Red+节点级根因、CAPTURE_BLOCKED→Yellow）；声明手势须有绑定同一 HAP 的 PASSED 设备证据 |
 
 ```sh
 python3 <pkg>/skills/migration-ledger/scripts/lean_adapter.py ui-evidence --capture <entry.json> --ui-tree <ui-tree.json>
-python3 <pkg>/skills/migration-ledger/scripts/lean_adapter.py visual-alignment --alignment <alignment-result.json>
+python3 <pkg>/skills/migration-ledger/scripts/lean_adapter.py visual-results --alignment <alignment-result.json> [--interaction <id>]
 ```
 
 其余映射（implementation-result → dimension_evidence/code_files/task_trace；validation-result checks → tests 三态；resource-result → Resource 维证据）字段较多、含 SDD 专属元数据（freeze_id/assignment_id/断言集合），由宿主按上表所有权对照组装 SDD payload，适配器只固化最清晰、直接服务 UI 保真的两项转换。

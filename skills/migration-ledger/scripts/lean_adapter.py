@@ -10,14 +10,14 @@ from pathlib import Path
 import sys
 sys.dont_write_bytecode = True
 
-import capture_manifest
+import ui_evidence as ue
 import semantics
 from contracts import check_ref, file_ref, nonempty, read_json, require
 
 
 def ui_evidence(capture_entry, ui_tree_ref):
     """lean capture manifest entry + extracted ui-tree -> SDD semantic_model.ui_evidence."""
-    capture_manifest.validate_entry(capture_entry)
+    ue.validate_capture(capture_entry)
     page, state, coverage = capture_entry['page_id'], capture_entry['state_id'], capture_entry['coverage']
     status = capture_entry['status']
     check_ref(ui_tree_ref)
@@ -27,13 +27,35 @@ def ui_evidence(capture_entry, ui_tree_ref):
     return evidence
 
 
-def visual_alignment(alignment_result, result_ref):
-    """lean alignment-result -> SDD semantic_conformance.visual_alignment (never invents ALIGNED)."""
-    check_ref(result_ref)
-    status = alignment_result.get('status')
-    require(status in ('ALIGNED', 'RUNNABLE_PARTIAL'),
-            'alignment not ALIGNED/RUNNABLE_PARTIAL; route NEEDS_UI_FIX back to the owner')
-    return {'status': 'aligned' if status == 'ALIGNED' else 'source-only', 'result_ref': result_ref}
+VISUAL_QUALITY = {'ALIGNED': 'green-passed', 'ALIGNED_CARRIED': 'green-passed',
+                  'NEEDS_UI_FIX': 'red-bug', 'NEEDS_IMPLEMENTATION_FIX': 'red-bug',
+                  'CAPTURE_BLOCKED': 'yellow-blocked'}
+
+
+def visual_results(alignment_result, declared_interactions=()):
+    """lean alignment-result -> three-state rows for the visual test stage, keyed page:state:coverage.
+
+    The visual stage is an ordinary test layer, so an unaligned target is a Red with a node-level root
+    cause rather than a separate verdict. Declared gestures must carry PASSED device evidence bound to
+    the aligned HAP. Nothing here invents a pass.
+    """
+    rows = {}
+    for target in nonempty(alignment_result.get('target_results'), 'alignment target_results'):
+        status = target.get('status')
+        require(status in VISUAL_QUALITY, 'unknown alignment target status: ' + str(status))
+        key = '{}:{}:{}'.format(target.get('page_id'), target.get('state_id'), target.get('coverage'))
+        check_ref(target.get('evidence_ref'))
+        row = {'quality': VISUAL_QUALITY[status], 'alignment_status': status,
+               'evidence_ref': target['evidence_ref'], 'nodes': list(target.get('node_ids', []))}
+        if row['quality'] != 'green-passed':
+            row['root_cause'] = target.get('root_cause') or {
+                'category': 'capture-environment' if status == 'CAPTURE_BLOCKED' else 'visual-alignment',
+                'summary': status + ' at ' + key, 'confidence': 'confirmed',
+                'owner': target.get('owner', 'lean'),
+                'next_action': 'repair the named nodes, or restore capture evidence'}
+        rows[key] = row
+    ue.validate_interaction_checks(list(declared_interactions), alignment_result)
+    return rows
 
 
 def validation_summary(validation_result):
@@ -58,17 +80,18 @@ def validation_summary(validation_result):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
-    ue = sub.add_parser('ui-evidence', help='capture entry + ui-tree file -> ui_evidence')
-    ue.add_argument('--capture', required=True, help='JSON file with page_id/state_id/coverage/status')
-    ue.add_argument('--ui-tree', required=True, help='extracted ui-tree.json (file_ref computed here)')
-    va = sub.add_parser('visual-alignment', help='alignment-result file -> visual_alignment')
-    va.add_argument('--alignment', required=True, help='lean alignment-result.json (file_ref computed here)')
+    p_ui = sub.add_parser('ui-evidence', help='capture entry + ui-tree file -> ui_evidence')
+    p_ui.add_argument('--capture', required=True, help='JSON file with page_id/state_id/coverage/status')
+    p_ui.add_argument('--ui-tree', required=True, help='extracted ui-tree.json (file_ref computed here)')
+    p_visual = sub.add_parser('visual-results', help='alignment-result file -> visual-stage three-state rows')
+    p_visual.add_argument('--alignment', required=True, help='lean alignment-result.json')
+    p_visual.add_argument('--interaction', action='append', default=[], help='declared interaction id (repeatable)')
     args = parser.parse_args()
     try:
         if args.command == 'ui-evidence':
             out = ui_evidence(read_json(args.capture), file_ref(Path(args.ui_tree).resolve()))
         else:
-            out = visual_alignment(read_json(args.alignment), file_ref(Path(args.alignment).resolve()))
+            out = visual_results(read_json(args.alignment), args.interaction)
         print(json.dumps(out, ensure_ascii=False, indent=2))
         return 0
     except (ValueError, OSError, KeyError, TypeError) as exc:

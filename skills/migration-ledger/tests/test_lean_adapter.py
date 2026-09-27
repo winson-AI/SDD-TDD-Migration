@@ -39,12 +39,30 @@ class LeanAdapterTests(unittest.TestCase):
         with self.assertRaises((Rejected, ValueError, KeyError)):
             lean_adapter.ui_evidence({'schema_version': 2, 'page_id': 'p', 'state_id': 's', 'coverage': 'full', 'status': 'COMPLETE'}, tree)
 
-    def test_visual_alignment_maps_status(self):
-        res = self.ref('align.json')
-        self.assertEqual(lean_adapter.visual_alignment({'status': 'ALIGNED'}, res)['status'], 'aligned')
-        self.assertEqual(lean_adapter.visual_alignment({'status': 'RUNNABLE_PARTIAL'}, res)['status'], 'source-only')
+    def test_visual_results_map_to_three_state(self):
+        ev = self.ref('shot.json')
+        def result(status):
+            return {'target_results': [{'page_id': 'login', 'state_id': 'phone', 'coverage': 'viewport',
+                                        'status': status, 'evidence_ref': ev, 'node_ids': ['node:root']}]}
+        rows = lean_adapter.visual_results(result('ALIGNED'))
+        self.assertEqual(rows['login:phone:viewport']['quality'], 'green-passed')
+        red = lean_adapter.visual_results(result('NEEDS_UI_FIX'))['login:phone:viewport']
+        self.assertEqual(red['quality'], 'red-bug')
+        self.assertEqual(red['root_cause']['category'], 'visual-alignment')
+        blocked = lean_adapter.visual_results(result('CAPTURE_BLOCKED'))['login:phone:viewport']
+        self.assertEqual(blocked['quality'], 'yellow-blocked')
         with self.assertRaises((Rejected, ValueError)):
-            lean_adapter.visual_alignment({'status': 'NEEDS_UI_FIX'}, res)
+            lean_adapter.visual_results(result('WHATEVER'))
+
+    def test_visual_results_require_declared_gesture_proof(self):
+        ev = self.ref('shot.json')
+        base = {'target_results': [{'page_id': 'login', 'state_id': 'phone', 'coverage': 'viewport',
+                                    'status': 'ALIGNED', 'evidence_ref': ev}]}
+        with self.assertRaisesRegex(Rejected, 'lack device checks'):
+            lean_adapter.visual_results(base, ['edge-back'])
+        proven = {**base, 'hap_sha256': 'h1', 'interaction_checks': [
+            {'id': 'edge-back', 'status': 'PASSED', 'hap_sha256': 'h1', 'evidence_ref': ev}]}
+        lean_adapter.visual_results(proven, ['edge-back'])
 
 
 if __name__ == '__main__':

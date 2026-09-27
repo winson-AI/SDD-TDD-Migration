@@ -16,7 +16,7 @@ visual automation layer aligns baseline nodes and reports three-state like any o
 import dimensions
 import resource_fidelity
 import semantics
-import ui_tree
+import ui_evidence as ue
 from contracts import check_ref, nonempty, read_json, require
 
 
@@ -34,7 +34,7 @@ def _declared_refs(analysis):
         for item in row.get('items', []):
             evidence = (item.get('semantic_model') or {}).get('ui_evidence')
             if evidence:
-                refs.extend(ui_tree.resource_refs(read_json(check_ref(evidence['ui_tree_ref']))))
+                refs.extend(ue.resource_refs(read_json(check_ref(evidence['ui_tree_ref']))))
     return sorted(set(refs))
 
 
@@ -49,9 +49,16 @@ def freeze_gate(s, m):
     uncovered = resource_fidelity.closure_gaps(analysis, _declared_refs(analysis))
     require(not uncovered, 'ui_fidelity_required: resource closure reduced; uncovered presentation refs: ' + ', '.join(uncovered))
     if any(row.get('dimension') == 'UI' and row.get('status') == 'applicable' for row in analysis.get('dimensions', [])):
-        renderers = ((m.get('plan') or {}).get('source_closure') or {}).get('ui_renderers')
+        closure = ((m.get('plan') or {}).get('source_closure') or {})
+        renderers = closure.get('ui_renderers')
         require(isinstance(renderers, list) and renderers,
                 'ui_fidelity_required: source_closure.ui_renderers must name the renderers that mutate visible state')
+        # A prose widget list is not a closure. Topology, the presentation states that actually exist,
+        # navigation identity/back behaviour and the platform/lifecycle surface each need evidence.
+        # Resources are covered more strictly by the unreduced-closure check above.
+        for facet in ('ui_topology', 'states', 'navigation', 'platform_lifecycle'):
+            require(closure.get(facet),
+                    'ui_fidelity_required: source_closure.' + facet + ' required for UI scope')
     baseline_gate(s, m)
 
 
@@ -69,7 +76,6 @@ def runtime_targets(analysis):
 
 
 def declared_interactions(analysis):
-    import interactions
     found = []
     for row in analysis.get('dimensions', []):
         if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
@@ -77,7 +83,7 @@ def declared_interactions(analysis):
         for item in row.get('items', []):
             model = item.get('semantic_model')
             if model:
-                found.extend(interactions.validate_declarations(model))
+                found.extend(ue.validate_interactions(model))
     return sorted(set(found))
 
 

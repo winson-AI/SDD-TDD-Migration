@@ -40,17 +40,23 @@ class UiFidelityTests(unittest.TestCase):
                 row['items'][0].update(resource_over)
         return self.f.ref(name, a)
 
-    def module(self, ref, renderers=('ui/LoginActivity.java',)):
+    def module(self, ref, renderers=('ui/LoginActivity.java',), closure=None):
         plan = {'dimension_analysis_ref': ref,
                 'paths': [{'path_id': 'PV', 'kind': 'visual', 'case_id': 'C1', 'name': 'PV',
                            'node_ids': ['node:root'], 'baseline_ref': self.f.ref('baseline.png', {'shot': 1})}]}
         if renderers is not None:
-            plan['source_closure'] = {'ui_renderers': list(renderers)}
+            plan['source_closure'] = {'ui_renderers': list(renderers), **(closure or {
+                'ui_topology': 'phone input + country row + dialog',
+                'states': ['loading', 'content', 'error'],
+                'navigation': 'phone -> code; back cancels the code request',
+                'platform_lifecycle': 'no permissions; network via AuthRepository; cancellation on leave'})}
         return {'module_id': 'M001', 'plan': plan}
 
     def freeze(self, required, **kw):
         renderers = kw.pop('renderers', ('ui/LoginActivity.java',))
-        ui_fidelity.freeze_gate({'ui_fidelity_required': required}, self.module(self.analysis_ref(**kw), renderers))
+        closure = kw.pop('closure', None)
+        ui_fidelity.freeze_gate({'ui_fidelity_required': required},
+                                self.module(self.analysis_ref(**kw), renderers, closure))
 
     def test_flag_off_is_noop(self):
         self.freeze(False, ui_evidence=False, renderers=None)  # nothing required when off
@@ -65,6 +71,13 @@ class UiFidelityTests(unittest.TestCase):
     def test_required_needs_mutating_renderers(self):
         with self.assertRaisesRegex(Rejected, 'ui_renderers'):
             self.freeze(True, ui_evidence=True, renderers=None)
+
+    def test_source_closure_facets_required_for_ui_scope(self):
+        for facet in ('ui_topology', 'states', 'navigation', 'platform_lifecycle'):
+            partial = {'ui_topology': 't', 'states': ['content'], 'navigation': 'n', 'platform_lifecycle': 'p'}
+            del partial[facet]
+            with self.assertRaisesRegex(Rejected, 'source_closure.' + facet):
+                self.freeze(True, ui_evidence=True, closure=partial)
 
     def test_reduced_resource_closure_blocks_freeze(self):
         # the UI tree declares a presentation ref that no Resource item covers

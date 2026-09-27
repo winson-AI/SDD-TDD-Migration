@@ -91,9 +91,9 @@ def _ui_evidence(model):
     require(isinstance(evidence, dict), 'ui_evidence must be an object')
     require(COVERAGE.match(evidence.get('coverage', '')), 'ui_evidence.coverage must be page:state:(viewport|scroll)')
     require(evidence.get('visual_mode') in ('runtime', 'source-only'), 'ui_evidence.visual_mode required (runtime/source-only)')
-    import ui_tree
-    tree = ui_tree.validate(read_json(check_ref(evidence.get('ui_tree_ref'))))
-    require(ui_tree.merged_runtime(tree) == (evidence['visual_mode'] == 'runtime'),
+    import ui_evidence as ue
+    tree = ue.validate_tree(read_json(check_ref(evidence.get('ui_tree_ref'))))
+    require(ue.merged_runtime(tree) == (evidence['visual_mode'] == 'runtime'),
             'ui tree runtime merge must agree with visual_mode (runtime needs a runtime index)')
     executable = evidence.get('legacy_executable')
     if executable is not None:
@@ -116,8 +116,8 @@ def validate_item(item):
     VALIDATORS[kind](read_json(check_ref(model.get('model_ref'))))
     if kind == 'ui-component-spec':
         _ui_evidence(model)
-        import interactions
-        interactions.validate_declarations(model)
+        import ui_evidence as ue
+        ue.validate_interactions(model)
     source = model.get('source', {})
     require(source.get('origin') in ORIGINS, 'semantic source origin required (legacy/target/authored)')
     require(item.get('target_strategy') != 'new' or source['origin'] != 'legacy',

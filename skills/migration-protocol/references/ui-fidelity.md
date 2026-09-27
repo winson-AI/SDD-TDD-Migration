@@ -72,7 +72,7 @@ build → Green
 
 ## capture / 构建产物契约（Wave B，已实现）
 
-- **capture manifest（schema 2）** [capture_manifest.py](../../migration-ledger/scripts/capture_manifest.py):`COMPLETE` 必须有真实 screenshot/view_xml/meta 三元组 + 非空 captures + `observed_variant` + 记录 backend;`scroll` 只有 `scroll-complete` 才算达成(截断的 scroll-partial **永不**推进);`SOURCE_ONLY` 不得携带臆造 captures;缺 coverage 的旧记录不得升级为 viewport。
+- **capture manifest（schema 2）** [ui_evidence.validate_capture](../../migration-ledger/scripts/ui_evidence.py):`COMPLETE` 必须有真实 screenshot/view_xml/meta 三元组 + 非空 captures + `observed_variant` + 记录 backend;`scroll` 只有 `scroll-complete` 才算达成(截断的 scroll-partial **永不**推进);`SOURCE_ONLY` 不得携带臆造 captures;缺 coverage 的旧记录不得升级为 viewport。
 - **validation → 三态 + HAP** [lean_adapter.validation_summary](../../migration-ledger/scripts/lean_adapter.py):lean validator 的 compile/test/package 检查映射为三态(任一 failed → Red);`package` 通过必须记录产物,且 artifact 的 sha256 与当前文件**仍需匹配**(HAP 不能被换掉)。
 
 ## 精确性纪律（Wave A，已实现）
@@ -95,9 +95,9 @@ build → Green
 
 **③ blocked 不得计入 Green** —— `completion_gate` 拒绝仍带 `blocked` 资源的模块完成。
 
-**④ UI 树白盒（按 lean 真实契约）** —— [ui_tree.py](../../migration-ledger/scripts/ui_tree.py) 校验 `ui_tree_ref` 内容：`schemaVersion:1` + `scope`；`generatedFrom{sourceIndex,sourceIndexSha256,runtimeIndex,runtimeIndexSha256}` 合并溯源（runtime 两字段同有或同无）；`screens[]` 每屏一个递归 source-backed `root` + 分类 `attachments`（drawers/dialogs/menus/overlays/pagerPages/listItems/headers/footers，重复行只记一次）；节点含稳定 `node:` id、`presentation.resourceRefs`、`bindings`/`events`（稳定 id）、`dynamicRules{condition,resourceRefs}`、`capabilities`、`children`、可选 `runtimeObservations{pageId,stateId,…}`；`layoutClosure`/`criticalLayoutContracts`/`unresolved` 均为显式列表（冲突保留不得丢弃）。**source-only 树不得携带 runtimeObservations**；`visual_mode` 必须与 `generatedFrom.runtimeIndex` 是否存在一致——这保证 SDD 能直接消费 lean `validate_ui_tree.py` 的产物，稳定 id 也正是 visual 路径 `node_ids` 的来源。
+**④ UI 树白盒（按 lean 真实契约）** —— [ui_evidence.validate_tree](../../migration-ledger/scripts/ui_evidence.py) 校验 `ui_tree_ref` 内容：`schemaVersion:1` + `scope`；`generatedFrom{sourceIndex,sourceIndexSha256,runtimeIndex,runtimeIndexSha256}` 合并溯源（runtime 两字段同有或同无）；`screens[]` 每屏一个递归 source-backed `root` + 分类 `attachments`（drawers/dialogs/menus/overlays/pagerPages/listItems/headers/footers，重复行只记一次）；节点含稳定 `node:` id、`presentation.resourceRefs`、`bindings`/`events`（稳定 id）、`dynamicRules{condition,resourceRefs}`、`capabilities`、`children`、可选 `runtimeObservations{pageId,stateId,…}`；`layoutClosure`/`criticalLayoutContracts`/`unresolved` 均为显式列表（冲突保留不得丢弃）。**source-only 树不得携带 runtimeObservations**；`visual_mode` 必须与 `generatedFrom.runtimeIndex` 是否存在一致——这保证 SDD 能直接消费 lean `validate_ui_tree.py` 的产物，稳定 id 也正是 visual 路径 `node_ids` 的来源。
 
-**⑤ 源闭包含 mutating renderer** —— UI 适用时 `source_closure.ui_renderers` 必填：仅有 layout 不完整，必须点名真正改变可见状态的 Activity/Fragment/Adapter/ViewHolder/自定义 View 渲染者。
+**⑤ 源闭包证据面** —— UI 适用时 `source_closure` 必填 `ui_renderers`（仅有 layout 不完整，必须点名真正改变可见状态的 Activity/Fragment/Adapter/ViewHolder/自定义 View 渲染者），以及 `ui_topology`（布局/对话框/菜单/标签/浮层及初始可见性）、`states`（实际存在的 loading/content/empty/error/disabled/transient/refresh/retry/pagination）、`navigation`（目标身份/参数/返回行为/范围外副作用）、`platform_lifecycle`（权限/存储/网络/回调/后台/取消/宿主窗口）。散文控件清单不算闭包。证据质量纪律：**listener 只证事件绑定，不证 UI 层级；类型声明只证 API 形状，不证生产调用路径**；基础工作在被用户可见行为消费前不算已交付切片。资源面由上面的②闭包不得缩减更强地保障，不在此重复要求。
 
 **⑥ 消费者接线纪律（anti-guess，协议）** —— 改任何源声明的 dimension/margin/padding/typography/color 前，须经 UI 树 + 资源映射追溯消费者：存在精确映射而消费者硬编码/猜测 → 必须改为接线映射值；映射缺失/错误 → 路由 Resource owner。**只有所有源值与运行时覆盖都接线后**，截图证据才可用于证明残余跨平台文本布局校正。机械面由 `dimensions.implementation` 的 Resource `target_resource_ref`/`consumer_ref` 必须匹配冻结值保障。
 
