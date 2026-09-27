@@ -164,7 +164,9 @@ context/files 中的 Markdown 会同步固化链接到的文档/框架代码/图
 
 ## Test-Runner：先编译，再自动化
 
-新运行将验证拆为 build 与 automation。构建命令优先用户指定，默认搜索目标 Gradle wrapper/脚本并评估 assemble；错误留根因，经 Fixer 后重新构建。仅自动化环境无法启动时，记录每条用例 Yellow/未执行并收尾，其他并行及可消费当前代码的下游继续；Auditor 最终可输出 completed-with-unverified-tests，质量仍 Yellow。配置、操作和恢复见 [完整协议](skills/migration-protocol/references/build-automation.md)。
+新运行将验证拆为三段：**build → automation 功能层 → visual 基线对齐层**（顺序由 `next_scope` 强制，第二层需第一层 Green；DoD 要求全部三段 Green）。UI 迁移的存量基线**前移为输入**：冻结前判定存量是否可预览——可预览则截图作为 baseline 指导 SPEC 与 coding，并在 visual 层逐节点对齐；不可预览则回退保留 UI 源码但仍走四维 UI 中间表征层。视觉不对齐即 Red + 节点级根因，走既有诊断→一轮 Fixer，不另设轮次。见 [UI 保真控制道](skills/migration-protocol/references/ui-fidelity.md)。
+
+构建命令优先用户指定，默认搜索目标 Gradle wrapper/脚本并评估 assemble；错误留根因，经 Fixer 后重新构建。仅自动化环境无法启动时，记录每条用例 Yellow/未执行并收尾，其他并行及可消费当前代码的下游继续；Auditor 最终可输出 completed-with-unverified-tests，质量仍 Yellow。配置、操作和恢复见 [完整协议](skills/migration-protocol/references/build-automation.md)。
 
 ### Auditor 遗留复核范围
 

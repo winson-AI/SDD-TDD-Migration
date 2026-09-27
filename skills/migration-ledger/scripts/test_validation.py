@@ -1,8 +1,8 @@
-"""Build and automation are separate Test-Runner duties, with separate evidence."""
+"""Build, functional automation and baseline visual alignment are separate Test-Runner stages."""
 import copy
 from pathlib import Path
 
-from contracts import require, check_ref, verify_plan, baseline
+from contracts import require, check_ref, nonempty, verify_plan, baseline
 
 OPS = {'automation-unavailable', 'automation-resume', 'audit-unavailable'}
 
@@ -12,13 +12,43 @@ def split(m):
 
 
 def paths(m, scope):
-    return [p for p in m['plan']['paths'] if (p.get('kind') == 'build') == (scope == 'build')]
+    """Stages are build -> automation (functional cases) -> visual (baseline node alignment)."""
+    return [p for p in m['plan']['paths'] if (p.get('kind') or 'automation') == scope]
 
 
 def build_ready(m):
     return bool(split(m) and m.get('build_baseline') == m.get('code_baseline') and m.get('code_baseline')
                 and all(m.get('results', {}).get(p['path_id'], {}).get('quality') == 'green-passed'
                         for p in paths(m, 'build')))
+
+
+def _green_at_baseline(m, scope):
+    results = m.get('results', {})
+    return all((results.get(p['path_id']) or {}).get('quality') == 'green-passed'
+               and (results.get(p['path_id']) or {}).get('code_baseline') == m.get('code_baseline')
+               for p in paths(m, scope))
+
+
+def functional_ready(m):
+    """Layer 1 passed at the current baseline, so rendering may be compared to the baseline."""
+    return bool(build_ready(m) and _green_at_baseline(m, 'automation'))
+
+
+def next_scope(m):
+    """Ordered stages; visual only after the functional layer is Green."""
+    if not split(m):
+        return None
+    if not build_ready(m):
+        return 'build'
+    if paths(m, 'visual') and functional_ready(m):
+        return 'visual'
+    return 'automation'
+
+
+def all_green(m):
+    planned = {p['path_id'] for p in (m.get('plan') or {}).get('paths', [])}
+    results = m.get('results', {})
+    return bool(planned) and all((results.get(pid) or {}).get('quality') == 'green-passed' for pid in planned)
 
 
 def deferred(m):
@@ -45,10 +75,16 @@ def can_defer(m):
 def plan_check(plan, target):
     builds = [p for p in plan['paths'] if p.get('kind') == 'build']
     require(builds and len(builds) < len(plan['paths']), 'split testing requires build and automation paths')
-    require(all(p.get('kind') in ('build', 'automation') for p in plan['paths']), 'test path kind required')
+    require(all(p.get('kind') in ('build', 'automation', 'visual') for p in plan['paths']), 'test path kind required')
     require({p.get('case_id') for p in plan['paths']} ==
             {p.get('case_id') for p in plan['paths'] if p['kind'] == 'automation'},
-            'every module case needs an automation path; build cannot cover a business case')
+            'every module case needs an automation path; build/visual cannot cover a business case')
+    for path in [p for p in plan['paths'] if p.get('kind') == 'visual']:
+        # Visual alignment compares named UI-tree nodes against the captured legacy baseline.
+        nodes = nonempty(path.get('node_ids'), 'visual path node_ids')
+        require(all(isinstance(n, str) and n.startswith('node:') for n in nodes),
+                'visual path node_ids must be stable node:<id> references')
+        check_ref(path.get('baseline_ref'))
     for path in builds:
         command = path.get('command', {})
         require(isinstance(command.get('argv'), list) and command['argv'] and
@@ -125,7 +161,7 @@ def handle(s, req, actor):
     require(m['phase'] == 'testing' and not m.get('blocked'), 'automation deferral requires testing phase')
     report = blocked_report(s, mid, p.get('context_ref'), 'testing')
     require(can_defer(m), 'cannot conceal observed failure as missing environment')
-    for path in paths(m, 'automation'):
+    for path in paths(m, 'automation') + paths(m, 'visual'):
         previous = m['results'].get(path['path_id'], {})
         if previous.get('quality') == 'green-passed' and previous.get('code_baseline') == m['code_baseline']:
             continue

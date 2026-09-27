@@ -26,23 +26,25 @@
 <text x="800.0" y="477.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">绑定任务 scope，明确具体实现指导</text>
 <text x="800.0" y="506.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">OpenSpec / PATH / ASSERT；N/A 留证</text>
 <path d="M800,520 L800,580" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
-<rect x="560" y="580" width="480" height="105" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
-<text x="800.0" y="611.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Plan 澄清 → 冻结</text>
-<text x="800.0" y="645.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Human 决策 + 四维覆盖 checklist</text>
-<text x="800.0" y="674.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子 MO 接受当前版本冻结</text>
-<path d="M800,685 L800,745" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="560" y="580" width="480" height="120" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="800.0" y="604.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Plan 澄清 → 冻结</text>
+<text x="800.0" y="638.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Human 决策 + 四维覆盖 checklist</text>
+<text x="800.0" y="667.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">存量可预览？→ 截图基线 / 回退中间表征</text>
+<text x="800.0" y="696.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子 MO 接受当前版本冻结</text>
+<path d="M800,700 L800,745" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="560" y="745" width="480" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="772.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Coding 预检 → 实现 → MO 接受</text>
-<text x="800.0" y="806.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按任务 scope + 四维指导实现</text>
+<text x="800.0" y="806.0" font-size="20.08" fill="#4b5563" text-anchor="middle" font-weight="400">按任务 scope + 四维 + 存量基线/中间表征实现</text>
 <text x="800.0" y="835.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">提交四维证据 / 资源及真实消费者</text>
 <text x="800.0" y="864.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">依赖满足 / 写锁 / 全局覆盖 / 预算</text>
 <path d="M800,870 L800,920" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
-<rect x="560" y="920" width="480" height="150" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
-<text x="800.0" y="959.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Test-Runner · 构建 → 自动化</text>
-<text x="800.0" y="993.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">build Green 后预检自动化环境</text>
-<text x="800.0" y="1022.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">可用：Main 按用例路径验证</text>
-<text x="800.0" y="1051.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">缺环境：Yellow / 未执行（旁路）</text>
-<path d="M800,1070 L800,1105" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="560" y="920" width="480" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="800.0" y="952.5" font-size="19.26" fill="#111827" text-anchor="middle" font-weight="650">Test-Runner · build → automation → visual</text>
+<text x="800.0" y="986.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">build Green 后预检自动化环境</text>
+<text x="800.0" y="1015.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">① 功能层：Main 按用例路径验证</text>
+<text x="800.0" y="1044.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">② 视觉层：逐基线节点对齐（有基线时）</text>
+<text x="800.0" y="1073.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">缺环境：两层 Yellow / 未执行（旁路）</text>
+<path d="M800,1085 L800,1105" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M800,1105.0 L955.0,1170 L800,1235.0 L645.0,1170 Z" fill="#fff7ed" stroke="#ea580c" stroke-width="1.8"/>
 <text x="800" y="1170" font-size="24.00" fill="#111827" text-anchor="middle" font-weight="650">三态结果</text>
 <text x="800" y="1199" font-size="19.00" fill="#6b7280" text-anchor="middle" font-weight="400">Green / Red / Yellow</text>

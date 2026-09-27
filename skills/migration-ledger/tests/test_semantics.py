@@ -11,6 +11,9 @@ import semantics
 from contracts import Rejected, file_ref
 
 
+TREE = {'schema_version': 1, 'screen': 'screen:login', 'nodes': [{'id': 'node:root', 'presentation': {'resourceRefs': []}}], 'unresolved': []}
+
+
 class SemanticsTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -97,16 +100,32 @@ class SemanticsTests(unittest.TestCase):
         self.bad(self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}},
                            ui_evidence={'coverage': 'login:phone:viewport', 'visual_mode': 'runtime'}), None)  # missing ui_tree_ref
 
-    def test_ui_visual_alignment_required_at_implementation(self):
-        tree = self.ref('ui-tree.json', {'schema_version': 1, 'screen': 'screen:login', 'nodes': [{'id': 'node:root', 'presentation': {'resourceRefs': []}}], 'unresolved': []})
+    def test_ui_implementation_must_cite_its_guiding_baseline(self):
+        tree = self.ref('ui-tree.json', TREE)
+        shot = self.ref('baseline.png', {'shot': 1})
         item = self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}},
-                         ui_evidence={'coverage': 'login:phone:viewport', 'ui_tree_ref': tree, 'visual_mode': 'runtime'})
+                         ui_evidence={'coverage': 'login:phone:viewport', 'ui_tree_ref': tree,
+                                      'visual_mode': 'runtime', 'legacy_executable': True,
+                                      'baseline_refs': [shot]})
         items = {'i1': item}
         (self.base / 'Out.kt').write_text('x')
         base = {'model_ref': item['semantic_model']['model_ref'], 'evidence_refs': [self.ref('conf.json', {'ok': 1})]}
-        self.bad_impl(items, 'visual_alignment', {'i1': {'semantic_conformance': base}})
-        aligned = {'i1': {'semantic_conformance': {**base, 'visual_alignment': {'status': 'aligned', 'result_ref': self.ref('align.json', {'status': 'ALIGNED'})}}}}
-        semantics.implementation(items, aligned)  # aligned -> ok
+        self.bad_impl(items, 'baseline/representation', {'i1': {'semantic_conformance': base}})
+        cited = {'i1': {'semantic_conformance': {**base, 'baseline_conformance': {'baseline_refs': [shot]}}}}
+        semantics.implementation(items, cited)          # cites the captured legacy baseline
+
+    def test_source_only_ui_implementation_cites_the_representation(self):
+        tree = self.ref('ui-tree.json', TREE)
+        item = self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}},
+                         ui_evidence={'coverage': 'login:phone:viewport', 'ui_tree_ref': tree,
+                                      'visual_mode': 'source-only', 'legacy_executable': False})
+        items = {'i1': item}
+        (self.base / 'Out.kt').write_text('x')
+        base = {'model_ref': item['semantic_model']['model_ref'], 'evidence_refs': [self.ref('conf.json', {'ok': 1})]}
+        self.bad_impl(items, 'intermediate representation',
+                      {'i1': {'semantic_conformance': {**base, 'baseline_conformance': {'ui_tree_ref': None}}}})
+        cited = {'i1': {'semantic_conformance': {**base, 'baseline_conformance': {'ui_tree_ref': tree}}}}
+        semantics.implementation(items, cited)
 
     def test_models_and_coverage_from_analysis(self):
         analysis = {'dimensions': [

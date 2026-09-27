@@ -1,8 +1,8 @@
-# Test-Runner：编译构建与自动化测试分开执行
+# Test-Runner：编译构建、功能自动化与基线视觉对齐分段执行
 
 ## 1. 职责与全局规则
 
-Test-Runner 同一角色承担两个执行环节：**构建验证**和**自动化用例验证**。可由不同实例执行，但身份、assignment 和证据各自绑定。Test-Runner 负责执行、三态和问题报告；源码/构建配置修复仍由 Diagnostician → MO → Fixer 完成，不能自己兼任 Fixer。Auditor 保持独立。
+Test-Runner 同一角色承担三个执行环节：**构建验证**、**功能用例自动化验证**，以及（存量可预览时）**基线视觉对齐**。顺序由 `test_validation.next_scope` 强制：build → automation → visual，第二层需第一层 Green；DoD 要求三段全部 Green。视觉对齐是普通测试路径（绑定 `node_ids` + `baseline_ref`），不是独立阶段；不对齐即 Red + 节点级根因，走既有诊断→一轮 Fixer。详见 [UI 保真控制道](ui-fidelity.md)。可由不同实例执行，但身份、assignment 和证据各自绑定。Test-Runner 负责执行、三态和问题报告；源码/构建配置修复仍由 Diagnostician → MO → Fixer 完成，不能自己兼任 Fixer。Auditor 保持独立。
 
 固定流程：
 

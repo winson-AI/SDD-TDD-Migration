@@ -93,6 +93,13 @@ def _ui_evidence(model):
     import ui_tree
     ui_tree.validate(read_json(check_ref(evidence.get('ui_tree_ref'))))
     require(evidence.get('visual_mode') in ('runtime', 'source-only'), 'ui_evidence.visual_mode required (runtime/source-only)')
+    executable = evidence.get('legacy_executable')
+    if executable is not None:
+        require(isinstance(executable, bool), 'ui_evidence.legacy_executable must be boolean')
+        require(executable == (evidence['visual_mode'] == 'runtime'),
+                'legacy_executable must agree with visual_mode (previewable legacy <-> runtime baseline)')
+    for ref in evidence.get('baseline_refs') or []:
+        check_ref(ref)
 
 
 def validate_item(item):
@@ -184,13 +191,15 @@ def implementation(items, traces=None):
                 'implementation must record semantic_conformance binding the frozen model for ' + iid)
         for ref in nonempty(conformance.get('evidence_refs'), 'semantic conformance evidence for ' + iid):
             check_ref(ref)
-        # A UI model anchored to capture evidence must show visual parity, not prose fidelity.
+        # UI coding is guided by the captured baseline, or by the intermediate representation when
+        # the legacy screen cannot be previewed. Visual parity itself is a visual test-stage verdict.
         if model.get('kind') == 'ui-component-spec' and model.get('ui_evidence'):
-            alignment = conformance.get('visual_alignment')
-            require(alignment and alignment.get('status') in ('aligned', 'source-only'),
-                    'UI item requires visual_alignment status (aligned/source-only) for ' + iid)
-            require(alignment['status'] != 'source-only' or model['ui_evidence']['visual_mode'] == 'source-only',
-                    'source-only alignment requires source-only capture evidence for ' + iid)
-            check_ref(alignment.get('result_ref'))
-            import interactions
-            interactions.validate_checks(interactions.validate_declarations(model), alignment)
+            evidence = model['ui_evidence']
+            guided = conformance.get('baseline_conformance')
+            require(guided, 'UI implementation must record the baseline/representation it was guided by for ' + iid)
+            if evidence['visual_mode'] == 'runtime':
+                require(guided.get('baseline_refs') == evidence.get('baseline_refs'),
+                        'UI implementation must cite the captured legacy baseline it was coded against for ' + iid)
+            else:
+                require(guided.get('ui_tree_ref') == evidence['ui_tree_ref'],
+                        'source-only UI implementation must cite the intermediate representation for ' + iid)

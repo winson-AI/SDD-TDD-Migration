@@ -1,4 +1,4 @@
-"""Independent post-build visual parity round (lean Aligner semantics), flag-gated."""
+"""Baseline determination guides coding; visual alignment is automation layer 2, not a phase."""
 import json
 from pathlib import Path
 import sys
@@ -7,82 +7,119 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 
+import test_validation as tv
 import ui_fidelity
 from contracts import Rejected, file_ref
 
 
-def analysis(coverage='login:phone:viewport', visual_mode='runtime', interactions=None):
-    model = {'kind': 'ui-component-spec',
-             'ui_evidence': {'coverage': coverage, 'visual_mode': visual_mode}}
-    if interactions is not None:
-        model['interactions'] = interactions
-    return {'dimensions': [{'dimension': 'UI', 'status': 'applicable',
-                            'items': [{'item_id': 'M001-UI', 'semantic_model': model}]}]}
+def plan(paths):
+    return {'paths': paths}
 
 
-class VisualAlignmentTests(unittest.TestCase):
+def path(pid, kind, case='C1', **over):
+    base = {'path_id': pid, 'kind': kind, 'case_id': case, 'name': pid}
+    base.update(over)
+    return base
+
+
+class StageOrderTests(unittest.TestCase):
+    """build -> automation (functional) -> visual (baseline node alignment)."""
+
+    def module(self, results=None, baseline=None, code='B1'):
+        return {'plan': plan([path('PB', 'build'), path('PA', 'automation'), path('PV', 'visual')]),
+                'results': results or {}, 'code_baseline': code, 'build_baseline': baseline}
+
+    def green(self, code='B1'):
+        return {'quality': 'green-passed', 'code_baseline': code}
+
+    def test_paths_split_three_ways(self):
+        m = self.module()
+        self.assertEqual([p['path_id'] for p in tv.paths(m, 'build')], ['PB'])
+        self.assertEqual([p['path_id'] for p in tv.paths(m, 'automation')], ['PA'])
+        self.assertEqual([p['path_id'] for p in tv.paths(m, 'visual')], ['PV'])
+
+    def test_kindless_path_counts_as_automation(self):
+        m = {'plan': plan([path('PB', 'build'), {'path_id': 'PX', 'case_id': 'C1'}]), 'results': {}}
+        self.assertEqual([p['path_id'] for p in tv.paths(m, 'automation')], ['PX'])
+
+    def test_stage_order(self):
+        m = self.module()
+        self.assertEqual(tv.next_scope(m), 'build')                       # nothing yet
+        m = self.module(results={'PB': self.green()}, baseline='B1')
+        self.assertEqual(tv.next_scope(m), 'automation')                  # build Green
+        m = self.module(results={'PB': self.green(), 'PA': self.green()}, baseline='B1')
+        self.assertEqual(tv.next_scope(m), 'visual')                      # layer 1 Green -> layer 2
+        self.assertTrue(tv.functional_ready(m))
+
+    def test_visual_not_offered_before_functional_green(self):
+        m = self.module(results={'PB': self.green(), 'PA': {'quality': 'red-bug', 'code_baseline': 'B1'}}, baseline='B1')
+        self.assertEqual(tv.next_scope(m), 'automation')
+        self.assertFalse(tv.functional_ready(m))
+
+    def test_dod_requires_every_stage_green(self):
+        m = self.module(results={'PB': self.green(), 'PA': self.green()}, baseline='B1')
+        self.assertFalse(tv.all_green(m))                                 # visual has no result yet
+        m['results']['PV'] = self.green()
+        self.assertTrue(tv.all_green(m))
+
+    def test_no_visual_paths_keeps_two_stages(self):
+        m = {'plan': plan([path('PB', 'build'), path('PA', 'automation')]),
+             'results': {'PB': self.green()}, 'code_baseline': 'B1', 'build_baseline': 'B1'}
+        self.assertEqual(tv.next_scope(m), 'automation')
+
+
+class BaselineGateTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.base = Path(self.tmp.name).resolve()
-        self.a = analysis()
-        ui_fidelity._analysis = lambda m, _a=self.a: _a   # isolate from the four-dim loader
+        original = ui_fidelity._analysis           # never leak the patch into other suites
+        self.addCleanup(setattr, ui_fidelity, '_analysis', original)
 
-    def ref(self, name='ev.json', content=None):
-        p = self.base / name; p.write_text(json.dumps(content or {'evidence': True})); return file_ref(p)
+    def ref(self, name='shot.png', content='img'):
+        p = self.base / name; p.write_text(content); return file_ref(p)
 
-    def result(self, status='ALIGNED', rounds=1, **over):
-        base = {'schema_version': 2, 'current_round': rounds, 'max_rounds': 3,
-                'required_targets': [{'page_id': 'login', 'state_id': 'phone', 'coverage': 'viewport'}],
-                'target_results': [{'page_id': 'login', 'state_id': 'phone', 'coverage': 'viewport',
-                                    'status': status, 'round': rounds, 'capture_round': rounds,
-                                    'evidence_ref': self.ref()}]}
-        base.update(over)
-        return base
+    def analysis(self, **evidence_over):
+        evidence = {'coverage': 'login:phone:viewport', 'visual_mode': 'runtime',
+                    'legacy_executable': True, 'baseline_refs': [self.ref()]}
+        evidence.update(evidence_over)
+        return {'dimensions': [{'dimension': 'UI', 'status': 'applicable', 'items': [
+            {'item_id': 'M001-UI', 'semantic_model': {'kind': 'ui-component-spec', 'ui_evidence': evidence}}]}]}
 
-    def test_targets_and_pending(self):
-        self.assertEqual(ui_fidelity.runtime_targets(self.a), ['login:phone:viewport'])
-        self.assertFalse(ui_fidelity.alignment_pending({}, {}))                     # flag off
-        self.assertTrue(ui_fidelity.alignment_pending({'ui_fidelity_required': True}, {}))
-        # source-only owes no runtime parity
-        self.assertEqual(ui_fidelity.runtime_targets(analysis(visual_mode='source-only')), [])
+    def gate(self, analysis, paths, flag=True):
+        ui_fidelity._analysis = lambda m, _a=analysis: _a
+        ui_fidelity.baseline_gate({'ui_fidelity_required': flag}, {'module_id': 'M001', 'plan': plan(paths)})
 
-    def test_aligned_moves_to_dod(self):
-        m = {'module_id': 'M001'}
-        self.assertEqual(ui_fidelity.accept_alignment({}, m, self.result(), self.ref('r.json')), 'dod')
-        self.assertEqual(m['alignment']['status'], 'aligned')
-        self.assertFalse(ui_fidelity.alignment_pending({'ui_fidelity_required': True}, m))
+    def visual(self, **over):
+        return path('PV', 'visual', node_ids=['node:root'], baseline_ref=self.ref(), **over)
 
-    def test_needs_ui_fix_routes_back_and_spends_a_round(self):
-        m = {'module_id': 'M001'}
-        self.assertEqual(ui_fidelity.accept_alignment({}, m, self.result('NEEDS_UI_FIX'), self.ref('r.json')), 'diagnosing')
-        self.assertEqual((m['alignment_rounds_used'], m['alignment']['unaligned']), (1, ['login:phone:viewport']))
+    def test_flag_off_is_noop(self):
+        self.gate(self.analysis(legacy_executable=None), [], flag=False)
 
-    def test_round_budget_is_three(self):
-        m = {'module_id': 'M001', 'alignment_rounds_used': 3}
-        with self.assertRaisesRegex(Rejected, 'budget exhausted'):
-            ui_fidelity.accept_alignment({}, m, self.result(rounds=4), self.ref('r.json'))
+    def test_executability_must_be_decided(self):
+        with self.assertRaisesRegex(Rejected, 'executability must be decided'):
+            self.gate(self.analysis(legacy_executable=None), [self.visual()])
 
-    def test_round_must_advance_and_targets_must_match(self):
-        m = {'module_id': 'M001'}
-        with self.assertRaisesRegex(Rejected, 'current_round must advance'):
-            ui_fidelity.accept_alignment({}, m, self.result(rounds=2), self.ref('r.json'))
-        with self.assertRaisesRegex(Rejected, 'required_targets must equal'):
-            ui_fidelity.accept_alignment({}, m, self.result(required_targets=[]), self.ref('r.json'))
-        with self.assertRaisesRegex(Rejected, 'missing targets'):
-            ui_fidelity.accept_alignment({}, m, self.result(target_results=[]), self.ref('r.json'))
+    def test_previewable_legacy_needs_baseline_and_visual_path(self):
+        self.gate(self.analysis(), [self.visual()])                       # ok
+        with self.assertRaisesRegex(Rejected, 'baseline screenshots'):
+            self.gate(self.analysis(baseline_refs=[]), [self.visual()])
+        with self.assertRaisesRegex(Rejected, 'needs a visual test path'):
+            self.gate(self.analysis(), [])
 
-    def test_declared_gesture_needs_passing_device_check(self):
-        decl = [{'id': 'edge-back', 'action': 'edge_back_gesture',
-                 'from': {'page_id': 'login', 'state_id': 'phone'},
-                 'expected': {'page_id': 'home', 'state_id': 'base', 'app_foreground': True}}]
-        a = analysis(interactions=decl)
-        ui_fidelity._analysis = lambda m, _a=a: _a
-        m = {'module_id': 'M001'}
-        with self.assertRaisesRegex(Rejected, 'lack device checks'):
-            ui_fidelity.accept_alignment({}, m, self.result(), self.ref('r.json'))
-        passing = self.result(rounds=2, hap_sha256='h1', interaction_checks=[
-            {'id': 'edge-back', 'status': 'PASSED', 'hap_sha256': 'h1', 'evidence_ref': self.ref('t.json')}])
-        self.assertEqual(ui_fidelity.accept_alignment({}, m, passing, self.ref('r2.json')), 'dod')
+    def test_non_previewable_falls_back_to_source_only(self):
+        self.gate(self.analysis(legacy_executable=False, visual_mode='source-only', baseline_refs=None), [])
+        with self.assertRaisesRegex(Rejected, 'falls back to source-only'):
+            self.gate(self.analysis(legacy_executable=False), [self.visual()])
+
+    def test_declared_interaction_needs_a_visual_path(self):
+        a = self.analysis()
+        a['dimensions'][0]['items'][0]['semantic_model']['interactions'] = [
+            {'id': 'edge-back', 'action': 'edge_back_gesture',
+             'from': {'page_id': 'login', 'state_id': 'phone'},
+             'expected': {'page_id': 'home', 'state_id': 'base', 'app_foreground': True}}]
+        with self.assertRaisesRegex(Rejected, 'device proof'):
+            self.gate(a, [self.visual()])
+        self.gate(a, [self.visual(interaction_id='edge-back')])
 
 
 if __name__ == '__main__':

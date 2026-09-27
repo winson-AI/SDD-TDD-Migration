@@ -10,14 +10,14 @@ four-dim analysis has applicable UI items requires:
 - the source closure names the renderers that mutate visible state (a layout alone is incomplete).
 
 Completion additionally refuses a module that still carries an explicitly `blocked` resource, so an
-inexact resource can never be reported as Green. Visual parity itself is enforced at implementation
-by semantics.implementation (visual_alignment).
+inexact resource can never be reported as Green. Visual parity itself is a test-stage verdict: the
+visual automation layer aligns baseline nodes and reports three-state like any other path.
 """
 import dimensions
 import resource_fidelity
 import semantics
 import ui_tree
-from contracts import check_ref, read_json, require
+from contracts import check_ref, nonempty, read_json, require
 
 
 def _analysis(m):
@@ -52,15 +52,11 @@ def freeze_gate(s, m):
         renderers = ((m.get('plan') or {}).get('source_closure') or {}).get('ui_renderers')
         require(isinstance(renderers, list) and renderers,
                 'ui_fidelity_required: source_closure.ui_renderers must name the renderers that mutate visible state')
-
-
-ALIGNED_OK = ('ALIGNED', 'ALIGNED_CARRIED')
-TARGET_STATUS = ALIGNED_OK + ('NEEDS_UI_FIX', 'CAPTURE_BLOCKED', 'NEEDS_IMPLEMENTATION_FIX')
-MAX_ALIGN_ROUNDS = 3
+    baseline_gate(s, m)
 
 
 def runtime_targets(analysis):
-    """page:state:coverage targets that owe visual parity (they carry runtime capture evidence)."""
+    """page:state:coverage targets whose legacy screen is previewable, so a baseline exists."""
     targets = []
     for row in analysis.get('dimensions', []):
         if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
@@ -85,49 +81,46 @@ def declared_interactions(analysis):
     return sorted(set(found))
 
 
-def alignment_pending(s, m):
-    """After tests go Green, runtime UI targets still owe an independent visual comparison."""
+def baseline_gate(s, m):
+    """Legacy executability is decided before freeze and drives SPEC/coding inputs.
+
+    Previewable legacy screens contribute captured baseline screenshots that guide the SPEC and the
+    Implementer, and are later compared node-by-node in the visual test stage. A legacy screen that
+    cannot be previewed falls back to retained UI source, but still owes the four-dimension UI
+    intermediate representation, so coding is never guided by prose alone.
+    """
     if not s.get('ui_fidelity_required'):
-        return False
+        return
     analysis = _analysis(m)
     if analysis is None:
-        return False
-    return bool(runtime_targets(analysis)) and (m.get('alignment') or {}).get('status') != 'aligned'
-
-
-def accept_alignment(s, m, result, result_ref):
-    """Independent post-build parity round (lean Aligner semantics); returns the next phase."""
-    import interactions
-    analysis = _analysis(m)
-    require(analysis is not None, 'alignment requires a frozen dimension analysis')
-    targets = runtime_targets(analysis)
-    require(targets, 'no runtime UI targets owe visual parity')
-    require(result.get('schema_version') == 2, 'alignment result schema_version 2 required')
-    rounds = m.get('alignment_rounds_used', 0) + 1
-    require(rounds <= MAX_ALIGN_ROUNDS,
-            'visual alignment budget exhausted; record the residual gap and hand to the Auditor')
-    require(result.get('current_round') == rounds, 'alignment current_round must advance to ' + str(rounds))
-
-    def key(target):
-        return '{}:{}:{}'.format(target.get('page_id'), target.get('state_id'), target.get('coverage'))
-    require(sorted({key(t) for t in result.get('required_targets', [])}) == targets,
-            'alignment required_targets must equal the frozen UI coverage set')
-    rows = {key(r): r for r in result.get('target_results', [])}
-    missing = sorted(set(targets) - set(rows))
-    require(not missing, 'alignment result missing targets: ' + ', '.join(missing))
-    for name in targets:
-        row = rows[name]
-        require(row.get('status') in TARGET_STATUS, 'invalid alignment target status for ' + name)
-        check_ref(row.get('evidence_ref'))
-    m['alignment_rounds_used'] = rounds
-    unaligned = sorted(name for name in targets if rows[name]['status'] not in ALIGNED_OK)
-    if unaligned:
-        # Route back to the owner for a narrow repair; the round is spent either way.
-        m['alignment'] = {'status': 'needs-fix', 'result_ref': result_ref, 'round': rounds, 'unaligned': unaligned}
-        return 'diagnosing'
-    interactions.validate_checks(declared_interactions(analysis), result)
-    m['alignment'] = {'status': 'aligned', 'result_ref': result_ref, 'round': rounds}
-    return 'dod'
+        return
+    plan = m.get('plan') or {}
+    visual = [path for path in plan.get('paths', []) if path.get('kind') == 'visual']
+    for row in analysis.get('dimensions', []):
+        if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
+            continue
+        for item in row.get('items', []):
+            evidence = ((item.get('semantic_model') or {}).get('ui_evidence')) or {}
+            executable = evidence.get('legacy_executable')
+            require(isinstance(executable, bool),
+                    'legacy executability must be decided before freeze for ' + item['item_id'])
+            if executable:
+                require(evidence.get('visual_mode') == 'runtime',
+                        'a previewable legacy screen must carry runtime baseline evidence: ' + item['item_id'])
+                for ref in nonempty(evidence.get('baseline_refs'), 'baseline screenshots for ' + item['item_id']):
+                    check_ref(ref)
+            else:
+                require(evidence.get('visual_mode') == 'source-only',
+                        'a non-previewable legacy screen falls back to source-only: ' + item['item_id'])
+    covered = {node for path in visual for node in path.get('node_ids', [])}
+    for target in runtime_targets(analysis):
+        require(visual, 'baseline target ' + target + ' needs a visual test path aligning its nodes')
+    require(not runtime_targets(analysis) or covered,
+            'visual paths must name the UI-tree nodes they align')
+    declared = declared_interactions(analysis)
+    proven = {path.get('interaction_id') for path in visual}
+    missing = sorted(set(declared) - proven)
+    require(not missing, 'declared interactions need a visual path carrying device proof: ' + ', '.join(missing))
 
 
 def completion_gate(s, m):

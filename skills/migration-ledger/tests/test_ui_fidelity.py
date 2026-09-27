@@ -27,7 +27,9 @@ class UiFidelityTests(unittest.TestCase):
                 row['items'][0]['semantic_model'] = {
                     'kind': 'ui-component-spec', 'model_ref': self.f.ref('ui.json', {'root': {'type': 'Col'}}),
                     'ui_evidence': {'ui_tree_ref': self.f.ref('ui-tree.json', tree),
-                                    'coverage': 'login:phone:viewport', 'visual_mode': 'runtime'},
+                                    'coverage': 'login:phone:viewport', 'visual_mode': 'runtime',
+                                    'legacy_executable': True,
+                                    'baseline_refs': [self.f.ref('baseline.png', {'shot': 1})]},
                     'source': {'origin': 'authored', 'evidence_refs': []},
                     'implementation_location': {'target_path': str(self.f.target / 'm1/Login.kt')}}
             if row['dimension'] == 'Resource' and resource_over and row['items']:
@@ -35,7 +37,9 @@ class UiFidelityTests(unittest.TestCase):
         return self.f.ref(name, a)
 
     def module(self, ref, renderers=('ui/LoginActivity.java',)):
-        plan = {'dimension_analysis_ref': ref}
+        plan = {'dimension_analysis_ref': ref,
+                'paths': [{'path_id': 'PV', 'kind': 'visual', 'case_id': 'C1', 'name': 'PV',
+                           'node_ids': ['node:root'], 'baseline_ref': self.f.ref('baseline.png', {'shot': 1})}]}
         if renderers is not None:
             plan['source_closure'] = {'ui_renderers': list(renderers)}
         return {'module_id': 'M001', 'plan': plan}

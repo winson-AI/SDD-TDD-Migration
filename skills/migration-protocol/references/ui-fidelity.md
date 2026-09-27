@@ -52,14 +52,33 @@ UI scope 不再用散文墙，改为可校验载体：
 - **视觉 parity**：带 `ui_evidence` 的 UI item，实现接受时其 conformance 必须含通过的 `visual_alignment`（P1，`semantics.implementation` 强制）——冻结要证据、实现要 parity，二者合力 fail-closed。
 - **覆盖看板**：`status.semantic_index.coverage.missing` 暴露未附模型的 UI item。
 
-## 独立视觉对齐道（Wave B，已实现）
+## 基线前移：截图指导实现，而非事后比对（已实现）
 
-对应 lean `NEED_VISUAL_ALIGNMENT → ALIGNED`：`ui_fidelity_required` 开启且模块有 `visual_mode=runtime` 的 UI 目标时，测试全 Green **不直接进 dod**，而先进入新阶段 **`aligning`**：
+视觉证据的位置决定它是否真的提升还原度。基线**前移到规划/实现阶段**作为输入，冻结前必须判定存量可执行性（[ui_fidelity.baseline_gate](../../migration-ledger/scripts/ui_fidelity.py)）：
 
-- 游标给出 `align` 动作;MO 提交 schema-2 `alignment-result`,经 [ui_fidelity.accept_alignment](../../migration-ledger/scripts/ui_fidelity.py) 校验:`required_targets` 必须等于冻结的 UI coverage 集合、每个目标有结果与证据引用、`current_round` 逐轮递增、**≤3 轮**。
-- 全部 `ALIGNED`/`ALIGNED_CARRIED` → `dod`;任一 `NEEDS_UI_FIX`/`CAPTURE_BLOCKED`/`NEEDS_IMPLEMENTATION_FIX` → 回 `diagnosing` 由 owner 窄修(该轮照样消耗)。轮次耗尽则拒绝,须记录残留交 Auditor。
-- **声明的手势必须有设备证据**:[interactions.py](../../migration-ledger/scripts/interactions.py) 要求每个 `interaction:<id>` 有 `PASSED` 的 `interaction_check`,且绑定同一 `hap_sha256`;静态路由检查不能替代运行时证据。
-- `source-only` 目标不参与对齐(无截图证据),按显式限制在报告中留差异。
+| 判定 | `ui_evidence` | 作用 |
+|---|---|---|
+| **存量可预览** | `legacy_executable: true` + `visual_mode: runtime` + `baseline_refs`（存量截图） | 截图**指导 SPEC 生成与 Implementer coding**；后续作视觉对齐基线 |
+| **存量不可预览** | `legacy_executable: false` + `visual_mode: source-only` | 回退保留 UI 源码，但**仍强制走四维 UI 中间表征层**（`ui-component-spec` + `ui_tree`）指导 coding；无基线，不伪造视觉通过 |
+
+未判定可执行性 → 不能冻结。实现接受时，conformance 必须用 `baseline_conformance` 引用**指导 coding 的那份基线或中间表征**（runtime→`baseline_refs`；source-only→`ui_tree_ref`），确保实现确实被证据引导。
+
+## 视觉对齐 = automation 第二层（不是独立阶段）
+
+Test-Runner 在 build Green 后分两层，都是普通测试路径，走既有三态与 Next-STEP：
+
+```text
+build → Green
+  └─ automation 第一层：功能用例路径走通 → Green
+        └─ automation 第二层 visual：对齐存量基线，逐「视觉对齐路径中的节点」assert
+```
+
+- `visual` 路径必须绑定 `node_ids`（稳定 `node:` id）与 `baseline_ref`（[test_validation.plan_check](../../migration-ledger/scripts/test_validation.py)）；有 runtime 基线的 UI 目标必须有 visual 路径。
+- 阶段顺序由 `tv.next_scope` 强制：**第二层需第一层 Green**（功能没走通时比对渲染无意义）；DoD 要求**全部三层路径 Green**（`tv.all_green`）。
+- 视觉不对齐 = **Red + 节点级 root_cause** → 走 ④三态 / ⑤`diagnose` → 一轮 Fixer，**复用既有修复预算**（不另设轮次）。
+- 声明的手势（`interaction:<id>`）必须由某条 visual 路径承载设备证据（`interaction_id`），静态路由不可替代。
+- `source-only` 无第二层（无基线可比），按显式缺视觉证据收尾，不允许"没基线就免检"中间表征。
+- 仅自动化环境缺失时，`automation-unavailable` 同时挂起 automation 与 visual 两层，沿用既有 Yellow 缺测收尾。
 
 ## capture / 构建产物契约（Wave B，已实现）
 

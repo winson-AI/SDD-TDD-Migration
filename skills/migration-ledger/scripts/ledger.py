@@ -390,16 +390,13 @@ def _next_step(s, m):
             step.update(operation='recover' if exhausted else 'assign', role='module-orchestrator',
                         worker_role=worker, ready=not exhausted, reason='budget-exhausted' if exhausted else None)
             if worker == 'test-runner' and tv.split(m):
-                step['test_scope'] = 'automation' if tv.build_ready(m) else 'build'
+                step['test_scope'] = tv.next_scope(m)
                 step['payload'] = {'test_scope': step['test_scope']}
             if step['ready']:
                 try:
                     dispatch_guard(s, m, worker)
                 except (Rejected, OSError) as exc:
                     step.update(ready=False, reason=str(exc))
-    elif m['phase'] == 'aligning':
-        step.update(operation='align', role='module-orchestrator', ready=True,
-                    reason='independent-visual-parity-required')
     elif m['phase'] == 'dod':
         step.update(operation='complete', role='module-orchestrator', ready=True)
         try:
@@ -598,7 +595,7 @@ def mutate(s, req, principal, events, root=None):
             require(p.get('instance_id') != s['audit_batch']['auditor_instance_id'], 'Auditor cannot implement or author verification')
         dispatch_guard(s, m, p['role'])
         if p['role'] == 'test-runner' and tv.split(m):
-            require(p.get('test_scope') == ('automation' if tv.build_ready(m) else 'build'), 'build must precede automation')
+            require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> automation -> visual')
         if p['instance_id'] not in m['authors']:
             m['authors'].append(p['instance_id'])
         if p['role'] in ('implementer', 'fixer'):
@@ -669,17 +666,8 @@ def mutate(s, req, principal, events, root=None):
                 if not build_only and memory['status'] == 'awaiting-regression' and memory.get('after_baseline') == m['code_baseline']:
                     memory.update(status='verified' if not bad else 'failed', reusable=not bad,
                                   regression_ref=sub['ref'], regression_paths=copy.deepcopy(result['paths']))
-            phase = 'dod' if not bad and not build_only else 'testing'
-            if phase == 'dod' and ui_fidelity.alignment_pending(s, m):
-                phase = 'aligning'
-            m.update(stale=False, phase=phase, diagnosis_submission=None, diagnosis=None, repair_findings={})
+            m.update(stale=False, phase='dod' if tv.all_green(m) else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
             audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only)
-    elif op == 'align':
-        role(principal, 'module-orchestrator')
-        require(m['phase'] == 'aligning' and not m.get('blocked'), 'alignment requires the aligning phase')
-        idle(m); current(m)
-        result = read_json(check_ref(p.get('result_ref')))
-        m['phase'] = ui_fidelity.accept_alignment(s, m, result, p['result_ref'])
     elif op == 'diagnose':
         role(principal, 'diagnostician')
         require(m['phase'] == 'testing' and not m.get('blocked') and unresolved(m), 'no unresolved test failure')

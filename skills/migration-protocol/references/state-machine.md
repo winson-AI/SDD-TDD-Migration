@@ -28,9 +28,10 @@
 | frozen | implementing | 全局覆盖验收通过、冻结内容摘要匹配、依赖满足、目标写锁有效、tasks 非空 |
 | implementing | testing | implementation_submitted 被 MO 接受；测试路径与断言已在冻结前定义，现绑定实际代码、脚本和环境执行 |
 | testing / build | testing / automation | 当前代码全部 build PATH Green；同一 Test-Runner 职责切换 |
+| testing / automation | testing / visual | 功能用例层全 Green（`functional_ready`）；仅存在 visual PATH 时进入，逐基线节点对齐 |
 | testing / automation | automation-deferred | 仅自动化环境缺失，automation-unavailable 留逐 PATH Yellow/未执行；构建保持 Green |
 | automation-deferred | testing / automation | 新 testing ready 报告 + automation-resume；无需人工批准，仍须真实补测 |
-| testing | dod | 当前全部构建及自动化必需路径 Green |
+| testing | dod | 冻结的全部必需路径 Green（build + automation 功能层 + visual 基线对齐层，`all_green`） |
 | testing | diagnosing | 存在未解决问题；Diagnostician 仅提交报告，MO 接受当前版本诊断；无活动 worker |
 | diagnosing | fixing | 根因报告、模块本地一轮或 Auditor 明确授权一轮、总预算内、合法写锁；不需改验收的补丁任务 |
 | fixing | testing | 补丁与回归证据已接收、代码版本更新、受影响路径标 stale；正式 Test-Runner 复测 |
