@@ -2,7 +2,11 @@
 
 从 lean bundle 吸收四项工程纪律，融入 SDD 的规划/冻结/修复门禁。领域工具（Foundation 知识库、query/diagnose、foundation_gate）由映射的 lean skill 提供（见 [lean 集成](lean-integration.md)），SDD 不重造；本页固化其接入契约与 SDD 侧的可校验部分。
 
-## 1. Foundation / 迁移知识 gate（协议）
+## 1. Foundation / 迁移知识 gate（版本解析已实现）
+
+**已实现**：`dependency_resolution_required`（init/prepare 开关，默认关）开启后，冻结要求 `plan.dependency_resolution_ref` 指向经 [knowledge_gate.py](../../migration-ledger/scripts/knowledge_gate.py) 校验的解析产物：`schema_version:1`、每条 requirement 有 `query` 与确切 `resolved_version`、`subclosure` 仅列本切片所需 API、**demo-source 证据必须标 `candidate_only`**（候选配置，不是编译/设备证明）。产物由映射的 lean `foundation_gate resolve` 生成。
+
+以下为协议部分：
 
 - 按切片**触发式**加载知识：仅加载当前切片命中的主题（lean `query_knowledge.py` + `knowledge-index.json`），不整包灌入。
 - **错误→cookbook**：编译/链接/打包/设备/运行时的稳定错误 → `query_knowledge.py diagnose '<逐字错误>'` → 只加载返回的 cookbook 再修复。

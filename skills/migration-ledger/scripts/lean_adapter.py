@@ -10,18 +10,16 @@ from pathlib import Path
 import sys
 sys.dont_write_bytecode = True
 
+import capture_manifest
 import semantics
-from contracts import check_ref, file_ref, read_json, require
+from contracts import check_ref, file_ref, nonempty, read_json, require
 
 
 def ui_evidence(capture_entry, ui_tree_ref):
     """lean capture manifest entry + extracted ui-tree -> SDD semantic_model.ui_evidence."""
-    require(isinstance(capture_entry, dict), 'capture entry must be an object')
-    page, state, coverage = capture_entry.get('page_id'), capture_entry.get('state_id'), capture_entry.get('coverage')
-    require(all(isinstance(x, str) and x for x in (page, state)), 'capture entry needs page_id/state_id')
-    require(coverage in ('viewport', 'scroll'), 'capture coverage must be viewport/scroll')
-    status = capture_entry.get('status')
-    require(status in ('COMPLETE', 'SOURCE_ONLY'), 'capture status must be COMPLETE/SOURCE_ONLY')
+    capture_manifest.validate_entry(capture_entry)
+    page, state, coverage = capture_entry['page_id'], capture_entry['state_id'], capture_entry['coverage']
+    status = capture_entry['status']
     check_ref(ui_tree_ref)
     evidence = {'ui_tree_ref': ui_tree_ref, 'coverage': page + ':' + state + ':' + coverage,
                 'visual_mode': 'runtime' if status == 'COMPLETE' else 'source-only'}
@@ -36,6 +34,25 @@ def visual_alignment(alignment_result, result_ref):
     require(status in ('ALIGNED', 'RUNNABLE_PARTIAL'),
             'alignment not ALIGNED/RUNNABLE_PARTIAL; route NEEDS_UI_FIX back to the owner')
     return {'status': 'aligned' if status == 'ALIGNED' else 'source-only', 'result_ref': result_ref}
+
+
+def validation_summary(validation_result):
+    """lean validation-result -> SDD three-state hint plus verified build artifacts (e.g. HAP).
+
+    Artifact refs are hash-checked against the current files, so a recorded HAP must still be the
+    one that was validated; a passed package check without its artifact is not accepted.
+    """
+    checks = nonempty(validation_result.get('checks'), 'validation checks')
+    kinds = set()
+    for check in checks:
+        require(isinstance(check, dict) and check.get('kind'), 'validation check needs a kind')
+        require(check.get('status') in ('passed', 'failed'), 'validation check status must be passed/failed')
+        kinds.add(check['kind'])
+    artifacts = [str(check_ref(ref)) for ref in validation_result.get('artifacts', [])]
+    require('package' not in kinds or artifacts, 'a package check must record its built artifact (HAP)')
+    failed = sorted({check['kind'] for check in checks if check['status'] == 'failed'})
+    return {'quality': 'red-bug' if failed else 'green-passed', 'failed_checks': failed,
+            'artifacts': artifacts, 'verdict': validation_result.get('verdict')}
 
 
 def main():

@@ -17,6 +17,7 @@ import decomposition
 import dimensions
 import model_routing
 import reuse
+import knowledge_gate
 import ui_fidelity
 import project_context
 import context_readiness
@@ -396,6 +397,9 @@ def _next_step(s, m):
                     dispatch_guard(s, m, worker)
                 except (Rejected, OSError) as exc:
                     step.update(ready=False, reason=str(exc))
+    elif m['phase'] == 'aligning':
+        step.update(operation='align', role='module-orchestrator', ready=True,
+                    reason='independent-visual-parity-required')
     elif m['phase'] == 'dod':
         step.update(operation='complete', role='module-orchestrator', ready=True)
         try:
@@ -566,6 +570,7 @@ def mutate(s, req, principal, events, root=None):
         verify_plan(m['plan'])
         require(validate_plan(m['plan'], m) == m['plan_hash'], 'plan changed')
         ui_fidelity.freeze_gate(s, m)
+        knowledge_gate.freeze_gate(s, m)
         decision = s['decisions'].get(p.get('decision_id'), {})
         if p.get('change_class') == 'within-envelope':
             within_envelope(m, p.get('impact_ref'))
@@ -664,8 +669,17 @@ def mutate(s, req, principal, events, root=None):
                 if not build_only and memory['status'] == 'awaiting-regression' and memory.get('after_baseline') == m['code_baseline']:
                     memory.update(status='verified' if not bad else 'failed', reusable=not bad,
                                   regression_ref=sub['ref'], regression_paths=copy.deepcopy(result['paths']))
-            m.update(stale=False, phase='dod' if not bad and not build_only else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
+            phase = 'dod' if not bad and not build_only else 'testing'
+            if phase == 'dod' and ui_fidelity.alignment_pending(s, m):
+                phase = 'aligning'
+            m.update(stale=False, phase=phase, diagnosis_submission=None, diagnosis=None, repair_findings={})
             audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only)
+    elif op == 'align':
+        role(principal, 'module-orchestrator')
+        require(m['phase'] == 'aligning' and not m.get('blocked'), 'alignment requires the aligning phase')
+        idle(m); current(m)
+        result = read_json(check_ref(p.get('result_ref')))
+        m['phase'] = ui_fidelity.accept_alignment(s, m, result, p['result_ref'])
     elif op == 'diagnose':
         role(principal, 'diagnostician')
         require(m['phase'] == 'testing' and not m.get('blocked') and unresolved(m), 'no unresolved test failure')
@@ -991,9 +1005,10 @@ def _apply(root, req, principal):
             require(type(p.get('split_testing_required', True)) is bool, 'split_testing_required must be boolean')
             require(type(p.get('context_readiness_required', True)) is bool, 'context_readiness_required must be boolean')
             require(type(p.get('ui_fidelity_required', False)) is bool, 'ui_fidelity_required must be boolean')
+            require(type(p.get('dependency_resolution_required', False)) is bool, 'dependency_resolution_required must be boolean')
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
             require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
-            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False),
+            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
                  'reuse_sources': reuse_sources, 'reuse_required': bool(reuse_sources) or p.get('reuse_required', False),
                  'entry_mode': entry_mode, 'single_module_id': selected_module,
                  'global_spec': p['global_spec'], 'new_architecture': p['new_architecture'], 'requirement_ids': p['requirement_ids'],

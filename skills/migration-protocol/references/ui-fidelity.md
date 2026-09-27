@@ -52,7 +52,19 @@ UI scope 不再用散文墙，改为可校验载体：
 - **视觉 parity**：带 `ui_evidence` 的 UI item，实现接受时其 conformance 必须含通过的 `visual_alignment`（P1，`semantics.implementation` 强制）——冻结要证据、实现要 parity，二者合力 fail-closed。
 - **覆盖看板**：`status.semantic_index.coverage.missing` 暴露未附模型的 UI item。
 
-进一步的独立视觉对齐游标态（对应 lean `NEED_VISUAL_ALIGNMENT → ALIGNED`，把 parity 移到 build 之后的独立验证道、`NEEDS_UI_FIX` 回 owner ≤3 轮）为可选增强：当前冻结门禁 + 实现 parity 已达成"无证据不能冻结、无 parity 不能接受"的 fail-closed 目标。
+## 独立视觉对齐道（Wave B，已实现）
+
+对应 lean `NEED_VISUAL_ALIGNMENT → ALIGNED`：`ui_fidelity_required` 开启且模块有 `visual_mode=runtime` 的 UI 目标时，测试全 Green **不直接进 dod**，而先进入新阶段 **`aligning`**：
+
+- 游标给出 `align` 动作;MO 提交 schema-2 `alignment-result`,经 [ui_fidelity.accept_alignment](../../migration-ledger/scripts/ui_fidelity.py) 校验:`required_targets` 必须等于冻结的 UI coverage 集合、每个目标有结果与证据引用、`current_round` 逐轮递增、**≤3 轮**。
+- 全部 `ALIGNED`/`ALIGNED_CARRIED` → `dod`;任一 `NEEDS_UI_FIX`/`CAPTURE_BLOCKED`/`NEEDS_IMPLEMENTATION_FIX` → 回 `diagnosing` 由 owner 窄修(该轮照样消耗)。轮次耗尽则拒绝,须记录残留交 Auditor。
+- **声明的手势必须有设备证据**:[interactions.py](../../migration-ledger/scripts/interactions.py) 要求每个 `interaction:<id>` 有 `PASSED` 的 `interaction_check`,且绑定同一 `hap_sha256`;静态路由检查不能替代运行时证据。
+- `source-only` 目标不参与对齐(无截图证据),按显式限制在报告中留差异。
+
+## capture / 构建产物契约（Wave B，已实现）
+
+- **capture manifest（schema 2）** [capture_manifest.py](../../migration-ledger/scripts/capture_manifest.py):`COMPLETE` 必须有真实 screenshot/view_xml/meta 三元组 + 非空 captures + `observed_variant` + 记录 backend;`scroll` 只有 `scroll-complete` 才算达成(截断的 scroll-partial **永不**推进);`SOURCE_ONLY` 不得携带臆造 captures;缺 coverage 的旧记录不得升级为 viewport。
+- **validation → 三态 + HAP** [lean_adapter.validation_summary](../../migration-ledger/scripts/lean_adapter.py):lean validator 的 compile/test/package 检查映射为三态(任一 failed → Red);`package` 通过必须记录产物,且 artifact 的 sha256 与当前文件**仍需匹配**(HAP 不能被换掉)。
 
 ## 精确性纪律（Wave A，已实现）
 

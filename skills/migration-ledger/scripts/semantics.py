@@ -107,6 +107,8 @@ def validate_item(item):
     VALIDATORS[kind](read_json(check_ref(model.get('model_ref'))))
     if kind == 'ui-component-spec':
         _ui_evidence(model)
+        import interactions
+        interactions.validate_declarations(model)
     source = model.get('source', {})
     require(source.get('origin') in ORIGINS, 'semantic source origin required (legacy/target/authored)')
     require(item.get('target_strategy') != 'new' or source['origin'] != 'legacy',
@@ -190,3 +192,5 @@ def implementation(items, traces=None):
             require(alignment['status'] != 'source-only' or model['ui_evidence']['visual_mode'] == 'source-only',
                     'source-only alignment requires source-only capture evidence for ' + iid)
             check_ref(alignment.get('result_ref'))
+            import interactions
+            interactions.validate_checks(interactions.validate_declarations(model), alignment)
