@@ -779,6 +779,7 @@ def mutate(s, req, principal, events, root=None):
     elif op == 'complete':
         role(principal, 'module-orchestrator')
         complete_guard(s, m)
+        ui_fidelity.completion_gate(s, m)
         check_ref(p['dod_ref'])
         require(p.get('checks_passed') is True, 'DoD review required')
         m['phase'] = 'completed'

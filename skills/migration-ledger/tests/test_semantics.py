@@ -88,7 +88,7 @@ class SemanticsTests(unittest.TestCase):
         semantics.implementation(items, good)                 # exists + conformance -> ok
 
     def test_ui_evidence_boundary(self):
-        tree = self.ref('ui-tree.json', {'screen': 'login'})
+        tree = self.ref('ui-tree.json', {'schema_version': 1, 'screen': 'screen:login', 'nodes': [{'id': 'node:root', 'presentation': {'resourceRefs': []}}], 'unresolved': []})
         ev = {'coverage': 'login:phone:viewport', 'ui_tree_ref': tree, 'visual_mode': 'runtime'}
         self.ok(self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}}, ui_evidence=ev))
         self.bad(self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}}, ui_evidence={**ev, 'coverage': 'bad'}), 'coverage must be')
@@ -98,7 +98,7 @@ class SemanticsTests(unittest.TestCase):
                            ui_evidence={'coverage': 'login:phone:viewport', 'visual_mode': 'runtime'}), None)  # missing ui_tree_ref
 
     def test_ui_visual_alignment_required_at_implementation(self):
-        tree = self.ref('ui-tree.json', {'screen': 'login'})
+        tree = self.ref('ui-tree.json', {'schema_version': 1, 'screen': 'screen:login', 'nodes': [{'id': 'node:root', 'presentation': {'resourceRefs': []}}], 'unresolved': []})
         item = self.item('UI', 'ui-component-spec', {'root': {'type': 'Col'}},
                          ui_evidence={'coverage': 'login:phone:viewport', 'ui_tree_ref': tree, 'visual_mode': 'runtime'})
         items = {'i1': item}

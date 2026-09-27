@@ -54,6 +54,32 @@ UI scope 不再用散文墙，改为可校验载体：
 
 进一步的独立视觉对齐游标态（对应 lean `NEED_VISUAL_ALIGNMENT → ALIGNED`，把 parity 移到 build 之后的独立验证道、`NEEDS_UI_FIX` 回 owner ≤3 轮）为可选增强：当前冻结门禁 + 实现 parity 已达成"无证据不能冻结、无 parity 不能接受"的 fail-closed 目标。
 
+## 精确性纪律（Wave A，已实现）
+
+还原度差的根因不是验证不足，而是**允许了近似**。以下规则把"近似"从源头排除：
+
+**① 资源精确策略 + 反近似禁令** —— [resource_fidelity.py](../../migration-ledger/scripts/resource_fidelity.py) 为 Resource 维 item 提供 `resource_strategy` 枚举（presence-triggered）：
+
+| Android 源类型 (`resource_kind`) | 必须策略 |
+|---|---|
+| vector | `exact_vector_xml`（保留 viewport/path/group/clip/stroke/fill/alpha/mirroring；**不是** ImageVector） |
+| bitmap / font / raw | `byte_copy`（字节级） |
+| string / plurals / array | `value_xml_exact`（保留文本、占位符、转义、quantity/数组结构、限定符） |
+| color / dimen / 已证 attr | `design_token_exact` |
+| selector / layer-list / shape / 有状态绘制 | `compose_semantic_exact` |
+
+**没有 `approximate` 策略**：禁止 Material 图标替代、手绘近似、语义近似、自动栅格化、位图兜底。逃生口仅 `manual_exact`（须 `adaptation_evidence_ref` 实证）与 `blocked`（须 `blocked_reason`）。专项规则：`.9.png` 的 stretch/content 区域**永不** `byte_copy`；`sp` 尺寸被间距消费时必须 `scales_with_font`（不得静默变固定 Dp）。
+
+**② 闭包不得缩减** —— `ui_fidelity_required` 开启时，UI 树声明的每个呈现引用（含 `dynamicRules` 的代码态运行时覆盖）必须被某个 Resource item 覆盖（`source_resource`/`covered_resource_ids`），否则冻结被拒。不得只迁"方便转换的子集"。
+
+**③ blocked 不得计入 Green** —— `completion_gate` 拒绝仍带 `blocked` 资源的模块完成。
+
+**④ UI 树白盒** —— [ui_tree.py](../../migration-ledger/scripts/ui_tree.py) 校验 `ui_tree_ref` 内容：`schema_version`、稳定 `screen:`/`node:`/`binding:`/`event:` id、`presentation.resourceRefs`、`dynamicRules{condition,resourceRefs}`、显式 `unresolved` 列表（冲突保留不得丢弃）。
+
+**⑤ 源闭包含 mutating renderer** —— UI 适用时 `source_closure.ui_renderers` 必填：仅有 layout 不完整，必须点名真正改变可见状态的 Activity/Fragment/Adapter/ViewHolder/自定义 View 渲染者。
+
+**⑥ 消费者接线纪律（anti-guess，协议）** —— 改任何源声明的 dimension/margin/padding/typography/color 前，须经 UI 树 + 资源映射追溯消费者：存在精确映射而消费者硬编码/猜测 → 必须改为接线映射值；映射缺失/错误 → 路由 Resource owner。**只有所有源值与运行时覆盖都接线后**，截图证据才可用于证明残余跨平台文本布局校正。机械面由 `dimensions.implementation` 的 Resource `target_resource_ref`/`consumer_ref` 必须匹配冻结值保障。
+
 ## 所有权（吸收 lean ownership，边界清晰）
 
 | 角色 | 拥有 | 映射 lean skill |

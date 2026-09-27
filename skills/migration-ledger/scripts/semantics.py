@@ -90,7 +90,8 @@ def _ui_evidence(model):
         return
     require(isinstance(evidence, dict), 'ui_evidence must be an object')
     require(COVERAGE.match(evidence.get('coverage', '')), 'ui_evidence.coverage must be page:state:(viewport|scroll)')
-    check_ref(evidence.get('ui_tree_ref'))
+    import ui_tree
+    ui_tree.validate(read_json(check_ref(evidence.get('ui_tree_ref'))))
     require(evidence.get('visual_mode') in ('runtime', 'source-only'), 'ui_evidence.visual_mode required (runtime/source-only)')
 
 

@@ -1,4 +1,4 @@
-"""ui_fidelity_required: UI owner cannot freeze without capture-bound ui_evidence."""
+"""ui_fidelity_required: capture-bound UI evidence, unreduced resource closure, no Green while blocked."""
 from pathlib import Path
 import sys
 import unittest
@@ -6,10 +6,12 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 
 import test_dimensions
-import dimensions
 import semantics
 import ui_fidelity
 from contracts import Rejected
+
+TREE = {'schema_version': 1, 'screen': 'screen:login', 'unresolved': [],
+        'nodes': [{'id': 'node:root', 'presentation': {'resourceRefs': []}}]}
 
 
 class UiFidelityTests(unittest.TestCase):
@@ -17,32 +19,57 @@ class UiFidelityTests(unittest.TestCase):
         self.d = test_dimensions.DimensionTests(); self.d.setUp(); self.addCleanup(self.d.doCleanups)
         self.f = self.d.f
 
-    def analysis_ref(self, ui_evidence=False):
-        a = self.d.analysis('M001', ('UI',))  # UI applicable, item M001-UI, no model
-        if ui_evidence:
-            for row in a['dimensions']:
-                if row['dimension'] == 'UI':
-                    tree = self.f.ref('ui-tree.json', {'nodes': []})
-                    row['items'][0]['semantic_model'] = {
-                        'kind': 'ui-component-spec', 'model_ref': self.f.ref('ui.json', {'root': {'type': 'Col'}}),
-                        'ui_evidence': {'ui_tree_ref': tree, 'coverage': 'login:phone:viewport', 'visual_mode': 'runtime'},
-                        'source': {'origin': 'authored', 'evidence_refs': []},
-                        'implementation_location': {'target_path': str(self.f.target / 'm1/Login.kt')}}
-        return self.f.ref('a.json', a)
+    def analysis_ref(self, ui_evidence=False, refs=(), kinds=('UI',), resource_over=None, name='a.json'):
+        a = self.d.analysis('M001', kinds)
+        for row in a['dimensions']:
+            if row['dimension'] == 'UI' and ui_evidence:
+                tree = dict(TREE, nodes=[{'id': 'node:root', 'presentation': {'resourceRefs': list(refs)}}])
+                row['items'][0]['semantic_model'] = {
+                    'kind': 'ui-component-spec', 'model_ref': self.f.ref('ui.json', {'root': {'type': 'Col'}}),
+                    'ui_evidence': {'ui_tree_ref': self.f.ref('ui-tree.json', tree),
+                                    'coverage': 'login:phone:viewport', 'visual_mode': 'runtime'},
+                    'source': {'origin': 'authored', 'evidence_refs': []},
+                    'implementation_location': {'target_path': str(self.f.target / 'm1/Login.kt')}}
+            if row['dimension'] == 'Resource' and resource_over and row['items']:
+                row['items'][0].update(resource_over)
+        return self.f.ref(name, a)
 
-    def gate(self, required, ui_evidence):
-        ref = self.analysis_ref(ui_evidence)
-        ui_fidelity.freeze_gate({'ui_fidelity_required': required}, {'module_id': 'M001', 'plan': {'dimension_analysis_ref': ref}})
+    def module(self, ref, renderers=('ui/LoginActivity.java',)):
+        plan = {'dimension_analysis_ref': ref}
+        if renderers is not None:
+            plan['source_closure'] = {'ui_renderers': list(renderers)}
+        return {'module_id': 'M001', 'plan': plan}
+
+    def freeze(self, required, **kw):
+        renderers = kw.pop('renderers', ('ui/LoginActivity.java',))
+        ui_fidelity.freeze_gate({'ui_fidelity_required': required}, self.module(self.analysis_ref(**kw), renderers))
 
     def test_flag_off_is_noop(self):
-        self.gate(False, ui_evidence=False)  # no evidence, but flag off -> allowed
+        self.freeze(False, ui_evidence=False, renderers=None)  # nothing required when off
 
     def test_required_blocks_missing_ui_evidence(self):
-        with self.assertRaisesRegex(Rejected, 'ui_fidelity_required'):
-            self.gate(True, ui_evidence=False)
+        with self.assertRaisesRegex(Rejected, 'lack capture-bound ui_evidence'):
+            self.freeze(True, ui_evidence=False)
 
     def test_required_passes_with_ui_evidence(self):
-        self.gate(True, ui_evidence=True)
+        self.freeze(True, ui_evidence=True)
+
+    def test_required_needs_mutating_renderers(self):
+        with self.assertRaisesRegex(Rejected, 'ui_renderers'):
+            self.freeze(True, ui_evidence=True, renderers=None)
+
+    def test_reduced_resource_closure_blocks_freeze(self):
+        # the UI tree declares a presentation ref that no Resource item covers
+        with self.assertRaisesRegex(Rejected, 'closure reduced'):
+            self.freeze(True, ui_evidence=True, refs=('@dimen/pad',))
+
+    def test_blocked_resource_cannot_complete(self):
+        ref = self.analysis_ref(kinds=('UI', 'Resource'), name='blocked.json',
+                                resource_over={'resource_strategy': 'blocked', 'resource_kind': 'shape',
+                                               'blocked_reason': 'selector semantics unsupported'})
+        with self.assertRaisesRegex(Rejected, 'blocked resources cannot complete'):
+            ui_fidelity.completion_gate({'ui_fidelity_required': True}, self.module(ref))
+        ui_fidelity.completion_gate({'ui_fidelity_required': False}, self.module(ref))  # off -> no-op
 
     def test_gaps_helper_scopes_to_applicable_ui(self):
         analysis = {'dimensions': [

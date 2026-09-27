@@ -50,6 +50,8 @@ def load(ref, module_id):
             if row['dimension'] == 'Resource':
                 for field in ('source_resource', 'target_resource', 'consumer', 'conversion', 'qualifiers'):
                     require(item.get(field), 'resource mapping missing ' + field)
+                import resource_fidelity
+                resource_fidelity.validate_item(item)
             items[iid] = {**item, 'dimension': row['dimension']}
     require(items, 'functional module must contain applicable dimension work')
     import semantics
