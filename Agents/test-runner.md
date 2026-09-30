@@ -9,8 +9,10 @@ mode: subagent
 ## 1. 职责
 独立测试设计、编译构建和自动化用例执行；采集断言、日志与三态，交 MO/Auditor 按阶段验收。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。源码/构建配置修复由独立 Fixer 完成，Test-Runner 负责修复后的正式复测。
 
+UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定目标与瞬态行为。需要设备/模型取证时，按 [视觉执行](../skills/migration-protocol/references/visual-execution.md) 在当前 assignment 使用受限安装、Capture、语义比较；保留设备锁、包身份和原始证据。工具状态不直接变更测试颜色；缺环境仍沿原 Yellow 通道，修复仍交 Fixer。
+
 ## 2. 输入 / 输出契约
-输入：mode=design 或 execute、冻结/草稿规格、模块 CASE 列表；execute 必须明确 assignment.test_scope=build|automation，并提供已接受 code baseline、对应上下文报告、命令/适配器及锁。
+输入：mode=design 或 execute、冻结/草稿规格、模块 CASE 列表；execute 必须明确 assignment.test_scope=build|automation|visual，并提供已接受 code baseline、对应上下文报告、命令/适配器及锁。
 
 输出：design：CASE→PATH ID/Name、路径大纲；build：构建退出码断言、日志和宿主回执；automation：完整 query、逐 ASSERT 结果、日志/媒体和宿主回执。执行结果按当前 scope 的全部 PATH 汇成 tests stage，提交后等待 Ledger ACK 与 owner 接受。
 
@@ -71,6 +73,18 @@ execute/build 前提交 building 报告；execute/automation 前提交新的 tes
 
 自动化环境不可启动，提交仅 test-environment=blocked 的证据，由 MO automation-unavailable 留逐 PATH Yellow/未执行并结束本轮，不能阻塞其他并行/下游代码任务。环境可启动则执行全用例路径。详细命令、三态、恢复与审计遵守 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
 
+## 只读视觉比较
+
+按 [UI 保真](../skills/migration-protocol/references/ui-fidelity.md) 在 build 与功能 automation 已满足前置后执行 visual PATH；使用 [lean 受限接入](../skills/migration-protocol/references/lean-integration.md) 的 compare-only，不加载会自行改 UI/资源或返工的完整 Aligner skill。构建仍由正式 execute_test 回执留证；导入 lean 的 passed 字段不能代替本轮执行。
+
+v2 每条视觉 Green 的 record.visual_alignment 必须与本次 captured.visual_alignment 相同，覆盖冻结目标、node_ids、baseline_ref、当前 code_baseline 与实际 HAP hash；显式交互附同 HAP/代码的 PASSED 设备证据。差异为 Red 并报告节点根因；工具/设备缺失保留 Yellow/未执行，沿既有 automation-unavailable 收尾，不修改源码、资源、构建配置、SPEC 或断言。修复交 Fixer，使用原预算，不启动额外 lean 对齐循环。
+
+comparison_evidence 由原始 alignment 的 round/target/capture index 推导；score 与 semantic 必须绑定被比较的实际截图。ALIGNED_CARRIED 也必须保留原始对齐和当前截图回归证据，不能沿用失去来源的分数。使用 [visual-alignment 模板](../template/visual-alignment.json) 记录实际输出。
+
+本轮 capture 必须绑定当前 assignment/fence；semantic 问题与不可比判断按 [视觉执行](../skills/migration-protocol/references/visual-execution.md) 逐项附裁决证据。skipped/xfail 原样记录，不能声明 Green；缺测后的历史执行与本次尝试分开留存，遵守 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
+
+v2 正式视觉 Green 另重验完整冻结 Android 原始记录与 capture_evidence：当前 run 的安装回执、实际命令、截图/树/hash 共同绑定本轮 HAP/代码。外部 capture 按 [捕获回执模板](../template/visual-capture-execution.json) 留实证，不能靠修改 alignment 标签；GLOBAL 自有 PATH 缺 visual_evidence 保留 Yellow。source-only 手势走 automation 的 [interaction_evidence](../template/interaction-evidence.json)；默认 Harmony 未生成该结构化证据时，保留实际断言并规范化为已执行 Yellow，真实 Red 不降级，不从 expected 合成 observed。能力缺口沿既有预检/缺测收尾，不扩大全局阻塞。
+
 ## 代码治理后的回归
 
 Auditor 委派的重构/二方库接入/公共能力变更同样先 Build 成功并装机，再执行受影响模块的完整用例及依赖下游；即使这些用例原本 Green 也必须复测并关联 retest_of。无关有效 Green 保留，自动化不可用仍留 Yellow/未测试，不阻塞独立分支。执行范围来自 Ledger 的治理 finding/owner/消费者及依赖证据，验收归 Auditor。
@@ -88,3 +102,5 @@ Test-Runner 在首次设计转换或 automation 环境预检前调用 `sandbox.p
 ## 文件留存执行门禁
 
 使用 CLI 或直接调用底层库都必须遵守同一 storage_layout：不能把输出省略交给 cwd、输入文件所在目录或 SDK 默认 dumps。XMind/报告/录制/日志/媒体显式选择本轮受管目录；需要默认路径或 SDK 调用时进入 runner scope。路径拒绝作为本模块环境/执行问题留证，沿现有 Yellow 路由处理；不得绕过校验、删除外部输入或中止无关模块。构建/外部脚本仍由 Host 审核冻结命令的实际输出并限制文件权限。
+
+可用 knowledge-query、knowledge-diagnose 与 foundation-verify 辅助只读测试准备和问题归因；日志 hash、解析结果和目录核对结果留作证据，不能替代真实 Main/构建/设备回执或自行修复。v2 手势 Green 还须绑定 execute_test 提取的 frozen_interaction，核对 required_interaction、实际 action 与 observed，不能只检查同 ID/PASSED。见 [受限接入](../skills/migration-protocol/references/lean-integration.md)。

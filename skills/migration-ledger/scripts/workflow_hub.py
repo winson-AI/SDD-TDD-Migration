@@ -11,8 +11,8 @@ def location(root, state):
     return Path(storage['hub_root']) if storage else Path(root) / 'openspec'
 
 
-def materialize(root, state, sequence, routing=None):
-    from openspec_projection import write
+def render(root, state, sequence, routing=None):
+    """Return expected navigation content without claiming or modifying storage."""
     base = location(root, state)
     rows = []
     for mid, module in {**state.get('module_groups', {}), **state['modules']}.items():
@@ -34,7 +34,7 @@ def materialize(root, state, sequence, routing=None):
         'project_context_ref': state.get('project_context_ref'), 'modules': rows,
         'migration_report': str(root / 'reports/migration-report.md'),
         'routing_refresh_required': routing is None, 'routing': routing}
-    write(base / 'workflow.json', json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+
     def link(label, path):
         return f'[{label}](<{os.path.relpath(path, base)}>)'
     lines = ['# OpenSpec workflow hub', '', f"Run: `{state['run_id']}` · sequence: {sequence} · quality: {state['quality']}", '',
@@ -52,5 +52,13 @@ def materialize(root, state, sequence, routing=None):
     monitoring = root / 'reports/watchdog/latest.json'
     if monitoring.resolve() == monitoring and monitoring.is_file() and not monitoring.is_symlink():
         lines += ['## Optional observation', '', link('Watchdog diagnostics (not business state)', monitoring), '']
-    write(base / 'workflow.md', '\n'.join(lines))
+    return data, '\n'.join(lines)
+
+
+def materialize(root, state, sequence, routing=None):
+    from openspec_projection import write
+    base = location(root, state)
+    data, markdown = render(root, state, sequence, routing)
+    write(base / 'workflow.json', json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+    write(base / 'workflow.md', markdown)
     return {'json': str(base / 'workflow.json'), 'markdown': str(base / 'workflow.md')}

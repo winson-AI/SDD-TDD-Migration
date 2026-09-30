@@ -1,0 +1,26 @@
+{
+  "_note": "Copy visual_execution onto the frozen automation/visual PATH; Host copies environment_fields to the run-level sandbox/environment/visual.json before freezing its environment_ref. Do not mutate the previously prepared Harmony config.json manifest. The visual configuration is hash-bound to the PATH and must not change during the assignment. Backend/tool/device selection and model use are explicit, no home-directory configuration or implicit model endpoint. Host supplies host_context_extension as authenticated runtime state, not an Agent-authored declaration. Install/capture inputs use the accepted PATH-specific HAP with readable module.json or pack.info app bundle/version identity. API secrets come only from the named process environment variable; do not store keys in this document. For viewport remove scroll_region/scroll_end_match. For scroll, source-reviewed target_match must identify the start; scroll_region must match exactly one actual scrollable node and scroll_end_match must identify the true endpoint within that region. Multiple or ambiguous regions require separate frozen PATHs or the full runtime adapter; repetition or missing scroll attributes never prove completeness.",
+  "visual_execution": {
+    "environment_ref": {"path": "{{run_root}}/runs/harmony/sandbox/environment/visual.json", "sha256": "{{frozen-config-hash}}"},
+    "app_id": "com.example.app",
+    "ability": "EntryAbility",
+    "actions": [],
+    "target_match": [{"resource-id": "{{stable-visible-node-id}}", "text": "{{expected-visible-label}}"}],
+    "scroll_region": {"resource-id": "{{unique-scroll-container}}"},
+    "scroll_end_match": [{"resource-id": "{{source-backed-final-item}}", "text": "{{expected-end-label}}"}],
+    "max_scrolls": 8
+  },
+  "environment_fields": {
+    "visual_capture": {"backend": "hdc", "tool": "hdc", "device_id": "{{device-id}}"},
+    "visual_model": {"mode": "external", "enabled": false, "name": "{{configured-vision-model}}", "provider": "openai-compatible", "base_url": "{{configured-https-endpoint}}", "api_key_env": "SDD_VISUAL_MODEL_API_KEY", "temperature": 0.1, "max_tokens": 4096, "timeout_seconds": 120}
+  },
+  "host_context_extension": {
+    "device_lock": {"device_id": "{{device-id}}", "assignment_id": "{{active-assignment-id}}", "fencing_token": "{{current-fence-or-null-for-global-audit}}", "held": true}
+  },
+  "semantic_request_args": {
+    "path_id": "PATH-M001-VISUAL-001",
+    "reference_ref": {"path": "{{run_root}}/context/files/{{baseline-hash}}.png", "sha256": "{{baseline-hash}}"},
+    "candidate_ref": {"path": "{{run_root}}/runs/harmony/sandbox/{{actor_id}}/{{capture-attempt}}/screenshot-0.jpeg", "sha256": "{{candidate-hash}}"},
+    "score_ref": {"path": "{{run_root}}/runs/harmony/sandbox/{{actor_id}}/{{comparison-attempt}}/score/score.json", "sha256": "{{score-hash}}"}
+  }
+}

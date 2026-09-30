@@ -46,8 +46,12 @@ def freeze_gate(s, m):
         return
     gaps = semantics.ui_fidelity_gaps(analysis)
     require(not gaps, 'ui_fidelity_required: UI items lack capture-bound ui_evidence before freeze: ' + ', '.join(gaps))
-    uncovered = resource_fidelity.closure_gaps(analysis, _declared_refs(analysis))
+    declared_refs = _declared_refs(analysis)
+    uncovered = resource_fidelity.closure_gaps(analysis, declared_refs,
+                                              strict=s.get('evidence_contract_version', 1) >= 2)
     require(not uncovered, 'ui_fidelity_required: resource closure reduced; uncovered presentation refs: ' + ', '.join(uncovered))
+    if s.get('evidence_contract_version', 1) >= 2:
+        resource_fidelity.require_exact_closure(analysis, declared_refs, s.get('legacy_root'))
     if any(row.get('dimension') == 'UI' and row.get('status') == 'applicable' for row in analysis.get('dimensions', [])):
         closure = ((m.get('plan') or {}).get('source_closure') or {})
         renderers = closure.get('ui_renderers')
@@ -87,6 +91,28 @@ def declared_interactions(analysis):
     return sorted(set(found))
 
 
+def frozen_interaction(module, path):
+    """Derive the PATH's full requirement from frozen SPEC; audit scopes carry the same value."""
+    if (module.get('evidence_contract_version', 1) < 2 or
+            path.get('kind') not in ('automation', 'visual') or not path.get('interaction_id')):
+        return None
+    iid = path['interaction_id']
+    if not (module.get('plan') or {}).get('dimension_analysis_ref') and 'frozen_interactions' in module:
+        # This map is assembled by Ledger.audit_scope from each owning module.
+        require(module.get('module_id') in (None, 'GLOBAL'), 'module interaction requires frozen UI dimension evidence')
+        item = module['frozen_interactions'].get(path['path_id'])
+        require(item and item.get('id') == iid, 'audit visual path lacks its frozen interaction')
+        return ue.interaction_contract(item)
+    analysis = _analysis(module)
+    require(analysis, 'visual interaction requires frozen UI dimension evidence')
+    matches = [ue.interaction_contract(item) for row in analysis.get('dimensions', [])
+               if row.get('dimension') == 'UI' and row.get('status') == 'applicable'
+               for ui_item in row.get('items', [])
+               for item in (ui_item.get('semantic_model') or {}).get('interactions', []) if item.get('id') == iid]
+    require(matches and all(item == matches[0] for item in matches), 'missing/conflicting frozen interaction: ' + iid)
+    return matches[0]
+
+
 def baseline_gate(s, m):
     """Legacy executability is decided before freeze and drives SPEC/coding inputs.
 
@@ -124,9 +150,67 @@ def baseline_gate(s, m):
     require(not runtime_targets(analysis) or covered,
             'visual paths must name the UI-tree nodes they align')
     declared = declared_interactions(analysis)
-    proven = {path.get('interaction_id') for path in visual}
+    interaction_paths = ([path for path in plan.get('paths', []) if path.get('kind') in ('automation', 'visual')]
+                         if s.get('evidence_contract_version', 1) >= 2 else visual)
+    proven = {path.get('interaction_id') for path in interaction_paths}
     missing = sorted(set(declared) - proven)
-    require(not missing, 'declared interactions need a visual path carrying device proof: ' + ', '.join(missing))
+    require(not missing, 'declared interactions need an automation/visual path carrying device proof: ' + ', '.join(missing))
+    if s.get('evidence_contract_version', 1) >= 2:
+        for path in plan.get('paths', []):
+            if not path.get('interaction_id'):
+                continue
+            require(path.get('kind') in ('automation', 'visual'), 'interaction requires an automation/visual path')
+            interaction = frozen_interaction({**m, 'evidence_contract_version': 2}, path)
+            if path.get('coverage'):
+                require(path['coverage'].split(':')[:2] ==
+                        [interaction['from']['page_id'], interaction['from']['state_id']],
+                        'interaction path must use its declared starting page/state')
+        visual_plan_gate(analysis, visual)
+
+
+def visual_plan_gate(analysis, visual):
+    """Bind each visual path to its own frozen target, screenshots and observed tree nodes."""
+    targets, interactions = {}, {}
+    for row in analysis.get('dimensions', []):
+        if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
+            continue
+        for item in row.get('items', []):
+            model = item['semantic_model']
+            evidence = model['ui_evidence']
+            tree = ue.validate_native_evidence(evidence)
+            for interaction in model.get('interactions', []):
+                require(interaction['id'] not in interactions or interactions[interaction['id']] == interaction,
+                        'conflicting declared interaction: ' + interaction['id'])
+                interactions[interaction['id']] = interaction
+            if evidence['visual_mode'] != 'runtime':
+                continue
+            coverage = evidence['coverage']
+            page, state, _ = coverage.split(':')
+            nodes = ue.target_node_ids(tree, page, state)
+            require(nodes, 'runtime UI target has no observed tree nodes: ' + coverage)
+            target = targets.setdefault(coverage, {'nodes': set(), 'baselines': []})
+            target['nodes'].update(nodes)
+            target['baselines'].extend(evidence['baseline_refs'])
+    covered = set()
+    for path in visual:
+        coverage = path.get('coverage')
+        require(isinstance(coverage, str) and coverage in targets,
+                'visual path coverage must name a frozen runtime UI target')
+        target = targets[coverage]
+        nodes = nonempty(path.get('node_ids'), 'visual path node_ids')
+        require(set(nodes) <= target['nodes'], 'visual path nodes do not belong to target ' + coverage)
+        require(path.get('baseline_ref') in target['baselines'],
+                'visual path baseline differs from frozen target ' + coverage)
+        check_ref(path['baseline_ref'])
+        if path.get('interaction_id'):
+            interaction = interactions.get(path['interaction_id'])
+            require(interaction, 'visual path references an undeclared interaction')
+            start = interaction['from']
+            require(coverage.split(':')[:2] == [start['page_id'], start['state_id']],
+                    'interaction visual path must use its declared starting page/state')
+        covered.add(coverage)
+    missing = sorted(set(targets) - covered)
+    require(not missing, 'runtime UI targets lack visual paths: ' + ', '.join(missing))
 
 
 def completion_gate(s, m):

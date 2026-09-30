@@ -108,5 +108,8 @@
   "context_readiness_required": true,
   "build": {},
   "split_testing_required": true,
-  "dimension_slicing_required": true
+  "dimension_slicing_required": true,
+  "evidence_contract_version": 2,
+  "ui_fidelity_required": true,
+  "dependency_resolution_required": false
 }

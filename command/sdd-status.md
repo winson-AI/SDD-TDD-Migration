@@ -55,6 +55,6 @@ status.module_inputs 给出每个父/子 MO 的权威 scope、context_refs、CAS
 
 遇到 `reason=not-implemented`，突出展示“未实现”及受影响 REQ/CASE/TASK、替代实现核验证据和所需人工决策；同时链接 GO 报告的 unimplemented 清单。不能把一般复用失败或自动化未执行解释为未实现。
 
-收尾核验 OpenSpec 投影用只读 `verify_openspec.py --root <run>`（与 status 分开）；`verified=false` 表示该 run 绕过 Ledger（无 events.jsonl 等），此时任何 openspec 目录或迁移报告都是手写产物，不代表已执行。它 fail-closed 校验 events.jsonl/绑定快照/顶层中枢/各 change manifest/migration-report.json 投影，只读不改状态。见 [投影完整性收尾门禁](../skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。
+只读投影巡检用 `verify_openspec.py --root <run> --scope projection`（与 status 分开）；模块推进用 module，公共基础用 global，最终交付用 final。未通过时读取 failures 的范围和 recovery_action，不把局部视图错误等同整轮绕过 Ledger。核验不改状态，也不证明真实派发或功能通过。见 [核验范围](sdd-verify.md)。
 
 同时读取 status 的 `openspec_binding`：`location=top-level` 表示已绑定预备布局、投影落顶层 openspec；`location=in-run-fallback` 表示未 prepare/未绑定 project_context_ref，OpenSpec 落在 run 内回退目录，须走预备管道后再收尾，不能当作已完成。

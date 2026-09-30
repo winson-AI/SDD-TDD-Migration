@@ -68,6 +68,16 @@ mode: subagent
 
 先读冻结 task.scope 和 task.dimension_analysis，按逐维 implementation 指导完成实现，task_trace 文件不得超出该任务写范围；按 dimension_trace 完成所有适用项；提交 dimension_evidence（item_id/task_ids/summary/evidence_refs），Resource 再附真实 target_resource_ref/consumer_ref。复用同样验证真实生产接线，禁止以 demo/mock 替代。详见 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)。
 
+## 精确资源与 UI 实现
+
+消费 Spec-Designer 已冻结的源树/基线与资源闭包；按 [lean 受限接入](../skills/migration-protocol/references/lean-integration.md) 在当前 assignment 内使用 resource-convert，保留原始映射及转换证据，完成每个映射的真实生产消费者接线。输出先落本实例受管目录，目标写入仍限冻结 task/write_paths。不能加载完整 lean 实现 skill 获得改 SPEC、独立验收或自行提交 Git 的权限。
+
+resource-convert 逐次传 task_id/resource_item_id，参数与冻结源引用、目标、消费者及策略完全一致；先校验任务写范围再写文件。支持 vector、字节相同的 byte_copy 与单项 string/plurals/string-array；其他策略按 SPEC 实现，已有目标语义冲突先留证处理，不能静默覆盖。
+
+提交 baseline_conformance 绑定指导实现的基线或 source-only 源树；不提交自称 ALIGNED 代替正式视觉测试。资源无法精确转换时记录 blocked 与具体证据；行为/范围/方案变化走 CR，不近似替换。视觉/构建失败后的修复归已授权 Fixer，正式复测归 Test-Runner。
+
 ## 条件适用的埋点实现
 
 任务无埋点职责时正常实现，不加 SDK/占位埋点；存在职责时依冻结事件/参数/时机/接线任务复现源行为，正确复用二方库及公共能力，避免重复/漏报。实现证据包含事件、代码路径与实际生产绑定，日志占位不能替代上报。见 [埋点协议](../skills/migration-protocol/references/telemetry.md)。
+
+知识读取使用 knowledge-query；稳定失败日志可传 knowledge-diagnose 获取候选，根因仍走原诊断责任。依赖接线后可用 foundation-verify 对照本 run 解析产物与目标实际 TOML catalog，结果随实现证据提交，不以目录版本一致代替构建或生产调用验证。不得自行 foundation-resolve 改变冻结的依赖选择；需要变更按原 CR/规划路径。见 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md)。

@@ -46,7 +46,7 @@ Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `descript
 
 迁移运行时允许并行无冲突模块，数量受输入和宿主限制；本说明不要求在编辑本工作流包时启动迁移 Agent。
 
-宿主要真实走完控制流（每步提交真实 Ledger 事件、每个角色由真实派发的 Agent 执行真实工作，而非手写文件模拟）须遵守 [宿主接入契约](skills/migration-protocol/references/host-integration.md)：逐阶段的必提 op、宿主真实工作与自证方式，含部署一次的接入自检。进入 Ledger 后阶段=事件=hash 链不可跳步；推进/收尾前用 `/sdd-verify` 核验，`verified=false` 拒绝推进。
+宿主要真实走完控制流，须遵守 [宿主接入契约](skills/migration-protocol/references/host-integration.md)：每步提交真实 Ledger 事件，各角色由宿主实际派发并执行。推进前按动作选择 `/sdd-verify` 范围：全局基础用 global，模块推进用 module（本模块、祖先和实际依赖），全量投影用 projection，最终交付用 final。只阻断核验失败的相关范围，不把无关模块错误扩散到全部 MO。核验仅证明记录与投影一致；真实派发、构建/设备执行和行为通过须各自的执行证据，不能由 hash 链证明。
 
 派发用哪个模型由宿主决定，但控制器给出档位建议并留痕：`status.next_steps[].model_tier` 建议弱推理步（执行/观察）用低成本模型、强推理步（设计/根因/裁决）用配置强模型；strong-only 步骤禁止降级；宿主把实际模型回填 `assign`/`session` payload，投影到 `ledger/model-usage.json` 供排查。配置与策略见 [模型路由协议](skills/migration-protocol/references/model-routing.md)。
 
@@ -101,6 +101,8 @@ Test-Runner 在 Coding 接受后先编译构建，再执行自动化测试；构
 GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 scope 后再按 UI → Logic → Adhesive → Resource 核查源闭包、架构、二方库和目标已有能力；适用项逐层映射到子功能、TASK/PATH/ASSERT，不适用项记录依据。流程节点、字段与门禁必读 [四维完整性协议](skills/migration-protocol/references/dimension-slicing.md)。
 
 子 MO 规划实现时，可为 UI/Logic/Resource 的 applicable item 附机器可读语义模型（UI=JSON Component Spec、Logic=Statechart+JSON-Logic、Resource=Design Tokens/ICU），记录抽象结果/来源/实现位置，随四维分析结构门禁校验并 hash 冻结、投影为 `semantics.md` 供下游读取；presence-triggered、任务驱动，`new` 策略基于目标项目创建。见 [代码语义抽取协议](skills/migration-protocol/references/semantic-extraction.md)。
+
+新 prepare 固化 evidence_contract_version=2；旧快照缺字段与旧直连 init 按 v1 兼容，不在恢复时改写历史。UI fidelity 默认值及适用条件以本轮快照为准；开启时 applicable UI 必须有模型/源树/目标覆盖，不是可选附录。lean 只按 [受限工具接入](skills/migration-protocol/references/lean-integration.md) 使用：Spec-Designer 分析 UI，Implementer 精确迁移资源并接线，Test-Runner 构建/功能测试/视觉取证，Fixer 修复，Auditor 独立；不得加载完整 lean 实现或 Aligner skill 合并这些权限。原始结果引用、转换证据及正式 payload 均在本轮受管目录留存并经 Ledger 提交。仅自动化不可用仍按 Yellow 缺测收尾，不阻止独立任务。
 
 ## 阻塞感知与恢复
 

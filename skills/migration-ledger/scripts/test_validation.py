@@ -98,6 +98,93 @@ def plan_check(plan, target):
         check_ref(command.get('selection_ref'))
 
 
+def visual_result(module, path, record, captured, run_root=None, assignment=None):
+    """A v2 visual Green binds the frozen target and the current HAP/code/gesture evidence."""
+    if (module.get('evidence_contract_version', 1) < 2 or path.get('kind') != 'visual'
+            or record.get('quality') != 'green-passed'):
+        return
+    proof = captured.get('visual_alignment')
+    require(isinstance(proof, dict) and record.get('visual_alignment') == proof,
+            'visual alignment must match the captured report')
+    require(proof.get('coverage') == path.get('coverage') and path.get('coverage'),
+            'visual alignment coverage differs from frozen path')
+    nodes = nonempty(proof.get('node_ids'), 'visual alignment node_ids')
+    require(set(nodes) == set(path['node_ids']), 'visual alignment nodes differ from frozen path')
+    require(proof.get('baseline_ref') == path['baseline_ref'],
+            'visual alignment baseline differs from frozen path')
+    check_ref(proof['baseline_ref'])
+    require(proof.get('code_baseline') == module.get('code_baseline') and module.get('code_baseline'),
+            'visual alignment code baseline is stale')
+    check_ref(proof.get('hap_ref'))
+    builds = (module['path_build_artifacts'].get(path['path_id'], []) if 'path_build_artifacts' in module
+              else module.get('build_artifacts', []))
+    require(proof['hap_ref'] in builds,
+            'visual alignment HAP must belong to the accepted current build')
+    import lean_adapter
+    from contracts import read_json
+    source = read_json(check_ref(proof.get('evidence_ref')))
+    root = proof.get('alignment_root')
+    require(isinstance(root, str) and Path(root).is_absolute(), 'visual alignment_root required')
+    rows = lean_adapter.visual_results(source, [i['id'] for i in source.get('required_interactions', [])],
+                                      target_root=root, result_ref=proof['evidence_ref'])
+    derived = rows.get(path['coverage'], {})
+    require(derived.get('quality') == 'green-passed' and derived.get('hap_ref') == proof['hap_ref'],
+            'original visual verdict/HAP differs from captured proof')
+    expected = lean_adapter.comparison_evidence(source, root, path['coverage'])
+    require(proof.get('comparison_evidence') == expected, 'visual comparison proof differs from original evidence')
+    require(any(p['kind'] == 'comparison' and p['reference_ref']['sha256'] == path['baseline_ref']['sha256'] for p in expected),
+            'comparison does not use frozen baseline screenshot')
+    import visual_evidence
+    require(run_root is not None, 'visual acceptance requires the current Ledger run root')
+    capture_proof = visual_evidence.validate_alignment(source, root, path['coverage'],
+        frozen_evidence=visual_evidence.frozen_evidence(module, path),
+        code_baseline=module['code_baseline'], run_root=run_root, assignment=assignment)
+    require(proof.get('capture_evidence') == capture_proof,
+            'visual capture proof differs from frozen source or current build execution')
+    interaction_id = path.get('interaction_id')
+    if interaction_id:
+        import ui_evidence as ue
+        import ui_fidelity
+        frozen = ui_fidelity.frozen_interaction(module, path)
+        ue.match_interaction(proof.get('required_interaction'), frozen)
+        alignment = {'hap_sha256': proof['hap_ref']['sha256'],
+                     'interaction_checks': proof.get('interaction_checks', [])}
+        ue.validate_interaction_checks([interaction_id], alignment)
+        checks = [c for c in alignment['interaction_checks'] if c.get('id') == interaction_id]
+        require(len(checks) == 1, 'visual path needs one unambiguous interaction check')
+        require(checks[0].get('code_baseline') == module['code_baseline'],
+                'interaction check must bind the current code baseline')
+        ue.match_interaction_observation(checks[0], frozen)
+
+
+def interaction_result(module, path, record, captured):
+    """Behavior-only device proof does not require an Android visual baseline."""
+    if (module.get('evidence_contract_version', 1) < 2 or path.get('kind') != 'automation'
+            or not path.get('interaction_id') or record.get('quality') != 'green-passed'):
+        return
+    import ui_evidence as ue
+    import ui_fidelity
+    proof = captured.get('interaction_evidence')
+    require(isinstance(proof, dict) and record.get('interaction_evidence') == proof,
+            'interaction evidence must match the captured report')
+    frozen = ui_fidelity.frozen_interaction(module, path)
+    ue.match_interaction(proof.get('required_interaction'), frozen)
+    require(proof.get('code_baseline') == module.get('code_baseline') and module.get('code_baseline'),
+            'interaction code baseline is stale')
+    check_ref(proof.get('hap_ref'))
+    builds = (module['path_build_artifacts'].get(path['path_id'], []) if 'path_build_artifacts' in module
+              else module.get('build_artifacts', []))
+    require(proof['hap_ref'] in builds, 'interaction HAP must belong to the accepted current build')
+    checks = proof.get('interaction_checks')
+    require(isinstance(checks, list) and len(checks) == 1 and isinstance(checks[0], dict),
+            'automation path needs one unambiguous interaction check')
+    ue.validate_interaction_checks([frozen['id']],
+        {'hap_sha256': proof['hap_ref']['sha256'], 'interaction_checks': checks})
+    require(checks[0].get('code_baseline') == module['code_baseline'], 'interaction observation has stale code')
+    require(checks[0].get('from') == frozen['from'], 'interaction did not start at the frozen page/state')
+    ue.match_interaction_observation(checks[0], frozen)
+
+
 def blocked_report(s, mid, ref, stage, instance=None):
     import context_readiness as cr
     require(cr.enabled(s), 'environment deferral requires context evidence')
@@ -107,14 +194,29 @@ def blocked_report(s, mid, ref, stage, instance=None):
     return report
 
 
-def untested(path, report_ref, report, token, previous=None):
+def retained_execution(previous, code_baseline):
+    """Retain one accepted execution, never an unbounded chain of omitted attempts."""
+    previous = previous or {}
+    execution = previous if previous.get('executed') else previous.get('last_execution') or {}
+    if (not execution.get('executed') or not execution.get('execution_receipt')
+            or execution.get('code_baseline') != code_baseline):
+        return None
+    return copy.deepcopy({k: v for k, v in execution.items() if k != 'last_execution'})
+
+
+def untested(path, report_ref, report, token, previous=None, code_baseline=None):
     issue = report['checks']['test-environment']
-    return {'path_id': path['path_id'], 'test_run_id': token + ':' + path['path_id'],
+    row = {'path_id': path['path_id'], 'test_run_id': token + ':' + path['path_id'],
             'quality': 'yellow-blocked', 'executed': False, 'reason_code': 'automation-not-run',
+            'code_baseline': code_baseline,
             'assertions': [], 'retest_of': previous.get('test_run_id') if previous else None,
             'root_cause': {'category': 'automation-environment', 'summary': issue['summary'],
                            'confidence': 'confirmed', 'owner': issue['owner'], 'next_action': issue['next_action'],
                            'missing': issue['missing'], 'evidence_refs': [report_ref]}}
+    execution = retained_execution(previous, code_baseline)
+    if execution:
+        row['last_execution'] = execution
+    return row
 
 
 def handle(s, req, actor):
@@ -139,10 +241,14 @@ def handle(s, req, actor):
         require(scope['plan']['paths'], 'no unresolved paths; submit independent audit-review')
         require(not any(observed_failure(r) for r in scope['results'].values()),
                 'cannot conceal observed failure as missing environment')
-        rows = [untested(x, p['context_ref'], report, req['request_id'], scope['results'].get(x['path_id'])) for x in scope['plan']['paths']]
+        owners = {path['path_id']: m for m in s['modules'].values() for path in m['plan']['paths']}
+        rows = [untested(x, p['context_ref'], report, req['request_id'], scope['results'].get(x['path_id']),
+                        owners.get(x['path_id'], scope)['code_baseline']) for x in scope['plan']['paths']]
         s.setdefault('audit_results', {}).update({r['path_id']: r for r in rows})
         s['audit'] = {'quality': 'yellow-blocked', 'environment_deferred': True,
                       'report_ref': p['context_ref'], 'paths': rows,
+                      'context_receipts_at_deferral': [r['report_ref'] for r in s.get('context_receipts', {}).values()
+                                                       if r['report']['stage'] == 'audit-testing'],
                       'snapshot': {k: v['code_baseline'] for k, v in s['modules'].items()},
                       'reason': 'automation-not-run', 'execution_status': 'completed-with-unverified-tests'}
         return
@@ -165,7 +271,8 @@ def handle(s, req, actor):
         previous = m['results'].get(path['path_id'], {})
         if previous.get('quality') == 'green-passed' and previous.get('code_baseline') == m['code_baseline']:
             continue
-        m['results'][path['path_id']] = untested(path, p['context_ref'], report, req['request_id'], m['results'].get(path['path_id']))
+        m['results'][path['path_id']] = untested(path, p['context_ref'], report, req['request_id'],
+                                               m['results'].get(path['path_id']), m['code_baseline'])
     m.update(phase='automation-deferred', stale=False,
              blocked={'kind': 'automation', 'reason': 'automation-not-run', 'context_ref': p['context_ref']})
     m.pop('automation_retry_ready', None)
@@ -180,3 +287,23 @@ def handle(s, req, actor):
 def final_deferred_current(s):
     audit = s.get('audit', {})
     return audit.get('environment_deferred') and audit.get('snapshot') == {k: v['code_baseline'] for k, v in s['modules'].items()}
+
+
+def audit_resume_context(s):
+    """A newly submitted, current preflight reopens the existing audit route only."""
+    import context_readiness as cr
+    if not final_deferred_current(s):
+        return None
+    instance = s.get('audit_code_review', {}).get('auditor_instance_id')
+    receipt = s.get('context_receipts', {}).get('audit-testing:' + (instance or ''))
+    if not instance or not receipt:
+        return None
+    ref = receipt['report_ref']
+    audit = s['audit']
+    if ref in audit.get('context_receipts_at_deferral', [audit.get('report_ref')]):
+        return None
+    try:
+        cr.validate(s, None, 'audit-testing', ref, instance)
+    except (ValueError, OSError):
+        return None
+    return ref

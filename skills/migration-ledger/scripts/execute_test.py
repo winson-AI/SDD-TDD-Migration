@@ -86,7 +86,9 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     path = next(p for p in m['plan']['paths'] if p['path_id'] == path_id)
     is_build = path.get('kind') == 'build'
     if tv.split(m) and module_id != 'GLOBAL':
-        require((a.get('test_scope') == 'build') == is_build, 'path outside test assignment scope')
+        if a.get('role') == 'test-runner':
+            require(a.get('test_scope') == (path.get('kind') or 'automation'), 'path outside test assignment scope')
+            require(path.get('kind') != 'visual' or tv.functional_ready(m), 'functional tests must pass before visual')
         require(is_build or tv.build_ready(m), 'build must pass before automation')
     if is_build:
         require(argv == path['command']['argv'] and str(Path(cwd).resolve()) == str(Path(path['command']['cwd']).resolve()), 'build command differs from frozen plan')
@@ -117,6 +119,18 @@ gradle.beforeProject { p ->
 ''')
     query = {**path, 'run_id': s['run_id'], 'module_id': module_id,
              'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline']}
+    if path.get('kind') in ('automation', 'visual') and m.get('evidence_contract_version', 1) >= 2:
+        import ui_fidelity
+        query['evidence_contract_version'] = m['evidence_contract_version']
+        interaction = ui_fidelity.frozen_interaction(m, path)
+        if interaction:
+            query['frozen_interaction'] = interaction
+        if path.get('kind') == 'visual':
+            import visual_evidence
+            query['frozen_visual_evidence'] = visual_evidence.frozen_evidence(m, path)
+            query['run_root'] = str(root)
+            query['execution_assignment'] = {'assignment_id': a['assignment_id'],
+                                             'fencing_token': a.get('fencing_token')}
     atomic(out / 'query.json', query)
     started = datetime.now(timezone.utc).isoformat()
     termination, proc, aborted = None, None, None
@@ -166,7 +180,9 @@ gradle.beforeProject { p ->
     (out / 'execution.log').write_text(log)
     if is_build:
         quality = 'green-passed' if exit_code == 0 else 'yellow-blocked' if aborted or exit_code in (124, 127) else 'red-bug'
-        atomic(out / 'result.json', {'producer': 'build-executor', 'quality': quality,
+        atomic(out / 'result.json', {'producer': 'build-executor',
+            'build_artifacts': [file_ref(run_storage.checked_path(f, out)) for f in sorted(out.rglob('*'))
+                                if f.is_file() and f.suffix.lower() in ('.hap', '.hsp', '.apk')], 'quality': quality,
             'assertions': [{'assertion_id': path['expected_assertions'][0]['assertion_id'], 'expected': 0,
                             'actual': exit_code, 'passed': exit_code == 0}],
             'root_cause': None if exit_code == 0 else {'category': 'tooling' if aborted or exit_code in (124,127) else 'build',

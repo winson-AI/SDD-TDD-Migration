@@ -1,16 +1,21 @@
 # Wave-1 纪律吸收（知识 / 依赖阶梯 / Grill / Git）
 
-从 lean bundle 吸收四项工程纪律，融入 SDD 的规划/冻结/修复门禁。领域工具（Foundation 知识库、query/diagnose、foundation_gate）由映射的 lean skill 提供（见 [lean 集成](lean-integration.md)），SDD 不重造；本页固化其接入契约与 SDD 侧的可校验部分。
+从 lean bundle 吸收四项工程纪律，融入 SDD 的规划/冻结/修复门禁。Foundation 知识通过受限 worker 读取，保留原始查询、命中主题和解析证据；不为使用知识加载完整 lean 实现 skill。操作参数与角色范围见 [lean 接入](lean-integration.md)。宿主/角色根据实际范围选择主题和日志，脚本不自动派发或判定根因。
 
-## 1. Foundation / 迁移知识 gate（版本解析已实现）
+## 1. Foundation / 迁移知识执行与冻结
 
-**已实现**：`dependency_resolution_required`（init/prepare 开关，默认关）开启后，冻结要求 `plan.dependency_resolution_ref` 指向经 [knowledge_gate.py](../../migration-ledger/scripts/knowledge_gate.py) 校验的解析产物：`schema_version:1`、每条 requirement 有 `query` 与确切 `resolved_version`、`subclosure` 仅列本切片所需 API、**demo-source 证据必须标 `candidate_only`**（候选配置，不是编译/设备证明）。产物由映射的 lean `foundation_gate resolve` 生成。
+项目配置唯一入口是 `defaults.quality_gates.dependency_resolution_required`，值必须是 bool，默认 false。prepare 固定到本轮快照及 Global input，Ledger init 按该快照继承；不通过顶层项目字段、字符串 true 或 worker 请求临时开关覆盖。配置更新只影响后续运行，旧快照/旧 run 缺字段默认 false；已有低层直连 init 明确启用的历史运行保留原值，不改写历史。详见 [项目上下文](project-context.md)。
 
-以下为协议部分：
+开启后，冻结要求 `plan.dependency_resolution_ref` 指向经 [knowledge_gate.py](../../migration-ledger/scripts/knowledge_gate.py) 校验的解析产物：`schema_version:1`、每条 requirement 有 query 与确切 version/resolved_version；subclosure 只列本切片需要的 API；demo-source 必须标 candidate_only。受限 `foundation-resolve` 的 result.json 可直接作为该引用。纯非 Harmony 范围或本切片没有新增敏感依赖必须给出解析器产生的显式 not-required 结果及 target_matrix；空列表本身不证明不适用。开关关闭只是不增加此冻结门禁，不能免除原有真实依赖/生产接线/构建验证。
 
-- 按切片**触发式**加载知识：仅加载当前切片命中的主题（lean `query_knowledge.py` + `knowledge-index.json`），不整包灌入。
-- **错误→cookbook**：编译/链接/打包/设备/运行时的稳定错误 → `query_knowledge.py diagnose '<逐字错误>'` → 只加载返回的 cookbook 再修复。
-- **版本解析 gate**：冻结前对每个 target 敏感依赖用 `foundation_gate.py resolve` 解析确切版本与 API 子闭包；宿主把解析产物作为 `reuse_plan`/依赖证据的一部分随冻结引用。demo 源码只是候选配置，非编译/设备证明。
+新 v2 按 run 固化的 evidence_contract_version 决定严格校验，不信任产物的 producer 标签：必须绑定随包 catalog hash、target_root/target_matrix，按 catalog 重算选中条目与版本。原始 Lean 解析结果先通过受限 foundation-resolve 生成本轮受管引用。冻结时核对实际目标平台；后续运行只复核已冻结引用与知识摘要，不因兄弟模块新建平台目录而重判本模块。已声明 dependency_resolution_ref 持续参与 plan 证据检查，修改后不能继续派发。next_step 与实际 freeze 共用纯守卫；缺失/错误证据给出未就绪原因，批准不被提前消费。v1 原生结构继续兼容。
+
+- **触发式读取**：knowledge-query 的 topics 返回适用条件；角色依据实际切片选择 topic 或 foundation 查询，只读命中材料，并将结果/引用纳入本阶段上下文。保存引用及读取 ACK 不能单独证明理解正确。
+- **外部能力**：Foundation 无匹配时可用 knowledge-query mode=external，读取 Harmony native/ArkTS 候选、record/cookbook 与 hash。上游 probe 明确未接入；以现有 SPEC/任务/PATH 做目标本地验证，不自动运行或安装。每份知识结果含 sdd_adaptation_ref，统一领域概念和三目录资产归属。
+- **错误→cookbook**：knowledge-diagnose 读取带 hash 的真实错误片段，按 bundled patterns 返回候选及 cookbook/topic 引用；诊断者仍要核对当前代码/环境并形成有证据的根因。无命中不发明修复建议。
+- **版本解析**：GO/MO/Spec-Designer 用 foundation-resolve 将需求解析到 bundled catalog 的确切版本和目标支持；这是目录内解析，不联网解析 Maven/Gradle 依赖，也不自动修改构建文件。
+- **接线后核对**：Implementer/Fixer/Test-Runner/Auditor 用 foundation-verify 对照本轮 resolution 与 target_root 内真实 TOML version catalog 的坐标版本，保存核对结果；版本一致不代替编译、链接、HAP 或设备测试。
+- **权限与留存**：四个知识操作只读，需宿主认证角色与有效 run 快照，不要求执行 assignment；只写本 run 的 staging/request/result/receipt 工件，不提交 Ledger、不增加生命周期门禁。触发读取与阶段提交仍由原角色执行。
 
 ## 2. 依赖决策阶梯（已实现，代码）
 
@@ -29,11 +34,11 @@
 
 ## 4. Git 纪律（协议）
 
-宿主归档/合并遵循（SDD 不自动合并）：
+宿主按项目约定与用户授权归档/合并；SDD 领域工具不自动提交或合并：
 
 - 编辑目标前记录 repo root/branch/HEAD 与确切脏路径；识别 `generatedTrackedPaths`（`.gradle`/`build`/`.idea`/HAP/HSP/`.class`/`.knm`/`.knb`）不混入迁移 diff。
-- 无 repo 则 `git init`，先审 `.gitignore` 再建 pre-migration baseline commit，在 `a2c/<change-id>` 分支工作，保留既有脏路径。
-- Validator `BUILD_READY` 后做**单一**迁移 commit，显式路径，不 stage 无关/既有脏文件。
+- 需要新 repo、基线提交或分支时由宿主按已有授权执行；不因知识查询或导入 Lean 产物获得新的 Git 权限。
+- 归档提交使用明确路径和已接受的当前代码/构建/测试状态，保留 Yellow 缺测说明，不以 Lean 的 BUILD_READY 替代 SDD 验收，不 stage 无关/既有脏文件。
 - 不 push/tag/reset/clean/改全局 Git 配置，除非用户明确要求。
 
 见 lean `references/git-discipline.md`（映射 skill 内）。SDD 的 events.jsonl 是控制真相，Git 是回滚/审阅边界，二者分离。

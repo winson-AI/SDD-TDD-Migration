@@ -106,6 +106,8 @@ def validate(config):
     require(all(type(v) is int and v > 0 for v in budgets.values()), 'budgets must be positive integers')
     for key in ('quality_gates', 'repair_policy'):
         require(isinstance(defaults.get(key, {}), dict), 'invalid ' + key)
+    dependency_gate = defaults.get('quality_gates', {}).get('dependency_resolution_required', False)
+    require(type(dependency_gate) is bool, 'dependency_resolution_required must be a boolean')
     if 'repair_policy' in defaults:
         require(defaults['repair_policy'].get('local_automatic_rounds', 1) == 1, 'local automatic repair must remain one round')
     for key in ('test_adapter', 'runtime', 'module_slicing', 'build'):
@@ -222,6 +224,8 @@ def prepared_input(ref):
             'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
             'module_name': snapshot['module_name'], 'project_context_ref': ref, 'project_sources': sources,
             'run_root': snapshot['run_root'], 'storage_layout': snapshot.get('storage_layout'),
+            'evidence_contract_version': snapshot.get('evidence_contract_version', 1),
+            'dependency_resolution_required': snapshot.get('dependency_resolution_required', False),
             'new_architecture': sources['architecture_path'], 'document_link_warnings': context_links.mapping(snapshot)[1],
             'global_spec': None, 'global_test_cases': [],
             'requirement_ids': [], 'global_test_paths': [],
@@ -382,7 +386,8 @@ def _prepare(root, run_root, request, actor, storage):
         if build.get('environment_ref'):
             sources['build_environment'] = copy_ref(files, file_ref(build['environment_ref']))
             build['environment_ref'] = sources['build_environment']['path']
-        snapshot = {'schema_version': 1, 'project_id': record['project_id'], 'project_revision': record['revision'],
+        snapshot = {'schema_version': 1, 'evidence_contract_version': 2, 'project_id': record['project_id'], 'project_revision': record['revision'],
+                    'dependency_resolution_required': effective.get('defaults', {}).get('quality_gates', {}).get('dependency_resolution_required', False),
                     'project_revision_hash': digest(record), 'project_config': freeze_refs(files, record['config']), 'effective_config': effective,
                     'run_id': request['run_id'], 'run_root': str(run_root), 'entry_mode': mode, 'module_name': name,
                     'request_hash': fingerprint, 'source_refs': sources, 'source_paths': source_paths,
@@ -414,10 +419,17 @@ def bind_run(ref, run_root, run_id, payload):
     require(payload.get('split_testing_required', True) is True, 'prepared run requires split testing')
     if 'build' in payload:
         require(payload['build'] == config.get('build', {}), 'run/config build mismatch')
+    version = snapshot.get('evidence_contract_version', 1)
+    require(payload.get('evidence_contract_version', version) == version, 'run/config evidence contract mismatch')
+    # Old snapshots never bound this setting: preserve their existing init semantics.
+    dependency_gate = snapshot.get('dependency_resolution_required', payload.get('dependency_resolution_required', False))
+    require(type(dependency_gate) is bool, 'dependency_resolution_required must be a boolean')
+    require(payload.get('dependency_resolution_required', dependency_gate) == dependency_gate,
+            'run/config dependency resolution gate mismatch')
     require(payload.get('ui_fidelity_required', True) is True, 'prepared run requires UI fidelity evidence')
     require(payload.get('dimension_slicing_required', True) is True, 'prepared run requires dimension slicing')
     require(payload.get('context_readiness_required', True) is True, 'prepared run requires context readiness')
-    return {'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
+    return {'evidence_contract_version': version, 'dependency_resolution_required': dependency_gate, 'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
             'project_context_ref': ref, 'project_id': snapshot['project_id'],
             'project_revision': snapshot['project_revision'], 'module_name': snapshot['module_name']}
 

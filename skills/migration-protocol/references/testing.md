@@ -14,6 +14,10 @@ Main 是项目提供的主验证入口，不是固定 `main.py`，也不是某�
 
 query 文件必须包含该路径完整的前置、步骤、参数和预期断言；模板的 query 是索引头，执行时从同一条 path 记录组装完整内容并记录 hash，不能仅传 Name 猜测行为。
 
+v2 的 automation/visual PATH 若声明 interaction_id，execute_test 从所属模块冻结模型提取完整 frozen_interaction（id/action/from/expected），不能由运行器另写较弱的期望。source-only UI 允许把手势放入 automation，不要求没有的视觉基线；runtime UI 仍保留已有 visual 义务。automation 的条件结果扩展见 [interaction-evidence.json](../../../template/interaction-evidence.json)：绑定当前代码、已接受 HAP、真实动作/起点/观测及证据。GLOBAL 自有手势 PATH 显式冻结 frozen_interaction，并用既有 build_binding 指定产物所属 build PATH。
+
+GLOBAL v2 手势的完整契约、ID 匹配与 build_binding 在 init 落盘前检查，输入不完整时先修正初始化请求，避免到审计才发现无法执行。历史 v1 按原规则恢复，不补写新字段。
+
 将 [test-paths.json](../../../template/test-paths.json) 的单路径 JSON 写入临时 query 文件，按已确认适配器契约用 argv 传入：`<executable> <args...> --query-file <absolute-query.json> --result-file <absolute-result.json>`。这里只定义默认适配协议；实际框架需提供翻译脚本，不能把自然语言 name 直接当 shell 命令。无 shell 拼接，不执行 query 内嵌指令。保存实际 argv、cwd、工具版本、环境变量名称（秘密值脱敏）、seed、fixtures、依赖版本。
 
 ## 断言与结果
@@ -46,6 +50,10 @@ Fixer 自回归记录 `producer=fixer`，是补丁证据，不能替代 Test-Run
 
 新拆分运行每次结果覆盖 assignment.test_scope 对应的全部冻结路径，Ledger 合并构建和自动化两部分；DoD 仍检查完整集合，未执行项明确 Yellow。超时/缺报告可提交 executed=false 的 Yellow 并附诊断证据；不能将残缺报告提升为 Green。旧非 Green 与 stale 路径需新的 test_run_id 和 retest_of。
 
+adapter 的 `skipped` / `xfail` 限制必须原样保留。原始报告声称 Green 但任一限制为真时，test_completion 将其规范化为 Yellow（`incomplete-test-execution`），保留真实断言和原报告/执行日志；已观察到的 Red 不降级。正式验收同样拒绝带限制的 Green，不能通过省略规范化版本或只看进程退出码绕过。
+
+`global_paths` 是显式全局测试路径，可以为空或只覆盖已登记 CASE 的子集；它不代表全部模块用例。GO 的 global-plan 仍必须为所有 requirement/case 完整声明 owner，Auditor 沿既有非 Green 与变更影响范围选择复核路径。
+
 本地一轮策略与问题审计：Red/Yellow 可修复根因先自动一轮，确认依赖/外围或仍失败时 audit-defer；问题审计独立执行有效代码，缺代码/前置时只记 Yellow。Auditor 对正式复测证据直接作审计验收；MO 只接收模块恢复/修复任务并执行模块门禁，不会签审计结论；最终审计不能跳过。
 
 ## Harmony Main
@@ -53,6 +61,8 @@ Fixer 自回归记录 `producer=fixer`，是补丁证据，不能替代 Test-Run
 已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核。输入为完整冻结 PATH；输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留原时间线、工具录制、压缩记忆、布局、视频时间映射。UI 谓词 expected=true 的语义须在 design 冻结，不能从旧 scalar equality 静默转换。
 
 执行期间每次观察落盘；回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow。缺设备/模型/媒体或不明确结论为 Yellow，不用最终自然语言判断通过。harmony_stage 将 host receipts 汇成现有 tests stage，Ledger 双重校验媒体 hash 与捕获三态。host 超时终止整个进程组并保存已有 stdout/stderr，避免子工具继续操作设备。
+
+默认 Harmony 当前不会自动生成上述结构化 interaction_evidence。对有 frozen_interaction 的 v2 automation，报告仅有 Green 断言而缺这份证据时，test_completion 保留实际断言、媒体和原报告，记录 executed=true 的 Yellow tooling / interaction-evidence-unavailable；正式 submit/accept 使用同一解释，不会先报 Green 再无法收尾。已观察到的 Red 保持 Red；绝不从 expected 或自然语言结论合成 observed。Test-Runner 在预检中说明能力缺口，使用具备此能力的已配置 adapter，或沿原环境不可用/缺测路径交给 MO/Auditor 收尾；无手势路径和 v1 不增加此要求。
 
 ## 分阶段唯一验收 owner
 

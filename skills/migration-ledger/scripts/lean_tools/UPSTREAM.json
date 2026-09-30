@@ -1,0 +1,379 @@
+{
+  "schema_version": 1,
+  "source": "user-provided android-to-kmp-lean-skills-bundle",
+  "retrieved": "2026-09-30",
+  "license": "No license file was present in the supplied bundle; retained as user-authorized local source, no license inferred.",
+  "files": [
+    {
+      "source": "android-to-kmp-lean/scripts/collect_ui_sources.py",
+      "file": "collect_ui_sources.py",
+      "source_sha256": "32e5619ff9a4eae832826ee658217e15f08bcabcbb573bf0dc7d22833a756399",
+      "sha256": "b7be41226542f782edcc72a80f3350a419f36a1a6b2e420c3003032fd0be3d99",
+      "changes": [
+        "Standalone CLI disabled; managed wrapper owns output paths.",
+        "Source-backed resource records retain file SHA-256; color discovery includes both values declarations and res/color qualifier directories.",
+        "Node IDs remain source facts without missing-file resource errors; @array resolves string-array and integer-array entries."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/scripts/validate_ui_tree.py",
+      "file": "validate_ui_tree.py",
+      "source_sha256": "e2a1fa31ff15e211bb9460422a4ba4147e3609d6231cacbaad9df40004f62472",
+      "sha256": "9c71c3927d395b8ba19c83c35ee7e27c7330d5986958637f5640cd08093e0249",
+      "changes": [
+        "Standalone CLI disabled; managed wrapper owns output paths."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/scripts/select_runtime_ui.py",
+      "file": "select_runtime_ui.py",
+      "source_sha256": "ce04d5027327151ec50b7f232c22b68f0bf4471653d67fd7505b1baf31cf3463",
+      "sha256": "8094bb8f81cfea77a615be2acd2438f3cf57e35ba35f826c6043625f323ae6e6",
+      "changes": [
+        "Standalone CLI disabled; managed wrapper owns output paths."
+      ]
+    },
+    {
+      "source": "mobile-ui-snapshot-capture/scripts/validate_manifest.py",
+      "file": "validate_manifest.py",
+      "source_sha256": "cb12cad986a6f3565d2943fa29a9a2b93a4e73938b32c0bce0fb56dc6321e142",
+      "sha256": "2c05375b6f660ca2dbb8ea70839fda9896b58208ff13312b258ee9ce6004caf2",
+      "changes": [
+        "Standalone CLI disabled; managed wrapper owns output paths."
+      ]
+    },
+    {
+      "source": "kmp-ui-visual-aligner-node/scripts/finalize_alignment.py",
+      "file": "finalize_alignment.py",
+      "source_sha256": "55dcfd2f1eaa13a1dbf9f35ecdaf0a626869c513f8a0d2a236a7d50b627eabd8",
+      "sha256": "f255cbd61abefea56e731733b1ed6ab3889b0eb0e0bfc902351eac88310bb35f",
+      "changes": [
+        "Standalone CLI disabled; managed wrapper owns output paths."
+      ]
+    },
+    {
+      "source": "kmp-ui-visual-aligner-node/scripts/ui_visual_score.py",
+      "file": "ui_visual_score.py",
+      "source_sha256": "44c9498c2fdc369c14efe3250b7eb0f6adc398de8bfa0febf3a332cbae6d4209",
+      "sha256": "9977e49b055252d38791c6312431fdecd32d5b2b68638f102379c5c01f3395a9",
+      "changes": [
+        "Standalone CLI disabled; managed wrapper owns output paths."
+      ]
+    },
+    {
+      "source": "android-resources-to-cmp/scripts/resource_tool.py",
+      "file": "resource_tool.py",
+      "source_sha256": "8ee27ef4e39b4a60452d93587a51dca4b686045cfb381230a822afe5f144160e",
+      "sha256": "49d31d502a784df2ff0133f8b7191233ace0c4f5e2d063407a7822ab93c75816",
+      "changes": [
+        "Standalone CLI disabled; managed wrapper owns output paths.",
+        "Vector conversion returns bytes as text; managed wrapper owns authorized atomic source write.",
+        "Resource mapping identity includes configuration qualifier; byte_copy validates equal source/target bytes. Scan includes font/raw/nine-patch and array entries.",
+        "Resource scan includes res/color qualifier XML candidates alongside values colors."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/knowledge-index.json",
+      "file": "knowledge/references/knowledge-index.json",
+      "source_sha256": "c1e6afd8ae489164413c711c324a4d82bf2b0c89d1ff1dd6f7a65ff07ba91fdd",
+      "sha256": "04767220d9cf508ff4739102a4c9d9e7cf193cdadfe465c24781424d52a203d6",
+      "changes": [
+        "Local topics, Foundation catalogs and read-only external capability records/cookbooks; resource execution remains SDD resource-convert; external probes/orchestrators excluded.",
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/xml-to-cmp-mapping.md",
+      "file": "knowledge/references/xml-to-cmp-mapping.md",
+      "source_sha256": "312822504467e9eaac8d5bb9c4fea83c960c8b1e98bf417c8d49489307a387e2",
+      "sha256": "5bdaa63974bd0ed5f4b41bb08642a846f926c4211e64b0135fc1a10a795e0100",
+      "changes": [
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/coordinator-appbar-to-cmp.md",
+      "file": "knowledge/references/coordinator-appbar-to-cmp.md",
+      "source_sha256": "b211912f9d542d503984480d26de83cb137e54ab1dc1d899afbee32726ac1a4b",
+      "sha256": "b211912f9d542d503984480d26de83cb137e54ab1dc1d899afbee32726ac1a4b",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/migration-knowledge/rxjava-to-flow.md",
+      "file": "knowledge/references/migration-knowledge/rxjava-to-flow.md",
+      "source_sha256": "d37694216cf7654d5eec90785c54c4cfba1a122746155c95fcddebfb7900c1e4",
+      "sha256": "d37694216cf7654d5eec90785c54c4cfba1a122746155c95fcddebfb7900c1e4",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/migration-knowledge/flow-delivery.md",
+      "file": "knowledge/references/migration-knowledge/flow-delivery.md",
+      "source_sha256": "9c5d5ef4f1903f1716344bcc098abd6c3d7a39bfd95fee29bd130759f008d29c",
+      "sha256": "9c5d5ef4f1903f1716344bcc098abd6c3d7a39bfd95fee29bd130759f008d29c",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/migration-knowledge/coroutine-lifecycle.md",
+      "file": "knowledge/references/migration-knowledge/coroutine-lifecycle.md",
+      "source_sha256": "b9e3473247cc9f752abd13fb9f4a532e5b7236c071cc45fb21560ad6c885c0a6",
+      "sha256": "b9e3473247cc9f752abd13fb9f4a532e5b7236c071cc45fb21560ad6c885c0a6",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/migration-knowledge/retry-backpressure.md",
+      "file": "knowledge/references/migration-knowledge/retry-backpressure.md",
+      "source_sha256": "2b315a822de58d44a85caa365f4c330dd0f7e48cd57fe401db57be63260d6a0b",
+      "sha256": "2b315a822de58d44a85caa365f4c330dd0f7e48cd57fe401db57be63260d6a0b",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/migration-knowledge/coroutine-test-determinism.md",
+      "file": "knowledge/references/migration-knowledge/coroutine-test-determinism.md",
+      "source_sha256": "2bcaaf03ee6b67d5ba630992eb9fb1760df46f866bb8db8d798d67c12879dead",
+      "sha256": "2bcaaf03ee6b67d5ba630992eb9fb1760df46f866bb8db8d798d67c12879dead",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/migration-knowledge/kmp-boundaries.md",
+      "file": "knowledge/references/migration-knowledge/kmp-boundaries.md",
+      "source_sha256": "a03cde67cf19bd288a60dbe5df9216e9e4caf27fd0af3fe4d34fafa7d507e3c4",
+      "sha256": "a03cde67cf19bd288a60dbe5df9216e9e4caf27fd0af3fe4d34fafa7d507e3c4",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/harmonyos-targets.md",
+      "file": "knowledge/references/harmonyos-targets.md",
+      "source_sha256": "2abbedec42f3f94dd15a030479ca05db6c5cd7c48a811d0c601f37bc1315fd54",
+      "sha256": "4679eba458383e0e9e15ced38911abbe66672d295afa3560b86714d589944be1",
+      "changes": [
+        "Correct broken upstream packaging link to the retained harmony-runtime-packaging topic.",
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/harmony-system-capability-routing.md",
+      "file": "knowledge/references/harmony-system-capability-routing.md",
+      "source_sha256": "1750a33393471691d657b2a11ddd0fb3aade87db72a0ddb37fb2e926ba451947",
+      "sha256": "abe8ad87d2cafabbb880de712b8fbac178ac51cd6c1aaa467a8acbbc29770a66",
+      "changes": [
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/harmony-host-runtime.md",
+      "file": "knowledge/references/harmony-host-runtime.md",
+      "source_sha256": "5c30d47bc77c97018cd762c0dde6c1bcf3871a95dc6c3f817dd8bb675401137e",
+      "sha256": "2887fd7b9dcdecbef0427f01c85845a0bc42624e4a49bfc5ec6de039ccda65dc",
+      "changes": [
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/mpcore-back-navigation.md",
+      "file": "knowledge/references/mpcore-back-navigation.md",
+      "source_sha256": "e093b41d3535fdec8032976c47d137c5996fb85cb2ff9f88ee515e8ecc3ebffa",
+      "sha256": "e093b41d3535fdec8032976c47d137c5996fb85cb2ff9f88ee515e8ecc3ebffa",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/native-networking-engine.md",
+      "file": "knowledge/references/native-networking-engine.md",
+      "source_sha256": "5c06124169697fd3f46a8f7fd4f3e221c0ce3e50a9b61bac92510bc7f2cbedfd",
+      "sha256": "5c06124169697fd3f46a8f7fd4f3e221c0ce3e50a9b61bac92510bc7f2cbedfd",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/harmony-runtime-packaging.md",
+      "file": "knowledge/references/harmony-runtime-packaging.md",
+      "source_sha256": "a8a83066929a63c0cd589bcdaf12ef2e13f399d175c4d173bec763faf1f53b6e",
+      "sha256": "286bf49bdb4ec2a52c84464f48673027f8db137355493ab8ddda02ee6da69301",
+      "changes": [
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/migration-knowledge/ui-screenshot-determinism.md",
+      "file": "knowledge/references/migration-knowledge/ui-screenshot-determinism.md",
+      "source_sha256": "ad8521a2134a9dec15a897a4109a6d3bfd26fe8f2eb968ff7758fd786f3240ed",
+      "sha256": "1500edc1761d2acc54b87196970128ad46381448635251b45cedcc20e7ab6619",
+      "changes": [
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/foundation-api-knowledge/coordinates.txt",
+      "file": "knowledge/references/foundation-api-knowledge/coordinates.txt",
+      "source_sha256": "7fca5041b78ffdb458cd51dca23001b066897f3505f42c4cd13340e570153119",
+      "sha256": "7fca5041b78ffdb458cd51dca23001b066897f3505f42c4cd13340e570153119",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/foundation-api-knowledge/foundation_api_evidence.md",
+      "file": "knowledge/references/foundation-api-knowledge/foundation_api_evidence.md",
+      "source_sha256": "804ba865ac6e050a50e75efbfe1cb87c91ea0d7ae7490f744418e9087098ccf8",
+      "sha256": "804ba865ac6e050a50e75efbfe1cb87c91ea0d7ae7490f744418e9087098ccf8",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/foundation-api-knowledge/foundation_api_evidence.json",
+      "file": "knowledge/references/foundation-api-knowledge/foundation_api_evidence.json",
+      "source_sha256": "2d474127f3a40de5108854eba7de3f535a78c44e7169f22567e9ae4ce004fb22",
+      "sha256": "2d474127f3a40de5108854eba7de3f535a78c44e7169f22567e9ae4ce004fb22",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/foundation-api-knowledge/index.json",
+      "file": "knowledge/references/foundation-api-knowledge/index.json",
+      "source_sha256": "bc0b0267ae9916ec7e59b6740d4ebf393f3088c3c5305527b723b4284bf0113d",
+      "sha256": "bc0b0267ae9916ec7e59b6740d4ebf393f3088c3c5305527b723b4284bf0113d",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/foundation-api-knowledge/runtime-diagnostics.json",
+      "file": "knowledge/references/foundation-api-knowledge/runtime-diagnostics.json",
+      "source_sha256": "95b5fb03295df86e6a36ad6db7599be96f32cc19203f60328c0339990afba8f3",
+      "sha256": "95b5fb03295df86e6a36ad6db7599be96f32cc19203f60328c0339990afba8f3",
+      "changes": []
+    },
+    {
+      "source": "android-to-kmp-lean/references/foundation-api-knowledge/cookbook/multiplatform-settings.md",
+      "file": "knowledge/references/foundation-api-knowledge/cookbook/multiplatform-settings.md",
+      "source_sha256": "f7dd1ac17753b1593b70869eda32225db4984ceaddf340d7195e9eb54922e445",
+      "sha256": "6ad43a6d9a1f38fa3274eda8c70ca0cf65e4a251dda01fe2c15de30b8b36db3b",
+      "changes": [
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/foundation-api-knowledge/cookbook/androidx-datastore.md",
+      "file": "knowledge/references/foundation-api-knowledge/cookbook/androidx-datastore.md",
+      "source_sha256": "e034669366dbaad3cb08bfa81e086667465cf37e70ef4320b3c85009cfd137a2",
+      "sha256": "ca14afb00f7c693404704f058b06f8ae8368a555cd7de1a50e8f30b772c84d01",
+      "changes": [
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/foundation-api-knowledge/cookbook/koin.md",
+      "file": "knowledge/references/foundation-api-knowledge/cookbook/koin.md",
+      "source_sha256": "a8469ccac85bfa3ae41a3b35c6caa2324f538bbbe6dc656effd9038825059796",
+      "sha256": "b2d031a19b31e116294fc4d5c3e3a60542e6321991945842ebec6a4e9741a074",
+      "changes": [
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/foundation-api-knowledge/cookbook/serialization-json.md",
+      "file": "knowledge/references/foundation-api-knowledge/cookbook/serialization-json.md",
+      "source_sha256": "da378f8ca1c3999a75a4f41dfa4e6d94b75fc92372819f1db05d220fa692c211",
+      "sha256": "496230d960779fad5a17d19910a7e766aca8a58e45d0601642a9d4ac73527344",
+      "changes": [
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/foundation-api-knowledge/cookbook/ktor-client.md",
+      "file": "knowledge/references/foundation-api-knowledge/cookbook/ktor-client.md",
+      "source_sha256": "60d2afc8236c8ad9fafb156b8456d08b2636c0d70b2ef1cc9d2364fa25f8d7d2",
+      "sha256": "18aadaf64a7c06d6341e3d6dbd19d8e9aaa4f2ae2f2ca2ba1aa73c47403fd0f4",
+      "changes": [
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/foundation-api-knowledge/cookbook/sqldelight-native-driver.md",
+      "file": "knowledge/references/foundation-api-knowledge/cookbook/sqldelight-native-driver.md",
+      "source_sha256": "2e98d4e25d683c57a0db9906b2ee603a64963bf146ec9d57b9663d33f8efd707",
+      "sha256": "f35a06ec97b64a8c4e529ec6067ec0742c593148db1d364ce4e8fa96c26c9ad8",
+      "changes": [
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/foundation-api-knowledge/cookbook/coil-compose.md",
+      "file": "knowledge/references/foundation-api-knowledge/cookbook/coil-compose.md",
+      "source_sha256": "2a5644e540e11efd7abe5af9c44da1ec5545e08c83e4c891aee7c34a01a25180",
+      "sha256": "72e8e65238edacf1d04cfb8f12d4ae74dfb34f72cd3c88451054cbaa9511e9c4",
+      "changes": [
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/scripts/query_knowledge.py",
+      "file": "query_knowledge.py",
+      "source_sha256": "8a48690aa8012faaf61436fe06d3240515b5ca8f736c0dd1d8e96a132abf0bc1",
+      "sha256": "85db3a2281785b86a4b5647f6a0029760f1abe7d05d3d68d26f471e6853cb6d0",
+      "changes": [
+        "Standalone CLI disabled; managed wrapper owns output paths.",
+        "Knowledge reads are confined to bundled knowledge root.",
+        "SDD adapter: retained-path/role/evidence mapping and complete bounded knowledge references; transient behavior is distinct from stable capture.",
+        "External capability search requires existing in-root record/cookbook; probes are explicitly unsupported, no execution or installation."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/scripts/foundation_gate.py",
+      "file": "foundation_gate.py",
+      "source_sha256": "12841b9acd375b60ec207f0c6da696eb7f54a874b8beb28d5cf0707562b48972",
+      "sha256": "33d6be4e9c04e7d4c3607eeff39b8424095bce45d40e8bf18045b845d1711e38",
+      "changes": [
+        "Standalone CLI disabled; managed wrapper owns output paths.",
+        "Knowledge reads are confined to bundled knowledge root.",
+        "Resolve/verify return structured evidence without writing target files.",
+        "Verify reads managed resolution and target TOML, rejects cross-target and conflicting versions.",
+        "Target discovery ignores managed assets/builds/symlinks; TOML dependency is isolated to verification.",
+        "Resolution preserves the catalog evidence level; it is never build/device proof.",
+        "TOML verification inspects only selected coordinates, so unrelated aliases cannot block the slice."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/external-capabilities/index.json",
+      "file": "knowledge/references/external-capabilities/index.json",
+      "source_sha256": "b63057181dfb0a4c3bc2b19ff6088d601bbc5ecaff059a85b276c651498392db",
+      "sha256": "51cf4154acdb032921666552fe7d991088efcba23ef277df5deb64ae976b3d99",
+      "changes": [
+        "Imported candidate catalog/record/cookbook as advisory knowledge only; upstream probe explicitly unsupported and never executed.",
+        "Mapped evidence and execution ownership to current SDD scopes and retained paths."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/external-capabilities/ohos-webrtc.json",
+      "file": "knowledge/references/external-capabilities/ohos-webrtc.json",
+      "source_sha256": "beef491162b585f93c9287d5889bcc143cbca5faaf997bcbeb670b096eaca1d0",
+      "sha256": "f2459914fa3ac48471cb9ecc659c7b5921b84a67c5f063b0cb957d32ef840e44",
+      "changes": [
+        "Imported candidate catalog/record/cookbook as advisory knowledge only; upstream probe explicitly unsupported and never executed.",
+        "Mapped evidence and execution ownership to current SDD scopes and retained paths."
+      ]
+    },
+    {
+      "source": "android-to-kmp-lean/references/external-capabilities/ohos-webrtc.md",
+      "file": "knowledge/references/external-capabilities/ohos-webrtc.md",
+      "source_sha256": "c622686865750c805df811b193dd4ca8eba11912f80794e3823b41df68236d8d",
+      "sha256": "0a24c81d310cc4c1f443a82e4aac72a8e20006cfe10472e3a13bfc3f695da3b4",
+      "changes": [
+        "Imported candidate catalog/record/cookbook as advisory knowledge only; upstream probe explicitly unsupported and never executed.",
+        "Mapped evidence and execution ownership to current SDD scopes and retained paths."
+      ]
+    },
+    {
+      "source": "mobile-ui-snapshot-capture/scripts/mobile_capture.py",
+      "file": "mobile_snapshot.py",
+      "source_sha256": "532f35eee12309bec89f48722af87929556debac32c0fa33a9d487fa21df425e",
+      "sha256": "791f940455f39772b57b492b5ad2dd1b00f3b8cf2b903a1f440a48e7c472a8dd",
+      "changes": [
+        "Extracted pure Harmony node/page/signature/bounds helpers; device execution, output ownership and authorization belong to the SDD visual worker.",
+        "Removed redundant trailing blank line; no runtime behavior change."
+      ]
+    },
+    {
+      "source": "kmp-ui-visual-aligner-node/scripts/semantic_visual_inspect.py",
+      "file": "semantic_visual_inspect.py",
+      "source_sha256": "592b407ceb648922de9fc88ff5c1dbc1cab6367b58dca53826315d1e666bf77f",
+      "sha256": "5a02da099c6e6995757716bba0174f9f327846333e0ee9477b2ab9b2587d97a5",
+      "changes": [
+        "Extracted prompt, API and normalization functions only; no standalone CLI, config lookup, retries or default output directory.",
+        "Bounded response to 2 MiB; authenticated wrapper supplies configuration and a private subprocess enforces the total wall-clock timeout."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "_note": "Requires an active Implementer/Fixer assignment. Each resource_item_id owns one source_resource+qualifier; aliases and extra resources need their own fact-backed item, not covered_resource_ids. Every mapping value and vector substitution must equal the frozen Resource item. Strategy and configuration_mapping are read from frozen SPEC, not chosen by this request. Cross-configuration mappings need scoped configurations, rationale and hash-bound evidence; when more than one configuration is in scope, include a condition covering all consumers. resource-scan uses the same entry with args.extra_refs/source_index_ref/ui_tree_ref, without assignment. Implementation evidence uses consumer_refs (one hash per production file); legacy single consumer_ref remains accepted.",
+  "operation": "resource-convert",
+  "request_id": "{{unique-attempt-id}}",
+  "module_id": "M001",
+  "assignment_id": "{{active-assignment-id}}",
+  "fencing_token": "{{current-fencing-token}}",
+  "args": {
+    "task_id": "TASK-M001-001",
+    "resource_item_id": "DIM-M001-RESOURCE-001",
+    "source": "app/src/main/res/drawable/icon.xml",
+    "destination": "composeApp/src/commonMain/composeResources/drawable/icon.xml",
+    "source_id": "@drawable/icon",
+    "target_ref": "Res.drawable.icon",
+    "consumer": ["{{same-frozen-production-consumer-path#symbol}}"]
+  }
+}

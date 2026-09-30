@@ -16,15 +16,25 @@
 
 ## 全部测试用例
 
-| CASE-ID | 参与模块 / PATH | 状态 | executed / stale | 结果证据 |
+| CASE-ID | 参与模块 / PATH | 状态 | 曾执行 / 本次执行 / stale | 结果证据 |
 | --- | --- | --- | --- | --- |
 | {{逐项列全，不省略未运行}} | {{模块和路径}} | {{green-passed / red-bug / yellow-blocked}} | {{实际事实}} | {{引用}} |
+
+## 视觉覆盖与保真限制
+
+| 模块 / UI item | coverage / visual_mode | 验证状态 | 限制与证据 |
+| --- | --- | --- | --- |
+| {{module_id / item_id}} | {{page:state:coverage / runtime 或 source-only}} | {{verified / not-verified / not-applicable / unknown}} | {{当前基线 PATH、source-only 原因或缺失证据与 hash}} |
+
+{{列全 fidelity_limitations。source-only 必须说明未验证运行时视觉；capture-fixture 必须说明样本不证明在线服务/provider 等价。业务 CASE 的三态与上述证据覆盖独立；completed 不代表所有未测维度已经验证。无 UI 只在当前分析明确 N/A 时填写 not-applicable。}}
 
 ## 非 Green 原因与证据
 
 | CASE / PATH | 根因与置信度 | owner / next_action | 证据 |
 | --- | --- | --- | --- |
 | {{ID / Name}} | {{真实原因，未知明确待诊断}} | {{责任方与后续动作}} | {{日志/断言/环境/媒体的绝对路径及 hash；Ledger sequence}} |
+
+若本次缺测，另列 last_execution 的原状态、断言、test_run_id、execution_receipt 与 last_execution_stale；executed 表示曾执行，attempt_executed 表示本次执行，不能把旧断言写成本次结果。
 
 完整路径/断言和复测链：{{migration-report.json 链接}}。
 

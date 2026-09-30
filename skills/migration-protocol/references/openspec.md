@@ -50,6 +50,8 @@ Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/
 
 初始批准绑定完整 stage-plan 的内容摘要；该计划包含六件套文件引用、测试 PATH/断言、任务、source_closure、target_feasibility 与 envelope。当前执行仍绑定具体 freeze_id。后续只增加证据/状态不改变定义；任务细化须 CR/影响分析与新 freeze。`within-envelope` 快速通道只允许保留原 envelope 和完整测试路径/预期断言集合，不放开 tasks 任意变化；MO 审查实施计划后发布新执行基线，不伪造新的人工批准。
 
+快速通道的 impact_ref 指向结构化 [change-impact.json](../../../template/change-impact.json)，必须绑定 from_freeze_id 与 to_plan_hash（修订后完整 plan 的 digest）。MO 提交 change 后记录旧 freeze；只有该 CR 的同一 impact_ref 能冻结所审查的新计划。再次修改计划必须重新审查；旧散文 impact 仍可留证，但不能授权快速再冻结。freeze 后 CR 移入 change_request_history，invalidate 后随 planning_history 留存并移除当前 CR；不能用旧审查冻结下一份计划。初始/边界外批准仍按当前 plan 的真实人工 decision 执行。
+
 改变范围、验收、替代方案或路径集合必须有新的人类决定；脚本不能自动裁定两段文本语义等价。Spec-Designer/Implementer/Fixer 的写权限不合并。第一次 SPEC 冻结前的 legacy 观察属于理解输入，不等于允许提前执行目标测试。
 
 原有六件套是可读定义；新 stage-plan 是它们的引用与机器验收索引，不额外创作第二份需求规范。两者一致性由 MO 冻结审查，独立审计再次核对。

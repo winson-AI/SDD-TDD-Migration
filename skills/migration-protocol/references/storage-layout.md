@@ -114,15 +114,16 @@ OpenSpec 中枢展示 Ledger 当前 sequence、全局及父/子状态、global_n
 
 ## OpenSpec 投影完整性收尾门禁
 
-顶层 `<workspace_root>/openspec/` 是投影,不能手写:它仅在 prepare → `ledger init`（绑定 `project_context_ref`）→ `apply` 真正跑通、且状态绑定 prepare 固化的 `storage_layout` 时产生（位置由 [workflow_hub.location](../../migration-ledger/scripts/workflow_hub.py) 与 [run_storage.change_root](../../migration-ledger/scripts/run_storage.py) 从 `for_state` 解析）。缺 `storage_layout` 会静默回退到 `.sdd-runs/<run_id>/openspec`；整条管道未跑时，即使回退目录也只是手搓骨架。**唯一判据：run 内没有 `ledger/events.jsonl`（唯一事实源），就说明 Ledger 控制器从未运行**——`ledger/module-registry.json`（本包从不产生此文件名）、散文报告或空 `openspec` 目录都是手写产物，不代表迁移已执行。
+顶层 `<workspace_root>/openspec/` 是 Ledger 生成投影，不手写为状态源。位置由 [workflow_hub.location](../../migration-ledger/scripts/workflow_hub.py) 与 [run_storage.change_root](../../migration-ledger/scripts/run_storage.py) 从 prepare 固化的 storage_layout 解析；未绑定布局的旧入口可能使用 run 内回退目录。缺失 `ledger/events.jsonl` 时无法验证该 run 的事件依据，但不能仅凭文件缺失断言控制器从未运行；也可能是证据损坏或位置错误。散文报告、空目录或自造 registry 不能补足缺失的事件证据。
 
-收尾（GO 交付报告、`/sdd-audit`、`/sdd-archive`）必须通过只读门禁 [verify_openspec.py](../../migration-ledger/scripts/verify_openspec.py)，它 fail-closed 校验：`events.jsonl` 非空且事件链完整、`context/snapshot.json` 存在、状态绑定 `project_context_ref`、顶层 `openspec/runs/<run_id>/workflow.{json,md}` 存在、无 in-run 回退目录、每个已规划叶子的 `openspec/changes/<run-id>-<mid>` 有归属正确的 `manifest.json`（投影引擎签名，手写目录没有），以及 `reports/migration-report.json` 为结构化投影（`schema_version/run_id/report_stage/cases/paths`；投影每次同时写 `.json` 与 `.md`，手写 case 只有散文 `.md`）。
+只读 [verify_openspec.py](../../migration-ledger/scripts/verify_openspec.py) 按 scope 核验：global 检查公共事件链、prepare 快照和顶层布局归属；module 检查指定模块、祖先与实际依赖的当前规范/投影；projection 比较整个 run 的生成视图与 Ledger 内容；final 在 projection 之上要求正式 report_stage 为 completed 或 completed-with-unverified-tests。默认 projection 可在仅规划阶段通过，不表示已实现。manifest 的引擎标记和摘要用于一致性检查，不是宿主真实执行的认证签名。
 
 ```sh
-python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <workspace_root>/.sdd-runs/<run_id>
+python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <workspace_root>/.sdd-runs/<run_id> --scope module --module-id M001
+python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <workspace_root>/.sdd-runs/<run_id> --scope final
 ```
 
-`verified=false` 表示该 run 绕过了 Ledger，GO/Auditor 不得据其自述报告宣称完成，须回到 prepare → init → apply 重跑。门禁只读，不改状态、不补写投影、不搬迁历史。
+`verified=false` 表示所选范围存在具体核验失败，读取 failures 的 check/scope/module_id/recovery_action 和 next_actions。仅相关模块错误不得停止无关 MO；公共事件链/快照损坏才影响整轮。生成视图缺失按投影恢复协议重建，冻结源损坏恢复有效证据或正常失效/重规划，不一律重建 run。门禁只读，不改状态、不补写投影、不搬迁历史；它无法单独证明真实 Agent 派发、命令执行或全部功能 Green。最终 Yellow 缺测仍在正式报告保留。
 
 回退不再静默：`ledger.py status` 返回 `openspec_binding`，`location=top-level` 表示绑定了 prepare 固化的 `storage_layout`、投影落在顶层 `workspace/openspec`；`location=in-run-fallback`（未 prepare/未绑定 `project_context_ref`）说明本 run 的 OpenSpec 落在 `.sdd-runs/<run_id>/openspec`，宿主据此立即感知需要走预备管道，而非事后才发现顶层目录缺失。旧兼容 run 只读重放不受影响。
 
@@ -238,3 +239,5 @@ Test-Runner 对非法路径返回的错误保留执行日志并按现有 Yellow/
 `reports/projection-recovery/<module_id>/<sha256>.manifest` 保存已验证所有权的损坏 manifest 原件，长期留在本 run；当前 manifest 和视图从事件重建。投影失败详情进入 status.projection、workflow_progress 和可写时的 workflow-attention.md。事件已提交而投影待恢复时，原 event_id/sequence 仍有效，不追加重复业务事件。其他 owner/符号链接不自动替换；日志与快照损坏仍需恢复有效证据。完整规则见 [进度恢复协议](progress-recovery.md#授权改码投影恢复与文件锁等待)。
 
 progress.json 在尝试输出 workflow-attention.md 后写入，以保留该报告的写入失败；机器诊断失败最多补写一次，其余错误由 Host 消费命令返回值。业务已完成但仍有 projection-pending 时，watchdog 保持 completed-with-pending-diagnostics 观察状态，通知只写既有 runs/watchdog 与 reports/watchdog。此状态不新增目录、不改变业务验收，正常 status 恢复投影后监听收尾。
+
+受限视觉工具的装机回执、命令、截图/XML/meta/manifest、score/semantic 及请求回执，统一位于当前 `runs/harmony/sandbox/<actor>/<request_id>/`。冻结执行配置单独放 `sandbox/environment/visual.json`，凭证只从指定环境变量读取。设备临时文件只清理本次生成文件，失败保留 cleanup 记录；正式验收仍走 automation runner 与 Ledger。见 [视觉执行与留存](visual-execution.md)。

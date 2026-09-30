@@ -1,0 +1,31 @@
+{
+  "_note": "Conditional automation result fragment for v2 PATHs declaring interaction_id. Copy the actual adapter report's interaction_evidence into the stage record unchanged; remove this note. required_interaction comes from query.frozen_interaction. The check must come from a real device observation, never from expected or a generic passed sentence. No visual baseline is required for source-only UI. Missing proof produces Yellow, not a passing sample. Omit this entire field when no interaction is declared.",
+  "interaction_evidence": {
+    "code_baseline": "{{current-module-or-audit-code-baseline}}",
+    "hap_ref": {
+      "path": "{{absolute-run-root}}/runs/build/{{attempt}}/app.hap",
+      "sha256": "{{accepted-current-hap-sha256}}"
+    },
+    "required_interaction": {
+      "id": "settings-edge-back",
+      "action": "edge_back_gesture",
+      "from": {"page_id": "settings", "state_id": "base"},
+      "expected": {"app_foreground": false}
+    },
+    "interaction_checks": [
+      {
+        "id": "settings-edge-back",
+        "action": "{{actually-executed-action}}",
+        "from": {"page_id": "{{actually-observed-start-page}}", "state_id": "{{actually-observed-start-state}}"},
+        "status": "{{actual-status; Green-requires-PASSED}}",
+        "observed": {"app_foreground": "{{actual-boolean-observation}}"},
+        "hap_sha256": "{{same-accepted-current-hap-sha256}}",
+        "code_baseline": "{{same-current-module-or-audit-code-baseline}}",
+        "evidence_ref": {
+          "path": "{{absolute-run-root}}/runs/harmony/automation/{{attempt}}/interaction.json",
+          "sha256": "{{actual-device-observation-sha256}}"
+        }
+      }
+    ]
+  }
+}

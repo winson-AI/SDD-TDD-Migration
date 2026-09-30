@@ -45,7 +45,7 @@ Resource 指应用资源；原 Dependencies / Resources 中的文件锁、设备
 
    全量检查保留于本节点；运行派发只遍历当前模块、其实际依赖链与父级分配，不让无关模块的四维证据损坏阻塞当前工作。invalidate 后若认领分配本身失效，返回 GO 分配审查；若仅旧任务/实现证据失效，保留历史后重新 plan。详见 [恢复协议](progress-recovery.md)。
 4. **子 MO + Spec-Designer / plan → freeze**：认领子模块并读取其实现、四维分析与上下文 → 划分具体 tasks.scope → 对每个任务生成 tasks[].dimension_analysis，明确四维如何影响代码/接线/资源与测试；发现上游遗漏先请求父/GO 调整，不能把适用项改 N/A。stage-plan.dimension_analysis_ref 必须等于认领引用，dimension_trace 完整覆盖所有 item，关联 TASK/PATH/ASSERT；每个 task 有维度归属、全部分配 CASE 有行为测试路径，构建不能代替行为断言。跨维度任务允许，避免为四维制造空任务。design/spec/tasks 保留 item ID；MO 在冻结检查审阅文本与机器索引语义一致性。
-5. **Implementer/Fixer / submit → MO accept**：按冻结任务 scope 及任务四维 implementation 指导交付；task_trace 的文件必须位于对应 task.scope.write_paths，不能仅凭处于模块范围内就跨任务修改。implementation.dimension_evidence 按 item 列 task_ids、summary、evidence_refs；Resource 再提交真实 target_resource_ref、consumer_ref（文件 hash，可为未修改的复用文件）。这证明实现/接线有依据，不代表测试已通过。已接受的维度证据及资源/消费者引用在后续测试、DoD 和状态读取继续核验；即使复用文件未出现在本模块改动列表，其证据失效也不能沿用 Green。
+5. **Implementer/Fixer / submit → MO accept**：按冻结任务 scope 及任务四维 implementation 指导交付；task_trace 的文件必须位于对应 task.scope.write_paths，不能仅凭处于模块范围内就跨任务修改。implementation.dimension_evidence 按 item 列 task_ids、summary、evidence_refs；Resource 再提交真实 target_resource_ref、consumer_refs（逐消费者文件 hash，可为未修改的复用文件；兼容旧单值 consumer_ref）。这证明实现/接线有依据，不代表测试已通过。已接受的维度证据及资源/消费者引用在后续测试、DoD 和状态读取继续核验；即使复用文件未出现在本模块改动列表，其证据失效也不能沿用 Green。
 6. **Test-Runner → MO DoD → 父汇总 → Auditor**：继续先 build、装机、automation，测试执行使用已冻结路径/断言而非从实现临时降低标准。DoD 检查四维追溯的完整实现与正式测试证据；父 MO 汇总全体子 item 覆盖及遗留。Auditor 仍等全体 MO 收尾，仅复核遗留/受影响范围，读取其四维依据定位遗漏、接线或资源缺陷。自动化环境不可用仍 Yellow 缺测，不阻断无关任务，也不宣称 fidelity 通过。
 
 ## 5. OpenSpec 与运行兼容

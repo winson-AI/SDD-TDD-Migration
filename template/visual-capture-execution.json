@@ -1,0 +1,24 @@
+{
+  "_note": "Executed-capture sidecar, never an alignment verdict. The native visual-capture worker produces it automatically; an authorized external capture runner must save its actual execution evidence in this run's runs/harmony/sandbox or automation directory and attach this file_ref as snapshot.capture_execution_ref. Use the current visual-install receipt. Preserve old rounds. Do not fill this from alignment claims or relabel old screenshots. command_log_ref is the real HDC log, or a structured external command log whose successful capture row includes argv, exit_code, operation=capture, artifact_ref, code_baseline, install_ref and the same observations. Missing proof stays Yellow. GLOBAL-own visual PATHs must freeze an explicit visual_evidence object containing runtime mode, coverage, original capture_manifest_ref and all baseline_refs.",
+  "schema_version": 1,
+  "producer": "sdd-visual-capture",
+  "status": "{{actual-status; successful-capture-is-CAPTURED}}",
+  "executed": false,
+  "coverage": "settings:base:viewport",
+  "capture_round": 1,
+  "artifact_ref": {"path": "{{run_root}}/runs/build/{{attempt}}/app.hap", "sha256": "{{actual-current-hap-hash}}"},
+  "code_baseline": "{{actual-code-baseline-at-capture}}",
+  "assignment_id": "{{actual-capture-assignment}}",
+  "fencing_token": "{{actual-fence-or-null-for-global-audit}}",
+  "device_id": "{{actual-device}}",
+  "app_id": "{{actual-app-id}}",
+  "install_ref": {"path": "{{run_root}}/runs/harmony/sandbox/{{actor}}/{{install-attempt}}/result.json", "sha256": "{{actual-install-receipt-hash}}"},
+  "command_log_ref": {"path": "{{run_root}}/runs/harmony/sandbox/{{actor}}/{{capture-attempt}}/commands.json", "sha256": "{{actual-capture-command-log-hash}}"},
+  "observations": [
+    {
+      "index": 0,
+      "screenshot_ref": {"path": "{{run_root}}/runs/harmony/sandbox/{{actor}}/{{capture-attempt}}/screenshot-0.jpeg", "sha256": "{{actual-screenshot-hash}}"},
+      "view_ref": {"path": "{{run_root}}/runs/harmony/sandbox/{{actor}}/{{capture-attempt}}/view-0.xml", "sha256": "{{actual-view-tree-hash}}"}
+    }
+  ]
+}

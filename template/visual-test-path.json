@@ -1,0 +1,22 @@
+{
+  "path_id": "VISUAL-M001-001",
+  "kind": "visual",
+  "name": "{{frozen-page-and-state-visual-parity}}",
+  "case_id": "CASE-GLOBAL-001",
+  "requirement_id": "REQ-M001-001",
+  "required": true,
+  "coverage": "settings:base:viewport",
+  "node_ids": [
+    "node:settings.root"
+  ],
+  "baseline_ref": {
+    "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture-agent}}/{{request-id}}/shot.png",
+    "sha256": "{{frozen-baseline-sha256}}"
+  },
+  "expected_assertions": [
+    {
+      "assertion_id": "ASSERT-VISUAL-M001-001",
+      "expected": true
+    }
+  ]
+}

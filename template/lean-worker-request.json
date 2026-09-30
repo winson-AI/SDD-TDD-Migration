@@ -1,0 +1,17 @@
+{
+  "operation": "analyze-ui",
+  "request_id": "{{unique-request-id}}",
+  "module_id": "M001",
+  "args": {
+    "scope": "{{approved-module-scope}}",
+    "entry": [
+      "{{legacy-entry-symbol-or-file}}"
+    ],
+    "source_files": [
+      "{{legacy-renderer-file}}"
+    ],
+    "layouts": [
+      "{{legacy-layout-file}}"
+    ]
+  }
+}

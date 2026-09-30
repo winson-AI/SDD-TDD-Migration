@@ -196,6 +196,51 @@ class DimensionTests(unittest.TestCase):
         m['code_files'] = []  # Existing invalidate -> implement route remains usable.
         dimensions.current(m)
 
+    def test_multiple_consumers_are_all_verified_and_remain_live(self):
+        f = self.f
+        analysis = self.analysis('M001', ('Resource',))
+        item = analysis['dimensions'][3]['items'][0]
+        resource = f.ref('target/m1/icon.svg', '<svg/>')
+        consumers = [f.ref('target/m1/app.py', 'ICON = "icon.svg"'),
+                     f.ref('target/m1/detail.py', 'ICON = "icon.svg"')]
+        # Multiple symbols in one file share its hash; another file still needs its own.
+        item['consumer'] = [consumers[0]['path'] + '#Home', consumers[0]['path'] + '#Header', consumers[1]['path']]
+        plan = {'module_id': 'M001', 'dimension_analysis_ref': f.ref('multi-consumer.json', analysis),
+                'dimension_trace': [{'item_id': item['item_id'], 'task_ids': ['T1']}], 'tasks': []}
+        trace = {'item_id': item['item_id'], 'task_ids': ['T1'], 'summary': 'Both production screens consume icon',
+                 'evidence_refs': [resource], 'target_resource_ref': resource, 'consumer_refs': consumers}
+        result = {'dimension_evidence': [trace]}
+        dimensions.implementation(plan, result)
+        module = {'code_files': [resource], **result}
+        dimensions.current(module)
+        trace['consumer_refs'] = consumers[:1]
+        with self.assertRaisesRegex(Rejected, 'planned consumer files'):
+            dimensions.implementation(plan, result)
+        trace['consumer_refs'] = consumers + consumers[:1]
+        with self.assertRaisesRegex(Rejected, 'planned consumer files'):
+            dimensions.implementation(plan, result)
+        trace['consumer_refs'] = consumers
+        Path(consumers[1]['path']).write_text('ICON = "other.svg"')
+        with self.assertRaisesRegex(Rejected, 'hash mismatch'):
+            dimensions.current(module)
+
+    def test_legacy_single_consumer_and_new_list_contract_cannot_disagree(self):
+        f = self.f
+        analysis = self.analysis('M001', ('Resource',))
+        item = analysis['dimensions'][3]['items'][0]
+        consumer = f.ref('target/m1/app.py', 'ICON = "icon.svg"')
+        resource = f.ref('target/m1/icon.svg', '<svg/>')
+        plan = {'module_id': 'M001', 'dimension_analysis_ref': f.ref('single-consumer.json', analysis),
+                'dimension_trace': [{'item_id': item['item_id'], 'task_ids': ['T1']}], 'tasks': []}
+        trace = {'item_id': item['item_id'], 'task_ids': ['T1'], 'summary': 'Legacy single consumer retained',
+                 'evidence_refs': [consumer], 'target_resource_ref': resource, 'consumer_ref': consumer}
+        dimensions.implementation(plan, {'dimension_evidence': [trace]})
+        trace['consumer_refs'] = [consumer]
+        dimensions.implementation(plan, {'dimension_evidence': [trace]})
+        trace['consumer_refs'] = [f.ref('target/m1/unrelated.py', 'unrelated')]
+        with self.assertRaisesRegex(Rejected, 'legacy consumer_ref differs'):
+            dimensions.implementation(plan, {'dimension_evidence': [trace]})
+
     def test_na_requires_evidence_and_unknown_or_wrong_order_rejected(self):
         f = self.f
         data = self.analysis()

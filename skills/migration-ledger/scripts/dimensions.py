@@ -52,6 +52,7 @@ def load(ref, module_id):
                     require(item.get(field), 'resource mapping missing ' + field)
                 import resource_fidelity
                 resource_fidelity.validate_item(item)
+                resource_fidelity.consumers(item)
             items[iid] = {**item, 'dimension': row['dimension']}
     require(items, 'functional module must contain applicable dimension work')
     import semantics
@@ -201,10 +202,30 @@ def implementation(plan, result):
         evidence(trace.get('evidence_refs'), 'dimension implementation evidence')
         # Reused assets need not be modified, but must have real production consumers.
         if items[iid]['dimension'] == 'Resource':
-            for field, ref_field in (('target_resource', 'target_resource_ref'), ('consumer', 'consumer_ref')):
-                actual = check_ref(trace.get(ref_field))
-                expected = Path(items[iid][field].split('#', 1)[0])
-                require(expected.is_absolute() and actual.resolve() == expected.resolve(), 'resource evidence differs from planned ' + field)
+            import resource_fidelity
+            actual = check_ref(trace.get('target_resource_ref'))
+            expected = Path(items[iid]['target_resource'].split('#', 1)[0])
+            require(expected.is_absolute() and actual.resolve() == expected.resolve(),
+                    'resource evidence differs from planned target_resource')
+            expected_consumers = [Path(value.split('#', 1)[0]) for value in resource_fidelity.consumers(items[iid])]
+            require(all(path.is_absolute() for path in expected_consumers), 'resource consumer must name an absolute production file')
+            expected_paths = {path.resolve() for path in expected_consumers}
+            refs = consumer_evidence(trace)
+            actual_paths = [check_ref(ref).resolve() for ref in refs]
+            require(set(actual_paths) == expected_paths and len(actual_paths) == len(expected_paths),
+                    'resource evidence differs from planned consumer files')
+
+
+def consumer_evidence(trace):
+    """One hash per production file; several symbols may share the same file."""
+    refs = trace.get('consumer_refs')
+    legacy = trace.get('consumer_ref')
+    if refs is None:
+        refs = [legacy] if legacy else []
+    require(isinstance(refs, list) and refs, 'resource consumer_refs (or legacy consumer_ref) required')
+    if legacy:
+        require(legacy in refs, 'legacy consumer_ref differs from consumer_refs')
+    return refs
 
 
 def current(module, mutable_paths=()):
@@ -221,6 +242,8 @@ def current(module, mutable_paths=()):
     for trace in module.get('dimension_evidence', []):
         for ref in trace['evidence_refs']:
             verify(ref)
-        for field in ('target_resource_ref', 'consumer_ref'):
-            if trace.get(field):
-                verify(trace[field])
+        if trace.get('target_resource_ref'):
+            verify(trace['target_resource_ref'])
+        if trace.get('consumer_ref') or trace.get('consumer_refs') is not None:
+            for ref in consumer_evidence(trace):
+                verify(ref)

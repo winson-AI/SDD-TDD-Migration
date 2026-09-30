@@ -1,0 +1,5417 @@
+{
+  "schema_version": 1,
+  "snapshot": "2026-08-04",
+  "track": "CPF-KMP-CMP 0.3.0",
+  "description": "Fixed API knowledge index for HarmonyOS KMP foundation libraries. Migration runs should read this knowledge base instead of probing Maven artifacts online.",
+  "refresh_policy": "Only refresh when foundation library versions change, new coordinates are added, or an API gap is found.",
+  "generated_by": "scripts/build_foundation_api_knowledge.py",
+  "entries": [
+    {
+      "capability": "Compose export",
+      "coordinate": "org.jetbrains.compose.export:export",
+      "version": "1.9.2",
+      "gav": "org.jetbrains.compose.export:export:1.9.2",
+      "target_support": {},
+      "metadata": {
+        "pom_url": null,
+        "module_url": null
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Coroutines",
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-core",
+      "version": "1.10.2-0.3.0",
+      "gav": "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.10.2-0.3.0/kotlinx-coroutines-core-1.10.2-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.10.2-0.3.0/kotlinx-coroutines-core-1.10.2-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Coroutines test",
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-test",
+      "version": "1.10.2-0.3.0",
+      "gav": "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-coroutines-test/1.10.2-0.3.0/kotlinx-coroutines-test-1.10.2-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-coroutines-test/1.10.2-0.3.0/kotlinx-coroutines-test-1.10.2-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "AtomicFu",
+      "coordinate": "org.jetbrains.kotlinx:atomicfu",
+      "version": "0.31.0-0.3.0",
+      "gav": "org.jetbrains.kotlinx:atomicfu:0.31.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/atomicfu/0.31.0-0.3.0/atomicfu-0.31.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/atomicfu/0.31.0-0.3.0/atomicfu-0.31.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Date/time",
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-datetime",
+      "version": "0.7.1-0.3.0",
+      "gav": "org.jetbrains.kotlinx:kotlinx-datetime:0.7.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-datetime/0.7.1-0.3.0/kotlinx-datetime-0.7.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-datetime/0.7.1-0.3.0/kotlinx-datetime-0.7.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Immutable collections",
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-collections-immutable",
+      "version": "0.4-0.3.0",
+      "gav": "org.jetbrains.kotlinx:kotlinx-collections-immutable:0.4-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-collections-immutable/0.4-0.3.0/kotlinx-collections-immutable-0.4-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-collections-immutable/0.4-0.3.0/kotlinx-collections-immutable-0.4-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Kotlinx IO core",
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-io-core",
+      "version": "0.9.0-0.3.0",
+      "gav": "org.jetbrains.kotlinx:kotlinx-io-core:0.9.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-io-core/0.9.0-0.3.0/kotlinx-io-core-0.9.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-io-core/0.9.0-0.3.0/kotlinx-io-core-0.9.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Kotlinx IO bytestring",
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-io-bytestring",
+      "version": "0.9.0-0.3.0",
+      "gav": "org.jetbrains.kotlinx:kotlinx-io-bytestring:0.9.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-io-bytestring/0.9.0-0.3.0/kotlinx-io-bytestring-0.9.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-io-bytestring/0.9.0-0.3.0/kotlinx-io-bytestring-0.9.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "UUID",
+      "coordinate": "com.benasher44:uuid",
+      "version": "0.8.4-0.3.0",
+      "gav": "com.benasher44:uuid:0.8.4-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/benasher44/uuid/0.8.4-0.3.0/uuid-0.8.4-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/benasher44/uuid/0.8.4-0.3.0/uuid-0.8.4-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Okio",
+      "coordinate": "com.squareup.okio:okio",
+      "version": "3.16.4-0.3.0",
+      "gav": "com.squareup.okio:okio:3.16.4-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/squareup/okio/okio/3.16.4-0.3.0/okio-3.16.4-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/squareup/okio/okio/3.16.4-0.3.0/okio-3.16.4-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Serialization core",
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-serialization-core",
+      "version": "1.9.1-0.3.0",
+      "gav": "org.jetbrains.kotlinx:kotlinx-serialization-core:1.9.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-serialization-core/1.9.1-0.3.0/kotlinx-serialization-core-1.9.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-serialization-core/1.9.1-0.3.0/kotlinx-serialization-core-1.9.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/serialization-json.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Serialization JSON",
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-serialization-json",
+      "version": "1.9.1-0.3.0",
+      "gav": "org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-serialization-json/1.9.1-0.3.0/kotlinx-serialization-json-1.9.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-serialization-json/1.9.1-0.3.0/kotlinx-serialization-json-1.9.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [
+          "kotlinx.serialization.json",
+          "kotlinx.serialization.json.internal"
+        ],
+        "declarations": [
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "class",
+            "name": "Json"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "val",
+            "name": "configuration"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "val",
+            "name": "_schemaCache"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "val",
+            "name": "result"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "val",
+            "name": "lexer"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "val",
+            "name": "input"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "val",
+            "name": "result"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "fun",
+            "name": "parseToJsonElement"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "class",
+            "name": "DecodeSequenceMode"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "fun",
+            "name": "Json"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "val",
+            "name": "builder"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "val",
+            "name": "conf"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "class",
+            "name": "JsonBuilder"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "encodeDefaults"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "explicitNulls"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "ignoreUnknownKeys"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "isLenient"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "prettyPrint"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "prettyPrintIndent"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "coerceInputValues"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "classDiscriminator"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "classDiscriminatorMode"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "useAlternativeNames"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "namingStrategy"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "decodeEnumsCaseInsensitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "allowTrailingComma"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "allowComments"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "allowSpecialFloatingPointValues"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "allowStructuredMapKeys"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "useArrayPolymorphism"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "var",
+            "name": "serializersModule"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "fun",
+            "name": "build"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "val",
+            "name": "allWhitespaces"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "class",
+            "name": "JsonImpl"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "fun",
+            "name": "validateConfiguration"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "val",
+            "name": "collector"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/Json.kt",
+            "kind": "val",
+            "name": "Json"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonAnnotations.kt",
+            "kind": "class",
+            "name": "JsonNames"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonAnnotations.kt",
+            "kind": "class",
+            "name": "JsonClassDiscriminator"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonAnnotations.kt",
+            "kind": "class",
+            "name": "JsonIgnoreUnknownKeys"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "class",
+            "name": "JsonConfiguration"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "encodeDefaults"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "ignoreUnknownKeys"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "isLenient"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "allowStructuredMapKeys"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "prettyPrint"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "explicitNulls"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "prettyPrintIndent"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "coerceInputValues"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "useArrayPolymorphism"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "classDiscriminator"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "allowSpecialFloatingPointValues"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "useAlternativeNames"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "namingStrategy"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "decodeEnumsCaseInsensitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "allowTrailingComma"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "val",
+            "name": "allowComments"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "var",
+            "name": "classDiscriminatorMode"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonConfiguration.kt",
+            "kind": "class",
+            "name": "ClassDiscriminatorMode"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonContentPolymorphicSerializer.kt",
+            "kind": "val",
+            "name": "actualSerializer"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonContentPolymorphicSerializer.kt",
+            "kind": "val",
+            "name": "input"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonContentPolymorphicSerializer.kt",
+            "kind": "val",
+            "name": "tree"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonContentPolymorphicSerializer.kt",
+            "kind": "val",
+            "name": "actualSerializer"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonContentPolymorphicSerializer.kt",
+            "kind": "fun",
+            "name": "throwSubtypeNotRegistered"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonContentPolymorphicSerializer.kt",
+            "kind": "val",
+            "name": "subClassName"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonContentPolymorphicSerializer.kt",
+            "kind": "val",
+            "name": "scope"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonDecoder.kt",
+            "kind": "interface",
+            "name": "JsonDecoder"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonDecoder.kt",
+            "kind": "val",
+            "name": "json"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonDecoder.kt",
+            "kind": "fun",
+            "name": "decodeJsonElement"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "class",
+            "name": "JsonElement"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "class",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "fun",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "fun",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "fun",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "fun",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "fun",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "fun",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "fun",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "fun",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "fun",
+            "name": "JsonUnquotedLiteral"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "jsonUnquotedLiteralDescriptor"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "class",
+            "name": "JsonLiteral"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "coerceToInlineType"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "var",
+            "name": "result"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "object",
+            "name": "JsonNull"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "class",
+            "name": "JsonObject"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "content"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "class",
+            "name": "JsonArray"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonElement"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonElement"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonElement"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonElement"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "result"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "result"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "val",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "fun",
+            "name": "JsonElement"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "fun",
+            "name": "unexpectedJson"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElement.kt",
+            "kind": "fun",
+            "name": "JsonPrimitive"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElementBuilders.kt",
+            "kind": "val",
+            "name": "builder"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElementBuilders.kt",
+            "kind": "val",
+            "name": "builder"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElementBuilders.kt",
+            "kind": "class",
+            "name": "JsonObjectBuilder"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElementBuilders.kt",
+            "kind": "val",
+            "name": "content"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElementBuilders.kt",
+            "kind": "fun",
+            "name": "put"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElementBuilders.kt",
+            "kind": "fun",
+            "name": "build"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElementBuilders.kt",
+            "kind": "fun",
+            "name": "JsonObjectBuilder"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElementBuilders.kt",
+            "kind": "fun",
+            "name": "JsonObjectBuilder"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElementBuilders.kt",
+            "kind": "fun",
+            "name": "JsonObjectBuilder"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElementBuilders.kt",
+            "kind": "fun",
+            "name": "JsonObjectBuilder"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElementBuilders.kt",
+            "kind": "fun",
+            "name": "JsonObjectBuilder"
+          },
+          {
+            "source": "commonMain/kotlinx/serialization/json/JsonElementBuilders.kt",
+            "kind": "fun",
+            "name": "JsonObjectBuilder"
+          }
+        ]
+      },
+      "cookbook": "cookbook/serialization-json.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Serialization JSON IO",
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-serialization-json-io",
+      "version": "1.9.1-0.3.0",
+      "gav": "org.jetbrains.kotlinx:kotlinx-serialization-json-io:1.9.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-serialization-json-io/1.9.1-0.3.0/kotlinx-serialization-json-io-1.9.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-serialization-json-io/1.9.1-0.3.0/kotlinx-serialization-json-io-1.9.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Serialization Protobuf",
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-serialization-protobuf",
+      "version": "1.9.1-0.3.0",
+      "gav": "org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.9.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-serialization-protobuf/1.9.1-0.3.0/kotlinx-serialization-protobuf-1.9.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlinx/kotlinx-serialization-protobuf/1.9.1-0.3.0/kotlinx-serialization-protobuf-1.9.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Wire runtime",
+      "coordinate": "com.squareup.wire:wire-runtime",
+      "version": "6.0.0-alpha03-0.3.0",
+      "gav": "com.squareup.wire:wire-runtime:6.0.0-alpha03-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/squareup/wire/wire-runtime/6.0.0-alpha03-0.3.0/wire-runtime-6.0.0-alpha03-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/squareup/wire/wire-runtime/6.0.0-alpha03-0.3.0/wire-runtime-6.0.0-alpha03-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Pbandk runtime",
+      "coordinate": "pro.streem.pbandk:pbandk-runtime",
+      "version": "0.16.0-0.3.0",
+      "gav": "pro.streem.pbandk:pbandk-runtime:0.16.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/pro/streem/pbandk/pbandk-runtime/0.16.0-0.3.0/pbandk-runtime-0.16.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/pro/streem/pbandk/pbandk-runtime/0.16.0-0.3.0/pbandk-runtime-0.16.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor client core",
+      "coordinate": "io.ktor:ktor-client-core",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-client-core:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-core/3.3.3-0.3.0/ktor-client-core-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-core/3.3.3-0.3.0/ktor-client-core-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [
+          "io.ktor.client",
+          "io.ktor.client.call",
+          "io.ktor.client.content",
+          "io.ktor.client.engine",
+          "io.ktor.client.network.sockets",
+          "io.ktor.client.plugins",
+          "io.ktor.client.plugins.api",
+          "io.ktor.client.plugins.cache",
+          "io.ktor.client.plugins.cache.storage",
+          "io.ktor.client.plugins.cookies",
+          "io.ktor.client.plugins.internal",
+          "io.ktor.client.plugins.observer",
+          "io.ktor.client.plugins.sse",
+          "io.ktor.client.plugins.websocket",
+          "io.ktor.client.request",
+          "io.ktor.client.request.forms",
+          "io.ktor.client.statement",
+          "io.ktor.client.utils"
+        ],
+        "declarations": [
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "fun",
+            "name": "HttpClient"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "config"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "engine"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "client"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "fun",
+            "name": "HttpClient"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "class",
+            "name": "HttpClient"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "engine"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "userConfig"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "var",
+            "name": "manageEngine"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "closed"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "clientJob"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "requestPipeline"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "responsePipeline"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "sendPipeline"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "receivePipeline"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "attributes"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "engineConfig"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "monitor"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "config"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "response"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "fun",
+            "name": "isSupported"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "fun",
+            "name": "config"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "success"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "installedFeatures"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClient.kt",
+            "kind": "val",
+            "name": "plugin"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "class",
+            "name": "HttpClientConfig"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "val",
+            "name": "plugins"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "val",
+            "name": "pluginConfigurations"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "val",
+            "name": "customInterceptors"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "var",
+            "name": "engineConfig"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "fun",
+            "name": "engine"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "val",
+            "name": "oldConfig"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "var",
+            "name": "followRedirects"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "var",
+            "name": "useDefaultTransformers"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "var",
+            "name": "expectSuccess"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "var",
+            "name": "developmentMode"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "val",
+            "name": "previousConfigBlock"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "val",
+            "name": "attributes"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "val",
+            "name": "config"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "val",
+            "name": "pluginData"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "fun",
+            "name": "install"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "fun",
+            "name": "install"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "fun",
+            "name": "clone"
+          },
+          {
+            "source": "commonMain/io/ktor/client/HttpClientConfig.kt",
+            "kind": "val",
+            "name": "result"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/DelegatedCall.kt",
+            "kind": "fun",
+            "name": "HttpClientCall"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/DelegatedCall.kt",
+            "kind": "class",
+            "name": "DelegatedCall"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/DelegatedCall.kt",
+            "kind": "class",
+            "name": "DelegatedRequest"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/DelegatedCall.kt",
+            "kind": "class",
+            "name": "DelegatedResponse"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/DelegatedCall.kt",
+            "kind": "val",
+            "name": "origin"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/DelegatedCall.kt",
+            "kind": "val",
+            "name": "content"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "class",
+            "name": "HttpClientCall"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "val",
+            "name": "client"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "val",
+            "name": "received"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "val",
+            "name": "attributes"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "val",
+            "name": "allowDoubleReceive"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "val",
+            "name": "responseData"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "val",
+            "name": "subject"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "val",
+            "name": "result"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "val",
+            "name": "from"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "val",
+            "name": "to"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "fun",
+            "name": "setResponse"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "fun",
+            "name": "setRequest"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "val",
+            "name": "CustomResponse"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "class",
+            "name": "DoubleReceiveException"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "class",
+            "name": "ReceivePipelineException"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "val",
+            "name": "request"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "val",
+            "name": "info"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/HttpClientCall.kt",
+            "kind": "class",
+            "name": "NoTransformationFoundException"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/SavedCall.kt",
+            "kind": "val",
+            "name": "responseBody"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/SavedCall.kt",
+            "kind": "class",
+            "name": "SavedHttpCall"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/SavedCall.kt",
+            "kind": "val",
+            "name": "responseBody"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/SavedCall.kt",
+            "kind": "class",
+            "name": "SavedHttpRequest"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/SavedCall.kt",
+            "kind": "class",
+            "name": "SavedHttpResponse"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/SavedCall.kt",
+            "kind": "val",
+            "name": "body"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/utils.kt",
+            "kind": "class",
+            "name": "UnsupportedContentTypeException"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/utils.kt",
+            "kind": "class",
+            "name": "UnsupportedUpgradeProtocolException"
+          },
+          {
+            "source": "commonMain/io/ktor/client/call/utils.kt",
+            "kind": "fun",
+            "name": "checkContentLength"
+          },
+          {
+            "source": "commonMain/io/ktor/client/content/ObservableContent.kt",
+            "kind": "interface",
+            "name": "ProgressListener"
+          },
+          {
+            "source": "commonMain/io/ktor/client/content/ObservableContent.kt",
+            "kind": "class",
+            "name": "ObservableContent"
+          },
+          {
+            "source": "commonMain/io/ktor/client/content/ObservableContent.kt",
+            "kind": "val",
+            "name": "delegate"
+          },
+          {
+            "source": "commonMain/io/ktor/client/content/ObservableContent.kt",
+            "kind": "val",
+            "name": "callContext"
+          },
+          {
+            "source": "commonMain/io/ktor/client/content/ObservableContent.kt",
+            "kind": "val",
+            "name": "listener"
+          },
+          {
+            "source": "commonMain/io/ktor/client/content/ObservableContent.kt",
+            "kind": "fun",
+            "name": "getContent"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "CALL_COROUTINE"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "CLIENT_CONFIG"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "interface",
+            "name": "HttpClientEngine"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "dispatcher"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "config"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "supportedCapabilities"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "closed"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "fun",
+            "name": "install"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "builder"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "requestData"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "responseData"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "call"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "response"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "callContext"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "context"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "fun",
+            "name": "checkExtensions"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "parent"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "callJob"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "callContext"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "fun",
+            "name": "validateHeaders"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "requestHeaders"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngine.kt",
+            "kind": "val",
+            "name": "unsafeRequestHeaders"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineBase.kt",
+            "kind": "val",
+            "name": "closed"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineBase.kt",
+            "kind": "val",
+            "name": "requestJob"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineBase.kt",
+            "kind": "class",
+            "name": "ClientEngineClosedException"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineCapability.kt",
+            "kind": "val",
+            "name": "ENGINE_CAPABILITIES_KEY"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineCapability.kt",
+            "kind": "val",
+            "name": "DEFAULT_CAPABILITIES"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineCapability.kt",
+            "kind": "interface",
+            "name": "HttpClientEngineCapability"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineConfig.kt",
+            "kind": "class",
+            "name": "HttpClientEngineConfig"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineConfig.kt",
+            "kind": "var",
+            "name": "threadsCount"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineConfig.kt",
+            "kind": "var",
+            "name": "dispatcher"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineConfig.kt",
+            "kind": "var",
+            "name": "pipelining"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineConfig.kt",
+            "kind": "var",
+            "name": "proxy"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineFactory.kt",
+            "kind": "interface",
+            "name": "HttpClientEngineFactory"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/HttpClientEngineFactory.kt",
+            "kind": "fun",
+            "name": "create"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/ProxyConfig.kt",
+            "kind": "class",
+            "name": "ProxyConfig"
+          },
+          {
+            "source": "commonMain/io/ktor/client/engine/ProxyConfig.kt",
+            "kind": "val",
+            "name": "ProxyConfig"
+          }
+        ]
+      },
+      "cookbook": "cookbook/ktor-client.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor client CIO",
+      "coordinate": "io.ktor:ktor-client-cio",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-client-cio:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-cio/3.3.3-0.3.0/ktor-client-cio-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-cio/3.3.3-0.3.0/ktor-client-cio-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/ktor-client.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor client Curl",
+      "coordinate": "io.ktor:ktor-client-curl",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-client-curl:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": false,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-curl/3.3.3-0.3.0/ktor-client-curl-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-curl/3.3.3-0.3.0/ktor-client-curl-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/ktor-client.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor client logging",
+      "coordinate": "io.ktor:ktor-client-logging",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-client-logging:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-logging/3.3.3-0.3.0/ktor-client-logging-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-logging/3.3.3-0.3.0/ktor-client-logging-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/ktor-client.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor content negotiation",
+      "coordinate": "io.ktor:ktor-client-content-negotiation",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-client-content-negotiation:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-content-negotiation/3.3.3-0.3.0/ktor-client-content-negotiation-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-content-negotiation/3.3.3-0.3.0/ktor-client-content-negotiation-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [
+          "io.ktor.client.plugins.contentnegotiation"
+        ],
+        "declarations": [
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "LOGGER"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "DefaultCommonIgnoredTypes"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "DefaultIgnoredTypes"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "ExcludedContentTypes"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "class",
+            "name": "ContentNegotiationConfig"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "class",
+            "name": "ConverterRegistration"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "converter"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "contentTypeToSend"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "contentTypeMatcher"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "ignoredTypes"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "registrations"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "var",
+            "name": "defaultAcceptHeaderQValue"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "matcher"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "registration"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "fun",
+            "name": "removeIgnoredType"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "fun",
+            "name": "ignoreType"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "fun",
+            "name": "clearIgnoredTypes"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "fun",
+            "name": "defaultMatcher"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "ContentNegotiation"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "registrations"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "ignoredTypes"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "requestRegistrations"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "excluded"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "acceptHeaders"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "contentTypeToSend"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "contentType"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "matchingRegistrations"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "serializedContent"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "result"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "suitableConverters"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "result"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "contentType"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "charset"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "class",
+            "name": "ContentConverterException"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "fun",
+            "name": "HttpRequestBuilder"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/ContentNegotiation.kt",
+            "kind": "val",
+            "name": "excludedContentTypes"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/JsonContentTypeMatcher.kt",
+            "kind": "object",
+            "name": "JsonContentTypeMatcher"
+          },
+          {
+            "source": "commonMain/io/ktor/client/plugins/contentnegotiation/JsonContentTypeMatcher.kt",
+            "kind": "val",
+            "name": "value"
+          },
+          {
+            "source": "posixMain/DefaultIgnoredTypesNix.kt",
+            "kind": "val",
+            "name": "DefaultIgnoredTypes"
+          }
+        ]
+      },
+      "cookbook": "cookbook/ktor-client.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor client JSON",
+      "coordinate": "io.ktor:ktor-client-json",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-client-json:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-json/3.3.3-0.3.0/ktor-client-json-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-json/3.3.3-0.3.0/ktor-client-json-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor serialization",
+      "coordinate": "io.ktor:ktor-serialization",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-serialization:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-serialization/3.3.3-0.3.0/ktor-serialization-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-serialization/3.3.3-0.3.0/ktor-serialization-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor serialization kotlinx",
+      "coordinate": "io.ktor:ktor-serialization-kotlinx",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-serialization-kotlinx:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-serialization-kotlinx/3.3.3-0.3.0/ktor-serialization-kotlinx-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-serialization-kotlinx/3.3.3-0.3.0/ktor-serialization-kotlinx-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor serialization JSON",
+      "coordinate": "io.ktor:ktor-serialization-kotlinx-json",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-serialization-kotlinx-json:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-serialization-kotlinx-json/3.3.3-0.3.0/ktor-serialization-kotlinx-json-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-serialization-kotlinx-json/3.3.3-0.3.0/ktor-serialization-kotlinx-json-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [
+          "io.ktor.serialization.kotlinx.json"
+        ],
+        "declarations": [
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/ExperimentalJsonConverter.kt",
+            "kind": "class",
+            "name": "ExperimentalJsonConverter"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/ExperimentalJsonConverter.kt",
+            "kind": "val",
+            "name": "serializer"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/ExperimentalJsonConverter.kt",
+            "kind": "val",
+            "name": "buffer"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/ExperimentalJsonConverter.kt",
+            "kind": "val",
+            "name": "serializer"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/ExperimentalJsonConverter.kt",
+            "kind": "val",
+            "name": "contentPacket"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/JsonSupport.kt",
+            "kind": "val",
+            "name": "DefaultJson"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/JsonSupport.kt",
+            "kind": "fun",
+            "name": "Configuration"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/JsonSupport.kt",
+            "kind": "fun",
+            "name": "Configuration"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "class",
+            "name": "KotlinxSerializationJsonExtensionProvider"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "class",
+            "name": "KotlinxSerializationJsonExtensions"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "val",
+            "name": "jsonArraySymbolsMap"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "val",
+            "name": "elementTypeInfo"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "val",
+            "name": "serializer"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "val",
+            "name": "jsonArraySymbols"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "val",
+            "name": "string"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "class",
+            "name": "JsonArraySymbols"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "val",
+            "name": "beginArray"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "val",
+            "name": "endArray"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "val",
+            "name": "objectSeparator"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "fun",
+            "name": "TypeInfo"
+          },
+          {
+            "source": "commonMain/io/ktor/serialization/kotlinx/json/KotlinxSerializationJsonExtensions.kt",
+            "kind": "val",
+            "name": "elementType"
+          },
+          {
+            "source": "posixMain/io/ktor/serialization/kotlinx/json/JsonExtensionsNative.kt",
+            "kind": "fun",
+            "name": "init"
+          },
+          {
+            "source": "posixMain/io/ktor/serialization/kotlinx/json/JsonExtensionsNative.kt",
+            "kind": "val",
+            "name": "initHook"
+          }
+        ]
+      },
+      "cookbook": "cookbook/ktor-client.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor HTTP",
+      "coordinate": "io.ktor:ktor-http",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-http:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-http/3.3.3-0.3.0/ktor-http-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-http/3.3.3-0.3.0/ktor-http-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor IO",
+      "coordinate": "io.ktor:ktor-io",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-io:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-io/3.3.3-0.3.0/ktor-io-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-io/3.3.3-0.3.0/ktor-io-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor utils",
+      "coordinate": "io.ktor:ktor-utils",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-utils:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-utils/3.3.3-0.3.0/ktor-utils-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-utils/3.3.3-0.3.0/ktor-utils-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor SSE",
+      "coordinate": "io.ktor:ktor-sse",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-sse:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-sse/3.3.3-0.3.0/ktor-sse-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-sse/3.3.3-0.3.0/ktor-sse-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor websockets",
+      "coordinate": "io.ktor:ktor-client-websockets",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-client-websockets:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-websockets/3.3.3-0.3.0/ktor-client-websockets-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-client-websockets/3.3.3-0.3.0/ktor-client-websockets-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor websocket serialization",
+      "coordinate": "io.ktor:ktor-websocket-serialization",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-websocket-serialization:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-websocket-serialization/3.3.3-0.3.0/ktor-websocket-serialization-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-websocket-serialization/3.3.3-0.3.0/ktor-websocket-serialization-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor events",
+      "coordinate": "io.ktor:ktor-events",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-events:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-events/3.3.3-0.3.0/ktor-events-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-events/3.3.3-0.3.0/ktor-events-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor server core",
+      "coordinate": "io.ktor:ktor-server-core",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-server-core:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-server-core/3.3.3-0.3.0/ktor-server-core-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-server-core/3.3.3-0.3.0/ktor-server-core-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Ktor server CIO",
+      "coordinate": "io.ktor:ktor-server-cio",
+      "version": "3.3.3-0.3.0",
+      "gav": "io.ktor:ktor-server-cio:3.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-server-cio/3.3.3-0.3.0/ktor-server-cio-3.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/ktor/ktor-server-cio/3.3.3-0.3.0/ktor-server-cio-3.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Coil image loading",
+      "coordinate": "io.coil-kt.coil3:coil",
+      "version": "3.3.0-0.3.0",
+      "gav": "io.coil-kt.coil3:coil:3.3.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/coil-kt/coil3/coil/3.3.0-0.3.0/coil-3.3.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/coil-kt/coil3/coil/3.3.0-0.3.0/coil-3.3.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/coil-compose.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Coil Compose",
+      "coordinate": "io.coil-kt.coil3:coil-compose",
+      "version": "3.3.0-0.3.0",
+      "gav": "io.coil-kt.coil3:coil-compose:3.3.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/coil-kt/coil3/coil-compose/3.3.0-0.3.0/coil-compose-3.3.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/coil-kt/coil3/coil-compose/3.3.0-0.3.0/coil-compose-3.3.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [
+          "coil3.compose"
+        ],
+        "declarations": [
+          {
+            "source": "commonMain/coil3/compose/SingletonAsyncImage.kt",
+            "kind": "fun",
+            "name": "AsyncImage"
+          },
+          {
+            "source": "commonMain/coil3/compose/SingletonAsyncImage.kt",
+            "kind": "fun",
+            "name": "AsyncImage"
+          },
+          {
+            "source": "commonMain/coil3/compose/SingletonAsyncImagePainter.kt",
+            "kind": "fun",
+            "name": "rememberAsyncImagePainter"
+          },
+          {
+            "source": "commonMain/coil3/compose/SingletonAsyncImagePainter.kt",
+            "kind": "fun",
+            "name": "rememberAsyncImagePainter"
+          },
+          {
+            "source": "commonMain/coil3/compose/SingletonSubcomposeAsyncImage.kt",
+            "kind": "fun",
+            "name": "SubcomposeAsyncImage"
+          },
+          {
+            "source": "commonMain/coil3/compose/SingletonSubcomposeAsyncImage.kt",
+            "kind": "fun",
+            "name": "SubcomposeAsyncImage"
+          },
+          {
+            "source": "commonMain/coil3/compose/singletonImageLoaders.kt",
+            "kind": "fun",
+            "name": "setSingletonImageLoaderFactory"
+          }
+        ]
+      },
+      "cookbook": "cookbook/coil-compose.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Coil Ktor networking",
+      "coordinate": "io.coil-kt.coil3:coil-network-ktor3",
+      "version": "3.3.0-0.3.0",
+      "gav": "io.coil-kt.coil3:coil-network-ktor3:3.3.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/coil-kt/coil3/coil-network-ktor3/3.3.0-0.3.0/coil-network-ktor3-3.3.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/coil-kt/coil3/coil-network-ktor3/3.3.0-0.3.0/coil-network-ktor3-3.3.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/coil-compose.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Coil GIF",
+      "coordinate": "io.coil-kt.coil3:coil-gif",
+      "version": "3.3.0-0.3.0",
+      "gav": "io.coil-kt.coil3:coil-gif:3.3.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/coil-kt/coil3/coil-gif/3.3.0-0.3.0/coil-gif-3.3.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/coil-kt/coil3/coil-gif/3.3.0-0.3.0/coil-gif-3.3.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/coil-compose.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Lottie animation",
+      "coordinate": "io.github.alexzhirkevich:compottie",
+      "version": "2.0.2-0.3.0",
+      "gav": "io.github.alexzhirkevich:compottie:2.0.2-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/github/alexzhirkevich/compottie/2.0.2-0.3.0/compottie-2.0.2-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/github/alexzhirkevich/compottie/2.0.2-0.3.0/compottie-2.0.2-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Lottie network",
+      "coordinate": "io.github.alexzhirkevich:compottie-network",
+      "version": "2.0.2-0.3.0",
+      "gav": "io.github.alexzhirkevich:compottie-network:2.0.2-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/github/alexzhirkevich/compottie-network/2.0.2-0.3.0/compottie-network-2.0.2-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/github/alexzhirkevich/compottie-network/2.0.2-0.3.0/compottie-network-2.0.2-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Lottie resources",
+      "coordinate": "io.github.alexzhirkevich:compottie-resources",
+      "version": "2.0.2-0.3.0",
+      "gav": "io.github.alexzhirkevich:compottie-resources:2.0.2-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/github/alexzhirkevich/compottie-resources/2.0.2-0.3.0/compottie-resources-2.0.2-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/github/alexzhirkevich/compottie-resources/2.0.2-0.3.0/compottie-resources-2.0.2-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Blur effects",
+      "coordinate": "dev.chrisbanes.haze:haze",
+      "version": "1.7.2-0.3.0",
+      "gav": "dev.chrisbanes.haze:haze:1.7.2-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/dev/chrisbanes/haze/haze/1.7.2-0.3.0/haze-1.7.2-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/dev/chrisbanes/haze/haze/1.7.2-0.3.0/haze-1.7.2-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Moko resources",
+      "coordinate": "dev.icerock.moko:resources",
+      "version": "0.26.0-0.3.0",
+      "gav": "dev.icerock.moko:resources:0.26.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/dev/icerock/moko/resources/0.26.0-0.3.0/resources-0.26.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/dev/icerock/moko/resources/0.26.0-0.3.0/resources-0.26.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Moko resources compose",
+      "coordinate": "dev.icerock.moko:resources-compose",
+      "version": "0.26.0-0.3.0",
+      "gav": "dev.icerock.moko:resources-compose:0.26.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": true,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/dev/icerock/moko/resources-compose/0.26.0-0.3.0/resources-compose-0.26.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/dev/icerock/moko/resources-compose/0.26.0-0.3.0/resources-compose-0.26.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Moko MVVM core",
+      "coordinate": "dev.icerock.moko:mvvm-core",
+      "version": "0.16.1-0.3.0",
+      "gav": "dev.icerock.moko:mvvm-core:0.16.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/dev/icerock/moko/mvvm-core/0.16.1-0.3.0/mvvm-core-0.16.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/dev/icerock/moko/mvvm-core/0.16.1-0.3.0/mvvm-core-0.16.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Moko MVVM state",
+      "coordinate": "dev.icerock.moko:mvvm-state",
+      "version": "0.16.1-0.3.0",
+      "gav": "dev.icerock.moko:mvvm-state:0.16.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/dev/icerock/moko/mvvm-state/0.16.1-0.3.0/mvvm-state-0.16.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/dev/icerock/moko/mvvm-state/0.16.1-0.3.0/mvvm-state-0.16.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Moko MVVM flow",
+      "coordinate": "dev.icerock.moko:mvvm-flow",
+      "version": "0.16.1-0.3.0",
+      "gav": "dev.icerock.moko:mvvm-flow:0.16.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/dev/icerock/moko/mvvm-flow/0.16.1-0.3.0/mvvm-flow-0.16.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/dev/icerock/moko/mvvm-flow/0.16.1-0.3.0/mvvm-flow-0.16.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Molecule runtime",
+      "coordinate": "app.cash.molecule:molecule-runtime",
+      "version": "2.2.0-0.3.0",
+      "gav": "app.cash.molecule:molecule-runtime:2.2.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/molecule/molecule-runtime/2.2.0-0.3.0/molecule-runtime-2.2.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/molecule/molecule-runtime/2.2.0-0.3.0/molecule-runtime-2.2.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "SQLDelight runtime",
+      "coordinate": "app.cash.sqldelight:runtime",
+      "version": "2.2.1-0.3.0",
+      "gav": "app.cash.sqldelight:runtime:2.2.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/sqldelight/runtime/2.2.1-0.3.0/runtime-2.2.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/sqldelight/runtime/2.2.1-0.3.0/runtime-2.2.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/sqldelight-native-driver.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "SQLDelight coroutines extensions",
+      "coordinate": "app.cash.sqldelight:coroutines-extensions",
+      "version": "2.2.1-0.3.0",
+      "gav": "app.cash.sqldelight:coroutines-extensions:2.2.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/sqldelight/coroutines-extensions/2.2.1-0.3.0/coroutines-extensions-2.2.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/sqldelight/coroutines-extensions/2.2.1-0.3.0/coroutines-extensions-2.2.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/sqldelight-native-driver.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "SQLDelight native driver",
+      "coordinate": "app.cash.sqldelight:native-driver",
+      "version": "2.2.1-0.3.0",
+      "gav": "app.cash.sqldelight:native-driver:2.2.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/sqldelight/native-driver/2.2.1-0.3.0/native-driver-2.2.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/sqldelight/native-driver/2.2.1-0.3.0/native-driver-2.2.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [
+          "app.cash.sqldelight.driver.native",
+          "app.cash.sqldelight.driver.native.util"
+        ],
+        "declarations": [
+          {
+            "source": "appleMain/app/cash/sqldelight/driver/native/util/PthreadMutexRecursive.kt",
+            "kind": "val",
+            "name": "pthread_mutex_recursive"
+          },
+          {
+            "source": "nativeLinuxLikeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "class",
+            "name": "PoolLock"
+          },
+          {
+            "source": "nativeLinuxLikeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "val",
+            "name": "isActive"
+          },
+          {
+            "source": "nativeLinuxLikeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "val",
+            "name": "attr"
+          },
+          {
+            "source": "nativeLinuxLikeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "val",
+            "name": "mutex"
+          },
+          {
+            "source": "nativeLinuxLikeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "val",
+            "name": "cond"
+          },
+          {
+            "source": "nativeLinuxLikeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "val",
+            "name": "result"
+          },
+          {
+            "source": "nativeLinuxLikeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "fun",
+            "name": "notifyConditionChanged"
+          },
+          {
+            "source": "nativeLinuxLikeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "fun",
+            "name": "close"
+          },
+          {
+            "source": "nativeLinuxLikeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "var",
+            "name": "result"
+          },
+          {
+            "source": "nativeLinuxLikeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "val",
+            "name": "pthread_mutex_recursive"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Borrowed.kt",
+            "kind": "interface",
+            "name": "Borrowed"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Borrowed.kt",
+            "kind": "val",
+            "name": "value"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Borrowed.kt",
+            "kind": "fun",
+            "name": "release"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "class",
+            "name": "ConnectionWrapper"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "statement"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "checkSqlStatement"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "useReadOnly"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "class",
+            "name": "NativeSqliteDriver"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "databaseManager"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "transactionPool"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "readerPool"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "borrowedConnectionThread"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "listeners"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "lock"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "connection"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "listenersToNotify"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "alreadyBorrowed"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "transaction"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "borrowed"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "trans"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "mine"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "fun",
+            "name": "inMemoryDriver"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "fun",
+            "name": "wrapConnection"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "conn"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "class",
+            "name": "SqliterWrappedConnection"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "threadConnection"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "class",
+            "name": "ThreadConnection"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "connection"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "onEndTransaction"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "transaction"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "closed"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "statementCache"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "fun",
+            "name": "useStatement"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "fun",
+            "name": "clearIfNeeded"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "fun",
+            "name": "newTransaction"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "enclosing"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "val",
+            "name": "trans"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/NativeSqlDatabase.kt",
+            "kind": "fun",
+            "name": "cleanUp"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "class",
+            "name": "Pool"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "entriesRef"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "poolLock"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "fun",
+            "name": "entryCount"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "fun",
+            "name": "borrowEntry"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "snapshot"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "firstAvailable"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "nextAvailable"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "entries"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "newEntry"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "done"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "innerEntries"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "borrowed"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "fun",
+            "name": "close"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "entries"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "done"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "isAvailable"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "fun",
+            "name": "tryToAcquire"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "fun",
+            "name": "asBorrowed"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "done"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/Pool.kt",
+            "kind": "val",
+            "name": "ClosedMultiPoolException"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/SqliterSqlCursor.kt",
+            "kind": "class",
+            "name": "SqliterSqlCursor"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/SqliterStatement.kt",
+            "kind": "class",
+            "name": "SqliterStatement"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/SqliterStatement.kt",
+            "kind": "val",
+            "name": "statement"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "class",
+            "name": "PoolLock"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "fun",
+            "name": "notifyConditionChanged"
+          },
+          {
+            "source": "nativeMain/app/cash/sqldelight/driver/native/util/PoolLock.kt",
+            "kind": "fun",
+            "name": "close"
+          }
+        ]
+      },
+      "cookbook": "cookbook/sqldelight-native-driver.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "SQLDelight SQLite driver",
+      "coordinate": "app.cash.sqldelight:sqlite-driver",
+      "version": "2.2.1-0.3.0",
+      "gav": "app.cash.sqldelight:sqlite-driver:2.2.1-0.3.0",
+      "target_support": {
+        "ohosArm64": false,
+        "ohosX64": false,
+        "android": false,
+        "ios": false,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/sqldelight/sqlite-driver/2.2.1-0.3.0/sqlite-driver-2.2.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/sqldelight/sqlite-driver/2.2.1-0.3.0/sqlite-driver-2.2.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "SQLiter driver",
+      "coordinate": "co.touchlab:sqliter-driver",
+      "version": "1.3.3-0.3.0",
+      "gav": "co.touchlab:sqliter-driver:1.3.3-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/co/touchlab/sqliter-driver/1.3.3-0.3.0/sqliter-driver-1.3.3-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/co/touchlab/sqliter-driver/1.3.3-0.3.0/sqliter-driver-1.3.3-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Multiplatform Settings",
+      "coordinate": "com.russhwolf:multiplatform-settings",
+      "version": "1.3.0-0.3.0",
+      "gav": "com.russhwolf:multiplatform-settings:1.3.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/russhwolf/multiplatform-settings/1.3.0-0.3.0/multiplatform-settings-1.3.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/russhwolf/multiplatform-settings/1.3.0-0.3.0/multiplatform-settings-1.3.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [
+          "com.russhwolf.settings"
+        ],
+        "declarations": [
+          {
+            "source": "apple32Main/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "NSUserDefaults"
+          },
+          {
+            "source": "apple32Main/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "NSUserDefaults"
+          },
+          {
+            "source": "apple32Main/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "NSUserDefaults"
+          },
+          {
+            "source": "apple32Main/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "NSUserDefaults"
+          },
+          {
+            "source": "apple64Main/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "NSUserDefaults"
+          },
+          {
+            "source": "apple64Main/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "NSUserDefaults"
+          },
+          {
+            "source": "apple64Main/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "NSUserDefaults"
+          },
+          {
+            "source": "apple64Main/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "NSUserDefaults"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "class",
+            "name": "KeychainSettings"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "cleaner"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "cfService"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "defaultProperties"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "class",
+            "name": "Factory"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "attributes"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "status"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "item"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "cfKey"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "nsKey"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "unarchiveNumber"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "archiveNumber"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "addOrUpdateKeychainItem"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "addKeychainItem"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "status"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "removeKeychainItem"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "status"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "updateKeychainItem"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "status"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "attributes"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "output"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "getKeychainItem"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "cfValue"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "status"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "hasKeychainItem"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "status"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "query"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "output"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "OSStatus"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "cfMessage"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "nsMessage"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "message"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "MemScope"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "MemScope"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "size"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "keys"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "values"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "String"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "fun",
+            "name": "NSString"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "cfValue"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "cfValue1"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/KeychainSettings.kt",
+            "kind": "val",
+            "name": "cfValue2"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "class",
+            "name": "NSUserDefaultsSettings"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "val",
+            "name": "delegate"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "class",
+            "name": "Factory"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "val",
+            "name": "delegate"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "addListener"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "var",
+            "name": "previousValue"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "val",
+            "name": "block"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "val",
+            "name": "current"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "val",
+            "name": "observer"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "class",
+            "name": "Listener"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "val",
+            "name": "delegate"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "NSUserDefaults"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "NSUserDefaults"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "NSUserDefaults"
+          },
+          {
+            "source": "appleMain/com/russhwolf/settings/NSUserDefaultsSettings.kt",
+            "kind": "fun",
+            "name": "NSUserDefaults"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "fun",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "fun",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "fun",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "fun",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "fun",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "fun",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "fun",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "fun",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "fun",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "fun",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "fun",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "fun",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "class",
+            "name": "IntDelegate"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "defaultValue"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "class",
+            "name": "LongDelegate"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "defaultValue"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "class",
+            "name": "StringDelegate"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "defaultValue"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "class",
+            "name": "FloatDelegate"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "defaultValue"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "class",
+            "name": "DoubleDelegate"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "defaultValue"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "class",
+            "name": "BooleanDelegate"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "defaultValue"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "class",
+            "name": "NullableIntDelegate"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "class",
+            "name": "NullableLongDelegate"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "class",
+            "name": "NullableStringDelegate"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "class",
+            "name": "NullableFloatDelegate"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "class",
+            "name": "NullableDoubleDelegate"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "class",
+            "name": "NullableBooleanDelegate"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Delegates.kt",
+            "kind": "val",
+            "name": "settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Experimental.kt",
+            "kind": "class",
+            "name": "ExperimentalSettingsApi"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Experimental.kt",
+            "kind": "class",
+            "name": "ExperimentalSettingsImplementation"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Settings.kt",
+            "kind": "interface",
+            "name": "Settings"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Settings.kt",
+            "kind": "interface",
+            "name": "Factory"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Settings.kt",
+            "kind": "fun",
+            "name": "create"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Settings.kt",
+            "kind": "val",
+            "name": "keys"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Settings.kt",
+            "kind": "val",
+            "name": "size"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Settings.kt",
+            "kind": "fun",
+            "name": "clear"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Settings.kt",
+            "kind": "fun",
+            "name": "remove"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Settings.kt",
+            "kind": "fun",
+            "name": "hasKey"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Settings.kt",
+            "kind": "fun",
+            "name": "putInt"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Settings.kt",
+            "kind": "fun",
+            "name": "getInt"
+          },
+          {
+            "source": "commonMain/com/russhwolf/settings/Settings.kt",
+            "kind": "fun",
+            "name": "getIntOrNull"
+          }
+        ]
+      },
+      "cookbook": "cookbook/multiplatform-settings.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Multiplatform Settings coroutines",
+      "coordinate": "com.russhwolf:multiplatform-settings-coroutines",
+      "version": "1.3.0-0.3.0",
+      "gav": "com.russhwolf:multiplatform-settings-coroutines:1.3.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/russhwolf/multiplatform-settings-coroutines/1.3.0-0.3.0/multiplatform-settings-coroutines-1.3.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/russhwolf/multiplatform-settings-coroutines/1.3.0-0.3.0/multiplatform-settings-coroutines-1.3.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/multiplatform-settings.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Multiplatform Settings serialization",
+      "coordinate": "com.russhwolf:multiplatform-settings-serialization",
+      "version": "1.3.0-0.3.0",
+      "gav": "com.russhwolf:multiplatform-settings-serialization:1.3.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/russhwolf/multiplatform-settings-serialization/1.3.0-0.3.0/multiplatform-settings-serialization-1.3.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/russhwolf/multiplatform-settings-serialization/1.3.0-0.3.0/multiplatform-settings-serialization-1.3.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/multiplatform-settings.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "AndroidX DataStore",
+      "coordinate": "androidx.datastore:datastore",
+      "version": "1.3.0-alpha05-0.3.0",
+      "gav": "androidx.datastore:datastore:1.3.0-alpha05-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/androidx/datastore/datastore/1.3.0-alpha05-0.3.0/datastore-1.3.0-alpha05-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/androidx/datastore/datastore/1.3.0-alpha05-0.3.0/datastore-1.3.0-alpha05-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/androidx-datastore.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "AndroidX DataStore core",
+      "coordinate": "androidx.datastore:datastore-core",
+      "version": "1.3.0-alpha05-0.3.0",
+      "gav": "androidx.datastore:datastore-core:1.3.0-alpha05-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/androidx/datastore/datastore-core/1.3.0-alpha05-0.3.0/datastore-core-1.3.0-alpha05-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/androidx/datastore/datastore-core/1.3.0-alpha05-0.3.0/datastore-core-1.3.0-alpha05-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/androidx-datastore.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "AndroidX DataStore preferences",
+      "coordinate": "androidx.datastore:datastore-preferences",
+      "version": "1.3.0-alpha05-0.3.0",
+      "gav": "androidx.datastore:datastore-preferences:1.3.0-alpha05-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/androidx/datastore/datastore-preferences/1.3.0-alpha05-0.3.0/datastore-preferences-1.3.0-alpha05-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/androidx/datastore/datastore-preferences/1.3.0-alpha05-0.3.0/datastore-preferences-1.3.0-alpha05-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/androidx-datastore.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "AndroidX DataStore preferences core",
+      "coordinate": "androidx.datastore:datastore-preferences-core",
+      "version": "1.3.0-alpha05-0.3.0",
+      "gav": "androidx.datastore:datastore-preferences-core:1.3.0-alpha05-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/androidx/datastore/datastore-preferences-core/1.3.0-alpha05-0.3.0/datastore-preferences-core-1.3.0-alpha05-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/androidx/datastore/datastore-preferences-core/1.3.0-alpha05-0.3.0/datastore-preferences-core-1.3.0-alpha05-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/androidx-datastore.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "AndroidX SQLite bundled",
+      "coordinate": "androidx.sqlite:sqlite-bundled",
+      "version": "2.7.0-alpha01-0.3.0",
+      "gav": "androidx.sqlite:sqlite-bundled:2.7.0-alpha01-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/androidx/sqlite/sqlite-bundled/2.7.0-alpha01-0.3.0/sqlite-bundled-2.7.0-alpha01-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/androidx/sqlite/sqlite-bundled/2.7.0-alpha01-0.3.0/sqlite-bundled-2.7.0-alpha01-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "AndroidX SQLite framework",
+      "coordinate": "androidx.sqlite:sqlite-framework",
+      "version": "2.7.0-alpha01-0.3.0",
+      "gav": "androidx.sqlite:sqlite-framework:2.7.0-alpha01-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/androidx/sqlite/sqlite-framework/2.7.0-alpha01-0.3.0/sqlite-framework-2.7.0-alpha01-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/androidx/sqlite/sqlite-framework/2.7.0-alpha01-0.3.0/sqlite-framework-2.7.0-alpha01-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Koin core",
+      "coordinate": "io.insert-koin:koin-core",
+      "version": "4.1.1-0.3.0",
+      "gav": "io.insert-koin:koin-core:4.1.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-core/4.1.1-0.3.0/koin-core-4.1.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-core/4.1.1-0.3.0/koin-core-4.1.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [
+          "org.koin.core",
+          "org.koin.core.annotation",
+          "org.koin.core.component",
+          "org.koin.core.context",
+          "org.koin.core.definition",
+          "org.koin.core.error",
+          "org.koin.core.extension",
+          "org.koin.core.instance",
+          "org.koin.core.logger",
+          "org.koin.core.module",
+          "org.koin.core.module.dsl",
+          "org.koin.core.option",
+          "org.koin.core.parameter",
+          "org.koin.core.qualifier",
+          "org.koin.core.registry",
+          "org.koin.core.resolution",
+          "org.koin.core.scope",
+          "org.koin.core.time",
+          "org.koin.dsl",
+          "org.koin.ext",
+          "org.koin.mp"
+        ],
+        "declarations": [
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "class",
+            "name": "Koin"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "var",
+            "name": "logger"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "resolver"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "scopeRegistry"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "instanceRegistry"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "propertyRegistry"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "extensionManager"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "optionRegistry"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "fun",
+            "name": "setupLogger"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "fun",
+            "name": "createScope"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "qualifier"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "qualifier"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "scopeId"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "qualifier"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "fun",
+            "name": "getOrCreateScope"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "qualifier"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "fun",
+            "name": "getScope"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "fun",
+            "name": "getScopeOrNull"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "fun",
+            "name": "deleteScope"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "fun",
+            "name": "setProperty"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "fun",
+            "name": "deleteProperty"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "fun",
+            "name": "close"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "fun",
+            "name": "loadModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "flattedModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "fun",
+            "name": "unloadModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "flattedModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "fun",
+            "name": "createEagerInstances"
+          },
+          {
+            "source": "commonMain/org/koin/core/Koin.kt",
+            "kind": "val",
+            "name": "duration"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "class",
+            "name": "KoinApplication"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "val",
+            "name": "koin"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "var",
+            "name": "allowOverride"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "modules"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "modules"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "modules"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "val",
+            "name": "duration"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "val",
+            "name": "count"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "createEagerInstances"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "allowOverride"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "loadModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "properties"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "options"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "logger"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "printLogger"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "close"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "unloadModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "unloadModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "fun",
+            "name": "init"
+          },
+          {
+            "source": "commonMain/org/koin/core/KoinApplication.kt",
+            "kind": "val",
+            "name": "app"
+          },
+          {
+            "source": "commonMain/org/koin/core/annotation/KoinAnnotations.kt",
+            "kind": "class",
+            "name": "KoinInternalApi"
+          },
+          {
+            "source": "commonMain/org/koin/core/annotation/KoinAnnotations.kt",
+            "kind": "class",
+            "name": "KoinExperimentalAPI"
+          },
+          {
+            "source": "commonMain/org/koin/core/component/KoinComponent.kt",
+            "kind": "interface",
+            "name": "KoinComponent"
+          },
+          {
+            "source": "commonMain/org/koin/core/component/KoinComponent.kt",
+            "kind": "fun",
+            "name": "getKoin"
+          },
+          {
+            "source": "commonMain/org/koin/core/component/KoinScopeComponent.kt",
+            "kind": "interface",
+            "name": "KoinScopeComponent"
+          },
+          {
+            "source": "commonMain/org/koin/core/component/KoinScopeComponent.kt",
+            "kind": "val",
+            "name": "scope"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/DefaultContextExt.kt",
+            "kind": "fun",
+            "name": "startKoin"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/DefaultContextExt.kt",
+            "kind": "fun",
+            "name": "startKoin"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/DefaultContextExt.kt",
+            "kind": "fun",
+            "name": "startKoin"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/DefaultContextExt.kt",
+            "kind": "fun",
+            "name": "stopKoin"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/DefaultContextExt.kt",
+            "kind": "fun",
+            "name": "loadKoinModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/DefaultContextExt.kt",
+            "kind": "fun",
+            "name": "loadKoinModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/DefaultContextExt.kt",
+            "kind": "fun",
+            "name": "unloadKoinModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/DefaultContextExt.kt",
+            "kind": "fun",
+            "name": "unloadKoinModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/KoinContext.kt",
+            "kind": "interface",
+            "name": "KoinContext"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/KoinContext.kt",
+            "kind": "fun",
+            "name": "get"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/KoinContext.kt",
+            "kind": "fun",
+            "name": "getOrNull"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/KoinContext.kt",
+            "kind": "fun",
+            "name": "stopKoin"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/KoinContext.kt",
+            "kind": "fun",
+            "name": "startKoin"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/KoinContext.kt",
+            "kind": "fun",
+            "name": "startKoin"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/KoinContext.kt",
+            "kind": "fun",
+            "name": "loadKoinModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/KoinContext.kt",
+            "kind": "fun",
+            "name": "loadKoinModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/KoinContext.kt",
+            "kind": "fun",
+            "name": "unloadKoinModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/context/KoinContext.kt",
+            "kind": "fun",
+            "name": "unloadKoinModules"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "class",
+            "name": "BeanDefinition"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "val",
+            "name": "scopeQualifier"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "val",
+            "name": "primaryType"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "var",
+            "name": "qualifier"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "val",
+            "name": "definition"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "val",
+            "name": "kind"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "var",
+            "name": "secondaryTypes"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "var",
+            "name": "callbacks"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "var",
+            "name": "_createdAtStart"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "var",
+            "name": "result"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "class",
+            "name": "Kind"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "typealias",
+            "name": "IndexKey"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/BeanDefinition.kt",
+            "kind": "typealias",
+            "name": "Definition"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/Callbacks.kt",
+            "kind": "class",
+            "name": "Callbacks"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/Callbacks.kt",
+            "kind": "typealias",
+            "name": "OnCloseCallback"
+          },
+          {
+            "source": "commonMain/org/koin/core/definition/KoinDefinition.kt",
+            "kind": "class",
+            "name": "KoinDefinition"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/ClosedScopeException.kt",
+            "kind": "class",
+            "name": "ClosedScopeException"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/DefinitionOverrideException.kt",
+            "kind": "class",
+            "name": "DefinitionOverrideException"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/DefinitionParameterException.kt",
+            "kind": "class",
+            "name": "DefinitionParameterException"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/InstanceCreationException.kt",
+            "kind": "class",
+            "name": "InstanceCreationException"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/KoinApplicationAlreadyStartedException.kt",
+            "kind": "class",
+            "name": "KoinApplicationAlreadyStartedException"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/MissingPropertyException.kt",
+            "kind": "class",
+            "name": "MissingPropertyException"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/MissingScopeValueException.kt",
+            "kind": "class",
+            "name": "MissingScopeValueException"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/NoDefinitionFoundException.kt",
+            "kind": "class",
+            "name": "NoDefinitionFoundException"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/NoParameterFoundException.kt",
+            "kind": "class",
+            "name": "NoParameterFoundException"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/NoPropertyFileFoundException.kt",
+            "kind": "class",
+            "name": "NoPropertyFileFoundException"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/NoScopeDefFoundException.kt",
+            "kind": "class",
+            "name": "NoScopeDefFoundException"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/ScopeAlreadyCreatedException.kt",
+            "kind": "class",
+            "name": "ScopeAlreadyCreatedException"
+          },
+          {
+            "source": "commonMain/org/koin/core/error/ScopeNotCreatedException.kt",
+            "kind": "class",
+            "name": "ScopeNotCreatedException"
+          },
+          {
+            "source": "commonMain/org/koin/core/extension/ExtensionManager.kt",
+            "kind": "class",
+            "name": "ExtensionManager"
+          },
+          {
+            "source": "commonMain/org/koin/core/extension/ExtensionManager.kt",
+            "kind": "val",
+            "name": "extensions"
+          },
+          {
+            "source": "commonMain/org/koin/core/extension/ExtensionManager.kt",
+            "kind": "fun",
+            "name": "close"
+          },
+          {
+            "source": "commonMain/org/koin/core/extension/KoinExtension.kt",
+            "kind": "interface",
+            "name": "KoinExtension"
+          },
+          {
+            "source": "commonMain/org/koin/core/extension/KoinExtension.kt",
+            "kind": "fun",
+            "name": "onRegister"
+          },
+          {
+            "source": "commonMain/org/koin/core/extension/KoinExtension.kt",
+            "kind": "fun",
+            "name": "onClose"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/FactoryInstanceFactory.kt",
+            "kind": "class",
+            "name": "FactoryInstanceFactory"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/InstanceFactory.kt",
+            "kind": "fun",
+            "name": "create"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/InstanceFactory.kt",
+            "kind": "val",
+            "name": "parameters"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/InstanceFactory.kt",
+            "kind": "val",
+            "name": "stack"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/ResolutionContext.kt",
+            "kind": "class",
+            "name": "ResolutionContext"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/ResolutionContext.kt",
+            "kind": "val",
+            "name": "logger"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/ResolutionContext.kt",
+            "kind": "val",
+            "name": "scope"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/ResolutionContext.kt",
+            "kind": "val",
+            "name": "clazz"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/ResolutionContext.kt",
+            "kind": "val",
+            "name": "qualifier"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/ResolutionContext.kt",
+            "kind": "val",
+            "name": "parameters"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/ResolutionContext.kt",
+            "kind": "val",
+            "name": "debugTag"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/ResolutionContext.kt",
+            "kind": "var",
+            "name": "scopeArchetype"
+          },
+          {
+            "source": "commonMain/org/koin/core/instance/ResolutionContext.kt",
+            "kind": "fun",
+            "name": "newContextForScope"
+          }
+        ]
+      },
+      "cookbook": "cookbook/koin.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Koin compose",
+      "coordinate": "io.insert-koin:koin-compose",
+      "version": "4.1.1-0.3.0",
+      "gav": "io.insert-koin:koin-compose:4.1.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-compose/4.1.1-0.3.0/koin-compose-4.1.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-compose/4.1.1-0.3.0/koin-compose-4.1.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/koin.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Koin compose viewmodel",
+      "coordinate": "io.insert-koin:koin-compose-viewmodel",
+      "version": "4.1.1-0.3.0",
+      "gav": "io.insert-koin:koin-compose-viewmodel:4.1.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-compose-viewmodel/4.1.1-0.3.0/koin-compose-viewmodel-4.1.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-compose-viewmodel/4.1.1-0.3.0/koin-compose-viewmodel-4.1.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": "cookbook/koin.md",
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Koin compose viewmodel navigation",
+      "coordinate": "io.insert-koin:koin-compose-viewmodel-navigation",
+      "version": "4.1.1-0.3.0",
+      "gav": "io.insert-koin:koin-compose-viewmodel-navigation:4.1.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-compose-viewmodel-navigation/4.1.1-0.3.0/koin-compose-viewmodel-navigation-4.1.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-compose-viewmodel-navigation/4.1.1-0.3.0/koin-compose-viewmodel-navigation-4.1.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Koin core annotations",
+      "coordinate": "io.insert-koin:koin-core-annotations",
+      "version": "4.1.1-0.3.0",
+      "gav": "io.insert-koin:koin-core-annotations:4.1.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-core-annotations/4.1.1-0.3.0/koin-core-annotations-4.1.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-core-annotations/4.1.1-0.3.0/koin-core-annotations-4.1.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Koin core coroutines",
+      "coordinate": "io.insert-koin:koin-core-coroutines",
+      "version": "4.1.1-0.3.0",
+      "gav": "io.insert-koin:koin-core-coroutines:4.1.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-core-coroutines/4.1.1-0.3.0/koin-core-coroutines-4.1.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-core-coroutines/4.1.1-0.3.0/koin-core-coroutines-4.1.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Koin core viewmodel",
+      "coordinate": "io.insert-koin:koin-core-viewmodel",
+      "version": "4.1.1-0.3.0",
+      "gav": "io.insert-koin:koin-core-viewmodel:4.1.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-core-viewmodel/4.1.1-0.3.0/koin-core-viewmodel-4.1.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-core-viewmodel/4.1.1-0.3.0/koin-core-viewmodel-4.1.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Koin Ktor",
+      "coordinate": "io.insert-koin:koin-ktor",
+      "version": "4.1.1-0.3.0",
+      "gav": "io.insert-koin:koin-ktor:4.1.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-ktor/4.1.1-0.3.0/koin-ktor-4.1.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-ktor/4.1.1-0.3.0/koin-ktor-4.1.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Koin test",
+      "coordinate": "io.insert-koin:koin-test",
+      "version": "4.1.1-0.3.0",
+      "gav": "io.insert-koin:koin-test:4.1.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-test/4.1.1-0.3.0/koin-test-4.1.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-test/4.1.1-0.3.0/koin-test-4.1.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Koin annotations",
+      "coordinate": "io.insert-koin:koin-annotations",
+      "version": "2.3.1-0.3.0",
+      "gav": "io.insert-koin:koin-annotations:2.3.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-annotations/2.3.1-0.3.0/koin-annotations-2.3.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-annotations/2.3.1-0.3.0/koin-annotations-2.3.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Koin KSP compiler",
+      "coordinate": "io.insert-koin:koin-ksp-compiler",
+      "version": "2.3.1-0.3.0",
+      "gav": "io.insert-koin:koin-ksp-compiler:2.3.1-0.3.0",
+      "target_support": {
+        "ohosArm64": false,
+        "ohosX64": false,
+        "android": false,
+        "ios": false,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-ksp-compiler/2.3.1-0.3.0/koin-ksp-compiler-2.3.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/insert-koin/koin-ksp-compiler/2.3.1-0.3.0/koin-ksp-compiler-2.3.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Kodein DI",
+      "coordinate": "org.kodein.di:kodein-di",
+      "version": "7.31.0-0.3.0",
+      "gav": "org.kodein.di:kodein-di:7.31.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/kodein/di/kodein-di/7.31.0-0.3.0/kodein-di-7.31.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/kodein/di/kodein-di/7.31.0-0.3.0/kodein-di-7.31.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Kodein DI conf",
+      "coordinate": "org.kodein.di:kodein-di-conf",
+      "version": "7.31.0-0.3.0",
+      "gav": "org.kodein.di:kodein-di-conf:7.31.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/kodein/di/kodein-di-conf/7.31.0-0.3.0/kodein-di-conf-7.31.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/kodein/di/kodein-di-conf/7.31.0-0.3.0/kodein-di-conf-7.31.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Kodein DI Compose",
+      "coordinate": "org.kodein.di:kodein-di-framework-compose",
+      "version": "7.31.0-0.3.0",
+      "gav": "org.kodein.di:kodein-di-framework-compose:7.31.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/kodein/di/kodein-di-framework-compose/7.31.0-0.3.0/kodein-di-framework-compose-7.31.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/kodein/di/kodein-di-framework-compose/7.31.0-0.3.0/kodein-di-framework-compose-7.31.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "FlowRedux",
+      "coordinate": "com.freeletics.flowredux2:flowredux",
+      "version": "2.0.0-0.3.0",
+      "gav": "com.freeletics.flowredux2:flowredux:2.0.0-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/freeletics/flowredux2/flowredux/2.0.0-0.3.0/flowredux-2.0.0-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/freeletics/flowredux2/flowredux/2.0.0-0.3.0/flowredux-2.0.0-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Khonshu state machine",
+      "coordinate": "com.freeletics.khonshu:state-machine",
+      "version": "0.34.4-0.3.0",
+      "gav": "com.freeletics.khonshu:state-machine:0.34.4-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/freeletics/khonshu/state-machine/0.34.4-0.3.0/state-machine-0.34.4-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/freeletics/khonshu/state-machine/0.34.4-0.3.0/state-machine-0.34.4-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Workflow runtime",
+      "coordinate": "com.squareup.workflow1:workflow-runtime",
+      "version": "1.24.04-0.3.0",
+      "gav": "com.squareup.workflow1:workflow-runtime:1.24.04-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/squareup/workflow1/workflow-runtime/1.24.04-0.3.0/workflow-runtime-1.24.04-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/squareup/workflow1/workflow-runtime/1.24.04-0.3.0/workflow-runtime-1.24.04-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Arrow core",
+      "coordinate": "io.arrow-kt:arrow-core",
+      "version": "2.2.0-SNAPSHOT-0.3.0",
+      "gav": "io.arrow-kt:arrow-core:2.2.0-SNAPSHOT-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/arrow-kt/arrow-core/2.2.0-SNAPSHOT-0.3.0/arrow-core-2.2.0-SNAPSHOT-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/arrow-kt/arrow-core/2.2.0-SNAPSHOT-0.3.0/arrow-core-2.2.0-SNAPSHOT-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Arrow fx coroutines",
+      "coordinate": "io.arrow-kt:arrow-fx-coroutines",
+      "version": "2.2.0-SNAPSHOT-0.3.0",
+      "gav": "io.arrow-kt:arrow-fx-coroutines:2.2.0-SNAPSHOT-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/arrow-kt/arrow-fx-coroutines/2.2.0-SNAPSHOT-0.3.0/arrow-fx-coroutines-2.2.0-SNAPSHOT-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/arrow-kt/arrow-fx-coroutines/2.2.0-SNAPSHOT-0.3.0/arrow-fx-coroutines-2.2.0-SNAPSHOT-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Kotlinx crypto AES",
+      "coordinate": "io.github.andreypfau:kotlinx-crypto-aes",
+      "version": "0.0.5-0.3.0",
+      "gav": "io.github.andreypfau:kotlinx-crypto-aes:0.0.5-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/github/andreypfau/kotlinx-crypto-aes/0.0.5-0.3.0/kotlinx-crypto-aes-0.0.5-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/github/andreypfau/kotlinx-crypto-aes/0.0.5-0.3.0/kotlinx-crypto-aes-0.0.5-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Kotlinx crypto SHA2",
+      "coordinate": "io.github.andreypfau:kotlinx-crypto-sha2",
+      "version": "0.0.5-0.3.0",
+      "gav": "io.github.andreypfau:kotlinx-crypto-sha2:0.0.5-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/github/andreypfau/kotlinx-crypto-sha2/0.0.5-0.3.0/kotlinx-crypto-sha2-0.0.5-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/github/andreypfau/kotlinx-crypto-sha2/0.0.5-0.3.0/kotlinx-crypto-sha2-0.0.5-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Kotlinx crypto HMAC",
+      "coordinate": "io.github.andreypfau:kotlinx-crypto-hmac",
+      "version": "0.0.5-0.3.0",
+      "gav": "io.github.andreypfau:kotlinx-crypto-hmac:0.0.5-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/github/andreypfau/kotlinx-crypto-hmac/0.0.5-0.3.0/kotlinx-crypto-hmac-0.0.5-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/io/github/andreypfau/kotlinx-crypto-hmac/0.0.5-0.3.0/kotlinx-crypto-hmac-0.0.5-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "WhatIf",
+      "coordinate": "com.github.skydoves:whatif",
+      "version": "1.2.2-0.3.0",
+      "gav": "com.github.skydoves:whatif:1.2.2-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/github/skydoves/whatif/1.2.2-0.3.0/whatif-1.2.2-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/com/github/skydoves/whatif/1.2.2-0.3.0/whatif-1.2.2-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Kermit logging",
+      "coordinate": "co.touchlab:kermit",
+      "version": "2.0.8-0.3.0",
+      "gav": "co.touchlab:kermit:2.0.8-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/co/touchlab/kermit/2.0.8-0.3.0/kermit-2.0.8-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/co/touchlab/kermit/2.0.8-0.3.0/kermit-2.0.8-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Kermit OHOS artifact",
+      "coordinate": "co.touchlab:kermit-ohosarm64",
+      "version": "2.0.8-0.3.0",
+      "gav": "co.touchlab:kermit-ohosarm64:2.0.8-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": false,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/co/touchlab/kermit-ohosarm64/2.0.8-0.3.0/kermit-ohosarm64-2.0.8-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/co/touchlab/kermit-ohosarm64/2.0.8-0.3.0/kermit-ohosarm64-2.0.8-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Paging common",
+      "coordinate": "app.cash.paging:paging-common",
+      "version": "3.3.0-alpha02-0.5.1-0.3.0",
+      "gav": "app.cash.paging:paging-common:3.3.0-alpha02-0.5.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": false,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/paging/paging-common/3.3.0-alpha02-0.5.1-0.3.0/paging-common-3.3.0-alpha02-0.5.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/paging/paging-common/3.3.0-alpha02-0.5.1-0.3.0/paging-common-3.3.0-alpha02-0.5.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    },
+    {
+      "capability": "Turbine",
+      "coordinate": "app.cash.turbine:turbine",
+      "version": "1.2.1-0.3.0",
+      "gav": "app.cash.turbine:turbine:1.2.1-0.3.0",
+      "target_support": {
+        "ohosArm64": true,
+        "ohosX64": false,
+        "android": true,
+        "ios": true,
+        "jvm": true
+      },
+      "metadata": {
+        "pom_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/turbine/turbine/1.2.1-0.3.0/turbine-1.2.1-0.3.0.pom",
+        "module_url": "https://maven.eazytec-cloud.com/nexus/repository/maven-public/app/cash/turbine/turbine/1.2.1-0.3.0/turbine-1.2.1-0.3.0.module"
+      },
+      "api_summary": {
+        "packages": [],
+        "declarations": []
+      },
+      "cookbook": null,
+      "evidence_file": "foundation_api_evidence.json",
+      "evidence_level": "metadata",
+      "status": "available"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "_note": "Within-envelope review by Spec-Designer/MO. Bind the exact prior freeze and proposed complete plan digest; this template is not approval. Stage under the current run and submit its path/sha256 as change.impact_ref.",
+  "from_freeze_id": "{{current-freeze-id}}",
+  "to_plan_hash": "{{digest-of-reviewed-proposed-plan}}",
+  "summary": "{{task-change-and-independent-impact-review}}",
+  "envelope_diff": "none",
+  "acceptance_diff": "none",
+  "affected_task_ids": ["{{task-id}}"],
+  "evidence_refs": [{"path": "{{absolute-run-root}}/staging/{{reviewer}}/{{request-id}}/impact.md", "sha256": "{{sha256}}"}]
+}

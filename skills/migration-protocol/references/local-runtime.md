@@ -31,10 +31,10 @@ python3 <package>/skills/migration-ledger/scripts/ledger.py apply --root <run> -
 python3 <package>/skills/migration-ledger/scripts/ledger.py status --root <run>
 python3 <package>/skills/migration-ledger/scripts/ledger.py resume --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/ledger.py recover --root <run> --request <request.json> --host-context <principal.json>
-python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run>
+python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run> --scope module --module-id <module-id>
 ```
 
-`verify_openspec.py` 是只读收尾门禁：fail-closed 校验本 run 确经 prepare → init → apply 产出顶层 OpenSpec 投影（`events.jsonl`/绑定快照/中枢/各 change `manifest.json`）；`verified=false` 表示绕过 Ledger，收尾不得据自述报告宣称完成。它不改状态、不写投影，见 [留存布局](storage-layout.md#openspec-投影完整性收尾门禁)。
+`verify_openspec.py` 只读核验指定范围的记录/投影：global 用于公共基础，module 用于当前模块、祖先和实际依赖，projection（默认）检查全量视图，final 另要求正式收尾报告。planning 阶段 projection 可以通过；这不证明真实派发、命令执行或功能 Green。失败按 scope/module_id/recovery_action 恢复相关范围，无关 MO 继续，不把全量 projection 失败作为所有模块的共同门禁。详见 [留存布局](storage-layout.md#openspec-投影完整性收尾门禁)。
 
 `init/resume/recover` 是对同名 operation 的入口校验，仍经过同一事务函数。成功返回 event_id/sequence/duplicate，拒绝返回 exit 1 和原因。业务状态以日志/投影为准，CLI exit 0 仅说明请求已接受。
 
@@ -81,7 +81,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | audit-resume | MO | 接受本模块问题审计裁决；human 需 decision_id；wait 保持队列；retry 回 testing，fix 授权一轮，change/human 回规划 |
 | plan | Spec-Designer | plan_ref；完整 [stage-plan](../../../template/stage-plan.json) |
 | freeze | MO | 初始/边界外变更 decision_id；边界内变更 change_class=within-envelope + impact_ref |
-| change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，待 Spec 新计划与再冻结 |
+| change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
 | assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；阶段合法且无活动 worker；返回的投影含 fencing_token |
 | submit | 对应 worker | assignment_id、fencing_token、result_ref；只提交，不改变业务阶段 |
 | accept | MO | assignment_id；再次检查工件和版本后关闭 assignment、推进阶段 |
@@ -148,6 +148,8 @@ digest({module_id, revision, recovery_cycle, additional_rounds})
 ```
 
 decision 为全局操作，不增加模块 revision，因此记录批准后 recover 可验证同一模块修订号。普通 resume 的 subject 为整个 blocked 对象摘要。恢复会话以 session 记录；冷恢复 checkpoint 包含 Ledger sequence、模块 revision、冻结引用、当前代码和 next_action，不依赖聊天摘要。
+
+recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时，保留 blocked、当前等待阶段及 resume_phase，继续展示原阻塞和恢复动作。human/tooling 仍须绑定该 blocked 摘要的单独 resume 决定；dependency 仍须依赖就绪和 GO 的 dependency-ready。预算批准不能同时充当解除阻塞的批准。无阻塞时保持原恢复行为：有 diagnosis 回到 diagnosing，否则回到 testing；不改变其他模块状态或测试颜色。
 
 本地使用 fix_rounds_used（累计）+ recovery_cycle + 可增加的 fix_budget；no_progress 根据未解决 PATH 的 ID、三态、根因 category/summary/owner 的稳定摘要计数；相同问题才累加，根因改变会重新观察。此处比较结构化声明，语义真实性仍由诊断者和 MO 审核。审计达到 max_audit_rounds 后停止，须显式建立后续受控运行；本地 recover 不重置全局审计预算。协议里的独立 yellow retry/超时升级由宿主策略执行，本地重复验证另受 no-progress 守卫限制。
 
@@ -356,7 +358,7 @@ invalidate 将旧 plan/freeze/代码/结果移入 planning_history，撤下旧�
 
 ## 当前执行规则：构建与自动化分开
 
-新 init 默认 split_testing_required=true；prepare 强制启用。历史低层运行可显式 false 保留旧契约。Test-Runner assign 需 test_scope=build|automation；其 context stage 分别是 building/testing。stage-plan 的 build PATH 冻结 command，execute_test 直接执行，不追加 query 参数；tests 结果覆盖本 scope 全路径，accept 合并后判定整体 DoD。
+新 init 默认 split_testing_required=true；prepare 强制启用。历史低层运行可显式 false 保留旧契约。Test-Runner assign 需 test_scope=build|automation|visual；build 的 context stage 为 building，automation/visual 为 testing。stage-plan 的 build PATH 冻结 command，execute_test 直接执行，不追加 query 参数；tests 结果覆盖本 scope 全路径，accept 合并后判定整体 DoD。
 
 | 操作 | 角色/范围 | 门禁与结果 |
 | --- | --- | --- |

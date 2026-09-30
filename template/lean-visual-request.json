@@ -1,0 +1,15 @@
+{
+  "_note": "Run via lean_worker with a current Test-Runner or Auditor assignment. visual-install permits a current automation or visual PATH; visual-capture and semantic-inspect require visual. Host owns and attests the live exclusive device lock. These tools create evidence, never a Ledger verdict. Each request_id is a new attempt. Capture requires a visual-install result from the same assignment, fence, device and accepted HAP. Viewport capture requires a stable target. Scroll capture requires frozen source-backed start selectors, a unique scroll_region, and observed scroll_end_match; missing, unstable or incomplete evidence remains partial/Yellow. The existing full runtime adapter also remains supported.",
+  "operation": "visual-capture",
+  "request_id": "{{new-capture-attempt-id}}",
+  "module_id": "M001",
+  "assignment_id": "{{active-assignment-id}}",
+  "fencing_token": "{{current-fencing-token}}",
+  "args": {
+    "path_id": "PATH-M001-VISUAL-001",
+    "artifact_ref": {"path": "{{run_root}}/runs/build/{{build-attempt}}/outputs/app.hap", "sha256": "{{accepted-build-hash}}"},
+    "install_ref": {"path": "{{run_root}}/runs/harmony/sandbox/{{actor_id}}/{{install-attempt}}/result.json", "sha256": "{{install-result-hash}}"},
+    "reference_manifest_ref": {"path": "{{run_root}}/context/files/{{manifest-hash}}.json", "sha256": "{{manifest-hash}}"},
+    "round": 1
+  }
+}

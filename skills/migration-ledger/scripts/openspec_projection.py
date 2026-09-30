@@ -33,23 +33,25 @@ def attempt(errors, stage, action, module_id=None):
         return None
 
 
-def module_view(root, state, sequence, mid, m, targets, context_warnings):
+def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=None, claim=True):
+    """Render from facts; emit/claim=False supports verification without any writes."""
+    emit = write if emit is None else emit
     if not m.get('plan'):
         if m.get('planning_history'):
-            change = run_storage.change_root(root, state, mid, claim=True)
+            change = run_storage.change_root(root, state, mid, claim=claim)
             previous = change / 'manifest.json'
-            if previous.exists():
+            if claim and previous.exists():
                 for relative in json.loads(previous.read_text()).get('files', []):
                     candidate = run_storage.checked_path(change / relative, change)
                     candidate.unlink(missing_ok=True)
             status = {'phase': m['phase'], 'freeze_id': None, 'sequence': sequence,
                       'next_action': 'replan-or-review-allocation', 'history_preserved': True}
-            write(change / 'status.md', '# Replanning required — previous plan is historical\n\n```json\n' +
+            emit(change / 'status.md', '# Replanning required — previous plan is historical\n\n```json\n' +
                   json.dumps(status, ensure_ascii=False, indent=2) + '\n```\n')
-            write(previous, json.dumps({**status, 'run_root': str(root), 'module_id': mid, 'files': ['status.md'],
+            emit(previous, json.dumps({**status, 'run_root': str(root), 'module_id': mid, 'files': ['status.md'],
                   'historical_plan_ref': m['planning_history'][-1]['plan_ref']}, ensure_ascii=False, indent=2) + '\n')
         return
-    change = run_storage.change_root(root, state, mid, claim=True)
+    change = run_storage.change_root(root, state, mid, claim=claim)
     manifest = {'sequence': sequence, 'run_root': str(root), 'module_id': mid, 'freeze_id': m['freeze_id'],
                 'validation': 'structural-only', 'definitions': m['plan']['definitions'], 'files': []}
     destinations = {**targets, **{str(Path(ref['path']).resolve()): str(change / (
@@ -77,7 +79,7 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings):
                       ('DoD accepted', m['phase'] == 'completed')]
             text += '\n\n## Ledger evidence (generated)\n\n' + '\n'.join(
                 f"- [{'x' if passed else ' '}] {label}" for label, passed in checks) + '\n'
-        write(change / relative, text)
+        emit(change / relative, text)
         manifest['files'].append(relative)
     status = {k: m.get(k) for k in ('phase', 'quality', 'stale', 'blocked', 'revision', 'freeze_id', 'code_baseline', 'local_fix_used')}
     status.update(schema_version=1, run_id=state['run_id'], module_id=mid, last_sequence=sequence,
@@ -88,20 +90,20 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings):
     status['effective_quality'] = m.get('effective_quality', m['quality'])
     status.update(sequence=sequence, next_step=state.get('projection_steps', {}).get(mid),
                   audit_resolution=state.get('audit_resolutions', {}).get(mid))
-    write(change / 'status.md', '# Ledger status (generated)\n\n```json\n' + json.dumps(status, ensure_ascii=False, indent=2) + '\n```\n')
-    write(change / 'memory.md', '# Repair memory (generated)\n\nOnly verified entries may inform a new repair; recheck applicability and current SPEC.\n\n```json\n' +
+    emit(change / 'status.md', '# Ledger status (generated)\n\n```json\n' + json.dumps(status, ensure_ascii=False, indent=2) + '\n```\n')
+    emit(change / 'memory.md', '# Repair memory (generated)\n\nOnly verified entries may inform a new repair; recheck applicability and current SPEC.\n\n```json\n' +
           json.dumps(m.get('fix_memory', []), ensure_ascii=False, indent=2) + '\n```\n')
     manifest['files'] += ['status.md', 'memory.md']
     if m['plan'].get('reuse_plan_ref'):
         ref = m['plan']['reuse_plan_ref']
-        write(change / 'reuse.md', '# Reuse guidance (Ledger plan projection)\n\n' +
+        emit(change / 'reuse.md', '# Reuse guidance (Ledger plan projection)\n\n' +
               'Executable only after freeze acceptance. Requirements remain the acceptance authority; verify selected provider versions before use.\n\n```json\n' +
               definition(root, ref) + '\n```\n')
         manifest['reuse_plan_ref'] = ref
         manifest['files'].append('reuse.md')
     if m['plan'].get('dimension_analysis_ref'):
         ref = m['plan']['dimension_analysis_ref']
-        write(change / 'dimensions.md', '# Dimension coverage (Ledger projection)\n\n' +
+        emit(change / 'dimensions.md', '# Dimension coverage (Ledger projection)\n\n' +
               'Analysis order: UI -> Logic -> Adhesive -> Resource. N/A requires source evidence.\n\n```json\n' +
               definition(root, ref) + '\n```\n\n## Task / PATH / ASSERT trace\n\n```json\n' +
               json.dumps(m['plan']['dimension_trace'], ensure_ascii=False, indent=2) + '\n```\n\n## Task scope and dimension analysis\n\n```json\n' +
@@ -113,17 +115,17 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings):
         import semantics
         sem_rows = semantics.models_from_analysis(json.loads(definition(root, ref)))
         if sem_rows:
-            write(change / 'semantics.md', '# Semantic extraction (Ledger projection)\n\n' +
+            emit(change / 'semantics.md', '# Semantic extraction (Ledger projection)\n\n' +
                   'Machine-readable UI/Logic/Resource models frozen with the SPEC. Each records result '
                   '(model_ref), source (origin/locator) and target implementation_location.\n\n```json\n' +
                   json.dumps(sem_rows, ensure_ascii=False, indent=2) + '\n```\n')
             manifest['files'].append('semantics.md')
     previous = change / 'manifest.json'
-    if previous.exists():
+    if claim and previous.exists():
         for obsolete in set(json.loads(previous.read_text()).get('files', [])) - set(manifest['files']):
             candidate = run_storage.checked_path(change / obsolete, change)
             candidate.unlink(missing_ok=True)
-    write(previous, json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+    emit(previous, json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 
 
 def materialize(root, state, sequence):

@@ -71,6 +71,20 @@ plan 前提交 planning 报告并绑定同一 plan_ref，核对全局/父/子范
 
 遵循 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)：基于认领子模块实现/四维上下文，协助子 MO 先划定 tasks.scope，再对每个任务按 UI → Logic → Adhesive → Resource 分析具体实现并绑定 scope_sha256，把 item ID 与实现指导写入 design/spec/tasks；生成完整 dimension_trace，规划审查 N/A 依据、真实接线和资源消费者，未决项禁止冻结。
 
+## UI 分析工具
+
+按 [lean 受限接入](../skills/migration-protocol/references/lean-integration.md) 使用 analyze-ui/validate-ui，读取 Capture 原始 manifest、源/运行时索引与知识主题，形成可追溯 UI 树、page/state/coverage、资源闭包和稳定节点。只生成本角色分析工件，不加载完整 lean 实现 skill，不在冻结前修改目标源码或资源。原始结果引用与转换证据随 plan 进入 Ledger；截图缺失不能伪造 runtime。
+
+v2 计划为每个 runtime UI 目标冻结独立 visual PATH，coverage 与对应 ui_evidence 完全相同，baseline_ref 属于该目标的 baseline_refs，node_ids 来自该目标树节点。闭包内 Resource item 明确 resource_kind/resource_strategy；源不可执行时仍完成 source-only 模型并说明缺视觉实证。无 UI 或有证据的 N/A 不添加空视觉任务，自动化环境缺失不阻止有完整规划证据的冻结/编码。
+
 ## 埋点契约
 
 按 [埋点协议](../skills/migration-protocol/references/telemetry.md) 将已审核的源事件、参数、触发/禁止条件、生产接线和验收层级写入 SPEC/design/tasks。stage-plan.telemetry 可索引事件→TASK/PATH/ASSERT；无埋点记有据 N/A、events=[]，不新增空测试。测试预期未知交人工，不能从目标实现推导通过标准。
+
+知识通过 knowledge-query 按实际源码/目标触发，Foundation 需求用 foundation-resolve 固定目录版本和适用性。开关开启时把真实 result_ref 绑定 plan.dependency_resolution_ref；无新依赖/非适用目标用明确 not-required 产物，不能用空列表代替。source-only 仍走原生 source/tree 严格校验；runtime 将当前目标 capture manifest、runtime index 与完整截图集合绑定。声明交互必须冻结完整 id/action/from/expected，不能只写 ID。见 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md)。
+
+资源可先 resource-scan，逐配置变体填写真实 source_resource_ref/qualifier；kind、单位、nine-patch 从文件/条目核对，任务分配绑定具体资源 item。within-envelope 的影响审查必须绑定 from_freeze_id + to_plan_hash，计划再次变化须重新审查；见 [OpenSpec 变更规则](../skills/migration-protocol/references/openspec.md)。
+
+规划 UI 状态时区分稳定视觉目标与瞬态行为，按 [状态测试表](../template/ui-state-test-design.md) 将源码状态映射到既有 SPEC/CASE/PATH。loading/skeleton 的状态分支必须迁移并做行为测试；只有明确要求且可稳定复现时进入 capture 目标。资源映射逐 source_resource/qualifier 留证，多个消费者分别列出；不支持自动转换的真实类型可记录 manual_exact 审查证据或 blocked 原因，不能伪装类型或删掉范围。
+
+v2 手势可绑定 automation 或 visual；source-only 通过 automation 保留设备行为义务，不创建缺基线的 visual PATH。collector 资源事实、适用 qualifier 与 Resource item 必须使用同一源文件/hash；范围外变体仅以 resource_scope.exclusions 和审查证据排除，不能省略已启用配置。旧索引过期须重新抽取并更新计划，不补造 hash。

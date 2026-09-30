@@ -23,7 +23,7 @@ def interpret(receipt, planned):
     report, error = load_content(receipt['result_ref']) if receipt.get('result_ref') else (None, 'missing result')
     evidence = [receipt['log_ref'], receipt['query_ref']]
     if receipt.get('result_ref'): evidence.append(receipt['result_ref'])
-    known = isinstance(report, dict) and report.get('producer') in ('harmony-adapter', 'build-executor')
+    known = isinstance(report, dict) and report.get('producer') in ('harmony-adapter', 'build-executor', 'lean-visual-adapter')
     if known and report['producer'] == 'build-executor':
         require(planned.get('kind') == 'build', 'build report cannot replace automation')
     if known and report['producer'] == 'harmony-adapter':
@@ -41,6 +41,11 @@ def interpret(receipt, planned):
                 if not isinstance(item, dict): known = False; continue
                 for ref in item.get('evidence_refs', []): check_ref(ref)
         for ref in report.get('artifacts', []): check_ref(ref)
+    if known and report['producer'] == 'lean-visual-adapter':
+        require(planned.get('kind') == 'visual', 'visual report cannot replace functional tests')
+        for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
+            require(report.get(key) == receipt.get(key), 'visual report context mismatch')
+        require(report.get('query_sha256') == digest(query), 'visual query mismatch')
     assertions = report.get('assertions') if known else None
     valid = (isinstance(assertions, list) and len(assertions) == len(expected)
              and all(isinstance(a, dict) and isinstance(a.get('assertion_id'), str) and a['assertion_id'] in expected for a in assertions)
@@ -55,9 +60,9 @@ def interpret(receipt, planned):
             valid = isinstance(cause, dict) and all(cause.get(k) for k in ('category', 'summary', 'confidence', 'owner', 'next_action'))
     abnormal = receipt['exit_code'] not in (0, 1, 2)
     if valid:
-        row = copy.deepcopy({k: report[k] for k in ('quality', 'assertions', 'root_cause', 'flaky') if k in report})
+        row = copy.deepcopy({k: report[k] for k in ('quality', 'assertions', 'root_cause', 'flaky', 'skipped', 'xfail', 'visual_alignment', 'interaction_evidence', 'build_artifacts') if k in report})
         row.update(executed=True, host_completion_version=1)
-        if report['producer'] == 'harmony-adapter' and (abnormal or receipt['exit_code'] != 0 and row['quality'] == 'green-passed'):
+        if report['producer'] in ('harmony-adapter', 'lean-visual-adapter') and (abnormal or receipt['exit_code'] != 0 and row['quality'] == 'green-passed'):
             previous = row.get('root_cause')
             row['quality'] = 'red-bug' if row['quality'] == 'red-bug' else 'yellow-blocked'
             row['root_cause'] = {'category': previous['category'] if previous else 'tooling', 'summary':
@@ -65,6 +70,24 @@ def interpret(receipt, planned):
                 'confidence': previous['confidence'] if previous else 'observed',
                 'owner': previous['owner'] if previous else receipt['module_id'], 'next_action': 'diagnose',
                 'evidence_refs': evidence, 'observed_root_cause': previous}
+        limited = [key for key in ('skipped', 'xfail') if row.get(key)]
+        if row['quality'] == 'green-passed' and limited:
+            row['quality'] = 'yellow-blocked'
+            row['root_cause'] = {'category': 'tooling', 'reason_code': 'incomplete-test-execution',
+                'summary': 'Adapter reported ' + ', '.join(limited) + '; frozen tests did not complete a clean pass',
+                'confidence': 'observed', 'owner': receipt['module_id'],
+                'next_action': 'diagnose the execution limitation and rerun the affected paths',
+                'evidence_refs': evidence}
+        if (row['quality'] == 'green-passed' and planned.get('kind') == 'automation'
+                and query.get('evidence_contract_version', 1) >= 2 and query.get('frozen_interaction')
+                and not row.get('interaction_evidence')):
+            row['quality'] = 'yellow-blocked'
+            row['root_cause'] = {'category': 'tooling', 'reason_code': 'interaction-evidence-unavailable',
+                'summary': 'Adapter did not produce structured device evidence for frozen interaction ' +
+                           query['frozen_interaction']['id'],
+                'confidence': 'observed', 'owner': receipt['module_id'],
+                'next_action': 'provide an adapter with interaction evidence or record the unavailable capability',
+                'evidence_refs': evidence + ([report['observations_ref']] if report.get('observations_ref') else [])}
         return row
 
     # Incomplete results may still have flushed, host-bound observations. Recover

@@ -1,5 +1,5 @@
 {
-  "_note": "Optional `semantic_model` attached to an applicable UI/Logic/Resource dimension item. Presence-triggered: validated only when present. model_ref points to a machine-readable JSON of the matching kind; it is archived to artifacts/ and frozen with the dimension analysis.",
+  "_note": "Examples, not executed evidence. Generic semantic models are presence-triggered; prepared runs require UI models/evidence for applicable UI. evidence_contract_version=2 applies to new prepare snapshots only; preserve historical run versions.",
   "ui_item_example": {
     "semantic_model": {
       "kind": "ui-component-spec",
@@ -17,10 +17,27 @@
         "legacy_executable": true,
         "baseline_refs": [
           {
-            "path": "{{absolute-run-root}}/staging/capture/{{request-id}}/shot.png",
+            "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture-agent}}/{{request-id}}/shot.png",
             "sha256": "{{sha256}}"
           }
-        ]
+        ],
+        "contract_version": 2,
+        "capture_manifest_ref": {
+          "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture-agent}}/{{request-id}}/manifest.json",
+          "sha256": "{{actual-manifest-sha256}}"
+        },
+        "source_index_ref": {
+          "path": "{{absolute-run-root}}/staging/{{spec-designer}}/{{request-id}}/ui-source-index.json",
+          "sha256": "{{actual-source-index-sha256}}"
+        },
+        "resource_scope": {
+          "_note": "Optional reviewed exclusions only for indexed variants outside this UI scope; every remaining source ID + qualifier needs one Resource item with the same source path/hash. An excluded qualifier must not be declared active in configuration_mapping.scope.configurations.",
+          "exclusions": []
+        },
+        "runtime_index_ref": {
+          "path": "{{absolute-run-root}}/staging/{{spec-designer}}/{{request-id}}/runtime-ui-index.json",
+          "sha256": "{{actual-runtime-index-sha256}}"
+        }
       },
       "source": {
         "origin": "legacy",
@@ -67,6 +84,28 @@
       }
     }
   },
+  "platform_resource_item_example": {
+    "_note": "Optional Resource item fields for an Android framework resource. SDK metadata and data/res definitions are read-only external inputs, never generated migration assets. Use the SDK version actually selected for the source; these placeholders are not evidence. Existing consumer/target/task/assertion trace requirements still apply. The constrained converter handles legacy files; platform tokens/adaptations are implemented under the frozen task. If the real definition/version cannot be established, use blocked with its reason rather than inventing a value.",
+    "source_resource": "@android:color/black",
+    "source_resource_ref": {
+      "path": "{{readonly-sdk-platform-root}}/data/res/values/colors.xml",
+      "sha256": "{{actual-sdk-definition-sha256}}"
+    },
+    "platform_resource": {
+      "api_level": 35,
+      "sdk_metadata_ref": {
+        "path": "{{readonly-sdk-platform-root}}/source.properties",
+        "sha256": "{{actual-sdk-metadata-sha256}}"
+      }
+    },
+    "resource_kind": "color",
+    "resource_strategy": "design_token_exact",
+    "qualifier": "base",
+    "target_resource": "{{absolute-target-root}}/ui/theme/Tokens.kt#PlatformBlack",
+    "consumer": [
+      "{{absolute-target-root}}/ui/settings/SettingsScreen.kt#SettingsBackground"
+    ]
+  },
   "conformance_evidence_example": {
     "_note": "At implementation, each item's dimension_evidence must bind the frozen model so downstream provably consumed it.",
     "dimension_evidence": [
@@ -98,7 +137,7 @@
             "_runtime": "previewable legacy: repeat ui_evidence.baseline_refs exactly",
             "baseline_refs": [
               {
-                "path": "{{absolute-run-root}}/staging/capture/{{request-id}}/shot.png",
+                "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture-agent}}/{{request-id}}/shot.png",
                 "sha256": "{{sha256}}"
               }
             ],
@@ -172,65 +211,178 @@
     }
   },
   "ui_tree_contract": {
-    "_note": "ui_evidence.ui_tree_ref points at a lean-produced merged source+runtime UI tree; validated by ui_tree.py.",
+    "_note": "Native Lean tree example for a screen, its title and one adapter row. Instantiate source anchors and collected XML facts without changing the native object/list shapes. Expand every reachable XML selector and attachment; this example does not declare another application's source closure. For source-only evidence omit runtimeIndex/runtimeIndexSha256 and runtimeObservations. Retain original indexes/capture manifest; structural validation does not prove semantic completeness.",
     "schemaVersion": 1,
     "scope": "{{change-id}}",
     "generatedFrom": {
-      "sourceIndex": "ui-source-index.json",
-      "sourceIndexSha256": "{{sha256}}",
-      "runtimeIndex": "runtime-ui-index.json (null when the legacy screen cannot be previewed)",
-      "runtimeIndexSha256": "{{sha256 or null}}"
+      "sourceIndex": "{{source-index-path}}",
+      "sourceIndexSha256": "{{source-index-sha256}}",
+      "runtimeIndex": "{{runtime-index-path}}",
+      "runtimeIndexSha256": "{{runtime-index-sha256}}"
     },
     "screens": [
       {
-        "id": "screen:settings",
+        "id": "settings",
+        "name": "Settings",
+        "kind": "fragment",
         "root": {
-          "id": "node:root",
+          "id": "settings.root",
+          "name": "Settings root",
+          "nodeKind": "container",
+          "viewClass": "LinearLayout",
+          "analysisStatus": "expanded",
+          "source": {
+            "path": "{{screen-layout-path}}",
+            "selector": "{{screen-root-selector}}",
+            "origin": "xml",
+            "line": null
+          },
+          "initialVisibility": "visible",
+          "layout": {
+            "kind": "vertical",
+            "scrollable": false,
+            "rawAttrs": {
+              "android:layout_width": "match_parent",
+              "android:layout_height": "match_parent"
+            },
+            "resolvedAttrs": {}
+          },
           "presentation": {
-            "resourceRefs": [
-              "@dimen/margin",
-              "@color/text"
-            ]
+            "purpose": "Container for settings content",
+            "appearance": "{{source-backed-root-appearance}}",
+            "resourceRefs": []
           },
           "bindings": [
-            "binding:enabled"
+            {
+              "target": "{{binding-target}}",
+              "source": "{{binding-source}}",
+              "sourcePath": "{{renderer-source-path}}",
+              "selector": "{{binding-source-selector}}"
+            }
           ],
           "events": [
-            "event:toggle"
+            {
+              "trigger": "{{event-trigger}}",
+              "handler": "{{event-handler}}",
+              "sourcePath": "{{renderer-source-path}}",
+              "selector": "{{event-source-selector}}"
+            }
           ],
           "dynamicRules": [
             {
-              "condition": "selected",
-              "resourceRefs": [
-                "@color/selected"
-              ]
+              "when": "{{dynamic-condition}}",
+              "property": "{{dynamic-property}}",
+              "result": "{{dynamic-result}}",
+              "sourcePath": "{{renderer-source-path}}",
+              "selector": "{{dynamic-source-selector}}"
             }
           ],
-          "capabilities": [
-            "clickable"
-          ],
+          "capabilities": {
+            "scroll": false
+          },
           "runtimeObservations": [
             {
               "pageId": "settings",
               "stateId": "base",
-              "text": "Settings"
+              "viewSignature": "{{runtime-view-signature}}"
             }
           ],
-          "children": []
-        },
-        "attachments": {
-          "dialogs": [
+          "children": [
             {
-              "id": "node:confirm",
+              "id": "settings.root.1",
+              "name": "Settings title",
+              "nodeKind": "view",
+              "viewClass": "TextView",
+              "analysisStatus": "leaf",
+              "source": {
+                "path": "{{screen-layout-path}}",
+                "selector": "{{title-selector}}",
+                "origin": "xml",
+                "line": null
+              },
+              "initialVisibility": "visible",
+              "layout": {
+                "kind": "leaf",
+                "scrollable": false,
+                "rawAttrs": {
+                  "android:layout_width": "match_parent",
+                  "android:layout_height": "wrap_content",
+                  "android:text": "@string/settings_title"
+                },
+                "resolvedAttrs": {}
+              },
               "presentation": {
-                "resourceRefs": []
-              }
+                "purpose": "Settings title",
+                "appearance": "Text from the source string resource",
+                "resourceRefs": ["@string/settings_title"]
+              },
+              "bindings": [],
+              "events": [],
+              "dynamicRules": [],
+              "capabilities": {},
+              "children": []
             }
           ]
-        }
+        },
+        "attachments": [
+          {
+            "id": "settings.row",
+            "kind": "list_item",
+            "anchorNodeId": "settings.root",
+            "root": {
+              "id": "settings.row",
+              "name": "Settings adapter row",
+              "nodeKind": "view",
+              "viewClass": "TextView",
+              "analysisStatus": "leaf",
+              "source": {
+                "path": "{{row-layout-path}}",
+                "selector": "{{row-root-selector}}",
+                "origin": "xml",
+                "line": null
+              },
+              "initialVisibility": "visible",
+              "layout": {
+                "kind": "leaf",
+                "scrollable": false,
+                "rawAttrs": {
+                  "android:layout_width": "match_parent",
+                  "android:layout_height": "wrap_content",
+                  "android:text": "@string/settings_title"
+                },
+                "resolvedAttrs": {}
+              },
+              "presentation": {
+                "purpose": "Repeated settings row",
+                "appearance": "Text from the source string resource",
+                "resourceRefs": ["@string/settings_title"]
+              },
+              "bindings": [],
+              "events": [],
+              "dynamicRules": [],
+              "capabilities": {},
+              "children": []
+            }
+          }
+        ]
       }
     ],
-    "layoutClosure": [],
+    "layoutClosure": [
+      {
+        "path": "{{screen-layout-path}}",
+        "role": "screen",
+        "nodeIds": ["settings.root", "settings.root.1"],
+        "status": "mapped",
+        "reason": "Screen root and every child selector are represented"
+      },
+      {
+        "path": "{{row-layout-path}}",
+        "role": "list_item",
+        "nodeIds": ["settings.row"],
+        "status": "mapped",
+        "reason": "Reachable adapter layout represented as an attachment"
+      }
+    ],
     "criticalLayoutContracts": [],
     "unresolved": []
   }

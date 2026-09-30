@@ -85,7 +85,7 @@ single-module 选定一个根功能，父 MO 仍拆分子功能；每个子功�
 
 ## 构建与自动化分流
 
-Test-Runner assignment 明确 test_scope=build|automation；先接受构建，再派发自动化。当前构建通过且仅自动化环境缺失时，接受 automation-unavailable，逐路径 Yellow，模块 automation-deferred 可进入父汇总；不取消兄弟、不挡住可消费当前代码的下游。恢复使用 ready 报告和 automation-resume，无新增人工批准；不能用该入口掩盖真实 Red。详见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
+Test-Runner assignment 明确 test_scope=build|automation|visual；先接受构建，再派发功能自动化，当前功能 Green 后另派适用的 visual。当前构建通过且仅自动化环境缺失时，接受 automation-unavailable，逐路径 Yellow，模块 automation-deferred 可进入父汇总；不取消兄弟、不挡住可消费当前代码的下游。恢复使用 ready 报告和 automation-resume，无新增人工批准；不能用该入口掩盖真实 Red。详见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
 
 ## 父 MO 命名信号
 
@@ -106,3 +106,7 @@ Test-Runner assignment 明确 test_scope=build|automation；先接受构建，�
 ## 模块与任务的埋点适用性
 
 父 MO 按认领 scope 分配存在的事件和公共接入职责，允许孩子 N/A；子 MO 在 SPEC/任务规划中区分 applicable 与 not-applicable，允许同一模块内部分普通任务 N/A。无埋点不新增环境/用例/修复门禁；有埋点的真实失败或缺证据不能伪装 N/A。实际修改/验收依 [埋点协议](../skills/migration-protocol/references/telemetry.md) 走原路径，独立兄弟正常推进。
+
+## 受限迁移知识
+
+按 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md) 在本模块范围内 query/resolve；要求 Spec-Designer 将适用解析结果绑定 plan.dependency_resolution_ref，开关关闭或其他模块不适用不能扩大本模块门禁。工具只产出 staging 工件，MO 仍按 Ledger 接受与派发。

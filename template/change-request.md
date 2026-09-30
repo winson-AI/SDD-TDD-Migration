@@ -31,4 +31,4 @@
 - envelope_diff / acceptance_diff: {{具体差异或 none}}
 - owner_module_id / owner_role: {{routing}}
 
-within-envelope 仍需 Spec-Designer 修订、MO 审查和新执行 freeze；不得由 Fixer 直接改 tasks。
+within-envelope 仍需 Spec-Designer 修订、MO 审查和新执行 freeze；不得由 Fixer 直接改 tasks。impact_ref 使用 [change-impact.json](change-impact.json)，绑定 from_freeze_id 与 to_plan_hash；本请求保留原因与范围说明，不以散文替代版本绑定。freeze 消费当前 CR；invalidate 保留历史但撤销其当前授权。

@@ -15,7 +15,7 @@
 
 这些 slash command 是待宿主加载的命令定义，未安装到用户配置；本包已提供本地 Ledger 控制器、阶段校验和测试调用适配器；没有常驻 Agent 调度服务或内置业务测试。本地控制器实现事件提交、单写者和模块资源占用检查；宿主仍须提供身份认证、写权限隔离、Agent 派发与项目真实测试适配器。具体能力见 [本地运行指南](skills/migration-protocol/references/local-runtime.md)。仅加载 Markdown 不会产生操作系统级权限隔离。没有这些能力时应显式阻塞，不能宣称端到端迁移已执行。
 
-要在其他仓库真实跑起来（每步提交真实 Ledger 事件、每个角色由真实派发的 Agent 执行，而非手写文件模拟），按 [宿主接入契约](skills/migration-protocol/references/host-integration.md) 逐阶段接线并做一次接入自检；每次推进/收尾用 `/sdd-verify` 核验投影完整性。
+要在其他仓库真实跑起来，按 [宿主接入契约](skills/migration-protocol/references/host-integration.md) 接入真实角色派发与执行回执。推进按 global/module 范围运行 `/sdd-verify`，巡检用 projection、交付用 final；核验只证明记录和投影一致，无关模块视图错误不阻塞当前 MO，也不能由核验通过推断实际执行或功能全绿。UI 分析、资源转换与受限视觉取证按 [lean 受限接入](skills/migration-protocol/references/lean-integration.md) 使用，保持既有角色、Ledger 和修复预算。
 
 ## 二方库与已有能力
 
@@ -41,7 +41,7 @@
 | `template/` | 全局输入、模块输入、六件套及诊断、测试、事件、人工决策等运行工件模板 |
 | `diagrams/` | 三层编排总览、子 MO/Auditor 细节图及生成源文件 |
 
-运行期资产集中在固定 `workspace_root`，其下 `.sdd-migration`（长期配置）、`.sdd-runs/<run_id>`（运行证据）、`openspec`（规格与状态中枢）顶层并列；包目录自身不存迁移状态。Harmony 执行统一在 `.sdd-runs/<run_id>/runs/harmony/`（automation/sandbox），构建资产在 runs/build；临时文件归 runner，结束清理，失败留存原因。项目模型参考配置/凭证在 `.sdd-migration/harmony/`；Test-Runner 首次准备时复制到本轮 `runs/harmony/sandbox/environment/`，各模块共享本轮副本。入口为 `openspec/runs/<run_id>/workflow.md`。见 [完整留存布局与二次启动](skills/migration-protocol/references/storage-layout.md)。模块 ID 永久稳定，如 `M001`；OpenSpec change 名如 `migration-demo-m001`。新增模块只追加编号，不因排序改变历史 ID。顶层 `openspec` 是 prepare→init→apply 真实跑通后的投影，不能手写；收尾用只读门禁 `verify_openspec.py --root <run>` fail-closed 校验其完整性（缺 `events.jsonl` 即说明 Ledger 从未运行，run 未真正执行），细则见 [投影完整性收尾门禁](skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。
+运行期资产集中在固定 `workspace_root`，其下 `.sdd-migration`（长期配置）、`.sdd-runs/<run_id>`（运行证据）、`openspec`（规格与状态中枢）顶层并列；包目录自身不存迁移状态。Harmony 执行统一在 `.sdd-runs/<run_id>/runs/harmony/`（automation/sandbox），构建资产在 runs/build；临时文件归 runner，结束清理，失败留存原因。项目模型参考配置/凭证在 `.sdd-migration/harmony/`；Test-Runner 首次准备时复制到本轮 `runs/harmony/sandbox/environment/`，各模块共享本轮副本。入口为 `openspec/runs/<run_id>/workflow.md`。见 [完整留存布局与二次启动](skills/migration-protocol/references/storage-layout.md)。模块 ID 永久稳定，如 `M001`；OpenSpec change 名如 `migration-demo-m001`。新增模块只追加编号，不因排序改变历史 ID。顶层 `openspec` 是 prepare→init→apply 真实跑通后的投影，不能手写；最终交付用只读门禁 `verify_openspec.py --root <run> --scope final` 核验投影与正式收尾报告；缺事件证据时恢复其有效来源，不由核验结果推断真实派发或功能通过，细则见 [投影完整性收尾门禁](skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。
 
 ## 对现有 guidance 的适配
 

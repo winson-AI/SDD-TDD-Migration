@@ -136,19 +136,19 @@ def summary_subject(s, group):
     })
 
 
-def summary_current(s, group):
+def summary_current(s, group, ref_check=check_ref):
     if any(s['modules'][mid].get('effective_quality') == 'yellow-blocked' for mid in leaves(s, group['module_id'])):
         return False
     if group.get('summary_subject') != summary_subject(s, group):
         return False
     try:
-        check_ref(group.get('summary_ref'))
+        ref_check(group.get('summary_ref'))
         return True
     except (Rejected, OSError):
         return False
 
 
-def group_step(s, group):
+def group_step(s, group, ref_check=check_ref):
     from ledger import current, next_step
     step = {'module_id': group['module_id'], 'phase': group['phase'],
             'expected_revision': group['revision'], 'operation': None,
@@ -168,9 +168,9 @@ def group_step(s, group):
                 next_step(s, m)['ready']):
             return step
     for mid in group['children']:
-        if mid in s.get('module_groups', {}) and not summary_current(s, s['module_groups'][mid]):
+        if mid in s.get('module_groups', {}) and not summary_current(s, s['module_groups'][mid], ref_check):
             return step
-    if summary_current(s, group):
+    if summary_current(s, group, ref_check):
         step['reason'] = 'parent-summary-current'
     else:
         step.update(operation='module-summary', ready=True, reason='all-children-settled',
@@ -178,13 +178,13 @@ def group_step(s, group):
     return step
 
 
-def refresh_groups(s):
+def refresh_groups(s, ref_check=check_ref):
     for group in s.get('module_groups', {}).values():
         children = [s['modules'][mid] for mid in leaves(s, group['module_id'])]
         green = bool(children) and all(m['quality'] == 'green-passed' for m in children)
         group['quality'] = ('red-bug' if any(m['quality'] == 'red-bug' for m in children)
-                            else 'green-passed' if green and summary_current(s, group) else 'yellow-blocked')
-        group['phase'] = ('completed' if green else 'waiting-auditor') if summary_current(s, group) else 'coordinating'
+                            else 'green-passed' if green and summary_current(s, group, ref_check) else 'yellow-blocked')
+        group['phase'] = ('completed' if green else 'waiting-auditor') if summary_current(s, group, ref_check) else 'coordinating'
 
 
 def validate(s, parent, plan):
@@ -272,7 +272,8 @@ def handle(s, req, actor):
         s.setdefault('module_groups', {})[mid] = parent
         for child in children:
             child = copy.deepcopy(child)
-            child.update(parent_module_id=mid, dependencies=graph[child['module_id']])
+            child.update(parent_module_id=mid, dependencies=graph[child['module_id']],
+                         evidence_contract_version=s.get('evidence_contract_version', 1))
             s['modules'][child['module_id']] = new_module(child)
         for leaf_id, module in s['modules'].items():
             if module['dependencies'] != graph[leaf_id]:

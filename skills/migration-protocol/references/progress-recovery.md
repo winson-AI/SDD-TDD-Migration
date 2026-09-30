@@ -21,6 +21,8 @@ MO 接受 `invalidate` 后：
 
 OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；旧定义仍可从历史事件及快照恢复。不删除用户自有文件，不自动接受新 SPEC，不复用过期 Green。
 
+预算耗尽时，MO 可凭明确预算决定执行 recover。若同时存在 human/tooling/dependency 阻塞，仅增加预算并保留原 blocked、等待阶段和 resume_phase；宿主继续展示原阻塞及恢复条件。人工/工具阻塞仍经绑定当前 blocked 的 resume 决定，依赖阻塞仍经 GO dependency-ready 和 resume；追加预算不替代这些动作，也不影响无关模块。无阻塞时沿原 diagnosing/testing 恢复路线继续。
+
 ## 3. 宿主必须消费的进度信号
 
 每次事件 ACK、命令拒绝、worker 返回或异常退出后，宿主重新读取 `ledger.py status`。等待 worker 期间至少每 60 秒检查其真实状态并刷新 status；不用重复派发来探测进度。

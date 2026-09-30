@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "authority": "advisory; Android source, target code, installed SDK, and executed evidence remain authoritative",
+  "entries": [
+    {
+      "id": "sdd-knowledge-adaptation",
+      "path": "references/sdd-adaptation.md",
+      "applies_when": "Any bundled knowledge is used for SDD planning, implementation or validation; this defines artifact ownership and evidence interpretation."
+    },
+    {
+      "id": "android-xml-to-cmp",
+      "path": "references/xml-to-cmp-mapping.md",
+      "applies_when": "The active slice uses res/layout XML, ViewBinding/DataBinding, RecyclerView/ViewHolder, visibility rules, Android drawable XML, or View-based form controls."
+    },
+    {
+      "id": "coordinator-appbar-to-cmp",
+      "path": "references/coordinator-appbar-to-cmp.md",
+      "applies_when": "The active slice uses CoordinatorLayout, AppBarLayout, CollapsingToolbarLayout, nested scrolling, pager-tab coordination, anchored controls, or persistent sheets."
+    },
+    {
+      "id": "rxjava-to-flow",
+      "path": "references/migration-knowledge/rxjava-to-flow.md",
+      "applies_when": "The Android behavior contains RxJava types, Subjects, schedulers, disposables, Flowable backpressure, or operators migrated to coroutines/Flow."
+    },
+    {
+      "id": "flow-delivery",
+      "path": "references/migration-knowledge/flow-delivery.md",
+      "applies_when": "The active behavior uses Flow, StateFlow, SharedFlow, Channel, callbackFlow, one-shot effects, replay, or multiple collectors."
+    },
+    {
+      "id": "coroutine-lifecycle",
+      "path": "references/migration-knowledge/coroutine-lifecycle.md",
+      "applies_when": "The active behavior starts, owns, cancels, retries, or outlives coroutine work, lifecycle scopes, ViewModel scopes, callbacks, or background work."
+    },
+    {
+      "id": "retry-backpressure",
+      "path": "references/migration-knowledge/retry-backpressure.md",
+      "applies_when": "The source retries, backs off, throttles, debounces, buffers, conflates, drops, switches to latest, or processes burst input."
+    },
+    {
+      "id": "coroutine-test-determinism",
+      "path": "references/migration-knowledge/coroutine-test-determinism.md",
+      "applies_when": "Focused tests cover suspend work, delayed work, hot streams, lifecycle-owned tasks, injected dispatchers, or virtual time."
+    },
+    {
+      "id": "kmp-platform-boundaries",
+      "path": "references/migration-knowledge/kmp-boundaries.md",
+      "applies_when": "The slice crosses commonMain and platform source sets, introduces expect/actual, or binds a system/native capability."
+    },
+    {
+      "id": "harmony-target-matrix",
+      "path": "references/harmonyos-targets.md",
+      "applies_when": "The target declares ohosArm64, ohosX64, ohosMain, harmonyApp, or publish*BinariesToHarmonyApp tasks."
+    },
+    {
+      "id": "harmony-system-capability-routing",
+      "path": "references/harmony-system-capability-routing.md",
+      "applies_when": "The Android behavior reaches a system service, permission, OS side effect, native library, Android/JVM-only SDK, ArkTS Kit, or C API."
+    },
+    {
+      "id": "harmony-host-runtime",
+      "path": "references/harmony-host-runtime.md",
+      "applies_when": "The slice affects permissions, EntryAbility/window setup, system bars, insets, IME, orientation, full-screen transitions, or device networking."
+    },
+    {
+      "id": "mpcore-back-navigation",
+      "path": "references/mpcore-back-navigation.md",
+      "applies_when": "Harmony is required, the target exposes MPCore ArkUIViewController/Compose back APIs, and the active slice preserves or introduces a user-visible route stack, has observable Android back behavior, or the approved Spec explicitly requires platform back or an edge-back gesture."
+    },
+    {
+      "id": "native-networking-engine",
+      "path": "references/native-networking-engine.md",
+      "applies_when": "The active slice uses HTTP, HTTPS, WebSocket, Ktor, Retrofit/OkHttp migration, auth refresh, upload/download, or generated API clients on native targets."
+    },
+    {
+      "id": "harmony-runtime-packaging",
+      "path": "references/harmony-runtime-packaging.md",
+      "applies_when": "The target publishes KMP binaries/resources to harmonyApp, packages HAP, writes files/databases, links native libraries, or declares Harmony ABIs."
+    },
+    {
+      "id": "ui-screenshot-determinism",
+      "path": "references/migration-knowledge/ui-screenshot-determinism.md",
+      "applies_when": "The slice uses screenshot/UI runtime evidence, animations, clocks, remote images, asynchronous rendering, or deterministic fixtures."
+    }
+  ],
+  "foundation_catalog": "references/foundation-api-knowledge/index.json",
+  "foundation_cookbook_root": "references/foundation-api-knowledge",
+  "foundation_runtime_diagnostics": "references/foundation-api-knowledge/runtime-diagnostics.json",
+  "external_capability_catalog": "references/external-capabilities/index.json",
+  "external_capability_root": "references/external-capabilities"
+}

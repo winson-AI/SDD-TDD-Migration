@@ -32,3 +32,5 @@ description: 只读根因、依赖链与生成代码缺陷归因，用于 SDD-TD
 本地 diagnose 仅提交报告；MO diagnosis-accept 核验问题版本后推进阶段。诊断者不能自批，活动 worker 未关闭时不得提交。
 
 二方库问题沿需求→能力映射→提供方版本→调用链→PATH 只读追踪，区分接线/适配缺陷与提供方/外围阻塞，保留影响消费者与根因证据。见 [复用协议](../migration-protocol/references/reuse-dependencies.md)。
+
+稳定错误使用受限 knowledge-diagnose，输入带 hash 的真实日志片段，按命中引用读取 cookbook/topic；命中仅是候选，仍核实当前 source/target/环境后提交根因。无命中不虚构建议，不触发自动修复或新的编排。见 [Wave-1](../migration-protocol/references/wave1-disciplines.md)。

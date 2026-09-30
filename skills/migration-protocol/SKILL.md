@@ -79,3 +79,7 @@ GO/父子 MO/Host 在运行中追加只读来源时读 [source-changes.md](refer
 ## 18. 迁移资产布局
 
 所有角色及 Host 读取 [留存文件系统](references/storage-layout.md)：长期配置、运行证据、顶层 OpenSpec 并列，以 workspace_root/run_id 固定归属；OpenSpec 是规格与状态阅读入口，Ledger 是唯一事件权威。
+
+## 19. UI 领域工具与证据版本
+
+涉及 UI 分析、资源转换或视觉比较时读取 [lean 受限接入](references/lean-integration.md) 与 [UI 保真](references/ui-fidelity.md)。按 SDD 当前角色使用白名单工具，不整包执行 lean 实现/Aligner/orchestrator，不合并设计、写码与独立验收权限。新 prepare 使用 evidence_contract_version=2，旧 run 按原版本恢复；原始结果及转换产物均经受管输出和 Ledger 引用传递。自动化 Yellow 缺测例外保持不变。

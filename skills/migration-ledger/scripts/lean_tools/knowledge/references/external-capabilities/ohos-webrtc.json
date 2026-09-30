@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "id": "ohos-webrtc",
+  "snapshot": "2026-07-21",
+  "package": {
+    "manager": "ohpm",
+    "coordinate": "@ohos/webrtc",
+    "verified_version": "1.0.2",
+    "upstream": "https://gitcode.com/CPF-ApplicationTPC/ohos_webrtc",
+    "sdk_source": "https://gitcode.com/CPF-ApplicationTPC/ohos_webrtc/tree/master/sdk/ohos",
+    "audio_device_source": "https://gitcode.com/CPF-ApplicationTPC/ohos_webrtc/tree/master/modules/audio_device/ohos"
+  },
+  "classification": {
+    "kind": "harmony_arkts_har_with_native_runtime",
+    "is_kmp_foundation_library": false,
+    "contract_route": "arkts_bridge",
+    "ownership": "Harmony host owns PeerConnectionFactory, PeerConnection and media tracks; KMP calls a bounded typed NAPI/C bridge."
+  },
+  "target_support": {
+    "minimum_upstream_api": 12,
+    "device_verified_api": 20,
+    "ohos_arm64": "device_verified",
+    "ohos_x64": "not_verified_and_native_webrtc_library_not_packaged",
+    "webrtc_base": "M120"
+  },
+  "verified_components": {
+    "ohpm_resolution": "verified",
+    "factory_initialization": "device_verified",
+    "peer_connection_creation": "device_verified",
+    "camera_permission": "device_verified",
+    "front_camera_video_track": "device_verified",
+    "camera_switch": "device_verified",
+    "hap_native_packaging": "verified"
+  },
+  "not_yet_proven": [
+    "LiveKit SDP/ICE and protobuf signaling mapped to the host PeerConnection",
+    "SFU publication and subscription",
+    "remote and local VideoTrack rendering into CMP/XComponent",
+    "microphone AudioDeviceModule integration",
+    "screen share and data channels",
+    "permission denial and asynchronous capture failure propagated back to KMP state",
+    "ohosX64 runtime"
+  ],
+  "required_target_checks": [
+    "Pin @ohos/webrtc in entry/oh-package.json5 and lockfile",
+    "Confirm required ABI is arm64-v8a unless x64 evidence is added",
+    "Declare and dynamically request CAMERA/MICROPHONE permissions as used",
+    "Keep WebRTC objects in the ArkTS host and expose a typed bridge",
+    "Resolve libentry.so explicitly from Kotlin/Native; dlopen(null) is not sufficient on the verified device",
+    "Run publish, HAP build, package inspection and physical-device runtime checks",
+    "Track PeerConnection, capture, signaling, rendering and audio as separate gates"
+  ],
+  "known_build_observations": [
+    "The HAR may emit non-fatal resource-name collision warnings with Compose resources.",
+    "The packaged arm64 libohos_webrtc.so is approximately 10 MB, so HAP size impact is material.",
+    "Repository and published-package license metadata should be reviewed because observed labels differ."
+  ],
+  "cookbook": "ohos-webrtc.md",
+  "probe_support": {
+    "status": "not-supported",
+    "upstream_path": "scripts/probe_ohos_webrtc.py",
+    "reason": "The upstream probe is not bundled or executable through SDD knowledge-query. Design target-local checks in frozen TASK/PATH/ASSERT; Test-Runner executes them through the existing build/automation flow."
+  },
+  "probe": null
+}

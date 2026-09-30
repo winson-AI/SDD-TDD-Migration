@@ -1,3 +1,199 @@
+# Lean 吸收第六轮：真实复测、资源入口与缺测恢复（2026-10-01）
+
+按用户确认落实七组问题。GO → 父 MO → 子 MO → 独立 Auditor、Ledger 状态权威、原修复预算与三目录留存继续生效。此次没有引入额外编排循环。
+
+## 本轮变更
+
+1. **执行限制不丢失**：test_completion 保留 skipped/xfail；带这些限制的 Green 规范化为 Yellow / incomplete-test-execution，保留实际断言与回执，Red 不降级。正式结果门禁同样核验，不能通过原始报告入口绕过。
+2. **新复测需要本轮捕获**：execute_test 从 Ledger 提取 execution_assignment；v2 adapter 与正式验收要求最新 capture_execution 匹配当前 assignment_id/fencing_token。即使代码/HAP 未变，重读旧截图也不能冒充新 Auditor 复测；carried 历史轮次仍保留原授权并验当前轮次。
+3. **资源入口可完成**：代码 R.id 保留定位事实而不作为缺失资源文件；@array 发现 string-array/integer-array，精确单条迁移保留两类结构。Android 平台资源通过真实 SDK source.properties 的 API 与 data/res 定义摘要核验，可以冻结并持续检查；缺定义可显式 blocked。SDK 是只读来源，不成为新的迁移资产根目录。
+4. **全局测试允许子集**：global_paths 可以为空或只含已登记 CASE 的子集；未知 CASE 仍拒绝。global-plan 继续完整检查所有 requirement/case 的 owner，不将全局测试等同全部模块用例。
+5. **GLOBAL 缺测恢复游标**：已缺测收尾后，原独立 Auditor 提交新的当前 audit-testing ready 报告，可提示带 owner/context 的 audit-assign。旧、blocked、过期、篡改或上一缺测时已存在的预检不触发恢复；状态读取不启动进程，不重置预算。
+6. **保留真实执行历史**：automation-unavailable 与 audit-unavailable 的当前行仍为未执行 Yellow；last_execution 单独保留同基线最近已接受执行的原状态、断言和回执。重复缺测不递归堆叠。GO JSON/Markdown 区分曾执行与本次执行，展示旧观测和当前环境根因；历史断言不能替代本次复核。
+7. **语义问题必须裁决**：原 semantic 的 issues、comparability < 0.4 或 comparable=false 与 ALIGNED 并存时，v2 Green 需要逐项绑定原文件/hash、原 finding、resolved/dismissed、理由及独立佐证。正式验收重新读取；漏项、重复、篡改与仅标签拒绝。阈值沿用 Lean 不同路线/状态分类，只标记矛盾，不自动打分通过。
+
+已同步角色、测试/资源/视觉/恢复协议、资源和视觉证据模板、GO 报告模板、WF-70～WF-76 与本地 collector 来源摘要。资源递归依赖扩展、导航能力扩展不在本轮范围。
+
+## 回归结果
+
+| 测试集 | 通过 | 耗时 |
+| --- | ---: | ---: |
+| migration-ledger/tests 全套 | 632 | 174.047 秒 |
+| migration-test/tests 全套 | 47 | 1.660 秒 |
+| runtime/harmony/tests 全套 | 128 | 0.96 秒 |
+| 合计（不重复计定向复跑） | **807** | — |
+
+全量无失败、无跳过；相比上轮新增 20 项。新增回归包含真实 Ledger 的遗漏执行限制验收、GLOBAL 子集所有权检查与缺测恢复、连续缺测后的真实断言留存；原生 collector→UI/Resource 冻结与 SDK 证据变化；adapter 和正式视觉门禁的授权/语义裁决。新增夹具初次试跑修正了原生 semantic 路径格式、sourceFiles 字段和报告 paths 字段等对接问题，最终全部通过，未放宽门禁。
+
+静态检查通过：198 个 Python AST、62 个 JSON、552 个修改/新增 Markdown 的本地链接目标（不检查锚点、不统计图片）、6 个修改 Skill 规范、git diff --check；133 个本地 vendored 文件摘要通过，其中 42 个 Lean 文件同时核对上传原始来源摘要。
+
+使用已有 Python 3.12、只读本机 pytest，禁用 bytecode/pytest 插件与缓存，未安装依赖。临时夹具清理；适配器仍有既有 engine.log ResourceWarning，未影响断言。本轮未连接真机/外部 LLM、未执行业务 Gradle；结果验证控制与证据契约，实际 SDK/设备兼容性、模型裁决质量与宿主派发需在项目环境验证。上传的 Lean 源目录保持只读。未提交或推送 Git。
+
+---
+
+# Lean 吸收第五轮：执行证据、资源基线与恢复隔离（2026-10-01）
+
+按用户确认落实七项修复。继续使用 GO → 父 MO → 子 MO → 独立 Auditor、Ledger 唯一状态权威、现有修复预算和三目录留存；没有新增编排器或修复循环。
+
+## 本轮变更
+
+1. **视觉执行绑定**：adapter 与正式 submit/accept/Auditor 共用 visual_evidence 校验。候选 snapshot 的 capture_execution_ref 关联当前 run 的实际装机回执、安装/捕获命令、设备、逐屏截图与树摘要；重新推导 capture_evidence，绑定当前 HAP/代码。仅改 alignment 标签、仅自述执行或跨 run 引用不能 Green。原生 capture 自动生成 sidecar，外部执行器需提供真实同契约证据；缺证据留 Yellow。
+2. **完整原图集合**：从所属叶子冻结模型读取完整 Android capture 记录与 baseline_refs，不仅校验首屏；替换第二屏、改元数据或增减目标截图均拒绝。GLOBAL 自有 visual PATH 显式冻结 visual_evidence；构建归属不能代替 UI 归属。ALIGNED_CARRIED 重验所引用历史轮次自身 HAP/代码及本轮当前基线。
+3. **source-only 手势**：v2 允许 automation 承载冻结动作/起点/预期，不强制造没有基线的 visual PATH；runtime 视觉义务继续保留。execute_test 将完整 frozen_interaction 传给 adapter，正式 Green 核对当前 HAP/代码和真实观测。默认 Harmony 尚不自动生成 interaction_evidence；缺此能力时保留真实断言/媒体，规范化为可正式提交的已执行 Yellow，不覆盖 Red、不从 expected 合成 observed。GLOBAL 手势完整定义及 build_binding 在 init 前校验，避免无效配置落盘后在审计路由才失败。
+4. **配置变体闭包**：按当前 UI 树引用的 ID/qualifier/path 核对 Resource item；base 不能代替 night/语言等变体。有据范围排除用 resource_scope.exclusions，不能排除已声明启用的配置；未引用资源不扩大当前模块门禁。
+5. **资源事实基线**：collector 保存真实源文件 SHA；冻结及 verify_plan 持续核对源索引、实际文件、Resource source_resource_ref 使用同一版本，排除证据也持续核验。旧索引缺 hash 或事实过期必须重新抽取与审查，不把当前 hash 补到旧提取内容上。
+6. **颜色选择器**：collector 与 resource-scan 同时覆盖 values 颜色和 res/color* XML。真实 selector 按 compose_semantic_exact，固定颜色按 design_token_exact，避免漏掉有状态颜色或伪装类型。
+7. **预算恢复隔离**：recover 只解除批准的预算限制；独立 human/tooling/dependency blocker 及 phase/resume_phase 保留。没有独立 blocker 时才沿原 diagnosing/testing 路由恢复，兄弟模块不变。
+
+同步角色、技能、测试/视觉/资源协议、捕获与手势结果模板、WF-64～WF-69 故障场景及本地来源摘要。资源分析仍写入当前 run staging；捕获与自动化证据仍使用 runs/harmony/sandbox 和 runs/harmony/automation，不增加顶层资产目录。历史 v1 不补写 v2 字段。
+
+## 回归结果
+
+| 测试集 | 通过 | 耗时 |
+| --- | ---: | ---: |
+| migration-ledger/tests 全套 | 612 | 174.510 秒 |
+| migration-test/tests 全套 | 47 | 1.620 秒 |
+| runtime/harmony/tests 全套 | 128 | 0.94 秒 |
+| 合计（不重复计定向复跑） | **787** | — |
+
+最终全套无失败、无跳过，比上一轮增加 38 项。新增覆盖旧截图冒充新构建、仅标签回执、跨 run、完整多屏基线篡改、carried 历史与当前轮次、source-only 冻结与正式执行、默认 Harmony 缺手势 proof 的正式 Yellow 验收、GLOBAL 初始化缺契约、遗漏配置变体/资源 hash 过期、范围排除证据变化、颜色选择器及独立 blocker 的预算恢复。首轮全套发现一份旧视觉执行夹具缺完整冻结/执行证据；已用真实 collector、对应资源映射及同 run 安装/capture 回执补齐，未放宽或 mock 新门禁，最终全套重跑通过。
+
+静态检查通过：196 个 Python AST、62 个 JSON、563 个修改/新增 Markdown 本地链接目标（不检查锚点）、6 个修改 Skill 规范、git diff --check；133 个本地 vendored 文件摘要通过，其中 42 个 Lean 文件同时核对上传原始来源摘要。
+
+验证使用已有 Python 3.12，禁用 bytecode、pytest 自动插件及缓存，未安装依赖；临时夹具随测试清理。测试模块仍出现既有 engine.log ResourceWarning，断言通过。本轮未连接真机/外部 LLM、未执行业务 Gradle；测试证明编排与证据契约，实际设备兼容性、模型判断与宿主派发仍需项目环境验证。宿主继续负责身份认证、证据目录保护和真实设备锁；本地 JSON/hash 检查不是 OS 沙箱。未提交或推送 Git。
+
+---
+
+# Lean 吸收第四轮：资源闭包、知识适配与受限视觉执行（2026-09-30）
+
+按用户确认完成本轮增强。GO → 父 MO → 子 MO → 独立 Auditor、Ledger 唯一状态权威、既有修复预算及自动化缺测收尾继续生效。
+
+## 本轮变更
+
+1. **资源闭包与配置路由**：consumer 支持单值及多消费者，implementation 的 consumer_refs 覆盖所有实际消费文件并持续检查摘要。v2 不用裸 covered_resource_ids 代替逐资源证据；未知实际类型可显式 blocked 或附审查证据的 manual_exact。跨 qualifier 路由冻结 scope/configurations、真实消费者条件和证据；同目标多变体不能省略区分条件。转换前核对冻结映射，转换结果保留 configurationMapping；旧 v1 契约保留兼容。
+2. **知识适配**：增加只读 external capability 目录、记录与 cookbook 查询；不执行外部 probe/安装，未命中不等于功能无法实现。检索返回 sdd_adaptation_ref，将上游产物、角色与指令映射到现有 SPEC、任务、测试和三目录留存；原始上传目录只读。稳定 UI 状态冻结截图目标，瞬态保留行为测试义务；缺少瞬态截图不制造额外 Yellow。
+3. **视觉执行**：在现有 lean_worker 增加 visual-install、visual-capture、semantic-inspect。角色、活动 assignment/fence、阶段、冻结环境及审计快照均受检；安装绑定当前 PATH 已接受 HAP 的真实包身份，截图核对实际前台 App、冻结选择器、截图前后页面树以及可解码的图片。scroll 必须有源码依据的起点、唯一滚动区及实际观察到的终点，多屏持续留证；重复画面、缺少 scrollable 属性或截断均不能声明完整。
+4. **多屏与有界模型调用**：从原叶子 SPEC 读取同 coverage 的全部冻结原图及 capture manifest，语义比较支持第二屏及后续图；追加 Harmony 历史的 manifest 必须完整保留原 Android 记录。GLOBAL 自有 PATH 不从构建归属推断 UI 归属，缺绑定仅局部 Yellow。模型调用使用固定私有子进程、总时限和 2 MiB 响应上限；凭证仅经 stdin/进程环境传递，不保存原始错误或请求体。工具只产证据，正式结果沿 execute_test/adapter/Ledger 验收，不自动给 ALIGNED 或 Green。
+
+同步配置、请求、UI 状态测试模板及角色/协议说明。环境在当前 runs/harmony/sandbox/environment/visual.json；辅助证据在 sandbox/<actor>/<request_id>，正式测试继续使用 automation runner。环境缺失仍走既有 Yellow/未执行通道，无关模块及可用构建下游继续；Auditor 不扩大复测范围，也不兼任 Fixer。
+
+## 回归结果
+
+| 测试集 | 通过 | 耗时 |
+| --- | ---: | ---: |
+| migration-ledger/tests 全套 | 574 | 162.046 秒 |
+| migration-test/tests 全套 | 47 | 1.661 秒 |
+| runtime/harmony/tests 全套 | 128 | 1.10 秒 |
+| 合计（不重复计定向复跑） | **749** | — |
+
+无失败、无跳过；相较上一轮全套增加 50 项。包含多消费者缺失/篡改、裸闭包声明、未知源类型、配置降级及别名绕过、外部知识无命中/路径边界、多屏原图篡改、安装包不匹配、非法图片、截图跨状态、滚动未到终点、过期审计、阶段越权、配置 hash 变化和语义响应超时/超限等回归。慢流响应测试使用真实子进程和本机 loopback HTTP 服务，验证 socket 持续有数据时仍受总时限控制。原并行隔离、自动化缺测、异常恢复及二次运行留存测试继续通过。
+
+静态检查通过：190 个 Python AST、60 个 JSON、537 条修改/新增文档本地链接、6 个修改 Skill 规范、git diff --check；133 个本地 vendored 文件摘要通过，其中 42 个 Lean 文件同时核对上传原始来源摘要。
+
+使用已有 Python 3.12，禁用 bytecode/pytest 自动插件及缓存，未安装依赖；测试夹具清理，无新增系统临时日志留存。既有 adapter engine.log ResourceWarning 仍出现，未影响断言。本轮未连接真机或外部 LLM、未执行业务 Gradle；实际设备兼容性、模型判断质量与宿主 Agent 派发仍需项目环境验证。受限工具不是 OS 沙箱，真实设备锁由宿主提供；不支持的导航/backend 继续使用既有 adapter 或留明确缺口。未提交或推送 Git。
+
+---
+
+# Lean 吸收第三轮：证据归属、审查时效与资源执行范围（2026-09-30）
+
+按用户确认落实六组修复。保留 GO → 父 MO → 子 MO → 独立 Auditor、Ledger 唯一状态权威、原修复预算、模块隔离和 Yellow 缺测收尾；本轮未增加独立资源/视觉编排器。
+
+## 本轮变更
+
+1. **视觉证据归属**：Auditor 按 PATH 绑定拥有模块的已接受构建产物；GLOBAL visual 明确冻结 build_binding.module_id/path_id。v2 Green 逐轮/目标/截图索引核对 score 输入与 manifest 图片，semantic 绑定 score hash 或同一图片对。正式门禁重新读取原始 alignment，拒绝自报关联；carried 保留原始 ALIGNED 证据与当前截图回归。原生导入/v1/Red/Yellow 保留各自证据规则。
+2. **Foundation 门禁闭合**：严格性由 run 固化版本决定，不能省略 producer 绕过。按随包 catalog 重新核对条目、版本及目标；冻结后的解析与知识引用持续参与证据检查。next_step 与实际 freeze 共用纯守卫，缺失证据不推荐 ready freeze；失败不消费批准，并给出修订/恢复方向。运行期不因兄弟模块新增平台目录而重新判定本模块平台。
+3. **CR 时效**：within-envelope 的结构化 impact 绑定 from_freeze_id + to_plan_hash，旧审查不能授权另一份计划。freeze 消费 CR 并记入历史；invalidate 将它留在 planning_history 并移除当前授权。合法同 envelope/验收集合的任务细化继续支持快速再冻结。
+4. **资源任务范围**：resource-convert 写入前校验活动 assignment、fencing、task_id/resource_item_id、dimension_trace、task.scope.write_paths、源文件 hash、目标/消费者及冻结策略。属于模块但不属于任务的路径拒绝写入；只保留本次失败回执。
+5. **最终保真披露**：GO 报告新增 visual_coverage/fidelity_limitations，区分当前已验证、未验证、source-only、显式无 UI 与未知。capture-fixture 说明未证明在线/provider 等价。披露不改变 CASE 三态/完成状态、不增加门禁或复测范围，支持既有归档引用解析。
+6. **资源事实与变体**：v2 新冻结核对声明精确策略的源文件/values 条目、kind、qualifier、nine-patch 与单位；无法获取源时可显式 blocked 留缺口，不伪造精确性。新增只读 resource-scan，转换支持 vector、byte_copy 与单项 string/plurals/string-array，目标语义冲突拒绝覆盖。导入校验 byte_copy 字节一致，以 sourceId + qualifier 区分 base/night 等变体。
+
+宿主交接优先使用现有 workflow hub 的 routing、模块索引和工件引用，派发前刷新 Ledger；仍保留全局源码/架构/知识、父级分配及实际依赖访问。新增 change-impact/lean-resource-request 模板，同步视觉证据、资源四维分析、报告与角色文档。资产继续使用本 run staging 与 runs/harmony；仅授权目标资源写入 target_root，未增加留存根目录。
+
+## 回归结果
+
+| 测试集 | 通过 | 耗时 |
+| --- | ---: | ---: |
+| migration-ledger/tests 全套 | 524 | 169.272 秒 |
+| migration-test/tests 全套 | 47 | 1.701 秒 |
+| runtime/harmony/tests 全套 | 128 | 1.07 秒 |
+| 合计（不重复计定向复跑） | **699** | — |
+
+无失败、无跳过。新增 17 项故障回归覆盖伪造/变更依赖解析、冻结路由一致、过期 CR、跨模块 HAP、GLOBAL 集成构建绑定、无关比较图片/语义、carried 回归、任务越界、伪造资源类型/单位/配置、只读扫描、精确转换/覆盖冲突、base/night 及最终保真披露。最终全套后补充错误 JSON 根类型的受控拒绝，并定向重跑这 17 项（0.979 秒），全部通过。原并行隔离、自动化缺测、异常恢复与二次运行留存回归继续通过。
+
+静态检查通过：183 个 Python AST、56 个 JSON、495 个修改文档本地链接、128 个本地 vendored 文件摘要（其中 37 个 Lean 文件同时核对外部原始来源摘要）、6 个修改 Skill 规范及 git diff --check。resource_tool 的本地适配摘要与说明已更新，外部上传目录保持只读。
+
+验证使用既有 Python 3.12，禁用 bytecode/pytest 自动插件与缓存，未安装依赖；临时夹具随测试清理。适配器测试仍出现既有 engine.log ResourceWarning，断言通过。本轮未连接真机/外部 LLM、未执行业务 Gradle、未证明真实宿主 Agent 派发；编排与工具验证来自隔离夹具和实际工具/子进程调用。未提交或推送 Git。
+
+---
+
+# Lean 吸收第二轮：冻结语义、收尾证据与知识执行闭环（2026-09-30）
+
+按用户批准落实上一轮比对确认的七处问题，并接入受限知识工具。GO → 父 MO → 子 MO → 独立 Auditor、Ledger 状态权限、单轮自动修复和 Yellow 缺测通道继续沿现有控制流执行。
+
+## 七处问题修复
+
+1. 冻结交互的 id/action/from/expected/spec_ref 贯穿 query、adapter 与 Green 验收；同 ID 换动作、起点、预期或 SPEC 引用均拒绝。审计从拥有该 PATH 的模块读取冻结定义，GLOBAL 自有路径使用其冻结定义。
+2. v2 冻结直接校验 Capture manifest → 当前目标 → runtime index → baseline 截图的关联；无关目标缺文件不阻塞当前模块。source-only 可不提供运行时 manifest，不产生运行时截图声明。
+3. final 核验当前测试验收、审计、代码审查与父汇总的递归证据闭包。原件缺失但事件索引归档完整可通过；已承诺的归档缺失/损坏必须失败。只读检查不改历史 Green，不补造证据或自动复测，不扫描已被替代的旧提交。旧记录无归档索引、历史目标源码仅保留预期摘要时明确显示限制。
+4. projection/final 检查 ledger/global.json 的内容和序列，识别缺失、篡改及旧投影。
+5. 全局路由使用与 status 相同的纯推导函数，不以 JSON/Markdown 彼此一致作为合法调度依据；模块检查继续隔离无关模块。
+6. semantic-model 原生 UI 模板与实际 collector/strict validator 对齐；runtime/source-only 两条测试直接实例化模板，仅填充标量占位符。
+7. defaults.quality_gates.dependency_resolution_required 是唯一长期配置入口，必须为 bool。prepare 固化并派生输入，init 按快照绑定，后续项目配置更新不改变旧 run。历史缺字段按原行为兼容，不改写历史快照。
+
+## 受限知识执行链
+
+- 新增 knowledge-query、knowledge-diagnose、foundation-resolve、foundation-verify；宿主认证角色后调用，工具只读，不派发 Agent、不提交 Ledger、不扩大修复预算、不联网解析或安装依赖。
+- 查询保留索引、目录、主题、cookbook、底层证据文件的 hash；诊断使用真实日志的 pattern 命中，只输出候选原因。
+- Foundation resolve 使用随包目录；verify 重新按 hash 绑定的目录核对所选解析条目，再对照目标项目实际 TOML。伪造 producer/版本、跨 run、符号链接逃逸、坐标版本冲突会被拒绝；未选中坐标不影响当前切片核验。版本匹配不等于编译、运行或测试通过。
+- request/result/receipt 位于当前 run 的 staging/<actor>/<request>；正常临时内容按现有 runner 清理。原始 Lean 文件夹保持只读。37 份工具/知识来源及本地修改摘要保存在 lean_tools/UPSTREAM.json，包含修正一个上游失效的本地文档链接；不导入第二套编排技能。
+
+## 回归结果
+
+| 测试集 | 通过 | 耗时 |
+| --- | ---: | ---: |
+| migration-ledger/tests 全套 | 507 | 159.915 秒 |
+| migration-test/tests 全套 | 47 | 1.495 秒 |
+| runtime/harmony/tests 全套 | 128 | 0.99 秒 |
+| 合计（不重复计定向复跑） | **682** | — |
+
+无失败、无跳过。覆盖完整冻结交互、实际 adapter 子进程拒绝错动作、Capture/截图关联篡改、归档回退与损坏、全局路由伪造、原生模板、配置快照沿用、真实目录查询/TOML 核对及路径逃逸；既有并行调度、自动化缺测、异常恢复和两轮留存模拟继续通过。
+
+静态检查通过：182 个 Python AST、54 个 JSON、128 个本地 vendored 文件摘要（其中 37 个 Lean 文件另核对外部来源摘要）、481 个修改文档本地链接、6 个修改 Skill 规范和 git diff --check。
+
+使用现成 Python 3.12，禁用 bytecode/pytest 自动插件与缓存，未安装依赖；测试夹具临时目录随测试清理。既有 engine.log ResourceWarning 仍出现但不影响断言。本轮未连接真机/外部 LLM、未执行业务 Gradle，未证明真实宿主 Agent 派发；原生工具和子进程执行证据来自隔离夹具。未提交或推送 Git。
+
+---
+
+# SDD 基线的 Lean 证据接入与分范围 OpenSpec 核验（2026-09-30）
+
+按用户确认的四类优先问题完成本轮增强，保持 GO → 父 MO → 子 MO、Ledger 唯一状态事实、修复预算和独立 Auditor。外部 android-to-kmp 文件夹只读；7 个确定性工具以来源与文件摘要记录在 lean_tools/UPSTREAM.json，独立 CLI 关闭，由受限入口管理输出。
+
+## 本轮变更
+
+- 原始产物兼容：接收原生 attachments 列表、capabilities 对象、语义记录、Capture manifest、逐轮 alignment、Foundation version 与明确的不适用状态、资源映射和 validation verdict。保留原始引用，不把结构转换当成真实执行。
+- 角色约束：lean_worker 只开放分析、校验、授权资源转换、只读评分和证据导入；资源写入需要活动 assignment、freeze、fencing token 与模块写范围。工具读取 Ledger 当前上下文版本；每次调用保留独立请求、结果、回执与清理记录，不推进业务状态。
+- 证据关联：新 prepare 固化 evidence_contract_version=2，不能降级；历史快照缺字段继续 v1，不改写旧证据。UI 目标、运行时节点、冻结截图与 visual PATH 对齐；UI 资源闭包要求精确策略。正式视觉回执绑定当前代码与本次构建的 HAP，并校验声明交互。顶层失败/阻塞不能被局部 Green 掩盖；保留当前目标截图、树、元数据及评分引用，不因无关目标缺少文件影响本模块。
+- OpenSpec：增加 global/module/projection/final 范围；全局核验要求真实顶层 workflow hub，模块核验只检查当前节点、祖先分配和实际依赖。生成文档按 Ledger 推导内容核对，失败提供作用域与恢复动作；检查器只读。final 接受保留 Yellow 缺测的正式收尾，不把缺测改为 Green。
+
+运行资产继续归于 .sdd-migration、.sdd-runs/<run_id> 与 openspec；工具分析进入 staging，比较辅助产物进入 runs/harmony/sandbox，正式测试回执进入既有 runner。无 UI/source-only 不制造空视觉任务，automation 不可用沿既有 Yellow/未执行通道处理，独立任务继续。
+
+## 回归结果
+
+| 测试集 | 通过 | 耗时 |
+| --- | ---: | ---: |
+| migration-ledger/tests 全套 | 475 | 147.678 秒 |
+| migration-test/tests 全套 | 47 | 2.162 秒 |
+| runtime/harmony/tests 全套 | 128 | 2.28 秒 |
+| 合计（不重复计专项复跑） | **650** | — |
+
+无失败、无跳过；最后的 Lean 适配相关 31 项另复跑通过。覆盖原始 collector/selector 到 v2 冻结门禁、篡改拒绝、资源精确转换、权限与写范围、当前快照选择、真实 PNG 评分、execute_test → 视觉适配器子进程 → 回执解释 → 验收校验、错误基线/HAP 拒绝，以及 OpenSpec 模块隔离、内容失真、失效后重新规划与只读性。既有并行调度、异常恢复、自动化缺测和两轮存储模拟均在全套中执行。
+
+静态校验：176 个 Python AST、49 个 JSON、98 个本地 vendored 摘要（含新增 7 个工具及对应外部来源摘要）、374 个修改文档本地链接、migration-protocol Skill 校验与 git diff --check 通过。
+
+使用现成 Python 3.12 环境，禁用 bytecode/pytest 插件自动加载及缓存，未安装依赖。测试临时目录随夹具清理，没有新增系统临时日志留存。既有 engine.log ResourceWarning 仍出现，未造成断言失败。部分集成夹具隔离宿主状态/assignment 读取，实际执行采集器、转换器、适配器子进程和回执检查；未连接真实设备、外部 LLM，未执行业务 Gradle，也未证明宿主真实 Agent 派发。评分不是视觉裁决，受限入口不是 OS 沙箱；正式语义判断与设备行为仍需要真实证据。未提交或推送 Git。
+
+---
+
 # 收尾投影异常通知与诊断持久化（2026-09-23）
 
 按用户确认修复两处通知遗漏：status 先尝试输出 workflow-attention.md，再保存包含末端错误的 progress.json；机器诊断首次失败最多补写一次，持续失败明确返回给 Host，不循环等待、不追加业务事件。watchdog 在业务终态仍存在 projection-pending 时显示 completed-with-pending-diagnostics，保留通知并继续观察；ack 只确认交付，正常 Host status 重建后关闭告警。显式暂停/停止仍有效，业务质量、调度和验收门禁保持不变。

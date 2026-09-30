@@ -107,19 +107,35 @@ def validate_plan(plan, module):
     return digest(plan)
 
 
-def verify_plan(plan):
+def verify_plan(plan, module=None):
     require(isinstance(plan, dict), 'SPEC not frozen/prepared')
     for ref in plan['definitions']:
         check_ref(ref)
     for path in plan['paths']:
         if path.get('kind') == 'build':
             check_ref(path['command']['selection_ref'])
+        if path.get('visual_execution') is not None:
+            execution = path['visual_execution']
+            require(isinstance(execution, dict) and path.get('kind') in ('automation', 'visual'),
+                    'visual execution configuration requires an automation or visual PATH')
+            check_ref(execution.get('environment_ref'))
+        if path.get('visual_evidence') is not None:
+            require(path.get('kind') == 'visual', 'explicit visual evidence requires a visual PATH')
+            import visual_evidence
+            visual_evidence.frozen_evidence({'plan': {}}, path)
     import reuse
     reuse.verify(plan)
     import dimensions
     dimensions.verify(plan)
+    if (module or {}).get('evidence_contract_version', 1) >= 2 and plan.get('dimension_analysis_ref'):
+        import resource_fidelity
+        resource_fidelity.require_indexed_closure(read_json(check_ref(plan['dimension_analysis_ref'])))
     import telemetry
     telemetry.verify(plan)
+    if plan.get('dependency_resolution_ref'):
+        import knowledge_gate
+        knowledge_gate.validate_resolution(plan['dependency_resolution_ref'],
+            strict=(module or {}).get('evidence_contract_version', 1) >= 2)
 
 
 def baseline(refs):
@@ -130,13 +146,13 @@ def baseline(refs):
     return digest(sorted(refs, key=lambda r: r['path']))
 
 
-def validate_result(result, module, assignment):
+def validate_result(result, module, assignment, run_root=None):
     require(result.get('schema_version') == 1, 'unsupported result schema')
     for field in ('run_id', 'module_id', 'assignment_id'):
         require(result.get(field) == assignment[field], f'result {field} mismatch')
     require(result.get('freeze_id') == module['freeze_id'], 'result freeze mismatch')
     require(result.get('actor_instance_id') == assignment['instance_id'], 'result actor mismatch')
-    verify_plan(module['plan'])
+    verify_plan(module['plan'], module)
     kind = result.get('kind')
     if kind == 'implementation':
         require(assignment['role'] in ('implementer', 'fixer'), 'implementation owner mismatch')
@@ -175,8 +191,9 @@ def validate_result(result, module, assignment):
     import test_validation as tv
     if tv.split(module) and assignment.get('role') == 'test-runner':
         scope = assignment.get('test_scope')
-        require(scope in ('build', 'automation'), 'test scope required')
+        require(scope in ('build', 'automation', 'visual'), 'test scope required')
         require(scope == 'build' or tv.build_ready(module), 'build must pass before automation')
+        require(scope != 'visual' or tv.functional_ready(module), 'functional tests must pass before visual')
         planned = {p['path_id']: p for p in tv.paths(module, scope)}
     require(set(tests) == set(planned), 'result must account for every required path')
     for pid, record in tests.items():
@@ -243,6 +260,13 @@ def validate_result(result, module, assignment):
                 check_ref(artifact)
             if quality != 'green-passed':
                 require(captured.get('root_cause') == record.get('root_cause'), 'Harmony root cause changed')
+        if planned[pid].get('kind') == 'build':
+            require(record.get('build_artifacts', []) == captured.get('build_artifacts', []), 'build artifact evidence changed')
+            for ref in captured.get('build_artifacts', []):
+                artifact = check_ref(ref)
+                require(artifact.is_relative_to(check_ref(receipt['query_ref']).parent), 'build artifact outside this invocation')
+        tv.visual_result(module, planned[pid], record, captured, run_root=run_root, assignment=assignment)
+        tv.interaction_result(module, planned[pid], record, captured)
         require(captured.get('assertions') == record.get('assertions'), 'assertions differ from captured report')
         expected = keyed(planned[pid]['expected_assertions'], 'assertion_id')
         assertions = keyed(record.get('assertions'), 'assertion_id')
@@ -250,7 +274,8 @@ def validate_result(result, module, assignment):
         for aid, assertion in assertions.items():
             require(assertion.get('expected') == expected[aid]['expected'], 'acceptance changed')
         if quality == 'green-passed':
-            require(receipt.get('exit_code') == 0 and not captured.get('skipped') and not record.get('flaky'), 'not a clean pass')
+            require(receipt.get('exit_code') == 0 and not captured.get('skipped') and not captured.get('xfail')
+                    and not record.get('flaky'), 'not a clean pass')
             require(all(a.get('passed') is True and 'actual' in a and a['actual'] == a['expected'] for a in assertions.values()), 'failed/missing assertion; v1 uses JSON equality')
         elif quality == 'red-bug':
             require(receipt.get('exit_code') != 0 or any(a.get('passed') is False for a in assertions.values()), 'Red needs observed failure')

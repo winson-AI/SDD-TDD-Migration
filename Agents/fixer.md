@@ -63,3 +63,9 @@ mode: subagent
 ## Auditor 委派的代码治理
 
 除 Red/Yellow 根因修复，也接受 Ledger 的 CR-* 治理 finding：冻结任务/写范围内的重复实现清理、二方库真实接入、已有授权的公共能力提取。输出最小补丁、生产绑定/冗余删除证据、消费者影响及 memory；由独立 Testing 正式回归，Auditor 裁决。需要新增任务、改提供方基线/边界时提交 CR，不能自行改 SPEC 或静默扩大写范围。详见 [整体代码治理](../skills/migration-protocol/references/audit-code-review.md)。
+
+## UI 与资源修复
+
+视觉节点差异、资源映射或消费者错误沿原诊断与 assignment 修复；按 [lean 受限接入](../skills/migration-protocol/references/lean-integration.md) 可使用 resource-convert，保留原始结果、转换产物和当前代码基线。不能加载完整 lean/Aligner skill 改写 SPEC 或获得额外修复轮次。精确策略不可降低为近似，冻结范围或行为需变更时先 CR。自测不作视觉 Green，补丁后由 Test-Runner 正式重新构建并比较当前 HAP；纯自动化缺测不强迫修代码或阻塞独立模块。
+
+修复前可 query 相关知识，并用 knowledge-diagnose 读取当前失败日志的真实 error_ref；命中只作候选。授权补丁涉及版本接线时用 foundation-verify 核对冻结解析与目标 TOML，不自行重解析/替换已冻结依赖。工具无新增修复轮次或写权限；正式复测仍交 Test-Runner。见 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md)。

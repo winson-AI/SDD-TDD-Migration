@@ -1,0 +1,156 @@
+{
+  "_note": "v2 visual Green evidence fragment. Copy actual captured.visual_alignment unchanged, including adapter-derived capture_evidence for every used round. The adapter and final gate recheck the full frozen Android record and managed execution/installation proof, not just alignment labels. For a frozen interaction, required_interaction must equal the query's frozen_interaction and observation action/expected destination must match it; do not invent observations. Omit required_interaction and use empty interaction_checks when no interaction is declared. Red/Yellow preserve actual incomplete evidence and reasons; this example is not passing evidence. Latest capture must match the current query execution_assignment and Ledger assignment/fence. When original semantic has issues or incomparability, copy one evidence-backed semantic_disposition per original finding from the alignment comparison; omit dispositions when there are no findings.",
+  "coverage": "settings:base:viewport",
+  "node_ids": [
+    "node:settings.root"
+  ],
+  "baseline_ref": {
+    "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture-agent}}/{{request-id}}/shot.png",
+    "sha256": "{{frozen-baseline-sha256}}"
+  },
+  "code_baseline": "{{current-module-code-baseline}}",
+  "alignment_root": "{{absolute-base-used-to-resolve-original-alignment-paths}}",
+  "capture_evidence": [
+    {
+      "round": 1,
+      "capture_round": 1,
+      "coverage": "settings:base:viewport",
+      "manifest_ref": {
+        "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture}}/{{attempt}}/manifest.json",
+        "sha256": "{{actual-manifest-hash}}"
+      },
+      "capture_execution_ref": {
+        "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture}}/{{attempt}}/capture-execution.json",
+        "sha256": "{{actual-execution-hash}}"
+      },
+      "install_ref": {
+        "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture}}/{{install-attempt}}/result.json",
+        "sha256": "{{actual-install-hash}}"
+      },
+      "install_command_log_ref": {
+        "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture}}/{{install-attempt}}/commands.json",
+        "sha256": "{{actual-install-log-hash}}"
+      },
+      "command_log_ref": {
+        "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture}}/{{attempt}}/commands.json",
+        "sha256": "{{actual-capture-log-hash}}"
+      },
+      "meta_ref": {
+        "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture}}/{{attempt}}/meta.json",
+        "sha256": "{{actual-meta-hash}}"
+      },
+      "artifact_ref": {
+        "path": "{{absolute-run-root}}/runs/build/{{attempt}}/app.hap",
+        "sha256": "{{actual-hap-sha256}}"
+      },
+      "code_baseline": "{{actual-code-baseline-at-capture}}",
+      "observations": [
+        {
+          "index": 0,
+          "screenshot_ref": {
+            "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture}}/{{attempt}}/harmony.png",
+            "sha256": "{{actual-candidate-sha256}}"
+          },
+          "view_ref": {
+            "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture}}/{{attempt}}/view-0.xml",
+            "sha256": "{{actual-view-sha256}}"
+          }
+        }
+      ]
+    }
+  ],
+  "comparison_evidence": [
+    {
+      "round": 1,
+      "coverage": "settings:base:viewport",
+      "kind": "comparison",
+      "reference_capture_index": 0,
+      "candidate_capture_index": 0,
+      "reference_ref": {
+        "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture}}/{{attempt}}/android.png",
+        "sha256": "{{actual-reference-sha256}}"
+      },
+      "candidate_ref": {
+        "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture}}/{{attempt}}/harmony.png",
+        "sha256": "{{actual-candidate-sha256}}"
+      },
+      "score_ref": {
+        "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{reviewer}}/{{attempt}}/score.json",
+        "sha256": "{{actual-score-sha256}}"
+      },
+      "semantic_ref": {
+        "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{reviewer}}/{{attempt}}/semantic.json",
+        "sha256": "{{actual-semantic-sha256}}"
+      },
+      "semantic_dispositions": [
+        {
+          "semantic_ref": {
+            "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{reviewer}}/{{attempt}}/semantic.json",
+            "sha256": "{{actual-semantic-sha256}}"
+          },
+          "finding": {
+            "kind": "issue",
+            "index": 0,
+            "issue": {
+              "severity": "{{actual-original-severity}}",
+              "summary": "{{entire-original-issue-content; preserve-all-fields}}"
+            }
+          },
+          "decision": "{{resolved|dismissed}}",
+          "reason": "{{review-of-actual-observations}}",
+          "evidence_refs": [
+            {
+              "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{reviewer}}/{{request-id}}/resolution-evidence.json",
+              "sha256": "{{actual-supporting-evidence-hash}}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "hap_ref": {
+    "path": "{{absolute-run-root}}/runs/build/{{attempt}}/app.hap",
+    "sha256": "{{actual-hap-sha256}}"
+  },
+  "required_interaction": {
+    "id": "{{declared-interaction-id-only-when-required}}",
+    "action": "edge_back_gesture",
+    "from": {
+      "page_id": "settings",
+      "state_id": "base"
+    },
+    "expected": {
+      "page_id": "home",
+      "state_id": "base",
+      "app_foreground": true
+    }
+  },
+  "interaction_checks": [
+    {
+      "id": "{{declared-interaction-id-only-when-required}}",
+      "action": "edge_back_gesture",
+      "status": "{{actual-status; Green-requires-PASSED}}",
+      "hap_sha256": "{{same-actual-hap-sha256}}",
+      "code_baseline": "{{same-current-module-code-baseline}}",
+      "observed": {
+        "page_id": "{{actually-observed-page-id}}",
+        "state_id": "{{actually-observed-state-id}}",
+        "app_foreground": true
+      },
+      "evidence_ref": {
+        "path": "{{absolute-run-root}}/runs/harmony/automation/{{attempt}}/interaction.json",
+        "sha256": "{{actual-evidence-sha256}}"
+      }
+    }
+  ],
+  "evidence_ref": {
+    "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{reviewer}}/{{request-id}}/alignment-result.json",
+    "sha256": "{{actual-original-alignment-sha256}}"
+  },
+  "linked_refs": [
+    {
+      "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{reviewer}}/{{request-id}}/{{actual-comparison-evidence}}",
+      "sha256": "{{actual-linked-evidence-sha256}}"
+    }
+  ]
+}

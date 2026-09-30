@@ -1,0 +1,9 @@
+{
+  "operation": "knowledge-query",
+  "request_id": "{{unique-request-id}}",
+  "module_id": "M001",
+  "args": {
+    "mode": "external",
+    "query": "webrtc"
+  }
+}

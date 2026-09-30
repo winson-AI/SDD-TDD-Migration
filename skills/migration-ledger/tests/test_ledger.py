@@ -290,9 +290,10 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
 
     def test_inside_envelope_task_revision_and_outside_acceptance(self):
         self.prepare()
-        cr = {'request_ref': self.ref('cr.md', 'task refinement'), 'impact_ref': self.ref('impact.md', 'no semantic change')}
-        self.call('change', cr)
         plan = self.plan(); plan['tasks'][0]['description'] = 'refined plan'
+        cr = {'request_ref': self.ref('cr.md', 'task refinement'), 'impact_ref': self.ref('impact.json', {
+            'from_freeze_id': self.state()['modules']['M001']['freeze_id'], 'to_plan_hash': digest(plan), 'summary': 'no semantic change'})}
+        self.call('change', cr)
         self.call('plan', {'plan_ref': self.ref('p2.json', plan)}, role='spec-designer')
         self.call('freeze', {'change_class': 'within-envelope', 'impact_ref': cr['impact_ref']})
         self.call('change', cr)
@@ -571,9 +572,10 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
 
     def test_within_envelope_cursor_proposes_executable_freeze(self):
         self.prepare()
-        cr = {'request_ref': self.ref('cr.md', 'task refinement'), 'impact_ref': self.ref('impact.md', 'within scope')}
-        self.call('change', cr)
         p = self.plan(); p['tasks'][0]['detail'] = 'refinement'
+        cr = {'request_ref': self.ref('cr.md', 'task refinement'), 'impact_ref': self.ref('impact.json', {
+            'from_freeze_id': self.state()['modules']['M001']['freeze_id'], 'to_plan_hash': digest(p), 'summary': 'within scope'})}
+        self.call('change', cr)
         self.call('plan', {'plan_ref': self.ref('refined-plan.json', p)}, role='spec-designer')
         step = self.state()['next_steps'][0]
         self.assertTrue(step['ready'])

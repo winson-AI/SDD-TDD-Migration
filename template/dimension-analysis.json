@@ -174,11 +174,31 @@
             }
           ],
           "parent_item_ids": [],
-          "source_resource": "{{legacy-resource-path#id}}",
+          "source_resource": "{{local-Android-resource-ID-eg-@string/title}}",
+          "source_resource_ref": {
+            "path": "{{absolute-legacy-root}}/app/src/main/res/{{type-and-qualifier}}/{{source-file}}",
+            "sha256": "{{actual-source-sha256}}"
+          },
+          "qualifier": "{{base-or-source-res-directory-suffix-eg-night}}",
           "target_resource": "{{absolute-target-resource-path#accessor}}",
-          "consumer": "{{absolute-production-consumer-path#symbol}}",
+          "consumer": ["{{absolute-production-consumer-path#symbol}}"],
           "conversion": "{{exact-copy/exact-conversion/semantic-adaptation-and-evidence}}",
-          "qualifiers": "{{locale/theme/density/font-scale/state/packaging-or-proven-none}}"
+          "qualifiers": "{{locale/theme/density/font-scale/state/packaging-or-proven-none}}",
+          "resource_kind": "{{actual-source-kind-from-resource-fidelity-contract}}",
+          "resource_strategy": "{{exact-strategy-for-source-kind-or-evidenced-manual_exact-or-blocked}}",
+          "configuration_mapping": {
+            "source_qualifier": "{{same-as-source-qualifier}}",
+            "target_qualifier": "{{actual-target-directory-qualifier-or-code}}",
+            "scope": {
+              "configurations": ["{{approved-active-source-configuration}}"],
+              "reason": "{{scope-and-source-evidence-for-this-route}}"
+            },
+            "evidence_refs": [{
+              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/configuration-review.md",
+              "sha256": "{{actual-sha256}}"
+            }]
+          },
+          "_configuration_note": "Same source/target qualifier can omit configuration_mapping. Cross-configuration routes need scoped evidence; multi-configuration consumers also need consumer_condition.expression and consumer_condition.consumers. One item per source ID + qualifier; group with task trace."
         }
       ]
     }

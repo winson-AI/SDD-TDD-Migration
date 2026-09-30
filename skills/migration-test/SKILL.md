@@ -11,7 +11,11 @@ description: SDD-TDD-Migration 的测试设计、编译构建与自动化执行�
 ## 2. 核心规约
 设计/执行模式分离；每条参数化路径有 ID/Name/query 和非空预期断言；Main 采用项目真实执行器。
 
+设计 UI 测试时使用 [状态测试表](../../template/ui-state-test-design.md)：稳定视觉目标与瞬态行为分别验证。loading/skeleton 保留状态转换测试，未声明为可稳定复现的视觉目标时不要求抢拍，不通过假延时改变生产行为。该分类写入已有 test-design，随 SPEC 冻结。
+
 所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
+
+需要当前 HAP 装机、视觉捕获或模型语义比较时读取 [受限视觉执行](../migration-protocol/references/visual-execution.md)。在现有测试 assignment 下使用 visual-install/visual-capture/semantic-inspect，读取冻结配置、保存原始证据；正式结果仍通过 execute_test/adapter 提交，不在工具中修代码或直接验收。
 
 ## 3. 标准模式
 先 design 冻结两类路径；code accepted 后 execute/build 编译构建并记录三态，Green 后 execute/automation 校验环境并逐用例执行。错误交 Fixer；仅自动化环境不可启动时 Yellow/未执行并收尾，让其他任务继续。必读 [双环节协议](../migration-protocol/references/build-automation.md)。
@@ -47,3 +51,7 @@ HarmonyOS UI/端到端测试读取 [Harmony 运行协议](references/harmony-run
 工作流调用 sandbox design/adapter/test、harmony_design 或兼容报告生成器时显式传 `--root <run_root>`，校验本轮输出归属；harmony_stage 必须传 --root 且输出只允许 runs/harmony/sandbox。省略 --root 的模式仅供独立调试，不作为工作流入口。先项目 prepare，再执行 sandbox prepare 初始化本轮共享配置，然后生成本轮 adapter，将带 --root 的完整命令提交 testing 预检。
 
 底层直接调用也执行留存门禁：未绑定 runner 时不允许相对/缺省输出；XMind 不写回源文件旁，报告/录制/媒体/日志须明确受管位置，外部输入只读。详见 [底层留存规则](../migration-protocol/references/storage-layout.md#底层直接调用同样遵守留存规则)。
+
+测试阶段可用受限 query/diagnose/verify 辅助只读准备；目录版本核对和知识检索不替代本次正式执行。存在 visual PATH 时在当前 automation Green 后另派 visual scope，全部适用冻结路径 Green 才进入 DoD；无 UI/source-only 不新增空视觉路径。见 [受限接入](../migration-protocol/references/lean-integration.md)。
+
+v2 source-only 声明手势可由 automation 承载；Green 需要冻结动作/起点/预期对应的真实 interaction_evidence。默认 Harmony 缺此证据时保留断言并记录 Yellow，不能伪造 observed。视觉正式验收同时检查完整冻结 Android 集合和当前 run 捕获/安装/命令/HAP/代码的 capture_evidence；工具成功及 alignment 标签不能替代。模板与收尾规则见 [测试协议](../migration-protocol/references/testing.md) 和 [UI 保真](../migration-protocol/references/ui-fidelity.md)。

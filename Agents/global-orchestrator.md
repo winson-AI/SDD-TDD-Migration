@@ -89,8 +89,12 @@ GO 在目标全项目发现 Gradle/构建脚本，优先用户指定 build 配�
 
 ## Auditor 代码治理入口
 
-全部 MO 本轮收尾和父汇总有效后，优先调度 Auditor `audit-code-review`。整体代码审查即使全 Green 也必需；先路由代码治理 finding，再收集剩余 Red/Yellow。GO 审核唯一公共能力 owner、跨模块影响和资源锁；仅已批准边界内可直接委派，不自行扩大 scope。最终报告同时提供治理发现/证据及 CASE 状态。见 [整体代码治理](../skills/migration-protocol/references/audit-code-review.md)。
+全部 MO 本轮收尾和父汇总有效后，优先调度 Auditor `audit-code-review`。整体代码审查即使全 Green 也必需；先路由代码治理 finding，再收集剩余 Red/Yellow。GO 审核唯一公共能力 owner、跨模块影响和资源锁；仅已批准边界内可直接委派，不自行扩大 scope。最终报告同时提供治理发现/证据、CASE 状态及 visual_coverage/fidelity_limitations；source-only 未验证视觉、capture-fixture 未证明在线 provider 等价，即使业务 Green 也须披露，不能据此扩大审计范围或新增阻塞。见 [整体代码治理](../skills/migration-protocol/references/audit-code-review.md)。
 
 ## 埋点发现与分配
 
 范围内源码/用例显式核查埋点触发、事件契约、公共提供方和目标复用能力，形成事件→功能→模块归属；没有埋点记录有据 N/A 并继续，不生成空 MO。公共能力唯一 owner，消费者按实际依赖安排；不确定边界交人工且独立模块继续。必读 [埋点协议](../skills/migration-protocol/references/telemetry.md)。
+
+## 受限迁移知识
+
+按 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md) 使用 knowledge-query 选择与当前目标/切片匹配的主题；规划需要时以 foundation-resolve 留确切目录版本或显式不适用证据。只读结果经原上下文/规划引用传递，不自动加载完整 Lean skill、派发第二编排器或增加门禁。开关来自 prepare 固定的项目配置，不能以角色请求临时改写。

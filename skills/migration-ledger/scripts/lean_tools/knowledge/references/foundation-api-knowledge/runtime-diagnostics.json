@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "purpose": "Route stable build and runtime error signatures to the smallest relevant HarmonyOS KMP knowledge set. A match proposes checks; it never proves the root cause or a successful fix.",
+  "evidence_policy": {
+    "levels": [
+      "coordinate_only",
+      "metadata",
+      "demo_source_example",
+      "compile_verified",
+      "device_runtime_verified",
+      "production_verified"
+    ],
+    "rule": "Never promote demo source, object construction, HTTP-only traffic, or swallowed exceptions to compile/device/runtime proof."
+  },
+  "entries": [
+    {
+      "id": "ktor-native-tls-engine",
+      "patterns": [
+        "tls sessions are not supported on native platform",
+        "tls not available in native platform",
+        "tls is not supported on native platform"
+      ],
+      "libraries": [
+        "io.ktor:ktor-client-core",
+        "io.ktor:ktor-client-cio",
+        "io.ktor:ktor-client-curl"
+      ],
+      "cookbooks": [
+        "cookbook/ktor-client.md"
+      ],
+      "topics": [
+        "native-networking-engine",
+        "harmony-host-runtime"
+      ],
+      "likely_causes": [
+        "A CIO-backed client reached HTTPS on Kotlin/Native without a supported TLS session implementation.",
+        "The intended ohosArm64 engine dependency or platform actual was not selected by production wiring."
+      ],
+      "checks": [
+        "Trace the production HttpClient constructor and record the engine class selected on ohosArm64.",
+        "Keep engine dependencies in target source sets and resolve their exact Foundation coordinates.",
+        "Confirm ohos.permission.INTERNET, DNS/VPN reachability, and the final packaged native libraries separately.",
+        "Run a physical-device https:// request and assert expected status/body; client creation or plain HTTP is insufficient."
+      ],
+      "required_gate": "physical_device_https_smoke",
+      "evidence": {
+        "catalog": "metadata",
+        "demo": "demo_source_example",
+        "demo_repository": "https://gitcode.com/CPF-KMP-CMP/kmp-thirdlibdemo",
+        "demo_commit": "f448266c705546247ab79a6f49367c4b254ade9b"
+      }
+    },
+    {
+      "id": "harmony-network-resolution",
+      "patterns": [
+        "unresolvedaddressexception",
+        "eai_nodata",
+        "unable to resolve host",
+        "could not resolve host"
+      ],
+      "libraries": [
+        "io.ktor:ktor-client-core",
+        "io.coil-kt.coil3:coil-network-ktor3"
+      ],
+      "cookbooks": [
+        "cookbook/ktor-client.md",
+        "cookbook/coil-compose.md"
+      ],
+      "topics": [
+        "native-networking-engine",
+        "harmony-host-runtime"
+      ],
+      "likely_causes": [
+        "Harmony manifest permission, DNS, VPN/proxy routing, or device connectivity is unavailable.",
+        "A network error was misclassified as proof that the selected client/engine works."
+      ],
+      "checks": [
+        "Inspect module.json5 for ohos.permission.INTERNET and any capability-specific permission.",
+        "Verify the same host through the device network/VPN route before changing library code.",
+        "Keep DNS/permission/transport/TLS failures distinct in result state and evidence."
+      ],
+      "required_gate": "physical_device_network_resolution",
+      "evidence": {
+        "demo": "demo_source_example",
+        "demo_repository": "https://gitcode.com/CPF-KMP-CMP/kmp-thirdlibdemo",
+        "demo_commit": "f448266c705546247ab79a6f49367c4b254ade9b"
+      }
+    },
+    {
+      "id": "sqldelight-ohos-linker",
+      "patterns": [
+        "unable to find library -lsqlite3",
+        "cannot find -lsqlite3",
+        "library not found for -lsqlite3"
+      ],
+      "libraries": [
+        "app.cash.sqldelight:native-driver",
+        "co.touchlab:sqliter-driver"
+      ],
+      "cookbooks": [
+        "cookbook/sqldelight-native-driver.md"
+      ],
+      "topics": [
+        "harmony-runtime-packaging"
+      ],
+      "likely_causes": [
+        "SQLDelight's global native linker option added a redundant system -lsqlite3 lookup to the ohosArm64 link."
+      ],
+      "checks": [
+        "Use the cookbook's linkSqlite configuration for an OHOS-bearing module.",
+        "Run the final shared-library link task and inspect symbols/needed libraries; compileKotlin is insufficient.",
+        "Reject dummy archives and migration-authored SQLite search paths."
+      ],
+      "required_gate": "ohos_final_native_link"
+    },
+    {
+      "id": "sqldelight-database-path",
+      "patterns": [
+        "unable to open database file",
+        "sqlite_cantopen"
+      ],
+      "libraries": [
+        "app.cash.sqldelight:native-driver",
+        "co.touchlab:sqliter-driver"
+      ],
+      "cookbooks": [
+        "cookbook/sqldelight-native-driver.md"
+      ],
+      "topics": [
+        "harmony-runtime-packaging",
+        "harmony-host-runtime"
+      ],
+      "likely_causes": [
+        "The database used a relative/non-writable path or the Harmony private directory was not supplied through the platform boundary."
+      ],
+      "checks": [
+        "Obtain the writable application directory from the Harmony host and keep directory/basePath separate from the database filename.",
+        "Verify parent directory creation and file access on the physical device.",
+        "Close and reopen the database, then restart the app; an in-memory fallback is not persistence proof."
+      ],
+      "required_gate": "physical_device_persistence_restart",
+      "evidence": {
+        "demo": "demo_source_example",
+        "demo_repository": "https://gitcode.com/CPF-KMP-CMP/kmp-thirdlibdemo",
+        "demo_commit": "f448266c705546247ab79a6f49367c4b254ade9b"
+      }
+    },
+    {
+      "id": "datastore-singleton-path",
+      "patterns": [
+        "there are multiple datastores active for the same file",
+        "multiple datastore instances are active for the same file",
+        "file is already locked by datastore"
+      ],
+      "libraries": [
+        "androidx.datastore:datastore",
+        "androidx.datastore:datastore-core",
+        "androidx.datastore:datastore-preferences"
+      ],
+      "cookbooks": [
+        "cookbook/androidx-datastore.md"
+      ],
+      "topics": [
+        "harmony-runtime-packaging",
+        "harmony-host-runtime"
+      ],
+      "likely_causes": [
+        "More than one DataStore instance or scope owns the same file.",
+        "The store was created before the Harmony host supplied its application-private files directory."
+      ],
+      "checks": [
+        "Initialize the files directory at Ability startup before first store access.",
+        "Create one process-level DataStore instance per file with one owned SupervisorJob scope.",
+        "Verify persistence after app restart and reject silent temporary-directory fallback."
+      ],
+      "required_gate": "physical_device_datastore_restart",
+      "evidence": {
+        "catalog": "metadata",
+        "demo": "demo_source_example",
+        "demo_repository": "https://gitcode.com/CPF-KMP-CMP/kmp-thirdlibdemo",
+        "demo_commit": "f448266c705546247ab79a6f49367c4b254ade9b"
+      }
+    }
+  ]
+}

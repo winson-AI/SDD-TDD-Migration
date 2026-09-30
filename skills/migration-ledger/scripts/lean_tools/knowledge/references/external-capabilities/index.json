@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "snapshot": "2026-07-21",
+  "description": "Evidence-backed Harmony host/native capability candidates that are not KMP foundation libraries. Read only the matching record and verify it in the actual target.",
+  "entries": [
+    {
+      "id": "ohos-webrtc",
+      "capabilities": [
+        "webrtc.peer_connection",
+        "media.camera_capture",
+        "media.video_track",
+        "media.audio_device"
+      ],
+      "package": "@ohos/webrtc",
+      "version": "1.0.2",
+      "route": "arkts_bridge",
+      "record": "ohos-webrtc.json",
+      "cookbook": "ohos-webrtc.md",
+      "status": "verified_component_route",
+      "probe_support": {
+        "status": "not-supported",
+        "upstream_path": "scripts/probe_ohos_webrtc.py",
+        "reason": "The upstream probe is not bundled or executable through SDD knowledge-query. Design target-local checks in frozen TASK/PATH/ASSERT; Test-Runner executes them through the existing build/automation flow."
+      },
+      "probe": null
+    }
+  ]
+}

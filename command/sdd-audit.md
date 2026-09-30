@@ -55,4 +55,4 @@ Global audit-assign → 对 assignment.path_ids 执行 Auditor execute_test --mo
 
 纯自动化环境缺测不作为必须修复的代码缺陷，也不强制进入人工审批。等待全量收尾后汇总缺测 PATH；最终环境仍不可用，独立预检后 audit-unavailable 留 Yellow 报告结束本轮；不能宣称 Green。见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
 
-GO 交付收尾报告前运行只读门禁 `verify_openspec.py --root <run>`；`verified=false` 说明该 run 未经 Ledger 投影（无 events.jsonl 等），不能据 `ledger/module-registry.json`、散文报告或空 openspec 目录等手写产物宣称审计完成，须回到 prepare → init → apply 重跑。见 [投影完整性收尾门禁](../skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。
+审计全量阅读前使用 `verify_openspec.py --root <run> --scope projection`；GO 交付收尾报告前改用 `--scope final`，要求正式报告已 completed 或 completed-with-unverified-tests。失败按返回范围与恢复动作处理，不从投影错误推断整轮从未执行。核验通过不证明真实派发或全部功能 Green；Yellow 缺测须继续披露。见 [核验范围](sdd-verify.md)。

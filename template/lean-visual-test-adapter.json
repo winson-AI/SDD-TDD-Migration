@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "{{absolute-python-executable}}",
+    "{{absolute-package-root}}/skills/migration-ledger/scripts/lean_visual_adapter.py",
+    "--alignment",
+    "{{absolute-run-root}}/runs/harmony/sandbox/{{reviewer}}/{{request-id}}/alignment-result.json",
+    "--target-root",
+    "{{absolute-target-root}}"
+  ],
+  "timeout": 300
+}

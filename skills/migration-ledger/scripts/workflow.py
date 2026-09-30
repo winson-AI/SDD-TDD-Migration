@@ -213,7 +213,7 @@ def problem_assignment(s, mid):
     return {**a, 'module_id': mid}
 
 
-def handle(s, req, actor):
+def handle(s, req, actor, run_root=None):
     op, p = req['operation'], req.get('payload', {})
     mid = req.get('module_id'); m = s['modules'].get(mid)
     if op == 'global-plan':
@@ -308,7 +308,7 @@ def handle(s, req, actor):
                 require(result, 'runnable module requires independent retest')
                 scope = copy.deepcopy(module)
                 scope['results'] = s.get('problem_results', {}).get(module_id, module['results'])
-                validate_result(result, scope, problem_assignment(s, module_id))
+                validate_result(result, scope, problem_assignment(s, module_id), run_root=run_root)
                 s.setdefault('problem_results', {})[module_id] = {r['path_id']: r for r in result['paths']}
                 all_green = all(r['quality'] == 'green-passed' for r in result['paths'])
                 require(not all_green or action == 'retry', 'independent Green requires Main confirmation')

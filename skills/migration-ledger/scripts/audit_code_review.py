@@ -18,7 +18,7 @@ def snapshot(s):
                 'authors': copy.deepcopy(m.get('authors'))} for mid, m in s['modules'].items()}}
 
 
-def current(s):
+def current(s, ref_check=check_ref):
     review = s.get('audit_code_review')
     if not review or not review.get('change_inventory_ref') or review['snapshot'] != snapshot(s):
         return False
@@ -26,9 +26,9 @@ def current(s):
     if batch.get('code_review_ref') == review['report_ref'] and batch.get('status') in ('verified', 'completed-with-unverified-tests'):
         return False  # Even an unchanged patch needs independent governance re-review.
     try:
-        check_ref(review['report_ref'])
+        ref_check(review['report_ref'])
         for ref in review['evidence_refs']:
-            check_ref(ref)
+            ref_check(ref)
         for m in s['modules'].values():
             if m.get('code_files'):
                 require(baseline(m['code_files']) == m['code_baseline'], 'review code changed')

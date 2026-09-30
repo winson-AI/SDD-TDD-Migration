@@ -17,7 +17,7 @@ def active(s):
     return s.get('audit_batch', {}).get('status') not in (None, 'verified', 'released', 'completed-with-unverified-tests')
 
 
-def collection_blockers(s):
+def collection_blockers(s, ref_check=check_ref):
     # Local import avoids a module initialization cycle. The cursor and mutation use
     # the same guard, so callers cannot bypass the all-modules barrier via raw JSON.
     from ledger import next_step
@@ -42,15 +42,15 @@ def collection_blockers(s):
             if step.get('ready'):
                 blockers.append({'module_id': mid, 'reason': 'module-work-ready', 'operation': step['operation']})
     for mid, group in s.get('module_groups', {}).items():
-        if not decomposition.summary_current(s, group):
-            step = decomposition.group_step(s, group)
+        if not decomposition.summary_current(s, group, ref_check):
+            step = decomposition.group_step(s, group, ref_check)
             blockers.append({'module_id': mid, 'reason': 'parent-summary-required', 'operation': step['operation']})
     return blockers
 
 
-def module_rounds(s, steps):
+def module_rounds(s, steps, ref_check=check_ref):
     """Separate per-module progress from aggregate quality; never mutate peers."""
-    blockers = collection_blockers(s)
+    blockers = collection_blockers(s, ref_check)
     unfinished = {item['module_id'] for item in blockers}
     return {
         'all_settled': not blockers,
