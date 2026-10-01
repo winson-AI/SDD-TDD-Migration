@@ -91,6 +91,15 @@ class SpecClosureTests(unittest.TestCase):
         self.assertIn('fixed-result', row['root_cause']['summary'])
         self.assertEqual(f.state()['next_steps'][0]['operation'], 'diagnose')
 
+    def test_swallowed_error_is_a_decided_anti_pattern(self):
+        f = self.f; self.built()
+        self.assertIn('swallowed-error', spec_closure.ANTI_PATTERNS)
+        data = self.review()
+        data['anti_patterns']['swallowed-error'].update(status='present', note='malformed response decoded to an empty list')
+        row = self.run_static(data)
+        self.assertEqual(row['quality'], 'red-bug')
+        self.assertIn('swallowed-error', row['root_cause']['summary'])
+
     def test_review_must_cover_frozen_requirements_with_real_symbols(self):
         f = self.f; self.built()
         query = {'kind': 'static', 'scenario_requirement_ids': ['R1'],
@@ -115,7 +124,7 @@ class SpecClosureTests(unittest.TestCase):
     def test_automation_waits_for_static_review(self):
         f = self.f; self.built()
         ref = f.record(f.report('testing'))
-        with self.assertRaisesRegex(Rejected, 'worker still active|build -> static -> automation -> visual'):
+        with self.assertRaisesRegex(Rejected, 'worker still active|build -> unit -> static -> automation -> visual'):
             f.raw('assign', {'assignment_id': 'EARLY', 'role': 'test-runner', 'instance_id': 'test-runner',
                              'test_scope': 'automation', 'context_ref': ref})
 

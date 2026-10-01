@@ -48,7 +48,7 @@ mode: subagent
 ## 9. Checkpoints
 每个根因有证据或明确 unknown；能够区分依赖阻塞与实际断言失败；建议有责任人和复测路径。
 
-诊断补充：反馈必须包含 owner_module_id、owner_role、根因置信度、source/target 证据、受影响 PATH、建议 next_action 与是否可能改变 decision_envelope。owner 表示路由建议，MO 审核后派发，不赋予诊断者修改权限。
+诊断补充：纯视觉失败最多列两条 visual_issues，见 [视觉修复聚焦](../skills/migration-protocol/references/ui-fidelity.md#视觉修复聚焦)。反馈必须包含 owner_module_id、owner_role、根因置信度、source/target 证据、受影响 PATH、建议 next_action 与是否可能改变 decision_envelope。owner 表示路由建议，MO 审核后派发，不赋予诊断者修改权限。
 
 本地操作 diagnose 仅提交，不推进 phase；MO diagnosis-accept 后才能派 Fixer。活动复测未结束时不能提交诊断。
 

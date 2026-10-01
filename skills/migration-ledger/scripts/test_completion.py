@@ -25,7 +25,7 @@ def interpret(receipt, planned):
     if receipt.get('result_ref'): evidence.append(receipt['result_ref'])
     known = isinstance(report, dict) and report.get('producer') in ('harmony-adapter', 'build-executor', 'lean-visual-adapter', 'spec-closure-check')
     if known and report['producer'] == 'build-executor':
-        require(planned.get('kind') == 'build', 'build report cannot replace automation')
+        require(planned.get('kind') in ('build', 'unit'), 'build report cannot replace automation')
     if known and report['producer'] == 'harmony-adapter':
         for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
             if key in report: require(report[key] == receipt.get(key), 'Harmony context mismatch')

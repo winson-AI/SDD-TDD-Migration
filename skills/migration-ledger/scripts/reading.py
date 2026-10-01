@@ -46,6 +46,7 @@ STEP = {
 }
 TEST_SCOPE = {
     'build': [(P + 'build-automation.md', '3. 冻结路径与分阶段证据'), (P + 'testing.md', '断言与结果')],
+    'unit': [(P + 'testing.md', '逻辑单测'), (P + 'testing.md', '断言与结果')],
     'static': [(P + 'testing.md', '静态规格闭合')],
     'automation': [(P + 'testing.md', '断言与结果'), (P + 'testing.md', '本地执行与严格结果验收'),
                    (P + 'build-automation.md', '4. 自动化环境缺失：直接记 Yellow 并继续')],

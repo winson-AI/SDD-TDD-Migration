@@ -129,7 +129,7 @@ implementation 另需：
 
 `authoring_diagnostics` 是代码作者（Implementer/Fixer）交付前的轻量自检：`passed` 表示已运行改动文件诊断并修完全部错误，附 tool 与 log_ref；宿主不提供诊断时用 `unavailable` + reason，并在 `version_sensitive_apis` 为每个新引入的版本敏感 API 引用其固定版本依赖源码（source_ref），没有则为空列表。它不是正式构建，也不能代替 Test-Runner 的 build PATH。
 
-code_baseline = `contracts.baseline(code_files)`，源码文件必须仍存在且摘要匹配；目标写范围以 realpath 检查，任务必须完整映射代码文件。code_files 是已存在文件的结果清单，源码删除/rename 的全量变更核验、未列出的修改检测与 Git hunk 归属由宿主实际 diff 审核承担。宿主不能只依赖 worker 自填 code_files 证明全部写入均在范围内。
+code_baseline = `contracts.baseline(code_files)`，源码文件必须仍存在且摘要匹配；目标写范围以 realpath 检查，任务必须完整映射代码文件。code_files 是 worker 自填的结果清单，不能单独证明没有越界写入；开启 `write_scope_check` 后由[写范围核验](engineering-disciplines.md#写范围核验可选默认关闭)比对实际改动。
 
 tests 另需 paths，见 [stage-result.json](../../../template/stage-result.json)。每个冻结 PATH 都要有结果；Green 需实际回执、断言集合一致、预期值不变，且 JSON equality 成立。Red 需真实失败；Yellow 需 root_cause.category/summary/confidence/owner/next_action。失败不等于已确认根因。
 

@@ -109,7 +109,7 @@ def validate(config):
         require(isinstance(defaults.get(key, {}), dict), 'invalid ' + key)
     dependency_gate = defaults.get('quality_gates', {}).get('dependency_resolution_required', False)
     require(type(dependency_gate) is bool, 'dependency_resolution_required must be a boolean')
-    for gate in ('git_checkpoint', 'fixer_self_diagnosis'):
+    for gate in ('git_checkpoint', 'fixer_self_diagnosis', 'write_scope_check'):
         require(type(defaults.get('quality_gates', {}).get(gate, False)) is bool, gate + ' must be a boolean')
     require('local_automatic_rounds' not in defaults.get('repair_policy', {}),
             'configure local repair rounds with budgets.local_fix_rounds')
@@ -224,12 +224,13 @@ def prepared_input(ref):
     defaults = config.get('defaults', {})
     return {**{k: copy.deepcopy(config[k]) for k in ('workspace_root', 'package_root', 'legacy_root', 'target_root', 'test_adapter',
                 'runtime', 'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources') if k in config},
-            'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
+            'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
             'module_name': snapshot['module_name'], 'project_context_ref': ref, 'project_sources': sources,
             'run_root': snapshot['run_root'], 'storage_layout': snapshot.get('storage_layout'),
             'dependency_resolution_required': snapshot.get('dependency_resolution_required'),
             'git_checkpoint': defaults.get('quality_gates', {}).get('git_checkpoint', False),
             'fixer_self_diagnosis': defaults.get('quality_gates', {}).get('fixer_self_diagnosis', False),
+            'write_scope_check': defaults.get('quality_gates', {}).get('write_scope_check', False),
             'new_architecture': sources['architecture_path'], 'document_link_warnings': context_links.mapping(snapshot)[1],
             'global_spec': None, 'global_test_cases': [],
             'requirement_ids': [], 'global_test_paths': [],
@@ -429,13 +430,16 @@ def bind_run(ref, run_root, run_id, payload):
     require(payload.get('git_checkpoint', git_gate) == git_gate, 'run/config git checkpoint mismatch')
     self_diagnosis = config.get('defaults', {}).get('quality_gates', {}).get('fixer_self_diagnosis', False)
     require(payload.get('fixer_self_diagnosis', self_diagnosis) == self_diagnosis, 'run/config fixer self-diagnosis mismatch')
+    scope_check = config.get('defaults', {}).get('quality_gates', {}).get('write_scope_check', False)
+    require(payload.get('write_scope_check', scope_check) == scope_check, 'run/config write scope check mismatch')
     require(payload.get('dependency_resolution_required', dependency_gate) == dependency_gate,
             'run/config dependency resolution gate mismatch')
     require(payload.get('ui_fidelity_required', True) is True, 'prepared run requires UI fidelity evidence')
     require(payload.get('spec_closure_required', True) is True, 'prepared run requires static spec closure review')
+    require(payload.get('unit_tests_required', True) is True, 'prepared run requires unit tests for applicable Logic items')
     require(payload.get('dimension_slicing_required', True) is True, 'prepared run requires dimension slicing')
     require(payload.get('context_readiness_required', True) is True, 'prepared run requires context readiness')
-    return {'dependency_resolution_required': dependency_gate, 'git_checkpoint': git_gate, 'fixer_self_diagnosis': self_diagnosis, 'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
+    return {'dependency_resolution_required': dependency_gate, 'git_checkpoint': git_gate, 'fixer_self_diagnosis': self_diagnosis, 'write_scope_check': scope_check, 'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
             'project_context_ref': ref, 'project_id': snapshot['project_id'],
             'project_revision': snapshot['project_revision'], 'module_name': snapshot['module_name']}
 

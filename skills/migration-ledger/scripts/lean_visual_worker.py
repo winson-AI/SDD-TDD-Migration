@@ -35,6 +35,12 @@ def blocked(reason, kind='environment-unavailable', **extra):
             'root_cause': {'kind': kind, 'reason': reason}, 'acceptance': 'staged-evidence-only', **extra}
 
 
+def failed(reason, kind, **extra):
+    """An observed defect of the candidate itself: evidence for a Red, never an environment gap."""
+    return {'status': 'FAILED', 'quality_candidate': 'red-bug', 'executed': True,
+            'root_cause': {'kind': kind, 'reason': reason}, 'acceptance': 'staged-evidence-only', **extra}
+
+
 def token(value, label):
     require(isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}', value),
             label + ' must be a safe nonempty identifier')
@@ -121,12 +127,17 @@ class Device:
 
     def call(self, *args, timeout=30):
         argv = [self.tool, '-t', self.device, *map(str, args)]
-        try:
-            result = subprocess.run(argv, cwd=self.out, env=runner_storage.environment(self.out),
-                                    capture_output=True, text=True, errors='replace', timeout=timeout)
-        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-            self.logs.append({'argv': argv, 'error': type(exc).__name__})
-            raise DeviceFailure('environment-unavailable', type(exc).__name__) from exc
+        # Only read-only state queries are retried once on a transient timeout; actions never repeat.
+        attempts = 2 if tuple(map(str, args[:3])) in (('shell', 'aa', 'dump'), ('shell', 'bm', 'dump')) else 1
+        for attempt in range(attempts):
+            try:
+                result = subprocess.run(argv, cwd=self.out, env=runner_storage.environment(self.out),
+                                        capture_output=True, text=True, errors='replace', timeout=timeout)
+                break
+            except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+                self.logs.append({'argv': argv, 'error': type(exc).__name__, 'attempt': attempt + 1})
+                if isinstance(exc, FileNotFoundError) or attempt + 1 == attempts:
+                    raise DeviceFailure('environment-unavailable', type(exc).__name__) from exc
         self.logs.append({'argv': argv, 'exit_code': result.returncode,
                           'stdout': result.stdout, 'stderr': result.stderr})
         if result.returncode:
@@ -250,6 +261,17 @@ def target_matches(xml, expected, app_id):
     return True
 
 
+def app_running(output, app):
+    return any(re.search(r'app name \[' + re.escape(app) + r']', line) for line in output.splitlines())
+
+
+def off_foreground(output, app, when):
+    """Launched but gone from the running list means the candidate exited or crashed."""
+    if app_running(output, app):
+        return blocked('requested app is not the observed foreground app ' + when, 'target-precondition')
+    return failed('app exited after launch ' + when, 'app-runtime-failure')
+
+
 def foreground_app(output):
     current = None
     for line in output.splitlines():
@@ -307,7 +329,7 @@ def capture(device, contract, args, path, module, task, out, root):
     frozen_actions(device, contract.get('actions', []))
     foreground = device.call('shell', 'aa', 'dump', '-l')
     if foreground_app(foreground) != app:
-        return blocked('requested app is not the observed foreground app', 'target-precondition')
+        return off_foreground(foreground, app, 'before capture')
     xml, page = device.layout(0)
     # A matching exact selector plus app ownership is required; caller supplied state labels alone
     # never produce COMPLETE. Current app dump is retained as evidence, not inferred from a launch.
@@ -334,10 +356,11 @@ def capture(device, contract, args, path, module, task, out, root):
             current_xml, _ = device.layout(index)
         foreground = device.call('shell', 'aa', 'dump', '-l')
         if foreground_app(foreground) != app:
-            return blocked('foreground app changed during capture', 'target-precondition')
+            return off_foreground(foreground, app, 'during capture')
         image_path = device.screenshot(index)
-        if foreground_app(device.call('shell', 'aa', 'dump', '-l')) != app:
-            return blocked('foreground app changed during screenshot', 'target-precondition')
+        foreground = device.call('shell', 'aa', 'dump', '-l')
+        if foreground_app(foreground) != app:
+            return off_foreground(foreground, app, 'during screenshot')
         view = out / f'view-{index}.xml'
         run_storage.atomic_bytes(view, current_xml.encode())
         signature = mobile_snapshot.view_signature(current_xml, foreground)

@@ -142,7 +142,7 @@ class SplitTestingTests(unittest.TestCase):
     def test_automation_cannot_run_before_build_or_conceal_compile_failure(self):
         f = self.f; self.prepare()
         ref = f.record(f.report('testing'))
-        with self.assertRaisesRegex(Rejected, 'build -> static -> automation -> visual'):
+        with self.assertRaisesRegex(Rejected, 'build -> unit -> static -> automation -> visual'):
             f.raw('assign', {'assignment_id': 'EARLY', 'role': 'test-runner', 'instance_id': 'test-runner',
                              'test_scope': 'automation', 'context_ref': ref})
         with self.assertRaisesRegex(Rejected, 'current build'):

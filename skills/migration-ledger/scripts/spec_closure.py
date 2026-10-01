@@ -15,7 +15,7 @@ sys.dont_write_bytecode = True
 
 from contracts import check_ref, digest, file_ref, keyed, nonempty, read_json, require
 
-ANTI_PATTERNS = ('preview-only-wiring', 'dead-handler', 'fixed-result', 'placeholder-icon', 'unapproved-stub')
+ANTI_PATTERNS = ('preview-only-wiring', 'dead-handler', 'fixed-result', 'placeholder-icon', 'unapproved-stub', 'swallowed-error')
 
 
 def cited(item, target, label, rid):
@@ -51,6 +51,10 @@ def report(query, review_ref, target_root):
             require(caller.get('symbol') in symbols, 'reached_from must reference a cited production symbol: ' + rid)
             require(cited(caller, target, 'reached_from', rid) not in defined_in,
                     'reached_from must be a different file from the symbol definition: ' + rid)
+            if query.get('unit_tests_present'):
+                # The module has unit PATHs: a passed requirement names the test that exercises its symbol.
+                for item in nonempty(row.get('test_refs'), 'test_refs for ' + rid):
+                    cited(item, target, 'test_refs', rid)
         for ref in nonempty(row.get('evidence_refs'), 'scenario evidence for ' + rid):
             check_ref(ref)
         if row['status'] == 'failed':

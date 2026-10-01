@@ -84,13 +84,14 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     context_readiness.check_execution(s, a, argv, cwd, path_id)
     require(baseline(m['code_files']) == m['code_baseline'], 'code changed before execution')
     path = next(p for p in m['plan']['paths'] if p['path_id'] == path_id)
-    is_build = path.get('kind') == 'build'
+    is_build = path.get('kind') in ('build', 'unit')  # both run a frozen command and assert its exit code
     if tv.split(m) and module_id != 'GLOBAL':
         if a.get('role') == 'test-runner':
             require(a.get('test_scope') == (path.get('kind') or 'automation'), 'path outside test assignment scope')
             require(path.get('kind') != 'visual' or tv.functional_ready(m), 'functional tests must pass before visual')
-        require(is_build or tv.build_ready(m), 'build must pass before automation')
-        require(path.get('kind') in ('build', 'static') or tv.static_ready(m), 'static spec review must pass before automation')
+        require(path.get('kind') == 'build' or tv.build_ready(m), 'build must pass before automation')
+        require(path.get('kind') != 'static' or tv.unit_ready(m), 'unit tests must pass before the static review')
+        require(path.get('kind') in ('build', 'unit', 'static') or tv.static_ready(m), 'static spec review must pass before automation')
     if is_build:
         require(argv == path['command']['argv'] and str(Path(cwd).resolve()) == str(Path(path['command']['cwd']).resolve()), 'build command differs from frozen plan')
         timeout = path['command']['timeout_seconds']
@@ -120,6 +121,8 @@ gradle.beforeProject { p ->
 ''')
     query = {**path, 'run_id': s['run_id'], 'module_id': module_id,
              'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline']}
+    if path.get('kind') == 'static':
+        query['unit_tests_present'] = bool(tv.paths(m, 'unit'))
     if path.get('kind') in ('automation', 'visual'):
         import ui_fidelity
         interaction = ui_fidelity.frozen_interaction(m, path)
@@ -185,8 +188,9 @@ gradle.beforeProject { p ->
                                 if f.is_file() and f.suffix.lower() in ('.hap', '.hsp', '.apk')], 'quality': quality,
             'assertions': [{'assertion_id': path['expected_assertions'][0]['assertion_id'], 'expected': 0,
                             'actual': exit_code, 'passed': exit_code == 0}],
-            'root_cause': None if exit_code == 0 else {'category': 'tooling' if aborted or exit_code in (124,127) else 'build',
-                'summary': 'Build exit ' + str(exit_code) + '; inspect captured compiler/tool log',
+            'root_cause': None if exit_code == 0 else {'category': 'tooling' if aborted or exit_code in (124,127)
+                                                        else 'code' if path.get('kind') == 'unit' else 'build',
+                'summary': ('Unit tests' if path.get('kind') == 'unit' else 'Build') + ' exit ' + str(exit_code) + '; inspect captured compiler/tool log',
                 'confidence': 'observed', 'owner': module_id, 'next_action': 'diagnose',
                 'evidence_refs': [file_ref(out / 'execution.log')]}})
     receipt = {'schema_version': 1, 'producer': 'host-executor', 'run_id': s['run_id'],
