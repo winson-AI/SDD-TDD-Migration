@@ -106,6 +106,11 @@ def entries(role, test_scope=None, ui=False, reuse=False):
     return out
 
 
+def digest_card(rows):
+    from contracts import digest
+    return digest([{k: row[k] for k in ('ref', 'section')} for row in rows])
+
+
 def card(s, m, step):
     role = step.get('worker_role') or step.get('role')
     if role not in ROLE:

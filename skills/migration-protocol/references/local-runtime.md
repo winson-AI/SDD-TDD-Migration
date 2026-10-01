@@ -82,7 +82,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | plan | Spec-Designer | plan_ref；完整 [stage-plan](../../../template/stage-plan.json) |
 | freeze | MO | 初始/边界外变更 decision_id；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref（MO 对详细 tasks/PATH 的审阅），子 plan 的 decision_envelope 必须与信封条目完全一致，信封可被多个孩子使用并记录 used_by |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
-| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；阶段合法且无活动 worker；返回的投影含 fencing_token |
+| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id，可选 session_id、card_sha256（宿主实际采用的提示，仅记录）；阶段合法且无活动 worker；返回的投影含 fencing_token |
 | submit | 对应 worker | assignment_id、fencing_token、result_ref；只提交，不改变业务阶段 |
 | accept | MO | assignment_id；再次检查工件和版本后关闭 assignment、推进阶段 |
 | diagnose | Diagnostician（lean leaf 本地轮为 Fixer） | diagnosis_ref、owner、root_cause；仅保存绑定当前冻结、代码和未解决结果的 diagnosis_submission，不改变 phase；模块必须无活动 worker |
@@ -171,7 +171,7 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 
 采用上传包的 NEXT/next_skill、blocked_from、阶段 require_state 和轮次保留机制，适配为 Ledger 派生游标：
 
-- `status.next_steps`：每模块 operation、role、worker_role（如适用）、session_id、assignment_id、expected_revision、ready、reason。每个有 operation 的步骤带 `must_read` 阅读卡（[reading.py](../../migration-ledger/scripts/reading.py)：ref、section、bytes），宿主把它随派发交给角色；`global_next_step` 同样提供。本地修复尚无 fixer 会话时，session_id 指向原 Implementer 会话并标 `session_affinity=implementer`，宿主优先恢复写代码的上下文；审计期修复不做此提示，使用新实例。未解决结果含已确认 `runtime-spec-variant-conflict` 时，游标为 `suspend(kind=human)`，不进入诊断或修复。
+- `status.next_steps`：每模块 operation、role、worker_role（如适用）、session_id、assignment_id、expected_revision、ready、reason。每个有 operation 的步骤带 `must_read` 阅读卡（[reading.py](../../migration-ledger/scripts/reading.py)：ref、section、bytes）及其摘要 `card_sha256`，宿主把它随派发交给角色；assign 时宿主回填实际使用的 `session_id` 与交付的 `card_sha256`，Ledger 在 assignment.hints 记录建议值、实际值与是否采纳，汇总到 `status.hint_adoption` 和 `ledger/model-usage.json`。提示仍不是门禁：不回填记为 unreported，不拒绝派发；`global_next_step` 同样提供。本地修复尚无 fixer 会话时，session_id 指向原 Implementer 会话并标 `session_affinity=implementer`，宿主优先恢复写代码的上下文；审计期修复不做此提示，使用新实例。未解决结果含已确认 `runtime-spec-variant-conflict` 时，游标为 `suspend(kind=human)`，不进入诊断或修复。
 - `status.ready_modules`：当前有可推进步骤的模块；并非可以同时启动的预约。多个候选可能争用同一资源，真正 assign 仍在事务内再次校验。
 - `status.global_next_step`：等待模块完成、创建审计、等待活动审计、撤销失效审计或等待交付授权。游标不自动派发，也不赋予额外权限。
 - 已提交 worker 结果对应 `accept`；未提交对应 `await-result`。原会话通过 session_id 提示复用；短交接只传 Ledger/assignment/artifact 引用。

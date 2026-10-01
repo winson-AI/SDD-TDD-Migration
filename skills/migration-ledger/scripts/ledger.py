@@ -103,7 +103,8 @@ def model_usage(s):
 def project(root, s, sequence):
     errors = []
     project_attempt(errors, 'global-state', lambda: atomic(root / 'ledger/global.json', {**s, 'last_sequence': sequence, 'parent_mo_names': decomposition.parent_mo_names(s)}))
-    project_attempt(errors, 'model-usage', lambda: atomic(root / 'ledger/model-usage.json', {'sequence': sequence, 'usage': model_usage(s)}))
+    project_attempt(errors, 'model-usage', lambda: atomic(root / 'ledger/model-usage.json', {'sequence': sequence, 'usage': model_usage(s),
+                                                                                          'hint_adoption': hint_adoption(s)}))
     for mid, m in s['modules'].items():
         project_attempt(errors, 'module-state', lambda: atomic(root / f'ledger/modules/{mid}.json', {**m, 'last_sequence': sequence}), mid)
     for mid, group in s.get('module_groups', {}).items():
@@ -479,13 +480,41 @@ def _next_step(s, m):
             step.update(ready=False, reason=str(exc))
             if step['operation'] == 'freeze':
                 step['recovery_action'] = 'Spec-Designer revise the current plan/evidence, then MO review and freeze again'
-    session_role = step.get('worker_role') or step['role']
-    step['session_id'] = m['sessions'].get(session_role, {}).get('session_id')
-    if (session_role == 'fixer' and not step['session_id'] and not audit_closure.active(s)
-            and not m.get('audit_fix_grant') and m['sessions'].get('implementer', {}).get('session_id')):
-        # A local repair resumes the context that wrote the code; audit repairs start fresh.
-        step.update(session_id=m['sessions']['implementer']['session_id'], session_affinity='implementer')
+    session_id, affinity = suggested_session(s, m, step.get('worker_role') or step['role'])
+    step['session_id'] = session_id
+    if affinity:
+        step['session_affinity'] = affinity
     return step
+
+
+def suggested_session(s, m, role):
+    """Resume the role's own session; a local repair without one resumes the code author's context."""
+    own = m['sessions'].get(role, {}).get('session_id')
+    if (role == 'fixer' and not own and not audit_closure.active(s)
+            and not m.get('audit_fix_grant') and m['sessions'].get('implementer', {}).get('session_id')):
+        return m['sessions']['implementer']['session_id'], 'implementer'
+    return own, None
+
+
+def hint_record(s, m, p):
+    """Advisory hints stay advisory; the host's report of what it actually used is kept for audit."""
+    suggested, _ = suggested_session(s, m, p['role'])
+    card = reading.digest_card(reading.card(s, m, {'role': 'module-orchestrator', 'worker_role': p['role'],
+                                                   'test_scope': p.get('test_scope')}))
+    used, delivered = p.get('session_id'), p.get('card_sha256')
+    return {'session_suggested': suggested, 'session_used': used,
+            'session_followed': None if used is None or suggested is None else used == suggested,
+            'card_expected': card, 'card_delivered': delivered,
+            'card_followed': None if delivered is None else delivered == card}
+
+
+def hint_adoption(s):
+    rows = [{'scope': mid, 'assignment_id': aid, 'role': a.get('role'), **a['hints']}
+            for mid, m in s['modules'].items() for aid, a in m.get('assignments', {}).items() if a.get('hints')]
+    def tally(key):
+        values = [r[key] for r in rows]
+        return {'followed': values.count(True), 'not_followed': values.count(False), 'unreported': values.count(None)}
+    return {'session': tally('session_followed'), 'card': tally('card_followed'), 'rows': rows}
 
 
 def reasoning_escalated(m):
@@ -506,6 +535,7 @@ def next_step(s, m):
                                                    step.get('worker_role'), escalate=reasoning_escalated(m))
     if step.get('operation'):
         step['must_read'] = reading.card(s, m, step)
+        step['card_sha256'] = reading.digest_card(step['must_read'])
     return step
 
 
@@ -712,9 +742,10 @@ def mutate(s, req, principal, events, root=None):
                 m['fix_rounds_used'] += 1
                 m['total_fix_rounds'] += 1
             m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
+        hints = hint_record(s, m, p)
         m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
             'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
-            'fencing_token': len(events) + 1, **(usage or {})}
+            'fencing_token': len(events) + 1, 'hints': hints, **(usage or {})}
     elif op == 'submit':
         assignment = m['assignments'].get(p.get('assignment_id'), {})
         require(not assignment.get('closed', True), 'assignment inactive')
@@ -1290,7 +1321,7 @@ def status(root):
                                      'openspec_root': layout['openspec_root'] if layout else str(root / 'openspec'),
                                      'note': None if layout else 'run not bound to a prepared storage_layout; OpenSpec projects inside .sdd-runs/<run_id>/openspec, not workspace/openspec — recreate via prepare -> init(project_context_ref)'},
                 'last_sequence': len(events), 'observed_invalidations': observed,
-                'model_usage': model_usage(s),
+                'model_usage': model_usage(s), 'hint_adoption': hint_adoption(s),
                 'next_steps': cursor, 'global_next_step': global_next, 'ready_modules': rounds['ready_modules'],
                 'module_rounds': rounds,
                 'planning_context': decomposition.planning_context(s),
