@@ -37,7 +37,7 @@
 # 1. 最小管道:确认控制器被真实调用、投影落顶层
 python3 <pkg>/skills/migration-ledger/scripts/project_context.py prepare --root <ws>/.sdd-migration --request <req.json> --host-context <host.json>
 python3 <pkg>/skills/migration-ledger/scripts/ledger.py init   --root <ws>/.sdd-runs/<run> --request <init.json> --host-context <host.json>
-python3 <pkg>/skills/migration-ledger/scripts/ledger.py status  --root <ws>/.sdd-runs/<run>   # 断言 openspec_binding.location==top-level
+python3 <pkg>/skills/migration-ledger/scripts/ledger.py status --view full --root <ws>/.sdd-runs/<run>   # 断言 openspec_binding.location==top-level
 python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sdd-runs/<run> --scope global  # 仅断言公共记录/布局一致
 ```
 
@@ -64,9 +64,13 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 ## 提示采纳回报
 
-宿主轮询用 `ledger.py status --view cursor`（默认：游标、`module_summary`、按摘要去重的 `cards`）；单模块细节 `--view module --module <id>`，排查用 `--view full`。`reading.py render --root <run> --module <id>`（全局步骤用 `--global`）把当前卡写成 `reports/reading/<card_sha256>.md`，派发只传该路径；卡外规则用 `reading.py show --ref <文件> --section <标题>` 读单节，操作矩阵可写 `操作矩阵@<operation>` 只取一行（卡里已含当前操作的行）。`card_sha256` 绑定小节正文；恢复建议会话时只交 `must_read_new`（`render --resumed`），冷启动用完整 `must_read`。门禁拒绝的响应与 `reports/rejected-operation.json` 带 `read_hint`（该门禁所在小节）。
+**轮询。** 宿主用 `ledger.py status --view cursor --since <上次 last_sequence>`：没有新事件时只返回 `unchanged` 与进度信号；否则返回游标、`module_summary` 和信号摘要，步骤只带 `card_sha256`，`cards` 只给各卡的字节数与小节数。单模块细节用 `--view module --module <id>`；模块正文、`openspec_binding`、`migration_report`、`parent_mo_names` 与信号证据、卡片行清单（`must_read`、`must_read_new`）在 `--view full`。
 
-游标的 `session_id`/`session_affinity` 与 `must_read`/`card_sha256` 是建议。宿主派发 worker 时在 assign payload 回填实际恢复或新建的 `session_id` 和交给角色的 `card_sha256`；其他模块请求（MO 的 accept、freeze 等）可带顶层 `hint{session_id, card_sha256}`，与当前游标步骤一致时计入该会话已持有的小节。Ledger 只记录与建议是否一致（`status.hint_adoption`），不据此拒绝派发。持续的 not_followed 或 unreported 说明宿主未落实冷启动优化，应在接入层修正，而不是放宽门禁。
+**取卡。** `reading.py render --root <run> --module <id>`（全局步骤用 `--global`）把当前卡写成 `reports/reading/<card_sha256>.md`，派发只传该路径。卡内不保留指向整份协议的链接：小节引用写成“文件 § 小节”，可直接交给 `reading.py show --ref <文件> --section <小节>`（操作矩阵可写 `操作矩阵@<operation>` 只取一行）。卡尾列出本步模板（步骤的 `templates`），不必读模板索引。`card_sha256` 绑定小节正文。
+
+**会话。** 恢复建议会话时只交尚未持有或正文已变的小节（`render --resumed`，游标的 `card_new` 给出其大小），冷启动用完整卡。任何模块请求可带顶层 `hint{session_id, card_sha256}` 报告所用会话与卡片（assign 也接受 payload 中的同名字段），与当前游标步骤一致时计入该会话已持有的小节。会话累计持有的协议文本达到阈值时，步骤带 `session_rotate`：建议按 checkpoint 冷启动该角色并交完整卡。门禁拒绝的响应与 `reports/rejected-operation.json` 带 `read_hint`（该门禁所在小节）。
+
+以上都是建议：Ledger 只记录是否一致（`status.hint_adoption`），不据此拒绝派发；持续 not_followed/unreported 应在接入层修正，而不是放宽门禁。
 
 ## 本地修复单次派发
 

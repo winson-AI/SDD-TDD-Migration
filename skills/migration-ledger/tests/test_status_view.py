@@ -26,8 +26,13 @@ class StatusViewTests(unittest.TestCase):
         self.assertLess(len(json.dumps(cursor)), len(json.dumps(full)) / 2)
         step = cursor['next_steps'][0]
         self.assertNotIn('must_read', step)
-        self.assertEqual(cursor['cards'][step['card_sha256']], full['next_steps'][0]['must_read'])
-        self.assertNotIn('must_read', json.dumps(cursor['workflow_progress']))
+        self.assertEqual(cursor['cards'][step['card_sha256']], reading.summary(full['next_steps'][0]['must_read']))
+        self.assertNotIn('must_read', json.dumps(cursor))
+        self.assertNotIn('evidence', json.dumps(cursor['workflow_progress']))
+        self.assertEqual(cursor['workflow_progress']['state'], full['workflow_progress']['state'])
+        for key in ('openspec_binding', 'migration_report', 'parent_mo_names'):
+            self.assertIn(key, full); self.assertNotIn(key, cursor)
+        self.assertLess(len(json.dumps(cursor)), 2500)
         self.assertEqual(cursor['operation_ready'] if 'operation_ready' in cursor else None, None)
         self.assertEqual(cursor['view'], 'cursor')
 
@@ -47,6 +52,18 @@ class StatusViewTests(unittest.TestCase):
             ledger.status(f.root, 'module', 'M999')
         with self.assertRaises(ValueError):
             ledger.status(f.root, 'nonsense')
+
+    def test_a_poll_that_saw_the_current_sequence_gets_a_brief_answer(self):
+        f = self.f
+        seen = ledger.status(f.root, 'cursor')['last_sequence']
+        again = ledger.status(f.root, 'cursor', since=seen)
+        self.assertEqual((again['unchanged'], again['last_sequence']), (True, seen))
+        self.assertNotIn('next_steps', again)
+        self.assertIn('signals', again['workflow_progress'])
+        self.assertLess(len(json.dumps(again)), 700)
+        self.assertIn('next_steps', ledger.status(f.root, 'cursor', since=seen - 1))
+        f.assign('test-runner', 'TEST1')
+        self.assertIn('next_steps', ledger.status(f.root, 'cursor', since=seen))
 
     def test_full_view_is_the_default_api(self):
         self.assertIn('modules', ledger.status(self.f.root))
@@ -73,7 +90,7 @@ class CardFileTests(unittest.TestCase):
             self.assertEqual(Path(first['path']).name, first['card_sha256'] + '.md')
             text = Path(first['path']).read_text()
             for path, heading in self.ROWS:
-                self.assertIn(reading.section(path, heading).rstrip(), text)
+                self.assertIn(reading.unlink(reading.section(path, heading), path).rstrip(), text)
             self.assertEqual(len(list(Path(tmp).iterdir())), 1)
 
     def test_show_returns_one_section_and_refuses_escapes(self):

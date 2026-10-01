@@ -25,6 +25,6 @@ description: OpenSpec 六件套、plan 澄清冻结和 CR 影响分析，用于 
 六件套与全局契约对应；每个问题有决定；任务有范围/依赖/证据；变更重新冻结。
 
 ## 6. 配套资产
-使用 [主要模板](../../template/freeze.json)；其他工件由 [模板索引](../../template/INDEX.md) 定位。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+使用 [主要模板](../../template/freeze.json)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
 角色义务、必交证据与专题入口以 [Agent 定义](../../Agents/spec-designer.md#专题义务) 为准；本技能只保留执行规约与检查，不重复专题细则。

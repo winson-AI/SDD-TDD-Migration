@@ -27,6 +27,6 @@ description: 功能切片、架构差异解析、DAG 与全局三态调度，用
 CASE 覆盖归属与验收角色分开：模块阶段唯一验收 owner 为对应 MO，审计阶段为对应 Auditor；当前范围完整 Green 且已有门禁满足即直接记录。跨模块 paths 保留参与者；锁相交不并行；全局测试未通过不称完成。
 
 ## 6. 配套资产
-使用 [主要模板](../../template/global-input.json)；其他工件由 [模板索引](../../template/INDEX.md) 定位。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+使用 [主要模板](../../template/global-input.json)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
 角色义务、调度/审计规则与专题入口以 [Agent 定义](../../Agents/global-orchestrator.md#专题义务) 和 [状态机](../migration-protocol/references/state-machine.md) 为准；本技能只保留执行规约与检查，不重复专题细则。

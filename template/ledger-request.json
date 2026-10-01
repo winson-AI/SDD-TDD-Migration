@@ -5,6 +5,10 @@
   "module_id": "M001",
   "expected_revision": 0,
   "operation": "plan",
+  "hint": {
+    "session_id": "{{host-session-id}}",
+    "card_sha256": "{{card-sha256-from-cursor-step}}"
+  },
   "payload": {
     "plan_ref": {
       "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",

@@ -529,14 +529,15 @@ def deliver(m, rows, session_id):
     load = m.setdefault('card_load', {'dispatches': 0, 'full': 0, 'delivered': 0})
     load['dispatches'] += 1
     load['full'] += sum(row['bytes'] for row in rows)
-    load['delivered'] += sum(row['bytes'] for row in reading.fresh(rows, held))
+    new = sum(row['bytes'] for row in reading.fresh(rows, held))
+    load['delivered'] += new
+    sessions = m.setdefault('session_load', {})
+    sessions[session_id] = sessions.get(session_id, 0) + new
     held.update(reading.delivered(rows))
 
 
 def record_hint(s, m, hint):
     """A request may report the session and card the host acted on; counted when it matches the cursor step."""
-    require(isinstance(hint, dict) and isinstance(hint.get('session_id'), str) and hint['session_id']
-            and isinstance(hint.get('card_sha256'), str), 'hint needs session_id and card_sha256')
     try:
         step = next_step(s, m)
     except (Rejected, OSError, ValueError, KeyError):
@@ -589,9 +590,15 @@ def next_step(s, m):
     if step.get('operation'):
         step['must_read'] = reading.card(s, m, step)
         step['card_sha256'] = reading.digest_card(step['must_read'])
-        held = m.get('delivered_cards', {}).get(step.get('session_id') or '')
+        step['templates'] = reading.templates(s, m, step)
+        session = step.get('session_id') or ''
+        held = m.get('delivered_cards', {}).get(session)
         if held:
             step['must_read_new'] = reading.fresh(step['must_read'], held)
+        loaded = m.get('session_load', {}).get(session, 0)
+        if loaded >= reading.ROTATE_BUDGET:
+            # Advisory: restart this role from its checkpoint with the full card instead of feeding it more.
+            step['session_rotate'] = {'reason': 'reading-load', 'delivered_bytes': loaded, 'threshold': reading.ROTATE_BUDGET}
     return step
 
 
@@ -708,8 +715,14 @@ def mutate(s, req, principal, events, root=None):
     if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
     context_readiness.gate(s, req, principal)
-    if req.get('hint') is not None and op != 'assign' and mid and mid not in s.get('module_groups', {}):
-        record_hint(s, m, req['hint'])
+    hint = req.get('hint')
+    if hint is not None:
+        require(isinstance(hint, dict) and isinstance(hint.get('session_id'), str) and hint['session_id']
+                and isinstance(hint.get('card_sha256'), str), 'hint needs session_id and card_sha256')
+        if op == 'assign':  # one way to report for every operation; explicit payload fields still win
+            p = {'session_id': hint['session_id'], 'card_sha256': hint['card_sha256'], **p}
+        elif mid and mid not in s.get('module_groups', {}):
+            record_hint(s, m, hint)
     if op == 'context-submit':
         context_readiness.submit(s, req, principal)
     elif op == 'audit-code-review':
@@ -1360,11 +1373,12 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     if global_next.get('operation'):
         global_next['must_read'] = reading.card(s, None, global_next)
         global_next['card_sha256'] = reading.digest_card(global_next['must_read'])
+        global_next['templates'] = reading.templates(s, None, global_next)
     return {'global_next_step': global_next, 'next_steps': cursor,
             'source_change_next_step': source_changes.next_action(s), 'module_rounds': rounds}
 
 
-def status(root, view='full', module_id=None):
+def status(root, view='full', module_id=None, since=None):
     root = Path(root).resolve()
     require(root.is_dir(), 'run root missing')
     with run_storage.file_lock(root / '.ledger.lock'):
@@ -1423,7 +1437,7 @@ def status(root, view='full', module_id=None):
                 'module_inputs': {mid: decomposition.assigned_module(s, m) for mid, m in
                                   {**s.get('module_groups', {}), **s['modules']}.items()},
                 'quality': 'yellow-blocked' if observed and s['quality'] != 'red-bug' else s['quality']}
-        return status_view.select(full, view, module_id)
+        return status_view.select(full, view, module_id, since)
 
 
 def main():
@@ -1434,6 +1448,7 @@ def main():
     parser.add_argument('--view', choices=status_view.VIEWS, default='cursor',
                         help='status only: cursor (default), module (needs --module) or full')
     parser.add_argument('--module')
+    parser.add_argument('--since', type=int, help='status only: last_sequence already seen; an unchanged run answers briefly')
     parser.add_argument('--host-context', help='Host-protected principal JSON; CLI does not authenticate humans')
     args = parser.parse_args()
     try:
@@ -1449,7 +1464,7 @@ def main():
         require(snapshot.get('storage_layout'), 'prepared storage layout required; use history for old read-only evidence')
         run_storage.validate(snapshot['storage_layout'], root, root.name)
         if args.command == 'status':
-            result = status(args.root, args.view, args.module)
+            result = status(args.root, args.view, args.module, args.since)
         else:
             require(args.request and args.host_context, 'request and host context required')
             req = read_json(args.request)

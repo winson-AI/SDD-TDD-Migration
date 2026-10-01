@@ -29,7 +29,7 @@ description: SDD-TDD-Migration 的测试设计、编译构建与自动化执行�
 用例路径全覆盖；assert 完整；结果版本匹配；未知/环境失败 Yellow；失败根因可追溯。
 
 ## 6. 配套资产
-使用 [主要模板](../../template/test-paths.json)；其他工件由 [模板索引](../../template/INDEX.md) 定位。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+使用 [主要模板](../../template/test-paths.json)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
 ## 7. Harmony 自动化测试
 

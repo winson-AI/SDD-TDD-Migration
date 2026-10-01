@@ -29,7 +29,6 @@ run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃
 ⚠️ blocked | reason=<门禁/依赖/人工> | evidence=<绝对路径或事件>
 ❌ failed | reason=<实际错误> | recorded=<event-id或transport-unavailable>
 ```
-status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接受回执。
 
 ## 7. 对应规格
 [状态机](../skills/migration-protocol/references/state-machine.md)、[OpenSpec 契约](../skills/migration-protocol/references/openspec.md)。

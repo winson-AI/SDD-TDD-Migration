@@ -25,4 +25,4 @@ description: 结构化人工阻塞、反馈转机器输入和超时升级，用�
 问题自包含；真实答复引用；过期决定拒绝；超时仍 pending；恢复不直接置 Green。
 
 ## 6. 配套资产
-使用 [主要模板](../../template/human-decision.json)；其他工件由 [模板索引](../../template/INDEX.md) 定位。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+使用 [主要模板](../../template/human-decision.json)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。

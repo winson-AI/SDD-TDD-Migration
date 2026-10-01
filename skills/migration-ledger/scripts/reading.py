@@ -19,8 +19,10 @@ PACKAGE = Path(__file__).resolve().parents[3]
 READ_BUDGET = 60_000  # UTF-8 bytes per dispatch card
 # A step with no UI, reuse, telemetry or lean-leaf scope stays under this; lower it when cards shrink, never raise it.
 TYPICAL_BUDGET = 35_000
+# A session holding this much protocol text is better restarted from its checkpoint than fed more; advisory.
+ROTATE_BUDGET = 100_000
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 556_000
+PROTOCOL_BUDGET = 555_600
 FILE_BUDGET = 34_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -78,7 +80,7 @@ STEP = {
     'module-orchestrator': sections('state-machine.md', 'Module-Orchestrator 唯一模块守卫', '有限循环'),
     'global-orchestrator': sections('state-machine.md', '模块隔离与全量收尾'),
     'auditor': [],
-    'escalation': [(P + 'progress-recovery.md', None)],
+    'escalation': sections('progress-recovery.md', '总则', '2. invalidate 后必须有明确出口', '3. 宿主必须消费的进度信号'),
 }
 # Operation families: (role, family) -> extra sections. Families come from family().
 OPS = {
@@ -86,7 +88,7 @@ OPS = {
                                               '6. 二方库作为逐层规划依据', '7. 拆分与任务规划的上下文验收', '四维父子覆盖')
     + sections('project-context.md', '总则')
     + sections('dimension-slicing.md', '总则') + [('skills/migration-global/references/slicing.md', '总则')],
-    ('global-orchestrator', 'source'): [(P + 'source-changes.md', None)],
+    ('global-orchestrator', 'source'): sections('source-changes.md', '总则', '1. GO：评估来源、归属与影响范围', '5. 信号与 Auditor'),
     ('auditor', 'code-review'): [(P + 'audit-code-review.md', None)] + sections('audit-scope.md', '总则', '入口与范围', '代码治理前置'),
 }
 TEST_SCOPE = {
@@ -221,13 +223,37 @@ def _topic_rows(text, topics):
     return ''.join(out)
 
 
+# Blocks of an Agent definition that only apply in some modes of the role; other blocks always stay.
+MODE_BLOCKS = {'### 设计', '### 构建', '### 单测与静态审查', '### 自动化', '## 10. Harmony 执行器'}
+TEST_MODES = {None: ('### 设计',), 'build': ('### 构建',), 'unit': ('### 构建', '### 单测与静态审查'),
+              'static': ('### 构建', '### 单测与静态审查'), 'automation': ('### 自动化', '## 10. Harmony 执行器'),
+              'visual': ('### 自动化', '## 10. Harmony 执行器')}
+
+
+def _mode_blocks(text, modes):
+    out, keep = [], True
+    for line in text.splitlines(keepends=True):
+        if line.startswith('#'):
+            title = line.strip()
+            if title in MODE_BLOCKS:
+                keep = title in modes
+            elif line.startswith('## ') or (line.startswith('### ') and title not in MODE_BLOCKS):
+                keep = True
+        if keep:
+            out.append(line)
+    return ''.join(out)
+
+
 @lru_cache(maxsize=None)
-def section(path, heading=None, topics=None):
+def section(path, heading=None, topics=None, modes=None):
     """Text of one Markdown section: from its heading to the next heading of the same or higher level.
 
-    `heading@a,b` keeps only the table rows whose first cell is a or b; `topics` filters an Agent's 专题义务 table."""
+    `heading@a,b` keeps only the table rows whose first cell is a or b; `topics` filters an Agent's 专题义务
+    table and `modes` its mode-specific blocks."""
     text = (PACKAGE / path).read_text()
     if heading is None:
+        if modes is not None:
+            text = _mode_blocks(text, set(modes))
         return _topic_rows(text, set(topics)) if topics is not None else text
     name, _, keys = heading.partition('@')
     lines = text.splitlines(keepends=True)
@@ -317,11 +343,75 @@ def card(s, m, step):
              'knowledge': bool(s.get('dependency_resolution_required')) or reuse}
     out = []
     for path, heading in chosen:
-        topics = agent_topics(path, flags) if path.startswith('Agents/') else None
-        text = section(path, heading, topics)
+        agent = path.startswith('Agents/')
+        topics = agent_topics(path, flags) if agent else None
+        modes = TEST_MODES.get(step.get('test_scope')) if agent and role == 'test-runner' else None
+        text = section(path, heading, topics, modes)
         out.append({'ref': path, 'section': heading, 'bytes': len(text.encode()),
-                    'sha256': hashlib.sha256(text.encode()).hexdigest(), **({'topics': list(topics)} if topics is not None else {})})
+                    'sha256': hashlib.sha256(text.encode()).hexdigest(), **({'topics': list(topics)} if topics is not None else {}),
+                    **({'modes': list(modes)} if modes is not None else {})})
     return out
+
+
+def text_of(row):
+    return section(row['ref'], row['section'], tuple(row['topics']) if 'topics' in row else None,
+                   tuple(row['modes']) if 'modes' in row else None)
+
+
+def summary(rows):
+    """What a polling host needs to know about a card; the rows themselves come from render."""
+    return {'bytes': sum(row['bytes'] for row in rows), 'sections': len(rows)}
+
+
+# Templates a step instantiates, so no role has to read the template index to find them.
+TEMPLATES = {
+    'global-orchestrator': {'plan': ['module-input.json', 'global-plan.json', 'feature-inventory.json', 'dimension-analysis.json',
+                                     'module-slicing.json', 'context-readiness.json'],
+                            'audit': ['migration-report.md'], 'source': ['source-impact.json']},
+    'module-orchestrator': {'base': ['status.md', 'checklist.md', 'freeze.json', 'change-impact.json', 'batch-envelope.json',
+                                     'module-decomposition.json', 'implementation-gap.json'],
+                            'audit': ['status.md']},
+    'spec-designer': {'base': ['stage-plan.json', 'proposal.md', 'spec.md', 'design.md', 'tasks.md', 'checklist.md',
+                               'dimension-analysis.json', 'change-impact.json', 'context-readiness.json']},
+    'implementer': {'base': ['implementation.md', 'context-readiness.json']},
+    'fixer': {'base': ['implementation.md', 'fix-note.json', 'change-request.md', 'context-readiness.json']},
+    'diagnostician': {'base': ['diagnosis.md']},
+    'escalation': {'base': ['escalation.md', 'human-decision.json']},
+    'auditor': {'code-review': ['audit-code-review.json', 'audit-change-inventory.md'],
+                'audit': ['audit-closure-plan.json', 'audit-report.md', 'audit-review.json', 'problem-audit-report.json', 'test-result.json']},
+    'test-runner': {'base': ['stage-result.json', 'test-result.json', 'context-readiness.json']},
+}
+SCOPE_TEMPLATES = {None: ['test-paths.json', 'harmony-test-path.json'], 'build': ['test-adapter.json'], 'unit': ['test-adapter.json'],
+                   'static': [], 'automation': ['test-adapter.json', 'harmony-test-adapter.json', 'harmony-config.json', 'interaction-evidence.json'],
+                   'visual': ['visual-test-path.json', 'visual-alignment.json', 'visual-capture-execution.json', 'visual-test-adapter.json',
+                              'visual-execution.json', 'visual-request.json']}
+TRIGGER_TEMPLATES = {
+    'reuse': {'global-orchestrator': ['reuse-catalog.json', 'reuse-source.json'], 'spec-designer': ['reuse-plan.json', 'reuse-fidelity.md']},
+    'telemetry': {'global-orchestrator': ['telemetry-analysis.md'], 'module-orchestrator': ['telemetry-analysis.md'],
+                  'spec-designer': ['telemetry-contract.json', 'telemetry-analysis.md'], 'auditor': ['telemetry-analysis.md']},
+    'ui': {'spec-designer': ['semantic-model.json', 'ui-state-test-design.md', 'domain-worker-request.json'],
+           'implementer': ['resource-request.json'], 'fixer': ['resource-request.json']},
+    'knowledge': {'spec-designer': ['knowledge-request.json'], 'implementer': ['knowledge-request.json'],
+                  'fixer': ['knowledge-request.json'], 'diagnostician': ['knowledge-request.json']},
+}
+
+
+def templates(s, m, step):
+    role = step.get('worker_role') or step.get('role')
+    if role not in ROLE:
+        return []
+    plan = (m or {}).get('plan') or {}
+    table = TEMPLATES.get(role, {})
+    names = list(table.get(family(role, step.get('operation')), table.get('base', [])))
+    if role == 'test-runner':
+        names += SCOPE_TEMPLATES.get(step.get('test_scope'), [])
+    reuse = bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required'))
+    active = {'reuse': reuse, 'telemetry': telemetry_scope(role, m), 'ui': bool(m) and ui_scope(m),
+              'knowledge': bool(s.get('dependency_resolution_required')) or reuse}
+    for trigger, by_role in TRIGGER_TEMPLATES.items():
+        if active[trigger]:
+            names += by_role.get(role, [])
+    return ['template/' + n for n in dict.fromkeys(names)]
 
 
 # A rejected request points at the section that states the failed gate; advisory, first match wins.
@@ -366,10 +456,51 @@ def fresh(rows, held):
     return [row for row in rows if (held or {}).get(key(row)) != row['sha256']]
 
 
-def render(rows, output_dir):
+def _slug(heading):
+    return re.sub(r'[^\w\- 一-鿿]', '', heading.strip().lower()).replace(' ', '-')
+
+
+@lru_cache(maxsize=None)
+def _heading_of(path, anchor):
+    try:
+        text = (PACKAGE / path).read_text()
+    except OSError:
+        return None
+    return next((h for h in re.findall(r'(?m)^#+\s+(.*?)\s*$', text) if _slug(h) == anchor.lower()), None)
+
+
+def unlink(text, ref):
+    """A card is read on its own: a link to a whole protocol file becomes plain text, a link to a section
+    becomes a selector for `show`, and any other package file is named by its package path."""
+    base = (PACKAGE / ref).parent
+
+    def sub(match):
+        label, target = match.group(1), match.group(2)
+        if re.match(r'[a-z]+:', target):
+            return match.group(0)
+        path, _, anchor = target.partition('#')
+        resolved = (base / path).resolve() if path else (PACKAGE / ref).resolve()
+        if not resolved.is_relative_to(PACKAGE):
+            return label
+        rel = str(resolved.relative_to(PACKAGE))
+        if resolved.suffix != '.md':
+            return f'{label}（{rel}）'
+        heading = _heading_of(rel, anchor) if anchor else None
+        return f'{label}（{rel} § {heading}）' if heading else label
+    return re.sub(r'\[([^\]]+)\]\(([^)\s]+)\)', sub, text)
+
+
+FOOTER = ('<!-- 取用 -->\n本卡之外的规则不整份读取：`reading.py show --ref <文件> --section <小节>` 读单节，'
+          '上文“（文件 § 小节）”即可直接作为参数。\n')
+
+
+def render(rows, output_dir, extra=()):
     """Write the card as one file named by its digest; a dispatch then hands the role a single path."""
     body = ''.join(f'<!-- {row["ref"]}{"#" + row["section"] if row["section"] else ""} -->\n'
-                   f'{section(row["ref"], row["section"], tuple(row["topics"]) if "topics" in row else None).rstrip()}\n\n' for row in rows)
+                   f'{unlink(text_of(row), row["ref"]).rstrip()}\n\n' for row in rows)
+    if extra:
+        body += '<!-- 本步模板 -->\n' + ''.join(f'- {name}\n' for name in extra) + '\n'
+    body += FOOTER
     name = digest_card(rows)
     target = Path(output_dir) / f'{name}.md'
     if not target.is_file() or target.read_text() != body:
@@ -417,7 +548,7 @@ def main():
             if not rows:
                 print(json.dumps({'path': None, 'card_sha256': step['card_sha256'], 'bytes': 0, 'sections': 0}))
                 return 0
-        print(json.dumps(render(rows, Path(st['run_root']) / 'reports/reading'), ensure_ascii=False))
+        print(json.dumps(render(rows, Path(st['run_root']) / 'reports/reading', step.get('templates', ())), ensure_ascii=False))
         return 0
     except (KeyError, ValueError, OSError) as exc:
         print(json.dumps({'status': 'rejected', 'reason': str(exc)}, ensure_ascii=False), file=sys.stderr)

@@ -27,7 +27,7 @@ description: 整体代码审查、重构/复用治理委派、独立遗留复核
 全模块遍历；遗留及受影响回归留证；同一最终基线；所有遗留问题显示；达到上限如实升级。
 
 ## 6. 配套资产
-使用 [主要模板](../../template/audit-report.md)；其他工件由 [模板索引](../../template/INDEX.md) 定位。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+使用 [主要模板](../../template/audit-report.md)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
 整体代码审查必须输出 [本次代码修改清单](../../template/audit-change-inventory.md)，覆盖全模块功能、逐文件前后路径/修改内容、真实影响范围及 CASE/PATH/脚本/断言映射；审查 JSON 必须以 change_inventory_ref 引用该版清单。测试状态读取 Ledger；未定义/未执行/过期如实记录，代码治理后刷新清单及审查版本。
 

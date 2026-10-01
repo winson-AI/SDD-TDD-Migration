@@ -22,10 +22,10 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 |
 | --- | ---: |
-| migration-ledger/tests | 698 |
+| migration-ledger/tests | 704 |
 | migration-test/tests | 47 |
 | runtime/harmony/tests | 128 |
-| 合计 | **873** |
+| 合计 | **879** |
 
 全部无失败、无跳过。适配器夹具仍有既有 engine.log ResourceWarning，不影响断言。
 
@@ -39,10 +39,10 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 真实闭环 | 子进程 Red → 诊断 → Fixer → 正式复测 → 模块 Green；本地修复一轮未过转 waiting-auditor；`local_fix_rounds` 额外轮次只给仍是 build 的失败，业务失败照常交 Auditor |
 | 作者自检与会话 | 实现/修复结果缺 authoring_diagnostics、诊断无日志或版本敏感 API 无固定源码引用均拒收；本地修复游标指向原 Implementer 会话 |
 | 静态规格闭合 | build 全绿后同一派发继续 static，再到 automation；passed 场景须给出另一目标文件中的调用位置（reached_from）；审查需覆盖全部冻结需求、引用目标文件中真实存在的符号、逐项判定假实现清单；反模式 present 为 Red 并进入修复；prepared run 必须冻结 static PATH |
-| 阅读卡与协议体积 | 每个角色/阶段/操作/UI/复用/埋点组合的卡片引用真实小节、包含四条红线与三条通用总则且不超过 60KB；无触发条件的典型步骤不超过 35KB；审计、GO 规划、MO 各操作取各自小节，技能只带执行规则，专题义务表按触发条件取行，操作矩阵只带当前操作的行；AGENTS.md 专题索引指向的每个“总则”都有卡片可达；协议、命令与模板索引总量不超过 556KB、单文件不超过 34KB；游标步骤携带 must_read 与绑定小节正文的 card_sha256 |
+| 阅读卡与协议体积 | 每个角色/阶段/操作/UI/复用/埋点组合的卡片引用真实小节、包含四条红线与三条通用总则且不超过 60KB；无触发条件的典型步骤不超过 35KB；审计、GO 规划、MO 各操作取各自小节，技能只带执行规则，专题义务表按触发条件取行，操作矩阵只带当前操作的行；AGENTS.md 专题索引指向的每个“总则”都有卡片可达；协议、命令与模板索引总量不超过 555.6KB、单文件不超过 34KB；游标步骤携带 must_read 与绑定小节正文的 card_sha256 |
 | 提示采纳与流程成本 | assign 回填的会话/阅读卡与建议比对并汇总为 hint_adoption；workflow_cost 按模块统计事件、派发、回执、验收、人工决定与修复轮次并进入收尾报告 |
-| 单文件卡与增量交付 | `reading.py render` 以摘要命名写出单个卡片文件且幂等；`show` 只读包内 Markdown 单节并拒绝越界路径；会话已持有的小节不再进入 `must_read_new`，正文变化的小节重新交付；任意模块请求可带 `hint` 报告所用会话与卡片，匹配当前游标步骤才计入，格式不符被拒；流程成本统计每模块完整/实际交付的阅读卡字节 |
-| 精简状态与拒绝提示 | `status --view cursor/module` 不含模块正文、卡片按摘要去重，规模约为全量的四分之一；未知模块或视图被拒；拒绝记录带 `read_hint`，每个提示指向真实小节 |
+| 单文件卡与增量交付 | `reading.py render` 以摘要命名写出单个卡片文件且幂等；`show` 只读包内 Markdown 单节并拒绝越界路径；会话已持有的小节不再进入 `must_read_new`，正文变化的小节重新交付；任意模块请求可带 `hint` 报告所用会话与卡片，匹配当前游标步骤才计入，格式不符被拒；流程成本统计每模块完整/实际交付的阅读卡字节；渲染后的卡片不含指向包内文件的链接（整份协议链接变纯文本、小节链接变“文件 § 小节”选择器），卡尾列出本步模板；Test-Runner 的角色定义按测试阶段取块；每步 `templates` 指向真实模板；会话累计持有的协议文本超过阈值时步骤带 `session_rotate` 建议 |
+| 精简状态与拒绝提示 | `status --view cursor/module` 不含模块正文、卡片行清单与信号证据，卡片只给字节数与小节数（单模块夹具 13.7KB → 1.8KB）；`--since` 命中当前 sequence 时只返回 unchanged 与信号摘要（约 0.4KB），有新事件即返回完整游标；未知模块或视图被拒；拒绝记录带 `read_hint`，每个提示指向真实小节 |
 | 闭包提前审计 | 独立同伴运行中时，已交 Auditor 模块的闭包可先 problem-audit，且只锁闭包；消费者的其他依赖仍在运行时拒绝；最终全量审计仍等待全部收尾 |
 | 轻量叶子与批量信封 | lean_leaf 登记需 scope/context/不可再拆审阅；本地轮由 Fixer 自诊断（`fixer_self_diagnosis` 对全部模块开启），未开启的普通模块拒绝；批量信封绑定文件 hash 与父的孩子，条目完全匹配且 MO 附 review_ref 才冻结 |
 | 逻辑单测 | build → unit → static 共用一次派发；单测失败为 code Red 且先于设备自动化；自动化环境缺失时单测 Green 保留；applicable 的 Logic 项须有 unit PATH 或不适用依据 |

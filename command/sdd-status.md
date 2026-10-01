@@ -43,11 +43,11 @@ status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接
 
 ledger.py status；若 observed_invalidations 非空交守卫处理。具体 payload/命令用法见 [操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
 
-编排读取 `status.next_steps` 与 `global_next_step`，按 ready/reason 决定下一动作；用 session_id 恢复对应角色，只传事件和工件引用。ready 只是当前快照建议，提交时必须带 expected_revision 再过门禁；阻塞或预算不足不能自行跳步。
+游标读取与派发规则同 [/sdd-run](sdd-run.md)；本命令只展示，不推进。
 
 同时展示 module_rounds 的 registered/settled/unfinished/active/ready 模块清单及 blockers。quality 为全局聚合，不代表每个模块的测试结果或执行结束；必须分别展示各模块 phase/quality。遇到 await-all-module-rounds 时，按 continue_modules 继续执行、按 wait_for_modules 等待结果，不把等待审计的状态回写为其他模块失败。
 
-默认 `--view cursor` 不含模块正文；各模块 phase/quality 见 `module_summary`，单模块用 `--view module --module <id>`（含 module_input），`module_inputs`/`planning_context` 在 `--view full`。status.module_inputs 给出每个父/子 MO 的权威 scope、context_refs、CASE、写范围和依赖；子包包含 parent_context。它与全局 planning_context 一起用于认领、规划与核对范围，不代表已启动 Agent。
+本命令是一次冷读，用 `--view full`（含 `module_inputs`、`planning_context`、`parent_mo_names`、`migration_report`、`openspec_binding` 与信号证据）；单模块可用 `--view module --module <id>`。宿主运行中的轮询改用 `--view cursor --since <last_sequence>`。status.module_inputs 给出每个父/子 MO 的权威 scope、context_refs、CASE、写范围和依赖；子包包含 parent_context。它与全局 planning_context 一起用于认领、规划与核对范围，不代表已启动 Agent。
 
 同时输出 `parent_mo_names`（父 MO 统一名，如 parent-mo-M010）与 `migration_report` 的 JSON/Markdown 绝对路径和 sequence。报告包含全部 CASE/PATH 状态与非 Green 原因/证据；运行中报告明确 in-progress，不作为完成验收。GO 收尾使用 [报告协议](../skills/migration-protocol/references/migration-report.md)。
 
