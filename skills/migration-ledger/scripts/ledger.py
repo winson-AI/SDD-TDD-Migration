@@ -191,9 +191,16 @@ def dependencies_ready(s, m):
 
 
 def failure_fingerprint(results):
-    return digest(sorted((pid, r['quality'], r.get('root_cause', {}).get('category'),
-                          r.get('root_cause', {}).get('summary'), r.get('root_cause', {}).get('owner'))
-                         for pid, r in results.items() if r['quality'] != 'green-passed'))
+    """Structured facts only: a reworded summary must not make a repeated failure look like progress."""
+    rows = []
+    for pid, r in results.items():
+        if r['quality'] == 'green-passed':
+            continue
+        cause = r.get('root_cause') or {}
+        failed = sorted([a.get('assertion_id'), json.dumps(a.get('actual'), sort_keys=True)]
+                        for a in r.get('assertions', []) if a.get('passed') is False)
+        rows.append([pid, r['quality'], cause.get('category'), cause.get('reason_code'), failed])
+    return digest(sorted(rows))
 
 
 def worker_phase(m, assignment):
@@ -352,7 +359,7 @@ def _next_step(s, m):
                     payload={'reason': 'evidence-stale'} if not active else {})
     elif m['phase'] == 'automation-deferred':
         step.update(role='module-orchestrator', reason='automation-not-run; other work may continue')
-        for receipt in m.get('context_receipts', {}).values():
+        for receipt in (m.get('context_receipts', {}).values() if tv.resume_budget_left(s, m) else ()):
             try:
                 context_readiness.validate(s, m['module_id'], 'testing', receipt['report_ref'])
                 step.update(operation='automation-resume', ready=True, payload={'context_ref': receipt['report_ref']})
@@ -432,7 +439,9 @@ def _next_step(s, m):
                             payload={'kind': 'human', 'reason': conflict['summary'], 'reason_code': conflict['reason_code'],
                                      'root_cause': conflict, 'owner': 'human'})
             elif draft and draft['subject'] == diagnosis_subject(m):
-                step.update(operation='diagnosis-accept', role='module-orchestrator', ready=True)
+                step.update(operation='diagnosis-accept', role='module-orchestrator', ready=True,
+                            # Optional: once the Fixer preflighted this diagnosis, accept and dispatch in one step.
+                            then_assign={'role': 'fixer', 'session_id': suggested_session(s, m, 'fixer')[0]})
             elif workflow.defer_reason(m, s.get('local_fix_rounds', 1)):
                 step.update(operation='audit-defer', role='module-orchestrator', ready=True,
                             root_cause=workflow.defer_reason(m, s.get('local_fix_rounds', 1)), reason='auditor-handoff')
@@ -604,6 +613,36 @@ def audit_scope(s):
             'stale': any(results.get(p['path_id'], {}).get('quality') == 'green-passed' for p in selected)}
 
 
+def assign_worker(s, m, mid, p, events):
+    """Shared by assign and the merged diagnosis-accept: every dispatch guard applies either way."""
+    require(p.get('role') in ('implementer', 'fixer', 'test-runner'), 'unsupported worker role')
+    require(p.get('instance_id') and p.get('assignment_id') not in m['assignments'], 'invalid/duplicate assignment')
+    usage = model_routing.record(p, role=p['role'])
+    if audit_closure.active(s):
+        require(p.get('instance_id') != s['audit_batch']['auditor_instance_id'], 'Auditor cannot implement or author verification')
+    dispatch_guard(s, m, p['role'])
+    if p['role'] == 'test-runner' and tv.split(m):
+        require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> static -> automation -> visual')
+    if p['instance_id'] not in m['authors']:
+        m['authors'].append(p['instance_id'])
+    if p['role'] in ('implementer', 'fixer'):
+        if p['role'] == 'fixer':
+            m.setdefault('fix_memory', []).append({'assignment_id': p['assignment_id'], 'audit_batch_id': m.get('audit_batch_id'), 'freeze_id': m['freeze_id'],
+                'before_baseline': m['code_baseline'], 'diagnosis': m.get('diagnosis'), 'issues': copy.deepcopy(unresolved(m)),
+                'status': 'pending', 'reusable': False})
+            if not m.pop('audit_fix_grant', None):
+                m['local_fix_used'] = m.get('local_fix_used', 0) + 1
+            else:
+                m['auditor_fix_used'] = True
+            m['fix_rounds_used'] += 1
+            m['total_fix_rounds'] += 1
+        m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
+    hints = hint_record(s, m, p)
+    m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
+        'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
+        'fencing_token': len(events) + 1, 'hints': hints, **(usage or {})}
+
+
 def mutate(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
@@ -718,36 +757,16 @@ def mutate(s, req, principal, events, root=None):
         check_ref(p['request_ref']); check_ref(p['impact_ref'])
         require(not any(not a.get('closed') for a in m['assignments'].values()), 'close active assignments before CR')
         require(not m.get('blocked'), 'resolve blocker or invalidate before CR')
+        if unresolved(m):
+            # Reworking a failed module through a contract change is a repair attempt, not a free retry.
+            require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']), 'repair budget exhausted; recover requires decision')
+            m['fix_rounds_used'] += 1
+            m['total_fix_rounds'] += 1
         m.update(phase='change-review', stale=True, change_request={**p, 'from_freeze_id': m['freeze_id']}, diagnosis_submission=None)
         invalidate_dependents(s, mid)
     elif op == 'assign':
         role(principal, 'module-orchestrator')
-        require(p.get('role') in ('implementer', 'fixer', 'test-runner'), 'unsupported worker role')
-        require(p.get('instance_id') and p.get('assignment_id') not in m['assignments'], 'invalid/duplicate assignment')
-        usage = model_routing.record(p, role=p['role'])
-        if audit_closure.active(s):
-            require(p.get('instance_id') != s['audit_batch']['auditor_instance_id'], 'Auditor cannot implement or author verification')
-        dispatch_guard(s, m, p['role'])
-        if p['role'] == 'test-runner' and tv.split(m):
-            require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> static -> automation -> visual')
-        if p['instance_id'] not in m['authors']:
-            m['authors'].append(p['instance_id'])
-        if p['role'] in ('implementer', 'fixer'):
-            if p['role'] == 'fixer':
-                m.setdefault('fix_memory', []).append({'assignment_id': p['assignment_id'], 'audit_batch_id': m.get('audit_batch_id'), 'freeze_id': m['freeze_id'],
-                    'before_baseline': m['code_baseline'], 'diagnosis': m.get('diagnosis'), 'issues': copy.deepcopy(unresolved(m)),
-                    'status': 'pending', 'reusable': False})
-                if not m.pop('audit_fix_grant', None):
-                    m['local_fix_used'] = m.get('local_fix_used', 0) + 1
-                else:
-                    m['auditor_fix_used'] = True
-                m['fix_rounds_used'] += 1
-                m['total_fix_rounds'] += 1
-            m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
-        hints = hint_record(s, m, p)
-        m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
-            'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
-            'fencing_token': len(events) + 1, 'hints': hints, **(usage or {})}
+        assign_worker(s, m, mid, p, events)
     elif op == 'submit':
         assignment = m['assignments'].get(p.get('assignment_id'), {})
         require(not assignment.get('closed', True), 'assignment inactive')
@@ -830,6 +849,15 @@ def mutate(s, req, principal, events, root=None):
                 and draft['subject'] == diagnosis_subject(m), 'diagnosis missing/stale')
         check_ref(draft['report']['diagnosis_ref'])
         m.update(diagnosis=draft['report'], diagnosis_submission=None, phase='diagnosing')
+        if p.get('assign') is not None:
+            # Merged dispatch: the Fixer already preflighted this same diagnosis; all assign guards still apply.
+            a = p['assign']
+            require(isinstance(a, dict) and a.get('role') == 'fixer', 'merged dispatch only assigns the Fixer')
+            if context_readiness.enabled(s):
+                context_readiness.validate(s, mid, 'fixing', a.get('context_ref'), a.get('instance_id'))
+                m.setdefault('context_acceptances', {})['assign'] = {'report_ref': copy.deepcopy(a['context_ref']),
+                                                                     'accepted_by': copy.deepcopy(principal)}
+            assign_worker(s, m, mid, a, events)
     elif op == 'suspend':
         role(principal, 'module-orchestrator')
         require(not m.get('blocked') and m['phase'] != 'completed', 'cannot stack blockers or suspend completed module')
@@ -1161,7 +1189,7 @@ def _apply(root, req, principal):
                  'modules': {}, 'decisions': {}, 'audit': {}, 'global_paths': p.get('global_paths', []), 'quality': 'yellow-blocked',
                  'max_parallel_modules': p.get('max_parallel_modules', 3), 'max_audit_rounds': p.get('max_audit_rounds', 3),
                  'max_fix_rounds': p.get('max_fix_rounds', 3), 'max_no_progress_rounds': p.get('max_no_progress_rounds', 2),
-                 'local_fix_rounds': p.get('local_fix_rounds', 1)}
+                 'local_fix_rounds': p.get('local_fix_rounds', 1), 'max_yellow_retries': p.get('max_yellow_retries', 2)}
             if s['global_paths']:
                 paths = keyed(s['global_paths'], 'path_id')
                 require({v.get('case_id') for v in paths.values()} <= set(p['case_ids']), 'global path case is not registered')
@@ -1178,7 +1206,7 @@ def _apply(root, req, principal):
                         require(isinstance(binding.get('module_id'), str) and re.fullmatch(r'M[0-9]{3,}', binding['module_id'])
                                 and isinstance(binding.get('path_id'), str) and binding['path_id'],
                                 'GLOBAL device path requires frozen integration build_binding module_id/path_id')
-            require(all(type(s[k]) is int and s[k] > 0 for k in ('max_fix_rounds', 'max_no_progress_rounds', 'max_parallel_modules', 'max_audit_rounds')), 'invalid budgets')
+            require(all(type(s[k]) is int and s[k] > 0 for k in ('max_fix_rounds', 'max_no_progress_rounds', 'max_parallel_modules', 'max_audit_rounds', 'max_yellow_retries')), 'invalid budgets')
             require(type(s['local_fix_rounds']) is int and 1 <= s['local_fix_rounds'] <= s['max_fix_rounds'],
                     'local_fix_rounds must be an integer from 1 to max_fix_rounds')
             if p.get('project_context_ref'):
@@ -1215,7 +1243,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     cursor += [decomposition.group_step(s, group, ref_check) for group in s.get('module_groups', {}).values()]
     rounds = audit_closure.module_rounds(s, cursor, ref_check)
     audit = s.get('audit_assignment', {})
-    early = (workflow.early_audit_candidates(s) if s.get('global_plan') and not rounds['all_settled']
+    early = (workflow.early_audit_candidates(s, rounds['blockers']) if s.get('global_plan') and not rounds['all_settled']
              and not workflow.audit_active(s) and not audit_closure.active(s) else [])
     if audit_closure.active(s):
         global_next = audit_closure.global_step(s)

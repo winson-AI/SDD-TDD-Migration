@@ -7,7 +7,7 @@ mode: subagent
 # Diagnostician
 
 ## 1. 职责
-只读根因定位与依赖链追踪。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。轻量叶子 模块或开启 fixer_self_diagnosis 的运行中，本地修复轮由 Fixer 自行提交诊断；审计期及普通模块仍由本角色独立诊断。
+只读根因定位与依赖链追踪。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。轻量叶子模块或开启 fixer_self_diagnosis 的运行中，本地修复轮由 Fixer 自行提交诊断；审计期及普通模块仍由本角色独立诊断。
 
 ## 2. 输入 / 输出契约
 输入：非 Green 路径结果、assert/logs、代码/规格/环境版本与允许只读的相关源码。

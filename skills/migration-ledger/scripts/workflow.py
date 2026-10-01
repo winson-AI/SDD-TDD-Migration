@@ -171,16 +171,18 @@ def audit_closure_of(s, mids):
     return sorted(closure)
 
 
-def closure_blockers(s, closure):
-    from audit_closure import collection_blockers
-    return [b for b in collection_blockers(s) if b['module_id'] in closure]
+def closure_blockers(s, closure, blockers=None):
+    if blockers is None:
+        from audit_closure import collection_blockers
+        blockers = collection_blockers(s)
+    return [b for b in blockers if b['module_id'] in closure]
 
 
 def problem_budget_left(s, mid):
     return s.get('problem_attempts', {}).get(mid, 0) < s['max_audit_rounds']
 
 
-def early_audit_candidates(s):
+def early_audit_candidates(s, blockers=None):
     """Settled closures around queued modules: audit them now instead of waiting for the whole run."""
     queued = sorted(mid for mid in s.get('audit_queue', {}) if s['modules'][mid]['phase'] == 'waiting-auditor'
                     and mid not in s.get('audit_resolutions', {}) and problem_budget_left(s, mid))
@@ -191,8 +193,11 @@ def early_audit_candidates(s):
         for g in merged:
             groups.remove(g); closure |= g['closure']
         groups.append({'closure': closure, 'module_ids': sorted({mid, *[x for g in merged for x in g['module_ids']]})})
+    if groups and blockers is None:
+        from audit_closure import collection_blockers
+        blockers = collection_blockers(s)  # one barrier pass, filtered per closure
     return [{'module_ids': g['module_ids'], 'closure': sorted(g['closure'])}
-            for g in groups if not closure_blockers(s, g['closure'])]
+            for g in groups if not closure_blockers(s, g['closure'], blockers)]
 
 
 def role(actor, name):

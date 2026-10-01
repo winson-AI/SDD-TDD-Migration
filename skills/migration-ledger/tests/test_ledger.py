@@ -520,9 +520,39 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         a, r = self.make_test_result(quality='yellow-blocked')
         self.submit(r, a); self.call('accept', {'assignment_id': 'TEST1'})
         a2, r2 = self.make_test_result(aid='TEST2', quality='yellow-blocked', previous=r['paths'][0]['test_run_id'])
-        r2['paths'][0]['root_cause']['summary'] = 'a different confirmed prerequisite'
+        r2['paths'][0]['root_cause'].update(category='environment', summary='a different confirmed prerequisite')
         self.submit(r2, a2); self.call('accept', {'assignment_id': 'TEST2'})
         self.assertEqual(self.state()['modules']['M001']['no_progress_rounds'], 0)
+
+    def test_reworded_summary_is_not_progress(self):
+        self.prepare(); self.implementation()
+        a, r = self.make_test_result(quality='red-bug')
+        self.submit(r, a); self.call('accept', {'assignment_id': 'TEST1'})
+        a2, r2 = self.make_test_result(aid='TEST2', quality='red-bug', previous=r['paths'][0]['test_run_id'])
+        r2['paths'][0]['root_cause']['summary'] = 'same failure, described differently'
+        self.submit(r2, a2); self.call('accept', {'assignment_id': 'TEST2'})
+        self.assertEqual(self.state()['modules']['M001']['no_progress_rounds'], 1)
+
+    def test_change_request_after_failed_tests_spends_the_repair_budget(self):
+        self.prepare(); self.implementation()
+        previous = None
+        for i in range(3):
+            a, r = self.make_test_result(aid=f'T{i}', quality='red-bug', previous=previous)
+            previous = r['paths'][0]['test_run_id']
+            r['paths'][0]['root_cause']['summary'] = f'observed issue variant {i}'
+            self.submit(r, a); self.call('accept', {'assignment_id': f'T{i}'})
+            before = self.state()['modules']['M001']['freeze_id']
+            plan = self.plan(); plan['tasks'][0]['description'] = f'reviewed rework {i}'
+            review = self.ref(f'impact{i}.json', {'from_freeze_id': before, 'to_plan_hash': digest(plan), 'summary': 'same envelope'})
+            if i == 1:  # max_fix_rounds=1 in this fixture: the first rework used it
+                with self.assertRaisesRegex(Rejected, 'repair budget exhausted'):
+                    self.call('change', {'request_ref': self.ref(f'cr{i}.md', 'rework'), 'impact_ref': review})
+                break
+            self.call('change', {'request_ref': self.ref(f'cr{i}.md', 'rework'), 'impact_ref': review})
+            self.call('plan', {'plan_ref': self.ref(f'plan{i}.json', plan)}, role='spec-designer')
+            self.call('freeze', {'change_class': 'within-envelope', 'impact_ref': review})
+            self.implementation(aid=f'IMPL{i}')
+        self.assertEqual(self.state()['modules']['M001']['fix_rounds_used'], 1)
 
     def test_cursor_identifies_stale_evidence_before_dispatch(self):
         self.prepare(); self.implementation()

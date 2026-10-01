@@ -64,4 +64,4 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 ## 本地修复单次派发
 
-游标的 diagnose 步骤 role 为 fixer 时（轻量叶子 或 `fixer_self_diagnosis`），宿主恢复游标给出的会话（通常是原 Implementer 会话）提交诊断，MO diagnosis-accept 后在同一会话继续 assign/修复，不为本地轮另起 Diagnostician 或新会话。审计期修复不适用。
+游标的 diagnose 步骤 role 为 fixer 时（轻量叶子或 `fixer_self_diagnosis`），宿主恢复游标给出的会话（通常是原 Implementer 会话）提交诊断，MO diagnosis-accept 后在同一会话继续 assign/修复，不为本地轮另起 Diagnostician 或新会话。审计期修复不适用。

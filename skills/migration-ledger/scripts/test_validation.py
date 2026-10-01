@@ -58,6 +58,11 @@ def all_green(m):
     return bool(planned) and all((results.get(pid) or {}).get('quality') == 'green-passed' for pid in planned)
 
 
+def resume_budget_left(s, m):
+    """Environment flapping on the same code is bounded by max_yellow_retries."""
+    return m.get('automation_resumes', {}).get(m.get('code_baseline'), 0) < s.get('max_yellow_retries', 2)
+
+
 def deferred(m):
     return m['phase'] == 'automation-deferred' and not m['stale'] and build_ready(m)
 
@@ -272,7 +277,10 @@ def handle(s, req, actor):
     require(static_ready(m), 'current build and static spec review must pass before automation deferral/resume')
     if op == 'automation-resume':
         require(deferred(m) and not ac.active(s), 'automation is not deferred or audit still active')
+        require(resume_budget_left(s, m), 'automation retry budget exhausted for this code; keep the Yellow or decide with a human')
         cr.validate(s, mid, 'testing', p.get('context_ref'))
+        resumes = m.setdefault('automation_resumes', {})
+        resumes[m['code_baseline']] = resumes.get(m['code_baseline'], 0) + 1
         m.update(phase='testing', blocked=None, stale=False)
         # Keep history in the journal and preserve retest_of chains in results.
         m['automation_retry_ready'] = True

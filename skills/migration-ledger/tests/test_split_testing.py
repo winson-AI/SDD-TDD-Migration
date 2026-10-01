@@ -291,6 +291,18 @@ class SplitTestingTests(unittest.TestCase):
         self.assertEqual(f.state()['modules']['M001']['phase'], 'dod')
         self.assertEqual(f.state()['modules']['M001']['results']['P1']['retest_of'], old)
 
+    def test_flapping_environment_stops_after_the_yellow_retry_budget(self):
+        f = self.f; self.prepare(); self.compile(); self.defer()
+        for attempt in range(2):  # default max_yellow_retries=2 for the same code
+            f.raw('automation-resume', {'context_ref': f.record(f.report('testing'))})
+            self.defer()
+        step = f.state()['next_steps'][0]
+        f.record(f.report('testing'))
+        self.assertNotEqual(f.state()['next_steps'][0].get('operation'), 'automation-resume')
+        with self.assertRaisesRegex(Rejected, 'automation retry budget exhausted'):
+            f.raw('automation-resume', {'context_ref': f.record(f.report('testing'))})
+        self.assertEqual(f.state()['modules']['M001']['phase'], 'automation-deferred')
+
     def test_omission_cannot_hide_business_failure_or_non_environment_blocker(self):
         f = self.f; self.prepare(); self.compile()
         ref = f.record(f.report('testing', blocked='provider-binding'))

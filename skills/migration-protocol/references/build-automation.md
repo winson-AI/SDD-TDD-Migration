@@ -82,7 +82,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 最终独立自动化环境也不可用时，Auditor 提交当前 blocked audit-testing 报告，并执行 **audit-unavailable**。门禁仍要求全量收尾、独立实例、无其他待处理缺陷/审计批次。Ledger 保存未执行路径清单与 Yellow 最终报告，global_next_step.reason=completed-with-unverified-tests，停止空转；已有模块构建证据保留，但不得称独立审计通过。环境可用则 audit-assign/audit 仅复核尚未验证的路径，保留有效构建 Green；清单为空只做独立 audit-review。
 
-环境恢复时，新 testing ready 报告 → MO **automation-resume** → 新 assignment → Main 逐路径复测；不额外请求人工恢复批准。旧 Yellow 和缺测证据保留，新结果链接 retest_of。代码/构建已变化则先走正常重建，不直接恢复自动测试。所有完整路径真实 Green 后才完成 DoD；全局 Green 仍需最终独立审计。
+环境恢复时，新 testing ready 报告 → MO **automation-resume** → 新 assignment → Main 逐路径复测；不额外请求人工恢复批准。旧 Yellow 和缺测证据保留，新结果链接 retest_of。代码/构建已变化则先走正常重建，不直接恢复自动测试。所有完整路径真实 Green 后才完成 DoD；全局 Green 仍需最终独立审计。同一份代码最多恢复 `max_yellow_retries` 次（默认 2）；环境反复失效用尽后游标不再建议恢复，模块保留缺测 Yellow 收尾；计数按代码基线，代码变化后重新计数。
 
 只有 GLOBAL 路径缺测、模块均已结束时，由原独立 Auditor 提交新的 `audit-testing` ready 报告。报告必须匹配当前主体/快照、通过引用校验，且未在上次 audit-unavailable 时被记录为已有预检。`global_next_step` 提示 `audit-assign`，payload 带该 context_ref 与 auditor instance；宿主按提示实际派发。旧 ready、blocked、过期或被修改的报告不会触发恢复，读取状态本身不启动进程、不增加审计预算。
 

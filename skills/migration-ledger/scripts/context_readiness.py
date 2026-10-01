@@ -51,6 +51,10 @@ def subject(s, mid, stage):
             value['execution'] = {k: m.get(k) for k in (
                 'plan_ref', 'freeze_id', 'code_baseline', 'recovery_cycle', 'diagnosis',
                 'results', 'repair_findings', 'fix_memory', 'local_fix_used', 'audit_fix_grant')}
+            if stage == 'fixing':
+                # Bind the diagnosis content, accepted or still the submitted draft, so a Fixer may
+                # preflight before MO acceptance and stay valid after it.
+                value['execution']['diagnosis'] = diagnosis_report(m)
             value['dependencies'] = {d: {k: s['modules'][d].get(k) for k in ('freeze_id', 'code_baseline', 'stale', 'phase')}
                                      for d in m['dependencies']}
     elif stage.startswith('audit-'):
@@ -78,6 +82,10 @@ def verify_refs(value):
             verify_refs(item)
 
 
+def diagnosis_report(m):
+    return m.get('diagnosis') or (m.get('diagnosis_submission') or {}).get('report')
+
+
 def input_refs(s, mid, stage):
     refs = [s['global_spec'], s['new_architecture']]
     if (s.get('global_plan') or {}).get('source_review_ref'):
@@ -100,6 +108,8 @@ def input_refs(s, mid, stage):
             refs += parent['context_refs']
             if parent.get('dimension_analysis_ref'):
                 refs.append(parent['dimension_analysis_ref'])
+        if stage == 'fixing' and diagnosis_report(m):
+            refs.append(diagnosis_report(m)['diagnosis_ref'])  # the Fixer must have read the diagnosis
         if stage in set(WORKERS.values()) | {'building'} and m.get('plan_ref'):
             refs.append(m['plan_ref'])
             if m['plan'].get('reuse_plan_ref'):
