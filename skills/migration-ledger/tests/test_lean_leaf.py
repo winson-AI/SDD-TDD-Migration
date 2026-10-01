@@ -71,6 +71,23 @@ class LeanLeafDiagnosisTests(unittest.TestCase):
             self.diagnose_as('fixer')
 
 
+class SelfDiagnosisOptionTests(unittest.TestCase):
+    def test_run_option_lets_any_module_self_diagnose_its_local_round(self):
+        w = test_workflow.WorkflowTests(); w.setUp(); self.addCleanup(w.doCleanups)
+        original = w.state(); w.root = w.base / 'self-diagnosis-run'
+        w.call('init', {**{k: original[k] for k in ('dimension_slicing_required', 'split_testing_required', 'context_readiness_required',
+                 'target_root', 'legacy_root', 'case_ids', 'requirement_ids', 'global_spec', 'new_architecture', 'global_paths')},
+                 'max_fix_rounds': 1, 'fixer_self_diagnosis': True}, role='host')
+        w.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'write_paths': [str(w.target / 'm1')]},
+               role='global-orchestrator', module=None)
+        w.failed_module()
+        self.assertEqual(w.state()['next_steps'][0]['role'], 'fixer')
+        w.root = w.base / 'bad-option-run'
+        with self.assertRaisesRegex(Rejected, 'fixer_self_diagnosis must be boolean'):
+            w.call('init', {**{k: original[k] for k in ('target_root', 'legacy_root', 'case_ids', 'requirement_ids', 'global_spec',
+                     'new_architecture', 'global_paths')}, 'fixer_self_diagnosis': 'yes'}, role='host')
+
+
 class BatchEnvelopeTests(unittest.TestCase):
     def setUp(self):
         self.d = d = test_decomposition.DecompositionTests(); d.setUp(); self.addCleanup(d.doCleanups)

@@ -28,7 +28,8 @@
     },
     "quality_gates": {
       "dependency_resolution_required": false,
-      "git_checkpoint": false
+      "git_checkpoint": false,
+      "fixer_self_diagnosis": false
     },
     "repair_policy": {
       "confirmed_dependency_or_peripheral": "defer-to-auditor",

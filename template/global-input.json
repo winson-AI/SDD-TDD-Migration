@@ -111,5 +111,7 @@
   "dimension_slicing_required": true,
   "ui_fidelity_required": true,
   "spec_closure_required": true,
+  "git_checkpoint": false,
+  "fixer_self_diagnosis": false,
   "dependency_resolution_required": false
 }

@@ -61,3 +61,7 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 ## 提示采纳回报
 
 游标的 `session_id`/`session_affinity` 与 `must_read`/`card_sha256` 是建议。宿主派发 worker 时在 assign payload 回填实际恢复或新建的 `session_id` 和交给角色的 `card_sha256`；Ledger 只记录与建议是否一致（`status.hint_adoption`），不据此拒绝派发。持续的 not_followed 或 unreported 说明宿主未落实冷启动优化，应在接入层修正，而不是放宽门禁。
+
+## 本地修复单次派发
+
+游标的 diagnose 步骤 role 为 fixer 时（lean leaf 或 `fixer_self_diagnosis`），宿主恢复游标给出的会话（通常是原 Implementer 会话）提交诊断，MO diagnosis-accept 后在同一会话继续 assign/修复，不为本地轮另起 Diagnostician 或新会话。审计期修复不适用。
