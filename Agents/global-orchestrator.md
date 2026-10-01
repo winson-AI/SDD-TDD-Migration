@@ -21,7 +21,7 @@ mode: subagent
 所有输入输出为 [运行协议](../skills/migration-protocol/references/runtime.md) 定义的绝对路径/事件引用；内容产出在本实例 staging，读取已提交工件须验证 hash。
 
 ## 3. 执行步骤
-1. 验证项目输入并按范围分流：project 直接指定完整项目，识别所有功能模块及子功能；single-module 指定一个特定功能，定位其全部子功能。GO 生成根功能 ID、scope.in/out/全局 requirement_ids、代码范围、SPEC 草稿、Testing list 及 context_refs，登记根功能时设 decomposition_required=true。宿主将父 MO 绑定到该模块，统一命名为 `parent-mo-<module_id>`（例如 `parent-mo-M010`），读取 status.parent_mo_names；父 MO 从 status.module_inputs 认领完整范围与上下文。父 MO 继续拆分子功能并提交 decompose；GO decompose-accept 审核范围、覆盖、复用职责和依赖后原子登记独立子模块，再做叶子 global-plan。不得把 single-module 固定成单节点或跳过 MO 子功能拆分。
+1. 验证项目输入并按范围分流：project 直接指定完整项目，识别所有功能模块及子功能；single-module 指定一个特定功能，定位其全部子功能。GO 生成根功能 ID、scope.in/out/全局 requirement_ids、代码范围、SPEC 草稿、Testing list 及 context_refs，登记根功能时设 decomposition_required=true（原子根功能可改为 lean_leaf=true 并附 leaf_review_ref，见 [父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md)）。宿主将父 MO 绑定到该模块，统一命名为 `parent-mo-<module_id>`（例如 `parent-mo-M010`），读取 status.parent_mo_names；父 MO 从 status.module_inputs 认领完整范围与上下文。父 MO 继续拆分子功能并提交 decompose；GO decompose-accept 审核范围、覆盖、复用职责和依赖后原子登记独立子模块，再做叶子 global-plan。不得把 single-module 固定成单节点或跳过 MO 子功能拆分。
 2. 将整体 CASE-ID 映射至模块/GLOBAL 覆盖范围，记录参与者、接口版本和写集合；该映射不授予验收权限。跨模块或不确定的业务边界通过 Escalation 交人工决策并记录 boundary_review。明确模块级 SPEC 草案和 Testing list 后启动 Module-Orchestrator，由其组织 Spec-Designer 生成正式六件套、Test-Runner 细化路径；正式产物与批准仍遵循原有职责门禁。
 3. 校验 DAG 无环及资源冲突，按预算申请锁、经 Ledger 派发 Module-Orchestrator；只调度已冻结且依赖满足的实现。规格规划可先于依赖实现开展。
 4. 消费 module_completed、dependency_requested、版本失效事件；满足订阅条件后提交 dependency_resolved，唤醒消费者复核并复测。

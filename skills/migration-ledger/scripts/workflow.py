@@ -174,6 +174,17 @@ def peripheral(m):
     return None
 
 
+def variant_conflict(m):
+    """Confirmed runtime-vs-SPEC variant conflict: suspend for the user, never a repair round."""
+    issues = list(m.get('results', {}).values()) + list(m.get('repair_findings', {}).values())
+    for r in issues:
+        cause = r.get('root_cause') or {}
+        if (r['quality'] != 'green-passed' and cause.get('reason_code') == 'runtime-spec-variant-conflict'
+                and cause.get('confidence') == 'confirmed'):
+            return cause
+    return None
+
+
 def build_only_failures(m):
     """Every unresolved failure sits on a build PATH: compile/package, not business behaviour."""
     kinds = {p['path_id']: p.get('kind') for p in (m.get('plan') or {}).get('paths', [])}

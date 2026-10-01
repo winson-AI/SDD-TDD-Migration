@@ -24,6 +24,7 @@
 | [change-impact.json](change-impact.json) | Spec-Designer/MO：绑定旧 freeze 与新 plan 摘要的影响审查，供 within-envelope 再冻结 |
 | [escalation.md](escalation.md) | Escalation：人工问题与超时 |
 | [human-decision.json](human-decision.json) | 真实人类反馈引用，Escalation 规范化、Ledger 接受 |
+| [batch-envelope.json](batch-envelope.json) | 父 MO 批量冻结信封；一次人类批准覆盖条目完全匹配的孩子，子 MO 仍附 review_ref |
 | [audit-report.md](audit-report.md) | Auditor：全局快照、复测与最终裁决 |
 | [workflow-verification.md](workflow-verification.md) | 宿主适配后的行为验收矩阵 |
 

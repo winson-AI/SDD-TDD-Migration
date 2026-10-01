@@ -1,0 +1,13 @@
+{
+  "_note": "Parent MO batch freeze envelope. One human decision (kind=batch-envelope, module_id=<parent>, subject_sha256=<this file's sha256>, envelope_ref=<this file>) covers the listed children. A child freezes under it only when its plan decision_envelope equals its entry here exactly, and the child MO attaches a review_ref of the detailed tasks/PATHs. Anything outside an entry needs that child's own approval. Remove this note.",
+  "schema_version": 1,
+  "parent_module_id": "M010",
+  "children": {
+    "M011": {
+      "scope": ["{{approved-child-scope}}"],
+      "acceptance": ["{{global-requirement-or-case-ids}}"],
+      "allowed_alternatives": ["{{explicitly-allowed-route}}"],
+      "forbidden_changes": ["reduce-scope", "substitute-provider", "change-user-visible-semantics"]
+    }
+  }
+}

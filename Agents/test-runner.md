@@ -26,7 +26,8 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 5. execute/static：build Green 后，以当前代码与冻结 SPEC 写规格闭合审查（逐需求生产符号 + 假实现清单），经 execute_test 运行 spec_closure 适配器并提交；Red 进入诊断/修复，见 [静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合)。本角色未参与该代码编写，审查不得由 Implementer/Fixer 代做。
 6. execute/automation：build 与 static 已接受为 Green 后，单独提交 testing 预检，包括设备上实际部署版本/fixture 等证据。MO 派发新的 test_scope=automation assignment，宿主才启动 Main/Harmony。本角色不能在 build 进程退出时自行串联未经授权的自动化命令。
 7. 把本 scope 每条完整 PATH 作为 query 交 Main，采集全部冻结 ASSERT、三态、初步原因与回执；flaky/skip/缺报告不能 Green。提交全部 automation 路径结果，由 MO 验收并检查 DoD。
-8. 仅自动化环境不可用：提交 test-environment=blocked 报告，由 MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务。其他真实错误沿诊断/Fixer/审计规则处理；build 与 automation 共用模块本地一轮修复预算。
+8. 运行时页面变体与冻结 SPEC 冲突：记 Yellow + human 根因（reason_code=runtime-spec-variant-conflict），见 [测试协议](../skills/migration-protocol/references/testing.md#运行时变体与冻结-spec-冲突)；不自行选变体。
+9. 仅自动化环境不可用：提交 test-environment=blocked 报告，由 MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务。其他真实错误沿诊断/Fixer/审计规则处理；build 与 automation 共用模块本地一轮修复预算。
 
 ## 4. 规则优先级
 当前用户与宿主约束 → [AGENTS.md](../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。

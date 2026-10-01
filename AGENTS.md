@@ -62,6 +62,8 @@ Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `descript
 
 project 指完整项目及其功能树；single-module 只选择一个根功能，但父 MO 仍拆分子功能并交独立子 MO。职责固定为 GO 划分模块 scope/所需上下文 → 父 MO 认领后在范围内划分子 scope/所需上下文 → 子 MO 拆 tasks。父子均读全局代码/架构/知识，执行权限限定于认领 scope；规划绑定 Ledger 的 planning_context 和 module_inputs 分配包。父节点保存管理/汇总记录，叶子持有自己的 SPEC、代码、测试与验收；禁止把父聚合失败回写兄弟。全部叶子本轮结束且所有父 MO 提交当前版本汇总后，GO 才统一启动 Auditor。操作与全局上下文要求见 [父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
 
+轻量叶子：原子根功能可由 GO 登记为 `lean_leaf`（附不可再拆的审阅）直接作为执行叶子；其本地修复轮由 Fixer 在原 Implementer 会话中先诊断后修复，MO 仍接受诊断，审计期恢复独立 Diagnostician。多个孩子可由父 MO 汇总一份批量冻结信封交人类一次批准，条目完全匹配的孩子经 MO 审阅后冻结。见 [父子 MO 协议](skills/migration-protocol/references/module-decomposition.md#父级批量冻结信封)。
+
 ## 二方库与目标已有能力
 
 复用评估贯穿 GO 切片、父 MO 分工、子 MO tasks 和 Coding/Testing。先读取 TARGET 及用户指定 reuse_sources 的功能语义目录，再结合需求决定直接使用、适配、仅参考或新实现；不得按同名 API 认定等价、重复实现已有能力，或为迁就库削弱需求。目录/映射经 Ledger 传递、版本冻结、实际接线及完整测试验证；外部来源只读，跨模块/不确定边界交人工。详见 [二方库复用协议](skills/migration-protocol/references/reuse-dependencies.md)。

@@ -48,7 +48,7 @@ mode: subagent
 - [migration-fix](../skills/migration-fix/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
-根因与补丁对应；没有削弱测试；记录受影响路径；回归证据真实；代码与报告摘要匹配。交付前运行宿主提供的改动文件诊断（IDE/MCP 或同等文件级检查）并修完全部错误，结果写入 `authoring_diagnostics`；宿主无诊断时，对每个新引入的版本敏感 API 查阅固定版本依赖源码并引用，不凭记忆推断签名。该自检不是正式构建结论。本地修复由 MO 提示时恢复原 Implementer 会话继续，身份仍是 Fixer，不改需求、验收或冻结 tasks。
+根因与补丁对应；没有削弱测试；记录受影响路径；回归证据真实；代码与报告摘要匹配。交付前运行宿主提供的改动文件诊断（IDE/MCP 或同等文件级检查）并修完全部错误，结果写入 `authoring_diagnostics`；宿主无诊断时，对每个新引入的版本敏感 API 查阅固定版本依赖源码并引用，不凭记忆推断签名。该自检不是正式构建结论。本地修复由 MO 提示时恢复原 Implementer 会话继续，身份仍是 Fixer，不改需求、验收或冻结 tasks。lean leaf 的本地轮先以 Fixer 身份提交 diagnose（只读根因 + 证据），经 MO diagnosis-accept 后再修复；审计期不自诊断。
 
 每轮结果必须附 fix_note_ref（root_cause/strategy/applicability/risks）。修复前读取 Ledger 关联 memory，核对根因与当前契约；不可盲用旧补丁。正式回归由 Test-Runner/Auditor 完成，Fixer 自测不把 memory 改成 verified。
 

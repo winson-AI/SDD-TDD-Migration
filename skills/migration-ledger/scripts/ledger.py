@@ -203,6 +203,20 @@ def approval(s, m, subject):
                  and d.get('subject_sha256') == subject and not d.get('consumed')), None)
 
 
+def self_diagnosis(s, m):
+    """A lean leaf's local round is diagnosed by the repairing session; audit rounds stay independent."""
+    return bool(m.get('lean_leaf')) and not audit_closure.active(s) and not m.get('audit_fix_grant')
+
+
+def batch_approval(s, m):
+    """An unrevoked parent batch-envelope decision whose entry for this child equals its plan envelope."""
+    for did, d in s['decisions'].items():
+        if d.get('kind') == 'batch-envelope' and d.get('module_id') == m.get('parent_module_id') and m.get('plan'):
+            if read_json(check_ref(d['envelope_ref']))['children'].get(m['module_id']) == m['plan']['decision_envelope']:
+                return did
+    return None
+
+
 def within_envelope(m, impact_ref):
     require(m.get('approved_envelope') == digest(m['plan']['decision_envelope']), 'decision envelope changed')
     require(m.get('approved_acceptance') == digest(m['plan']['paths']), 'acceptance/path set changed')
@@ -231,6 +245,11 @@ def freeze_guard(s, m, p):
         within_envelope(m, p.get('impact_ref'))
     else:
         decision = s['decisions'].get(p.get('decision_id'), {})
+        if decision.get('kind') == 'batch-envelope':
+            require(decision.get('module_id') == m.get('parent_module_id') and
+                    read_json(check_ref(decision['envelope_ref']))['children'].get(m['module_id']) == m['plan']['decision_envelope'],
+                    'child plan envelope differs from the approved batch envelope')
+            return
         require(decision.get('subject_sha256') == m['plan_hash'] and decision.get('module_id') == m['module_id'] and
                 not decision.get('consumed'), 'approval missing/stale/wrong module')
 
@@ -381,6 +400,8 @@ def _next_step(s, m):
                         recovery_action='restore-approved-allocation-or-GO-replan-new-run')
     elif m['phase'] == 'clarifying':
         decision = approval(s, m, m['plan_hash'])
+        if not decision and batch_approval(s, m):
+            decision = {'decision_id': batch_approval(s, m)}
         impact = m.get('change_request', {}).get('impact_ref')
         eligible = False
         if not decision:
@@ -398,13 +419,18 @@ def _next_step(s, m):
         if m['phase'] == 'testing' and bad and not m.get('automation_retry_ready'):
             draft = m.get('diagnosis_submission')
             categories = {r.get('root_cause', {}).get('category') for r in bad.values()}
-            if draft and draft['subject'] == diagnosis_subject(m):
+            conflict = workflow.variant_conflict(m)
+            if conflict:
+                step.update(operation='suspend', role='module-orchestrator', ready=True, reason=conflict['reason_code'],
+                            payload={'kind': 'human', 'reason': conflict['summary'], 'reason_code': conflict['reason_code'],
+                                     'root_cause': conflict, 'owner': 'human'})
+            elif draft and draft['subject'] == diagnosis_subject(m):
                 step.update(operation='diagnosis-accept', role='module-orchestrator', ready=True)
             elif workflow.defer_reason(m, s.get('local_fix_rounds', 1)):
                 step.update(operation='audit-defer', role='module-orchestrator', ready=True,
                             root_cause=workflow.defer_reason(m, s.get('local_fix_rounds', 1)), reason='auditor-handoff')
             else:
-                step.update(operation='diagnose', role='diagnostician', ready=True)
+                step.update(operation='diagnose', role='fixer' if self_diagnosis(s, m) else 'diagnostician', ready=True)
         else:
             worker = {'frozen': 'implementer', 'testing': 'test-runner', 'diagnosing': 'fixer'}[m['phase']]
             if worker == 'fixer' and workflow.defer_reason(m, s.get('local_fix_rounds', 1)):
@@ -586,6 +612,13 @@ def mutate(s, req, principal, events, root=None):
         require(set(p['case_ids']) <= set(s['case_ids']), 'unknown global case')
         require(all(Path(x).resolve().is_relative_to(Path(s['target_root'])) for x in p['write_paths']), 'write scope outside target')
         require(not p.get('parent_module_id'), 'register GO root modules; children require decompose-accept')
+        require(p.get('lean_leaf') in (None, True), 'lean_leaf must be true when present')
+        if p.get('lean_leaf'):
+            require(not p.get('decomposition_required'), 'a lean leaf is an atomic root; it cannot also require decomposition')
+            decomposition.check_scope(p)
+            require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in leaf scope')
+            require(p.get('leaf_review_ref'), 'lean leaf requires the GO atomic-root review')
+            check_ref(p['leaf_review_ref'])
         if p.get('decomposition_required'):
             decomposition.check_scope(p)
             require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in root scope')
@@ -597,6 +630,13 @@ def mutate(s, req, principal, events, root=None):
         require(p.get('decision') == 'approved' and p.get('human_source_ref') and p.get('subject_sha256'), 'actual human approval required')
         check_ref(p['human_source_ref'])
         require(p.get('decision_id') not in s['decisions'], 'decision already exists')
+        if p.get('kind') == 'batch-envelope':
+            parent = s.get('module_groups', {}).get(p.get('module_id'), {})
+            doc = read_json(check_ref(p.get('envelope_ref')))
+            children = doc.get('children')
+            require(parent and p['subject_sha256'] == p['envelope_ref']['sha256'] and doc.get('parent_module_id') == p['module_id']
+                    and isinstance(children, dict) and children and set(children) <= set(parent.get('children', [])),
+                    'batch envelope decision must hash its document and cover only this parent\'s children')
         s['decisions'][p['decision_id']] = {**p, 'consumed': False}
     elif op == 'plan':
         role(principal, 'spec-designer')
@@ -620,8 +660,13 @@ def mutate(s, req, principal, events, root=None):
         role(principal, 'module-orchestrator')
         freeze_guard(s, m, p)
         decision = s['decisions'].get(p.get('decision_id'), {})
+        if decision.get('kind') == 'batch-envelope':
+            require(p.get('review_ref'), 'batch envelope freeze requires the MO plan review_ref')
+            check_ref(p['review_ref'])
+            decision.setdefault('used_by', {})[mid] = m['plan_hash']
         if p.get('change_class') != 'within-envelope':
-            decision['consumed'] = True
+            if decision.get('kind') != 'batch-envelope':
+                decision['consumed'] = True
             m['approved_envelope'] = digest(m['plan']['decision_envelope'])
             m['approved_acceptance'] = digest(m['plan']['paths'])
         if m.get('change_request'):
@@ -723,7 +768,8 @@ def mutate(s, req, principal, events, root=None):
             audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only,
                                         stage=assignment.get('test_scope') or 'build')
     elif op == 'diagnose':
-        role(principal, 'diagnostician')
+        role(principal, 'diagnostician', 'fixer')
+        require(principal['role'] == 'diagnostician' or self_diagnosis(s, m), 'principal role denied')
         require(m['phase'] == 'testing' and not m.get('blocked') and unresolved(m), 'no unresolved test failure')
         idle(m); current(m)
         check_ref(p['diagnosis_ref'])

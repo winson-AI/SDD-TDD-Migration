@@ -72,7 +72,30 @@ def overall_alignment(rows, result):
     return rows
 
 
+VARIANT_CONFLICT = 'runtime-spec-variant-conflict'
+
+
+def variant_conflict(issues):
+    """A runtime page variant contradicting the frozen SPEC is a user scope decision, not a code repair."""
+    hits = [i for i in issues or [] if isinstance(i, dict) and i.get('category') == VARIANT_CONFLICT]
+    if not hits:
+        return None
+    return {'category': 'human', 'reason_code': VARIANT_CONFLICT, 'confidence': 'confirmed', 'owner': 'human',
+            'summary': '; '.join(str(i.get('message') or i.get('summary') or VARIANT_CONFLICT) for i in hits),
+            'next_action': 'ask the user which variant the migration must keep, then re-plan or continue'}
+
+
 def visual_results(alignment_result, declared_interactions=(), *, target_root=None, result_ref=None):
+    rows = _visual_results(alignment_result, declared_interactions, target_root=target_root, result_ref=result_ref)
+    conflict = variant_conflict(alignment_result.get('issues'))
+    if conflict:
+        for row in rows.values():
+            if isinstance(row, dict) and row.get('quality') not in (None, 'green-passed'):
+                row.update(quality='yellow-blocked', root_cause=conflict)
+    return rows
+
+
+def _visual_results(alignment_result, declared_interactions=(), *, target_root=None, result_ref=None):
     """lean alignment-result -> three-state rows for the visual test stage, keyed page:state:coverage.
 
     The visual stage is an ordinary test layer, so an unaligned target is a Red with a node-level root
@@ -227,8 +250,10 @@ def validation_summary(validation_result, *, target_root=None, result_ref=None):
         result['root_cause'] = {'category': 'validation-failure' if quality == 'red-bug' else 'validation-incomplete',
             'summary': verdict or 'failed checks', 'confidence': 'observed',
             'owner': 'fixer' if quality == 'red-bug' else 'test-runner', 'next_action': 'diagnose'}
+    conflict = variant_conflict(result['issues'])
+    if conflict:
+        result.update(quality='yellow-blocked', root_cause=conflict)
     return result
-
 
 
 def normalize_ref(value, base):

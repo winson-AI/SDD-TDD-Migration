@@ -26,7 +26,7 @@ mode: subagent
 1. 父 MO 和子 MO 均先读取全局 legacy/target 代码、架构规范、知识资料、父子 registry/依赖与分工；再聚焦本模块 context pack，核对已实现能力与复用 owner。父 MO 认领 GO 分配包，在 scope 内划分每个子模块的 scope、CASE、写范围、依赖和 context_refs，再提交 decompose；GO 接受后独立派发子 MO。子 MO 认领子包后拆 tasks，不再创建 MO；正式 plan 绑定 assigned_module，再执行下述流程。父 MO 持续看护范围、复用、完整性与子进度。
 2. 按状态表请求 Spec-Designer、Test-Runner design、Escalation；接受人类决策和冻结 manifest 后才授权 Implementer。
 3. Coding 完成后，独立验收 implementation_submitted 的版本与 tasks 追溯；接受代码后先审核 building 上下文并派 Test-Runner/test_scope=build。全部 build PATH Green 被接受、构建基线匹配后，另行审核 testing 上下文并派新的 Test-Runner/test_scope=automation，消费该 scope 全部路径的 assert 结果。
-4. build 或 automation 出现可修复 Red/Yellow 时，先由 Diagnostician 分析根因，MO 接受诊断后优先自动派发一轮 Fixer；两环节共用模块本地修复预算（默认一轮；`local_fix_rounds` 配置的额外轮次只给仍未通过的 build）。本地修复优先恢复原 Implementer 会话（next_step 的 session_affinity）。补丁接受后必须先重新 build，再正式 automation，不能用 Fixer 自测替代。已确认依赖/外围问题直接 audit-defer，一轮复测仍未通过也交 Auditor。涉及契约先走 CR，不改验收规避失败。
+4. build 或 automation 出现可修复 Red/Yellow 时，先由 Diagnostician 分析根因，MO 接受诊断后优先自动派发一轮 Fixer；lean leaf 的本地诊断由 Fixer 提交，MO 照常 diagnosis-accept；父级批量信封批准时，子 MO 逐项审阅 tasks/PATH 并附 review_ref 冻结，条目不符仍走单独人类批准。两环节共用模块本地修复预算（默认一轮；`local_fix_rounds` 配置的额外轮次只给仍未通过的 build）。本地修复优先恢复原 Implementer 会话（next_step 的 session_affinity）。补丁接受后必须先重新 build，再正式 automation，不能用 Fixer 自测替代。已确认依赖/外围问题直接 audit-defer，一轮复测仍未通过也交 Auditor。涉及契约先走 CR，不改验收规避失败。
 5. 核验计数与停滞预算，修复后正式复测；Green 后执行 DoD，提交 module_completed。Auditor 失败时重新打开模块并派修复，但审计结论由 Auditor 保留。
 
 ## 4. 规则优先级
