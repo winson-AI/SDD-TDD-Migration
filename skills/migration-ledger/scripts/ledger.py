@@ -775,6 +775,12 @@ def mutate(s, req, principal, events, root=None):
             m.update(stale=False, phase='dod' if tv.all_green(m) else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
             audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only,
                                         stage=assignment.get('test_scope') or 'build')
+            if (assignment.get('test_scope') == 'build' and not bad and assignment.get('role') == 'test-runner'
+                    and tv.paths(m, 'static') and tv.next_scope(m) == 'static'):
+                # The static review needs no device: the same Test-Runner continues under its building
+                # preflight (which pre-approved the static command); MO still accepts the static result.
+                assignment.update(closed=False, test_scope='static')
+                m['submissions'].pop(aid, None)
     elif op == 'diagnose':
         role(principal, 'diagnostician', 'fixer')
         require(principal['role'] == 'diagnostician' or self_diagnosis(s, m), 'principal role denied')

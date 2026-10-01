@@ -29,6 +29,18 @@ class SpecClosureTests(unittest.TestCase):
             p['tasks'][0]['path_ids'].append('S1')
             return p
         f.plan = plan
+        self.review_path = f.base / 'static-review.json'
+        old_report = f.report
+        def report(stage, *args, **kwargs):
+            r = old_report(stage, *args, **kwargs)
+            if stage == 'building':  # the build preflight pre-approves the static command for the same Test-Runner
+                build = {k: r['execution'][k] for k in ('argv', 'cwd')}
+                r['execution']['commands'] = {'B1': build, 'S1': {'argv': self.static_argv(), 'cwd': str(f.target)}}
+            return r
+        f.report = report
+
+    def static_argv(self):
+        return [sys.executable, ADAPTER, '--review', str(self.review_path), '--target-root', str(self.f.target)]
 
     def review(self, **over):
         f = self.f; m = f.state()['modules']['M001']
@@ -44,22 +56,20 @@ class SpecClosureTests(unittest.TestCase):
             data[key] = value
         return data
 
-    def run_static(self, data, aid='STATIC1'):
+    def run_static(self, data, aid='BUILD1'):
         f = self.f
-        review = f.base / (aid + '-review.json'); review.write_text(json.dumps(data))
-        argv = [sys.executable, ADAPTER, '--review', str(review), '--target-root', str(f.target)]
-        f.test_argv = argv
-        assignment = f.assign('test-runner', aid)
-        self.assertEqual(assignment['test_scope'], 'static')
-        receipt = execute(f.root, 'M001', aid, 'S1', argv, str(f.target), f.base / aid)
+        self.review_path.write_text(json.dumps(data))
+        assignment = f.state()['modules']['M001']['assignments'][aid]
+        self.assertEqual((assignment['test_scope'], assignment['closed']), ('static', False))
+        receipt = execute(f.root, 'M001', aid, 'S1', self.static_argv(), str(f.target), f.base / (aid + '-static'))
         result = stage_result(f.root, 'M001', aid, [receipt])
         f.submit(result, assignment); f.call('accept', {'assignment_id': aid})
-        del f.test_argv
         return result['paths'][0]
 
     def built(self):
         self.split.prepare(); self.split.compile()
-        self.assertEqual(self.f.state()['next_steps'][0]['test_scope'], 'static')
+        step = self.f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['assignment_id']), ('await-result', 'BUILD1'))  # no new dispatch
 
     def test_static_review_sits_between_build_and_automation(self):
         f = self.f; self.built()
@@ -98,7 +108,7 @@ class SpecClosureTests(unittest.TestCase):
     def test_automation_waits_for_static_review(self):
         f = self.f; self.built()
         ref = f.record(f.report('testing'))
-        with self.assertRaisesRegex(Rejected, 'build -> static -> automation -> visual'):
+        with self.assertRaisesRegex(Rejected, 'worker still active|build -> static -> automation -> visual'):
             f.raw('assign', {'assignment_id': 'EARLY', 'role': 'test-runner', 'instance_id': 'test-runner',
                              'test_scope': 'automation', 'context_ref': ref})
 

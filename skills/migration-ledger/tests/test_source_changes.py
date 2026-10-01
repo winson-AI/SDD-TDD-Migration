@@ -142,18 +142,20 @@ class SourceChangeTests(unittest.TestCase):
         f.call('submit', {'assignment_id': aid, 'fencing_token': a['fencing_token'], 'result_ref': f.ref(aid+'.json', result)},
                role=role, instance=actor, module=mid)
         f.call('accept', {'assignment_id': aid}, module=mid)
-        for scope, stage, suffix in (('build', 'building', '-B'), ('static', 'testing', '-S'), ('automation', 'testing', '-P')):
-            aid = scope+'-'+mid+'-'+str(f.n)
-            if scope == 'build': argv = [sys.executable, '-c', 'pass']
+        m = f.state()['modules'][mid]; notes = f.ref('static-review-'+mid+'-'+str(f.n)+'.md', 'Reviewed production entry for value')
+        review = f.ref('static-review-'+mid+'-'+str(f.n)+'.json', {'schema_version': 1, 'run_id': f.state()['run_id'], 'module_id': mid,
+            'path_id': mid+'-S', 'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
+            'scenarios': [{'requirement_id': 'R1', 'status': 'passed', 'summary': 'value reaches entry',
+                           'production_symbols': [{'path': str(code), 'symbol': 'value'}], 'evidence_refs': [notes]}],
+            'anti_patterns': {k: {'status': 'absent', 'note': 'reviewed', 'evidence_refs': [notes]} for k in spec_closure.ANTI_PATTERNS}})
+        static_argv = [sys.executable, spec_closure.__file__, '--review', review['path'], '--target-root', str(f.target)]
+        for scope, stage, suffix in (('build', 'building', '-B'), ('static', None, '-S'), ('automation', 'testing', '-P')):
+            if scope == 'build':
+                aid = scope+'-'+mid+'-'+str(f.n); argv = [sys.executable, '-c', 'pass']
             elif scope == 'static':
-                m = f.state()['modules'][mid]; notes = f.ref('static-review-'+aid+'.md', 'Reviewed production entry for value')
-                review = f.ref('static-review-'+aid+'.json', {'schema_version': 1, 'run_id': f.state()['run_id'], 'module_id': mid,
-                    'path_id': mid+suffix, 'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
-                    'scenarios': [{'requirement_id': 'R1', 'status': 'passed', 'summary': 'value reaches entry',
-                                   'production_symbols': [{'path': str(code), 'symbol': 'value'}], 'evidence_refs': [notes]}],
-                    'anti_patterns': {k: {'status': 'absent', 'note': 'reviewed', 'evidence_refs': [notes]} for k in spec_closure.ANTI_PATTERNS}})
-                argv = [sys.executable, spec_closure.__file__, '--review', review['path'], '--target-root', str(f.target)]
+                argv = static_argv  # same Test-Runner and assignment as the build
             else:
+                aid = scope+'-'+mid+'-'+str(f.n)
                 script = f.root/'staging/test-runner'/(aid+'.py')
                 script.parent.mkdir(parents=True, exist_ok=True)
                 script.write_text('import argparse,json,runpy\np=argparse.ArgumentParser();p.add_argument("--query-file");p.add_argument("--result-file");a=p.parse_args()\n'
@@ -163,11 +165,15 @@ class SourceChangeTests(unittest.TestCase):
                     +'if not passed: r["root_cause"]={"category":"code","summary":"wrong value","confidence":"confirmed","owner":"'+mid+'","next_action":"fix"}\n'
                     +'json.dump(r,open(a.result_file,"w"))\n')
                 argv = [sys.executable, str(script)]
-            report = f.report(stage, module=mid)
-            report['execution'] = {'argv': argv, 'cwd': str(f.target), 'environment_ref': f.ref('environment.md', 'Python fixture available')}
-            receipt = f.record(report)
-            f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner',
-                'test_scope': scope, 'context_ref': receipt}, module=mid)
+            if stage:
+                report = f.report(stage, module=mid)
+                report['execution'] = {'argv': argv, 'cwd': str(f.target), 'environment_ref': f.ref('environment.md', 'Python fixture available')}
+                if scope == 'build':
+                    report['execution']['commands'] = {mid+'-B': {'argv': argv, 'cwd': str(f.target)},
+                                                       mid+'-S': {'argv': static_argv, 'cwd': str(f.target)}}
+                receipt = f.record(report)
+                f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner',
+                    'test_scope': scope, 'context_ref': receipt}, module=mid)
             a = f.state()['modules'][mid]['assignments'][aid]
             rr = execute(f.root, mid, aid, mid+suffix, argv, str(f.target), f.root/('runs/build' if scope == 'build' else 'runs/harmony/automation')/aid)
             if scope in ('build', 'static'):
