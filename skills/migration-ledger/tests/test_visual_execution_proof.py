@@ -1,4 +1,4 @@
-"""v2 Green reuses the exact frozen source and an executed current-build capture."""
+"""Visual Green reuses the exact frozen source and an executed current-build capture."""
 import copy
 import sys
 from pathlib import Path
@@ -26,10 +26,10 @@ class VisualExecutionProofTests(unittest.TestCase):
         self.path = {'path_id': 'VISUAL', 'kind': 'visual', 'coverage': self.frozen['coverage'],
                      'node_ids': ['node:root'], 'baseline_ref': self.frozen['baseline_refs'][0],
                      'visual_evidence': self.frozen}
-        self.module = {'evidence_contract_version': 2, 'code_baseline': 'current-code',
+        self.module = {'code_baseline': 'current-code',
                        'build_artifacts': [self.alignment['rounds'][-1]['hap']]}
         self.query = {**self.path, 'run_id': 'visual-test', 'run_root': self.run_root, 'module_id': 'GLOBAL',
-                      'freeze_id': 'freeze', 'code_baseline': 'current-code', 'evidence_contract_version': 2,
+                      'freeze_id': 'freeze', 'code_baseline': 'current-code',
                       'frozen_visual_evidence': self.frozen,
                       'execution_assignment': self.assignment,
                       'expected_assertions': [{'assertion_id': 'A', 'expected': True}]}
@@ -229,12 +229,9 @@ class VisualExecutionProofTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'outside selected run'):
             self.report()
 
-    def test_v1_and_non_green_do_not_require_new_capture_proof(self):
+    def test_non_green_does_not_require_new_capture_proof(self):
         self.bind()
         self.query.pop('frozen_visual_evidence'); self.query.pop('run_root')
-        self.query['evidence_contract_version'] = 1
-        self.assertEqual(self.report()['quality'], 'green-passed')
-        self.query['evidence_contract_version'] = 2
         self.alignment.update(status='NEEDS_IMPLEMENTATION_FIX', issues=[{'owner': 'lean', 'summary': 'observed failure'}])
         self.assertEqual(self.report()['quality'], 'red-bug')
 

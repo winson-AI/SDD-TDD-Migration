@@ -77,13 +77,13 @@ execute/build 前提交 building 报告；execute/automation 前提交新的 tes
 
 按 [UI 保真](../skills/migration-protocol/references/ui-fidelity.md) 在 build 与功能 automation 已满足前置后执行 visual PATH；使用 [lean 受限接入](../skills/migration-protocol/references/lean-integration.md) 的 compare-only，不加载会自行改 UI/资源或返工的完整 Aligner skill。构建仍由正式 execute_test 回执留证；导入 lean 的 passed 字段不能代替本轮执行。
 
-v2 每条视觉 Green 的 record.visual_alignment 必须与本次 captured.visual_alignment 相同，覆盖冻结目标、node_ids、baseline_ref、当前 code_baseline 与实际 HAP hash；显式交互附同 HAP/代码的 PASSED 设备证据。差异为 Red 并报告节点根因；工具/设备缺失保留 Yellow/未执行，沿既有 automation-unavailable 收尾，不修改源码、资源、构建配置、SPEC 或断言。修复交 Fixer，使用原预算，不启动额外 lean 对齐循环。
+每条视觉 Green 的 record.visual_alignment 必须与本次 captured.visual_alignment 相同，覆盖冻结目标、node_ids、baseline_ref、当前 code_baseline 与实际 HAP hash；显式交互附同 HAP/代码的 PASSED 设备证据。差异为 Red 并报告节点根因；工具/设备缺失保留 Yellow/未执行，沿既有 automation-unavailable 收尾，不修改源码、资源、构建配置、SPEC 或断言。修复交 Fixer，使用原预算，不启动额外 lean 对齐循环。
 
 comparison_evidence 由原始 alignment 的 round/target/capture index 推导；score 与 semantic 必须绑定被比较的实际截图。ALIGNED_CARRIED 也必须保留原始对齐和当前截图回归证据，不能沿用失去来源的分数。使用 [visual-alignment 模板](../template/visual-alignment.json) 记录实际输出。
 
 本轮 capture 必须绑定当前 assignment/fence；semantic 问题与不可比判断按 [视觉执行](../skills/migration-protocol/references/visual-execution.md) 逐项附裁决证据。skipped/xfail 原样记录，不能声明 Green；缺测后的历史执行与本次尝试分开留存，遵守 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
 
-v2 正式视觉 Green 另重验完整冻结 Android 原始记录与 capture_evidence：当前 run 的安装回执、实际命令、截图/树/hash 共同绑定本轮 HAP/代码。外部 capture 按 [捕获回执模板](../template/visual-capture-execution.json) 留实证，不能靠修改 alignment 标签；GLOBAL 自有 PATH 缺 visual_evidence 保留 Yellow。source-only 手势走 automation 的 [interaction_evidence](../template/interaction-evidence.json)；默认 Harmony 未生成该结构化证据时，保留实际断言并规范化为已执行 Yellow，真实 Red 不降级，不从 expected 合成 observed。能力缺口沿既有预检/缺测收尾，不扩大全局阻塞。
+正式视觉 Green 另重验完整冻结 Android 原始记录与 capture_evidence：当前 run 的安装回执、实际命令、截图/树/hash 共同绑定本轮 HAP/代码。外部 capture 按 [捕获回执模板](../template/visual-capture-execution.json) 留实证，不能靠修改 alignment 标签；GLOBAL 自有 PATH 缺 visual_evidence 保留 Yellow。source-only 手势走 automation 的 [interaction_evidence](../template/interaction-evidence.json)；默认 Harmony 未生成该结构化证据时，保留实际断言并规范化为已执行 Yellow，真实 Red 不降级，不从 expected 合成 observed。能力缺口沿既有预检/缺测收尾，不扩大全局阻塞。
 
 ## 代码治理后的回归
 
@@ -103,4 +103,4 @@ Test-Runner 在首次设计转换或 automation 环境预检前调用 `sandbox.p
 
 使用 CLI 或直接调用底层库都必须遵守同一 storage_layout：不能把输出省略交给 cwd、输入文件所在目录或 SDK 默认 dumps。XMind/报告/录制/日志/媒体显式选择本轮受管目录；需要默认路径或 SDK 调用时进入 runner scope。路径拒绝作为本模块环境/执行问题留证，沿现有 Yellow 路由处理；不得绕过校验、删除外部输入或中止无关模块。构建/外部脚本仍由 Host 审核冻结命令的实际输出并限制文件权限。
 
-可用 knowledge-query、knowledge-diagnose 与 foundation-verify 辅助只读测试准备和问题归因；日志 hash、解析结果和目录核对结果留作证据，不能替代真实 Main/构建/设备回执或自行修复。v2 手势 Green 还须绑定 execute_test 提取的 frozen_interaction，核对 required_interaction、实际 action 与 observed，不能只检查同 ID/PASSED。见 [受限接入](../skills/migration-protocol/references/lean-integration.md)。
+可用 knowledge-query、knowledge-diagnose 与 foundation-verify 辅助只读测试准备和问题归因；日志 hash、解析结果和目录核对结果留作证据，不能替代真实 Main/构建/设备回执或自行修复。手势 Green 还须绑定 execute_test 提取的 frozen_interaction，核对 required_interaction、实际 action 与 observed，不能只检查同 ID/PASSED。见 [受限接入](../skills/migration-protocol/references/lean-integration.md)。

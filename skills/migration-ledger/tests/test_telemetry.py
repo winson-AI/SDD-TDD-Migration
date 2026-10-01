@@ -32,7 +32,7 @@ class TelemetryTests(unittest.TestCase):
         f.call('plan', {'plan_ref': f.ref('p.json', plan)}, role='spec-designer')
         f.approve(digest(plan), 'D1'); f.call('freeze', {'decision_id': 'D1'})
 
-    def test_absent_legacy_contract_does_not_add_a_gate(self):
+    def test_absent_contract_does_not_add_a_gate(self):
         f = self.f; self.freeze(f.plan()); f.implementation()
         self.assertEqual(f.state()['modules']['M001']['phase'], 'testing')
 

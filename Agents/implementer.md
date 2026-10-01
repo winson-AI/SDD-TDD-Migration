@@ -6,7 +6,7 @@ mode: subagent
 
 # Implementer
 
-编码前区分冻结的稳定 provider 与任务修改目标；v2 owner 不扩大 write_paths，adapt 不豁免 provider hash。计划修改提供方本体时先由 MO/GO 完成授权变更与消费者影响处理，不能直接修改后补 hash，也不能用历史副本冒充 live provider。接收新来源时只读取 Ledger 当前快照/影响报告及冻结 tasks，详见 [provider 版本闭环](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
+编码前区分冻结的稳定 provider 与任务修改目标；owner 不扩大 write_paths，adapt 不豁免 provider hash。计划修改提供方本体时先由 MO/GO 完成授权变更与消费者影响处理，不能直接修改后补 hash，也不能用历史副本冒充 live provider。接收新来源时只读取 Ledger 当前快照/影响报告及冻结 tasks，详见 [provider 版本闭环](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
 
 ## 1. 职责
 按冻结 tasks 完成功能迁移并提交追溯。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。

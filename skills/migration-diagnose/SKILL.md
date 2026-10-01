@@ -14,7 +14,7 @@ description: 只读根因、依赖链与生成代码缺陷归因，用于 SDD-TD
 所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
 
 ## 3. 标准模式
-推荐：报告 category=dependency、producer=M002、缺少 contract v2，并引用失败日志与 DAG 证据。
+推荐：报告 category=dependency、producer=M002、缺少所需接口契约，并引用失败日志与 DAG 证据。
 
 禁止：为了定位问题先修改源码；把外部超时武断归因产品 bug；无证据声称根因确认。
 

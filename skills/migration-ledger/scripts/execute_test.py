@@ -119,9 +119,8 @@ gradle.beforeProject { p ->
 ''')
     query = {**path, 'run_id': s['run_id'], 'module_id': module_id,
              'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline']}
-    if path.get('kind') in ('automation', 'visual') and m.get('evidence_contract_version', 1) >= 2:
+    if path.get('kind') in ('automation', 'visual'):
         import ui_fidelity
-        query['evidence_contract_version'] = m['evidence_contract_version']
         interaction = ui_fidelity.frozen_interaction(m, path)
         if interaction:
             query['frozen_interaction'] = interaction

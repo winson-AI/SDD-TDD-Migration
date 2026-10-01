@@ -41,4 +41,4 @@ description: OpenSpec 六件套、plan 澄清冻结和 CR 影响分析，用于 
 
 在已有 test-design 中按 [状态测试表](../../template/ui-state-test-design.md) 区分稳定截图目标和瞬态行为。未知资源如实记录 manual_exact/blocked；每个源资源/qualifier 独立映射，多消费者及跨配置路由按 [资源接入](../migration-protocol/references/lean-integration.md#资源执行与事实绑定) 留证。外部能力目录只提名方案，遵从结果的 sdd_adaptation_ref，将决策写入现有 SPEC/四维项。
 
-v2 source-only 手势可绑定 automation，仍冻结完整动作/起点/预期，不创建假视觉基线。逐适用资源变体核对 collector、实际源文件与 Resource item 的同一 hash；有证据的范围外变体用 resource_scope.exclusions，不能省略已启用配置。详见 [UI 保真](../migration-protocol/references/ui-fidelity.md)。
+source-only 手势可绑定 automation，仍冻结完整动作/起点/预期，不创建假视觉基线。逐适用资源变体核对 collector、实际源文件与 Resource item 的同一 hash；有证据的范围外变体用 resource_scope.exclusions，不能省略已启用配置。详见 [UI 保真](../migration-protocol/references/ui-fidelity.md)。

@@ -47,7 +47,14 @@ class KnowledgeGateTests(Base):
         with self.assertRaisesRegex(Rejected, 'must bind a foundation resolution'):
             knowledge_gate.freeze_gate({'dependency_resolution_required': True}, m)
         m['plan']['dependency_resolution_ref'] = self.ref('r5.json', self.resolution())
-        knowledge_gate.freeze_gate({'dependency_resolution_required': True}, m)
+        with self.assertRaisesRegex(Rejected, 'bundled Foundation catalog'):  # hand-written, not managed
+            knowledge_gate.freeze_gate({'dependency_resolution_required': True}, m)
+        import lean_knowledge
+        target = self.base / 'target'; target.mkdir()
+        managed = lean_knowledge.run('foundation-resolve', {'requirements': [], 'no_new_dependencies': True},
+                                     {'target_root': str(target)}, self.base)
+        m['plan']['dependency_resolution_ref'] = self.ref('r6.json', managed)
+        knowledge_gate.freeze_gate({'dependency_resolution_required': True, 'target_root': str(target)}, m)
 
 
 class ValidationSummaryTests(Base):

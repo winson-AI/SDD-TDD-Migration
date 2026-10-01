@@ -99,9 +99,8 @@ def plan_check(plan, target):
 
 
 def visual_result(module, path, record, captured, run_root=None, assignment=None):
-    """A v2 visual Green binds the frozen target and the current HAP/code/gesture evidence."""
-    if (module.get('evidence_contract_version', 1) < 2 or path.get('kind') != 'visual'
-            or record.get('quality') != 'green-passed'):
+    """A visual Green binds the frozen target and the current HAP/code/gesture evidence."""
+    if path.get('kind') != 'visual' or record.get('quality') != 'green-passed':
         return
     proof = captured.get('visual_alignment')
     require(isinstance(proof, dict) and record.get('visual_alignment') == proof,
@@ -159,8 +158,8 @@ def visual_result(module, path, record, captured, run_root=None, assignment=None
 
 def interaction_result(module, path, record, captured):
     """Behavior-only device proof does not require an Android visual baseline."""
-    if (module.get('evidence_contract_version', 1) < 2 or path.get('kind') != 'automation'
-            or not path.get('interaction_id') or record.get('quality') != 'green-passed'):
+    if (path.get('kind') != 'automation' or not path.get('interaction_id')
+            or record.get('quality') != 'green-passed'):
         return
     import ui_evidence as ue
     import ui_fidelity

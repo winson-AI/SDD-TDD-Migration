@@ -73,7 +73,7 @@ def validate_plan(plan, module):
     require(set(module['case_ids']) <= {x.get('case_id') for x in paths.values()}, 'unmapped module cases')
     for path in paths.values():
         require(path.get('name') and path.get('requirement_id'), 'path name/requirement required')
-        require(path.get('required') is True, 'runtime v1 accepts only required paths')
+        require(path.get('required') is True, 'runtime accepts only required paths')
         assertions = keyed(path.get('expected_assertions'), 'assertion_id')
         require(all('expected' in a for a in assertions.values()), 'assertion expected value required')
     tasks = keyed(plan.get('tasks'), 'task_id')
@@ -127,15 +127,14 @@ def verify_plan(plan, module=None):
     reuse.verify(plan)
     import dimensions
     dimensions.verify(plan)
-    if (module or {}).get('evidence_contract_version', 1) >= 2 and plan.get('dimension_analysis_ref'):
+    if plan.get('dimension_analysis_ref'):
         import resource_fidelity
         resource_fidelity.require_indexed_closure(read_json(check_ref(plan['dimension_analysis_ref'])))
     import telemetry
     telemetry.verify(plan)
     if plan.get('dependency_resolution_ref'):
         import knowledge_gate
-        knowledge_gate.validate_resolution(plan['dependency_resolution_ref'],
-            strict=(module or {}).get('evidence_contract_version', 1) >= 2)
+        knowledge_gate.validate_resolution(plan['dependency_resolution_ref'], strict=True)
 
 
 def baseline(refs):
@@ -276,7 +275,7 @@ def validate_result(result, module, assignment, run_root=None):
         if quality == 'green-passed':
             require(receipt.get('exit_code') == 0 and not captured.get('skipped') and not captured.get('xfail')
                     and not record.get('flaky'), 'not a clean pass')
-            require(all(a.get('passed') is True and 'actual' in a and a['actual'] == a['expected'] for a in assertions.values()), 'failed/missing assertion; v1 uses JSON equality')
+            require(all(a.get('passed') is True and 'actual' in a and a['actual'] == a['expected'] for a in assertions.values()), 'failed/missing assertion; assertions use JSON equality')
         elif quality == 'red-bug':
             require(receipt.get('exit_code') != 0 or any(a.get('passed') is False for a in assertions.values()), 'Red needs observed failure')
     return kind

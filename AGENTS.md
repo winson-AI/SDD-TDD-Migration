@@ -72,7 +72,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 目标已有功能实现时，同样必须读取复用/依赖二方库并检查业务冗余。确认重复且复用/适配可行后，在分配范围内直接重构目标实现、切换真实依赖并清理冗余；不能重复造轮子，也不能仅加依赖却保留旧生产逻辑。按冻结任务执行并验证 fidelity/受影响消费者，细则见复用协议第 9 节。
 
-新 v2 能力目录明确 provider owner：null 为经评审的已有稳定能力，非空为本轮唯一叶子 owner；write_paths 仅控制权限/互斥，不能推断业务归属。GO 规划归属，父 MO 分配共享改动并收窄写集合，子 MO 冻结复用与适配任务。需改提供方本体走旧基线→授权 owner 变更→新版本→消费者重新冻结/复测；不得以 adapt 绕过 hash。
+能力目录明确 provider owner：null 为经评审的已有稳定能力，非空为本轮唯一叶子 owner；write_paths 仅控制权限/互斥，不能推断业务归属。GO 规划归属，父 MO 分配共享改动并收窄写集合，子 MO 冻结复用与适配任务。需改提供方本体走旧基线→授权 owner 变更→新版本→消费者重新冻结/复测；不得以 adapt 绕过 hash。
 
 同 run 新增只读来源按 [来源变更协议](skills/migration-protocol/references/source-changes.md) 执行 GO source-review → Host 绑定用户决策 → reconfigure-sources：新快照、完整影响评审、仅受影响闭包重新规划。保留无关模块有效结果、Red/Yellow、预算和历史；相关阻塞可凭明确决策恢复，无关阻塞不能被顺带解除。宿主消费 source_change_next_step，不能因等待版本切换取消其他 MO。
 
@@ -102,7 +102,7 @@ GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 sc
 
 子 MO 规划实现时，可为 UI/Logic/Resource 的 applicable item 附机器可读语义模型（UI=JSON Component Spec、Logic=Statechart+JSON-Logic、Resource=Design Tokens/ICU），记录抽象结果/来源/实现位置，随四维分析结构门禁校验并 hash 冻结、投影为 `semantics.md` 供下游读取；presence-triggered、任务驱动，`new` 策略基于目标项目创建。见 [代码语义抽取协议](skills/migration-protocol/references/semantic-extraction.md)。
 
-新 prepare 固化 evidence_contract_version=2；旧快照缺字段与旧直连 init 按 v1 兼容，不在恢复时改写历史。UI fidelity 默认值及适用条件以本轮快照为准；开启时 applicable UI 必须有模型/源树/目标覆盖，不是可选附录。lean 只按 [受限工具接入](skills/migration-protocol/references/lean-integration.md) 使用：Spec-Designer 分析 UI，Implementer 精确迁移资源并接线，Test-Runner 构建/功能测试/视觉取证，Fixer 修复，Auditor 独立；不得加载完整 lean 实现或 Aligner skill 合并这些权限。原始结果引用、转换证据及正式 payload 均在本轮受管目录留存并经 Ledger 提交。仅自动化不可用仍按 Yellow 缺测收尾，不阻止独立任务。
+证据契约只有当前一套，prepare 与 Ledger init 均按其校验。UI fidelity 默认值及适用条件以本轮快照为准；开启时 applicable UI 必须有模型/源树/目标覆盖，不是可选附录。lean 只按 [受限工具接入](skills/migration-protocol/references/lean-integration.md) 使用：Spec-Designer 分析 UI，Implementer 精确迁移资源并接线，Test-Runner 构建/功能测试/视觉取证，Fixer 修复，Auditor 独立；不得加载完整 lean 实现或 Aligner skill 合并这些权限。原始结果引用、转换证据及正式 payload 均在本轮受管目录留存并经 Ledger 提交。仅自动化不可用仍按 Yellow 缺测收尾，不阻止独立任务。
 
 ## 阻塞感知与恢复
 

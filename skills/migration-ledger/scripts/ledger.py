@@ -504,8 +504,7 @@ def audit_scope(s):
                     and build.get('quality') == 'green-passed' and build.get('code_baseline') == owner.get('code_baseline')
                     and not owner.get('stale')):
                 path_build_artifacts[path['path_id']] = [r for r in build.get('build_artifacts', []) if r in owner.get('build_artifacts', [])]
-            if (s.get('evidence_contract_version', 1) >= 2 and
-                    path.get('kind') in ('automation', 'visual') and path.get('interaction_id')):
+            if path.get('kind') in ('automation', 'visual') and path.get('interaction_id'):
                 from ui_evidence import interaction_contract
                 item = interaction_contract(path.get('frozen_interaction'))
                 require(item['id'] == path['interaction_id'], 'GLOBAL frozen interaction ID mismatch')
@@ -524,7 +523,6 @@ def audit_scope(s):
                     frozen_interactions[path['path_id']] = interaction
     return {'frozen_interactions': frozen_interactions, 'path_build_artifacts': path_build_artifacts,
             'path_dimension_analysis_refs': path_dimension_analysis_refs,
-            'evidence_contract_version': s.get('evidence_contract_version', 1),
             'freeze_id': digest({k:v['freeze_id'] for k,v in s['modules'].items()}),
             'code_files': refs, 'code_baseline': code_baseline,
             'build_artifacts': [ref for module in s['modules'].values() for ref in module.get('build_artifacts', [])],
@@ -585,7 +583,7 @@ def mutate(s, req, principal, events, root=None):
             decomposition.check_scope(p)
             require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in root scope')
         dimensions.allocation(s, p)
-        s['modules'][mid] = new_module({**p, 'evidence_contract_version': s.get('evidence_contract_version', 1)})
+        s['modules'][mid] = new_module(p)
         s['global_plan'] = None
     elif op == 'decision':
         role(principal, 'host')
@@ -1044,8 +1042,7 @@ def _apply(root, req, principal):
             require(type(p.get('dependency_resolution_required', False)) is bool, 'dependency_resolution_required must be boolean')
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
             require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
-            require(type(p.get('evidence_contract_version', 1)) is int and p.get('evidence_contract_version', 1) in (1, 2), 'unsupported evidence contract version')
-            s = {'evidence_contract_version': p.get('evidence_contract_version', 1), 'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
+            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
                  'reuse_sources': reuse_sources, 'reuse_required': bool(reuse_sources) or p.get('reuse_required', False),
                  'entry_mode': entry_mode, 'single_module_id': selected_module,
                  'global_spec': p['global_spec'], 'new_architecture': p['new_architecture'], 'requirement_ids': p['requirement_ids'],
@@ -1060,13 +1057,12 @@ def _apply(root, req, principal):
                 for path in paths.values():
                     assertions = keyed(path.get('expected_assertions'), 'assertion_id')
                     require(all('expected' in a for a in assertions.values()), 'global assertion expected value required')
-                    device_interaction = (s['evidence_contract_version'] >= 2 and
-                                          path.get('kind') in ('automation', 'visual') and path.get('interaction_id'))
+                    device_interaction = path.get('kind') in ('automation', 'visual') and path.get('interaction_id')
                     if device_interaction:
                         from ui_evidence import interaction_contract
                         interaction = interaction_contract(path.get('frozen_interaction'))
                         require(interaction['id'] == path['interaction_id'], 'GLOBAL frozen interaction ID mismatch')
-                    if s['evidence_contract_version'] >= 2 and (path.get('kind') == 'visual' or device_interaction):
+                    if path.get('kind') == 'visual' or device_interaction:
                         binding = path.get('build_binding') or {}
                         require(isinstance(binding.get('module_id'), str) and re.fullmatch(r'M[0-9]{3,}', binding['module_id'])
                                 and isinstance(binding.get('path_id'), str) and binding['path_id'],

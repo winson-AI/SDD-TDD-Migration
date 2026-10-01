@@ -31,7 +31,6 @@ def code_review(f, findings=None, recovery_resolutions=None):
     f.call('audit-code-review', {'report_ref': f.ref(f'code-review-{f.n}.json', report)}, role='auditor', module=None)
 
 
-
 class FlowTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -84,7 +83,7 @@ class FlowTests(unittest.TestCase):
     def attach_reuse(self, plan):
         import reuse
         sources = reuse.sources(self.state())
-        catalog = {'schema_version': 1, 'sources': sources, 'capabilities': [],
+        catalog = {'schema_version': 2, 'sources': sources, 'capabilities': [],
                    'source_reviews': [{'source_id': s['source_id'], 'status': 'reviewed',
                      'scanned_paths': s['module_paths'], 'conclusion': 'no equivalent behavior in fixture',
                      'evidence_refs': [self.ref('reuse-search.md', 'Reviewed target empty implementation and architecture')]} for s in sources]}

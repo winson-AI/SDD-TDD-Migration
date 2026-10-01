@@ -15,7 +15,6 @@ class OwnershipTests(unittest.TestCase):
     def candidate(self, owner=None, external=False):
         f = self.f
         plan, review, catalog, provider = f.selected_plan(external)
-        catalog['schema_version'] = 2
         catalog['capabilities'][0].update(provider_owner_module_id=owner,
             ownership_evidence_ref=f.ref('ownership.md', 'Reviewed actual producer versus existing baseline'))
         review['catalog_ref'] = f.ref('owned-catalog.json', catalog)
@@ -80,14 +79,6 @@ class OwnershipTests(unittest.TestCase):
         f.freeze(plan)
         relocated.write_text('new provider')
         with self.assertRaisesRegex(Rejected, 'hash mismatch'): f.assign('implementer', 'I')
-
-    def test_v1_keeps_old_dependency_check(self):
-        f = self.f
-        f.call('register', {'module_id': 'M002', 'case_ids': ['C1'], 'write_paths': [str(f.target)]},
-               role='global-orchestrator', module=None)
-        plan, _, _, _ = f.selected_plan()
-        with self.assertRaisesRegex(Rejected, 'registered dependency'):
-            f.freeze(plan)
 
     def test_conflicting_owner_is_rejected_using_accepted_ledger_ownership(self):
         f = self.f

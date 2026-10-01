@@ -54,4 +54,4 @@ HarmonyOS UI/端到端测试读取 [Harmony 运行协议](references/harmony-run
 
 测试阶段可用受限 query/diagnose/verify 辅助只读准备；目录版本核对和知识检索不替代本次正式执行。存在 visual PATH 时在当前 automation Green 后另派 visual scope，全部适用冻结路径 Green 才进入 DoD；无 UI/source-only 不新增空视觉路径。见 [受限接入](../migration-protocol/references/lean-integration.md)。
 
-v2 source-only 声明手势可由 automation 承载；Green 需要冻结动作/起点/预期对应的真实 interaction_evidence。默认 Harmony 缺此证据时保留断言并记录 Yellow，不能伪造 observed。视觉正式验收同时检查完整冻结 Android 集合和当前 run 捕获/安装/命令/HAP/代码的 capture_evidence；工具成功及 alignment 标签不能替代。模板与收尾规则见 [测试协议](../migration-protocol/references/testing.md) 和 [UI 保真](../migration-protocol/references/ui-fidelity.md)。
+source-only 声明手势可由 automation 承载；Green 需要冻结动作/起点/预期对应的真实 interaction_evidence。默认 Harmony 缺此证据时保留断言并记录 Yellow，不能伪造 observed。视觉正式验收同时检查完整冻结 Android 集合和当前 run 捕获/安装/命令/HAP/代码的 capture_evidence；工具成功及 alignment 标签不能替代。模板与收尾规则见 [测试协议](../migration-protocol/references/testing.md) 和 [UI 保真](../migration-protocol/references/ui-fidelity.md)。

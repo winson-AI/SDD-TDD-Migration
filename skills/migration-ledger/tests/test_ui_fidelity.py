@@ -67,18 +67,23 @@ class UiFidelityTests(unittest.TestCase):
             self.freeze(True, ui_evidence=False)
 
     def test_required_passes_with_ui_evidence(self):
-        self.freeze(True, ui_evidence=True)
+        module, _ = self.strict_module()
+        self.strict_freeze(module)
 
     def test_required_needs_mutating_renderers(self):
+        module, _ = self.strict_module()
+        del module['plan']['source_closure']
         with self.assertRaisesRegex(Rejected, 'ui_renderers'):
-            self.freeze(True, ui_evidence=True, renderers=None)
+            self.strict_freeze(module)
 
     def test_source_closure_facets_required_for_ui_scope(self):
         for facet in ('ui_topology', 'states', 'navigation', 'platform_lifecycle'):
             partial = {'ui_topology': 't', 'states': ['content'], 'navigation': 'n', 'platform_lifecycle': 'p'}
             del partial[facet]
+            module, _ = self.strict_module()
+            module['plan']['source_closure'] = {'ui_renderers': ['ui/LoginActivity.java'], **partial}
             with self.assertRaisesRegex(Rejected, 'source_closure.' + facet):
-                self.freeze(True, ui_evidence=True, closure=partial)
+                self.strict_freeze(module)
 
     def test_reduced_resource_closure_blocks_freeze(self):
         # the UI tree declares a presentation ref that no Resource item covers
@@ -129,17 +134,15 @@ class UiFidelityTests(unittest.TestCase):
         with patch.object(ui_fidelity.resource_fidelity, 'require_indexed_closure'), \
              patch.object(ui_fidelity.ue, 'validate_native_evidence',
                           side_effect=lambda evidence: ui_fidelity.ue.validate_tree(read_json(check_ref(evidence['ui_tree_ref'])))):
-            ui_fidelity.freeze_gate({'ui_fidelity_required': True, 'evidence_contract_version': 2}, module)
+            ui_fidelity.freeze_gate({'ui_fidelity_required': True}, module)
 
-    def test_v2_target_passes_and_legacy_keeps_its_existing_contract(self):
+    def test_visual_path_must_name_its_target_coverage(self):
         module, _ = self.strict_module()
-        self.strict_freeze(module)
         del module['plan']['paths'][0]['coverage']
         with self.assertRaisesRegex(Rejected, 'coverage'):
             self.strict_freeze(module)
-        ui_fidelity.freeze_gate({'ui_fidelity_required': True}, module)
 
-    def test_v2_visual_path_cannot_borrow_another_state_or_baseline(self):
+    def test_visual_path_cannot_borrow_another_state_or_baseline(self):
         for change, message in (({'coverage': 'login:code:viewport'}, 'coverage'),
                                 ({'node_ids': ['node:missing']}, 'nodes do not belong'),
                                 ({'node_ids': ['node:error']}, 'nodes do not belong'),
@@ -150,7 +153,7 @@ class UiFidelityTests(unittest.TestCase):
                 with self.assertRaisesRegex(Rejected, message):
                     self.strict_freeze(module)
 
-    def test_v2_every_runtime_target_needs_its_own_visual_path(self):
+    def test_every_runtime_target_needs_its_own_visual_path(self):
         import copy
         module, analysis = self.strict_module()
         other = copy.deepcopy(analysis['dimensions'][0]['items'][0])
@@ -164,7 +167,7 @@ class UiFidelityTests(unittest.TestCase):
                                        'coverage': 'login:error:viewport', 'node_ids': ['node:error']})
         self.strict_freeze(module)
 
-    def test_v2_ui_resources_require_exact_strategy(self):
+    def test_ui_resources_require_exact_strategy(self):
         module, analysis = self.strict_module(resources=True)
         with self.assertRaisesRegex(Rejected, 'requires resource_strategy'):
             self.strict_freeze(module)
@@ -174,12 +177,12 @@ class UiFidelityTests(unittest.TestCase):
         module['plan']['dimension_analysis_ref'] = self.f.ref('strict-analysis.json', analysis)
         self.strict_freeze(module)
 
-    def test_v2_non_ui_module_does_not_gain_visual_or_resource_requirements(self):
+    def test_non_ui_module_does_not_gain_visual_or_resource_requirements(self):
         module = self.module(self.analysis_ref(kinds=('Logic', 'Resource')), renderers=None)
         module['plan']['paths'] = []
         self.strict_freeze(module)
 
-    def test_v2_source_only_keeps_source_provenance_without_visual_paths(self):
+    def test_source_only_keeps_source_provenance_without_visual_paths(self):
         module, analysis = self.strict_module()
         evidence = analysis['dimensions'][0]['items'][0]['semantic_model']['ui_evidence']
         ui_tree = read_json(evidence['ui_tree_ref']['path'])
@@ -193,7 +196,7 @@ class UiFidelityTests(unittest.TestCase):
         module['plan']['paths'] = []
         self.strict_freeze(module)
 
-    def test_v2_interaction_path_uses_the_declared_starting_state(self):
+    def test_interaction_path_uses_the_declared_starting_state(self):
         module, analysis = self.strict_module()
         model = analysis['dimensions'][0]['items'][0]['semantic_model']
         model['interactions'] = [{'id': 'edge-back', 'action': 'edge_back_gesture',

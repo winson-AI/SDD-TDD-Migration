@@ -31,7 +31,6 @@ GO/父 MO 在范围分配时保留全部源状态；子 MO 的 Spec-Designer 与
   "kind": "ui-component-spec",
   "model_ref": {"path": "...", "sha256": "..."},
   "ui_evidence": {
-    "contract_version": 2,                                         // 新 prepare 证据规则；历史不补写
     "capture_manifest_ref": {"path": "...manifest.json", "sha256": "..."},
     "source_index_ref": {"path": "...ui-source-index.json", "sha256": "..."},
     "runtime_index_ref": {"path": "...runtime-ui-index.json", "sha256": "..."}, // source-only 不提供
@@ -49,18 +48,17 @@ GO/父 MO 在范围分配时保留全部源状态；子 MO 的 Spec-Designer 与
 
 `ui_tree_ref` 与 `baseline_refs` 归档进 artifacts、hash 冻结；`coverage` 必须匹配 `page:state:(viewport|scroll)`。Spec-Designer 通过受限 analyze-ui/validate-ui 使用 collect/select/validate_ui_tree，保留源/运行时索引与原始 manifest 引用；截图来自宿主授权的 Android capture。树结构通过不等于源闭包语义完整，MO 仍核对实际 renderer、分支和范围。
 
-v2 runtime 证据必须有原始 capture_manifest_ref；runtime index 的 manifestSha 绑定它。当前 page/state/coverage 必须唯一匹配 Android COMPLETE 记录，按原生 selector 重算后的 capture 与 runtime index 一致，baseline_refs 恰好是该 capture 的截图集合。共享 manifest/index 的其他目标可以独立处理，其缺失文件不阻塞当前目标。source-only 仍经过同一原生 source/tree 严格校验；纯源码模式可省略 manifest，若提供则当前目标必须是 SOURCE_ONLY，不能带 runtime index、观察或 baseline 伪造运行成功。
+runtime 证据必须有原始 capture_manifest_ref；runtime index 的 manifestSha 绑定它。当前 page/state/coverage 必须唯一匹配 Android COMPLETE 记录，按原生 selector 重算后的 capture 与 runtime index 一致，baseline_refs 恰好是该 capture 的截图集合。共享 manifest/index 的其他目标可以独立处理，其缺失文件不阻塞当前目标。source-only 仍经过同一原生 source/tree 严格校验；纯源码模式可省略 manifest，若提供则当前目标必须是 SOURCE_ONLY，不能带 runtime index、观察或 baseline 伪造运行成功。
 
 ## 强制开关
 
-标准 prepare 路径固定 `ui_fidelity_required=true`，prepared init 不能关闭；旧直连 init 缺该字段时保留 false 的兼容默认，历史 run 沿其记录值恢复。不要把旧入口默认值描述成新运行默认关闭。开启后 [ui_fidelity.py](../../migration-ledger/scripts/ui_fidelity.py) 仅对 applicable UI 强制下列门禁；无 UI/有证据的 N/A 不新增空任务：
+标准 prepare 路径固定 `ui_fidelity_required=true`，prepared init 不能关闭。开启后 [ui_fidelity.py](../../migration-ledger/scripts/ui_fidelity.py) 仅对 applicable UI 强制下列门禁；无 UI/有证据的 N/A 不新增空任务：
 
 - **冻结门禁**：每个 applicable UI item 必须携带绑定 `ui_evidence` 的 `ui-component-spec` 模型（`semantics.ui_fidelity_gaps` 列缺口）；必须已判定存量可执行性；资源闭包不得缩减；`source_closure.ui_renderers` 必填；有基线的目标必须有 visual 路径。
 - **实现门禁**：conformance 用 `baseline_conformance` 引用真正指导 coding 的基线或中间表征。
 - **完成门禁**：`completion_gate` 拒绝仍带 `blocked` 资源的模块完成。
 - **覆盖看板**：`status.semantic_index.coverage.missing` 暴露未附模型的 UI item。
 
-新 prepare 同时固化 `evidence_contract_version=2`，由 Global input/init 继承，prepared v2 不得降级；旧快照缺字段及旧直连 init 按 v1 兼容。不在恢复历史 run 时追加 v2 字段或改写其证据。
 
 ## 基线前移：截图指导实现，而非事后比对（已实现）
 
@@ -83,20 +81,20 @@ build → Green
         └─ automation 第二层 visual：对齐存量基线，逐「视觉对齐路径中的节点」assert
 ```
 
-- `visual` 路径必须绑定 `node_ids`（稳定 `node:` id）与 `baseline_ref`（[test_validation.plan_check](../../migration-ledger/scripts/test_validation.py)）；v2 还须显式 coverage，等于对应 UI item 的 page/state/coverage，baseline_ref 属于该目标 baseline_refs，node_ids 仅引用该目标真实树节点。每个 runtime 目标至少一条对应 visual PATH，不能跨状态充数。
+- `visual` 路径必须绑定 `node_ids`（稳定 `node:` id）与 `baseline_ref`（[test_validation.plan_check](../../migration-ledger/scripts/test_validation.py)）；还须显式 coverage，等于对应 UI item 的 page/state/coverage，baseline_ref 属于该目标 baseline_refs，node_ids 仅引用该目标真实树节点。每个 runtime 目标至少一条对应 visual PATH，不能跨状态充数。
 - 阶段顺序由 `tv.next_scope` 强制：**第二层需第一层 Green**（功能没走通时比对渲染无意义）；DoD 要求**全部三层路径 Green**（`tv.all_green`）。
 - 视觉不对齐 = **Red + 节点级 root_cause** → 走 ④三态 / ⑤`diagnose` → 一轮 Fixer，**复用既有修复预算**（不另设轮次）。
-- v2 声明的手势（`interaction:<id>`）必须由某条 automation 或 visual 路径承载设备证据（`interaction_id`），静态路由不可替代。source-only 可用 automation 验证行为，无需创建缺少基线的 visual PATH；runtime 目标原有视觉义务仍保留。v1 保持历史契约。
+- 声明的手势（`interaction:<id>`）必须由某条 automation 或 visual 路径承载设备证据（`interaction_id`），静态路由不可替代。source-only 可用 automation 验证行为，无需创建缺少基线的 visual PATH；runtime 目标原有视觉义务仍保留。
 - `source-only` 无第二层（无基线可比），按显式缺视觉证据收尾，不允许"没基线就免检"中间表征。
 - 仅自动化环境缺失时，`automation-unavailable` 同时挂起 automation 与 visual 两层，沿用既有 Yellow 缺测收尾。
 
-v2 正式视觉 Green 要求 `record.visual_alignment` 与本次执行回执中的 `captured.visual_alignment` 完全一致：包含冻结 PATH 的 coverage/node_ids/baseline_ref、模块当前 code_baseline、实际可校验 hash 的 hap_ref；HAP 属于当前已接受 build_artifacts。声明 interaction_id 时，execute_test 从冻结 dimension model 提取完整 frozen_interaction（id/action/from/expected，可选 spec_ref）写入 query；GLOBAL 自有 PATH 可冻结自己的 frozen_interaction。proof.required_interaction 必须与冻结声明一致，interaction_checks 提供唯一同 ID 的 PASSED、相同 action、满足冻结 expected 的 observed、同 hap_sha256/代码基线及真实 evidence_ref。只有同名 ID 或 PASSED 文本不够，结果不能另声明一个更容易的动作或目的页面。adapter 与正式 Green 门禁分别核对，v1 保持兼容。Red/Yellow 可保留不完整证据及具体原因，不能为了缺设备而伪造哈希或通过。未完成自动化仍按 Yellow/未执行收尾，独立模块和可用构建下游继续。现有 execute_test 可通过 lean_visual_adapter 接入原始比较结果，最小调用与布尔断言限制见 [接入协议](lean-integration.md)。
+正式视觉 Green 要求 `record.visual_alignment` 与本次执行回执中的 `captured.visual_alignment` 完全一致：包含冻结 PATH 的 coverage/node_ids/baseline_ref、模块当前 code_baseline、实际可校验 hash 的 hap_ref；HAP 属于当前已接受 build_artifacts。声明 interaction_id 时，execute_test 从冻结 dimension model 提取完整 frozen_interaction（id/action/from/expected，可选 spec_ref）写入 query；GLOBAL 自有 PATH 可冻结自己的 frozen_interaction。proof.required_interaction 必须与冻结声明一致，interaction_checks 提供唯一同 ID 的 PASSED、相同 action、满足冻结 expected 的 observed、同 hap_sha256/代码基线及真实 evidence_ref。只有同名 ID 或 PASSED 文本不够，结果不能另声明一个更容易的动作或目的页面。adapter 与正式 Green 门禁分别核对。Red/Yellow 可保留不完整证据及具体原因，不能为了缺设备而伪造哈希或通过。未完成自动化仍按 Yellow/未执行收尾，独立模块和可用构建下游继续。现有 execute_test 可通过 lean_visual_adapter 接入原始比较结果，最小调用与布尔断言限制见 [接入协议](lean-integration.md)。
 
 automation 手势使用 [interaction-evidence.json](../../../template/interaction-evidence.json) 的条件扩展：正式 Green 同样核对冻结完整动作、起点、预期、当前 HAP/代码及实际观测，record 与原始 report 的 interaction_evidence 必须一致。不要求截图基线，不从 expected 合成 observed。默认 Harmony 未产出该结构化证据时，已执行断言保留并规范化为 Yellow（interaction-evidence-unavailable），可以正式提交；真实 Red 不被覆盖。能力缺失沿现有预检/Yellow 收尾，不新增全局阻塞。
 
 ## capture / 构建产物契约（Wave B，已实现）
 
-v2 Green 还须带 `alignment_root` 与从原始 alignment 推导的 `comparison_evidence`。逐 round/page/state/reference_capture_index/candidate_capture_index 选取 manifest 中的截图，核对 score 的 reference/candidate 摘要；semantic 必须绑定该 score_sha256 或同一图片对，同时提供两者时全部核验。正式门禁重读 evidence_ref 推导相同结果，不能自填“已经关联”。ALIGNED_CARRIED 保留原 ALIGNED 的完整对齐证据，并用 regression_score 绑定 carried_from_round 与当前 capture_round 的 Harmony 截图（regression_capture_index 默认 0）；仍须明确 ALIGNED 裁决，分数本身不自动通过。
+Green 还须带 `alignment_root` 与从原始 alignment 推导的 `comparison_evidence`。逐 round/page/state/reference_capture_index/candidate_capture_index 选取 manifest 中的截图，核对 score 的 reference/candidate 摘要；semantic 必须绑定该 score_sha256 或同一图片对，同时提供两者时全部核验。正式门禁重读 evidence_ref 推导相同结果，不能自填“已经关联”。ALIGNED_CARRIED 保留原 ALIGNED 的完整对齐证据，并用 regression_score 绑定 carried_from_round 与当前 capture_round 的 Harmony 截图（regression_capture_index 默认 0）；仍须明确 ALIGNED 裁决，分数本身不自动通过。
 
 adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migration-ledger/scripts/visual_evidence.py)：从所属叶子冻结模型重取完整 Android capture 记录及 baseline_refs，核对每屏、顺序和原始元数据，不能只保持首屏相同后替换其他屏。候选 snapshot 必须关联 capture_execution_ref；重读当前 run 内的装机回执、真实命令日志、截图/树/hash，推导 capture_evidence，绑定实际安装 HAP、设备及代码基线。原生捕获自动生成；外部运行器按 [捕获回执模板](../../../template/visual-capture-execution.json) 留真实 sidecar。仅修改 alignment 标签或增加自述字段不足以通过。carried 历史轮次核对自己的构建/代码，当前轮次严格绑定当前基线。
 
@@ -111,7 +109,7 @@ Auditor 按 PATH 保留所属模块的 build_artifacts，不能借用其他模�
 
 还原度差的根因不是验证不足，而是**允许了近似**。以下规则把"近似"从源头排除：
 
-**① 资源精确策略 + 反近似禁令** —— [resource_fidelity.py](../../migration-ledger/scripts/resource_fidelity.py) 为 Resource 维 item 提供 `resource_strategy` 枚举。旧契约保持 presence-triggered；v2 的 UI 呈现闭包内 Resource item 必须显式填写 `resource_kind` 与 `resource_strategy`，不能通过省略字段避开精确性校验：
+**① 资源精确策略 + 反近似禁令** —— [resource_fidelity.py](../../migration-ledger/scripts/resource_fidelity.py) 为 Resource 维 item 提供 `resource_strategy` 枚举。UI 呈现闭包内 Resource item 必须显式填写 `resource_kind` 与 `resource_strategy`，不能通过省略字段避开精确性校验：
 
 | Android 源类型 (`resource_kind`) | 必须策略 |
 |---|---|
@@ -123,11 +121,11 @@ Auditor 按 PATH 保留所属模块的 build_artifacts，不能借用其他模�
 
 **没有 `approximate` 策略**：禁止 Material 图标替代、手绘近似、语义近似、自动栅格化、位图兜底。逃生口仅 `manual_exact`（须 `adaptation_evidence_ref` 实证）与 `blocked`（须 `blocked_reason`）。专项规则：`.9.png` 的 stretch/content 区域**永不** `byte_copy`；`sp` 尺寸被间距消费时必须 `scales_with_font`（不得静默变固定 Dp）。
 
-**② 闭包不得缩减** —— `ui_fidelity_required` 开启时，UI 树声明的每个呈现引用（含 `dynamicRules` 的代码态运行时覆盖）必须被实际 Resource item 覆盖，否则冻结被拒。新 v2 逐 `source_resource + qualifier` 留真实源、策略、目标及消费者证据；`covered_resource_ids` 仅作历史描述，裸 ID 不计入覆盖。资源分组使用现有 TASK/dimension_trace；附加资源及别名分别登记源事实，不能用一个主资源代证其余资源。v1 保留历史覆盖契约。
+**② 闭包不得缩减** —— `ui_fidelity_required` 开启时，UI 树声明的每个呈现引用（含 `dynamicRules` 的代码态运行时覆盖）必须被实际 Resource item 覆盖，否则冻结被拒。逐 `source_resource + qualifier` 留真实源、策略、目标及消费者证据；裸 `covered_resource_ids` 不计入覆盖。资源分组使用现有 TASK/dimension_trace；附加资源及别名分别登记源事实，不能用一个主资源代证其余资源。
 
-声明的 resource_kind 必须与 source_resource_ref 指向的真实文件/values 条目一致。新 v2 冻结与受限资源转换读取源事实，校验 qualifier、.9.png、sp 单位；byte_copy 导入校验源目标字节相等。资源扫描、任务授权、单项 values 转换与变体映射见 [资源接入](lean-integration.md#资源执行与事实绑定)。
+声明的 resource_kind 必须与 source_resource_ref 指向的真实文件/values 条目一致。冻结与受限资源转换读取源事实，校验 qualifier、.9.png、sp 单位；byte_copy 导入校验源目标字节相等。资源扫描、任务授权、单项 values 转换与变体映射见 [资源接入](lean-integration.md#资源执行与事实绑定)。
 
-v2 进一步从本 UI 树实际引用到的源索引逐 `source_resource + qualifier + path` 核验闭包：每个适用变体恰有一个 Resource item，并与 collector 保存的源文件 SHA、实际文件及 Resource source_resource_ref 一致。base 覆盖不能代替 night/语言等变体。明确不属于当前切片的候选通过 ui_evidence.resource_scope.exclusions 逐项说明 source_resource/qualifier/path、reason 与 evidence_refs；排除证据持续校验，不能排除配置范围中明确启用的 qualifier。未被本树引用的资源不扩大门禁。旧索引缺少资源 hash 或已过期时重新抽取、审查与冻结，不给旧提取值补上当前 hash。res/color* 的状态选择器按 selector/compose_semantic_exact 处理，不能伪装为固定 color token。
+进一步从本 UI 树实际引用到的源索引逐 `source_resource + qualifier + path` 核验闭包：每个适用变体恰有一个 Resource item，并与 collector 保存的源文件 SHA、实际文件及 Resource source_resource_ref 一致。base 覆盖不能代替 night/语言等变体。明确不属于当前切片的候选通过 ui_evidence.resource_scope.exclusions 逐项说明 source_resource/qualifier/path、reason 与 evidence_refs；排除证据持续校验，不能排除配置范围中明确启用的 qualifier。未被本树引用的资源不扩大门禁。旧索引缺少资源 hash 或已过期时重新抽取、审查与冻结，不给旧提取值补上当前 hash。res/color* 的状态选择器按 selector/compose_semantic_exact 处理，不能伪装为固定 color token。
 
 **③ blocked 不得计入 Green** —— `completion_gate` 拒绝仍带 `blocked` 资源的模块完成。
 

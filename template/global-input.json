@@ -44,7 +44,7 @@
     "args": [],
     "cwd": "{{absolute-target-root}}",
     "query_transport": "query-file",
-    "result_format": "migration-test-result-v1",
+    "result_format": "migration-test-result",
     "timeout_seconds": 300,
     "environment_ref": "{{absolute-run-root}}/runs/harmony/sandbox/{{request-id}}/environment.json"
   },
@@ -109,7 +109,6 @@
   "build": {},
   "split_testing_required": true,
   "dimension_slicing_required": true,
-  "evidence_contract_version": 2,
   "ui_fidelity_required": true,
   "dependency_resolution_required": false
 }

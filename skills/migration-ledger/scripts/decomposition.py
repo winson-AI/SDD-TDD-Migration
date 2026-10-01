@@ -272,8 +272,7 @@ def handle(s, req, actor):
         s.setdefault('module_groups', {})[mid] = parent
         for child in children:
             child = copy.deepcopy(child)
-            child.update(parent_module_id=mid, dependencies=graph[child['module_id']],
-                         evidence_contract_version=s.get('evidence_contract_version', 1))
+            child.update(parent_module_id=mid, dependencies=graph[child['module_id']])
             s['modules'][child['module_id']] = new_module(child)
         for leaf_id, module in s['modules'].items():
             if module['dependencies'] != graph[leaf_id]:

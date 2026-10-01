@@ -236,7 +236,7 @@ class LeanWorkerTests(unittest.TestCase):
         task = {'assignment_id': 'V1', 'run_id': 'r1', 'module_id': 'M001', 'role': 'test-runner',
                 'instance_id': 'runner-1', 'closed': False, 'test_scope': 'visual',
                 'freeze_id': 'freeze-1', 'code_baseline': code_baseline}
-        module = {'module_id': 'M001', 'evidence_contract_version': 2, 'freeze_id': 'freeze-1',
+        module = {'module_id': 'M001', 'freeze_id': 'freeze-1',
                   'phase': 'testing', 'stale': False, 'assignments': {'V1': task},
                   'code_files': code_files, 'code_baseline': code_baseline, 'build_baseline': code_baseline,
                   'build_artifacts': [alignment['rounds'][0]['hap']],

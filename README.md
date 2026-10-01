@@ -19,7 +19,7 @@
 
 ## 二方库与已有能力
 
-新目录使用 v2 显式 provider owner：已有稳定能力用经评审的 null，本轮交付用唯一叶子 MO；写权限/资源锁不再推断 v2 业务归属。运行中补充来源可走 **GO source-review → Host reconfigure-sources → 受影响子 MO 重规划/冻结/复测 → 父 MO 汇总 → Auditor 收尾**，保留无关有效结果与历史失败/预算。接口、模板及边界见 [来源变更协议](skills/migration-protocol/references/source-changes.md)。
+能力目录使用显式 provider owner：已有稳定能力用经评审的 null，本轮交付用唯一叶子 MO；写权限/资源锁不推断业务归属。运行中补充来源可走 **GO source-review → Host reconfigure-sources → 受影响子 MO 重规划/冻结/复测 → 父 MO 汇总 → Auditor 收尾**，保留无关有效结果与历史失败/预算。接口、模板及边界见 [来源变更协议](skills/migration-protocol/references/source-changes.md)。
 
 迁移规划先评估目标项目已有能力及用户指定的其他项目模块：**来源登记 → 功能语义抽取 → 结合需求映射 → 冻结接入/适配 tasks → Coding → 真实依赖验证**。GO 建目录，父 MO 统一复用分工，子 MO 形成 reuse/adapt/reference/new 决策；依赖变化按消费者范围复测，最终由 Auditor 裁决。
 
@@ -66,7 +66,7 @@
 
 本包可检查入口引用、frontmatter、JSON 模板与流程契约；真实迁移须在填写技术栈、宿主适配和真实测试命令后验证。推荐的行为验收场景见 [workflow-verification.md](template/workflow-verification.md)。
 
-## P1–P4 本地实现
+## 本地实现
 
 - 人类 decision_envelope 与当前执行 freeze 分开绑定。
 - `ledger.py` 提供单写事件事务、游标投影、恢复与显式追加预算。
@@ -74,11 +74,11 @@
 - `execute_test.py` 在已接受代码上执行真实项目适配器并保留回执。
 - 源码闭环、目标可行性、owner 路由与会话冷恢复进入协议。
 
-[P6 验证记录](VERIFICATION.md) 说明实际测试与边界；KMP 专项 P5 未接入。
+[验证记录](VERIFICATION.md) 说明当前测试方式、结果与边界。
 
-## 控制流增强（2026-09-17）
+## 控制流游标
 
-再次对照 android-to-kmp-lean-orchestrator，将下一角色/动作游标、精确恢复、严格阶段结果接收和审计轮次生命周期接入本地编排。`status` 现在提供 next_steps、ready_modules、global_next_step；所有推进仍走 Ledger 事务。详见 [运行指南](skills/migration-protocol/references/local-runtime.md)。
+对照 android-to-kmp-lean-orchestrator，将下一角色/动作游标、精确恢复、严格阶段结果接收和审计轮次生命周期接入本地编排。`status` 现在提供 next_steps、ready_modules、global_next_step；所有推进仍走 Ledger 事务。详见 [运行指南](skills/migration-protocol/references/local-runtime.md)。
 
 ## 当前本地能力补齐
 
@@ -202,3 +202,18 @@ GO → 父 MO → 子 MO/任务显式判断埋点适用性；有埋点做事件/
 ## 异常恢复补强
 
 授权 Fixer/Implementer 工作期间的范围内改码不触发错误撤销；Yellow 内已有失败断言不能被缺测覆盖。Ledger ACK 区分事件已提交与投影待恢复，已验证归属的损坏 manifest 先留存原件再重建，其他模块继续。控制器/配置锁默认等待最多 10 秒，Host 可设置 `SDD_LOCK_TIMEOUT_SECONDS`；超时返回诊断，保留锁所有权。详见 [恢复协议](skills/migration-protocol/references/progress-recovery.md#授权改码投影恢复与文件锁等待)。
+
+## 版本记录
+
+协议、模板、脚本与测试只描述当前版本；不同版本之间的差异只在此处记录。旧版本的运行资产不做就地升级，需要继续迁移时以当前版本 prepare 新 run。
+
+| 日期 | 主要变化 |
+| --- | --- |
+| 2026-09-18 | 初始工作流：9+1 角色、Ledger 单写事件、冻结门禁、本地控制器 |
+| 2026-09-19 | Test-Runner 先构建后自动化；Harmony 自动测试内核与独立 uv 环境 |
+| 2026-09-20 | 自动化缺测 Yellow 收尾；父 MO 命名与用例报告；四维切片；同 run 来源追加；显式 provider owner |
+| 2026-09-21 | Auditor 代码治理前置；埋点适用性；统一资产根与顶层 OpenSpec |
+| 2026-09-22 ~ 09-24 | Watchdog 旁路通知、执行器中断收尾、OpenSpec 分范围核验、宿主接入契约 |
+| 2026-09-25 | 机器可读语义模型；模型路由档位 |
+| 2026-09-27 | 吸收 lean：UI 保真证据、受限 lean worker、精确资源策略、视觉对齐阶段、手势、HAP 绑定、Foundation 解析门禁；prepared run 默认开启 UI fidelity |
+| 2026-10-01 | 模块控制器在规划/测试阶段的守卫增强；证据契约与复用目录统一为单一当前版本，删除旧版本兼容分支 |

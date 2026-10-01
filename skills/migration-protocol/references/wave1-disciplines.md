@@ -4,11 +4,11 @@
 
 ## 1. Foundation / 迁移知识执行与冻结
 
-项目配置唯一入口是 `defaults.quality_gates.dependency_resolution_required`，值必须是 bool，默认 false。prepare 固定到本轮快照及 Global input，Ledger init 按该快照继承；不通过顶层项目字段、字符串 true 或 worker 请求临时开关覆盖。配置更新只影响后续运行，旧快照/旧 run 缺字段默认 false；已有低层直连 init 明确启用的历史运行保留原值，不改写历史。详见 [项目上下文](project-context.md)。
+项目配置唯一入口是 `defaults.quality_gates.dependency_resolution_required`，值必须是 bool，默认 false。prepare 固定到本轮快照及 Global input，Ledger init 按该快照继承；不通过顶层项目字段、字符串 true 或 worker 请求临时开关覆盖。配置更新只影响后续运行。详见 [项目上下文](project-context.md)。
 
 开启后，冻结要求 `plan.dependency_resolution_ref` 指向经 [knowledge_gate.py](../../migration-ledger/scripts/knowledge_gate.py) 校验的解析产物：`schema_version:1`、每条 requirement 有 query 与确切 version/resolved_version；subclosure 只列本切片需要的 API；demo-source 必须标 candidate_only。受限 `foundation-resolve` 的 result.json 可直接作为该引用。纯非 Harmony 范围或本切片没有新增敏感依赖必须给出解析器产生的显式 not-required 结果及 target_matrix；空列表本身不证明不适用。开关关闭只是不增加此冻结门禁，不能免除原有真实依赖/生产接线/构建验证。
 
-新 v2 按 run 固化的 evidence_contract_version 决定严格校验，不信任产物的 producer 标签：必须绑定随包 catalog hash、target_root/target_matrix，按 catalog 重算选中条目与版本。原始 Lean 解析结果先通过受限 foundation-resolve 生成本轮受管引用。冻结时核对实际目标平台；后续运行只复核已冻结引用与知识摘要，不因兄弟模块新建平台目录而重判本模块。已声明 dependency_resolution_ref 持续参与 plan 证据检查，修改后不能继续派发。next_step 与实际 freeze 共用纯守卫；缺失/错误证据给出未就绪原因，批准不被提前消费。v1 原生结构继续兼容。
+冻结始终严格校验，不信任产物的 producer 标签：必须绑定随包 catalog hash、target_root/target_matrix，按 catalog 重算选中条目与版本。原始 Lean 解析结果先通过受限 foundation-resolve 生成本轮受管引用。冻结时核对实际目标平台；后续运行只复核已冻结引用与知识摘要，不因兄弟模块新建平台目录而重判本模块。已声明 dependency_resolution_ref 持续参与 plan 证据检查，修改后不能继续派发。next_step 与实际 freeze 共用纯守卫；缺失/错误证据给出未就绪原因，批准不被提前消费。
 
 - **触发式读取**：knowledge-query 的 topics 返回适用条件；角色依据实际切片选择 topic 或 foundation 查询，只读命中材料，并将结果/引用纳入本阶段上下文。保存引用及读取 ACK 不能单独证明理解正确。
 - **外部能力**：Foundation 无匹配时可用 knowledge-query mode=external，读取 Harmony native/ArkTS 候选、record/cookbook 与 hash。上游 probe 明确未接入；以现有 SPEC/任务/PATH 做目标本地验证，不自动运行或安装。每份知识结果含 sdd_adaptation_ref，统一领域概念和三目录资产归属。

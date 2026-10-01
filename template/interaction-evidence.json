@@ -1,5 +1,5 @@
 {
-  "_note": "Conditional automation result fragment for v2 PATHs declaring interaction_id. Copy the actual adapter report's interaction_evidence into the stage record unchanged; remove this note. required_interaction comes from query.frozen_interaction. The check must come from a real device observation, never from expected or a generic passed sentence. No visual baseline is required for source-only UI. Missing proof produces Yellow, not a passing sample. Omit this entire field when no interaction is declared.",
+  "_note": "Conditional automation result fragment for PATHs declaring interaction_id. Copy the actual adapter report's interaction_evidence into the stage record unchanged; remove this note. required_interaction comes from query.frozen_interaction. The check must come from a real device observation, never from expected or a generic passed sentence. No visual baseline is required for source-only UI. Missing proof produces Yellow, not a passing sample. Omit this entire field when no interaction is declared.",
   "interaction_evidence": {
     "code_baseline": "{{current-module-or-audit-code-baseline}}",
     "hap_ref": {

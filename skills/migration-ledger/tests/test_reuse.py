@@ -36,6 +36,8 @@ class ReuseTests(unittest.TestCase):
         provider.parent.mkdir(exist_ok=True)
         provider.write_text('def result(): return 2\n')
         capability = {'capability_id': 'CAP1', 'source_id': source['source_id'], 'name': 'result provider',
+                      'provider_owner_module_id': None,
+                      'ownership_evidence_ref': self.ref('baseline-owner.md', 'Reviewed existing stable baseline'),
                      'version': 'v1', 'semantics': {key: 'reviewed behavior' for key in
                          ('intent', 'inputs', 'outputs', 'preconditions', 'side_effects', 'errors', 'state_lifecycle')},
                      'api_surface': ['result()'], 'constraints': [], 'provider_refs': [file_ref(provider)]}
@@ -218,7 +220,9 @@ class ReuseTests(unittest.TestCase):
         self.assertEqual(self.state()['modules']['M001']['phase'], 'testing')
 
     def test_target_provider_owned_by_other_mo_requires_dependency(self):
-        plan, _, cat, provider = self.selected_plan()
+        plan, review, cat, provider = self.selected_plan()
+        cat['capabilities'][0]['provider_owner_module_id'] = 'M002'
+        review['catalog_ref'] = self.ref('owned-by-m002.json', cat); self.save_review(plan, review)
         module = self.state()['modules']['M001']
         owners = {'M002': {'write_paths': [str(provider.parent)]}}
         with self.assertRaisesRegex(Rejected, 'requires registered dependency'):

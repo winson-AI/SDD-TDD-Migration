@@ -144,7 +144,7 @@ def run(root, request, actor):
                     runtime = select_runtime_ui.select(capture, args.get('targets', []))
                     result['runtime_index_ref'] = save(out / 'runtime-ui-index.json', runtime)
             elif operation == 'validate-ui':
-                ui_evidence.validate_tree_ref(args.get('ui_tree_ref'), strict=True,
+                ui_evidence.validate_tree_ref(args.get('ui_tree_ref'),
                     source_index_ref=args.get('source_index_ref'), runtime_index_ref=args.get('runtime_index_ref'),
                     resource_scope=args.get('resource_scope'))
                 result = {'status': 'source-contract-valid', **args}
@@ -166,8 +166,7 @@ def run(root, request, actor):
                 item = items[0]
                 require(any(t['item_id'] == item['item_id'] and args['task_id'] in t['task_ids']
                             for t in module['plan'].get('dimension_trace', [])), 'task does not own resource item')
-                facts = resource_fidelity.validate_facts(item, config['legacy_root'],
-                    check_configuration=state.get('evidence_contract_version', 1) >= 2)
+                facts = resource_fidelity.validate_facts(item, config['legacy_root'], check_configuration=True)
                 source = run_storage.checked_path(Path(config['legacy_root']) / args['source'], config['legacy_root'])
                 consumers = resource_fidelity.consumers(item)
                 target_path, _, accessor = item['target_resource'].partition('#')

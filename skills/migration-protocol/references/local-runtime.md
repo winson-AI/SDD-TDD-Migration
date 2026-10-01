@@ -58,7 +58,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 
 ## 操作矩阵
 
-这是本地 v1 的完整支持集；其他抽象事件由宿主翻译，未知 operation 拒绝。
+这是本地控制器的完整支持集；其他抽象事件由宿主翻译，未知 operation 拒绝。
 
 | operation | 调用角色 | payload 必需内容 / 行为 |
 | --- | --- | --- |
@@ -119,7 +119,7 @@ implementation 另需：
 }
 ```
 
-code_baseline = `contracts.baseline(code_files)`，源码文件必须仍存在且摘要匹配；目标写范围以 realpath 检查，任务必须完整映射代码文件。v1 表示已存在文件的结果清单，源码删除/rename 的全量变更核验、未列出的修改检测与 Git hunk 归属由宿主实际 diff 审核承担。宿主不能只依赖 worker 自填 code_files 证明全部写入均在范围内。
+code_baseline = `contracts.baseline(code_files)`，源码文件必须仍存在且摘要匹配；目标写范围以 realpath 检查，任务必须完整映射代码文件。code_files 是已存在文件的结果清单，源码删除/rename 的全量变更核验、未列出的修改检测与 Git hunk 归属由宿主实际 diff 审核承担。宿主不能只依赖 worker 自填 code_files 证明全部写入均在范围内。
 
 tests 另需 paths，见 [stage-result.json](../../../template/stage-result.json)。每个冻结 PATH 都要有结果；Green 需实际回执、断言集合一致、预期值不变，且 JSON equality 成立。Red 需真实失败；Yellow 需 root_cause.category/summary/confidence/owner/next_action。失败不等于已确认根因。
 
@@ -303,8 +303,6 @@ Red/Yellow 复核失败、worker 中断、预算不足、证据失效通过 test
 
 修复 memory 在 owner 测试后仍为 awaiting-cross-verification、reusable=false；关联失败记录 failed。只有完整批次 audit-verdict 通过才能变为 verified/reusable=true。部分成功的证据会保留，但不将未完成跨模块验证的 memory 提升为可复用。最后独立审阅收尾；问题已复核通过不再重复执行。
 
-兼容边界：运行中的旧 v1 批次没有 finding/依赖图，不能静默按 v2 解释。旧批次应由旧版本完成/归档；未开始批次的运行可直接使用 v2。awaiting-human 的旧批次可按现有报告批准后 audit-release，再走正常恢复与新批次。
-
 ## 功能切片输入与边界批准
 
 高层 global-input 可省略 `module_slicing`，也可设置 `module_import_ref`、`functional_use_cases_complete`、`functional_directory_level`。字段与人工导入格式见 [切片规约](../../migration-global/references/slicing.md)。宿主/Global 读取并校验输入，形成 register 和模块 `_input`；Ledger 不自动扫描业务目录或执行语义切片。
@@ -358,7 +356,7 @@ invalidate 将旧 plan/freeze/代码/结果移入 planning_history，撤下旧�
 
 ## 当前执行规则：构建与自动化分开
 
-新 init 默认 split_testing_required=true；prepare 强制启用。历史低层运行可显式 false 保留旧契约。Test-Runner assign 需 test_scope=build|automation|visual；build 的 context stage 为 building，automation/visual 为 testing。stage-plan 的 build PATH 冻结 command，execute_test 直接执行，不追加 query 参数；tests 结果覆盖本 scope 全路径，accept 合并后判定整体 DoD。
+新 init 默认 split_testing_required=true；prepare 强制启用；低层 init 显式 false 不能宣称完成拆分流程。Test-Runner assign 需 test_scope=build|automation|visual；build 的 context stage 为 building，automation/visual 为 testing。stage-plan 的 build PATH 冻结 command，execute_test 直接执行，不追加 query 参数；tests 结果覆盖本 scope 全路径，accept 合并后判定整体 DoD。
 
 | 操作 | 角色/范围 | 门禁与结果 |
 | --- | --- | --- |

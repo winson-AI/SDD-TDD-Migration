@@ -28,7 +28,7 @@ class EvidenceBoundaryTests(unittest.TestCase):
     def strict_flow(self):
         f = self.fixture(test_ledger.FlowTests)
         f.root = f.base / 'strict-run'
-        f.call('init', {'evidence_contract_version': 2, 'dependency_resolution_required': True,
+        f.call('init', {'dependency_resolution_required': True,
             'dimension_slicing_required': False, 'split_testing_required': False, 'context_readiness_required': False,
             'target_root': str(f.target), 'legacy_root': str(f.legacy), 'case_ids': ['C1'], 'requirement_ids': ['R1'],
             'global_spec': f.ref('global-spec.md', 'R1 spec'), 'new_architecture': f.ref('architecture.md', 'arch'),
@@ -42,7 +42,7 @@ class EvidenceBoundaryTests(unittest.TestCase):
         f.call('plan', {'plan_ref': f.ref('strict-plan.json', plan)}, role='spec-designer')
         f.approve(digest(plan), 'strict-approval')
 
-    def test_v2_missing_or_forged_resolution_never_routes_ready_freeze(self):
+    def test_missing_or_forged_resolution_never_routes_ready_freeze(self):
         for forged in (None, [], {'schema_version': 1, 'requirements': [
                 {'query': 'nonexistent:library', 'resolved_version': '99.99.99'}]}):
             with self.subTest(forged=forged):
@@ -54,7 +54,7 @@ class EvidenceBoundaryTests(unittest.TestCase):
                 with self.assertRaises(Rejected): f.call('freeze', {'decision_id': 'strict-approval'})
                 self.assertFalse(f.state()['decisions']['strict-approval']['consumed'])
 
-    def test_v2_catalog_recomputed_without_trusting_producer_and_stale_ref_stops_dispatch(self):
+    def test_catalog_recomputed_without_trusting_producer_and_stale_ref_stops_dispatch(self):
         f = self.strict_flow(); (f.target / 'harmonyApp').mkdir()
         resolution = lean_knowledge.run('foundation-resolve', {'requirements': ['Ktor client Curl']},
                                         {'target_root': str(f.target)}, f.root)
@@ -133,7 +133,7 @@ class EvidenceBoundaryTests(unittest.TestCase):
         module.update(code_files=[code], freeze_id='freeze1', results={path['path_id']: {'quality': 'yellow-blocked'}}, build_artifacts=[])
         sibling.update(code_files=[file_ref(f.n.write('target/Other.kt', 'other'))], freeze_id='freeze2',
                        results={}, plan={'paths': []})
-        scope = ledger.audit_scope({'evidence_contract_version': 2, 'modules': {'M001': module, 'M002': sibling}, 'global_paths': []})
+        scope = ledger.audit_scope({'modules': {'M001': module, 'M002': sibling}, 'global_paths': []})
         report['visual_alignment']['code_baseline'] = scope['code_baseline']
         with self.assertRaisesRegex(Rejected, 'accepted current build'):
             test_validation.visual_result(scope, path, report, report)
@@ -179,7 +179,7 @@ class EvidenceBoundaryTests(unittest.TestCase):
         global_path = {**path, 'path_id': 'GLOBAL-VISUAL', 'frozen_interaction': query['frozen_interaction'],
                        'visual_evidence': query['frozen_visual_evidence'],
                        'build_binding': {'module_id': 'M001', 'path_id': 'BUILD1'}}
-        state = {'evidence_contract_version': 2, 'modules': {'M001': module}, 'global_paths': [global_path]}
+        state = {'modules': {'M001': module}, 'global_paths': [global_path]}
         scope = ledger.audit_scope(state)
         f.n.bind_execution(alignment, scope['code_baseline'])
         report = f.report(alignment, {**query, **global_path, 'code_baseline': scope['code_baseline']})

@@ -74,7 +74,7 @@ python3 <package>/skills/migration-ledger/scripts/execute_test.py \
   --output <run_root>/runs/harmony/automation/<new-attempt>
 ```
 
-execute_test 自动传 query/result 文件并保存正式回执，adapter 只重验与转换独立比较产物，不捕获截图、修复代码或发明视觉 verdict。当前 adapter 仅支持冻结 `expected: true` 的布尔视觉对齐断言；其他断言类型用项目已有适配器。v2 声明手势时 query 带冻结模型的完整 frozen_interaction，proof.required_interaction 及实际 action/observed 都要与它相符，不能只对 ID 和 PASSED。Green 的 HAP 必须属于当前模块已接受 build_artifacts，构建执行器从本次 runner 收集产物；旧 HAP 即使文件 hash 仍匹配也不能替代本轮构建。
+execute_test 自动传 query/result 文件并保存正式回执，adapter 只重验与转换独立比较产物，不捕获截图、修复代码或发明视觉 verdict。当前 adapter 仅支持冻结 `expected: true` 的布尔视觉对齐断言；其他断言类型用项目已有适配器。声明手势时 query 带冻结模型的完整 frozen_interaction，proof.required_interaction 及实际 action/observed 都要与它相符，不能只对 ID 和 PASSED。Green 的 HAP 必须属于当前模块已接受 build_artifacts，构建执行器从本次 runner 收集产物；旧 HAP 即使文件 hash 仍匹配也不能替代本轮构建。
 
 每次调用保留三个层次：
 
@@ -95,15 +95,15 @@ execute_test 自动传 query/result 文件并保存正式回执，adapter 只重
 
 每个 runtime UI 目标都要有自己的 visual PATH；不能用一条对齐结果覆盖另一 page/state，不能用历史 HAP 的 ALIGNED 覆盖当前版本。source-only 保留缺少视觉实证的结论。完整字段和新旧兼容规则见 [UI 保真控制道](ui-fidelity.md)。
 
-v2 正式视觉验收与 adapter 共用完整冻结原图和捕获执行校验，结果附 capture_evidence；原生 worker 自动生成 capture_execution_ref，外部捕获也须有受管安装/捕获日志，alignment 标签不能替代执行。GLOBAL 自有 PATH 显式给 visual_evidence，不能从 build_binding 推断。source-only 手势可用 automation 的 interaction_evidence；默认 Harmony 无此证据时规范化为 Yellow，保留真实结果，见 [测试协议](testing.md)。
+正式视觉验收与 adapter 共用完整冻结原图和捕获执行校验，结果附 capture_evidence；原生 worker 自动生成 capture_execution_ref，外部捕获也须有受管安装/捕获日志，alignment 标签不能替代执行。GLOBAL 自有 PATH 显式给 visual_evidence，不能从 build_binding 推断。source-only 手势可用 automation 的 interaction_evidence；默认 Harmony 无此证据时规范化为 Yellow，保留真实结果，见 [测试协议](testing.md)。
 
 ### 资源执行与事实绑定
 
 资源扫描对 GO/MO/Spec-Designer/Implementer/Fixer/Test-Runner/Auditor 开放，只读候选索引与源码。转换仅允许 Implementer/Fixer；请求例子见 [lean-resource-request.json](../../../template/lean-resource-request.json)。写入前校验活动 assignment、freeze、fencing token、模块与 task.scope.write_paths、dimension_trace 的任务所有权，以及冻结 source_resource_ref/目标路径/访问器/消费者/精确策略。扫描发现多个配置变体时，Spec 分别记录，不自动任选一个。
 
-新 v2 冻结中，声明精确策略的资源项必须给出 source_resource_ref（真实源文件 path/sha256）、Android source_resource（如 @string/title）和 qualifier（base 或源 res 目录后缀）。从文件/values 条目核对 resource_kind、nine_patch、source_unit；UI 闭包仍要求全部资源有策略。旧 v1 不补写历史字段；新资源转换请求均执行任务与源证据校验。
+冻结中，声明精确策略的资源项必须给出 source_resource_ref（真实源文件 path/sha256）、Android source_resource（如 @string/title）和 qualifier（base 或源 res 目录后缀）。从文件/values 条目核对 resource_kind、nine_patch、source_unit；UI 闭包仍要求全部资源有策略。资源转换请求均执行任务与源证据校验。
 
-每个源 ID + qualifier 对应一个 Resource item；分组用现有任务追溯。新 v2 不将裸 covered_resource_ids 计入闭包，附加资源和别名分别带源事实、精确策略、目标及消费者证据。consumer 可为旧字符串或列表，实现提交 consumer_refs 逐文件对应（同文件多个符号只需一个 hash）；兼容旧单 consumer_ref，不能代证其他消费者。引用持续校验但不替代真实接线测试。
+每个源 ID + qualifier 对应一个 Resource item；分组用现有任务追溯。不将裸 covered_resource_ids 计入闭包，附加资源和别名分别带源事实、精确策略、目标及消费者证据。consumer 可为旧字符串或列表，实现提交 consumer_refs 逐文件对应（同文件多个符号只需一个 hash）；兼容旧单 consumer_ref，不能代证其他消费者。引用持续校验但不替代真实接线测试。
 
 资源源索引区分节点 ID 与可迁移资源：R.id 不生成 resource-not-found，@array 识别两类 Android 数组。平台资源通过固定 SDK API 的 source.properties + data/res 原定义完成精确映射；无可核验定义时保留 blocked。约束与模板见 [资源保真](ui-fidelity.md)。
 
@@ -111,7 +111,7 @@ collector 对资源事实保存源文件 SHA。冻结和 verify_plan 只遍历�
 
 未知真实资源类型可保留原始类型/hash 并选择 blocked；manual_exact 必须有适配审查证据。自动转换白名单不因此扩大，blocked 仍不能 Green。无法获取源文件时保留明确缺口，不为绕过门禁篡改 resource_kind。
 
-源目标 qualifier 不同须冻结 configuration_mapping，包含 source_qualifier、target_qualifier（代码路由用 code）、scope.configurations/reason 和 evidence_refs。限定 night 的模块可以有据映射到 base；范围包含多个配置时另给 consumer_condition.expression/consumers。多个源变体共用目标文件必须给不同的真实消费者条件；语义正确性由 MO 审阅和测试验证，非空表达式本身不能证明分支正确。源目标相同 qualifier、普通 base 到代码常量路由沿既有契约，无需空配置；v1 未声明映射的历史冻结保持兼容。配置证据 hash 持续校验，转换结果保留 configurationMapping。
+源目标 qualifier 不同须冻结 configuration_mapping，包含 source_qualifier、target_qualifier（代码路由用 code）、scope.configurations/reason 和 evidence_refs。限定 night 的模块可以有据映射到 base；范围包含多个配置时另给 consumer_condition.expression/consumers。多个源变体共用目标文件必须给不同的真实消费者条件；语义正确性由 MO 审阅和测试验证，非空表达式本身不能证明分支正确。源目标相同 qualifier、普通 base 到代码常量路由无需空配置。配置证据 hash 持续校验，转换结果保留 configurationMapping。
 
 确实无法获取源文件时可保留 blocked + blocked_reason，显式缺口不能记成精确映射或 Green；不为填写模板伪造 source_resource_ref。资源转换不执行 blocked 策略。
 
@@ -119,7 +119,7 @@ byte_copy 要求源目标字节一致；value_xml_exact 仅自动迁移一个 st
 
 ## 版本与保留规则
 
-新 `prepare` 固化 `evidence_contract_version=2`，Global input 与 Ledger init 继承该值，不得把 prepared v2 降为 v1。旧快照缺字段及旧直连 init 按 v1 兼容；恢复旧 run 不补写版本、不重算或改写历史证据。v2 加强目标覆盖、原始引用和资源闭包，不改变 GO/MO/审计权责。
+证据契约要求目标覆盖、原始引用和资源闭包，但不改变 GO/MO/审计权责；已提交证据不重算或改写。
 
 视觉差异进入原有 Red→诊断→Fixer→正式复测闭环，不启用 lean 自带的额外三轮循环或自动重置预算。仅自动化环境不可用时，automation/visual 留 Yellow/未执行，沿既有 `automation-unavailable`、`completed-with-unverified-tests` 规则收尾，独立任务和可用构建下游继续；不得伪 Green，也不强迫用户为纯缺测恢复环境。
 

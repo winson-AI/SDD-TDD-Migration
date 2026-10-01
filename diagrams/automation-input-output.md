@@ -39,7 +39,7 @@
     "args": ["/work/SDD-TDD-Migration/skills/migration-test/scripts/harmony_adapter.py", "--config", "/work/context/harmony-config.json"],
     "cwd": "/work/target",
     "query_transport": "query-file",
-    "result_format": "migration-test-result-v1",
+    "result_format": "migration-test-result",
     "timeout_seconds": 1860,
     "environment_ref": "/work/context/test-environment.md"
   }

@@ -56,4 +56,4 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 
 按 [lean 受限接入](lean-integration.md) 将白名单操作映射到现有角色，不创建第二套编排游标或冻结权威。Spec-Designer 分析 UI；Implementer/Fixer 在 assignment 与写范围内精确转换资源；Test-Runner/Auditor 在当前 assignment 下取证和比较，构建仍走正式执行器。[设备与模型工具](visual-execution.md) 需要冻结的 run 环境配置、实际设备锁证明及当前 PATH 构建/基线，工具本身不验收；模型请求有总时限，缺条件沿原 Yellow 通道。Host 传认证 host-context，保留原始结果引用、转换证据和正式 Ledger payload；所有新增输出落本 run 受管目录。
 
-新 prepare 固化 `evidence_contract_version=2`，Global 输入/init 继承，禁止 prepared v2 降级；旧快照缺字段与旧直连 init 按 v1 兼容，不重写历史。prepared run 的 `ui_fidelity_required=true`，仅 applicable UI 触发对应门禁；无 UI 不制造空视觉任务。仅自动化不可用继续按 Yellow/未执行收尾，独立任务与可用构建下游不受阻。
+prepared run 的 `ui_fidelity_required=true`，仅 applicable UI 触发对应门禁；无 UI 不制造空视觉任务。仅自动化不可用继续按 Yellow/未执行收尾，独立任务与可用构建下游不受阻。

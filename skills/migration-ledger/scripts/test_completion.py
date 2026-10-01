@@ -79,7 +79,7 @@ def interpret(receipt, planned):
                 'next_action': 'diagnose the execution limitation and rerun the affected paths',
                 'evidence_refs': evidence}
         if (row['quality'] == 'green-passed' and planned.get('kind') == 'automation'
-                and query.get('evidence_contract_version', 1) >= 2 and query.get('frozen_interaction')
+                and query.get('frozen_interaction')
                 and not row.get('interaction_evidence')):
             row['quality'] = 'yellow-blocked'
             row['root_cause'] = {'category': 'tooling', 'reason_code': 'interaction-evidence-unavailable',

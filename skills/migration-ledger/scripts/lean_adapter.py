@@ -27,7 +27,7 @@ def ui_evidence(capture_entry, ui_tree_ref, *, target=None, capture_ref=None, so
         require(target, 'native manifest import needs explicit page:state:coverage')
         record = ue.capture_target(capture_ref, target)
         runtime = record['status'] == 'COMPLETE'
-        evidence = {'contract_version': 2, 'ui_tree_ref': ui_tree_ref, 'source_index_ref': source_index_ref,
+        evidence = {'ui_tree_ref': ui_tree_ref, 'source_index_ref': source_index_ref,
                     'capture_manifest_ref': capture_ref, 'coverage': target,
                     'legacy_executable': runtime, 'visual_mode': 'runtime' if runtime else 'source-only'}
         if runtime_index_ref:
@@ -345,7 +345,7 @@ def comparison_evidence(result, target_root, coverage):
     page, state, _ = coverage.split(':')
     proofs = []
     rounds = {r['round']: r for r in result.get('rounds', [])}
-    require(rounds, 'v2 visual Green requires original comparison rounds')
+    require(rounds, 'visual Green requires original comparison rounds')
 
     def shot(r, phase, index):
         manifest = normalize_ref(r['capture_manifest'], target_root)

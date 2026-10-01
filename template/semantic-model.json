@@ -1,5 +1,5 @@
 {
-  "_note": "Examples, not executed evidence. Generic semantic models are presence-triggered; prepared runs require UI models/evidence for applicable UI. evidence_contract_version=2 applies to new prepare snapshots only; preserve historical run versions.",
+  "_note": "Examples, not executed evidence. Generic semantic models are presence-triggered; prepared runs require UI models/evidence for applicable UI.",
   "ui_item_example": {
     "semantic_model": {
       "kind": "ui-component-spec",
@@ -21,7 +21,6 @@
             "sha256": "{{sha256}}"
           }
         ],
-        "contract_version": 2,
         "capture_manifest_ref": {
           "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture-agent}}/{{request-id}}/manifest.json",
           "sha256": "{{actual-manifest-sha256}}"

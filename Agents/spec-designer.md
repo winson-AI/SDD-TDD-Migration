@@ -6,7 +6,7 @@ mode: subagent
 
 # Spec-Designer
 
-来源追加影响本模块时，读取 Ledger 当前快照及 source_change_ref，重新生成/冻结受影响 SPEC；无关模块的延续依据不能用于改变验收。v2 复用目录显式 owner，设计中区分不变 provider 与消费者/适配/去重修改目标；需修改 provider 本体时明确 owner 版本交付及消费者复测，不能把 adapt 当 hash 豁免。见 [来源协议](../skills/migration-protocol/references/source-changes.md) 与 [复用第 10 节](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
+来源追加影响本模块时，读取 Ledger 当前快照及 source_change_ref，重新生成/冻结受影响 SPEC；无关模块的延续依据不能用于改变验收。复用目录显式 owner，设计中区分不变 provider 与消费者/适配/去重修改目标；需修改 provider 本体时明确 owner 版本交付及消费者复测，不能把 adapt 当 hash 豁免。见 [来源协议](../skills/migration-protocol/references/source-changes.md) 与 [复用第 10 节](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
 
 ## 1. 职责
 OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
@@ -75,7 +75,7 @@ plan 前提交 planning 报告并绑定同一 plan_ref，核对全局/父/子范
 
 按 [lean 受限接入](../skills/migration-protocol/references/lean-integration.md) 使用 analyze-ui/validate-ui，读取 Capture 原始 manifest、源/运行时索引与知识主题，形成可追溯 UI 树、page/state/coverage、资源闭包和稳定节点。只生成本角色分析工件，不加载完整 lean 实现 skill，不在冻结前修改目标源码或资源。原始结果引用与转换证据随 plan 进入 Ledger；截图缺失不能伪造 runtime。
 
-v2 计划为每个 runtime UI 目标冻结独立 visual PATH，coverage 与对应 ui_evidence 完全相同，baseline_ref 属于该目标的 baseline_refs，node_ids 来自该目标树节点。闭包内 Resource item 明确 resource_kind/resource_strategy；源不可执行时仍完成 source-only 模型并说明缺视觉实证。无 UI 或有证据的 N/A 不添加空视觉任务，自动化环境缺失不阻止有完整规划证据的冻结/编码。
+计划为每个 runtime UI 目标冻结独立 visual PATH，coverage 与对应 ui_evidence 完全相同，baseline_ref 属于该目标的 baseline_refs，node_ids 来自该目标树节点。闭包内 Resource item 明确 resource_kind/resource_strategy；源不可执行时仍完成 source-only 模型并说明缺视觉实证。无 UI 或有证据的 N/A 不添加空视觉任务，自动化环境缺失不阻止有完整规划证据的冻结/编码。
 
 ## 埋点契约
 
@@ -87,4 +87,4 @@ v2 计划为每个 runtime UI 目标冻结独立 visual PATH，coverage 与对�
 
 规划 UI 状态时区分稳定视觉目标与瞬态行为，按 [状态测试表](../template/ui-state-test-design.md) 将源码状态映射到既有 SPEC/CASE/PATH。loading/skeleton 的状态分支必须迁移并做行为测试；只有明确要求且可稳定复现时进入 capture 目标。资源映射逐 source_resource/qualifier 留证，多个消费者分别列出；不支持自动转换的真实类型可记录 manual_exact 审查证据或 blocked 原因，不能伪装类型或删掉范围。
 
-v2 手势可绑定 automation 或 visual；source-only 通过 automation 保留设备行为义务，不创建缺基线的 visual PATH。collector 资源事实、适用 qualifier 与 Resource item 必须使用同一源文件/hash；范围外变体仅以 resource_scope.exclusions 和审查证据排除，不能省略已启用配置。旧索引过期须重新抽取并更新计划，不补造 hash。
+手势可绑定 automation 或 visual；source-only 通过 automation 保留设备行为义务，不创建缺基线的 visual PATH。collector 资源事实、适用 qualifier 与 Resource item 必须使用同一源文件/hash；范围外变体仅以 resource_scope.exclusions 和审查证据排除，不能省略已启用配置。旧索引过期须重新抽取并更新计划，不补造 hash。

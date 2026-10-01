@@ -169,14 +169,12 @@ def validate_tree(tree):
     return tree
 
 
-def validate_tree_ref(ref, strict=False, source_index_ref=None, runtime_index_ref=None, target=None, resource_scope=None):
+def validate_tree_ref(ref, source_index_ref=None, runtime_index_ref=None, target=None, resource_scope=None):
     """Recheck the original collector/tree contract, not a reduced copy of its rules."""
     path = check_ref(ref)
     tree = validate_tree(read_json(path))
-    if not strict:
-        return tree
-    require(native_tree(tree), 'v2 requires the native source-backed UI tree contract')
-    require(source_index_ref, 'v2 requires source_index_ref')
+    require(native_tree(tree), 'UI evidence requires the native source-backed UI tree contract')
+    require(source_index_ref, 'UI evidence requires source_index_ref')
     source = check_ref(source_index_ref)
     runtime = check_ref(runtime_index_ref) if runtime_index_ref else None
     require(bool(runtime) == merged_runtime(tree), 'runtime index evidence does not match tree mode')
@@ -245,7 +243,7 @@ def validate_native_evidence(evidence):
             'UI evidence needs page:state:coverage')
     runtime = evidence.get('visual_mode') == 'runtime'
     require(evidence.get('visual_mode') in ('runtime', 'source-only'), 'UI evidence mode required')
-    tree = validate_tree_ref(evidence.get('ui_tree_ref'), strict=True,
+    tree = validate_tree_ref(evidence.get('ui_tree_ref'),
                              source_index_ref=evidence.get('source_index_ref'),
                              runtime_index_ref=evidence.get('runtime_index_ref'), target=coverage,
                              resource_scope=evidence.get('resource_scope'))

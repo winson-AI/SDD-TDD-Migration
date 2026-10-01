@@ -67,7 +67,6 @@ class ResourceFidelityTests(unittest.TestCase):
              'covered_resource_ids': ['@color/y']}]}]}
         self.assertEqual(rf.blocked(analysis), ['R2'])
         self.assertEqual(rf.closure_gaps(analysis, ['@dimen/pad', '@color/y', '@string/miss']), ['@color/y', '@string/miss'])
-        self.assertEqual(rf.closure_gaps(analysis, ['@dimen/pad', '@color/y', '@string/miss'], strict=False), ['@string/miss'])
 
     def resource(self, source_id='@string/title', qualifier='base', content=None, **over):
         namespace, name = source_id[1:].split('/')
@@ -85,9 +84,9 @@ class ResourceFidelityTests(unittest.TestCase):
     def analysis(self, *items):
         return {'dimensions': [{'dimension': 'Resource', 'status': 'applicable', 'items': list(items)}]}
 
-    def freeze(self, *items, version=2):
+    def freeze(self, *items):
         path = self.base / 'analysis.json'; path.write_text(json.dumps(self.analysis(*items)))
-        rf.freeze_gate({'evidence_contract_version': version, 'legacy_root': str(self.base / 'legacy')},
+        rf.freeze_gate({'legacy_root': str(self.base / 'legacy')},
                        {'plan': {'dimension_analysis_ref': file_ref(path)}})
 
     def config(self, item, configurations=None, condition=None):
@@ -133,7 +132,6 @@ class ResourceFidelityTests(unittest.TestCase):
 
     def test_variant_change_needs_scope_evidence_but_scoped_night_only_is_valid(self):
         item = self.resource(qualifier='night')
-        self.freeze(item, version=1)  # Existing legacy records retain their original contract.
         with self.assertRaisesRegex(Rejected, 'configuration_mapping'):
             self.freeze(item)
         self.config(item)
