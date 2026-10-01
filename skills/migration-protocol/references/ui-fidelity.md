@@ -92,6 +92,14 @@ build → Green
 
 automation 手势使用 [interaction-evidence.json](../../../template/interaction-evidence.json) 的条件扩展：正式 Green 同样核对冻结完整动作、起点、预期、当前 HAP/代码及实际观测，record 与原始 report 的 interaction_evidence 必须一致。不要求截图基线，不从 expected 合成 observed。默认 Harmony 未产出该结构化证据时，已执行断言保留并规范化为 Yellow（interaction-evidence-unavailable），可以正式提交；真实 Red 不被覆盖。能力缺失沿现有预检/Yellow 收尾，不新增全局阻塞。
 
+### 视觉修复聚焦
+
+未解决失败全部是 visual PATH 时，诊断必须给出 1–2 条 `visual_issues`（area、problem、severity=low|medium|high|critical、evidence_ref），多于两条被拒绝：有限的修复轮次只处理最影响还原度的问题。
+
+- 优先：页面/状态不符或固定区域缺失多余 → 顶/底/居中锚点错位 → 遮罩与层级 → 主要区域偏移 → 文本裁切/换行/字号 → 媒体裁切与比例 → 有明确影响的颜色/透明度。
+- 忽略：状态栏时间电量、压缩与抗锯齿噪声、轻微等比缩放、槽位正确时的远程图片内容差异、微小图标偏移。
+- 修复面：Fixer 只改布局与修饰、排版/颜色/形状/可见性、已迁移资源的消费者、图片裁切与呈现、比较所需的确定性状态准备；不得为贴近截图伪造数据或重绘资源。需要改行为、数据契约、导航或规格时走 CR，资源映射本身的错误交资源 owner。
+
 ## capture / 构建产物契约
 
 Green 还须带 `alignment_root` 与从原始 alignment 推导的 `comparison_evidence`。逐 round/page/state/reference_capture_index/candidate_capture_index 选取 manifest 中的截图，核对 score 的 reference/candidate 摘要；semantic 必须绑定该 score_sha256 或同一图片对，同时提供两者时全部核验。正式门禁重读 evidence_ref 推导相同结果，不能自填“已经关联”。ALIGNED_CARRIED 保留原 ALIGNED 的完整对齐证据，并用 regression_score 绑定 carried_from_round 与当前 capture_round 的 Harmony 截图（regression_capture_index 默认 0）；仍须明确 ALIGNED 裁决，分数本身不自动通过。

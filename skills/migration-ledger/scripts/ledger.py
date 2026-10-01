@@ -273,6 +273,20 @@ def unresolved(m):
     return {k: v for k, v in results.items() if v['quality'] != 'green-passed'}
 
 
+def diagnosis_focus(m, p):
+    """A visual-only round names one or two actionable issues; more only dilutes a bounded repair."""
+    bad = unresolved(m)
+    kinds = {path['path_id']: path.get('kind') for path in (m.get('plan') or {}).get('paths', [])}
+    if not bad or any(kinds.get(pid) != 'visual' for pid in bad):
+        return
+    issues = p.get('visual_issues')
+    require(isinstance(issues, list) and 1 <= len(issues) <= 2, 'visual diagnosis needs one or two visual_issues')
+    for item in issues:
+        require(isinstance(item, dict) and all(item.get(k) for k in ('area', 'problem', 'evidence_ref'))
+                and item.get('severity') in ('low', 'medium', 'high', 'critical'),
+                'each visual issue needs area, problem, severity and evidence_ref')
+
+
 def diagnosis_subject(m):
     return digest({'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'issues': unresolved(m)})
 
@@ -840,6 +854,7 @@ def mutate(s, req, principal, events, root=None):
         idle(m); current(m)
         check_ref(p['diagnosis_ref'])
         require(p.get('owner') and p.get('root_cause'), 'root cause and owner required')
+        diagnosis_focus(m, p)
         m['diagnosis_submission'] = {'report': p, 'subject': diagnosis_subject(m)}
     elif op == 'diagnosis-accept':
         role(principal, 'module-orchestrator')
