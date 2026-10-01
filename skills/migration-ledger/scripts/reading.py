@@ -5,9 +5,15 @@ definition, its skill and the exact sections whose gates apply to this step, plu
 only trigger for UI or reuse scope. Everything else stays readable on demand; a card never
 narrows the four red lines, which every card includes.
 """
+import argparse
 from functools import lru_cache
+import hashlib
+import json
+import os
 from pathlib import Path
 import re
+import sys
+sys.dont_write_bytecode = True
 
 PACKAGE = Path(__file__).resolve().parents[3]
 READ_BUDGET = 60_000  # UTF-8 bytes per dispatch card
@@ -112,8 +118,9 @@ def entries(role, test_scope=None, ui=False, reuse=False):
 
 
 def digest_card(rows):
+    """Bound to the section text, so a protocol edit changes the digest a host reports back."""
     from contracts import digest
-    return digest([{k: row[k] for k in ('ref', 'section')} for row in rows])
+    return digest([{k: row[k] for k in ('ref', 'section', 'sha256')} for row in rows])
 
 
 def card(s, m, step):
@@ -123,4 +130,60 @@ def card(s, m, step):
     plan = (m or {}).get('plan') or {}
     rows = entries(role, step.get('test_scope'), ui=bool(m) and ui_scope(m),
                    reuse=bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required')))
-    return [{'ref': path, 'section': heading, 'bytes': len(section(path, heading).encode())} for path, heading in rows]
+    return [{'ref': path, 'section': heading, 'bytes': len(section(path, heading).encode()),
+             'sha256': hashlib.sha256(section(path, heading).encode()).hexdigest()} for path, heading in rows]
+
+
+def render(rows, output_dir):
+    """Write the card as one file named by its digest; a dispatch then hands the role a single path."""
+    body = ''.join(f'<!-- {row["ref"]}{"#" + row["section"] if row["section"] else ""} -->\n'
+                   f'{section(row["ref"], row["section"]).rstrip()}\n\n' for row in rows)
+    name = digest_card(rows)
+    target = Path(output_dir) / f'{name}.md'
+    if not target.is_file() or target.read_text() != body:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_name(target.name + '.tmp')
+        tmp.write_text(body)
+        os.replace(tmp, target)
+    return {'path': str(target), 'card_sha256': name, 'bytes': len(body.encode()), 'sections': len(rows)}
+
+
+def show(ref, heading=None):
+    """One section of one protocol file, for a role that needs a rule its card did not carry."""
+    path = (PACKAGE / ref).resolve()
+    if not path.is_relative_to(PACKAGE) or path.suffix != '.md' or not path.is_file():
+        raise KeyError(f'not a package Markdown file: {ref}')
+    return section(str(path.relative_to(PACKAGE)), heading)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest='command', required=True)
+    r = sub.add_parser('render', help='write the current step card of one module (or the global step) as one file')
+    r.add_argument('--root', required=True)
+    target = r.add_mutually_exclusive_group(required=True)
+    target.add_argument('--module')
+    target.add_argument('--global', dest='is_global', action='store_true')
+    sh = sub.add_parser('show', help='print one section of a package Markdown file')
+    sh.add_argument('--ref', required=True)
+    sh.add_argument('--section')
+    args = parser.parse_args()
+    try:
+        if args.command == 'show':
+            sys.stdout.write(show(args.ref, args.section))
+            return 0
+        from ledger import status
+        st = status(args.root)
+        step = st['global_next_step'] if args.is_global else next(
+            (x for x in st['next_steps'] if x.get('module_id') == args.module), None)
+        if not step or not step.get('must_read'):
+            raise ValueError('no dispatchable step with a reading card')
+        print(json.dumps(render(step['must_read'], Path(st['run_root']) / 'reports/reading'), ensure_ascii=False))
+        return 0
+    except (KeyError, ValueError, OSError) as exc:
+        print(json.dumps({'status': 'rejected', 'reason': str(exc)}, ensure_ascii=False), file=sys.stderr)
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

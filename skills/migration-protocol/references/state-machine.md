@@ -15,7 +15,7 @@
 1. **独立执行与验收**：GO 切片后，以已接受 global-plan 对应的完整 registry 为本轮集合。每个 MO 独立拥有 phase、CASE/PATH 结果、修复预算、DoD 与恢复点。单模块 Red/Yellow、异常或超限不得取消无关 MO，不得修改无关模块的质量、结果、revision、assignment 或预算。全局 quality 只从模块结果聚合，不向模块反向传播。
 2. **逐个等待**：宿主按 module_id 收集成功、失败和异常，采用 all-settled 语义；收到首个失败后继续其他 ready 模块并等待运行中的 MO。worker 退出/抛错只结束该 assignment；MO 仍需接受证据、执行修复/恢复或显式挂起。未派发、排队、锁等待、无活动 worker、全局 Red 均不等于模块本轮结束。
 3. **真实依赖限定范围**：只有已登记依赖不可用或确认本模块受影响时，才能记录该模块阻塞；不得把独立同伴作为依赖原因。跨模块新增业务边界须人工决策。受影响模块保留自己的历史断言，依赖缺证据记 Yellow，不复制生产者 Red；无关模块继续执行。已完成模块仅因真实基线/契约失效才重开。
-4. **全量收尾门禁**：每个已登记模块必须有自身 DoD 完成记录，或基于自身证据的 waiting-auditor / waiting-dependency / waiting-human / automation-deferred 记录；所有 worker 结束且没有 ready 的推进/恢复动作。禁止为凑齐门禁给其他模块批量挂起。只有上述条件同时成立，GO 才拉起独立 audit-code-review，治理闭环后再提交 audit-collect 或符合收尾门禁的 audit-assign；兼容 problem-assign 同样受约束。
+4. **全量收尾门禁**：每个已登记模块必须有自身 DoD 完成记录，或基于自身证据的 waiting-auditor / waiting-dependency / waiting-human / automation-deferred 记录；所有 worker 结束且没有 ready 的推进/恢复动作。禁止为凑齐门禁给其他模块批量挂起。只有上述条件同时成立，GO 才拉起独立 audit-code-review，治理闭环后再提交 audit-collect 或符合收尾门禁的 audit-assign；problem-assign 限于第 5 条的闭包。
 5. **闭包提前审计**：waiting-auditor 模块的依赖闭包与下游消费者（含消费者的其他依赖）全部收尾且空闲时，GO 可对该闭包发起 problem-assign；审计锁只覆盖闭包，闭包外模块继续派发与验收。裁决经 audit-resume 回到各模块原流程；最终全量审计仍适用第 4 条。
 6. **阶段区分**：本轮结束不等于全部通过。Auditor 统一启动后先整体审查代码/委派治理，再收集各模块真实遗留；审计内部仍按已批准 finding 与依赖交错修复，失败只隔离相关分支。模块期末的全量等待不要求审计内每一修复步骤全批同步。
 
@@ -91,7 +91,7 @@ Auditor 可执行既有脚本并生成日志，不能编辑源码/脚本。发�
 
 OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义不被动态勾选修改。问题审计/全局覆盖/物化字段详见 [当前策略](local-runtime.md#当前策略全局验收问题审计openspec-与修复-memory)。
 
-当前默认在所有模块本轮 completed/明确挂起且无可推进动作后，先 audit-code-review 及治理闭环，再采用剩余问题的 audit-collect 批次：Auditor 绑定发现/负责模块 SPEC 与测试路径，Global 路由审核，MO 接受一轮 Fixer；按 finding 路由及依赖交错 Testing；失败关联分支待人工，其他分支继续，汇总后 awaiting-human；批准 audit-release 后再进入正常恢复。旧 problem-* 重复问题审计保留兼容，详见 [默认收尾](local-runtime.md#当前默认-auditor-收尾修复后验证失败待人工)。
+当前默认在所有模块本轮 completed/明确挂起且无可推进动作后，先 audit-code-review 及治理闭环，再采用剩余问题的 audit-collect 批次：Auditor 绑定发现/负责模块 SPEC 与测试路径，Global 路由审核，MO 接受一轮 Fixer；按 finding 路由及依赖交错 Testing；失败关联分支待人工，其他分支继续，汇总后 awaiting-human；批准 audit-release 后再进入正常恢复。闭包内的 problem-assign/problem-audit 见第 5 条，详见 [默认收尾](local-runtime.md#当前默认-auditor-收尾修复后验证失败待人工)。
 
 ## 父子 MO 的规划与汇总
 

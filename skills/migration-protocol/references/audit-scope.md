@@ -37,19 +37,6 @@ Auditor 在所有父/子 MO 的本轮实现、编译构建、自动化测试及�
 
 空清单仍需独立 Auditor 审阅，不能自动生成通过结论。`audit-review` 不能关闭尚有待复核路径的 assignment；正常 `tests` 报告不能用空 paths 冒充测试。模板见 [audit-review.json](../../../template/audit-review.json)。审计结果的 quality 表示证据裁决，execution_status 区分是否实际执行；不要把 no-retest-needed 写成“全部独立复测通过”。
 
-## 已有空配置 run 的恢复
+## 活动审计的游标恢复
 
-升级本包后，直接对原 run 查询：
-
-```sh
-python3 <package_root>/skills/migration-ledger/scripts/ledger.py status --root <run_root>
-```
-
-读取 `module_rounds`、`global_next_step`、`context_gate` 后，宿主按下一动作提交事件及实际启动对应 Agent。无需重新 init、无需修改 input/snapshot/global.json、无需给 global_paths 补假用例：
-
-- 尚有模块工作：继续对应 MO，等待全部收尾。
-- 有代码/依赖等遗留：audit-collect → 根因路由 → 一轮 Fixer/Testing → 裁决。
-- 仅缺测或模块均 Green：audit-assign，按 Ledger 的路径清单选择复核或独立审阅。
-- 若旧版全量 audit assignment 仍活动：status 提示 audit-revoke；宿主确认旧 worker 已停止并留证后撤销，再创建新 assignment。不得边运行旧审计边替换范围。撤销不返还既有预算。
-
-宿主仍负责启动 subagent、加载对应 skills、执行脚本及绑定真实身份；Ledger 只治理状态、范围、证据与门禁。
+读取 `module_rounds`、`global_next_step`、`context_gate` 后按下一动作提交事件；活动 audit 快照过期时游标给出 audit-revoke，宿主确认旧 worker 已停止并留证后撤销再创建新 assignment，不得边运行旧审计边替换范围，撤销不返还既有预算。宿主仍负责启动 subagent、加载 skills、执行脚本及绑定真实身份；Ledger 只治理状态、范围、证据与门禁。

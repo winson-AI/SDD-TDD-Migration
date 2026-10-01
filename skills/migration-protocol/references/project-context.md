@@ -56,7 +56,7 @@
 
 默认值存放在 config.defaults：entry_mode 固定 project；budgets、quality_gates、repair_policy 使用原有字段。test_adapter/runtime 与原 global-input 结构一致。配置只引用宿主环境或凭证名称，不在模板中放凭证值。
 
-模块 Git 检查点开关为 `defaults.quality_gates.git_checkpoint`、写范围核验开关为 `write_scope_check`（均 bool，默认 false）；本地轮 Fixer 自诊断开关为 `defaults.quality_gates.fixer_self_diagnosis`（bool，默认 false，开启后不再为本地轮启动独立 Diagnostician）；本地修复轮数用 `defaults.budgets.local_fix_rounds`（默认 1，不超过 max_fix_rounds），repair_policy 只作描述，不承载轮数。Foundation 冻结开关只配置在 `defaults.quality_gates.dependency_resolution_required`，必须是 bool，默认 false，例如 `{"defaults":{"quality_gates":{"dependency_resolution_required":true}}}`。prepare 把该值固化到快照及派生 Global input，init 按快照继承，不能在 prepared init 中降级或另加顶层项目字段覆盖。Global input 中派生的顶层 dependency_resolution_required 是运行协议字段，不是第二个项目配置入口。旧快照缺字段默认 false；已有低层直连 init 明确启用的历史运行保留原值，不因升级补写或关闭门禁。开启后本切片无新增依赖/非适用目标也须保留明确 not-required 解析证据，见 [知识执行与冻结](engineering-disciplines.md)。
+模块 Git 检查点开关为 `defaults.quality_gates.git_checkpoint`、写范围核验开关为 `write_scope_check`（均 bool，默认 false）；本地轮 Fixer 自诊断开关为 `defaults.quality_gates.fixer_self_diagnosis`（bool，默认 false，开启后不再为本地轮启动独立 Diagnostician）；本地修复轮数用 `defaults.budgets.local_fix_rounds`（默认 1，不超过 max_fix_rounds），repair_policy 只作描述，不承载轮数。Foundation 冻结开关只配置在 `defaults.quality_gates.dependency_resolution_required`，必须是 bool，默认 false，例如 `{"defaults":{"quality_gates":{"dependency_resolution_required":true}}}`。prepare 把该值固化到快照及派生 Global input，init 按快照继承，不能在 prepared init 中降级或另加顶层项目字段覆盖。Global input 中派生的顶层 dependency_resolution_required 是运行协议字段，不是第二个项目配置入口。开启后本切片无新增依赖/非适用目标也须保留明确 not-required 解析证据，见 [知识执行与冻结](engineering-disciplines.md)。
 
 ## 运行时固化
 
@@ -85,7 +85,7 @@ prepare 保存 UTF-8 Markdown 时，递归收集正文中的本地文件链接�
 
 缺失文件、目录链接、超出单文档链接闭包限制（256 文件/32 MiB）及敏感凭证文件不静默作为已固化知识；prepare 返回 `input.document_link_warnings`，manifest 保留原因。未固化链接只重定位为原绝对地址，不能声称离线可读。宿主审阅 warning：若属于该阶段必需知识，补齐输入后重做 prepare 或经对应模块的 context-submit 记录缺项；无关模块不因此伪造失败。
 
-旧快照不原地改正文、链接或 hash，不改 sealed snapshot 来绕过校验。已有旧 run 无链接闭包映射时无法证明相邻文件当时的版本，不能从今天源码补成历史证据；需要采用修复后的完整知识包时，按原协议新建 run 并 prepare。原始 artifacts 继续用于审计；跨文件阅读使用 source_refs/readable_ref 和生成的 OpenSpec 视图。
+快照不原地改正文、链接或 hash，不改 sealed snapshot 来绕过校验。原始 artifacts 继续用于审计；跨文件阅读使用 source_refs/readable_ref 和生成的 OpenSpec 视图。
 
 ## CLI
 
@@ -111,11 +111,11 @@ python3 "$package_root/skills/migration-ledger/scripts/project_context.py" prepa
 
 [run-request.json](../../../template/run-request.json) 中的元数据、项目标识、来源引用由宿主生成；用户的单模块选择仍只有 `single-module + 功能模块名`。
 
-## 现有 global-input 兼容
+## 导入已有 global-input
 
 新入口先初始化/更新项目配置再 prepare。用户提供旧 global-input 时，宿主将代码根目录、架构 path、执行器、runtime 等提取到项目 config；预算/门禁/修复策略放入 defaults。整体规范路径可映射 requirements_path；已有整体用例可保存为项目用例文件并引用 test_cases_path。run_id/module_name/基线及生成产物不写项目配置。导入后仍由 Global 为本轮生成范围正确的规范和测试列表。
 
-旧 Ledger 运行没有 project_context_ref 时按旧协议继续，不伪造历史快照；旧直接 init 在没有预备快照时仍兼容。新宿主入口应始终走本页流程，不能以兼容路径跳过上下文固化。
+新宿主入口始终走本页流程，不能跳过上下文固化。
 
 ## 父子共同规划视野与知识资料
 

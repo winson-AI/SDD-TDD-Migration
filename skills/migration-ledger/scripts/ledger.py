@@ -17,6 +17,7 @@ import decomposition
 import dimensions
 import model_routing
 import reading
+import status_view
 import git_checkpoint
 import workflow_cost
 import write_scope
@@ -1325,11 +1326,12 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
         global_next['model_tier'] = model_routing.advise(global_next['role'], global_next.get('operation'))
     if global_next.get('operation'):
         global_next['must_read'] = reading.card(s, None, global_next)
+        global_next['card_sha256'] = reading.digest_card(global_next['must_read'])
     return {'global_next_step': global_next, 'next_steps': cursor,
             'source_change_next_step': source_changes.next_action(s), 'module_rounds': rounds}
 
 
-def status(root):
+def status(root, view='full', module_id=None):
     root = Path(root).resolve()
     require(root.is_dir(), 'run root missing')
     with run_storage.file_lock(root / '.ledger.lock'):
@@ -1368,7 +1370,7 @@ def status(root):
             project_attempt(errors, 'progress-state-retry', lambda: atomic(root / 'ledger/progress.json', progress))
             progress_signals.projection_attention(progress, errors)
         projection['status'] = 'pending' if errors else 'current'
-        return {**s, 'source_change_next_step': routes['source_change_next_step'],
+        full = {**s, 'source_change_next_step': routes['source_change_next_step'],
                 'projection': projection,
                 'run_root': str(root), 'openspec_hub': hub_paths,
                 'workflow_progress': progress, 'context_requirements': context_readiness.requirements(s),
@@ -1388,6 +1390,7 @@ def status(root):
                 'module_inputs': {mid: decomposition.assigned_module(s, m) for mid, m in
                                   {**s.get('module_groups', {}), **s['modules']}.items()},
                 'quality': 'yellow-blocked' if observed and s['quality'] != 'red-bug' else s['quality']}
+        return status_view.select(full, view, module_id)
 
 
 def main():
@@ -1395,6 +1398,9 @@ def main():
     parser.add_argument('command', choices=('init', 'apply', 'status', 'resume', 'recover', 'history'))
     parser.add_argument('--root', required=True)
     parser.add_argument('--request')
+    parser.add_argument('--view', choices=status_view.VIEWS, default='cursor',
+                        help='status only: cursor (default), module (needs --module) or full')
+    parser.add_argument('--module')
     parser.add_argument('--host-context', help='Host-protected principal JSON; CLI does not authenticate humans')
     args = parser.parse_args()
     try:
@@ -1410,7 +1416,7 @@ def main():
         require(snapshot.get('storage_layout'), 'prepared storage layout required; use history for old read-only evidence')
         run_storage.validate(snapshot['storage_layout'], root, root.name)
         if args.command == 'status':
-            result = status(args.root)
+            result = status(args.root, args.view, args.module)
         else:
             require(args.request and args.host_context, 'request and host context required')
             req = read_json(args.request)

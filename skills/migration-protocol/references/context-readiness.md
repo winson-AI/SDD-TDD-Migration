@@ -22,7 +22,7 @@
 | 修复批次裁决前 | audit-verdict / Auditor | 当前汇总/遗留、SPEC/PATH、每个验证结果与受阻根因、独立性 | Auditor audit-verdict；不以预检 ready 代替验证结果 |
 | 遗留路径独立复核前 | audit-testing / Auditor | 当前汇总、SPEC/PATH、代码与真实提供方、完整环境、独立性 | Auditor 自核就绪，GO audit-assign 绑定该实例；测试验收仍唯一归 Auditor |
 
-兼容 problem-assign 同样使用 audit-testing，因为该入口可执行测试。审计期间下游 Fixer/Testing 仍分别通过 fixing/testing，不沿用 Auditor 的报告。
+闭包提前审计的 problem-assign 同样使用 audit-testing，因为该入口可执行测试。审计期间下游 Fixer/Testing 仍分别通过 fixing/testing，不沿用 Auditor 的报告。
 
 ## 3. 报告与传递
 
@@ -72,9 +72,9 @@ blocked 报告提交会保留缺失项，但**不会自动将整个 MO 标记收
 
 无关模块继续；收尾规则仍为所有叶子本轮完成/明确挂起、父汇总有效、无 worker/可推进动作。报告缺失本身不是提前启动 Auditor 的理由。
 
-## 6. 实现范围与兼容
+## 6. 实现范围
 
-新 Ledger init 默认 `context_readiness_required=true`；prepare 输入与绑定强制启用。历史事件中缺少该字段的 run 保留原行为；低层 init 的 false 仅用于显式兼容旧集成，不属于新标准入口。运行中无切换开关。
+新 Ledger init 默认 `context_readiness_required=true`；prepare 输入与绑定强制启用。运行中无切换开关。
 
 控制器验证角色、作用域、必读引用、检查项、摘要、草稿、版本、身份和正式操作门禁；测试执行器校验 argv/cwd/环境证据。它不能自动证明语义理解充分、账号真实可用或 OS 已隔离，这些仍须执行者提供真实证据、宿主落实并由对应 owner 审核。不把结构检查称为完成了业务迁移。
 

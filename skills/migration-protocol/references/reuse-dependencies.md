@@ -82,7 +82,7 @@ GO 可以先做粗粒度能力目录；父/子 MO 补充与本模块相关的语
 
 OpenSpec 分工：proposal 说明复用策略和缺口；spec 保持用户可观察行为；design 说明提供方与适配边界；tasks 落接线/适配/剩余实现；checklist 核对映射覆盖、版本、生产绑定及测试；status 引用当前冻结 plan 与依赖问题。`stage-plan.reuse_plan_ref` 将目录和映射纳入 plan 摘要、人工冻结及后续 CR。change/reuse.md 投影当前已接受的 plan；冻结前仅供规划阅读，不表示可以编码。
 
-新 prepare 运行自动要求复用规划；显式外部来源、所有新的子 MO 计划也要求。旧扁平 run 未启用 reuse_required 时兼容原有输入；新的 global-input 默认 reuse_required=true。不存在可复用能力时提交空 capabilities + 有证据的来源评审 + new 映射，不编造库。
+新 prepare 运行自动要求复用规划；显式外部来源、所有新的子 MO 计划也要求。新的 global-input 默认 reuse_required=true。不存在可复用能力时提交空 capabilities + 有证据的来源评审 + new 映射，不编造库。
 
 ## 6. Coding、测试与失败处理
 

@@ -93,7 +93,7 @@ execute_test 自动传 query/result 文件并保存正式回执，adapter 只重
 | compile/test/package checks 与 HAP/HSP | 对应冻结 build/automation PATH 的结果与当前产物引用 | Test-Runner 经正式执行器留证；不能把导入的 `passed` 当作本轮执行 |
 | 逐目标 alignment 与 interaction checks | visual PATH 的三态、节点差异、同目标/当前 HAP/当前代码基线的证据 | Test-Runner 只读比较，失败交 Fixer，Auditor 独立裁决 |
 
-每个 runtime UI 目标都要有自己的 visual PATH；不能用一条对齐结果覆盖另一 page/state，不能用历史 HAP 的 ALIGNED 覆盖当前版本。source-only 保留缺少视觉实证的结论。完整字段和新旧兼容规则见 [UI 保真控制道](ui-fidelity.md)。
+每个 runtime UI 目标都要有自己的 visual PATH；不能用一条对齐结果覆盖另一 page/state，不能用历史 HAP 的 ALIGNED 覆盖当前版本。source-only 保留缺少视觉实证的结论。完整字段见 [UI 保真控制道](ui-fidelity.md)。
 
 正式视觉验收与 adapter 共用完整冻结原图和捕获执行校验，结果附 capture_evidence；原生 worker 自动生成 capture_execution_ref，外部捕获也须有受管安装/捕获日志，alignment 标签不能替代执行。GLOBAL 自有 PATH 显式给 visual_evidence，不能从 build_binding 推断。source-only 手势可用 automation 的 interaction_evidence；默认 Harmony 无此证据时规范化为 Yellow，保留真实结果，见 [测试协议](testing.md)。
 
@@ -103,7 +103,7 @@ execute_test 自动传 query/result 文件并保存正式回执，adapter 只重
 
 冻结中，声明精确策略的资源项必须给出 source_resource_ref（真实源文件 path/sha256）、Android source_resource（如 @string/title）和 qualifier（base 或源 res 目录后缀）。从文件/values 条目核对 resource_kind、nine_patch、source_unit；UI 闭包仍要求全部资源有策略。资源转换请求均执行任务与源证据校验。
 
-每个源 ID + qualifier 对应一个 Resource item；分组用现有任务追溯。不将裸 covered_resource_ids 计入闭包，附加资源和别名分别带源事实、精确策略、目标及消费者证据。consumer 可为旧字符串或列表，实现提交 consumer_refs 逐文件对应（同文件多个符号只需一个 hash）；兼容旧单 consumer_ref，不能代证其他消费者。引用持续校验但不替代真实接线测试。
+每个源 ID + qualifier 对应一个 Resource item；分组用现有任务追溯。不将裸 covered_resource_ids 计入闭包，附加资源和别名分别带源事实、精确策略、目标及消费者证据。consumer 可为单值或列表，实现提交 consumer_refs 逐文件对应（同文件多个符号只需一个 hash），不能代证其他消费者。引用持续校验但不替代真实接线测试。
 
 资源源索引区分节点 ID 与可迁移资源：R.id 不生成 resource-not-found，@array 识别两类 Android 数组。平台资源通过固定 SDK API 的 source.properties + data/res 原定义完成精确映射；无可核验定义时保留 blocked。约束与模板见 [资源保真](ui-fidelity.md)。
 

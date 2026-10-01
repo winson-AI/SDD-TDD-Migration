@@ -43,7 +43,7 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 
 ## 4. 判定与红线
 
-- 全局调度前用 `--scope global`；逐模块规划/派发用 `--scope module --module-id <id>`；全量视图巡检用 `--scope projection`；GO 最终交付/归档前用 `--scope final`。默认 projection 兼容旧只读调用，但不能用全量失败停止无关模块。按返回的 failures.scope/module_id/recovery_action 修复相关范围，公共事件链/快照损坏才影响整轮。
+- 全局调度前用 `--scope global`；逐模块规划/派发用 `--scope module --module-id <id>`；全量视图巡检用 `--scope projection`；GO 最终交付/归档前用 `--scope final`。默认 projection；不能用全量失败停止无关模块。按返回的 failures.scope/module_id/recovery_action 修复相关范围，公共事件链/快照损坏才影响整轮。
 - `status.openspec_binding.location==in-run-fallback` 表示未绑定预备布局,OpenSpec 落在 run 内——按未接入处理。
 - 控制器校验结构、绑定、摘要和已有执行回执，不能仅从自报字段证明语义正确或独立执行；宿主身份/权限约束、实际执行回执与独立 Auditor 审查共同承担这一责任。不得把 `verified=true` 或工具 exit 0 当作功能通过。
 - `observed_invalidations` 非空说明目标代码被 out-of-band 修改,须 revoke→invalidate 重走,不得无视继续。
@@ -52,13 +52,15 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 
 ## 5. 领域工具接线
 
-宿主交接优先读取 `openspec/runs/<run_id>/workflow.json` 的 routing/模块索引、相关 module state 与工件引用。派发前刷新 Ledger status 校验 sequence/revision；不要在每次交接复制完整 Ledger、所有兄弟模块日志或整套领域 skill。Agent 仍能通过当前快照、六件套、父级分配和实际依赖引用访问全局存量/目标源码、架构与知识；紧凑交接不能裁掉完成任务需要的上下文。快照引用失效或 routing_refresh_required 时按既有恢复动作更新，不创建第二份调度状态。
+宿主交接优先读取 `openspec/runs/<run_id>/workflow.json` 的 routing/模块索引、相关 module state 与工件引用。派发前刷新 Ledger status 校验 sequence/revision；不复制完整 Ledger、兄弟模块日志或整套领域 skill。Agent 仍能经当前快照、六件套、父级分配和实际依赖引用访问全局源码、架构与知识。快照引用失效或 routing_refresh_required 时按既有恢复动作更新，不创建第二份调度状态。
 
 按 [领域工具受限接入](domain-tools.md) 将白名单操作映射到现有角色，不创建第二套编排游标或冻结权威。Spec-Designer 分析 UI；Implementer/Fixer 在 assignment 与写范围内精确转换资源；Test-Runner/Auditor 在当前 assignment 下取证和比较，构建仍走正式执行器。[设备与模型工具](visual-execution.md) 需要冻结的 run 环境配置、实际设备锁证明及当前 PATH 构建/基线，工具本身不验收；模型请求有总时限，缺条件沿原 Yellow 通道。Host 传认证 host-context，保留原始结果引用、转换证据和正式 Ledger payload；所有新增输出落本 run 受管目录。
 
 prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（每个拆分模块一条 static PATH，位于 build 与 automation 之间），仅 applicable UI 触发对应门禁；无 UI 不制造空视觉任务。仅自动化不可用继续按 Yellow/未执行收尾，独立任务与可用构建下游不受阻。
 
 ## 提示采纳回报
+
+宿主轮询用 `ledger.py status --view cursor`（默认：游标、`module_summary`、按摘要去重的 `cards`；无模块正文）；单模块细节 `--view module --module <id>`，排查用 `--view full`。`reading.py render --root <run> --module <id>`（全局步骤用 `--global`）把当前卡写成 `reports/reading/<card_sha256>.md`，派发只传该路径；角色需要卡外规则时 `reading.py show --ref <文件> --section <标题>` 读单节。`card_sha256` 绑定小节正文。
 
 游标的 `session_id`/`session_affinity` 与 `must_read`/`card_sha256` 是建议。宿主派发 worker 时在 assign payload 回填实际恢复或新建的 `session_id` 和交给角色的 `card_sha256`；Ledger 只记录与建议是否一致（`status.hint_adoption`），不据此拒绝派发。持续的 not_followed 或 unreported 说明宿主未落实冷启动优化，应在接入层修正，而不是放宽门禁。
 

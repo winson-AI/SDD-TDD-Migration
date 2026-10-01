@@ -49,7 +49,7 @@ Auditor **负责发现、委派、复核和唯一审计验收**。它不写源�
 5. 根因路由中明确唯一公共能力 owner，列出各模块改动及回归。已有冻结任务/写权限可涵盖的行为等价修正由 Fixer 执行一轮；新增任务、提供方基线/接口变化、跨模块职责不明或权限不足，走 human/CR，批准 release 后由 Spec-Designer/MO 重规划、重新冻结，再交 Implementer/Fixer。不得在活动审计批次内偷偷改 SPEC、扩大写集合或跳过 provider hash。详细闭环见 [复用协议](reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
 6. work_modules 含治理发现来源、合法 repair owners、显式受影响消费者及依赖下游。重构后 Build → 装机 → Automation；完整执行这些模块的冻结用例并保留 retest_of。依赖满足后逐下游推进，独立分支继续。一轮失败留根因、补丁/日志/断言证据待人工，不重复自动修复。同一未解决治理问题跨版本保持稳定 CR-ID；整改后审查仍发现同一问题时标 requires_human，不能借新批次重获自动修复机会。
 7. 修改代码/SPEC/context 使代码审查失效；本批裁决且父汇总刷新后，必须对新版本重新提交审查。旧报告归档，不得删除未解决 finding。人工释放后已通过 CR/重新冻结和实现解决的问题，可在新基线审查中填 recovery_resolutions（finding_id、decision_id、reason、evidence_refs）；决策必须绑定该 finding 所属批次的人工作业报告且已 audit-release，不能仅删除 findings 冒充解决。复核已整改处并保留不受影响模块的有效审查证据；不能凭测试 Green 自动断言冗余已消除。然后收集仍遗留的 Red/Yellow，完成缺陷闭环和最终独立审计。
-8. `audit-assign` 与 `audit-unavailable` 都要求当前代码审查和无待处理治理发现；升级后的旧 run 同样补做审查，无需 re-init。自动化不可用不阻止代码审查；unverified_findings 与 verification_deferral_history 保留未复核事实，不再次派发 Fixer，刷新代码审查后仍可按 Yellow/未测试收尾。受影响消费者缺测也不能把 finding 标 resolved。
+8. `audit-assign` 与 `audit-unavailable` 都要求当前代码审查和无待处理治理发现。自动化不可用不阻止代码审查；unverified_findings 与 verification_deferral_history 保留未复核事实，不再次派发 Fixer，刷新代码审查后仍可按 Yellow/未测试收尾。受影响消费者缺测也不能把 finding 标 resolved。
 
 ## 复测与报告
 

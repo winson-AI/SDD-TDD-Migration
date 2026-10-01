@@ -34,7 +34,7 @@
 ```text
 python3 <package>/skills/migration-ledger/scripts/ledger.py init --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/ledger.py apply --root <run> --request <request.json> --host-context <principal.json>
-python3 <package>/skills/migration-ledger/scripts/ledger.py status --root <run>
+python3 <package>/skills/migration-ledger/scripts/ledger.py status --root <run> [--view cursor|module|full] [--module <id>]
 python3 <package>/skills/migration-ledger/scripts/ledger.py resume --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/ledger.py recover --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run> --scope module --module-id <module-id>
@@ -175,7 +175,7 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 
 ## 编排游标
 
-采用上传包的 NEXT/next_skill、blocked_from、阶段 require_state 和轮次保留机制，适配为 Ledger 派生游标：
+游标由 Ledger 派生，沿用 NEXT/next_skill、blocked_from、阶段 require_state 和轮次保留机制：
 
 - `status.next_steps`：每模块 operation、role、worker_role（如适用）、session_id、assignment_id、expected_revision、ready、reason。每个有 operation 的步骤带 `must_read` 阅读卡（[reading.py](../../migration-ledger/scripts/reading.py)：ref、section、bytes）及其摘要 `card_sha256`，随派发交给角色；assign 时宿主回填实际使用的 `session_id` 与交付的 `card_sha256`，Ledger 在 assignment.hints 记录建议值、实际值与是否采纳，汇总到 `status.hint_adoption` 和 `ledger/model-usage.json`。提示不是门禁，不回填记为 unreported；`global_next_step` 同样提供。本地修复无 fixer 会话时，session_id 指向原 Implementer 会话（`session_affinity=implementer`）；审计期修复不做此提示。未解决结果含已确认 `runtime-spec-variant-conflict` 时，游标为 `suspend(kind=human)`，不进入诊断或修复。
 - `status.ready_modules`：当前有可推进步骤的模块；并非可以同时启动的预约。多个候选可能争用同一资源，真正 assign 仍在事务内再次校验。
@@ -190,7 +190,7 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 
 ## 控制流闭环修订
 
-- `diagnose` 现在只提交诊断，调用方必须追加 MO 的 `diagnosis-accept`；旧宿主不得在诊断 ACK 后直接 assign Fixer。复测后旧诊断作废，不能用旧问题的报告批准新修复。
+- `diagnose` 只提交诊断，调用方必须追加 MO 的 `diagnosis-accept`；不得在诊断 ACK 后直接 assign Fixer。复测后旧诊断作废，不能用旧问题的报告批准新修复。
 - `next_steps` 对 Red/Yellow 共用一轮策略：已确认依赖/外围根因 → audit-defer；其余先 diagnose → diagnosis-accept → 一轮 Fixer → Main 复测，仍非 Green → audit-defer。未知根因不能伪报已确认。
 - 人工恢复游标返回当前有效 `decision_id`；再冻结游标返回可提交的 `payload`，包括 within-envelope 的影响分析引用。候选 ready 仍需宿主补齐实际审查证据并经事务复核。
 - DoD 挂起恢复进入 testing，旧结果 stale，正式新一轮复测后才能 complete；其余恢复点保持原阶段。`invalidate` 清除阻塞及解除许可、旧 freeze_id；历史 blocker 留在事件中。原来有 blocker 时同时撤销批准边界复用，重规划必须取得新人工冻结批准，不能靠 invalidate 绕过未决问题。存在 blocker 时禁止 CR 和 assign。
@@ -231,11 +231,9 @@ Fixer 的 implementation 必须带 fix_note_ref，内容见 [fix-note 模板](..
 
 pending / interrupted / awaiting-regression / failed / verified 区分修复事实；只有正式回归全 Green 的记录 reusable=true。复用前按根因、适用条件和当前 SPEC 比较，引用 memory 所属事件/工件；memory 不授予写权限，不替代本轮测试，也不允许降低验收。失败记录仍可用于避免重复无效方案。
 
-兼容性：旧 init 请求需补整体输入与 requirement_ids；实现前新增 global-plan；旧自由文本 spec 需符合 delta 结构；Fixer 结果需新增 fix_note_ref。已有日志不自动伪造这些缺失事实；本次未实现旧运行自动升级，缺少新输入的运行应以完整输入建立新的受控 run。
-
 ## 当前默认 Auditor 收尾：修复后验证，失败待人工
 
-本节采用 schema_version=2 的 finding 批次。旧 problem-* 仅作兼容，并同样受“所有模块本轮收尾”门禁约束。新宿主使用 audit-collect；角色及 Used Skills 由宿主实际启动/恢复，本控制器提供状态与门禁，不自带 Agent 调度服务。
+本节描述 finding 批次（audit-collect）；problem-assign/problem-audit 只用于闭包提前审计，最终全量审计仍待所有模块收尾。角色及 Used Skills 由宿主实际启动/恢复，本控制器提供状态与门禁，不自带 Agent 调度服务。
 
 ### 1. 所有模块执行阶段结束后统一启动
 
@@ -318,6 +316,6 @@ Ledger 在事件接受/状态重建时生成 `<run_root>/reports/migration-repor
 
 ## Auditor 整体代码治理前置
 
-新增全局 operation `audit-code-review`，actor=auditor，payload={report_ref, context_ref}。全部 MO 收尾后先提交 audit-code-review context receipt（draft_ref=report_ref），报告绑定 status.global_next_step.snapshot，覆盖所有执行叶子，并以必填 change_inventory_ref 引用 [本次代码修改清单](../../../template/audit-change-inventory.md)。Ledger 验证清单 hash，GO migration-report 提供同版链接；旧报告缺少清单须补交新版审查。`audit-collect` 有 CR-* 治理 finding 时先生成治理批次；无治理发现才收集剩余 Red/Yellow。代码变更后必须刷新整体审查；无问题报告 findings=[]。旧 run 无需重新初始化，但不能跳过新门禁。`audit-assign`/`audit-unavailable` 必须当前审查有效且无待处理治理发现。详见 [代码治理协议](audit-code-review.md)，模板 [audit-code-review.json](../../../template/audit-code-review.json)。
+新增全局 operation `audit-code-review`，actor=auditor，payload={report_ref, context_ref}。全部 MO 收尾后先提交 audit-code-review context receipt（draft_ref=report_ref），报告绑定 status.global_next_step.snapshot，覆盖所有执行叶子，并以必填 change_inventory_ref 引用 [本次代码修改清单](../../../template/audit-change-inventory.md)。Ledger 验证清单 hash，GO migration-report 提供同版链接。`audit-collect` 有 CR-* 治理 finding 时先生成治理批次；无治理发现才收集剩余 Red/Yellow。代码变更后必须刷新整体审查；无问题报告 findings=[]。`audit-assign`/`audit-unavailable` 必须当前审查有效且无待处理治理发现。详见 [代码治理协议](audit-code-review.md)，模板 [audit-code-review.json](../../../template/audit-code-review.json)。
 
 文件留存门禁：正式 Ledger CLI 必须使用 prepare 固化的 `.sdd-runs/<run_id>`，init 绑定 project_context_ref；历史任意根目录使用 `ledger.py history --root <旧根>` 只读重放。重新执行应 prepare 新 run，不修改旧引用 hash。详见 [留存文件系统](storage-layout.md)。

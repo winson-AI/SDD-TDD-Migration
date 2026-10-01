@@ -71,7 +71,7 @@
 │       │   ├── migration-report.json
 │       │   ├── migration-report.md       # GO 全 CASE/PATH 三态、非 Green 证据
 │       │   ├── workflow-attention.md
-│       │   ├── rejected-operation.json   # 最新拒绝导航，兼容旧入口
+│       │   ├── rejected-operation.json   # 最新拒绝导航
 │       │   ├── rejections/<fingerprint>.json # 各作用域独立计数与历史
 │       │   ├── projection-recovery/      # 损坏投影原件（按需）
 │       │   └── watchdog/                 # 可选 latest.json、notice-<timestamp>.json
@@ -125,7 +125,7 @@ python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <wor
 
 `verified=false` 表示所选范围存在具体核验失败，读取 failures 的 check/scope/module_id/recovery_action 和 next_actions。仅相关模块错误不得停止无关 MO；公共事件链/快照损坏才影响整轮。生成视图缺失按投影恢复协议重建，冻结源损坏恢复有效证据或正常失效/重规划，不一律重建 run。门禁只读，不改状态、不补写投影、不搬迁历史；它无法单独证明真实 Agent 派发、命令执行或全部功能 Green。最终 Yellow 缺测仍在正式报告保留。
 
-回退不再静默：`ledger.py status` 返回 `openspec_binding`，`location=top-level` 表示绑定了 prepare 固化的 `storage_layout`、投影落在顶层 `workspace/openspec`；`location=in-run-fallback`（未 prepare/未绑定 `project_context_ref`）说明本 run 的 OpenSpec 落在 `.sdd-runs/<run_id>/openspec`，宿主据此立即感知需要走预备管道，而非事后才发现顶层目录缺失。旧兼容 run 只读重放不受影响。
+回退不再静默：`ledger.py status` 返回 `openspec_binding`，`location=top-level` 表示绑定了 prepare 固化的 `storage_layout`、投影落在顶层 `workspace/openspec`；`location=in-run-fallback`（未 prepare/未绑定 `project_context_ref`）说明本 run 的 OpenSpec 落在 `.sdd-runs/<run_id>/openspec`，宿主据此立即感知需要走预备管道，而非事后才发现顶层目录缺失。
 
 ## 启动与二次启动
 
@@ -159,9 +159,9 @@ workspace_root 位于目标工程内时，自动构建发现排除 `.sdd-migrati
 
 同一 run_id 改请求内容会拒绝，不可借此替换冻结上下文。恢复一般直接读索引→status；若重试 prepare 必须重用原请求。同 run 来源追加仍走 source-review/reconfigure-sources，另增 context/revisions，不以普通配置 update 代替。
 
-历史证据不得就地搬迁/修改 hash。旧运行没有 storage_layout 时，底层 Ledger 兼容解析仍识别原 run_root 与内部 openspec 位置；显式指向旧快照的重复 prepare 可登记位置索引。此兼容路径不自动移动/重写旧 hash，不允许新入口借它随意创建外部目录。无快照的旧低层 Ledger API 为回归兼容保留；正式 CLI 的 init/apply/status/resume/recover 必须绑定 prepare 布局，新 init 必须绑定 project_context_ref。旧目录通过 `ledger.py history --root <旧目录>` 只读重放，既不刷新投影也不写锁/诊断；宿主不得调用底层兼容 API 绕过新的存储门禁。旧布局需要继续迁移时，先在三目录内 prepare 新 run，以只读历史引用记录来源，重新规划/冻结，不能伪装成旧 run 的同路径恢复。
+历史证据不得就地搬迁/修改 hash。显式指向既有快照的重复 prepare 可登记位置索引。正式 CLI 的 init/apply/status/resume/recover 必须绑定 prepare 布局，新 init 必须绑定 project_context_ref。无 storage_layout 的目录通过 `ledger.py history --root <目录>` 只读重放，既不刷新投影也不写锁/诊断；需要继续迁移时，先在三目录内 prepare 新 run，以只读历史引用记录来源，重新规划/冻结，不能伪装成同路径恢复。
 
-索引或准备记录缺失时，也必须核对快照的 project_id/run_id/run_root 与请求及实际恢复目录一致，再登记索引。复制出来但仍绑定原路径的快照会被拒绝，不写入错误位置索引；应回到原绑定目录恢复。此校验不改变合法旧运行的存储位置或快照摘要。
+索引或准备记录缺失时，也必须核对快照的 project_id/run_id/run_root 与请求及实际恢复目录一致，再登记索引。复制出来但仍绑定原路径的快照会被拒绝，不写入错误位置索引；应回到原绑定目录恢复。
 
 ## 写入与测试边界
 
@@ -211,7 +211,7 @@ Gradle 启动参数与 init.d 机制参考 [官方 init script 文档](https://d
 
 初始化先在 environment/preparation.json 原子保存整套配置内容及摘要，再写成员文件，最后提交 manifest.json（status=ready）。所有调用方经过 prepare 验证后才获得配置路径；中途失败保留 preparing，重试读取同一准备内容，即使参考源后来更改/删除也不混用版本。已写成员必须与准备内容一致；提交后的每次复用校验全部摘要，以及 config.native.yaml 当时是否不存在。提交后删除 preparation.json；若在提交与删除之间中断，下次校验完成后清理。准备文件含 .env 的可恢复内容，属于私密凭证资产：目录 700、文件 600，不加入 Ledger/artifacts 或 Git。失败原因保留在调用方原有错误/Yellow 回执中。
 
-无 manifest 的完整旧环境以现有 config.json/.env/可选 native 建立兼容基线，不补入新的参考文件，也不推断历史版本一致性；不完整旧环境无可靠准备记录时交 Host 核验或使用新 run，禁止拿当前参考补齐。完成清单或成员被修改时拒绝静默覆盖，按原环境异常出口处理相关测试；独立任务继续。
+无 manifest 的环境不推断历史版本一致性，也不补入当前参考文件；无可靠准备记录时交 Host 核验或使用新 run。完成清单或成员被修改时拒绝静默覆盖，按原环境异常出口处理相关测试；独立任务继续。
 
 ## 底层直接调用同样遵守留存规则
 
