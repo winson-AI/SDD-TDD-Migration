@@ -15,7 +15,7 @@
 1. **独立执行与验收**：GO 切片后，以已接受 global-plan 对应的完整 registry 为本轮集合。每个 MO 独立拥有 phase、CASE/PATH 结果、修复预算、DoD 与恢复点。单模块 Red/Yellow、异常或超限不得取消无关 MO，不得修改无关模块的质量、结果、revision、assignment 或预算。全局 quality 只从模块结果聚合，不向模块反向传播。
 2. **逐个等待**：宿主按 module_id 收集成功、失败和异常，采用 all-settled 语义；收到首个失败后继续其他 ready 模块并等待运行中的 MO。worker 退出/抛错只结束该 assignment；MO 仍需接受证据、执行修复/恢复或显式挂起。未派发、排队、锁等待、无活动 worker、全局 Red 均不等于模块本轮结束。
 3. **真实依赖限定范围**：只有已登记依赖不可用或确认本模块受影响时，才能记录该模块阻塞；不得把独立同伴作为依赖原因。跨模块新增业务边界须人工决策。受影响模块保留自己的历史断言，依赖缺证据记 Yellow，不复制生产者 Red；无关模块继续执行。已完成模块仅因真实基线/契约失效才重开。
-4. **全量收尾门禁**：每个已登记模块必须有自身 DoD 完成记录，或基于自身证据的 waiting-auditor / waiting-dependency / waiting-human / automation-deferred 记录；所有 worker 结束且没有 ready 的推进/恢复动作。禁止为凑齐门禁给其他模块批量挂起。只有上述条件同时成立，GO 才拉起独立 audit-code-review，治理闭环后再提交 audit-collect 或符合收尾门禁的 audit-assign；兼容 problem-assign 同样受约束。
+4. **全量收尾门禁**：每个已登记模块必须有自身 DoD 完成记录，或基于自身证据的 waiting-auditor / waiting-dependency / waiting-human / automation-deferred 记录；所有 worker 结束且没有 ready 的推进/恢复动作。禁止为凑齐门禁给其他模块批量挂起。只有上述条件同时成立，GO 才拉起独立 audit-code-review，治理闭环后再提交 audit-collect 或符合收尾门禁的 audit-assign；problem-assign 限于第 5 条的闭包。
 5. **闭包提前审计**：waiting-auditor 模块的依赖闭包与下游消费者（含消费者的其他依赖）全部收尾且空闲时，GO 可对该闭包发起 problem-assign；审计锁只覆盖闭包，闭包外模块继续派发与验收。裁决经 audit-resume 回到各模块原流程；最终全量审计仍适用第 4 条。
 6. **阶段区分**：本轮结束不等于全部通过。Auditor 统一启动后先整体审查代码/委派治理，再收集各模块真实遗留；审计内部仍按已批准 finding 与依赖交错修复，失败只隔离相关分支。模块期末的全量等待不要求审计内每一修复步骤全批同步。
 
@@ -89,9 +89,9 @@ Auditor 可执行既有脚本并生成日志，不能编辑源码/脚本。发�
 
 本地审计闭环为 audit → audit_repairs → Global audit-route（全局 PATH）→ MO repair-accept → 诊断提交/接受或 Yellow 挂起 → 修复/复测 → 模块完成 → 新独立审计。具体字段、游标与恢复规则以 [本地操作矩阵](local-runtime.md) 为准。
 
-OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义不被动态勾选修改。问题审计/全局覆盖/物化字段详见 [当前策略](local-runtime.md#当前策略全局验收问题审计openspec-与修复-memory)。
+OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义不被动态勾选修改。问题审计/全局覆盖/物化字段详见 [问题审计](audit-scope.md#问题审计与最终审计)。
 
-当前默认在所有模块本轮 completed/明确挂起且无可推进动作后，先 audit-code-review 及治理闭环，再采用剩余问题的 audit-collect 批次：Auditor 绑定发现/负责模块 SPEC 与测试路径，Global 路由审核，MO 接受一轮 Fixer；按 finding 路由及依赖交错 Testing；失败关联分支待人工，其他分支继续，汇总后 awaiting-human；批准 audit-release 后再进入正常恢复。旧 problem-* 重复问题审计保留兼容，详见 [默认收尾](local-runtime.md#当前默认-auditor-收尾修复后验证失败待人工)。
+当前默认在所有模块本轮 completed/明确挂起且无可推进动作后，先 audit-code-review 及治理闭环，再采用剩余问题的 audit-collect 批次：Auditor 绑定发现/负责模块 SPEC 与测试路径，Global 路由审核，MO 接受一轮 Fixer；按 finding 路由及依赖交错 Testing；失败关联分支待人工，其他分支继续，汇总后 awaiting-human；批准 audit-release 后再进入正常恢复。闭包内的 problem-assign/problem-audit 见第 5 条，详见 [默认收尾](audit-scope.md#默认收尾修复后验证失败待人工)。
 
 ## 父子 MO 的规划与汇总
 
@@ -114,3 +114,14 @@ OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义�
 ## 埋点适用性不产生新状态
 
 按 [埋点协议](telemetry.md)，无埋点模块/任务的 not-applicable 只记录范围判断，不转换为 waiting/Yellow/skip，不消耗修复预算，不增加全局等待条件。有埋点时沿已有 SPEC冻结→Coding→Build→业务Testing→三态/Fixer→Auditor；真实未知或失败仅影响本模块及实际依赖，其他 MO 继续。
+
+## 控制流闭环细则
+
+- `diagnose` 只提交诊断，调用方必须追加 MO 的 `diagnosis-accept`；不得在诊断 ACK 后直接 assign Fixer。复测后旧诊断作废，不能用旧问题的报告批准新修复。
+- `next_steps` 对 Red/Yellow 共用一轮策略：已确认依赖/外围根因 → audit-defer；其余先 diagnose → diagnosis-accept → 一轮 Fixer → Main 复测，仍非 Green → audit-defer。未知根因不能伪报已确认。
+- 人工恢复游标返回当前有效 `decision_id`；再冻结游标返回可提交的 `payload`，包括 within-envelope 的影响分析引用。候选 ready 仍需宿主补齐实际审查证据并经事务复核。
+- DoD 挂起恢复进入 testing，旧结果 stale，正式新一轮复测后才能 complete；其余恢复点保持原阶段。`invalidate` 清除阻塞及解除许可、旧 freeze_id；历史 blocker 留在事件中。原来有 blocker 时同时撤销批准边界复用，重规划必须取得新人工冻结批准，不能靠 invalidate 绕过未决问题。存在 blocker 时禁止 CR 和 assign。
+- 审计问题保存在 `audit_repairs`，`module_ids/accepted_by` 记录责任和 MO 接受情况。全局游标先提示 audit-route 或等待 MO 接受；未路由/未接受的问题禁止下一轮 audit-assign。有关联依赖的模块先完成原有恢复/重建，再接收其修复项。
+- MO repair-accept 保留 `repair_findings` 供 diagnose/Yellow 路由，按原有 CR、修复预算和复测规则执行。模块正式测试接受后清除此轮 repair_findings；这只表示模块验证结束，审计问题仍须 Auditor 重跑裁决。
+- `audit_results` 保留上一轮独立审计结果，不随代码失效清空。下一轮非 Green 同 PATH 必须提供新的 test_run_id 和 retest_of；模块重新 Green 不能解除这一要求。新审计覆盖完整集合后替换当前 repair 列表，旧报告保留于事件和工件。
+- 若全局问题无法归属现有模块，Global 交 Escalation 取得范围/架构决策，不能随意指定模块或跳过问题。全局审计预算耗尽仍沿用受控新运行规则。

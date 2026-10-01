@@ -9,6 +9,8 @@
 | 同 run 来源追加 | [来源变更](source-changes.md) |
 | 全局覆盖验收、模块隔离与全量收尾 | [状态机](state-machine.md#模块隔离与全量收尾) |
 | 本地修复轮次（`local_fix_rounds`）与预算 | [状态机：有限循环](state-machine.md#有限循环)、[构建预算单位](build-automation.md#本地一轮的预算单位) |
+| 控制流细则（诊断接受、审计修复链） | [状态机：控制流闭环细则](state-machine.md#控制流闭环细则) |
+| 问题审计、默认 Auditor 收尾批次 | [审计范围](audit-scope.md#问题审计与最终审计)、[默认收尾](audit-scope.md#默认收尾修复后验证失败待人工) |
 | 项目级/单模块入口、功能清单完备性 | [切片规约](../../migration-global/references/slicing.md) |
 | 项目上下文 prepare/init 绑定 | [项目上下文](project-context.md) |
 | 二方库与已有能力复用 | [复用协议](reuse-dependencies.md) |
@@ -34,7 +36,7 @@
 ```text
 python3 <package>/skills/migration-ledger/scripts/ledger.py init --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/ledger.py apply --root <run> --request <request.json> --host-context <principal.json>
-python3 <package>/skills/migration-ledger/scripts/ledger.py status --root <run>
+python3 <package>/skills/migration-ledger/scripts/ledger.py status --root <run> [--view cursor|module|full] [--module <id>]
 python3 <package>/skills/migration-ledger/scripts/ledger.py resume --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/ledger.py recover --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run> --scope module --module-id <module-id>
@@ -175,9 +177,9 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 
 ## 编排游标
 
-采用上传包的 NEXT/next_skill、blocked_from、阶段 require_state 和轮次保留机制，适配为 Ledger 派生游标：
+游标由 Ledger 派生，沿用 NEXT/next_skill、blocked_from、阶段 require_state 和轮次保留机制：
 
-- `status.next_steps`：每模块 operation、role、worker_role（如适用）、session_id、assignment_id、expected_revision、ready、reason。每个有 operation 的步骤带 `must_read` 阅读卡（[reading.py](../../migration-ledger/scripts/reading.py)：ref、section、bytes）及其摘要 `card_sha256`，随派发交给角色；assign 时宿主回填实际使用的 `session_id` 与交付的 `card_sha256`，Ledger 在 assignment.hints 记录建议值、实际值与是否采纳，汇总到 `status.hint_adoption` 和 `ledger/model-usage.json`。提示不是门禁，不回填记为 unreported；`global_next_step` 同样提供。本地修复无 fixer 会话时，session_id 指向原 Implementer 会话（`session_affinity=implementer`）；审计期修复不做此提示。未解决结果含已确认 `runtime-spec-variant-conflict` 时，游标为 `suspend(kind=human)`，不进入诊断或修复。
+- `status.next_steps`：每模块 operation、role、worker_role（如适用）、session_id、assignment_id、expected_revision、ready、reason。每个有 operation 的步骤带 `must_read` 阅读卡（[reading.py](../../migration-ledger/scripts/reading.py)）及摘要 `card_sha256`，`global_next_step` 同样提供；会话与阅读卡的回填、采纳统计（`status.hint_adoption`）和 `must_read_new` 见[宿主接入](host-integration.md#提示采纳回报)。本地修复无 fixer 会话时，session_id 指向原 Implementer 会话（`session_affinity=implementer`）；审计期修复不做此提示。未解决结果含已确认 `runtime-spec-variant-conflict` 时，游标为 `suspend(kind=human)`，不进入诊断或修复。
 - `status.ready_modules`：当前有可推进步骤的模块；并非可以同时启动的预约。多个候选可能争用同一资源，真正 assign 仍在事务内再次校验。
 - `status.global_next_step`：等待模块完成、创建审计、等待活动审计、撤销失效审计或等待交付授权。游标不自动派发，也不赋予额外权限。
 - 已提交 worker 结果对应 `accept`；未提交对应 `await-result`。原会话通过 session_id 提示复用；短交接只传 Ledger/assignment/artifact 引用。
@@ -187,118 +189,6 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 - 活动审计不能被另一轮覆盖；audit 成功接收后关闭 assignment；中断必须 host audit-revoke 提交实际停止证据。assignment_id 不复用，撤销不返还已用轮次。
 
 这些规则保留本系统的 9+1 分工和跨模块并行，不采用全流程单切片串行，也不采用部分验证即 COMPLETE 的语义。
-
-## 控制流闭环修订
-
-- `diagnose` 现在只提交诊断，调用方必须追加 MO 的 `diagnosis-accept`；旧宿主不得在诊断 ACK 后直接 assign Fixer。复测后旧诊断作废，不能用旧问题的报告批准新修复。
-- `next_steps` 对 Red/Yellow 共用一轮策略：已确认依赖/外围根因 → audit-defer；其余先 diagnose → diagnosis-accept → 一轮 Fixer → Main 复测，仍非 Green → audit-defer。未知根因不能伪报已确认。
-- 人工恢复游标返回当前有效 `decision_id`；再冻结游标返回可提交的 `payload`，包括 within-envelope 的影响分析引用。候选 ready 仍需宿主补齐实际审查证据并经事务复核。
-- DoD 挂起恢复进入 testing，旧结果 stale，正式新一轮复测后才能 complete；其余恢复点保持原阶段。`invalidate` 清除阻塞及解除许可、旧 freeze_id；历史 blocker 留在事件中。原来有 blocker 时同时撤销批准边界复用，重规划必须取得新人工冻结批准，不能靠 invalidate 绕过未决问题。存在 blocker 时禁止 CR 和 assign。
-- 审计问题保存在 `audit_repairs`，`module_ids/accepted_by` 记录责任和 MO 接受情况。全局游标先提示 audit-route 或等待 MO 接受；未路由/未接受的问题禁止下一轮 audit-assign。有关联依赖的模块先完成原有恢复/重建，再接收其修复项。
-- MO repair-accept 保留 `repair_findings` 供 diagnose/Yellow 路由，按原有 CR、修复预算和复测规则执行。模块正式测试接受后清除此轮 repair_findings；这只表示模块验证结束，审计问题仍须 Auditor 重跑裁决。
-- `audit_results` 保留上一轮独立审计结果，不随代码失效清空。下一轮非 Green 同 PATH 必须提供新的 test_run_id 和 retest_of；模块重新 Green 不能解除这一要求。新审计覆盖完整集合后替换当前 repair 列表，旧报告保留于事件和工件。
-- 若全局问题无法归属现有模块，Global 交 Escalation 取得范围/架构决策，不能随意指定模块或跳过问题。全局审计预算耗尽仍沿用受控新运行规则。
-
-## 当前策略：全局验收、问题审计、OpenSpec 与修复 memory
-
-### 问题审计与最终审计
-
-问题审计：problem-assign → Auditor 用 execute_test --module Mxxx --assignment <problem-id> 执行 → problem-audit → MO audit-resume。assignment 对应的 module_ids 全部必须在报告中出现。可执行模块 result 使用既有 tests 结构，actor_instance_id 为独立 Auditor；冻结、代码、所有 PATH/断言、历史非 Green retest_of 均校验。缺代码、定义失效或生产者未就绪的模块禁止执行，只报 quality=yellow-blocked、result=null 和结构化根因。
-
-Auditor 裁决：
-
-- retry：独立复测全部 Green；MO 恢复 testing 且 stale，仍需 Main 新复测与 DoD，不能直接 completed。
-- fix：独立复测仍有问题；MO 接受后按现有契约授权一轮 Fixer，总预算不足仍须显式 recover 决策。该轮失败再交 Auditor。
-- change：需调整契约；MO 回 specifying，新的人类批准后重新冻结，不授权 Auditor/Fixer 改验收。
-- wait：依赖/外围问题未解除，保留队列；先解决前置，再按问题审计预算重新复测。
-- human：人工裁决；批准 subject=digest(audit_resolution)，MO 接受后重新规划与冻结。
-
-问题审计不发布全局 Green。收尾仍要求 audit_queue 清空、模块完成或合法 automation-deferred；只处理剩余待验证路径，空清单使用 audit-review。失败沿用 audit-route/repair-accept 闭环，保留独立性。问题审计与最终审计各自受 max_audit_rounds 限制，次数在撤销后不返还。
-
-审计期间冻结业务操作和 worker 派发；旧进程必须真正停止。使用既有 audit-revoke 撤销问题/最终审计，附宿主停止证据。问题快照绑定模块 revision/phase/freeze/code/blocker/results；源码或定义变动会使执行不可用或结果拒收，不能混用新旧证据。
-
-### OpenSpec 自动物化
-
-提交事件后及 status 重放时，生成 `<workspace_root>/openspec/changes/<run-id>-<module-id小写>/`：proposal.md、specs/<capability>/spec.md、design.md、tasks.md、status.md、checklist.md，以及 memory.md/manifest.json。定义作者仍为 Spec-Designer；Ledger 复制已提交的不可变定义快照，不凭空发明需求。spec 引用可带合法 capability；默认使用小写模块编号。
-
-tasks 定义必须含每个 TASK-ID 对应的 Markdown checkbox；依据已接受 task_trace 更新 `- [ ] TASK-ID` 勾选；checklist 保留定义并追加机器证据，status 记录阶段、有效三态和下一步。更新视图不会改定义快照、freeze_id 或验收。视图丢失/被改后可由日志重建，旧生成的能力文件由 manifest 清理。可见文件是投影，不可直接编辑作为新 SPEC；变更必须提交 plan/CR。
-
-当前执行 OpenSpec delta 结构检查，manifest 标 structural-only；未伪称 CLI 验证成功。CLI 验证、正式基线合并/归档仍由宿主按项目门禁执行。
-
-### 修复 memory
-
-Fixer 的 implementation 必须带 fix_note_ref，内容见 [fix-note 模板](../../../template/fix-note.json)：root_cause、strategy、applicability、risks。Ledger 保存 diagnosis、问题快照、冻结版本、前后代码基线、任务/补丁引用和正式回归证据，生成模块 memory.md 与全局 ledger/repair-memory.json。
-
-pending / interrupted / awaiting-regression / failed / verified 区分修复事实；只有正式回归全 Green 的记录 reusable=true。复用前按根因、适用条件和当前 SPEC 比较，引用 memory 所属事件/工件；memory 不授予写权限，不替代本轮测试，也不允许降低验收。失败记录仍可用于避免重复无效方案。
-
-兼容性：旧 init 请求需补整体输入与 requirement_ids；实现前新增 global-plan；旧自由文本 spec 需符合 delta 结构；Fixer 结果需新增 fix_note_ref。已有日志不自动伪造这些缺失事实；本次未实现旧运行自动升级，缺少新输入的运行应以完整输入建立新的受控 run。
-
-## 当前默认 Auditor 收尾：修复后验证，失败待人工
-
-本节采用 schema_version=2 的 finding 批次。旧 problem-* 仅作兼容，并同样受“所有模块本轮收尾”门禁约束。新宿主使用 audit-collect；角色及 Used Skills 由宿主实际启动/恢复，本控制器提供状态与门禁，不自带 Agent 调度服务。
-
-### 1. 所有模块执行阶段结束后统一启动
-
-`audit-collect` 同时要求：
-
-- 全部模块处于 completed、waiting-auditor、waiting-dependency 或 waiting-human。
-- 没有活动 worker，也没有 ready 的下一动作；包括 dependency-ready、resume、已有人工批准后的恢复。
-- 未完成的 context/specifying/clarifying/frozen/testing/dod 等阶段不能被当作遗留直接收走。正常模块继续推进；需人工澄清的模块由 MO 明确 suspend，不能仅因“当前没人运行”就启动审计。
-- 尚不能运行的下游模块可记录依赖阻塞并挂起；这表示本轮明确受阻，不表示测试通过。已确认依赖/外围问题与本地一轮未修复问题执行 audit-defer 后退出。
-
-模块失败只影响自身记录和有证据的依赖影响范围；全局 quality=Red 不得反向改写其他 MO，也不能触发取消其他并行 worker。宿主逐个收集 MO 结果、继续 ready 模块、等待运行中的 MO，不能使用首个失败即取消整组的策略。suspend(kind=dependency) 必须存在已登记且尚未满足的依赖，Ledger 保存 dependency_module_ids；无关同伴失败不能充当依赖。human/tooling 挂起须有本模块的真实阻塞原因，不能用它们规避全量等待。
-
-status.module_rounds 返回 registered_modules、settled_modules、unfinished_modules、active_modules、ready_modules、blockers 和 all_settled；这些字段表示调度进度，与质量结论分离。存在遗留但其他模块尚未结束时，global_next_step.operation=null、ready=false、reason=await-all-module-rounds，并分别通过 continue_modules / wait_for_modules 指明继续与等待对象；next_steps 保留每个 MO 的下一动作。all_settled 不是审计授权，提交仍校验 global-plan、版本、预算和独立身份。
-
-Global 等上述条件全部满足才统一启动 Auditor。`status.global_next_step.module_barrier` 列出未收尾原因；直接调用 audit-collect 也会重新验证，不能绕过状态建议。全部模块已 Green 时直接进入 audit-assign；若无额外待验证路径，则 audit-review 记录 no-retest-needed，无需空收尾批次和测试环境。
-
-### 2. 收集、根因分析与 finding 路由
-
-收集所有模块的 results、repair_findings、blocker、audit_queue，固定 sources、contexts（freeze_id/code_baseline/spec_ref/test_paths）和 round_snapshot。每个失败 PATH 得到稳定 finding_id；没有执行结果的模块生成 blocker finding。
-
-Auditor 读取对应 SPEC/tasks/CASE/PATH、断言及日志，提交 [audit-closure-plan](../../../template/audit-closure-plan.json)：
-
-- 每个 finding_id 恰好一条路由，source_module_id 必须对应收集记录。
-- `fix`：owner_module_ids 非空，可有多个；owner_contexts 按模块 ID 精确绑定各自 SPEC 与完整测试路径。同一发现模块的不同问题可路由给不同 owner。
-- `verify`：有证据说明依赖/环境已恢复、无需代码补丁，直接重新执行完整模块测试；不能伪造通过或绕过尚未解决的 human blocker。
-- `human`：需澄清验收、无已冻结可修代码或不可控外围条件。该分支记录原因，其他独立分支继续。
-
-旧单 owner 写法仅在该 source 恰好一个 finding 时转换；多个 finding 必须显式按 ID 路由，避免隐含遗漏。Global 审核路由；声明依赖加 source→owner 形成执行前置图，出现环拒绝该计划，修正后重新提交。
-
-### 3. 按问题依赖交错修复和回归
-
-仅 finding 来源、根因 owner 和依赖图上受影响模块进入 work_modules；无关有效 Green 不进入执行集合，禁止追加全项目回归。当前模块级基线模型对这些受影响模块保守执行完整模块回归（并按需重建），不是将全部 registry 的测试重新运行。负责模块 MO audit-work 接受该模块所有相关 finding，委派一轮 Fixer。Fixer 按自身冻结 tasks 与写范围修复，提交补丁、任务追溯和 fix_note。相同 owner 的多个问题合并为这一轮修复，不能越过累计预算。
-
-调度不等待全批所有 owner。每个模块只等自身上游：
-
-```text
-A 修复 → A 全路径 Testing/DoD → B 全路径复测/DoD
-                              → 依赖 B 的 C 修复 → C 全路径 Testing/DoD
-```
-
-即使 owner 原来 completed，也必须完成本批修复与验证，才能释放审计中的下游。受影响的原 Green 中间模块和下游同样进入 work_modules，依赖变更后需要新 Main 结果。发现模块就是 owner 时，同一轮完整 Main 结果同时作为两侧证据。无有效冻结 SPEC/代码的模块保持 Yellow，进入人工恢复/规划，不凭审计授权生成未冻结代码。
-
-### 4. 失败隔离与审计报告
-
-Red/Yellow 复核失败、worker 中断、预算不足、证据失效通过 test acceptance 或 `audit-block` 记录到 human_issues。只挂起该问题关联模块与依赖下游，不停止无冲突分支。已在途且受阻的 worker 由宿主实际停止并提交 revoke；写状态不等于进程已停止。
-
-剩余可执行分支验证完毕后，Auditor audit-verdict 汇总 resolved_findings、human_issues、owner_tests/source_tests。全部成功则 verified；存在人工问题则 awaiting-human，并生成 `<run_root>/audit-reports/<batch-id>.json/.md`。若没有其他可推进分支，失败时即可进入 awaiting-human。报告保留 SPEC、路径、根因、各次结果和证据；后续信息更新报告时，也更新审批绑定的摘要。
-
-### 5. 人工审核后恢复
-
-1. Host 保存真实批准：decision.module_id=null，subject_sha256=digest(当前 human_report)。
-2. Global `audit-release {decision_id}` 结束失败/部分完成批次；记录 audit_batch_history，清理批次授权，保留失败、memory、累计预算与原报告。
-3. 回到正常带守卫的操作：预算不足用 recover（另有预算决定）；SPEC/代码上下文失效用 invalidate 后重新 plan/freeze；人工阻塞用 resume（绑定当前 blocker）；需求变化用正式 CR 与冻结。release 不自动批准新验收或追加预算，也不把测试改 Green。
-4. release 会记录 recovery_contexts；未处理的人工作业保持相同上下文/blocker 时禁止直接重新收集，单纯改 session/revision 不算恢复。所有模块再次完成本轮或明确挂起后，才能建立新 batch_id 收集；不能在旧活动批次直接循环 audit-collect。
-
-运行中会话恢复允许 session/checkpoint 记录，实际创建/恢复 subagent 和加载 Used Skills 均由宿主执行。协议不要求永久保留失效的 session。
-
-| 新操作 | 角色/范围 | 输入与约束 |
-| --- | --- | --- |
-| audit-block | MO / 指定模块 | reason、evidence_ref；活动收尾中的证据/执行条件受阻，挂起关联分支 |
-| audit-release | Global / module_id=null | decision_id；当前报告摘要批准、无在途 worker，结束失败批次以进入正常恢复 |
-
-修复 memory 在 owner 测试后仍为 awaiting-cross-verification、reusable=false；关联失败记录 failed。只有完整批次 audit-verdict 通过才能变为 verified/reusable=true。部分成功的证据会保留，但不将未完成跨模块验证的 memory 提升为可复用。最后独立审阅收尾；问题已复核通过不再重复执行。
 
 ## 功能切片输入与边界批准
 
@@ -318,6 +208,6 @@ Ledger 在事件接受/状态重建时生成 `<run_root>/reports/migration-repor
 
 ## Auditor 整体代码治理前置
 
-新增全局 operation `audit-code-review`，actor=auditor，payload={report_ref, context_ref}。全部 MO 收尾后先提交 audit-code-review context receipt（draft_ref=report_ref），报告绑定 status.global_next_step.snapshot，覆盖所有执行叶子，并以必填 change_inventory_ref 引用 [本次代码修改清单](../../../template/audit-change-inventory.md)。Ledger 验证清单 hash，GO migration-report 提供同版链接；旧报告缺少清单须补交新版审查。`audit-collect` 有 CR-* 治理 finding 时先生成治理批次；无治理发现才收集剩余 Red/Yellow。代码变更后必须刷新整体审查；无问题报告 findings=[]。旧 run 无需重新初始化，但不能跳过新门禁。`audit-assign`/`audit-unavailable` 必须当前审查有效且无待处理治理发现。详见 [代码治理协议](audit-code-review.md)，模板 [audit-code-review.json](../../../template/audit-code-review.json)。
+新增全局 operation `audit-code-review`，actor=auditor，payload={report_ref, context_ref}。全部 MO 收尾后先提交 audit-code-review context receipt（draft_ref=report_ref），报告绑定 status.global_next_step.snapshot，覆盖所有执行叶子，并以必填 change_inventory_ref 引用 [本次代码修改清单](../../../template/audit-change-inventory.md)。Ledger 验证清单 hash，GO migration-report 提供同版链接。`audit-collect` 有 CR-* 治理 finding 时先生成治理批次；无治理发现才收集剩余 Red/Yellow。代码变更后必须刷新整体审查；无问题报告 findings=[]。`audit-assign`/`audit-unavailable` 必须当前审查有效且无待处理治理发现。详见 [代码治理协议](audit-code-review.md)，模板 [audit-code-review.json](../../../template/audit-code-review.json)。
 
 文件留存门禁：正式 Ledger CLI 必须使用 prepare 固化的 `.sdd-runs/<run_id>`，init 绑定 project_context_ref；历史任意根目录使用 `ledger.py history --root <旧根>` 只读重放。重新执行应 prepare 新 run，不修改旧引用 hash。详见 [留存文件系统](storage-layout.md)。

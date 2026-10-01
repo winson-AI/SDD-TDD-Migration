@@ -1,5 +1,11 @@
 # GO → 父 MO → 子 MO：范围、上下文与规划契约
 
+## 总则
+
+project 指完整项目及其功能树；single-module 只选择一个根功能，但父 MO 仍拆分子功能并交独立子 MO。职责固定为 GO 划分模块 scope/所需上下文 → 父 MO 认领后在范围内划分子 scope/所需上下文 → 子 MO 拆 tasks。父子均读全局代码/架构/知识，执行权限限定于认领 scope；规划绑定 Ledger 的 planning_context 和 module_inputs 分配包。父节点保存管理/汇总记录，叶子持有自己的 SPEC、代码、测试与验收；禁止把父聚合失败回写兄弟。全部叶子本轮结束且所有父 MO 提交当前版本汇总后，GO 才统一启动 Auditor。
+
+轻量叶子：原子根功能可由 GO 登记为 `lean_leaf`（附不可再拆的审阅）直接作为执行叶子；其本地修复轮由 Fixer 在原 Implementer 会话中先诊断后修复，MO 仍接受诊断，审计期恢复独立 Diagnostician；运行级 `fixer_self_diagnosis` 可让所有模块的本地轮采用同样做法（默认关闭）。多个孩子可由父 MO 汇总一份批量冻结信封交人类一次批准，条目完全匹配的孩子经 MO 审阅后冻结。见 [父子 MO 协议](#父级批量冻结信封)。
+
 ## 1. 三层职责
 
 | 层级 | 认领的范围 | 规划输出 | 迁移管理职责 |
@@ -68,7 +74,7 @@ GO 等全部子 MO 收尾和全部父汇总有效后统一启动 Auditor。`stat
 
 本地控制器维护事件、分配范围、引用、摘要和门禁；宿主负责实际创建/恢复父子 MO、实例与模块绑定、加载 Used Skills、传递 Ledger 引用和执行写隔离。投影不表示 Agent 已启动。
 
-旧扁平 run 不自动转树；没有 decomposition_required 的旧叶子保留兼容，不静默改写历史。旧递归树可读取和汇总，新拆分禁止子 MO 再创建 MO。新的 project/single-module 入口都遵循本文三层定义。CLI operation schema 仍为 1；宿主使用当前 schema 与模板。边界调整没有旁路操作，超出既有控制器能力时记录并请求处理，不能假装已完成重分配。
+新拆分禁止子 MO 再创建 MO；project/single-module 入口都遵循本文三层定义。边界调整没有旁路操作，超出既有控制器能力时记录并请求处理，不能假装已完成重分配。
 
 ## 6. 二方库作为逐层规划依据
 
@@ -85,7 +91,7 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 - Ledger `status.parent_mo_names` 返回父 ID → 名称；父 MO 的 next_steps 条目包含 agent_name，GO 接受拆分等其他角色动作不冒用父名称。
 - 宿主创建/恢复父 MO 时，将该名称用于支持的 name/title/可见标签。若工具限制技术 ID 字符集，技术 ID 保持合法，展示标签与 Ledger agent_name 仍使用上述格式。
 - `session` 的 role 仍为 module-orchestrator；父 session 未提供 agent_name 时自动补全，提供不同名称则拒绝。instance_id、session_id 是宿主真实身份，不以名称替代认证或授权。
-- 名称是运行展示元数据，不加入冻结 assigned_module/planning_context，旧 run 的 SPEC/分配摘要不因命名增强失效；无需改写旧事件。
+- 名称是运行展示元数据，不加入冻结 assigned_module/planning_context。
 
 ## 四维父子覆盖
 

@@ -14,8 +14,6 @@ mode: subagent
 
 输出：module registry、DAG、模块输入、用例映射、锁/依赖/派发事件、全局报告和升级请求；单模块入口还须分析生成模块级 SPEC 草案及 Testing list，交下游展开正式六件套与测试路径。
 
-所有输入输出为 [运行协议](../skills/migration-protocol/references/runtime.md) 定义的绝对路径/事件引用；内容产出在本实例 staging，读取已提交工件须验证 hash。
-
 ## 3. 执行步骤
 1. 验证项目输入并按范围分流：project 直接指定完整项目，识别所有功能模块及子功能；single-module 指定一个特定功能，定位其全部子功能。GO 生成根功能 ID、scope.in/out/全局 requirement_ids、代码范围、SPEC 草稿、Testing list 及 context_refs，登记根功能时设 decomposition_required=true（原子根功能可改为 lean_leaf=true 并附 leaf_review_ref，见 [父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md)）。宿主将父 MO 绑定到该模块，统一命名为 `parent-mo-<module_id>`（例如 `parent-mo-M010`），读取 status.parent_mo_names；父 MO 从 status.module_inputs 认领完整范围与上下文。父 MO 继续拆分子功能并提交 decompose；GO decompose-accept 审核范围、覆盖、复用职责和依赖后原子登记独立子模块，再做叶子 global-plan。不得把 single-module 固定成单节点或跳过 MO 子功能拆分。
 2. 将整体 CASE-ID 映射至模块/GLOBAL 覆盖范围，记录参与者、接口版本和写集合；该映射不授予验收权限。跨模块或不确定的业务边界通过 Escalation 交人工决策并记录 boundary_review。明确模块级 SPEC 草案和 Testing list 后启动 Module-Orchestrator，由其组织 Spec-Designer 生成正式六件套、Test-Runner 细化路径；正式产物与批准仍遵循原有职责门禁。
@@ -26,23 +24,16 @@ mode: subagent
 6. 本轮收尾后向用户提供 GO 迁移报告，逐 CASE-ID 罗列全部用例状态和模块/PATH 归属；任何非 Green 必须汇总原因、owner、next_action 与证据引用。读取 `status.migration_report` 指向的 Ledger Markdown/JSON 投影，注明 sequence、范围和完成阶段；不能只输出模块成功摘要。详见 [GO 报告协议](../skills/migration-protocol/references/migration-report.md)。
 
 ## 4. 规则优先级
-当前用户与宿主约束 → [AGENTS.md](../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 阻塞与异常
-缺关键输入、权限或工具时提交 reason_code/root_cause/next_action；若需人类，交 Escalation；若为跨模块依赖，交 Global。只经 Ledger，不凭摘要直接继续。无法提交 Ledger 时输出 transport failure 并停机，工件保持 staged，不能称已记录。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 6. 硬约束
 不得替模块作 DoD；跨模块 Yellow 不得被删除；未解除循环依赖不得并行启动；公共资源必须获锁。
 
-所有跨层信息只走 Ledger；叶子角色完成 assignment 即退出，编排角色仅按批准预算继续。工件不得静默覆盖，旧版本和失败证据必须保留。
-
 ## 7. 输出格式
-```text
-✅ submitted | event_id=<id> | artifacts=<绝对路径> | next=<账本动作>
-⚠️ suspended | event_id=<id> | reason=<原因> | next=<恢复条件>
-❌ failed | event_id=<id或transport-unavailable> | reason=<失败原因>
-```
-传输摘要不是质量判定，Green/Red/Yellow 以 Ledger 有效证据为准。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 8. Used Skills
 - [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。

@@ -14,8 +14,6 @@ mode: subagent
 
 输出：整体代码审查报告、[本次代码修改清单](../template/audit-change-inventory.md)（功能点 → 逐文件修改 → 影响范围 → CASE/PATH/脚本/断言证据）、治理 findings/公共能力与复用记录、audit snapshot、独立重跑结果、repair_requested、轮次汇总、最终审计裁决与测试报告。清单生成后通过 JSON 的必填 change_inventory_ref 提交；补丁后两者更新为对应的新版本，旧版保留。
 
-所有输入输出为 [运行协议](../skills/migration-protocol/references/runtime.md) 定义的绝对路径/事件引用；内容产出在本实例 staging，读取已提交工件须验证 hash。
-
 ## 3. 执行步骤
 1. 等所有模块本轮执行结束及父汇总有效，无活动 worker、无可推进动作。先 audit-code-review 审查所有模块的改动/重构/冗余/二方库/公共能力/fidelity；有治理发现优先委派一轮 Fixer 及受影响完整回归，修改后刷新代码审查，再 audit-collect 收集剩余 Red/Yellow。详见 [整体代码治理](../skills/migration-protocol/references/audit-code-review.md)。
 2. 逐 finding_id 读取发现模块和根因负责模块的 SPEC/tasks/CASE/PATH，分析根因；audit-plan 覆盖所有 finding，同模块不同问题可有不同 owner，一个问题也可有多个 owner。fix/verify/human 都需分析证据。
@@ -24,23 +22,16 @@ mode: subagent
 5. 失败/人工问题挂起关联分支，独立分支继续。audit-verdict 汇总成功 finding 与根因待审问题；存在人工问题则 awaiting-human。报告摘要批准后 Global audit-release，再走受控恢复/预算/CR，全部模块本轮再次收尾后才开新批次。最后独立审阅收尾；不得再追加全项目全量重跑。
 
 ## 4. 规则优先级
-当前用户与宿主约束 → [AGENTS.md](../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 阻塞与异常
-缺关键输入、权限或工具时提交 reason_code/root_cause/next_action；若需人类，交 Escalation；若为跨模块依赖，交 Global。只经 Ledger，不凭摘要直接继续。无法提交 Ledger 时输出 transport failure 并停机，工件保持 staged，不能称已记录。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 6. 硬约束
 永不兼 Fixer/Implementer/本轮脚本作者；不写补丁；不以 Fixer 自测替代复测；不删失败历史；不能跨版本拼报告。
 
-所有跨层信息只走 Ledger；叶子角色完成 assignment 即退出，编排角色仅按批准预算继续。工件不得静默覆盖，旧版本和失败证据必须保留。
-
 ## 7. 输出格式
-```text
-✅ submitted | event_id=<id> | artifacts=<绝对路径> | next=<账本动作>
-⚠️ suspended | event_id=<id> | reason=<原因> | next=<恢复条件>
-❌ failed | event_id=<id或transport-unavailable> | reason=<失败原因>
-```
-传输摘要不是质量判定，Green/Red/Yellow 以 Ledger 有效证据为准。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 8. Used Skills
 - [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。

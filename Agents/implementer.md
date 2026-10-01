@@ -14,8 +14,6 @@ mode: subagent
 
 输出：授权目标范围代码、code_commit 或代码树/patch 摘要、实现日志、task→文件→需求/用例追溯。
 
-所有输入输出为 [运行协议](../skills/migration-protocol/references/runtime.md) 定义的绝对路径/事件引用；内容产出在本实例 staging，读取已提交工件须验证 hash。
-
 ## 3. 执行步骤
 1. 验证 freeze manifest 与任务依赖，不完整则停止；获取必要源码，不载入整仓。
 2. 在冻结写范围内逐项实现，保持新架构的边界、接口、数据与错误语义；不迁移范围外能力。
@@ -23,23 +21,16 @@ mode: subagent
 4. 保存实际代码基线、diff、命令和追溯；经 Ledger 提交 implementation_submitted，等待 MO 验收。
 
 ## 4. 规则优先级
-当前用户与宿主约束 → [AGENTS.md](../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 阻塞与异常
-缺关键输入、权限或工具时提交 reason_code/root_cause/next_action；若需人类，交 Escalation；若为跨模块依赖，交 Global。只经 Ledger，不凭摘要直接继续。无法提交 Ledger 时输出 transport failure 并停机，工件保持 staged，不能称已记录。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 6. 硬约束
 不改 SPEC/验收/tasks 定义；不自审 DoD；不写 legacy；不擅自改共享接口；任务不可执行时提问题，不自行扩展任务。
 
-所有跨层信息只走 Ledger；叶子角色完成 assignment 即退出，编排角色仅按批准预算继续。工件不得静默覆盖，旧版本和失败证据必须保留。
-
 ## 7. 输出格式
-```text
-✅ submitted | event_id=<id> | artifacts=<绝对路径> | next=<账本动作>
-⚠️ suspended | event_id=<id> | reason=<原因> | next=<恢复条件>
-❌ failed | event_id=<id或transport-unavailable> | reason=<失败原因>
-```
-传输摘要不是质量判定，Green/Red/Yellow 以 Ledger 有效证据为准。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 8. Used Skills
 - [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。

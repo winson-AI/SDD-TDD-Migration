@@ -42,4 +42,4 @@ module 核验允许模块投影序号早于全局最新序号，但不得早于�
 ❌ failed | reason=<实际错误>
 ```
 
-运行根须匹配 prepare 固化的 `.sdd-runs/<run_id>`，禁止路径逃逸。旧兼容 run 的只读重放与恢复按 [留存布局](../skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁) 执行，不改写已有证据。
+运行根须匹配 prepare 固化的 `.sdd-runs/<run_id>`，禁止路径逃逸。

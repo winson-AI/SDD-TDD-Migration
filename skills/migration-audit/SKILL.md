@@ -11,7 +11,7 @@ description: 整体代码审查、重构/复用治理委派、独立遗留复核
 ## 2. 核心规约
 等待所有 MO 实现/测试本轮收尾及父汇总，先按 [整体代码治理](../migration-protocol/references/audit-code-review.md) 提交 audit-code-review，核对所有代码改动、冗余、二方库依赖与公共通用能力；委派治理并完成影响范围回归、刷新审查后，再从 Ledger 收集剩余 Red/Yellow。读取对应 SPEC/CASE/PATH/根因，复核并委派必要的一轮 Fixer，修复后 Testing 复核；失败留根因待人工。作者与审计实例分离。
 
-**遍历全部模块不等于重跑全部用例。** 有效且不受影响的 Green 保留证据；global_test_paths 可为空，绝不能阻止审计。执行选择、空清单独立审阅及旧 run 恢复必须遵守 [审计范围协议](../migration-protocol/references/audit-scope.md)。
+**遍历全部模块不等于重跑全部用例。** 有效且不受影响的 Green 保留证据；global_test_paths 可为空，绝不能阻止审计。执行选择、空清单独立审阅必须遵守 [审计范围协议](../migration-protocol/references/audit-scope.md)。
 
 所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
 
@@ -31,9 +31,9 @@ description: 整体代码审查、重构/复用治理委派、独立遗留复核
 
 整体代码审查必须输出 [本次代码修改清单](../../template/audit-change-inventory.md)，覆盖全模块功能、逐文件前后路径/修改内容、真实影响范围及 CASE/PATH/脚本/断言映射；审查 JSON 必须以 change_inventory_ref 引用该版清单。测试状态读取 Ledger；未定义/未执行/过期如实记录，代码治理后刷新清单及审查版本。
 
-本地非 Green 审计产生 audit_repairs，由 Global 路由、MO 接受重开；下一轮保留 audit_results 的非 Green retest_of 链。详见 [控制流闭环](../migration-protocol/references/local-runtime.md#控制流闭环修订)。
+本地非 Green 审计产生 audit_repairs，由 Global 路由、MO 接受重开；下一轮保留 audit_results 的非 Green retest_of 链。详见 [控制流闭环](../migration-protocol/references/state-machine.md#控制流闭环细则)。
 
-默认收尾扫描全部模块，使用 audit-collect/audit-plan/audit-route-batch/audit-work/audit-retest/audit-verdict；失败问题及依赖下游生成 audit-reports/<batch-id>.md/json 待人工，独立分支继续；汇总后由批准的 audit-release 进入受控恢复。problem-* 只保留兼容。收尾只复核待验证清单；清单为空则独立 audit-review，不启动自动化。详见 [当前运行契约](../migration-protocol/references/local-runtime.md)。
+默认收尾扫描全部模块，使用 audit-collect/audit-plan/audit-route-batch/audit-work/audit-retest/audit-verdict；失败问题及依赖下游生成 audit-reports/<batch-id>.md/json 待人工，独立分支继续；汇总后由批准的 audit-release 进入受控恢复。problem-assign/problem-audit 仅用于闭包提前审计。收尾只复核待验证清单；清单为空则独立 audit-review，不启动自动化。详见 [当前运行契约](../migration-protocol/references/local-runtime.md)。
 
 按 finding_id 路由，支持不同问题分别修复及单问题多 owner；按依赖交错 Testing，不等待全批 owner。宿主实际启动 subagent 与 Used Skills。
 

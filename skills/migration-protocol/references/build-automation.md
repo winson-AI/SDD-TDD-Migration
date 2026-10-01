@@ -1,5 +1,9 @@
 # Test-Runner：编译构建、功能自动化与基线视觉对齐分段执行
 
+## 总则
+
+Test-Runner 在 Coding 接受后先编译构建，随后在同一派发内运行逻辑单测，再做静态规格闭合审查（逐需求核对生产符号与假实现清单，见 [静态规格闭合](testing.md#静态规格闭合)），然后执行自动化测试；构建命令优先用户指定，否则全目标搜索脚本并默认评估 Gradle assemble。构建/真实用例错误记录三态与根因，修复仍由 Fixer。仅自动化环境不可启动时，保留当前构建 Green，逐用例记录 Yellow/未执行，经 automation-unavailable 进入 automation-deferred；独立任务及依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复。全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。本节细化既有“缺条件挂起”规则，不允许跳过构建或吞掉已观察到的 Red。
+
 ## 1. 职责与全局规则
 
 Test-Runner 同一角色承担三个执行环节：**构建验证**、**功能用例自动化验证**，以及（存量可预览时）**基线视觉对齐**。顺序由 `test_validation.next_scope` 强制：build → automation → visual，visual 需当前 automation Green；DoD 要求全部适用的冻结路径 Green。无 runtime UI 时不添加空 visual 路径。视觉对齐使用普通测试路径及单独 scope/assignment（绑定 `node_ids` + `baseline_ref`），不另设修复循环；不对齐即 Red + 节点级根因，走既有诊断→一轮 Fixer。详见 [UI 保真控制道](ui-fidelity.md)。可由不同实例执行，但身份、assignment 和证据各自绑定。Test-Runner 负责执行、三态和问题报告；源码/构建配置修复仍由 Diagnostician → MO → Fixer 完成，不能自己兼任 Fixer。Auditor 保持独立。
@@ -47,7 +51,7 @@ Coding 接受 → Test-Runner building 预检 → 编译构建
 
 ## 3. 冻结路径与分阶段证据
 
-新运行要求 `split_testing_required=true`；每个执行叶子的 stage-plan.paths 必须同时包含 `kind=build` 和 `kind=automation`，ID 全局唯一。build 是技术门禁 PATH，关联现有模块 REQ/CASE/TASK，不计作业务测试用例通过。
+构建/自动化拆分是必选门禁：每个执行叶子的 stage-plan.paths 必须同时包含 `kind=build` 和 `kind=automation`，ID 全局唯一。build 是技术门禁 PATH，关联现有模块 REQ/CASE/TASK，不计作业务测试用例通过。
 
 覆盖门禁同时要求每个已分配 CASE 至少关联一个 automation PATH；不得只给某 CASE 关联 build PATH 来满足整体 CASE 映射。模块边界和 uv 执行方式见 [Harmony sandbox README](../../migration-test/runtime/harmony/README.md)。
 
@@ -88,7 +92,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 ## 6. 实现边界
 
-新 init 默认启用拆分，prepare 强制启用；显式低层 split_testing_required=false 不能据此宣称完成拆分流程。脚本不自动安装 SDK、创建设备、发放账号或证明命令确实覆盖了目标模块；Agent/宿主必须审核范围、环境和真实日志。构建成功只证明该命令通过，不等于业务自动化或复用保真通过。
+脚本不自动安装 SDK、创建设备、发放账号或证明命令确实覆盖了目标模块；Agent/宿主必须审核范围、环境和真实日志。构建成功只证明该命令通过，不等于业务自动化或复用保真通过。
 
 若最终 Auditor 环境可用且对原缺测模块的 Yellow 自动化路径真实复测 Green（当前已通过构建证据保留），Ledger 将审计结果关联回模块并进入 dod，由 MO 完成管理性 DoD/父汇总；测试验收 owner 仍是 Auditor，不要求再跑同一轮测试或再次会签。原 Yellow 通过 retest_of/module_retest_of 保留追溯。
 

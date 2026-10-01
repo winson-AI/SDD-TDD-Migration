@@ -2,6 +2,10 @@
 
 在子 MO 规划实现阶段，为**四维中 UI/Logic/Resource 的 applicable item** 附一层机器可读、AI 易理解、跨平台解析的语义模型，作为全局视角下的抽象输出。它不新建平行体系：模型挂在四维 item 上，随四维分析一起归档、冻结，并沿既有 `item → TASK → PATH → ASSERT` 追溯，**任务驱动**。校验器 [semantics.py](../../migration-ledger/scripts/semantics.py) 只做结构门禁，语义正确性仍由 Agent 审查（与 [dimensions.py](../../migration-ledger/scripts/dimensions.py) 同原则）。
 
+## 总则
+
+子 MO 规划实现时，可为 UI/Logic/Resource 的 applicable item 附机器可读语义模型（UI=JSON Component Spec、Logic=Statechart+JSON-Logic、Resource=Design Tokens/ICU），记录抽象结果/来源/实现位置，随四维分析结构门禁校验并 hash 冻结、投影为 `semantics.md` 供下游读取；presence-triggered、任务驱动，`new` 策略基于目标项目创建。
+
 ## 层与 schema
 
 | 维度 | `kind` | schema | 条件表达式 |

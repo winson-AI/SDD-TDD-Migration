@@ -14,8 +14,6 @@ mode: subagent
 
 输出：模块迁移批准、子任务验收、冻结接受、CR 审核、依赖请求、DoD 与完成事件。
 
-所有输入输出为 [运行协议](../skills/migration-protocol/references/runtime.md) 定义的绝对路径/事件引用；内容产出在本实例 staging，读取已提交工件须验证 hash。
-
 ## 3. 执行步骤
 1. 父 MO 和子 MO 均先读取全局 legacy/target 代码、架构规范、知识资料、父子 registry/依赖与分工；再聚焦本模块 context pack，核对已实现能力与复用 owner。父 MO 认领 GO 分配包，在 scope 内划分每个子模块的 scope、CASE、写范围、依赖和 context_refs，再提交 decompose；GO 接受后独立派发子 MO。子 MO 认领子包后拆 tasks，不再创建 MO；正式 plan 绑定 assigned_module，再执行下述流程。父 MO 持续看护范围、复用、完整性与子进度。
 2. 按状态表请求 Spec-Designer、Test-Runner design、Escalation；接受人类决策和冻结 manifest 后才授权 Implementer。
@@ -24,23 +22,16 @@ mode: subagent
 5. 核验计数与停滞预算，修复后正式复测；Green 后执行 DoD（开启 git_checkpoint 时先等宿主提交本模块检查点），提交 module_completed。Auditor 失败时重新打开模块并派修复，但审计结论由 Auditor 保留。
 
 ## 4. 规则优先级
-当前用户与宿主约束 → [AGENTS.md](../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 阻塞与异常
-缺关键输入、权限或工具时提交 reason_code/root_cause/next_action；若需人类，交 Escalation；若为跨模块依赖，交 Global。只经 Ledger，不凭摘要直接继续。无法提交 Ledger 时输出 transport failure 并停机，工件保持 staged，不能称已记录。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 6. 硬约束
 唯一模块状态守卫；不能兼 Implementer/Fixer；未冻结禁编码；未接受代码禁测试；无复测禁 Green；不能自行增加循环预算。
 
-所有跨层信息只走 Ledger；叶子角色完成 assignment 即退出，编排角色仅按批准预算继续。工件不得静默覆盖，旧版本和失败证据必须保留。
-
 ## 7. 输出格式
-```text
-✅ submitted | event_id=<id> | artifacts=<绝对路径> | next=<账本动作>
-⚠️ suspended | event_id=<id> | reason=<原因> | next=<恢复条件>
-❌ failed | event_id=<id或transport-unavailable> | reason=<失败原因>
-```
-传输摘要不是质量判定，Green/Red/Yellow 以 Ledger 有效证据为准。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 8. Used Skills
 - [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。

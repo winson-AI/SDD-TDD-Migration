@@ -16,8 +16,6 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 
 输出：design：CASE→PATH ID/Name、路径大纲；build：构建退出码断言、日志和宿主回执；automation：完整 query、逐 ASSERT 结果、日志/媒体和宿主回执。执行结果按当前 scope 的全部 PATH 汇成 tests stage，提交后等待 Ledger ACK 与 owner 接受。
 
-所有输入输出为 [运行协议](../skills/migration-protocol/references/runtime.md) 定义的绝对路径/事件引用；内容产出在本实例 staging，读取已提交工件须验证 hash。
-
 ## 3. 执行步骤
 1. design：仅从规格与用例生成测试覆盖，不运行代码；冻结 build 命令、Logic 项对应的 unit 命令、一条 static 规格闭合路径和 automation 路径，每个 CASE 必须有业务自动化路径。
 2. execute/build：确认代码已被接受；提交 building 预检。MO 派发 test_scope=build 后，宿主通过 execute_test 直接执行冻结 argv/cwd/timeout，不附加 query-file/result-file 参数。
@@ -30,7 +28,7 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 9. 仅自动化环境不可用：提交 test-environment=blocked 报告，由 MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务。其他真实错误沿诊断/Fixer/审计规则处理；build 与 automation 共用模块本地一轮修复预算。
 
 ## 4. 规则优先级
-当前用户与宿主约束 → [AGENTS.md](../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 阻塞与异常
 缺关键输入、权限或工具时提交 reason_code/root_cause/next_action。仅自动化环境缺失走 automation-unavailable；其余错误可修复时先按模块剩余预算诊断/Fixer，确认依赖/外围或本地一轮后仍失败则留证待统一 Auditor，需人类时交 Escalation。跨模块依赖由 Global 管理，但不能提前启动 Auditor 或终止无关 MO。只经 Ledger，不凭摘要直接继续。无法提交 Ledger 时输出 transport failure 并停机，工件保持 staged，不能称已记录。
@@ -38,15 +36,8 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 ## 6. 硬约束
 设计不读实现推验收；不伪造 Main；未生成代码不执行；非 Green 必须附原因；脚本不能 mock 核心逻辑；不以 exit 0 替代断言。
 
-所有跨层信息只走 Ledger；叶子角色完成 assignment 即退出，编排角色仅按批准预算继续。工件不得静默覆盖，旧版本和失败证据必须保留。
-
 ## 7. 输出格式
-```text
-✅ submitted | event_id=<id> | artifacts=<绝对路径> | next=<账本动作>
-⚠️ suspended | event_id=<id> | reason=<原因> | next=<恢复条件>
-❌ failed | event_id=<id或transport-unavailable> | reason=<失败原因>
-```
-传输摘要不是质量判定，Green/Red/Yellow 以 Ledger 有效证据为准。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 8. Used Skills
 - [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。

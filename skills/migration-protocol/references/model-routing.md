@@ -2,6 +2,10 @@
 
 弱推理任务（执行命令、采集与比对观察结果）走**低成本模型**；强推理任务（切片/四维/语义设计、根因、裁决）走**配置的强模型**。控制器不派发 Agent、不调模型，因此它只**建议档位（tier）并在游标上暴露**、**禁止把强推理步骤降级到低成本模型**、并**留存宿主实际调用的模型**供排查；宿主解析 tier→model 并 dispatch。策略见 [model_routing.py](../../migration-ledger/scripts/model_routing.py)。
 
+## 总则
+
+派发用哪个模型由宿主决定，但控制器给出档位建议并留痕：`status.next_steps[].model_tier` 建议弱推理步（执行/观察）用低成本模型、强推理步（设计/根因/裁决）用配置强模型；strong-only 步骤禁止降级；宿主把实际模型回填 `assign`/`session` payload，投影到 `ledger/model-usage.json` 供排查。
+
 ## 配置（project-context 的 `runtime.model_routing`）
 
 ```jsonc

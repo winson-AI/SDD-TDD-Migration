@@ -1,5 +1,9 @@
 # UI → Logic → Adhesive → Resource 完整性协议
 
+## 总则
+
+GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 scope 后再按 UI → Logic → Adhesive → Resource 核查源闭包、架构、二方库和目标已有能力；适用项逐层映射到子功能、TASK/PATH/ASSERT，不适用项记录依据。
+
 ## 1. 范围与方法
 
 **先划分范围，再做该范围的四维分析；划分决定负责什么，四维分析直接指导如何实现。** 三层固定顺序：
@@ -45,14 +49,14 @@ Resource 指应用资源；原 Dependencies / Resources 中的文件锁、设备
 
    全量检查保留于本节点；运行派发只遍历当前模块、其实际依赖链与父级分配，不让无关模块的四维证据损坏阻塞当前工作。invalidate 后若认领分配本身失效，返回 GO 分配审查；若仅旧任务/实现证据失效，保留历史后重新 plan。详见 [恢复协议](progress-recovery.md)。
 4. **子 MO + Spec-Designer / plan → freeze**：认领子模块并读取其实现、四维分析与上下文 → 划分具体 tasks.scope → 对每个任务生成 tasks[].dimension_analysis，明确四维如何影响代码/接线/资源与测试；发现上游遗漏先请求父/GO 调整，不能把适用项改 N/A。stage-plan.dimension_analysis_ref 必须等于认领引用，dimension_trace 完整覆盖所有 item，关联 TASK/PATH/ASSERT；每个 task 有维度归属、全部分配 CASE 有行为测试路径，构建不能代替行为断言。跨维度任务允许，避免为四维制造空任务。design/spec/tasks 保留 item ID；MO 在冻结检查审阅文本与机器索引语义一致性。
-5. **Implementer/Fixer / submit → MO accept**：按冻结任务 scope 及任务四维 implementation 指导交付；task_trace 的文件必须位于对应 task.scope.write_paths，不能仅凭处于模块范围内就跨任务修改。implementation.dimension_evidence 按 item 列 task_ids、summary、evidence_refs；Resource 再提交真实 target_resource_ref、consumer_refs（逐消费者文件 hash，可为未修改的复用文件；兼容旧单值 consumer_ref）。这证明实现/接线有依据，不代表测试已通过。已接受的维度证据及资源/消费者引用在后续测试、DoD 和状态读取继续核验；即使复用文件未出现在本模块改动列表，其证据失效也不能沿用 Green。
+5. **Implementer/Fixer / submit → MO accept**：按冻结任务 scope 及任务四维 implementation 指导交付；task_trace 的文件必须位于对应 task.scope.write_paths，不能仅凭处于模块范围内就跨任务修改。implementation.dimension_evidence 按 item 列 task_ids、summary、evidence_refs；Resource 再提交真实 target_resource_ref、consumer_refs（逐消费者文件 hash，可为未修改的复用文件）。这证明实现/接线有依据，不代表测试已通过。已接受的维度证据及资源/消费者引用在后续测试、DoD 和状态读取继续核验；即使复用文件未出现在本模块改动列表，其证据失效也不能沿用 Green。
 6. **Test-Runner → MO DoD → 父汇总 → Auditor**：继续先 build、装机、automation，测试执行使用已冻结路径/断言而非从实现临时降低标准。DoD 检查四维追溯的完整实现与正式测试证据；父 MO 汇总全体子 item 覆盖及遗留。Auditor 仍等全体 MO 收尾，仅复核遗留/受影响范围，读取其四维依据定位遗漏、接线或资源缺陷。自动化环境不可用仍 Yellow 缺测，不阻断无关任务，也不宣称 fidelity 通过。
 
 ## 5. OpenSpec 与运行兼容
 
 `dimension_analysis_ref`、`dimension_trace`、`tasks[].scope` 和 `tasks[].dimension_analysis` 一起纳入 stage-plan 摘要和冻结；design 解释逐维差异、复用与接线，spec 给出应保留的可观察行为，tasks 给出实现/验证责任，checklist 验收覆盖。Ledger 将模块分析、任务 scope/四维分析及追溯物化为 `change/dimensions.md`，它是六件套的辅助索引，不是第二份可修改需求或状态源。登记后分配引用不可就地覆盖；范围/分配发现错误须保留旧运行证据并重新规划新 run，既有叶子 tasks 调整按 CR 与重新冻结。
 
-新 Ledger init 默认 `dimension_slicing_required=true`；project-context prepare 固化开启且不允许关闭。历史 run 缺少该字段保持原合同；直接 init 显式 false 仅用于旧格式兼容/隔离测试，不能用于宣称满足本协议的新迁移。即使旧 run 提交了分析引用，该引用及相关门禁仍会校验。
+四维分析是必选门禁，prepare 固化且不可关闭。
 
 脚本验证顺序、N/A 证据、hash、父子覆盖、TASK/PATH/ASSERT 追溯及实现证据；**无法自动证明 Agent 已读完源码或每项业务语义完整**。GO、父 MO、Spec-Designer/子 MO 的源码审阅和正式 Main 测试必须真实执行，不能用结构通过代替语义验收。
 
@@ -75,7 +79,7 @@ GO 先从功能清单划定“搜索”模块 scope，再在 UI 记录搜索框/
 
 例如“提交查询”子模块先拆出“参数校验”和“按钮事件接线”任务，再分别四维分析。前者 Logic 指导校验规则、错误类型与边界值测试，UI/Resource 可有依据地 N/A；后者按实际职责分析 UI 状态/事件及 Adhesive 的处理器接线。任务分析描述实际实现决策，模块级条目映射仅作为继承与覆盖索引。
 
-当前运行若已有早期四维 plan、尚无任务级分析，须通过正常 plan/CR 补齐并重新冻结；不改写旧事件或伪造旧批准。历史无四维合同的 run 仍按原兼容规则处理。结构校验能绑定范围和证据，真实阅读/决策的先后顺序仍需编排角色遵守。
+结构校验能绑定范围和证据，真实阅读/决策的先后顺序仍需编排角色遵守。
 
 ## 埋点跨四维的条件分析
 
