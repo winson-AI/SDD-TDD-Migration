@@ -1,4 +1,4 @@
-"""Build, static spec closure, functional automation and baseline visual alignment are separate Test-Runner stages."""
+"""Build, unit tests, static spec closure, functional automation and baseline visual alignment are Test-Runner stages."""
 import copy
 from pathlib import Path
 
@@ -12,7 +12,7 @@ def split(m):
 
 
 def paths(m, scope):
-    """Stages are build -> static (spec closure) -> automation (functional cases) -> visual (baseline node alignment)."""
+    """Stages are build -> unit (logic) -> static (spec closure) -> automation (functional) -> visual (alignment)."""
     return [p for p in m['plan']['paths'] if (p.get('kind') or 'automation') == scope]
 
 
@@ -29,9 +29,14 @@ def _green_at_baseline(m, scope):
                for p in paths(m, scope))
 
 
+def unit_ready(m):
+    """The current build compiled and its frozen unit tests passed (vacuous without unit paths)."""
+    return bool(build_ready(m) and _green_at_baseline(m, 'unit'))
+
+
 def static_ready(m):
-    """The current build compiled and its frozen spec closure review passed (vacuous without static paths)."""
-    return bool(build_ready(m) and _green_at_baseline(m, 'static'))
+    """Unit tests passed and the frozen spec closure review passed (vacuous without static paths)."""
+    return bool(unit_ready(m) and _green_at_baseline(m, 'static'))
 
 
 def functional_ready(m):
@@ -45,6 +50,8 @@ def next_scope(m):
         return None
     if not build_ready(m):
         return 'build'
+    if not unit_ready(m):
+        return 'unit'
     if not static_ready(m):
         return 'static'
     if paths(m, 'visual') and functional_ready(m):
@@ -84,10 +91,24 @@ def can_defer(m):
                    for r in m['results'].values())
 
 
-def plan_check(plan, target, static_required=False):
+def plan_check(plan, target, static_required=False, unit_required=False):
     builds = [p for p in plan['paths'] if p.get('kind') == 'build']
     require(builds and len(builds) < len(plan['paths']), 'split testing requires build and automation paths')
-    require(all(p.get('kind') in ('build', 'static', 'automation', 'visual') for p in plan['paths']), 'test path kind required')
+    require(all(p.get('kind') in ('build', 'unit', 'static', 'automation', 'visual') for p in plan['paths']), 'test path kind required')
+    units = [p for p in plan['paths'] if p['kind'] == 'unit']
+    if unit_required and plan.get('dimension_analysis_ref'):
+        # Logic gets device-free evidence: each applicable item maps to a unit PATH or states why not.
+        from contracts import read_json
+        analysis = read_json(check_ref(plan['dimension_analysis_ref']))
+        logic = [item['item_id'] for row in analysis.get('dimensions', []) if row.get('dimension') == 'Logic'
+                 and row.get('status') == 'applicable' for item in row.get('items', [])]
+        traces = {t.get('item_id'): t for t in plan.get('dimension_trace', [])}
+        unit_ids = {p['path_id'] for p in units}
+        for iid in logic:
+            trace = traces.get(iid, {})
+            reason = trace.get('unit_test_na')
+            require(unit_ids.intersection(trace.get('path_ids', [])) or (isinstance(reason, str) and reason.strip()),
+                    'unit_tests_required: Logic item needs a unit PATH or unit_test_na reason: ' + iid)
     statics = [p for p in plan['paths'] if p['kind'] == 'static']
     require(not static_required or len(statics) == 1, 'spec_closure_required: plan one static spec-closure PATH')
     requirements = sorted({r for t in plan.get('tasks', []) for r in t.get('requirement_ids', [])})
@@ -105,7 +126,7 @@ def plan_check(plan, target, static_required=False):
         require(all(isinstance(n, str) and n.startswith('node:') for n in nodes),
                 'visual path node_ids must be stable node:<id> references')
         check_ref(path.get('baseline_ref'))
-    for path in builds:
+    for path in builds + units:
         command = path.get('command', {})
         require(isinstance(command.get('argv'), list) and command['argv'] and
                 all(isinstance(a, str) and a for a in command['argv']) and Path(command['argv'][0]).is_absolute(),

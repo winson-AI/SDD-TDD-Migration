@@ -124,7 +124,7 @@ class SpecClosureTests(unittest.TestCase):
     def test_automation_waits_for_static_review(self):
         f = self.f; self.built()
         ref = f.record(f.report('testing'))
-        with self.assertRaisesRegex(Rejected, 'worker still active|build -> static -> automation -> visual'):
+        with self.assertRaisesRegex(Rejected, 'worker still active|build -> unit -> static -> automation -> visual'):
             f.raw('assign', {'assignment_id': 'EARLY', 'role': 'test-runner', 'instance_id': 'test-runner',
                              'test_scope': 'automation', 'context_ref': ref})
 

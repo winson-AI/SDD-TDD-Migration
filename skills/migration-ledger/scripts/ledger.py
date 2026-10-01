@@ -636,7 +636,7 @@ def assign_worker(s, m, mid, p, events):
         require(p.get('instance_id') != s['audit_batch']['auditor_instance_id'], 'Auditor cannot implement or author verification')
     dispatch_guard(s, m, p['role'])
     if p['role'] == 'test-runner' and tv.split(m):
-        require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> static -> automation -> visual')
+        require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> unit -> static -> automation -> visual')
     if p['instance_id'] not in m['authors']:
         m['authors'].append(p['instance_id'])
     if p['role'] in ('implementer', 'fixer'):
@@ -740,7 +740,8 @@ def mutate(s, req, principal, events, root=None):
             decomposition.check_module_plan(s, m, plan)
         plan_hash = validate_plan(plan, m)
         if s.get('split_testing_required') or any(path.get('kind') == 'build' for path in plan['paths']):
-            tv.plan_check(plan, s['target_root'], static_required=s.get('spec_closure_required', False))
+            tv.plan_check(plan, s['target_root'], static_required=s.get('spec_closure_required', False),
+                          unit_required=s.get('unit_tests_required', False))
         if m.get('parent_module_id') or s.get('reuse_required') or plan.get('reuse_plan_ref'):
             reuse.validate_plan(plan, m, reuse.sources(s), s['modules'], s['legacy_root'])
         occupied = {path['path_id'] for path in s['global_paths']}
@@ -824,12 +825,12 @@ def mutate(s, req, principal, events, root=None):
                     m['build_artifacts'] = [ref for row in result['paths'] if row['quality'] == 'green-passed'
                                             for ref in row.get('build_artifacts', [])]
                     m['build_baseline'] = m['code_baseline'] if all(x['quality'] == 'green-passed' for x in result['paths']) else None
-                elif assignment.get('test_scope') != 'static' or any(x['quality'] != 'green-passed' for x in result['paths']):
+                elif assignment.get('test_scope') not in ('unit', 'static') or any(x['quality'] != 'green-passed' for x in result['paths']):
                     m.pop('automation_retry_ready', None)
             else:
                 m['results'] = {x['path_id']: x for x in result['paths']}
-            # Build and static review are pre-functional gates: judge only their own paths.
-            build_only = tv.split(m) and assignment.get('test_scope') in ('build', 'static')
+            # Build, unit tests and static review are pre-functional gates: judge only their own paths.
+            build_only = tv.split(m) and assignment.get('test_scope') in ('build', 'unit', 'static')
             bad = sorted(x['path_id'] for x in result['paths'] if x['quality'] != 'green-passed') if build_only else sorted(k for k,v in m['results'].items() if v['quality'] != 'green-passed')
             if build_only and not bad:
                 m['automation_retry_ready'] = True
@@ -841,11 +842,11 @@ def mutate(s, req, principal, events, root=None):
             m.update(stale=False, phase='dod' if tv.all_green(m) else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
             audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only,
                                         stage=assignment.get('test_scope') or 'build')
-            if (assignment.get('test_scope') == 'build' and not bad and assignment.get('role') == 'test-runner'
-                    and tv.paths(m, 'static') and tv.next_scope(m) == 'static'):
-                # The static review needs no device: the same Test-Runner continues under its building
-                # preflight (which pre-approved the static command); MO still accepts the static result.
-                assignment.update(closed=False, test_scope='static')
+            if (assignment.get('test_scope') in ('build', 'unit') and not bad and assignment.get('role') == 'test-runner'
+                    and tv.next_scope(m) in ('unit', 'static')):
+                # Unit tests and the static review need no device: the same Test-Runner continues under its
+                # building preflight (which pre-approved their commands); MO still accepts each result.
+                assignment.update(closed=False, test_scope=tv.next_scope(m))
                 m['submissions'].pop(aid, None)
     elif op == 'diagnose':
         role(principal, 'diagnostician', 'fixer')
@@ -1190,12 +1191,13 @@ def _apply(root, req, principal):
             require(type(p.get('context_readiness_required', True)) is bool, 'context_readiness_required must be boolean')
             require(type(p.get('ui_fidelity_required', False)) is bool, 'ui_fidelity_required must be boolean')
             require(type(p.get('spec_closure_required', False)) is bool, 'spec_closure_required must be boolean')
+            require(type(p.get('unit_tests_required', False)) is bool, 'unit_tests_required must be boolean')
             require(type(p.get('git_checkpoint', False)) is bool, 'git_checkpoint must be boolean')
             require(type(p.get('fixer_self_diagnosis', False)) is bool, 'fixer_self_diagnosis must be boolean')
             require(type(p.get('dependency_resolution_required', False)) is bool, 'dependency_resolution_required must be boolean')
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
             require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
-            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'spec_closure_required': p.get('spec_closure_required', False), 'git_checkpoint': p.get('git_checkpoint', False), 'fixer_self_diagnosis': p.get('fixer_self_diagnosis', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
+            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'spec_closure_required': p.get('spec_closure_required', False), 'unit_tests_required': p.get('unit_tests_required', False), 'git_checkpoint': p.get('git_checkpoint', False), 'fixer_self_diagnosis': p.get('fixer_self_diagnosis', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
                  'reuse_sources': reuse_sources, 'reuse_required': bool(reuse_sources) or p.get('reuse_required', False),
                  'entry_mode': entry_mode, 'single_module_id': selected_module,
                  'global_spec': p['global_spec'], 'new_architecture': p['new_architecture'], 'requirement_ids': p['requirement_ids'],

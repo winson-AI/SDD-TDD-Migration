@@ -112,7 +112,7 @@ def verify_plan(plan, module=None):
     for ref in plan['definitions']:
         check_ref(ref)
     for path in plan['paths']:
-        if path.get('kind') == 'build':
+        if path.get('kind') in ('build', 'unit'):
             check_ref(path['command']['selection_ref'])
         if path.get('visual_execution') is not None:
             execution = path['visual_execution']
@@ -209,9 +209,10 @@ def validate_result(result, module, assignment, run_root=None):
     import test_validation as tv
     if tv.split(module) and assignment.get('role') == 'test-runner':
         scope = assignment.get('test_scope')
-        require(scope in ('build', 'static', 'automation', 'visual'), 'test scope required')
+        require(scope in ('build', 'unit', 'static', 'automation', 'visual'), 'test scope required')
         require(scope == 'build' or tv.build_ready(module), 'build must pass before automation')
-        require(scope in ('build', 'static') or tv.static_ready(module), 'static spec review must pass before automation')
+        require(scope != 'static' or tv.unit_ready(module), 'unit tests must pass before the static review')
+        require(scope in ('build', 'unit', 'static') or tv.static_ready(module), 'static spec review must pass before automation')
         require(scope != 'visual' or tv.functional_ready(module), 'functional tests must pass before visual')
         planned = {p['path_id']: p for p in tv.paths(module, scope)}
     require(set(tests) == set(planned), 'result must account for every required path')
@@ -255,7 +256,7 @@ def validate_result(result, module, assignment, run_root=None):
         else:
             captured = read_json(check_ref(receipt.get('result_ref')))
         require(record.get('executed') is True, 'execution evidence required')
-        if planned[pid].get('kind') == 'build':
+        if planned[pid].get('kind') in ('build', 'unit'):
             expected_argv = planned[pid]['command']['argv']
             if receipt.get('storage_command_version') == 1:
                 from runner_storage import build_command

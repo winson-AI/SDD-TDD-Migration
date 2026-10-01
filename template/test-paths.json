@@ -32,6 +32,33 @@
       }
     },
     {
+      "path_id": "UNIT-M001-001",
+      "kind": "unit",
+      "name": "逻辑聚焦单测",
+      "case_id": "CASE-GLOBAL-001",
+      "requirement_id": "REQ-M001-001",
+      "required": true,
+      "expected_assertions": [
+        {
+          "assertion_id": "ASSERT-UNIT-M001-EXIT",
+          "expected": 0
+        }
+      ],
+      "command": {
+        "argv": [
+          "/bin/sh",
+          "{{absolute-target-root}}/gradlew",
+          "{{module-unit-test-task}}"
+        ],
+        "cwd": "{{absolute-target-root}}",
+        "timeout_seconds": 900,
+        "selection_ref": {
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{unit-test-selection-report}}",
+          "sha256": "{{sha256}}"
+        }
+      }
+    },
+    {
       "path_id": "STATIC-M001-001",
       "kind": "static",
       "name": "规格闭合静态审查",
