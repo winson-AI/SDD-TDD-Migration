@@ -22,10 +22,10 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 |
 | --- | ---: |
-| migration-ledger/tests | 626 |
+| migration-ledger/tests | 653 |
 | migration-test/tests | 47 |
 | runtime/harmony/tests | 128 |
-| 合计 | **801** |
+| 合计 | **828** |
 
 全部无失败、无跳过。适配器夹具仍有既有 engine.log ResourceWarning，不影响断言。
 
@@ -36,7 +36,13 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 冻结与理解门禁 | 未冻结编码、代码未接受即测试、批准 hash 不符、源码未决/目标可行性 unknown 均拒绝 |
 | 变更 | Fixer 越权改 SPEC 拒绝；边界内任务修订可重新冻结；改变验收不能沿用批准 |
 | 结果与复测 | 空/遗漏断言、伪装 Green、篡改原始报告拒绝；非 Green 复测需新 test_run_id/retest_of，代码变化拒收旧结果 |
-| 真实闭环 | 子进程 Red → 诊断 → Fixer → 正式复测 → 模块 Green；本地修复一轮未过转 waiting-auditor |
+| 真实闭环 | 子进程 Red → 诊断 → Fixer → 正式复测 → 模块 Green；本地修复一轮未过转 waiting-auditor；`local_fix_rounds` 额外轮次只给仍是 build 的失败，业务失败照常交 Auditor |
+| 作者自检与会话 | 实现/修复结果缺 authoring_diagnostics、诊断无日志或版本敏感 API 无固定源码引用均拒收；本地修复游标指向原 Implementer 会话 |
+| 静态规格闭合 | build → static → automation 顺序；审查需覆盖全部冻结需求、引用目标文件中真实存在的符号、逐项判定假实现清单；反模式 present 为 Red 并进入修复；prepared run 必须冻结 static PATH |
+| 阅读卡 | 每个角色/阶段/UI/复用组合的卡片引用真实小节、包含四条红线且不超过 60KB；游标步骤携带 must_read |
+| 轻量叶子与批量信封 | lean_leaf 登记需 scope/context/不可再拆审阅；本地轮由 Fixer 自诊断、普通模块拒绝；批量信封绑定文件 hash 与父的孩子，条目完全匹配且 MO 附 review_ref 才冻结 |
+| 变体冲突 | runtime-spec-variant-conflict 规范化为确认的 human 根因，游标给出 suspend(kind=human)，拒绝派发 Fixer |
+| Git 检查点 | 仅在运行分支提交模块文件、既有脏文件不暂存、重复执行复用 HEAD；伪造 blob 被 Ledger 拒绝；开启后无检查点不能 complete |
 | 独立审计 | 实现者/修复者/测试作者不能兼任 Auditor；审计只复核遗留并按依赖补回归 |
 | 事件与恢复 | 同请求幂等、同 ID 改内容拒绝、过期 revision 拒绝、并发 CAS 单赢家；投影崩溃可重放、伪改投影无效 |
 | 依赖/锁/身份 | 未完成生产者不放行；重叠写路径拒绝并行；revoke 后旧 worker 拒收；会话替换需 checkpoint |
