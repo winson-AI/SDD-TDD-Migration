@@ -17,7 +17,7 @@
 - **接线后核对**：Implementer/Fixer/Test-Runner/Auditor 用 foundation-verify 对照本轮 resolution 与 target_root 内真实 TOML version catalog 的坐标版本，保存核对结果；版本一致不代替编译、链接、HAP 或设备测试。
 - **权限与留存**：四个知识操作只读，需宿主认证角色与有效 run 快照，不要求执行 assignment；只写本 run 的 staging/request/result/receipt 工件，不提交 Ledger、不增加生命周期门禁。触发读取与阶段提交仍由原角色执行。
 
-## 2. 依赖决策阶梯（已实现，代码）
+## 2. 依赖决策阶梯
 
 [dimensions.py](../../migration-ledger/scripts/dimensions.py) 的 `target_strategy` 在 `reuse/adapt/reference/new` 之外新增：
 
@@ -28,11 +28,11 @@
 
 决策优先级：复用已证兼容的目标实现 → `subclosure-port` → `capture-fixture`；不得为易运行而静默替换内容提供方。
 
-## 3. 澄清纪律（协议）
+## 3. 澄清纪律
 
 澄清门只问**不可逆的用户产品决策**（如两个变体取哪个、范围取舍、语义变更）；不问可从源码/目标/SDK/Foundation/capture 查得的事实。融入 [上下文就绪](context-readiness.md) 与 boundary_review：能查证的先查证，人工门只留真正需人裁决项——降低人工门噪音、避免"凭想象"补空。
 
-## 4. Git 纪律（协议）
+## 4. Git 纪律
 
 宿主按项目约定与用户授权归档/合并；SDD 领域工具不自动提交或合并。唯一例外是显式开启的模块检查点（见下文），它只提交本模块已接受的文件：
 

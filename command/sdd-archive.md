@@ -39,4 +39,4 @@ status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接
 
 ## 本地实现接入
 
-宿主 OpenSpec 同步/归档适配器；本地脚本尚不提供 archive 操作。具体 payload/命令用法见 [local-runtime.md](../skills/migration-protocol/references/local-runtime.md)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
+宿主 OpenSpec 同步/归档适配器；本地脚本尚不提供 archive 操作。具体 payload/命令用法见 [操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。

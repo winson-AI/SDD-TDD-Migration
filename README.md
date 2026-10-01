@@ -17,16 +17,6 @@
 
 要在其他仓库真实跑起来，按 [宿主接入契约](skills/migration-protocol/references/host-integration.md) 接入真实角色派发与执行回执。推进按 global/module 范围运行 `/sdd-verify`，巡检用 projection、交付用 final；核验只证明记录和投影一致，无关模块视图错误不阻塞当前 MO，也不能由核验通过推断实际执行或功能全绿。UI 分析、资源转换与受限视觉取证按 [领域工具受限接入](skills/migration-protocol/references/domain-tools.md) 使用，保持既有角色、Ledger 和修复预算。
 
-## 二方库与已有能力
-
-能力目录使用显式 provider owner：已有稳定能力用经评审的 null，本轮交付用唯一叶子 MO；写权限/资源锁不推断业务归属。运行中补充来源可走 **GO source-review → Host reconfigure-sources → 受影响子 MO 重规划/冻结/复测 → 父 MO 汇总 → Auditor 收尾**，保留无关有效结果与历史失败/预算。接口、模板及边界见 [来源变更协议](skills/migration-protocol/references/source-changes.md)。
-
-迁移规划先评估目标项目已有能力及用户指定的其他项目模块：**来源登记 → 功能语义抽取 → 结合需求映射 → 冻结接入/适配 tasks → Coding → 真实依赖验证**。GO 建目录，父 MO 统一复用分工，子 MO 形成 reuse/adapt/reference/new 决策；依赖变化按消费者范围复测，最终由 Auditor 裁决。
-
-用户指定其他项目时，通过项目配置的可选 `reuse_sources` 保存 root/module_paths/用途；目标项目自动纳入评估。规则、配置实例及控制器边界见 [二方库复用协议](skills/migration-protocol/references/reuse-dependencies.md)。
-
-全局 fidelity 要求：复用前与存量源码对应功能逐行为对齐，固定原行为、差异及复现 PATH/ASSERT；Coding 后 Main 验证真实生产链路并留证。接口相似或库自身通过不等于迁移通过。对齐记录使用 [reuse-fidelity.md](template/reuse-fidelity.md)，随 reuse-plan 冻结，MO/Auditor 按各自阶段验收。
-
 ## 流程图
 
 按三层编排阅读 [完整图集](diagrams/README.md)：[总览](diagrams/workflow.svg) → [子 MO 执行与修复](diagrams/module-execution.svg) → [Auditor 跨模块处理](diagrams/auditor-closure.svg)，另见贯穿各阶段的 [二方库语义与复用](diagrams/reuse-dependencies.svg)。每张均提供 PNG 和可再生成的源文件。
@@ -58,35 +48,9 @@
 
 因此本包是规格与测试设计前置的迁移流程，不声称每个成功路径都做过严格 test-first RED；首次即 Green 时记录 `red_evidence: not-observed`，不伪造失败。`plan` 指文档澄清阶段，不假定宿主能自动切换某产品的 Plan Mode。
 
-## OpenSpec 边界
-
-采用标准 `openspec/specs/<capability>/spec.md` 与 `openspec/changes/<change>/specs/<capability>/spec.md` 的基线/增量结构；proposal、design、tasks 使用标准语义。`status.md`、`checklist.md`、Ledger 与强制冻结门禁是本包扩展，不是 OpenSpec 内置执行能力。参见 [官方概念](https://github.com/Fission-AI/OpenSpec/blob/main/docs/concepts.md) 与 [CLI 文档](https://github.com/Fission-AI/OpenSpec/blob/main/docs/cli.md)（核对日期 2026-09-16）。详细映射见 [OpenSpec 协议](skills/migration-protocol/references/openspec.md)。
-
 ## 验证范围
 
 本包可检查入口引用、frontmatter、JSON 模板与流程契约；真实迁移须在填写技术栈、宿主适配和真实测试命令后验证。推荐的行为验收场景见 [workflow-verification.md](template/workflow-verification.md)。协议总量与单文件大小受 `reading.py` 的 PROTOCOL_BUDGET/FILE_BUDGET 棘轮约束，阅读卡另有 60KB 预算：新增规则写入其专题协议并合并重复表述，不在运行指南中再追加一份。
-
-## 本地实现
-
-- 人类 decision_envelope 与当前执行 freeze 分开绑定。
-- `ledger.py` 提供单写事件事务、游标投影、恢复与显式追加预算。
-- `contracts.py` 在提交与验收时校验阶段结果，拒绝缺失/过期证据。
-- `execute_test.py` 在已接受代码上执行真实项目适配器并保留回执。
-- 源码闭环、目标可行性、owner 路由与会话冷恢复进入协议。
-
-[验证记录](VERIFICATION.md) 说明当前测试方式、结果与边界。
-
-## 控制流游标
-
-将下一角色/动作游标、精确恢复、严格阶段结果接收和审计轮次生命周期接入本地编排。`status` 现在提供 next_steps、ready_modules、global_next_step；所有推进仍走 Ledger 事务。详见 [运行指南](skills/migration-protocol/references/local-runtime.md)。
-
-## 当前本地能力补齐
-
-实现前 global-plan 覆盖验收；Red/Yellow 本地优先一轮修复，确认的依赖/外围问题直接进入 waiting-auditor；problem-audit 可在模块未全 Green 时统一复核，最终 audit 仍执行完整全局门禁。Ledger 自动生成 OpenSpec 六件套与可复用修复 memory。精确操作与兼容性见 [本地运行指南](skills/migration-protocol/references/local-runtime.md)。
-
-## 并行 MO 独立执行与统一收尾
-
-GO 拆分并登记模块后，各 MO 独立执行和验收。某个模块失败/挂起时，其他无关模块继续，已完成模块保留有效 Green；全局 Red 只是聚合结论。宿主逐个收集结果，直到完整 registry 中全部模块完成或基于自身证据明确挂起、所有 worker 结束且无可推进动作，才统一启动 Auditor。详见 [隔离与全量收尾规则](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾)。
 
 ## 模块 Coding 与 Testing 顺序
 
@@ -103,26 +67,26 @@ Coding → MO 接受代码 → Testing
 
 已确认依赖/外围问题直接记录并等待 Auditor。Fixer 自测不能代替正式 Testing；所有模块本轮结束后才统一启动 Auditor，首轮 Green 同样保留最终独立审计。
 
-## Auditor 默认收尾
+## 专题速览
 
-所有模块本轮 completed 或明确挂起，且无在途 worker/可推进工作后，统一启动 Auditor 收集 Red/Yellow。按 finding 读取 SPEC/路径、分析根因并路由到对应 Fixer；按依赖交错执行修复和完整 Testing，支持多 owner 与受影响中间模块。失败只挂起关联分支，独立分支继续；汇总后由人工批准 audit-release，再进入受控恢复。subagent 和 Used Skills 由宿主实际启动。详见 [运行契约](skills/migration-protocol/references/audit-scope.md#默认收尾修复后验证失败待人工)。
+各专题的权威规则只在对应协议中陈述一次（`AGENTS.md` 的专题索引列出触发条件），这里只给方向：
 
-
-## Harmony 自动测试内核
-
-测试模块已迁入 HarmonyAgenticTesting 的 Planner/Executor/Verify、五类截图/视频验证、录制回放与重规划、压缩/反思/XPath、6 个技能及原始报告。通过完整冻结 PATH 输入、逐 ASSERT 证据输出接入现有 Ledger；保留普通项目 Main。缺依赖/证据与不明确结论为 Yellow，历史回放通过不能代替本轮验证。
-
-入口：[Harmony 运行协议与能力映射](skills/migration-test/references/harmony-runtime.md)，[配置模板](template/harmony-config.json)，[验证记录](VERIFICATION.md)。Harmony 接入时 208 项本地/源回归通过；本轮收尾调度回归见验证记录；真实设备与模型的效果对照待指定用例后进行。
-
-### 独立 uv 环境与默认 LLM
-
-Harmony 已提供独立 [uv sandbox 与使用说明](skills/migration-test/runtime/harmony/README.md)：在该目录执行 `uv sync --locked`，配置本地 `.env`，再执行 `uv run --locked sandbox.py doctor`。默认复用 MobileAgenticOperator 的 `qwen3.7-plus`（Planner/Executor/Verify）、`deepseek-v4-flash-0731`（XMind）和 DashScope endpoint；支持公共/角色密钥、`--config`、`--env-file`、`--device` 覆盖。真实 `.env` 与 `.venv` 均已忽略，只提交无密钥示例与公开配置。uv 提供依赖隔离，宿主继续负责设备和执行权限。
-
-测试覆盖按模块 CASE → automation PATH → ASSERT 追溯；每个 CASE 必须有自动化路径，不能用 build PATH 代替业务覆盖。独立调试不产生 Ledger 验收，正式执行仍经 assignment、host receipt、完整 scope 汇总及 MO/Auditor 验收。完整命令、缺环境 Yellow 分流与模块边界见上述 README。
-
-## 切片输入与验收责任
-
-默认由 Agent 决定切片粒度；global-input 的可选 module_slicing 支持人工模块方案导入。完整功能 use case 可按一级/二级功能目录划分 module，再分析 scope/测试列表并生成 SPEC。跨模块或不确定的业务边界交人工决策。模块阶段由 MO 唯一验收，审计阶段由 Auditor 唯一验收；完整 Green 且已有门禁满足后直接记录。字段示例与约束见 [切片规约](skills/migration-global/references/slicing.md)。
+| 专题 | 一句话 | 协议 |
+| --- | --- | --- |
+| 二方库与已有能力 | 复用必须逐行为对齐存量功能；能力目录显式 provider owner | [复用](skills/migration-protocol/references/reuse-dependencies.md)、[来源变更](skills/migration-protocol/references/source-changes.md) |
+| OpenSpec 边界 | 标准基线/增量结构；status/checklist/Ledger 是本包扩展，Ledger 投影不可手改 | [OpenSpec](skills/migration-protocol/references/openspec.md) |
+| 本地控制器与游标 | 单写事件事务、`status` 游标与阅读卡、恢复与显式追加预算 | [本地运行](skills/migration-protocol/references/local-runtime.md)、[宿主接入](skills/migration-protocol/references/host-integration.md) |
+| 并行 MO 与统一收尾 | 各 MO 独立推进；全量收尾或闭包提前审计才启动 Auditor | [状态机](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾) |
+| Auditor | 先整体代码治理，再复核遗留；修复后验证，失败待人工 | [审计范围](skills/migration-protocol/references/audit-scope.md)、[代码治理](skills/migration-protocol/references/audit-code-review.md) |
+| Harmony 自动测试 | 迁入的 Planner/Executor/Verify 内核，逐 ASSERT 证据接入 Ledger | [Harmony 运行](skills/migration-test/references/harmony-runtime.md) |
+| 切片与功能清单 | 默认由 Agent 决定粒度；清单完整可追溯，疑问交人工 | [切片规约](skills/migration-global/references/slicing.md) |
+| 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照 | [项目上下文](skills/migration-protocol/references/project-context.md) |
+| 上下文就绪 | 执行者只读预检 → context-submit → 原节点验收 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
+| 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
+| 四维切片与语义模型 | UI → Logic → Adhesive → Resource 逐层映射到 TASK/PATH/ASSERT | [四维](skills/migration-protocol/references/dimension-slicing.md)、[语义抽取](skills/migration-protocol/references/semantic-extraction.md) |
+| 阻塞感知与恢复 | 局部校验、invalidate 出口、进度信号；watchdog 只观察 | [恢复与进度](skills/migration-protocol/references/progress-recovery.md)、[watchdog](skills/migration-protocol/references/watchdog.md) |
+| 埋点 | 有则迁移，无则有据 N/A 正常推进 | [埋点](skills/migration-protocol/references/telemetry.md) |
+| 留存与资产根 | `.sdd-migration`、`.sdd-runs`、`openspec` 并列 | [留存文件系统](skills/migration-protocol/references/storage-layout.md) |
 
 ## 单个功能模块入口
 
@@ -144,65 +108,6 @@ Harmony 已提供独立 [uv sandbox 与使用说明](skills/migration-test/runti
 
 首轮 Green 仍需最终独立审计，Red/Yellow 按相同一轮修复与审计收尾策略处理。`/sdd-module` 是推进已注册模块的命令；新单模块运行从 `/sdd-init` 开始。字段、独立性与范围限制见 [切片规约](skills/migration-global/references/slicing.md#项目级与单模块入口)。
 
-## 持久化项目上下文
-
-已提供实际 [project_context.py](skills/migration-ledger/scripts/project_context.py)：init/update/show/history/prepare。首次输入保存项目配置，更新只合并明确字段并保留版本；本次模块选择和临时 overrides 不写回默认值。prepare 固化配置及文档副本，Ledger init 绑定该快照；新配置只影响新运行，旧运行保持原版本。
-
-context/files 中的 Markdown 会同步固化链接到的文档/框架代码/图片，生成正确跳转的阅读副本及独立 hash；OpenSpec 也更新内部互链和指向上下文的链接。原始证据保持不变，缺失或未固化链接输出 warning。旧快照不能直接改链接/hash，需新 run prepare 才能采用完整映射。详见 [上下文链接协议](skills/migration-protocol/references/project-context.md#contextfiles-的跨文件链接)。
-
-例如“目标工程改为 /workspace/new-target”更新项目配置；随后“single-module，用户登录”使用新版本，由 Global 生成全部模块输入和规格/测试。跨模块或不确定业务边界仍按原规则澄清。
-
-输入结构、更新语义、运行绑定和 CLI 示例见 [项目上下文协议](skills/migration-protocol/references/project-context.md)。自然语言提取、生成 SPEC 与真正派发 Agent 仍由宿主完成。
-
-## 按阶段验证上下文就绪
-
-新运行已在 GO 发现/覆盖规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发及 Auditor 分析/裁决/最终测试中加入上下文门禁。执行者只读预检 → Ledger context-submit → 原节点验收；缺项/过期拒绝推进，按原阻塞机制恢复。查看 [节点与角色清单](skills/migration-protocol/references/context-readiness.md) 和 [报告模板](template/context-readiness.json)。
-
-## 功能清单来源与完备性
-
-默认从测试用例汇总形成完整功能列表并切片；缺少汇总则先理解存量源码、完整抽取功能，再生成需求与测试草案。每项功能必须可追溯到来源、需求/CASE 和执行模块；未知、冲突或可能遗漏立即交人工，未解决不得接受规划。见 [切片规范](skills/migration-global/references/slicing.md) 与 [功能清单模板](template/feature-inventory.json)。
-
-## Test-Runner：先编译，再自动化
-
-新运行将验证拆为三段：**build → automation 功能层 → visual 基线对齐层**（顺序由 `next_scope` 强制，第二层需第一层 Green；DoD 要求全部三段 Green）。UI 迁移的存量基线**前移为输入**：冻结前判定存量是否可预览——可预览则截图作为 baseline 指导 SPEC 与 coding，并在 visual 层逐节点对齐；不可预览则回退保留 UI 源码但仍走四维 UI 中间表征层。视觉不对齐即 Red + 节点级根因，走既有诊断→一轮 Fixer，不另设轮次。见 [UI 保真控制道](skills/migration-protocol/references/ui-fidelity.md)。
-
-构建命令优先用户指定，默认搜索目标 Gradle wrapper/脚本并评估 assemble；错误留根因，经 Fixer 后重新构建。仅自动化环境无法启动时，记录每条用例 Yellow/未执行并收尾，其他并行及可消费当前代码的下游继续；Auditor 最终可输出 completed-with-unverified-tests，质量仍 Yellow。配置、操作和恢复见 [完整协议](skills/migration-protocol/references/build-automation.md)。
-
-### Auditor 遗留复核范围
-
-所有 MO 本轮实现/测试收尾后，Auditor 统一收集 Red/Yellow，依据对应 SPEC/CASE/PATH 分析、委派一轮必要修复并复核；仍失败输出根因待人工。有效且无关的 Green 不重跑。`global_test_paths: []` 不阻止启动；无待测路径只提交独立 `audit-review`，不要求自动化环境。旧 run 可直接用更新后的 Ledger 查询下一步，无需重新 init。细则与恢复见 [审计范围协议](skills/migration-protocol/references/audit-scope.md)。
-
-### 父 MO 名称与 GO 收尾报告
-
-父 MO 统一命名 `parent-mo-M010`（模块 M010），派发与恢复均保持一致。GO 在本轮收尾后提供全部测试用例状态表，Red/Yellow 附根因、责任方、下一步和证据。Ledger 自动生成 `<run_root>/reports/migration-report.md` / `.json`，由 `status.migration_report` 定位；未执行/过期证据保留 Yellow。详见 [GO 报告协议](skills/migration-protocol/references/migration-report.md)。
-
-## UI → Logic → Adhesive → Resource 深度切片
-
-GO 读取上下文/功能清单 → 划分模块 → 模块四维分析；父 MO 认领并读取模块实现/分析等上下文 → 划分子模块 → 子模块四维分析；子 MO 认领并读取子模块实现/分析等上下文 → 划分任务 → 任务四维分析 → 冻结/实现。范围先确定，四维分析直接指导实现，完整关联 TASK/PATH/ASSERT。各维度按实际功能决定 applicable / 有证据的 not-applicable，未知项禁止冻结。分析顺序不强制编码顺序，不改变业务模块划分。参见 [控制节点、字段与案例](skills/migration-protocol/references/dimension-slicing.md)，[分析模板](template/dimension-analysis.json)。
-
-## 运行停滞与恢复
-
-二方库不能直接复用时，按功能目标、全局/模块上下文、存量源码及目标现状选择适配/参考/自主实现，落实冻结 tasks 后继续 Coding。只有核验替代方案也不可行，MO 才接受带证据的“未实现”记录；status.workflow_progress 提醒人工，GO 报告展示 unimplemented 清单及恢复所需条件。详见 [复用与未实现入口](skills/migration-protocol/references/reuse-dependencies.md)。
-
-全量分析检查在 global-plan 接受时执行；运行期只校验当前模块、父级分配及实际依赖。invalidate 保留旧证据并清空当前旧 plan，下一步明确为重新规划或 GO 分配审查。`ledger.py status` 返回 `workflow_progress`，同步生成 `ledger/progress.json`、`reports/workflow-attention.md`：列出阻塞原因/owner/证据、可推进动作、worker 无进展与人工提醒。
-
-宿主须在 ACK/拒绝/worker 返回后刷新状态，等待期间至少每 60 秒检查；900 秒无作用域事件默认提醒，不自动停进程或放锁。仅自动化环境缺失仍走 Yellow 缺测收尾，其他任务及 Auditor 继续。可显式启动旁路 watchdog，通知展示与真实调度由宿主落实。详见 [进度恢复协议](skills/migration-protocol/references/progress-recovery.md)。
-
-## Auditor：先整体代码治理，再复核遗留
-
-全部 MO 收尾及父汇总有效 → **整体审查本轮代码修改/重构/冗余/二方库/公共能力/fidelity** → 委派合法 owner 的 Fixer（新增任务/边界走 CR）→ Build/Automation 及受影响完整回归 → 刷新代码审查 → 收集剩余 Red/Yellow → 一轮修复和独立复测 → GO 报告。Auditor 负责裁决，独立执行者负责代码修改。
-
-完整复测范围为 Red/Yellow 加本次变化影响到的全部用例，包含受影响的 Green 与下游，保留无关有效 Green。新运行和旧 run 均由 status 提示 `audit-code-review`；无自动化环境仍可审查代码并如实 Yellow 收尾。详见 [代码治理协议](skills/migration-protocol/references/audit-code-review.md) 与 [报告模板](template/audit-code-review.json)。
-
-## 埋点上报：有则迁移，无则正常推进
-
-GO → 父 MO → 子 MO/任务显式判断埋点适用性；有埋点做事件/参数/真实接线与测试追溯，无埋点记录有据 N/A，不创建空任务、用例、SDK依赖或全局等待。原有 Build、三态、Fixer 和 Auditor 流程保持；UI截图不能证明网络上报。见 [埋点协议](skills/migration-protocol/references/telemetry.md)、[分析模板](template/telemetry-analysis.md) 和 [适用事件索引](template/telemetry-contract.json)。
-
-
-## 异常恢复补强
-
-授权 Fixer/Implementer 工作期间的范围内改码不触发错误撤销；Yellow 内已有失败断言不能被缺测覆盖。Ledger ACK 区分事件已提交与投影待恢复，已验证归属的损坏 manifest 先留存原件再重建，其他模块继续。控制器/配置锁默认等待最多 10 秒，Host 可设置 `SDD_LOCK_TIMEOUT_SECONDS`；超时返回诊断，保留锁所有权。详见 [恢复协议](skills/migration-protocol/references/progress-recovery.md#授权改码投影恢复与文件锁等待)。
-
 ## 版本记录
 
 协议、模板、脚本与测试只描述当前版本；不同版本之间的差异只在此处记录。旧版本的运行资产不做就地升级，需要继续迁移时以当前版本 prepare 新 run。
@@ -222,3 +127,4 @@ GO → 父 MO → 子 MO/任务显式判断埋点适用性；有埋点做事件/
 | 2026-10-01 | 文档瘦身：角色定义与角色技能改为“专题义务”表，规则只在专题协议中陈述一次；协议总量 516KB → 476KB，最大阅读卡 49KB → 45KB，体积棘轮降至 480KB |
 | 2026-10-01 | 补齐独立验证：逻辑单测关卡（与构建同一派发）、候选 App 崩溃判为缺陷、视觉修复聚焦、静态审查增加吞错反例与单测引用、可选写范围核验 |
 | 2026-10-01 | 渐进式加载：规则不常驻——AGENTS.md 由 19KB 缩至 8KB（红线、角色索引、专题索引），专题规则在各自协议的“总则”中只陈述一次；阅读卡按操作与触发（UI/复用/埋点/轻量叶子）取小节，可物化为单文件，恢复会话只交新增小节，拒绝响应附小节指针；status 默认精简视图；角色通用约定并入共享协议；清除旧运行兼容叙述与三个恒开开关 |
+| 2026-10-02 | 阅读卡再收窄：审计/GO 规划/MO 按操作取小节，技能文件只带执行规则，专题义务表与操作矩阵按行取；任意模块请求可报告会话与卡片以做增量交付；流程成本统计阅读卡字节；Harmony 写入路径约束移入 Harmony 运行协议；README 精简为入口与专题速览；清除变更日志口吻措辞 |

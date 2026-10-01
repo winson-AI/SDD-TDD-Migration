@@ -6,7 +6,7 @@ description: SDD-TDD-Migration 的测试设计、编译构建与自动化执行�
 # migration-test
 
 ## 1. 定位
-服务 Test-Runner；先读取 [共享协议](../migration-protocol/SKILL.md)，再读 [职责协议](../migration-protocol/references/testing.md)。
+服务 Test-Runner；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/testing.md) 的相应小节。
 
 ## 2. 核心规约
 设计/执行模式分离；每条参数化路径有 ID/Name/query 和非空预期断言；Main 采用项目真实执行器。

@@ -8,7 +8,7 @@ description: 功能切片、架构差异解析、DAG 与全局三态调度，用
 来源/归属变化时遵守 [来源追加协议](../migration-protocol/references/source-changes.md)：完整来源和影响评审经 source-review 接受，Host 绑定批准后版本切换；所有叶子（包括 new 路线）与父分配都须评审，仅受影响闭包重规划。新 capability 采用显式 owner，写集合不能当作业务归属。
 
 ## 1. 定位
-服务 Global-Orchestrator；先读取 [共享协议](../migration-protocol/SKILL.md)，再读 [职责协议](../migration-protocol/references/runtime.md)。
+服务 Global-Orchestrator；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/runtime.md) 的相应小节。
 
 ## 2. 核心规约
 入口默认 project，用户直接指定一个完整项目，GO 识别项目内各功能及子功能。single-module 仅通过 module_name 选择其中一个特定功能；其子功能仍由父 MO 拆分并交独立子 MO 执行。GO 划分根模块 scope（in/out/全局需求 ID）、所需 context_refs、代码范围和 SPEC 草稿/Testing list，根功能登记 decomposition_required=true；父 MO 认领后在范围内拆子模块及其上下文，子 MO 再拆 tasks；接受 MO 的 decompose 后，以 decompose-accept 登记子模块并重新 global-plan。用户无需另交模块资料包。两种入口都保留全局只读上下文、子模块独立验收、父 MO 汇总和统一 Auditor 门禁。细则必读 [切片规约](references/slicing.md) 与 [父子 MO 协议](../migration-protocol/references/module-decomposition.md)。

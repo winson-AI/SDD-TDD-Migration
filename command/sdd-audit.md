@@ -47,7 +47,7 @@ global_test_paths 可为空，不是 Auditor 触发条件。完整规则与恢�
 
 ## 本地实现接入
 
-Global audit-assign → 对 assignment.path_ids 执行 Auditor execute_test --module GLOBAL → audit；path_ids=[] 时仅提交独立 audit-review。具体 payload/命令用法见 [local-runtime.md](../skills/migration-protocol/references/local-runtime.md)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
+Global audit-assign → 对 assignment.path_ids 执行 Auditor execute_test --module GLOBAL → audit；path_ids=[] 时仅提交独立 audit-review。具体 payload/命令用法见 [操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
 
 本地审计失败后的下一步为 audit-route / repair-accept，不能立即循环 audit-assign。模块修复复测完成后才开启下一轮，报告需关联上一轮非 Green 的 test_run_id。
 

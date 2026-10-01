@@ -18,7 +18,7 @@
 
 ## 2. 逐阶段接入清单
 
-每行:命令 → 必须提交的 Ledger op → 宿主必须做的真实工作 → 如何自证。所有 op 语义见 [本地运行指南](local-runtime.md) 操作矩阵。
+每行:命令 → 必须提交的 Ledger op → 宿主必须做的真实工作 → 如何自证。所有 op 语义见 [本地运行指南](local-runtime.md#操作矩阵) 操作矩阵。
 
 | 命令 | 必须提交的 Ledger op(顺序) | 宿主真实工作 | 自证 |
 | --- | --- | --- | --- |
@@ -52,7 +52,7 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 - 控制器校验结构、绑定、摘要和已有执行回执，不能仅从自报字段证明语义正确或独立执行；宿主身份/权限约束、实际执行回执与独立 Auditor 审查共同承担这一责任。不得把 `verified=true` 或工具 exit 0 当作功能通过。
 - `observed_invalidations` 非空说明目标代码被 out-of-band 修改,须 revoke→invalidate 重走,不得无视继续。
 
-完整存储不变量与门禁细节见 [留存布局](storage-layout.md#openspec-投影完整性收尾门禁);操作矩阵见 [本地运行指南](local-runtime.md);阶段守卫见 [状态机](state-machine.md)。
+完整存储不变量与门禁细节见 [留存布局](storage-layout.md#openspec-投影完整性收尾门禁);操作矩阵见 [本地运行指南](local-runtime.md#操作矩阵);阶段守卫见 [状态机](state-machine.md)。
 
 ## 5. 领域工具接线
 
@@ -64,9 +64,9 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 ## 提示采纳回报
 
-宿主轮询用 `ledger.py status --view cursor`（默认：游标、`module_summary`、按摘要去重的 `cards`；无模块正文）；单模块细节 `--view module --module <id>`，排查用 `--view full`。`reading.py render --root <run> --module <id>`（全局步骤用 `--global`）把当前卡写成 `reports/reading/<card_sha256>.md`，派发只传该路径；角色需要卡外规则时 `reading.py show --ref <文件> --section <标题>` 读单节。`card_sha256` 绑定小节正文。恢复建议会话时只交 `must_read_new`（该会话尚未持有或正文已变的小节；`reading.py render --resumed`），冷启动用完整 `must_read`。门禁拒绝的响应与 `reports/rejected-operation.json` 带 `read_hint`（该门禁所在小节）。
+宿主轮询用 `ledger.py status --view cursor`（默认：游标、`module_summary`、按摘要去重的 `cards`）；单模块细节 `--view module --module <id>`，排查用 `--view full`。`reading.py render --root <run> --module <id>`（全局步骤用 `--global`）把当前卡写成 `reports/reading/<card_sha256>.md`，派发只传该路径；卡外规则用 `reading.py show --ref <文件> --section <标题>` 读单节，操作矩阵可写 `操作矩阵@<operation>` 只取一行（卡里已含当前操作的行）。`card_sha256` 绑定小节正文；恢复建议会话时只交 `must_read_new`（`render --resumed`），冷启动用完整 `must_read`。门禁拒绝的响应与 `reports/rejected-operation.json` 带 `read_hint`（该门禁所在小节）。
 
-游标的 `session_id`/`session_affinity` 与 `must_read`/`card_sha256` 是建议。宿主派发 worker 时在 assign payload 回填实际恢复或新建的 `session_id` 和交给角色的 `card_sha256`；Ledger 只记录与建议是否一致（`status.hint_adoption`），不据此拒绝派发。持续的 not_followed 或 unreported 说明宿主未落实冷启动优化，应在接入层修正，而不是放宽门禁。
+游标的 `session_id`/`session_affinity` 与 `must_read`/`card_sha256` 是建议。宿主派发 worker 时在 assign payload 回填实际恢复或新建的 `session_id` 和交给角色的 `card_sha256`；其他模块请求（MO 的 accept、freeze 等）可带顶层 `hint{session_id, card_sha256}`，与当前游标步骤一致时计入该会话已持有的小节。Ledger 只记录与建议是否一致（`status.hint_adoption`），不据此拒绝派发。持续的 not_followed 或 unreported 说明宿主未落实冷启动优化，应在接入层修正，而不是放宽门禁。
 
 ## 本地修复单次派发
 

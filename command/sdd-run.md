@@ -41,7 +41,7 @@ status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接
 
 ## 本地实现接入
 
-Global 选择 ready 模块 → MO assign/accept。具体 payload/命令用法见 [local-runtime.md](../skills/migration-protocol/references/local-runtime.md)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
+Global 选择 ready 模块 → MO assign/accept。具体 payload/命令用法见 [操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
 
 编排读取 `status.next_steps` 与 `global_next_step`，按 ready/reason 决定下一动作；用 session_id 恢复对应角色，只传事件和工件引用。ready 只是当前快照建议，提交时必须带 expected_revision 再过门禁；阻塞或预算不足不能自行跳步。
 

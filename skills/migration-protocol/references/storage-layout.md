@@ -129,7 +129,7 @@ python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <wor
 
 `verified=false` 表示所选范围存在具体核验失败，读取 failures 的 check/scope/module_id/recovery_action 和 next_actions。仅相关模块错误不得停止无关 MO；公共事件链/快照损坏才影响整轮。生成视图缺失按投影恢复协议重建，冻结源损坏恢复有效证据或正常失效/重规划，不一律重建 run。门禁只读，不改状态、不补写投影、不搬迁历史；它无法单独证明真实 Agent 派发、命令执行或全部功能 Green。最终 Yellow 缺测仍在正式报告保留。
 
-回退不再静默：`ledger.py status` 返回 `openspec_binding`，`location=top-level` 表示绑定了 prepare 固化的 `storage_layout`、投影落在顶层 `workspace/openspec`；`location=in-run-fallback`（未 prepare/未绑定 `project_context_ref`）说明本 run 的 OpenSpec 落在 `.sdd-runs/<run_id>/openspec`，宿主据此立即感知需要走预备管道，而非事后才发现顶层目录缺失。
+回退显式暴露：`ledger.py status` 返回 `openspec_binding`，`location=top-level` 表示绑定了 prepare 固化的 `storage_layout`、投影落在顶层 `workspace/openspec`；`location=in-run-fallback`（未 prepare/未绑定 `project_context_ref`）说明本 run 的 OpenSpec 落在 `.sdd-runs/<run_id>/openspec`，宿主据此立即感知需要走预备管道，而非事后才发现顶层目录缺失。
 
 ## 启动与二次启动
 
@@ -207,6 +207,8 @@ PYTHONDONTWRITEBYTECODE=1 python3 <package>/skills/migration-ledger/tests/simula
 | 既有外部运行结果 | 保留只读历史；新输出创建受管 run，不改历史 hash、不自动删除原件 |
 | .venv、wheel、公开默认配置、包源码/文档/diagrams、包自身测试日志 | 工具安装/维护资产保持原位置；运行期间新增的缓存、配置、证据不写回包目录 |
 
+Harmony 写入器的路径约束见 [Harmony 运行协议](../../migration-test/references/harmony-runtime.md#底层直接调用的留存路径约束)。
+
 模板里的 absolute-run-root 必须展开为 workspace_root/.sdd-runs/run_id；asset-name/evidence-path 等文件名占位符不得再次携带绝对根或 ..。Host 身份输入示例放 .sdd-migration/inputs，角色输出放指定 staging 或 Harmony sandbox。运行未确定 project/workspace/run_id 时先定位配置，不自行把本工作流包认作业务运行根。
 
 Gradle 启动参数与 init.d 机制参考 [官方 init script 文档](https://docs.gradle.org/current/userguide/init_scripts.html)；实际工程插件/Gradle 版本仍需在目标项目验证，Python wrapper 夹具不等于真实 Gradle 构建通过。
@@ -217,28 +219,7 @@ Gradle 启动参数与 init.d 机制参考 [官方 init script 文档](https://d
 
 无 manifest 的环境不推断历史版本一致性，也不补入当前参考文件；无可靠准备记录时交 Host 核验或使用新 run。完成清单或成员被修改时拒绝静默覆盖，按原环境异常出口处理相关测试；独立任务继续。
 
-## 底层直接调用同样遵守留存规则
-
-路径约束必须落在实际写入/清理函数中，不能只依靠 CLI 或技能说明。Harmony 原生写入器统一调用 AutoTest/storage.py：
-
-| 产物 | 缺省处理 | 无运行上下文时 |
-| --- | --- | --- |
-| XMind 转换 Markdown | 当前 runner/design/<源文件名>.md | 必须显式传入本轮 sandbox/automation 下的绝对输出目录；禁止写回源文件旁 |
-| HTML/JSON/Markdown 报告、截图布局 | runner/reports 或显式受管位置 | 缺省相对路径拒绝；显式位置仍检查三目录归属 |
-| 录制记忆 | runner/memory | 可只读加载外部旧记忆；新录制必须受管 |
-| 图片/视频/时间映射、结果 JSON、日志 | 当前 runner 或显式受管位置 | 不能退回 cwd、包目录或来源旁 |
-| 截图、裁剪、拼接临时文件 | runner/temp；独立媒体处理可用显式受管输出旁的 temp | 无 runner 且无可判定的受管输出时拒绝，不使用系统 temp |
-| SDK/设备报告 | 本轮 sdk 或已校验报告目录 | SDK 执行需进入 runner scope，禁止退回第三方默认 dumps/reports |
-| shell/扩展 skill | runner cwd；子进程固定存储环境变量 | 缺 runner 拒绝，不能覆盖 TMPDIR/SDK/cache 等受管变量 |
-
-显式输出不能跨当前 run、不能经符号链接或 .. 跳转；报告文件名生成后也重新检查。外部源码、原始用例、历史报告/视频保持只读；裁剪证据在本轮保存，自动清理不能删除外部输入。直接调用如果不进入 scope，受管 temp 残留仍在该 run；宿主确认 worker 结束后处理，不做系统目录清理。
-
-Test-Runner 对非法路径返回的错误保留执行日志并按现有 Yellow/环境预检失败提交；不得为了继续执行而改用任意目录或取消无关模块。生成资产经既有 Ledger 提交/验收，存储校验本身不构成测试通过。
-
-这些检查约束本包的写入器与子进程启动参数。任意 shell 命令、扩展 Python 或构建插件仍可自行使用绝对路径/修改 cwd；Host 必须按冻结命令与文件权限约束实际写入，不能把路径校验声明成 OS 沙箱。工具安装、开发验证夹具和设备端路径遵循此前列明的例外。
-
-
-### 投影异常的留存与恢复
+## 投影异常与视觉工具留存
 
 `reports/projection-recovery/<module_id>/<sha256>.manifest` 保存已验证所有权的损坏 manifest 原件，长期留在本 run；当前 manifest 和视图从事件重建。投影失败详情进入 status.projection、workflow_progress 和可写时的 workflow-attention.md。事件已提交而投影待恢复时，原 event_id/sequence 仍有效，不追加重复业务事件。其他 owner/符号链接不自动替换；日志与快照损坏仍需恢复有效证据。完整规则见 [进度恢复协议](progress-recovery.md#授权改码投影恢复与文件锁等待)。
 

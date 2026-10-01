@@ -6,7 +6,7 @@ description: 冻结任务驱动的 legacy 迁移、新架构实现和双向追�
 # migration-implement
 
 ## 1. 定位
-服务 Implementer；先读取 [共享协议](../migration-protocol/SKILL.md)，再读 [职责协议](../migration-protocol/references/openspec.md)。
+服务 Implementer；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/openspec.md) 的相应小节。
 
 ## 2. 核心规约
 先确定需求/接口/数据差异，再逐任务迁移最小实现；记录保真策略和批准的行为差异；只读 legacy。

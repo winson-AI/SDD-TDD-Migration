@@ -40,9 +40,13 @@ def build(s, events):
         rows[mid] = {'events': counts['events'], 'dispatches': counts['dispatches'],
                      'context_receipts': counts['context_receipts'], 'acceptances': counts['acceptances'],
                      'human_decisions': human[mid], 'fix_rounds': m.get('total_fix_rounds', 0),
-                     'local_fix_used': m.get('local_fix_used', 0), 'lean_leaf': bool(m.get('lean_leaf'))}
+                     'local_fix_used': m.get('local_fix_used', 0), 'lean_leaf': bool(m.get('lean_leaf')),
+                     'card_dispatches': m.get('card_load', {}).get('dispatches', 0),
+                     'card_bytes_full': m.get('card_load', {}).get('full', 0),
+                     'card_bytes_delivered': m.get('card_load', {}).get('delivered', 0)}
     totals = {k: sum(r[k] for r in rows.values()) for k in
-              ('events', 'dispatches', 'context_receipts', 'acceptances', 'human_decisions', 'fix_rounds')}
+              ('events', 'dispatches', 'context_receipts', 'acceptances', 'human_decisions', 'fix_rounds',
+               'card_dispatches', 'card_bytes_full', 'card_bytes_delivered')}
     totals['global_events'] = sum(global_ops.values())
     totals['audit_dispatches'] = sum(global_ops[op] for op in ('audit-assign', 'problem-assign'))
     return {'modules': rows, 'totals': totals}

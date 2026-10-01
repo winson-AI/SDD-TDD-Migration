@@ -227,9 +227,9 @@ def render(report):
                      f"  - 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}"]
     cost = report.get('workflow_cost') or {'modules': {}, 'totals': {}}
     text += ['', '## 流程成本', '', f"合计：{cell(cost['totals'])}", '',
-             '| 模块 | 事件 | 派发 | 上下文回执 | 验收 | 人工决定 | 修复轮次 | 轻量叶子 |', '| --- | --- | --- | --- | --- | --- | --- | --- |',
+             '| 模块 | 事件 | 派发 | 上下文回执 | 验收 | 人工决定 | 修复轮次 | 轻量叶子 | 阅读卡字节（完整/实际交付） |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
              *[f"| {cell(mid)} | {r['events']} | {r['dispatches']} | {r['context_receipts']} | {r['acceptances']} | "
-               f"{r['human_decisions']} | {r['fix_rounds']} | {'是' if r['lean_leaf'] else '否'} |" for mid, r in cost['modules'].items()]]
+               f"{r['human_decisions']} | {r['fix_rounds']} | {'是' if r['lean_leaf'] else '否'} | {r['card_bytes_full']} / {r['card_bytes_delivered']} |" for mid, r in cost['modules'].items()]]
     text += ['', '## 路径明细', '', '| CASE-ID | 模块 / 父 MO | PATH / Name | 类型 | 状态 | 曾执行 / 本次执行 / stale | test_run |', '| --- | --- | --- | --- | --- | --- | --- |']
     for r in report['paths']:
         text.append('| ' + ' | '.join(cell(v) for v in (r['case_id'], f"{r['module_id']} / {r['parent_mo_name'] or '—'}", f"{r['path_id'] or '—'} / {r['name']}",

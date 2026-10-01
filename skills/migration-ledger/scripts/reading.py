@@ -17,6 +17,8 @@ sys.dont_write_bytecode = True
 
 PACKAGE = Path(__file__).resolve().parents[3]
 READ_BUDGET = 60_000  # UTF-8 bytes per dispatch card
+# A step with no UI, reuse, telemetry or lean-leaf scope stays under this; lower it when cards shrink, never raise it.
+TYPICAL_BUDGET = 35_000
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
 PROTOCOL_BUDGET = 556_000
 FILE_BUDGET = 34_000
@@ -43,8 +45,26 @@ ROLE = {
     'auditor': ['Agents/auditor.md', 'skills/migration-audit/SKILL.md'],
     'escalation': ['Agents/escalation.md', 'skills/migration-escalate/SKILL.md'],
 }
-AUDIT_FINISH = '默认收尾：修复后验证，失败待人工'
-# Sections the role needs at every step; operation families add to them (see family()).
+# audit-scope.md sections by operation; an audit operation outside this table reads the whole file.
+D1, D2, D3, D4, D5 = ('1. 所有模块执行阶段结束后统一启动', '2. 收集、根因分析与 finding 路由', '3. 按问题依赖交错修复和回归',
+                      '4. 失败隔离与审计报告', '5. 人工审核后恢复')
+PROBLEM = ['问题审计与最终审计', '问题处理']
+FINAL = ['入口与范围', '收尾的实际执行契约', '问题处理']
+AUDIT_OPS = {
+    'audit-collect': [D1, D2], 'audit-plan': [D2], 'audit-route-batch': [D2, D3], 'audit-route': [D2, D3],
+    'audit-work': [D3, D4], 'audit-retest': [D3, D4], 'audit-block': [D3, D4], 'audit-verdict': [D3, D4],
+    'audit-release': [D5], 'audit-defer': ['问题处理', '活动审计的游标恢复'], 'repair-accept': [D3, '问题处理'],
+    'audit-resume': PROBLEM, 'problem-assign': PROBLEM, 'problem-audit': PROBLEM,
+    'audit-assign': FINAL, 'audit': FINAL, 'audit-unavailable': ['活动审计的游标恢复', '收尾的实际执行契约'],
+    'audit-revoke': ['活动审计的游标恢复'],
+}
+# The module orchestrator's guard and loop rules apply everywhere; the rest only to the operations that use them.
+MO_OPS = {
+    'freeze': ['Freeze / DoD 分开', 'D', 'M'], 'change': ['Freeze / DoD 分开', 'D', 'M'], 'complete': ['Freeze / DoD 分开'],
+    'decompose': ['M*'], 'decompose-accept': ['M*'], 'module-summary': ['M*'], 'plan': ['D', 'M'],
+    'assign': [], 'accept': [], 'diagnosis-accept': [], 'resume': [], 'recover': [], 'suspend': [], 'invalidate': [],
+    'dependency-ready': [], 'automation-unavailable': [], 'automation-resume': [], 'session': [], 'checkpoint': [],
+}
 STEP = {
     'spec-designer': sections('openspec.md', '六件套映射', '基线与 Delta', '冻结算法', '变更控制', '决策边界与执行基线', '四维完整性索引')
     + sections('dimension-slicing.md', '总则', '7. 任务级四维分析契约') + sections('semantic-extraction.md', '总则')
@@ -55,22 +75,19 @@ STEP = {
     + sections('build-automation.md', '本地一轮的预算单位') + sections('context-readiness.md', '2. 精确插入节点'),
     'diagnostician': sections('state-machine.md', '有限循环') + sections('testing.md', '断言与结果')
     + sections('engineering-disciplines.md', '1. Foundation / 迁移知识执行与冻结'),
-    'module-orchestrator': sections('state-machine.md', 'Module-Orchestrator 唯一模块守卫', 'Freeze / DoD 分开', '有限循环')
-    + sections('module-decomposition.md', '总则') + sections('dimension-slicing.md', '总则'),
+    'module-orchestrator': sections('state-machine.md', 'Module-Orchestrator 唯一模块守卫', '有限循环'),
     'global-orchestrator': sections('state-machine.md', '模块隔离与全量收尾'),
     'auditor': [],
     'escalation': [(P + 'progress-recovery.md', None)],
 }
 # Operation families: (role, family) -> extra sections. Families come from family().
 OPS = {
-    ('module-orchestrator', 'audit'): sections('audit-scope.md', AUDIT_FINISH),
-    ('global-orchestrator', 'plan'): [(P + 'module-decomposition.md', None)] + sections('project-context.md', '总则')
+    ('global-orchestrator', 'plan'): sections('module-decomposition.md', '总则', '1. 三层职责', '2. 全局可见，按分配范围执行', '3. 分配与登记门禁',
+                                              '6. 二方库作为逐层规划依据', '7. 拆分与任务规划的上下文验收', '四维父子覆盖')
+    + sections('project-context.md', '总则')
     + sections('dimension-slicing.md', '总则') + [('skills/migration-global/references/slicing.md', '总则')],
-    ('global-orchestrator', 'audit'): sections('state-machine.md', 'Auditor 与全局完成') + [(P + 'audit-scope.md', None)]
-    + sections('migration-report.md', '总则'),
     ('global-orchestrator', 'source'): [(P + 'source-changes.md', None)],
     ('auditor', 'code-review'): [(P + 'audit-code-review.md', None)] + sections('audit-scope.md', '总则', '入口与范围', '代码治理前置'),
-    ('auditor', 'audit'): [(P + 'audit-scope.md', None)] + sections('audit-code-review.md', '顺序与职责', 'Ledger 接口'),
 }
 TEST_SCOPE = {
     'build': sections('build-automation.md', '总则', '3. 冻结路径与分阶段证据') + sections('testing.md', '断言与结果'),
@@ -114,21 +131,121 @@ def family(role, operation):
     return 'base'
 
 
+def audit_sections(operation):
+    if operation not in AUDIT_OPS:
+        return [(P + 'audit-scope.md', None)]
+    return sections('audit-scope.md', '总则', *AUDIT_OPS[operation])
+
+
+def op_sections(role, operation):
+    """Sections that depend on the operation inside a family."""
+    fam = family(role, operation)
+    if fam == 'audit':
+        items = audit_sections(operation)
+        if role == 'auditor':
+            items += sections('audit-code-review.md', '顺序与职责', 'Ledger 接口')
+        elif role == 'global-orchestrator':
+            if operation in ('audit-assign', 'audit-collect', 'audit-unavailable', 'audit'):
+                items += sections('state-machine.md', 'Auditor 与全局完成')
+            if operation in ('audit-assign', 'audit'):
+                items += sections('migration-report.md', '总则')
+        return items
+    if role == 'module-orchestrator':
+        extra = MO_OPS.get(operation)
+        if extra is None:  # unknown operation: everything the module orchestrator may need
+            extra = ['Freeze / DoD 分开', 'D', 'M']
+        items = []
+        for name in extra:
+            if name == 'D':
+                items += sections('dimension-slicing.md', '总则')
+            elif name == 'M':
+                items += sections('module-decomposition.md', '总则')
+            elif name == 'M*':
+                items += sections('module-decomposition.md', '总则', '1. 三层职责', '2. 全局可见，按分配范围执行', '3. 分配与登记门禁',
+                                  '4. 独立执行、父看护与统一审计', '6. 二方库作为逐层规划依据', '7. 拆分与任务规划的上下文验收',
+                                  '父 MO 统一命名', '四维父子覆盖', '父级批量冻结信封')
+            else:
+                items += sections('state-machine.md', name)
+        return items
+    return OPS.get((role, fam), [])
+
+
+def skill_sections(path, test_scope=None):
+    """The execution rules of a role skill; the pointer and interface boilerplate every skill repeats is not part of a card."""
+    names = re.findall(r'(?m)^## (.*)$', (PACKAGE / path).read_text())
+    keep = [n for n in names if n not in ('1. 定位', '4. 接口契约')
+            and (not n.startswith('7. Harmony') or test_scope in ('automation', 'visual'))]
+    return [(path, n) for n in keep]
+
+
+def topic_flag(topic):
+    """Which Ledger fact makes a row of an Agent's 专题义务 table relevant; None means always."""
+    for pattern, flag in (('埋点', 'telemetry'), ('UI|视觉|手势', 'ui'), ('复用|provider|fidelity|来源', 'reuse'),
+                          ('轻量叶子|功能完备', 'planning'), ('代码治理|自动化缺测|投影核验', 'audit'), ('知识', 'knowledge')):
+        if re.search(pattern, topic):
+            return flag
+    return None
+
+
+def agent_topics(path, flags):
+    text = (PACKAGE / path).read_text()
+    m = re.search(r'(?ms)^## 专题义务\n.*', text)
+    rows = [line.split('|')[1].strip() for line in (m.group(0).splitlines() if m else []) if line.startswith('| ')]
+    rows = [r for r in rows if r not in ('专题',) and not set(r) <= {'-', ' '}]
+    return tuple(r for r in rows if topic_flag(r) is None or flags.get(topic_flag(r)))
+
+
+PLANNING_OPERATIONS = ('register', 'global-plan', 'decompose', 'decompose-accept', 'module-summary', 'freeze', 'plan', 'change')
+
+
+def _cells(line):
+    return [c.strip().strip('`') for c in line.strip().strip('|').split('|')]
+
+
+def _rows(block, keys):
+    """The table header plus the rows whose first cell is one of `keys` (an `@a,b` selector)."""
+    lines = block.splitlines(keepends=True)
+    table = [i for i, line in enumerate(lines) if line.startswith('|')]
+    keep = [lines[0]] + [lines[i] for i in table[:2]] + [lines[i] for i in table[2:] if _cells(lines[i])[0] in keys]
+    return ''.join(keep)
+
+
+def _topic_rows(text, topics):
+    out, inside = [], False
+    for line in text.splitlines(keepends=True):
+        if line.startswith('## '):
+            inside = line.strip() == '## 专题义务'
+        if inside and line.startswith('| ') and _cells(line)[0] not in topics | {'专题'} and not set(_cells(line)[0]) <= {'-', ' '}:
+            continue
+        out.append(line)
+    return ''.join(out)
+
+
 @lru_cache(maxsize=None)
-def section(path, heading=None):
-    """Text of one Markdown section: from its heading to the next heading of the same or higher level."""
+def section(path, heading=None, topics=None):
+    """Text of one Markdown section: from its heading to the next heading of the same or higher level.
+
+    `heading@a,b` keeps only the table rows whose first cell is a or b; `topics` filters an Agent's 专题义务 table."""
     text = (PACKAGE / path).read_text()
     if heading is None:
-        return text
+        return _topic_rows(text, set(topics)) if topics is not None else text
+    name, _, keys = heading.partition('@')
     lines = text.splitlines(keepends=True)
     for i, line in enumerate(lines):
         match = re.match(r'(#+)\s+(.*?)\s*$', line)
-        if match and match.group(2) == heading:
+        if match and match.group(2) == name:
             level = len(match.group(1))
             end = next((j for j in range(i + 1, len(lines))
                         if re.match(r'#{1,%d}\s' % level, lines[j])), len(lines))
-            return ''.join(lines[i:end])
+            block = ''.join(lines[i:end])
+            return _rows(block, set(keys.split(','))) if keys else block
     raise KeyError(f'{path}#{heading}')
+
+
+@lru_cache(maxsize=None)
+def matrix_keys():
+    block = section(P + 'local-runtime.md', '操作矩阵')
+    return {_cells(line)[0] for line in block.splitlines() if line.startswith('|')}
 
 
 def ui_scope(m):
@@ -144,9 +261,13 @@ def ui_scope(m):
     return any(row.get('dimension') == 'UI' and row.get('status') == 'applicable' for row in analysis.get('dimensions', []))
 
 
-def entries(role, test_scope=None, ui=False, reuse=False, operation=None, telemetry=False, lean=False):
-    items = list(CORE) + [(path, None) for path in ROLE.get(role, [])] + STEP.get(role, [])
-    items += OPS.get((role, family(role, operation)), [])
+def entries(role, test_scope=None, ui=False, reuse=False, operation=None, telemetry=False, lean=False, rows=()):
+    agent, skill = ROLE.get(role, [None, None])
+    items = list(CORE) + [(agent, None)] + skill_sections(skill, test_scope) + STEP.get(role, [])
+    items += op_sections(role, operation)
+    selected = [k for k in rows if k in matrix_keys()]
+    if selected:
+        items += sections('local-runtime.md', '操作矩阵@' + ','.join(selected))
     if role == 'test-runner':
         items += TEST_SCOPE.get(test_scope, [])
     if ui:
@@ -182,12 +303,25 @@ def card(s, m, step):
     if role not in ROLE:
         return []
     plan = (m or {}).get('plan') or {}
-    rows = entries(role, step.get('test_scope'), ui=bool(m) and ui_scope(m),
-                   reuse=bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required')),
-                   operation=step.get('operation'), telemetry=telemetry_scope(role, m),
-                   lean=bool(m) and (bool(m.get('lean_leaf')) or bool(s.get('fixer_self_diagnosis'))) and role in ('fixer', 'implementer'))
-    return [{'ref': path, 'section': heading, 'bytes': len(section(path, heading).encode()),
-             'sha256': hashlib.sha256(section(path, heading).encode()).hexdigest()} for path, heading in rows]
+    operation = step.get('operation')
+    ui, reuse = bool(m) and ui_scope(m), bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required'))
+    telemetry = telemetry_scope(role, m)
+    lean = bool(m) and (bool(m.get('lean_leaf')) or bool(s.get('fixer_self_diagnosis')))
+    rows = ([operation] if operation else []) + (['submit'] if step.get('worker_role') else [])
+    chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry,
+                     lean=lean and role in ('fixer', 'implementer'), rows=rows)
+    audit = bool(operation and (operation.startswith('audit') or operation.startswith('problem'))) or role == 'auditor' \
+        or bool(m and (m.get('audit_fix_grant') or m.get('audit_batch_id')))
+    flags = {'ui': ui, 'reuse': reuse, 'telemetry': telemetry, 'audit': audit,
+             'planning': role == 'spec-designer' or operation in PLANNING_OPERATIONS or lean,
+             'knowledge': bool(s.get('dependency_resolution_required')) or reuse}
+    out = []
+    for path, heading in chosen:
+        topics = agent_topics(path, flags) if path.startswith('Agents/') else None
+        text = section(path, heading, topics)
+        out.append({'ref': path, 'section': heading, 'bytes': len(text.encode()),
+                    'sha256': hashlib.sha256(text.encode()).hexdigest(), **({'topics': list(topics)} if topics is not None else {})})
+    return out
 
 
 # A rejected request points at the section that states the failed gate; advisory, first match wins.
@@ -235,7 +369,7 @@ def fresh(rows, held):
 def render(rows, output_dir):
     """Write the card as one file named by its digest; a dispatch then hands the role a single path."""
     body = ''.join(f'<!-- {row["ref"]}{"#" + row["section"] if row["section"] else ""} -->\n'
-                   f'{section(row["ref"], row["section"]).rstrip()}\n\n' for row in rows)
+                   f'{section(row["ref"], row["section"], tuple(row["topics"]) if "topics" in row else None).rstrip()}\n\n' for row in rows)
     name = digest_card(rows)
     target = Path(output_dir) / f'{name}.md'
     if not target.is_file() or target.read_text() != body:
