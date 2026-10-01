@@ -21,6 +21,12 @@ class ReadingCardTests(unittest.TestCase):
                     total = sum(len(reading.section(path, heading).encode()) for path, heading in rows)
                     self.assertLessEqual(total, reading.READ_BUDGET)
 
+    def test_protocol_text_stays_within_its_ratchet(self):
+        files = [p for pattern in reading.PROTOCOL_GLOBS for p in reading.PACKAGE.glob(pattern)]
+        sizes = {str(p.relative_to(reading.PACKAGE)): p.stat().st_size for p in files}
+        self.assertLessEqual(sum(sizes.values()), reading.PROTOCOL_BUDGET)
+        self.assertEqual([f for f, n in sizes.items() if n > reading.FILE_BUDGET], [])
+
     def test_section_stops_at_next_heading_of_same_level(self):
         text = reading.section('skills/migration-protocol/references/testing.md', '静态规格闭合')
         self.assertTrue(text.startswith('## 静态规格闭合'))

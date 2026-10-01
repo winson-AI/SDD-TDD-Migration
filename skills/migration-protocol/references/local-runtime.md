@@ -1,15 +1,21 @@
 # 本地运行指南
 
-## 同 run 来源追加
+## 专题规则入口
 
-新增两个全局 Ledger operation，均通过既有 CLI apply、CAS 和宿主身份接入：
+本文件只记录本地控制器的命令、操作字段、游标与审计批次细节。以下规则以专题协议为准，这里不再重复：
 
-| 操作 | 角色 | payload / 门禁 |
-| --- | --- | --- |
-| source-review | GO | report_ref 指向 source-impact.json，context_ref 为绑定该草稿的 global-planning receipt；评审所有叶子和父分配、新来源 catalog 与依赖闭包 |
-| reconfigure-sources | Host | 仅 decision_id、subject_sha256；真实批准绑定已接受评审，worker 协调结束、无活动审计，生成新版本上下文并局部重新规划 |
-
-status.source_change_next_step 与 workflow_progress 显示下一步；它不替代其他模块 next_steps。运行中读 Ledger 当前 project_context_ref，不能重用初始 input/prepare 作为当前事实。详见 [事务与恢复协议](source-changes.md)。
+| 主题 | 权威协议 |
+| --- | --- |
+| 同 run 来源追加 | [来源变更](source-changes.md) |
+| 全局覆盖验收、模块隔离与全量收尾 | [状态机](state-machine.md#模块隔离与全量收尾) |
+| 本地修复轮次（`local_fix_rounds`）与预算 | [状态机：有限循环](state-machine.md#有限循环)、[构建预算单位](build-automation.md#本地一轮的预算单位) |
+| 项目级/单模块入口、功能清单完备性 | [切片规约](../../migration-global/references/slicing.md) |
+| 项目上下文 prepare/init 绑定 | [项目上下文](project-context.md) |
+| 二方库与已有能力复用 | [复用协议](reuse-dependencies.md) |
+| 上下文就绪控制节点 | [上下文就绪](context-readiness.md) |
+| 停滞信号与 invalidate 恢复 | [恢复与进度](progress-recovery.md) |
+| build → static → automation → visual | [构建与自动化](build-automation.md)、[静态规格闭合](testing.md#静态规格闭合) |
+| 四维分配与冻结字段 | [四维协议](dimension-slicing.md) |
 
 ## 已实现与宿主责任
 
@@ -195,18 +201,6 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 
 ## 当前策略：全局验收、问题审计、OpenSpec 与修复 memory
 
-### 全局覆盖验收
-
-init 必须保存整体规范 global_spec、新架构 new_architecture 的 path/sha256，以及非空唯一 requirement_ids/case_ids。Global 的 global-plan 引用 [global-plan 模板](../../../template/global-plan.json) 并附 review_ref，检查每个需求、用例都有非空合法 owner；模块登记的 CASE 必须全部映射回自身，GLOBAL owner 必须有整体测试路径。全局需求归属 GLOBAL 时整体 PATH 必须带对应 requirement_id 或 requirement_ids。
-
-global-plan 同时绑定模块编号、用例、依赖和写范围；新增模块使验收失效，重新审查后才可派发实现。模块 tasks 必须覆盖分配的全局需求；本地 REQ-ID 不同于全局时用 task.global_requirement_ids 明确追溯。哈希/覆盖校验不能代替 Global 对规范文本完整性的语义审核。
-
-### 一轮优先修复
-
-模块本地自动修复轮数由 `local_fix_rounds` 默认 1，可在初始化/项目 budgets 中设为 1..max_fix_rounds。第一轮对所有可修复 Red/Yellow 生效；之后的本地轮次只在全部未解决失败都位于 build PATH（编译/打包）时继续，一旦出现 automation/visual 等业务失败即交 Auditor；no-progress fingerprint 仍可提前停止。累计 max_fix_rounds、no-progress 仍为总上限，不因重新冻结、恢复或换会话清零。经证据确认的 dependency/environment/tooling/external/peripheral/human 根因直接 audit-defer。其余 Red/Yellow 先只读诊断，由 MO 接受后派 Fixer，接受补丁后必须 Main 正式复测；一轮仍未通过交问题审计队列。混合根因先诊断确定路由，未确认的外围猜测不能当作事实。
-
-waiting-auditor 保存原恢复点、旧 blocker、根因与失败结果，保持真实三态，不占用 worker 写锁；角色收到 ACK 后退出。Global 记录 audit_queue，但必须等全部模块本轮 completed 或明确挂起、无在途 worker、无可推进动作后才统一启动 Auditor；无需全部模块 Green。普通 DAG 前置等待仍可在规划阶段存在；发现需要全局裁决的阻塞时 MO 用 audit-defer 登记。
-
 ### 问题审计与最终审计
 
 问题审计：problem-assign → Auditor 用 execute_test --module Mxxx --assignment <problem-id> 执行 → problem-audit → MO audit-resume。assignment 对应的 module_ids 全部必须在报告中出现。可执行模块 result 使用既有 tests 结构，actor_instance_id 为独立 Auditor；冻结、代码、所有 PATH/断言、历史非 Green retest_of 均校验。缺代码、定义失效或生产者未就绪的模块禁止执行，只报 quality=yellow-blocked、result=null 和结构化根因。
@@ -316,73 +310,14 @@ global-plan 必须增加 `boundary_review: {"issues": []}`。无边界问题时 
 
 `case_owners`/`requirement_owners` 是覆盖/责任映射，允许多模块；不是多人验收。模块 `complete` 仅 MO 可提交，审计 `audit-verdict`/`audit` 仅对应 Auditor 可提交；Green 且原有证据、DoD、覆盖门禁满足后直接记录，不新增人工批准。审计期间 MO complete 表示修复模块的执行/DoD 完成，审计验收仍由 Auditor 独立提交。
 
-## 单模块完整运行入口
-
-高层入口默认 project，直接指定完整项目及功能树；single-module 仅选择一个根功能及其子功能。用户仍只填写模式/名称，GO 从项目上下文生成根功能 ID/scope/SPEC 草稿/Testing list；MO 阶段继续拆分子功能，由独立子 MO 执行、父 MO 汇总。
-
-Ledger init.single_module_id 固定选定根功能 ID；初次 register 只接受该根功能及其全部 CASE，设置 decomposition_required=true。后续子模块经 MO decompose→GO decompose-accept 原子登记，允许选定范围内的多个孩子与内部 DAG，拒绝新增范围外根功能。project 可登记多个根功能，每个父 MO 分别拆分。父节点保存在 module_groups，执行叶子保存在 modules。父节点不额外占一份实现/测试身份；global-plan 的 CASE/需求执行覆盖指向叶子。
-
-全部父子 MO 读取共同的全局代码、架构、知识与分工；GO 分配模块 scope/context，父 MO 认领后在范围内分配子 scope/context，子 MO 拆 tasks；拆分/子 plan 同时绑定 planning_context 与 status.module_inputs 对应的 assigned_module。所有叶子正式 SPEC、冻结、Testing/Fixer、DoD 保留；所有叶子收尾且各父 MO 提交当前 module-summary 后才能统一 Auditor。具体格式、操作和兼容语义见 [父子 MO 协议](module-decomposition.md)。
-
-既有扁平 run 不静默转树；无 decomposition_required 的旧叶子按原流程执行。新宿主在 GO 登记根功能时必须设置该字段，并执行拆分阶段。已经冻结/编码的节点不能直接拆分，须按正式变更/新运行处理。模式在 init 后不就地切换。
-
-## 项目上下文闭环
-
-已新增 [project_context.py](../../migration-ledger/scripts/project_context.py) 的 init/update/show/history/prepare，精确请求格式见 [项目上下文协议](project-context.md)。配置固定在 `<workspace_root>/.sdd-migration`；仅首次未指定 --root 时从当前目录初始化，后续显式传入原配置目录。宿主自然语言提取后直接持久化明确字段。prepare 返回 project_context_ref 和待 Global 补齐的高层 input；宿主完成 input.json 后，init 带快照引用、module_name 和对应预算，单模块低层 ID 仍由 Global 分配。
-
-Ledger 保存 project_id/project_revision/project_context_ref，在初始化校验路径、模式、架构和预算，后续操作验证快照及文档 hash。新的项目配置不修改既有 run。旧无快照运行兼容，但不能补造原始配置；新入口必须固化。早期“沿用宿主上下文”现在由本节的持久化协议具体落实。
-
-## 二方库与功能复用的本地接入
-
-- 项目配置新增 reuse_sources；prepare 固定外部来源范围，TARGET 自动包含在 status.planning_context.reuse_sources。原 input 初始化也支持 reuse_sources/reuse_required。
-- 子 MO plan、新 prepare 运行、显式外部来源或主动提供 reuse_plan_ref 的计划，需通过 reuse.py 校验：来源评审、功能语义、范围、逐需求 task/PATH 映射、依赖接入约束。涉及其他执行模块写范围的 target provider 须登记模块依赖。
-- stage-plan.reuse_plan_ref 指向 [映射模板](../../../template/reuse-plan.json)，其 catalog_ref 指向 [语义目录](../../../template/reuse-catalog.json)；定义经既有 Ledger 事件归档，不新增私有状态总线。OpenSpec change/reuse.md 投影冻结映射。
-- implementation JSON（Implementer/Fixer）增加 reuse_trace；选中映射必须逐条提交 mapping_id/resolved_version/files/binding_evidence_ref。只有 new 映射时可为空。
-- freeze、派发、结果验收、DoD 和最终审计通过 verify_plan 复核所选提供方和接入证据；未选候选变化不自动使消费者失效。恢复提供方或重选方案仍需既有版本/CR/重新冻结门禁。
-- 控制器不自动扫描语义、解析包管理器或证明功能等价；Agent/宿主仍须完成抽取、评审、源码/API 分析、生产绑定与实际测试。完整流程见 [二方库协议](reuse-dependencies.md)。
-
-## 上下文就绪控制节点
-
-新增 context-submit（全局或模块 scope，由对应阶段实际角色提交 report_ref）。status.context_requirements 给出 stage/subject/必需检查/必读引用，next_steps 的 context_gate 给出缺项门禁。register/global-plan/decompose/plan/assign/audit-plan/audit-verdict/audit-assign/problem-assign 增加 context_ref；freeze/decompose-accept 自动复核提案报告。缺项不能派发；新 prepare 强制启用，旧 run 保留兼容。完整操作、权限与恢复见 [上下文就绪协议](context-readiness.md)。
-
-## 功能清单来源与完备性
-
-新标准运行 global-plan 必填 feature_inventory_ref 与 feature_owners；校验来源选择、每项功能详情、来源单元映射、需求/CASE 全覆盖、执行模块归属、无未分类/未决项；已发现疑问须纳入 boundary_review 走原有人工批准。全量来源证据在 global-plan 接受时验证；运行 planning_guard 检查已接受的全局契约与清单引用，仅遍历当前模块、父级分配及实际依赖的四维证据，不递归校验无关来源。status.module_inputs 提供各模块 feature_ids，planning_context 提供全局清单与归属。详见 [切片规范](../../migration-global/references/slicing.md)。
-
-### 停滞信号与 invalidate 恢复
-
-“未实现”沿用 suspend，额外传 kind=human、reason_code=not-implemented、next_action 和 implementation_gap_ref；报告绑定最新 module_revision 与当前上下文，列出具体 REQ/CASE/TASK、adapt/reference/new 不可行证据及核验结果。仅不能直接复用库时应继续可行替代 Coding。控制器校验后生成 workflow_progress 人工信号与 GO 报告 unimplemented 清单；细则及请求见 [复用协议第 8 节](reuse-dependencies.md)。
-
-`status.workflow_progress` 提供可推进动作、门禁原因/owner/证据、worker 无进展提醒及 `notify_user`；同步生成 `ledger/progress.json` 与 `reports/workflow-attention.md`。被拒操作在业务日志之外保存最新诊断 `reports/rejected-operation.json`，不改业务状态；连续同原因拒绝 3 次需人工感知。init 可选 `worker_stall_timeout_seconds`，默认 900，控制提醒阈值而非 worker 自动终止。
-
-invalidate 将旧 plan/freeze/代码/结果移入 planning_history，撤下旧受管 OpenSpec 定义并清空当前 plan，进入 specifying；分配有效则 next_step=plan，否则 allocation-review-required 交 GO。不清零预算、不抹历史结果、不绕过冻结批准。宿主响应与自动化缺测分流见 [进度恢复协议](progress-recovery.md)。
-
-## 当前执行规则：构建与自动化分开
-
-新 init 默认 split_testing_required=true；prepare 强制启用；低层 init 显式 false 不能宣称完成拆分流程。Test-Runner assign 需 test_scope=build|automation|visual；build 的 context stage 为 building，automation/visual 为 testing。stage-plan 的 build PATH 冻结 command，execute_test 直接执行，不追加 query 参数；tests 结果覆盖本 scope 全路径，accept 合并后判定整体 DoD。
-
-| 操作 | 角色/范围 | 门禁与结果 |
-| --- | --- | --- |
-| automation-unavailable | MO / module | payload.context_ref 为 Test-Runner 当前 testing blocked；仅环境缺失、当前 build Green、无活动 worker/当前 Red；逐路径 Yellow，automation-deferred |
-| automation-resume | MO / module | payload.context_ref 为新 testing ready；当前构建/代码有效，恢复 automation，不需 human decision |
-| audit-unavailable | Auditor / GLOBAL | payload.context_ref 为独立 audit-testing blocked；全量收尾、无其他待处理缺陷；保存 Yellow 完整缺测报告，completed-with-unverified-tests |
-
-仅缺自动化环境时，既有“tooling 挂起需人工恢复”不适用；可执行下游和并行任务继续。宿主跟随 context 游标接受明确收尾，不空等 blocked。审计批次可保留 unverified_findings 完成本轮，不计 resolved；最终报告由独立 Auditor 负责。详细输入、Gradle 发现及证据见 [双环节协议](build-automation.md)。
-
-
 ## 父 MO 命名与 GO 报告投影
 
 `status.parent_mo_names` 派生统一父名称 parent-mo-M<编号>；父 MO next_steps.agent_name 同步给宿主。父 session(role=module-orchestrator) 自动补全 agent_name，显式错名拒绝；不改变 role/instance/session 身份规则及冻结分配包。
 
 Ledger 在事件接受/状态重建时生成 `<run_root>/reports/migration-report.json` 与 `.md`。`status.migration_report` 返回路径和 sequence。报告完整列出 case_ids 对应的 CASE、模块/PATH 明细及非 Green 原因和证据；尚无路径/结果同样列入 Yellow。GO 在迁移本轮收尾时读取并交付该报告，人工待决/缺测不得省略。它是可重建投影，不是新的状态或验收权威。字段、证据规则见 [GO 报告协议](migration-report.md)。
 
-## 四维分配与冻结字段
-
-新 init 默认 dimension_slicing_required=true，prepare 固化开启。register 必填 dimension_analysis_ref；decompose 的每个 child 也必填该引用，并由父 MO 提交 dimension_partition_review_ref。子分析绑定 parent_ref/parent_item_ids，plan 绑定认领分析和 dimension_trace，并包含先划定的 tasks[].scope 与随后生成、通过 scope_sha256 绑定的 tasks[].dimension_analysis，implementation 提交 dimension_evidence。status 的 planning_context.dimension_allocations 与 module_inputs 提供权威交接引用，OpenSpec 自动生成 dimensions.md。字段定义及历史格式兼容见 [四维协议](dimension-slicing.md)。
-
 ## Auditor 整体代码治理前置
 
 新增全局 operation `audit-code-review`，actor=auditor，payload={report_ref, context_ref}。全部 MO 收尾后先提交 audit-code-review context receipt（draft_ref=report_ref），报告绑定 status.global_next_step.snapshot，覆盖所有执行叶子，并以必填 change_inventory_ref 引用 [本次代码修改清单](../../../template/audit-change-inventory.md)。Ledger 验证清单 hash，GO migration-report 提供同版链接；旧报告缺少清单须补交新版审查。`audit-collect` 有 CR-* 治理 finding 时先生成治理批次；无治理发现才收集剩余 Red/Yellow。代码变更后必须刷新整体审查；无问题报告 findings=[]。旧 run 无需重新初始化，但不能跳过新门禁。`audit-assign`/`audit-unavailable` 必须当前审查有效且无待处理治理发现。详见 [代码治理协议](audit-code-review.md)，模板 [audit-code-review.json](../../../template/audit-code-review.json)。
-
 
 文件留存门禁：正式 Ledger CLI 必须使用 prepare 固化的 `.sdd-runs/<run_id>`，init 绑定 project_context_ref；历史任意根目录使用 `ledger.py history --root <旧根>` 只读重放。重新执行应 prepare 新 run，不修改旧引用 hash。详见 [留存文件系统](storage-layout.md)。
