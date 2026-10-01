@@ -82,8 +82,8 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | audit-retest | MO | 顶层 module_id 指发现模块或受影响中间模块；只等待本模块的上游修复/复测完成，执行完整模块路径 |
 | audit-verdict | Auditor | review_ref；双方验证齐全、同基线、DoD 完成才裁决通过；过期证据报告待人工 |
 | audit-defer | MO | root_cause + evidence_ref；记录根因、结果和恢复点，进入 waiting-auditor；可修复错误先本地一轮，确认的依赖/外围问题直接交接 |
-| problem-assign（兼容） | Global | assignment_id、独立 instance_id，可选 module_ids（默认全部队列）；所有模块本轮完成/明确挂起且无可推进工作，无在途 worker |
-| problem-audit（兼容） | Auditor | report_ref；覆盖本次所有排队模块；有效代码独立 tests result，无法运行保留 Yellow；输出 retry/fix/change/wait/human 裁决 |
+| problem-assign | Global | assignment_id、独立 instance_id，可选 module_ids（默认全部队列）；只要求这些模块的依赖闭包与下游消费者（及其依赖）已收尾、空闲；assignment 记录 closure，审计锁只作用于 closure 内模块与全局操作，其他模块继续。预算按模块计（max_audit_rounds）；游标在闭包就绪且全局未收尾时给出 `problem-assign`（reason=audit-closure-settled） |
+| problem-audit | Auditor | report_ref；覆盖本次所有排队模块；有效代码独立 tests result，无法运行保留 Yellow；输出 retry/fix/change/wait/human 裁决 |
 | audit-resume | MO | 接受本模块问题审计裁决；human 需 decision_id；wait 保持队列；retry 回 testing，fix 授权一轮，change/human 回规划 |
 | plan | Spec-Designer | plan_ref；完整 [stage-plan](../../../template/stage-plan.json) |
 | freeze | MO | 初始/边界外变更 decision_id；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref（MO 对详细 tasks/PATH 的审阅），子 plan 的 decision_envelope 必须与信封条目完全一致，信封可被多个孩子使用并记录 used_by |

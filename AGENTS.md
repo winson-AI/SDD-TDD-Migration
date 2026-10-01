@@ -36,7 +36,7 @@
 
 GO 完成切片与 registry 登记后，每个 MO 独立推进自己的状态机、测试、修复预算及验收。某模块 Red/Yellow、异常或挂起，仅更新该模块及有证据的依赖影响范围；不得将全局聚合颜色回写其他模块，不得取消无关 MO，或为提前审计批量挂起其他模块。已通过模块保留有效 Green，未执行模块保留未执行状态。
 
-宿主逐 module_id 收集结果；收到一个失败结果后继续派发其他 ready 模块并等待仍在运行的 MO。只有完整 registry 中每个模块都完成 DoD 或有本模块证据的明确挂起记录、全部 worker 已结束且无可推进动作，才允许启动 Auditor。一个 worker 退出不代表其 MO 生命周期结束。详见 [模块隔离与收尾规则](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾)。
+宿主逐 module_id 收集结果；收到一个失败结果后继续派发其他 ready 模块并等待仍在运行的 MO。只有完整 registry 中每个模块都完成 DoD 或有本模块证据的明确挂起记录、全部 worker 已结束且无可推进动作，才允许启动最终 Auditor。例外是闭包提前审计：已交 Auditor 的模块，若其依赖闭包与下游消费者（含消费者的其他依赖）都已收尾且空闲，可先由独立 Auditor 以 problem-audit 复核该闭包，只锁闭包内模块，其余模块照常推进；最终全量审计仍等全部收尾。一个 worker 退出不代表其 MO 生命周期结束。详见 [模块隔离与收尾规则](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾)。
 
 ## 调用约定
 

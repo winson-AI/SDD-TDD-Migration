@@ -298,7 +298,7 @@ def dispatch_guard(s, m, worker):
         require(worker in ('fixer', 'test-runner'), 'audit closure only fixes and verifies')
         require(m['module_id'] in audit_closure.pending_modules(b) and audit_closure.dependencies_done(s, b, m['module_id']),
                 'audit finding blocked or upstream verification incomplete')
-    require(not workflow.audit_active(s), 'audit snapshot locked; close audit before dispatch')
+    require(not workflow.audit_locks(s, m['module_id']), 'audit snapshot locked; close audit before dispatch')
     require(not m.get('blocked'), 'module blocked')
     idle(m); current(m); dependencies_ready(s, m)
     required = {rid for rid, owners in s['global_plan']['content']['requirement_owners'].items() if m['module_id'] in owners}
@@ -335,7 +335,7 @@ def resume_guard(s, m, p):
 
 def _next_step(s, m):
     """Derived dispatch guidance only; every mutation must still pass its own guards."""
-    if workflow.audit_active(s):
+    if workflow.audit_locks(s, m['module_id']):
         return {'module_id': m['module_id'], 'phase': m['phase'], 'expected_revision': m['revision'],
                 'operation': None, 'role': 'host', 'ready': False, 'reason': 'await-auditor',
                 'assignment_id': None, 'session_id': None}
@@ -616,7 +616,7 @@ def mutate(s, req, principal, events, root=None):
         require(m is not None, 'module not registered')
         if mid in s.get('module_groups', {}):
             require(op in ('module-summary', 'session'), 'parent MO only coordinates/summarizes; execute code and tests in child modules')
-    if workflow.audit_active(s) and op not in ('audit', 'problem-audit', 'audit-revoke', 'decision'):
+    if workflow.audit_locks(s, mid) and op not in ('audit', 'problem-audit', 'audit-revoke', 'decision'):
         raise Rejected('audit snapshot locked; close or revoke audit before mutation')
     if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
@@ -1213,6 +1213,8 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     cursor += [decomposition.group_step(s, group, ref_check) for group in s.get('module_groups', {}).values()]
     rounds = audit_closure.module_rounds(s, cursor, ref_check)
     audit = s.get('audit_assignment', {})
+    early = (workflow.early_audit_candidates(s) if s.get('global_plan') and not rounds['all_settled']
+             and not workflow.audit_active(s) and not audit_closure.active(s) else [])
     if audit_closure.active(s):
         global_next = audit_closure.global_step(s)
     elif audit and not audit.get('closed'):
@@ -1222,6 +1224,11 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
         global_next = {'operation': ('problem-audit' if audit.get('mode') == 'problem' else 'audit') if fresh else 'audit-revoke', 'role': 'auditor' if fresh else 'host',
                        'assignment_id': audit['assignment_id'], 'ready': not fresh,
                        'reason': 'audit-running' if fresh else 'audit-snapshot-stale'}
+    elif early:
+        # A settled dependency/consumer closure is audited now; the rest of the run keeps going.
+        global_next = {'operation': 'problem-assign', 'role': 'global-orchestrator', 'ready': True,
+                       'reason': 'audit-closure-settled', 'payload': {'module_ids': early[0]['module_ids']},
+                       'closure': early[0]['closure'], 'continue_modules': rounds['ready_modules']}
     elif not s.get('global_plan'):
         splitting = any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values())
         global_next = {'operation': None if splitting else 'global-plan', 'role': 'global-orchestrator',

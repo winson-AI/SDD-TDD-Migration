@@ -35,16 +35,17 @@ class ModuleIsolationTests(unittest.TestCase):
         f.implementation()
         test_audit_closure.ClosureTests.implement(f, 'M002', 'I2')
 
-    def assert_auditor_waits(self):
+    def assert_auditor_waits(self, early_audit_blocked=True):
         f = self.f
-        for op, payload in (
-            ('audit-collect', {'batch_id': 'B1', 'auditor_instance_id': 'auditor'}),
-            ('problem-assign', {'assignment_id': 'OLD', 'instance_id': 'auditor'}),
-            ('audit-assign', {'assignment_id': 'FINAL', 'instance_id': 'auditor'}),
-        ):
+        operations = [('audit-collect', {'batch_id': 'B1', 'auditor_instance_id': 'auditor'}),
+                      ('audit-assign', {'assignment_id': 'FINAL', 'instance_id': 'auditor'})]
+        if early_audit_blocked:
+            operations.append(('problem-assign', {'assignment_id': 'OLD', 'instance_id': 'auditor'}))
+        for op, payload in operations:
             with self.subTest(operation=op), self.assertRaises(Rejected):
                 f.call(op, payload, role='global-orchestrator', module=None)
-        self.assertFalse(f.state()['global_next_step']['ready'])
+        if early_audit_blocked:
+            self.assertFalse(f.state()['global_next_step']['ready'])
         self.assertFalse(f.state()['module_rounds']['all_settled'])
 
     def finish_peer_test(self):
@@ -90,8 +91,10 @@ class ModuleIsolationTests(unittest.TestCase):
         f.call('accept', {'assignment_id': 'RETRY'})
         test_workflow.WorkflowTests.defer(f)
         self.assertEqual(f.state()['modules']['M002'], peer)
-        self.assertEqual(f.state()['global_next_step']['wait_for_modules'], ['M002'])
-        self.assert_auditor_waits()
+        step = f.state()['global_next_step']  # M001's closure is settled: early audit, M002 keeps running
+        self.assertEqual((step['operation'], step['payload']['module_ids'], step['closure']), ('problem-assign', ['M001'], ['M001']))
+        self.assertEqual(f.state()['module_rounds']['active_modules'], ['M002'])
+        self.assert_auditor_waits(early_audit_blocked=False)  # the final audit still waits for M002
         self.finish_peer_test()
         s = f.state()
         self.assertEqual(s['modules']['M001']['quality'], 'red-bug')
