@@ -46,3 +46,7 @@ SDD 的 events.jsonl 是控制真相，Git 是回滚/审阅边界，二者分离
 ### 模块 Git 检查点（可选，默认关闭）
 
 `defaults.quality_gates.git_checkpoint=true`（prepare 固化，init 绑定）时，每个模块到 DoD 后游标给出宿主动作 `checkpoint`：宿主先按用户授权从迁移前基线建立运行分支 `sdd/<run_id>`，再运行 [git_checkpoint.py](../../migration-ledger/scripts/git_checkpoint.py) `--root <run_root> --module <id> --output <receipt>`。工具在运行级锁内只 `git add`/`git commit --only` 该模块已接受的 code_files（显式路径），既有脏文件与其他模块文件不被暂存；路径已与 HEAD 一致时复用 HEAD。回执逐文件记录 git blob id，宿主以 `checkpoint` 事件提交，Ledger 重新计算当前文件的 blob id 核对后记录 commit；`complete` 要求检查点属于当前 code_baseline。各模块各自提交，互不等待；审计修复改码后需新的检查点。工具不 push、tag、reset 或修改 Git 配置；Ledger 事件仍是控制真相，提交只提供可审阅、可回滚的模块边界。
+
+### 写范围核验（可选，默认关闭）
+
+`defaults.quality_gates.write_scope_check=true` 且目标是 Git 仓库时，宿主派发 Implementer/Fixer 后运行 [write_scope.py](../../migration-ledger/scripts/write_scope.py) `baseline` 记录当时的脏文件，worker 提交前运行 `delta` 记录此后变化的路径及 blob id，submit 时带 `write_scope_ref`。Ledger 重算 blob 后核验：本模块写范围内的改动必须都在申报的 code_files 中（范围内删除允许）；范围外的改动只有属于另一模块正在进行的代码任务或其已接受代码才放行，否则拒收。派发前已有的脏文件和工作流资产目录不计入；工具只读。

@@ -114,5 +114,6 @@
   "unit_tests_required": true,
   "git_checkpoint": false,
   "fixer_self_diagnosis": false,
+  "write_scope_check": false,
   "dependency_resolution_required": false
 }
