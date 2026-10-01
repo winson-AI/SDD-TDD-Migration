@@ -16,7 +16,8 @@
 2. **逐个等待**：宿主按 module_id 收集成功、失败和异常，采用 all-settled 语义；收到首个失败后继续其他 ready 模块并等待运行中的 MO。worker 退出/抛错只结束该 assignment；MO 仍需接受证据、执行修复/恢复或显式挂起。未派发、排队、锁等待、无活动 worker、全局 Red 均不等于模块本轮结束。
 3. **真实依赖限定范围**：只有已登记依赖不可用或确认本模块受影响时，才能记录该模块阻塞；不得把独立同伴作为依赖原因。跨模块新增业务边界须人工决策。受影响模块保留自己的历史断言，依赖缺证据记 Yellow，不复制生产者 Red；无关模块继续执行。已完成模块仅因真实基线/契约失效才重开。
 4. **全量收尾门禁**：每个已登记模块必须有自身 DoD 完成记录，或基于自身证据的 waiting-auditor / waiting-dependency / waiting-human / automation-deferred 记录；所有 worker 结束且没有 ready 的推进/恢复动作。禁止为凑齐门禁给其他模块批量挂起。只有上述条件同时成立，GO 才拉起独立 audit-code-review，治理闭环后再提交 audit-collect 或符合收尾门禁的 audit-assign；兼容 problem-assign 同样受约束。
-5. **阶段区分**：本轮结束不等于全部通过。Auditor 统一启动后先整体审查代码/委派治理，再收集各模块真实遗留；审计内部仍按已批准 finding 与依赖交错修复，失败只隔离相关分支。模块期末的全量等待不要求审计内每一修复步骤全批同步。
+5. **闭包提前审计**：waiting-auditor 模块的依赖闭包与下游消费者（含消费者的其他依赖）全部收尾且空闲时，GO 可对该闭包发起 problem-assign；审计锁只覆盖闭包，闭包外模块继续派发与验收。裁决经 audit-resume 回到各模块原流程；最终全量审计仍适用第 4 条。
+6. **阶段区分**：本轮结束不等于全部通过。Auditor 统一启动后先整体审查代码/委派治理，再收集各模块真实遗留；审计内部仍按已批准 finding 与依赖交错修复，失败只隔离相关分支。模块期末的全量等待不要求审计内每一修复步骤全批同步。
 
 ## Module-Orchestrator 唯一模块守卫
 
@@ -60,7 +61,7 @@ DoD checklist 要求：当前冻结有效；所有任务有提交/文件/需求/
 
 ## 有限循环
 
-输入配置 `max_fix_rounds=3`、`max_yellow_retries=2`、`max_audit_rounds=3`、`max_no_progress_rounds=2` 为默认值，可由初始化明确调整。一次修复派发计一轮；失败或中断也消耗轮次；恢复不会清零。本地自动轮数固定为 1，后续由 Auditor 按一轮授权，总预算仍约束全部轮次。no-progress 使用未解决 path_id + 根因 fingerprint + 有效版本变化判断，单纯重跑不算进展。
+输入配置 `max_fix_rounds=3`、`max_yellow_retries=2`、`max_audit_rounds=3`、`max_no_progress_rounds=2` 为默认值，可由初始化明确调整。一次修复派发计一轮；失败或中断也消耗轮次；恢复不会清零。本地自动轮数见下，后续由 Auditor 按一轮授权，总预算仍约束全部轮次。`local_fix_rounds` 默认 1，可在初始化/项目 budgets 中设为 1..max_fix_rounds。第一轮对所有可修复 Red/Yellow 生效；之后的本地轮次只在全部未解决失败都位于 build PATH（编译/打包）时继续，一旦出现 automation/visual 等业务失败即交 Auditor；no-progress fingerprint 仍可提前停止。no-progress 使用未解决 path_id + 根因 fingerprint + 有效版本变化判断，单纯重跑不算进展。
 
 到上限：保留实际 Red/Yellow，execution_status=suspended，转 Escalation 并让其余就绪模块继续；超时不准通过。增加预算必须绑定 run/module 的显式决策事件。依赖唤醒不耗修复轮次，但不能因反复醒来规避停滞检测。
 
@@ -74,7 +75,7 @@ Auditor 可执行既有脚本并生成日志，不能编辑源码/脚本。发�
 
 最终报告列清所有非 Green 及原因；仅无遗留问题、全部必需用例/路径覆盖且同一最终基线通过，audit_verdict 才为 Green。仅自动化环境缺失时，本轮允许 completed-with-unverified-tests + Yellow 收尾，不等于功能验收；其他可执行工作继续，不以缺测强制全局等待人工。Global 仍需人类交付/核心架构/合并授权后才归档；普通 module completed 不代表已合并或已交付。
 
-## 本地控制器映射（P2–P4）
+## 本地控制器映射
 
 可执行入口与操作矩阵见 [local-runtime.md](local-runtime.md)。它支持本地事件提交/重放、模块阶段串行和不同模块并行；控制器本身不常驻派发 Agent。
 

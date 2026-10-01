@@ -16,6 +16,7 @@ import decomposition
 import ledger
 import project_context as pc
 import reuse
+import spec_closure
 import source_changes
 from contracts import Rejected, baseline, check_ref, digest, file_ref, read_json
 from execute_test import execute
@@ -54,7 +55,7 @@ class SourceChangeTests(unittest.TestCase):
         f = self.f
         # Fixture helpers share definition paths; give every frozen plan its own copies.
         p = test_ledger.FlowTests.plan(f)
-        module = f.state()['modules'][mid]; iid = mid+'-Logic'; pid = mid+'-P'; bid = mid+'-B'
+        module = f.state()['modules'][mid]; iid = mid+'-Logic'; pid = mid+'-P'; bid = mid+'-B'; sid = mid+'-S'
         p.update(module_id=mid, planning_context=f.state()['planning_context'], assigned_module=f.state()['module_inputs'][mid],
                  dimension_analysis_ref=module['dimension_analysis_ref'])
         p['definitions'] = [{**f.ref(f'defs-{mid}-{f.n}/{r["kind"]}.md', check_ref(r).read_text() + '\n'+iid+'\n'), 'kind': r['kind']}
@@ -64,9 +65,12 @@ class SourceChangeTests(unittest.TestCase):
             'required': True, 'expected_assertions': [{'assertion_id': 'BUILD-EXIT', 'expected': 0}],
             'command': {'argv': [sys.executable, '-c', 'pass'], 'cwd': str(f.target), 'timeout_seconds': 20,
                         'selection_ref': f.ref('build-command.md', 'Fixture build')}})
+        p['paths'].append({'path_id': sid, 'kind': 'static', 'name': 'spec closure', 'case_id': 'C1', 'requirement_id': 'R1',
+            'required': True, 'scenario_requirement_ids': sorted({r for t in p['tasks'] for r in t['requirement_ids']}),
+            'expected_assertions': [{'assertion_id': 'SPEC-CLOSURE', 'expected': True}]})
         p['dimension_trace'] = [{'item_id': iid, 'task_ids': ['T1'], 'path_ids': [pid],
                                  'assertions': [{'path_id': pid, 'assertion_id': 'A1'}]}]
-        task = p['tasks'][0]; task['path_ids'] = [pid, bid]
+        task = p['tasks'][0]; task['path_ids'] = [pid, bid, sid]
         task['scope'] = {'in': ['implement subfunction'], 'out': ['Orders'], 'write_paths': module['write_paths']}
         task['dimension_analysis'] = {'scope_sha256': digest(task['scope']), 'parent_ref': p['dimension_analysis_ref'], 'unresolved': [],
             'dimensions': [{'dimension': k, 'status': 'applicable' if k == 'Logic' else 'not-applicable',
@@ -130,6 +134,7 @@ class SourceChangeTests(unittest.TestCase):
             'assignment_id': aid, 'actor_instance_id': actor, 'freeze_id': m['freeze_id'],
             'code_files': [file_ref(code)], 'code_baseline': baseline([file_ref(code)]),
             'task_trace': [{'task_id': 'T1', 'files': [str(code)]}], 'production_binding_evidence': proof,
+            'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': f.ref('authoring-diagnostics.log', 'changed files: 0 errors')},
             'dimension_evidence': [{'item_id': mid+'-Logic', 'task_ids': ['T1'], 'summary': 'Implemented scoped behavior', 'evidence_refs': [proof]}]}
         if role == 'fixer':
             result['fix_note_ref'] = f.ref('fix-note-'+aid+'.json', {'root_cause': 'wrong value', 'strategy': 'correct calculation',
@@ -137,10 +142,22 @@ class SourceChangeTests(unittest.TestCase):
         f.call('submit', {'assignment_id': aid, 'fencing_token': a['fencing_token'], 'result_ref': f.ref(aid+'.json', result)},
                role=role, instance=actor, module=mid)
         f.call('accept', {'assignment_id': aid}, module=mid)
-        for scope, stage, suffix in (('build', 'building', '-B'), ('automation', 'testing', '-P')):
-            aid = scope+'-'+mid+'-'+str(f.n)
-            if scope == 'build': argv = [sys.executable, '-c', 'pass']
+        m = f.state()['modules'][mid]; notes = f.ref('static-review-'+mid+'-'+str(f.n)+'.md', 'Reviewed production entry for value')
+        entry = code.parent / 'entry.py'; entry.write_text('from code import value\n')
+        review = f.ref('static-review-'+mid+'-'+str(f.n)+'.json', {'schema_version': 1, 'run_id': f.state()['run_id'], 'module_id': mid,
+            'path_id': mid+'-S', 'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
+            'scenarios': [{'requirement_id': 'R1', 'status': 'passed', 'summary': 'value reaches entry',
+                           'production_symbols': [{'path': str(code), 'symbol': 'value'}],
+                           'reached_from': {'path': str(entry), 'symbol': 'value'}, 'evidence_refs': [notes]}],
+            'anti_patterns': {k: {'status': 'absent', 'note': 'reviewed', 'evidence_refs': [notes]} for k in spec_closure.ANTI_PATTERNS}})
+        static_argv = [sys.executable, spec_closure.__file__, '--review', review['path'], '--target-root', str(f.target)]
+        for scope, stage, suffix in (('build', 'building', '-B'), ('static', None, '-S'), ('automation', 'testing', '-P')):
+            if scope == 'build':
+                aid = scope+'-'+mid+'-'+str(f.n); argv = [sys.executable, '-c', 'pass']
+            elif scope == 'static':
+                argv = static_argv  # same Test-Runner and assignment as the build
             else:
+                aid = scope+'-'+mid+'-'+str(f.n)
                 script = f.root/'staging/test-runner'/(aid+'.py')
                 script.parent.mkdir(parents=True, exist_ok=True)
                 script.write_text('import argparse,json,runpy\np=argparse.ArgumentParser();p.add_argument("--query-file");p.add_argument("--result-file");a=p.parse_args()\n'
@@ -150,14 +167,18 @@ class SourceChangeTests(unittest.TestCase):
                     +'if not passed: r["root_cause"]={"category":"code","summary":"wrong value","confidence":"confirmed","owner":"'+mid+'","next_action":"fix"}\n'
                     +'json.dump(r,open(a.result_file,"w"))\n')
                 argv = [sys.executable, str(script)]
-            report = f.report(stage, module=mid)
-            report['execution'] = {'argv': argv, 'cwd': str(f.target), 'environment_ref': f.ref('environment.md', 'Python fixture available')}
-            receipt = f.record(report)
-            f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner',
-                'test_scope': scope, 'context_ref': receipt}, module=mid)
+            if stage:
+                report = f.report(stage, module=mid)
+                report['execution'] = {'argv': argv, 'cwd': str(f.target), 'environment_ref': f.ref('environment.md', 'Python fixture available')}
+                if scope == 'build':
+                    report['execution']['commands'] = {mid+'-B': {'argv': argv, 'cwd': str(f.target)},
+                                                       mid+'-S': {'argv': static_argv, 'cwd': str(f.target)}}
+                receipt = f.record(report)
+                f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner',
+                    'test_scope': scope, 'context_ref': receipt}, module=mid)
             a = f.state()['modules'][mid]['assignments'][aid]
             rr = execute(f.root, mid, aid, mid+suffix, argv, str(f.target), f.root/('runs/build' if scope == 'build' else 'runs/harmony/automation')/aid)
-            if scope == 'build':
+            if scope in ('build', 'static'):
                 result = stage_result(f.root, mid, aid, [rr])
             else:
                 receipt_data = read_json(check_ref(rr)); captured = read_json(check_ref(receipt_data['result_ref']))

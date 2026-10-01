@@ -74,6 +74,10 @@ class BaselineGateTests(unittest.TestCase):
         self.base = Path(self.tmp.name).resolve()
         original = ui_fidelity._analysis           # never leak the patch into other suites
         self.addCleanup(setattr, ui_fidelity, '_analysis', original)
+        # Executability/baseline rules only; per-target node/tree association is covered in test_ui_fidelity.
+        plan_gate = ui_fidelity.visual_plan_gate
+        self.addCleanup(setattr, ui_fidelity, 'visual_plan_gate', plan_gate)
+        ui_fidelity.visual_plan_gate = lambda analysis, visual: None
 
     def ref(self, name='shot.png', content='img'):
         p = self.base / name; p.write_text(content); return file_ref(p)
@@ -131,7 +135,7 @@ class VisualResultTests(unittest.TestCase):
         alignment = self.native.alignment()
         self.run_root, frozen = self.native.bind_execution(alignment)
         self.assignment = {'assignment_id': 'capture-assignment', 'fencing_token': 'capture-fence'}
-        self.module = {'evidence_contract_version': 2, 'code_baseline': 'current-code'}
+        self.module = {'code_baseline': 'current-code'}
         self.path = path('PV', 'visual', coverage='settings:base:viewport', node_ids=['node:root'],
                          baseline_ref=file_ref(self.base / 'evidence/screenshot.png'), interaction_id='settings-edge-back',
                          visual_evidence=frozen)
@@ -140,7 +144,7 @@ class VisualResultTests(unittest.TestCase):
         interaction = alignment['required_interactions'][0]
         self.module['frozen_interactions'] = {'PV': interaction}
         query = {**self.path, 'run_id': 'r1', 'module_id': 'M001', 'freeze_id': 'f1',
-                 'code_baseline': 'current-code', 'evidence_contract_version': 2, 'frozen_interaction': interaction,
+                 'code_baseline': 'current-code', 'frozen_interaction': interaction,
                  'run_root': self.run_root, 'frozen_visual_evidence': frozen,
                  'execution_assignment': self.assignment,
                  'expected_assertions': [{'assertion_id': 'visual', 'expected': True}]}
@@ -207,10 +211,11 @@ class VisualResultTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaisesRegex(Rejected, message):
                 self.validate(proof)
 
-    def test_missing_evidence_still_allows_red_yellow_and_legacy_results(self):
+    def test_missing_evidence_still_allows_red_yellow_results(self):
         for quality in ('red-bug', 'yellow-blocked'):
             tv.visual_result(self.module, self.path, {'quality': quality}, {})
-        tv.visual_result({'code_baseline': 'current-code'}, self.path, {'quality': 'green-passed'}, {})
+        with self.assertRaisesRegex(Rejected, 'visual alignment must match'):
+            tv.visual_result({'code_baseline': 'current-code'}, self.path, {'quality': 'green-passed'}, {})
         tv.visual_result(self.module, path('PA', 'automation'), {'quality': 'green-passed'}, {})
 
 

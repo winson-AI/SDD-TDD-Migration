@@ -1,4 +1,4 @@
-"""Direct v2 freeze and execution consume original native evidence, without gate mocks."""
+"""Direct freeze and execution consume original native evidence, without gate mocks."""
 import copy
 from pathlib import Path
 import sys
@@ -33,14 +33,13 @@ class FrozenUiContracts(unittest.TestCase):
                 self.n.android / 'app/src/main/res/values/strings.xml')})['path'])
         self.model = self.analysis['dimensions'][0]['items'][0]['semantic_model']
         self.model['ui_evidence'] = self.evidence
-        self.state = {'ui_fidelity_required': True, 'evidence_contract_version': 2}
+        self.state = {'ui_fidelity_required': True}
         self.sequence = 0
 
     def module(self):
         self.sequence += 1
         ref = self.f.f.ref('native-analysis-' + str(self.sequence) + '.json', self.analysis)
         module = self.f.module(ref)
-        module['evidence_contract_version'] = 2
         if self.evidence['visual_mode'] == 'runtime':
             module['plan']['paths'][0].update(coverage=self.evidence['coverage'], node_ids=['node:settings.root'],
                                             baseline_ref=self.evidence['baseline_refs'][0])
@@ -131,7 +130,7 @@ class FrozenUiContracts(unittest.TestCase):
         self.visual_run_root, frozen = self.n.bind_execution(result)
         self.visual_assignment = {'assignment_id': 'capture-assignment', 'fencing_token': 'capture-fence'}
         query = {**path, 'run_id': 'r1', 'module_id': 'M001', 'freeze_id': 'freeze-1',
-                 'code_baseline': module['code_baseline'], 'evidence_contract_version': 2,
+                 'code_baseline': module['code_baseline'],
                  'frozen_interaction': ui_fidelity.frozen_interaction(module, path),
                  'run_root': self.visual_run_root, 'frozen_visual_evidence': frozen,
                  'execution_assignment': self.visual_assignment,
@@ -153,7 +152,7 @@ class FrozenUiContracts(unittest.TestCase):
             changed['required_interactions'][0][field] = value
             if field == 'action': changed['interaction_checks'][0]['action'] = value
             if field == 'expected': changed['interaction_checks'][0]['observed'] = value
-            # The native/legacy import contract still accepts its internally consistent ID list.
+            # The native import contract still accepts its internally consistent ID list.
             self.assertEqual(self.n.import_alignment(changed)['settings:base:viewport']['quality'], 'green-passed')
             with self.subTest(field=field), self.assertRaisesRegex(Rejected, 'requirement differs'):
                 self.report(changed, query)
@@ -169,8 +168,7 @@ class FrozenUiContracts(unittest.TestCase):
         path['frozen_interaction'] = {**query['frozen_interaction'], 'action': 'tap_exit_button'}
         module['frozen_interactions'] = {path['path_id']: path['frozen_interaction']}
         self.assertEqual(ui_fidelity.frozen_interaction(module, path), query['frozen_interaction'])
-        self.assertIsNone(ui_fidelity.frozen_interaction({'evidence_contract_version': 1}, path))
-        self.assertIsNone(ui_fidelity.frozen_interaction({'evidence_contract_version': 2}, {'kind': 'automation'}))
+        self.assertIsNone(ui_fidelity.frozen_interaction({}, {'kind': 'automation'}))
 
     def test_audit_scope_retains_only_selected_module_and_global_contracts(self):
         _, module, path, query = self.alignment_query()
@@ -180,7 +178,7 @@ class FrozenUiContracts(unittest.TestCase):
         global_contract = {**query['frozen_interaction'], 'id': 'global-back'}
         global_path = {**path, 'path_id': 'GLOBAL-VISUAL', 'interaction_id': 'global-back',
                        'frozen_interaction': global_contract}
-        state = {'evidence_contract_version': 2, 'modules': {'M001': module}, 'global_paths': [global_path]}
+        state = {'modules': {'M001': module}, 'global_paths': [global_path]}
         scope = ledger.audit_scope(state)
         self.assertEqual(ui_fidelity.frozen_interaction(scope, path), query['frozen_interaction'])
         self.assertEqual(ui_fidelity.frozen_interaction(scope, global_path), global_contract)
@@ -190,10 +188,8 @@ class FrozenUiContracts(unittest.TestCase):
         global_path.pop('frozen_interaction')
         with self.assertRaises(Rejected):
             ledger.audit_scope(state)
-        state['evidence_contract_version'] = 1
-        self.assertEqual(ledger.audit_scope(state)['frozen_interactions'], {})
 
-    def test_red_yellow_and_version_one_do_not_require_new_green_proof(self):
+    def test_red_yellow_do_not_require_new_green_proof(self):
         original, module, path, query = self.alignment_query()
         query.pop('frozen_interaction')
         for overall, status, quality in [('NEEDS_IMPLEMENTATION_FIX', 'FAILED', 'red-bug'),
@@ -204,10 +200,6 @@ class FrozenUiContracts(unittest.TestCase):
             report = self.report(result, query)
             self.assertEqual(report['quality'], quality)
             test_validation.visual_result(module, path, report, report)
-        query['evidence_contract_version'] = 1
-        report = self.report(original, query)
-        self.assertEqual(report['quality'], 'green-passed')
-        test_validation.visual_result({**module, 'evidence_contract_version': 1}, path, report, report)
 
 
 if __name__ == '__main__':

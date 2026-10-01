@@ -148,6 +148,53 @@ def audit_active(s):
     return bool(s.get('audit_assignment') and not s['audit_assignment'].get('closed'))
 
 
+def audit_locks(s, mid):
+    """An early problem audit locks only its closure; every other audit (and global ops) locks the run."""
+    if not audit_active(s):
+        return False
+    closure = s['audit_assignment'].get('closure')
+    return closure is None or mid is None or mid in closure
+
+
+def audit_closure_of(s, mids):
+    """Queued modules plus everything they depend on and every consumer (with its own dependencies)."""
+    deps = {mid: set(m['dependencies']) for mid, m in s['modules'].items()}
+    closure, changed = set(mids), True
+    while changed:
+        before = set(closure)
+        for mid, needed in deps.items():
+            if mid in closure:
+                closure |= needed
+            elif needed & closure:
+                closure.add(mid)
+        changed = closure != before
+    return sorted(closure)
+
+
+def closure_blockers(s, closure):
+    from audit_closure import collection_blockers
+    return [b for b in collection_blockers(s) if b['module_id'] in closure]
+
+
+def problem_budget_left(s, mid):
+    return s.get('problem_attempts', {}).get(mid, 0) < s['max_audit_rounds']
+
+
+def early_audit_candidates(s):
+    """Settled closures around queued modules: audit them now instead of waiting for the whole run."""
+    queued = sorted(mid for mid in s.get('audit_queue', {}) if s['modules'][mid]['phase'] == 'waiting-auditor'
+                    and mid not in s.get('audit_resolutions', {}) and problem_budget_left(s, mid))
+    groups = []
+    for mid in queued:
+        closure = set(audit_closure_of(s, [mid]))
+        merged = [g for g in groups if g['closure'] & closure]
+        for g in merged:
+            groups.remove(g); closure |= g['closure']
+        groups.append({'closure': closure, 'module_ids': sorted({mid, *[x for g in merged for x in g['module_ids']]})})
+    return [{'module_ids': g['module_ids'], 'closure': sorted(g['closure'])}
+            for g in groups if not closure_blockers(s, g['closure'])]
+
+
 def role(actor, name):
     require(actor.get('role') == name and actor.get('instance_id'), 'principal role denied')
 
@@ -174,14 +221,35 @@ def peripheral(m):
     return None
 
 
-def defer_reason(m):
+def variant_conflict(m):
+    """Confirmed runtime-vs-SPEC variant conflict: suspend for the user, never a repair round."""
+    issues = list(m.get('results', {}).values()) + list(m.get('repair_findings', {}).values())
+    for r in issues:
+        cause = r.get('root_cause') or {}
+        if (r['quality'] != 'green-passed' and cause.get('reason_code') == 'runtime-spec-variant-conflict'
+                and cause.get('confidence') == 'confirmed'):
+            return cause
+    return None
+
+
+def build_only_failures(m):
+    """Every unresolved failure sits on a build PATH: compile/package, not business behaviour."""
+    kinds = {p['path_id']: p.get('kind') for p in (m.get('plan') or {}).get('paths', [])}
+    issues = {**m.get('results', {}), **m.get('repair_findings', {})}
+    bad = [pid for pid, r in issues.items() if r['quality'] != 'green-passed']
+    return bool(bad) and all(kinds.get(pid) == 'build' for pid in bad)
+
+
+def defer_reason(m, local_rounds=1):
+    """One local round always; further configured rounds only while the module is still failing to build."""
     if m.get('audit_fix_grant'):
         return None
     cause = peripheral(m)
     if cause:
         return cause
-    if (m.get('local_fix_used', 0) >= 1 or m.get('auditor_fix_used')) and not m.get('audit_fix_grant'):
-        return {'category': 'local-round-exhausted', 'summary': 'one local repair round used',
+    used = m.get('local_fix_used', 0)
+    if m.get('auditor_fix_used') or used >= local_rounds or (used >= 1 and not build_only_failures(m)):
+        return {'category': 'local-round-exhausted', 'summary': f'{used} local repair round(s) used',
                 'confidence': 'confirmed', 'owner': 'auditor', 'next_action': 'problem-audit'}
     return None
 
@@ -260,12 +328,13 @@ def handle(s, req, actor, run_root=None):
         if source_review: s['global_plan']['source_review_ref'] = source_review
     elif op == 'audit-defer':
         role(actor, 'module-orchestrator'); idle(m)
-        require(not audit_active(s), 'audit active')
+        require(not audit_locks(s, mid), 'audit active')
         require(m['phase'] not in ('completed', 'waiting-auditor'), 'cannot defer completed/already queued module')
+        s.get('audit_resolutions', {}).pop(mid, None)  # a new deferral is never answered by an older disposition
         root_cause(p.get('root_cause'))
         check_ref(p.get('evidence_ref'))
         if m.get('code_baseline') and m['phase'] in ('testing', 'diagnosing'):
-            require(defer_reason(m) or (p['root_cause']['category'] in EXTERNAL and p['root_cause']['confidence'] == 'confirmed'),
+            require(defer_reason(m, s.get('local_fix_rounds', 1)) or (p['root_cause']['category'] in EXTERNAL and p['root_cause']['confidence'] == 'confirmed'),
                     'repairable failure must receive one local repair round before handoff')
         original = (m.get('blocked') or {}).get('resume_phase', m['phase'])
         s.setdefault('audit_queue', {})[mid] = {'root_cause': p['root_cause'], 'evidence_ref': p['evidence_ref'],
@@ -276,18 +345,21 @@ def handle(s, req, actor, run_root=None):
     elif op == 'problem-assign':
         role(actor, 'global-orchestrator'); planning_guard(s)
         require(not audit_active(s), 'audit already active')
-        from audit_closure import collection_blockers
-        require(not collection_blockers(s), 'all module rounds must settle before Auditor')
-        for mod in s['modules'].values(): idle(mod)
         mids = p.get('module_ids', list(s.get('audit_queue', {})))
         require(mids and len(set(mids)) == len(mids) and set(mids) <= set(s.get('audit_queue', {})), 'queued modules required')
+        # Only the queued modules' dependency closure and their consumers must be settled; unrelated modules continue.
+        closure = audit_closure_of(s, mids)
+        blockers = closure_blockers(s, closure)
+        require(not blockers, 'audit closure (dependencies and consumers) must settle before Auditor: ' + str(blockers))
+        for mod in closure: idle(s['modules'][mod])
         require(p.get('assignment_id') and p.get('instance_id'), 'audit identity required')
         require(p['assignment_id'] not in s.get('audit_assignment_ids', []), 'audit assignment id already used')
         require(all(p['instance_id'] not in mod['authors'] for mod in s['modules'].values()), 'Auditor must be independent')
-        require(s.get('problem_attempts', 0) < s['max_audit_rounds'], 'problem audit budget exhausted')
-        s['problem_attempts'] = s.get('problem_attempts', 0) + 1
+        require(all(problem_budget_left(s, mod) for mod in mids), 'problem audit budget exhausted')
+        for mod in mids:
+            s.setdefault('problem_attempts', {})[mod] = s.get('problem_attempts', {}).get(mod, 0) + 1
         s.setdefault('audit_assignment_ids', []).append(p['assignment_id'])
-        s['audit_assignment'] = {**p, 'role': 'auditor', 'mode': 'problem', 'module_ids': mids,
+        s['audit_assignment'] = {**p, 'role': 'auditor', 'mode': 'problem', 'module_ids': mids, 'closure': closure,
                                  'run_id': s['run_id'], 'closed': False, 'snapshot': problem_snapshot(s, mids)}
     elif op == 'problem-audit':
         role(actor, 'auditor')
@@ -322,7 +394,7 @@ def handle(s, req, actor, run_root=None):
         a['closed'] = True
     elif op == 'audit-resume':
         role(actor, 'module-orchestrator'); idle(m)
-        require(not audit_active(s), 'audit active')
+        require(not audit_locks(s, mid), 'audit active')
         resolution = s.get('audit_resolutions', {}).get(mid)
         require(m['phase'] == 'waiting-auditor' and resolution, 'auditor disposition required')
         check_ref(resolution['report_ref'])

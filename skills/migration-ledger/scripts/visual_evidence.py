@@ -1,4 +1,4 @@
-"""Shared frozen-reference and executed-capture checks for v2 visual acceptance.
+"""Shared frozen-reference and executed-capture checks for visual acceptance.
 
 Managed execution receipts bind bytes and the installed build, not visual verdicts. Host
 authentication and device locking remain the executor's responsibility, as for other receipts.
@@ -167,7 +167,7 @@ def validate_alignment(result, target_root, coverage, *, frozen_evidence, code_b
             'current visual execution assignment required')
     page, state, _ = coverage.split(':')
     rounds = {r['round']: r for r in result.get('rounds', [])}
-    require(rounds, 'v2 visual Green requires original comparison rounds')
+    require(rounds, 'visual Green requires original comparison rounds')
     latest = result['rounds'][-1]['round']
     proofs = []
 

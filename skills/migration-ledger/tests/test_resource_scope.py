@@ -160,7 +160,7 @@ class ResourceScopeTests(unittest.TestCase):
         self.freeze()
         self.assertIn(item['item_id'], rf.blocked(self.f.analysis))
 
-    def test_v2_rejects_resource_row_without_hash(self):
+    def test_rejects_resource_row_without_hash(self):
         index = read_json(self.f.fixture['source'])
         next(row for row in index['resources'] if row['ref'] == '@string/settings_title').pop('sha256')
         self.source_index(index)
@@ -268,7 +268,6 @@ class ResourceScopeTests(unittest.TestCase):
         module = self.f.module()
         module['plan'].update(module_id='M001', definitions=[], tasks=[])
         # Both source refs remain real/current, so file hashes alone cannot expose the mismatch.
-        verify_plan(module['plan'], {**module, 'evidence_contract_version': 1})
         with self.assertRaisesRegex(Rejected, 'different source baselines'):
             verify_plan(module['plan'], module)
 

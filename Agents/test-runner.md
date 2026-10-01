@@ -19,13 +19,15 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 所有输入输出为 [运行协议](../skills/migration-protocol/references/runtime.md) 定义的绝对路径/事件引用；内容产出在本实例 staging，读取已提交工件须验证 hash。
 
 ## 3. 执行步骤
-1. design：仅从规格与用例生成测试覆盖，不运行代码；冻结 build 命令和 automation 路径，每个 CASE 必须有业务自动化路径。
+1. design：仅从规格与用例生成测试覆盖，不运行代码；冻结 build 命令、一条 static 规格闭合路径和 automation 路径，每个 CASE 必须有业务自动化路径。
 2. execute/build：确认代码已被接受；提交 building 预检。MO 派发 test_scope=build 后，宿主通过 execute_test 直接执行冻结 argv/cwd/timeout，不附加 query-file/result-file 参数。
 3. 汇总全部 build PATH 的实际退出码、日志和回执，提交 tests stage。MO 接受后才有效；全绿且 build_baseline 匹配当前 code_baseline，才具备进入 automation 的条件。
 4. build 非 Green：通过 Ledger 留根因与证据；Diagnostician 分析 → MO 接受诊断 → 独立 Fixer 修复。补丁由 MO 接受后旧构建失效，本角色必须重新 building 预检、构建与正式提交；不使用 Fixer 自测替代。
-5. execute/automation：build 已接受为 Green 后，单独提交 testing 预检，包括设备上实际部署版本/fixture 等证据。MO 派发新的 test_scope=automation assignment，宿主才启动 Main/Harmony。本角色不能在 build 进程退出时自行串联未经授权的自动化命令。
-6. 把本 scope 每条完整 PATH 作为 query 交 Main，采集全部冻结 ASSERT、三态、初步原因与回执；flaky/skip/缺报告不能 Green。提交全部 automation 路径结果，由 MO 验收并检查 DoD。
-7. 仅自动化环境不可用：提交 test-environment=blocked 报告，由 MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务。其他真实错误沿诊断/Fixer/审计规则处理；build 与 automation 共用模块本地一轮修复预算。
+5. execute/static：building 预检同时预批准 static 命令；build 全绿被接受后，同一 assignment 切为 static，继续以当前代码与冻结 SPEC 写规格闭合审查（逐需求生产符号 + 假实现清单），经 execute_test 运行 spec_closure 适配器并提交；Red 进入诊断/修复，见 [静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合)。本角色未参与该代码编写，审查不得由 Implementer/Fixer 代做。
+6. execute/automation：build 与 static 已接受为 Green 后，单独提交 testing 预检，包括设备上实际部署版本/fixture 等证据。MO 派发新的 test_scope=automation assignment，宿主才启动 Main/Harmony。本角色不能在 build 进程退出时自行串联未经授权的自动化命令。
+7. 把本 scope 每条完整 PATH 作为 query 交 Main，采集全部冻结 ASSERT、三态、初步原因与回执；flaky/skip/缺报告不能 Green。提交全部 automation 路径结果，由 MO 验收并检查 DoD。
+8. 运行时页面变体与冻结 SPEC 冲突：记 Yellow + human 根因（reason_code=runtime-spec-variant-conflict），见 [测试协议](../skills/migration-protocol/references/testing.md#运行时变体与冻结-spec-冲突)；不自行选变体。
+9. 仅自动化环境不可用：提交 test-environment=blocked 报告，由 MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务。其他真实错误沿诊断/Fixer/审计规则处理；build 与 automation 共用模块本地一轮修复预算。
 
 ## 4. 规则优先级
 当前用户与宿主约束 → [AGENTS.md](../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。
@@ -57,50 +59,17 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 
 HarmonyOS 路径按 [Harmony 运行协议](../skills/migration-test/references/harmony-runtime.md) 运行。内部保留 Planner/Executor/Verify、工具回放与视频验证；正式结论只采用逐条冻结 ASSERT 的本次证据。宿主绑定已部署构建与代码基线、分配设备锁；一个 PATH 一个进程。失败交回 Ledger，不在内部擅自修业务代码或调整验收。
 
-## 二方库验证
+## 专题义务
 
-design 阶段读取需求与已审核的复用语义/差异，设计真实提供方接线、版本配置、正常/边界/异常及适配回归；验收标准来自需求，不能从实现反推。execute 在 Coding 接受后验证完整业务路径；只有 mock、导入或编译证据不能代替要求的真实集成测试。依赖受阻保留 Yellow 和 capability/mapping/version 根因。详见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
+细则以链接协议为准；本表只列本角色的必交证据与禁止项。本角色不修源码、资源、构建配置、SPEC 或断言；知识工具（knowledge-query/diagnose、foundation-verify）只辅助准备与归因，不替代真实回执。
 
-## 执行前上下文核对
-
-复用 fidelity 的预期来自已审核的存量行为与需求；按冻结 scenario → PATH/ASSERT 复现同一业务场景。Main 保存真实结果、状态/副作用及回执；缺证据为 Yellow、行为偏差为 Red，不能从目标实现或库当前返回值倒推 expected。
-
-execute/build 前提交 building 报告；execute/automation 前提交新的 testing 报告。分别核对冻结 PATH、已接受代码、对应环境/数据和权限，绑定实际 argv/cwd/environment_ref；不能用 building 报告替代 testing 预检。MO assign 后宿主才执行实际命令。设计阶段检查进入 planning 报告，由 Spec Designer 汇总，不能据此提前执行测试。完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
-
-## 两个独立执行环节
-
-执行职责明确为 build（编译构建）和 automation（自动化用例）：构建前读取目标全局脚本/用户命令与环境，默认评估 Gradle assemble，逐模块冻结命令和构建 PATH；build Green 后才进入自动化预检。编译错误或可修复 Yellow 经 MO 派发 Fixer，再由本角色重新构建；本角色不修源码。
-
-自动化环境不可启动，提交仅 test-environment=blocked 的证据，由 MO automation-unavailable 留逐 PATH Yellow/未执行并结束本轮，不能阻塞其他并行/下游代码任务。环境可启动则执行全用例路径。详细命令、三态、恢复与审计遵守 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
-
-## 只读视觉比较
-
-按 [UI 保真](../skills/migration-protocol/references/ui-fidelity.md) 在 build 与功能 automation 已满足前置后执行 visual PATH；使用 [lean 受限接入](../skills/migration-protocol/references/lean-integration.md) 的 compare-only，不加载会自行改 UI/资源或返工的完整 Aligner skill。构建仍由正式 execute_test 回执留证；导入 lean 的 passed 字段不能代替本轮执行。
-
-v2 每条视觉 Green 的 record.visual_alignment 必须与本次 captured.visual_alignment 相同，覆盖冻结目标、node_ids、baseline_ref、当前 code_baseline 与实际 HAP hash；显式交互附同 HAP/代码的 PASSED 设备证据。差异为 Red 并报告节点根因；工具/设备缺失保留 Yellow/未执行，沿既有 automation-unavailable 收尾，不修改源码、资源、构建配置、SPEC 或断言。修复交 Fixer，使用原预算，不启动额外 lean 对齐循环。
-
-comparison_evidence 由原始 alignment 的 round/target/capture index 推导；score 与 semantic 必须绑定被比较的实际截图。ALIGNED_CARRIED 也必须保留原始对齐和当前截图回归证据，不能沿用失去来源的分数。使用 [visual-alignment 模板](../template/visual-alignment.json) 记录实际输出。
-
-本轮 capture 必须绑定当前 assignment/fence；semantic 问题与不可比判断按 [视觉执行](../skills/migration-protocol/references/visual-execution.md) 逐项附裁决证据。skipped/xfail 原样记录，不能声明 Green；缺测后的历史执行与本次尝试分开留存，遵守 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
-
-v2 正式视觉 Green 另重验完整冻结 Android 原始记录与 capture_evidence：当前 run 的安装回执、实际命令、截图/树/hash 共同绑定本轮 HAP/代码。外部 capture 按 [捕获回执模板](../template/visual-capture-execution.json) 留实证，不能靠修改 alignment 标签；GLOBAL 自有 PATH 缺 visual_evidence 保留 Yellow。source-only 手势走 automation 的 [interaction_evidence](../template/interaction-evidence.json)；默认 Harmony 未生成该结构化证据时，保留实际断言并规范化为已执行 Yellow，真实 Red 不降级，不从 expected 合成 observed。能力缺口沿既有预检/缺测收尾，不扩大全局阻塞。
-
-## 代码治理后的回归
-
-Auditor 委派的重构/二方库接入/公共能力变更同样先 Build 成功并装机，再执行受影响模块的完整用例及依赖下游；即使这些用例原本 Green 也必须复测并关联 retest_of。无关有效 Green 保留，自动化不可用仍留 Yellow/未测试，不阻塞独立分支。执行范围来自 Ledger 的治理 finding/owner/消费者及依赖证据，验收归 Auditor。
-
-## 埋点测试
-
-仅对 applicable 事件执行冻结的结构化 PATH/ASSERT，使用项目 adapter，明确 emitted/sdk-dispatched/server-received 层级；UI截图或构建通过不能代替事件上报证据。N/A 不创建空用例或跳过记录。观测不足记录相关 PATH Yellow，保留其他已执行结果，独立任务继续；整段自动化不可启动才走既有 automation-unavailable 条件。详见 [埋点协议](../skills/migration-protocol/references/telemetry.md)。
-
-## run 级共享 sandbox 配置
-
-Test-Runner 在首次设计转换或 automation 环境预检前调用 `sandbox.py prepare --root <run_root>`，从用户指定参考配置、`.sdd-migration/harmony` 或包内 default 复制生成 `runs/harmony/sandbox/environment/config.json` 与 `.env`（目录 700、文件 600）。所有父/子 MO 的测试共享本 run 的环境配置，prepare 加锁且幂等；并行路径只在自己的 automation attempt 写执行结果。
-
-`--config/--env-file` 是首次复制的来源；配置已存在时不跟随外部更新，显式不同来源内容被拒绝，应准备新 run 并重新预检。进程注入环境变量仍可覆盖 `.env`，由 Host 在预检后保持一致。包内 `.env.example/config.default.json` 仅为参考；旧包内 `.env` 仅能经显式来源导入，不直接作为执行环境。生成 adapter 必须指向本轮环境目录并绑定 run_root。不得将 `.env` 内容提交 Ledger、报告或 Git；环境不可用仍按 Yellow/未执行处理，独立任务继续。
-
-## 文件留存执行门禁
-
-使用 CLI 或直接调用底层库都必须遵守同一 storage_layout：不能把输出省略交给 cwd、输入文件所在目录或 SDK 默认 dumps。XMind/报告/录制/日志/媒体显式选择本轮受管目录；需要默认路径或 SDK 调用时进入 runner scope。路径拒绝作为本模块环境/执行问题留证，沿现有 Yellow 路由处理；不得绕过校验、删除外部输入或中止无关模块。构建/外部脚本仍由 Host 审核冻结命令的实际输出并限制文件权限。
-
-可用 knowledge-query、knowledge-diagnose 与 foundation-verify 辅助只读测试准备和问题归因；日志 hash、解析结果和目录核对结果留作证据，不能替代真实 Main/构建/设备回执或自行修复。v2 手势 Green 还须绑定 execute_test 提取的 frozen_interaction，核对 required_interaction、实际 action 与 observed，不能只检查同 ID/PASSED。见 [受限接入](../skills/migration-protocol/references/lean-integration.md)。
+| 专题 | 本角色义务 | 协议 |
+| --- | --- | --- |
+| 上下文就绪 | build 前提交 building 报告（同时预批准 static 命令），automation 前提交新的 testing 报告；分别绑定实际 argv/cwd/environment_ref，MO assign 后宿主才执行；设计阶段检查进入 planning 报告，不提前执行 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md) |
+| build / static / automation | 构建命令优先用户指定，否则搜索目标脚本并默认评估 Gradle assemble；build 全绿后同一派发继续 static；编译错误或可修复 Yellow 交 Fixer 后重新构建；自动化环境不可启动只提交 test-environment=blocked，由 MO automation-unavailable 记逐 PATH Yellow，不阻塞其他模块 | [构建与自动化](../skills/migration-protocol/references/build-automation.md)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
+| 复用 fidelity | 预期来自需求与已审核的存量行为，按冻结 scenario → PATH/ASSERT 复现；真实提供方集成不能以 mock、导入或编译证据代替；依赖受阻留 Yellow 与 capability/mapping/version 根因，行为偏差为 Red | [复用](../skills/migration-protocol/references/reuse-dependencies.md) |
+| 视觉 | build 与功能 automation 满足后执行 visual PATH，只用 compare-only/受限视觉工具，不加载完整 Aligner；record.visual_alignment 与本次 captured 一致并绑定冻结目标、node_ids、baseline_ref、code_baseline、HAP hash；comparison_evidence 由原始 round/target/capture index 推导，ALIGNED_CARRIED 也要当前截图回归；capture 绑定当前 assignment/fence，semantic 问题逐项裁决；外部 capture 按[捕获回执](../template/visual-capture-execution.json)留证；差异为 Red，工具缺失为 Yellow，不启动额外对齐循环 | [UI 保真](../skills/migration-protocol/references/ui-fidelity.md)、[视觉执行](../skills/migration-protocol/references/visual-execution.md)、[lean 接入](../skills/migration-protocol/references/lean-integration.md) |
+| 手势 | 冻结 interaction 的 Green 须核对 frozen_interaction、required_interaction、实际 action 与 observed；source-only 用 automation 的 [interaction_evidence](../template/interaction-evidence.json)，缺结构化证据记已执行 Yellow，不从 expected 合成 observed | [测试](../skills/migration-protocol/references/testing.md) |
+| 代码治理回归 | Auditor 委派的变更先构建装机，再完整复测受影响模块与依赖下游（含原 Green，关联 retest_of）；无关有效 Green 保留 | [代码治理](../skills/migration-protocol/references/audit-code-review.md) |
+| 埋点 | 只对 applicable 事件执行冻结 PATH/ASSERT，标明 emitted/sdk-dispatched/server-received 层级；截图或构建通过不能代替上报证据；观测不足记相关 PATH Yellow | [埋点](../skills/migration-protocol/references/telemetry.md) |
+| 运行环境与留存 | 首次设计转换或自动化预检前执行 `sandbox.py prepare --root <run_root>` 生成本 run 共享的 environment/config.json 与 `.env`（700/600，幂等加锁，已存在不跟随外部更新）；`.env` 内容不进 Ledger/报告/Git；所有输出（XMind、报告、录制、日志、媒体）写本轮受管目录，路径拒绝按本模块 Yellow 处理 | [Harmony 运行](../skills/migration-test/references/harmony-runtime.md)、[留存布局](../skills/migration-protocol/references/storage-layout.md) |

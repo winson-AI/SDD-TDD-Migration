@@ -90,18 +90,16 @@ class AutomationInteractionTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'captured report'):
             test_validation.interaction_result(self.module, self.path, changed, valid)
 
-    def test_unavailable_and_legacy_results_do_not_invent_gesture_passes(self):
+    def test_unavailable_results_do_not_invent_gesture_passes(self):
         for quality in ('red-bug', 'yellow-blocked'):
             row = {'quality': quality}
             test_validation.interaction_result(self.module, self.path, row, row)
             self.assertEqual(row, {'quality': quality})
-        test_validation.interaction_result({**self.module, 'evidence_contract_version': 1},
-                                          self.path, {'quality': 'green-passed'}, {})
 
     def test_audit_keeps_leaf_and_global_behavior_obligations(self):
         self.module['results'] = {self.path['path_id']: {'quality': 'yellow-blocked'}}
         global_path = {**self.path, 'path_id': 'GLOBAL-BACK', 'frozen_interaction': self.gesture}
-        state = {'evidence_contract_version': 2, 'modules': {'M001': self.module}, 'global_paths': [global_path]}
+        state = {'modules': {'M001': self.module}, 'global_paths': [global_path]}
         scope = ledger.audit_scope(state)
         self.assertEqual(ui_fidelity.frozen_interaction(scope, self.path), self.gesture)
         self.assertEqual(ui_fidelity.frozen_interaction(scope, global_path), self.gesture)
@@ -141,12 +139,12 @@ out.write_text(json.dumps({{'producer':'harmony-adapter', 'query_sha256':digest(
         self.assertEqual(row['quality'], 'green-passed')
         test_validation.interaction_result(self.module, self.path, row, row)
 
-    def init_request(self, path, version=2):
+    def init_request(self, path):
         spec = file_ref(self.f.n.write('input/spec.md', 'Frozen fixture requirement'))
         return {'schema_version': 1, 'request_id': 'init', 'run_id': 'gesture', 'module_id': None,
                 'expected_revision': 0, 'operation': 'init', 'payload': {
                     'dimension_slicing_required': False, 'split_testing_required': False,
-                    'context_readiness_required': False, 'evidence_contract_version': version,
+                    'context_readiness_required': False,
                     'target_root': str(self.f.n.target), 'legacy_root': str(self.f.n.android),
                     'case_ids': ['C1'], 'requirement_ids': ['R1'], 'global_spec': spec,
                     'new_architecture': spec, 'global_paths': [{**path, 'case_id': 'C1'}]}}
@@ -165,13 +163,6 @@ out.write_text(json.dumps({{'producer':'harmony-adapter', 'query_sha256':digest(
         ledger.apply(self.run, self.init_request(path), {'role': 'host', 'instance_id': 'host'})
         state, _ = ledger.read_events(self.run)
         self.assertEqual(state['global_paths'][0]['frozen_interaction'], self.gesture)
-
-    def test_legacy_global_init_does_not_require_new_device_contract(self):
-        ledger.apply(self.run, self.init_request(self.path, version=1), {'role': 'host', 'instance_id': 'host'})
-        state, _ = ledger.read_events(self.run)
-        self.assertEqual(state['evidence_contract_version'], 1)
-        self.assertNotIn('frozen_interaction', state['global_paths'][0])
-
 
 if __name__ == '__main__':
     unittest.main()

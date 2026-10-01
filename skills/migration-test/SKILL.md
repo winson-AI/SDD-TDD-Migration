@@ -18,7 +18,7 @@ description: SDD-TDD-Migration 的测试设计、编译构建与自动化执行�
 需要当前 HAP 装机、视觉捕获或模型语义比较时读取 [受限视觉执行](../migration-protocol/references/visual-execution.md)。在现有测试 assignment 下使用 visual-install/visual-capture/semantic-inspect，读取冻结配置、保存原始证据；正式结果仍通过 execute_test/adapter 提交，不在工具中修代码或直接验收。
 
 ## 3. 标准模式
-先 design 冻结两类路径；code accepted 后 execute/build 编译构建并记录三态，Green 后 execute/automation 校验环境并逐用例执行。错误交 Fixer；仅自动化环境不可启动时 Yellow/未执行并收尾，让其他任务继续。必读 [双环节协议](../migration-protocol/references/build-automation.md)。
+先 design 冻结两类路径；code accepted 后 execute/build 编译构建并记录三态，Green 后 execute/static 做规格闭合审查（[静态规格闭合](../migration-protocol/references/testing.md#静态规格闭合)），再 execute/automation 校验环境并逐用例执行。错误交 Fixer；仅自动化环境不可启动时 Yellow/未执行并收尾，让其他任务继续。必读 [双环节协议](../migration-protocol/references/build-automation.md)。
 
 禁止：自然语言 query 当 shell；以构建 exit 0 代替业务用例通过；无断言或 skip 当通过；重跑只保留最好一次。
 
@@ -40,18 +40,6 @@ HarmonyOS UI/端到端测试读取 [Harmony 运行协议](references/harmony-run
 - 固定 ASSERT ID 绑定冻结谓词；零断言、最终通过文本、旧回放结果不能代替本次验证。原生 memory 是候选执行素材，复用与修复裁决仍受 Ledger 控制。
 - 内核的 Planner/Executor/Verify 仅是当前 Test-Runner 内部组件；不能承担外层 Spec/Fixer/Auditor 权限。其他平台继续使用原 Main 适配器。
 
-测试设计增加二方库接线、版本配置、语义差异及真实提供方集成路径；Coding 后正式 Main 执行，完整业务验收不得因复用而缩减。见 [二方库复用协议](../migration-protocol/references/reuse-dependencies.md)。
+复用 fidelity、视觉、手势、埋点、运行环境与留存等角色义务以 [Test-Runner 定义](../../Agents/test-runner.md#专题义务) 为准；本技能只保留执行规约。
 
-保真断言以已审核的存量源码行为与需求为依据，绑定 reuse-plan.fidelity 的 PATH/ASSERT；Main 必须留真实复现结果，不能以库的行为或对齐报告替代通过证据。
-
-埋点只在适用模块/任务中测试：按 [埋点协议](../migration-protocol/references/telemetry.md) 冻结事件及观测层级、使用项目结构化 adapter 留真实证据。无埋点 N/A 不新增用例/依赖；缺观测环境是相关路径 Yellow，不能改成 N/A，也不能用 Harmony 图片推断服务端收到了事件。
-
-新运行构建输出放 `.sdd-runs/<run_id>/runs/build/<new-attempt>`；自动化放 `runs/harmony/automation/<new-attempt>`，Harmony 测试设计、适配器和汇总放 `runs/harmony/sandbox/<request>`。各 runner 的 temp 在结束后清理，清理失败留在原 run 并记录 cleanup；长期参考配置/凭证放 `.sdd-migration/harmony`，Test-Runner 通过 `sandbox.py prepare --root <run_root>` 复制到本轮共享 `runs/harmony/sandbox/environment` 后执行。读取 planning_context.storage_layout，不在目标仓或工作流包旁另建报告目录。详见 [留存布局](../migration-protocol/references/storage-layout.md)。
-
-工作流调用 sandbox design/adapter/test、harmony_design 或兼容报告生成器时显式传 `--root <run_root>`，校验本轮输出归属；harmony_stage 必须传 --root 且输出只允许 runs/harmony/sandbox。省略 --root 的模式仅供独立调试，不作为工作流入口。先项目 prepare，再执行 sandbox prepare 初始化本轮共享配置，然后生成本轮 adapter，将带 --root 的完整命令提交 testing 预检。
-
-底层直接调用也执行留存门禁：未绑定 runner 时不允许相对/缺省输出；XMind 不写回源文件旁，报告/录制/媒体/日志须明确受管位置，外部输入只读。详见 [底层留存规则](../migration-protocol/references/storage-layout.md#底层直接调用同样遵守留存规则)。
-
-测试阶段可用受限 query/diagnose/verify 辅助只读准备；目录版本核对和知识检索不替代本次正式执行。存在 visual PATH 时在当前 automation Green 后另派 visual scope，全部适用冻结路径 Green 才进入 DoD；无 UI/source-only 不新增空视觉路径。见 [受限接入](../migration-protocol/references/lean-integration.md)。
-
-v2 source-only 声明手势可由 automation 承载；Green 需要冻结动作/起点/预期对应的真实 interaction_evidence。默认 Harmony 缺此证据时保留断言并记录 Yellow，不能伪造 observed。视觉正式验收同时检查完整冻结 Android 集合和当前 run 捕获/安装/命令/HAP/代码的 capture_evidence；工具成功及 alignment 标签不能替代。模板与收尾规则见 [测试协议](../migration-protocol/references/testing.md) 和 [UI 保真](../migration-protocol/references/ui-fidelity.md)。
+输出位置：构建 `.sdd-runs/<run_id>/runs/build/<new-attempt>`，自动化 `runs/harmony/automation/<new-attempt>`，Harmony 设计/适配/汇总 `runs/harmony/sandbox/<request>`；本 run 共享环境 `runs/harmony/sandbox/environment` 由 `sandbox.py prepare --root <run_root>` 生成。见 [留存布局](../migration-protocol/references/storage-layout.md)。

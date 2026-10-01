@@ -31,7 +31,9 @@ class AuditSchedulerTests(unittest.TestCase):
         f.call('register',{'module_id':'M003','case_ids':['C1'],'dependencies':[],
                            'write_paths':[str(f.target/'m3')]},role='global-orchestrator',module=None)
         f.global_plan()
-        self.assertFalse(f.state()['global_next_step']['ready'])
+        # The deferred cluster may be audited early, but the final collection still waits for M003.
+        self.assertEqual(f.state()['global_next_step']['operation'], 'problem-assign')
+        self.assertNotIn('M003', f.state()['global_next_step']['closure'])
         with self.assertRaises(Rejected):
             f.call('audit-collect',{'batch_id':'B1','auditor_instance_id':'auditor'},role='global-orchestrator',module=None)
         # Explicitly suspended module rounds count; dependency-unrunnable is not a pass.

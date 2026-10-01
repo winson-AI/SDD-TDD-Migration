@@ -23,13 +23,15 @@
       "max_parallel_modules": 3,
       "max_fix_rounds": 3,
       "max_audit_rounds": 3,
-      "max_no_progress_rounds": 2
+      "max_no_progress_rounds": 2,
+      "local_fix_rounds": 1
     },
     "quality_gates": {
-      "dependency_resolution_required": false
+      "dependency_resolution_required": false,
+      "git_checkpoint": false,
+      "fixer_self_diagnosis": false
     },
     "repair_policy": {
-      "local_automatic_rounds": 1,
       "confirmed_dependency_or_peripheral": "defer-to-auditor",
       "after_failed_round": "defer-to-auditor"
     }

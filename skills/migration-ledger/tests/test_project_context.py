@@ -98,15 +98,6 @@ class ProjectContextTests(unittest.TestCase):
         self.start(payload)
         self.assertTrue(ledger.status(self.run)['context_readiness_required'])
 
-    def test_new_run_binds_v2_and_cannot_downgrade_evidence(self):
-        prepared = self.prepare()
-        self.assertEqual(prepared['input']['evidence_contract_version'], 2)
-        payload = self.init_payload(prepared)
-        with self.assertRaisesRegex(Rejected, 'evidence contract mismatch'):
-            self.start({**payload, 'evidence_contract_version': 1})
-        self.start(payload)
-        self.assertEqual(ledger.status(self.run)['evidence_contract_version'], 2)
-
     def test_dependency_gate_survives_prepare_init_and_later_config_update(self):
         pc.update(self.root, self.request('gate', 1, {'defaults': {'quality_gates': {
             'dependency_resolution_required': True}}}), self.actor)
@@ -124,45 +115,26 @@ class ProjectContextTests(unittest.TestCase):
         second = pc.prepare(self.root, self.base / '.sdd-runs/r2', self.run_request('r2'), self.actor)
         self.assertIs(second['input']['dependency_resolution_required'], False)
 
+    def test_git_checkpoint_and_local_rounds_are_bound_from_project_config(self):
+        pc.update(self.root, self.request('git', 1, {'defaults': {'quality_gates': {'git_checkpoint': True},
+                                                                  'budgets': {'local_fix_rounds': 2}}}), self.actor)
+        prepared = self.prepare()
+        self.assertIs(prepared['input']['git_checkpoint'], True)
+        payload = self.init_payload(prepared)
+        with self.assertRaisesRegex(Rejected, 'git checkpoint mismatch'):
+            self.start({**payload, 'git_checkpoint': False})
+        self.start(payload)
+        state, _ = ledger.read_events(self.run)
+        self.assertIs(state['git_checkpoint'], True)
+        self.assertEqual(state['local_fix_rounds'], 2)
+        for bad in ({'quality_gates': {'git_checkpoint': 'yes'}}, {'repair_policy': {'local_automatic_rounds': 2}}):
+            with self.subTest(bad=bad), self.assertRaises(Rejected):
+                pc.validate({'defaults': bad})
+
     def test_dependency_gate_requires_real_boolean(self):
         for value in ('true', 1, []):
             with self.subTest(value=value), self.assertRaisesRegex(Rejected, 'must be a boolean'):
                 pc.validate({'defaults': {'quality_gates': {'dependency_resolution_required': value}}})
-
-    def test_old_snapshot_does_not_reinterpret_previously_ignored_gate(self):
-        prepared = self.prepare()
-        path = Path(prepared['project_context_ref']['path'])
-        snapshot = json.loads(path.read_text())
-        snapshot.pop('dependency_resolution_required')
-        snapshot['effective_config']['defaults']['quality_gates'] = {'dependency_resolution_required': True}
-        path.write_bytes(pc.encoded(snapshot))
-        ref = file_ref(path)
-        pc.archive(self.run / 'context/files', path.read_bytes(), '.snapshot')
-        before = path.read_bytes()
-        old_input = pc.prepared_input(ref)
-        self.assertIs(old_input['dependency_resolution_required'], False)
-        self.start(self.init_payload({'input': old_input}))
-        state, _ = ledger.read_events(self.run)
-        self.assertIs(state['dependency_resolution_required'], False)
-        self.assertEqual(path.read_bytes(), before)
-
-    def test_historical_snapshot_without_version_stays_v1(self):
-        prepared = self.prepare()
-        # Construct an old, correctly sealed snapshot in this isolated fixture.
-        # Production recovery must never rewrite such historical bytes.
-        ref = prepared['project_context_ref']
-        path = Path(ref['path'])
-        snapshot = json.loads(path.read_text())
-        snapshot.pop('evidence_contract_version')
-        path.write_text(json.dumps(snapshot))
-        old_ref = file_ref(path)
-        (self.run / 'context/files' / (old_ref['sha256'] + '.snapshot')).write_bytes(path.read_bytes())
-        original = path.read_bytes()
-        self.assertEqual(pc.prepared_input(old_ref)['evidence_contract_version'], 1)
-        payload = self.init_payload({'input': pc.prepared_input(old_ref)})
-        self.start(payload)
-        self.assertEqual(ledger.status(self.run)['evidence_contract_version'], 1)
-        self.assertEqual(path.read_bytes(), original)
 
     def test_reuse_sources_reject_escape_duplicates_and_input_override(self):
         library = self.base / 'library'; library.mkdir()

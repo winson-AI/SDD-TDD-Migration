@@ -27,8 +27,8 @@ class InteractionCompletionTests(unittest.TestCase):
         f.module['assignments'] = {'AUTO': self.assignment}
         self.state = {'run_id': 'gesture', 'modules': {'M001': f.module}}
 
-    def run_report(self, passed, version=2):
-        f = self.f; f.module['evidence_contract_version'] = version
+    def run_report(self, passed):
+        f = self.f
         scripts = str(Path(__file__).resolve().parents[2] / 'migration-test/scripts')
         adapter = f.f.n.write('.sdd-runs/gesture/staging/native-report.py', f'''
 import json, sys
@@ -81,8 +81,3 @@ sys.exit(0 if report['quality'] == 'green-passed' else 1)
         self.assertEqual(row['root_cause'], native['root_cause'])
         self.assertEqual(row['assertions'], native['assertions'])
         self.assertIs(row['assertions'][0]['actual'], False)
-
-    def test_legacy_contract_without_frozen_interaction_keeps_original_green(self):
-        native, stage = self.run_report(True, version=1)
-        self.assertEqual(stage['paths'][0]['quality'], 'green-passed')
-        self.assertEqual(stage['paths'][0]['assertions'], native['assertions'])

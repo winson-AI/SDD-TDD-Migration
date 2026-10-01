@@ -5,7 +5,7 @@ description: 功能切片、架构差异解析、DAG 与全局三态调度，用
 
 # migration-global
 
-来源/归属变化时遵守 [来源追加协议](../migration-protocol/references/source-changes.md)：完整来源和影响评审经 source-review 接受，Host 绑定批准后版本切换；所有叶子（包括 new 路线）与父分配都须评审，仅受影响闭包重规划。新 capability 采用 v2 显式 owner，写集合不能当作业务归属。
+来源/归属变化时遵守 [来源追加协议](../migration-protocol/references/source-changes.md)：完整来源和影响评审经 source-review 接受，Host 绑定批准后版本切换；所有叶子（包括 new 路线）与父分配都须评审，仅受影响闭包重规划。新 capability 采用显式 owner，写集合不能当作业务归属。
 
 ## 1. 定位
 服务 Global-Orchestrator；先读取 [共享协议](../migration-protocol/SKILL.md)，再读 [职责协议](../migration-protocol/references/runtime.md)。
@@ -29,28 +29,4 @@ CASE 覆盖归属与验收角色分开：模块阶段唯一验收 owner 为对�
 ## 6. 配套资产
 使用 [主要模板](../../template/global-input.json)；其他工件由 [模板索引](../../template/INDEX.md) 定位。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
-实现前必须 global-plan：所有需求/用例都有 owner、模块 registry 匹配、整体测试可追溯。audit_queue 仅登记遗留；须先满足全部模块本轮收尾门禁才安排问题审计，保留最终全局审计门禁。
-
-## Auditor 启动门禁
-
-必须等所有模块本轮完成或明确挂起、无在途 worker 与可推进动作，再统一拉起 Auditor 执行 [整体代码审查/治理](../migration-protocol/references/audit-code-review.md)，然后处理剩余 Red/Yellow。dependency-ready/resume 优先；audit-code-review/audit-collect 会重复校验。宿主实际启动/恢复各 subagent 及 Used Skills。finding 路由、依赖复测与人工释放见 [当前运行契约](../migration-protocol/references/local-runtime.md)。
-
-跨模块或不确定的业务边界必须交人工决策，记录 boundary_review 及批准后再接受 global-plan；Global 只执行已批准的边界、依赖和路由。已批准范围内的常规调度无需重复询问。
-
-启动时读取宿主 prepare 的 project_context_ref 和固定项目版本，按 [项目上下文协议](../migration-protocol/references/project-context.md) 生成完整 SPEC/Testing list/input.json，再初始化 Ledger 并派发。Global 不写 mutable 项目配置，更新由宿主依据真实用户输入提交；下游始终使用运行快照。
-
-按完整 registry 独立维护每个 MO 的进度；单模块失败不触发其他 MO 的取消、失败标记或统一挂起。全局 quality 仅是聚合展示；继续 status.ready_modules 并等待 module_rounds.active_modules，直到全量收尾。具体遵守 [模块隔离与全量收尾](../migration-protocol/references/state-machine.md#模块隔离与全量收尾)。
-
-切片前评估目标已有能力与用户指定的外部模块，完成语义抽取和全局复用目录，再分配模块 scope/context、提供方/消费者与共享适配 owner。必读 [二方库复用协议](../migration-protocol/references/reuse-dependencies.md)；目录是下游规划输入，不是对业务验收的替代。
-
-## 功能清单来源与完备性
-
-默认从测试用例汇总提取模块功能列表；没有汇总时，先完整理解存量源码并抽取功能，之后生成需求/CASE。逐项核对源码入口、功能与用例的双向覆盖；任何疑问立即人工介入。新运行 global-plan 必填 feature_inventory_ref 和 feature_owners，完备性与处理流程见 [切片规范](references/slicing.md#功能清单完备性门禁)。
-
-## 父 MO 名称与最终报告
-
-父 MO 一律显示为 `parent-mo-<module_id>`（如 parent-mo-M010），派发/恢复使用 `status.parent_mo_names`，技术实例 ID 与显示名分开。GO 在本轮收尾后必须向用户提供完整 CASE 状态清单，非 Green 逐项汇总根因、责任方、下一步及证据；无测试环境不能仅称“迁移成功”。按 [GO 报告协议](../migration-protocol/references/migration-report.md) 读取 status.migration_report，不重复验收或触发全量测试。
-
-## 切片完整性
-
-GO 的 register、decompose-accept、global-plan 执行 [四维协议](../migration-protocol/references/dimension-slicing.md)；先据上下文/功能清单划模块 scope，再逐模块分析 UI → Logic → Adhesive → Resource，既有目标能力/二方库须对齐源码功能。
+角色义务、调度/审计规则与专题入口以 [Agent 定义](../../Agents/global-orchestrator.md#专题义务) 和 [状态机](../migration-protocol/references/state-machine.md) 为准；本技能只保留执行规约与检查，不重复专题细则。

@@ -70,13 +70,10 @@ def consumers(item):
     return values
 
 
-def covered_ids(item, *, strict=True):
-    # Additional names are historical annotations, not proof that a resource exists.
-    # Each v2 source/variant (including aliases) gets its own evidence-backed item.
-    ids = [item.get('source_resource')]
-    if not strict:
-        ids += list(item.get('covered_resource_ids', []))
-    return {i for i in ids if isinstance(i, str) and i}
+def covered_ids(item):
+    # Each source/variant (including aliases) gets its own evidence-backed item; extra names prove nothing.
+    source = item.get('source_resource')
+    return {source} if isinstance(source, str) and source else set()
 
 
 def blocked(analysis):
@@ -86,14 +83,14 @@ def blocked(analysis):
                   for item in row.get('items', []) if item.get('resource_strategy') == 'blocked')
 
 
-def closure_gaps(analysis, declared_refs, *, strict=True):
+def closure_gaps(analysis, declared_refs):
     """Presentation refs the UI tree declares but no Resource item covers (reduced closure)."""
     covered = set()
     for row in analysis.get('dimensions', []):
         if row.get('dimension') != 'Resource':
             continue
         for item in row.get('items', []):
-            covered |= covered_ids(item, strict=strict)
+            covered |= covered_ids(item)
     return sorted(set(declared_refs) - covered)
 
 
@@ -358,9 +355,9 @@ def require_exact_closure(analysis, declared_refs, legacy_root=None):
 
 
 def freeze_gate(s, m):
-    """New v2 freezes verify every declared exact resource, including non-UI resources."""
+    """Freeze verifies every declared exact resource, including non-UI resources."""
     ref = (m.get('plan') or {}).get('dimension_analysis_ref')
-    if s.get('evidence_contract_version', 1) < 2 or not ref:
+    if not ref:
         return
     variants, destinations = set(), {}
     for row in read_json(check_ref(ref))['dimensions']:

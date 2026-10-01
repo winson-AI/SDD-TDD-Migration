@@ -37,7 +37,7 @@
 
 ## 四维覆盖门禁
 
-- [ ] F-OWNER v2 capability 的 baseline/叶子 owner 有证据，消费者依赖与写授权正确；共享实现唯一 owner、写锁范围具体，稳定 provider 与修改目标分离；证据：{{ownership-and-allocation-refs}}
+- [ ] F-OWNER capability 的 baseline/叶子 owner 有证据，消费者依赖与写授权正确；共享实现唯一 owner、写锁范围具体，稳定 provider 与修改目标分离；证据：{{ownership-and-allocation-refs}}
 - [ ] F-SOURCE 如发生来源追加，已读取 Ledger 当前快照/影响报告，受影响计划重新冻结；无关计划延续有精确 hash 依据，未借来源变化重置预算或抹掉失败；证据：{{source-change-event-or-not-applicable}}
 - [ ] D-PROVIDER 如变更 provider，本轮版本交付、消费者映射和正式复测链完整；旧副本不能代替 live 验证；证据：{{owner-consumer-version-and-retest-refs}}
 

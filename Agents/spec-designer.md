@@ -6,8 +6,6 @@ mode: subagent
 
 # Spec-Designer
 
-来源追加影响本模块时，读取 Ledger 当前快照及 source_change_ref，重新生成/冻结受影响 SPEC；无关模块的延续依据不能用于改变验收。v2 复用目录显式 owner，设计中区分不变 provider 与消费者/适配/去重修改目标；需修改 provider 本体时明确 owner 版本交付及消费者复测，不能把 adapt 当 hash 豁免。见 [来源协议](../skills/migration-protocol/references/source-changes.md) 与 [复用第 10 节](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
-
 ## 1. 职责
 OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
 
@@ -55,36 +53,17 @@ OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment
 
 子 MO 负责子功能任务拆解，Spec Designer 按其分配组织正式六件套和可执行 tasks。子模块正式 plan 必须绑定 status.planning_context 及 status.module_inputs[module_id] 对应的 assigned_module；tasks 的全局需求映射和 CASE 限于获分配 scope；MO 与 Spec Designer 在规划前共同读取全局代码、架构、知识及兄弟分工，确认复用与唯一实现 owner。父节点只保留功能草稿/拆分/汇总，正式六件套归执行叶子。
 
-## 复用分析进入六件套
+## 专题义务
 
-读取 GO/父 MO 的二方库语义目录，按子功能需求核验行为等价与差异，而非按 API 名称匹配。proposal 说明策略，design 明确提供方、版本、DI/接线和适配边界，tasks 分解接入/缺口工作；spec 保持用户需求。冻结 plan.reuse_plan_ref，逐需求覆盖 capability/decision/task/PATH；不合适候选可拒绝，但需说明依据。详见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
+细则以链接协议为准；本表只列本角色的规划产物与禁止项。测试预期未知交人工，不从目标实现推导通过标准。
 
-## 执行前上下文核对
-
-选中复用能力时，按全局 fidelity 规范读取对应存量源码，形成逐行为对齐报告，并在 reuse-plan.fidelity 绑定基线、差异、复现 PATH/ASSERT。差异落入适配 tasks，需求冲突/不确定交人工；报告完成不表示功能已通过。
-
-plan 前提交 planning 报告并绑定同一 plan_ref，核对全局/父/子范围、source_closure、target_feasibility、接口、测试设计和复用映射；MO freeze 再验。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
-
-新叶子计划冻结 kind=build 与 kind=automation 两类 PATH，build.command 包含目标编译命令、cwd、超时和选择证据，tasks 覆盖两类路径。无需自动化设备就绪才冻结或编码；其缺失按 [双环节协议](../skills/migration-protocol/references/build-automation.md) 留作 Yellow 缺测，不能删验收路径。
-
-## 四维 SPEC
-
-遵循 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)：基于认领子模块实现/四维上下文，协助子 MO 先划定 tasks.scope，再对每个任务按 UI → Logic → Adhesive → Resource 分析具体实现并绑定 scope_sha256，把 item ID 与实现指导写入 design/spec/tasks；生成完整 dimension_trace，规划审查 N/A 依据、真实接线和资源消费者，未决项禁止冻结。
-
-## UI 分析工具
-
-按 [lean 受限接入](../skills/migration-protocol/references/lean-integration.md) 使用 analyze-ui/validate-ui，读取 Capture 原始 manifest、源/运行时索引与知识主题，形成可追溯 UI 树、page/state/coverage、资源闭包和稳定节点。只生成本角色分析工件，不加载完整 lean 实现 skill，不在冻结前修改目标源码或资源。原始结果引用与转换证据随 plan 进入 Ledger；截图缺失不能伪造 runtime。
-
-v2 计划为每个 runtime UI 目标冻结独立 visual PATH，coverage 与对应 ui_evidence 完全相同，baseline_ref 属于该目标的 baseline_refs，node_ids 来自该目标树节点。闭包内 Resource item 明确 resource_kind/resource_strategy；源不可执行时仍完成 source-only 模型并说明缺视觉实证。无 UI 或有证据的 N/A 不添加空视觉任务，自动化环境缺失不阻止有完整规划证据的冻结/编码。
-
-## 埋点契约
-
-按 [埋点协议](../skills/migration-protocol/references/telemetry.md) 将已审核的源事件、参数、触发/禁止条件、生产接线和验收层级写入 SPEC/design/tasks。stage-plan.telemetry 可索引事件→TASK/PATH/ASSERT；无埋点记有据 N/A、events=[]，不新增空测试。测试预期未知交人工，不能从目标实现推导通过标准。
-
-知识通过 knowledge-query 按实际源码/目标触发，Foundation 需求用 foundation-resolve 固定目录版本和适用性。开关开启时把真实 result_ref 绑定 plan.dependency_resolution_ref；无新依赖/非适用目标用明确 not-required 产物，不能用空列表代替。source-only 仍走原生 source/tree 严格校验；runtime 将当前目标 capture manifest、runtime index 与完整截图集合绑定。声明交互必须冻结完整 id/action/from/expected，不能只写 ID。见 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md)。
-
-资源可先 resource-scan，逐配置变体填写真实 source_resource_ref/qualifier；kind、单位、nine-patch 从文件/条目核对，任务分配绑定具体资源 item。within-envelope 的影响审查必须绑定 from_freeze_id + to_plan_hash，计划再次变化须重新审查；见 [OpenSpec 变更规则](../skills/migration-protocol/references/openspec.md)。
-
-规划 UI 状态时区分稳定视觉目标与瞬态行为，按 [状态测试表](../template/ui-state-test-design.md) 将源码状态映射到既有 SPEC/CASE/PATH。loading/skeleton 的状态分支必须迁移并做行为测试；只有明确要求且可稳定复现时进入 capture 目标。资源映射逐 source_resource/qualifier 留证，多个消费者分别列出；不支持自动转换的真实类型可记录 manual_exact 审查证据或 blocked 原因，不能伪装类型或删掉范围。
-
-v2 手势可绑定 automation 或 visual；source-only 通过 automation 保留设备行为义务，不创建缺基线的 visual PATH。collector 资源事实、适用 qualifier 与 Resource item 必须使用同一源文件/hash；范围外变体仅以 resource_scope.exclusions 和审查证据排除，不能省略已启用配置。旧索引过期须重新抽取并更新计划，不补造 hash。
+| 专题 | 本角色义务 | 协议 |
+| --- | --- | --- |
+| 上下文就绪 | plan 前提交 planning 报告并绑定同一 plan_ref（全局/父/子范围、source_closure、target_feasibility、接口、测试设计、复用映射），MO freeze 再验 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md) |
+| 测试路径 | 拆分模块冻结 build（command 含编译命令/cwd/超时/选择证据）、一条 static 与 automation PATH，tasks 覆盖全部路径；自动化设备缺失不阻止冻结，按缺测 Yellow 处理，不删验收路径 | [构建与自动化](../skills/migration-protocol/references/build-automation.md)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
+| 复用与 fidelity | 按需求核验 GO/父 MO 能力目录的行为等价与差异（不按 API 名）；proposal 写策略、design 写提供方/版本/DI/适配边界、tasks 写接入与缺口；冻结 reuse_plan_ref 逐需求覆盖 capability/decision/task/PATH；选中能力须读存量源码形成逐行为对齐，绑定 reuse-plan.fidelity；区分不变 provider 与修改目标，改 provider 本体写明 owner 版本交付与消费者复测 | [复用](../skills/migration-protocol/references/reuse-dependencies.md)、[来源变更](../skills/migration-protocol/references/source-changes.md) |
+| 四维 | 协助子 MO 先划 tasks.scope，再逐任务做 UI → Logic → Adhesive → Resource 分析并绑定 scope_sha256；item 与实现指导写入 design/spec/tasks，生成完整 dimension_trace，N/A 要依据，未决项禁止冻结 | [四维](../skills/migration-protocol/references/dimension-slicing.md) |
+| UI 与资源 | 用 analyze-ui/validate-ui（不加载完整 lean skill、冻结前不改目标）形成 UI 树、page/state/coverage 与资源闭包；每个 runtime 目标一条 visual PATH（coverage/baseline_ref/node_ids 属于该目标）；声明交互冻结完整 id/action/from/expected，source-only 用 automation 承载；loading/skeleton 作为行为测试，稳定可复现才进 capture；Resource item 逐 source_resource + qualifier 填 source_resource_ref、resource_kind、resource_strategy（kind、单位、nine-patch 从源文件/条目核对），变体排除只用 resource_scope.exclusions；截图缺失不伪造 runtime，旧索引过期重新抽取 | [lean 接入](../skills/migration-protocol/references/lean-integration.md)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md)、[状态测试表](../template/ui-state-test-design.md) |
+| 埋点 | 已审核的源事件/参数/触发与禁止条件/生产接线/验收层级写入 SPEC/design/tasks；无埋点记有据 N/A、events=[] | [埋点](../skills/migration-protocol/references/telemetry.md) |
+| 知识与依赖 | knowledge-query 按实际触发；Foundation 需求用 foundation-resolve，开关开启时绑定 plan.dependency_resolution_ref，不适用用显式 not-required 产物 | [lean 工程纪律](../skills/migration-protocol/references/lean-disciplines.md) |
+| 边界内修订 | within-envelope 影响审查绑定 from_freeze_id + to_plan_hash，计划再变须重审 | [OpenSpec](../skills/migration-protocol/references/openspec.md) |

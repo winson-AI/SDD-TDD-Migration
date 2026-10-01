@@ -4,7 +4,7 @@
   "reuse_sources": [
     {"source_id": "LIB-EXTRA", "root": "{{absolute-library-root}}", "module_paths": ["{{absolute-library-module}}"], "description": "{{new-read-only-capability-source}}"}
   ],
-  "catalog_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{v2-catalog-for-complete-source-set}}", "sha256": "{{sha256}}"},
+  "catalog_ref": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{catalog-for-complete-source-set}}", "sha256": "{{sha256}}"},
   "parent_reviews": {
     "M010": {"path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{parent-allocation-impact-review}}", "sha256": "{{sha256}}"}
   },

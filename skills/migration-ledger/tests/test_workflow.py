@@ -242,6 +242,40 @@ class WorkflowTests(unittest.TestCase):
         self.defer(); self.start_problem()
         self.assertEqual(self.state()['global_next_step']['operation'], 'problem-audit')
 
+    def test_local_fix_resumes_the_implementer_session_first(self):
+        self.failed_module()
+        self.call('session', {'role': 'implementer', 'session_id': 'S-IMPL'})
+        self.diagnose()
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['worker_role'], step['session_id'], step['session_affinity']), ('fixer', 'S-IMPL', 'implementer'))
+        self.call('session', {'role': 'fixer', 'session_id': 'S-FIX'})
+        step = self.state()['next_steps'][0]
+        self.assertEqual(step['session_id'], 'S-FIX')
+        self.assertNotIn('session_affinity', step)
+
+    def test_host_reports_whether_it_followed_session_and_card_hints(self):
+        self.failed_module()
+        self.call('session', {'role': 'implementer', 'session_id': 'S-IMPL'})
+        self.diagnose()
+        step = self.state()['next_steps'][0]
+        self.call('assign', {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer',
+                             'session_id': 'S-OTHER', 'card_sha256': step['card_sha256']})
+        hints = self.state()['modules']['M001']['assignments']['F1']['hints']
+        self.assertEqual((hints['session_suggested'], hints['session_followed'], hints['card_followed']), ('S-IMPL', False, True))
+        adoption = self.state()['hint_adoption']
+        self.assertEqual(adoption['session']['not_followed'], 1)
+        self.assertEqual(adoption['card']['followed'], 1)
+        self.assertGreaterEqual(adoption['card']['unreported'], 2)  # earlier dispatches did not report
+
+    def test_workflow_cost_counts_dispatches_receipts_and_repairs(self):
+        self.failed_module(); self.diagnose(); self.implementation('fixer', 'F1')
+        cost = self.state()['workflow_cost']
+        row = cost['modules']['M001']
+        self.assertEqual((row['dispatches'], row['fix_rounds'], row['human_decisions']), (3, 1, 1))
+        self.assertEqual(cost['totals']['dispatches'], 3)
+        report = (self.root / 'reports/migration-report.md').read_text()
+        self.assertIn('## 流程成本', report)
+
     def test_peripheral_cause_skips_local_fix(self):
         self.failed_module('external')
         self.assertEqual(self.state()['next_steps'][0]['operation'], 'audit-defer')

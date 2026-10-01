@@ -73,7 +73,7 @@ def validate_plan(plan, module):
     require(set(module['case_ids']) <= {x.get('case_id') for x in paths.values()}, 'unmapped module cases')
     for path in paths.values():
         require(path.get('name') and path.get('requirement_id'), 'path name/requirement required')
-        require(path.get('required') is True, 'runtime v1 accepts only required paths')
+        require(path.get('required') is True, 'runtime accepts only required paths')
         assertions = keyed(path.get('expected_assertions'), 'assertion_id')
         require(all('expected' in a for a in assertions.values()), 'assertion expected value required')
     tasks = keyed(plan.get('tasks'), 'task_id')
@@ -127,15 +127,14 @@ def verify_plan(plan, module=None):
     reuse.verify(plan)
     import dimensions
     dimensions.verify(plan)
-    if (module or {}).get('evidence_contract_version', 1) >= 2 and plan.get('dimension_analysis_ref'):
+    if plan.get('dimension_analysis_ref'):
         import resource_fidelity
         resource_fidelity.require_indexed_closure(read_json(check_ref(plan['dimension_analysis_ref'])))
     import telemetry
     telemetry.verify(plan)
     if plan.get('dependency_resolution_ref'):
         import knowledge_gate
-        knowledge_gate.validate_resolution(plan['dependency_resolution_ref'],
-            strict=(module or {}).get('evidence_contract_version', 1) >= 2)
+        knowledge_gate.validate_resolution(plan['dependency_resolution_ref'], strict=True)
 
 
 def baseline(refs):
@@ -144,6 +143,24 @@ def baseline(refs):
         check_ref(ref)
     require(len({r['path'] for r in refs}) == len(refs), 'duplicate code files')
     return digest(sorted(refs, key=lambda r: r['path']))
+
+
+def authoring_diagnostics(d):
+    """Code authors fix changed-file diagnostics before handoff; without them, pinned sources replace memory."""
+    require(isinstance(d, dict) and d.get('status') in ('passed', 'unavailable'),
+            'authoring_diagnostics status passed|unavailable required')
+    if d['status'] == 'passed':
+        require(isinstance(d.get('tool'), str) and d['tool'].strip() and d.get('log_ref'),
+                'authoring_diagnostics tool and log_ref required')
+        check_ref(d['log_ref'])
+        return
+    require(isinstance(d.get('reason'), str) and d['reason'].strip(), 'authoring_diagnostics unavailable reason required')
+    apis = d.get('version_sensitive_apis')
+    require(isinstance(apis, list), 'authoring_diagnostics version_sensitive_apis list required (may be empty)')
+    for item in apis:
+        require(isinstance(item, dict) and isinstance(item.get('api'), str) and item['api'].strip() and item.get('source_ref'),
+                'authoring_diagnostics: each version-sensitive API needs its pinned dependency source_ref')
+        check_ref(item['source_ref'])
 
 
 def validate_result(result, module, assignment, run_root=None):
@@ -166,6 +183,7 @@ def validate_result(result, module, assignment, run_root=None):
         require(code_paths == {str(Path(p).resolve()) for t in traces.values() for p in t.get('files', [])}, 'unowned code or missing task file')
         require(result.get('production_binding_evidence'), 'production binding evidence required')
         check_ref(result['production_binding_evidence'])
+        authoring_diagnostics(result.get('authoring_diagnostics'))
         import reuse
         reuse.validate_implementation(module['plan'], result)
         import dimensions
@@ -191,8 +209,9 @@ def validate_result(result, module, assignment, run_root=None):
     import test_validation as tv
     if tv.split(module) and assignment.get('role') == 'test-runner':
         scope = assignment.get('test_scope')
-        require(scope in ('build', 'automation', 'visual'), 'test scope required')
+        require(scope in ('build', 'static', 'automation', 'visual'), 'test scope required')
         require(scope == 'build' or tv.build_ready(module), 'build must pass before automation')
+        require(scope in ('build', 'static') or tv.static_ready(module), 'static spec review must pass before automation')
         require(scope != 'visual' or tv.functional_ready(module), 'functional tests must pass before visual')
         planned = {p['path_id']: p for p in tv.paths(module, scope)}
     require(set(tests) == set(planned), 'result must account for every required path')
@@ -276,7 +295,7 @@ def validate_result(result, module, assignment, run_root=None):
         if quality == 'green-passed':
             require(receipt.get('exit_code') == 0 and not captured.get('skipped') and not captured.get('xfail')
                     and not record.get('flaky'), 'not a clean pass')
-            require(all(a.get('passed') is True and 'actual' in a and a['actual'] == a['expected'] for a in assertions.values()), 'failed/missing assertion; v1 uses JSON equality')
+            require(all(a.get('passed') is True and 'actual' in a and a['actual'] == a['expected'] for a in assertions.values()), 'failed/missing assertion; assertions use JSON equality')
         elif quality == 'red-bug':
             require(receipt.get('exit_code') != 0 or any(a.get('passed') is False for a in assertions.values()), 'Red needs observed failure')
     return kind

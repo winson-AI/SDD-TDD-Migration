@@ -16,6 +16,9 @@ import audit_code_review
 import decomposition
 import dimensions
 import model_routing
+import reading
+import git_checkpoint
+import workflow_cost
 import reuse
 import knowledge_gate
 import ui_fidelity
@@ -101,7 +104,8 @@ def model_usage(s):
 def project(root, s, sequence):
     errors = []
     project_attempt(errors, 'global-state', lambda: atomic(root / 'ledger/global.json', {**s, 'last_sequence': sequence, 'parent_mo_names': decomposition.parent_mo_names(s)}))
-    project_attempt(errors, 'model-usage', lambda: atomic(root / 'ledger/model-usage.json', {'sequence': sequence, 'usage': model_usage(s)}))
+    project_attempt(errors, 'model-usage', lambda: atomic(root / 'ledger/model-usage.json', {'sequence': sequence, 'usage': model_usage(s),
+                                                                                          'hint_adoption': hint_adoption(s)}))
     for mid, m in s['modules'].items():
         project_attempt(errors, 'module-state', lambda: atomic(root / f'ledger/modules/{mid}.json', {**m, 'last_sequence': sequence}), mid)
     for mid, group in s.get('module_groups', {}).items():
@@ -202,6 +206,21 @@ def approval(s, m, subject):
                  and d.get('subject_sha256') == subject and not d.get('consumed')), None)
 
 
+def self_diagnosis(s, m):
+    """A lean leaf's local round is diagnosed by the repairing session; audit rounds stay independent."""
+    return (bool(m.get('lean_leaf')) or bool(s.get('fixer_self_diagnosis'))) and not audit_closure.active(s) \
+        and not m.get('audit_fix_grant')
+
+
+def batch_approval(s, m):
+    """An unrevoked parent batch-envelope decision whose entry for this child equals its plan envelope."""
+    for did, d in s['decisions'].items():
+        if d.get('kind') == 'batch-envelope' and d.get('module_id') == m.get('parent_module_id') and m.get('plan'):
+            if read_json(check_ref(d['envelope_ref']))['children'].get(m['module_id']) == m['plan']['decision_envelope']:
+                return did
+    return None
+
+
 def within_envelope(m, impact_ref):
     require(m.get('approved_envelope') == digest(m['plan']['decision_envelope']), 'decision envelope changed')
     require(m.get('approved_acceptance') == digest(m['plan']['paths']), 'acceptance/path set changed')
@@ -230,6 +249,11 @@ def freeze_guard(s, m, p):
         within_envelope(m, p.get('impact_ref'))
     else:
         decision = s['decisions'].get(p.get('decision_id'), {})
+        if decision.get('kind') == 'batch-envelope':
+            require(decision.get('module_id') == m.get('parent_module_id') and
+                    read_json(check_ref(decision['envelope_ref']))['children'].get(m['module_id']) == m['plan']['decision_envelope'],
+                    'child plan envelope differs from the approved batch envelope')
+            return
         require(decision.get('subject_sha256') == m['plan_hash'] and decision.get('module_id') == m['module_id'] and
                 not decision.get('consumed'), 'approval missing/stale/wrong module')
 
@@ -255,6 +279,9 @@ def complete_guard(s, m):
             all(r['quality'] == 'green-passed' for r in m['results'].values()) and
             set(m['results']) == {p['path_id'] for p in m['plan']['paths']}, 'DoD requires all paths Green')
     current(m); dependencies_ready(s, m)
+    if s.get('git_checkpoint'):
+        require((m.get('git_checkpoint') or {}).get('code_baseline') == m['code_baseline'],
+                'git checkpoint of the current code baseline required before completion')
 
 
 def pending_repairs(s):
@@ -272,7 +299,7 @@ def dispatch_guard(s, m, worker):
         require(worker in ('fixer', 'test-runner'), 'audit closure only fixes and verifies')
         require(m['module_id'] in audit_closure.pending_modules(b) and audit_closure.dependencies_done(s, b, m['module_id']),
                 'audit finding blocked or upstream verification incomplete')
-    require(not workflow.audit_active(s), 'audit snapshot locked; close audit before dispatch')
+    require(not workflow.audit_locks(s, m['module_id']), 'audit snapshot locked; close audit before dispatch')
     require(not m.get('blocked'), 'module blocked')
     idle(m); current(m); dependencies_ready(s, m)
     required = {rid for rid, owners in s['global_plan']['content']['requirement_owners'].items() if m['module_id'] in owners}
@@ -285,10 +312,10 @@ def dispatch_guard(s, m, worker):
             require(not any(overlaps(x, y) for x in m['write_paths'] for y in other['write_paths']), 'resource lock conflict')
     require(m['phase'] == {'implementer': 'frozen', 'fixer': 'diagnosing', 'test-runner': 'testing'}[worker], 'worker phase gate rejected')
     if worker == 'test-runner':
-        require(not (unresolved(m) and workflow.defer_reason(m)) or m.get('automation_retry_ready'), 'unresolved failure awaits Auditor')
+        require(not (unresolved(m) and workflow.defer_reason(m, s.get('local_fix_rounds', 1))) or m.get('automation_retry_ready'), 'unresolved failure awaits Auditor')
         require(m['code_baseline'], 'code must be accepted before testing')
     if worker == 'fixer':
-        require(not workflow.defer_reason(m), 'local repair deferred to Auditor')
+        require(not workflow.defer_reason(m, s.get('local_fix_rounds', 1)), 'local repair deferred to Auditor')
         require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']), 'fix budget exhausted; recover requires decision')
 
 
@@ -309,7 +336,7 @@ def resume_guard(s, m, p):
 
 def _next_step(s, m):
     """Derived dispatch guidance only; every mutation must still pass its own guards."""
-    if workflow.audit_active(s):
+    if workflow.audit_locks(s, m['module_id']):
         return {'module_id': m['module_id'], 'phase': m['phase'], 'expected_revision': m['revision'],
                 'operation': None, 'role': 'host', 'ready': False, 'reason': 'await-auditor',
                 'assignment_id': None, 'session_id': None}
@@ -380,6 +407,8 @@ def _next_step(s, m):
                         recovery_action='restore-approved-allocation-or-GO-replan-new-run')
     elif m['phase'] == 'clarifying':
         decision = approval(s, m, m['plan_hash'])
+        if not decision and batch_approval(s, m):
+            decision = {'decision_id': batch_approval(s, m)}
         impact = m.get('change_request', {}).get('impact_ref')
         eligible = False
         if not decision:
@@ -397,18 +426,23 @@ def _next_step(s, m):
         if m['phase'] == 'testing' and bad and not m.get('automation_retry_ready'):
             draft = m.get('diagnosis_submission')
             categories = {r.get('root_cause', {}).get('category') for r in bad.values()}
-            if draft and draft['subject'] == diagnosis_subject(m):
+            conflict = workflow.variant_conflict(m)
+            if conflict:
+                step.update(operation='suspend', role='module-orchestrator', ready=True, reason=conflict['reason_code'],
+                            payload={'kind': 'human', 'reason': conflict['summary'], 'reason_code': conflict['reason_code'],
+                                     'root_cause': conflict, 'owner': 'human'})
+            elif draft and draft['subject'] == diagnosis_subject(m):
                 step.update(operation='diagnosis-accept', role='module-orchestrator', ready=True)
-            elif workflow.defer_reason(m):
+            elif workflow.defer_reason(m, s.get('local_fix_rounds', 1)):
                 step.update(operation='audit-defer', role='module-orchestrator', ready=True,
-                            root_cause=workflow.defer_reason(m), reason='auditor-handoff')
+                            root_cause=workflow.defer_reason(m, s.get('local_fix_rounds', 1)), reason='auditor-handoff')
             else:
-                step.update(operation='diagnose', role='diagnostician', ready=True)
+                step.update(operation='diagnose', role='fixer' if self_diagnosis(s, m) else 'diagnostician', ready=True)
         else:
             worker = {'frozen': 'implementer', 'testing': 'test-runner', 'diagnosing': 'fixer'}[m['phase']]
-            if worker == 'fixer' and workflow.defer_reason(m):
+            if worker == 'fixer' and workflow.defer_reason(m, s.get('local_fix_rounds', 1)):
                 step.update(operation='audit-defer', role='module-orchestrator', ready=True,
-                            root_cause=workflow.defer_reason(m), reason='auditor-handoff')
+                            root_cause=workflow.defer_reason(m, s.get('local_fix_rounds', 1)), reason='auditor-handoff')
                 return step
             exhausted = m['no_progress_rounds'] >= s['max_no_progress_rounds'] or (worker == 'fixer' and
                          m['fix_rounds_used'] >= m.get('fix_budget', s['max_fix_rounds']))
@@ -422,6 +456,10 @@ def _next_step(s, m):
                     dispatch_guard(s, m, worker)
                 except (Rejected, OSError) as exc:
                     step.update(ready=False, reason=str(exc))
+    elif m['phase'] == 'dod' and s.get('git_checkpoint') and \
+            (m.get('git_checkpoint') or {}).get('code_baseline') != m['code_baseline']:
+        step.update(operation='checkpoint', role='host', ready=True, reason='commit-module-paths-on-run-branch',
+                    branch=git_checkpoint.branch(s['run_id']))
     elif m['phase'] == 'dod':
         step.update(operation='complete', role='module-orchestrator', ready=True)
         try:
@@ -444,9 +482,41 @@ def _next_step(s, m):
             step.update(ready=False, reason=str(exc))
             if step['operation'] == 'freeze':
                 step['recovery_action'] = 'Spec-Designer revise the current plan/evidence, then MO review and freeze again'
-    session_role = step.get('worker_role') or step['role']
-    step['session_id'] = m['sessions'].get(session_role, {}).get('session_id')
+    session_id, affinity = suggested_session(s, m, step.get('worker_role') or step['role'])
+    step['session_id'] = session_id
+    if affinity:
+        step['session_affinity'] = affinity
     return step
+
+
+def suggested_session(s, m, role):
+    """Resume the role's own session; a local repair without one resumes the code author's context."""
+    own = m['sessions'].get(role, {}).get('session_id')
+    if (role == 'fixer' and not own and not audit_closure.active(s)
+            and not m.get('audit_fix_grant') and m['sessions'].get('implementer', {}).get('session_id')):
+        return m['sessions']['implementer']['session_id'], 'implementer'
+    return own, None
+
+
+def hint_record(s, m, p):
+    """Advisory hints stay advisory; the host's report of what it actually used is kept for audit."""
+    suggested, _ = suggested_session(s, m, p['role'])
+    card = reading.digest_card(reading.card(s, m, {'role': 'module-orchestrator', 'worker_role': p['role'],
+                                                   'test_scope': p.get('test_scope')}))
+    used, delivered = p.get('session_id'), p.get('card_sha256')
+    return {'session_suggested': suggested, 'session_used': used,
+            'session_followed': None if used is None or suggested is None else used == suggested,
+            'card_expected': card, 'card_delivered': delivered,
+            'card_followed': None if delivered is None else delivered == card}
+
+
+def hint_adoption(s):
+    rows = [{'scope': mid, 'assignment_id': aid, 'role': a.get('role'), **a['hints']}
+            for mid, m in s['modules'].items() for aid, a in m.get('assignments', {}).items() if a.get('hints')]
+    def tally(key):
+        values = [r[key] for r in rows]
+        return {'followed': values.count(True), 'not_followed': values.count(False), 'unreported': values.count(None)}
+    return {'session': tally('session_followed'), 'card': tally('card_followed'), 'rows': rows}
 
 
 def reasoning_escalated(m):
@@ -465,6 +535,9 @@ def next_step(s, m):
     if step.get('role'):
         step['model_tier'] = model_routing.advise(step['role'], step.get('operation'),
                                                    step.get('worker_role'), escalate=reasoning_escalated(m))
+    if step.get('operation'):
+        step['must_read'] = reading.card(s, m, step)
+        step['card_sha256'] = reading.digest_card(step['must_read'])
     return step
 
 
@@ -504,8 +577,7 @@ def audit_scope(s):
                     and build.get('quality') == 'green-passed' and build.get('code_baseline') == owner.get('code_baseline')
                     and not owner.get('stale')):
                 path_build_artifacts[path['path_id']] = [r for r in build.get('build_artifacts', []) if r in owner.get('build_artifacts', [])]
-            if (s.get('evidence_contract_version', 1) >= 2 and
-                    path.get('kind') in ('automation', 'visual') and path.get('interaction_id')):
+            if path.get('kind') in ('automation', 'visual') and path.get('interaction_id'):
                 from ui_evidence import interaction_contract
                 item = interaction_contract(path.get('frozen_interaction'))
                 require(item['id'] == path['interaction_id'], 'GLOBAL frozen interaction ID mismatch')
@@ -524,7 +596,6 @@ def audit_scope(s):
                     frozen_interactions[path['path_id']] = interaction
     return {'frozen_interactions': frozen_interactions, 'path_build_artifacts': path_build_artifacts,
             'path_dimension_analysis_refs': path_dimension_analysis_refs,
-            'evidence_contract_version': s.get('evidence_contract_version', 1),
             'freeze_id': digest({k:v['freeze_id'] for k,v in s['modules'].items()}),
             'code_files': refs, 'code_baseline': code_baseline,
             'build_artifacts': [ref for module in s['modules'].values() for ref in module.get('build_artifacts', [])],
@@ -546,9 +617,9 @@ def mutate(s, req, principal, events, root=None):
         require(m is not None, 'module not registered')
         if mid in s.get('module_groups', {}):
             require(op in ('module-summary', 'session'), 'parent MO only coordinates/summarizes; execute code and tests in child modules')
-    if workflow.audit_active(s) and op not in ('audit', 'problem-audit', 'audit-revoke', 'decision'):
+    if workflow.audit_locks(s, mid) and op not in ('audit', 'problem-audit', 'audit-revoke', 'decision'):
         raise Rejected('audit snapshot locked; close or revoke audit before mutation')
-    if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
+    if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
     context_readiness.gate(s, req, principal)
     if op == 'context-submit':
@@ -581,17 +652,31 @@ def mutate(s, req, principal, events, root=None):
         require(set(p['case_ids']) <= set(s['case_ids']), 'unknown global case')
         require(all(Path(x).resolve().is_relative_to(Path(s['target_root'])) for x in p['write_paths']), 'write scope outside target')
         require(not p.get('parent_module_id'), 'register GO root modules; children require decompose-accept')
+        require(p.get('lean_leaf') in (None, True), 'lean_leaf must be true when present')
+        if p.get('lean_leaf'):
+            require(not p.get('decomposition_required'), 'a lean leaf is an atomic root; it cannot also require decomposition')
+            decomposition.check_scope(p)
+            require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in leaf scope')
+            require(p.get('leaf_review_ref'), 'lean leaf requires the GO atomic-root review')
+            check_ref(p['leaf_review_ref'])
         if p.get('decomposition_required'):
             decomposition.check_scope(p)
             require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in root scope')
         dimensions.allocation(s, p)
-        s['modules'][mid] = new_module({**p, 'evidence_contract_version': s.get('evidence_contract_version', 1)})
+        s['modules'][mid] = new_module(p)
         s['global_plan'] = None
     elif op == 'decision':
         role(principal, 'host')
         require(p.get('decision') == 'approved' and p.get('human_source_ref') and p.get('subject_sha256'), 'actual human approval required')
         check_ref(p['human_source_ref'])
         require(p.get('decision_id') not in s['decisions'], 'decision already exists')
+        if p.get('kind') == 'batch-envelope':
+            parent = s.get('module_groups', {}).get(p.get('module_id'), {})
+            doc = read_json(check_ref(p.get('envelope_ref')))
+            children = doc.get('children')
+            require(parent and p['subject_sha256'] == p['envelope_ref']['sha256'] and doc.get('parent_module_id') == p['module_id']
+                    and isinstance(children, dict) and children and set(children) <= set(parent.get('children', [])),
+                    'batch envelope decision must hash its document and cover only this parent\'s children')
         s['decisions'][p['decision_id']] = {**p, 'consumed': False}
     elif op == 'plan':
         role(principal, 'spec-designer')
@@ -602,7 +687,7 @@ def mutate(s, req, principal, events, root=None):
             decomposition.check_module_plan(s, m, plan)
         plan_hash = validate_plan(plan, m)
         if s.get('split_testing_required') or any(path.get('kind') == 'build' for path in plan['paths']):
-            tv.plan_check(plan, s['target_root'])
+            tv.plan_check(plan, s['target_root'], static_required=s.get('spec_closure_required', False))
         if m.get('parent_module_id') or s.get('reuse_required') or plan.get('reuse_plan_ref'):
             reuse.validate_plan(plan, m, reuse.sources(s), s['modules'], s['legacy_root'])
         occupied = {path['path_id'] for path in s['global_paths']}
@@ -615,8 +700,13 @@ def mutate(s, req, principal, events, root=None):
         role(principal, 'module-orchestrator')
         freeze_guard(s, m, p)
         decision = s['decisions'].get(p.get('decision_id'), {})
+        if decision.get('kind') == 'batch-envelope':
+            require(p.get('review_ref'), 'batch envelope freeze requires the MO plan review_ref')
+            check_ref(p['review_ref'])
+            decision.setdefault('used_by', {})[mid] = m['plan_hash']
         if p.get('change_class') != 'within-envelope':
-            decision['consumed'] = True
+            if decision.get('kind') != 'batch-envelope':
+                decision['consumed'] = True
             m['approved_envelope'] = digest(m['plan']['decision_envelope'])
             m['approved_acceptance'] = digest(m['plan']['paths'])
         if m.get('change_request'):
@@ -639,7 +729,7 @@ def mutate(s, req, principal, events, root=None):
             require(p.get('instance_id') != s['audit_batch']['auditor_instance_id'], 'Auditor cannot implement or author verification')
         dispatch_guard(s, m, p['role'])
         if p['role'] == 'test-runner' and tv.split(m):
-            require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> automation -> visual')
+            require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> static -> automation -> visual')
         if p['instance_id'] not in m['authors']:
             m['authors'].append(p['instance_id'])
         if p['role'] in ('implementer', 'fixer'):
@@ -654,9 +744,10 @@ def mutate(s, req, principal, events, root=None):
                 m['fix_rounds_used'] += 1
                 m['total_fix_rounds'] += 1
             m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
+        hints = hint_record(s, m, p)
         m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
             'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
-            'fencing_token': len(events) + 1, **(usage or {})}
+            'fencing_token': len(events) + 1, 'hints': hints, **(usage or {})}
     elif op == 'submit':
         assignment = m['assignments'].get(p.get('assignment_id'), {})
         require(not assignment.get('closed', True), 'assignment inactive')
@@ -700,11 +791,12 @@ def mutate(s, req, principal, events, root=None):
                     m['build_artifacts'] = [ref for row in result['paths'] if row['quality'] == 'green-passed'
                                             for ref in row.get('build_artifacts', [])]
                     m['build_baseline'] = m['code_baseline'] if all(x['quality'] == 'green-passed' for x in result['paths']) else None
-                else:
+                elif assignment.get('test_scope') != 'static' or any(x['quality'] != 'green-passed' for x in result['paths']):
                     m.pop('automation_retry_ready', None)
             else:
                 m['results'] = {x['path_id']: x for x in result['paths']}
-            build_only = tv.split(m) and assignment.get('test_scope') == 'build'
+            # Build and static review are pre-functional gates: judge only their own paths.
+            build_only = tv.split(m) and assignment.get('test_scope') in ('build', 'static')
             bad = sorted(x['path_id'] for x in result['paths'] if x['quality'] != 'green-passed') if build_only else sorted(k for k,v in m['results'].items() if v['quality'] != 'green-passed')
             if build_only and not bad:
                 m['automation_retry_ready'] = True
@@ -714,9 +806,17 @@ def mutate(s, req, principal, events, root=None):
                     memory.update(status='verified' if not bad else 'failed', reusable=not bad,
                                   regression_ref=sub['ref'], regression_paths=copy.deepcopy(result['paths']))
             m.update(stale=False, phase='dod' if tv.all_green(m) else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
-            audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only)
+            audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only,
+                                        stage=assignment.get('test_scope') or 'build')
+            if (assignment.get('test_scope') == 'build' and not bad and assignment.get('role') == 'test-runner'
+                    and tv.paths(m, 'static') and tv.next_scope(m) == 'static'):
+                # The static review needs no device: the same Test-Runner continues under its building
+                # preflight (which pre-approved the static command); MO still accepts the static result.
+                assignment.update(closed=False, test_scope='static')
+                m['submissions'].pop(aid, None)
     elif op == 'diagnose':
-        role(principal, 'diagnostician')
+        role(principal, 'diagnostician', 'fixer')
+        require(principal['role'] == 'diagnostician' or self_diagnosis(s, m), 'principal role denied')
         require(m['phase'] == 'testing' and not m.get('blocked') and unresolved(m), 'no unresolved test failure')
         idle(m); current(m)
         check_ref(p['diagnosis_ref'])
@@ -826,6 +926,11 @@ def mutate(s, req, principal, events, root=None):
             m.pop('approved_acceptance', None)
         reset_plan(m, p['reason'])
         invalidate_dependents(s, mid)
+    elif op == 'checkpoint':
+        role(principal, 'host')
+        require(s.get('git_checkpoint'), 'git checkpoint not enabled for this run')
+        require(m['phase'] == 'dod' and not m['stale'], 'checkpoint only at module DoD')
+        m['git_checkpoint'] = git_checkpoint.verify(s, m, read_json(check_ref(p.get('receipt_ref'))))
     elif op == 'complete':
         role(principal, 'module-orchestrator')
         complete_guard(s, m)
@@ -1041,11 +1146,13 @@ def _apply(root, req, principal):
             require(type(p.get('split_testing_required', True)) is bool, 'split_testing_required must be boolean')
             require(type(p.get('context_readiness_required', True)) is bool, 'context_readiness_required must be boolean')
             require(type(p.get('ui_fidelity_required', False)) is bool, 'ui_fidelity_required must be boolean')
+            require(type(p.get('spec_closure_required', False)) is bool, 'spec_closure_required must be boolean')
+            require(type(p.get('git_checkpoint', False)) is bool, 'git_checkpoint must be boolean')
+            require(type(p.get('fixer_self_diagnosis', False)) is bool, 'fixer_self_diagnosis must be boolean')
             require(type(p.get('dependency_resolution_required', False)) is bool, 'dependency_resolution_required must be boolean')
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
             require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
-            require(type(p.get('evidence_contract_version', 1)) is int and p.get('evidence_contract_version', 1) in (1, 2), 'unsupported evidence contract version')
-            s = {'evidence_contract_version': p.get('evidence_contract_version', 1), 'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
+            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'spec_closure_required': p.get('spec_closure_required', False), 'git_checkpoint': p.get('git_checkpoint', False), 'fixer_self_diagnosis': p.get('fixer_self_diagnosis', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
                  'reuse_sources': reuse_sources, 'reuse_required': bool(reuse_sources) or p.get('reuse_required', False),
                  'entry_mode': entry_mode, 'single_module_id': selected_module,
                  'global_spec': p['global_spec'], 'new_architecture': p['new_architecture'], 'requirement_ids': p['requirement_ids'],
@@ -1053,25 +1160,27 @@ def _apply(root, req, principal):
                  'legacy_root': str(Path(p['legacy_root']).resolve()), 'case_ids': p['case_ids'],
                  'modules': {}, 'decisions': {}, 'audit': {}, 'global_paths': p.get('global_paths', []), 'quality': 'yellow-blocked',
                  'max_parallel_modules': p.get('max_parallel_modules', 3), 'max_audit_rounds': p.get('max_audit_rounds', 3),
-                 'max_fix_rounds': p.get('max_fix_rounds', 3), 'max_no_progress_rounds': p.get('max_no_progress_rounds', 2)}
+                 'max_fix_rounds': p.get('max_fix_rounds', 3), 'max_no_progress_rounds': p.get('max_no_progress_rounds', 2),
+                 'local_fix_rounds': p.get('local_fix_rounds', 1)}
             if s['global_paths']:
                 paths = keyed(s['global_paths'], 'path_id')
                 require({v.get('case_id') for v in paths.values()} <= set(p['case_ids']), 'global path case is not registered')
                 for path in paths.values():
                     assertions = keyed(path.get('expected_assertions'), 'assertion_id')
                     require(all('expected' in a for a in assertions.values()), 'global assertion expected value required')
-                    device_interaction = (s['evidence_contract_version'] >= 2 and
-                                          path.get('kind') in ('automation', 'visual') and path.get('interaction_id'))
+                    device_interaction = path.get('kind') in ('automation', 'visual') and path.get('interaction_id')
                     if device_interaction:
                         from ui_evidence import interaction_contract
                         interaction = interaction_contract(path.get('frozen_interaction'))
                         require(interaction['id'] == path['interaction_id'], 'GLOBAL frozen interaction ID mismatch')
-                    if s['evidence_contract_version'] >= 2 and (path.get('kind') == 'visual' or device_interaction):
+                    if path.get('kind') == 'visual' or device_interaction:
                         binding = path.get('build_binding') or {}
                         require(isinstance(binding.get('module_id'), str) and re.fullmatch(r'M[0-9]{3,}', binding['module_id'])
                                 and isinstance(binding.get('path_id'), str) and binding['path_id'],
                                 'GLOBAL device path requires frozen integration build_binding module_id/path_id')
             require(all(type(s[k]) is int and s[k] > 0 for k in ('max_fix_rounds', 'max_no_progress_rounds', 'max_parallel_modules', 'max_audit_rounds')), 'invalid budgets')
+            require(type(s['local_fix_rounds']) is int and 1 <= s['local_fix_rounds'] <= s['max_fix_rounds'],
+                    'local_fix_rounds must be an integer from 1 to max_fix_rounds')
             if p.get('project_context_ref'):
                 s.update(project_context.bind_run(p['project_context_ref'], root, req['run_id'], p))
             else:
@@ -1106,6 +1215,8 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     cursor += [decomposition.group_step(s, group, ref_check) for group in s.get('module_groups', {}).values()]
     rounds = audit_closure.module_rounds(s, cursor, ref_check)
     audit = s.get('audit_assignment', {})
+    early = (workflow.early_audit_candidates(s) if s.get('global_plan') and not rounds['all_settled']
+             and not workflow.audit_active(s) and not audit_closure.active(s) else [])
     if audit_closure.active(s):
         global_next = audit_closure.global_step(s)
     elif audit and not audit.get('closed'):
@@ -1115,6 +1226,11 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
         global_next = {'operation': ('problem-audit' if audit.get('mode') == 'problem' else 'audit') if fresh else 'audit-revoke', 'role': 'auditor' if fresh else 'host',
                        'assignment_id': audit['assignment_id'], 'ready': not fresh,
                        'reason': 'audit-running' if fresh else 'audit-snapshot-stale'}
+    elif early:
+        # A settled dependency/consumer closure is audited now; the rest of the run keeps going.
+        global_next = {'operation': 'problem-assign', 'role': 'global-orchestrator', 'ready': True,
+                       'reason': 'audit-closure-settled', 'payload': {'module_ids': early[0]['module_ids']},
+                       'closure': early[0]['closure'], 'continue_modules': rounds['ready_modules']}
     elif not s.get('global_plan'):
         splitting = any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values())
         global_next = {'operation': None if splitting else 'global-plan', 'role': 'global-orchestrator',
@@ -1157,6 +1273,8 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     global_next = context_readiness.annotate(s, None, global_next)
     if global_next.get('role'):
         global_next['model_tier'] = model_routing.advise(global_next['role'], global_next.get('operation'))
+    if global_next.get('operation'):
+        global_next['must_read'] = reading.card(s, None, global_next)
     return {'global_next_step': global_next, 'next_steps': cursor,
             'source_change_next_step': source_changes.next_action(s), 'module_rounds': rounds}
 
@@ -1213,14 +1331,13 @@ def status(root):
                                      'openspec_root': layout['openspec_root'] if layout else str(root / 'openspec'),
                                      'note': None if layout else 'run not bound to a prepared storage_layout; OpenSpec projects inside .sdd-runs/<run_id>/openspec, not workspace/openspec — recreate via prepare -> init(project_context_ref)'},
                 'last_sequence': len(events), 'observed_invalidations': observed,
-                'model_usage': model_usage(s),
+                'model_usage': model_usage(s), 'hint_adoption': hint_adoption(s), 'workflow_cost': workflow_cost.build(s, events),
                 'next_steps': cursor, 'global_next_step': global_next, 'ready_modules': rounds['ready_modules'],
                 'module_rounds': rounds,
                 'planning_context': decomposition.planning_context(s),
                 'module_inputs': {mid: decomposition.assigned_module(s, m) for mid, m in
                                   {**s.get('module_groups', {}), **s['modules']}.items()},
                 'quality': 'yellow-blocked' if observed and s['quality'] != 'red-bug' else s['quality']}
-
 
 
 def main():

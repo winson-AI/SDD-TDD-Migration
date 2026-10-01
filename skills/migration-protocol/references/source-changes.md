@@ -5,7 +5,7 @@
 ## 1. GO：评估来源、归属与影响范围
 
 1. 读取当前 Ledger 的 project_context_ref、全局分配及已知问题。来源标准化后保留全部旧条目原值，仅追加用户提供的新 source_id；只读模块必须与 target 分离。
-2. 扫描新来源，生成覆盖完整来源集合的 v2 reuse-catalog；显式 owner 的定义见 [复用协议](reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。不能把写权限覆盖当作交付责任。
+2. 扫描新来源，生成覆盖完整来源集合的 reuse-catalog；显式 owner 的定义见 [复用协议](reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。不能把写权限覆盖当作交付责任。
 3. 填写 [source-impact.json](../../../template/source-impact.json)。逐叶子评估 reuse/adapt/reference/new，包括先前无候选而准备自主实现的模块；父 MO 提供现有分配、共享能力、调用方和写锁评审，经 Ledger 引用交 GO 接受。
 4. 每个叶子 action 为 `replan` 或 `unchanged`，必须附理由及证据。未冻结模块必须 replan；unchanged 仅允许已有冻结且证据仍有效的计划。所有实际依赖 replan 模块的消费者也须 replan；语义影响超出登记依赖时 GO 主动纳入。
    影响证据按 UI → Logic → Adhesive → Resource 对照既有条目，记录新来源如何改变实现策略、适配/资源接线及 TASK/PATH 验证指导，不能只写“增加库路径”。原维度分配继续保存 scope/条目和历史分析，新策略以本次接受的影响依据和重新冻结 tasks 明确承接；若需改变 scope、条目分配或公共契约，则按下一条处理，不用来源事务隐藏范围变化。

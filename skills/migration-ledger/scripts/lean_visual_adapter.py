@@ -34,7 +34,7 @@ def report(query, result_ref, target_root, interactions=()):
     if quality == 'green-passed':
         require(any(ref['sha256'] == query['baseline_ref']['sha256'] for ref in row.get('reference_refs', [])),
                 'alignment reference must match the frozen baseline screenshot')
-        if query.get('evidence_contract_version', 1) >= 2 and query.get('interaction_id'):
+        if query.get('interaction_id'):
             frozen = query.get('frozen_interaction')
             require(isinstance(frozen, dict) and frozen.get('id') == query['interaction_id'],
                     'visual query requires its complete frozen interaction')
@@ -50,7 +50,7 @@ def report(query, result_ref, target_root, interactions=()):
              'interaction_checks': [{**c, 'code_baseline': query['code_baseline']} for c in row.get('interaction_checks', [])]}
     if requirement:
         proof['required_interaction'] = requirement
-    if quality == 'green-passed' and query.get('evidence_contract_version', 1) >= 2:
+    if quality == 'green-passed':
         proof['alignment_root'] = str(Path(target_root).resolve())
         proof['comparison_evidence'] = lean_adapter.comparison_evidence(read_json(check_ref(result_ref)),
                                                                       target_root, query['coverage'])

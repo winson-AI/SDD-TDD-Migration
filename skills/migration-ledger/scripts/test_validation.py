@@ -1,4 +1,4 @@
-"""Build, functional automation and baseline visual alignment are separate Test-Runner stages."""
+"""Build, static spec closure, functional automation and baseline visual alignment are separate Test-Runner stages."""
 import copy
 from pathlib import Path
 
@@ -12,7 +12,7 @@ def split(m):
 
 
 def paths(m, scope):
-    """Stages are build -> automation (functional cases) -> visual (baseline node alignment)."""
+    """Stages are build -> static (spec closure) -> automation (functional cases) -> visual (baseline node alignment)."""
     return [p for p in m['plan']['paths'] if (p.get('kind') or 'automation') == scope]
 
 
@@ -29,9 +29,14 @@ def _green_at_baseline(m, scope):
                for p in paths(m, scope))
 
 
+def static_ready(m):
+    """The current build compiled and its frozen spec closure review passed (vacuous without static paths)."""
+    return bool(build_ready(m) and _green_at_baseline(m, 'static'))
+
+
 def functional_ready(m):
     """Layer 1 passed at the current baseline, so rendering may be compared to the baseline."""
-    return bool(build_ready(m) and _green_at_baseline(m, 'automation'))
+    return bool(static_ready(m) and _green_at_baseline(m, 'automation'))
 
 
 def next_scope(m):
@@ -40,6 +45,8 @@ def next_scope(m):
         return None
     if not build_ready(m):
         return 'build'
+    if not static_ready(m):
+        return 'static'
     if paths(m, 'visual') and functional_ready(m):
         return 'visual'
     return 'automation'
@@ -72,10 +79,18 @@ def can_defer(m):
                    for r in m['results'].values())
 
 
-def plan_check(plan, target):
+def plan_check(plan, target, static_required=False):
     builds = [p for p in plan['paths'] if p.get('kind') == 'build']
     require(builds and len(builds) < len(plan['paths']), 'split testing requires build and automation paths')
-    require(all(p.get('kind') in ('build', 'automation', 'visual') for p in plan['paths']), 'test path kind required')
+    require(all(p.get('kind') in ('build', 'static', 'automation', 'visual') for p in plan['paths']), 'test path kind required')
+    statics = [p for p in plan['paths'] if p['kind'] == 'static']
+    require(not static_required or len(statics) == 1, 'spec_closure_required: plan one static spec-closure PATH')
+    requirements = sorted({r for t in plan.get('tasks', []) for r in t.get('requirement_ids', [])})
+    for path in statics:
+        require(sorted(path.get('scenario_requirement_ids') or []) == requirements,
+                'static PATH scenario_requirement_ids must list every module requirement')
+        assertions = path.get('expected_assertions') or []
+        require(len(assertions) == 1 and assertions[0].get('expected') is True, 'static PATH asserts one boolean closure')
     require({p.get('case_id') for p in plan['paths']} ==
             {p.get('case_id') for p in plan['paths'] if p['kind'] == 'automation'},
             'every module case needs an automation path; build/visual cannot cover a business case')
@@ -99,9 +114,8 @@ def plan_check(plan, target):
 
 
 def visual_result(module, path, record, captured, run_root=None, assignment=None):
-    """A v2 visual Green binds the frozen target and the current HAP/code/gesture evidence."""
-    if (module.get('evidence_contract_version', 1) < 2 or path.get('kind') != 'visual'
-            or record.get('quality') != 'green-passed'):
+    """A visual Green binds the frozen target and the current HAP/code/gesture evidence."""
+    if path.get('kind') != 'visual' or record.get('quality') != 'green-passed':
         return
     proof = captured.get('visual_alignment')
     require(isinstance(proof, dict) and record.get('visual_alignment') == proof,
@@ -159,8 +173,8 @@ def visual_result(module, path, record, captured, run_root=None, assignment=None
 
 def interaction_result(module, path, record, captured):
     """Behavior-only device proof does not require an Android visual baseline."""
-    if (module.get('evidence_contract_version', 1) < 2 or path.get('kind') != 'automation'
-            or not path.get('interaction_id') or record.get('quality') != 'green-passed'):
+    if (path.get('kind') != 'automation' or not path.get('interaction_id')
+            or record.get('quality') != 'green-passed'):
         return
     import ui_evidence as ue
     import ui_fidelity
@@ -255,7 +269,7 @@ def handle(s, req, actor):
     m = s['modules'][mid]
     workflow.role(actor, 'module-orchestrator'); workflow.idle(m)
     verify_plan(m['plan']); require(baseline(m['code_files']) == m['code_baseline'], 'code evidence stale')
-    require(build_ready(m), 'current build must pass before automation deferral/resume')
+    require(static_ready(m), 'current build and static spec review must pass before automation deferral/resume')
     if op == 'automation-resume':
         require(deferred(m) and not ac.active(s), 'automation is not deferred or audit still active')
         cr.validate(s, mid, 'testing', p.get('context_ref'))

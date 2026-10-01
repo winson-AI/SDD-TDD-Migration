@@ -44,7 +44,7 @@
     "args": [],
     "cwd": "{{absolute-target-root}}",
     "query_transport": "query-file",
-    "result_format": "migration-test-result-v1",
+    "result_format": "migration-test-result",
     "timeout_seconds": 300,
     "environment_ref": "{{absolute-run-root}}/runs/harmony/sandbox/{{request-id}}/environment.json"
   },
@@ -61,7 +61,8 @@
     "max_fix_rounds": 3,
     "max_yellow_retries": 2,
     "max_audit_rounds": 3,
-    "max_no_progress_rounds": 2
+    "max_no_progress_rounds": 2,
+    "local_fix_rounds": 1
   },
   "runtime": {
     "dispatch_adapter": "{{actual-host-task-tool}}",
@@ -92,7 +93,6 @@
     "REQ-GLOBAL-001"
   ],
   "repair_policy": {
-    "local_automatic_rounds": 1,
     "confirmed_dependency_or_peripheral": "defer-to-auditor",
     "after_failed_round": "defer-to-auditor"
   },
@@ -109,7 +109,9 @@
   "build": {},
   "split_testing_required": true,
   "dimension_slicing_required": true,
-  "evidence_contract_version": 2,
   "ui_fidelity_required": true,
+  "spec_closure_required": true,
+  "git_checkpoint": false,
+  "fixer_self_diagnosis": false,
   "dependency_resolution_required": false
 }

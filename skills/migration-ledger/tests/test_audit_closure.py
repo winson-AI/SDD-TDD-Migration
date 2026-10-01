@@ -30,7 +30,8 @@ class ClosureTests(unittest.TestCase):
                   'assignment_id': aid, 'actor_instance_id': actor, 'freeze_id': a['freeze_id'],
                   'code_files': refs, 'code_baseline': baseline(refs),
                   'task_trace': [{'task_id': 'T1', 'files': [str(path)]}],
-                  'production_binding_evidence': self.ref(f'binding-{aid}.md', 'reviewed production binding')}
+                  'production_binding_evidence': self.ref(f'binding-{aid}.md', 'reviewed production binding'),
+                  'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': self.ref('authoring-diagnostics.log', 'changed files: 0 errors')}}
         if fixer:
             result['fix_note_ref'] = self.ref(f'note-{aid}.json', {'root_cause': 'shared value mismatch', 'strategy': 'correct producer value',
                                                                'applicability': 'same shared contract', 'risks': 'retest consumer'})

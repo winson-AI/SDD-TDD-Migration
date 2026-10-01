@@ -56,7 +56,7 @@ MO 派发同一 test-runner 角色时明确 `test_scope=build|automation|visual`
 - building 预检只检查冻结方案、代码、构建命令、构建环境和权限，不检查设备/UI/自动化账号。
 - `execute_test.py` 对 build PATH 直接执行冻结命令，**不追加 query-file/result-file 参数**；宿主保存 stdout/stderr、退出码和 receipt，并生成唯一构建断言（expected=0，actual=真实退出码）。编译错误按 Red、环境/工具或未知原因按 Yellow，均保留根因及日志，由角色核实分类；127/124 默认 Yellow。
 - 每次结果提交覆盖 assignment scope 下全部 PATH；build、automation、visual 分别提交/接受。Ledger 合并各部分，保留构建状态及每条路径结果；DoD 必须全部冻结路径有效 Green。
-- visual 使用正式 `execute_test.py` adapter 回执；`compare-only` 的独立 score 不能当作正式通过。v2 逐目标绑定、HAP 与声明手势要求见 [UI 保真](ui-fidelity.md)。
+- visual 使用正式 `execute_test.py` adapter 回执；`compare-only` 的独立 score 不能当作正式通过。逐目标绑定、HAP 与声明手势要求见 [UI 保真](ui-fidelity.md)。
 - [harmony_stage.py](../../migration-test/scripts/harmony_stage.py) 可组装构建回执及 Harmony 自动化回执，按 assignment scope 校验覆盖；其他自动化框架继续使用通用 tests stage 契约。
 - 首轮修复和后续审计修复沿既有预算执行。Fixer 自测不是正式复测；修复 memory 只有完整验证后才能 reusable，缺自动化验证时标 unverified。
 
@@ -88,11 +88,11 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 ## 6. 实现边界
 
-新 init 默认启用拆分，prepare 强制启用；历史没有该字段的 run、显式低层 split_testing_required=false 保留旧契约，不能据此宣称完成新流程。脚本不自动安装 SDK、创建设备、发放账号或证明命令确实覆盖了目标模块；Agent/宿主必须审核范围、环境和真实日志。构建成功只证明该命令通过，不等于业务自动化或复用保真通过。
+新 init 默认启用拆分，prepare 强制启用；显式低层 split_testing_required=false 不能据此宣称完成拆分流程。脚本不自动安装 SDK、创建设备、发放账号或证明命令确实覆盖了目标模块；Agent/宿主必须审核范围、环境和真实日志。构建成功只证明该命令通过，不等于业务自动化或复用保真通过。
 
 若最终 Auditor 环境可用且对原缺测模块的 Yellow 自动化路径真实复测 Green（当前已通过构建证据保留），Ledger 将审计结果关联回模块并进入 dod，由 MO 完成管理性 DoD/父汇总；测试验收 owner 仍是 Auditor，不要求再跑同一轮测试或再次会签。原 Yellow 通过 retest_of/module_retest_of 保留追溯。
 
-## 7. 宿主如何推进 build → automation → visual
+## 7. 宿主如何推进 build → static → automation → visual
 
 责任分工：Test-Runner 执行并取证；MO 接受结果和请求派发；Ledger 决定合法下一步；宿主真正启动进程/Agent。`next_steps` 返回动作不代表命令已经执行，也不是 Test-Runner 私自串联第二阶段的授权。
 
@@ -102,7 +102,8 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 | 构建进程已退出，但结果未接受 | 当前 assignment 仍未关闭；不能开启 automation | 保存 receipt，汇总全部 build PATH，submit；MO accept |
 | build 非 Green 已接受 | 留在 testing；游标 diagnose 或 audit-defer | Diagnostician → MO diagnosis-accept → fixing 预检 → Fixer；依赖/外围或已用完本地一轮则留证待 Auditor |
 | Fixer 补丁已接受 | 新 code_baseline；旧结果 stale，旧构建失效 | 再次 building 预检及 build assignment；不得直接沿用旧 Green 或启动 automation |
-| 当前 build 全部 Green 已接受 | `build_baseline=code_baseline`；仍在 testing；下一 scope 为 automation | 提交单独 testing 报告，核对设备/安装包/fixture/模型/工具；MO assign automation |
+| 当前 build 全部 Green 已接受 | `build_baseline=code_baseline`；仍在 testing；下一 scope 为 static（有 static PATH 时），否则 automation | 同一 build assignment 自动切换为 static scope，原 Test-Runner 按 [静态规格闭合](testing.md#静态规格闭合) 审查并经 execute_test 运行 spec_closure（building 预检已预批准该命令）；MO accept |
+| static 全部 Green 已接受 | 仍在 testing；下一 scope 为 automation | 提交单独 testing 报告，核对设备/安装包/fixture/模型/工具；MO assign automation |
 | automation 结果接受且完整 Green，存在 visual PATH | 仍在 testing；下一 scope 为 visual | MO 另派 visual assignment；Test-Runner 只读比较并留正式回执 |
 | 全部适用的 build/automation/visual 路径有效 Green | `phase=dod`；修复 memory 有完整回归后才 verified/reusable | MO 完成 DoD；父汇总，全量收尾后统一 Auditor |
 | 仅自动化环境缺失 | `automation-unavailable → automation-deferred`，逐 PATH Yellow/未执行 | 保存缺测证据，其他任务继续；环境恢复后再预检和正式复测 |
@@ -113,7 +114,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 ### 本地一轮的预算单位
 
-`local_fix_used` 是模块级计数，build、automation 与 visual 共用；不是每种失败或每个阶段各有一轮。构建已使用 Fixer 后，必须允许重新构建、正式 automation 和适用 visual 完成这一轮的验证；若其中仍有问题，再交 Auditor。只有完整正式回归通过才允许将该修复 memory 标为可复用。增加轮次或改成独立预算须显式修改策略，不能由宿主自行重置计数。
+`local_fix_used` 是模块级计数，build、automation 与 visual 共用；不是每种失败或每个阶段各有一轮。构建已使用 Fixer 后，必须允许重新构建、正式 automation 和适用 visual 完成这一轮的验证；若其中仍有问题，再交 Auditor。只有完整正式回归通过才允许将该修复 memory 标为可复用。额外本地轮次只来自初始化的 `local_fix_rounds`，且仅在全部未解决失败都是 build PATH 时可用（见 [状态机](state-machine.md#有限循环)）；宿主不能自行重置计数。
 
 ### 构建产物与设备安装
 

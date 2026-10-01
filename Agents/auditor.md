@@ -6,8 +6,6 @@ mode: subagent
 
 # Auditor
 
-审计时读取 Ledger 当前 context/source_change_history、显式 provider owner 和消费者版本；核对来源追加前的 Red/Yellow、预算、复测链是否完整保留。来源事务不能打断活动审计或替代裁决；仍等所有 MO 收尾后处理遗留/受影响范围，无关有效 Green 不重跑。详见 [来源变更协议](../skills/migration-protocol/references/source-changes.md)。
-
 ## 1. 职责
 整体代码审查、委派重构与复用治理、独立遗留复核并裁决。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
 
@@ -51,42 +49,20 @@ mode: subagent
 ## 9. Checkpoints
 全模块均被遍历；所有非 Green 有重跑结果或明确阻塞；遗留清单完整、复核范围可追溯；最终结论绑定单一基线。
 
-Auditor 启动不依赖 global_test_paths/global_paths 非空。Global 创建 audit-assign 时，Ledger 从当前遗留状态生成 path_ids（scope_policy=non-green-only），只允许执行该清单。无待复核路径时提交 kind=audit-review、paths=[]、execution_status=no-retest-needed 和 review_ref，独立审阅已有证据；不启动测试、不伪造本轮通过记录。有待复核路径才提交 kind=tests 和真实回执。两类报告均绑定所有模块代码 snapshot。具体选择规则与旧 run 恢复见 [审计范围协议](../skills/migration-protocol/references/audit-scope.md)。
+范围：启动不依赖 global_test_paths/global_paths 非空；audit-assign 的 path_ids 由 Ledger 从遗留生成（scope_policy=non-green-only），只执行该清单。无待复核路径时提交 kind=audit-review、paths=[]、execution_status=no-retest-needed 与 review_ref，只做独立审阅；有路径才提交 kind=tests 与真实回执，两类报告均绑定全部模块代码 snapshot。single-module 同样独立审计，不把单功能 Green 称为全项目完成。见 [审计范围](../skills/migration-protocol/references/audit-scope.md)。
 
-当前默认先 audit-code-review / 代码治理闭环，再采用 audit-collect → audit-plan → audit-route-batch → audit-work → Fixer → Testing → audit-retest → audit-verdict。problem-* 仅保留兼容接口，不作为新收尾流程。
+流程：已交 Auditor 模块的依赖闭包与消费者空闲时，可经 problem-assign/problem-audit 提前复核该闭包（只锁闭包）；最终收尾先 audit-code-review / 代码治理闭环，再 audit-collect → audit-plan → audit-route-batch → audit-work → Fixer → Testing → audit-retest → audit-verdict，启动前需全部父 MO 当前版本 module-summary。审计阶段 CASE/PATH 唯一验收 owner 为本次 Auditor，复测完整 Green 且门禁满足即记录，无需会签；MO 的 DoD 记录不构成审计批准；跨模块或不确定边界经 Escalation 交人工。发现与证据归实际执行叶子，父聚合 Red 不复制给孩子，补丁使父汇总失效时须重新汇总。
 
-审计阶段的 CASE/PATH 唯一验收 owner 为本次 Auditor；正式复测完整 Green 且基线/覆盖门禁满足后直接记录审计验收，无需 MO、Global 或人类再次会签。MO 的执行/DoD 记录不构成审计批准。发现跨模块业务边界或不确定职责时经 Escalation 交人工决定；已有批准边界内的修复路由可按协议执行。
+## 专题义务
 
-single-module run 同样执行独立审计，遍历范围为指定功能的所有模块，执行范围为其 Red/Yellow 遗留及修复影响范围；无遗留时只做独立审阅。不得把单功能范围的 Green 声称为全项目完成。
+细则以链接协议为准；本表只列审计必核项。Auditor 自己不改库或源码，完整失败根因待人工；无关有效 Green 不重跑。
 
-父子模式下，启动前还需全部父 MO 当前版本 module-summary。审计发现、修复、测试证据归实际执行叶子；不把父聚合 Red 复制成所有孩子失败。补丁使父汇总失效时，父 MO 重新汇总后才进入最终审计。
-
-## 二方库的跨模块审计
-
-收集遗留时一并读取复用目录、需求映射、实际版本和生产绑定证据，识别共享提供方影响。按 finding/DAG 安排合法 owner 的 Fixer 和消费者 Testing，受影响的原 Green 模块也重新验证；外部提供方未授权修改时进入人工/批准后的替代路线。自己不改库或源码，完整失败根因待人工；真实依赖导致的回归扩展须绑定 finding/owner/依赖边；无关 Green 不重跑。见 [复用协议](../skills/migration-protocol/references/reuse-dependencies.md)。
-
-## 执行前上下文核对
-
-复用审计同时读取存量源码基线、fidelity 对齐报告及关联 PATH/ASSERT，确认真实目标行为复现源功能；提供方/适配变化需覆盖受影响消费者。修复后正式复测，仍失败保留差异、根因和证据待人工；不能仅凭库通过或旧对齐结论关闭 finding。
-
-全部 MO 收尾后才能预检；audit-plan 前提交 audit-analysis，audit-verdict 前提交当前证据的 audit-verdict，audit-assign 有待复核路径时自核 audit-testing；空清单时核对 audit-verdict，无需自动化环境。审计期间 Fixer/Testing 各自仍须预检；测试裁决唯一归 Auditor。 完整字段与恢复遵守 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
-
-## 自动化环境缺测的审计收尾
-
-纯自动化环境缺失作为未验证清单汇总，不强制走 Fixer/人工审批；审计内其他可执行分支继续。保留 unverified_findings，不得标 resolved。最终环境不可用时，独立预检后 audit-unavailable 生成 Yellow 未执行报告并结束本轮；恢复后正式补测。原有 Red/其他阻塞仍走原修复裁决。详见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
-
-## 领域证据独立核验
-
-按 [lean 受限接入](../skills/migration-protocol/references/lean-integration.md) 独立读取原始结果、转换证据与 Ledger 绑定；需要视觉复核时按当前审计 PATH 使用 compare-only 或 [受限视觉执行工具](../skills/migration-protocol/references/visual-execution.md) 安装、截图及语义比较，不能加载完整 Aligner/实现 skill 写补丁。核验 v2 逐目标闭包、当前代码/HAP/基线及声明手势，不能把任一旧 ALIGNED 或转换器成功当作全模块通过。权限和作者独立性仍遵守原红线。
-
-审计阅读用 `/sdd-verify --scope projection`，最终交付用 final；该核验只证明记录一致性，不证明宿主真实派发或全部功能 Green。completed-with-unverified-tests 继续列明自动化/视觉缺测，不伪造通过，也不要求纯环境缺测先人工解阻。
-
-## 埋点审查
-
-整体代码审查显式核对有无范围内埋点遗漏/重复、参数或触发变化、二方库/SDK真实接线及受影响消费者。无埋点模块/任务核对 N/A 理由即可，不要求 SDK、上报后端或新增测试。存在事件时将事件 ID 纳入代码修改清单及 CASE/PATH/证据，治理和 Red/Yellow 沿原闭环；不把截图通过当上报通过，也不因一个观测环境缺口取消无关任务。见 [埋点协议](../skills/migration-protocol/references/telemetry.md)。
-
-知识复核可 query/diagnose/verify，保留只读权限与独立作者要求；Foundation 目录版本核对不证明运行成功。v2 视觉裁决将 required_interaction 及实际 action/observed 对照完整冻结手势，当前目标 Capture 的基线/manifest/index 必须一致，不接受仅同名 ID/PASSED 的替代声明。见 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md)。
-
-逐 PATH 使用所属模块已接受的构建产物，GLOBAL visual PATH 使用冻结 build_binding 指定的集成构建 PATH，禁止借用其他模块的 HAP。复核原始 comparison/semantic 与 capture index 的图片绑定；报告保留 source-only/capture-fixture 的未验证范围，不扩大既定复测范围。
-
-新审计授权须有本轮实际 capture，不能把重读旧截图记成复测；semantic 遗留问题/不可比判断逐项附原文件 hash、裁决与佐证。仅 GLOBAL 缺环境的收尾可由本实例提交新的有效 audit-testing ready 报告恢复既有 audit-assign 路由；保留之前真实执行与此次未执行的区别。具体契约见 [视觉执行](../skills/migration-protocol/references/visual-execution.md) 与 [环境恢复](../skills/migration-protocol/references/build-automation.md)。
+| 专题 | 审计义务 | 协议 |
+| --- | --- | --- |
+| 上下文就绪 | audit-plan 前 audit-analysis，audit-verdict 前 audit-verdict，有待复核路径时 audit-testing；审计中 Fixer/Testing 仍各自预检 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md) |
+| 复用与来源 | 读取复用目录、需求映射、实际版本、生产绑定、fidelity 对齐与存量基线，识别共享提供方影响并按 finding/DAG 安排 owner 修复与消费者复测（含受影响原 Green）；读取 source_change_history 与显式 owner，确认来源追加前的 Red/Yellow、预算、复测链完整保留，来源事务不打断活动审计 | [复用](../skills/migration-protocol/references/reuse-dependencies.md)、[来源变更](../skills/migration-protocol/references/source-changes.md) |
+| 自动化缺测 | 纯环境缺失汇总为未验证清单（unverified_findings 不得标 resolved），不强制 Fixer/人工；最终仍不可用时独立预检后 audit-unavailable，completed-with-unverified-tests 列明缺测；GLOBAL 缺环境可由本实例新的 audit-testing ready 报告恢复原 audit-assign | [构建与自动化](../skills/migration-protocol/references/build-automation.md) |
+| 视觉与领域证据 | 独立读取原始结果、转换证据与 Ledger 绑定；按审计 PATH 用 compare-only/受限视觉工具，不加载完整 Aligner；逐 PATH 用所属模块已接受的构建产物（GLOBAL 用 build_binding），复核 comparison/semantic 与 capture index 的图片绑定、本轮实际 capture、semantic 逐项裁决、完整冻结手势；旧 ALIGNED 或转换器成功不算通过；source-only/capture-fixture 未验证范围须披露 | [lean 接入](../skills/migration-protocol/references/lean-integration.md)、[视觉执行](../skills/migration-protocol/references/visual-execution.md)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md) |
+| 埋点 | 代码审查核对埋点遗漏/重复、参数或触发变化、SDK 真实接线与受影响消费者；有事件时纳入代码修改清单与 CASE/PATH/证据；无埋点核对 N/A 理由即可 | [埋点](../skills/migration-protocol/references/telemetry.md) |
+| 知识 | query/diagnose/verify 只读；Foundation 版本核对不证明运行成功 | [lean 工程纪律](../skills/migration-protocol/references/lean-disciplines.md) |
+| 投影核验 | 审阅用 `/sdd-verify --scope projection`，交付用 final；只证明记录一致，不证明真实派发或功能 Green | [宿主接入](../skills/migration-protocol/references/host-integration.md) |

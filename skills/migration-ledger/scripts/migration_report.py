@@ -7,6 +7,7 @@ from contracts import check_ref, digest, read_json
 import decomposition as dc
 import test_validation as tv
 import audit_code_review
+import workflow_cost
 
 
 def quality(values):
@@ -180,6 +181,7 @@ def build(root, s, sequence, ref_check=check_ref):
             'unimplemented': gaps, 'code_governance': governance,
             'visual_coverage': visual, 'fidelity_limitations': limitations,
             'human_report': copy.deepcopy(batch.get('human_report')),
+            'workflow_cost': workflow_cost.build(s, workflow_cost.journal(root)),
             'human_report_path': str(root / 'audit-reports' / (batch['batch_id'] + '.json')) if batch.get('human_report') else None}
 
 
@@ -223,6 +225,11 @@ def render(report):
             text += [f"- {cell(gap['module_id'])} · REQ={cell(review['requirement_ids'])} · CASE={cell(review['case_ids'])} · TASK={cell(review['task_ids'])}：{cell(review['goal'])}",
                      f"  - 核验：{cell(review['verification']['summary'])}；owner={cell(gap['owner'])}；next={cell(gap['next_action'])}",
                      f"  - 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}"]
+    cost = report.get('workflow_cost') or {'modules': {}, 'totals': {}}
+    text += ['', '## 流程成本', '', f"合计：{cell(cost['totals'])}", '',
+             '| 模块 | 事件 | 派发 | 上下文回执 | 验收 | 人工决定 | 修复轮次 | 轻量叶子 |', '| --- | --- | --- | --- | --- | --- | --- | --- |',
+             *[f"| {cell(mid)} | {r['events']} | {r['dispatches']} | {r['context_receipts']} | {r['acceptances']} | "
+               f"{r['human_decisions']} | {r['fix_rounds']} | {'是' if r['lean_leaf'] else '否'} |" for mid, r in cost['modules'].items()]]
     text += ['', '## 路径明细', '', '| CASE-ID | 模块 / 父 MO | PATH / Name | 类型 | 状态 | 曾执行 / 本次执行 / stale | test_run |', '| --- | --- | --- | --- | --- | --- | --- |']
     for r in report['paths']:
         text.append('| ' + ' | '.join(cell(v) for v in (r['case_id'], f"{r['module_id']} / {r['parent_mo_name'] or '—'}", f"{r['path_id'] or '—'} / {r['name']}",

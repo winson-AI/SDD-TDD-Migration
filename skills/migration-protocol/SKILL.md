@@ -70,7 +70,7 @@ GO、父/子 MO、Spec-Designer 在规划时，以及 Implementer/Fixer/Test-Run
 
 ## 16. 来源与 provider 版本变化
 
-GO/父子 MO/Host 在运行中追加只读来源时读 [source-changes.md](references/source-changes.md)：GO 完整影响评审、Host 绑定批准与新快照事务、相关阻塞恢复及无关模块证据延续。v2 显式 owner、资源锁与 provider 变更闭环见 [复用协议第 10 节](references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。来源变化不自动清除失败、重置预算或批准代码。
+GO/父子 MO/Host 在运行中追加只读来源时读 [source-changes.md](references/source-changes.md)：GO 完整影响评审、Host 绑定批准与新快照事务、相关阻塞恢复及无关模块证据延续。显式 owner、资源锁与 provider 变更闭环见 [复用协议第 10 节](references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。来源变化不自动清除失败、重置预算或批准代码。
 
 ## 17. 埋点上报
 
@@ -82,4 +82,4 @@ GO/父子 MO/Host 在运行中追加只读来源时读 [source-changes.md](refer
 
 ## 19. UI 领域工具与证据版本
 
-涉及 UI 分析、资源转换或视觉比较时读取 [lean 受限接入](references/lean-integration.md) 与 [UI 保真](references/ui-fidelity.md)。按 SDD 当前角色使用白名单工具，不整包执行 lean 实现/Aligner/orchestrator，不合并设计、写码与独立验收权限。新 prepare 使用 evidence_contract_version=2，旧 run 按原版本恢复；原始结果及转换产物均经受管输出和 Ledger 引用传递。自动化 Yellow 缺测例外保持不变。
+涉及 UI 分析、资源转换或视觉比较时读取 [lean 受限接入](references/lean-integration.md) 与 [UI 保真](references/ui-fidelity.md)。按 SDD 当前角色使用白名单工具，不整包执行 lean 实现/Aligner/orchestrator，不合并设计、写码与独立验收权限。原始结果及转换产物均经受管输出和 Ledger 引用传递。自动化 Yellow 缺测例外保持不变。

@@ -5,7 +5,7 @@
 ## 读取顺序
 
 1. 当前用户任务与宿主系统约束 → 本文件 → [共享协议](skills/migration-protocol/SKILL.md)。项目规则可细化技术规范，不能削弱本次用户四条红线。
-2. 定位下表的角色文件，只加载该角色 Used Skills；读取 Ledger 的 run/module 投影、最新 sequence 和当前 assignment。
+2. 定位下表的角色文件，只加载该角色 Used Skills；读取 Ledger 的 run/module 投影、最新 sequence 和当前 assignment。派发时先读 `status.next_steps[].must_read` 阅读卡所列小节（含四条红线，按 UI/复用范围触发追加，单卡不超过 60KB）；卡外协议在触发时再读，卡片不缩减任何门禁。协议总量与单文件大小有测试棘轮（reading.py 的 PROTOCOL_BUDGET/FILE_BUDGET）：新增规则应写入其专题协议并合并重复表述，而不是在运行指南中再追加一份。
 3. 父 MO 和子 MO 规划前均先读取全局代码入口（legacy_root/target_root）、架构规范、知识资料及当前父子分工/依赖，再按 scope 聚焦必需源码。局部 context pack 不能遮蔽全局只读上下文；检查目标已有能力与兄弟 owner 后再规划，避免重复/交叉工作。Test-Runner 在设计模式只读规格与测试输入，在执行模式可以读已批准的测试脚本及执行配置；不以实现推导验收标准。
 4. 运行期输入统一为绝对路径：`package_root`、`run_root`、`change_root`、legacy/target path 均从可信输入解析，禁止路径逃逸。源码仓有 `.codegraph/` 时先用 CodeGraph；无索引则不主动建索引。
 5. 交接仅传 Ledger 已提交的 assignment/event 引用及工件路径/摘要。新 Agent 重读这些工件，不依赖原会话记忆。
@@ -36,7 +36,7 @@
 
 GO 完成切片与 registry 登记后，每个 MO 独立推进自己的状态机、测试、修复预算及验收。某模块 Red/Yellow、异常或挂起，仅更新该模块及有证据的依赖影响范围；不得将全局聚合颜色回写其他模块，不得取消无关 MO，或为提前审计批量挂起其他模块。已通过模块保留有效 Green，未执行模块保留未执行状态。
 
-宿主逐 module_id 收集结果；收到一个失败结果后继续派发其他 ready 模块并等待仍在运行的 MO。只有完整 registry 中每个模块都完成 DoD 或有本模块证据的明确挂起记录、全部 worker 已结束且无可推进动作，才允许启动 Auditor。一个 worker 退出不代表其 MO 生命周期结束。详见 [模块隔离与收尾规则](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾)。
+宿主逐 module_id 收集结果；收到一个失败结果后继续派发其他 ready 模块并等待仍在运行的 MO。只有完整 registry 中每个模块都完成 DoD 或有本模块证据的明确挂起记录、全部 worker 已结束且无可推进动作，才允许启动最终 Auditor。例外是闭包提前审计：已交 Auditor 的模块，若其依赖闭包与下游消费者（含消费者的其他依赖）都已收尾且空闲，可先由独立 Auditor 以 problem-audit 复核该闭包，只锁闭包内模块，其余模块照常推进；最终全量审计仍等全部收尾。一个 worker 退出不代表其 MO 生命周期结束。详见 [模块隔离与收尾规则](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾)。
 
 ## 调用约定
 
@@ -62,6 +62,8 @@ Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `descript
 
 project 指完整项目及其功能树；single-module 只选择一个根功能，但父 MO 仍拆分子功能并交独立子 MO。职责固定为 GO 划分模块 scope/所需上下文 → 父 MO 认领后在范围内划分子 scope/所需上下文 → 子 MO 拆 tasks。父子均读全局代码/架构/知识，执行权限限定于认领 scope；规划绑定 Ledger 的 planning_context 和 module_inputs 分配包。父节点保存管理/汇总记录，叶子持有自己的 SPEC、代码、测试与验收；禁止把父聚合失败回写兄弟。全部叶子本轮结束且所有父 MO 提交当前版本汇总后，GO 才统一启动 Auditor。操作与全局上下文要求见 [父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
 
+轻量叶子：原子根功能可由 GO 登记为 `lean_leaf`（附不可再拆的审阅）直接作为执行叶子；其本地修复轮由 Fixer 在原 Implementer 会话中先诊断后修复，MO 仍接受诊断，审计期恢复独立 Diagnostician；运行级 `fixer_self_diagnosis` 可让所有模块的本地轮采用同样做法（默认关闭）。多个孩子可由父 MO 汇总一份批量冻结信封交人类一次批准，条目完全匹配的孩子经 MO 审阅后冻结。见 [父子 MO 协议](skills/migration-protocol/references/module-decomposition.md#父级批量冻结信封)。
+
 ## 二方库与目标已有能力
 
 复用评估贯穿 GO 切片、父 MO 分工、子 MO tasks 和 Coding/Testing。先读取 TARGET 及用户指定 reuse_sources 的功能语义目录，再结合需求决定直接使用、适配、仅参考或新实现；不得按同名 API 认定等价、重复实现已有能力，或为迁就库削弱需求。目录/映射经 Ledger 传递、版本冻结、实际接线及完整测试验证；外部来源只读，跨模块/不确定边界交人工。详见 [二方库复用协议](skills/migration-protocol/references/reuse-dependencies.md)。
@@ -72,7 +74,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 目标已有功能实现时，同样必须读取复用/依赖二方库并检查业务冗余。确认重复且复用/适配可行后，在分配范围内直接重构目标实现、切换真实依赖并清理冗余；不能重复造轮子，也不能仅加依赖却保留旧生产逻辑。按冻结任务执行并验证 fidelity/受影响消费者，细则见复用协议第 9 节。
 
-新 v2 能力目录明确 provider owner：null 为经评审的已有稳定能力，非空为本轮唯一叶子 owner；write_paths 仅控制权限/互斥，不能推断业务归属。GO 规划归属，父 MO 分配共享改动并收窄写集合，子 MO 冻结复用与适配任务。需改提供方本体走旧基线→授权 owner 变更→新版本→消费者重新冻结/复测；不得以 adapt 绕过 hash。
+能力目录明确 provider owner：null 为经评审的已有稳定能力，非空为本轮唯一叶子 owner；write_paths 仅控制权限/互斥，不能推断业务归属。GO 规划归属，父 MO 分配共享改动并收窄写集合，子 MO 冻结复用与适配任务。需改提供方本体走旧基线→授权 owner 变更→新版本→消费者重新冻结/复测；不得以 adapt 绕过 hash。
 
 同 run 新增只读来源按 [来源变更协议](skills/migration-protocol/references/source-changes.md) 执行 GO source-review → Host 绑定用户决策 → reconfigure-sources：新快照、完整影响评审、仅受影响闭包重新规划。保留无关模块有效结果、Red/Yellow、预算和历史；相关阻塞可凭明确决策恢复，无关阻塞不能被顺带解除。宿主消费 source_change_next_step，不能因等待版本切换取消其他 MO。
 
@@ -86,7 +88,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 ## Test-Runner 双环节与自动化缺测例外
 
-Test-Runner 在 Coding 接受后先编译构建，再执行自动化测试；构建命令优先用户指定，否则全目标搜索脚本并默认评估 Gradle assemble。构建/真实用例错误记录三态与根因，修复仍由 Fixer。仅自动化环境不可启动时，保留当前构建 Green，逐用例记录 Yellow/未执行，经 automation-unavailable 进入 automation-deferred；独立任务及依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复。全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。规范见 [构建与自动化分流](skills/migration-protocol/references/build-automation.md)。本节细化既有“缺条件挂起”规则，不允许跳过构建或吞掉已观察到的 Red。
+Test-Runner 在 Coding 接受后先编译构建，再做静态规格闭合审查（逐需求核对生产符号与假实现清单，见 [静态规格闭合](skills/migration-protocol/references/testing.md#静态规格闭合)），然后执行自动化测试；构建命令优先用户指定，否则全目标搜索脚本并默认评估 Gradle assemble。构建/真实用例错误记录三态与根因，修复仍由 Fixer。仅自动化环境不可启动时，保留当前构建 Green，逐用例记录 Yellow/未执行，经 automation-unavailable 进入 automation-deferred；独立任务及依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复。全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。规范见 [构建与自动化分流](skills/migration-protocol/references/build-automation.md)。本节细化既有“缺条件挂起”规则，不允许跳过构建或吞掉已观察到的 Red。
 
 ## Auditor 范围
 
@@ -102,7 +104,7 @@ GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 sc
 
 子 MO 规划实现时，可为 UI/Logic/Resource 的 applicable item 附机器可读语义模型（UI=JSON Component Spec、Logic=Statechart+JSON-Logic、Resource=Design Tokens/ICU），记录抽象结果/来源/实现位置，随四维分析结构门禁校验并 hash 冻结、投影为 `semantics.md` 供下游读取；presence-triggered、任务驱动，`new` 策略基于目标项目创建。见 [代码语义抽取协议](skills/migration-protocol/references/semantic-extraction.md)。
 
-新 prepare 固化 evidence_contract_version=2；旧快照缺字段与旧直连 init 按 v1 兼容，不在恢复时改写历史。UI fidelity 默认值及适用条件以本轮快照为准；开启时 applicable UI 必须有模型/源树/目标覆盖，不是可选附录。lean 只按 [受限工具接入](skills/migration-protocol/references/lean-integration.md) 使用：Spec-Designer 分析 UI，Implementer 精确迁移资源并接线，Test-Runner 构建/功能测试/视觉取证，Fixer 修复，Auditor 独立；不得加载完整 lean 实现或 Aligner skill 合并这些权限。原始结果引用、转换证据及正式 payload 均在本轮受管目录留存并经 Ledger 提交。仅自动化不可用仍按 Yellow 缺测收尾，不阻止独立任务。
+证据契约只有当前一套，prepare 与 Ledger init 均按其校验。UI fidelity 默认值及适用条件以本轮快照为准；开启时 applicable UI 必须有模型/源树/目标覆盖，不是可选附录。lean 只按 [受限工具接入](skills/migration-protocol/references/lean-integration.md) 使用：Spec-Designer 分析 UI，Implementer 精确迁移资源并接线，Test-Runner 构建/功能测试/视觉取证，Fixer 修复，Auditor 独立；不得加载完整 lean 实现或 Aligner skill 合并这些权限。原始结果引用、转换证据及正式 payload 均在本轮受管目录留存并经 Ledger 提交。仅自动化不可用仍按 Yellow 缺测收尾，不阻止独立任务。
 
 ## 阻塞感知与恢复
 

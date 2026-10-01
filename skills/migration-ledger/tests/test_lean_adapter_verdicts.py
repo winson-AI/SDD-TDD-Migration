@@ -143,7 +143,7 @@ class NativeVerdictTests(unittest.TestCase):
                    '--source-index', str(fixture['source']), '--runtime-index', str(fixture['runtime'])]
         result = subprocess.run(command, text=True, capture_output=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout)['contract_version'], 2)
+        self.assertEqual(json.loads(result.stdout)['visual_mode'], 'runtime')
         alignment = self.f.alignment()
         path = self.f.write('target/alignment.json', alignment)
         result = subprocess.run([sys.executable, '-B', lean_adapter.__file__, 'visual-results', '--alignment', str(path),

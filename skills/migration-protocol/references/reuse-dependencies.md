@@ -53,7 +53,7 @@
 
 GO 可以先做粗粒度能力目录；父/子 MO 补充与本模块相关的语义证据，形成新的版本化目录引用。目录不等于冻结批准。不要为无关候选全文扫描所有项目；扫描范围、搜索词/调用链和不适用理由写入报告。所有层级的交接只经 Ledger 引用。
 
-新 v2 目录显式记录 provider_owner_module_id 和 ownership_evidence_ref；消费者仅依赖明确的本轮提供方 owner，等待其稳定后使用实际版本。write_paths 只约束修改权限与互斥，不推断 v2 业务归属。现存稳定库使用经评审的 null owner，不应虚构永远等不到完成事件的模块依赖。旧 v1 保持原写范围推断校验，升级需重新规划/冻结；字段与变更闭环见第 10 节。
+目录显式记录 provider_owner_module_id 和 ownership_evidence_ref；消费者仅依赖明确的本轮提供方 owner，等待其稳定后使用实际版本。write_paths 只约束修改权限与互斥，不推断业务归属。现存稳定库使用经评审的 null owner，不应虚构永远等不到完成事件的模块依赖。字段与变更闭环见第 10 节。
 
 ## 4. 语义抽取必须回答什么
 
@@ -219,7 +219,7 @@ Testing 至少验证正常、边界、异常/取消，以及真实提供方接�
 2. 在实际修改前停止相关活动 worker 并经 Host revoke；相关消费者执行 invalidate，保留旧测试/失败，重新规划。无关模块继续；不要仅解除依赖就把旧测试当 Green。
 3. owner 对既有冻结计划提出 CR/影响分析或 invalidate 后重新规划、获必要批准。其被修改文件作为明确的实现目标，不再同时声明为该 owner 计划中的不变 provider；仍使用的稳定依赖继续保持真实映射与 hash 校验。
 4. owner Coding → Build → Automation → MO 验收，保存新实现的 code baseline。缺自动化时沿用现有 Yellow/可用构建规则，不能称 fidelity 通过。
-5. 使用 owner 已接受的真实文件/hash/version 生成新 v2 catalog，消费者重新形成映射/六件套并冻结，再正式构建与业务回归；不得在旧冻结 plan 中静默替换 ref。已有 waiting-dependency 按 dependency-ready/resume 恢复，需要重规划时明确进入 specifying。
+5. 使用 owner 已接受的真实文件/hash/version 生成新的能力目录，消费者重新形成映射/六件套并冻结，再正式构建与业务回归；不得在旧冻结 plan 中静默替换 ref。已有 waiting-dependency 按 dependency-ready/resume 恢复，需要重规划时明确进入 specifying。
 6. 非 Green 的正式复测必须保留 retest_of；父 MO 重汇总，Auditor 全量收尾后复核遗留/受影响问题。任何失败仍遵守现有预算、Fixer 与人工升级规则。
 
 本轮尚未交付、文件不存在的 provider 不能伪造 ref 供消费者冻结；先完成 owner 或选取真实稳定接口及有依据的方案。若 registry 尚无必要 owner/依赖，先解决分配，不能以 null 隐藏本轮写入责任。同 run 来源追加只处理只读来源，不负责修改既有分工。

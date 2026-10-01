@@ -14,9 +14,9 @@ Main 是项目提供的主验证入口，不是固定 `main.py`，也不是某�
 
 query 文件必须包含该路径完整的前置、步骤、参数和预期断言；模板的 query 是索引头，执行时从同一条 path 记录组装完整内容并记录 hash，不能仅传 Name 猜测行为。
 
-v2 的 automation/visual PATH 若声明 interaction_id，execute_test 从所属模块冻结模型提取完整 frozen_interaction（id/action/from/expected），不能由运行器另写较弱的期望。source-only UI 允许把手势放入 automation，不要求没有的视觉基线；runtime UI 仍保留已有 visual 义务。automation 的条件结果扩展见 [interaction-evidence.json](../../../template/interaction-evidence.json)：绑定当前代码、已接受 HAP、真实动作/起点/观测及证据。GLOBAL 自有手势 PATH 显式冻结 frozen_interaction，并用既有 build_binding 指定产物所属 build PATH。
+automation/visual PATH 若声明 interaction_id，execute_test 从所属模块冻结模型提取完整 frozen_interaction（id/action/from/expected），不能由运行器另写较弱的期望。source-only UI 允许把手势放入 automation，不要求没有的视觉基线；runtime UI 仍保留已有 visual 义务。automation 的条件结果扩展见 [interaction-evidence.json](../../../template/interaction-evidence.json)：绑定当前代码、已接受 HAP、真实动作/起点/观测及证据。GLOBAL 自有手势 PATH 显式冻结 frozen_interaction，并用既有 build_binding 指定产物所属 build PATH。
 
-GLOBAL v2 手势的完整契约、ID 匹配与 build_binding 在 init 落盘前检查，输入不完整时先修正初始化请求，避免到审计才发现无法执行。历史 v1 按原规则恢复，不补写新字段。
+GLOBAL 手势的完整契约、ID 匹配与 build_binding 在 init 落盘前检查，输入不完整时先修正初始化请求，避免到审计才发现无法执行。
 
 将 [test-paths.json](../../../template/test-paths.json) 的单路径 JSON 写入临时 query 文件，按已确认适配器契约用 argv 传入：`<executable> <args...> --query-file <absolute-query.json> --result-file <absolute-result.json>`。这里只定义默认适配协议；实际框架需提供翻译脚本，不能把自然语言 name 直接当 shell 命令。无 shell 拼接，不执行 query 内嵌指令。保存实际 argv、cwd、工具版本、环境变量名称（秘密值脱敏）、seed、fixtures、依赖版本。
 
@@ -44,7 +44,7 @@ Fixer 自回归记录 `producer=fixer`，是补丁证据，不能替代 Test-Run
 
 [execute_test.py](../../migration-ledger/scripts/execute_test.py) 在代码已接受、assignment 有效的情况下调用真实项目适配器，用 argv 传递完整 query，保留 stdout/stderr、退出码、开始/结束时间、query/report/log hash 与 receipt。CLI 不提供假的业务测试适配器。
 
-阶段结果采用 [stage-result 模板](../../../template/stage-result.json)，在 submit 和 MO accept 两处重复校验。Green 要求 frozen PATH 与 assertion ID 集合完全匹配、原始结果与声明一致、真实 receipt 完整且当前基线匹配；本地 v1 assertion 比较只支持 JSON equality。复杂匹配应由适配器输出一个可核验的规范化观测值（如计算后的状态或误差），并在 SPEC 固定该观测语义，不能临时改变期望。
+阶段结果采用 [stage-result 模板](../../../template/stage-result.json)，在 submit 和 MO accept 两处重复校验。Green 要求 frozen PATH 与 assertion ID 集合完全匹配、原始结果与声明一致、真实 receipt 完整且当前基线匹配；本地 assertion 比较只支持 JSON equality。复杂匹配应由适配器输出一个可核验的规范化观测值（如计算后的状态或误差），并在 SPEC 固定该观测语义，不能临时改变期望。
 
 执行回执来源可信依赖宿主保护其上下文和证据目录。本地检查不能独立证明一份任意可写 JSON 来自可信执行；宿主不得让业务 worker 伪造 host-context 或执行回执。全局 Auditor 同样需实际执行回执，不能只提交文字“已复测”。
 
@@ -56,13 +56,28 @@ adapter 的 `skipped` / `xfail` 限制必须原样保留。原始报告声称 Gr
 
 本地一轮策略与问题审计：Red/Yellow 可修复根因先自动一轮，确认依赖/外围或仍失败时 audit-defer；问题审计独立执行有效代码，缺代码/前置时只记 Yellow。Auditor 对正式复测证据直接作审计验收；MO 只接收模块恢复/修复任务并执行模块门禁，不会签审计结论；最终审计不能跳过。
 
+## 静态规格闭合
+
+拆分测试的 Ledger 顺序为 build → static → automation → visual。static 是 Test-Runner 在当前已构建代码上做的独立规格闭合审查（吸收 lean Validator 的逐场景核对与假实现清单），位于昂贵的设备自动化之前；prepared run 固定 `spec_closure_required=true`，每个拆分模块冻结恰好一条 `kind=static` PATH：`scenario_requirement_ids` 等于模块全部任务需求，`expected_assertions` 只有一个 `expected: true`，case_id 复用本模块已有 CASE，不能新增或替代业务覆盖。
+
+Test-Runner 只读冻结 SPEC、当前代码与测试，写审查记录（staging）：
+
+- `scenarios[]`：每个冻结需求一条，`status=passed|failed`、summary、`production_symbols[]`（目标文件绝对路径 + 文件内真实存在的符号）与 evidence_refs。passed 还须给 `reached_from`：另一个目标文件中引用该生产符号的调用、DI 绑定、导航或清单注册位置；找不到调用方的符号是死代码或预览专用，只能记 failed。
+- `anti_patterns`：`preview-only-wiring`、`dead-handler`、`fixed-result`、`placeholder-icon`、`unapproved-stub` 逐项 `absent|present` + note + evidence_refs。经冻结批准的 capture-fixture 边界记 absent 并在 note 引用批准依据。
+
+static 不需要设备，与 build 共用一次派发：building 预检在 `execution.commands` 中同时为 build PATH 与 static PATH 预批准命令（static 的 review 路径提前确定）；MO 接受全绿 build 结果后，同一 assignment 保持打开并切换为 `test_scope=static`，由同一 Test-Runner 继续，无需新的派发或预检，MO 仍单独接受 static 结果。build 未全绿时 assignment 正常关闭。运行时经 `execute_test.py` 调用 [spec_closure.py](../../migration-ledger/scripts/spec_closure.py)（argv：`--review <记录> --target-root <target>`）。适配器只核对上下文、需求覆盖、引用符号确实存在于目标文件、清单完整，然后生成唯一断言；任一场景 failed 或反模式 present 即 Red（root_cause 列出缺口），进入原诊断 → Fixer → 重新 build/static 复测闭环。适配器不自行评判代码，审查质量由独立 Test-Runner 负责、Auditor 抽查。static 全 Green 前不能派发 automation 或记录 automation-unavailable；仅自动化环境缺失时 static 照常执行。
+
+## 运行时变体与冻结 SPEC 冲突
+
+截图、运行时树或设备观察显示的页面变体（如 live 页签）与冻结 SPEC/源码默认（如 trending）不一致时，这是用户的范围决定，不是代码缺陷：Test-Runner 记 Yellow，root_cause 为 `category=human`、`reason_code=runtime-spec-variant-conflict`、`confidence=confirmed`，引用冲突证据。lean 验证/对齐结果中同类 issue 由适配器自动规范化为同一根因。MO 游标直接给出 `suspend(kind=human)`，交 Escalation 取得用户选择后再按决定重新规划或继续；不派 Fixer，也不默认任选一种变体。
+
 ## Harmony Main
 
 已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核。输入为完整冻结 PATH；输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留原时间线、工具录制、压缩记忆、布局、视频时间映射。UI 谓词 expected=true 的语义须在 design 冻结，不能从旧 scalar equality 静默转换。
 
 执行期间每次观察落盘；回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow。缺设备/模型/媒体或不明确结论为 Yellow，不用最终自然语言判断通过。harmony_stage 将 host receipts 汇成现有 tests stage，Ledger 双重校验媒体 hash 与捕获三态。host 超时终止整个进程组并保存已有 stdout/stderr，避免子工具继续操作设备。
 
-默认 Harmony 当前不会自动生成上述结构化 interaction_evidence。对有 frozen_interaction 的 v2 automation，报告仅有 Green 断言而缺这份证据时，test_completion 保留实际断言、媒体和原报告，记录 executed=true 的 Yellow tooling / interaction-evidence-unavailable；正式 submit/accept 使用同一解释，不会先报 Green 再无法收尾。已观察到的 Red 保持 Red；绝不从 expected 或自然语言结论合成 observed。Test-Runner 在预检中说明能力缺口，使用具备此能力的已配置 adapter，或沿原环境不可用/缺测路径交给 MO/Auditor 收尾；无手势路径和 v1 不增加此要求。
+默认 Harmony 当前不会自动生成上述结构化 interaction_evidence。对有 frozen_interaction 的 automation，报告仅有 Green 断言而缺这份证据时，test_completion 保留实际断言、媒体和原报告，记录 executed=true 的 Yellow tooling / interaction-evidence-unavailable；正式 submit/accept 使用同一解释，不会先报 Green 再无法收尾。已观察到的 Red 保持 Red；绝不从 expected 或自然语言结论合成 observed。Test-Runner 在预检中说明能力缺口，使用具备此能力的已配置 adapter，或沿原环境不可用/缺测路径交给 MO/Auditor 收尾；无手势路径不增加此要求。
 
 ## 分阶段唯一验收 owner
 

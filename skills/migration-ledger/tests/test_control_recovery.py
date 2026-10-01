@@ -42,6 +42,7 @@ class WorkingCopyTests(unittest.TestCase):
             'code_files': refs, 'code_baseline': baseline(refs),
             'task_trace': [{'task_id': 'T1', 'files': [str(self.code)]}],
             'production_binding_evidence': f.ref('binding-fix.md', 'binding verified'),
+            'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': f.ref('authoring-diagnostics.log', 'changed files: 0 errors')},
             'fix_note_ref': f.ref('fix-note.json', {'root_cause': 'wrong value', 'strategy': 'correct value',
                 'applicability': 'same task', 'risks': 'regression required'})}
         f.submit(result, a)

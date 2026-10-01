@@ -22,13 +22,9 @@ description: 最小修复、回归证据与不改变验收的变更建议，用�
 输入 assignment_ref + event_ref + absolute artifact refs；输出角色权限矩阵许可的事件及模板工件。文件已生成不等于已接受，必须收到 Ledger ACK。
 
 ## 5. 检查
-补丁范围明确；回滚/影响完整；回归记录真实；验收标准未越权改变。
+补丁范围明确；回滚/影响完整；回归记录真实；验收标准未越权改变；`authoring_diagnostics` 已随补丁提交。
 
 ## 6. 配套资产
 使用 [主要模板](../../template/change-request.md)；其他工件由 [模板索引](../../template/INDEX.md) 定位。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
-修复结果必需 fix_note_ref，使用 [fix-note 模板](../../template/fix-note.json)。读取 module memory.md / ledger repair-memory.json，经事件引用核对适用条件；只有正式回归 verified 条目可当已验证策略参考，仍需本轮测试。
-
-修复按冻结 reuse_plan_ref 执行并提交 reuse_trace；更换提供方、版本或行为路线先走 CR，真实提供方不可用不能以 mock 宣称修复。见 [复用协议](../migration-protocol/references/reuse-dependencies.md)。
-
-修复时可用受限 query/diagnose/verify，沿冻结依赖选择和原预算处理；工具只读知识和目标 catalog，不负责改码或裁决复测。见 [Wave-1](../migration-protocol/references/wave1-disciplines.md)。
+角色义务、必交证据与专题入口以 [Agent 定义](../../Agents/fixer.md#专题义务) 为准；本技能只保留执行规约与检查，不重复专题细则。

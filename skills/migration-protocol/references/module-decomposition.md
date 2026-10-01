@@ -36,7 +36,7 @@
 
 ## 3. 分配与登记门禁
 
-新入口由 GO `register` 根功能，设置 `decomposition_required=true`，同时提交非空 `scope.in`、显式 `scope.out`（可为空）、非空 `scope.requirement_ids` 和非空 `context_refs`。其中 requirement_ids 使用全局需求 ID。根模块的 CASE/需求须来自本轮输入，写范围包含于 target_root。人工导入方案先由 GO 分析补全并转成此分配格式；这些字段不增加用户入口负担。
+原子根功能（单一职责、无可独立交付的子功能）可由 GO 登记为 `lean_leaf=true` 的执行叶子，跳过父 MO 拆分与汇总：仍须提交同样的 scope/context_refs，并附 `leaf_review_ref` 说明为何不可再拆；其余根功能由 GO `register` 时设置 `decomposition_required=true`，同时提交非空 `scope.in`、显式 `scope.out`（可为空）、非空 `scope.requirement_ids` 和非空 `context_refs`。其中 requirement_ids 使用全局需求 ID。根模块的 CASE/需求须来自本轮输入，写范围包含于 target_root。人工导入方案先由 GO 分析补全并转成此分配格式；这些字段不增加用户入口负担。
 
 | 操作 | 角色 / 请求 scope | 输入与门禁 |
 | --- | --- | --- |
@@ -90,3 +90,7 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 ## 四维父子覆盖
 
 父 MO 认领并读取模块实现/四维分析等上下文，先划子模块 scope，再按 [四维协议](dimension-slicing.md) 生成子 dimension_analysis_ref（绑定 parent_ref/parent_item_ids）和 dimension_partition_review_ref；GO 两次审查 proposal/accept，拒绝遗漏父项或重复子 item ID。scope、CASE、写锁与共享提供方 owner 原规则继续有效。
+
+## 父级批量冻结信封
+
+父 MO 拆分出多个孩子时，可以把各孩子的 decision_envelope（scope、acceptance、allowed_alternatives、forbidden_changes）汇成一份 [批量信封](../../../template/batch-envelope.json)，交人类一次批准（decision `kind=batch-envelope`，module_id 为父）。子 plan 的 envelope 与信封条目完全一致时，子 MO 审阅详细 tasks/PATH 后附 review_ref 即可 freeze，不再逐个等待人类；任一孩子超出条目（扩大范围、替换提供方、改变用户可见语义等）仍须自己的人类批准。信封批准不替代 MO 的计划审阅，也不改变冻结后的 CR 规则。

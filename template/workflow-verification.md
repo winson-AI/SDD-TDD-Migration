@@ -41,7 +41,7 @@
 | WF-35 | 关联代码更新、固化目标被篡改或链接目标缺失 | 更新仅影响新 run，篡改拒绝使用；缺失链接明确 warning，不伪造完整知识链 |
 | WF-36 | 目标已有实现与二方库语义冗余且可接入 | 规划唯一 owner，直接按冻结任务重构依赖/调用并清理重复逻辑；保留必要适配和完整回归，不重复造轮子 |
 | WF-37 | 只加二方库依赖却仍走旧实现，或无依据保留两套业务逻辑 | MO 不接受为重构完成；补齐真实接线/清理及正式保真验证，不能靠编译通过验收 |
-| WF-38 | v2 稳定 provider 位于多个 MO 的宽写范围 | null owner 不产生虚假依赖；写锁仍互斥；非空 owner 需合法叶子/权限/实际依赖 |
+| WF-38 | 稳定 provider 位于多个 MO 的宽写范围 | null owner 不产生虚假依赖；写锁仍互斥；非空 owner 需合法叶子/权限/实际依赖 |
 | WF-39 | 同 run 新增只读来源，部分模块不受影响 | GO 全范围评审、Host 精确批准、创建新快照；受影响闭包重规划，无关冻结/Green 保留并用新上下文继续 |
 | WF-40 | 缺来源导致阻塞，另一个模块有不同业务阻塞或 Red | 明确批准可让相关 blocker 回到规划；其他 blocker/失败/预算/修复 memory 保留，新增来源不算通过 |
 | WF-41 | 来源评审过期、旧来源被修改/删除、worker/审计活动中 | 拒绝事务并显示具体动作；不得取消其他 MO、覆盖配置或重置审计 |
@@ -49,26 +49,26 @@
 | WF-43 | 稳定 provider 必须修改本体 | owner 先获授权任务/版本方案，消费者失效并重规划；新版本交付后正式复测；adapt 不绕过 live hash |
 | WF-46 | M002 投影损坏，但 M001 及其祖先/实际依赖有效 | module M001 核验可通过，projection 报 M002 故障；不能把全量失败回写全部 MO |
 | WF-47 | planning 中全量投影一致但未正式收尾 | projection 可通过，final 必须拒绝；verified 不宣称真实派发或功能通过 |
-| WF-48 | v2 UI 多个 page/state，只给一条 visual PATH 或引用另一目标的节点/基线 | 冻结拒绝；每个 runtime 目标单独绑定 coverage、node_ids、baseline_ref |
-| WF-49 | v2 视觉 Green 使用旧 HAP/旧 code_baseline，或 record 与实际 captured 不一致 | 正式结果拒绝；不能用旧 ALIGNED 覆盖当前版本 |
+| WF-48 | UI 多个 page/state，只给一条 visual PATH 或引用另一目标的节点/基线 | 冻结拒绝；每个 runtime 目标单独绑定 coverage、node_ids、baseline_ref |
+| WF-49 | 视觉 Green 使用旧 HAP/旧 code_baseline，或 record 与实际 captured 不一致 | 正式结果拒绝；不能用旧 ALIGNED 覆盖当前版本 |
 | WF-50 | Test-Runner 请求资源改写/自动修 UI，或 Spec-Designer 请求实现 | 受限工具拒绝跨角色操作；通过 Ledger 派给有权限的 Implementer/Fixer |
-| WF-51 | 恢复无 evidence_contract_version 的旧 run | 按 v1 解释；不重写历史证据、不静默升级版本；新 prepared v2 不能降级 |
+| WF-51 | reuse-catalog 缺少显式 provider owner 或使用旧结构 | 冻结拒绝；按当前目录结构重新生成并评审 owner，不推断归属 |
 | WF-52 | Auditor 为 M001 的 PATH 提交 M002 构建的 HAP | 拒绝跨模块借用产物；GLOBAL visual 使用冻结 build_binding 的当前已接受构建 |
-| WF-53 | score/semantic 使用无关图片，或 carried 没有当前截图回归 | v2 Green 拒绝；重读原始 alignment 按 round/target/capture index 核对图片摘要 |
-| WF-54 | v2 Foundation 解析省略 producer、虚构依赖，或冻结后解析文件变化 | 按 run 版本重算 catalog；缺失门禁不显示 freeze ready；冻结引用变化拒绝继续派发 |
+| WF-53 | score/semantic 使用无关图片，或 carried 没有当前截图回归 | Green 拒绝；重读原始 alignment 按 round/target/capture index 核对图片摘要 |
+| WF-54 | Foundation 解析省略 producer、虚构依赖，或冻结后解析文件变化 | 冻结时按随包 catalog 重算；缺失门禁不显示 freeze ready；冻结引用变化拒绝继续派发 |
 | WF-55 | 用旧 CR 审查冻结另一份计划，或 invalidate 后重用旧 impact | impact 绑定 from_freeze_id + to_plan_hash；消费/失效后转历史，当前计划须重新审查 |
 | WF-56 | 资源目的地属于模块但超出 task.scope，或映射不属于该 task | 写入前拒绝，目标文件不变；保留失败 receipt，不增加其他模块阻塞 |
 | WF-57 | 资源自报类型与源码不符、byte_copy 字节不同，或多个配置变体 | 核对源文件/条目/单位/nine-patch；以 sourceId+qualifier 区分合法变体，拒绝伪造精确映射 |
 | WF-58 | source-only/capture-fixture 下业务 CASE 已 Green | 原 CASE 三态保持；GO 报告单列未验证视觉/在线 provider 的证据覆盖限制，无新增流程门禁 |
 | WF-59 | 一个资源被多个消费者使用 | 逐消费者引用验收；缺项、路径不匹配或后续 hash 变化拒绝，不以 AttributeError 退出 |
-| WF-60 | 裸附加资源 ID、不支持自动转换的真实源类型、night→base 路由 | v2 裸 ID 不填平闭包；未知类型能诚实记录 blocked/manual_exact；跨配置须冻结范围/条件证据，旧 v1 保留历史 |
+| WF-60 | 裸附加资源 ID、不支持自动转换的真实源类型、night→base 路由 | 裸 ID 不填平闭包；未知类型能诚实记录 blocked/manual_exact；跨配置须冻结范围/条件证据 |
 | WF-61 | Foundation 无匹配、知识提供上游控制概念 | external 返回受限候选和完整 hash 引用，probe 未执行；sdd_adaptation 映射现有 SPEC/任务/PATH 及三根目录 |
 | WF-62 | loading→content，只有 content 可稳定截图，自动化设备缺失 | 瞬态保留行为测试，不强制截图；缺设备逐 automation/visual Yellow，保留 build Green，父汇总与 Auditor 正常收尾 |
 | WF-63 | 装机/捕获/语义工具执行，或设备/模型无法使用 | 校验 assignment/当前构建/配置/设备锁及当前审计快照；证据受管留存，缺条件不伪 Green、不提交 Ledger 或重置预算 |
-| WF-64 | alignment 改为新 HAP/代码，但仍用旧截图或仅标签 sidecar | adapter 与正式 v2 Green 共用安装/捕获日志、逐屏截图树及当前基线校验；跨 run、伪造关联拒绝 |
+| WF-64 | alignment 改为新 HAP/代码，但仍用旧截图或仅标签 sidecar | adapter 与正式 Green 共用安装/捕获日志、逐屏截图树及当前基线校验；跨 run、伪造关联拒绝 |
 | WF-65 | 首屏不变但替换冻结 Android 第二屏，或 GLOBAL 缺原始集合 | 校验完整冻结目标记录；GLOBAL 显式 visual_evidence，缺证据局部 Yellow，不猜测 UI 归属 |
 | WF-66 | source-only UI 声明手势，或默认 Harmony 缺手势结构化证据 | automation 可冻结并传递完整动作；真实 proof 才 Green，缺 proof 保留断言并接受已执行 Yellow，Red 保留 |
-| WF-67 | 仅覆盖 base、collector 源 hash 过期，或 UI/Resource 使用不同源版本 | v2 冻结和 verify_plan 按当前 UI 的 ID/qualifier/path/hash 核验；有证据范围排除不阻塞无关变体，排除证据变化拒绝 |
+| WF-67 | 仅覆盖 base、collector 源 hash 过期，或 UI/Resource 使用不同源版本 | 冻结和 verify_plan 按当前 UI 的 ID/qualifier/path/hash 核验；有证据范围排除不阻塞无关变体，排除证据变化拒绝 |
 | WF-68 | 颜色来自 res/color-night 的 selector XML | collector 与 scan 都发现候选，按真实 selector 使用 compose_semantic_exact，不能冒充固定 token |
 | WF-69 | 提高修复预算时仍有人工作业/工具/依赖阻塞 | recover 只解除预算限制，保留独立 blocker、phase/resume_phase；无独立 blocker 才恢复原修复/测试路由，兄弟模块不变 |
 | WF-70 | adapter 退出成功但 skipped/xfail 为真 | 规范化保留限制与真实断言，Green 转 Yellow 并记录 incomplete-test-execution；正式门禁拒绝绕过，Red 不降级 |
@@ -77,7 +77,7 @@
 | WF-73 | global_paths 仅覆盖部分已登记 CASE | init 接受合法子集；未知 CASE 拒绝；global-plan 仍要求全量 requirement/case owner |
 | WF-74 | 仅 GLOBAL 缺环境，之后提交 ready audit-testing | 新有效预检提示 audit-assign 并携带 owner/context；旧、blocked、篡改或已消费预检不触发，其他模块不重跑 |
 | WF-75 | 已执行 Yellow 后 automation-unavailable/audit-unavailable | 保留同基线最近真实断言/回执为 last_execution；当前尝试未执行、质量仍 Yellow；重复缺测不产生递归历史 |
-| WF-76 | semantic 仍有 issues 或不可比，却被标 ALIGNED | v2 Green 必须逐项绑定原结果/原 finding 的有据 resolved/dismissed 裁决；原件/佐证变化、漏项、重复或无证据拒绝 |
+| WF-76 | semantic 仍有 issues 或不可比，却被标 ALIGNED | Green 必须逐项绑定原结果/原 finding 的有据 resolved/dismissed 裁决；原件/佐证变化、漏项、重复或无证据拒绝 |
 
 ## WF-44：整体代码治理前置
 

@@ -75,6 +75,81 @@
           "evidence_refs"
         ]
       }
+    },
+    "authoring_diagnostics": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "unavailable"
+          ]
+        },
+        "tool": {
+          "type": "string",
+          "minLength": 1
+        },
+        "log_ref": {
+          "type": "object",
+          "required": [
+            "path",
+            "sha256"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version_sensitive_apis": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "api",
+              "source_ref"
+            ],
+            "properties": {
+              "api": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_ref": {
+                "type": "object",
+                "required": [
+                  "path",
+                  "sha256"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "passed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "tool",
+              "log_ref"
+            ]
+          },
+          "else": {
+            "required": [
+              "reason",
+              "version_sensitive_apis"
+            ]
+          }
+        }
+      ]
     }
   },
   "allOf": [
@@ -90,7 +165,8 @@
         "required": [
           "code_files",
           "task_trace",
-          "production_binding_evidence"
+          "production_binding_evidence",
+          "authoring_diagnostics"
         ]
       },
       "else": {

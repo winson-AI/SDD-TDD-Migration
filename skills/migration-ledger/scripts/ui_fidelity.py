@@ -47,11 +47,9 @@ def freeze_gate(s, m):
     gaps = semantics.ui_fidelity_gaps(analysis)
     require(not gaps, 'ui_fidelity_required: UI items lack capture-bound ui_evidence before freeze: ' + ', '.join(gaps))
     declared_refs = _declared_refs(analysis)
-    uncovered = resource_fidelity.closure_gaps(analysis, declared_refs,
-                                              strict=s.get('evidence_contract_version', 1) >= 2)
+    uncovered = resource_fidelity.closure_gaps(analysis, declared_refs)
     require(not uncovered, 'ui_fidelity_required: resource closure reduced; uncovered presentation refs: ' + ', '.join(uncovered))
-    if s.get('evidence_contract_version', 1) >= 2:
-        resource_fidelity.require_exact_closure(analysis, declared_refs, s.get('legacy_root'))
+    resource_fidelity.require_exact_closure(analysis, declared_refs, s.get('legacy_root'))
     if any(row.get('dimension') == 'UI' and row.get('status') == 'applicable' for row in analysis.get('dimensions', [])):
         closure = ((m.get('plan') or {}).get('source_closure') or {})
         renderers = closure.get('ui_renderers')
@@ -93,8 +91,7 @@ def declared_interactions(analysis):
 
 def frozen_interaction(module, path):
     """Derive the PATH's full requirement from frozen SPEC; audit scopes carry the same value."""
-    if (module.get('evidence_contract_version', 1) < 2 or
-            path.get('kind') not in ('automation', 'visual') or not path.get('interaction_id')):
+    if path.get('kind') not in ('automation', 'visual') or not path.get('interaction_id'):
         return None
     iid = path['interaction_id']
     if not (module.get('plan') or {}).get('dimension_analysis_ref') and 'frozen_interactions' in module:
@@ -150,22 +147,20 @@ def baseline_gate(s, m):
     require(not runtime_targets(analysis) or covered,
             'visual paths must name the UI-tree nodes they align')
     declared = declared_interactions(analysis)
-    interaction_paths = ([path for path in plan.get('paths', []) if path.get('kind') in ('automation', 'visual')]
-                         if s.get('evidence_contract_version', 1) >= 2 else visual)
+    interaction_paths = [path for path in plan.get('paths', []) if path.get('kind') in ('automation', 'visual')]
     proven = {path.get('interaction_id') for path in interaction_paths}
     missing = sorted(set(declared) - proven)
     require(not missing, 'declared interactions need an automation/visual path carrying device proof: ' + ', '.join(missing))
-    if s.get('evidence_contract_version', 1) >= 2:
-        for path in plan.get('paths', []):
-            if not path.get('interaction_id'):
-                continue
-            require(path.get('kind') in ('automation', 'visual'), 'interaction requires an automation/visual path')
-            interaction = frozen_interaction({**m, 'evidence_contract_version': 2}, path)
-            if path.get('coverage'):
-                require(path['coverage'].split(':')[:2] ==
-                        [interaction['from']['page_id'], interaction['from']['state_id']],
-                        'interaction path must use its declared starting page/state')
-        visual_plan_gate(analysis, visual)
+    for path in plan.get('paths', []):
+        if not path.get('interaction_id'):
+            continue
+        require(path.get('kind') in ('automation', 'visual'), 'interaction requires an automation/visual path')
+        interaction = frozen_interaction(m, path)
+        if path.get('coverage'):
+            require(path['coverage'].split(':')[:2] ==
+                    [interaction['from']['page_id'], interaction['from']['state_id']],
+                    'interaction path must use its declared starting page/state')
+    visual_plan_gate(analysis, visual)
 
 
 def visual_plan_gate(analysis, visual):

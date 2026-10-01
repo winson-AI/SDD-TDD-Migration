@@ -24,10 +24,11 @@
 | [change-impact.json](change-impact.json) | Spec-Designer/MO：绑定旧 freeze 与新 plan 摘要的影响审查，供 within-envelope 再冻结 |
 | [escalation.md](escalation.md) | Escalation：人工问题与超时 |
 | [human-decision.json](human-decision.json) | 真实人类反馈引用，Escalation 规范化、Ledger 接受 |
+| [batch-envelope.json](batch-envelope.json) | 父 MO 批量冻结信封；一次人类批准覆盖条目完全匹配的孩子，子 MO 仍附 review_ref |
 | [audit-report.md](audit-report.md) | Auditor：全局快照、复测与最终裁决 |
 | [workflow-verification.md](workflow-verification.md) | 宿主适配后的行为验收矩阵 |
 
-运行根目录与 ACL 见 [runtime.md](../skills/migration-protocol/references/runtime.md)。多数 JSON 外壳仍用 schema_version=1；证据规则由 prepare 快照的 evidence_contract_version 区分，不能混淆这两个版本。新 prepare 为 v2，Global input/init 继承且禁止降级；旧快照缺字段/旧直连 init 按 v1 兼容，不回写历史。宿主仍须执行身份、版本、状态门禁与证据校验，JSON 可解析不代表业务有效。
+运行根目录与 ACL 见 [runtime.md](../skills/migration-protocol/references/runtime.md)。JSON 外壳的 schema_version 只标识文档结构，证据规则只有当前一套。宿主仍须执行身份、版本、状态门禁与证据校验，JSON 可解析不代表业务有效。
 
 ## 本地控制器附加模板
 
@@ -63,7 +64,7 @@
 
 - [reuse-source.json](reuse-source.json)：project-context/global-input.reuse_sources 的可选外部来源元素；TARGET 自动包含。
 - [reuse-catalog.json](reuse-catalog.json)：GO 的功能语义抽取目录，父/子 MO 按需求进一步核验细化。
-- [source-impact.json](source-impact.json)：GO 的同 run 来源追加影响报告，完整来源集合、v2 catalog、全部叶子 replan/unchanged 与父分配评审；与 source-review/reconfigure-sources 配套。
+- [source-impact.json](source-impact.json)：GO 的同 run 来源追加影响报告，完整来源集合、能力目录、全部叶子 replan/unchanged 与父分配评审；与 source-review/reconfigure-sources 配套。
 - [reuse-plan.json](reuse-plan.json)：子模块逐需求的能力选择、差异、task/PATH 和接入映射；由 stage-plan.reuse_plan_ref 冻结，Ledger 投影到 change/reuse.md。
 - [reuse-fidelity.md](reuse-fidelity.md)：存量源码与选中能力逐行为对齐；reuse-plan.fidelity 绑定源码、报告和复现 PATH/ASSERT，正式结果沿 Main/Ledger 留档。
 - [implementation-gap.json](implementation-gap.json)：适配/参考/自主实现均经核验证实不可行时，MO 通过 suspend(reason_code=not-implemented) 接受，生成“未实现”人工提醒；没有可复用库本身不能作为结论。
@@ -81,16 +82,16 @@
 
 project-context/global-input 的 build 为可选配置，空对象表示由 GO 发现命令。通用 stage-plan/test-paths 示例只含 build 与 automation；build.command.selection_ref 冻结选择依据。有 applicable runtime UI 时才将独立 visual-test-path 示例合并到 paths，并补齐对应 task.path_ids 与 dimension_trace；无 UI/source-only 不造空视觉任务。assign 按实际阶段选择 test_scope。automation-unavailable / automation-resume / audit-unavailable 的 payload.context_ref 引用实际角色报告；自动化不可用仍 Yellow 收尾，不阻止独立任务。详见 [双环节协议](../skills/migration-protocol/references/build-automation.md)。
 
-- [visual-test-path.json](visual-test-path.json)：v2 逐 runtime 目标视觉路径片段。coverage 必须等于该 UI item，baseline_ref 来自其冻结基线，node_ids 来自该目标真实树节点；声明手势时另绑定 interaction_id。
-- [visual-alignment.json](visual-alignment.json)：v2 正式视觉结果片段，record 与本次 captured.visual_alignment 一致，绑定当前代码/HAP/基线；交互列表只含冻结声明，未声明时为空，不照抄占位项或伪造 PASSED。
+- [visual-test-path.json](visual-test-path.json)：逐 runtime 目标视觉路径片段。coverage 必须等于该 UI item，baseline_ref 来自其冻结基线，node_ids 来自该目标真实树节点；声明手势时另绑定 interaction_id。
+- [visual-alignment.json](visual-alignment.json)：正式视觉结果片段，record 与本次 captured.visual_alignment 一致，绑定当前代码/HAP/基线；交互列表只含冻结声明，未声明时为空，不照抄占位项或伪造 PASSED。
 - [visual-capture-execution.json](visual-capture-execution.json)：受管捕获执行回执；绑定安装、构建、代码、设备、逐屏原图/树与实际命令，原生 worker 自动生成，外部捕获缺绑定时由实际运行器提供 sidecar。
-- [interaction-evidence.json](interaction-evidence.json)：v2 automation 声明手势时的条件结果扩展；source-only 无需视觉基线，但 Green 须有冻结动作/起点/预期对应的当前 HAP/代码与实际观测。默认 Harmony 缺此证据时保留断言并记录 Yellow。
+- [interaction-evidence.json](interaction-evidence.json)：automation 声明手势时的条件结果扩展；source-only 无需视觉基线，但 Green 须有冻结动作/起点/预期对应的当前 HAP/代码与实际观测。默认 Harmony 缺此证据时保留断言并记录 Yellow。
 - [lean-worker-request.json](lean-worker-request.json)：受限 UI 源分析示例；角色、operation 参数及执行期 assignment/fencing_token 见 [接入协议](../skills/migration-protocol/references/lean-integration.md)。输出由入口固定，不添加任意 output_dir。
 - [lean-resource-request.json](lean-resource-request.json)：Implementer/Fixer 资源执行示例；绑定 task_id/resource_item_id、冻结映射与任务写范围。resource-scan 只读候选与变体，转换支持 vector/byte_copy/单项 values。
 - [lean-knowledge-request.json](lean-knowledge-request.json)：同一受限 worker 的主题查询示例；query/diagnose/resolve/verify 的 args 与角色范围见 [接入协议](../skills/migration-protocol/references/lean-integration.md)。知识操作不要求 assignment，不自动触发；输出固定本 run staging。
 - [lean-visual-test-adapter.json](lean-visual-test-adapter.json)：execute_test 的 adapter JSON；只接已独立产出的原始 alignment，不捕获/修复。声明手势才补 --interaction 参数；当前仅支持 expected=true 的布尔视觉断言。
-- global-input.ui_fidelity_required=true 对应标准 prepared run；旧直连 init 的兼容缺省不作为新运行模板默认。
-- project-context.defaults.quality_gates.dependency_resolution_required 是唯一项目配置入口，bool 默认 false；global-input 顶层同名字段由 prepare 派生，必须继承快照，不能将此示例 false 用作覆盖。旧 run 保留原值。
+- global-input.ui_fidelity_required=true 对应标准 prepared run。
+- project-context.defaults.quality_gates.dependency_resolution_required 是唯一项目配置入口，bool 默认 false；global-input 顶层同名字段由 prepare 派生，必须继承快照，不能将此示例 false 用作覆盖。
 - semantic-model.ui_tree_contract 是完整原生树示例；bindings/events/dynamicRules 为带源码锚点的对象，capabilities 为对象，attachments 为列表。实例化真实源码锚点和采集索引后仍须 strict validate；模板本身不证明源闭包完整。
 
 - [audit-review.json](audit-review.json)：Auditor 待验证清单为空时的独立证据审阅；不能用于跳过 Red/Yellow。

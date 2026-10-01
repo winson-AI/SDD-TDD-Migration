@@ -16,6 +16,10 @@
 ## Self Verification
 {{代码生成后实际执行的静态检查/单测命令、cwd、版本、退出码、结果引用；未执行写原因，不能宣称通过}}
 
+- authoring_diagnostics.status: {{passed | unavailable}}
+- passed：tool {{改动文件诊断工具}}，log_ref {{诊断输出绝对路径/sha256，须显示无错误}}
+- unavailable：reason {{宿主未提供诊断的原因}}；version_sensitive_apis {{每个新引入版本敏感 API 的 api + 固定版本依赖源码 source_ref；没有则 []}}
+
 ## Impact / Rollback
 {{受影响接口、路径、消费者、数据兼容性、回滚方式与未解决问题}}
 

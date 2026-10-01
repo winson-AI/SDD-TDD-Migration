@@ -74,7 +74,7 @@ def freeze_gate(s, m):
         return
     ref = (m.get('plan') or {}).get('dependency_resolution_ref')
     require(ref, 'dependency_resolution_required: plan must bind a foundation resolution artifact')
-    data = validate_resolution(ref, strict=s.get('evidence_contract_version', 1) >= 2,
+    data = validate_resolution(ref, strict=True,
                                target_root=s.get('target_root'), check_target=bool(s.get('target_root')))
     if data.get('target_root'):
         require(data['target_root'] == s['target_root'], 'dependency resolution belongs to another target')
