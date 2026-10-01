@@ -130,6 +130,7 @@ class SourceChangeTests(unittest.TestCase):
             'assignment_id': aid, 'actor_instance_id': actor, 'freeze_id': m['freeze_id'],
             'code_files': [file_ref(code)], 'code_baseline': baseline([file_ref(code)]),
             'task_trace': [{'task_id': 'T1', 'files': [str(code)]}], 'production_binding_evidence': proof,
+            'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': f.ref('authoring-diagnostics.log', 'changed files: 0 errors')},
             'dimension_evidence': [{'item_id': mid+'-Logic', 'task_ids': ['T1'], 'summary': 'Implemented scoped behavior', 'evidence_refs': [proof]}]}
         if role == 'fixer':
             result['fix_note_ref'] = f.ref('fix-note-'+aid+'.json', {'root_cause': 'wrong value', 'strategy': 'correct calculation',

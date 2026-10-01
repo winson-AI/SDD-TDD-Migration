@@ -22,7 +22,7 @@ description: 冻结任务驱动的 legacy 迁移、新架构实现和双向追�
 输入 assignment_ref + event_ref + absolute artifact refs；输出角色权限矩阵许可的事件及模板工件。文件已生成不等于已接受，必须收到 Ledger ACK。
 
 ## 5. 检查
-冻结/锁有效；静态检查与单测证据真实；所有代码变动有任务；未越权更新规范。
+冻结/锁有效；静态检查与单测证据真实；所有代码变动有任务；未越权更新规范；`authoring_diagnostics` 已提交（诊断通过，或不可用时版本敏感 API 引用固定版本源码）。
 
 ## 6. 配套资产
 使用 [主要模板](../../template/implementation.md)；其他工件由 [模板索引](../../template/INDEX.md) 定位。无项目执行器时按 Yellow 处理，不能生成假测试结果。

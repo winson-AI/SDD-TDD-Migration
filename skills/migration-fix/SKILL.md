@@ -22,7 +22,7 @@ description: 最小修复、回归证据与不改变验收的变更建议，用�
 输入 assignment_ref + event_ref + absolute artifact refs；输出角色权限矩阵许可的事件及模板工件。文件已生成不等于已接受，必须收到 Ledger ACK。
 
 ## 5. 检查
-补丁范围明确；回滚/影响完整；回归记录真实；验收标准未越权改变。
+补丁范围明确；回滚/影响完整；回归记录真实；验收标准未越权改变；`authoring_diagnostics` 已随补丁提交。
 
 ## 6. 配套资产
 使用 [主要模板](../../template/change-request.md)；其他工件由 [模板索引](../../template/INDEX.md) 定位。无项目执行器时按 Yellow 处理，不能生成假测试结果。

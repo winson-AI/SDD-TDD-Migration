@@ -134,7 +134,8 @@ class ReuseTests(unittest.TestCase):
         result.update(schema_version=1, kind='implementation', run_id='demo', module_id='M001',
                       assignment_id='I1', actor_instance_id='implementer', freeze_id=digest(plan),
                       code_files=[file_ref(code)], code_baseline=baseline([file_ref(code)]),
-                      production_binding_evidence=evidence)
+                      production_binding_evidence=evidence,
+                      authoring_diagnostics={'status': 'unavailable', 'reason': 'fixture host has no IDE', 'version_sensitive_apis': []})
         self.submit(result, assignment)
         self.call('accept', {'assignment_id': 'I1'})
         self.assertEqual(self.state()['modules']['M001']['phase'], 'testing')

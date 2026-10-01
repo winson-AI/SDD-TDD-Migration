@@ -115,9 +115,12 @@ implementation 另需：
 {
   "code_files": [{"path": "/target/module/source.py", "sha256": "actual-file-hash"}],
   "task_trace": [{"task_id": "TASK-M001-001", "files": ["/target/module/source.py"]}],
-  "production_binding_evidence": {"path": "/run/evidence/binding.md", "sha256": "actual-file-hash"}
+  "production_binding_evidence": {"path": "/run/evidence/binding.md", "sha256": "actual-file-hash"},
+  "authoring_diagnostics": {"status": "passed", "tool": "IDE/MCP changed-file diagnostics", "log_ref": {"path": "/run/evidence/diagnostics.log", "sha256": "actual-file-hash"}}
 }
 ```
+
+`authoring_diagnostics` 是代码作者（Implementer/Fixer）交付前的轻量自检：`passed` 表示已运行改动文件诊断并修完全部错误，附 tool 与 log_ref；宿主不提供诊断时用 `unavailable` + reason，并在 `version_sensitive_apis` 为每个新引入的版本敏感 API 引用其固定版本依赖源码（source_ref），没有则为空列表。它不是正式构建，也不能代替 Test-Runner 的 build PATH。
 
 code_baseline = `contracts.baseline(code_files)`，源码文件必须仍存在且摘要匹配；目标写范围以 realpath 检查，任务必须完整映射代码文件。code_files 是已存在文件的结果清单，源码删除/rename 的全量变更核验、未列出的修改检测与 Git hunk 归属由宿主实际 diff 审核承担。宿主不能只依赖 worker 自填 code_files 证明全部写入均在范围内。
 
@@ -168,7 +171,7 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 
 采用上传包的 NEXT/next_skill、blocked_from、阶段 require_state 和轮次保留机制，适配为 Ledger 派生游标：
 
-- `status.next_steps`：每模块 operation、role、worker_role（如适用）、session_id、assignment_id、expected_revision、ready、reason。
+- `status.next_steps`：每模块 operation、role、worker_role（如适用）、session_id、assignment_id、expected_revision、ready、reason。本地修复尚无 fixer 会话时，session_id 指向原 Implementer 会话并标 `session_affinity=implementer`，宿主优先恢复写代码的上下文；审计期修复不做此提示，使用新实例。
 - `status.ready_modules`：当前有可推进步骤的模块；并非可以同时启动的预约。多个候选可能争用同一资源，真正 assign 仍在事务内再次校验。
 - `status.global_next_step`：等待模块完成、创建审计、等待活动审计、撤销失效审计或等待交付授权。游标不自动派发，也不赋予额外权限。
 - 已提交 worker 结果对应 `accept`；未提交对应 `await-result`。原会话通过 session_id 提示复用；短交接只传 Ledger/assignment/artifact 引用。
@@ -200,7 +203,7 @@ global-plan 同时绑定模块编号、用例、依赖和写范围；新增模�
 
 ### 一轮优先修复
 
-模块本地自动修复轮数固定为 1；累计 max_fix_rounds、no-progress 仍为总上限，不因重新冻结、恢复或换会话清零。经证据确认的 dependency/environment/tooling/external/peripheral/human 根因直接 audit-defer。其余 Red/Yellow 先只读诊断，由 MO 接受后派 Fixer，接受补丁后必须 Main 正式复测；一轮仍未通过交问题审计队列。混合根因先诊断确定路由，未确认的外围猜测不能当作事实。
+模块本地自动修复轮数由 `local_fix_rounds` 默认 1，可在初始化/项目 budgets 中设为 1..max_fix_rounds。第一轮对所有可修复 Red/Yellow 生效；之后的本地轮次只在全部未解决失败都位于 build PATH（编译/打包）时继续，一旦出现 automation/visual 等业务失败即交 Auditor；no-progress fingerprint 仍可提前停止。累计 max_fix_rounds、no-progress 仍为总上限，不因重新冻结、恢复或换会话清零。经证据确认的 dependency/environment/tooling/external/peripheral/human 根因直接 audit-defer。其余 Red/Yellow 先只读诊断，由 MO 接受后派 Fixer，接受补丁后必须 Main 正式复测；一轮仍未通过交问题审计队列。混合根因先诊断确定路由，未确认的外围猜测不能当作事实。
 
 waiting-auditor 保存原恢复点、旧 blocker、根因与失败结果，保持真实三态，不占用 worker 写锁；角色收到 ACK 后退出。Global 记录 audit_queue，但必须等全部模块本轮 completed 或明确挂起、无在途 worker、无可推进动作后才统一启动 Auditor；无需全部模块 Green。普通 DAG 前置等待仍可在规划阶段存在；发现需要全局裁决的阻塞时 MO 用 audit-defer 登记。
 

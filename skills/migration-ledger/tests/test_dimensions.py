@@ -130,7 +130,8 @@ class DimensionTests(unittest.TestCase):
                   'assignment_id': 'I1', 'actor_instance_id': 'coder', 'freeze_id': a['freeze_id'],
                   'code_files': refs, 'code_baseline': baseline(refs),
                   'task_trace': [{'task_id': 'T1', 'files': [r['path'] for r in refs]}],
-                  'production_binding_evidence': consumer}
+                  'production_binding_evidence': consumer,
+                  'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': f.ref('authoring-diagnostics.log', 'changed files: 0 errors')}}
         f.call('submit', {'assignment_id': 'I1', 'fencing_token': a['fencing_token'],
                          'result_ref': f.ref('implementation.json', result)}, role='implementer', instance='coder')
         f.call('accept', {'assignment_id': 'I1'})

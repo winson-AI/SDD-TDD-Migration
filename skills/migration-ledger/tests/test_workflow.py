@@ -242,6 +242,17 @@ class WorkflowTests(unittest.TestCase):
         self.defer(); self.start_problem()
         self.assertEqual(self.state()['global_next_step']['operation'], 'problem-audit')
 
+    def test_local_fix_resumes_the_implementer_session_first(self):
+        self.failed_module()
+        self.call('session', {'role': 'implementer', 'session_id': 'S-IMPL'})
+        self.diagnose()
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['worker_role'], step['session_id'], step['session_affinity']), ('fixer', 'S-IMPL', 'implementer'))
+        self.call('session', {'role': 'fixer', 'session_id': 'S-FIX'})
+        step = self.state()['next_steps'][0]
+        self.assertEqual(step['session_id'], 'S-FIX')
+        self.assertNotIn('session_affinity', step)
+
     def test_peripheral_cause_skips_local_fix(self):
         self.failed_module('external')
         self.assertEqual(self.state()['next_steps'][0]['operation'], 'audit-defer')

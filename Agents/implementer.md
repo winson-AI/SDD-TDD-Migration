@@ -48,7 +48,7 @@ mode: subagent
 - [migration-implement](../skills/migration-implement/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
-所有提交改动可反查 TASK-ID；每个 TASK-ID 有文件与证据；没有无关改动；实际版本可重建。
+所有提交改动可反查 TASK-ID；每个 TASK-ID 有文件与证据；没有无关改动；实际版本可重建。交付前运行宿主提供的改动文件诊断（IDE/MCP 或同等文件级检查）并修完全部错误，结果写入 `authoring_diagnostics`；宿主无诊断时，对每个新引入的版本敏感 API 查阅固定版本依赖源码并引用，不凭记忆推断签名。该自检不是正式构建结论。
 
 实施补充：依据 source_closure 和 target_feasibility 逐项闭合真实生产路径，检查入口、依赖注入、消费方和外部结果，不能以接口声明、样例实现或资源文件存在替代生产接线。提交 stage-result，带全部 TASK→文件追溯及 production_binding_evidence；优先恢复本角色原会话，始终重验当前 freeze。
 

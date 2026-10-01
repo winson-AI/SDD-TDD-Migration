@@ -113,7 +113,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 ### 本地一轮的预算单位
 
-`local_fix_used` 是模块级计数，build、automation 与 visual 共用；不是每种失败或每个阶段各有一轮。构建已使用 Fixer 后，必须允许重新构建、正式 automation 和适用 visual 完成这一轮的验证；若其中仍有问题，再交 Auditor。只有完整正式回归通过才允许将该修复 memory 标为可复用。增加轮次或改成独立预算须显式修改策略，不能由宿主自行重置计数。
+`local_fix_used` 是模块级计数，build、automation 与 visual 共用；不是每种失败或每个阶段各有一轮。构建已使用 Fixer 后，必须允许重新构建、正式 automation 和适用 visual 完成这一轮的验证；若其中仍有问题，再交 Auditor。只有完整正式回归通过才允许将该修复 memory 标为可复用。额外本地轮次只来自初始化的 `local_fix_rounds`，且仅在全部未解决失败都是 build PATH 时可用（见 [状态机](state-machine.md#有限循环)）；宿主不能自行重置计数。
 
 ### 构建产物与设备安装
 

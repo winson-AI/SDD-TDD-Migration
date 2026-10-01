@@ -199,6 +199,53 @@ class SplitTestingTests(unittest.TestCase):
         self.assertEqual(s['next_steps'][0]['operation'], 'audit-defer')
         self.assertEqual(s['next_steps'][0]['root_cause']['category'], 'local-round-exhausted')
 
+    def reinit(self, **extra):
+        f = self.f; original = f.state()
+        f.root = f.base / ('split-run-' + str(f.n))
+        f.call('init', {**{k: original[k] for k in ('target_root', 'legacy_root', 'case_ids', 'requirement_ids',
+                 'global_spec', 'new_architecture', 'global_paths')}, 'dimension_slicing_required': False,
+                 'split_testing_required': True, **extra}, role='host')
+        f.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'write_paths': [str(f.target / 'm1')]},
+               role='global-orchestrator', module=None)
+
+    def build_red_round(self, aid):
+        f = self.f
+        self.compile(aid)
+        self.assertEqual(f.state()['next_steps'][0]['operation'], 'diagnose')
+        cause = {'category': 'code', 'summary': 'compiler still rejects module', 'confidence': 'confirmed',
+                 'owner': 'M001', 'next_action': 'fix'}
+        f.call('diagnose', {'diagnosis_ref': f.ref('diagnosis-' + aid + '.md', 'Compiler log reviewed for ' + aid),
+                           'owner': 'M001', 'root_cause': cause}, role='diagnostician')
+        f.call('diagnosis-accept')
+
+    def test_build_only_red_may_use_configured_extra_local_rounds(self):
+        f = self.f; self.reinit(local_fix_rounds=2)
+        self.build_code = "from pathlib import Path; raise SystemExit(0 if '4' in Path('m1/code.py').read_text() else 1)"
+        self.prepare()
+        self.build_red_round('BUILD1'); f.implementation('fixer', 'FIX1')
+        self.build_red_round('BUILD2')  # still a compile failure: the second local round is allowed
+        self.assertEqual(f.state()['next_steps'][0]['worker_role'], 'fixer')
+        f.implementation('fixer', 'FIX2')
+        self.compile('BUILD3')
+        s = f.state()
+        self.assertEqual(s['modules']['M001']['local_fix_used'], 2)
+        self.assertEqual(s['next_steps'][0]['operation'], 'audit-defer')
+        self.assertEqual(s['next_steps'][0]['root_cause']['category'], 'local-round-exhausted')
+
+    def test_extra_local_rounds_never_apply_to_business_failures(self):
+        f = self.f; self.reinit(local_fix_rounds=2); self.repair_build()
+        a, result = f.make_test_result(quality='red-bug')
+        f.submit(result, a); f.call('accept', {'assignment_id': a['assignment_id']})
+        step = f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['root_cause']['category']), ('audit-defer', 'local-round-exhausted'))
+
+    def test_local_rounds_must_fit_the_total_fix_budget(self):
+        f = self.f; root = f.root
+        for bad in (0, '2', 4):
+            f.root = root
+            with self.subTest(bad=bad), self.assertRaisesRegex(Rejected, 'local_fix_rounds'):
+                self.reinit(local_fix_rounds=bad, max_fix_rounds=3)
+
     def test_build_process_success_requires_accept_and_separate_testing_context(self):
         f = self.f; self.prepare()
         a = f.assign('test-runner', 'BUILD1')

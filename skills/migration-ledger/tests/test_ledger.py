@@ -145,7 +145,8 @@ class FlowTests(unittest.TestCase):
                   'assignment_id': aid, 'actor_instance_id': role, 'freeze_id': a['freeze_id'],
                   'code_files': refs, 'code_baseline': baseline(refs),
                   'task_trace': [{'task_id': 'T1', 'files': [str(source)]}],
-                  'production_binding_evidence': self.ref('binding.txt', 'real binding reviewed')}
+                  'production_binding_evidence': self.ref('binding.txt', 'real binding reviewed'),
+                  'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': self.ref('authoring-diagnostics.log', 'changed files: 0 errors')}}
         if role == 'fixer':
             result['fix_note_ref'] = self.ref(f'fix-note-{aid}.json', {'root_cause': 'code mismatch', 'strategy': 'minimal correction', 'applicability': 'same contract and cause', 'risks': 'verify integrations'})
         self.submit(result, a)
@@ -173,6 +174,31 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
                   'assignment_id': aid, 'actor_instance_id': 'test-runner', 'freeze_id': a['freeze_id'],
                   'code_baseline': a['code_baseline'], 'paths': [record]}
         return a, result
+
+    def test_implementation_requires_authoring_diagnostics(self):
+        self.prepare()
+        a = self.assign('implementer', 'I1')
+        source = self.target / 'm1/code.py'; source.parent.mkdir(exist_ok=True); source.write_text('value = 2\n')
+        refs = [file_ref(source)]
+        base = {'schema_version': 1, 'kind': 'implementation', 'run_id': 'demo', 'module_id': 'M001',
+                'assignment_id': 'I1', 'actor_instance_id': 'implementer', 'freeze_id': a['freeze_id'],
+                'code_files': refs, 'code_baseline': baseline(refs),
+                'task_trace': [{'task_id': 'T1', 'files': [str(source)]}],
+                'production_binding_evidence': self.ref('binding.txt', 'real binding reviewed')}
+        api = {'api': 'io.ktor.client.HttpClient', 'source_ref': self.ref('ktor-pinned.kt', 'class HttpClient')}
+        for bad in (None, {'status': 'skipped'}, {'status': 'passed', 'tool': 'ide'},
+                    {'status': 'unavailable', 'reason': 'no IDE in host'},
+                    {'status': 'unavailable', 'reason': 'no IDE in host', 'version_sensitive_apis': [{'api': 'X'}]}):
+            result = dict(base)
+            if bad is not None:
+                result['authoring_diagnostics'] = bad
+            with self.subTest(bad=bad), self.assertRaisesRegex(Rejected, 'authoring'):
+                self.submit(result, a)
+        for good in ({'status': 'passed', 'tool': 'ide', 'log_ref': self.ref('diag.log', '0 errors in changed files')},
+                     {'status': 'unavailable', 'reason': 'no IDE in host', 'version_sensitive_apis': []},
+                     {'status': 'unavailable', 'reason': 'no IDE in host', 'version_sensitive_apis': [api]}):
+            with self.subTest(good=good):
+                self.submit({**base, 'authoring_diagnostics': good}, a)
 
     def test_green_flow_and_independent_global_audit(self):
         self.prepare(); self.implementation()

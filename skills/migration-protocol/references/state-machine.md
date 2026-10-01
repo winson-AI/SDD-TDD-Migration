@@ -60,7 +60,7 @@ DoD checklist 要求：当前冻结有效；所有任务有提交/文件/需求/
 
 ## 有限循环
 
-输入配置 `max_fix_rounds=3`、`max_yellow_retries=2`、`max_audit_rounds=3`、`max_no_progress_rounds=2` 为默认值，可由初始化明确调整。一次修复派发计一轮；失败或中断也消耗轮次；恢复不会清零。本地自动轮数固定为 1，后续由 Auditor 按一轮授权，总预算仍约束全部轮次。no-progress 使用未解决 path_id + 根因 fingerprint + 有效版本变化判断，单纯重跑不算进展。
+输入配置 `max_fix_rounds=3`、`max_yellow_retries=2`、`max_audit_rounds=3`、`max_no_progress_rounds=2` 为默认值，可由初始化明确调整。一次修复派发计一轮；失败或中断也消耗轮次；恢复不会清零。本地自动轮数见下，后续由 Auditor 按一轮授权，总预算仍约束全部轮次。`local_fix_rounds` 默认 1，可在初始化/项目 budgets 中设为 1..max_fix_rounds。第一轮对所有可修复 Red/Yellow 生效；之后的本地轮次只在全部未解决失败都位于 build PATH（编译/打包）时继续，一旦出现 automation/visual 等业务失败即交 Auditor；no-progress fingerprint 仍可提前停止。no-progress 使用未解决 path_id + 根因 fingerprint + 有效版本变化判断，单纯重跑不算进展。
 
 到上限：保留实际 Red/Yellow，execution_status=suspended，转 Escalation 并让其余就绪模块继续；超时不准通过。增加预算必须绑定 run/module 的显式决策事件。依赖唤醒不耗修复轮次，但不能因反复醒来规避停滞检测。
 

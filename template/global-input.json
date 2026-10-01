@@ -61,7 +61,8 @@
     "max_fix_rounds": 3,
     "max_yellow_retries": 2,
     "max_audit_rounds": 3,
-    "max_no_progress_rounds": 2
+    "max_no_progress_rounds": 2,
+    "local_fix_rounds": 1
   },
   "runtime": {
     "dispatch_adapter": "{{actual-host-task-tool}}",

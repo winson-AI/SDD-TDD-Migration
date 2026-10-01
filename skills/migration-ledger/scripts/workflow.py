@@ -174,14 +174,24 @@ def peripheral(m):
     return None
 
 
-def defer_reason(m):
+def build_only_failures(m):
+    """Every unresolved failure sits on a build PATH: compile/package, not business behaviour."""
+    kinds = {p['path_id']: p.get('kind') for p in (m.get('plan') or {}).get('paths', [])}
+    issues = {**m.get('results', {}), **m.get('repair_findings', {})}
+    bad = [pid for pid, r in issues.items() if r['quality'] != 'green-passed']
+    return bool(bad) and all(kinds.get(pid) == 'build' for pid in bad)
+
+
+def defer_reason(m, local_rounds=1):
+    """One local round always; further configured rounds only while the module is still failing to build."""
     if m.get('audit_fix_grant'):
         return None
     cause = peripheral(m)
     if cause:
         return cause
-    if (m.get('local_fix_used', 0) >= 1 or m.get('auditor_fix_used')) and not m.get('audit_fix_grant'):
-        return {'category': 'local-round-exhausted', 'summary': 'one local repair round used',
+    used = m.get('local_fix_used', 0)
+    if m.get('auditor_fix_used') or used >= local_rounds or (used >= 1 and not build_only_failures(m)):
+        return {'category': 'local-round-exhausted', 'summary': f'{used} local repair round(s) used',
                 'confidence': 'confirmed', 'owner': 'auditor', 'next_action': 'problem-audit'}
     return None
 
@@ -265,7 +275,7 @@ def handle(s, req, actor, run_root=None):
         root_cause(p.get('root_cause'))
         check_ref(p.get('evidence_ref'))
         if m.get('code_baseline') and m['phase'] in ('testing', 'diagnosing'):
-            require(defer_reason(m) or (p['root_cause']['category'] in EXTERNAL and p['root_cause']['confidence'] == 'confirmed'),
+            require(defer_reason(m, s.get('local_fix_rounds', 1)) or (p['root_cause']['category'] in EXTERNAL and p['root_cause']['confidence'] == 'confirmed'),
                     'repairable failure must receive one local repair round before handoff')
         original = (m.get('blocked') or {}).get('resume_phase', m['phase'])
         s.setdefault('audit_queue', {})[mid] = {'root_cause': p['root_cause'], 'evidence_ref': p['evidence_ref'],

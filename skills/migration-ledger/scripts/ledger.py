@@ -285,10 +285,10 @@ def dispatch_guard(s, m, worker):
             require(not any(overlaps(x, y) for x in m['write_paths'] for y in other['write_paths']), 'resource lock conflict')
     require(m['phase'] == {'implementer': 'frozen', 'fixer': 'diagnosing', 'test-runner': 'testing'}[worker], 'worker phase gate rejected')
     if worker == 'test-runner':
-        require(not (unresolved(m) and workflow.defer_reason(m)) or m.get('automation_retry_ready'), 'unresolved failure awaits Auditor')
+        require(not (unresolved(m) and workflow.defer_reason(m, s.get('local_fix_rounds', 1))) or m.get('automation_retry_ready'), 'unresolved failure awaits Auditor')
         require(m['code_baseline'], 'code must be accepted before testing')
     if worker == 'fixer':
-        require(not workflow.defer_reason(m), 'local repair deferred to Auditor')
+        require(not workflow.defer_reason(m, s.get('local_fix_rounds', 1)), 'local repair deferred to Auditor')
         require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']), 'fix budget exhausted; recover requires decision')
 
 
@@ -399,16 +399,16 @@ def _next_step(s, m):
             categories = {r.get('root_cause', {}).get('category') for r in bad.values()}
             if draft and draft['subject'] == diagnosis_subject(m):
                 step.update(operation='diagnosis-accept', role='module-orchestrator', ready=True)
-            elif workflow.defer_reason(m):
+            elif workflow.defer_reason(m, s.get('local_fix_rounds', 1)):
                 step.update(operation='audit-defer', role='module-orchestrator', ready=True,
-                            root_cause=workflow.defer_reason(m), reason='auditor-handoff')
+                            root_cause=workflow.defer_reason(m, s.get('local_fix_rounds', 1)), reason='auditor-handoff')
             else:
                 step.update(operation='diagnose', role='diagnostician', ready=True)
         else:
             worker = {'frozen': 'implementer', 'testing': 'test-runner', 'diagnosing': 'fixer'}[m['phase']]
-            if worker == 'fixer' and workflow.defer_reason(m):
+            if worker == 'fixer' and workflow.defer_reason(m, s.get('local_fix_rounds', 1)):
                 step.update(operation='audit-defer', role='module-orchestrator', ready=True,
-                            root_cause=workflow.defer_reason(m), reason='auditor-handoff')
+                            root_cause=workflow.defer_reason(m, s.get('local_fix_rounds', 1)), reason='auditor-handoff')
                 return step
             exhausted = m['no_progress_rounds'] >= s['max_no_progress_rounds'] or (worker == 'fixer' and
                          m['fix_rounds_used'] >= m.get('fix_budget', s['max_fix_rounds']))
@@ -446,6 +446,10 @@ def _next_step(s, m):
                 step['recovery_action'] = 'Spec-Designer revise the current plan/evidence, then MO review and freeze again'
     session_role = step.get('worker_role') or step['role']
     step['session_id'] = m['sessions'].get(session_role, {}).get('session_id')
+    if (session_role == 'fixer' and not step['session_id'] and not audit_closure.active(s)
+            and not m.get('audit_fix_grant') and m['sessions'].get('implementer', {}).get('session_id')):
+        # A local repair resumes the context that wrote the code; audit repairs start fresh.
+        step.update(session_id=m['sessions']['implementer']['session_id'], session_affinity='implementer')
     return step
 
 
@@ -1050,7 +1054,8 @@ def _apply(root, req, principal):
                  'legacy_root': str(Path(p['legacy_root']).resolve()), 'case_ids': p['case_ids'],
                  'modules': {}, 'decisions': {}, 'audit': {}, 'global_paths': p.get('global_paths', []), 'quality': 'yellow-blocked',
                  'max_parallel_modules': p.get('max_parallel_modules', 3), 'max_audit_rounds': p.get('max_audit_rounds', 3),
-                 'max_fix_rounds': p.get('max_fix_rounds', 3), 'max_no_progress_rounds': p.get('max_no_progress_rounds', 2)}
+                 'max_fix_rounds': p.get('max_fix_rounds', 3), 'max_no_progress_rounds': p.get('max_no_progress_rounds', 2),
+                 'local_fix_rounds': p.get('local_fix_rounds', 1)}
             if s['global_paths']:
                 paths = keyed(s['global_paths'], 'path_id')
                 require({v.get('case_id') for v in paths.values()} <= set(p['case_ids']), 'global path case is not registered')
@@ -1068,6 +1073,8 @@ def _apply(root, req, principal):
                                 and isinstance(binding.get('path_id'), str) and binding['path_id'],
                                 'GLOBAL device path requires frozen integration build_binding module_id/path_id')
             require(all(type(s[k]) is int and s[k] > 0 for k in ('max_fix_rounds', 'max_no_progress_rounds', 'max_parallel_modules', 'max_audit_rounds')), 'invalid budgets')
+            require(type(s['local_fix_rounds']) is int and 1 <= s['local_fix_rounds'] <= s['max_fix_rounds'],
+                    'local_fix_rounds must be an integer from 1 to max_fix_rounds')
             if p.get('project_context_ref'):
                 s.update(project_context.bind_run(p['project_context_ref'], root, req['run_id'], p))
             else:
@@ -1216,7 +1223,6 @@ def status(root):
                 'module_inputs': {mid: decomposition.assigned_module(s, m) for mid, m in
                                   {**s.get('module_groups', {}), **s['modules']}.items()},
                 'quality': 'yellow-blocked' if observed and s['quality'] != 'red-bug' else s['quality']}
-
 
 
 def main():

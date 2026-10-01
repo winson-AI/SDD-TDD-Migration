@@ -145,6 +145,24 @@ def baseline(refs):
     return digest(sorted(refs, key=lambda r: r['path']))
 
 
+def authoring_diagnostics(d):
+    """Code authors fix changed-file diagnostics before handoff; without them, pinned sources replace memory."""
+    require(isinstance(d, dict) and d.get('status') in ('passed', 'unavailable'),
+            'authoring_diagnostics status passed|unavailable required')
+    if d['status'] == 'passed':
+        require(isinstance(d.get('tool'), str) and d['tool'].strip() and d.get('log_ref'),
+                'authoring_diagnostics tool and log_ref required')
+        check_ref(d['log_ref'])
+        return
+    require(isinstance(d.get('reason'), str) and d['reason'].strip(), 'authoring_diagnostics unavailable reason required')
+    apis = d.get('version_sensitive_apis')
+    require(isinstance(apis, list), 'authoring_diagnostics version_sensitive_apis list required (may be empty)')
+    for item in apis:
+        require(isinstance(item, dict) and isinstance(item.get('api'), str) and item['api'].strip() and item.get('source_ref'),
+                'authoring_diagnostics: each version-sensitive API needs its pinned dependency source_ref')
+        check_ref(item['source_ref'])
+
+
 def validate_result(result, module, assignment, run_root=None):
     require(result.get('schema_version') == 1, 'unsupported result schema')
     for field in ('run_id', 'module_id', 'assignment_id'):
@@ -165,6 +183,7 @@ def validate_result(result, module, assignment, run_root=None):
         require(code_paths == {str(Path(p).resolve()) for t in traces.values() for p in t.get('files', [])}, 'unowned code or missing task file')
         require(result.get('production_binding_evidence'), 'production binding evidence required')
         check_ref(result['production_binding_evidence'])
+        authoring_diagnostics(result.get('authoring_diagnostics'))
         import reuse
         reuse.validate_implementation(module['plan'], result)
         import dimensions
