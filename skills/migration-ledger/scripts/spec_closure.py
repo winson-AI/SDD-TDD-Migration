@@ -3,7 +3,8 @@
 
 The Test-Runner reviews every frozen requirement against current production code and records the
 evidence; this adapter only checks that record deterministically (context, requirement coverage,
-cited symbols really present in target files, every anti-pattern decided) and turns it into the
+cited symbols really present in target files, a passed scenario reached from another target file,
+every anti-pattern decided) and turns it into the
 frozen boolean assertion. It never judges code on its own and never repairs anything.
 """
 import argparse
@@ -15,6 +16,14 @@ sys.dont_write_bytecode = True
 from contracts import check_ref, digest, file_ref, keyed, nonempty, read_json, require
 
 ANTI_PATTERNS = ('preview-only-wiring', 'dead-handler', 'fixed-result', 'placeholder-icon', 'unapproved-stub')
+
+
+def cited(item, target, label, rid):
+    path = Path(item.get('path', '')).resolve()
+    require(path.is_file() and path.is_relative_to(target), label + ' must cite a target file: ' + rid)
+    require(isinstance(item.get('symbol'), str) and item['symbol'] and item['symbol'] in path.read_text(errors='replace'),
+            'cited ' + label + ' symbol not found in file: ' + rid)
+    return path
 
 
 def report(query, review_ref, target_root):
@@ -31,11 +40,17 @@ def report(query, review_ref, target_root):
     gaps = []
     for rid, row in scenarios.items():
         require(row.get('status') in ('passed', 'failed') and row.get('summary'), 'scenario status/summary required: ' + rid)
+        symbols, defined_in = set(), set()
         for item in nonempty(row.get('production_symbols'), 'production symbol evidence for ' + rid):
-            path = Path(item.get('path', '')).resolve()
-            require(path.is_file() and path.is_relative_to(target), 'production symbol must cite a target file: ' + rid)
-            require(isinstance(item.get('symbol'), str) and item['symbol'] and item['symbol'] in path.read_text(errors='replace'),
-                    'cited production symbol not found in file: ' + rid)
+            path = cited(item, target, 'production symbol', rid)
+            symbols.add(item['symbol']); defined_in.add(path)
+        if row['status'] == 'passed':
+            # A symbol nobody references is dead or preview-only code: name the call/registration site.
+            caller = row.get('reached_from')
+            require(isinstance(caller, dict), 'passed scenario needs reached_from (caller, DI, navigation or manifest site): ' + rid)
+            require(caller.get('symbol') in symbols, 'reached_from must reference a cited production symbol: ' + rid)
+            require(cited(caller, target, 'reached_from', rid) not in defined_in,
+                    'reached_from must be a different file from the symbol definition: ' + rid)
         for ref in nonempty(row.get('evidence_refs'), 'scenario evidence for ' + rid):
             check_ref(ref)
         if row['status'] == 'failed':

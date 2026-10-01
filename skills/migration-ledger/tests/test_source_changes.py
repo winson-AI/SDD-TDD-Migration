@@ -143,10 +143,12 @@ class SourceChangeTests(unittest.TestCase):
                role=role, instance=actor, module=mid)
         f.call('accept', {'assignment_id': aid}, module=mid)
         m = f.state()['modules'][mid]; notes = f.ref('static-review-'+mid+'-'+str(f.n)+'.md', 'Reviewed production entry for value')
+        entry = code.parent / 'entry.py'; entry.write_text('from code import value\n')
         review = f.ref('static-review-'+mid+'-'+str(f.n)+'.json', {'schema_version': 1, 'run_id': f.state()['run_id'], 'module_id': mid,
             'path_id': mid+'-S', 'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
             'scenarios': [{'requirement_id': 'R1', 'status': 'passed', 'summary': 'value reaches entry',
-                           'production_symbols': [{'path': str(code), 'symbol': 'value'}], 'evidence_refs': [notes]}],
+                           'production_symbols': [{'path': str(code), 'symbol': 'value'}],
+                           'reached_from': {'path': str(entry), 'symbol': 'value'}, 'evidence_refs': [notes]}],
             'anti_patterns': {k: {'status': 'absent', 'note': 'reviewed', 'evidence_refs': [notes]} for k in spec_closure.ANTI_PATTERNS}})
         static_argv = [sys.executable, spec_closure.__file__, '--review', review['path'], '--target-root', str(f.target)]
         for scope, stage, suffix in (('build', 'building', '-B'), ('static', None, '-S'), ('automation', 'testing', '-P')):

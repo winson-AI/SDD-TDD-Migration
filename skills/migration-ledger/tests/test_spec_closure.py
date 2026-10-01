@@ -45,11 +45,13 @@ class SpecClosureTests(unittest.TestCase):
     def review(self, **over):
         f = self.f; m = f.state()['modules']['M001']
         code = f.target / 'm1/code.py'
+        entry = f.target / 'm1/entry.py'; entry.write_text('from code import value\nprint(value)\n')
         evidence = f.ref('review-notes.md', 'Read production entry and every caller of value')
         data = {'schema_version': 1, 'run_id': f.state()['run_id'], 'module_id': 'M001', 'path_id': 'S1',
                 'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
                 'scenarios': [{'requirement_id': 'R1', 'status': 'passed', 'summary': 'value reaches production entry',
-                               'production_symbols': [{'path': str(code), 'symbol': 'value'}], 'evidence_refs': [evidence]}],
+                               'production_symbols': [{'path': str(code), 'symbol': 'value'}],
+                               'reached_from': {'path': str(entry), 'symbol': 'value'}, 'evidence_refs': [evidence]}],
                 'anti_patterns': {name: {'status': 'absent', 'note': 'checked callers and data source', 'evidence_refs': [evidence]}
                                   for name in spec_closure.ANTI_PATTERNS}}
         for key, value in over.items():
@@ -99,7 +101,12 @@ class SpecClosureTests(unittest.TestCase):
                                                    'production_symbols': [{'path': str(f.target / 'm1/code.py'), 'symbol': 'missingName'}]}]),
                  'outside': self.review(scenarios=[{**self.review()['scenarios'][0],
                                                     'production_symbols': [{'path': str(f.legacy), 'symbol': 'value'}]}]),
-                 'anti-pattern': self.review(anti_patterns={})}
+                 'anti-pattern': self.review(anti_patterns={}),
+                 'no-caller': self.review(scenarios=[{k: v for k, v in self.review()['scenarios'][0].items() if k != 'reached_from'}]),
+                 'self-caller': self.review(scenarios=[{**self.review()['scenarios'][0],
+                                                        'reached_from': {'path': str(f.target / 'm1/code.py'), 'symbol': 'value'}}]),
+                 'caller-misses-symbol': self.review(scenarios=[{**self.review()['scenarios'][0],
+                                                                 'reached_from': {'path': str(f.target / 'm1/entry.py'), 'symbol': 'other'}}])}
         for name, data in cases.items():
             ref = f.ref(name + '-review.json', data)
             with self.subTest(name=name), self.assertRaises(Rejected):

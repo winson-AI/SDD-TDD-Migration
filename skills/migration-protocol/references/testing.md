@@ -62,7 +62,7 @@ adapter 的 `skipped` / `xfail` 限制必须原样保留。原始报告声称 Gr
 
 Test-Runner 只读冻结 SPEC、当前代码与测试，写审查记录（staging）：
 
-- `scenarios[]`：每个冻结需求一条，`status=passed|failed`、summary、`production_symbols[]`（目标文件绝对路径 + 文件内真实存在的符号）与 evidence_refs。
+- `scenarios[]`：每个冻结需求一条，`status=passed|failed`、summary、`production_symbols[]`（目标文件绝对路径 + 文件内真实存在的符号）与 evidence_refs。passed 还须给 `reached_from`：另一个目标文件中引用该生产符号的调用、DI 绑定、导航或清单注册位置；找不到调用方的符号是死代码或预览专用，只能记 failed。
 - `anti_patterns`：`preview-only-wiring`、`dead-handler`、`fixed-result`、`placeholder-icon`、`unapproved-stub` 逐项 `absent|present` + note + evidence_refs。经冻结批准的 capture-fixture 边界记 absent 并在 note 引用批准依据。
 
 static 不需要设备，与 build 共用一次派发：building 预检在 `execution.commands` 中同时为 build PATH 与 static PATH 预批准命令（static 的 review 路径提前确定）；MO 接受全绿 build 结果后，同一 assignment 保持打开并切换为 `test_scope=static`，由同一 Test-Runner 继续，无需新的派发或预检，MO 仍单独接受 static 结果。build 未全绿时 assignment 正常关闭。运行时经 `execute_test.py` 调用 [spec_closure.py](../../migration-ledger/scripts/spec_closure.py)（argv：`--review <记录> --target-root <target>`）。适配器只核对上下文、需求覆盖、引用符号确实存在于目标文件、清单完整，然后生成唯一断言；任一场景 failed 或反模式 present 即 Red（root_cause 列出缺口），进入原诊断 → Fixer → 重新 build/static 复测闭环。适配器不自行评判代码，审查质量由独立 Test-Runner 负责、Auditor 抽查。static 全 Green 前不能派发 automation 或记录 automation-unavailable；仅自动化环境缺失时 static 照常执行。
