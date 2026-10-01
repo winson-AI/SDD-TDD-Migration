@@ -35,6 +35,8 @@ visual-capture 自动将 capture_execution_ref 写入候选 snapshot，关联 [�
 
 viewport 捕获要求实际前台 App、冻结目标选择器以及截图前后稳定的页面树。scroll 除起点外还需冻结有源码依据的终点选择器 `scroll_end_match`，指定唯一可验证的 `scroll_region`；连续保存每屏证据并有界滚动，实际观察终点才能声明 scroll-complete。多滚动区域应拆 PATH 或使用既有完整 adapter。无可信滚动区域、未到终点、状态变化、截断或仅重复画面均不足以证明完整覆盖，保留 partial/Yellow；不得把缺少 scrollable 节点当成“无须滚动”。模糊导航/未支持 backend 使用已有正式运行器或如实留缺口，不静默切换。
 
+失败归类：候选 App 启动后从运行列表消失（退出或崩溃）是代码缺陷，worker 返回 `FAILED` / `app-runtime-failure` 的 Red 候选，Test-Runner 记 Red 并进入诊断，不作为环境缺测挂起；App 仍在运行但不在前台才是 `target-precondition` 的 Yellow。只读状态查询遇瞬时超时重试一次，动作类命令不重复；页面树里找不到某控件只是取证不充分，不能单凭它判定实现缺陷。
+
 Test-Runner 将原始截图、score、semantic 与交互证据组装为现有 alignment 结构，再通过 `execute_test.py → lean_visual_adapter.py → tests submit/accept` 走正式复核。脚本不从分数自动推导 ALIGNED；冻结手势仍需实际 action/observation 证据。本入口不自动执行未声明手势，也不代替功能自动化 Main。
 
 semantic 原文件的所有 issues，以及 `comparability < 0.4` 或 `comparable=false`，都必须在对应 comparison 的 `semantic_dispositions` 中逐项裁决，才可声明 Green。0.4 表示不同路线/状态，只标记待解释矛盾，不是自动通过阈值。每项包含原 semantic_ref（path/hash）、原 finding（issue 含 index 和完整内容；comparability/comparable 含原值）、`resolved|dismissed`、非空 reason 和实际 evidence_refs，至少一份佐证不同于原 semantic。无问题时不制造裁决。正式门禁重新读取原件；漏项、重复、旧 hash 或只有结论没有证据均拒绝。字段示例见 [visual-alignment.json](../../../template/visual-alignment.json)。裁决由当前测试/审计职责内的 Agent 作出，工具不替 Agent 判断是否真的修复。

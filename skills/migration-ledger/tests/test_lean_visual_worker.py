@@ -54,6 +54,8 @@ class VisualExecutionTests(unittest.TestCase):
         self.endpoint_after = None
         self.after_layout_change = False
         self.foreground = 'com.example.app'
+        self.app_running = True
+        self.dump_timeouts = 0
         self.corrupt_image = False
         self.capture_manifest('viewport')
 
@@ -117,7 +119,13 @@ class VisualExecutionTests(unittest.TestCase):
         elif command[:3] == ['shell', 'bm', 'dump']:
             stdout = '{"bundleName":"com.example.app","versionCode":1}'
         elif command[:3] == ['shell', 'aa', 'dump']:
-            stdout = f'app name [{self.foreground}] foreground'
+            if self.dump_timeouts:
+                self.dump_timeouts -= 1
+                raise subprocess.TimeoutExpired(argv, 30)
+            rows = [f'app name [{self.foreground}] foreground'] if self.foreground else []
+            if self.app_running and self.foreground != 'com.example.app':
+                rows.insert(0, 'app name [com.example.app] background')
+            stdout = '\n'.join(rows)
         elif command[:3] == ['shell', 'uitest', 'dumpLayout']:
             stdout = 'saved to: /data/local/tmp/layout.json'
         elif command[:2] == ['file', 'recv']:
@@ -268,6 +276,22 @@ class VisualExecutionTests(unittest.TestCase):
         result, _ = self.capture()
         self.assertEqual(result['root_cause']['kind'], 'target-precondition')
         self.assertFalse(any('snapshot_display' in command for command in self.commands))
+
+    def test_app_that_exited_after_launch_is_a_code_defect_not_an_environment_gap(self):
+        self.foreground, self.app_running = 'com.ohos.launcher', False
+        result, _ = self.capture()
+        self.assertEqual((result['status'], result['quality_candidate'], result['root_cause']['kind']),
+                         ('FAILED', 'red-bug', 'app-runtime-failure'))
+        self.assertTrue(result['executed'])
+
+    def test_read_only_device_query_retries_one_transient_timeout(self):
+        self.dump_timeouts = 1
+        result, _ = self.capture()
+        self.assertEqual(result['status'], 'CAPTURED')
+        install = self.installed()
+        self.dump_timeouts = 2
+        result, _ = self.run_tool('visual-capture', install_ref=install, round=2, reference_manifest_ref=file_ref(self.manifest))
+        self.assertEqual(result['root_cause']['kind'], 'environment-unavailable')
 
     def test_scroll_repeat_or_limit_never_claims_full_coverage(self):
         self.path['coverage'] = 'home:base:scroll'
