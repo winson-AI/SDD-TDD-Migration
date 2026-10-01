@@ -18,6 +18,7 @@ import dimensions
 import model_routing
 import reading
 import git_checkpoint
+import workflow_cost
 import reuse
 import knowledge_gate
 import ui_fidelity
@@ -1321,7 +1322,7 @@ def status(root):
                                      'openspec_root': layout['openspec_root'] if layout else str(root / 'openspec'),
                                      'note': None if layout else 'run not bound to a prepared storage_layout; OpenSpec projects inside .sdd-runs/<run_id>/openspec, not workspace/openspec — recreate via prepare -> init(project_context_ref)'},
                 'last_sequence': len(events), 'observed_invalidations': observed,
-                'model_usage': model_usage(s), 'hint_adoption': hint_adoption(s),
+                'model_usage': model_usage(s), 'hint_adoption': hint_adoption(s), 'workflow_cost': workflow_cost.build(s, events),
                 'next_steps': cursor, 'global_next_step': global_next, 'ready_modules': rounds['ready_modules'],
                 'module_rounds': rounds,
                 'planning_context': decomposition.planning_context(s),
