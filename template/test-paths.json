@@ -32,6 +32,23 @@
       }
     },
     {
+      "path_id": "STATIC-M001-001",
+      "kind": "static",
+      "name": "规格闭合静态审查",
+      "case_id": "CASE-GLOBAL-001",
+      "requirement_id": "REQ-M001-001",
+      "required": true,
+      "scenario_requirement_ids": [
+        "REQ-M001-001"
+      ],
+      "expected_assertions": [
+        {
+          "assertion_id": "ASSERT-STATIC-M001-CLOSURE",
+          "expected": true
+        }
+      ]
+    },
+    {
       "path_id": "PATH-M001-001",
       "name": "{{readable-path-name}}",
       "case_id": "CASE-M001-001",

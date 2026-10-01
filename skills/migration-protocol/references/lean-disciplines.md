@@ -1,4 +1,4 @@
-# Wave-1 纪律吸收（知识 / 依赖阶梯 / Grill / Git）
+# lean 工程纪律（知识 / 依赖阶梯 / Grill / Git）
 
 从 lean bundle 吸收四项工程纪律，融入 SDD 的规划/冻结/修复门禁。Foundation 知识通过受限 worker 读取，保留原始查询、命中主题和解析证据；不为使用知识加载完整 lean 实现 skill。操作参数与角色范围见 [lean 接入](lean-integration.md)。宿主/角色根据实际范围选择主题和日志，脚本不自动派发或判定根因。
 

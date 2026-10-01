@@ -74,7 +74,7 @@ Auditor 可执行既有脚本并生成日志，不能编辑源码/脚本。发�
 
 最终报告列清所有非 Green 及原因；仅无遗留问题、全部必需用例/路径覆盖且同一最终基线通过，audit_verdict 才为 Green。仅自动化环境缺失时，本轮允许 completed-with-unverified-tests + Yellow 收尾，不等于功能验收；其他可执行工作继续，不以缺测强制全局等待人工。Global 仍需人类交付/核心架构/合并授权后才归档；普通 module completed 不代表已合并或已交付。
 
-## 本地控制器映射（P2–P4）
+## 本地控制器映射
 
 可执行入口与操作矩阵见 [local-runtime.md](local-runtime.md)。它支持本地事件提交/重放、模块阶段串行和不同模块并行；控制器本身不常驻派发 Agent。
 

@@ -46,7 +46,7 @@ class SplitTestingTests(unittest.TestCase):
             payload = copy.deepcopy(payload or {})
             if op == 'assign' and payload.get('role') == 'test-runner':
                 m = f.state()['modules'][kwargs.get('module', 'M001')]
-                payload.setdefault('test_scope', 'automation' if tv.build_ready(m) else 'build')
+                payload.setdefault('test_scope', tv.next_scope(m))
             return old_call(op, payload, **kwargs)
         f.plan, f.report, f.call = plan, report, call
 
@@ -142,7 +142,7 @@ class SplitTestingTests(unittest.TestCase):
     def test_automation_cannot_run_before_build_or_conceal_compile_failure(self):
         f = self.f; self.prepare()
         ref = f.record(f.report('testing'))
-        with self.assertRaisesRegex(Rejected, 'build -> automation -> visual'):
+        with self.assertRaisesRegex(Rejected, 'build -> static -> automation -> visual'):
             f.raw('assign', {'assignment_id': 'EARLY', 'role': 'test-runner', 'instance_id': 'test-runner',
                              'test_scope': 'automation', 'context_ref': ref})
         with self.assertRaisesRegex(Rejected, 'current build'):

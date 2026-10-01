@@ -81,7 +81,7 @@ plan 前提交 planning 报告并绑定同一 plan_ref，核对全局/父/子范
 
 按 [埋点协议](../skills/migration-protocol/references/telemetry.md) 将已审核的源事件、参数、触发/禁止条件、生产接线和验收层级写入 SPEC/design/tasks。stage-plan.telemetry 可索引事件→TASK/PATH/ASSERT；无埋点记有据 N/A、events=[]，不新增空测试。测试预期未知交人工，不能从目标实现推导通过标准。
 
-知识通过 knowledge-query 按实际源码/目标触发，Foundation 需求用 foundation-resolve 固定目录版本和适用性。开关开启时把真实 result_ref 绑定 plan.dependency_resolution_ref；无新依赖/非适用目标用明确 not-required 产物，不能用空列表代替。source-only 仍走原生 source/tree 严格校验；runtime 将当前目标 capture manifest、runtime index 与完整截图集合绑定。声明交互必须冻结完整 id/action/from/expected，不能只写 ID。见 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md)。
+知识通过 knowledge-query 按实际源码/目标触发，Foundation 需求用 foundation-resolve 固定目录版本和适用性。开关开启时把真实 result_ref 绑定 plan.dependency_resolution_ref；无新依赖/非适用目标用明确 not-required 产物，不能用空列表代替。source-only 仍走原生 source/tree 严格校验；runtime 将当前目标 capture manifest、runtime index 与完整截图集合绑定。声明交互必须冻结完整 id/action/from/expected，不能只写 ID。见 [知识执行与冻结](../skills/migration-protocol/references/lean-disciplines.md)。
 
 资源可先 resource-scan，逐配置变体填写真实 source_resource_ref/qualifier；kind、单位、nine-patch 从文件/条目核对，任务分配绑定具体资源 item。within-envelope 的影响审查必须绑定 from_freeze_id + to_plan_hash，计划再次变化须重新审查；见 [OpenSpec 变更规则](../skills/migration-protocol/references/openspec.md)。
 

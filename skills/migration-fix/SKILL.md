@@ -31,4 +31,4 @@ description: 最小修复、回归证据与不改变验收的变更建议，用�
 
 修复按冻结 reuse_plan_ref 执行并提交 reuse_trace；更换提供方、版本或行为路线先走 CR，真实提供方不可用不能以 mock 宣称修复。见 [复用协议](../migration-protocol/references/reuse-dependencies.md)。
 
-修复时可用受限 query/diagnose/verify，沿冻结依赖选择和原预算处理；工具只读知识和目标 catalog，不负责改码或裁决复测。见 [Wave-1](../migration-protocol/references/wave1-disciplines.md)。
+修复时可用受限 query/diagnose/verify，沿冻结依赖选择和原预算处理；工具只读知识和目标 catalog，不负责改码或裁决复测。见 [lean 工程纪律](../migration-protocol/references/lean-disciplines.md)。

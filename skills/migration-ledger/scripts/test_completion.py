@@ -23,7 +23,7 @@ def interpret(receipt, planned):
     report, error = load_content(receipt['result_ref']) if receipt.get('result_ref') else (None, 'missing result')
     evidence = [receipt['log_ref'], receipt['query_ref']]
     if receipt.get('result_ref'): evidence.append(receipt['result_ref'])
-    known = isinstance(report, dict) and report.get('producer') in ('harmony-adapter', 'build-executor', 'lean-visual-adapter')
+    known = isinstance(report, dict) and report.get('producer') in ('harmony-adapter', 'build-executor', 'lean-visual-adapter', 'spec-closure-check')
     if known and report['producer'] == 'build-executor':
         require(planned.get('kind') == 'build', 'build report cannot replace automation')
     if known and report['producer'] == 'harmony-adapter':
@@ -46,6 +46,11 @@ def interpret(receipt, planned):
         for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
             require(report.get(key) == receipt.get(key), 'visual report context mismatch')
         require(report.get('query_sha256') == digest(query), 'visual query mismatch')
+    if known and report['producer'] == 'spec-closure-check':
+        require(planned.get('kind') == 'static', 'spec closure report cannot replace other tests')
+        for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
+            require(report.get(key) == receipt.get(key), 'spec closure report context mismatch')
+        require(report.get('query_sha256') == digest(query), 'spec closure query mismatch')
     assertions = report.get('assertions') if known else None
     valid = (isinstance(assertions, list) and len(assertions) == len(expected)
              and all(isinstance(a, dict) and isinstance(a.get('assertion_id'), str) and a['assertion_id'] in expected for a in assertions)

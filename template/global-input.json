@@ -111,5 +111,6 @@
   "split_testing_required": true,
   "dimension_slicing_required": true,
   "ui_fidelity_required": true,
+  "spec_closure_required": true,
   "dependency_resolution_required": false
 }

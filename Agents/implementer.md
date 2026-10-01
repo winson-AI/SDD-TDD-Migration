@@ -80,4 +80,4 @@ resource-convert 逐次传 task_id/resource_item_id，参数与冻结源引用�
 
 任务无埋点职责时正常实现，不加 SDK/占位埋点；存在职责时依冻结事件/参数/时机/接线任务复现源行为，正确复用二方库及公共能力，避免重复/漏报。实现证据包含事件、代码路径与实际生产绑定，日志占位不能替代上报。见 [埋点协议](../skills/migration-protocol/references/telemetry.md)。
 
-知识读取使用 knowledge-query；稳定失败日志可传 knowledge-diagnose 获取候选，根因仍走原诊断责任。依赖接线后可用 foundation-verify 对照本 run 解析产物与目标实际 TOML catalog，结果随实现证据提交，不以目录版本一致代替构建或生产调用验证。不得自行 foundation-resolve 改变冻结的依赖选择；需要变更按原 CR/规划路径。见 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md)。
+知识读取使用 knowledge-query；稳定失败日志可传 knowledge-diagnose 获取候选，根因仍走原诊断责任。依赖接线后可用 foundation-verify 对照本 run 解析产物与目标实际 TOML catalog，结果随实现证据提交，不以目录版本一致代替构建或生产调用验证。不得自行 foundation-resolve 改变冻结的依赖选择；需要变更按原 CR/规划路径。见 [知识执行与冻结](../skills/migration-protocol/references/lean-disciplines.md)。

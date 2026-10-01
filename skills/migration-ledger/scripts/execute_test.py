@@ -90,6 +90,7 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
             require(a.get('test_scope') == (path.get('kind') or 'automation'), 'path outside test assignment scope')
             require(path.get('kind') != 'visual' or tv.functional_ready(m), 'functional tests must pass before visual')
         require(is_build or tv.build_ready(m), 'build must pass before automation')
+        require(path.get('kind') in ('build', 'static') or tv.static_ready(m), 'static spec review must pass before automation')
     if is_build:
         require(argv == path['command']['argv'] and str(Path(cwd).resolve()) == str(Path(path['command']['cwd']).resolve()), 'build command differs from frozen plan')
         timeout = path['command']['timeout_seconds']

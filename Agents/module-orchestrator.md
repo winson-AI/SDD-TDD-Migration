@@ -109,4 +109,4 @@ Test-Runner assignment 明确 test_scope=build|automation|visual；先接受构�
 
 ## 受限迁移知识
 
-按 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md) 在本模块范围内 query/resolve；要求 Spec-Designer 将适用解析结果绑定 plan.dependency_resolution_ref，开关关闭或其他模块不适用不能扩大本模块门禁。工具只产出 staging 工件，MO 仍按 Ledger 接受与派发。
+按 [知识执行与冻结](../skills/migration-protocol/references/lean-disciplines.md) 在本模块范围内 query/resolve；要求 Spec-Designer 将适用解析结果绑定 plan.dependency_resolution_ref，开关关闭或其他模块不适用不能扩大本模块门禁。工具只产出 staging 工件，MO 仍按 Ledger 接受与派发。

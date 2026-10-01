@@ -209,8 +209,9 @@ def validate_result(result, module, assignment, run_root=None):
     import test_validation as tv
     if tv.split(module) and assignment.get('role') == 'test-runner':
         scope = assignment.get('test_scope')
-        require(scope in ('build', 'automation', 'visual'), 'test scope required')
+        require(scope in ('build', 'static', 'automation', 'visual'), 'test scope required')
         require(scope == 'build' or tv.build_ready(module), 'build must pass before automation')
+        require(scope in ('build', 'static') or tv.static_ready(module), 'static spec review must pass before automation')
         require(scope != 'visual' or tv.functional_ready(module), 'functional tests must pass before visual')
         planned = {p['path_id']: p for p in tv.paths(module, scope)}
     require(set(tests) == set(planned), 'result must account for every required path')

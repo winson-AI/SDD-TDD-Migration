@@ -60,7 +60,7 @@ runtime 证据必须有原始 capture_manifest_ref；runtime index 的 manifestS
 - **覆盖看板**：`status.semantic_index.coverage.missing` 暴露未附模型的 UI item。
 
 
-## 基线前移：截图指导实现，而非事后比对（已实现）
+## 基线前移：截图指导实现，而非事后比对
 
 视觉证据的位置决定它是否真的提升还原度。基线**前移到规划/实现阶段**作为输入，冻结前必须判定存量可执行性（[ui_fidelity.baseline_gate](../../migration-ledger/scripts/ui_fidelity.py)）：
 
@@ -92,7 +92,7 @@ build → Green
 
 automation 手势使用 [interaction-evidence.json](../../../template/interaction-evidence.json) 的条件扩展：正式 Green 同样核对冻结完整动作、起点、预期、当前 HAP/代码及实际观测，record 与原始 report 的 interaction_evidence 必须一致。不要求截图基线，不从 expected 合成 observed。默认 Harmony 未产出该结构化证据时，已执行断言保留并规范化为 Yellow（interaction-evidence-unavailable），可以正式提交；真实 Red 不被覆盖。能力缺失沿现有预检/Yellow 收尾，不新增全局阻塞。
 
-## capture / 构建产物契约（Wave B，已实现）
+## capture / 构建产物契约
 
 Green 还须带 `alignment_root` 与从原始 alignment 推导的 `comparison_evidence`。逐 round/page/state/reference_capture_index/candidate_capture_index 选取 manifest 中的截图，核对 score 的 reference/candidate 摘要；semantic 必须绑定该 score_sha256 或同一图片对，同时提供两者时全部核验。正式门禁重读 evidence_ref 推导相同结果，不能自填“已经关联”。ALIGNED_CARRIED 保留原 ALIGNED 的完整对齐证据，并用 regression_score 绑定 carried_from_round 与当前 capture_round 的 Harmony 截图（regression_capture_index 默认 0）；仍须明确 ALIGNED 裁决，分数本身不自动通过。
 
@@ -105,7 +105,7 @@ Auditor 按 PATH 保留所属模块的 build_artifacts，不能借用其他模�
 - **capture manifest（schema 2）** [ui_evidence.validate_capture](../../migration-ledger/scripts/ui_evidence.py):`COMPLETE` 必须有真实 screenshot/view_xml/meta 三元组 + 非空 captures + `observed_variant` + 记录 backend;`scroll` 只有 `scroll-complete` 才算达成(截断的 scroll-partial **永不**推进);`SOURCE_ONLY` 不得携带臆造 captures;缺 coverage 的旧记录不得升级为 viewport。
 - **validation → 三态 + HAP** [lean_adapter.validation_summary](../../migration-ledger/scripts/lean_adapter.py):lean validator 的 compile/test/package 检查映射为三态(任一 failed → Red);`package` 通过必须记录产物,且 artifact 的 sha256 与当前文件**仍需匹配**(HAP 不能被换掉)。
 
-## 精确性纪律（Wave A，已实现）
+## 精确性纪律
 
 还原度差的根因不是验证不足，而是**允许了近似**。以下规则把"近似"从源头排除：
 

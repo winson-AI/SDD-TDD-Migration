@@ -56,6 +56,17 @@ adapter 的 `skipped` / `xfail` 限制必须原样保留。原始报告声称 Gr
 
 本地一轮策略与问题审计：Red/Yellow 可修复根因先自动一轮，确认依赖/外围或仍失败时 audit-defer；问题审计独立执行有效代码，缺代码/前置时只记 Yellow。Auditor 对正式复测证据直接作审计验收；MO 只接收模块恢复/修复任务并执行模块门禁，不会签审计结论；最终审计不能跳过。
 
+## 静态规格闭合
+
+拆分测试的 Ledger 顺序为 build → static → automation → visual。static 是 Test-Runner 在当前已构建代码上做的独立规格闭合审查（吸收 lean Validator 的逐场景核对与假实现清单），位于昂贵的设备自动化之前；prepared run 固定 `spec_closure_required=true`，每个拆分模块冻结恰好一条 `kind=static` PATH：`scenario_requirement_ids` 等于模块全部任务需求，`expected_assertions` 只有一个 `expected: true`，case_id 复用本模块已有 CASE，不能新增或替代业务覆盖。
+
+Test-Runner 只读冻结 SPEC、当前代码与测试，写审查记录（staging）：
+
+- `scenarios[]`：每个冻结需求一条，`status=passed|failed`、summary、`production_symbols[]`（目标文件绝对路径 + 文件内真实存在的符号）与 evidence_refs。
+- `anti_patterns`：`preview-only-wiring`、`dead-handler`、`fixed-result`、`placeholder-icon`、`unapproved-stub` 逐项 `absent|present` + note + evidence_refs。经冻结批准的 capture-fixture 边界记 absent 并在 note 引用批准依据。
+
+再经 `execute_test.py` 运行 [spec_closure.py](../../migration-ledger/scripts/spec_closure.py)（argv：`--review <记录> --target-root <target>`）。适配器只核对上下文、需求覆盖、引用符号确实存在于目标文件、清单完整，然后生成唯一断言；任一场景 failed 或反模式 present 即 Red（root_cause 列出缺口），进入原诊断 → Fixer → 重新 build/static 复测闭环。适配器不自行评判代码，审查质量由独立 Test-Runner 负责、Auditor 抽查。static 全 Green 前不能派发 automation 或记录 automation-unavailable；仅自动化环境缺失时 static 照常执行。
+
 ## Harmony Main
 
 已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核。输入为完整冻结 PATH；输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留原时间线、工具录制、压缩记忆、布局、视频时间映射。UI 谓词 expected=true 的语义须在 design 冻结，不能从旧 scalar equality 静默转换。

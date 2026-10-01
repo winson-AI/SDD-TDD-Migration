@@ -57,7 +57,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 {"resolution_ref":{"path":"<run>/staging/<spec>/<request>/result.json","sha256":"<实际摘要>"},"catalog_ref":{"path":"<target>/gradle/libs.versions.toml","sha256":"<实际摘要>"}}
 ```
 
-以上每行分别用于相应 operation 的 args，名称/坐标由当前目录查询结果确定，不能照抄成项目事实。每次调用的 request/result/receipt 都写入 `staging/<actor>/<request_id>`；查询到的知识引用保留 hash。角色仍需把相关结果随原上下文、plan、实现或测试提交，工具不会提交 Ledger 或自动触发下一角色。Foundation 配置唯一入口、默认关闭及不适用处理见 [Wave-1](wave1-disciplines.md)。
+以上每行分别用于相应 operation 的 args，名称/坐标由当前目录查询结果确定，不能照抄成项目事实。每次调用的 request/result/receipt 都写入 `staging/<actor>/<request_id>`；查询到的知识引用保留 hash。角色仍需把相关结果随原上下文、plan、实现或测试提交，工具不会提交 Ledger 或自动触发下一角色。Foundation 配置唯一入口、默认关闭及不适用处理见 [lean 工程纪律](lean-disciplines.md)。
 
 知识结果附 `sdd_adaptation_ref`，将上游平台决策/实现/验证概念映射到本轮四维分析、冻结 SPEC、task_trace/dimension_evidence 及正式 PATH/ASSERT。`external` 查询只返回目录快照候选，所列历史版本/verified 标记不代表当前目标已验证；无匹配也不能据此判定无法实现。上游独立 probe 未接入，结果明确 `probe_support:not-supported`，由当前角色在已有任务和测试路径中设计并验证所选方案；不安装包、不运行目录里的命令、不创建 `.a2c` 或独立状态文件。
 
@@ -117,10 +117,10 @@ collector 对资源事实保存源文件 SHA。冻结和 verify_plan 只遍历�
 
 byte_copy 要求源目标字节一致；value_xml_exact 仅自动迁移一个 string/plurals/string-array/integer-array 条目，保留结构，目标已有不同内容或未解析引用则拒绝覆盖、交给现有修复/变更流程。向量的 resolve_ref/consumer_tint 也须冻结。输出仍是 staged 工件与 task trace，不代表生产消费者已验证。资源导入以 sourceId + qualifier 区分变体；重复同配置映射、伪造类型或不同字节的 byte_copy 被拒绝。
 
-## 版本与保留规则
+## 证据保留与修复闭环
 
 证据契约要求目标覆盖、原始引用和资源闭包，但不改变 GO/MO/审计权责；已提交证据不重算或改写。
 
 视觉差异进入原有 Red→诊断→Fixer→正式复测闭环，不启用 lean 自带的额外三轮循环或自动重置预算。仅自动化环境不可用时，automation/visual 留 Yellow/未执行，沿既有 `automation-unavailable`、`completed-with-unverified-tests` 规则收尾，独立任务和可用构建下游继续；不得伪 Green，也不强迫用户为纯缺测恢复环境。
 
-知识工具执行、可选冻结 gate、依赖决策阶梯、Grill 与 Git 纪律见 [Wave-1 纪律](wave1-disciplines.md)。领域工具不自动选择主题、执行修复或创建另一套调度器；GO/MO/Ledger 仍是原控制流。这些接入机制提供结构和权限约束；真实宿主派发、实际构建/设备执行及行为保真仍需对应的独立执行证据，不能由 `/sdd-verify` 或转换器单独证明。
+知识工具执行、可选冻结 gate、依赖决策阶梯、Grill 与 Git 纪律见 [lean 工程纪律](lean-disciplines.md)。领域工具不自动选择主题、执行修复或创建另一套调度器；GO/MO/Ledger 仍是原控制流。这些接入机制提供结构和权限约束；真实宿主派发、实际构建/设备执行及行为保真仍需对应的独立执行证据，不能由 `/sdd-verify` 或转换器单独证明。

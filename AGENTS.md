@@ -5,7 +5,7 @@
 ## 读取顺序
 
 1. 当前用户任务与宿主系统约束 → 本文件 → [共享协议](skills/migration-protocol/SKILL.md)。项目规则可细化技术规范，不能削弱本次用户四条红线。
-2. 定位下表的角色文件，只加载该角色 Used Skills；读取 Ledger 的 run/module 投影、最新 sequence 和当前 assignment。
+2. 定位下表的角色文件，只加载该角色 Used Skills；读取 Ledger 的 run/module 投影、最新 sequence 和当前 assignment。派发时先读 `status.next_steps[].must_read` 阅读卡所列小节（含四条红线，按 UI/复用范围触发追加，单卡不超过 60KB）；卡外协议在触发时再读，卡片不缩减任何门禁。
 3. 父 MO 和子 MO 规划前均先读取全局代码入口（legacy_root/target_root）、架构规范、知识资料及当前父子分工/依赖，再按 scope 聚焦必需源码。局部 context pack 不能遮蔽全局只读上下文；检查目标已有能力与兄弟 owner 后再规划，避免重复/交叉工作。Test-Runner 在设计模式只读规格与测试输入，在执行模式可以读已批准的测试脚本及执行配置；不以实现推导验收标准。
 4. 运行期输入统一为绝对路径：`package_root`、`run_root`、`change_root`、legacy/target path 均从可信输入解析，禁止路径逃逸。源码仓有 `.codegraph/` 时先用 CodeGraph；无索引则不主动建索引。
 5. 交接仅传 Ledger 已提交的 assignment/event 引用及工件路径/摘要。新 Agent 重读这些工件，不依赖原会话记忆。
@@ -86,7 +86,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 ## Test-Runner 双环节与自动化缺测例外
 
-Test-Runner 在 Coding 接受后先编译构建，再执行自动化测试；构建命令优先用户指定，否则全目标搜索脚本并默认评估 Gradle assemble。构建/真实用例错误记录三态与根因，修复仍由 Fixer。仅自动化环境不可启动时，保留当前构建 Green，逐用例记录 Yellow/未执行，经 automation-unavailable 进入 automation-deferred；独立任务及依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复。全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。规范见 [构建与自动化分流](skills/migration-protocol/references/build-automation.md)。本节细化既有“缺条件挂起”规则，不允许跳过构建或吞掉已观察到的 Red。
+Test-Runner 在 Coding 接受后先编译构建，再做静态规格闭合审查（逐需求核对生产符号与假实现清单，见 [静态规格闭合](skills/migration-protocol/references/testing.md#静态规格闭合)），然后执行自动化测试；构建命令优先用户指定，否则全目标搜索脚本并默认评估 Gradle assemble。构建/真实用例错误记录三态与根因，修复仍由 Fixer。仅自动化环境不可启动时，保留当前构建 Green，逐用例记录 Yellow/未执行，经 automation-unavailable 进入 automation-deferred；独立任务及依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复。全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。规范见 [构建与自动化分流](skills/migration-protocol/references/build-automation.md)。本节细化既有“缺条件挂起”规则，不允许跳过构建或吞掉已观察到的 Red。
 
 ## Auditor 范围
 

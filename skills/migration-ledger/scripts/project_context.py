@@ -221,7 +221,7 @@ def prepared_input(ref):
     defaults = config.get('defaults', {})
     return {**{k: copy.deepcopy(config[k]) for k in ('workspace_root', 'package_root', 'legacy_root', 'target_root', 'test_adapter',
                 'runtime', 'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources') if k in config},
-            'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
+            'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
             'module_name': snapshot['module_name'], 'project_context_ref': ref, 'project_sources': sources,
             'run_root': snapshot['run_root'], 'storage_layout': snapshot.get('storage_layout'),
             'dependency_resolution_required': snapshot.get('dependency_resolution_required'),
@@ -423,9 +423,10 @@ def bind_run(ref, run_root, run_id, payload):
     require(payload.get('dependency_resolution_required', dependency_gate) == dependency_gate,
             'run/config dependency resolution gate mismatch')
     require(payload.get('ui_fidelity_required', True) is True, 'prepared run requires UI fidelity evidence')
+    require(payload.get('spec_closure_required', True) is True, 'prepared run requires static spec closure review')
     require(payload.get('dimension_slicing_required', True) is True, 'prepared run requires dimension slicing')
     require(payload.get('context_readiness_required', True) is True, 'prepared run requires context readiness')
-    return {'dependency_resolution_required': dependency_gate, 'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
+    return {'dependency_resolution_required': dependency_gate, 'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
             'project_context_ref': ref, 'project_id': snapshot['project_id'],
             'project_revision': snapshot['project_revision'], 'module_name': snapshot['module_name']}
 

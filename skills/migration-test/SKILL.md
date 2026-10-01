@@ -18,7 +18,7 @@ description: SDD-TDD-Migration 的测试设计、编译构建与自动化执行�
 需要当前 HAP 装机、视觉捕获或模型语义比较时读取 [受限视觉执行](../migration-protocol/references/visual-execution.md)。在现有测试 assignment 下使用 visual-install/visual-capture/semantic-inspect，读取冻结配置、保存原始证据；正式结果仍通过 execute_test/adapter 提交，不在工具中修代码或直接验收。
 
 ## 3. 标准模式
-先 design 冻结两类路径；code accepted 后 execute/build 编译构建并记录三态，Green 后 execute/automation 校验环境并逐用例执行。错误交 Fixer；仅自动化环境不可启动时 Yellow/未执行并收尾，让其他任务继续。必读 [双环节协议](../migration-protocol/references/build-automation.md)。
+先 design 冻结两类路径；code accepted 后 execute/build 编译构建并记录三态，Green 后 execute/static 做规格闭合审查（[静态规格闭合](../migration-protocol/references/testing.md#静态规格闭合)），再 execute/automation 校验环境并逐用例执行。错误交 Fixer；仅自动化环境不可启动时 Yellow/未执行并收尾，让其他任务继续。必读 [双环节协议](../migration-protocol/references/build-automation.md)。
 
 禁止：自然语言 query 当 shell；以构建 exit 0 代替业务用例通过；无断言或 skip 当通过；重跑只保留最好一次。
 

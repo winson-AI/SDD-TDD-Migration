@@ -37,7 +37,7 @@ description: OpenSpec 六件套、plan 澄清冻结和 CR 影响分析，用于 
 
 读取 [四维协议](../migration-protocol/references/dimension-slicing.md)，先协助划定任务范围，再生成绑定 scope 的任务四维分析，将具体实现指导、分配 item ID、可观察行为、目标差异及验证映射写入 design/spec/tasks；dimension_analysis_ref + dimension_trace 与六件套一起冻结。
 
-领域知识按 [Wave-1](../migration-protocol/references/wave1-disciplines.md) 通过受限 knowledge-query/foundation-resolve 读取与解析；把适用结果或明确 not-required 绑定计划，不完整加载 Lean skill。UI 树遵守原生 bindings/events/dynamicRules 对象、capabilities 对象和 attachments 列表；source-only 仍严格验 source/tree，声明手势冻结完整动作与预期。
+领域知识按 [lean 工程纪律](../migration-protocol/references/lean-disciplines.md) 通过受限 knowledge-query/foundation-resolve 读取与解析；把适用结果或明确 not-required 绑定计划，不完整加载 Lean skill。UI 树遵守原生 bindings/events/dynamicRules 对象、capabilities 对象和 attachments 列表；source-only 仍严格验 source/tree，声明手势冻结完整动作与预期。
 
 在已有 test-design 中按 [状态测试表](../../template/ui-state-test-design.md) 区分稳定截图目标和瞬态行为。未知资源如实记录 manual_exact/blocked；每个源资源/qualifier 独立映射，多消费者及跨配置路由按 [资源接入](../migration-protocol/references/lean-integration.md#资源执行与事实绑定) 留证。外部能力目录只提名方案，遵从结果的 sdd_adaptation_ref，将决策写入现有 SPEC/四维项。
 

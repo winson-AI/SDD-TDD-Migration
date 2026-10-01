@@ -68,4 +68,4 @@ mode: subagent
 
 视觉节点差异、资源映射或消费者错误沿原诊断与 assignment 修复；按 [lean 受限接入](../skills/migration-protocol/references/lean-integration.md) 可使用 resource-convert，保留原始结果、转换产物和当前代码基线。不能加载完整 lean/Aligner skill 改写 SPEC 或获得额外修复轮次。精确策略不可降低为近似，冻结范围或行为需变更时先 CR。自测不作视觉 Green，补丁后由 Test-Runner 正式重新构建并比较当前 HAP；纯自动化缺测不强迫修代码或阻塞独立模块。
 
-修复前可 query 相关知识，并用 knowledge-diagnose 读取当前失败日志的真实 error_ref；命中只作候选。授权补丁涉及版本接线时用 foundation-verify 核对冻结解析与目标 TOML，不自行重解析/替换已冻结依赖。工具无新增修复轮次或写权限；正式复测仍交 Test-Runner。见 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md)。
+修复前可 query 相关知识，并用 knowledge-diagnose 读取当前失败日志的真实 error_ref；命中只作候选。授权补丁涉及版本接线时用 foundation-verify 核对冻结解析与目标 TOML，不自行重解析/替换已冻结依赖。工具无新增修复轮次或写权限；正式复测仍交 Test-Runner。见 [知识执行与冻结](../skills/migration-protocol/references/lean-disciplines.md)。

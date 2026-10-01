@@ -35,4 +35,4 @@ description: 冻结任务驱动的 legacy 迁移、新架构实现和双向追�
 
 目标现有代码与二方库确认重复且可复用/适配时，直接按冻结任务重构目标依赖、生产调用与适配边界，清理被替代的实现；仅保留必要差异和有依据的兼容入口。不能保留两套重复业务实现或只接依赖不迁移调用，完成证据见该协议第 9 节。
 
-实现阶段知识使用受限 query/diagnose，目标依赖接线可用 foundation-verify 对照本轮解析与实际 TOML；只读知识结果不替代生产接线或构建证明，不授予修改冻结选择的权限。见 [Wave-1](../migration-protocol/references/wave1-disciplines.md)。
+实现阶段知识使用受限 query/diagnose，目标依赖接线可用 foundation-verify 对照本轮解析与实际 TOML；只读知识结果不替代生产接线或构建证明，不授予修改冻结选择的权限。见 [lean 工程纪律](../migration-protocol/references/lean-disciplines.md)。

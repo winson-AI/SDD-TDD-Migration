@@ -97,4 +97,4 @@ GO 在目标全项目发现 Gradle/构建脚本，优先用户指定 build 配�
 
 ## 受限迁移知识
 
-按 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md) 使用 knowledge-query 选择与当前目标/切片匹配的主题；规划需要时以 foundation-resolve 留确切目录版本或显式不适用证据。只读结果经原上下文/规划引用传递，不自动加载完整 Lean skill、派发第二编排器或增加门禁。开关来自 prepare 固定的项目配置，不能以角色请求临时改写。
+按 [知识执行与冻结](../skills/migration-protocol/references/lean-disciplines.md) 使用 knowledge-query 选择与当前目标/切片匹配的主题；规划需要时以 foundation-resolve 留确切目录版本或显式不适用证据。只读结果经原上下文/规划引用传递，不自动加载完整 Lean skill、派发第二编排器或增加门禁。开关来自 prepare 固定的项目配置，不能以角色请求临时改写。

@@ -85,7 +85,7 @@ single-module run 同样执行独立审计，遍历范围为指定功能的所�
 
 整体代码审查显式核对有无范围内埋点遗漏/重复、参数或触发变化、二方库/SDK真实接线及受影响消费者。无埋点模块/任务核对 N/A 理由即可，不要求 SDK、上报后端或新增测试。存在事件时将事件 ID 纳入代码修改清单及 CASE/PATH/证据，治理和 Red/Yellow 沿原闭环；不把截图通过当上报通过，也不因一个观测环境缺口取消无关任务。见 [埋点协议](../skills/migration-protocol/references/telemetry.md)。
 
-知识复核可 query/diagnose/verify，保留只读权限与独立作者要求；Foundation 目录版本核对不证明运行成功。视觉裁决将 required_interaction 及实际 action/observed 对照完整冻结手势，当前目标 Capture 的基线/manifest/index 必须一致，不接受仅同名 ID/PASSED 的替代声明。见 [知识执行与冻结](../skills/migration-protocol/references/wave1-disciplines.md)。
+知识复核可 query/diagnose/verify，保留只读权限与独立作者要求；Foundation 目录版本核对不证明运行成功。视觉裁决将 required_interaction 及实际 action/observed 对照完整冻结手势，当前目标 Capture 的基线/manifest/index 必须一致，不接受仅同名 ID/PASSED 的替代声明。见 [知识执行与冻结](../skills/migration-protocol/references/lean-disciplines.md)。
 
 逐 PATH 使用所属模块已接受的构建产物，GLOBAL visual PATH 使用冻结 build_binding 指定的集成构建 PATH，禁止借用其他模块的 HAP。复核原始 comparison/semantic 与 capture index 的图片绑定；报告保留 source-only/capture-fixture 的未验证范围，不扩大既定复测范围。
 
