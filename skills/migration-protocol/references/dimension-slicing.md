@@ -1,5 +1,9 @@
 # UI → Logic → Adhesive → Resource 完整性协议
 
+## 总则
+
+GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 scope 后再按 UI → Logic → Adhesive → Resource 核查源闭包、架构、二方库和目标已有能力；适用项逐层映射到子功能、TASK/PATH/ASSERT，不适用项记录依据。流程节点、字段与门禁见下文。
+
 ## 1. 范围与方法
 
 **先划分范围，再做该范围的四维分析；划分决定负责什么，四维分析直接指导如何实现。** 三层固定顺序：
@@ -52,7 +56,7 @@ Resource 指应用资源；原 Dependencies / Resources 中的文件锁、设备
 
 `dimension_analysis_ref`、`dimension_trace`、`tasks[].scope` 和 `tasks[].dimension_analysis` 一起纳入 stage-plan 摘要和冻结；design 解释逐维差异、复用与接线，spec 给出应保留的可观察行为，tasks 给出实现/验证责任，checklist 验收覆盖。Ledger 将模块分析、任务 scope/四维分析及追溯物化为 `change/dimensions.md`，它是六件套的辅助索引，不是第二份可修改需求或状态源。登记后分配引用不可就地覆盖；范围/分配发现错误须保留旧运行证据并重新规划新 run，既有叶子 tasks 调整按 CR 与重新冻结。
 
-新 Ledger init 默认 `dimension_slicing_required=true`；project-context prepare 固化开启且不允许关闭。
+四维分析是必选门禁，prepare 固化且不可关闭。
 
 脚本验证顺序、N/A 证据、hash、父子覆盖、TASK/PATH/ASSERT 追溯及实现证据；**无法自动证明 Agent 已读完源码或每项业务语义完整**。GO、父 MO、Spec-Designer/子 MO 的源码审阅和正式 Main 测试必须真实执行，不能用结构通过代替语义验收。
 

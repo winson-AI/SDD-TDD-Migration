@@ -64,7 +64,6 @@ Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/
 
 invalidate 后旧 plan 进入 planning_history，当前 plan/freeze 清空；Ledger 撤下 manifest 管理的旧定义视图并生成重新规划 status，保留事件及 artifacts 历史快照。旧计划不能继续阻塞新计划提交，也不能冒充当前冻结定义；新计划仍须正常审核/冻结。分配依据失效交 GO，具体出口见 [恢复协议](progress-recovery.md)。
 
-memory.md 与 ledger/repair-memory.json 保存 Red/Yellow 修复的根因、策略、适用条件、风险、前后基线和正式回归证据；这是定义之外的运行记忆，不能覆盖需求。只有 verified/reusable=true 条目可作为已验证方案参考；依然必须符合本轮冻结任务与验收并重新测试。
 
 ## 二方库语义与需求映射
 
@@ -77,3 +76,15 @@ proposal/design/tasks/checklist 明确复用决策、语义差异、接线、版
 ## 四维完整性索引
 
 按 [四维协议](dimension-slicing.md) 冻结 dimension_analysis_ref、dimension_trace 及先划定的 tasks.scope / 随后生成的任务 dimension_analysis；design/spec/tasks 都保留适用 item ID，N/A 的源码依据写入设计。Ledger 从不可变分析生成 dimensions.md。它是辅助索引，不替代六件套或正式验证。
+
+## OpenSpec 自动物化
+
+提交事件后及 status 重放时，生成 `<workspace_root>/openspec/changes/<run-id>-<module-id小写>/`：proposal.md、specs/<capability>/spec.md、design.md、tasks.md、status.md、checklist.md，以及 memory.md/manifest.json。定义作者仍为 Spec-Designer；Ledger 复制已提交的不可变定义快照，不凭空发明需求。spec 引用可带合法 capability；默认使用小写模块编号。
+
+tasks 定义必须含每个 TASK-ID 对应的 Markdown checkbox；依据已接受 task_trace 更新 `- [ ] TASK-ID` 勾选；checklist 保留定义并追加机器证据，status 记录阶段、有效三态和下一步。更新视图不会改定义快照、freeze_id 或验收。视图丢失/被改后可由日志重建，旧生成的能力文件由 manifest 清理。可见文件是投影，不可直接编辑作为新 SPEC；变更必须提交 plan/CR。
+
+## 修复 memory
+
+Fixer 的 implementation 必须带 fix_note_ref，内容见 [fix-note 模板](../../../template/fix-note.json)：root_cause、strategy、applicability、risks。Ledger 保存 diagnosis、问题快照、冻结版本、前后代码基线、任务/补丁引用和正式回归证据，生成模块 memory.md 与全局 ledger/repair-memory.json。
+
+pending / interrupted / awaiting-regression / failed / verified 区分修复事实；只有正式回归全 Green 的记录 reusable=true。复用前按根因、适用条件和当前 SPEC 比较，引用 memory 所属事件/工件；memory 不授予写权限，不替代本轮测试，也不允许降低验收。失败记录仍可用于避免重复无效方案。

@@ -14,8 +14,6 @@ mode: subagent
 
 输出：不可变事件与 ACK、assignment、global/module/status/checklist 投影、审计日志、拒绝记录。
 
-所有输入输出为 [运行协议](../skills/migration-protocol/references/runtime.md) 定义的绝对路径/事件引用；内容产出在本实例 staging，读取已提交工件须验证 hash。
-
 ## 3. 执行步骤
 1. 验证身份/角色权限、幂等键、revision、引用摘要和锁 fencing token，拒绝越权与过期提交。
 2. 执行运行协议的不可变工件落盘→事件提交→原子投影顺序，不按模型口头成功写状态。
@@ -24,23 +22,16 @@ mode: subagent
 5. 返回 event_id/sequence/revision ACK；损坏、冲突、权限失败保存拒绝原因，不能静默覆盖。
 
 ## 4. 规则优先级
-当前用户与宿主约束 → [AGENTS.md](../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 阻塞与异常
-缺关键输入、权限或工具时提交 reason_code/root_cause/next_action；若需人类，交 Escalation；若为跨模块依赖，交 Global。只经 Ledger，不凭摘要直接继续。无法提交 Ledger 时输出 transport failure 并停机，工件保持 staged，不能称已记录。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 6. 硬约束
 唯一状态写入者；不能兼任业务批准者；不能自行解除依赖或冻结；拒绝 actor 自报身份；只追加不改历史；零用例非 Green。
 
-所有跨层信息只走 Ledger；叶子角色完成 assignment 即退出，编排角色仅按批准预算继续。工件不得静默覆盖，旧版本和失败证据必须保留。
-
 ## 7. 输出格式
-```text
-✅ submitted | event_id=<id> | artifacts=<绝对路径> | next=<账本动作>
-⚠️ suspended | event_id=<id> | reason=<原因> | next=<恢复条件>
-❌ failed | event_id=<id或transport-unavailable> | reason=<失败原因>
-```
-传输摘要不是质量判定，Green/Red/Yellow 以 Ledger 有效证据为准。
+见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
 
 ## 8. Used Skills
 - [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。

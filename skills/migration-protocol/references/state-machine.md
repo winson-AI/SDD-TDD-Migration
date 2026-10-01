@@ -89,9 +89,9 @@ Auditor 可执行既有脚本并生成日志，不能编辑源码/脚本。发�
 
 本地审计闭环为 audit → audit_repairs → Global audit-route（全局 PATH）→ MO repair-accept → 诊断提交/接受或 Yellow 挂起 → 修复/复测 → 模块完成 → 新独立审计。具体字段、游标与恢复规则以 [本地操作矩阵](local-runtime.md) 为准。
 
-OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义不被动态勾选修改。问题审计/全局覆盖/物化字段详见 [当前策略](local-runtime.md#当前策略全局验收问题审计openspec-与修复-memory)。
+OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义不被动态勾选修改。问题审计/全局覆盖/物化字段详见 [问题审计](audit-scope.md#问题审计与最终审计)。
 
-当前默认在所有模块本轮 completed/明确挂起且无可推进动作后，先 audit-code-review 及治理闭环，再采用剩余问题的 audit-collect 批次：Auditor 绑定发现/负责模块 SPEC 与测试路径，Global 路由审核，MO 接受一轮 Fixer；按 finding 路由及依赖交错 Testing；失败关联分支待人工，其他分支继续，汇总后 awaiting-human；批准 audit-release 后再进入正常恢复。闭包内的 problem-assign/problem-audit 见第 5 条，详见 [默认收尾](local-runtime.md#当前默认-auditor-收尾修复后验证失败待人工)。
+当前默认在所有模块本轮 completed/明确挂起且无可推进动作后，先 audit-code-review 及治理闭环，再采用剩余问题的 audit-collect 批次：Auditor 绑定发现/负责模块 SPEC 与测试路径，Global 路由审核，MO 接受一轮 Fixer；按 finding 路由及依赖交错 Testing；失败关联分支待人工，其他分支继续，汇总后 awaiting-human；批准 audit-release 后再进入正常恢复。闭包内的 problem-assign/problem-audit 见第 5 条，详见 [默认收尾](audit-scope.md#默认收尾修复后验证失败待人工)。
 
 ## 父子 MO 的规划与汇总
 
@@ -114,3 +114,14 @@ OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义�
 ## 埋点适用性不产生新状态
 
 按 [埋点协议](telemetry.md)，无埋点模块/任务的 not-applicable 只记录范围判断，不转换为 waiting/Yellow/skip，不消耗修复预算，不增加全局等待条件。有埋点时沿已有 SPEC冻结→Coding→Build→业务Testing→三态/Fixer→Auditor；真实未知或失败仅影响本模块及实际依赖，其他 MO 继续。
+
+## 控制流闭环细则
+
+- `diagnose` 只提交诊断，调用方必须追加 MO 的 `diagnosis-accept`；不得在诊断 ACK 后直接 assign Fixer。复测后旧诊断作废，不能用旧问题的报告批准新修复。
+- `next_steps` 对 Red/Yellow 共用一轮策略：已确认依赖/外围根因 → audit-defer；其余先 diagnose → diagnosis-accept → 一轮 Fixer → Main 复测，仍非 Green → audit-defer。未知根因不能伪报已确认。
+- 人工恢复游标返回当前有效 `decision_id`；再冻结游标返回可提交的 `payload`，包括 within-envelope 的影响分析引用。候选 ready 仍需宿主补齐实际审查证据并经事务复核。
+- DoD 挂起恢复进入 testing，旧结果 stale，正式新一轮复测后才能 complete；其余恢复点保持原阶段。`invalidate` 清除阻塞及解除许可、旧 freeze_id；历史 blocker 留在事件中。原来有 blocker 时同时撤销批准边界复用，重规划必须取得新人工冻结批准，不能靠 invalidate 绕过未决问题。存在 blocker 时禁止 CR 和 assign。
+- 审计问题保存在 `audit_repairs`，`module_ids/accepted_by` 记录责任和 MO 接受情况。全局游标先提示 audit-route 或等待 MO 接受；未路由/未接受的问题禁止下一轮 audit-assign。有关联依赖的模块先完成原有恢复/重建，再接收其修复项。
+- MO repair-accept 保留 `repair_findings` 供 diagnose/Yellow 路由，按原有 CR、修复预算和复测规则执行。模块正式测试接受后清除此轮 repair_findings；这只表示模块验证结束，审计问题仍须 Auditor 重跑裁决。
+- `audit_results` 保留上一轮独立审计结果，不随代码失效清空。下一轮非 Green 同 PATH 必须提供新的 test_run_id 和 retest_of；模块重新 Green 不能解除这一要求。新审计覆盖完整集合后替换当前 repair 列表，旧报告保留于事件和工件。
+- 若全局问题无法归属现有模块，Global 交 Escalation 取得范围/架构决策，不能随意指定模块或跳过问题。全局审计预算耗尽仍沿用受控新运行规则。

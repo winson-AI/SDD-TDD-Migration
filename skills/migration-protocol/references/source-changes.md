@@ -2,6 +2,10 @@
 
 使用场景：运行中用户补充新的二方库/其他项目模块，需要沿用本 run 的记录。普通项目配置更新仍仅影响新运行；本入口只追加 source_id，不修改 target/legacy、架构、验收、预算、测试配置、registry、scope、write_paths 或依赖。不能覆盖旧 snapshot 或重跑 prepare 来伪造新输入。
 
+## 总则
+
+同 run 新增只读来源按本协议执行 GO source-review → Host 绑定用户决策 → reconfigure-sources：新快照、完整影响评审、仅受影响闭包重新规划。保留无关模块有效结果、Red/Yellow、预算和历史；相关阻塞可凭明确决策恢复，无关阻塞不能被顺带解除。宿主消费 source_change_next_step，不能因等待版本切换取消其他 MO。
+
 ## 1. GO：评估来源、归属与影响范围
 
 1. 读取当前 Ledger 的 project_context_ref、全局分配及已知问题。来源标准化后保留全部旧条目原值，仅追加用户提供的新 source_id；只读模块必须与 target 分离。

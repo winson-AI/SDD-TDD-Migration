@@ -1,5 +1,9 @@
 # 项目上下文：初始化、更新与运行时固化
 
+## 总则
+
+宿主先按本协议读取/初始化/更新当前项目配置，再 prepare 固化本轮版本。Global 生成完整输入后，Ledger init 绑定 project_context_ref；下游只读 Ledger 引用的本轮快照，不追随 mutable project-context.json。用户明确更新直接保存，运行选择和临时 overrides 不写回项目默认值。项目配置不是模块状态总线。
+
 ## 三层数据
 
 1. 项目配置：跨运行复用的代码根目录、架构/需求/用例/规则文档路径、测试执行器、宿主配置和默认预算。模板 [project-context.json](../../../template/project-context.json) 是 `config` 内容。

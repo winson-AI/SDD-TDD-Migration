@@ -1,5 +1,9 @@
 # GO 迁移收尾报告
 
+## 总则
+
+父 MO 统一命名 `parent-mo-<module_id>`，例如 parent-mo-M010；宿主读取 status.parent_mo_names，并在创建/恢复时保持可见名称一致。GO 收尾必须向用户提供全部测试 CASE 状态，非 Green 汇总原因与证据；读取 Ledger 生成的 status.migration_report，不省略缺测、不用构建 Green 代替功能验证。
+
 ## 必须展示的信号
 
 GO 在本轮成功完成、带自动化缺测结束或需人工处理而停止时，向用户提供完整报告；运行中查询只提供明确标注的进度快照。报告必须包含：

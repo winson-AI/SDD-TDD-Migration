@@ -18,9 +18,9 @@ sys.dont_write_bytecode = True
 PACKAGE = Path(__file__).resolve().parents[3]
 READ_BUDGET = 60_000  # UTF-8 bytes per dispatch card
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 480_000
-FILE_BUDGET = 40_000
-PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/migration-protocol/references/*.md')
+PROTOCOL_BUDGET = 556_000
+FILE_BUDGET = 34_000
+PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
 P = 'skills/migration-protocol/references/'
 CORE = [('AGENTS.md', '四条红线'), ('skills/migration-protocol/SKILL.md', None)]

@@ -1,5 +1,9 @@
 # 运行与 Ledger 协议
 
+## 总则
+
+运行本地控制器时，再读 [local-runtime.md](local-runtime.md)。默认优先恢复同角色原 session；缺失时按 checkpoint 冷恢复，不要求永久保留一个已失效的宿主会话。角色只在当前阶段需要时创建，9+1 职责不变。所有恢复/修复请求仍经过 Ledger，不能恢复为角色私聊。
+
 ## 路径与加载
 
 `workspace_root` 为本项目唯一迁移资产根；`.sdd-migration`、`.sdd-runs`、`openspec` 在其下并列。`package_root` 为工作流包，legacy/target 为业务代码仓，均不是默认资产根。完整目录、二次启动和兼容规则见 [留存文件系统](storage-layout.md)。

@@ -30,56 +30,22 @@ description: SDD-TDD-Migration 各角色共享的读取、Ledger、冻结和三�
 
 各角色在其职责及已批准 scope 内执行；跨模块或不确定的业务边界必须经 Ledger/Escalation 交人工决定。已批准边界内的调度、修复和复测按协议推进。模块测试由对应 MO 唯一验收，审计测试由对应 Auditor 唯一验收；正式完整 Green 且既有门禁满足后直接记录，无额外人工会签。覆盖归属、修复 owner 与验收 owner 分开，细则见 [测试契约](references/testing.md)。
 
-## 8. 持久化项目上下文
+## 通用约定
 
-宿主、Global 与 Ledger 读取 [project-context.md](references/project-context.md)：首次保存、用户增量更新、运行 prepare 固化及 Ledger 绑定。模块角色只使用本轮快照和已提交输入引用；配置更新不覆盖旧运行，也不替代边界决策/冻结/验收。
+适用于全部角色定义，角色文件不再逐份重复。
 
-## 9. 父子 MO 与共同上下文
+- 规则优先级：当前用户与宿主约束 → [AGENTS.md](../../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。
+- 输入输出：全部为 [运行协议](references/runtime.md) 定义的绝对路径/事件引用；内容产出在本实例 staging，读取已提交工件须验证 hash。
+- 跨层信息：只走 Ledger；叶子角色完成 assignment 即退出，编排角色仅按批准预算继续。工件不得静默覆盖，旧版本和失败证据必须保留。
+- 阻塞与异常：缺关键输入、权限或工具时提交 reason_code/root_cause/next_action；若需人类，交 Escalation；若为跨模块依赖，交 Global。只经 Ledger，不凭摘要直接继续。无法提交 Ledger 时输出 transport failure 并停机，工件保持 staged，不能称已记录。
+- 输出格式（传输摘要不是质量判定，Green/Red/Yellow 以 Ledger 有效证据为准）：
 
-两种入口只限定迁移范围；父 MO 拆分子功能、独立子 MO 执行、父 MO 汇总。父子均须读取全局存量/目标代码、架构规范、知识及最新分工。涉及规划/拆分/收尾时必读 [父子 MO 协议](references/module-decomposition.md)。
+```text
+✅ submitted | event_id=<id> | artifacts=<绝对路径> | next=<账本动作>
+⚠️ suspended | event_id=<id> | reason=<原因> | next=<恢复条件>
+❌ failed | event_id=<id或transport-unavailable> | reason=<失败原因>
+```
 
-## 10. 二方库与已有能力
+## 8. 专题规则
 
-GO/父子 MO、Spec Designer、Implementer、Testing/Fixer/Auditor 涉及规划、编码和验证时读取 [reuse-dependencies.md](references/reuse-dependencies.md)：TARGET/外部来源、功能语义抽取、需求映射、冻结接入指导与版本变化后的复测。复用是重要的规划依据，不能替代需求与完整测试。
-
-复用必须逐行为对齐存量源码功能并保证 fidelity：记录源码基线、差异和复现 PATH/ASSERT；冻结后编码、Main 留证、对应 MO/Auditor 验收。具体记录及门禁见该协议第 7 节。
-
-不能直接复用时，结合当前功能、上下文、源代码与目标现状推进适配或自主 Coding；只有核验替代方案仍不可行才走“未实现”人工提醒，见该协议第 8 节。
-
-目标已有实现也要与二方库核对；确认冗余且可复用/适配时，直接重构目标依赖、调用链并清理重复逻辑，沿用冻结和正式测试门禁，不重复造轮子。职责节点及完成准则见该协议第 9 节。
-
-## 11. 阶段上下文就绪
-
-规划、派发、恢复或审计前读取 [上下文就绪协议](references/context-readiness.md)：实际执行者先提交身份/版本绑定的核对报告，原节点接受后推进；报告 ready 不替代冻结、权限、正式测试或 DoD。
-
-## 12. 编译构建与自动化分流
-
-GO/MO、Spec Designer、Test-Runner、Fixer、Auditor 与宿主必读 [build-automation.md](references/build-automation.md)。同一 Test-Runner 先构建再自动化；仅自动化环境缺失可 Yellow 收尾并放行其他可执行任务，质量验收不变 Green。
-
-## 13. 四维完整性
-
-GO、父/子 MO、Spec-Designer 在规划时，以及 Implementer/Fixer/Test-Runner/Auditor 在执行/验收时读取 [dimension-slicing.md](references/dimension-slicing.md)：有序分析、条件 N/A、父子完整覆盖与 OpenSpec/TASK/PATH/ASSERT 追溯。
-
-## 14. 局部恢复与进度信号
-
-宿主、GO/MO 与 Ledger 在调度、等待或恢复时必读 [progress-recovery.md](references/progress-recovery.md)：运行期局部校验、invalidate 历史保留与重规划出口、workflow_progress 人工信号及自动化缺测收尾。禁止在 ready=false 或命令拒绝后无提示地退出。
-
-## 15. Auditor 代码治理
-
-所有 MO 收尾后，先按 [整体代码治理](references/audit-code-review.md) 独立审查全部代码修改、冗余、二方库及公共能力，委派治理和受影响完整回归，再处理剩余 Red/Yellow。Auditor 不兼代码作者；新增任务/接口/边界仍走 CR 与重新冻结。
-
-## 16. 来源与 provider 版本变化
-
-GO/父子 MO/Host 在运行中追加只读来源时读 [source-changes.md](references/source-changes.md)：GO 完整影响评审、Host 绑定批准与新快照事务、相关阻塞恢复及无关模块证据延续。显式 owner、资源锁与 provider 变更闭环见 [复用协议第 10 节](references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。来源变化不自动清除失败、重置预算或批准代码。
-
-## 17. 埋点上报
-
-功能发现、四维分析、规划、编码、测试与审计显式读取 [埋点协议](references/telemetry.md)：先判断适用性，无埋点模块/任务以有据 N/A 正常推进；有埋点才做源→目标事件/参数/生产接线映射及分层验收。沿现有阶段、范围、三态和修复机制，不新增全局埋点门禁。
-
-## 18. 迁移资产布局
-
-所有角色及 Host 读取 [留存文件系统](references/storage-layout.md)：长期配置、运行证据、顶层 OpenSpec 并列，以 workspace_root/run_id 固定归属；OpenSpec 是规格与状态阅读入口，Ledger 是唯一事件权威。
-
-## 19. UI 领域工具与证据版本
-
-涉及 UI 分析、资源转换或视觉比较时读取 [领域工具受限接入](references/domain-tools.md) 与 [UI 保真](references/ui-fidelity.md)。按 SDD 当前角色使用白名单工具，不整包执行外部实现、对齐或编排技能，不合并设计、写码与独立验收权限。原始结果及转换产物均经受管输出和 Ledger 引用传递。自动化 Yellow 缺测例外保持不变。
+专题规则（项目上下文、父子 MO、二方库与 fidelity、上下文就绪、构建与自动化、四维切片、恢复、Auditor 代码治理、来源变化、埋点、资产布局、UI 领域工具）不在此重复，按 [AGENTS.md 专题索引](../../AGENTS.md#专题索引) 的触发条件读取对应小节；阅读卡会带上适用的部分。来源变化不自动清除失败、重置预算或批准代码。

@@ -31,7 +31,7 @@ description: 整体代码审查、重构/复用治理委派、独立遗留复核
 
 整体代码审查必须输出 [本次代码修改清单](../../template/audit-change-inventory.md)，覆盖全模块功能、逐文件前后路径/修改内容、真实影响范围及 CASE/PATH/脚本/断言映射；审查 JSON 必须以 change_inventory_ref 引用该版清单。测试状态读取 Ledger；未定义/未执行/过期如实记录，代码治理后刷新清单及审查版本。
 
-本地非 Green 审计产生 audit_repairs，由 Global 路由、MO 接受重开；下一轮保留 audit_results 的非 Green retest_of 链。详见 [控制流闭环](../migration-protocol/references/local-runtime.md#控制流闭环修订)。
+本地非 Green 审计产生 audit_repairs，由 Global 路由、MO 接受重开；下一轮保留 audit_results 的非 Green retest_of 链。详见 [控制流闭环](../migration-protocol/references/state-machine.md#控制流闭环细则)。
 
 默认收尾扫描全部模块，使用 audit-collect/audit-plan/audit-route-batch/audit-work/audit-retest/audit-verdict；失败问题及依赖下游生成 audit-reports/<batch-id>.md/json 待人工，独立分支继续；汇总后由批准的 audit-release 进入受控恢复。problem-assign/problem-audit 仅用于闭包提前审计。收尾只复核待验证清单；清单为空则独立 audit-review，不启动自动化。详见 [当前运行契约](../migration-protocol/references/local-runtime.md)。
 

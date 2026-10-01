@@ -64,7 +64,7 @@
 
 ## 验证范围
 
-本包可检查入口引用、frontmatter、JSON 模板与流程契约；真实迁移须在填写技术栈、宿主适配和真实测试命令后验证。推荐的行为验收场景见 [workflow-verification.md](template/workflow-verification.md)。
+本包可检查入口引用、frontmatter、JSON 模板与流程契约；真实迁移须在填写技术栈、宿主适配和真实测试命令后验证。推荐的行为验收场景见 [workflow-verification.md](template/workflow-verification.md)。协议总量与单文件大小受 `reading.py` 的 PROTOCOL_BUDGET/FILE_BUDGET 棘轮约束，阅读卡另有 60KB 预算：新增规则写入其专题协议并合并重复表述，不在运行指南中再追加一份。
 
 ## 本地实现
 
@@ -105,7 +105,7 @@ Coding → MO 接受代码 → Testing
 
 ## Auditor 默认收尾
 
-所有模块本轮 completed 或明确挂起，且无在途 worker/可推进工作后，统一启动 Auditor 收集 Red/Yellow。按 finding 读取 SPEC/路径、分析根因并路由到对应 Fixer；按依赖交错执行修复和完整 Testing，支持多 owner 与受影响中间模块。失败只挂起关联分支，独立分支继续；汇总后由人工批准 audit-release，再进入受控恢复。subagent 和 Used Skills 由宿主实际启动。详见 [运行契约](skills/migration-protocol/references/local-runtime.md#当前默认-auditor-收尾修复后验证失败待人工)。
+所有模块本轮 completed 或明确挂起，且无在途 worker/可推进工作后，统一启动 Auditor 收集 Red/Yellow。按 finding 读取 SPEC/路径、分析根因并路由到对应 Fixer；按依赖交错执行修复和完整 Testing，支持多 owner 与受影响中间模块。失败只挂起关联分支，独立分支继续；汇总后由人工批准 audit-release，再进入受控恢复。subagent 和 Used Skills 由宿主实际启动。详见 [运行契约](skills/migration-protocol/references/audit-scope.md#默认收尾修复后验证失败待人工)。
 
 
 ## Harmony 自动测试内核

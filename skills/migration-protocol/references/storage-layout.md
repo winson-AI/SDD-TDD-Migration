@@ -1,5 +1,9 @@
 # 迁移留存文件系统
 
+## 总则
+
+所有角色遵守本协议。新运行资产固定在 workspace_root 下的 .sdd-migration、.sdd-runs、openspec 三个并列目录；读取 prepare 返回的 run_root/storage_layout 和 status.openspec_hub，不按 cwd 猜目录，不在目标仓另建一份 SPEC。一般生成工件放当前 run staging；Harmony 辅助产物放 runs/harmony/sandbox，正式自动化放 runs/harmony/automation，构建放 runs/build；临时目录归当前 runner，结束清理或留存 cleanup 原因；工作流状态变更仍经 Ledger。
+
 ## 唯一项目根与三类资产
 
 `workspace_root` 是项目唯一迁移资产根，首次保存在 `.sdd-migration/project-context.json`，默认取该配置目录父级。可以与目标仓位于同一工作区，但不由 target_root 推导；目标仓变化不搬迁配置、证据或规格。新入口不允许配置目录不匹配 workspace_root，也不允许通过运行 overrides 改根目录。
