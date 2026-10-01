@@ -108,8 +108,9 @@ def validate(config):
         require(isinstance(defaults.get(key, {}), dict), 'invalid ' + key)
     dependency_gate = defaults.get('quality_gates', {}).get('dependency_resolution_required', False)
     require(type(dependency_gate) is bool, 'dependency_resolution_required must be a boolean')
-    if 'repair_policy' in defaults:
-        require(defaults['repair_policy'].get('local_automatic_rounds', 1) == 1, 'local automatic repair must remain one round')
+    require(type(defaults.get('quality_gates', {}).get('git_checkpoint', False)) is bool, 'git_checkpoint must be a boolean')
+    require('local_automatic_rounds' not in defaults.get('repair_policy', {}),
+            'configure local repair rounds with budgets.local_fix_rounds')
     for key in ('test_adapter', 'runtime', 'module_slicing', 'build'):
         if key in config: require(isinstance(config[key], dict), key + ' must be an object')
     routing = (config.get('runtime') or {}).get('model_routing')
@@ -225,11 +226,12 @@ def prepared_input(ref):
             'module_name': snapshot['module_name'], 'project_context_ref': ref, 'project_sources': sources,
             'run_root': snapshot['run_root'], 'storage_layout': snapshot.get('storage_layout'),
             'dependency_resolution_required': snapshot.get('dependency_resolution_required'),
+            'git_checkpoint': defaults.get('quality_gates', {}).get('git_checkpoint', False),
             'new_architecture': sources['architecture_path'], 'document_link_warnings': context_links.mapping(snapshot)[1],
             'global_spec': None, 'global_test_cases': [],
             'requirement_ids': [], 'global_test_paths': [],
             'budgets': {**BUDGETS, **defaults.get('budgets', {})}, 'quality_gates': defaults.get('quality_gates', {}),
-            'repair_policy': defaults.get('repair_policy', {'local_automatic_rounds': 1}),
+            'repair_policy': defaults.get('repair_policy', {}),
             'custom_rules_path': sources.get('project_rules_path', {}).get('path')}
 
 
@@ -420,13 +422,15 @@ def bind_run(ref, run_root, run_id, payload):
         require(payload['build'] == config.get('build', {}), 'run/config build mismatch')
     dependency_gate = snapshot.get('dependency_resolution_required')
     require(type(dependency_gate) is bool, 'dependency_resolution_required must be a boolean')
+    git_gate = config.get('defaults', {}).get('quality_gates', {}).get('git_checkpoint', False)
+    require(payload.get('git_checkpoint', git_gate) == git_gate, 'run/config git checkpoint mismatch')
     require(payload.get('dependency_resolution_required', dependency_gate) == dependency_gate,
             'run/config dependency resolution gate mismatch')
     require(payload.get('ui_fidelity_required', True) is True, 'prepared run requires UI fidelity evidence')
     require(payload.get('spec_closure_required', True) is True, 'prepared run requires static spec closure review')
     require(payload.get('dimension_slicing_required', True) is True, 'prepared run requires dimension slicing')
     require(payload.get('context_readiness_required', True) is True, 'prepared run requires context readiness')
-    return {'dependency_resolution_required': dependency_gate, 'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
+    return {'dependency_resolution_required': dependency_gate, 'git_checkpoint': git_gate, 'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
             'project_context_ref': ref, 'project_id': snapshot['project_id'],
             'project_revision': snapshot['project_revision'], 'module_name': snapshot['module_name']}
 

@@ -27,10 +27,10 @@
       "local_fix_rounds": 1
     },
     "quality_gates": {
-      "dependency_resolution_required": false
+      "dependency_resolution_required": false,
+      "git_checkpoint": false
     },
     "repair_policy": {
-      "local_automatic_rounds": 1,
       "confirmed_dependency_or_peripheral": "defer-to-auditor",
       "after_failed_round": "defer-to-auditor"
     }

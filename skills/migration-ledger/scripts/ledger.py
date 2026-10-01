@@ -17,6 +17,7 @@ import decomposition
 import dimensions
 import model_routing
 import reading
+import git_checkpoint
 import reuse
 import knowledge_gate
 import ui_fidelity
@@ -275,6 +276,9 @@ def complete_guard(s, m):
             all(r['quality'] == 'green-passed' for r in m['results'].values()) and
             set(m['results']) == {p['path_id'] for p in m['plan']['paths']}, 'DoD requires all paths Green')
     current(m); dependencies_ready(s, m)
+    if s.get('git_checkpoint'):
+        require((m.get('git_checkpoint') or {}).get('code_baseline') == m['code_baseline'],
+                'git checkpoint of the current code baseline required before completion')
 
 
 def pending_repairs(s):
@@ -449,6 +453,10 @@ def _next_step(s, m):
                     dispatch_guard(s, m, worker)
                 except (Rejected, OSError) as exc:
                     step.update(ready=False, reason=str(exc))
+    elif m['phase'] == 'dod' and s.get('git_checkpoint') and \
+            (m.get('git_checkpoint') or {}).get('code_baseline') != m['code_baseline']:
+        step.update(operation='checkpoint', role='host', ready=True, reason='commit-module-paths-on-run-branch',
+                    branch=git_checkpoint.branch(s['run_id']))
     elif m['phase'] == 'dod':
         step.update(operation='complete', role='module-orchestrator', ready=True)
         try:
@@ -579,7 +587,7 @@ def mutate(s, req, principal, events, root=None):
             require(op in ('module-summary', 'session'), 'parent MO only coordinates/summarizes; execute code and tests in child modules')
     if workflow.audit_active(s) and op not in ('audit', 'problem-audit', 'audit-revoke', 'decision'):
         raise Rejected('audit snapshot locked; close or revoke audit before mutation')
-    if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
+    if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
     context_readiness.gate(s, req, principal)
     if op == 'context-submit':
@@ -879,6 +887,11 @@ def mutate(s, req, principal, events, root=None):
             m.pop('approved_acceptance', None)
         reset_plan(m, p['reason'])
         invalidate_dependents(s, mid)
+    elif op == 'checkpoint':
+        role(principal, 'host')
+        require(s.get('git_checkpoint'), 'git checkpoint not enabled for this run')
+        require(m['phase'] == 'dod' and not m['stale'], 'checkpoint only at module DoD')
+        m['git_checkpoint'] = git_checkpoint.verify(s, m, read_json(check_ref(p.get('receipt_ref'))))
     elif op == 'complete':
         role(principal, 'module-orchestrator')
         complete_guard(s, m)
@@ -1095,10 +1108,11 @@ def _apply(root, req, principal):
             require(type(p.get('context_readiness_required', True)) is bool, 'context_readiness_required must be boolean')
             require(type(p.get('ui_fidelity_required', False)) is bool, 'ui_fidelity_required must be boolean')
             require(type(p.get('spec_closure_required', False)) is bool, 'spec_closure_required must be boolean')
+            require(type(p.get('git_checkpoint', False)) is bool, 'git_checkpoint must be boolean')
             require(type(p.get('dependency_resolution_required', False)) is bool, 'dependency_resolution_required must be boolean')
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
             require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
-            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'spec_closure_required': p.get('spec_closure_required', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
+            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'spec_closure_required': p.get('spec_closure_required', False), 'git_checkpoint': p.get('git_checkpoint', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
                  'reuse_sources': reuse_sources, 'reuse_required': bool(reuse_sources) or p.get('reuse_required', False),
                  'entry_mode': entry_mode, 'single_module_id': selected_module,
                  'global_spec': p['global_spec'], 'new_architecture': p['new_architecture'], 'requirement_ids': p['requirement_ids'],

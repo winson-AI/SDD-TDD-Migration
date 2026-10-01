@@ -115,6 +115,22 @@ class ProjectContextTests(unittest.TestCase):
         second = pc.prepare(self.root, self.base / '.sdd-runs/r2', self.run_request('r2'), self.actor)
         self.assertIs(second['input']['dependency_resolution_required'], False)
 
+    def test_git_checkpoint_and_local_rounds_are_bound_from_project_config(self):
+        pc.update(self.root, self.request('git', 1, {'defaults': {'quality_gates': {'git_checkpoint': True},
+                                                                  'budgets': {'local_fix_rounds': 2}}}), self.actor)
+        prepared = self.prepare()
+        self.assertIs(prepared['input']['git_checkpoint'], True)
+        payload = self.init_payload(prepared)
+        with self.assertRaisesRegex(Rejected, 'git checkpoint mismatch'):
+            self.start({**payload, 'git_checkpoint': False})
+        self.start(payload)
+        state, _ = ledger.read_events(self.run)
+        self.assertIs(state['git_checkpoint'], True)
+        self.assertEqual(state['local_fix_rounds'], 2)
+        for bad in ({'quality_gates': {'git_checkpoint': 'yes'}}, {'repair_policy': {'local_automatic_rounds': 2}}):
+            with self.subTest(bad=bad), self.assertRaises(Rejected):
+                pc.validate({'defaults': bad})
+
     def test_dependency_gate_requires_real_boolean(self):
         for value in ('true', 1, []):
             with self.subTest(value=value), self.assertRaisesRegex(Rejected, 'must be a boolean'):

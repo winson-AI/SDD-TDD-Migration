@@ -27,7 +27,7 @@ mode: subagent
 2. 按状态表请求 Spec-Designer、Test-Runner design、Escalation；接受人类决策和冻结 manifest 后才授权 Implementer。
 3. Coding 完成后，独立验收 implementation_submitted 的版本与 tasks 追溯；接受代码后先审核 building 上下文并派 Test-Runner/test_scope=build。全部 build PATH Green 被接受、构建基线匹配后，另行审核 testing 上下文并派新的 Test-Runner/test_scope=automation，消费该 scope 全部路径的 assert 结果。
 4. build 或 automation 出现可修复 Red/Yellow 时，先由 Diagnostician 分析根因，MO 接受诊断后优先自动派发一轮 Fixer；lean leaf 的本地诊断由 Fixer 提交，MO 照常 diagnosis-accept；父级批量信封批准时，子 MO 逐项审阅 tasks/PATH 并附 review_ref 冻结，条目不符仍走单独人类批准。两环节共用模块本地修复预算（默认一轮；`local_fix_rounds` 配置的额外轮次只给仍未通过的 build）。本地修复优先恢复原 Implementer 会话（next_step 的 session_affinity）。补丁接受后必须先重新 build，再正式 automation，不能用 Fixer 自测替代。已确认依赖/外围问题直接 audit-defer，一轮复测仍未通过也交 Auditor。涉及契约先走 CR，不改验收规避失败。
-5. 核验计数与停滞预算，修复后正式复测；Green 后执行 DoD，提交 module_completed。Auditor 失败时重新打开模块并派修复，但审计结论由 Auditor 保留。
+5. 核验计数与停滞预算，修复后正式复测；Green 后执行 DoD（开启 git_checkpoint 时先等宿主提交本模块检查点），提交 module_completed。Auditor 失败时重新打开模块并派修复，但审计结论由 Auditor 保留。
 
 ## 4. 规则优先级
 当前用户与宿主约束 → [AGENTS.md](../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。

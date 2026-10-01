@@ -94,7 +94,8 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | session | MO | role、session_id；替换原会话须 reason=session-unavailable、checkpoint_ref，且旧 assignment 已关闭 |
 | revoke | host | assignment_id、stopped_worker_ref；实际停止/隔离后才释放活动占用；旧 token 不再被接受 |
 | invalidate | MO/host | reason；旧 worker 必须先 revoke；重新进入 specifying，并使消费者及全局审计失效 |
-| complete | MO | dod_ref、checks_passed=true；当前模块全路径 Green、版本有效、依赖完成才可接受 |
+| checkpoint | host | receipt_ref（git_checkpoint.py 回执）；仅 git_checkpoint 开启且模块在 DoD 时，逐文件 blob 必须等于当前已接受代码，见 [模块 Git 检查点](lean-disciplines.md#模块-git-检查点可选默认关闭) |
+| complete | MO | dod_ref、checks_passed=true；开启 git_checkpoint 时须已有当前 code_baseline 的检查点；当前模块全路径 Green、版本有效、依赖完成才可接受 |
 | audit-assign | Global | assignment_id、instance_id；全部模块完成后固定快照；审计实例不能是任意实现/修复/测试作者实例 |
 | audit-route | Global | path_id、非空唯一 module_ids、reason_ref；给尚无负责模块的全局审计问题分配责任，不修改模块阶段 |
 | repair-accept | MO | 非空唯一 path_ids；接受分配给本模块的审计问题，在依赖就绪且无 worker/blocker 时从 completed/testing 重开 testing；保留原失败供诊断分流 |
