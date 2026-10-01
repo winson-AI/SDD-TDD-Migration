@@ -15,7 +15,7 @@ sys.dont_write_bytecode = True
 
 from contracts import check_ref, digest, file_ref, keyed, nonempty, read_json, require
 
-ANTI_PATTERNS = ('preview-only-wiring', 'dead-handler', 'fixed-result', 'placeholder-icon', 'unapproved-stub')
+ANTI_PATTERNS = ('preview-only-wiring', 'dead-handler', 'fixed-result', 'placeholder-icon', 'unapproved-stub', 'swallowed-error')
 
 
 def cited(item, target, label, rid):
