@@ -45,7 +45,7 @@ Coding 接受 → Test-Runner building 预检 → 编译构建
 - 用户明确命令优先；没有指定时，GO/Test-Runner 在整个目标项目搜索 Gradle wrapper、Gradle 配置及构建脚本，阅读实际任务和模块/variant，不执行搜索到的所有脚本。
 - [discover_build.py](../../migration-test/scripts/discover_build.py) 提供只读候选搜索：项目根 wrapper 优先，其次唯一嵌套 wrapper，否则本机 Gradle。默认候选为 `assemble`；避免使用会顺带运行自动化测试的 `build/check`，确保设备/自动化环境缺失不会使编译阶段失败。
 - 多个构建根或不同目标有歧义时由 Agent 结合模块 scope 选择并留依据，无法判断再询问用户。缺少 Gradle、SDK/JDK、必要脚本则记录构建环境 Yellow；不伪造命令、不替换为 `echo success`。
-- 历史 `quality_gates.build_argv` 应由宿主转换为 `build.argv`；不再只把构建命令当未执行的说明字段。
+- 历史 `quality_gates.build_argv` 应由宿主转换为 `build.argv`；构建命令是可执行的冻结 PATH 字段。
 - 每个 build PATH 的 `command` 固定绝对 argv、目标内 cwd、timeout_seconds、selection_ref。selection_ref 记录搜索候选、选中理由、目标/variant、必要工具版本及模块范围。building 预检另提供实际环境证据；源码生成前不执行构建。
 - 共享构建目录/设备锁由宿主落实，锁等待不能污染其他模块的测试质量。构建只产生授权输出，不授予 Test-Runner 修改业务源码的权限。
 
@@ -137,7 +137,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 若回收仍超时、直接进程未确认退出或信号失败，及时保存已捕获日志、exit_code=124 及诊断回执，host_stop_required=true；当前 attempt 与嵌套 Harmony temp 保留，cleanup.json 说明 process-stop-unconfirmed。Host 必须先核验/停止或隔离相关进程，保留本回执和 stopped_worker_ref，再按原 revoke（全局审计用 audit-revoke）恢复；该回执不可通过 submit/accept 关闭 assignment，不能被当成普通自动化缺测放行。保持已有失败观测，不自动重授资源锁或删除仍在使用的临时目录；无关模块继续。停机/隔离确认后由 Host 清理该 attempt，后续测试用新 attempt。正常回收的超时仍沿以下既有三态机制提交。
 
-Auditor 批次中的构建 Red/Yellow 同样属于验证失败：接受构建结果时直接记录 build-verification-failed、结果引用及编译/超时根因，关联分支等待人工审核，独立审计分支继续。不再推荐批次内禁止的 audit-defer；构建 Green 只开放 Automation，不写入自动化通过证明。纯自动化环境缺失仍走原缺测出口，不能用于跳过失败构建。
+Auditor 批次中的构建 Red/Yellow 同样属于验证失败：接受构建结果时直接记录 build-verification-failed、结果引用及编译/超时根因，关联分支等待人工审核，独立审计分支继续。批次内禁止 audit-defer；构建 Green 只开放 Automation，不写入自动化通过证明。纯自动化环境缺失仍走原缺测出口，不能用于跳过失败构建。
 
 Automation 正式执行器在进程退出后保留原始 result.json 和已落盘 observations.json，并将部分观测摘要引用绑定到 receipt.partial_observations_ref。汇总与 Ledger 验收共同使用 host_completion_version=1 的确定性判定：
 

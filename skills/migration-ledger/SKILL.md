@@ -6,7 +6,7 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 # migration-ledger
 
 ## 1. 定位
-服务 Ledger；先读取 [共享协议](../migration-protocol/SKILL.md)，再读 [职责协议](../migration-protocol/references/runtime.md)。
+服务 Ledger；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/runtime.md) 的相应小节。
 
 ## 2. 核心规约
 宿主绑定身份、revision CAS、request 幂等；产物先落盘再提交事实事件，投影可从日志重建。

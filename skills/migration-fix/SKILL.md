@@ -6,7 +6,7 @@ description: 最小修复、回归证据与不改变验收的变更建议，用�
 # migration-fix
 
 ## 1. 定位
-服务 Fixer；先读取 [共享协议](../migration-protocol/SKILL.md)，再读 [职责协议](../migration-protocol/references/testing.md)。
+服务 Fixer；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/testing.md) 的相应小节。
 
 ## 2. 核心规约
 修复目标是满足已冻结契约；修改验收/任务定义先 CR，不能边改标准边证明通过。

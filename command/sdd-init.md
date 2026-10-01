@@ -43,7 +43,7 @@ status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接
 
 ## 本地实现接入
 
-project_context init/update → prepare → Global 生成完整运行输入 → host Ledger init（绑定 project_context_ref）→ Global register（按拓扑顺序）。具体 payload/命令用法见 [local-runtime.md](../skills/migration-protocol/references/local-runtime.md)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
+project_context init/update → prepare → Global 生成完整运行输入 → host Ledger init（绑定 project_context_ref）→ Global register（按拓扑顺序）。具体 payload/命令用法见 [操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
 
 当前本地入口：init 包含 global_spec/new_architecture/requirement_ids → register → global-plan 覆盖验收。验收前允许规格规划，禁止实现派发。
 

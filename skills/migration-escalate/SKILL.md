@@ -6,7 +6,7 @@ description: 结构化人工阻塞、反馈转机器输入和超时升级，用�
 # migration-escalate
 
 ## 1. 定位
-服务 Escalation；先读取 [共享协议](../migration-protocol/SKILL.md)，再读 [职责协议](../migration-protocol/references/runtime.md)。
+服务 Escalation；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/runtime.md) 的相应小节。
 
 ## 2. 核心规约
 每个问题包含影响、证据、尝试、选项和推荐；决定绑定 question_id、run/module、revision 和内容 hash。

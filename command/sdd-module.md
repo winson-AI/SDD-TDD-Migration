@@ -43,7 +43,7 @@ status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接
 
 ## 本地实现接入
 
-MO assign → worker submit → MO accept → complete。具体 payload/命令用法见 [local-runtime.md](../skills/migration-protocol/references/local-runtime.md)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
+MO assign → worker submit → MO accept → complete。具体 payload/命令用法见 [操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
 
 本命令推进已有 run 内的一个已注册模块。用户指定已划分的独立功能模块来启动完整迁移时，应在同一项目入口使用 `/sdd-init --mode single-module --module-name "功能模块名"`（自动读取已保存项目配置），由 Global 识别生成模块级 SPEC 草案和 Testing list 并初始化，再运行 sdd-plan 完成正式六件套/测试设计及冻结，然后使用本命令或 sdd-run；后续仍须 Auditor 收尾。
 

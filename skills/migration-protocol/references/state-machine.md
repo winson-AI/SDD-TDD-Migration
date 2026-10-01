@@ -77,7 +77,7 @@ Auditor 可执行既有脚本并生成日志，不能编辑源码/脚本。发�
 
 ## 本地控制器映射
 
-可执行入口与操作矩阵见 [local-runtime.md](local-runtime.md)。它支持本地事件提交/重放、模块阶段串行和不同模块并行；控制器本身不常驻派发 Agent。
+可执行入口与操作矩阵见 [local-runtime.md](local-runtime.md#操作矩阵)。它支持本地事件提交/重放、模块阶段串行和不同模块并行；控制器本身不常驻派发 Agent。
 
 新增冻结前证据：`source_closure` 至少含真实入口、事件→状态/数据→结果执行链、生产绑定、证据引用与未决项；`target_feasibility` 包含已核实的目标接口/依赖/版本路线及证据。未知可行性先阻塞，不先写代码再隐瞒替代。
 
@@ -85,13 +85,13 @@ Auditor 可执行既有脚本并生成日志，不能编辑源码/脚本。发�
 
 `recover` 创建 recovery_cycle，并增加经批准的预算，不清零累计 fix_rounds_used/total_fix_rounds。审批 subject 同时绑定 module revision、cycle 与 additional_rounds；普通 resume 不增加预算。停滞检测触发后的新周期可清理本周期停滞计数，旧事实永久留在日志中。
 
-部分验证（如 source-only）保存 Yellow 和具体缺失证据；不能映射为 completed/Green。视觉/资源能力暂不进入本轮实现，P5 保持可选。
+部分验证（如 source-only）保存 Yellow 和具体缺失证据；不能映射为 completed/Green。
 
 本地审计闭环为 audit → audit_repairs → Global audit-route（全局 PATH）→ MO repair-accept → 诊断提交/接受或 Yellow 挂起 → 修复/复测 → 模块完成 → 新独立审计。具体字段、游标与恢复规则以 [本地操作矩阵](local-runtime.md) 为准。
 
 OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义不被动态勾选修改。问题审计/全局覆盖/物化字段详见 [问题审计](audit-scope.md#问题审计与最终审计)。
 
-当前默认在所有模块本轮 completed/明确挂起且无可推进动作后，先 audit-code-review 及治理闭环，再采用剩余问题的 audit-collect 批次：Auditor 绑定发现/负责模块 SPEC 与测试路径，Global 路由审核，MO 接受一轮 Fixer；按 finding 路由及依赖交错 Testing；失败关联分支待人工，其他分支继续，汇总后 awaiting-human；批准 audit-release 后再进入正常恢复。闭包内的 problem-assign/problem-audit 见第 5 条，详见 [默认收尾](audit-scope.md#默认收尾修复后验证失败待人工)。
+默认在所有模块本轮 completed/明确挂起且无可推进动作后，先 audit-code-review 及治理闭环，再采用剩余问题的 audit-collect 批次：Auditor 绑定发现/负责模块 SPEC 与测试路径，Global 路由审核，MO 接受一轮 Fixer；按 finding 路由及依赖交错 Testing；失败关联分支待人工，其他分支继续，汇总后 awaiting-human；批准 audit-release 后再进入正常恢复。闭包内的 problem-assign/problem-audit 见第 5 条，详见 [默认收尾](audit-scope.md#默认收尾修复后验证失败待人工)。
 
 ## 父子 MO 的规划与汇总
 

@@ -2,24 +2,17 @@
 
 ## 专题规则入口
 
-本文件只记录本地控制器的命令、操作字段、游标与审计批次细节。以下规则以专题协议为准，这里不再重复：
+本文件只记录本地控制器的命令、操作字段、游标与审计批次细节。以下规则以专题协议为准，这里不再重复（其余专题见 [AGENTS.md 专题索引](../../../AGENTS.md#专题索引)）：
 
 | 主题 | 权威协议 |
 | --- | --- |
-| 同 run 来源追加 | [来源变更](source-changes.md) |
 | 全局覆盖验收、模块隔离与全量收尾 | [状态机](state-machine.md#模块隔离与全量收尾) |
 | 本地修复轮次（`local_fix_rounds`）与预算 | [状态机：有限循环](state-machine.md#有限循环)、[构建预算单位](build-automation.md#本地一轮的预算单位) |
 | 控制流细则（诊断接受、审计修复链） | [状态机：控制流闭环细则](state-machine.md#控制流闭环细则) |
 | 问题审计、默认 Auditor 收尾批次 | [审计范围](audit-scope.md#问题审计与最终审计)、[默认收尾](audit-scope.md#默认收尾修复后验证失败待人工) |
-| 项目级/单模块入口、功能清单完备性 | [切片规约](../../migration-global/references/slicing.md) |
-| 项目上下文 prepare/init 绑定 | [项目上下文](project-context.md) |
-| 二方库与已有能力复用 | [复用协议](reuse-dependencies.md) |
-| 上下文就绪控制节点 | [上下文就绪](context-readiness.md) |
-| 停滞信号与 invalidate 恢复 | [恢复与进度](progress-recovery.md) |
 | build → static → automation → visual | [构建与自动化](build-automation.md)、[静态规格闭合](testing.md#静态规格闭合) |
-| 四维分配与冻结字段 | [四维协议](dimension-slicing.md) |
 
-## 已实现与宿主责任
+## 能力边界与宿主责任
 
 本地实现使用 Python 3.10+ 标准库，在 macOS/Linux 上用 `fcntl.flock` 串行提交；不支持 Windows 原生文件锁。单进程或多个 CLI 进程都通过同一个 run root 的锁写日志。模块工作可并行，只有事务提交串行。
 
@@ -173,7 +166,7 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 - hash 链可检测非授权意外篡改，但不是抵御能够重写整本日志的攻击者的签名链。
 - 事件落盘后投影失败，下次 status/重复请求会从日志重建；不会重新派发已确认请求。
 - 完整事件中部或尾部损坏均停止；不自动删除证据。宿主须从已校验备份恢复或人工处置。
-- global/module JSON、OpenSpec 六件套及 memory 已实现自动投影；从 Ledger 与定义快照重建，不能成为第二事实源。
+- global/module JSON、OpenSpec 六件套及 memory 自动投影；从 Ledger 与定义快照重建，不能成为第二事实源。
 
 ## 编排游标
 

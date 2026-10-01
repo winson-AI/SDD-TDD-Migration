@@ -6,7 +6,7 @@ description: 整体代码审查、重构/复用治理委派、独立遗留复核
 # migration-audit
 
 ## 1. 定位
-服务 Auditor；先读取 [共享协议](../migration-protocol/SKILL.md)，再读 [职责协议](../migration-protocol/references/state-machine.md)。
+服务 Auditor；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/state-machine.md) 的相应小节。
 
 ## 2. 核心规约
 等待所有 MO 实现/测试本轮收尾及父汇总，先按 [整体代码治理](../migration-protocol/references/audit-code-review.md) 提交 audit-code-review，核对所有代码改动、冗余、二方库依赖与公共通用能力；委派治理并完成影响范围回归、刷新审查后，再从 Ledger 收集剩余 Red/Yellow。读取对应 SPEC/CASE/PATH/根因，复核并委派必要的一轮 Fixer，修复后 Testing 复核；失败留根因待人工。作者与审计实例分离。

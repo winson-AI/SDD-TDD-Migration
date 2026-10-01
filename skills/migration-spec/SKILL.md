@@ -6,7 +6,7 @@ description: OpenSpec 六件套、plan 澄清冻结和 CR 影响分析，用于 
 # migration-spec
 
 ## 1. 定位
-服务 Spec-Designer；先读取 [共享协议](../migration-protocol/SKILL.md)，再读 [职责协议](../migration-protocol/references/openspec.md)。
+服务 Spec-Designer；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/openspec.md) 的相应小节。
 
 ## 2. 核心规约
 使用真实 delta specs，需求 ID 与 Scenario 可追溯；测试验收先于实施确定；tasks 原子可执行。

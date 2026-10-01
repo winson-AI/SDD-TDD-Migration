@@ -4,7 +4,7 @@ UI 实现需有存量源树、明确 page/state/coverage 和实际可得的运�
 
 ## 结构化 UI 边界（攻克“边界不清晰”）
 
-UI scope 不再用散文墙，改为可校验载体：
+UI scope 使用可校验载体：
 
 - **capture 目标** `page_id:state_id:coverage`（coverage ∈ `viewport|scroll`），显式列出本切片需视觉验证且可稳定复现的界面态。
 - **稳定 id**：原生树保留自己的 screen/node id；SDD 的 `node:<原生节点id>` 引用它。binding/event 是带源码锚点的对象，不能以字符串 ID 代替记录；资源和交互引用随冻结模型互引。
@@ -110,7 +110,7 @@ GLOBAL 自有 visual PATH 必须显式冻结 visual_evidence（coverage、visual
 
 Auditor 按 PATH 保留所属模块的 build_artifacts，不能借用其他模块的 HAP。可选 GLOBAL visual PATH 在规划时声明 `build_binding: {module_id, path_id}`，指向负责项目集成构建的冻结 build PATH；实际 Green 只接受该 PATH 在当前模块基线的已接受构建产物。GO/MO 审查该构建命令是否覆盖此全局用例依赖；缺少绑定不会借用全局产物池，也不要求重跑已有 Green。普通模块 PATH 不需要新增全局字段。
 
-- **capture manifest（schema 2）** [ui_evidence.validate_capture](../../migration-ledger/scripts/ui_evidence.py):`COMPLETE` 必须有真实 screenshot/view_xml/meta 三元组 + 非空 captures + `observed_variant` + 记录 backend;`scroll` 只有 `scroll-complete` 才算达成(截断的 scroll-partial **永不**推进);`SOURCE_ONLY` 不得携带臆造 captures;缺 coverage 的旧记录不得升级为 viewport。
+- **capture manifest** [ui_evidence.validate_capture](../../migration-ledger/scripts/ui_evidence.py):`COMPLETE` 必须有真实 screenshot/view_xml/meta 三元组 + 非空 captures + `observed_variant` + 记录 backend;`scroll` 只有 `scroll-complete` 才算达成(截断的 scroll-partial **永不**推进);`SOURCE_ONLY` 不得携带臆造 captures;缺 coverage 的旧记录不得升级为 viewport。
 - **validation → 三态 + HAP** [lean_adapter.validation_summary](../../migration-ledger/scripts/lean_adapter.py):外部验证结果的 compile/test/package 检查映射为三态(任一 failed → Red);`package` 通过必须记录产物,且 artifact 的 sha256 与当前文件**仍需匹配**(HAP 不能被换掉)。
 
 ## 精确性纪律

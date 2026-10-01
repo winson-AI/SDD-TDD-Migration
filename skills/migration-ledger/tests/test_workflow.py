@@ -295,6 +295,41 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(step['card_sha256'], reading.digest_card(step['must_read']))
         self.assign = plain
 
+    def test_any_request_may_report_the_session_and_card_it_acted_on(self):
+        self.prepare()
+        self.call('session', {'role': 'module-orchestrator', 'session_id': 'S-MO'})
+        plain = self.call
+
+        def call(op, payload=None, **kw):
+            if op != 'accept' or kw.get('request'):
+                return plain(op, payload, **kw)
+            step = self.state()['next_steps'][0]
+            self.n += 1
+            m = self.state()['modules']['M001']
+            req = {'schema_version': 1, 'request_id': f'h{self.n}', 'run_id': 'demo', 'module_id': 'M001',
+                   'expected_revision': m['revision'], 'operation': 'accept', 'payload': payload or {},
+                   'hint': {'session_id': 'S-MO', 'card_sha256': step['card_sha256']}}
+            return plain(op, payload, request=req)
+        self.call = call
+        self.implementation()
+        m = self.state()['modules']['M001']
+        self.assertIn('S-MO', m['delivered_cards'])
+        self.assertEqual(m['card_load']['dispatches'], 1)
+        self.assertEqual(m['card_load']['full'], m['card_load']['delivered'])
+        a, r = self.make_test_result()
+        self.submit(r, a)
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['session_id']), ('accept', 'S-MO'))
+        self.assertEqual(step['must_read_new'], [])  # the same module-orchestrator card was already delivered
+        self.call = plain
+        with self.assertRaisesRegex(Rejected, 'hint needs'):
+            self.call('accept', request={'schema_version': 1, 'request_id': 'bad', 'run_id': 'demo', 'module_id': 'M001',
+                                         'expected_revision': self.state()['modules']['M001']['revision'], 'operation': 'accept',
+                                         'payload': {}, 'hint': {'session_id': 'S-MO'}})
+        cost = self.state()['workflow_cost']
+        self.assertEqual(cost['modules']['M001']['card_dispatches'], 1)
+        self.assertEqual(cost['totals']['card_bytes_delivered'], cost['totals']['card_bytes_full'])
+
     def test_workflow_cost_counts_dispatches_receipts_and_repairs(self):
         self.failed_module(); self.diagnose(); self.implementation('fixer', 'F1')
         cost = self.state()['workflow_cost']

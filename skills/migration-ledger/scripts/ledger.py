@@ -523,11 +523,37 @@ def suggested_session(s, m, role):
     return own, None
 
 
+def deliver(m, rows, session_id):
+    """Remember what a session now holds and what handing it this card cost; advisory, never a gate."""
+    held = m.setdefault('delivered_cards', {}).setdefault(session_id, {})
+    load = m.setdefault('card_load', {'dispatches': 0, 'full': 0, 'delivered': 0})
+    load['dispatches'] += 1
+    load['full'] += sum(row['bytes'] for row in rows)
+    load['delivered'] += sum(row['bytes'] for row in reading.fresh(rows, held))
+    held.update(reading.delivered(rows))
+
+
+def record_hint(s, m, hint):
+    """A request may report the session and card the host acted on; counted when it matches the cursor step."""
+    require(isinstance(hint, dict) and isinstance(hint.get('session_id'), str) and hint['session_id']
+            and isinstance(hint.get('card_sha256'), str), 'hint needs session_id and card_sha256')
+    try:
+        step = next_step(s, m)
+    except (Rejected, OSError, ValueError, KeyError):
+        return
+    if step.get('operation') and step.get('card_sha256') == hint['card_sha256']:
+        deliver(m, step['must_read'], hint['session_id'])
+
+
+def worker_step(p):
+    """The cursor step a host acts on when it dispatches a worker: the assign the module orchestrator performs."""
+    return {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': p['role'], 'test_scope': p.get('test_scope')}
+
+
 def hint_record(s, m, p):
     """Advisory hints stay advisory; the host's report of what it actually used is kept for audit."""
     suggested, _ = suggested_session(s, m, p['role'])
-    card = reading.digest_card(reading.card(s, m, {'role': 'module-orchestrator', 'worker_role': p['role'],
-                                                   'test_scope': p.get('test_scope')}))
+    card = reading.digest_card(reading.card(s, m, worker_step(p)))
     used, delivered = p.get('session_id'), p.get('card_sha256')
     return {'session_suggested': suggested, 'session_used': used,
             'session_followed': None if used is None or suggested is None else used == suggested,
@@ -658,8 +684,7 @@ def assign_worker(s, m, mid, p, events):
         m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
     hints = hint_record(s, m, p)
     if hints['card_followed'] and p.get('session_id'):
-        rows = reading.card(s, m, {'role': 'module-orchestrator', 'worker_role': p['role'], 'test_scope': p.get('test_scope')})
-        m.setdefault('delivered_cards', {}).setdefault(p['session_id'], {}).update(reading.delivered(rows))
+        deliver(m, reading.card(s, m, worker_step(p)), p['session_id'])
     m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
         'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
         'fencing_token': len(events) + 1, 'hints': hints, **(usage or {})}
@@ -683,6 +708,8 @@ def mutate(s, req, principal, events, root=None):
     if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
     context_readiness.gate(s, req, principal)
+    if req.get('hint') is not None and op != 'assign' and mid and mid not in s.get('module_groups', {}):
+        record_hint(s, m, req['hint'])
     if op == 'context-submit':
         context_readiness.submit(s, req, principal)
     elif op == 'audit-code-review':

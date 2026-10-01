@@ -35,7 +35,7 @@ description: SDD-TDD-Migration 各角色共享的读取、Ledger、冻结和三�
 适用于全部角色定义，角色文件不再逐份重复。
 
 - 规则优先级：当前用户与宿主约束 → [AGENTS.md](../../AGENTS.md) 四条红线 → 项目明确规则 → Used Skills → 默认技术实践。旧 guidance 冲突按本包 README 覆盖表处理。
-- 输入输出：全部为 [运行协议](references/runtime.md) 定义的绝对路径/事件引用；内容产出在本实例 staging，读取已提交工件须验证 hash。
+- 输入输出：输入为 assignment_ref + event_ref + 绝对路径工件引用，输出为角色权限矩阵许可的事件及模板工件，文件已生成不等于已接受，必须收到 Ledger ACK；全部为 [运行协议](references/runtime.md) 定义的绝对路径/事件引用；内容产出在本实例 staging，读取已提交工件须验证 hash。
 - 跨层信息：只走 Ledger；叶子角色完成 assignment 即退出，编排角色仅按批准预算继续。工件不得静默覆盖，旧版本和失败证据必须保留。
 - 阻塞与异常：缺关键输入、权限或工具时提交 reason_code/root_cause/next_action；若需人类，交 Escalation；若为跨模块依赖，交 Global。只经 Ledger，不凭摘要直接继续。无法提交 Ledger 时输出 transport failure 并停机，工件保持 staged，不能称已记录。
 - 输出格式（传输摘要不是质量判定，Green/Red/Yellow 以 Ledger 有效证据为准）：
