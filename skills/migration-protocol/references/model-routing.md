@@ -4,7 +4,7 @@
 
 ## 总则
 
-派发用哪个模型由宿主决定，但控制器给出档位建议并留痕：`status.next_steps[].model_tier` 建议弱推理步（执行/观察）用低成本模型、强推理步（设计/根因/裁决）用配置强模型；strong-only 步骤禁止降级；宿主把实际模型回填 `assign`/`session` payload，投影到 `ledger/model-usage.json` 供排查。配置与策略见下文。
+派发用哪个模型由宿主决定，但控制器给出档位建议并留痕：`status.next_steps[].model_tier` 建议弱推理步（执行/观察）用低成本模型、强推理步（设计/根因/裁决）用配置强模型；strong-only 步骤禁止降级；宿主把实际模型回填 `assign`/`session` payload，投影到 `ledger/model-usage.json` 供排查。
 
 ## 配置（project-context 的 `runtime.model_routing`）
 

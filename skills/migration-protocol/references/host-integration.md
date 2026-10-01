@@ -64,7 +64,7 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 ## 提示采纳回报
 
-宿主轮询用 `ledger.py status --view cursor`（默认：游标、`module_summary`、按摘要去重的 `cards`；无模块正文）；单模块细节 `--view module --module <id>`，排查用 `--view full`。`reading.py render --root <run> --module <id>`（全局步骤用 `--global`）把当前卡写成 `reports/reading/<card_sha256>.md`，派发只传该路径；角色需要卡外规则时 `reading.py show --ref <文件> --section <标题>` 读单节。`card_sha256` 绑定小节正文。
+宿主轮询用 `ledger.py status --view cursor`（默认：游标、`module_summary`、按摘要去重的 `cards`；无模块正文）；单模块细节 `--view module --module <id>`，排查用 `--view full`。`reading.py render --root <run> --module <id>`（全局步骤用 `--global`）把当前卡写成 `reports/reading/<card_sha256>.md`，派发只传该路径；角色需要卡外规则时 `reading.py show --ref <文件> --section <标题>` 读单节。`card_sha256` 绑定小节正文。恢复建议会话时只交 `must_read_new`（该会话尚未持有或正文已变的小节；`reading.py render --resumed`），冷启动用完整 `must_read`。门禁拒绝的响应与 `reports/rejected-operation.json` 带 `read_hint`（该门禁所在小节）。
 
 游标的 `session_id`/`session_affinity` 与 `must_read`/`card_sha256` 是建议。宿主派发 worker 时在 assign payload 回填实际恢复或新建的 `session_id` 和交给角色的 `card_sha256`；Ledger 只记录与建议是否一致（`status.hint_adoption`），不据此拒绝派发。持续的 not_followed 或 unreported 说明宿主未落实冷启动优化，应在接入层修正，而不是放宽门禁。
 

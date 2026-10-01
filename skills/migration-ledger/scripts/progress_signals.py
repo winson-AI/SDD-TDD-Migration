@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from contracts import digest
+import reading
 import run_storage
 
 
@@ -36,6 +37,7 @@ def record_rejection(root, req, actor, reason):
                           'revision': revision, 'sequence': len(events), 'fingerprint': fingerprint,
                           'attempts': previous.get('attempts', 0) + 1 if previous.get('fingerprint') == fingerprint else 1,
                           'recorded_at': datetime.now(timezone.utc).isoformat(),
+                          'read_hint': reading.read_hint(reason),
                           'next_action': 'read-current-status; resolve gate or record evidenced suspension; do not retry unchanged request'}
             atomic(scoped, record)
             atomic(path, record)  # Compatibility/latest navigation, not the counter store.

@@ -563,6 +563,9 @@ def next_step(s, m):
     if step.get('operation'):
         step['must_read'] = reading.card(s, m, step)
         step['card_sha256'] = reading.digest_card(step['must_read'])
+        held = m.get('delivered_cards', {}).get(step.get('session_id') or '')
+        if held:
+            step['must_read_new'] = reading.fresh(step['must_read'], held)
     return step
 
 
@@ -654,6 +657,9 @@ def assign_worker(s, m, mid, p, events):
             m['total_fix_rounds'] += 1
         m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
     hints = hint_record(s, m, p)
+    if hints['card_followed'] and p.get('session_id'):
+        rows = reading.card(s, m, {'role': 'module-orchestrator', 'worker_role': p['role'], 'test_scope': p.get('test_scope')})
+        m.setdefault('delivered_cards', {}).setdefault(p['session_id'], {}).update(reading.delivered(rows))
     m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
         'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
         'fencing_token': len(events) + 1, 'hints': hints, **(usage or {})}
@@ -1433,7 +1439,7 @@ def main():
         return 1
     except (Rejected, OSError, ValueError, KeyError, TypeError) as exc:
         diagnostic = Path(args.root).resolve() / 'reports/rejected-operation.json'
-        print(json.dumps({'status': 'rejected', 'reason': str(exc),
+        print(json.dumps({'status': 'rejected', 'reason': str(exc), 'read_hint': reading.read_hint(exc),
                           'next_action': 'read status.workflow_progress; resolve gate or escalate; do not stop unrelated modules',
                           'diagnostic_path': str(diagnostic) if diagnostic.is_file() else None}, ensure_ascii=False), file=sys.stderr)
         return 1

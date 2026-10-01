@@ -8,6 +8,7 @@ import unittest
 import test_ledger
 from contracts import Rejected, digest, file_ref
 import ledger
+import reading
 import workflow
 from execute_test import execute
 
@@ -266,6 +267,33 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(adoption['session']['not_followed'], 1)
         self.assertEqual(adoption['card']['followed'], 1)
         self.assertGreaterEqual(adoption['card']['unreported'], 2)  # earlier dispatches did not report
+
+    def test_resumed_session_is_handed_only_sections_it_does_not_hold(self):
+        self.prepare()
+        self.call('session', {'role': 'implementer', 'session_id': 'S-IMPL'})
+        self.assertNotIn('must_read_new', self.state()['next_steps'][0])  # nothing delivered yet: the full card applies
+        plain = self.assign
+
+        def assign(role, aid):
+            step = self.state()['next_steps'][0]
+            self.call('assign', {'assignment_id': aid, 'role': role, 'instance_id': role,
+                                 'session_id': 'S-IMPL' if role == 'implementer' else 'S-OTHER', 'card_sha256': step['card_sha256']})
+            return self.state()['modules']['M001']['assignments'][aid]
+        self.assign = assign
+        self.implementation()
+        a, r = self.make_test_result(quality='red-bug')
+        r['paths'][0]['root_cause'].update(category='code', confidence='confirmed')
+        self.submit(r, a); self.call('accept', {'assignment_id': 'TEST1'})
+        self.diagnose()
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['worker_role'], step['session_id']), ('fixer', 'S-IMPL'))
+        keys = {reading.key(row) for row in step['must_read']}
+        fresh = {reading.key(row) for row in step['must_read_new']}
+        self.assertLess(fresh, keys)
+        self.assertNotIn('AGENTS.md#四条红线', fresh)
+        self.assertIn('Agents/fixer.md#', fresh)
+        self.assertEqual(step['card_sha256'], reading.digest_card(step['must_read']))
+        self.assign = plain
 
     def test_workflow_cost_counts_dispatches_receipts_and_repairs(self):
         self.failed_module(); self.diagnose(); self.implementation('fixer', 'F1')

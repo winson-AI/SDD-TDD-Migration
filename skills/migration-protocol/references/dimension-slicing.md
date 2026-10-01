@@ -2,7 +2,7 @@
 
 ## 总则
 
-GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 scope 后再按 UI → Logic → Adhesive → Resource 核查源闭包、架构、二方库和目标已有能力；适用项逐层映射到子功能、TASK/PATH/ASSERT，不适用项记录依据。流程节点、字段与门禁见下文。
+GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 scope 后再按 UI → Logic → Adhesive → Resource 核查源闭包、架构、二方库和目标已有能力；适用项逐层映射到子功能、TASK/PATH/ASSERT，不适用项记录依据。
 
 ## 1. 范围与方法
 

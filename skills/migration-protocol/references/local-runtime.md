@@ -179,7 +179,7 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 
 游标由 Ledger 派生，沿用 NEXT/next_skill、blocked_from、阶段 require_state 和轮次保留机制：
 
-- `status.next_steps`：每模块 operation、role、worker_role（如适用）、session_id、assignment_id、expected_revision、ready、reason。每个有 operation 的步骤带 `must_read` 阅读卡（[reading.py](../../migration-ledger/scripts/reading.py)：ref、section、bytes）及其摘要 `card_sha256`，随派发交给角色；assign 时宿主回填实际使用的 `session_id` 与交付的 `card_sha256`，Ledger 在 assignment.hints 记录建议值、实际值与是否采纳，汇总到 `status.hint_adoption` 和 `ledger/model-usage.json`。提示不是门禁，不回填记为 unreported；`global_next_step` 同样提供。本地修复无 fixer 会话时，session_id 指向原 Implementer 会话（`session_affinity=implementer`）；审计期修复不做此提示。未解决结果含已确认 `runtime-spec-variant-conflict` 时，游标为 `suspend(kind=human)`，不进入诊断或修复。
+- `status.next_steps`：每模块 operation、role、worker_role（如适用）、session_id、assignment_id、expected_revision、ready、reason。每个有 operation 的步骤带 `must_read` 阅读卡（[reading.py](../../migration-ledger/scripts/reading.py)）及摘要 `card_sha256`，`global_next_step` 同样提供；会话与阅读卡的回填、采纳统计（`status.hint_adoption`）和 `must_read_new` 见[宿主接入](host-integration.md#提示采纳回报)。本地修复无 fixer 会话时，session_id 指向原 Implementer 会话（`session_affinity=implementer`）；审计期修复不做此提示。未解决结果含已确认 `runtime-spec-variant-conflict` 时，游标为 `suspend(kind=human)`，不进入诊断或修复。
 - `status.ready_modules`：当前有可推进步骤的模块；并非可以同时启动的预约。多个候选可能争用同一资源，真正 assign 仍在事务内再次校验。
 - `status.global_next_step`：等待模块完成、创建审计、等待活动审计、撤销失效审计或等待交付授权。游标不自动派发，也不赋予额外权限。
 - 已提交 worker 结果对应 `accept`；未提交对应 `await-result`。原会话通过 session_id 提示复用；短交接只传 Ledger/assignment/artifact 引用。

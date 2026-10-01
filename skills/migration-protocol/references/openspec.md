@@ -44,7 +44,7 @@ Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/
 
 格式依据：[OpenSpec Concepts](https://github.com/Fission-AI/OpenSpec/blob/main/docs/concepts.md)、[CLI](https://github.com/Fission-AI/OpenSpec/blob/main/docs/cli.md)。六件套后两项、冻结算法与 Ledger 为本包扩展，未注册 OpenSpec 自定义 schema；CLI 不会替本包执行门禁。
 
-## 决策边界与执行基线（P1）
+## 决策边界与执行基线
 
 人类批准 `decision_envelope`：scope、acceptance、allowed_alternatives、forbidden_changes。默认禁止未经批准更换数据提供方、缩减范围、降低验收或引入重大排除。判断是否越界由 Spec-Designer 提交证据、MO 审查；hash 不能证明语义合规。
 
