@@ -104,7 +104,7 @@ GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 sc
 
 子 MO 规划实现时，可为 UI/Logic/Resource 的 applicable item 附机器可读语义模型（UI=JSON Component Spec、Logic=Statechart+JSON-Logic、Resource=Design Tokens/ICU），记录抽象结果/来源/实现位置，随四维分析结构门禁校验并 hash 冻结、投影为 `semantics.md` 供下游读取；presence-triggered、任务驱动，`new` 策略基于目标项目创建。见 [代码语义抽取协议](skills/migration-protocol/references/semantic-extraction.md)。
 
-证据契约只有当前一套，prepare 与 Ledger init 均按其校验。UI fidelity 默认值及适用条件以本轮快照为准；开启时 applicable UI 必须有模型/源树/目标覆盖，不是可选附录。lean 只按 [受限工具接入](skills/migration-protocol/references/lean-integration.md) 使用：Spec-Designer 分析 UI，Implementer 精确迁移资源并接线，Test-Runner 构建/功能测试/视觉取证，Fixer 修复，Auditor 独立；不得加载完整 lean 实现或 Aligner skill 合并这些权限。原始结果引用、转换证据及正式 payload 均在本轮受管目录留存并经 Ledger 提交。仅自动化不可用仍按 Yellow 缺测收尾，不阻止独立任务。
+证据契约只有当前一套，prepare 与 Ledger init 均按其校验。UI fidelity 默认值及适用条件以本轮快照为准；开启时 applicable UI 必须有模型/源树/目标覆盖，不是可选附录。领域工具只按 [受限工具接入](skills/migration-protocol/references/domain-tools.md) 使用：Spec-Designer 分析 UI，Implementer 精确迁移资源并接线，Test-Runner 构建/功能测试/视觉取证，Fixer 修复，Auditor 独立；不得加载完整的外部实现或对齐技能来合并这些权限。原始结果引用、转换证据及正式 payload 均在本轮受管目录留存并经 Ledger 提交。仅自动化不可用仍按 Yellow 缺测收尾，不阻止独立任务。
 
 ## 阻塞感知与恢复
 

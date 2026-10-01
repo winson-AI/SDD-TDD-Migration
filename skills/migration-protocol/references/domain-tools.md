@@ -1,6 +1,6 @@
-# lean 领域工具接入 SDD
+# 领域工具受限接入
 
-GO、父/子 MO、Ledger、冻结、修复预算和独立审计继续按 SDD 协议执行。lean 提供 UI 源码抽取、截图证据校验、精确资源转换、视觉比较及 Foundation 知识；宿主按下表开放受限操作，不把完整 `android-to-kmp-lean`、lean orchestrator 或 Aligner skill 加载为某个 SDD 角色的新执行规约。它们包含设计、改码、提交或返工控制，整包执行会跨越 SDD 角色权限。
+GO、父/子 MO、Ledger、冻结、修复预算和独立审计继续按 SDD 协议执行。领域工具提供 UI 源码抽取、截图证据校验、精确资源转换、视觉比较及 Foundation 知识；宿主按下表开放受限操作，不把任何外部全流程迁移、编排或对齐技能加载为某个 SDD 角色的新执行规约。它们包含设计、改码、提交或返工控制，整包执行会跨越 SDD 角色权限。
 
 ## 角色与权限
 
@@ -25,7 +25,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
   --root <run_root> --request <staged-request.json> --host-context <host.json>
 ```
 
-请求示例见 [lean-worker-request.json](../../../template/lean-worker-request.json)。operation/request_id/module_id/args 由宿主组装；resource-convert/compare-only 还须绑定当前 assignment_id/fencing_token。输出位置由入口固定推导，不提供任意 output_dir。host-context 由宿主认证注入，不能让 worker 自选身份。
+请求示例见 [domain-worker-request.json](../../../template/domain-worker-request.json)。operation/request_id/module_id/args 由宿主组装；resource-convert/compare-only 还须绑定当前 assignment_id/fencing_token。输出位置由入口固定推导，不提供任意 output_dir。host-context 由宿主认证注入，不能让 worker 自选身份。
 
 | operation | args 要点 | 当前实际能力 |
 | --- | --- | --- |
@@ -36,7 +36,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 | `compare-only` | reference_ref/candidate_ref | 生成确定性 score；score 是证据，不等于 ALIGNED，不操作设备、不自动修 UI、不生成手势执行事实 |
 | `visual-install` / `visual-capture` / `semantic-inspect` | 当前 PATH/assignment、冻结 visual_execution、构建/装机/比较引用 | 受限设备安装、捕获与语义比较，详见 [视觉执行](visual-execution.md)；只产出证据，不写 Ledger、不修源码 |
 | `import-evidence` | kind/source_ref；UI 另给 target/ui_tree_ref/source_index_ref/runtime_index_ref，选填 resource_scope | 转换 ui/alignment/validation/foundation/resource 原始结果；资源导入另绑定 approved_spec_hash。导入结果不提升角色权限、不自动验收 |
-| `knowledge-query` | mode 为 topics/topic/foundation/external；topic 用 topic_id；foundation/external 用 query，可选 full(bool) | 查询 bundled 索引、主题、Foundation 或 Harmony 外部能力候选，保留 index/catalog/record/topic/cookbook 引用与 hash；不加载完整 Lean skill |
+| `knowledge-query` | mode 为 topics/topic/foundation/external；topic 用 topic_id；foundation/external 用 query，可选 full(bool) | 查询 bundled 索引、主题、Foundation 或 Harmony 外部能力候选，保留 index/catalog/record/topic/cookbook 引用与 hash；不加载完整的外部技能 |
 | `knowledge-diagnose` | error_ref（path/sha256） | 读取真实日志片段，按原工具 pattern 匹配候选原因和 cookbook；不作根因裁决 |
 | `foundation-resolve` | requirements（非空字符串数组）；或 requirements=[] 且 no_new_dependencies=true | 在 bundled catalog 内解析目标敏感依赖及版本；不修改目标、不联网解依赖。result.json 可作 plan.dependency_resolution_ref |
 | `foundation-verify` | resolution_ref、catalog_ref（均 path/sha256） | resolution 必须在本 run；catalog 必须是快照 target_root 内的实际 TOML，核对坐标版本并留证；不代替 build |
@@ -45,7 +45,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 四个知识操作需要合法宿主 principal 与有效运行快照，均只读、不要求 assignment；规划和失败分析阶段也可调用。knowledge-query 对 GO/MO/Spec-Designer/Implementer/Fixer/Diagnostician/Test-Runner/Auditor/Escalation 开放；knowledge-diagnose 对 Implementer/Diagnostician/Fixer/Test-Runner/Auditor 开放；foundation-resolve 只给 GO/MO/Spec-Designer；foundation-verify 给 Implementer/Fixer/Test-Runner/Auditor。Ledger 角色不承担领域读取。Host 认证后用对应角色运行，不让 worker 自选身份。
 
-请求使用同一个 lean_worker CLI，最小主题查询见 [lean-knowledge-request.json](../../../template/lean-knowledge-request.json)。其余 args 示例：
+请求使用同一个 lean_worker CLI，最小主题查询见 [knowledge-request.json](../../../template/knowledge-request.json)。其余 args 示例：
 
 ```json
 {"mode":"topics"}
@@ -57,7 +57,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 {"resolution_ref":{"path":"<run>/staging/<spec>/<request>/result.json","sha256":"<实际摘要>"},"catalog_ref":{"path":"<target>/gradle/libs.versions.toml","sha256":"<实际摘要>"}}
 ```
 
-以上每行分别用于相应 operation 的 args，名称/坐标由当前目录查询结果确定，不能照抄成项目事实。每次调用的 request/result/receipt 都写入 `staging/<actor>/<request_id>`；查询到的知识引用保留 hash。角色仍需把相关结果随原上下文、plan、实现或测试提交，工具不会提交 Ledger 或自动触发下一角色。Foundation 配置唯一入口、默认关闭及不适用处理见 [lean 工程纪律](lean-disciplines.md)。
+以上每行分别用于相应 operation 的 args，名称/坐标由当前目录查询结果确定，不能照抄成项目事实。每次调用的 request/result/receipt 都写入 `staging/<actor>/<request_id>`；查询到的知识引用保留 hash。角色仍需把相关结果随原上下文、plan、实现或测试提交，工具不会提交 Ledger 或自动触发下一角色。Foundation 配置唯一入口、默认关闭及不适用处理见 [工程纪律](engineering-disciplines.md)。
 
 知识结果附 `sdd_adaptation_ref`，将上游平台决策/实现/验证概念映射到本轮四维分析、冻结 SPEC、task_trace/dimension_evidence 及正式 PATH/ASSERT。`external` 查询只返回目录快照候选，所列历史版本/verified 标记不代表当前目标已验证；无匹配也不能据此判定无法实现。上游独立 probe 未接入，结果明确 `probe_support:not-supported`，由当前角色在已有任务和测试路径中设计并验证所选方案；不安装包、不运行目录里的命令、不创建 `.a2c` 或独立状态文件。
 
@@ -65,7 +65,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 入口及查询/诊断/resolve 使用 Python 3.10+；`foundation-verify` 单项需要 Python 3.11+ 的 tomllib，缺少时明确拒绝并保留原因。`compare-only` 还需要 Pillow，可使用本 run 已准备好的 Harmony sandbox 环境。缺少 Pillow 时保留 `comparison-unavailable` 与原因，由 Test-Runner 按现有 Yellow/未执行通道处理，不自动安装依赖或阻止其他模块。
 
-使用 [lean-visual-test-adapter.json](../../../template/lean-visual-test-adapter.json) 实例化 adapter JSON，其 argv 指向 [lean_visual_adapter.py](../../migration-ledger/scripts/lean_visual_adapter.py)、当前原始 alignment 文件与 target_root。有冻结手势才在 argv 添加 `--interaction <id>`（可重复）。宿主取得 visual assignment 后执行：
+使用 [visual-test-adapter.json](../../../template/visual-test-adapter.json) 实例化 adapter JSON，其 argv 指向 [lean_visual_adapter.py](../../migration-ledger/scripts/lean_visual_adapter.py)、当前原始 alignment 文件与 target_root。有冻结手势才在 argv 添加 `--interaction <id>`（可重复）。宿主取得 visual assignment 后执行：
 
 ```sh
 python3 <package>/skills/migration-ledger/scripts/execute_test.py \
@@ -99,7 +99,7 @@ execute_test 自动传 query/result 文件并保存正式回执，adapter 只重
 
 ### 资源执行与事实绑定
 
-资源扫描对 GO/MO/Spec-Designer/Implementer/Fixer/Test-Runner/Auditor 开放，只读候选索引与源码。转换仅允许 Implementer/Fixer；请求例子见 [lean-resource-request.json](../../../template/lean-resource-request.json)。写入前校验活动 assignment、freeze、fencing token、模块与 task.scope.write_paths、dimension_trace 的任务所有权，以及冻结 source_resource_ref/目标路径/访问器/消费者/精确策略。扫描发现多个配置变体时，Spec 分别记录，不自动任选一个。
+资源扫描对 GO/MO/Spec-Designer/Implementer/Fixer/Test-Runner/Auditor 开放，只读候选索引与源码。转换仅允许 Implementer/Fixer；请求例子见 [resource-request.json](../../../template/resource-request.json)。写入前校验活动 assignment、freeze、fencing token、模块与 task.scope.write_paths、dimension_trace 的任务所有权，以及冻结 source_resource_ref/目标路径/访问器/消费者/精确策略。扫描发现多个配置变体时，Spec 分别记录，不自动任选一个。
 
 冻结中，声明精确策略的资源项必须给出 source_resource_ref（真实源文件 path/sha256）、Android source_resource（如 @string/title）和 qualifier（base 或源 res 目录后缀）。从文件/values 条目核对 resource_kind、nine_patch、source_unit；UI 闭包仍要求全部资源有策略。资源转换请求均执行任务与源证据校验。
 
@@ -121,6 +121,6 @@ byte_copy 要求源目标字节一致；value_xml_exact 仅自动迁移一个 st
 
 证据契约要求目标覆盖、原始引用和资源闭包，但不改变 GO/MO/审计权责；已提交证据不重算或改写。
 
-视觉差异进入原有 Red→诊断→Fixer→正式复测闭环，不启用 lean 自带的额外三轮循环或自动重置预算。仅自动化环境不可用时，automation/visual 留 Yellow/未执行，沿既有 `automation-unavailable`、`completed-with-unverified-tests` 规则收尾，独立任务和可用构建下游继续；不得伪 Green，也不强迫用户为纯缺测恢复环境。
+视觉差异进入原有 Red→诊断→Fixer→正式复测闭环，不启用外部工具自带的额外修复循环或自动重置预算。仅自动化环境不可用时，automation/visual 留 Yellow/未执行，沿既有 `automation-unavailable`、`completed-with-unverified-tests` 规则收尾，独立任务和可用构建下游继续；不得伪 Green，也不强迫用户为纯缺测恢复环境。
 
-知识工具执行、可选冻结 gate、依赖决策阶梯、Grill 与 Git 纪律见 [lean 工程纪律](lean-disciplines.md)。领域工具不自动选择主题、执行修复或创建另一套调度器；GO/MO/Ledger 仍是原控制流。这些接入机制提供结构和权限约束；真实宿主派发、实际构建/设备执行及行为保真仍需对应的独立执行证据，不能由 `/sdd-verify` 或转换器单独证明。
+知识工具执行、可选冻结 gate、依赖决策阶梯、澄清与 Git 纪律见 [工程纪律](engineering-disciplines.md)。领域工具不自动选择主题、执行修复或创建另一套调度器；GO/MO/Ledger 仍是原控制流。这些接入机制提供结构和权限约束；真实宿主派发、实际构建/设备执行及行为保真仍需对应的独立执行证据，不能由 `/sdd-verify` 或转换器单独证明。

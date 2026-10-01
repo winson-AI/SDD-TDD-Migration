@@ -207,7 +207,7 @@ def approval(s, m, subject):
 
 
 def self_diagnosis(s, m):
-    """A lean leaf's local round is diagnosed by the repairing session; audit rounds stay independent."""
+    """A lightweight leaf's local round is diagnosed by the repairing session; audit rounds stay independent."""
     return (bool(m.get('lean_leaf')) or bool(s.get('fixer_self_diagnosis'))) and not audit_closure.active(s) \
         and not m.get('audit_fix_grant')
 
@@ -654,7 +654,7 @@ def mutate(s, req, principal, events, root=None):
         require(not p.get('parent_module_id'), 'register GO root modules; children require decompose-accept')
         require(p.get('lean_leaf') in (None, True), 'lean_leaf must be true when present')
         if p.get('lean_leaf'):
-            require(not p.get('decomposition_required'), 'a lean leaf is an atomic root; it cannot also require decomposition')
+            require(not p.get('decomposition_required'), 'a lightweight leaf is an atomic root; it cannot also require decomposition')
             decomposition.check_scope(p)
             require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in leaf scope')
             require(p.get('leaf_review_ref'), 'lean leaf requires the GO atomic-root review')

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Optional per-module Git checkpoint, run by the host when a module reaches DoD.
 
-Lean commits each validated slice so every later step has a reviewable rollback boundary. Here
-each MO commits independently in the shared target worktree: only the module's accepted
+Committing each validated slice gives every later step a reviewable rollback boundary. Each MO
+commits independently in the shared target worktree: only the module's accepted
 code_files, with explicit paths, on the run branch sdd/<run_id> that the host created with the
 user's authorization. Parallel modules serialize through one run-level lock; pre-existing dirty
 paths are never staged. The receipt records each file's git blob id so the Ledger can re-verify

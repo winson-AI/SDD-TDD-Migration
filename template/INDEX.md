@@ -86,10 +86,10 @@ project-context/global-input 的 build 为可选配置，空对象表示由 GO �
 - [visual-alignment.json](visual-alignment.json)：正式视觉结果片段，record 与本次 captured.visual_alignment 一致，绑定当前代码/HAP/基线；交互列表只含冻结声明，未声明时为空，不照抄占位项或伪造 PASSED。
 - [visual-capture-execution.json](visual-capture-execution.json)：受管捕获执行回执；绑定安装、构建、代码、设备、逐屏原图/树与实际命令，原生 worker 自动生成，外部捕获缺绑定时由实际运行器提供 sidecar。
 - [interaction-evidence.json](interaction-evidence.json)：automation 声明手势时的条件结果扩展；source-only 无需视觉基线，但 Green 须有冻结动作/起点/预期对应的当前 HAP/代码与实际观测。默认 Harmony 缺此证据时保留断言并记录 Yellow。
-- [lean-worker-request.json](lean-worker-request.json)：受限 UI 源分析示例；角色、operation 参数及执行期 assignment/fencing_token 见 [接入协议](../skills/migration-protocol/references/lean-integration.md)。输出由入口固定，不添加任意 output_dir。
-- [lean-resource-request.json](lean-resource-request.json)：Implementer/Fixer 资源执行示例；绑定 task_id/resource_item_id、冻结映射与任务写范围。resource-scan 只读候选与变体，转换支持 vector/byte_copy/单项 values。
-- [lean-knowledge-request.json](lean-knowledge-request.json)：同一受限 worker 的主题查询示例；query/diagnose/resolve/verify 的 args 与角色范围见 [接入协议](../skills/migration-protocol/references/lean-integration.md)。知识操作不要求 assignment，不自动触发；输出固定本 run staging。
-- [lean-visual-test-adapter.json](lean-visual-test-adapter.json)：execute_test 的 adapter JSON；只接已独立产出的原始 alignment，不捕获/修复。声明手势才补 --interaction 参数；当前仅支持 expected=true 的布尔视觉断言。
+- [domain-worker-request.json](domain-worker-request.json)：受限 UI 源分析示例；角色、operation 参数及执行期 assignment/fencing_token 见 [接入协议](../skills/migration-protocol/references/domain-tools.md)。输出由入口固定，不添加任意 output_dir。
+- [resource-request.json](resource-request.json)：Implementer/Fixer 资源执行示例；绑定 task_id/resource_item_id、冻结映射与任务写范围。resource-scan 只读候选与变体，转换支持 vector/byte_copy/单项 values。
+- [knowledge-request.json](knowledge-request.json)：同一受限 worker 的主题查询示例；query/diagnose/resolve/verify 的 args 与角色范围见 [接入协议](../skills/migration-protocol/references/domain-tools.md)。知识操作不要求 assignment，不自动触发；输出固定本 run staging。
+- [visual-test-adapter.json](visual-test-adapter.json)：execute_test 的 adapter JSON；只接已独立产出的原始 alignment，不捕获/修复。声明手势才补 --interaction 参数；当前仅支持 expected=true 的布尔视觉断言。
 - global-input.ui_fidelity_required=true 对应标准 prepared run。
 - project-context.defaults.quality_gates.dependency_resolution_required 是唯一项目配置入口，bool 默认 false；global-input 顶层同名字段由 prepare 派生，必须继承快照，不能将此示例 false 用作覆盖。
 - semantic-model.ui_tree_contract 是完整原生树示例；bindings/events/dynamicRules 为带源码锚点的对象，capabilities 为对象，attachments 为列表。实例化真实源码锚点和采集索引后仍须 strict validate；模板本身不证明源闭包完整。
@@ -111,7 +111,7 @@ project-context/global-input 的 build 为可选配置，空对象表示由 GO �
 
 [ui-state-test-design.md](ui-state-test-design.md) 并入已有模块 test-design，区分稳定截图目标与瞬态行为；沿 plan.definitions 提交，不另建状态目录。
 
-[visual-execution.json](visual-execution.json) 给出冻结 PATH 配置、run 级设备/模型环境和宿主锁回执样式；[lean-visual-request.json](lean-visual-request.json) 经受限 worker 执行安装/捕获/语义取证，仍由正式测试结果提交验收。
+[visual-execution.json](visual-execution.json) 给出冻结 PATH 配置、run 级设备/模型环境和宿主锁回执样式；[visual-request.json](visual-request.json) 经受限 worker 执行安装/捕获/语义取证，仍由正式测试结果提交验收。
 
 [watchdog-host-state.json](watchdog-host-state.json) 是 Host 的真实状态导出模板，保存到本 run runs/watchdog/host-state.json；不是 Ledger 请求，也不能用模板假冒存活证明。配置与仅监听边界见 [watchdog 协议](../skills/migration-protocol/references/watchdog.md)。
 

@@ -91,7 +91,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id，可选 session_id、card_sha256（宿主实际采用的提示，仅记录）；阶段合法且无活动 worker；返回的投影含 fencing_token |
 | submit | 对应 worker | assignment_id、fencing_token、result_ref；只提交，不改变业务阶段 |
 | accept | MO | assignment_id；再次检查工件和版本后关闭 assignment、推进阶段 |
-| diagnose | Diagnostician（lean leaf 本地轮为 Fixer） | diagnosis_ref、owner、root_cause；仅保存绑定当前冻结、代码和未解决结果的 diagnosis_submission，不改变 phase；模块必须无活动 worker |
+| diagnose | Diagnostician（轻量叶子 本地轮为 Fixer） | diagnosis_ref、owner、root_cause；仅保存绑定当前冻结、代码和未解决结果的 diagnosis_submission，不改变 phase；模块必须无活动 worker |
 | diagnosis-accept | MO | 无额外 payload；重验诊断引用与问题摘要后进入 diagnosing，才可派 Fixer |
 | suspend | MO | kind=dependency/human/tooling、reason、root_cause、owner；保存原阶段，必须先停止活动 worker |
 | dependency-ready | Global | 消费者 module_id 在请求顶层；检查生产者完成，记录当前版本的解除许可 |
@@ -100,7 +100,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | session | MO | role、session_id；替换原会话须 reason=session-unavailable、checkpoint_ref，且旧 assignment 已关闭 |
 | revoke | host | assignment_id、stopped_worker_ref；实际停止/隔离后才释放活动占用；旧 token 不再被接受 |
 | invalidate | MO/host | reason；旧 worker 必须先 revoke；重新进入 specifying，并使消费者及全局审计失效 |
-| checkpoint | host | receipt_ref（git_checkpoint.py 回执）；仅 git_checkpoint 开启且模块在 DoD 时，逐文件 blob 必须等于当前已接受代码，见 [模块 Git 检查点](lean-disciplines.md#模块-git-检查点可选默认关闭) |
+| checkpoint | host | receipt_ref（git_checkpoint.py 回执）；仅 git_checkpoint 开启且模块在 DoD 时，逐文件 blob 必须等于当前已接受代码，见 [模块 Git 检查点](engineering-disciplines.md#模块-git-检查点可选默认关闭) |
 | complete | MO | dod_ref、checks_passed=true；开启 git_checkpoint 时须已有当前 code_baseline 的检查点；当前模块全路径 Green、版本有效、依赖完成才可接受 |
 | audit-assign | Global | assignment_id、instance_id；全部模块完成后固定快照；审计实例不能是任意实现/修复/测试作者实例 |
 | audit-route | Global | path_id、非空唯一 module_ids、reason_ref；给尚无负责模块的全局审计问题分配责任，不修改模块阶段 |
@@ -186,7 +186,7 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 - revoke 只作用于仍活动的任务，已关闭旧任务不能把新任务阶段倒退；依赖挂起时撤销 worker 保留原 blocker。
 - 活动审计不能被另一轮覆盖；audit 成功接收后关闭 assignment；中断必须 host audit-revoke 提交实际停止证据。assignment_id 不复用，撤销不返还已用轮次。
 
-这些规则保留本系统的 9+1 分工和跨模块并行，不复制 Lean 的全流程单切片串行，也不采用部分验证即 COMPLETE 的语义。
+这些规则保留本系统的 9+1 分工和跨模块并行，不采用全流程单切片串行，也不采用部分验证即 COMPLETE 的语义。
 
 ## 控制流闭环修订
 

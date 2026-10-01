@@ -1,7 +1,7 @@
 """UI evidence contracts: the merged UI tree, the capture manifest, and declared gestures.
 
 One module because these are one concern — the evidence a UI slice owes before it may freeze and be
-verified. All three are absorbed from the lean UI pipeline and validated structurally only; semantic
+verified. All three are validated structurally only; semantic
 completeness stays with the analysing agent.
 
 - `validate_tree`: the merged source+runtime UI tree (screens, typed attachments, stable ids, every

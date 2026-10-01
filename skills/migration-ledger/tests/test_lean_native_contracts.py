@@ -1,4 +1,4 @@
-"""Native Lean contracts, adapted from the bundle's original tool tests.
+"""Native domain-tool contracts.
 
 Fixtures follow test_ui_tree_tools.py, test_select_runtime_ui.py,
 test_finalize_alignment.py, test_foundation_gate.py and test_resource_tool.py.

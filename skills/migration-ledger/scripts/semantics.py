@@ -82,7 +82,7 @@ VALIDATORS = {'ui-component-spec': _ui_component_spec, 'logic-statechart': _stat
 def _ui_evidence(model):
     """UI fidelity boundary: bind extracted UI-tree evidence and a capture coverage target.
 
-    Presence-triggered; absorbed from the lean UI pipeline so a UI model is anchored to real
+    Presence-triggered, so a UI model is anchored to real
     source/runtime evidence and a page:state:coverage scope rather than prose alone.
     """
     evidence = model.get('ui_evidence')

@@ -1,4 +1,4 @@
-"""Fault regressions for the approved Lean/SDD evidence and write-scope boundaries."""
+"""Fault regressions for the approved domain-tool/SDD evidence and write-scope boundaries."""
 import copy
 import json
 from pathlib import Path

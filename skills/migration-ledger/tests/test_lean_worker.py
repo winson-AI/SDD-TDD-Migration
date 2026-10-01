@@ -1,4 +1,4 @@
-"""Managed Lean entry boundaries plus a real execute_test -> visual-adapter receipt."""
+"""Managed domain-tool entry boundaries plus a real execute_test -> visual-adapter receipt."""
 import copy
 from contextlib import nullcontext
 from pathlib import Path

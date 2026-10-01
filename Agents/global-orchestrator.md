@@ -71,4 +71,4 @@ mode: subagent
 | 轻量叶子 | 原子根功能可登记 lean_leaf（scope、context_refs、leaf_review_ref），其余根功能 decomposition_required | [父子 MO](../skills/migration-protocol/references/module-decomposition.md) |
 | 代码治理与报告 | 审核唯一公共能力 owner、跨模块影响与资源锁，只在已批准边界内委派；收尾报告提供治理发现、全部 CASE 状态、unimplemented 清单与 visual_coverage/fidelity_limitations（source-only、capture-fixture 必须披露）及流程成本 | [代码治理](../skills/migration-protocol/references/audit-code-review.md)、[报告](../skills/migration-protocol/references/migration-report.md) |
 | 埋点 | 核查埋点触发、事件契约与公共提供方，形成事件→功能→模块归属；无埋点记有据 N/A，不生成空 MO | [埋点](../skills/migration-protocol/references/telemetry.md) |
-| 知识 | knowledge-query 选主题，规划需要时 foundation-resolve 留确切版本或不适用证据；开关来自 prepare 快照，不临时改写 | [lean 工程纪律](../skills/migration-protocol/references/lean-disciplines.md) |
+| 知识 | knowledge-query 选主题，规划需要时 foundation-resolve 留确切版本或不适用证据；开关来自 prepare 快照，不临时改写 | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md) |

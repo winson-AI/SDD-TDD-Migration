@@ -56,7 +56,7 @@
 
 默认值存放在 config.defaults：entry_mode 固定 project；budgets、quality_gates、repair_policy 使用原有字段。test_adapter/runtime 与原 global-input 结构一致。配置只引用宿主环境或凭证名称，不在模板中放凭证值。
 
-模块 Git 检查点开关为 `defaults.quality_gates.git_checkpoint`（bool，默认 false）；本地轮 Fixer 自诊断开关为 `defaults.quality_gates.fixer_self_diagnosis`（bool，默认 false，开启后不再为本地轮启动独立 Diagnostician）；本地修复轮数用 `defaults.budgets.local_fix_rounds`（默认 1，不超过 max_fix_rounds），repair_policy 只作描述，不承载轮数。Foundation 冻结开关只配置在 `defaults.quality_gates.dependency_resolution_required`，必须是 bool，默认 false，例如 `{"defaults":{"quality_gates":{"dependency_resolution_required":true}}}`。prepare 把该值固化到快照及派生 Global input，init 按快照继承，不能在 prepared init 中降级或另加顶层项目字段覆盖。Global input 中派生的顶层 dependency_resolution_required 是运行协议字段，不是第二个项目配置入口。旧快照缺字段默认 false；已有低层直连 init 明确启用的历史运行保留原值，不因升级补写或关闭门禁。开启后本切片无新增依赖/非适用目标也须保留明确 not-required 解析证据，见 [知识执行与冻结](lean-disciplines.md)。
+模块 Git 检查点开关为 `defaults.quality_gates.git_checkpoint`（bool，默认 false）；本地轮 Fixer 自诊断开关为 `defaults.quality_gates.fixer_self_diagnosis`（bool，默认 false，开启后不再为本地轮启动独立 Diagnostician）；本地修复轮数用 `defaults.budgets.local_fix_rounds`（默认 1，不超过 max_fix_rounds），repair_policy 只作描述，不承载轮数。Foundation 冻结开关只配置在 `defaults.quality_gates.dependency_resolution_required`，必须是 bool，默认 false，例如 `{"defaults":{"quality_gates":{"dependency_resolution_required":true}}}`。prepare 把该值固化到快照及派生 Global input，init 按快照继承，不能在 prepared init 中降级或另加顶层项目字段覆盖。Global input 中派生的顶层 dependency_resolution_required 是运行协议字段，不是第二个项目配置入口。旧快照缺字段默认 false；已有低层直连 init 明确启用的历史运行保留原值，不因升级补写或关闭门禁。开启后本切片无新增依赖/非适用目标也须保留明确 not-required 解析证据，见 [知识执行与冻结](engineering-disciplines.md)。
 
 ## 运行时固化
 

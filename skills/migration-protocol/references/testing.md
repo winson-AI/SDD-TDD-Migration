@@ -58,7 +58,7 @@ adapter 的 `skipped` / `xfail` 限制必须原样保留。原始报告声称 Gr
 
 ## 静态规格闭合
 
-拆分测试的 Ledger 顺序为 build → static → automation → visual。static 是 Test-Runner 在当前已构建代码上做的独立规格闭合审查（吸收 lean Validator 的逐场景核对与假实现清单），位于昂贵的设备自动化之前；prepared run 固定 `spec_closure_required=true`，每个拆分模块冻结恰好一条 `kind=static` PATH：`scenario_requirement_ids` 等于模块全部任务需求，`expected_assertions` 只有一个 `expected: true`，case_id 复用本模块已有 CASE，不能新增或替代业务覆盖。
+拆分测试的 Ledger 顺序为 build → static → automation → visual。static 是 Test-Runner 在当前已构建代码上做的独立规格闭合审查（逐场景核对与假实现清单），位于昂贵的设备自动化之前；prepared run 固定 `spec_closure_required=true`，每个拆分模块冻结恰好一条 `kind=static` PATH：`scenario_requirement_ids` 等于模块全部任务需求，`expected_assertions` 只有一个 `expected: true`，case_id 复用本模块已有 CASE，不能新增或替代业务覆盖。
 
 Test-Runner 只读冻结 SPEC、当前代码与测试，写审查记录（staging）：
 
@@ -69,7 +69,7 @@ static 不需要设备，与 build 共用一次派发：building 预检在 `exec
 
 ## 运行时变体与冻结 SPEC 冲突
 
-截图、运行时树或设备观察显示的页面变体（如 live 页签）与冻结 SPEC/源码默认（如 trending）不一致时，这是用户的范围决定，不是代码缺陷：Test-Runner 记 Yellow，root_cause 为 `category=human`、`reason_code=runtime-spec-variant-conflict`、`confidence=confirmed`，引用冲突证据。lean 验证/对齐结果中同类 issue 由适配器自动规范化为同一根因。MO 游标直接给出 `suspend(kind=human)`，交 Escalation 取得用户选择后再按决定重新规划或继续；不派 Fixer，也不默认任选一种变体。
+截图、运行时树或设备观察显示的页面变体（如 live 页签）与冻结 SPEC/源码默认（如 trending）不一致时，这是用户的范围决定，不是代码缺陷：Test-Runner 记 Yellow，root_cause 为 `category=human`、`reason_code=runtime-spec-variant-conflict`、`confidence=confirmed`，引用冲突证据。外部验证/对齐结果中的同类 issue 由适配器自动规范化为同一根因。MO 游标直接给出 `suspend(kind=human)`，交 Escalation 取得用户选择后再按决定重新规划或继续；不派 Fixer，也不默认任选一种变体。
 
 ## Harmony Main
 

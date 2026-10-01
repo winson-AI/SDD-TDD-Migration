@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Managed, role-limited deterministic Lean tools. Host authenticates the supplied principal.
+"""Managed, role-limited deterministic domain tools. Host authenticates the supplied principal.
 
 This entry creates staged evidence, never Ledger events, acceptance, a new approval or a retry loop.
 It is not an OS sandbox: host ACLs and process fencing remain mandatory for real workers.

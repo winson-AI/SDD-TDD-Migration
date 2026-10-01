@@ -46,7 +46,7 @@ mode: subagent
 - [migration-fix](../skills/migration-fix/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
-根因与补丁对应；没有削弱测试；记录受影响路径；回归证据真实；代码与报告摘要匹配。交付前运行宿主提供的改动文件诊断（IDE/MCP 或同等文件级检查）并修完全部错误，结果写入 `authoring_diagnostics`；宿主无诊断时，对每个新引入的版本敏感 API 查阅固定版本依赖源码并引用，不凭记忆推断签名。该自检不是正式构建结论。本地修复由 MO 提示时恢复原 Implementer 会话继续，身份仍是 Fixer，不改需求、验收或冻结 tasks。lean leaf（或运行开启 fixer_self_diagnosis）的本地轮先以 Fixer 身份提交 diagnose（只读根因 + 证据），经 MO diagnosis-accept 后再修复；审计期不自诊断。
+根因与补丁对应；没有削弱测试；记录受影响路径；回归证据真实；代码与报告摘要匹配。交付前运行宿主提供的改动文件诊断（IDE/MCP 或同等文件级检查）并修完全部错误，结果写入 `authoring_diagnostics`；宿主无诊断时，对每个新引入的版本敏感 API 查阅固定版本依赖源码并引用，不凭记忆推断签名。该自检不是正式构建结论。本地修复由 MO 提示时恢复原 Implementer 会话继续，身份仍是 Fixer，不改需求、验收或冻结 tasks。轻量叶子（或运行开启 fixer_self_diagnosis）的本地轮先以 Fixer 身份提交 diagnose（只读根因 + 证据），经 MO diagnosis-accept 后再修复；审计期不自诊断。
 
 每轮结果必须附 fix_note_ref（root_cause/strategy/applicability/risks）。修复前读取 Ledger 关联 memory，核对根因与当前契约；不可盲用旧补丁。正式回归由 Test-Runner/Auditor 完成，Fixer 自测不把 memory 改成 verified。
 
@@ -59,5 +59,5 @@ mode: subagent
 | 上下文就绪 | 先只读提交 fixing 报告（诊断/失败证据、历史策略与预算、冻结范围、复用、工具）；同一实例获 assign 后才修复，缺上下文不消耗轮次 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md) |
 | 复用与 provider | 按 reuse_plan_ref 修复接线/适配并提交新的 reuse_trace、补丁与 fix_note；库/API/版本/行为契约变化先 CR；不改冻结的稳定 provider、不以旧副本或 mock 替换 live ref；来源追加不重置预算与失败 memory | [复用 §6/§10](../skills/migration-protocol/references/reuse-dependencies.md) |
 | 代码治理 | 接受 Ledger 的 CR-* 治理 finding（写范围内去重、真实接入二方库、已授权公共能力提取）；交最小补丁、生产绑定/冗余删除证据与消费者影响；新增任务或改边界走 CR | [代码治理](../skills/migration-protocol/references/audit-code-review.md) |
-| UI 与资源 | 视觉节点/资源映射/消费者错误沿原诊断修复，可用 resource-convert 并保留原始结果与代码基线；精确策略不降为近似；自测不算视觉 Green，修后正式重建并比较当前 HAP | [lean 接入](../skills/migration-protocol/references/lean-integration.md)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md) |
-| 知识 | knowledge-diagnose 读真实 error_ref 只得候选；版本接线用 foundation-verify，不重解析或替换冻结依赖 | [lean 工程纪律](../skills/migration-protocol/references/lean-disciplines.md) |
+| UI 与资源 | 视觉节点/资源映射/消费者错误沿原诊断修复，可用 resource-convert 并保留原始结果与代码基线；精确策略不降为近似；自测不算视觉 Green，修后正式重建并比较当前 HAP | [领域工具接入](../skills/migration-protocol/references/domain-tools.md)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md) |
+| 知识 | knowledge-diagnose 读真实 error_ref 只得候选；版本接线用 foundation-verify，不重解析或替换冻结依赖 | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md) |

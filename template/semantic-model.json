@@ -210,7 +210,7 @@
     }
   },
   "ui_tree_contract": {
-    "_note": "Native Lean tree example for a screen, its title and one adapter row. Instantiate source anchors and collected XML facts without changing the native object/list shapes. Expand every reachable XML selector and attachment; this example does not declare another application's source closure. For source-only evidence omit runtimeIndex/runtimeIndexSha256 and runtimeObservations. Retain original indexes/capture manifest; structural validation does not prove semantic completeness.",
+    "_note": "Native source-backed tree example for a screen, its title and one adapter row. Instantiate source anchors and collected XML facts without changing the native object/list shapes. Expand every reachable XML selector and attachment; this example does not declare another application's source closure. For source-only evidence omit runtimeIndex/runtimeIndexSha256 and runtimeObservations. Retain original indexes/capture manifest; structural validation does not prove semantic completeness.",
     "schemaVersion": 1,
     "scope": "{{change-id}}",
     "generatedFrom": {

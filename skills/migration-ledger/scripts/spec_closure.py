@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static spec-closure adapter: lean Validator's per-scenario review and anti-fake-wiring list as a PATH.
+"""Static spec-closure adapter: per-scenario review and anti-fake-wiring list as a PATH.
 
 The Test-Runner reviews every frozen requirement against current production code and records the
 evidence; this adapter only checks that record deterministically (context, requirement coverage,

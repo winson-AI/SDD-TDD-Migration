@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic import of Lean domain evidence under SDD role boundaries.
+"""Deterministic import of external domain-tool evidence under SDD role boundaries.
 
 The managed lean_worker entry stages tool outputs; existing Ledger operations and
 execution receipts retain acceptance authority. Whole external skills are not roles.

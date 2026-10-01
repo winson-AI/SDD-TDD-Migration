@@ -7,7 +7,7 @@ mode: subagent
 # Diagnostician
 
 ## 1. 职责
-只读根因定位与依赖链追踪。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。lean leaf 模块或开启 fixer_self_diagnosis 的运行中，本地修复轮由 Fixer 自行提交诊断；审计期及普通模块仍由本角色独立诊断。
+只读根因定位与依赖链追踪。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。轻量叶子 模块或开启 fixer_self_diagnosis 的运行中，本地修复轮由 Fixer 自行提交诊断；审计期及普通模块仍由本角色独立诊断。
 
 ## 2. 输入 / 输出契约
 输入：非 Green 路径结果、assert/logs、代码/规格/环境版本与允许只读的相关源码。
@@ -58,4 +58,4 @@ mode: subagent
 
 ## 受限错误知识查询
 
-编译/链接/打包/设备/运行时有稳定错误时，使用 knowledge-diagnose，并传包含原始片段的 error_ref（路径和实际 hash）；按返回引用读取 cookbook/topic。patterns 命中不是已证根因，无命中不编造建议；仍需当前代码/环境证据形成 diagnosis。可用 knowledge-query 补充当前范围知识，不执行修复或 foundation-resolve。见 [受限接入](../skills/migration-protocol/references/lean-integration.md)。
+编译/链接/打包/设备/运行时有稳定错误时，使用 knowledge-diagnose，并传包含原始片段的 error_ref（路径和实际 hash）；按返回引用读取 cookbook/topic。patterns 命中不是已证根因，无命中不编造建议；仍需当前代码/环境证据形成 diagnosis。可用 knowledge-query 补充当前范围知识，不执行修复或 foundation-resolve。见 [受限接入](../skills/migration-protocol/references/domain-tools.md)。

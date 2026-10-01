@@ -54,7 +54,7 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 
 宿主交接优先读取 `openspec/runs/<run_id>/workflow.json` 的 routing/模块索引、相关 module state 与工件引用。派发前刷新 Ledger status 校验 sequence/revision；不要在每次交接复制完整 Ledger、所有兄弟模块日志或整套领域 skill。Agent 仍能通过当前快照、六件套、父级分配和实际依赖引用访问全局存量/目标源码、架构与知识；紧凑交接不能裁掉完成任务需要的上下文。快照引用失效或 routing_refresh_required 时按既有恢复动作更新，不创建第二份调度状态。
 
-按 [lean 受限接入](lean-integration.md) 将白名单操作映射到现有角色，不创建第二套编排游标或冻结权威。Spec-Designer 分析 UI；Implementer/Fixer 在 assignment 与写范围内精确转换资源；Test-Runner/Auditor 在当前 assignment 下取证和比较，构建仍走正式执行器。[设备与模型工具](visual-execution.md) 需要冻结的 run 环境配置、实际设备锁证明及当前 PATH 构建/基线，工具本身不验收；模型请求有总时限，缺条件沿原 Yellow 通道。Host 传认证 host-context，保留原始结果引用、转换证据和正式 Ledger payload；所有新增输出落本 run 受管目录。
+按 [领域工具受限接入](domain-tools.md) 将白名单操作映射到现有角色，不创建第二套编排游标或冻结权威。Spec-Designer 分析 UI；Implementer/Fixer 在 assignment 与写范围内精确转换资源；Test-Runner/Auditor 在当前 assignment 下取证和比较，构建仍走正式执行器。[设备与模型工具](visual-execution.md) 需要冻结的 run 环境配置、实际设备锁证明及当前 PATH 构建/基线，工具本身不验收；模型请求有总时限，缺条件沿原 Yellow 通道。Host 传认证 host-context，保留原始结果引用、转换证据和正式 Ledger payload；所有新增输出落本 run 受管目录。
 
 prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（每个拆分模块一条 static PATH，位于 build 与 automation 之间），仅 applicable UI 触发对应门禁；无 UI 不制造空视觉任务。仅自动化不可用继续按 Yellow/未执行收尾，独立任务与可用构建下游不受阻。
 
@@ -64,4 +64,4 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 ## 本地修复单次派发
 
-游标的 diagnose 步骤 role 为 fixer 时（lean leaf 或 `fixer_self_diagnosis`），宿主恢复游标给出的会话（通常是原 Implementer 会话）提交诊断，MO diagnosis-accept 后在同一会话继续 assign/修复，不为本地轮另起 Diagnostician 或新会话。审计期修复不适用。
+游标的 diagnose 步骤 role 为 fixer 时（轻量叶子 或 `fixer_self_diagnosis`），宿主恢复游标给出的会话（通常是原 Implementer 会话）提交诊断，MO diagnosis-accept 后在同一会话继续 assign/修复，不为本地轮另起 Diagnostician 或新会话。审计期修复不适用。

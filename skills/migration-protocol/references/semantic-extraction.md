@@ -13,7 +13,7 @@
 
 Adhesive 维暂不纳入语义模型，沿用现有 item 结构。字段示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
-UI fidelity 开启时，applicable UI 模型必须绑定 `ui_evidence`（存量抽取的 UI 树、`page:state:coverage`、visual_mode 与实际基线）。实现阶段提交 `baseline_conformance` 说明消费了哪份冻结基线/源树；正式 `visual_alignment` 属于后续 Test-Runner 的 visual PATH 结果，不能要求 Implementer 自己宣告对齐通过。证据还须绑定原始产物及精确目标闭包，详见 [UI 保真控制道](ui-fidelity.md) 与 [lean 受限接入](lean-integration.md)。
+UI fidelity 开启时，applicable UI 模型必须绑定 `ui_evidence`（存量抽取的 UI 树、`page:state:coverage`、visual_mode 与实际基线）。实现阶段提交 `baseline_conformance` 说明消费了哪份冻结基线/源树；正式 `visual_alignment` 属于后续 Test-Runner 的 visual PATH 结果，不能要求 Implementer 自己宣告对齐通过。证据还须绑定原始产物及精确目标闭包，详见 [UI 保真控制道](ui-fidelity.md) 与 [领域工具受限接入](domain-tools.md)。
 
 ## item 上的记录（结果 / 来源 / 位置）
 

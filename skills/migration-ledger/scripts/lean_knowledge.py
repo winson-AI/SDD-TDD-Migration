@@ -1,4 +1,4 @@
-"""Read-only Lean knowledge operations; managed caller owns every generated artifact."""
+"""Read-only domain knowledge operations; managed caller owns every generated artifact."""
 from contextlib import redirect_stdout
 from io import StringIO
 import json

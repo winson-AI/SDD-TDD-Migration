@@ -1,4 +1,4 @@
-"""Foundation resolution gate and lean validation-result -> three-state / HAP artifact mapping."""
+"""Foundation resolution gate and external validation-result -> three-state / HAP artifact mapping."""
 import json
 from pathlib import Path
 import sys

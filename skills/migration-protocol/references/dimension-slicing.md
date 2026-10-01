@@ -12,7 +12,7 @@
 
 逐维度交叉读取四类依据：存量源码及行为、新架构规范、二方库语义/精确版本、目标已有能力。目标已有能力包括真实生产实现与测试/demo/mock 的区别，不能因同名接口或现有库测试通过就假定迁移完成。知识资料与全局分工仍按 planning_context 读取，局部 context pack 不截断全局视野。
 
-此方法参考 android-to-kmp 的 source closure、source-backed UI tree、production chain 与 resource consumer mapping；不导入其专用平台目录、代理架构或 fixture 放宽规则。
+此方法采用 source closure、source-backed UI tree、production chain 与 resource consumer mapping；不导入其专用平台目录、代理架构或 fixture 放宽规则。
 
 ## 2. 四维检查内容
 

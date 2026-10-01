@@ -1,6 +1,6 @@
 """Per-dispatch reading cards: the protocol sections one role needs for one step.
 
-Lean keeps each phase small and loads references only when triggered. A card names the role
+Each phase stays small and loads references only when triggered. A card names the role
 definition, its skill and the exact sections whose gates apply to this step, plus sections that
 only trigger for UI or reuse scope. Everything else stays readable on demand; a card never
 narrows the four red lines, which every card includes.
@@ -37,7 +37,7 @@ STEP = {
     'fixer': [(P + 'local-runtime.md', '阶段结果'), (P + 'state-machine.md', '有限循环'),
               (P + 'build-automation.md', '本地一轮的预算单位'), (P + 'context-readiness.md', '2. 精确插入节点')],
     'diagnostician': [(P + 'state-machine.md', '有限循环'), (P + 'testing.md', '断言与结果'),
-                      (P + 'lean-disciplines.md', '1. Foundation / 迁移知识执行与冻结')],
+                      (P + 'engineering-disciplines.md', '1. Foundation / 迁移知识执行与冻结')],
     'module-orchestrator': [(P + 'state-machine.md', 'Module-Orchestrator 唯一模块守卫'),
                             (P + 'state-machine.md', 'Freeze / DoD 分开'), (P + 'state-machine.md', '有限循环')],
     'global-orchestrator': [(P + 'state-machine.md', '模块隔离与全量收尾'), (P + 'module-decomposition.md', None)],
@@ -54,7 +54,7 @@ TEST_SCOPE = {
 UI = {
     'spec-designer': [(P + 'ui-fidelity.md', 'UI 证据绑定'), (P + 'ui-fidelity.md', '精确性纪律')],
     'implementer': [(P + 'ui-fidelity.md', '基线前移：截图指导实现，而非事后比对'), (P + 'ui-fidelity.md', '精确性纪律'),
-                    (P + 'lean-integration.md', '资源执行与事实绑定')],
+                    (P + 'domain-tools.md', '资源执行与事实绑定')],
     'fixer': [(P + 'ui-fidelity.md', '精确性纪律')],
 }
 REUSE = {

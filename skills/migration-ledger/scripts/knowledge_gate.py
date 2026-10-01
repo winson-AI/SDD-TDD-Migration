@@ -1,10 +1,10 @@
-"""Foundation dependency-resolution gate absorbed from the lean knowledge discipline.
+"""Foundation dependency-resolution gate.
 
 Before architecture or catalog edits, every target-sensitive dependency is resolved to an exact
 version and only the API subclosure this slice needs. Demo-source evidence is a candidate
 configuration, never compile or device proof. Off by default; when dependency_resolution_required is
-enabled at init/prepare, freezing requires a validated resolution artifact produced by the mapped
-lean `foundation_gate resolve`.
+enabled at init/prepare, freezing requires a validated resolution artifact produced by the managed
+`foundation_gate resolve`.
 """
 from pathlib import Path
 from contracts import Rejected, check_ref, read_json, require

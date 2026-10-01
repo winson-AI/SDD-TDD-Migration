@@ -82,4 +82,4 @@ GO/父子 MO/Host 在运行中追加只读来源时读 [source-changes.md](refer
 
 ## 19. UI 领域工具与证据版本
 
-涉及 UI 分析、资源转换或视觉比较时读取 [lean 受限接入](references/lean-integration.md) 与 [UI 保真](references/ui-fidelity.md)。按 SDD 当前角色使用白名单工具，不整包执行 lean 实现/Aligner/orchestrator，不合并设计、写码与独立验收权限。原始结果及转换产物均经受管输出和 Ledger 引用传递。自动化 Yellow 缺测例外保持不变。
+涉及 UI 分析、资源转换或视觉比较时读取 [领域工具受限接入](references/domain-tools.md) 与 [UI 保真](references/ui-fidelity.md)。按 SDD 当前角色使用白名单工具，不整包执行外部实现、对齐或编排技能，不合并设计、写码与独立验收权限。原始结果及转换产物均经受管输出和 Ledger 引用传递。自动化 Yellow 缺测例外保持不变。

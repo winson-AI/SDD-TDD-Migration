@@ -1,6 +1,6 @@
-# UI 保真控制道（吸收 lean 的 UI 证据与视觉对齐）
+# UI 保真控制道（UI 证据与视觉对齐）
 
-UI 实现需有存量源树、明确 page/state/coverage 和实际可得的运行时基线。SDD 按现有角色吸收 lean 的领域工具：Spec-Designer 分析、Implementer 精确转换资源并接线、Test-Runner 执行功能与视觉取证、Fixer 修复、Auditor 独立裁决。设备 Capture 由宿主授权的执行者按 [受限视觉执行工具](visual-execution.md) 或既有 adapter 执行，原始产物与转换证据经 Ledger 冻结/验收；不整包加载 lean 实现或 Aligner skill 合并权限。见 [受限接入](lean-integration.md)。
+UI 实现需有存量源树、明确 page/state/coverage 和实际可得的运行时基线。SDD 按现有角色使用领域工具：Spec-Designer 分析、Implementer 精确转换资源并接线、Test-Runner 执行功能与视觉取证、Fixer 修复、Auditor 独立裁决。设备 Capture 由宿主授权的执行者按 [受限视觉执行工具](visual-execution.md) 或既有 adapter 执行，原始产物与转换证据经 Ledger 冻结/验收；不整包加载外部实现或对齐技能来合并权限。见 [受限接入](domain-tools.md)。
 
 ## 结构化 UI 边界（攻克“边界不清晰”）
 
@@ -34,7 +34,7 @@ GO/父 MO 在范围分配时保留全部源状态；子 MO 的 Spec-Designer 与
     "capture_manifest_ref": {"path": "...manifest.json", "sha256": "..."},
     "source_index_ref": {"path": "...ui-source-index.json", "sha256": "..."},
     "runtime_index_ref": {"path": "...runtime-ui-index.json", "sha256": "..."}, // source-only 不提供
-    "ui_tree_ref": {"path": "...ui-tree.json", "sha256": "..."},   // lean 产出的合并 source+runtime UI 树
+    "ui_tree_ref": {"path": "...ui-tree.json", "sha256": "..."},   // 合并 source+runtime 的 UI 树
     "coverage": "login:phone:viewport",                            // page:state:coverage
     "legacy_executable": true,                                     // 冻结前判定：存量能否预览
     "visual_mode": "runtime",                                      // runtime ⟺ 可预览（须与树的 runtimeIndex 一致）
@@ -88,7 +88,7 @@ build → Green
 - `source-only` 无第二层（无基线可比），按显式缺视觉证据收尾，不允许"没基线就免检"中间表征。
 - 仅自动化环境缺失时，`automation-unavailable` 同时挂起 automation 与 visual 两层，沿用既有 Yellow 缺测收尾。
 
-正式视觉 Green 要求 `record.visual_alignment` 与本次执行回执中的 `captured.visual_alignment` 完全一致：包含冻结 PATH 的 coverage/node_ids/baseline_ref、模块当前 code_baseline、实际可校验 hash 的 hap_ref；HAP 属于当前已接受 build_artifacts。声明 interaction_id 时，execute_test 从冻结 dimension model 提取完整 frozen_interaction（id/action/from/expected，可选 spec_ref）写入 query；GLOBAL 自有 PATH 可冻结自己的 frozen_interaction。proof.required_interaction 必须与冻结声明一致，interaction_checks 提供唯一同 ID 的 PASSED、相同 action、满足冻结 expected 的 observed、同 hap_sha256/代码基线及真实 evidence_ref。只有同名 ID 或 PASSED 文本不够，结果不能另声明一个更容易的动作或目的页面。adapter 与正式 Green 门禁分别核对。Red/Yellow 可保留不完整证据及具体原因，不能为了缺设备而伪造哈希或通过。未完成自动化仍按 Yellow/未执行收尾，独立模块和可用构建下游继续。现有 execute_test 可通过 lean_visual_adapter 接入原始比较结果，最小调用与布尔断言限制见 [接入协议](lean-integration.md)。
+正式视觉 Green 要求 `record.visual_alignment` 与本次执行回执中的 `captured.visual_alignment` 完全一致：包含冻结 PATH 的 coverage/node_ids/baseline_ref、模块当前 code_baseline、实际可校验 hash 的 hap_ref；HAP 属于当前已接受 build_artifacts。声明 interaction_id 时，execute_test 从冻结 dimension model 提取完整 frozen_interaction（id/action/from/expected，可选 spec_ref）写入 query；GLOBAL 自有 PATH 可冻结自己的 frozen_interaction。proof.required_interaction 必须与冻结声明一致，interaction_checks 提供唯一同 ID 的 PASSED、相同 action、满足冻结 expected 的 observed、同 hap_sha256/代码基线及真实 evidence_ref。只有同名 ID 或 PASSED 文本不够，结果不能另声明一个更容易的动作或目的页面。adapter 与正式 Green 门禁分别核对。Red/Yellow 可保留不完整证据及具体原因，不能为了缺设备而伪造哈希或通过。未完成自动化仍按 Yellow/未执行收尾，独立模块和可用构建下游继续。现有 execute_test 可通过 lean_visual_adapter 接入原始比较结果，最小调用与布尔断言限制见 [接入协议](domain-tools.md)。
 
 automation 手势使用 [interaction-evidence.json](../../../template/interaction-evidence.json) 的条件扩展：正式 Green 同样核对冻结完整动作、起点、预期、当前 HAP/代码及实际观测，record 与原始 report 的 interaction_evidence 必须一致。不要求截图基线，不从 expected 合成 observed。默认 Harmony 未产出该结构化证据时，已执行断言保留并规范化为 Yellow（interaction-evidence-unavailable），可以正式提交；真实 Red 不被覆盖。能力缺失沿现有预检/Yellow 收尾，不新增全局阻塞。
 
@@ -103,7 +103,7 @@ GLOBAL 自有 visual PATH 必须显式冻结 visual_evidence（coverage、visual
 Auditor 按 PATH 保留所属模块的 build_artifacts，不能借用其他模块的 HAP。可选 GLOBAL visual PATH 在规划时声明 `build_binding: {module_id, path_id}`，指向负责项目集成构建的冻结 build PATH；实际 Green 只接受该 PATH 在当前模块基线的已接受构建产物。GO/MO 审查该构建命令是否覆盖此全局用例依赖；缺少绑定不会借用全局产物池，也不要求重跑已有 Green。普通模块 PATH 不需要新增全局字段。
 
 - **capture manifest（schema 2）** [ui_evidence.validate_capture](../../migration-ledger/scripts/ui_evidence.py):`COMPLETE` 必须有真实 screenshot/view_xml/meta 三元组 + 非空 captures + `observed_variant` + 记录 backend;`scroll` 只有 `scroll-complete` 才算达成(截断的 scroll-partial **永不**推进);`SOURCE_ONLY` 不得携带臆造 captures;缺 coverage 的旧记录不得升级为 viewport。
-- **validation → 三态 + HAP** [lean_adapter.validation_summary](../../migration-ledger/scripts/lean_adapter.py):lean validator 的 compile/test/package 检查映射为三态(任一 failed → Red);`package` 通过必须记录产物,且 artifact 的 sha256 与当前文件**仍需匹配**(HAP 不能被换掉)。
+- **validation → 三态 + HAP** [lean_adapter.validation_summary](../../migration-ledger/scripts/lean_adapter.py):外部验证结果的 compile/test/package 检查映射为三态(任一 failed → Red);`package` 通过必须记录产物,且 artifact 的 sha256 与当前文件**仍需匹配**(HAP 不能被换掉)。
 
 ## 精确性纪律
 
@@ -123,7 +123,7 @@ Auditor 按 PATH 保留所属模块的 build_artifacts，不能借用其他模�
 
 **② 闭包不得缩减** —— `ui_fidelity_required` 开启时，UI 树声明的每个呈现引用（含 `dynamicRules` 的代码态运行时覆盖）必须被实际 Resource item 覆盖，否则冻结被拒。逐 `source_resource + qualifier` 留真实源、策略、目标及消费者证据；裸 `covered_resource_ids` 不计入覆盖。资源分组使用现有 TASK/dimension_trace；附加资源及别名分别登记源事实，不能用一个主资源代证其余资源。
 
-声明的 resource_kind 必须与 source_resource_ref 指向的真实文件/values 条目一致。冻结与受限资源转换读取源事实，校验 qualifier、.9.png、sp 单位；byte_copy 导入校验源目标字节相等。资源扫描、任务授权、单项 values 转换与变体映射见 [资源接入](lean-integration.md#资源执行与事实绑定)。
+声明的 resource_kind 必须与 source_resource_ref 指向的真实文件/values 条目一致。冻结与受限资源转换读取源事实，校验 qualifier、.9.png、sp 单位；byte_copy 导入校验源目标字节相等。资源扫描、任务授权、单项 values 转换与变体映射见 [资源接入](domain-tools.md#资源执行与事实绑定)。
 
 进一步从本 UI 树实际引用到的源索引逐 `source_resource + qualifier + path` 核验闭包：每个适用变体恰有一个 Resource item，并与 collector 保存的源文件 SHA、实际文件及 Resource source_resource_ref 一致。base 覆盖不能代替 night/语言等变体。明确不属于当前切片的候选通过 ui_evidence.resource_scope.exclusions 逐项说明 source_resource/qualifier/path、reason 与 evidence_refs；排除证据持续校验，不能排除配置范围中明确启用的 qualifier。未被本树引用的资源不扩大门禁。旧索引缺少资源 hash 或已过期时重新抽取、审查与冻结，不给旧提取值补上当前 hash。res/color* 的状态选择器按 selector/compose_semantic_exact 处理，不能伪装为固定 color token。
 
@@ -133,7 +133,7 @@ Auditor 按 PATH 保留所属模块的 build_artifacts，不能借用其他模�
 
 视觉复测要求最新 capture 属于当前 assignment/fence；semantic 中仍有问题或不可比判断时需逐项有据裁决，详见 [视觉执行](visual-execution.md)。
 
-**④ UI 树白盒（按 lean 真实契约）** —— [ui_evidence.validate_tree](../../migration-ledger/scripts/ui_evidence.py) 校验 `ui_tree_ref` 内容：`schemaVersion:1` + `scope`；`generatedFrom{sourceIndex,sourceIndexSha256,runtimeIndex,runtimeIndexSha256}` 合并溯源（runtime 两字段同有或同无）。`screens[]` 每屏包含 id/name/kind、递归 source-backed `root` 与 `attachments[]`；attachment 是带 id/kind/anchorNodeId/root 的对象，kind 使用 drawer/dialog/menu/overlay/pager_page/list_item/header/footer，重复行只记一次。节点包含 id/name/nodeKind/viewClass/analysisStatus、source{path,selector,origin,line}、initialVisibility、layout{kind,scrollable,rawAttrs,resolvedAttrs}、presentation.resourceRefs、bindings[]、events[]、dynamicRules[]、capabilities 对象与 children[]。binding 需 target/source，event 需 trigger/handler，dynamic rule 需 when/property/result；各记录都带 sourcePath 与 line 或 selector。可选 runtimeObservations{pageId,stateId,…} 只记录实际运行观察。`layoutClosure` 完整映射源布局和 XML selector；criticalLayoutContracts/unresolved 是显式列表，冲突不得丢弃。source-only 树不得携带 runtimeObservations，visual_mode 须与 runtimeIndex 是否存在一致。完整模板见 [semantic-model.json](../../../template/semantic-model.json)，测试用真实 collector 产物实例化该模板后调用原生严格 validator；不能只检查 JSON 语法或替换模板树后再声称模板通过。
+**④ UI 树白盒（按原生采集器真实契约）** —— [ui_evidence.validate_tree](../../migration-ledger/scripts/ui_evidence.py) 校验 `ui_tree_ref` 内容：`schemaVersion:1` + `scope`；`generatedFrom{sourceIndex,sourceIndexSha256,runtimeIndex,runtimeIndexSha256}` 合并溯源（runtime 两字段同有或同无）。`screens[]` 每屏包含 id/name/kind、递归 source-backed `root` 与 `attachments[]`；attachment 是带 id/kind/anchorNodeId/root 的对象，kind 使用 drawer/dialog/menu/overlay/pager_page/list_item/header/footer，重复行只记一次。节点包含 id/name/nodeKind/viewClass/analysisStatus、source{path,selector,origin,line}、initialVisibility、layout{kind,scrollable,rawAttrs,resolvedAttrs}、presentation.resourceRefs、bindings[]、events[]、dynamicRules[]、capabilities 对象与 children[]。binding 需 target/source，event 需 trigger/handler，dynamic rule 需 when/property/result；各记录都带 sourcePath 与 line 或 selector。可选 runtimeObservations{pageId,stateId,…} 只记录实际运行观察。`layoutClosure` 完整映射源布局和 XML selector；criticalLayoutContracts/unresolved 是显式列表，冲突不得丢弃。source-only 树不得携带 runtimeObservations，visual_mode 须与 runtimeIndex 是否存在一致。完整模板见 [semantic-model.json](../../../template/semantic-model.json)，测试用真实 collector 产物实例化该模板后调用原生严格 validator；不能只检查 JSON 语法或替换模板树后再声称模板通过。
 
 **⑤ 源闭包证据面** —— UI 适用时 `source_closure` 必填 `ui_renderers`（仅有 layout 不完整，必须点名真正改变可见状态的 Activity/Fragment/Adapter/ViewHolder/自定义 View 渲染者），以及 `ui_topology`（布局/对话框/菜单/标签/浮层及初始可见性）、`states`（实际存在的 loading/content/empty/error/disabled/transient/refresh/retry/pagination）、`navigation`（目标身份/参数/返回行为/范围外副作用）、`platform_lifecycle`（权限/存储/网络/回调/后台/取消/宿主窗口）。散文控件清单不算闭包。证据质量纪律：**listener 只证事件绑定，不证 UI 层级；类型声明只证 API 形状，不证生产调用路径**；基础工作在被用户可见行为消费前不算已交付切片。资源面由上面的②闭包不得缩减更强地保障，不在此重复要求。
 
@@ -150,7 +150,7 @@ Auditor 按 PATH 保留所属模块的 build_artifacts，不能借用其他模�
 | Auditor | 独立代码审查与验收 | 在选定审计 PATH 上独立取证/比较/复测，不兼代码或脚本作者 |
 | Host | 按声明目标与权限执行 Capture、派发角色 | 保留实际设备与传输证据，不以结果文件自述替代 |
 
-角色与接线契约见 [lean 受限接入](lean-integration.md)。不完整加载 lean 实现或 Aligner skill，不另设资源/对齐编排循环；所有结果仍由 SDD 当前 owner 经 Ledger 接受。
+角色与接线契约见 [领域工具受限接入](domain-tools.md)。不完整加载外部实现或对齐技能，不另设资源/对齐编排循环；所有结果仍由 SDD 当前 owner 经 Ledger 接受。
 
 ## 最终报告的保真披露
 

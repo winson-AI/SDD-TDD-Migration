@@ -15,7 +15,7 @@
 
 这些 slash command 是待宿主加载的命令定义，未安装到用户配置；本包已提供本地 Ledger 控制器、阶段校验和测试调用适配器；没有常驻 Agent 调度服务或内置业务测试。本地控制器实现事件提交、单写者和模块资源占用检查；宿主仍须提供身份认证、写权限隔离、Agent 派发与项目真实测试适配器。具体能力见 [本地运行指南](skills/migration-protocol/references/local-runtime.md)。仅加载 Markdown 不会产生操作系统级权限隔离。没有这些能力时应显式阻塞，不能宣称端到端迁移已执行。
 
-要在其他仓库真实跑起来，按 [宿主接入契约](skills/migration-protocol/references/host-integration.md) 接入真实角色派发与执行回执。推进按 global/module 范围运行 `/sdd-verify`，巡检用 projection、交付用 final；核验只证明记录和投影一致，无关模块视图错误不阻塞当前 MO，也不能由核验通过推断实际执行或功能全绿。UI 分析、资源转换与受限视觉取证按 [lean 受限接入](skills/migration-protocol/references/lean-integration.md) 使用，保持既有角色、Ledger 和修复预算。
+要在其他仓库真实跑起来，按 [宿主接入契约](skills/migration-protocol/references/host-integration.md) 接入真实角色派发与执行回执。推进按 global/module 范围运行 `/sdd-verify`，巡检用 projection、交付用 final；核验只证明记录和投影一致，无关模块视图错误不阻塞当前 MO，也不能由核验通过推断实际执行或功能全绿。UI 分析、资源转换与受限视觉取证按 [领域工具受限接入](skills/migration-protocol/references/domain-tools.md) 使用，保持既有角色、Ledger 和修复预算。
 
 ## 二方库与已有能力
 
@@ -78,7 +78,7 @@
 
 ## 控制流游标
 
-对照 android-to-kmp-lean-orchestrator，将下一角色/动作游标、精确恢复、严格阶段结果接收和审计轮次生命周期接入本地编排。`status` 现在提供 next_steps、ready_modules、global_next_step；所有推进仍走 Ledger 事务。详见 [运行指南](skills/migration-protocol/references/local-runtime.md)。
+将下一角色/动作游标、精确恢复、严格阶段结果接收和审计轮次生命周期接入本地编排。`status` 现在提供 next_steps、ready_modules、global_next_step；所有推进仍走 Ledger 事务。详见 [运行指南](skills/migration-protocol/references/local-runtime.md)。
 
 ## 当前本地能力补齐
 
@@ -215,8 +215,8 @@ GO → 父 MO → 子 MO/任务显式判断埋点适用性；有埋点做事件/
 | 2026-09-21 | Auditor 代码治理前置；埋点适用性；统一资产根与顶层 OpenSpec |
 | 2026-09-22 ~ 09-24 | Watchdog 旁路通知、执行器中断收尾、OpenSpec 分范围核验、宿主接入契约 |
 | 2026-09-25 | 机器可读语义模型；模型路由档位 |
-| 2026-09-27 | 吸收 lean：UI 保真证据、受限 lean worker、精确资源策略、视觉对齐阶段、手势、HAP 绑定、Foundation 解析门禁；prepared run 默认开启 UI fidelity |
+| 2026-09-27 | UI 保真证据、受限领域工具 worker、精确资源策略、视觉对齐阶段、手势、HAP 绑定、Foundation 解析门禁；prepared run 默认开启 UI fidelity |
 | 2026-10-01 | 模块控制器在规划/测试阶段的守卫增强；证据契约与复用目录统一为单一当前版本，删除旧版本兼容分支 |
-| 2026-10-01 | 再次吸收 lean：可配置 build 本地修复轮次、作者自检、本地修复复用 Implementer 会话；build → static → automation 的静态规格闭合审查；按步骤阅读卡（单卡不超过 60KB）；轻量叶子、父级批量冻结信封、运行时变体冲突交人工；可选模块 Git 检查点 |
+| 2026-10-01 | 修复闭环与独立审查：可配置 build 本地修复轮次、作者自检、本地修复复用 Implementer 会话；build → static → automation 的静态规格闭合审查；按步骤阅读卡（单卡不超过 60KB）；轻量叶子、父级批量冻结信封、运行时变体冲突交人工；可选模块 Git 检查点 |
 | 2026-10-01 | 降低流程成本：static 并入 build 派发（绿色叶子 21→19 事件、4→3 次派发）；会话/阅读卡采纳可审计；流程成本指标进入状态与报告；运行指南去重与协议体积棘轮；静态审查要求调用位置；依赖闭包空闲即可提前审计；可选全模块 Fixer 自诊断 |
 | 2026-10-01 | 文档瘦身：角色定义与角色技能改为“专题义务”表，规则只在专题协议中陈述一次；协议总量 516KB → 476KB，最大阅读卡 49KB → 45KB，体积棘轮降至 480KB |
