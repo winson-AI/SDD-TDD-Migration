@@ -50,7 +50,7 @@
 
 沿用项目上下文 init/update/prepare：数组整体替换，null 删除配置；更新影响新运行，不改旧快照。已登记 source_id/root/module_paths 固定；同 run 仅可通过 [来源追加事务](source-changes.md) 追加新 ID，生成新快照并进行影响评审。源代码不全文复制。GO 的语义报告、目录、映射通过 Ledger 版本引用留档；选中的 provider/API/版本解析证据用绝对 path/sha256 固定并在运行时复核。仓库 commit 可辅助定位，不能替代未提交改动、锁文件及实际 API 文件的内容证据。
 
-`status.planning_context.reuse_sources` 同时包含隐式 TARGET 和声明的外部来源，父/子 MO 均可见。未能访问用户指定来源时明确阻塞并请求补全，不能写成“已扫描无匹配”。本地 prepare 检查路径可用性；远程坐标/仓库需宿主先取得可读模块/API 材料，本控制器不会自动下载依赖。
+`planning_context.reuse_sources` 同时包含隐式 TARGET 和声明的外部来源，父/子 MO 均可见。未能访问用户指定来源时明确阻塞并请求补全，不能写成“已扫描无匹配”。本地 prepare 检查路径可用性；远程坐标/仓库需宿主先取得可读模块/API 材料，本控制器不会自动下载依赖。
 
 ## 3. 按三层编排提取与细化
 

@@ -5,7 +5,7 @@
 | ID | 注入场景 | 必须观察到的结果 |
 | --- | --- | --- |
 | WF-01 | 无冻结事件请求实现 | 拒绝派发/写入目标；记录缺冻结原因 |
-| WF-02 | 已冻结但尚无 implementation_submitted 请求测试 | 不执行 Main；保持前置未完成 |
+| WF-02 | 已冻结但实现结果尚未 submit/accept 就请求测试 | 不执行 Main；保持前置未完成 |
 | WF-03 | Main exit 0 但 assertions 为空 | 非 Green，报告缺失断言 |
 | WF-04 | Main 可复现 expected≠actual | Red，根因诊断→Fixer；修复后正式复测方能 Green |
 | WF-05 | M001 等待 M002 契约 | M001 Yellow 挂起并释放锁；M002 完成后唤醒、重获锁和复测 |
@@ -19,7 +19,7 @@
 | WF-13 | 同基线路径 pass/fail 交替 | flaky Yellow，不能择优记绿；按冻结策略稳定复测 |
 | WF-14 | 无模块/漏整体用例/未运行路径 | 全局不能 Green，报告覆盖缺口 |
 | WF-15 | 修复达到上限后 resume | 已用预算保留，等待增加预算决策，不能无限循环 |
-| WF-16 | 手动编辑 status.md 或删除证据文件 | 不提升质量；从事件重建或 artifact_invalidated |
+| WF-16 | 手动编辑 status.md 或删除证据文件 | 不提升质量；从事件重建或按 observed_invalidations 失效 |
 | WF-17 | 所有模块 Green，但整体集成失败 | Auditor 报 Red 并委派修复，不归档 |
 | WF-18 | Auditor 首轮发现缺陷，Fixer 给自测通过 | Auditor 必须自己重跑，不直接采信 |
 | WF-19 | 依赖存在环、生产者不存在、所有任务挂起 | 明确全局升级，不能永久等待 |

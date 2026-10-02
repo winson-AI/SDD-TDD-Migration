@@ -21,7 +21,7 @@ module 核验允许模块投影序号早于全局最新序号，但不得早于�
 
 ## 编排步骤
 
-1. 读取 [AGENTS.md](../AGENTS.md) 与 [运行协议](../skills/migration-protocol/references/runtime.md)，从 prepare 返回值解析绝对 run_root。
+1. 读取宿主接入的[判定与红线](../skills/migration-protocol/references/host-integration.md#4-判定与红线)，从 prepare 返回值解析绝对 run_root。
 2. 根据实际动作选择 scope；只读，不派发、不提交业务事件、不获取写锁。
 3. 执行并读取 `verified`、`scope`、`module_id`、`checked_modules`、`sequence`、`failures`、`next_actions` 与 `limitations`：
 

@@ -192,7 +192,6 @@ class BehaviorContractTests(unittest.TestCase):
         state = f.state(); state['behavior_contract_required'] = True
         parent = state['modules']['M010']
         plan = f.proposal()
-        plan['planning_context'] = decomposition.planning_context(state)
         for child in plan['children']:
             child['behavior_review'] = review(f, child)
         decomposition.validate(state, parent, plan)

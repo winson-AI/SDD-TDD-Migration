@@ -17,7 +17,7 @@
 | {{path/name}} | {{old}} | {{quality/cause}} | {{new}} | {{result}} | {{action}} |
 
 ## Repair Delegation / Rounds
-{{repair_requested → MO acceptance → Fixer patch → independent retest；已用轮次、停滞判断、版本失效/重跑集合}}
+{{audit-plan route → MO acceptance → Fixer patch → independent retest；已用轮次、停滞判断、版本失效/重跑集合}}
 
 ## Scope Selection
 - policy: non-green-only

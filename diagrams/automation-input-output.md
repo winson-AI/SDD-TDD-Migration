@@ -305,7 +305,7 @@ Harmony 中 **阻断优先于 Red**：同次运行已有失败断言但又有缺
 1. **不是一条脚本自动跑完整迁移。** Ledger 校验状态，宿主负责启动实例、派发、执行、提交/接受和资源锁；内核只承担一次测试执行。
 2. **after_step 与 exact 的强度有限。** 时序通过任务文本/Planner 约束和时间线审核，尚无确定性逐步骤监视器；Harmony exact 传给模型验证，不等于确定性字符串比较器。要求严格数值/文本 equality 时采用项目测试脚本。
 3. **flaky 的实现分两层。** ObservationSink 对同轮混合观察强制 Yellow；协议要求定位/修复后按策略连续通过（默认 3 次），当前 `contracts.validate_result()` 没有统一连续三次计数门禁，不能把该要求描述为全部自动强制执行。
-4. **模板需实例化。** 项目 test_adapter 与 CLI argv 格式不同；Harmony PATH 片段需补 kind；通用 context-readiness 模板默认是 coding，testing 必须使用运行期 context_requirements 给出的检查集合和 subject 摘要。
+4. **模板需实例化。** 项目 test_adapter 与 CLI argv 格式不同；Harmony PATH 片段需补 kind；context-readiness 模板只给报告形状，stage、检查集合和 subject 摘要取自步骤视图（`status --view step`）的 context。
 5. **证据完整与真机功能正确不同。** 当前静态核对能够确认接口、调用链及门禁；本说明没有执行真实 App/设备/模型，不宣称真机测试通过或源能力无劣化。
 
 ## 7. 源码定位

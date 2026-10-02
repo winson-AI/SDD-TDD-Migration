@@ -22,10 +22,10 @@ TYPICAL_BUDGET = 35_000
 # A session holding this much protocol text is better restarted from its checkpoint than fed more; advisory.
 ROTATE_BUDGET = 100_000
 # Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
-TEMPLATE_BUDGET = 33_000
+TEMPLATE_BUDGET = 26_000
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 555_000
-FILE_BUDGET = 34_000
+PROTOCOL_BUDGET = 554_800
+FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
 P = 'skills/migration-protocol/references/'
@@ -246,6 +246,18 @@ def _mode_blocks(text, modes):
     return ''.join(out)
 
 
+def _card_text(text):
+    """An Agent definition as a card carries it: without the list of skill files (the card holds their rules)
+    and without sections that only point at the shared conventions (the card holds those too)."""
+    out = []
+    for block in re.split(r'(?m)^(?=## )', text):
+        title, _, body = block.partition('\n')
+        if title.strip() == '## 8. Used Skills' or re.fullmatch(r'见 \[共享协议·通用约定\]\([^)]*\)。', body.strip()):
+            continue
+        out.append(block)
+    return ''.join(out)
+
+
 @lru_cache(maxsize=None)
 def section(path, heading=None, topics=None, modes=None):
     """Text of one Markdown section: from its heading to the next heading of the same or higher level.
@@ -256,7 +268,7 @@ def section(path, heading=None, topics=None, modes=None):
     if heading is None:
         if modes is not None:
             text = _mode_blocks(text, set(modes))
-        return _topic_rows(text, set(topics)) if topics is not None else text
+        return _topic_rows(_card_text(text), set(topics)) if topics is not None else text
     name, _, keys = heading.partition('@')
     lines = text.splitlines(keepends=True)
     for i, line in enumerate(lines):
@@ -335,7 +347,7 @@ def card(s, m, step):
     ui, reuse = bool(m) and ui_scope(m), bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required'))
     telemetry = telemetry_scope(role, m)
     lean = bool(m) and (bool(m.get('lean_leaf')) or bool(s.get('fixer_self_diagnosis')))
-    rows = ([operation] if operation else []) + (['submit'] if step.get('worker_role') else [])
+    rows = ([operation] if operation else []) + (['context-submit', 'submit'] if step.get('worker_role') else [])
     chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry,
                      lean=lean and role in ('fixer', 'implementer'), rows=rows)
     if role == 'spec-designer' or (step.get('mode') == 'design' and role == 'module-orchestrator'):
@@ -383,7 +395,7 @@ TEMPLATES = {
                 'audit': ['audit-closure-plan.json', 'audit-report.md', 'audit-review.json', 'problem-audit-report.json', 'test-result.json']},
     'test-runner': {'base': ['stage-result.json', 'test-result.json', 'context-readiness.json']},
 }
-# Module-orchestrator templates by operation; an operation outside the table gets all of them.
+# Module-orchestrator templates by operation; an operation outside the table only updates the module status.
 MO_TEMPLATES = {'freeze': ['freeze.json', 'checklist.md', 'change-impact.json', 'batch-envelope.json'],
                 'change': ['freeze.json', 'change-impact.json'], 'complete': ['checklist.md', 'status.md'],
                 'decompose': ['module-decomposition.json', 'dimension-analysis.json', 'batch-envelope.json'],
@@ -411,7 +423,7 @@ def templates(s, m, step):
     table = TEMPLATES.get(role, {})
     names = list(table.get(family(role, step.get('operation')), table.get('base', [])))
     if role == 'module-orchestrator' and family(role, step.get('operation')) == 'base':
-        names = list(MO_TEMPLATES.get(step.get('operation'), dict.fromkeys(n for group in MO_TEMPLATES.values() for n in group)))
+        names = list(MO_TEMPLATES.get(step.get('operation'), ['status.md']))
     if role == 'test-runner':
         names += SCOPE_TEMPLATES.get(step.get('test_scope'), [])
     if step.get('mode') == 'design':
@@ -446,7 +458,7 @@ GATES = [
     (r'audit', 'audit-scope.md', '总则'),
     (r'fix round|budget|no.progress|local fix', 'state-machine.md', '有限循环'),
     (r'source', 'source-changes.md', '总则'),
-    (r'fencing|revision|request id|principal|role denied|stale', 'runtime.md', '事件信封'),
+    (r'fencing|revision|request id|principal|role denied|stale', 'runtime.md', '请求与事件'),
 ]
 
 
@@ -486,7 +498,7 @@ def _heading_of(path, anchor):
 
 def unlink(text, ref):
     """A card is read on its own: a link to a whole protocol file becomes plain text, a link to a section
-    becomes a selector for `show`, and any other package file is named by its package path."""
+    becomes a selector for `show`, and a template or any other package file is named by its package path."""
     base = (PACKAGE / ref).parent
 
     def sub(match):
@@ -498,7 +510,7 @@ def unlink(text, ref):
         if not resolved.is_relative_to(PACKAGE):
             return label
         rel = str(resolved.relative_to(PACKAGE))
-        if resolved.suffix != '.md':
+        if resolved.suffix != '.md' or rel.startswith('template/'):  # a template is opened as a file
             return f'{label}（{rel}）'
         heading = _heading_of(rel, anchor) if anchor else None
         return f'{label}（{rel} § {heading}）' if heading else label

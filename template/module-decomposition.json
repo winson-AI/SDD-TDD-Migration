@@ -1,9 +1,6 @@
 {
   "parent_module_id": "M001",
   "rationale": "{{behavior-and-test-based-subfunction-boundaries}}",
-  "planning_context": {
-    "source": "Ledger status.planning_context; replace with the current full object"
-  },
   "children": [
     {
       "module_id": "M002",
@@ -59,9 +56,6 @@
       }
     }
   ],
-  "assigned_module": {
-    "source": "Ledger status.module_inputs[parent_module_id]; replace with the current full object"
-  },
   "dimension_partition_review_ref": {
     "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
     "sha256": "{{sha256}}"

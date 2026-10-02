@@ -8,14 +8,14 @@ description: /sdd-archive <run-id> <decision.json绝对路径> — 核验交付�
 `/sdd-archive <run-id> <decision.json绝对路径>`
 
 ## 2. 编排步骤
-1. 读取 [AGENTS.md](../AGENTS.md)、[运行协议](../skills/migration-protocol/references/runtime.md)，解析参数为绝对路径及规范 ID。
+1. 读取[四条红线](../AGENTS.md#四条红线)、[调用约定](../AGENTS.md#调用约定)和[宿主的轮询与派发](../skills/migration-protocol/references/host-integration.md#提示采纳回报)，解析参数为绝对路径及规范 ID；协议其余部分按小节取（`reading.py show`），不整份加载。
 2. 前置门控：全部模块 DoD Green、最终审计 Green、批准绑定当前代码与 SPEC；无 stale；OpenSpec 工具与 capability 写锁可用。归档前运行 `verify_openspec.py --root <run> --scope final`，核验全量投影与正式收尾报告；失败按具体 recovery_action 恢复，不直接重建整轮。final 可确认 completed-with-unverified-tests 的报告一致性，但不把 Yellow 改 Green，也不替代本命令的归档质量与授权门禁。见 [核验范围](sdd-verify.md)。
 3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
-4. 由宿主向 Ledger 提交 archive_requested；收到 ACK 后派发对应角色。审核决策后做 delta 合并预演、冲突审阅并记录；按核对过的 OpenSpec CLI 同步/归档并保留追溯。代码合并须另有具体授权，不能把归档当作合并。
+4. 归档不产生 Ledger 事件。审核决策后做 delta 合并预演、冲突审阅并记录；按核对过的 OpenSpec CLI 同步/归档并保留追溯。代码合并须另有具体授权，不能把归档当作合并。
 5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
 
 ## 3. 调用契约
-目标角色：[Global-Orchestrator](../Agents/global-orchestrator.md)。宿主用实际可用的任务工具启动，参数只有 package_root、assignment_ref、event_ref；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
+目标角色：[Global-Orchestrator](../Agents/global-orchestrator.md)。宿主用实际可用的任务工具启动，只传 package_root、run_root、module_id 与阅读卡路径；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
 
 ## 4. 参数验证
 run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃逸。JSON 中占位符、未决必填值、零必需用例不能作为有效运行输入。status 可读取尚未完成的输入状态。
@@ -31,7 +31,7 @@ run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃
 ```
 
 ## 7. 对应规格
-[状态机](../skills/migration-protocol/references/state-machine.md)、[OpenSpec 契约](../skills/migration-protocol/references/openspec.md)。
+[验证、同步与归档](../skills/migration-protocol/references/openspec.md#验证同步与归档)、[投影完整性收尾门禁](../skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。
 
 ## 8. 自查
 参数与前置有效；工具实际存在；没有越权写入；回执来源可信；恢复指令与 phase 一致。

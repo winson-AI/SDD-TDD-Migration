@@ -32,8 +32,8 @@ def task_scope(task):
 def input_check(s, m, ref):
     doc = read_json(check_ref(ref))
     require(doc.get('schema_version') == 1 and doc.get('module_id') == m['module_id'], 'design input module/schema mismatch')
-    require(doc.get('planning_context') == decomposition.planning_context(s) and
-            doc.get('assigned_module') == decomposition.assigned_module(s, m), 'design input allocation/context stale')
+    # The input cites the digest the cursor gave for the current context and allocation; it does not copy them.
+    require(doc.get('subject_sha256') == subject(s, m), 'design input allocation/context stale')
     specs = nonempty(doc.get('spec_refs'), 'design input specs')
     for item in specs:
         require(item.get('kind') == 'spec', 'design input requires spec definitions')

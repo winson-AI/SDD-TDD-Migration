@@ -18,7 +18,7 @@ mode: subagent
 1. 将阻塞原因、影响路径、已尝试动作、选项/建议与需要的决定封装成可回答问题，优先阻断项。
 2. 由宿主人机接口展示问题；记录 question_id、内容摘要与期限，不能由叶子私下询问绕过账本。
 3. 接受真实人类答复，验证身份、适用 run/module、当前 revision、问题 ID；未知/过期答复继续挂起。
-4. 写 human_decision_recorded；由 MO/Global 判断下一阶段，不能由 Escalation 直接放行编码或置 Green。超时则通知/升级，保存 pending。
+4. 整理 human-decision，由宿主以 decision 提交；由 MO/Global 判断下一阶段，不能由 Escalation 直接放行编码或置 Green。超时则通知/升级，保存 pending。
 
 ## 4. 规则优先级
 见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。

@@ -90,6 +90,17 @@ class SplitTestingTests(unittest.TestCase):
         f.raw('automation-unavailable', {'context_ref': report})
         return report
 
+    def test_a_dispatched_runner_without_a_device_hands_back_and_the_module_is_deferred(self):
+        f = self.f; self.prepare(); self.compile()
+        f.raw('assign', {'assignment_id': 'AUTO', 'role': 'test-runner', 'instance_id': 'test-runner', 'test_scope': 'automation'})
+        report = f.record(f.report('testing', blocked='test-environment'))
+        m = f.state()['modules']['M001']
+        self.assertEqual((m['assignments']['AUTO']['closed'], m['phase']), (True, 'testing'))
+        step = f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['ready'], step['payload']), ('automation-unavailable', True, {'context_ref': report}))
+        f.raw('automation-unavailable', {'context_ref': report})
+        self.assertEqual(f.state()['modules']['M001']['phase'], 'automation-deferred')
+
     def test_build_then_automation_then_dod(self):
         f = self.f; self.prepare()
         self.assertEqual(f.state()['next_steps'][0]['test_scope'], 'build')
@@ -197,8 +208,8 @@ class SplitTestingTests(unittest.TestCase):
     def test_build_red_enters_fixer_then_rebuild(self):
         f = self.f; self.repair_build()
         step = f.state()['next_steps'][0]
-        self.assertEqual(step['context_gate']['stage'], 'testing')
-        self.assertFalse(step['ready'])  # A fresh automation preflight is still required.
+        # The dispatch does not wait, but no earlier report counts: the runner owes a fresh automation preflight inside it.
+        self.assertEqual((step['context_gate']['stage'], step['context_gate']['ready_receipts'], step['ready']), ('testing', [], True))
         memory = f.state()['modules']['M001']['fix_memory'][0]
         self.assertEqual(memory['status'], 'awaiting-regression')
         self.assertFalse(memory['reusable'])
@@ -330,6 +341,7 @@ class SplitTestingTests(unittest.TestCase):
         ref = f.record(f.report('testing', blocked='provider-binding'))
         with self.assertRaisesRegex(Rejected, 'only automation environment'):
             f.raw('automation-unavailable', {'context_ref': ref})
+        f.record(f.report('testing'))  # the provider is bound again; the runner says so before the next dispatch
         a, r = f.make_test_result(quality='red-bug'); f.submit(r, a); f.call('accept', {'assignment_id': a['assignment_id']})
         with self.assertRaisesRegex(Rejected, 'cannot conceal'):
             self.defer()

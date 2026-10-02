@@ -73,4 +73,4 @@ Ledger 校验清单必填、工件存在及 hash，并将引用投影到 GO 的 
 
 ### 埋点的条件审查
 
-审查 changes/fidelity/library-reuse 时显式核对 [埋点协议](telemetry.md)：无埋点的模块/任务只核查 N/A 依据，不增加治理 finding 或环境门禁；存在埋点则追踪事件→功能/TASK→修改路径→CASE/PATH/ASSERT/观测层级，检查遗漏、重复、参数及生产接线。真实问题和未知范围才记录 finding/根因，独立任务继续。
+审查 changes/fidelity/library-reuse 时显式核对 [埋点协议](telemetry.md#总则)：无埋点的模块/任务只核查 N/A 依据，不增加治理 finding 或环境门禁；存在埋点则追踪事件→功能/TASK→修改路径→CASE/PATH/ASSERT/观测层级，检查遗漏、重复、参数及生产接线。真实问题和未知范围才记录 finding/根因，独立任务继续。

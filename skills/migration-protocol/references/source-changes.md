@@ -47,7 +47,7 @@ GO 已在 source-review 接受完整影响评审；registry 不变时保留原 g
 
 ## 4. 子 MO：规划、编码与验证
 
-读取 status.planning_context.source_change_ref 中的新 catalog 和影响依据；按当前上下文、scope、四维分析重新生成 SPEC/tasks。replan 模块重新澄清/冻结，不能沿用已失效批准；unchanged 模块读取新上下文预检后继续原任务。
+读取 planning_context.source_change_ref 中的新 catalog 和影响依据；按当前上下文、scope、四维分析重新生成 SPEC/tasks。replan 模块重新澄清/冻结，不能沿用已失效批准；unchanged 模块读取新上下文预检后继续原任务。
 
 编码继续执行真实依赖接线、必要适配及重复代码清理，随后 Build → Automation → MO 验收。自动化环境不可用仍按 Yellow/缺测分流，不扩散给其他模块。OpenSpec 的失效显示复用既有 invalidate 投影机制，不另建完成状态。
 

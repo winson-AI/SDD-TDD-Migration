@@ -2,8 +2,6 @@
 
 本文件回答一个问题:**怎样才算"宿主真实执行了本控制流",而不是手写文件模拟。** 它把散落在各 reference 里的"宿主负责……"整合成逐阶段、可执行、可自证的清单。
 
-宿主必须同时满足两条：(1) 每一步通过 `ledger.py`/`project_context.py` 提交事件，遵守状态守卫，不手写状态或投影；(2) 各角色由宿主真实派发并完成职责内工作。事件链记录已提交的动作，但 hash 链不能证明外部执行发生。[verify_openspec.py](../../migration-ledger/scripts/verify_openspec.py) 只核验指定范围的记录/投影一致性；真实派发、代码修改、构建和设备执行须宿主回执与独立审查证据。
-
 ## 总则
 
 宿主要真实走完控制流，须遵守本契约：每步提交真实 Ledger 事件，各角色由宿主实际派发并执行。推进前按动作选择 `/sdd-verify` 范围：全局基础用 global，模块推进用 module（本模块、祖先和实际依赖），全量投影用 projection，最终交付用 final。只阻断核验失败的相关范围，不把无关模块错误扩散到全部 MO。核验仅证明记录与投影一致；真实派发、构建/设备执行和行为通过须各自的执行证据，不能由 hash 链证明。
@@ -11,7 +9,7 @@
 ## 1. 宿主必须提供、控制器不代劳的三件事
 
 1. **身份认证与 host-context 注入**:每次 `apply`/`init` 传入认证过的 `{"role":..,"instance_id":..}`;绝不能让请求体自报 role 获得权限,也不能让 worker 自选 host-context。
-2. **真实派发 Agent**:控制器只记录 dispatch 请求并在 `status.next_steps` 给出游标;宿主必须用自己的 task/spawn 工具,按 [Agents/*.md](../../../Agents/) 定义启动隔离实例,并把结果经 Ledger 回传。控制器不 spawn、不嵌套 slash command。
+2. **真实派发 Agent**:控制器只记录 assign 并在 `status.next_steps` 给出游标;宿主必须用自己的 task/spawn 工具,按 [Agents/*.md](../../../Agents/) 定义启动隔离实例,并把结果经 Ledger 回传。控制器不 spawn、不嵌套 slash command。
 3. **真实工作落地**:Implementer/Fixer 真写 `target_root` 源码;Test-Runner 经 [execute_test.py](../../migration-ledger/scripts/execute_test.py) 调项目真实构建/测试命令;Auditor 独立实例真实重跑。`code_files`/`checks_passed`/断言都由宿主真实产生,不能自填冒充。
 
 这三件事无法从控制器内部强制(CLI 非安全边界);它们是本契约要求宿主自证的核心。
@@ -24,7 +22,7 @@
 | --- | --- | --- | --- |
 | `/sdd-init` | `project_context.py prepare` → `ledger.py init`(payload 带 `project_context_ref`)→ `register`(拓扑序)→ `global-plan` | 认证 host;GO 生成功能清单/切片/覆盖;真实规范/架构/用例引用 | `status.openspec_binding.location==top-level`;`events.jsonl` 逐条增长;顶层 `openspec/runs/<run_id>/workflow.md` 出现 |
 | `/sdd-plan` | 树形先 decompose/accept；叶子 assign(mode=design)→submit→MO accept(review_ref)→Spec plan→MO freeze | 独立 Test-Runner 设计、Spec 六件套、真实人工冻结决定 | plan.test_design_ref 绑定设计；顶层 change/manifest 投影，freeze 绑定人工证据 |
-| `/sdd-run`、`/sdd-module` | `assign`/`submit`/`accept`(implementer)→ `assign`/`submit`/`accept`(test-runner:先 build 后 automation)→ 需要则 `diagnose`/`diagnosis-accept`/`assign(fixer)` → `complete`;父节点 `module-summary` | 派发各角色隔离实例;真写 target 代码;execute_test 跑真实命令;真实 diff/DoD 审查 | 每 assignment 有 submit+accept;`code_baseline` 与磁盘一致(否则 `observed_invalidations` 报警);`complete` 前全 PATH Green |
+| `/sdd-run`、`/sdd-module` | `assign`/`context-submit`/`submit`/`accept`(implementer)→ 同序(test-runner:先 build 后 automation)→ 需要则 `diagnose`/`diagnosis-accept`/`assign(fixer)` → `complete`;父节点 `module-summary` | 派发各角色隔离实例;真写 target 代码;execute_test 跑真实命令;真实 diff/DoD 审查 | 每 assignment 有 submit+accept;`code_baseline` 与磁盘一致(否则 `observed_invalidations` 报警);`complete` 前全 PATH Green |
 | `/sdd-audit` | `audit-code-review` → `audit-collect` → `audit-plan` → `audit-route-batch` → `audit-work`/`audit-retest` → `audit-verdict`(→`audit-release`) | **独立** Auditor 实例(≠ 任何 implementer/fixer/test 作者)真实重跑;Fixer 按路由修复 | `authors` 独立性校验通过;audit 报告绑定当前 snapshot;`audit-reports/<batch>.md` 生成 |
 | `/sdd-archive` | 宿主 OpenSpec CLI 同步/归档(无 Ledger `archive` op) | 人工交付授权;代码合并另行授权 | `verify_openspec --scope final` 通过 + 原归档质量门禁;归档不等于合并 |
 | `/sdd-status`、`/sdd-verify` | 只读,不提交事件 | —— | 核验范围适合当前动作；planning 的 projection 通过不代表 completed |
@@ -64,13 +62,13 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 ## 提示采纳回报
 
-**轮询。** 宿主用 `ledger.py status --view cursor --since <上次 last_sequence>`：没有新事件时只返回 `unchanged` 与进度信号；否则返回游标、`module_summary` 和信号摘要，步骤只带 `card_sha256`，`cards` 只给各卡的字节数与小节数。单模块细节用 `--view module --module <id>`；模块正文、`openspec_binding`、`migration_report`、`parent_mo_names` 与信号证据、卡片行清单（`must_read`、`must_read_new`）在 `--view full`。
+**轮询。** 宿主用 `ledger.py status --view cursor --since <上次 last_sequence>`：没有新事件时只返回 `unchanged` 与进度信号；否则返回游标、`module_summary` 和信号摘要，步骤只带 `card_sha256`，`cards` 只给各卡的字节数与小节数。派发或执行一步用 `--view step --module <id>`（全局步骤省略 `--module`）：本步、请求信封字段、本阶段预检要求（摘要、检查项、必读引用）、本模块分配包与当前 assignment，规划类步骤另带 planning_context。模块正文用 `--view module --module <id>`。`--view full`（全部模块正文、`openspec_binding`、`parent_mo_names`、信号证据、卡片行清单）随模块数增长，只供脚本处理，不读入模型上下文。输出是紧凑 JSON。
 
 **取卡。** `reading.py render --root <run> --module <id>`（全局步骤用 `--global`）把当前卡写成 `reports/reading/<card_sha256>.md`，派发只传该路径。卡内不保留指向整份协议的链接：小节引用写成“文件 § 小节”，可直接交给 `reading.py show --ref <文件> --section <小节>`（操作矩阵可写 `操作矩阵@<operation>` 只取一行）。卡尾列出本步模板（步骤的 `templates`），不必读模板索引。`card_sha256` 绑定小节正文。
 
 **会话。** 恢复建议会话时只交尚未持有或正文已变的小节（`render --resumed`，游标的 `card_new` 给出其大小），冷启动用完整卡。任何模块请求可带顶层 `hint{session_id, card_sha256}` 报告所用会话与卡片（assign 也接受 payload 中的同名字段），与当前游标步骤一致时计入该会话已持有的小节。会话累计持有的协议文本达到阈值时，步骤带 `session_rotate`：建议按 checkpoint 冷启动该角色并交完整卡。门禁拒绝的响应与 `reports/rejected-operation.json` 带 `read_hint`（该门禁所在小节）。
 
-**机械步骤。** `mechanical=true`（全绿测试结果的 accept）时宿主以 MO 身份直接提交，不调用模型；被拒再交 MO。冻结的人工批准用 freeze 步骤的 `approval_subject_sha256`。
+**机械步骤。** `mechanical=true`（全绿测试结果的 accept、执行派发的 assign）时宿主以 MO 身份直接提交，不调用模型：accept 只需 assignment_id；assign 用步骤的 payload（角色、test_scope，已有预检时含该实例与其 context_ref），再加宿主生成的 assignment_id，载荷未给实例时由宿主指定。派发后 worker 在同一会话内先 context-submit 再工作。被拒再交 MO。冻结的人工批准用 freeze 步骤的 `approval_subject_sha256`。
 
 以上都是建议：Ledger 只记录是否一致（`status.hint_adoption`），不据此拒绝派发；持续 not_followed/unreported 应在接入层修正，而不是放宽门禁。
 

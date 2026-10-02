@@ -109,7 +109,7 @@ execute_test 自动传 query/result 文件并保存正式回执，adapter 只重
 
 每个源 ID + qualifier 对应一个 Resource item；分组用现有任务追溯。不将裸 covered_resource_ids 计入闭包，附加资源和别名分别带源事实、精确策略、目标及消费者证据。consumer 可为单值或列表，实现提交 consumer_refs 逐文件对应（同文件多个符号只需一个 hash），不能代证其他消费者。引用持续校验但不替代真实接线测试。
 
-资源源索引区分节点 ID 与可迁移资源：R.id 不生成 resource-not-found，@array 识别两类 Android 数组。平台资源通过固定 SDK API 的 source.properties + data/res 原定义完成精确映射；无可核验定义时保留 blocked。约束与模板见 [资源保真](ui-fidelity.md)。
+资源源索引区分节点 ID 与可迁移资源：R.id 不生成 resource-not-found，@array 识别两类 Android 数组。平台资源通过固定 SDK API 的 source.properties + data/res 原定义完成精确映射；无可核验定义时保留 blocked。约束与模板见 [资源保真](ui-fidelity.md#精确性纪律)。
 
 collector 对资源事实保存源文件 SHA。冻结和 verify_plan 只遍历当前 UI 树引用的源索引变体，逐 ID/qualifier/path 核对实际源文件及 Resource item 的同一份 hash，不能用 base 代替漏掉的 night/语言变体。若同 ID 在多个模块存在候选，或某配置不属于切片，可在 ui_evidence.resource_scope.exclusions 列出 source_resource、qualifier、相对 androidRoot 的 path、reason、非空 evidence_refs；审核证据持续验 hash，显式启用的配置不可排除。旧索引缺 hash/事实已变须重新抽取再走原计划更新机制，不能给旧内容补新 hash。扫描同时包含 values 颜色和 res/color* XML；状态颜色 selector 使用 compose_semantic_exact，固定颜色才用 design_token_exact。
 

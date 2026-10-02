@@ -433,6 +433,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         proc = subprocess.run([sys.executable, str(script), 'history', '--root', str(self.root)], capture_output=True, text=True)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(json.loads(proc.stdout)['run_id'], 'demo')
+        self.assertEqual(proc.stdout.count('\n'), 1)  # one compact line: the output is read by hosts and models
         rejected = subprocess.run([sys.executable, str(script), 'status', '--root', str(self.root)], capture_output=True, text=True)
         self.assertNotEqual(rejected.returncode, 0)
         self.assertEqual(before, {str(p): p.read_bytes() for p in self.root.rglob('*') if p.is_file()})

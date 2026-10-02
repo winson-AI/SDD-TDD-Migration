@@ -2,13 +2,13 @@
 
 ## 总则
 
-新运行在 GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发与 Auditor 分析/裁决/最终验证前，执行本协议。实际执行实例先只读核对并经 Ledger 留证，原控制节点接受；缺项不得执行，必须补齐或显式记录该模块阻塞，无关模块继续。
+新运行在 GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工与 Auditor 分析/裁决/最终验证前，执行本协议。实际执行实例先核对并经 Ledger 留证：规划与审计的报告由原控制节点接受；worker 接到派发后提交，ready 报告才授权开工。缺项不得执行，必须补齐或显式记录该模块阻塞，无关模块继续。
 
 ## 1. 原则
 
-全局可读、引用有效不等于子任务已经具备执行条件。每个阶段由实际执行角色核对所需内容并经 Ledger 留证，再由既有控制节点接受。执行者自己随后提交的操作（register、global-plan、decompose、plan、audit-plan、audit-verdict、audit-code-review、source-review）携带 context_ref 即随操作登记（游标 `with_operation=true`）；其他角色验收的阶段（coding、building、testing、fixing、audit-testing）先 `context-submit`。报告是可追溯的理解与环境证据，不代替 SPEC 冻结、权限、测试或 DoD，不新增人工会签。
+全局可读、引用有效不等于子任务已经具备执行条件。每个阶段由实际执行角色核对所需内容并经 Ledger 留证，再由既有控制节点接受。执行者自己随后提交的操作（register、global-plan、decompose、plan、audit-plan、audit-verdict、audit-code-review、source-review）携带 context_ref 即随操作登记（游标 `with_operation=true`）；worker 阶段（coding、building、testing、fixing）在派发之后 `context-submit`：ready 报告绑定该派发并授权开工，blocked 报告退回派发；audit-testing 仍由 Auditor 在 audit-assign 前提交。报告是可追溯的理解与环境证据，不代替 SPEC 冻结、权限、测试或 DoD，不新增人工会签。
 
-宿主以已认证 role/instance/module 启动或恢复**只读预检**，允许读获授权材料、写自身 staging、提交 context-submit；未获原有 assign/freeze 等门禁批准，不允许改目标代码或执行目标构建/测试。preflight 和正式执行必须使用同一实例；换实例必须重新核对。宿主继续承担身份认证、Used Skills 加载、工具可用性和文件写隔离。
+预检**只读**：允许读获授权材料、写自身 staging、提交 context-submit；报告未被原节点接受或未绑定派发前，不允许改目标代码或执行目标构建/测试。预检和正式执行是同一实例；换实例必须重新核对。宿主继续承担身份认证、工具可用性和文件写隔离。
 
 ## 2. 精确插入节点
 
@@ -19,10 +19,10 @@
 | 子模块全部登记后 | global-planning / GO | 全局需求/CASE 覆盖、分工/接口契约、复用 owner | global-plan，GO |
 | design assign 后、随设计 submit | test-design / Test Runner | assigned-scope/spec-cases/task-coverage/independence；必读 design_input_ref 的规格/CASE/tasks | submit 绑定本实例与结果 draft_ref；MO accept(review_ref) 再验，无代码/设备前置 |
 | 子 MO 组织正式 SPEC/测试设计 | planning / Spec Designer | 全局/父/子范围、source_closure、target_feasibility、接口、CASE/PATH、复用映射 | plan 绑定草稿；子 MO freeze 再验当前报告与同一 plan_ref |
-| Coding 派发前 | coding / Implementer | 冻结 SPEC/tasks、完整生产链路、目标可行性、共享接口、复用接线、工具/读写授权 | MO assign；原有锁、依赖、版本门禁仍执行 |
-| 构建派发前 | building / Test Runner | 已接受代码、冻结构建命令、目标/JDK/SDK/Gradle 环境、工具与权限，不要求自动化设备 | MO assign(test_scope=build) |
-| Main 派发前 | testing / Test Runner | 需求与 PATH、已接受代码、真实提供方、适配器、环境/数据/账号条件、工具与权限 | MO assign；执行器再核对批准 argv/cwd/环境证据 |
-| 首轮或审计 Fixer 派发前 | fixing / Fixer | 冻结契约、TASK、接口、复用映射、失败 PATH/assert、当前诊断、历史尝试/预算、最小修复范围 | MO assign；缺上下文不消耗修复轮次；必须确认已读诊断报告（diagnosis_ref 为必读输入）。fixing 预检绑定的是诊断内容本身：MO 接受前提交的草稿与接受后的诊断相同，预检在接受后仍有效，可用于 diagnosis-accept 合并派发 |
+| Coding 派发后、开工前 | coding / Implementer | 冻结 SPEC/tasks、完整生产链路、目标可行性、共享接口、复用接线、工具/读写授权 | ready 报告绑定 assign 后开工；锁、依赖、版本门禁在派发时执行 |
+| 构建派发后、执行前 | building / Test Runner | 已接受代码、冻结构建命令、目标/JDK/SDK/Gradle 环境、工具与权限，不要求自动化设备 | ready 报告绑定 assign(test_scope=build) 后执行 |
+| Main 派发后、执行前 | testing / Test Runner | 需求与 PATH、已接受代码、真实提供方、适配器、环境/数据/账号条件、工具与权限 | ready 报告绑定 assign 后执行；执行器再核对批准 argv/cwd/环境证据 |
+| 首轮或审计 Fixer 派发后、修复前 | fixing / Fixer | 冻结契约、TASK、接口、复用映射、失败 PATH/assert、当前诊断、历史尝试/预算、最小修复范围 | ready 报告绑定 assign 后修复并计一轮，缺上下文不消耗修复轮次；必须确认已读诊断报告（diagnosis_ref 为必读输入）。fixing 预检绑定诊断内容本身，MO 接受诊断前后均可提交；diagnosis-accept 可带 assign 一步派发 |
 | 全部 MO 收尾、收集遗留后 | audit-analysis / Auditor | 父汇总、finding、各相关 SPEC/PATH、依赖 owner、复用映射和独立性 | Auditor audit-plan；GO 后续审核路由 |
 | 修复批次裁决前 | audit-verdict / Auditor | 当前汇总/遗留、SPEC/PATH、每个验证结果与受阻根因、独立性 | Auditor audit-verdict；不以预检 ready 代替验证结果 |
 | 遗留路径独立复核前 | audit-testing / Auditor | 当前汇总、SPEC/PATH、代码与真实提供方、完整环境、独立性 | Auditor 自核就绪，GO audit-assign 绑定该实例；测试验收仍唯一归 Auditor |
@@ -31,12 +31,12 @@
 
 ## 3. 报告与传递
 
-模板：[context-readiness.json](../../../template/context-readiness.json)。stage 的精确必需检查项由 `status.context_requirements[GLOBAL|module_id][stage]` 给出，禁止直接复用 Coding 示例冒充其他阶段报告。
+模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256、必需检查项与必读引用取自步骤视图（`status --view step`）的 `context`；checks 的键必须与其 required_checks 完全一致。
 
 报告包含：
 
 - `schema_version/run_id/module_id/stage/producer`：实际身份与作用域；全局 module_id=null。
-- `subject_sha256`：复制当前 status 给出的上下文摘要；绑定分配、冻结、代码、依赖或审计批次，不绑定无关兄弟的进度。
+- `subject_sha256`：复制 `context.subject_sha256`；绑定分配、冻结、代码、依赖或审计批次，不绑定无关兄弟的进度。
 - `read_refs`：实际核对的绝对 path/sha256；必须包含 `required_input_refs`。读取引用指向的正文及其必需材料，不能只复制路径。
 - `draft_ref`：global-plan/decompose/plan/audit-plan 必须绑定正在提交的同一 plan_ref，且列入 read_refs。
 - `checks`：每项 `status=ready|blocked`、具体理解摘要；ready 必须给 evidence_refs，blocked 必须给 missing/owner/next_action。
@@ -53,7 +53,7 @@
 }
 ```
 
-仍需完整 request 信封及宿主绑定 principal。ACK 后重读 revision，原节点 payload 增加 `context_ref` 指向该报告；freeze/decompose-accept 自动使用原提案接受的引用。Ledger 保存 `context_receipts` 与 `context_acceptances`，不存在另一份可手改的权威状态。
+仍需完整 request 信封及宿主绑定 principal。worker 的报告与它的活动派发同阶段时由 Ledger 直接绑定，无需再引用；没有派发时报告只留证，下次派发同一实例时自动绑定其当前 ready 报告。随操作登记的报告作为该操作的 context_ref；freeze/decompose-accept 自动使用原提案接受的引用。Ledger 保存 `context_receipts` 与 `context_acceptances`，不存在另一份可手改的权威状态。
 
 ## 4. 检查内容必须具体
 
@@ -69,7 +69,7 @@
 
 ## 5. 缺失、失效与恢复
 
-`status.next_steps/global_next_step.context_gate` 展示当前必需 stage、检查项及可用报告。原节点 ready=false 且 reason=context-readiness-required 时，宿主仍可启动该角色的只读预检；不得把它当作全局无工作可做，也不得直接 assign。
+`status.next_steps/global_next_step.context_gate` 展示当前必需 stage、检查项及可用报告；已派发但未授权的 worker 步骤（await-result）同样带出所欠的报告。worker 的 blocked 报告退回派发（尚未授权执行，无需停止证据），游标 reason=context-blocked：补齐后由 worker 重新提交 ready 报告，或按原因挂起；该实例当前仍 blocked 时 assign 被拒。审计派发因 context-readiness-required 未就绪时，宿主启动 Auditor 预检，不得把它当作全局无工作可做。
 
 blocked 报告提交会保留缺失项，但**不会自动将整个 MO 标记收尾**。例外分流：当前构建通过且仅自动化 test-environment 缺失时，游标提示 automation-unavailable；MO 接受后进入 automation-deferred，保留 Yellow/未执行并允许其他可执行任务继续，不要求人工批准。最终审计同类问题使用 audit-unavailable。见 [双环节协议](build-automation.md)。责任编排者必须继续补材料，或基于本模块实际原因提交已有 suspend（dependency/human/tooling）；已确认依赖/外围问题符合 audit-defer 条件时走该分支。审计修复中的阻塞经 audit-block 进入相关 finding 的人工报告。缺失不伪造失败测试，未执行路径仍为未执行；保留 Yellow 原因和恢复条件。
 

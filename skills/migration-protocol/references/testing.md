@@ -10,7 +10,7 @@ Main 是项目提供的主验证入口，不是固定 `main.py`。输入 `test_a
 
 沿用 `assign → submit → accept`，`mode=design` 表示只读设计；它是必选门禁（prepare 固定 test_design_required=true），撤销/invalidate 不关闭。
 
-1. MO 在 context/specifying/change-review、无 blocker/worker 的叶子 `assign(role=test-runner, mode=design, assignment_id, instance_id, design_input_ref)`；[输入](../../../template/test-design-input.json) 绑定当前 planning_context/assigned_module、MO tasks.scope/需求、spec_refs/case_refs，此事件提交跨角色输入。Spec 可先 context-submit 自身草稿。无源码写锁、依赖代码/设备前置，仍受并发预算约束。
+1. MO 在 context/specifying/change-review、无 blocker/worker 的叶子 `assign(role=test-runner, mode=design, assignment_id, instance_id, design_input_ref)`；[输入](../../../template/test-design-input.json) 含 MO tasks.scope/需求、spec_refs/case_refs，并以 subject_sha256 引用游标给出的 input_subject_sha256（当前上下文与分配的摘要，不抄写正文）；此事件提交跨角色输入。Spec 可先 context-submit 自身草稿。无源码写锁、依赖代码/设备前置，仍受并发预算约束。
 2. 独立 Test-Runner 只读整体/模块测试输入及规格，补齐正常/边界/异常、权限/数据等适用路径，在自身 staging 写 [结果](../../../template/test-design-result.json)：CASE-ID → PATH-ID/Name 与预期断言；不读实现源码推导预期，缺失业务预期经 Spec-Designer 澄清。test-design 预检（assigned-scope/spec-cases/task-coverage/independence，draft_ref 绑定结果）随 submit(assignment_id/fencing_token/result_ref/context_ref) 登记，无需单独 context-submit。kind=test-design，freeze_id/code_baseline=null；禁止 actual/passed/quality 或执行。
 3. MO 审查全 CASE 覆盖并 accept(assignment_id, review_ref)，关闭 assignment，保持规划 phase/质量/代码/修复预算与兄弟模块。返工或 blocked：留证，宿主实际停 worker/revoke，再重新派发或按原 suspend，不能记业务 Red。
 4. 独立 Spec 的 plan.test_design_ref 绑定 accepted 结果。PATH/ASSERT、tasks 的 scope/需求、spec 与 test-design 定义由 Ledger 从已接受设计补全，plan 只写 path_ids/四维追溯等自有内容，仍携带的部分须与设计一致。人工批准与 impact 审查绑定 freeze 游标的 approval_subject_sha256（补全后 plan 的摘要）。MO freeze 再验。需求/任务/分配/断言变更须重新设计；invalidate/CR 保留旧证据并回规划。活动输入过期提示 host revoke；clarifying 设计过期提示 MO invalidate。
@@ -126,7 +126,7 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 ## 测试启动前的上下文门禁
 
-Test Runner 编译前提交 building、自动化前提交 testing 报告，Auditor 最终验证先提交 audit-testing 报告；包括已接受代码、冻结 PATH/assert、提供方、工具/环境/数据与 execution.argv/cwd/environment_ref。原 assign/audit-assign 接受后 execute_test 再核对命令和环境引用；不匹配须重新预检和派发，不能换命令绕过。缺条件不生成假测试结果。见 [上下文就绪协议](context-readiness.md)。
+Test Runner 接到 build 派发后提交 building、接到 automation 派发后提交 testing 报告，ready 报告绑定派发后才执行；Auditor 最终验证在 audit-assign 前提交 audit-testing 报告。报告包括已接受代码、冻结 PATH/assert、提供方、工具/环境/数据与 execution.argv/cwd/environment_ref。execute_test 只接受已绑定 ready 报告的派发，并再核对命令和环境引用；不匹配须重新预检和派发，不能换命令绕过。缺条件不生成假测试结果。见 [上下文就绪协议](context-readiness.md)。
 
 仅自动化环境缺失采用 automation-unavailable/automation-deferred 专门分流；不耗修复轮次、不阻塞可执行的下游或并行工作，也不冒充 Green。Auditor 可记录完整缺测清单后完成本轮；其余真实 Red/Yellow 保持原诊断修复流程。
 

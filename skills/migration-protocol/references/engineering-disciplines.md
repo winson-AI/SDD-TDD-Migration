@@ -4,7 +4,7 @@
 
 ## 1. Foundation / 迁移知识执行与冻结
 
-项目配置唯一入口是 `defaults.quality_gates.dependency_resolution_required`，值必须是 bool，默认 false。prepare 固定到本轮快照及 Global input，Ledger init 按该快照继承；不通过顶层项目字段、字符串 true 或 worker 请求临时开关覆盖。配置更新只影响后续运行。详见 [项目上下文](project-context.md)。
+项目配置唯一入口是 `defaults.quality_gates.dependency_resolution_required`，值必须是 bool，默认 false。prepare 固定到本轮快照及 Global input，Ledger init 按该快照继承；不通过顶层项目字段、字符串 true 或 worker 请求临时开关覆盖。配置更新只影响后续运行。详见 [项目上下文](project-context.md#总则)。
 
 开启后，冻结要求 `plan.dependency_resolution_ref` 指向经 [knowledge_gate.py](../../migration-ledger/scripts/knowledge_gate.py) 校验的解析产物：`schema_version:1`、每条 requirement 有 query 与确切 version/resolved_version；subclosure 只列本切片需要的 API；demo-source 必须标 candidate_only。受限 `foundation-resolve` 的 result.json 可直接作为该引用。纯非 Harmony 范围或本切片没有新增敏感依赖必须给出解析器产生的显式 not-required 结果及 target_matrix；空列表本身不证明不适用。开关关闭只是不增加此冻结门禁，不能免除原有真实依赖/生产接线/构建验证。
 

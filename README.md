@@ -30,7 +30,7 @@
 | `Agents/` | 10 个角色定义，含输入输出、边界、Skill 依赖与自查 |
 | `skills/` | 共享协议与 10 个职责技能，按需读取 |
 | `command/` | 10 个命令入口，负责上下文配置、参数、门控、派发与投影完整性核验 |
-| `template/` | 全局输入、模块输入、六件套及诊断、测试、事件、人工决策等运行工件模板 |
+| `template/` | 全局输入、模块输入、六件套及诊断、测试、Ledger 请求、人工决策等运行工件模板 |
 | `diagrams/` | 三层编排总览、子 MO/Auditor 细节图及生成源文件 |
 
 运行期资产集中在固定 `workspace_root`，其下 `.sdd-migration`（长期配置）、`.sdd-runs/<run_id>`（运行证据）、`openspec`（规格与状态中枢）顶层并列；包目录自身不存迁移状态。Harmony 执行统一在 `.sdd-runs/<run_id>/runs/harmony/`（automation/sandbox），构建资产在 runs/build；临时文件归 runner，结束清理，失败留存原因。项目模型参考配置/凭证在 `.sdd-migration/harmony/`；Test-Runner 首次准备时复制到本轮 `runs/harmony/sandbox/environment/`，各模块共享本轮副本。入口为 `openspec/runs/<run_id>/workflow.md`。见 [完整留存布局与二次启动](skills/migration-protocol/references/storage-layout.md)。模块 ID 永久稳定，如 `M001`；OpenSpec change 名如 `migration-demo-m001`。新增模块只追加编号，不因排序改变历史 ID。顶层 `openspec` 是 prepare→init→apply 真实跑通后的投影，不能手写；最终交付用只读门禁 `verify_openspec.py --root <run> --scope final` 核验投影与正式收尾报告；缺事件证据时恢复其有效来源，不由核验结果推断真实派发或功能通过，细则见 [投影完整性收尾门禁](skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。
@@ -83,7 +83,7 @@ Coding → MO 接受代码 → Testing
 | Harmony 自动测试 | 迁入的 Planner/Executor/Verify 内核，逐 ASSERT 证据接入 Ledger | [Harmony 运行](skills/migration-test/references/harmony-runtime.md) |
 | 切片与功能清单 | 默认由 Agent 决定粒度；清单完整可追溯，疑问交人工 | [切片规约](skills/migration-global/references/slicing.md) |
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照 | [项目上下文](skills/migration-protocol/references/project-context.md) |
-| 上下文就绪 | 执行者只读预检并经 Ledger 留证 → 原节点验收 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
+| 上下文就绪 | 规划与审计者随操作登记预检；worker 派发后预检，ready 才开工 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
 | 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 四维切片与语义模型 | UI → Logic → Adhesive → Resource 逐层映射到 TASK/PATH/ASSERT | [四维](skills/migration-protocol/references/dimension-slicing.md)、[语义抽取](skills/migration-protocol/references/semantic-extraction.md) |
 | 阻塞感知与恢复 | 局部校验、invalidate 出口、进度信号；watchdog 只观察 | [恢复与进度](skills/migration-protocol/references/progress-recovery.md)、[watchdog](skills/migration-protocol/references/watchdog.md) |
@@ -136,3 +136,5 @@ Coding → MO 接受代码 → Testing
 | 2026-10-02 | 堵住整份加载的入口：渲染后的阅读卡不再含指向整份协议的链接，小节引用改为可直接取用的选择器；游标轮询只带卡片大小并支持 `--since` 增量；步骤直接给出本步模板，不再读模板索引；Test-Runner 定义按测试阶段取块；会话持有协议文本超阈值时建议按 checkpoint 冷启动；请求级 `hint` 成为统一回报通道 |
 | 2026-10-02 | 流程与契约精简：build、unit、static 合成一份结果一次验收，设计预检随提交登记（绿色叶子 24 → 19 个事件）；scenario_index 与静态审查范围由 Ledger 派生，不再手写；叶子的行为审阅并入 source_closure；共享能力归属与复用目录互相校验；步骤模板按操作收窄并设预算；设计说明合为一节 |
 | 2026-10-02 | 控制器减负：事件日志只记录变化、工件索引不重复列出（模拟运行 8.07MB → 0.30MB，旧事件仍可重放）；状态只存报告与结果的哈希引用；执行者自己的预检随操作登记（绿色叶子 19 → 18 个事件）；全绿测试结果的验收标为机械步骤；plan 只引用已接受设计，PATH 与任务范围由 Ledger 补全；模板去重 |
+| 2026-10-03 | 状态与入口按需取用：`status --view step` 只给一步所需（两叶子模拟中角色取状态 228KB → 约 8KB），输出改紧凑 JSON；plan、拆分提案与设计输入不再抄写全局上下文，由 Ledger 绑定摘要（plan 事件 27KB → 18KB）；卡片与命令不再指向整份协议文件，角色与技能中的协议链接改为小节定位；协议只用操作矩阵的词汇，删除未实现的抽象事件层；测试阶段的派发标为机械步骤；`contracts.py` 提供摘要命令 |
+| 2026-10-03 | 派发后预检：执行派发不再等待 worker 的预检报告，worker 在同一次启动内预检后开工，ready 报告授权工作、blocked 报告退回派发且不耗修复轮次；执行派发都是机械步骤；绿色叶子的模型调用 16 → 10 次 |

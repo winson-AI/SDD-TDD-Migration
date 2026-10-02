@@ -61,8 +61,7 @@ class SourceChangeTests(unittest.TestCase):
         # Fixture helpers share definition paths; give every frozen plan its own copies.
         p = test_ledger.FlowTests.plan(f)
         module = f.state()['modules'][mid]; iid = mid+'-Logic'; pid = mid+'-P'; bid = mid+'-B'; sid = mid+'-S'; uid = mid+'-U'
-        p.update(module_id=mid, planning_context=f.state()['planning_context'], assigned_module=f.state()['module_inputs'][mid],
-                 dimension_analysis_ref=module['dimension_analysis_ref'])
+        p.update(module_id=mid, dimension_analysis_ref=module['dimension_analysis_ref'])
         p['definitions'] = [{**f.ref(f'defs-{mid}-{f.n}/{r["kind"]}.md', check_ref(r).read_text() + '\n'+iid+'\n'), 'kind': r['kind']}
                             for r in p['definitions']]
         p['paths'][0].update(path_id=pid, kind='automation')
@@ -203,9 +202,8 @@ class SourceChangeTests(unittest.TestCase):
             report['execution'] = {'argv': argvs[suffixes[0]], 'cwd': str(f.target), 'environment_ref': f.ref('environment.md', 'Python fixture available')}
             if scope == 'build':
                 report['execution']['commands'] = {mid+k: {'argv': v, 'cwd': str(f.target)} for k, v in argvs.items()}
-            receipt = f.record(report)
-            f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner',
-                'test_scope': scope, 'context_ref': receipt}, module=mid)
+            f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner', 'test_scope': scope}, module=mid)
+            f.record(report)  # the runner reports inside its dispatch; the ready report authorizes the run
             a = f.state()['modules'][mid]['assignments'][aid]
             receipts, planned = [], {p['path_id']: p for p in f.state()['modules'][mid]['plan']['paths']}
             for k in suffixes:  # a Test-Runner stops at the first gate that is not Green

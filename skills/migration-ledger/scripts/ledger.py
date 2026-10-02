@@ -251,7 +251,7 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
              plan=None, plan_ref=None, plan_hash=None, build_baseline=None, accepted_task_ids=[],
              code_files=[], code_baseline=None, provider_owners=[])
     for key in ('dimension_evidence', 'effective_quality', 'context_acceptances', 'automation_retry_ready',
-                'dependency_release', 'source_context_continuation', 'change_request', 'scenario_index'):
+                'dependency_release', 'source_context_continuation', 'change_request', 'scenario_index', 'plan_binding'):
         m.pop(key, None)
 
 
@@ -507,7 +507,9 @@ def _next_step(s, m):
         if design_stage.required(s, m) and not design_stage.ready(s, m):
             step.update(operation='assign', role='module-orchestrator', worker_role='test-runner',
                         mode='design', test_scope='design', reason='independent-test-design-required',
-                        payload={'role': 'test-runner', 'mode': 'design'})
+                        payload={'role': 'test-runner', 'mode': 'design'},
+                        # What the design input cites instead of copying the context and the allocation.
+                        input_subject_sha256=design_stage.subject(s, m))
         try:
             workflow.runtime_allocations(s, m['module_id'])
         except (Rejected, OSError) as exc:
@@ -677,17 +679,32 @@ def reasoning_escalated(m):
                for r in results.values())
 
 
+def with_card(s, m, step):
+    """A step that asks for an operation names the protocol sections and the templates it needs."""
+    step['must_read'] = reading.card(s, m, step)
+    step['card_sha256'] = reading.digest_card(step['must_read'])
+    step['templates'] = reading.templates(s, m, step)
+    return step
+
+
 def next_step(s, m):
     step = context_readiness.annotate(s, m['module_id'], _next_step(s, m))
     if m.get('decomposition_required') and step['role'] == 'module-orchestrator':
         step['agent_name'] = 'parent-mo-' + m['module_id']
+    if step.get('operation') == 'assign' and step.get('mode') != 'design' and step['ready']:
+        # Who works next and on which stage are facts the Ledger holds; assign re-checks every guard and the worker
+        # reports its own readiness, so the host may submit it as the module orchestrator without a model turn.
+        step['mechanical'] = True
+        step['payload'] = {**step.get('payload', {}), 'role': step['worker_role']}
+        receipts = (step.get('context_gate') or {}).get('ready_receipts')
+        if receipts:
+            producer = next(r['producer'] for r in m['context_receipts'].values() if r['report_ref'] == receipts[0])
+            step['payload'].update(instance_id=producer['instance_id'], context_ref=receipts[0])
     if step.get('role'):
         step['model_tier'] = model_routing.advise(step['role'], step.get('operation'),
                                                    step.get('worker_role'), escalate=reasoning_escalated(m))
     if step.get('operation'):
-        step['must_read'] = reading.card(s, m, step)
-        step['card_sha256'] = reading.digest_card(step['must_read'])
-        step['templates'] = reading.templates(s, m, step)
+        with_card(s, m, step)
         session = step.get('session_id') or ''
         held = m.get('delivered_cards', {}).get(session)
         if held:
@@ -784,21 +801,48 @@ def assign_worker(s, m, mid, p, events):
         require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> unit -> static -> automation -> visual; the build assignment carries the first three')
     if p['instance_id'] not in m['authors']:
         m['authors'].append(p['instance_id'])
+    preflight = context_readiness.enabled(s)
+    context_ref = p.get('context_ref') or (context_readiness.reported(s, mid, p) if preflight else None)
     if p['role'] in ('implementer', 'fixer'):
-        if p['role'] == 'fixer':
-            m.setdefault('fix_memory', []).append({'assignment_id': p['assignment_id'], 'audit_batch_id': m.get('audit_batch_id'), 'freeze_id': m['freeze_id'],
-                'before_baseline': m['code_baseline'], 'diagnosis': m.get('diagnosis'), 'issues': copy.deepcopy(unresolved(m)),
-                'status': 'pending', 'reusable': False})
-            if not m.pop('audit_fix_grant', None):
-                m['local_fix_used'] = m.get('local_fix_used', 0) + 1
-            else:
-                m['auditor_fix_used'] = True
-            m['fix_rounds_used'] += 1
-            m['total_fix_rounds'] += 1
         m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
-    m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
+    a = m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
         'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
         'fencing_token': len(events) + 1, **dispatch_record(s, m, p), **(usage or {})}
+    if context_ref:
+        a['context_ref'] = copy.deepcopy(context_ref)
+    if context_ref or not preflight:
+        start_work(m, a)
+
+
+def start_work(m, a):
+    """The work of a dispatch is authorized: a repair round is spent from here, not while its context is missing."""
+    if a['role'] != 'fixer':
+        return
+    m.setdefault('fix_memory', []).append({'assignment_id': a['assignment_id'], 'audit_batch_id': m.get('audit_batch_id'), 'freeze_id': m['freeze_id'],
+        'before_baseline': m['code_baseline'], 'diagnosis': m.get('diagnosis'), 'issues': copy.deepcopy(unresolved(m)),
+        'status': 'pending', 'reusable': False})
+    if not m.pop('audit_fix_grant', None):
+        m['local_fix_used'] = m.get('local_fix_used', 0) + 1
+    else:
+        m['auditor_fix_used'] = True
+    m['fix_rounds_used'] += 1
+    m['total_fix_rounds'] += 1
+
+
+def settle_preflight(m, actor, receipt):
+    """A worker's report inside its own dispatch: ready authorizes the work, blocked hands the dispatch back."""
+    a = next((x for x in m['assignments'].values() if not x.get('closed') and not design_stage.is_design(x)
+              and not x.get('context_ref') and (x['role'], x['instance_id']) == (actor['role'], actor['instance_id'])), None)
+    if not a or context_readiness.requirement('assign', a) != receipt['stage']:
+        return
+    if receipt['verdict'] == 'ready':
+        a['context_ref'] = copy.deepcopy(receipt['report_ref'])
+        start_work(m, a)
+    else:
+        # Nothing was authorized, so there is no worker to stop: the module is back where a blocked preflight
+        # before any dispatch leaves it, and the gap is handled the same way.
+        a.update(closed=True, declined_ref=copy.deepcopy(receipt['report_ref']))
+        m['phase'] = 'diagnosing' if a['role'] == 'fixer' else 'frozen' if a['role'] == 'implementer' else 'testing'
 
 
 def mutate(s, req, principal, events, root=None):
@@ -828,7 +872,9 @@ def mutate(s, req, principal, events, root=None):
         elif mid and mid not in s.get('module_groups', {}):
             record_hint(s, m, hint)
     if op == 'context-submit':
-        context_readiness.submit(s, req, principal)
+        receipt = context_readiness.submit(s, req, principal)
+        if mid in s['modules']:
+            settle_preflight(m, principal, receipt)
     elif op == 'audit-code-review':
         audit_code_review.accept(s, p, principal)
     elif op in source_changes.OPS:
@@ -898,7 +944,8 @@ def mutate(s, req, principal, events, root=None):
         if s.get('behavior_contract_required'):
             require(plan.get('behavior_contract_required') is True, 'plan must declare the behavior contract')
         if m.get('parent_module_id'):
-            decomposition.check_module_plan(s, m, plan)
+            decomposition.check_scopes(s, m)
+            decomposition.check_tasks(m, plan)
         plan_hash = validate_plan(plan, m)
         if s.get('split_testing_required') or any(path.get('kind') == 'build' for path in plan['paths']):
             tv.plan_check(plan, s['target_root'], static_required=s.get('spec_closure_required', False),
@@ -918,8 +965,9 @@ def mutate(s, req, principal, events, root=None):
         if s.get('behavior_contract_required'):
             behavior_contract.check_owners(s, owners)
         # Plan is content; the artifact remains immutable and is checked at freeze/dispatch.
+        # The plan stands on the context and allocation current now; its author does not copy them into it.
         m.update(plan=plan, plan_ref=p['plan_ref'], plan_hash=plan_hash, phase='clarifying', provider_owners=owners,
-                 scenario_index=scenarios)
+                 scenario_index=scenarios, plan_binding=decomposition.context_binding(s, m))
         if principal['instance_id'] not in m.setdefault('spec_authors', []):
             m['spec_authors'].append(principal['instance_id'])
     elif op == 'freeze':
@@ -971,6 +1019,8 @@ def mutate(s, req, principal, events, root=None):
             design_stage.submission(s, m, assignment, p, principal)
         else:
             require(assignment['freeze_id'] == m['freeze_id'], 'assignment freeze stale')
+            require(assignment.get('context_ref') or not context_readiness.enabled(s),
+                    'preflight required: context-submit a ready report for this assignment before its result')
             worker_phase(m, assignment)
             dependencies_ready(s, m)
             result = read_json(check_ref(p['result_ref']))
@@ -1054,10 +1104,10 @@ def mutate(s, req, principal, events, root=None):
         check_ref(draft['report']['diagnosis_ref'])
         m.update(diagnosis=draft['report'], diagnosis_submission=None, phase='diagnosing')
         if p.get('assign') is not None:
-            # Merged dispatch: the Fixer already preflighted this same diagnosis; all assign guards still apply.
+            # Merged dispatch: all assign guards still apply; a Fixer that already preflighted this diagnosis is bound at once.
             a = p['assign']
             require(isinstance(a, dict) and a.get('role') == 'fixer', 'merged dispatch only assigns the Fixer')
-            if context_readiness.enabled(s):
+            if context_readiness.enabled(s) and a.get('context_ref'):
                 context_readiness.validate(s, mid, 'fixing', a.get('context_ref'), a.get('instance_id'))
                 m.setdefault('context_acceptances', {})['assign'] = {'report_ref': copy.deepcopy(a['context_ref']),
                                                                      'accepted_by': copy.deepcopy(principal)}
@@ -1497,7 +1547,12 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     """Derive the existing status routes without writing facts or projections."""
     observed = observed_invalidations
     cursor = [next_step(s, m) for m in s['modules'].values()]
-    cursor += [decomposition.group_step(s, group, ref_check) for group in s.get('module_groups', {}).values()]
+    for group in s.get('module_groups', {}).values():
+        step = decomposition.group_step(s, group, ref_check)
+        if step.get('operation'):
+            step['model_tier'] = model_routing.advise(step['role'], step['operation'])
+            with_card(s, group, step)
+        cursor.append(step)
     rounds = audit_closure.module_rounds(s, cursor, ref_check)
     audit = s.get('audit_assignment', {})
     early = (workflow.early_audit_candidates(s, rounds['blockers']) if s.get('global_plan') and not rounds['all_settled']
@@ -1559,9 +1614,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     if global_next.get('role'):
         global_next['model_tier'] = model_routing.advise(global_next['role'], global_next.get('operation'))
     if global_next.get('operation'):
-        global_next['must_read'] = reading.card(s, None, global_next)
-        global_next['card_sha256'] = reading.digest_card(global_next['must_read'])
-        global_next['templates'] = reading.templates(s, None, global_next)
+        with_card(s, None, global_next)
     return {'global_next_step': global_next, 'next_steps': cursor,
             'source_change_next_step': source_changes.next_action(s), 'module_rounds': rounds}
 
@@ -1634,7 +1687,8 @@ def main():
     parser.add_argument('--root', required=True)
     parser.add_argument('--request')
     parser.add_argument('--view', choices=status_view.VIEWS, default='cursor',
-                        help='status only: cursor (default), module (needs --module) or full')
+                        help='status only: cursor (default), step (one module with --module, else the global step), '
+                             'module (needs --module) or full')
     parser.add_argument('--module')
     parser.add_argument('--since', type=int, help='status only: last_sequence already seen; an unchanged run answers briefly')
     parser.add_argument('--host-context', help='Host-protected principal JSON; CLI does not authenticate humans')
@@ -1643,7 +1697,7 @@ def main():
         if args.command == 'history':
             state, _ = read_events(Path(args.root).resolve())
             require(state, 'run not initialized')
-            print(json.dumps(state, ensure_ascii=False, indent=2))
+            print(json.dumps(state, ensure_ascii=False, separators=(',', ':')))
             return 0
         root = Path(args.root).resolve()
         require(root.parent.name == '.sdd-runs', 'managed CLI requires .sdd-runs/<run_id>; use history for old read-only evidence')
@@ -1662,7 +1716,7 @@ def main():
             if args.command != 'apply':
                 require(req.get('operation') == args.command, 'command/operation mismatch')
             result = apply(args.root, req, read_json(args.host_context))
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps(result, ensure_ascii=False, separators=(',', ':')))  # read by hosts and models, not formatted for them
         return 0
     except run_storage.LockTimeout as exc:
         print(json.dumps(exc.diagnostic, ensure_ascii=False), file=sys.stderr)
