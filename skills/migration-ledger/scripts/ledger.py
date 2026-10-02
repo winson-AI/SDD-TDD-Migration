@@ -26,6 +26,7 @@ import knowledge_gate
 import ui_fidelity
 import project_context
 import context_readiness
+import design_stage
 import test_validation as tv
 import progress_signals
 import source_changes
@@ -34,6 +35,9 @@ from openspec_projection import materialize, attempt as project_attempt
 
 from contracts import (Rejected, baseline, check_ref, digest, file_ref, keyed, nonempty,
                        read_json, require, validate_plan, validate_result, verify_plan)
+
+HISTORICAL_TOOL_ROOTS = (Path(__file__).resolve().parent,
+                         Path(__file__).resolve().parents[2] / 'migration-protocol')
 
 
 def now():
@@ -75,7 +79,7 @@ def read_events(root):
         require(digest(body) == e['sha256'] and e['previous_hash'] == prev, 'journal integrity failure')
         require(e['sequence'] == len(events) + 1, 'journal sequence failure')
         if state is None:
-            state = e['effect']
+            state = dict(e['effect'])  # Replaying later effects must not rewrite the first historical event.
         else:
             state.update(e['effect'])
         events.append(e)
@@ -174,9 +178,12 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
     """Preserve failures/budgets and old evidence while returning to explicit planning."""
     history = {k: copy.deepcopy(m.get(k)) for k in
         ('revision', 'plan', 'plan_ref', 'plan_hash', 'freeze_id', 'code_files', 'code_baseline',
-         'results', 'repair_findings', 'blocked', 'dimension_evidence', 'provider_owners', 'change_request')}
+         'results', 'repair_findings', 'blocked', 'dimension_evidence', 'provider_owners', 'change_request', 'accepted_test_design', 'design_input_ref')}
     history.update(reason=reason, evidence_ref=evidence_ref)
     m.setdefault('planning_history', []).append(history)
+    m['design_generation'] = m.get('design_generation', 0) + 1
+    m.pop('accepted_test_design', None)
+    m.pop('design_input_ref', None)
     m.update(stale=True, phase='specifying', blocked=None, freeze_id=None, diagnosis_submission=None,
              plan=None, plan_ref=None, plan_hash=None, build_baseline=None, accepted_task_ids=[],
              code_files=[], code_baseline=None, provider_owners=[])
@@ -245,6 +252,9 @@ def within_envelope(m, impact_ref):
 
 def freeze_guard(s, m, p):
     """Pure shared guard: routing and mutation must recommend/accept the same freeze."""
+    idle(m)
+    require(m.get('plan'), 'SPEC not prepared')
+    design_stage.plan_check(s, m, m['plan'])
     if m.get('parent_module_id'):
         decomposition.check_module_plan(s, m, m['plan'])
     require(m['phase'] == 'clarifying' and not m.get('blocked'), 'freeze requires unblocked clarifying')
@@ -313,6 +323,7 @@ def pending_repairs(s):
 
 
 def dispatch_guard(s, m, worker):
+    require(m.get('plan') and m.get('freeze_id'), 'SPEC not frozen/prepared')
     workflow.planning_guard(s, m['module_id'])
     if m.get('parent_module_id'):
         decomposition.check_module_plan(s, m, m['plan'])
@@ -411,6 +422,11 @@ def _next_step(s, m):
         step.update(operation='accept' if submitted else 'await-result',
                     role='module-orchestrator' if submitted else active['role'], ready=submitted,
                     reason=None if submitted else 'worker-running')
+        if design_stage.is_design(active):
+            step.update(mode='design', test_scope='design')
+            if not design_stage.valid(s, m, active):
+                step.update(operation='revoke', role='host', ready=True, reason='design-input-stale',
+                            recovery_action='stop-design-worker-and-revoke-before-redesign')
     elif m.get('decomposition_submission'):
         step.update(operation='decompose-accept', role='global-orchestrator', ready=True)
     elif m.get('decomposition_required') and m['phase'] in ('context', 'specifying', 'clarifying'):
@@ -422,6 +438,10 @@ def _next_step(s, m):
                               and m['module_id'] not in r.get('accepted_by', [])])
     elif m['phase'] in ('context', 'specifying', 'change-review'):
         step.update(operation='plan', role='spec-designer', ready=True)
+        if design_stage.required(s, m) and not design_stage.ready(s, m):
+            step.update(operation='assign', role='module-orchestrator', worker_role='test-runner',
+                        mode='design', test_scope='design', reason='independent-test-design-required',
+                        payload={'role': 'test-runner', 'mode': 'design'})
         try:
             workflow.runtime_allocations(s, m['module_id'])
         except (Rejected, OSError) as exc:
@@ -444,6 +464,9 @@ def _next_step(s, m):
                     payload={'decision_id': decision['decision_id']} if decision else
                             {'change_class': 'within-envelope', 'impact_ref': impact} if eligible else {},
                     reason=None if decision or eligible else 'approval-or-impact-review-required')
+        if design_stage.required(s, m) and not design_stage.ready(s, m):
+            step.update(operation='invalidate', ready=True, reason='independent-test-design-stale',
+                        payload={'reason': 'independent-test-design-stale'})
     elif m['phase'] in ('frozen', 'testing', 'diagnosing'):
         bad = unresolved(m)
         if m['phase'] == 'testing' and bad and not m.get('automation_retry_ready'):
@@ -548,7 +571,8 @@ def record_hint(s, m, hint):
 
 def worker_step(p):
     """The cursor step a host acts on when it dispatches a worker: the assign the module orchestrator performs."""
-    return {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': p['role'], 'test_scope': p.get('test_scope')}
+    return {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': p['role'],
+            'mode': p.get('mode'), 'test_scope': 'design' if design_stage.is_design(p) else p.get('test_scope')}
 
 
 def hint_record(s, m, p):
@@ -668,6 +692,8 @@ def audit_scope(s):
 def assign_worker(s, m, mid, p, events):
     """Shared by assign and the merged diagnosis-accept: every dispatch guard applies either way."""
     require(p.get('role') in ('implementer', 'fixer', 'test-runner'), 'unsupported worker role')
+    require(p.get('role') not in ('implementer', 'fixer') or p.get('instance_id') not in m.get('design_authors', []),
+            'design author cannot implement or fix this module')
     require(p.get('instance_id') and p.get('assignment_id') not in m['assignments'], 'invalid/duplicate assignment')
     usage = model_routing.record(p, role=p['role'])
     if audit_closure.active(s):
@@ -764,6 +790,10 @@ def mutate(s, req, principal, events, root=None):
             decomposition.check_scope(p)
             require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in root scope')
         dimensions.allocation(s, p)
+        if s.get('behavior_contract_required'):
+            import behavior_contract
+            decomposition.check_scope(p)
+            behavior_contract.review(p, p.get('behavior_review'))
         s['modules'][mid] = new_module(p)
         s['global_plan'] = None
     elif op == 'decision':
@@ -781,9 +811,14 @@ def mutate(s, req, principal, events, root=None):
         s['decisions'][p['decision_id']] = {**p, 'consumed': False}
     elif op == 'plan':
         role(principal, 'spec-designer')
+        idle(m)
+        require(not m.get('blocked'), 'resolve module blocker before planning')
         require(not m.get('decomposition_required') and not m.get('decomposition_submission'), 'finish MO decomposition before leaf SPEC planning')
         require(m['phase'] in ('context', 'specifying', 'clarifying', 'change-review'), 'plan not editable in this phase')
         plan = read_json(check_ref(p['plan_ref']))
+        design_stage.plan_check(s, m, plan, principal['instance_id'])
+        if s.get('behavior_contract_required'):
+            require(plan.get('behavior_contract_required') is True, 'plan must declare the behavior contract')
         if m.get('parent_module_id'):
             decomposition.check_module_plan(s, m, plan)
         plan_hash = validate_plan(plan, m)
@@ -796,8 +831,14 @@ def mutate(s, req, principal, events, root=None):
         occupied.update(path['path_id'] for other in s['modules'].values() if other['module_id'] != mid
                         and other.get('plan') for path in other['plan']['paths'])
         require(not occupied.intersection(path['path_id'] for path in plan['paths']), 'PATH IDs must be globally unique')
+        other_scenarios = {row['scenario_id'] for other in s['modules'].values() if other['module_id'] != mid
+                           for row in (other.get('plan') or {}).get('scenario_index', [])}
+        require(not other_scenarios.intersection(row['scenario_id'] for row in plan.get('scenario_index', [])),
+                'Scenario IDs must be globally unique')
         # Plan is content; the artifact remains immutable and is checked at freeze/dispatch.
         m.update(plan=plan, plan_ref=p['plan_ref'], plan_hash=plan_hash, phase='clarifying', provider_owners=reuse.selected_owners(plan))
+        if principal['instance_id'] not in m.setdefault('spec_authors', []):
+            m['spec_authors'].append(principal['instance_id'])
     elif op == 'freeze':
         role(principal, 'module-orchestrator')
         freeze_guard(s, m, p)
@@ -825,30 +866,49 @@ def mutate(s, req, principal, events, root=None):
             require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']), 'repair budget exhausted; recover requires decision')
             m['fix_rounds_used'] += 1
             m['total_fix_rounds'] += 1
+        m['design_generation'] = m.get('design_generation', 0) + 1
+        m.pop('accepted_test_design', None)
         m.update(phase='change-review', stale=True, change_request={**p, 'from_freeze_id': m['freeze_id']}, diagnosis_submission=None)
         invalidate_dependents(s, mid)
     elif op == 'assign':
         role(principal, 'module-orchestrator')
-        assign_worker(s, m, mid, p, events)
+        require(p.get('mode') in (None, 'execute', 'design'), 'unknown assignment mode')
+        if design_stage.is_design(p):
+            usage = model_routing.record(p, role=p['role'])
+            hints = hint_record(s, m, p)
+            if hints['card_followed'] and p.get('session_id'):
+                deliver(m, reading.card(s, m, worker_step(p)), p['session_id'])
+            design_stage.dispatch(s, m, p, principal, len(events) + 1)
+            m['assignments'][p['assignment_id']].update(hints=hints, **(usage or {}))
+        else:
+            assign_worker(s, m, mid, p, events)
     elif op == 'submit':
         assignment = m['assignments'].get(p.get('assignment_id'), {})
         require(not assignment.get('closed', True), 'assignment inactive')
         require(principal == {'role': assignment['role'], 'instance_id': assignment['instance_id']}, 'worker identity mismatch')
         require(p.get('fencing_token') == assignment['fencing_token'], 'stale fencing token')
-        require(assignment['freeze_id'] == m['freeze_id'], 'assignment freeze stale')
-        worker_phase(m, assignment)
-        dependencies_ready(s, m)
-        result = read_json(check_ref(p['result_ref']))
-        validate_result(result, m, assignment, run_root=root)
-        if s.get('write_scope_check') and result.get('kind') == 'implementation':
-            require(p.get('write_scope_ref'), 'write_scope_ref required: host write-scope delta receipt')
-            write_scope.verify(s, m, assignment, result, read_json(check_ref(p['write_scope_ref'])))
-        m['submissions'][p['assignment_id']] = {'ref': p['result_ref'], 'result': result}
+        if design_stage.is_design(assignment):
+            design_stage.submission(s, m, assignment, p)
+        else:
+            require(assignment['freeze_id'] == m['freeze_id'], 'assignment freeze stale')
+            worker_phase(m, assignment)
+            dependencies_ready(s, m)
+            result = read_json(check_ref(p['result_ref']))
+            validate_result(result, m, assignment, run_root=root)
+            if s.get('write_scope_check') and result.get('kind') == 'implementation':
+                require(p.get('write_scope_ref'), 'write_scope_ref required: host write-scope delta receipt')
+                write_scope.verify(s, m, assignment, result, read_json(check_ref(p['write_scope_ref'])))
+            m['submissions'][p['assignment_id']] = {'ref': p['result_ref'], 'result': result}
     elif op == 'accept':
         role(principal, 'module-orchestrator')
         aid = p['assignment_id']
         assignment = m['assignments'].get(aid, {})
         require(not assignment.get('closed', True) and aid in m['submissions'], 'no active submission')
+        if design_stage.is_design(assignment):
+            design_stage.accept(s, m, assignment, p, principal)
+            m['revision'] += 1
+            refresh(s)
+            return
         worker_phase(m, assignment)
         dependencies_ready(s, m)
         sub = m['submissions'][aid]
@@ -1004,6 +1064,9 @@ def mutate(s, req, principal, events, root=None):
         require(a and not a.get('closed') and p.get('stopped_worker_ref'), 'active worker and host stop/isolation evidence required')
         check_ref(p['stopped_worker_ref'])
         a['closed'] = True
+        if design_stage.is_design(a):
+            a['revoked'] = True
+            m['submissions'].pop(a['assignment_id'], None)
         if audit_closure.active(s) and m.get('audit_batch_id') == s['audit_batch']['batch_id']:
             audit_closure.stop(s, 'worker-interrupted', mid, p['stopped_worker_ref'])
         m['stale'] = True
@@ -1011,7 +1074,7 @@ def mutate(s, req, principal, events, root=None):
             if memory['assignment_id'] == p['assignment_id'] and memory['status'] == 'pending':
                 memory['status'] = 'interrupted'
         if not m.get('blocked'):
-            m['phase'] = 'diagnosing' if a['role'] == 'fixer' else 'frozen' if a['role'] == 'implementer' else 'testing'
+            m['phase'] = a['resume_phase'] if design_stage.is_design(a) else 'diagnosing' if a['role'] == 'fixer' else 'frozen' if a['role'] == 'implementer' else 'testing'
     elif op == 'invalidate':
         role(principal, 'module-orchestrator', 'host')
         require(p.get('reason'), 'invalidation reason required')
@@ -1137,9 +1200,22 @@ def mutate(s, req, principal, events, root=None):
     refresh(s)
 
 
-def preserve_refs(root, value, seen=None, nested=False, target_root=None):
+def artifact_index(events):
+    """Index archives declared by the caller's verified committed event chain."""
+    index = {}
+    for event in events:
+        for item in event.get('artifact_snapshots', []):
+            if item.get('source_path') and item.get('sha256'):
+                key = (item['source_path'], item['sha256'])
+                index.setdefault(key, (item, {k: event[k] for k in ('event_id', 'sha256')}))
+    return index
+
+
+def preserve_refs(root, value, seen=None, nested=False, target_root=None, accepted=None):
     """Archive evidence bytes before commit; keep live refs for stale-code detection.
 
+    Nested historical controller/protocol refs may read an exact archive from a prior committed event;
+    top-level inputs and business gates still require current live bytes.
     Refs discovered inside archived JSON evidence are preserved best-effort for
     live target code only: target files legitimately drift after accepted
     implementations (code_baseline/reuse.verify remain the business gates), so
@@ -1155,34 +1231,48 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None):
             if key in seen:
                 return []
             seen.add(key)
+            historical = None
             try:
                 path = check_ref(value)
             except ValueError:
-                live_target = nested and target_root and isinstance(value.get('path'), str) and \
-                    Path(value['path']).resolve().is_relative_to(Path(target_root).resolve())
-                if not live_target:
-                    raise
-                return [{'source_path': value.get('path'), 'expected_sha256': value.get('sha256'),
-                         'status': 'drifted-or-missing-live-target-code'}]
+                tool_history = nested and any(Path(value['path']).resolve().is_relative_to(p)
+                                              for p in HISTORICAL_TOOL_ROOTS)
+                historical = (accepted or {}).get(key) if tool_history else None
+                if historical:
+                    entry, source_event = historical
+                    path = run_storage.checked_path(root / 'artifacts' / value['sha256'], root / 'artifacts')
+                    require(entry['path'] == str(path), 'event artifact location differs from managed archive')
+                    check_ref({'path': str(path), 'sha256': value['sha256']})
+                else:
+                    live_target = nested and target_root and isinstance(value.get('path'), str) and \
+                        Path(value['path']).resolve().is_relative_to(Path(target_root).resolve())
+                    if not live_target:
+                        raise
+                    return [{'source_path': value.get('path'), 'expected_sha256': value.get('sha256'),
+                             'status': 'drifted-or-missing-live-target-code'}]
             blob = run_storage.checked_path(root / 'artifacts' / value['sha256'], root / 'artifacts')
             blob.parent.mkdir(exist_ok=True)
             if not blob.exists():
                 with blob.open('xb') as f:
-                    f.write(path.read_bytes()); f.flush(); os.fsync(f.fileno())
+                    with path.open('rb') as source:
+                        for chunk in iter(lambda: source.read(1024 * 1024), b''):
+                            f.write(chunk)
+                    f.flush(); os.fsync(f.fileno())
             require(file_ref(blob)['sha256'] == value['sha256'], 'archived artifact corrupt')
-            saved.append({'source_path': str(path), **file_ref(blob)})
-            if path.suffix == '.json':
+            saved.append({'source_path': value['path'], **file_ref(blob),
+                          **({'status': 'historical-snapshot', 'accepted_event': source_event} if historical else {})})
+            if Path(value['path']).suffix == '.json':
                 try:
                     nested_value = read_json(path)
                 except ValueError:
                     nested_value = None
-                saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root))
+                saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root, accepted=accepted))
         else:
             for item in value.values():
-                saved.extend(preserve_refs(root, item, seen, nested, target_root))
+                saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted))
     elif isinstance(value, list):
         for item in value:
-            saved.extend(preserve_refs(root, item, seen, nested, target_root))
+            saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted))
     return saved
 
 
@@ -1243,6 +1333,8 @@ def _apply(root, req, principal):
             require(type(p.get('ui_fidelity_required', False)) is bool, 'ui_fidelity_required must be boolean')
             require(type(p.get('spec_closure_required', False)) is bool, 'spec_closure_required must be boolean')
             require(type(p.get('unit_tests_required', False)) is bool, 'unit_tests_required must be boolean')
+            require(type(p.get('test_design_required', False)) is bool, 'test_design_required must be boolean')
+            require(type(p.get('behavior_contract_required', False)) is bool, 'behavior_contract_required must be boolean')
             require(type(p.get('git_checkpoint', False)) is bool, 'git_checkpoint must be boolean')
             require(type(p.get('fixer_self_diagnosis', False)) is bool, 'fixer_self_diagnosis must be boolean')
             require(type(p.get('write_scope_check', False)) is bool, 'write_scope_check must be boolean')
@@ -1250,6 +1342,8 @@ def _apply(root, req, principal):
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
             require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
             s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'spec_closure_required': p.get('spec_closure_required', False), 'unit_tests_required': p.get('unit_tests_required', False), 'git_checkpoint': p.get('git_checkpoint', False), 'fixer_self_diagnosis': p.get('fixer_self_diagnosis', False), 'write_scope_check': p.get('write_scope_check', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
+                 'behavior_contract_required': p.get('behavior_contract_required', False),
+                 'test_design_required': p.get('test_design_required', False),
                  'reuse_sources': reuse_sources, 'reuse_required': bool(reuse_sources) or p.get('reuse_required', False),
                  'entry_mode': entry_mode, 'single_module_id': selected_module,
                  'global_spec': p['global_spec'], 'new_architecture': p['new_architecture'], 'requirement_ids': p['requirement_ids'],
@@ -1293,7 +1387,8 @@ def _apply(root, req, principal):
              'timestamp': now(), 'request_id': req['request_id'], 'request_hash': request_hash,
              'actor': principal, 'operation': req['operation'], 'module_id': req.get('module_id'),
              'previous_hash': events[-1]['sha256'] if events else None, 'effect': effect,
-             'artifact_snapshots': preserve_refs(root, req.get('payload', {}), target_root=s.get('target_root'))}
+             'artifact_snapshots': preserve_refs(root, req.get('payload', {}), target_root=s.get('target_root'),
+                                                 accepted=artifact_index(events))}
         e['sha256'] = digest(e)
         journal = run_storage.checked_path(root / 'ledger/events.jsonl', root)
         journal.parent.mkdir(exist_ok=True)

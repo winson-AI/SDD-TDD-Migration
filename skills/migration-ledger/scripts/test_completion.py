@@ -26,6 +26,9 @@ def interpret(receipt, planned):
     known = isinstance(report, dict) and report.get('producer') in ('harmony-adapter', 'build-executor', 'lean-visual-adapter', 'spec-closure-check')
     if known and report['producer'] == 'build-executor':
         require(planned.get('kind') in ('build', 'unit'), 'build report cannot replace automation')
+        if planned.get('unit_report'):
+            import unit_reports
+            unit_reports.validate(receipt, planned, report)
     if known and report['producer'] == 'harmony-adapter':
         for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
             if key in report: require(report[key] == receipt.get(key), 'Harmony context mismatch')
@@ -48,6 +51,7 @@ def interpret(receipt, planned):
         require(report.get('query_sha256') == digest(query), 'visual query mismatch')
     if known and report['producer'] == 'spec-closure-check':
         require(planned.get('kind') == 'static', 'spec closure report cannot replace other tests')
+        require(query.get('scenario_ids') == planned.get('scenario_ids'), 'static scenario selection changed')
         for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
             require(report.get(key) == receipt.get(key), 'spec closure report context mismatch')
         require(report.get('query_sha256') == digest(query), 'spec closure query mismatch')
@@ -65,7 +69,7 @@ def interpret(receipt, planned):
             valid = isinstance(cause, dict) and all(cause.get(k) for k in ('category', 'summary', 'confidence', 'owner', 'next_action'))
     abnormal = receipt['exit_code'] not in (0, 1, 2)
     if valid:
-        row = copy.deepcopy({k: report[k] for k in ('quality', 'assertions', 'root_cause', 'flaky', 'skipped', 'xfail', 'visual_alignment', 'interaction_evidence', 'build_artifacts') if k in report})
+        row = copy.deepcopy({k: report[k] for k in ('quality', 'assertions', 'root_cause', 'flaky', 'skipped', 'xfail', 'visual_alignment', 'interaction_evidence', 'build_artifacts', 'unit_execution') if k in report})
         row.update(executed=True, host_completion_version=1)
         if report['producer'] in ('harmony-adapter', 'lean-visual-adapter') and (abnormal or receipt['exit_code'] != 0 and row['quality'] == 'green-passed'):
             previous = row.get('root_cause')

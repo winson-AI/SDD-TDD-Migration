@@ -14,14 +14,18 @@ def gradle_command(argv):
     return any(Path(arg).name in ('gradle', 'gradlew', 'gradle.bat', 'gradlew.bat') for arg in argv[:2])
 
 
-def build_command(argv, directory):
-    """Only deterministic storage arguments may extend the frozen build argv."""
+def build_command(argv, directory, unit_report=False):
+    """Extend argv only with deterministic storage and frozen unit-report policy."""
     if not gradle_command(argv): return list(argv)
     require(not any(a.startswith(('--project-cache-dir', '--gradle-user-home', '-g'))
                     for a in argv), 'freeze Gradle task arguments without storage flags; host binds runner directories')
     directory = Path(directory).resolve()
-    return [*argv, '--project-cache-dir', str(directory / 'cache/project-gradle'),
-            '--gradle-user-home', str(directory / 'cache/gradle')]
+    command = [*argv, '--project-cache-dir', str(directory / 'cache/project-gradle'),
+               '--gradle-user-home', str(directory / 'cache/gradle')]
+    # Includes KMP/native test tasks, which need not subclass Gradle's JVM Test.
+    if unit_report:
+        command += ['--rerun-tasks', '--no-build-cache']
+    return command
 
 
 def harmony_output(root, output, area=None):

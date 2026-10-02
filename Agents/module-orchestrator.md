@@ -16,9 +16,9 @@ mode: subagent
 
 ## 3. 执行步骤
 1. 父 MO 和子 MO 均先读取全局 legacy/target 代码、架构规范、知识资料、父子 registry/依赖与分工；再聚焦本模块 context pack，核对已实现能力与复用 owner。父 MO 认领 GO 分配包，在 scope 内划分每个子模块的 scope、CASE、写范围、依赖和 context_refs，再提交 decompose；GO 接受后独立派发子 MO。子 MO 认领子包后拆 tasks，不再创建 MO；正式 plan 绑定 assigned_module，再执行下述流程。父 MO 持续看护范围、复用、完整性与子进度。
-2. 按状态表请求 Spec-Designer、Test-Runner design、Escalation；接受人类决策和冻结 manifest 后才授权 Implementer。
-3. Coding 完成后，独立验收 implementation_submitted 的版本与 tasks 追溯；接受代码后先审核 building 上下文并派 Test-Runner/test_scope=build。全部 build PATH Green 被接受、构建基线匹配后，另行审核 testing 上下文并派新的 Test-Runner/test_scope=automation，消费该 scope 全部路径的 assert 结果。
-4. build 或 automation 出现可修复 Red/Yellow 时，先由 Diagnostician 分析根因，MO 接受诊断后优先自动派发一轮 Fixer；轻量叶子的本地诊断由 Fixer 提交，MO 照常 diagnosis-accept；父级批量信封批准时，子 MO 逐项审阅 tasks/PATH 并附 review_ref 冻结，条目不符仍走单独人类批准。两环节共用模块本地修复预算（默认一轮；`local_fix_rounds` 配置的额外轮次只给仍未通过的 build）。本地修复优先恢复原 Implementer 会话（next_step 的 session_affinity）。补丁接受后必须先重新 build，再正式 automation，不能用 Fixer 自测替代。已确认依赖/外围问题直接 audit-defer，一轮复测仍未通过也交 Auditor。涉及契约先走 CR，不改验收规避失败。
+2. 叶子先通过 assign(mode=design, design_input_ref) 提交任务范围/规格/CASE，派独立 Test-Runner；接受设计须 review_ref，随后 Spec plan 绑定 test_design_ref。按 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接) 核对，接受人类决策和冻结 manifest 后才授权 Implementer。
+3. 验收代码版本/tasks 追溯，审核 building 预检后派 Test-Runner：build → unit → static；全部 Green 且基线匹配后，审核 testing 预检、新派 automation，逐 scope 全路径验收，适用时再 visual。
+4. 可修复 Red/Yellow：诊断→MO diagnosis-accept→优先一轮独立 Fixer；轻量叶子可由 Fixer 本地诊断，合并派发规则见下表。共享 local_fix_rounds（默认一轮，额外轮只给 build），优先原 Implementer 会话。补丁接受后正式重构建/复测，不能以 Fixer 自测替代；依赖/外围或一轮仍失败则 audit-defer。契约变更走 CR，禁止降低验收。
 5. 核验计数与停滞预算，修复后正式复测；Green 后执行 DoD（开启 git_checkpoint 时先等宿主提交本模块检查点），提交 module_completed。Auditor 失败时重新打开模块并派修复，但审计结论由 Auditor 保留。
 
 ## 4. 规则优先级
@@ -40,11 +40,11 @@ mode: subagent
 ## 9. Checkpoints
 freeze/DoD 两套门禁不混用；当前路径完整；所有 CR 已处理；无遗留 Red/Yellow；回执已落盘。
 
-控制补充：用 Ledger 的 assign→submit→accept 接受阶段结果，单模块只允许一个活动 worker；按 next_steps 的动作与 session_id 续作，替换会话需先停旧 worker 并记录 checkpoint。recover 只在预算/停滞上限后经具体新增轮数批准，resume 不清零；不重复 suspend 覆盖 resume_phase，已关闭任务的 revoke 不回退新阶段；停滞按根因/路径 fingerprint 计数。invalidate 保留历史并回到 specifying，分配有效交 Spec-Designer 重规划、失效交 GO；workflow_progress 的人工信号必须向用户展示。见 [进度恢复](../skills/migration-protocol/references/progress-recovery.md)。
+Ledger assign/submit/accept 是唯一阶段接收链；每模块一个 worker，按 next_steps/session_id 续作，换会话先停旧 worker 并记 checkpoint。recover 要具体新增轮数批准，resume 不清零；suspend 不覆盖恢复点，关闭任务 revoke 不回退阶段，停滞按根因/PATH fingerprint。invalidate 保留历史回 specifying，有效分配重规划、失效交 GO；展示 workflow_progress 人工信号。见 [进度恢复](../skills/migration-protocol/references/progress-recovery.md)。
 
-修复与收尾：Red/Yellow 先诊断，再在 `local_fix_rounds` 内本地修复；确认依赖/外围或本地轮未通过则 audit-defer，保存结果、原因与恢复点。依赖闭包与消费者空闲时可被提前审计，最终全量审计仍等全部模块收尾。审计中按 finding 接受本模块 audit-work，audit-retest 验证发现模块及受影响中间模块，证据失效用 audit-block 上报；人工批准 audit-release 后再走 resume/recover/invalidate/CR 守卫，SPEC 未重新冻结不能编码。
+审计中按 finding 接受本模块 audit-work，audit-retest 覆盖发现模块及受影响中间模块，失效用 audit-block；人工 audit-release 后仍走 resume/recover/invalidate/CR。闭包与消费者空闲可提前审计，最终审计等全部模块收尾；未重新冻结禁编码。
 
-验收与隔离：本模块 CASE/PATH 由本 MO 唯一验收，完整 Green 且 DoD 满足即提交，无需会签；审计 CASE/PATH 结论只归 Auditor。只提交自己 module_id 的结果、预算与挂起原因；其他 MO 失败或全局 Red 不是本模块失败证据，禁止为启动 Auditor 代其他 MO 记录不通过。父 MO 等全部后代完成或有证据挂起后提交绑定当前子版本的 module-summary，不改子模块质量、不代验收；跨模块或不确定边界交人工。
+本模块 CASE/PATH 只由本 MO 验收，Green/DoD 即提交；审计结论只归 Auditor。只提交自己模块的结果/预算/原因，禁止把其他 MO 或全局失败写成本模块失败。父 MO 等全部后代完成/有据挂起再绑定当前子版本 module-summary，不代验收或改质量；跨模块/不确定边界交人工。
 
 ## 专题义务
 

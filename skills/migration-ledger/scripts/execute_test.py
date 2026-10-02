@@ -18,6 +18,7 @@ import context_readiness
 import test_validation as tv
 import run_storage
 import runner_storage
+from execution_capture import Capture
 
 from contracts import baseline, file_ref, read_json, require
 from ledger import status, atomic, audit_scope
@@ -26,7 +27,7 @@ from ledger import status, atomic, audit_scope
 OUTPUT_DRAIN_TIMEOUT_SECONDS = 2
 
 
-def finish_timeout(proc):
+def finish_timeout(proc, capture):
     """Bound pipe recovery even when a detached descendant retains the pipes."""
     termination = {'pid': proc.pid, 'process_group_id': proc.pid, 'signal': 'SIGKILL',
                    'output_drained': False, 'host_stop_required': True}
@@ -38,20 +39,12 @@ def finish_timeout(proc):
     except OSError as exc:
         termination.update(signal_result='failed', signal_error=str(exc))
     try:
-        stdout, stderr = proc.communicate(timeout=OUTPUT_DRAIN_TIMEOUT_SECONDS)
+        capture.wait(proc, OUTPUT_DRAIN_TIMEOUT_SECONDS)
         termination['output_drained'] = True
-    except subprocess.TimeoutExpired as exc:
-        # TimeoutExpired carries all captured bytes, including the first wait.
-        def decoded(value):
-            return value.decode('utf-8', errors='replace') if isinstance(value, bytes) else value or ''
-        stdout, stderr = decoded(exc.stdout), decoded(exc.stderr)
-        for stream in (proc.stdout, proc.stderr):
-            if stream is not None: stream.close()
+    except subprocess.TimeoutExpired:
+        pass  # Already captured bytes remain on disk; never wait for detached writers.
     except (OSError, ValueError) as exc:
-        stdout, stderr = '', ''
         termination['recovery_error'] = type(exc).__name__
-        for stream in (proc.stdout, proc.stderr):
-            if stream is not None: stream.close()
     termination['direct_process_exited'] = proc.poll() is not None
     termination['host_stop_required'] = (not termination['output_drained'] or
         not termination['direct_process_exited'] or termination['signal_result'] == 'failed')
@@ -59,7 +52,7 @@ def finish_timeout(proc):
     termination['descendants_status'] = 'unknown'
     termination['next_action'] = ('Host verify stop/isolation, then revoke with evidence; retain runner temp'
                                   if termination['host_stop_required'] else 'interpret timeout receipt')
-    return stdout, stderr, termination
+    return termination
 
 
 def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=300):
@@ -80,11 +73,11 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
             require(workflow.runnable(s, module_id), 'problem path unavailable; record Yellow')
         else:
             a = m['assignments'][assignment_id]
-        require(not a['closed'] and ((a['role'] == 'test-runner' and m['phase'] == 'testing') or a.get('mode') == 'problem'), 'test assignment required')
+        require(a.get('mode') != 'design' and not a['closed'] and ((a['role'] == 'test-runner' and m['phase'] == 'testing') or a.get('mode') == 'problem'), 'test assignment required')
     context_readiness.check_execution(s, a, argv, cwd, path_id)
     require(baseline(m['code_files']) == m['code_baseline'], 'code changed before execution')
     path = next(p for p in m['plan']['paths'] if p['path_id'] == path_id)
-    is_build = path.get('kind') in ('build', 'unit')  # both run a frozen command and assert its exit code
+    is_build = path.get('kind') in ('build', 'unit')  # both execute a frozen, host-bound command
     if tv.split(m) and module_id != 'GLOBAL':
         if a.get('role') == 'test-runner':
             require(a.get('test_scope') == (path.get('kind') or 'automation'), 'path outside test assignment scope')
@@ -99,7 +92,7 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     if run_storage.for_state(root, s) or root.parent.name == '.sdd-runs':
         run_storage.checked_path(out, Path(root) / ('runs/build' if is_build else 'runs/harmony/automation'))
     require(not out.exists(), 'execution output must be new')
-    command = runner_storage.build_command(argv, out) if is_build else [*argv, '--query-file', str(out / 'query.json'), '--result-file', str(out / 'result.json')]
+    command = runner_storage.build_command(argv, out, unit_report=bool(path.get('unit_report'))) if is_build else [*argv, '--query-file', str(out / 'query.json'), '--result-file', str(out / 'result.json')]
     require(command and argv and Path(cwd).is_dir(), 'argv/cwd required')
     out.mkdir(parents=True)
     execution_env = runner_storage.environment(out)
@@ -117,12 +110,26 @@ gradle.beforeProject { p ->
             throw new GradleException('Build output escapes SDD runner; configure buildDirectory under SDD_RUNNER_DIR')
         }
     }
+    if (System.getenv('SDD_UNIT_REPORTS_REQUIRED') == '1') {
+        p.tasks.withType(org.gradle.api.tasks.testing.Test).configureEach { task ->
+            task.outputs.upToDateWhen { false }
+            task.outputs.cacheIf { false }
+            task.reports.junitXml.required.set(true)
+        }
+    }
 }
 ''')
+    if path.get('unit_report'):
+        execution_env['SDD_UNIT_REPORTS_REQUIRED'] = '1'
+    test_run_id = str(uuid.uuid4())
     query = {**path, 'run_id': s['run_id'], 'module_id': module_id,
              'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline']}
+    if path.get('unit_report'):
+        query.update(assignment_id=assignment_id, test_run_id=test_run_id)
     if path.get('kind') == 'static':
         query['unit_tests_present'] = bool(tv.paths(m, 'unit'))
+        if m['plan'].get('scenario_index'):
+            query['scenario_index'] = m['plan']['scenario_index']
     if path.get('kind') in ('automation', 'visual'):
         import ui_fidelity
         interaction = ui_fidelity.frozen_interaction(m, path)
@@ -137,29 +144,34 @@ gradle.beforeProject { p ->
     atomic(out / 'query.json', query)
     started = datetime.now(timezone.utc).isoformat()
     termination, proc, aborted = None, None, None
+    capture = Capture(out, {
+        'run_id': s['run_id'], 'module_id': module_id, 'assignment_id': assignment_id,
+        'actor_instance_id': a['instance_id'], 'test_run_id': test_run_id, 'path_id': path_id,
+        'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline']})
+    note = ''
     try:
         # An agentic adapter can spawn media/tools processes; stop the whole attempt.
-        proc = subprocess.Popen(command, cwd=cwd, text=True, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, errors='replace', start_new_session=True, env=execution_env)
+        proc = subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, start_new_session=True, env=execution_env)
+        capture.attach(proc)
         try:
-            stdout, stderr = proc.communicate(timeout=timeout)
-            exit_code, log = proc.returncode, stdout + '\n' + stderr
+            capture.wait(proc, timeout)
+            exit_code = proc.returncode
         except subprocess.TimeoutExpired:
-            stdout, stderr, termination = finish_timeout(proc)
-            exit_code, log = 124, stdout + '\n' + stderr + '\nHost timeout: ' + json.dumps(termination)
+            termination = finish_timeout(proc, capture)
+            exit_code, note = 124, 'Host timeout: ' + json.dumps(termination)
     except BaseException as exc:
         if proc is None and isinstance(exc, OSError):
-            exit_code, log = 127, f'Adapter launch failed: {exc}'
+            exit_code, note = 127, f'Adapter launch failed: {exc}'
         else:
             # Record cancellation, then re-raise it after persisting the receipt.
             # It must not be converted into an automatic retry or a successful run.
             aborted = exc
             termination = {'host_stop_required': True, 'direct_process_exited': False,
                            'descendants_status': 'unknown'}
-            stdout, stderr = '', ''
             if proc is not None:
                 try:
-                    stdout, stderr, termination = finish_timeout(proc)
+                    termination = finish_timeout(proc, capture)
                 except BaseException as recovery_error:
                     # A second interruption must never make cleanup assume exit.
                     termination['recovery_error'] = type(recovery_error).__name__
@@ -167,8 +179,17 @@ gradle.beforeProject { p ->
                                next_action='Host review cancellation and stop/isolation evidence; revoke; no automatic restart')
             exit_code = (exc.code if isinstance(exc, SystemExit) and type(exc.code) is int and exc.code != 0
                          else 130 if isinstance(exc, (KeyboardInterrupt, SystemExit)) else 125)
-            log = stdout + '\n' + stderr + '\nExecutor aborted: ' + json.dumps(termination)
+            note = 'Executor aborted: ' + json.dumps(termination)
     finally:
+        try:
+            capture.finish('interrupted' if aborted else 'timeout' if exit_code == 124 else
+                           'launch-failed' if proc is None else 'finished', exit_code,
+                           not aborted and termination is None and proc is not None, note)
+        finally:
+            capture.close()
+            if proc is not None:
+                for stream in (proc.stdout, proc.stderr):
+                    if stream is not None: stream.close()
         def cleanup(directory):
             if termination and termination['host_stop_required']:
                 return {'path': str(directory / 'temp'), 'status': 'retained-in-run',
@@ -180,8 +201,10 @@ gradle.beforeProject { p ->
         if (out / 'harmony/temp').exists():
             nested.append(cleanup(out / 'harmony'))
         atomic(out / 'cleanup.json', {'scratch': scratch, 'nested': nested})
-    (out / 'execution.log').write_text(log)
-    if is_build:
+    if path.get('unit_report'):
+        import unit_reports
+        atomic(out / 'result.json', unit_reports.collect(query, out, started, exit_code))
+    elif is_build:
         quality = 'green-passed' if exit_code == 0 else 'yellow-blocked' if aborted or exit_code in (124, 127) else 'red-bug'
         atomic(out / 'result.json', {'producer': 'build-executor',
             'build_artifacts': [file_ref(run_storage.checked_path(f, out)) for f in sorted(out.rglob('*'))
@@ -194,12 +217,13 @@ gradle.beforeProject { p ->
                 'confidence': 'observed', 'owner': module_id, 'next_action': 'diagnose',
                 'evidence_refs': [file_ref(out / 'execution.log')]}})
     receipt = {'schema_version': 1, 'producer': 'host-executor', 'run_id': s['run_id'],
-               'module_id': module_id, 'path_id': path_id, 'test_run_id': str(uuid.uuid4()),
+               'module_id': module_id, 'path_id': path_id, 'test_run_id': test_run_id,
                'assignment_id': assignment_id, 'actor_instance_id': a['instance_id'],
                'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
                'argv': command, 'cwd': str(Path(cwd).resolve()), 'started_at': started,
                'requested_argv': argv, 'storage_command_version': 1,
                'finished_at': datetime.now(timezone.utc).isoformat(), 'exit_code': exit_code,
+               'capture': capture.references(),
                'cleanup_ref': file_ref(out / 'cleanup.json'),
                'storage_policy_ref': file_ref(init) if init else None,
                'log_ref': file_ref(out / 'execution.log'), 'query_ref': file_ref(out / 'query.json'),

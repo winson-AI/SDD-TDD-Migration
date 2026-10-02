@@ -23,7 +23,7 @@
 | 命令 | 必须提交的 Ledger op(顺序) | 宿主真实工作 | 自证 |
 | --- | --- | --- | --- |
 | `/sdd-init` | `project_context.py prepare` → `ledger.py init`(payload 带 `project_context_ref`)→ `register`(拓扑序)→ `global-plan` | 认证 host;GO 生成功能清单/切片/覆盖;真实规范/架构/用例引用 | `status.openspec_binding.location==top-level`;`events.jsonl` 逐条增长;顶层 `openspec/runs/<run_id>/workflow.md` 出现 |
-| `/sdd-plan` | (树形先 `decompose`→`decompose-accept`)→ `plan`(Spec-Designer)→ `freeze`(MO,绑定真实 `decision_id` 或 within-envelope) | 派发 Spec-Designer 真实产出六件套;人工澄清冻结决定 | `changes/<run-id>-<mid>/` 六件套 + `manifest.json` 由投影生成;freeze 事件绑定真实 `human_source_ref` |
+| `/sdd-plan` | 树形先 decompose/accept；叶子 assign(mode=design)→submit→MO accept(review_ref)→Spec plan→MO freeze | 独立 Test-Runner 设计、Spec 六件套、真实人工冻结决定 | plan.test_design_ref 绑定设计；顶层 change/manifest 投影，freeze 绑定人工证据 |
 | `/sdd-run`、`/sdd-module` | `assign`/`submit`/`accept`(implementer)→ `assign`/`submit`/`accept`(test-runner:先 build 后 automation)→ 需要则 `diagnose`/`diagnosis-accept`/`assign(fixer)` → `complete`;父节点 `module-summary` | 派发各角色隔离实例;真写 target 代码;execute_test 跑真实命令;真实 diff/DoD 审查 | 每 assignment 有 submit+accept;`code_baseline` 与磁盘一致(否则 `observed_invalidations` 报警);`complete` 前全 PATH Green |
 | `/sdd-audit` | `audit-code-review` → `audit-collect` → `audit-plan` → `audit-route-batch` → `audit-work`/`audit-retest` → `audit-verdict`(→`audit-release`) | **独立** Auditor 实例(≠ 任何 implementer/fixer/test 作者)真实重跑;Fixer 按路由修复 | `authors` 独立性校验通过;audit 报告绑定当前 snapshot;`audit-reports/<batch>.md` 生成 |
 | `/sdd-archive` | 宿主 OpenSpec CLI 同步/归档(无 Ledger `archive` op) | 人工交付授权;代码合并另行授权 | `verify_openspec --scope final` 通过 + 原归档质量门禁;归档不等于合并 |

@@ -26,6 +26,9 @@ def runtime_allocations(s, module_id):
         module = s['modules'].get(mid) or s.get('module_groups', {}).get(mid)
         require(module, 'allocated module/dependency missing')
         dimensions.allocation(s, module)
+        if s.get('behavior_contract_required'):
+            import behavior_contract
+            behavior_contract.review(module, module.get('behavior_review'))
         parent = module.get('parent_module_id')
         if parent:
             pending.append(parent)
@@ -328,6 +331,8 @@ def handle(s, req, actor, run_root=None):
             check_ref(group['decomposition_ref']); check_ref(group['decomposition_review_ref'])
         feature_inventory(s, plan)
         boundary_review(s, plan, p.get('boundary_decision_id'))
+        import behavior_contract
+        behavior_contract.global_review(s)
         source_review = (s.get('global_plan') or {}).get('source_review_ref')
         s['global_plan'] = {**p, 'content': plan, 'registry_hash': digest(registry(s))}
         if source_review: s['global_plan']['source_review_ref'] = source_review

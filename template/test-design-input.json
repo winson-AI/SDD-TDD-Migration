@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "module_id": "M001",
+  "planning_context": {"source": "replace with current status.planning_context"},
+  "assigned_module": {"source": "replace with current status.module_inputs.M001"},
+  "spec_refs": [{"kind": "spec", "capability": "feature", "path": "{{absolute-run-root}}/staging/{{spec-agent}}/{{revision}}/spec.md", "sha256": "{{sha256}}"}],
+  "case_refs": [{"path": "{{absolute-run-root}}/context/files/{{case-sha256}}.json", "sha256": "{{case-sha256}}"}],
+  "tasks": [{
+    "task_id": "TASK-M001-001",
+    "requirement_ids": ["REQ-M001-001"],
+    "global_requirement_ids": ["REQ-GLOBAL-001"],
+    "scope": {"in": ["{{allocated-behavior}}"], "out": [], "write_paths": ["{{absolute-target-scope}}"]}
+  }]
+}

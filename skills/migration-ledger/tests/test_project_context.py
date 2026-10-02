@@ -98,6 +98,16 @@ class ProjectContextTests(unittest.TestCase):
         self.start(payload)
         self.assertTrue(ledger.status(self.run)['context_readiness_required'])
 
+    def test_behavior_contract_is_frozen_at_prepare_and_cannot_be_downgraded(self):
+        prepared = self.prepare()
+        self.assertIs(prepared['input']['behavior_contract_required'], True)
+        payload = self.init_payload(prepared)
+        with self.assertRaisesRegex(Rejected, 'behavior contract mismatch'):
+            self.start({**payload, 'behavior_contract_required': False})
+        self.start(payload)
+        self.assertIs(ledger.status(self.run)['behavior_contract_required'], True)
+        self.assertIs(self.prepare()['input']['behavior_contract_required'], True)
+
     def test_dependency_gate_survives_prepare_init_and_later_config_update(self):
         pc.update(self.root, self.request('gate', 1, {'defaults': {'quality_gates': {
             'dependency_resolution_required': True}}}), self.actor)

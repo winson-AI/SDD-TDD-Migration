@@ -51,9 +51,11 @@ def plan_modules(f):
     fixture = test_source_changes.SourceChangeTests(); fixture.f = f
     d = test_dimensions.DimensionTests(); d.f = f; fixture.d = d
     analysis = d.analysis(); d.root_ref = f.ref('root-dimensions.json', analysis)
-    f.call('register', {'module_id': 'M010', 'case_ids': ['C1'], 'write_paths': [str(f.target)],
+    parent = {'module_id': 'M010', 'case_ids': ['C1'], 'write_paths': [str(f.target)],
         'scope': analysis['scope'], 'context_refs': [f.ref('root-context.md', 'Parent scope')],
-        'dimension_analysis_ref': d.root_ref, 'decomposition_required': True}, role='global-orchestrator', module=None)
+        'dimension_analysis_ref': d.root_ref, 'decomposition_required': True}
+    parent['behavior_review'] = test_source_changes.behavior_review(f, parent)
+    f.call('register', parent, role='global-orchestrator', module=None)
     f.split(d.proposal(ids=('M001', 'M002'))); f.global_plan()
     fixture.freeze('M001'); fixture.freeze('M002')
     f.state()  # Host refreshes current routing after the last accepted freeze.

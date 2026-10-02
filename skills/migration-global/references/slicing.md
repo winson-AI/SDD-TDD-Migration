@@ -133,6 +133,8 @@ GO 在根登记前的 global-discovery 预检中核对功能草案；父 MO deco
 
 ## 功能切片后的四维深读
 
+根模块与子模块提交 behavior_review，global-plan 复核闭包和共享归属；子 MO 再追溯至 Scenario。字段见 [分配门禁](../../migration-protocol/references/module-decomposition.md#3-分配与登记门禁)，机器结构检查不证明业务语义完整。
+
 GO 先据全局上下文/功能清单划模块，再逐模块按 UI → Logic → Adhesive → Resource 分析；父 MO 先划子模块，再对每个子模块分析；子 MO 先划 tasks.scope，再逐任务四维分析以直接指导实现和测试断言；[四维协议](../../migration-protocol/references/dimension-slicing.md) 为接受分配与冻结的必要检查。
 
 ## 埋点事件的功能归属

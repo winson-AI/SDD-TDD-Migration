@@ -226,6 +226,8 @@ def prepared_input(ref):
                 'runtime', 'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources') if k in config},
             'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
             'module_name': snapshot['module_name'], 'project_context_ref': ref, 'project_sources': sources,
+            'behavior_contract_required': snapshot.get('behavior_contract_required', False),
+            'test_design_required': snapshot.get('test_design_required', False),
             'run_root': snapshot['run_root'], 'storage_layout': snapshot.get('storage_layout'),
             'dependency_resolution_required': snapshot.get('dependency_resolution_required'),
             'git_checkpoint': defaults.get('quality_gates', {}).get('git_checkpoint', False),
@@ -391,7 +393,7 @@ def _prepare(root, run_root, request, actor, storage):
         if build.get('environment_ref'):
             sources['build_environment'] = copy_ref(files, file_ref(build['environment_ref']))
             build['environment_ref'] = sources['build_environment']['path']
-        snapshot = {'schema_version': 1, 'project_id': record['project_id'], 'project_revision': record['revision'],
+        snapshot = {'schema_version': 1, 'behavior_contract_required': True, 'test_design_required': True, 'project_id': record['project_id'], 'project_revision': record['revision'],
                     'dependency_resolution_required': effective.get('defaults', {}).get('quality_gates', {}).get('dependency_resolution_required', False),
                     'project_revision_hash': digest(record), 'project_config': freeze_refs(files, record['config']), 'effective_config': effective,
                     'run_id': request['run_id'], 'run_root': str(run_root), 'entry_mode': mode, 'module_name': name,
@@ -437,10 +439,14 @@ def bind_run(ref, run_root, run_id, payload):
     require(payload.get('ui_fidelity_required', True) is True, 'prepared run requires UI fidelity evidence')
     require(payload.get('spec_closure_required', True) is True, 'prepared run requires static spec closure review')
     require(payload.get('unit_tests_required', True) is True, 'prepared run requires unit tests for applicable Logic items')
+    behavior_required = snapshot.get('behavior_contract_required', False)
+    design_required = snapshot.get('test_design_required', False)
+    require(payload.get('test_design_required', design_required) == design_required, 'run/config test design gate mismatch')
+    require(payload.get('behavior_contract_required', behavior_required) == behavior_required, 'run/config behavior contract mismatch')
     require(payload.get('dimension_slicing_required', True) is True, 'prepared run requires dimension slicing')
     require(payload.get('context_readiness_required', True) is True, 'prepared run requires context readiness')
     return {'dependency_resolution_required': dependency_gate, 'git_checkpoint': git_gate, 'fixer_self_diagnosis': self_diagnosis, 'write_scope_check': scope_check, 'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
-            'project_context_ref': ref, 'project_id': snapshot['project_id'],
+            'behavior_contract_required': behavior_required, 'test_design_required': design_required, 'project_context_ref': ref, 'project_id': snapshot['project_id'],
             'project_revision': snapshot['project_revision'], 'module_name': snapshot['module_name']}
 
 

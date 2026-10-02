@@ -22,6 +22,8 @@ from contracts import Rejected, baseline, check_ref, digest, file_ref, read_json
 from execute_test import execute
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'migration-test/scripts'))
 from harmony_stage import build as stage_result
+from test_behavior_contract import review as behavior_review
+import behavior_contract
 
 
 class SourceChangeTests(unittest.TestCase):
@@ -43,9 +45,11 @@ class SourceChangeTests(unittest.TestCase):
         self.d = test_dimensions.DimensionTests(); self.d.f = f
         analysis = self.d.analysis()
         self.d.root_ref = f.ref('root-dimensions.json', analysis)
-        f.call('register', {'module_id': 'M010', 'case_ids': ['C1'], 'write_paths': [str(f.target)],
+        parent = {'module_id': 'M010', 'case_ids': ['C1'], 'write_paths': [str(f.target)],
             'scope': analysis['scope'], 'context_refs': [f.ref('root-context.md', 'Parent scope')],
-            'dimension_analysis_ref': self.d.root_ref, 'decomposition_required': True}, role='global-orchestrator', module=None)
+            'dimension_analysis_ref': self.d.root_ref, 'decomposition_required': True}
+        parent['behavior_review'] = behavior_review(f, parent)
+        f.call('register', parent, role='global-orchestrator', module=None)
         f.split(self.d.proposal(ids=('M001', 'M002')))
         f.global_plan()
         self.library = (f.base/'library').resolve(); self.library.mkdir()
@@ -85,10 +89,34 @@ class SourceChangeTests(unittest.TestCase):
         review = read_json(check_ref(p['reuse_plan_ref']))
         review['catalog_ref'] = f.ref(f'catalog-{mid}-{f.n}.json', read_json(check_ref(review['catalog_ref'])))
         p['reuse_plan_ref'] = f.ref(f'reuse-{mid}-{f.n}.json', review)
+        p['behavior_contract_required'] = True
+        p['source_closure']['behavior_review'] = behavior_review(f, module)
+        for ref in p['definitions']:
+            if ref['kind'] == 'spec':
+                text = check_ref(ref).read_text().replace('### Requirement: R1', '### Requirement: R1\nRequirement-ID: R1')
+                text = text.replace('#### Scenario: normal', '#### Scenario: normal\nScenario-ID: SCN-' + mid + '-normal')
+                ref.update(f.ref(f'defs-{mid}-{f.n}/spec.md', text))
+        unit = next(path for path in p['paths'] if path['kind'] == 'unit')
+        unit['expected_assertions'][0]['expected'] = True
+        unit['unit_report'] = {'format': 'junit', 'patterns': ['reports/TEST-*.xml'], 'required_test_ids': ['ValueTest#integer']}
+        unit['command']['argv'] = [sys.executable, '-c',
+            'import os,runpy;from pathlib import Path;'
+            f'v=runpy.run_path({str(Path(module["write_paths"][0])/"code.py")!r})["value"];'
+            'ok=type(v) is int;'
+            'p=Path(os.environ["SDD_RUNNER_DIR"])/"reports/TEST-value.xml";p.parent.mkdir(parents=True);'
+            'p.write_text(\'<testsuite><testcase classname="ValueTest" name="integer">\'+("" if ok else "<failure/>")+"</testcase></testsuite>");'
+            'raise SystemExit(0 if ok else 1)']
+        p['paths'][-1]['scenario_ids'] = ['SCN-' + mid + '-normal']
+        p['scenario_index'] = behavior_contract.scenario_index(p)
+        p['scenario_trace'] = [{'scenario_id': 'SCN-' + mid + '-normal', 'task_ids': ['T1'],
+                                'assertions': [{'path_id': pid, 'assertion_id': 'A1'}, {'path_id': uid, 'assertion_id': 'UNIT-EXIT'}]}]
         return p
 
     def freeze(self, mid):
         f = self.f; p = self.plan(mid)
+        if f.state().get('test_design_required'):
+            from test_design_stage import prepare_design
+            prepare_design(f, p, mid)
         f.call('plan', {'plan_ref': f.ref(f'plan-{mid}-{f.n}.json', p)}, role='spec-designer', module=mid)
         did = 'freeze-'+str(f.n)
         f.call('decision', {'decision_id': did, 'module_id': mid, 'decision': 'approved', 'subject_sha256': digest(p),
@@ -151,7 +179,7 @@ class SourceChangeTests(unittest.TestCase):
         unit_test = code.parent / 'test_code.py'; unit_test.write_text('from code import value\n')
         review = f.ref('static-review-'+mid+'-'+str(f.n)+'.json', {'schema_version': 1, 'run_id': f.state()['run_id'], 'module_id': mid,
             'path_id': mid+'-S', 'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
-            'scenarios': [{'requirement_id': 'R1', 'status': 'passed', 'summary': 'value reaches entry',
+            'scenarios': [{'scenario_id': 'SCN-' + mid + '-normal', 'requirement_id': 'R1', 'status': 'passed', 'summary': 'value reaches entry',
                            'production_symbols': [{'path': str(code), 'symbol': 'value'}],
                            'reached_from': {'path': str(entry), 'symbol': 'value'},
                            'test_refs': [{'path': str(unit_test), 'symbol': 'value'}], 'evidence_refs': [notes]}],
@@ -161,7 +189,7 @@ class SourceChangeTests(unittest.TestCase):
             if scope == 'build':
                 aid = scope+'-'+mid+'-'+str(f.n); argv = [sys.executable, '-c', 'pass']
             elif scope == 'unit':
-                argv = [sys.executable, '-c', 'pass']  # same Test-Runner and assignment as the build
+                argv = next(p for p in m['plan']['paths'] if p['kind'] == 'unit')['command']['argv']
             elif scope == 'static':
                 argv = static_argv  # same Test-Runner and assignment as the build
             else:
@@ -180,7 +208,7 @@ class SourceChangeTests(unittest.TestCase):
                 report['execution'] = {'argv': argv, 'cwd': str(f.target), 'environment_ref': f.ref('environment.md', 'Python fixture available')}
                 if scope == 'build':
                     report['execution']['commands'] = {mid+'-B': {'argv': argv, 'cwd': str(f.target)},
-                                                       mid+'-U': {'argv': argv, 'cwd': str(f.target)},
+                                                       mid+'-U': {'argv': next(p for p in m['plan']['paths'] if p['kind'] == 'unit')['command']['argv'], 'cwd': str(f.target)},
                                                        mid+'-S': {'argv': static_argv, 'cwd': str(f.target)}}
                 receipt = f.record(report)
                 f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner',

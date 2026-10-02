@@ -21,7 +21,8 @@
       "assignment_id": "{{assignment_id}}",
       "status": "unknown",
       "observed_at": "{{actual-observation-time-ISO8601-with-timezone}}",
-      "last_progress_at": "{{actual-business-progress-time-ISO8601-with-timezone}}"
+      "last_progress_at": "{{actual-business-progress-time-ISO8601-with-timezone}}",
+      "execution_state_path": null
     }
   ]
 }

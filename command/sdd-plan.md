@@ -38,7 +38,7 @@ run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃
 
 ## 本地实现接入
 
-Spec plan → host decision → MO freeze。具体 payload/命令用法见 [操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
+MO assign(mode=design, design_input_ref) → 独立 Test-Runner context-submit/submit → MO accept(review_ref) → Spec plan(test_design_ref) → host decision → MO freeze。见 [编码前交接](../skills/migration-protocol/references/testing.md#编码前设计交接)和[操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主绑定真实身份并派发；控制器不自动启动 Agent 或写目标代码。
 
 规划按三层分工推进：GO 分配模块 scope/context；父 MO 认领后拆子模块 scope/context；子 MO 拆 tasks 并组织正式六件套。父 decompose、子 plan 都绑定 status.planning_context 和 status.module_inputs 对应的 assigned_module，保留全局可读视野，执行限于分配范围。
 
