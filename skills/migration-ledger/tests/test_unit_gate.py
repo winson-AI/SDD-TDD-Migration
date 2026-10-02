@@ -44,9 +44,9 @@ class UnitGateTests(unittest.TestCase):
     def run_unit(self, aid='BUILD1'):
         f = self.f
         assignment = f.state()['modules']['M001']['assignments'][aid]
-        self.assertEqual((assignment['test_scope'], assignment['closed']), ('unit', False))
+        self.assertEqual((assignment['test_scope'], assignment['closed']), ('build', False))
         receipt = execute(f.root, 'M001', aid, 'U1', self.unit_argv(), str(f.target), f.base / (aid + '-unit'))
-        result = stage_result(f.root, 'M001', aid, [receipt])
+        result = stage_result(f.root, 'M001', aid, [receipt] + self.split.receipts)  # unit row first, then build
         f.submit(result, assignment); f.call('accept', {'assignment_id': aid})
         return result['paths'][0]
 

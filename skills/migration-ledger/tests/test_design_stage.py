@@ -45,8 +45,7 @@ def submit_design(f, a, result):
                   'read_refs': reads, 'draft_ref': ref,
                   'checks': {k: {'status': 'ready', 'summary': 'Reviewed fixture scope, expected behavior and independent author.',
                                  'evidence_refs': [ref]} for k in cr.CHECKS['test-design']}}
-        p['context_ref'] = f.ref(f'design-context-{mid}-{f.n}.json', report)
-        f.call('context-submit', {'report_ref': p['context_ref']}, role='test-runner', instance=a['instance_id'], module=mid)
+        p['context_ref'] = f.ref(f'design-context-{mid}-{f.n}.json', report)  # the preflight rides the submit
     f.call('submit', p, role='test-runner', instance=a['instance_id'], module=mid)
     return ref
 
@@ -201,7 +200,10 @@ class DesignStageTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'context readiness receipt required'):
             f.raw('submit', {'assignment_id': a['assignment_id'], 'fencing_token': a['fencing_token'], 'result_ref': ref},
                   role='test-runner', instance=a['instance_id'])
+        events = len(ledger.read_events(f.root)[1])
         submit_design(f, a, result)
+        self.assertEqual(len(ledger.read_events(f.root)[1]), events + 1)  # report and result in one event
+        self.assertIn('test-design:' + a['instance_id'], f.state()['modules']['M001']['context_receipts'])
 
     def test_independent_sibling_and_unfinished_dependency_can_design(self):
         f = self.f

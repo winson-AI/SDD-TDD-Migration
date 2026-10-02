@@ -21,6 +21,8 @@ READ_BUDGET = 60_000  # UTF-8 bytes per dispatch card
 TYPICAL_BUDGET = 35_000
 # A session holding this much protocol text is better restarted from its checkpoint than fed more; advisory.
 ROTATE_BUDGET = 100_000
+# Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
+TEMPLATE_BUDGET = 33_000
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
 PROTOCOL_BUDGET = 555_600
 FILE_BUDGET = 34_000
@@ -70,7 +72,7 @@ MO_OPS = {
 STEP = {
     'spec-designer': sections('openspec.md', '六件套映射', '基线与 Delta', '冻结算法', '变更控制', '决策边界与执行基线', '四维完整性索引')
     + sections('dimension-slicing.md', '总则', '7. 任务级四维分析契约') + sections('semantic-extraction.md', '总则')
-    + sections('testing.md', '设计模式与执行模式', '逻辑单测', '静态规格闭合'),
+    + sections('testing.md', '逻辑单测', '静态规格闭合'),
     'implementer': sections('local-runtime.md', '阶段结果') + sections('context-readiness.md', '2. 精确插入节点')
     + sections('dimension-slicing.md', '7. 任务级四维分析契约'),
     'fixer': sections('local-runtime.md', '阶段结果') + sections('state-machine.md', '有限循环')
@@ -93,10 +95,8 @@ OPS = {
 }
 TEST_SCOPE = {
     'design': sections('testing.md', '编码前设计交接', 'query', '逻辑单测', '静态规格闭合'),
-    None: sections('testing.md', '设计模式与执行模式', 'query', '逻辑单测', '静态规格闭合'),
-    'build': sections('build-automation.md', '总则', '3. 冻结路径与分阶段证据') + sections('testing.md', '断言与结果'),
-    'unit': sections('build-automation.md', '总则') + sections('testing.md', '逻辑单测', '断言与结果'),
-    'static': sections('build-automation.md', '总则') + sections('testing.md', '静态规格闭合'),
+    'build': sections('build-automation.md', '总则', '3. 冻结路径与分阶段证据')
+    + sections('testing.md', '断言与结果', '逻辑单测', '静态规格闭合'),
     'automation': sections('build-automation.md', '总则') + sections('testing.md', '断言与结果', '本地执行与严格结果验收')
     + sections('build-automation.md', '4. 自动化环境缺失：直接记 Yellow 并继续'),
     'visual': sections('build-automation.md', '总则') + sections('ui-fidelity.md', '视觉对齐 = automation 第二层（不是独立阶段）')
@@ -227,8 +227,8 @@ def _topic_rows(text, topics):
 
 # Blocks of an Agent definition that only apply in some modes of the role; other blocks always stay.
 MODE_BLOCKS = {'### 设计', '### 构建', '### 单测与静态审查', '### 自动化', '## 10. Harmony 执行器'}
-TEST_MODES = {None: ('### 设计',), 'design': ('### 设计',), 'build': ('### 构建',), 'unit': ('### 构建', '### 单测与静态审查'),
-              'static': ('### 构建', '### 单测与静态审查'), 'automation': ('### 自动化', '## 10. Harmony 执行器'),
+TEST_MODES = {'design': ('### 设计',), 'build': ('### 构建', '### 单测与静态审查'),
+              'automation': ('### 自动化', '## 10. Harmony 执行器'),
               'visual': ('### 自动化', '## 10. Harmony 执行器')}
 
 
@@ -372,11 +372,9 @@ TEMPLATES = {
     'global-orchestrator': {'plan': ['module-input.json', 'global-plan.json', 'feature-inventory.json', 'dimension-analysis.json',
                                      'module-slicing.json', 'context-readiness.json'],
                             'audit': ['migration-report.md'], 'source': ['source-impact.json']},
-    'module-orchestrator': {'base': ['status.md', 'checklist.md', 'freeze.json', 'change-impact.json', 'batch-envelope.json',
-                                     'module-decomposition.json', 'implementation-gap.json'],
-                            'audit': ['status.md']},
+    'module-orchestrator': {'base': ['status.md'], 'audit': ['status.md']},
     'spec-designer': {'base': ['stage-plan.json', 'proposal.md', 'spec.md', 'design.md', 'tasks.md', 'checklist.md',
-                               'dimension-analysis.json', 'change-impact.json', 'context-readiness.json']},
+                               'change-impact.json', 'context-readiness.json']},
     'implementer': {'base': ['implementation.md', 'context-readiness.json']},
     'fixer': {'base': ['implementation.md', 'fix-note.json', 'change-request.md', 'context-readiness.json']},
     'diagnostician': {'base': ['diagnosis.md']},
@@ -385,8 +383,13 @@ TEMPLATES = {
                 'audit': ['audit-closure-plan.json', 'audit-report.md', 'audit-review.json', 'problem-audit-report.json', 'test-result.json']},
     'test-runner': {'base': ['stage-result.json', 'test-result.json', 'context-readiness.json']},
 }
-SCOPE_TEMPLATES = {None: ['test-paths.json', 'harmony-test-path.json'], 'build': ['test-adapter.json'], 'unit': ['test-adapter.json'],
-                   'static': [], 'automation': ['test-adapter.json', 'harmony-test-adapter.json', 'harmony-config.json', 'interaction-evidence.json'],
+# Module-orchestrator templates by operation; an operation outside the table gets all of them.
+MO_TEMPLATES = {'freeze': ['freeze.json', 'checklist.md', 'change-impact.json', 'batch-envelope.json'],
+                'change': ['freeze.json', 'change-impact.json'], 'complete': ['checklist.md', 'status.md'],
+                'decompose': ['module-decomposition.json', 'dimension-analysis.json', 'batch-envelope.json'],
+                'module-summary': ['status.md'], 'suspend': ['implementation-gap.json', 'status.md'],
+                'assign': ['test-design-input.json'], 'accept': ['status.md'], 'diagnosis-accept': ['status.md']}
+SCOPE_TEMPLATES = {'build': ['test-adapter.json'], 'automation': ['test-adapter.json', 'harmony-test-adapter.json', 'harmony-config.json', 'interaction-evidence.json'],
                    'visual': ['visual-test-path.json', 'visual-alignment.json', 'visual-capture-execution.json', 'visual-test-adapter.json',
                               'visual-execution.json', 'visual-request.json']}
 TRIGGER_TEMPLATES = {
@@ -407,6 +410,8 @@ def templates(s, m, step):
     plan = (m or {}).get('plan') or {}
     table = TEMPLATES.get(role, {})
     names = list(table.get(family(role, step.get('operation')), table.get('base', [])))
+    if role == 'module-orchestrator' and family(role, step.get('operation')) == 'base':
+        names = list(MO_TEMPLATES.get(step.get('operation'), dict.fromkeys(n for group in MO_TEMPLATES.values() for n in group)))
     if role == 'test-runner':
         names += SCOPE_TEMPLATES.get(step.get('test_scope'), [])
     if step.get('mode') == 'design':

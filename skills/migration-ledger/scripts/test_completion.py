@@ -51,7 +51,7 @@ def interpret(receipt, planned):
         require(report.get('query_sha256') == digest(query), 'visual query mismatch')
     if known and report['producer'] == 'spec-closure-check':
         require(planned.get('kind') == 'static', 'spec closure report cannot replace other tests')
-        require(query.get('scenario_ids') == planned.get('scenario_ids'), 'static scenario selection changed')
+        require(planned.get('scenario_ids') in (None, query.get('scenario_ids')), 'static scenario selection changed')
         for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
             require(report.get(key) == receipt.get(key), 'spec closure report context mismatch')
         require(report.get('query_sha256') == digest(query), 'spec closure query mismatch')

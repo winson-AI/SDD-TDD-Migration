@@ -1,19 +1,17 @@
 # 测试路径、Main 与复测契约
 
-## 设计模式与执行模式
+## 执行模式
 
-design 模式：冻结前只读整体/模块测试输入及规格，补齐正常/边界/异常、权限/数据等适用路径，输出 CASE-ID → PATH-ID/Name 与验收映射；不读取实现源码推导预期、不执行测试。缺失业务预期经 Spec-Designer 澄清。
+execute 模式分 build（含 unit、static）和 automation，按 [双环节协议](build-automation.md) 执行。代码已生成并经 MO 接受后，把已批准路径落实为技术栈真实脚本/选择器/数据参数。若发现新验收语义，发 CR，不自行补成新标准。设计与执行可由不同实例担任，仍属于同一角色。Auditor 不能是该轮脚本作者。
 
-execute 模式分 build 和 automation，按 [双环节协议](build-automation.md) 执行。代码已生成并经 MO 接受后，把已批准路径落实为技术栈真实脚本/选择器/数据参数。若发现新验收语义，发 CR，不自行补成新标准。设计与执行可由不同实例担任，仍属于同一角色。Auditor 不能是该轮脚本作者。
-
-Main 是项目提供的主验证入口，不是固定 `main.py`，也不是某个产品特有 Agent。输入 `test_adapter` 指定 executable/args/cwd、query 传输和结构化结果路径；未配置或不可用 → Yellow tooling。模板不包含假测试或自动通过的适配器。
+Main 是项目提供的主验证入口，不是固定 `main.py`。输入 `test_adapter` 指定 executable/args/cwd、query 传输和结构化结果路径；未配置或不可用 → Yellow tooling。模板不包含假测试或自动通过的适配器。
 
 ## 编码前设计交接
 
-沿用 `assign → submit → accept`，以 `mode=design` 区分只读设计。编码前设计是必选门禁（prepare 固定 test_design_required=true），撤销/invalidate 不关闭。
+沿用 `assign → submit → accept`，`mode=design` 表示只读设计；它是必选门禁（prepare 固定 test_design_required=true），撤销/invalidate 不关闭。
 
 1. MO 在 context/specifying/change-review、无 blocker/worker 的叶子 `assign(role=test-runner, mode=design, assignment_id, instance_id, design_input_ref)`；[输入](../../../template/test-design-input.json) 绑定当前 planning_context/assigned_module、MO tasks.scope/需求、spec_refs/case_refs，此事件提交跨角色输入。Spec 可先 context-submit 自身草稿。无源码写锁、依赖代码/设备前置，仍受并发预算约束。
-2. 独立 Test-Runner 在自身 staging 写 [结果](../../../template/test-design-result.json)，先 context-submit(stage=test-design)，检查 assigned-scope/spec-cases/task-coverage/independence，确认必读引用，draft_ref 绑定结果；再 submit(assignment_id/fencing_token/result_ref/context_ref)。kind=test-design，freeze_id/code_baseline=null；只写预期 PATH/ASSERT，禁止 actual/passed/quality 或执行。
+2. 独立 Test-Runner 只读整体/模块测试输入及规格，补齐正常/边界/异常、权限/数据等适用路径，在自身 staging 写 [结果](../../../template/test-design-result.json)：CASE-ID → PATH-ID/Name 与预期断言；不读实现源码推导预期，缺失业务预期经 Spec-Designer 澄清。test-design 预检（assigned-scope/spec-cases/task-coverage/independence，draft_ref 绑定结果）随 submit(assignment_id/fencing_token/result_ref/context_ref) 登记，无需单独 context-submit。kind=test-design，freeze_id/code_baseline=null；禁止 actual/passed/quality 或执行。
 3. MO 审查全 CASE 覆盖并 accept(assignment_id, review_ref)，关闭 assignment，保持规划 phase/质量/代码/修复预算与兄弟模块。返工或 blocked：留证，宿主实际停 worker/revoke，再重新派发或按原 suspend，不能记业务 Red。
 4. 独立 Spec 的 plan.test_design_ref 绑定 accepted 结果，definitions.test-design 引其 design_ref；SPEC 引用、tasks.scope/需求及全部 PATH/ASSERT 与设计输入/结果一致，任务可补 path_ids/四维追溯。MO freeze 再验。需求/任务/分配/断言变更须重新设计；invalidate/CR 保留旧证据并回规划。活动输入过期提示 host revoke；clarifying 设计过期提示 MO invalidate。
 
@@ -92,14 +90,14 @@ query 还支持 --task-id/--assertion-id/--test-id，默认最多5条，仅失�
 
 ## 静态规格闭合
 
-顺序为 build → unit → static → automation → visual。prepared run 固定 spec_closure_required=true，每模块恰好一个 static PATH；scenario_requirement_ids 列全部任务需求，断言为唯一 expected=true，复用已有 case_id，不替代业务覆盖；scenario_ids 列全部冻结场景。
+顺序为 build → unit → static → automation → visual。prepared run 固定 spec_closure_required=true，每模块恰好一个 static PATH：断言为唯一 expected=true，复用已有 case_id，不替代业务覆盖；审查范围由 Ledger 派生（全部任务需求与冻结场景），PATH 不列。
 
 独立 Test-Runner 只读 SPEC、当前代码/测试，将审查写入 staging：
 
-- scenarios[]：按 scenario_id + requirement_id 逐场景记录；execute_test 注入冻结 scenario_index。每行 status=passed|failed、summary、production_symbols（目标绝对路径+真实符号）、evidence_refs。passed 必须给 reached_from：另一个目标文件中的调用/DI/导航/清单引用；有 unit PATH 还须 test_refs 指向真实测试符号。未接入生产不能 passed。
+- scenarios[]：按 scenario_id + requirement_id 逐场景记录；execute_test 注入 Ledger 派生的 scenario_index 与场景清单。每行 status=passed|failed、summary、production_symbols（目标绝对路径+真实符号）、evidence_refs。passed 必须给 reached_from：另一个目标文件中的调用/DI/导航/清单引用；有 unit PATH 还须 test_refs 指向真实测试符号。未接入生产不能 passed。
 - anti_patterns：preview-only-wiring、dead-handler、fixed-result、placeholder-icon、unapproved-stub、swallowed-error（错误显示为空态/成功）逐项 absent|present、note、evidence_refs。批准的 capture-fixture 边界可 absent，须引用批准依据。
 
-building 预检的 execution.commands 一并批准 build/unit/static 命令和 review 路径；build Green 接受后同一 assignment 依次 unit、static，各自提交/接受，无额外派发。失败关闭 assignment 并诊断/Fixer 后重跑。`execute_test.py` 调用 [spec_closure.py](../../migration-ledger/scripts/spec_closure.py)（--review、--target-root），核对上下文、场景覆盖、符号和清单；failed 场景/present 反模式为 Red。脚本不判断业务语义，Test-Runner 审阅、Auditor 抽查。static 全绿前禁止 automation/automation-unavailable；缺设备仍执行 unit/static。
+building 预检的 execution.commands 一并批准 build/unit/static 命令和 review 路径；同一 build assignment 依次执行 build、unit、static，到第一个非 Green 为止，一次提交和验收；结果须覆盖已到达环节的全部待测 PATH，同一代码上已 Green 的环节重试时不重跑。非 Green 即诊断/Fixer 后重跑。`execute_test.py` 调用 [spec_closure.py](../../migration-ledger/scripts/spec_closure.py)（--review、--target-root），核对上下文、场景覆盖、符号和清单；failed 场景/present 反模式为 Red。脚本不判断业务语义，Test-Runner 审阅、Auditor 抽查。static 全绿前禁止 automation/automation-unavailable；缺设备仍执行 unit/static。
 
 ## 运行时变体与冻结 SPEC 冲突
 

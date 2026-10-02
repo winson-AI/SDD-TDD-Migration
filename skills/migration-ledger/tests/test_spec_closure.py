@@ -62,9 +62,9 @@ class SpecClosureTests(unittest.TestCase):
         f = self.f
         self.review_path.write_text(json.dumps(data))
         assignment = f.state()['modules']['M001']['assignments'][aid]
-        self.assertEqual((assignment['test_scope'], assignment['closed']), ('static', False))
+        self.assertEqual((assignment['test_scope'], assignment['closed']), ('build', False))
         receipt = execute(f.root, 'M001', aid, 'S1', self.static_argv(), str(f.target), f.base / (aid + '-static'))
-        result = stage_result(f.root, 'M001', aid, [receipt])
+        result = stage_result(f.root, 'M001', aid, [receipt] + self.split.receipts)  # static row first, then build
         f.submit(result, assignment); f.call('accept', {'assignment_id': aid})
         return result['paths'][0]
 

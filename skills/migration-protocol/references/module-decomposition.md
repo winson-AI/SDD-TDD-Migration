@@ -44,7 +44,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 行为契约是必选门禁（prepare 固定 `behavior_contract_required=true`）：register/decompose 分别提交根/子模块的 behavior_review（字段见模板），scope hash/覆盖/证据完整、unresolved=[]。共享需 owner、消费者、集成责任；global-plan 按父子归属解析唯一叶子 owner，边界疑问交父级/GO/人工。
 
-子 MO 审阅 source_closure.behavior_review，以 scenario_trace 覆盖任务。子功能可验收，任务可单层；基础能力需消费者。
+子 MO 的 source_closure 即其行为审阅，以 scenario_trace 覆盖任务。共享能力与复用目录使用同一 capability_id 时，目录的 provider owner 必须是行为审阅解析出的叶子 owner。子功能可验收，任务可单层；基础能力需消费者。
 
 原子根功能（单一职责、无可独立交付的子功能）可由 GO 登记为 `lean_leaf=true` 的执行叶子，跳过父 MO 拆分与汇总：仍须提交同样的 scope/context_refs，并附 `leaf_review_ref` 说明为何不可再拆；其余根功能由 GO `register` 时设置 `decomposition_required=true`，同时提交非空 `scope.in`、显式 `scope.out`（可为空）、非空 `scope.requirement_ids` 和非空 `context_refs`。其中 requirement_ids 使用全局需求 ID。根模块的 CASE/需求须来自本轮输入，写范围包含于 target_root。人工导入方案先由 GO 分析补全并转成此分配格式；这些字段不增加用户入口负担。
 

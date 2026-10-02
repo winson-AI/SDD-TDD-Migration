@@ -123,13 +123,16 @@ def result_check(s, m, a, result):
     return doc
 
 
-def submission(s, m, a, p):
+def submission(s, m, a, p, actor=None):
     require(m['phase'] in PHASES and not m.get('blocked'), 'design result outside planning phase')
     result = read_json(check_ref(p['result_ref']))
     result_check(s, m, a, result)
     if s.get('context_readiness_required'):
         import context_readiness
         require(p.get('context_ref'), 'context readiness receipt required for test-design')
+        if actor is not None:
+            # The designer's read-only preflight rides its submit: one event carries the report and the result.
+            context_readiness.submit(s, {'payload': {'report_ref': p['context_ref']}, 'module_id': m['module_id']}, actor)
         context_readiness.validate(s, m['module_id'], 'test-design', p.get('context_ref'), a['instance_id'], p['result_ref'])
     m['submissions'][a['assignment_id']] = {'ref': p['result_ref'], 'result': result, 'context_ref': p.get('context_ref')}
 

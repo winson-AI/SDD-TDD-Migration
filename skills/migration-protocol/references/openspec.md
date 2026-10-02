@@ -23,9 +23,9 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 ## 冻结算法
 
-plan 声明 `behavior_contract_required=true` 并带 source_closure.behavior_review。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。`python3 <package_root>/skills/migration-ledger/scripts/behavior_contract.py --plan <staged-plan.json>` 输出派生 scenario_index（capability、REQ/Scenario ID、SPEC/场景 hash），合入待审批 plan；plan/freeze 重新派生比较，SPEC 修改须重建索引并走 CR/冻结。
+plan 声明 `behavior_contract_required=true`；source_closure 同时是叶子的行为审阅，另含 scope_sha256、boundary_rationale、requirement_ids、case_ids、shared_capabilities。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。Ledger 接受 plan 时从 SPEC 派生 scenario_index，plan 不携带；`behavior_contract.py --plan <staged-plan.json>` 可预览。SPEC 修改即改变 plan 摘要，须走 CR/冻结。
 
-scenario_trace 将每个场景关联 task_ids、assertions[{path_id,assertion_id}]；全部任务/行为断言须有归属，允许多对多，build/static 不充当行为断言。static.scenario_ids 列全部场景；scenarios.md 为只读投影。
+scenario_trace 将每个场景关联 task_ids、assertions[{path_id,assertion_id}]；全部任务/行为断言须有归属，允许多对多，build/static 不充当行为断言。scenarios.md 为只读投影。
 
 1. 生成完整六件套草稿；冻结前 Test-Runner design 模式独立补齐测试用例与路径大纲，不运行代码。
 2. Spec-Designer 把明确的问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复须绑定 question_id、spec_revision、内容摘要。既有明确答复可复用，若绑定内容已变则重新裁决。
