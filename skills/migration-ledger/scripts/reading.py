@@ -347,7 +347,7 @@ def card(s, m, step):
     ui, reuse = bool(m) and ui_scope(m), bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required'))
     telemetry = telemetry_scope(role, m)
     lean = bool(m) and (bool(m.get('lean_leaf')) or bool(s.get('fixer_self_diagnosis')))
-    rows = ([operation] if operation else []) + (['submit'] if step.get('worker_role') else [])
+    rows = ([operation] if operation else []) + (['context-submit', 'submit'] if step.get('worker_role') else [])
     chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry,
                      lean=lean and role in ('fixer', 'implementer'), rows=rows)
     if role == 'spec-designer' or (step.get('mode') == 'design' and role == 'module-orchestrator'):

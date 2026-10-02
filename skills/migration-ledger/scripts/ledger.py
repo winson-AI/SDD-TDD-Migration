@@ -691,12 +691,11 @@ def next_step(s, m):
     step = context_readiness.annotate(s, m['module_id'], _next_step(s, m))
     if m.get('decomposition_required') and step['role'] == 'module-orchestrator':
         step['agent_name'] = 'parent-mo-' + m['module_id']
-    if (step.get('operation') == 'assign' and step.get('worker_role') == 'test-runner' and step.get('mode') != 'design'
-            and step['ready']):
-        # Which test stage runs next and which worker preflighted it are facts the Ledger holds; assign re-checks
-        # every guard, so the host may submit it as the module orchestrator without a model turn.
+    if step.get('operation') == 'assign' and step.get('mode') != 'design' and step['ready']:
+        # Who works next and on which stage are facts the Ledger holds; assign re-checks every guard and the worker
+        # reports its own readiness, so the host may submit it as the module orchestrator without a model turn.
         step['mechanical'] = True
-        step['payload'] = {**step.get('payload', {}), 'role': 'test-runner'}
+        step['payload'] = {**step.get('payload', {}), 'role': step['worker_role']}
         receipts = (step.get('context_gate') or {}).get('ready_receipts')
         if receipts:
             producer = next(r['producer'] for r in m['context_receipts'].values() if r['report_ref'] == receipts[0])
@@ -802,21 +801,48 @@ def assign_worker(s, m, mid, p, events):
         require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> unit -> static -> automation -> visual; the build assignment carries the first three')
     if p['instance_id'] not in m['authors']:
         m['authors'].append(p['instance_id'])
+    preflight = context_readiness.enabled(s)
+    context_ref = p.get('context_ref') or (context_readiness.reported(s, mid, p) if preflight else None)
     if p['role'] in ('implementer', 'fixer'):
-        if p['role'] == 'fixer':
-            m.setdefault('fix_memory', []).append({'assignment_id': p['assignment_id'], 'audit_batch_id': m.get('audit_batch_id'), 'freeze_id': m['freeze_id'],
-                'before_baseline': m['code_baseline'], 'diagnosis': m.get('diagnosis'), 'issues': copy.deepcopy(unresolved(m)),
-                'status': 'pending', 'reusable': False})
-            if not m.pop('audit_fix_grant', None):
-                m['local_fix_used'] = m.get('local_fix_used', 0) + 1
-            else:
-                m['auditor_fix_used'] = True
-            m['fix_rounds_used'] += 1
-            m['total_fix_rounds'] += 1
         m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
-    m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
+    a = m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
         'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
         'fencing_token': len(events) + 1, **dispatch_record(s, m, p), **(usage or {})}
+    if context_ref:
+        a['context_ref'] = copy.deepcopy(context_ref)
+    if context_ref or not preflight:
+        start_work(m, a)
+
+
+def start_work(m, a):
+    """The work of a dispatch is authorized: a repair round is spent from here, not while its context is missing."""
+    if a['role'] != 'fixer':
+        return
+    m.setdefault('fix_memory', []).append({'assignment_id': a['assignment_id'], 'audit_batch_id': m.get('audit_batch_id'), 'freeze_id': m['freeze_id'],
+        'before_baseline': m['code_baseline'], 'diagnosis': m.get('diagnosis'), 'issues': copy.deepcopy(unresolved(m)),
+        'status': 'pending', 'reusable': False})
+    if not m.pop('audit_fix_grant', None):
+        m['local_fix_used'] = m.get('local_fix_used', 0) + 1
+    else:
+        m['auditor_fix_used'] = True
+    m['fix_rounds_used'] += 1
+    m['total_fix_rounds'] += 1
+
+
+def settle_preflight(m, actor, receipt):
+    """A worker's report inside its own dispatch: ready authorizes the work, blocked hands the dispatch back."""
+    a = next((x for x in m['assignments'].values() if not x.get('closed') and not design_stage.is_design(x)
+              and not x.get('context_ref') and (x['role'], x['instance_id']) == (actor['role'], actor['instance_id'])), None)
+    if not a or context_readiness.requirement('assign', a) != receipt['stage']:
+        return
+    if receipt['verdict'] == 'ready':
+        a['context_ref'] = copy.deepcopy(receipt['report_ref'])
+        start_work(m, a)
+    else:
+        # Nothing was authorized, so there is no worker to stop: the module is back where a blocked preflight
+        # before any dispatch leaves it, and the gap is handled the same way.
+        a.update(closed=True, declined_ref=copy.deepcopy(receipt['report_ref']))
+        m['phase'] = 'diagnosing' if a['role'] == 'fixer' else 'frozen' if a['role'] == 'implementer' else 'testing'
 
 
 def mutate(s, req, principal, events, root=None):
@@ -846,7 +872,9 @@ def mutate(s, req, principal, events, root=None):
         elif mid and mid not in s.get('module_groups', {}):
             record_hint(s, m, hint)
     if op == 'context-submit':
-        context_readiness.submit(s, req, principal)
+        receipt = context_readiness.submit(s, req, principal)
+        if mid in s['modules']:
+            settle_preflight(m, principal, receipt)
     elif op == 'audit-code-review':
         audit_code_review.accept(s, p, principal)
     elif op in source_changes.OPS:
@@ -991,6 +1019,8 @@ def mutate(s, req, principal, events, root=None):
             design_stage.submission(s, m, assignment, p, principal)
         else:
             require(assignment['freeze_id'] == m['freeze_id'], 'assignment freeze stale')
+            require(assignment.get('context_ref') or not context_readiness.enabled(s),
+                    'preflight required: context-submit a ready report for this assignment before its result')
             worker_phase(m, assignment)
             dependencies_ready(s, m)
             result = read_json(check_ref(p['result_ref']))
@@ -1074,10 +1104,10 @@ def mutate(s, req, principal, events, root=None):
         check_ref(draft['report']['diagnosis_ref'])
         m.update(diagnosis=draft['report'], diagnosis_submission=None, phase='diagnosing')
         if p.get('assign') is not None:
-            # Merged dispatch: the Fixer already preflighted this same diagnosis; all assign guards still apply.
+            # Merged dispatch: all assign guards still apply; a Fixer that already preflighted this diagnosis is bound at once.
             a = p['assign']
             require(isinstance(a, dict) and a.get('role') == 'fixer', 'merged dispatch only assigns the Fixer')
-            if context_readiness.enabled(s):
+            if context_readiness.enabled(s) and a.get('context_ref'):
                 context_readiness.validate(s, mid, 'fixing', a.get('context_ref'), a.get('instance_id'))
                 m.setdefault('context_acceptances', {})['assign'] = {'report_ref': copy.deepcopy(a['context_ref']),
                                                                      'accepted_by': copy.deepcopy(principal)}

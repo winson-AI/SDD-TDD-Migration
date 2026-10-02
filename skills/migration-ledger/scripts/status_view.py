@@ -66,15 +66,16 @@ def _step(st, module_id):
         revision = step['expected_revision']
     cards = {}
     slim = _slim(step, cards)
+    gate = slim.pop('context_gate', None)
     operation = step.get('operation')
+    if operation == 'await-result':  # a running worker reports first if its report is still owed, then submits
+        operation = 'context-submit' if gate and step.get('mode') != 'design' else 'submit'
     out = {'view': 'step', 'run_id': st['run_id'], 'last_sequence': st['last_sequence'], 'step': slim, 'cards': cards,
-           # The envelope of the request this step asks for; the worker of a running assignment submits its result.
+           # The envelope of the request this step asks for.
            'request': {'schema_version': 1, 'run_id': st['run_id'], 'module_id': module_id, 'expected_revision': revision,
-                       'operation': 'submit' if operation == 'await-result' else operation}}
-    gate = slim.pop('context_gate', None) or {}
-    stage = gate.get('stage') or ('test-design' if operation == 'await-result' and step.get('mode') == 'design' else None)
-    if stage:  # one object says what the preflight report of this stage must contain and which reports exist
-        out['context'] = {'stage': stage, **st['context_requirements'].get(module_id or 'GLOBAL', {}).get(stage, {}), **gate}
+                       'operation': operation}}
+    if gate:  # one object says what the preflight report of this stage must contain and which reports exist
+        out['context'] = {**st['context_requirements'].get(module_id or 'GLOBAL', {}).get(gate['stage'], {}), **gate}
     if module_id is not None:
         m = st['modules'].get(module_id) or st.get('module_groups', {}).get(module_id) or {}
         out['module_input'] = st['module_inputs'].get(module_id)

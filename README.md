@@ -83,7 +83,7 @@ Coding → MO 接受代码 → Testing
 | Harmony 自动测试 | 迁入的 Planner/Executor/Verify 内核，逐 ASSERT 证据接入 Ledger | [Harmony 运行](skills/migration-test/references/harmony-runtime.md) |
 | 切片与功能清单 | 默认由 Agent 决定粒度；清单完整可追溯，疑问交人工 | [切片规约](skills/migration-global/references/slicing.md) |
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照 | [项目上下文](skills/migration-protocol/references/project-context.md) |
-| 上下文就绪 | 执行者只读预检并经 Ledger 留证 → 原节点验收 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
+| 上下文就绪 | 规划与审计者随操作登记预检；worker 派发后预检，ready 才开工 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
 | 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 四维切片与语义模型 | UI → Logic → Adhesive → Resource 逐层映射到 TASK/PATH/ASSERT | [四维](skills/migration-protocol/references/dimension-slicing.md)、[语义抽取](skills/migration-protocol/references/semantic-extraction.md) |
 | 阻塞感知与恢复 | 局部校验、invalidate 出口、进度信号；watchdog 只观察 | [恢复与进度](skills/migration-protocol/references/progress-recovery.md)、[watchdog](skills/migration-protocol/references/watchdog.md) |
@@ -137,3 +137,4 @@ Coding → MO 接受代码 → Testing
 | 2026-10-02 | 流程与契约精简：build、unit、static 合成一份结果一次验收，设计预检随提交登记（绿色叶子 24 → 19 个事件）；scenario_index 与静态审查范围由 Ledger 派生，不再手写；叶子的行为审阅并入 source_closure；共享能力归属与复用目录互相校验；步骤模板按操作收窄并设预算；设计说明合为一节 |
 | 2026-10-02 | 控制器减负：事件日志只记录变化、工件索引不重复列出（模拟运行 8.07MB → 0.30MB，旧事件仍可重放）；状态只存报告与结果的哈希引用；执行者自己的预检随操作登记（绿色叶子 19 → 18 个事件）；全绿测试结果的验收标为机械步骤；plan 只引用已接受设计，PATH 与任务范围由 Ledger 补全；模板去重 |
 | 2026-10-03 | 状态与入口按需取用：`status --view step` 只给一步所需（两叶子模拟中角色取状态 228KB → 约 8KB），输出改紧凑 JSON；plan、拆分提案与设计输入不再抄写全局上下文，由 Ledger 绑定摘要（plan 事件 27KB → 18KB）；卡片与命令不再指向整份协议文件，角色与技能中的协议链接改为小节定位；协议只用操作矩阵的词汇，删除未实现的抽象事件层；测试阶段的派发标为机械步骤；`contracts.py` 提供摘要命令 |
+| 2026-10-03 | 派发后预检：执行派发不再等待 worker 的预检报告，worker 在同一次启动内预检后开工，ready 报告授权工作、blocked 报告退回派发且不耗修复轮次；执行派发都是机械步骤；绿色叶子的模型调用 16 → 10 次 |

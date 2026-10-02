@@ -27,7 +27,7 @@ python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run
 
 `verify_openspec.py` 只读核验指定范围的记录/投影：global 用于公共基础，module 用于当前模块、祖先和实际依赖，projection（默认）检查全量视图，final 另要求正式收尾报告。planning 阶段 projection 可以通过；这不证明真实派发、命令执行或功能 Green。失败按 scope/module_id/recovery_action 恢复相关范围，无关 MO 继续，不把全量 projection 失败作为所有模块的共同门禁。详见 [留存布局](storage-layout.md#openspec-投影完整性收尾门禁)。
 
-`init/resume/recover` 是对同名 operation 的入口校验，仍经过同一事务函数。成功返回 event_id/sequence/duplicate，拒绝返回 exit 1 和原因。业务状态以日志/投影为准，CLI exit 0 仅说明请求已接受。
+正式 CLI 只用 prepare 固化的 `.sdd-runs/<run_id>`（init 绑定 project_context_ref）；任意旧根目录用 `ledger.py history --root <旧根>` 只读重放，重新执行应 prepare 新 run。`init/resume/recover` 是对同名 operation 的入口校验，仍经过同一事务函数。成功返回 event_id/sequence/duplicate，拒绝返回 exit 1 和原因。业务状态以日志/投影为准，CLI exit 0 仅说明请求已接受。
 
 宿主 context 的最小结构：`{"role":"module-orchestrator","instance_id":"mo-M001"}`。这些值必须由宿主认证后注入，不能从业务请求推导。请求参考 [ledger-request.json](../../../template/ledger-request.json)：
 
@@ -68,16 +68,18 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | audit-verdict | Auditor | review_ref；双方验证齐全、同基线、DoD 完成才裁决通过；过期证据报告待人工 |
 | audit-defer | MO | root_cause + evidence_ref；记录根因、结果和恢复点，进入 waiting-auditor；可修复错误先本地一轮，确认的依赖/外围问题直接交接 |
 | problem-assign | Global | assignment_id、独立 instance_id，可选 module_ids（默认全部队列）；只要求这些模块的依赖闭包与下游消费者（及其依赖）已收尾、空闲；assignment 记录 closure，审计锁只作用于 closure 内模块与全局操作，其他模块继续。预算按模块计（max_audit_rounds）；游标在闭包就绪且全局未收尾时给出 `problem-assign`（reason=audit-closure-settled） |
+| audit-code-review | Auditor | report_ref、context_ref（预检随本操作登记）；全部 MO 收尾后、audit-collect 前提交，字段与治理闭环见[代码治理](audit-code-review.md#ledger-接口) |
 | problem-audit | Auditor | report_ref；覆盖本次所有排队模块；有效代码独立 tests result，无法运行保留 Yellow；输出 retry/fix/change/wait/human 裁决 |
 | audit-resume | MO | 接受本模块问题审计裁决；human 需 decision_id；wait 保持队列；retry 回 testing，fix 授权一轮，change/human 回规划 |
 | plan | Spec-Designer | plan_ref、context_ref（planning 预检随本操作登记）；[stage-plan](../../../template/stage-plan.json)；test_design_ref 绑定已接受设计，其余由 Ledger 补全；不抄写全局上下文与分配包，Ledger 绑定当前版本并在冻结、派发时复核 |
 | freeze | MO | 初始/边界外变更 decision_id；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref（MO 对详细 tasks/PATH 的审阅），子 plan 的 decision_envelope 必须与信封条目完全一致，信封可被多个孩子使用并记录 used_by |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
-| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；design 用 mode=design + design_input_ref，无执行 test_scope；可选 session_id/card_sha256；合法阶段且无活动 worker，返回 fencing_token。测试阶段 `mechanical=true` 时宿主按步骤 payload 直接提交 |
-| submit | worker | assignment_id、fencing_token、result_ref；design 另需 test-design context_ref，kind=test-design；不推进阶段 |
+| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；design 用 mode=design + design_input_ref，无执行 test_scope；可选 session_id/card_sha256；合法阶段且无活动 worker，返回 fencing_token。不等预检：worker 派发后 context-submit；该实例已有当前 ready 报告时直接绑定，当前 blocked 时拒绝派发。执行派发 `mechanical=true` 时宿主按步骤 payload 直接提交 |
+| context-submit | 执行者 | report_ref；登记预检报告，同 stage/实例的最新报告生效。worker 有同阶段的活动派发时：ready 绑定并授权开工（Fixer 此时计一轮），blocked 退回派发 |
+| submit | worker | assignment_id、fencing_token、result_ref；执行派发须已绑定 ready 预检；design 另需 test-design context_ref，kind=test-design；不推进阶段 |
 | accept | MO | assignment_id；重验工件和版本后关闭；design 必需 review_ref，保持规划阶段与质量。`mechanical=true` 时宿主直接提交 |
 | diagnose | Diagnostician（轻量叶子本地轮为 Fixer） | diagnosis_ref、owner、root_cause；仅保存绑定当前冻结、代码和未解决结果的 diagnosis_submission，不改变 phase；模块必须无活动 worker |
-| diagnosis-accept | MO | 可选 `assign`（fixer 的 assign 参数 + context_ref）；重验诊断后进入 diagnosing，带 assign 时同一事务校验 fixing 预检并按 assign 守卫派发，失败整体拒绝 |
+| diagnosis-accept | MO | 可选 `assign`（fixer 的 assign 参数）；重验诊断后进入 diagnosing，带 assign 时同一事务按 assign 守卫派发（已提交的 fixing 预检随之绑定），失败整体拒绝 |
 | suspend | MO | kind=dependency/human/tooling、reason、root_cause、owner；保存原阶段，必须先停止活动 worker |
 | dependency-ready | Global | 消费者 module_id 在请求顶层；检查生产者完成，记录当前版本的解除许可 |
 | resume | MO | 依赖等待检查 Global 许可；其他等待需 decision_id，其 subject 是当前 blocked 对象摘要；恢复不变 Green |
@@ -174,15 +176,3 @@ global-plan 必须增加 `boundary_review: {"issues": []}`。无边界问题时 
 新 global-plan 请求缺少 boundary_review 会被拒绝。旧已接受日志不会自动补造边界审核；需要重新规划时补齐字段并实际审核。空 issues 代表已检查无问题，语义真实性由角色负责。运行中发现新边界问题，受影响模块先 suspend/CR；审计中走 human 路由与原有人工释放门禁，不靠覆盖全局规划绕过活动审计锁。
 
 `case_owners`/`requirement_owners` 是覆盖/责任映射，允许多模块；不是多人验收。模块 `complete` 仅 MO 可提交，审计 `audit-verdict`/`audit` 仅对应 Auditor 可提交；Green 且原有证据、DoD、覆盖门禁满足后直接记录，不新增人工批准。审计期间 MO complete 表示修复模块的执行/DoD 完成，审计验收仍由 Auditor 独立提交。
-
-## 父 MO 命名与 GO 报告投影
-
-`status.parent_mo_names` 派生统一父名称 parent-mo-M<编号>；父 MO next_steps.agent_name 同步给宿主。父 session(role=module-orchestrator) 自动补全 agent_name，显式错名拒绝；不改变 role/instance/session 身份规则及冻结分配包。
-
-Ledger 在事件接受/状态重建时生成 `<run_root>/reports/migration-report.json` 与 `.md`。`status.migration_report` 返回路径和 sequence。报告完整列出 case_ids 对应的 CASE、模块/PATH 明细及非 Green 原因和证据；尚无路径/结果同样列入 Yellow。GO 在迁移本轮收尾时读取并交付该报告，人工待决/缺测不得省略。它是可重建投影，不是新的状态或验收权威。字段、证据规则见 [GO 报告协议](migration-report.md)。
-
-## Auditor 整体代码治理前置
-
-新增全局 operation `audit-code-review`，actor=auditor，payload={report_ref, context_ref}。全部 MO 收尾后先提交 audit-code-review context receipt（draft_ref=report_ref），报告绑定 status.global_next_step.snapshot，覆盖所有执行叶子，并以必填 change_inventory_ref 引用 [本次代码修改清单](../../../template/audit-change-inventory.md)。Ledger 验证清单 hash，GO migration-report 提供同版链接。`audit-collect` 有 CR-* 治理 finding 时先生成治理批次；无治理发现才收集剩余 Red/Yellow。代码变更后必须刷新整体审查；无问题报告 findings=[]。`audit-assign`/`audit-unavailable` 必须当前审查有效且无待处理治理发现。详见 [代码治理协议](audit-code-review.md)，模板 [audit-code-review.json](../../../template/audit-code-review.json)。
-
-文件留存门禁：正式 Ledger CLI 必须使用 prepare 固化的 `.sdd-runs/<run_id>`，init 绑定 project_context_ref；历史任意根目录使用 `ledger.py history --root <旧根>` 只读重放。重新执行应 prepare 新 run，不修改旧引用 hash。详见 [留存文件系统](storage-layout.md)。

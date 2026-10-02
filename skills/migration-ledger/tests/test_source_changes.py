@@ -202,9 +202,8 @@ class SourceChangeTests(unittest.TestCase):
             report['execution'] = {'argv': argvs[suffixes[0]], 'cwd': str(f.target), 'environment_ref': f.ref('environment.md', 'Python fixture available')}
             if scope == 'build':
                 report['execution']['commands'] = {mid+k: {'argv': v, 'cwd': str(f.target)} for k, v in argvs.items()}
-            receipt = f.record(report)
-            f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner',
-                'test_scope': scope, 'context_ref': receipt}, module=mid)
+            f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner', 'test_scope': scope}, module=mid)
+            f.record(report)  # the runner reports inside its dispatch; the ready report authorizes the run
             a = f.state()['modules'][mid]['assignments'][aid]
             receipts, planned = [], {p['path_id']: p for p in f.state()['modules'][mid]['plan']['paths']}
             for k in suffixes:  # a Test-Runner stops at the first gate that is not Green

@@ -379,11 +379,15 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual((step['operation'], step['mechanical'], step['model_tier']), ('accept', True, 'low_cost'))
         self.call('accept', {'assignment_id': a['assignment_id']})  # still an MO event that re-validates the result
 
-    def test_dispatching_the_next_test_stage_is_marked_mechanical(self):
+    def test_dispatching_a_worker_is_marked_mechanical(self):
+        s = self.state(); s['test_design_required'] = True
+        design = ledger.next_step(s, s['modules']['M001'])
+        self.assertEqual((design['operation'], design['mode']), ('assign', 'design'))
+        self.assertNotIn('mechanical', design)  # the module orchestrator writes the design input
         self.prepare()
         step = self.state()['next_steps'][0]
-        self.assertEqual((step['operation'], step['worker_role']), ('assign', 'implementer'))
-        self.assertNotIn('mechanical', step)  # whom to give the code to and on what understanding is still judged
+        self.assertEqual((step['operation'], step['worker_role'], step['mechanical']), ('assign', 'implementer', True))
+        self.assertEqual(step['payload'], {'role': 'implementer'})
         self.implementation()
         step = self.state()['next_steps'][0]
         self.assertEqual((step['operation'], step['worker_role'], step['mechanical']), ('assign', 'test-runner', True))
@@ -397,8 +401,8 @@ class WorkflowTests(unittest.TestCase):
         f = test_context_readiness.ContextReadinessTests(); f.setUp(); self.addCleanup(f.doCleanups)
         f.prepare(); f.implementation()
         step = f.state()['next_steps'][0]
-        self.assertEqual((step['operation'], step['ready'], step['reason']), ('assign', False, 'context-readiness-required'))
-        self.assertNotIn('mechanical', step)  # nobody has preflighted the stage yet
+        self.assertEqual((step['operation'], step['ready'], step['mechanical']), ('assign', True, True))
+        self.assertEqual(step['payload'], {'role': 'test-runner'})  # nobody has preflighted yet: the host names the instance
         ref = f.record(f.report('testing', instance='tester'))
         step = f.state()['next_steps'][0]
         self.assertEqual(step['mechanical'], True)

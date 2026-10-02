@@ -47,7 +47,7 @@ mode: subagent
 
 | 专题 | 本角色义务 | 协议 |
 | --- | --- | --- |
-| 上下文就绪 | 先只读提交 fixing 报告（诊断/失败证据、历史策略与预算、冻结范围、复用、工具）；同一实例获 assign 后才修复，缺上下文不消耗轮次 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
+| 上下文就绪 | 接到派发后先提交 fixing 报告（诊断/失败证据、历史策略与预算、冻结范围、复用、工具）；ready 绑定后才修复并计一轮，blocked 退回派发、不消耗轮次 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
 | 复用与 provider | 按 reuse_plan_ref 修复接线/适配并提交新的 reuse_trace、补丁与 fix_note；库/API/版本/行为契约变化先 CR；不改冻结的稳定 provider、不以旧副本或 mock 替换 live ref；来源追加不重置预算与失败 memory | 复用 [§6](../skills/migration-protocol/references/reuse-dependencies.md#6-coding测试与失败处理)、[§10](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更) |
 | 代码治理 | 接受 Ledger 的 CR-* 治理 finding（写范围内去重、真实接入二方库、已授权公共能力提取）；交最小补丁、生产绑定/冗余删除证据与消费者影响；新增任务或改边界走 CR | [代码治理](../skills/migration-protocol/references/audit-code-review.md#顺序与职责) |
 | UI 与资源 | 视觉节点/资源映射/消费者错误沿原诊断修复，可用 resource-convert 并保留原始结果与代码基线；精确策略不降为近似；自测不算视觉 Green，修后正式重建并比较当前 HAP | [领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md#精确性纪律) |

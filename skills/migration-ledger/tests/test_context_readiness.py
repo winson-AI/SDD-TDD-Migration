@@ -74,6 +74,11 @@ class ContextReadinessTests(unittest.TestCase):
         stage = cr.requirement(op, p, self.state() if op == 'audit-assign' else None)
         if self.auto_context and stage and op not in ('freeze', 'decompose-accept'):
             producer = p.get('instance_id') if op in ('assign', 'audit-assign', 'problem-assign') else instance or role
+            if op == 'assign' and 'context_ref' not in p:
+                # Dispatch first: the worker reports inside its assignment, which authorizes the work.
+                ack = self.raw(op, p, role=role, module=module, instance=instance, request=request)
+                self.record(self.report(stage, module, producer))
+                return ack
             report = self.report(stage, module, producer, p.get('report_ref') if op == 'audit-code-review' else p.get('plan_ref'))
             # An actor's own preflight rides its operation; a report another role accepts is submitted first.
             p['context_ref'] = (self.ref(f'context-report-{self.n}.json', report) if op in cr.SELF_REPORTED
@@ -103,7 +108,7 @@ class ContextReadinessTests(unittest.TestCase):
             self.global_plan()
         self.assertIsNone(self.state()['global_plan'])
 
-    def test_own_preflight_rides_the_operation_but_another_roles_report_is_submitted_first(self):
+    def test_own_preflight_rides_the_operation_and_a_workers_report_stays_its_own(self):
         self.global_plan()
         step = self.state()['next_steps'][0]
         self.assertEqual((step['operation'], step['ready']), ('plan', True))
@@ -119,10 +124,58 @@ class ContextReadinessTests(unittest.TestCase):
         self.assertIn('planning:spec-designer', self.state()['modules']['M001']['context_receipts'])
         self.approve(digest(plan), 'D-own'); self.raw('freeze', {'decision_id': 'D-own'})
         step = self.state()['next_steps'][0]
-        self.assertEqual((step['operation'], step['ready'], step['reason']), ('assign', False, 'context-readiness-required'))
+        self.assertEqual((step['operation'], step['ready'], step['reason']), ('assign', True, None))  # dispatch does not wait for a report
+        self.assertEqual((step['context_gate']['stage'], step['context_gate']['ready_receipts']), ('coding', []))
         coding = self.ref('coding-report.json', self.report('coding'))
         with self.assertRaisesRegex(Rejected, 'not submitted'):  # the MO cannot register the worker's report for it
             self.raw('assign', {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'implementer', 'context_ref': coding})
+
+    def test_a_worker_preflights_inside_its_dispatch_and_the_ready_report_authorizes_the_work(self):
+        self.prepare()
+        self.raw('assign', {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'implementer'})
+        a = self.state()['modules']['M001']['assignments']['I1']
+        self.assertNotIn('context_ref', a)
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['role'], step['context_gate']['stage']), ('await-result', 'implementer', 'coding'))
+        view = ledger.status(self.root, 'step', 'M001')  # the worker finds what its report must contain
+        self.assertEqual(view['request']['operation'], 'context-submit')
+        self.assertEqual(view['context']['subject_sha256'], cr.subject(self.state(), 'M001', 'coding'))
+        self.assertTrue(view['context']['required_input_refs'])
+        source = self.target / 'm1/code.py'; source.parent.mkdir(exist_ok=True); source.write_text('value = 2\n')
+        from contracts import baseline, file_ref
+        refs = [file_ref(source)]
+        result = {'schema_version': 1, 'kind': 'implementation', 'run_id': 'demo', 'module_id': 'M001', 'assignment_id': 'I1',
+                  'actor_instance_id': 'implementer', 'freeze_id': a['freeze_id'], 'code_files': refs, 'code_baseline': baseline(refs),
+                  'task_trace': [{'task_id': 'T1', 'files': [str(source)]}],
+                  'production_binding_evidence': self.ref('binding.txt', 'real binding reviewed'),
+                  'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': self.ref('diag.log', '0 errors')}}
+        with self.assertRaisesRegex(Rejected, 'preflight required'):
+            self.submit(result, a)
+        self.record(self.report('coding', instance='someone-else'))  # another instance's report is not this worker's
+        self.assertNotIn('context_ref', self.state()['modules']['M001']['assignments']['I1'])
+        ref = self.record(self.report('coding'))
+        self.assertEqual(self.state()['modules']['M001']['assignments']['I1']['context_ref'], ref)
+        self.assertNotIn('context_gate', self.state()['next_steps'][0])  # nothing is owed any more
+        self.assertEqual(ledger.status(self.root, 'step', 'M001')['request']['operation'], 'submit')
+        self.submit(result, a); self.raw('accept', {'assignment_id': 'I1'})
+        self.assertEqual(self.state()['modules']['M001']['phase'], 'testing')
+
+    def test_a_blocked_report_hands_the_dispatch_back_and_holds_the_next_one(self):
+        self.prepare()
+        self.raw('assign', {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'implementer'})
+        blocked = self.record(self.report('coding', blocked='permissions-tools'))
+        m = self.state()['modules']['M001']
+        self.assertEqual((m['assignments']['I1']['closed'], m['assignments']['I1']['declined_ref'], m['phase']), (True, blocked, 'frozen'))
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['ready'], step['reason']), ('assign', False, 'context-blocked'))
+        self.assertEqual(step['context_gate']['blocked_receipts'], [blocked])
+        self.assertNotIn('mechanical', step)
+        with self.assertRaisesRegex(Rejected, 'context blocked'):  # the same gap would only come back
+            self.raw('assign', {'assignment_id': 'I2', 'role': 'implementer', 'instance_id': 'implementer'})
+        ready = self.record(self.report('coding'))  # the gap is closed: the worker says so before or after the dispatch
+        self.assertEqual(self.state()['next_steps'][0]['payload'], {'role': 'implementer', 'instance_id': 'implementer', 'context_ref': ready})
+        self.raw('assign', {'assignment_id': 'I2', 'role': 'implementer', 'instance_id': 'implementer'})
+        self.assertEqual(self.state()['modules']['M001']['assignments']['I2']['context_ref'], ready)
 
     def test_environment_changed_after_assignment_prevents_process_start(self):
         self.prepare(); self.implementation()
@@ -142,12 +195,14 @@ class ContextReadinessTests(unittest.TestCase):
         self.prepare()
         ref = self.record(self.report('coding', blocked='permissions-tools'))
         before = self.state()['modules']['M001']
-        with self.assertRaisesRegex(Rejected, 'context blocked'):
-            self.raw('assign', {'assignment_id': 'I1', 'instance_id': 'implementer', 'role': 'implementer', 'context_ref': ref})
+        for payload in ({'context_ref': ref}, {}):  # neither citing the blocked report nor leaving it out gets past it
+            with self.assertRaisesRegex(Rejected, 'context blocked'):
+                self.raw('assign', {'assignment_id': 'I1', 'instance_id': 'implementer', 'role': 'implementer', **payload})
         after = self.state()['modules']['M001']
         self.assertEqual(before['assignments'], after['assignments'])
         self.assertEqual(before['fix_rounds_used'], after['fix_rounds_used'])
-        self.assertEqual(self.state()['next_steps'][0]['reason'], 'context-readiness-required')
+        self.assertEqual(self.state()['next_steps'][0]['reason'], 'context-blocked')
+        self.record(self.report('coding'))  # the gap is closed and the worker says so
         self.implementation()
         self.assertEqual(self.state()['modules']['M001']['phase'], 'testing')
 
@@ -186,11 +241,11 @@ class ContextReadinessTests(unittest.TestCase):
 
     def test_testing_preflight_and_command_binding(self):
         self.prepare(); self.implementation()
-        with self.assertRaisesRegex(Rejected, 'context readiness receipt required'):
-            self.raw('assign', {'assignment_id': 'BAD', 'role': 'test-runner', 'instance_id': 'test-runner'})
-        ref = self.record(self.report('testing'))
-        self.raw('assign', {'assignment_id': 'TEST', 'role': 'test-runner', 'instance_id': 'test-runner', 'context_ref': ref})
+        self.raw('assign', {'assignment_id': 'TEST', 'role': 'test-runner', 'instance_id': 'test-runner'})
         out = self.base / 'must-not-execute'
+        with self.assertRaisesRegex(Rejected, 'test context missing'):  # dispatched, but not yet preflighted
+            execute(self.root, 'M001', 'TEST', 'P1', self.report('testing')['execution']['argv'], str(self.target), out)
+        self.record(self.report('testing'))
         with self.assertRaisesRegex(Rejected, 'command differs'):
             execute(self.root, 'M001', 'TEST', 'P1', [sys.executable, '-c', 'print(1)'], str(self.target), out)
         self.assertFalse(out.exists())
@@ -222,11 +277,16 @@ class ContextReadinessTests(unittest.TestCase):
         self.submit(result, a); self.call('accept', {'assignment_id': a['assignment_id']})
         self.call('diagnose', {'diagnosis_ref': self.ref('diag.md', 'assert mismatch'), 'owner': 'M001', 'root_cause': 'code'}, role='diagnostician')
         self.call('diagnosis-accept')
-        with self.assertRaisesRegex(Rejected, 'context readiness receipt required'):
-            self.raw('assign', {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer'})
-        self.assertEqual(self.state()['modules']['M001']['local_fix_used'], 0)
+        self.raw('assign', {'assignment_id': 'F0', 'role': 'fixer', 'instance_id': 'fixer'})
+        m = self.state()['modules']['M001']  # dispatched, but a round is only spent once the Fixer can start
+        self.assertEqual((m['phase'], m['local_fix_used'], m['fix_rounds_used'], m.get('fix_memory', [])), ('fixing', 0, 0, []))
+        self.record(self.report('fixing', blocked='failure-diagnosis'))
+        m = self.state()['modules']['M001']
+        self.assertEqual((m['phase'], m['local_fix_used'], m['fix_rounds_used'], m['assignments']['F0']['closed']), ('diagnosing', 0, 0, True))
+        self.record(self.report('fixing'))  # the Fixer can work now
         self.implementation('fixer', 'F1')
-        self.assertEqual(self.state()['modules']['M001']['local_fix_used'], 1)
+        m = self.state()['modules']['M001']
+        self.assertEqual((m['local_fix_used'], m['fix_rounds_used'], len(m['fix_memory'])), (1, 1, 1))
         a, result2 = self.make_test_result('T2', previous=result['paths'][0]['test_run_id'])
         self.submit(result2, a); self.call('accept', {'assignment_id': a['assignment_id']})
         self.assertEqual(self.state()['modules']['M001']['phase'], 'dod')
@@ -318,9 +378,10 @@ class ContextReadinessTests(unittest.TestCase):
         plan = self.state()['global_plan']['content']
         inventory = json.loads(Path(plan['feature_inventory_ref']['path']).read_text())
         Path(inventory['source_units'][0]['evidence_refs'][0]['path']).write_text('entry changed after enumeration')
-        with self.assertRaises(Rejected):
-            self.assign('implementer', 'I1')
-        self.assertFalse(self.state()['modules']['M001']['assignments'])
+        self.raw('assign', {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'implementer'})
+        with self.assertRaisesRegex(Rejected, 'evidence hash mismatch'):  # no ready report can stand on drifted evidence
+            self.record(self.report('coding'))
+        self.assertNotIn('context_ref', self.state()['modules']['M001']['assignments']['I1'])  # so the work is never authorized
 
 
 if __name__ == '__main__':

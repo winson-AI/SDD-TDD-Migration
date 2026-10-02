@@ -28,7 +28,8 @@ ROLES = {stage: ('auditor' if stage.startswith('audit-') else
          for stage in CHECKS}
 GLOBAL = {stage for stage in CHECKS if stage.startswith(('global-', 'audit-'))}
 # The actor that preflights is the actor that acts: its report is registered with the operation itself.
-# Stages another role accepts (coding, building, testing, fixing, audit-testing) still need a prior context-submit.
+# A worker (coding, building, testing, fixing) reports with context-submit inside its dispatch; only the audit
+# dispatch (audit-testing) still needs the Auditor's report beforehand.
 SELF_REPORTED = ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'audit-code-review')
 WORKERS = {'implementer': 'coding', 'test-runner': 'testing', 'fixer': 'fixing'}
 
@@ -189,9 +190,10 @@ def submit(s, req, actor):
     # bypass a newer missing-context report from the same instance.
     key = stage + ':' + actor['instance_id']
     # The receipt is the hash-bound reference; the report itself stays in its file and archive.
-    scope(s, mid).setdefault('context_receipts', {})[key] = {
+    receipt = scope(s, mid).setdefault('context_receipts', {})[key] = {
         'report_ref': copy.deepcopy(p['report_ref']), 'stage': stage,
         'producer': copy.deepcopy(report['producer']), 'verdict': report['verdict']}
+    return receipt
 
 
 def requirement(op, p, s=None):
@@ -225,6 +227,30 @@ def validate(s, mid, stage, ref, instance=None, draft=None, allow_blocked=False)
     return report
 
 
+def reported(s, mid, p):
+    """What the worker of a dispatch has already reported for its stage: a current ready report is bound to the
+    assignment at once; a report in which this instance is still blocked on the current subject stops the dispatch."""
+    stage, instance = requirement('assign', p), p.get('instance_id')
+    receipt = scope(s, mid).get('context_receipts', {}).get(stage + ':' + str(instance))
+    if not receipt:
+        return None
+    try:
+        report = validate(s, mid, stage, receipt['report_ref'], instance, allow_blocked=True)
+    except (Rejected, OSError, ValueError):
+        return None  # outdated: the worker reports again inside the assignment
+    require(report['verdict'] == 'ready', 'context blocked; record suspension or resolve missing inputs')
+    return receipt['report_ref']
+
+
+def owed(s, mid, step):
+    """The stage a running worker still has to report on: a designer's report rides its submit, any other
+    worker's report authorizes the work and is owed until it is bound to the assignment."""
+    assignment = scope(s, mid).get('assignments', {}).get(step.get('assignment_id')) or {}
+    if assignment.get('mode') == 'design':
+        return 'test-design'
+    return None if assignment.get('context_ref') else requirement('assign', assignment)
+
+
 def gate(s, req, actor):
     """Existing owner action accepts the read-only preflight; no extra human approval."""
     if not enabled(s):
@@ -235,6 +261,8 @@ def gate(s, req, actor):
         return
     obj = scope(s, mid)
     ref = p.get('context_ref')
+    if op == 'assign' and not ref:
+        return  # dispatch first: the worker reports inside its assignment
     if op in ('freeze', 'decompose-accept'):
         ref = obj.get('context_acceptances', {}).get('plan' if op == 'freeze' else 'decompose', {}).get('report_ref')
     require(ref, 'context readiness receipt required for ' + op)
@@ -263,12 +291,16 @@ def requirements(s):
 
 
 def annotate(s, mid, step):
-    stage = requirement(step.get('operation'), {'role': step.get('worker_role'), 'test_scope': step.get('test_scope'), 'mode': step.get('mode')}, s)
+    waiting = step.get('operation') == 'await-result'
+    stage = (owed(s, mid, step) if waiting else
+             requirement(step.get('operation'), {'role': step.get('worker_role'), 'test_scope': step.get('test_scope'), 'mode': step.get('mode')}, s))
     if not enabled(s) or not stage:
         return step
     step = copy.deepcopy(step)
     step['context_gate'] = {'stage': stage, 'producer_role': ROLES[stage],
                             'subject_sha256': subject(s, mid, stage), 'required_checks': list(CHECKS[stage])}
+    if waiting:
+        return step
     available = []
     accepted = None
     if step.get('operation') in ('freeze', 'decompose-accept'):
@@ -304,6 +336,21 @@ def annotate(s, mid, step):
         if step.get('operation') in SELF_REPORTED:
             step['context_gate']['with_operation'] = True  # the report rides the operation: pass it as context_ref
             return step
+        if step.get('operation') == 'assign':
+            # Dispatch first; only a report that is still blocked on the current subject holds the dispatch back.
+            blocked = []
+            for receipt in scope(s, mid).get('context_receipts', {}).values():
+                if receipt['stage'] == stage and receipt['verdict'] == 'blocked':
+                    try:
+                        validate(s, mid, stage, receipt['report_ref'], allow_blocked=True)
+                        blocked.append(receipt['report_ref'])
+                    except (Rejected, OSError, ValueError):
+                        pass
+            if blocked:
+                step['context_gate']['blocked_receipts'] = blocked
+                step.update(ready=False, reason='context-blocked',
+                            context_next_action='resolve the reported gap, then the worker reports again; or record explicit blocker')
+            return step
         step.update(ready=False, reason='context-readiness-required', context_next_action='context-submit or record explicit blocker')
         if step.get('operation') in ('freeze', 'decompose-accept'):
             step['context_next_action'] = 'refresh context-submit and resubmit plan/decompose, or record explicit blocker'
@@ -313,7 +360,8 @@ def annotate(s, mid, step):
 def check_execution(s, assignment, argv, cwd, path_id=None):
     if not enabled(s):
         return
-    report = read_json(check_ref(assignment.get('context_ref')))
+    require(assignment.get('context_ref'), 'test context missing; context-submit the preflight of this assignment first')
+    report = read_json(check_ref(assignment['context_ref']))
     require(report['stage'] in ('building', 'testing', 'audit-testing') and report['verdict'] == 'ready', 'test context missing')
     verify_refs(report)
     expected = report['execution'].get('commands', {}).get(path_id, report['execution'])

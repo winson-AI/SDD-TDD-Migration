@@ -42,7 +42,7 @@ run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃
 
 Global 选择 ready 模块 → MO assign/accept。具体 payload/命令用法见 [操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
 
-编排读取 `status.next_steps` 与 `global_next_step`，按 ready/reason 决定下一动作；`mechanical=true` 的步骤（全绿测试结果的 accept、测试阶段的 assign）由宿主以 MO 身份直接提交；用 session_id 恢复对应角色，只传事件和工件引用。ready 只是当前快照建议，提交时必须带 expected_revision 再过门禁；阻塞或预算不足不能自行跳步。
+编排读取 `status.next_steps` 与 `global_next_step`，按 ready/reason 决定下一动作；`mechanical=true` 的步骤（全绿测试结果的 accept、执行派发的 assign）由宿主以 MO 身份直接提交；用 session_id 恢复对应角色，只传事件和工件引用。ready 只是当前快照建议，提交时必须带 expected_revision 再过门禁；阻塞或预算不足不能自行跳步。
 
 当前策略：本地优先修复一轮，确认依赖/外围或一轮未通过则 audit-defer 并退出。Global 必须等待全部模块本轮 completed 或明确挂起，且没有活动 worker/可推进动作，再统一 audit-collect。正常依赖解除和已有批准的 resume 先执行；不能仅因当前没有 worker 就拉起 Auditor。
 
@@ -54,7 +54,7 @@ Global 选择 ready 模块 → MO assign/accept。具体 payload/命令用法见
 
 ## 上下文预检调度
 
-先读步骤的 context_gate（预检要求全文在 `--view step` 的 `context`）。原操作因 context-readiness-required 未就绪时，宿主启动该角色只读预检，context-submit 后重读 revision，再携 context_ref 执行原操作；`with_operation=true` 的报告随原操作提交。不得因 ready=false 停止补上下文或提前审计；缺项由 MO 按自身证据明确挂起。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md#5-缺失失效与恢复)。
+先读步骤的 context_gate（预检要求全文在 `--view step` 的 `context`）。worker 派发不等预检：派发后由该 worker 在同一会话内 context-submit，ready 后开工；blocked 报告退回派发（reason=context-blocked），补齐后重新提交或由 MO 按自身证据挂起。审计派发因 context-readiness-required 未就绪时，宿主先启动 Auditor 预检；`with_operation=true` 的报告随原操作提交。不得因 ready=false 停止补上下文或提前审计。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md#5-缺失失效与恢复)。
 
 ## 命名与收尾信号
 

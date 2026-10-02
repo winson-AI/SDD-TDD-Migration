@@ -22,7 +22,7 @@
 | --- | --- | --- | --- |
 | `/sdd-init` | `project_context.py prepare` → `ledger.py init`(payload 带 `project_context_ref`)→ `register`(拓扑序)→ `global-plan` | 认证 host;GO 生成功能清单/切片/覆盖;真实规范/架构/用例引用 | `status.openspec_binding.location==top-level`;`events.jsonl` 逐条增长;顶层 `openspec/runs/<run_id>/workflow.md` 出现 |
 | `/sdd-plan` | 树形先 decompose/accept；叶子 assign(mode=design)→submit→MO accept(review_ref)→Spec plan→MO freeze | 独立 Test-Runner 设计、Spec 六件套、真实人工冻结决定 | plan.test_design_ref 绑定设计；顶层 change/manifest 投影，freeze 绑定人工证据 |
-| `/sdd-run`、`/sdd-module` | `assign`/`submit`/`accept`(implementer)→ `assign`/`submit`/`accept`(test-runner:先 build 后 automation)→ 需要则 `diagnose`/`diagnosis-accept`/`assign(fixer)` → `complete`;父节点 `module-summary` | 派发各角色隔离实例;真写 target 代码;execute_test 跑真实命令;真实 diff/DoD 审查 | 每 assignment 有 submit+accept;`code_baseline` 与磁盘一致(否则 `observed_invalidations` 报警);`complete` 前全 PATH Green |
+| `/sdd-run`、`/sdd-module` | `assign`/`context-submit`/`submit`/`accept`(implementer)→ 同序(test-runner:先 build 后 automation)→ 需要则 `diagnose`/`diagnosis-accept`/`assign(fixer)` → `complete`;父节点 `module-summary` | 派发各角色隔离实例;真写 target 代码;execute_test 跑真实命令;真实 diff/DoD 审查 | 每 assignment 有 submit+accept;`code_baseline` 与磁盘一致(否则 `observed_invalidations` 报警);`complete` 前全 PATH Green |
 | `/sdd-audit` | `audit-code-review` → `audit-collect` → `audit-plan` → `audit-route-batch` → `audit-work`/`audit-retest` → `audit-verdict`(→`audit-release`) | **独立** Auditor 实例(≠ 任何 implementer/fixer/test 作者)真实重跑;Fixer 按路由修复 | `authors` 独立性校验通过;audit 报告绑定当前 snapshot;`audit-reports/<batch>.md` 生成 |
 | `/sdd-archive` | 宿主 OpenSpec CLI 同步/归档(无 Ledger `archive` op) | 人工交付授权;代码合并另行授权 | `verify_openspec --scope final` 通过 + 原归档质量门禁;归档不等于合并 |
 | `/sdd-status`、`/sdd-verify` | 只读,不提交事件 | —— | 核验范围适合当前动作；planning 的 projection 通过不代表 completed |
@@ -68,7 +68,7 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 **会话。** 恢复建议会话时只交尚未持有或正文已变的小节（`render --resumed`，游标的 `card_new` 给出其大小），冷启动用完整卡。任何模块请求可带顶层 `hint{session_id, card_sha256}` 报告所用会话与卡片（assign 也接受 payload 中的同名字段），与当前游标步骤一致时计入该会话已持有的小节。会话累计持有的协议文本达到阈值时，步骤带 `session_rotate`：建议按 checkpoint 冷启动该角色并交完整卡。门禁拒绝的响应与 `reports/rejected-operation.json` 带 `read_hint`（该门禁所在小节）。
 
-**机械步骤。** `mechanical=true`（全绿测试结果的 accept、测试阶段的 assign）时宿主以 MO 身份直接提交，不调用模型：accept 只需 assignment_id；assign 用步骤的 payload（角色、test_scope、已预检的实例与其 context_ref），再加宿主生成的 assignment_id，载荷未给实例时由宿主指定。被拒再交 MO。冻结的人工批准用 freeze 步骤的 `approval_subject_sha256`。
+**机械步骤。** `mechanical=true`（全绿测试结果的 accept、执行派发的 assign）时宿主以 MO 身份直接提交，不调用模型：accept 只需 assignment_id；assign 用步骤的 payload（角色、test_scope，已有预检时含该实例与其 context_ref），再加宿主生成的 assignment_id，载荷未给实例时由宿主指定。派发后 worker 在同一会话内先 context-submit 再工作。被拒再交 MO。冻结的人工批准用 freeze 步骤的 `approval_subject_sha256`。
 
 以上都是建议：Ledger 只记录是否一致（`status.hint_adoption`），不据此拒绝派发；持续 not_followed/unreported 应在接入层修正，而不是放宽门禁。
 

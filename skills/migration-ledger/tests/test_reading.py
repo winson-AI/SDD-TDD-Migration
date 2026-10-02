@@ -189,7 +189,7 @@ class ReadingCardTests(unittest.TestCase):
         f.prepare(); f.implementation()
         step = f.state()['next_steps'][0]
         row = next(r for r in step['must_read'] if r['section'] and r['section'].startswith('操作矩阵@'))
-        self.assertEqual(row['section'], '操作矩阵@assign,submit')
+        self.assertEqual(row['section'], '操作矩阵@assign,context-submit,submit')  # a dispatched worker reports, then submits
         with self.assertRaises(KeyError):
             reading.section(reading.P + 'local-runtime.md', '没有这一节@x')
 

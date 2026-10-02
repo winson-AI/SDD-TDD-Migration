@@ -1,4 +1,4 @@
-"""MO may accept a diagnosis and dispatch the Fixer in one transaction; the Fixer preflights the same diagnosis."""
+"""MO may accept a diagnosis and dispatch the Fixer in one transaction; the Fixer's report on that diagnosis authorizes the fix."""
 import unittest
 
 import test_context_readiness
@@ -31,6 +31,15 @@ class MergedDiagnosisDispatchTests(unittest.TestCase):
         self.assertEqual((m['phase'], m['assignments']['F1']['role'], m['fix_rounds_used']), ('fixing', 'fixer', 1))
         self.assertEqual(m['diagnosis']['diagnosis_ref'], self.diagnosis)
 
+    def test_accept_and_dispatch_before_the_fixer_reports(self):
+        f = self.f
+        f.raw('diagnosis-accept', {'assign': {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer'}})
+        m = f.state()['modules']['M001']
+        self.assertEqual((m['phase'], m['fix_rounds_used']), ('fixing', 0))  # no round is spent before the Fixer can start
+        f.record(self.fixer_preflight())
+        m = f.state()['modules']['M001']
+        self.assertEqual((m['fix_rounds_used'], m['fix_memory'][0]['assignment_id']), (1, 'F1'))
+
     def test_fixer_must_acknowledge_the_diagnosis(self):
         f = self.f
         with self.assertRaisesRegex(Rejected, 'mandatory input'):
@@ -38,7 +47,12 @@ class MergedDiagnosisDispatchTests(unittest.TestCase):
 
     def test_failed_dispatch_leaves_nothing_accepted(self):
         f = self.f
-        with self.assertRaises(Rejected):
+        report = self.fixer_preflight()
+        report['checks']['repair-history'] = {'status': 'blocked', 'summary': 'earlier attempts are not readable',
+                                              'missing': ['fix memory'], 'owner': 'M001', 'next_action': 'restore the memory'}
+        report['verdict'] = 'blocked'
+        f.record(report)
+        with self.assertRaisesRegex(Rejected, 'context blocked'):
             f.raw('diagnosis-accept', {'assign': {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer'}})
         self.assertEqual(f.state()['modules']['M001']['phase'], 'testing')
         f.raw('diagnosis-accept')  # the two-step path still works
