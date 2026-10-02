@@ -47,7 +47,9 @@ class ReadingCardTests(unittest.TestCase):
         self.assertFalse(has(go_plan, audit, reading.D1))
         self.assertIn((reading.P + 'migration-report.md', '总则'), refs('global-orchestrator', operation='audit-assign'))
         self.assertNotIn((reading.P + 'migration-report.md', '总则'), go_collect)
-        self.assertIn((reading.P + 'source-changes.md', None), refs('global-orchestrator', operation='source-review'))
+        source = refs('global-orchestrator', operation='source-review')
+        self.assertTrue(has(source, reading.P + 'source-changes.md', '1. GO：评估来源、归属与影响范围'))
+        self.assertFalse(has(source, reading.P + 'source-changes.md', '2. Host：版本事务与明确恢复'))
         accept, freeze = refs('module-orchestrator', operation='accept'), refs('module-orchestrator', operation='freeze')
         self.assertFalse(has(accept, reading.P + 'state-machine.md', 'Freeze / DoD 分开'))
         self.assertTrue(has(freeze, reading.P + 'state-machine.md', 'Freeze / DoD 分开'))
@@ -77,6 +79,49 @@ class ReadingCardTests(unittest.TestCase):
                 total = sum(row['bytes'] for row in reading.card({}, None, step))
                 self.assertGreater(total, 0)
                 self.assertLessEqual(total, reading.TYPICAL_BUDGET)
+
+    def test_agent_blocks_follow_the_test_scope(self):
+        def text(scope):
+            step = {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': scope}
+            row = next(r for r in reading.card({}, None, step) if r['ref'] == 'Agents/test-runner.md')
+            return reading.text_of(row)
+        build, automation, design = text('build'), text('automation'), text(None)
+        self.assertIn('### 构建', build); self.assertNotIn('### 自动化', build); self.assertNotIn('## 10. Harmony 执行器', build)
+        self.assertIn('### 自动化', automation); self.assertIn('## 10. Harmony 执行器', automation); self.assertNotIn('### 设计', automation)
+        self.assertIn('### 设计', design); self.assertNotIn('### 构建', design)
+        for part in (build, automation, design):
+            self.assertIn('## 6. 硬约束', part); self.assertIn('## 专题义务', part)
+
+    def test_steps_name_the_templates_they_instantiate(self):
+        names = set()
+        for table in reading.TEMPLATES.values():
+            for group in table.values(): names |= set(group)
+        for group in reading.SCOPE_TEMPLATES.values(): names |= set(group)
+        for by_role in reading.TRIGGER_TEMPLATES.values():
+            for group in by_role.values(): names |= set(group)
+        self.assertEqual([n for n in sorted(names) if not (reading.PACKAGE / 'template' / n).is_file()], [])
+        visual = reading.templates({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'visual'})
+        self.assertIn('template/visual-alignment.json', visual)
+        self.assertNotIn('template/visual-alignment.json',
+                         reading.templates({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'build'}))
+        self.assertIn('template/reuse-plan.json', reading.templates({'reuse_required': True}, None, {'role': 'spec-designer', 'operation': 'plan'}))
+        f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        f.prepare()
+        self.assertIn('template/implementation.md', f.state()['next_steps'][0]['templates'])
+
+    def test_a_rendered_card_has_no_link_into_a_whole_protocol_file(self):
+        text = reading.unlink('见 [状态机](state-machine.md)、[有限循环](state-machine.md#有限循环)、[模板](../../../template/fix-note.json) 和 [官网](https://example.invalid/x)。',
+                              reading.P + 'testing.md')
+        self.assertEqual(text, '见 状态机、有限循环（skills/migration-protocol/references/state-machine.md § 有限循环）、'
+                               '模板（template/fix-note.json） 和 [官网](https://example.invalid/x)。')
+        import tempfile
+        for role in reading.ROLE:
+            rows = reading.card({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': role, 'test_scope': 'automation'})
+            with tempfile.TemporaryDirectory() as tmp:
+                body = Path(reading.render(rows, tmp, ['template/x.json'])['path']).read_text()
+            self.assertEqual(re.findall(r'\]\((?![a-z]+:)[^)]*\)', body), [], role)
+            self.assertIn('reading.py show', body)
+            self.assertIn('- template/x.json', body)
 
     def test_skills_contribute_their_rules_not_their_boilerplate(self):
         skill = 'skills/migration-test/SKILL.md'

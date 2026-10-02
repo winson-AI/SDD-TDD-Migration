@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 import sys
 import unittest
+import unittest.mock
 
 import test_ledger
 from contracts import Rejected, digest, file_ref
@@ -329,6 +330,45 @@ class WorkflowTests(unittest.TestCase):
         cost = self.state()['workflow_cost']
         self.assertEqual(cost['modules']['M001']['card_dispatches'], 1)
         self.assertEqual(cost['totals']['card_bytes_delivered'], cost['totals']['card_bytes_full'])
+
+    def test_assign_accepts_the_request_level_hint_too(self):
+        self.prepare()
+        step = self.state()['next_steps'][0]
+        m = self.state()['modules']['M001']
+        self.call('assign', request={'schema_version': 1, 'request_id': 'hinted-assign', 'run_id': 'demo', 'module_id': 'M001',
+                                     'expected_revision': m['revision'], 'operation': 'assign',
+                                     'payload': {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'implementer'},
+                                     'hint': {'session_id': 'S-IMPL', 'card_sha256': step['card_sha256']}})
+        hints = self.state()['modules']['M001']['assignments']['I1']['hints']
+        self.assertEqual((hints['session_used'], hints['card_followed']), ('S-IMPL', True))
+        self.assertIn('S-IMPL', self.state()['modules']['M001']['delivered_cards'])
+
+    def test_a_session_holding_too_much_protocol_text_is_advised_to_restart(self):
+        self.prepare()
+        self.call('session', {'role': 'implementer', 'session_id': 'S-IMPL'})
+        self.assertNotIn('session_rotate', self.state()['next_steps'][0])
+        plain = self.assign
+
+        def assign(role, aid):
+            step = self.state()['next_steps'][0]
+            self.call('assign', {'assignment_id': aid, 'role': role, 'instance_id': role,
+                                 'session_id': 'S-IMPL' if role == 'implementer' else 'S-OTHER', 'card_sha256': step['card_sha256']})
+            return self.state()['modules']['M001']['assignments'][aid]
+        self.assign = assign
+        self.implementation()
+        a, r = self.make_test_result(quality='red-bug')
+        r['paths'][0]['root_cause'].update(category='code', confidence='confirmed')
+        self.submit(r, a); self.call('accept', {'assignment_id': 'TEST1'})
+        self.diagnose()
+        self.assign = plain
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['worker_role'], step['session_id']), ('fixer', 'S-IMPL'))
+        self.assertNotIn('session_rotate', step)  # one card is far below the budget
+        with unittest.mock.patch.object(reading, 'ROTATE_BUDGET', 1000):
+            step = self.state()['next_steps'][0]
+        self.assertEqual(step['session_rotate']['reason'], 'reading-load')
+        self.assertGreaterEqual(step['session_rotate']['delivered_bytes'], 1000)
+        self.assertIn('must_read', step)  # advice only: the full card is still offered for a cold start
 
     def test_workflow_cost_counts_dispatches_receipts_and_repairs(self):
         self.failed_module(); self.diagnose(); self.implementation('fixer', 'F1')

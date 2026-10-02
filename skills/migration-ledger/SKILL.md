@@ -25,7 +25,7 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 重复提交不重复生效；失效锁拒绝；越权拒绝；空测试非 Green；重放不丢失败。
 
 ## 6. 配套资产
-使用 [主要模板](../../template/event.json)；其他工件由 [模板索引](../../template/INDEX.md) 定位。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+使用 [主要模板](../../template/event.json)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
 ## 本地工具
 
@@ -35,7 +35,7 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 
 行为测试：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s <package_root>/skills/migration-ledger/tests -v`。只在临时目录运行样例适配器，不依赖真实迁移项目。
 
-编排状态查询还会派生 next_steps/ready_modules/global_next_step；它们不是第二套状态源。阶段接收、精确恢复、审计关闭/撤销和根因停滞摘要均在 ledger.py 内验证，详细语义见本地运行指南的 2026-09-17 补充。
+编排状态查询还会派生 next_steps/ready_modules/global_next_step；它们不是第二套状态源。阶段接收、精确恢复、审计关闭/撤销和根因停滞摘要均在 ledger.py 内验证。
 
 [progress_signals.py](scripts/progress_signals.py) 派生 workflow_progress、停滞/worker 超时/重复拒绝信号及人工提醒，不改变业务状态。invalidate 保留 planning_history，解除当前旧 plan 阻塞；宿主必须消费这些信号，见 [进度恢复协议](../migration-protocol/references/progress-recovery.md)。
 

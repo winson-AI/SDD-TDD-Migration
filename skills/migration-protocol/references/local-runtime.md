@@ -29,7 +29,7 @@
 ```text
 python3 <package>/skills/migration-ledger/scripts/ledger.py init --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/ledger.py apply --root <run> --request <request.json> --host-context <principal.json>
-python3 <package>/skills/migration-ledger/scripts/ledger.py status --root <run> [--view cursor|module|full] [--module <id>]
+python3 <package>/skills/migration-ledger/scripts/ledger.py status --root <run> [--view cursor|module|full] [--module <id>] [--since <sequence>]
 python3 <package>/skills/migration-ledger/scripts/ledger.py resume --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/ledger.py recover --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run> --scope module --module-id <module-id>
@@ -172,7 +172,7 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 
 游标由 Ledger 派生，沿用 NEXT/next_skill、blocked_from、阶段 require_state 和轮次保留机制：
 
-- `status.next_steps`：每模块 operation、role、worker_role（如适用）、session_id、assignment_id、expected_revision、ready、reason。每个有 operation 的步骤带 `must_read` 阅读卡（[reading.py](../../migration-ledger/scripts/reading.py)）及摘要 `card_sha256`，`global_next_step` 同样提供；会话与阅读卡的回填、采纳统计（`status.hint_adoption`）和 `must_read_new` 见[宿主接入](host-integration.md#提示采纳回报)。本地修复无 fixer 会话时，session_id 指向原 Implementer 会话（`session_affinity=implementer`）；审计期修复不做此提示。未解决结果含已确认 `runtime-spec-variant-conflict` 时，游标为 `suspend(kind=human)`，不进入诊断或修复。
+- `status.next_steps`：每模块 operation、role、worker_role（如适用）、session_id、assignment_id、expected_revision、ready、reason。每个有 operation 的步骤带阅读卡摘要 `card_sha256` 与本步模板 `templates`，`global_next_step` 同样提供；取卡、增量交付、会话轮换与采纳统计见[宿主接入](host-integration.md#提示采纳回报)。本地修复无 fixer 会话时，session_id 指向原 Implementer 会话（`session_affinity=implementer`）；审计期修复不做此提示。未解决结果含已确认 `runtime-spec-variant-conflict` 时，游标为 `suspend(kind=human)`，不进入诊断或修复。
 - `status.ready_modules`：当前有可推进步骤的模块；并非可以同时启动的预约。多个候选可能争用同一资源，真正 assign 仍在事务内再次校验。
 - `status.global_next_step`：等待模块完成、创建审计、等待活动审计、撤销失效审计或等待交付授权。游标不自动派发，也不赋予额外权限。
 - 已提交 worker 结果对应 `accept`；未提交对应 `await-result`。原会话通过 session_id 提示复用；短交接只传 Ledger/assignment/artifact 引用。
@@ -180,8 +180,6 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 - submit 与 accept 均核验角色对应的当前 phase、blocked 和生产者实际基线，防止依赖失效后旧 worker 推进消费者。
 - revoke 只作用于仍活动的任务，已关闭旧任务不能把新任务阶段倒退；依赖挂起时撤销 worker 保留原 blocker。
 - 活动审计不能被另一轮覆盖；audit 成功接收后关闭 assignment；中断必须 host audit-revoke 提交实际停止证据。assignment_id 不复用，撤销不返还已用轮次。
-
-这些规则保留本系统的 9+1 分工和跨模块并行，不采用全流程单切片串行，也不采用部分验证即 COMPLETE 的语义。
 
 ## 功能切片输入与边界批准
 

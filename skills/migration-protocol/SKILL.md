@@ -24,7 +24,7 @@ description: SDD-TDD-Migration 各角色共享的读取、Ledger、冻结和三�
 确认角色身份/assignment、Ledger sequence、输入 hash、权限范围；拒绝占位符或伪造证据；失败和受阻均记录可恢复动作。
 
 ## 6. 资产
-[模板索引](../../template/INDEX.md)；全部实例化路径按运行协议解析，不能直接覆盖包内模板。
+每步模板由游标步骤的 `templates` 给出（全集见 [模板索引](../../template/INDEX.md)）；全部实例化路径按运行协议解析，不能直接覆盖包内模板。
 
 ## 7. 业务边界与阶段验收
 

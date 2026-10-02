@@ -25,6 +25,6 @@ description: 冻结任务驱动的 legacy 迁移、新架构实现和双向追�
 冻结/锁有效；静态检查与单测证据真实；所有代码变动有任务；未越权更新规范；`authoring_diagnostics` 已提交（诊断通过，或不可用时版本敏感 API 引用固定版本源码）。
 
 ## 6. 配套资产
-使用 [主要模板](../../template/implementation.md)；其他工件由 [模板索引](../../template/INDEX.md) 定位。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+使用 [主要模板](../../template/implementation.md)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
 角色义务、必交证据与专题入口以 [Agent 定义](../../Agents/implementer.md#专题义务) 为准；本技能只保留执行规约与检查，不重复专题细则。

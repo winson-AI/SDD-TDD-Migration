@@ -17,11 +17,15 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 输出：design：CASE→PATH ID/Name、路径大纲；build：构建退出码断言、日志和宿主回执；automation：完整 query、逐 ASSERT 结果、日志/媒体和宿主回执。执行结果按当前 scope 的全部 PATH 汇成 tests stage，提交后等待 Ledger ACK 与 owner 接受。
 
 ## 3. 执行步骤
+### 设计
 1. design：仅从规格与用例生成测试覆盖，不运行代码；冻结 build 命令、Logic 项对应的 unit 命令、一条 static 规格闭合路径和 automation 路径，每个 CASE 必须有业务自动化路径。
+### 构建
 2. execute/build：确认代码已被接受；提交 building 预检。MO 派发 test_scope=build 后，宿主通过 execute_test 直接执行冻结 argv/cwd/timeout，不附加 query-file/result-file 参数。
 3. 汇总全部 build PATH 的实际退出码、日志和回执，提交 tests stage。MO 接受后才有效；全绿且 build_baseline 匹配当前 code_baseline，才具备进入 automation 的条件。
 4. build 非 Green：通过 Ledger 留根因与证据；Diagnostician 分析 → MO 接受诊断 → 独立 Fixer 修复。补丁由 MO 接受后旧构建失效，本角色必须重新 building 预检、构建与正式提交；不使用 Fixer 自测替代。
+### 单测与静态审查
 5. execute/unit 与 static：building 预检同时预批准 unit 与 static 命令；build 全绿被接受后，同一 assignment 先切为 unit 运行冻结单测并提交，再切为 static，继续以当前代码与冻结 SPEC 写规格闭合审查（逐需求生产符号 + 假实现清单），经 execute_test 运行 spec_closure 适配器并提交；Red 进入诊断/修复，见 [静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合)。本角色未参与该代码编写，审查不得由 Implementer/Fixer 代做。
+### 自动化
 6. execute/automation：build 与 static 已接受为 Green 后，单独提交 testing 预检，包括设备上实际部署版本/fixture 等证据。MO 派发新的 test_scope=automation assignment，宿主才启动 Main/Harmony。本角色不能在 build 进程退出时自行串联未经授权的自动化命令。
 7. 把本 scope 每条完整 PATH 作为 query 交 Main，采集全部冻结 ASSERT、三态、初步原因与回执；flaky/skip/缺报告不能 Green。提交全部 automation 路径结果，由 MO 验收并检查 DoD。
 8. 运行时页面变体与冻结 SPEC 冲突：记 Yellow + human 根因（reason_code=runtime-spec-variant-conflict），见 [测试协议](../skills/migration-protocol/references/testing.md#运行时变体与冻结-spec-冲突)；不自行选变体。

@@ -29,7 +29,7 @@ OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；�
 
 ## 3. 宿主必须消费的进度信号
 
-每次事件 ACK、命令拒绝、worker 返回或异常退出后，宿主重新读取 `ledger.py status`。等待 worker 期间至少每 60 秒检查其真实状态并刷新 status；不用重复派发来探测进度。
+每次事件 ACK、命令拒绝、worker 返回或异常退出后，宿主重新读取 `ledger.py status --view cursor --since <上次 last_sequence>`。等待 worker 期间至少每 60 秒检查其真实状态并刷新 status；不用重复派发来探测进度。
 
 `status.workflow_progress` 同步写入 `<run_root>/ledger/progress.json` 和 `reports/workflow-attention.md`：
 

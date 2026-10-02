@@ -129,7 +129,7 @@ python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <wor
 
 `verified=false` 表示所选范围存在具体核验失败，读取 failures 的 check/scope/module_id/recovery_action 和 next_actions。仅相关模块错误不得停止无关 MO；公共事件链/快照损坏才影响整轮。生成视图缺失按投影恢复协议重建，冻结源损坏恢复有效证据或正常失效/重规划，不一律重建 run。门禁只读，不改状态、不补写投影、不搬迁历史；它无法单独证明真实 Agent 派发、命令执行或全部功能 Green。最终 Yellow 缺测仍在正式报告保留。
 
-回退显式暴露：`ledger.py status` 返回 `openspec_binding`，`location=top-level` 表示绑定了 prepare 固化的 `storage_layout`、投影落在顶层 `workspace/openspec`；`location=in-run-fallback`（未 prepare/未绑定 `project_context_ref`）说明本 run 的 OpenSpec 落在 `.sdd-runs/<run_id>/openspec`，宿主据此立即感知需要走预备管道，而非事后才发现顶层目录缺失。
+回退显式暴露：`ledger.py status --view full` 返回 `openspec_binding`，`location=top-level` 表示绑定了 prepare 固化的 `storage_layout`、投影落在顶层 `workspace/openspec`；`location=in-run-fallback`（未 prepare/未绑定 `project_context_ref`）说明本 run 的 OpenSpec 落在 `.sdd-runs/<run_id>/openspec`，宿主据此立即感知需要走预备管道，而非事后才发现顶层目录缺失。
 
 ## 启动与二次启动
 
@@ -138,7 +138,7 @@ python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <wor
 python3 <package>/skills/migration-ledger/scripts/project_context.py prepare \
   --root <workspace_root>/.sdd-migration --request <request.json> --host-context <host.json>
 # 使用返回的 run_root；无需再自选运行目录
-python3 <package>/skills/migration-ledger/scripts/ledger.py status \
+python3 <package>/skills/migration-ledger/scripts/ledger.py status --view full \
   --root <workspace_root>/.sdd-runs/<run_id>
 ```
 
