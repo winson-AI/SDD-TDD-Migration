@@ -81,7 +81,7 @@
 
 ## 构建与自动化
 
-build 配置可选，空值由 GO 发现；stage-plan/test-paths 示例含 build/unit/static/automation。行为契约（`behavior_contract_required`）要求分配时 behavior_review、SPEC 派生 scenario_index/scenario_trace、unit_report 本轮报告与 test IDs；实际模板占位符须替换。仅适用 UI 合并 visual PATH 及 task/scenario/dimension 追溯，不适用 unit 记录依据并移除对应示例。assign 按 test_scope；automation 缺测仍 Yellow、不阻塞独立模块。字段与门禁见 [测试协议](../skills/migration-protocol/references/testing.md)。
+build 配置可选，空值由 GO 发现；stage-plan/test-paths 示例含 build/unit/static/automation。行为契约（`behavior_contract_required`）要求分配时 behavior_review、plan 的 scenario_trace（scenario_index 由 Ledger 派生）、unit_report 本轮报告与 test IDs；实际模板占位符须替换。仅适用 UI 合并 visual PATH 及 task/scenario/dimension 追溯，不适用 unit 记录依据并移除对应示例。assign 按 test_scope；automation 缺测仍 Yellow、不阻塞独立模块。字段与门禁见 [测试协议](../skills/migration-protocol/references/testing.md)。
 
 - [visual-test-path.json](visual-test-path.json)：逐 runtime 目标视觉路径片段。coverage 必须等于该 UI item，baseline_ref 来自其冻结基线，node_ids 来自该目标真实树节点；声明手势时另绑定 interaction_id。
 - [visual-alignment.json](visual-alignment.json)：正式视觉结果片段，record 与本次 captured.visual_alignment 一致，绑定当前代码/HAP/基线；交互列表只含冻结声明，未声明时为空，不照抄占位项或伪造 PASSED。

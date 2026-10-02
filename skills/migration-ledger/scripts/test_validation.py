@@ -44,19 +44,32 @@ def functional_ready(m):
     return bool(static_ready(m) and _green_at_baseline(m, 'automation'))
 
 
+PRE = ('build', 'unit', 'static')  # device-free gates: run in this order under one build assignment, judged together
+
+
 def next_scope(m):
     """Ordered stages; visual only after the functional layer is Green."""
     if not split(m):
         return None
-    if not build_ready(m):
-        return 'build'
-    if not unit_ready(m):
-        return 'unit'
     if not static_ready(m):
-        return 'static'
+        return 'build'
     if paths(m, 'visual') and functional_ready(m):
         return 'visual'
     return 'automation'
+
+
+def stage_paths(m, tests):
+    """Paths one build-stage result must cover: every build, unit and static path not yet Green on the current code,
+    in order, stopping after the first kind whose rows are not all Green."""
+    results, expected = m.get('results', {}), []
+    for kind in PRE:
+        ready = kind != 'build' or build_ready(m)
+        pending = [p for p in paths(m, kind) if not (ready and (results.get(p['path_id']) or {}).get('quality') == 'green-passed'
+                                                    and (results.get(p['path_id']) or {}).get('code_baseline') == m.get('code_baseline'))]
+        expected += pending
+        if any((tests.get(p['path_id']) or {}).get('quality') != 'green-passed' for p in pending):
+            break
+    return expected
 
 
 def all_green(m):
@@ -113,8 +126,9 @@ def plan_check(plan, target, static_required=False, unit_required=False):
     require(not static_required or len(statics) == 1, 'spec_closure_required: plan one static spec-closure PATH')
     requirements = sorted({r for t in plan.get('tasks', []) for r in t.get('requirement_ids', [])})
     for path in statics:
-        require(sorted(path.get('scenario_requirement_ids') or []) == requirements,
-                'static PATH scenario_requirement_ids must list every module requirement')
+        listed = path.get('scenario_requirement_ids')  # derived: the review always covers every module requirement
+        require(listed is None or sorted(listed) == requirements,
+                'static PATH covers every module requirement; omit scenario_requirement_ids')
         assertions = path.get('expected_assertions') or []
         require(len(assertions) == 1 and assertions[0].get('expected') is True, 'static PATH asserts one boolean closure')
     require({p.get('case_id') for p in plan['paths']} ==

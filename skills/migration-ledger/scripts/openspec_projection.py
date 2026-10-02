@@ -97,10 +97,10 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
     emit(change / 'memory.md', '# Repair memory (generated)\n\nOnly verified entries may inform a new repair; recheck applicability and current SPEC.\n\n```json\n' +
           json.dumps(m.get('fix_memory', []), ensure_ascii=False, indent=2) + '\n```\n')
     manifest['files'] += ['status.md', 'memory.md']
-    if m['plan'].get('scenario_index'):
+    if m.get('scenario_index'):
         emit(change / 'scenarios.md', '# Scenario trace (derived from frozen OpenSpec)\n\n'
              'Read-only index; revise the SPEC and plan through normal change control.\n\n```json\n' +
-             json.dumps({k: m['plan'][k] for k in ('scenario_index', 'scenario_trace')}, ensure_ascii=False, indent=2) + '\n```\n')
+             json.dumps({'scenario_index': m['scenario_index'], 'scenario_trace': m['plan']['scenario_trace']}, ensure_ascii=False, indent=2) + '\n```\n')
         manifest['files'].append('scenarios.md')
     if m['plan'].get('reuse_plan_ref'):
         ref = m['plan']['reuse_plan_ref']

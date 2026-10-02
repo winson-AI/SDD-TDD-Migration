@@ -20,6 +20,7 @@ import spec_closure
 import source_changes
 from contracts import Rejected, baseline, check_ref, digest, file_ref, read_json
 from execute_test import execute
+from test_completion import interpret
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'migration-test/scripts'))
 from harmony_stage import build as stage_result
 from test_behavior_contract import review as behavior_review
@@ -74,7 +75,7 @@ class SourceChangeTests(unittest.TestCase):
             'command': {'argv': [sys.executable, '-c', 'pass'], 'cwd': str(f.target), 'timeout_seconds': 20,
                         'selection_ref': f.ref('unit-command.md', 'Fixture unit tests')}})
         p['paths'].append({'path_id': sid, 'kind': 'static', 'name': 'spec closure', 'case_id': 'C1', 'requirement_id': 'R1',
-            'required': True, 'scenario_requirement_ids': sorted({r for t in p['tasks'] for r in t['requirement_ids']}),
+            'required': True,
             'expected_assertions': [{'assertion_id': 'SPEC-CLOSURE', 'expected': True}]})
         p['dimension_trace'] = [{'item_id': iid, 'task_ids': ['T1'], 'path_ids': [pid, uid],
                                  'assertions': [{'path_id': pid, 'assertion_id': 'A1'}, {'path_id': uid, 'assertion_id': 'UNIT-EXIT'}]}]
@@ -90,7 +91,7 @@ class SourceChangeTests(unittest.TestCase):
         review['catalog_ref'] = f.ref(f'catalog-{mid}-{f.n}.json', read_json(check_ref(review['catalog_ref'])))
         p['reuse_plan_ref'] = f.ref(f'reuse-{mid}-{f.n}.json', review)
         p['behavior_contract_required'] = True
-        p['source_closure']['behavior_review'] = behavior_review(f, module)
+        p['source_closure'].update(behavior_review(f, module))
         for ref in p['definitions']:
             if ref['kind'] == 'spec':
                 text = check_ref(ref).read_text().replace('### Requirement: R1', '### Requirement: R1\nRequirement-ID: R1')
@@ -106,8 +107,6 @@ class SourceChangeTests(unittest.TestCase):
             'p=Path(os.environ["SDD_RUNNER_DIR"])/"reports/TEST-value.xml";p.parent.mkdir(parents=True);'
             'p.write_text(\'<testsuite><testcase classname="ValueTest" name="integer">\'+("" if ok else "<failure/>")+"</testcase></testsuite>");'
             'raise SystemExit(0 if ok else 1)']
-        p['paths'][-1]['scenario_ids'] = ['SCN-' + mid + '-normal']
-        p['scenario_index'] = behavior_contract.scenario_index(p)
         p['scenario_trace'] = [{'scenario_id': 'SCN-' + mid + '-normal', 'task_ids': ['T1'],
                                 'assertions': [{'path_id': pid, 'assertion_id': 'A1'}, {'path_id': uid, 'assertion_id': 'UNIT-EXIT'}]}]
         return p
@@ -185,15 +184,12 @@ class SourceChangeTests(unittest.TestCase):
                            'test_refs': [{'path': str(unit_test), 'symbol': 'value'}], 'evidence_refs': [notes]}],
             'anti_patterns': {k: {'status': 'absent', 'note': 'reviewed', 'evidence_refs': [notes]} for k in spec_closure.ANTI_PATTERNS}})
         static_argv = [sys.executable, spec_closure.__file__, '--review', review['path'], '--target-root', str(f.target)]
-        for scope, stage, suffix in (('build', 'building', '-B'), ('unit', None, '-U'), ('static', None, '-S'), ('automation', 'testing', '-P')):
-            if scope == 'build':
-                aid = scope+'-'+mid+'-'+str(f.n); argv = [sys.executable, '-c', 'pass']
-            elif scope == 'unit':
-                argv = next(p for p in m['plan']['paths'] if p['kind'] == 'unit')['command']['argv']
-            elif scope == 'static':
-                argv = static_argv  # same Test-Runner and assignment as the build
+        unit_argv = next(p for p in m['plan']['paths'] if p['kind'] == 'unit')['command']['argv']
+        for scope, stage, suffixes in (('build', 'building', ('-B', '-U', '-S')), ('automation', 'testing', ('-P',))):
+            aid = scope+'-'+mid+'-'+str(f.n)
+            if scope == 'build':  # build, unit tests and the static review: one assignment, one result
+                argvs = {'-B': [sys.executable, '-c', 'pass'], '-U': unit_argv, '-S': static_argv}
             else:
-                aid = scope+'-'+mid+'-'+str(f.n)
                 script = f.root/'staging/test-runner'/(aid+'.py')
                 script.parent.mkdir(parents=True, exist_ok=True)
                 script.write_text('import argparse,json,runpy\np=argparse.ArgumentParser();p.add_argument("--query-file");p.add_argument("--result-file");a=p.parse_args()\n'
@@ -202,22 +198,25 @@ class SourceChangeTests(unittest.TestCase):
                     +'"assertions":[{"assertion_id":"A1","expected":2,"actual":v,"passed":passed}]}\n'
                     +'if not passed: r["root_cause"]={"category":"code","summary":"wrong value","confidence":"confirmed","owner":"'+mid+'","next_action":"fix"}\n'
                     +'json.dump(r,open(a.result_file,"w"))\n')
-                argv = [sys.executable, str(script)]
-            if stage:
-                report = f.report(stage, module=mid)
-                report['execution'] = {'argv': argv, 'cwd': str(f.target), 'environment_ref': f.ref('environment.md', 'Python fixture available')}
-                if scope == 'build':
-                    report['execution']['commands'] = {mid+'-B': {'argv': argv, 'cwd': str(f.target)},
-                                                       mid+'-U': {'argv': next(p for p in m['plan']['paths'] if p['kind'] == 'unit')['command']['argv'], 'cwd': str(f.target)},
-                                                       mid+'-S': {'argv': static_argv, 'cwd': str(f.target)}}
-                receipt = f.record(report)
-                f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner',
-                    'test_scope': scope, 'context_ref': receipt}, module=mid)
+                argvs = {'-P': [sys.executable, str(script)]}
+            report = f.report(stage, module=mid)
+            report['execution'] = {'argv': argvs[suffixes[0]], 'cwd': str(f.target), 'environment_ref': f.ref('environment.md', 'Python fixture available')}
+            if scope == 'build':
+                report['execution']['commands'] = {mid+k: {'argv': v, 'cwd': str(f.target)} for k, v in argvs.items()}
+            receipt = f.record(report)
+            f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner',
+                'test_scope': scope, 'context_ref': receipt}, module=mid)
             a = f.state()['modules'][mid]['assignments'][aid]
-            rr = execute(f.root, mid, aid, mid+suffix, argv, str(f.target), f.root/('runs/build' if scope in ('build', 'unit') else 'runs/harmony/automation')/(aid+'-'+scope))
-            if scope in ('build', 'unit', 'static'):
-                result = stage_result(f.root, mid, aid, [rr])
+            receipts, planned = [], {p['path_id']: p for p in f.state()['modules'][mid]['plan']['paths']}
+            for k in suffixes:  # a Test-Runner stops at the first gate that is not Green
+                receipts.append(execute(f.root, mid, aid, mid+k, argvs[k], str(f.target),
+                                        f.root/('runs/build' if k in ('-B', '-U') else 'runs/harmony/automation')/(aid+k)))
+                if scope == 'build' and interpret(read_json(check_ref(receipts[-1])), planned[mid+k])['quality'] != 'green-passed':
+                    break
+            if scope == 'build':
+                result = stage_result(f.root, mid, aid, receipts)
             else:
+                rr, suffix = receipts[0], suffixes[0]
                 receipt_data = read_json(check_ref(rr)); captured = read_json(check_ref(receipt_data['result_ref']))
                 m = f.state()['modules'][mid]
                 row = {**captured, 'path_id': mid+suffix, 'executed': True, 'execution_receipt': rr,

@@ -115,18 +115,11 @@
       "case_id": "CASE-GLOBAL-001",
       "requirement_id": "REQ-M001-001",
       "required": true,
-      "scenario_requirement_ids": [
-        "REQ-M001-001"
-      ],
       "expected_assertions": [
         {
           "assertion_id": "ASSERT-STATIC-M001-CLOSURE",
           "expected": true
         }
-      ],
-      "scenario_ids": [
-        "SCN-M001-001",
-        "SCN-M001-002"
       ]
     },
     {
@@ -281,27 +274,15 @@
       }
     ],
     "unresolved": [],
-    "behavior_review": {
-      "scope_sha256": "{{contracts.digest(allocated-scope)}}",
-      "entry": "{{source-feature-entry}}",
-      "observable_result": "{{behavior-result-and-error-boundaries}}",
-      "production_binding": "{{target-entry-to-provider-and-consumer}}",
-      "boundary_rationale": "{{why-this-scope-is-a-complete-behavior; supporting-tasks-contribute-to-it}}",
-      "requirement_ids": [
-        "REQ-GLOBAL-001"
-      ],
-      "case_ids": [
-        "CASE-GLOBAL-001"
-      ],
-      "shared_capabilities": [],
-      "unresolved": [],
-      "evidence_refs": [
-        {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{behavior-review-evidence}}",
-          "sha256": "{{sha256}}"
-        }
-      ]
-    }
+    "scope_sha256": "{{contracts.digest(allocated-scope)}}",
+    "boundary_rationale": "{{why-this-scope-is-a-complete-behavior; supporting-tasks-contribute-to-it}}",
+    "requirement_ids": [
+      "REQ-GLOBAL-001"
+    ],
+    "case_ids": [
+      "CASE-GLOBAL-001"
+    ],
+    "shared_capabilities": []
   },
   "target_feasibility": {
     "verdict": "pending",
@@ -427,22 +408,6 @@
     ]
   },
   "behavior_contract_required": true,
-  "scenario_index": [
-    {
-      "scenario_id": "SCN-M001-001",
-      "requirement_id": "REQ-M001-001",
-      "capability": "feature-capability",
-      "spec_sha256": "{{generated-from-current-spec-definition}}",
-      "scenario_sha256": "{{generated-by-behavior_contract.py}}"
-    },
-    {
-      "scenario_id": "SCN-M001-002",
-      "requirement_id": "REQ-M001-001",
-      "capability": "feature-capability",
-      "spec_sha256": "{{generated-from-current-spec-definition}}",
-      "scenario_sha256": "{{generated-by-behavior_contract.py}}"
-    }
-  ],
   "scenario_trace": [
     {
       "scenario_id": "SCN-M001-001",

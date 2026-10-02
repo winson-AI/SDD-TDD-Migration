@@ -19,7 +19,9 @@ def build(root, module_id, assignment_id, receipts):
     a = s['audit_assignment'] if module_id == 'GLOBAL' else m['assignments'][assignment_id]
     require(not a['closed'] and a['assignment_id'] == assignment_id, 'active assignment required')
     import test_validation as tv
-    selected = tv.paths(m, a['test_scope']) if module_id != 'GLOBAL' and tv.split(m) else m['plan']['paths']
+    staged = module_id != 'GLOBAL' and tv.split(m)
+    pre = staged and a['test_scope'] == 'build'  # one result carries build, unit tests and the static review
+    selected = ([p for kind in tv.PRE for p in tv.paths(m, kind)] if pre else tv.paths(m, a['test_scope'])) if staged else m['plan']['paths']
     paths = {p['path_id']:p for p in selected}
     rows = {}
     for receipt_ref in receipts:
@@ -34,7 +36,8 @@ def build(root, module_id, assignment_id, receipts):
         previous = m.get('results',{}).get(pid)
         if previous: row['retest_of'] = previous['test_run_id']
         rows[pid] = row
-    require(set(rows) == set(paths), 'provide one host receipt for every frozen path; do not shrink coverage')
+    expected = {p['path_id'] for p in tv.stage_paths(m, rows)} if pre else set(paths)
+    require(set(rows) == expected, 'provide one host receipt for every frozen path; do not shrink coverage')
     result = {'schema_version':1, 'kind':'tests', 'run_id':s['run_id'], 'module_id':module_id,
               'assignment_id':assignment_id, 'actor_instance_id':a['instance_id'],
               'freeze_id':m['freeze_id'], 'code_baseline':m['code_baseline'], 'paths':list(rows.values())}

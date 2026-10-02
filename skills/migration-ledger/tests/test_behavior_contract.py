@@ -31,16 +31,14 @@ def contract_plan(f):
         if ref['kind'] == 'spec':
             plan['definitions'][i] = {**f.ref('contract-spec.md', spec), 'kind': 'spec'}
     plan['behavior_contract_required'] = True
-    plan['source_closure']['behavior_review'] = review(f, module)
+    plan['source_closure'].update(review(f, module))
     path = plan['paths'][0]
     path['kind'] = 'automation'
     path['expected_assertions'] = [{'assertion_id': name, 'expected': name} for name in ('success', 'empty', 'error')]
     plan['paths'].append({'path_id': 'S1', 'name': 'scenario closure', 'kind': 'static', 'case_id': 'C1',
-                          'requirement_id': 'R1', 'required': True, 'scenario_requirement_ids': ['R1'],
-                          'scenario_ids': ['SCN-M001-' + n for n in ('empty', 'error', 'success')],
+                          'requirement_id': 'R1', 'required': True,
                           'expected_assertions': [{'assertion_id': 'CLOSURE', 'expected': True}]})
     plan['tasks'][0]['path_ids'].append('S1')
-    plan['scenario_index'] = bc.scenario_index(plan)
     plan['scenario_trace'] = [{'scenario_id': 'SCN-M001-' + name, 'task_ids': ['T1'],
                                'assertions': [{'path_id': 'P1', 'assertion_id': name}]} for name in ('success', 'empty', 'error')]
     return plan, module
@@ -60,7 +58,7 @@ class BehaviorContractTests(unittest.TestCase):
     def test_new_rejections_point_to_the_relevant_small_protocol_section(self):
         import reading
         for reason, section in (('behavior_review required', '3. 分配与登记门禁'),
-                                ('scenario_index must be derived', '冻结算法'),
+                                ('scenario_index is derived from the OpenSpec definitions', '冻结算法'),
                                 ('required_test_ids must be unique', '逻辑单测')):
             self.assertEqual(reading.read_hint(reason)['section'], section)
 
@@ -69,24 +67,27 @@ class BehaviorContractTests(unittest.TestCase):
         self.assertEqual(validate_plan(plan, module), digest(plan))
         for mutation, error in (
             (lambda p: p['scenario_trace'].pop(), 'every frozen Scenario'),
-            (lambda p: p['paths'][-1]['scenario_ids'].pop(), 'all frozen scenario_ids'),
-            (lambda p: p['scenario_index'].pop(), 'derived from the current OpenSpec'),
+            (lambda p: p['paths'][-1].update(scenario_ids=['SCN-M001-empty']), 'omit scenario_ids'),
+            (lambda p: p.update(scenario_index=[]), 'derived from the OpenSpec'),
             (lambda p: p['scenario_trace'][0]['assertions'][0].update(assertion_id='missing'), 'unknown scenario assertion'),
-            (lambda p: p['source_closure']['behavior_review'].update(unresolved=['source ambiguity']), 'unresolved behavior boundary'),
+            (lambda p: p['source_closure'].update(unresolved=['source ambiguity']), 'unresolved'),
+            (lambda p: p['source_closure'].pop('boundary_rationale'), 'boundary_rationale'),
             (lambda p: p['scenario_trace'][0].update(assertions=[{'path_id': 'S1', 'assertion_id': 'CLOSURE'}]), 'build/static'),
         ):
             broken = copy.deepcopy(plan); mutation(broken)
             with self.subTest(error=error), self.assertRaisesRegex(Rejected, error):
                 validate_plan(broken, module)
 
-    def test_spec_edit_requires_regenerating_index_and_new_freeze(self):
+    def test_spec_edit_changes_the_derived_index_and_the_plan_hash(self):
         f = self.f; plan, module = contract_plan(f)
+        before, index = validate_plan(plan, module), bc.index(plan)
         definition = next(r for r in plan['definitions'] if r['kind'] == 'spec')
         from pathlib import Path
         text = Path(definition['path']).read_text().replace('render error', 'preserve input and render error')
         definition.update(f.ref('contract-spec-changed.md', text))
-        with self.assertRaisesRegex(Rejected, 'derived from the current OpenSpec'):
-            validate_plan(plan, module)
+        self.assertNotEqual(validate_plan(plan, module), before)  # a new hash needs a new freeze
+        self.assertNotEqual(bc.index(plan), index)
+        self.assertEqual([r['scenario_id'] for r in bc.index(plan)], [r['scenario_id'] for r in index])
 
     def test_duplicate_or_missing_scenario_id_is_rejected(self):
         f = self.f; plan, _ = contract_plan(f)
@@ -103,13 +104,14 @@ class BehaviorContractTests(unittest.TestCase):
         code = f.target / 'code.py'; code.write_text('search = 1\n')
         entry = f.target / 'entry.py'; entry.write_text('from code import search\n')
         evidence = f.ref('review.md', 'Read production branch for each scenario')
-        query = {**plan['paths'][-1], 'scenario_index': plan['scenario_index'], 'run_id': 'demo',
+        index = bc.index(plan)
+        query = {**plan['paths'][-1], 'scenario_index': index, 'scenario_ids': [r['scenario_id'] for r in index], 'run_id': 'demo',
                  'module_id': 'M001', 'freeze_id': 'fz', 'code_baseline': 'cb'}
         data = {k: query[k] for k in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline')}
         data.update(scenarios=[{'scenario_id': row['scenario_id'], 'requirement_id': 'R1', 'status': 'passed',
                                'summary': 'scenario reaches entry', 'production_symbols': [{'path': str(code), 'symbol': 'search'}],
                                'reached_from': {'path': str(entry), 'symbol': 'search'}, 'evidence_refs': [evidence]}
-                              for row in plan['scenario_index']],
+                              for row in index],
                     anti_patterns={p: {'status': 'absent', 'note': 'reviewed', 'evidence_refs': [evidence]}
                                    for p in spec_closure.ANTI_PATTERNS})
         self.assertEqual(spec_closure.report(query, f.ref('review.json', data), f.target)['quality'], 'green-passed')
@@ -132,6 +134,11 @@ class BehaviorContractTests(unittest.TestCase):
         sibling['behavior_review']['shared_capabilities'] = [dict(shared)]
         state = {'behavior_contract_required': True, 'modules': {'M001': m, 'M002': sibling}}
         bc.global_review(state)
+        selected = {'source_id': 'TARGET', 'capability_id': 'provider', 'owner': 'M001'}
+        bc.check_owners(state, [selected, {'source_id': 'TARGET', 'capability_id': 'unrelated', 'owner': None}])
+        for owner in ('M002', None):  # the reuse catalogue may not name another owner for the same capability
+            with self.assertRaisesRegex(Rejected, 'differs from the reuse catalogue'):
+                bc.check_owners(state, [{**selected, 'owner': owner}])
         sibling['behavior_review']['shared_capabilities'][0]['owner_module_id'] = 'M002'
         with self.assertRaisesRegex(Rejected, 'competing owners'):
             bc.global_review(state)
@@ -212,7 +219,8 @@ class BehaviorContractTests(unittest.TestCase):
         plan, _ = contract_plan(f)
         f.call('plan', {'plan_ref': f.ref('new-plan.json', plan)}, role='spec-designer')
         f.approve(digest(plan), 'D-contract'); f.call('freeze', {'decision_id': 'D-contract'})
-        self.assertEqual(len(f.state()['modules']['M001']['plan']['scenario_index']), 3)
+        self.assertEqual(len(f.state()['modules']['M001']['scenario_index']), 3)
+        self.assertNotIn('scenario_index', f.state()['modules']['M001']['plan'])
 
 
 if __name__ == '__main__':

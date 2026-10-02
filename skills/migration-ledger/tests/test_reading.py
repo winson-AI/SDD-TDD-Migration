@@ -79,14 +79,17 @@ class ReadingCardTests(unittest.TestCase):
                 total = sum(row['bytes'] for row in reading.card({}, None, step))
                 self.assertGreater(total, 0)
                 self.assertLessEqual(total, reading.TYPICAL_BUDGET)
+                names = reading.templates({}, None, step)
+                self.assertLessEqual(sum((reading.PACKAGE / n).stat().st_size for n in names), reading.TEMPLATE_BUDGET)
 
     def test_agent_blocks_follow_the_test_scope(self):
         def text(scope):
             step = {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': scope}
             row = next(r for r in reading.card({}, None, step) if r['ref'] == 'Agents/test-runner.md')
             return reading.text_of(row)
-        build, automation, design = text('build'), text('automation'), text(None)
-        self.assertIn('### 构建', build); self.assertNotIn('### 自动化', build); self.assertNotIn('## 10. Harmony 执行器', build)
+        build, automation, design = text('build'), text('automation'), text('design')
+        self.assertIn('### 构建', build); self.assertIn('### 单测与静态审查', build)
+        self.assertNotIn('### 自动化', build); self.assertNotIn('## 10. Harmony 执行器', build)
         self.assertIn('### 自动化', automation); self.assertIn('## 10. Harmony 执行器', automation); self.assertNotIn('### 设计', automation)
         self.assertIn('### 设计', design); self.assertNotIn('### 构建', design)
         for part in (build, automation, design):

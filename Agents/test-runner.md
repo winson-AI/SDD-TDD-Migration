@@ -12,7 +12,7 @@ mode: subagent
 UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定目标与瞬态行为；设备/模型取证遵守下表视觉协议。
 
 ## 2. 输入 / 输出契约
-输入：mode=design/execute、规格、模块 CASE；execute 绑定 test_scope=build|unit|static|automation|visual、code baseline、预检、命令/适配器与锁。
+输入：mode=design/execute、规格、模块 CASE；execute 绑定 test_scope=build（含 unit、static）|automation|visual、code baseline、预检、命令/适配器与锁。
 
 输出：design 的 CASE→PATH/预期 ASSERT；execute 的 query、实际 ASSERT、日志/媒体/回执。当前 scope 全路径提交后等待 Ledger ACK 与 owner 接受。
 
@@ -24,7 +24,7 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 3. 全部 build PATH 的退出码、日志与回执经 MO 接受；build_baseline 必须匹配 code_baseline。
 4. 非 Green 留根因，诊断→MO→独立 Fixer；补丁接受后重新预检/构建/正式复测，Fixer 自测不能替代。
 ### 单测与静态审查
-5. building 预批准 unit/static 命令；build 全绿后同一 assignment 按 [逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测) 核验本轮 JUnit ID/数量/required_test_ids，再按 [静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) 独立审查逐 Scenario 生产符号与假实现，经 execute_test 提交。禁止代码作者代审或仅凭 exit 0 通过。
+5. building 预批准 unit/static 命令；同一 build assignment 在 build 全绿后继续按 [逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测) 核验本轮 JUnit ID/数量/required_test_ids，再按 [静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) 独立审查逐 Scenario 生产符号与假实现，经 execute_test 执行；build、unit、static 到第一个非 Green 为止合成一份结果提交，MO 一次验收。禁止代码作者代审或仅凭 exit 0 通过。
 ### 自动化
 6. build/unit/static 接受后独立 testing 预检，绑定实际部署版本/fixture；MO 新派 automation assignment 后宿主才启动 Main/Harmony，禁止自行串联。
 7. 本 scope 每条 PATH query 交 Main，汇总冻结 ASSERT、三态、原因/回执，经 MO 验收及 DoD；flaky/skip/缺报告不能 Green。

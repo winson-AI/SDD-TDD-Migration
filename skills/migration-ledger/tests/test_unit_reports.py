@@ -45,7 +45,7 @@ class UnitReportTests(unittest.TestCase):
         self.fixture.split.prepare(); self.fixture.split.compile()
         f = self.f; m = f.state()['modules']['M001']; a = m['assignments']['BUILD1']
         receipt = execute(f.root, 'M001', 'BUILD1', 'U1', self.fixture.unit_argv(), f.target, f.base / 'unit-attempt')
-        result = stage_result(f.root, 'M001', 'BUILD1', [receipt])
+        result = stage_result(f.root, 'M001', 'BUILD1', [receipt] + self.fixture.split.receipts)  # unit row first, then build
         if accept:
             f.submit(result, a); f.call('accept', {'assignment_id': 'BUILD1'})
         return receipt, result, a

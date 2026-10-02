@@ -188,7 +188,7 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
              plan=None, plan_ref=None, plan_hash=None, build_baseline=None, accepted_task_ids=[],
              code_files=[], code_baseline=None, provider_owners=[])
     for key in ('dimension_evidence', 'effective_quality', 'context_acceptances', 'automation_retry_ready',
-                'dependency_release', 'source_context_continuation', 'change_request'):
+                'dependency_release', 'source_context_continuation', 'change_request', 'scenario_index'):
         m.pop(key, None)
 
 
@@ -689,6 +689,14 @@ def audit_scope(s):
             'stale': any(results.get(p['path_id'], {}).get('quality') == 'green-passed' for p in selected)}
 
 
+def dispatch_record(s, m, p):
+    """What every worker dispatch records, whatever its mode: the hints the host followed and what it delivered."""
+    hints = hint_record(s, m, p)
+    if hints['card_followed'] and p.get('session_id'):
+        deliver(m, reading.card(s, m, worker_step(p)), p['session_id'])
+    return {'hints': hints}
+
+
 def assign_worker(s, m, mid, p, events):
     """Shared by assign and the merged diagnosis-accept: every dispatch guard applies either way."""
     require(p.get('role') in ('implementer', 'fixer', 'test-runner'), 'unsupported worker role')
@@ -700,7 +708,7 @@ def assign_worker(s, m, mid, p, events):
         require(p.get('instance_id') != s['audit_batch']['auditor_instance_id'], 'Auditor cannot implement or author verification')
     dispatch_guard(s, m, p['role'])
     if p['role'] == 'test-runner' and tv.split(m):
-        require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> unit -> static -> automation -> visual')
+        require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> unit -> static -> automation -> visual; the build assignment carries the first three')
     if p['instance_id'] not in m['authors']:
         m['authors'].append(p['instance_id'])
     if p['role'] in ('implementer', 'fixer'):
@@ -715,12 +723,9 @@ def assign_worker(s, m, mid, p, events):
             m['fix_rounds_used'] += 1
             m['total_fix_rounds'] += 1
         m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
-    hints = hint_record(s, m, p)
-    if hints['card_followed'] and p.get('session_id'):
-        deliver(m, reading.card(s, m, worker_step(p)), p['session_id'])
     m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
         'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
-        'fencing_token': len(events) + 1, 'hints': hints, **(usage or {})}
+        'fencing_token': len(events) + 1, **dispatch_record(s, m, p), **(usage or {})}
 
 
 def mutate(s, req, principal, events, root=None):
@@ -831,12 +836,17 @@ def mutate(s, req, principal, events, root=None):
         occupied.update(path['path_id'] for other in s['modules'].values() if other['module_id'] != mid
                         and other.get('plan') for path in other['plan']['paths'])
         require(not occupied.intersection(path['path_id'] for path in plan['paths']), 'PATH IDs must be globally unique')
+        import behavior_contract
+        scenarios = behavior_contract.index(plan)
         other_scenarios = {row['scenario_id'] for other in s['modules'].values() if other['module_id'] != mid
-                           for row in (other.get('plan') or {}).get('scenario_index', [])}
-        require(not other_scenarios.intersection(row['scenario_id'] for row in plan.get('scenario_index', [])),
-                'Scenario IDs must be globally unique')
+                           for row in other.get('scenario_index', [])}
+        require(not other_scenarios.intersection(row['scenario_id'] for row in scenarios), 'Scenario IDs must be globally unique')
+        owners = reuse.selected_owners(plan)
+        if s.get('behavior_contract_required'):
+            behavior_contract.check_owners(s, owners)
         # Plan is content; the artifact remains immutable and is checked at freeze/dispatch.
-        m.update(plan=plan, plan_ref=p['plan_ref'], plan_hash=plan_hash, phase='clarifying', provider_owners=reuse.selected_owners(plan))
+        m.update(plan=plan, plan_ref=p['plan_ref'], plan_hash=plan_hash, phase='clarifying', provider_owners=owners,
+                 scenario_index=scenarios)
         if principal['instance_id'] not in m.setdefault('spec_authors', []):
             m['spec_authors'].append(principal['instance_id'])
     elif op == 'freeze':
@@ -874,12 +884,9 @@ def mutate(s, req, principal, events, root=None):
         role(principal, 'module-orchestrator')
         require(p.get('mode') in (None, 'execute', 'design'), 'unknown assignment mode')
         if design_stage.is_design(p):
-            usage = model_routing.record(p, role=p['role'])
-            hints = hint_record(s, m, p)
-            if hints['card_followed'] and p.get('session_id'):
-                deliver(m, reading.card(s, m, worker_step(p)), p['session_id'])
+            record = {**dispatch_record(s, m, p), **(model_routing.record(p, role=p['role']) or {})}
             design_stage.dispatch(s, m, p, principal, len(events) + 1)
-            m['assignments'][p['assignment_id']].update(hints=hints, **(usage or {}))
+            m['assignments'][p['assignment_id']].update(record)
         else:
             assign_worker(s, m, mid, p, events)
     elif op == 'submit':
@@ -888,7 +895,7 @@ def mutate(s, req, principal, events, root=None):
         require(principal == {'role': assignment['role'], 'instance_id': assignment['instance_id']}, 'worker identity mismatch')
         require(p.get('fencing_token') == assignment['fencing_token'], 'stale fencing token')
         if design_stage.is_design(assignment):
-            design_stage.submission(s, m, assignment, p)
+            design_stage.submission(s, m, assignment, p, principal)
         else:
             require(assignment['freeze_id'] == m['freeze_id'], 'assignment freeze stale')
             worker_phase(m, assignment)
@@ -932,16 +939,17 @@ def mutate(s, req, principal, events, root=None):
             previous_fingerprint = failure_fingerprint(m['results'])
             if tv.split(m):
                 m['results'].update({x['path_id']: {**x, 'code_baseline': m['code_baseline']} for x in result['paths']})
-                if assignment.get('test_scope') == 'build':
-                    m['build_artifacts'] = [ref for row in result['paths'] if row['quality'] == 'green-passed'
-                                            for ref in row.get('build_artifacts', [])]
-                    m['build_baseline'] = m['code_baseline'] if all(x['quality'] == 'green-passed' for x in result['paths']) else None
-                elif assignment.get('test_scope') not in ('unit', 'static') or any(x['quality'] != 'green-passed' for x in result['paths']):
+                kinds = {x['path_id']: x.get('kind') for x in m['plan']['paths']}
+                builds = [row for row in result['paths'] if kinds.get(row['path_id']) == 'build']
+                if builds:
+                    m['build_artifacts'] = [ref for row in builds if row['quality'] == 'green-passed' for ref in row.get('build_artifacts', [])]
+                    m['build_baseline'] = m['code_baseline'] if all(x['quality'] == 'green-passed' for x in builds) else None
+                if assignment.get('test_scope') != 'build' or any(x['quality'] != 'green-passed' for x in result['paths']):
                     m.pop('automation_retry_ready', None)
             else:
                 m['results'] = {x['path_id']: x for x in result['paths']}
             # Build, unit tests and static review are pre-functional gates: judge only their own paths.
-            build_only = tv.split(m) and assignment.get('test_scope') in ('build', 'unit', 'static')
+            build_only = tv.split(m) and assignment.get('test_scope') == 'build'
             bad = sorted(x['path_id'] for x in result['paths'] if x['quality'] != 'green-passed') if build_only else sorted(k for k,v in m['results'].items() if v['quality'] != 'green-passed')
             if build_only and not bad:
                 m['automation_retry_ready'] = True
@@ -953,12 +961,6 @@ def mutate(s, req, principal, events, root=None):
             m.update(stale=False, phase='dod' if tv.all_green(m) else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
             audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only,
                                         stage=assignment.get('test_scope') or 'build')
-            if (assignment.get('test_scope') in ('build', 'unit') and not bad and assignment.get('role') == 'test-runner'
-                    and tv.next_scope(m) in ('unit', 'static')):
-                # Unit tests and the static review need no device: the same Test-Runner continues under its
-                # building preflight (which pre-approved their commands); MO still accepts each result.
-                assignment.update(closed=False, test_scope=tv.next_scope(m))
-                m['submissions'].pop(aid, None)
     elif op == 'diagnose':
         role(principal, 'diagnostician', 'fixer')
         require(principal['role'] == 'diagnostician' or self_diagnosis(s, m), 'principal role denied')

@@ -89,7 +89,7 @@ def query(root, module_id, scenario_id=None, task_id=None, path_id=None, asserti
         assertions = [a['assertion_id'] for a in path.get('expected_assertions', [])]
         scenarios = [t for t in plan.get('scenario_trace', []) if any(
             a['path_id'] == pid and (not assertion_id or a['assertion_id'] == assertion_id)
-            for a in t['assertions']) or (pid == path.get('path_id') and t['scenario_id'] in path.get('scenario_ids', []))]
+            for a in t['assertions']) or path.get('kind') == 'static']
         tasks = [t['task_id'] for t in plan.get('tasks', []) if pid in t.get('path_ids', [])]
         required_tests = path.get('unit_report', {}).get('required_test_ids', [])
         actual_tests = (result or {}).get('unit_execution', {}).get('tests', [])

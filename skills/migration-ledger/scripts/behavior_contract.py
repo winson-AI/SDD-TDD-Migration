@@ -89,14 +89,36 @@ def scenario_index(plan):
     return sorted(rows, key=lambda row: row['scenario_id'])
 
 
+def index(plan):
+    """The scenario index of a plan under the contract: derived from its SPEC, never authored."""
+    return scenario_index(plan) if plan.get('behavior_contract_required') else []
+
+
+def shared_writers(state):
+    """capability_id -> the one leaf that builds a shared capability, from the registered behavior reviews."""
+    declared = {}
+    for module in {**state.get('module_groups', {}), **state['modules']}.values():
+        for row in (module.get('behavior_review') or {}).get('shared_capabilities', []):
+            declared.setdefault(row['capability_id'], set()).add(row['owner_module_id'])
+    return {cid: next(iter(owners & set(state['modules']))) for cid, owners in declared.items()
+            if len(owners & set(state['modules'])) == 1}
+
+
+def check_owners(state, selected):
+    """One capability, one owner: a reuse catalogue provider owner must be the leaf the behavior reviews name."""
+    writers = shared_writers(state)
+    require(all(row['owner'] == writers[row['capability_id']] for row in selected if row['capability_id'] in writers),
+            'shared capability owner differs from the reuse catalogue provider owner')
+
+
 def validate_plan(plan, module):
     enabled = plan.get('behavior_contract_required', False)
     require(type(enabled) is bool, 'behavior_contract_required must be boolean')
     if not enabled:
         return
-    review(module, plan.get('source_closure', {}).get('behavior_review'))
+    review(module, plan.get('source_closure'))  # the leaf's source closure is its behavior review
     index = scenario_index(plan)
-    require(plan.get('scenario_index') == index, 'scenario_index must be derived from the current OpenSpec definitions')
+    require(plan.get('scenario_index') in (None, index), 'scenario_index is derived from the OpenSpec definitions; omit it')
     scenarios = keyed(index, 'scenario_id')
     tasks, paths = keyed(plan['tasks'], 'task_id'), keyed(plan['paths'], 'path_id')
     require({r['requirement_id'] for r in index} == {r for t in tasks.values() for r in t['requirement_ids']},
@@ -125,7 +147,7 @@ def validate_plan(plan, module):
     require(required <= covered_assertions, 'behavior assertions missing scenario trace')
     statics = [p for p in paths.values() if p.get('kind') == 'static']
     require(len(statics) == 1, 'scenario contract requires one static review PATH')
-    require(statics[0].get('scenario_ids') == sorted(scenarios), 'static PATH must list all frozen scenario_ids')
+    require(statics[0].get('scenario_ids') in (None, sorted(scenarios)), 'static PATH covers every frozen scenario; omit scenario_ids')
     import unit_reports
     for path in paths.values():
         if path.get('kind') == 'unit':

@@ -79,12 +79,15 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     path = next(p for p in m['plan']['paths'] if p['path_id'] == path_id)
     is_build = path.get('kind') in ('build', 'unit')  # both execute a frozen, host-bound command
     if tv.split(m) and module_id != 'GLOBAL':
+        kind = path.get('kind') or 'automation'
         if a.get('role') == 'test-runner':
-            require(a.get('test_scope') == (path.get('kind') or 'automation'), 'path outside test assignment scope')
-            require(path.get('kind') != 'visual' or tv.functional_ready(m), 'functional tests must pass before visual')
-        require(path.get('kind') == 'build' or tv.build_ready(m), 'build must pass before automation')
-        require(path.get('kind') != 'static' or tv.unit_ready(m), 'unit tests must pass before the static review')
-        require(path.get('kind') in ('build', 'unit', 'static') or tv.static_ready(m), 'static spec review must pass before automation')
+            # The build assignment runs build, unit and static in turn; their order is judged when the result is submitted.
+            require(kind in tv.PRE if a.get('test_scope') == 'build' else a.get('test_scope') == kind, 'path outside test assignment scope')
+            require(kind != 'visual' or tv.functional_ready(m), 'functional tests must pass before visual')
+        else:
+            require(kind == 'build' or tv.build_ready(m), 'build must pass before automation')
+            require(kind != 'static' or tv.unit_ready(m), 'unit tests must pass before the static review')
+        require(kind in tv.PRE or tv.static_ready(m), 'static spec review must pass before automation')
     if is_build:
         require(argv == path['command']['argv'] and str(Path(cwd).resolve()) == str(Path(path['command']['cwd']).resolve()), 'build command differs from frozen plan')
         timeout = path['command']['timeout_seconds']
@@ -128,8 +131,10 @@ gradle.beforeProject { p ->
         query.update(assignment_id=assignment_id, test_run_id=test_run_id)
     if path.get('kind') == 'static':
         query['unit_tests_present'] = bool(tv.paths(m, 'unit'))
-        if m['plan'].get('scenario_index'):
-            query['scenario_index'] = m['plan']['scenario_index']
+        query['scenario_requirement_ids'] = sorted({r for t in m['plan']['tasks'] for r in t['requirement_ids']})
+        if m.get('scenario_index'):
+            query['scenario_index'] = m['scenario_index']
+            query['scenario_ids'] = sorted(row['scenario_id'] for row in m['scenario_index'])
     if path.get('kind') in ('automation', 'visual'):
         import ui_fidelity
         interaction = ui_fidelity.frozen_interaction(m, path)

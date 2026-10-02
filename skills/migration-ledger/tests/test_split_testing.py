@@ -8,6 +8,7 @@ import unittest
 import test_context_readiness as context_fixture
 from contracts import Rejected, read_json
 from execute_test import execute
+from test_completion import interpret
 import test_validation as tv
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'migration-test/scripts'))
@@ -58,9 +59,30 @@ class SplitTestingTests(unittest.TestCase):
         assignment = f.assign('test-runner', aid)
         command = f.state()['modules']['M001']['plan']['paths'][1]['command']
         receipt = execute(f.root, 'M001', aid, 'B1', command['argv'], command['cwd'], f.base / aid)
+        self.receipts = [receipt]  # the build stage is submitted once: later gates append their receipts
+        plan = f.state()['modules']['M001']['plan']
+        if any(p.get('kind') in ('unit', 'static') for p in plan['paths']) and \
+                interpret(read_json(receipt['path']), plan['paths'][1])['quality'] == 'green-passed':
+            return None  # the unit/static helper submits build and its own gate together
         result = stage_result(f.root, 'M001', aid, [receipt])
         f.submit(result, assignment); f.call('accept', {'assignment_id': aid})
         return result
+
+    def test_build_stage_result_covers_each_gate_until_the_first_that_is_not_green(self):
+        paths = [{'path_id': 'B1', 'kind': 'build'}, {'path_id': 'U1', 'kind': 'unit'}, {'path_id': 'S1', 'kind': 'static'},
+                 {'path_id': 'P1', 'kind': 'automation'}]
+        m = {'plan': {'paths': paths}, 'code_baseline': 'c1', 'build_baseline': None, 'results': {}}
+        green, red = {'quality': 'green-passed'}, {'quality': 'red-bug'}
+        ids = lambda tests: [p['path_id'] for p in tv.stage_paths(m, tests)]
+        self.assertEqual(ids({'B1': green, 'U1': green, 'S1': green}), ['B1', 'U1', 'S1'])
+        self.assertEqual(ids({'B1': red}), ['B1'])                       # a failed build stops the stage
+        self.assertEqual(ids({'B1': green, 'U1': red}), ['B1', 'U1'])    # static never runs on failing unit tests
+        self.assertEqual(ids({'B1': green}), ['B1', 'U1'])               # a Green build may not omit the unit tests
+        m.update(build_baseline='c1', results={'B1': {**green, 'code_baseline': 'c1'}, 'U1': {'quality': 'yellow-blocked', 'code_baseline': 'c1'}})
+        self.assertEqual(ids({'U1': green, 'S1': green}), ['U1', 'S1'])  # a retry on the same code keeps the Green build
+        self.assertEqual(tv.next_scope(m), 'build')
+        m['results'].update(U1={**green, 'code_baseline': 'c1'}, S1={**green, 'code_baseline': 'c1'})
+        self.assertEqual(tv.next_scope(m), 'automation')
 
     def defer(self):
         f = self.f

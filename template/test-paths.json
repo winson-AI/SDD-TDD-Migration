@@ -75,18 +75,11 @@
       "case_id": "CASE-GLOBAL-001",
       "requirement_id": "REQ-M001-001",
       "required": true,
-      "scenario_requirement_ids": [
-        "REQ-M001-001"
-      ],
       "expected_assertions": [
         {
           "assertion_id": "ASSERT-STATIC-M001-CLOSURE",
           "expected": true
         }
-      ],
-      "scenario_ids": [
-        "SCN-M001-001",
-        "SCN-M001-002"
       ]
     },
     {

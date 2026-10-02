@@ -106,7 +106,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 | 构建进程已退出，但结果未接受 | 当前 assignment 仍未关闭；不能开启 automation | 保存 receipt，汇总全部 build PATH，submit；MO accept |
 | build 非 Green 已接受 | 留在 testing；游标 diagnose 或 audit-defer | Diagnostician → MO diagnosis-accept → fixing 预检 → Fixer；依赖/外围或已用完本地一轮则留证待 Auditor |
 | Fixer 补丁已接受 | 新 code_baseline；旧结果 stale，旧构建失效 | 再次 building 预检及 build assignment；不得直接沿用旧 Green 或启动 automation |
-| 当前 build 全部 Green 已接受 | `build_baseline=code_baseline`；仍在 testing；下一 scope 为 unit、static（有对应 PATH 时），否则 automation | 同一 build assignment 依次切换为 unit、static scope，原 Test-Runner 先运行冻结的单测命令，再 按 [静态规格闭合](testing.md#静态规格闭合) 审查并经 execute_test 运行 spec_closure（building 预检已预批准该命令）；MO accept |
+| build、unit、static 全部 Green 已接受 | `build_baseline=code_baseline`；仍在 testing；下一 scope 为 automation | 三个环节在同一 build assignment 内顺序执行到第一个非 Green 为止，一次提交、MO 一次验收（building 预检已预批准命令），见 [静态规格闭合](testing.md#静态规格闭合) |
 | static 全部 Green 已接受 | 仍在 testing；下一 scope 为 automation | 提交单独 testing 报告，核对设备/安装包/fixture/模型/工具；MO assign automation |
 | automation 结果接受且完整 Green，存在 visual PATH | 仍在 testing；下一 scope 为 visual | MO 另派 visual assignment；Test-Runner 只读比较并留正式回执 |
 | 全部适用的 build/automation/visual 路径有效 Green | `phase=dod`；修复 memory 有完整回归后才 verified/reusable | MO 完成 DoD；父汇总，全量收尾后统一 Auditor |

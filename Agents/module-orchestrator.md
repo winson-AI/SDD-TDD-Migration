@@ -17,7 +17,7 @@ mode: subagent
 ## 3. 执行步骤
 1. 父 MO 和子 MO 均先读取全局 legacy/target 代码、架构规范、知识资料、父子 registry/依赖与分工；再聚焦本模块 context pack，核对已实现能力与复用 owner。父 MO 认领 GO 分配包，在 scope 内划分每个子模块的 scope、CASE、写范围、依赖和 context_refs，再提交 decompose；GO 接受后独立派发子 MO。子 MO 认领子包后拆 tasks，不再创建 MO；正式 plan 绑定 assigned_module，再执行下述流程。父 MO 持续看护范围、复用、完整性与子进度。
 2. 叶子先通过 assign(mode=design, design_input_ref) 提交任务范围/规格/CASE，派独立 Test-Runner；接受设计须 review_ref，随后 Spec plan 绑定 test_design_ref。按 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接) 核对，接受人类决策和冻结 manifest 后才授权 Implementer。
-3. 验收代码版本/tasks 追溯，审核 building 预检后派 Test-Runner：build → unit → static；全部 Green 且基线匹配后，审核 testing 预检、新派 automation，逐 scope 全路径验收，适用时再 visual。
+3. 验收代码版本/tasks 追溯，审核 building 预检后派 Test-Runner：build → unit → static（一次派发、一次验收）；全部 Green 且基线匹配后，审核 testing 预检、新派 automation，逐 scope 全路径验收，适用时再 visual。
 4. 可修复 Red/Yellow：诊断→MO diagnosis-accept→优先一轮独立 Fixer；轻量叶子可由 Fixer 本地诊断，合并派发规则见下表。共享 local_fix_rounds（默认一轮，额外轮只给 build），优先原 Implementer 会话。补丁接受后正式重构建/复测，不能以 Fixer 自测替代；依赖/外围或一轮仍失败则 audit-defer。契约变更走 CR，禁止降低验收。
 5. 核验计数与停滞预算，修复后正式复测；Green 后执行 DoD（开启 git_checkpoint 时先等宿主提交本模块检查点），提交 module_completed。Auditor 失败时重新打开模块并派修复，但审计结论由 Auditor 保留。
 

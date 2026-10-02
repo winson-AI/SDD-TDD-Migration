@@ -215,12 +215,11 @@ def validate_result(result, module, assignment, run_root=None):
     import test_validation as tv
     if tv.split(module) and assignment.get('role') == 'test-runner':
         scope = assignment.get('test_scope')
-        require(scope in ('build', 'unit', 'static', 'automation', 'visual'), 'test scope required')
-        require(scope == 'build' or tv.build_ready(module), 'build must pass before automation')
-        require(scope != 'static' or tv.unit_ready(module), 'unit tests must pass before the static review')
-        require(scope in ('build', 'unit', 'static') or tv.static_ready(module), 'static spec review must pass before automation')
+        require(scope in ('build', 'automation', 'visual'), 'test scope required')
+        require(scope == 'build' or tv.static_ready(module), 'build, unit tests and the static review must pass before automation')
         require(scope != 'visual' or tv.functional_ready(module), 'functional tests must pass before visual')
-        planned = {p['path_id']: p for p in tv.paths(module, scope)}
+        # One build-stage result carries build -> unit -> static and stops at the first kind that is not Green.
+        planned = {p['path_id']: p for p in (tv.stage_paths(module, tests) if scope == 'build' else tv.paths(module, scope))}
     require(set(tests) == set(planned), 'result must account for every required path')
     for pid, record in tests.items():
         quality = record.get('quality')
@@ -280,11 +279,11 @@ def validate_result(result, module, assignment, run_root=None):
                 require(quality == build_report['quality'] and record.get('root_cause') == build_report['root_cause'],
                         'unit report classification/root cause cannot be overridden')
                 require(record.get('unit_execution') == build_report['unit_execution'], 'unit execution summary changed')
-        if planned[pid].get('scenario_ids'):
+        if planned[pid].get('kind') == 'static' and module.get('scenario_index'):
             query = read_json(check_ref(receipt['query_ref']))
-            require(query.get('scenario_ids') == planned[pid]['scenario_ids'], 'static scenario selection changed')
-            if module['plan'].get('scenario_index'):
-                require(query.get('scenario_index') == module['plan']['scenario_index'], 'static scenario index differs from frozen SPEC')
+            require(query.get('scenario_ids') == sorted(row['scenario_id'] for row in module['scenario_index']),
+                    'static scenario selection changed')
+            require(query.get('scenario_index') == module['scenario_index'], 'static scenario index differs from frozen SPEC')
             require(read_json(check_ref(receipt['result_ref'])).get('producer') == 'spec-closure-check',
                     'scenario review requires spec-closure adapter')
         if captured.get('producer') == 'harmony-adapter':
