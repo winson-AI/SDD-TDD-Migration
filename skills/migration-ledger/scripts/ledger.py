@@ -1288,6 +1288,15 @@ def artifact_index(events):
     return index
 
 
+def new_snapshots(root, payload, target_root, index):
+    """Archive every ref of a payload; list what this event adds to the cumulative index.
+
+    An artifact some earlier event already archived is found through that event, so it is not listed
+    again. Drift and historical-snapshot records describe this event and are always kept."""
+    return [item for item in preserve_refs(root, payload, target_root=target_root, accepted=index)
+            if item.get('status') or (item.get('source_path'), item.get('sha256')) not in index]
+
+
 def preserve_refs(root, value, seen=None, nested=False, target_root=None, accepted=None):
     """Archive evidence bytes before commit; keep live refs for stale-code detection.
 
@@ -1472,8 +1481,7 @@ def _apply(root, req, principal):
              'timestamp': now(), 'request_id': req['request_id'], 'request_hash': request_hash,
              'actor': principal, 'operation': req['operation'], 'module_id': req.get('module_id'),
              'previous_hash': events[-1]['sha256'] if events else None, **change,
-             'artifact_snapshots': preserve_refs(root, req.get('payload', {}), target_root=s.get('target_root'),
-                                                 accepted=artifact_index(events))}
+             'artifact_snapshots': new_snapshots(root, req.get('payload', {}), s.get('target_root'), artifact_index(events))}
         e['sha256'] = digest(e)
         journal = run_storage.checked_path(root / 'ledger/events.jsonl', root)
         journal.parent.mkdir(exist_ok=True)

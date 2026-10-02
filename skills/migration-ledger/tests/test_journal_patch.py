@@ -52,6 +52,25 @@ class JournalPatchTests(unittest.TestCase):
         full = len(json.dumps(ledger.read_events(f.root)[0]))
         self.assertLess(len(json.dumps(frozen['patch'])), full / 4)
 
+    def test_an_event_lists_only_artifacts_no_earlier_event_archived(self):
+        f = self.repaired_run()
+        state, events = ledger.read_events(f.root)
+        listed = set()
+        for event in events:
+            for item in event['artifact_snapshots']:
+                if item.get('status'):
+                    continue  # drift and historical-snapshot records belong to their event
+                key = (item['source_path'], item['sha256'])
+                self.assertNotIn(key, listed)
+                listed.add(key)
+        index = ledger.artifact_index(events)
+        self.assertEqual(set(index), listed)
+        spec = state['global_spec']  # referenced again by later payloads, archived once, still found
+        self.assertIn((spec['path'], spec['sha256']), index)
+        plan_ref = state['modules']['M001']['plan_ref']
+        self.assertEqual(index[(plan_ref['path'], plan_ref['sha256'])][1]['event_id'],
+                         next(e['event_id'] for e in events if e['operation'] == 'plan'))
+
     def test_nested_removals_are_replayed(self):
         before = {'modules': {'M001': {'results': {'P1': {'quality': 'red-bug'}, 'P2': {'quality': 'green-passed'}}, 'blocked': {'kind': 'human'}},
                               'M002': {'phase': 'testing'}}, 'audit_queue': {'M001': {'reason': 'x'}}}
