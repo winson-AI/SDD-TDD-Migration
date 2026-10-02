@@ -75,7 +75,9 @@ class ContextReadinessTests(unittest.TestCase):
         if self.auto_context and stage and op not in ('freeze', 'decompose-accept'):
             producer = p.get('instance_id') if op in ('assign', 'audit-assign', 'problem-assign') else instance or role
             report = self.report(stage, module, producer, p.get('report_ref') if op == 'audit-code-review' else p.get('plan_ref'))
-            p['context_ref'] = self.record(report)
+            # An actor's own preflight rides its operation; a report another role accepts is submitted first.
+            p['context_ref'] = (self.ref(f'context-report-{self.n}.json', report) if op in cr.SELF_REPORTED
+                                else self.record(report))
         return self.raw(op, p, role=role, module=module, instance=instance, request=request)
 
     def completed(self):
@@ -100,6 +102,27 @@ class ContextReadinessTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'context readiness receipt required'):
             self.global_plan()
         self.assertIsNone(self.state()['global_plan'])
+
+    def test_own_preflight_rides_the_operation_but_another_roles_report_is_submitted_first(self):
+        self.global_plan()
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['ready']), ('plan', True))
+        self.assertTrue(step['context_gate']['with_operation'])
+        plan = self.plan(); plan_ref = self.ref('own-plan.json', plan)
+        report = self.report('planning', draft=plan_ref)
+        events = len(ledger.read_events(self.root)[1])
+        stranger = self.ref('stranger.json', {**report, 'producer': {'role': 'spec-designer', 'instance_id': 'someone-else'}})
+        with self.assertRaisesRegex(Rejected, 'identity mismatch'):
+            self.raw('plan', {'plan_ref': plan_ref, 'context_ref': stranger}, role='spec-designer')
+        self.raw('plan', {'plan_ref': plan_ref, 'context_ref': self.ref('own-report.json', report)}, role='spec-designer')
+        self.assertEqual(len(ledger.read_events(self.root)[1]), events + 1)  # report and plan in one event
+        self.assertIn('planning:spec-designer', self.state()['modules']['M001']['context_receipts'])
+        self.approve(digest(plan), 'D-own'); self.raw('freeze', {'decision_id': 'D-own'})
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['ready'], step['reason']), ('assign', False, 'context-readiness-required'))
+        coding = self.ref('coding-report.json', self.report('coding'))
+        with self.assertRaisesRegex(Rejected, 'not submitted'):  # the MO cannot register the worker's report for it
+            self.raw('assign', {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'implementer', 'context_ref': coding})
 
     def test_environment_changed_after_assignment_prevents_process_start(self):
         self.prepare(); self.implementation()

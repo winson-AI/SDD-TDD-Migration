@@ -57,9 +57,9 @@ def _selected(state, module_id):
 def _module_sequences(events):
     """A peer-only event need not invalidate an otherwise current module view."""
     previous, sequences = {}, {}
-    for event in events:
+    for event, state, changed in ledger.replay(events):
         for kind in ('modules', 'module_groups'):
-            for mid, node in event.get('effect', {}).get(kind, {}).items():
+            for mid, node in (state.get(kind, {}) if kind in changed else {}).items():
                 subject = {k: node.get(k) for k in PARENT_ALLOCATION_KEYS} if kind == 'module_groups' else node
                 if previous.get(mid) != subject:
                     sequences[mid] = event['sequence']

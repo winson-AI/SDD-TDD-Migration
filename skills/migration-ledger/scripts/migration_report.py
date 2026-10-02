@@ -122,7 +122,7 @@ def build(root, s, sequence, ref_check=check_ref):
                            'owner': mid, 'next_action': 'diagnose'})
         related = [record, (m or {}).get('blocked'), (m or {}).get('diagnosis')]
         for sub in (m or {}).get('submissions', {}).values():
-            if record.get('test_run_id') and any(r.get('test_run_id') == record['test_run_id'] for r in sub['result'].get('paths', [])):
+            if record.get('test_run_id') and record['test_run_id'] in sub.get('test_run_ids', []):
                 related.append(sub['ref'])
         if not m or audited: related.append(s.get('audit', {}).get('report_ref'))
         rows.append({'case_id': cid, 'module_id': mid, 'parent_mo_name': names.get((m or {}).get('parent_module_id')) or names.get(mid),

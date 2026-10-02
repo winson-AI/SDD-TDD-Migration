@@ -35,7 +35,7 @@ run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃
 
 ## 上下文就绪门禁
 
-全部 MO 收尾后，Auditor audit-plan 前提交 audit-analysis，audit-verdict 前提交当前证据的 audit-verdict，audit-assign 有待测路径时提交 audit-testing，空清单时提交 audit-verdict；Fixer/Testing 仍独立预检。预检不替代独立复测与裁决。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+全部 MO 收尾后，Auditor 的 audit-analysis、audit-verdict 预检随 audit-plan、audit-verdict 提交；audit-assign 有待测路径时先 context-submit audit-testing，空清单时为 audit-verdict；Fixer/Testing 仍独立预检。预检不替代独立复测与裁决。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
 
 global_test_paths 可为空，不是 Auditor 触发条件。完整规则与恢复方式见 [审计范围协议](../skills/migration-protocol/references/audit-scope.md)。
 

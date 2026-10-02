@@ -70,6 +70,8 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 **会话。** 恢复建议会话时只交尚未持有或正文已变的小节（`render --resumed`，游标的 `card_new` 给出其大小），冷启动用完整卡。任何模块请求可带顶层 `hint{session_id, card_sha256}` 报告所用会话与卡片（assign 也接受 payload 中的同名字段），与当前游标步骤一致时计入该会话已持有的小节。会话累计持有的协议文本达到阈值时，步骤带 `session_rotate`：建议按 checkpoint 冷启动该角色并交完整卡。门禁拒绝的响应与 `reports/rejected-operation.json` 带 `read_hint`（该门禁所在小节）。
 
+**机械步骤。** `mechanical=true`（全绿测试结果的 accept）时宿主以 MO 身份直接提交，不调用模型；被拒再交 MO。冻结的人工批准用 freeze 步骤的 `approval_subject_sha256`。
+
 以上都是建议：Ledger 只记录是否一致（`status.hint_adoption`），不据此拒绝派发；持续 not_followed/unreported 应在接入层修正，而不是放宽门禁。
 
 ## 本地修复单次派发

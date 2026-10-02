@@ -15,7 +15,7 @@
    影响证据按 UI → Logic → Adhesive → Resource 对照既有条目，记录新来源如何改变实现策略、适配/资源接线及 TASK/PATH 验证指导，不能只写“增加库路径”。原维度分配继续保存 scope/条目和历史分析，新策略以本次接受的影响依据和重新冻结 tasks 明确承接；若需改变 scope、条目分配或公共契约，则按下一条处理，不用来源事务隐藏范围变化。
 5. parent_reviews 覆盖全部父节点。若新来源要求修改分工/DAG/写权限，本事务不能暗改：先做具体分配方案，按现有分配流程或新 run 处理，再规划；跨模块/不确定业务边界须人工决定。当前版本没有原位重写已登记 registry 的通用操作。
 
-GO 提交 global-planning 的 context-submit（draft_ref 绑定影响报告），随后提交全局 `source-review`，payload 为 `report_ref`、`context_ref`。Ledger 接受后提供 `source_change_review.subject_sha256`；这是具体来源、全体模块/父节点当前状态、原快照、全局计划及审计状态的审批摘要。模块推进后旧评审可能过期，须重新核对，不能重用旧批准。
+GO 提交全局 `source-review`，payload 为 `report_ref`、`context_ref`（global-planning 预检，draft_ref 绑定影响报告，随该操作登记）。Ledger 接受后提供 `source_change_review.subject_sha256`；这是具体来源、全体模块/父节点当前状态、原快照、全局计划及审计状态的审批摘要。模块推进后旧评审可能过期，须重新核对，不能重用旧批准。
 
 ## 2. Host：版本事务与明确恢复
 

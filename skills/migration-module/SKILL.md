@@ -21,7 +21,7 @@ description: 模块状态机门禁、DoD、子任务验收与循环控制，用�
 禁止：看到文件已存在就标 done；先更新 Green 再补复测；恢复时清空计数。
 
 ## 4. 接口契约
-输入 assignment_ref + event_ref + absolute artifact refs；输出角色权限矩阵许可的事件及模板工件。文件已生成不等于已接受，必须收到 Ledger ACK。
+见 [共享协议·通用约定](../migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 检查
 所有转移符合状态表；冻结与完成清单分离；未解决问题都有 next_action；已用预算不会回退。

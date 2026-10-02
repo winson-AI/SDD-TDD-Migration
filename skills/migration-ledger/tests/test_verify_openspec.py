@@ -304,7 +304,7 @@ class FinalEvidenceVerificationTests(unittest.TestCase):
                 receipt = row.get('execution_receipt')
                 if receipt:
                     refs += [receipt, *verify_openspec.migration_report.refs(json.loads(Path(receipt['path']).read_text()))]
-            refs += [sub['ref'] for sub in module['submissions'].values() if sub['result']['kind'] != 'implementation']
+            refs += [sub['ref'] for sub in module['submissions'].values() if sub['kind'] != 'implementation']
         refs += [state['audit']['report_ref'], state['audit_code_review']['report_ref'],
                  *state['audit_code_review']['evidence_refs'], state['module_groups']['M010']['summary_ref']]
         for path in {ref['path'] for ref in refs}:
@@ -355,7 +355,7 @@ class FinalEvidenceVerificationTests(unittest.TestCase):
     def test_superseded_submission_is_not_a_new_final_gate(self):
         module = self.current()['modules']['M001']
         old = next(sub['ref'] for sub in module['submissions'].values()
-                   if sub['result']['kind'] == 'tests' and sub['result']['code_baseline'] != module['code_baseline'])
+                   if sub['kind'] == 'tests' and json.loads(Path(sub['ref']['path']).read_text())['code_baseline'] != module['code_baseline'])
         self.remove(old['path'])
         self.remove(self.root / 'artifacts' / old['sha256'])
         result = self.final()

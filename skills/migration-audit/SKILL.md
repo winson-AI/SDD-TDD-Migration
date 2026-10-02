@@ -21,7 +21,7 @@ description: 整体代码审查、重构/复用治理委派、独立遗留复核
 禁止：直接修改代码/测试；只接受 Fixer 回归日志；拿旧基线 Green 拼成全局全绿。
 
 ## 4. 接口契约
-输入 assignment_ref + event_ref + absolute artifact refs；输出角色权限矩阵许可的事件及模板工件。文件已生成不等于已接受，必须收到 Ledger ACK。
+见 [共享协议·通用约定](../migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 检查
 全模块遍历；遗留及受影响回归留证；同一最终基线；所有遗留问题显示；达到上限如实升级。

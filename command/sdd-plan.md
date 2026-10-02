@@ -38,7 +38,7 @@ run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃
 
 ## 本地实现接入
 
-MO assign(mode=design, design_input_ref) → 独立 Test-Runner context-submit/submit → MO accept(review_ref) → Spec plan(test_design_ref) → host decision → MO freeze。见 [编码前交接](../skills/migration-protocol/references/testing.md#编码前设计交接)和[操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主绑定真实身份并派发；控制器不自动启动 Agent 或写目标代码。
+MO assign(mode=design, design_input_ref) → 独立 Test-Runner submit（附预检）→ MO accept(review_ref) → Spec plan(test_design_ref) → host decision → MO freeze。见 [编码前交接](../skills/migration-protocol/references/testing.md#编码前设计交接)和[操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主绑定真实身份并派发；控制器不自动启动 Agent 或写目标代码。
 
 规划按三层分工推进：GO 分配模块 scope/context；父 MO 认领后拆子模块 scope/context；子 MO 拆 tasks 并组织正式六件套。父 decompose、子 plan 都绑定 status.planning_context 和 status.module_inputs 对应的 assigned_module，保留全局可读视野，执行限于分配范围。
 
@@ -46,7 +46,7 @@ MO assign(mode=design, design_input_ref) → 独立 Test-Runner context-submit/s
 
 ## 上下文就绪门禁
 
-父 decompose 前提交 decomposition 预检，子 plan 前提交 planning 预检并绑定同一 plan_ref；GO decompose-accept / 子 MO freeze 再验原报告。缺项或证据失效时不得冻结。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+decomposition 预检随父 decompose 提交，planning 预检随子 plan 提交并绑定同一 plan_ref；GO decompose-accept / 子 MO freeze 再验原报告。缺项或证据失效时不得冻结。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
 
 ## 功能清单来源与完备性
 

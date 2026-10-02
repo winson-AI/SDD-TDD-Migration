@@ -12,12 +12,6 @@
       "sha256": "{{sha256}}"
     },
     {
-      "kind": "spec",
-      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
-      "sha256": "{{sha256}}",
-      "capability": "feature-capability"
-    },
-    {
       "kind": "design",
       "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}"
@@ -33,158 +27,20 @@
       "sha256": "{{sha256}}"
     },
     {
-      "kind": "test-design",
-      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
-      "sha256": "{{sha256}}"
-    },
-    {
       "kind": "global-contract",
       "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}"
     }
   ],
-  "paths": [
-    {
-      "path_id": "BUILD-M001-001",
-      "kind": "build",
-      "name": "目标模块编译构建",
-      "case_id": "CASE-GLOBAL-001",
-      "requirement_id": "REQ-M001-001",
-      "required": true,
-      "expected_assertions": [
-        {
-          "assertion_id": "ASSERT-BUILD-M001-EXIT",
-          "expected": 0
-        }
-      ],
-      "command": {
-        "argv": [
-          "/bin/sh",
-          "{{absolute-target-root}}/gradlew",
-          "{{module-assemble-task}}"
-        ],
-        "cwd": "{{absolute-target-root}}",
-        "timeout_seconds": 900,
-        "selection_ref": {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{build-selection-report}}",
-          "sha256": "{{sha256}}"
-        }
-      }
-    },
-    {
-      "path_id": "UNIT-M001-001",
-      "kind": "unit",
-      "name": "逻辑聚焦单测",
-      "case_id": "CASE-GLOBAL-001",
-      "requirement_id": "REQ-M001-001",
-      "required": true,
-      "expected_assertions": [
-        {
-          "assertion_id": "ASSERT-UNIT-M001-CLEAN",
-          "expected": true
-        }
-      ],
-      "command": {
-        "argv": [
-          "/bin/sh",
-          "{{absolute-target-root}}/gradlew",
-          "{{module-unit-test-task}}"
-        ],
-        "cwd": "{{absolute-target-root}}",
-        "timeout_seconds": 900,
-        "selection_ref": {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{unit-test-selection-report}}",
-          "sha256": "{{sha256}}"
-        }
-      },
-      "unit_report": {
-        "format": "junit",
-        "patterns": [
-          "outputs/**/test-results/**/TEST-*.xml"
-        ],
-        "required_test_ids": [
-          "{{test-class}}#{{normal-test-name}}",
-          "{{test-class}}#{{error-test-name}}"
-        ]
-      }
-    },
-    {
-      "path_id": "STATIC-M001-001",
-      "kind": "static",
-      "name": "规格闭合静态审查",
-      "case_id": "CASE-GLOBAL-001",
-      "requirement_id": "REQ-M001-001",
-      "required": true,
-      "expected_assertions": [
-        {
-          "assertion_id": "ASSERT-STATIC-M001-CLOSURE",
-          "expected": true
-        }
-      ]
-    },
-    {
-      "path_id": "PATH-M001-001",
-      "name": "{{readable-path-name}}",
-      "case_id": "CASE-GLOBAL-001",
-      "requirement_id": "REQ-M001-001",
-      "priority": "P0",
-      "required": true,
-      "scope": "module",
-      "preconditions": [
-        "{{precondition}}"
-      ],
-      "steps": [
-        "{{step}}"
-      ],
-      "parameters": {},
-      "parameter_hash": "{{sha256}}",
-      "expected_assertions": [
-        {
-          "assertion_id": "ASSERT-M001-001",
-          "expected": "{{observable-expectation}}"
-        },
-        {
-          "assertion_id": "ASSERT-M001-002",
-          "expected": "{{boundary-or-error-expectation}}"
-        }
-      ],
-      "dependency_refs": [],
-      "script_ref": null,
-      "query": {
-        "path_id": "PATH-M001-001",
-        "name": "{{readable-path-name}}",
-        "case_id": "CASE-GLOBAL-001",
-        "parameters": {}
-      },
-      "kind": "automation"
-    }
-  ],
   "tasks": [
     {
       "task_id": "TASK-M001-001",
-      "requirement_ids": [
-        "REQ-M001-001"
-      ],
       "path_ids": [
         "BUILD-M001-001",
         "UNIT-M001-001",
         "STATIC-M001-001",
         "PATH-M001-001"
       ],
-      "global_requirement_ids": [
-        "REQ-GLOBAL-001"
-      ],
-      "scope": {
-        "in": [
-          "{{specific-task-responsibility}}"
-        ],
-        "out": [
-          "{{inherited-submodule-exclusion}}"
-        ],
-        "write_paths": [
-          "{{absolute-task-write-path-within-submodule}}"
-        ]
-      },
       "dimension_analysis": {
         "scope_sha256": "{{contracts.digest(task.scope)-after-scope-definition}}",
         "parent_ref": {

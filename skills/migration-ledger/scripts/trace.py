@@ -54,9 +54,11 @@ def node(state, module_id):
 def records(state, events, module_id, history):
     latest = node(state, module_id)
     seen, rows = set(), []
-    for event in events:
-        effect = event.get('effect', {})
-        module = node({**state, **effect}, module_id) if module_id == 'GLOBAL' and 'audit_results' in effect else effect.get('modules', {}).get(module_id)
+    for event, snapshot, changed in ledger.replay(events):
+        if module_id == 'GLOBAL':
+            module = node({**state, **{k: snapshot[k] for k in changed if k in snapshot}}, module_id) if 'audit_results' in changed else None
+        else:
+            module = snapshot['modules'].get(module_id) if 'modules' in changed else None
         if not module: continue
         for pid, result in module.get('results', {}).items():
             if module_id == 'GLOBAL' and pid not in {p['path_id'] for p in latest['plan']['paths']}:

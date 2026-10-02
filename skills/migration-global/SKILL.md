@@ -21,7 +21,7 @@ description: 功能切片、架构差异解析、DAG 与全局三态调度，用
 禁止：按目录机械拆模块、漏掉跨模块整体用例、无生产者的 Yellow 永久等待。
 
 ## 4. 接口契约
-输入 assignment_ref + event_ref + absolute artifact refs；输出角色权限矩阵许可的事件及模板工件。文件已生成不等于已接受，必须收到 Ledger ACK。
+见 [共享协议·通用约定](../migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 检查
 CASE 覆盖归属与验收角色分开：模块阶段唯一验收 owner 为对应 MO，审计阶段为对应 Auditor；当前范围完整 Green 且已有门禁满足即直接记录。跨模块 paths 保留参与者；锁相交不并行；全局测试未通过不称完成。

@@ -19,7 +19,7 @@ description: 只读根因、依赖链与生成代码缺陷归因，用于 SDD-TD
 禁止：为了定位问题先修改源码；把外部超时武断归因产品 bug；无证据声称根因确认。
 
 ## 4. 接口契约
-输入 assignment_ref + event_ref + absolute artifact refs；输出角色权限矩阵许可的事件及模板工件。文件已生成不等于已接受，必须收到 Ledger ACK。
+见 [共享协议·通用约定](../migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 检查
 证据与置信度齐全；责任范围明确；复现步骤具体；诊断过程没有代码修改。
