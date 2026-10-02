@@ -55,9 +55,20 @@ def planning_context(s):
     return result
 
 
-def check_planning_context(s, plan):
-    require(plan.get('planning_context') == planning_context(s),
-            'planning requires current global code/architecture/knowledge/allocation context')
+# The only parts of the planning context a reviewed source append changes for a module that keeps its frozen plan.
+SOURCE_KEYS = ('project_context_ref', 'reuse_sources', 'source_change_ref')
+STALE_CONTEXT = 'planning requires current global code/architecture/knowledge/allocation context'
+
+
+def context_binding(s, module):
+    """Digests of the global context and the allocation a plan or split proposal was accepted under.
+
+    Authors do not copy either object into their document: the Ledger binds what is current at
+    acceptance and compares these digests whenever the document is used again."""
+    context = planning_context(s)
+    return {'planning_context_sha256': digest(context),
+            'planning_base_sha256': digest({k: v for k, v in context.items() if k not in SOURCE_KEYS}),
+            'assigned_module_sha256': digest(assigned_module(s, module))}
 
 
 def check_scope(module):
@@ -95,26 +106,35 @@ def assigned_module(s, module):
     return result
 
 
-def check_assignment(s, module, plan):
+def check_scopes(s, module):
     check_scope(module)
     parent = s.get('module_groups', {}).get(module.get('parent_module_id'))
     if parent:
         check_scope(parent)
-    require(plan.get('assigned_module') == assigned_module(s, module),
-            'planning must acknowledge current assigned module scope and context')
+
+
+def check_assignment(s, module):
+    """The allocation a stored plan was accepted under is still the module's current one."""
+    check_scopes(s, module)
+    require((module.get('plan_binding') or {}).get('assigned_module_sha256') == digest(assigned_module(s, module)),
+            'assigned module scope or context changed after planning; replan against the current allocation')
 
 
 def check_module_plan(s, module, plan):
+    """A child's stored plan still stands on the global context and the allocation it was accepted under."""
+    binding, now = module.get('plan_binding') or {}, context_binding(s, module)
     continued = module.get('source_context_continuation', {})
     if continued and continued.get('plan_hash') == digest(plan) and continued.get('context_ref') == s.get('project_context_ref'):
         check_ref(continued['review_ref'])
-        context = copy.deepcopy(plan['planning_context'])
-        context.update(project_context_ref=s['project_context_ref'], reuse_sources=reuse.sources(s))
-        context['source_change_ref'] = continued['review_ref']
-        check_planning_context(s, {'planning_context': context})
+        require(binding.get('planning_base_sha256') == now['planning_base_sha256']
+                and planning_context(s).get('source_change_ref') == continued['review_ref'], STALE_CONTEXT)
     else:
-        check_planning_context(s, plan)
-    check_assignment(s, module, plan)
+        require(binding.get('planning_context_sha256') == now['planning_context_sha256'], STALE_CONTEXT)
+    check_assignment(s, module)
+    check_tasks(module, plan)
+
+
+def check_tasks(module, plan):
     allowed = set(module['scope']['requirement_ids'])
     requirements = set()
     for task in plan.get('tasks', []):
@@ -197,8 +217,7 @@ def validate(s, parent, plan):
     from ledger import new_module
     require(plan.get('parent_module_id') == parent['module_id'], 'decomposition parent mismatch')
     require(plan.get('rationale'), 'functional decomposition rationale required')
-    check_planning_context(s, plan)
-    check_assignment(s, parent, plan)
+    check_scope(parent)
     children = nonempty(plan.get('children'), 'submodules')
     ids = [c.get('module_id') for c in children]
     require(len(set(ids)) == len(ids), 'duplicate child module')
@@ -268,11 +287,13 @@ def handle(s, req, actor):
         role(actor, 'module-orchestrator')
         plan = read_json(check_ref(p.get('plan_ref')))
         validate(s, parent, plan)
-        parent['decomposition_submission'] = {'plan_ref': p['plan_ref'], 'actor_instance_id': actor['instance_id']}
+        parent['decomposition_submission'] = {'plan_ref': p['plan_ref'], 'actor_instance_id': actor['instance_id'],
+                                              'binding': context_binding(s, parent)}
     else:
         role(actor, 'global-orchestrator')
         submission = parent.get('decomposition_submission')
         require(submission, 'MO decomposition proposal required')
+        require(submission.get('binding') == context_binding(s, parent), STALE_CONTEXT)
         check_ref(p.get('review_ref'))
         children, graph = validate(s, parent, read_json(check_ref(submission['plan_ref'])))
         del s['modules'][mid]

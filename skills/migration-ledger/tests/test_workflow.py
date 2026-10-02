@@ -379,6 +379,33 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual((step['operation'], step['mechanical'], step['model_tier']), ('accept', True, 'low_cost'))
         self.call('accept', {'assignment_id': a['assignment_id']})  # still an MO event that re-validates the result
 
+    def test_dispatching_the_next_test_stage_is_marked_mechanical(self):
+        self.prepare()
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['worker_role']), ('assign', 'implementer'))
+        self.assertNotIn('mechanical', step)  # whom to give the code to and on what understanding is still judged
+        self.implementation()
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['worker_role'], step['mechanical']), ('assign', 'test-runner', True))
+        self.assertEqual(step['payload'], {'role': 'test-runner'})
+        # The host adds the ids it owns and submits as the module orchestrator; every assign guard still runs.
+        self.call('assign', {**step['payload'], 'assignment_id': 'TEST1', 'instance_id': 'test-runner'})
+        self.assertFalse(self.state()['modules']['M001']['assignments']['TEST1']['closed'])
+
+    def test_a_mechanical_dispatch_names_the_worker_that_preflighted_the_stage(self):
+        import test_context_readiness
+        f = test_context_readiness.ContextReadinessTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        f.prepare(); f.implementation()
+        step = f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['ready'], step['reason']), ('assign', False, 'context-readiness-required'))
+        self.assertNotIn('mechanical', step)  # nobody has preflighted the stage yet
+        ref = f.record(f.report('testing', instance='tester'))
+        step = f.state()['next_steps'][0]
+        self.assertEqual(step['mechanical'], True)
+        self.assertEqual(step['payload'], {'role': 'test-runner', 'instance_id': 'tester', 'context_ref': ref})
+        f.raw('assign', {**step['payload'], 'assignment_id': 'TEST1'})
+        self.assertEqual(f.state()['modules']['M001']['assignments']['TEST1']['instance_id'], 'tester')
+
     def test_accepting_code_or_a_failing_result_is_not_mechanical(self):
         self.prepare()
         a = self.assign('implementer', 'I1')

@@ -14,7 +14,7 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
 
 ## 3. 标准模式
-推荐：模块守卫批准的 transition 请求经校验落盘，再更新 status/global/module 投影返回 ACK。
+推荐：模块守卫提交的请求经校验落盘，再更新 status/global/module 投影返回 ACK。
 
 禁止：多个 Agent append 同一文件；用户改 status 当事实；以请求自报 actor 验证权限。
 
@@ -25,7 +25,7 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 重复提交不重复生效；失效锁拒绝；越权拒绝；空测试非 Green；重放不丢失败。
 
 ## 6. 配套资产
-使用 [主要模板](../../template/event.json)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+请求用 [ledger-request.json](../../template/ledger-request.json)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
 ## 本地工具
 
@@ -43,7 +43,7 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 
 [context_links.py](scripts/context_links.py) 将 context/files 中 Markdown 的本地链接目标一起固化，保留原始证据、生成重定位后的阅读副本及链接 manifest；OpenSpec 用同一映射更新知识链接和六件套内部跳转。宿主检查 document_link_warnings / change manifest.link_warnings，不能直接修改旧快照的正文/hash 来修链接。
 
-[decomposition.py](scripts/decomposition.py) 提供父 MO decompose、GO decompose-accept、父 MO module-summary；modules 保存叶子，module_groups 保存父节点。status.planning_context 提供父子共享全局代码/架构/知识/分工，拆分与子 plan 校验当前上下文；详见 [父子 MO 协议](../migration-protocol/references/module-decomposition.md)。
+[decomposition.py](scripts/decomposition.py) 提供父 MO decompose、GO decompose-accept、父 MO module-summary；modules 保存叶子，module_groups 保存父节点。planning_context 提供父子共享全局代码/架构/知识/分工；拆分提案与子 plan 不抄写它，Ledger 接受时绑定当前上下文与分配的摘要并在冻结、派发时复核；详见 [父子 MO 协议](../migration-protocol/references/module-decomposition.md)。
 
 复用契约纳入项目快照、plan 冻结、实现 trace 和当前证据校验；OpenSpec reuse.md 投影冻结映射。所选 provider 或接入证据变更阻止旧 Green 复用。结构校验不证明语义等价，详见 [二方库协议](../migration-protocol/references/reuse-dependencies.md)。
 
@@ -51,7 +51,7 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 
 [design_stage.py](scripts/design_stage.py) 处理 mode=design 的派发/提交/接受及 plan/freeze 绑定，不改测试质量，见 [设计交接](../migration-protocol/references/testing.md#编码前设计交接)。
 
-新运行启用 context-submit 与各原节点的 context_ref 验收，维护 context_receipts/context_acceptances 和 status.context_requirements；不把预检失败自动扩散或标作模块收尾。按 [阶段协议](../migration-protocol/references/context-readiness.md) 校验身份、必读引用、草稿与版本，保留失败与恢复证据。
+新运行启用 context-submit 与各原节点的 context_ref 验收，维护 context_receipts/context_acceptances；步骤视图的 `context` 给出本阶段要求；不把预检失败自动扩散或标作模块收尾。按 [阶段协议](../migration-protocol/references/context-readiness.md) 校验身份、必读引用、草稿与版本，保留失败与恢复证据。
 
 Auditor 收尾先接受 `audit-code-review` 的独立全模块代码审查；`audit-collect` 优先代码治理批次，再处理剩余 Red/Yellow；最终 audit-assign/audit-unavailable 均校验当前审查及无待治理发现。接口、证据和恢复见 [代码治理协议](../migration-protocol/references/audit-code-review.md)。
 

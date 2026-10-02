@@ -42,13 +42,13 @@ OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；�
 | `worker_watches` | 活动 assignment 最近一次同作用域事件后的无进展时长；宿主核实进程是否仍存活 |
 | `worker-progress-overdue` | 默认 900 秒无同作用域事件，提醒人工/宿主核实；init 可设置正整数 `worker_stall_timeout_seconds`。不是自动取消或释放锁 |
 | `operation-rejected` | 各作用域当前 revision 下被拒操作及原因分别计数；相同操作/原因累计拒绝 3 次升级人工信号，其他模块的拒绝不清零，禁止原样重试空转 |
-| `not-implemented` / `label=未实现` | MO 核验替代实现均不可行后接受的具体功能缺口；立即展示范围、核验证据及所需人工决策。无可复用库本身不构成该信号，详见 [复用协议第 8 节](reuse-dependencies.md) |
+| `not-implemented` / `label=未实现` | MO 核验替代实现均不可行后接受的具体功能缺口；立即展示范围、核验证据及所需人工决策。无可复用库本身不构成该信号，详见 [复用协议第 8 节](reuse-dependencies.md#8-复用不可行--coding确实无法实现--未实现提醒) |
 
 拒绝请求仍返回非零退出码；在日志可读、诊断可写时持久化 `reports/rejected-operation.json`，不提交业务事件、不改变质量。作用域 revision 前进后，旧拒绝不再作为当前阻塞提示。诊断是可重建/可替换的提示，不是第二条业务总线。
 
 若真实 worker 已退出但 assignment 仍活动，宿主保存退出日志并走 revoke，再根据恢复点续作或记录有证据的挂起；仍运行时先核实/停止，禁止超时后直接重授锁。父 MO/GO 不得为满足 Auditor 收尾门禁批量挂起无关模块。
 
-上述信号在 status 被调用时生成，不会自行推进工作流。可选 [watchdog](watchdog.md) 独立只读监听、留存诊断并通知；不调用 status、派发 Agent 或提交恢复操作。宿主停止或必须的人工决定未到时仍不能自行推进，门禁/权限/预算不会因为超时被绕过。
+上述信号在 status 被调用时生成，不会自行推进工作流。可选 [watchdog](watchdog.md#总则) 独立只读监听、留存诊断并通知；不调用 status、派发 Agent 或提交恢复操作。宿主停止或必须的人工决定未到时仍不能自行推进，门禁/权限/预算不会因为超时被绕过。
 
 ## 4. 自动化缺测出口
 

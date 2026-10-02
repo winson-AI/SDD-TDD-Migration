@@ -2,89 +2,25 @@
   "schema_version": 1,
   "run_id": "{{run-id}}",
   "module_id": "M001",
-  "stage": "coding",
-  "producer": {
-    "role": "implementer",
-    "instance_id": "{{host-bound-instance}}"
-  },
-  "subject_sha256": "{{status.context_requirements.M001.coding.subject_sha256}}",
-  "read_refs": [
-    {
-      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
-      "sha256": "{{sha256}}"
-    }
-  ],
+  "stage": "{{context.stage}}",
+  "producer": {"role": "{{context.producer_role}}", "instance_id": "{{host-bound-instance}}"},
+  "subject_sha256": "{{context.subject_sha256}}",
+  "read_refs": [{"path": "{{each-entry-of-context.required_input_refs-and-anything-else-actually-read}}", "sha256": "{{sha256}}"}],
+  "draft_ref": "{{global-plan/decompose/plan/audit-plan only: the plan_ref submitted with this report, also listed in read_refs}}",
+  "execution": "{{building/testing/audit-testing only: {argv, cwd, environment_ref}}}",
   "checks": {
-    "frozen-spec": {
-      "status": "blocked",
+    "{{a-key-of-context.required_checks}}": {
+      "status": "ready",
       "summary": "{{what-was-reviewed-and-understood}}",
-      "evidence_refs": [],
-      "missing": [
-        "{{required-material-or-condition}}"
-      ],
-      "owner": "{{responsible-role-or-module}}",
-      "next_action": "{{how-to-supply-or-resolve}}"
+      "evidence_refs": [{"path": "{{absolute-evidence-path}}", "sha256": "{{sha256}}"}]
     },
-    "task-trace": {
+    "{{another-key-of-context.required_checks}}": {
       "status": "blocked",
       "summary": "{{what-was-reviewed-and-understood}}",
-      "evidence_refs": [],
-      "missing": [
-        "{{required-material-or-condition}}"
-      ],
-      "owner": "{{responsible-role-or-module}}",
-      "next_action": "{{how-to-supply-or-resolve}}"
-    },
-    "source-closure": {
-      "status": "blocked",
-      "summary": "{{what-was-reviewed-and-understood}}",
-      "evidence_refs": [],
-      "missing": [
-        "{{required-material-or-condition}}"
-      ],
-      "owner": "{{responsible-role-or-module}}",
-      "next_action": "{{how-to-supply-or-resolve}}"
-    },
-    "target-feasibility": {
-      "status": "blocked",
-      "summary": "{{what-was-reviewed-and-understood}}",
-      "evidence_refs": [],
-      "missing": [
-        "{{required-material-or-condition}}"
-      ],
-      "owner": "{{responsible-role-or-module}}",
-      "next_action": "{{how-to-supply-or-resolve}}"
-    },
-    "interfaces-ownership": {
-      "status": "blocked",
-      "summary": "{{what-was-reviewed-and-understood}}",
-      "evidence_refs": [],
-      "missing": [
-        "{{required-material-or-condition}}"
-      ],
-      "owner": "{{responsible-role-or-module}}",
-      "next_action": "{{how-to-supply-or-resolve}}"
-    },
-    "reuse-mapping": {
-      "status": "blocked",
-      "summary": "{{what-was-reviewed-and-understood}}",
-      "evidence_refs": [],
-      "missing": [
-        "{{required-material-or-condition}}"
-      ],
-      "owner": "{{responsible-role-or-module}}",
-      "next_action": "{{how-to-supply-or-resolve}}"
-    },
-    "permissions-tools": {
-      "status": "blocked",
-      "summary": "{{what-was-reviewed-and-understood}}",
-      "evidence_refs": [],
-      "missing": [
-        "{{required-material-or-condition}}"
-      ],
+      "missing": ["{{required-material-or-condition}}"],
       "owner": "{{responsible-role-or-module}}",
       "next_action": "{{how-to-supply-or-resolve}}"
     }
   },
-  "verdict": "blocked"
+  "verdict": "{{blocked-if-any-check-is-blocked-else-ready}}"
 }

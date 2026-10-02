@@ -96,7 +96,7 @@ class BatchEnvelopeTests(unittest.TestCase):
     def child_plan(self, mid):
         d = self.d
         plan = d.plan(); pid = 'P1' if mid == 'M001' else 'P2'
-        plan.update(module_id=mid, planning_context=d.state()['planning_context'], assigned_module=d.state()['module_inputs'][mid])
+        plan['module_id'] = mid
         plan['paths'][0]['path_id'] = pid; plan['tasks'][0]['path_ids'] = [pid]
         d.attach_reuse(plan)
         d.call('plan', {'plan_ref': d.ref('plan-'+mid+'.json', plan)}, role='spec-designer', module=mid)

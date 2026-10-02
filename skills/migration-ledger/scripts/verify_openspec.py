@@ -275,7 +275,7 @@ def inspect(run_root, scope='projection', module_id=None):
             try:
                 ledger.current(m, observe_worker=True)
                 if scope in ('module', 'final') and m.get('scope'):
-                    decomposition.check_assignment(observed_state, m, m['plan'])
+                    decomposition.check_assignment(observed_state, m)
             except ERRORS as exc:
                 m['effective_quality'] = 'yellow-blocked'
                 invalid.append(mid)

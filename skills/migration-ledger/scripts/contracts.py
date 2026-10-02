@@ -1,7 +1,9 @@
 """Structural/evidence checks; business review and caller identity belong to the host."""
+import argparse
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 
 
@@ -321,3 +323,29 @@ def validate_result(result, module, assignment, run_root=None):
         elif quality == 'red-bug':
             require(receipt.get('exit_code') != 0 or any(a.get('passed') is False for a in assertions.values()), 'Red needs observed failure')
     return kind
+
+
+def main():
+    """Hashes for a role's artifacts, computed exactly the way the Ledger checks them."""
+    parser = argparse.ArgumentParser(description=main.__doc__)
+    sub = parser.add_subparsers(dest='command', required=True)
+    for name, text in (('ref', 'the {path, sha256} reference of each file'),
+                       ('baseline', 'code_files and code_baseline of the given code files')):
+        sub.add_parser(name, help=text).add_argument('paths', nargs='+')
+    sub.add_parser('digest', help='canonical digest of one JSON document').add_argument('path')
+    args = parser.parse_args()
+    try:
+        if args.command == 'digest':
+            out = {'sha256': digest(read_json(args.path))}
+        else:
+            refs = [file_ref(path) for path in args.paths]
+            out = refs if args.command == 'ref' else {'code_files': refs, 'code_baseline': baseline(refs)}
+        print(json.dumps(out, ensure_ascii=False))
+        return 0
+    except (Rejected, OSError, ValueError) as exc:
+        print(json.dumps({'status': 'rejected', 'reason': str(exc)}, ensure_ascii=False), file=sys.stderr)
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

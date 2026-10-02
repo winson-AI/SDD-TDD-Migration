@@ -52,19 +52,19 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 
 ## 10. Harmony 执行器
 
-HarmonyOS 路径按 [Harmony 运行协议](../skills/migration-test/references/harmony-runtime.md) 运行。内部保留 Planner/Executor/Verify、工具回放与视频验证；正式结论只采用逐条冻结 ASSERT 的本次证据。宿主绑定已部署构建与代码基线、分配设备锁；一个 PATH 一个进程。失败交回 Ledger，不在内部擅自修业务代码或调整验收。
+HarmonyOS 路径按 [Harmony 运行协议](../skills/migration-test/references/harmony-runtime.md#3-execute一条-path-到-main) 运行。内部保留 Planner/Executor/Verify、工具回放与视频验证；正式结论只采用逐条冻结 ASSERT 的本次证据。宿主绑定已部署构建与代码基线、分配设备锁；一个 PATH 一个进程。失败交回 Ledger，不在内部擅自修业务代码或调整验收。
 
 ## 专题义务
 
-细则以链接协议为准；本表只列本角色的必交证据与禁止项。本角色不修源码、资源、构建配置、SPEC 或断言；知识工具（knowledge-query/diagnose、foundation-verify）只辅助准备与归因，不替代真实回执。
+细则在所列小节（本卡已带适用的，其余按小节取）；本表只列本角色的必交证据与禁止项。本角色不修源码、资源、构建配置、SPEC 或断言；知识工具（knowledge-query/diagnose、foundation-verify）只辅助准备与归因，不替代真实回执。
 
 | 专题 | 本角色义务 | 协议 |
 | --- | --- | --- |
-| 上下文就绪 | design 提交自身 test-design 报告；执行分别 building/testing 预检，绑定实际实例/argv/cwd/environment_ref，MO assign 后才执行 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md) |
-| build / static / automation | 用户构建命令优先，否则搜索目标脚本/评估 Gradle assemble；遵守上述顺序，缺自动化环境走 automation-unavailable，逐 PATH Yellow，不影响其他模块 | [构建与自动化](../skills/migration-protocol/references/build-automation.md)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
-| 复用 fidelity | 预期来自需求与已审核的存量行为，按冻结 scenario → PATH/ASSERT 复现；真实提供方集成不能以 mock、导入或编译证据代替；依赖受阻留 Yellow 与 capability/mapping/version 根因，行为偏差为 Red | [复用](../skills/migration-protocol/references/reuse-dependencies.md) |
-| 视觉 | 功能 automation 满足后只用 compare-only/受限工具；当前 captured/round/target/index 派生 comparison_evidence，绑定冻结目标/node_ids/baseline/code/HAP/assignment/fence，ALIGNED_CARRIED 也复拍；逐项裁决 semantic，外部 capture 留[回执](../template/visual-capture-execution.json)；差异 Red、工具缺失 Yellow，无额外对齐循环 | [UI 保真](../skills/migration-protocol/references/ui-fidelity.md)、[视觉执行](../skills/migration-protocol/references/visual-execution.md)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md) |
-| 手势 | 冻结 interaction 的 Green 须核对 frozen_interaction、required_interaction、实际 action 与 observed；source-only 用 automation 的 [interaction_evidence](../template/interaction-evidence.json)，缺结构化证据记已执行 Yellow，不从 expected 合成 observed | [测试](../skills/migration-protocol/references/testing.md) |
-| 代码治理回归 | Auditor 委派的变更先构建装机，再完整复测受影响模块与依赖下游（含原 Green，关联 retest_of）；无关有效 Green 保留 | [代码治理](../skills/migration-protocol/references/audit-code-review.md) |
-| 埋点 | 只对 applicable 事件执行冻结 PATH/ASSERT，标明 emitted/sdk-dispatched/server-received 层级；截图或构建通过不能代替上报证据；观测不足记相关 PATH Yellow | [埋点](../skills/migration-protocol/references/telemetry.md) |
-| 运行环境与留存 | 首次设计转换或自动化预检前执行 `sandbox.py prepare --root <run_root>` 生成本 run 共享的 environment/config.json 与 `.env`（700/600，幂等加锁，已存在不跟随外部更新）；`.env` 内容不进 Ledger/报告/Git；所有输出（XMind、报告、录制、日志、媒体）写本轮受管目录，路径拒绝按本模块 Yellow 处理 | [Harmony 运行](../skills/migration-test/references/harmony-runtime.md)、[留存布局](../skills/migration-protocol/references/storage-layout.md) |
+| 上下文就绪 | design 提交自身 test-design 报告；执行分别 building/testing 预检，绑定实际实例/argv/cwd/environment_ref，MO assign 后才执行 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
+| build / static / automation | 用户构建命令优先，否则搜索目标脚本/评估 Gradle assemble；遵守上述顺序，缺自动化环境走 automation-unavailable，逐 PATH Yellow，不影响其他模块 | [构建与自动化](../skills/migration-protocol/references/build-automation.md#总则)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
+| 复用 fidelity | 预期来自需求与已审核的存量行为，按冻结 scenario → PATH/ASSERT 复现；真实提供方集成不能以 mock、导入或编译证据代替；依赖受阻留 Yellow 与 capability/mapping/version 根因，行为偏差为 Red | [复用](../skills/migration-protocol/references/reuse-dependencies.md#7-全局保真规范复用必须复现存量功能) |
+| 视觉 | 功能 automation 满足后只用 compare-only/受限工具；当前 captured/round/target/index 派生 comparison_evidence，绑定冻结目标/node_ids/baseline/code/HAP/assignment/fence，ALIGNED_CARRIED 也复拍；逐项裁决 semantic，外部 capture 留[回执](../template/visual-capture-execution.json)；差异 Red、工具缺失 Yellow，无额外对齐循环 | [UI 保真](../skills/migration-protocol/references/ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)、[视觉执行](../skills/migration-protocol/references/visual-execution.md#2-执行节点)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则) |
+| 手势 | 冻结 interaction 的 Green 须核对 frozen_interaction、required_interaction、实际 action 与 observed；source-only 用 automation 的 [interaction_evidence](../template/interaction-evidence.json)，缺结构化证据记已执行 Yellow，不从 expected 合成 observed | [测试](../skills/migration-protocol/references/testing.md#query) |
+| 代码治理回归 | Auditor 委派的变更先构建装机，再完整复测受影响模块与依赖下游（含原 Green，关联 retest_of）；无关有效 Green 保留 | [代码治理](../skills/migration-protocol/references/audit-code-review.md#复测与报告) |
+| 埋点 | 只对 applicable 事件执行冻结 PATH/ASSERT，标明 emitted/sdk-dispatched/server-received 层级；截图或构建通过不能代替上报证据；观测不足记相关 PATH Yellow | [埋点](../skills/migration-protocol/references/telemetry.md#5-验收层级与环境缺口) |
+| 运行环境与留存 | 首次设计转换或自动化预检前执行 `sandbox.py prepare --root <run_root>` 生成本 run 共享的 environment/config.json 与 `.env`（700/600，幂等加锁，已存在不跟随外部更新）；`.env` 内容不进 Ledger/报告/Git；所有输出（XMind、报告、录制、日志、媒体）写本轮受管目录，路径拒绝按本模块 Yellow 处理 | [Harmony 运行](../skills/migration-test/references/harmony-runtime.md#本轮共享环境准备)、[留存布局](../skills/migration-protocol/references/storage-layout.md#总则) |

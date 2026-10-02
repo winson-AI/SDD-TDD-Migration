@@ -6,7 +6,6 @@
 | --- | --- |
 | [global-input.json](global-input.json) | Global 从固定项目上下文生成本轮输入；宿主保存 input.json，Ledger 绑定引用及快照 |
 | [module-input.json](module-input.json) | Global 生成功能切片输入，Ledger 写 modules/Mxxx/_input.json |
-| [event.json](event.json) | 入站事件信封；Ledger 补服务端事件 ID/sequence/time |
 | [proposal.md](proposal.md) | Spec-Designer：六件套 proposal |
 | [spec.md](spec.md) | Spec-Designer：实例化为 specs/<capability>/spec.md 的 delta |
 | [design.md](design.md) | Spec-Designer：旧→新架构与测试设计 |
@@ -58,8 +57,8 @@
 - [project-context-request.json](project-context-request.json)：init/update 的 patch、CAS revision、幂等 ID 和用户来源引用。
 - [run-request.json](run-request.json)：本次选择、临时覆盖与宿主元数据，prepare 固化后交 Global；用户单模块选择仍只有模式和名称。
 
-- [module-decomposition.json](module-decomposition.json)：父 MO 的子功能拆分方案，绑定全局 planning_context 和认领的 assigned_module，逐子分配 scope/context_refs；GO 接受后登记独立子模块。
-- module-input 的 parent_module_id/decomposition_required、scope/context_refs 与子 stage-plan.planning_context/assigned_module 由宿主/角色填充；不增加用户入口参数。project-context.knowledge_paths 用于固化父子共享知识文档。
+- [module-decomposition.json](module-decomposition.json)：父 MO 的子功能拆分方案，逐子分配 scope/context_refs；不抄写全局上下文与分配包，Ledger 接受时绑定当前版本；GO 接受后登记独立子模块。
+- module-input 的 parent_module_id/decomposition_required、scope/context_refs 由宿主/角色填充；不增加用户入口参数。project-context.knowledge_paths 用于固化父子共享知识文档。
 
 - [reuse-source.json](reuse-source.json)：project-context/global-input.reuse_sources 的可选外部来源元素；TARGET 自动包含。
 - [reuse-catalog.json](reuse-catalog.json)：GO 的功能语义抽取目录，父/子 MO 按需求进一步核验细化。
@@ -71,7 +70,7 @@
 
 ## 上下文预检工件
 
-[context-readiness.json](context-readiness.json) 是 Coding 的 blocked 起始模板；其他 stage 根据 status.context_requirements 生成检查项，见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+[context-readiness.json](context-readiness.json) 给出报告形状；stage、摘要、检查项与必读引用取自步骤视图（`status --view step`）的 `context`，见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
 
 ## 功能清单来源与完备性
 

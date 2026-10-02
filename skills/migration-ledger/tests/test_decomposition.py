@@ -42,9 +42,7 @@ class DecompositionTests(unittest.TestCase):
                     role='global-orchestrator', module=None)
 
     def proposal(self, parent='M010', ids=('M001', 'M002'), dependencies=None):
-        return {'parent_module_id': parent, 'rationale': 'independent functional behaviors and coverage',
-                'planning_context': self.state()['planning_context'],
-                'assigned_module': self.state()['module_inputs'][parent], 'children': [
+        return {'parent_module_id': parent, 'rationale': 'independent functional behaviors and coverage', 'children': [
                     {'module_id': mid, 'name': 'subfunction-' + mid, 'case_ids': ['C1'],
                      'write_paths': [str(self.target / ('m1' if mid == 'M001' else 'm2' if mid == 'M002' else 'm1/nested'))],
                      'dependencies': (dependencies or {}).get(mid, []),
@@ -59,8 +57,7 @@ class DecompositionTests(unittest.TestCase):
     def prepare_leaf(self, mid):
         plan = self.plan()
         pid = 'P1' if mid == 'M001' else 'P2'
-        plan.update(module_id=mid, planning_context=self.state()['planning_context'],
-                    assigned_module=self.state()['module_inputs'][mid])
+        plan['module_id'] = mid
         plan['paths'][0]['path_id'] = pid
         plan['tasks'][0]['path_ids'] = [pid]
         self.attach_reuse(plan)
@@ -94,22 +91,27 @@ class DecompositionTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'parent MO only'):
             self.call('assign', {'role': 'implementer', 'assignment_id': 'BAD', 'instance_id': 'coder'}, module='M010')
 
-    def test_parent_and_child_plans_require_shared_global_context(self):
-        self.root_scope()
-        plan = self.proposal()
-        del plan['planning_context']
-        with self.assertRaisesRegex(Rejected, 'current global'):
-            self.call('decompose', {'plan_ref': self.ref('bad.json', plan)}, module='M010')
+    def test_plans_and_proposals_are_bound_to_the_context_without_copying_it(self):
+        self.root_scope('project')
         self.split(); self.global_plan()
+        context = self.state()['planning_context']
+        self.assertEqual(context['legacy_root'], str(self.legacy.resolve()))
+        self.assertIn('M002', context['modules']); self.assertIn('new_architecture', context)
         plan = self.plan()
+        self.assertNotIn('planning_context', plan); self.assertNotIn('assigned_module', plan)
+        self.call('plan', {'plan_ref': self.ref('plan-without-copies.json', plan)}, role='spec-designer')
+        s = self.state(); m = s['modules']['M001']
+        self.assertEqual(m['plan_binding'], dc.context_binding(s, m))
+        self.assertEqual(m['plan_binding']['planning_context_sha256'], digest(context))
+        self.assertEqual(m['plan_binding']['assigned_module_sha256'], digest(s['module_inputs']['M001']))
+        self.assertEqual(m['plan'], plan)  # the binding is kept beside the plan, not hashed into it
+        self.call('decision', {'decision_id': 'D', 'decision': 'approved', 'module_id': 'M001', 'subject_sha256': m['plan_hash'],
+                  'human_source_ref': self.ref('decision.md', 'approved')}, role='host', module=None)
+        # Another root changes the global context: the plan has to be made again before it can be frozen.
+        self.call('register', {'module_id': 'M020', 'name': 'Orders', 'case_ids': ['C1'],
+                  'write_paths': [str(self.target / 'orders')], 'dependencies': []}, role='global-orchestrator', module=None)
         with self.assertRaisesRegex(Rejected, 'current global'):
-            self.call('plan', {'plan_ref': self.ref('missing-context.json', plan)}, role='spec-designer')
-        plan['planning_context'] = self.state()['planning_context']
-        plan['assigned_module'] = self.state()['module_inputs']['M001']
-        self.call('plan', {'plan_ref': self.ref('with-context.json', plan)}, role='spec-designer')
-        self.assertEqual(plan['planning_context']['legacy_root'], str(self.legacy.resolve()))
-        self.assertIn('M002', plan['planning_context']['modules'])
-        self.assertIn('new_architecture', plan['planning_context'])
+            self.call('freeze', {'decision_id': 'D'})
 
     def test_scope_coverage_cycles_and_role_boundaries(self):
         self.root_scope()
@@ -163,11 +165,12 @@ class DecompositionTests(unittest.TestCase):
 
     def test_project_contains_separate_parents_and_global_context_changes_require_review(self):
         self.root_scope('project')
-        old = self.proposal()
+        self.call('decompose', {'plan_ref': self.ref('split-before-change.json', self.proposal())}, module='M010')
         self.call('register', {'module_id': 'M020', 'name': 'Orders', 'case_ids': ['C1'],
                   'write_paths': [str(self.target / 'orders')], 'dependencies': ['M010']}, role='global-orchestrator', module=None)
+        # The proposal was accepted under the context before M020 existed; the parent MO has to resubmit it.
         with self.assertRaisesRegex(Rejected, 'current global'):
-            self.call('decompose', {'plan_ref': self.ref('stale-context.json', old)}, module='M010')
+            self.call('decompose-accept', {'review_ref': self.ref('stale-review.md', 'reviewed')}, role='global-orchestrator', module='M010')
         self.split()
         self.assertEqual(self.state()['modules']['M020']['dependencies'], ['M001', 'M002'])
         self.assertIn('M020', self.state()['planning_context']['modules'])
@@ -181,10 +184,9 @@ class DecompositionTests(unittest.TestCase):
         self.global_plan(); self.prepare_leaf('M001')
         self.assertEqual(self.state()['modules']['M001']['plan']['tasks'][0]['task_id'], 'T1')
 
-    def test_parent_must_acknowledge_allocation_and_preserve_business_scope(self):
+    def test_parent_split_preserves_business_scope(self):
         self.root_scope()
         for change, error in (
-            (lambda p: p.pop('assigned_module'), 'acknowledge current assigned'),
             (lambda p: p['children'][0]['scope'].update(requirement_ids=['OTHER']), 'outside parent scope'),
             (lambda p: p['children'][0]['scope'].update(out=[]), 'retain parent exclusions'),
             (lambda p: p['children'][0].update(context_refs=[]), 'focused module context'),
@@ -202,14 +204,10 @@ class DecompositionTests(unittest.TestCase):
     def test_child_tasks_and_tests_cannot_expand_assigned_scope(self):
         self.root_scope(); self.split(); self.global_plan()
         for change, error in (
-            (lambda p: p.pop('assigned_module'), 'acknowledge current assigned'),
-            (lambda p: p['assigned_module']['scope'].update(requirement_ids=['OTHER']), 'acknowledge current assigned'),
             (lambda p: p['tasks'][0].update(global_requirement_ids=['OTHER']), 'outside assigned submodule'),
             (lambda p: p['paths'][0].update(case_id='OTHER'), 'test cases outside assigned'),
         ):
             plan = self.plan()
-            plan.update(planning_context=self.state()['planning_context'],
-                        assigned_module=self.state()['module_inputs']['M001'])
             change(plan)
             with self.subTest(error=error), self.assertRaisesRegex(Rejected, error):
                 self.call('plan', {'plan_ref': self.ref('task-'+str(self.n)+'.json', plan)}, role='spec-designer')
@@ -245,7 +243,6 @@ class DecompositionTests(unittest.TestCase):
         parent = s['modules']['M010']
         parent['scope']['requirement_ids'].append('R2')
         plan = self.proposal()
-        plan.update(planning_context=dc.planning_context(s), assigned_module=dc.assigned_module(s, parent))
         with self.assertRaisesRegex(Rejected, 'cover every parent requirement'):
             dc.validate(s, parent, plan)
         self.split()
@@ -253,9 +250,8 @@ class DecompositionTests(unittest.TestCase):
         child = s['modules']['M001']
         child['scope']['requirement_ids'].append('R2')
         plan = self.plan()
-        plan.update(planning_context=dc.planning_context(s), assigned_module=dc.assigned_module(s, child))
         with self.assertRaisesRegex(Rejected, 'cover assigned submodule requirements'):
-            dc.check_module_plan(s, child, plan)
+            dc.check_tasks(child, plan)
 
     def test_parent_summary_is_bound_to_current_children(self):
         self.root_scope(); self.split(); self.global_plan()

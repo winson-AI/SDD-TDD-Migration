@@ -80,12 +80,6 @@
   "owner": "M001",
   "parent_module_id": null,
   "decomposition_required": true,
-  "planning_context": {
-    "source": "Ledger status.planning_context; host replaces with the current full object"
-  },
-  "assigned_module": {
-    "source": "Ledger status.module_inputs[module_id]; includes parent_context for child MOs"
-  },
   "feature_inventory_ref": {
     "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{accepted-feature-inventory}}",
     "sha256": "{{sha256}}"

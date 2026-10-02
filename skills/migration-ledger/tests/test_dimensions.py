@@ -77,8 +77,7 @@ class DimensionTests(unittest.TestCase):
     def leaf_plan(self):
         f = self.f
         p = f.plan()
-        p.update(planning_context=f.state()['planning_context'], assigned_module=f.state()['module_inputs']['M001'],
-                 dimension_analysis_ref=f.state()['modules']['M001']['dimension_analysis_ref'])
+        p['dimension_analysis_ref'] = f.state()['modules']['M001']['dimension_analysis_ref']
         _, items = dimensions.load(p['dimension_analysis_ref'], 'M001')
         p['dimension_trace'] = [{'item_id': iid, 'task_ids': ['T1'], 'path_ids': ['P1'],
                                'assertions': [{'path_id': 'P1', 'assertion_id': 'A1'}]} for iid in items]

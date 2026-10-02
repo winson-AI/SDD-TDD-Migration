@@ -2,7 +2,7 @@
 
 ## 总则
 
-父 MO 统一命名 `parent-mo-<module_id>`，例如 parent-mo-M010；宿主读取 status.parent_mo_names，并在创建/恢复时保持可见名称一致。GO 收尾必须向用户提供全部测试 CASE 状态，非 Green 汇总原因与证据；读取 Ledger 生成的 status.migration_report，不省略缺测、不用构建 Green 代替功能验证。
+父 MO 统一命名 `parent-mo-<module_id>`，例如 parent-mo-M010；宿主读取父步骤的 agent_name，并在创建/恢复时保持可见名称一致。GO 收尾必须向用户提供全部测试 CASE 状态，非 Green 汇总原因与证据；读取 Ledger 生成的 `<run_root>/reports/migration-report.md` 与 `.json`，不省略缺测、不用构建 Green 代替功能验证。
 
 ## 必须展示的信号
 
@@ -18,7 +18,7 @@ GO 在本轮成功完成、带自动化缺测结束或需人工处理而停止�
 ## 生成与交付节点
 
 - 宿主接受 Ledger 事件或执行 `ledger.py status --root <run_root>` 时，重建 `reports/migration-report.json` 和 `reports/migration-report.md`。
-- `status.migration_report` 返回两份文件的绝对路径和 sequence。它们同属该次状态快照，可由事件日志重新生成；GO 不手工修改投影或覆盖模块验收。
+- full 视图的 `migration_report` 给出两份文件的绝对路径和 sequence。它们同属该次状态快照，可由事件日志重新生成；GO 不手工修改投影或覆盖模块验收。
 - GO 等 MO 收尾、Auditor 处理和父汇总完成后读取报告，在对用户的收尾回复中给出 CASE 状态统计、完整报告链接及非 Green 原因/证据摘要。未解决 Red/Yellow 不得因进入报告阶段而转为 Green。
 - 若需保留一次交付版本，宿主按原有工件归档规则保存带 sequence 的报告快照。恢复执行后实时投影会更新，旧 Ledger 事件与原始证据仍保留。
 

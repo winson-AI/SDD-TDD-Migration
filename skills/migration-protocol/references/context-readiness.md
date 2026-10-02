@@ -31,12 +31,12 @@
 
 ## 3. 报告与传递
 
-模板：[context-readiness.json](../../../template/context-readiness.json)。stage 的精确必需检查项由 `status.context_requirements[GLOBAL|module_id][stage]` 给出，禁止直接复用 Coding 示例冒充其他阶段报告。
+模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256、必需检查项与必读引用取自步骤视图（`status --view step`）的 `context`；checks 的键必须与其 required_checks 完全一致。
 
 报告包含：
 
 - `schema_version/run_id/module_id/stage/producer`：实际身份与作用域；全局 module_id=null。
-- `subject_sha256`：复制当前 status 给出的上下文摘要；绑定分配、冻结、代码、依赖或审计批次，不绑定无关兄弟的进度。
+- `subject_sha256`：复制 `context.subject_sha256`；绑定分配、冻结、代码、依赖或审计批次，不绑定无关兄弟的进度。
 - `read_refs`：实际核对的绝对 path/sha256；必须包含 `required_input_refs`。读取引用指向的正文及其必需材料，不能只复制路径。
 - `draft_ref`：global-plan/decompose/plan/audit-plan 必须绑定正在提交的同一 plan_ref，且列入 read_refs。
 - `checks`：每项 `status=ready|blocked`、具体理解摘要；ready 必须给 evidence_refs，blocked 必须给 missing/owner/next_action。

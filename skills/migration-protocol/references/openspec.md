@@ -31,7 +31,7 @@ scenario_trace 将每个场景关联 task_ids、assertions[{path_id,assertion_id
 2. Spec-Designer 把明确的问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复须绑定 question_id、spec_revision、内容摘要。既有明确答复可复用，若绑定内容已变则重新裁决。
 3. 冻结 manifest 列出 proposal、所有 delta specs、design、tasks 定义、checklist 定义、test design 与全局输入契约的实际 path+sha256。保留不可变副本，生成 freeze_id/spec_revision。
 4. `status`、tasks 完成勾选、checklist 证据等运行字段不纳入语义冻结 hash；冻结的原始定义始终存在不可变 artifacts。动态视图可按已固化映射重定位文档链接及更新运行勾选，不得改变需求、设计和断言语义。验证时比较定义快照，不以可变文件整体 hash 误判失效。
-5. Human R1/R2 批准具体 manifest；MO 独立核验 checklist 后接受 freeze；Ledger 提交 freeze_accepted 并物化状态。Spec-Designer 不能自批。
+5. Human R1/R2 批准具体 manifest；MO 独立核验 checklist 后提交 freeze；Ledger 接受后物化状态。Spec-Designer 不能自批。
 6. 每次编码/修复验证当前冻结引用与 assignment 输入一致。缺失/摘要不符停止，不得自行补成“已冻结”。
 
 ## 变更控制
@@ -77,7 +77,7 @@ build 与 automation PATH 分别冻结命令/断言；自动化环境缺失保�
 
 ## 四维完整性索引
 
-按 [四维协议](dimension-slicing.md) 冻结 dimension_analysis_ref、dimension_trace 及先划定的 tasks.scope / 随后生成的任务 dimension_analysis；design/spec/tasks 都保留适用 item ID，N/A 的源码依据写入设计。Ledger 从不可变分析生成 dimensions.md。它是辅助索引，不替代六件套或正式验证。
+按 [四维协议](dimension-slicing.md#7-任务级四维分析契约) 冻结 dimension_analysis_ref、dimension_trace 及先划定的 tasks.scope / 随后生成的任务 dimension_analysis；design/spec/tasks 都保留适用 item ID，N/A 的源码依据写入设计。Ledger 从不可变分析生成 dimensions.md。它是辅助索引，不替代六件套或正式验证。
 
 ## OpenSpec 自动物化
 

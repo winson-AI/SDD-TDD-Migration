@@ -113,10 +113,10 @@ class ReadingCardTests(unittest.TestCase):
         self.assertIn('template/implementation.md', f.state()['next_steps'][0]['templates'])
 
     def test_a_rendered_card_has_no_link_into_a_whole_protocol_file(self):
-        text = reading.unlink('见 [状态机](state-machine.md)、[有限循环](state-machine.md#有限循环)、[模板](../../../template/fix-note.json) 和 [官网](https://example.invalid/x)。',
-                              reading.P + 'testing.md')
+        text = reading.unlink('见 [状态机](state-machine.md)、[有限循环](state-machine.md#有限循环)、[模板](../../../template/fix-note.json)、'
+                              '[清单](../../../template/checklist.md) 和 [官网](https://example.invalid/x)。', reading.P + 'testing.md')
         self.assertEqual(text, '见 状态机、有限循环（skills/migration-protocol/references/state-machine.md § 有限循环）、'
-                               '模板（template/fix-note.json） 和 [官网](https://example.invalid/x)。')
+                               '模板（template/fix-note.json）、清单（template/checklist.md） 和 [官网](https://example.invalid/x)。')
         import tempfile
         for role in reading.ROLE:
             rows = reading.card({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': role, 'test_scope': 'automation'})
@@ -125,6 +125,51 @@ class ReadingCardTests(unittest.TestCase):
             self.assertEqual(re.findall(r'\]\((?![a-z]+:)[^)]*\)', body), [], role)
             self.assertIn('reading.py show', body)
             self.assertIn('- template/x.json', body)
+
+    def test_no_card_names_a_whole_protocol_file(self):
+        """A link in a card selects a section or names a template; a role is never sent to a whole protocol file."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            analysis = Path(tmp) / 'dimensions.json'
+            analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable'}]}))
+            s = {'reuse_required': True, 'dependency_resolution_required': True, 'fixer_self_diagnosis': True}
+            m = {'lean_leaf': True, 'audit_batch_id': 'B1',
+                 'plan': {'dimension_analysis_ref': {'path': str(analysis)}, 'telemetry': {'status': 'applicable'}}}
+            operations = set(reading.AUDIT_OPS) | set(reading.MO_OPS) | {
+                None, 'register', 'global-plan', 'source-review', 'reconfigure-sources', 'audit-code-review', 'plan', 'diagnose', 'decision'}
+            steps = [{'role': role, 'operation': op} for role in reading.ROLE for op in operations]
+            steps += [{'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': role, 'test_scope': scope,
+                       'mode': 'design' if scope == 'design' else None}
+                      for role in reading.ROLE for scope in (None, *reading.TEST_SCOPE)]
+            whole = set()
+            for step in steps:
+                for row in reading.card(s, m, step):
+                    base = (reading.PACKAGE / row['ref']).parent
+                    for label, target in re.findall(r'\[([^\]]+)\]\(([^)\s]+)\)', reading.text_of(row)):
+                        path, _, anchor = target.partition('#')
+                        resolved = (base / path).resolve() if path else (reading.PACKAGE / row['ref']).resolve()
+                        if re.match(r'[a-z]+:', target) or resolved.suffix != '.md' or not resolved.is_relative_to(reading.PACKAGE):
+                            continue
+                        rel = str(resolved.relative_to(reading.PACKAGE))
+                        if rel.startswith('template/') and rel != 'template/INDEX.md':
+                            continue  # a template is instantiated as a file
+                        if not (anchor and reading._heading_of(rel, anchor)):
+                            whole.add((row['ref'], row['section'], label, rel))
+            self.assertEqual(sorted(whole, key=str), [])
+            self.assertTrue(any(row['ref'].endswith('ui-fidelity.md') for row in reading.card(s, m, {'role': 'spec-designer', 'operation': 'plan'})))
+
+    def test_a_card_carries_an_agent_without_its_pointer_only_sections(self):
+        row = next(r for r in reading.card({}, None, {'role': 'implementer', 'operation': 'submit'}) if r['ref'] == 'Agents/implementer.md')
+        text = reading.text_of(row)
+        self.assertNotIn('Used Skills', text)
+        for title in ('## 4. 规则优先级', '## 5. 阻塞与异常', '## 7. 输出格式'):
+            self.assertNotIn(title, text)  # these only point at the shared conventions, which the card holds
+        self.assertIn('## 9. Checkpoints', text); self.assertIn('## 6. 硬约束', text)
+        definition = reading.section('Agents/implementer.md')  # the definition itself keeps them
+        self.assertIn('## 8. Used Skills', definition); self.assertIn('## 7. 输出格式', definition)
+        runner = next(r for r in reading.card({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner',
+                                                         'test_scope': 'build'}) if r['ref'] == 'Agents/test-runner.md')
+        self.assertIn('## 5. 阻塞与异常', reading.text_of(runner))  # a section with rules of its own stays
 
     def test_skills_contribute_their_rules_not_their_boilerplate(self):
         skill = 'skills/migration-test/SKILL.md'

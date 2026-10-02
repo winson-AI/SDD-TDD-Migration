@@ -10,14 +10,14 @@ description: /sdd-status <run-id> — 冷读全局与模块状态
 `/sdd-status <run-id>`
 
 ## 2. 编排步骤
-1. 读取 [AGENTS.md](../AGENTS.md)、[运行协议](../skills/migration-protocol/references/runtime.md)，解析参数为绝对路径及规范 ID。
+1. 读取[四条红线](../AGENTS.md#四条红线)、[调用约定](../AGENTS.md#调用约定)和[宿主的轮询与派发](../skills/migration-protocol/references/host-integration.md#提示采纳回报)，解析参数为绝对路径及规范 ID；协议其余部分按小节取（`reading.py show`），不整份加载。
 2. 前置门控：run 的事实日志可读；投影缺失/过期时只能由 Ledger 重建。
 3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
 4. 查询 Ledger 的可信投影。只读汇总模块 phase/execution_status/quality、Red/Yellow 路径、root cause、依赖、预算与 next_action；不能触发测试、修复或推进。
 5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
 
 ## 3. 调用契约
-目标角色：[Ledger](../Agents/ledger.md)。宿主用实际可用的任务工具启动，参数只有 package_root、assignment_ref、event_ref；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
+目标角色：[Ledger](../Agents/ledger.md)。宿主用实际可用的任务工具启动，只传 package_root、run_root、module_id 与阅读卡路径；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
 
 ## 4. 参数验证
 run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃逸。JSON 中占位符、未决必填值、零必需用例不能作为有效运行输入。status 可读取尚未完成的输入状态。
@@ -34,7 +34,7 @@ run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃
 status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接受回执。
 
 ## 7. 对应规格
-[状态机](../skills/migration-protocol/references/state-machine.md)、[OpenSpec 契约](../skills/migration-protocol/references/openspec.md)。
+[编排游标](../skills/migration-protocol/references/local-runtime.md#编排游标)、[进度信号](../skills/migration-protocol/references/progress-recovery.md#3-宿主必须消费的进度信号)。
 
 ## 8. 自查
 参数与前置有效；工具实际存在；没有越权写入；回执来源可信；恢复指令与 phase 一致。
@@ -47,14 +47,14 @@ ledger.py status；若 observed_invalidations 非空交守卫处理。具体 pay
 
 同时展示 module_rounds 的 registered/settled/unfinished/active/ready 模块清单及 blockers。quality 为全局聚合，不代表每个模块的测试结果或执行结束；必须分别展示各模块 phase/quality。遇到 await-all-module-rounds 时，按 continue_modules 继续执行、按 wait_for_modules 等待结果，不把等待审计的状态回写为其他模块失败。
 
-本命令是一次冷读，用 `--view full`（含 `module_inputs`、`planning_context`、`parent_mo_names`、`migration_report`、`openspec_binding` 与信号证据）；单模块可用 `--view module --module <id>`。宿主运行中的轮询改用 `--view cursor --since <last_sequence>`。status.module_inputs 给出每个父/子 MO 的权威 scope、context_refs、CASE、写范围和依赖；子包包含 parent_context。它与全局 planning_context 一起用于认领、规划与核对范围，不代表已启动 Agent。
+本命令用游标视图（`--view cursor`：各模块 phase/quality 摘要、步骤、module_rounds 与进度信号）；展开单个模块用 `--view step --module <id>`（本步、预检要求、权威分配包；规划类步骤另带 planning_context）或 `--view module --module <id>`（模块正文）。`--view full` 随模块数增长，只供脚本处理，不整份读入上下文。分配包与 planning_context 用于认领、规划与核对范围，不代表已启动 Agent。
 
-同时输出 `parent_mo_names`（父 MO 统一名，如 parent-mo-M010）与 `migration_report` 的 JSON/Markdown 绝对路径和 sequence。报告包含全部 CASE/PATH 状态与非 Green 原因/证据；运行中报告明确 in-progress，不作为完成验收。GO 收尾使用 [报告协议](../skills/migration-protocol/references/migration-report.md)。
+同时输出父 MO 统一名（父步骤的 agent_name，如 parent-mo-M010）与迁移报告 `<run_root>/reports/migration-report.md`、`.json`（内含 sequence）。报告包含全部 CASE/PATH 状态与非 Green 原因/证据；运行中报告明确 in-progress，不作为完成验收。GO 收尾使用 [报告协议](../skills/migration-protocol/references/migration-report.md#总则)。
 
-必须展示 `workflow_progress.state/signals/runnable_actions/worker_watches` 及其报告路径；`notify_user=true` 时明确告知用户受影响模块、owner、原因/证据和下一步，不能只返回 ready=false。该命令只查询；真正恢复和继续调度由宿主/编排器按 [进度恢复协议](../skills/migration-protocol/references/progress-recovery.md) 执行。仅 automation 缺测按既有出口推进到 Auditor，最终 Yellow 缺测收尾不会被当作无动作死锁。
+必须展示 `workflow_progress.state/signals/runnable_actions/worker_watches` 及其报告路径；`notify_user=true` 时明确告知用户受影响模块、owner、原因/证据和下一步，不能只返回 ready=false。该命令只查询；真正恢复和继续调度由宿主/编排器按 [进度恢复协议](../skills/migration-protocol/references/progress-recovery.md#总则) 执行。仅 automation 缺测按既有出口推进到 Auditor，最终 Yellow 缺测收尾不会被当作无动作死锁。
 
 遇到 `reason=not-implemented`，突出展示“未实现”及受影响 REQ/CASE/TASK、替代实现核验证据和所需人工决策；同时链接 GO 报告的 unimplemented 清单。不能把一般复用失败或自动化未执行解释为未实现。
 
 只读投影巡检用 `verify_openspec.py --root <run> --scope projection`（与 status 分开）；模块推进用 module，公共基础用 global，最终交付用 final。未通过时读取 failures 的范围和 recovery_action，不把局部视图错误等同整轮绕过 Ledger。核验不改状态，也不证明真实派发或功能通过。见 [核验范围](sdd-verify.md)。
 
-同时读取 status 的 `openspec_binding`：`location=top-level` 表示已绑定预备布局、投影落顶层 openspec；`location=in-run-fallback` 表示未 prepare/未绑定 project_context_ref，OpenSpec 落在 run 内回退目录，须走预备管道后再收尾，不能当作已完成。
+OpenSpec 入口为顶层 `openspec/runs/<run_id>/workflow.md`；该文件不存在而 run 内出现 openspec 目录，说明未 prepare/未绑定 project_context_ref，须走预备管道后再收尾，不能当作已完成（接入自检见[宿主接入](../skills/migration-protocol/references/host-integration.md#4-判定与红线)）。

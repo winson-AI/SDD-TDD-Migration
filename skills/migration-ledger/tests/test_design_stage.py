@@ -18,8 +18,8 @@ def start_design(f, plan, mid='M001', designer='designer'):
     s = f.state(); m = s['modules'][mid]
     for task in plan['tasks']:
         task.setdefault('scope', {'in': ['Implement allocated behavior'], 'out': [], 'write_paths': m['write_paths']})
-    inp = {'schema_version': 1, 'module_id': mid, 'planning_context': s['planning_context'],
-           'assigned_module': s['module_inputs'][mid], 'spec_refs': [r for r in plan['definitions'] if r['kind'] == 'spec'],
+    inp = {'schema_version': 1, 'module_id': mid, 'subject_sha256': design_stage.subject(s, m),
+           'spec_refs': [r for r in plan['definitions'] if r['kind'] == 'spec'],
            'case_refs': [s['global_spec']], 'tasks': copy.deepcopy(plan['tasks'])}
     ref = f.ref(f'design-input-{mid}-{f.n}.json', inp)
     aid = f'DESIGN-{mid}-{f.n}'
@@ -184,6 +184,26 @@ class DesignStageTests(unittest.TestCase):
             f.call('plan', {'plan_ref': f.ref('old-plan.json', plan)}, role='spec-designer')
         self.assertEqual(f.state()['next_steps'][0]['mode'], 'design')
 
+    def test_design_input_cites_the_cursor_subject_instead_of_copying_the_context(self):
+        f = self.f
+        s = f.state(); s['test_design_required'] = True; m = s['modules']['M001']
+        step = ledger.next_step(s, m)
+        self.assertEqual((step['operation'], step['mode']), ('assign', 'design'))
+        self.assertEqual(step['input_subject_sha256'], design_stage.subject(s, m))
+        plan = f.plan()
+        for task in plan['tasks']:
+            task['scope'] = {'in': ['fixture'], 'out': [], 'write_paths': m['write_paths']}
+        inp = {'schema_version': 1, 'module_id': 'M001', 'tasks': plan['tasks'],
+               'spec_refs': [r for r in plan['definitions'] if r['kind'] == 'spec'], 'case_refs': [s['global_spec']]}
+        for subject in (None, '0' * 64):
+            doc = {**inp, 'subject_sha256': subject} if subject else inp
+            with self.subTest(subject=subject), self.assertRaisesRegex(Rejected, 'allocation/context stale'):
+                f.call('assign', {'assignment_id': 'BAD-' + str(f.n), 'role': 'test-runner', 'mode': 'design', 'instance_id': 'designer',
+                                 'design_input_ref': f.ref(f'input-{f.n}.json', doc)})
+        f.call('assign', {'assignment_id': 'DESIGN', 'role': 'test-runner', 'mode': 'design', 'instance_id': 'designer',
+                         'design_input_ref': f.ref('input.json', {**inp, 'subject_sha256': step['input_subject_sha256']})})
+        self.assertEqual(f.state()['modules']['M001']['assignments']['DESIGN']['input_subject'], step['input_subject_sha256'])
+
     def test_tampered_input_is_visible_and_does_not_crash_status(self):
         f = self.f; a, result = start_design(f, f.plan())
         Path(a['design_input_ref']['path']).write_text('{}')
@@ -213,8 +233,7 @@ class DesignStageTests(unittest.TestCase):
         s = f.state(); plan = f.plan()
         for task in plan['tasks']:
             task['scope'] = {'in': ['fixture'], 'out': [], 'write_paths': s['modules']['M001']['write_paths']}
-        inp = {'schema_version': 1, 'module_id': 'M001', 'planning_context': s['planning_context'],
-               'assigned_module': s['module_inputs']['M001'], 'tasks': plan['tasks'],
+        inp = {'schema_version': 1, 'module_id': 'M001', 'subject_sha256': design_stage.subject(s, s['modules']['M001']), 'tasks': plan['tasks'],
                'spec_refs': [r for r in plan['definitions'] if r['kind'] == 'spec'], 'case_refs': [s['global_spec']]}
         with self.assertRaisesRegex(Rejected, 'independent'):
             f.call('assign', {'assignment_id': 'OWN-DESIGN', 'role': 'test-runner', 'mode': 'design',

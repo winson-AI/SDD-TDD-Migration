@@ -1,8 +1,7 @@
 {
   "schema_version": 1,
   "module_id": "M001",
-  "planning_context": {"source": "replace with current status.planning_context"},
-  "assigned_module": {"source": "replace with current status.module_inputs.M001"},
+  "subject_sha256": "{{step.input_subject_sha256}}",
   "spec_refs": [{"kind": "spec", "capability": "feature", "path": "{{absolute-run-root}}/staging/{{spec-agent}}/{{revision}}/spec.md", "sha256": "{{sha256}}"}],
   "case_refs": [{"path": "{{absolute-run-root}}/context/files/{{case-sha256}}.json", "sha256": "{{case-sha256}}"}],
   "tasks": [{
