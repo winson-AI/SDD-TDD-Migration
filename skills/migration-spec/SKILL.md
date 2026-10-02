@@ -19,7 +19,7 @@ description: OpenSpec 六件套、plan 澄清冻结和 CR 影响分析，用于 
 禁止：把 status/checklist 说成 OpenSpec 内置功能；只冻结文件名不冻结内容；修复时直接改验收。
 
 ## 4. 接口契约
-输入 assignment_ref + event_ref + absolute artifact refs；输出角色权限矩阵许可的事件及模板工件。文件已生成不等于已接受，必须收到 Ledger ACK。
+见 [共享协议·通用约定](../migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 检查
 六件套与全局契约对应；每个问题有决定；任务有范围/依赖/证据；变更重新冻结。

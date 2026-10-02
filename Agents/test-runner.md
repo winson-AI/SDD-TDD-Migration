@@ -21,7 +21,7 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 1. design：读取 Ledger mode=design assignment 的 design_input_ref，仅从规格与用例生成预期覆盖，不运行代码；提交自身 test-design 预检及 kind=test-design 结果，等 MO review/accept 后交 Spec 冻结。设计 build 命令、Logic 的 unit 命令、static 和 automation 路径，每个 CASE 有业务路径。见 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接)。
 ### 构建
 2. 代码接受后提交 building 预检；MO assign 后 execute_test 直接执行冻结 argv/cwd/timeout，无 query 参数。
-3. 全部 build PATH 的退出码、日志与回执经 MO 接受；build_baseline 必须匹配 code_baseline。
+3. 全部 build PATH 的退出码、日志与回执随构建阶段结果一并提交；build_baseline 必须匹配 code_baseline。
 4. 非 Green 留根因，诊断→MO→独立 Fixer；补丁接受后重新预检/构建/正式复测，Fixer 自测不能替代。
 ### 单测与静态审查
 5. building 预批准 unit/static 命令；同一 build assignment 在 build 全绿后继续按 [逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测) 核验本轮 JUnit ID/数量/required_test_ids，再按 [静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) 独立审查逐 Scenario 生产符号与假实现，经 execute_test 执行；build、unit、static 到第一个非 Green 为止合成一份结果提交，MO 一次验收。禁止代码作者代审或仅凭 exit 0 通过。

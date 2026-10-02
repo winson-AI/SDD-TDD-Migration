@@ -54,7 +54,7 @@ Global 选择 ready 模块 → MO assign/accept。具体 payload/命令用法见
 
 ## 上下文预检调度
 
-先读 context_gate/context_requirements。原操作因 context-readiness-required 未就绪时，宿主启动该角色只读预检，提交 context-submit 后重读 revision，再携 context_ref 执行原操作。不得因 ready=false 停止补上下文或提前审计；缺项由 MO 按自身证据明确挂起。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+先读 context_gate/context_requirements。原操作因 context-readiness-required 未就绪时，宿主启动该角色只读预检，context-submit 后重读 revision，再携 context_ref 执行原操作；`with_operation=true` 的报告随原操作提交。不得因 ready=false 停止补上下文或提前审计；缺项由 MO 按自身证据明确挂起。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
 
 ## 命名与收尾信号
 

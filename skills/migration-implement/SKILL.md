@@ -19,7 +19,7 @@ description: 冻结任务驱动的 legacy 迁移、新架构实现和双向追�
 禁止：复制旧架构到目标绕过新边界；缺 tasks 就临时扩大任务；未生成代码便运行测试。
 
 ## 4. 接口契约
-输入 assignment_ref + event_ref + absolute artifact refs；输出角色权限矩阵许可的事件及模板工件。文件已生成不等于已接受，必须收到 Ledger ACK。
+见 [共享协议·通用约定](../migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 检查
 冻结/锁有效；静态检查与单测证据真实；所有代码变动有任务；未越权更新规范；`authoring_diagnostics` 已提交（诊断通过，或不可用时版本敏感 API 引用固定版本源码）。

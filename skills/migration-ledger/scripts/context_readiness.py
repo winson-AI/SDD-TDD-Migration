@@ -27,6 +27,9 @@ ROLES = {stage: ('auditor' if stage.startswith('audit-') else
                   'coding': 'implementer', 'building': 'test-runner', 'testing': 'test-runner', 'test-design': 'test-runner', 'fixing': 'fixer'}[stage])
          for stage in CHECKS}
 GLOBAL = {stage for stage in CHECKS if stage.startswith(('global-', 'audit-'))}
+# The actor that preflights is the actor that acts: its report is registered with the operation itself.
+# Stages another role accepts (coding, building, testing, fixing, audit-testing) still need a prior context-submit.
+SELF_REPORTED = ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'audit-code-review')
 WORKERS = {'implementer': 'coding', 'test-runner': 'testing', 'fixer': 'fixing'}
 
 
@@ -108,8 +111,7 @@ def input_refs(s, mid, stage):
             refs.append(m['design_input_ref'])
             assignment = next((a for a in reversed(list(m['assignments'].values()))
                                if a.get('mode') == 'design'), {})
-            design_input = assignment.get('input_content', {})
-            refs += design_input.get('spec_refs', []) + design_input.get('case_refs', [])
+            refs += assignment.get('input_refs', [])
         if stage == 'planning' and m.get('accepted_test_design'):
             refs.append(m['accepted_test_design']['result_ref'])
         refs += m.get('context_refs', [])
@@ -186,8 +188,10 @@ def submit(s, req, actor):
     # Most recent receipt for this role instance wins; an old ready report cannot
     # bypass a newer missing-context report from the same instance.
     key = stage + ':' + actor['instance_id']
+    # The receipt is the hash-bound reference; the report itself stays in its file and archive.
     scope(s, mid).setdefault('context_receipts', {})[key] = {
-        'report_ref': copy.deepcopy(p['report_ref']), 'report': report}
+        'report_ref': copy.deepcopy(p['report_ref']), 'stage': stage,
+        'producer': copy.deepcopy(report['producer']), 'verdict': report['verdict']}
 
 
 def requirement(op, p, s=None):
@@ -212,7 +216,7 @@ def validate(s, mid, stage, ref, instance=None, draft=None, allow_blocked=False)
     require(producer.get('role') == ROLES[stage], 'wrong context producer role')
     require(instance is None or producer.get('instance_id') == instance, 'context receipt belongs to another worker')
     receipt = scope(s, mid).get('context_receipts', {}).get(stage + ':' + producer.get('instance_id', ''))
-    require(receipt and receipt['report_ref'] == ref and receipt['report'] == report, 'context receipt not submitted/current')
+    require(receipt and receipt['report_ref'] == ref, 'context receipt not submitted/current')
     require(report['subject_sha256'] == subject(s, mid, stage), 'context subject stale; re-read and resubmit')
     require(report['verdict'] == 'ready' or allow_blocked, 'context blocked; record suspension or resolve missing inputs')
     if draft:
@@ -239,6 +243,8 @@ def gate(s, req, actor):
         instance = actor['instance_id']
     draft = p.get('plan_ref') if op in ('global-plan', 'decompose', 'plan', 'audit-plan') else obj.get('plan_ref') if op == 'freeze' else None
     if op in ('source-review', 'audit-code-review'): draft = p.get('report_ref')
+    if op in SELF_REPORTED and obj.get('context_receipts', {}).get(stage + ':' + instance, {}).get('report_ref') != ref:
+        submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor)
     validate(s, mid, stage, ref, instance, draft)
     obj.setdefault('context_acceptances', {})[op] = {'report_ref': copy.deepcopy(ref), 'accepted_by': copy.deepcopy(actor)}
 
@@ -269,7 +275,7 @@ def annotate(s, mid, step):
         original = 'plan' if step['operation'] == 'freeze' else 'decompose'
         accepted = scope(s, mid).get('context_acceptances', {}).get(original, {}).get('report_ref')
     for receipt in scope(s, mid).get('context_receipts', {}).values():
-        if receipt['report']['stage'] != stage:
+        if receipt['stage'] != stage:
             continue
         if step.get('operation') in ('freeze', 'decompose-accept') and receipt['report_ref'] != accepted:
             continue
@@ -295,6 +301,9 @@ def annotate(s, mid, step):
                     return step
                 except (Rejected, OSError, ValueError):
                     pass
+        if step.get('operation') in SELF_REPORTED:
+            step['context_gate']['with_operation'] = True  # the report rides the operation: pass it as context_ref
+            return step
         step.update(ready=False, reason='context-readiness-required', context_next_action='context-submit or record explicit blocker')
         if step.get('operation') in ('freeze', 'decompose-accept'):
             step['context_next_action'] = 'refresh context-submit and resubmit plan/decompose, or record explicit blocker'

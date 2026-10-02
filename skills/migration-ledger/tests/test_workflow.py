@@ -370,6 +370,35 @@ class WorkflowTests(unittest.TestCase):
         self.assertGreaterEqual(step['session_rotate']['delivered_bytes'], 1000)
         self.assertIn('must_read', step)  # advice only: the full card is still offered for a cold start
 
+    def test_accepting_an_all_green_test_result_is_marked_mechanical(self):
+        self.prepare(); self.implementation()
+        a, result = self.make_test_result()
+        self.assertNotIn('mechanical', self.state()['next_steps'][0])  # await-result: nothing submitted yet
+        self.submit(result, a)
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['mechanical'], step['model_tier']), ('accept', True, 'low_cost'))
+        self.call('accept', {'assignment_id': a['assignment_id']})  # still an MO event that re-validates the result
+
+    def test_accepting_code_or_a_failing_result_is_not_mechanical(self):
+        self.prepare()
+        a = self.assign('implementer', 'I1')
+        source = self.target / 'm1/code.py'; source.parent.mkdir(exist_ok=True); source.write_text('value = 2\n')
+        refs = [file_ref(source)]
+        from contracts import baseline
+        self.submit({'schema_version': 1, 'kind': 'implementation', 'run_id': 'demo', 'module_id': 'M001', 'assignment_id': 'I1',
+                     'actor_instance_id': 'implementer', 'freeze_id': a['freeze_id'], 'code_files': refs, 'code_baseline': baseline(refs),
+                     'task_trace': [{'task_id': 'T1', 'files': [str(source)]}],
+                     'production_binding_evidence': self.ref('binding.txt', 'real binding reviewed'),
+                     'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': self.ref('diag.log', '0 errors')}}, a)
+        step = self.state()['next_steps'][0]
+        self.assertEqual(step['operation'], 'accept'); self.assertNotIn('mechanical', step)
+        self.call('accept', {'assignment_id': 'I1'})
+        a, result = self.make_test_result(quality='red-bug')
+        result['paths'][0]['root_cause'].update(category='code', confidence='confirmed')
+        self.submit(result, a)
+        step = self.state()['next_steps'][0]
+        self.assertEqual(step['operation'], 'accept'); self.assertNotIn('mechanical', step)
+
     def test_workflow_cost_counts_dispatches_receipts_and_repairs(self):
         self.failed_module(); self.diagnose(); self.implementation('fixer', 'F1')
         cost = self.state()['workflow_cost']

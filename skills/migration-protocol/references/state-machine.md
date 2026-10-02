@@ -101,7 +101,7 @@ OpenSpec 六件套和修复 memory 已由 Ledger 自动投影；版本化定义�
 
 ## 上下文门禁嵌入原状态机
 
-各阶段先通过 context-submit 留证，原 plan/freeze/assign/audit 操作接受报告；该事件不改变业务 phase、不消费修复预算、不直接赋予 Green。缺失经既有 suspend/audit-defer/audit-block 记录后才可作为明确收尾；无关兄弟继续。详见 [上下文就绪协议](context-readiness.md)。
+各阶段的预检报告经 Ledger 留证（执行者自己的操作随操作登记，其余先 context-submit），原 plan/freeze/assign/audit 操作接受报告；该事件不改变业务 phase、不消费修复预算、不直接赋予 Green。缺失经既有 suspend/audit-defer/audit-block 记录后才可作为明确收尾；无关兄弟继续。详见 [上下文就绪协议](context-readiness.md)。
 
 ## 自动化缺测与代码依赖就绪
 

@@ -66,6 +66,70 @@ def refresh(s):
                     and s.get('audit', {}).get('quality') == 'green-passed' else 'yellow-blocked')
 
 
+PATCH_DEPTH = 4  # top-level key -> module id -> module field -> entry; an entry is recorded whole
+
+
+def journal_diff(before, after, depth=PATCH_DEPTH):
+    """What one event changed: nested values to set plus key paths to delete.
+
+    The journal then grows with the change, not with the whole state of every module."""
+    changed, removed = {}, []
+    for key, value in after.items():
+        if key not in before:
+            changed[key] = value
+        elif before[key] != value:
+            if depth > 1 and isinstance(before[key], dict) and isinstance(value, dict):
+                changed[key], gone = journal_diff(before[key], value, depth - 1)
+                removed += [[key] + path for path in gone]
+            else:
+                changed[key] = value
+    removed += [[key] for key in before if key not in after]
+    return changed, removed
+
+
+def _merge(target, change, depth):
+    for key, value in change.items():
+        if depth > 1 and isinstance(value, dict) and isinstance(target.get(key), dict):
+            child = dict(target[key])  # copy on write: the old object may belong to an earlier event
+            _merge(child, value, depth - 1)
+            target[key] = child
+        else:
+            target[key] = value
+
+
+def _remove(target, path):
+    if len(path) == 1:
+        target.pop(path[0], None)
+    elif isinstance(target.get(path[0]), dict):
+        child = dict(target[path[0]])
+        _remove(child, path[1:])
+        target[path[0]] = child
+
+
+def apply_change(state, event):
+    """Advance a replayed state by one event; returns the top-level keys it changed.
+
+    Events written before patches existed carry the changed top-level keys whole in `effect`."""
+    if 'patch' in event:
+        patch = event['patch']
+        _merge(state, patch['set'], PATCH_DEPTH)
+        for path in patch['del']:
+            _remove(state, path)
+        return {*patch['set'], *(path[0] for path in patch['del'])}
+    state.update(event['effect'])
+    return set(event['effect'])
+
+
+def replay(events):
+    """Yield (event, state after it, changed top-level keys) for readers of history.
+
+    The state dict is reused between events; nested objects it yielded earlier are never mutated."""
+    state = {}
+    for event in events:
+        changed = apply_change(state, event)
+        yield event, state, changed
+
+
 def read_events(root):
     root = Path(root).resolve()
     path = run_storage.checked_path(root / 'ledger/events.jsonl', root)
@@ -79,9 +143,8 @@ def read_events(root):
         require(digest(body) == e['sha256'] and e['previous_hash'] == prev, 'journal integrity failure')
         require(e['sequence'] == len(events) + 1, 'journal sequence failure')
         if state is None:
-            state = dict(e['effect'])  # Replaying later effects must not rewrite the first historical event.
-        else:
-            state.update(e['effect'])
+            state = {}  # Replaying later events must not rewrite the first historical event.
+        apply_change(state, e)
         events.append(e)
         prev = e['sha256']
     return state, events
@@ -422,6 +485,9 @@ def _next_step(s, m):
         step.update(operation='accept' if submitted else 'await-result',
                     role='module-orchestrator' if submitted else active['role'], ready=submitted,
                     reason=None if submitted else 'worker-running')
+        if submitted and m['submissions'][active['assignment_id']].get('green'):
+            # Nothing to judge: accept re-validates the result, so the host may submit it without a model turn.
+            step['mechanical'] = True
         if design_stage.is_design(active):
             step.update(mode='design', test_scope='design')
             if not design_stage.valid(s, m, active):
@@ -463,7 +529,9 @@ def _next_step(s, m):
         step.update(operation='freeze', role='module-orchestrator', ready=bool(decision) or eligible,
                     payload={'decision_id': decision['decision_id']} if decision else
                             {'change_class': 'within-envelope', 'impact_ref': impact} if eligible else {},
-                    reason=None if decision or eligible else 'approval-or-impact-review-required')
+                    reason=None if decision or eligible else 'approval-or-impact-review-required',
+                    # What a human approval or an impact review binds: the hash of the plan as the Ledger completed it.
+                    approval_subject_sha256=m['plan_hash'])
         if design_stage.required(s, m) and not design_stage.ready(s, m):
             step.update(operation='invalidate', ready=True, reason='independent-test-design-stale',
                         payload={'reason': 'independent-test-design-stale'})
@@ -535,6 +603,11 @@ def _next_step(s, m):
     if affinity:
         step['session_affinity'] = affinity
     return step
+
+
+def all_green_tests(result):
+    return (result.get('kind') == 'tests' and bool(result.get('paths'))
+            and all(row.get('quality') == 'green-passed' for row in result['paths']))
 
 
 def suggested_session(s, m, role):
@@ -820,7 +893,7 @@ def mutate(s, req, principal, events, root=None):
         require(not m.get('blocked'), 'resolve module blocker before planning')
         require(not m.get('decomposition_required') and not m.get('decomposition_submission'), 'finish MO decomposition before leaf SPEC planning')
         require(m['phase'] in ('context', 'specifying', 'clarifying', 'change-review'), 'plan not editable in this phase')
-        plan = read_json(check_ref(p['plan_ref']))
+        plan = design_stage.materialize(s, m, read_json(check_ref(p['plan_ref'])))
         design_stage.plan_check(s, m, plan, principal['instance_id'])
         if s.get('behavior_contract_required'):
             require(plan.get('behavior_contract_required') is True, 'plan must declare the behavior contract')
@@ -905,7 +978,10 @@ def mutate(s, req, principal, events, root=None):
             if s.get('write_scope_check') and result.get('kind') == 'implementation':
                 require(p.get('write_scope_ref'), 'write_scope_ref required: host write-scope delta receipt')
                 write_scope.verify(s, m, assignment, result, read_json(check_ref(p['write_scope_ref'])))
-            m['submissions'][p['assignment_id']] = {'ref': p['result_ref'], 'result': result}
+            # The submission is the hash-bound reference plus what the cursor and the report need from it.
+            m['submissions'][p['assignment_id']] = {
+                'ref': p['result_ref'], 'kind': result.get('kind'), 'green': all_green_tests(result),
+                'test_run_ids': [row.get('test_run_id') for row in result.get('paths', [])] if result.get('kind') == 'tests' else []}
     elif op == 'accept':
         role(principal, 'module-orchestrator')
         aid = p['assignment_id']
@@ -919,8 +995,7 @@ def mutate(s, req, principal, events, root=None):
         worker_phase(m, assignment)
         dependencies_ready(s, m)
         sub = m['submissions'][aid]
-        check_ref(sub['ref'])
-        result = sub['result']
+        result = read_json(check_ref(sub['ref']))
         kind = validate_result(result, m, assignment, run_root=root)
         assignment['closed'] = True
         if kind == 'implementation':
@@ -1383,12 +1458,20 @@ def _apply(root, req, principal):
             scope = (s['modules'].get(req.get('module_id')) or s.get('module_groups', {}).get(req.get('module_id'))) if req.get('module_id') else s
             require(scope is not None and req.get('expected_revision') == scope['revision'], 'stale revision')
             mutate(s, req, principal, events, root)
-        # Store immutable event facts, not a second mutable state authority.
-        effect = s if before is None else {k:v for k,v in s.items() if before.get(k) != v}
+        # Store immutable event facts, not a second mutable state authority: the first event carries the
+        # initial state, every later one only what it changed.
+        if before is None:
+            change = {'effect': s}
+        else:
+            after = json.loads(json.dumps(s, ensure_ascii=False))  # compare what a replay will actually read
+            changed, removed = journal_diff(before, after)
+            change = {'patch': {'set': changed, 'del': removed}}
+            apply_change(before, change)
+            require(before == after, 'journal patch does not reproduce the committed state')
         e = {'schema_version': 1, 'event_id': f'E{len(events)+1:08d}', 'sequence': len(events)+1,
              'timestamp': now(), 'request_id': req['request_id'], 'request_hash': request_hash,
              'actor': principal, 'operation': req['operation'], 'module_id': req.get('module_id'),
-             'previous_hash': events[-1]['sha256'] if events else None, 'effect': effect,
+             'previous_hash': events[-1]['sha256'] if events else None, **change,
              'artifact_snapshots': preserve_refs(root, req.get('payload', {}), target_root=s.get('target_root'),
                                                  accepted=artifact_index(events))}
         e['sha256'] = digest(e)

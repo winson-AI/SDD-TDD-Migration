@@ -52,7 +52,7 @@ Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/
 
 人类批准 `decision_envelope`：scope、acceptance、allowed_alternatives、forbidden_changes。默认禁止未经批准更换数据提供方、缩减范围、降低验收或引入重大排除。判断是否越界由 Spec-Designer 提交证据、MO 审查；hash 不能证明语义合规。
 
-初次批准绑定完整 stage-plan digest（六件套引用、PATH/断言、tasks、闭包、可行性、envelope），执行绑定 freeze_id。证据/状态更新不改定义；任务细化走 CR。within-envelope 保留原 envelope 及完整 PATH/预期断言集合，MO 审阅后发布新执行基线，不伪造新人工批准。
+初次批准绑定 Ledger 补全后的 stage-plan digest（六件套引用、PATH/断言、tasks、闭包、可行性、envelope；即 freeze 游标的 approval_subject_sha256），执行绑定 freeze_id。证据/状态更新不改定义；任务细化走 CR。within-envelope 保留原 envelope 及完整 PATH/预期断言集合，MO 审阅后发布新执行基线，不伪造新人工批准。
 
 快速通道使用 [change-impact.json](../../../template/change-impact.json)，绑定 from_freeze_id、to_plan_hash。只有当前 CR 的同一 impact_ref 能冻结该计划；再次修改需重审，散文记录不授权再冻结。成功后 CR 进入 change_request_history；invalidate 随 planning_history 留存并清除当前 CR。初始/边界外冻结仍需真实人工决定。
 

@@ -5,7 +5,6 @@
     "schema_version",
     "module_id",
     "definitions",
-    "paths",
     "tasks",
     "source_closure",
     "target_feasibility",
@@ -39,7 +38,7 @@
     },
     "definitions": {
       "type": "array",
-      "minItems": 7,
+      "minItems": 5,
       "items": {
         "type": "object",
         "required": [
@@ -56,11 +55,13 @@
             "pattern": "^[0-9a-f]{64}$"
           }
         }
-      }
+      },
+      "description": "proposal, design, tasks, checklist and global-contract; the Ledger adds spec and test-design from the accepted design"
     },
     "paths": {
       "type": "array",
-      "minItems": 1
+      "minItems": 1,
+      "description": "Completed by the Ledger from the accepted test design; if present it must equal that design"
     },
     "tasks": {
       "type": "array",

@@ -22,10 +22,10 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 |
 | --- | ---: |
-| migration-ledger/tests | 764 |
+| migration-ledger/tests | 775 |
 | migration-test/tests | 47 |
 | runtime/harmony/tests | 128 |
-| 合计 | **939** |
+| 合计 | **950** |
 
 全部无失败、无跳过。适配器夹具仍有既有 engine.log ResourceWarning，不影响断言。系统 python3 低于 3.11 时改用 Harmony sandbox 的解释器，并让它能导入已安装的 pytest；不为此安装依赖。
 
@@ -33,7 +33,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 范围 | 实际验证 |
 | --- | --- |
-| 编码前独立设计 | assign(mode=design) → submit（预检报告随提交登记，一个事件）→ MO accept(review_ref) 走原 Ledger；Spec plan/freeze 绑定同一规格、任务范围与预期 PATH/ASSERT；设计不能执行或带实际断言；缺预检、角色重叠、错身份/围栏、覆盖缺失、输入漂移均拒绝；撤销/失效回规划并保留历史，不改 CASE 质量或兄弟状态；prepare 固定的门禁不能关闭 |
+| 编码前独立设计 | assign(mode=design) → submit（预检报告随提交登记，一个事件）→ MO accept(review_ref) 走原 Ledger；Spec plan/freeze 绑定同一规格、任务范围与预期 PATH/ASSERT；设计不能执行或带实际断言；缺预检、角色重叠、错身份/围栏、覆盖缺失、输入漂移均拒绝；撤销/失效回规划并保留历史，不改 CASE 质量或兄弟状态；prepare 固定的门禁不能关闭；plan 可只引用已接受设计，PATH/ASSERT、任务范围与 spec 定义由 Ledger 补全，携带且不一致的部分被拒，批准绑定补全后 plan 的摘要（freeze 游标的 approval_subject_sha256） |
 | 行为契约与场景追溯 | GO/父 MO/子 MO 行为审阅按 scope/REQ/CASE 校验；共享能力按父子归属解析唯一执行 owner，跨模块集成 CASE 归消费者，无关模块证据漂移不阻塞当前模块；SPEC 每个 Scenario-ID 派生并冻结到 TASK/PATH/ASSERT，缺场景、重复 ID、过期索引和以构建替代行为断言均拒绝；scenario_index 与静态审查范围由 Ledger 从 SPEC 派生，plan 携带过期或不全的值被拒；叶子的 source_closure 即其行为审阅；复用目录的 provider owner 与行为审阅解析出的叶子 owner 不一致时拒绝 |
 | 单测报告核验 | JUnit 核验本次 attempt 的测试 ID、计数、报告 hash 与执行身份；零执行、跳过、缺损、错选、过期、越界证据不为 Green，断言失败为 Red，进程信号中断为 Yellow；Gradle 追加 --rerun-tasks --no-build-cache |
 | 日志与按需追溯 | 进程退出前可读双流日志，大输出不依赖内存缓冲；超时、取消、硬终止保留不完整标记，原终止/验收规则不变；capture 引用与身份在接受时复核；trace 只读已提交事件索引对应的归档，按 Scenario/TASK/PATH/ASSERT/测试 ID 过滤并分页、限字节，实时观察标为未验收，查询不取业务锁、不写文件；watchdog 可观察输出但不以此替代存活证明 |
@@ -51,13 +51,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 精简状态与拒绝提示 | `status --view cursor/module` 不含模块正文、卡片行清单与信号证据，卡片只给字节数与小节数（单模块夹具 13.7KB → 1.8KB）；`--since` 命中当前 sequence 时只返回 unchanged 与信号摘要（约 0.4KB），有新事件即返回完整游标；未知模块或视图被拒；拒绝记录带 `read_hint`，每个提示指向真实小节 |
 | 闭包提前审计 | 独立同伴运行中时，已交 Auditor 模块的闭包可先 problem-audit，且只锁闭包；消费者的其他依赖仍在运行时拒绝；最终全量审计仍等待全部收尾 |
 | 轻量叶子与批量信封 | lean_leaf 登记需 scope/context/不可再拆审阅；本地轮由 Fixer 自诊断（`fixer_self_diagnosis` 对全部模块开启），未开启的普通模块拒绝；批量信封绑定文件 hash 与父的孩子，条目完全匹配且 MO 附 review_ref 才冻结 |
-| 构建阶段一次验收 | build、unit、static 在同一派发内顺序执行，一份结果、一次验收；结果必须覆盖到第一个非 Green 环节为止的全部待测 PATH，build 未过不得带单测行、build 全绿不得省略单测；同一代码上重试不重跑已 Green 的环节；单测失败为 code Red 且先于设备自动化；自动化环境缺失时单测 Green 保留；applicable 的 Logic 项须有 unit PATH 或不适用依据；绿色叶子 19 个事件、4 次派发 |
+| 构建阶段一次验收 | build、unit、static 在同一派发内顺序执行，一份结果、一次验收；结果必须覆盖到第一个非 Green 环节为止的全部待测 PATH，build 未过不得带单测行、build 全绿不得省略单测；同一代码上重试不重跑已 Green 的环节；单测失败为 code Red 且先于设备自动化；自动化环境缺失时单测 Green 保留；applicable 的 Logic 项须有 unit PATH 或不适用依据；绿色叶子 18 个事件、4 次派发 |
 | 崩溃归类与视觉聚焦 | 候选 App 启动后退出记 Red 候选而非环境缺测，只读设备查询超时重试一次；纯视觉诊断只接受 1–2 条结构化问题 |
 | 写范围核验 | 开启后范围内未申报的改动、范围外未授权的改动、缺少或过期的回执均拒收；派发前的脏文件与工作流资产不计入 |
 | 变体冲突 | runtime-spec-variant-conflict 规范化为确认的 human 根因，游标给出 suspend(kind=human)，拒绝派发 Fixer |
 | Git 检查点 | 仅在运行分支提交模块文件、既有脏文件不暂存、重复执行复用 HEAD；伪造 blob 被 Ledger 拒绝；开启后无检查点不能 complete |
 | 独立审计 | 实现者/修复者/测试作者不能兼任 Auditor；审计只复核遗留并按依赖补回归 |
 | 事件与恢复 | 同请求幂等、同 ID 改内容拒绝、过期 revision 拒绝、并发 CAS 单赢家；投影崩溃可重放、伪改投影无效 |
+| 事件日志与状态 | 首个事件记录初始状态，其后每个事件只记录变化；写入前校验补丁能还原已提交状态，重放结果与投影的全局状态一致；模块事件不重写兄弟模块或未变的计划；嵌套删除可重放；整键写法的事件仍可重放并可在其上续写；重放不改写已读事件；状态只保存预检报告、提交结果与设计输入的哈希引用，验收时重读文件，被改动即拒收 |
+| 预检随操作与机械验收 | 执行者自己的预检报告随 plan/register/global-plan/decompose 等操作登记，他人的报告或跨角色阶段未先提交即拒绝；全绿测试结果的 accept 游标带 mechanical，代码结果与非全绿结果不带 |
 | 依赖/锁/身份 | 未完成生产者不放行；重叠写路径拒绝并行；revoke 后旧 worker 拒收；会话替换需 checkpoint |
 | 并行隔离 | 单模块失败/挂起不回写兄弟；全部 MO 收尾后才启动 Auditor |
 | 项目上下文 | prepare 固化配置/文档/知识快照；配置更新只影响新 run；快照篡改拒绝 |

@@ -61,8 +61,8 @@ def dispatch(s, m, p, actor, sequence):
     require(m['phase'] in PHASES and not m.get('blocked') and not m.get('decomposition_required'), 'design requires an unblocked planning leaf')
     require(not any(not a.get('closed') for a in m['assignments'].values()), 'worker still active')
     require(p.get('assignment_id') and p['assignment_id'] not in m['assignments'] and p.get('instance_id'), 'invalid/duplicate design assignment')
-    spec_authors = set(m.get('spec_authors', [])) | {r['report']['producer']['instance_id']
-        for r in m.get('context_receipts', {}).values() if r['report']['stage'] == 'planning'}
+    spec_authors = set(m.get('spec_authors', [])) | {r['producer']['instance_id']
+        for r in m.get('context_receipts', {}).values() if r['stage'] == 'planning'}
     require(p['instance_id'] != actor['instance_id'] and p['instance_id'] not in spec_authors and
             not any(a['role'] in ('implementer', 'fixer') and a['instance_id'] == p['instance_id'] for a in m['assignments'].values()),
             'design author must be independent of MO, Spec and code authors')
@@ -77,7 +77,7 @@ def dispatch(s, m, p, actor, sequence):
     m['design_input_ref'] = copy.deepcopy(p['design_input_ref'])
     m['assignments'][p['assignment_id']] = {**copy.deepcopy(p), 'run_id': s['run_id'], 'module_id': m['module_id'],
         'freeze_id': None, 'code_baseline': None, 'closed': False, 'fencing_token': sequence,
-        'input_subject': subject(s, m), 'input_content': inputs,
+        'input_subject': subject(s, m), 'input_refs': copy.deepcopy(inputs['spec_refs'] + inputs['case_refs']),
         'assigned_by': copy.deepcopy(actor), 'resume_phase': m['phase']}
     for key in ('authors', 'design_authors'):
         if p['instance_id'] not in m.setdefault(key, []):
@@ -134,7 +134,7 @@ def submission(s, m, a, p, actor=None):
             # The designer's read-only preflight rides its submit: one event carries the report and the result.
             context_readiness.submit(s, {'payload': {'report_ref': p['context_ref']}, 'module_id': m['module_id']}, actor)
         context_readiness.validate(s, m['module_id'], 'test-design', p.get('context_ref'), a['instance_id'], p['result_ref'])
-    m['submissions'][a['assignment_id']] = {'ref': p['result_ref'], 'result': result, 'context_ref': p.get('context_ref')}
+    m['submissions'][a['assignment_id']] = {'ref': p['result_ref'], 'kind': result['kind'], 'context_ref': p.get('context_ref')}
 
 
 def accept(s, m, a, p, actor):
@@ -164,6 +164,32 @@ def ready(s, m):
         return True
     except (Rejected, OSError, KeyError, TypeError, ValueError):
         return False
+
+
+def materialize(s, m, plan):
+    """Complete a plan with what it takes unchanged from the accepted design, so its author does not copy it.
+
+    The completed plan is what the Ledger stores, hashes and has approved; anything the submitted plan
+    still carries must equal the design, which plan_check verifies."""
+    if not required(s, m):
+        return plan
+    a, result = accepted(s, m)
+    doc = read_json(check_ref(a['design_input_ref']))
+    plan = copy.deepcopy(plan)
+    plan.setdefault('paths', copy.deepcopy(result['paths']))
+    designed = {t['task_id']: t for t in doc['tasks']}
+    for task in plan.get('tasks') or []:
+        for key in ('scope', 'requirement_ids', 'global_requirement_ids'):
+            if key not in task and key in designed.get(task.get('task_id'), {}):
+                task[key] = copy.deepcopy(designed[task['task_id']][key])
+    definitions = list(plan.get('definitions') or [])
+    kinds = {d.get('kind') for d in definitions}
+    if 'spec' not in kinds:
+        definitions += copy.deepcopy(doc['spec_refs'])
+    if 'test-design' not in kinds:
+        definitions.append({**result['design_ref'], 'kind': 'test-design'})
+    plan['definitions'] = definitions
+    return plan
 
 
 def plan_check(s, m, plan, author=None):

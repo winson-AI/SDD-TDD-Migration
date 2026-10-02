@@ -54,7 +54,7 @@ project_context init/update → prepare → Global 生成完整运行输入 → 
 
 ## 初始化上下文门禁
 
-上下文就绪为必选门禁。GO 初始化分析后，先提交 global-discovery 报告再 register；父拆分有独立 decomposition 报告，全部子模块登记后再提交 global-planning 报告接受覆盖。用户不需手写预检材料，由对应 Agent/宿主生成。见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+上下文就绪为必选门禁：global-discovery 报告随 register、decomposition 随 decompose、global-planning 随 global-plan 提交（context_ref）。预检材料由对应 Agent/宿主生成。见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
 
 ## 功能清单来源与完备性
 

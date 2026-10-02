@@ -19,7 +19,7 @@ description: 结构化人工阻塞、反馈转机器输入和超时升级，用�
 禁止：把等待超时当默认同意；自动替用户签字；复用失效版本的批准。
 
 ## 4. 接口契约
-输入 assignment_ref + event_ref + absolute artifact refs；输出角色权限矩阵许可的事件及模板工件。文件已生成不等于已接受，必须收到 Ledger ACK。
+见 [共享协议·通用约定](../migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 检查
 问题自包含；真实答复引用；过期决定拒绝；超时仍 pending；恢复不直接置 Green。

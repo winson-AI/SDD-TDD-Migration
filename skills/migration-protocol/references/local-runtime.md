@@ -68,7 +68,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | decompose | 父 MO / 父 module_id | plan_ref；planning_context + assigned_module，子功能 scope/context_refs/CASE/写范围/依赖提案 |
 | decompose-accept | Global / 父 module_id | review_ref；复核 MO 提案并原子登记子模块，父移入 module_groups |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
-| decision | host | decision_id、decision=approved、module_id、subject_sha256、human_source_ref；保存真实人类决定引用。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子 |
+| decision | host | decision_id、decision=approved、module_id、subject_sha256（模块冻结取 freeze 游标的 approval_subject_sha256）、human_source_ref；保存真实人类决定引用。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子 |
 | global-plan | Global | plan_ref + review_ref；验收全部需求/用例归属，绑定当前 registry；新增模块后必须重审，通过前禁止实现派发 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
 | audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human |
@@ -80,12 +80,12 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | problem-assign | Global | assignment_id、独立 instance_id，可选 module_ids（默认全部队列）；只要求这些模块的依赖闭包与下游消费者（及其依赖）已收尾、空闲；assignment 记录 closure，审计锁只作用于 closure 内模块与全局操作，其他模块继续。预算按模块计（max_audit_rounds）；游标在闭包就绪且全局未收尾时给出 `problem-assign`（reason=audit-closure-settled） |
 | problem-audit | Auditor | report_ref；覆盖本次所有排队模块；有效代码独立 tests result，无法运行保留 Yellow；输出 retry/fix/change/wait/human 裁决 |
 | audit-resume | MO | 接受本模块问题审计裁决；human 需 decision_id；wait 保持队列；retry 回 testing，fix 授权一轮，change/human 回规划 |
-| plan | Spec-Designer | plan_ref；[stage-plan](../../../template/stage-plan.json)；启用 design 门禁时 test_design_ref 绑定已接受结果 |
+| plan | Spec-Designer | plan_ref、context_ref（planning 预检随本操作登记）；[stage-plan](../../../template/stage-plan.json)；test_design_ref 绑定已接受设计，其余由 Ledger 补全 |
 | freeze | MO | 初始/边界外变更 decision_id；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref（MO 对详细 tasks/PATH 的审阅），子 plan 的 decision_envelope 必须与信封条目完全一致，信封可被多个孩子使用并记录 used_by |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
 | assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；design 用 mode=design + design_input_ref，无执行 test_scope；可选 session_id/card_sha256；合法阶段且无活动 worker，返回 fencing_token |
 | submit | worker | assignment_id、fencing_token、result_ref；design 另需 test-design context_ref，kind=test-design；不推进阶段 |
-| accept | MO | assignment_id；重验工件和版本后关闭；design 必需 review_ref，保持规划阶段与质量 |
+| accept | MO | assignment_id；重验工件和版本后关闭；design 必需 review_ref，保持规划阶段与质量。`mechanical=true` 时宿主直接提交 |
 | diagnose | Diagnostician（轻量叶子本地轮为 Fixer） | diagnosis_ref、owner、root_cause；仅保存绑定当前冻结、代码和未解决结果的 diagnosis_submission，不改变 phase；模块必须无活动 worker |
 | diagnosis-accept | MO | 可选 `assign`（fixer 的 assign 参数 + context_ref）；重验诊断后进入 diagnosing，带 assign 时同一事务校验 fixing 预检并按 assign 守卫派发，失败整体拒绝 |
 | suspend | MO | kind=dependency/human/tooling、reason、root_cause、owner；保存原阶段，必须先停止活动 worker |

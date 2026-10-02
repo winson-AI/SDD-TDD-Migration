@@ -308,7 +308,7 @@ def handle(s, req, actor):
         s['audit'] = {'quality': 'yellow-blocked', 'environment_deferred': True,
                       'report_ref': p['context_ref'], 'paths': rows,
                       'context_receipts_at_deferral': [r['report_ref'] for r in s.get('context_receipts', {}).values()
-                                                       if r['report']['stage'] == 'audit-testing'],
+                                                       if r['stage'] == 'audit-testing'],
                       'snapshot': {k: v['code_baseline'] for k, v in s['modules'].items()},
                       'reason': 'automation-not-run', 'execution_status': 'completed-with-unverified-tests'}
         return

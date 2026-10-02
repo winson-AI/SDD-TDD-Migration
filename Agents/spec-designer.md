@@ -48,7 +48,7 @@ OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment
 
 | 专题 | 本角色义务 | 协议 |
 | --- | --- | --- |
-| 上下文就绪 | plan 前提交 planning 报告并绑定同一 plan_ref（全局/父/子范围、source_closure、target_feasibility、接口、测试设计、复用映射），MO freeze 再验 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md) |
+| 上下文就绪 | planning 报告随 plan 提交并绑定同一 plan_ref（全局/父/子范围、source_closure、target_feasibility、接口、测试设计、复用映射），MO freeze 再验 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md) |
 | 测试路径 | 冻结 build/unit 命令与 unit_report、一条 static 及 automation PATH；Logic 不适用单测写 unit_test_na 依据。SPEC 派生 Scenario 索引，任务/断言全覆盖；缺设备不删路径或阻止冻结 | [逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
 | 复用与 fidelity | 按源行为核验等价/差异，不按 API 名；proposal 策略、design 提供方/版本/DI/边界、tasks 接入/缺口；reuse_plan_ref 逐需求覆盖 capability/decision/task/PATH/fidelity。改 provider 声明 owner、交付版本与消费者复测 | [复用](../skills/migration-protocol/references/reuse-dependencies.md)、[来源变更](../skills/migration-protocol/references/source-changes.md) |
 | 四维 | 协助子 MO 先划 tasks.scope，再逐任务做 UI → Logic → Adhesive → Resource 分析并绑定 scope_sha256；item 与实现指导写入 design/spec/tasks，生成完整 dimension_trace，N/A 要依据，未决项禁止冻结 | [四维](../skills/migration-protocol/references/dimension-slicing.md) |

@@ -2,11 +2,11 @@
 
 ## 总则
 
-新运行在 GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发与 Auditor 分析/裁决/最终验证前，执行本协议。实际执行实例先只读核对并经 Ledger context-submit 留证，原控制节点接受；缺项不得执行，必须补齐或显式记录该模块阻塞，无关模块继续。
+新运行在 GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发与 Auditor 分析/裁决/最终验证前，执行本协议。实际执行实例先只读核对并经 Ledger 留证，原控制节点接受；缺项不得执行，必须补齐或显式记录该模块阻塞，无关模块继续。
 
 ## 1. 原则
 
-全局可读、引用有效不等于子任务已经具备执行条件。每个阶段由实际执行角色核对所需内容，先经 Ledger `context-submit` 提交报告，再由既有控制节点接受。报告是可追溯的理解与环境证据，不代替 SPEC 冻结、权限、测试或 DoD，不新增人工会签。
+全局可读、引用有效不等于子任务已经具备执行条件。每个阶段由实际执行角色核对所需内容并经 Ledger 留证，再由既有控制节点接受。执行者自己随后提交的操作（register、global-plan、decompose、plan、audit-plan、audit-verdict、audit-code-review、source-review）携带 context_ref 即随操作登记（游标 `with_operation=true`）；其他角色验收的阶段（coding、building、testing、fixing、audit-testing）先 `context-submit`。报告是可追溯的理解与环境证据，不代替 SPEC 冻结、权限、测试或 DoD，不新增人工会签。
 
 宿主以已认证 role/instance/module 启动或恢复**只读预检**，允许读获授权材料、写自身 staging、提交 context-submit；未获原有 assign/freeze 等门禁批准，不允许改目标代码或执行目标构建/测试。preflight 和正式执行必须使用同一实例；换实例必须重新核对。宿主继续承担身份认证、Used Skills 加载、工具可用性和文件写隔离。
 

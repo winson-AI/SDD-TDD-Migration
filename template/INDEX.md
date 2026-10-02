@@ -6,8 +6,6 @@
 | --- | --- |
 | [global-input.json](global-input.json) | Global 从固定项目上下文生成本轮输入；宿主保存 input.json，Ledger 绑定引用及快照 |
 | [module-input.json](module-input.json) | Global 生成功能切片输入，Ledger 写 modules/Mxxx/_input.json |
-| [global-ledger.json](global-ledger.json) | Ledger 维护全局缓存；不得当事实日志直接修改 |
-| [assignment.json](assignment.json) | 宿主身份绑定的单次任务；Ledger 创建 |
 | [event.json](event.json) | 入站事件信封；Ledger 补服务端事件 ID/sequence/time |
 | [proposal.md](proposal.md) | Spec-Designer：六件套 proposal |
 | [spec.md](spec.md) | Spec-Designer：实例化为 specs/<capability>/spec.md 的 delta |
@@ -16,7 +14,7 @@
 | [status.md](status.md) | MO 决策，Ledger 将其中 JSON 同步为 modules/Mxxx.json 与 status.md |
 | [checklist.md](checklist.md) | 冻结定义与 DoD 定义；Ledger 更新证据 |
 | [freeze.json](freeze.json) | Spec-Designer 提案、Human/MO 审核、Ledger 接受 |
-| [test-paths.json](test-paths.json) | Test-Runner：冻结前路径设计；实现后脚本绑定 |
+| [test-paths.json](test-paths.json) | Test-Runner：设计结果中 build/unit/static/automation 各类 PATH 的写法；实现后脚本绑定 |
 | [test-design-input.json](test-design-input.json) / [test-design-result.json](test-design-result.json) | 编码前独立设计输入/结果；MO 接受后 plan.test_design_ref 绑定 |
 | [test-result.json](test-result.json) | Test-Runner/Auditor 记录实际执行；Fixer 自测标明 producer |
 | [implementation.md](implementation.md) | Implementer/Fixer：提交与 tasks 追溯、回归、回滚 |
@@ -34,7 +32,7 @@
 ## 本地控制器附加模板
 
 - [ledger-request.json](ledger-request.json)：CLI 请求，operation 与 payload 见 local-runtime。
-- [stage-plan.json](stage-plan.json)：六件套引用、冻结路径与任务、理解证据、批准边界。
+- [stage-plan.json](stage-plan.json)：六件套引用、任务追溯、理解证据、批准边界；PATH、任务范围与 spec 由 Ledger 从已接受设计补全。
 - [stage-result.json](stage-result.json)：阶段 tests 结果；implementation 结构见 local-runtime。
 - [test-adapter.json](test-adapter.json)：宿主审核过的实际 argv，不是任意用户文本执行入口。
 
@@ -69,11 +67,11 @@
 - [reuse-plan.json](reuse-plan.json)：子模块逐需求的能力选择、差异、task/PATH 和接入映射；由 stage-plan.reuse_plan_ref 冻结，Ledger 投影到 change/reuse.md。
 - [reuse-fidelity.md](reuse-fidelity.md)：存量源码与选中能力逐行为对齐；reuse-plan.fidelity 绑定源码、报告和复现 PATH/ASSERT，正式结果沿 Main/Ledger 留档。
 - [implementation-gap.json](implementation-gap.json)：适配/参考/自主实现均经核验证实不可行时，MO 通过 suspend(reason_code=not-implemented) 接受，生成“未实现”人工提醒；没有可复用库本身不能作为结论。
-- implementation.md 说明新增 reuse_trace；控制器检查选中映射的实际版本、task 文件和生产绑定证据。
+- implementation.md 含 reuse_trace：选中映射的实际版本、task 文件和生产绑定证据。
 
 ## 上下文预检工件
 
-[context-readiness.json](context-readiness.json) 是 Coding 的 blocked 起始模板；其他 stage 根据 status.context_requirements 生成完整检查项。经 context-submit 提交，原操作 context_ref 接受；assignment 保留同一报告引用。见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
+[context-readiness.json](context-readiness.json) 是 Coding 的 blocked 起始模板；其他 stage 根据 status.context_requirements 生成检查项，见 [阶段协议](../skills/migration-protocol/references/context-readiness.md)。
 
 ## 功能清单来源与完备性
 
@@ -81,7 +79,7 @@
 
 ## 构建与自动化
 
-build 配置可选，空值由 GO 发现；stage-plan/test-paths 示例含 build/unit/static/automation。行为契约（`behavior_contract_required`）要求分配时 behavior_review、plan 的 scenario_trace（scenario_index 由 Ledger 派生）、unit_report 本轮报告与 test IDs；实际模板占位符须替换。仅适用 UI 合并 visual PATH 及 task/scenario/dimension 追溯，不适用 unit 记录依据并移除对应示例。assign 按 test_scope；automation 缺测仍 Yellow、不阻塞独立模块。字段与门禁见 [测试协议](../skills/migration-protocol/references/testing.md)。
+build 配置可选，空值由 GO 发现；test-paths 示例含 build/unit/static/automation。行为契约（`behavior_contract_required`）要求分配时 behavior_review、plan 的 scenario_trace（scenario_index 由 Ledger 派生）、unit_report 本轮报告与 test IDs；实际模板占位符须替换。仅适用 UI 合并 visual PATH 及 task/scenario/dimension 追溯，不适用 unit 记录依据并移除对应示例。字段与门禁见 [测试协议](../skills/migration-protocol/references/testing.md)。
 
 - [visual-test-path.json](visual-test-path.json)：逐 runtime 目标视觉路径片段。coverage 必须等于该 UI item，baseline_ref 来自其冻结基线，node_ids 来自该目标真实树节点；声明手势时另绑定 interaction_id。
 - [visual-alignment.json](visual-alignment.json)：正式视觉结果片段，record 与本次 captured.visual_alignment 一致，绑定当前代码/HAP/基线；交互列表只含冻结声明，未声明时为空，不照抄占位项或伪造 PASSED。

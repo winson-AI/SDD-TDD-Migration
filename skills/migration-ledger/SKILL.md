@@ -19,7 +19,7 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 禁止：多个 Agent append 同一文件；用户改 status 当事实；以请求自报 actor 验证权限。
 
 ## 4. 接口契约
-输入 assignment_ref + event_ref + absolute artifact refs；输出角色权限矩阵许可的事件及模板工件。文件已生成不等于已接受，必须收到 Ledger ACK。
+见 [共享协议·通用约定](../migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 检查
 重复提交不重复生效；失效锁拒绝；越权拒绝；空测试非 Green；重放不丢失败。
@@ -32,8 +32,6 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 [source_changes.py](scripts/source_changes.py) 接入 GO source-review 和 Host reconfigure-sources，追加只读来源、固化新快照并局部重新规划；status.source_change_next_step 给出审批/过期/协调信号。所有事务走 ledger.py，不直接调用 helper 修改生产状态。字段与三层职责见 [来源变更协议](../migration-protocol/references/source-changes.md)。
 
 读取 [local-runtime.md](../migration-protocol/references/local-runtime.md) 后使用 [ledger.py](scripts/ledger.py)（init/apply/status/resume/recover）。[contracts.py](scripts/contracts.py) 校验阶段结构/证据，[workflow.py](scripts/workflow.py) 校验全局覆盖与问题审计，[openspec_projection.py](scripts/openspec_projection.py) 重建六件套与修复记忆；[execute_test.py](scripts/execute_test.py) 供宿主执行已授权测试。
-
-行为测试：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s <package_root>/skills/migration-ledger/tests -v`。只在临时目录运行样例适配器，不依赖真实迁移项目。
 
 编排状态查询还会派生 next_steps/ready_modules/global_next_step；它们不是第二套状态源。阶段接收、精确恢复、审计关闭/撤销和根因停滞摘要均在 ledger.py 内验证。
 
@@ -51,7 +49,7 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 
 ## 上下文就绪
 
-[design_stage.py](scripts/design_stage.py) 处理 mode=design 的派发/提交/接受及 plan/freeze 绑定，不改测试质量；兼容与恢复见 [设计交接](../migration-protocol/references/testing.md#编码前设计交接)。
+[design_stage.py](scripts/design_stage.py) 处理 mode=design 的派发/提交/接受及 plan/freeze 绑定，不改测试质量，见 [设计交接](../migration-protocol/references/testing.md#编码前设计交接)。
 
 新运行启用 context-submit 与各原节点的 context_ref 验收，维护 context_receipts/context_acceptances 和 status.context_requirements；不把预检失败自动扩散或标作模块收尾。按 [阶段协议](../migration-protocol/references/context-readiness.md) 校验身份、必读引用、草稿与版本，保留失败与恢复证据。
 

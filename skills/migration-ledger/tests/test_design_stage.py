@@ -147,6 +147,30 @@ class DesignStageTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'inactive'): submit_design(f, a, result)
         with self.assertRaisesRegex(Rejected, 'no active submission'): f.call('accept', {'assignment_id': a['assignment_id']})
 
+    def test_plan_takes_paths_task_scope_and_spec_from_the_accepted_design(self):
+        f = self.f; full = prepare_design(f, f.plan())
+        lean = copy.deepcopy(full)
+        del lean['paths']
+        lean['definitions'] = [d for d in lean['definitions'] if d['kind'] not in ('spec', 'test-design')]
+        for task in lean['tasks']:
+            for key in ('scope', 'requirement_ids', 'global_requirement_ids'):
+                task.pop(key, None)
+        changed = copy.deepcopy(lean); changed['paths'] = copy.deepcopy(full['paths'])
+        changed['paths'][0]['expected_assertions'][0]['expected'] = 'something else'
+        with self.assertRaisesRegex(Rejected, 'differ from accepted design'):  # what a plan still carries must match
+            f.call('plan', {'plan_ref': f.ref('changed-plan.json', changed)}, role='spec-designer')
+        f.call('plan', {'plan_ref': f.ref('lean-plan.json', lean)}, role='spec-designer')
+        m = f.state()['modules']['M001']
+        self.assertEqual(m['plan']['paths'], full['paths'])
+        self.assertEqual(m['plan']['tasks'], full['tasks'])
+        key = lambda d: (d['kind'], d['sha256'])
+        self.assertEqual(sorted(m['plan']['definitions'], key=key), sorted(full['definitions'], key=key))
+        self.assertNotEqual(m['plan_hash'], digest(lean))  # the Ledger hashes the plan it completed
+        step = f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['ready'], step['approval_subject_sha256']), ('freeze', False, m['plan_hash']))
+        f.approve(step['approval_subject_sha256'], 'D-lean'); f.call('freeze', {'decision_id': 'D-lean'})
+        self.assertEqual(f.state()['modules']['M001']['phase'], 'frozen')
+
     def test_invalidation_preserves_history_and_requires_new_design(self):
         f = self.f; plan = prepare_design(f, f.plan())
         f.call('plan', {'plan_ref': f.ref('plan.json', plan)}, role='spec-designer')

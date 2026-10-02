@@ -24,7 +24,7 @@ ROTATE_BUDGET = 100_000
 # Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
 TEMPLATE_BUDGET = 33_000
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 555_600
+PROTOCOL_BUDGET = 555_000
 FILE_BUDGET = 34_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -415,7 +415,7 @@ def templates(s, m, step):
     if role == 'test-runner':
         names += SCOPE_TEMPLATES.get(step.get('test_scope'), [])
     if step.get('mode') == 'design':
-        names = ['test-design-input.json', 'test-design-result.json', 'context-readiness.json']
+        names = ['test-design-input.json', 'test-design-result.json', 'test-paths.json', 'harmony-test-path.json', 'context-readiness.json']
     reuse = bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required'))
     active = {'reuse': reuse, 'telemetry': telemetry_scope(role, m), 'ui': bool(m) and ui_scope(m),
               'knowledge': bool(s.get('dependency_resolution_required')) or reuse}
