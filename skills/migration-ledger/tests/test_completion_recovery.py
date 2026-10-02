@@ -167,18 +167,16 @@ time.sleep(30)
 
     def interrupted_attempt(self, error, detached=False):
         marker = self.f.base / 'interrupt-ready'; pid_file = self.f.base / 'interrupt-child'
-        processes = []; original = subprocess.Popen
-        def spawn(*args, **kwargs):
-            process = original(*args, **kwargs); communicate = process.communicate
-            processes.append((process, communicate))
-            def interrupted(*args, **kwargs):
-                process.communicate = communicate  # The subsequent bounded drain is real.
+        from execution_capture import Capture
+        processes = []; original = Capture.wait
+        def interrupted(capture, process, timeout):
+            if not processes:
+                processes.append(process)
                 deadline = time.monotonic() + 3
                 while not marker.exists() and time.monotonic() < deadline: time.sleep(.01)
                 if not marker.exists(): raise RuntimeError('fixture did not start')
                 raise error
-            process.communicate = interrupted
-            return process
+            return original(capture, process, timeout)  # Bounded recovery really drains the pipes.
         body = f'''import subprocess
 (out/'temp/keep').write_text('active scratch')
 '''
@@ -187,7 +185,7 @@ time.sleep(30)
         body += f"print('before interrupt',flush=True)\nPath({str(marker)!r}).write_text('ready')\ntime.sleep(30)\n"
         try:
             start = time.monotonic()
-            with patch('execute_test.subprocess.Popen', side_effect=spawn), \
+            with patch.object(Capture, 'wait', interrupted), \
                     patch('execute_test.OUTPUT_DRAIN_TIMEOUT_SECONDS', .2), self.assertRaises(type(error)):
                 self.run_fault(body)
             self.assertLess(time.monotonic() - start, 5)
@@ -198,7 +196,7 @@ time.sleep(30)
             self.assertEqual(receipt['termination']['host_stop_required'], detached)
             self.assertEqual((out / 'temp/keep').exists(), detached)
             self.assertIn('before interrupt', (out / 'execution.log').read_text())
-            self.assertIsNotNone(processes[0][0].poll())
+            self.assertIsNotNone(processes[0].poll())
             result = build(self.f.root, 'M001', 'AUTO', [file_ref(out / 'receipt.json')])
             a = self.f.state()['modules']['M001']['assignments']['AUTO']
             with self.assertRaisesRegex(Rejected, 'executor aborted'): self.f.submit(result, a)
@@ -208,9 +206,9 @@ time.sleep(30)
             if pid_file.exists():
                 try: os.kill(int(pid_file.read_text()), signal.SIGKILL)
                 except ProcessLookupError: pass
-            for process, communicate in processes:
+            for process in processes:
                 if process.poll() is None: os.killpg(process.pid, signal.SIGKILL)
-                communicate(timeout=3)
+                process.wait(timeout=3)
 
     def test_keyboard_interrupt_stops_attempt_records_receipt_and_propagates(self):
         self.assertEqual(self.interrupted_attempt(KeyboardInterrupt())['exit_code'], 130)

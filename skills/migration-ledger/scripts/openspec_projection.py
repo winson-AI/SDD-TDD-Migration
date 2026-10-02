@@ -37,7 +37,7 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
     """Render from facts; emit/claim=False supports verification without any writes."""
     emit = write if emit is None else emit
     if not m.get('plan'):
-        if m.get('planning_history'):
+        if m.get('planning_history') or m.get('design_input_ref'):
             change = run_storage.change_root(root, state, mid, claim=claim)
             previous = change / 'manifest.json'
             if claim and previous.exists():
@@ -45,11 +45,13 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
                     candidate = run_storage.checked_path(change / relative, change)
                     candidate.unlink(missing_ok=True)
             status = {'phase': m['phase'], 'freeze_id': None, 'sequence': sequence,
-                      'next_action': 'replan-or-review-allocation', 'history_preserved': True}
-            emit(change / 'status.md', '# Replanning required — previous plan is historical\n\n```json\n' +
+                      'next_action': state.get('projection_steps', {}).get(mid), 'history_preserved': True,
+                      'design_input_ref': m.get('design_input_ref'), 'accepted_test_design': m.get('accepted_test_design')}
+            heading = '# Replanning required' if m.get('planning_history') else '# Planning status — no frozen SPEC'
+            emit(change / 'status.md', heading + '\n\n```json\n' +
                   json.dumps(status, ensure_ascii=False, indent=2) + '\n```\n')
             emit(previous, json.dumps({**status, 'run_root': str(root), 'module_id': mid, 'files': ['status.md'],
-                  'historical_plan_ref': m['planning_history'][-1]['plan_ref']}, ensure_ascii=False, indent=2) + '\n')
+                  'historical_plan_ref': (m.get('planning_history') or [{}])[-1].get('plan_ref')}, ensure_ascii=False, indent=2) + '\n')
         return
     change = run_storage.change_root(root, state, mid, claim=claim)
     manifest = {'sequence': sequence, 'run_root': str(root), 'module_id': mid, 'freeze_id': m['freeze_id'],
@@ -88,12 +90,18 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
                   fix_rounds_used=m['fix_rounds_used'], no_progress_rounds=m['no_progress_rounds'],
                   unresolved_paths=[pid for pid, result in m['results'].items() if result['quality'] != 'green-passed'])
     status['effective_quality'] = m.get('effective_quality', m['quality'])
+    status['accepted_test_design'] = m.get('accepted_test_design')
     status.update(sequence=sequence, next_step=state.get('projection_steps', {}).get(mid),
                   audit_resolution=state.get('audit_resolutions', {}).get(mid))
     emit(change / 'status.md', '# Ledger status (generated)\n\n```json\n' + json.dumps(status, ensure_ascii=False, indent=2) + '\n```\n')
     emit(change / 'memory.md', '# Repair memory (generated)\n\nOnly verified entries may inform a new repair; recheck applicability and current SPEC.\n\n```json\n' +
           json.dumps(m.get('fix_memory', []), ensure_ascii=False, indent=2) + '\n```\n')
     manifest['files'] += ['status.md', 'memory.md']
+    if m['plan'].get('scenario_index'):
+        emit(change / 'scenarios.md', '# Scenario trace (derived from frozen OpenSpec)\n\n'
+             'Read-only index; revise the SPEC and plan through normal change control.\n\n```json\n' +
+             json.dumps({k: m['plan'][k] for k in ('scenario_index', 'scenario_trace')}, ensure_ascii=False, indent=2) + '\n```\n')
+        manifest['files'].append('scenarios.md')
     if m['plan'].get('reuse_plan_ref'):
         ref = m['plan']['reuse_plan_ref']
         emit(change / 'reuse.md', '# Reuse guidance (Ledger plan projection)\n\n' +

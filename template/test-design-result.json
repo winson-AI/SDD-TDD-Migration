@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "kind": "test-design",
+  "run_id": "{{run-id}}",
+  "module_id": "M001",
+  "assignment_id": "{{accepted-design-assignment}}",
+  "actor_instance_id": "{{host-bound-test-designer}}",
+  "freeze_id": null,
+  "code_baseline": null,
+  "input_ref": {"path": "{{absolute-run-root}}/staging/{{mo-agent}}/{{revision}}/design-input.json", "sha256": "{{sha256}}"},
+  "design_ref": {"path": "{{absolute-run-root}}/staging/{{test-agent}}/{{revision}}/test-design.md", "sha256": "{{sha256}}"},
+  "paths": [{
+    "path_id": "PATH-M001-001", "kind": "automation", "name": "{{observable-behavior}}",
+    "case_id": "CASE-GLOBAL-001", "requirement_id": "REQ-M001-001", "required": true,
+    "query": {"path_id": "PATH-M001-001", "name": "{{observable-behavior}}", "case_id": "CASE-GLOBAL-001", "parameters": {}},
+    "expected_assertions": [{"assertion_id": "ASSERT-M001-001", "expected": "{{observable-result}}"}]
+  }]
+}

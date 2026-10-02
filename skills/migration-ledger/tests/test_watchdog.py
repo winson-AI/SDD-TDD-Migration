@@ -103,6 +103,31 @@ class WatchdogTests(unittest.TestCase):
         finally:
             if process.poll() is None: process.kill(); process.wait()
 
+    def test_execution_output_is_observed_without_claiming_liveness_or_recovering(self):
+        from execution_capture import Capture
+        state, events = ledger.read_events(self.root)
+        assignment = {'assignment_id': 'T1', 'instance_id': 'runner', 'closed': False}
+        state['modules']['M001'] = {'assignments': {'T1': assignment}}
+        attempt = self.root / 'runs/build/a1'; attempt.mkdir(parents=True)
+        capture = Capture(attempt, {'run_id': self.root.name, 'module_id': 'M001',
+                                   'assignment_id': 'T1', 'actor_instance_id': 'runner', 'test_run_id': 'attempt1'})
+        capture.close()
+        worker = self.export(instance_id='runner', assignment_id='T1', module_id='M001',
+                             execution_state_path=str(attempt / 'execution-state.json'), status='unknown')
+        self.host_state(self.export(), [worker]); before = self.inventory()
+        with patch.object(ledger, 'read_events', return_value=(state, events)):
+            result = watchdog.inspect(self.root)
+            self.assertEqual(result['workers'][0]['status'], 'unknown')
+            self.assertFalse(result['workers'][0]['execution_output']['output_complete'])
+            self.assertNotIn('execution-output-incomplete', [f['code'] for f in result['findings']])
+            worker['status'] = 'exited'; self.host_state(self.export(), [worker])
+            result = watchdog.inspect(self.root)
+            self.assertIn('execution-output-incomplete', [f['code'] for f in result['findings']])
+            worker['execution_state_path'] = str(self.root.parent / 'other/runs/execution-state.json')
+            self.host_state(self.export(), [worker])
+            self.assertIn('execution-output-unreadable', [f['code'] for f in watchdog.inspect(self.root)['findings']])
+        self.assertEqual(self.inventory(), before)
+
     def test_host_api_freshness_pause_and_notifications(self):
         watchdog.check(self.root, self.config)
         self.host_state(self.export())

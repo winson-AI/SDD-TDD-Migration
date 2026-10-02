@@ -67,6 +67,9 @@ class DimensionTests(unittest.TestCase):
         p = f.proposal(ids=ids)
         p['dimension_partition_review_ref'] = f.ref('partition-review.md', 'Subfunctions partition source behaviors; shared providers have one writer')
         for child in p['children']:
+            if f.state().get('behavior_contract_required'):
+                from test_behavior_contract import review
+                child['behavior_review'] = review(f, child)
             child['dimension_analysis_ref'] = f.ref(child['module_id'] + '-dimensions.json',
                 self.analysis(child['module_id'], kinds, self.root_ref, semantic))
         return p

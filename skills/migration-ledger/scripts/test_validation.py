@@ -127,6 +127,10 @@ def plan_check(plan, target, static_required=False, unit_required=False):
                 'visual path node_ids must be stable node:<id> references')
         check_ref(path.get('baseline_ref'))
     for path in builds + units:
+        if path.get('unit_report'):
+            require(path['kind'] == 'unit', 'unit_report only belongs to unit PATH')
+            import unit_reports
+            unit_reports.plan_check(path)
         command = path.get('command', {})
         require(isinstance(command.get('argv'), list) and command['argv'] and
                 all(isinstance(a, str) and a for a in command['argv']) and Path(command['argv'][0]).is_absolute(),
@@ -134,7 +138,9 @@ def plan_check(plan, target, static_required=False, unit_required=False):
         cwd = command.get('cwd', '')
         require(Path(cwd).is_absolute() and Path(cwd).resolve().is_relative_to(Path(target).resolve()), 'build cwd outside target')
         require(type(command.get('timeout_seconds')) is int and command['timeout_seconds'] > 0, 'build timeout required')
-        require(len(path['expected_assertions']) == 1 and path['expected_assertions'][0]['expected'] == 0,
+        require(len(path['expected_assertions']) == 1 and
+                (path['expected_assertions'][0]['expected'] is True if path.get('unit_report') else
+                 path['expected_assertions'][0]['expected'] == 0),
                 'build assertion must expect exit code zero')
         check_ref(command.get('selection_ref'))
 

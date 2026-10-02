@@ -9,7 +9,7 @@ description: 只读根因、依赖链与生成代码缺陷归因，用于 SDD-TD
 服务 Diagnostician；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/testing.md) 的相应小节。
 
 ## 2. 核心规约
-区分 symptom、hypothesis、confirmed cause；读取实际日志与相关代码，定位归属与可复现步骤。
+区分 symptom、hypothesis、confirmed cause；先查 trace 摘要，再按需读证据和代码，见 [追溯](../migration-protocol/references/testing.md#日志与按需追溯)。
 
 所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
 

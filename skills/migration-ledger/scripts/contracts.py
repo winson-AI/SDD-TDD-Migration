@@ -26,7 +26,11 @@ def read_json(path):
 def file_ref(path):
     p = Path(path).resolve()
     require(p.is_file(), f'missing file: {p}')
-    return {'path': str(p), 'sha256': hashlib.sha256(p.read_bytes()).hexdigest()}
+    sha = hashlib.sha256()
+    with p.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            sha.update(chunk)
+    return {'path': str(p), 'sha256': sha.hexdigest()}
 
 
 def check_ref(ref):
@@ -104,6 +108,8 @@ def validate_plan(plan, module):
     dimensions.validate_plan(plan, module)
     import telemetry
     telemetry.validate(plan)
+    import behavior_contract
+    behavior_contract.validate_plan(plan, module)
     return digest(plan)
 
 
@@ -244,6 +250,8 @@ def validate_result(result, module, assignment, run_root=None):
         require(receipt.get('producer') == 'host-executor' and receipt.get('argv') and
                 receipt.get('started_at') and receipt.get('finished_at'), 'invalid host execution receipt')
         check_ref(receipt.get('log_ref'))
+        from execution_capture import validate as validate_capture
+        validate_capture(receipt)
         normalized = record.get('host_completion_version') is not None
         if normalized or not record.get('executed'):
             from test_completion import interpret
@@ -261,10 +269,24 @@ def validate_result(result, module, assignment, run_root=None):
             if receipt.get('storage_command_version') == 1:
                 from runner_storage import build_command
                 require(receipt.get('requested_argv') == expected_argv, 'requested build command differs from frozen plan')
-                expected_argv = build_command(expected_argv, check_ref(receipt.get('query_ref')).parent)
+                expected_argv = build_command(expected_argv, check_ref(receipt.get('query_ref')).parent,
+                                              unit_report=bool(planned[pid].get('unit_report')))
             build_report = read_json(check_ref(receipt.get('result_ref')))
             require(build_report.get('producer') == 'build-executor' and receipt['argv'] == expected_argv
                     and receipt['cwd'] == str(Path(planned[pid]['command']['cwd']).resolve()), 'invalid build execution receipt')
+            if planned[pid].get('unit_report'):
+                import unit_reports
+                unit_reports.validate(receipt, planned[pid], build_report)
+                require(quality == build_report['quality'] and record.get('root_cause') == build_report['root_cause'],
+                        'unit report classification/root cause cannot be overridden')
+                require(record.get('unit_execution') == build_report['unit_execution'], 'unit execution summary changed')
+        if planned[pid].get('scenario_ids'):
+            query = read_json(check_ref(receipt['query_ref']))
+            require(query.get('scenario_ids') == planned[pid]['scenario_ids'], 'static scenario selection changed')
+            if module['plan'].get('scenario_index'):
+                require(query.get('scenario_index') == module['plan']['scenario_index'], 'static scenario index differs from frozen SPEC')
+            require(read_json(check_ref(receipt['result_ref'])).get('producer') == 'spec-closure-check',
+                    'scenario review requires spec-closure adapter')
         if captured.get('producer') == 'harmony-adapter':
             require(captured.get('quality') == quality and captured.get('flaky') == record.get('flaky', False),
                     'Harmony classification cannot be overridden')

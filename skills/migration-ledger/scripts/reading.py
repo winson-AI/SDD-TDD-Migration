@@ -70,7 +70,7 @@ MO_OPS = {
 STEP = {
     'spec-designer': sections('openspec.md', '六件套映射', '基线与 Delta', '冻结算法', '变更控制', '决策边界与执行基线', '四维完整性索引')
     + sections('dimension-slicing.md', '总则', '7. 任务级四维分析契约') + sections('semantic-extraction.md', '总则')
-    + sections('testing.md', '设计模式与执行模式', '静态规格闭合'),
+    + sections('testing.md', '设计模式与执行模式', '逻辑单测', '静态规格闭合'),
     'implementer': sections('local-runtime.md', '阶段结果') + sections('context-readiness.md', '2. 精确插入节点')
     + sections('dimension-slicing.md', '7. 任务级四维分析契约'),
     'fixer': sections('local-runtime.md', '阶段结果') + sections('state-machine.md', '有限循环')
@@ -92,6 +92,8 @@ OPS = {
     ('auditor', 'code-review'): [(P + 'audit-code-review.md', None)] + sections('audit-scope.md', '总则', '入口与范围', '代码治理前置'),
 }
 TEST_SCOPE = {
+    'design': sections('testing.md', '编码前设计交接', 'query', '逻辑单测', '静态规格闭合'),
+    None: sections('testing.md', '设计模式与执行模式', 'query', '逻辑单测', '静态规格闭合'),
     'build': sections('build-automation.md', '总则', '3. 冻结路径与分阶段证据') + sections('testing.md', '断言与结果'),
     'unit': sections('build-automation.md', '总则') + sections('testing.md', '逻辑单测', '断言与结果'),
     'static': sections('build-automation.md', '总则') + sections('testing.md', '静态规格闭合'),
@@ -225,7 +227,7 @@ def _topic_rows(text, topics):
 
 # Blocks of an Agent definition that only apply in some modes of the role; other blocks always stay.
 MODE_BLOCKS = {'### 设计', '### 构建', '### 单测与静态审查', '### 自动化', '## 10. Harmony 执行器'}
-TEST_MODES = {None: ('### 设计',), 'build': ('### 构建',), 'unit': ('### 构建', '### 单测与静态审查'),
+TEST_MODES = {None: ('### 设计',), 'design': ('### 设计',), 'build': ('### 构建',), 'unit': ('### 构建', '### 单测与静态审查'),
               'static': ('### 构建', '### 单测与静态审查'), 'automation': ('### 自动化', '## 10. Harmony 执行器'),
               'visual': ('### 自动化', '## 10. Harmony 执行器')}
 
@@ -336,6 +338,8 @@ def card(s, m, step):
     rows = ([operation] if operation else []) + (['submit'] if step.get('worker_role') else [])
     chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry,
                      lean=lean and role in ('fixer', 'implementer'), rows=rows)
+    if role == 'spec-designer' or (step.get('mode') == 'design' and role == 'module-orchestrator'):
+        chosen += sections('testing.md', '编码前设计交接')
     audit = bool(operation and (operation.startswith('audit') or operation.startswith('problem'))) or role == 'auditor' \
         or bool(m and (m.get('audit_fix_grant') or m.get('audit_batch_id')))
     flags = {'ui': ui, 'reuse': reuse, 'telemetry': telemetry, 'audit': audit,
@@ -405,6 +409,8 @@ def templates(s, m, step):
     names = list(table.get(family(role, step.get('operation')), table.get('base', [])))
     if role == 'test-runner':
         names += SCOPE_TEMPLATES.get(step.get('test_scope'), [])
+    if step.get('mode') == 'design':
+        names = ['test-design-input.json', 'test-design-result.json', 'context-readiness.json']
     reuse = bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required'))
     active = {'reuse': reuse, 'telemetry': telemetry_scope(role, m), 'ui': bool(m) and ui_scope(m),
               'knowledge': bool(s.get('dependency_resolution_required')) or reuse}
@@ -416,10 +422,14 @@ def templates(s, m, step):
 
 # A rejected request points at the section that states the failed gate; advisory, first match wins.
 GATES = [
+    (r'design |test.design|设计', 'testing.md', '编码前设计交接'),
+    (r'execution capture|output capture|excerpt|committed.*hash', 'testing.md', '日志与按需追溯'),
     (r'write scope|undeclared change|write outside', 'engineering-disciplines.md', '写范围核验（可选，默认关闭）'),
     (r'checkpoint', 'engineering-disciplines.md', '模块 Git 检查点（可选，默认关闭）'),
     (r'authoring.diagnostics', 'local-runtime.md', '阶段结果'),
-    (r'\bunit\b', 'testing.md', '逻辑单测'),
+    (r'JUnit|required_test_ids|unit_report|\bunit\b', 'testing.md', '逻辑单测'),
+    (r'behavior_review|behavior review|behavior contract|shared capability', 'module-decomposition.md', '3. 分配与登记门禁'),
+    (r'Scenario|scenario|Requirement-ID', 'openspec.md', '冻结算法'),
     (r'static|spec closure|reached_from|production symbol|fake implementation', 'testing.md', '静态规格闭合'),
     (r'readiness|context[-_ ](gate|report|submit)', 'context-readiness.md', '2. 精确插入节点'),
     (r'telemetry', 'telemetry.md', '1. 适用性与非阻塞原则'),

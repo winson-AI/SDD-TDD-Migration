@@ -1,0 +1,219 @@
+"""Scope-first behavior reviews and every-Scenario freezing."""
+import copy
+import unittest
+
+import test_ledger
+import test_decomposition
+import behavior_contract as bc
+import decomposition
+import ledger
+import spec_closure
+from contracts import Rejected, digest, validate_plan
+
+
+def review(f, module):
+    return {'scope_sha256': digest(module['scope']), 'entry': 'search input',
+            'observable_result': 'result, empty or error', 'production_binding': 'Search route calls repository',
+            'boundary_rationale': 'one user-visible query; history remains a separate capability',
+            'requirement_ids': module['scope']['requirement_ids'], 'case_ids': module['case_ids'],
+            'shared_capabilities': [], 'unresolved': [],
+            'evidence_refs': [f.ref('behavior-review.md', 'Read legacy entry, target bindings, architecture and dependencies')]}
+
+
+def contract_plan(f):
+    module = copy.deepcopy(f.state()['modules']['M001'])
+    module['scope'] = {'in': ['query'], 'out': ['history'], 'requirement_ids': ['R1']}
+    plan = f.plan()
+    spec = '## ADDED Requirements\n### Requirement: query\nRequirement-ID: R1\nSystem SHALL return query states.\n'
+    for name in ('success', 'empty', 'error'):
+        spec += f'#### Scenario: {name}\nScenario-ID: SCN-M001-{name}\nWHEN queried THEN render {name}.\n'
+    for i, ref in enumerate(plan['definitions']):
+        if ref['kind'] == 'spec':
+            plan['definitions'][i] = {**f.ref('contract-spec.md', spec), 'kind': 'spec'}
+    plan['behavior_contract_required'] = True
+    plan['source_closure']['behavior_review'] = review(f, module)
+    path = plan['paths'][0]
+    path['kind'] = 'automation'
+    path['expected_assertions'] = [{'assertion_id': name, 'expected': name} for name in ('success', 'empty', 'error')]
+    plan['paths'].append({'path_id': 'S1', 'name': 'scenario closure', 'kind': 'static', 'case_id': 'C1',
+                          'requirement_id': 'R1', 'required': True, 'scenario_requirement_ids': ['R1'],
+                          'scenario_ids': ['SCN-M001-' + n for n in ('empty', 'error', 'success')],
+                          'expected_assertions': [{'assertion_id': 'CLOSURE', 'expected': True}]})
+    plan['tasks'][0]['path_ids'].append('S1')
+    plan['scenario_index'] = bc.scenario_index(plan)
+    plan['scenario_trace'] = [{'scenario_id': 'SCN-M001-' + name, 'task_ids': ['T1'],
+                               'assertions': [{'path_id': 'P1', 'assertion_id': name}]} for name in ('success', 'empty', 'error')]
+    return plan, module
+
+
+class BehaviorContractTests(unittest.TestCase):
+    def setUp(self):
+        self.f = test_ledger.FlowTests()
+        self.f.setUp(); self.addCleanup(self.f.doCleanups)
+
+    def test_plan_without_the_gate_is_left_alone(self):
+        f = self.f
+        self.assertEqual(validate_plan(f.plan(), f.state()['modules']['M001']), digest(f.plan()))
+        f.prepare()
+        self.assertNotIn('scenario_index', f.state()['modules']['M001']['plan'])
+
+    def test_new_rejections_point_to_the_relevant_small_protocol_section(self):
+        import reading
+        for reason, section in (('behavior_review required', '3. 分配与登记门禁'),
+                                ('scenario_index must be derived', '冻结算法'),
+                                ('required_test_ids must be unique', '逻辑单测')):
+            self.assertEqual(reading.read_hint(reason)['section'], section)
+
+    def test_three_scenarios_under_one_requirement_are_individually_frozen(self):
+        plan, module = contract_plan(self.f)
+        self.assertEqual(validate_plan(plan, module), digest(plan))
+        for mutation, error in (
+            (lambda p: p['scenario_trace'].pop(), 'every frozen Scenario'),
+            (lambda p: p['paths'][-1]['scenario_ids'].pop(), 'all frozen scenario_ids'),
+            (lambda p: p['scenario_index'].pop(), 'derived from the current OpenSpec'),
+            (lambda p: p['scenario_trace'][0]['assertions'][0].update(assertion_id='missing'), 'unknown scenario assertion'),
+            (lambda p: p['source_closure']['behavior_review'].update(unresolved=['source ambiguity']), 'unresolved behavior boundary'),
+            (lambda p: p['scenario_trace'][0].update(assertions=[{'path_id': 'S1', 'assertion_id': 'CLOSURE'}]), 'build/static'),
+        ):
+            broken = copy.deepcopy(plan); mutation(broken)
+            with self.subTest(error=error), self.assertRaisesRegex(Rejected, error):
+                validate_plan(broken, module)
+
+    def test_spec_edit_requires_regenerating_index_and_new_freeze(self):
+        f = self.f; plan, module = contract_plan(f)
+        definition = next(r for r in plan['definitions'] if r['kind'] == 'spec')
+        from pathlib import Path
+        text = Path(definition['path']).read_text().replace('render error', 'preserve input and render error')
+        definition.update(f.ref('contract-spec-changed.md', text))
+        with self.assertRaisesRegex(Rejected, 'derived from the current OpenSpec'):
+            validate_plan(plan, module)
+
+    def test_duplicate_or_missing_scenario_id_is_rejected(self):
+        f = self.f; plan, _ = contract_plan(f)
+        definition = next(r for r in plan['definitions'] if r['kind'] == 'spec')
+        from pathlib import Path
+        original = Path(definition['path']).read_text()
+        for text in (original.replace('SCN-M001-error', 'SCN-M001-empty'), original.replace('Scenario-ID: SCN-M001-error', '')):
+            definition.update(f.ref('broken-spec.md', text))
+            with self.assertRaisesRegex(Rejected, 'Scenario-ID|duplicate scenario_id'):
+                bc.scenario_index(plan)
+
+    def test_static_review_cannot_collapse_three_scenarios_to_one_requirement(self):
+        f = self.f; plan, _ = contract_plan(f)
+        code = f.target / 'code.py'; code.write_text('search = 1\n')
+        entry = f.target / 'entry.py'; entry.write_text('from code import search\n')
+        evidence = f.ref('review.md', 'Read production branch for each scenario')
+        query = {**plan['paths'][-1], 'scenario_index': plan['scenario_index'], 'run_id': 'demo',
+                 'module_id': 'M001', 'freeze_id': 'fz', 'code_baseline': 'cb'}
+        data = {k: query[k] for k in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline')}
+        data.update(scenarios=[{'scenario_id': row['scenario_id'], 'requirement_id': 'R1', 'status': 'passed',
+                               'summary': 'scenario reaches entry', 'production_symbols': [{'path': str(code), 'symbol': 'search'}],
+                               'reached_from': {'path': str(entry), 'symbol': 'search'}, 'evidence_refs': [evidence]}
+                              for row in plan['scenario_index']],
+                    anti_patterns={p: {'status': 'absent', 'note': 'reviewed', 'evidence_refs': [evidence]}
+                                   for p in spec_closure.ANTI_PATTERNS})
+        self.assertEqual(spec_closure.report(query, f.ref('review.json', data), f.target)['quality'], 'green-passed')
+        data['scenarios'][1].update(status='failed', summary='error branch missing')
+        data['scenarios'][1]['production_symbols'] = []  # no implementation is an observed gap, not a report-format block
+        failed = spec_closure.report(query, f.ref('failed-review.json', data), f.target)
+        self.assertEqual(failed['quality'], 'red-bug')
+        self.assertIn('SCN-M001-error', failed['root_cause']['summary'])
+        data['scenarios'] = data['scenarios'][:1]
+        with self.assertRaisesRegex(Rejected, 'cover exactly'):
+            spec_closure.report(query, f.ref('partial-review.json', data), f.target)
+
+    def test_shared_capability_requires_one_owner_and_real_consumers(self):
+        f = self.f; _, m = contract_plan(f)
+        m['behavior_review'] = review(f, m)
+        sibling = copy.deepcopy(m); sibling['module_id'] = 'M002'
+        shared = {'capability_id': 'provider', 'owner_module_id': 'M001', 'consumer_module_ids': ['M002'],
+                  'integration_case_ids': ['C1'], 'integration_responsibility': 'M002 binds the real provider'}
+        m['behavior_review']['shared_capabilities'] = [shared]
+        sibling['behavior_review']['shared_capabilities'] = [dict(shared)]
+        state = {'behavior_contract_required': True, 'modules': {'M001': m, 'M002': sibling}}
+        bc.global_review(state)
+        sibling['behavior_review']['shared_capabilities'][0]['owner_module_id'] = 'M002'
+        with self.assertRaisesRegex(Rejected, 'competing owners'):
+            bc.global_review(state)
+
+    def test_runtime_review_ignores_unrelated_peer_but_checks_actual_dependency(self):
+        import workflow
+        f = self.f; _, m = contract_plan(f)
+        m['behavior_review'] = review(f, m)
+        peer = copy.deepcopy(m); peer['module_id'] = 'M002'
+        peer['behavior_review']['evidence_refs'] = [f.ref('peer-review.md', 'separate peer review')]
+        peer['behavior_review']['evidence_refs'][0]['sha256'] = '0' * 64
+        state = {'behavior_contract_required': True, 'dimension_slicing_required': False,
+                 'modules': {'M001': m, 'M002': peer}, 'module_groups': {}}
+        self.assertEqual(workflow.runtime_allocations(state, 'M001'), {'M001'})
+        m['dependencies'] = ['M002']
+        with self.assertRaisesRegex(Rejected, 'hash mismatch'):
+            workflow.runtime_allocations(state, 'M001')
+
+    def test_parent_shared_ownership_can_refine_to_one_child_writer(self):
+        f = self.f; _, child = contract_plan(f)
+        child['behavior_review'] = review(f, child)
+        row = {'capability_id': 'query-provider', 'owner_module_id': 'M001', 'consumer_module_ids': ['M001'],
+               'integration_case_ids': ['C1'], 'integration_responsibility': 'child wires query behavior'}
+        child['behavior_review']['shared_capabilities'] = [row]
+        parent = copy.deepcopy(child); parent.update(module_id='M010', children=['M001'])
+        parent['behavior_review']['shared_capabilities'][0]['owner_module_id'] = 'M010'
+        state = {'behavior_contract_required': True, 'modules': {'M001': child}, 'module_groups': {'M010': parent}}
+        bc.global_review(state)
+        parent['children'] = []
+        with self.assertRaisesRegex(Rejected, 'outside parent allocation'):
+            bc.global_review(state)
+
+    def test_shared_integration_case_belongs_to_consumer_not_duplicated_in_provider(self):
+        f = self.f; _, provider = contract_plan(f)
+        provider['behavior_review'] = review(f, provider)
+        consumer = copy.deepcopy(provider); consumer.update(module_id='M002', case_ids=['C2'])
+        consumer['behavior_review']['case_ids'] = ['C2']
+        shared = {'capability_id': 'provider', 'owner_module_id': 'M001', 'consumer_module_ids': ['M002'],
+                  'integration_case_ids': ['C2'], 'integration_responsibility': 'M002 tests real provider integration'}
+        provider['behavior_review']['shared_capabilities'] = [shared]
+        consumer['behavior_review']['shared_capabilities'] = [copy.deepcopy(shared)]
+        state = {'behavior_contract_required': True, 'modules': {'M001': provider, 'M002': consumer}}
+        bc.global_review(state)
+        shared['integration_case_ids'] = ['UNASSIGNED']
+        with self.assertRaisesRegex(Rejected, 'consumer owner'):
+            bc.global_review(state)
+
+    def test_parent_checks_children_reviews_and_rejection_does_not_mutate_siblings(self):
+        f = test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        f.root_scope()
+        state = f.state(); state['behavior_contract_required'] = True
+        parent = state['modules']['M010']
+        plan = f.proposal()
+        plan['planning_context'] = decomposition.planning_context(state)
+        for child in plan['children']:
+            child['behavior_review'] = review(f, child)
+        decomposition.validate(state, parent, plan)
+        before = copy.deepcopy(state)
+        plan['children'][0]['behavior_review']['case_ids'] = []
+        with self.assertRaisesRegex(Rejected, 'case_ids'):
+            decomposition.validate(state, parent, plan)
+        self.assertEqual(state, before)
+
+    def test_registration_and_plan_gate_are_real_ledger_operations(self):
+        f = self.f; old = f.state(); f.root = f.base / 'contract-run'
+        payload = {k: old[k] for k in ('target_root', 'legacy_root', 'case_ids', 'requirement_ids', 'global_spec', 'new_architecture')}
+        f.call('init', {**payload, 'behavior_contract_required': True, 'dimension_slicing_required': False,
+                       'context_readiness_required': False, 'split_testing_required': False}, role='host')
+        module = {'module_id': 'M001', 'scope': {'in': ['query'], 'out': ['history'], 'requirement_ids': ['R1']},
+                  'case_ids': ['C1'], 'write_paths': [str(f.target / 'm1')], 'context_refs': [f.ref('context.md', 'query sources')]}
+        with self.assertRaisesRegex(Rejected, 'behavior_review'):
+            f.call('register', module, role='global-orchestrator', module=None)
+        module['behavior_review'] = review(f, module)
+        f.call('register', module, role='global-orchestrator', module=None)
+        f.global_plan()
+        with self.assertRaisesRegex(Rejected, 'plan must declare the behavior contract'):
+            f.call('plan', {'plan_ref': f.ref('bare-plan.json', f.plan())}, role='spec-designer')
+        plan, _ = contract_plan(f)
+        f.call('plan', {'plan_ref': f.ref('new-plan.json', plan)}, role='spec-designer')
+        f.approve(digest(plan), 'D-contract'); f.call('freeze', {'decision_id': 'D-contract'})
+        self.assertEqual(len(f.state()['modules']['M001']['plan']['scenario_index']), 3)
+
+
+if __name__ == '__main__':
+    unittest.main()

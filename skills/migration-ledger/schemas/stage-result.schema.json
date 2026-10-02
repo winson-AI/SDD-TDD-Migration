@@ -18,6 +18,7 @@
     "kind": {
       "enum": [
         "implementation",
+        "test-design",
         "tests",
         "audit-review"
       ]
@@ -46,6 +47,8 @@
     "paths": {
       "type": "array"
     },
+    "input_ref": {"$ref": "#/$defs/ref"},
+    "design_ref": {"$ref": "#/$defs/ref"},
     "fix_note_ref": {
       "type": "object",
       "required": [
@@ -152,7 +155,29 @@
       ]
     }
   },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  },
   "allOf": [
+    {
+      "if": {"properties": {"kind": {"const": "test-design"}}},
+      "then": {
+        "required": ["input_ref", "design_ref", "paths"],
+        "properties": {
+          "freeze_id": {"type": "null"},
+          "code_baseline": {"type": "null"},
+          "code_files": {"maxItems": 0},
+          "paths": {"minItems": 1}
+        }
+      }
+    },
     {
       "if": {
         "properties": {

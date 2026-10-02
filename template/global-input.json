@@ -112,5 +112,6 @@
   "git_checkpoint": false,
   "fixer_self_diagnosis": false,
   "write_scope_check": false,
-  "dependency_resolution_required": false
+  "dependency_resolution_required": false,
+  "behavior_contract_required": true
 }

@@ -1,6 +1,10 @@
 {
   "schema_version": 1,
   "module_id": "M001",
+  "test_design_ref": {
+    "path": "{{absolute-run-root}}/staging/{{test-design-agent}}/{{revision}}/test-design-result.json",
+    "sha256": "{{sha256}}"
+  },
   "definitions": [
     {
       "kind": "proposal",
@@ -68,17 +72,97 @@
       }
     },
     {
-      "path_id": "PATH-M001-001",
-      "name": "{{name}}",
+      "path_id": "UNIT-M001-001",
+      "kind": "unit",
+      "name": "逻辑聚焦单测",
       "case_id": "CASE-GLOBAL-001",
       "requirement_id": "REQ-M001-001",
       "required": true,
       "expected_assertions": [
         {
-          "assertion_id": "ASSERT-M001-001",
-          "expected": "{{expected-value}}"
+          "assertion_id": "ASSERT-UNIT-M001-CLEAN",
+          "expected": true
         }
       ],
+      "command": {
+        "argv": [
+          "/bin/sh",
+          "{{absolute-target-root}}/gradlew",
+          "{{module-unit-test-task}}"
+        ],
+        "cwd": "{{absolute-target-root}}",
+        "timeout_seconds": 900,
+        "selection_ref": {
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{unit-test-selection-report}}",
+          "sha256": "{{sha256}}"
+        }
+      },
+      "unit_report": {
+        "format": "junit",
+        "patterns": [
+          "outputs/**/test-results/**/TEST-*.xml"
+        ],
+        "required_test_ids": [
+          "{{test-class}}#{{normal-test-name}}",
+          "{{test-class}}#{{error-test-name}}"
+        ]
+      }
+    },
+    {
+      "path_id": "STATIC-M001-001",
+      "kind": "static",
+      "name": "规格闭合静态审查",
+      "case_id": "CASE-GLOBAL-001",
+      "requirement_id": "REQ-M001-001",
+      "required": true,
+      "scenario_requirement_ids": [
+        "REQ-M001-001"
+      ],
+      "expected_assertions": [
+        {
+          "assertion_id": "ASSERT-STATIC-M001-CLOSURE",
+          "expected": true
+        }
+      ],
+      "scenario_ids": [
+        "SCN-M001-001",
+        "SCN-M001-002"
+      ]
+    },
+    {
+      "path_id": "PATH-M001-001",
+      "name": "{{readable-path-name}}",
+      "case_id": "CASE-GLOBAL-001",
+      "requirement_id": "REQ-M001-001",
+      "priority": "P0",
+      "required": true,
+      "scope": "module",
+      "preconditions": [
+        "{{precondition}}"
+      ],
+      "steps": [
+        "{{step}}"
+      ],
+      "parameters": {},
+      "parameter_hash": "{{sha256}}",
+      "expected_assertions": [
+        {
+          "assertion_id": "ASSERT-M001-001",
+          "expected": "{{observable-expectation}}"
+        },
+        {
+          "assertion_id": "ASSERT-M001-002",
+          "expected": "{{boundary-or-error-expectation}}"
+        }
+      ],
+      "dependency_refs": [],
+      "script_ref": null,
+      "query": {
+        "path_id": "PATH-M001-001",
+        "name": "{{readable-path-name}}",
+        "case_id": "CASE-GLOBAL-001",
+        "parameters": {}
+      },
       "kind": "automation"
     }
   ],
@@ -90,6 +174,8 @@
       ],
       "path_ids": [
         "BUILD-M001-001",
+        "UNIT-M001-001",
+        "STATIC-M001-001",
         "PATH-M001-001"
       ],
       "global_requirement_ids": [
@@ -194,7 +280,28 @@
         "sha256": "{{sha256}}"
       }
     ],
-    "unresolved": []
+    "unresolved": [],
+    "behavior_review": {
+      "scope_sha256": "{{contracts.digest(allocated-scope)}}",
+      "entry": "{{source-feature-entry}}",
+      "observable_result": "{{behavior-result-and-error-boundaries}}",
+      "production_binding": "{{target-entry-to-provider-and-consumer}}",
+      "boundary_rationale": "{{why-this-scope-is-a-complete-behavior; supporting-tasks-contribute-to-it}}",
+      "requirement_ids": [
+        "REQ-GLOBAL-001"
+      ],
+      "case_ids": [
+        "CASE-GLOBAL-001"
+      ],
+      "shared_capabilities": [],
+      "unresolved": [],
+      "evidence_refs": [
+        {
+          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{behavior-review-evidence}}",
+          "sha256": "{{sha256}}"
+        }
+      ]
+    }
   },
   "target_feasibility": {
     "verdict": "pending",
@@ -255,12 +362,17 @@
         "TASK-M001-001"
       ],
       "path_ids": [
-        "PATH-M001-001"
+        "PATH-M001-001",
+        "UNIT-M001-001"
       ],
       "assertions": [
         {
           "path_id": "PATH-M001-001",
           "assertion_id": "ASSERT-M001-001"
+        },
+        {
+          "path_id": "UNIT-M001-001",
+          "assertion_id": "ASSERT-UNIT-M001-CLEAN"
         }
       ]
     },
@@ -313,5 +425,56 @@
         "event_ids": []
       }
     ]
-  }
+  },
+  "behavior_contract_required": true,
+  "scenario_index": [
+    {
+      "scenario_id": "SCN-M001-001",
+      "requirement_id": "REQ-M001-001",
+      "capability": "feature-capability",
+      "spec_sha256": "{{generated-from-current-spec-definition}}",
+      "scenario_sha256": "{{generated-by-behavior_contract.py}}"
+    },
+    {
+      "scenario_id": "SCN-M001-002",
+      "requirement_id": "REQ-M001-001",
+      "capability": "feature-capability",
+      "spec_sha256": "{{generated-from-current-spec-definition}}",
+      "scenario_sha256": "{{generated-by-behavior_contract.py}}"
+    }
+  ],
+  "scenario_trace": [
+    {
+      "scenario_id": "SCN-M001-001",
+      "task_ids": [
+        "TASK-M001-001"
+      ],
+      "assertions": [
+        {
+          "path_id": "PATH-M001-001",
+          "assertion_id": "ASSERT-M001-001"
+        },
+        {
+          "path_id": "UNIT-M001-001",
+          "assertion_id": "ASSERT-UNIT-M001-CLEAN"
+        }
+      ]
+    },
+    {
+      "scenario_id": "SCN-M001-002",
+      "task_ids": [
+        "TASK-M001-001"
+      ],
+      "assertions": [
+        {
+          "path_id": "PATH-M001-001",
+          "assertion_id": "ASSERT-M001-002"
+        },
+        {
+          "path_id": "UNIT-M001-001",
+          "assertion_id": "ASSERT-UNIT-M001-CLEAN"
+        }
+      ]
+    }
+  ]
 }

@@ -96,5 +96,38 @@
   "dimension_analysis_ref": {
     "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{dimension-analysis-path}}",
     "sha256": "{{sha256}}"
+  },
+  "behavior_review": {
+    "scope_sha256": "{{contracts.digest(allocated-scope)}}",
+    "entry": "{{source-feature-entry}}",
+    "observable_result": "{{behavior-result-and-error-boundaries}}",
+    "production_binding": "{{target-entry-to-provider-and-consumer}}",
+    "boundary_rationale": "{{why-this-scope-is-a-complete-behavior; supporting-tasks-contribute-to-it}}",
+    "requirement_ids": [
+      "REQ-GLOBAL-001"
+    ],
+    "case_ids": [
+      "CASE-GLOBAL-001"
+    ],
+    "shared_capabilities": [
+      {
+        "capability_id": "{{shared-capability-id; use [] when none}}",
+        "owner_module_id": "{{provider-module-id}}",
+        "consumer_module_ids": [
+          "{{consumer-module-id}}"
+        ],
+        "integration_case_ids": [
+          "{{case-owned-by-consumer}}"
+        ],
+        "integration_responsibility": "{{consumer-wires-and-tests-provider; root-owner-refines-to-one-leaf}}"
+      }
+    ],
+    "unresolved": [],
+    "evidence_refs": [
+      {
+        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{behavior-review-evidence}}",
+        "sha256": "{{sha256}}"
+      }
+    ]
   }
 }

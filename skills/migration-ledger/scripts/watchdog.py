@@ -124,6 +124,17 @@ def inspect(root):
         elapsed = age(entry.get('last_progress_at'), at)
         workers.append({'scope': scope, **observed, 'progress': 'unknown' if elapsed is None else 'observed',
                         'idle_seconds': elapsed})
+        if entry.get('execution_state_path'):
+            try:
+                from execution_capture import observe
+                output = observe(root, entry['execution_state_path'], {'run_id': state['run_id'],
+                    'module_id': mid or 'GLOBAL', 'assignment_id': assignment['assignment_id'],
+                    'actor_instance_id': assignment['instance_id']})
+                workers[-1]['execution_output'] = output
+                if not paused and observed['status'] == 'exited' and not output['output_complete']:
+                    add('execution-output-incomplete', scope, output)
+            except (ValueError, OSError, KeyError, TypeError) as exc:
+                if not paused: add('execution-output-unreadable', scope, {'reason': str(exc)})
         if not paused and observed['status'] != 'running': add('worker-' + observed['status'], scope, observed)
         if not paused and observed['status'] == 'running' and elapsed is not None and elapsed >= config['worker_stall_seconds']:
             add('worker-progress-overdue', scope, {'idle_seconds': elapsed})

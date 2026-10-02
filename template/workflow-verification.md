@@ -78,6 +78,15 @@
 | WF-74 | 仅 GLOBAL 缺环境，之后提交 ready audit-testing | 新有效预检提示 audit-assign 并携带 owner/context；旧、blocked、篡改或已消费预检不触发，其他模块不重跑 |
 | WF-75 | 已执行 Yellow 后 automation-unavailable/audit-unavailable | 保留同基线最近真实断言/回执为 last_execution；当前尝试未执行、质量仍 Yellow；重复缺测不产生递归历史 |
 | WF-76 | semantic 仍有 issues 或不可比，却被标 ALIGNED | Green 必须逐项绑定原结果/原 finding 的有据 resolved/dismissed 裁决；原件/佐证变化、漏项、重复或无证据拒绝 |
+| WF-77 | GO/父 MO/子 MO 行为闭包不完整或共享能力有多个 owner | register/decompose/plan/global-plan 按 scope、REQ/CASE、证据和归属拒绝；运行期无关兄弟证据不影响本模块，实际依赖仍核验 |
+| WF-78 | 同一 Requirement 的错误/空态 Scenario 未映射或索引过期 | plan/freeze 从 SPEC 重算索引，要求逐 Scenario→TASK/PATH/ASSERT；缺场景/构建代替行为断言拒绝，static 明确缺实现记 Red |
+| WF-79 | 单测退出 0，但零执行/全跳过/错选/缺损报告 | 当前 runner JUnit 实际 testcase 和冻结 required_test_ids 不满足时 Yellow，不能 Green；观察到失败为 Red，走既有修复 |
+| WF-80 | 重用旧单测报告、路径越界、重复 test ID、篡改计数或回执基线 | attempt 范围/时间、hash、实际计数及 run/module/PATH/assignment/test_run/freeze/code 绑定校验；无有效证据不能通过 |
+| WF-81 | 恢复 run 或更新来源 | 行为契约与设计门禁由 prepare 固定、不能关闭；Red/Fixer/回归、OpenSpec 投影与二次启动仍完整 |
+| WF-82 | 长任务、双流大输出、取消/硬终止 | 退出前日志可见；原字节/时间/位置留存；异常不完整、超时有界，原终止门禁与独立任务不受观察器影响 |
+| WF-83 | 按 Scenario/PATH/测试 ID 查询及历史复查 | 只读已提交证据，不刷新投影或拿业务锁；历史结果明确标注，分页/字节上限有效，损坏归档可定位 |
+| WF-84 | watchdog 读取执行输出 | 绑定身份/本 run 路径；输出不冒充心跳；真实退出且输出不完整才提示，缺宿主接口仍 unknown |
+| WF-85 | 实时观察、审计 trace 与业务验收 | live 明确未验收，不作为跨层结果；GLOBAL 审计独立查询；缺实现/零测试不能通过 |
 
 ## WF-44：整体代码治理前置
 

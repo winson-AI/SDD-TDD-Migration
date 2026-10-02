@@ -228,6 +228,9 @@ class RunStorageTests(unittest.TestCase):
             self.assertIn('interruption', str(state['projection']['errors']))
         change = f.f.base / 'openspec/changes/demo-m001'
         self.assertTrue((change / 'proposal.md').exists())
+        # Pre-code design already created a preliminary manifest. Simulate its
+        # loss as well, then prove replay restores the committed formal plan.
+        (change / 'manifest.json').unlink(missing_ok=True)
         self.assertFalse((change / 'manifest.json').exists())
         before = (f.f.root / 'ledger/events.jsonl').read_bytes()
         state = ledger.status(f.f.root)

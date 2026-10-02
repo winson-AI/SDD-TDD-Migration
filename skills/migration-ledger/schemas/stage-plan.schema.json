@@ -19,6 +19,15 @@
     "module_id": {
       "type": "string"
     },
+    "test_design_ref": {
+      "description": "Accepted test-design result; required by prepared runs and leaves opted into design mode. Ledger rechecks input, author, tasks, SPEC and expected PATHs.",
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
     "definitions": {
       "type": "array",
       "minItems": 7,
@@ -86,6 +95,35 @@
           "assertions"
         ]
       }
+    },
+    "behavior_contract_required": {
+      "type": "boolean"
+    },
+    "scenario_index": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "scenario_id",
+          "requirement_id",
+          "capability",
+          "spec_sha256",
+          "scenario_sha256"
+        ]
+      }
+    },
+    "scenario_trace": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "scenario_id",
+          "task_ids",
+          "assertions"
+        ]
+      }
     }
   },
   "dependentRequired": {
@@ -150,6 +188,31 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "behavior_contract_required"
+        ],
+        "properties": {
+          "behavior_contract_required": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "scenario_index",
+          "scenario_trace"
+        ],
+        "properties": {
+          "source_closure": {
+            "required": [
+              "behavior_review"
+            ]
           }
         }
       }

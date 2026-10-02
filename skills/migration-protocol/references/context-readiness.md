@@ -17,6 +17,7 @@
 | prepare / Ledger init 后、根模块登记前 | global-discovery / GO | 全局需求与用例来源、存量/目标代码、架构/知识、TARGET/外部来源、宿主能力 | register，GO；初始化分析结果先 staged，正式登记前留证 |
 | 父 MO 拆分前 | decomposition / 父 MO | 全局/父范围、源码入口、共享接口、唯一 owner、复用来源、所需子上下文 | decompose 提案绑定；GO decompose-accept 复核同一报告 |
 | 子模块全部登记后 | global-planning / GO | 全局需求/CASE 覆盖、分工/接口契约、复用 owner | global-plan，GO |
+| design assign 后、设计 submit 前 | test-design / Test Runner | assigned-scope/spec-cases/task-coverage/independence；必读 design_input_ref 的规格/CASE/tasks | submit 绑定本实例与结果 draft_ref；MO accept(review_ref) 再验，无代码/设备前置 |
 | 子 MO 组织正式 SPEC/测试设计 | planning / Spec Designer | 全局/父/子范围、source_closure、target_feasibility、接口、CASE/PATH、复用映射 | plan 绑定草稿；子 MO freeze 再验当前报告与同一 plan_ref |
 | Coding 派发前 | coding / Implementer | 冻结 SPEC/tasks、完整生产链路、目标可行性、共享接口、复用接线、工具/读写授权 | MO assign；原有锁、依赖、版本门禁仍执行 |
 | 构建派发前 | building / Test Runner | 已接受代码、冻结构建命令、目标/JDK/SDK/Gradle 环境、工具与权限，不要求自动化设备 | MO assign(test_scope=build) |

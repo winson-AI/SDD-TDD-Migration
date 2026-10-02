@@ -34,14 +34,24 @@ def report(query, review_ref, target_root):
     for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
         require(data.get(key) == query.get(key), 'review context mismatch: ' + key)
     target = Path(target_root).resolve()
-    scenarios = keyed(data.get('scenarios'), 'requirement_id')
-    require(set(scenarios) == set(query.get('scenario_requirement_ids') or []),
+    scenario_mode = 'scenario_ids' in query
+    scenarios = keyed(data.get('scenarios'), 'scenario_id' if scenario_mode else 'requirement_id')
+    require(set(scenarios) == set(query.get('scenario_ids' if scenario_mode else 'scenario_requirement_ids') or []),
             'review must cover exactly the frozen requirements')
+    frozen = {r['scenario_id']: r for r in query.get('scenario_index', [])}
+    if scenario_mode:
+        require(set(frozen) == set(scenarios), 'static query needs the frozen scenario_index')
     gaps = []
     for rid, row in scenarios.items():
+        if scenario_mode:
+            require(row.get('requirement_id') == frozen[rid]['requirement_id'], 'scenario requirement mismatch: ' + rid)
         require(row.get('status') in ('passed', 'failed') and row.get('summary'), 'scenario status/summary required: ' + rid)
         symbols, defined_in = set(), set()
-        for item in nonempty(row.get('production_symbols'), 'production symbol evidence for ' + rid):
+        production = row.get('production_symbols')
+        require(isinstance(production, list), 'production_symbols list required: ' + rid)
+        if row['status'] == 'passed':
+            nonempty(production, 'production symbol evidence for ' + rid)
+        for item in production:
             path = cited(item, target, 'production symbol', rid)
             symbols.add(item['symbol']); defined_in.add(path)
         if row['status'] == 'passed':

@@ -8,6 +8,17 @@ execute 模式分 build 和 automation，按 [双环节协议](build-automation.
 
 Main 是项目提供的主验证入口，不是固定 `main.py`，也不是某个产品特有 Agent。输入 `test_adapter` 指定 executable/args/cwd、query 传输和结构化结果路径；未配置或不可用 → Yellow tooling。模板不包含假测试或自动通过的适配器。
 
+## 编码前设计交接
+
+沿用 `assign → submit → accept`，以 `mode=design` 区分只读设计。编码前设计是必选门禁（prepare 固定 test_design_required=true），撤销/invalidate 不关闭。
+
+1. MO 在 context/specifying/change-review、无 blocker/worker 的叶子 `assign(role=test-runner, mode=design, assignment_id, instance_id, design_input_ref)`；[输入](../../../template/test-design-input.json) 绑定当前 planning_context/assigned_module、MO tasks.scope/需求、spec_refs/case_refs，此事件提交跨角色输入。Spec 可先 context-submit 自身草稿。无源码写锁、依赖代码/设备前置，仍受并发预算约束。
+2. 独立 Test-Runner 在自身 staging 写 [结果](../../../template/test-design-result.json)，先 context-submit(stage=test-design)，检查 assigned-scope/spec-cases/task-coverage/independence，确认必读引用，draft_ref 绑定结果；再 submit(assignment_id/fencing_token/result_ref/context_ref)。kind=test-design，freeze_id/code_baseline=null；只写预期 PATH/ASSERT，禁止 actual/passed/quality 或执行。
+3. MO 审查全 CASE 覆盖并 accept(assignment_id, review_ref)，关闭 assignment，保持规划 phase/质量/代码/修复预算与兄弟模块。返工或 blocked：留证，宿主实际停 worker/revoke，再重新派发或按原 suspend，不能记业务 Red。
+4. 独立 Spec 的 plan.test_design_ref 绑定 accepted 结果，definitions.test-design 引其 design_ref；SPEC 引用、tasks.scope/需求及全部 PATH/ASSERT 与设计输入/结果一致，任务可补 path_ids/四维追溯。MO freeze 再验。需求/任务/分配/断言变更须重新设计；invalidate/CR 保留旧证据并回规划。活动输入过期提示 host revoke；clarifying 设计过期提示 MO invalidate。
+
+设计者不能兼 MO/Spec/实现/修复作者，登记 authors 后不能兼 Auditor。宿主落实真实独立派发与 staging 写隔离；结构/hash 不证明语义正确。未冻结禁编码、未接受代码禁执行，设计不能替代 building/testing 预检。
+
 ## query
 
 一个可重复执行的路径带稳定 `path_id`、可读 `name`、case_id、requirement_id、preconditions、steps、parameters、expected_assertions、dependency_refs、priority、scope。推荐 `PATH-M001-001`，名称变化不改 ID；参数化每个实例具有唯一 ID/parameter_hash，不能把十个参数只算一次覆盖。
@@ -58,18 +69,37 @@ adapter 的 `skipped` / `xfail` 限制必须原样保留。原始报告声称 Gr
 
 ## 逻辑单测
 
-`kind=unit` 用冻结命令（argv/cwd/timeout/selection_ref，断言退出码 0）运行模块的状态转换、映射、错误/重试等聚焦单测，不需要设备；失败是 `code` 根因的 Red，进入诊断/修复。prepared run 固定 `unit_tests_required=true`：四维分析中每个 applicable 的 Logic 项，其 dimension_trace 必须包含一条 unit PATH，或以 `unit_test_na` 写明不适用依据。unit 不承担 CASE 覆盖，case_id 复用本模块已有 CASE。仅自动化环境缺失时 unit 的 Green 照常保留，逻辑层仍有独立证据。
+unit 冻结 argv/cwd/timeout/selection_ref。unit_report 固定 format=junit、runner 相对 patterns、required_test_ids（唯一 `classname#name`，参数实例也需稳定 ID），只有一个 expected=true 的完整执行断言。Gradle 默认 `outputs/**/test-results/**/TEST-*.xml`；宿主迁移输出到本轮 runner，追加 --rerun-tasks/--no-build-cache（含 KMP/native）并开启 JVM Test XML。其他工具在 `$SDD_RUNNER_DIR` 生成同格式报告。
+
+解析 testcase/计数，保存具体 ID、执行/失败/跳过数量与报告 hash，绑定 run/module/PATH/assignment/test_run/freeze/code_baseline，接受时重核原报告。exit=0、实际执行非零、全部必需 ID 通过、无跳过/证据缺口才 Green。零执行、漏测、缺失/损坏/过期报告为 Yellow；断言失败或非环境中断的命令失败为 code Red，走既有诊断/Fixer。只收本 attempt 的新报告，旧 mtime/越界链接无效；任意可写 XML 的真实性仍依赖可信宿主执行。
+
+prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据。unit 无需设备，可证明逻辑 Scenario，但不替代 CASE 的 automation；环境缺失保留已通过 unit，Red/Yellow 仅影响本模块及实际依赖。
+
+## 日志与按需追溯
+
+execute_test 在同一 runner 持续写 stdout.log/stderr.log（原始字节）、execution.log（带采集时间/stream）、output-events.jsonl（序号/字节位置），execution-state.json 绑定本 attempt 身份、输出量及完整性。子进程自身缓冲可能延迟输出；采集顺序不表示跨 stream 的严格因果。超时/取消标记不完整；硬终止可能仅留下 running/不完整，须宿主核查，不自动修复或重跑。receipt.capture 固化引用，提交时沿 Ledger 归档；原有三态/终止验收不变。
+
+恢复/诊断先读当前模块状态和 trace 摘要，完整日志、历史轮次、媒体按需读取，不自动装入下次上下文。以下 trace.py 位于 skills/migration-ledger/scripts；命令只读、不刷新投影或拿业务锁：
+
+```sh
+python3 <package>/skills/migration-ledger/scripts/trace.py query --root <run> --module M001 --scenario-id SCN-M001-query
+python3 <package>/skills/migration-ledger/scripts/trace.py query --root <run> --module M001 --path-id U1 --history --offset 0 --limit 5
+python3 <package>/skills/migration-ledger/scripts/trace.py evidence --root <run> --sha256 <已提交引用hash> --offset 0 --bytes 1024
+python3 <package>/skills/migration-ledger/scripts/trace.py live --root <run> --module M001 --attempt <本run/runner> --stream stderr --offset 0 --bytes 1024
+```
+
+query 还支持 --task-id/--assertion-id/--test-id，默认最多5条，仅失败附1024字节日志尾；列表/长字段截断，按 next_offset 翻页。读取事件索引对应的归档，当前源码改变不破坏旧证据；缺损显示 evidence_issues，历史 Green 不表示当前有效。evidence 仅读取已提交文本证据，每次最多4096字节，媒体保留引用。live 仅供 Host 观察，accepted=false，不能作为跨 Agent 验收输入。<run> 为 .sdd-runs/<run_id>；输出到 stdout，不产生新状态库。
 
 ## 静态规格闭合
 
-拆分测试的 Ledger 顺序为 build → unit → static → automation → visual。static 是 Test-Runner 在当前已构建代码上做的独立规格闭合审查（逐场景核对与假实现清单），位于昂贵的设备自动化之前；prepared run 固定 `spec_closure_required=true`，每个拆分模块冻结恰好一条 `kind=static` PATH：`scenario_requirement_ids` 等于模块全部任务需求，`expected_assertions` 只有一个 `expected: true`，case_id 复用本模块已有 CASE，不能新增或替代业务覆盖。
+顺序为 build → unit → static → automation → visual。prepared run 固定 spec_closure_required=true，每模块恰好一个 static PATH；scenario_requirement_ids 列全部任务需求，断言为唯一 expected=true，复用已有 case_id，不替代业务覆盖；scenario_ids 列全部冻结场景。
 
-Test-Runner 只读冻结 SPEC、当前代码与测试，写审查记录（staging）：
+独立 Test-Runner 只读 SPEC、当前代码/测试，将审查写入 staging：
 
-- `scenarios[]`：每个冻结需求一条，`status=passed|failed`、summary、`production_symbols[]`（目标文件绝对路径 + 文件内真实存在的符号）与 evidence_refs。passed 还须给 `reached_from`：另一个目标文件中引用该生产符号的调用、DI 绑定、导航或清单注册位置；找不到调用方的符号是死代码或预览专用，只能记 failed。模块有 unit PATH 时，passed 还须在 `test_refs` 引用覆盖该符号的目标测试文件。
-- `anti_patterns`：`preview-only-wiring`、`dead-handler`、`fixed-result`、`placeholder-icon`、`unapproved-stub`、`swallowed-error`（失败或格式错误的数据被显示为空状态/成功）逐项 `absent|present` + note + evidence_refs。经冻结批准的 capture-fixture 边界记 absent 并在 note 引用批准依据。
+- scenarios[]：按 scenario_id + requirement_id 逐场景记录；execute_test 注入冻结 scenario_index。每行 status=passed|failed、summary、production_symbols（目标绝对路径+真实符号）、evidence_refs。passed 必须给 reached_from：另一个目标文件中的调用/DI/导航/清单引用；有 unit PATH 还须 test_refs 指向真实测试符号。未接入生产不能 passed。
+- anti_patterns：preview-only-wiring、dead-handler、fixed-result、placeholder-icon、unapproved-stub、swallowed-error（错误显示为空态/成功）逐项 absent|present、note、evidence_refs。批准的 capture-fixture 边界可 absent，须引用批准依据。
 
-unit 与 static 都不需要设备，与 build 共用一次派发：building 预检在 `execution.commands` 中同时为 build、unit 与 static PATH 预批准命令（static 的 review 路径提前确定）；MO 接受全绿 build 结果后，同一 assignment 保持打开并依次切换为 `test_scope=unit`、`static`，由同一 Test-Runner 继续，无需新的派发或预检，MO 仍单独接受 static 结果。build 未全绿时 assignment 正常关闭。运行时经 `execute_test.py` 调用 [spec_closure.py](../../migration-ledger/scripts/spec_closure.py)（argv：`--review <记录> --target-root <target>`）。适配器只核对上下文、需求覆盖、引用符号确实存在于目标文件、清单完整，然后生成唯一断言；任一场景 failed 或反模式 present 即 Red（root_cause 列出缺口），进入原诊断 → Fixer → 重新 build/static 复测闭环。适配器不自行评判代码，审查质量由独立 Test-Runner 负责、Auditor 抽查。static 全 Green 前不能派发 automation 或记录 automation-unavailable；仅自动化环境缺失时 static 照常执行。
+building 预检的 execution.commands 一并批准 build/unit/static 命令和 review 路径；build Green 接受后同一 assignment 依次 unit、static，各自提交/接受，无额外派发。失败关闭 assignment 并诊断/Fixer 后重跑。`execute_test.py` 调用 [spec_closure.py](../../migration-ledger/scripts/spec_closure.py)（--review、--target-root），核对上下文、场景覆盖、符号和清单；failed 场景/present 反模式为 Red。脚本不判断业务语义，Test-Runner 审阅、Auditor 抽查。static 全绿前禁止 automation/automation-unavailable；缺设备仍执行 unit/static。
 
 ## 运行时变体与冻结 SPEC 冲突
 

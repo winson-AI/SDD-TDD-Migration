@@ -23,6 +23,10 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 ## 冻结算法
 
+plan 声明 `behavior_contract_required=true` 并带 source_closure.behavior_review。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。`python3 <package_root>/skills/migration-ledger/scripts/behavior_contract.py --plan <staged-plan.json>` 输出派生 scenario_index（capability、REQ/Scenario ID、SPEC/场景 hash），合入待审批 plan；plan/freeze 重新派生比较，SPEC 修改须重建索引并走 CR/冻结。
+
+scenario_trace 将每个场景关联 task_ids、assertions[{path_id,assertion_id}]；全部任务/行为断言须有归属，允许多对多，build/static 不充当行为断言。static.scenario_ids 列全部场景；scenarios.md 为只读投影。
+
 1. 生成完整六件套草稿；冻结前 Test-Runner design 模式独立补齐测试用例与路径大纲，不运行代码。
 2. Spec-Designer 把明确的问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复须绑定 question_id、spec_revision、内容摘要。既有明确答复可复用，若绑定内容已变则重新裁决。
 3. 冻结 manifest 列出 proposal、所有 delta specs、design、tasks 定义、checklist 定义、test design 与全局输入契约的实际 path+sha256。保留不可变副本，生成 freeze_id/spec_revision。
@@ -48,9 +52,9 @@ Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/
 
 人类批准 `decision_envelope`：scope、acceptance、allowed_alternatives、forbidden_changes。默认禁止未经批准更换数据提供方、缩减范围、降低验收或引入重大排除。判断是否越界由 Spec-Designer 提交证据、MO 审查；hash 不能证明语义合规。
 
-初始批准绑定完整 stage-plan 的内容摘要；该计划包含六件套文件引用、测试 PATH/断言、任务、source_closure、target_feasibility 与 envelope。当前执行仍绑定具体 freeze_id。后续只增加证据/状态不改变定义；任务细化须 CR/影响分析与新 freeze。`within-envelope` 快速通道只允许保留原 envelope 和完整测试路径/预期断言集合，不放开 tasks 任意变化；MO 审查实施计划后发布新执行基线，不伪造新的人工批准。
+初次批准绑定完整 stage-plan digest（六件套引用、PATH/断言、tasks、闭包、可行性、envelope），执行绑定 freeze_id。证据/状态更新不改定义；任务细化走 CR。within-envelope 保留原 envelope 及完整 PATH/预期断言集合，MO 审阅后发布新执行基线，不伪造新人工批准。
 
-快速通道的 impact_ref 指向结构化 [change-impact.json](../../../template/change-impact.json)，必须绑定 from_freeze_id 与 to_plan_hash（修订后完整 plan 的 digest）。MO 提交 change 后记录旧 freeze；只有该 CR 的同一 impact_ref 能冻结所审查的新计划。再次修改计划必须重新审查；旧散文 impact 仍可留证，但不能授权快速再冻结。freeze 后 CR 移入 change_request_history，invalidate 后随 planning_history 留存并移除当前 CR；不能用旧审查冻结下一份计划。初始/边界外批准仍按当前 plan 的真实人工 decision 执行。
+快速通道使用 [change-impact.json](../../../template/change-impact.json)，绑定 from_freeze_id、to_plan_hash。只有当前 CR 的同一 impact_ref 能冻结该计划；再次修改需重审，散文记录不授权再冻结。成功后 CR 进入 change_request_history；invalidate 随 planning_history 留存并清除当前 CR。初始/边界外冻结仍需真实人工决定。
 
 改变范围、验收、替代方案或路径集合必须有新的人类决定；脚本不能自动裁定两段文本语义等价。Spec-Designer/Implementer/Fixer 的写权限不合并。第一次 SPEC 冻结前的 legacy 观察属于理解输入，不等于允许提前执行目标测试。
 
@@ -58,7 +62,7 @@ Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/
 
 ## Ledger 物化与修复记忆
 
-本地默认 change_root 为 `<workspace_root>/openspec/changes/<run-id>-<module-id小写>`。每个已接受 plan 的定义快照会自动生成 proposal/spec/design/tasks/checklist，status 从状态机生成；tasks 勾选绑定 accepted task trace，checklist 保留定义并附机器证据。manifest 标记 structural-only，正式 CLI 验证结果不得伪造。删除视图后 status 可重建，视图修改不能更改冻结内容。
+change_root 为 `<workspace_root>/openspec/changes/<run-id>-<module-id小写>`。接受 plan 后物化定义快照及运行状态，manifest 标记 structural-only；CLI 结果须真实执行，视图不作为新定义。
 
 生成视图同时更新跳转：六件套内部引用指向对应的实际生成位置（特别是 specs/<capability>/spec.md）；架构、知识及其中的框架/代码链接，按本轮 context 的 source_paths/link_manifest_ref 指向固化后的文件位置。锚点与标题保留，不能把链接留在旧目录或换成最新工作文件。原始定义及 hash 不修改，重建只使用既有快照。未收录目标记录在 change/manifest.json 的 link_warnings，不能默认当作有效知识链。context/files 的关联文件固化见 [项目上下文协议](project-context.md#contextfiles-的跨文件链接)。
 
@@ -67,11 +71,9 @@ invalidate 后旧 plan 进入 planning_history，当前 plan/freeze 清空；Led
 
 ## 二方库语义与需求映射
 
-proposal/design/tasks/checklist 明确复用决策、语义差异、接线、版本与验证，spec 保持用户行为要求。stage-plan.reuse_plan_ref 纳入冻结摘要；Ledger 根据已归档映射生成 change/reuse.md，manifest 记录引用。它是六件套的辅助依据，不新增第七个验收权威。变更所选能力或接入契约须影响分析及正常 CR/重新冻结；见 [复用协议](reuse-dependencies.md)。
+reuse_plan_ref 冻结库选择、语义差异、接线、版本及 fidelity（源码基线、对齐报告、复现 PATH/ASSERT），生成辅助 reuse.md；spec 保持用户行为要求。proposal/design/tasks/checklist 记录适配与验证，status 记录实际结果。规划对齐不代表运行通过，源码与需求冲突交人工；换能力/接入契约走影响分析、CR/重新冻结，详见 [复用协议](reuse-dependencies.md)。
 
-选中能力时还需冻结 fidelity：存量源码基线、逐行为对齐报告及复现 PATH/ASSERT。spec 记录应保留的源行为，design/tasks 记录库差异与适配，checklist 检查对齐完整与复现证据，status 经 Ledger 记录实际进度。规划检查完成与运行保真通过分别记录；源码行为与需求冲突须人工决定。
-
-构建和自动化是冻结 plan.paths 中独立的 kind；build.command 与退出码断言也纳入冻结。仅因自动化环境缺失不会删除验收路径或改 SPEC，Ledger 保存 Yellow 未执行和 automation-deferred；恢复后补测。见 [双环节协议](build-automation.md)。
+build 与 automation PATH 分别冻结命令/断言；自动化环境缺失保留 SPEC 和未执行 Yellow，恢复后补测，见 [双环节协议](build-automation.md)。
 
 ## 四维完整性索引
 
@@ -79,9 +81,7 @@ proposal/design/tasks/checklist 明确复用决策、语义差异、接线、版
 
 ## OpenSpec 自动物化
 
-提交事件后及 status 重放时，生成 `<workspace_root>/openspec/changes/<run-id>-<module-id小写>/`：proposal.md、specs/<capability>/spec.md、design.md、tasks.md、status.md、checklist.md，以及 memory.md/manifest.json。定义作者仍为 Spec-Designer；Ledger 复制已提交的不可变定义快照，不凭空发明需求。spec 引用可带合法 capability；默认使用小写模块编号。
-
-tasks 定义必须含每个 TASK-ID 对应的 Markdown checkbox；依据已接受 task_trace 更新 `- [ ] TASK-ID` 勾选；checklist 保留定义并追加机器证据，status 记录阶段、有效三态和下一步。更新视图不会改定义快照、freeze_id 或验收。视图丢失/被改后可由日志重建，旧生成的能力文件由 manifest 清理。可见文件是投影，不可直接编辑作为新 SPEC；变更必须提交 plan/CR。
+事件提交/status 重放由 Ledger 生成六件套、memory.md、manifest.json及适用的复用/四维/场景索引。spec 按 capability 分文件，默认小写模块 ID；定义作者仍为 Spec-Designer。tasks 必须含每个 TASK-ID 的 checkbox，按已接受 task_trace 勾选；checklist 追加证据，status 记录阶段/三态/next_step。重建不改定义快照、freeze_id 或验收；manifest 清理旧生成文件，变更走 plan/CR。
 
 ## 修复 memory
 

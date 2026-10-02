@@ -19,6 +19,8 @@
 
 ## 流程图
 
+编码前的独立测试设计通过 Ledger `assign(mode=design) → submit → MO accept` 留证，再绑定 Spec plan/freeze；无代码阶段只设计，不执行或记录通过。该门禁由 prepare 固定开启。见 [设计交接](skills/migration-protocol/references/testing.md#编码前设计交接)。
+
 按三层编排阅读 [完整图集](diagrams/README.md)：[总览](diagrams/workflow.svg) → [子 MO 执行与修复](diagrams/module-execution.svg) → [Auditor 跨模块处理](diagrams/auditor-closure.svg)，另见贯穿各阶段的 [二方库语义与复用](diagrams/reuse-dependencies.svg)。每张均提供 PNG 和可再生成的源文件。
 
 ## 目录
@@ -114,6 +116,9 @@ Coding → MO 接受代码 → Testing
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-02 | 编码前独立测试设计接入 Ledger 派发/提交/验收链；prepare 固定该门禁，plan/freeze 绑定同一份已接受设计；过期设计明确撤销或重新规划，保留历史证据。 |
+| 2026-10-02 | 行为完整性：prepare 固定行为契约门禁；GO/父 MO/子 MO 行为闭包审阅；OpenSpec 派生 Scenario 索引与任务/断言追溯；单测核验当前 runner 的 JUnit 实际测试 ID、计数与报告证据。 |
+| 2026-10-02 | 日志与追溯：执行期间持续留存分流日志、时间/字节索引及不完整标记；只读 trace 支持场景/路径/测试 ID、历史归档与分页；watchdog 可附输出观察，仍不改变业务状态。 |
 | 2026-09-18 | 初始工作流：9+1 角色、Ledger 单写事件、冻结门禁、本地控制器 |
 | 2026-09-19 | Test-Runner 先构建后自动化；Harmony 自动测试内核与独立 uv 环境 |
 | 2026-09-20 | 自动化缺测 Yellow 收尾；父 MO 命名与用例报告；四维切片；同 run 来源追加；显式 provider owner |

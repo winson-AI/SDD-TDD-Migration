@@ -22,17 +22,23 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 |
 | --- | ---: |
-| migration-ledger/tests | 704 |
+| migration-ledger/tests | 763 |
 | migration-test/tests | 47 |
 | runtime/harmony/tests | 128 |
-| 合计 | **879** |
+| 合计 | **938** |
 
-全部无失败、无跳过。适配器夹具仍有既有 engine.log ResourceWarning，不影响断言。
+全部无失败、无跳过。适配器夹具仍有既有 engine.log ResourceWarning，不影响断言。系统 python3 低于 3.11 时改用 Harmony sandbox 的解释器，并让它能导入已安装的 pytest；不为此安装依赖。
 
 ## 已覆盖
 
 | 范围 | 实际验证 |
 | --- | --- |
+| 编码前独立设计 | assign(mode=design) → context-submit → submit → MO accept(review_ref) 走原 Ledger；Spec plan/freeze 绑定同一规格、任务范围与预期 PATH/ASSERT；设计不能执行或带实际断言；缺预检、角色重叠、错身份/围栏、覆盖缺失、输入漂移均拒绝；撤销/失效回规划并保留历史，不改 CASE 质量或兄弟状态；prepare 固定的门禁不能关闭 |
+| 行为契约与场景追溯 | GO/父 MO/子 MO 行为审阅按 scope/REQ/CASE 校验；共享能力按父子归属解析唯一执行 owner，跨模块集成 CASE 归消费者，无关模块证据漂移不阻塞当前模块；SPEC 每个 Scenario-ID 派生并冻结到 TASK/PATH/ASSERT，缺场景、重复 ID、过期索引和以构建替代行为断言均拒绝 |
+| 单测报告核验 | JUnit 核验本次 attempt 的测试 ID、计数、报告 hash 与执行身份；零执行、跳过、缺损、错选、过期、越界证据不为 Green，断言失败为 Red，进程信号中断为 Yellow；Gradle 追加 --rerun-tasks --no-build-cache |
+| 日志与按需追溯 | 进程退出前可读双流日志，大输出不依赖内存缓冲；超时、取消、硬终止保留不完整标记，原终止/验收规则不变；capture 引用与身份在接受时复核；trace 只读已提交事件索引对应的归档，按 Scenario/TASK/PATH/ASSERT/测试 ID 过滤并分页、限字节，实时观察标为未验收，查询不取业务锁、不写文件；watchdog 可观察输出但不以此替代存活证明 |
+| 包内文件漂移 | 嵌套的控制器/协议引用在文件变化后，凭本 run 已提交事件的路径与哈希读取同哈希归档；未提交或外来归档、缺损或被重定向的归档均拒绝；SPEC、源码、环境与顶层输入仍校验当前字节 |
+| 真实工具探针 | 在一次性宿主 workspace 用 Gradle 7.6 + JDK 17 + JUnit4 实跑：通过与故意失败的用例分别识别为 Green/Red，JUnit 报告核验无缺口；KMP/native、装机与设备自动化未覆盖 |
 | 冻结与理解门禁 | 未冻结编码、代码未接受即测试、批准 hash 不符、源码未决/目标可行性 unknown 均拒绝 |
 | 变更 | Fixer 越权改 SPEC 拒绝；边界内任务修订可重新冻结；改变验收不能沿用批准 |
 | 结果与复测 | 空/遗漏断言、伪装 Green、篡改原始报告拒绝；非 Green 复测需新 test_run_id/retest_of，代码变化拒收旧结果 |
@@ -75,7 +81,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 - 真实宿主的身份绑定、进程终止、每次写入的权限/fencing、自动任务派发与原生 session 恢复。
 - 真实项目全量 diff/删除/rename 与任务归属、复杂断言适配、跨运行 flaky 识别、设备/网络环境证据。
-- 真实 Gradle/Hvigor 构建、设备安装与截图、外部 LLM 语义裁决质量。
+- Gradle/KMP/native 其他配置、Hvigor 构建、设备安装与截图、外部 LLM 语义裁决质量。
 - OpenSpec CLI 实际调用、主分支合并与归档。
 
 本地运行入口、精确能力集与请求字段见 [local-runtime.md](skills/migration-protocol/references/local-runtime.md)。

@@ -53,6 +53,8 @@
 │       │                                 # Auditor 代码清单、人工决策、GO 报告输入
 │       ├── runs/
 │       │   ├── build/<module-attempt>/    # query/result/receipt/execution.log、cleanup.json
+│       │   │   ├── stdout.log / stderr.log / output-events.jsonl
+│       │   │   ├── execution-state.json  # 本 attempt I/O 观察；不是业务状态
 │       │   │   ├── outputs/              # Gradle 工程产物及 APK
 │       │   │   ├── cache/                # 构建缓存、Gradle init.d 输出策略
 │       │   │   └── temp/                 # 可确认安全结束后清理；退出未确认时留存
@@ -66,6 +68,7 @@
 │       │       │   └── runtime/          # 转换调用的 temp/cache/cleanup（按需）
 │       │       └── automation/<module-path-attempt>/
 │       │           ├── query.json / result.json / receipt.json / execution.log
+│       │           ├── stdout.log / stderr.log / output-events.jsonl / execution-state.json
 │       │           ├── cleanup.json / cache/ / temp/
 │       │           └── harmony/
 │       │               ├── observations.json / environment.json / engine.log
@@ -96,6 +99,7 @@
         ├── memory.md
         ├── reuse.md                      # 计划包含复用映射时
         ├── dimensions.md                 # 计划包含四维分析时
+        ├── scenarios.md                  # SPEC 派生的 Scenario/TASK/PATH/ASSERT 索引
         └── manifest.json                 # run_root/module/冻结版本/生成文件清单
 ```
 
@@ -144,7 +148,7 @@ python3 <package>/skills/migration-ledger/scripts/ledger.py status --view full \
 
 显式传入 --run-root 时，新 run 必须与派生路径一致；目录符号链接重定向会被拒绝。`.sdd-migration/runs/<run_id>.json` 在项目锁内绑定唯一位置，不包含业务状态，不另起总线。
 
-prepare 先核验必需目录、文档和引用摘要；输入缺失时不创建 run/OpenSpec。进入实际固化前，Host 在 preparations 写 preparing；固化/登记失败记录 failed、原因和重试动作，突然中断则保留 preparing。修正条件后重试同 run_id，验证归属并继续固化；成功写位置索引并改为 prepared，保留失败历史。该记录仅用于初始化恢复，不取代 Ledger；不自动删除失败目录或改业务状态。同请求恢复完成的 run 不重写这些文件。
+prepare 核验目录、文档及摘要；缺输入不创建 run/OpenSpec。固化前 Host 写 preparations=preparing；失败写 failed、原因/重试入口，中断保留 preparing。同 run_id 重试验证归属，成功登记索引并写 prepared，保留失败历史；不替代 Ledger，不自动删除或改业务状态，完成的同请求不重写。
 
 工作流测试辅助命令显式传 --root：Harmony design/adapter/doctor/历史报告与阶段汇总写入本轮 runs/harmony/sandbox；正式自动化写 runs/harmony/automation/<新 attempt>。独立模式使用同样的 `.sdd-runs/<run_id>/runs/harmony` 路径，可由显式输出推导根目录，不要求已有 Ledger；doctor 必须指定 --root。独立执行不自动得到冻结、assignment 或验收资格。旧任意输出目录不再接受；兼容入口保留读取历史输入，所有新输出遵循新位置。
 
@@ -163,7 +167,9 @@ workspace_root 位于目标工程内时，自动构建发现排除 `.sdd-migrati
 
 同一 run_id 改请求内容会拒绝，不可借此替换冻结上下文。恢复一般直接读索引→status；若重试 prepare 必须重用原请求。同 run 来源追加仍走 source-review/reconfigure-sources，另增 context/revisions，不以普通配置 update 代替。
 
-历史证据不得就地搬迁/修改 hash。显式指向既有快照的重复 prepare 可登记位置索引。正式 CLI 的 init/apply/status/resume/recover 必须绑定 prepare 布局，新 init 必须绑定 project_context_ref。无 storage_layout 的目录通过 `ledger.py history --root <目录>` 只读重放，既不刷新投影也不写锁/诊断；需要继续迁移时，先在三目录内 prepare 新 run，以只读历史引用记录来源，重新规划/冻结，不能伪装成同路径恢复。
+历史不搬迁/改 hash。嵌套旧控制器/协议引用须有本 run 已提交事件的路径/哈希证明，读受管 artifacts 同哈希归档，新事件记 historical-snapshot/accepted_event；缺损拒绝。其他输入及 SPEC/代码/环境仍严格校验；历史不作当前指令。`trace.py evidence --root <run_root> --sha256 <hash>` 返回引用、归档路径/事件证明，不写状态。
+
+重复 prepare 可登记快照索引。init/apply/status/resume/recover 绑定 prepare 布局，init 绑定 project_context_ref。无 storage_layout 时 `ledger.py history --root <目录>` 仅重放，不刷新投影/写锁/诊断；继续须在三目录 prepare 新 run，记录历史来源后重新规划/冻结，不伪装同路径恢复。
 
 索引或准备记录缺失时，也必须核对快照的 project_id/run_id/run_root 与请求及实际恢复目录一致，再登记索引。复制出来但仍绑定原路径的快照会被拒绝，不写入错误位置索引；应回到原绑定目录恢复。
 

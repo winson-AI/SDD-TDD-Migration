@@ -37,6 +37,8 @@ def planning_context(s):
     }
     if s.get('dimension_slicing_required'):
         result['dimension_slicing_required'] = True
+    if s.get('behavior_contract_required'):
+        result['behavior_contract_required'] = s['behavior_contract_required']
     if s.get('project_context_ref'):
         layout = read_json(check_ref(s['project_context_ref'])).get('storage_layout')
         if layout:
@@ -75,6 +77,10 @@ def assigned_module(s, module):
     parent = s.get('module_groups', {}).get(module.get('parent_module_id'))
     result['parent_context'] = ({key: copy.deepcopy(parent[key]) for key in
                                 ('module_id', 'scope', 'context_refs')} if parent else None)
+    if module.get('behavior_review'):
+        result['behavior_review'] = copy.deepcopy(module['behavior_review'])
+    if parent and parent.get('behavior_review'):
+        result['parent_context']['behavior_review'] = copy.deepcopy(parent['behavior_review'])
     if s.get('dimension_slicing_required'):
         result['dimension_slicing_required'] = True
     plan = (s.get('global_plan') or {}).get('content', {})
@@ -202,6 +208,9 @@ def validate(s, parent, plan):
         require(child.get('name'), 'child functional name required')
         new_module(child)
         check_scope(child)
+        if s.get('behavior_contract_required'):
+            import behavior_contract
+            behavior_contract.review(child, child.get('behavior_review'))
         require(not child.get('decomposition_required') and not child.get('parent_module_id'),
                 'child MO decomposes tasks; child hierarchy is assigned by GO acceptance')
         require(set(child['scope']['requirement_ids']) <= set(parent['scope']['requirement_ids']),
