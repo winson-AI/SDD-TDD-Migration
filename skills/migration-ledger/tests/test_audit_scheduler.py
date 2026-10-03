@@ -151,8 +151,10 @@ class AuditSchedulerTests(unittest.TestCase):
 
     def release(self,s):
         f=self.f
+        subject=f.state()['global_next_step']['approval_subject_sha256']  # what the release approval binds
+        self.assertEqual(subject,digest(s['audit_batch']['human_report']))
         f.call('decision',{'decision_id':'RELEASE','decision':'approved','module_id':None,
-                           'subject_sha256':digest(s['audit_batch']['human_report']),
+                           'subject_sha256':subject,
                            'human_source_ref':f.ref('release.md','human approved release for reviewed recovery')},role='host',module=None)
         self.assertEqual(f.state()['global_next_step']['operation'],'audit-release')
         f.call('audit-release',{'decision_id':'RELEASE'},role='global-orchestrator',module=None)

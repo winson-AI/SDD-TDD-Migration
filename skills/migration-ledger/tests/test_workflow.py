@@ -462,6 +462,16 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.state()['quality'], 'yellow-blocked')
         self.assertEqual(self.state()['global_next_step']['operation'], 'audit-code-review')
 
+    def test_a_human_disposition_names_the_subject_to_approve(self):
+        self.failed_module('external'); self.defer('external'); self.start_problem()
+        self.submit_problem(self.problem_report(green=False, action='human'))
+        step = self.state()['next_steps'][0]
+        resolution = self.state()['audit_resolutions']['M001']
+        self.assertEqual((step['operation'], step['ready'], step['approval_subject_sha256']), ('audit-resume', False, digest(resolution)))
+        self.approve(step['approval_subject_sha256'], 'DISPOSE')
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['ready'], step['payload']), (True, {'decision_id': 'DISPOSE'}))
+
     def test_problem_auditor_delegates_fix_and_memory_is_verified(self):
         r = self.failed_module('external'); self.defer('external'); self.start_problem()
         self.submit_problem(self.problem_report(green=False))

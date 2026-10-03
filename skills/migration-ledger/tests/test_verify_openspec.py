@@ -19,6 +19,31 @@ import openspec_projection
 import workflow_hub
 
 
+_SIMULATION = {}
+
+
+def simulated():
+    """One simulated run serves every test here; a test that removes a file restores it when it ends."""
+    if 'output' not in _SIMULATION:
+        temp = tempfile.TemporaryDirectory()
+        _SIMULATION.update(temp=temp, output=Path(temp.name).resolve() / 'sim')
+        simulate(_SIMULATION['output'])
+    return _SIMULATION['output']
+
+
+def tearDownModule():
+    if 'temp' in _SIMULATION:
+        _SIMULATION.pop('temp').cleanup()
+        _SIMULATION.clear()
+
+
+def remove(case, path):
+    path = Path(path)
+    before = path.read_bytes()
+    case.addCleanup(path.write_bytes, before)
+    path.unlink()
+
+
 class VerifyOpenspecTests(unittest.TestCase):
     def temp(self):
         d = tempfile.mkdtemp()
@@ -29,9 +54,7 @@ class VerifyOpenspecTests(unittest.TestCase):
         return {item['check'] for item in verify_openspec.verify(run_root)}
 
     def test_real_prepared_run_verifies(self):
-        out = self.temp() / 'sim'
-        simulate(out)
-        workspace = out / 'workspace'
+        workspace = simulated() / 'workspace'
         # Completed run and the planning-only second run both went through prepare+init.
         self.assertEqual(verify_openspec.verify(workspace / '.sdd-runs/demo'), [])
         self.assertEqual(verify_openspec.verify(workspace / '.sdd-runs/demo-next'), [])
@@ -49,25 +72,19 @@ class VerifyOpenspecTests(unittest.TestCase):
 
     def test_missing_top_level_openspec_when_context_bound(self):
         # A real run whose top-level hub was deleted must not pass.
-        out = self.temp() / 'sim'
-        simulate(out)
-        workspace = out / 'workspace'
-        (workspace / 'openspec/runs/demo/workflow.md').unlink()
+        workspace = simulated() / 'workspace'
+        remove(self, workspace / 'openspec/runs/demo/workflow.md')
         self.assertIn('workflow-hub', self.codes(workspace / '.sdd-runs/demo'))
 
     def test_missing_change_manifest_fails(self):
-        out = self.temp() / 'sim'
-        simulate(out)
-        workspace = out / 'workspace'
-        (workspace / 'openspec/changes/demo-m001/manifest.json').unlink()
+        workspace = simulated() / 'workspace'
+        remove(self, workspace / 'openspec/changes/demo-m001/manifest.json')
         self.assertIn('change-manifest', self.codes(workspace / '.sdd-runs/demo'))
 
     def test_hand_written_report_without_projection_json_fails(self):
         # P2.2: a prose migration-report.md without the projected JSON is not real.
-        out = self.temp() / 'sim'
-        simulate(out)
-        workspace = out / 'workspace'
-        (workspace / '.sdd-runs/demo/reports/migration-report.json').unlink()
+        workspace = simulated() / 'workspace'
+        remove(self, workspace / '.sdd-runs/demo/reports/migration-report.json')
         self.assertIn('migration-report', self.codes(workspace / '.sdd-runs/demo'))
 
     def test_off_layout_root_rejected(self):
@@ -75,9 +92,7 @@ class VerifyOpenspecTests(unittest.TestCase):
 
     def test_status_reports_top_level_binding_for_prepared_run(self):
         # P2.1: a prepared run reports its OpenSpec projecting at the top level.
-        out = self.temp() / 'sim'
-        simulate(out)
-        binding = ledger.status(out / 'workspace/.sdd-runs/demo')['openspec_binding']
+        binding = ledger.status(simulated() / 'workspace/.sdd-runs/demo')['openspec_binding']
         self.assertTrue(binding['bound'])
         self.assertEqual(binding['location'], 'top-level')
 
@@ -275,17 +290,11 @@ class ScopedVerificationTests(unittest.TestCase):
 class FinalEvidenceVerificationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        temp = tempfile.TemporaryDirectory()
-        cls.addClassCleanup(temp.cleanup)
-        cls.output = Path(temp.name).resolve() / 'sim'
-        simulate(cls.output)
+        cls.output = simulated()
         cls.root = cls.output / 'workspace/.sdd-runs/demo'
 
     def remove(self, path):
-        path = Path(path)
-        before = path.read_bytes()
-        self.addCleanup(path.write_bytes, before)
-        path.unlink()
+        remove(self, path)
 
     def current(self):
         return ledger.read_events(self.root)[0]

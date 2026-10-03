@@ -8,41 +8,23 @@ description: /sdd-module <run-id> <module-id> — 推进单模块实现与自测
 `/sdd-module <run-id> <module-id>`
 
 ## 2. 编排步骤
-1. 读取[四条红线](../AGENTS.md#四条红线)、[调用约定](../AGENTS.md#调用约定)和[宿主的轮询与派发](../skills/migration-protocol/references/host-integration.md#提示采纳回报)，解析参数为绝对路径及规范 ID；协议其余部分按小节取（`reading.py show`），不整份加载。
+1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
 2. 前置门控：模块已冻结；依赖满足或可记录 dependency Yellow；目标 baseline 和锁可验证。推进前运行 `verify_openspec.py --root <run> --scope module --module-id <module-id>`，核验本模块、祖先与实际依赖。失败按 recovery_action 处理相关范围，无关模块继续；核验不取代当前 assignment 与派发门禁。见 [核验范围](sdd-verify.md)。
-3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
-4. 按 `status` 游标派发对应角色，推进 Coding→代码接受→build 派发（派发内 building 预检）→构建结果接受→automation 派发（派发内 testing 预检）。可修复 Red/Yellow 优先诊断并自动派发一轮 Fixer；补丁接受后先重建再自动化，两环节共用模块本地一轮修复预算。全部路径有效 Green 后检查 DoD。确认依赖/外围或一轮仍未通过时记录根因/memory 并交 Auditor；遇人工阻塞或预算上限保存 checkpoint 退出。
-5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
+3. 按 `status` 游标派发对应角色，推进 Coding→代码接受→build 派发（派发内 building 预检）→构建结果接受→automation 派发（派发内 testing 预检）。可修复 Red/Yellow 优先诊断并自动派发一轮 Fixer；补丁接受后先重建再自动化，两环节共用模块本地一轮修复预算。全部路径有效 Green 后检查 DoD。确认依赖/外围或一轮仍未通过时记录根因/memory 并交 Auditor；遇人工阻塞或预算上限保存 checkpoint 退出。
 
 ## 3. 调用契约
 目标角色：[Module-Orchestrator](../Agents/module-orchestrator.md)。宿主用实际可用的任务工具启动，只传 package_root、run_root、module_id 与阅读卡路径；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
 
-## 4. 参数验证
-run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃逸。JSON 中占位符、未决必填值、零必需用例不能作为有效运行输入。status 可读取尚未完成的输入状态。
-
-## 5. 硬约束
-命令只解析、门控、提交/查询和派发；无业务代码、无状态双写；叶子不能私传结果；无有效批准不推断已冻结；所有门禁由对应守卫/权限校验再次验证。
-
-## 6. 期望输出
-```text
-✅ accepted | event=<id> | run=<run-id> | next=<账本动作>
-⚠️ blocked | reason=<门禁/依赖/人工> | evidence=<绝对路径或事件>
-❌ failed | reason=<实际错误> | recorded=<event-id或transport-unavailable>
-```
-
-## 7. 对应规格
+## 4. 对应规格
 [模块守卫](../skills/migration-protocol/references/state-machine.md#module-orchestrator-唯一模块守卫)、[有限循环](../skills/migration-protocol/references/state-machine.md#有限循环)。
 
 ## 上下文就绪门禁
 
 worker 接到派发后按阶段提交预检：Implementer 提交 coding；Test Runner 分别提交 building（构建）和 testing（自动化）；Fixer 提交 fixing。ready 报告绑定派发后才可写代码或执行测试，blocked 报告退回派发、不消耗修复轮次。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点)。
 
-## 8. 自查
-参数与前置有效；工具实际存在；没有越权写入；回执来源可信；恢复指令与 phase 一致。
-
 ## 本地实现接入
 
-MO assign → worker submit → MO accept → complete。具体 payload/命令用法见 [操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主必须把已授权身份绑定到 host-context；不能让请求内自报 role 直接获得权限。控制器不自动启动 Agent，不替宿主写目标代码。
+MO assign → worker submit → MO accept → complete。
 
 本命令推进已有 run 内的一个已注册模块。用户指定已划分的独立功能模块来启动完整迁移时，应在同一项目入口使用 `/sdd-init --mode single-module --module-name "功能模块名"`（自动读取已保存项目配置），由 Global 识别生成模块级 SPEC 草案和 Testing list 并初始化，再运行 sdd-plan 完成正式六件套/测试设计及冻结，然后使用本命令或 sdd-run；后续仍须 Auditor 收尾。
 

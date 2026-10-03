@@ -18,13 +18,13 @@ sys.dont_write_bytecode = True
 PACKAGE = Path(__file__).resolve().parents[3]
 READ_BUDGET = 60_000  # UTF-8 bytes per dispatch card
 # A step with no UI, reuse, telemetry or lean-leaf scope stays under this; lower it when cards shrink, never raise it.
-TYPICAL_BUDGET = 35_000
+TYPICAL_BUDGET = 34_000
 # A session holding this much protocol text is better restarted from its checkpoint than fed more; advisory.
 ROTATE_BUDGET = 100_000
 # Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
 TEMPLATE_BUDGET = 26_000
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 554_800
+PROTOCOL_BUDGET = 543_200
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -35,8 +35,10 @@ def sections(name, *headings):
     return [(P + name, heading) for heading in headings]
 
 
-# Every card carries the red lines, the shared protocol and the three rules that apply to every dispatch.
-CORE = [('AGENTS.md', '四条红线'), ('skills/migration-protocol/SKILL.md', None)] + sections(
+# Every card carries the red lines, the rules of the shared protocol (not its notes on where it sits, assets
+# or topics, which the card itself answers) and the three rules that apply to every dispatch.
+SHARED = 'skills/migration-protocol/SKILL.md'
+CORE = [('AGENTS.md', '四条红线')] + [(SHARED, h) for h in ('2. 核心规则', '3. 模式', '4. 取用', '5. 检查', '7. 业务边界与阶段验收', '通用约定')] + sections(
     'runtime.md', '总则') + sections('context-readiness.md', '总则') + sections('storage-layout.md', '总则')
 ROLE = {
     'global-orchestrator': ['Agents/global-orchestrator.md', 'skills/migration-global/SKILL.md'],

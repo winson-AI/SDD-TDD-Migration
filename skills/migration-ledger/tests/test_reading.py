@@ -165,6 +165,9 @@ class ReadingCardTests(unittest.TestCase):
         for title in ('## 4. 规则优先级', '## 5. 阻塞与异常', '## 7. 输出格式'):
             self.assertNotIn(title, text)  # these only point at the shared conventions, which the card holds
         self.assertIn('## 9. Checkpoints', text); self.assertIn('## 6. 硬约束', text)
+        shared = [r for r in reading.card({}, None, {'role': 'implementer', 'operation': 'submit'}) if r['ref'] == reading.SHARED]
+        self.assertNotIn('1. 定位', [r['section'] for r in shared]); self.assertIn('通用约定', [r['section'] for r in shared])
+        self.assertNotIn('专题规则', ''.join(reading.text_of(r) for r in shared))  # the card itself answers where rules sit
         definition = reading.section('Agents/implementer.md')  # the definition itself keeps them
         self.assertIn('## 8. Used Skills', definition); self.assertIn('## 7. 输出格式', definition)
         runner = next(r for r in reading.card({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner',

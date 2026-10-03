@@ -463,7 +463,8 @@ def _next_step(s, m):
                     reason='await-auditor' if not resolution else resolution['action'])
         if resolution and resolution['action'] == 'human':
             decision = approval(s, m, digest(resolution))
-            step.update(ready=bool(decision), payload={'decision_id': decision['decision_id']} if decision else {})
+            step.update(ready=bool(decision), payload={'decision_id': decision['decision_id']} if decision else {},
+                        approval_subject_sha256=digest(resolution))
     elif m.get('blocked'):
         if active:
             step.update(operation='revoke', role='host', reason='stop-invalidated-worker')
@@ -479,7 +480,7 @@ def _next_step(s, m):
             decision = approval(s, m, digest(m['blocked']))
             step.update(operation='resume', role='module-orchestrator', ready=bool(decision),
                         decision_id=decision.get('decision_id') if decision else None,
-                        reason=None if decision else 'human-decision-required')
+                        reason=None if decision else 'human-decision-required', approval_subject_sha256=digest(m['blocked']))
     elif active:
         submitted = active['assignment_id'] in m['submissions']
         step.update(operation='accept' if submitted else 'await-result',
@@ -940,9 +941,11 @@ def mutate(s, req, principal, events, root=None):
         require(not m.get('decomposition_required') and not m.get('decomposition_submission'), 'finish MO decomposition before leaf SPEC planning')
         require(m['phase'] in ('context', 'specifying', 'clarifying', 'change-review'), 'plan not editable in this phase')
         plan = design_stage.materialize(s, m, read_json(check_ref(p['plan_ref'])))
+        if s.get('behavior_contract_required'):
+            plan.setdefault('behavior_contract_required', True)  # the run requires it; the author need not declare it
         design_stage.plan_check(s, m, plan, principal['instance_id'])
         if s.get('behavior_contract_required'):
-            require(plan.get('behavior_contract_required') is True, 'plan must declare the behavior contract')
+            require(plan.get('behavior_contract_required') is True, 'plan cannot opt out of the behavior contract')
         if m.get('parent_module_id'):
             decomposition.check_scopes(s, m)
             decomposition.check_tasks(m, plan)
@@ -1681,9 +1684,39 @@ def status(root, view='full', module_id=None, since=None):
         return status_view.select(full, view, module_id, since)
 
 
+def advance(root, principal, module_id, workers=None):
+    """Submit, as the module orchestrator, every step of one module the cursor marks mechanical: accepting a Green
+    test result and dispatching a worker. Each goes through apply with all of its guards. It stops at the first step
+    that needs a model or a person and renders that step's card for the dispatch."""
+    applied = []
+    while True:
+        st = status(root)
+        step = next((x for x in st['next_steps'] if x.get('module_id') == module_id), None)
+        require(step is not None, 'unknown module for advance: ' + str(module_id))
+        if not (step.get('mechanical') and step.get('ready')):
+            break
+        sequence = st['last_sequence'] + 1
+        if step['operation'] == 'accept':
+            payload = {'assignment_id': step['assignment_id']}
+        else:
+            role = step['worker_role']
+            payload = {**step['payload'], 'assignment_id': f'{role}-{module_id}-{sequence}'}
+            payload.setdefault('instance_id', (workers or {}).get(role) or f'{role}-{module_id}')
+        ack = apply(root, {'schema_version': 1, 'request_id': f'advance-{module_id}-{sequence}', 'run_id': st['run_id'],
+                           'module_id': module_id, 'expected_revision': step['expected_revision'],
+                           'operation': step['operation'], 'payload': payload}, principal)
+        applied.append({'operation': step['operation'], 'event_id': ack['event_id'],
+                        **{k: payload[k] for k in ('assignment_id', 'role', 'instance_id', 'test_scope') if k in payload}})
+    out = {'applied': applied, 'next_step': {k: step[k] for k in ('operation', 'role', 'ready', 'reason', 'assignment_id')
+                                             if step.get(k) is not None}}
+    if step.get('must_read'):
+        out['card'] = reading.render(step['must_read'], Path(st['run_root']) / 'reports/reading', step.get('templates', ()))['path']
+    return out
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('init', 'apply', 'status', 'resume', 'recover', 'history'))
+    parser.add_argument('command', choices=('init', 'apply', 'status', 'resume', 'recover', 'history', 'advance'))
     parser.add_argument('--root', required=True)
     parser.add_argument('--request')
     parser.add_argument('--view', choices=status_view.VIEWS, default='cursor',
@@ -1692,6 +1725,8 @@ def main():
     parser.add_argument('--module')
     parser.add_argument('--since', type=int, help='status only: last_sequence already seen; an unchanged run answers briefly')
     parser.add_argument('--host-context', help='Host-protected principal JSON; CLI does not authenticate humans')
+    parser.add_argument('--worker', action='append', default=[], metavar='ROLE=INSTANCE',
+                        help='advance only: instance to dispatch for a role (default <role>-<module>)')
     args = parser.parse_args()
     try:
         if args.command == 'history':
@@ -1707,6 +1742,10 @@ def main():
         run_storage.validate(snapshot['storage_layout'], root, root.name)
         if args.command == 'status':
             result = status(args.root, args.view, args.module, args.since)
+        elif args.command == 'advance':
+            require(args.module and args.host_context, 'advance needs --module and --host-context (the module orchestrator)')
+            workers = dict(item.split('=', 1) for item in args.worker)
+            result = advance(args.root, read_json(args.host_context), args.module, workers)
         else:
             require(args.request and args.host_context, 'request and host context required')
             req = read_json(args.request)

@@ -8,37 +8,19 @@ description: /sdd-plan <run-id> <module-id> — 生成六件套并完成 plan �
 `/sdd-plan <run-id> <module-id>`
 
 ## 2. 编排步骤
-1. 读取[四条红线](../AGENTS.md#四条红线)、[调用约定](../AGENTS.md#调用约定)和[宿主的轮询与派发](../skills/migration-protocol/references/host-integration.md#提示采纳回报)，解析参数为绝对路径及规范 ID；协议其余部分按小节取（`reading.py show`），不整份加载。
+1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
 2. 前置门控：run/module 已注册；处于 context/specifying/clarifying/change-review 或等待澄清；持有当前 assignment。推进前运行 `verify_openspec.py --root <run> --scope module --module-id <module-id>`，核验本模块、祖先与实际依赖。失败按 recovery_action 处理相关范围，无关模块继续；核验不证明真实派发或取代冻结。见 [核验范围](sdd-verify.md)。
-3. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
-4. 宿主先让父/子 MO 读取全局代码、架构、知识及分工。根功能先 decompose→GO decompose-accept，派独立子 MO；已拆分父节点只管理/汇总，不进入代码或测试。叶子由 MO 派 Spec-Designer 与 Test-Runner design，冻结前请 Escalation 展示必须的人工决定；未获所需答案保存 waiting-human，已获批准且 hash 有效才冻结。
-5. 输出已提交事件/当前状态/产物路径和下一动作，命令结束。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
+3. 宿主先让父/子 MO 读取全局代码、架构、知识及分工。根功能先 decompose→GO decompose-accept，派独立子 MO；已拆分父节点只管理/汇总，不进入代码或测试。叶子由 MO 派 Spec-Designer 与 Test-Runner design，冻结前请 Escalation 展示必须的人工决定；未获所需答案保存 waiting-human，已获批准且 hash 有效才冻结。
 
 ## 3. 调用契约
 目标角色：[Module-Orchestrator](../Agents/module-orchestrator.md)。宿主用实际可用的任务工具启动，只传 package_root、run_root、module_id 与阅读卡路径；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
 
-## 4. 参数验证
-run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃逸。JSON 中占位符、未决必填值、零必需用例不能作为有效运行输入。status 可读取尚未完成的输入状态。
-
-## 5. 硬约束
-命令只解析、门控、提交/查询和派发；无业务代码、无状态双写；叶子不能私传结果；无有效批准不推断已冻结；所有门禁由对应守卫/权限校验再次验证。
-
-## 6. 期望输出
-```text
-✅ accepted | event=<id> | run=<run-id> | next=<账本动作>
-⚠️ blocked | reason=<门禁/依赖/人工> | evidence=<绝对路径或事件>
-❌ failed | reason=<实际错误> | recorded=<event-id或transport-unavailable>
-```
-
-## 7. 对应规格
+## 4. 对应规格
 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接)、[冻结算法](../skills/migration-protocol/references/openspec.md#冻结算法)。
-
-## 8. 自查
-参数与前置有效；工具实际存在；没有越权写入；回执来源可信；恢复指令与 phase 一致。
 
 ## 本地实现接入
 
-MO assign(mode=design, design_input_ref) → 独立 Test-Runner submit（附预检）→ MO accept(review_ref) → Spec plan(test_design_ref) → host decision → MO freeze。见 [编码前交接](../skills/migration-protocol/references/testing.md#编码前设计交接)和[操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。宿主绑定真实身份并派发；控制器不自动启动 Agent 或写目标代码。
+MO assign(mode=design, design_input_ref) → 独立 Test-Runner submit（附预检）→ MO accept(review_ref) → Spec plan(test_design_ref) → host decision → MO freeze。见 [编码前交接](../skills/migration-protocol/references/testing.md#编码前设计交接)和[操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。
 
 规划按三层分工推进：GO 分配模块 scope/context；父 MO 认领后拆子模块 scope/context；子 MO 拆 tasks 并组织正式六件套。父 decompose、子 plan 不抄写全局上下文与分配包：步骤视图给出 planning_context 与 module_input，Ledger 接受时绑定其当前版本；保留全局可读视野，执行限于分配范围。
 

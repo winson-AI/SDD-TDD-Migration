@@ -147,22 +147,3 @@ def test_output(root, state, output):
         require(base.resolve() == base and path != base and path.is_relative_to(base),
                 'execution output must be inside this run runs/ directory')
     return path
-
-
-def managed_output(root, output, area='staging'):
-    """Workflow outputs, also available after prepare and before init."""
-    import project_context
-    from contracts import file_ref
-    root = checked_path(root)
-    snapshot = root / 'context/snapshot.json'
-    if snapshot.is_file():
-        value = project_context.verify_snapshot(file_ref(snapshot))
-        require(value['run_root'] == str(root), 'context belongs to a different run root')
-    else:
-        require((root / 'ledger/events.jsonl').is_file(), 'prepared or initialized run required')
-    require(area in ('staging', 'runs'), 'invalid output area')
-    return checked_path(output, checked_path(root / area))
-
-
-def staging_output(root, output):
-    return managed_output(root, output)

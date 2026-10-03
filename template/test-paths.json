@@ -118,6 +118,5 @@
       },
       "kind": "automation"
     }
-  ],
-  "behavior_contract_required": true
+  ]
 }

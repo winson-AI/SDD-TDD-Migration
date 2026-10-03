@@ -23,7 +23,7 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 ## 冻结算法
 
-plan 声明 `behavior_contract_required=true`；source_closure 同时是叶子的行为审阅，另含 scope_sha256、boundary_rationale、requirement_ids、case_ids、shared_capabilities。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。Ledger 接受 plan 时从 SPEC 派生 scenario_index，plan 不携带；`behavior_contract.py --plan <staged-plan.json>` 可预览。SPEC 修改即改变 plan 摘要，须走 CR/冻结。
+行为契约由运行状态开启，Ledger 在 plan 中写入 `behavior_contract_required=true`，作者不必声明；source_closure 同时是叶子的行为审阅，另含 scope_sha256、boundary_rationale、requirement_ids、case_ids、shared_capabilities。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。Ledger 接受 plan 时从 SPEC 派生 scenario_index，plan 不携带；`behavior_contract.py --plan <staged-plan.json>` 可预览。SPEC 修改即改变 plan 摘要，须走 CR/冻结。
 
 scenario_trace 将每个场景关联 task_ids、assertions[{path_id,assertion_id}]；全部任务/行为断言须有归属，允许多对多，build/static 不充当行为断言。scenarios.md 为只读投影。
 

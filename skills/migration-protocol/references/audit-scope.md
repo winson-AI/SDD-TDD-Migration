@@ -55,7 +55,7 @@ Auditor 裁决：
 - fix：独立复测仍有问题；MO 接受后按现有契约授权一轮 Fixer，总预算不足仍须显式 recover 决策。该轮失败再交 Auditor。
 - change：需调整契约；MO 回 specifying，新的人类批准后重新冻结，不授权 Auditor/Fixer 改验收。
 - wait：依赖/外围问题未解除，保留队列；先解决前置，再按问题审计预算重新复测。
-- human：人工裁决；批准 subject=digest(audit_resolution)，MO 接受后重新规划与冻结。
+- human：人工裁决；批准 subject=digest(audit_resolution)（游标的 approval_subject_sha256），MO 接受后重新规划与冻结。
 
 问题审计不发布全局 Green。收尾仍要求 audit_queue 清空、模块完成或合法 automation-deferred；只处理剩余待验证路径，空清单使用 audit-review。失败沿用 audit-route/repair-accept 闭环，保留独立性。问题审计与最终审计各自受 max_audit_rounds 限制，次数在撤销后不返还。
 
@@ -114,7 +114,7 @@ Red/Yellow 复核失败、worker 中断、预算不足、证据失效通过 test
 
 ### 5. 人工审核后恢复
 
-1. Host 保存真实批准：decision.module_id=null，subject_sha256=digest(当前 human_report)。
+1. Host 保存真实批准：decision.module_id=null，subject_sha256=digest(当前 human_report)，即全局游标的 approval_subject_sha256。
 2. Global `audit-release {decision_id}` 结束失败/部分完成批次；记录 audit_batch_history，清理批次授权，保留失败、memory、累计预算与原报告。
 3. 回到正常带守卫的操作：预算不足用 recover（另有预算决定）；SPEC/代码上下文失效用 invalidate 后重新 plan/freeze；人工阻塞用 resume（绑定当前 blocker）；需求变化用正式 CR 与冻结。release 不自动批准新验收或追加预算，也不把测试改 Green。
 4. release 会记录 recovery_contexts；未处理的人工作业保持相同上下文/blocker 时禁止直接重新收集，单纯改 session/revision 不算恢复。所有模块再次完成本轮或明确挂起后，才能建立新 batch_id 收集；不能在旧活动批次直接循环 audit-collect。

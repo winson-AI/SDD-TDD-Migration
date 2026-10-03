@@ -6,30 +6,7 @@
 
 ## 路径与加载
 
-`workspace_root` 为本项目唯一迁移资产根；`.sdd-migration`、`.sdd-runs`、`openspec` 在其下并列。`package_root` 为工作流包，legacy/target 为业务代码仓，均不是默认资产根。完整目录、二次启动和兼容规则见 [留存文件系统](storage-layout.md)。
-
-```text
-<workspace_root>/
-  .sdd-migration/                         # 长期配置、版本历史、run_id → 路径索引
-  .sdd-runs/<run_id>/                     # run_root
-    context/                             # 冻结上下文与来源版本
-    input.json                           # Host 保存本轮 GO 输入
-    ledger/events.jsonl                  # 唯一事实日志
-    ledger/global.json
-    ledger/modules/<module_id>.json      # 父/子 MO 状态、分配与结果
-    artifacts/<sha256>                   # 不可变提交证据
-    staging/<agent>/<request>/           # Host/Agent 生成资产
-    runs/build/<attempt>/               # 构建 query、结果、回执、缓存与产物
-    runs/harmony/automation/<attempt>/  # 自动化 query、结果、回执及媒体
-    runs/harmony/sandbox/<request>/     # 导入、adapter、doctor、汇总
-    reports/                             # GO 报告、进度与拒绝信号
-    audit-reports/                       # 有人工问题时生成
-  openspec/
-    runs/<run_id>/owner.json             # 本轮命名空间归属
-    runs/<run_id>/workflow.json          # 机器状态/路由导航
-    runs/<run_id>/workflow.md            # 工作流中枢入口
-    changes/<run_id>-<module_id小写>/    # change_root；本轮六件套与辅助视图
-```
+`workspace_root` 为本项目唯一迁移资产根；`.sdd-migration`、`.sdd-runs`、`openspec` 在其下并列。`package_root` 为工作流包，legacy/target 为业务代码仓，均不是默认资产根。各目录的用途、二次启动和兼容规则见[留存文件系统](storage-layout.md#从开始到完成的目录)。
 
 新 prepare 自动派生 `run_root = workspace_root/.sdd-runs/run_id`，显式 `--run-root` 只能与之相同；历史快照沿旧位置恢复。项目索引绑定一个 run_id 的唯一位置，不保存模块状态。新测试执行器拒绝把结果写到本轮 `runs/` 外。生成的 SPEC、诊断、修复、审查清单先写自身 staging；Harmony 测试设计/适配器/汇总写 runs/harmony/sandbox；随后提交 Ledger；输入源码/架构可在外部只读，需留存的文档与证据由快照固化。Host 须限制实际 Agent/子进程写权限。
 
