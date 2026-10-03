@@ -106,11 +106,14 @@ TEST_SCOPE = {
 }
 # Triggered by facts the Ledger already holds: UI applicability, a reuse plan, telemetry, the lean local-repair path.
 PICTURES = '图片与图标对齐'
+COPY, FILL = '文件资源按路径复制', '参数填充'   # what a tool carries to the target: files by path, values by key
 UI = {
-    'spec-designer': sections('ui-fidelity.md', 'UI 证据绑定', '精确性纪律', PICTURES) + sections('domain-tools.md', '总则'),
+    'spec-designer': sections('ui-fidelity.md', 'UI 证据绑定', '精确性纪律', PICTURES)
+    + sections('resource-transfer.md', '总则', '使用点与闭包', COPY, '参数表', FILL) + sections('domain-tools.md', '总则'),
     'implementer': sections('ui-fidelity.md', '基线前移：截图指导实现，而非事后比对', '精确性纪律', PICTURES)
-    + sections('domain-tools.md', '总则', '资源执行与事实绑定'),
-    'fixer': sections('ui-fidelity.md', '精确性纪律', PICTURES) + sections('domain-tools.md', '总则'),
+    + sections('resource-transfer.md', '总则', COPY, FILL) + sections('domain-tools.md', '总则', '资源执行与事实绑定'),
+    'fixer': sections('ui-fidelity.md', '精确性纪律', PICTURES) + sections('resource-transfer.md', '总则', COPY, FILL)
+    + sections('domain-tools.md', '总则'),
     'test-runner': sections('ui-fidelity.md', PICTURES) + sections('domain-tools.md', '总则'),
     'auditor': sections('ui-fidelity.md', PICTURES) + sections('domain-tools.md', '总则'),
 }
@@ -411,7 +414,7 @@ TRIGGER_TEMPLATES = {
     'reuse': {'global-orchestrator': ['reuse-catalog.json', 'reuse-source.json'], 'spec-designer': ['reuse-plan.json', 'reuse-fidelity.md']},
     'telemetry': {'global-orchestrator': ['telemetry-analysis.md'], 'module-orchestrator': ['telemetry-analysis.md'],
                   'spec-designer': ['telemetry-contract.json', 'telemetry-analysis.md'], 'auditor': ['telemetry-analysis.md']},
-    'ui': {'spec-designer': ['semantic-model.json', 'ui-state-test-design.md', 'domain-worker-request.json'],
+    'ui': {'spec-designer': ['semantic-model.json', 'ui-state-test-design.md', 'domain-worker-request.json', 'dimension-analysis.json'],
            'implementer': ['resource-request.json'], 'fixer': ['resource-request.json']},
     'knowledge': {'spec-designer': ['knowledge-request.json'], 'implementer': ['knowledge-request.json'],
                   'fixer': ['knowledge-request.json'], 'diagnostician': ['knowledge-request.json']},
@@ -442,6 +445,13 @@ def templates(s, m, step):
 
 # A rejected request points at the section that states the failed gate; advisory, first match wins.
 GATES = [
+    (r'parameter[ _](sheet|fill|file|convention)|parameter_fill|recorded (value )?parameters?|values to parameter|a parameter is'
+     r'|expressions the Spec|tokens the Spec|typed value|(not_applicable|settled|token) record|share one key|target_resources\.parameters'
+     r'|\b(layout|layer|code|values):\S+: deviation', 'resource-transfer.md', FILL),
+    (r'file resources|usage[ _]exclusion|layout_helpers', 'resource-transfer.md', '使用点与闭包'),
+    (r'cop(y|ied) (plan|path|target|resources?)|target_resources\.copy|resource-sync|one target file|index different files'
+     r'|refusing to overwrite|target_resource (must|needs)|file of the target project|never names|not the legacy file|legacy (entry|vector)',
+     'resource-transfer.md', COPY),
     (r'design |test.design|设计', 'testing.md', '编码前设计交接'),
     (r'execution capture|output capture|excerpt|committed.*hash', 'testing.md', '日志与按需追溯'),
     (r'write scope|undeclared change|write outside', 'engineering-disciplines.md', '写范围核验（可选，默认关闭）'),

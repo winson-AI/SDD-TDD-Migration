@@ -17,26 +17,15 @@
 
 Adhesive 维暂不纳入语义模型，沿用现有 item 结构。字段示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
-UI fidelity 开启时，applicable UI 模型必须绑定 `ui_evidence`（存量抽取的 UI 树、`page:state:coverage`、visual_mode 与实际基线）。实现阶段提交 `baseline_conformance` 说明消费了哪份冻结基线/源树；正式 `visual_alignment` 属于后续 Test-Runner 的 visual PATH 结果，不能要求 Implementer 自己宣告对齐通过。UI 模型还可声明 `image_checks`，冻结节点必须显示的存量图片（[图片与图标对齐](ui-fidelity.md#图片与图标对齐)）。证据还须绑定原始产物及精确目标闭包，详见 [UI 保真控制道](ui-fidelity.md) 与 [领域工具受限接入](domain-tools.md)。
+applicable UI 模型必须绑定 `ui_evidence`（存量抽取的 UI 树、`page:state:coverage`、visual_mode 与实际基线）。实现阶段提交 `baseline_conformance` 说明消费了哪份冻结基线/源树；正式 `visual_alignment` 属于后续 Test-Runner 的 visual PATH 结果，不能要求 Implementer 自己宣告对齐通过。UI 模型的 `image_checks` 冻结屏幕节点必须显示的存量图片、文本与节点（[图片与图标对齐](ui-fidelity.md#图片与图标对齐)）。证据的原始产物与目标闭包见 [UI 保真控制道](ui-fidelity.md)。
 
 ## item 上的记录（结果 / 来源 / 位置）
 
-```jsonc
-"semantic_model": {
-  "kind": "ui-component-spec | logic-statechart | design-tokens | icu-messages",
-  "model_ref": {"path": "...", "sha256": "..."},   // 抽象结果:机器可读 JSON;随四维分析归档进 artifacts/、hash 冻结
-  "source": {                                       // 抽象来源
-    "origin": "legacy | target | authored",         //   legacy=从存量抽取;target=基于目标现有;authored=无参考新建
-    "locator": "path#symbol",                        //   origin=legacy/target 时必填
-    "evidence_refs": [ ... ]
-  },
-  "implementation_location": {"target_path": "/abs", "symbol": "..."}  // 实现位置:目标落点(绝对路径)
-}
-```
+`semantic_model` 记录三件事：`kind` 与 `model_ref`（抽象结果，机器可读 JSON，随四维分析归档并 hash 冻结）；`source`（`origin` 取 legacy/target/authored，前两者必填 `locator`，另有 evidence_refs）；`implementation_location`（目标落点的绝对 `target_path` 与 `symbol`）。
 
 ## 核验（结构门禁，presence-triggered）
 
-通用语义模型采用 presence-triggered 校验；但开启 `ui_fidelity_required` 的 applicable UI item 不能省略模型与 UI 证据。prepared run 固定开启 UI fidelity。Logic/Resource 模型可逐项补齐，资源精确策略/闭包仍受独立门禁约束。带 model 时校验:
+通用语义模型采用 presence-triggered 校验；applicable UI item 不能省略模型与 UI 证据。Logic/Resource 模型可逐项补齐，资源精确策略/闭包仍受独立门禁约束。带 model 时校验:
 
 - `kind` 必须匹配所在维度;对应 schema 必需键齐全(statechart 要 `states`/`initial`∈states、design-tokens 要至少一个 `$value`、icu 要 `key→message` 字符串、json-logic `cond` 为对象)。
 - `source.origin` 合法;`target_strategy == new` **禁止** `origin == legacy`(无参考,基于目标项目创建);legacy/target origin 必须带 `locator`;`evidence_refs` 可归档。

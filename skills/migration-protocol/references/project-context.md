@@ -96,22 +96,12 @@ prepare 保存 UTF-8 Markdown 时，递归收集正文中的本地文件链接�
 以下是实际 Python 命令；`/sdd-context`、`/sdd-init` 仍是宿主需接入的命令定义。配置目录参数指向 `.sdd-migration` 本身；prepare 根据请求 run_id 派生 `.sdd-runs/<run_id>`，返回 run_root/storage_layout，宿主使用返回值调用 Ledger。请求 JSON 由宿主根据真实用户输入整理。
 
 ```bash
-package_root="/Users/winson/CodeBase/WF-Designer/SDD-TDD-Migration"
-context_root="/workspace/migration/.sdd-migration"
-
-python3 "$package_root/skills/migration-ledger/scripts/project_context.py" init \
-  --root "$context_root" --request /workspace/migration/.sdd-migration/inputs/context-init.json --host-context /workspace/migration/.sdd-migration/inputs/host.json
-
-python3 "$package_root/skills/migration-ledger/scripts/project_context.py" update \
-  --root "$context_root" --request /workspace/migration/.sdd-migration/inputs/context-update.json --host-context /workspace/migration/.sdd-migration/inputs/host.json
-
-python3 "$package_root/skills/migration-ledger/scripts/project_context.py" show --root "$context_root"
-python3 "$package_root/skills/migration-ledger/scripts/project_context.py" history --root "$context_root"
-
-python3 "$package_root/skills/migration-ledger/scripts/project_context.py" prepare \
-  --root "$context_root" \
-  --request /workspace/migration/.sdd-migration/inputs/run-request.json --host-context /workspace/migration/.sdd-migration/inputs/host.json
+python3 <package>/skills/migration-ledger/scripts/project_context.py <init|update|prepare> \
+  --root <工作目录>/.sdd-migration --request <request.json> --host-context <host.json>
+python3 <package>/skills/migration-ledger/scripts/project_context.py <show|history> --root <工作目录>/.sdd-migration
 ```
+
+`target_resources`（目标资源目录、引用写法与参数文件模板）随项目配置保存并固化进每次运行，字段见 [target-resources.json](../../../template/target-resources.json) 与 [搬运](resource-transfer.md#总则)。
 
 [run-request.json](../../../template/run-request.json) 中的元数据、项目标识、来源引用由宿主生成；用户的单模块选择仍只有 `single-module + 功能模块名`。
 

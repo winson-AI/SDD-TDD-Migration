@@ -40,7 +40,7 @@ GO 在本轮成功完成、带自动化缺测结束或需人工处理而停止�
 
 JSON 的 `cases` 按 CASE 聚合，`paths` 保留完整明细，`non_green` 单独列出问题与证据，`case_counts` 以 CASE 计数。实际断言保留在 JSON 与原始回执中；Markdown 提供路径与非 Green 摘要。本报告不启动任何测试，不改变 Auditor 的遗留复核范围，也不引入新的验收 owner。
 
-可读格式见 [报告模板](../../../template/migration-report.md)。
+保真披露（视觉覆盖、图片、复制与参数填充）见 [UI 保真](ui-fidelity.md#最终报告的保真披露)，不改变 CASE 状态。可读格式见 [报告模板](../../../template/migration-report.md)。
 
 ## 流程成本
 

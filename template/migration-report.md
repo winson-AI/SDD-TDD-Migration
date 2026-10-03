@@ -28,6 +28,16 @@
 
 {{列全 fidelity_limitations。source-only 必须说明未验证运行时视觉；capture-fixture 必须说明样本不证明在线服务/provider 等价。业务 CASE 的三态与上述证据覆盖独立；completed 不代表所有未测维度已经验证。无 UI 只在当前分析明确 N/A 时填写 not-applicable。}}
 
+按路径复制到目标的文件资源：{{picture_fidelity.copied}} 个（验收时逐个与存量文件比对）。
+
+{{module_id}}：节点显示的图片 {{uses}} 处，其中 {{checked}} 处有图像检查，{{waived}} 处经豁免。
+
+| 模块 | 组件 / 图层 | 参数 | 按记录取用 | 不适用 | 获批偏差 | 填充率 |
+| --- | --- | --- | --- | --- | --- | --- |
+| {{module_id}} | {{components / layers}} | {{parameters}} | {{used + mapped}} | {{not-applicable}} | {{deviation}} | {{fill_rate}} |
+
+以上三项来自 picture_fidelity 的 copied、checks 与 parameters：组件与图层的取值由参数表生成到目标并按键取用，结构性关键字不计入；填充率 = 按记录取用与已映射 ÷ 需要决定的参数。没有复制清单或参数表的模块不出现对应项。
+
 | 模块 / item | 来源 | 类型 / 策略 | 状态 | 说明 |
 | --- | --- | --- | --- | --- |
 | {{module_id / item_id}} | {{@drawable/… 或 src:… 信号 id}} | {{resource_kind / resource_strategy}} | {{verified / not-verified / approved-deviation / reviewed / blocked / unknown}} | {{来自 picture_fidelity：图像检查所在 PATH 的当前结果，或人类批准的偏差、人工评审、阻塞原因}} |

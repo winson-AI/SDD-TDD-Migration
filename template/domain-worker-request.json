@@ -1,4 +1,5 @@
 {
+  "_note": "Planning requests need no assignment. analyze-ui also takes capture_ref, targets, manifests, image_sinks (names of the project's own picture-loading methods) and layout_helpers (its own layout-parameter builders, one row per arity: call, what each argument gives, and the unit of a bare number - dp, sp or px). validate-ui takes ui_tree_ref/source_index_ref/runtime_index_ref and resource_scope. resource-plan and screen-checks take only args.dimension_analysis_ref ({path, sha256} of the staged analysis): the first returns parameter_sheet_ref, copy_plan_ref and what is left to author (resources outside the plan, undeclared usages, tokens, expressions); the second returns the image checks every picture use still lacks, with rendered references, and text check suggestions.",
   "operation": "analyze-ui",
   "request_id": "{{unique-request-id}}",
   "module_id": "M001",
@@ -12,6 +13,16 @@
     ],
     "layouts": [
       "{{legacy-layout-file}}"
+    ],
+    "image_sinks": [
+      "{{project-method-that-shows-a-picture}}"
+    ],
+    "layout_helpers": [
+      {
+        "call": "{{Class.method-that-builds-layout-parameters}}",
+        "params": ["layout_width", "layout_height", "layout_gravity"],
+        "unit": "dp"
+      }
     ]
   }
 }

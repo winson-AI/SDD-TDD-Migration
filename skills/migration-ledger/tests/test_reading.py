@@ -63,6 +63,23 @@ class ReadingCardTests(unittest.TestCase):
         self.assertNotIn((reading.P + 'reuse-dependencies.md', '总则'), refs('auditor'))
         self.assertIn((decomposition, '总则'), refs('fixer', lean=True))
 
+    def test_transfer_rules_reach_the_roles_that_plan_and_write(self):
+        transfer = reading.P + 'resource-transfer.md'
+        def headings(role, scope=None, ui=True):
+            return {heading for path, heading in reading.entries(role, scope, ui) if path == transfer}
+        self.assertEqual(headings('spec-designer'), {'总则', '使用点与闭包', reading.COPY, '参数表', reading.FILL})
+        for role in ('implementer', 'fixer'):
+            self.assertEqual(headings(role), {'总则', reading.COPY, reading.FILL}, role)
+        self.assertEqual(headings('test-runner', 'visual') | headings('auditor') | headings('spec-designer', ui=False), set())
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            analysis = Path(tmp) / 'dimensions.json'
+            analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable'}]}))
+            m = {'plan': {'dimension_analysis_ref': {'path': str(analysis)}}}
+            self.assertIn('template/dimension-analysis.json', reading.templates({}, m, {'role': 'spec-designer', 'operation': 'plan'}))
+            self.assertIn('template/resource-request.json',
+                          reading.templates({}, m, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'implementer'}))
+
     def test_a_step_without_triggers_stays_in_the_typical_budget(self):
         worker_roles = ('implementer', 'fixer', 'diagnostician', 'spec-designer')
         steps = [{'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': r} for r in worker_roles]
@@ -232,6 +249,45 @@ class ReadingCardTests(unittest.TestCase):
                        'UI image source closure requires one item for src:remote-image:ab12 (remote-image)',
                        'image-parity row differs from its recomputation for back-icon'):
             self.assertEqual(reading.read_hint(reason)['section'], reading.PICTURES, reason)
+        for reason in ('pictures shown by home:base:viewport need an image check or a waiver with evidence: node:home.logo @drawable/logo',
+                       'an image check waiver names a picture no node of this target shows',
+                       'DIM-M001-RESOURCE-011: deviation.alternative must be one of decision_envelope.allowed_alternatives, which a human approves with the plan'):
+            self.assertEqual(reading.read_hint(reason)['section'], reading.PICTURES, reason)
+        transfer = {
+            '使用点与闭包': ('UI tree omits file resources the scoped code uses: @drawable/logo; declare each on the node that shows it',
+                        'usage exclusion must name a class, function or reference the scoped code uses',
+                        'resource_scope.usage_exclusions must be a list',
+                        'layout_helpers rows need a call, the parameter each argument gives, and optionally the unit of a bare number'),
+            reading.COPY: ('copy plan differs from the one its UI evidence gives; derive it again with resource-plan',
+                           'a copy plan needs the project to state target_resources.copy',
+                           'copied resources are not named by the submitted code: @drawable/logo (Res.drawable.logo)',
+                           'copied resource is missing or is not the legacy file: @drawable/logo -> /t/logo.png',
+                           'copy target outside the assigned write scope: /t/logo.png',
+                           'target file already differs from the legacy resource; refusing to overwrite: /t/logo.png',
+                           'several resources map to one target file; add {kind} or {variant} to target_resources.copy.path: @drawable/a / base',
+                           'resource-sync requires a frozen task_id',
+                           'DIM-M001-RESOURCE-001: target_resource needs #<the name consumers use for it>',
+                           'DIM-M001-RESOURCE-001: a consumer is a file of the target project, not a document about it',
+                           'DIM-M001-RESOURCE-001: byte_copy target is not the legacy file',
+                           'DIM-M001-RESOURCE-001: consumer Home.kt never names Res.drawable.logo'),
+            reading.FILL: ('the project states target_resources.parameters: a module with UI names its parameter_sheet_ref',
+                           'parameter sheet differs from the one its UI evidence gives; derive it again with resource-plan',
+                           'expressions the Spec must settle or mark not applicable: code:Home/title.alpha',
+                           'tokens the Spec must map or mark not applicable: Palette.ink',
+                           '3 recorded parameters are not used by the submitted code: P.layout_home_title_textSize',
+                           'generated parameter file is missing or was edited: /t/P.kt; write it again with resource-sync',
+                           'generated parameter file outside the assigned write scope: /t/P.kt',
+                           'layout:home/title.textSize: deviation needs a typed value (dimension with unit, number, color or string)',
+                           'layout:home/title.textSize: deviation.alternative must be one of decision_envelope.allowed_alternatives, which a human approves with the plan',
+                           'a deviation names a recorded value parameter',
+                           'a not_applicable record needs a reason and ids, an owner or a name',
+                           'a parameter is not applicable or decided, not both',
+                           'two parameters share one key: layout_home_title_textSize'),
+        }
+        for heading, reasons in transfer.items():
+            for reason in reasons:
+                hint = reading.read_hint(reason)
+                self.assertEqual((hint['ref'], hint['section']), (reading.P + 'resource-transfer.md', heading), reason)
         f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
         f.prepare()
         progress_signals.record_rejection(f.root, {'operation': 'accept', 'module_id': 'M001'}, {'role': 'host'},

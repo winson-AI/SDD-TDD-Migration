@@ -56,7 +56,7 @@ Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `descript
 | 构建 / 单测 / 静态 / 自动化缺测 | Test-Runner 派发 | [build-automation.md#总则](skills/migration-protocol/references/build-automation.md#总则) |
 | Auditor 范围与代码治理 | 审计各环节 | [audit-scope.md#总则](skills/migration-protocol/references/audit-scope.md#总则)、[audit-code-review.md#顺序与职责](skills/migration-protocol/references/audit-code-review.md#顺序与职责) |
 | 父 MO 命名、收尾报告 | GO 收尾 | [migration-report.md#总则](skills/migration-protocol/references/migration-report.md#总则) |
-| 四维切片、语义模型、领域工具与 UI 证据 | 规划与实现 | [dimension-slicing.md#总则](skills/migration-protocol/references/dimension-slicing.md#总则)、[semantic-extraction.md#总则](skills/migration-protocol/references/semantic-extraction.md#总则)、[domain-tools.md#总则](skills/migration-protocol/references/domain-tools.md#总则) |
+| 四维切片、语义模型、领域工具、资源与参数搬运 | 规划与实现 | [dimension-slicing.md#总则](skills/migration-protocol/references/dimension-slicing.md#总则)、[semantic-extraction.md#总则](skills/migration-protocol/references/semantic-extraction.md#总则)、[domain-tools.md#总则](skills/migration-protocol/references/domain-tools.md#总则)、[resource-transfer.md#总则](skills/migration-protocol/references/resource-transfer.md#总则) |
 | 阻塞感知、watchdog | 门禁拒绝、worker 超时 | [progress-recovery.md#总则](skills/migration-protocol/references/progress-recovery.md#总则)、[watchdog.md#总则](skills/migration-protocol/references/watchdog.md#总则) |
 | 埋点 | 认领范围含埋点事件 | [telemetry.md#总则](skills/migration-protocol/references/telemetry.md#总则) |
 | 资产根与留存 | 任何读写工件 | [storage-layout.md#总则](skills/migration-protocol/references/storage-layout.md#总则) |

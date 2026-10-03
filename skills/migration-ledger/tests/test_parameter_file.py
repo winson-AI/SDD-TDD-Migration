@@ -69,6 +69,20 @@ class ParameterFileTests(unittest.TestCase):
 
     # ------------------------------------------------------------------ the convention
 
+    def test_the_shipped_convention_template_is_accepted_and_writes_a_file(self):
+        text = (Path(__file__).resolve().parents[3] / 'template' / 'target-resources.json').read_text(encoding='utf-8')
+        for name, value in (('{{absolute-target-root}}', str(self.target)), ('{{resource-directory}}', 'resources'), ('{{source-directory}}', 'src')):
+            text = text.replace(name, value)
+        self.assertNotIn('{{', text)
+        rules = pc.target_resources(json.loads(text)['target_resources'], self.target)
+        self.assertEqual(set(rules), {'copy', 'parameters'})
+        analysis = self.analysis(rules=rules['parameters'])
+        files, accessors = parameter_file.render(ui_parameters.load(analysis), parameter_file.declarations(analysis))
+        (path, body), = files.items()
+        self.assertEqual(path, str(self.target / 'src/M001/LegacyParameters.kt'))
+        self.assertTrue(body.startswith('// Generated') and 'object LegacyParametersM001 {' in body and body.endswith('}\n'))
+        self.assertTrue(accessors and all(name.startswith('LegacyParametersM001.') or name == 'AppFonts.bold' for name in accessors))
+
     def test_the_convention_is_one_file_per_module_a_line_per_type_and_the_way_code_names_a_key(self):
         self.assertTrue(self.rules['file'].endswith('gen/Params{module}.kt'))
         base = {'file': str(self.target / 'P{module}.kt'), 'lines': dict(self.rules['lines']), 'accessor': 'P.{key}'}

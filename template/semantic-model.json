@@ -30,8 +30,10 @@
           "sha256": "{{actual-source-index-sha256}}"
         },
         "resource_scope": {
-          "_note": "Optional reviewed exclusions only for indexed variants outside this UI scope; every remaining source ID + qualifier needs one Resource item with the same source path/hash. An excluded qualifier must not be declared active in configuration_mapping.scope.configurations.",
-          "exclusions": []
+          "_note": "Optional reviewed exclusions, each with reason and evidence_refs. exclusions: indexed variants outside this UI scope ({source_resource, qualifier, path}); every remaining resource needs one Resource item or one copy plan row with the same source path/hash, and an excluded qualifier must not be declared active in configuration_mapping.scope.configurations. signal_exclusions: recorded image sources this target does not show ({signal_id}). usage_exclusions: scoped code this target does not show ({symbol and/or ref}; symbol is a class or Class.method) - every other file resource the scoped code uses must be declared by a node of the tree.",
+          "exclusions": [],
+          "signal_exclusions": [],
+          "usage_exclusions": []
         },
         "runtime_index_ref": {
           "path": "{{absolute-run-root}}/staging/{{spec-designer}}/{{request-id}}/runtime-ui-index.json",
@@ -147,7 +149,7 @@
     ]
   },
   "image_checks_example": {
-    "_note": "Declared next to ui_evidence in a ui-component-spec model. Each check freezes that a node of the UI tree must show one legacy picture. reference.render_ref is the reference.json written by render-reference for exactly this source_resource and qualifier; target.selector uses exact class/resource-id/text/content-desc values of the node in the captured target view tree. tolerance is optional (shape_iou_min 0.5-1, aspect_delta_max, color null/reference/#RRGGBB, color_delta_max). A visual PATH carries the check by id (image_check_ids); declared checks that no PATH carries are rejected.",
+    "_note": "Declared next to ui_evidence in a ui-component-spec model. A check freezes what a node of the UI tree must show on the target screen; kind is image (default: one legacy picture), text (one legacy string) or node (the node is there). screen-checks derives the image checks of a module and renders their references; the selector it writes is the node id without node: as resource-id, so the target gives that node the same key. reference.render_ref is the reference.json rendered for exactly this source_resource and qualifier; target.selector uses exact class/resource-id/text/content-desc values of the node in the captured target view tree. tolerance is optional (shape_iou_min 0.5-1, aspect_delta_max, color null/reference/#RRGGBB, color_delta_max, content_min 0.5-1 for a picture that fills its frame). A text check names a @string and the text the source index holds for that qualifier. Every still picture a node declares needs an image check on that node or a waiver in image_check_waivers (reason and evidence_refs; node_id and source_resource narrow it). A visual PATH carries checks by id (image_check_ids); declared checks that no PATH carries are rejected.",
     "image_checks": [
       {
         "id": "settings-back-icon",
@@ -169,6 +171,44 @@
         "tolerance": {
           "shape_iou_min": 0.72
         }
+      },
+      {
+        "id": "settings-title-text",
+        "kind": "text",
+        "node_id": "node:settings.toolbar.title",
+        "source_resource": "@string/settings_title",
+        "qualifier": "base",
+        "expect": {
+          "text": "{{text-the-source-index-holds-for-this-string-and-qualifier}}"
+        },
+        "target": {
+          "selector": {
+            "resource-id": "settings.toolbar.title"
+          }
+        }
+      },
+      {
+        "id": "settings-toolbar-present",
+        "kind": "node",
+        "node_id": "node:settings.toolbar",
+        "target": {
+          "selector": {
+            "resource-id": "settings.toolbar"
+          }
+        }
+      }
+    ],
+    "image_check_waivers": [
+      {
+        "node_id": "node:settings.row.avatar",
+        "source_resource": "@drawable/avatar_placeholder",
+        "reason": "{{why-this-state-of-the-screen-cannot-show-the-picture}}",
+        "evidence_refs": [
+          {
+            "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/waiver-review.md",
+            "sha256": "{{actual-review-sha256}}"
+          }
+        ]
       }
     ]
   },
@@ -258,7 +298,7 @@
       "color": {
         "primary": {
           "$type": "color",
-          "$value": "#2AABEE"
+          "$value": "#336699"
         }
       },
       "space": {
