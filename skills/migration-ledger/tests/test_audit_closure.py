@@ -65,7 +65,7 @@ class ClosureTests(unittest.TestCase):
         return result
 
     def complete(self, mid):
-        self.call('complete', {'dod_ref': self.ref(f'dod-{mid}-{self.n}.md', 'reviewed'), 'checks_passed': True}, module=mid)
+        self.call('complete', {'dod_ref': self.ref(f'dod-{mid}-{self.n}.md', 'reviewed')}, module=mid)
 
     def cross_module_failure(self):
         self.call('register', {'module_id': 'M002', 'case_ids': ['C1'], 'dependencies': ['M001'],

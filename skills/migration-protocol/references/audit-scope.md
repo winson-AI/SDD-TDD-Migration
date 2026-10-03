@@ -2,13 +2,13 @@
 
 ## 总则
 
-全量收尾指等待全部 MO 实现/测试本轮结束，不代表测试全量重跑。Auditor 先整体审查本轮代码修改、重构、冗余、二方库接入和公共能力提取；先委派治理及影响范围回归，再收集剩余问题。新入口与门禁遵守 [代码治理协议](audit-code-review.md#顺序与职责)。Auditor 收集 Ledger 的 Red/Yellow，读取对应 SPEC/CASE/PATH，分析根因、委派必要的一轮 Fixer并正式复核；失败输出根因待人工。无关有效 Green 保留证据；无遗留只独立审阅。global_test_paths/global_paths 允许为空，不能作为启动前置。
+全量收尾指等待全部 MO 实现/测试本轮结束，不代表测试全量重跑。Auditor 先整体审查本轮代码修改、重构、冗余、二方库接入和公共能力提取；先委派治理及影响范围回归，再收集剩余问题。新入口与门禁遵守 [代码治理协议](audit-code-review.md#顺序与职责)。Auditor 收集 Ledger 的 Red/Yellow，读取对应 SPEC/CASE/PATH，分析根因、委派必要的一轮 Fixer并正式复核；失败输出根因待人工。无关有效 Green 保留证据；无遗留只独立审阅。global_paths 允许为空，不能作为启动前置。
 
 ## 入口与范围
 
 Auditor 在所有父/子 MO 的本轮实现、编译构建、自动化测试及本地修复收尾后统一启动。完成 DoD 或有本模块证据的明确挂起/automation-deferred，父汇总有效、无活动 worker、无可推进动作，才满足门禁；不要求所有模块已经 Green。单模块失败不能提前启动 Auditor 或结束其他 MO。
 
-**遍历全部模块，收集 Red/Yellow；绝不默认重跑全部测试用例。** `global_test_paths`（Ledger 中为 `global_paths`）是可选的额外运行级用例，不是启动开关，缺省或 `[]` 均合法。复核的主要依据来自模块自己的冻结 SPEC、Testing list、PATH/ASSERT 和 Ledger 结果。
+**遍历全部模块，收集 Red/Yellow；绝不默认重跑全部测试用例。** `global_paths` 是可选的额外运行级用例，不是启动开关，缺省或 `[]` 均合法。复核的主要依据来自模块自己的冻结 SPEC、Testing list、PATH/ASSERT 和 Ledger 结果。
 
 ## 代码治理前置
 

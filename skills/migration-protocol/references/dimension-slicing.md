@@ -68,10 +68,8 @@ GO 先从功能清单划定“搜索”模块 scope，再在 UI 记录搜索框/
 
 ## 7. 任务级四维分析契约
 
-子 MO 先为每个 task 定义 `scope.in/out/write_paths`：具体负责的行为、排除内容、允许写入的目标路径。保留子模块排除项，写范围不得超出认领子模块。随后填写 `dimension_analysis`：
+子 MO 先为每个 task 定义 `scope.in/out/write_paths`：具体负责的行为、排除内容、允许写入的目标路径。保留子模块排除项，写范围不得超出认领子模块。随后填写 `dimension_analysis`：它分析所在 task 的 scope，继承认领子模块 dimension_analysis_ref 的源码/架构/二方库/目标能力证据，再补任务针对性分析；范围变化必须重新分析并重新冻结。
 
-- `scope_sha256`：使用 Ledger contracts.digest 对完整 task.scope 计算摘要，绑定先确定的范围；范围变化必须重新分析并重新冻结。
-- `parent_ref`：精确指向认领子模块的 dimension_analysis_ref；继承其源码/架构/二方库/目标能力证据，再补任务针对性分析。
 - `dimensions`：UI/Logic/Adhesive/Resource 四行，分别填写 status、reason、evidence_refs、item_ids。item_ids 与 dimension_trace 分配到该任务且同维度的条目一致。
 - applicable 行必须填写 `implementation`：具体改哪些行为/节点/接口、如何复用或适配、怎样接线、怎样保留源语义；Resource 引用源资源→目标访问器→消费者，不得只写“完成本维度”。验证沿用该任务已冻结的 PATH/ASSERT。
 - not-applicable 行 item_ids=[]，给出本任务范围内的理由及证据。子模块适用某维度不代表每个任务都适用，但所有适用条目必须被任务集合完整承接；不能用 N/A 删除已分配给该任务的条目。

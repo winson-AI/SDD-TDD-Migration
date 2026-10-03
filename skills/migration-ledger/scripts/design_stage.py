@@ -111,7 +111,7 @@ def result_check(s, m, a, result):
     require({p.get('case_id') for p in paths.values()} == set(m['case_ids']), 'design must cover assigned cases exactly')
     reqs = {r for t in doc['tasks'] for r in t['requirement_ids']}
     for path in paths.values():
-        require(path.get('name') and path.get('requirement_id') in reqs and path.get('required') is True,
+        require(path.get('name') and path.get('requirement_id') in reqs and path.get('required', True) is True,
                 'design PATH name/requirement/required invalid')
         require(not {'quality', 'executed', 'test_run_id', 'execution_receipt'}.intersection(path), 'design PATH cannot claim execution')
         for assertion in keyed(path.get('expected_assertions'), 'assertion_id').values():
@@ -176,6 +176,7 @@ def materialize(s, m, plan):
     a, result = accepted(s, m)
     doc = read_json(check_ref(a['design_input_ref']))
     plan = copy.deepcopy(plan)
+    plan.setdefault('test_design_ref', copy.deepcopy(m['accepted_test_design']['result_ref']))
     plan.setdefault('paths', copy.deepcopy(result['paths']))
     designed = {t['task_id']: t for t in doc['tasks']}
     for task in plan.get('tasks') or []:

@@ -18,7 +18,7 @@ description: SDD-TDD-Migration 的测试设计、编译构建与自动化执行�
 需要当前 HAP 装机、视觉捕获或模型语义比较时按 [受限视觉执行](../migration-protocol/references/visual-execution.md#2-执行节点)。在现有测试 assignment 下使用 visual-install/visual-capture/semantic-inspect，读取冻结配置、保存原始证据；正式结果仍通过 execute_test/adapter 提交，不在工具中修代码或直接验收。
 
 ## 3. 标准模式
-design 沿 `assign(mode=design) → submit（附 test-design 预检）→ MO accept(review_ref)` 提交预期路径，再由 Spec plan.test_design_ref 绑定、MO 冻结；见 [编码前交接](../migration-protocol/references/testing.md#编码前设计交接)。code accepted 后依次 build → unit（本轮 JUnit）→ static（逐 Scenario）→ automation → 适用时 visual。错误交 Fixer；仅 automation 环境缺失记 Yellow/未执行，其他任务继续。
+design 沿 `assign(mode=design) → submit（附 test-design 预检）→ MO accept(review_ref)` 提交预期路径，再由 Ledger 补进 Spec plan、MO 冻结；见 [编码前交接](../migration-protocol/references/testing.md#编码前设计交接)。code accepted 后依次 build → unit（本轮 JUnit）→ static（逐 Scenario）→ automation → 适用时 visual。错误交 Fixer；仅 automation 环境缺失记 Yellow/未执行，其他任务继续。
 
 禁止：自然语言 query 当 shell；以构建 exit 0 代替业务用例通过；无断言或 skip 当通过；重跑只保留最好一次。
 

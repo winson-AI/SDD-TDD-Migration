@@ -69,7 +69,7 @@ DoD checklist 要求：当前冻结有效；所有任务有提交/文件/需求/
 
 Auditor 依次执行整体代码审查/治理、问题审计与最终审计；[代码治理](audit-code-review.md#顺序与职责) 是必经前置，即使用例全 Green。两者都须等待全部模块本轮独立结束；问题审计允许部分模块基于自身证据明确挂起，无需全部 Green。最终审计要求全部模块 DoD 完成且队列清空，才可发布全局 Green。
 
-Auditor 从 Ledger 固定 sequence 与 target tree/commit、SPEC revision、环境/测试定义摘要构成 audit snapshot。只复核收集到的 Red/Yellow 遗留，按 SPEC/CASE/PATH 分析根因、必要时委派一轮 Fixer，再以正式 Testing 验证；仍失败输出根因待人工。修复导致失效的相关模块按依赖图补回归，无关有效 Green 不重跑。无遗留只独立审阅现有证据；global_test_paths=[] 不阻止启动，绝不默认全量重跑。详见 [审计范围协议](audit-scope.md#总则)。
+Auditor 从 Ledger 固定 sequence 与 target tree/commit、SPEC revision、环境/测试定义摘要构成 audit snapshot。只复核收集到的 Red/Yellow 遗留，按 SPEC/CASE/PATH 分析根因、必要时委派一轮 Fixer，再以正式 Testing 验证；仍失败输出根因待人工。修复导致失效的相关模块按依赖图补回归，无关有效 Green 不重跑。无遗留只独立审阅现有证据；global_paths=[] 不阻止启动，绝不默认全量重跑。详见 [审计范围协议](audit-scope.md#总则)。
 
 Auditor 可执行既有脚本并生成日志，不能编辑源码/脚本。发现问题经 audit-plan 路由 → MO 审核/派发 → Fixer；结果仍由 Auditor 独立重跑和裁决。每轮新补丁会使旧 snapshot 失效，重新固定快照，重跑受影响路径及整体集成用例。不能混用不同代码树的结果出最终 Green。
 

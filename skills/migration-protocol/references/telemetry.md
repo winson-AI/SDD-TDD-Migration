@@ -45,7 +45,7 @@ GO/父子 MO 明确检查认领范围的埋点事件、公共接入与配置。�
 
 ## 4. OpenSpec 与机器索引
 
-新规划在 spec/design/tasks/checklist 写适用性，并可使用 `stage-plan.telemetry` 索引：
+新规划在 spec/design/tasks 写适用性，并可使用 `stage-plan.telemetry` 索引：
 
 - 无埋点参照 [stage-plan.json](../../../template/stage-plan.json) 的 not-applicable 示例，填写真实理由/证据，events=[]，全部任务为 N/A，不新增测试路径。
 - 有埋点将 [telemetry-contract.json](../../../template/telemetry-contract.json) **整体替换到 stage-plan.telemetry**，填入实际已冻结 TASK/PATH/ASSERT；普通任务也列在 tasks 中，但标 N/A、event_ids=[]。

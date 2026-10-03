@@ -1,11 +1,6 @@
 {
-  "schema_version": 1,
-  "run_id": "{{run-id}}",
   "module_id": "M001",
   "name": "{{feature-name}}",
-  "change_name": "{{run-id}}-m001",
-  "run_root": "{{absolute-run-root}}",
-  "change_root": "{{absolute-workspace-root}}/openspec/changes/{{run-id}}-m001",
   "scope": {
     "in": [
       "{{business-slice}}"
@@ -15,94 +10,31 @@
     ],
     "requirement_ids": [
       "REQ-GLOBAL-001"
-    ],
-    "capabilities": [
-      "{{capability}}"
     ]
   },
-  "global_input_ref": {
-    "path": "{{absolute-run-root}}/input.json",
-    "sha256": "{{sha256}}"
-  },
-  "legacy_read_paths": [
-    "{{absolute-legacy-module}}"
+  "case_ids": [
+    "CASE-GLOBAL-001"
   ],
-  "target_write_paths": [
+  "write_paths": [
     "{{absolute-target-module}}"
   ],
-  "test_cases": [
-    {
-      "case_id": "CASE-M001-001",
-      "global_case_id": "CASE-GLOBAL-001",
-      "name": "{{case-name}}",
-      "requirement_ids": [
-        "REQ-M001-001"
-      ],
-      "required": true,
-      "steps": [
-        "{{step}}"
-      ],
-      "expected_assertions": [
-        "{{expectation}}"
-      ]
-    }
-  ],
-  "global_case_participation": [
-    {
-      "case_id": "CASE-GLOBAL-001",
-      "owner": "global",
-      "participants": [
-        "M001"
-      ],
-      "integration_contract": "{{contract}}"
-    }
-  ],
   "dependencies": [],
-  "resource_claims": [
-    {
-      "resource": "{{absolute-target-module}}",
-      "mode": "write"
-    }
-  ],
-  "baseline": {
-    "legacy_commit_or_tree": "{{revision}}",
-    "target_commit_or_tree": "{{revision}}"
-  },
   "context_refs": [
     {
       "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{module-context-pack}}",
       "sha256": "{{sha256}}"
     }
   ],
-  "created_event_id": "{{event-id}}",
-  "source_closure_ref": null,
-  "target_feasibility_ref": null,
-  "owner": "M001",
-  "parent_module_id": null,
   "decomposition_required": true,
-  "feature_inventory_ref": {
-    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{accepted-feature-inventory}}",
-    "sha256": "{{sha256}}"
-  },
-  "feature_ids": [
-    "FEATURE-001"
-  ],
   "dimension_analysis_ref": {
     "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{dimension-analysis-path}}",
     "sha256": "{{sha256}}"
   },
   "behavior_review": {
-    "scope_sha256": "{{contracts.digest(allocated-scope)}}",
     "entry": "{{source-feature-entry}}",
     "observable_result": "{{behavior-result-and-error-boundaries}}",
     "production_binding": "{{target-entry-to-provider-and-consumer}}",
     "boundary_rationale": "{{why-this-scope-is-a-complete-behavior; supporting-tasks-contribute-to-it}}",
-    "requirement_ids": [
-      "REQ-GLOBAL-001"
-    ],
-    "case_ids": [
-      "CASE-GLOBAL-001"
-    ],
     "shared_capabilities": [
       {
         "capability_id": "{{shared-capability-id; use [] when none}}",

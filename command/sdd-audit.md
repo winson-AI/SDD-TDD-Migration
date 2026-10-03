@@ -24,7 +24,7 @@ description: /sdd-audit <run-id> — 整体代码审查、代码治理与独立�
 
 全部 MO 收尾后，Auditor 的 audit-analysis、audit-verdict 预检随 audit-plan、audit-verdict 提交；audit-assign 有待测路径时先 context-submit audit-testing，空清单时为 audit-verdict；Fixer/Testing 仍独立预检。预检不替代独立复测与裁决。详见 [阶段协议](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点)。
 
-global_test_paths 可为空，不是 Auditor 触发条件。完整规则与恢复方式见 [审计范围协议](../skills/migration-protocol/references/audit-scope.md#总则)。
+global_paths 可为空，不是 Auditor 触发条件。完整规则与恢复方式见 [审计范围协议](../skills/migration-protocol/references/audit-scope.md#总则)。
 
 ## 本地实现接入
 

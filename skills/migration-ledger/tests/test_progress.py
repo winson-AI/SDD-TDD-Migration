@@ -88,7 +88,7 @@ class ProgressTests(unittest.TestCase):
         before, events_before = ledger.read_events(f.root)
         for _ in range(3):
             with self.assertRaises(Rejected):
-                f.call('complete', {'checks_passed':True})
+                f.call('complete', {})
         after, events_after = ledger.read_events(f.root)
         self.assertEqual((before, events_before), (after, events_after))
         s=f.state(); signal=next(x for x in s['workflow_progress']['signals'] if x['reason']=='operation-rejected')

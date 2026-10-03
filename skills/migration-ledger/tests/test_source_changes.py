@@ -226,7 +226,7 @@ class SourceChangeTests(unittest.TestCase):
                    role='test-runner', module=mid)
             f.call('accept', {'assignment_id': aid}, module=mid)
         if value == 2:
-            f.call('complete', {'dod_ref': f.ref('dod-'+mid+'.md', 'All paths Green'), 'checks_passed': True}, module=mid)
+            f.call('complete', {'dod_ref': f.ref('dod-'+mid+'.md', 'All paths Green')}, module=mid)
 
     def test_red_evidence_and_unrelated_green_survive_then_real_retest_resolves(self):
         f = self.f

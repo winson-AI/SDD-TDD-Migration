@@ -84,8 +84,7 @@ class DimensionTests(unittest.TestCase):
         for task in p['tasks']:
             task['scope'] = {'in': ['implement assigned subfunction'], 'out': ['Orders'],
                              'write_paths': [str(f.target / 'm1')]}
-            task['dimension_analysis'] = {'scope_sha256': digest(task['scope']), 'parent_ref': p['dimension_analysis_ref'],
-                'unresolved': [], 'dimensions': [
+            task['dimension_analysis'] = {'unresolved': [], 'dimensions': [
                     {'dimension': kind, 'status': 'applicable' if any(i['dimension'] == kind for i in items.values()) else 'not-applicable',
                      'reason': 'reviewed this task scope', 'item_ids': [iid for iid, item in items.items() if item['dimension'] == kind],
                      'implementation': 'Preserve source behavior, bind target consumer and verify A1 within task scope',
@@ -306,7 +305,8 @@ class DimensionTests(unittest.TestCase):
         validate_plan(p, m)  # UI/Adhesive/Resource can be N/A for a Logic-only task.
         for change, message in (
             (lambda p: p['tasks'][0].pop('scope'), 'task business scope'),
-            (lambda p: p['tasks'][0]['scope']['in'].append('unreviewed work'), 'bind current task scope'),
+            (lambda p: p['tasks'][0]['dimension_analysis'].update(scope_sha256=digest({'in': ['other work']})), 'bind current task scope'),
+            (lambda p: p['tasks'][0]['dimension_analysis'].update(parent_ref=f.ref('other-analysis.json', {})), 'parent mismatch'),
             (lambda p: p['tasks'][0]['scope'].update(write_paths=[str(f.target / 'other')]), 'outside assigned module'),
             (lambda p: p['tasks'][0]['dimension_analysis']['dimensions'].pop(), 'order incomplete'),
             (lambda p: p['tasks'][0]['dimension_analysis']['dimensions'][1].update(status='not-applicable'), 'N/A cannot'),

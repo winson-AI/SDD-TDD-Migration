@@ -9,7 +9,7 @@
 | design | `change_root/design.md` | Spec-Designer / Ledger |
 | tasks | `change_root/tasks.md` | Spec-Designer / Ledger |
 | status | `change_root/status.md` | MO 决策 / Ledger 投影 |
-| checklist | `change_root/checklist.md` | Spec-Designer 定义、MO 审核 / Ledger 投影 |
+| checklist | `change_root/checklist.md` | 包内评审清单，Ledger 随 plan 绑定并投影；MO 审核 |
 
 不另外维护重复 `spec.md`、`plan.md` 状态源。spec 部分可含多能力 delta 文件；tasks 即可执行计划；status 记录阶段、循环、next_action；追溯及测试报告存不可变 artifacts，由 Ledger 索引。
 
@@ -23,13 +23,13 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 ## 冻结算法
 
-行为契约由运行状态开启，Ledger 在 plan 中写入 `behavior_contract_required=true`，作者不必声明；source_closure 同时是叶子的行为审阅，另含 scope_sha256、boundary_rationale、requirement_ids、case_ids、shared_capabilities。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。Ledger 接受 plan 时从 SPEC 派生 scenario_index，plan 不携带；`behavior_contract.py --plan <staged-plan.json>` 可预览。SPEC 修改即改变 plan 摘要，须走 CR/冻结。
+行为契约由运行状态开启，Ledger 在 plan 中写入 `behavior_contract_required=true`，作者不必声明；source_closure 同时是叶子的行为审阅，另含 boundary_rationale、shared_capabilities；它覆盖的范围、需求与 CASE 就是分配包，不再抄写。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。Ledger 接受 plan 时从 SPEC 派生 scenario_index，plan 不携带；`behavior_contract.py --plan <staged-plan.json>` 可预览。SPEC 修改即改变 plan 摘要，须走 CR/冻结。
 
 scenario_trace 将每个场景关联 task_ids、assertions[{path_id,assertion_id}]；全部任务/行为断言须有归属，允许多对多，build/static 不充当行为断言。scenarios.md 为只读投影。
 
 1. 生成完整六件套草稿；冻结前 Test-Runner design 模式独立补齐测试用例与路径大纲，不运行代码。
 2. Spec-Designer 把明确的问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复须绑定 question_id、spec_revision、内容摘要。既有明确答复可复用，若绑定内容已变则重新裁决。
-3. 冻结 manifest 列出 proposal、所有 delta specs、design、tasks 定义、checklist 定义、test design 与全局输入契约的实际 path+sha256。保留不可变副本，生成 freeze_id/spec_revision。
+3. 冻结 manifest 列出 proposal、所有 delta specs、design、tasks 定义与 test design 的实际 path+sha256；checklist 是包内评审清单，与全局上下文一样不进 manifest，由 Ledger 绑定。保留不可变副本，生成 freeze_id/spec_revision。
 4. `status`、tasks 完成勾选、checklist 证据等运行字段不纳入语义冻结 hash；冻结的原始定义始终存在不可变 artifacts。动态视图可按已固化映射重定位文档链接及更新运行勾选，不得改变需求、设计和断言语义。验证时比较定义快照，不以可变文件整体 hash 误判失效。
 5. Human R1/R2 批准具体 manifest；MO 独立核验 checklist 后提交 freeze；Ledger 接受后物化状态。Spec-Designer 不能自批。
 6. 每次编码/修复验证当前冻结引用与 assignment 输入一致。缺失/摘要不符停止，不得自行补成“已冻结”。
@@ -71,7 +71,7 @@ invalidate 后旧 plan 进入 planning_history，当前 plan/freeze 清空；Led
 
 ## 二方库语义与需求映射
 
-reuse_plan_ref 冻结库选择、语义差异、接线、版本及 fidelity（源码基线、对齐报告、复现 PATH/ASSERT），生成辅助 reuse.md；spec 保持用户行为要求。proposal/design/tasks/checklist 记录适配与验证，status 记录实际结果。规划对齐不代表运行通过，源码与需求冲突交人工；换能力/接入契约走影响分析、CR/重新冻结，详见 [复用协议](reuse-dependencies.md)。
+reuse_plan_ref 冻结库选择、语义差异、接线、版本及 fidelity（源码基线、对齐报告、复现 PATH/ASSERT），生成辅助 reuse.md；spec 保持用户行为要求。proposal/design/tasks 记录适配与验证，status 记录实际结果。规划对齐不代表运行通过，源码与需求冲突交人工；换能力/接入契约走影响分析、CR/重新冻结，详见 [复用协议](reuse-dependencies.md)。
 
 build 与 automation PATH 分别冻结命令/断言；自动化环境缺失保留 SPEC 和未执行 Yellow，恢复后补测，见 [双环节协议](build-automation.md)。
 

@@ -27,7 +27,7 @@ class SignalFixTests(unittest.TestCase):
         f.prepare(); before = (f.root / 'ledger/events.jsonl').read_bytes()
         for _ in range(3):
             for mid in ('M001', 'M002'):
-                with self.assertRaises(Rejected): f.call('complete', {'checks_passed': True}, module=mid)
+                with self.assertRaises(Rejected): f.call('complete', {}, module=mid)
         signals = [x for x in f.state()['workflow_progress']['signals'] if x['reason'] == 'operation-rejected']
         self.assertEqual({x['module_id']: x['evidence']['rejection']['attempts'] for x in signals}, {'M001': 3, 'M002': 3})
         self.assertTrue(all(x['severity'] == 'human' for x in signals))
@@ -41,7 +41,7 @@ class SignalFixTests(unittest.TestCase):
     def test_stale_audit_requires_host_revoke_before_invalidate(self):
         f = self.f; f.prepare(); f.implementation()
         a, r = f.make_test_result(); f.submit(r, a); f.call('accept', {'assignment_id': a['assignment_id']})
-        f.call('complete', {'dod_ref': f.ref('dod.md', 'Reviewed'), 'checks_passed': True}); test_ledger.code_review(f)
+        f.call('complete', {'dod_ref': f.ref('dod.md', 'Reviewed')}); test_ledger.code_review(f)
         f.call('audit-assign', {'assignment_id': 'AUD', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         (f.target / 'm1/code.py').write_text('value=99\n')
         s = f.state(); step = s['global_next_step']

@@ -43,10 +43,8 @@ class ProjectContextTests(unittest.TestCase):
 
     def init_payload(self, result):
         source = self.base / 'generated-spec.md'; source.write_text('Global generated R1 and C1')
-        data = result['input']
-        return {**{k: data[k] for k in ('project_context_ref', 'legacy_root', 'target_root', 'entry_mode', 'module_name', 'new_architecture')},
-                **{k: data['budgets'][k] for k in pc.BUDGETS},
-                'single_module_id': 'M001' if data['entry_mode'] == 'single-module' else None,
+        data = result['input']  # Global completes the prepared input; the host submits it as it is
+        return {**data, 'single_module_id': 'M001' if data['entry_mode'] == 'single-module' else None,
                 'global_spec': file_ref(source), 'case_ids': ['C1'], 'requirement_ids': ['R1'],
                 'global_paths': [{'path_id': 'G1', 'case_id': 'C1', 'expected_assertions': [{'assertion_id': 'A1', 'expected': True}]}]}
 
@@ -137,7 +135,7 @@ class ProjectContextTests(unittest.TestCase):
         state, _ = ledger.read_events(self.run)
         self.assertIs(state['git_checkpoint'], True)
         self.assertEqual(state['local_fix_rounds'], 2)
-        for bad in ({'quality_gates': {'git_checkpoint': 'yes'}}, {'repair_policy': {'local_automatic_rounds': 2}}):
+        for bad in ({'quality_gates': {'git_checkpoint': 'yes'}}, {'repair_policy': {}}):  # a policy that configured nothing
             with self.subTest(bad=bad), self.assertRaises(Rejected):
                 pc.validate({'defaults': bad})
 
@@ -243,7 +241,7 @@ class ProjectContextTests(unittest.TestCase):
 
     def test_temporary_overrides_do_not_persist_and_snapshot_cannot_be_replaced(self):
         result = self.prepare(overrides={'defaults': {'budgets': {'max_parallel_modules': 1}}})
-        self.assertEqual(result['input']['budgets']['max_parallel_modules'], 1)
+        self.assertEqual(result['input']['max_parallel_modules'], 1)  # flat, as init takes it
         self.assertEqual(pc.current(self.root)['config']['defaults']['budgets']['max_parallel_modules'], 2)
         with self.assertRaisesRegex(Rejected, 'already frozen'):
             self.prepare(entry_mode='single-module', module_name='Login')

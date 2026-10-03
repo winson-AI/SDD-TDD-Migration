@@ -40,13 +40,13 @@
 <rect x="273.9" y="740" width="52.2" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="300" y="760" font-size="20.00" fill="#2563eb" text-anchor="middle" font-weight="400">fix</text>
 <path d="M800,700 L800,820" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
-<rect x="756.8" y="744" width="86.39999999999999" height="29" rx="4" fill="white" opacity="0.97"/>
+<rect x="756.8" y="744" width="86.4" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="800" y="764" font-size="20.00" fill="#2563eb" text-anchor="middle" font-weight="400">verify</text>
 <path d="M1100,630 L1310,630 L1310,1080" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
 <rect x="1272.5" y="750" width="75.0" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="1310" y="770" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">human</text>
 <rect x="90" y="820" width="420" height="145" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
-<text x="300.0" y="857.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Fixer 预检 → MO 派发</text>
+<text x="300.0" y="857.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO 派发 → Fixer 预检</text>
 <text x="300.0" y="891.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">接受 audit-work，派发批准的一轮</text>
 <text x="300.0" y="920.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">遵守冻结契约 / 写范围 / 总预算</text>
 <text x="300.0" y="949.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">补丁、回归证据与修复 memory</text>
@@ -87,7 +87,7 @@
 <rect x="323.9" y="1520" width="212.2" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="430" y="1540" font-size="20.00" fill="#059669" text-anchor="middle" font-weight="400">通过 / 仅自动化缺测</text>
 <path d="M960,1505 L960,1540 L1200,1540 L1200,1590" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
-<rect x="1086.9" y="1520" width="206.20000000000005" height="29" rx="4" fill="white" opacity="0.97"/>
+<rect x="1086.9" y="1520" width="206.2" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="1190" y="1540" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">Red / 其他 Yellow</text>
 <rect x="90" y="1590" width="620" height="145" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
 <text x="400.0" y="1627.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">批次收尾 → 刷新父汇总</text>

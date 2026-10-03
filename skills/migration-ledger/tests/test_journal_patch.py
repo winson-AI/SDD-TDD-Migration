@@ -22,7 +22,7 @@ class JournalPatchTests(unittest.TestCase):
         r = f.failed_module(); f.diagnose(); f.implementation('fixer', 'F1')
         a, r2 = f.make_test_result('TEST2', previous=r['paths'][0]['test_run_id'])
         f.submit(r2, a); f.call('accept', {'assignment_id': 'TEST2'})
-        f.call('complete', {'dod_ref': f.ref('dod.md', 'reviewed'), 'checks_passed': True})
+        f.call('complete', {'dod_ref': f.ref('dod.md', 'reviewed')})
         return f
 
     def test_replay_reproduces_the_projected_state(self):

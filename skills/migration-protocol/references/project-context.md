@@ -58,9 +58,9 @@
 }
 ```
 
-默认值存放在 config.defaults：entry_mode 固定 project；budgets、quality_gates、repair_policy 使用原有字段。test_adapter/runtime 与原 global-input 结构一致。配置只引用宿主环境或凭证名称，不在模板中放凭证值。
+默认值存放在 config.defaults：entry_mode 固定 project，另有 budgets 与 quality_gates（字段见模板）。test_adapter 与 input 中的结构一致，runtime 只放 model_routing。配置只引用宿主环境或凭证名称，不在模板中放凭证值。
 
-模块 Git 检查点开关为 `defaults.quality_gates.git_checkpoint`、写范围核验开关为 `write_scope_check`（均 bool，默认 false）；本地轮 Fixer 自诊断开关为 `defaults.quality_gates.fixer_self_diagnosis`（bool，默认 false，开启后不再为本地轮启动独立 Diagnostician）；本地修复轮数用 `defaults.budgets.local_fix_rounds`（默认 1，不超过 max_fix_rounds），repair_policy 只作描述，不承载轮数。Foundation 冻结开关只配置在 `defaults.quality_gates.dependency_resolution_required`，必须是 bool，默认 false，例如 `{"defaults":{"quality_gates":{"dependency_resolution_required":true}}}`。prepare 把该值固化到快照及派生 Global input，init 按快照继承，不能在 prepared init 中降级或另加顶层项目字段覆盖。Global input 中派生的顶层 dependency_resolution_required 是运行协议字段，不是第二个项目配置入口。开启后本切片无新增依赖/非适用目标也须保留明确 not-required 解析证据，见 [知识执行与冻结](engineering-disciplines.md)。
+模块 Git 检查点开关为 `defaults.quality_gates.git_checkpoint`、写范围核验开关为 `write_scope_check`（均 bool，默认 false）；本地轮 Fixer 自诊断开关为 `defaults.quality_gates.fixer_self_diagnosis`（bool，默认 false，开启后不再为本地轮启动独立 Diagnostician）；本地修复轮数用 `defaults.budgets.local_fix_rounds`（默认 1，不超过 max_fix_rounds）。Foundation 冻结开关只配置在 `defaults.quality_gates.dependency_resolution_required`，必须是 bool，默认 false，例如 `{"defaults":{"quality_gates":{"dependency_resolution_required":true}}}`。prepare 把该值固化到快照及派生 Global input，init 按快照继承，不能在 prepared init 中降级或另加顶层项目字段覆盖。Global input 中派生的顶层 dependency_resolution_required 是运行协议字段，不是第二个项目配置入口。开启后本切片无新增依赖/非适用目标也须保留明确 not-required 解析证据，见 [知识执行与冻结](engineering-disciplines.md)。
 
 ## 运行时固化
 
@@ -69,8 +69,8 @@
 1. 读取最新已提交项目版本；可用 run-request.expected_revision 指定必须匹配的版本。
 2. 合并本次 overrides；读取 entry_mode/module_name，分配 run_id。验证目录、模式与配置。
 3. 在独立 run_root 保存 snapshot.json，固定 project_id、project_revision、原配置摘要、有效配置、本次选择与用户来源；架构/需求/用例/规则和测试环境说明复制到本轮证据目录。JSON 来源按不透明文件保存，不能被误当作需要跟随内嵌路径的 Ledger 请求。
-4. prepare 返回 project_context_ref 和 `input`，作为 Global 的分析输入；其中 global_spec/需求/CASE/PATH 待 Global 生成。宿主将 Global 完成的高层输入保存为 `<run_root>/input.json`，计算 input_ref，再构造原有 Ledger init 请求。未生成完整非空规范/用例前不得启动严格 init。
-5. init payload 必须传 project_context_ref、input_ref、Global 生成的 global_spec/requirement_ids/case_ids/global_paths，以及快照对应的 legacy_root/target_root/new_architecture、entry_mode/module_name 和四项可执行预算。single_module_id 由 Global 生成，标识选定根功能；父 MO 随后拆分子功能，用户仍只输入模块名。预算取高层 input.budgets，摊平为低层字段。
+4. prepare 返回 project_context_ref 和 `input`；input 就是 Ledger init 的载荷形状，作为 Global 的分析输入，其中 global_spec/需求/CASE/global_paths 待 Global 生成。宿主将 Global 补齐的 input 保存为 `<run_root>/input.json`，原样作为 init 载荷提交；未生成完整非空规范/用例前不得 init。
+5. input 已含 project_context_ref、快照对应的 legacy_root/target_root/new_architecture、entry_mode/module_name 与预算；Global 补齐 global_spec/requirement_ids/case_ids/global_paths。single_module_id 由 Global 生成，标识选定根功能；父 MO 随后拆分子功能，用户仍只输入模块名。
 6. Ledger 校验快照所属 run/root、路径、模式/模块名、架构引用及预算。运行状态保存 project_id/project_revision/project_context_ref；已有快照时不能漏传引用。后续事务和 status 校验冻结证据，禁止换用最新配置。
 
 prepare 同一请求重试从 `.sdd-migration/runs/<run_id>.json` 找回原位置并返回原快照，即使项目配置已经更新。相同 run_id 指向另一目录会被拒绝；新任务必须使用新 run_id。相同 run_root 的新请求不能覆盖旧快照；初始化过的旧运行也不能后补快照伪造启动依据。prepare 的返回只代表上下文已固化，init ACK 才代表运行进入 Ledger。
@@ -117,7 +117,7 @@ python3 "$package_root/skills/migration-ledger/scripts/project_context.py" prepa
 
 ## 导入已有 global-input
 
-新入口先初始化/更新项目配置再 prepare。用户提供旧 global-input 时，宿主将代码根目录、架构 path、执行器、runtime 等提取到项目 config；预算/门禁/修复策略放入 defaults。整体规范路径可映射 requirements_path；已有整体用例可保存为项目用例文件并引用 test_cases_path。run_id/module_name/基线及生成产物不写项目配置。导入后仍由 Global 为本轮生成范围正确的规范和测试列表。
+新入口先初始化/更新项目配置再 prepare。用户提供旧 global-input 时，宿主将代码根目录、架构 path、执行器、runtime 等提取到项目 config；预算/门禁放入 defaults。整体规范路径可映射 requirements_path；已有整体用例可保存为项目用例文件并引用 test_cases_path。run_id/module_name/基线及生成产物不写项目配置。导入后仍由 Global 为本轮生成范围正确的规范和测试列表。
 
 新宿主入口始终走本页流程，不能跳过上下文固化。
 

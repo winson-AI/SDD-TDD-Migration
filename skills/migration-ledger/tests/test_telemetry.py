@@ -41,7 +41,7 @@ class TelemetryTests(unittest.TestCase):
         self.freeze(plan); f.implementation()
         assignment, report = f.make_test_result()
         f.submit(report, assignment); f.call('accept', {'assignment_id': 'TEST1'})
-        f.call('complete', {'dod_ref': f.ref('dod.md', 'all business paths passed; telemetry N/A'), 'checks_passed': True})
+        f.call('complete', {'dod_ref': f.ref('dod.md', 'all business paths passed; telemetry N/A')})
         m = f.state()['modules']['M001']
         self.assertEqual(m['phase'], 'completed'); self.assertEqual(m['quality'], 'green-passed')
         self.assertEqual(m['plan']['paths'], before); self.assertEqual(m['total_fix_rounds'], 0)

@@ -1,79 +1,33 @@
 {
-  "workspace_root": "{{absolute-migration-workspace}}",
-  "run_root": "{{absolute-migration-workspace}}/.sdd-runs/{{run-id}}",
   "schema_version": 1,
-  "entry_mode": "project",
   "run_id": "{{run-id}}",
+  "entry_mode": "project",
+  "module_name": null,
+  "single_module_id": null,
+  "workspace_root": "{{absolute-migration-workspace}}",
   "package_root": "{{absolute-package-root}}",
-  "target_root": "{{absolute-target-root}}",
+  "run_root": "{{absolute-migration-workspace}}/.sdd-runs/{{run-id}}",
   "legacy_root": "{{absolute-legacy-root}}",
+  "target_root": "{{absolute-target-root}}",
+  "project_context_ref": {
+    "path": "{{absolute-run-root}}/context/snapshot.json",
+    "sha256": "{{sha256}}"
+  },
+  "new_architecture": {
+    "path": "{{absolute-run-root}}/context/files/{{architecture-snapshot}}",
+    "sha256": "{{sha256}}"
+  },
   "global_spec": {
     "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{spec-path}}",
     "sha256": "{{sha256}}"
   },
-  "new_architecture": {
-    "path": "{{absolute-architecture-path}}",
-    "sha256": "{{sha256}}"
-  },
-  "global_test_cases": [
-    {
-      "case_id": "CASE-GLOBAL-001",
-      "name": "{{case-name}}",
-      "requirement_ids": [
-        "REQ-GLOBAL-001"
-      ],
-      "preconditions": [
-        "{{precondition}}"
-      ],
-      "steps": [
-        "{{step}}"
-      ],
-      "expected_assertions": [
-        "{{observable-expectation}}"
-      ],
-      "priority": "P0",
-      "required": true
-    }
+  "requirement_ids": [
+    "REQ-GLOBAL-001"
   ],
-  "baseline": {
-    "legacy_commit_or_tree": "{{revision}}",
-    "target_commit_or_tree": "{{revision}}"
-  },
-  "test_adapter": {
-    "executable": "{{absolute-project-test-adapter}}",
-    "args": [],
-    "cwd": "{{absolute-target-root}}",
-    "query_transport": "query-file",
-    "result_format": "migration-test-result",
-    "timeout_seconds": 300,
-    "environment_ref": "{{absolute-run-root}}/runs/harmony/sandbox/{{request-id}}/environment.json"
-  },
-  "quality_gates": {
-    "static_check_argv": [
-      "{{static-check-executable}}"
-    ],
-    "require_openspec_cli": false,
-    "require_nonempty_assertions": true,
-    "flaky_consecutive_passes": 3
-  },
-  "budgets": {
-    "max_parallel_modules": 3,
-    "max_fix_rounds": 3,
-    "max_yellow_retries": 2,
-    "max_audit_rounds": 3,
-    "max_no_progress_rounds": 2,
-    "local_fix_rounds": 1
-  },
-  "runtime": {
-    "dispatch_adapter": "{{actual-host-task-tool}}",
-    "ledger_adapter": "{{single-writer-endpoint-or-host-service}}",
-    "actor_auth": "host-bound-assignment",
-    "lock_enforcement": "{{host-write-fencing-mechanism}}"
-  },
-  "human_owner": "{{decision-owner}}",
-  "escalation_timeout_hours": 24,
-  "custom_rules_path": null,
-  "global_test_paths": [
+  "case_ids": [
+    "CASE-GLOBAL-001"
+  ],
+  "global_paths": [
     {
       "path_id": "PATH-GLOBAL-001",
       "case_id": "CASE-GLOBAL-001",
@@ -89,29 +43,33 @@
       ]
     }
   ],
-  "requirement_ids": [
-    "REQ-GLOBAL-001"
-  ],
-  "repair_policy": {
-    "confirmed_dependency_or_peripheral": "defer-to-auditor",
-    "after_failed_round": "defer-to-auditor"
+  "test_adapter": {
+    "executable": "{{absolute-project-test-adapter}}",
+    "args": [],
+    "cwd": "{{absolute-target-root}}",
+    "query_transport": "query-file",
+    "result_format": "migration-test-result",
+    "timeout_seconds": 300,
+    "environment_ref": "{{absolute-run-root}}/runs/harmony/sandbox/{{request-id}}/environment.json"
   },
+  "build": {},
+  "reuse_sources": [],
   "module_slicing": {
     "module_import_ref": null,
     "functional_use_cases_complete": false,
     "functional_directory_level": null
   },
-  "module_name": null,
-  "project_context_ref": null,
-  "reuse_sources": [],
-  "reuse_required": true,
-  "build": {},
-  "ui_fidelity_required": true,
-  "spec_closure_required": true,
-  "unit_tests_required": true,
+  "human_owner": "{{decision-owner}}",
+  "escalation_timeout_hours": 24,
+  "custom_rules_path": null,
   "git_checkpoint": false,
   "fixer_self_diagnosis": false,
   "write_scope_check": false,
   "dependency_resolution_required": false,
-  "behavior_contract_required": true
+  "max_parallel_modules": 3,
+  "max_fix_rounds": 3,
+  "max_yellow_retries": 2,
+  "max_audit_rounds": 3,
+  "max_no_progress_rounds": 2,
+  "local_fix_rounds": 1
 }

@@ -48,4 +48,4 @@ python3 diagrams/generate_workflows.py
 python3 diagrams/generate_automation.py
 ```
 
-Auditor 遍历所有模块以收集 Red/Yellow，但不会全量重跑测试。global_test_paths 可为空；范围与空清单报告遵守 [审计范围协议](../skills/migration-protocol/references/audit-scope.md)。
+Auditor 遍历所有模块以收集 Red/Yellow，但不会全量重跑测试。global_paths 可为空；范围与空清单报告遵守 [审计范围协议](../skills/migration-protocol/references/audit-scope.md)。

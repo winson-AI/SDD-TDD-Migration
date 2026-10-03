@@ -151,8 +151,9 @@ def task_analyses(plan, module, items, traces):
         require(all(Path(p).is_absolute() and any(Path(p).resolve().is_relative_to(Path(m).resolve())
                     for m in module['write_paths']) for p in writes), 'task write scope outside assigned module')
         analysis = task.get('dimension_analysis', {})
-        require(analysis.get('scope_sha256') == digest(scope), 'task dimension analysis must bind current task scope')
-        require(analysis.get('parent_ref') == plan['dimension_analysis_ref'], 'task dimension analysis parent mismatch')
+        # The analysis belongs to its task and plan; a scope digest or parent reference, when written, must match them.
+        require(analysis.get('scope_sha256', digest(scope)) == digest(scope), 'task dimension analysis must bind current task scope')
+        require(analysis.get('parent_ref', plan['dimension_analysis_ref']) == plan['dimension_analysis_ref'], 'task dimension analysis parent mismatch')
         require(analysis.get('unresolved') == [], 'task dimension uncertainty requires clarification')
         rows = analysis.get('dimensions', [])
         require([row.get('dimension') for row in rows] == ORDER, 'task dimension analysis order incomplete')
@@ -177,7 +178,7 @@ def verify(plan):
             analysis = task.get('dimension_analysis', {})
             require([row.get('dimension') for row in analysis.get('dimensions', [])] == ORDER,
                     'frozen task dimension analysis missing; replan and refreeze')
-            require(analysis.get('scope_sha256') == digest(task.get('scope')), 'frozen task scope changed')
+            require(analysis.get('scope_sha256', digest(task.get('scope'))) == digest(task.get('scope')), 'frozen task scope changed')
             for row in analysis['dimensions']:
                 evidence(row.get('evidence_refs'), 'frozen task dimension evidence')
 

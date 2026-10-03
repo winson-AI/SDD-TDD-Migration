@@ -4,7 +4,6 @@
   "name": "{{frozen-page-and-state-visual-parity}}",
   "case_id": "CASE-GLOBAL-001",
   "requirement_id": "REQ-M001-001",
-  "required": true,
   "coverage": "settings:base:viewport",
   "node_ids": [
     "node:settings.root"
