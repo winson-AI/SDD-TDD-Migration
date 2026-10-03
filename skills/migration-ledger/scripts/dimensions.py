@@ -34,9 +34,19 @@ def load(ref, module_id):
         require(row.get('status') in ('applicable', 'not-applicable'), 'dimension status unresolved')
         require(row.get('reason'), 'dimension applicability rationale required')
         evidence(row.get('evidence_refs'), 'dimension applicability evidence')
+        require(row.get('copy_plan_ref') is None or (row['dimension'] == 'Resource' and row['status'] == 'applicable'),
+                'a copy plan belongs to an applicable Resource dimension')
+        require(row.get('parameter_sheet_ref') is None or (row['dimension'] == 'UI' and row['status'] == 'applicable'),
+                'a parameter sheet belongs to an applicable UI dimension')
         if row['status'] == 'not-applicable':
             require(row.get('items') == [], 'N/A dimension cannot contain work items')
             continue
+        if row.get('parameter_sheet_ref'):
+            check_ref(row['parameter_sheet_ref'])
+        if row.get('copy_plan_ref'):
+            check_ref(row['copy_plan_ref'])
+            if row.get('items') == []:
+                continue  # everything this module's UI needs travels by path; nothing is left to author
         for iid, item in keyed(row.get('items'), 'item_id').items():
             require(iid not in items, 'duplicate dimension item')
             require(all(item.get(k) for k in ('behavior', 'source_locator', 'target_strategy', 'target_binding', 'acceptance')),
@@ -220,6 +230,14 @@ def implementation(plan, result):
             actual_paths = [check_ref(ref).resolve() for ref in refs]
             require(set(actual_paths) == expected_paths and len(actual_paths) == len(expected_paths),
                     'resource evidence differs from planned consumer files')
+            # The plan froze how the resource reaches the target; the result is held to it.
+            resource_fidelity.verify_exact(items[iid], actual)
+            resource_fidelity.verify_wiring(items[iid], actual_paths)
+    import parameter_file
+    import resource_copy
+    analysis = read_json(check_ref(plan['dimension_analysis_ref']))
+    resource_copy.verify(analysis, result.get('code_files'))
+    parameter_file.verify(analysis, result.get('code_files'))
 
 
 def consumer_evidence(trace):
@@ -245,6 +263,12 @@ def current(module, mutable_paths=()):
             checked_path(path)
         else:
             check_ref(ref)
+    analysis_ref = (module.get('plan') or {}).get('dimension_analysis_ref')
+    if analysis_ref:
+        import parameter_file
+        import resource_copy
+        resource_copy.verify_files(read_json(check_ref(analysis_ref)))
+        parameter_file.verify_files(read_json(check_ref(analysis_ref)))
     for trace in module.get('dimension_evidence', []):
         for ref in trace['evidence_refs']:
             verify(ref)

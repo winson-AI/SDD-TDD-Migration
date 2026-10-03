@@ -7,6 +7,8 @@ from contracts import check_ref, digest, read_json
 import decomposition as dc
 import test_validation as tv
 import audit_code_review
+import parameter_file
+import resource_copy
 import resource_fidelity
 import workflow_cost
 
@@ -53,7 +55,7 @@ def picture(mid, item, analysis_ref, carriers, rows):
 
 def fidelity(s, rows, ref_check):
     """Disclose proof boundaries without changing business acceptance or scheduling."""
-    visual, limitations, pictures = [], [], []
+    visual, limitations, pictures, copied, parameters = [], [], [], 0, {}
     for mid, module in s['modules'].items():
         plan = module.get('plan') or {}
         analysis_ref = plan.get('dimension_analysis_ref')
@@ -89,6 +91,13 @@ def fidelity(s, rows, ref_check):
         for path in plan.get('paths', []):
             for cid in path.get('image_check_ids', []) if path.get('kind') == 'visual' else []:
                 carriers.setdefault(cid, []).append(path['path_id'])
+        try:
+            copied += len(resource_copy.rows(analysis, ref_check))
+            filled = parameter_file.summary(analysis, ref_check)
+            if filled:
+                parameters[mid] = filled
+        except (ValueError, OSError, KeyError, TypeError):
+            pass  # the closure gate reports an unreadable plan; the report only counts what it can read
         for dimension in dimensions:
             for item in dimension.get('items', []):
                 if dimension['dimension'] == 'Resource' and dimension.get('status') == 'applicable' and resource_fidelity.is_picture(item):
@@ -102,7 +111,7 @@ def fidelity(s, rows, ref_check):
     limitations += [{'module_id': v['module_id'], 'item_id': v['item_id'], 'kind': 'picture-replacement',
                      'reason': f"图片 {v['source']} 与存量不是精确复制（{v['status']}）：{v['reason']}", 'evidence_refs': v['evidence_refs']}
                     for v in pictures if v['status'] not in ('exact', 'verified', 'reviewed')]
-    return visual, limitations, {'counts': dict(Counter(v['status'] for v in pictures)),
+    return visual, limitations, {'counts': dict(Counter(v['status'] for v in pictures)), 'copied': copied, 'parameters': parameters,
                                  'items': [v for v in pictures if v['status'] != 'exact']}
 
 
@@ -240,6 +249,15 @@ def render(report):
         for ref in limit['evidence_refs']:
             text.append(f"  - 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}")
     pictures = report.get('picture_fidelity') or {'counts': {}, 'items': []}
+    if pictures.get('copied'):
+        text += ['', f"按路径复制到目标的文件资源：{pictures['copied']} 个（验收时逐个与存量文件比对）。"]
+    if pictures.get('parameters'):
+        text += ['', '参数填充（组件与图层的取值由参数表生成到目标，按键取用；结构性关键字不计入）：', '',
+                 '| 模块 | 组件 / 图层 | 参数 | 按记录取用 | 不适用 | 获批偏差 | 填充率 |', '| --- | --- | --- | --- | --- | --- | --- |']
+        for mid, row in sorted(pictures['parameters'].items()):
+            c = row['counts']
+            text.append(f"| {cell(mid)} | {row['components']} / {row['layers']} | {row['parameters']} | {c.get('used', 0) + c.get('mapped', 0)} | "
+                        f"{c.get('not-applicable', 0)} | {c.get('deviation', 0)} | {cell(row['fill_rate'])} |")
     if pictures['items']:
         text += ['', '以下图片不是对存量资源的精确复制；verified 表示目标屏幕上的节点图像已在容差内与存量渲染参考一致。', '',
                  f"图片统计：{cell(pictures['counts'])}", '', '| 模块 / 项 | 来源 | 类型 / 策略 | 状态 | 说明 |', '| --- | --- | --- | --- | --- |']

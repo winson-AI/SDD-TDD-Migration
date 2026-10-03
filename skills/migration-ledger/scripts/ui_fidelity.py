@@ -69,6 +69,8 @@ def freeze_gate(s, m):
             require(closure.get(facet),
                     'ui_fidelity_required: source_closure.' + facet + ' required for UI scope')
     baseline_gate(s, m)
+    import parameter_file
+    parameter_file.gate(s, m.get('plan') or {}, analysis)
 
 
 def runtime_targets(analysis):

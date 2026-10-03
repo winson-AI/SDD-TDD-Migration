@@ -1492,8 +1492,10 @@ def _apply(root, req, principal):
             require(type(p.get('write_scope_check', False)) is bool, 'write_scope_check must be boolean')
             require(type(p.get('dependency_resolution_required', False)) is bool, 'dependency_resolution_required must be boolean')
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
+            resources = project_context.target_resources(p.get('target_resources', {}), p['target_root'])
             require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
             s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'spec_closure_required': p.get('spec_closure_required', False), 'unit_tests_required': p.get('unit_tests_required', False), 'git_checkpoint': p.get('git_checkpoint', False), 'fixer_self_diagnosis': p.get('fixer_self_diagnosis', False), 'write_scope_check': p.get('write_scope_check', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
+                 'target_resources': resources,
                  'behavior_contract_required': p.get('behavior_contract_required', False),
                  'test_design_required': p.get('test_design_required', False),
                  'reuse_sources': reuse_sources, 'reuse_required': bool(reuse_sources) or p.get('reuse_required', False),

@@ -33,14 +33,19 @@ TRANSFORMS = {'circleCrop', 'centerCrop', 'fitCenter', 'centerInside', 'transfor
               'thumbnail', 'rotate', 'format', 'diskCacheStrategy', 'skipMemoryCache', 'contentScale'}
 SERIAL_NAME = re.compile(r'@(?:\w+:)?(?:SerializedName|SerialName|JsonProperty|Json|Field|ColumnInfo)\s*\(\s*'
                          r'(?:value\s*=\s*|name\s*=\s*)?"([^"]+)"')
-DRAWN = re.compile(r'\b(onDraw|dispatchDraw|drawBitmap|drawRoundRect|drawCircle|drawPath|drawArc|drawOval|drawLine|'
-                   r'GradientDrawable|ShapeDrawable|PaintDrawable|LayerDrawable|StateListDrawable|BitmapDrawable|'
-                   r'VectorDrawable|RippleDrawable|ClipDrawable)\b')
-FUNCTION = re.compile(r'(?m)^[ \t]*(?:@\w+[ \t]+)*(?:(?:public|private|protected|internal|override|static|final|abstract|open|'
-                      r'suspend|synchronized)[ \t]+)*(?:fun[ \t]+(?:<[^>]+>[ \t]*)?(?:[\w.]+\.)?(\w+)[ \t]*\(|'
-                      r'[\w<>\[\],.?]+[ \t]+(\w+)[ \t]*\([^;{)]*\)[ \t]*(?:throws[ \t]+[\w.,\s]+)?\{)')
-CLASS = re.compile(r'\b(?:class|object|interface)\s+(\w+)')
-KEYWORDS = {'if', 'for', 'while', 'switch', 'catch', 'when', 'synchronized'}
+# A draw override or a canvas call, and a drawable built in code; a type that is only named (an import, a field, a cast) draws nothing.
+DRAWN = re.compile(r'\b(onDraw|dispatchDraw)\s*\(|\.\s*(drawBitmap|drawRoundRect|drawCircle|drawPath|drawArc|drawOval|drawLine)\s*\(|'
+                   r'(?:\bnew\s+|(?<![\w.]))(GradientDrawable|ShapeDrawable|PaintDrawable|LayerDrawable|StateListDrawable|BitmapDrawable|'
+                   r'VectorDrawable|RippleDrawable|ClipDrawable)\s*\(')
+LEXEME = re.compile(r'//[^\n]*|/\*.*?\*/|"""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|[{};]', re.S)
+TYPE_HEAD = re.compile(r'\b(?:class|interface|object|enum|record)\s+([A-Za-z_]\w*)')
+KOTLIN_FUN = re.compile(r'\bfun\s+(?:<[^>]*>\s*)?(?:[\w<>?,. ]+\.)?([A-Za-z_]\w*)\s*\(')
+JAVA_METHOD = re.compile(r'([A-Za-z_]\w*)\s*\((?:[^()]|\([^()]*\))*\)\s*(?:throws\s+[\w.,\s]+)?$')
+KEYWORDS = {'if', 'else', 'for', 'while', 'do', 'switch', 'try', 'catch', 'finally', 'synchronized', 'when', 'return', 'throw', 'new'}
+# A call named like an image loader that the built-in loaders do not explain; listed so a project can declare it as an image sink.
+SINK_NAME = re.compile(r'\.\s*((?:set|load|display|show)\w*(?:Image|Avatar|Photo|Thumb|Picture)\w*)\s*\(')
+KNOWN_SETTERS = {'setImageResource', 'setImageDrawable', 'setImageBitmap', 'setImageURI', 'setImageTintList', 'setImageLevel',
+                 'setImageAlpha', 'setImageMatrix', 'setImageState', 'displayImage'}
 CANDIDATE_LIMIT = 64
 
 
@@ -251,6 +256,10 @@ class Catalog:
                     nested = []
                 if nested:
                     row['references'] = nested
+                import parameter_records
+                layers = parameter_records.layer_parameters(path)
+                if layers:
+                    row['parameters'] = layers
         elif row.get('kind') == 'style' and isinstance(row.get('value'), dict):
             nested = [{'ref': ref, 'via': 'style/item:' + name}
                       for name, value in sorted(row['value']['items'].items()) for ref in facts.references(value)]
@@ -463,27 +472,137 @@ def asset_paths(text):
     return sorted(path for path in found if path.lower().endswith(IMAGE_ASSETS))
 
 
-def drawn_rows(text, relative):
+class Symbols:
+    """Which class and function hold a position of a Java or Kotlin source, read from its braces.
+
+    Comments and string literals are skipped; a block that declares nothing (a branch, a lambda, an
+    anonymous class) keeps the names of the blocks around it."""
+
+    def __init__(self, text, kotlin=False):
+        self.spans, self.code = [], []
+        stack, boundary = [], 0   # stack: (open offset, names of the enclosing declarations)
+        for match in LEXEME.finditer(text):
+            token = match.group(0)
+            if token not in '{};':
+                self.code.append((match.start(), match.end()))   # not code: a comment or a literal
+                continue
+            if token == '{':
+                names = stack[-1][1] if stack else ()
+                name = self._declared(text[boundary:match.start()], kotlin)
+                stack.append((match.start(), names + (name,) if name else names))
+            elif token == '}' and stack:
+                start, names = stack.pop()
+                self.spans.append((start, match.end(), names))
+            boundary = match.end()
+        self.spans.extend((start, len(text), names) for start, names in stack)
+        self.spans.sort()
+
+    @staticmethod
+    def _declared(header, kotlin):
+        types = TYPE_HEAD.findall(header)
+        if kotlin:
+            functions = KOTLIN_FUN.findall(header)
+            last_type, last_fun = header.rfind(types[-1]) if types else -1, header.rfind('fun ') if functions else -1
+            return (functions[-1] if last_fun > last_type else types[-1]) if (types or functions) else None
+        if types:
+            return types[-1]
+        method = JAVA_METHOD.search(header.strip())
+        if not method or method.group(1) in KEYWORDS or re.search(r'\bnew\s+[\w.<>\[\], ]*$', header.strip()[:method.start(1)]):
+            return None
+        return method.group(1)
+
+    def outside_code(self, offset):
+        return any(start <= offset < end for start, end in self.code)
+
+    def at(self, offset):
+        """`Class.Inner.method` for the innermost named blocks around a position, or None at file level."""
+        names = ()
+        for start, end, held in self.spans:
+            if start > offset:
+                break
+            if offset < end:
+                names = held
+        return '.'.join(names) or None
+
+
+def receiving_call(text, offset, limit=400):
+    """The name of the call a position is an argument of, or None when it is not inside a call's parentheses."""
+    depth = 0
+    for index in range(offset - 1, max(-1, offset - limit - 1), -1):
+        char = text[index]
+        if char in ';{}':
+            return None
+        if char == ')':
+            depth += 1
+        elif char == '(':
+            if depth:
+                depth -= 1
+                continue
+            name = re.search(r'([A-Za-z_]\w*)\s*$', text[max(0, index - 120):index])
+            return name.group(1) if name and name.group(1) not in KEYWORDS else None
+    return None
+
+
+def usages(text, kotlin=False, symbols=None):
+    """Every place a source file names a resource: the reference, its line, the class and function, and the call it is passed to."""
+    symbols = symbols or Symbols(text, kotlin)
+    rows = []
+    for match in CODE_REF.finditer(text):
+        if symbols.outside_code(match.start()):
+            continue
+        row = {'ref': ('@android:' if match.group('platform') else '@') + match.group('kind') + '/' + match.group('name'),
+               'line': line_of(text, match.start())}
+        symbol, call = symbols.at(match.start()), receiving_call(text, match.start())
+        if symbol:
+            row['symbol'] = symbol
+        if call:
+            row['call'] = call
+        rows.append(row)
+    return rows
+
+
+def drawn_rows(text, relative, symbols=None):
     """Drawing code, grouped by the function that holds it: one signal per `Class.function`."""
-    functions = [(m.start(), m.group(1) or m.group(2)) for m in FUNCTION.finditer(text)
-                 if (m.group(1) or m.group(2)) not in KEYWORDS]
-    classes = [(m.start(), m.group(1)) for m in CLASS.finditer(text)]
+    symbols = symbols or Symbols(text, relative.endswith('.kt'))
     groups = {}
     for match in DRAWN.finditer(text):
-        function = next((name for start, name in reversed(functions) if start <= match.start()), None)
-        owner_class = next((name for start, name in reversed(classes) if start <= match.start()), None)
-        owner = '.'.join(part for part in (owner_class, function) if part) or relative
+        if symbols.outside_code(match.start()):
+            continue
+        position = match.start()
+        if match.group(1):  # a draw override named where it is declared belongs to the function it declares
+            close = balanced(text, match.end() - 1)
+            body = re.match(r'\s*(?::\s*[\w.<>?]+\s*)?(?:throws\s+[\w.,\s]+)?\{', text[close:close + 200]) if close else None
+            if body:
+                position = close + body.end()
+        owner = symbols.at(position) or relative
         group = groups.setdefault(owner, {'kind': 'code-drawn', 'sourcePath': relative, 'line': line_of(text, match.start()),
                                          'owner': owner, 'constructs': set()})
-        group['constructs'].add(match.group(1))
+        group['constructs'].add(next(name for name in match.groups() if name))
     return [{**group, 'constructs': sorted(group['constructs']),
              'expression': normalize(text.splitlines()[group['line'] - 1].strip(), 200)} for group in groups.values()]
 
 
-def code_sources(catalog, text, relative, sinks=()):
-    """Image sources in one source file: remote loads, run-time resource names, assets and drawing code."""
+def sink_candidates(text, relative, sinks, symbols):
+    """Calls named like an image loader that no recognised loader explains, so nothing about them was recorded."""
+    rows = []
+    for match in SINK_NAME.finditer(text):
+        name = match.group(1)
+        if name in KNOWN_SETTERS or name in sinks or symbols.outside_code(match.start()):
+            continue
+        close = balanced(text, match.end() - 1)
+        rows.append({'call': name, 'sourcePath': relative, 'line': line_of(text, match.start()),
+                     'expression': normalize(text[match.start():close or match.end()], 200)})
+    return rows
+
+
+def code_sources(catalog, text, relative, sinks=(), helpers=()):
+    """What one source file shows beyond its setters: image sources, assets, every resource use, and unexplained loader calls."""
+    symbols = Symbols(text, relative.endswith('.kt'))
+    import parameter_records
     return {'imageSources': remote_rows(catalog, text, relative, tuple(sinks)) + identifier_rows(catalog, text, relative)
-            + drawn_rows(text, relative), 'assets': asset_paths(text)}
+            + drawn_rows(text, relative, symbols), 'assets': asset_paths(text),
+            'usages': usages(text, symbols=symbols), 'sinkCandidates': sink_candidates(text, relative, tuple(sinks), symbols),
+            'parameters': parameter_records.code_parameters(text, relative, symbols, helpers)}
 
 
 def source_id(row, occurrence):

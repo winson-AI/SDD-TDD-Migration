@@ -226,6 +226,17 @@ class VectorRenderTests(unittest.TestCase):
         self.assertEqual(rr.render(self.index('ic_play', xml), '@drawable/ic_play', 'default', again)['png_ref']['sha256'],
                          document['png_ref']['sha256'])
 
+    def test_a_gradient_filled_path_is_ink_like_any_other(self):
+        gradient = ('<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt" '
+                    'android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">'
+                    '<path android:pathData="M4,4h16v16h-16z"><aapt:attr name="android:fillColor">'
+                    '<gradient android:startColor="#FF0000" android:endColor="#0000FF" android:type="linear"/></aapt:attr></path></vector>')
+        import xml.etree.ElementTree as ET
+        svg, _ = rr.vector_svg(ET.fromstring(gradient))
+        self.assertIn('fill="#000"', svg)
+        plain = gradient.replace('<aapt:attr name="android:fillColor"><gradient android:startColor="#FF0000" android:endColor="#0000FF" android:type="linear"/></aapt:attr>', '')
+        self.assertIn('fill="none"', rr.vector_svg(ET.fromstring(plain))[0])  # no colour at all stays transparent
+
     def test_a_clip_path_clips_the_siblings_after_it(self):
         xml = ('<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="10dp" android:height="10dp" '
                'android:viewportWidth="10" android:viewportHeight="10"><clip-path android:pathData="M0,0 L5,0 L5,10 L0,10 Z"/>'

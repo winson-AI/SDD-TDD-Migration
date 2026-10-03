@@ -55,11 +55,16 @@ def _transparent(color, alpha):
     return bool(literal and literal.group(1) and int(literal.group(1), 16) == 0) or _number(alpha, 1.0) == 0
 
 
+def _inline(element, name):
+    """Whether a colour is given by a nested `aapt:attr` (a gradient), which is ink like any other colour."""
+    return any(resource_facts.local(child.tag) == 'attr' and child.get('name') == 'android:' + name for child in element)
+
+
 def _path(element):
     data = _attr(element, 'pathData')
     require(data and not data.startswith(('@', '?')), 'a vector path whose data is a resource reference cannot be rendered')
-    fill = 'none' if _transparent(_attr(element, 'fillColor'), _attr(element, 'fillAlpha')) else '#000'
-    stroke = 'none' if _transparent(_attr(element, 'strokeColor'), _attr(element, 'strokeAlpha')) else '#000'
+    paint = lambda name: '#000' if _inline(element, name + 'Color') or not _transparent(_attr(element, name + 'Color'), _attr(element, name + 'Alpha')) else 'none'
+    fill, stroke = paint('fill'), paint('stroke')
     parts = [f'd="{data}"', f'fill="{fill}"', f'stroke="{stroke}"',
              'fill-rule="' + ('evenodd' if _attr(element, 'fillType') == 'evenOdd' else 'nonzero') + '"']
     if stroke != 'none':

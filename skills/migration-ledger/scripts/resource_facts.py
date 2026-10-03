@@ -31,6 +31,40 @@ def density_scale(qualifier):
     return None
 
 
+def variant(qualifier):
+    """(what a file is for, which rendition of it): the qualifier without its density and platform level, and the density it names.
+
+    `night-xxhdpi` is the night picture at one density; `xxhdpi`, `mdpi` and `anydpi-v24` are the same picture,
+    drawn for another screen or another platform version."""
+    tokens = [token for token in str(qualifier or '').split('-') if token and token not in ('default', 'base')]
+    density = [token for token in tokens if token in DENSITY or token in ('nodpi', 'anydpi') or re.fullmatch(r'\d+dpi', token)]
+    rendition = density + [token for token in tokens if re.fullmatch(r'v\d+', token)]
+    return '-'.join(token for token in tokens if token not in rendition) or 'base', (density[0] if density else None)
+
+
+def format_of(path):
+    """What a file is, in the words a project uses for what its target loads: png, webp, jpg, gif, vector-xml,
+    animation-json, nine-patch, or the bare suffix; other XML and JSON keep their own names and are never pictures."""
+    path = Path(path)
+    suffix = path.suffix.lower()
+    if path.name.lower().endswith('.9.png'):
+        return 'nine-patch'
+    if suffix in ('.jpg', '.jpeg'):
+        return 'jpg'
+    if suffix == '.xml':
+        try:
+            return 'vector-xml' if local(ET.parse(path).getroot().tag) == 'vector' else 'xml'
+        except (ET.ParseError, OSError):
+            return 'xml'
+    if suffix == '.json':
+        try:
+            text = path.read_text(encoding='utf-8', errors='replace') if path.stat().st_size <= JSON_LIMIT else ''
+        except OSError:
+            text = ''
+        return 'animation-json' if animation_facts(text) else 'json'
+    return suffix.lstrip('.') or 'file'
+
+
 def _png(data):
     if len(data) < 33 or data[12:16] != b'IHDR':
         return None

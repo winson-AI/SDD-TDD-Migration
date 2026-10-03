@@ -195,7 +195,9 @@ def validate_tree_ref(ref, source_index_ref=None, runtime_index_ref=None, target
             if item.get('path') and item.get('sha256'):
                 check_ref({'path': str(base / item['path']), 'sha256': item['sha256']})
     import resource_fidelity
-    resource_fidelity.indexed_resources(index, resource_fidelity.obligations(index, tree, resource_scope)['refs'], resource_scope)
+    needed = resource_fidelity.obligations(index, tree, resource_scope)
+    resource_fidelity.require_declared(needed)
+    resource_fidelity.indexed_resources(index, needed['refs'], resource_scope)
     if runtime:
         data = read_json(runtime)
         for capture in data['captures']:
