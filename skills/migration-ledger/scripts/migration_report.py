@@ -44,7 +44,7 @@ def picture(mid, item, analysis_ref, carriers, rows):
                       }.get(state, ('', ''))
     if state == 'non-exact':
         status, reason = (('verified', '目标屏幕上的节点图像已与存量资源的渲染参考比对，在容差内一致') if measured else
-                          ('not-verified', '图像检查所在视觉路径未在当前基线通过' if check else '手工替换的图形没有图像检查'))
+                          ('not-verified', '图像检查所在视觉路径未在当前基线通过' if check else '手工替换的图片没有图像检查，也没有获批偏差'))
     return {'module_id': mid, 'item_id': item.get('item_id'), 'source': item.get('source_resource') or item.get('source_signal'),
             'resource_kind': item.get('resource_kind'), 'strategy': item.get('resource_strategy'), 'state': state, 'status': status,
             'reason': reason, 'image_check': check, 'path_ids': [r['path_id'] for r in paths],

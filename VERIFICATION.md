@@ -22,10 +22,10 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 |
 | --- | ---: |
-| migration-ledger/tests | 886 |
+| migration-ledger/tests | 888 |
 | migration-test/tests | 47 |
 | runtime/harmony/tests | 128 |
-| 合计 | **1061** |
+| 合计 | **1063** |
 
 全部无失败、无跳过。适配器夹具仍有既有 engine.log ResourceWarning，不影响断言。系统 python3 低于 3.11 时改用 Harmony sandbox 的解释器，并让它能导入已安装的 pytest；不为此安装依赖。
 
@@ -74,7 +74,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 四维与语义模型 | UI/Logic/Adhesive/Resource 逐层映射到 TASK/PATH/ASSERT；N/A 需源证据；语义模型 hash 冻结 |
 | UI 保真 | 原生 collector/selector → UI 树 → 冻结门禁；每个 runtime 目标独立 visual PATH；source-only 不伪造基线 |
 | 资源精确性 | 精确策略枚举、源文件事实/qualifier/.9.png/sp 校验；裸附加 ID 不填闭包；跨配置路由需冻结证据 |
-| 图片与图标对齐 | collector 记录嵌套 drawable、非布局 XML 图标、主题属性、assets 与没有资源文件的图片来源（URL/API 字段、运行时拼接名、数据绑定、绘制代码），资源文件带文件头事实；闭包要求每个触达的资源文件和每条图片来源各有一个 Resource item 或带证据的排除，并给出预填骨架；图像检查用存量资源离线渲染的参考与目标屏幕节点比较，Ledger 用哈希绑定的输入重算 MATCH/MISMATCH/INCOMPARABLE（Green/Red/Yellow），伪造的指标、节点、参考、选择器、容差、断言、构建、基线或其他 assignment 的报告均被拒；只带图像检查、没有基线的 visual PATH 可冻结并取证，runtime 目标仍须基线 PATH；静态图的 manual_exact 须带已声明且被承载的检查或计划信封内的偏差，动画与绘制代码保留评审；收尾报告逐项披露非精确图片及其验证状态，不改变验收 |
+| 图片与图标对齐 | collector 记录嵌套 drawable、非布局 XML 图标、主题属性、assets 与没有资源文件的图片来源（URL/API 字段、运行时拼接名、数据绑定、绘制代码），资源文件带文件头事实；闭包要求每个触达的资源文件和每条图片来源各有一个 Resource item 或带证据的排除，并给出预填骨架；图像检查用存量资源离线渲染的参考与目标屏幕节点比较，Ledger 用哈希绑定的输入重算 MATCH/MISMATCH/INCOMPARABLE（Green/Red/Yellow），伪造的指标、节点、参考、选择器、容差、断言、构建、基线或其他 assignment 的报告均被拒；只带图像检查、没有基线的 visual PATH 可冻结并取证，runtime 目标仍须基线 PATH；静态图的 manual_exact 须带已声明且被承载的检查或计划信封内的偏差，动画与 .9.png 只接受偏差，绘制代码保留评审，raw/assets 中的非图片文件不算图片；收尾报告逐项披露非精确图片及其验证状态，不改变验收 |
 | 视觉执行 | 正式 Green 绑定当前代码、本轮构建 HAP、本轮受管 capture 与 assignment/fence；semantic finding 需逐项裁决 |
 | 手势 | 仅 Spec 声明的 interaction 生效；Green 需同 HAP/代码的真实设备观测；缺证据为 Yellow |
 | Foundation 知识 | 冻结时按随包 catalog 重算解析；demo-source 仅候选；目标 TOML 版本核对 |

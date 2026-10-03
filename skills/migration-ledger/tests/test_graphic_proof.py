@@ -52,18 +52,26 @@ class GraphicProofTests(unittest.TestCase):
         self.assertEqual(rf.exactness(self.item(deviation=self.deviation())), 'approved-deviation')
         self.assertEqual(rf.exactness(self.item(resource_strategy='blocked')), 'blocked')
         self.assertEqual(rf.exactness(self.item(resource_kind='shape')), 'manual')
-        self.assertEqual(rf.exactness(self.item(resource_kind='code-drawn')), 'manual')  # not rendered offline: reviewed, not measured
-        self.assertEqual(rf.exactness(self.item(resource_kind='animated-vector')), 'manual')
+        self.assertEqual(rf.exactness(self.item(resource_kind='code-drawn')), 'manual')  # ported code: reviewed, not measured
+        self.assertEqual(rf.exactness(self.item(resource_kind='animated-vector')), 'non-exact')
+        self.assertEqual(rf.exactness(self.item(resource_kind='animated-vector', deviation=self.deviation())), 'approved-deviation')
         photo = {'resource_kind': 'asset', 'source_resource_ref': {'path': '/legacy/assets/photo.webp'}}
         self.assertEqual(rf.exactness(self.item(**photo)), 'non-exact')
-        font = {'resource_kind': 'asset', 'source_resource_ref': {'path': '/legacy/assets/body.ttf'}}
-        self.assertEqual(rf.exactness(self.item(**font)), 'manual')
+        self.assertEqual(rf.exactness(self.item(resource_kind='bitmap', nine_patch=True)), 'non-exact')
+        self.assertFalse(rf.measurable(self.item(resource_kind='bitmap', nine_patch=True)))  # shown stretched, never as its own pixels
+        for name in ('body.ttf', 'config.xml'):  # a raw or asset file that is not an image is not a picture
+            other = {'resource_kind': 'asset', 'source_resource_ref': {'path': '/legacy/assets/' + name}}
+            self.assertEqual(rf.exactness(self.item(**other)), 'manual')
+            self.assertFalse(rf.is_picture(self.item(**other)))
+        self.assertTrue(rf.is_picture(self.item(resource_kind='raw', source_resource_ref={'path': '/legacy/res/raw/loading.json'})))
+        self.assertTrue(rf.is_picture({'resource_kind': 'remote-image', 'source_signal': 'src:remote-image:ab12'}))
 
     def test_a_replaced_graphic_needs_a_measured_check_or_a_deviation_not_neither(self):
         self.refuses('either an image_check .* or an approved deviation', self.item())
         self.refuses('not both and not neither', self.item(image_check='back-icon', deviation=self.deviation()),
                      declared=[self.check()], carried=['back-icon'])
         self.prove(self.item(resource_kind='shape'))  # not a picture: untouched
+        self.prove(self.item(resource_kind='raw', source_resource_ref={'path': '/legacy/res/raw/config.xml'}))
         self.prove(self.item(resource_strategy='exact_vector_xml'))
         self.prove(self.item(resource_strategy='blocked', blocked_reason='no converter'))
 
@@ -76,15 +84,26 @@ class GraphicProofTests(unittest.TestCase):
         self.refuses('check of this resource and qualifier', item, declared=[self.check(resource='@drawable/ic_next')], carried=['back-icon'])
         self.refuses('check of this resource and qualifier', item, declared=[self.check(qualifier='xhdpi')], carried=['back-icon'])
 
-    def test_drawing_code_and_animation_keep_their_reviewed_port_and_are_never_measured(self):
+    def test_an_animation_or_nine_patch_replaced_by_hand_is_an_approved_deviation_never_a_review_alone(self):
         lottie = {'resource_kind': 'asset', 'source_resource_ref': {'path': '/legacy/assets/loading.json'}}
-        kinds = [{'resource_kind': kind} for kind in ('code-drawn', 'animated-vector', 'animation-list', 'adaptive-icon')] + [lottie]
+        kinds = [{'resource_kind': kind} for kind in ('animated-vector', 'animation-list', 'animated-selector', 'adaptive-icon')]
+        kinds += [lottie, {'resource_kind': 'raw', 'source_resource_ref': {'path': '/legacy/res/raw/logo.svg'}}, {'resource_kind': 'bitmap', 'nine_patch': True}]
         for kind in kinds:
             with self.subTest(kind):
+                self.refuses('needs an approved deviation', self.item(**kind))
                 self.refuses('not rendered offline', self.item(image_check='back-icon', **kind), declared=[self.check()], carried=['back-icon'])
-                self.prove(self.item(**kind))  # a reviewed manual port needs no measurement it cannot have
-                self.prove(self.item(deviation=self.deviation(), **kind))
+                self.refuses('not rendered offline', self.item(image_check='back-icon', deviation=self.deviation(), **kind),
+                             declared=[self.check()], carried=['back-icon'])
+                self.prove(self.item(deviation=self.deviation(kind='degrade'), **kind))
                 self.refuses('allowed_alternatives', self.item(deviation=self.deviation(alternative='skip it'), **kind))
+                self.prove(self.item(resource_strategy='blocked', blocked_reason='no converter', **kind))  # an explicit gap stays one
+
+    def test_drawing_code_is_ported_and_reviewed_and_never_measured(self):
+        drawn = {'resource_kind': 'code-drawn', 'source_resource': None, 'source_signal': 'src:code-drawn:cd34'}
+        self.prove(self.item(**drawn))  # there is no file to copy: the port keeps its review
+        self.prove(self.item(deviation=self.deviation(), **drawn))
+        self.refuses('allowed_alternatives', self.item(deviation=self.deviation(alternative='skip it'), **drawn))
+        self.refuses('not rendered offline', self.item(image_check='back-icon', **drawn), declared=[self.check()], carried=['back-icon'])
 
     def test_a_deviation_is_one_of_the_alternatives_a_human_approved(self):
         self.prove(self.item(deviation=self.deviation()))
@@ -104,8 +123,11 @@ class GraphicProofTests(unittest.TestCase):
         Path(evidence['path']).write_text('replaced')
         self.refuses('hash mismatch', item)
 
-    def test_a_deviation_only_describes_a_manual_replacement(self):
+    def test_a_deviation_only_describes_a_manual_replacement_of_a_picture(self):
         self.refuses('manual_exact replacement', self.item(resource_strategy='exact_vector_xml', deviation=self.deviation()))
+        self.refuses('manual_exact replacement', self.item(resource_kind='shape', deviation=self.deviation()))
+        self.refuses('manual_exact replacement', self.item(resource_kind='raw', source_resource_ref={'path': '/legacy/res/raw/config.xml'},
+                                                       deviation=self.deviation()))
 
     def freeze(self, *items, paths=(), alternatives=(APPROVED,)):
         path = self.base / 'analysis.json'
@@ -131,6 +153,19 @@ class GraphicProofTests(unittest.TestCase):
             self.freeze(self.resource(image_check='back-icon'))
         with self.assertRaisesRegex(Rejected, 'either an image_check'):
             self.freeze(self.resource(), paths=[visual])
+
+    def test_freeze_takes_a_hand_ported_nine_patch_only_as_an_approved_deviation(self):
+        source = self.base / 'legacy/res/drawable/bubble.9.png'
+        source.parent.mkdir(parents=True, exist_ok=True); source.write_bytes(b'\x89PNG\r\n\x1a\nnine-patch')
+        item = self.item(item_id='bubble', source_resource='@drawable/bubble', resource_kind='bitmap', nine_patch=True,
+                         source_resource_ref=file_ref(source), target_resource=str(self.base / 'target/Bubble.kt') + '#Bubble',
+                         consumer=str(self.base / 'target/Screen.kt') + '#Message')
+        with self.assertRaisesRegex(Rejected, 'needs an approved deviation'):
+            self.freeze(item)
+        with self.assertRaisesRegex(Rejected, 'not rendered offline'):
+            self.freeze({**item, 'image_check': 'back-icon'}, paths=[{'path_id': 'P1', 'kind': 'visual', 'image_check_ids': ['back-icon']}])
+        self.freeze({**item, 'deviation': self.deviation()})
+        self.freeze({**item, 'resource_strategy': 'compose_semantic_exact'})  # the exact route needs neither
 
     def test_freeze_binds_the_deviation_to_the_approved_plan(self):
         self.freeze(self.resource(deviation=self.deviation()))

@@ -122,7 +122,7 @@ adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migrat
 | color / dimen / 已证 attr | `design_token_exact` |
 | selector / layer-list / shape / 有状态绘制 | `compose_semantic_exact` |
 
-**没有 `approximate` 策略**：禁止 Material 图标替代、手绘近似、语义近似、自动栅格化、位图兜底。逃生口仅 `manual_exact`（须 `adaptation_evidence_ref` 实证；静态图另受[图片与图标对齐](#图片与图标对齐)闸门约束）与 `blocked`（须 `blocked_reason`）。专项规则：`.9.png` 的 stretch/content 区域**永不** `byte_copy`；`sp` 尺寸被间距消费时必须 `scales_with_font`（不得静默变固定 Dp）。
+**没有 `approximate` 策略**：禁止 Material 图标替代、手绘近似、语义近似、自动栅格化、位图兜底。逃生口仅 `manual_exact`（须 `adaptation_evidence_ref` 实证；图片另受[图片与图标对齐](#图片与图标对齐)闸门约束）与 `blocked`（须 `blocked_reason`）。专项规则：`.9.png` 的 stretch/content 区域**永不** `byte_copy`；`sp` 尺寸被间距消费时必须 `scales_with_font`（不得静默变固定 Dp）。
 
 **② 闭包不得缩减** —— `ui_fidelity_required` 开启时，UI 树声明的每个呈现引用（含 `dynamicRules` 的代码态运行时覆盖）必须被实际 Resource item 覆盖，否则冻结被拒。逐 `source_resource + qualifier` 留真实源、策略、目标及消费者证据；裸 `covered_resource_ids` 不计入覆盖。资源分组使用现有 TASK/dimension_trace；附加资源及别名分别登记源事实，不能用一个主资源代证其余资源。
 
@@ -150,8 +150,8 @@ adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migrat
 
 **③ 图像检查。** `ui-component-spec` 的 `image_checks[]` 冻结“此节点必须显示这张存量图片”：`id`、`node_id`、`source_resource`+`qualifier`、`reference.render_ref`（`render-reference` 从存量文件离线渲染的参考栅格，绑定源索引中该文件的 SHA）、`target.selector`（目标 view tree 里节点的精确 class/resource-id/text/content-desc）、可选 `capture_index` 与 `tolerance`。visual PATH 以 `image_check_ids` 承载检查：Test-Runner 抓取目标屏幕并运行 `image-parity`，Ledger 用哈希绑定的同一批输入重算——节点图像与参考的形状 IoU ≥ 0.72、宽高比偏差 ≤ 0.20（可选颜色）为 MATCH → Green；MISMATCH → Red 并给节点级根因；找不到节点或截图（INCOMPARABLE）→ Yellow。**不依赖存量可运行**：无 `baseline_ref`、有 `image_check_ids` 的 PATH 只抓取目标，coverage 须是冻结的 UI 目标，node_ids 属于其树并含每个检查的节点；runtime 目标仍须另有基线 PATH，已声明的检查必须被某条 visual PATH 承载。带基线的 PATH 也可同时承载检查，其节点须是基线观察到的节点。
 
-**④ 非精确图形闸门。** 静态位图/矢量（bitmap、vector，或 raw/assets 中的静态图）用 `manual_exact` 代替精确复制时，item 恰有其一：`image_check`（已声明、被 visual PATH 承载、属于同一 source_resource+qualifier）或 `deviation` `{alternative, kind: redraw|degrade|absent, reason, evidence_refs?}`。`alternative` 必须是计划 `decision_envelope.allowed_alternatives` 的一项，由人类随计划 hash 批准，Implementer 不能自行认定“足够近似”。动画与绘制代码无法离线测量：保留经评审的 `manual_exact`（也可带 `deviation`），不可挂 `image_check`。
+**④ 非精确图形闸门。** 静态位图/矢量（bitmap、vector，或 raw/assets 中的静态图）用 `manual_exact` 代替精确复制时，item 恰有其一：`image_check`（已声明、被 visual PATH 承载、属于同一 source_resource+qualifier）或 `deviation` `{alternative, kind: redraw|degrade|absent, reason, evidence_refs?}`。`alternative` 必须是计划 `decision_envelope.allowed_alternatives` 的一项，由人类随计划 hash 批准，Implementer 不能自行认定“足够近似”。动画与 `.9.png` 无法离线测量，手工替换只能带 `deviation`；绘制代码按代码移植，保留经评审的 `manual_exact`；三者均不可挂 `image_check`。
 
 ## 最终报告的保真披露
 
-GO migration-report 增加 visual_coverage 与 fidelity_limitations：逐模块/目标列出 runtime 已验证、未验证、source-only、显式无 UI 或证据未知。只有当前基线已执行并 Green 的视觉路径可列 verified；source-only 业务 CASE 可以 Green，但报告必须说明未验证视觉保真。capture-fixture 另列“样本未证明在线服务/provider 等价”。`picture_fidelity` 逐项列出非精确复制的图片：verified（其图像检查所在 PATH 当前已执行并 Green）、not-verified、approved-deviation、reviewed（动画/绘制代码/手工加载映射，仅评审未测量）、blocked、unknown；未验证者同入 fidelity_limitations。这些是证据覆盖说明，不新增阻塞门、不重染业务 CASE、不扩展 Auditor 复测范围。缺测 Yellow 仍按原控制流收尾。
+GO migration-report 增加 visual_coverage 与 fidelity_limitations：逐模块/目标列出 runtime 已验证、未验证、source-only、显式无 UI 或证据未知。只有当前基线已执行并 Green 的视觉路径可列 verified；source-only 业务 CASE 可以 Green，但报告必须说明未验证视觉保真。capture-fixture 另列“样本未证明在线服务/provider 等价”。`picture_fidelity` 逐项列出非精确复制的图片：verified（其图像检查所在 PATH 当前已执行并 Green）、not-verified、approved-deviation、reviewed（绘制代码/手工加载映射，仅评审未测量）、blocked、unknown；未验证者同入 fidelity_limitations。这些是证据覆盖说明，不新增阻塞门、不重染业务 CASE、不扩展 Auditor 复测范围。缺测 Yellow 仍按原控制流收尾。

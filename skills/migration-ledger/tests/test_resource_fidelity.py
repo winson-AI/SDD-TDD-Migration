@@ -84,10 +84,10 @@ class ResourceFidelityTests(unittest.TestCase):
     def analysis(self, *items):
         return {'dimensions': [{'dimension': 'Resource', 'status': 'applicable', 'items': list(items)}]}
 
-    def freeze(self, *items):
+    def freeze(self, *items, alternatives=()):
         path = self.base / 'analysis.json'; path.write_text(json.dumps(self.analysis(*items)))
         rf.freeze_gate({'legacy_root': str(self.base / 'legacy')},
-                       {'plan': {'dimension_analysis_ref': file_ref(path)}})
+                       {'plan': {'dimension_analysis_ref': file_ref(path), 'decision_envelope': {'allowed_alternatives': list(alternatives)}}})
 
     def config(self, item, configurations=None, condition=None):
         proof = self.ref('configuration-review.json')
@@ -112,7 +112,7 @@ class ResourceFidelityTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'matching values entry'):
             rf.require_exact_closure(self.analysis(title, alias), ['@string/title', '@string/nonexistent'])
 
-    def test_unknown_actual_kind_has_blocked_or_reviewed_manual_exit(self):
+    def test_unknown_actual_kind_has_blocked_or_reviewed_and_approved_manual_exit(self):
         item = self.resource('@drawable/motion', content='<animated-vector/>', resource_kind='animated-vector',
                              resource_strategy='blocked', blocked_reason='Requires animator port; no exact converter')
         self.assertEqual(rf.validate_facts(item)['kind'], 'animated-vector')
@@ -125,10 +125,17 @@ class ResourceFidelityTests(unittest.TestCase):
         with self.assertRaises(Rejected):
             rf.validate_facts(item)
         item['adaptation_evidence_ref'] = self.ref()
-        self.freeze(item)
+        rf.validate_facts(item)
+        with self.assertRaisesRegex(Rejected, 'needs an approved deviation'):  # a review alone does not replace a shipped animation
+            self.freeze(item)
+        approved = 'the animator is re-implemented with the target animation API'
+        item['deviation'] = {'alternative': approved, 'kind': 'redraw', 'reason': 'no exact converter for animated vectors'}
+        with self.assertRaisesRegex(Rejected, 'allowed_alternatives'):
+            self.freeze(item)
+        self.freeze(item, alternatives=[approved])
         Path(item['adaptation_evidence_ref']['path']).write_text('changed review')
         with self.assertRaisesRegex(Rejected, 'hash mismatch'):
-            self.freeze(item)
+            self.freeze(item, alternatives=[approved])
 
     def test_variant_change_needs_scope_evidence_but_scoped_night_only_is_valid(self):
         item = self.resource(qualifier='night')

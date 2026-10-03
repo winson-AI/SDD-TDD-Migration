@@ -197,7 +197,7 @@
     ]
   },
   "picture_replacement_item_example": {
-    "_note": "A still bitmap or vector replaced by hand (manual_exact) carries exactly one of image_check (a declared check, carried by a visual PATH, for the same source_resource and qualifier) or deviation. deviation.alternative must be one of the plan's decision_envelope.allowed_alternatives, which a human approves with the plan. Drawing code and animations cannot be measured offline: they keep their reviewed manual_exact and take no image_check.",
+    "_note": "A still bitmap or vector replaced by hand (manual_exact) carries exactly one of image_check (a declared check, carried by a visual PATH, for the same source_resource and qualifier) or deviation. deviation.alternative must be one of the plan's decision_envelope.allowed_alternatives, which a human approves with the plan. An animation or a nine-patch cannot be measured offline: replaced by hand it carries a deviation and no image_check. Drawing code (code-drawn) is ported like other code and keeps its reviewed manual_exact.",
     "item_id": "DIM-M001-RESOURCE-011",
     "source_resource": "@drawable/ic_back",
     "qualifier": "xxhdpi",

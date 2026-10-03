@@ -15,7 +15,7 @@ description: SDD-TDD-Migration 的测试设计、编译构建与自动化执行�
 
 所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
 
-需要当前 HAP 装机、视觉捕获或模型语义比较时按 [受限视觉执行](../migration-protocol/references/visual-execution.md#2-执行节点)。在现有测试 assignment 下使用 visual-install/visual-capture/semantic-inspect，读取冻结配置、保存原始证据；正式结果仍通过 execute_test/adapter 提交，不在工具中修代码或直接验收。
+需要当前 HAP 装机、视觉捕获或模型语义比较时按 [受限视觉执行](../migration-protocol/references/visual-execution.md#2-执行节点)。在现有测试 assignment 下使用 visual-install/visual-capture/semantic-inspect/image-parity，读取冻结配置、保存原始证据；正式结果仍通过 execute_test/adapter 提交，不在工具中修代码或直接验收。
 
 ## 3. 标准模式
 design 沿 `assign(mode=design) → submit（附 test-design 预检）→ MO accept(review_ref)` 提交预期路径，再由 Ledger 补进 Spec plan、MO 冻结；见 [编码前交接](../migration-protocol/references/testing.md#编码前设计交接)。code accepted 后依次 build → unit（本轮 JUnit）→ static（逐 Scenario）→ automation → 适用时 visual。错误交 Fixer；仅 automation 环境缺失记 Yellow/未执行，其他任务继续。

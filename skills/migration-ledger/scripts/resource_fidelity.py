@@ -29,9 +29,8 @@ NORMAL = {'vector': 'exact_vector_xml', 'bitmap': 'byte_copy', 'font': 'byte_cop
           'transition': 'compose_semantic_exact', 'ripple': 'compose_semantic_exact'}
 # Available for any kind only when exactness cannot be proven.
 ESCAPES = ('manual_exact', 'blocked')
-# What the user sees as a picture; only still images and vector drawables can be rendered offline and measured.
+# What the user sees as a picture; only a still image or a vector drawable renders offline to something a check can measure.
 GRAPHIC_KINDS = ('bitmap', 'vector', 'code-drawn', 'animation-list', 'animated-selector', 'animated-vector', 'adaptive-icon')
-STILL_SUFFIXES = ('.png', '.webp', '.jpg', '.jpeg', '.gif', '.xml')
 DEVIATIONS = ('redraw', 'degrade', 'absent')
 # Image sources with no resource file: what the target must do, per kind of recorded source.
 SIGNAL_STRATEGIES = {'remote-image': ('source_equivalent', 'manual_exact', 'blocked'),
@@ -277,9 +276,11 @@ def _suffix(item):
 
 
 def is_graphic(item):
-    """A picture the user sees: drawables, animations, drawing code, and image or animation files in raw/assets."""
+    """A picture the user sees: drawables, animations, drawing code, and image or animation files in raw/assets.
+
+    A raw or asset file is judged by its suffix; other files there (data, fonts, XML) are not pictures."""
     kind = item.get('resource_kind')
-    return kind in GRAPHIC_KINDS or kind in ('raw', 'asset') and _suffix(item) in STILL_SUFFIXES + ('.svg', '.json')
+    return kind in GRAPHIC_KINDS or kind in ('raw', 'asset') and _suffix(item) in resource_facts.RASTER_SUFFIXES + ('.svg', '.json')
 
 
 def is_picture(item):
@@ -288,17 +289,20 @@ def is_picture(item):
 
 
 def measurable(item):
-    """Whether the source renders offline to one still picture an image check can compare."""
+    """Whether the source renders offline to one still picture an image check can compare.
+
+    A nine-patch does not: what the screen shows is its stretched form, never the file's own pixels."""
     kind = item.get('resource_kind')
-    return kind in ('bitmap', 'vector') or kind in ('raw', 'asset') and _suffix(item) in STILL_SUFFIXES
+    still = kind in ('bitmap', 'vector') or kind in ('raw', 'asset') and _suffix(item) in resource_facts.RASTER_SUFFIXES
+    return still and not item.get('nine_patch')
 
 
 def exactness(item):
     """How closely the target reproduces the source: exact, non-exact, approved-deviation, blocked, manual or unrecorded.
 
-    A still picture replaced by hand (manual_exact) is non-exact until a measurement says otherwise. Drawing code and
-    animations cannot be rendered offline, so their hand ports stay manual: reviewed, not measured. A human-approved
-    deviation is still a difference; it is disclosed as one."""
+    A picture the legacy app ships that is replaced by hand (manual_exact) is non-exact: only a measurement on the
+    target stands behind it. Drawing code has no file to copy and is ported like other code, so its hand port stays
+    manual: reviewed, not measured. A human-approved deviation is still a difference; it is disclosed as one."""
     strategy = item.get('resource_strategy')
     if strategy is None:
         return 'unrecorded'
@@ -307,16 +311,18 @@ def exactness(item):
     if item.get('deviation'):
         return 'approved-deviation'
     if strategy == 'manual_exact':
-        return 'non-exact' if measurable(item) else 'manual'
+        return 'non-exact' if is_graphic(item) and item.get('resource_kind') != 'code-drawn' else 'manual'
     return 'exact'
 
 
 def require_graphic_proof(items, plan, declared, carried):
-    """A still picture that is not a copy needs a measured check on the target or a deviation a human approved with the plan.
+    """A picture replaced by hand is measured on the target or is a deviation a human approved with the plan.
 
     The check is declared by the UI model and carried by a visual path, so the result shows on the screen; the
     deviation names one of the plan's allowed alternatives, so the difference is part of what was approved.
-    Drawing code and animations cannot be measured offline: they keep their reviewed manual port, or a deviation."""
+    A still image takes either. An animation or a nine-patch cannot be rendered offline, which leaves the deviation:
+    a review alone never backs the replacement of a picture the legacy app ships. Drawing code has no file to copy;
+    it is ported like other code, keeps its review, and takes no check."""
     allowed = (plan.get('decision_envelope') or {}).get('allowed_alternatives', [])
     for item in items:
         label = item.get('item_id', '?')
@@ -325,11 +331,13 @@ def require_graphic_proof(items, plan, declared, carried):
         if not replaced:
             continue
         check, deviation = item.get('image_check'), item.get('deviation')
-        if not measurable(item):
-            require(not check, label + ': drawing code and animations are not rendered offline, so an image_check cannot measure them')
-        else:
+        if measurable(item):
             require(bool(check) != bool(deviation),
                     label + ': a non-exact graphic needs either an image_check carried by a visual PATH or an approved deviation, not both and not neither')
+        else:
+            require(not check, label + ': animations, nine-patches and drawing code are not rendered offline, so an image_check cannot measure them')
+            require(deviation or item.get('resource_kind') == 'code-drawn',
+                    label + ': an animation or nine-patch replaced by hand cannot be measured, so it needs an approved deviation')
         if check:
             found = declared.get(check)
             require(found and check in carried, label + ': image_check ' + str(check) + ' must be declared by a UI model and carried by a visual path')
