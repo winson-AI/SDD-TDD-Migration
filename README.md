@@ -85,6 +85,7 @@ Coding → MO 接受代码 → Testing
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照 | [项目上下文](skills/migration-protocol/references/project-context.md) |
 | 上下文就绪 | 规划与审计者随操作登记预检；worker 派发后预检，ready 才开工 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
 | 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
+| 图片与图标对齐 | 图片来源逐条记录并入资源闭包；存量资源离线渲染为参考，目标屏幕节点与之比较，结论由 Ledger 重算；非精确图形须测量或获批偏差 | [图片与图标对齐](skills/migration-protocol/references/ui-fidelity.md#图片与图标对齐) |
 | 四维切片与语义模型 | UI → Logic → Adhesive → Resource 逐层映射到 TASK/PATH/ASSERT | [四维](skills/migration-protocol/references/dimension-slicing.md)、[语义抽取](skills/migration-protocol/references/semantic-extraction.md) |
 | 阻塞感知与恢复 | 局部校验、invalidate 出口、进度信号；watchdog 只观察 | [恢复与进度](skills/migration-protocol/references/progress-recovery.md)、[watchdog](skills/migration-protocol/references/watchdog.md) |
 | 埋点 | 有则迁移，无则有据 N/A 正常推进 | [埋点](skills/migration-protocol/references/telemetry.md) |
@@ -141,3 +142,4 @@ Coding → MO 接受代码 → Testing
 | 2026-10-03 | 流程收尾：`ledger.py advance` 一次提交一个模块的全部机械步骤并给出下一张阅读卡；等待人工决定的步骤都给出要批准的摘要；8 个命令重复的约定合到宿主接入的“命令通用约定”（命令 49KB → 37KB）；共享协议进卡只带规则小节（每张卡小约 0.9KB）；行为契约由 Ledger 写入 plan；协议体积上限 554.8KB → 543.2KB |
 | 2026-10-03 | 作者不再抄写 Ledger 已知的值：test_design_ref、行为审阅与任务四维分析中的范围摘要和需求/CASE 列表、global-plan 的规范与架构引用、PATH 的 required 及两个勾选标志都可省略，写了必须一致；plan 不再要求 global-contract 定义；删除无人读取的 freeze.json，module-input 模板改为 register 实际载荷（3.3KB → 1.7KB），模板索引只保留索引（14.1KB → 8.0KB）；图集改为派发后预检的顺序；协议体积上限 543.2KB → 537.0KB |
 | 2026-10-03 | checklist 改为包内固定的评审清单：Ledger 接受 plan 时按内容哈希存入本 run 并绑定到模块（不进 plan 摘要），投影时附证据链接与运行勾选，Spec-Designer 不再实例化（规划卡模板 24.7KB → 19.6KB）；运行输入只有一种形状：prepare 直接返回 init 载荷，GO 补齐需求、CASE、规范与全局路径后原样提交，删除 10 个不生效的配置项（含 repair_policy，已有项目配置需执行一次 update 删除该键），global_test_paths 统一为 global_paths；协议体积上限 537.0KB → 536.8KB |
+| 2026-10-03 | 图片与图标对齐：collector 记录嵌套 drawable、非布局 XML 图标、主题属性与没有资源文件的图片来源（URL/API 字段、拼接名、绑定、绘制代码），闭包要求逐项有 Resource item 或带证据的排除；存量资源离线渲染为参考，图像检查把目标屏幕节点与参考比较并由 Ledger 重算，存量不必可运行；静态图的 manual_exact 须有图像检查或人类批准的偏差；收尾报告披露每个非精确图片 |

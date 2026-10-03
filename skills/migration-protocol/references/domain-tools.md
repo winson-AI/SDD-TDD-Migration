@@ -1,6 +1,6 @@
 # 领域工具受限接入
 
-GO、父/子 MO、Ledger、冻结、修复预算和独立审计继续按 SDD 协议执行。领域工具提供 UI 源码抽取、截图证据校验、精确资源转换、视觉比较及 Foundation 知识；宿主按下表开放受限操作，不把任何外部全流程迁移、编排或对齐技能加载为某个 SDD 角色的新执行规约。它们包含设计、改码、提交或返工控制，整包执行会跨越 SDD 角色权限。
+领域工具提供 UI 源码抽取、截图证据校验、精确资源转换、视觉比较及 Foundation 知识；宿主按下表开放受限操作，GO/MO、Ledger、冻结、修复预算和独立审计仍按 SDD 协议执行。外部全流程技能含设计、改码、提交或返工控制，整包执行会跨越 SDD 角色权限，不作为任何角色的执行规约加载。
 
 ## 总则
 
@@ -10,9 +10,9 @@ GO、父/子 MO、Ledger、冻结、修复预算和独立审计继续按 SDD 协
 
 | SDD 角色 | 领域操作 | 产出与边界 |
 | --- | --- | --- |
-| Spec-Designer | `analyze-ui`、`validate-ui`、知识查询与 Foundation 解析 | 源索引、运行时索引、合并 UI 树、范围与资源闭包进入规划；只生成分析工件，不改目标源码或资源 |
+| Spec-Designer | `analyze-ui`、`validate-ui`、`render-reference`、知识查询与 Foundation 解析 | 源索引、运行时索引、合并 UI 树、范围与资源闭包进入规划；只生成分析工件，不改目标源码或资源 |
 | Implementer | `resource-convert`，消费已冻结 UI/资源证据 | 在当前 assignment 与写范围内完成精确资源转换及真实消费者接线；不改 SPEC/tasks/验收，不作正式通过判断 |
-| Test-Runner | 正式构建走 `execute_test.py`；视觉使用 `compare-only` | 读取当前代码/基线生成比较评分；结合独立设备交互、语义比较和正式执行回执提交三态，不修源码、资源、构建配置或 SPEC |
+| Test-Runner | 正式构建走 `execute_test.py`；视觉使用 `compare-only`、`image-parity` | 读取当前代码/基线生成比较评分；结合独立设备交互、语义比较和正式执行回执提交三态，不修源码、资源、构建配置或 SPEC |
 | Fixer | 经 Ledger 授权的实现/资源修复，可用 `resource-convert` | 沿原修复预算和写范围提交补丁；行为或验收变更先提 CR；自测不能代替正式复测 |
 | Auditor | 独立审阅，按审计 assignment 只读比较与复测 | 不兼实现者、修复者或本轮测试脚本作者；按当前基线裁决，不能在比较过程中改码 |
 | Diagnostician | 知识查询、基于真实日志的 `knowledge-diagnose` | 命中项是候选原因，结合当前源码/执行证据判定根因；不修复或扩权 |
@@ -33,9 +33,11 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 | operation | args 要点 | 当前实际能力 |
 | --- | --- | --- |
-| `analyze-ui` | entry/source_files/layouts，选填 capture_ref 与 targets | 从固定 legacy_root 收集源索引；有合法 Capture 时选择运行时索引。Spec-Designer 据此生成 UI 树，再 validate-ui；不自动证明源闭包完整 |
+| `analyze-ui` | entry/source_files/layouts，选填 capture_ref、targets、manifests、image_sinks | 从固定 legacy_root 收集源索引（含图片信号，见 [图片与图标对齐](ui-fidelity.md#图片与图标对齐)）；有合法 Capture 时选择运行时索引。Spec-Designer 据此生成 UI 树，再 validate-ui；不自动证明源闭包完整 |
 | `validate-ui` | ui_tree_ref/source_index_ref/runtime_index_ref，选填 resource_scope | 校验树与原始索引一致；source-only 不伪造 runtime_index_ref；resource_scope 仅说明有证据的范围外变体 |
-| `resource-scan` | 选填 source_index_ref/ui_tree_ref/extra_refs | 只读查找当前闭包资源，输出候选文件及 hash，保留 base/night/语言等源变体；不写目标、不作精确性裁决 |
+| `resource-scan` | 选填 source_index_ref/ui_tree_ref/extra_refs | 只读查找当前闭包资源，输出候选文件及 hash，保留 base/night/语言等源变体；给出树与索引时另附按记录预填的 skeletons；不写目标、不作精确性裁决 |
+| `render-reference` | source_index_ref/source_resource/qualifier | 把索引内的存量资源文件离线渲染为参考栅格（reference.png/json），绑定文件 SHA；Spec-Designer/Test-Runner/Auditor 可用，随声明它的 image_checks 冻结 |
+| `image-parity` | path_id/manifest_ref/round，需 assignment | 对已完成的候选 capture，按冻结的 image_checks 在目标 view tree 定位节点、裁剪并比较，写 image-parity.json 与裁剪图；只是测量，Ledger 验收时重算；Test-Runner/Auditor 可用 |
 | `resource-convert` | task_id/resource_item_id + source/destination/source_id/target_ref/consumer，选填 resolve_ref/consumer_tint | 在冻结任务范围内执行 exact_vector_xml、byte_copy 或单项 value_xml_exact；参数必须与冻结资源映射一致，其余策略仍由 Implementer/Fixer 按 SPEC 实现 |
 | `compare-only` | reference_ref/candidate_ref | 生成确定性 score；score 是证据，不等于 ALIGNED，不操作设备、不自动修 UI、不生成手势执行事实 |
 | `visual-install` / `visual-capture` / `semantic-inspect` | 当前 PATH/assignment、冻结 visual_execution、构建/装机/比较引用 | 受限设备安装、捕获与语义比较，详见 [视觉执行](visual-execution.md)；只产出证据，不写 Ledger、不修源码 |
@@ -67,9 +69,9 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 正式 visual PATH 使用已有 execute_test 的 adapter/host receipt 通道，不能把直接 compare-only 或视觉辅助工具的 receipt 当作正式测试回执。[视觉执行工具](visual-execution.md) 可生成装机/Capture/语义证据；手势仍需其实际执行证据，未配置相关运行器时记录缺口。
 
-入口及查询/诊断/resolve 使用 Python 3.10+；`foundation-verify` 单项需要 Python 3.11+ 的 tomllib，缺少时明确拒绝并保留原因。`compare-only` 还需要 Pillow，可使用本 run 已准备好的 Harmony sandbox 环境。缺少 Pillow 时保留 `comparison-unavailable` 与原因，由 Test-Runner 按现有 Yellow/未执行通道处理，不自动安装依赖或阻止其他模块。
+入口及查询/诊断/resolve 使用 Python 3.10+；`foundation-verify` 单项需要 Python 3.11+ 的 tomllib，缺少时明确拒绝并保留原因。`compare-only`、`image-parity`、`render-reference` 还需要 Pillow（矢量 drawable 的渲染另需 `rsvg-convert`），可使用本 run 已准备好的 Harmony sandbox 环境。缺少时保留原因（compare-only 为 `comparison-unavailable`），由 Test-Runner 按现有 Yellow/未执行通道处理，不自动安装依赖或阻止其他模块。
 
-使用 [visual-test-adapter.json](../../../template/visual-test-adapter.json) 实例化 adapter JSON，其 argv 指向 [lean_visual_adapter.py](../../migration-ledger/scripts/lean_visual_adapter.py)、当前原始 alignment 文件与 target_root。有冻结手势才在 argv 添加 `--interaction <id>`（可重复）。宿主取得 visual assignment 后执行：
+使用 [visual-test-adapter.json](../../../template/visual-test-adapter.json) 实例化 adapter JSON，其 argv 指向 [lean_visual_adapter.py](../../migration-ledger/scripts/lean_visual_adapter.py)、当前原始 alignment 文件与 target_root。有冻结手势才在 argv 添加 `--interaction <id>`（可重复）；带 `image_check_ids` 的 PATH 添加 `--image-parity <报告>`，无 `baseline_ref` 时可省略 `--alignment`。宿主取得 visual assignment 后执行：
 
 ```sh
 python3 <package>/skills/migration-ledger/scripts/execute_test.py \
@@ -97,27 +99,17 @@ execute_test 自动传 query/result 文件并保存正式回执，adapter 只重
 | compile/test/package checks 与 HAP/HSP | 对应冻结 build/automation PATH 的结果与当前产物引用 | Test-Runner 经正式执行器留证；不能把导入的 `passed` 当作本轮执行 |
 | 逐目标 alignment 与 interaction checks | visual PATH 的三态、节点差异、同目标/当前 HAP/当前代码基线的证据 | Test-Runner 只读比较，失败交 Fixer，Auditor 独立裁决 |
 
-每个 runtime UI 目标都要有自己的 visual PATH；不能用一条对齐结果覆盖另一 page/state，不能用历史 HAP 的 ALIGNED 覆盖当前版本。source-only 保留缺少视觉实证的结论。完整字段见 [UI 保真控制道](ui-fidelity.md)。
-
-正式视觉验收与 adapter 共用完整冻结原图和捕获执行校验，结果附 capture_evidence；原生 worker 自动生成 capture_execution_ref，外部捕获也须有受管安装/捕获日志，alignment 标签不能替代执行。GLOBAL 自有 PATH 显式给 visual_evidence，不能从 build_binding 推断。source-only 手势可用 automation 的 interaction_evidence；默认 Harmony 无此证据时规范化为 Yellow，保留真实结果，见 [测试协议](testing.md)。
+每个 runtime UI 目标都有自己的 visual PATH，不能用一条结果或历史 HAP 的 ALIGNED 覆盖另一状态或当前版本；source-only 保留缺少视觉实证的结论。完整字段见 [UI 保真控制道](ui-fidelity.md)。
 
 ### 资源执行与事实绑定
 
 资源扫描对 GO/MO/Spec-Designer/Implementer/Fixer/Test-Runner/Auditor 开放，只读候选索引与源码。转换仅允许 Implementer/Fixer；请求例子见 [resource-request.json](../../../template/resource-request.json)。写入前校验活动 assignment、freeze、fencing token、模块与 task.scope.write_paths、dimension_trace 的任务所有权，以及冻结 source_resource_ref/目标路径/访问器/消费者/精确策略。扫描发现多个配置变体时，Spec 分别记录，不自动任选一个。
 
-冻结中，声明精确策略的资源项必须给出 source_resource_ref（真实源文件 path/sha256）、Android source_resource（如 @string/title）和 qualifier（base 或源 res 目录后缀）。从文件/values 条目核对 resource_kind、nine_patch、source_unit；UI 闭包仍要求全部资源有策略。资源转换请求均执行任务与源证据校验。
+冻结中，声明精确策略的资源项必须给出 source_resource_ref（真实源文件 path/sha256）、Android source_resource（如 @string/title）和 qualifier（base 或源 res 目录后缀），并从文件/values 条目核对 resource_kind、nine_patch、source_unit。每个源 ID + qualifier 对应一个 Resource item，别名与附加资源各带源事实。consumer 与 consumer_refs 的对应见 [精确性纪律](ui-fidelity.md#精确性纪律)。闭包、变体、范围外排除、平台资源与旧索引的规则见 [精确性纪律](ui-fidelity.md#精确性纪律)。
 
-每个源 ID + qualifier 对应一个 Resource item；分组用现有任务追溯。不将裸 covered_resource_ids 计入闭包，附加资源和别名分别带源事实、精确策略、目标及消费者证据。consumer 可为单值或列表，实现提交 consumer_refs 逐文件对应（同文件多个符号只需一个 hash），不能代证其他消费者。引用持续校验但不替代真实接线测试。
-
-资源源索引区分节点 ID 与可迁移资源：R.id 不生成 resource-not-found，@array 识别两类 Android 数组。平台资源通过固定 SDK API 的 source.properties + data/res 原定义完成精确映射；无可核验定义时保留 blocked。约束与模板见 [资源保真](ui-fidelity.md#精确性纪律)。
-
-collector 对资源事实保存源文件 SHA。冻结和 verify_plan 只遍历当前 UI 树引用的源索引变体，逐 ID/qualifier/path 核对实际源文件及 Resource item 的同一份 hash，不能用 base 代替漏掉的 night/语言变体。若同 ID 在多个模块存在候选，或某配置不属于切片，可在 ui_evidence.resource_scope.exclusions 列出 source_resource、qualifier、相对 androidRoot 的 path、reason、非空 evidence_refs；审核证据持续验 hash，显式启用的配置不可排除。旧索引缺 hash/事实已变须重新抽取再走原计划更新机制，不能给旧内容补新 hash。扫描同时包含 values 颜色和 res/color* XML；状态颜色 selector 使用 compose_semantic_exact，固定颜色才用 design_token_exact。
-
-未知真实资源类型可保留原始类型/hash 并选择 blocked；manual_exact 必须有适配审查证据。自动转换白名单不因此扩大，blocked 仍不能 Green。无法获取源文件时保留明确缺口，不为绕过门禁篡改 resource_kind。
+未知真实资源类型保留原始类型/hash，选 blocked 或带适配审查证据的 manual_exact；自动转换白名单不因此扩大，blocked 仍不能 Green，资源转换也不执行 blocked 策略。无法获取源文件时保留 blocked + blocked_reason 的显式缺口，不为填模板伪造 source_resource_ref 或篡改 resource_kind。
 
 源目标 qualifier 不同须冻结 configuration_mapping，包含 source_qualifier、target_qualifier（代码路由用 code）、scope.configurations/reason 和 evidence_refs。限定 night 的模块可以有据映射到 base；范围包含多个配置时另给 consumer_condition.expression/consumers。多个源变体共用目标文件必须给不同的真实消费者条件；语义正确性由 MO 审阅和测试验证，非空表达式本身不能证明分支正确。源目标相同 qualifier、普通 base 到代码常量路由无需空配置。配置证据 hash 持续校验，转换结果保留 configurationMapping。
-
-确实无法获取源文件时可保留 blocked + blocked_reason，显式缺口不能记成精确映射或 Green；不为填写模板伪造 source_resource_ref。资源转换不执行 blocked 策略。
 
 byte_copy 要求源目标字节一致；value_xml_exact 仅自动迁移一个 string/plurals/string-array/integer-array 条目，保留结构，目标已有不同内容或未解析引用则拒绝覆盖、交给现有修复/变更流程。向量的 resolve_ref/consumer_tint 也须冻结。输出仍是 staged 工件与 task trace，不代表生产消费者已验证。资源导入以 sourceId + qualifier 区分变体；重复同配置映射、伪造类型或不同字节的 byte_copy 被拒绝。
 

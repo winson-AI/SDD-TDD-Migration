@@ -24,8 +24,11 @@ python3 <package_root>/skills/migration-ledger/scripts/lean_worker.py \
 | visual-capture | 当前功能 Green 后的 visual assignment；冻结目标、artifact_ref、同 assignment/fence 的 install_ref、reference_manifest_ref、正整数 round | 真实截图/XML/meta/manifest，绑定构建、设备、状态及捕获轮次；CAPTURED 不是视觉对齐通过 |
 | compare-only | visual assignment；实际 reference_ref/candidate_ref | 确定性 score；不能直接给 ALIGNED |
 | semantic-inspect | visual assignment；冻结配置、reference_ref/candidate_ref/score_ref | 有总时限的模型比较，保留图片对和 score hash；INSPECTED 不是最终裁决 |
+| image-parity | visual assignment；path_id、已完成候选 capture 的 manifest_ref 与 round；PATH 携带冻结的 image_checks | 逐检查在目标 view tree 定位节点、裁剪并与参考栅格比较，写 image-parity.json；MEASURED 是测量不是裁决，Ledger 验收时重算 |
 
-叶子 PATH 的所有比较原图来自同 coverage 的冻结 UI evidence（baseline_refs/capture_manifest_ref），支持滚动目标的第二屏及后续截图；不能借含首屏的任意 manifest 添加其他基线。Auditor 读取原叶子 SPEC 的证据集合，不能通过构建归属猜测 UI 归属。GLOBAL 自有 PATH 用 visual_evidence 显式冻结 coverage、visual_mode=runtime、capture_manifest_ref 与完整 baseline_refs。缺少完整原始证据时保留局部 Yellow，任何 adapter 都不能将其提升为正式 Green。
+带 `image_check_ids` 的 PATH：visual-install → visual-capture → `image-parity` → adapter 的 `--image-parity`。无 `baseline_ref` 的 PATH 只抓取目标，visual-capture 不要求 reference_manifest_ref，也不要求存量可运行；带基线的 PATH 同时承载检查时，较弱的结果决定三态。报告须属于当前 assignment、代码基线、HAP 与所选 capture，Ledger 重算节点位置、裁剪与指标；新审计任务同样须重新抓取。
+
+叶子 PATH 的所有比较原图来自同 coverage 的冻结 UI evidence（baseline_refs/capture_manifest_ref），支持滚动目标的第二屏及后续截图；不能借含首屏的任意 manifest 添加其他基线。Auditor 读取原叶子 SPEC 的证据集合，不能通过构建归属猜测 UI 归属。GLOBAL 自有 PATH 用 visual_evidence 显式冻结 coverage、visual_mode=runtime、capture_manifest_ref 与完整 baseline_refs（build_binding 只定构建归属，不能代替）。缺少完整原始证据时保留局部 Yellow，任何 adapter 都不能将其提升为正式 Green。
 
 visual-capture 自动将 capture_execution_ref 写入候选 snapshot，关联 [捕获执行回执](../../../template/visual-capture-execution.json)。adapter 与正式验收重读当前 run 内的安装回执、执行日志、截图/树和元数据，推导 capture_evidence，检查 HAP/代码及完整原图集合。外部捕获器可由实际运行器提供同契约 sidecar；需要成功安装命令及实际 capture 命令与图片输出的关联，不能仅自填“当前版本”。已有 meta 中的构建/代码字段必须一致。缺 sidecar 保留 Yellow，不改写原始截图或旧证据。carried 只重验实际引用的历史轮次，并严格检查本轮当前构建。
 

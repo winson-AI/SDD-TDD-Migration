@@ -1,4 +1,5 @@
 {
+  "_note": "A PATH with baseline_ref compares whole screens with the legacy capture and may also carry image_check_ids (checks the UI model declares; their nodes must be nodes the baseline observed). A PATH without baseline_ref carries image_check_ids alone and needs no runnable legacy app: coverage names a frozen UI target and node_ids include the node of every carried check. Every declared check must be carried by some visual PATH.",
   "path_id": "VISUAL-M001-001",
   "kind": "visual",
   "name": "{{frozen-page-and-state-visual-parity}}",

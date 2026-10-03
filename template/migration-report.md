@@ -28,6 +28,12 @@
 
 {{列全 fidelity_limitations。source-only 必须说明未验证运行时视觉；capture-fixture 必须说明样本不证明在线服务/provider 等价。业务 CASE 的三态与上述证据覆盖独立；completed 不代表所有未测维度已经验证。无 UI 只在当前分析明确 N/A 时填写 not-applicable。}}
 
+| 模块 / item | 来源 | 类型 / 策略 | 状态 | 说明 |
+| --- | --- | --- | --- | --- |
+| {{module_id / item_id}} | {{@drawable/… 或 src:… 信号 id}} | {{resource_kind / resource_strategy}} | {{verified / not-verified / approved-deviation / reviewed / blocked / unknown}} | {{来自 picture_fidelity：图像检查所在 PATH 的当前结果，或人类批准的偏差、人工评审、阻塞原因}} |
+
+图片保真（picture_fidelity）列出每一个不是精确复制的图片；精确复制只给统计。verified 要求其图像检查所在 PATH 当前已执行并 Green，reviewed 只有人工评审、未经屏幕测量；未验证者同入 fidelity_limitations。
+
 ## 非 Green 原因与证据
 
 | CASE / PATH | 根因与置信度 | owner / next_action | 证据 |

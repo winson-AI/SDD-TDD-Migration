@@ -1,4 +1,5 @@
 {
+  "_note": "Append --interaction <id> (repeatable) for a frozen interaction. A PATH that carries image checks adds --image-parity <image-parity.json from the image-parity operation>; without baseline_ref drop --alignment.",
   "argv": [
     "{{absolute-python-executable}}",
     "{{absolute-package-root}}/skills/migration-ledger/scripts/lean_visual_adapter.py",

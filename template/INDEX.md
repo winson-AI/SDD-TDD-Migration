@@ -33,14 +33,14 @@
 | [reuse-fidelity.md](reuse-fidelity.md) | Spec-Designer | 存量源码与选中能力的逐行为对齐 |
 | [telemetry-contract.json](telemetry-contract.json) | Spec-Designer | 适用埋点的 stage-plan.telemetry 片段，不是独立请求 |
 | [telemetry-analysis.md](telemetry-analysis.md) | GO / MO / Spec-Designer / Auditor | 埋点适用性与保真分析 |
-| [semantic-model.json](semantic-model.json) | Spec-Designer | 语义模型字段示例；实例化后仍须通过 strict 校验，模板不证明源闭包完整 |
+| [semantic-model.json](semantic-model.json) | Spec-Designer | 语义模型字段示例（含图像检查、图片信号 item、非精确图形）；实例化后仍须通过 strict 校验，模板不证明源闭包完整 |
 | [ui-state-test-design.md](ui-state-test-design.md) | Spec-Designer | 并入模块 test-design 的 UI 状态设计 |
 | [domain-worker-request.json](domain-worker-request.json) | Spec-Designer | 受限 UI 源分析请求 |
 | [knowledge-request.json](knowledge-request.json) | Spec-Designer / Implementer / Fixer / Diagnostician | 知识主题查询请求，不要求 assignment |
 | [test-design-result.json](test-design-result.json) | Test-Runner | 独立测试设计结果；MO 接受后由 Ledger 绑定进 plan |
 | [test-paths.json](test-paths.json) | Test-Runner | build/unit/static/automation 各类 PATH 的写法 |
 | [harmony-test-path.json](harmony-test-path.json) | Test-Runner | 逐 ASSERT 的冻结谓词、验证类型、匹配与时序 |
-| [visual-test-path.json](visual-test-path.json) | Test-Runner | 逐 runtime 目标的视觉路径片段 |
+| [visual-test-path.json](visual-test-path.json) | Test-Runner | 逐 runtime 目标的视觉路径片段（含仅承载图像检查的变体） |
 | [test-adapter.json](test-adapter.json) | 宿主 | 宿主审核过的实际 argv |
 | [harmony-test-adapter.json](harmony-test-adapter.json) | Test-Runner | Main argv 与任务超时，不依赖源项目绝对路径 |
 | [harmony-config.json](harmony-config.json) | Test-Runner | 设备、模型环境引用与采集配置 |

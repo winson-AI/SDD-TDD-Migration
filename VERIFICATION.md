@@ -4,7 +4,7 @@
 
 ## 运行方式
 
-三套测试相互独立，均在临时目录中构造隔离的 legacy/target/run，不读取包内 `.env`、不连接真机或外部 LLM。使用 Python 3.11+（`foundation-verify` 需要 tomllib，视觉比较需要 Pillow，可直接用 Harmony sandbox 的解释器）；禁用字节码、pytest 插件自动加载与缓存，不安装依赖。
+三套测试相互独立，均在临时目录中构造隔离的 legacy/target/run，不读取包内 `.env`、不连接真机或外部 LLM。使用 Python 3.11+（`foundation-verify` 需要 tomllib，视觉比较需要 Pillow，矢量参考渲染另用 `rsvg-convert`、未安装时对应测试跳过，可直接用 Harmony sandbox 的解释器）；禁用字节码、pytest 插件自动加载与缓存，不安装依赖。
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q -p no:cacheprovider skills/migration-ledger/tests
@@ -22,10 +22,10 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 |
 | --- | ---: |
-| migration-ledger/tests | 799 |
+| migration-ledger/tests | 886 |
 | migration-test/tests | 47 |
 | runtime/harmony/tests | 128 |
-| 合计 | **974** |
+| 合计 | **1061** |
 
 全部无失败、无跳过。适配器夹具仍有既有 engine.log ResourceWarning，不影响断言。系统 python3 低于 3.11 时改用 Harmony sandbox 的解释器，并让它能导入已安装的 pytest；不为此安装依赖。
 
@@ -45,7 +45,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 真实闭环 | 子进程 Red → 诊断 → Fixer → 正式复测 → 模块 Green；本地修复一轮未过转 waiting-auditor；`local_fix_rounds` 额外轮次只给仍是 build 的失败，业务失败照常交 Auditor |
 | 作者自检与会话 | 实现/修复结果缺 authoring_diagnostics、诊断无日志或版本敏感 API 无固定源码引用均拒收；本地修复游标指向原 Implementer 会话 |
 | 静态规格闭合 | build 全绿后同一派发继续 static，再到 automation；passed 场景须给出另一目标文件中的调用位置（reached_from）；审查需覆盖全部冻结需求、引用目标文件中真实存在的符号、逐项判定假实现清单；反模式 present 为 Red 并进入修复；prepared run 必须冻结 static PATH |
-| 阅读卡与协议体积 | 每个角色/阶段/操作/UI/复用/埋点组合的卡片引用真实小节、包含四条红线与三条通用总则且不超过 60KB；无触发条件的典型步骤卡片不超过 34KB、本步模板不超过 26KB；审计、GO 规划、MO 各操作取各自小节，技能只带执行规则，专题义务表按触发条件取行，操作矩阵只带当前操作的行；AGENTS.md 专题索引指向的每个“总则”都有卡片可达；协议、命令与模板索引总量不超过 543.2KB、单文件不超过 32KB；共享协议进卡时只带规则小节；游标步骤携带 must_read 与绑定小节正文的 card_sha256；任何角色、操作与触发组合的卡片里，链接只指向小节或模板，不出现整份协议文件；角色定义进卡时不带技能文件清单和只指向通用约定的小节；模块编排者未列出的操作只带状态模板 |
+| 阅读卡与协议体积 | 每个角色/阶段/操作/UI/复用/埋点组合的卡片引用真实小节、包含四条红线与三条通用总则且不超过 60KB；无触发条件的典型步骤卡片不超过 34KB、本步模板不超过 20KB；审计、GO 规划、MO 各操作取各自小节，技能只带执行规则，专题义务表按触发条件取行，操作矩阵只带当前操作的行；AGENTS.md 专题索引指向的每个“总则”都有卡片可达；协议、命令与模板索引总量不超过 536.8KB、单文件不超过 32KB；共享协议进卡时只带规则小节；游标步骤携带 must_read 与绑定小节正文的 card_sha256；任何角色、操作与触发组合的卡片里，链接只指向小节或模板，不出现整份协议文件；角色定义进卡时不带技能文件清单和只指向通用约定的小节；模块编排者未列出的操作只带状态模板 |
 | 提示采纳与流程成本 | assign 回填的会话/阅读卡与建议比对并汇总为 hint_adoption；workflow_cost 按模块统计事件、派发、回执、验收、人工决定与修复轮次并进入收尾报告 |
 | 单文件卡与增量交付 | `reading.py render` 以摘要命名写出单个卡片文件且幂等；`show` 只读包内 Markdown 单节并拒绝越界路径；会话已持有的小节不再进入 `must_read_new`，正文变化的小节重新交付；任意模块请求可带 `hint` 报告所用会话与卡片，匹配当前游标步骤才计入，格式不符被拒；流程成本统计每模块完整/实际交付的阅读卡字节；渲染后的卡片不含指向包内文件的链接（整份协议链接变纯文本、小节链接变“文件 § 小节”选择器），卡尾列出本步模板；Test-Runner 的角色定义按测试阶段取块；每步 `templates` 指向真实模板；会话累计持有的协议文本超过阈值时步骤带 `session_rotate` 建议 |
 | 精简状态与拒绝提示 | `status --view cursor/module` 不含模块正文、卡片行清单与信号证据，卡片只给字节数与小节数（单模块夹具 13.7KB → 1.8KB）；`--since` 命中当前 sequence 时只返回 unchanged 与信号摘要（约 0.4KB），有新事件即返回完整游标；`--view step` 只给一个模块当前步骤所需：请求信封字段、本阶段预检要求（含必读引用）、分配包、当前 assignment 与待验收提交，规划类步骤和设计派发另带 planning_context，运行中的设计者得到自己阶段的要求，不含其他模块（已冻结叶子的派发步骤小于 module 视图的一半、full 视图的八分之一）；父模块汇总步骤同样带阅读卡与模板；CLI 输出为单行紧凑 JSON；未知模块或视图被拒；拒绝记录带 `read_hint`，每个提示指向真实小节 |
@@ -74,6 +74,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 四维与语义模型 | UI/Logic/Adhesive/Resource 逐层映射到 TASK/PATH/ASSERT；N/A 需源证据；语义模型 hash 冻结 |
 | UI 保真 | 原生 collector/selector → UI 树 → 冻结门禁；每个 runtime 目标独立 visual PATH；source-only 不伪造基线 |
 | 资源精确性 | 精确策略枚举、源文件事实/qualifier/.9.png/sp 校验；裸附加 ID 不填闭包；跨配置路由需冻结证据 |
+| 图片与图标对齐 | collector 记录嵌套 drawable、非布局 XML 图标、主题属性、assets 与没有资源文件的图片来源（URL/API 字段、运行时拼接名、数据绑定、绘制代码），资源文件带文件头事实；闭包要求每个触达的资源文件和每条图片来源各有一个 Resource item 或带证据的排除，并给出预填骨架；图像检查用存量资源离线渲染的参考与目标屏幕节点比较，Ledger 用哈希绑定的输入重算 MATCH/MISMATCH/INCOMPARABLE（Green/Red/Yellow），伪造的指标、节点、参考、选择器、容差、断言、构建、基线或其他 assignment 的报告均被拒；只带图像检查、没有基线的 visual PATH 可冻结并取证，runtime 目标仍须基线 PATH；静态图的 manual_exact 须带已声明且被承载的检查或计划信封内的偏差，动画与绘制代码保留评审；收尾报告逐项披露非精确图片及其验证状态，不改变验收 |
 | 视觉执行 | 正式 Green 绑定当前代码、本轮构建 HAP、本轮受管 capture 与 assignment/fence；semantic finding 需逐项裁决 |
 | 手势 | 仅 Spec 声明的 interaction 生效；Green 需同 HAP/代码的真实设备观测；缺证据为 Yellow |
 | Foundation 知识 | 冻结时按随包 catalog 重算解析；demo-source 仅候选；目标 TOML 版本核对 |
