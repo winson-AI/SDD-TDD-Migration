@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | [project-context.json](project-context.json) | 宿主 | 项目长期配置，无 run/module 状态 |
 | [project-context-request.json](project-context-request.json) | 宿主 | 配置 init/update 的 patch、revision、幂等 ID 与来源引用 |
+| [target-resources.json](target-resources.json) | 宿主 | 项目配置的 target_resources：文件资源的复制落点与参数文件写法 |
 | [run-request.json](run-request.json) | 宿主 | 本次选择、临时覆盖与宿主元数据，prepare 固化后交 GO |
 | [single-module-input.json](single-module-input.json) | 宿主 | 单模块入口的两个参数（entry_mode、module_name） |
 | [global-input.json](global-input.json) | GO | prepare 返回的本轮输入；GO 补齐规范、需求、CASE 与全局路径后，宿主保存为 input.json 并原样提交 init |
@@ -33,9 +34,9 @@
 | [reuse-fidelity.md](reuse-fidelity.md) | Spec-Designer | 存量源码与选中能力的逐行为对齐 |
 | [telemetry-contract.json](telemetry-contract.json) | Spec-Designer | 适用埋点的 stage-plan.telemetry 片段，不是独立请求 |
 | [telemetry-analysis.md](telemetry-analysis.md) | GO / MO / Spec-Designer / Auditor | 埋点适用性与保真分析 |
-| [semantic-model.json](semantic-model.json) | Spec-Designer | 语义模型字段示例（含图像检查、图片信号 item、非精确图形）；实例化后仍须通过 strict 校验，模板不证明源闭包完整 |
+| [semantic-model.json](semantic-model.json) | Spec-Designer | 语义模型字段示例（含上屏检查与豁免、图片信号 item、非精确图形）；实例化后仍须通过 strict 校验，模板不证明源闭包完整 |
 | [ui-state-test-design.md](ui-state-test-design.md) | Spec-Designer | 并入模块 test-design 的 UI 状态设计 |
-| [domain-worker-request.json](domain-worker-request.json) | Spec-Designer | 受限 UI 源分析请求 |
+| [domain-worker-request.json](domain-worker-request.json) | Spec-Designer | 受限 UI 源分析、资源计划与上屏检查请求 |
 | [knowledge-request.json](knowledge-request.json) | Spec-Designer / Implementer / Fixer / Diagnostician | 知识主题查询请求，不要求 assignment |
 | [test-design-result.json](test-design-result.json) | Test-Runner | 独立测试设计结果；MO 接受后由 Ledger 绑定进 plan |
 | [test-paths.json](test-paths.json) | Test-Runner | build/unit/static/automation 各类 PATH 的写法 |
@@ -54,7 +55,7 @@
 | [test-result.json](test-result.json) | Test-Runner / Auditor / Fixer | 单条 PATH 的实际执行记录 |
 | [context-readiness.json](context-readiness.json) | 各执行角色 | 上下文预检报告；检查项与必读引用取自步骤视图 |
 | [implementation.md](implementation.md) | Implementer / Fixer | 提交与 tasks 追溯、回归、回滚及 reuse_trace |
-| [resource-request.json](resource-request.json) | Implementer / Fixer | 资源执行请求 |
+| [resource-request.json](resource-request.json) | Implementer / Fixer | 资源同步与转换请求 |
 | [implementation-gap.json](implementation-gap.json) | MO | 核验证实无法实现时 suspend(not-implemented) 的依据 |
 | [diagnosis.md](diagnosis.md) | Diagnostician | 只读根因报告 |
 | [fix-note.json](fix-note.json) | Fixer | 修复记忆，经阶段结果 fix_note_ref 引用 |

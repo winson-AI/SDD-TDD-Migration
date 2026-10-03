@@ -8,13 +8,15 @@
       "source": "android-to-kmp-lean/scripts/collect_ui_sources.py",
       "file": "collect_ui_sources.py",
       "source_sha256": "32e5619ff9a4eae832826ee658217e15f08bcabcbb573bf0dc7d22833a756399",
-      "sha256": "85354407b77ae01216041640c59a71924b39c907bed811178ba79e8009aa2803",
+      "sha256": "b5b95dca483e02f22abb4c396669be362c9291cb4695b6026f1827a5efdeb363",
       "changes": [
         "Standalone CLI disabled; managed wrapper owns output paths.",
         "Source-backed resource records retain file SHA-256; color discovery includes both values declarations and res/color qualifier directories.",
         "Node IDs remain source facts without missing-file resource errors; @array resolves string-array and integer-array entries.",
         "Resource lookups share one catalog of the Android root; drawables, state lists and styles are followed to the resources they name, with file facts and where each nested resource came from.",
-        "Menus, preferences, navigation graphs, opt-in manifest icons and theme attributes are recorded; images loaded by URL, API field, run-time name, asset, data binding or drawing code are recorded as image sources; display mutations also cover backgrounds, scale type, tint and animation."
+        "Menus, preferences, navigation graphs, opt-in manifest icons and theme attributes are recorded; images loaded by URL, API field, run-time name, asset, data binding or drawing code are recorded as image sources; display mutations also cover backgrounds, scale type, tint and animation.",
+        "Every place a source file names a resource is recorded with its line, enclosing class and function and the call that receives it; calls named like an image loader that no recognised loader explains are listed.",
+        "What setter calls, property assignments and layout parameters give each view is recorded as typed values, with a project's own layout builders declared per request."
       ]
     },
     {

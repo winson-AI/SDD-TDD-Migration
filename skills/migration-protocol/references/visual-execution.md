@@ -1,6 +1,6 @@
 # 受限视觉执行工具
 
-本入口补充 Test-Runner/Auditor 的设备与比较取证。GO/父子 MO、冻结、模块阶段验收与独立审计职责沿现有流程执行，工具不提交 Ledger、不修代码、不自行增加比较或修复轮次。源码分析和 Android 基线获取仍按已有宿主能力执行；已有 Harmony Main/adapter 和完整 Capture 导入继续可用。
+本入口补充 Test-Runner/Auditor 的设备与比较取证。GO/父子 MO、冻结、模块阶段验收与独立审计职责沿现有流程执行，工具不提交 Ledger、不修代码、不自行增加比较或修复轮次。
 
 ## 1. 准备与冻结
 
@@ -26,7 +26,7 @@ python3 <package_root>/skills/migration-ledger/scripts/lean_worker.py \
 | semantic-inspect | visual assignment；冻结配置、reference_ref/candidate_ref/score_ref | 有总时限的模型比较，保留图片对和 score hash；INSPECTED 不是最终裁决 |
 | image-parity | visual assignment；path_id、已完成候选 capture 的 manifest_ref 与 round；PATH 携带冻结的 image_checks | 逐检查在目标 view tree 定位节点、裁剪并与参考栅格比较，写 image-parity.json；MEASURED 是测量不是裁决，Ledger 验收时重算 |
 
-带 `image_check_ids` 的 PATH：visual-install → visual-capture → `image-parity` → adapter 的 `--image-parity`。无 `baseline_ref` 的 PATH 只抓取目标，visual-capture 不要求 reference_manifest_ref，也不要求存量可运行；带基线的 PATH 同时承载检查时，较弱的结果决定三态。报告须属于当前 assignment、代码基线、HAP 与所选 capture，Ledger 重算节点位置、裁剪与指标；新审计任务同样须重新抓取。
+带 `image_check_ids` 的 PATH：visual-install → visual-capture → `image-parity` → adapter 的 `--image-parity`；图片、文本与节点检查出自同一次 capture。无 `baseline_ref` 时 visual-capture 不需要 reference_manifest_ref；带基线的 PATH 同时承载检查时较弱的结果决定三态。报告须属于当前 assignment、代码基线、HAP 与所选 capture。
 
 叶子 PATH 的所有比较原图来自同 coverage 的冻结 UI evidence（baseline_refs/capture_manifest_ref），支持滚动目标的第二屏及后续截图；不能借含首屏的任意 manifest 添加其他基线。Auditor 读取原叶子 SPEC 的证据集合，不能通过构建归属猜测 UI 归属。GLOBAL 自有 PATH 用 visual_evidence 显式冻结 coverage、visual_mode=runtime、capture_manifest_ref 与完整 baseline_refs（build_binding 只定构建归属，不能代替）。缺少完整原始证据时保留局部 Yellow，任何 adapter 都不能将其提升为正式 Green。
 

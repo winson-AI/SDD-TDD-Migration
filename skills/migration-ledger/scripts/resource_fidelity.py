@@ -13,7 +13,7 @@ import copy
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
-from contracts import Rejected, check_ref, file_ref, read_json, require
+from contracts import Rejected, check_ref, file_ref, named, read_json, require
 import resource_facts
 import resource_signals
 
@@ -29,6 +29,10 @@ NORMAL = {'vector': 'exact_vector_xml', 'bitmap': 'byte_copy', 'font': 'byte_cop
           'transition': 'compose_semantic_exact', 'ripple': 'compose_semantic_exact'}
 # Available for any kind only when exactness cannot be proven.
 ESCAPES = ('manual_exact', 'blocked')
+# Resources that are files the UI shows or uses as they are; code that names one must be accounted for.
+FILE_KINDS = ('drawable', 'mipmap', 'raw', 'font')
+# Strategies that leave a resource in the target which consumers name; a hand replacement or a gap leaves none.
+WIRED = ('exact_vector_xml', 'byte_copy', 'value_xml_exact', 'design_token_exact', 'compose_semantic_exact', 'source_equivalent')
 # What the user sees as a picture; only a still image or a vector drawable renders offline to something a check can measure.
 GRAPHIC_KINDS = ('bitmap', 'vector', 'code-drawn', 'animation-list', 'animated-selector', 'animated-vector', 'adaptive-icon')
 DEVIATIONS = ('redraw', 'degrade', 'absent')
@@ -99,7 +103,8 @@ def blocked(analysis):
 
 def closure_gaps(analysis, declared_refs):
     """Presentation refs the UI tree declares but no Resource item covers (reduced closure)."""
-    covered = set()
+    import resource_copy
+    covered = {row['source_resource'] for row in resource_copy.rows(analysis)}
     for row in analysis.get('dimensions', []):
         if row.get('dimension') != 'Resource':
             continue
@@ -210,6 +215,10 @@ def validate_configuration(item, source_qualifier):
     if item.get('resource_strategy') == 'blocked':
         return  # An explicit gap has no completed destination to certify.
     destination = target_qualifier(item)
+    if (item.get('source_resource') or '').split('/')[0] in ('@drawable', '@mipmap'):
+        # A density names a rendition of the same picture, not a configuration the target has to route.
+        source_qualifier = resource_facts.variant(source_qualifier)[0]
+        destination = destination if destination == 'code' else resource_facts.variant(destination)[0]
     mapping = item.get('configuration_mapping')
     if mapping is None:
         require(source_qualifier == destination or source_qualifier == 'base' and destination == 'code',
@@ -269,6 +278,53 @@ def prepare_exact(source, destination, source_id, strategy):
     else:
         target.append(entry)
     return ET.tostring(target, encoding='utf-8', xml_declaration=True) + b'\n'
+
+
+def require_target_binding(item, target_root):
+    """A migrated resource is a file of the target project, has a name consumers use, and is used by target files."""
+    strategy = item.get('resource_strategy')
+    if strategy in (None, 'blocked'):
+        return
+    label, root = item.get('item_id', '?'), Path(target_root).resolve()
+    target, _, name = item.get('target_resource', '').partition('#')
+    require(Path(target).is_absolute() and Path(target).resolve().is_relative_to(root),
+            label + ': target_resource must be a file of the target project')
+    for consumer in consumers(item):
+        path = Path(consumer.split('#', 1)[0])
+        require(path.is_absolute() and path.resolve().is_relative_to(root),
+                label + ': a consumer is a file of the target project, not a document about it')
+    require(strategy not in WIRED or name.strip(), label + ': target_resource needs #<the name consumers use for it>')
+
+
+def verify_exact(item, target):
+    """The target holds what the frozen strategy promises: the legacy bytes, the legacy entry, or the converted vector."""
+    strategy, source, label = item.get('resource_strategy'), item.get('source_resource_ref') or {}, item.get('item_id', '?')
+    if strategy == 'byte_copy':
+        require(file_ref(target)['sha256'] == source.get('sha256'), label + ': byte_copy target is not the legacy file')
+    elif strategy == 'value_xml_exact':
+        prepare_exact(source.get('path', ''), target, item['source_resource'], strategy)  # rejects an entry that differs
+        name = item['source_resource'][1:].split('/')[1]
+        require(any(entry.get('name') == name for entry in xml_root(target)), label + ': value_xml_exact target lacks the legacy entry')
+    elif strategy == 'exact_vector_xml':
+        from types import SimpleNamespace
+        from lean_tools import resource_tool
+        try:
+            resource_tool.prepare_vector(SimpleNamespace(
+                android_root=Path(source.get('path', '')).anchor, target_root=Path(target).anchor, source=source.get('path', ''),
+                destination=str(target), source_id=item['source_resource'], target_ref=item.get('target_resource', '').partition('#')[2] or '-',
+                consumer=consumers(item), resolve_ref=item.get('resolve_ref', []), consumer_tint=item.get('consumer_tint')))
+        except resource_tool.ResourceError as exc:
+            require(False, label + ': exact_vector_xml target is not the conversion of the legacy vector (' + str(exc) + ')')
+
+
+def verify_wiring(item, consumer_paths):
+    """Each consumer names the migrated resource; a file that never mentions it does not use it."""
+    name = item.get('target_resource', '').partition('#')[2].strip()
+    if item.get('resource_strategy') not in WIRED or not name:
+        return
+    for path in consumer_paths:
+        require(named(Path(path).read_text(encoding='utf-8', errors='replace'), name),
+                item.get('item_id', '?') + ': consumer ' + Path(path).name + ' never names ' + name)
 
 
 def _suffix(item):
@@ -406,13 +462,97 @@ def signal_exclusions(index, scope):
     return excluded
 
 
+def _scoped_out(site, rows):
+    symbol = site.get('symbol') or ''
+    return any((not row.get('ref') or row['ref'] == site['ref']) and
+               (not row.get('symbol') or symbol == row['symbol'] or symbol.startswith(row['symbol'] + '.')) for row in rows)
+
+
+def usage_exclusions(index, scope):
+    """Code a reviewer scoped out of this UI target: a class or function, a reference, or a reference inside one."""
+    rows = (scope or {}).get('usage_exclusions', [])
+    require(isinstance(rows, list), 'resource_scope.usage_exclusions must be a list')
+    sites = [site for source in index.get('sourceFiles', []) for site in source.get('resourceUsages', [])]
+    # A class may hold no resource reference at all and still set sizes and colours; it can be scoped out just the same.
+    sites += [{'ref': '', 'symbol': row.get('symbol')} for source in index.get('sourceFiles', []) for row in source.get('parameters', [])]
+    for row in rows:
+        require(isinstance(row, dict) and all(isinstance(row.get(key, ''), str) for key in ('symbol', 'ref'))
+                and (row.get('symbol') or row.get('ref')) and isinstance(row.get('reason'), str) and row['reason'].strip(),
+                'usage exclusion needs a symbol or a ref, and a reason')
+        require(any(_scoped_out(site, [row]) for site in sites),
+                'usage exclusion must name a class, function or reference the scoped code uses')
+        refs = row.get('evidence_refs')
+        require(isinstance(refs, list) and refs, 'usage exclusion requires review evidence')
+        for ref in refs:
+            check_ref(ref)
+    return rows
+
+
+def used_files(index, scope=None):
+    """{reference: where it is used} for the file resources the scoped code names, less what a reviewer scoped out.
+
+    A setter the collector knows is one way to show a picture; a project's own method, a constructor or a
+    texture loader is another. Whatever receives it, the reference is used and has to be accounted for."""
+    excluded, used = usage_exclusions(index, scope), {}
+    for source in index.get('sourceFiles', []):
+        for site in source.get('resourceUsages', []):
+            if site['ref'].lstrip('@').split('/')[0] in FILE_KINDS and not _scoped_out(site, excluded):
+                used.setdefault(site['ref'], []).append({**site, 'sourcePath': source['path']})
+    return used
+
+
+def require_declared(needed):
+    """Every file resource the scoped code uses is on a node of the tree, so it has an owner and enters the closure."""
+    missing = needed['undeclared']
+    if not missing:
+        return
+    def shown(ref):
+        site = missing[ref][0]
+        where = site['sourcePath'].rsplit('/', 1)[-1] + ':' + str(site['line'])
+        return ref + ' (' + ' '.join(part for part in (where, site.get('symbol'), 'via ' + site['call'] if site.get('call') else None) if part) + ')'
+    listed = sorted(missing)
+    require(False, 'UI tree omits file resources the scoped code uses: ' + ', '.join(shown(ref) for ref in listed[:12])
+            + (' and ' + str(len(listed) - 12) + ' more' if len(listed) > 12 else '')
+            + '; declare each on the node that shows it, or scope it out in resource_scope.usage_exclusions with evidence')
+
+
+def resource_groups(active):
+    """{(reference, variant): {qualifier: [source]}}: one entry per resource the target needs.
+
+    The densities of a drawable are renditions of one picture, so they share an entry; night, locale and
+    every other qualifier name different content and keep their own."""
+    groups = {}
+    for (ref, qualifier, _), source in active.items():
+        picture = ref.split('/')[0] in ('@drawable', '@mipmap')
+        key = (ref, resource_facts.variant(qualifier)[0] if picture else qualifier)
+        groups.setdefault(key, {}).setdefault(qualifier, []).append(source)
+    return groups
+
+
+def item_variant(item):
+    ref, qualifier = item.get('source_resource') or '', item.get('qualifier', 'base')
+    return resource_facts.variant(qualifier)[0] if ref.split('/')[0] in ('@drawable', '@mipmap') else qualifier
+
+
+def rendition(renditions, formats=None, order=None):
+    """Which density of a picture to take: the first of a project's order that the target loads, else a vector, else the densest."""
+    usable = [q for q in renditions if formats is None or resource_facts.format_of(renditions[q][0]['path']) in formats]
+    for qualifier in order or []:
+        named = [q for q in usable if resource_facts.variant(q)[1] == qualifier or (qualifier == 'base' and resource_facts.variant(q)[1] is None)]
+        if named:
+            return named[0]
+    rank = lambda q: (renditions[q][0]['path'].endswith('.xml'), resource_facts.density_scale(q) or 0, q)
+    return max(usable, key=rank) if usable else None
+
+
 def obligations(index, tree, scope=None):
     """What one UI target's Resource items must cover.
 
     Every reference the tree declares, whatever the drawables and theme attributes behind them name in
     turn, the images, menus and manifest icons the sources reach, and every recorded image source
     that no reviewer scoped out. A theme attribute reached only through another resource is followed
-    to the values its styles give it; its own definition is the project's theme, not a resource to copy."""
+    to the values its styles give it; its own definition is the project's theme, not a resource to copy.
+    `undeclared` lists file resources the scoped code uses that no node of the tree declares."""
     import ui_evidence
     rows = {}
     for row in index.get('resources', []):
@@ -424,8 +564,10 @@ def obligations(index, tree, scope=None):
     roots = set(declared) | {ref for ref in rows if ref.startswith('asset:')}
     for document in index.get('xmlResources', []):
         roots.update(document.get('resourceRefs', []))
+    held = set()   # what a recorded image source names itself: its loader's placeholders, a run-time name's candidates
     for signal in signals.values():
-        roots.update(resource_signals.source_refs(signal))
+        held.update(resource_signals.source_refs(signal))
+    roots.update(held)
     required, seen, queue = set(), set(), deque(sorted(roots))
     while queue:
         ref = queue.popleft()
@@ -439,7 +581,8 @@ def obligations(index, tree, scope=None):
             queue.extend(nested['ref'] for nested in row.get('references', []))
         for definition in attrs.get(ref, {}).get('definitions', []):
             queue.extend(resource_facts.references(definition['value']))
-    return {'refs': required, 'signals': signals}
+    return {'refs': required, 'signals': signals,
+            'undeclared': {ref: sites for ref, sites in used_files(index, scope).items() if ref not in declared | held}}
 
 
 def indexed_resources(index, declared_refs, resource_scope=None):
@@ -506,11 +649,15 @@ def skeletons(index, tree, scope=None):
     rows = {}
     for row in index.get('resources', []):
         qualifier = 'base' if row.get('qualifier', 'base') == 'default' else row.get('qualifier', 'base')
-        rows[(row['ref'], qualifier, row.get('path'))] = row
+        rows[(row['ref'], qualifier, str((Path(index['androidRoot']) / row['path']).resolve()) if row.get('path') else None)] = row
     resources = []
-    for (ref, qualifier, relative), source in sorted(indexed_resources(index, needed['refs'], scope).items()):
-        row = rows[(ref, qualifier, relative)]
+    for (ref, _), renditions in sorted(resource_groups(indexed_resources(index, needed['refs'], scope)).items()):
+        qualifier = rendition(renditions)
+        source = renditions[qualifier][0]
+        row = rows[(ref, qualifier, source['path'])]
         skeleton = {'source_resource': ref, 'qualifier': qualifier, 'source_resource_ref': dict(source)}
+        if len(renditions) > 1:
+            skeleton['renditions'] = sorted(renditions)
         try:
             fact = source_facts(source['path'], ref)
             skeleton.update(resource_kind=fact['kind'], nine_patch=fact['nine_patch'])
@@ -534,9 +681,11 @@ def skeletons(index, tree, scope=None):
 def require_indexed_closure(analysis, legacy_root=None):
     """Every applicable indexed variant needs the same source baseline in a Resource item."""
     import ui_evidence
+    import resource_copy
     items = [item for row in analysis.get('dimensions', [])
              if row.get('dimension') == 'Resource' and row.get('status') == 'applicable'
              for item in row.get('items', [])]
+    copied = {(row['source_resource'], row['variant']): row for row in resource_copy.rows(analysis)}
     for row in analysis.get('dimensions', []):
         if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
             continue
@@ -552,6 +701,7 @@ def require_indexed_closure(analysis, legacy_root=None):
                         'UI resource source index belongs to another legacy root')
             scope = evidence.get('resource_scope')
             needed = obligations(index, tree, scope)
+            require_declared(needed)
             declared = needed['refs']
             active = indexed_resources(index, declared, scope)
             # Platform rows intentionally have no legacy file candidate; their SDK
@@ -564,14 +714,19 @@ def require_indexed_closure(analysis, legacy_root=None):
                                   for config in ((item.get('configuration_mapping') or {}).get('scope') or {}).get('configurations', [])}
                 require(exclusion['qualifier'] not in configurations,
                         'resource exclusion conflicts with frozen configuration scope')
-            for (source_id, qualifier, _), source_ref in active.items():
-                matches = [item for item in items if item.get('source_resource') == source_id
-                           and item.get('qualifier', 'base') == qualifier]
-                require(len(matches) == 1, 'UI resource closure requires one item for ' + source_id + ' / ' + qualifier)
-                planned = matches[0].get('source_resource_ref') or {}
-                require(Path(planned.get('path', '')).resolve() == Path(source_ref['path'])
-                        and planned.get('sha256') == source_ref['sha256'],
-                        'UI resource facts and Resource item use different source baselines: ' + source_id + ' / ' + qualifier)
+            for (source_id, variant), renditions in resource_groups(active).items():
+                label = source_id + ' / ' + variant
+                matches = [item for item in items if item.get('source_resource') == source_id and item_variant(item) == variant]
+                copy = copied.get((source_id, variant))
+                require(len(matches) + bool(copy) == 1, 'UI resource closure requires one item for ' + label)
+                qualifier = copy['qualifier'] if copy else matches[0].get('qualifier', 'base')
+                require(qualifier in renditions, 'resource item names a rendition the source index does not hold: ' + source_id + ' / ' + qualifier)
+                planned = (copy['source_ref'] if copy else matches[0].get('source_resource_ref')) or {}
+                # A second file declaring the same resource is another candidate: scope it out or the baselines differ.
+                for source_ref in renditions[qualifier]:
+                    require(Path(planned.get('path', '')).resolve() == Path(source_ref['path'])
+                            and planned.get('sha256') == source_ref['sha256'],
+                            'UI resource facts and Resource item use different source baselines: ' + label)
             item_ids = {item['item_id'] for item in items}
             for signal_id, signal in sorted(needed['signals'].items()):
                 matches = [item for item in items if item.get('source_signal') == signal_id]
@@ -600,13 +755,17 @@ def freeze_gate(s, m):
     ref = (m.get('plan') or {}).get('dimension_analysis_ref')
     if not ref:
         return
+    import resource_copy
     variants, destinations, resource_items = set(), {}, []
     analysis = read_json(check_ref(ref))
+    resource_copy.freeze_check(s, analysis)
     for row in analysis['dimensions']:
         if row.get('dimension') == 'Resource' and row.get('status') == 'applicable':
             resource_items.extend(row.get('items', []))
             for item in row.get('items', []):
                 if item.get('resource_strategy'):
+                    if s.get('target_root'):
+                        require_target_binding(item, s['target_root'])
                     facts = validate_facts(item, s.get('legacy_root'), check_configuration=True)
                     if facts.get('status') in ('source-unavailable', 'signal'):
                         continue

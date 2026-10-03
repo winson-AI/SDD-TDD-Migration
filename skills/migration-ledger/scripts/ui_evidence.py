@@ -195,7 +195,9 @@ def validate_tree_ref(ref, source_index_ref=None, runtime_index_ref=None, target
             if item.get('path') and item.get('sha256'):
                 check_ref({'path': str(base / item['path']), 'sha256': item['sha256']})
     import resource_fidelity
-    resource_fidelity.indexed_resources(index, resource_fidelity.obligations(index, tree, resource_scope)['refs'], resource_scope)
+    needed = resource_fidelity.obligations(index, tree, resource_scope)
+    resource_fidelity.require_declared(needed)
+    resource_fidelity.indexed_resources(index, needed['refs'], resource_scope)
     if runtime:
         data = read_json(runtime)
         for capture in data['captures']:
@@ -339,10 +341,11 @@ def validate_interactions(model):
 
 
 def validate_image_checks(model, tree=None, index=None):
-    """Image checks the frozen Spec declares: this node must show this legacy picture, within this tolerance.
+    """Checks the frozen Spec declares against the target screen: a node shows a legacy picture, shows a legacy text, or is there.
 
-    A check names a tree node, the indexed legacy resource it must show, the rendered reference of that
-    resource, how to find the node in a captured target view tree, and optionally its tolerance."""
+    A check names a tree node and how to find it in a captured target view tree. An image check adds the
+    indexed legacy resource, its rendered reference and optionally a tolerance; a text check adds the legacy
+    string and the text it has in the index; a node check adds nothing."""
     declared = model.get('image_checks')
     if declared is None:
         return []
@@ -356,16 +359,28 @@ def validate_image_checks(model, tree=None, index=None):
         label = 'image check ' + item['id']
         require(isinstance(item.get('node_id'), str) and item['node_id'].startswith('node:'), label + ' needs a stable node:<id>')
         require(nodes is None or item['node_id'] in nodes, label + ' names a node the UI tree does not have')
-        require(all(isinstance(item.get(field), str) and item[field] for field in ('source_resource', 'qualifier')),
-                label + ' needs source_resource and qualifier')
-        reference = read_json(check_ref((item.get('reference') or {}).get('render_ref')))
-        require(reference.get('producer') == 'sdd-reference-render' and reference.get('source_resource') == item['source_resource']
-                and reference.get('qualifier') == ('base' if item['qualifier'] == 'default' else item['qualifier']),
-                label + ' reference must be the rendering of its source_resource and qualifier')
-        check_ref(reference.get('png_ref'))
-        if index is not None:
-            require(any(row.get('ref') == item['source_resource'] and row.get('sha256') == reference['source_ref']['sha256']
-                        for row in index.get('resources', [])), label + ' reference was rendered from a file the source index does not hold')
+        kind = item.get('kind', 'image')
+        require(kind in image_parity.KINDS, label + ' kind is image, text or node')
+        if kind != 'node':
+            require(all(isinstance(item.get(field), str) and item[field] for field in ('source_resource', 'qualifier')),
+                    label + ' needs source_resource and qualifier')
+        if kind == 'text':
+            text = (item.get('expect') or {}).get('text')
+            require(item['source_resource'].startswith('@string/') and isinstance(text, str), label + ' needs a @string source_resource and expect.text')
+            if index is not None:
+                family = lambda q: 'base' if q in ('default', 'base') else q
+                require(any(row.get('ref') == item['source_resource'] and family(row.get('qualifier')) == family(item['qualifier'])
+                            and row.get('value') == text for row in index.get('resources', [])),
+                        label + ' expect.text must be the text the source index holds for its string and qualifier')
+        if kind == 'image':
+            reference = read_json(check_ref((item.get('reference') or {}).get('render_ref')))
+            require(reference.get('producer') == 'sdd-reference-render' and reference.get('source_resource') == item['source_resource']
+                    and reference.get('qualifier') == ('base' if item['qualifier'] == 'default' else item['qualifier']),
+                    label + ' reference must be the rendering of its source_resource and qualifier')
+            check_ref(reference.get('png_ref'))
+            if index is not None:
+                require(any(row.get('ref') == item['source_resource'] and row.get('sha256') == reference['source_ref']['sha256']
+                            for row in index.get('resources', [])), label + ' reference was rendered from a file the source index does not hold')
         target = item.get('target')
         require(isinstance(target, dict) and image_parity.selector_valid(target.get('selector')),
                 label + ' needs target.selector: exact class, resource-id, text or content-desc of the node in the target view tree')
@@ -378,7 +393,9 @@ def validate_image_checks(model, tree=None, index=None):
 
 
 def image_check_reference(check):
-    """The {path, sha256} of the reference raster a check compares against."""
+    """The {path, sha256} of the reference raster an image check compares against; a text or node check has none."""
+    if check.get('kind', 'image') != 'image':
+        return None
     return read_json(check_ref(check['reference']['render_ref']))['png_ref']
 
 

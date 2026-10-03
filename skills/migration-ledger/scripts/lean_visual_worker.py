@@ -519,11 +519,12 @@ def parity(args, out, module, task, run_id):
         view = visual_evidence.reference(captures[index].get('view_tree') or captures[index].get('view_xml'), manifest_path.parent)
         png = ui_evidence.image_check_reference(check)
         try:
-            row, crop = image_parity.evaluate(check, check_ref(png), Path(shot['path']), Path(view['path']).read_text())
+            row, crop = image_parity.evaluate(check, check_ref(png) if png else None, Path(shot['path']), Path(view['path']).read_text())
         except image_parity.ParityError as exc:
             raise RuntimeError(str(exc)) from exc
-        row.update(reference_ref=png, render_ref=check['reference']['render_ref'], capture_index=index,
-                   screenshot_ref=shot, view_ref=view)
+        row.update(capture_index=index, screenshot_ref=shot, view_ref=view)
+        if png:
+            row.update(reference_ref=png, render_ref=check['reference']['render_ref'])
         if crop is not None:
             crop_path = run_storage.checked_path(out / 'crops' / (check['id'] + '.png'), out)
             crop_path.parent.mkdir(parents=True, exist_ok=True)

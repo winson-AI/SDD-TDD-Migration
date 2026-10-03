@@ -76,7 +76,8 @@ class ImageProofTests(unittest.TestCase):
         canvas.save(shot, quality=85)
         size = icon.width if icon is not None else 72
         view = self.write(f'evidence/{name}/view-0.xml',
-                          '<hierarchy><node class="Image" resource-id="%s" bounds="[54,74][%d,%d]"/></hierarchy>' % (resource_id, 66 + size, 86 + size))
+                          '<hierarchy><node class="Text" resource-id="title" text="Settings" bounds="[10,10][200,50]"/>'
+                          '<node class="Image" resource-id="%s" bounds="[54,74][%d,%d]"/></hierarchy>' % (resource_id, 66 + size, 86 + size))
         return shot, view
 
     def capture(self, icon, name='first', code=None, assignment=None, round_id=1):
@@ -241,6 +242,44 @@ class ImageProofTests(unittest.TestCase):
         self.assertEqual(report['quality'], 'yellow-blocked')
         self.assertIn('second: INCOMPARABLE', report['root_cause']['summary'])
         self.assertNotIn('back-arrow', report['root_cause']['summary'])
+
+    # ------------------------------------------------------------------ texts and nodes are checked from the same capture
+
+    def with_checks(self, *extra):
+        checks = [self.check, *extra]
+        self.module['plan']['dimension_analysis_ref'] = self.analysis(checks)
+        self.path.update(image_check_ids=[c['id'] for c in checks], node_ids=sorted({c['node_id'] for c in checks}))
+        result, _ = self.measure(self.capture(glyph('back', 60, color=(40, 40, 40, 255)), name='kinds-%d' % self.attempts))
+        query = {**self.query(), 'frozen_image_checks': checks}
+        return result, lean_visual_adapter.report(query, None, self.base, [], result['report_ref'])
+
+    def test_a_text_and_a_node_check_ride_the_same_capture_and_are_recomputed_like_a_picture(self):
+        title = {'id': 'title-text', 'kind': 'text', 'node_id': 'node:home.title', 'source_resource': '@string/title', 'qualifier': 'default',
+                 'expect': {'text': 'Settings'}, 'target': {'selector': {'resource-id': 'title'}}}
+        there = {'id': 'title-node', 'kind': 'node', 'node_id': 'node:home.title', 'target': {'selector': {'class': 'Text'}}}
+        result, report = self.with_checks(title, there)
+        self.assertEqual(report['quality'], 'green-passed')
+        self.assertEqual([c['status'] for c in report['visual_alignment']['image_parity']['checks']], ['MATCH'] * 3)
+        self.accept(report)
+        rows = {row['id']: row for row in read_json(Path(result['report_ref']['path']))['checks']}
+        self.assertEqual(rows['title-text']['metrics'], {'text': 'Settings'})
+        self.assertNotIn('reference_ref', rows['title-text'])  # a text has no rendered reference and no crop
+        forged = Path(result['report_ref']['path'])
+        data = json.loads(forged.read_text()); data['checks'][1]['metrics']['text'] = 'Preferences'; forged.write_text(json.dumps(data))
+        tampered = copy.deepcopy(report); tampered['visual_alignment']['image_parity']['report_ref'] = file_ref(forged)
+        with self.assertRaisesRegex(Rejected, 'differs from its recomputation'):
+            self.accept(tampered)
+
+    def test_another_text_or_a_missing_node_is_red_with_what_was_seen(self):
+        wrong = {'id': 'title-text', 'kind': 'text', 'node_id': 'node:home.title', 'source_resource': '@string/title', 'qualifier': 'default',
+                 'expect': {'text': 'Preferences'}, 'target': {'selector': {'resource-id': 'title'}}}
+        _, report = self.with_checks(wrong)
+        self.assertEqual((report['quality'], report['root_cause']['owner']), ('red-bug', 'fixer'))
+        self.assertIn('title-text: MISMATCH (text=Settings)', report['root_cause']['summary'])
+        gone = {'id': 'banner-node', 'kind': 'node', 'node_id': 'node:home.banner', 'target': {'selector': {'resource-id': 'banner'}}}
+        _, report = self.with_checks(gone)
+        self.assertEqual(report['quality'], 'red-bug')
+        self.assertIn('banner-node: MISMATCH (matches=0)', report['root_cause']['summary'])
 
     # ------------------------------------------------------------------ where the checks come from
 

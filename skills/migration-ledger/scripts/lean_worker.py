@@ -21,7 +21,10 @@ import project_context
 import run_storage
 import runner_storage
 import ui_evidence
+import parameter_file
+import resource_copy
 import resource_fidelity
+import ui_parameters
 import reference_render
 from lean_tools import collect_ui_sources, resource_tool, select_runtime_ui, ui_visual_score
 
@@ -29,6 +32,9 @@ ROLES = {
     'analyze-ui': {'global-orchestrator', 'module-orchestrator', 'spec-designer'},
     'validate-ui': {'spec-designer', 'test-runner', 'auditor'},
     'resource-convert': {'implementer', 'fixer'},
+    'resource-plan': {'module-orchestrator', 'spec-designer'},
+    'screen-checks': {'module-orchestrator', 'spec-designer'},
+    'resource-sync': {'implementer', 'fixer'},
     'resource-scan': {'global-orchestrator', 'module-orchestrator', 'spec-designer', 'implementer',
                       'fixer', 'test-runner', 'auditor'},
     'compare-only': {'test-runner', 'auditor'},
@@ -48,6 +54,15 @@ ROLES = {
 
 def identifier(value):
     require(isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]*', value), 'safe actor/request id required')
+    return value
+
+
+def layout_helpers(value):
+    """A project's own layout-parameter builders: the call and what each argument is, one entry per arity."""
+    require(isinstance(value, list) and all(isinstance(row, dict) and isinstance(row.get('call'), str) and row['call']
+            and isinstance(row.get('params'), list) and row['params'] and all(isinstance(name, str) and name for name in row['params'])
+            and row.get('unit') in (None, 'dp', 'sp', 'px') for row in value),
+            'layout_helpers rows need a call, the parameter each argument gives, and optionally the unit of a bare number')
     return value
 
 
@@ -109,10 +124,10 @@ def run(root, request, actor):
     require(isinstance(args, dict), 'args must be an object')
     module = task = None
     visual_operations = ('visual-install', 'visual-capture', 'semantic-inspect')
-    if operation in ('resource-convert', 'compare-only', 'image-parity') + visual_operations:
+    if operation in ('resource-convert', 'resource-sync', 'compare-only', 'image-parity') + visual_operations:
         require(state, 'Ledger initialization required before execution')
         module, task = assignment(state, request, actor)
-        if operation == 'resource-convert':
+        if operation in ('resource-convert', 'resource-sync'):
             require(module['phase'] in ('implementing', 'fixing'), 'code generation phase required')
         else:
             scopes = ('automation', 'visual') if operation == 'visual-install' else ('visual',)
@@ -141,7 +156,8 @@ def run(root, request, actor):
                 result = collect_ui_sources.collect(SimpleNamespace(android_root=config['legacy_root'],
                     scope=args.get('scope') or request.get('module_id') or rid, entry=args.get('entry', []),
                     source_file=args.get('source_files', []), layout=args.get('layouts', []),
-                    manifest=args.get('manifests', []), image_sinks=args.get('image_sinks', [])))
+                    manifest=args.get('manifests', []), image_sinks=args.get('image_sinks', []),
+                    layout_helpers=layout_helpers(args.get('layout_helpers', []))))
                 result = {'source_index_ref': save(out / 'ui-source-index.json', result)}
                 if args.get('capture_ref'):
                     capture = check_ref(args['capture_ref'])
@@ -198,6 +214,48 @@ def run(root, request, actor):
                 result.update(task_id=args['task_id'], resource_item_id=item['item_id'], source_facts=facts)
                 run_storage.atomic_bytes(destination, payload)
                 result['target_ref'] = file_ref(destination)
+            elif operation == 'resource-plan':
+                rules = config.get('target_resources') or {}
+                analysis = read_json(check_ref(args.get('dimension_analysis_ref')))
+                sheet = ui_parameters.derive(analysis, rules.get('parameters'))
+                result = {'status': 'PLANNED', 'undeclared': resource_copy.undeclared(analysis),
+                          'parameter_sheet_ref': save(out / 'parameter-sheet.json', sheet), 'parameters': ui_parameters.outline(sheet['parameters']),
+                          'next_action': 'name parameter_sheet_ref on the UI dimension and copy_plan_ref on the Resource dimension; '
+                                         'author only what they leave open'}
+                if rules.get('copy'):
+                    plan, authored = resource_copy.derive(analysis, rules['copy'])
+                    result.update(copy_plan_ref=save(out / 'copy-plan.json', plan), rows=len(plan['rows']), authored=authored)
+            elif operation == 'screen-checks':
+                import ui_fidelity
+                derived = ui_fidelity.derive_checks(read_json(check_ref(args.get('dimension_analysis_ref'))), out,
+                                                    (config.get('target_resources') or {}).get('copy'))
+                result = {'status': 'DERIVED', 'screen_checks_ref': save(out / 'screen-checks.json', derived),
+                          'checks': sum(len(rows) for rows in derived['checks'].values()), 'unrendered': derived['unrendered'],
+                          'next_action': 'add each UI item\'s checks to its image_checks and carry them on a visual PATH; '
+                                         'waive with evidence only what the screen cannot show'}
+            elif operation == 'resource-sync':
+                analysis = read_json(check_ref(module['plan'].get('dimension_analysis_ref')))
+                tasks = [t for t in module['plan'].get('tasks', []) if t['task_id'] == args.get('task_id')]
+                require(len(tasks) == 1, 'resource-sync requires a frozen task_id')
+                scopes = [[Path(p).resolve() for p in paths] for paths in (module['write_paths'], tasks[0].get('scope', {}).get('write_paths', []))]
+                allowed = lambda path: all(any(path.resolve().is_relative_to(p) for p in scope) for scope in scopes)
+                copies = resource_copy.sync(analysis, allowed)
+                document = ui_parameters.load(analysis)
+                files, accessors = parameter_file.render(document, parameter_file.declarations(analysis)) if document and document.get('convention') else ({}, [])
+                require(copies or files, 'the frozen plan names neither a copy plan nor parameters to write')
+                rows = []
+                for row, target, payload, action in copies:
+                    if action == 'copied':
+                        run_storage.atomic_bytes(target, payload)
+                    rows.append({'source_resource': row['source_resource'], 'variant': row['variant'], 'accessor': row['accessor'],
+                                 'action': action, 'target_ref': file_ref(target)})
+                written = []
+                for path, text in sorted(files.items()):
+                    require(allowed(Path(path)), 'generated parameter file outside the assigned write scope: ' + path)
+                    run_storage.atomic_bytes(Path(path), text.encode('utf-8'))
+                    written.append(file_ref(path))
+                result = {'status': 'SYNCED', 'task_id': args['task_id'], 'rows': rows, 'parameter_files': written, 'keys': len(accessors),
+                          'acceptance': 'copies-and-generated-files-are-checked-against-the-frozen-plan-when-the-result-is-accepted'}
             elif operation == 'resource-scan':
                 result = resource_tool.scan(SimpleNamespace(android_root=config['legacy_root'],
                     ui_tree=str(check_ref(args['ui_tree_ref'])) if args.get('ui_tree_ref') else None,

@@ -1,9 +1,51 @@
 {
+  "_note": "args by operation. knowledge-query: mode topics | topic (topic_id) | foundation or external (query, optional full). knowledge-diagnose: error_ref. foundation-resolve: requirements, or [] with no_new_dependencies true. foundation-verify: resolution_ref and catalog_ref. Names and coordinates come from the current catalog, never from these examples.",
   "operation": "knowledge-query",
   "request_id": "{{unique-request-id}}",
   "module_id": "M001",
   "args": {
     "mode": "external",
     "query": "webrtc"
-  }
+  },
+  "_args_examples": [
+    {
+      "mode": "topics"
+    },
+    {
+      "mode": "foundation",
+      "query": "ktor",
+      "full": false
+    },
+    {
+      "mode": "external",
+      "query": "webrtc",
+      "full": false
+    },
+    {
+      "error_ref": {
+        "path": "<真实错误片段绝对路径>",
+        "sha256": "<实际摘要>"
+      }
+    },
+    {
+      "requirements": [
+        "io.ktor:ktor-client-curl"
+      ],
+      "no_new_dependencies": false
+    },
+    {
+      "requirements": [],
+      "no_new_dependencies": true
+    },
+    {
+      "resolution_ref": {
+        "path": "<run>/staging/<spec>/<request>/result.json",
+        "sha256": "<实际摘要>"
+      },
+      "catalog_ref": {
+        "path": "<target>/gradle/libs.versions.toml",
+        "sha256": "<实际摘要>"
+      }
+    }
+  ]
 }

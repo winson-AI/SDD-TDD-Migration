@@ -73,7 +73,28 @@
           ],
           "parent_item_ids": []
         }
-      ]
+      ],
+      "parameter_sheet_ref": {
+        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/parameter-sheet.json",
+        "sha256": "{{actual-sha256}}"
+      },
+      "parameter_fill": {
+        "not_applicable": [
+          {"ids": ["{{parameter-id-from-the-sheet}}"], "reason": "{{why-the-target-has-no-such-value}}", "evidence_refs": []}
+        ],
+        "deviations": [
+          {"id": "{{value-parameter-id}}", "value": {"type": "dimension", "value": 12, "unit": "dp"},
+           "alternative": "{{one-of-decision_envelope.allowed_alternatives}}", "reason": "{{why-the-target-takes-another-value}}"}
+        ],
+        "tokens": [
+          {"token": "{{token-named-by-the-sheet}}", "value": {"type": "color", "value": "#FF336699"}},
+          {"token": "{{another-token}}", "accessor": "{{existing-target-accessor}}"}
+        ],
+        "settled": [
+          {"id": "{{expression-parameter-id}}", "value": {"type": "number", "value": 2}}
+        ]
+      },
+      "_transfer_note": "Only on an applicable UI row, and only when the project states target_resources.parameters. parameter_sheet_ref is the file resource-plan wrote; the Ledger derives it again at freeze. parameter_fill holds exceptions only and may be omitted: a not_applicable record selects parameters by ids, owner and/or name; every other value parameter is generated as recorded and used by its key."
     },
     {
       "dimension": "Logic",
@@ -200,7 +221,12 @@
           },
           "_configuration_note": "Same source/target qualifier can omit configuration_mapping. Cross-configuration routes need scoped evidence; multi-configuration consumers also need consumer_condition.expression and consumer_condition.consumers. One item per source ID + qualifier; group with task trace."
         }
-      ]
+      ],
+      "copy_plan_ref": {
+        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/copy-plan.json",
+        "sha256": "{{actual-sha256}}"
+      },
+      "_transfer_note": "Only on an applicable Resource row, and only when the project states target_resources.copy. copy_plan_ref is the file resource-plan wrote; the Ledger derives it again at freeze. A resource is covered by a plan row or by an item, never both: items list only what resource-plan returned as authored, and may be empty when the plan covers everything."
     }
   ],
   "unresolved": [

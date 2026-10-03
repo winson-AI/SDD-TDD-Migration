@@ -42,6 +42,11 @@ def check_ref(ref):
     return Path(ref['path'])
 
 
+def named(text, name):
+    """Whether code names `name` itself, not a longer name that merely starts or ends with it."""
+    return re.search(r'(?<![A-Za-z0-9_])' + re.escape(name) + r'(?![A-Za-z0-9_])', text) is not None
+
+
 def nonempty(value, label):
     require(isinstance(value, list) and bool(value), f'{label} must not be empty')
     return value

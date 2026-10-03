@@ -18,7 +18,8 @@ from contracts import require, digest, file_ref, check_ref, read_json
 
 FIELDS = {'package_root', 'legacy_root', 'target_root', 'architecture_path', 'requirements_path',
           'test_cases_path', 'project_rules_path', 'test_adapter', 'runtime', 'human_owner',
-          'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources', 'build', 'workspace_root', 'watchdog'}
+          'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources', 'build', 'workspace_root', 'watchdog',
+          'target_resources'}
 DOCUMENTS = ('architecture_path', 'requirements_path', 'test_cases_path', 'project_rules_path')
 BUDGETS = {'max_parallel_modules': 3, 'max_fix_rounds': 3, 'max_audit_rounds': 3, 'max_no_progress_rounds': 2, 'local_fix_rounds': 1,
            'max_yellow_retries': 2}
@@ -99,6 +100,8 @@ def validate(config):
         require(not (a.is_relative_to(b) or b.is_relative_to(a)), 'legacy/target overlap')
     if 'reuse_sources' in config:
         config['reuse_sources'] = reuse.normalize_sources(config['reuse_sources'], config.get('target_root'))
+    if 'target_resources' in config:
+        config['target_resources'] = target_resources(config['target_resources'], config.get('target_root'))
     defaults = config.get('defaults', {})
     require(isinstance(defaults, dict) and set(defaults) <= {'entry_mode', 'budgets', 'quality_gates'}, 'invalid defaults')
     require(defaults.get('entry_mode', 'project') == 'project', 'persistent default must remain project')
@@ -135,6 +138,15 @@ def validate(config):
         require(type(adapter['timeout_seconds']) is int and adapter['timeout_seconds'] > 0, 'invalid adapter timeout')
     require('{{' not in json.dumps(config), 'unfilled project placeholders')
     return config
+
+
+def target_resources(value, target_root=None):
+    """How legacy resources reach the target: stated once per project, read by every module."""
+    require(isinstance(value, dict) and set(value) <= {'copy', 'parameters'}, 'target_resources takes copy and parameters')
+    import parameter_file
+    import resource_copy
+    rules = {'copy': resource_copy.convention, 'parameters': parameter_file.convention}
+    return {key: rules[key](value[key], target_root) for key in value}
 
 
 def current(root):
@@ -221,7 +233,7 @@ def prepared_input(ref):
     snapshot = verify_snapshot(ref); config = snapshot['effective_config']; sources = snapshot['source_refs']
     defaults = config.get('defaults', {})
     return {**{k: copy.deepcopy(config[k]) for k in ('workspace_root', 'package_root', 'legacy_root', 'target_root', 'test_adapter',
-                'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources') if k in config},
+                'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources', 'target_resources') if k in config},
             'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
             'module_name': snapshot['module_name'], 'single_module_id': None, 'project_context_ref': ref, 'project_sources': sources,
             'behavior_contract_required': snapshot.get('behavior_contract_required', False),
@@ -422,6 +434,8 @@ def bind_run(ref, run_root, run_id, payload):
     require(payload.get('split_testing_required', True) is True, 'prepared run requires split testing')
     if 'build' in payload:
         require(payload['build'] == config.get('build', {}), 'run/config build mismatch')
+    require(payload.get('target_resources', config.get('target_resources', {})) == config.get('target_resources', {}),
+            'run/config target resources mismatch')
     dependency_gate = snapshot.get('dependency_resolution_required')
     require(type(dependency_gate) is bool, 'dependency_resolution_required must be a boolean')
     git_gate = config.get('defaults', {}).get('quality_gates', {}).get('git_checkpoint', False)
@@ -441,7 +455,7 @@ def bind_run(ref, run_root, run_id, payload):
     require(payload.get('behavior_contract_required', behavior_required) == behavior_required, 'run/config behavior contract mismatch')
     require(payload.get('dimension_slicing_required', True) is True, 'prepared run requires dimension slicing')
     require(payload.get('context_readiness_required', True) is True, 'prepared run requires context readiness')
-    return {'dependency_resolution_required': dependency_gate, 'git_checkpoint': git_gate, 'fixer_self_diagnosis': self_diagnosis, 'write_scope_check': scope_check, 'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': copy.deepcopy(config.get('build', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
+    return {'dependency_resolution_required': dependency_gate, 'git_checkpoint': git_gate, 'fixer_self_diagnosis': self_diagnosis, 'write_scope_check': scope_check, 'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': copy.deepcopy(config.get('build', {})), 'target_resources': copy.deepcopy(config.get('target_resources', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
             'behavior_contract_required': behavior_required, 'test_design_required': design_required, 'project_context_ref': ref, 'project_id': snapshot['project_id'],
             'project_revision': snapshot['project_revision'], 'module_name': snapshot['module_name']}
 

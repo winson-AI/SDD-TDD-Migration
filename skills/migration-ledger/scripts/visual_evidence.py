@@ -195,11 +195,12 @@ def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, 
         shot = observed.get(index)
         require(row.get('capture_index') == index and shot and row.get('screenshot_ref') == shot['screenshot_ref']
                 and row.get('view_ref') == shot['view_ref'], 'image-parity row must use the captured screenshot and view tree')
+        reference = ui_evidence.image_check_reference(check)
         require(row.get('node_id') == check['node_id'] and row.get('selector') == check['target']['selector']
-                and row.get('render_ref') == check['reference']['render_ref'] and row.get('reference_ref') == ui_evidence.image_check_reference(check),
+                and row.get('render_ref') == (check['reference']['render_ref'] if reference else None) and row.get('reference_ref') == reference,
                 'image-parity row differs from the frozen check ' + check['id'])
         try:
-            fresh, crop = image_parity.evaluate(check, check_ref(row['reference_ref']), check_ref(row['screenshot_ref']),
+            fresh, crop = image_parity.evaluate(check, check_ref(reference) if reference else None, check_ref(row['screenshot_ref']),
                                                 check_ref(row['view_ref']).read_text())
         except image_parity.ParityError as exc:
             require(False, 'image parity cannot be verified: ' + str(exc))

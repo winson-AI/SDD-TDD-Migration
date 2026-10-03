@@ -39,6 +39,8 @@ def planning_context(s):
         result['dimension_slicing_required'] = True
     if s.get('behavior_contract_required'):
         result['behavior_contract_required'] = s['behavior_contract_required']
+    if s.get('target_resources'):
+        result['target_resources'] = copy.deepcopy(s['target_resources'])
     if s.get('project_context_ref'):
         layout = read_json(check_ref(s['project_context_ref'])).get('storage_layout')
         if layout:

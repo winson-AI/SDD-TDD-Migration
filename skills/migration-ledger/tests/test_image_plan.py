@@ -36,6 +36,8 @@ class ImagePlanTests(unittest.TestCase):
         self.check = {'id': 'back-arrow', 'node_id': 'node:settings.row', 'source_resource': '@drawable/ic_back', 'qualifier': 'xxhdpi',
                       'reference': {'render_ref': file_ref(self.out / 'reference.json')}, 'target': {'selector': {'resource-id': 'back'}}}
         self.coverage = self.f.evidence['coverage']
+        self.waiver = {'reason': 'the row icon is checked on its own node', 'evidence_refs': [file_ref(self.n.write('evidence/waiver.json', {'reviewed': True}))]}
+        self.f.model['image_check_waivers'] = [self.waiver]   # the fixture declares the icon on the root; these tests check the row
 
     def declare(self, *checks):
         self.f.model['image_checks'] = [copy.deepcopy(c) for c in checks]
@@ -164,6 +166,98 @@ class ImagePlanTests(unittest.TestCase):
         module['plan']['paths'].append(self.asset_path())
         self.assertEqual(ui_fidelity.frozen_image_checks(module, module['plan']['paths'][-1]), [self.check])
         self.assertEqual(ui_fidelity.frozen_image_checks(module, module['plan']['paths'][0]), [])
+
+    # ------------------------------------------------------------------ every picture a node shows is checked on the screen
+
+    def on_root(self, **over):
+        return {**self.check, 'id': 'root-icon', 'node_id': 'node:settings.root', **over}
+
+    def test_a_picture_shown_by_a_node_needs_an_image_check_or_a_waiver_with_evidence(self):
+        self.f.model.pop('image_check_waivers')
+        with self.assertRaisesRegex(Rejected, r'pictures shown by settings:base:viewport need an image check or a waiver with evidence: '
+                                              r'node:settings.root @drawable/ic_back'):
+            self.gate()
+        self.declare(self.on_root())
+        module = self.f.module()
+        module['plan']['paths'][0]['image_check_ids'] = ['root-icon']
+        ui_fidelity.baseline_gate(self.f.state, module)
+        self.declare(self.check)  # a check on another node does not cover the node that shows it
+        with self.assertRaisesRegex(Rejected, 'need an image check or a waiver'):
+            self.gate(self.asset_path())
+
+    def test_a_waiver_names_what_it_sets_aside_gives_a_reason_and_evidence(self):
+        evidence = self.waiver['evidence_refs']
+        for waiver in ({'node_id': 'node:settings.root', 'reason': 'drawn inside a surface the tree does not expose', 'evidence_refs': evidence},
+                       {'source_resource': '@drawable/ic_back', 'reason': 'hidden in this state', 'evidence_refs': evidence}, self.waiver):
+            self.f.model['image_check_waivers'] = [waiver]
+            with self.subTest(waiver=waiver):
+                self.gate()
+        for waiver, message in (({'reason': '', 'evidence_refs': evidence}, 'needs a reason'), ({'reason': 'x'}, 'needs evidence'),
+                                ({'node_id': 'node:settings.row', 'reason': 'x', 'evidence_refs': evidence}, 'names a picture no node of this target shows'),
+                                ({'source_resource': '@drawable/ic_gone', 'reason': 'x', 'evidence_refs': evidence}, 'names a picture no node')):
+            self.f.model['image_check_waivers'] = [waiver]
+            with self.subTest(waiver=waiver), self.assertRaisesRegex(Rejected, message):
+                self.gate()
+
+    def test_coverage_counts_what_is_checked_waived_and_open(self):
+        self.f.model['image_check_waivers'] = []
+        covered = ui_fidelity.check_coverage(self.f.model, self.tree(), self.index)
+        self.assertEqual((covered['uses'], covered['open']), ({('node:settings.root', '@drawable/ic_back')},) * 2)
+        self.declare(self.on_root())
+        self.f.model['image_check_waivers'] = [self.waiver]
+        covered = ui_fidelity.check_coverage(self.f.model, self.tree(), self.index)
+        self.assertEqual((len(covered['checked']), covered['waived'], covered['open']), (1, set(), set()))  # a check counts before a waiver
+
+    def test_checks_are_derived_for_every_open_use_with_their_references_rendered(self):
+        self.f.model['image_check_waivers'] = []
+        ref = file_ref(self.n.write('evidence/analysis.json', self.f.analysis))
+        out = self.n.write('derived/placeholder', '').parent
+        derived = ui_fidelity.derive_checks(read_json(check_ref(ref)), out)
+        (item_id, checks), = derived['checks'].items()
+        check, = checks
+        self.assertEqual((check['id'], check['node_id'], check['source_resource'], check['qualifier']),
+                         ('img-settings-root-ic-back', 'node:settings.root', '@drawable/ic_back', 'xxhdpi'))
+        self.assertEqual(check['target'], {'selector': {'resource-id': 'settings.root'}})  # the node's own id is the key the target gives it
+        self.assertEqual(derived['unrendered'], [])
+        self.assertEqual(derived['texts'][item_id][0]['expect'], {'text': 'Settings'})
+        self.declare(check)
+        self.assertEqual(ui_evidence.validate_image_checks(self.f.model, self.tree(), self.index), ['img-settings-root-ic-back'])
+        module = self.f.module()
+        module['plan']['paths'][0]['image_check_ids'] = [check['id']]
+        ui_fidelity.baseline_gate(self.f.state, module)
+        self.assertEqual(ui_fidelity.derive_checks(self.f.analysis, out)['checks'], {})  # nothing is open any more
+
+    def test_a_picture_that_cannot_be_rendered_is_listed_not_dropped(self):
+        self.f.model['image_check_waivers'] = []
+        (self.n.android / 'app/src/main/res/drawable-xxhdpi/ic_back.png').write_bytes(b'not a png')
+        self.s.recollect()
+        out = self.n.write('derived/placeholder', '').parent
+        derived = ui_fidelity.derive_checks(self.f.analysis, out)
+        self.assertEqual(derived['checks'], {})
+        self.assertEqual([(row['node_id'], row['source_resource']) for row in derived['unrendered']], [('node:settings.root', '@drawable/ic_back')])
+
+    def test_the_report_counts_the_picture_uses_that_are_checked_and_waived(self):
+        import migration_report
+        ref = file_ref(self.n.write('evidence/analysis.json', self.f.analysis))
+        state = {'modules': {'M001': {'plan': {'dimension_analysis_ref': ref, 'paths': []}}}}
+        pictures = migration_report.fidelity(state, [], check_ref)[2]
+        self.assertEqual(pictures['checks'], {'M001': {'uses': 1, 'checked': 0, 'waived': 1}})
+        text = migration_report.render({'run_id': 'r1', 'sequence': 1, 'report_stage': 'in-progress', 'quality': 'yellow-blocked', 'entry_mode': 'project',
+                                        'single_module_id': None, 'case_counts': {}, 'legacy_root': '/l', 'target_root': '/t', 'parent_mo_names': {},
+                                        'cases': [], 'paths': [], 'non_green': [], 'human_report': None, 'picture_fidelity': pictures})
+        self.assertIn('M001：节点显示的图片 1 处，其中 0 处有图像检查，1 处经豁免。', text)
+
+    def test_a_text_check_holds_the_text_the_index_has_and_a_node_check_needs_only_its_node(self):
+        text = {'id': 'title-text', 'kind': 'text', 'node_id': 'node:settings.root', 'source_resource': '@string/settings_title',
+                'qualifier': 'default', 'expect': {'text': 'Settings'}, 'target': {'selector': {'resource-id': 'title'}}}
+        node = {'id': 'root-node', 'kind': 'node', 'node_id': 'node:settings.root', 'target': {'selector': {'class': 'Column'}}}
+        self.assertEqual(ui_evidence.validate_image_checks({'image_checks': [text, node]}, self.tree(), self.index), ['title-text', 'root-node'])
+        self.assertIsNone(ui_evidence.image_check_reference(text))
+        for change, message in (({'expect': {'text': 'Preferences'}}, 'expect.text must be the text the source index holds'),
+                                ({'source_resource': '@drawable/ic_back'}, 'needs a @string source_resource'),
+                                ({'expect': {}}, 'needs a @string source_resource and expect.text'), ({'kind': 'colour'}, 'kind is image, text or node')):
+            with self.subTest(change=change), self.assertRaisesRegex(Rejected, message):
+                ui_evidence.validate_image_checks({'image_checks': [{**text, **change}]}, self.tree(), self.index)
 
     # ------------------------------------------------------------------ a path with a baseline and image checks
 

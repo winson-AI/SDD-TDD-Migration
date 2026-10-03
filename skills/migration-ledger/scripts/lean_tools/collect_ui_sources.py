@@ -506,6 +506,7 @@ def collect(args: argparse.Namespace) -> dict:
     source_resource_refs: set[str] = set()
     catalog = resource_signals.Catalog(root)
     image_rows: list[dict] = []
+    sink_candidates: list[dict] = []
     asset_names: set[str] = set()
     for path in sorted(source_paths):
         fact, references, composables = inspect_source(path, root)
@@ -515,9 +516,12 @@ def collect(args: argparse.Namespace) -> dict:
         compose_functions.extend(composables)
         found = resource_signals.code_sources(
             catalog, path.read_text(encoding="utf-8", errors="replace"), fact["path"],
-            getattr(args, "image_sinks", None) or ())
+            getattr(args, "image_sinks", None) or (), getattr(args, "layout_helpers", None) or ())
         image_rows.extend(found["imageSources"])
         asset_names.update(found["assets"])
+        fact["resourceUsages"] = found["usages"]
+        fact["parameters"] = found["parameters"]
+        sink_candidates.extend(found["sinkCandidates"])
 
     layout_index = discover_layout_files(root)
     requested_layouts = list(args.layout)
@@ -673,6 +677,7 @@ def collect(args: argparse.Namespace) -> dict:
         "resources": resource_documents,
         "themeAttrs": theme_attrs,
         "imageSources": resource_signals.identify(image_rows),
+        "imageSinkCandidates": sink_candidates,
         "unresolved": unresolved,
     }
 

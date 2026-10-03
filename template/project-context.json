@@ -37,6 +37,7 @@
   "knowledge_paths": [],
   "reuse_sources": [],
   "build": {},
+  "target_resources": {},
   "watchdog": {
     "enabled": true,
     "mode": "observe-only",
