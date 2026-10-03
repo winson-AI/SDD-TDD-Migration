@@ -19,7 +19,7 @@ collector 记录范围内代码每处资源引用的使用点（行号、所在�
 1. `resource-plan` 从分析里的 UI 证据派生**复制清单**：每个可原样加载的文件资源一行（存量路径与哈希、目标路径、accessor、使用它的节点），并列出清单之外须登记的资源及原因。Resource 维以 `copy_plan_ref` 引用它；资源全在清单内时 `items` 可为空。
 2. 冻结时 Ledger 按证据与约定重算清单，逐行相同才通过；一个资源只由清单或 item 之一覆盖。
 3. Implementer 以 `resource-sync`（给出拥有目标目录的 task_id）一次复制全部行：字节相同则保留，不同则拒绝覆盖。
-4. 验收逐行核对副本哈希等于存量哈希，且提交的代码出现每行的 accessor；副本自身不算引用。
+4. 验收逐行核对副本哈希等于存量哈希，且提交的代码完整出现每行的 accessor；副本自身不算引用。
 
 清单之外的 item 同样被核对：非 blocked 的 `target_resource` 与 consumer 必须是目标工程内的文件，产出资源的策略须写 `#accessor`；验收时 `byte_copy` 比对哈希，`value_xml_exact` 比对条目，`exact_vector_xml` 比对确定性转换结果，每个 consumer 文件须出现该 accessor。
 

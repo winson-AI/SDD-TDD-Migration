@@ -13,7 +13,7 @@ import copy
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
-from contracts import Rejected, check_ref, file_ref, read_json, require
+from contracts import Rejected, check_ref, file_ref, named, read_json, require
 import resource_facts
 import resource_signals
 
@@ -323,7 +323,7 @@ def verify_wiring(item, consumer_paths):
     if item.get('resource_strategy') not in WIRED or not name:
         return
     for path in consumer_paths:
-        require(name in Path(path).read_text(encoding='utf-8', errors='replace'),
+        require(named(Path(path).read_text(encoding='utf-8', errors='replace'), name),
                 item.get('item_id', '?') + ': consumer ' + Path(path).name + ' never names ' + name)
 
 

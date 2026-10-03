@@ -185,6 +185,9 @@ class CopyPlanTests(unittest.TestCase):
         screen.write_text(screen.read_text().replace('Res.raw.loading', 'StaticSpinner'))
         with self.assertRaisesRegex(Rejected, r'not named by the submitted code: @raw/loading \(Res.raw.loading\)'):
             resource_copy.verify(self.f.analysis, [file_ref(screen)] + code[1:])
+        screen.write_text(screen.read_text().replace('StaticSpinner', 'Res.raw.loading_dark'))   # a longer name is another resource
+        with self.assertRaisesRegex(Rejected, r'not named by the submitted code: @raw/loading \(Res.raw.loading\)'):
+            resource_copy.verify(self.f.analysis, [file_ref(screen)] + code[1:])
         star = self.n.target / 'res/drawable/ic_star.xml'
         star.write_text('<vector/>')
         with self.assertRaisesRegex(Rejected, 'missing or is not the legacy file: @drawable/ic_star'):
@@ -366,6 +369,9 @@ class AuthoredItemTests(unittest.TestCase):
         unused = self.f.ref('target/m1/Screen.kt', 'Canvas { drawPath(arrow) }')
         with self.assertRaisesRegex(Rejected, 'consumer Screen.kt never names Res.drawable.ic_back'):
             self.accept(consumers=[unused])
+        another = self.f.ref('target/m1/Screen.kt', 'val back = Res.drawable.ic_back_dark')
+        with self.assertRaisesRegex(Rejected, 'consumer Screen.kt never names Res.drawable.ic_back'):
+            self.accept(consumers=[another])
 
     def test_a_values_entry_is_accepted_only_as_the_legacy_entry(self):
         legacy = Path(self.f.ref('legacy/res/values/strings.xml', '<resources><string name="title">Settings</string></resources>')['path'])

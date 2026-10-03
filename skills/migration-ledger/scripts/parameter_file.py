@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import re
 
-from contracts import check_ref, read_json, require
+from contracts import check_ref, named, read_json, require
 import ui_parameters
 
 TYPES = ('dimension', 'number', 'color', 'string')
@@ -54,11 +54,6 @@ def convention(value, target_root=None):
             'accessor': _template(value.get('accessor'), 'accessor', ('key', 'module')),
             'locales': {name: inside(path, 'locales.' + name) for name, path in sorted(locales.items())},
             'string_escapes': dict(sorted(escapes.items()))}
-
-
-def named(text, name):
-    """Whether code names `name` itself, not a longer name that merely starts or ends with it."""
-    return re.search(r'(?<![A-Za-z0-9_])' + re.escape(name) + r'(?![A-Za-z0-9_])', text) is not None
 
 
 def _value(value, label):

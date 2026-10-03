@@ -9,7 +9,7 @@ its name in the submitted code. A resource the target cannot load as it is stays
 from pathlib import Path
 import re
 
-from contracts import check_ref, digest, file_ref, read_json, require
+from contracts import check_ref, digest, file_ref, named, read_json, require
 import resource_facts
 import resource_fidelity
 
@@ -205,7 +205,7 @@ def verify(analysis, code_files):
     verify_files(analysis)
     texts = _texts(code_files, {str(Path(row['target_path']).resolve()) for row in plan_rows})
     unused = [row['source_resource'] + ' (' + row['accessor'] + ')' for row in plan_rows
-              if not any(row['accessor'] in text for text in texts)]
+              if not any(named(text, row['accessor']) for text in texts)]
     require(not unused, 'copied resources are not named by the submitted code: ' + ', '.join(unused[:12])
             + (' and ' + str(len(unused) - 12) + ' more' if len(unused) > 12 else ''))
 
