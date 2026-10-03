@@ -14,12 +14,13 @@ inexact resource can never be reported as Green. Visual parity itself is a test-
 visual automation layer aligns baseline nodes and reports three-state like any other path.
 """
 import copy
+import re
 
 import dimensions
 import resource_fidelity
 import semantics
 import ui_evidence as ue
-from contracts import check_ref, nonempty, read_json, require
+from contracts import check_ref, file_ref, nonempty, read_json, require
 
 
 def _analysis(m):
@@ -110,6 +111,105 @@ def declared_image_checks(analysis):
                 require(check['id'] not in found or found[check['id']][0] == check, 'conflicting declared image check: ' + check['id'])
                 found[check['id']] = (check, (model.get('ui_evidence') or {}).get('coverage'))
     return found
+
+
+STILL_FORMATS = ('png', 'jpeg', 'jpg', 'webp', 'gif', 'vector-xml')
+
+
+def picture_uses(tree, index):
+    """{(node id, reference)}: every still picture a node of the tree declares, which is what a screen shows of it.
+
+    A nine-patch, an animation and a drawable described by XML have no single picture to compare with."""
+    still = set()
+    for row in index.get('resources', []):
+        if row['ref'].split('/')[0] in ('@drawable', '@mipmap') and (row.get('facts') or {}).get('format') in STILL_FORMATS \
+                and not str(row.get('path', '')).lower().endswith('.9.png'):
+            still.add(row['ref'])
+    uses = set()
+    for node in ue.tree_nodes(tree):
+        refs = set(node.get('presentation', {}).get('resourceRefs', []))
+        for rule in node.get('dynamicRules', []):
+            refs.update(rule.get('resourceRefs', []))
+        uses.update((ue.stable_node_id(node['id']), ref) for ref in refs & still)
+    return uses
+
+
+def check_coverage(model, tree, index):
+    """Which picture uses of one UI target an image check measures, which a waiver sets aside, and which nothing covers."""
+    uses = picture_uses(tree, index)
+    checked = {(c['node_id'], c['source_resource']) for c in model.get('image_checks') or [] if c.get('kind', 'image') == 'image'} & uses
+    waivers = model.get('image_check_waivers', [])
+    require(isinstance(waivers, list), 'image_check_waivers must be a list')
+    waived = set()
+    for row in waivers:
+        require(isinstance(row, dict) and isinstance(row.get('reason'), str) and row['reason'].strip(), 'an image check waiver needs a reason')
+        refs = row.get('evidence_refs')
+        require(isinstance(refs, list) and refs, 'an image check waiver needs evidence')
+        for ref in refs:
+            check_ref(ref)
+        matched = {(node, ref) for node, ref in uses if row.get('node_id') in (None, node) and row.get('source_resource') in (None, ref)}
+        require(matched or not (row.get('node_id') or row.get('source_resource')), 'an image check waiver names a picture no node of this target shows')
+        waived |= matched
+    return {'uses': uses, 'checked': checked, 'waived': waived - checked, 'open': uses - checked - waived}
+
+
+def derive_checks(analysis, out, rules=None):
+    """Image checks for every picture use of a module that has none yet, each with its reference rendered under `out`.
+
+    A check finds its node by the node's own id (`resource-id` = the id without `node:`), so the target only has
+    to give each such node that key. `unrendered` lists uses whose picture could not be rendered, with the reason;
+    `texts` suggests a text check for every string a node declares, for the Spec to keep where the state shows it."""
+    import reference_render
+    slug = lambda value: re.sub(r'[^a-z0-9]+', '-', value.lower()).strip('-')
+    found, unrendered, texts, taken, rendered = {}, [], {}, set(), {}
+    for row in analysis.get('dimensions', []):
+        if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
+            continue
+        for item in row.get('items', []):
+            model = item.get('semantic_model') or {}
+            evidence = model.get('ui_evidence') or {}
+            if not (evidence.get('source_index_ref') and evidence.get('ui_tree_ref')):
+                continue
+            index, tree = read_json(check_ref(evidence['source_index_ref'])), read_json(check_ref(evidence['ui_tree_ref']))
+            scope = evidence.get('resource_scope')
+            groups = resource_fidelity.resource_groups(resource_fidelity.indexed_resources(
+                index, resource_fidelity.obligations(index, tree, scope)['refs'], scope))
+            for node, ref in sorted(check_coverage(model, tree, index)['open']):
+                renditions = groups.get((ref, 'base')) or next((g for (r, _), g in sorted(groups.items()) if r == ref), None)
+                qualifier = renditions and resource_fidelity.rendition(renditions, (rules or {}).get('formats'), (rules or {}).get('density'))
+                if not qualifier:
+                    unrendered.append({'node_id': node, 'source_resource': ref, 'reason': 'the source index holds no rendition of it for this target'})
+                    continue
+                if (ref, qualifier) not in rendered:
+                    directory = out / 'references' / (slug(ref) + '-' + slug(qualifier))
+                    directory.mkdir(parents=True, exist_ok=True)
+                    try:
+                        reference_render.render(index, ref, qualifier, directory)
+                        rendered[(ref, qualifier)] = directory / 'reference.json'
+                    except (reference_render.RenderError, OSError) as exc:   # a file that is not the picture its name says
+                        rendered[(ref, qualifier)] = str(exc)
+                if isinstance(rendered[(ref, qualifier)], str):
+                    unrendered.append({'node_id': node, 'source_resource': ref, 'reason': rendered[(ref, qualifier)]})
+                    continue
+                name = base = 'img-' + slug(node[len('node:'):]) + '-' + slug(ref.split('/', 1)[1])
+                count = 1
+                while name in taken:
+                    count += 1
+                    name = base + '-' + str(count)
+                taken.add(name)
+                found.setdefault(item['item_id'], []).append({
+                    'id': name, 'node_id': node, 'source_resource': ref, 'qualifier': qualifier,
+                    'reference': {'render_ref': file_ref(rendered[(ref, qualifier)])}, 'target': {'selector': {'resource-id': node[len('node:'):]}}})
+            values = {r['ref']: r['value'] for r in index.get('resources', []) if r['ref'].startswith('@string/')
+                      and r.get('qualifier') in ('default', 'base') and isinstance(r.get('value'), str)}
+            for node in ue.tree_nodes(tree):
+                node_id = ue.stable_node_id(node['id'])
+                for ref in sorted(set(node.get('presentation', {}).get('resourceRefs', [])) & set(values)):
+                    texts.setdefault(item['item_id'], []).append({
+                        'id': 'txt-' + slug(node_id[len('node:'):]) + '-' + slug(ref.split('/', 1)[1]), 'kind': 'text', 'node_id': node_id,
+                        'source_resource': ref, 'qualifier': 'default', 'expect': {'text': values[ref]},
+                        'target': {'selector': {'resource-id': node_id[len('node:'):]}}})
+    return {'checks': found, 'texts': texts, 'unrendered': unrendered}
 
 
 def frozen_image_checks(module, path):
@@ -218,6 +318,11 @@ def visual_plan_gate(analysis, visual):
             index = read_json(check_ref(evidence['source_index_ref'])) if evidence.get('source_index_ref') else None
             for cid in ue.validate_image_checks(model, tree, index):
                 checks[cid] = (next(c for c in model['image_checks'] if c['id'] == cid), evidence['coverage'])
+            if index is not None:
+                # What a screen shows of a legacy picture is measured there; a copy in the right folder proves nothing about the screen.
+                uncovered = sorted(check_coverage(model, tree, index)['open'])
+                require(not uncovered, 'pictures shown by ' + evidence['coverage'] + ' need an image check or a waiver with evidence: '
+                        + ', '.join(node + ' ' + ref for node, ref in uncovered[:10]) + (' and ' + str(len(uncovered) - 10) + ' more' if len(uncovered) > 10 else ''))
             screens.setdefault(evidence['coverage'], set()).update(ue.node_ids(tree))
             for interaction in model.get('interactions', []):
                 require(interaction['id'] not in interactions or interactions[interaction['id']] == interaction,

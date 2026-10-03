@@ -10,6 +10,7 @@ import audit_code_review
 import parameter_file
 import resource_copy
 import resource_fidelity
+import ui_fidelity
 import workflow_cost
 
 
@@ -55,7 +56,7 @@ def picture(mid, item, analysis_ref, carriers, rows):
 
 def fidelity(s, rows, ref_check):
     """Disclose proof boundaries without changing business acceptance or scheduling."""
-    visual, limitations, pictures, copied, parameters = [], [], [], 0, {}
+    visual, limitations, pictures, copied, parameters, checks = [], [], [], 0, {}, {}
     for mid, module in s['modules'].items():
         plan = module.get('plan') or {}
         analysis_ref = plan.get('dimension_analysis_ref')
@@ -96,6 +97,15 @@ def fidelity(s, rows, ref_check):
             filled = parameter_file.summary(analysis, ref_check)
             if filled:
                 parameters[mid] = filled
+            counts = Counter()
+            for item in ui.get('items', []) if ui.get('status') == 'applicable' else []:
+                model = item.get('semantic_model') or {}
+                evidence = model.get('ui_evidence') or {}
+                if evidence.get('source_index_ref') and evidence.get('ui_tree_ref'):
+                    covered = ui_fidelity.check_coverage(model, read_json(ref_check(evidence['ui_tree_ref'])), read_json(ref_check(evidence['source_index_ref'])))
+                    counts.update({name: len(covered[name]) for name in ('uses', 'checked', 'waived')})
+            if counts['uses']:
+                checks[mid] = dict(counts)
         except (ValueError, OSError, KeyError, TypeError):
             pass  # the closure gate reports an unreadable plan; the report only counts what it can read
         for dimension in dimensions:
@@ -111,7 +121,7 @@ def fidelity(s, rows, ref_check):
     limitations += [{'module_id': v['module_id'], 'item_id': v['item_id'], 'kind': 'picture-replacement',
                      'reason': f"图片 {v['source']} 与存量不是精确复制（{v['status']}）：{v['reason']}", 'evidence_refs': v['evidence_refs']}
                     for v in pictures if v['status'] not in ('exact', 'verified', 'reviewed')]
-    return visual, limitations, {'counts': dict(Counter(v['status'] for v in pictures)), 'copied': copied, 'parameters': parameters,
+    return visual, limitations, {'counts': dict(Counter(v['status'] for v in pictures)), 'copied': copied, 'parameters': parameters, 'checks': checks,
                                  'items': [v for v in pictures if v['status'] != 'exact']}
 
 
@@ -251,6 +261,8 @@ def render(report):
     pictures = report.get('picture_fidelity') or {'counts': {}, 'items': []}
     if pictures.get('copied'):
         text += ['', f"按路径复制到目标的文件资源：{pictures['copied']} 个（验收时逐个与存量文件比对）。"]
+    for mid, row in sorted((pictures.get('checks') or {}).items()):
+        text += ['', f"{cell(mid)}：节点显示的图片 {row['uses']} 处，其中 {row['checked']} 处有图像检查，{row['waived']} 处经豁免。"]
     if pictures.get('parameters'):
         text += ['', '参数填充（组件与图层的取值由参数表生成到目标，按键取用；结构性关键字不计入）：', '',
                  '| 模块 | 组件 / 图层 | 参数 | 按记录取用 | 不适用 | 获批偏差 | 填充率 |', '| --- | --- | --- | --- | --- | --- | --- |']

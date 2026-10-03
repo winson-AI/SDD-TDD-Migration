@@ -33,6 +33,7 @@ ROLES = {
     'validate-ui': {'spec-designer', 'test-runner', 'auditor'},
     'resource-convert': {'implementer', 'fixer'},
     'resource-plan': {'module-orchestrator', 'spec-designer'},
+    'screen-checks': {'module-orchestrator', 'spec-designer'},
     'resource-sync': {'implementer', 'fixer'},
     'resource-scan': {'global-orchestrator', 'module-orchestrator', 'spec-designer', 'implementer',
                       'fixer', 'test-runner', 'auditor'},
@@ -224,6 +225,14 @@ def run(root, request, actor):
                 if rules.get('copy'):
                     plan, authored = resource_copy.derive(analysis, rules['copy'])
                     result.update(copy_plan_ref=save(out / 'copy-plan.json', plan), rows=len(plan['rows']), authored=authored)
+            elif operation == 'screen-checks':
+                import ui_fidelity
+                derived = ui_fidelity.derive_checks(read_json(check_ref(args.get('dimension_analysis_ref'))), out,
+                                                    (config.get('target_resources') or {}).get('copy'))
+                result = {'status': 'DERIVED', 'screen_checks_ref': save(out / 'screen-checks.json', derived),
+                          'checks': sum(len(rows) for rows in derived['checks'].values()), 'unrendered': derived['unrendered'],
+                          'next_action': 'add each UI item\'s checks to its image_checks and carry them on a visual PATH; '
+                                         'waive with evidence only what the screen cannot show'}
             elif operation == 'resource-sync':
                 analysis = read_json(check_ref(module['plan'].get('dimension_analysis_ref')))
                 tasks = [t for t in module['plan'].get('tasks', []) if t['task_id'] == args.get('task_id')]

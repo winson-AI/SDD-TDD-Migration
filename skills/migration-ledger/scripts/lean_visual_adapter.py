@@ -85,9 +85,8 @@ def image_part(query, parity_ref):
         proof = visual_evidence.validate_image_parity(parity_ref, checks=checks, path=query, code_baseline=query['code_baseline'],
                                                       run_root=query.get('run_root'), assignment=query.get('execution_assignment'))
         return quality, None, proof
-    shown = '; '.join(f"{c['id']}: {rows[c['id']].get('status')}" + (
-        f" (shape_iou={rows[c['id']]['metrics']['shape_iou']}, aspect_delta={rows[c['id']]['metrics']['aspect_delta']})"
-        if rows[c['id']].get('metrics') else f" ({rows[c['id']].get('reason')})") for c in checks if rows[c['id']].get('status') != 'MATCH')
+    measured = lambda row: ', '.join(f'{key}={value}' for key, value in row['metrics'].items()) if row.get('metrics') else row.get('reason')
+    shown = '; '.join(f"{c['id']}: {rows[c['id']].get('status')} ({measured(rows[c['id']])})" for c in checks if rows[c['id']].get('status') != 'MATCH')
     cause = {'category': category, 'summary': 'image checks not matched: ' + shown, 'confidence': 'observed', 'owner': owner,
              'next_action': 'diagnose', 'evidence_refs': [parity_ref]}
     return quality, cause, {'report_ref': parity_ref, 'checks': [{'id': c['id'], 'status': rows[c['id']].get('status')} for c in checks]}

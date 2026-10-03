@@ -1,20 +1,24 @@
-"""Does a node on the target screen show the reference image? A deterministic answer from bytes.
+"""Does a node on the target screen show what the legacy screen shows? A deterministic answer from bytes.
 
-The reference is a raster rendered from a legacy asset (`reference_render`), the candidate is the crop of
-a target screenshot at the node a frozen selector names in the captured view tree. Both are reduced to
-the shape of their visible ink, so scale, anti-aliasing, compression and a different tint do not matter,
-and a different glyph, a missing or squashed icon, or a wrong colour does. The verdict is a pure function
-of the hash-bound inputs and the frozen tolerance: the Ledger recomputes it rather than trusting a report.
-Pillow is needed only to measure, never to read tolerances or selectors.
+An image check compares a raster rendered from a legacy asset (`reference_render`) with the crop of a
+target screenshot at the node a frozen selector names in the captured view tree. An icon is reduced to
+the shape of its visible ink, so scale, anti-aliasing, compression and a different tint do not matter,
+and a different glyph, a missing or squashed icon, or a wrong colour does; a picture with no background
+to tell its ink from (a photo, an illustration) is compared by its content. A text check compares the
+node's text with the legacy string; a node check asks only that the node is there. The verdict is a pure
+function of the hash-bound inputs and the frozen tolerance: the Ledger recomputes it rather than trusting
+a report. Pillow is needed only to measure pictures, never to read tolerances, selectors or texts.
 """
 import re
 import xml.etree.ElementTree as ET
 
 BOUNDS = re.compile(r'\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]')
 SELECTOR_KEYS = ('class', 'resource-id', 'text', 'content-desc')
-DEFAULTS = {'shape_iou_min': 0.72, 'aspect_delta_max': 0.20, 'color': None, 'color_delta_max': 48}
-LIMITS = {'shape_iou_min': (0.5, 1.0), 'aspect_delta_max': (0.0, 1.0), 'color_delta_max': (0, 255)}
+DEFAULTS = {'shape_iou_min': 0.72, 'aspect_delta_max': 0.20, 'color': None, 'color_delta_max': 48, 'content_min': 0.80}
+LIMITS = {'shape_iou_min': (0.5, 1.0), 'aspect_delta_max': (0.0, 1.0), 'color_delta_max': (0, 255), 'content_min': (0.5, 1.0)}
+KINDS = ('image', 'text', 'node')
 GRID = 48            # both inks are normalised to this many cells per side before they are overlapped
+CONTENT_GRID = 24    # a picture without a background is compared as this many brightness cells per side
 MAX_SIDE = 256       # larger crops are reduced first; icons are small and a whole screen is not an icon
 MIN_SIDE = 8         # a node smaller than this shows no recognisable shape
 HEX = re.compile(r'#[0-9A-Fa-f]{6}')
@@ -49,16 +53,21 @@ def selector_valid(selector):
             and all(isinstance(value, str) and value for value in selector.values()))
 
 
-def locate(view_xml, selector):
-    """Bounds (x1, y1, x2, y2) of every node whose attributes equal the selector's, in document order."""
+def nodes(view_xml, selector):
+    """(bounds, attributes) of every node whose attributes equal the selector's, in document order."""
     require(selector_valid(selector), 'image check selector supports non-empty exact class/resource-id/text/content-desc only')
     found = []
     for node in ET.fromstring(view_xml).iter('node'):
         if all(node.get(key) == value for key, value in selector.items()):
             match = BOUNDS.fullmatch(node.get('bounds', ''))
             if match:
-                found.append(tuple(int(v) for v in match.groups()))
+                found.append((tuple(int(v) for v in match.groups()), dict(node.attrib)))
     return found
+
+
+def locate(view_xml, selector):
+    """Bounds (x1, y1, x2, y2) of every node whose attributes equal the selector's, in document order."""
+    return [bounds for bounds, _ in nodes(view_xml, selector)]
 
 
 def _pillow():
@@ -117,6 +126,35 @@ def _count(mask):
     return round(ImageStat.Stat(mask).sum[0] / 255)
 
 
+def _cells(image, aspect=None):
+    """Brightness of a picture on a small grid; with `aspect`, of its centre cropped to that width/height first."""
+    Image, _, _ = _pillow()
+    if aspect:
+        width, height = image.size
+        if width / height > aspect:
+            keep = max(1, round(height * aspect))
+            image = image.crop(((width - keep) // 2, 0, (width - keep) // 2 + keep, height))
+        else:
+            keep = max(1, round(width / aspect))
+            image = image.crop((0, (height - keep) // 2, width, (height - keep) // 2 + keep))
+    return list(image.convert('L').resize((CONTENT_GRID, CONTENT_GRID), Image.Resampling.BILINEAR).tobytes())
+
+
+def _correlation(a, b):
+    mean_a, mean_b = sum(a) / len(a), sum(b) / len(b)
+    spread_a, spread_b = sum((x - mean_a) ** 2 for x in a), sum((y - mean_b) ** 2 for y in b)
+    if not spread_a or not spread_b:
+        return 0.0   # a flat field shows no picture to agree with
+    return sum((x - mean_a) * (y - mean_b) for x, y in zip(a, b)) / (spread_a * spread_b) ** 0.5
+
+
+def content(reference, candidate):
+    """How alike two pictures are, shown whole or centre-cropped to the node: 1 is the same picture, 0 unrelated."""
+    shown = _cells(candidate)
+    aspect = candidate.size[0] / candidate.size[1]
+    return round(max(_correlation(_cells(reference), shown), _correlation(_cells(reference, aspect), shown)), 4)
+
+
 def measure(reference, candidate, tolerance=None):
     """(metrics, None) or (None, reason) for a reference image and a candidate crop, both Pillow images."""
     Image, ImageChops, _ = _pillow()
@@ -126,6 +164,9 @@ def measure(reference, candidate, tolerance=None):
     reference, candidate = _reduced(reference.convert('RGBA')), _reduced(candidate.convert('RGB'))
     ref_rgb = reference.convert('RGB')
     ref_mask, why = _ink(ref_rgb, reference.getchannel('A'))
+    if ref_mask is None and reference.getchannel('A').getextrema()[0] >= 250 and 'not uniform' in why:
+        # A picture that fills its frame has no ink to outline; what it shows is compared instead.
+        return {'content_similarity': content(ref_rgb, candidate)}, None
     if ref_mask is None:
         return None, 'reference: ' + why
     cand_mask, why = _ink(candidate)
@@ -149,6 +190,8 @@ def measure(reference, candidate, tolerance=None):
 
 def verdict(metrics, tolerance=None):
     tolerance = thresholds(tolerance)
+    if 'content_similarity' in metrics:
+        return 'MATCH' if metrics['content_similarity'] >= tolerance['content_min'] else 'MISMATCH'
     ok = metrics['shape_iou'] >= tolerance['shape_iou_min'] and metrics['aspect_delta'] <= tolerance['aspect_delta_max']
     if tolerance['color'] is not None:
         ok = ok and metrics['color_delta'] <= tolerance['color_delta_max']
@@ -159,21 +202,31 @@ def evaluate(check, reference_path, screenshot_path, view_xml):
     """One frozen check against one capture: the row a report carries and the Ledger recomputes.
 
     The crop is returned beside the row so the caller can keep it as evidence."""
-    Image, _, _ = _pillow()
+    kind = check.get('kind', 'image')
     tolerance = thresholds(check.get('tolerance'))
     row = {'id': check['id'], 'node_id': check['node_id'], 'selector': check['target']['selector'], 'tolerance': tolerance,
            'node': None, 'metrics': None}
-    nodes = locate(view_xml, check['target']['selector'])
-    if len(nodes) != 1:
-        return {**row, 'status': 'INCOMPARABLE', 'reason': 'the selector matches ' + str(len(nodes)) + ' nodes; one is required'}, None
-    x1, y1, x2, y2 = nodes[0]
+    found = nodes(view_xml, check['target']['selector'])
+    if kind == 'node':
+        # Presence is the thing checked: a node that is not there is a difference, not a measurement that failed.
+        return {**row, 'node': {'bounds': list(found[0][0])} if len(found) == 1 else None, 'metrics': {'matches': len(found)},
+                'status': 'MATCH' if len(found) == 1 else 'MISMATCH'}, None
+    if len(found) != 1:
+        return {**row, 'status': 'INCOMPARABLE', 'reason': 'the selector matches ' + str(len(found)) + ' nodes; one is required'}, None
+    if kind == 'text':
+        shown = found[0][1].get('text', '')
+        return {**row, 'node': {'bounds': list(found[0][0])}, 'metrics': {'text': shown},
+                'status': 'MATCH' if shown == check['expect']['text'] else 'MISMATCH'}, None
+    Image, _, _ = _pillow()
+    bounds = found[0][0]
+    x1, y1, x2, y2 = bounds
     with Image.open(screenshot_path) as shot:
         shot.load()
         box = (max(0, x1), max(0, y1), min(shot.width, x2), min(shot.height, y2))
         if box[2] - box[0] < 1 or box[3] - box[1] < 1:
-            return {**row, 'node': {'bounds': list(nodes[0])}, 'status': 'INCOMPARABLE', 'reason': 'the node lies outside the screenshot'}, None
+            return {**row, 'node': {'bounds': list(bounds)}, 'status': 'INCOMPARABLE', 'reason': 'the node lies outside the screenshot'}, None
         crop = shot.convert('RGB').crop(box)
-    row['node'] = {'bounds': list(nodes[0]), 'crop_box': list(box)}
+    row['node'] = {'bounds': list(bounds), 'crop_box': list(box)}
     with Image.open(reference_path) as reference:
         reference.load()
         metrics, reason = measure(reference, crop, tolerance)

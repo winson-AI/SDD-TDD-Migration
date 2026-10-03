@@ -314,6 +314,18 @@ class WorkerTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'outside role capability'):
             self.run_worker('resource-plan', worker, dimension_analysis_ref=file_ref(path))
 
+    def test_a_spec_designer_derives_the_image_checks_of_a_module_with_their_references(self):
+        from PIL import Image
+        Image.new('RGBA', (72, 72), (0, 0, 0, 255)).save(self.f.legacy / 'app/src/main/res/drawable-xxhdpi/ic_back.png')
+        _, path = self.analysis()
+        derived = self.run_worker('screen-checks', {'role': 'spec-designer', 'instance_id': 'spec-1'}, dimension_analysis_ref=file_ref(path))
+        self.assertEqual((derived['status'], derived['checks'], derived['unrendered']), ('DERIVED', 1, []))
+        check = read_json(check_ref(derived['screen_checks_ref']))['checks']['UI-1'][0]
+        self.assertEqual((check['node_id'], check['source_resource'], check['target']), ('node:home.root', '@drawable/ic_back', {'selector': {'resource-id': 'home.root'}}))
+        self.assertEqual(read_json(check_ref(check['reference']['render_ref']))['producer'], 'sdd-reference-render')
+        with self.assertRaisesRegex(Rejected, 'outside role capability'):
+            self.run_worker('screen-checks', {'role': 'implementer', 'instance_id': 'worker-1'}, dimension_analysis_ref=file_ref(path))
+
     def test_the_plan_operation_reports_what_the_tree_still_omits(self):
         _, path = self.analysis(declared=False)
         planned = self.run_worker('resource-plan', {'role': 'spec-designer', 'instance_id': 'spec-1'}, dimension_analysis_ref=file_ref(path))

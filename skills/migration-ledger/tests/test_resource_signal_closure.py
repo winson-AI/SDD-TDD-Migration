@@ -23,6 +23,9 @@ class SignalClosureTests(unittest.TestCase):
         self.s = scope_fixtures.ResourceScopeTests('test_all_actual_indexed_resources_have_source_hashes')
         self.s.setUp(); self.addCleanup(self.s.doCleanups)
         self.n, self.f = self.s.n, self.s.f
+        # These tests are about what must be recorded and covered; what a screen shows of a picture has its own tests.
+        self.f.model['image_check_waivers'] = [{'reason': 'screen checks are exercised with the image checks',
+                                                'evidence_refs': [file_ref(self.n.write('evidence/waiver.json', {'reviewed': True}))]}]
 
     def write(self, name, text):
         return self.n.write('android/app/src/main/' + name, text)

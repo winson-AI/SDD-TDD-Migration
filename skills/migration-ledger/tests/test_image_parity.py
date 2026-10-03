@@ -62,6 +62,94 @@ def on_screen(icon, background=(255, 255, 255), padding=10, jpeg=75, tint=None):
     return canvas
 
 
+def photo(seed, size=(160, 120)):
+    """A picture that fills its frame: bands and blocks placed by `seed`, with no background to tell ink from."""
+    image = Image.new('RGB', size)
+    draw = ImageDraw.Draw(image)
+    for band in range(8):
+        shade = (37 * (band + seed) % 200) + 30
+        draw.rectangle([0, band * size[1] // 8, size[0], (band + 1) * size[1] // 8], fill=(shade, (shade * 2) % 255, 255 - shade))
+    for block in range(5):
+        x, y = (53 * (block + seed * 3)) % (size[0] - 40), (29 * (block * seed + 7)) % (size[1] - 30)
+        draw.ellipse([x, y, x + 40, y + 30], fill=((90 * block + seed * 40) % 255, 40 * block, 200))
+    return image
+
+
+def shown(image, size=None, crop=None, quality=70):
+    """The picture as a node shows it: scaled or centre-cropped, then compressed."""
+    if crop:
+        width, height = image.size
+        side = min(width, height)
+        image = image.crop(((width - side) // 2, (height - side) // 2, (width + side) // 2, (height + side) // 2))
+    if size:
+        image = image.resize(size, Image.Resampling.LANCZOS)
+    out = io.BytesIO()
+    image.save(out, 'JPEG', quality=quality)
+    out.seek(0)
+    again = Image.open(out)
+    again.load()
+    return again
+
+
+class ContentTests(unittest.TestCase):
+    def judge(self, reference, candidate, tolerance=None):
+        metrics, reason = ip.measure(reference, candidate, tolerance)
+        return (ip.verdict(metrics, tolerance) if metrics else 'INCOMPARABLE'), metrics, reason
+
+    def test_a_picture_that_fills_its_frame_is_compared_by_what_it_shows(self):
+        status, metrics, _ = self.judge(photo(1), shown(photo(1), (96, 72)))
+        self.assertEqual(status, 'MATCH')
+        self.assertGreater(metrics['content_similarity'], 0.95)
+        self.assertNotIn('shape_iou', metrics)  # there is no ink to outline
+
+    def test_another_picture_or_an_empty_slot_is_a_mismatch(self):
+        self.assertEqual(self.judge(photo(1), shown(photo(4), (96, 72)))[0], 'MISMATCH')
+        self.assertEqual(self.judge(photo(1), Image.new('RGB', (96, 72), (128, 128, 128)))[:2], ('MISMATCH', {'content_similarity': 0.0}))
+
+    def test_a_centre_cropped_picture_is_still_the_same_picture(self):
+        status, metrics, _ = self.judge(photo(2), shown(photo(2), (80, 80), crop=True))
+        self.assertEqual(status, 'MATCH')
+        self.assertGreater(metrics['content_similarity'], 0.9)
+
+    def test_the_check_may_ask_for_more_or_less_agreement(self):
+        mirrored = shown(photo(1).transpose(Image.Transpose.FLIP_LEFT_RIGHT), (96, 72))
+        self.assertEqual(self.judge(photo(1), mirrored)[0], 'MISMATCH')
+        self.assertEqual(self.judge(photo(1), mirrored, {'content_min': 0.5})[0], 'MATCH')
+        self.assertEqual(self.judge(photo(1), shown(photo(1), (96, 72)), {'content_min': 1.0})[0], 'MISMATCH')  # compression always costs a little
+        with self.assertRaisesRegex(ip.ParityError, 'content_min must be between'):
+            ip.thresholds({'content_min': 0.2})
+
+    def test_an_icon_on_a_plain_ground_is_still_compared_by_its_shape(self):
+        metrics, _ = ip.measure(on_screen(glyph('back', 48), jpeg=None).convert('RGBA'), on_screen(glyph('back', 60)))
+        self.assertIn('shape_iou', metrics)
+
+
+class KindTests(unittest.TestCase):
+    VIEW = ('<hierarchy><node class="Text" resource-id="title" text="Settings" bounds="[10,10][200,50]"/>'
+            '<node class="Row" resource-id="row" bounds="[0,60][300,100]"/><node class="Row" resource-id="row" bounds="[0,100][300,140]"/></hierarchy>')
+
+    def check(self, kind, key, **over):
+        return {'id': 'c1', 'kind': kind, 'node_id': 'node:home.' + key, 'target': {'selector': {'resource-id': key}}, **over}
+
+    def test_a_text_check_compares_the_text_the_node_shows(self):
+        row, crop = ip.evaluate(self.check('text', 'title', expect={'text': 'Settings'}), None, None, self.VIEW)
+        self.assertEqual((row['status'], row['metrics'], row['node'], crop), ('MATCH', {'text': 'Settings'}, {'bounds': [10, 10, 200, 50]}, None))
+        self.assertEqual(ip.evaluate(self.check('text', 'title', expect={'text': 'Preferences'}), None, None, self.VIEW)[0]['status'], 'MISMATCH')
+        missing = ip.evaluate(self.check('text', 'subtitle', expect={'text': 'x'}), None, None, self.VIEW)[0]
+        self.assertEqual((missing['status'], missing['reason']), ('INCOMPARABLE', 'the selector matches 0 nodes; one is required'))
+
+    def test_a_node_check_asks_that_exactly_one_such_node_is_there(self):
+        self.assertEqual(ip.evaluate(self.check('node', 'title'), None, None, self.VIEW)[0]['status'], 'MATCH')
+        gone = ip.evaluate(self.check('node', 'banner'), None, None, self.VIEW)[0]
+        self.assertEqual((gone['status'], gone['metrics']), ('MISMATCH', {'matches': 0}))  # a node that is not there is the finding
+        self.assertEqual(ip.evaluate(self.check('node', 'row'), None, None, self.VIEW)[0]['metrics'], {'matches': 2})
+
+    def test_nodes_are_found_with_their_attributes(self):
+        (bounds, attrs), = ip.nodes(self.VIEW, {'resource-id': 'title'})
+        self.assertEqual((bounds, attrs['text']), ((10, 10, 200, 50), 'Settings'))
+        self.assertEqual(ip.locate(self.VIEW, {'class': 'Row'}), [(0, 60, 300, 100), (0, 100, 300, 140)])
+
+
 class ToleranceTests(unittest.TestCase):
     def test_defaults_are_completed_and_bounds_are_hard(self):
         self.assertEqual(ip.thresholds(), ip.DEFAULTS)
