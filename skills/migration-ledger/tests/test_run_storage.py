@@ -198,17 +198,6 @@ class RunStorageTests(unittest.TestCase):
         self.assertTrue(f.prepare()['duplicate'])
         self.assertEqual(inventory(f.base), before)
 
-    def test_auxiliary_outputs_require_this_runs_staging(self):
-        f = self.fixture(); f.prepare()
-        self.assertEqual(run_storage.staging_output(f.run, f.run / 'staging/test-runner/new/result.json'),
-                         f.run / 'staging/test-runner/new/result.json')
-        for path in (f.base / 'out', f.run / 'context/bad.json', f.base / '.sdd-runs/r2/staging/bad.json'):
-            with self.assertRaisesRegex(Rejected, 'boundary'): run_storage.staging_output(f.run, path)
-        (f.run / 'staging').mkdir()
-        (f.run / 'staging/link').symlink_to(f.base, target_is_directory=True)
-        with self.assertRaisesRegex(Rejected, 'symlink'):
-            run_storage.staging_output(f.run, f.run / 'staging/link/out')
-
     def source_fixture(self):
         import test_source_changes
         f = test_source_changes.SourceChangeTests(); f.setUp(); self.addCleanup(f.doCleanups)

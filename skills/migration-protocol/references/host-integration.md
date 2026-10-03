@@ -60,6 +60,29 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 
 prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（每个拆分模块一条 static PATH，位于 build 与 automation 之间），仅 applicable UI 触发对应门禁；无 UI 不制造空视觉任务。仅自动化不可用继续按 Yellow/未执行收尾，独立任务与可用构建下游不受阻。
 
+## 命令通用约定
+
+适用于全部 `/sdd-*` 命令，命令文件只写各自的差异。
+
+1. 先读[四条红线](../../../AGENTS.md#四条红线)、[调用约定](../../../AGENTS.md#调用约定)和[轮询与派发](#提示采纳回报)，解析参数为绝对路径及规范 ID；协议其余部分按小节取（`reading.py show`），不整份加载。
+2. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
+3. 宿主把已授权身份绑定到 host-context，不能让请求内自报 role 获得权限；控制器不自动启动 Agent，不替宿主写目标代码。payload 与命令用法见[操作矩阵](local-runtime.md#操作矩阵)。
+4. 结束时输出已提交事件/当前状态/产物路径和下一动作。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
+
+参数：run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃逸。JSON 中占位符、未决必填值、零必需用例不能作为有效运行输入。status 可读取尚未完成的输入状态。
+
+硬约束：命令只解析、门控、提交/查询和派发；无业务代码、无状态双写；叶子不能私传结果；无有效批准不推断已冻结；所有门禁由对应守卫/权限校验再次验证。
+
+输出：
+
+```text
+✅ accepted | event=<id> | run=<run-id> | next=<账本动作>
+⚠️ blocked | reason=<门禁/依赖/人工> | evidence=<绝对路径或事件>
+❌ failed | reason=<实际错误> | recorded=<event-id或transport-unavailable>
+```
+
+自查：参数与前置有效；工具实际存在；没有越权写入；回执来源可信；恢复指令与 phase 一致。
+
 ## 提示采纳回报
 
 **轮询。** 宿主用 `ledger.py status --view cursor --since <上次 last_sequence>`：没有新事件时只返回 `unchanged` 与进度信号；否则返回游标、`module_summary` 和信号摘要，步骤只带 `card_sha256`，`cards` 只给各卡的字节数与小节数。派发或执行一步用 `--view step --module <id>`（全局步骤省略 `--module`）：本步、请求信封字段、本阶段预检要求（摘要、检查项、必读引用）、本模块分配包与当前 assignment，规划类步骤另带 planning_context。模块正文用 `--view module --module <id>`。`--view full`（全部模块正文、`openspec_binding`、`parent_mo_names`、信号证据、卡片行清单）随模块数增长，只供脚本处理，不读入模型上下文。输出是紧凑 JSON。
@@ -68,7 +91,7 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 **会话。** 恢复建议会话时只交尚未持有或正文已变的小节（`render --resumed`，游标的 `card_new` 给出其大小），冷启动用完整卡。任何模块请求可带顶层 `hint{session_id, card_sha256}` 报告所用会话与卡片（assign 也接受 payload 中的同名字段），与当前游标步骤一致时计入该会话已持有的小节。会话累计持有的协议文本达到阈值时，步骤带 `session_rotate`：建议按 checkpoint 冷启动该角色并交完整卡。门禁拒绝的响应与 `reports/rejected-operation.json` 带 `read_hint`（该门禁所在小节）。
 
-**机械步骤。** `mechanical=true`（全绿测试结果的 accept、执行派发的 assign）时宿主以 MO 身份直接提交，不调用模型：accept 只需 assignment_id；assign 用步骤的 payload（角色、test_scope，已有预检时含该实例与其 context_ref），再加宿主生成的 assignment_id，载荷未给实例时由宿主指定。派发后 worker 在同一会话内先 context-submit 再工作。被拒再交 MO。冻结的人工批准用 freeze 步骤的 `approval_subject_sha256`。
+**机械步骤。** `mechanical=true`（全绿测试结果的 accept、执行派发的 assign）不调用模型：`ledger.py advance --root <run> --module <id> --host-context <MO 身份>` 以 MO 身份依次提交该模块全部机械步骤，每步照常过守卫，停在需要模型或人的步骤并写出它的阅读卡；派发的实例默认 `<role>-<module>`，可用 `--worker <role>=<instance>` 指定，已有预检时沿用该实例。派发后 worker 在同一会话内先 context-submit 再工作。被拒再交 MO。人工批准绑定游标步骤的 `approval_subject_sha256`（冻结、恢复、审计放行与审计处置）。
 
 以上都是建议：Ledger 只记录是否一致（`status.hint_adoption`），不据此拒绝派发；持续 not_followed/unreported 应在接入层修正，而不是放宽门禁。
 

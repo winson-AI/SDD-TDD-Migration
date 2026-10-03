@@ -136,10 +136,6 @@ def validate_items(items):
         validate_item(item)
 
 
-def has_models(items):
-    return any(item.get('semantic_model') for item in items.values())
-
-
 def models_from_analysis(analysis, module_id=None):
     """Extract semantic-model rows straight from an archived dimension analysis."""
     rows = []

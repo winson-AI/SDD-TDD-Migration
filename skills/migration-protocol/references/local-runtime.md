@@ -22,6 +22,7 @@ python3 <package>/skills/migration-ledger/scripts/ledger.py apply --root <run> -
 python3 <package>/skills/migration-ledger/scripts/ledger.py status --root <run> [--view cursor|step|module|full] [--module <id>] [--since <sequence>]
 python3 <package>/skills/migration-ledger/scripts/ledger.py resume --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/ledger.py recover --root <run> --request <request.json> --host-context <principal.json>
+python3 <package>/skills/migration-ledger/scripts/ledger.py advance --root <run> --module <module-id> --host-context <mo-principal.json> [--worker <role>=<instance>]
 python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run> --scope module --module-id <module-id>
 ```
 
@@ -58,7 +59,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | decompose | 父 MO / 父 module_id | plan_ref（子功能 scope/context_refs/CASE/写范围/依赖提案）、context_ref；不抄写全局上下文与分配包，Ledger 绑定当前版本，接受时仍须一致 |
 | decompose-accept | Global / 父 module_id | review_ref；复核 MO 提案并原子登记子模块，父移入 module_groups |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
-| decision | host | decision_id、decision=approved、module_id、subject_sha256（模块冻结取 freeze 游标的 approval_subject_sha256）、human_source_ref；保存真实人类决定引用。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子 |
+| decision | host | decision_id、decision=approved、module_id、subject_sha256（取等待该决定的游标步骤的 approval_subject_sha256：冻结、恢复、审计放行、审计处置）、human_source_ref；保存真实人类决定引用。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子 |
 | global-plan | Global | plan_ref + review_ref；验收全部需求/用例归属，绑定当前 registry；新增模块后必须重审，通过前禁止实现派发 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
 | audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human |
@@ -146,7 +147,7 @@ recover 的批准 subject：
 digest({module_id, revision, recovery_cycle, additional_rounds})
 ```
 
-decision 为全局操作，不增加模块 revision，因此记录批准后 recover 可验证同一模块修订号。普通 resume 的 subject 为整个 blocked 对象摘要。恢复会话以 session 记录；冷恢复 checkpoint 包含 Ledger sequence、模块 revision、冻结引用、当前代码和 next_action，不依赖聊天摘要。
+decision 为全局操作，不增加模块 revision，因此记录批准后 recover 可验证同一模块修订号。普通 resume 的 subject 为整个 blocked 对象摘要（游标的 approval_subject_sha256）。恢复会话以 session 记录；冷恢复 checkpoint 包含 Ledger sequence、模块 revision、冻结引用、当前代码和 next_action，不依赖聊天摘要。
 
 recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时，保留 blocked、当前等待阶段及 resume_phase，继续展示原阻塞和恢复动作。human/tooling 仍须绑定该 blocked 摘要的单独 resume 决定；dependency 仍须依赖就绪和 GO 的 dependency-ready。预算批准不能同时充当解除阻塞的批准。无阻塞时保持原恢复行为：有 diagnosis 回到 diagnosing，否则回到 testing；不改变其他模块状态或测试颜色。
 

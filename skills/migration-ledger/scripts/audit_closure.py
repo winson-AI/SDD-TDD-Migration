@@ -436,6 +436,9 @@ def global_step(s):
         if decision: op = 'audit-release'
     if status == 'repairing' and all(completed(s,b,mid) for mid in pending_modules(b)) and all(
             not any(not a.get('closed') for a in m['assignments'].values()) for m in s['modules'].values()): op = 'audit-verdict'
-    return {'operation': op, 'role': 'global-orchestrator' if op in ('audit-route-batch', 'audit-release') else 'auditor',
+    step = {'operation': op, 'role': 'global-orchestrator' if op in ('audit-route-batch', 'audit-release') else 'auditor',
             'ready': bool(op), 'batch_id': b['batch_id'], 'payload': {'decision_id':decision['decision_id']} if decision else {}, 'human_finding_ids': list(b.get('human_issues', {})),
             'reason': None if op else 'human-review-required' if status == 'awaiting-human' else 'await-fixer-and-testing'}
+    if status == 'awaiting-human':
+        step['approval_subject_sha256'] = digest(b['human_report'])  # what the release approval binds
+    return step

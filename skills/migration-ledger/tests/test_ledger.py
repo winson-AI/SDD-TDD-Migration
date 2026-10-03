@@ -398,7 +398,9 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         self.call('suspend', {'kind': 'human', 'reason': 'need decision', 'root_cause': 'ambiguous input', 'owner': 'human'})
         with self.assertRaises(Rejected): self.call('resume')
         blocked = self.state()['modules']['M001']['blocked']
-        self.approve(digest(blocked), 'RESUME')
+        step = self.state()['next_steps'][0]  # the cursor names what the approval must bind
+        self.assertEqual((step['operation'], step['approval_subject_sha256']), ('resume', digest(blocked)))
+        self.approve(step['approval_subject_sha256'], 'RESUME')
         self.call('resume', {'decision_id': 'RESUME'})
         self.assertEqual(self.state()['modules']['M001']['phase'], 'context')
 

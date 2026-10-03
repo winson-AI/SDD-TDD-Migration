@@ -257,7 +257,6 @@
       }
     ]
   },
-  "behavior_contract_required": true,
   "scenario_trace": [
     {
       "scenario_id": "SCN-M001-001",

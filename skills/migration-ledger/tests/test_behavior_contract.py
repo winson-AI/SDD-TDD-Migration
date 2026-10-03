@@ -30,7 +30,7 @@ def contract_plan(f):
     for i, ref in enumerate(plan['definitions']):
         if ref['kind'] == 'spec':
             plan['definitions'][i] = {**f.ref('contract-spec.md', spec), 'kind': 'spec'}
-    plan['behavior_contract_required'] = True
+    plan['behavior_contract_required'] = True  # as the Ledger stores it; an author may leave it out
     plan['source_closure'].update(review(f, module))
     path = plan['paths'][0]
     path['kind'] = 'automation'
@@ -213,11 +213,15 @@ class BehaviorContractTests(unittest.TestCase):
         module['behavior_review'] = review(f, module)
         f.call('register', module, role='global-orchestrator', module=None)
         f.global_plan()
-        with self.assertRaisesRegex(Rejected, 'plan must declare the behavior contract'):
+        with self.assertRaisesRegex(Rejected, 'behavior review'):  # the run switches the contract on, for any plan
             f.call('plan', {'plan_ref': f.ref('bare-plan.json', f.plan())}, role='spec-designer')
         plan, _ = contract_plan(f)
+        with self.assertRaisesRegex(Rejected, 'cannot opt out'):
+            f.call('plan', {'plan_ref': f.ref('opt-out.json', {**plan, 'behavior_contract_required': False})}, role='spec-designer')
+        del plan['behavior_contract_required']  # the author does not declare what the run already requires
         f.call('plan', {'plan_ref': f.ref('new-plan.json', plan)}, role='spec-designer')
-        f.approve(digest(plan), 'D-contract'); f.call('freeze', {'decision_id': 'D-contract'})
+        self.assertIs(f.state()['modules']['M001']['plan']['behavior_contract_required'], True)
+        f.approve(f.state()['next_steps'][0]['approval_subject_sha256'], 'D-contract'); f.call('freeze', {'decision_id': 'D-contract'})
         self.assertEqual(len(f.state()['modules']['M001']['scenario_index']), 3)
         self.assertNotIn('scenario_index', f.state()['modules']['M001']['plan'])
 
