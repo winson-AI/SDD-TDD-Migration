@@ -98,6 +98,8 @@ class SourceChangeTests(unittest.TestCase):
                 ref.update(f.ref(f'defs-{mid}-{f.n}/spec.md', text))
         unit = next(path for path in p['paths'] if path['kind'] == 'unit')
         unit['expected_assertions'][0]['expected'] = True
+        for path in (next(x for x in p['paths'] if x['path_id'] == pid), unit):  # the designed assertions name their scenario
+            path['expected_assertions'][0]['scenario_ids'] = ['SCN-' + mid + '-normal']
         unit['unit_report'] = {'format': 'junit', 'patterns': ['reports/TEST-*.xml'], 'required_test_ids': ['ValueTest#integer']}
         unit['command']['argv'] = [sys.executable, '-c',
             'import os,runpy;from pathlib import Path;'
@@ -106,8 +108,7 @@ class SourceChangeTests(unittest.TestCase):
             'p=Path(os.environ["SDD_RUNNER_DIR"])/"reports/TEST-value.xml";p.parent.mkdir(parents=True);'
             'p.write_text(\'<testsuite><testcase classname="ValueTest" name="integer">\'+("" if ok else "<failure/>")+"</testcase></testsuite>");'
             'raise SystemExit(0 if ok else 1)']
-        p['scenario_trace'] = [{'scenario_id': 'SCN-' + mid + '-normal', 'task_ids': ['T1'],
-                                'assertions': [{'path_id': pid, 'assertion_id': 'A1'}, {'path_id': uid, 'assertion_id': 'UNIT-EXIT'}]}]
+        p['scenario_trace'] = [{'scenario_id': 'SCN-' + mid + '-normal', 'task_ids': ['T1']}]
         return p
 
     def freeze(self, mid):
@@ -117,10 +118,11 @@ class SourceChangeTests(unittest.TestCase):
             prepare_design(f, p, mid)
         f.call('plan', {'plan_ref': f.ref(f'plan-{mid}-{f.n}.json', p)}, role='spec-designer', module=mid)
         did = 'freeze-'+str(f.n)
-        f.call('decision', {'decision_id': did, 'module_id': mid, 'decision': 'approved', 'subject_sha256': digest(p),
+        f.call('decision', {'decision_id': did, 'module_id': mid, 'decision': 'approved',
+                           'subject_sha256': f.state()['modules'][mid]['plan_hash'],  # the plan as the Ledger completed it
                            'human_source_ref': f.ref(did+'.md', 'Approve exact plan')}, role='host', module=None)
         f.call('freeze', {'decision_id': did}, module=mid)
-        return p
+        return f.state()['modules'][mid]['plan']  # what was frozen: the plan as the Ledger completed it
 
     def report(self, affected=('M001', 'M002'), release=()):
         f = self.f; s = f.state()

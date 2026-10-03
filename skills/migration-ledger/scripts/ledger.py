@@ -522,6 +522,9 @@ def _next_step(s, m):
                         payload={'role': 'test-runner', 'mode': 'design'},
                         # What the design input cites instead of copying the context and the allocation.
                         input_subject_sha256=design_stage.subject(s, m))
+            if s.get('behavior_contract_required'):
+                step['design_input_needs'] = ('spec_refs: the leaf SPEC draft the Spec-Designer staged, with Requirement-ID and '
+                                              'Scenario-ID lines; have it staged before assigning the design')
         try:
             workflow.runtime_allocations(s, m['module_id'])
         except (Rejected, OSError) as exc:
@@ -956,6 +959,8 @@ def mutate(s, req, principal, events, root=None):
                 'the checklist is the package rubric the Ledger binds; omit it from definitions')
         if s.get('behavior_contract_required'):
             plan.setdefault('behavior_contract_required', True)  # the run requires it; the author need not declare it
+            import behavior_contract
+            behavior_contract.complete(plan)  # the designed assertions say which scenarios they verify
         design_stage.plan_check(s, m, plan, principal['instance_id'])
         if s.get('behavior_contract_required'):
             require(plan.get('behavior_contract_required') is True, 'plan cannot opt out of the behavior contract')
@@ -1416,6 +1421,8 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
             if Path(value['path']).suffix == '.json':
                 try:
                     nested_value = read_json(path)
+                except Rejected:
+                    raise  # a document that cites an id its refs table lacks is wrong, not merely not JSON
                 except ValueError:
                     nested_value = None
                 saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root, accepted=accepted))

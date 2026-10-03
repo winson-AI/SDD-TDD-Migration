@@ -29,6 +29,17 @@ def task_scope(task):
     return {k: task.get(k) for k in ('task_id', 'scope', 'requirement_ids', 'global_requirement_ids')}
 
 
+def spec_scenarios(m, specs):
+    """The scenarios the design's spec_refs define. Under the behavior contract they are the leaf's own SPEC draft: the
+    designer's assertions answer to its Scenario-IDs, and the plan must cite the very same files."""
+    import behavior_contract
+    try:
+        return behavior_contract.scenario_index({'module_id': m['module_id'], 'definitions': specs})
+    except Rejected as exc:
+        raise Rejected("design input spec_refs must be the leaf's own SPEC draft with Requirement-IDs and Scenario-IDs, staged by the "
+                       'Spec-Designer before the design is dispatched; a global spec or a context file is not one (' + str(exc) + ')') from None
+
+
 def input_check(s, m, ref):
     doc = read_json(check_ref(ref))
     require(doc.get('schema_version') == 1 and doc.get('module_id') == m['module_id'], 'design input module/schema mismatch')
@@ -53,6 +64,9 @@ def input_check(s, m, ref):
             require(Path(path).is_absolute() and any(Path(path).resolve().is_relative_to(Path(p).resolve())
                     for p in m['write_paths']), 'design task outside module write scope')
     require(covered == allowed, 'design tasks must cover assigned requirements exactly')
+    if s.get('behavior_contract_required'):
+        require({row['requirement_id'] for row in spec_scenarios(m, specs)} == {r for t in tasks.values() for r in t['requirement_ids']},
+                'design input SPEC requirements must match the requirements of its tasks')
     return doc
 
 
@@ -116,6 +130,9 @@ def result_check(s, m, a, result):
         require(not {'quality', 'executed', 'test_run_id', 'execution_receipt'}.intersection(path), 'design PATH cannot claim execution')
         for assertion in keyed(path.get('expected_assertions'), 'assertion_id').values():
             require('expected' in assertion and not {'actual', 'passed'}.intersection(assertion), 'design assertion must be an expectation only')
+    if s.get('behavior_contract_required'):
+        import behavior_contract
+        behavior_contract.check_design(spec_scenarios(m, doc['spec_refs']), result['paths'])
     if s.get('split_testing_required') or any(p.get('kind') == 'build' for p in paths.values()):
         import test_validation
         test_validation.plan_check({'paths': result['paths'], 'tasks': doc['tasks']}, s['target_root'],

@@ -141,6 +141,47 @@ def input_refs(s, mid, stage):
     return list({(ref['path'], ref['sha256']): ref for ref in refs}.values())
 
 
+def inputs(s, mid, stage):
+    """What a ready report of the stage is bound to: the mandatory inputs the Ledger derives, as a count and a digest.
+
+    An author never lists them back (nothing could prove it read them); the report goes stale when any of them changes."""
+    refs = input_refs(s, mid, stage)
+    return {'inputs_sha256': digest(sorted((ref['path'], ref['sha256']) for ref in refs)), 'input_count': len(refs)}
+
+
+def verify_inputs(s, mid, stage, deep=False):
+    """No ready report stands on drifted evidence: every mandatory input is as referenced and, with `deep`, so is
+    what its JSON cites. Nested live target code may legitimately drift; everything else may not."""
+    seen, root = set(), s.get('target_root')
+    def walk(value, nested):
+        if isinstance(value, dict):
+            if 'path' in value and 'sha256' in value:
+                if (value['path'], value['sha256']) in seen:
+                    return
+                seen.add((value['path'], value['sha256']))
+                try:
+                    path = check_ref(value)
+                except Rejected:
+                    if nested and root and Path(value['path']).resolve().is_relative_to(Path(root).resolve()):
+                        return
+                    raise
+                if deep and path.suffix == '.json':
+                    try:
+                        cited = read_json(path)
+                    except Rejected:
+                        raise
+                    except ValueError:  # not JSON after all
+                        cited = None
+                    walk(cited, True)
+                return
+            for item in value.values():
+                walk(item, nested)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item, nested)
+    walk(input_refs(s, mid, stage), False)
+
+
 def submit(s, req, actor):
     p, mid = req['payload'], req.get('module_id')
     report = read_json(check_ref(p.get('report_ref')))
@@ -174,17 +215,14 @@ def submit(s, req, actor):
     require(report.get('verdict') == ('blocked' if any(c['status'] == 'blocked' for c in checks.values()) else 'ready'),
             'context verdict disagrees with checks')
     if report['verdict'] == 'ready':
-        reads = report.get('read_refs', [])
-        require(all(ref in reads for ref in input_refs(s, mid, stage)), 'context mandatory input not acknowledged')
-        if report.get('draft_ref'):
-            require(report['draft_ref'] in reads, 'context draft not acknowledged')
-        if stage in ('building', 'testing', 'audit-testing'):
-            execution = report.get('execution', {})
-            argv = execution.get('argv')
-            require(isinstance(argv, list) and argv and all(isinstance(arg, str) for arg in argv)
-                    and Path(argv[0]).is_absolute(), 'context approved test argv required')
-            require(Path(execution.get('cwd', '')).is_absolute() and Path(execution['cwd']).is_dir(), 'context test cwd missing')
-            check_ref(execution.get('environment_ref'))
+        verify_inputs(s, mid, stage, deep=True)
+    if report['verdict'] == 'ready' and stage in ('building', 'testing', 'audit-testing'):
+        execution = report.get('execution', {})
+        argv = execution.get('argv')
+        require(isinstance(argv, list) and argv and all(isinstance(arg, str) for arg in argv)
+                and Path(argv[0]).is_absolute(), 'context approved test argv required')
+        require(Path(execution.get('cwd', '')).is_absolute() and Path(execution['cwd']).is_dir(), 'context test cwd missing')
+        check_ref(execution.get('environment_ref'))
     verify_refs(report)
     # Most recent receipt for this role instance wins; an old ready report cannot
     # bypass a newer missing-context report from the same instance.
@@ -192,7 +230,8 @@ def submit(s, req, actor):
     # The receipt is the hash-bound reference; the report itself stays in its file and archive.
     receipt = scope(s, mid).setdefault('context_receipts', {})[key] = {
         'report_ref': copy.deepcopy(p['report_ref']), 'stage': stage,
-        'producer': copy.deepcopy(report['producer']), 'verdict': report['verdict']}
+        'producer': copy.deepcopy(report['producer']), 'verdict': report['verdict'],
+        **({'inputs_sha256': inputs(s, mid, stage)['inputs_sha256']} if report['verdict'] == 'ready' else {})}
     return receipt
 
 
@@ -221,6 +260,10 @@ def validate(s, mid, stage, ref, instance=None, draft=None, allow_blocked=False)
     require(receipt and receipt['report_ref'] == ref, 'context receipt not submitted/current')
     require(report['subject_sha256'] == subject(s, mid, stage), 'context subject stale; re-read and resubmit')
     require(report['verdict'] == 'ready' or allow_blocked, 'context blocked; record suspension or resolve missing inputs')
+    if report['verdict'] == 'ready':
+        require(receipt.get('inputs_sha256') == inputs(s, mid, stage)['inputs_sha256'],
+                'context report is stale: its mandatory inputs changed; re-read them and report again')
+        verify_inputs(s, mid, stage)
     if draft:
         require(report.get('draft_ref') == draft, 'context report must bind the reviewed draft')
     verify_refs(report)
@@ -286,7 +329,7 @@ def requirements(s):
         stages = GLOBAL if mid is None else ('decomposition',) if s['modules'][mid].get('decomposition_required') else ('planning', 'test-design', 'coding', 'building', 'testing', 'fixing')
         result[mid or 'GLOBAL'] = {stage: {'subject_sha256': subject(s, mid, stage),
             'producer_role': ROLES[stage], 'required_checks': list(CHECKS[stage]),
-            'required_input_refs': input_refs(s, mid, stage)} for stage in sorted(stages)}
+            'required_input_refs': input_refs(s, mid, stage), **inputs(s, mid, stage)} for stage in sorted(stages)}
     return result
 
 

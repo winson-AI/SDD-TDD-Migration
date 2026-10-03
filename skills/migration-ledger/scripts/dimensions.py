@@ -181,7 +181,9 @@ def task_analyses(plan, module, items, traces):
             require(row.get('status') == ('applicable' if expected else 'not-applicable'),
                     'task N/A cannot discard allocated implementation')
             require(row.get('reason'), 'task dimension applicability rationale required')
-            evidence(row.get('evidence_refs'), 'task dimension evidence')
+            # The allocated analysis the plan binds is the evidence of every row; a row cites more only when it has more.
+            if row.get('evidence_refs') is not None:
+                evidence(row['evidence_refs'], 'task dimension evidence')
             if expected:
                 require(row.get('implementation'), 'task dimension needs concrete implementation guidance')
 
@@ -195,7 +197,8 @@ def verify(plan):
                     'frozen task dimension analysis missing; replan and refreeze')
             require(analysis.get('scope_sha256', digest(task.get('scope'))) == digest(task.get('scope')), 'frozen task scope changed')
             for row in analysis['dimensions']:
-                evidence(row.get('evidence_refs'), 'frozen task dimension evidence')
+                if row.get('evidence_refs') is not None:
+                    evidence(row['evidence_refs'], 'frozen task dimension evidence')
 
 
 def implementation(plan, result):

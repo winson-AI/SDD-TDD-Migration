@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 import test_ledger
 import test_audit_closure
@@ -44,7 +45,6 @@ class ContextReadinessTests(unittest.TestCase):
     def report(self, stage, module='M001', instance=None, draft=None, blocked=None):
         s = self.state()
         actor = {'role': cr.ROLES[stage], 'instance_id': instance or cr.ROLES[stage]}
-        refs = cr.input_refs(s, module, stage) + ([draft] if draft else [])
         proof = self.ref(f'context-evidence-{self.n}.md', 'Inspected fixture inputs, no external dependency; scope and fixture contract understood.')
         checks = {name: {'status': 'ready', 'summary': 'Reviewed ' + name + ' against fixture contract', 'evidence_refs': [proof]}
                   for name in cr.CHECKS[stage]}
@@ -53,7 +53,7 @@ class ContextReadinessTests(unittest.TestCase):
                                'missing': ['fixture credentials'], 'owner': 'host', 'next_action': 'provide fixture credentials'}
         result = {'schema_version': 1, 'run_id': s['run_id'], 'module_id': module, 'stage': stage,
                   'producer': actor, 'subject_sha256': cr.subject(s, module, stage),
-                  'checks': checks, 'read_refs': refs, 'verdict': 'blocked' if blocked else 'ready'}
+                  'checks': checks, 'verdict': 'blocked' if blocked else 'ready'}
         if draft:
             result['draft_ref'] = draft
         if stage in ('testing', 'audit-testing'):
@@ -140,7 +140,9 @@ class ContextReadinessTests(unittest.TestCase):
         view = ledger.status(self.root, 'step', 'M001')  # the worker finds what its report must contain
         self.assertEqual(view['request']['operation'], 'context-submit')
         self.assertEqual(view['context']['subject_sha256'], cr.subject(self.state(), 'M001', 'coding'))
-        self.assertTrue(view['context']['required_input_refs'])
+        self.assertNotIn('required_input_refs', view['context'])  # the Ledger derives the mandatory inputs
+        self.assertEqual(view['context']['inputs_sha256'], cr.inputs(self.state(), 'M001', 'coding')['inputs_sha256'])
+        self.assertGreater(view['context']['input_count'], 0)
         source = self.target / 'm1/code.py'; source.parent.mkdir(exist_ok=True); source.write_text('value = 2\n')
         from contracts import baseline, file_ref
         refs = [file_ref(source)]
@@ -206,11 +208,31 @@ class ContextReadinessTests(unittest.TestCase):
         self.implementation()
         self.assertEqual(self.state()['modules']['M001']['phase'], 'testing')
 
+    def test_a_ready_report_lists_no_inputs_and_is_bound_to_the_ones_the_ledger_derives(self):
+        self.prepare()
+        ref = self.record(self.report('coding'))
+        self.assertNotIn('read_refs', json.loads(Path(ref['path']).read_text()))  # nothing could prove it read them
+        s = self.state()
+        receipt = s['modules']['M001']['context_receipts']['coding:implementer']
+        self.assertEqual(receipt['inputs_sha256'], cr.inputs(s, 'M001', 'coding')['inputs_sha256'])
+        cr.validate(s, 'M001', 'coding', ref)
+        real, extra = cr.input_refs, self.ref('late-input.md', 'a mandatory input that appeared after the report')
+        with patch.object(cr, 'input_refs', side_effect=lambda *args: real(*args) + [extra]):
+            with self.assertRaisesRegex(Rejected, 'mandatory inputs changed'):  # the report no longer describes the inputs
+                cr.validate(s, 'M001', 'coding', ref)
+        Path(real(s, 'M001', 'coding')[0]['path']).write_text('an input edited after the report')
+        with self.assertRaisesRegex(Rejected, 'evidence hash mismatch'):
+            cr.validate(s, 'M001', 'coding', ref)
+
+    def test_a_blocked_report_binds_no_inputs(self):
+        self.prepare()
+        ref = self.record(self.report('coding', blocked='permissions-tools'))
+        s = self.state()
+        self.assertNotIn('inputs_sha256', s['modules']['M001']['context_receipts']['coding:implementer'])
+        cr.validate(s, 'M001', 'coding', ref, allow_blocked=True)
+
     def test_worker_identity_and_authoritative_inputs_are_required(self):
         self.prepare()
-        report = self.report('coding'); report['read_refs'] = []
-        with self.assertRaisesRegex(Rejected, 'mandatory input'):
-            self.record(report)
         ref = self.record(self.report('coding', instance='worker-A'))
         with self.assertRaisesRegex(Rejected, 'another worker'):
             self.raw('assign', {'assignment_id': 'I1', 'instance_id': 'worker-B', 'role': 'implementer', 'context_ref': ref})

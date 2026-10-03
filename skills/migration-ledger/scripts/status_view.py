@@ -42,6 +42,15 @@ def _slim(step, cards):
     return step
 
 
+def _body(module):
+    """A module without the bodies its plan_ref, plan_hash and scenario trace stand for; a plan alone runs to hundreds of KB."""
+    slim = {key: value for key, value in module.items() if key not in ('plan', 'scenario_index')}
+    plan = module.get('plan')
+    if isinstance(plan, dict):
+        slim['plan'] = {'tasks': [t.get('task_id') for t in plan.get('tasks', [])], 'paths': [p.get('path_id') for p in plan.get('paths', [])]}
+    return slim
+
+
 def _cursor(st, cards):
     out = {k: st[k] for k in CURSOR_KEYS if k in st}
     out['next_steps'] = [_slim(x, cards) for x in st['next_steps']]
@@ -75,7 +84,9 @@ def _step(st, module_id):
            'request': {'schema_version': 1, 'run_id': st['run_id'], 'module_id': module_id, 'expected_revision': revision,
                        'operation': operation}}
     if gate:  # one object says what the preflight report of this stage must contain and which reports exist
-        out['context'] = {**st['context_requirements'].get(module_id or 'GLOBAL', {}).get(gate['stage'], {}), **gate}
+        required = dict(st['context_requirements'].get(module_id or 'GLOBAL', {}).get(gate['stage'], {}))
+        required.pop('required_input_refs', None)  # the Ledger derives them; the step carries their count and digest
+        out['context'] = {**required, **gate}
     if module_id is not None:
         m = st['modules'].get(module_id) or st.get('module_groups', {}).get(module_id) or {}
         out['module_input'] = st['module_inputs'].get(module_id)
@@ -110,7 +121,7 @@ def select(st, view='full', module_id=None, since=None):
         if module_id not in st['modules'] and module_id not in st['module_inputs']:
             raise ValueError('unknown module for status view: ' + str(module_id))
         out['next_steps'] = [x for x in out['next_steps'] if x.get('module_id') == module_id]
-        out['module'] = st['modules'].get(module_id) or st.get('module_groups', {}).get(module_id)
+        out['module'] = _body(st['modules'].get(module_id) or st.get('module_groups', {}).get(module_id))
         out['module_input'] = st['module_inputs'].get(module_id)
         rounds = st['module_rounds']
         out['module_rounds'] = {'all_settled': rounds['all_settled'],

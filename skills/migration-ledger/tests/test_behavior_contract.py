@@ -37,13 +37,13 @@ def contract_plan(f):
     plan['source_closure'].update(review(f, module))
     path = plan['paths'][0]
     path['kind'] = 'automation'
-    path['expected_assertions'] = [{'assertion_id': name, 'expected': name} for name in ('success', 'empty', 'error')]
+    path['expected_assertions'] = [{'assertion_id': name, 'expected': name, 'scenario_ids': ['SCN-M001-' + name]}
+                                   for name in ('success', 'empty', 'error')]  # the designer says what each one verifies
     plan['paths'].append({'path_id': 'S1', 'name': 'scenario closure', 'kind': 'static', 'case_id': 'C1',
                           'requirement_id': 'R1', 'required': True,
                           'expected_assertions': [{'assertion_id': 'CLOSURE', 'expected': True}]})
     plan['tasks'][0]['path_ids'].append('S1')
-    plan['scenario_trace'] = [{'scenario_id': 'SCN-M001-' + name, 'task_ids': ['T1'],
-                               'assertions': [{'path_id': 'P1', 'assertion_id': name}]} for name in ('success', 'empty', 'error')]
+    plan['scenario_trace'] = [{'scenario_id': 'SCN-M001-' + name, 'task_ids': ['T1']} for name in ('success', 'empty', 'error')]
     return plan, module
 
 
@@ -72,14 +72,44 @@ class BehaviorContractTests(unittest.TestCase):
             (lambda p: p['scenario_trace'].pop(), 'every frozen Scenario'),
             (lambda p: p['paths'][-1].update(scenario_ids=['SCN-M001-empty']), 'omit scenario_ids'),
             (lambda p: p.update(scenario_index=[]), 'derived from the OpenSpec'),
-            (lambda p: p['scenario_trace'][0]['assertions'][0].update(assertion_id='missing'), 'unknown scenario assertion'),
+            (lambda p: p['scenario_trace'][0].update(assertions=[{'path_id': 'P1', 'assertion_id': 'missing'}]), 'differ from the assertions that name it'),
+            (lambda p: p['paths'][0]['expected_assertions'][0].pop('scenario_ids'), 'no assertion names scenario SCN-M001-success'),
+            (lambda p: p['paths'][0]['expected_assertions'][0].update(scenario_ids=['SCN-M001-nowhere']), 'scenarios the SPEC does not define'),
+            (lambda p: p['paths'][0]['expected_assertions'].append({'assertion_id': 'extra', 'expected': 1}), 'name no scenario'),
             (lambda p: p['source_closure'].update(unresolved=['source ambiguity']), 'unresolved'),
             (lambda p: p['source_closure'].pop('boundary_rationale'), 'boundary_rationale'),
-            (lambda p: p['scenario_trace'][0].update(assertions=[{'path_id': 'S1', 'assertion_id': 'CLOSURE'}]), 'build/static'),
+            (lambda p: p['paths'][-1]['expected_assertions'][0].update(scenario_ids=['SCN-M001-success']), 'build/static'),
         ):
             broken = copy.deepcopy(plan); mutation(broken)
             with self.subTest(error=error), self.assertRaisesRegex(Rejected, error):
                 validate_plan(broken, module)
+
+    def test_the_trace_takes_its_assertions_from_the_assertions_that_name_the_scenario(self):
+        f = self.f; plan, module = contract_plan(f)
+        self.assertNotIn('assertions', plan['scenario_trace'][0])  # its author writes the tasks only
+        completed = copy.deepcopy(plan); bc.complete(completed)
+        self.assertEqual(completed['scenario_trace'][1], {'scenario_id': 'SCN-M001-empty', 'task_ids': ['T1'],
+                                                          'assertions': [{'path_id': 'P1', 'assertion_id': 'empty'}]})
+        self.assertEqual(validate_plan(completed, module), digest(completed))  # the completed trace stands as stored
+        for row in plan['scenario_trace']:  # a row may still list them, as long as it lists exactly those
+            row['assertions'] = [{'path_id': 'P1', 'assertion_id': row['scenario_id'].split('-')[-1]}]
+        validate_plan(plan, module)
+
+    def test_a_design_answers_to_its_spec_scenario_by_scenario(self):
+        f = self.f; plan, _ = contract_plan(f)
+        rows = bc.index(plan); paths = copy.deepcopy(plan['paths'])
+        bc.check_design(rows, paths)
+        for change, message in (
+            (lambda p: p[0]['expected_assertions'][0].pop('scenario_ids'), 'needs scenario_ids'),
+            (lambda p: p[0]['expected_assertions'][0].update(scenario_ids=['SCN-M001-nowhere']), 'does not define'),
+            (lambda p: p[0]['expected_assertions'][0].update(scenario_ids=[]), 'needs scenario_ids'),
+            (lambda p: p[0].update(requirement_id='R2'), 'another requirement'),
+            (lambda p: p[0]['expected_assertions'].pop(), 'no design assertion verifies: SCN-M001-error'),
+            (lambda p: p[-1]['expected_assertions'][0].update(scenario_ids=['SCN-M001-error']), 'build/static'),
+        ):
+            broken = copy.deepcopy(paths); change(broken)
+            with self.subTest(message=message), self.assertRaisesRegex(Rejected, message):
+                bc.check_design(rows, broken)
 
     def test_spec_edit_changes_the_derived_index_and_the_plan_hash(self):
         f = self.f; plan, module = contract_plan(f)
