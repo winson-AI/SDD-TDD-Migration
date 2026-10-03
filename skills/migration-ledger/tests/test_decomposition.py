@@ -69,7 +69,7 @@ class DecompositionTests(unittest.TestCase):
 
     def complete_leaf(self, mid):
         test_audit_closure.ClosureTests.verify_module(self, mid, 'T-'+mid)
-        self.call('complete', {'dod_ref': self.ref('dod-'+mid+'.md', 'all paths verified'), 'checks_passed': True}, module=mid)
+        self.call('complete', {'dod_ref': self.ref('dod-'+mid+'.md', 'all paths verified')}, module=mid)
 
     def summarize(self, mid='M010'):
         group = self.state()['module_groups'][mid]
@@ -279,10 +279,10 @@ class DecompositionTests(unittest.TestCase):
         test_audit_closure.ClosureTests.route(self)
         test_audit_closure.ClosureTests.implement(self, 'M001', 'FIX', shared=2, fixer=True)
         test_audit_closure.ClosureTests.verify_module(self, 'M001', 'OWNER')
-        self.call('complete', {'dod_ref': self.ref('owner-dod.md', 'reviewed'), 'checks_passed': True})
+        self.call('complete', {'dod_ref': self.ref('owner-dod.md', 'reviewed')})
         self.call('audit-retest', module='M002')
         test_audit_closure.ClosureTests.verify_module(self, 'M002', 'SOURCE', consume=True)
-        self.call('complete', {'dod_ref': self.ref('source-dod.md', 'reviewed'), 'checks_passed': True}, module='M002')
+        self.call('complete', {'dod_ref': self.ref('source-dod.md', 'reviewed')}, module='M002')
         self.call('audit-verdict', {'review_ref': self.ref('verdict.md', 'verified')}, role='auditor', module=None)
         self.assertEqual(self.state()['global_next_step']['reason'], 'await-parent-summaries')
         self.summarize()

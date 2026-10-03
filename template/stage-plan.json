@@ -1,10 +1,6 @@
 {
   "schema_version": 1,
   "module_id": "M001",
-  "test_design_ref": {
-    "path": "{{absolute-run-root}}/staging/{{test-design-agent}}/{{revision}}/test-design-result.json",
-    "sha256": "{{sha256}}"
-  },
   "definitions": [
     {
       "kind": "proposal",
@@ -25,11 +21,6 @@
       "kind": "checklist",
       "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}"
-    },
-    {
-      "kind": "global-contract",
-      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
-      "sha256": "{{sha256}}"
     }
   ],
   "tasks": [
@@ -42,11 +33,6 @@
         "PATH-M001-001"
       ],
       "dimension_analysis": {
-        "scope_sha256": "{{contracts.digest(task.scope)-after-scope-definition}}",
-        "parent_ref": {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{dimension-analysis-path}}",
-          "sha256": "{{sha256}}"
-        },
         "unresolved": [
           "{{resolve-task-specific-implementation-questions}}"
         ],
@@ -130,14 +116,7 @@
       }
     ],
     "unresolved": [],
-    "scope_sha256": "{{contracts.digest(allocated-scope)}}",
     "boundary_rationale": "{{why-this-scope-is-a-complete-behavior; supporting-tasks-contribute-to-it}}",
-    "requirement_ids": [
-      "REQ-GLOBAL-001"
-    ],
-    "case_ids": [
-      "CASE-GLOBAL-001"
-    ],
     "shared_capabilities": []
   },
   "target_feasibility": {
@@ -162,7 +141,6 @@
       "provider-substitution"
     ]
   },
-  "freeze_checks_passed": false,
   "reuse_plan_ref": {
     "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{module-reuse-plan}}",
     "sha256": "{{sha256}}"

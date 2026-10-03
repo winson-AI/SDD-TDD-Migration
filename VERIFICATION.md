@@ -22,10 +22,10 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 |
 | --- | ---: |
-| migration-ledger/tests | 795 |
+| migration-ledger/tests | 798 |
 | migration-test/tests | 47 |
 | runtime/harmony/tests | 128 |
-| 合计 | **970** |
+| 合计 | **973** |
 
 全部无失败、无跳过。适配器夹具仍有既有 engine.log ResourceWarning，不影响断言。系统 python3 低于 3.11 时改用 Harmony sandbox 的解释器，并让它能导入已安装的 pytest；不为此安装依赖。
 
@@ -62,6 +62,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 预检随操作与机械步骤 | 执行者自己的预检报告随 plan/register/global-plan/decompose 等操作登记，他人的报告或跨角色阶段未先提交即拒绝；全绿测试结果的 accept 游标带 mechanical，代码结果与非全绿结果不带；执行派发（Implementer/Test-Runner/Fixer）在可派发时带 mechanical 与载荷（已有预检时含该实例及其报告），照此提交仍过全部派发守卫；设计派发与仍被 blocked 报告挡住的派发不带；`ledger.py advance` 以 MO 身份依次提交一个模块的全部机械步骤（默认实例 `<role>-<module>`，可指定），停在需要模型或人的步骤并写出其阅读卡，非 MO 身份或未知模块被拒；等待人工决定的步骤（冻结、恢复、审计放行、审计处置）都给出要绑定的 approval_subject_sha256 |
 | 派发后预检 | 执行派发不等预检：worker 派发后 context-submit，ready 报告绑定派发并授权开工（Fixer 此时才计一轮），其他实例的报告不绑定；未绑定时提交结果与执行测试都被拒；blocked 报告退回派发、不耗轮次，游标 reason=context-blocked，该实例仍 blocked 时再派发被拒；仅自动化环境缺失时退回后走 automation-unavailable；派发前已有的当前 ready 报告在派发时直接绑定；诊断接受可带派发，被挡时整体回滚；证据漂移时 ready 报告无法提交，工作不被授权；模拟中绿色叶子每个执行阶段只启动一次 worker，模型调用 16 → 10 次（编排者 5、worker 5），事件数不变 |
 | 上下文绑定 | 行为契约由运行状态写入 plan，作者可不声明、不能声明为 false；plan 与拆分提案不抄写全局上下文和分配包，Ledger 接受时在 plan 之外保存两者的摘要；全局上下文变化后冻结、派发与接受拆分被拒；来源追加时未受影响的模块沿用冻结 plan；设计输入引用游标给出的摘要，缺失或过期被拒 |
+| 作者可省略的推导值 | test_design_ref、行为审阅的范围摘要与需求/CASE、任务四维分析的范围摘要与 parent_ref、global-plan 的规范与架构引用、PATH required、冻结与完成的勾选标志省略时由 Ledger 补全或按分配核对，写错被拒；plan 不含 global-contract 定义也能冻结 |
 | 摘要命令 | `contracts.py ref/baseline/digest` 输出的文件引用、代码基线和 JSON 摘要与 Ledger 校验所用一致，缺失文件报错 |
 | 依赖/锁/身份 | 未完成生产者不放行；重叠写路径拒绝并行；revoke 后旧 worker 拒收；会话替换需 checkpoint |
 | 并行隔离 | 单模块失败/挂起不回写兄弟；全部 MO 收尾后才启动 Auditor |

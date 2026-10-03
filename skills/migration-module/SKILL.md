@@ -27,6 +27,6 @@ description: 模块状态机门禁、DoD、子任务验收与循环控制，用�
 所有转移符合状态表；冻结与完成清单分离；未解决问题都有 next_action；已用预算不会回退。
 
 ## 6. 配套资产
-使用 [主要模板](../../template/module-input.json)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+使用 [主要模板](../../template/status.md)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
 角色义务、调度/审计规则与专题入口以 [Agent 定义](../../Agents/module-orchestrator.md#专题义务) 和 [状态机](../migration-protocol/references/state-machine.md#module-orchestrator-唯一模块守卫) 为准；本技能只保留执行规约与检查，不重复专题细则。

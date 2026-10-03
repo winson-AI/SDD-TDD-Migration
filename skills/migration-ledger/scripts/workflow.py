@@ -300,7 +300,8 @@ def handle(s, req, actor, run_root=None):
         require(not audit_active(s), 'audit active')
         plan = read_json(check_ref(p.get('plan_ref')))
         check_ref(p.get('review_ref'))
-        require(plan.get('global_spec') == s['global_spec'] and plan.get('new_architecture') == s['new_architecture'], 'global inputs mismatch')
+        require(plan.get('global_spec', s['global_spec']) == s['global_spec'] and
+                plan.get('new_architecture', s['new_architecture']) == s['new_architecture'], 'global inputs mismatch')
         check_ref(s['global_spec']); check_ref(s['new_architecture'])
         requirements = plan.get('requirement_owners', {})
         cases = plan.get('case_owners', {})

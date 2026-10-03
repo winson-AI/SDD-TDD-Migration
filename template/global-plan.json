@@ -1,12 +1,4 @@
 {
-  "global_spec": {
-    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
-    "sha256": "{{sha256}}"
-  },
-  "new_architecture": {
-    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
-    "sha256": "{{sha256}}"
-  },
   "requirement_owners": {
     "REQ-GLOBAL-001": [
       "M001"

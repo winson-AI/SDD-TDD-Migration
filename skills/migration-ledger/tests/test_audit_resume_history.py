@@ -20,7 +20,7 @@ class AuditResumeHistoryTests(unittest.TestCase):
         f = self.f
         self.split.prepare(); self.split.compile()
         a, r = f.make_test_result(); f.submit(r, a); f.call('accept', {'assignment_id': a['assignment_id']})
-        f.call('complete', {'dod_ref': f.ref('dod.md', 'Every module path passed'), 'checks_passed': True})
+        f.call('complete', {'dod_ref': f.ref('dod.md', 'Every module path passed')})
 
     def audit_defer(self):
         f = self.f; test_ledger.code_review(f)

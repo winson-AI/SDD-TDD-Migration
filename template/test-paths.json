@@ -10,7 +10,6 @@
       "name": "目标模块编译构建",
       "case_id": "CASE-GLOBAL-001",
       "requirement_id": "REQ-M001-001",
-      "required": true,
       "expected_assertions": [
         {
           "assertion_id": "ASSERT-BUILD-M001-EXIT",
@@ -37,7 +36,6 @@
       "name": "逻辑聚焦单测",
       "case_id": "CASE-GLOBAL-001",
       "requirement_id": "REQ-M001-001",
-      "required": true,
       "expected_assertions": [
         {
           "assertion_id": "ASSERT-UNIT-M001-CLEAN",
@@ -74,7 +72,6 @@
       "name": "规格闭合静态审查",
       "case_id": "CASE-GLOBAL-001",
       "requirement_id": "REQ-M001-001",
-      "required": true,
       "expected_assertions": [
         {
           "assertion_id": "ASSERT-STATIC-M001-CLOSURE",
@@ -88,7 +85,6 @@
       "case_id": "CASE-GLOBAL-001",
       "requirement_id": "REQ-M001-001",
       "priority": "P0",
-      "required": true,
       "scope": "module",
       "preconditions": [
         "{{precondition}}"

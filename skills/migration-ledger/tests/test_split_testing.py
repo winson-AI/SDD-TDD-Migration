@@ -108,7 +108,7 @@ class SplitTestingTests(unittest.TestCase):
         self.assertEqual(f.state()['next_steps'][0]['test_scope'], 'automation')
         self.assertEqual(f.state()['modules']['M001']['phase'], 'testing')
         a, r = f.make_test_result(); f.submit(r, a); f.call('accept', {'assignment_id': a['assignment_id']})
-        f.call('complete', {'dod_ref': f.ref('dod.md', 'build and all cases passed'), 'checks_passed': True})
+        f.call('complete', {'dod_ref': f.ref('dod.md', 'build and all cases passed')})
         self.assertEqual(f.state()['modules']['M001']['quality'], 'green-passed')
         self.assertEqual(set(f.state()['modules']['M001']['results']), {'B1', 'P1'})
 
@@ -219,7 +219,7 @@ class SplitTestingTests(unittest.TestCase):
         self.assertEqual(m['phase'], 'dod')
         self.assertTrue(m['fix_memory'][0]['reusable'])
         self.assertTrue(m['results']['B1']['retest_of'])
-        f.call('complete', {'dod_ref': f.ref('dod.md', 'Rebuilt current code and verified all paths'), 'checks_passed': True})
+        f.call('complete', {'dod_ref': f.ref('dod.md', 'Rebuilt current code and verified all paths')})
         self.assertEqual(f.state()['modules']['M001']['quality'], 'green-passed')
 
     def test_build_repair_and_automation_share_one_local_round(self):
@@ -306,7 +306,7 @@ class SplitTestingTests(unittest.TestCase):
         self.assertEqual(s['global_next_step']['operation'], 'audit-code-review')
         test_ledger.code_review(f)
         with self.assertRaises(Rejected):
-            f.call('complete', {'dod_ref': f.ref('false-dod.md', 'not tested'), 'checks_passed': True})
+            f.call('complete', {'dod_ref': f.ref('false-dod.md', 'not tested')})
         report = f.record(f.report('audit-testing', module=None, instance='auditor', blocked='test-environment'))
         f.raw('audit-unavailable', {'context_ref': report}, role='auditor', module=None)
         s = f.state()
@@ -408,13 +408,13 @@ class SplitTestingTests(unittest.TestCase):
         self.assertEqual(build['quality'], 'green-passed')
         self.assertNotIn('module_retest_of', build)
         self.assertEqual(s['modules']['M001']['phase'], 'dod')
-        f.call('complete', {'dod_ref': f.ref('dod-final.md', 'Retained build and independent automation evidence'), 'checks_passed': True})
+        f.call('complete', {'dod_ref': f.ref('dod-final.md', 'Retained build and independent automation evidence')})
         self.assertEqual(f.state()['quality'], 'green-passed')
 
     def test_independent_auditor_can_verify_previously_unrun_module(self):
         f = self.run_final_audit()
         self.assertEqual(f.state()['modules']['M001']['phase'], 'dod')
-        f.call('complete', {'dod_ref': f.ref('audited-dod.md', 'Auditor verified every path'), 'checks_passed': True})
+        f.call('complete', {'dod_ref': f.ref('audited-dod.md', 'Auditor verified every path')})
         self.assertEqual(f.state()['quality'], 'green-passed')
 
     def test_final_audit_red_reopens_deferred_module_for_repair(self):

@@ -47,13 +47,13 @@ class GitCheckpointTests(unittest.TestCase):
         step = f.state()['next_steps'][0]
         self.assertEqual((step['operation'], step['role']), ('checkpoint', 'host'))
         with self.assertRaisesRegex(Rejected, 'git checkpoint'):
-            f.call('complete', {'dod_ref': f.ref('dod.md', 'reviewed'), 'checks_passed': True})
+            f.call('complete', {'dod_ref': f.ref('dod.md', 'reviewed')})
         receipt = self.checkpoint()
         f.call('checkpoint', {'receipt_ref': receipt}, role='host')
         committed = git(f.target, 'show', '--name-only', '--format=', 'HEAD').split()
         self.assertEqual(committed, ['m1/code.py'])
         self.assertIn('README.md', git(f.target, 'status', '--porcelain'))  # pre-existing dirt untouched
-        f.call('complete', {'dod_ref': f.ref('dod.md', 'reviewed'), 'checks_passed': True})
+        f.call('complete', {'dod_ref': f.ref('dod.md', 'reviewed')})
         self.assertEqual(f.state()['modules']['M001']['git_checkpoint']['commit'], git(f.target, 'rev-parse', 'HEAD'))
 
     def test_wrong_branch_is_refused(self):

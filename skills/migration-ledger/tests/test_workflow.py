@@ -162,7 +162,7 @@ class WorkflowTests(unittest.TestCase):
         a, result = self.make_test_result(); self.submit(result, a)
         self.call('accept', {'assignment_id': a['assignment_id']})
         decisions = copy.deepcopy(self.state()['decisions'])
-        payload = {'dod_ref': self.ref('green-dod.md', 'complete coverage reviewed'), 'checks_passed': True}
+        payload = {'dod_ref': self.ref('green-dod.md', 'complete coverage reviewed')}
         for other in ('auditor', 'global-orchestrator', 'test-runner'):
             with self.assertRaisesRegex(Rejected, 'principal role denied'):
                 self.call('complete', payload, role=other)
@@ -455,10 +455,10 @@ class WorkflowTests(unittest.TestCase):
         self.submit_problem(report)
         self.assertEqual(self.state()['modules']['M001']['phase'], 'waiting-auditor')
         self.call('audit-resume')
-        with self.assertRaises(Rejected): self.call('complete', {'checks_passed': True})
+        with self.assertRaises(Rejected): self.call('complete', {})
         a, r2 = self.make_test_result('TEST2', previous=r['paths'][0]['test_run_id'])
         self.submit(r2, a); self.call('accept', {'assignment_id': 'TEST2'})
-        self.call('complete', {'dod_ref': self.ref('dod.md', 'reviewed'), 'checks_passed': True})
+        self.call('complete', {'dod_ref': self.ref('dod.md', 'reviewed')})
         self.assertEqual(self.state()['quality'], 'yellow-blocked')
         self.assertEqual(self.state()['global_next_step']['operation'], 'audit-code-review')
 

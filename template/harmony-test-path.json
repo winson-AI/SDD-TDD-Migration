@@ -3,7 +3,6 @@
   "name": "{{readable-name}}",
   "case_id": "CASE-M001-001",
   "requirement_id": "REQ-M001-001",
-  "required": true,
   "scope": "module",
   "preconditions": ["{{approved-fixture-and-app-state}}"],
   "steps": ["{{action-1}}", "{{action-2}}"],

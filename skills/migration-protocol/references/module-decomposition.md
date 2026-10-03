@@ -42,7 +42,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 ## 3. 分配与登记门禁
 
-行为契约是必选门禁（prepare 固定 `behavior_contract_required=true`）：register/decompose 分别提交根/子模块的 behavior_review（字段见模板），scope hash/覆盖/证据完整、unresolved=[]。共享需 owner、消费者、集成责任；global-plan 按父子归属解析唯一叶子 owner，边界疑问交父级/GO/人工。
+行为契约是必选门禁（prepare 固定 `behavior_contract_required=true`）：register/decompose 分别提交根/子模块的 behavior_review（字段见模板）；审阅覆盖所附分配，Ledger 据分配核对，不抄写 scope 摘要与需求/CASE 列表；证据完整、unresolved=[]。共享需 owner、消费者、集成责任；global-plan 按父子归属解析唯一叶子 owner，边界疑问交父级/GO/人工。
 
 子 MO 的 source_closure 即其行为审阅，以 scenario_trace 覆盖任务。共享能力与复用目录使用同一 capability_id 时，目录的 provider owner 必须是行为审阅解析出的叶子 owner。子功能可验收，任务可单层；基础能力需消费者。
 

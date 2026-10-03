@@ -10,7 +10,7 @@
 
 1. **身份认证与 host-context 注入**:每次 `apply`/`init` 传入认证过的 `{"role":..,"instance_id":..}`;绝不能让请求体自报 role 获得权限,也不能让 worker 自选 host-context。
 2. **真实派发 Agent**:控制器只记录 assign 并在 `status.next_steps` 给出游标;宿主必须用自己的 task/spawn 工具,按 [Agents/*.md](../../../Agents/) 定义启动隔离实例,并把结果经 Ledger 回传。控制器不 spawn、不嵌套 slash command。
-3. **真实工作落地**:Implementer/Fixer 真写 `target_root` 源码;Test-Runner 经 [execute_test.py](../../migration-ledger/scripts/execute_test.py) 调项目真实构建/测试命令;Auditor 独立实例真实重跑。`code_files`/`checks_passed`/断言都由宿主真实产生,不能自填冒充。
+3. **真实工作落地**:Implementer/Fixer 真写 `target_root` 源码;Test-Runner 经 [execute_test.py](../../migration-ledger/scripts/execute_test.py) 调项目真实构建/测试命令;Auditor 独立实例真实重跑。`code_files`/断言都由宿主真实产生,不能自填冒充。
 
 这三件事无法从控制器内部强制(CLI 非安全边界);它们是本契约要求宿主自证的核心。
 
@@ -21,7 +21,7 @@
 | 命令 | 必须提交的 Ledger op(顺序) | 宿主真实工作 | 自证 |
 | --- | --- | --- | --- |
 | `/sdd-init` | `project_context.py prepare` → `ledger.py init`(payload 带 `project_context_ref`)→ `register`(拓扑序)→ `global-plan` | 认证 host;GO 生成功能清单/切片/覆盖;真实规范/架构/用例引用 | `status.openspec_binding.location==top-level`;`events.jsonl` 逐条增长;顶层 `openspec/runs/<run_id>/workflow.md` 出现 |
-| `/sdd-plan` | 树形先 decompose/accept；叶子 assign(mode=design)→submit→MO accept(review_ref)→Spec plan→MO freeze | 独立 Test-Runner 设计、Spec 六件套、真实人工冻结决定 | plan.test_design_ref 绑定设计；顶层 change/manifest 投影，freeze 绑定人工证据 |
+| `/sdd-plan` | 树形先 decompose/accept；叶子 assign(mode=design)→submit→MO accept(review_ref)→Spec plan→MO freeze | 独立 Test-Runner 设计、Spec 六件套、真实人工冻结决定 | Ledger 把已接受设计补进 plan；顶层 change/manifest 投影，freeze 绑定人工证据 |
 | `/sdd-run`、`/sdd-module` | `assign`/`context-submit`/`submit`/`accept`(implementer)→ 同序(test-runner:先 build 后 automation)→ 需要则 `diagnose`/`diagnosis-accept`/`assign(fixer)` → `complete`;父节点 `module-summary` | 派发各角色隔离实例;真写 target 代码;execute_test 跑真实命令;真实 diff/DoD 审查 | 每 assignment 有 submit+accept;`code_baseline` 与磁盘一致(否则 `observed_invalidations` 报警);`complete` 前全 PATH Green |
 | `/sdd-audit` | `audit-code-review` → `audit-collect` → `audit-plan` → `audit-route-batch` → `audit-work`/`audit-retest` → `audit-verdict`(→`audit-release`) | **独立** Auditor 实例(≠ 任何 implementer/fixer/test 作者)真实重跑;Fixer 按路由修复 | `authors` 独立性校验通过;audit 报告绑定当前 snapshot;`audit-reports/<batch>.md` 生成 |
 | `/sdd-archive` | 宿主 OpenSpec CLI 同步/归档(无 Ledger `archive` op) | 人工交付授权;代码合并另行授权 | `verify_openspec --scope final` 通过 + 原归档质量门禁;归档不等于合并 |

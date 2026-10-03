@@ -70,7 +70,7 @@ class ModuleIsolationTests(unittest.TestCase):
                           'result_ref': f.ref('peer-result.json', result)}, role='test-runner',
                instance='peer-tester', module='M002')
         f.call('accept', {'assignment_id': 'T2'}, module='M002')
-        f.call('complete', {'dod_ref': f.ref('peer-dod.md', 'full coverage verified'), 'checks_passed': True}, module='M002')
+        f.call('complete', {'dod_ref': f.ref('peer-dod.md', 'full coverage verified')}, module='M002')
 
     def test_red_fix_and_defer_do_not_cancel_running_peer(self):
         f = self.f
@@ -118,7 +118,7 @@ class ModuleIsolationTests(unittest.TestCase):
         self.assertIsNone(s['global_next_step']['operation'])
         self.assert_auditor_waits()
         test_audit_closure.ClosureTests.verify_module(f, 'M002', 'T2')
-        f.call('complete', {'dod_ref': f.ref('dod2.md', 'reviewed'), 'checks_passed': True}, module='M002')
+        f.call('complete', {'dod_ref': f.ref('dod2.md', 'reviewed')}, module='M002')
         self.assertEqual(f.state()['modules']['M002']['quality'], 'green-passed')
         self.assertTrue(f.state()['module_rounds']['all_settled'])
 
@@ -135,7 +135,7 @@ class ModuleIsolationTests(unittest.TestCase):
         f = self.f
         self.prepare_peers()
         test_audit_closure.ClosureTests.verify_module(f, 'M002', 'T2')
-        f.call('complete', {'dod_ref': f.ref('dod2.md', 'reviewed'), 'checks_passed': True}, module='M002')
+        f.call('complete', {'dod_ref': f.ref('dod2.md', 'reviewed')}, module='M002')
         peer = copy.deepcopy(f.state()['modules']['M002'])
         f.call('register', {'module_id': 'M003', 'case_ids': ['C1'], 'dependencies': [],
                            'write_paths': [str(f.target / 'm3')]}, role='global-orchestrator', module=None)

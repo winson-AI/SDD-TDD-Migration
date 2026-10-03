@@ -45,7 +45,7 @@
 - [ ] F-TRACE design/spec/tasks 的 item ID 与 dimension_trace 一致，TASK/PATH/ASSERT 完整，资源消费者与真实接线明确；证据：{{ref}}
 - [ ] D-DIM 全部适用条目实现证据齐全，资源实物及消费者已核验，正式测试/fidelity 通过；证据：{{dimension_evidence-and-test-results}}
 
-- [ ] F-TASK-SCOPE 先定义每项任务 scope，再完成 scope_sha256 绑定的四维分析；逐维 implementation 指导明确，N/A 留证，TASK/PATH/ASSERT 覆盖完整；证据：{{stage-plan}}
+- [ ] F-TASK-SCOPE 先定义每项任务 scope，再完成该 scope 的四维分析；逐维 implementation 指导明确，N/A 留证，TASK/PATH/ASSERT 覆盖完整；证据：{{stage-plan}}
 - [ ] D-TASK-SCOPE task_trace 文件属于对应任务 write_paths，实现符合冻结任务四维分析；证据：{{implementation-result}}
 
 ## 埋点适用性（不新增全局门禁）

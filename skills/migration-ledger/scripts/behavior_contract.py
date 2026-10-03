@@ -14,12 +14,14 @@ from contracts import check_ref, digest, keyed, nonempty, require
 
 def review(module, value):
     require(isinstance(value, dict), 'behavior_review required')
-    require(value.get('scope_sha256') == digest(module.get('scope')), 'behavior review scope mismatch')
+    # A review covers the allocation it is attached to; a scope digest or coverage list, when written, must match it.
+    scope = digest(module.get('scope'))
+    require(value.get('scope_sha256', scope) == scope, 'behavior review scope mismatch')
     for field in ('entry', 'observable_result', 'production_binding', 'boundary_rationale'):
         require(isinstance(value.get(field), str) and value[field].strip(), 'behavior review missing ' + field)
     for field, expected in (('requirement_ids', module.get('scope', {}).get('requirement_ids', [])),
                             ('case_ids', module.get('case_ids', []))):
-        values = nonempty(value.get(field), 'behavior review ' + field)
+        values = nonempty(value.get(field, expected), 'behavior review ' + field)
         require(len(set(values)) == len(values) and set(values) == set(expected), 'behavior review coverage: ' + field)
     require(value.get('unresolved') == [], 'unresolved behavior boundary; request parent/GO or human decision')
     for ref in nonempty(value.get('evidence_refs'), 'behavior review evidence'):
@@ -155,7 +157,7 @@ def validate_plan(plan, module):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Print the derived scenario_index for a staged plan; store it in that plan before approval.')
+    parser = argparse.ArgumentParser(description='Preview the scenario_index the Ledger derives from a staged plan; the plan does not carry it.')
     parser.add_argument('--plan', required=True)
     args = parser.parse_args()
     from contracts import read_json

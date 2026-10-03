@@ -72,7 +72,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | audit-code-review | Auditor | report_ref、context_ref（预检随本操作登记）；全部 MO 收尾后、audit-collect 前提交，字段与治理闭环见[代码治理](audit-code-review.md#ledger-接口) |
 | problem-audit | Auditor | report_ref；覆盖本次所有排队模块；有效代码独立 tests result，无法运行保留 Yellow；输出 retry/fix/change/wait/human 裁决 |
 | audit-resume | MO | 接受本模块问题审计裁决；human 需 decision_id；wait 保持队列；retry 回 testing，fix 授权一轮，change/human 回规划 |
-| plan | Spec-Designer | plan_ref、context_ref（planning 预检随本操作登记）；[stage-plan](../../../template/stage-plan.json)；test_design_ref 绑定已接受设计，其余由 Ledger 补全；不抄写全局上下文与分配包，Ledger 绑定当前版本并在冻结、派发时复核 |
+| plan | Spec-Designer | plan_ref、context_ref（planning 预检随本操作登记）；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围与 spec 由 Ledger 从已接受设计补全；不抄写全局上下文与分配包，Ledger 绑定当前版本并在冻结、派发时复核 |
 | freeze | MO | 初始/边界外变更 decision_id；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref（MO 对详细 tasks/PATH 的审阅），子 plan 的 decision_envelope 必须与信封条目完全一致，信封可被多个孩子使用并记录 used_by |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
 | assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；design 用 mode=design + design_input_ref，无执行 test_scope；可选 session_id/card_sha256；合法阶段且无活动 worker，返回 fencing_token。不等预检：worker 派发后 context-submit；该实例已有当前 ready 报告时直接绑定，当前 blocked 时拒绝派发。执行派发 `mechanical=true` 时宿主按步骤 payload 直接提交 |
@@ -89,16 +89,16 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | revoke | host | assignment_id、stopped_worker_ref；实际停止/隔离后才释放活动占用；旧 token 不再被接受 |
 | invalidate | MO/host | reason；旧 worker 必须先 revoke；重新进入 specifying，并使消费者及全局审计失效 |
 | checkpoint | host | receipt_ref（git_checkpoint.py 回执）；仅 git_checkpoint 开启且模块在 DoD 时，逐文件 blob 必须等于当前已接受代码，见 [模块 Git 检查点](engineering-disciplines.md#模块-git-检查点可选默认关闭) |
-| complete | MO | dod_ref、checks_passed=true；开启 git_checkpoint 时须已有当前 code_baseline 的检查点；当前模块全路径 Green、版本有效、依赖完成才可接受 |
+| complete | MO | dod_ref；开启 git_checkpoint 时须已有当前 code_baseline 的检查点；当前模块全路径 Green、版本有效、依赖完成才可接受 |
 | audit-assign | Global | assignment_id、instance_id；全部模块完成后固定快照；审计实例不能是任意实现/修复/测试作者实例 |
 | audit-route | Global | path_id、非空唯一 module_ids、reason_ref；给尚无负责模块的全局审计问题分配责任，不修改模块阶段 |
 | repair-accept | MO | 非空唯一 path_ids；接受分配给本模块的审计问题，在依赖就绪且无 worker/blocker 时从 completed/testing 重开 testing；保留原失败供诊断分流 |
 | audit-revoke | host | assignment_id、stopped_worker_ref；停止活动审计，保留已用次数，才能分配下一轮 |
 | audit | Auditor | report_ref；按 tests 提交 assignment.path_ids 的复核结果；空清单按 audit-review 提交独立审阅；均带 snapshot |
 
-`init` 的 case_ids/global_paths 来源于 global-input 的整体用例及 global_test_paths；Global 负责把其余规范/架构信息引用进每个 stage-plan，控制器不替模型拆分需求。global_paths 为可选项，缺失或 [] 都不阻止 Auditor。不同模块及全局 PATH ID 必须全局唯一。audit-assign 从遗留状态生成 path_ids，排除有效 Green；空清单只做独立审阅，详见 [审计范围协议](audit-scope.md#总则)。
+`init` 的 case_ids/global_paths 来源于 global-input 的整体用例及 global_test_paths；控制器不替模型拆分需求。global_paths 为可选项，缺失或 [] 都不阻止 Auditor。不同模块及全局 PATH ID 必须全局唯一。audit-assign 从遗留状态生成 path_ids，排除有效 Green；空清单只做独立审阅，详见 [审计范围协议](audit-scope.md#总则)。
 
-本地角色身份校验不自动完成业务审核：source_closure 是否真实完整、测试语义是否正确、envelope 是否被违反、DoD 内容是否成立均需对应独立角色审查。脚本校验的是工件与守卫条件，不能用布尔 `checks_passed` 替代人工/Agent 的实际审核过程。
+本地角色身份校验不自动完成业务审核：source_closure 是否真实完整、测试语义是否正确、envelope 是否被违反、DoD 内容是否成立均需对应独立角色审查。脚本校验的是工件与守卫条件，不能替代人工/Agent 的实际审核过程。
 
 ## 阶段结果
 

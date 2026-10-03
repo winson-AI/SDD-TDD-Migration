@@ -89,7 +89,7 @@ class ContextReadinessTests(unittest.TestCase):
         self.prepare(); self.implementation()
         a, result = self.make_test_result()
         self.submit(result, a); self.call('accept', {'assignment_id': a['assignment_id']})
-        self.call('complete', {'dod_ref': self.ref('dod.md', 'all paths complete'), 'checks_passed': True})
+        self.call('complete', {'dod_ref': self.ref('dod.md', 'all paths complete')})
 
     def verify_module(self, mid, aid, consume=False):
         self.test_argv = [sys.executable, str(self.base / f'adapter-{aid}.py')]

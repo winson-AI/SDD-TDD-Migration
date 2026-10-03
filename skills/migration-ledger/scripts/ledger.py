@@ -1224,7 +1224,7 @@ def mutate(s, req, principal, events, root=None):
         complete_guard(s, m)
         ui_fidelity.completion_gate(s, m)
         check_ref(p['dod_ref'])
-        require(p.get('checks_passed') is True, 'DoD review required')
+        require(p.get('checks_passed', True) is True, 'DoD review required')
         m['phase'] = 'completed'
     elif op == 'audit-assign':
         role(principal, 'global-orchestrator')

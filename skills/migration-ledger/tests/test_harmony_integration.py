@@ -48,7 +48,7 @@ sys.exit(0 if r['quality']=='green-passed' else 2)
     def test_receipt_stage_ledger_round_trip(self):
         r=self.run_adapter();a=self.f.state()['modules']['M001']['assignments']['H1']
         self.f.submit(r,a);self.f.call('accept',{'assignment_id':'H1'})
-        self.f.call('complete',{'dod_ref':self.f.ref('dod.md','all paths reviewed'),'checks_passed':True})
+        self.f.call('complete',{'dod_ref':self.f.ref('dod.md','all paths reviewed')})
         self.assertEqual(self.f.state()['modules']['M001']['quality'],'green-passed')
 
     def test_adapter_yellow_cannot_be_promoted(self):

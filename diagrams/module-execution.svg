@@ -111,7 +111,7 @@
 <rect x="1110" y="190" width="410" height="190" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1315.0" y="220.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">编码前阻塞</text>
 <text x="1315.0" y="254.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">缺输入 / 未决边界 / 目标不可行</text>
-<text x="1315.0" y="283.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">context-submit 留证 → 原节点验收</text>
+<text x="1315.0" y="283.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">派发后预检：就绪开工 / 阻塞退回</text>
 <text x="1315.0" y="312.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先澄清、恢复条件或明确挂起</text>
 <text x="1315.0" y="341.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">SPEC 未冻结不编码</text>
 <text x="1315.0" y="370.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">代码未接受不启动 Main</text>

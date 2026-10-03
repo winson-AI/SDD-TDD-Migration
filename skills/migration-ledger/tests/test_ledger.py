@@ -67,10 +67,10 @@ class FlowTests(unittest.TestCase):
     def plan(self):
         contents = {'spec': '## ADDED Requirements\n### Requirement: R1\nSystem SHALL return the result.\n#### Scenario: normal\nWHEN invoked THEN return result.\n', 'tasks': '- [ ] T1 implement R1\n', 'checklist': '- [ ] Review definitions\n'}
         definitions = [{**self.ref(f'defs/{k}.md', contents.get(k, k)), 'kind': k} for k in
-                       ('proposal', 'spec', 'design', 'tasks', 'checklist', 'test-design', 'global-contract')]
+                       ('proposal', 'spec', 'design', 'tasks', 'checklist', 'test-design')]
         evidence = self.ref('source.txt', 'entry -> repository -> production -> observable result')
         return {'schema_version': 1, 'module_id': 'M001', 'definitions': definitions,
-                'paths': [{'path_id': 'P1', 'name': 'normal', 'case_id': 'C1', 'requirement_id': 'R1', 'required': True,
+                'paths': [{'path_id': 'P1', 'name': 'normal', 'case_id': 'C1', 'requirement_id': 'R1',
                            'expected_assertions': [{'assertion_id': 'A1', 'expected': 2}]}],
                 'tasks': [{'task_id': 'T1', 'requirement_ids': ['R1'], 'path_ids': ['P1']}],
                 'source_closure': {'entry': 'entry', 'execution_chain': ['handler', 'repository'],
@@ -78,7 +78,7 @@ class FlowTests(unittest.TestCase):
                                    'evidence_refs': [evidence], 'unresolved': []},
                 'target_feasibility': {'verdict': 'ready', 'evidence_refs': [evidence]},
                 'decision_envelope': {'scope': ['feature'], 'acceptance': ['R1'], 'allowed_alternatives': [],
-                                      'forbidden_changes': ['reduce-scope']}, 'freeze_checks_passed': True}
+                                      'forbidden_changes': ['reduce-scope']}}
 
     def attach_reuse(self, plan):
         import reuse
@@ -97,10 +97,9 @@ class FlowTests(unittest.TestCase):
                           'verification': 'existing acceptance asserts R1'}]})
         return plan
 
-    def global_plan(self):
+    def global_plan(self, **extra):
         state = self.state()
-        plan = {'global_spec': state['global_spec'], 'new_architecture': state['new_architecture'],
-                'boundary_review': {'issues': []},
+        plan = {'boundary_review': {'issues': []},
                 'requirement_owners': {'R1': list(state['modules'])},
                 'case_owners': {'C1': list(state['modules']) + (['GLOBAL'] if state['global_paths'] else [])}}
         if state.get('context_readiness_required'):
@@ -113,6 +112,7 @@ class FlowTests(unittest.TestCase):
                 'coverage': {'status': 'complete', 'unclassified': [], 'unresolved_questions': []}, 'questions': []}
             plan['feature_inventory_ref'] = self.ref(f'feature-inventory-{self.n}.json', inventory)
             plan['feature_owners'] = {'F1': list(state['modules'])}
+        plan.update(extra)
         self.call('global-plan', {'plan_ref': self.ref(f'global-plan-{self.n}.json', plan), 'review_ref': self.ref('coverage.md', 'all covered')},
                   role='global-orchestrator', module=None)
 
@@ -204,7 +204,9 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         self.prepare(); self.implementation()
         a, result = self.make_test_result()
         self.submit(result, a); self.call('accept', {'assignment_id': a['assignment_id']})
-        self.call('complete', {'dod_ref': self.ref('dod.md', 'all reviewed'), 'checks_passed': True})
+        with self.assertRaisesRegex(Rejected, 'DoD review required'):  # a review cannot complete what it says failed
+            self.call('complete', {'dod_ref': self.ref('dod.md', 'all reviewed'), 'checks_passed': False})
+        self.call('complete', {'dod_ref': self.ref('dod.md', 'all reviewed')})
         self.assertEqual(self.state()['modules']['M001']['quality'], 'green-passed')
         self.assertEqual(self.state()['quality'], 'yellow-blocked')
         with self.assertRaises(Rejected):
@@ -295,7 +297,20 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
              'executed': False, 'quality': 'yellow-blocked', 'root_cause': {'category': 'source-only',
              'summary': 'no runtime proof', 'confidence': 'confirmed', 'owner': 'host', 'next_action': 'provide device'}}]}
         self.submit(r, a); self.call('accept', {'assignment_id': 'TEST1'})
-        with self.assertRaises(Rejected): self.call('complete', {'checks_passed': True})
+        with self.assertRaises(Rejected): self.call('complete', {})
+
+    def test_authors_omit_what_the_ledger_knows_but_cannot_contradict_it(self):
+        from contracts import validate_plan
+        m, plan = self.state()['modules']['M001'], self.plan()
+        validate_plan(plan, m)  # no global-contract, freeze_checks_passed or PATH required flag
+        for change, message in ((lambda p: p.update(freeze_checks_passed=False), 'freeze checklist incomplete'),
+                                (lambda p: p['paths'][0].update(required=False), 'only required paths')):
+            bad = copy.deepcopy(plan); change(bad)
+            with self.subTest(message=message), self.assertRaisesRegex(Rejected, message):
+                validate_plan(bad, m)
+        with self.assertRaisesRegex(Rejected, 'global inputs mismatch'):
+            self.global_plan(global_spec=self.ref('other-spec.md', 'another spec'))
+        self.global_plan()
 
     def test_overlap_and_unknown_dependency_rejected(self):
         with self.assertRaises(Rejected):
@@ -367,7 +382,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         self.prepare(); self.implementation()
         a, result = self.make_test_result()
         self.submit(result, a); self.call('accept', {'assignment_id': 'TEST1'})
-        self.call('complete', {'dod_ref': self.ref('dod.md', 'all reviewed'), 'checks_passed': True})
+        self.call('complete', {'dod_ref': self.ref('dod.md', 'all reviewed')})
         with self.assertRaises(Rejected): self.call('resume', module='M002')
         self.call('dependency-ready', role='global-orchestrator', module='M002')
         self.call('resume', module='M002')
@@ -451,7 +466,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         self.implementation(role='fixer', aid='FIX1')
         a2, r2 = self.make_test_result(aid='TEST2', previous=r['paths'][0]['test_run_id'])
         self.submit(r2, a2); self.call('accept', {'assignment_id': 'TEST2'})
-        self.call('complete', {'dod_ref': self.ref('dod-red.md', 'reviewed new code'), 'checks_passed': True})
+        self.call('complete', {'dod_ref': self.ref('dod-red.md', 'reviewed new code')})
         self.assertEqual(self.state()['modules']['M001']['quality'], 'green-passed')
 
     def test_false_green_actual_mismatch_rejected(self):
@@ -469,7 +484,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         self.prepare(); self.implementation()
         a, r = self.make_test_result()
         self.submit(r, a); self.call('accept', {'assignment_id': 'TEST1'})
-        self.call('complete', {'dod_ref': self.ref('cursor-dod.md', 'reviewed'), 'checks_passed': True})
+        self.call('complete', {'dod_ref': self.ref('cursor-dod.md', 'reviewed')})
 
     def test_cursor_returns_phase_owner_session_and_does_not_dispatch(self):
         first = self.state()
@@ -580,10 +595,10 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         self.call('resume', {'decision_id': 'RESUME'})
         self.assertEqual(self.state()['modules']['M001']['phase'], 'testing')
         with self.assertRaises(Rejected):
-            self.call('complete', {'dod_ref': self.ref('dod.md', 'reviewed'), 'checks_passed': True})
+            self.call('complete', {'dod_ref': self.ref('dod.md', 'reviewed')})
         a2, r2 = self.make_test_result('TEST2', previous=r['paths'][0]['test_run_id'])
         self.submit(r2, a2); self.call('accept', {'assignment_id': 'TEST2'})
-        self.call('complete', {'dod_ref': self.ref('dod.md', 'reviewed'), 'checks_passed': True})
+        self.call('complete', {'dod_ref': self.ref('dod.md', 'reviewed')})
 
     def test_invalidate_blocked_module_can_replan_and_submit(self):
         self.prepare()
@@ -684,7 +699,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         previous = self.state()['modules']['M001']['results']['P1']['test_run_id']
         a, r = self.make_test_result('TEST2', previous=previous)
         self.submit(r, a); self.call('accept', {'assignment_id': 'TEST2'})
-        self.call('complete', {'dod_ref': self.ref('dod2.md', 'reviewed'), 'checks_passed': True})
+        self.call('complete', {'dod_ref': self.ref('dod2.md', 'reviewed')})
         report2 = self.audit_report('AUD2')
         broken = copy.deepcopy(report2); broken['paths'][0].pop('retest_of')
         with self.assertRaises(Rejected):

@@ -79,6 +79,16 @@ class DesignStageTests(unittest.TestCase):
         f.submit(result, a); f.call('accept', {'assignment_id': a['assignment_id']})
         self.assertEqual(f.state()['modules']['M001']['phase'], 'dod')
 
+    def test_plan_omits_the_design_binding_the_ledger_holds(self):
+        f = self.f; plan = prepare_design(f, f.plan())
+        ref = plan.pop('test_design_ref')
+        with self.assertRaisesRegex(Rejected, 'plan must bind accepted test_design_ref'):
+            f.call('plan', {'plan_ref': f.ref('wrong-binding.json', {**plan, 'test_design_ref': f.ref('other.json', {})})}, role='spec-designer')
+        f.call('plan', {'plan_ref': f.ref('derived-binding.json', plan)}, role='spec-designer')
+        self.assertEqual(f.state()['modules']['M001']['plan']['test_design_ref'], ref)
+        f.approve(f.state()['next_steps'][0]['approval_subject_sha256'], 'D-derived'); f.call('freeze', {'decision_id': 'D-derived'})
+        self.assertEqual(f.state()['modules']['M001']['phase'], 'frozen')
+
     def test_design_assignment_cannot_execute_or_submit_execution(self):
         f = self.f; a, result = start_design(f, f.plan())
         with self.assertRaisesRegex(Rejected, 'test assignment required'):

@@ -11,7 +11,7 @@
   "design_ref": {"path": "{{absolute-run-root}}/staging/{{test-agent}}/{{revision}}/test-design.md", "sha256": "{{sha256}}"},
   "paths": [{
     "path_id": "PATH-M001-001", "kind": "automation", "name": "{{observable-behavior}}",
-    "case_id": "CASE-GLOBAL-001", "requirement_id": "REQ-M001-001", "required": true,
+    "case_id": "CASE-GLOBAL-001", "requirement_id": "REQ-M001-001",
     "query": {"path_id": "PATH-M001-001", "name": "{{observable-behavior}}", "case_id": "CASE-GLOBAL-001", "parameters": {}},
     "expected_assertions": [{"assertion_id": "ASSERT-M001-001", "expected": "{{observable-result}}"}]
   }]

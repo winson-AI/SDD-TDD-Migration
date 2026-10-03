@@ -147,8 +147,8 @@
 <text x="1375.0" y="975.0" font-size="21.23" fill="#4b5563" text-anchor="middle" font-weight="400">分配包 / 事件 / 状态 / 证据</text>
 <text x="1375.0" y="1004.0" font-size="21.25" fill="#4b5563" text-anchor="middle" font-weight="400">planning_context：全局视野</text>
 <text x="1375.0" y="1033.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">module_inputs：认领范围</text>
-<text x="1375.0" y="1062.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">context-submit：预检留证</text>
-<text x="1375.0" y="1091.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">原节点接受后才允许推进</text>
+<text x="1375.0" y="1062.0" font-size="21.46" fill="#4b5563" text-anchor="middle" font-weight="400">context-submit：派发后预检</text>
+<text x="1375.0" y="1091.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">就绪才开工，阻塞退回派发前</text>
 <text x="1375.0" y="1120.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">父聚合颜色不回写子模块</text>
 <rect x="1210" y="1230" width="330" height="230" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="1375.0" y="1280.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">宿主执行层</text>

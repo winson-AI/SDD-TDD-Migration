@@ -12,14 +12,14 @@ OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment
 ## 2. 输入 / 输出契约
 输入：模块范围、规范/架构、legacy 契约、用例、baseline/CR；single-module 的 SPEC 草案及 Testing list 由 Global 生成，不要求用户提供六件套。
 
-输出：六件套草稿、测试验收语义、决策问题、freeze manifest、影响分析与新 revision 提案。
+输出：六件套草稿、测试验收语义、决策问题、stage-plan、影响分析与新 revision 提案。
 
 ## 3. 执行步骤
 1. 读取关联契约及必要存量实现，明确保留、替换和删除行为；整理 legacy→target 映射及不在范围内容。
 2. 基于模板生成 proposal、capability delta specs、design、可执行 tasks、status 建议和 checklist 定义；status 正式值交 Ledger。
-3. 请求独立 Test-Runner 设计的事件由 MO 以 mode=design 派发；消费 MO 已接受的结果，plan.test_design_ref 绑定同版，definitions 引用其 design_ref；核验需求→CASE→PATH，规格/任务范围/预期不得私改。见 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接)。
+3. 请求独立 Test-Runner 设计的事件由 MO 以 mode=design 派发；消费 MO 已接受的结果（Ledger 把同版 test_design_ref 与 design_ref 补进 plan）；核验需求→CASE→PATH，规格/任务范围/预期不得私改。见 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接)。
 4. 在 plan 阶段逐项整理阻断问题，通过 Escalation 收回 Human 决策；记录默认选项与实际答复，不假定沉默同意。
-5. 生成冻结 manifest 交 MO 审核；遇 CR 做影响分析、生成修订，不直接解锁编码。
+5. 提交 stage-plan 交 MO 审核；遇 CR 做影响分析、生成修订，不直接解锁编码。
 
 ## 4. 规则优先级
 见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
@@ -51,7 +51,7 @@ OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment
 | 上下文就绪 | planning 报告随 plan 提交并绑定同一 plan_ref（全局/父/子范围、source_closure、target_feasibility、接口、测试设计、复用映射），MO freeze 再验 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
 | 测试路径 | 冻结 build/unit 命令与 unit_report、一条 static 及 automation PATH；Logic 不适用单测写 unit_test_na 依据。SPEC 派生 Scenario 索引，任务/断言全覆盖；缺设备不删路径或阻止冻结 | [逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
 | 复用与 fidelity | 按源行为核验等价/差异，不按 API 名；proposal 策略、design 提供方/版本/DI/边界、tasks 接入/缺口；reuse_plan_ref 逐需求覆盖 capability/decision/task/PATH/fidelity。改 provider 声明 owner、交付版本与消费者复测 | [复用](../skills/migration-protocol/references/reuse-dependencies.md#5-需求映射与-openspec)、[来源变更](../skills/migration-protocol/references/source-changes.md#4-子-mo规划编码与验证) |
-| 四维 | 协助子 MO 先划 tasks.scope，再逐任务做 UI → Logic → Adhesive → Resource 分析并绑定 scope_sha256；item 与实现指导写入 design/spec/tasks，生成完整 dimension_trace，N/A 要依据，未决项禁止冻结 | [四维](../skills/migration-protocol/references/dimension-slicing.md#7-任务级四维分析契约) |
+| 四维 | 协助子 MO 先划 tasks.scope，再逐任务就该 scope 做 UI → Logic → Adhesive → Resource 分析；item 与实现指导写入 design/spec/tasks，生成完整 dimension_trace，N/A 要依据，未决项禁止冻结 | [四维](../skills/migration-protocol/references/dimension-slicing.md#7-任务级四维分析契约) |
 | UI 与资源 | analyze-ui/validate-ui 形成 UI 树/page/state/coverage/资源闭包，不加载整套迁移技能或改目标；runtime 目标各一条 visual PATH，冻结交互 id/action/from/expected，source-only 用 automation；loading/skeleton 仅稳定时 capture。逐源资源/qualifier 核对 kind/单位/nine-patch，填 source_resource_ref/kind/strategy，排除仅 resource_scope.exclusions；无截图不伪造 runtime，过期索引重新抽取 | [领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md#ui-证据绑定)、[状态测试表](../template/ui-state-test-design.md) |
 | 埋点 | 已审核的源事件/参数/触发与禁止条件/生产接线/验收层级写入 SPEC/design/tasks；无埋点记有据 N/A、events=[] | [埋点](../skills/migration-protocol/references/telemetry.md#总则) |
 | 知识与依赖 | knowledge-query 按实际触发；Foundation 需求用 foundation-resolve，开关开启时绑定 plan.dependency_resolution_ref，不适用用显式 not-required 产物 | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |

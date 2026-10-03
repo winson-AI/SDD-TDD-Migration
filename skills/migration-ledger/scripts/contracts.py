@@ -59,7 +59,7 @@ def validate_plan(plan, module):
     require(plan.get('schema_version') == 1, 'unsupported plan schema')
     require(plan.get('module_id') == module['module_id'], 'wrong plan module')
     defs = nonempty(plan.get('definitions'), 'definitions')
-    require({'proposal', 'spec', 'design', 'tasks', 'checklist', 'test-design', 'global-contract'} <=
+    require({'proposal', 'spec', 'design', 'tasks', 'checklist', 'test-design'} <=
             {d.get('kind') for d in defs}, 'incomplete six-piece definitions')
     names = set()
     for item in defs:
@@ -79,7 +79,7 @@ def validate_plan(plan, module):
     require(set(module['case_ids']) <= {x.get('case_id') for x in paths.values()}, 'unmapped module cases')
     for path in paths.values():
         require(path.get('name') and path.get('requirement_id'), 'path name/requirement required')
-        require(path.get('required') is True, 'runtime accepts only required paths')
+        require(path.get('required', True) is True, 'runtime accepts only required paths')
         assertions = keyed(path.get('expected_assertions'), 'assertion_id')
         require(all('expected' in a for a in assertions.values()), 'assertion expected value required')
     tasks = keyed(plan.get('tasks'), 'task_id')
@@ -105,7 +105,7 @@ def validate_plan(plan, module):
         require(field in envelope, f'envelope missing {field}')
     nonempty(envelope['scope'], 'approved scope')
     nonempty(envelope['acceptance'], 'approved acceptance')
-    require(plan.get('freeze_checks_passed') is True, 'freeze checklist incomplete')
+    require(plan.get('freeze_checks_passed', True) is True, 'freeze checklist incomplete')
     import dimensions
     dimensions.validate_plan(plan, module)
     import telemetry

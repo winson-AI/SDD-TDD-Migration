@@ -22,9 +22,9 @@ TYPICAL_BUDGET = 34_000
 # A session holding this much protocol text is better restarted from its checkpoint than fed more; advisory.
 ROTATE_BUDGET = 100_000
 # Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
-TEMPLATE_BUDGET = 26_000
+TEMPLATE_BUDGET = 25_000
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 543_200
+PROTOCOL_BUDGET = 537_000
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -398,8 +398,8 @@ TEMPLATES = {
     'test-runner': {'base': ['stage-result.json', 'test-result.json', 'context-readiness.json']},
 }
 # Module-orchestrator templates by operation; an operation outside the table only updates the module status.
-MO_TEMPLATES = {'freeze': ['freeze.json', 'checklist.md', 'change-impact.json', 'batch-envelope.json'],
-                'change': ['freeze.json', 'change-impact.json'], 'complete': ['checklist.md', 'status.md'],
+MO_TEMPLATES = {'freeze': ['checklist.md', 'change-impact.json', 'batch-envelope.json'],
+                'change': ['change-impact.json'], 'complete': ['checklist.md', 'status.md'],
                 'decompose': ['module-decomposition.json', 'dimension-analysis.json', 'batch-envelope.json'],
                 'module-summary': ['status.md'], 'suspend': ['implementation-gap.json', 'status.md'],
                 'assign': ['test-design-input.json'], 'accept': ['status.md'], 'diagnosis-accept': ['status.md']}

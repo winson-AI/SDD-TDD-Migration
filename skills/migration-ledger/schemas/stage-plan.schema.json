@@ -8,8 +8,7 @@
     "tasks",
     "source_closure",
     "target_feasibility",
-    "decision_envelope",
-    "freeze_checks_passed"
+    "decision_envelope"
   ],
   "properties": {
     "schema_version": {
@@ -19,7 +18,7 @@
       "type": "string"
     },
     "test_design_ref": {
-      "description": "Accepted test-design result; required by prepared runs and leaves opted into design mode. Ledger rechecks input, author, tasks, SPEC and expected PATHs.",
+      "description": "Accepted test-design result; the Ledger fills it from the accepted design and, if present, it must equal that result. Ledger rechecks input, author, tasks, SPEC and expected PATHs.",
       "type": "object",
       "required": [
         "path",
@@ -38,7 +37,7 @@
     },
     "definitions": {
       "type": "array",
-      "minItems": 5,
+      "minItems": 4,
       "items": {
         "type": "object",
         "required": [
@@ -56,7 +55,7 @@
           }
         }
       },
-      "description": "proposal, design, tasks, checklist and global-contract; the Ledger adds spec and test-design from the accepted design"
+      "description": "proposal, design, tasks and checklist; the Ledger adds spec and test-design from the accepted design"
     },
     "paths": {
       "type": "array",
@@ -81,9 +80,6 @@
         "allowed_alternatives",
         "forbidden_changes"
       ]
-    },
-    "freeze_checks_passed": {
-      "const": true
     },
     "dimension_analysis_ref": {
       "type": "object",
@@ -155,16 +151,10 @@
                 "dimension_analysis": {
                   "type": "object",
                   "required": [
-                    "scope_sha256",
-                    "parent_ref",
                     "dimensions",
                     "unresolved"
                   ],
                   "properties": {
-                    "scope_sha256": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{64}$"
-                    },
                     "dimensions": {
                       "type": "array",
                       "minItems": 4,
@@ -206,10 +196,7 @@
         "properties": {
           "source_closure": {
             "required": [
-              "scope_sha256",
               "boundary_rationale",
-              "requirement_ids",
-              "case_ids",
               "shared_capabilities"
             ]
           }

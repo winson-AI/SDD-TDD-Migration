@@ -20,7 +20,7 @@ description: /sdd-plan <run-id> <module-id> — 生成六件套并完成 plan �
 
 ## 本地实现接入
 
-MO assign(mode=design, design_input_ref) → 独立 Test-Runner submit（附预检）→ MO accept(review_ref) → Spec plan(test_design_ref) → host decision → MO freeze。见 [编码前交接](../skills/migration-protocol/references/testing.md#编码前设计交接)和[操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。
+MO assign(mode=design, design_input_ref) → 独立 Test-Runner submit（附预检）→ MO accept(review_ref) → Spec plan → host decision → MO freeze。见 [编码前交接](../skills/migration-protocol/references/testing.md#编码前设计交接)和[操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。
 
 规划按三层分工推进：GO 分配模块 scope/context；父 MO 认领后拆子模块 scope/context；子 MO 拆 tasks 并组织正式六件套。父 decompose、子 plan 不抄写全局上下文与分配包：步骤视图给出 planning_context 与 module_input，Ledger 接受时绑定其当前版本；保留全局可读视野，执行限于分配范围。
 
