@@ -22,9 +22,9 @@ TYPICAL_BUDGET = 34_000
 # A session holding this much protocol text is better restarted from its checkpoint than fed more; advisory.
 ROTATE_BUDGET = 100_000
 # Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
-TEMPLATE_BUDGET = 25_000
+TEMPLATE_BUDGET = 20_000
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 537_000
+PROTOCOL_BUDGET = 536_800
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -387,7 +387,7 @@ TEMPLATES = {
                                      'module-slicing.json', 'context-readiness.json'],
                             'audit': ['migration-report.md'], 'source': ['source-impact.json']},
     'module-orchestrator': {'base': ['status.md'], 'audit': ['status.md']},
-    'spec-designer': {'base': ['stage-plan.json', 'proposal.md', 'spec.md', 'design.md', 'tasks.md', 'checklist.md',
+    'spec-designer': {'base': ['stage-plan.json', 'proposal.md', 'spec.md', 'design.md', 'tasks.md',
                                'change-impact.json', 'context-readiness.json']},
     'implementer': {'base': ['implementation.md', 'context-readiness.json']},
     'fixer': {'base': ['implementation.md', 'fix-note.json', 'change-request.md', 'context-readiness.json']},

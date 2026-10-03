@@ -37,7 +37,7 @@
     },
     "definitions": {
       "type": "array",
-      "minItems": 4,
+      "minItems": 3,
       "items": {
         "type": "object",
         "required": [
@@ -55,7 +55,7 @@
           }
         }
       },
-      "description": "proposal, design, tasks and checklist; the Ledger adds spec and test-design from the accepted design"
+      "description": "proposal, design and tasks; the Ledger adds spec and test-design from the accepted design and binds the package checklist rubric beside the plan"
     },
     "paths": {
       "type": "array",

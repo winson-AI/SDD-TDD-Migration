@@ -11,7 +11,7 @@ description: 整体代码审查、重构/复用治理委派、独立遗留复核
 ## 2. 核心规约
 等待所有 MO 实现/测试本轮收尾及父汇总，先按 [整体代码治理](../migration-protocol/references/audit-code-review.md#顺序与职责) 提交 audit-code-review，核对所有代码改动、冗余、二方库依赖与公共通用能力；委派治理并完成影响范围回归、刷新审查后，再从 Ledger 收集剩余 Red/Yellow。读取对应 SPEC/CASE/PATH/根因，复核并委派必要的一轮 Fixer，修复后 Testing 复核；失败留根因待人工。作者与审计实例分离。
 
-**遍历全部模块不等于重跑全部用例。** 有效且不受影响的 Green 保留证据；global_test_paths 可为空，绝不能阻止审计。执行选择、空清单独立审阅必须遵守 [审计范围协议](../migration-protocol/references/audit-scope.md#总则)。
+**遍历全部模块不等于重跑全部用例。** 有效且不受影响的 Green 保留证据；global_paths 可为空，绝不能阻止审计。执行选择、空清单独立审阅必须遵守 [审计范围协议](../migration-protocol/references/audit-scope.md#总则)。
 
 所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
 

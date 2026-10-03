@@ -44,7 +44,7 @@ mode: subagent
 
 调度：按 global_next_step/next_steps 选取动作，ready_modules 不是锁预约；依赖解除须重新核验生产者文件基线，不只看 completed 标签。全量证据检查只在 global-plan 接受时做，运行期只校验当前模块、父级与实际依赖；持续消费 workflow_progress，处理 allocation-review-required 与人工信号并继续独立 ready 模块。宿主负责实际启动/恢复 subagent 与其 Used Skills。
 
-审计：已交 Auditor 模块的依赖闭包与消费者空闲时，按游标发起 problem-assign 提前审计该闭包；全部 MO 收尾且父汇总有效后，先调度 Auditor `audit-code-review`（全 Green 也必需），再 audit-collect 收集剩余 Red/Yellow；不能因暂时无 worker 提前全量审计，待澄清须明确 suspend。审核 finding→owner 路由与依赖图（多 owner、受影响中间模块、独立人工分支）；失败批次凭 human_report 批准 audit-release；活动审计不得覆盖 audit_assignment，中断先由宿主 audit-revoke 留停止证据。audit-assign 只派发遗留路径，global_test_paths 可为空，无遗留只独立审阅。
+审计：已交 Auditor 模块的依赖闭包与消费者空闲时，按游标发起 problem-assign 提前审计该闭包；全部 MO 收尾且父汇总有效后，先调度 Auditor `audit-code-review`（全 Green 也必需），再 audit-collect 收集剩余 Red/Yellow；不能因暂时无 worker 提前全量审计，待澄清须明确 suspend。审核 finding→owner 路由与依赖图（多 owner、受影响中间模块、独立人工分支）；失败批次凭 human_report 批准 audit-release；活动审计不得覆盖 audit_assignment，中断先由宿主 audit-revoke 留停止证据。audit-assign 只派发遗留路径，global_paths 可为空，无遗留只独立审阅。
 
 项目上下文：只读 prepare 固化的本轮快照生成 SPEC/Testing list 与 input.json，并要求 init 绑定 project_context_ref；不读最新 mutable 配置代替原快照。见 [项目上下文](../skills/migration-protocol/references/project-context.md#总则)。
 

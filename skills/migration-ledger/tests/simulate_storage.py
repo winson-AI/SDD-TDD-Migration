@@ -83,12 +83,9 @@ def simulate(output):
     prepared = pc.prepare(context, None, request, actor)
     checkpoints = {'prepared': inventory(workspace)}
     spec_ref = f.ref('global-spec.md', 'R1: observable result must equal 2')
-    (f.root / 'input.json').write_text(json.dumps({**prepared['input'], 'global_spec': spec_ref,
-        'requirement_ids': ['R1'], 'global_test_cases': [{'case_id': 'C1', 'name': 'result equals 2'}]}, indent=2))
-    f.call('init', {'target_root': str(f.target), 'legacy_root': str(f.legacy),
-        'new_architecture': prepared['input']['new_architecture'], 'project_context_ref': prepared['project_context_ref'],
-        'case_ids': ['C1'], 'requirement_ids': ['R1'], 'global_paths': [],
-        'global_spec': spec_ref}, role='host')
+    run_input = {**prepared['input'], 'global_spec': spec_ref, 'requirement_ids': ['R1'], 'case_ids': ['C1']}
+    (f.root / 'input.json').write_text(json.dumps(run_input, indent=2))
+    f.call('init', run_input, role='host')  # the saved input is the init payload
     fixture = plan_modules(f)
     checkpoints['frozen'] = inventory(workspace)
     fixture.implement_and_test('M001', value=9)
@@ -123,13 +120,10 @@ def simulate(output):
     second = pc.prepare(context, None, next_request, actor)
     next_root = Path(second['run_root'])
     spec = next_root / 'staging/go/global-spec.md'; spec.parent.mkdir(parents=True); spec.write_text('Next run R1')
-    (next_root / 'input.json').write_text(json.dumps({**second['input'], 'global_spec': file_ref(spec),
-        'requirement_ids': ['R1'], 'global_test_cases': [{'case_id': 'C1', 'name': 'result equals 2'}]}, indent=2))
+    next_input = {**second['input'], 'global_spec': file_ref(spec), 'requirement_ids': ['R1'], 'case_ids': ['C1']}
+    (next_root / 'input.json').write_text(json.dumps(next_input, indent=2))
     ledger.apply(next_root, {'schema_version': 1, 'run_id': 'demo-next', 'request_id': 'init',
-        'module_id': None, 'expected_revision': 0, 'operation': 'init', 'payload': {
-            'target_root': str(f.target), 'legacy_root': str(f.legacy), 'global_spec': file_ref(spec),
-            'new_architecture': second['input']['new_architecture'], 'project_context_ref': second['project_context_ref'],
-            'case_ids': ['C1'], 'requirement_ids': ['R1'], 'global_paths': []}}, actor)
+        'module_id': None, 'expected_revision': 0, 'operation': 'init', 'payload': next_input}, actor)
     ledger.status(next_root)
     f.root = next_root; f.run_id = 'demo-next'
     plan_modules(f)

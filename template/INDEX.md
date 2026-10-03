@@ -8,7 +8,7 @@
 | [project-context-request.json](project-context-request.json) | 宿主 | 配置 init/update 的 patch、revision、幂等 ID 与来源引用 |
 | [run-request.json](run-request.json) | 宿主 | 本次选择、临时覆盖与宿主元数据，prepare 固化后交 GO |
 | [single-module-input.json](single-module-input.json) | 宿主 | 单模块入口的两个参数（entry_mode、module_name） |
-| [global-input.json](global-input.json) | GO | 依据 prepare 固化的项目上下文生成本轮输入，宿主保存为 input.json |
+| [global-input.json](global-input.json) | GO | prepare 返回的本轮输入；GO 补齐规范、需求、CASE 与全局路径后，宿主保存为 input.json 并原样提交 init |
 | [module-slicing.json](module-slicing.json) | 人工（可选） | module_slicing.module_import_ref 指向的模块方案 |
 | [reuse-source.json](reuse-source.json) | 宿主 | reuse_sources 的外部来源元素；TARGET 自动纳入 |
 | [ledger-request.json](ledger-request.json) | 宿主 | Ledger CLI 请求外壳 |
@@ -27,7 +27,7 @@
 | [spec.md](spec.md) | Spec-Designer | specs/<capability>/spec.md 的 delta |
 | [design.md](design.md) | Spec-Designer | 旧→新架构与测试设计 |
 | [tasks.md](tasks.md) | Spec-Designer | 任务定义；完成勾选由 Ledger 投影 |
-| [checklist.md](checklist.md) | Spec-Designer | 冻结与 DoD 评审清单；证据由 Ledger 投影 |
+| [checklist.md](checklist.md) | 包内固定 | 冻结与 DoD 评审清单；Ledger 接受 plan 时按哈希绑定到模块，投影时附证据链接与运行勾选 |
 | [change-impact.json](change-impact.json) | Spec-Designer / MO | within-envelope 再冻结的影响审查，绑定旧 freeze 与新 plan 摘要 |
 | [reuse-plan.json](reuse-plan.json) | Spec-Designer | 逐需求的能力选择与接入映射，由 stage-plan.reuse_plan_ref 冻结 |
 | [reuse-fidelity.md](reuse-fidelity.md) | Spec-Designer | 存量源码与选中能力的逐行为对齐 |

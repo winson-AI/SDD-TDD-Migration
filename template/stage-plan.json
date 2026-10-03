@@ -16,11 +16,6 @@
       "kind": "tasks",
       "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
       "sha256": "{{sha256}}"
-    },
-    {
-      "kind": "checklist",
-      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
-      "sha256": "{{sha256}}"
     }
   ],
   "tasks": [

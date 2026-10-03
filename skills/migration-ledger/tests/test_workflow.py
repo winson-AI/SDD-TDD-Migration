@@ -497,6 +497,22 @@ class WorkflowTests(unittest.TestCase):
             self.call('audit-assign', {'assignment_id': 'FINAL', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         self.assertEqual(self.state()['quality'], 'yellow-blocked')
 
+    def test_checklist_is_the_package_rubric_bound_beside_the_plan(self):
+        self.global_plan(); plan = self.plan()
+        own = {**self.ref('own-checklist.md', '- [ ] my own checks'), 'kind': 'checklist'}
+        with self.assertRaisesRegex(Rejected, 'omit it from definitions'):
+            self.call('plan', {'plan_ref': self.ref('own-plan.json', {**plan, 'definitions': plan['definitions'] + [own]})}, role='spec-designer')
+        self.call('plan', {'plan_ref': self.ref('plan.json', plan)}, role='spec-designer')
+        m = self.state()['modules']['M001']
+        rubric = file_ref(reading.PACKAGE / 'template' / 'checklist.md')['sha256']
+        self.assertEqual(m['checklist_ref'], file_ref(self.root / 'artifacts' / rubric))  # this run's copy of the package rubric
+        self.assertEqual(m['plan_hash'], digest(plan))  # bound beside the plan, outside what a human approves
+        view = (self.root / 'openspec/changes/demo-m001/checklist.md').read_text()
+        self.assertIn('# M001 Checklist', view); self.assertNotIn('{{', view)
+        self.assertIn('## Ledger evidence (generated)', view)
+        self.call('invalidate', {'reason': 'replan'})
+        self.assertNotIn('checklist_ref', self.state()['modules']['M001'])
+
     def test_openspec_views_rebuild_without_changing_frozen_definitions(self):
         self.prepare(); before = copy.deepcopy(self.state()['modules']['M001']['plan']['definitions'])
         change = self.root / 'openspec/changes/demo-m001'

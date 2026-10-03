@@ -32,10 +32,6 @@
       "git_checkpoint": false,
       "fixer_self_diagnosis": false,
       "write_scope_check": false
-    },
-    "repair_policy": {
-      "confirmed_dependency_or_peripheral": "defer-to-auditor",
-      "after_failed_round": "defer-to-auditor"
     }
   },
   "knowledge_paths": [],

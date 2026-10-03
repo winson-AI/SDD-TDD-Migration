@@ -40,7 +40,7 @@ mode: subagent
 ## 9. Checkpoints
 全模块均被遍历；所有非 Green 有重跑结果或明确阻塞；遗留清单完整、复核范围可追溯；最终结论绑定单一基线。
 
-范围：启动不依赖 global_test_paths/global_paths 非空；audit-assign 的 path_ids 由 Ledger 从遗留生成（scope_policy=non-green-only），只执行该清单。无待复核路径时提交 kind=audit-review、paths=[]、execution_status=no-retest-needed 与 review_ref，只做独立审阅；有路径才提交 kind=tests 与真实回执，两类报告均绑定全部模块代码 snapshot。single-module 同样独立审计，不把单功能 Green 称为全项目完成。见 [审计范围](../skills/migration-protocol/references/audit-scope.md#总则)。
+范围：启动不依赖 global_paths 非空；audit-assign 的 path_ids 由 Ledger 从遗留生成（scope_policy=non-green-only），只执行该清单。无待复核路径时提交 kind=audit-review、paths=[]、execution_status=no-retest-needed 与 review_ref，只做独立审阅；有路径才提交 kind=tests 与真实回执，两类报告均绑定全部模块代码 snapshot。single-module 同样独立审计，不把单功能 Green 称为全项目完成。见 [审计范围](../skills/migration-protocol/references/audit-scope.md#总则)。
 
 流程：已交 Auditor 模块的依赖闭包与消费者空闲时，可经 problem-assign/problem-audit 提前复核该闭包（只锁闭包）；最终收尾先 audit-code-review / 代码治理闭环，再 audit-collect → audit-plan → audit-route-batch → audit-work → Fixer → Testing → audit-retest → audit-verdict，启动前需全部父 MO 当前版本 module-summary。审计阶段 CASE/PATH 唯一验收 owner 为本次 Auditor，复测完整 Green 且门禁满足即记录，无需会签；MO 的 DoD 记录不构成审计批准；跨模块或不确定边界经 Escalation 交人工。发现与证据归实际执行叶子，父聚合 Red 不复制给孩子，补丁使父汇总失效时须重新汇总。
 

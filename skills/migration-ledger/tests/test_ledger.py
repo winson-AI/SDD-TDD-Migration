@@ -65,9 +65,9 @@ class FlowTests(unittest.TestCase):
         return ledger.apply(self.root, req, {'role': role, 'instance_id': instance or role})
 
     def plan(self):
-        contents = {'spec': '## ADDED Requirements\n### Requirement: R1\nSystem SHALL return the result.\n#### Scenario: normal\nWHEN invoked THEN return result.\n', 'tasks': '- [ ] T1 implement R1\n', 'checklist': '- [ ] Review definitions\n'}
+        contents = {'spec': '## ADDED Requirements\n### Requirement: R1\nSystem SHALL return the result.\n#### Scenario: normal\nWHEN invoked THEN return result.\n', 'tasks': '- [ ] T1 implement R1\n'}
         definitions = [{**self.ref(f'defs/{k}.md', contents.get(k, k)), 'kind': k} for k in
-                       ('proposal', 'spec', 'design', 'tasks', 'checklist', 'test-design')]
+                       ('proposal', 'spec', 'design', 'tasks', 'test-design')]
         evidence = self.ref('source.txt', 'entry -> repository -> production -> observable result')
         return {'schema_version': 1, 'module_id': 'M001', 'definitions': definitions,
                 'paths': [{'path_id': 'P1', 'name': 'normal', 'case_id': 'C1', 'requirement_id': 'R1',
@@ -437,7 +437,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         events = ledger.read_events(self.root)[1]
         event = next(e for e in events if e['operation'] == 'plan')
         snapshots = event['artifact_snapshots']
-        self.assertGreater(len(snapshots), 7)
+        self.assertGreaterEqual(len(snapshots), 7)  # the plan, its five definitions and their evidence
         original = Path(snapshots[0]['source_path'])
         archived = Path(snapshots[0]['path'])
         original.write_text('overwritten')

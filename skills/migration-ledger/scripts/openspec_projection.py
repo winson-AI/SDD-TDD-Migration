@@ -33,6 +33,25 @@ def attempt(errors, stage, action, module_id=None):
         return None
 
 
+def checklist(root, m):
+    """The module's bound rubric with the plan evidence it points at and the Ledger's own checks."""
+    plan = m['plan']
+    links = [('F04', 'test design', plan.get('test_design_ref')),
+             ('F08', 'planning context report', (m.get('context_acceptances') or {}).get('plan', {}).get('report_ref')),
+             ('F09', 'reuse plan', plan.get('reuse_plan_ref')),
+             ('F-DIM', 'dimension analysis', plan.get('dimension_analysis_ref'))]
+    checks = [('SPEC frozen', bool(m['freeze_id'])), ('Code accepted', bool(m['code_baseline'])),
+              ('All paths Green on current baseline', bool(m['results']) and not m['stale'] and
+               all(r['quality'] == 'green-passed' for r in m['results'].values())),
+              ('DoD accepted', m['phase'] == 'completed')]
+    text = definition(root, m['checklist_ref']).replace('{{module-id}}', m['module_id'])
+    evidence = ''.join(f"- {item} {label}: `{ref['path']}`\n" for item, label, ref in links if ref)
+    if evidence:
+        text += '\n## Plan evidence (generated)\n\n' + evidence
+    return text + '\n## Ledger evidence (generated)\n\n' + ''.join(
+        f"- [{'x' if passed else ' '}] {label}\n" for label, passed in checks)
+
+
 def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=None, claim=True):
     """Render from facts; emit/claim=False supports verification without any writes."""
     emit = write if emit is None else emit
@@ -58,11 +77,11 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
                 'validation': 'structural-only', 'definitions': m['plan']['definitions'], 'files': []}
     destinations = {**targets, **{str(Path(ref['path']).resolve()): str(change / (
         f"specs/{ref.get('capability', mid.lower())}/spec.md" if ref['kind'] == 'spec' else ref['kind'] + '.md'))
-        for ref in m['plan']['definitions'] if ref['kind'] in ('proposal', 'spec', 'design', 'tasks', 'checklist')}}
+        for ref in m['plan']['definitions'] if ref['kind'] in ('proposal', 'spec', 'design', 'tasks')}}
     manifest['link_warnings'] = list(context_warnings)
     for ref in m['plan']['definitions']:
         kind = ref['kind']
-        if kind not in ('proposal', 'spec', 'design', 'tasks', 'checklist'):
+        if kind not in ('proposal', 'spec', 'design', 'tasks'):
             continue
         relative = f"specs/{ref.get('capability', mid.lower())}/spec.md" if kind == 'spec' else kind + '.md'
         text = definition(root, ref)
@@ -74,15 +93,12 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
                 tid = task['task_id']
                 text = re.sub(r'(?m)^(\s*- )\[[ xX]\](\s+' + re.escape(tid) + r'\b)',
                               lambda match: match[1] + ('[x]' if tid in completed else '[ ]') + match[2], text)
-        if kind == 'checklist':
-            checks = [('SPEC frozen', bool(m['freeze_id'])), ('Code accepted', bool(m['code_baseline'])),
-                      ('All paths Green on current baseline', bool(m['results']) and not m['stale'] and
-                       all(r['quality'] == 'green-passed' for r in m['results'].values())),
-                      ('DoD accepted', m['phase'] == 'completed')]
-            text += '\n\n## Ledger evidence (generated)\n\n' + '\n'.join(
-                f"- [{'x' if passed else ' '}] {label}" for label, passed in checks) + '\n'
         emit(change / relative, text)
         manifest['files'].append(relative)
+    if m.get('checklist_ref'):
+        emit(change / 'checklist.md', checklist(root, m))
+        manifest.update(checklist_ref=m['checklist_ref'])
+        manifest['files'].append('checklist.md')
     status = {k: m.get(k) for k in ('phase', 'quality', 'stale', 'blocked', 'revision', 'freeze_id', 'code_baseline', 'local_fix_used')}
     status.update(schema_version=1, run_id=state['run_id'], module_id=mid, last_sequence=sequence,
                   execution_status='completed' if m['phase'] == 'completed' else 'suspended' if m['phase'].startswith('waiting-')

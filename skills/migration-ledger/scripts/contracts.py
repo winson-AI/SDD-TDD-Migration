@@ -59,7 +59,7 @@ def validate_plan(plan, module):
     require(plan.get('schema_version') == 1, 'unsupported plan schema')
     require(plan.get('module_id') == module['module_id'], 'wrong plan module')
     defs = nonempty(plan.get('definitions'), 'definitions')
-    require({'proposal', 'spec', 'design', 'tasks', 'checklist', 'test-design'} <=
+    require({'proposal', 'spec', 'design', 'tasks', 'test-design'} <=
             {d.get('kind') for d in defs}, 'incomplete six-piece definitions')
     names = set()
     for item in defs:

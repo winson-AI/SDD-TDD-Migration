@@ -100,19 +100,16 @@ def validate(config):
     if 'reuse_sources' in config:
         config['reuse_sources'] = reuse.normalize_sources(config['reuse_sources'], config.get('target_root'))
     defaults = config.get('defaults', {})
-    require(isinstance(defaults, dict) and set(defaults) <= {'entry_mode', 'budgets', 'quality_gates', 'repair_policy'}, 'invalid defaults')
+    require(isinstance(defaults, dict) and set(defaults) <= {'entry_mode', 'budgets', 'quality_gates'}, 'invalid defaults')
     require(defaults.get('entry_mode', 'project') == 'project', 'persistent default must remain project')
     budgets = defaults.get('budgets', {})
     require(isinstance(budgets, dict) and set(budgets) <= set(BUDGETS) | {'max_yellow_retries'}, 'invalid budgets')
     require(all(type(v) is int and v > 0 for v in budgets.values()), 'budgets must be positive integers')
-    for key in ('quality_gates', 'repair_policy'):
-        require(isinstance(defaults.get(key, {}), dict), 'invalid ' + key)
+    require(isinstance(defaults.get('quality_gates', {}), dict), 'invalid quality_gates')
     dependency_gate = defaults.get('quality_gates', {}).get('dependency_resolution_required', False)
     require(type(dependency_gate) is bool, 'dependency_resolution_required must be a boolean')
     for gate in ('git_checkpoint', 'fixer_self_diagnosis', 'write_scope_check'):
         require(type(defaults.get('quality_gates', {}).get(gate, False)) is bool, gate + ' must be a boolean')
-    require('local_automatic_rounds' not in defaults.get('repair_policy', {}),
-            'configure local repair rounds with budgets.local_fix_rounds')
     for key in ('test_adapter', 'runtime', 'module_slicing', 'build'):
         if key in config: require(isinstance(config[key], dict), key + ' must be an object')
     routing = (config.get('runtime') or {}).get('model_routing')
@@ -220,12 +217,13 @@ def verify_snapshot(ref):
 
 
 def prepared_input(ref):
+    """The run input in the shape Ledger init takes; Global fills the spec, requirements, cases and global paths."""
     snapshot = verify_snapshot(ref); config = snapshot['effective_config']; sources = snapshot['source_refs']
     defaults = config.get('defaults', {})
     return {**{k: copy.deepcopy(config[k]) for k in ('workspace_root', 'package_root', 'legacy_root', 'target_root', 'test_adapter',
-                'runtime', 'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources') if k in config},
+                'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources') if k in config},
             'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
-            'module_name': snapshot['module_name'], 'project_context_ref': ref, 'project_sources': sources,
+            'module_name': snapshot['module_name'], 'single_module_id': None, 'project_context_ref': ref, 'project_sources': sources,
             'behavior_contract_required': snapshot.get('behavior_contract_required', False),
             'test_design_required': snapshot.get('test_design_required', False),
             'run_root': snapshot['run_root'], 'storage_layout': snapshot.get('storage_layout'),
@@ -234,10 +232,8 @@ def prepared_input(ref):
             'fixer_self_diagnosis': defaults.get('quality_gates', {}).get('fixer_self_diagnosis', False),
             'write_scope_check': defaults.get('quality_gates', {}).get('write_scope_check', False),
             'new_architecture': sources['architecture_path'], 'document_link_warnings': context_links.mapping(snapshot)[1],
-            'global_spec': None, 'global_test_cases': [],
-            'requirement_ids': [], 'global_test_paths': [],
-            'budgets': {**BUDGETS, **defaults.get('budgets', {})}, 'quality_gates': defaults.get('quality_gates', {}),
-            'repair_policy': defaults.get('repair_policy', {}),
+            'global_spec': None, 'requirement_ids': [], 'case_ids': [], 'global_paths': [],
+            **{**BUDGETS, **defaults.get('budgets', {})},
             'custom_rules_path': sources.get('project_rules_path', {}).get('path')}
 
 

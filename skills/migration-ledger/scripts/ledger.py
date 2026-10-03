@@ -3,6 +3,7 @@
 import argparse
 import copy
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -237,6 +238,15 @@ def invalidate_dependents(s, mid):
     s['audit'] = {}
 
 
+def checklist_rubric(root):
+    """The package's freeze/DoD rubric as this run's content-addressed copy; a plan is bound to it, its author does not write it."""
+    data = (reading.PACKAGE / 'template' / 'checklist.md').read_bytes()
+    blob = run_storage.checked_path(root / 'artifacts' / hashlib.sha256(data).hexdigest(), root / 'artifacts')
+    if not blob.exists():
+        run_storage.atomic_bytes(blob, data)
+    return file_ref(blob)
+
+
 def reset_plan(m, reason='invalidated', evidence_ref=None):
     """Preserve failures/budgets and old evidence while returning to explicit planning."""
     history = {k: copy.deepcopy(m.get(k)) for k in
@@ -251,7 +261,8 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
              plan=None, plan_ref=None, plan_hash=None, build_baseline=None, accepted_task_ids=[],
              code_files=[], code_baseline=None, provider_owners=[])
     for key in ('dimension_evidence', 'effective_quality', 'context_acceptances', 'automation_retry_ready',
-                'dependency_release', 'source_context_continuation', 'change_request', 'scenario_index', 'plan_binding'):
+                'dependency_release', 'source_context_continuation', 'change_request', 'scenario_index', 'plan_binding',
+                'checklist_ref'):
         m.pop(key, None)
 
 
@@ -941,6 +952,8 @@ def mutate(s, req, principal, events, root=None):
         require(not m.get('decomposition_required') and not m.get('decomposition_submission'), 'finish MO decomposition before leaf SPEC planning')
         require(m['phase'] in ('context', 'specifying', 'clarifying', 'change-review'), 'plan not editable in this phase')
         plan = design_stage.materialize(s, m, read_json(check_ref(p['plan_ref'])))
+        require('checklist' not in {d.get('kind') for d in plan.get('definitions') or []},
+                'the checklist is the package rubric the Ledger binds; omit it from definitions')
         if s.get('behavior_contract_required'):
             plan.setdefault('behavior_contract_required', True)  # the run requires it; the author need not declare it
         design_stage.plan_check(s, m, plan, principal['instance_id'])
@@ -970,7 +983,7 @@ def mutate(s, req, principal, events, root=None):
         # Plan is content; the artifact remains immutable and is checked at freeze/dispatch.
         # The plan stands on the context and allocation current now; its author does not copy them into it.
         m.update(plan=plan, plan_ref=p['plan_ref'], plan_hash=plan_hash, phase='clarifying', provider_owners=owners,
-                 scenario_index=scenarios, plan_binding=decomposition.context_binding(s, m))
+                 scenario_index=scenarios, plan_binding=decomposition.context_binding(s, m), checklist_ref=checklist_rubric(root))
         if principal['instance_id'] not in m.setdefault('spec_authors', []):
             m['spec_authors'].append(principal['instance_id'])
     elif op == 'freeze':
