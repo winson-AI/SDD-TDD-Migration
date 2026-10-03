@@ -20,21 +20,8 @@ mode: subagent
 3. 代码实际生成后可运行冻结任务约定的静态检查与单测作为自验证，结果标 producer=implementer，不替代 Main。
 4. 保存实际代码基线、diff、命令和追溯；经 Ledger submit（kind=implementation），等待 MO 验收。
 
-## 4. 规则优先级
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 5. 阻塞与异常
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
 ## 6. 硬约束
 不改 SPEC/验收/tasks 定义；不自审 DoD；不写 legacy；不擅自改共享接口；任务不可执行时提问题，不自行扩展任务。
-
-## 7. 输出格式
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 8. Used Skills
-- [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。
-- [migration-implement](../skills/migration-implement/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
 所有提交改动可反查 TASK-ID；每个 TASK-ID 有文件与证据；没有无关改动；实际版本可重建。交付前运行宿主提供的改动文件诊断（IDE/MCP 或同等文件级检查）并修完全部错误，结果写入 `authoring_diagnostics`；宿主无诊断时，对每个新引入的版本敏感 API 查阅固定版本依赖源码并引用，不凭记忆推断签名。该自检不是正式构建结论。

@@ -235,32 +235,12 @@
       "scenario_id": "SCN-M001-001",
       "task_ids": [
         "TASK-M001-001"
-      ],
-      "assertions": [
-        {
-          "path_id": "PATH-M001-001",
-          "assertion_id": "ASSERT-M001-001"
-        },
-        {
-          "path_id": "UNIT-M001-001",
-          "assertion_id": "ASSERT-UNIT-M001-CLEAN"
-        }
       ]
     },
     {
       "scenario_id": "SCN-M001-002",
       "task_ids": [
         "TASK-M001-001"
-      ],
-      "assertions": [
-        {
-          "path_id": "PATH-M001-001",
-          "assertion_id": "ASSERT-M001-002"
-        },
-        {
-          "path_id": "UNIT-M001-001",
-          "assertion_id": "ASSERT-UNIT-M001-CLEAN"
-        }
       ]
     }
   ]

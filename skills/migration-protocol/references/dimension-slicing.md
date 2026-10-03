@@ -43,7 +43,7 @@ Resource 指应用资源；原 Dependencies / Resources 中的文件锁、设备
 
 ## 4. 控制节点与交接
 
-1. **GO / register**：全局上下文/完整功能清单 → 划分模块 scope → 对每个模块做四维源闭包/目标映射 → SPEC 草案、Testing list。每个根模块提交 `dimension_analysis_ref`（path+sha256），由 Ledger 接受与归档。GO 草案包含四维行为与边界；正式六件套仍由 Spec-Designer 撰写，GO 不替 MO 冻结。输入源缺项先澄清，不把空模板当完成。
+1. **GO / register**：全局上下文/完整功能清单 → 划分模块 scope → 对每个模块做四维源闭包/目标映射 → SPEC 草案、Testing list。每个根模块提交 `dimension_analysis_ref`（path+sha256），由 Ledger 接受与归档；分析里反复引用的文件在顶层 `refs` 写一次，`evidence_refs`/`context_refs` 写其 id。GO 草案包含四维行为与边界；正式六件套仍由 Spec-Designer 撰写，GO 不替 MO 冻结。输入源缺项先澄清，不把空模板当完成。
 2. **父 MO / decompose → GO / decompose-accept**：认领模块，读取模块实现、根四维分析及全局上下文 → 划分子功能 scope → 为每个已划分子功能生成四维分析，`parent_ref` 精确指向根分析；子 item 的 `parent_item_ids` 关联同维度父 item。所有父 item 必须被子项覆盖，子项需求/用例不得超出对应父项。父项可细分给多个孩子，但子 item_id 全局唯一，`dimension_partition_review_ref` 解释分割依据、职责不重叠及共享提供方/消费者/唯一写 owner；共享修改采用既有依赖、写范围/锁及人工边界决策，不复制实现。新增未分配功能须回 GO，不能偷偷扩 scope。
 3. **GO / global-plan**：核验完整 registry 的四维分配和引用仍有效，并结合 feature-inventory、需求/CASE owners 与边界裁决接受全局覆盖。全局 planning_context.dimension_allocations 对父子均可读；权威 assigned_module 包含本模块及父级分析引用。
 
@@ -70,9 +70,9 @@ GO 先从功能清单划定“搜索”模块 scope，再在 UI 记录搜索框/
 
 子 MO 先为每个 task 定义 `scope.in/out/write_paths`：具体负责的行为、排除内容、允许写入的目标路径。保留子模块排除项，写范围不得超出认领子模块。随后填写 `dimension_analysis`：它分析所在 task 的 scope，继承认领子模块 dimension_analysis_ref 的源码/架构/二方库/目标能力证据，再补任务针对性分析；范围变化必须重新分析并重新冻结。
 
-- `dimensions`：UI/Logic/Adhesive/Resource 四行，分别填写 status、reason、evidence_refs、item_ids。item_ids 与 dimension_trace 分配到该任务且同维度的条目一致。
+- `dimensions`：UI/Logic/Adhesive/Resource 四行，分别填写 status、reason、item_ids；evidence_refs 可省，省略时认领的 dimension_analysis_ref 即证据，另有证据才写。item_ids 与 dimension_trace 分配到该任务且同维度的条目一致。
 - applicable 行必须填写 `implementation`：具体改哪些行为/节点/接口、如何复用或适配、怎样接线、怎样保留源语义；Resource 引用源资源→目标访问器→消费者，不得只写“完成本维度”。验证沿用该任务已冻结的 PATH/ASSERT。
-- not-applicable 行 item_ids=[]，给出本任务范围内的理由及证据。子模块适用某维度不代表每个任务都适用，但所有适用条目必须被任务集合完整承接；不能用 N/A 删除已分配给该任务的条目。
+- not-applicable 行 item_ids=[]，给出本任务范围内的理由。子模块适用某维度不代表每个任务都适用，但所有适用条目必须被任务集合完整承接；不能用 N/A 删除已分配给该任务的条目。
 - `unresolved=[]` 才可冻结。任务间共享修改先明确单一写 owner/前置依赖；实施中发现需越过 task scope，先走 CR/影响分析，不能用全模块写权限绕过。
 
 例如“提交查询”子模块先拆出“参数校验”和“按钮事件接线”任务，再分别四维分析。前者 Logic 指导校验规则、错误类型与边界值测试，UI/Resource 可有依据地 N/A；后者按实际职责分析 UI 状态/事件及 Adhesive 的处理器接线。任务分析描述实际实现决策，模块级条目映射仅作为继承与覆盖索引。

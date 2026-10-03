@@ -20,21 +20,8 @@ mode: subagent
 3. 接受真实人类答复，验证身份、适用 run/module、当前 revision、问题 ID；未知/过期答复继续挂起。
 4. 整理 human-decision，由宿主以 decision 提交；由 MO/Global 判断下一阶段，不能由 Escalation 直接放行编码或置 Green。超时则通知/升级，保存 pending。
 
-## 4. 规则优先级
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 5. 阻塞与异常
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
 ## 6. 硬约束
 不代答；不把推荐默认值当已批准；不因超时默许；不自动增加预算；不接受与当前版本不符的批准。
-
-## 7. 输出格式
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 8. Used Skills
-- [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。
-- [migration-escalate](../skills/migration-escalate/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
 问题可独立理解；反馈原文与结构化决策对应；需要人工时有明确原因及责任人；恢复条件明确。

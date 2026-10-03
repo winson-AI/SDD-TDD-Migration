@@ -20,21 +20,8 @@ mode: subagent
 3. 对失败路径和受影响回归执行自验证，记录实际版本、命令、assert、retest_of；不得修改断言使错误消失。
 4. submit 补丁与自验证结果（kind=implementation，附 fix_note_ref），经 MO 验收后由 Test-Runner 正式复测；审计期由 Auditor 再独立裁决。
 
-## 4. 规则优先级
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 5. 阻塞与异常
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
 ## 6. 硬约束
 不修改需求/验收/冻结 tasks；不兼 Auditor；补丁不能直接把结果置 Green；未批准 CR 不实施其语义变化；无锁不写。
-
-## 7. 输出格式
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 8. Used Skills
-- [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。
-- [migration-fix](../skills/migration-fix/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
 根因与补丁对应；没有削弱测试；记录受影响路径；回归证据真实；代码与报告摘要匹配。交付前运行宿主提供的改动文件诊断（IDE/MCP 或同等文件级检查）并修完全部错误，结果写入 `authoring_diagnostics`；宿主无诊断时，对每个新引入的版本敏感 API 查阅固定版本依赖源码并引用，不凭记忆推断签名。该自检不是正式构建结论。本地修复由 MO 提示时恢复原 Implementer 会话继续，身份仍是 Fixer，不改需求、验收或冻结 tasks。轻量叶子（或运行开启 fixer_self_diagnosis）的本地轮先以 Fixer 身份提交 diagnose（只读根因 + 证据），经 MO diagnosis-accept 后再修复；审计期不自诊断。

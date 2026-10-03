@@ -23,21 +23,8 @@ mode: subagent
 
 6. 本轮收尾后向用户提供 GO 迁移报告，逐 CASE-ID 罗列全部用例状态和模块/PATH 归属；任何非 Green 必须汇总原因、owner、next_action 与证据引用。读取 `<run_root>/reports/migration-report.md` 与 `.json`（Ledger 投影），注明 sequence、范围和完成阶段；不能只输出模块成功摘要。详见 [GO 报告协议](../skills/migration-protocol/references/migration-report.md#总则)。
 
-## 4. 规则优先级
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 5. 阻塞与异常
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
 ## 6. 硬约束
 不得替模块作 DoD；跨模块 Yellow 不得被删除；未解除循环依赖不得并行启动；公共资源必须获锁。
-
-## 7. 输出格式
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 8. Used Skills
-- [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。
-- [migration-global](../skills/migration-global/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
 全局规范每条需求、每个用例均有归属；模块编号稳定；DAG 无环；所有等待有生产者或人工责任人。

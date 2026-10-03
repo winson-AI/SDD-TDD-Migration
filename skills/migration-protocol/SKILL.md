@@ -16,7 +16,7 @@ description: SDD-TDD-Migration 各角色共享的读取、Ledger、冻结和三�
 
 ## 4. 取用
 - 规则：阅读卡已带本步适用的小节；卡外的规则用 `reading.py show --ref <文件> --section <小节>` 取单节。
-- 状态：`ledger.py status --view step --module <id>`（全局步骤省略 `--module`）给出本步、请求信封字段、本阶段预检要求（摘要、检查项、必读引用）、本模块分配包与当前 assignment；规划类步骤另带 planning_context。不为这些字段读取 full 视图。
+- 状态：`ledger.py status --view step --module <id>`（全局步骤省略 `--module`）给出本步、请求信封字段、本阶段预检要求（摘要、检查项、必读输入个数与摘要）、本模块分配包与当前 assignment；规划类步骤另带 planning_context。不为这些字段读取 full 视图。
 - 摘要：文件引用与代码基线用 `contracts.py ref|baseline`，JSON 对象摘要用 `contracts.py digest`，不以系统 shasum 代替。
 
 ## 5. 检查

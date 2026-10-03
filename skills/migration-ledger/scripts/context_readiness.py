@@ -141,15 +141,15 @@ def input_refs(s, mid, stage):
     return list({(ref['path'], ref['sha256']): ref for ref in refs}.values())
 
 
-def inputs(s, mid, stage):
+def inputs(s, mid, stage, refs=None):
     """What a ready report of the stage is bound to: the mandatory inputs the Ledger derives, as a count and a digest.
 
     An author never lists them back (nothing could prove it read them); the report goes stale when any of them changes."""
-    refs = input_refs(s, mid, stage)
+    refs = input_refs(s, mid, stage) if refs is None else refs
     return {'inputs_sha256': digest(sorted((ref['path'], ref['sha256']) for ref in refs)), 'input_count': len(refs)}
 
 
-def verify_inputs(s, mid, stage, deep=False):
+def verify_inputs(s, mid, stage, deep=False, refs=None):
     """No ready report stands on drifted evidence: every mandatory input is as referenced and, with `deep`, so is
     what its JSON cites. Nested live target code may legitimately drift; everything else may not."""
     seen, root = set(), s.get('target_root')
@@ -179,7 +179,7 @@ def verify_inputs(s, mid, stage, deep=False):
         elif isinstance(value, list):
             for item in value:
                 walk(item, nested)
-    walk(input_refs(s, mid, stage), False)
+    walk(input_refs(s, mid, stage) if refs is None else refs, False)
 
 
 def submit(s, req, actor):
@@ -214,8 +214,9 @@ def submit(s, req, actor):
             require(item.get('missing') and item.get('next_action') and item.get('owner'), 'context blocker needs missing/owner/next_action')
     require(report.get('verdict') == ('blocked' if any(c['status'] == 'blocked' for c in checks.values()) else 'ready'),
             'context verdict disagrees with checks')
-    if report['verdict'] == 'ready':
-        verify_inputs(s, mid, stage, deep=True)
+    required = input_refs(s, mid, stage) if report['verdict'] == 'ready' else None
+    if required is not None:
+        verify_inputs(s, mid, stage, deep=True, refs=required)
     if report['verdict'] == 'ready' and stage in ('building', 'testing', 'audit-testing'):
         execution = report.get('execution', {})
         argv = execution.get('argv')
@@ -231,7 +232,7 @@ def submit(s, req, actor):
     receipt = scope(s, mid).setdefault('context_receipts', {})[key] = {
         'report_ref': copy.deepcopy(p['report_ref']), 'stage': stage,
         'producer': copy.deepcopy(report['producer']), 'verdict': report['verdict'],
-        **({'inputs_sha256': inputs(s, mid, stage)['inputs_sha256']} if report['verdict'] == 'ready' else {})}
+        **({'inputs_sha256': inputs(s, mid, stage, required)['inputs_sha256']} if required is not None else {})}
     return receipt
 
 
@@ -261,9 +262,10 @@ def validate(s, mid, stage, ref, instance=None, draft=None, allow_blocked=False)
     require(report['subject_sha256'] == subject(s, mid, stage), 'context subject stale; re-read and resubmit')
     require(report['verdict'] == 'ready' or allow_blocked, 'context blocked; record suspension or resolve missing inputs')
     if report['verdict'] == 'ready':
-        require(receipt.get('inputs_sha256') == inputs(s, mid, stage)['inputs_sha256'],
+        required = input_refs(s, mid, stage)
+        require(receipt.get('inputs_sha256') == inputs(s, mid, stage, required)['inputs_sha256'],
                 'context report is stale: its mandatory inputs changed; re-read them and report again')
-        verify_inputs(s, mid, stage)
+        verify_inputs(s, mid, stage, refs=required)
     if draft:
         require(report.get('draft_ref') == draft, 'context report must bind the reviewed draft')
     verify_refs(report)

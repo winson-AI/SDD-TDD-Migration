@@ -15,7 +15,7 @@ description: /sdd-run <run-id> — 并行推进就绪模块
 3. 按 `status` 游标派发对应角色。就绪模块在依赖与写集合约束内并行；仅已冻结模块可以编码。按 module_id 分别消费事件，单个失败不取消或标失败其他 MO；继续就绪模块并等待仍在执行的模块。完整 registry 中全部模块完成或各自明确挂起、无活动 worker 与可推进动作后，才请求独立审计。暂时没有 ready 动作不代表运行中的 MO 已结束。
 
 ## 3. 调用契约
-目标角色：[Global-Orchestrator](../Agents/global-orchestrator.md)。宿主用实际可用的任务工具启动，只传 package_root、run_root、module_id 与阅读卡路径；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
+目标角色：[Global-Orchestrator](../Agents/global-orchestrator.md)。
 
 ## 4. 对应规格
 [模块隔离与全量收尾](../skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾)、[编排游标](../skills/migration-protocol/references/local-runtime.md#编排游标)。

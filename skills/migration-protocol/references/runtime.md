@@ -18,7 +18,7 @@ run-id/change-name/capability 使用 kebab-case，module_id 匹配 `M[0-9]{3,}`�
 
 请求见 [ledger-request.json](../../../template/ledger-request.json)：schema_version、request_id、run_id、module_id（全局操作为 null）、expected_revision、operation、payload，可带 hint。调用身份 role/instance_id 由宿主认证后经 host-context 注入，请求体不能自报。Ledger 接受后写入事件：event_id、单调 sequence、UTC timestamp、actor、operation、previous_hash、状态变化与工件快照索引。
 
-同一 request_id + 同一内容 + 同一身份重复提交返回原 ACK，不重复派发；同 ID 不同内容拒绝。expected_revision 是目标模块（module_id 为 null 时为全局）的修订号；过期拒绝后重读重算，不能盲目覆盖。写入只经 Ledger CLI，任何进程不得自行追加 events.jsonl。
+同一 request_id + 同一内容 + 同一身份重复提交返回原 ACK，不重复派发；同 ID 不同内容拒绝。expected_revision 是目标模块（module_id 为 null 时为全局）的修订号；过期拒绝后重读重算，不能盲目覆盖。文件引用 `{path, sha256}` 的摘要须是该文件当前的摘要（`contracts.py ref`）；hash 不符的拒绝给出文件与实际摘要，改用它，工件改动后重新取。写入只经 Ledger CLI，任何进程不得自行追加 events.jsonl。
 
 ## 接受与恢复
 

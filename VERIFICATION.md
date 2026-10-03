@@ -22,10 +22,10 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 |
 | --- | ---: |
-| migration-ledger/tests | 978 |
+| migration-ledger/tests | 994 |
 | migration-test/tests | 47 |
 | runtime/harmony/tests | 128 |
-| 合计 | **1153** |
+| 合计 | **1169** |
 
 全部无失败、无跳过。适配器夹具仍有既有 engine.log ResourceWarning，不影响断言。系统 python3 低于 3.11 时改用 Harmony sandbox 的解释器，并让它能导入已安装的 pytest；不为此安装依赖。
 
@@ -45,7 +45,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 真实闭环 | 子进程 Red → 诊断 → Fixer → 正式复测 → 模块 Green；本地修复一轮未过转 waiting-auditor；`local_fix_rounds` 额外轮次只给仍是 build 的失败，业务失败照常交 Auditor |
 | 作者自检与会话 | 实现/修复结果缺 authoring_diagnostics、诊断无日志或版本敏感 API 无固定源码引用均拒收；本地修复游标指向原 Implementer 会话 |
 | 静态规格闭合 | build 全绿后同一派发继续 static，再到 automation；passed 场景须给出另一目标文件中的调用位置（reached_from）；审查需覆盖全部冻结需求、引用目标文件中真实存在的符号、逐项判定假实现清单；反模式 present 为 Red 并进入修复；prepared run 必须冻结 static PATH |
-| 阅读卡与协议体积 | 每个角色/阶段/操作/UI/复用/埋点组合的卡片引用真实小节、包含四条红线与三条通用总则且不超过 60KB；无触发条件的典型步骤卡片不超过 34KB、本步模板不超过 20KB；审计、GO 规划、MO 各操作取各自小节，技能只带执行规则，专题义务表按触发条件取行，操作矩阵只带当前操作的行；AGENTS.md 专题索引指向的每个“总则”都有卡片可达；协议、命令与模板索引总量不超过 536.8KB、单文件不超过 32KB；共享协议进卡时只带规则小节；游标步骤携带 must_read 与绑定小节正文的 card_sha256；任何角色、操作与触发组合的卡片里，链接只指向小节或模板，不出现整份协议文件；角色定义进卡时不带技能文件清单和只指向通用约定的小节；模块编排者未列出的操作只带状态模板 |
+| 阅读卡与协议体积 | 每个角色/阶段/操作/UI/复用/埋点组合的卡片引用真实小节、包含四条红线与三条通用总则且不超过 60KB；无触发条件的典型步骤卡片不超过 34KB、本步模板不超过 20KB；审计、GO 规划、MO 各操作取各自小节，技能只带执行规则，专题义务表按触发条件取行，操作矩阵只带当前操作的行；AGENTS.md 专题索引指向的每个“总则”都有卡片可达；协议、命令与模板索引总量不超过 532.2KB、单文件不超过 32KB，任何步骤在触发条件全部成立时携带的模板总量不超过 56.2KB；共享协议进卡时只带规则小节；游标步骤携带 must_read 与绑定小节正文的 card_sha256；任何角色、操作与触发组合的卡片里，链接只指向小节或模板，不出现整份协议文件；角色定义进卡时不带技能文件清单和只指向通用约定的小节；模块编排者未列出的操作只带状态模板 |
 | 提示采纳与流程成本 | assign 回填的会话/阅读卡与建议比对并汇总为 hint_adoption；workflow_cost 按模块统计事件、派发、回执、验收、人工决定与修复轮次并进入收尾报告 |
 | 单文件卡与增量交付 | `reading.py render` 以摘要命名写出单个卡片文件且幂等；`show` 只读包内 Markdown 单节并拒绝越界路径；会话已持有的小节不再进入 `must_read_new`，正文变化的小节重新交付；任意模块请求可带 `hint` 报告所用会话与卡片，匹配当前游标步骤才计入，格式不符被拒；流程成本统计每模块完整/实际交付的阅读卡字节；渲染后的卡片不含指向包内文件的链接（整份协议链接变纯文本、小节链接变“文件 § 小节”选择器），卡尾列出本步模板；Test-Runner 的角色定义按测试阶段取块；每步 `templates` 指向真实模板；会话累计持有的协议文本超过阈值时步骤带 `session_rotate` 建议 |
 | 精简状态与拒绝提示 | `status --view cursor/module` 不含模块正文、卡片行清单与信号证据，卡片只给字节数与小节数（单模块夹具 13.7KB → 1.8KB）；`--since` 命中当前 sequence 时只返回 unchanged 与信号摘要（约 0.4KB），有新事件即返回完整游标；`--view step` 只给一个模块当前步骤所需：请求信封字段、本阶段预检要求（含必读引用）、分配包、当前 assignment 与待验收提交，规划类步骤和设计派发另带 planning_context，运行中的设计者得到自己阶段的要求，不含其他模块（已冻结叶子的派发步骤小于 module 视图的一半、full 视图的八分之一）；父模块汇总步骤同样带阅读卡与模板；CLI 输出为单行紧凑 JSON；未知模块或视图被拒；拒绝记录带 `read_hint`，每个提示指向真实小节 |
@@ -64,6 +64,8 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 上下文绑定 | 行为契约由运行状态写入 plan，作者可不声明、不能声明为 false；plan 与拆分提案不抄写全局上下文和分配包，Ledger 接受时在 plan 之外保存两者的摘要；全局上下文变化后冻结、派发与接受拆分被拒；来源追加时未受影响的模块沿用冻结 plan；设计输入引用游标给出的摘要，缺失或过期被拒 |
 | 作者可省略的推导值 | test_design_ref、行为审阅的范围摘要与需求/CASE、任务四维分析的范围摘要与 parent_ref、global-plan 的规范与架构引用、PATH required、冻结与完成的勾选标志省略时由 Ledger 补全或按分配核对，写错被拒；plan 不含 global-contract 定义也能冻结 |
 | 包内评审清单 | plan 自带 checklist 定义被拒；接受 plan 时 Ledger 把包内清单按内容哈希存入本 run 并绑定到模块，人工批准的 plan 摘要不变；投影替换模块号并附证据链接与 Ledger 勾选；重新规划时解除绑定 |
+| 作者不重述已知值 | 预检报告不写必读输入：报告缺省 `read_refs` 即被接受，回执记录 Ledger 派生的输入摘要，使用回执时重新派生并比较——任一必读输入变化或被改动、其 JSON 引用的证据漂移、预检之后换了诊断，报告即过期或被拒；步骤视图只给输入个数与摘要；blocked 报告不绑定输入。任务级四维行省略 `evidence_refs` 时以所绑定的分配分析为证据，写了的仍受 hash 约束。JSON 文档顶层的 `refs` 表写一次文件引用，`evidence_refs`/`context_refs` 按 id 引用：读者看到写开的形式，plan 摘要与写开的写法相同，未知 id 被拒，表里被引用的条目照常校验和归档。hash 不符的拒绝点名文件与实际摘要，并指向引用规则。模块状态视图不含 plan 与场景索引正文。 |
+| 设计跟随 SPEC | 行为契约下设计输入的 `spec_refs` 必须是带 Requirement-ID/Scenario-ID 的叶子 SPEC 草稿且需求与其任务一致，全局规格与上下文文件被拒，游标步骤说明设计输入需要什么；设计断言用 `scenario_ids` 写明所验证的场景，缺失、未知、需求不符、build/static 断言带场景、或有场景无断言验证均在设计提交时被拒；plan 的 `scenario_trace` 行只写 task_ids，断言由 Ledger 按设计断言补全并随 plan 存储和哈希，写了则须相同 |
 | 单一运行输入 | prepare 返回的 input 由 GO 补齐后原样作为 init 载荷，通过快照、预算与门禁校验；repair_policy 不再是合法项目配置 |
 | 摘要命令 | `contracts.py ref/baseline/digest` 输出的文件引用、代码基线和 JSON 摘要与 Ledger 校验所用一致，缺失文件报错 |
 | 依赖/锁/身份 | 未完成生产者不放行；重叠写路径拒绝并行；revoke 后旧 worker 拒收；会话替换需 checkpoint |

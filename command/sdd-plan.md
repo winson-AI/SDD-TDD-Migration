@@ -10,17 +10,17 @@ description: /sdd-plan <run-id> <module-id> — 生成六件套并完成 plan �
 ## 2. 编排步骤
 1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
 2. 前置门控：run/module 已注册；处于 context/specifying/clarifying/change-review 或等待澄清；持有当前 assignment。推进前运行 `verify_openspec.py --root <run> --scope module --module-id <module-id>`，核验本模块、祖先与实际依赖。失败按 recovery_action 处理相关范围，无关模块继续；核验不证明真实派发或取代冻结。见 [核验范围](sdd-verify.md)。
-3. 宿主先让父/子 MO 读取全局代码、架构、知识及分工。根功能先 decompose→GO decompose-accept，派独立子 MO；已拆分父节点只管理/汇总，不进入代码或测试。叶子由 MO 派 Spec-Designer 与 Test-Runner design，冻结前请 Escalation 展示必须的人工决定；未获所需答案保存 waiting-human，已获批准且 hash 有效才冻结。
+3. 宿主先让父/子 MO 读取全局代码、架构、知识及分工。根功能先 decompose→GO decompose-accept，派独立子 MO；已拆分父节点只管理/汇总，不进入代码或测试。叶子先由 Spec-Designer 在 staging 写 SPEC 草稿，再由 MO 派 Test-Runner design，冻结前请 Escalation 展示必须的人工决定；未获所需答案保存 waiting-human，已获批准且 hash 有效才冻结。
 
 ## 3. 调用契约
-目标角色：[Module-Orchestrator](../Agents/module-orchestrator.md)。宿主用实际可用的任务工具启动，只传 package_root、run_root、module_id 与阅读卡路径；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
+目标角色：[Module-Orchestrator](../Agents/module-orchestrator.md)。
 
 ## 4. 对应规格
 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接)、[冻结算法](../skills/migration-protocol/references/openspec.md#冻结算法)。
 
 ## 本地实现接入
 
-MO assign(mode=design, design_input_ref) → 独立 Test-Runner submit（附预检）→ MO accept(review_ref) → Spec plan → host decision → MO freeze。见 [编码前交接](../skills/migration-protocol/references/testing.md#编码前设计交接)和[操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。
+Spec 草稿 → MO assign(mode=design, design_input_ref) → 独立 Test-Runner submit（附预检）→ MO accept(review_ref) → Spec plan → host decision → MO freeze。见 [编码前交接](../skills/migration-protocol/references/testing.md#编码前设计交接)和[操作矩阵](../skills/migration-protocol/references/local-runtime.md#操作矩阵)。
 
 规划按三层分工推进：GO 分配模块 scope/context；父 MO 认领后拆子模块 scope/context；子 MO 拆 tasks 并组织正式六件套。父 decompose、子 plan 不抄写全局上下文与分配包：步骤视图给出 planning_context 与 module_input，Ledger 接受时绑定其当前版本；保留全局可读视野，执行限于分配范围。
 

@@ -21,21 +21,8 @@ mode: subagent
 4. 按依赖交错执行修复、完整 Testing/DoD、下游复测；受影响的原 Green 中间模块也要复核。只等当前模块的上游，不等整批所有修复模块。
 5. 失败/人工问题挂起关联分支，独立分支继续。audit-verdict 汇总成功 finding 与根因待审问题；存在人工问题则 awaiting-human。报告摘要批准后 Global audit-release，再走受控恢复/预算/CR，全部模块本轮再次收尾后才开新批次。最后独立审阅收尾；不得再追加全项目全量重跑。
 
-## 4. 规则优先级
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 5. 阻塞与异常
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
 ## 6. 硬约束
 永不兼 Fixer/Implementer/本轮脚本作者；不写补丁；不以 Fixer 自测替代复测；不删失败历史；不能跨版本拼报告。
-
-## 7. 输出格式
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 8. Used Skills
-- [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。
-- [migration-audit](../skills/migration-audit/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
 全模块均被遍历；所有非 Green 有重跑结果或明确阻塞；遗留清单完整、复核范围可追溯；最终结论绑定单一基线。

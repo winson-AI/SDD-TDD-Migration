@@ -18,7 +18,7 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 
 ## 3. 执行步骤
 ### 设计
-1. design：读取 Ledger mode=design assignment 的 design_input_ref，仅从规格与用例生成预期覆盖，不运行代码；提交自身 test-design 预检及 kind=test-design 结果，等 MO review/accept 后交 Spec 冻结。设计 build 命令、Logic 的 unit 命令、static 和 automation 路径，每个 CASE 有业务路径。见 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接)。
+1. design：读取 Ledger mode=design assignment 的 design_input_ref，仅从规格（含 Scenario-ID）与用例生成预期覆盖，每条行为断言用 scenario_ids 写明所验证的场景，不运行代码；提交自身 test-design 预检及 kind=test-design 结果，等 MO review/accept 后交 Spec 冻结。设计 build 命令、Logic 的 unit 命令、static 和 automation 路径，每个 CASE 有业务路径。见 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接)。
 ### 构建
 2. 接到 build 派发后先提交 building 预检，ready 绑定后 execute_test 直接执行冻结 argv/cwd/timeout，无 query 参数。
 3. 全部 build PATH 的退出码、日志与回执随构建阶段结果一并提交；build_baseline 必须匹配 code_baseline。
@@ -31,21 +31,11 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 8. 运行时页面变体与冻结 SPEC 冲突：记 Yellow + human 根因（reason_code=runtime-spec-variant-conflict），见 [测试协议](../skills/migration-protocol/references/testing.md#运行时变体与冻结-spec-冲突)；不自行选变体。
 9. 仅自动化环境不可用：提交 test-environment=blocked 报告，由 MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务。其他真实错误沿诊断/Fixer/审计规则处理；build 与 automation 共用模块本地一轮修复预算。
 
-## 4. 规则优先级
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
 ## 5. 阻塞与异常
 缺输入/权限/工具记录 reason_code/root_cause/next_action；automation-unavailable 与诊断/Fixer 分流按上文，依赖/外围或本地失败交 Auditor，人类问题交 Escalation。Global 管理跨模块依赖，无关 MO 继续，最终 Auditor 不提前启动。Ledger 提交失败须报 transport failure、保持 staged 并停机，不能称已记录。
 
 ## 6. 硬约束
 设计不读实现推验收；不伪造 Main；未生成代码不执行；非 Green 必须附原因；脚本不能 mock 核心逻辑；不以 exit 0 替代断言。
-
-## 7. 输出格式
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 8. Used Skills
-- [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。
-- [migration-test](../skills/migration-test/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
 所有必需路径都有结果或明确 Yellow；ID/Name/query 完整；参数实例独立；结果绑定版本；原始日志可查。
