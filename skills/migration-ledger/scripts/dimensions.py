@@ -48,7 +48,12 @@ def load(ref, module_id):
             nonempty(item.get('case_ids'), 'dimension cases')
             evidence(item.get('evidence_refs'), 'dimension item evidence')
             if row['dimension'] == 'Resource':
-                for field in ('source_resource', 'target_resource', 'consumer', 'conversion', 'qualifiers'):
+                require(not (item.get('source_signal') and item.get('source_resource')),
+                        'a Resource item names a resource file or a recorded image source, not both')
+                # An image source without a file (a URL, a run-time name, drawing code) has no qualifier family.
+                fields = ('target_resource', 'consumer', 'conversion') + (
+                    ('source_signal',) if item.get('source_signal') else ('source_resource', 'qualifiers'))
+                for field in fields:
                     require(item.get(field), 'resource mapping missing ' + field)
                 import resource_fidelity
                 resource_fidelity.validate_item(item)

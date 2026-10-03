@@ -118,6 +118,7 @@ def validate_item(item):
         _ui_evidence(model)
         import ui_evidence as ue
         ue.validate_interactions(model)
+        ue.validate_image_checks(model)
     source = model.get('source', {})
     require(source.get('origin') in ORIGINS, 'semantic source origin required (legacy/target/authored)')
     require(item.get('target_strategy') != 'new' or source['origin'] != 'legacy',

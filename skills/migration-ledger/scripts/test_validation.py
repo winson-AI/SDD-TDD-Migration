@@ -139,7 +139,12 @@ def plan_check(plan, target, static_required=False, unit_required=False):
         nodes = nonempty(path.get('node_ids'), 'visual path node_ids')
         require(all(isinstance(n, str) and n.startswith('node:') for n in nodes),
                 'visual path node_ids must be stable node:<id> references')
-        check_ref(path.get('baseline_ref'))
+        ids = path.get('image_check_ids')
+        require(ids is None or (isinstance(ids, list) and ids and all(isinstance(i, str) and i for i in ids) and len(set(ids)) == len(ids)),
+                'image_check_ids must be a non-empty list of unique image check ids')
+        require(path.get('baseline_ref') is not None or ids, 'a visual path without a baseline must carry image_check_ids')
+        if path.get('baseline_ref') is not None:
+            check_ref(path['baseline_ref'])
     for path in builds + units:
         if path.get('unit_report'):
             require(path['kind'] == 'unit', 'unit_report only belongs to unit PATH')
@@ -170,9 +175,6 @@ def visual_result(module, path, record, captured, run_root=None, assignment=None
             'visual alignment coverage differs from frozen path')
     nodes = nonempty(proof.get('node_ids'), 'visual alignment node_ids')
     require(set(nodes) == set(path['node_ids']), 'visual alignment nodes differ from frozen path')
-    require(proof.get('baseline_ref') == path['baseline_ref'],
-            'visual alignment baseline differs from frozen path')
-    check_ref(proof['baseline_ref'])
     require(proof.get('code_baseline') == module.get('code_baseline') and module.get('code_baseline'),
             'visual alignment code baseline is stale')
     check_ref(proof.get('hap_ref'))
@@ -180,6 +182,24 @@ def visual_result(module, path, record, captured, run_root=None, assignment=None
               else module.get('build_artifacts', []))
     require(proof['hap_ref'] in builds,
             'visual alignment HAP must belong to the accepted current build')
+    if path.get('image_check_ids'):
+        import ui_fidelity
+        import visual_evidence
+        require(run_root is not None and isinstance(assignment, dict), 'image parity acceptance requires the current run root and assignment')
+        require(isinstance(proof.get('image_parity'), dict) and proof['image_parity'].get('report_ref'),
+                'a visual Green with image checks must carry its image-parity proof')
+        derived = visual_evidence.validate_image_parity(
+            (proof.get('image_parity') or {}).get('report_ref'), checks=ui_fidelity.frozen_image_checks(module, path), path=path,
+            code_baseline=module['code_baseline'], run_root=run_root, assignment=assignment)
+        require(proof.get('image_parity') == derived, 'image parity proof differs from the original report')
+        require(derived['hap_ref'] == proof['hap_ref'], 'image parity must use the HAP of this proof')
+        require(all(row['status'] == 'MATCH' for row in derived['checks']), 'every image check must match for a visual Green')
+    if path.get('baseline_ref') is None:
+        require(proof.get('mode') == 'reference-assets', 'a visual path without a baseline is proven by its image checks')
+        return
+    require(proof.get('baseline_ref') == path['baseline_ref'],
+            'visual alignment baseline differs from frozen path')
+    check_ref(proof['baseline_ref'])
     import lean_adapter
     from contracts import read_json
     source = read_json(check_ref(proof.get('evidence_ref')))

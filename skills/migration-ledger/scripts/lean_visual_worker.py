@@ -19,6 +19,9 @@ import zipfile
 from contracts import check_ref, digest, file_ref, read_json, require
 import run_storage
 import runner_storage
+import image_parity
+import ui_evidence
+import ui_fidelity
 import visual_evidence
 from lean_tools import mobile_snapshot, semantic_visual_inspect, validate_manifest
 
@@ -298,18 +301,23 @@ def scoped_scroll_region(xml, selector, app):
 
 def capture(device, contract, args, path, module, task, out, root):
     target = validate_manifest.parse_target(path['coverage'])
-    evidence = frozen_visual_evidence(module, path)
-    if not evidence:
-        return blocked('PATH lacks a frozen original capture manifest; use the existing adapter or review SPEC evidence',
-                       'source-evidence-unavailable')
-    manifest = read_json(check_ref(args.get('reference_manifest_ref')))
-    validate_manifest.validate_manifest(manifest, [target])
-    # A later attempt may append Harmony rounds. Its Android target is an exact copy of
-    # the original frozen record, including every viewport, never just the first screenshot.
-    reference = visual_evidence.match_source(args['reference_manifest_ref'], evidence, path['coverage'])
-    require(reference['status'] == 'COMPLETE', 'source-only cannot authorize a visual candidate capture')
-    require(any(file_ref(row['screenshot'])['sha256'] == path['baseline_ref']['sha256']
-                for row in reference['snapshot']['captures']), 'Android reference differs from frozen baseline')
+    if path.get('baseline_ref') is None:
+        # Image checks only: the target is captured on its own, and nodes are compared with rendered legacy pictures.
+        require(path.get('image_check_ids'), 'a visual PATH without a baseline must carry image checks')
+        manifest = {'schema_version': 2, 'targets': []}
+    else:
+        evidence = frozen_visual_evidence(module, path)
+        if not evidence:
+            return blocked('PATH lacks a frozen original capture manifest; use the existing adapter or review SPEC evidence',
+                           'source-evidence-unavailable')
+        manifest = read_json(check_ref(args.get('reference_manifest_ref')))
+        validate_manifest.validate_manifest(manifest, [target])
+        # A later attempt may append Harmony rounds. Its Android target is an exact copy of
+        # the original frozen record, including every viewport, never just the first screenshot.
+        reference = visual_evidence.match_source(args['reference_manifest_ref'], evidence, path['coverage'])
+        require(reference['status'] == 'COMPLETE', 'source-only cannot authorize a visual candidate capture')
+        require(any(file_ref(row['screenshot'])['sha256'] == path['baseline_ref']['sha256']
+                    for row in reference['snapshot']['captures']), 'Android reference differs from frozen baseline')
     install_path = check_ref(args.get('install_ref'))
     run_storage.checked_path(install_path, out.parents[1])
     install = visual_evidence.installation(args['install_ref'], artifact_ref=args['artifact_ref'],
@@ -424,6 +432,7 @@ def capture(device, contract, args, path, module, task, out, root):
 
 
 def semantic(args, settings, path, out, root, module):
+    require(path.get('baseline_ref') is not None, 'semantic inspection compares a baseline; this PATH carries image checks only')
     model = settings.get('visual_model')
     if not isinstance(model, dict) or model.get('mode') != 'external' or model.get('enabled') is not True:
         return blocked('explicit enabled external visual_model configuration required')
@@ -481,6 +490,56 @@ def semantic(args, settings, path, out, root, module):
     except (ValueError, RuntimeError, OSError, KeyError, TypeError) as exc:
         # API error bodies and exception strings may echo credentials or inline screenshots.
         return blocked('semantic inspection failed: ' + type(exc).__name__, 'semantic-unavailable')
+
+
+def parity(args, out, module, task, run_id):
+    """Compare each frozen image check's node in a captured target screen with its rendered legacy picture.
+
+    Reads evidence only: the candidate capture an earlier visual-capture produced and the references the
+    checks froze. The report is a measurement; acceptance stays with the Ledger, which recomputes it."""
+    path = path_context(args, module, task)
+    checks = ui_fidelity.frozen_image_checks(module, path)
+    require(checks, 'image parity requires a visual PATH that carries image checks')
+    manifest_ref = args.get('manifest_ref')
+    manifest_path = check_ref(manifest_ref)
+    round_id = args.get('round')
+    require(isinstance(round_id, int) and not isinstance(round_id, bool) and round_id > 0, 'positive explicit capture round required')
+    page, state, _ = path['coverage'].split(':')
+    records = [r for r in read_json(manifest_path).get('targets', []) if r.get('phase') == 'harmony-candidate'
+               and r.get('platform') == 'harmony' and r.get('page_id') == page and r.get('state_id') == state
+               and r.get('round') == round_id and r.get('status') == 'COMPLETE']
+    require(len(records) == 1, 'one completed candidate capture is required for the selected round')
+    snapshot = records[0]['snapshot']
+    captures = {capture['index']: capture for capture in snapshot['captures']}
+    rows = []
+    for check in checks:
+        index = check['target'].get('capture_index', 0)
+        require(index in captures, 'capture index ' + str(index) + ' is not in the candidate capture')
+        shot = visual_evidence.reference(captures[index]['screenshot'], manifest_path.parent)
+        view = visual_evidence.reference(captures[index].get('view_tree') or captures[index].get('view_xml'), manifest_path.parent)
+        png = ui_evidence.image_check_reference(check)
+        try:
+            row, crop = image_parity.evaluate(check, check_ref(png), Path(shot['path']), Path(view['path']).read_text())
+        except image_parity.ParityError as exc:
+            raise RuntimeError(str(exc)) from exc
+        row.update(reference_ref=png, render_ref=check['reference']['render_ref'], capture_index=index,
+                   screenshot_ref=shot, view_ref=view)
+        if crop is not None:
+            crop_path = run_storage.checked_path(out / 'crops' / (check['id'] + '.png'), out)
+            crop_path.parent.mkdir(parents=True, exist_ok=True)
+            crop.save(crop_path, format='PNG')
+            row['crop_ref'] = file_ref(crop_path)
+        rows.append(row)
+    import PIL
+    execution = read_json(check_ref(snapshot['capture_execution_ref']))
+    report = {'schema_version': 1, 'producer': 'sdd-image-parity', 'run_id': run_id, 'module_id': module['module_id'],
+              'path_id': path['path_id'], 'assignment_id': task['assignment_id'], 'code_baseline': module['code_baseline'],
+              'coverage': path['coverage'], 'manifest_ref': manifest_ref, 'capture_round': round_id,
+              'hap_ref': execution['artifact_ref'], 'pillow': PIL.__version__, 'checks': rows}
+    statuses = {row['status'] for row in rows}
+    return {'status': 'MEASURED', 'report_ref': save(out / 'image-parity.json', report),
+            'quality_candidate': 'red-bug' if 'MISMATCH' in statuses else 'green-passed' if statuses == {'MATCH'} else 'yellow-blocked',
+            'acceptance': 'measurement-is-evidence-not-a-visual-verdict'}
 
 
 def run(operation, args, *, root, out, module, task, actor, config):

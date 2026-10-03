@@ -143,6 +143,7 @@ gradle.beforeProject { p ->
         if path.get('kind') == 'visual':
             import visual_evidence
             query['frozen_visual_evidence'] = visual_evidence.frozen_evidence(m, path)
+            query['frozen_image_checks'] = ui_fidelity.frozen_image_checks(m, path)
             query['run_root'] = str(root)
             query['execution_assignment'] = {'assignment_id': a['assignment_id'],
                                              'fencing_token': a.get('fencing_token')}

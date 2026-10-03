@@ -24,6 +24,7 @@ ATTACHMENTS = ('drawers', 'dialogs', 'menus', 'overlays', 'pagerPages', 'listIte
 CAPTURE_COVERAGE = ('viewport', 'scroll')
 CAPTURE_STATUS = ('COMPLETE', 'SOURCE_ONLY')
 INTERACTION_ID = re.compile(r'^[a-z0-9][a-z0-9-]*$')
+IMAGE_CHECK_ID = INTERACTION_ID
 
 
 # --------------------------------------------------------------------------- merged UI tree
@@ -194,7 +195,7 @@ def validate_tree_ref(ref, source_index_ref=None, runtime_index_ref=None, target
             if item.get('path') and item.get('sha256'):
                 check_ref({'path': str(base / item['path']), 'sha256': item['sha256']})
     import resource_fidelity
-    resource_fidelity.indexed_resources(index, set(resource_refs(tree)), resource_scope)
+    resource_fidelity.indexed_resources(index, resource_fidelity.obligations(index, tree, resource_scope)['refs'], resource_scope)
     if runtime:
         data = read_json(runtime)
         for capture in data['captures']:
@@ -335,6 +336,50 @@ def validate_interactions(model):
         require(expected['app_foreground'] is False or (expected.get('page_id') and expected.get('state_id')),
                 'interaction ' + item['id'] + ' needs an expected page/state unless the app exits')
     return seen
+
+
+def validate_image_checks(model, tree=None, index=None):
+    """Image checks the frozen Spec declares: this node must show this legacy picture, within this tolerance.
+
+    A check names a tree node, the indexed legacy resource it must show, the rendered reference of that
+    resource, how to find the node in a captured target view tree, and optionally its tolerance."""
+    declared = model.get('image_checks')
+    if declared is None:
+        return []
+    import image_parity
+    require(isinstance(declared, list), 'image_checks must be a list')
+    nodes, seen = (set(node_ids(tree)) if tree else None), []
+    for item in declared:
+        require(isinstance(item, dict) and IMAGE_CHECK_ID.match(str(item.get('id', ''))), 'image check needs a stable lowercase id')
+        require(item['id'] not in seen, 'duplicate image check id ' + item['id'])
+        seen.append(item['id'])
+        label = 'image check ' + item['id']
+        require(isinstance(item.get('node_id'), str) and item['node_id'].startswith('node:'), label + ' needs a stable node:<id>')
+        require(nodes is None or item['node_id'] in nodes, label + ' names a node the UI tree does not have')
+        require(all(isinstance(item.get(field), str) and item[field] for field in ('source_resource', 'qualifier')),
+                label + ' needs source_resource and qualifier')
+        reference = read_json(check_ref((item.get('reference') or {}).get('render_ref')))
+        require(reference.get('producer') == 'sdd-reference-render' and reference.get('source_resource') == item['source_resource']
+                and reference.get('qualifier') == ('base' if item['qualifier'] == 'default' else item['qualifier']),
+                label + ' reference must be the rendering of its source_resource and qualifier')
+        check_ref(reference.get('png_ref'))
+        if index is not None:
+            require(any(row.get('ref') == item['source_resource'] and row.get('sha256') == reference['source_ref']['sha256']
+                        for row in index.get('resources', [])), label + ' reference was rendered from a file the source index does not hold')
+        target = item.get('target')
+        require(isinstance(target, dict) and image_parity.selector_valid(target.get('selector')),
+                label + ' needs target.selector: exact class, resource-id, text or content-desc of the node in the target view tree')
+        require(type(target.get('capture_index', 0)) is int and target.get('capture_index', 0) >= 0, label + ' capture_index must be a non-negative integer')
+        try:
+            image_parity.thresholds(item.get('tolerance'))
+        except image_parity.ParityError as exc:
+            require(False, label + ': ' + str(exc))
+    return seen
+
+
+def image_check_reference(check):
+    """The {path, sha256} of the reference raster a check compares against."""
+    return read_json(check_ref(check['reference']['render_ref']))['png_ref']
 
 
 def interaction_contract(item):
