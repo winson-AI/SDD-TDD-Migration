@@ -16,6 +16,9 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
+import resource_facts
+import resource_signals
+
 
 ANDROID_NS = "http://schemas.android.com/apk/res/android"
 APP_NS = "http://schemas.android.com/apk/res-auto"
@@ -35,13 +38,32 @@ CODE_RESOURCE_REF_RE = re.compile(
 )
 PRESENTATION_MUTATION_RE = re.compile(
     r"\b(?P<target>[A-Za-z_][A-Za-z0-9_.]*)\."
-    r"(?P<method>setBackgroundColor|setBackgroundResource|setTextColor|setTextSize|"
-    r"setPadding|setPaddingRelative|setImageResource|setImageDrawable|setColorFilter|"
-    r"setCompoundDrawables|setCompoundDrawablesWithIntrinsicBounds|setTypeface)\s*\("
+    r"(?P<method>setBackgroundColor|setBackgroundResource|setBackgroundDrawable|setBackground|setForeground|"
+    r"setTextColor|setTextSize|setPadding|setPaddingRelative|setImageResource|setImageDrawable|setImageBitmap|"
+    r"setImageURI|setImageTintList|setScaleType|setAnimation|setColorFilter|setCompoundDrawables|"
+    r"setCompoundDrawablesWithIntrinsicBounds|setCompoundDrawablesRelative|"
+    r"setCompoundDrawablesRelativeWithIntrinsicBounds|setTypeface)\s*\("
+)
+PRESENTATION_ASSIGNMENT_RE = re.compile(
+    r"\b(?P<target>[A-Za-z_][A-Za-z0-9_.]*)\.(?P<method>scaleType|imageTintList|background|foreground)\s*=(?!=)"
 )
 PRESENTATION_PROPERTIES = {
     "setBackgroundColor": "background",
     "setBackgroundResource": "background",
+    "setBackgroundDrawable": "background",
+    "setBackground": "background",
+    "setForeground": "foreground",
+    "scaleType": "scaleType",
+    "imageTintList": "tint",
+    "background": "background",
+    "foreground": "foreground",
+    "setImageBitmap": "image",
+    "setImageURI": "image",
+    "setImageTintList": "tint",
+    "setScaleType": "scaleType",
+    "setAnimation": "animation",
+    "setCompoundDrawablesRelative": "compoundDrawables",
+    "setCompoundDrawablesRelativeWithIntrinsicBounds": "compoundDrawables",
     "setTextColor": "textColor",
     "setTextSize": "textSize",
     "setPadding": "padding",
@@ -143,6 +165,20 @@ def call_end(text: str, open_paren: int, limit: int = 2400) -> int | None:
 
 def presentation_mutations(text: str, source_path: str) -> list[dict]:
     mutations = []
+    for match in PRESENTATION_ASSIGNMENT_RE.finditer(text):
+        end = text.find("\n", match.end())
+        expression = text[match.start() : end if end >= 0 else len(text)][:240]
+        mutations.append(
+            {
+                "target": match.group("target"),
+                "method": match.group("method"),
+                "property": PRESENTATION_PROPERTIES[match.group("method")],
+                "sourcePath": source_path,
+                "line": line_number(text, match.start()),
+                "expression": " ".join(expression.split()),
+                "resourceRefs": code_resource_refs(expression),
+            }
+        )
     for match in PRESENTATION_MUTATION_RE.finditer(text):
         end = call_end(text, match.end() - 1)
         if end is None:
@@ -159,6 +195,7 @@ def presentation_mutations(text: str, source_path: str) -> list[dict]:
                 "resourceRefs": code_resource_refs(expression),
             }
         )
+    mutations.sort(key=lambda item: item["line"])
     return mutations
 
 
@@ -171,12 +208,15 @@ def element_selector(parent_selector: str, tag: str, index: int, android_id: str
     return f"{parent_selector}/{segment}" if parent_selector else f"/{segment}"
 
 
-def parse_layout_node(element: ET.Element, selector: str) -> dict:
+def parse_layout_node(element: ET.Element, selector: str, hints: list | None = None) -> dict:
     raw_attrs: dict[str, str] = {}
     direct_refs: set[str] = set()
     android_id = element.attrib.get(f"{{{ANDROID_NS}}}id")
+    names = {qualified_name(raw_name) for raw_name in element.attrib}
     for raw_name, value in element.attrib.items():
         name = qualified_name(raw_name)
+        if hints is not None:
+            resource_signals.layout_hint(hints, selector, name, value, names)
         if name.startswith("tools:") or name == "android:id":
             continue
         raw_attrs[name] = value
@@ -191,7 +231,7 @@ def parse_layout_node(element: ET.Element, selector: str) -> dict:
         child_counts[tag] = child_counts.get(tag, 0) + 1
         child_id = child.attrib.get(f"{{{ANDROID_NS}}}id")
         child_selector = element_selector(selector, child.tag, child_counts[tag], child_id)
-        parsed = parse_layout_node(child, child_selector)
+        parsed = parse_layout_node(child, child_selector, hints)
         children.append(parsed)
         refs.update(parsed["resourceRefs"])
 
@@ -336,7 +376,7 @@ def layout_reference_from_xml(value: str) -> str | None:
     return match.group(1) if match else None
 
 
-def parse_layout(path: Path, root: Path) -> tuple[dict, list[tuple[str, str]]]:
+def parse_layout(path: Path, root: Path) -> tuple[dict, list[tuple[str, str]], list[dict]]:
     try:
         document = ET.parse(path)
     except ET.ParseError as exc:
@@ -344,7 +384,8 @@ def parse_layout(path: Path, root: Path) -> tuple[dict, list[tuple[str, str]]]:
     xml_root = document.getroot()
     root_id = xml_root.attrib.get(f"{{{ANDROID_NS}}}id")
     selector = element_selector("", xml_root.tag, 1, root_id)
-    parsed_root = parse_layout_node(xml_root, selector)
+    hints: list[dict] = []
+    parsed_root = parse_layout_node(xml_root, selector, hints)
     relationships: list[tuple[str, str]] = []
     for element in xml_root.iter():
         tag = local_name(element.tag)
@@ -377,67 +418,44 @@ def parse_layout(path: Path, root: Path) -> tuple[dict, list[tuple[str, str]]]:
             "resourceRefs": parsed_root["resourceRefs"],
         },
         relationships,
+        [{**hint, "sourcePath": relative} for hint in hints],
     )
 
 
-def discover_resource(root: Path, ref: str) -> list[dict]:
-    clean = ref.lstrip("@?")
-    if clean.startswith("android:"):
-        return [{"ref": ref, "kind": "platform", "status": "platform"}]
-    if "/" not in clean:
-        return []
-    kind, name = clean.split("/", 1)
-    found: list[dict] = []
+def parse_xml_document(path: Path, root: Path, kind: str, name: str, qualifier: str) -> dict:
+    """A menu, preference or navigation document: its nodes keep their attributes, its icons are references."""
+    try:
+        xml_root = ET.parse(path).getroot()
+    except ET.ParseError as exc:
+        raise CollectionError(f"invalid {kind} XML {path}: {exc}") from exc
+    parsed = parse_layout_node(
+        xml_root, element_selector("", xml_root.tag, 1, xml_root.attrib.get(f"{{{ANDROID_NS}}}id")))
+    return {"ref": f"@{kind}/{name}", "kind": kind, "name": name, "qualifier": qualifier,
+            "path": relative_to_root(path, root), "sha256": sha256_file(path), "root": parsed,
+            "resourceRefs": parsed["resourceRefs"]}
 
-    if kind in {"string", "color", "dimen", "integer", "bool", "style", "array", "plurals"}:
-        for path in root.rglob("*.xml"):
-            if not path.is_file() or not path.parent.name.startswith("values") or "res" not in path.parts:
-                continue
-            try:
-                document = ET.parse(path)
-            except ET.ParseError:
-                continue
-            for element in document.getroot():
-                element_kind = local_name(element.tag)
-                declared_kind = element.attrib.get("type", element_kind)
-                if declared_kind in {"string-array", "integer-array"}:
-                    declared_kind = "array"
-                if element.attrib.get("name") != name or declared_kind != kind:
-                    continue
-                value: object
-                if kind == "style":
-                    value = {
-                        "parent": element.attrib.get("parent"),
-                        "items": {item.attrib.get("name", ""): "".join(item.itertext()).strip() for item in element},
-                    }
-                else:
-                    value = "".join(element.itertext()).strip()
-                found.append(
-                    {
-                        "ref": ref,
-                        "kind": kind,
-                        "qualifier": path.parent.name[len("values") :].lstrip("-") or "default",
-                        "path": relative_to_root(path, root),
-                        "sha256": sha256_file(path),
-                        "value": value,
-                    }
-                )
-    if kind not in {"string", "dimen", "integer", "bool", "style", "array", "plurals"}:
-        for path in root.rglob(f"{name}.*"):
-            if not path.is_file() or "res" not in path.parts:
-                continue
-            parent = path.parent.name
-            if parent == kind or parent.startswith(f"{kind}-"):
-                found.append(
-                    {
-                        "ref": ref,
-                        "kind": kind,
-                        "qualifier": parent[len(kind) :].lstrip("-") or "default",
-                        "path": relative_to_root(path, root),
-                        "sha256": sha256_file(path),
-                    }
-                )
-    return found
+
+def parse_manifest(path: Path, root: Path) -> dict:
+    """Only the icon-bearing attributes of a manifest; the rest of it is not display."""
+    try:
+        xml_root = ET.parse(path).getroot()
+    except ET.ParseError as exc:
+        raise CollectionError(f"invalid manifest XML {path}: {exc}") from exc
+    icons = []
+    for element in xml_root.iter():
+        for attr in ("icon", "roundIcon", "logo", "banner"):
+            for ref in resource_facts.references(element.attrib.get(f"{{{ANDROID_NS}}}{attr}")):
+                icons.append({"element": local_name(element.tag), "name": element.attrib.get(f"{{{ANDROID_NS}}}name"),
+                              "attr": "android:" + attr, "ref": ref})
+    relative = relative_to_root(path, root)
+    return {"ref": "manifest:" + relative, "kind": "manifest", "name": relative, "qualifier": "default",
+            "path": relative, "sha256": sha256_file(path), "icons": icons,
+            "resourceRefs": sorted({icon["ref"] for icon in icons})}
+
+
+def discover_resource(root: Path, ref: str, catalog: resource_signals.Catalog | None = None) -> list[dict]:
+    """Every declaration of a reference (values entries and res/ files), one row per qualifier."""
+    return (catalog or resource_signals.Catalog(root)).rows(ref)
 
 
 def collect(args: argparse.Namespace) -> dict:
@@ -486,73 +504,160 @@ def collect(args: argparse.Namespace) -> dict:
     layout_references: list[dict] = []
     compose_functions: list[dict] = []
     source_resource_refs: set[str] = set()
+    catalog = resource_signals.Catalog(root)
+    image_rows: list[dict] = []
+    asset_names: set[str] = set()
     for path in sorted(source_paths):
         fact, references, composables = inspect_source(path, root)
         source_facts.append(fact)
         source_resource_refs.update(fact["resourceRefs"])
         layout_references.extend(references)
         compose_functions.extend(composables)
+        found = resource_signals.code_sources(
+            catalog, path.read_text(encoding="utf-8", errors="replace"), fact["path"],
+            getattr(args, "image_sinks", None) or ())
+        image_rows.extend(found["imageSources"])
+        asset_names.update(found["assets"])
 
     layout_index = discover_layout_files(root)
     requested_layouts = list(args.layout)
     requested_layouts.extend(item["layoutName"] for item in layout_references)
-    queue = deque(dict.fromkeys(requested_layouts))
+    layout_queue = deque(dict.fromkeys(requested_layouts))
+    xml_queue: deque = deque()
+    ref_queue: deque = deque()
     visited_names: set[str] = set()
+    visited_xml: set[tuple[str, str]] = set()
+    seen_refs: set[str] = set()
+    parents: dict[str, set[str]] = {}
     layout_documents: list[dict] = []
     layout_edges: list[dict] = []
-    all_refs: set[str] = set(source_resource_refs)
+    xml_documents: list[dict] = []
+    resource_documents: list[dict] = []
+    theme_attrs: list[dict] = []
+    missing: list[dict] = []
+    hints: list[dict] = []
 
-    while queue:
-        name = queue.popleft()
-        if name in visited_names:
+    def note(ref: str, parent: str | None = None) -> None:
+        if parent:
+            parents.setdefault(ref, set()).add(parent)
+        ref_queue.append(ref)
+        kind, _, name = ref.lstrip("@?").partition("/")
+        if kind in resource_signals.XML_KINDS:
+            xml_queue.append((kind, name))
+
+    for ref in sorted(source_resource_refs):
+        note(ref)
+    for row in image_rows:
+        for ref in resource_signals.source_refs(row):
+            note(ref)
+    for relative in sorted(asset_names):
+        asset = catalog.asset_row(relative)
+        if asset:
+            resource_documents.append(asset)
+        else:
+            missing.append({"kind": "asset", "requested": relative,
+                            "reason": "referenced asset was not found under assets/"})
+    for requested in getattr(args, "manifest", None) or []:
+        manifest = Path(requested).expanduser()
+        manifest = (manifest if manifest.is_absolute() else root / manifest).resolve()
+        if not manifest.is_file():
+            unresolved.append({"kind": "manifest", "requested": requested, "reason": "manifest was not found"})
             continue
-        visited_names.add(name)
-        variants = layout_index.get(name, [])
-        if not variants:
-            unresolved.append(
-                {
-                    "kind": "layout",
-                    "requested": name,
-                    "reason": "referenced layout resource was not found",
-                }
-            )
-            continue
-        for path in variants:
-            document, relationships = parse_layout(path, root)
-            layout_documents.append(document)
-            all_refs.update(document["resourceRefs"])
-            for target, relation in relationships:
-                layout_edges.append(
+        document = parse_manifest(manifest, root)
+        xml_documents.append(document)
+        for ref in document["resourceRefs"]:
+            note(ref)
+
+    while layout_queue or xml_queue or ref_queue:
+        while layout_queue:
+            name = layout_queue.popleft()
+            if name in visited_names:
+                continue
+            visited_names.add(name)
+            variants = layout_index.get(name, [])
+            if not variants:
+                unresolved.append(
                     {
-                        "fromPath": document["path"],
-                        "toLayoutName": target,
-                        "relation": relation,
+                        "kind": "layout",
+                        "requested": name,
+                        "reason": "referenced layout resource was not found",
                     }
                 )
-                queue.append(target)
+                continue
+            for path in variants:
+                document, relationships, found = parse_layout(path, root)
+                layout_documents.append(document)
+                hints.extend(found)
+                for ref in document["resourceRefs"]:
+                    note(ref)
+                for target, relation in relationships:
+                    layout_edges.append(
+                        {
+                            "fromPath": document["path"],
+                            "toLayoutName": target,
+                            "relation": relation,
+                        }
+                    )
+                    layout_queue.append(target)
+        while xml_queue:
+            kind, name = xml_queue.popleft()
+            if (kind, name) in visited_xml:
+                continue
+            visited_xml.add((kind, name))
+            for qualifier, path in catalog.xml_files(kind, name):
+                document = parse_xml_document(path, root, kind, name, qualifier)
+                xml_documents.append(document)
+                for ref in document["resourceRefs"]:
+                    note(ref)
+                    if ref.startswith("@layout/"):
+                        layout_edges.append({"fromPath": document["path"], "toLayoutName": ref[len("@layout/") :],
+                                             "relation": "xml_reference"})
+                        layout_queue.append(ref[len("@layout/") :])
+        while ref_queue:
+            ref = ref_queue.popleft()
+            if ref in seen_refs:
+                continue
+            seen_refs.add(ref)
+            # Code references retain ids in sourceFiles.resourceRefs for node/binding
+            # analysis, but an id identifies a node rather than a migratable file.
+            if ref.startswith(("@id/", "@android:id/")):
+                continue
+            matches = catalog.rows(ref)
+            if matches:
+                for row in matches:
+                    catalog.describe(row)
+                    for nested in row.get("references", []):
+                        note(nested["ref"], ref)
+                resource_documents.extend(matches)
+            elif ref.startswith("?attr/"):
+                # A theme attribute is defined by the project's styles or by a library; it is never silently dropped.
+                definitions = catalog.theme_definitions(ref.split("/", 1)[1])
+                theme_attrs.append({"ref": ref, "status": "project" if definitions else "library",
+                                    "definitions": definitions})
+                for definition in definitions:
+                    for nested in resource_facts.references(definition["value"]):
+                        note(nested, ref)
+            else:
+                missing.append(
+                    {
+                        "kind": "resource",
+                        "requested": ref,
+                        "reason": "referenced resource was not found in the scoped source root",
+                    }
+                )
 
-    resource_documents: list[dict] = []
-    for ref in sorted(all_refs):
-        # Code references retain ids in sourceFiles.resourceRefs for node/binding
-        # analysis, but an id identifies a node rather than a migratable file.
-        if ref.startswith(("@id/", "@android:id/")):
-            continue
-        matches = discover_resource(root, ref)
-        if matches:
-            resource_documents.extend(matches)
-        elif not ref.startswith("?attr/"):
-            unresolved.append(
-                {
-                    "kind": "resource",
-                    "requested": ref,
-                    "reason": "referenced resource was not found in the scoped source root",
-                }
-            )
-
+    unresolved.extend(sorted(missing, key=lambda item: (item["kind"], item["requested"])))
+    for row in resource_documents:
+        if row["ref"] in parents:
+            row["via"] = sorted(parents[row["ref"]])
+    for hint in hints:
+        image_rows.append(hint)
     layout_documents.sort(key=lambda item: (item["name"], item["qualifier"], item["path"]))
     layout_references.sort(key=lambda item: (item["sourcePath"], item["line"], item["layoutName"]))
     layout_edges.sort(key=lambda item: (item["fromPath"], item["toLayoutName"], item["relation"]))
     resource_documents.sort(key=lambda item: (item["ref"], item.get("qualifier", ""), item.get("path", "")))
+    xml_documents.sort(key=lambda item: (item["kind"], item["name"], item["qualifier"], item["path"]))
+    theme_attrs.sort(key=lambda item: item["ref"])
 
     return {
         "schemaVersion": 1,
@@ -564,7 +669,10 @@ def collect(args: argparse.Namespace) -> dict:
         "composeFunctions": compose_functions,
         "layouts": layout_documents,
         "layoutEdges": layout_edges,
+        "xmlResources": xml_documents,
         "resources": resource_documents,
+        "themeAttrs": theme_attrs,
+        "imageSources": resource_signals.identify(image_rows),
         "unresolved": unresolved,
     }
 
@@ -576,6 +684,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--entry", action="append", default=[])
     parser.add_argument("--source-file", action="append", default=[])
     parser.add_argument("--layout", action="append", default=[])
+    parser.add_argument("--manifest", action="append", default=[], help="manifest whose icon attributes belong to the scope")
+    parser.add_argument("--image-sink", dest="image_sinks", action="append", default=[],
+                        help="project method that loads an image from its first argument")
     parser.add_argument("--out", required=True)
     return parser
 

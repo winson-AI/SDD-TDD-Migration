@@ -7,6 +7,7 @@ from contracts import check_ref, digest, read_json
 import decomposition as dc
 import test_validation as tv
 import audit_code_review
+import resource_fidelity
 import workflow_cost
 
 
@@ -29,9 +30,30 @@ def refs(value):
     return list(found.values())
 
 
+def picture(mid, item, analysis_ref, carriers, rows):
+    """How one picture in the target relates to its legacy source, and whether a measurement on the screen backs it."""
+    state, check = resource_fidelity.exactness(item), item.get('image_check')
+    paths = [r for r in rows if r['module_id'] == mid and r['path_id'] in carriers.get(check, [])]
+    measured = bool(paths) and all(r['quality'] == 'green-passed' and r['executed'] and not r['stale'] for r in paths)
+    deviation = item.get('deviation') or {}
+    status, reason = {'exact': ('exact', '精确复制或语义等价迁移'),
+                      'blocked': ('blocked', item.get('blocked_reason') or '该图片未迁移'),
+                      'unrecorded': ('unknown', '未记录迁移策略'),
+                      'manual': ('reviewed', '仅有人工评审，未经屏幕测量'),
+                      'approved-deviation': ('approved-deviation', f"人工批准的偏差（{deviation.get('kind')}）：{deviation.get('reason')}")
+                      }.get(state, ('', ''))
+    if state == 'non-exact':
+        status, reason = (('verified', '目标屏幕上的节点图像已与存量资源的渲染参考比对，在容差内一致') if measured else
+                          ('not-verified', '图像检查所在视觉路径未在当前基线通过' if check else '手工替换的图片没有图像检查，也没有获批偏差'))
+    return {'module_id': mid, 'item_id': item.get('item_id'), 'source': item.get('source_resource') or item.get('source_signal'),
+            'resource_kind': item.get('resource_kind'), 'strategy': item.get('resource_strategy'), 'state': state, 'status': status,
+            'reason': reason, 'image_check': check, 'path_ids': [r['path_id'] for r in paths],
+            'evidence_refs': refs([analysis_ref, item.get('adaptation_evidence_ref'), deviation.get('evidence_refs'), [r['evidence_refs'] for r in paths]])}
+
+
 def fidelity(s, rows, ref_check):
     """Disclose proof boundaries without changing business acceptance or scheduling."""
-    visual, limitations = [], []
+    visual, limitations, pictures = [], [], []
     for mid, module in s['modules'].items():
         plan = module.get('plan') or {}
         analysis_ref = plan.get('dimension_analysis_ref')
@@ -63,15 +85,25 @@ def fidelity(s, rows, ref_check):
                          'path_ids': [r['path_id'] for r in paths],
                          'evidence_refs': refs([analysis_ref, evidence, [r['evidence_refs'] for r in paths]])}
                 visual.append(entry)
+        carriers = {}
+        for path in plan.get('paths', []):
+            for cid in path.get('image_check_ids', []) if path.get('kind') == 'visual' else []:
+                carriers.setdefault(cid, []).append(path['path_id'])
         for dimension in dimensions:
             for item in dimension.get('items', []):
+                if dimension['dimension'] == 'Resource' and dimension.get('status') == 'applicable' and resource_fidelity.is_picture(item):
+                    pictures.append(picture(mid, item, analysis_ref, carriers, rows))
                 if item.get('target_strategy') == 'capture-fixture':
                     limitations.append({'module_id': mid, 'item_id': item.get('item_id'),
                         'kind': 'capture-fixture', 'case_ids': item.get('case_ids', []),
                         'reason': 'capture-fixture 只验证记录样本；未证明在线服务或 provider 行为等价',
                         'evidence_refs': refs([analysis_ref, item])})
     limitations[:0] = [{**v, 'kind': 'visual-coverage'} for v in visual if v['status'] in ('unknown', 'not-verified')]
-    return visual, limitations
+    limitations += [{'module_id': v['module_id'], 'item_id': v['item_id'], 'kind': 'picture-replacement',
+                     'reason': f"图片 {v['source']} 与存量不是精确复制（{v['status']}）：{v['reason']}", 'evidence_refs': v['evidence_refs']}
+                    for v in pictures if v['status'] not in ('exact', 'verified', 'reviewed')]
+    return visual, limitations, {'counts': dict(Counter(v['status'] for v in pictures)),
+                                 'items': [v for v in pictures if v['status'] != 'exact']}
 
 
 def build(root, s, sequence, ref_check=check_ref):
@@ -170,7 +202,7 @@ def build(root, s, sequence, ref_check=check_ref):
              all(c['quality'] == 'green-passed' for c in cases) else
              'completed-with-unverified-tests' if settled and reviewed and not invalid and tv.final_deferred_current(s) else
              'awaiting-human' if batch.get('status') == 'awaiting-human' else 'in-progress')
-    visual, limitations = fidelity(s, rows, ref_check)
+    visual, limitations, pictures = fidelity(s, rows, ref_check)
     return {'schema_version': 1, 'run_id': s['run_id'], 'sequence': sequence, 'report_stage': stage,
             'quality': quality([s.get('quality', 'yellow-blocked'), *[c['quality'] for c in cases]]),
             'entry_mode': s.get('entry_mode', 'project'), 'single_module_id': s.get('single_module_id'),
@@ -179,7 +211,7 @@ def build(root, s, sequence, ref_check=check_ref):
             'case_counts': {q: Counter(c['quality'] for c in cases)[q] for q in ('green-passed', 'red-bug', 'yellow-blocked')},
             'cases': cases, 'paths': rows, 'non_green': [r for r in rows if r['quality'] != 'green-passed'],
             'unimplemented': gaps, 'code_governance': governance,
-            'visual_coverage': visual, 'fidelity_limitations': limitations,
+            'visual_coverage': visual, 'fidelity_limitations': limitations, 'picture_fidelity': pictures,
             'human_report': copy.deepcopy(batch.get('human_report')),
             'workflow_cost': workflow_cost.build(s, workflow_cost.journal(root)),
             'human_report_path': str(root / 'audit-reports' / (batch['batch_id'] + '.json')) if batch.get('human_report') else None}
@@ -207,6 +239,13 @@ def render(report):
         text.append(f"- {cell(limit['module_id'])} / {cell(limit.get('item_id'))}: {cell(limit['reason'])}")
         for ref in limit['evidence_refs']:
             text.append(f"  - 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}")
+    pictures = report.get('picture_fidelity') or {'counts': {}, 'items': []}
+    if pictures['items']:
+        text += ['', '以下图片不是对存量资源的精确复制；verified 表示目标屏幕上的节点图像已在容差内与存量渲染参考一致。', '',
+                 f"图片统计：{cell(pictures['counts'])}", '', '| 模块 / 项 | 来源 | 类型 / 策略 | 状态 | 说明 |', '| --- | --- | --- | --- | --- |']
+        for v in pictures['items']:
+            text.append('| ' + ' | '.join(cell(x) for x in (f"{v['module_id']} / {v.get('item_id', '—')}", v['source'],
+                        f"{v['resource_kind']} / {v['strategy']}", v['status'], v['reason'])) + ' |')
     governance = report.get('code_governance', {})
     text += ['', '## 整体代码治理', '', f"当前基线审查有效：{governance.get('current', False)}；待处理治理发现：{len(governance.get('pending_findings', []))}"]
     if governance.get('report_ref'):

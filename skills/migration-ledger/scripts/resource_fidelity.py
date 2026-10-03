@@ -8,22 +8,34 @@ never count as Green. Closure may not be reduced to the convenient subset: every
 reference the UI tree declares (including code-owned runtime overrides) must be covered.
 Structural gates only; exactness itself is reviewed by the owning agent.
 """
+from collections import deque
 import copy
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 from contracts import Rejected, check_ref, file_ref, read_json, require
+import resource_facts
+import resource_signals
 
 STRATEGIES = ('exact_vector_xml', 'byte_copy', 'value_xml_exact', 'design_token_exact',
-              'compose_semantic_exact', 'manual_exact', 'blocked')
+              'compose_semantic_exact', 'source_equivalent', 'manual_exact', 'blocked')
 # Android source kind -> the normal exact strategy it must use.
-NORMAL = {'vector': 'exact_vector_xml', 'bitmap': 'byte_copy', 'font': 'byte_copy', 'raw': 'byte_copy',
+NORMAL = {'vector': 'exact_vector_xml', 'bitmap': 'byte_copy', 'font': 'byte_copy', 'raw': 'byte_copy', 'asset': 'byte_copy',
           'string': 'value_xml_exact', 'plurals': 'value_xml_exact', 'array': 'value_xml_exact',
           'color': 'design_token_exact', 'dimen': 'design_token_exact', 'attr': 'design_token_exact',
           'selector': 'compose_semantic_exact', 'layer-list': 'compose_semantic_exact',
-          'shape': 'compose_semantic_exact'}
+          'shape': 'compose_semantic_exact', 'inset': 'compose_semantic_exact', 'rotate': 'compose_semantic_exact',
+          'clip': 'compose_semantic_exact', 'scale': 'compose_semantic_exact', 'level-list': 'compose_semantic_exact',
+          'transition': 'compose_semantic_exact', 'ripple': 'compose_semantic_exact'}
 # Available for any kind only when exactness cannot be proven.
 ESCAPES = ('manual_exact', 'blocked')
+# What the user sees as a picture; only a still image or a vector drawable renders offline to something a check can measure.
+GRAPHIC_KINDS = ('bitmap', 'vector', 'code-drawn', 'animation-list', 'animated-selector', 'animated-vector', 'adaptive-icon')
+DEVIATIONS = ('redraw', 'degrade', 'absent')
+# Image sources with no resource file: what the target must do, per kind of recorded source.
+SIGNAL_STRATEGIES = {'remote-image': ('source_equivalent', 'manual_exact', 'blocked'),
+                     'dynamic-resource': ('manual_exact', 'blocked'), 'data-binding': ('manual_exact', 'blocked'),
+                     'code-drawn': ('manual_exact', 'blocked')}
 
 
 def validate_item(item):
@@ -31,6 +43,8 @@ def validate_item(item):
     strategy = item.get('resource_strategy')
     if strategy is None:
         return
+    if item.get('source_signal'):
+        return validate_signal_strategy(item, strategy)
     if item.get('source_resource_ref'):
         check_ref(item['source_resource_ref'])
     if item.get('platform_resource') is not None:
@@ -104,6 +118,11 @@ def xml_root(path):
 def source_facts(source, source_id):
     """Read the actual Android file/values entry; never infer kind from an agent label."""
     source = Path(source)
+    if (source_id or '').startswith('asset:'):
+        parts = source.parts
+        require('assets' in parts and '/'.join(parts[parts.index('assets') + 1:]) == source_id[len('asset:'):],
+                'asset source ID differs from the asset file')
+        return {'source_ref': file_ref(source), 'qualifier': 'base', 'nine_patch': False, 'kind': 'asset'}
     match = re.fullmatch(r'[@?]([a-z-]+)/([A-Za-z0-9_]+)', source_id or '')
     require(match, 'resource source ID must name a local Android resource')
     namespace, name = match.groups()
@@ -152,6 +171,9 @@ def platform_facts(item):
 
 
 def validate_facts(item, legacy_root=None, *, check_configuration=False):
+    if item.get('source_signal'):
+        validate_item(item)
+        return {'status': 'signal', 'signal': item['source_signal']}
     if item.get('resource_strategy') == 'blocked' and not item.get('source_resource_ref'):
         validate_item(item)
         return {'status': 'source-unavailable', 'reason': item['blocked_reason']}
@@ -249,6 +271,177 @@ def prepare_exact(source, destination, source_id, strategy):
     return ET.tostring(target, encoding='utf-8', xml_declaration=True) + b'\n'
 
 
+def _suffix(item):
+    return Path((item.get('source_resource_ref') or {}).get('path') or '').suffix.lower()
+
+
+def is_graphic(item):
+    """A picture the user sees: drawables, animations, drawing code, and image or animation files in raw/assets.
+
+    A raw or asset file is judged by its suffix; other files there (data, fonts, XML) are not pictures."""
+    kind = item.get('resource_kind')
+    return kind in GRAPHIC_KINDS or kind in ('raw', 'asset') and _suffix(item) in resource_facts.RASTER_SUFFIXES + ('.svg', '.json')
+
+
+def is_picture(item):
+    """Anything the user sees as an image: a graphic, or an image source with no resource file."""
+    return is_graphic(item) or item.get('resource_kind') in SIGNAL_STRATEGIES
+
+
+def measurable(item):
+    """Whether the source renders offline to one still picture an image check can compare.
+
+    A nine-patch does not: what the screen shows is its stretched form, never the file's own pixels."""
+    kind = item.get('resource_kind')
+    still = kind in ('bitmap', 'vector') or kind in ('raw', 'asset') and _suffix(item) in resource_facts.RASTER_SUFFIXES
+    return still and not item.get('nine_patch')
+
+
+def exactness(item):
+    """How closely the target reproduces the source: exact, non-exact, approved-deviation, blocked, manual or unrecorded.
+
+    A picture the legacy app ships that is replaced by hand (manual_exact) is non-exact: only a measurement on the
+    target stands behind it. Drawing code has no file to copy and is ported like other code, so its hand port stays
+    manual: reviewed, not measured. A human-approved deviation is still a difference; it is disclosed as one."""
+    strategy = item.get('resource_strategy')
+    if strategy is None:
+        return 'unrecorded'
+    if strategy == 'blocked':
+        return 'blocked'
+    if item.get('deviation'):
+        return 'approved-deviation'
+    if strategy == 'manual_exact':
+        return 'non-exact' if is_graphic(item) and item.get('resource_kind') != 'code-drawn' else 'manual'
+    return 'exact'
+
+
+def require_graphic_proof(items, plan, declared, carried):
+    """A picture replaced by hand is measured on the target or is a deviation a human approved with the plan.
+
+    The check is declared by the UI model and carried by a visual path, so the result shows on the screen; the
+    deviation names one of the plan's allowed alternatives, so the difference is part of what was approved.
+    A still image takes either. An animation or a nine-patch cannot be rendered offline, which leaves the deviation:
+    a review alone never backs the replacement of a picture the legacy app ships. Drawing code has no file to copy;
+    it is ported like other code, keeps its review, and takes no check."""
+    allowed = (plan.get('decision_envelope') or {}).get('allowed_alternatives', [])
+    for item in items:
+        label = item.get('item_id', '?')
+        replaced = item.get('resource_strategy') == 'manual_exact' and is_graphic(item)
+        require(replaced or item.get('deviation') is None, label + ': a deviation describes a manual_exact replacement of a graphic')
+        if not replaced:
+            continue
+        check, deviation = item.get('image_check'), item.get('deviation')
+        if measurable(item):
+            require(bool(check) != bool(deviation),
+                    label + ': a non-exact graphic needs either an image_check carried by a visual PATH or an approved deviation, not both and not neither')
+        else:
+            require(not check, label + ': animations, nine-patches and drawing code are not rendered offline, so an image_check cannot measure them')
+            require(deviation or item.get('resource_kind') == 'code-drawn',
+                    label + ': an animation or nine-patch replaced by hand cannot be measured, so it needs an approved deviation')
+        if check:
+            found = declared.get(check)
+            require(found and check in carried, label + ': image_check ' + str(check) + ' must be declared by a UI model and carried by a visual path')
+            family = lambda value: 'base' if value in (None, '', 'default') else value
+            require(found[0]['source_resource'] == item.get('source_resource') and family(found[0]['qualifier']) == family(item.get('qualifier')),
+                    label + ': image_check must be the check of this resource and qualifier')
+        elif deviation is not None:
+            require(isinstance(deviation, dict) and deviation.get('kind') in DEVIATIONS
+                    and isinstance(deviation.get('reason'), str) and deviation['reason'].strip(),
+                    label + ': deviation needs a kind (' + ', '.join(DEVIATIONS) + ') and a reason')
+            require(deviation.get('alternative') in allowed,
+                    label + ': deviation.alternative must be one of decision_envelope.allowed_alternatives, which a human approves with the plan')
+            for ref in deviation.get('evidence_refs') or []:
+                check_ref(ref)
+
+
+def validate_signal_strategy(item, strategy):
+    """An image source without a resource file: its kind must match the strategy the target can honestly use."""
+    kind = item.get('resource_kind')
+    require(kind in SIGNAL_STRATEGIES, 'image source item needs resource_kind remote-image, dynamic-resource, data-binding or code-drawn')
+    require(strategy in SIGNAL_STRATEGIES[kind], kind + ' source requires ' + ' or '.join(SIGNAL_STRATEGIES[kind]))
+    if strategy == 'manual_exact':
+        check_ref(item.get('adaptation_evidence_ref'))
+    if strategy == 'blocked':
+        require(item.get('blocked_reason'), 'blocked image source needs an explicit reason')
+
+
+def validate_signal_item(item, signal, item_ids):
+    """The item for one recorded image source states how the target reproduces what the legacy source does."""
+    require(item.get('resource_kind') == signal['kind'], 'resource_kind differs from the recorded image source ' + signal['id'])
+    validate_signal_strategy(item, item.get('resource_strategy'))
+    if item['resource_strategy'] != 'source_equivalent':
+        return
+    target = item.get('target_source')
+    require(isinstance(target, str) and target.strip(), 'source_equivalent needs target_source: the URL or field the target loads')
+    if signal['source']['kind'] == 'url-literal':
+        require(target == signal['source']['value'], 'target_source must load the same URL the legacy source loads')
+    mapping = item.get('loader_mapping')
+    require(isinstance(mapping, dict), 'source_equivalent needs loader_mapping for the loader behaviour it replaces')
+    for key in resource_signals.PLACEHOLDERS:
+        if (signal.get('loader') or {}).get(key):
+            value = mapping.get(key)
+            require((isinstance(value, str) and value in item_ids) or (isinstance(value, dict) and value.get('absent')),
+                    'loader_mapping.' + key + ' must name the Resource item for the legacy ' + key + ' image, or state why it is absent')
+    for name in (signal.get('loader') or {}).get('transforms', []):
+        require(any(isinstance(row, dict) and row.get('legacy') == name and row.get('target')
+                    for row in mapping.get('transforms', []) if isinstance(mapping.get('transforms'), list)),
+                'loader_mapping.transforms must map the legacy transform ' + name)
+
+
+def signal_exclusions(index, scope):
+    """Image sources a reviewer scoped out of this UI target, each with its reason and evidence."""
+    rows = (scope or {}).get('signal_exclusions', [])
+    require(isinstance(rows, list), 'resource_scope.signal_exclusions must be a list')
+    known, excluded = {s['id'] for s in index.get('imageSources', [])}, {}
+    for row in rows:
+        require(isinstance(row, dict) and all(isinstance(row.get(field), str) and row[field].strip()
+                for field in ('signal_id', 'reason')), 'signal exclusion needs signal_id and reason')
+        require(row['signal_id'] in known and row['signal_id'] not in excluded,
+                'signal exclusion must name one recorded image source of this UI scope')
+        refs = row.get('evidence_refs')
+        require(isinstance(refs, list) and refs, 'signal exclusion requires review evidence')
+        for ref in refs:
+            check_ref(ref)
+        excluded[row['signal_id']] = row
+    return excluded
+
+
+def obligations(index, tree, scope=None):
+    """What one UI target's Resource items must cover.
+
+    Every reference the tree declares, whatever the drawables and theme attributes behind them name in
+    turn, the images, menus and manifest icons the sources reach, and every recorded image source
+    that no reviewer scoped out. A theme attribute reached only through another resource is followed
+    to the values its styles give it; its own definition is the project's theme, not a resource to copy."""
+    import ui_evidence
+    rows = {}
+    for row in index.get('resources', []):
+        rows.setdefault(row['ref'], []).append(row)
+    attrs = {a['ref']: a for a in index.get('themeAttrs', [])}
+    excluded = signal_exclusions(index, scope)
+    signals = {s['id']: s for s in index.get('imageSources', []) if s['kind'] != 'design-sample' and s['id'] not in excluded}
+    declared = set(ui_evidence.resource_refs(tree))
+    roots = set(declared) | {ref for ref in rows if ref.startswith('asset:')}
+    for document in index.get('xmlResources', []):
+        roots.update(document.get('resourceRefs', []))
+    for signal in signals.values():
+        roots.update(resource_signals.source_refs(signal))
+    required, seen, queue = set(), set(), deque(sorted(roots))
+    while queue:
+        ref = queue.popleft()
+        if ref in seen:
+            continue
+        seen.add(ref)
+        document = ref.lstrip('@?').partition('/')[0] in resource_signals.DOCUMENT_KINDS
+        if ref in declared or not (document or ref.startswith('?attr/')):
+            required.add(ref)
+        for row in rows.get(ref, []):
+            queue.extend(nested['ref'] for nested in row.get('references', []))
+        for definition in attrs.get(ref, {}).get('definitions', []):
+            queue.extend(resource_facts.references(definition['value']))
+    return {'refs': required, 'signals': signals}
+
+
 def indexed_resources(index, declared_refs, resource_scope=None):
     """Bind this tree's resource candidates and reviewed exclusions, never another UI scope."""
     base = Path(index.get('androidRoot', ''))
@@ -296,6 +489,48 @@ def indexed_resources(index, declared_refs, resource_scope=None):
     return active
 
 
+def skeletons(index, tree, scope=None):
+    """Item skeletons for everything one UI target's Resource items must cover, every recorded fact filled in.
+
+    The Spec-Designer chooses strategy, target and consumer wiring; sizes, kinds, qualifiers, source
+    hashes, nested references, who declares the reference and what a loader replaces come from the index."""
+    import ui_evidence
+    needed = obligations(index, tree, scope)
+    declared_by = {}
+    for node in ui_evidence.tree_nodes(tree):
+        refs = set(node.get('presentation', {}).get('resourceRefs', []))
+        for rule in node.get('dynamicRules', []):
+            refs.update(rule.get('resourceRefs', []))
+        for ref in refs:
+            declared_by.setdefault(ref, set()).add(ui_evidence.stable_node_id(node['id']))
+    rows = {}
+    for row in index.get('resources', []):
+        qualifier = 'base' if row.get('qualifier', 'base') == 'default' else row.get('qualifier', 'base')
+        rows[(row['ref'], qualifier, row.get('path'))] = row
+    resources = []
+    for (ref, qualifier, relative), source in sorted(indexed_resources(index, needed['refs'], scope).items()):
+        row = rows[(ref, qualifier, relative)]
+        skeleton = {'source_resource': ref, 'qualifier': qualifier, 'source_resource_ref': dict(source)}
+        try:
+            fact = source_facts(source['path'], ref)
+            skeleton.update(resource_kind=fact['kind'], nine_patch=fact['nine_patch'])
+            skeleton['normal_strategy'] = NORMAL.get(fact['kind'])
+            if fact.get('source_unit'):
+                skeleton['source_unit'] = fact['source_unit']
+        except Rejected as exc:
+            skeleton['problem'] = str(exc)
+        for key in ('facts', 'references', 'via'):
+            if row.get(key):
+                skeleton[key] = row[key]
+        if ref in declared_by:
+            skeleton['declared_by'] = sorted(declared_by[ref])
+        resources.append(skeleton)
+    signals = [{'source_signal': sid, 'resource_kind': row['kind'], 'strategies': list(SIGNAL_STRATEGIES[row['kind']]),
+                **{key: value for key, value in row.items() if key not in ('id', 'kind')}}
+               for sid, row in sorted(needed['signals'].items())]
+    return {'resources': resources, 'signals': signals}
+
+
 def require_indexed_closure(analysis, legacy_root=None):
     """Every applicable indexed variant needs the same source baseline in a Resource item."""
     import ui_evidence
@@ -316,7 +551,8 @@ def require_indexed_closure(analysis, legacy_root=None):
                 require(Path(index.get('androidRoot', '')).resolve() == Path(legacy_root).resolve(),
                         'UI resource source index belongs to another legacy root')
             scope = evidence.get('resource_scope')
-            declared = set(ui_evidence.resource_refs(tree))
+            needed = obligations(index, tree, scope)
+            declared = needed['refs']
             active = indexed_resources(index, declared, scope)
             # Platform rows intentionally have no legacy file candidate; their SDK
             # definition and version are still rechecked whenever this plan is read.
@@ -336,6 +572,11 @@ def require_indexed_closure(analysis, legacy_root=None):
                 require(Path(planned.get('path', '')).resolve() == Path(source_ref['path'])
                         and planned.get('sha256') == source_ref['sha256'],
                         'UI resource facts and Resource item use different source baselines: ' + source_id + ' / ' + qualifier)
+            item_ids = {item['item_id'] for item in items}
+            for signal_id, signal in sorted(needed['signals'].items()):
+                matches = [item for item in items if item.get('source_signal') == signal_id]
+                require(len(matches) == 1, 'UI image source closure requires one item for ' + signal_id + ' (' + signal['kind'] + ')')
+                validate_signal_item(matches[0], signal, item_ids)
 
 
 def require_exact_closure(analysis, declared_refs, legacy_root=None):
@@ -359,13 +600,15 @@ def freeze_gate(s, m):
     ref = (m.get('plan') or {}).get('dimension_analysis_ref')
     if not ref:
         return
-    variants, destinations = set(), {}
-    for row in read_json(check_ref(ref))['dimensions']:
+    variants, destinations, resource_items = set(), {}, []
+    analysis = read_json(check_ref(ref))
+    for row in analysis['dimensions']:
         if row.get('dimension') == 'Resource' and row.get('status') == 'applicable':
+            resource_items.extend(row.get('items', []))
             for item in row.get('items', []):
                 if item.get('resource_strategy'):
                     facts = validate_facts(item, s.get('legacy_root'), check_configuration=True)
-                    if facts.get('status') == 'source-unavailable':
+                    if facts.get('status') in ('source-unavailable', 'signal'):
                         continue
                     key = (item['source_resource'], facts['qualifier'])
                     require(key not in variants, 'duplicate resource source/qualifier; share one item across consumers')
@@ -374,6 +617,10 @@ def freeze_gate(s, m):
                         target_path = Path(item.get('target_resource', '').split('#', 1)[0]).resolve()
                         target = (item['source_resource'], target_path)
                         destinations.setdefault(target, []).append(item)
+    import ui_fidelity
+    plan = m['plan']
+    require_graphic_proof(resource_items, plan, ui_fidelity.declared_image_checks(analysis),
+                          {cid for path in plan.get('paths', []) if path.get('kind') == 'visual' for cid in path.get('image_check_ids', [])})
     for items in destinations.values():
         if len(items) <= 1:
             continue

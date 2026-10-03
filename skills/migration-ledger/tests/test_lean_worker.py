@@ -151,6 +151,44 @@ class LeanWorkerTests(unittest.TestCase):
         self.assertEqual(check_ref(output['receipt_ref']).read_bytes(), receipt_bytes)
         self.assertFalse((self.scope / 'icon.xml').exists())
 
+    def test_analyze_ui_takes_manifests_and_project_image_loaders(self):
+        self.layout()
+        self.write(self.f.legacy / 'app/src/main/AndroidManifest.xml',
+                   '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:icon="@drawable/icon"/></manifest>')
+        self.write(self.f.legacy / 'app/src/main/java/demo/Feed.kt', 'class Feed { fun show(item: Item) { avatar.setPhoto(item.photoUrl) } }\n')
+        output = self.run_worker(self.request('analyze-ui', scope='feed', entry=['Feed.kt'], layouts=['settings'],
+                                              manifests=['app/src/main/AndroidManifest.xml'], image_sinks=['setPhoto']),
+                                 {'role': 'spec-designer', 'instance_id': 'spec-1'})
+        index = read_json(check_ref(read_json(check_ref(output['result_ref']))['source_index_ref']))
+        self.assertEqual([(d['kind'], d['resourceRefs']) for d in index['xmlResources']],
+                         [('manifest', ['@drawable/icon'])])
+        self.assertEqual([(r['loader']['library'], r['source']['value']) for r in index['imageSources']], [('custom', 'item.photoUrl')])
+
+    def test_a_spec_designer_renders_the_reference_of_an_indexed_asset(self):
+        import io
+        from PIL import Image
+        data = io.BytesIO()
+        Image.new('RGBA', (72, 72), (0, 0, 0, 255)).save(data, format='PNG')
+        asset = self.f.legacy / 'app/src/main/res/drawable-xxhdpi/ic_logo.png'
+        asset.parent.mkdir(parents=True, exist_ok=True)
+        asset.write_bytes(data.getvalue())
+        self.write(self.f.legacy / 'app/src/main/res/layout/settings.xml',
+                   '<ImageView xmlns:android="http://schemas.android.com/apk/res/android" android:src="@drawable/ic_logo"/>')
+        spec = {'role': 'spec-designer', 'instance_id': 'spec-1'}
+        analyzed = self.run_worker(self.analyze_request(), spec)
+        index_ref = read_json(check_ref(analyzed['result_ref']))['source_index_ref']
+        output = self.run_worker(self.request('render-reference', source_index_ref=index_ref, source_resource='@drawable/ic_logo',
+                                              qualifier='xxhdpi'), spec)
+        result = read_json(check_ref(output['result_ref']))
+        document = read_json(check_ref(result['reference_ref']))
+        self.assertEqual((document['producer'], document['mode'], (document['width'], document['height'])), ('sdd-reference-render', 'color', (72, 72)))
+        self.assertEqual(result['png_ref'], document['png_ref'])
+        self.assertEqual(check_ref(result['png_ref']).parent.parent.parent.name, 'staging')
+        with self.assertRaisesRegex(Rejected, 'outside role capability'):
+            self.run_worker(self.request('render-reference', source_index_ref=index_ref, source_resource='@drawable/ic_logo'), self.actor)
+        with self.assertRaisesRegex(Rejected, 'outside role capability'):
+            self.run_worker(self.request('image-parity', path_id='V1'), spec)
+
     def test_current_ledger_context_takes_precedence_over_initial_snapshot(self):
         newer_legacy = self.f.base / 'newer-legacy'; newer_legacy.mkdir()
         self.layout(newer_legacy)  # The initial legacy folder has no settings layout.

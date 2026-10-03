@@ -1,6 +1,6 @@
 # 代码语义抽取（UI / Logic / Resource 机器可读模型）
 
-在子 MO 规划实现阶段，为**四维中 UI/Logic/Resource 的 applicable item** 附一层机器可读、AI 易理解、跨平台解析的语义模型，作为全局视角下的抽象输出。它不新建平行体系：模型挂在四维 item 上，随四维分析一起归档、冻结，并沿既有 `item → TASK → PATH → ASSERT` 追溯，**任务驱动**。校验器 [semantics.py](../../migration-ledger/scripts/semantics.py) 只做结构门禁，语义正确性仍由 Agent 审查（与 [dimensions.py](../../migration-ledger/scripts/dimensions.py) 同原则）。
+语义模型挂在四维 item 上，随四维分析归档、冻结，并沿既有 `item → TASK → PATH → ASSERT` 追溯，不新建平行体系。校验器 [semantics.py](../../migration-ledger/scripts/semantics.py) 只做结构门禁，语义正确性仍由 Agent 审查（与 [dimensions.py](../../migration-ledger/scripts/dimensions.py) 同原则）。
 
 ## 总则
 
@@ -17,7 +17,7 @@
 
 Adhesive 维暂不纳入语义模型，沿用现有 item 结构。字段示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
-UI fidelity 开启时，applicable UI 模型必须绑定 `ui_evidence`（存量抽取的 UI 树、`page:state:coverage`、visual_mode 与实际基线）。实现阶段提交 `baseline_conformance` 说明消费了哪份冻结基线/源树；正式 `visual_alignment` 属于后续 Test-Runner 的 visual PATH 结果，不能要求 Implementer 自己宣告对齐通过。证据还须绑定原始产物及精确目标闭包，详见 [UI 保真控制道](ui-fidelity.md) 与 [领域工具受限接入](domain-tools.md)。
+UI fidelity 开启时，applicable UI 模型必须绑定 `ui_evidence`（存量抽取的 UI 树、`page:state:coverage`、visual_mode 与实际基线）。实现阶段提交 `baseline_conformance` 说明消费了哪份冻结基线/源树；正式 `visual_alignment` 属于后续 Test-Runner 的 visual PATH 结果，不能要求 Implementer 自己宣告对齐通过。UI 模型还可声明 `image_checks`，冻结节点必须显示的存量图片（[图片与图标对齐](ui-fidelity.md#图片与图标对齐)）。证据还须绑定原始产物及精确目标闭包，详见 [UI 保真控制道](ui-fidelity.md) 与 [领域工具受限接入](domain-tools.md)。
 
 ## item 上的记录（结果 / 来源 / 位置）
 
@@ -48,13 +48,8 @@ UI fidelity 开启时，applicable UI 模型必须绑定 `ui_evidence`（存量�
 
 ## 冻结与投影（保证下游理解使用）
 
-- **冻结**:模型随四维分析进入 `freeze verify`,`freeze_id = plan_hash` hash 锁定;coding 前的冻结即包含这些设计输出。model_ref 字节经 `preserve_refs` 归档到 `artifacts/<sha256>`,不可变。
-- **投影(逐模块)**:OpenSpec change 目录生成 `semantics.md`(逐 item 列 kind/source/implementation_location/model_ref),从 `artifacts/` 不可变副本重建,供下游 Agent 直接读取;`manifest.json` 记入文件清单。
-- **全局语义上下文**:[openspec_projection](../../migration-ledger/scripts/openspec_projection.py) 聚合所有模块的语义模型为 `ledger/semantic-index.json`(`models` 逐条含 module_id/kind/source/位置/model_ref;`coverage` 逐模块列 applicable / with_model / **missing**),`status.semantic_index` 给出路径。下游/GO 据此看到整个语义上下文,并从 `coverage.missing` 直接看出哪些 applicable UI/Logic/Resource item 尚未附模型(presence-triggered 的覆盖可见性)。
+- **冻结**:模型随四维分析进入 `freeze verify`,由 `freeze_id = plan_hash` 锁定,coding 前的冻结即包含这些设计输出;model_ref 字节经 `preserve_refs` 归档到不可变的 `artifacts/<sha256>`。
+- **投影(逐模块)**:OpenSpec change 目录从该不可变副本重建 `semantics.md`(逐 item 列 kind/source/implementation_location/model_ref)供下游读取,并记入 `manifest.json`。
+- **全局语义上下文**:[openspec_projection](../../migration-ledger/scripts/openspec_projection.py) 把所有模块的模型聚合为 `ledger/semantic-index.json`(`models` 逐条列出,`coverage` 逐模块列 applicable / with_model / **missing**),`status.semantic_index` 给出路径;GO 据 `coverage.missing` 看出哪些 applicable item 尚未附模型。
 
-## 任务驱动与新建
-
-- **任务驱动**:模型属于 item,由 `dimension_trace` 映射的 task 实现;无需新增绑定。
-- **无参考/复用/适配**:`target_strategy == new` 时 `origin` 取 `target`/`authored`,基于目标项目创建,不要求存量来源。
-
-细节与四维关系见 [四维完整性协议](dimension-slicing.md);状态机守卫见 [状态机](state-machine.md)。
+模型属于 item，由 `dimension_trace` 映射的 task 实现，无需新增绑定；细节与四维关系见 [四维完整性协议](dimension-slicing.md);状态机守卫见 [状态机](state-machine.md)。

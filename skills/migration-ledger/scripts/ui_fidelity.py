@@ -13,6 +13,8 @@ Completion additionally refuses a module that still carries an explicitly `block
 inexact resource can never be reported as Green. Visual parity itself is a test-stage verdict: the
 visual automation layer aligns baseline nodes and reports three-state like any other path.
 """
+import copy
+
 import dimensions
 import resource_fidelity
 import semantics
@@ -34,7 +36,12 @@ def _declared_refs(analysis):
         for item in row.get('items', []):
             evidence = (item.get('semantic_model') or {}).get('ui_evidence')
             if evidence:
-                refs.extend(ue.resource_refs(read_json(check_ref(evidence['ui_tree_ref']))))
+                tree = read_json(check_ref(evidence['ui_tree_ref']))
+                if evidence.get('source_index_ref'):
+                    index = read_json(check_ref(evidence['source_index_ref']))
+                    refs.extend(resource_fidelity.obligations(index, tree, evidence.get('resource_scope'))['refs'])
+                else:
+                    refs.extend(ue.resource_refs(tree))
     return sorted(set(refs))
 
 
@@ -87,6 +94,33 @@ def declared_interactions(analysis):
             if model:
                 found.extend(ue.validate_interactions(model))
     return sorted(set(found))
+
+
+def declared_image_checks(analysis):
+    """{id: (check, coverage)} for every image check the applicable UI models declare."""
+    found = {}
+    for row in analysis.get('dimensions', []):
+        if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
+            continue
+        for item in row.get('items', []):
+            model = item.get('semantic_model') or {}
+            for check in model.get('image_checks') or []:
+                require(check['id'] not in found or found[check['id']][0] == check, 'conflicting declared image check: ' + check['id'])
+                found[check['id']] = (check, (model.get('ui_evidence') or {}).get('coverage'))
+    return found
+
+
+def frozen_image_checks(module, path):
+    """The full frozen checks a visual PATH carries, from the dimension analysis that owns the PATH."""
+    ids = path.get('image_check_ids')
+    if path.get('kind') != 'visual' or not ids:
+        return []
+    ref = (module.get('path_dimension_analysis_refs', {}).get(path['path_id']) or (module.get('plan') or {}).get('dimension_analysis_ref'))
+    require(ref, 'visual image checks require frozen UI dimension evidence')
+    declared = declared_image_checks(read_json(check_ref(ref)))
+    absent = [cid for cid in ids if cid not in declared]
+    require(not absent, 'visual path carries undeclared image checks: ' + ', '.join(absent))
+    return [copy.deepcopy(declared[cid][0]) for cid in ids]
 
 
 def frozen_interaction(module, path):
@@ -161,11 +195,17 @@ def baseline_gate(s, m):
                     [interaction['from']['page_id'], interaction['from']['state_id']],
                     'interaction path must use its declared starting page/state')
     visual_plan_gate(analysis, visual)
+    carried = {cid for path in visual for cid in path.get('image_check_ids', [])}
+    missing = sorted(set(declared_image_checks(analysis)) - carried)
+    require(not missing, 'declared image checks need a visual path carrying device proof: ' + ', '.join(missing))
 
 
 def visual_plan_gate(analysis, visual):
-    """Bind each visual path to its own frozen target, screenshots and observed tree nodes."""
-    targets, interactions = {}, {}
+    """Bind each visual path to its own frozen target, screenshots and observed tree nodes.
+
+    A path with a baseline compares whole screens with the legacy capture. A path without one carries
+    image checks only: it captures the target and compares named nodes with rendered legacy pictures."""
+    targets, interactions, screens, checks = {}, {}, {}, {}
     for row in analysis.get('dimensions', []):
         if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
             continue
@@ -173,6 +213,10 @@ def visual_plan_gate(analysis, visual):
             model = item['semantic_model']
             evidence = model['ui_evidence']
             tree = ue.validate_native_evidence(evidence)
+            index = read_json(check_ref(evidence['source_index_ref'])) if evidence.get('source_index_ref') else None
+            for cid in ue.validate_image_checks(model, tree, index):
+                checks[cid] = (next(c for c in model['image_checks'] if c['id'] == cid), evidence['coverage'])
+            screens.setdefault(evidence['coverage'], set()).update(ue.node_ids(tree))
             for interaction in model.get('interactions', []):
                 require(interaction['id'] not in interactions or interactions[interaction['id']] == interaction,
                         'conflicting declared interaction: ' + interaction['id'])
@@ -189,21 +233,32 @@ def visual_plan_gate(analysis, visual):
     covered = set()
     for path in visual:
         coverage = path.get('coverage')
-        require(isinstance(coverage, str) and coverage in targets,
-                'visual path coverage must name a frozen runtime UI target')
-        target = targets[coverage]
-        nodes = nonempty(path.get('node_ids'), 'visual path node_ids')
-        require(set(nodes) <= target['nodes'], 'visual path nodes do not belong to target ' + coverage)
-        require(path.get('baseline_ref') in target['baselines'],
-                'visual path baseline differs from frozen target ' + coverage)
-        check_ref(path['baseline_ref'])
+        ids = path.get('image_check_ids', [])
+        if path.get('baseline_ref') is None and ids:
+            require(isinstance(coverage, str) and coverage in screens, 'visual path coverage must name a frozen UI target')
+            nodes = nonempty(path.get('node_ids'), 'visual path node_ids')
+            require(set(nodes) <= screens[coverage], 'visual path nodes do not belong to target ' + coverage)
+        else:
+            require(isinstance(coverage, str) and coverage in targets,
+                    'visual path coverage must name a frozen runtime UI target')
+            target = targets[coverage]
+            nodes = nonempty(path.get('node_ids'), 'visual path node_ids')
+            require(set(nodes) <= target['nodes'], 'visual path nodes do not belong to target ' + coverage)
+            require(path.get('baseline_ref') in target['baselines'],
+                    'visual path baseline differs from frozen target ' + coverage)
+            check_ref(path['baseline_ref'])
+        for cid in ids:
+            require(cid in checks and checks[cid][1] == coverage,
+                    'visual path carries image check ' + cid + ' that does not belong to its target')
+            require(checks[cid][0]['node_id'] in nodes, 'visual path nodes must include the node of image check ' + cid)
         if path.get('interaction_id'):
             interaction = interactions.get(path['interaction_id'])
             require(interaction, 'visual path references an undeclared interaction')
             start = interaction['from']
             require(coverage.split(':')[:2] == [start['page_id'], start['state_id']],
                     'interaction visual path must use its declared starting page/state')
-        covered.add(coverage)
+        if path.get('baseline_ref') is not None:
+            covered.add(coverage)
     missing = sorted(set(targets) - covered)
     require(not missing, 'runtime UI targets lack visual paths: ' + ', '.join(missing))
 

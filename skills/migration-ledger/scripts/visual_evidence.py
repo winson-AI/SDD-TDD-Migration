@@ -159,6 +159,59 @@ def capture_execution(record, manifest_ref, hap_ref, code_baseline, run_root, co
             'artifact_ref': hap_ref, 'code_baseline': receipt['code_baseline'], 'observations': actual}
 
 
+def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, assignment):
+    """Recompute an image-parity report from the evidence it names, so its verdicts are not taken on trust.
+
+    The report must be this assignment's, over one executed capture of the current build; each row must use
+    the frozen reference, selector and tolerance and the captured screenshot and view tree, and the row, node
+    bounds, metrics, verdict and crop must equal what the same measurement gives now."""
+    import image_parity
+    report = read_json(managed_ref(report_ref, run_root))
+    require(report.get('schema_version') == 1 and report.get('producer') == 'sdd-image-parity', 'managed image-parity report required')
+    for key, expected in (('path_id', path['path_id']), ('coverage', path['coverage']), ('code_baseline', code_baseline),
+                          ('assignment_id', assignment['assignment_id'])):
+        require(report.get(key) == expected, 'image-parity report ' + key + ' differs from the current execution')
+    manifest_ref = report.get('manifest_ref')
+    manifest = read_json(check_ref(manifest_ref))
+    page, state, _ = path['coverage'].split(':')
+    candidates = [r for r in manifest.get('targets', []) if r.get('phase') == 'harmony-candidate' and r.get('platform') == 'harmony'
+                  and r.get('page_id') == page and r.get('state_id') == state and r.get('round') == report.get('capture_round')
+                  and r.get('status') == 'COMPLETE']
+    require(len(candidates) == 1, 'one executed candidate capture required for the reported round')
+    hap_ref = report.get('hap_ref')
+    capture = capture_execution(candidates[0], manifest_ref, hap_ref, code_baseline, run_root, path['coverage'], report['capture_round'])
+    executed = read_json(check_ref(capture['capture_execution_ref']))
+    require(executed.get('assignment_id') == assignment['assignment_id'] and executed.get('fencing_token') == assignment.get('fencing_token'),
+            'the capture must belong to the current test/audit assignment and fence; '
+            'reading previous capture evidence is review, not a new test')
+    observed = {item['index']: item for item in capture['observations']}
+    rows = {row.get('id'): row for row in report.get('checks', [])}
+    require(len(rows) == len(report.get('checks', [])) == len(checks) and set(rows) == {c['id'] for c in checks},
+            'image-parity report must cover exactly the frozen image checks')
+    proven = []
+    for check in checks:
+        row = rows[check['id']]
+        index = check['target'].get('capture_index', 0)
+        shot = observed.get(index)
+        require(row.get('capture_index') == index and shot and row.get('screenshot_ref') == shot['screenshot_ref']
+                and row.get('view_ref') == shot['view_ref'], 'image-parity row must use the captured screenshot and view tree')
+        require(row.get('node_id') == check['node_id'] and row.get('selector') == check['target']['selector']
+                and row.get('render_ref') == check['reference']['render_ref'] and row.get('reference_ref') == ui_evidence.image_check_reference(check),
+                'image-parity row differs from the frozen check ' + check['id'])
+        try:
+            fresh, crop = image_parity.evaluate(check, check_ref(row['reference_ref']), check_ref(row['screenshot_ref']),
+                                                check_ref(row['view_ref']).read_text())
+        except image_parity.ParityError as exc:
+            require(False, 'image parity cannot be verified: ' + str(exc))
+        require({key: row.get(key) for key in fresh} == fresh, 'image-parity row differs from its recomputation for ' + check['id'])
+        if crop is not None:
+            from PIL import Image
+            with Image.open(check_ref(row.get('crop_ref'))) as kept:
+                require(kept.convert('RGB').tobytes() == crop.tobytes(), 'image-parity crop is not the node region of the screenshot')
+        proven.append({'id': check['id'], 'status': fresh['status']})
+    return {'report_ref': report_ref, 'hap_ref': hap_ref, 'checks': proven, 'capture_evidence': capture}
+
+
 def validate_alignment(result, target_root, coverage, *, frozen_evidence, code_baseline, run_root, assignment):
     """Recheck only the chosen target's used rounds, including carried regression capture."""
     source_record(frozen_evidence, coverage)

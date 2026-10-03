@@ -146,6 +146,70 @@
       }
     ]
   },
+  "image_checks_example": {
+    "_note": "Declared next to ui_evidence in a ui-component-spec model. Each check freezes that a node of the UI tree must show one legacy picture. reference.render_ref is the reference.json written by render-reference for exactly this source_resource and qualifier; target.selector uses exact class/resource-id/text/content-desc values of the node in the captured target view tree. tolerance is optional (shape_iou_min 0.5-1, aspect_delta_max, color null/reference/#RRGGBB, color_delta_max). A visual PATH carries the check by id (image_check_ids); declared checks that no PATH carries are rejected.",
+    "image_checks": [
+      {
+        "id": "settings-back-icon",
+        "node_id": "node:settings.toolbar.back",
+        "source_resource": "@drawable/ic_back",
+        "qualifier": "xxhdpi",
+        "reference": {
+          "render_ref": {
+            "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/reference.json",
+            "sha256": "{{actual-reference-json-sha256}}"
+          }
+        },
+        "target": {
+          "selector": {
+            "resource-id": "{{exact-resource-id-in-the-target-view-tree}}"
+          },
+          "capture_index": 0
+        },
+        "tolerance": {
+          "shape_iou_min": 0.72
+        }
+      }
+    ]
+  },
+  "picture_source_item_example": {
+    "_note": "Resource item for one imageSources record of the source index (a picture without a resource file). source_signal replaces source_resource and qualifier; resource_kind equals the record kind. source_equivalent (remote-image only) names where the target loads the same picture and maps placeholder/error/fallback to Resource item ids, or {absent: reason}, and each transform as {legacy, target}; other kinds use manual_exact or blocked. resource-scan returns a pre-filled skeleton for every record.",
+    "item_id": "DIM-M001-RESOURCE-010",
+    "source_signal": "src:remote-image:{{id-from-imageSources}}",
+    "resource_kind": "remote-image",
+    "resource_strategy": "source_equivalent",
+    "target_source": "{{target-expression-that-yields-the-same-url}}",
+    "loader_mapping": {
+      "placeholder": "{{resource-item-id-of-the-placeholder}}",
+      "error": {
+        "absent": "{{reason-the-legacy-loader-had-none}}"
+      },
+      "transforms": [
+        {
+          "legacy": "circleCrop()",
+          "target": "{{target-equivalent}}"
+        }
+      ]
+    },
+    "target_resource": "{{absolute-target-root}}/ui/settings/Avatar.kt#loadAvatar",
+    "consumer": [
+      "{{absolute-target-root}}/ui/settings/SettingsScreen.kt#Avatar"
+    ]
+  },
+  "picture_replacement_item_example": {
+    "_note": "A still bitmap or vector replaced by hand (manual_exact) carries exactly one of image_check (a declared check, carried by a visual PATH, for the same source_resource and qualifier) or deviation. deviation.alternative must be one of the plan's decision_envelope.allowed_alternatives, which a human approves with the plan. An animation or a nine-patch cannot be measured offline: replaced by hand it carries a deviation and no image_check. Drawing code (code-drawn) is ported like other code and keeps its reviewed manual_exact.",
+    "item_id": "DIM-M001-RESOURCE-011",
+    "source_resource": "@drawable/ic_back",
+    "qualifier": "xxhdpi",
+    "resource_kind": "bitmap",
+    "resource_strategy": "manual_exact",
+    "adaptation_evidence_ref": {
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/adaptation-review.md",
+      "sha256": "{{actual-review-sha256}}"
+    },
+    "image_check": "settings-back-icon",
+    "deviation": null
+  },
   "model_schemas": {
     "ui-component-spec": {
       "root": {

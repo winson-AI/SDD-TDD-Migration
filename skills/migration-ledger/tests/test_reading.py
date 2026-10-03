@@ -227,6 +227,11 @@ class ReadingCardTests(unittest.TestCase):
         hint = reading.read_hint('undeclared change inside module scope: /t/x.py')
         self.assertEqual((hint['ref'], hint['section']), (reading.P + 'engineering-disciplines.md', '写范围核验（可选，默认关闭）'))
         self.assertIsNone(reading.read_hint('something nobody documented'))
+        for reason in ('back: a non-exact graphic needs either an image_check carried by a visual PATH or an approved deviation',
+                       'declared image checks need a visual path carrying device proof: back-icon',
+                       'UI image source closure requires one item for src:remote-image:ab12 (remote-image)',
+                       'image-parity row differs from its recomputation for back-icon'):
+            self.assertEqual(reading.read_hint(reason)['section'], reading.PICTURES, reason)
         f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
         f.prepare()
         progress_signals.record_rejection(f.root, {'operation': 'accept', 'module_id': 'M001'}, {'role': 'host'},

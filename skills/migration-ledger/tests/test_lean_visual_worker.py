@@ -175,6 +175,26 @@ class VisualExecutionTests(unittest.TestCase):
         self.assertTrue(any(command[3:5] == ['shell', 'rm'] for command in self.commands))
         self.assertNotIn('quality', result)
 
+    def test_a_path_with_image_checks_only_captures_the_target_alone(self):
+        self.path.pop('baseline_ref')
+        self.path['image_check_ids'] = ['back-arrow']
+        result, _ = self.run_tool('visual-capture', install_ref=self.installed(), round=1)  # no legacy manifest is named
+        self.assertEqual(result['status'], 'CAPTURED')
+        manifest = read_json(result['manifest_ref']['path'])
+        self.assertEqual([(r['phase'], r['platform'], r['round']) for r in manifest['targets']], [('harmony-candidate', 'harmony', 1)])
+        validate_manifest.validate_snapshot(manifest['targets'][0]['snapshot'], 'viewport', 'candidate')
+        self.assertTrue(read_json(result['capture_execution_ref']['path'])['observations'])
+        self.path.pop('image_check_ids')
+        with self.assertRaisesRegex(Rejected, 'must carry image checks'):
+            self.run_tool('visual-capture', install_ref=self.installed(), round=1)
+
+    def test_semantic_inspection_compares_a_baseline_so_an_image_check_path_has_none_to_inspect(self):
+        self.path.pop('baseline_ref')
+        self.path['image_check_ids'] = ['back-arrow']
+        with self.assertRaisesRegex(Rejected, 'carries image checks only'):
+            self.run_tool('semantic-inspect', reference_ref=file_ref(self.shot), candidate_ref=file_ref(self.shot),
+                          score_ref=file_ref(self.shot))
+
     def test_install_allows_automation_path_without_visual_actions(self):
         self.path['kind'] = self.task['test_scope'] = 'automation'
         result, _ = self.run_tool('visual-install')

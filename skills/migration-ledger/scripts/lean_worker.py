@@ -22,6 +22,7 @@ import run_storage
 import runner_storage
 import ui_evidence
 import resource_fidelity
+import reference_render
 from lean_tools import collect_ui_sources, resource_tool, select_runtime_ui, ui_visual_score
 
 ROLES = {
@@ -31,6 +32,8 @@ ROLES = {
     'resource-scan': {'global-orchestrator', 'module-orchestrator', 'spec-designer', 'implementer',
                       'fixer', 'test-runner', 'auditor'},
     'compare-only': {'test-runner', 'auditor'},
+    'render-reference': {'spec-designer', 'test-runner', 'auditor'},
+    'image-parity': {'test-runner', 'auditor'},
     'visual-install': {'test-runner', 'auditor'},
     'visual-capture': {'test-runner', 'auditor'},
     'semantic-inspect': {'test-runner', 'auditor'},
@@ -106,7 +109,7 @@ def run(root, request, actor):
     require(isinstance(args, dict), 'args must be an object')
     module = task = None
     visual_operations = ('visual-install', 'visual-capture', 'semantic-inspect')
-    if operation in ('resource-convert', 'compare-only') + visual_operations:
+    if operation in ('resource-convert', 'compare-only', 'image-parity') + visual_operations:
         require(state, 'Ledger initialization required before execution')
         module, task = assignment(state, request, actor)
         if operation == 'resource-convert':
@@ -121,7 +124,7 @@ def run(root, request, actor):
                     require(test_validation.build_ready(module), 'build must pass before installation')
                 else:
                     require(test_validation.functional_ready(module), 'functional layer must pass before visual comparison')
-    area = 'runs/harmony/sandbox' if operation in ('compare-only',) + visual_operations else 'staging'
+    area = 'runs/harmony/sandbox' if operation in ('compare-only', 'image-parity') + visual_operations else 'staging'
     out = run_storage.checked_path(root / area / aid / rid, root / area)
     require(not out.exists(), 'worker output must be a new attempt; preserve prior evidence')
     out.mkdir(parents=True)
@@ -137,7 +140,8 @@ def run(root, request, actor):
                 require(args.get('entry') or args.get('source_files') or args.get('layouts'), 'source entry required')
                 result = collect_ui_sources.collect(SimpleNamespace(android_root=config['legacy_root'],
                     scope=args.get('scope') or request.get('module_id') or rid, entry=args.get('entry', []),
-                    source_file=args.get('source_files', []), layout=args.get('layouts', [])))
+                    source_file=args.get('source_files', []), layout=args.get('layouts', []),
+                    manifest=args.get('manifests', []), image_sinks=args.get('image_sinks', [])))
                 result = {'source_index_ref': save(out / 'ui-source-index.json', result)}
                 if args.get('capture_ref'):
                     capture = check_ref(args['capture_ref'])
@@ -202,6 +206,23 @@ def run(root, request, actor):
                 for row in result['resources']:
                     row['source_refs'] = [file_ref(run_storage.checked_path(Path(config['legacy_root']) / p,
                                                                           config['legacy_root'])) for p in row['candidates']]
+                if args.get('ui_tree_ref') and args.get('source_index_ref'):
+                    result['skeletons'] = resource_fidelity.skeletons(
+                        read_json(check_ref(args['source_index_ref'])), read_json(check_ref(args['ui_tree_ref'])),
+                        args.get('resource_scope'))
+            elif operation == 'render-reference':
+                index = read_json(check_ref(args['source_index_ref']))
+                require(Path(index.get('androidRoot', '')).resolve() == Path(config['legacy_root']).resolve(),
+                        'the source index belongs to another legacy root')
+                try:
+                    document = reference_render.render(index, args.get('source_resource'), args.get('qualifier', 'base'), out)
+                except reference_render.RenderError as exc:
+                    raise Rejected(str(exc)) from exc
+                result = {'status': 'RENDERED', 'reference_ref': file_ref(out / 'reference.json'), 'png_ref': document['png_ref'],
+                          'acceptance': 'a-reference-is-frozen-by-the-spec-that-declares-the-check'}
+            elif operation == 'image-parity':
+                import lean_visual_worker
+                result = lean_visual_worker.parity(args, out, module, task, snapshot['run_id'])
             elif operation == 'compare-only':
                 ref = check_ref(args.get('reference_ref')); candidate = check_ref(args.get('candidate_ref'))
                 old = sys.argv

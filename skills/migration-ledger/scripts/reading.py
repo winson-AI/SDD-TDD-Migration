@@ -105,13 +105,14 @@ TEST_SCOPE = {
     + [(P + 'visual-execution.md', None)],
 }
 # Triggered by facts the Ledger already holds: UI applicability, a reuse plan, telemetry, the lean local-repair path.
+PICTURES = '图片与图标对齐'
 UI = {
-    'spec-designer': sections('ui-fidelity.md', 'UI 证据绑定', '精确性纪律') + sections('domain-tools.md', '总则'),
-    'implementer': sections('ui-fidelity.md', '基线前移：截图指导实现，而非事后比对', '精确性纪律')
+    'spec-designer': sections('ui-fidelity.md', 'UI 证据绑定', '精确性纪律', PICTURES) + sections('domain-tools.md', '总则'),
+    'implementer': sections('ui-fidelity.md', '基线前移：截图指导实现，而非事后比对', '精确性纪律', PICTURES)
     + sections('domain-tools.md', '总则', '资源执行与事实绑定'),
-    'fixer': sections('ui-fidelity.md', '精确性纪律') + sections('domain-tools.md', '总则'),
-    'test-runner': sections('domain-tools.md', '总则'),
-    'auditor': sections('domain-tools.md', '总则'),
+    'fixer': sections('ui-fidelity.md', '精确性纪律', PICTURES) + sections('domain-tools.md', '总则'),
+    'test-runner': sections('ui-fidelity.md', PICTURES) + sections('domain-tools.md', '总则'),
+    'auditor': sections('ui-fidelity.md', PICTURES) + sections('domain-tools.md', '总则'),
 }
 REUSE_GENERAL = sections('reuse-dependencies.md', '总则')
 REUSE = {
@@ -452,6 +453,7 @@ GATES = [
     (r'static|spec closure|reached_from|production symbol|fake implementation', 'testing.md', '静态规格闭合'),
     (r'readiness|context[-_ ](gate|report|submit)', 'context-readiness.md', '2. 精确插入节点'),
     (r'telemetry', 'telemetry.md', '1. 适用性与非阻塞原则'),
+    (r'image[ _-]?(check|parity|source)|picture|deviation|render-reference', 'ui-fidelity.md', PICTURES),
     (r'reuse|provider|capabilit', 'reuse-dependencies.md', '总则'),
     (r'dimension|semantic|resource item|consumer', 'dimension-slicing.md', '总则'),
     (r'visual|alignment', 'ui-fidelity.md', '视觉对齐 = automation 第二层（不是独立阶段）'),
