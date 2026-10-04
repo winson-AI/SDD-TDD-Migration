@@ -342,6 +342,9 @@ def handle(s, req, actor):
         children, graph = validate(s, parent, plan, redecompose=True)
 
         old_children = set(parent['children'])
+        # Keep why children asked upstream: accept clears each realloc_request, history must not.
+        triggers = [{'module_id': cid, **{k: copy.deepcopy(s['modules'][cid]['realloc_request'][k]) for k in ('reason', 'evidence_refs')}}
+                    for cid in sorted(old_children) if (s['modules'].get(cid) or {}).get('realloc_request')]
         new_children = {c['module_id']: c for c in children}
         new_child_ids = set(new_children.keys())
 
@@ -417,7 +420,8 @@ def handle(s, req, actor):
             'review_ref': p['review_ref'],
             'affected_modules': sorted(affected_ids),
             'retired_modules': sorted(retired_ids),
-            'added_modules': sorted(added_ids)
+            'added_modules': sorted(added_ids),
+            'triggering_requests': triggers
         })
         s['global_plan'] = None
         s['audit'] = {}

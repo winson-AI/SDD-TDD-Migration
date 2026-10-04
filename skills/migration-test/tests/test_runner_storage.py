@@ -9,7 +9,9 @@ import unittest
 from unittest.mock import patch
 
 SCRIPTS = Path(__file__).resolve().parents[2] / 'migration-ledger/scripts'
+TEST_SCRIPTS = Path(__file__).resolve().parents[1] / 'scripts'
 sys.path.insert(0, str(SCRIPTS))
+sys.path.insert(0, str(TEST_SCRIPTS))
 from runner_storage import harmony_output, environment, cleanup, scope
 from contracts import Rejected
 
@@ -67,10 +69,14 @@ class RunnerStorageTests(unittest.TestCase):
 
     def test_sdk_environment_cannot_redirect_to_external_directory(self):
         outside = self.base / 'unmanaged'
+        engine = Path(__file__).resolve().parents[1] / 'runtime/harmony'
+        venv_py = engine / '.venv/bin/python'
+        py_bin = str(venv_py) if venv_py.is_file() and os.access(str(venv_py), os.X_OK) else sys.executable
         with patch.dict(os.environ, {'HYPIUM_MCP_OUTPUT_DIR': str(outside), 'HYPIUM_MCP_WORKING_DIR': str(outside)}):
             with scope(self.out):
-                subprocess.run([sys.executable, '-c',
-                    "from hypium_mcp.config.config import get_config;from hypium_mcp.utils.log import get_logger;get_logger().info('fixture');print(get_config().output_dir)"],
+                cmd = (f"import sys;sys.path.insert(0, {str(engine)!r});"
+                       "from hypium_mcp.config.config import get_config;from hypium_mcp.utils.log import get_logger;get_logger().info('fixture');print(get_config().output_dir)")
+                subprocess.run([py_bin, '-c', cmd],
                     check=True, capture_output=True)
         self.assertFalse(outside.exists())
         self.assertTrue(list((self.out / 'sdk').glob('*.log')))

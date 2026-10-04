@@ -233,7 +233,39 @@ def build(root, s, sequence, ref_check=check_ref):
             'visual_coverage': visual, 'fidelity_limitations': limitations, 'picture_fidelity': pictures,
             'human_report': copy.deepcopy(batch.get('human_report')),
             'workflow_cost': workflow_cost.build(s, workflow_cost.journal(root)),
+            'modules': {mid: {'phase': m.get('phase'), 'quality': m.get('effective_quality', m.get('quality')),
+                              'parent_module_id': m.get('parent_module_id'), 'dependencies': m.get('dependencies', [])}
+                        for mid, m in s.get('modules', {}).items()},
+            'module_groups': {mid: {'children': grp.get('children', []), 'agent_name': names.get(mid, f'parent-mo-{mid}')}
+                              for mid, grp in s.get('module_groups', {}).items()},
             'human_report_path': str(root / 'audit-reports' / (batch['batch_id'] + '.json')) if batch.get('human_report') else None}
+
+
+def mermaid_diagram(report):
+    groups = report.get('module_groups', {})
+    modules = report.get('modules', {})
+    if not modules and not groups:
+        return ''
+    lines = ['```mermaid', 'graph TD']
+    for pid, grp in sorted(groups.items()):
+        name = grp.get('agent_name', f'parent-mo-{pid}')
+        lines.append(f'  subgraph {pid} ["{name}"]')
+        for cid in sorted(grp.get('children', [])):
+            m = modules.get(cid, {})
+            q = m.get('quality', 'unknown')
+            phase = m.get('phase', 'pending')
+            lines.append(f'    {cid}["{cid} ({phase})<br/>{q}"]')
+        lines.append('  end')
+    for mid, m in sorted(modules.items()):
+        if not m.get('parent_module_id') and mid not in [c for g in groups.values() for c in g.get('children', [])]:
+            q = m.get('quality', 'unknown')
+            phase = m.get('phase', 'pending')
+            lines.append(f'  {mid}["{mid} ({phase})<br/>{q}"]')
+    for mid, m in sorted(modules.items()):
+        for dep in sorted(m.get('dependencies', [])):
+            lines.append(f'  {dep} --> {mid}')
+    lines.append('```')
+    return '\n'.join(lines)
 
 
 def render(report):
@@ -244,8 +276,11 @@ def render(report):
             f"范围: {cell(report['entry_mode'])} / {cell(report['single_module_id'])} · CASE 统计: {cell(report['case_counts'])}", '',
             f"存量: {cell(report['legacy_root'])} · 目标: {cell(report['target_root'])}", '',
             '用例状态来自已接受的 PATH 证据；build Green 不等于自动化通过。executed 表示曾执行，attempt_executed 表示本次尝试实际执行；last_execution 单独保留此前真实断言及回执，不能代替本次复核。stale 表示当前结果失效，last_execution_stale 标记保留执行是否失效。', '',
-            '## 父 MO', '', *[f'- {mid}: {name}' for mid, name in report['parent_mo_names'].items()], '',
-            '## 全部测试用例', '', '| CASE-ID | 模块 | 状态 | 路径数 | 曾执行数 |', '| --- | --- | --- | --- | --- |']
+            '## 父 MO', '', *[f'- {mid}: {name}' for mid, name in report['parent_mo_names'].items()], '']
+    diagram = mermaid_diagram(report)
+    if diagram:
+        text += ['## 模块架构与依赖拓扑', '', diagram, '']
+    text += ['## 全部测试用例', '', '| CASE-ID | 模块 | 状态 | 路径数 | 曾执行数 |', '| --- | --- | --- | --- | --- |']
     for c in report['cases']:
         text.append('| ' + ' | '.join(cell(v) for v in (c['case_id'], ', '.join(c['module_ids']), c['quality'], c['path_count'], c['executed_count'])) + ' |')
     text += ['', '## 视觉覆盖与保真限制', '',

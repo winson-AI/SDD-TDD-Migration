@@ -1,9 +1,13 @@
 import random
 from typing import Any, Dict, List, Tuple
 
-from agents.models.interface import Model
-from agents.model_settings import ModelSettings
-from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
+try:
+    from agents.models.interface import Model
+    from agents.model_settings import ModelSettings
+    from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
+except ImportError:
+    class Model: pass
+    ModelSettings = OpenAIChatCompletionsModel = None
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage
 

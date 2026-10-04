@@ -6,8 +6,11 @@
 """
 from typing import List, Optional, Tuple
 
-from agents import Agent, Runner
-from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
+try:
+    from agents import Agent, Runner
+    from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
+except ImportError:
+    Agent = Runner = OpenAIChatCompletionsModel = None
 
 from ..config import AppConfig
 from ..logger import logger

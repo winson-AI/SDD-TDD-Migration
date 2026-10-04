@@ -11,7 +11,10 @@ import os
 try:
     import tomllib
 except ImportError:
-    tomllib = None
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None
 from typing import Any
 
 

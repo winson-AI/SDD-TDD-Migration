@@ -389,7 +389,12 @@ def _prepare(root, run_root, request, actor, storage):
         sources = {key: copy_ref(files, file_ref(effective[key])) for key in DOCUMENTS if effective.get(key)}
         if 'knowledge_paths' in effective:
             sources['knowledge_paths'] = [copy_ref(files, file_ref(path)) for path in effective['knowledge_paths']]
+        exp_path = root / 'experience/lessons.json'
+        if exp_path.is_file():
+            sources['experience_ref'] = copy_ref(files, file_ref(str(exp_path)))
         source_paths = {key: copy.deepcopy(effective[key]) for key in DOCUMENTS + ('knowledge_paths',) if effective.get(key)}
+        if exp_path.is_file():
+            source_paths['experience_ref'] = str(exp_path)
         effective = freeze_refs(files, effective)
         for key, source in sources.items():
             effective[key] = [ref['path'] for ref in source] if isinstance(source, list) else source['path']

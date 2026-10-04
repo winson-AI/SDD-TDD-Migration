@@ -152,43 +152,45 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
     emit(previous, json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 
 
+def _fix_note(memory):
+    """root_cause/strategy live in the Fixer's note, not in the memory record; unreadable notes yield no pattern."""
+    from contracts import check_ref, read_json
+    try:
+        return read_json(check_ref(memory['fix_note_ref']))
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 def build_lessons(state, sequence):
-    lessons = {'sequence': sequence, 'entries': []}
+    """In-run lessons: slicing gaps, boundary conflicts, replans and Auditor-verified fix patterns."""
+    lessons = {'run_id': state.get('run_id'), 'sequence': sequence, 'entries': []}
+    add = lessons['entries'].append
     for rec in state.get('redecomposition_history', []):
-        lessons['entries'].append({
-            'kind': 'slicing-gap',
-            'parent_module_id': rec.get('parent_module_id'),
-            'affected_modules': rec.get('affected_modules', []),
-            'retired_modules': rec.get('retired_modules', []),
-            'summary': f"Parent module {rec.get('parent_module_id')} was redecomposed affecting {len(rec.get('affected_modules', []))} children",
-            'evidence_ref': rec.get('plan_ref')
-        })
+        add({'kind': 'slicing-gap', 'parent_module_id': rec.get('parent_module_id'),
+             'affected_modules': rec.get('affected_modules', []), 'retired_modules': rec.get('retired_modules', []),
+             'summary': f"Parent module {rec.get('parent_module_id')} was redecomposed affecting {len(rec.get('affected_modules', []))} children",
+             'evidence_ref': rec.get('plan_ref')})
+        for req in rec.get('triggering_requests', []):
+            add({'kind': 'boundary-conflict', 'status': 'resolved', 'module_id': req['module_id'],
+                 'parent_module_id': rec.get('parent_module_id'), 'summary': req['reason'],
+                 'evidence_refs': req.get('evidence_refs', []), 'resolution_ref': rec.get('review_ref')})
     for mid, m in state.get('modules', {}).items():
         if m.get('realloc_request'):
-            lessons['entries'].append({
-                'kind': 'boundary-conflict',
-                'module_id': mid,
-                'parent_module_id': m.get('parent_module_id'),
-                'summary': m['realloc_request'].get('reason'),
-                'evidence_refs': m['realloc_request'].get('evidence_refs', [])
-            })
+            add({'kind': 'boundary-conflict', 'status': 'pending', 'module_id': mid,
+                 'parent_module_id': m.get('parent_module_id'), 'summary': m['realloc_request'].get('reason'),
+                 'evidence_refs': m['realloc_request'].get('evidence_refs', [])})
         for hist in m.get('planning_history', []):
-            lessons['entries'].append({
-                'kind': 'planning-gap',
-                'module_id': mid,
-                'reason': hist.get('reason'),
-                'summary': f"Module {mid} replanned due to {hist.get('reason')}",
-                'plan_hash': hist.get('plan_hash')
-            })
+            add({'kind': 'planning-gap', 'module_id': mid, 'reason': hist.get('reason'),
+                 'summary': f"Module {mid} replanned due to {hist.get('reason')}", 'plan_hash': hist.get('plan_hash')})
         for mem in m.get('fix_memory', []):
-            if mem.get('reusable'):
-                lessons['entries'].append({
-                    'kind': 'fix-pattern',
-                    'module_id': mid,
-                    'root_cause': mem.get('root_cause'),
-                    'strategy': mem.get('strategy'),
-                    'summary': f"Verified fix for {mem.get('root_cause', {}).get('category')}: {mem.get('strategy')}"
-                })
+            note = _fix_note(mem) if mem.get('reusable') else None
+            if note:
+                cause = note.get('root_cause')
+                category = cause.get('category') if isinstance(cause, dict) else cause
+                add({'kind': 'fix-pattern', 'module_id': mid, 'root_cause': cause, 'strategy': note.get('strategy'),
+                     'applicability': note.get('applicability'), 'risks': note.get('risks'),
+                     'summary': f"Verified fix for {category}: {note.get('strategy')}",
+                     'evidence_refs': [mem['fix_note_ref']] + ([mem['audit_verdict_ref']] if mem.get('audit_verdict_ref') else [])})
     return lessons
 
 
