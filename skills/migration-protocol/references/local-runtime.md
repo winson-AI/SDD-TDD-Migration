@@ -58,6 +58,9 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | register | Global | module_id、case_ids、write_paths、dependencies；按拓扑顺序登记，依赖必须已存在，从而拒绝环/未知模块。原子根功能可登记为 `lean_leaf=true`：须有 scope（in/out/requirement_ids）、context_refs 与 GO 的 leaf_review_ref，不可同时 decomposition_required |
 | decompose | 父 MO / 父 module_id | plan_ref（子功能 scope/context_refs/CASE/写范围/依赖提案）、context_ref；不抄写全局上下文与分配包，Ledger 绑定当前版本，接受时仍须一致 |
 | decompose-accept | Global / 父 module_id | review_ref；复核 MO 提案并原子登记子模块，父移入 module_groups |
+| realloc-request | 子 MO / 子 module_id | reason、evidence_refs；切片/边界冲突向上提单，进入 waiting-upstream |
+| redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；重新拆分 children 覆盖父 scope |
+| redecompose-accept | Global / 父 module_id | review_ref；复核重组方案，保留未变孩子 Green，重置受影响孩子，下线模块转入 superseded_modules 供 Auditor 治理 |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
 | decision | host | decision_id、decision=approved、module_id、subject_sha256（取等待该决定的游标步骤的 approval_subject_sha256：冻结、恢复、审计放行、审计处置）、human_source_ref；保存真实人类决定引用。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子 |
 | global-plan | Global | plan_ref + review_ref；验收全部需求/用例归属，绑定当前 registry；新增模块后必须重审，通过前禁止实现派发 |

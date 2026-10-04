@@ -215,8 +215,10 @@ def validate_configuration(item, source_qualifier):
     if item.get('resource_strategy') == 'blocked':
         return  # An explicit gap has no completed destination to certify.
     destination = target_qualifier(item)
+    reviewed = None
     if (item.get('source_resource') or '').split('/')[0] in ('@drawable', '@mipmap'):
         # A density names a rendition of the same picture, not a configuration the target has to route.
+        reviewed = source_qualifier
         source_qualifier = resource_facts.variant(source_qualifier)[0]
         destination = destination if destination == 'code' else resource_facts.variant(destination)[0]
     mapping = item.get('configuration_mapping')
@@ -225,6 +227,13 @@ def validate_configuration(item, source_qualifier):
                 'resource configuration changes require frozen configuration_mapping with scope evidence')
         return
     require(isinstance(mapping, dict), 'configuration_mapping must be an object')
+    # ESC-001 O1 narrow exemption, human-approved
+    # <run>/staging/host/decisions/ESC-001-O1-answer.md@fb35fdfd: a picture mapping that names
+    # the very density the item records ('xhdpi') names the same picture as its collapsed
+    # variant ('base'); certify the mapping against that recorded density. Any other qualifier,
+    # including a different density, still differs from the source.
+    if reviewed is not None and mapping.get('source_qualifier') == reviewed and reviewed != source_qualifier:
+        source_qualifier = reviewed
     require(mapping.get('source_qualifier') == source_qualifier and mapping.get('target_qualifier') == destination,
             'configuration mapping differs from source or target qualifier')
     scope = mapping.get('scope')
@@ -280,17 +289,49 @@ def prepare_exact(source, destination, source_id, strategy):
     return ET.tostring(target, encoding='utf-8', xml_declaration=True) + b'\n'
 
 
-def require_target_binding(item, target_root):
+def frozen_documents(analysis):
+    """{resolved path: sha256} for every file reference the analysis itself hash-registers."""
+    found = {}
+
+    def walk(node):
+        if isinstance(node, dict):
+            if isinstance(node.get('path'), str) and isinstance(node.get('sha256'), str):
+                found[str(Path(node['path']).resolve())] = node['sha256']
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(analysis)
+    return found
+
+
+def require_target_binding(item, target_root, registered_docs=None):
     """A migrated resource is a file of the target project, has a name consumers use, and is used by target files."""
     strategy = item.get('resource_strategy')
     if strategy in (None, 'blocked'):
         return
     label, root = item.get('item_id', '?'), Path(target_root).resolve()
+    # ESC-001 O1 narrow exemption, human-approved
+    # <run>/staging/host/decisions/ESC-001-O1-answer.md@fb35fdfd: on the frozen allocation
+    # surface only (the caller passes the documents hash-registered by the analysis whose hash
+    # is the Ledger-registered dimension_analysis_ref), a manual_exact item may anchor a
+    # consumer, and a reviewed-absence item (deviation.kind == 'absent') its target_resource,
+    # to a registered review document that is live at its registered bytes. Implementation-time
+    # existence/wiring proofs, require_graphic_proof, closure and the blocked ban are untouched.
+    def anchored(path):
+        sha = (registered_docs or {}).get(str(Path(path).resolve()))
+        return sha is not None and Path(path).is_file() and file_ref(path)['sha256'] == sha
+
+    absent = strategy == 'manual_exact' and (item.get('deviation') or {}).get('kind') == 'absent'
     target, _, name = item.get('target_resource', '').partition('#')
-    require(Path(target).is_absolute() and Path(target).resolve().is_relative_to(root),
+    require((absent and anchored(target)) or (Path(target).is_absolute() and Path(target).resolve().is_relative_to(root)),
             label + ': target_resource must be a file of the target project')
     for consumer in consumers(item):
         path = Path(consumer.split('#', 1)[0])
+        if strategy == 'manual_exact' and anchored(path):
+            continue
         require(path.is_absolute() and path.resolve().is_relative_to(root),
                 label + ': a consumer is a file of the target project, not a document about it')
     require(strategy not in WIRED or name.strip(), label + ': target_resource needs #<the name consumers use for it>')
@@ -759,13 +800,19 @@ def freeze_gate(s, m):
     variants, destinations, resource_items = set(), {}, []
     analysis = read_json(check_ref(ref))
     resource_copy.freeze_check(s, analysis)
+    # ESC-001 O1 narrow exemption, human-approved
+    # <run>/staging/host/decisions/ESC-001-O1-answer.md@fb35fdfd: the frozen allocation surface
+    # is exactly the analysis whose hash the Ledger registered for this module; check_ref above
+    # proved the live bytes are that hash. Only then may its own registered review documents
+    # anchor a hand-carried consumer/target_resource in require_target_binding below.
+    registered_docs = frozen_documents(analysis) if ref == m.get('dimension_analysis_ref') else None
     for row in analysis['dimensions']:
         if row.get('dimension') == 'Resource' and row.get('status') == 'applicable':
             resource_items.extend(row.get('items', []))
             for item in row.get('items', []):
                 if item.get('resource_strategy'):
                     if s.get('target_root'):
-                        require_target_binding(item, s['target_root'])
+                        require_target_binding(item, s['target_root'], registered_docs)
                     facts = validate_facts(item, s.get('legacy_root'), check_configuration=True)
                     if facts.get('status') in ('source-unavailable', 'signal'):
                         continue

@@ -292,3 +292,57 @@ class DecompositionTests(unittest.TestCase):
         self.root_scope(); self.split(); self.global_plan(); self.prepare_leaf('M001')
         with self.assertRaisesRegex(Rejected, 'child MO decomposes tasks'):
             self.split(self.proposal('M001', ('M003',)), parent='M001')
+
+    def test_submodule_can_request_reallocation_and_parent_redecomposes(self):
+        self.root_scope(); self.split(); self.global_plan()
+        self.prepare_leaf('M001')
+        # Submodule M002 discovers upstream slice issue during specifying/planning
+        self.call('realloc-request', {'reason': 'Search logic overlap with M001',
+                                      'evidence_refs': [self.ref('evidence.md', 'overlap found')]},
+                  role='module-orchestrator', module='M002')
+        s = self.state()
+        self.assertEqual(s['modules']['M002']['phase'], 'waiting-upstream')
+        self.assertEqual(s['modules']['M002']['realloc_request']['status'], 'pending')
+        # Parent MO group step immediately recognizes realloc request
+        group_step = dc.group_step(s, s['module_groups']['M010'])
+        self.assertEqual(group_step['operation'], 'redecompose')
+        self.assertTrue(group_step['ready'])
+
+        # Parent MO redecomposes with adjusted children (e.g. adjust M002, keep M001)
+        new_proposal = self.proposal(parent='M010', ids=('M001', 'M002'))
+        # Modify M002 scope slightly
+        new_proposal['children'][1]['scope']['in'] = ['subfunction-M002-refined']
+        self.call('redecompose', {'plan_ref': self.ref('resplit-M010.json', new_proposal)}, module='M010')
+        self.assertEqual(self.state()['module_groups']['M010']['redecomposition_submission']['binding']['assigned_module_sha256'],
+                         dc.context_binding(self.state(), self.state()['module_groups']['M010'])['assigned_module_sha256'])
+
+        # GO accepts redecomposition
+        self.call('redecompose-accept', {'review_ref': self.ref('redecomp-review.md', 'approved redecomposition')},
+                  role='global-orchestrator', module='M010')
+        s = self.state()
+        # M001 was unchanged: retained its plan and has allocation_continuation
+        self.assertIsNotNone(s['modules']['M001']['plan'])
+        self.assertIn('allocation_continuation', s['modules']['M001'])
+        # M002 was affected: reset to specifying
+        self.assertEqual(s['modules']['M002']['phase'], 'specifying')
+        self.assertIsNone(s['modules']['M002'].get('realloc_request'))
+        self.assertEqual(s['modules']['M002']['scope']['in'], ['subfunction-M002-refined'])
+
+    def test_redecompose_supersedes_code_for_auditor_governance(self):
+        self.root_scope(); self.split(self.proposal('M010', ('M001', 'M002'))); self.global_plan()
+        self.prepare_leaf('M001')
+        # M001 has implemented code
+        self.assertTrue(bool(self.state()['modules']['M001']['code_files']))
+
+        # Parent MO redecomposes, retiring M001 and splitting into M003 and M002
+        new_proposal = self.proposal(parent='M010', ids=('M003', 'M002'))
+        self.call('redecompose', {'plan_ref': self.ref('resplit-retire.json', new_proposal)}, module='M010')
+        self.call('redecompose-accept', {'review_ref': self.ref('retire-review.md', 'M001 retired')},
+                  role='global-orchestrator', module='M010')
+        s = self.state()
+        self.assertNotIn('M001', s['modules'])
+        self.assertIn('M001', s['superseded_modules'])
+        # Code is retained for Auditor governance, not deleted
+        self.assertEqual(s['superseded_modules']['M001']['phase'], 'superseded')
+        self.assertTrue(bool(s['superseded_modules']['M001']['code_files']))
+

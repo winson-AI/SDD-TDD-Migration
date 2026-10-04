@@ -165,6 +165,21 @@ def validate_plan(plan, module):
     require(type(enabled) is bool, 'behavior_contract_required must be boolean')
     if not enabled:
         return
+    # ESC-002-A narrow exemption, human-approved
+    # <run>/staging/host/decisions/ESC-002-A-answer.md@3fd331c0: a plan whose bytes the Ledger
+    # already holds (digest == the module's registered plan_hash), or whose paths are byte-equal
+    # to the hash-registered accepted design that itself predates scenario_ids, keeps the
+    # scenario_trace contract it was authored under; every other plan answers to the derived form.
+    exempt = bool(module.get('plan_hash')) and digest(plan) == module['plan_hash']
+    if not exempt and (module.get('accepted_test_design') or {}).get('result_ref'):
+        from contracts import Rejected, read_json
+        try:
+            design = read_json(check_ref(module['accepted_test_design']['result_ref']))
+            exempt = design.get('paths') == plan.get('paths') and not any(
+                assertion.get('scenario_ids') for path in design.get('paths') or []
+                for assertion in path.get('expected_assertions', []))
+        except (Rejected, OSError, KeyError, TypeError, ValueError):
+            exempt = False  # a drifted registration exempts nothing; the new contract applies
     review(module, plan.get('source_closure'))  # the leaf's source closure is its behavior review
     index = scenario_index(plan)
     require(plan.get('scenario_index') in (None, index), 'scenario_index is derived from the OpenSpec definitions; omit it')
@@ -185,15 +200,24 @@ def validate_plan(plan, module):
         linked_paths = {pid for tid in tids for pid in tasks[tid]['path_ids']}
         derived = sorted(found.get(sid, []))
         listed = trace.get('assertions')
-        require(listed is None or sorted((a.get('path_id'), a.get('assertion_id')) for a in listed) == derived,
-                'scenario_trace assertions of ' + sid + ' differ from the assertions that name it; omit them')
-        require(derived, 'no assertion names scenario ' + sid + ' (scenario_ids on the designed assertions)')
-        for pid, aid in derived:
+        if exempt:
+            # ESC-002-A ...@3fd331c0: the exempt plan's rows cite the assertions themselves;
+            # each citation is held to the pre-6034468 checks, including naming a real assertion.
+            rows = nonempty(listed, 'scenario behavior assertions')
+        else:
+            require(listed is None or sorted((a.get('path_id'), a.get('assertion_id')) for a in listed) == derived,
+                    'scenario_trace assertions of ' + sid + ' differ from the assertions that name it; omit them')
+            require(derived, 'no assertion names scenario ' + sid + ' (scenario_ids on the designed assertions)')
+            rows = [{'path_id': pid, 'assertion_id': aid} for pid, aid in derived]
+        for item in rows:
+            pid, aid = item.get('path_id'), item.get('assertion_id')
             require(pid in linked_paths and pid in paths, 'scenario assertion outside task paths')
             path = paths[pid]
             require(path.get('kind', 'automation') in BEHAVIOR_KINDS, 'build/static cannot prove scenario behavior')
             require(rid == path.get('requirement_id') or rid in path.get('requirement_ids', []), 'scenario path/requirement mismatch')
             require(path['case_id'] in module['case_ids'], 'scenario case outside module')
+            if exempt:
+                require(aid in {a['assertion_id'] for a in path['expected_assertions']}, 'unknown scenario assertion')
             covered_assertions.add((pid, aid))
     require(covered_tasks == set(tasks), 'every task must contribute to a scenario, including supporting tasks')
     required = {(p['path_id'], a['assertion_id']) for p in paths.values()

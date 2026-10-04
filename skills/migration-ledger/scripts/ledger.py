@@ -514,6 +514,11 @@ def _next_step(s, m):
         step.update(operation='repair-accept', role='module-orchestrator', ready=True,
                     path_ids=[pid for pid, r in pending_repairs(s).items() if m['module_id'] in r.get('module_ids', [])
                               and m['module_id'] not in r.get('accepted_by', [])])
+    elif m['phase'] == 'waiting-upstream':
+        step.update(operation=None, role='module-orchestrator', ready=False,
+                    reason='await-upstream-reallocation',
+                    detail='Submodule requested reallocation from parent MO',
+                    recovery_action='realloc-request-or-redecompose-parent')
     elif m['phase'] in ('context', 'specifying', 'change-review'):
         step.update(operation='plan', role='spec-designer', ready=True)
         if design_stage.required(s, m) and not design_stage.ready(s, m):
@@ -530,7 +535,7 @@ def _next_step(s, m):
         except (Rejected, OSError) as exc:
             step.update(operation=None, role='global-orchestrator', ready=False,
                         reason='allocation-review-required', detail=str(exc),
-                        recovery_action='restore-approved-allocation-or-GO-replan-new-run')
+                        recovery_action='realloc-request-or-redecompose-parent')
     elif m['phase'] == 'clarifying':
         decision = approval(s, m, m['plan_hash'])
         if not decision and batch_approval(s, m):
@@ -872,7 +877,7 @@ def mutate(s, req, principal, events, root=None):
     if mid:
         require(m is not None, 'module not registered')
         if mid in s.get('module_groups', {}):
-            require(op in ('module-summary', 'session'), 'parent MO only coordinates/summarizes; execute code and tests in child modules')
+            require(op in ('module-summary', 'session', 'redecompose', 'redecompose-accept'), 'parent MO only coordinates/summarizes; execute code and tests in child modules')
     if workflow.audit_locks(s, mid) and op not in ('audit', 'problem-audit', 'audit-revoke', 'decision'):
         raise Rejected('audit snapshot locked; close or revoke audit before mutation')
     if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:

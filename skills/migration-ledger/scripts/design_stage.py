@@ -111,7 +111,7 @@ def valid(s, m, a):
         return False
 
 
-def result_check(s, m, a, result):
+def result_check(s, m, a, result, accepted_artifact=False):
     doc = current(s, m, a)
     require(result.get('schema_version') == 1 and result.get('kind') == 'test-design', 'design assignment only accepts test-design result')
     for field in ('run_id', 'module_id', 'assignment_id'):
@@ -130,7 +130,12 @@ def result_check(s, m, a, result):
         require(not {'quality', 'executed', 'test_run_id', 'execution_receipt'}.intersection(path), 'design PATH cannot claim execution')
         for assertion in keyed(path.get('expected_assertions'), 'assertion_id').values():
             require('expected' in assertion and not {'actual', 'passed'}.intersection(assertion), 'design assertion must be an expectation only')
-    if s.get('behavior_contract_required'):
+    # ESC-002-A narrow exemption, human-approved
+    # <run>/staging/host/decisions/ESC-002-A-answer.md@3fd331c0: accepted() consumes a design whose
+    # live bytes check_ref has just proven equal to the Ledger-registered result_ref; that artifact
+    # keeps the contract it was accepted under. A submitted (not yet registered) design answers to
+    # check_design in full, so new artifacts are never relaxed.
+    if s.get('behavior_contract_required') and not accepted_artifact:
         import behavior_contract
         behavior_contract.check_design(spec_scenarios(m, doc['spec_refs']), result['paths'])
     if s.get('split_testing_required') or any(p.get('kind') == 'build' for p in paths.values()):
@@ -170,7 +175,9 @@ def accepted(s, m):
     a = m['assignments'].get(record.get('assignment_id'), {})
     require(a.get('closed') and not a.get('revoked'), 'accepted independent test design required')
     result = read_json(check_ref(record.get('result_ref')))
-    result_check(s, m, a, result)
+    # ESC-002-A narrow exemption ...@3fd331c0: the check_ref above proved the result's bytes are the
+    # Ledger-registered sha256; only this hash-bound consumption takes the exemption.
+    result_check(s, m, a, result, accepted_artifact=True)
     check_ref(record['review_ref'])
     return a, result
 

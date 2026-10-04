@@ -6,11 +6,11 @@ GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 sc
 
 ## 1. 范围与方法
 
-**先划分范围，再做该范围的四维分析；划分决定负责什么，四维分析直接指导如何实现。** 三层固定顺序：
+**先划分范围，再做该范围的四维分析；划分决定负责什么，四维分析形式化声明业务边界、功能边界与代码/资产边界，约束并指导下游 SPEC 与测试设计。** 三层固定顺序：
 
-- GO：全局上下文/完整功能清单 → 划分模块及 scope → 针对每个已划分模块做四维分析 → 模块 SPEC 草案/Testing list/交接包。
-- 父 MO：认领模块 → 读取该模块存量/目标已有实现、模块四维分析及全局上下文 → 划分子模块及 scope → 针对每个已划分子模块做四维分析 → 子模块交接包。
-- 子 MO：认领子模块 → 读取该子模块存量/目标已有实现、子模块四维分析及全局上下文 → 划分任务及 scope → 针对每个已划分任务做四维分析 → 冻结实现计划 → Coding/Testing。
+- GO：全局上下文/完整功能清单 → 划分根模块及 scope → 针对每个已划分根模块做四维边界分析（业务/功能/代码边界） → 根模块交接包（需求/CASE归属与边界契约）。实施规格完全下沉。
+- 父 MO：认领模块 → 读取该模块存量/目标已有实现、根四维分析及全局上下文 → 划分子模块及 scope → 针对每个已划分子模块做四维分析（子边界契约） → 子模块交接包。
+- 子 MO：认领子模块 → 读取该子模块存量/目标已有实现、子模块四维分析及全局上下文 → 划分任务及 scope → 针对每个已划分任务做四维边界映射与指引 → 冻结实现计划 → Coding/Testing。
 
 这里的“实现上下文”是现有源码、目标能力及已批准设计，不要求迁移代码在规划前已生成。每一级的四维分析均按 UI → Logic → Adhesive → Resource 顺序进行；任务执行顺序仍按真实依赖决定。分析发现范围缺口时回到负责该范围的编排层调整，再重做受影响分析；不得用分析结论静默扩大职责或遗漏功能。
 
@@ -20,12 +20,12 @@ GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 sc
 
 ## 2. 四维检查内容
 
-| 顺序 | 分析范围（仅列实际存在的内容） | 闭合依据 |
-| --- | --- | --- |
-| UI | 入口、页面/组件树、列表 renderer、自定义视图、弹窗/菜单、初始/条件可见性、loading/empty/error/content 等状态、事件、导航/返回 | 源码布局与实际绑定/动态修改代码，稳定节点/事件 ID → 状态/行为；UI tree 工件通过 evidence_refs 引用，不能用控件清单代替树与事件关系 |
-| Logic | 事件→状态转换→业务规则→repository/API/DAO→可观察结果；解析/映射、持久化、错误/重试/分页、取消及生命周期 | 真实调用链、输入输出/副作用/失败语义；需求与 CASE/PATH/ASSERT 对齐；瞬态行为有源码依据即保留 |
-| Adhesive | 生产入口接线、路由参数/返回、DI/工厂、模块接口、共享与平台边界、回调/生命周期、权限、构建依赖、宿主/桥接及打包连接 | UI/事件→状态→领域/数据→真实提供方闭合；明确已有接线复用/修复/新增及唯一 owner，不以接口声明、编译通过或启动成功代替真实绑定 |
-| Resource | 字符串/复数/占位符/本地化、图标图片字体、色彩尺寸样式主题/selector、raw/config、qualifier 与资源打包/生成访问器 | 源资源→目标真实文件/访问器→生产消费者。遍历在范围内的传递资源引用和代码动态修改；不无界扫描全部未使用主题 |
+| 顺序 | 分析范围（仅列实际存在的内容） | 形式化边界映射 | 闭合依据 |
+| --- | --- | --- | --- |
+| UI | 入口、页面/组件树、列表、弹窗/菜单、可见性、状态、事件、导航/返回 | **业务边界**：用户可交互表面与可观察状态 | 源码布局与绑定代码，稳定节点/事件 ID → 状态/行为；UI tree 经 evidence_refs 引用，不用控件清单代树结构 |
+| Logic | 事件→状态转换→业务规则→repository/API/DAO→结果；解析、持久化、错误/重试、取消与生命周期 | **业务与功能边界**：业务规则与计算流转 | 真实调用链、I/O/副作用/失败语义；需求与 CASE/PATH/ASSERT 对齐 |
+| Adhesive | 生产入口接线、路由、DI/工厂、模块接口、共享边界、权限、依赖与打包连接 | **代码与系统边界**：模块接口暴露、DI 与外部依赖接线 | UI/事件→状态→领域/数据→真实提供方闭合；明确复用/修复/新增及唯一 owner，不以接口声明代真实绑定 |
+| Resource | 字符串/复数/本地化、图标图片字体、色彩尺寸样式主题、raw/config、qualifier 与生成访问器 | **资产与参数边界**：外部静态/动态资产与参数键映射 | 源资源→目标真实文件/访问器→生产消费者。遍历范围内传递资源引用与动态修改；不无界扫描未使用主题 |
 
 Resource 指应用资源；原 Dependencies / Resources 中的文件锁、设备等调度资源仍单独管理。资源迁移保留精确语义/素材、单位/font scaling、locale/theme/density/状态变体，不用无关图标、emoji 或近似样式替代。目标已有等价资源优先复用，差异须记录适配与验证；不覆盖无关现有资产。
 
@@ -43,18 +43,18 @@ Resource 指应用资源；原 Dependencies / Resources 中的文件锁、设备
 
 ## 4. 控制节点与交接
 
-1. **GO / register**：全局上下文/完整功能清单 → 划分模块 scope → 对每个模块做四维源闭包/目标映射 → SPEC 草案、Testing list。每个根模块提交 `dimension_analysis_ref`（path+sha256），由 Ledger 接受与归档；分析里反复引用的文件在顶层 `refs` 写一次，`evidence_refs`/`context_refs` 写其 id。GO 草案包含四维行为与边界；正式六件套仍由 Spec-Designer 撰写，GO 不替 MO 冻结。输入源缺项先澄清，不把空模板当完成。
+1. **GO / register**：全局上下文/完整功能清单 → 划分模块 scope → 对每个模块做四维源闭包/目标映射，确立业务/功能/代码边界。每个根模块提交 `dimension_analysis_ref`（path+sha256），由 Ledger 接受与归档；分析里反复引用的文件在顶层 `refs` 写一次，`evidence_refs`/`context_refs` 写其 id。GO 定义边界；正式六件套与测试设计由下游撰写，GO 不替 MO 冻结。输入源缺项先澄清，不把空模板当完成。
 2. **父 MO / decompose → GO / decompose-accept**：认领模块，读取模块实现、根四维分析及全局上下文 → 划分子功能 scope → 为每个已划分子功能生成四维分析，`parent_ref` 精确指向根分析；子 item 的 `parent_item_ids` 关联同维度父 item。所有父 item 必须被子项覆盖，子项需求/用例不得超出对应父项。父项可细分给多个孩子，但子 item_id 全局唯一，`dimension_partition_review_ref` 解释分割依据、职责不重叠及共享提供方/消费者/唯一写 owner；共享修改采用既有依赖、写范围/锁及人工边界决策，不复制实现。新增未分配功能须回 GO，不能偷偷扩 scope。
 3. **GO / global-plan**：核验完整 registry 的四维分配和引用仍有效，并结合 feature-inventory、需求/CASE owners 与边界裁决接受全局覆盖。全局 planning_context.dimension_allocations 对父子均可读；权威 assigned_module 包含本模块及父级分析引用。
 
    全量检查保留于本节点；运行派发只遍历当前模块、其实际依赖链与父级分配，不让无关模块的四维证据损坏阻塞当前工作。invalidate 后若认领分配本身失效，返回 GO 分配审查；若仅旧任务/实现证据失效，保留历史后重新 plan。详见 [恢复协议](progress-recovery.md)。
-4. **子 MO + Spec-Designer / plan → freeze**：认领子模块并读取其实现、四维分析与上下文 → 划分具体 tasks.scope → 对每个任务生成 tasks[].dimension_analysis，明确四维如何影响代码/接线/资源与测试；发现上游遗漏先请求父/GO 调整，不能把适用项改 N/A。stage-plan.dimension_analysis_ref 必须等于认领引用，dimension_trace 完整覆盖所有 item，关联 TASK/PATH/ASSERT；每个 task 有维度归属、全部分配 CASE 有行为测试路径，构建不能代替行为断言。跨维度任务允许，避免为四维制造空任务。design/spec/tasks 保留 item ID；MO 在冻结检查审阅文本与机器索引语义一致性。
-5. **Implementer/Fixer / submit → MO accept**：按冻结任务 scope 及任务四维 implementation 指导交付；task_trace 的文件必须位于对应 task.scope.write_paths，不能仅凭处于模块范围内就跨任务修改。implementation.dimension_evidence 按 item 列 task_ids、summary、evidence_refs；Resource 再提交真实 target_resource_ref、consumer_refs（逐消费者文件 hash，可为未修改的复用文件）。这证明实现/接线有依据，不代表测试已通过。已接受的维度证据及资源/消费者引用在后续测试、DoD 和状态读取继续核验；即使复用文件未出现在本模块改动列表，其证据失效也不能沿用 Green。
+4. **子 MO + Spec-Designer / plan → freeze**：认领子模块并读取其实现、四维分析与上下文 → 划分具体 tasks.scope → 对每个任务生成 tasks[].dimension_analysis，明确四维边界映射与指引；发现上游遗漏通过 `realloc-request` 请求父级重新拆分，不能把适用项改 N/A。stage-plan.dimension_analysis_ref 必须等于认领引用，dimension_trace 完整覆盖所有 item，关联 TASK/PATH/ASSERT；每个 task 有维度归属、全部分配 CASE 有行为测试路径，构建不能代替行为断言。跨维度任务允许，避免为四维制造空任务。design/spec/tasks 保留 item ID；MO 在冻结检查审阅文本与机器索引语义一致性。
+5. **Implementer/Fixer / submit → MO accept**：按冻结任务 scope 交付，详细编码设计由 design.md/tasks.md 规定；task_trace 的文件必须位于对应 task.scope.write_paths，不能仅凭处于模块范围内就跨任务修改。implementation.dimension_evidence 按 item 列 task_ids、summary、evidence_refs；Resource 再提交真实 target_resource_ref、consumer_refs（逐消费者文件 hash，可为未修改的复用文件）。这证明实现/接线有依据，不代表测试已通过。已接受的维度证据及资源/消费者引用在后续测试、DoD 和状态读取继续核验；即使复用文件未出现在本模块改动列表，其证据失效也不能沿用 Green。
 6. **Test-Runner → MO DoD → 父汇总 → Auditor**：继续先 build、装机、automation，测试执行使用已冻结路径/断言而非从实现临时降低标准。DoD 检查四维追溯的完整实现与正式测试证据；父 MO 汇总全体子 item 覆盖及遗留。Auditor 仍等全体 MO 收尾，仅复核遗留/受影响范围，读取其四维依据定位遗漏、接线或资源缺陷。自动化环境不可用仍 Yellow 缺测，不阻断无关任务，也不宣称 fidelity 通过。
 
 ## 5. OpenSpec 与运行兼容
 
-`dimension_analysis_ref`、`dimension_trace`、`tasks[].scope` 和 `tasks[].dimension_analysis` 一起纳入 stage-plan 摘要和冻结；design 解释逐维差异、复用与接线，spec 给出应保留的可观察行为，tasks 给出实现/验证责任，checklist 验收覆盖。Ledger 将模块分析、任务 scope/四维分析及追溯物化为 `change/dimensions.md`，它是六件套的辅助索引，不是第二份可修改需求或状态源。登记后分配引用不可就地覆盖；范围/分配发现错误须保留旧运行证据并重新规划新 run，既有叶子 tasks 调整按 CR 与重新冻结。
+`dimension_analysis_ref`、`dimension_trace`、`tasks[].scope` 和 `tasks[].dimension_analysis` 一起纳入 stage-plan 摘要和冻结；design 解释逐维差异、复用与接线，spec 给出应保留的可观察行为，tasks 给出实现/验证责任，checklist 验收覆盖。Ledger 将模块分析、任务 scope/四维分析及追溯物化为 `change/dimensions.md`，它是六件套的辅助索引，不是第二份可修改需求或状态源。登记后分配引用不可就地隐式覆盖；范围/分配缺陷经 `realloc-request` / `redecompose` 在本 Run 内版本化修订并保留历史，仅重规划受影响闭包，无关模块保留 Green；既有 tasks 调整按 CR 与重冻结。
 
 四维分析是必选门禁，prepare 固化且不可关闭。
 

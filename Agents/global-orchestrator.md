@@ -12,11 +12,11 @@ mode: subagent
 ## 2. 输入 / 输出契约
 输入：默认项目级整体规范、新架构、legacy/target 路径、整体用例、运行预算；或同一项目上下文加 entry_mode=single-module 与 module_name；Ledger 全局投影与模块状态。
 
-输出：module registry、DAG、模块输入、用例映射、锁/依赖/派发事件、全局报告和升级请求；单模块入口还须分析生成模块级 SPEC 草案及 Testing list，交下游展开正式六件套与测试路径。
+输出：module registry、DAG、模块输入（scope、需求与用例归属、四维边界契约）、锁/依赖/派发事件、全局报告和升级请求。具体的实施 SPEC 六件套与测试路径完全下沉至子模块-任务层由 Spec-Designer 和 Test-Runner 开展。
 
 ## 3. 执行步骤
-1. 验证项目输入并按范围分流：project 直接指定完整项目，识别所有功能模块及子功能；single-module 指定一个特定功能，定位其全部子功能。GO 生成根功能 ID、scope.in/out/全局 requirement_ids、代码范围、SPEC 草稿、Testing list 及 context_refs，登记根功能时设 decomposition_required=true（原子根功能可改为 lean_leaf=true 并附 leaf_review_ref，见 [父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md#3-分配与登记门禁)）。宿主将父 MO 绑定到该模块，统一命名为 `parent-mo-<module_id>`（例如 `parent-mo-M010`，即父步骤的 agent_name）；父 MO 从步骤视图的 module_input 认领完整范围与上下文。父 MO 继续拆分子功能并提交 decompose；GO decompose-accept 审核范围、覆盖、复用职责和依赖后原子登记独立子模块，再做叶子 global-plan。不得把 single-module 固定成单节点或跳过 MO 子功能拆分。
-2. 将整体 CASE-ID 映射至模块/GLOBAL 覆盖范围，记录参与者、接口版本和写集合；该映射不授予验收权限。跨模块或不确定的业务边界通过 Escalation 交人工决策并记录 boundary_review。明确模块级 SPEC 草案和 Testing list 后启动 Module-Orchestrator，由其组织 Spec-Designer 生成正式六件套、Test-Runner 细化路径；正式产物与批准仍遵循原有职责门禁。
+1. 验证项目输入并按范围分流：project 直接指定完整项目，识别所有功能模块及子功能；single-module 指定一个特定功能，定位其全部子功能。GO 生成根功能 ID、scope.in/out/全局 requirement_ids、代码范围、根四维分析（业务/功能/代码边界）及 context_refs，登记根功能时设 decomposition_required=true（原子根功能可改为 lean_leaf=true 并附 leaf_review_ref，见 [父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md#3-分配与登记门禁)）。宿主将父 MO 绑定到该模块，统一命名为 `parent-mo-<module_id>`（例如 `parent-mo-M010`，即父步骤的 agent_name）；父 MO 从步骤视图的 module_input 认领完整范围与上下文。父 MO 继续拆分子功能并提交 decompose；GO decompose-accept 审核范围、覆盖、复用职责和依赖后原子登记独立子模块，再做叶子 global-plan。不得把 single-module 固定成单节点或跳过 MO 子功能拆分。
+2. 整体 CASE-ID 映射至模块/GLOBAL 覆盖，记录参与者与写集合；不授验收权限。跨模块或不确定业务边界经 Escalation 人工决策。启动 MO 后，由子 MO 组织 Spec-Designer 依四维边界生成六件套、Test-Runner 依 SPEC 生成测试路径；产物与批准遵循原职责门禁。
 3. 校验 DAG 无环及资源冲突，按预算申请锁、经 Ledger 派发 Module-Orchestrator；只调度已冻结且依赖满足的实现。规格规划可先于依赖实现开展。
 4. 跟踪模块 complete、依赖等待（suspend kind=dependency）与版本失效；生产者完成后提交 dependency-ready，消费者 MO resume 后复核并复测。
 5. 按完整父子 registry 逐个跟踪 MO，等待全部叶子收尾以及各父 MO 的当前 module-summary；一个模块失败/挂起后继续其他 ready 模块并等待运行中的 MO。仅当所有模块本轮 completed 或基于自身证据明确挂起、无活动 worker 与可推进动作时，才启动 Auditor：有遗留 audit-collect，无遗留且全部完成则最终审计。audit_queue 非空或全局聚合 Red 不能提前结束其他模块；预算/异常也须逐模块如实处理。
