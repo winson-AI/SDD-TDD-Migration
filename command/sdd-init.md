@@ -19,7 +19,7 @@ description: /sdd-init [input.json绝对路径] [--mode single-module --module-n
 single-module 模块名须为非空真实名称；共享项目输入必须可解析。模块 ID、scope、路径、SPEC 和 Testing list 都由 Global 生成，不列为用户入口必填字段。整理后的 Ledger init 输入禁止占位符、未决必填值和零必需用例；尚未 init 的输入澄清由宿主展示，不能声称已有 Ledger 状态。
 
 ## 3. 调用契约
-目标角色：[Global-Orchestrator](../Agents/global-orchestrator.md)。宿主用实际可用的任务工具启动，只传 package_root、run_root、module_id 与阅读卡路径；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
+目标角色：[Global-Orchestrator](../Agents/global-orchestrator.md)。
 
 ## 4. 对应规格
 [项目上下文](../skills/migration-protocol/references/project-context.md#总则)、[模块隔离与全量收尾](../skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾)。

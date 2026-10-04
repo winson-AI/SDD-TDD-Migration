@@ -1,43 +1,30 @@
 {
   "schema_version": 1,
+  "_note": "refs lists a file reference once; evidence_refs and context_refs cite its id (a full {path, sha256} object works too).",
+  "refs": {
+    "E1": {
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
+      "sha256": "{{sha256}}"
+    }
+  },
   "module_id": "M001",
   "parent_ref": null,
   "source_reviews": {
     "legacy": {
       "conclusion": "{{review-result-including-no-candidate-or-not-applicable-with-evidence}}",
-      "evidence_refs": [
-        {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
-          "sha256": "{{sha256}}"
-        }
-      ]
+      "evidence_refs": ["E1"]
     },
     "architecture": {
       "conclusion": "{{review-result-including-no-candidate-or-not-applicable-with-evidence}}",
-      "evidence_refs": [
-        {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
-          "sha256": "{{sha256}}"
-        }
-      ]
+      "evidence_refs": ["E1"]
     },
     "reuse": {
       "conclusion": "{{review-result-including-no-candidate-or-not-applicable-with-evidence}}",
-      "evidence_refs": [
-        {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
-          "sha256": "{{sha256}}"
-        }
-      ]
+      "evidence_refs": ["E1"]
     },
     "target": {
       "conclusion": "{{review-result-including-no-candidate-or-not-applicable-with-evidence}}",
-      "evidence_refs": [
-        {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
-          "sha256": "{{sha256}}"
-        }
-      ]
+      "evidence_refs": ["E1"]
     }
   },
   "dimensions": [
@@ -45,12 +32,7 @@
       "dimension": "UI",
       "status": "unresolved",
       "reason": "{{decide-applicable-or-not-applicable-from-assigned-function; N/A-items-must-be-empty}}",
-      "evidence_refs": [
-        {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
-          "sha256": "{{sha256}}"
-        }
-      ],
+      "evidence_refs": ["E1"],
       "items": [
         {
           "item_id": "DIM-M001-UI-001",
@@ -65,12 +47,7 @@
           "target_strategy": "new",
           "target_binding": "{{target-path#production-consumer-and-binding}}",
           "acceptance": "{{source-fidelity-and-observable-expectation}}",
-          "evidence_refs": [
-            {
-              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
-              "sha256": "{{sha256}}"
-            }
-          ],
+          "evidence_refs": ["E1"],
           "parent_item_ids": []
         }
       ],
@@ -100,12 +77,7 @@
       "dimension": "Logic",
       "status": "unresolved",
       "reason": "{{decide-applicable-or-not-applicable-from-assigned-function; N/A-items-must-be-empty}}",
-      "evidence_refs": [
-        {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
-          "sha256": "{{sha256}}"
-        }
-      ],
+      "evidence_refs": ["E1"],
       "items": [
         {
           "item_id": "DIM-M001-LOGIC-001",
@@ -120,12 +92,7 @@
           "target_strategy": "new",
           "target_binding": "{{target-path#production-consumer-and-binding}}",
           "acceptance": "{{source-fidelity-and-observable-expectation}}",
-          "evidence_refs": [
-            {
-              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
-              "sha256": "{{sha256}}"
-            }
-          ],
+          "evidence_refs": ["E1"],
           "parent_item_ids": []
         }
       ]
@@ -134,12 +101,7 @@
       "dimension": "Adhesive",
       "status": "unresolved",
       "reason": "{{decide-applicable-or-not-applicable-from-assigned-function; N/A-items-must-be-empty}}",
-      "evidence_refs": [
-        {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
-          "sha256": "{{sha256}}"
-        }
-      ],
+      "evidence_refs": ["E1"],
       "items": [
         {
           "item_id": "DIM-M001-ADHESIVE-001",
@@ -154,12 +116,7 @@
           "target_strategy": "new",
           "target_binding": "{{target-path#production-consumer-and-binding}}",
           "acceptance": "{{source-fidelity-and-observable-expectation}}",
-          "evidence_refs": [
-            {
-              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
-              "sha256": "{{sha256}}"
-            }
-          ],
+          "evidence_refs": ["E1"],
           "parent_item_ids": []
         }
       ]
@@ -168,12 +125,7 @@
       "dimension": "Resource",
       "status": "unresolved",
       "reason": "{{decide-applicable-or-not-applicable-from-assigned-function; N/A-items-must-be-empty}}",
-      "evidence_refs": [
-        {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
-          "sha256": "{{sha256}}"
-        }
-      ],
+      "evidence_refs": ["E1"],
       "items": [
         {
           "item_id": "DIM-M001-RESOURCE-001",
@@ -188,12 +140,7 @@
           "target_strategy": "new",
           "target_binding": "{{target-path#production-consumer-and-binding}}",
           "acceptance": "{{source-fidelity-and-observable-expectation}}",
-          "evidence_refs": [
-            {
-              "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
-              "sha256": "{{sha256}}"
-            }
-          ],
+          "evidence_refs": ["E1"],
           "parent_item_ids": [],
           "source_resource": "{{local-Android-resource-ID-eg-@string/title}}",
           "source_resource_ref": {

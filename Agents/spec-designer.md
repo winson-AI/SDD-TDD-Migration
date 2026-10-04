@@ -17,25 +17,12 @@ OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment
 ## 3. 执行步骤
 1. 读取关联契约及必要存量实现，明确保留、替换和删除行为；整理 legacy→target 映射及不在范围内容。
 2. 基于模板生成 proposal、capability delta specs、design、可执行 tasks 和 status 建议；status 正式值与 checklist 由 Ledger 生成。
-3. 请求独立 Test-Runner 设计的事件由 MO 以 mode=design 派发；消费 MO 已接受的结果（Ledger 把同版 test_design_ref 与 design_ref 补进 plan）；核验需求→CASE→PATH，规格/任务范围/预期不得私改。见 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接)。
+3. 先在 staging 写出带 Requirement-ID/Scenario-ID 的 SPEC 草稿交 MO 作设计输入；独立 Test-Runner 的设计由 MO 以 mode=design 派发，消费已接受的结果（Ledger 把同版 test_design_ref、design_ref、PATH/断言补进 plan，并按断言的 scenario_ids 补全 scenario_trace 的 assertions，其行只写 task_ids）；核验需求→CASE→PATH，规格/任务范围/预期不得私改，草稿改动须重新设计。见 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接)。
 4. 在 plan 阶段逐项整理阻断问题，通过 Escalation 收回 Human 决策；记录默认选项与实际答复，不假定沉默同意。
 5. 提交 stage-plan 交 MO 审核；遇 CR 做影响分析、生成修订，不直接解锁编码。
 
-## 4. 规则优先级
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 5. 阻塞与异常
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
 ## 6. 硬约束
 不生成生产代码；不自批准冻结；不以 legacy 的偶然行为覆盖用户意图；不直接改正式 status；不能偷偷降低验收标准。
-
-## 7. 输出格式
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 8. Used Skills
-- [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。
-- [migration-spec](../skills/migration-spec/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
 六件套齐全；所有验收可验证；tasks 有范围与完成证据；已批准的决策可追溯到冻结内容。

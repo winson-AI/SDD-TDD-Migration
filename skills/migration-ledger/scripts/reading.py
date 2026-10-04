@@ -23,8 +23,9 @@ TYPICAL_BUDGET = 34_000
 ROTATE_BUDGET = 100_000
 # Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
 TEMPLATE_BUDGET = 20_000
+TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 536_800
+PROTOCOL_BUDGET = 532_200
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -252,18 +253,6 @@ def _mode_blocks(text, modes):
     return ''.join(out)
 
 
-def _card_text(text):
-    """An Agent definition as a card carries it: without the list of skill files (the card holds their rules)
-    and without sections that only point at the shared conventions (the card holds those too)."""
-    out = []
-    for block in re.split(r'(?m)^(?=## )', text):
-        title, _, body = block.partition('\n')
-        if title.strip() == '## 8. Used Skills' or re.fullmatch(r'见 \[共享协议·通用约定\]\([^)]*\)。', body.strip()):
-            continue
-        out.append(block)
-    return ''.join(out)
-
-
 @lru_cache(maxsize=None)
 def section(path, heading=None, topics=None, modes=None):
     """Text of one Markdown section: from its heading to the next heading of the same or higher level.
@@ -274,7 +263,7 @@ def section(path, heading=None, topics=None, modes=None):
     if heading is None:
         if modes is not None:
             text = _mode_blocks(text, set(modes))
-        return _topic_rows(_card_text(text), set(topics)) if topics is not None else text
+        return _topic_rows(text, set(topics)) if topics is not None else text
     name, _, keys = heading.partition('@')
     lines = text.splitlines(keepends=True)
     for i, line in enumerate(lines):
@@ -445,6 +434,8 @@ def templates(s, m, step):
 
 # A rejected request points at the section that states the failed gate; advisory, first match wins.
 GATES = [
+    (r'hash mismatch', 'runtime.md', '请求与事件'),   # first: the file named in the message may sit in a path of any other topic
+    (r'unknown reference id', 'context-readiness.md', '3. 报告与传递'),
     (r'parameter[ _](sheet|fill|file|convention)|parameter_fill|recorded (value )?parameters?|values to parameter|a parameter is'
      r'|expressions the Spec|tokens the Spec|typed value|(not_applicable|settled|token) record|share one key|target_resources\.parameters'
      r'|\b(layout|layer|code|values):\S+: deviation', 'resource-transfer.md', FILL),

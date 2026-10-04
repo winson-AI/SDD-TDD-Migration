@@ -99,6 +99,21 @@ class ReadingCardTests(unittest.TestCase):
                 names = reading.templates({}, None, step)
                 self.assertLessEqual(sum((reading.PACKAGE / n).stat().st_size for n in names), reading.TEMPLATE_BUDGET)
 
+    def test_templates_stay_in_their_ratchet_once_every_trigger_holds(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            analysis = Path(tmp) / 'dimensions.json'
+            analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable'}]}))
+            m = {'plan': {'dimension_analysis_ref': {'path': str(analysis)}, 'telemetry': {'status': 'applicable'}}}
+            s = {'reuse_required': True, 'dependency_resolution_required': True}
+            sizes = {}
+            for role in reading.ROLE:
+                for op, scope, mode in itertools.product((None, 'plan', 'assign', 'freeze', 'decompose', 'register', 'source-review'),
+                                                         (None, 'build', 'automation', 'visual'), (None, 'design')):
+                    names = reading.templates(s, m, {'role': role, 'operation': op, 'test_scope': scope, 'mode': mode})
+                    sizes[(role, op, scope, mode)] = sum((reading.PACKAGE / n).stat().st_size for n in names)
+            self.assertLessEqual(max(sizes.values()), reading.TRIGGERED_TEMPLATE_BUDGET, max(sizes, key=sizes.get))
+
     def test_agent_blocks_follow_the_test_scope(self):
         def text(scope):
             step = {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': scope}
@@ -175,18 +190,17 @@ class ReadingCardTests(unittest.TestCase):
             self.assertEqual(sorted(whole, key=str), [])
             self.assertTrue(any(row['ref'].endswith('ui-fidelity.md') for row in reading.card(s, m, {'role': 'spec-designer', 'operation': 'plan'})))
 
-    def test_a_card_carries_an_agent_without_its_pointer_only_sections(self):
+    def test_an_agent_definition_has_only_sections_with_rules_of_its_own(self):
+        for path in sorted((reading.PACKAGE / 'Agents').glob('*.md')):
+            text = path.read_text()
+            self.assertNotIn('## 8. Used Skills', text, path.name)  # the card holds the skill's rules
+            self.assertNotIn('见 [共享协议·通用约定]', text, path.name)  # the shared conventions are in every card already
         row = next(r for r in reading.card({}, None, {'role': 'implementer', 'operation': 'submit'}) if r['ref'] == 'Agents/implementer.md')
         text = reading.text_of(row)
-        self.assertNotIn('Used Skills', text)
-        for title in ('## 4. 规则优先级', '## 5. 阻塞与异常', '## 7. 输出格式'):
-            self.assertNotIn(title, text)  # these only point at the shared conventions, which the card holds
         self.assertIn('## 9. Checkpoints', text); self.assertIn('## 6. 硬约束', text)
         shared = [r for r in reading.card({}, None, {'role': 'implementer', 'operation': 'submit'}) if r['ref'] == reading.SHARED]
         self.assertNotIn('1. 定位', [r['section'] for r in shared]); self.assertIn('通用约定', [r['section'] for r in shared])
         self.assertNotIn('专题规则', ''.join(reading.text_of(r) for r in shared))  # the card itself answers where rules sit
-        definition = reading.section('Agents/implementer.md')  # the definition itself keeps them
-        self.assertIn('## 8. Used Skills', definition); self.assertIn('## 7. 输出格式', definition)
         runner = next(r for r in reading.card({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner',
                                                          'test_scope': 'build'}) if r['ref'] == 'Agents/test-runner.md')
         self.assertIn('## 5. 阻塞与异常', reading.text_of(runner))  # a section with rules of its own stays
@@ -253,6 +267,16 @@ class ReadingCardTests(unittest.TestCase):
                        'an image check waiver names a picture no node of this target shows',
                        'DIM-M001-RESOURCE-011: deviation.alternative must be one of decision_envelope.allowed_alternatives, which a human approves with the plan'):
             self.assertEqual(reading.read_hint(reason)['section'], reading.PICTURES, reason)
+        for reason, name, heading in (
+                ('evidence hash mismatch: /w/test-design/plan.json is ab12, the reference says cd34; recompute it with contracts.py ref', 'runtime.md', '请求与事件'),
+                ('unknown reference id E9; the document lists E1', 'context-readiness.md', '3. 报告与传递'),
+                ("design input spec_refs must be the leaf's own SPEC draft with Requirement-IDs and Scenario-IDs, staged by the Spec-Designer",
+                 'testing.md', '编码前设计交接'),
+                ('design assertion P1/A1 needs scenario_ids: the SPEC scenarios it verifies', 'testing.md', '编码前设计交接'),
+                ('scenario_trace assertions of SCN-1 differ from the assertions that name it; omit them', 'openspec.md', '冻结算法'),
+                ('context report is stale: its mandatory inputs changed; re-read them and report again', 'context-readiness.md', '2. 精确插入节点')):
+            hint = reading.read_hint(reason)
+            self.assertEqual((hint['ref'], hint['section']), (reading.P + name, heading), reason)
         transfer = {
             '使用点与闭包': ('UI tree omits file resources the scoped code uses: @drawable/logo; declare each on the node that shows it',
                         'usage exclusion must name a class, function or reference the scoped code uses',

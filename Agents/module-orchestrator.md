@@ -16,26 +16,13 @@ mode: subagent
 
 ## 3. 执行步骤
 1. 父 MO 和子 MO 均先读取全局 legacy/target 代码、架构规范、知识资料、父子 registry/依赖与分工；再聚焦本模块 context pack，核对已实现能力与复用 owner。父 MO 认领 GO 分配包，在 scope 内划分每个子模块的 scope、CASE、写范围、依赖和 context_refs，再提交 decompose；GO 接受后独立派发子 MO。子 MO 认领子包后拆 tasks，不再创建 MO；拆分提案与正式 plan 不抄写分配包和全局上下文，由 Ledger 绑定当前版本，再执行下述流程。父 MO 持续看护范围、复用、完整性与子进度。
-2. 叶子先通过 assign(mode=design, design_input_ref) 提交任务范围/规格/CASE（设计输入以 subject_sha256 引用游标的 input_subject_sha256），派独立 Test-Runner；接受设计须 review_ref，随后 Spec 提交 plan，由 Ledger 绑定已接受设计。按 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接) 核对，接受人类决策和冻结 manifest 后才授权 Implementer。
+2. 叶子的 Spec-Designer 先在其 staging 写出带 Requirement-ID/Scenario-ID 的 SPEC 草稿，MO 再通过 assign(mode=design, design_input_ref) 提交任务范围、该草稿（spec_refs）与 CASE（设计输入以 subject_sha256 引用游标的 input_subject_sha256），派独立 Test-Runner；接受设计须 review_ref，随后 Spec 提交 plan，由 Ledger 绑定已接受设计。按 [编码前设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接) 核对，接受人类决策和冻结 manifest 后才授权 Implementer。
 3. 验收代码版本/tasks 追溯后进入测试：build → unit → static（一次派发、一次验收）→ automation → 适用时 visual，逐 scope 全路径验收。执行派发（Implementer/Test-Runner/Fixer）与全绿测试结果的验收是机械步骤，宿主按游标载荷以 MO 身份提交；被拒、预检 blocked 或结果非 Green 时由 MO 处理。
 4. 可修复 Red/Yellow：诊断→MO diagnosis-accept→优先一轮独立 Fixer；轻量叶子可由 Fixer 本地诊断，合并派发规则见下表。共享 local_fix_rounds（默认一轮，额外轮只给 build），优先原 Implementer 会话。补丁接受后正式重构建/复测，不能以 Fixer 自测替代；依赖/外围或一轮仍失败则 audit-defer。契约变更走 CR，禁止降低验收。
 5. 核验计数与停滞预算，修复后正式复测；Green 后执行 DoD（开启 git_checkpoint 时先等宿主提交本模块检查点），提交 complete。Auditor 失败时重新打开模块并派修复，但审计结论由 Auditor 保留。
 
-## 4. 规则优先级
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 5. 阻塞与异常
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
 ## 6. 硬约束
 唯一模块状态守卫；不能兼 Implementer/Fixer；未冻结禁编码；未接受代码禁测试；无复测禁 Green；不能自行增加循环预算。
-
-## 7. 输出格式
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 8. Used Skills
-- [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。
-- [migration-module](../skills/migration-module/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
 freeze/DoD 两套门禁不混用；当前路径完整；所有 CR 已处理；无遗留 Red/Yellow；回执已落盘。

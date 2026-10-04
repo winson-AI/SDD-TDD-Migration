@@ -16,12 +16,8 @@ class MergedDiagnosisDispatchTests(unittest.TestCase):
                            'root_cause': {'category': 'code', 'summary': 'wrong value', 'confidence': 'confirmed',
                                           'owner': 'M001', 'next_action': 'fix'}}, role='diagnostician')
 
-    def fixer_preflight(self, acknowledge=True):
-        f = self.f
-        report = f.report('fixing', instance='fixer')
-        if not acknowledge:
-            report['read_refs'] = [r for r in report['read_refs'] if r != self.diagnosis]
-        return report
+    def fixer_preflight(self):
+        return self.f.report('fixing', instance='fixer')
 
     def test_accept_and_dispatch_in_one_step_after_fixer_read_the_draft(self):
         f = self.f
@@ -40,10 +36,14 @@ class MergedDiagnosisDispatchTests(unittest.TestCase):
         m = f.state()['modules']['M001']
         self.assertEqual((m['fix_rounds_used'], m['fix_memory'][0]['assignment_id']), (1, 'F1'))
 
-    def test_fixer_must_acknowledge_the_diagnosis(self):
+    def test_a_fixer_report_is_bound_to_the_diagnosis_it_was_made_against(self):
         f = self.f
-        with self.assertRaisesRegex(Rejected, 'mandatory input'):
-            f.record(self.fixer_preflight(acknowledge=False))
+        ref = f.record(self.fixer_preflight())  # the diagnosis is among the inputs the Ledger derives for the report
+        f.raw('diagnose', {'diagnosis_ref': f.ref('diag-again.md', 'a different reading of the failure'), 'owner': 'M001',
+                           'root_cause': {'category': 'code', 'summary': 'other value', 'confidence': 'confirmed',
+                                          'owner': 'M001', 'next_action': 'fix'}}, role='diagnostician')
+        with self.assertRaisesRegex(Rejected, 'stale|mandatory inputs changed|not submitted/current'):
+            f.raw('diagnosis-accept', {'assign': {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer', 'context_ref': ref}})
 
     def test_failed_dispatch_leaves_nothing_accepted(self):
         f = self.f

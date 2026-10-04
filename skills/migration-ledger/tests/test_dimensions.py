@@ -317,6 +317,19 @@ class DimensionTests(unittest.TestCase):
             with self.subTest(message=message), self.assertRaisesRegex(Rejected, message):
                 validate_plan(bad, m)
 
+    def test_a_task_row_cites_extra_evidence_only_when_it_has_some(self):
+        f = self.f; self.root(); f.split(self.proposal()); f.global_plan()
+        p = self.leaf_plan(); m = f.state()['modules']['M001']
+        for row in p['tasks'][0]['dimension_analysis']['dimensions']:
+            row.pop('evidence_refs')  # the allocated analysis the plan binds is the evidence
+        validate_plan(p, m); verify_plan(p)
+        row = p['tasks'][0]['dimension_analysis']['dimensions'][0]
+        row['evidence_refs'] = [f.ref('extra-task-evidence.md', 'one more file this task row stands on')]
+        validate_plan(p, m); verify_plan(p)
+        (f.base / 'extra-task-evidence.md').write_text('changed')
+        with self.assertRaisesRegex(Rejected, 'hash mismatch'):  # what a row does cite stays hash-bound
+            verify_plan(p)
+
     def test_module_analysis_bound_to_scope_and_task_evidence_stays_current(self):
         f = self.f; module = self.root()
         module['scope']['in'].append('expanded feature')

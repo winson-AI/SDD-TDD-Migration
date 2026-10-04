@@ -13,7 +13,7 @@ description: /sdd-module <run-id> <module-id> — 推进单模块实现与自测
 3. 按 `status` 游标派发对应角色，推进 Coding→代码接受→build 派发（派发内 building 预检）→构建结果接受→automation 派发（派发内 testing 预检）。可修复 Red/Yellow 优先诊断并自动派发一轮 Fixer；补丁接受后先重建再自动化，两环节共用模块本地一轮修复预算。全部路径有效 Green 后检查 DoD。确认依赖/外围或一轮仍未通过时记录根因/memory 并交 Auditor；遇人工阻塞或预算上限保存 checkpoint 退出。
 
 ## 3. 调用契约
-目标角色：[Module-Orchestrator](../Agents/module-orchestrator.md)。宿主用实际可用的任务工具启动，只传 package_root、run_root、module_id 与阅读卡路径；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
+目标角色：[Module-Orchestrator](../Agents/module-orchestrator.md)。
 
 ## 4. 对应规格
 [模块守卫](../skills/migration-protocol/references/state-machine.md#module-orchestrator-唯一模块守卫)、[有限循环](../skills/migration-protocol/references/state-machine.md#有限循环)。

@@ -15,7 +15,7 @@ description: /sdd-audit <run-id> — 整体代码审查、代码治理与独立�
 整体代码审查必须提交 [本次代码修改清单](../template/audit-change-inventory.md)，由 audit-code-review.json.change_inventory_ref 绑定同版工件；清单列功能点、逐文件修改/路径、影响范围、CASE/PATH/测试脚本及结果证据。GO 收尾展示该链接，修复后刷新版本；不能只返回审查结论而省略清单。
 
 ## 3. 调用契约
-目标角色：[Auditor](../Agents/auditor.md)。宿主用实际可用的任务工具启动，只传 package_root、run_root、module_id 与阅读卡路径；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
+目标角色：[Auditor](../Agents/auditor.md)。
 
 ## 4. 对应规格
 [审计范围](../skills/migration-protocol/references/audit-scope.md#总则)、[Auditor 与全局完成](../skills/migration-protocol/references/state-machine.md#auditor-与全局完成)。

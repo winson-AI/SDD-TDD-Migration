@@ -21,7 +21,7 @@ MO 接受 `invalidate` 后：
 1. 将旧 plan/ref/hash、freeze、代码基线、测试结果及四维实现证据保存到 `planning_history`；事件和 `artifacts` 快照保留。
 2. 清除当前 plan/freeze/代码及构建基线、任务完成记录和旧上下文接受记录，进入 `specifying`。旧结果保留但 stale，不能参与新验收；修复预算不重置。
 3. 已认领分配仍有效 → 下一步 `plan`，Spec-Designer 重新提交计划，按正常澄清/批准/冻结门禁推进。
-4. 当前模块、父级或实际依赖的分配证据无效 → `allocation-review-required`，交 GO 恢复已批准的原始证据，或保留旧 run 后重新规划新 run。不能就地改已登记的 scope/hash 来掩盖变化。
+4. 分配证据无效 → `allocation-review-required`：经 `realloc-request` 向上追溯至父 MO / GO `redecompose` 本 Run 内重规划（历史入 `schedules.redecomposition_history`，旧代码归 Auditor）；或交 GO 恢复原始证据。禁私改 hash 掩盖。
 
 OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；旧定义仍可从历史事件及快照恢复。不删除用户自有文件，不自动接受新 SPEC，不复用过期 Green。
 

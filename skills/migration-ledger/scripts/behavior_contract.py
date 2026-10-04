@@ -96,6 +96,53 @@ def index(plan):
     return scenario_index(plan) if plan.get('behavior_contract_required') else []
 
 
+BEHAVIOR_KINDS = ('unit', 'automation', 'visual')  # what proves behavior; build and static PATHs do not
+
+
+def tagged(plan):
+    """{scenario_id: [(path_id, assertion_id)]}: the designer states which scenarios an assertion verifies (`scenario_ids`)."""
+    found = {}
+    for path in plan['paths']:
+        for assertion in path.get('expected_assertions', []):
+            for sid in assertion.get('scenario_ids') or []:
+                found.setdefault(sid, []).append((path['path_id'], assertion['assertion_id']))
+    return found
+
+
+def complete(plan):
+    """Each scenario_trace row takes its assertions from the assertions that name the scenario, so its author writes the
+    tasks only; a row that lists assertions anyway must list exactly those, which validate_plan checks."""
+    found = tagged(plan)
+    for row in plan.get('scenario_trace') or []:
+        if isinstance(row, dict) and 'assertions' not in row:
+            row['assertions'] = [{'path_id': pid, 'assertion_id': aid} for pid, aid in found.get(row.get('scenario_id'), [])]
+
+
+def check_design(rows, paths):
+    """A design answers to the SPEC it is made from: every behavior assertion names the scenarios it verifies and every
+    scenario is verified by one, so the Spec-Designer cannot relabel what the independent designer covered."""
+    scenarios = {row['scenario_id']: row for row in rows}
+    named = set()
+    for path in paths:
+        behavior = path.get('kind', 'automation') in BEHAVIOR_KINDS
+        for assertion in path.get('expected_assertions', []):
+            label = path['path_id'] + '/' + assertion['assertion_id']
+            ids = assertion.get('scenario_ids')
+            if not behavior:
+                require(not ids, 'build/static cannot prove scenario behavior: ' + label + ' names scenarios')
+                continue
+            require(isinstance(ids, list) and ids and len(set(ids)) == len(ids) and all(isinstance(i, str) for i in ids),
+                    'design assertion ' + label + ' needs scenario_ids: the SPEC scenarios it verifies')
+            require(set(ids) <= set(scenarios), 'design assertion ' + label + ' names a scenario its SPEC does not define')
+            for sid in ids:
+                rid = scenarios[sid]['requirement_id']
+                require(rid == path.get('requirement_id') or rid in path.get('requirement_ids', []),
+                        'design assertion ' + label + ' names ' + sid + ', a scenario of another requirement')
+            named.update(ids)
+    missing = sorted(set(scenarios) - named)
+    require(not missing, 'SPEC scenarios no design assertion verifies: ' + ', '.join(missing[:8]) + (' ...' if len(missing) > 8 else ''))
+
+
 def shared_writers(state):
     """capability_id -> the one leaf that builds a shared capability, from the registered behavior reviews."""
     declared = {}
@@ -118,6 +165,21 @@ def validate_plan(plan, module):
     require(type(enabled) is bool, 'behavior_contract_required must be boolean')
     if not enabled:
         return
+    # ESC-002-A narrow exemption, human-approved
+    # <run>/staging/host/decisions/ESC-002-A-answer.md@3fd331c0: a plan whose bytes the Ledger
+    # already holds (digest == the module's registered plan_hash), or whose paths are byte-equal
+    # to the hash-registered accepted design that itself predates scenario_ids, keeps the
+    # scenario_trace contract it was authored under; every other plan answers to the derived form.
+    exempt = bool(module.get('plan_hash')) and digest(plan) == module['plan_hash']
+    if not exempt and (module.get('accepted_test_design') or {}).get('result_ref'):
+        from contracts import Rejected, read_json
+        try:
+            design = read_json(check_ref(module['accepted_test_design']['result_ref']))
+            exempt = design.get('paths') == plan.get('paths') and not any(
+                assertion.get('scenario_ids') for path in design.get('paths') or []
+                for assertion in path.get('expected_assertions', []))
+        except (Rejected, OSError, KeyError, TypeError, ValueError):
+            exempt = False  # a drifted registration exempts nothing; the new contract applies
     review(module, plan.get('source_closure'))  # the leaf's source closure is its behavior review
     index = scenario_index(plan)
     require(plan.get('scenario_index') in (None, index), 'scenario_index is derived from the OpenSpec definitions; omit it')
@@ -127,6 +189,8 @@ def validate_plan(plan, module):
             'SPEC scenario requirements must match task requirements')
     traces = keyed(plan.get('scenario_trace'), 'scenario_id')
     require(set(traces) == set(scenarios), 'scenario_trace must cover every frozen Scenario exactly once')
+    found = tagged(plan)
+    require(set(found) <= set(scenarios), 'assertions name scenarios the SPEC does not define: ' + ', '.join(sorted(set(found) - set(scenarios))))
     covered_tasks, covered_assertions = set(), set()
     for sid, trace in traces.items():
         rid = scenarios[sid]['requirement_id']
@@ -134,19 +198,32 @@ def validate_plan(plan, module):
         require(tids <= set(tasks) and all(rid in tasks[t]['requirement_ids'] for t in tids), 'scenario task/requirement mismatch')
         covered_tasks.update(tids)
         linked_paths = {pid for tid in tids for pid in tasks[tid]['path_ids']}
-        for item in nonempty(trace.get('assertions'), 'scenario behavior assertions'):
+        derived = sorted(found.get(sid, []))
+        listed = trace.get('assertions')
+        if exempt:
+            # ESC-002-A ...@3fd331c0: the exempt plan's rows cite the assertions themselves;
+            # each citation is held to the pre-6034468 checks, including naming a real assertion.
+            rows = nonempty(listed, 'scenario behavior assertions')
+        else:
+            require(listed is None or sorted((a.get('path_id'), a.get('assertion_id')) for a in listed) == derived,
+                    'scenario_trace assertions of ' + sid + ' differ from the assertions that name it; omit them')
+            require(derived, 'no assertion names scenario ' + sid + ' (scenario_ids on the designed assertions)')
+            rows = [{'path_id': pid, 'assertion_id': aid} for pid, aid in derived]
+        for item in rows:
             pid, aid = item.get('path_id'), item.get('assertion_id')
             require(pid in linked_paths and pid in paths, 'scenario assertion outside task paths')
             path = paths[pid]
-            require(path.get('kind', 'automation') in ('unit', 'automation', 'visual'), 'build/static cannot prove scenario behavior')
+            require(path.get('kind', 'automation') in BEHAVIOR_KINDS, 'build/static cannot prove scenario behavior')
             require(rid == path.get('requirement_id') or rid in path.get('requirement_ids', []), 'scenario path/requirement mismatch')
             require(path['case_id'] in module['case_ids'], 'scenario case outside module')
-            require(aid in {a['assertion_id'] for a in path['expected_assertions']}, 'unknown scenario assertion')
+            if exempt:
+                require(aid in {a['assertion_id'] for a in path['expected_assertions']}, 'unknown scenario assertion')
             covered_assertions.add((pid, aid))
     require(covered_tasks == set(tasks), 'every task must contribute to a scenario, including supporting tasks')
     required = {(p['path_id'], a['assertion_id']) for p in paths.values()
-                if p.get('kind', 'automation') in ('unit', 'automation', 'visual') for a in p['expected_assertions']}
-    require(required <= covered_assertions, 'behavior assertions missing scenario trace')
+                if p.get('kind', 'automation') in BEHAVIOR_KINDS for a in p['expected_assertions']}
+    require(required <= covered_assertions, 'behavior assertions name no scenario (scenario_ids): '
+            + ', '.join(p + '/' + a for p, a in sorted(required - covered_assertions)[:8]))
     statics = [p for p in paths.values() if p.get('kind') == 'static']
     require(len(statics) == 1, 'scenario contract requires one static review PATH')
     require(statics[0].get('scenario_ids') in (None, sorted(scenarios)), 'static PATH covers every frozen scenario; omit scenario_ids')

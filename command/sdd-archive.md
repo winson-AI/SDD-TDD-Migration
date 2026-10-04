@@ -13,7 +13,7 @@ description: /sdd-archive <run-id> <decision.json绝对路径> — 核验交付�
 3. 归档不产生 Ledger 事件。审核决策后做 delta 合并预演、冲突审阅并记录；按核对过的 OpenSpec CLI 同步/归档并保留追溯。代码合并须另有具体授权，不能把归档当作合并。
 
 ## 3. 调用契约
-目标角色：[Global-Orchestrator](../Agents/global-orchestrator.md)。宿主用实际可用的任务工具启动，只传 package_root、run_root、module_id 与阅读卡路径；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
+目标角色：[Global-Orchestrator](../Agents/global-orchestrator.md)。
 
 ## 4. 对应规格
 [验证、同步与归档](../skills/migration-protocol/references/openspec.md#验证同步与归档)、[投影完整性收尾门禁](../skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。

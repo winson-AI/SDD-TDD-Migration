@@ -31,14 +31,14 @@
 
 ## 3. 报告与传递
 
-模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256、必需检查项与必读引用取自步骤视图（`status --view step`）的 `context`；checks 的键必须与其 required_checks 完全一致。
+模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256 与必需检查项取自步骤视图（`status --view step`）的 `context`；checks 的键必须与其 required_checks 完全一致。同一文件被多次引用时，在报告顶层 `refs` 写一次，`evidence_refs` 写其 id。
 
 报告包含：
 
 - `schema_version/run_id/module_id/stage/producer`：实际身份与作用域；全局 module_id=null。
 - `subject_sha256`：复制 `context.subject_sha256`；绑定分配、冻结、代码、依赖或审计批次，不绑定无关兄弟的进度。
-- `read_refs`：实际核对的绝对 path/sha256；必须包含 `required_input_refs`。读取引用指向的正文及其必需材料，不能只复制路径。
-- `draft_ref`：global-plan/decompose/plan/audit-plan 必须绑定正在提交的同一 plan_ref，且列入 read_refs。
+- 必读输入由 Ledger 从状态派生（步骤视图给出 `input_count` 与 `inputs_sha256`），报告不列：ready 报告绑定该摘要，任一输入变化或漂移即过期，须重读重报；读过什么由 checks 的具体摘要与证据说明。
+- `draft_ref`：global-plan/decompose/plan/audit-plan 必须绑定正在提交的同一 plan_ref。
 - `checks`：每项 `status=ready|blocked`、具体理解摘要；ready 必须给 evidence_refs，blocked 必须给 missing/owner/next_action。
 - `verdict`：任一检查 blocked 则必须 blocked；无可复用库、无历史修复或无依赖可在 ready 中记录“不适用的事实与依据”，不编造材料。
 - `execution`：building/testing/audit-testing 的 ready 报告必填 argv、绝对 cwd、environment_ref；说明工具版本、构建、设备/服务、fixtures/账号可用性、seed、重置/清理方法。秘密值不入报告。
@@ -81,11 +81,11 @@ blocked 报告提交会保留缺失项，但**不会自动将整个 MO 标记收
 
 上下文就绪是必选门禁，prepare 强制启用，运行中无切换开关。
 
-控制器验证角色、作用域、必读引用、检查项、摘要、草稿、版本、身份和正式操作门禁；测试执行器校验 argv/cwd/环境证据。它不能自动证明语义理解充分、账号真实可用或 OS 已隔离，这些仍须执行者提供真实证据、宿主落实并由对应 owner 审核。不把结构检查称为完成了业务迁移。
+控制器验证角色、作用域、必读输入摘要、检查项、摘要、草稿、版本、身份和正式操作门禁；测试执行器校验 argv/cwd/环境证据。它不能自动证明语义理解充分、账号真实可用或 OS 已隔离，这些仍须执行者提供真实证据、宿主落实并由对应 owner 审核。不把结构检查称为完成了业务迁移。
 
 ## 功能清单来源与完备性
 
-global-discovery/global-planning/decomposition/planning 必需检查 feature-inventory。GO 先形成完整功能草案，父 MO 核对子清单；global-plan 接受最终清单与执行叶子归属后，planning_context 和 module_inputs 提供 feature_inventory_ref/feature_ids，后续预检将清单作为必读引用。疑问不是 ready，须按 [功能发现与完备性规范](../../migration-global/references/slicing.md) 交人工。
+global-discovery/global-planning/decomposition/planning 必需检查 feature-inventory。GO 先形成完整功能草案，父 MO 核对子清单；global-plan 接受最终清单与执行叶子归属后，planning_context 和 module_inputs 提供 feature_inventory_ref/feature_ids，后续预检将清单作为必读输入。疑问不是 ready，须按 [功能发现与完备性规范](../../migration-global/references/slicing.md) 交人工。
 
 同一 assignment 需运行多个构建命令或最终审计混合路径时，可在 execution.commands 按 path_id 保存各自 argv/cwd；环境证据仍由 environment_ref 绑定。execute_test 逐路径校验该命令，build 另核对冻结 command。
 

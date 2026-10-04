@@ -23,6 +23,9 @@
   sources/<sha256>.*             # 用户输入来源的副本
   .context.lock                  # 单写者文件锁
   runs/<run_id>.json              # 不可变位置索引，不记录模块状态
+  experience/                    # 跨运行经验沉淀：抽象规划/边界经验与复用模式
+    lessons.json                 # 跨 run 经验集合（切分教训、边界冲突、修复模式）
+    retrospect.jsonl             # 历史运行回顾流水（复盘摘要）
 <workspace_root>/.sdd-runs/<run_id>/
   context/snapshot.json           # 本轮冻结上下文
   context/files/<sha256>.*        # 本轮架构、规则、来源等证据副本
@@ -81,15 +84,11 @@ prepare 同一请求重试从 `.sdd-migration/runs/<run_id>.json` 找回原位�
 
 ### context/files 的跨文件链接
 
-prepare 保存 UTF-8 Markdown 时，递归收集正文中的本地文件链接，将链接指向的文档、框架/代码文件、图片一并固化。原始字节保存在 `<sha256>.*`；需要重定位的 Markdown 另生成版本化阅读副本，并按重写后的内容重新计算 sha256。`source_refs` 指向可读版本，其 `link_manifest_ref` 指向不可变映射：source_path → original_ref → readable_ref。`source_paths` 记录本次实际输入（包括 overrides），OpenSpec 据此映射到正确的本轮副本，不推测源路径。
+prepare 递归固化 Markdown 本地文件链接（文档、代码、图片）。原始字节存 `<sha256>.*`；重定位 Markdown 生成版本化阅读副本，`source_refs` 指向可读版，`link_manifest_ref` 记录原始与可读版本映射。
 
-链接处理支持相对/绝对路径、file://、Markdown 行内/引用式链接、图片以及 Markdown 内的 HTML href/src；保留标题、查询和锚点。代码块、行内代码、远程 URL、纯页内锚点不改写，远程内容不抓取。链接到的源代码作为知识基线保存，不代替 live code baseline，也不自动执行代码或遍历 import。
+支持相对/绝对/file://、行内/引用链接与 HTML href/src；保留标题/锚点。代码块与远程 URL 不改写。链接代码作知识基线，不代 live baseline。
 
-循环引用使用固定 bundle 地址重写，避免文件互相引用导致 hash 无法收敛；bundle-hash 绑定整组来源与内容，source-hash 仅用于寻址，每份阅读文件的实际内容 sha256 以 manifest 为准。链接目标内容更新后，新 prepare 会生成新的阅读地址/hash，并同步更新引用它的文档；旧 run 保持原版本。verify_snapshot 会同时验证原始副本、阅读副本和映射，关联文件被篡改不能继续使用。
-
-缺失文件、目录链接、超出单文档链接闭包限制（256 文件/32 MiB）及敏感凭证文件不静默作为已固化知识；prepare 返回 `input.document_link_warnings`，manifest 保留原因。未固化链接只重定位为原绝对地址，不能声称离线可读。宿主审阅 warning：若属于该阶段必需知识，补齐输入后重做 prepare 或经对应模块的 context-submit 记录缺项；无关模块不因此伪造失败。
-
-快照不原地改正文、链接或 hash，不改 sealed snapshot 来绕过校验。原始 artifacts 继续用于审计；跨文件阅读使用 source_refs/readable_ref 和生成的 OpenSpec 视图。
+循环引用经 bundle 地址重写，各文件实际 sha256 以 manifest 为准。缺失或越界（256文件/32MiB）记 `document_link_warnings`；未固化链接保留原绝对路径。快照不原地修改。原始 artifacts 继续用于审计；跨文件阅读使用 source_refs 与生成的 OpenSpec 视图。
 
 ## CLI
 
@@ -122,3 +121,9 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 ## 独立构建配置
 
 可选 build 保存 argv/cwd/timeout_seconds/environment_ref，用户更新直接按原协议更新，prepare 固化命令与环境文档。没有指定命令时 GO 全目标搜索脚本、默认评估 Gradle assemble；宿主将旧 quality_gates.build_argv 迁入 build.argv。新输入 split_testing_required=true，不能通过缺自动化环境关闭编译门禁。详见 [构建与自动化协议](build-automation.md)。
+
+## 跨运行经验沉淀与复用
+
+宿主仅新业务任务启动新 run，同任务调整经 `realloc-request` / `redecompose` 向上追溯重规划。不同 run 间分析/切分经验在项目层抽象复用：
+1. **经验沉淀**：Run 完成验收归档或 `/sdd-retrospect` 时，Ledger 将 `<run_root>/ledger/lessons.json` 提炼追加至 `<workspace_root>/.sdd-migration/experience/lessons.json` 与 `retrospect.jsonl`。
+2. **规划指导**：新任务 `prepare` 与规划阶段将 `experience/` 注入 planning context，辅助切分与防冲突。

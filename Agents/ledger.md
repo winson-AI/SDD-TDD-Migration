@@ -21,21 +21,8 @@ mode: subagent
 4. 为派发生成 assignment，以 sequence 分发可见事件；重启从事实日志重建，校验状态与实际工件一致。
 5. 返回 event_id/sequence/revision ACK；损坏、冲突、权限失败保存拒绝原因，不能静默覆盖。
 
-## 4. 规则优先级
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 5. 阻塞与异常
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
 ## 6. 硬约束
 唯一状态写入者；不能兼任业务批准者；不能自行解除依赖或冻结；拒绝 actor 自报身份；只追加不改历史；零用例非 Green。
-
-## 7. 输出格式
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 8. Used Skills
-- [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。
-- [migration-ledger](../skills/migration-ledger/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
 重复请求不重复派发；过期写被拒；产物先于事件可见；投影可重建；每次状态变化有授权与证据。

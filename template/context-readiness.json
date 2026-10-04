@@ -5,14 +5,16 @@
   "stage": "{{context.stage}}",
   "producer": {"role": "{{context.producer_role}}", "instance_id": "{{host-bound-instance}}"},
   "subject_sha256": "{{context.subject_sha256}}",
-  "read_refs": [{"path": "{{each-entry-of-context.required_input_refs-and-anything-else-actually-read}}", "sha256": "{{sha256}}"}],
-  "draft_ref": "{{global-plan/decompose/plan/audit-plan only: the plan_ref submitted with this report, also listed in read_refs}}",
+  "draft_ref": "{{global-plan/decompose/plan/audit-plan only: the plan_ref submitted with this report}}",
   "execution": "{{building/testing/audit-testing only: {argv, cwd, environment_ref}}}",
+  "refs": {
+    "E1": {"path": "{{absolute-evidence-path}}", "sha256": "{{sha256}}"}
+  },
   "checks": {
     "{{a-key-of-context.required_checks}}": {
       "status": "ready",
       "summary": "{{what-was-reviewed-and-understood}}",
-      "evidence_refs": [{"path": "{{absolute-evidence-path}}", "sha256": "{{sha256}}"}]
+      "evidence_refs": ["E1"]
     },
     "{{another-key-of-context.required_checks}}": {
       "status": "blocked",

@@ -39,7 +39,8 @@
       "expected_assertions": [
         {
           "assertion_id": "ASSERT-UNIT-M001-CLEAN",
-          "expected": true
+          "expected": true,
+          "scenario_ids": ["{{scenario-id}}"]
         }
       ],
       "command": {
@@ -97,11 +98,13 @@
       "expected_assertions": [
         {
           "assertion_id": "ASSERT-M001-001",
-          "expected": "{{observable-expectation}}"
+          "expected": "{{observable-expectation}}",
+          "scenario_ids": ["{{scenario-id}}"]
         },
         {
           "assertion_id": "ASSERT-M001-002",
-          "expected": "{{boundary-or-error-expectation}}"
+          "expected": "{{boundary-or-error-expectation}}",
+          "scenario_ids": ["{{scenario-id}}"]
         }
       ],
       "dependency_refs": [],

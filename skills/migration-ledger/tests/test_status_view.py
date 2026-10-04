@@ -49,6 +49,10 @@ class StatusViewTests(unittest.TestCase):
         f = self.f
         view = ledger.status(f.root, 'module', 'M001')
         self.assertEqual(view['module']['module_id'], 'M001')
+        full = ledger.status(f.root)['modules']['M001']
+        self.assertEqual(view['module']['plan'], {'tasks': ['T1'], 'paths': ['P1']})  # the plan body stays in the full view
+        self.assertEqual((view['module']['plan_ref'], view['module']['plan_hash']), (full['plan_ref'], full['plan_hash']))
+        self.assertLess(len(json.dumps(view['module'])), len(json.dumps(full)))
         self.assertEqual([x['module_id'] for x in view['next_steps']], ['M001'])
         self.assertIn('module_input', view)
         self.assertNotIn('modules', view)
@@ -86,8 +90,9 @@ class StepViewTests(unittest.TestCase):
                                            'expected_revision': full['modules']['M001']['revision'], 'operation': 'assign'})
         # The mandatory reads of the stage were only listed by the full view.
         requirement = full['context_requirements']['M001']['coding']
-        self.assertEqual(view['context'], {'stage': 'coding', **requirement, 'ready_receipts': []})
-        self.assertTrue(view['context']['required_input_refs'])
+        shown = {k: v for k, v in requirement.items() if k != 'required_input_refs'}
+        self.assertEqual(view['context'], {'stage': 'coding', **shown, 'ready_receipts': []})
+        self.assertTrue(requirement['required_input_refs'] and 'required_input_refs' not in view['context'])
         self.assertNotIn('context_gate', view['step']); self.assertNotIn('must_read', view['step'])
         self.assertEqual(view['cards'][view['step']['card_sha256']], reading.summary(step['must_read']))
         self.assertEqual(view['module_input'], full['module_inputs']['M001'])
@@ -130,7 +135,8 @@ class StepViewTests(unittest.TestCase):
         a, _ = test_design_stage.start_design(f, f.plan())
         full, view = ledger.status(f.root), ledger.status(f.root, 'step', 'M001')
         self.assertEqual((view['step']['operation'], view['request']['operation']), ('await-result', 'submit'))
-        self.assertEqual(view['context'], {'stage': 'test-design', **full['context_requirements']['M001']['test-design']})
+        required = {k: v for k, v in full['context_requirements']['M001']['test-design'].items() if k != 'required_input_refs'}
+        self.assertEqual(view['context'], {'stage': 'test-design', **required})
         self.assertEqual(view['assignment']['design_input_ref'], a['design_input_ref'])
         self.assertIn('planning_context', view)
 

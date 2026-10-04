@@ -514,6 +514,11 @@ def _next_step(s, m):
         step.update(operation='repair-accept', role='module-orchestrator', ready=True,
                     path_ids=[pid for pid, r in pending_repairs(s).items() if m['module_id'] in r.get('module_ids', [])
                               and m['module_id'] not in r.get('accepted_by', [])])
+    elif m['phase'] == 'waiting-upstream':
+        step.update(operation=None, role='module-orchestrator', ready=False,
+                    reason='await-upstream-reallocation',
+                    detail='Submodule requested reallocation from parent MO',
+                    recovery_action='realloc-request-or-redecompose-parent')
     elif m['phase'] in ('context', 'specifying', 'change-review'):
         step.update(operation='plan', role='spec-designer', ready=True)
         if design_stage.required(s, m) and not design_stage.ready(s, m):
@@ -522,12 +527,15 @@ def _next_step(s, m):
                         payload={'role': 'test-runner', 'mode': 'design'},
                         # What the design input cites instead of copying the context and the allocation.
                         input_subject_sha256=design_stage.subject(s, m))
+            if s.get('behavior_contract_required'):
+                step['design_input_needs'] = ('spec_refs: the leaf SPEC draft the Spec-Designer staged, with Requirement-ID and '
+                                              'Scenario-ID lines; have it staged before assigning the design')
         try:
             workflow.runtime_allocations(s, m['module_id'])
         except (Rejected, OSError) as exc:
             step.update(operation=None, role='global-orchestrator', ready=False,
                         reason='allocation-review-required', detail=str(exc),
-                        recovery_action='restore-approved-allocation-or-GO-replan-new-run')
+                        recovery_action='realloc-request-or-redecompose-parent')
     elif m['phase'] == 'clarifying':
         decision = approval(s, m, m['plan_hash'])
         if not decision and batch_approval(s, m):
@@ -869,7 +877,7 @@ def mutate(s, req, principal, events, root=None):
     if mid:
         require(m is not None, 'module not registered')
         if mid in s.get('module_groups', {}):
-            require(op in ('module-summary', 'session'), 'parent MO only coordinates/summarizes; execute code and tests in child modules')
+            require(op in ('module-summary', 'session', 'redecompose', 'redecompose-accept'), 'parent MO only coordinates/summarizes; execute code and tests in child modules')
     if workflow.audit_locks(s, mid) and op not in ('audit', 'problem-audit', 'audit-revoke', 'decision'):
         raise Rejected('audit snapshot locked; close or revoke audit before mutation')
     if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
@@ -956,6 +964,8 @@ def mutate(s, req, principal, events, root=None):
                 'the checklist is the package rubric the Ledger binds; omit it from definitions')
         if s.get('behavior_contract_required'):
             plan.setdefault('behavior_contract_required', True)  # the run requires it; the author need not declare it
+            import behavior_contract
+            behavior_contract.complete(plan)  # the designed assertions say which scenarios they verify
         design_stage.plan_check(s, m, plan, principal['instance_id'])
         if s.get('behavior_contract_required'):
             require(plan.get('behavior_contract_required') is True, 'plan cannot opt out of the behavior contract')
@@ -1416,6 +1426,8 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
             if Path(value['path']).suffix == '.json':
                 try:
                     nested_value = read_json(path)
+                except Rejected:
+                    raise  # a document that cites an id its refs table lacks is wrong, not merely not JSON
                 except ValueError:
                     nested_value = None
                 saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root, accepted=accepted))

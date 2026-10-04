@@ -21,8 +21,36 @@ def digest(value):
                                      separators=(',', ':')).encode()).hexdigest()
 
 
+REF_LISTS = ('evidence_refs', 'context_refs')
+
+
+def expand_refs(document):
+    """An authored JSON document may list a file reference once under `refs` ({id: {path, sha256}}) and cite it by id from
+    any `evidence_refs` or `context_refs` list. Readers get the document with every citation written out and the table
+    gone, so one content has one form; a cited entry is checked and archived like any other reference."""
+    table = document.get('refs') if isinstance(document, dict) else None
+    if not (isinstance(table, dict) and table and all(isinstance(key, str) and isinstance(ref, dict) and set(ref) == {'path', 'sha256'}
+                                                    for key, ref in table.items())):
+        return document
+
+    def cite(item):
+        if isinstance(item, str):
+            require(item in table, 'unknown reference id ' + item + '; the document lists ' + ', '.join(sorted(table)[:6]))
+            return dict(table[item])
+        return walk(item)
+
+    def walk(value):
+        if isinstance(value, dict):
+            return {key: [cite(item) for item in items] if key in REF_LISTS and isinstance(items, list) else walk(items)
+                    for key, items in value.items()}
+        if isinstance(value, list):
+            return [walk(item) for item in value]
+        return value
+    return walk({key: value for key, value in document.items() if key != 'refs'})
+
+
 def read_json(path):
-    return json.loads(Path(path).read_text())
+    return expand_refs(json.loads(Path(path).read_text()))
 
 
 def file_ref(path):
@@ -36,9 +64,11 @@ def file_ref(path):
 
 
 def check_ref(ref):
-    require(isinstance(ref, dict) and Path(ref.get('path', '')).is_absolute(), 'absolute evidence path required')
-    require(file_ref(ref['path']) == {'path': str(Path(ref['path']).resolve()),
-                                     'sha256': ref.get('sha256')}, 'evidence hash mismatch')
+    require(isinstance(ref, dict) and Path(ref.get('path', '')).is_absolute(), 'absolute evidence path required, got ' + str(ref)[:100])
+    actual = file_ref(ref['path'])
+    # The message names the file and its real digest: a request holding dozens of references is otherwise unfixable.
+    require(actual == {'path': str(Path(ref['path']).resolve()), 'sha256': ref.get('sha256')},
+            f"evidence hash mismatch: {actual['path']} is {actual['sha256']}, the reference says {ref.get('sha256')}; recompute it with contracts.py ref")
     return Path(ref['path'])
 
 

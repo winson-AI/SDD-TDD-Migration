@@ -17,7 +17,7 @@ description: /sdd-status <run-id> — 冷读全局与模块状态
 status 使用 `snapshot sequence=<n>` 及当前三态摘要，不伪造事件接受回执。
 
 ## 3. 调用契约
-目标角色：[Ledger](../Agents/ledger.md)。宿主用实际可用的任务工具启动，只传 package_root、run_root、module_id 与阅读卡路径；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
+目标角色：[Ledger](../Agents/ledger.md)。
 
 ## 4. 对应规格
 [编排游标](../skills/migration-protocol/references/local-runtime.md#编排游标)、[进度信号](../skills/migration-protocol/references/progress-recovery.md#3-宿主必须消费的进度信号)。

@@ -66,7 +66,7 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 1. 先读[四条红线](../../../AGENTS.md#四条红线)、[调用约定](../../../AGENTS.md#调用约定)和[轮询与派发](#提示采纳回报)，解析参数为绝对路径及规范 ID；协议其余部分按小节取（`reading.py show`），不整份加载。
 2. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
-3. 宿主把已授权身份绑定到 host-context，不能让请求内自报 role 获得权限；控制器不自动启动 Agent，不替宿主写目标代码。payload 与命令用法见[操作矩阵](local-runtime.md#操作矩阵)。
+3. 宿主把已授权身份绑定到 host-context，不能让请求内自报 role 获得权限；控制器不自动启动 Agent，不替宿主写目标代码；宿主用实际可用的任务工具启动目标角色，只传 package_root、run_root、module_id 与阅读卡路径，Ledger 按协议串行服务，定义文件不会自动安装或注册不存在的工具。payload 与命令用法见[操作矩阵](local-runtime.md#操作矩阵)。
 4. 结束时输出已提交事件/当前状态/产物路径和下一动作。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
 
 参数：run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃逸。JSON 中占位符、未决必填值、零必需用例不能作为有效运行输入。status 可读取尚未完成的输入状态。
@@ -85,7 +85,7 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 ## 提示采纳回报
 
-**轮询。** 宿主用 `ledger.py status --view cursor --since <上次 last_sequence>`：没有新事件时只返回 `unchanged` 与进度信号；否则返回游标、`module_summary` 和信号摘要，步骤只带 `card_sha256`，`cards` 只给各卡的字节数与小节数。派发或执行一步用 `--view step --module <id>`（全局步骤省略 `--module`）：本步、请求信封字段、本阶段预检要求（摘要、检查项、必读引用）、本模块分配包与当前 assignment，规划类步骤另带 planning_context。模块正文用 `--view module --module <id>`。`--view full`（全部模块正文、`openspec_binding`、`parent_mo_names`、信号证据、卡片行清单）随模块数增长，只供脚本处理，不读入模型上下文。输出是紧凑 JSON。
+**轮询。** 宿主用 `ledger.py status --view cursor --since <上次 last_sequence>`：没有新事件时只返回 `unchanged` 与进度信号；否则返回游标、`module_summary` 和信号摘要，步骤只带 `card_sha256`，`cards` 只给各卡的字节数与小节数。派发或执行一步用 `--view step --module <id>`（全局步骤省略 `--module`）：本步、请求信封字段、本阶段预检要求（摘要、检查项、必读输入个数与摘要）、本模块分配包与当前 assignment，规划类步骤另带 planning_context。单个模块的状态用 `--view module --module <id>`（不含 plan 与场景索引正文，经 plan_ref 读取）。`--view full`（全部模块正文、`openspec_binding`、`parent_mo_names`、信号证据、卡片行清单）随模块数增长，只供脚本处理，不读入模型上下文。输出是紧凑 JSON。
 
 **取卡。** `reading.py render --root <run> --module <id>`（全局步骤用 `--global`）把当前卡写成 `reports/reading/<card_sha256>.md`，派发只传该路径。卡内不保留指向整份协议的链接：小节引用写成“文件 § 小节”，可直接交给 `reading.py show --ref <文件> --section <小节>`（操作矩阵可写 `操作矩阵@<operation>` 只取一行）。卡尾列出本步模板（步骤的 `templates`），不必读模板索引。`card_sha256` 绑定小节正文。
 

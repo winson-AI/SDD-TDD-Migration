@@ -13,7 +13,7 @@
 
 ![自动化外层流程](automation-flow.svg)
 
-[PNG](automation-flow.png) · [Harmony 内核详图](automation-engine.svg)
+[Harmony 内核详图](automation-engine.svg)
 
 ## 2. 输入分层：用户提供什么，系统生成什么
 

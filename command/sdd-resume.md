@@ -13,7 +13,7 @@ description: /sdd-resume <run-id> [module-id] [decision.json绝对路径] — �
 3. 宿主重读 `status`（从事件重放）并按游标派发对应角色；有人工决定时经 Escalation 整理、宿主提交 decision，MO 再 resume/recover。无答复也可恢复 crashed/pending 任务；waiting-human 的必需决定缺失时继续挂起。重获锁、验证代码/SPEC，非 Green 必须复测。
 
 ## 3. 调用契约
-目标角色：[Global-Orchestrator](../Agents/global-orchestrator.md)。宿主用实际可用的任务工具启动，只传 package_root、run_root、module_id 与阅读卡路径；Ledger 按协议串行服务。定义文件不会自动安装或注册不存在的工具。
+目标角色：[Global-Orchestrator](../Agents/global-orchestrator.md)。
 
 ## 4. 对应规格
 [恢复与预算](../skills/migration-protocol/references/local-runtime.md#恢复与预算)、[进度恢复](../skills/migration-protocol/references/progress-recovery.md#总则)。

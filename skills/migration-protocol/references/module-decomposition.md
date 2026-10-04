@@ -10,11 +10,11 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 | 层级 | 认领的范围 | 规划输出 | 迁移管理职责 |
 | --- | --- | --- | --- |
-| GO | 本轮项目范围，或用户指定的一个根功能；保留全局视角 | 根模块 ID、scope、Testing list、SPEC 草稿、代码范围、依赖及完成模块所需的上下文 | 全局 registry、DAG、资源锁、父 MO 调度、跨模块升级、统一 Auditor |
+| GO | 本轮项目范围或指定根功能；全局视角 | global_spec、根模块 ID、scope、需求/CASE 映射、代码范围、依赖及上下文 | 全局 registry、DAG、资源锁、父 MO 调度、跨模块升级、统一 Auditor |
 | 父 MO | GO 分配的一个模块及其 scope | 在该范围内划分子模块，为每个子 MO 分配 scope、用例、写范围、依赖和完成子模块所需的上下文 | 看护整个认领模块，防止遗漏与重复，跟踪子 MO、管理依赖、等待并汇总 |
 | 子 MO | 父 MO 分配的一个具体子功能及其 scope/context | 将子功能拆为可执行 tasks，组织 Spec Designer / Test Runner 完成正式六件套、测试路径和追溯 | 独立冻结、Coding → Testing → 一轮 Fixer → 复测 → DoD 或明确挂起 |
 
-拆分方向固定为 **GO 拆模块 → 父 MO 拆子模块 → 子 MO 拆 tasks**。子 MO 不再创建下一层 MO；发现粒度或边界不合适，通过 Ledger 向父 MO 提交调整请求，父 MO 核对模块范围，涉及根模块边界由 GO 协调，跨模块或不确定业务边界交人工决策。运行中调整仍须遵守 CR、重新冻结和证据失效规则，不能自行改分配包。
+拆分方向固定为 **GO 拆模块 → 父 MO 拆子模块 → 子 MO 拆 tasks**。子 MO 不再建下一层 MO；发现粒度或边界冲突，经 `realloc-request` 报父 MO，由父 `redecompose` 或 GO 协调；业务边界变化交人工决策。调整遵守 CR/重新冻结，不可自改分配。
 
 `project` 直接指定完整项目，GO 识别其中各根功能及其子功能。`single-module` 只指定其中一个根功能，其父 MO 仍须拆分子功能。用户无需额外输入模块 ID、scope、SPEC 或 Testing list。原子根功能可产生一个有明确职责的执行孩子，不虚构多个业务功能。
 
@@ -34,24 +34,27 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 再读取同一视图的 `module_input` 作为本 MO 的权威分配包：`module_id`、`parent_module_id`、`scope`、`case_ids`、`write_paths`、`dependencies`、`context_refs`；子包另带 `parent_context`，保留父模块 ID/scope/context_refs。父 MO 认领 GO 的包，子 MO 认领父 MO 经 GO 接受的包。认领由宿主将实例绑定到模块；拆分提案与 plan 不抄写分配包或全局上下文，Ledger 接受时绑定两者当前版本的摘要，不新增一个虚假的 claim 操作。
 
-上下文逐层细化：GO 的 `context_refs` 指向完成模块所需的入口、相关代码位置、架构约束、知识、接口/复用 owner、SPEC 草稿及 Testing list；父 MO 为每个子功能提供相应聚焦文档的绝对 path/sha256。子 MO 同时读取全局、父级、子级上下文，拆 tasks 时标明需求、PATH、生产链路和复用关系。共享上下文可引用同一不可变工件，不能只传一句摘要或截断全局读取能力。
+上下文逐层细化：GO 的 context_refs 指向入口、相关代码、架构约束、知识、接口/复用 owner 及需求/用例映射；父 MO 为每个子功能提供聚焦文档绝对 path/sha256。子 MO 综合全局/父/子上下文拆 tasks，标明需求、PATH 与复用关系。共享上下文可引同一工件，不截断全局读取。
 
 局部 context pack 用于聚焦；全局可读不扩大 scope 或写权限。先检查目标已有实现和兄弟分工，明确“复用什么、谁实现、谁消费、写哪些文件、不实现哪些行为”。共同 CASE/全局需求 ID 可覆盖不同子职责，但须说明参与方式和唯一实现 owner；共享写路径依旧受锁约束，重叠业务分工必须审核。
 
-`planning_context` 只含职责结构，不含兄弟正在变化的 phase/revision；实时进度、锁和修复 memory 另读 Ledger。分配包含本模块分配及父上下文。GO 接受拆分、子 freeze 与每次派发都把已绑定的摘要与当前全局上下文、分配比对，过期则拒绝并要求重新提交；同 run 来源追加只允许未受影响模块的来源字段变化。全局源码阅读与 scope.in 的语义包含关系仍由 Agent/宿主审核；结构检查不能证明已阅读或完全理解代码。源码变化沿用 baseline 检测。
+`planning_context` 仅含职责结构，不含兄弟变化中的 phase/revision；实时进度、锁和修复 memory 另读 Ledger。拆分/冻结/派发核对绑定摘要与当前上下文及分配，过期拒绝；同 run 来源追加仅允许未受影响模块来源字段变化。源码变化沿用 baseline 检测。
 
 ## 3. 分配与登记门禁
 
-行为契约是必选门禁（prepare 固定 `behavior_contract_required=true`）：register/decompose 分别提交根/子模块的 behavior_review（字段见模板）；审阅覆盖所附分配，Ledger 据分配核对，不抄写 scope 摘要与需求/CASE 列表；证据完整、unresolved=[]。共享需 owner、消费者、集成责任；global-plan 按父子归属解析唯一叶子 owner，边界疑问交父级/GO/人工。
+行为契约是必选门禁（prepare 固化）：register/decompose 提交根/子 behavior_review（见模板），覆盖所附分配，不抄写 scope 摘要与用例列表；证据完整、unresolved=[]。共享需 owner、消费者与集成责任；global-plan 解析唯一叶子 owner，边界疑问交父级/GO/人工。
 
 子 MO 的 source_closure 即其行为审阅，以 scenario_trace 覆盖任务。共享能力与复用目录使用同一 capability_id 时，目录的 provider owner 必须是行为审阅解析出的叶子 owner。子功能可验收，任务可单层；基础能力需消费者。
 
-原子根功能（单一职责、无可独立交付的子功能）可由 GO 登记为 `lean_leaf=true` 的执行叶子，跳过父 MO 拆分与汇总：仍须提交同样的 scope/context_refs，并附 `leaf_review_ref` 说明为何不可再拆；其余根功能由 GO `register` 时设置 `decomposition_required=true`，同时提交非空 `scope.in`、显式 `scope.out`（可为空）、非空 `scope.requirement_ids` 和非空 `context_refs`。其中 requirement_ids 使用全局需求 ID。根模块的 CASE/需求须来自本轮输入，写范围包含于 target_root。人工导入方案先由 GO 分析补全并转成此分配格式；这些字段不增加用户入口负担。
+原子根功能可由 GO 登记为 `lean_leaf=true` 执行叶子（跳过拆分与汇总），附 `leaf_review_ref`；其余根功能由 GO `register` 设 `decomposition_required=true`，提交非空 `scope.in`、显式 `scope.out`、非空 `requirement_ids` 与 `context_refs`。CASE/需求须来自本轮输入，写范围包含于 target_root。导入方案由 GO 补全转为此格式。
 
 | 操作 | 角色 / 请求 scope | 输入与门禁 |
 | --- | --- | --- |
 | `decompose` | 父 MO / 父 ID | `plan_ref` 指向拆分方案：parent_module_id、rationale、children；decomposition 预检随本操作登记 |
 | `decompose-accept` | GO / 父 ID | `review_ref`；已有 MO 提案且其绑定的上下文与分配仍是当前版本，复查范围、覆盖和依赖；原子移动父节点至 module_groups 并登记孩子 |
+| `realloc-request` | 子 MO / 子 ID | `reason` + `evidence_refs`；切片/边界冲突提单，进入 `waiting-upstream` |
+| `redecompose` | 父 MO / 父 ID | `plan_ref`；重组方案重新划分 children 并覆盖父范围 |
+| `redecompose-accept` | GO / 父 ID | `review_ref`；复核方案，保留未变孩子 Green，受影响孩子重置，已实施下线模块转入 superseded_modules |
 | `module-summary` | 父 MO / 父 ID | `summary_ref` + 当前父 next_step.payload 中的 subject_sha256；全部孩子本轮已收尾 |
 
 使用 [拆分模板](../../../template/module-decomposition.json)。每个孩子提供稳定 ID、功能 name、scope、context_refs、case_ids、绝对 write_paths、dependencies。要求：
@@ -68,11 +71,11 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 每个子 MO 独立 Coding → Testing → 可修复 Red/Yellow 自动一轮 Fixer → 正式复测 → DoD 或明确挂起。一个孩子失败不取消兄弟；父/全局聚合 Red 不回写孩子。真实依赖变化仅影响确认的消费者。
 
-父 MO 持续读取子模块 SPEC、tasks、用例/PATH 覆盖、代码基线、结果/根因、修复 memory 与恢复点，确认整个认领模块未漏项、未重复实施、范围未扩张。父 MO 等所有孩子本轮完成或基于自身证据明确挂起；排队、未派发、单个 worker 退出不算收尾，有可推进动作则继续。`module-summary` 记录逐子结论、范围覆盖、遗留问题和审计移交，不制造父级测试结果、不代验收子 CASE。
+父 MO 持续读取子模块 SPEC、tasks、用例覆盖、基线、根因与修复 memory，确认认领范围无遗漏/重复/扩张。等所有孩子完成或明确挂起；module-summary 记录逐子结论、范围覆盖、遗留问题和审计移交，不代验收子 CASE。
 
 Ledger 的 subject_sha256 绑定当前拆分引用和孩子 revision；孩子状态/证据变化后，旧父汇总失效，须重新核验。父 Green 要求全部孩子当前 DoD Green 且汇总有效，不替代 Auditor。
 
-GO 等全部子 MO 收尾和全部父汇总有效后统一启动 Auditor。`status.module_rounds` 区分 leaf_modules / parent_modules，registered_modules 包含两者。收集实际问题子模块，不把父聚合 Red 重复记成失败 CASE。Auditor 读取对应 SPEC/测试路径，委派 Fixer 和 Testing；审计裁决只归 Auditor。补丁导致父汇总过期时重新汇总；最终独立审计仍要求全部子模块 Green、遗留队列清空及父汇总有效。
+GO 等全部子 MO 收尾且父汇总有效后启动 Auditor。status.module_rounds 区分 leaf/parent modules。收集问题子模块，不把父聚合 Red 记成失败 CASE。Auditor 读取对应 SPEC/测试路径并委派修复复测，裁决只归 Auditor。最终审计要求全子模块 Green、遗留清空且父汇总有效。
 
 ## 5. 宿主与兼容
 

@@ -20,21 +20,8 @@ mode: subagent
 3. 列出可证伪假设、最小复现步骤、根因置信度、负责模块和建议动作；需要执行复现时经 Ledger 请求 Test-Runner。
 4. 提交 diagnose 后退出，所有修改由 Fixer 或 Spec-Designer 执行。
 
-## 4. 规则优先级
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 5. 阻塞与异常
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
 ## 6. 硬约束
 不修改源码、测试、配置或 SPEC；不为了验证猜想打补丁；不把未知推断写成已确认；不直接联系其他角色。
-
-## 7. 输出格式
-见 [共享协议·通用约定](../skills/migration-protocol/SKILL.md#通用约定)。
-
-## 8. Used Skills
-- [migration-protocol](../skills/migration-protocol/SKILL.md)：共享契约。
-- [migration-diagnose](../skills/migration-diagnose/SKILL.md)：本角色执行规约。
 
 ## 9. Checkpoints
 每个根因有证据或明确 unknown；能够区分依赖阻塞与实际断言失败；建议有责任人和复测路径。

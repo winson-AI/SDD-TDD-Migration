@@ -152,6 +152,46 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
     emit(previous, json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 
 
+def build_lessons(state, sequence):
+    lessons = {'sequence': sequence, 'entries': []}
+    for rec in state.get('redecomposition_history', []):
+        lessons['entries'].append({
+            'kind': 'slicing-gap',
+            'parent_module_id': rec.get('parent_module_id'),
+            'affected_modules': rec.get('affected_modules', []),
+            'retired_modules': rec.get('retired_modules', []),
+            'summary': f"Parent module {rec.get('parent_module_id')} was redecomposed affecting {len(rec.get('affected_modules', []))} children",
+            'evidence_ref': rec.get('plan_ref')
+        })
+    for mid, m in state.get('modules', {}).items():
+        if m.get('realloc_request'):
+            lessons['entries'].append({
+                'kind': 'boundary-conflict',
+                'module_id': mid,
+                'parent_module_id': m.get('parent_module_id'),
+                'summary': m['realloc_request'].get('reason'),
+                'evidence_refs': m['realloc_request'].get('evidence_refs', [])
+            })
+        for hist in m.get('planning_history', []):
+            lessons['entries'].append({
+                'kind': 'planning-gap',
+                'module_id': mid,
+                'reason': hist.get('reason'),
+                'summary': f"Module {mid} replanned due to {hist.get('reason')}",
+                'plan_hash': hist.get('plan_hash')
+            })
+        for mem in m.get('fix_memory', []):
+            if mem.get('reusable'):
+                lessons['entries'].append({
+                    'kind': 'fix-pattern',
+                    'module_id': mid,
+                    'root_cause': mem.get('root_cause'),
+                    'strategy': mem.get('strategy'),
+                    'summary': f"Verified fix for {mem.get('root_cause', {}).get('category')}: {mem.get('strategy')}"
+                })
+    return lessons
+
+
 def materialize(root, state, sequence):
     targets, context_warnings = {}, []
     if state.get('project_context_ref'):
@@ -179,6 +219,8 @@ def materialize(root, state, sequence):
         attempt(errors, 'semantic-index', lambda: write(root / 'ledger/semantic-index.json', json.dumps(index, ensure_ascii=False, indent=2) + '\n'))
     memories = [{'module_id': mid, **entry} for mid, m in state['modules'].items() for entry in m.get('fix_memory', [])]
     attempt(errors, 'repair-memory', lambda: write(root / 'ledger' / 'repair-memory.json', json.dumps({'sequence': sequence, 'entries': memories}, ensure_ascii=False, indent=2) + '\n'))
+    lessons = build_lessons(state, sequence)
+    attempt(errors, 'lessons-json', lambda: write(root / 'ledger/lessons.json', json.dumps(lessons, ensure_ascii=False, indent=2) + '\n'))
 
     if state.get('audit_batch'):
         b = state['audit_batch']

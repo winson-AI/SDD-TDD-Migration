@@ -25,9 +25,9 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 行为契约由运行状态开启，Ledger 在 plan 中写入 `behavior_contract_required=true`，作者不必声明；source_closure 同时是叶子的行为审阅，另含 boundary_rationale、shared_capabilities；它覆盖的范围、需求与 CASE 就是分配包，不再抄写。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。Ledger 接受 plan 时从 SPEC 派生 scenario_index，plan 不携带；`behavior_contract.py --plan <staged-plan.json>` 可预览。SPEC 修改即改变 plan 摘要，须走 CR/冻结。
 
-scenario_trace 将每个场景关联 task_ids、assertions[{path_id,assertion_id}]；全部任务/行为断言须有归属，允许多对多，build/static 不充当行为断言。scenarios.md 为只读投影。
+scenario_trace 每行写 scenario_id 与 task_ids，assertions 由 Ledger 按设计断言的 scenario_ids 补全（写了须与之相同）；每个场景至少被一条行为断言验证、每条行为断言至少验证一个场景、全部任务有归属，允许多对多，build/static 不充当行为断言。scenarios.md 为只读投影。
 
-1. 生成完整六件套草稿；冻结前 Test-Runner design 模式独立补齐测试用例与路径大纲，不运行代码。
+1. 先生成完整六件套草稿（SPEC 带 Requirement-ID/Scenario-ID）；冻结前 Test-Runner design 模式以该 SPEC 为输入独立补齐测试用例与路径大纲，不运行代码。
 2. Spec-Designer 把明确的问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复须绑定 question_id、spec_revision、内容摘要。既有明确答复可复用，若绑定内容已变则重新裁决。
 3. 冻结 manifest 列出 proposal、所有 delta specs、design、tasks 定义与 test design 的实际 path+sha256；checklist 是包内评审清单，与全局上下文一样不进 manifest，由 Ledger 绑定。保留不可变副本，生成 freeze_id/spec_revision。
 4. `status`、tasks 完成勾选、checklist 证据等运行字段不纳入语义冻结 hash；冻结的原始定义始终存在不可变 artifacts。动态视图可按已固化映射重定位文档链接及更新运行勾选，不得改变需求、设计和断言语义。验证时比较定义快照，不以可变文件整体 hash 误判失效。

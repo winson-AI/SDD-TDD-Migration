@@ -15,6 +15,9 @@ skills/migration-test/runtime/harmony/runs/
 skills/migration-test/runtime/harmony/reports/
 skills/migration-test/runtime/harmony/memory/
 
+# The diagrams are tracked as SVG; the PNG the generators render to check a layout stays local.
+diagrams/*.png
+
 # Project runtime/private assets if a migration workspace is inside this repo.
 .sdd-migration/
 .sdd-runs/

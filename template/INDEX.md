@@ -53,7 +53,7 @@
 | [interaction-evidence.json](interaction-evidence.json) | Test-Runner | automation 声明手势时的结果扩展 |
 | [stage-result.json](stage-result.json) | Test-Runner | 阶段 tests 结果 |
 | [test-result.json](test-result.json) | Test-Runner / Auditor / Fixer | 单条 PATH 的实际执行记录 |
-| [context-readiness.json](context-readiness.json) | 各执行角色 | 上下文预检报告；检查项与必读引用取自步骤视图 |
+| [context-readiness.json](context-readiness.json) | 各执行角色 | 上下文预检报告；检查项取自步骤视图 |
 | [implementation.md](implementation.md) | Implementer / Fixer | 提交与 tasks 追溯、回归、回滚及 reuse_trace |
 | [resource-request.json](resource-request.json) | Implementer / Fixer | 资源同步与转换请求 |
 | [implementation-gap.json](implementation-gap.json) | MO | 核验证实无法实现时 suspend(not-implemented) 的依据 |

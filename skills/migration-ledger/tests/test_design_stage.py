@@ -14,12 +14,12 @@ from contracts import Rejected, digest
 from execute_test import execute
 
 
-def start_design(f, plan, mid='M001', designer='designer'):
+def start_design(f, plan, mid='M001', designer='designer', spec_refs=None):
     s = f.state(); m = s['modules'][mid]
     for task in plan['tasks']:
         task.setdefault('scope', {'in': ['Implement allocated behavior'], 'out': [], 'write_paths': m['write_paths']})
     inp = {'schema_version': 1, 'module_id': mid, 'subject_sha256': design_stage.subject(s, m),
-           'spec_refs': [r for r in plan['definitions'] if r['kind'] == 'spec'],
+           'spec_refs': spec_refs if spec_refs is not None else [r for r in plan['definitions'] if r['kind'] == 'spec'],
            'case_refs': [s['global_spec']], 'tasks': copy.deepcopy(plan['tasks'])}
     ref = f.ref(f'design-input-{mid}-{f.n}.json', inp)
     aid = f'DESIGN-{mid}-{f.n}'
@@ -38,11 +38,10 @@ def submit_design(f, a, result):
     p = {'assignment_id': a['assignment_id'], 'fencing_token': a['fencing_token'], 'result_ref': ref}
     s = f.state(); mid = a['module_id']
     if s.get('context_readiness_required'):
-        reads = cr.input_refs(s, mid, 'test-design') + [ref]
         report = {'schema_version': 1, 'run_id': s['run_id'], 'module_id': mid, 'stage': 'test-design',
                   'producer': {'role': 'test-runner', 'instance_id': a['instance_id']},
                   'subject_sha256': cr.subject(s, mid, 'test-design'), 'verdict': 'ready',
-                  'read_refs': reads, 'draft_ref': ref,
+                  'draft_ref': ref,
                   'checks': {k: {'status': 'ready', 'summary': 'Reviewed fixture scope, expected behavior and independent author.',
                                  'evidence_refs': [ref]} for k in cr.CHECKS['test-design']}}
         p['context_ref'] = f.ref(f'design-context-{mid}-{f.n}.json', report)  # the preflight rides the submit
@@ -58,6 +57,48 @@ def prepare_design(f, plan, mid='M001'):
     plan['test_design_ref'] = ref
     plan['definitions'] = [r if r['kind'] != 'test-design' else {**result['design_ref'], 'kind': 'test-design'} for r in plan['definitions']]
     return plan
+
+
+class SpecFirstDesignTests(unittest.TestCase):
+    """Under the behavior contract the design is made from the leaf's own SPEC draft, never from a global spec."""
+
+    def setUp(self):
+        import test_source_changes
+        self.t = test_source_changes.SourceChangeTests(); self.t.setUp(); self.addCleanup(self.t.doCleanups)
+        self.f = self.t.f
+
+    def test_a_global_spec_or_a_context_file_is_not_a_design_input_spec(self):
+        f = self.f; plan = self.t.plan('M001')
+        step = next(x for x in f.state()['next_steps'] if x['module_id'] == 'M001')
+        self.assertEqual((step['operation'], step['mode']), ('assign', 'design'))
+        self.assertIn('Scenario-ID', step['design_input_needs'])  # the cursor says what the input has to cite
+        for specs in ([{**f.state()['global_spec'], 'kind': 'spec'}], [{**f.ref('context.md', 'legacy excerpts'), 'kind': 'spec'}]):
+            with self.assertRaisesRegex(Rejected, "own SPEC draft with Requirement-IDs and Scenario-IDs"):
+                start_design(f, copy.deepcopy(plan), 'M001', spec_refs=specs)
+        self.assertEqual(f.state()['modules']['M001']['assignments'], {})  # nothing was dispatched
+
+    def test_the_draft_must_define_the_requirements_of_the_tasks_it_is_designed_for(self):
+        f = self.f; plan = self.t.plan('M001')
+        draft = next(r for r in plan['definitions'] if r['kind'] == 'spec')
+        other = {**f.ref('other-draft.md', Path(draft['path']).read_text().replace('Requirement-ID: R1', 'Requirement-ID: R9')), 'kind': 'spec'}
+        with self.assertRaisesRegex(Rejected, 'requirements of its tasks'):
+            start_design(f, copy.deepcopy(plan), 'M001', spec_refs=[other])
+        a, _ = start_design(f, copy.deepcopy(plan), 'M001')  # the leaf's own draft is the one the plan will cite
+        self.assertEqual(f.state()['modules']['M001']['assignments'][a['assignment_id']]['mode'], 'design')
+
+
+    def test_the_design_says_which_scenarios_its_assertions_verify_and_the_plan_inherits_it(self):
+        f = self.f; plan = self.t.plan('M001')
+        a, result = start_design(f, copy.deepcopy(plan), 'M001')
+        untagged = copy.deepcopy(result)
+        untagged['paths'][0]['expected_assertions'][0].pop('scenario_ids')
+        with self.assertRaisesRegex(Rejected, 'needs scenario_ids'):  # the independent designer answers to the SPEC at submit
+            submit_design(f, a, untagged)
+        submit_design(f, a, result)
+        f.call('accept', {'assignment_id': a['assignment_id'], 'review_ref': f.ref('review.md', 'MO reviewed the scenario coverage')}, module='M001')
+        stored = self.t.freeze('M001')  # its Spec-Designer wrote the tasks of the scenario only
+        self.assertEqual(stored['scenario_trace'], [{'scenario_id': 'SCN-M001-normal', 'task_ids': ['T1'], 'assertions': [
+            {'path_id': 'M001-P', 'assertion_id': 'A1'}, {'path_id': 'M001-U', 'assertion_id': 'UNIT-EXIT'}]}])
 
 
 class DesignStageTests(unittest.TestCase):
