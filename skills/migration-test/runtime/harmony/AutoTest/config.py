@@ -98,6 +98,8 @@ class AppConfig:
     verbose: bool = False
     lang: str = "zh"
     task_timeout: int = 1800
+    step_timeout: int = 120
+    verify_request_timeout: int = 60
     context_compression: ContextCompressionConfig = field(default_factory=ContextCompressionConfig)
     reflection: ReflectionConfig = field(default_factory=ReflectionConfig)
     special_test: SpecialTestConfig = field(default_factory=SpecialTestConfig)

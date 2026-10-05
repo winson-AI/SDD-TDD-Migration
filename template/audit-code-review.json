@@ -115,6 +115,7 @@
     "origin_spec_ref": {
       "path": "{{original-host-task-contract-path}}",
       "sha256": "{{sha256}}"
-    }
+    },
+    "retirement_reviews": []
   }
 }

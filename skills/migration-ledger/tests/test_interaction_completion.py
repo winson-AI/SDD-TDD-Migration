@@ -30,10 +30,13 @@ class InteractionCompletionTests(unittest.TestCase):
     def run_report(self, passed):
         f = self.f
         scripts = str(Path(__file__).resolve().parents[2] / 'migration-test/scripts')
+        fixtures = str(Path(__file__).resolve().parent)
         adapter = f.f.n.write('.sdd-runs/gesture/staging/native-report.py', f'''
 import json, sys
 from pathlib import Path
 sys.path.insert(0, {scripts!r})
+sys.path.insert(0, {fixtures!r})
+from test_harmony_integration import step_evidence
 from harmony_contract import ObservationSink, validate_query, write
 q = json.loads(Path(sys.argv[sys.argv.index('--query-file') + 1]).read_text())
 out = Path(sys.argv[sys.argv.index('--result-file') + 1])
@@ -41,7 +44,10 @@ validate_query(q)
 media = out.parent / 'video-evidence.txt'; media.write_text('fixture for recorded observation')
 sink = ObservationSink(q, out.parent)
 sink.record('[ASSERT:A-BACK]', {passed!r}, 'observed fixture outcome', 'video_assert', [media])
-report = sink.report(); write(out, report)
+report = sink.report()
+proof = out.parent / 'completed-steps'; proof.mkdir()
+report.update(step_evidence(q, proof, {passed!r}))
+write(out, report)
 sys.exit(0 if report['quality'] == 'green-passed' else 1)
 ''')
         with patch.object(execute_test, 'status', return_value=self.state):

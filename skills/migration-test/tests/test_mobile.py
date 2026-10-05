@@ -95,8 +95,11 @@ class MobileNativeTests(unittest.TestCase):
             return SimpleNamespace(name='fixture')
         async def runner(*args, **kwargs):
             self.assertIn('显示完整结果', args[1])
-            self.assertIn('successfully', mcp_tools._start_app('Fixture'))
-            devices[0].type_text('测试输入')
+            from test_step_execution import drive_fixture_steps
+            def action(number):
+                if number == 1: self.assertIn('successfully', mcp_tools._start_app('Fixture'))
+                else: devices[0].type_text('测试输入')
+            await drive_fixture_steps(sink, action)
             shot = devices[0].get_screenshot()
             with patch.object(VerifyAgent, '_verify', return_value=(True, 'observed', 'one_image_assert', [shot.screenshot_path])):
                 self.assertTrue(agent_registry.get_verify_agent().verify('[ASSERT:A1]')[0])

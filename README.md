@@ -8,7 +8,7 @@
 
 1. 读取 [AGENTS.md](AGENTS.md)，按角色索引渐进加载。
 2. 首次提供项目资料，宿主根据 [project-context.json](template/project-context.json) 保存到固定 `<workspace_root>/.sdd-migration/project-context.json`（首次未指定 workspace_root 时取配置目录父级）；后续按该目录读取，用户明确更新时增量保存。无需每次重填运行输入。
-3. 在支持此包的宿主中执行 `/sdd-init`，先固定项目配置和本次请求快照，再由 Global 生成 [运行输入](template/global-input.json)、SPEC/Testing list、账本和模块规划；`/sdd-plan <run-id> <module-id>` 完成正式六件套与人工冻结。旧 input.json 也可导入。
+3. 在支持此包的宿主中执行 `/sdd-init`，先固定项目配置和本次请求快照，再由 Global 生成 [运行输入](template/global-input.json)、宿主业务契约、需求/用例输入、账本和模块规划；`/sdd-plan <run-id> <module-id>` 组织叶子六件套、独立测试设计，由 MO 审核冻结；真实未决或需求/验收/授权变化才交人工。旧 input.json 也可导入。
 4. `/sdd-run <run-id>` 调度已冻结且依赖就绪的模块，单模块也可用 `/sdd-module <run-id> <module-id>`。模块内自动推进到完成、挂起或预算耗尽。
 5. 用 `/sdd-status <run-id>` 冷读状态；用 `/sdd-resume <run-id> [module-id] [decision.json绝对路径]` 恢复；用 `/sdd-audit <run-id>` 执行独立遗留复核与收尾审阅。
 6. 全局审计通过后，`/sdd-archive <run-id> <decision.json绝对路径>` 验证人类交付授权并同步、归档 OpenSpec。授权必须绑定具体版本。
@@ -43,7 +43,7 @@
 | --- | --- |
 | Command/Agent 分别写 `plan.md` | Ledger 唯一写事件与状态投影，杜绝并发双写；命令只提交请求 |
 | 所有 Agent 不能调用其他 Agent | 叶子角色单步退出；编排角色提出派发事件，由宿主执行；Auditor 可经 Ledger 委派修复 |
-| 每一步均人工确认 | 模块在冻结后有限自动循环；澄清冻结、核心架构/验收变更、主分支合并保留人工门禁 |
+| 每一步均人工确认 | 清晰规划由 MO 审核冻结；真实未决、需求/验收/授权变化与主分支合并保留人工门禁 |
 | 文件存在即可修正阶段为完成 | 校验文件、摘要、版本及已接受事件；文件存在不能证明通过 |
 | 删除已存在文件再运行 | 使用不可变版本和事件恢复；不删除用户成果、不静默覆盖 |
 | 运行失败测试后再实现 | 本次硬红线要求代码先生成才运行测试；测试设计和脚本准备前移，缺陷闭环保留真实 red→green 证据 |
@@ -61,10 +61,10 @@
 ```text
 Coding → MO 接受代码 → Testing
   ├─ Green → MO 核验 DoD、验收记录
-  └─ 可修复 Red/Yellow → 诊断 → MO 自动派发一轮 Fixer
+  └─ 可修复 Red/Yellow → 诊断 → MO 在预算内派发 Fixer
                        → 接受补丁 → Testing 正式复测
                        ├─ Green → MO 核验 DoD、验收记录
-                       └─ 仍非 Green → 记录根因/memory，等待 Auditor
+                       └─ 仍非 Green → 留证，预算内继续局部收敛；达到收尾条件后交 Auditor
 ```
 
 已确认依赖/外围问题直接记录并等待 Auditor。Fixer 自测不能代替正式 Testing；所有模块本轮结束后才统一启动 Auditor，首轮 Green 同样保留最终独立审计。
@@ -78,7 +78,7 @@ Coding → MO 接受代码 → Testing
 | 二方库与已有能力 | 复用必须逐行为对齐存量功能；能力目录显式 provider owner | [复用](skills/migration-protocol/references/reuse-dependencies.md)、[来源变更](skills/migration-protocol/references/source-changes.md) |
 | OpenSpec 边界 | 标准基线/增量结构；status/checklist/Ledger 是本包扩展，Ledger 投影不可手改 | [OpenSpec](skills/migration-protocol/references/openspec.md) |
 | 本地控制器与游标 | 单写事件事务、`status` 游标与阅读卡、恢复与显式追加预算 | [本地运行](skills/migration-protocol/references/local-runtime.md)、[宿主接入](skills/migration-protocol/references/host-integration.md) |
-| 并行 MO 与统一收尾 | 各 MO 独立推进；全量收尾或闭包提前审计才启动 Auditor | [状态机](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾) |
+| 并行 MO 与统一收尾 | 各 MO 独立推进；v2 全量收尾后统一审计；闭包提前审计仅供 v1 历史恢复 | [状态机](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾) |
 | Auditor | 先整体代码治理，再复核遗留；修复后验证，失败待人工 | [审计范围](skills/migration-protocol/references/audit-scope.md)、[代码治理](skills/migration-protocol/references/audit-code-review.md) |
 | Android/Harmony 自动测试 | MobileAgenticOperator test 模式，逐 PATH/ASSERT 证据接入 Ledger | [移动端运行](skills/migration-test/references/harmony-runtime.md) |
 | 切片与功能清单 | 默认由 Agent 决定粒度；清单完整可追溯，疑问交人工 | [切片规约](skills/migration-global/references/slicing.md) |
@@ -96,11 +96,11 @@ Coding → MO 接受代码 → Testing
 
 默认 [global-input.json](template/global-input.json) 的 `entry_mode=project`：直接指定完整项目，GO 识别各功能模块及子功能。`single-module` 选择其中一个特定功能；两种模式都在父 MO 阶段继续拆分子功能。
 
-单模块只是同一入口的两个参数：`entry_mode=single-module` 与 `module_name`（如“用户登录”）。沿用当前项目输入，用户无需提供模块描述、scope、模块代码路径、SPEC 或 Testing list；全部由 Global 根据模块名识别生成。[single-module-input.json](template/single-module-input.json) 仅展示这两个参数，不是独立运行资料包。
+单模块只是同一入口的两个参数：`entry_mode=single-module` 与 `module_name`（如“用户登录”）。沿用当前项目输入，用户无需提供模块描述、scope、模块代码路径、SPEC 或 Testing list；由 GO 识别业务范围、父 MO 拆分，叶子组织实施规范及独立测试设计。[single-module-input.json](template/single-module-input.json) 仅展示这两个参数，不是独立运行资料包。
 
-完整流程：用户选择项目或根功能 → **GO 划分根模块 scope + 上下文 + SPEC 草稿 / Testing list** → **父 MO 认领，在范围内拆子模块 scope + 上下文 / GO 审核登记** → **独立子 MO 拆 tasks**，组织六件套、测试路径、冻结、实现、自测 → **父 MO 等待并汇总全部孩子** → **GO 统一启动 Auditor**。父子 MO 都读取全局存量/目标代码、架构规范、知识与分工，检查复用及交叉工作。详见 [父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
+完整流程：用户选择项目或根功能 → **GO 划分根模块 scope + 上下文 + 需求/用例输入** → **父 MO 认领，在范围内拆子模块 scope + 上下文 / GO 审核登记** → **独立子 MO 拆 tasks**，组织四维分析、六件套、独立测试设计与冻结，派发 TASK 实现和正式测试 → **父 MO 等待并汇总全部孩子** → **GO 统一启动 Auditor**。父子 MO 都读取全局存量/目标代码、架构规范、知识与分工，检查复用及交叉工作。详见 [父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
 
-宿主接入命令后，可按以下阶段执行（路径和 run-id 为示例，冻结前仍需真实澄清与批准）：
+宿主接入命令后，可按以下阶段执行（路径和 run-id 为示例，冻结须绑定当前规划审核及适用的人工决定）：
 
 ```text
 /sdd-init --mode single-module --module-name "用户登录"

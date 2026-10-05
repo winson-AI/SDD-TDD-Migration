@@ -90,6 +90,9 @@ def configure(raw):
     for key, typ in [('context_compression', ContextCompressionConfig), ('reflection', ReflectionConfig), ('special_test', SpecialTestConfig)]:
         if key in data: data[key] = typ(**data[key])
     cfg = AppConfig(**data)
+    for key in ('task_timeout', 'step_timeout', 'verify_request_timeout'):
+        if type(getattr(cfg, key)) not in (int, float) or getattr(cfg, key) <= 0:
+            raise ValueError('positive ' + key + ' required')
     if not cfg.decision_models or not cfg.execute_model_name or not cfg.verify_model_name:
         raise ValueError('planner, executor and verify model configurations required')
     if cfg.execute_provider not in ('general', 'glm', 'mcp_agent', 'hypium_mcp_agent'):
@@ -112,8 +115,14 @@ def observing_verifier(base, sink):
                 sink.record(description, None, 'unbound assertion', '', [], 'unknown assertion ID')
                 return False, '必须使用一个冻结 ASSERT ID'
             a = definitions[ids[0]]
+            if hasattr(sink, 'step_trace'):
+                number = sink.current_step
+                if number != a['after_step'] or sink.step_trace['steps'][number - 1]['status'] not in ('executed', 'already-satisfied'):
+                    sink.record(description, None, 'assertion outside frozen checkpoint', '', [], 'step mismatch')
+                    return False, 'execute the frozen step before this assertion; do not backfill old checkpoints'
             frozen = f"[ASSERT:{ids[0]}] {a['description']}\n匹配规则：{a['matcher']}；exact 必须精确匹配，semantic 仅按冻结描述的语义判断。"
             try:
+                if hasattr(sink, 'deadline'): sink.deadline.arm(self.config.step_timeout, 'verification')
                 # Retain original selector, timeline lookup, media handling and model calls.
                 result, reason, tool, media = self._verify(frozen)
                 error = None
@@ -127,12 +136,26 @@ def observing_verifier(base, sink):
             except Exception as exc:
                 sink.record(description, None, str(exc), '', [], 'verification exception')
                 return False, 'verification exception; inspect observations'
+            finally:
+                if hasattr(sink, 'deadline'): sink.deadline.arm(self.config.task_timeout, 'path')
 
         def _select_tool_and_steps(self, description):
-            selected = super()._select_tool_and_steps(description)
             ids = re.findall(r'\[ASSERT:([A-Za-z0-9_.-]+)\]', description)
             a = next(a for a in sink.query['expected_assertions'] if a['assertion_id'] == ids[0])
-            if a['verification'] != 'auto': selected['tool'] = a['verification']
+            selected = super()._select_tool_and_steps(description) if a['verification'] == 'auto' else {'tool': a['verification']}
+            if hasattr(sink, 'step_trace'):
+                row = sink.step_trace['steps'][a['after_step'] - 1]
+                reference = sink.step_trace['steps'][a.get('reference_step', a['after_step']) - 1]
+                selected.update(current_step_index=row['after_index'], prev_step_index=row['before_index'],
+                    start_step_index=reference['before_index'], end_step_index=row['after_index'],
+                    refer_step_index=reference['after_index'], cross_step_index=reference['after_index'],
+                    cross_step_scene_name=f"frozen step {reference['step_number']}")
+            elif a['verification'] != 'auto':
+                # Historical callers retain deterministic screenshot selection without a selector request.
+                current = self._get_current_verify_step_index()
+                selected.update(current_step_index=current, prev_step_index=max(0, current - 1),
+                                start_step_index=max(0, current - 1), end_step_index=current,
+                                refer_step_index=0, cross_step_index=0, cross_step_scene_name='initial')
             return selected
     return Verified
 
@@ -159,8 +182,6 @@ async def run_engine(q, config, out, sink):
     native = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(native)
     native.VerifyAgent = observing_verifier(native.VerifyAgent, sink)
-    from AutoTest.layered_agent_cli import planner_agent
-    planner_agent.PLANNER_INSTRUCTIONS += '\nSDD 冻结断言优先于通用文案匹配规则。每个 verify 必须包含单个 [ASSERT:id]，按路径指定时机执行，禁止把几个预期合并。'
     task = task_text(q)
     if config['platform'] == 'android' and not q.get('platform'):
         task = '平台：android；任务类型：test\n' + task
@@ -183,10 +204,21 @@ async def run_engine(q, config, out, sink):
     if replay:
         if ref(replay['path']) != replay: raise ValueError('recording digest changed')
         meta = json.loads(Path(replay['path']).read_text())
+        if any(r.get('tool_name') not in ('execute_step', 'verify') for r in meta.get('recordings', [])):
+            raise ValueError('step-bound recording required; legacy recordings need a fresh PATH execution')
         # Cross-baseline recordings are navigation hints; every verify is rerun live.
         if meta.get('task') != task: raise ValueError('recording belongs to a different frozen path')
         shutil.copyfile(replay['path'], Path(args.memory_dir) / (hashlib.md5(task.encode()).hexdigest()[:16] + '.json'))
-    return await (native.playback_cli(args, cfg) if replay else native.decision_cli(args, cfg))
+    from harmony_steps import Deadline, install
+    deadline = Deadline(sink, cfg.task_timeout)
+    sink.deadline = deadline
+    steps = None
+    try:
+        steps = install(sink, cfg, deadline)
+        return await (native.playback_cli(args, cfg) if replay else native.decision_cli(args, cfg))
+    finally:
+        deadline.close()
+        if steps: steps.restore()
 
 
 def main():
@@ -198,6 +230,8 @@ def main():
     p.add_argument('--device', help='Explicit serial; overrides platform config/environment')
     p.add_argument('--root', help='Run root; otherwise inferred from the canonical result path')
     a = p.parse_args()
+    # A standalone invocation also owns its descendants; never signal the user's shell group.
+    if os.getpgrp() != os.getpid(): os.setsid()
     query_bytes = Path(a.query_file).read_bytes()
     q = json.loads(query_bytes)
     result_path = harmony_output(a.root, a.result_file, 'automation')
@@ -236,6 +270,7 @@ def main():
             try: environment['packages'][name] = importlib.metadata.version(name)
             except importlib.metadata.PackageNotFoundError: environment['packages'][name] = None
         if not config.get('device'): raise ValueError('explicit device serial required')
+        write(out / 'environment.json', environment)
         # Native relative media/memory files are contained in the attempt directory.
         with device_lock(config['device'], config.get('ip','127.0.0.1'), config.get('port',8710), config['platform']):
             with scope(out):
@@ -250,7 +285,7 @@ def main():
             detail = str(exc)
         sink.error = f'{type(exc).__name__}: {detail}'
     report = sink.report()
-    report.update(mobile_contract_version=1, platform=environment.get('platform'), task_type='test')
+    report.update(mobile_contract_version=2, platform=environment.get('platform'), task_type='test')
     write(out / 'environment.json', environment)
     report['environment_hash'] = digest(environment)
     report['environment_ref'] = ref(out / 'environment.json')

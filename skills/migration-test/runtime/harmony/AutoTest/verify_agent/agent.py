@@ -9,7 +9,6 @@ from ..devices.hdc_device import HDCDevice
 from ..reporter.generator import ReportGenerator
 from ..config import AppConfig
 from ..logger import logger
-from ..utils.utils import retry_on_exception
 from .verify_tools import (
     one_image_assert,
     multi_image_assert,
@@ -139,22 +138,21 @@ class VerifyAgent:
             return steps[-1].index
         return self.report.step_content[-1].index if self.report.step_content else 0
 
-    @retry_on_exception(max_retries=2)
     def get_respond(self, user_prompt):
         if self.config.verify_api_version:
             client = AzureOpenAI(
                 azure_endpoint=self.config.verify_base_url,
                 api_key=self.config.verify_api_key,
                 api_version=self.config.verify_api_version,
-                timeout=300,
-                max_retries=2
+                timeout=min(self.config.verify_request_timeout, self.config.step_timeout, self.config.task_timeout),
+                max_retries=0
             )
         else:
             client = OpenAI(
                 base_url=self.config.verify_base_url,
                 api_key=self.config.verify_api_key,
-                timeout=300,
-                max_retries=2
+                timeout=min(self.config.verify_request_timeout, self.config.step_timeout, self.config.task_timeout),
+                max_retries=0
             )
 
         response = client.chat.completions.create(

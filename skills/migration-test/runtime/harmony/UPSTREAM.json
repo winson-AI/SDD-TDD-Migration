@@ -25,7 +25,10 @@
     {
       "path": "AutoTest/config.py",
       "source_sha256": "9b705bbff76f4b179adf5427d8a809138d0353faec174058a029bf6ea375fbe8",
-      "vendored_sha256": "9b705bbff76f4b179adf5427d8a809138d0353faec174058a029bf6ea375fbe8"
+      "vendored_sha256": "5d17cdc5758efd7d75a71230f4011e5c911d53e98311db0f530bc34db6d85d26",
+      "local_changes": [
+        "Bound verification requests without nested retries; PATH/step deadlines are enforced by the SDD adapter."
+      ]
     },
     {
       "path": "AutoTest/devices/__init__.py",
@@ -460,15 +463,19 @@
     {
       "path": "AutoTest/verify_agent/agent.py",
       "source_sha256": "3c46d9a376ea2116a61d0fad309d5deec47667fdccaec3529e00b16c3784498b",
-      "vendored_sha256": "3c46d9a376ea2116a61d0fad309d5deec47667fdccaec3529e00b16c3784498b"
+      "vendored_sha256": "415bcf0fd175c271d280875d4ad8a1f6d3d4dabc22d3c1125820ffda1b4f0df7",
+      "local_changes": [
+        "Bound verification requests without nested retries; PATH/step deadlines are enforced by the SDD adapter."
+      ]
     },
     {
       "path": "AutoTest/verify_agent/verify_tools.py",
       "source_sha256": "a68243c8a968c931c640d6b1ae9d3a8a199d89fb27d0e42c7bfec33b75559dc2",
-      "vendored_sha256": "1bf15cfc5ed69d0583e1b5d5d7af07928a812076a50de9627cd0b9fbc217a22a",
+      "vendored_sha256": "e1136bea08cfdcc75f6fbfb2655e0cc879b735b61fb71ceaf4ca84518c38119a",
       "local_change": "Fail-closed explicit conclusion parser; safe early-return cleanup; unique clip names; preserve merged video and mappings when keep_raw_video.",
       "local_changes": [
-        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths.",
+        "Bound verification requests without nested retries; PATH/step deadlines are enforced by the SDD adapter."
       ]
     },
     {

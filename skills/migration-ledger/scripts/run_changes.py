@@ -13,10 +13,53 @@ OPS = {'run-review', 'revise-run'}
 CONFIG_KEYS = {'architecture_path', 'knowledge_paths', 'project_rules_path', 'build', 'test_adapter', 'runtime', 'target_resources'}
 ROOT_KEYS = set(decomposition.ALLOCATION_KEYS) | {'module_id', 'dependencies'}
 CONTRACT_KEYS = {'requirement_ids', 'case_ids', 'global_paths'}
+RETIREMENT_KEYS = {'requirement': 'requirement_ids', 'case': 'case_ids', 'global-path': 'global_paths'}
 
 
 def roots(s):
     return {**s.get('module_groups', {}), **{mid: m for mid, m in s['modules'].items() if not m.get('parent_module_id')}}
+
+
+def retirements(s):
+    """Historical dispositions, never successful tests or a second active contract."""
+    return [{**copy.deepcopy(row), 'revision_ref': h['report_ref'], 'decision_id': h['decision_id'],
+             'human_source_ref': h['human_source_ref'], 'previous_spec_ref': h['previous_global_spec'],
+             **({'previous_path': next(p for p in h['previous_contract']['global_paths'] if p['path_id'] == row['id']),
+                 'previous_result': h.get('retired_path_results', {}).get(row['id'])} if row['kind'] == 'global-path' else {})}
+            for h in s.get('run_change_history', []) for row in h.get('retirements', [])]
+
+
+def retirement_check(s, report, proposed):
+    def ids(contract, kind):
+        value = contract[RETIREMENT_KEYS[kind]]
+        if kind == 'global-path':
+            require(isinstance(value, list), 'global paths must be an array')
+            return set(keyed(value, 'path_id')) if value else set()
+        return set(value)
+    removed = {(kind, rid) for kind in RETIREMENT_KEYS for rid in ids(s, kind) - ids(proposed, kind)}
+    rows = report.get('retirements', [])
+    require(isinstance(rows, list), 'retirements must be an array')
+    seen = set()
+    for row in rows:
+        require(isinstance(row, dict) and set(row) == {'kind', 'id', 'replacement_ids', 'reason', 'evidence_refs'},
+                'retirement requires kind/id/replacement_ids/reason/evidence_refs')
+        kind, rid = row['kind'], row['id']
+        require(kind in RETIREMENT_KEYS and isinstance(rid, str), 'invalid retirement identity')
+        require((kind, rid) not in seen and (kind, rid) in removed, 'retirement must name a removed active contract item once')
+        seen.add((kind, rid))
+        replacements = row['replacement_ids']
+        require(isinstance(replacements, list) and all(isinstance(i, str) for i in replacements)
+                and len(set(replacements)) == len(replacements) and set(replacements) <= ids(proposed, kind),
+                'replacement IDs must be active items of the same kind')
+        require(isinstance(row['reason'], str) and row['reason'].strip(), 'retirement reason required')
+        for ref in nonempty(row['evidence_refs'], 'retirement evidence'): check_ref(ref)
+    require(seen == removed, 'existing requirement/case/global path cannot be removed without an explicit retirement')
+    if rows:
+        require(control_policy.enabled(s), 'contract retirement requires control policy 2')
+        require((report.get('boundary_review') or {}).get('semantic_change') is True,
+                'contract retirement is a semantic change requiring human decision')
+    for row in retirements(s):
+        require(row['id'] not in ids(proposed, row['kind']), 'retired contract IDs cannot be reused; allocate a new ID')
 
 
 def contract(s, report):
@@ -27,12 +70,10 @@ def contract(s, report):
         ids = nonempty(proposed[key], key)
         require(isinstance(ids, list) and all(isinstance(i, str) and i.strip() for i in ids)
                 and len(set(ids)) == len(ids), 'unique nonempty contract IDs required')
-        require(set(s[key]) <= set(ids), 'existing requirement/case IDs cannot be removed')
+    retirement_check(s, report, proposed)
     workflow.global_paths_check(proposed['global_paths'], proposed['case_ids'])
-    require({p['path_id'] for p in s['global_paths']} <= {p['path_id'] for p in proposed['global_paths']},
-            'existing global paths cannot be removed')
     if any(proposed[key] != s[key] for key in CONTRACT_KEYS):
-        require(report.get('global_spec_ref'), 'contract additions require revised global business specification')
+        require(report.get('global_spec_ref'), 'contract changes require revised global business specification')
     return proposed
 
 
@@ -53,7 +94,7 @@ def subject(s, report_ref):
 def validate(s, ref):
     report = read_json(check_ref(ref))
     required = {'schema_version', 'run_id', 'reason', 'context_patch', 'root_updates', 'modules'}
-    require(required <= set(report) <= required | {'global_spec_ref', 'contract_patch', 'lessons_ref', 'boundary_review'}, 'invalid run revision report')
+    require(required <= set(report) <= required | {'global_spec_ref', 'contract_patch', 'retirements', 'lessons_ref', 'boundary_review'}, 'invalid run revision report')
     require(report['schema_version'] == 1 and report['run_id'] == s['run_id'] and report['reason'], 'run revision identity/reason required')
     proposed_contract = contract(s, report)
     if control_policy.enabled(s): control_policy.boundary(report.get('boundary_review'))
@@ -114,11 +155,15 @@ def validate(s, ref):
     rows = keyed(report['modules'], 'module_id')
     require(set(rows) == set(s['modules']), 'run impact must review every leaf')
     affected = set()
+    retired_requirements = {r['id'] for r in report.get('retirements', []) if r['kind'] == 'requirement'}
+    retired_cases = {r['id'] for r in report.get('retirements', []) if r['kind'] == 'case'}
     for mid, row in rows.items():
         require(set(row) == {'module_id', 'action', 'reason', 'evidence_refs', 'resume_blocker_sha256'}, 'invalid run impact row')
         require(row['action'] in ('replan', 'reverify', 'unchanged') and row['reason'], 'run impact action/reason required')
         for evidence in nonempty(row['evidence_refs'], 'run impact evidence'): check_ref(evidence)
         m = s['modules'][mid]
+        if retired_requirements.intersection((m.get('scope') or {}).get('requirement_ids', [])) or retired_cases.intersection(m['case_ids']):
+            require(row['action'] == 'replan', 'retired contract owners must replan')
         if row['action'] != 'unchanged':
             affected.add(mid)
             if row['action'] == 'reverify':
@@ -212,6 +257,12 @@ def handle(root, s, req, actor):
     previous = s.get('project_context_ref')
     previous_spec = s['global_spec']
     previous_contract = {key: copy.deepcopy(s[key]) for key in CONTRACT_KEYS}
+    retirement_history = {}
+    if report.get('retirements'):
+        retirement_history = {'retirements': copy.deepcopy(report['retirements']),
+            'decision_id': p['decision_id'], 'human_source_ref': decision['human_source_ref'],
+            'retired_path_results': {r['id']: copy.deepcopy(s.get('audit_results', {}).get(r['id']))
+                for r in report['retirements'] if r['kind'] == 'global-path'}}
     previous_plan = copy.deepcopy(s.get('global_plan'))
     import design_stage
     continuations = {mid: {'subject_sha256': design_stage.subject(s, m),
@@ -271,6 +322,8 @@ def handle(root, s, req, actor):
     if report.get('global_spec_ref'):
         s['global_spec'] = report['global_spec_ref']
     s.update(contract(s, report))
+    for rid in retirement_history.get('retired_path_results', {}):
+        s.get('audit_results', {}).pop(rid, None)
     old_paths = keyed(previous_contract['global_paths'], 'path_id') if previous_contract['global_paths'] else {}
     for path in s['global_paths']:
         prior = s.get('audit_results', {}).get(path['path_id'])
@@ -281,7 +334,7 @@ def handle(root, s, req, actor):
     if s.get('audit'): s.setdefault('audit_history', []).append(copy.deepcopy(s['audit']))
     s['audit'] = {}
     s['context_acceptances'] = {}
-    s.setdefault('run_change_history', []).append({**copy.deepcopy(review), 'reason': report['reason'],
+    s.setdefault('run_change_history', []).append({**copy.deepcopy(review), **retirement_history, 'reason': report['reason'],
         'previous_context_ref': previous, 'project_context_ref': new_ref, 'previous_global_spec': previous_spec,
         'global_spec': s['global_spec'], 'previous_contract': previous_contract, 'previous_global_plan': previous_plan,
         'contract': {key: copy.deepcopy(s[key]) for key in CONTRACT_KEYS}, 'affected_modules': sorted(affected), 'changed_roots': sorted(changed_roots)})

@@ -29,7 +29,10 @@ class NativeIntegrationTests(unittest.TestCase):
             class Device:
                 def __init__(self,*args,**kwargs):pass
                 def teardown(self):pass
+                def get_screenshot(self, **kwargs):return SimpleNamespace(screenshot_path=str(media))
             async def runner(*args,**kwargs):
+                from test_step_execution import drive_fixture_steps
+                await drive_fixture_steps(sink)
                 verifier=agent_registry.get_verify_agent()
                 verifier.verify('[ASSERT:A1]')
                 return SimpleNamespace(final_output='任务结果: 通过')
@@ -61,6 +64,26 @@ class NativeIntegrationTests(unittest.TestCase):
             video=Path(tmp)/'merged_video_fixture.mp4';video.write_bytes(b'fixture')
             passed,reason=video_assert_tool('predicate',2,1,video_path=str(video),config=cfg)
             self.assertFalse(passed);self.assertTrue(video.exists())
+
+    def test_verification_clients_bound_requests_without_nested_retries(self):
+        from unittest.mock import Mock
+        from AutoTest.config import AppConfig
+        from AutoTest.verify_agent import agent, verify_tools
+        cfg = AppConfig(verify_request_timeout=60, step_timeout=15, task_timeout=10)
+        client = Mock()
+        client.chat.completions.create.return_value.choices = [SimpleNamespace(message=SimpleNamespace(content='{}'))]
+        with patch.object(agent, 'OpenAI', return_value=client) as factory:
+            verifier = agent.VerifyAgent(SimpleNamespace(), cfg, SimpleNamespace())
+            self.assertEqual(verifier.get_respond('select'), '{}')
+            self.assertEqual(factory.call_args.kwargs['timeout'], 10)
+            self.assertEqual(factory.call_args.kwargs['max_retries'], 0)
+            client.chat.completions.create.side_effect = TimeoutError('fixture timeout')
+            with self.assertRaises(TimeoutError): verifier.get_respond('select')
+            self.assertEqual(client.chat.completions.create.call_count, 2)
+        with patch.object(verify_tools, 'OpenAI', return_value=client) as factory:
+            verify_tools._create_client(cfg)
+            self.assertEqual(factory.call_args.kwargs['timeout'], 10)
+            self.assertEqual(factory.call_args.kwargs['max_retries'], 0)
 
     def test_xmind_all_sheets_retained(self):
         sys.path.insert(0,str(ENGINE))

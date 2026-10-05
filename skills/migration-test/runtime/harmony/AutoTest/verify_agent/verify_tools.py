@@ -238,15 +238,15 @@ def _create_client(config: AppConfig) -> Tuple[OpenAI | AzureOpenAI, str]:
             azure_endpoint=config.verify_base_url,
             api_key=config.verify_api_key,
             api_version=config.verify_api_version,
-            timeout=300,
-            max_retries=2
+            timeout=min(config.verify_request_timeout, config.step_timeout, config.task_timeout),
+            max_retries=0
         )
     else:
         client = OpenAI(
             base_url=config.verify_base_url,
             api_key=config.verify_api_key,
-            timeout=300,
-            max_retries=2
+            timeout=min(config.verify_request_timeout, config.step_timeout, config.task_timeout),
+            max_retries=0
         )
 
     return client, config.verify_model_name

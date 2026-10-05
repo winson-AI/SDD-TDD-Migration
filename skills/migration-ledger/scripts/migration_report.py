@@ -151,6 +151,7 @@ def build(root, s, sequence, ref_check=check_ref):
     invalid = any(m.get('stale') or m.get('effective_quality') == 'yellow-blocked' for m in s['modules'].values())
 
     def row(mid, cid, path=None, m=None):
+        if cid not in s['case_ids']: return  # Superseded evidence lives in revision/planning history.
         pid = path.get('path_id') if path else None
         record = (m.get('results', {}) if m else s.get('audit_results', {})).get(pid, {})
         audit_row = next((r for r in s.get('audit', {}).get('paths', []) if r['path_id'] == pid), None)
@@ -190,6 +191,9 @@ def build(root, s, sequence, ref_check=check_ref):
         if not m or audited: related.append(s.get('audit', {}).get('report_ref'))
         rows.append({'case_id': cid, 'module_id': mid, 'parent_mo_name': names.get((m or {}).get('parent_module_id')) or names.get(mid),
                      'path_id': pid, 'name': (path or {}).get('name', pid or cid), 'kind': (path or {}).get('kind', 'test'),
+                     'task_ids': [t['task_id'] for t in ((m or {}).get('plan') or {}).get('tasks', []) if pid in t.get('path_ids', [])],
+                     'platform': (path or {}).get('platform'), 'parameters': copy.deepcopy((path or {}).get('parameters', {})),
+                     'flaky': bool(record.get('flaky')), 'execution_status': record.get('execution_status'),
                      'coverage': (path or {}).get('coverage'),
                      'quality': q, 'recorded_quality': record.get('quality'),
                      'executed': bool(record.get('executed') or (last_execution or {}).get('executed')),
@@ -234,6 +238,8 @@ def build(root, s, sequence, ref_check=check_ref):
              'completed-with-unverified-tests' if settled and reviewed and not invalid and tv.final_deferred_current(s) else
              'awaiting-human' if batch.get('status') == 'awaiting-human' else 'in-progress')
     visual, limitations, pictures = fidelity(s, rows, ref_check)
+    import automation_report
+    import run_changes
     return {'schema_version': 1, 'run_id': s['run_id'], 'sequence': sequence, 'report_stage': stage,
             'quality': quality([s.get('quality', 'yellow-blocked'), *[c['quality'] for c in cases]]),
             'entry_mode': s.get('entry_mode', 'project'), 'single_module_id': s.get('single_module_id'),
@@ -241,6 +247,8 @@ def build(root, s, sequence, ref_check=check_ref):
             'parent_mo_names': names, 'snapshot': snapshot, 'audit': copy.deepcopy(s.get('audit', {})),
             'case_counts': {q: Counter(c['quality'] for c in cases)[q] for q in ('green-passed', 'red-bug', 'yellow-blocked')},
             'cases': cases, 'paths': rows, 'non_green': [r for r in rows if r['quality'] != 'green-passed'],
+            'automation': automation_report.build(s, rows),
+            'contract_retirements': run_changes.retirements(s),
             'unimplemented': gaps, 'code_governance': governance,
             'visual_coverage': visual, 'fidelity_limitations': limitations,
             'fidelity_conditions': pictures.pop('conditions'), 'picture_fidelity': pictures,
@@ -296,6 +304,16 @@ def render(report):
     text += ['## 全部测试用例', '', '| CASE-ID | 模块 | 状态 | 路径数 | 曾执行数 |', '| --- | --- | --- | --- | --- |']
     for c in report['cases']:
         text.append('| ' + ' | '.join(cell(v) for v in (c['case_id'], ', '.join(c['module_ids']), c['quality'], c['path_count'], c['executed_count'])) + ' |')
+    import automation_report
+    if 'automation' in report:
+        text += automation_report.render(report['automation'], cell)
+    else:
+        text += ['', '历史报告未包含 automation 统计；需读取当前 Ledger 投影，不能据此推断路径通过率。', '']
+    if report.get('contract_retirements'):
+        text += ['', '## 已批准停用／替代', '', '以下条目退出当前有效范围；保留历史与失败证据，不计为测试成功。', '']
+        for row in report['contract_retirements']:
+            text.append(f"- {cell(row['kind'])} {cell(row['id'])} → {cell(row['replacement_ids'])}：{cell(row['reason'])}；"
+                        f"decision={cell(row['decision_id'])}；修订={cell(row['revision_ref']['path'])}")
     text += ['', '## 视觉覆盖与保真限制', '',
              '以下为证据覆盖披露，独立于业务 CASE 三态；completed 不代表未测维度已经验证。', '',
              '| 模块 / 项 | 覆盖 | 视觉模式 | 验证状态 | 原因 |', '| --- | --- | --- | --- | --- |']

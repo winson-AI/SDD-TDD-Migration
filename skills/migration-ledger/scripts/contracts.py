@@ -328,6 +328,9 @@ def validate_result(result, module, assignment, run_root=None):
                 continue
         else:
             captured = read_json(check_ref(receipt.get('result_ref')))
+            require(not (receipt.get('execution_contract_version', 1) >= 2 and
+                         (captured.get('producer') == 'harmony-adapter' or planned[pid].get('platform') in ('android', 'harmony'))),
+                    'current mobile completion requires host normalization')
         require(record.get('executed') is True, 'execution evidence required')
         if planned[pid].get('kind') in ('build', 'unit'):
             expected_argv = planned[pid]['command']['argv']

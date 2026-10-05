@@ -91,11 +91,11 @@ status 先尝试写 workflow-attention.md，再将包含末端写入错误的进
 
 v2 影响 action：replan 更新契约并回规划；unchanged 可保留未冻结 plan/独立设计，绑定原 allocation/generation 与已审修订；reverify 仅限 runtime/test_adapter 执行条件变化且已有冻结代码，保留 SPEC、使旧结果过期并正式复测。源码、范围、需求/验收变化不能用 reverify。
 
-Run 对应一次宿主迁移任务；阻塞、规划错误、环境恢复、预算追加与会话更换均继续原 Run。逐级接受版本：GO 接受根范围与四维边界，父 MO 接受子分配，叶子 MO 在任务四维、实施 SPEC 与独立测试设计完备后 freeze；这不是全 Run 同时冻结的屏障。受影响定义修订后重新冻结、提交实现与正式复测，旧 Green 不作新版本通过。
+Run 对应一次宿主任务；阻塞、纠错、环境/预算/会话变化均续原 Run。GO 接受根范围/四维，父 MO 接受子分配，叶子在任务四维、SPEC、独立测试设计完备后冻结；逐叶子推进。定义修订后重冻、实现、正式复测，旧 Green 不算新版本通过。
 
 问题先上溯到能解决的最低层：编码前叶子 planning-reopen，编码后叶子契约走 CR；父内切片走 realloc-request → redecompose → GO 接受；父范围不足或原子根无父时，同一 realloc-request 交 GO。父 MO 可从父 ID 提交请求，不能私改根范围。
 
-GO `run-review(report_ref, context_ref)` 使用 [run-revision.json](../../../template/run-revision.json)：原因、context_patch、完整 root_updates、逐叶子影响证据、可选 blocker 摘要与 lessons_ref。支持架构/知识/规则、构建/测试/运行/资源修订；global_spec_ref 更新业务规范。contract_patch 可补需求/CASE、增改 GLOBAL 路径，须绑定新业务规范并完整覆盖；不删除原需求/CASE/路径。身份、源码根、预算和质量门禁不变。新增根走 register；父内增删走 redecompose。
+GO `run-review(report_ref, context_ref)` 使用 [run-revision.json](../../../template/run-revision.json)：原因、context_patch、完整 root_updates、逐叶子影响证据、可选 blocker 摘要与 lessons_ref。支持架构/知识/规则、构建/测试/运行/资源修订；global_spec_ref 更新业务规范。contract_patch 更新当前需求/CASE/GLOBAL 路径并绑定新业务规范；移出项须 retirements=[{kind:requirement|case|global-path,id,replacement_ids,reason,evidence_refs}]，replacement_ids=[] 表示停用，否则指向同类有效 ID。仅 v2、semantic_change=true、精确 Human 决定可应用；旧 ID 不复用，原契约/失败/批准留历史，受影响 owner 重规划。身份、源码根、预算和质量门禁不变。新增根走 register；父内增删走 redecompose。
 
 Host 以当前 subject_sha256 提交 `revise-run`。v2 boundary_review 明确无未决问题、无语义/授权变化时无需 decision；改变宿主业务语义、需求/验收或授权仍需真实精确决定，v1 保留原批准规则。仅等待受影响 worker，审计按原退出协议；无关进度不使批准过期。事务保留锁/CAS/幂等、历史/失败/预算；context/revisions 保存新快照。逐叶子审阅实际影响和依赖消费者；保留的子契约仍须满足父边界，父重拆不强制重做所有孩子；根、业务规范或架构变化均清 global-plan 待 GO 重验。未变冻结模块绑定 execution_context_ref，保留预检/派发/Green；受影响模块清冻结重规划/实现/复测。变化 GLOBAL 路径保留旧结果但标失效、链接复测。blocker 仅具体摘要批准可解除；Human 语义裁决门禁不变。
 

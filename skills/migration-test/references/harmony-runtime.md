@@ -4,7 +4,7 @@
 
 Test-Runner 的 Android/Harmony UI/端到端 Main；构建/单测仍用项目 adapter。入口 [harmony_adapter.py](../scripts/harmony_adapter.py)，内核 [runtime/harmony](../runtime/harmony/main.py)。历史 harmony 命名与目录兼容保留。按节点取本页小节，诊断时才加载内核源码/提示词。
 
-外层控制流保持：OpenSpec 冻结 → Implementer/Fixer 代码接受 → Test-Runner assignment → host execute_test → staging tests → Ledger submit → MO accept → DoD/Auditor。内部 Planner/Executor/Verify 是同一 Test-Runner assignment 内的执行组件，消息、工具调用和中间结果形成执行工件；不产生独立的跨模块 assignment，不直接调用 Fixer，不修改任何 SPEC 或 Ledger 状态。跨角色共享只通过 Ledger 接受的工件引用。
+外层仍走 SPEC 冻结→代码接受→Test-Runner assignment→execute_test→Ledger→MO/审计。Planner/Executor/Verify 是同一 assignment 内的执行组件，只产出证据；不派 Fixer、不改 SPEC/状态。跨角色共享经 Ledger。
 
 ## 源能力与迁移位置
 
@@ -28,7 +28,7 @@ Test-Runner 的 Android/Harmony UI/端到端 Main；构建/单测仍用项目 ad
 
 [harmony_design.py](../scripts/harmony_design.py) 在工作流内接受 `--root <run_root> --input <MD或XMind绝对路径> --module M001 --output <run_root>/runs/harmony/sandbox/test-designer/<新请求>`；独立导入可从同样结构的输出路径推导 run_root。XMind 另需 `--config <配置JSON> --app-name <被测应用>`，只运行转换模型，不连接设备。
 
-输出保留输入摘要、完整原始用例、规范化 Markdown、XMind 主题树，以及 `draft-not-executable` 的测试候选。不会复用仅同名但内容可能过期的转换文件，也不静默补齐验收语义。Test Designer 完成 CASE/REQ 映射、参数路径展开、操作与断言时序；每条参数实例独立 PATH。候选 ID 在审核时与全局已有 ID 对齐，冻结后不因名称修改而重编号。
+输出保留输入摘要/原文、Markdown、XMind 树及 draft-not-executable 候选；不复用过期同名转换或补造验收。设计者补齐 CASE/REQ、参数实例 PATH 和断言时序；审核时对齐全局 ID，冻结后保持稳定。
 
 使用 [harmony-test-path.json](../../../template/harmony-test-path.json)，冻结 kind=automation、platform=android|harmony、task_type=test；同 CASE 两端分别编号 PATH。旧 PATH 沿用配置平台，缺省 Harmony。每个 assertion 需要：
 
@@ -39,7 +39,7 @@ Test-Runner 的 Android/Harmony UI/端到端 Main；构建/单测仍用项目 ad
 - `verification: one_image_assert | multi_image_assert | cross_step_image_assert | refer_image_assert | video_assert | auto`。
 - `after_step`：在第几个冻结步骤之后立即验证；中途断言不能拖到任务末尾补做。
 
-expected=true 须有冻结业务含义；数值/字符串用项目脚本或经 CR 明确转为谓词，不能直接改 true。after_step 交错传入 Planner，但不是确定性时序监视器，需结合本次时间线与真机验收核查。
+expected=true 须有冻结业务含义；数值/字符串用项目脚本或经 CR 转为谓词。after_step 由步骤回执绑定，业务语义仍须真实模型/设备验证。
 
 ## 2. 宿主配置
 
@@ -70,7 +70,11 @@ python <execute_test.py> --root <run_root> --module M001 --assignment <id>
 
 参数必须以 argv 数组传递，上述换行只是展示。host 自动组装完整 query，校验当前 assignment、代码基线，记录 command/query/report/log receipt。每条路径是独立进程；原内核全局注册表不会跨模块污染。原生相对 memory/媒体文件落入本次执行目录，不写源项目或共享包目录。
 
-preconditions、steps、parameters、dependency_refs 与 ASSERT 传入 Planner。Verify 以单个 `[ASSERT:id]` 找回冻结描述，不能改写期望；固定 verification 不被替换，auto 按原策略选。正式入口固定 test，结果/环境记录 platform、task_type、device，Ledger 核对冻结平台。最终文本/回放成功数不能代替断言；Android 截图失败不生成黑图证据，媒体遵守受管路径。
+Planner 仅用 `execute_step(step_number)` 执行冻结原文，再逐个 verify `[ASSERT:id]`；未验证当前检查点不能前进，不能回填旧检查点。每步保存前后截图、设备动作回执及时间，绑定 query/step hash；Ledger 重验 step-trace 与 ASSERT 的 after_step。步骤默认必须实际执行；仅冻结对象 `{instruction, allow_already_satisfied:true}` 允许已有状态免操作，仍须截图。固定 verification 直接选工具，auto 才请求模型；cross_step/refer 需冻结 reference_step，指向已执行步骤。
+
+验证请求默认 60 秒、步骤/验证 120 秒、PATH 1800 秒，由 models 的 verify_request_timeout/step_timeout/task_timeout 调整；子预算受剩余 PATH/宿主预算约束。验证请求无隐式重试；超时终止进程组，保留观察、步骤及 interruption 供宿主收集。未完成记 Yellow，已观察失败仍披露；不复用活动 worker。
+
+正式入口固定 test；platform/device/部署基线沿原门禁。新宿主 query/receipt 绑定 execution_contract_version=2，移动端报告均须步骤证据及 host normalization，缺 platform 的旧 PATH 也适用。缺步骤/检查点时同 Run 重规划；历史回执按原契约重放。旧工具录制不能冒充新步骤回放，需重新执行冻结 PATH。最终文本、回放成功数或临时 ADB 接续均不能替代正式断言/回执；截图失败不生成黑图证据。
 
 ## 4. 输出与三态
 
@@ -89,17 +93,17 @@ python <harmony_stage.py> --root <run_root> --module M001 --assignment <id>
   --receipt <PATH1/receipt.json> --receipt <PATH2/receipt.json> --output <run_root>/runs/harmony/sandbox/test-runner/<新请求>/stage-result.json
 ```
 
-它只生成 runs/harmony/sandbox 工件，不自动提交或验收；要求所有冻结路径各有一个 receipt，自动连接旧结果 `retest_of`。超时/缺报告以 executed=false Yellow 保留 receipt/log。随后照现有流程 submit/accept，GLOBAL 最终测试可用 `--module GLOBAL`。Ledger 再核对 query/context/三态、assertions 和媒体摘要，不能把 adapter 的 Yellow 改报 Green。证据损坏会拒绝接受，需要重新取证或显式记录不可执行 Yellow，不能伪造新摘要。
+仅生成 sandbox 工件；每条分配 PATH 要有 receipt，并连接 retest_of，再 submit/accept；GLOBAL 用 `--module GLOBAL`。超时/缺报告保留部分执行与 Yellow。Ledger 重验 query、步骤/断言、版本和媒体，损坏证据拒收；不能改摘要或将 Yellow 提升 Green。
 
 ## 5. 回放、memory 与 Auditor
 
-`recording_ref` 是经 Ledger 传入的显式录制文件引用。必须校验 hash 和任务文本；知识变化也改变任务文本。接受前一代码基线的录制作为导航提示，但每次 verify 都用本轮实际媒体执行，并绑定本轮 code_baseline。原 XPath/坐标回放、失败重规划和弹窗处理全部保留。未指定录制时正常规划并产生新的候选录制。
+recording_ref 校验 hash/任务文本；知识变化也改变任务文本。新步骤录制重新执行 execute_step/verify，保留本轮动作及媒体，旧坐标缓存不代替步骤证据。原回放能力仍保留在内核；正式步骤模式不允许自动弹窗处理或重试绕过冻结顺序。
 
-原引擎保存的 memory 只是执行优化素材，不能直接成为全局“修复已验证”memory。候选是否可复用由 Ledger 对应验收决定；Auditor 跨模块失败、目标变更、flaky 历史都不因回放而消失。Auditor 仍委派 Fixer，一轮后负责模块 Testing、原发现模块 Testing、独立裁决；失败输出根因待人工。本引擎不绕过这些边界。
+原生 memory 仅是执行优化素材；可复用性由 Ledger 验收，不清除失败/变更/flaky 历史。Auditor 按控制版本委派 Fixer 与独立 Test-Runner，保留最终裁决。
 
 ## 底层直接调用的留存路径约束
 
-路径约束必须落在实际写入/清理函数中，不能只依靠 CLI 或技能说明。Harmony 原生写入器统一调用 AutoTest/storage.py：
+原生写入/清理统一经过 AutoTest/storage.py：
 
 | 产物 | 缺省处理 | 无运行上下文时 |
 | --- | --- | --- |
@@ -111,9 +115,9 @@ python <harmony_stage.py> --root <run_root> --module M001 --assignment <id>
 | SDK/设备报告 | 本轮 sdk 或已校验报告目录 | SDK 执行需进入 runner scope，禁止退回第三方默认 dumps/reports |
 | shell/扩展 skill | runner cwd；子进程固定存储环境变量 | 缺 runner 拒绝，不能覆盖 TMPDIR/SDK/cache 等受管变量 |
 
-显式输出不能跨当前 run、不能经符号链接或 .. 跳转；报告文件名生成后也重新检查。外部源码、原始用例、历史报告/视频保持只读；裁剪证据在本轮保存，自动清理不能删除外部输入。直接调用如果不进入 scope，受管 temp 残留仍在该 run；宿主确认 worker 结束后处理，不做系统目录清理。
+输出不得跨 run 或经符号链接/.. 逃逸，最终文件名也复查。外部输入只读，裁剪证据存本轮；不清理外部输入。未进入 scope 的受管 temp 由宿主确认 worker 结束后处理。
 
-Test-Runner 对非法路径返回的错误保留执行日志并按现有 Yellow/环境预检失败提交；不得为了继续执行而改用任意目录或取消无关模块。生成资产经既有 Ledger 提交/验收，存储校验本身不构成测试通过。
+非法路径保留日志并提交 Yellow；不换任意目录或取消无关模块。存储校验不证明测试通过。
 
 这些检查约束本包的写入器与子进程启动参数。任意 shell 命令、扩展 Python 或构建插件仍可自行使用绝对路径/修改 cwd；Host 必须按冻结命令与文件权限约束实际写入，不能把路径校验声明成 OS 沙箱。工具安装、开发验证夹具和设备端路径遵循此前列明的例外。
 

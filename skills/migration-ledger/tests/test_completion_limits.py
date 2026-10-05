@@ -16,6 +16,12 @@ class CompletionLimitsTests(unittest.TestCase):
     def setUp(self):
         self.f = test_ledger.FlowTests()
         self.f.setUp(); self.addCleanup(self.f.doCleanups)
+        original = self.f.plan
+        def plan():
+            p = original(); p['paths'][0]['steps'] = ['Observe fixture']
+            p['paths'][0]['expected_assertions'][0]['after_step'] = 1
+            return p
+        self.f.plan = plan
         self.f.prepare(); self.f.implementation()
 
     def report(self, flags, quality='green-passed'):
@@ -27,6 +33,8 @@ class CompletionLimitsTests(unittest.TestCase):
 import sys,json
 from pathlib import Path
 sys.path.insert(0, {script_root!r})
+sys.path.insert(0, {str(Path(__file__).resolve().parent)!r})
+from test_harmony_integration import step_evidence
 from contracts import digest,file_ref
 q=json.loads(Path(sys.argv[sys.argv.index('--query-file')+1]).read_text())
 out=Path(sys.argv[sys.argv.index('--result-file')+1])
@@ -40,6 +48,7 @@ report={{'producer':'harmony-adapter', 'query_sha256':digest(q),
 if not passed:
     report['root_cause']={{'category':'code','summary':'observed fixture failure',
         'confidence':'observed','owner':'M001','next_action':'diagnose'}}
+report.update(step_evidence(q, out.parent, passed))
 out.write_text(json.dumps(report))
 sys.exit(0 if passed else 1)
 ''', encoding='utf-8')
@@ -90,7 +99,7 @@ sys.exit(0 if passed else 1)
         record = raw['paths'][0]
         record.pop('host_completion_version')
         record.update(quality='green-passed', assertions=native['assertions'])
-        with self.assertRaisesRegex(Rejected, 'not a clean pass'):
+        with self.assertRaisesRegex(Rejected, 'normalization'):
             validate_result(raw, self.f.state()['modules']['M001'], assignment, run_root=self.f.root)
 
 

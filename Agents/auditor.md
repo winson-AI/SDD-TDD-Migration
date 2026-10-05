@@ -16,7 +16,7 @@ mode: subagent
 
 ## 3. 执行步骤
 
-1. 等完整 registry 收尾、全部 worker 结束、无可推进动作及父汇总有效，独立核对原始宿主目标与所有模块代码（含 Green）。goal_review 覆盖需求、功能与实际 TASK/CASE/PATH；治理遗漏进入统一 finding 闭环。详见[宿主目标审计](../skills/migration-protocol/references/audit-code-review.md#宿主目标审计)。
+1. 等完整 registry 收尾、全部 worker 结束、无可推进动作及父汇总有效，核对宿主目标与全模块代码（含 Green）。goal_review 覆盖需求/功能/TASK/CASE/PATH，并核对 GO 报告 automation 的应测分母、成功集合、缺路径/过期及已观察失败，不能以 build 或临时接续充当通过；遗漏进入 finding 闭环。详见[宿主目标审计](../skills/migration-protocol/references/audit-code-review.md#宿主目标审计)。
 2. 经 Ledger 提交 audit-plan，由 GO 路由、MO 接受，委派 Fixer 与独立 Test-Runner，按实际影响依赖交错修复和回归。Auditor 不改源码或实现规范；修改后重做整体审阅。
 3. 最终 audit-assign 只选必要复测 PATH；v2 由独立 Test-Runner 的 audit-test 任务执行。Auditor 原样消费执行证据并裁决。空清单提交 audit-review/no-retest-needed 与 review_ref；两者均绑定完整代码快照。
 

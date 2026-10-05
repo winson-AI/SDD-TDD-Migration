@@ -38,10 +38,16 @@ class CompletionTests(unittest.TestCase):
         script.write_text(f'''import argparse,json,time,sys
 from pathlib import Path
 sys.path.insert(0,{scripts!r})
+sys.path.insert(0,{str(Path(__file__).resolve().parent)!r})
+from test_harmony_integration import step_evidence
 from harmony_contract import ObservationSink,write
 p=argparse.ArgumentParser();p.add_argument('--query-file');p.add_argument('--result-file');a=p.parse_args()
 q=json.loads(Path(a.query_file).read_text());out=Path(a.result_file).parent
 s=ObservationSink(q,out);media=out/'evidence.txt';media.write_text('fixture observation')
+def completed_report():
+    r=s.report(); proof=out/'completed-steps';proof.mkdir()
+    r.update(step_evidence(q,proof,s.observations[-1]['result']))
+    return r
 ''' + body)
         out = f.base / '.sdd-runs/fixture/runs/harmony/automation/attempt'
         rr = execute(f.root, 'M001', 'AUTO', 'P1', f.test_argv, str(f.target), out, timeout=1)
@@ -52,7 +58,7 @@ s=ObservationSink(q,out);media=out/'evidence.txt';media.write_text('fixture obse
         self.assertTrue(self.f.state()['modules']['M001']['assignments']['AUTO']['closed'])
 
     def test_completed_failure_survives_timeout_and_cannot_be_deferred(self):
-        a, rr, out = self.run_fault("s.record('[ASSERT:A1]',False,'mismatch','one_image_assert',[media]);write(a.result_file,s.report());time.sleep(30)\n")
+        a, rr, out = self.run_fault("s.record('[ASSERT:A1]',False,'mismatch','one_image_assert',[media]);write(a.result_file,completed_report());time.sleep(30)\n")
         raw = (out / 'result.json').read_bytes()
         result = build(self.f.root, 'M001', 'AUTO', [rr]); row = result['paths'][0]
         self.assertEqual(row['quality'], 'red-bug'); self.assertTrue(row['executed'])
@@ -127,7 +133,7 @@ Path({str(pid_path)!r}).write_text(str(child.pid))
 (out/'harmony/temp').mkdir(parents=True)
 (out/'harmony/temp/keep.txt').write_text('nested scratch')
 print('partial stdout',flush=True);print('partial stderr',file=sys.stderr,flush=True)
-s.record('[ASSERT:A1]',False,'observed failure','one_image_assert',[media]);write(a.result_file,s.report())
+s.record('[ASSERT:A1]',False,'observed failure','one_image_assert',[media]);write(a.result_file,completed_report())
 time.sleep(30)
 ''')
             self.assertLess(time.monotonic() - start, 5)

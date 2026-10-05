@@ -11,6 +11,8 @@ def snapshot(s):
     # Historical snapshots are digest values, not live code refs. Otherwise the
     # evidence walker would reject the old review precisely when Fixer changes code.
     return {**({'host_contract_sha256': digest([s.get('host_task_contract'), s['global_spec'], s['requirement_ids'], s['case_ids'], s['global_paths']])} if s.get('control_policy_version', 1) >= 2 else {}),
+            **({'retirements_sha256': digest([h for h in s['run_change_history'] if h.get('retirements')])}
+               if any(h.get('retirements') for h in s.get('run_change_history', [])) else {}),
             'project_context_sha256': digest(s.get('project_context_ref')),
             'global_plan_sha256': digest(s.get('global_plan')),
             'modules': {mid: {'spec_sha256': digest(m.get('plan_ref')), 'freeze_id': m.get('freeze_id'),
@@ -152,11 +154,32 @@ def goal_review(s, report):
     require(goal.get('origin_spec_ref') == origin, 'goal review must reference original host contract')
     check_ref(origin)
     rows = keyed(goal.get('requirements'), 'requirement_id')
-    require(set(rows) == set(s['requirement_ids']), 'goal review must cover every original host requirement')
+    require(set(rows) == set(s['requirement_ids']), 'goal review must cover every active host requirement')
     inventory_ref = (s.get('global_plan') or {}).get('content', {}).get('feature_inventory_ref')
     features = {row['feature_id'] for row in read_json(check_ref(inventory_ref))['features']} if inventory_ref else set()
     require(set(goal.get('feature_ids', [])) == features, 'goal review feature coverage incomplete')
     refs = []
+    import run_changes
+    retired = {(r['kind'], r['id']): r for r in run_changes.retirements(s)}
+    reviews = goal.get('retirement_reviews', [])
+    require(isinstance(reviews, list), 'retirement reviews must be an array')
+    seen = set()
+    for row in reviews:
+        require(isinstance(row, dict) and isinstance(row.get('kind'), str) and isinstance(row.get('id'), str),
+                'retirement review identity required')
+        key = (row.get('kind'), row.get('id'))
+        require(key in retired and key not in seen, 'unknown/duplicate retirement review')
+        seen.add(key); item = retired[key]
+        require(row.get('revision_ref') == item['revision_ref'] and row.get('decision_id') == item['decision_id'],
+                'retirement review must bind approved revision')
+        require(row.get('conclusion') in ('confirmed', 'finding', 'blocked') and row.get('reason'),
+                'retirement review conclusion/reason required')
+        if row['conclusion'] != 'confirmed':
+            require(any(f.get('finding_id') == row.get('finding_id') and f.get('category') == 'host-goal'
+                        for f in report.get('findings', [])), 'retirement concern must enter host-goal finding closure')
+        refs += [item['revision_ref'], item['human_source_ref'], item['previous_spec_ref']]
+        refs += nonempty(row.get('evidence_refs'), 'retirement review evidence')
+    require(seen == set(retired), 'goal review must cover every approved retirement')
     for rid, row in rows.items():
         require(row.get('conclusion') in ('satisfied', 'finding', 'blocked') and row.get('reason'), 'goal conclusion/reason required')
         refs += nonempty(row.get('evidence_refs'), 'goal review evidence')

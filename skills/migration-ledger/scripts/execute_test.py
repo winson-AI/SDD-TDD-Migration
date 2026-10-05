@@ -134,7 +134,9 @@ gradle.beforeProject { p ->
         execution_env['SDD_UNIT_REPORTS_REQUIRED'] = '1'
     test_run_id = str(uuid.uuid4())
     query = {**path, 'run_id': s['run_id'], 'module_id': module_id,
-             'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline']}
+             'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'execution_contract_version': 2}
+    if path.get('kind', 'automation') == 'automation' and path.get('platform') in ('android', 'harmony'):
+        query['step_contract_version'] = 1
     if prepared: query['frozen_test_assets'] = prepared
     if test_binding: query['test_asset_binding'] = test_binding
     if path.get('unit_report'):
@@ -173,6 +175,9 @@ gradle.beforeProject { p ->
         try:
             capture.wait(proc, timeout)
             exit_code = proc.returncode
+            if exit_code < 0 or exit_code == 124:
+                termination = finish_timeout(proc, capture)
+                note = 'Adapter interrupted: ' + json.dumps(termination)
         except subprocess.TimeoutExpired:
             termination = finish_timeout(proc, capture)
             exit_code, note = 124, 'Host timeout: ' + json.dumps(termination)
@@ -210,6 +215,9 @@ gradle.beforeProject { p ->
             if termination and termination['host_stop_required']:
                 return {'path': str(directory / 'temp'), 'status': 'retained-in-run',
                         'reason': 'process-stop-unconfirmed; Host stop/isolation verification required'}
+            if termination and directory == out / 'harmony':
+                return {'path': str(directory / 'temp'), 'status': 'retained-in-run',
+                        'reason': 'interrupted-mobile-attempt; retain raw recording for diagnosis'}
             return runner_storage.cleanup(directory)
         scratch = cleanup(out)
         # Nested Harmony owns its temp normally; SIGKILL prevents its finally.
@@ -232,7 +240,7 @@ gradle.beforeProject { p ->
                 'summary': ('Unit tests' if path.get('kind') == 'unit' else 'Build') + ' exit ' + str(exit_code) + '; inspect captured compiler/tool log',
                 'confidence': 'observed', 'owner': module_id, 'next_action': 'diagnose',
                 'evidence_refs': [file_ref(out / 'execution.log')]}})
-    receipt = {'schema_version': 1, 'producer': 'host-executor', 'run_id': s['run_id'],
+    receipt = {'schema_version': 1, 'producer': 'host-executor', 'execution_contract_version': 2, 'run_id': s['run_id'],
                'module_id': module_id, 'path_id': path_id, 'test_run_id': test_run_id,
                'assignment_id': assignment_id, 'actor_instance_id': a['instance_id'],
                'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
@@ -257,6 +265,11 @@ gradle.beforeProject { p ->
                 run_storage.checked_path(observations, out)
                 receipt['partial_observations_ref'] = file_ref(observations)
                 break
+        for name, key in [('step-trace.json', 'partial_step_trace_ref'), ('interruption.json', 'interruption_ref')]:
+            artifact = out / 'harmony' / name
+            if artifact.is_file():
+                run_storage.checked_path(artifact, out)
+                receipt[key] = file_ref(artifact)
     atomic(out / 'receipt.json', receipt)
     if aborted is not None:
         raise aborted

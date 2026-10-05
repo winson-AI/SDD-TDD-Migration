@@ -107,12 +107,16 @@ class AutomationInteractionTests(unittest.TestCase):
         self.assertNotIn(self.path['path_id'], ledger.audit_scope(state)['frozen_interactions'])
 
     def test_real_executor_query_and_completion_preserve_behavior_proof(self):
+        self.path['steps'] = ['Perform frozen back gesture']
+        self.path['expected_assertions'][0]['after_step'] = 1
         proof = self.f.n.write('.sdd-runs/gesture/staging/proof.json', self.proof())
         scripts = str(Path(__file__).resolve().parents[1] / 'scripts')
         adapter = self.f.n.write('.sdd-runs/gesture/staging/adapter.py', f'''
 import sys, json
 from pathlib import Path
 sys.path.insert(0, {scripts!r})
+sys.path.insert(0, {str(Path(__file__).resolve().parent)!r})
+from test_harmony_integration import step_evidence
 from contracts import digest, file_ref
 q = json.loads(Path(sys.argv[sys.argv.index('--query-file')+1]).read_text())
 out = Path(sys.argv[sys.argv.index('--result-file')+1])
@@ -122,7 +126,8 @@ assert q['frozen_interaction'] == proof['required_interaction']
 out.write_text(json.dumps({{'producer':'harmony-adapter', 'query_sha256':digest(q),
     **{{k:q[k] for k in ('run_id','module_id','path_id','freeze_id','code_baseline')}},
     'quality':'green-passed', 'observations_ref':file_ref(obs), 'interaction_evidence':proof,
-    'assertions':[{{'assertion_id':'A-BACK','expected':True,'actual':True,'passed':True}}]}}))
+    'assertions':[{{'assertion_id':'A-BACK','expected':True,'actual':True,'passed':True}}],
+    **step_evidence(q, out.parent)}}))
 ''')
         self.module['assignments'] = {'A1': {'assignment_id': 'A1', 'role': 'test-runner',
                                             'instance_id': 'runner', 'closed': False}}

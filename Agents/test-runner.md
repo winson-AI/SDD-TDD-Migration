@@ -27,7 +27,7 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 5. building 预批准 unit/static 命令；同一 build assignment 在 build 全绿后继续按 [逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测) 核验本轮 JUnit ID/数量/required_test_ids，再按 [静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) 独立审查逐 Scenario 生产符号与假实现，经 execute_test 执行；build、unit、static 到第一个非 Green 为止合成一份结果提交，MO 一次验收。禁止代码作者代审或仅凭 exit 0 通过。
 ### 自动化
 6. build/unit/static 接受后另行派发 automation；接到派发后提交 testing 预检，绑定实际部署版本/fixture，ready 绑定后宿主才启动 Main/Harmony，禁止自行串联。
-7. 本 scope 每条 PATH query 交 Main，汇总冻结 ASSERT、三态、原因/回执，经 MO 验收及 DoD；flaky/skip/缺报告不能 Green。
+7. 本 scope 每条 PATH query 交 Main，提交步骤、冻结 ASSERT、三态与回执；一条失败后继续前置条件独立的其他路径，有依赖则逐条记 Yellow。MO 验收后由 Ledger 派生宿主任务/模块/TASK 的 automation 成功集合与统计，flaky/skip/缺证据不能 Green。
 8. 运行时页面变体与冻结 SPEC 冲突：记 Yellow + human 根因（reason_code=runtime-spec-variant-conflict），见 [测试协议](../skills/migration-protocol/references/testing.md#运行时变体与冻结-spec-冲突)；不自行选变体。
 9. 仅自动化环境不可用：提交 test-environment=blocked 报告，由 MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务。其他真实错误沿诊断/Fixer/审计规则处理；build 与 automation 共用模块修复预算，按当前控制版本执行。
 

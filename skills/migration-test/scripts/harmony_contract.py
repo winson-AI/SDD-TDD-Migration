@@ -3,7 +3,9 @@
 No model/device dependencies. Never infer an assertion from a final task sentence.
 """
 import hashlib
+from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -22,7 +24,13 @@ def ref(path):
 
 
 def write(path, value):
-    output_path(path).write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+    target = output_path(path)
+    temporary = target.with_name(target.name + '.tmp')
+    try:
+        temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def validate_query(q):
@@ -34,6 +42,8 @@ def validate_query(q):
     assertions = q.get('expected_assertions', [])
     if not assertions or not q.get('steps'):
         raise ValueError('steps and nonempty assertions required')
+    if any(not isinstance(s, str) and (not isinstance(s, dict) or not s.get('instruction')) for s in q['steps']):
+        raise ValueError('steps require text or an instruction object')
     ids = set()
     for a in assertions:
         aid = a.get('assertion_id', '')
@@ -49,6 +59,11 @@ def validate_query(q):
         step = a.get('after_step')
         if type(step) is not int or not 1 <= step <= len(q['steps']):
             raise ValueError('assertion after_step must reference a frozen step')
+        reference = a.get('reference_step')
+        if reference is not None and (type(reference) is not int or not 1 <= reference <= step):
+            raise ValueError('reference_step must be an already executed frozen step')
+        if a['verification'] in ('cross_step_image_assert', 'refer_image_assert') and reference is None:
+            raise ValueError('explicit reference_step required for reference verification')
     return q
 
 
@@ -81,6 +96,10 @@ class ObservationSink:
         event = {'sequence': len(self.observations) + 1, 'assertion_ids': ids,
                  'description': description, 'result': result, 'reason': reason,
                  'tool': tool, 'evidence_refs': [], 'error': error}
+        if hasattr(self, 'step_trace'):
+            number = self.current_step
+            event.update(after_step=number, step_sha256=digest(self.query['steps'][number - 1]) if number else None,
+                         recorded_at=datetime.now(timezone.utc).isoformat())
         for p in evidence:
             try:
                 event['evidence_refs'].append(ref(p))
@@ -98,6 +117,13 @@ class ObservationSink:
         rows, blocked, failed, flaky = [], [], [], False
         if self.error:
             blocked.append(self.error)
+        if hasattr(self, 'step_trace'):
+            from path_execution import inspect
+            def check(value):
+                if ref(value['path']) != value: raise ValueError('step evidence changed')
+                return value['path']
+            try: blocked.extend(inspect(self.query, self.step_trace, self.observations, check))
+            except (OSError, ValueError): blocked.append('step evidence missing or changed')
         for event in self.observations:
             if len(event['assertion_ids']) != 1 or event['assertion_ids'][0] not in expected:
                 blocked.append('unknown or combined assertion identity')
@@ -128,8 +154,11 @@ class ObservationSink:
                      'confidence': 'observed' if not blocked else 'suspected',
                      'owner': self.query['module_id'], 'suspected_owner': self.query['module_id'],
                      'evidence_refs': [raw_ref], 'next_action': 'diagnose'}
-        return {'schema_version': 1, 'producer': 'harmony-adapter',
+        report = {'schema_version': 1, 'producer': 'harmony-adapter',
                 **{k:self.query[k] for k in ('run_id','module_id','path_id','freeze_id','code_baseline')},
                 'query_sha256': digest(self.query), 'quality': quality, 'flaky': flaky,
                 'assertions': rows, 'root_cause': cause, 'observations_ref': raw_ref,
                 'final_output': self.final_output, 'skipped': False}
+        if hasattr(self, 'step_trace'):
+            report.update(step_contract_version=1, step_trace_ref=ref(self.output / 'step-trace.json'))
+        return report

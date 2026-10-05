@@ -13,6 +13,28 @@ import migration_report
 
 
 class MigrationReportTests(unittest.TestCase):
+    def test_partial_execution_is_not_complete_coverage(self):
+        import automation_report
+        row = dict(module_id='M1', task_ids=['T1'], case_id='C1', path_id='P1', kind='automation',
+                   platform='android', parameters={}, code_baseline='baseline', test_run_id='attempt',
+                   evidence_refs=[], stale=False, quality='yellow-blocked', assertions=[],
+                   attempt_executed=True, execution_status='incomplete')
+        report = automation_report.summarize([row], ['C1'])
+        self.assertEqual((report['attempted_paths'], report['completed_paths'], report['partial_paths']), (1, 0, 1))
+        self.assertEqual(report['attempt_coverage'], 1)
+        self.assertEqual(report['completion_coverage'], 0)
+        self.assertTrue(report['definition_coverage_complete'])
+        self.assertFalse(report['validation_complete'])
+        row.update(execution_status='completed', quality='red-bug')
+        report = automation_report.summarize([row], ['C1'])
+        self.assertTrue(report['validation_complete']); self.assertEqual(report['passed_paths'], 0)
+        row.pop('execution_status')
+        self.assertEqual(automation_report.summarize([row], ['C1'])['completion_unknown_paths'], 1)
+        row.update(stale=True)
+        self.assertEqual(automation_report.summarize([row], ['C1'])['unattempted_paths'], 1)
+        empty = automation_report.summarize([], ['C1'])
+        self.assertIsNone(empty['completion_coverage']); self.assertFalse(empty['validation_complete'])
+
     def fixture(self, cls=test_ledger.FlowTests):
         f = cls(); f.setUp(); self.addCleanup(f.doCleanups)
         return f
@@ -102,6 +124,9 @@ class MigrationReportTests(unittest.TestCase):
         self.assertEqual(rows['P1']['root_causes'][0]['category'], 'automation-environment')
         self.assertIn(context_ref, rows['P1']['evidence_refs'])
         self.assertEqual(report['cases'][0]['quality'], 'yellow-blocked')
+        self.assertEqual(report['automation']['required_paths'], 2)  # module and GLOBAL, excluding build
+        self.assertEqual(report['automation']['passed_paths'], 0)
+        self.assertEqual(report['automation']['current_executed_paths'], 0)
 
     def test_empty_audit_review_keeps_original_case_evidence(self):
         fixture = self.fixture(test_audit_scope.AuditScopeTests)
@@ -141,3 +166,38 @@ class MigrationReportTests(unittest.TestCase):
         self.assertEqual(report['cases'][0]['quality'], 'red-bug')
         self.assertTrue(Path(report['human_report_path']).is_file())
         self.assertIn(report['human_report_path'], Path(f.state()['migration_report']['markdown']).read_text())
+
+    def test_task_membership_does_not_duplicate_successful_paths(self):
+        f = self.fixture(); f.test_green_flow_and_independent_global_audit()
+        state = f.state()
+        task = state['modules']['M001']['plan']['tasks'][0]
+        state['modules']['M001']['plan']['tasks'].append({**task, 'task_id': 'T-OTHER'})
+        report = migration_report.build(f.root, state, state['last_sequence'])
+        summary = report['automation']
+        self.assertEqual(summary['required_paths'], 2)
+        self.assertEqual(summary['passed_paths'], 2)
+        self.assertEqual(summary['tasks']['M001/T-OTHER']['passed_paths'], 1)
+        path = next(p for p in summary['successful_paths'] if p['path_id'] == 'P1')
+        self.assertEqual(len(path['task_ids']), 2)
+        self.assertEqual(summary['success_coverage'], 1)
+
+    def test_historical_report_without_statistics_remains_readable(self):
+        f = self.fixture(); report = self.report(f)
+        report.pop('automation')
+        self.assertIn('历史报告未包含 automation 统计', migration_report.render(report))
+
+    def test_missing_paths_stale_and_observed_failure_are_explicit(self):
+        f = self.fixture()
+        summary = self.report(f)['automation']
+        self.assertFalse(summary['coverage_complete'])
+        self.assertTrue(summary['missing_case_paths'])
+        f.test_green_flow_and_independent_global_audit()
+        state = f.state(); m = state['modules']['M001']
+        state['audit']['snapshot'] = {}
+        m['results']['P1'].update(quality='yellow-blocked', assertions=[{'passed': False, 'actual': False}])
+        report = migration_report.build(f.root, state, state['last_sequence'])
+        self.assertIn('P1', [p['path_id'] for p in report['automation']['observed_failure_paths']])
+        self.assertNotIn('P1', [p['path_id'] for p in report['automation']['successful_paths']])
+        m['stale'] = True
+        report = migration_report.build(f.root, state, state['last_sequence'])
+        self.assertEqual(report['automation']['passed_paths'], 0)
