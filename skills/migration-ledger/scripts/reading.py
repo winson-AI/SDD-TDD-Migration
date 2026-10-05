@@ -25,7 +25,7 @@ ROTATE_BUDGET = 100_000
 TEMPLATE_BUDGET = 20_000
 TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 539_000  # policy 2 consolidated ceiling; reduce after future deduplication
+PROTOCOL_BUDGET = 539_000  # consolidated ceiling; reduce after future deduplication
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -55,15 +55,13 @@ ROLE = {
 # audit-scope.md sections by operation; an audit operation outside this table reads the whole file.
 D1, D2, D3, D4, D5 = ('1. 所有模块执行阶段结束后统一启动', '2. 收集、根因分析与 finding 路由', '3. 按问题依赖交错修复和回归',
                       '4. 失败隔离与审计报告', '5. 人工审核后恢复')
-PROBLEM = ['问题审计与最终审计', '问题处理']
 FINAL = ['入口与范围', '收尾的实际执行契约', '问题处理']
 AUDIT_OPS = {
     'audit-collect': [D1, D2], 'audit-plan': [D2], 'audit-route-batch': [D2, D3], 'audit-route': [D2, D3],
     'audit-work': [D3, D4], 'audit-retest': [D3, D4], 'audit-block': [D3, D4], 'audit-verdict': [D3, D4],
     'audit-release': [D5], 'audit-defer': ['问题处理', '活动审计的游标恢复'], 'repair-accept': [D3, '问题处理'],
-    'audit-resume': PROBLEM, 'problem-assign': PROBLEM, 'problem-audit': PROBLEM,
     'audit-assign': FINAL, 'audit': FINAL, 'audit-unavailable': ['活动审计的游标恢复', '收尾的实际执行契约'],
-    'audit-revoke': ['活动审计的游标恢复'], 'audit-recover': ['问题审计与最终审计'],
+    'audit-revoke': ['活动审计的游标恢复'], 'audit-recover': ['宿主统一审计'],
 }
 # The module orchestrator's guard and loop rules apply everywhere; the rest only to the operations that use them.
 MO_OPS = {
@@ -133,7 +131,7 @@ PLANNING_ROLES = ('global-orchestrator', 'module-orchestrator', 'spec-designer')
 def family(role, operation):
     """Which part of the role's duties an operation belongs to; only roles with distinct duty sets have families."""
     operation = operation or ''
-    audit = operation.startswith('audit') or operation in ('problem-assign', 'problem-audit', 'repair-accept')
+    audit = operation.startswith('audit') or operation == 'repair-accept'
     if role == 'auditor':
         return 'code-review' if operation == 'audit-code-review' else 'audit'
     if role == 'global-orchestrator':
@@ -151,8 +149,8 @@ def audit_sections(operation):
 
 def op_sections(role, operation):
     """Sections that depend on the operation inside a family."""
-    if operation in ('plan-review', 'planning-reopen', 'upgrade-control-policy'):
-        return sections('state-machine.md', '控制主线与版本') + sections('openspec.md', '冻结算法', '变更控制')
+    if operation in ('plan-review', 'planning-reopen'):
+        return sections('state-machine.md', '控制主线') + sections('openspec.md', '冻结算法', '变更控制')
     if operation in ('audit-test-assign', 'audit-test-submit'):
         return sections('audit-code-review.md', '宿主目标审计') + sections('audit-scope.md', '收尾的实际执行契约')
     if operation in ('run-review', 'revise-run', 'realloc-request', 'redecompose', 'redecompose-accept'):
@@ -213,7 +211,7 @@ def agent_topics(path, flags):
     return tuple(r for r in rows if topic_flag(r) is None or flags.get(topic_flag(r)))
 
 
-PLANNING_OPERATIONS = ('register', 'global-plan', 'decompose', 'decompose-accept', 'module-summary', 'freeze', 'plan', 'change', 'redecompose', 'redecompose-accept', 'realloc-request', 'run-review', 'revise-run', 'plan-review', 'planning-reopen', 'upgrade-control-policy')
+PLANNING_OPERATIONS = ('register', 'global-plan', 'decompose', 'decompose-accept', 'module-summary', 'freeze', 'plan', 'change', 'redecompose', 'redecompose-accept', 'realloc-request', 'run-review', 'revise-run', 'plan-review', 'planning-reopen')
 
 
 def _cells(line):
@@ -364,7 +362,7 @@ def entries(role, test_scope=None, ui=False, reuse=False, operation=None, teleme
     if operation == 'session':
         items += sections('host-integration.md', '会话交接')
     if operation in ('freeze', 'plan'):
-        items += sections('state-machine.md', '控制主线与版本')
+        items += sections('state-machine.md', '控制主线')
     if operation in ('decompose', 'decompose-accept', 'global-plan'):
         items += sections('module-decomposition.md', '验证边界')
     selected = [k for k in rows if k in matrix_keys()]
@@ -471,7 +469,7 @@ TEMPLATES = {
     'diagnostician': {'base': ['diagnosis.md']},
     'escalation': {'base': ['escalation.md', 'human-decision.json']},
     'auditor': {'code-review': ['audit-code-review.json', 'audit-change-inventory.md'],
-                'audit': ['audit-closure-plan.json', 'audit-report.md', 'audit-review.json', 'problem-audit-report.json', 'test-result.json']},
+                'audit': ['audit-closure-plan.json', 'audit-report.md', 'audit-review.json', 'test-result.json']},
     'test-runner': {'base': ['stage-result.json', 'test-result.json', 'context-readiness.json']},
 }
 # Module-orchestrator templates by operation; an operation outside the table only updates the module status.

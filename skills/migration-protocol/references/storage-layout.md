@@ -169,7 +169,7 @@ workspace_root 位于目标工程内时，自动构建发现排除 `.sdd-migrati
 
 历史不搬迁/改 hash。嵌套旧控制器/协议引用须有本 run 已提交事件的路径/哈希证明，读受管 artifacts 同哈希归档，新事件记 historical-snapshot/accepted_event；缺损拒绝。其他输入及 SPEC/代码/环境仍严格校验；历史不作当前指令。`trace.py evidence --root <run_root> --sha256 <hash>` 返回引用、归档路径/事件证明，不写状态。
 
-重复 prepare 可登记快照索引。init/apply/status/resume/recover 绑定 prepare 布局，init 绑定 project_context_ref。无 storage_layout 时 `ledger.py history --root <目录>` 仅重放，不刷新投影/写锁/诊断；继续需原版本兼容宿主恢复；采用新布局需兼容迁移评审，不伪装同路径恢复或用新任务替代原任务。
+重复 prepare 可登记快照索引。init/apply/status/resume/recover 绑定 prepare 布局，init 绑定 project_context_ref。无 storage_layout 时 `ledger.py history --root <目录>` 仅重放，不刷新投影/写锁/诊断；继续执行须按当前存储约束恢复并在同 Run 补齐证据；调整布局需迁移评审，不伪装同路径恢复或用新任务替代原任务。
 
 索引或准备记录缺失时，也必须核对快照的 project_id/run_id/run_root 与请求及实际恢复目录一致，再登记索引。复制出来但仍绑定原路径的快照会被拒绝，不写入错误位置索引；应回到原绑定目录恢复。
 

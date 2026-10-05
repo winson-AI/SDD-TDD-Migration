@@ -188,33 +188,11 @@ class WorkflowTests(unittest.TestCase):
 
     def defer(self, category='code'):
         self.call('audit-defer', {'root_cause': {'category': category, 'summary': 'requires shared resolution',
-                                               'confidence': 'confirmed', 'owner': 'auditor', 'next_action': 'problem-audit'},
+                                               'confidence': 'confirmed', 'owner': 'auditor', 'next_action': 'host-task-audit'},
                                   'evidence_ref': self.ref(f'handoff-{self.n}.md', 'failure evidence')})
 
-    def start_problem(self, aid='PA1'):
-        self.call('problem-assign', {'assignment_id': aid, 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
 
-    def problem_report(self, aid='PA1', green=True, action=None):
-        s = self.state(); a = workflow.problem_assignment(s, 'M001'); m = s['modules']['M001']
-        adapter = self.base / f'problem-{aid}.py'
-        adapter.write_text("import argparse,json\np=argparse.ArgumentParser();p.add_argument('--query-file');p.add_argument('--result-file');a=p.parse_args()\n" +
-                           "json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':" + ('2' if green else '1') +
-                           ",'passed':" + ('True' if green else 'False') + "}]},open(a.result_file,'w'))\n")
-        rr = execute(self.root, 'M001', aid, 'P1', [sys.executable, str(adapter)], str(self.target), self.base / f'problem-exec-{aid}')
-        receipt = json.loads(Path(rr['path']).read_text())
-        previous = s.get('problem_results', {}).get('M001', m['results']).get('P1')
-        root = {'category': 'code', 'summary': 'independent reproduction', 'confidence': 'confirmed', 'owner': 'M001', 'next_action': action or ('retry' if green else 'fix')}
-        result = {'schema_version': 1, 'kind': 'tests', 'module_id': 'M001', 'run_id': 'demo',
-                  'assignment_id': aid, 'actor_instance_id': 'auditor', 'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
-                  'paths': [{'path_id': 'P1', 'quality': 'green-passed' if green else 'red-bug', 'executed': True,
-                             'test_run_id': receipt['test_run_id'], 'execution_receipt': rr, 'root_cause': root,
-                             'retest_of': previous['test_run_id'] if previous else None,
-                             'assertions': json.loads(Path(receipt['result_ref']['path']).read_text())['assertions']}]}
-        return {'assignment_id': aid, 'snapshot': a['snapshot'], 'modules': [{'module_id': 'M001', 'result': result,
-                    'root_cause': root, 'action': action or ('retry' if green else 'fix')}]}
 
-    def submit_problem(self, report):
-        self.call('problem-audit', {'report_ref': self.ref(f'problem-report-{self.n}.json', report)}, role='auditor', module=None)
 
     def test_global_coverage_blocks_implementation_and_rejects_missing_owners(self):
         p = self.plan(); self.call('plan', {'plan_ref': self.ref('p.json', p)}, role='spec-designer')
@@ -241,8 +219,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(s['next_steps'][0]['operation'], 'audit-defer')
         self.assertEqual(s['modules']['M001']['fix_memory'][0]['status'], 'failed')
         self.assertFalse(s['modules']['M001']['fix_memory'][0]['reusable'])
-        self.defer(); self.start_problem()
-        self.assertEqual(self.state()['global_next_step']['operation'], 'problem-audit')
+        self.defer()
+        self.assertEqual(self.state()['global_next_step']['operation'], 'audit-code-review')
 
     def test_local_fix_resumes_the_implementer_session_first(self):
         self.failed_module()
@@ -337,7 +315,7 @@ class WorkflowTests(unittest.TestCase):
         m = self.state()['modules']['M001']
         self.call('assign', request={'schema_version': 1, 'request_id': 'hinted-assign', 'run_id': 'demo', 'module_id': 'M001',
                                      'expected_revision': m['revision'], 'operation': 'assign',
-                                     'payload': {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'implementer'},
+                                     'payload': {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'implementer', 'task_ids': ['T1'], 'path_ids': ['P1']},
                                      'hint': {'session_id': 'S-IMPL', 'card_sha256': step['card_sha256']}})
         hints = self.state()['modules']['M001']['assignments']['I1']['hints']
         self.assertEqual((hints['session_used'], hints['card_followed']), ('S-IMPL', True))
@@ -387,11 +365,11 @@ class WorkflowTests(unittest.TestCase):
         self.prepare()
         step = self.state()['next_steps'][0]
         self.assertEqual((step['operation'], step['worker_role'], step['mechanical']), ('assign', 'implementer', True))
-        self.assertEqual(step['payload'], {'role': 'implementer'})
+        self.assertEqual(step['payload'], {'role': 'implementer', 'task_ids': ['T1'], 'path_ids': ['P1']})
         self.implementation()
         step = self.state()['next_steps'][0]
         self.assertEqual((step['operation'], step['worker_role'], step['mechanical']), ('assign', 'test-runner', True))
-        self.assertEqual(step['payload'], {'role': 'test-runner'})
+        self.assertEqual(step['payload'], {'role': 'test-runner', 'task_ids': ['T1'], 'path_ids': ['P1']})
         # The host adds the ids it owns and submits as the module orchestrator; every assign guard still runs.
         self.call('assign', {**step['payload'], 'assignment_id': 'TEST1', 'instance_id': 'test-runner'})
         self.assertFalse(self.state()['modules']['M001']['assignments']['TEST1']['closed'])
@@ -402,11 +380,11 @@ class WorkflowTests(unittest.TestCase):
         f.prepare(); f.implementation()
         step = f.state()['next_steps'][0]
         self.assertEqual((step['operation'], step['ready'], step['mechanical']), ('assign', True, True))
-        self.assertEqual(step['payload'], {'role': 'test-runner'})  # nobody has preflighted yet: the host names the instance
+        self.assertEqual(step['payload'], {'role': 'test-runner', 'task_ids': ['T1'], 'path_ids': ['P1']})  # nobody has preflighted yet: the host names the instance
         ref = f.record(f.report('testing', instance='tester'))
         step = f.state()['next_steps'][0]
         self.assertEqual(step['mechanical'], True)
-        self.assertEqual(step['payload'], {'role': 'test-runner', 'instance_id': 'tester', 'context_ref': ref})
+        self.assertEqual(step['payload'], {'role': 'test-runner', 'instance_id': 'tester', 'context_ref': ref, 'task_ids': ['T1'], 'path_ids': ['P1']})
         f.raw('assign', {**step['payload'], 'assignment_id': 'TEST1'})
         self.assertEqual(f.state()['modules']['M001']['assignments']['TEST1']['instance_id'], 'tester')
 
@@ -446,53 +424,30 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.state()['modules']['M001']['local_fix_used'], 0)
         self.assertEqual(self.state()['modules']['M001']['phase'], 'waiting-auditor')
 
-    def test_problem_audit_green_requires_main_retest_and_final_audit(self):
-        r = self.failed_module('external'); self.defer('external'); self.start_problem()
-        with self.assertRaises(Rejected): self.call('invalidate', {'reason': 'audit locked'})
-        report = self.problem_report()
-        broken = copy.deepcopy(report); broken['modules'][0]['result']['paths'][0].pop('retest_of')
-        with self.assertRaises(Rejected): self.submit_problem(broken)
-        self.submit_problem(report)
-        self.assertEqual(self.state()['modules']['M001']['phase'], 'waiting-auditor')
-        self.call('audit-resume')
-        with self.assertRaises(Rejected): self.call('complete', {})
-        a, r2 = self.make_test_result('TEST2', previous=r['paths'][0]['test_run_id'])
-        self.submit(r2, a); self.call('accept', {'assignment_id': 'TEST2'})
-        self.call('complete', {'dod_ref': self.ref('dod.md', 'reviewed')})
-        self.assertEqual(self.state()['quality'], 'yellow-blocked')
-        self.assertEqual(self.state()['global_next_step']['operation'], 'audit-code-review')
+    def test_local_problem_audit_entry_is_rejected(self):
+        self.failed_module('external'); self.defer('external')
+        before = self.state()['last_sequence']
+        for op in ('problem-assign', 'problem-audit', 'audit-resume'):
+            with self.subTest(op=op), self.assertRaises(Rejected):
+                self.call(op, {}, role='global-orchestrator', module=None)
+        self.assertEqual(self.state()['last_sequence'], before)
+        self.assertEqual(self.state()['modules']['M001']['quality'], 'red-bug')
 
-    def test_a_human_disposition_names_the_subject_to_approve(self):
-        self.failed_module('external'); self.defer('external'); self.start_problem()
-        self.submit_problem(self.problem_report(green=False, action='human'))
-        step = self.state()['next_steps'][0]
-        resolution = self.state()['audit_resolutions']['M001']
-        self.assertEqual((step['operation'], step['ready'], step['approval_subject_sha256']), ('audit-resume', False, digest(resolution)))
-        self.approve(step['approval_subject_sha256'], 'DISPOSE')
-        step = self.state()['next_steps'][0]
-        self.assertEqual((step['ready'], step['payload']), (True, {'decision_id': 'DISPOSE'}))
+    def test_old_disposition_does_not_reactivate_a_separate_workflow(self):
+        self.failed_module('external'); self.defer('external')
+        state = self.state()
+        state['audit_resolutions'] = {'M001': {'action': 'human'}}
+        step = ledger.next_step(state, state['modules']['M001'])
+        self.assertIsNone(step['operation']); self.assertFalse(step['ready'])
 
-    def test_problem_auditor_delegates_fix_and_memory_is_verified(self):
-        r = self.failed_module('external'); self.defer('external'); self.start_problem()
-        self.submit_problem(self.problem_report(green=False))
-        with self.assertRaises(Rejected): self.call('audit-resume', role='auditor')
-        self.call('audit-resume'); self.implementation('fixer', 'F1')
-        a, r2 = self.make_test_result('TEST2', previous=r['paths'][0]['test_run_id'])
-        self.submit(r2, a); self.call('accept', {'assignment_id': 'TEST2'})
-        memory = self.state()['modules']['M001']['fix_memory'][0]
-        self.assertTrue(memory['reusable']); self.assertEqual(memory['status'], 'verified')
-        self.assertIn('regression_ref', memory); self.assertIn('fix_note_ref', memory)
-        global_memory = json.loads((self.root / 'ledger/repair-memory.json').read_text())
-        self.assertEqual(global_memory['entries'][0]['module_id'], 'M001')
+    def test_whole_task_audit_collects_the_deferred_failure(self):
+        self.failed_module('external'); self.defer('external')
+        test_ledger.code_review(self)
+        self.call('audit-collect', {'batch_id': 'B1', 'auditor_instance_id': 'auditor'}, role='global-orchestrator', module=None)
+        self.assertEqual(set(self.state()['audit_batch']['sources']), {'M001'})
 
-    def test_precode_problem_report_stays_yellow(self):
-        self.global_plan(); self.defer('tooling'); self.start_problem()
-        s = self.state()
-        report = {'assignment_id': 'PA1', 'snapshot': s['audit_assignment']['snapshot'], 'modules': [{
-            'module_id': 'M001', 'quality': 'yellow-blocked', 'result': None, 'action': 'wait',
-            'root_cause': s['audit_queue']['M001']['root_cause']}]}
-        self.submit_problem(report)
-        with self.assertRaises(Rejected): self.call('audit-resume')
+    def test_precode_blocker_cannot_start_execution(self):
+        self.global_plan(); self.defer('tooling')
         with self.assertRaises(Rejected):
             self.call('audit-assign', {'assignment_id': 'FINAL', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         self.assertEqual(self.state()['quality'], 'yellow-blocked')
@@ -545,7 +500,7 @@ class WorkflowTests(unittest.TestCase):
                               'write_paths': [str(self.target / 'm2')]}, role='global-orchestrator', module=None)
         self.prepare()
         self.call('audit-defer', {'root_cause': {'category': 'dependency', 'summary': 'producer required',
-                                               'confidence': 'confirmed', 'owner': 'M001', 'next_action': 'problem-audit'},
+                                               'confidence': 'confirmed', 'owner': 'M001', 'next_action': 'host-task-audit'},
                                   'evidence_ref': self.ref('consumer.md', 'waiting on producer')}, module='M002')
         self.implementation()
         state = self.state()

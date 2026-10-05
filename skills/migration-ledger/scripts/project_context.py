@@ -21,7 +21,7 @@ FIELDS = {'package_root', 'legacy_root', 'target_root', 'architecture_path', 're
           'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources', 'build', 'workspace_root', 'watchdog',
           'target_resources'}
 DOCUMENTS = ('architecture_path', 'requirements_path', 'test_cases_path', 'project_rules_path')
-BUDGETS = {'max_parallel_modules': 3, 'max_fix_rounds': 3, 'max_audit_rounds': 3, 'max_no_progress_rounds': 2, 'local_fix_rounds': 1,
+BUDGETS = {'max_parallel_modules': 3, 'max_fix_rounds': 3, 'max_audit_rounds': 3, 'max_no_progress_rounds': 2,
            'max_yellow_retries': 2}
 
 
@@ -228,15 +228,21 @@ def verify_snapshot(ref):
     return snapshot
 
 
+def current_config(snapshot):
+    """Project a sealed snapshot into current configuration; historical bytes stay untouched."""
+    config = copy.deepcopy(snapshot['effective_config'])
+    config.get('defaults', {}).get('budgets', {}).pop('local_fix_rounds', None)
+    return config
+
+
 def prepared_input(ref):
     """The run input in the shape Ledger init takes; Global fills the spec, requirements, cases and global paths."""
-    snapshot = verify_snapshot(ref); config = snapshot['effective_config']; sources = snapshot['source_refs']
+    snapshot = verify_snapshot(ref); config = current_config(snapshot); sources = snapshot['source_refs']
     defaults = config.get('defaults', {})
     return {**{k: copy.deepcopy(config[k]) for k in ('workspace_root', 'package_root', 'legacy_root', 'target_root', 'test_adapter',
                 'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources', 'target_resources') if k in config},
             'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
             'module_name': snapshot['module_name'], 'single_module_id': None, 'project_context_ref': ref, 'project_sources': sources,
-            'control_policy_version': snapshot.get('control_policy_version', 1),
             'behavior_contract_required': snapshot.get('behavior_contract_required', False),
             'test_design_required': snapshot.get('test_design_required', False),
             'planning_coverage_required': snapshot.get('planning_coverage_required', False),
@@ -411,7 +417,7 @@ def _prepare(root, run_root, request, actor, storage):
         if build.get('environment_ref'):
             sources['build_environment'] = copy_ref(files, file_ref(build['environment_ref']))
             build['environment_ref'] = sources['build_environment']['path']
-        snapshot = {'schema_version': 1, 'planning_coverage_required': True, 'host_handoff_required': True, 'control_policy_version': 2, 'behavior_contract_required': True, 'test_design_required': True, 'project_id': record['project_id'], 'project_revision': record['revision'],
+        snapshot = {'schema_version': 1, 'planning_coverage_required': True, 'host_handoff_required': True, 'behavior_contract_required': True, 'test_design_required': True, 'project_id': record['project_id'], 'project_revision': record['revision'],
                     'dependency_resolution_required': effective.get('defaults', {}).get('quality_gates', {}).get('dependency_resolution_required', False),
                     'project_revision_hash': digest(record), 'project_config': freeze_refs(files, record['config']), 'effective_config': effective,
                     'run_id': request['run_id'], 'run_root': str(run_root), 'entry_mode': mode, 'module_name': name,
@@ -459,8 +465,6 @@ def bind_run(ref, run_root, run_id, payload):
     require(payload.get('ui_fidelity_required', True) is True, 'prepared run requires UI fidelity evidence')
     require(payload.get('spec_closure_required', True) is True, 'prepared run requires static spec closure review')
     require(payload.get('unit_tests_required', True) is True, 'prepared run requires unit tests for applicable Logic items')
-    policy_version = snapshot.get('control_policy_version', 1)
-    require(payload.get('control_policy_version', policy_version) == policy_version, 'run/config control policy mismatch')
     behavior_required = snapshot.get('behavior_contract_required', False)
     design_required = snapshot.get('test_design_required', False)
     handoff_required = snapshot.get('host_handoff_required', False)
@@ -472,7 +476,7 @@ def bind_run(ref, run_root, run_id, payload):
     require(payload.get('dimension_slicing_required', True) is True, 'prepared run requires dimension slicing')
     require(payload.get('context_readiness_required', True) is True, 'prepared run requires context readiness')
     return {'dependency_resolution_required': dependency_gate, 'git_checkpoint': git_gate, 'fixer_self_diagnosis': self_diagnosis, 'write_scope_check': scope_check, 'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': copy.deepcopy(config.get('build', {})), 'target_resources': copy.deepcopy(config.get('target_resources', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
-            'host_handoff_required': handoff_required, 'planning_coverage_required': coverage_required, 'control_policy_version': policy_version, 'behavior_contract_required': behavior_required, 'test_design_required': design_required, 'project_context_ref': ref, 'project_id': snapshot['project_id'],
+            'host_handoff_required': handoff_required, 'planning_coverage_required': coverage_required, 'behavior_contract_required': behavior_required, 'test_design_required': design_required, 'project_context_ref': ref, 'project_id': snapshot['project_id'],
             'project_revision': snapshot['project_revision'], 'module_name': snapshot['module_name']}
 
 

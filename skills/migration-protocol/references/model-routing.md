@@ -26,7 +26,7 @@
 | **low_cost** | Test-Runner execute（跑 build/automation、采断言）、`accept`/`submit`/`dependency-ready`/`audit-retest`/`automation-resume` 等机械步、Harmony Executor | 执行 + 确定性判定 |
 | **strong**（默认） | GO、Spec-Designer、父 MO decompose、Implementer、Fixer、Diagnostician、Auditor、Harmony Planner/Verify | 设计/迁移/分析/根因/裁决 |
 
-- **不可降级（strong-only）**：`spec-designer`/`diagnostician`/`auditor` 角色，`plan`/`freeze`/`diagnose`/`audit-plan`/`audit-verdict`/`audit`/`problem-audit` 操作——`enforce` 拒绝其使用 low_cost。
+- **不可降级（strong-only）**：`spec-designer`/`diagnostician`/`auditor` 角色，`plan`/`freeze`/`diagnose`/`audit-plan`/`audit-verdict`/`audit` 操作——`enforce` 拒绝其使用 low_cost。
 - **升级信号**：模块存在未确认根因的失败、`no_progress_rounds>0` 或有 `repair_findings` 时，`reasoning_escalated` 让该步强制 strong（“判断观察结果”不确定时用强推理）。确定性断言比对本由 [execute_test.py](../../migration-ledger/scripts/execute_test.py) 完成，非模型任务。
 - Implementer 默认 strong（迁移常需理解语义），可经 override 调整；strong-only 步骤不可 override 降级。
 

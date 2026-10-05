@@ -99,7 +99,7 @@ python <harmony_stage.py> --root <run_root> --module M001 --assignment <id>
 
 recording_ref 校验 hash/任务文本；知识变化也改变任务文本。新步骤录制重新执行 execute_step/verify，保留本轮动作及媒体，旧坐标缓存不代替步骤证据。原回放能力仍保留在内核；正式步骤模式不允许自动弹窗处理或重试绕过冻结顺序。
 
-原生 memory 仅是执行优化素材；可复用性由 Ledger 验收，不清除失败/变更/flaky 历史。Auditor 按控制版本委派 Fixer 与独立 Test-Runner，保留最终裁决。
+原生 memory 仅是执行优化素材；可复用性由 Ledger 验收，不清除失败/变更/flaky 历史。Auditor 委派 Fixer 与独立 Test-Runner，保留最终裁决。
 
 ## 底层直接调用的留存路径约束
 

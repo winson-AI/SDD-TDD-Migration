@@ -24,6 +24,11 @@ class InteractionCompletionTests(unittest.TestCase):
         f.module['stale'] = False
         self.assignment = {'run_id': 'gesture', 'module_id': 'M001', 'assignment_id': 'AUTO',
                            'role': 'test-runner', 'instance_id': 'runner', 'closed': False}
+        from contracts import digest, file_ref
+        f.module['plan_hash'] = digest(f.module['plan'])
+        f.module['plan_ref'] = file_ref(f.f.n.write('.sdd-runs/gesture/staging/execution-plan.json', f.module['plan']))
+        self.assignment['execution_contract'] = {'plan_hash': f.module['plan_hash'], 'plan_ref': f.module['plan_ref'],
+            'task_ids': [], 'path_ids': [f.path['path_id']]}
         f.module['assignments'] = {'AUTO': self.assignment}
         self.state = {'run_id': 'gesture', 'modules': {'M001': f.module}}
 

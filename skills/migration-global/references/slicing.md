@@ -18,7 +18,7 @@ GO 从全局 legacy/target、架构、需求、知识和测试输入抽取完整
 
 父子规划均先读相同全局上下文与最新分工，再按 scope 聚焦；检查目标已有能力及兄弟 owner，避免重复实现和交叉写入。single_module_id 只选根功能；不得静默扩张至其他根。父节点不另跑孩子代码/测试，父汇总不覆盖子结论，单个失败不停止无关兄弟。
 
-宿主先保存配置、prepare、init，再经 Ledger 接受切片/覆盖。子模块各自规划、冻结、执行、验证、DoD 或明确挂起；父汇总有效且所有模块本轮收尾后，Auditor 统一审计宿主目标。控制器提供状态/门禁，实际 Agent 派发仍由宿主完成。切片、验证独立性及主线见[父子 MO 协议](../../migration-protocol/references/module-decomposition.md)和[控制主线](../../migration-protocol/references/state-machine.md#控制主线与版本)。
+宿主先保存配置、prepare、init，再经 Ledger 接受切片/覆盖。子模块各自规划、冻结、执行、验证、DoD 或明确挂起；父汇总有效且所有模块本轮收尾后，Auditor 统一审计宿主目标。控制器提供状态/门禁，实际 Agent 派发仍由宿主完成。切片、验证独立性及主线见[父子 MO 协议](../../migration-protocol/references/module-decomposition.md)和[控制主线](../../migration-protocol/references/state-machine.md#控制主线)。
 
 ## 项目级切片输入
 

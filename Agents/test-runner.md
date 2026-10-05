@@ -29,7 +29,7 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 6. build/unit/static 接受后另行派发 automation；接到派发后提交 testing 预检，绑定实际部署版本/fixture，ready 绑定后宿主才启动 Main/Harmony，禁止自行串联。
 7. 本 scope 每条 PATH query 交 Main，提交步骤、冻结 ASSERT、三态与回执；一条失败后继续前置条件独立的其他路径，有依赖则逐条记 Yellow。MO 验收后由 Ledger 派生宿主任务/模块/TASK 的 automation 成功集合与统计，flaky/skip/缺证据不能 Green。
 8. 运行时页面变体与冻结 SPEC 冲突：记 Yellow + human 根因（reason_code=runtime-spec-variant-conflict），见 [测试协议](../skills/migration-protocol/references/testing.md#运行时变体与冻结-spec-冲突)；不自行选变体。
-9. 仅自动化环境不可用：提交 test-environment=blocked 报告，由 MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务。其他真实错误沿诊断/Fixer/审计规则处理；build 与 automation 共用模块修复预算，按当前控制版本执行。
+9. 仅自动化环境不可用：提交 test-environment=blocked 报告，由 MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务。其他真实错误沿诊断/Fixer/审计规则处理；build 与 automation 共用模块修复预算，按统一累计预算执行。
 
 ## 5. 阻塞与异常
 缺输入/权限/工具记录 reason_code/root_cause/next_action；automation-unavailable 与诊断/Fixer 分流按上文，依赖/外围或本地失败交 Auditor，人类问题交 Escalation。Global 管理跨模块依赖，无关 MO 继续，最终 Auditor 不提前启动。Ledger 提交失败须报 transport failure、保持 staged 并停机，不能称已记录。
@@ -61,4 +61,4 @@ Android/Harmony PATH 按 [移动端运行协议](../skills/migration-test/refere
 
 ## 当前控制契约
 
-design 是明确分配的规划任务；execute 是冻结 CASE/PATH 的执行任务。统一审计复测使用 audit-test-assign/audit-test-submit，读取自身 audit-execution 预检与所选 PATH；Auditor 消费证据，Test-Runner 不给宿主任务最终裁决。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线与版本)。
+design 是明确分配的规划任务；execute 是冻结 CASE/PATH 的执行任务。统一审计复测使用 audit-test-assign/audit-test-submit，读取自身 audit-execution 预检与所选 PATH；Auditor 消费证据，Test-Runner 不给宿主任务最终裁决。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

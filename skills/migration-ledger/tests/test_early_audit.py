@@ -1,4 +1,4 @@
-"""A deferred module is audited as soon as its dependency/consumer closure is settled; the rest keeps moving."""
+"""Host audit waits for the complete registry while unrelated modules keep moving."""
 import unittest
 
 import test_ledger
@@ -23,49 +23,21 @@ class EarlyAuditTests(unittest.TestCase):
         f.submit(retry, a); f.call('accept', {'assignment_id': 'RETRY'})
         test_workflow.WorkflowTests.defer(f)
 
-    def test_independent_peer_keeps_working_during_the_early_audit(self):
-        f = self.f
-        self.iso.prepare_peers()                     # M002 frozen with code, still testing: not settled
+    def test_independent_peer_continues_while_host_audit_waits(self):
+        f = self.f; self.iso.prepare_peers()
         f.call('assign', {'assignment_id': 'T2', 'role': 'test-runner', 'instance_id': 'peer-tester'}, module='M002')
         self.defer_m001()
-        f.call('problem-assign', {'assignment_id': 'PA1', 'instance_id': 'auditor', 'module_ids': ['M001']},
-               role='global-orchestrator', module=None)
-        s = f.state()
-        self.assertEqual(s['audit_assignment']['closure'], ['M001'])
-        steps = {step['module_id']: step for step in s['next_steps']}
-        self.assertEqual(steps['M001']['reason'], 'await-auditor')
-        self.assertNotEqual(steps['M002'].get('reason'), 'await-auditor')
-        self.iso.finish_peer_test()                  # M002 submits, is accepted and completes meanwhile
-        self.assertEqual(f.state()['modules']['M002']['phase'], 'completed')
-        with self.assertRaisesRegex(Rejected, 'audit'):
-            f.call('invalidate', {'reason': 'audit locked'})  # M001 itself stays locked
-        with self.assertRaisesRegex(Rejected, 'audit'):
-            f.call('audit-assign', {'assignment_id': 'FINAL', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
+        self.iso.assert_auditor_waits()
+        self.assertFalse(f.state().get('audit_assignment'))
+        self.iso.finish_peer_test()
+        self.assertEqual(f.state()['global_next_step']['operation'], 'audit-code-review')
 
-    def test_consumer_with_a_busy_dependency_blocks_the_early_audit(self):
-        f = self.f
-        # M003 consumes M001 and M002; M002 is still testing, so M003 cannot be re-verified yet.
-        original = self.iso.f.call
-        def call(op, payload=None, **kwargs):
-            result = original(op, payload, **kwargs)
-            if op == 'register' and (payload or {}).get('module_id') == 'M002':
-                original('register', {'module_id': 'M003', 'case_ids': ['C1'], 'dependencies': ['M001', 'M002'],
-                                      'write_paths': [str(f.target / 'm3')]}, role='global-orchestrator', module=None)
-            return result
-        f.call = call
-        self.iso.prepare_peers()
-        f.call = original
-        f.call('assign', {'assignment_id': 'T2', 'role': 'test-runner', 'instance_id': 'peer-tester'}, module='M002')
-        self.defer_m001()
-        self.assertNotEqual(f.state()['global_next_step']['operation'], 'problem-assign')
-        with self.assertRaisesRegex(Rejected, 'audit closure'):
-            f.call('problem-assign', {'assignment_id': 'PA1', 'instance_id': 'auditor', 'module_ids': ['M001']},
-                   role='global-orchestrator', module=None)
-        self.iso.finish_peer_test()  # once M002 settles, M001's closure is ready
-        f.call('problem-assign', {'assignment_id': 'PA1', 'instance_id': 'auditor', 'module_ids': ['M001']},
-               role='global-orchestrator', module=None)
-        self.assertEqual(f.state()['audit_assignment']['closure'], ['M001', 'M002', 'M003'])
-
-
-if __name__ == '__main__':
-    unittest.main()
+    def test_old_policy_metadata_cannot_enable_early_audit(self):
+        import ledger
+        f = self.f; self.iso.prepare_peers(); self.defer_m001()
+        state = f.state()
+        for marker in (None, 1, 2, 99):
+            state['control_policy_version'] = marker
+            self.assertNotEqual(ledger.routing(state)['global_next_step']['operation'], 'problem-assign')
+            with self.assertRaises(Rejected):
+                f.call('problem-assign', {'assignment_id': 'PA', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)

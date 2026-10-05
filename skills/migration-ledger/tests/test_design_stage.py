@@ -223,7 +223,7 @@ class DesignStageTests(unittest.TestCase):
         self.assertEqual(sorted(m['plan']['definitions'], key=key), sorted(full['definitions'], key=key))
         self.assertNotEqual(m['plan_hash'], digest(lean))  # the Ledger hashes the plan it completed
         step = f.state()['next_steps'][0]
-        self.assertEqual((step['operation'], step['ready'], step['approval_subject_sha256']), ('freeze', False, m['plan_hash']))
+        self.assertEqual((step['operation'], step['ready'], step['approval_subject_sha256']), ('plan-review', True, m['plan_hash']))
         f.approve(step['approval_subject_sha256'], 'D-lean'); f.call('freeze', {'decision_id': 'D-lean'})
         self.assertEqual(f.state()['modules']['M001']['phase'], 'frozen')
 

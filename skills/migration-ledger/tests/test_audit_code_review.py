@@ -174,7 +174,7 @@ class CodeReviewTests(unittest.TestCase):
         route = {**{k: item[k] for k in ('finding_id', 'source_module_id', 'root_cause', 'analysis_ref')},
                  'action': 'fix', 'owner_module_ids': ['M001'], 'source_context': b['contexts']['M001'],
                  'owner_contexts': {'M001': b['contexts']['M001']}}
-        with self.assertRaisesRegex(Rejected, 'no second automatic fix'):
+        with self.assertRaisesRegex(Rejected, 'uncertainty or exhausted budget'):
             f.call('audit-plan', {'plan_ref': f.ref('retry.json', {'routes': [route]})}, role='auditor', module=None)
         route.update(action='human', owner_module_ids=[], owner_contexts={})
         f.call('audit-plan', {'plan_ref': f.ref('human.json', {'routes': [route]})}, role='auditor', module=None)

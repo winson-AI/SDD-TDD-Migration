@@ -225,7 +225,6 @@ def test_accepted(s, m, result, result_ref, build_only=False, stage='build'):
 
 def retry_repair(s, source, bad, result_ref):
     """An accepted observation may reopen only its already-reviewed technical owner route."""
-    if s.get('control_policy_version', 1) < 2: return False
     b = s['audit_batch']; causes = [row.get('root_cause') or {} for row in bad]
     routed = {row['owner'] for row in causes if row.get('owner')}
     if len(routed) != 1 or not routed <= owners(b): return False
@@ -332,7 +331,7 @@ def handle(s, req, actor):
             r['owner_module_ids'] = r.get('owner_module_ids', [r['owner_module_id']] if r.get('owner_module_id') else [])
             if b.get('code_review_ref'):
                 require(r['action'] in ('fix', 'human'), 'code governance requires delegated change or human decision')
-                require(not f.get('requires_human') or r['action'] == 'human', 'governance finding requires human review: uncertainty or exhausted budget' if s.get('control_policy_version', 1) >= 2 else 'persistent governance finding requires human review; no second automatic fix')
+                require(not f.get('requires_human') or r['action'] == 'human', 'governance finding requires human review: uncertainty or exhausted budget')
             mids = r['owner_module_ids']
             require(len(set(mids)) == len(mids) and set(mids) <= set(s['modules']), 'unknown/duplicate repair owner')
             require(bool(mids) == (r['action'] == 'fix'), 'only fix routes must specify repair owners')

@@ -117,6 +117,7 @@ def _step(st, module_id):
         if module_id:
             history = m.get('planning_history', [])
             out['planning_history_count'] = len(history)
+            out['planning_history_executable'] = False
             out['planning_history'] = [{k: h.get(k) for k in ('reason', 'evidence_ref', 'plan_ref', 'plan_hash')} for h in history[-5:]]
             out['reallocation_request'] = m.get('realloc_request')
     return out

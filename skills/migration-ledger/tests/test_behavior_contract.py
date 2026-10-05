@@ -42,6 +42,7 @@ def contract_plan(f):
     plan['source_closure'].update(review(f, module))
     path = plan['paths'][0]
     path['kind'] = 'automation'
+    path['fixture_contract_ref'] = plan['source_closure']['verification']['fixture_contract_ref']
     path['expected_assertions'] = [{'assertion_id': name, 'expected': name, 'scenario_ids': ['SCN-M001-' + name]}
                                    for name in ('success', 'empty', 'error')]  # the designer says what each one verifies
     plan['paths'].append({'path_id': 'S1', 'name': 'scenario closure', 'kind': 'static', 'case_id': 'C1',
@@ -166,6 +167,7 @@ class BehaviorContractTests(unittest.TestCase):
         f = self.f; _, m = contract_plan(f)
         m['behavior_review'] = review(f, m)
         sibling = copy.deepcopy(m); sibling['module_id'] = 'M002'
+        sibling['behavior_review']['verification'] = review(f, sibling)['verification']
         shared = {'capability_id': 'provider', 'owner_module_id': 'M001', 'consumer_module_ids': ['M002'],
                   'integration_case_ids': ['C1'], 'integration_responsibility': 'M002 binds the real provider'}
         m['behavior_review']['shared_capabilities'] = [shared]
@@ -202,6 +204,7 @@ class BehaviorContractTests(unittest.TestCase):
                'integration_case_ids': ['C1'], 'integration_responsibility': 'child wires query behavior'}
         child['behavior_review']['shared_capabilities'] = [row]
         parent = copy.deepcopy(child); parent.update(module_id='M010', children=['M001'])
+        parent['behavior_review']['verification'] = review(f, parent)['verification']
         parent['behavior_review']['shared_capabilities'][0]['owner_module_id'] = 'M010'
         state = {'behavior_contract_required': True, 'modules': {'M001': child}, 'module_groups': {'M010': parent}}
         bc.global_review(state)
@@ -221,6 +224,7 @@ class BehaviorContractTests(unittest.TestCase):
         f = self.f; _, provider = contract_plan(f)
         provider['behavior_review'] = review(f, provider)
         consumer = copy.deepcopy(provider); consumer.update(module_id='M002', case_ids=['C2'])
+        consumer['behavior_review']['verification'] = review(f, consumer)['verification']
         consumer['behavior_review']['case_ids'] = ['C2']
         shared = {'capability_id': 'provider', 'owner_module_id': 'M001', 'consumer_module_ids': ['M002'],
                   'integration_case_ids': ['C2'], 'integration_responsibility': 'M002 tests real provider integration'}

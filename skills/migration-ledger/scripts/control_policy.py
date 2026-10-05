@@ -1,13 +1,6 @@
-"""Versioned planning acceptance and explicit execution contracts on the Ledger bus."""
+"""Planning acceptance and explicit execution contracts on the Ledger bus."""
 import copy
 from contracts import check_ref, digest, keyed, nonempty, read_json, require
-
-VERSION = 2
-
-
-def enabled(state):
-    return state.get('control_policy_version', 1) >= VERSION
-
 
 def acceptance(paths):
     """Execution commands and labels are planning details; assertions and coverage remain frozen."""
@@ -17,7 +10,7 @@ def acceptance(paths):
 
 def acceptance_hash(m):
     paths = m['plan']['paths']
-    return digest(acceptance(paths) if m.get('approved_acceptance_kind') == 'business' else paths)
+    return digest(acceptance(paths))
 
 
 def boundary(review):

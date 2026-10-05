@@ -80,7 +80,7 @@ def completed_report():
         with self.assertRaisesRegex(Rejected, 'cannot conceal'): self.t.defer()
 
     def test_success_report_followed_by_timeout_never_becomes_green(self):
-        a, rr, out = self.run_fault("s.record('[ASSERT:A1]',True,'matches','one_image_assert',[media]);write(a.result_file,s.report());time.sleep(30)\n")
+        a, rr, out = self.run_fault("s.record('[ASSERT:A1]',True,'matches','one_image_assert',[media]);write(a.result_file,completed_report());time.sleep(30)\n")
         result = build(self.f.root, 'M001', 'AUTO', [rr])
         self.assertEqual(result['paths'][0]['quality'], 'yellow-blocked')
         forged = copy.deepcopy(result); forged['paths'][0]['quality'] = 'green-passed'

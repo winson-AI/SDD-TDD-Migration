@@ -6,7 +6,7 @@ description: /sdd-run <run-id> — 并行推进就绪模块
 
 消费 status.run_change_next_step，按 [同 Run 修订](../skills/migration-protocol/references/progress-recovery.md#同-run-上游修订) 推进；规划读取 history_refs，审计预算用 audit-recover，不另建 Run。
 
-待应用来源追加时消费 status.source_change_next_step：Host 协调当前 worker 完成后再进行版本切换，不取消无关 MO；若进度使评审过期，GO 重读后重新提交具体影响。切换完成后，受影响叶子回到规划，无关模块用新阶段上下文继续原冻结任务。参考 [来源追加协议](../skills/migration-protocol/references/source-changes.md#2-host版本事务与明确恢复)，不要用旧 input.json 替代 Ledger 当前快照。
+待应用来源追加时消费 status.source_change_next_step：Host 协调当前 worker 完成后再更新当前上下文，不取消无关 MO；若进度使评审过期，GO 重读后重新提交具体影响。切换完成后，受影响叶子回到规划，无关模块用新阶段上下文继续原冻结任务。参考 [来源追加协议](../skills/migration-protocol/references/source-changes.md#2-host上下文调整与明确恢复)，不要用旧 input.json 替代 Ledger 当前快照。
 
 ## 1. 用法
 `/sdd-run <run-id>`

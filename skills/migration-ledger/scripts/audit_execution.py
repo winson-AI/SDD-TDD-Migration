@@ -8,7 +8,7 @@ OPS = {'audit-test-assign', 'audit-test-submit'}
 def handle(s, req, actor, scope):
     from ledger import role
     p = req['payload']; audit = s.get('audit_assignment', {})
-    require(s.get('control_policy_version', 1) >= 2 and not audit.get('closed', True) and audit.get('mode') != 'problem',
+    require((not audit.get('closed', True)) and (audit.get('mode') != 'problem'),
             'whole-task audit assignment required')
     require(audit['snapshot'] == {mid: m['code_baseline'] for mid, m in s['modules'].items()}, 'audit execution snapshot stale')
     if req['operation'] == 'audit-test-assign':

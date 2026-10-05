@@ -66,9 +66,10 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         self.assertIn(script, refs)
         test_ledger.code_review(f)
         f.call('audit-assign', {'assignment_id': 'AUD', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
+        test_ledger.start_audit_test(f, 'AUD')
         s = f.state(); scope = ledger.audit_scope(s); records = []
         for path in scope['plan']['paths']:
-            ref = execute(f.root, 'GLOBAL', 'AUD', path['path_id'], f.test_argv, f.target, f.base/('audit-'+path['path_id']))
+            ref = execute(f.root, 'GLOBAL', 'AUD-TEST', path['path_id'], f.test_argv, f.target, f.base/('audit-'+path['path_id']))
             receipt = read_json(check_ref(ref))
             if path['path_id'] == 'P1':
                 self.assertEqual(receipt['test_asset_binding']['freeze_id'], owner['freeze_id'])
@@ -83,7 +84,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         report = {'schema_version': 1, 'kind': 'tests', 'run_id': s['run_id'], 'module_id': 'GLOBAL',
             'assignment_id': 'AUD', 'actor_instance_id': 'auditor', 'freeze_id': scope['freeze_id'],
             'code_baseline': scope['code_baseline'], 'snapshot': s['audit_assignment']['snapshot'], 'paths': records}
-        f.call('audit', {'report_ref': f.ref('audit.json', report)}, role='auditor', module=None)
+        f.call('audit', {'report_ref': f.ref('audit.json', test_ledger.accept_audit_test(f, report))}, role='auditor', module=None)
         self.assertEqual(f.state()['modules']['M001']['phase'], 'dod')
         f.call('complete', {'dod_ref': f.ref('post-audit-dod.md', 'Build and restored automation independently passed')})
         self.assertEqual(f.state()['quality'], 'green-passed')

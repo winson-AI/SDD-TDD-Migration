@@ -14,7 +14,7 @@ class ContractRetirementTests(unittest.TestCase):
     def setUp(self):
         self.fixture = test_run_changes.RootRevisionTests(); self.fixture.setUp(); self.addCleanup(self.fixture.doCleanups)
         self.f = f = self.fixture.f
-        f.call('upgrade-control-policy', {'review_ref': f.ref('upgrade.md', 'Adopt current control rules')}, role='host', module=None)
+
 
     def report(self):
         f = self.f

@@ -43,9 +43,8 @@ def global_review(state):
     if not state.get('behavior_contract_required'):
         return
     modules = {**state.get('module_groups', {}), **state['modules']}
-    if state.get('control_policy_version', 1) >= 2:
-        verification_partition(list(state['modules'].values()))
-        for module in modules.values(): verification(module)
+    verification_partition(list(state['modules'].values()))
+    for module in modules.values(): verification(module)
     owners = {}
     for module in modules.values():
         value = module.get('behavior_review')

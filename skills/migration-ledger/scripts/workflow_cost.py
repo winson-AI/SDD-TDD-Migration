@@ -48,5 +48,5 @@ def build(s, events):
               ('events', 'dispatches', 'context_receipts', 'acceptances', 'human_decisions', 'fix_rounds',
                'card_dispatches', 'card_bytes_full', 'card_bytes_delivered')}
     totals['global_events'] = sum(global_ops.values())
-    totals['audit_dispatches'] = sum(global_ops[op] for op in ('audit-assign', 'problem-assign'))
+    totals['audit_dispatches'] = global_ops['audit-assign']
     return {'modules': rows, 'totals': totals}

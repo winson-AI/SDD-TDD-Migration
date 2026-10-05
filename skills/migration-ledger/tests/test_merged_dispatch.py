@@ -22,14 +22,14 @@ class MergedDiagnosisDispatchTests(unittest.TestCase):
     def test_accept_and_dispatch_in_one_step_after_fixer_read_the_draft(self):
         f = self.f
         ref = f.record(self.fixer_preflight())  # Fixer reads the submitted diagnosis before MO accepts it
-        f.raw('diagnosis-accept', {'assign': {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer', 'context_ref': ref}})
+        f.raw('diagnosis-accept', {'assign': {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer', 'task_ids': ['T1'], 'path_ids': ['P1'], 'finding_ids': ['P1'], 'context_ref': ref}})
         m = f.state()['modules']['M001']
         self.assertEqual((m['phase'], m['assignments']['F1']['role'], m['fix_rounds_used']), ('fixing', 'fixer', 1))
         self.assertEqual(m['diagnosis']['diagnosis_ref'], self.diagnosis)
 
     def test_accept_and_dispatch_before_the_fixer_reports(self):
         f = self.f
-        f.raw('diagnosis-accept', {'assign': {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer'}})
+        f.raw('diagnosis-accept', {'assign': {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer', 'task_ids': ['T1'], 'path_ids': ['P1'], 'finding_ids': ['P1']}})
         m = f.state()['modules']['M001']
         self.assertEqual((m['phase'], m['fix_rounds_used']), ('fixing', 0))  # no round is spent before the Fixer can start
         f.record(self.fixer_preflight())
@@ -43,7 +43,7 @@ class MergedDiagnosisDispatchTests(unittest.TestCase):
                            'root_cause': {'category': 'code', 'summary': 'other value', 'confidence': 'confirmed',
                                           'owner': 'M001', 'next_action': 'fix'}}, role='diagnostician')
         with self.assertRaisesRegex(Rejected, 'stale|mandatory inputs changed|not submitted/current'):
-            f.raw('diagnosis-accept', {'assign': {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer', 'context_ref': ref}})
+            f.raw('diagnosis-accept', {'assign': {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer', 'task_ids': ['T1'], 'path_ids': ['P1'], 'finding_ids': ['P1'], 'context_ref': ref}})
 
     def test_failed_dispatch_leaves_nothing_accepted(self):
         f = self.f
@@ -53,7 +53,7 @@ class MergedDiagnosisDispatchTests(unittest.TestCase):
         report['verdict'] = 'blocked'
         f.record(report)
         with self.assertRaisesRegex(Rejected, 'context blocked'):
-            f.raw('diagnosis-accept', {'assign': {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer'}})
+            f.raw('diagnosis-accept', {'assign': {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer', 'task_ids': ['T1'], 'path_ids': ['P1'], 'finding_ids': ['P1']}})
         self.assertEqual(f.state()['modules']['M001']['phase'], 'testing')
         f.raw('diagnosis-accept')  # the two-step path still works
         self.assertEqual(f.state()['modules']['M001']['phase'], 'diagnosing')

@@ -17,7 +17,7 @@
 
 GO 提交全局 `source-review`，payload 为 `report_ref`、`context_ref`（global-planning 预检，draft_ref 绑定影响报告，随该操作登记）。Ledger 接受后提供 `source_change_review.subject_sha256`；这是具体来源、全体模块/父节点当前状态、原快照、全局计划及审计状态的审批摘要。模块推进后旧评审可能过期，须重新核对，不能重用旧批准。
 
-## 2. Host：版本事务与明确恢复
+## 2. Host：上下文调整与明确恢复
 
 用户明确同意该具体来源与影响后，由 Host 使用现有 `decision` 保存真实用户来源，module_id=null、subject_sha256 为上一步摘要；不得根据模板自动批准。原话已充分授权具体效果时直接记录，无需重复询问。不能把“加入库”自动理解成解除另一个业务阻塞。
 

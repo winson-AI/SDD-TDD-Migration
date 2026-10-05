@@ -36,9 +36,11 @@ class ParameterFileTests(unittest.TestCase):
             'lines': {'dimension': '    val {key} = {value}f // {unit}', 'dimension:sp': '    val {key} = {value}.sp', 'number': '    val {key} = {value}',
                       'color': '    val {key} = 0x{argb}', 'string': '    const val {key} = {quoted}'},
             'accessor': 'P{module}.{key}', 'locales': {'zh': str(self.target / 'gen/Params{module}_zh.kt')}, 'string_escapes': {'$': '\\$'}}, self.target)
+        proof = self.root / 'constant-review.txt'; proof.write_text('Synthetic fixture source evaluation resolves to 1')
         self.fill = {'tokens': [{'token': 'Palette.ink', 'value': {'type': 'color', 'value': '#FF222222'}},
                                 {'token': 'Fonts.bold', 'accessor': 'AppFonts.bold'}],
-                     'settled': [{'id': 'code:Home/title.alpha', 'value': {'type': 'number', 'value': 1}}]}
+                     'settled': [{'id': 'code:Home/title.alpha', 'value': {'type': 'number', 'value': 1},
+                                  'constant_reason': 'Source evaluation reviewed for this fixture', 'constant_evidence_refs': [file_ref(proof)]}]}
 
     def write(self, name, value):
         path = self.root / name
@@ -61,7 +63,14 @@ class ParameterFileTests(unittest.TestCase):
         return {'target_root': str(self.target), 'target_resources': {'parameters': self.rules}, **over}
 
     def gate(self, analysis=None, alternatives=(APPROVED,), **state):
-        parameter_file.gate(self.state(**state), {'decision_envelope': {'allowed_alternatives': list(alternatives)}}, analysis or self.analysis())
+        analysis = copy.deepcopy(analysis or self.analysis())
+        # These numeric-sheet fixtures exclude layout structure; dedicated tests bind it to behavior.
+        ui = analysis['dimensions'][0]
+        if ui.get('parameter_sheet_ref'):
+            ids = [p['id'] for p in ui_parameters.parameters(analysis) if p['class'] == 'keyword']
+            ui.setdefault('parameter_fill', {}).setdefault('not_applicable', []).append(
+                {'ids': ids, 'reason': 'Numeric-sheet fixture; layout structure is validated separately'})
+        parameter_file.gate(self.state(**state), {'decision_envelope': {'allowed_alternatives': list(alternatives)}}, analysis)
 
     def decided(self, fill=None):
         analysis = self.analysis(fill)
@@ -305,7 +314,8 @@ class WorkerTests(unittest.TestCase):
             'not_applicable': [{'ids': ['code:Home/title.alpha'], 'reason': 'always visible on the target'}]})
         path.write_text(json.dumps(analysis))
         worker = {'role': 'implementer', 'instance_id': 'worker-1'}
-        task = {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'worker-1', 'fencing_token': 'token-1', 'freeze_id': 'F1', 'closed': False}
+        task = {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'worker-1', 'fencing_token': 'token-1', 'freeze_id': 'F1', 'closed': False,
+                'execution_contract': {'task_ids': ['T1', 'T2'], 'path_ids': []}}
         self.state['modules'] = {'M001': {'module_id': 'M001', 'phase': 'implementing', 'freeze_id': 'F1', 'write_paths': [str(self.f.target / 'app')],
             'assignments': {'I1': task}, 'plan': {'definitions': [], 'paths': [], 'dimension_analysis_ref': file_ref(path),
                                                    'tasks': [{'task_id': 'T1', 'scope': {'write_paths': [str(self.f.target / 'app/screens')]}},

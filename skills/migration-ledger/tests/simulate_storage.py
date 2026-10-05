@@ -36,7 +36,7 @@ class ManagedFlow(test_context_readiness.ContextReadinessTests):
             state = ledger.read_events(self.root)[0]
             if op == 'init': module = None
             revision = (state['modules'][module]['revision'] if module else state['revision']) if state else 0
-            if state and state.get('control_policy_version', 1) >= 2 and op == 'assign' and payload.get('mode') != 'design':
+            if state and op == 'assign' and payload.get('mode') != 'design':
                 import copy, test_validation as tv
                 payload = copy.deepcopy(payload); m = state['modules'][module]
                 payload.setdefault('task_ids', [t['task_id'] for t in m['plan']['tasks']])

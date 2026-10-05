@@ -110,12 +110,12 @@ class ProgressTests(unittest.TestCase):
         f.assign('implementer', 'I')
         self.assertEqual(f.state()['modules']['M001']['phase'], 'implementing')
 
-    def test_no_runnable_action_surfaces_human_attention(self):
+    def test_clear_planning_continues_with_mo_review_without_human_attention(self):
         f=self.f; f.global_plan()
         plan=f.plan(); f.call('plan',{'plan_ref':f.ref('pending.json',plan)},role='spec-designer')
         report=f.state()['workflow_progress']
-        self.assertEqual(report['state'],'stalled'); self.assertTrue(report['notify_user'])
-        self.assertIn('approval-or-impact-review-required',[x['reason'] for x in report['signals']])
+        self.assertEqual(report['state'], 'running'); self.assertFalse(report['notify_user'])
+        self.assertEqual(f.state()['next_steps'][0]['operation'], 'plan-review')
 
     def test_overdue_worker_signal_never_cancels_worker_or_other_work(self):
         f=self.f; f.prepare(); f.assign('implementer','I')

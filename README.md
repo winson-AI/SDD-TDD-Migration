@@ -11,7 +11,7 @@
 3. 在支持此包的宿主中执行 `/sdd-init`，先固定项目配置和本次请求快照，再由 Global 生成 [运行输入](template/global-input.json)、宿主业务契约、需求/用例输入、账本和模块规划；`/sdd-plan <run-id> <module-id>` 组织叶子六件套、独立测试设计，由 MO 审核冻结；真实未决或需求/验收/授权变化才交人工。旧 input.json 也可导入。
 4. `/sdd-run <run-id>` 调度已冻结且依赖就绪的模块，单模块也可用 `/sdd-module <run-id> <module-id>`。模块内自动推进到完成、挂起或预算耗尽。
 5. 用 `/sdd-status <run-id>` 冷读状态；用 `/sdd-resume <run-id> [module-id] [decision.json绝对路径]` 恢复；用 `/sdd-audit <run-id>` 执行独立遗留复核与收尾审阅。
-6. 全局审计通过后，`/sdd-archive <run-id> <decision.json绝对路径>` 验证人类交付授权并同步、归档 OpenSpec。授权必须绑定具体版本。
+6. 全局审计通过后，`/sdd-archive <run-id> <decision.json绝对路径>` 验证人类交付授权并同步、归档 OpenSpec。授权必须绑定具体交付内容摘要。
 
 这些 slash command 是待宿主加载的命令定义，未安装到用户配置；本包已提供本地 Ledger 控制器、阶段校验和测试调用适配器；没有常驻 Agent 调度服务或内置业务测试。本地控制器实现事件提交、单写者和模块资源占用检查；宿主仍须提供身份认证、写权限隔离、Agent 派发与项目真实测试适配器。具体能力见 [本地运行指南](skills/migration-protocol/references/local-runtime.md)。仅加载 Markdown 不会产生操作系统级权限隔离。没有这些能力时应显式阻塞，不能宣称端到端迁移已执行。
 
@@ -44,8 +44,8 @@
 | Command/Agent 分别写 `plan.md` | Ledger 唯一写事件与状态投影，杜绝并发双写；命令只提交请求 |
 | 所有 Agent 不能调用其他 Agent | 叶子角色单步退出；编排角色提出派发事件，由宿主执行；Auditor 可经 Ledger 委派修复 |
 | 每一步均人工确认 | 清晰规划由 MO 审核冻结；真实未决、需求/验收/授权变化与主分支合并保留人工门禁 |
-| 文件存在即可修正阶段为完成 | 校验文件、摘要、版本及已接受事件；文件存在不能证明通过 |
-| 删除已存在文件再运行 | 使用不可变版本和事件恢复；不删除用户成果、不静默覆盖 |
+| 文件存在即可修正阶段为完成 | 校验文件、摘要、当前基线及已接受事件；文件存在不能证明通过 |
+| 删除已存在文件再运行 | 使用不可变历史工件和事件恢复；不删除用户成果、不静默覆盖 |
 | 运行失败测试后再实现 | 本次硬红线要求代码先生成才运行测试；测试设计和脚本准备前移，缺陷闭环保留真实 red→green 证据 |
 
 因此本包是规格与测试设计前置的迁移流程，不声称每个成功路径都做过严格 test-first RED；首次即 Green 时记录 `red_evidence: not-observed`，不伪造失败。`plan` 指文档澄清阶段，不假定宿主能自动切换某产品的 Plan Mode。
@@ -78,7 +78,7 @@ Coding → MO 接受代码 → Testing
 | 二方库与已有能力 | 复用必须逐行为对齐存量功能；能力目录显式 provider owner | [复用](skills/migration-protocol/references/reuse-dependencies.md)、[来源变更](skills/migration-protocol/references/source-changes.md) |
 | OpenSpec 边界 | 标准基线/增量结构；status/checklist/Ledger 是本包扩展，Ledger 投影不可手改 | [OpenSpec](skills/migration-protocol/references/openspec.md) |
 | 本地控制器与游标 | 单写事件事务、`status` 游标与阅读卡、恢复与显式追加预算 | [本地运行](skills/migration-protocol/references/local-runtime.md)、[宿主接入](skills/migration-protocol/references/host-integration.md) |
-| 并行 MO 与统一收尾 | 各 MO 独立推进；v2 全量收尾后统一审计；闭包提前审计仅供 v1 历史恢复 | [状态机](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾) |
+| 并行 MO 与统一收尾 | 各 MO 独立推进；全量收尾后统一审计 | [状态机](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾) |
 | Auditor | 先整体代码治理，再复核遗留；修复后验证，失败待人工 | [审计范围](skills/migration-protocol/references/audit-scope.md)、[代码治理](skills/migration-protocol/references/audit-code-review.md) |
 | Android/Harmony 自动测试 | MobileAgenticOperator test 模式，逐 PATH/ASSERT 证据接入 Ledger | [移动端运行](skills/migration-test/references/harmony-runtime.md) |
 | 切片与功能清单 | 默认由 Agent 决定粒度；清单完整可追溯，疑问交人工 | [切片规约](skills/migration-global/references/slicing.md) |
@@ -94,11 +94,11 @@ Coding → MO 接受代码 → Testing
 
 ## 单个功能模块入口
 
-默认 [global-input.json](template/global-input.json) 的 `entry_mode=project`：直接指定完整项目，GO 识别各功能模块及子功能。`single-module` 选择其中一个特定功能；两种模式都在父 MO 阶段继续拆分子功能。
+默认 [global-input.json](template/global-input.json) 的 `entry_mode=project` 覆盖完整项目；`single-module` 选择一个根功能。两种模式均由 GO/MO 按原子性决定是否继续拆 scope，原子根直接进入叶子规划。
 
-单模块只是同一入口的两个参数：`entry_mode=single-module` 与 `module_name`（如“用户登录”）。沿用当前项目输入，用户无需提供模块描述、scope、模块代码路径、SPEC 或 Testing list；由 GO 识别业务范围、父 MO 拆分，叶子组织实施规范及独立测试设计。[single-module-input.json](template/single-module-input.json) 仅展示这两个参数，不是独立运行资料包。
+单模块只是同一入口的两个参数：`entry_mode=single-module` 与 `module_name`（如“用户登录”）。沿用当前项目输入，用户无需提供模块描述、scope、模块代码路径、SPEC 或 Testing list；由 GO 识别业务范围、MO 按需细分，叶子组织实施规范及独立测试设计。[single-module-input.json](template/single-module-input.json) 仅展示这两个参数，不是独立运行资料包。
 
-完整流程：用户选择项目或根功能 → **GO 划分根模块 scope + 上下文 + 需求/用例输入** → **父 MO 认领，在范围内拆子模块 scope + 上下文 / GO 审核登记** → **独立子 MO 拆 tasks**，组织四维分析、六件套、独立测试设计与冻结，派发 TASK 实现和正式测试 → **父 MO 等待并汇总全部孩子** → **GO 统一启动 Auditor**。父子 MO 都读取全局存量/目标代码、架构规范、知识与分工，检查复用及交叉工作。详见 [父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
+完整流程：选择项目或根功能 → **GO 划 scope/上下文并审查完整 registry 覆盖** → **MO 按需细分，或经 GO 接受成为原子叶子** → **叶子 tasks、四维、SPEC 与独立测试设计校验后冻结** → **Implementer、Test-Runner，按需 Fixer 与复测** → **实际父节点汇总，GO 统一启动 Auditor**。规划问题在同 Run 内上溯修正，再向下重规划；历史只留痕，每叶子执行唯一当前 SPEC。父子 MO 都读全局代码、架构、知识与分工，见[父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
 
 宿主接入命令后，可按以下阶段执行（路径和 run-id 为示例，冻结须绑定当前规划审核及适用的人工决定）：
 
@@ -110,14 +110,16 @@ Coding → MO 接受代码 → Testing
 /sdd-audit <初始化返回的run-id>
 ```
 
-首轮 Green 仍需最终独立审计，Red/Yellow 按相同一轮修复与审计收尾策略处理。`/sdd-module` 是推进已注册模块的命令；新单模块运行从 `/sdd-init` 开始。字段、独立性与范围限制见 [切片规约](skills/migration-global/references/slicing.md#项目级与单模块入口)。
+首轮 Green 仍需最终独立审计，Red/Yellow 在累计预算内局部收敛后统一审计。`/sdd-module` 是推进已注册模块的命令；新单模块运行从 `/sdd-init` 开始。字段、独立性与范围限制见 [切片规约](skills/migration-global/references/slicing.md#项目级与单模块入口)。
 
 ## 版本记录
 
-协议、模板、脚本与测试只描述当前版本；不同版本之间的差异只在此处记录。宿主新迁移任务才 prepare 新 Run；同任务修订走 Ledger 版本事务。旧资产不就地改写，版本兼容恢复需原宿主/协议支持。
+协议、模板、脚本与测试只描述当前版本；不同版本之间的差异只在此处记录。宿主新迁移任务才 prepare 新 Run；同任务调整走 Ledger 事件事务。规划过程只保留 history，不形成可选的流程或计划版本；恢复统一执行当前规则。历史事件和工件只读留存，缺当前门禁证据则原 Run 补齐。
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-05 | 规划闭环与原子叶子：MO 通过 decompose 提交 atomic-leaf 结论，GO 接受后保留当前节点进入 SPEC 规划；完整 registry 可先验覆盖，无关根待拆不阻挡就绪叶子，受影响依赖仍受门禁约束。bottom-up 修正、top-down 重规划只留不可执行 history；不恢复局部 Auditor 分支。 |
+| 2026-10-05 | Workflow 统一发布：删除运行期 control_policy_version、策略升级及旧提前审计分支；统一 MO 冻结、累计修复预算、TASK/PATH 执行和独立 Test-Runner/宿主 Auditor。编码前规划变化仅留不可执行 history，不形成计划版本；旧 Run 在当前门禁下继续，历史配置只读投影。版本差异仅在本表留档。 |
 | 2026-10-04 | 同 Run 上溯修订根/父分配、上下文和遗漏需求/CASE；按影响闭包重规划，未变 worker 保留冻结上下文；验收变更复测，抽象经验跨 Run 复用。 |
 | 2026-10-02 | 编码前独立测试设计接入 Ledger 派发/提交/验收链；prepare 固定该门禁，plan/freeze 绑定同一份已接受设计；过期设计明确撤销或重新规划，保留历史证据。 |
 | 2026-10-02 | 行为完整性：prepare 固定行为契约门禁；GO/父 MO/子 MO 行为闭包审阅；OpenSpec 派生 Scenario 索引与任务/断言追溯；单测核验当前 runner 的 JUnit 实际测试 ID、计数与报告证据。 |
@@ -148,6 +150,6 @@ Coding → MO 接受代码 → Testing
 | 2026-10-04 | 资源与参数按搬运对齐：collector 记录每处资源使用点，代码用到的文件资源须由节点声明或带证据排除，同一张图的密度与平台版本副本归为一个资源；项目声明一次资源落点约定后，`resource-plan` 派生复制清单与参数表（布局属性、图层、代码里的 setter 与布局参数），冻结时由 Ledger 重算，`resource-sync` 一次复制文件并写出参数文件，验收比对字节并核对代码按 accessor 与键引用；Spec 只写不适用、获批偏差、token 映射与表达式定值；树上每处静态图片须有图像检查或带证据豁免，`screen-checks` 派生检查，新增文本与节点检查及铺满画面图片的内容比较；逐项登记的资源同样在验收时比对字节与引用；收尾报告披露复制文件数、检查覆盖与参数填充率 |
 | 2026-10-04 | 作者不再重述 Ledger 已知的值：预检报告不写必读输入（Ledger 派生并把 ready 报告绑定到其摘要，输入变化即过期，使用回执时重新核对），任务级四维行的证据可省略，JSON 文档可在顶层 `refs` 写一次文件引用并按 id 引用，hash 不符的拒绝点名文件与实际摘要。设计跟随 SPEC：设计输入必须引用叶子自己的 SPEC 草稿（带 Requirement-ID/Scenario-ID），设计断言用 `scenario_ids` 写明所验证的场景，`scenario_trace` 的断言由 Ledger 补全，设计文档只记依据；设计不再因全局规格先行而返工。模块状态视图不带 plan 正文，触发后的模板总量加棘轮，角色定义与命令文件删去只指向通用约定的重复文字（协议 536.8KB → 532.1KB，棘轮降至 532.2KB）；图集只保留 SVG，PNG 由生成脚本在本地渲染、不入库 |
 
-## 控制工作流 v2
+## 控制工作流
 
-新 prepare 默认采用 v2：GO/MO 垂域切片 → 四维与叶子 OpenSpec 规划 → MO 冻结 → 显式 TASK/PATH 执行与收敛 → 统一宿主 Auditor。同 Run 修正及历史升级保留证据，人工仅裁决实际未决或业务授权变化。规则见[控制主线](skills/migration-protocol/references/state-machine.md#控制主线与版本)。
+新 prepare 默认采用 GO/MO 垂域切片 → 四维与叶子 OpenSpec 规划 → MO 冻结 → 显式 TASK/PATH 执行与收敛 → 统一宿主 Auditor。同 Run 修正保留历史证据，人工仅裁决实际未决或业务授权变化。规则见[控制主线](skills/migration-protocol/references/state-machine.md#控制主线)。

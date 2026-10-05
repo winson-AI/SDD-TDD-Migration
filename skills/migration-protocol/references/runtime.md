@@ -38,7 +38,7 @@ run-id/change-name/capability 使用 kebab-case，module_id 匹配 `M[0-9]{3,}`�
 
 ## 宿主派发
 
-assign（审计为 audit-assign / problem-assign）被接受后，宿主用真实可用的 task/spawn 工具启动该实例，只传 package_root、run_root、module_id 与阅读卡路径；叶子完成只交 Ledger 引用。宿主缺少调度、身份或持久化能力时如实报告不可用，不模拟执行成功。目标 OpenSpec 正式文件物化、原生身份认证、源码写隔离、自动派发及归档由宿主实现，不能通过直接修改投影旁路控制器。
+assign（审计为 audit-assign / audit-test-assign）被接受后，宿主用真实可用的 task/spawn 工具启动该实例，只传 package_root、run_root、module_id 与阅读卡路径；叶子完成只交 Ledger 引用。宿主缺少调度、身份或持久化能力时如实报告不可用，不模拟执行成功。目标 OpenSpec 正式文件物化、原生身份认证、源码写隔离、自动派发及归档由宿主实现，不能通过直接修改投影旁路控制器。
 
 ## 项目配置与运行快照
 
@@ -46,7 +46,7 @@ assign（审计为 audit-assign / problem-assign）被接受后，宿主用真�
 
 ## 显式执行任务
 
-v2 `assign` 使用 [执行分配模板](../../../template/execution-assignment.json)：Implementer 选 TASK，Test-Runner execute 选 TASK/PATH，Fixer 选 FINDING 与受影响 TASK/PATH。Ledger 固化 plan_ref/hash、freeze_id、基线、写范围、权限及证据要求，提交结果不得含未分配工作；目标执行器也限制 PATH。Test-Runner design 是 MO 指派的规划任务，读取 SPEC/测试输入产出用例，不运行目标代码。
+`assign` 使用 [执行分配模板](../../../template/execution-assignment.json)：Implementer 选 TASK，Test-Runner execute 选 TASK/PATH，Fixer 选 FINDING 与受影响 TASK/PATH。Ledger 固化 plan_ref/hash、freeze_id、基线、写范围、权限及证据要求，提交结果不得含未分配工作；目标执行器也限制 PATH。Test-Runner design 是 MO 指派的规划任务，读取 SPEC/测试输入产出用例，不运行目标代码。
 
 同一模块可分批执行 TASK，复用合规实例；代码 manifest 累积包含已接受文件，未分配任务的文件不可修改或省略。全部 TASK 完成并补齐整体四维/复用证据后才进入正式测试；部分完成不能宣称模块 DoD。build 分配包含 build/unit/static 全阶段 PATH，可在首个非 Green 前置停止；其他测试批次完整核对所选 PATH，DoD 核对模块全部 PATH。
 

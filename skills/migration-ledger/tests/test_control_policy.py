@@ -1,4 +1,4 @@
-"""Policy 2 exercises actual Ledger transitions, task batches and independent audit execution."""
+"""Unified workflow exercises actual Ledger transitions, task batches and independent audit execution."""
 import copy
 import json
 from pathlib import Path
@@ -26,9 +26,9 @@ class ControlPolicyTests(unittest.TestCase):
         original = f.call
         def call(op, payload=None, **kwargs):
             payload = copy.deepcopy(payload or {})
-            if op == 'init': payload['control_policy_version'] = 2
             if op == 'register':
                 payload['scope'] = {'in': ['query'], 'out': ['history'], 'requirement_ids': ['R1']}
+                payload['context_refs'] = [f.ref('allocation-context.md', 'Reviewed query source entry, target owner and excluded history behavior')]
                 payload['behavior_review'] = behavior_review(f, payload)
             return original(op, payload, **kwargs)
         f.call = call
@@ -74,13 +74,17 @@ class ControlPolicyTests(unittest.TestCase):
                 f.call('plan-review', {'review_ref': self.review(**change)})
         self.assertIsNone(f.state()['modules']['M001']['freeze_id'])
 
-    def test_preimplementation_revision_preserves_history_and_is_not_CR(self):
+    def test_preimplementation_history_is_nonexecutable_and_is_not_CR(self):
         self.freeze(); f = self.f
         old = f.state()['modules']['M001']['plan_ref']
         f.call('planning-reopen', {'reason_ref': f.ref('replan.md', 'Better task boundary before coding')})
         m = f.state()['modules']['M001']
         self.assertEqual(m['phase'], 'specifying'); self.assertIsNone(m['freeze_id'])
         self.assertEqual(m['planning_history'][-1]['plan_ref'], old)
+        self.assertFalse(m['planning_history'][-1]['executable'])
+        self.assertEqual(m['planning_history'][-1]['kind'], 'planning-history')
+        with self.assertRaises(Rejected):
+            f.assign('implementer', 'STALE')
         self.assertEqual(f.state()['run_id'], 'demo')
 
     def test_reopen_cannot_disguise_started_implementation(self):
@@ -185,7 +189,7 @@ class ControlPolicyTests(unittest.TestCase):
 
     def test_children_select_real_provider_instead_of_inheriting_parent_union(self):
         f = test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
-        f.root_scope('project'); state = f.state(); state['control_policy_version'] = 2
+        f.root_scope('project'); state = f.state()
         parent = state['modules']['M010']; parent['dependencies'] = ['M020']
         provider = copy.deepcopy(parent); provider.update(module_id='M020', dependencies=[], decomposition_required=False)
         state['modules']['M020'] = provider
@@ -196,7 +200,7 @@ class ControlPolicyTests(unittest.TestCase):
 
     def test_consumer_of_parent_must_select_actual_provider_children(self):
         f = test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
-        f.root_scope('project'); state = f.state(); state['control_policy_version'] = 2
+        f.root_scope('project'); state = f.state()
         parent = state['modules']['M010']
         consumer = copy.deepcopy(parent); consumer.update(module_id='M030', dependencies=['M010'], decomposition_required=False)
         consumer['behavior_review'] = behavior_review(f, consumer); state['modules']['M030'] = consumer
@@ -210,9 +214,9 @@ class ControlPolicyTests(unittest.TestCase):
         _, graph = decomposition.validate(state, parent, proposal)
         self.assertEqual(graph['M030'], ['M001'])
 
-    def test_parent_version_marker_does_not_force_unchanged_children_to_replan(self):
+    def test_parent_replanning_marker_does_not_force_unchanged_children_to_replan(self):
         f = test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
-        f.root_scope('project'); f.split(); state = f.state(); state['control_policy_version'] = 2
+        f.root_scope('project'); f.split(); state = f.state()
         parent = state['module_groups']['M010']; parent['replanning_required'] = True
         children = [copy.deepcopy(state['modules'][mid]) for mid in parent['children']]
         graph = {mid: m['dependencies'] for mid, m in state['modules'].items()}
@@ -263,14 +267,16 @@ class ControlPolicyTests(unittest.TestCase):
 
     def test_new_policy_never_dispatches_local_problem_auditor(self):
         self.freeze(); f = self.f
-        with self.assertRaisesRegex(Rejected, 'whole host task'):
+        with self.assertRaisesRegex(Rejected, 'unknown operation|incorrect global/module scope'):
             f.call('problem-assign', {'assignment_id': 'LOCAL', 'instance_id': 'auditor', 'module_ids': ['M001']}, role='global-orchestrator', module=None)
 
-    def test_historical_audit_snapshot_keeps_original_shape(self):
-        state = self.f.state(); state.pop('control_policy_version')
-        self.assertNotIn('host_contract_sha256', audit_code_review.snapshot(state))
-        state['control_policy_version'] = 2
-        self.assertIn('host_contract_sha256', audit_code_review.snapshot(state))
+    def test_audit_snapshot_always_binds_the_host_goal(self):
+        state = self.f.state()
+        expected = audit_code_review.snapshot(state)
+        self.assertIn('host_contract_sha256', expected)
+        for marker in (1, 2, 99):
+            state['control_policy_version'] = marker  # inert historical metadata
+            self.assertEqual(audit_code_review.snapshot(state), expected)
 
     def test_execution_command_hash_change_does_not_weaken_acceptance(self):
         path = {'path_id': 'B1', 'case_id': 'C1', 'requirement_id': 'R1', 'name': 'Build',
@@ -322,14 +328,43 @@ class ControlPolicyTests(unittest.TestCase):
         m['results']['automation']['stale'] = False
         self.assertTrue(tv.all_green(m))
 
-    def test_old_run_upgrades_in_place_without_claiming_a_new_freeze(self):
-        f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
-        f.prepare(); old = f.state()['modules']['M001']['freeze_id']
-        f.call('upgrade-control-policy', {'review_ref': f.ref('upgrade.md', 'Adopt version 2; recheck new contracts before dispatch')}, role='host', module=None)
-        self.assertEqual(f.state()['run_id'], 'demo')
-        self.assertEqual(f.state()['modules']['M001']['freeze_id'], old)
-        self.assertEqual(f.state()['control_policy_version'], 2)
-        self.assertNotIn('plan_review_ref', f.state()['modules']['M001'])
+    def test_policy_upgrade_is_not_an_executable_operation(self):
+        f = self.f; f.prepare(); before = f.state()
+        with self.assertRaisesRegex(Rejected, 'unknown operation|incorrect global/module scope'):
+            f.call('upgrade-control-policy', {}, role='host', module=None)
+        self.assertEqual(f.state()['last_sequence'], before['last_sequence'])
+        self.assertNotIn('control_policy_version', f.state())
+
+    def test_init_rejects_every_workflow_selector(self):
+        f = self.f; current = f.state()
+        payload = {k: current[k] for k in ('target_root', 'legacy_root', 'global_spec', 'new_architecture', 'case_ids', 'requirement_ids')}
+        for marker in (1, 2, 99):
+            f.root = f.base / ('selector-' + str(marker))
+            with self.subTest(marker=marker), self.assertRaisesRegex(Rejected, 'policy selectors'):
+                f.call('init', {**payload, 'control_policy_version': marker}, role='host', module=None)
+            self.assertEqual(ledger.read_events(f.root), (None, []))
+
+    def test_historical_assignment_cannot_submit_without_current_task_contract(self):
+        self.freeze(); f = self.f; f.implementation()
+        a, result = f.make_test_result()
+        state, events = ledger.read_events(f.root)
+        state['modules']['M001']['assignments'][a['assignment_id']].pop('execution_contract')
+        before = copy.deepcopy(state)
+        with self.assertRaisesRegex(Rejected, 'execution contract missing'):
+            ledger.mutate(state, {'operation': 'submit', 'module_id': 'M001', 'payload': {
+                'assignment_id': a['assignment_id'], 'fencing_token': a['fencing_token'],
+                'result_ref': f.ref('historical-submission.json', result)}},
+                {'role': 'test-runner', 'instance_id': a['instance_id']}, events, root=f.root)
+        self.assertEqual(state, before)
+
+    def test_historical_assignment_cannot_execute_without_current_task_contract(self):
+        from unittest.mock import patch
+        self.freeze(); f = self.f; f.implementation(); a = f.assign('test-runner', 'OLD')
+        state = f.state(); state['modules']['M001']['assignments'][a['assignment_id']].pop('execution_contract')
+        output = f.base / 'forbidden-execution'
+        with patch('execute_test.status', return_value=state), self.assertRaisesRegex(Rejected, 'execution contract missing'):
+            execute(f.root, 'M001', a['assignment_id'], 'P1', [sys.executable, '-c', 'pass'], f.target, output)
+        self.assertFalse(output.exists())
 
     def test_blocked_goal_must_enter_the_unified_finding_closure(self):
         f = self.f; f.finish_module(); test_ledger.code_review(f)

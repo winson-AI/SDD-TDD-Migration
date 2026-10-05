@@ -42,4 +42,4 @@ mode: subagent
 
 ## 当前控制契约
 
-修复 assignment 必须明确 FINDING 与受影响 TASK/PATH；输入仍为冻结 SPEC 与已接受 diagnosis。不得通过局部结果代替模块累积完成，需求/验收/冻结定义变化只提 CR。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线与版本)。
+修复 assignment 必须明确 FINDING 与受影响 TASK/PATH；输入仍为冻结 SPEC 与已接受 diagnosis。不得通过局部结果代替模块累积完成，需求/验收/冻结定义变化只提 CR。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

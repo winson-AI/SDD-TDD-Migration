@@ -43,4 +43,4 @@ mode: subagent
 
 ## 当前控制契约
 
-按 assignment.execution_contract 指定的 TASK 执行，输入规范为当前冻结叶子 SPEC；提交本批 task_trace 与完整累积代码 manifest。全部 TASK 完成前不交正式测试；不得修改未分配任务文件。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线与版本)。
+按 assignment.execution_contract 指定的 TASK 执行，输入规范为当前冻结叶子 SPEC；提交本批 task_trace 与完整累积代码 manifest。全部 TASK 完成前不交正式测试；不得修改未分配任务文件。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

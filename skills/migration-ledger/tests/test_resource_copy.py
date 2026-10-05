@@ -298,7 +298,8 @@ class WorkerTests(unittest.TestCase):
         analysis['dimensions'][1]['copy_plan_ref'] = planned['copy_plan_ref']
         path.write_text(json.dumps(analysis))
         worker = {'role': 'implementer', 'instance_id': 'worker-1'}
-        task = {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'worker-1', 'fencing_token': 'token-1', 'freeze_id': 'F1', 'closed': False}
+        task = {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'worker-1', 'fencing_token': 'token-1', 'freeze_id': 'F1', 'closed': False,
+                'execution_contract': {'task_ids': ['T1', 'T2'], 'path_ids': []}}
         module = {'module_id': 'M001', 'phase': 'implementing', 'freeze_id': 'F1', 'write_paths': [str(self.f.target / 'app')],
                   'assignments': {'I1': task}, 'plan': {'definitions': [], 'paths': [], 'dimension_analysis_ref': file_ref(path),
                                                          'tasks': [{'task_id': 'T1', 'scope': {'write_paths': [str(self.f.target / 'app/screens')]}},

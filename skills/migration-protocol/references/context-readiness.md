@@ -29,7 +29,7 @@
 | 修复批次裁决前 | audit-verdict / Auditor | 当前汇总/遗留、SPEC/PATH、每个验证结果与受阻根因、独立性 | Auditor audit-verdict；不以预检 ready 代替验证结果 |
 | 遗留路径独立复核前 | audit-testing / Auditor | 当前汇总、SPEC/PATH、代码与真实提供方、完整环境、独立性 | Auditor 自核就绪，GO audit-assign 绑定该实例；测试验收仍唯一归 Auditor |
 
-仅 v1 恢复的 problem-assign 使用 audit-testing，因为该入口可执行测试。v2 审计复测先由独立 Test-Runner 提交 audit-execution ready 预检，再由 GO audit-test-assign；不沿用 Auditor 的预检。审计期间下游 Fixer/Testing 仍分别通过 fixing/testing，不沿用 Auditor 的报告。
+审计复测先由独立 Test-Runner 提交 audit-execution ready 预检，再由 GO audit-test-assign；不沿用 Auditor 的预检。审计期间下游 Fixer/Testing 仍分别通过 fixing/testing，不沿用 Auditor 的报告。
 
 ## 3. 报告与传递
 

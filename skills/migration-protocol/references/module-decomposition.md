@@ -2,9 +2,9 @@
 
 ## 总则
 
-project 指完整项目及其功能树；single-module 只选择一个根功能，但父 MO 仍拆分子功能并交独立子 MO。职责固定为 GO 划分模块 scope/所需上下文 → 父 MO 认领后在范围内划分子 scope/所需上下文 → 子 MO 拆 tasks。父子均读全局代码/架构/知识，执行权限限定于认领 scope；规划绑定 Ledger 的 planning_context 和 module_inputs 分配包。父节点保存管理/汇总记录，叶子持有自己的 SPEC、代码、测试与验收；禁止把父聚合失败回写兄弟。全部叶子本轮结束且所有父 MO 提交当前版本汇总后，GO 才统一启动 Auditor。
+project 指完整项目及其功能树；single-module 只选择一个根功能。GO 划模块 scope/上下文，MO 按原子性决定细分或进入叶子 tasks 规划；不为凑层级创建同范围孩子。父子均读全局代码/架构/知识，权限限定于认领 scope；规划绑定 Ledger 的 planning_context 和 module_inputs。实际父节点只管理/汇总，叶子持有 SPEC、代码、测试与验收；父聚合失败不回写兄弟。全部叶子本轮结束且父 MO 汇总有效后，GO 才统一启动 Auditor。
 
-轻量叶子：原子根功能可由 GO 登记为 `lean_leaf`（附不可再拆的审阅）直接作为执行叶子；其本地修复轮由 Fixer 在原 Implementer 会话中先诊断后修复，MO 仍接受诊断，审计期恢复独立 Diagnostician；运行级 `fixer_self_diagnosis` 可让所有模块的本地轮采用同样做法（默认关闭）。多个孩子可由父 MO 汇总一份批量冻结信封交人类一次批准，条目完全匹配的孩子经 MO 审阅后冻结。见 [父子 MO 协议](#父级批量冻结信封)。
+轻量叶子：GO 可直接登记 `lean_leaf`；MO 也可在拆分提案中确认当前根为原子叶子，经 GO 接受后保留节点进入 SPEC 规划。原子性不替代测试设计与冻结；有代码问题才进入 Fixer，其本地轮可在原 Implementer 会话先诊断后修复，MO 接受诊断，审计期恢复独立 Diagnostician。运行级 `fixer_self_diagnosis` 可用于所有模块（默认关闭）。多个孩子的具体批准可汇总一次提交，见[批量冻结](#父级批量冻结信封)。
 
 ## 1. 三层职责
 
@@ -14,9 +14,9 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 | 父 MO | GO 分配的一个模块及其 scope | 在该范围内划分子模块，为每个子 MO 分配 scope、用例、写范围、依赖和完成子模块所需的上下文 | 看护整个认领模块，防止遗漏与重复，跟踪子 MO、管理依赖、等待并汇总 |
 | 子 MO | 父 MO 分配的子功能及 scope/context | 拆 tasks，组织 Spec Designer / Test Runner 完成六件套、测试路径及追溯 | 独立冻结、Coding → Testing → 预算内收敛 → DoD 或挂起 |
 
-拆分方向固定为 **GO 拆模块 → 父 MO 拆子模块 → 子 MO 拆 tasks**。子 MO 不再建下一层 MO；发现粒度或边界冲突，经 `realloc-request` 报父 MO，由父 `redecompose` 或 GO 协调；业务边界变化交人工决策。调整遵守 CR/重新冻结，不可自改分配。
+拆分按需推进 **GO 模块 → MO 子模块 → 叶子 tasks**；原子根可直接成为叶子。子 MO 不再建下一层 MO；粒度或边界冲突经 `realloc-request` 报父，由父 `redecompose` 或 GO 协调。编码前调整后重规划、校验、冻结；编码后契约变化走 CR。业务语义变化交人工，不私改分配。
 
-`project` 直接指定完整项目，GO 识别其中各根功能及其子功能。`single-module` 只指定其中一个根功能，其父 MO 仍须拆分子功能。用户无需额外输入模块 ID、scope、SPEC 或 Testing list。原子根功能可产生一个有明确职责的执行孩子，不虚构多个业务功能。
+两种入口只决定宿主范围，均允许 GO/MO 确认原子叶子。用户无需额外输入模块 ID、scope、SPEC 或 Testing list。
 
 根功能与子功能是同一 MO 角色的不同职责实例。父节点存入 `module_groups`，执行子节点存入 `modules`，ID 全局唯一；父 MO 不重复编码或重复验收孩子的 CASE。
 
@@ -32,7 +32,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 | `modules` | 当前执行节点的父级、scope、context_refs、CASE、写范围、依赖 |
 | `parents` | 父子关系及汇总责任 |
 
-再读取同一视图的 `module_input` 作为本 MO 的权威分配包：`module_id`、`parent_module_id`、`scope`、`case_ids`、`write_paths`、`dependencies`、`context_refs`；子包另带 `parent_context`，保留父模块 ID/scope/context_refs。父 MO 认领 GO 的包，子 MO 认领父 MO 经 GO 接受的包。认领由宿主将实例绑定到模块；拆分提案与 plan 不抄写分配包或全局上下文，Ledger 接受时绑定两者当前版本的摘要，不新增一个虚假的 claim 操作。
+再读取同一视图的 `module_input` 作为本 MO 的权威分配包：`module_id`、`parent_module_id`、`scope`、`case_ids`、`write_paths`、`dependencies`、`context_refs`；子包另带 `parent_context`，保留父模块 ID/scope/context_refs。父 MO 认领 GO 的包，子 MO 认领父 MO 经 GO 接受的包。认领由宿主将实例绑定到模块；拆分提案与 plan 不抄写分配包或全局上下文，Ledger 接受时绑定两者当前内容的摘要，不新增一个虚假的 claim 操作。
 
 上下文逐层细化：GO 的 context_refs 指向入口、相关代码、架构约束、知识、接口/复用 owner 及需求/用例映射；父 MO 为每个子功能提供聚焦文档绝对 path/sha256。子 MO 综合全局/父/子上下文拆 tasks，标明需求、PATH 与复用关系。共享上下文可引同一工件，不截断全局读取。
 
@@ -48,10 +48,12 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 原子根功能可由 GO 登记为 `lean_leaf=true` 执行叶子（跳过拆分与汇总），附 `leaf_review_ref`；其余根功能由 GO `register` 设 `decomposition_required=true`，提交非空 `scope.in`、显式 `scope.out`、非空 `requirement_ids` 与 `context_refs`。CASE/需求须来自本轮输入，写范围包含于 target_root。导入方案由 GO 补全转为此格式。
 
+MO 确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`、`parent_module_id`、`rationale`、`leaf_review_ref`。审阅说明职责完整、唯一 writer、依赖可控及独立验证路径；现有四维/行为/验证边界门禁仍适用。GO `decompose-accept` 核对当前绑定与证据，保留 ID/scope/CASE/依赖，清待拆分标记，进入未冻结 SPEC 规划。不允许夹带 children 或范围变化；已编码节点不能用此入口绕过 CR，已拆父组调整走 redecompose。
+
 | 操作 | 角色 / 请求 scope | 输入与门禁 |
 | --- | --- | --- |
-| `decompose` | 父 MO / 父 ID | `plan_ref` 指向拆分方案：parent_module_id、rationale、children；decomposition 预检随本操作登记 |
-| `decompose-accept` | GO / 父 ID | `review_ref`；已有 MO 提案且其绑定的上下文与分配仍是当前版本，复查范围、覆盖和依赖；原子移动父节点至 module_groups 并登记孩子 |
+| `decompose` | MO / 当前根 ID | `plan_ref` 为拆分方案或原子叶子结论；decomposition 预检随操作登记 |
+| `decompose-accept` | GO / 当前根 ID | `review_ref`；提案绑定仍有效；拆分则移父节点至 module_groups 并登记孩子，原子结论则原节点进入叶子规划 |
 | `realloc-request` | MO / 子或根 ID | `reason` + `evidence_refs`；切片/边界冲突提单，保存恢复阶段后进入 `waiting-upstream`；无父或父级上溯交 GO run-review |
 | `redecompose` | 父 MO / 父 ID | `plan_ref`；重组方案重新划分 children 并覆盖父范围 |
 | `redecompose-accept` | GO / 父 ID | `review_ref`；复核方案，比较范围、上下文、四维/行为审阅与依赖；保留未变孩子 Green 并恢复请求前阶段，受影响孩子及依赖闭包重新规划、保留 blocker/失败/预算，已实施下线模块转入 superseded_modules |
@@ -61,11 +63,11 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 1. 子需求/CASE 属于父范围；所有孩子的需求并集、CASE 并集各自完整覆盖父范围。子 scope.out 保留父排除项，可新增排除项；scope.in 描述真实子职责，语义不能扩张。
 2. 子写范围包含于父范围；ID 全局唯一。孩子不得设置 decomposition_required 或自行指定 parent_module_id；GO 接受时写入父 ID。
-3. 内部依赖引用本次孩子；外部依赖限父节点已批准依赖，图无环。v2 孩子只认领实际消费的依赖，不继承父依赖并集；父 provider 细化时，consumer_dependencies 明确消费者实际等待的孩子，并提交 consumer_verifications；v1 保留旧展开。
+3. 内部依赖引用本次孩子；外部依赖限父节点已批准依赖，图无环。孩子只认领实际消费的依赖，不继承父依赖并集；父 provider 细化时，consumer_dependencies 明确消费者实际等待的孩子，并提交 consumer_verifications。
 4. 有 blocker、活动 worker、已冻结或已生成代码的父节点不能直接拆分；不能通过删除/拆分规避失败历史。
-5. 接受拆分后原 global-plan 失效；GO 重新检查全部子模块覆盖与边界；global-plan 中需求 owner 须与已分配子范围一致，接受后才可派发实现。根功能待拆分时禁止直接进入正式子 plan/global-plan/编码。
+5. global-plan 可先验完整根/叶子 registry 的需求、CASE、功能、归属与依赖；待拆根保留覆盖责任但不能编码。已就绪叶子只检查自身、祖先及实际依赖，无关根继续细分。接受拆分后 GO 重验当前 registry，需求 owner 与 scope 一致；保留未变 SPEC/测试设计/执行上下文，影响闭包重规划。原子确认未改 registry，无需重复全局覆盖审查。
 6. 子 plan 绑定的分配必须仍是当前分配；每个 task 的 global_requirement_ids（无别名时使用 requirement_ids）限定在该子模块内，并覆盖其全部获分配需求；测试路径不得加入未分配 CASE。原有需求→task→PATH 追溯继续有效。
-7. 拆分与认领不等于 SPEC 冻结批准。子 MO 组织六件套、测试设计和澄清，按[控制主线](state-machine.md#控制主线与版本)审核冻结后才授权编码。
+7. 拆分与认领不等于 SPEC 冻结批准。子 MO 组织六件套、测试设计和澄清，按[控制主线](state-machine.md#控制主线)审核冻结后才授权编码。
 
 ## 4. 独立执行、父看护与统一审计
 
@@ -110,7 +112,7 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 
 ## 验证边界
 
-v2 behavior_review.verification 必填：acceptance_owner、case_ids、independent_observation、isolation_strategy、fixture_contract_ref、provider_inputs、integration_case_ids、integration_responsibility。provider_inputs 精确匹配实际 dependencies，逐项绑定 contract_ref 和 required_stage（implemented/verified）。同触发必须有不同的独立观察，否则重切；隔离策略和固定输入/替身契约由 GO/父 MO 以源码证据审阅。唯一 ID、独立作者或独立颜色不能替代行为独立性。
+behavior_review.verification 必填：acceptance_owner、case_ids、independent_observation、isolation_strategy、fixture_contract_ref、provider_inputs、integration_case_ids、integration_responsibility。provider_inputs 精确匹配实际 dependencies，逐项绑定 contract_ref 和 required_stage（implemented/verified）。同触发必须有不同的独立观察，否则重切；隔离策略和固定输入/替身契约由 GO/父 MO 以源码证据审阅。唯一 ID、独立作者或独立颜色不能替代行为独立性。
 
 叶子 source_closure 保持分配的 verification；行为 PATH 引用其 fixture_contract_ref。implemented provider 可解除编码准备依赖，正式测试/DoD 仍需 provider 验证完成。共享 provider 只一个实现 owner；消费者负责明确集成 CASE。结构门禁校验归属、引用、完整性，语义独立性由规划审核和最终 Auditor 复核。
 

@@ -91,10 +91,9 @@ class ModuleIsolationTests(unittest.TestCase):
         f.call('accept', {'assignment_id': 'RETRY'})
         test_workflow.WorkflowTests.defer(f)
         self.assertEqual(f.state()['modules']['M002'], peer)
-        step = f.state()['global_next_step']  # M001's closure is settled: early audit, M002 keeps running
-        self.assertEqual((step['operation'], step['payload']['module_ids'], step['closure']), ('problem-assign', ['M001'], ['M001']))
+        self.assertNotEqual(f.state()['global_next_step']['operation'], 'problem-assign')
         self.assertEqual(f.state()['module_rounds']['active_modules'], ['M002'])
-        self.assert_auditor_waits(early_audit_blocked=False)  # the final audit still waits for M002
+        self.assert_auditor_waits()
         self.finish_peer_test()
         s = f.state()
         self.assertEqual(s['modules']['M001']['quality'], 'red-bug')

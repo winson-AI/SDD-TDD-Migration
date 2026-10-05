@@ -14,7 +14,7 @@ description: /sdd-init [input.json绝对路径] [--mode single-module --module-n
 ## 2. 编排步骤
 1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
 2. 读取/初始化当前项目配置；对用户明确更新执行 project_context.py update，临时条件进入 overrides。宿主生成 run-request 和 run_id；prepare 复制文档并固化项目版本，返回 Global 的分析输入。快照相同请求可幂等恢复，不允许覆盖已有 run 快照。
-3. Global 只使用 prepare 固化的项目上下文分析；project 执行项目切片，single-module 按模式和名称定位模块，生成全局业务规范、需求/CASE 与审计路径输入。宿主保存完整 input.json，校验非空规范/用例后，原样作为载荷提交 Ledger init；收到 ACK 后 Global register 根功能（decomposition_required=true），派父 MO decompose；GO decompose-accept 登记子功能后 global-plan，再由独立子 MO 推进。初始化分析工件仅为 staged，不提前派模块 worker 或编码。
+3. Global 只使用 prepare 固化的上下文；project 切片，single-module 按名称定位，生成业务规范、需求/CASE 与审计路径。宿主保存并校验完整 input.json，原样提交 init；ACK 后 GO register 根功能，原子根 lean_leaf，其余根 decomposition_required=true。完整 registry 经 global-plan 验收覆盖；MO decompose 可细分或确认原子叶子，GO 接受后按当前分配推进。仅冻结且依赖就绪的叶子可编码，无关根可继续规划。
 
 single-module 模块名须为非空真实名称；共享项目输入必须可解析。GO 定义模块范围；叶子 Spec-Designer 编制实施六件套，独立 Test-Runner 设计测试，不列为用户入口必填字段。整理后的 Ledger init 输入禁止占位符、未决必填值和零必需用例；尚未 init 的输入澄清由宿主展示，不能声称已有 Ledger 状态。
 

@@ -99,6 +99,8 @@ class AuditScopeTests(unittest.TestCase):
             'test_run_id': 'prior-global', 'code_baseline': base}}
         updated = copy.deepcopy(path); updated['expected_assertions'][0]['expected'] = 'corrected acceptance'
         report = {'schema_version': 1, 'run_id': 'demo', 'reason': 'Correct GLOBAL acceptance',
+            'boundary_review': {'semantic_change': True, 'authorization_change': False, 'unresolved_questions': [],
+                'reason': 'Reviewed integration acceptance correction', 'evidence_refs': [f.ref('boundary.md', 'Only integration expectation changed')]},
             'context_patch': {}, 'root_updates': [], 'global_spec_ref': f.ref('corrected-global.md', 'Revised GLOBAL expectation'),
             'contract_patch': {'global_paths': [updated]}, 'modules': [{'module_id': 'M001', 'action': 'unchanged',
                 'reason': 'Module implementation contract unchanged', 'evidence_refs': [f.ref('impact.md', 'Only integration expectation changed')],

@@ -24,6 +24,8 @@ class DecompositionTests(unittest.TestCase):
         s = ledger.read_events(self.root)[0]
         if op == 'init':
             module = None
+        if s and op == 'assign' and (payload or {}).get('mode') != 'design':
+            payload = test_ledger.execution_payload(s, module, payload)
         scope = (s['modules'].get(module) or s.get('module_groups', {}).get(module)) if module and s else s
         return ledger.apply(self.root, {'schema_version': 1, 'request_id': str(self.n), 'run_id': 'demo',
             'module_id': module, 'expected_revision': scope['revision'] if scope else 0,
@@ -129,8 +131,9 @@ class DecompositionTests(unittest.TestCase):
         self.call('decompose', {'plan_ref': self.ref('valid.json', self.proposal())}, module='M010')
         with self.assertRaisesRegex(Rejected, 'principal role denied'):
             self.call('decompose-accept', {'review_ref': self.ref('review.md', 'reviewed')}, module='M010')
+        self.global_plan()  # Root coverage can be accepted while its MO is still planning.
         with self.assertRaisesRegex(Rejected, 'complete MO decomposition'):
-            self.global_plan()
+            ledger.workflow.planning_guard(self.state(), 'M010')
 
     def test_all_children_green_still_require_parent_summary_then_final_auditor(self):
         self.root_scope(); self.split(); self.global_plan()
@@ -166,13 +169,20 @@ class DecompositionTests(unittest.TestCase):
     def test_project_contains_separate_parents_and_global_context_changes_require_review(self):
         self.root_scope('project')
         self.call('decompose', {'plan_ref': self.ref('split-before-change.json', self.proposal())}, module='M010')
-        self.call('register', {'module_id': 'M020', 'name': 'Orders', 'case_ids': ['C1'],
-                  'write_paths': [str(self.target / 'orders')], 'dependencies': ['M010']}, role='global-orchestrator', module=None)
+        from test_behavior_contract import review
+        consumer = {'module_id': 'M020', 'name': 'Orders', 'case_ids': ['C1'],
+            'scope': {'in': ['Orders'], 'out': ['Search'], 'requirement_ids': ['R1']},
+            'write_paths': [str(self.target / 'orders')], 'dependencies': ['M010']}
+        consumer['behavior_review'] = review(self, consumer)
+        self.call('register', consumer, role='global-orchestrator', module=None)
         # The proposal was accepted under the context before M020 existed; the parent MO has to resubmit it.
         with self.assertRaisesRegex(Rejected, 'current global'):
             self.call('decompose-accept', {'review_ref': self.ref('stale-review.md', 'reviewed')}, role='global-orchestrator', module='M010')
-        self.split()
-        self.assertEqual(self.state()['modules']['M020']['dependencies'], ['M001', 'M002'])
+        plan = self.proposal(); plan['consumer_dependencies'] = {'M020': ['M001']}
+        consumer['dependencies'] = ['M001']
+        plan['consumer_verifications'] = {'M020': review(self, consumer)['verification']}
+        self.split(plan)
+        self.assertEqual(self.state()['modules']['M020']['dependencies'], ['M001'])
         self.assertIn('M020', self.state()['planning_context']['modules'])
         self.assertFalse(self.state()['module_rounds']['all_settled'])
 

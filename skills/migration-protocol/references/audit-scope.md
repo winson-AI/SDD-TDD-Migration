@@ -2,7 +2,7 @@
 
 ## 总则
 
-全量收尾等全部 MO 本轮结束。Auditor 审阅宿主目标与代码，先治理/回归再收集遗留，见[代码治理](audit-code-review.md#顺序与职责)。Red/Yellow 按 SPEC/CASE/PATH 追因和路由；复测仅覆盖实际影响，保留无关 Green。无遗留仍独立审阅，global_paths 可为空。v2 明确技术失败在同 Run 累计预算内重试；v1 保留单批一轮。
+全量收尾等全部 MO 本轮结束。Auditor 审阅宿主目标与代码，先治理/回归再收集遗留，见[代码治理](audit-code-review.md#顺序与职责)。Red/Yellow 按 SPEC/CASE/PATH 追因和路由；复测仅覆盖实际影响，保留无关 Green。无遗留仍独立审阅，global_paths 可为空。明确技术失败在同 Run 累计预算内重试。
 
 ## 入口与范围
 
@@ -19,14 +19,14 @@ Auditor 在所有父/子 MO 的本轮实现、编译构建、自动化测试及�
 1. GO `audit-collect` 固定当前遗留 finding、来源模块、SPEC/测试路径及基线；纯自动化环境缺测汇入收尾待验证清单，不强制当成代码缺陷。
 2. Auditor 逐 finding 读取 SPEC/tasks/CASE/PATH、断言和根因证据，提交 `audit-plan`。可直接复核的用 `verify`；已有根因需要补丁的用 `fix`；业务边界不明/不可修复的用 `human`。
 3. GO 审核路由，owner MO `audit-work` 委派 Fixer；同 owner 合并 finding。Auditor 不修代码或验收。
-4. 正式复测留新回执、assert、基线与 retest_of。v2 已确认技术根因指向已审核 owner、冻结有效、影响范围空闲且预算足时，回该 owner 的 audit-work；历史进 test_history，实际下游旧证明失效。未知/新 owner、语义或授权变化、预算耗尽交人工/回溯。缺环境保留 Yellow；v1 复测失败交人工。
+4. 正式复测留新回执、assert、基线与 retest_of。已确认技术根因指向已审核 owner、冻结有效、影响范围空闲且预算足时，回该 owner 的 audit-work；历史进 test_history，实际下游旧证明失效。未知/新 owner、语义或授权变化、预算耗尽交人工/回溯。缺环境保留 Yellow。
 5. Auditor `audit-verdict` 验收，Ledger 记录结果与修复 memory；独立分支继续，失败只影响有依赖关系的分支。父 MO 刷新汇总后，独立审阅收尾。
 
 work_modules 包含发现模块、根因 owner 与受影响下游，按模块基线保守完整回归并重建。扩展范围须追溯 finding/owner/依赖边；无关 Green 不追加回归，完整测试定义仅供覆盖核对。
 
 ## 收尾的实际执行契约
 
-v2 执行与裁决分离见[宿主目标审计](audit-code-review.md#宿主目标审计)：独立 Test-Runner 执行，Auditor 消费原始证据。下述由 Auditor 直接执行的调用仅适用于 v1 恢复。
+独立 Test-Runner 执行，Auditor 消费原始证据并裁决，见[宿主目标审计](audit-code-review.md#宿主目标审计)。audit-assign 后，GO 提交 audit-test-assign，Test-Runner 经 execute_test 执行并 audit-test-submit；Auditor 报告绑定 test_result_ref，原样引用 PATH 观察。
 
 `audit-assign` 不检查 global_paths 非空。Ledger 的 `audit_scope(state)` 生成本轮执行集合，并固定到 assignment：
 
@@ -47,25 +47,13 @@ v2 执行与裁决分离见[宿主目标审计](audit-code-review.md#宿主目�
 
 读取 `module_rounds`、`global_next_step`、`context_gate` 后按下一动作提交事件；活动 audit 快照过期时游标给出 audit-revoke，宿主确认旧 worker 已停止并留证后撤销再创建新 assignment，不得边运行旧审计边替换范围，撤销不返还既有预算。宿主仍负责启动 subagent、加载 skills、执行脚本及绑定真实身份；Ledger 只治理状态、范围、证据与门禁。
 
-## 问题审计与最终审计
+## 宿主统一审计
 
-仅 v1 恢复的问题审计：problem-assign → Auditor 用 execute_test --module Mxxx --assignment <problem-id> 执行 → problem-audit → MO audit-resume。assignment 对应的 module_ids 全部必须在报告中出现。可执行模块 result 使用既有 tests 结构，actor_instance_id 为独立 Auditor；冻结、代码、所有 PATH/断言、历史非 Green retest_of 均校验。缺代码、定义失效或生产者未就绪的模块禁止执行，只报 quality=yellow-blocked、result=null 和结构化根因。
-
-Auditor 裁决：
-
-- retry：独立复测全部 Green；MO 恢复 testing 且 stale，仍需 Main 新复测与 DoD，不能直接 completed。
-- fix：独立复测仍有问题；MO 接受后按现有契约授权一轮 Fixer，总预算不足仍须显式 recover 决策。该轮失败再交 Auditor。
-- change：需调整契约；MO 回 specifying，新的人类批准后重新冻结，不授权 Auditor/Fixer 改验收。
-- wait：依赖/外围问题未解除，保留队列；先解决前置，再按问题审计预算重新复测。
-- human：人工裁决；批准 subject=digest(audit_resolution)（游标的 approval_subject_sha256），MO 接受后重新规划与冻结。
-
-问题审计不发布全局 Green。收尾仍要求 audit_queue 清空、模块完成或合法 automation-deferred；只处理剩余待验证路径，空清单使用 audit-review。失败沿用 audit-route/repair-accept 闭环，保留独立性。问题审计与最终审计各自受 max_audit_rounds 限制，次数在撤销后不返还。
-
-审计期间冻结业务操作和 worker 派发；旧进程必须真正停止。使用既有 audit-revoke 撤销问题/最终审计，附宿主停止证据。问题快照绑定模块 revision/phase/freeze/code/blocker/results；源码或定义变动会使执行不可用或结果拒收，不能混用新旧证据。
+局部问题由 MO 在累计预算内收敛；宿主审计统一收集各模块遗留与整体目标缺口，经 audit-collect/route/work/retest/verdict 闭环。max_audit_rounds 耗尽时 audit-recover 绑定明确人工决定，撤销不返还预算。历史问题审计仅供追溯，不作为执行入口。
 
 ## 默认收尾：修复后验证，失败待人工
 
-本节描述 finding 批次（audit-collect）；problem-assign/problem-audit 只用于 v1 恢复的闭包提前审计，最终全量审计仍待所有模块收尾。角色及 Used Skills 由宿主实际启动/恢复，本控制器提供状态与门禁，不自带 Agent 调度服务。
+本节描述统一宿主审计的 finding 批次（audit-collect），待所有模块本轮收尾后启动。角色及 Used Skills 由宿主实际启动/恢复，本控制器提供状态与门禁，不自带 Agent 调度服务。
 
 ### 1. 所有模块执行阶段结束后统一启动
 
@@ -97,7 +85,7 @@ Auditor 读取对应 SPEC/tasks/CASE/PATH、断言及日志，提交 [audit-clos
 
 ### 3. 按问题依赖交错修复和回归
 
-MO audit-work 接受该 owner 相关 finding，Fixer 按冻结 tasks/写范围提交补丁、追溯及 fix_note。v2 重试沿已审路由，累计预算不清零；同 finding 再现按停滞次数/剩余预算判断，不能仅因曾修过一次强制人工。影响范围见总则。
+MO audit-work 接受该 owner 相关 finding，Fixer 按冻结 tasks/写范围提交补丁、追溯及 fix_note。重试沿已审路由，累计预算不清零；同 finding 再现按停滞次数/剩余预算判断，不能仅因曾修过一次强制人工。影响范围见总则。
 
 调度不等待全批所有 owner。每个模块只等自身上游：
 
@@ -110,7 +98,7 @@ A 修复 → A 全路径 Testing/DoD → B 全路径复测/DoD
 
 ### 4. 失败隔离与审计报告
 
-不能继续的失败、worker 中断、预算不足或证据失效经 test acceptance/audit-block 记 human_issues，仅挂起关联分支。v2 可重试时，retry_stops 只列实际影响范围的在途旧 worker；Host 留停止证据后 revoke，再放行 owner，拒收旧输出。无关 worker 继续；状态不能代替真实停止。
+不能继续的失败、worker 中断、预算不足或证据失效经 test acceptance/audit-block 记 human_issues，仅挂起关联分支。可重试时，retry_stops 只列实际影响范围的在途旧 worker；Host 留停止证据后 revoke，再放行 owner，拒收旧输出。无关 worker 继续；状态不能代替真实停止。
 
 剩余可执行分支验证完毕后，Auditor audit-verdict 汇总 resolved_findings、human_issues、owner_tests/source_tests。全部成功则 verified；存在人工问题则 awaiting-human，并生成 `<run_root>/audit-reports/<batch-id>.json/.md`。若没有其他可推进分支，失败时即可进入 awaiting-human。报告保留 SPEC、路径、根因、各次结果和证据；后续信息更新报告时，也更新审批绑定的摘要。
 

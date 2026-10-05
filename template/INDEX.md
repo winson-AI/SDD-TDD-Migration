@@ -17,7 +17,7 @@
 | [global-plan.json](global-plan.json) | GO | 全局需求、CASE 与功能归属，global-plan 验收输入 |
 | [module-input.json](module-input.json) | GO | register 载荷：根模块的 scope、CASE、写范围、上下文、四维分配与行为审阅 |
 | [dimension-analysis.json](dimension-analysis.json) | GO / 父 MO | 四维源闭包、适用性与父子分配 |
-| [module-decomposition.json](module-decomposition.json) | 父 MO | 子功能拆分方案，GO 接受后登记子模块 |
+| [module-decomposition.json](module-decomposition.json) | MO | 子功能拆分方案；原子结论用[分配门禁](../skills/migration-protocol/references/module-decomposition.md#3-分配与登记门禁)的四字段格式，GO 接受后保留叶子 |
 | [batch-envelope.json](batch-envelope.json) | 父 MO | 批量冻结信封；一次人类批准覆盖条目完全匹配的孩子 |
 | [reuse-catalog.json](reuse-catalog.json) | GO | 功能语义能力目录 |
 | [run-revision.json](run-revision.json) | GO | 同任务根分配与上下文修订的影响报告 |
@@ -68,12 +68,11 @@
 | [audit-change-inventory.md](audit-change-inventory.md) | Auditor | 本次代码修改清单，由 audit-code-review.json 引用 |
 | [audit-closure-plan.json](audit-closure-plan.json) | Auditor | finding 到修复模块的路由 |
 | [audit-review.json](audit-review.json) | Auditor | 待验证清单为空时的独立证据审阅 |
-| [problem-audit-report.json](problem-audit-report.json) | Auditor | 问题审计报告；示例为不可执行时的 Yellow，可执行模块须附真实 tests 结果 |
 | [audit-report.md](audit-report.md) | Auditor | 全局快照、复测与最终裁决 |
 | [migration-report.md](migration-report.md) | GO | 收尾报告展示契约；本地运行优先使用 Ledger 生成的报告 |
 | [watchdog-host-state.json](watchdog-host-state.json) | 宿主 | 本 run 的真实状态导出，不是 Ledger 请求 |
 | [workflow-verification.md](workflow-verification.md) | 宿主 | 适配后的行为验收矩阵 |
 
-控制 v2：[plan-review.json](plan-review.json) 为 MO 技术审核；[execution-assignment.json](execution-assignment.json) 为显式 TASK/PATH/FINDING 分配。验证边界见 module-decomposition/stage-plan；宿主目标矩阵见 audit-code-review，审计执行与裁决分离见 audit-review。
+控制 [plan-review.json](plan-review.json) 为 MO 技术审核；[execution-assignment.json](execution-assignment.json) 为显式 TASK/PATH/FINDING 分配。验证边界见 module-decomposition/stage-plan；宿主目标矩阵见 audit-code-review，审计执行与裁决分离见 audit-review。
 
 按需契约：[api-inventory.json](api-inventory.json) 绑定四维 API 清单；[parameter-binding.json](parameter-binding.json) 保留动态表达式与布局结构。仅适用任务加载；模板不是已接受的证据。

@@ -222,15 +222,15 @@ class SplitTestingTests(unittest.TestCase):
         f.call('complete', {'dod_ref': f.ref('dod.md', 'Rebuilt current code and verified all paths')})
         self.assertEqual(f.state()['modules']['M001']['quality'], 'green-passed')
 
-    def test_build_repair_and_automation_share_one_local_round(self):
+    def test_build_repair_and_automation_share_the_fix_budget(self):
         f = self.f; self.repair_build()
         a, result = f.make_test_result(quality='red-bug')
         f.submit(result, a); f.call('accept', {'assignment_id': a['assignment_id']})
         s = f.state()
         self.assertEqual(s['modules']['M001']['local_fix_used'], 1)
         self.assertEqual(s['modules']['M001']['fix_memory'][0]['status'], 'failed')
-        self.assertEqual(s['next_steps'][0]['operation'], 'audit-defer')
-        self.assertEqual(s['next_steps'][0]['root_cause']['category'], 'local-round-exhausted')
+        self.assertEqual(s['next_steps'][0]['operation'], 'diagnose')
+        self.assertLess(s['modules']['M001']['fix_rounds_used'], s['max_fix_rounds'])
 
     def reinit(self, **extra):
         f = self.f; original = f.state()
@@ -252,7 +252,7 @@ class SplitTestingTests(unittest.TestCase):
         f.call('diagnosis-accept')
 
     def test_build_only_red_may_use_configured_extra_local_rounds(self):
-        f = self.f; self.reinit(local_fix_rounds=2)
+        f = self.f; self.reinit(max_fix_rounds=2)
         self.build_code = "from pathlib import Path; raise SystemExit(0 if '4' in Path('m1/code.py').read_text() else 1)"
         self.prepare()
         self.build_red_round('BUILD1'); f.implementation('fixer', 'FIX1')
@@ -265,18 +265,18 @@ class SplitTestingTests(unittest.TestCase):
         self.assertEqual(s['next_steps'][0]['operation'], 'audit-defer')
         self.assertEqual(s['next_steps'][0]['root_cause']['category'], 'local-round-exhausted')
 
-    def test_extra_local_rounds_never_apply_to_business_failures(self):
-        f = self.f; self.reinit(local_fix_rounds=2); self.repair_build()
+    def test_remaining_budget_also_applies_to_business_failures(self):
+        f = self.f; self.reinit(max_fix_rounds=2); self.repair_build()
         a, result = f.make_test_result(quality='red-bug')
         f.submit(result, a); f.call('accept', {'assignment_id': a['assignment_id']})
         step = f.state()['next_steps'][0]
-        self.assertEqual((step['operation'], step['root_cause']['category']), ('audit-defer', 'local-round-exhausted'))
+        self.assertEqual(step['operation'], 'diagnose')
 
     def test_local_rounds_must_fit_the_total_fix_budget(self):
         f = self.f; root = f.root
         for bad in (0, '2', 4):
             f.root = root
-            with self.subTest(bad=bad), self.assertRaisesRegex(Rejected, 'local_fix_rounds'):
+            with self.subTest(bad=bad), self.assertRaisesRegex(Rejected, 'max_fix_rounds'):
                 self.reinit(local_fix_rounds=bad, max_fix_rounds=3)
 
     def test_build_process_success_requires_accept_and_separate_testing_context(self):
@@ -379,10 +379,14 @@ class SplitTestingTests(unittest.TestCase):
         ref = f.record(report)
         f.raw('audit-assign', {'assignment_id': 'FINAL', 'instance_id': 'auditor', 'context_ref': ref}, role='global-orchestrator', module=None)
         import ledger
+        execution_report = f.report('audit-execution', module=None, instance='independent-audit-test')
+        execution_report['execution']['commands'] = report['execution']['commands']
+        f.call('audit-test-assign', {'assignment_id': 'FINAL-TEST', 'instance_id': 'independent-audit-test',
+            'path_ids': f.state()['audit_assignment']['path_ids'], 'context_ref': f.record(execution_report)}, role='global-orchestrator', module=None)
         scope = ledger.audit_scope(f.state()); rows = []
         for path in scope['plan']['paths']:
             argv = command['argv'] if path['path_id'] == 'B1' else report['execution']['argv']
-            rr = execute(f.root, 'GLOBAL', 'FINAL', path['path_id'], argv, str(f.target), f.base / ('audit-'+path['path_id']))
+            rr = execute(f.root, 'GLOBAL', 'FINAL-TEST', path['path_id'], argv, str(f.target), f.base / ('audit-'+path['path_id']))
             receipt = read_json(rr['path']); captured = read_json(receipt['result_ref']['path'])
             rows.append({'path_id': path['path_id'], 'quality': 'green-passed' if all(a['passed'] for a in captured['assertions']) else 'red-bug', 'executed': True,
                          'root_cause': {'category': 'code', 'summary': 'Observed assertion mismatch', 'confidence': 'confirmed', 'owner': 'M001', 'next_action': 'fix'},
@@ -391,7 +395,7 @@ class SplitTestingTests(unittest.TestCase):
         result = {'schema_version': 1, 'kind': 'tests', 'run_id': 'demo', 'module_id': 'GLOBAL',
                   'assignment_id': 'FINAL', 'actor_instance_id': 'auditor', 'freeze_id': scope['freeze_id'],
                   'code_baseline': scope['code_baseline'], 'snapshot': {'M001': f.state()['modules']['M001']['code_baseline']}, 'paths': rows}
-        f.raw('audit', {'report_ref': f.ref('final.json', result)}, role='auditor', module=None)
+        f.raw('audit', {'report_ref': f.ref('final.json', test_ledger.accept_audit_test(f, result))}, role='auditor', module=None)
         return f
 
     def test_empty_global_audits_only_yellow_preserving_passed_build(self):

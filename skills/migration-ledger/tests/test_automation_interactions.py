@@ -130,7 +130,8 @@ out.write_text(json.dumps({{'producer':'harmony-adapter', 'query_sha256':digest(
     **step_evidence(q, out.parent)}}))
 ''')
         self.module['assignments'] = {'A1': {'assignment_id': 'A1', 'role': 'test-runner',
-                                            'instance_id': 'runner', 'closed': False}}
+                                            'instance_id': 'runner', 'closed': False,
+                                            'execution_contract': {'task_ids': [], 'path_ids': ['P-BACK']}}}
         state = {'run_id': 'gesture', 'modules': {'M001': self.module}}
         with patch.object(execute_test, 'status', return_value=state):
             ref = execute_test.execute(self.run, 'M001', 'A1', 'P-BACK', [sys.executable, '-B', str(adapter)],

@@ -9,14 +9,14 @@ description: 整体代码审查、重构/复用治理委派、独立遗留复核
 服务 Auditor；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/state-machine.md) 的相应小节。
 
 ## 2. 核心规约
-等待所有 MO 实现/测试本轮收尾及父汇总，先按 [整体代码治理](../migration-protocol/references/audit-code-review.md#顺序与职责) 提交 audit-code-review，核对所有代码改动、冗余、二方库依赖与公共通用能力；委派治理并完成影响范围回归、刷新审查后，再从 Ledger 收集剩余 Red/Yellow。读取对应 SPEC/CASE/PATH/根因，复核并委派必要的一轮 Fixer，修复后 Testing 复核；失败留根因待人工。作者与审计实例分离。
+等待所有 MO 实现/测试本轮收尾及父汇总，先按 [整体代码治理](../migration-protocol/references/audit-code-review.md#顺序与职责) 提交 audit-code-review，核对所有代码改动、冗余、二方库依赖与公共通用能力；委派治理并完成影响范围回归、刷新审查后，再从 Ledger 收集剩余 Red/Yellow。读取对应 SPEC/CASE/PATH/根因，复核并按已审 finding 路由委派 Fixer，修复后 Test-Runner 复核；可重试时沿累计预算继续，停滞或预算耗尽留根因待人工。作者与审计实例分离。
 
 **遍历全部模块不等于重跑全部用例。** 有效且不受影响的 Green 保留证据；global_paths 可为空，绝不能阻止审计。执行选择、空清单独立审阅必须遵守 [审计范围协议](../migration-protocol/references/audit-scope.md#总则)。
 
 所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
 
 ## 3. 标准模式
-推荐：全部模块本轮完成或明确挂起且无可推进工作后，整体代码审查 → 委派代码治理与完整受影响回归 → 刷新代码审查 → 统一扫描并行遗留 → 读取发现/负责模块 SPEC 和测试路径 → 根因路由 → MO 委派一轮 Fixer → 独立 Testing 复核 → 成功裁决；失败记录根因待人工，禁止重复自动修复。
+推荐：全部模块本轮完成或明确挂起且无可推进工作后，整体代码审查 → 委派代码治理与完整受影响回归 → 刷新代码审查 → 统一扫描并行遗留 → 读取发现/负责模块 SPEC 和测试路径 → 根因路由 → MO 委派 Fixer → 独立 Test-Runner 复核 → 成功裁决；失败按实际影响、累计预算和停滞证据判断重试或人工介入。
 
 禁止：直接修改代码/测试；只接受 Fixer 回归日志；拿旧基线 Green 拼成全局全绿。
 
@@ -33,7 +33,7 @@ description: 整体代码审查、重构/复用治理委派、独立遗留复核
 
 本地非 Green 审计产生 audit_repairs，由 Global 路由、MO 接受重开；下一轮保留 audit_results 的非 Green retest_of 链。详见 [控制流闭环](../migration-protocol/references/state-machine.md#控制流闭环细则)。
 
-默认收尾扫描全部模块，使用 audit-collect/audit-plan/audit-route-batch/audit-work/audit-retest/audit-verdict；失败问题及依赖下游生成 audit-reports/<batch-id>.md/json 待人工，独立分支继续；汇总后由批准的 audit-release 进入受控恢复。v2 的统一宿主目标审计与独立 Test-Runner 复测见[宿主目标审计](../migration-protocol/references/audit-code-review.md#宿主目标审计)；problem-assign/problem-audit 仅用于 v1 恢复。收尾只复核待验证清单；清单为空则独立 audit-review，不启动自动化。详见 [当前运行契约](../migration-protocol/references/local-runtime.md#操作矩阵)。
+默认收尾扫描全部模块，使用 audit-collect/audit-plan/audit-route-batch/audit-work/audit-retest/audit-verdict；失败问题及依赖下游生成 audit-reports/<batch-id>.md/json 待人工，独立分支继续；汇总后由批准的 audit-release 进入受控恢复。统一宿主目标审计与独立 Test-Runner 复测见[宿主目标审计](../migration-protocol/references/audit-code-review.md#宿主目标审计)。收尾只复核待验证清单；清单为空则独立 audit-review，不启动自动化。详见 [当前运行契约](../migration-protocol/references/local-runtime.md#操作矩阵)。
 
 按 finding_id 路由，支持不同问题分别修复及单问题多 owner；按依赖交错 Testing，不等待全批 owner。宿主实际启动 subagent 与 Used Skills。
 

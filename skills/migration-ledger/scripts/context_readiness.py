@@ -298,7 +298,7 @@ def requirement(op, p, s=None):
     return {'register': 'global-discovery', 'global-plan': 'global-planning', 'source-review': 'global-planning', 'run-review': 'global-planning',
             'decompose': 'decomposition', 'decompose-accept': 'decomposition',
             'plan': 'planning', 'freeze': 'planning', 'audit-plan': 'audit-analysis', 'audit-code-review': 'audit-code-review',
-            'audit-assign': 'audit-testing', 'problem-assign': 'audit-testing',
+            'audit-assign': 'audit-testing',
             'audit-verdict': 'audit-verdict'}.get(op)
 
 
@@ -362,7 +362,7 @@ def gate(s, req, actor):
     if op in ('freeze', 'decompose-accept'):
         ref = obj.get('context_acceptances', {}).get('plan' if op == 'freeze' else 'decompose', {}).get('report_ref')
     require(ref, 'context readiness receipt required for ' + op)
-    instance = p.get('instance_id') if op in ('assign', 'audit-assign', 'problem-assign', 'audit-test-assign') else None
+    instance = p.get('instance_id') if op in ('assign', 'audit-assign', 'audit-test-assign') else None
     if op in ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'run-review', 'audit-code-review'):
         instance = actor['instance_id']
     draft = p.get('plan_ref') if op in ('global-plan', 'decompose', 'plan', 'audit-plan') else obj.get('plan_ref') if op == 'freeze' else None

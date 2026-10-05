@@ -200,22 +200,25 @@ class DynamicParameterTests(test_parameter_file.ParameterFileTests):
         with self.assertRaisesRegex(Rejected, 'frozen behavioral assertion'):
             parameter_file.gate(self.state(), {'paths': [], 'decision_envelope': {}}, analysis)
         plan = {'paths': [{'path_id': 'P1', 'kind': 'unit', 'expected_assertions': [{'assertion_id': 'A1', 'expected': True}]}], 'decision_envelope': {}}
-        parameter_file.gate(self.state(), plan, analysis)
+        fill['not_applicable'] = [{'ids': [p['id'] for p in parameter_file.ui_parameters.parameters(analysis) if p['class'] == 'keyword'],
+            'reason': 'This fixture isolates the runtime alpha binding'}]
+        parameter_file.gate(self.state(), plan, self.analysis(fill))
         fill['runtime'][0]['source_expression'] = '1f'
         with self.assertRaisesRegex(Rejected, 'differs from recorded'): self.decided(fill)
 
-    def test_policy_two_cannot_silently_settle_a_dynamic_expression(self):
+    def test_constant_requires_source_proof(self):
+        self.fill['settled'][0].pop('constant_evidence_refs')
         with self.assertRaisesRegex(Rejected, 'constant without source proof'):
-            self.gate(control_policy_version=2)
+            self.gate()
 
-    def test_policy_two_requires_structural_layout_mapping_as_well_as_runtime_mapping(self):
+    def test_structural_layout_mapping_and_runtime_mapping_are_both_required(self):
         fill = self.runtime_fill(); analysis = self.analysis(fill)
         plan = {'paths': [{'path_id': 'P1', 'kind': 'unit', 'expected_assertions': [{'assertion_id': 'A1', 'expected': True}]}], 'decision_envelope': {}}
         with self.assertRaisesRegex(Rejected, 'layout keywords'):
-            parameter_file.gate(self.state(control_policy_version=2), plan, analysis)
+            parameter_file.gate(self.state(), plan, analysis)
         source = next(row for row in analysis['dimensions'] if row['dimension'] == 'UI')['parameter_sheet_ref']
         fill['structural'] = [{'id': p['id'], 'source_expression': p.get('text', p.get('value')),
             'consumer': str(self.target / 'screen.kt') + '#layoutContract', 'reason': 'Preserve constraints and zero spacing',
             'evidence_refs': [source], 'assertions': [{'path_id': 'P1', 'assertion_id': 'A1'}]}
             for p in parameter_file.ui_parameters.parameters(analysis) if p['class'] == 'keyword']
-        parameter_file.gate(self.state(control_policy_version=2), plan, self.analysis(fill))
+        parameter_file.gate(self.state(), plan, self.analysis(fill))

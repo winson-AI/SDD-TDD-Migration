@@ -34,11 +34,11 @@
 
 ## 并行模块隔离与 Auditor 全量收尾
 
-GO 完成切片与 registry 登记后，每个 MO 独立推进自己的状态机、测试、修复预算及验收。某模块 Red/Yellow、异常或挂起，仅更新该模块及有证据的依赖影响范围；不得将全局聚合颜色回写其他模块，不得取消无关 MO，或为提前审计批量挂起其他模块。已通过模块保留有效 Green，未执行模块保留未执行状态。只有完整 registry 中每个模块都完成 DoD 或有本模块证据的明确挂起记录、全部 worker 已结束且无可推进动作，才允许启动最终 Auditor；v1 恢复的闭包提前审计例外及逐 module_id 收集规则见 [模块隔离与收尾规则](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾)。
+GO 完成切片与 registry 登记后，每个 MO 独立推进自己的状态机、测试、修复预算及验收。某模块 Red/Yellow、异常或挂起，仅更新该模块及有证据的依赖影响范围；不得将全局聚合颜色回写其他模块，不得取消无关 MO，或为提前审计批量挂起其他模块。已通过模块保留有效 Green，未执行模块保留未执行状态。只有完整 registry 中每个模块都完成 DoD 或有本模块证据的明确挂起记录、全部 worker 已结束且无可推进动作，才允许启动最终 Auditor；逐 module_id 收集规则见 [模块隔离与收尾规则](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾)。
 
 ## 调用约定
 
-Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `description`，技能使用 `name/description`；宿主可按实际注册格式转换，不能把 `mode` 误当作所有产品原生字段。命令解析请求后由宿主提交 Ledger；编排角色提交 assign（审计为 audit-assign / problem-assign），Ledger 接受后，宿主调用实际提供的任务工具（`task`，或读取定义后 spawn_agent 启动隔离实例）。不能假设能嵌套 slash command，也不能只写一段工具调用文本便宣布已派发。Ledger 的 transport ACK 是唯一允许的传输回执，不携带绕过事件的业务决策。迁移运行时允许并行无冲突模块，数量受输入和宿主限制；本说明不要求在编辑本工作流包时启动迁移 Agent。
+Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `description`，技能使用 `name/description`；宿主可按实际注册格式转换，不能把 `mode` 误当作所有产品原生字段。命令解析请求后由宿主提交 Ledger；编排角色提交 assign（审计为 audit-assign / audit-test-assign），Ledger 接受后，宿主调用实际提供的任务工具（`task`，或读取定义后 spawn_agent 启动隔离实例）。不能假设能嵌套 slash command，也不能只写一段工具调用文本便宣布已派发。Ledger 的 transport ACK 是唯一允许的传输回执，不携带绕过事件的业务决策。迁移运行时允许并行无冲突模块，数量受输入和宿主限制；本说明不要求在编辑本工作流包时启动迁移 Agent。
 
 ## 专题索引
 

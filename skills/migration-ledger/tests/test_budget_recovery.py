@@ -147,6 +147,12 @@ class AuditBudgetRecoveryTests(unittest.TestCase):
         f.call('audit-assign', {'assignment_id': 'AUD-4', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         self.assertEqual(f.state()['audit_attempts'], 4)
 
+    def test_audit_budget_cannot_reactivate_module_problem_audits(self):
+        f = self.f; before = ledger.read_events(f.root)
+        with self.assertRaisesRegex(Rejected, 'whole host task'):
+            f.call('audit-recover', {'module_ids': ['M001'], 'additional_rounds': 1}, role='global-orchestrator', module=None)
+        self.assertEqual(ledger.read_events(f.root), before)
+
     def test_audit_renewal_rejects_unapproved_budget(self):
         f = self.f; before = ledger.read_events(f.root)
         with self.assertRaisesRegex(Rejected, 'decision'):

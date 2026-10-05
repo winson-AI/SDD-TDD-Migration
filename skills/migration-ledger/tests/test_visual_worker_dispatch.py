@@ -21,7 +21,8 @@ class VisualDispatchTests(unittest.TestCase):
         self.journal = (self.f.run / 'ledger/events.jsonl').read_bytes()
         self.actor = {'role': 'test-runner', 'instance_id': 'runner'}
         self.task = {'assignment_id': 'V1', 'role': 'test-runner', 'instance_id': 'runner',
-                     'test_scope': 'automation', 'fencing_token': 8, 'freeze_id': 'F1', 'closed': False}
+                     'test_scope': 'automation', 'fencing_token': 8, 'freeze_id': 'F1', 'closed': False,
+                     'execution_contract': {'task_ids': [], 'path_ids': ['PB', 'PA', 'PV']}}
         code = self.ref(self.f.target / 'Main.kt', 'fun main() = Unit')
         current = baseline([code])
         selection = self.ref(self.f.run / 'staging/selection.md', 'current frozen build')
@@ -117,9 +118,11 @@ class VisualDispatchTests(unittest.TestCase):
         self.state['audit_assignment'] = {'assignment_id': 'A1', 'role': 'auditor', 'instance_id': 'auditor',
             'closed': False, 'scope_policy': 'non-green-only', 'path_ids': ['PV'],
             'snapshot': {'M001': self.module['code_baseline']}}
-        self.actor = {'role': 'auditor', 'instance_id': 'auditor'}
+        self.state['audit_test_assignment'] = {**self.state['audit_assignment'], 'assignment_id': 'A1-TEST',
+            'role': 'test-runner', 'instance_id': 'independent-runner', 'audit_assignment_id': 'A1'}
+        self.actor = {'role': 'test-runner', 'instance_id': 'independent-runner'}
         request = self.request('visual-capture')
-        request.update(module_id='GLOBAL', assignment_id='A1', fencing_token=None)
+        request.update(module_id='GLOBAL', assignment_id='A1-TEST', fencing_token=None)
         before = copy.deepcopy(self.state)
         module, _ = lean_worker.assignment(self.state, request, self.actor)
         self.assertEqual(module['path_dimension_analysis_refs'], {'PV': analysis})

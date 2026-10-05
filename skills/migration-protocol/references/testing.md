@@ -69,7 +69,7 @@ adapter 的 `skipped` / `xfail` 限制必须原样保留。原始报告声称 Gr
 
 `global_paths` 是显式全局测试路径，可以为空或只覆盖已登记 CASE 的子集；它不代表全部模块用例。GO 的 global-plan 仍必须为所有 requirement/case 完整声明 owner，Auditor 沿既有非 Green 与变更影响范围选择复核路径。
 
-模块修复按[有限循环](state-machine.md#有限循环)执行；v2 在预算内局部收敛，阻塞/超限留证待统一宿主审计，v1 保留原问题审计。独立 Test-Runner 提交正式复测证据，Auditor 审阅并裁决；MO 执行模块恢复/修复门禁，最终审计不能跳过。
+模块修复按[有限循环](state-machine.md#有限循环)执行；在预算内局部收敛，阻塞/超限留证待统一宿主审计。独立 Test-Runner 提交正式复测证据，Auditor 审阅并裁决；MO 执行模块恢复/修复门禁，最终审计不能跳过。
 
 ## 逻辑单测
 

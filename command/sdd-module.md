@@ -10,7 +10,7 @@ description: /sdd-module <run-id> <module-id> — 推进单模块实现与自测
 ## 2. 编排步骤
 1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
 2. 前置门控：模块已冻结；依赖满足或可记录 dependency Yellow；目标 baseline 和锁可验证。推进前运行 `verify_openspec.py --root <run> --scope module --module-id <module-id>`，核验本模块、祖先与实际依赖。失败按 recovery_action 处理相关范围，无关模块继续；核验不取代当前 assignment 与派发门禁。见 [核验范围](sdd-verify.md)。
-3. 按 `status` 游标派发对应角色，推进 Coding→代码接受→build 派发（派发内 building 预检）→构建结果接受→automation 派发（派发内 testing 预检）。可修复 Red/Yellow 优先诊断并自动派发一轮 Fixer；补丁接受后先重建再自动化，两环节共用模块本地一轮修复预算。全部路径有效 Green 后检查 DoD。确认依赖/外围或一轮仍未通过时记录根因/memory 并交 Auditor；遇人工阻塞或预算上限保存 checkpoint 退出。
+3. 按 `status` 游标派发对应角色，推进 Coding→代码接受→build 派发（派发内 building 预检）→构建结果接受→automation 派发（派发内 testing 预检）。可修复 Red/Yellow 在累计预算内诊断并派发 Fixer；补丁接受后先重建再自动化，两环节共用模块修复预算。全部路径有效 Green 后检查 DoD。确认依赖/外围阻塞或预算耗尽时记录根因/memory，等待宿主统一审计；遇人工阻塞或预算上限保存 checkpoint 退出。
 
 ## 3. 调用契约
 目标角色：[Module-Orchestrator](../Agents/module-orchestrator.md)。

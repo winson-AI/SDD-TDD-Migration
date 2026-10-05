@@ -117,7 +117,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 ### 本地一轮的预算单位
 
-`local_fix_used` 是模块级计数，build、automation 与 visual 共用；每次补丁接受后都需完整正式回归，全部通过才将修复 memory 标为可复用。v2 按总预算局部收敛；v1 的一轮及额外 build 限制见[有限循环](state-machine.md#有限循环)。宿主不能重置计数。
+`local_fix_used` 是模块级计数，build、automation 与 visual 共用；每次补丁接受后都需完整正式回归，全部通过才将修复 memory 标为可复用。按总预算局部收敛，见[有限循环](state-machine.md#有限循环)。宿主不能重置计数。
 
 ### 构建产物与设备安装
 

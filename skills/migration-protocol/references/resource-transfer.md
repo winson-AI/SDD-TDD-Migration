@@ -46,7 +46,7 @@ Spec 在 UI parameter_fill 写例外及动态/结构映射（见[四维模板](.
 
 ## 动态参数与布局结构
 
-parameter_fill.runtime/structural 每条记录 id、原 source_expression、consumer（绝对生产文件#accessor）、reason、源 evidence_refs 与冻结 assertions（path_id/assertion_id）；runtime 还记录 inputs。v2 定值须 constant_reason/constant_evidence_refs；布局 keyword 须映射或有证据排除。冻结拒绝缺变量或行为断言，build/static 不证明语义。实现核对提交的消费者/accessor，正式测试验证变量变化、单位/字体缩放、约束、可见性和运行时覆盖。填充率只量化搬运，fidelity_proven 不由它推导。
+parameter_fill.runtime/structural 每条记录 id、原 source_expression、consumer（绝对生产文件#accessor）、reason、源 evidence_refs 与冻结 assertions（path_id/assertion_id）；runtime 还记录 inputs。定值须 constant_reason/constant_evidence_refs；布局 keyword 须映射或有证据排除。冻结拒绝缺变量或行为断言，build/static 不证明语义。实现核对提交的消费者/accessor，正式测试验证变量变化、单位/字体缩放、约束、可见性和运行时覆盖。填充率只量化搬运，fidelity_proven 不由它推导。
 
 四维 item.fidelity_conditions 记录 condition_id/condition、status、reason/evidence_refs。父条件须承接，叶子 applicable 绑定本 item 行为 assertions(PATH/ASSERT)，N/A 用 assertions=[]。报告 verified 须当前基线真实执行、断言通过且未 stale。
 
@@ -54,7 +54,7 @@ planning_coverage_required 下，仅 applicable UI/Resource 维度需 condition_
 
 ## API 与 URL 契约
 
-业务 API 属 Logic/Adhesive。v2 四维 api_review 记录适用性、reason/evidence_refs；适用须 api_inventory_ref 绑定[清单](../../../template/api-inventory.json)。calls 记录源符号/hash、method/URL、请求/响应、错误及副作用；contracts 记录消费者、fixture 与映射，item 用 api_ids 唯一认领。范围外调用须 exclusions 证据。planning_coverage_required 下 api_review.discovery_refs 必填（含不适用判定），绑定检索范围并包含已登记调用的 source_ref。GO/父 MO/Auditor 核对调用入口及排除依据；门禁不自动发现全部 API。
+业务 API 属 Logic/Adhesive。四维 api_review 记录适用性、reason/evidence_refs；适用须 api_inventory_ref 绑定[清单](../../../template/api-inventory.json)。calls 记录源符号/hash、method/URL、请求/响应、错误及副作用；contracts 记录消费者、fixture 与映射，item 用 api_ids 唯一认领。范围外调用须 exclusions 证据。planning_coverage_required 下 api_review.discovery_refs 必填（含不适用判定），绑定检索范围并包含已登记调用的 source_ref。GO/父 MO/Auditor 核对调用入口及排除依据；门禁不自动发现全部 API。
 
 imageSources/Resource 的 API 图片 item 写 api_binding（api_id/response_field）；字段匹配 model field/JSON key，target_source 等于 API response_mapping。非 API 模型来源须 image_source_review(kind=non-api)、reason/evidence_refs。URL 字面值不变，加载器占位/变换另映射；仍须接线与正式图片断言。
 

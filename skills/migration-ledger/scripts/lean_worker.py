@@ -75,8 +75,8 @@ def assignment(state, request, actor):
     mid = request.get('module_id')
     if mid == 'GLOBAL':
         module = ledger.audit_scope(state)
-        task = state.get('audit_assignment', {})
-        require(task.get('mode') != 'problem' and task.get('scope_policy') == 'non-green-only'
+        task = state.get('audit_test_assignment', {})
+        require(not state.get('audit_assignment', {}).get('closed', True) and task.get('role') == 'test-runner' and task.get('scope_policy') == 'non-green-only'
                 and task.get('snapshot') == {k: v['code_baseline'] for k, v in state['modules'].items()},
                 'current global audit snapshot required')
         # Ephemeral read context only: build ownership does not imply UI baseline ownership.
@@ -90,18 +90,14 @@ def assignment(state, request, actor):
     else:
         require(mid in state.get('modules', {}), 'registered leaf module required')
         module = state['modules'][mid]
-        if (state.get('audit_assignment', {}).get('mode') == 'problem'
-                and state['audit_assignment'].get('assignment_id') == request.get('assignment_id')):
-            import workflow
-            task = workflow.problem_assignment(state, mid)
-            require(workflow.runnable(state, mid), 'problem path unavailable; record Yellow')
-        else:
-            task = module.get('assignments', {}).get(request.get('assignment_id'), {})
+        task = module.get('assignments', {}).get(request.get('assignment_id'), {})
     require(task and not task.get('closed', True) and task.get('assignment_id') == request.get('assignment_id'),
             'active assignment required')
     require(task.get('role') == actor['role'] and task.get('instance_id') == actor['instance_id'], 'assignment owner mismatch')
+    if mid != 'GLOBAL' and task.get('mode') != 'design':
+        require(task.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
     require(task.get('fencing_token') == request.get('fencing_token'), 'stale fencing token')
-    require(task.get('freeze_id') == module.get('freeze_id') or mid == 'GLOBAL' or task.get('mode') == 'problem',
+    require(task.get('freeze_id') == module.get('freeze_id') or mid == 'GLOBAL',
             'assignment freeze changed')
     verify_plan(module['plan'], module)
     if actor['role'] in ('test-runner', 'auditor'):

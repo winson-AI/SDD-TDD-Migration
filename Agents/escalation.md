@@ -10,7 +10,7 @@ mode: subagent
 人工问题封装、反馈回收与决策记录。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
 
 ## 2. 输入 / 输出契约
-输入：clarification/blocked/预算耗尽事件、相关规范版本、问题上下文、备选项与责任人。
+输入：clarification/blocked/预算耗尽事件、当前规范摘要、问题上下文、备选项与责任人。
 
 输出：escalation 记录、human decision、超时事件与恢复建议。
 
@@ -21,7 +21,7 @@ mode: subagent
 4. 整理 human-decision，由宿主以 decision 提交；由 MO/Global 判断下一阶段，不能由 Escalation 直接放行编码或置 Green。超时则通知/升级，保存 pending。
 
 ## 6. 硬约束
-不代答；不把推荐默认值当已批准；不因超时默许；不自动增加预算；不接受与当前版本不符的批准。
+不代答；不把推荐默认值当已批准；不因超时默许；不自动增加预算；不接受与当前内容摘要不符的批准。
 
 ## 9. Checkpoints
 问题可独立理解；反馈原文与结构化决策对应；需要人工时有明确原因及责任人；恢复条件明确。

@@ -1,4 +1,4 @@
-"""Global coverage, one-round repair policy, and independent problem audit contracts."""
+"""Global coverage, bounded local repair, and whole-task audit contracts."""
 import copy
 import re
 import test_validation as tv
@@ -7,8 +7,8 @@ import dimensions
 from contracts import check_ref, digest, keyed, nonempty, read_json, require, baseline, validate_result, verify_plan
 
 EXTERNAL = {'dependency', 'environment', 'tooling', 'external', 'peripheral', 'human'}
-OPERATIONS = {'global-plan', 'audit-defer', 'problem-assign', 'problem-audit', 'audit-resume', 'audit-recover'}
-GLOBAL_OPERATIONS = {'global-plan', 'problem-assign', 'problem-audit', 'audit-recover'}
+OPERATIONS = {'global-plan', 'audit-defer', 'audit-recover'}
+GLOBAL_OPERATIONS = {'global-plan', 'audit-recover'}
 
 
 def global_paths_check(paths, case_ids):
@@ -52,6 +52,9 @@ def runtime_allocations(s, module_id):
         module = s['modules'].get(mid) or s.get('module_groups', {}).get(mid)
         require(module, 'allocated module/dependency missing')
         require(not module.get('replanning_required'), 'root allocation requires redecomposition')
+        require(mid not in s['modules'] or (not module.get('decomposition_required') and not module.get('decomposition_submission')),
+                'complete MO decomposition for this leaf and its dependencies before execution')
+        require(not module.get('realloc_request'), 'resolve upstream allocation request before execution')
         dimensions.allocation(s, module)
         if s.get('behavior_contract_required'):
             import behavior_contract
@@ -69,7 +72,7 @@ def runtime_allocations(s, module_id):
 def planning_guard(s, module_id=None):
     plan = s.get('global_plan')
     require(plan and plan['registry_hash'] == digest(registry(s)), 'global coverage review required')
-    require(not any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values()),
+    require(module_id or not any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values()),
             'complete MO decomposition before implementation/audit')
     for ref in (s['global_spec'], s['new_architecture'], plan['plan_ref'], plan['review_ref']):
         check_ref(ref)
@@ -89,7 +92,7 @@ def feature_inventory(s, plan):
     """Enforce explicit enumeration/traceability; semantic completeness is reviewed by GO."""
     ref = plan.get('feature_inventory_ref')
     if not s.get('context_readiness_required') and not ref:
-        return  # Existing runs retain their original coverage contract.
+        return  # The minimal low-level API can omit the feature-inventory capability.
     inventory = read_json(check_ref(ref))
     require(inventory.get('schema_version') == 1 and inventory.get('legacy_root') == s['legacy_root']
             and inventory.get('entry_mode') == s['entry_mode'], 'feature inventory scope mismatch')
@@ -179,52 +182,24 @@ def audit_active(s):
 
 
 def audit_locks(s, mid):
-    """An early problem audit locks only its closure; every other audit (and global ops) locks the run."""
+    """The host-task audit locks its run until closed or revoked."""
     if not audit_active(s):
         return False
-    closure = s['audit_assignment'].get('closure')
-    return closure is None or mid is None or mid in closure
-
-
-def audit_closure_of(s, mids):
-    """Queued modules plus everything they depend on and every consumer (with its own dependencies)."""
-    deps = {mid: set(m['dependencies']) for mid, m in s['modules'].items()}
-    closure, changed = set(mids), True
-    while changed:
-        before = set(closure)
-        for mid, needed in deps.items():
-            if mid in closure:
-                closure |= needed
-            elif needed & closure:
-                closure.add(mid)
-        changed = closure != before
-    return sorted(closure)
-
-
-def closure_blockers(s, closure, blockers=None):
-    if blockers is None:
-        from audit_closure import collection_blockers
-        blockers = collection_blockers(s)
-    return [b for b in blockers if b['module_id'] in closure]
+    return True
 
 
 def audit_budget(s, mid='GLOBAL'):
     return s.get('audit_budgets', {}).get(mid, s['max_audit_rounds'])
 
 
-def problem_budget_left(s, mid):
-    return s.get('problem_attempts', {}).get(mid, 0) < audit_budget(s, mid)
-
-
 def audit_recovery_subject(s, mids, additional_rounds):
     return digest({'run_id': s['run_id'], 'module_ids': mids, 'additional_rounds': additional_rounds,
-        'attempts': {mid: s.get('audit_attempts', 0) if mid == 'GLOBAL' else s.get('problem_attempts', {}).get(mid, 0) for mid in mids},
+        'attempts': {mid: s.get('audit_attempts', 0) for mid in mids},
         'budgets': {mid: audit_budget(s, mid) for mid in mids}})
 
 
 def audit_recovery_step(s):
-    mids = sorted(mid for mid in s.get('audit_queue', {}) if not problem_budget_left(s, mid)
-                  and mid not in s.get('audit_resolutions', {}))
+    mids = []
     if s.get('audit_attempts', 0) >= audit_budget(s) and s.get('audit', {}).get('quality') != 'green-passed' \
             and s['modules'] and all(tv.available(m) for m in s['modules'].values()):
         mids.append('GLOBAL')
@@ -236,27 +211,6 @@ def audit_recovery_step(s):
     return {'operation': 'audit-recover', 'role': 'global-orchestrator', 'ready': bool(decision),
             'reason': 'audit-budget-exhausted', 'approval_subject_sha256': subject,
             'payload': {'module_ids': mids, 'additional_rounds': 1, **({'decision_id': decision['decision_id']} if decision else {})}}
-
-
-
-def early_audit_candidates(s, blockers=None):
-    """Settled closures around queued modules: audit them now instead of waiting for the whole run."""
-    if s.get('control_policy_version', 1) >= 2:
-        return []  # Local convergence belongs to MO; only whole-task Auditor is dispatched.
-    queued = sorted(mid for mid in s.get('audit_queue', {}) if s['modules'][mid]['phase'] == 'waiting-auditor'
-                    and mid not in s.get('audit_resolutions', {}) and problem_budget_left(s, mid))
-    groups = []
-    for mid in queued:
-        closure = set(audit_closure_of(s, [mid]))
-        merged = [g for g in groups if g['closure'] & closure]
-        for g in merged:
-            groups.remove(g); closure |= g['closure']
-        groups.append({'closure': closure, 'module_ids': sorted({mid, *[x for g in merged for x in g['module_ids']]})})
-    if groups and blockers is None:
-        from audit_closure import collection_blockers
-        blockers = collection_blockers(s)  # one barrier pass, filtered per closure
-    return [{'module_ids': g['module_ids'], 'closure': sorted(g['closure'])}
-            for g in groups if not closure_blockers(s, g['closure'], blockers)]
 
 
 def role(actor, name):
@@ -296,31 +250,18 @@ def variant_conflict(m):
     return None
 
 
-def build_only_failures(m):
-    """Every unresolved failure sits on a build PATH: compile/package, not business behaviour."""
-    kinds = {p['path_id']: p.get('kind') for p in (m.get('plan') or {}).get('paths', [])}
-    issues = {**m.get('results', {}), **m.get('repair_findings', {})}
-    bad = [pid for pid, r in issues.items() if r['quality'] != 'green-passed']
-    return bool(bad) and all(kinds.get(pid) == 'build' for pid in bad)
-
-
-def defer_reason(m, local_rounds=1, whole_task=False):
-    """One local round always; further configured rounds only while the module is still failing to build."""
+def defer_reason(m, local_rounds=3):
+    """Defer only confirmed external blockers or exhausted cumulative repair budget."""
     if m.get('audit_fix_grant'):
         return None
     cause = peripheral(m)
     if cause:
         return cause
     used = m.get('local_fix_used', 0)
-    if m.get('auditor_fix_used') or used >= local_rounds or (not whole_task and used >= 1 and not build_only_failures(m)):
+    if used >= local_rounds:
         return {'category': 'local-round-exhausted', 'summary': f'{used} local repair round(s) used',
-                'confidence': 'confirmed', 'owner': 'auditor', 'next_action': 'problem-audit'}
+                'confidence': 'confirmed', 'owner': 'auditor', 'next_action': 'host-task-audit'}
     return None
-
-
-def problem_snapshot(s, mids):
-    return digest({mid: {k: m.get(k) for k in ('revision', 'phase', 'freeze_id', 'code_baseline', 'blocked', 'results')}
-                   for mid, m in s['modules'].items() if mid in mids})
 
 
 def runnable(s, mid):
@@ -338,22 +279,15 @@ def runnable(s, mid):
         return False
 
 
-def problem_assignment(s, mid):
-    a = s.get('audit_assignment', {})
-    require(a.get('mode') == 'problem' and not a.get('closed') and mid in a['module_ids'], 'problem audit assignment required')
-    require(a['snapshot'] == problem_snapshot(s, a['module_ids']), 'problem audit snapshot stale')
-    return {**a, 'module_id': mid}
-
-
 def handle(s, req, actor, run_root=None):
     op, p = req['operation'], req.get('payload', {})
     mid = req.get('module_id'); m = s['modules'].get(mid)
     if op == 'audit-recover':
         role(actor, 'global-orchestrator')
         mids, extra = p.get('module_ids'), p.get('additional_rounds')
-        require(isinstance(mids, list) and mids and len(set(mids)) == len(mids) and set(mids) <= set(s['modules']) | {'GLOBAL'}, 'audit recovery scope required')
+        require(mids == ['GLOBAL'], 'audit recovery scope must be the whole host task: GLOBAL')
         require(type(extra) is int and 0 < extra <= 100, 'invalid additional audit budget')
-        require(all((s.get('audit_attempts', 0) if mid == 'GLOBAL' else s.get('problem_attempts', {}).get(mid, 0)) >= audit_budget(s, mid)
+        require(all((s.get('audit_attempts', 0)) >= audit_budget(s, mid)
                     for mid in mids), 'audit recovery only after budget exhaustion')
         decision = s['decisions'].get(p.get('decision_id'), {})
         require(decision.get('module_id') is None and not decision.get('consumed', True)
@@ -366,8 +300,6 @@ def handle(s, req, actor, run_root=None):
     elif op == 'global-plan':
         role(actor, 'global-orchestrator')
         require(s['modules'], 'no modules')
-        require(not any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values()),
-                'complete MO decomposition before global coverage acceptance')
         require(not any(g.get('replanning_required') for g in s.get('module_groups', {}).values()), 'finish root redecomposition before global coverage acceptance')
         require(not audit_active(s), 'audit active')
         plan = read_json(check_ref(p.get('plan_ref')))
@@ -395,7 +327,7 @@ def handle(s, req, actor, run_root=None):
         for module_id, module in s['modules'].items():
             require(all(module_id in cases[cid] for cid in module['case_ids']), 'module case missing owner mapping')
             require(any(module_id in owners for owners in requirements.values()), 'module missing requirement ownership')
-            if module.get('parent_module_id'):
+            if module.get('scope'):
                 require({rid for rid, owners in requirements.items() if module_id in owners} ==
                         set(module['scope']['requirement_ids']), 'global ownership must match assigned submodule requirements')
         for module in {**s.get('module_groups', {}), **s['modules']}.values():
@@ -417,90 +349,11 @@ def handle(s, req, actor, run_root=None):
         root_cause(p.get('root_cause'))
         check_ref(p.get('evidence_ref'))
         if m.get('code_baseline') and m['phase'] in ('testing', 'diagnosing'):
-            require(defer_reason(m, s.get('local_fix_rounds', 1)) or (p['root_cause']['category'] in EXTERNAL and p['root_cause']['confidence'] == 'confirmed'),
-                    'repairable failure must receive one local repair round before handoff')
+            require(defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])) or (p['root_cause']['category'] in EXTERNAL and p['root_cause']['confidence'] == 'confirmed'),
+                    'repairable failure must exhaust its local budget before handoff')
         original = (m.get('blocked') or {}).get('resume_phase', m['phase'])
         s.setdefault('audit_queue', {})[mid] = {'root_cause': p['root_cause'], 'evidence_ref': p['evidence_ref'],
                                                'resume_phase': original, 'previous_blocker': m.get('blocked'),
                                                'results': copy.deepcopy(m['results'])}
         m.update(phase='waiting-auditor', blocked={'kind': 'auditor', 'resume_phase': original,
                                                  'root_cause': p['root_cause']})
-    elif op == 'problem-assign':
-        role(actor, 'global-orchestrator'); planning_guard(s)
-        require(s.get('control_policy_version', 1) < 2, 'policy 2 Auditor only audits the whole host task')
-        require(not audit_active(s), 'audit already active')
-        mids = p.get('module_ids', list(s.get('audit_queue', {})))
-        require(mids and len(set(mids)) == len(mids) and set(mids) <= set(s.get('audit_queue', {})), 'queued modules required')
-        # Only the queued modules' dependency closure and their consumers must be settled; unrelated modules continue.
-        closure = audit_closure_of(s, mids)
-        blockers = closure_blockers(s, closure)
-        require(not blockers, 'audit closure (dependencies and consumers) must settle before Auditor: ' + str(blockers))
-        for mod in closure: idle(s['modules'][mod])
-        require(p.get('assignment_id') and p.get('instance_id'), 'audit identity required')
-        require(p['assignment_id'] not in s.get('audit_assignment_ids', []), 'audit assignment id already used')
-        require(all(p['instance_id'] not in mod['authors'] for mod in s['modules'].values()), 'Auditor must be independent')
-        require(all(problem_budget_left(s, mod) for mod in mids), 'problem audit budget exhausted')
-        for mod in mids:
-            s.setdefault('problem_attempts', {})[mod] = s.get('problem_attempts', {}).get(mod, 0) + 1
-        s.setdefault('audit_assignment_ids', []).append(p['assignment_id'])
-        s['audit_assignment'] = {**p, 'role': 'auditor', 'mode': 'problem', 'module_ids': mids, 'closure': closure,
-                                 'run_id': s['run_id'], 'closed': False, 'snapshot': problem_snapshot(s, mids)}
-    elif op == 'problem-audit':
-        role(actor, 'auditor')
-        a = s.get('audit_assignment', {})
-        require(a.get('mode') == 'problem' and not a.get('closed') and a['instance_id'] == actor['instance_id'], 'problem auditor mismatch')
-        require(a['snapshot'] == problem_snapshot(s, a['module_ids']), 'problem audit snapshot stale')
-        report = read_json(check_ref(p.get('report_ref')))
-        require(report.get('assignment_id') == a['assignment_id'] and report.get('snapshot') == a['snapshot'], 'problem report snapshot mismatch')
-        entries = keyed(report.get('modules'), 'module_id')
-        require(set(entries) == set(a['module_ids']), 'problem report must account for every queued module')
-        for module_id, entry in entries.items():
-            module = s['modules'][module_id]
-            action = entry.get('action')
-            require(action in ('retry', 'fix', 'change', 'wait', 'human'), 'unknown auditor disposition')
-            root_cause(entry.get('root_cause'))
-            result = entry.get('result')
-            if runnable(s, module_id):
-                require(result, 'runnable module requires independent retest')
-                scope = copy.deepcopy(module)
-                scope['results'] = s.get('problem_results', {}).get(module_id, module['results'])
-                validate_result(result, scope, problem_assignment(s, module_id), run_root=run_root)
-                s.setdefault('problem_results', {})[module_id] = {r['path_id']: r for r in result['paths']}
-                all_green = all(r['quality'] == 'green-passed' for r in result['paths'])
-                require(not all_green or action == 'retry', 'independent Green requires Main confirmation')
-                require(action != 'retry' or all_green, 'retry disposition requires independent Green')
-            else:
-                require(result is None and entry.get('quality') == 'yellow-blocked', 'unrunnable module must remain Yellow')
-                require(action in ('wait', 'human', 'change'), 'cannot fix or pass code without valid baseline')
-            s.setdefault('audit_resolutions', {})[module_id] = {**entry, 'report_ref': p['report_ref'],
-                                                              'assignment_id': a['assignment_id']}
-        s['problem_report'] = p['report_ref']
-        a['closed'] = True
-    elif op == 'audit-resume':
-        role(actor, 'module-orchestrator'); idle(m)
-        require(not audit_locks(s, mid), 'audit active')
-        resolution = s.get('audit_resolutions', {}).get(mid)
-        require(m['phase'] == 'waiting-auditor' and resolution, 'auditor disposition required')
-        check_ref(resolution['report_ref'])
-        action = resolution['action']
-        require(action != 'wait', 'Auditor kept module queued; re-audit after prerequisite changes')
-        if action == 'human':
-            require(p.get('decision_id') in s['decisions'], 'human decision required')
-            d = s['decisions'][p['decision_id']]
-            require(not d['consumed'] and d.get('module_id') == mid and d['subject_sha256'] == digest(resolution), 'human disposition approval stale')
-            d['consumed'] = True
-        if action in ('retry', 'fix'):
-            require(runnable(s, mid), 'module baseline/dependencies unavailable')
-        if action == 'fix':
-            m.update(phase='diagnosing', blocked=None, stale=False,
-                     diagnosis={'diagnosis_ref': resolution['report_ref'], 'root_cause': resolution['root_cause'], 'owner': mid},
-                     audit_fix_grant=resolution['assignment_id'])
-            m['repair_findings'] = {r['path_id']: r for r in resolution['result']['paths'] if r['quality'] != 'green-passed'}
-        elif action == 'retry':
-            m.update(phase='testing', blocked=None, stale=True)
-        else:
-            # Contract changes and human resolutions re-enter planning; never approve new acceptance implicitly.
-            m.update(phase='specifying', blocked=None, stale=True, freeze_id=None, code_files=[], code_baseline=None)
-            m.pop('approved_envelope', None); m.pop('approved_acceptance', None)
-        del s['audit_queue'][mid]
-        del s['audit_resolutions'][mid]

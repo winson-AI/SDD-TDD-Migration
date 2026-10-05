@@ -48,7 +48,7 @@ Auditor **负责发现、委派、复核和唯一审计验收**。它不写源�
 3. `CR-*` findings 是**代码治理发现**，不修改测试三态，不伪造失败断言。记录 source_module_id、category、analysis_ref、root_cause、affected_module_ids；影响集合必须有接口/调用/依赖证据，含公共提供方的实际消费者。
 4. 有治理发现时，`audit-collect` **优先仅收集治理批次**；无治理发现才收集剩余 Red/Yellow。复用 `audit-plan → audit-route-batch → audit-work → Fixer → Testing/audit-retest → audit-verdict`。治理路线只能 fix 或 human，不能以旧 Green 或纯 verify 关闭冗余。
 5. 路由明确唯一公共能力 owner、改动与回归。Fixer 按冻结 TASK/写权限做行为等价修正；新增任务、provider 接口/职责或授权变化走 CR/上游审核，真实未决交 Human，release 后重规划/重冻。活动批次不偷改 SPEC、写集合或 provider hash，见[复用协议](reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
-6. work_modules 含来源、合法 owners、显式受影响消费者/下游。Build → 装机 → Automation，完整验证这些模块并留 retest_of，逐依赖推进。v2 已审技术失败按累计预算重试，保留各轮根因/补丁/日志；CR-ID 跨版本稳定，重复 finding 按停滞/预算裁决。v1 保留一轮失败/再现后人工恢复；无关有效 Green 不重跑。
+6. work_modules 含来源、合法 owners、显式受影响消费者/下游。Build → 装机 → Automation，完整验证这些模块并留 retest_of，逐依赖推进。已审技术失败按累计预算重试，保留各轮根因/补丁/日志；CR-ID 跨版本稳定，重复 finding 按停滞/预算裁决。无关有效 Green 不重跑。
 7. 修改代码/SPEC/context 使代码审查失效；本批裁决且父汇总刷新后，必须对新版本重新提交审查。旧报告归档，不得删除未解决 finding。人工释放后已通过 CR/重新冻结和实现解决的问题，可在新基线审查中填 recovery_resolutions（finding_id、decision_id、reason、evidence_refs）；决策必须绑定该 finding 所属批次的人工作业报告且已 audit-release，不能仅删除 findings 冒充解决。复核已整改处并保留不受影响模块的有效审查证据；不能凭测试 Green 自动断言冗余已消除。然后收集仍遗留的 Red/Yellow，完成缺陷闭环和最终独立审计。
 8. `audit-assign` 与 `audit-unavailable` 都要求当前代码审查和无待处理治理发现。自动化不可用不阻止代码审查；unverified_findings 与 verification_deferral_history 保留未复核事实，不再次派发 Fixer，刷新代码审查后仍可按 Yellow/未测试收尾。受影响消费者缺测也不能把 finding 标 resolved。
 
@@ -78,9 +78,9 @@ Ledger 校验清单必填、工件存在及 hash，并将引用投影到 GO 的 
 
 ## 宿主目标审计
 
-v2 审计范围从原始 global_spec 开始，goal_review 完整列出宿主 requirement、feature 与实际模块 TASK/PATH 证据，逐项给出 satisfied/finding/blocked 和原因。遗漏即使没有 Red PATH 也需登记 host-goal finding，由既有统一修复/上游调整闭环处理；受阻目标不能得到最终 Green。snapshot 同时绑定原始业务契约，防止只核对后来收窄的计划。
+审计范围从原始 global_spec 开始，goal_review 完整列出宿主 requirement、feature 与实际模块 TASK/PATH 证据，逐项给出 satisfied/finding/blocked 和原因。遗漏即使没有 Red PATH 也需登记 host-goal finding，由既有统一修复/上游调整闭环处理；受阻目标不能得到最终 Green。snapshot 同时绑定原始业务契约，防止只核对后来收窄的计划。
 
-局部问题由 MO/Diagnostician/Fixer/Test-Runner 在配置预算内收敛；v2 禁止新增 problem-assign，明确挂起与残留统一进入完整 registry 收尾。Auditor 全量审阅宿主目标与代码，复测只覆盖有必要的残留/过期/集成 PATH，保留有效 Green。
+局部问题由 MO/Diagnostician/Fixer/Test-Runner 在配置预算内收敛；局部问题不派发独立审计，明确挂起与残留统一进入完整 registry 收尾。Auditor 全量审阅宿主目标与代码，复测只覆盖有必要的残留/过期/集成 PATH，保留有效 Green。
 
 整体审计需执行 PATH 时，GO `audit-test-assign` 为独立 Test-Runner 指派全部所选 PATH；其自身 audit-execution 预检先经 Ledger 提交，`audit-test-submit {result_ref}` 校验宿主执行回执。Auditor 最终 report 引用 test_result_ref、review_ref，原样消费测试观察并给出裁决，不直接执行测试或修改观察。测试实例独立于 Auditor、代码及测试脚本作者。撤销活动审计时，尚在运行的测试 worker 必须另附 test_worker_stopped_ref。
 

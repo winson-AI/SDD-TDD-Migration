@@ -10,7 +10,7 @@ description: /sdd-plan <run-id> <module-id> — 生成六件套并完成 plan �
 ## 2. 编排步骤
 1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
 2. 前置门控：run/module 已注册；处于 context/specifying/clarifying/change-review 或等待澄清；持有当前 assignment。推进前运行 `verify_openspec.py --root <run> --scope module --module-id <module-id>`，核验模块、祖先和实际依赖；按 recovery_action 局部恢复，保留无关进度。核验不代替派发或冻结。见 [核验范围](sdd-verify.md)。
-3. 宿主先让父/子 MO 读取全局代码、架构、知识及分工。根功能先 decompose→GO decompose-accept，派独立子 MO；已拆分父节点只管理/汇总，不进入代码或测试。叶子先由 Spec-Designer 在 staging 写 SPEC 草稿，再由 MO 派 Test-Runner design，完整清晰规划由 MO plan-review/freeze；实际未决或需求/验收/授权变化才交 Escalation，待答时保存 waiting-human。
+3. MO 先读全局代码、架构、知识及分工。按原子性选择细分或叶子规划；MO 原子结论同样经 decompose→GO decompose-accept，不创建同范围孩子。已拆父只管理/汇总。叶子由 Spec-Designer 写 SPEC 草稿，MO 派 Test-Runner design，再 plan-review/freeze；实际未决或需求/验收/授权变化才交 Escalation，待答保存 waiting-human。
 
 ## 3. 调用契约
 目标角色：[Module-Orchestrator](../Agents/module-orchestrator.md)。

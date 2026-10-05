@@ -48,6 +48,9 @@ report={{'producer':'harmony-adapter', 'query_sha256':digest(q),
 if not passed:
     report['root_cause']={{'category':'code','summary':'observed fixture failure',
         'confidence':'observed','owner':'M001','next_action':'diagnose'}}
+environment=out.parent/'environment.json'
+environment.write_text(json.dumps({{'platform':'harmony','task_type':'test','device':'fixture'}}))
+report.update(platform='harmony', task_type='test', environment_ref=file_ref(environment))
 report.update(step_evidence(q, out.parent, passed))
 out.write_text(json.dumps(report))
 sys.exit(0 if passed else 1)

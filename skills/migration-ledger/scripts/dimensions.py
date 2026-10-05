@@ -130,7 +130,7 @@ def allocation(s, module):
     data, items = load(ref, module['module_id'])
     coverage_review(data, s.get('planning_coverage_required', False))
     import api_contract
-    api_contract.applicability(data, s.get('control_policy_version', 1) >= 2)
+    api_contract.applicability(data, True)
     if s.get('planning_coverage_required'):
         evidence((data.get('api_review') or {}).get('discovery_refs'), 'API discovery scope required for applicability review')
     require(module.get('scope') and data.get('scope') == module['scope'],

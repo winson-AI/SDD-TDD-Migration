@@ -32,7 +32,8 @@ class LeanWorkerTests(unittest.TestCase):
         self.actor = {'role': 'implementer', 'instance_id': 'worker-1'}
         self.scope = self.f.target / 'resources'
         self.task = {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'worker-1',
-                     'fencing_token': 'token-1', 'freeze_id': 'freeze-1', 'closed': False}
+                     'fencing_token': 'token-1', 'freeze_id': 'freeze-1', 'closed': False,
+                     'execution_contract': {'task_ids': ['T1'], 'path_ids': []}}
         # Only execution assignments are isolated; prepare, immutable snapshot checking,
         # collector/converter, path guards and staged receipts use their real implementations.
         self.module = {'module_id': 'M001', 'phase': 'implementing', 'freeze_id': 'freeze-1',
@@ -283,6 +284,11 @@ class LeanWorkerTests(unittest.TestCase):
                             'command': {'selection_ref': selection}},
                             {'path_id': 'PA', 'kind': 'automation'}, visual]},
                   'results': {p: {'quality': 'green-passed', 'code_baseline': code_baseline} for p in ('PB', 'PA')}}
+        from contracts import digest
+        module['plan_hash'] = digest(module['plan'])
+        module['plan_ref'] = file_ref(native.write('visual-execution-plan.json', module['plan']))
+        task['execution_contract'] = {'plan_hash': module['plan_hash'], 'plan_ref': module['plan_ref'],
+            'task_ids': [], 'path_ids': ['PV']}
         state = {**self.state, 'context_readiness_required': False, 'modules': {'M001': module}}
         adapter = Path(lean_worker.__file__).with_name('lean_visual_adapter.py')
         argv = [sys.executable, '-B', str(adapter), '--alignment', str(alignment_path),

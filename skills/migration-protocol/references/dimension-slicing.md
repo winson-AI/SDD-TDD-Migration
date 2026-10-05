@@ -54,7 +54,7 @@ Resource 指应用资源；原 Dependencies / Resources 中的文件锁、设备
 
 ## 5. OpenSpec 与运行兼容
 
-`dimension_analysis_ref`、`dimension_trace`、`tasks[].scope` 和 `tasks[].dimension_analysis` 一起纳入 stage-plan 摘要和冻结；design 解释逐维差异、复用与接线，spec 给出应保留的可观察行为，tasks 给出实现/验证责任，checklist 验收覆盖。Ledger 将模块分析、任务 scope/四维分析及追溯物化为 `change/dimensions.md`，它是六件套的辅助索引，不是第二份可修改需求或状态源。登记后分配引用不可就地隐式覆盖；范围/分配缺陷经 `realloc-request` / `redecompose` 在本 Run 内版本化修订并保留历史，仅重规划受影响闭包，无关模块保留 Green；既有 tasks 调整按 CR 与重冻结。
+`dimension_analysis_ref`、`dimension_trace`、`tasks[].scope` 和 `tasks[].dimension_analysis` 一起纳入 stage-plan 摘要和冻结；design 解释逐维差异、复用与接线，spec 给出应保留的可观察行为，tasks 给出实现/验证责任，checklist 验收覆盖。Ledger 将模块分析、任务 scope/四维分析及追溯物化为 `change/dimensions.md`，它是六件套的辅助索引，不是第二份可修改需求或状态源。登记后分配引用不可就地隐式覆盖；范围/分配缺陷经 `realloc-request` / `redecompose` 在本 Run 内更新当前分配并保留 history，仅重规划受影响闭包，无关模块保留 Green；既有 tasks 调整按 CR 与重冻结。
 
 四维分析是必选门禁，prepare 固化且不可关闭。
 

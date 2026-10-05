@@ -28,16 +28,50 @@ def code_review(f, findings=None, recovery_resolutions=None):
                   c: {'conclusion': 'finding' if any(x['source_module_id'] == mid and x['category'] == c for x in items) else 'satisfied',
                       'reason': 'Inspected small fixture implementation', 'evidence_refs': [proof]} for c in audit_code_review.CHECKS}}
                   for mid in s['modules']]}
-    if s.get('control_policy_version', 1) >= 2:
-        inventory = (s.get('global_plan') or {}).get('content', {}).get('feature_inventory_ref')
-        from contracts import read_json, check_ref
-        report['goal_review'] = {'global_spec_ref': s['global_spec'], 'origin_spec_ref': s.get('host_task_contract', {}).get('global_spec', s['global_spec']),
-            'feature_ids': [r['feature_id'] for r in read_json(check_ref(inventory))['features']] if inventory else [],
-            'requirements': [{'requirement_id': rid, 'conclusion': 'satisfied', 'reason': 'Independently checked original host goal against actual fixture implementation and verification trace',
-                'tasks': [{'module_id': mid, 'task_id': t['task_id']} for mid, m in s['modules'].items() for t in (m.get('plan') or {}).get('tasks', []) if rid in t.get('global_requirement_ids', t['requirement_ids'])],
-                'path_ids': sorted({pid for m in s['modules'].values() for t in (m.get('plan') or {}).get('tasks', []) if rid in t.get('global_requirement_ids', t['requirement_ids']) for pid in t['path_ids']}),
-                'evidence_refs': [proof]} for rid in s['requirement_ids']]}
+    inventory = (s.get('global_plan') or {}).get('content', {}).get('feature_inventory_ref')
+    from contracts import read_json, check_ref
+    report['goal_review'] = {'global_spec_ref': s['global_spec'], 'origin_spec_ref': s.get('host_task_contract', {}).get('global_spec', s['global_spec']),
+        'feature_ids': [r['feature_id'] for r in read_json(check_ref(inventory))['features']] if inventory else [],
+        'requirements': [{'requirement_id': rid, 'conclusion': 'satisfied', 'reason': 'Independently checked original host goal against actual fixture implementation and verification trace',
+            'tasks': [{'module_id': mid, 'task_id': t['task_id']} for mid, m in s['modules'].items() for t in (m.get('plan') or {}).get('tasks', []) if rid in t.get('global_requirement_ids', t['requirement_ids'])],
+            'path_ids': sorted({pid for m in s['modules'].values() for t in (m.get('plan') or {}).get('tasks', []) if rid in t.get('global_requirement_ids', t['requirement_ids']) for pid in t['path_ids']}),
+            'evidence_refs': [proof]} for rid in s['requirement_ids']]}
     f.call('audit-code-review', {'report_ref': f.ref(f'code-review-{f.n}.json', report)}, role='auditor', module=None)
+
+
+def start_audit_test(f, audit_id):
+    s = f.state(); payload = {'assignment_id': audit_id + '-TEST', 'instance_id': 'independent-audit-test',
+        'path_ids': s['audit_assignment']['path_ids']}
+    if s.get('context_readiness_required'):
+        payload['context_ref'] = f.record(f.report('audit-execution', module=None, instance='independent-audit-test'))
+    f.call('audit-test-assign', payload, role='global-orchestrator', module=None)
+    return payload['assignment_id']
+
+
+def accept_audit_test(f, report):
+    task = f.state()['audit_test_assignment']
+    result = {**report, 'assignment_id': task['assignment_id'], 'actor_instance_id': task['instance_id']}
+    ref = f.ref('audit-test-result-' + task['assignment_id'] + '.json', result)
+    f.call('audit-test-submit', {'result_ref': ref}, role='test-runner', instance=task['instance_id'], module=None)
+    return {**report, 'test_result_ref': ref, 'review_ref': f.ref('audit-review-' + task['assignment_id'] + '.md',
+        'Independently reviewed exact observations against the host task')}
+
+
+def execution_payload(s, module, payload):
+    payload = copy.deepcopy(payload or {})
+    m = s['modules'].get(module)
+    if not m or not m.get('plan'):
+        return payload
+    payload.setdefault('task_ids', [t['task_id'] for t in m['plan']['tasks'] if payload['role'] != 'implementer' or t['task_id'] not in m.get('accepted_task_ids', [])])
+    import test_validation as tv
+    scope = payload.get('test_scope')
+    paths = [p for p in m['plan']['paths'] if not scope or (p.get('kind') in tv.PRE if scope == 'build' else p.get('kind', 'automation') == scope)]
+    payload.setdefault('path_ids', [p['path_id'] for p in paths])
+    if payload['role'] == 'fixer':
+        findings = [pid for pid, row in m['results'].items() if row['quality'] != 'green-passed']
+        findings += [row['finding_id'] for row in (m.get('diagnosis') or {}).get('findings', [])]
+        payload.setdefault('finding_ids', findings or list(m.get('repair_findings', {})))
+    return payload
 
 
 class FlowTests(unittest.TestCase):
@@ -69,18 +103,8 @@ class FlowTests(unittest.TestCase):
         s = ledger.read_events(self.root)[0]
         if op == 'init': module = None
         rev = (s['modules'][module]['revision'] if module else s['revision']) if s else 0
-        if s and s.get('control_policy_version', 1) >= 2 and op == 'assign' and (payload or {}).get('mode') != 'design':
-            payload = copy.deepcopy(payload)
-            m = s['modules'][module]
-            payload.setdefault('task_ids', [t['task_id'] for t in m['plan']['tasks'] if payload['role'] != 'implementer' or t['task_id'] not in m.get('accepted_task_ids', [])])
-            import test_validation as tv
-            scope = payload.get('test_scope')
-            paths = [p for p in m['plan']['paths'] if not scope or (p.get('kind') in tv.PRE if scope == 'build' else p.get('kind', 'automation') == scope)]
-            payload.setdefault('path_ids', [p['path_id'] for p in paths])
-            if payload['role'] == 'fixer':
-                findings = [pid for pid, row in m['results'].items() if row['quality'] != 'green-passed']
-                findings += [row['finding_id'] for row in (m.get('diagnosis') or {}).get('findings', [])]
-                payload.setdefault('finding_ids', findings or list(m.get('repair_findings', {})))
+        if s and op == 'assign' and payload and payload.get('mode') != 'design':
+            payload = execution_payload(s, module, payload)
         req = request or {'schema_version': 1, 'request_id': str(self.n), 'run_id': 'demo',
                           'module_id': module, 'expected_revision': rev, 'operation': op, 'payload': payload or {}}
         return ledger.apply(self.root, req, {'role': role, 'instance_id': instance or role})
@@ -235,7 +259,8 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         code_review(self)
         self.call('audit-assign', {'assignment_id': 'AUDIT', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         scope = ledger.audit_scope(self.state())
-        rr = execute(self.root, 'GLOBAL', 'AUDIT', 'GP1', [sys.executable, str(self.base / 'adapter.py')],
+        test_id = start_audit_test(self, 'AUDIT')
+        rr = execute(self.root, 'GLOBAL', test_id, 'GP1', [sys.executable, str(self.base / 'adapter.py')],
                      str(self.target), self.base / 'global-exec')
         receipt = json.loads(Path(rr['path']).read_text())
         assertions = json.loads(Path(receipt['result_ref']['path']).read_text())['assertions']
@@ -247,8 +272,9 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
                              'test_run_id': receipt['test_run_id'], 'execution_receipt': rr, 'assertions': assertions}]}
         self.assertEqual([p['path_id'] for p in scope['plan']['paths']], ['GP1'])
         with self.assertRaisesRegex(Rejected, 'outside collected audit scope'):
-            execute(self.root, 'GLOBAL', 'AUDIT', 'P1', [sys.executable, str(self.base / 'adapter.py')],
+            execute(self.root, 'GLOBAL', test_id, 'P1', [sys.executable, str(self.base / 'adapter.py')],
                     str(self.target), self.base / 'must-not-replay-green')
+        report = accept_audit_test(self, report)
         self.call('audit', {'report_ref': self.ref('audit.json', report)}, role='auditor', module=None)
         self.assertEqual(self.state()['quality'], 'green-passed')
 
@@ -548,7 +574,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         code_review(self)
         self.call('audit-assign', {'assignment_id': 'A2', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         self.assertEqual(self.state()['audit_attempts'], 2)
-        self.assertEqual(self.state()['global_next_step']['operation'], 'audit')
+        self.assertEqual(self.state()['global_next_step']['operation'], 'audit-test-assign')
 
     def test_blocked_phase_rejects_worker_result(self):
         module = {'phase': 'waiting-dependency', 'blocked': {'kind': 'dependency'}}
@@ -680,6 +706,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         code_review(self)
         self.call('audit-assign', {'assignment_id': aid, 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
         state = self.state(); scope = ledger.audit_scope(state)
+        test_id = start_audit_test(self, aid)
         report = {'schema_version': 1, 'kind': 'tests', 'run_id': 'demo', 'module_id': 'GLOBAL',
                   'assignment_id': aid, 'actor_instance_id': 'auditor', 'freeze_id': scope['freeze_id'],
                   'code_baseline': scope['code_baseline'], 'snapshot': {'M001': state['modules']['M001']['code_baseline']},
@@ -690,7 +717,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
             adapter.write_text("import argparse,json\np=argparse.ArgumentParser();p.add_argument('--query-file');p.add_argument('--result-file');a=p.parse_args()\n" +
                                "json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':" + ('1' if bad else '2') +
                                ",'passed':" + ('False' if bad else 'True') + "}]},open(a.result_file,'w'))\n")
-            rr = execute(self.root, 'GLOBAL', aid, pid, [sys.executable, str(adapter)], str(self.target), self.base / f'{aid}-{pid}')
+            rr = execute(self.root, 'GLOBAL', test_id, pid, [sys.executable, str(adapter)], str(self.target), self.base / f'{aid}-{pid}')
             receipt = json.loads(Path(rr['path']).read_text())
             record = {'path_id': pid, 'quality': 'red-bug' if bad else 'green-passed', 'executed': True,
                       'test_run_id': receipt['test_run_id'], 'execution_receipt': rr,
@@ -699,7 +726,7 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
             if bad: record['root_cause'] = {'category': 'code', 'summary': 'integration mismatch', 'owner': 'M001',
                                            'confidence': 'confirmed', 'next_action': 'diagnose'}
             report['paths'].append(record)
-        return report
+        return accept_audit_test(self, report)
 
     def test_audit_failure_routes_repair_and_preserves_retest_chain(self):
         self.finish_module()

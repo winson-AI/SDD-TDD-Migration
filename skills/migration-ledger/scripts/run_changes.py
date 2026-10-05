@@ -55,7 +55,6 @@ def retirement_check(s, report, proposed):
         for ref in nonempty(row['evidence_refs'], 'retirement evidence'): check_ref(ref)
     require(seen == removed, 'existing requirement/case/global path cannot be removed without an explicit retirement')
     if rows:
-        require(control_policy.enabled(s), 'contract retirement requires control policy 2')
         require((report.get('boundary_review') or {}).get('semantic_change') is True,
                 'contract retirement is a semantic change requiring human decision')
     for row in retirements(s):
@@ -97,7 +96,7 @@ def validate(s, ref):
     require(required <= set(report) <= required | {'global_spec_ref', 'contract_patch', 'retirements', 'lessons_ref', 'boundary_review'}, 'invalid run revision report')
     require(report['schema_version'] == 1 and report['run_id'] == s['run_id'] and report['reason'], 'run revision identity/reason required')
     proposed_contract = contract(s, report)
-    if control_policy.enabled(s): control_policy.boundary(report.get('boundary_review'))
+    control_policy.boundary(report.get('boundary_review'))
     if report.get('lessons_ref'):
         import experience
         experience.validate_lessons(report['lessons_ref'])
@@ -105,7 +104,7 @@ def validate(s, ref):
     require(isinstance(patch, dict) and set(patch) <= CONFIG_KEYS, 'run revision cannot change task identity, roots, budgets or quality gates')
     if patch:
         require(s.get('project_context_ref'), 'context revision requires a prepared run')
-        config = project_context.merge(project_context.verify_snapshot(s['project_context_ref'])['effective_config'], patch)
+        config = project_context.merge(project_context.current_config(project_context.verify_snapshot(s['project_context_ref'])), patch)
         # Frozen snapshots contain source paths as well as bookkeeping references.
         project_context.validate({k: v for k, v in config.items() if k in project_context.FIELDS})
         require(config.get('architecture_path'), 'architecture required')
@@ -167,12 +166,11 @@ def validate(s, ref):
         if row['action'] != 'unchanged':
             affected.add(mid)
             if row['action'] == 'reverify':
-                require(control_policy.enabled(s) and m.get('freeze_id') and m.get('code_baseline'), 'reverify needs existing frozen code')
+                require(m.get('freeze_id') and m.get('code_baseline'), 'reverify needs existing frozen code')
                 require(set(patch) <= {'runtime', 'test_adapter'} and not updates and not report.get('global_spec_ref')
                     and not report.get('contract_patch'), 'contract/source changes require replan, not reverify')
                 verify_plan(m['plan'])
         else:
-            require(control_policy.enabled(s) or (m.get('freeze_id') and m.get('plan')), 'unfrozen module must replan')
             if m.get('plan'): verify_plan(m['plan'])
             require(not row['resume_blocker_sha256'], 'unchanged module cannot release blocker')
         if row['resume_blocker_sha256']:
@@ -183,17 +181,13 @@ def validate(s, ref):
         require(spec_ref != s['global_spec'], 'global spec revision must change the specification')
     changed_roots = {mid for mid, update in updates.items() if any(current[mid].get(k) != update.get(k, current[mid].get(k)) for k in ROOT_KEYS - {'module_id'})}
     for mid in changed_roots:
-        if not control_policy.enabled(s):
-            require(set(decomposition.leaves(s, mid)) <= affected, 'changed root descendants must replan')
-        else:
-            # Every retained child must still fit the revised effective parent boundary.
-            root = proposed[mid]
-            for leaf in set(decomposition.leaves(s, mid)) - affected:
-                child = s['modules'][leaf]
-                require(set(child['scope']['requirement_ids']) <= set(root['scope']['requirement_ids'])
-                    and set(child['case_ids']) <= set(root['case_ids'])
-                    and all(any(Path(p).resolve().is_relative_to(Path(w).resolve()) for w in root['write_paths']) for p in child['write_paths'])
-                    and set(root['scope']['out']) <= set(child['scope']['out']), 'retained child outside revised root boundary')
+        root = proposed[mid]
+        for leaf in set(decomposition.leaves(s, mid)) - affected:
+            child = s['modules'][leaf]
+            require(set(child['scope']['requirement_ids']) <= set(root['scope']['requirement_ids'])
+                and set(child['case_ids']) <= set(root['case_ids'])
+                and all(any(Path(p).resolve().is_relative_to(Path(w).resolve()) for w in root['write_paths']) for p in child['write_paths'])
+                and set(root['scope']['out']) <= set(child['scope']['out']), 'retained child outside revised root boundary')
     for mid, m in s['modules'].items():
         require(not affected.intersection(m['dependencies']) or mid in affected, 'run impact must include dependent closure')
     require(patch or spec_ref or changed_roots or any(m.get('realloc_request') for m in current.values()), 'empty run revision')
@@ -223,7 +217,7 @@ def revise_context(root, s, patch, review, decision):
         snapshot['source_refs']['knowledge_paths'] = refs
         snapshot['source_paths']['knowledge_paths'] = patch['knowledge_paths'] or []
         frozen['knowledge_paths'] = [r['path'] for r in refs]
-    snapshot['effective_config'] = project_context.merge(snapshot['effective_config'], frozen)
+    snapshot['effective_config'] = project_context.merge(project_context.current_config(snapshot), frozen)
     snapshot.update(previous_context_ref=s['project_context_ref'], run_change_ref=review['report_ref'],
                     run_decision_ref=decision.get('human_source_ref', review['report_ref']))
     data = project_context.encoded(snapshot)
@@ -298,7 +292,8 @@ def handle(root, s, req, actor):
             m['revision'] += 1
     for update in report['root_updates']:
         mid = update['module_id']; m = roots(s)[mid]
-        m.setdefault('allocation_history', []).append({k: copy.deepcopy(m.get(k)) for k in ROOT_KEYS})
+        m.setdefault('allocation_history', []).append({'kind': 'planning-history', 'executable': False,
+            **{k: copy.deepcopy(m.get(k)) for k in ROOT_KEYS}})
         m.update(copy.deepcopy(update))
         m['dependencies'] = sorted({leaf for dep in update['dependencies'] for leaf in decomposition.leaves(s, dep)})
         if mid in s.get('module_groups', {}) and mid in changed_roots:
@@ -334,7 +329,8 @@ def handle(root, s, req, actor):
     if s.get('audit'): s.setdefault('audit_history', []).append(copy.deepcopy(s['audit']))
     s['audit'] = {}
     s['context_acceptances'] = {}
-    s.setdefault('run_change_history', []).append({**copy.deepcopy(review), **retirement_history, 'reason': report['reason'],
+    s.setdefault('run_change_history', []).append({**copy.deepcopy(review), **retirement_history,
+        'kind': 'planning-history', 'executable': False, 'reason': report['reason'],
         'previous_context_ref': previous, 'project_context_ref': new_ref, 'previous_global_spec': previous_spec,
         'global_spec': s['global_spec'], 'previous_contract': previous_contract, 'previous_global_plan': previous_plan,
         'contract': {key: copy.deepcopy(s[key]) for key in CONTRACT_KEYS}, 'affected_modules': sorted(affected), 'changed_roots': sorted(changed_roots)})
@@ -345,8 +341,7 @@ def handle(root, s, req, actor):
 
 
 def human_required(s, report):
-    return (not control_policy.enabled(s) or
-            contract(s, report) != {k: s[k] for k in CONTRACT_KEYS} or control_policy.boundary(report.get('boundary_review')))
+    return contract(s, report) != {k: s[k] for k in CONTRACT_KEYS} or control_policy.boundary(report.get('boundary_review'))
 
 
 def next_action(s):

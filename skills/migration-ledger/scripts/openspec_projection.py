@@ -64,7 +64,7 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
                     candidate = run_storage.checked_path(change / relative, change)
                     candidate.unlink(missing_ok=True)
             status = {'phase': m['phase'], 'freeze_id': None, 'sequence': sequence,
-                      'next_action': state.get('projection_steps', {}).get(mid), 'history_preserved': True,
+                      'next_action': state.get('projection_steps', {}).get(mid), 'history_preserved': True, 'history_executable': False,
                       'design_input_ref': m.get('design_input_ref'), 'accepted_test_design': m.get('accepted_test_design')}
             heading = '# Replanning required' if m.get('planning_history') else '# Planning status — no frozen SPEC'
             emit(change / 'status.md', heading + '\n\n```json\n' +

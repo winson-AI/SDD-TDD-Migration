@@ -10,7 +10,7 @@ CHECKS = ('changes', 'refactoring', 'redundancy', 'library-reuse', 'shared-capab
 def snapshot(s):
     # Historical snapshots are digest values, not live code refs. Otherwise the
     # evidence walker would reject the old review precisely when Fixer changes code.
-    return {**({'host_contract_sha256': digest([s.get('host_task_contract'), s['global_spec'], s['requirement_ids'], s['case_ids'], s['global_paths']])} if s.get('control_policy_version', 1) >= 2 else {}),
+    return {'host_contract_sha256': digest([s.get('host_task_contract'), s['global_spec'], s['requirement_ids'], s['case_ids'], s['global_paths']]),
             **({'retirements_sha256': digest([h for h in s['run_change_history'] if h.get('retirements')])}
                if any(h.get('retirements') for h in s.get('run_change_history', [])) else {}),
             'project_context_sha256': digest(s.get('project_context_ref')),
@@ -86,8 +86,7 @@ def accept(s, p, actor):
     require(inventory_ref, 'audit change inventory reference required')
     check_ref(inventory_ref)
     refs = [inventory_ref]
-    if s.get('control_policy_version', 1) >= 2:
-        refs += goal_review(s, report)
+    refs += goal_review(s, report)
     for mid, review in reviews.items():
         refs += nonempty(review.get('diff_refs'), 'before/after change evidence required')
         checks = review.get('checks', {})
@@ -100,8 +99,7 @@ def accept(s, p, actor):
     items = keyed(report['findings'], 'finding_id') if report['findings'] else {}
     for fid, finding in items.items():
         require(fid.startswith('CR-') and finding.get('source_module_id') in s['modules'], 'invalid code finding identity/source')
-        require(finding.get('category') in CHECKS or (s.get('control_policy_version', 1) >= 2 and
-                finding.get('category') == 'host-goal'), 'unknown code review category')
+        require(finding.get('category') in CHECKS or finding.get('category') == 'host-goal', 'unknown code review category')
         workflow.root_cause(finding.get('root_cause'))
         refs.append(finding.get('analysis_ref'))
         affected = nonempty(finding.get('affected_module_ids'), 'affected consumers required')
@@ -110,10 +108,9 @@ def accept(s, p, actor):
         attempts = [b for b in [*s.get('audit_batch_history', []), s.get('audit_batch', {})]
                     if b.get('code_review_ref') and fid in b.get('routes', {}) and
                     set(b['routes'][fid]['owner_module_ids']).intersection(b.get('started_owners', []))]
-        finding['requires_human'] = bool(attempts) if s.get('control_policy_version', 1) < 2 else (
-            len(attempts) >= s['max_no_progress_rounds'] or any(
+        finding['requires_human'] = len(attempts) >= s['max_no_progress_rounds'] or any(
                 s['modules'][mid]['fix_rounds_used'] >= s['modules'][mid].get('fix_budget', s['max_fix_rounds'])
-                for b in attempts for mid in b['routes'][fid]['owner_module_ids']))
+                for b in attempts for mid in b['routes'][fid]['owner_module_ids'])
     for mid, review in reviews.items():
         for category, item in review['checks'].items():
             require((item['conclusion'] == 'finding') == any(f['source_module_id'] == mid and f['category'] == category for f in items.values()),

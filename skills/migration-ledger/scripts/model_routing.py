@@ -14,7 +14,7 @@ LOW_COST_ROLES = {'test-runner'}
 LOW_COST_OPERATIONS = {'accept', 'submit', 'dependency-ready', 'audit-retest', 'automation-resume'}
 # Strong reasoning that must never run on the low-cost model.
 STRONG_ONLY_ROLES = {'spec-designer', 'diagnostician', 'auditor'}
-STRONG_ONLY_OPERATIONS = {'plan', 'freeze', 'diagnose', 'audit-plan', 'audit-verdict', 'audit', 'problem-audit'}
+STRONG_ONLY_OPERATIONS = {'plan', 'freeze', 'diagnose', 'audit-plan', 'audit-verdict', 'audit'}
 
 
 def strong_only(role=None, operation=None, worker_role=None):

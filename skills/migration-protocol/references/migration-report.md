@@ -38,7 +38,7 @@ GO 在本轮成功完成、带自动化缺测结束或需人工处理而停止�
 
 证据优先使用已接受 stage-result 引用、execution_receipt、根因引用的日志/环境报告/截图录屏工件（均保留 path/sha256）。每个非 Green 条目另附 events.jsonl 路径、sequence、CASE/module/PATH，作为该次状态的可重放依据。未执行时没有截图/运行回执，必须指向真实的环境预检/阻塞记录；仅有状态事实时如实说明缺少诊断证据。
 
-JSON 的 cases/case_counts 按 CASE 聚合，paths/non_green 保留明细与证据，automation 从同一批已接受结果派生，不维护第二份计数账本。成功覆盖率=有效成功/应测 PATH；分母为零不报 100%，存在任何模块/CASE 路径缺口不称全量覆盖。v2 attempt_coverage 与 completion_coverage 分开；definition_coverage_complete 仅指路径定义齐全，validation_complete 指全路径完整执行。旧 execution_coverage/current_executed_paths 保留已尝试口径，coverage_complete 保留定义覆盖口径；历史非 Green 无完整性字段记未知。contract_retirements 披露批准、替代及原失败，不算成功；Yellow 中的真实失败不被环境原因遮蔽。报告不启动测试、不改变审计复测范围或验收 owner。
+JSON 的 cases/case_counts 按 CASE 聚合，paths/non_green 保留明细与证据，automation 从同一批已接受结果派生，不维护第二份计数账本。成功覆盖率=有效成功/应测 PATH；分母为零不报 100%，存在任何模块/CASE 路径缺口不称全量覆盖。attempt_coverage 与 completion_coverage 分开；definition_coverage_complete 仅指路径定义齐全，validation_complete 指全路径完整执行。旧 execution_coverage/current_executed_paths 保留已尝试口径，coverage_complete 保留定义覆盖口径；历史非 Green 无完整性字段记未知。contract_retirements 披露批准、替代及原失败，不算成功；Yellow 中的真实失败不被环境原因遮蔽。报告不启动测试、不改变审计复测范围或验收 owner。
 
 保真披露（视觉覆盖、图片、复制与参数填充）见 [UI 保真](ui-fidelity.md#最终报告的保真披露)，不改变 CASE 状态。可读格式见 [报告模板](../../../template/migration-report.md)。
 

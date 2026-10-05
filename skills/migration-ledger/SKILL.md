@@ -31,7 +31,7 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 
 [source_changes.py](scripts/source_changes.py) 接入 GO source-review 和 Host reconfigure-sources，追加只读来源、固化新快照并局部重新规划；status.source_change_next_step 给出审批/过期/协调信号。所有事务走 ledger.py，不直接调用 helper 修改生产状态。字段与三层职责见 [来源变更协议](../migration-protocol/references/source-changes.md)。
 
-读取 [local-runtime.md](../migration-protocol/references/local-runtime.md) 后使用 [ledger.py](scripts/ledger.py)（init/apply/status/resume/recover）。[contracts.py](scripts/contracts.py) 校验阶段结构/证据，[workflow.py](scripts/workflow.py) 校验全局覆盖与问题审计，[openspec_projection.py](scripts/openspec_projection.py) 重建六件套与修复记忆；[execute_test.py](scripts/execute_test.py) 供宿主执行已授权测试。
+读取 [local-runtime.md](../migration-protocol/references/local-runtime.md) 后使用 [ledger.py](scripts/ledger.py)（init/apply/status/resume/recover）。[contracts.py](scripts/contracts.py) 校验阶段结构/证据，[workflow.py](scripts/workflow.py) 校验全局覆盖与宿主整体审计，[openspec_projection.py](scripts/openspec_projection.py) 重建六件套与修复记忆；[execute_test.py](scripts/execute_test.py) 供宿主执行已授权测试。
 
 编排状态查询还会派生 next_steps/ready_modules/global_next_step；它们不是第二套状态源。阶段接收、精确恢复、审计关闭/撤销和根因停滞摘要均在 ledger.py 内验证。
 

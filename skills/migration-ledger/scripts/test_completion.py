@@ -14,8 +14,6 @@ def load_content(ref):
 
 
 def mobile_binding(planned, query, report):
-    if report.get('mobile_contract_version') not in (1, 2) and 'platform' not in planned:
-        return  # Existing Harmony reports remain readable.
     require(query.get('platform') == planned.get('platform'), 'mobile PATH platform changed')
     require(query.get('task_type', 'test') == planned.get('task_type', 'test'), 'mobile PATH task type changed')
     if report.get('quality') != 'green-passed': return
@@ -30,8 +28,8 @@ def mobile_binding(planned, query, report):
 def interpret(receipt, planned):
     check_ref(receipt['log_ref'])
     query = read_json(check_ref(receipt['query_ref']))
-    execution_version = receipt.get('execution_contract_version', 1)
-    require(execution_version in (1, 2) and query.get('execution_contract_version', 1) == execution_version,
+    execution_version = receipt.get('execution_contract_version')
+    require(execution_version == 2 and query.get('execution_contract_version') == execution_version,
             'host execution contract version mismatch')
     for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
         require(query.get(key) == receipt.get(key), 'completion query context mismatch')
@@ -63,16 +61,15 @@ def interpret(receipt, planned):
                 if not isinstance(item, dict): known = False; continue
                 for ref in item.get('evidence_refs', []): check_ref(ref)
         for ref in report.get('artifacts', []): check_ref(ref)
-        if execution_version >= 2 or query.get('step_contract_version') or report.get('mobile_contract_version') == 2 or report.get('step_contract_version'):
-            from path_execution import inspect
-            trace_ref = report.get('step_trace_ref')
-            trace, trace_error = load_content(trace_ref) if trace_ref else (None, 'missing step trace')
-            if trace_ref: evidence.append(trace_ref)
-            if trace_error or not isinstance(observations, list):
-                step_issues = [trace_error or 'missing checkpoint observations']
-            else:
-                step_issues = inspect(query, trace, observations, check_ref)
-            if report.get('step_contract_version') != 1: step_issues.append('required step contract version missing')
+        from path_execution import inspect
+        trace_ref = report.get('step_trace_ref')
+        trace, trace_error = load_content(trace_ref) if trace_ref else (None, 'missing step trace')
+        if trace_ref: evidence.append(trace_ref)
+        if trace_error or not isinstance(observations, list):
+            step_issues = [trace_error or 'missing checkpoint observations']
+        else:
+            step_issues = inspect(query, trace, observations, check_ref)
+        if report.get('step_contract_version') != 1: step_issues.append('required step contract version missing')
     if known and report['producer'] == 'lean-visual-adapter':
         require(planned.get('kind') == 'visual', 'visual report cannot replace functional tests')
         for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
@@ -100,7 +97,7 @@ def interpret(receipt, planned):
     if valid:
         row = copy.deepcopy({k: report[k] for k in ('quality', 'assertions', 'root_cause', 'flaky', 'skipped', 'xfail', 'visual_alignment', 'interaction_evidence', 'build_artifacts', 'unit_execution', 'step_trace_ref') if k in report})
         row.update(executed=True, host_completion_version=1)
-        if report.get('step_contract_version') or query.get('step_contract_version') or (execution_version >= 2 and report['producer'] == 'harmony-adapter'):
+        if report['producer'] == 'harmony-adapter':
             complete = (not abnormal and not step_issues and all(a.get('actual') is not None for a in assertions)
                         and isinstance(observations, list) and all(not e.get('error') for e in observations))
             row['execution_status'] = 'completed' if complete else 'incomplete'

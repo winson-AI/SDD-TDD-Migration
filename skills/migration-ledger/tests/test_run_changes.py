@@ -22,6 +22,8 @@ class RootRevisionTests(unittest.TestCase):
     def report(self, updates):
         f = self.f
         return {'schema_version': 1, 'run_id': 'demo', 'reason': 'Root boundary review', 'context_patch': {},
+            'boundary_review': {'semantic_change': True, 'authorization_change': False, 'unresolved_questions': [],
+                'reason': 'Reviewed root allocation impact', 'evidence_refs': [f.ref('root-boundary-review.md', 'Precise root allocation reviewed')]},
             'root_updates': updates, 'modules': [{'module_id': mid, 'action': 'replan', 'reason': 'Affected boundary',
                 'evidence_refs': [f.ref('impact.md', 'Reviewed source boundaries')], 'resume_blocker_sha256': None}
                 for mid in f.state()['modules']]}
@@ -88,14 +90,24 @@ class RootRevisionTests(unittest.TestCase):
         consumer = self.update('M010')
         consumer.update(module_id='M020', name='Consumer', decomposition_required=True, dependencies=['M001', 'M002'])
         f.call('register', consumer, role='global-orchestrator', module=None)
-        f.split(f.proposal('M020', ('M003', 'M004')), parent='M020')
-        f.call('redecompose', {'plan_ref': f.ref('replacement-split.json', f.proposal(ids=('M005', 'M002')))}, module='M010')
+        from test_behavior_contract import review
+        plan = f.proposal('M020', ('M003', 'M004'), dependencies={'M003': ['M001'], 'M004': ['M002']})
+        for child in plan['children']: child['behavior_review'] = review(f, child)
+        f.split(plan, parent='M020')
+        replacement = f.proposal(ids=('M005', 'M002'))
+        consumer_child = copy.deepcopy(f.state()['modules']['M003']); consumer_child['dependencies'] = ['M005']
+        replacement['consumer_dependencies'] = {'M003': ['M005']}
+        replacement['consumer_verifications'] = {'M003': review(f, consumer_child)['verification']}
+        f.call('redecompose', {'plan_ref': f.ref('replacement-split.json', replacement)}, module='M010')
         f.call('redecompose-accept', {'review_ref': f.ref('replacement-review.md', 'Provider replaced; consumers reviewed')},
                role='global-orchestrator', module='M010')
         s = f.state()
         self.assertEqual(s['module_groups']['M020']['dependencies'], ['M002', 'M005'])
-        self.assertEqual(s['modules']['M003']['dependencies'], ['M002', 'M005'])
-        f.call('redecompose', {'plan_ref': f.ref('consumer-split.json', f.proposal('M020', ('M003', 'M004')))}, module='M020')
+        self.assertEqual(s['modules']['M003']['dependencies'], ['M005'])
+        self.assertEqual(s['modules']['M004']['dependencies'], ['M002'])
+        plan = f.proposal('M020', ('M003', 'M004'), dependencies={'M003': ['M005'], 'M004': ['M002']})
+        for child in plan['children']: child['behavior_review'] = review(f, child)
+        f.call('redecompose', {'plan_ref': f.ref('consumer-split.json', plan)}, module='M020')
 
     def test_atomic_root_can_request_go_review_and_decision_is_mandatory(self):
         f = self.f
@@ -191,6 +203,27 @@ class PreparedRunRevisionTests(unittest.TestCase):
     def setUp(self):
         self.source = test_source_changes.SourceChangeTests(); self.source.setUp(); self.addCleanup(self.source.doCleanups)
         self.f = self.source.f
+
+    def test_historical_context_uses_current_budget_without_rewriting_history(self):
+        f = self.f; state = f.state()
+        snapshot = copy.deepcopy(project_context.verify_snapshot(state['project_context_ref']))
+        snapshot['control_policy_version'] = 1
+        snapshot['effective_config'].setdefault('defaults', {}).setdefault('budgets', {}).update(local_fix_rounds=1, max_fix_rounds=3)
+        historical = project_context.encoded(snapshot)
+        ref = project_context.archive(f.root / 'context/files', historical, '.snapshot')
+        state['project_context_ref'] = ref
+        current = project_context.prepared_input(ref)
+        self.assertNotIn('control_policy_version', current)
+        self.assertNotIn('local_fix_rounds', current)
+        self.assertEqual(current['max_fix_rounds'], 3)
+        report = self.report({'runtime': {'fixture': 'current'}})
+        report_ref = f.ref('historical-context-review.json', report)
+        run_changes.validate(state, report_ref)
+        updated = run_changes.revise_context(f.root, state, report['context_patch'], {'report_ref': report_ref}, {})
+        projected = project_context.verify_snapshot(updated)
+        self.assertNotIn('local_fix_rounds', projected['effective_config']['defaults']['budgets'])
+        self.assertEqual(projected['run_id'], state['run_id'])
+        self.assertEqual(check_ref(ref).read_bytes(), historical)
 
     def report(self, patch, affected=('M001', 'M002')):
         f = self.f

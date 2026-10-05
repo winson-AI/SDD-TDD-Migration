@@ -85,7 +85,7 @@ class EvidenceBoundaryTests(unittest.TestCase):
         f.call('invalidate', {'reason': 'new scope evidence'})
         plan['tasks'][0]['description'] = 'unreviewed C'
         f.call('plan', {'plan_ref': f.ref('plan-c.json', plan)}, role='spec-designer')
-        self.assertFalse(f.state()['next_steps'][0]['ready'])
+        self.assertEqual(f.state()['next_steps'][0]['operation'], 'plan-review')
         with self.assertRaises(Rejected): f.call('freeze', {'change_class': 'within-envelope', 'impact_ref': review})
 
     def test_current_cr_cannot_freeze_different_plan_or_survive_invalidation(self):
@@ -100,7 +100,7 @@ class EvidenceBoundaryTests(unittest.TestCase):
         f.call('change', {'request_ref': f.ref('cr.md', 'B only'), 'impact_ref': review})
         plan['tasks'][0]['description'] = 'C'
         f.call('plan', {'plan_ref': f.ref('c.json', plan)}, role='spec-designer')
-        self.assertFalse(f.state()['next_steps'][0]['ready'])
+        self.assertEqual(f.state()['next_steps'][0]['operation'], 'plan-review')
         with self.assertRaisesRegex(Rejected, 'to_plan_hash'):
             f.call('freeze', {'change_class': 'within-envelope', 'impact_ref': review})
         f.call('invalidate', {'reason': 'replan'})

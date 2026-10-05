@@ -262,7 +262,7 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
     history = {k: copy.deepcopy(m.get(k)) for k in
         ('revision', 'plan', 'plan_ref', 'plan_hash', 'freeze_id', 'code_files', 'code_baseline',
          'results', 'repair_findings', 'blocked', 'dimension_evidence', 'provider_owners', 'change_request', 'accepted_test_design', 'design_input_ref', 'execution_context_ref')}
-    history.update(reason=reason, evidence_ref=evidence_ref)
+    history.update(kind='planning-history', executable=False, reason=reason, evidence_ref=evidence_ref)
     m.setdefault('planning_history', []).append(history)
     m['design_generation'] = m.get('design_generation', 0) + 1
     m.pop('accepted_test_design', None)
@@ -271,7 +271,7 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
              plan=None, plan_ref=None, plan_hash=None, build_baseline=None, accepted_task_ids=[],
              code_files=[], code_baseline=None, provider_owners=[])
     for key in ('dimension_evidence', 'effective_quality', 'context_acceptances', 'automation_retry_ready',
-                'dependency_release', 'source_context_continuation', 'change_request', 'scenario_index', 'plan_binding',
+                'dependency_release', 'source_context_continuation', 'allocation_continuation', 'change_request', 'scenario_index', 'plan_binding',
                 'checklist_ref', 'execution_context_ref', 'plan_review_ref', 'task_files', 'execution_partition_pending', 'planning_continuation'):
         m.pop(key, None)
 
@@ -290,7 +290,7 @@ def replan_module(m, reason, evidence_ref, release_blocker=False):
 
 def dependencies_ready(s, m):
     providers = ((m.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs', [])
-    stages = {row['module_id']: row['required_stage'] for row in providers} if control_policy.enabled(s) else {}
+    stages = {row['module_id']: row['required_stage'] for row in providers}
     require(all((bool(s['modules'][d].get('code_baseline')) and set(s['modules'][d].get('accepted_task_ids', [])) ==
                 {t['task_id'] for t in (s['modules'][d].get('plan') or {}).get('tasks', [])})
                 if stages.get(d) == 'implemented' and m.get('phase') not in ('testing', 'dod', 'completed')
@@ -355,7 +355,7 @@ def freeze_guard(s, m, p):
     idle(m)
     require(m.get('plan'), 'SPEC not prepared')
     design_stage.plan_check(s, m, m['plan'])
-    if m.get('parent_module_id'):
+    if m.get('scope'):
         decomposition.check_module_plan(s, m, m['plan'])
     require(m['phase'] == 'clarifying' and not m.get('blocked'), 'freeze requires unblocked clarifying')
     verify_plan(m['plan'], m)
@@ -366,7 +366,7 @@ def freeze_guard(s, m, p):
     api_contract.freeze(s, m, p)
     ui_fidelity.freeze_gate(s, m)
     knowledge_gate.freeze_gate(s, m)
-    if control_policy.enabled(s) and not p.get('decision_id') and p.get('review_ref'):
+    if not p.get('decision_id') and p.get('review_ref'):
         control_policy.technical_review(m, p['review_ref'])
     elif p.get('change_class') == 'within-envelope':
         within_envelope(m, p.get('impact_ref'))
@@ -416,7 +416,7 @@ def complete_guard(s, m):
             all(r['quality'] == 'green-passed' for r in m['results'].values()) and
             set(m['results']) == {p['path_id'] for p in m['plan']['paths']}, 'DoD requires all paths Green')
     current(m); dependencies_ready(s, m)
-    require(not control_policy.enabled(s) or set(m.get('accepted_task_ids', [])) == {t['task_id'] for t in m['plan']['tasks']}, 'DoD requires cumulative TASK completion')
+    require((set(m.get('accepted_task_ids', [])) == {t['task_id'] for t in m['plan']['tasks']}), 'DoD requires cumulative TASK completion')
     if s.get('git_checkpoint'):
         require((m.get('git_checkpoint') or {}).get('code_baseline') == m['code_baseline'],
                 'git checkpoint of the current code baseline required before completion')
@@ -430,7 +430,7 @@ def pending_repairs(s):
 def dispatch_guard(s, m, worker):
     require(m.get('plan') and m.get('freeze_id'), 'SPEC not frozen/prepared')
     workflow.planning_guard(s, m['module_id'])
-    if m.get('parent_module_id'):
+    if m.get('scope'):
         decomposition.check_module_plan(s, m, m['plan'])
     if audit_closure.active(s):
         b = s['audit_batch']
@@ -451,11 +451,11 @@ def dispatch_guard(s, m, worker):
             require(not any(overlaps(x, y) for x in m['write_paths'] for y in other['write_paths']), 'resource lock conflict')
     require(m['phase'] == {'implementer': 'frozen', 'fixer': 'diagnosing', 'test-runner': 'testing'}[worker], 'worker phase gate rejected')
     if worker == 'test-runner':
-        require(not (unresolved(m) and workflow.defer_reason(m, s['max_fix_rounds'] if control_policy.enabled(s) else s.get('local_fix_rounds', 1), whole_task=control_policy.enabled(s))) or m.get('automation_retry_ready'), 'unresolved failure awaits Auditor')
+        require(not (unresolved(m) and workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds']))) or m.get('automation_retry_ready'), 'unresolved failure awaits Auditor')
         require(m['code_baseline'], 'code must be accepted before testing')
-        require(not control_policy.enabled(s) or set(m.get('accepted_task_ids', [])) == {t['task_id'] for t in m['plan']['tasks']}, 'all TASKs must be implemented before target tests')
+        require((set(m.get('accepted_task_ids', [])) == {t['task_id'] for t in m['plan']['tasks']}), 'all TASKs must be implemented before target tests')
     if worker == 'fixer':
-        require(not workflow.defer_reason(m, s['max_fix_rounds'] if control_policy.enabled(s) else s.get('local_fix_rounds', 1), whole_task=control_policy.enabled(s)), 'local repair deferred to Auditor')
+        require(not workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])), 'local repair deferred to Auditor')
         require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']), 'fix budget exhausted; recover requires decision')
 
 
@@ -500,14 +500,7 @@ def _next_step(s, m):
             except (Rejected, OSError, ValueError):
                 pass
     elif m['phase'] == 'waiting-auditor':
-        resolution = s.get('audit_resolutions', {}).get(m['module_id'])
-        step.update(operation='audit-resume' if resolution else None, role='module-orchestrator',
-                    ready=bool(resolution and resolution['action'] not in ('wait', 'human')),
-                    reason='await-auditor' if not resolution else resolution['action'])
-        if resolution and resolution['action'] == 'human':
-            decision = approval(s, m, digest(resolution))
-            step.update(ready=bool(decision), payload={'decision_id': decision['decision_id']} if decision else {},
-                        approval_subject_sha256=digest(resolution))
+        step.update(operation=None, role='module-orchestrator', ready=False, reason='await-host-audit')
     elif m.get('blocked'):
         if active:
             step.update(operation='revoke', role='host', reason='stop-invalidated-worker')
@@ -540,7 +533,8 @@ def _next_step(s, m):
     elif m.get('decomposition_submission'):
         step.update(operation='decompose-accept', role='global-orchestrator', ready=True)
     elif m.get('decomposition_required') and m['phase'] in ('context', 'specifying', 'clarifying'):
-        step.update(operation='decompose', role='module-orchestrator', ready=True)
+        step.update(operation='decompose', role='module-orchestrator', ready=True,
+                    planning_outcomes=['split', 'atomic-leaf'])
     elif m['phase'] in ('completed', 'testing') and any(m['module_id'] in r.get('module_ids', []) and m['module_id'] not in r.get('accepted_by', [])
              for r in pending_repairs(s).values()):
         step.update(operation='repair-accept', role='module-orchestrator', ready=True,
@@ -580,14 +574,14 @@ def _next_step(s, m):
                 eligible = True
             except (ValueError, OSError, TypeError):
                 pass
-        step.update(operation='freeze', role='module-orchestrator', ready=bool(decision) or eligible or (control_policy.enabled(s) and bool(m.get('plan_review_ref'))),
+        step.update(operation='freeze', role='module-orchestrator', ready=bool(decision) or eligible or bool(m.get('plan_review_ref')),
                     payload={'decision_id': decision['decision_id']} if decision else
                             {'change_class': 'within-envelope', 'impact_ref': impact} if eligible else
-                            {'review_ref': m['plan_review_ref']} if control_policy.enabled(s) and m.get('plan_review_ref') else {},
-                    reason=None if decision or eligible else 'MO-plan-review-required' if control_policy.enabled(s) else 'approval-or-impact-review-required',
+                            {'review_ref': m['plan_review_ref']} if m.get('plan_review_ref') else {},
+                    reason=None if decision or eligible else 'MO-plan-review-required',
                     # What a human approval or an impact review binds: the hash of the plan as the Ledger completed it.
                     approval_subject_sha256=m['plan_hash'])
-        if control_policy.enabled(s) and not decision and not eligible and not m.get('plan_review_ref'):
+        if not decision and not eligible and not m.get('plan_review_ref'):
             step.update(operation='plan-review', ready=True, reason='MO-technical-review', payload={})
         if design_stage.required(s, m) and not design_stage.ready(s, m):
             step.update(operation='invalidate', ready=True, reason='independent-test-design-stale',
@@ -606,16 +600,16 @@ def _next_step(s, m):
                 step.update(operation='diagnosis-accept', role='module-orchestrator', ready=True,
                             # Optional: once the Fixer preflighted this diagnosis, accept and dispatch in one step.
                             then_assign={'role': 'fixer', 'session_id': suggested_session(s, m, 'fixer')[0]})
-            elif workflow.defer_reason(m, s['max_fix_rounds'] if control_policy.enabled(s) else s.get('local_fix_rounds', 1), whole_task=control_policy.enabled(s)):
+            elif workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])):
                 step.update(operation='audit-defer', role='module-orchestrator', ready=True,
-                            root_cause=workflow.defer_reason(m, s['max_fix_rounds'] if control_policy.enabled(s) else s.get('local_fix_rounds', 1), whole_task=control_policy.enabled(s)), reason='auditor-handoff')
+                            root_cause=workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])), reason='auditor-handoff')
             else:
                 step.update(operation='diagnose', role='fixer' if self_diagnosis(s, m) else 'diagnostician', ready=True)
         else:
             worker = {'frozen': 'implementer', 'testing': 'test-runner', 'diagnosing': 'fixer'}[m['phase']]
-            if worker == 'fixer' and workflow.defer_reason(m, s['max_fix_rounds'] if control_policy.enabled(s) else s.get('local_fix_rounds', 1), whole_task=control_policy.enabled(s)):
+            if worker == 'fixer' and workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])):
                 step.update(operation='audit-defer', role='module-orchestrator', ready=True,
-                            root_cause=workflow.defer_reason(m, s['max_fix_rounds'] if control_policy.enabled(s) else s.get('local_fix_rounds', 1), whole_task=control_policy.enabled(s)), reason='auditor-handoff')
+                            root_cause=workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])), reason='auditor-handoff')
                 return step
             exhausted = m['no_progress_rounds'] >= s['max_no_progress_rounds'] or (worker == 'fixer' and
                          m['fix_rounds_used'] >= m.get('fix_budget', s['max_fix_rounds']))
@@ -802,13 +796,12 @@ def next_step(s, m):
         # reports its own readiness, so the host may submit it as the module orchestrator without a model turn.
         step['mechanical'] = True
         step['payload'] = {**step.get('payload', {}), 'role': step['worker_role']}
-        if control_policy.enabled(s):
-            selected = [t for t in m['plan']['tasks'] if step['worker_role'] != 'implementer' or t['task_id'] not in m.get('accepted_task_ids', [])]
-            scope = step.get('test_scope')
-            paths = [p for p in m['plan']['paths'] if not scope or (p.get('kind') in tv.PRE if scope == 'build' else p.get('kind', 'automation') == scope)]
-            step['payload'].update(task_ids=[t['task_id'] for t in selected], path_ids=[p['path_id'] for p in paths])
-            if step['worker_role'] == 'fixer':
-                step['payload']['finding_ids'] = list(unresolved(m)) + [r['finding_id'] for r in (m.get('diagnosis') or {}).get('findings', [])]
+        selected = [t for t in m['plan']['tasks'] if step['worker_role'] != 'implementer' or t['task_id'] not in m.get('accepted_task_ids', [])]
+        scope = step.get('test_scope')
+        paths = [p for p in m['plan']['paths'] if not scope or (p.get('kind') in tv.PRE if scope == 'build' else p.get('kind', 'automation') == scope)]
+        step['payload'].update(task_ids=[t['task_id'] for t in selected], path_ids=[p['path_id'] for p in paths])
+        if step['worker_role'] == 'fixer':
+            step['payload']['finding_ids'] = list(unresolved(m)) + [r['finding_id'] for r in (m.get('diagnosis') or {}).get('findings', [])]
         receipts = (step.get('context_gate') or {}).get('ready_receipts')
         if receipts:
             producer = next(r['producer'] for r in m['context_receipts'].values() if r['report_ref'] == receipts[0])
@@ -911,7 +904,7 @@ def assign_worker(s, m, mid, p, events, root):
     if audit_closure.active(s):
         require(p.get('instance_id') != s['audit_batch']['auditor_instance_id'], 'Auditor cannot implement or author verification')
     dispatch_guard(s, m, p['role'])
-    execution_contract = control_policy.execution_contract(m, p) if control_policy.enabled(s) else None
+    execution_contract = control_policy.execution_contract(m, p)
     if p['role'] == 'test-runner' and tv.split(m):
         require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> unit -> static -> automation -> visual; the build assignment carries the first three')
     if p['instance_id'] not in m['authors']:
@@ -925,7 +918,7 @@ def assign_worker(s, m, mid, p, events, root):
         'fencing_token': len(events) + 1, **dispatch_record(s, m, p), **(usage or {})}
     if execution_contract:
         a['execution_contract'] = execution_contract
-    if control_policy.enabled(s) and s.get('write_scope_check') and p['role'] == 'implementer':
+    if s.get('write_scope_check') and p['role'] == 'implementer':
         a['authoring_snapshot'] = write_scope.authoring_snapshot(s['target_root'], m['write_paths'],
             root)
     if context_ref:
@@ -969,7 +962,7 @@ def mutate(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')
-    global_ops = {'register', 'decision', 'audit-code-review', 'audit-assign', 'audit', 'audit-revoke', 'audit-route', 'audit-unavailable'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS | source_changes.OPS | run_changes.OPS | audit_execution.OPS | {'retrospect', 'upgrade-control-policy'}
+    global_ops = {'register', 'decision', 'audit-code-review', 'audit-assign', 'audit', 'audit-revoke', 'audit-route', 'audit-unavailable'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS | source_changes.OPS | run_changes.OPS | audit_execution.OPS | {'retrospect'}
     if op in ('context-submit', 'session') and mid is None:
         global_ops.add(op)
     require((mid is None) == (op in global_ops), 'operation has incorrect global/module scope')
@@ -979,7 +972,7 @@ def mutate(s, req, principal, events, root=None):
         if mid in s.get('module_groups', {}):
             require(op in ('module-summary', 'session', 'redecompose', 'redecompose-accept', 'realloc-request'), 'parent MO only coordinates/summarizes; execute code and tests in child modules')
     audit_preflight = op == 'context-submit' and read_json(check_ref(p.get('report_ref'))).get('stage') == 'audit-execution'
-    if workflow.audit_locks(s, mid) and not audit_preflight and op not in ('audit', 'problem-audit', 'audit-revoke', 'decision', 'audit-test-assign', 'audit-test-submit'):
+    if workflow.audit_locks(s, mid) and not audit_preflight and op not in ('audit', 'audit-revoke', 'decision', 'audit-test-assign', 'audit-test-submit'):
         raise Rejected('audit snapshot locked; close or revoke audit before mutation')
     if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
@@ -1005,18 +998,6 @@ def mutate(s, req, principal, events, root=None):
         receipt = context_readiness.submit(s, req, principal)
         if mid in s['modules']:
             settle_preflight(m, principal, receipt)
-    elif op == 'upgrade-control-policy':
-        role(principal, 'host')
-        require(not workflow.audit_active(s) and not audit_closure.active(s), 'close audit before policy upgrade')
-        require(all(not any(not a.get('closed') for a in mod['assignments'].values()) for mod in s['modules'].values()), 'stop workers before policy upgrade')
-        check_ref(p.get('review_ref'))
-        require(not control_policy.enabled(s), 'control policy already current')
-        s['control_policy_version'] = control_policy.VERSION
-        s['control_policy_upgrade_ref'] = p['review_ref']
-        if s.get('audit'): s.setdefault('audit_history', []).append(copy.deepcopy(s['audit']))
-        s['audit'] = {}
-        if s.get('audit_code_review'): s.setdefault('audit_code_review_history', []).append(copy.deepcopy(s['audit_code_review']))
-        s.pop('audit_code_review', None)
     elif op == 'audit-code-review':
         audit_code_review.accept(s, p, principal)
     elif op in run_changes.OPS:
@@ -1036,8 +1017,6 @@ def mutate(s, req, principal, events, root=None):
         audit_closure.handle(s, req, principal)
     elif op in workflow.OPERATIONS:
         workflow.handle(s, req, principal, run_root=root)
-        if op == 'audit-resume' and m['phase'] != 'waiting-auditor':
-            invalidate_dependents(s, mid)
     elif op == 'register':
         role(principal, 'global-orchestrator')
         mid = p['module_id']
@@ -1098,7 +1077,7 @@ def mutate(s, req, principal, events, root=None):
         design_stage.plan_check(s, m, plan, principal['instance_id'])
         if s.get('behavior_contract_required'):
             require(plan.get('behavior_contract_required') is True, 'plan cannot opt out of the behavior contract')
-        if m.get('parent_module_id'):
+        if m.get('scope'):
             decomposition.check_scopes(s, m)
             decomposition.check_tasks(m, plan)
         plan_hash = validate_plan(plan, m)
@@ -1119,7 +1098,7 @@ def mutate(s, req, principal, events, root=None):
         owners = reuse.selected_owners(plan)
         if s.get('behavior_contract_required'):
             behavior_contract.check_owners(s, owners)
-        if control_policy.enabled(s):
+        if s.get('behavior_contract_required') or m.get('behavior_review'):
             boundary = behavior_contract.verification(m)
             require(plan['source_closure'].get('verification') == boundary, 'leaf plan verification differs from allocation')
             for path in plan['paths']:
@@ -1134,13 +1113,13 @@ def mutate(s, req, principal, events, root=None):
             m['spec_authors'].append(principal['instance_id'])
     elif op == 'plan-review':
         role(principal, 'module-orchestrator')
-        require(control_policy.enabled(s) and m['phase'] == 'clarifying', 'plan review requires policy 2 clarifying')
+        require(m['phase'] == 'clarifying', 'plan review requires clarifying')
         idle(m)
         control_policy.technical_review(m, p.get('review_ref'), principal)
         m['plan_review_ref'] = p['review_ref']
     elif op == 'planning-reopen':
         role(principal, 'module-orchestrator')
-        require(control_policy.enabled(s) and m['phase'] in ('clarifying', 'frozen') and not m.get('blocked'), 'planning reopen requires unblocked planning')
+        require(m['phase'] in ('clarifying', 'frozen') and not m.get('blocked'), 'planning reopen requires unblocked planning')
         idle(m)
         require(not control_policy.execution_started(m), 'execution started; use CR/upstream revision')
         for a in m['assignments'].values():
@@ -1148,11 +1127,11 @@ def mutate(s, req, principal, events, root=None):
                 require(a['authoring_snapshot'] == write_scope.authoring_snapshot(s['target_root'],
                     a['authoring_snapshot']['scopes'], root), 'code changed after stop; use CR/upstream revision')
         check_ref(p.get('reason_ref'))
-        reset_plan(m, 'pre-implementation planning revision', p['reason_ref'])
+        reset_plan(m, 'pre-implementation replanning', p['reason_ref'])
     elif op == 'freeze':
         role(principal, 'module-orchestrator')
         freeze_guard(s, m, p)
-        if control_policy.enabled(s) and not p.get('decision_id') and p.get('review_ref'):
+        if not p.get('decision_id') and p.get('review_ref'):
             control_policy.technical_review(m, p['review_ref'], principal)
             m['plan_review_ref'] = p['review_ref']
         decision = s['decisions'].get(p.get('decision_id'), {})
@@ -1164,18 +1143,16 @@ def mutate(s, req, principal, events, root=None):
             if decision and decision.get('kind') != 'batch-envelope':
                 decision['consumed'] = True
             m['approved_envelope'] = digest(m['plan']['decision_envelope'])
-            if control_policy.enabled(s):
-                m['approved_acceptance_kind'] = 'business'
+            m['approved_acceptance_kind'] = 'business'
             m['approved_acceptance'] = control_policy.acceptance_hash(m)
         if m.get('change_request'):
             prior_execution = {key: copy.deepcopy(m.get(key)) for key in
                 ('code_files', 'code_baseline', 'accepted_task_ids', 'task_files', 'results', 'dimension_evidence', 'build_artifacts')}
             m.setdefault('change_request_history', []).append({**m.pop('change_request'), 'to_freeze_id': m['plan_hash'],
                 'prior_execution': prior_execution})
-            if control_policy.enabled(s):
-                m.update(accepted_task_ids=[], task_files={}, execution_partition_pending=True, build_baseline=None, build_artifacts=[])
-                m.pop('dimension_evidence', None)
-                m['results'] = {pid: {**result, 'stale': True} for pid, result in m['results'].items() if pid in {p['path_id'] for p in m['plan']['paths']}}
+            m.update(accepted_task_ids=[], task_files={}, execution_partition_pending=True, build_baseline=None, build_artifacts=[])
+            m.pop('dimension_evidence', None)
+            m['results'] = {pid: {**result, 'stale': True} for pid, result in m['results'].items() if pid in {p['path_id'] for p in m['plan']['paths']}}
         m.update(freeze_id=m['plan_hash'], phase='frozen', stale=True)
     elif op == 'change':
         role(principal, 'module-orchestrator')
@@ -1209,6 +1186,7 @@ def mutate(s, req, principal, events, root=None):
         if design_stage.is_design(assignment):
             design_stage.submission(s, m, assignment, p, principal)
         else:
+            require(assignment.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
             require(assignment['freeze_id'] == m['freeze_id'], 'assignment freeze stale')
             require(assignment.get('context_ref') or not context_readiness.enabled(s),
                     'preflight required: context-submit a ready report for this assignment before its result')
@@ -1234,6 +1212,7 @@ def mutate(s, req, principal, events, root=None):
             m['revision'] += 1
             refresh(s)
             return
+        require(assignment.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
         worker_phase(m, assignment)
         dependencies_ready(s, m)
         sub = m['submissions'][aid]
@@ -1241,8 +1220,7 @@ def mutate(s, req, principal, events, root=None):
         kind = validate_result(result, m, assignment, run_root=root)
         assignment['closed'] = True
         if kind == 'implementation':
-            if control_policy.enabled(s):
-                m['results'] = {pid: {**row, 'stale': True} for pid, row in m['results'].items()}
+            m['results'] = {pid: {**row, 'stale': True} for pid, row in m['results'].items()}
             m['build_artifacts'] = []
             m['accepted_task_ids'] = sorted(set(m.get('accepted_task_ids', [])) | {t['task_id'] for t in result['task_trace']})
             m.setdefault('task_files', {}).update({t['task_id']: t['files'] for t in result['task_trace']})
@@ -1395,8 +1373,7 @@ def mutate(s, req, principal, events, root=None):
         retry_stop = a['assignment_id'] in stops
         if retry_stop: stops.remove(a['assignment_id'])
         if p.get('allow_planning_reopen'):
-            require(control_policy.enabled(s) and a.get('role') == 'implementer' and not m.get('code_baseline')
-                    and a.get('authoring_snapshot') and a['assignment_id'] not in m['submissions'],
+            require((a.get('role') == 'implementer') and (not m.get('code_baseline')) and (a.get('authoring_snapshot')) and (a['assignment_id'] not in m['submissions']),
                     'planning rollback needs host authoring baseline and no code submission')
             require(a['authoring_snapshot'] == write_scope.authoring_snapshot(s['target_root'],
                 a['authoring_snapshot']['scopes'], root), 'code changed; use CR/upstream revision')
@@ -1440,9 +1417,8 @@ def mutate(s, req, principal, events, root=None):
         role(principal, 'global-orchestrator')
         workflow.planning_guard(s)
         audit_code_review.require_current(s, p.get('instance_id'))
-        if control_policy.enabled(s):
-            governance = read_json(check_ref(s['audit_code_review']['report_ref']))
-            require(all(row['conclusion'] == 'satisfied' for row in governance['goal_review']['requirements']), 'host goal issues require upstream/finding convergence before final verdict')
+        governance = read_json(check_ref(s['audit_code_review']['report_ref']))
+        require(all(row['conclusion'] == 'satisfied' for row in governance['goal_review']['requirements']), 'host goal issues require upstream/finding convergence before final verdict')
         require(not audit_code_review.pending(s), 'code governance findings require closure before final audit')
         require(not audit_closure.collection_blockers(s), 'all module rounds must settle before Auditor')
         require(not audit_closure.active(s), 'audit closure incomplete')
@@ -1468,7 +1444,7 @@ def mutate(s, req, principal, events, root=None):
     elif op == 'audit':
         role(principal, 'auditor')
         assignment = s.get('audit_assignment', {})
-        require(assignment.get('mode') != 'problem', 'use problem-audit for problem assignment')
+        require(assignment.get('mode') != 'problem', 'obsolete problem audit; revoke and use whole-task audit')
         require(not assignment.get('closed', True) and assignment.get('instance_id') == principal['instance_id'], 'audit assignment inactive/mismatch')
         require(s['modules'] and all(tv.available(x) for x in s['modules'].values()), 'modules incomplete')
         for mod in s['modules'].values():
@@ -1479,7 +1455,7 @@ def mutate(s, req, principal, events, root=None):
         scope = audit_scope(s)
         require(assignment.get('scope_policy') == 'non-green-only', 'legacy full audit assignment; revoke and reassign')
         require(assignment['path_ids'] == [p['path_id'] for p in scope['plan']['paths']], 'audit selection changed')
-        if control_policy.enabled(s) and scope['plan']['paths']:
+        if scope['plan']['paths']:
             audit_execution.evidence(s, scope, report)
             require(report.get('schema_version') == 1 and report.get('kind') == 'tests', 'audit report schema/kind mismatch')
             for field, value in (('run_id', s['run_id']), ('module_id', 'GLOBAL'), ('assignment_id', assignment['assignment_id']),
@@ -1711,7 +1687,7 @@ def _apply(root, req, principal):
             require(type(p.get('host_handoff_required', False)) is bool, 'host_handoff_required must be boolean')
             require(type(p.get('planning_coverage_required', False)) is bool, 'planning_coverage_required must be boolean')
             require(type(p.get('test_design_required', False)) is bool, 'test_design_required must be boolean')
-            require(type(p.get('control_policy_version', 1)) is int and p.get('control_policy_version', 1) in (1, 2), 'unsupported control policy version')
+            require('control_policy_version' not in p, 'workflow policy selectors are not supported')
             require(type(p.get('behavior_contract_required', False)) is bool, 'behavior_contract_required must be boolean')
             require(type(p.get('git_checkpoint', False)) is bool, 'git_checkpoint must be boolean')
             require(type(p.get('fixer_self_diagnosis', False)) is bool, 'fixer_self_diagnosis must be boolean')
@@ -1722,7 +1698,6 @@ def _apply(root, req, principal):
             require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
             s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'spec_closure_required': p.get('spec_closure_required', False), 'unit_tests_required': p.get('unit_tests_required', False), 'git_checkpoint': p.get('git_checkpoint', False), 'fixer_self_diagnosis': p.get('fixer_self_diagnosis', False), 'write_scope_check': p.get('write_scope_check', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
                  'target_resources': resources,
-                 'control_policy_version': p.get('control_policy_version', 1),
                  'behavior_contract_required': p.get('behavior_contract_required', False),
                  'test_design_required': p.get('test_design_required', False),
                  'planning_coverage_required': p.get('planning_coverage_required', False),
@@ -1736,11 +1711,10 @@ def _apply(root, req, principal):
                  'modules': {}, 'decisions': {}, 'audit': {}, 'global_paths': p.get('global_paths', []), 'quality': 'yellow-blocked',
                  'max_parallel_modules': p.get('max_parallel_modules', 3), 'max_audit_rounds': p.get('max_audit_rounds', 3),
                  'max_fix_rounds': p.get('max_fix_rounds', 3), 'max_no_progress_rounds': p.get('max_no_progress_rounds', 2),
-                 'local_fix_rounds': p.get('local_fix_rounds', 1), 'max_yellow_retries': p.get('max_yellow_retries', 2)}
+                 'max_yellow_retries': p.get('max_yellow_retries', 2)}
             workflow.global_paths_check(s['global_paths'], s['case_ids'])
             require(all(type(s[k]) is int and s[k] > 0 for k in ('max_fix_rounds', 'max_no_progress_rounds', 'max_parallel_modules', 'max_audit_rounds', 'max_yellow_retries')), 'invalid budgets')
-            require(type(s['local_fix_rounds']) is int and 1 <= s['local_fix_rounds'] <= s['max_fix_rounds'],
-                    'local_fix_rounds must be an integer from 1 to max_fix_rounds')
+            require('local_fix_rounds' not in p, 'use the shared max_fix_rounds budget')
             if p.get('project_context_ref'):
                 s.update(project_context.bind_run(p['project_context_ref'], root, req['run_id'], p))
             else:
@@ -1792,20 +1766,16 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
         cursor.append(step)
     rounds = audit_closure.module_rounds(s, cursor, ref_check)
     audit = s.get('audit_assignment', {})
-    early = (workflow.early_audit_candidates(s, rounds['blockers']) if s.get('global_plan') and not rounds['all_settled']
-             and not workflow.audit_active(s) and not audit_closure.active(s) else [])
     revision_step = run_changes.next_action(s)
     recovery_step = workflow.audit_recovery_step(s)
     if audit_closure.active(s):
         global_next = audit_closure.global_step(s)
     elif audit and not audit.get('closed'):
         fresh = audit.get('scope_policy') == 'non-green-only' and not observed and all(tv.available(m) for m in s['modules'].values()) and audit['snapshot'] == {k:v['code_baseline'] for k,v in s['modules'].items()}
-        if audit.get('mode') == 'problem':
-            fresh = audit['snapshot'] == workflow.problem_snapshot(s, audit['module_ids'])
-        global_next = {'operation': ('problem-audit' if audit.get('mode') == 'problem' else 'audit') if fresh else 'audit-revoke', 'role': 'auditor' if fresh else 'host',
+        global_next = {'operation': 'audit' if fresh else 'audit-revoke', 'role': 'auditor' if fresh else 'host',
                        'assignment_id': audit['assignment_id'], 'ready': not fresh,
                        'reason': 'audit-running' if fresh else 'audit-snapshot-stale'}
-        if fresh and control_policy.enabled(s) and audit['path_ids']:
+        if fresh and audit['path_ids']:
             task = s.get('audit_test_assignment', {})
             same = task.get('audit_assignment_id') == audit['assignment_id']
             if not same or not task.get('result_ref'):
@@ -1820,13 +1790,8 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     elif recovery_step:
         global_next = recovery_step
         global_next['continue_modules'] = rounds['ready_modules']
-    elif early:
-        # A settled dependency/consumer closure is audited now; the rest of the run keeps going.
-        global_next = {'operation': 'problem-assign', 'role': 'global-orchestrator', 'ready': True,
-                       'reason': 'audit-closure-settled', 'payload': {'module_ids': early[0]['module_ids']},
-                       'closure': early[0]['closure'], 'continue_modules': rounds['ready_modules']}
     elif not s.get('global_plan'):
-        splitting = any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values()) or any(g.get('replanning_required') or g.get('redecomposition_submission') for g in s.get('module_groups', {}).values())
+        splitting = any(g.get('replanning_required') or g.get('redecomposition_submission') for g in s.get('module_groups', {}).values())
         global_next = {'operation': None if splitting else 'global-plan', 'role': 'global-orchestrator',
                        'ready': bool(s['modules']) and not splitting,
                        'reason': 'module-decomposition-required' if splitting else 'coverage-review-required',

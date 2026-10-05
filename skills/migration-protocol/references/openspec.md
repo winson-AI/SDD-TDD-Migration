@@ -33,7 +33,7 @@ scenario_trace 每行写 scenario_id 与 task_ids，assertions 由 Ledger 按设
 2. Spec-Designer 把明确的问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复须绑定 question_id、spec_revision、内容摘要。既有明确答复可复用，若绑定内容已变则重新裁决。
 3. 冻结 manifest 列出 proposal、所有 delta specs、design、tasks 定义、test design 与已准备测试资产的实际 path+sha256；checklist 是包内评审清单，与全局上下文一样不进 manifest，由 Ledger 绑定。保留不可变副本，生成 freeze_id/spec_revision。
 4. `status`、tasks 完成勾选、checklist 证据等运行字段不纳入语义冻结 hash；冻结的原始定义始终存在不可变 artifacts。动态视图可按已固化映射重定位文档链接及更新运行勾选，不得改变需求、设计和断言语义。验证时比较定义快照，不以可变文件整体 hash 误判失效。
-5. MO 独立核验完整规划与 checklist，以版本绑定的 plan-review 冻结；仅未决问题、需求/验收/授权变化需要 Human 精确决定。Spec-Designer 不能自批；v1 恢复保留旧批准规则。
+5. MO 独立核验完整规划与 checklist，以当前内容摘要绑定的 plan-review 冻结；仅未决问题、需求/验收/授权变化需要 Human 精确决定。Spec-Designer 不能自批。
 6. 每次编码/修复验证当前冻结引用与 assignment 输入一致。缺失/摘要不符停止，不得自行补成“已冻结”。
 
 ## 变更控制
@@ -54,7 +54,7 @@ Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/
 
 `decision_envelope` 记录并经 MO 比对宿主目标：scope、acceptance、allowed_alternatives、forbidden_changes。默认禁止未经批准更换数据提供方、缩减范围、降低验收或引入重大排除。判断是否越界由 Spec-Designer 提交证据、MO 审查；hash 不能证明语义合规。
 
-MO 审核或所需 Human 决定绑定 Ledger 补全后的 stage-plan digest，执行绑定 freeze_id。证据/状态更新不改定义；编码前任务细化走 planning-reopen，编码后走 CR。within-envelope 保留原 envelope 及完整 PATH/预期断言集合；v2 命令/显示名属技术规划，变更仍需 CR/新冻结和执行证据，MO 审阅后发布新执行基线，不伪造新人工批准。
+MO 审核或所需 Human 决定绑定 Ledger 补全后的 stage-plan digest，执行绑定 freeze_id。证据/状态更新不改定义；编码前任务细化走 planning-reopen，编码后走 CR。within-envelope 保留原 envelope 及完整 PATH/预期断言集合；命令/显示名属技术规划，变更仍需 CR/新冻结和执行证据，MO 审阅后发布新执行基线，不伪造新人工批准。
 
 快速通道使用 [change-impact.json](../../../template/change-impact.json)，绑定 from_freeze_id、to_plan_hash。只有当前 CR 的同一 impact_ref 能冻结该计划；再次修改需重审，散文记录不授权再冻结。成功后 CR 进入 change_request_history；invalidate 随 planning_history 留存并清除当前 CR。初始清晰规划允许 MO 审核冻结；边界外变化仍需真实人工决定。
 

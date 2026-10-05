@@ -26,14 +26,14 @@ class AuditConvergenceTests(unittest.TestCase):
         f = test_audit_closure.ClosureTests(); f.setUp(); self.addCleanup(f.doCleanups)
         old = f.state(); f.root = f.base / 'policy-two'
         f.call('init', {**{key: old[key] for key in ('target_root', 'legacy_root', 'global_spec', 'new_architecture', 'global_paths', 'case_ids', 'requirement_ids')},
-            'control_policy_version': 1, 'max_fix_rounds': 3, 'dimension_slicing_required': False,
+            'max_fix_rounds': 3, 'dimension_slicing_required': False,
             'split_testing_required': False, 'context_readiness_required': False}, role='host')
         f.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'dependencies': [], 'write_paths': [str(f.target / 'm1')]}, role='global-orchestrator', module=None)
         return f
 
     def test_confirmed_provider_failure_retries_approved_owner_then_requires_fresh_tests(self):
         f = self.flow(); f.cross_module_failure()
-        f.call('upgrade-control-policy', {'review_ref': f.ref('policy-upgrade.md', 'Adopt same-run task execution and unified audit')}, role='host', module=None)
+
         f.route()
         f.implement('M001', 'F1', shared=1, fixer=True); f.verify_module('M001', 'T3'); f.complete('M001')
         f.call('audit-retest', module='M002'); failed = f.verify_module('M002', 'T4', consume=True)
@@ -59,7 +59,7 @@ class AuditConvergenceTests(unittest.TestCase):
         for cause, exhausted in (({'owner': 'A', 'confidence': 'suspected'}, False),
                                  ({'owner': 'B', 'confidence': 'confirmed'}, False),
                                  ({'owner': 'A', 'confidence': 'confirmed'}, True)):
-            s = copy.deepcopy(original); s['control_policy_version'] = 2
+            s = copy.deepcopy(original)
             b = helper.route(s, {'A': ['A']}); m = s['modules']['A']; m.update(phase='testing', blocked=None)
             if exhausted: m['fix_rounds_used'] = s['max_fix_rounds']
             bad = [{'quality': 'red-bug', 'root_cause': {'category': 'code', **cause}}]
@@ -68,7 +68,7 @@ class AuditConvergenceTests(unittest.TestCase):
 
     def test_retry_stops_only_in_flight_workers_in_the_actual_dependency_closure(self):
         helper = test_audit_scheduler.AuditSchedulerTests(); helper.setUp(); self.addCleanup(helper.doCleanups)
-        s = helper.scenario({'A': [], 'B': ['A'], 'C': []}, ['A']); s['control_policy_version'] = 2
+        s = helper.scenario({'A': [], 'B': ['A'], 'C': []}, ['A'])
         b = helper.route(s, {'A': ['A']}); owner = s['modules']['A']; owner.update(phase='testing', blocked=None)
         for mid in ('B', 'C'):
             s['modules'][mid]['assignments']['BUSY-'+mid] = {'assignment_id': 'BUSY-'+mid, 'role': 'test-runner', 'closed': False}

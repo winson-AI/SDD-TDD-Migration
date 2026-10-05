@@ -56,7 +56,7 @@ class ContextReadinessTests(unittest.TestCase):
                   'checks': checks, 'verdict': 'blocked' if blocked else 'ready'}
         if draft:
             result['draft_ref'] = draft
-        if stage in ('testing', 'audit-testing'):
+        if stage in ('testing', 'audit-testing', 'audit-execution'):
             result['execution'] = {'argv': getattr(self, 'test_argv', [sys.executable, str(self.base / 'adapter.py')]), 'cwd': str(self.target),
                                    'environment_ref': self.ref('environment.md', 'Fixture environment and test data available')}
         return result
@@ -72,8 +72,8 @@ class ContextReadinessTests(unittest.TestCase):
         if op == 'init':
             p.pop('context_readiness_required', None)  # Exercise the new default.
         stage = cr.requirement(op, p, self.state() if op == 'audit-assign' else None)
-        if self.auto_context and stage and op not in ('freeze', 'decompose-accept'):
-            producer = p.get('instance_id') if op in ('assign', 'audit-assign', 'problem-assign') else instance or role
+        if self.auto_context and stage and op not in ('freeze', 'decompose-accept') and 'context_ref' not in p:
+            producer = p.get('instance_id') if op in ('assign', 'audit-assign', 'audit-test-assign') else instance or role
             if op == 'assign' and 'context_ref' not in p:
                 # Dispatch first: the worker reports inside its assignment, which authorizes the work.
                 ack = self.raw(op, p, role=role, module=module, instance=instance, request=request)
@@ -175,7 +175,7 @@ class ContextReadinessTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'context blocked'):  # the same gap would only come back
             self.raw('assign', {'assignment_id': 'I2', 'role': 'implementer', 'instance_id': 'implementer'})
         ready = self.record(self.report('coding'))  # the gap is closed: the worker says so before or after the dispatch
-        self.assertEqual(self.state()['next_steps'][0]['payload'], {'role': 'implementer', 'instance_id': 'implementer', 'context_ref': ready})
+        self.assertEqual(self.state()['next_steps'][0]['payload'], {'role': 'implementer', 'task_ids': ['T1'], 'path_ids': ['P1'], 'instance_id': 'implementer', 'context_ref': ready})
         self.raw('assign', {'assignment_id': 'I2', 'role': 'implementer', 'instance_id': 'implementer'})
         self.assertEqual(self.state()['modules']['M001']['assignments']['I2']['context_ref'], ready)
 
@@ -292,6 +292,21 @@ class ContextReadinessTests(unittest.TestCase):
             self.raw('decompose', {'plan_ref': self.ref('missing.json', self.proposal())}, module='M010')
         self.split()
         self.assertEqual(set(self.state()['modules']), {'M001', 'M002'})
+
+    def test_atomic_confirmation_requires_mo_preflight_and_go_acceptance(self):
+        self.root_scope()
+        proposal = self.ref('atomic-proposal.json', {'kind': 'atomic-leaf', 'parent_module_id': 'M010',
+            'rationale': 'One capability with an independently observable result',
+            'leaf_review_ref': self.ref('atomic-review.md', 'Checked scope, single owner, dependencies and independent verification')})
+        with self.assertRaisesRegex(Rejected, 'context readiness receipt required'):
+            self.raw('decompose', {'plan_ref': proposal}, module='M010')
+        self.call('decompose', {'plan_ref': proposal}, module='M010')
+        self.call('decompose-accept', {'review_ref': self.ref('go-atomic-review.md', 'Allocation unchanged; leaf accepted')},
+                  role='global-orchestrator', module='M010')
+        m = self.state()['modules']['M010']
+        self.assertTrue(m['lean_leaf']); self.assertIsNone(m['freeze_id'])
+        self.assertEqual(set(cr.requirements(self.state())['M010']),
+                         {'planning', 'test-design', 'coding', 'building', 'testing', 'fixing'})
 
     def test_local_fixer_needs_fresh_diagnosis_context_without_extra_budget(self):
         self.prepare(); self.implementation()

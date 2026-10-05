@@ -13,7 +13,6 @@ import subprocess
 import sys
 sys.dont_write_bytecode = True
 import uuid
-import workflow
 import context_readiness
 import test_validation as tv
 import run_storage
@@ -62,7 +61,7 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     if module_id == 'GLOBAL':
         require(all(tv.available(m) for m in s['modules'].values()), 'audit modules no longer ready')
         m = audit_scope(s)
-        a = s.get('audit_test_assignment', {}) if s.get('control_policy_version', 1) >= 2 else s.get('audit_assignment', {})
+        a = s.get('audit_test_assignment', {})
         require(not s.get('audit_assignment', {}).get('closed', True), 'host-task audit inactive')
         require(not a.get('closed', True) and a.get('assignment_id') == assignment_id and a.get('snapshot') ==
                 {k:v['code_baseline'] for k,v in s['modules'].items()}, 'audit assignment required')
@@ -70,12 +69,9 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
         require(path_id in a.get('path_ids', []), 'path outside collected audit scope')
     else:
         m = s['modules'][module_id]
-        if s.get('audit_assignment', {}).get('mode') == 'problem' and s['audit_assignment'].get('assignment_id') == assignment_id:
-            a = workflow.problem_assignment(s, module_id)
-            require(workflow.runnable(s, module_id), 'problem path unavailable; record Yellow')
-        else:
-            a = m['assignments'][assignment_id]
-        require(a.get('mode') != 'design' and not a['closed'] and ((a['role'] == 'test-runner' and m['phase'] == 'testing') or a.get('mode') == 'problem'), 'test assignment required')
+        a = m['assignments'][assignment_id]
+        require(a.get('mode') != 'design' and not a['closed'] and (a['role'] == 'test-runner' and m['phase'] == 'testing'), 'test assignment required')
+        require(a.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
     if a.get('execution_contract'):
         require(path_id in a['execution_contract']['path_ids'], 'execution outside assigned PATHs')
     context_readiness.check_execution(s, a, argv, cwd, path_id)

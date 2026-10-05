@@ -35,7 +35,11 @@ def step_evidence(query, output, passed=True):
                     'result': passed, 'tool': 'one_image_assert', 'error': None, 'evidence_refs': [file_ref(media)]})
     trace_file = output / 'step-trace.json'; trace_file.write_text(json.dumps(trace))
     obs = output / 'observations.json'; obs.write_text(json.dumps(observations))
-    return {'step_contract_version': 1, 'step_trace_ref': file_ref(trace_file), 'observations_ref': file_ref(obs)}
+    environment = output / 'synthetic-environment.json'
+    platform = query.get('platform', 'harmony')
+    environment.write_text(json.dumps({'platform': platform, 'task_type': 'test', 'device': 'fixture'}))
+    return {'step_contract_version': 1, 'step_trace_ref': file_ref(trace_file), 'observations_ref': file_ref(obs),
+            'platform': platform, 'task_type': 'test', 'environment_ref': file_ref(environment)}
 
 
 class HarmonyLedgerTests(unittest.TestCase):
@@ -78,11 +82,10 @@ write(out/'step-trace.json',s.step_trace)
 s.record('[ASSERT:A1]',value==2,'observed fixture value','one_image_assert',[media])
 '''+("s.error='verification tooling failure'\n" if fault else '')+'''
 r=s.report()
-if q.get('platform'):
-    platform = '''+repr(report_platform)+''' or q['platform']
-    environment=out/'environment.json'
-    write(environment,{'platform':platform,'task_type':''' + repr(task_type) + ''','device':'fixture'})
-    r.update(mobile_contract_version=1,platform=platform,task_type=''' + repr(task_type) + ''',environment_ref=ref(environment))
+platform = '''+repr(report_platform)+''' or q.get('platform', 'harmony')
+environment=out/'environment.json'
+write(environment,{'platform':platform,'task_type':''' + repr(task_type) + ''','device':'fixture'})
+r.update(mobile_contract_version=1,platform=platform,task_type=''' + repr(task_type) + ''',environment_ref=ref(environment))
 if ''' + repr(omit_step_proof) + ''':
     r.pop('step_contract_version',None);r.pop('step_trace_ref',None)
 write(a.result_file,r)
@@ -114,7 +117,7 @@ sys.exit(0 if r['quality']=='green-passed' else 2)
         with self.assertRaisesRegex(Rejected, 'normalization'):
             self.f.submit(result, self.f.state()['modules']['M001']['assignments']['H1'])
 
-    def test_historical_receipt_keeps_its_original_interpretation(self):
+    def test_historical_receipt_cannot_enter_current_execution(self):
         from contracts import digest
         from test_completion import interpret
         from unittest.mock import patch
@@ -128,10 +131,8 @@ sys.exit(0 if r['quality']=='green-passed' else 2)
         query_path, report_path = receipt['query_ref']['path'], receipt['result_ref']['path']
         def historical(path):
             return query if str(path) == query_path else report if str(path) == report_path else json.loads(Path(path).read_text())
-        with patch('test_completion.read_json', side_effect=historical):
-            row = interpret(receipt, query)
-        self.assertEqual(row['quality'], 'green-passed')
-        self.assertNotIn('execution_status', row)
+        with patch('test_completion.read_json', side_effect=historical), self.assertRaisesRegex(Rejected, 'execution contract'):
+            interpret(receipt, query)
 
     def test_adapter_yellow_cannot_be_promoted(self):
         r=self.run_adapter(True);a=self.f.state()['modules']['M001']['assignments']['H1']
