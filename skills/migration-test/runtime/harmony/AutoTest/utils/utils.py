@@ -1,8 +1,12 @@
+import json
+import os
 import functools
 import time
 from typing import Dict, Any
 
 from ..logger import logger
+
+_KNOWLEDGE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "knowledge")
 
 
 def normalize_coord(coord: float) -> float:
@@ -79,3 +83,34 @@ def filter_images_from_message(message: Dict[str, Any]) -> Dict[str, Any]:
         filtered_msg["content"] = filtered_content
 
     return filtered_msg
+
+
+def flatten_categories(data: Dict[str, Any]) -> Dict[str, str]:
+    """Flatten a {category: {name: value}} knowledge dict into one {name: value} dict.
+
+    Skips keys starting with '_' (e.g. '_comment', '_unverified') so editorial
+    notes and unconfirmed entries in the data file don't leak into lookups.
+    """
+    flat: Dict[str, str] = {}
+    for category, entries in data.items():
+        if category.startswith("_") or not isinstance(entries, dict):
+            continue
+        for name, value in entries.items():
+            if not name.startswith("_"):
+                flat[name] = value
+    return flat
+
+
+def load_knowledge_json(*relative_path: str) -> Dict[str, Any]:
+    """Load a JSON data file from the knowledge/ directory.
+
+    Keeps app/vendor-specific data (e.g. app name -> package name tables)
+    out of source files - callers merge the returned categories themselves.
+    Returns {} if the file doesn't exist.
+    """
+    path = os.path.join(_KNOWLEDGE_DIR, *relative_path)
+    if not os.path.exists(path):
+        logger.warning(f"Knowledge data file not found: {path}")
+        return {}
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)

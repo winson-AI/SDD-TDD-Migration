@@ -2211,6 +2211,14 @@ class ToolPlayer:
             label: str = ""
     ):
         """Find xpath candidates and choose the one nearest to cached bounds or coordinate."""
+        if getattr(self.device, 'platform', 'harmony') == 'android':
+            from types import SimpleNamespace
+            elements = driver.xpath(xpath).all()
+            if not elements: return None
+            target = self._parse_bounds_center(bounds) or self._normalize_cached_point(fallback_x, fallback_y)
+            element = min(elements, key=lambda e: sum((a-b)**2 for a,b in zip(e.center(), target))) if target else elements[0]
+            x, y = element.center()
+            return SimpleNamespace(getBoundsCenter=lambda: SimpleNamespace(X=x, Y=y))
         locator = BY.xpath(xpath)
         candidates = []
 
@@ -2271,6 +2279,18 @@ class ToolPlayer:
             成功时返回 JSON 字符串结果，失败时返回 None
         """
         try:
+            if getattr(self.device, 'platform', 'harmony') == 'android':
+                # Cached Android actions use the same normalized coordinates, without Hypium MCP.
+                width, height = self.device.get_display_size()
+                def point(xy): return int(xy[0] * width / 1000), int(xy[1] * height / 1000)
+                if tool_name in ('click', 'double_click', 'long_click'):
+                    getattr(self.device, {'click':'tap', 'double_click':'double_tap', 'long_click':'long_press'}[tool_name])(*point(args['pos']))
+                elif tool_name in ('swipe', 'drag'):
+                    getattr(self.device, tool_name)(*point(args['start']), *point(args['end']))
+                elif tool_name == 'input_text': self.device.type_text(args['text'])
+                elif tool_name == 'clear_text': self.device.clear_text()
+                else: return None
+                return json.dumps({'success': True, 'action': tool_name})
             if not self.executor_agent or not hasattr(self.executor_agent, '_mcp_extension'):
                 logger.error(f"[ToolPlayer] executor_agent 或 _mcp_extension 不可用")
                 return None

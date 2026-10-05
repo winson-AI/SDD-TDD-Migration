@@ -1,15 +1,5 @@
-from hypium import UiDriver
+from AutoTest.devices.device_protocol import skill_driver as _create_driver
 
-
-def _create_driver(context):
-    driver = getattr(context, "driver", None)
-    if driver is not None:
-        return driver
-
-    if getattr(context, "hypium_device", None) is not None:
-        return UiDriver(context.hypium_device)
-
-    raise RuntimeError("No hypium device or UiDriver found in skill script context")
 
 def _parse_point(argv):
     if len(argv) not in (2, 3):

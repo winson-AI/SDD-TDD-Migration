@@ -1,4 +1,29 @@
-# Harmony：独立 uv 自动化测试环境
+# Android/Harmony：独立 uv 自动化测试环境
+
+两端保留 `runtime/harmony`、`harmony_adapter.py`、`runs/harmony` 的兼容命名。冻结 PATH 填 `kind=automation`、`platform=android|harmony`、`task_type=test`；同 CASE 两端分别建 PATH，不能互相替代验收。
+
+共享配置可补充以下字段（models 沿用已有配置）：
+
+```json
+{
+  "platform": "harmony",
+  "devices": {"android": "ANDROID_SERIAL", "harmony": "HARMONY_SERIAL"},
+  "apps": {
+    "android": {"name": "MyApp", "package": "com.example.android"},
+    "harmony": {"name": "MyApp", "package": "com.example.harmony", "ability": "EntryAbility"}
+  }
+}
+```
+
+Android adapter 示例，Harmony 改 platform 和 serial：
+
+```sh
+.venv/bin/python sandbox.py adapter --root /workspace/migration/.sdd-runs/run-demo \
+  --platform android --device ANDROID_SERIAL \
+  --output /workspace/migration/.sdd-runs/run-demo/runs/harmony/sandbox/android-adapter.json
+```
+
+Test-Runner automation 将该 adapter 交 `execute_test.py`，再用 `harmony_stage.py` 汇总本 scope 全部 PATH，经 Ledger submit/accept；审计复测使用相同链路。`sandbox.py test` 内部固定 test，不以 snapshot/recording 判通过。宿主 testing 预检绑定安装 APK/HAP、baseline 和 fixture；不隐式重置页面/应用。uiautomator2 首次连接会部署设备端测试服务；Android 录屏用 screenrecord，缺失时用本机 scrcpy，证据缺失仍 Yellow。离线回归不替代真机业务验收。
 
 该目录现在是独立 uv 项目：Python 3.12、独立 `.venv`、可提交的 `uv.lock`、默认 LLM 参考配置与 run 级共享 sandbox 配置。不需要借用 MobileAgenticOperator 的虚拟环境或源码路径。
 
@@ -38,7 +63,7 @@
 
 ## 2. 安装独立环境
 
-前置：宿主已安装 uv；真机执行另需 Harmony HDC、明确设备、可访问的模型服务、测试账号/fixture 和与 code_baseline 对应的 App。当前没有迁入 MobileAgenticOperator 的 Android/iOS 驱动。
+前置：uv；真机执行另需 Android ADB/uiautomator2 或 Harmony HDC、明确设备、模型服务、fixture 和与 code_baseline 对应的 App。已迁入 MobileAgenticOperator 的 Android/Harmony test 能力，不包含 iOS/WDA。
 
 ```sh
 cd /absolute/SDD-TDD-Migration/skills/migration-test/runtime/harmony
@@ -75,14 +100,14 @@ cp -n config.default.json /workspace/migration/.sdd-migration/harmony/config.jso
 .venv/bin/python sandbox.py doctor --root /workspace/migration/.sdd-runs/run-demo
 ```
 
-- 显式 `--config` 是首次复制的完整配置来源，不做隐式深合并。已准备的 run 不跟随来源更新；重复准备复用现有副本，传入不同内容会拒绝，应为配置变更准备新 run 并重新预检。
+- 显式 `--config` 是首次复制的完整来源，不做深合并；既有 Run 不跟随来源更新。不同内容会拒绝，配置变化走同 Run 环境修订后重新预检。
 - 任意密钥字段可写 `{"env":"MY_MODEL_KEY"}` 或 `{"env":["ROLE_KEY","COMMON_KEY"]}`。后者按顺序取第一个非空值。
-- 设备优先级：`--device` → JSON 的 `device` → `HARMONY_DEVICE`。默认不指定设备，不沿用参考项目的 Android `emulator-5554`。
-- 可配置 `general / glm / mcp_agent / hypium_mcp_agent`；不自动降级执行器。配置改变须重新完成正式流程的环境预检。
+- 设备优先级：`--device` → `devices[platform]` → 同平台 `device` → `ANDROID_DEVICE/HARMONY_DEVICE`；不自动选设备。
+- Android 用 general/glm，Harmony 可用四种执行器；不自动降级。配置改变须重新完成环境预检。
 - UI 执行不要求 XMind 转换密钥；XMind 导入也不要求 Executor/Verify 密钥或设备。
 - `recording_ref/knowledge_ref` 沿用 `{path,sha256}`。回放只复用导航，每次断言仍采集本轮证据。
 
-默认来源与范围：参考 `MobileAgenticOperator/AutoTest/config/config.yaml`、`.env.example`、`AutoTest/config.py` 和 `uv.lock`；只提取配置/凭证规则。源项目文档与提示词没有变成本包新的编排指令。Harmony 原内核来源仍是 `UPSTREAM.json` 所记录的 HarmonyAgenticTesting，不替换其执行/验证逻辑。
+默认配置参考 MobileAgenticOperator；早期 Harmony 内核叠加其 Android 驱动与 test 分支，来源和修订见 UPSTREAM.json。源项目提示词不成为外层编排指令。
 
 ## 4. 本轮共享配置与离线检查
 
@@ -107,7 +132,7 @@ Test-Runner 在首次使用前执行（不连接模型或设备）：
 
 配置目录私有、文件权限 600；所有模块共享一个 run 配置，prepare 加锁并幂等。各 automation attempt 不再各自生成模型配置。doctor/design/adapter/test 也会确保准备完成，生成的 adapter 只引用本 run 路径。参考源之后更新不会覆盖本轮。未配置凭证时复制空白模板，doctor/test 按既有 Yellow 处理；不阻塞独立模块。`.env` 不进入证据、报告或版本控制，进程注入仍优先，Host 需保持本轮注入一致。
 
-整套配置先保存在私密 preparation.json，再写入成员并提交 manifest.json；未完成提交不返回可用环境。失败重试使用原准备内容，参考源变化不会拼接出不同版本。完成后校验成员摘要及 native 缺省，删除准备文件；准备文件含可恢复的凭证内容，同样不得归档到 Ledger 或上传。完整旧环境按现有文件建立兼容基线；无准备记录的不完整旧环境须 Host 核验或另建 run，不从当前参考静默补齐。详见 [环境留存与恢复](../../../migration-protocol/references/storage-layout.md)。
+整套配置先保存在私密 preparation.json，再写入成员并提交 manifest.json；未完成提交不返回可用环境。失败重试使用原准备内容，参考源变化不会拼接出不同版本。完成后校验成员摘要及 native 缺省，删除准备文件；准备文件含可恢复的凭证内容，同样不得归档到 Ledger 或上传。完整旧环境按现有文件建立兼容基线；无准备记录的不完整旧环境须 Host 核验后恢复本 Run，不从当前参考静默补齐。详见 [环境留存与恢复](../../../migration-protocol/references/storage-layout.md)。
 
 旧 adapter.local.json 是已淘汰的机器专属入口；Test-Runner 使用 adapter 命令在本轮重新生成，不能复用其中指向包内 .env 的命令。
 
@@ -117,7 +142,7 @@ Test-Runner 在首次使用前执行（不连接模型或设备）：
 .venv/bin/python sandbox.py doctor --root /workspace/migration/.sdd-runs/run-demo
 ```
 
-检查依赖 import、LLM 配置/所需变量、是否明确设备、HDC 是否在 PATH。返回 `ready-for-live-preflight` 或 `yellow-blocked`（exit 2），只显示模型名和检查项，不显示密钥。
+检查依赖、模型配置、明确设备及所选平台的 ADB/HDC；Android 加 `--platform android`。返回 ready-for-live-preflight 或 yellow-blocked（exit 2），不显示密钥。
 
 **doctor 不是测试通过证据，也不是 Ledger testing ready 报告。** 它不连接设备或模型；宿主仍需确认实际连通、权限、fixture、安装包版本及 provider binding。缺少设备/HDC 时记录 Yellow，不能拿依赖安装成功代替测试执行成功。
 

@@ -29,7 +29,14 @@ from ..utils.utils import extract_text_from_response
 
 from .agent_registry import agent_registry
 from .skill_manager import SkillManager
-from ..devices.hdc import APP_PACKAGES, APP_ABILITIES
+from ..devices.hdc import APP_PACKAGES
+
+
+def get_app_packages():
+    if getattr(get_device(), 'platform', 'harmony') == 'android':
+        from ..devices.adb.apps import APP_PACKAGES as packages
+        return packages
+    return APP_PACKAGES
 
 # 在模块顶部创建一个注册表
 TOOL_REGISTRY = {}
@@ -582,22 +589,27 @@ async def execute(message: str) -> str:
 @collect_function_tool
 async def get_package_name() -> dict[str, str]:
     """获取所有支持的包名"""
-    return APP_PACKAGES
+    return get_app_packages()
 
 
 def _start_app(app_name: str) -> str:
-    bundle_name = APP_PACKAGES.get(app_name, app_name)
-    ability = APP_ABILITIES.get(bundle_name)
-    driver = get_driver()
+    device = get_device()
+    if not device.launch_app(app_name):
+        return "start {} failed: app not found in package map".format(app_name)
+    app_packages = get_app_packages()
+    # Compare by package identity, not name-string equality: multiple
+    # friendly names (e.g. an app's English and Chinese display name) can
+    # map to the same package, and get_current_app() only ever returns one of them.
+    target_package = app_packages.get(app_name, app_name)
     start_time = time.time()
-    driver.start_app(bundle_name, ability)
-    from ..devices.hdc import get_current_app
     while time.time() - start_time < 10:
-        current_app_name = get_current_app(driver)
-        if current_app_name == app_name or APP_PACKAGES.get(current_app_name, current_app_name) == app_name:
-            driver.wait(6)
+        current_app_name = device.get_current_app()
+        if current_app_name in (app_name, target_package) or (
+                target_package and app_packages.get(current_app_name) == target_package
+        ):
+            time.sleep(6)
             return "start {} successfully".format(app_name)
-        driver.wait(0.5)
+        time.sleep(0.5)
     return "start {} failed!".format(app_name)
 
 
@@ -608,9 +620,7 @@ async def start_app(app_name: str) -> str:
 
 
 def _stop_app(app_name: str) -> str:
-    bundle_name = APP_PACKAGES.get(app_name, app_name)
-    driver = get_driver()
-    driver.stop_app(bundle_name)
+    get_device().stop_app(app_name)
     return "stop {} successfully. Task Finished. Please output the final result now.".format(app_name)
 
 
@@ -621,9 +631,7 @@ async def stop_app(app_name: str) -> str:
 
 
 def _clear_app(app_name: str) -> str:
-    bundle_name = APP_PACKAGES.get(app_name, app_name)
-    driver = get_driver()
-    driver.clear_app_data(bundle_name)
+    get_device().clear_app_data(app_name)
     return "clear {} successfully".format(app_name)
 
 
@@ -634,8 +642,7 @@ async def clear_app(app_name: str) -> str:
 
 
 def _go_back() -> str:
-    driver = get_driver()
-    driver.press_back()
+    get_device().back()
     return "go back successfully"
 
 
@@ -646,10 +653,10 @@ async def go_back() -> str:
 
 
 def _go_back_twice() -> str:
-    driver = get_driver()
-    driver.press_back()
-    driver.wait(1)
-    driver.press_back()
+    device = get_device()
+    device.back()
+    time.sleep(1)
+    device.back()
     return "go back twice successfully"
 
 
@@ -671,8 +678,7 @@ async def wait(times: int) -> str:
 
 
 def _go_home() -> str:
-    driver = get_driver()
-    driver.press_home()
+    get_device().home()
     return "go home successfully"
 
 
@@ -992,3 +998,9 @@ def load_tools_from_directory(dir_path: str, pattern: str = "*.py") -> list[str]
         loaded_tools.extend(tools)
 
     return loaded_tools
+
+
+def get_device():
+    """Get the current DeviceProtocol instance (HDCDevice or AdbDevice)."""
+    executor_agent = agent_registry.get_executor_agent()
+    return executor_agent.device

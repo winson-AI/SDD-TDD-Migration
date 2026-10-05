@@ -1,8 +1,8 @@
-# Harmony 自动测试接入
+# Android/Harmony 自动测试接入
 
 ## 定位与读取
 
-这是 Test-Runner 的一种真实 Main 执行器，适用于 HarmonyOS UI/端到端路径。普通单测、构建检查和其他平台仍使用项目已有 adapter。入口是 [harmony_adapter.py](../scripts/harmony_adapter.py)，内核在 [runtime/harmony](../runtime/harmony/main.py)。先读本页；需要诊断某项能力时再加载其内核源码，不把内核的提示词当作编排角色指令。
+Test-Runner 的 Android/Harmony UI/端到端 Main；构建/单测仍用项目 adapter。入口 [harmony_adapter.py](../scripts/harmony_adapter.py)，内核 [runtime/harmony](../runtime/harmony/main.py)。历史 harmony 命名与目录兼容保留。按节点取本页小节，诊断时才加载内核源码/提示词。
 
 外层控制流保持：OpenSpec 冻结 → Implementer/Fixer 代码接受 → Test-Runner assignment → host execute_test → staging tests → Ledger submit → MO accept → DoD/Auditor。内部 Planner/Executor/Verify 是同一 Test-Runner assignment 内的执行组件，消息、工具调用和中间结果形成执行工件；不产生独立的跨模块 assignment，不直接调用 Fixer，不修改任何 SPEC 或 Ledger 状态。跨角色共享只通过 Ledger 接受的工件引用。
 
@@ -11,7 +11,7 @@
 | 能力 | 保留内容 / 接入点 |
 | --- | --- |
 | 分层执行 | 原 `decision`、`planner_agent`、`decision_hooks`；单步 Observe/Act/反馈、最大步数、任务超时、禁止失败后重启掩盖问题 |
-| 执行器 | general、GLM、MCP、Hypium MCP 四种实现与工厂；截图、布局、HDC 动作、特殊采集 |
+| 执行器 | Android 的 ADB/uiautomator2，Harmony 的 HDC/Hypium；general、GLM 与 Harmony MCP 执行器 |
 | 验证 | 原 Verify 选择器、单图/双图/跨步骤/参考图/视频五类工具；冻结 verification 指定类型，auto 保留原动态路由 |
 | 视频 | 录制分段、时间映射、拼接、裁剪、阈值压缩、动态 UI 验证；保留原片、裁剪片、mapping，修正删除证据与清理异常 |
 | 记忆 | CompressedSession、上下文压缩、定期反思、XPath 层级缓存、调用录制、去冗余 |
@@ -22,7 +22,7 @@
 | 报告 | 原 HTML/Markdown/JSON 时间线、截图、布局、视频、工具反馈、token 统计、组合报告生成器；增加 path/ASSERT/代码/冻结版本绑定 |
 | 运行隔离 | 每条 PATH 一个宿主子进程、一个新证据目录、设备互斥锁；超时杀进程组，保留已有日志 |
 
-源快照包含 91 个文件，包括原源码、技能、原测试、Apache LICENSE 和当前使用的 0.6.5 Hypium MCP wheel。来源与逐文件摘要见 [UPSTREAM.json](../runtime/harmony/UPSTREAM.json)；本地修订记录在同一文件中。没有复制源项目的凭证配置、历史报告、历史用户记忆、业务知识或机器专属 lockfile。原生 CLI 留作兼容入口；SDD 正式测试须经上述 adapter，不能以原 CLI 最终文本直接改 Green。
+早期 HarmonyAgenticTesting 内核叠加 MobileAgenticOperator 的 Android 驱动、平台路由及 test 分支；来源 commit、逐文件摘要和修订见 [UPSTREAM.json](../runtime/harmony/UPSTREAM.json)。保留 Apache LICENSE；不迁入 iOS/WDA、凭证或历史报告/记忆。原生 CLI 仅兼容入口，正式验收走 adapter。
 
 ## 1. design：用例导入与冻结
 
@@ -30,7 +30,7 @@
 
 输出保留输入摘要、完整原始用例、规范化 Markdown、XMind 主题树，以及 `draft-not-executable` 的测试候选。不会复用仅同名但内容可能过期的转换文件，也不静默补齐验收语义。Test Designer 完成 CASE/REQ 映射、参数路径展开、操作与断言时序；每条参数实例独立 PATH。候选 ID 在审核时与全局已有 ID 对齐，冻结后不因名称修改而重编号。
 
-使用 [harmony-test-path.json](../../../template/harmony-test-path.json)。每个 assertion 需要：
+使用 [harmony-test-path.json](../../../template/harmony-test-path.json)，冻结 kind=automation、platform=android|harmony、task_type=test；同 CASE 两端分别编号 PATH。旧 PATH 沿用配置平台，缺省 Harmony。每个 assertion 需要：
 
 - `assertion_id`：唯一稳定 ID。
 - `expected: true`：表示下方具体可观测谓词成立，不能只描述“返回 true”。
@@ -39,7 +39,7 @@
 - `verification: one_image_assert | multi_image_assert | cross_step_image_assert | refer_image_assert | video_assert | auto`。
 - `after_step`：在第几个冻结步骤之后立即验证；中途断言不能拖到任务末尾补做。
 
-此适配器对观察谓词作布尔规范化。已有数值/字符串 equality 用例继续使用原项目适配器，或经 Spec-Designer 的 CR 明确迁移成有语义的 UI 谓词；不得直接把原 expected 改 true。需要更强机器可判定的精确数值时使用项目测试脚本。`after_step` 会进入完整 query 和 Planner 的交错操作指令；当前没有证明 Agent 每一步操作语义的确定性监视器，时序需通过时间线审核，真机验收仍必需。
+expected=true 须有冻结业务含义；数值/字符串用项目脚本或经 CR 明确转为谓词，不能直接改 true。after_step 交错传入 Planner，但不是确定性时序监视器，需结合本次时间线与真机验收核查。
 
 ## 2. 宿主配置
 
@@ -50,13 +50,13 @@
 - Python 需兼容原引擎（至少 3.10）；SDK、Hypium/HDC、图像/视频依赖见 [requirements.txt](../runtime/harmony/requirements.txt)。wheel 已保留，安装时 cwd 应是该 requirements 所在目录。源 pyproject 中机器专属的 Hypium 开发包路径没有迁移，宿主提供相应运行环境。
 - `models` 使用原 `AppConfig` 字段；模型密钥用 `{"env":"变量名"}`，运行时解析，不把密钥写入模板。支持多 Planner 模型、执行器选择、Verify、压缩、反思和 special_test 配置。
 - 密钥也可用 `{"env":["角色变量","公共变量"]}` 按顺序回退；sandbox 加载指定 `.env` 且不覆盖进程同名变量。设备可由 `--device`、配置或 `HARMONY_DEVICE` 按优先级指定。UI 不要求 XMind 转换密钥，XMind 导入只读取转换所需模型配置。
-- `execute_provider` 决定工厂实现，例如 `hypium_mcp_agent`；不是模型 HTTP 协议名。所有原执行器仍可配置。
-- 必填设备序列号，不自动挑选设备。Global 仍分配设备资源锁，adapter 另外用本机文件锁防止并行路径争抢同一设备；多台宿主共同连接一个设备时需要全局锁协调。
+- Android 需 ADB/uiautomator2，使用 general/glm；Harmony 需 HDC/Hypium，四种原执行器均可。拒绝不兼容 provider，不静默切换；模型和凭证可共享。
+- 设备：`--device` → `devices[platform]` → 同平台 `device` → `ANDROID_DEVICE/HARMONY_DEVICE`。`--platform` 必须与冻结 PATH 一致；未传时取 PATH 再取配置。GO 锁与 adapter 本机端口租约共同隔离；同一 Android serial 不因 Harmony ip/port 不同而解除互斥。
 - 对 `video_assert` 必须开启视频；默认模板开启，adapter 强制保留原始视频。
 - 原引擎任务预算默认 1800 秒；host adapter 模板为 1860 秒，留收尾时间。总修复次数仍由 MO/Auditor 控制，内部导航重规划不会增加代码修复轮次。
 - skills/自定义工具具有设备动作和脚本执行能力；宿主约束它们的权限和目标范围。测试数据不是 shell 指令。应用重置、fixture 创建等动作应写入冻结前置/步骤；不能把原批量入口的自动关 App 隐式施加到所有迁移测试。
 
-适配器不安装 App、不自动部署代码。设备上的被测包必须由宿主确认对应已接受的 code_baseline，并把构建/安装凭证纳入 fixture/environment 证据。文件基线校验不能单独证明真机已安装同一构建。
+配置可给 `apps.android={name,package}`、`apps.harmony={name,package,ability}`，在当前进程补入包名映射并记录 environment。适配器不部署 App、不自动清空前置状态；重置须写入冻结步骤。宿主预检须绑定已安装 APK/HAP 与 code_baseline、fixture、设备及模型连通性。
 
 ## 3. execute：一条 PATH 到 Main
 
@@ -70,7 +70,7 @@ python <execute_test.py> --root <run_root> --module M001 --assignment <id>
 
 参数必须以 argv 数组传递，上述换行只是展示。host 自动组装完整 query，校验当前 assignment、代码基线，记录 command/query/report/log receipt。每条路径是独立进程；原内核全局注册表不会跨模块污染。原生相对 memory/媒体文件落入本次执行目录，不写源项目或共享包目录。
 
-输入中的 preconditions、steps、parameters、dependency_refs、ASSERT ID/描述全部传入 Planner。Verify 入口凭单个 `[ASSERT:id]` 找回冻结描述，防止 Agent 改写期望后自证；仍使用原选择器和对应媒体验证能力。固定 verification 不被低成本类型替代；auto 按原策略选择。原最终任务文本和播放总成功数仅作原始报告内容。
+preconditions、steps、parameters、dependency_refs 与 ASSERT 传入 Planner。Verify 以单个 `[ASSERT:id]` 找回冻结描述，不能改写期望；固定 verification 不被替换，auto 按原策略选。正式入口固定 test，结果/环境记录 platform、task_type、device，Ledger 核对冻结平台。最终文本/回放成功数不能代替断言；Android 截图失败不生成黑图证据，媒体遵守受管路径。
 
 ## 4. 输出与三态
 
@@ -119,7 +119,7 @@ Test-Runner 对非法路径返回的错误保留执行日志并按现有 Yellow/
 
 ## 验证边界
 
-原录制回放单测与适配器/账本测试用于验证逻辑兼容、身份绑定、三态、证据及超时行为；模拟设备/模型的 native 集成测试只验证接线、报告和录制。没有用真实设备、真实模型或业务 App 宣称“能力无劣化”。上线前在相同用例/设备/模型/预算下对照源版，覆盖五类验证、回放重规划、输入、临时控件、视频时间映射及完整报告；比较断言、动作、遗漏、误报和证据可读性，不只比较最终通过率。
+离线模拟只证明接线、三态、报告/录制及 Ledger 门禁，不证明业务 App 真机通过。正式验收需已部署构建、冻结 PATH、真实模型和 Android/Harmony 设备；对照源版核查适用验证类型、回放、输入、临时控件、视频映射、逐 ASSERT 证据及误报/遗漏。
 
 ## 编译与自动化环境分离
 

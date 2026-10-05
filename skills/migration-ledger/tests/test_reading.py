@@ -122,8 +122,8 @@ class ReadingCardTests(unittest.TestCase):
             return reading.text_of(row)
         build, automation, design = text('build'), text('automation'), text('design')
         self.assertIn('### 构建', build); self.assertIn('### 单测与静态审查', build)
-        self.assertNotIn('### 自动化', build); self.assertNotIn('## 10. Harmony 执行器', build)
-        self.assertIn('### 自动化', automation); self.assertIn('## 10. Harmony 执行器', automation); self.assertNotIn('### 设计', automation)
+        self.assertNotIn('### 自动化', build); self.assertNotIn('## 10. 移动端执行器', build)
+        self.assertIn('### 自动化', automation); self.assertIn('## 10. 移动端执行器', automation); self.assertNotIn('### 设计', automation)
         self.assertIn('### 设计', design); self.assertNotIn('### 构建', design)
         for part in (build, automation, design):
             self.assertIn('## 6. 硬约束', part); self.assertIn('## 专题义务', part)
@@ -216,8 +216,8 @@ class ReadingCardTests(unittest.TestCase):
         self.assertIn((skill, '2. 核心规约'), build)
         self.assertNotIn((skill, '1. 定位'), build)
         self.assertNotIn((skill, '4. 接口契约'), build)
-        self.assertFalse([h for p, h in build if p == skill and (h or '').startswith('7. Harmony')])
-        self.assertTrue([h for p, h in reading.entries('test-runner', 'automation') if p == skill and (h or '').startswith('7. Harmony')])
+        self.assertFalse([h for p, h in build if p == skill and (h or '').startswith('7. Android/Harmony')])
+        self.assertTrue([h for p, h in reading.entries('test-runner', 'automation') if p == skill and (h or '').startswith('7. Android/Harmony')])
 
     def test_operation_rows_deliver_one_row_of_the_matrix(self):
         text = reading.section(reading.P + 'local-runtime.md', '操作矩阵@accept,submit')
@@ -242,7 +242,7 @@ class ReadingCardTests(unittest.TestCase):
         self.assertLess(len(short), len(reading.section('Agents/test-runner.md')))
         self.assertIn('| 上下文就绪 |', short)
         self.assertNotIn('| 埋点 |', short)
-        self.assertIn('## 10. Harmony 执行器', short)  # only the obligation table is filtered
+        self.assertIn('## 10. 移动端执行器', short)  # only the obligation table is filtered
 
     def test_every_moved_topic_rule_is_reachable_from_some_card(self):
         """The topic index in AGENTS.md points at each 总则 section; some card must deliver it when its trigger holds."""

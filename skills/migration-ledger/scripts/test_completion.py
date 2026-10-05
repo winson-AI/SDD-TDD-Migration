@@ -13,6 +13,20 @@ def load_content(ref):
         return None, type(exc).__name__ + ': ' + str(exc)
 
 
+def mobile_binding(planned, query, report):
+    if report.get('mobile_contract_version') != 1 and 'platform' not in planned:
+        return  # Existing Harmony reports remain readable.
+    require(query.get('platform') == planned.get('platform'), 'mobile PATH platform changed')
+    require(query.get('task_type', 'test') == planned.get('task_type', 'test'), 'mobile PATH task type changed')
+    if report.get('quality') != 'green-passed': return
+    require(report.get('platform') in ('android', 'harmony') and report.get('task_type') == planned.get('task_type', 'test') == 'test',
+            'mobile Green requires Android/Harmony test mode')
+    require(not planned.get('platform') or report['platform'] == planned['platform'], 'mobile report platform mismatch')
+    environment = read_json(check_ref(report.get('environment_ref')))
+    require(environment.get('platform') == report['platform'] and environment.get('task_type') == 'test'
+            and environment.get('device'), 'mobile execution environment mismatch')
+
+
 def interpret(receipt, planned):
     check_ref(receipt['log_ref'])
     query = read_json(check_ref(receipt['query_ref']))
@@ -30,6 +44,7 @@ def interpret(receipt, planned):
             import unit_reports
             unit_reports.validate(receipt, planned, report)
     if known and report['producer'] == 'harmony-adapter':
+        mobile_binding(planned, query, report)
         for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
             if key in report: require(report[key] == receipt.get(key), 'Harmony context mismatch')
             else: known = False

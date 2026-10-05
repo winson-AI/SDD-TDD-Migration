@@ -19,13 +19,14 @@ class HarmonyLedgerTests(unittest.TestCase):
         original=self.f.plan
         def plan():
             p=original();path=p['paths'][0];path['steps']=['read target value']
+            if getattr(self, 'platform', None): path.update(platform=self.platform, task_type='test')
             path['expected_assertions']=[{'assertion_id':'A1','expected':True,'description':'value equals 2',
                                          'matcher':'exact','verification':'one_image_assert','after_step':1}]
             return p
         self.f.plan=plan
         self.f.prepare();self.f.implementation();self.f.assign('test-runner','H1')
 
-    def run_adapter(self, fault=False):
+    def run_adapter(self, fault=False, report_platform=None, task_type='test'):
         scripts=str(Path(__file__).resolve().parents[2]/'migration-test/scripts')
         script=self.f.base/'fixture_observer.py'
         script.write_text('''import argparse,json,sys,runpy
@@ -39,7 +40,13 @@ value=runpy.run_path('m1/code.py')['value']
 media=out/'fixture-observation.txt';media.write_text(str(value))
 s.record('[ASSERT:A1]',value==2,'observed fixture value','one_image_assert',[media])
 '''+("s.error='verification tooling failure'\n" if fault else '')+'''
-r=s.report();write(a.result_file,r)
+r=s.report()
+if q.get('platform'):
+    platform = '''+repr(report_platform)+''' or q['platform']
+    environment=out/'environment.json'
+    write(environment,{'platform':platform,'task_type':''' + repr(task_type) + ''','device':'fixture'})
+    r.update(mobile_contract_version=1,platform=platform,task_type=''' + repr(task_type) + ''',environment_ref=ref(environment))
+write(a.result_file,r)
 sys.exit(0 if r['quality']=='green-passed' else 2)
 ''')
         rr=execute(self.f.root,'M001','H1','P1',[sys.executable,str(script)],str(self.f.target),self.outputs/'exec')
@@ -79,3 +86,17 @@ sys.exit(0 if r['quality']=='green-passed' else 2)
         rr=execute(self.f.root,'M001','H1','P1',['/nonexistent/sdd-adapter'],str(self.f.target),self.outputs/'unavailable')
         r=build(self.f.root,'M001','H1',[rr]);self.assertEqual(r['paths'][0]['quality'],'yellow-blocked')
         self.assertEqual(json.loads(Path(rr['path']).read_text())['exit_code'],127)
+
+
+class AndroidLedgerTests(HarmonyLedgerTests):
+    platform = 'android'
+
+    def test_wrong_platform_cannot_pass_frozen_android_path(self):
+        with self.assertRaisesRegex(Rejected, 'platform mismatch'): self.run_adapter(report_platform='harmony')
+
+    def test_artifact_only_mode_cannot_pass_automation(self):
+        with self.assertRaisesRegex(Rejected, 'test mode'): self.run_adapter(task_type='snapshot')
+
+
+class ExplicitHarmonyLedgerTests(HarmonyLedgerTests):
+    platform = 'harmony'

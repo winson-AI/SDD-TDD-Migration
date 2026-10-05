@@ -262,3 +262,20 @@ class DeviceProtocol(Protocol):
                      The callback will receive no arguments.
         """
         ...
+
+
+def skill_driver(context):
+    """Bridge normalized skill gestures to Android while retaining Harmony drivers."""
+    import time
+    from types import SimpleNamespace
+    device = getattr(context, 'device', None)
+    if getattr(device, 'platform', 'harmony') == 'android':
+        width, height = device.get_display_size()
+        def point(xy): return int(xy[0] * width), int(xy[1] * height)
+        return SimpleNamespace(click=lambda xy: device.tap(*point(xy)), wait=time.sleep,
+                               slide=lambda start, end, slide_time=0.5: device.swipe(*point(start), *point(end), duration_s=slide_time))
+    if getattr(context, 'driver', None) is not None: return context.driver
+    if getattr(context, 'hypium_device', None) is not None:
+        from hypium import UiDriver
+        return UiDriver(context.hypium_device)
+    raise RuntimeError('No connected device in skill script context')

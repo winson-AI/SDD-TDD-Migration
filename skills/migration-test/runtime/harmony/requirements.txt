@@ -8,3 +8,4 @@ numpy>=2.2.6
 ffmpeg-python>=0.2.0
 imageio-ffmpeg>=0.6.0
 hypium-mcp @ file:./resources/hypium_mcp-0.6.5-py3-none-any.whl
+uiautomator2>=3.7.0,<4

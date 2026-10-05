@@ -21,7 +21,7 @@ def load_environment(path):
     load(path)
 
 
-def doctor(config_path, device=None):
+def doctor(config_path, device=None, platform=None):
     """Offline check only: never contact a model or operate a device."""
     checks = []
     for module in ('openai', 'agents', 'hypium', 'hypium_mcp', 'cv2', 'PIL',
@@ -33,16 +33,19 @@ def doctor(config_path, device=None):
             # Exceptions from libraries can contain configuration; don't echo them.
             checks.append({'name': module, 'status': 'blocked', 'reason': type(exc).__name__})
     try:
-        from harmony_adapter import configure
-        config = json.loads(Path(config_path).read_text())
+        from harmony_adapter import configure, execution_config
+        config = execution_config(json.loads(Path(config_path).read_text()), platform=platform, device=device)
         cfg = configure(config['models'])
         checks.append({'name': 'llm-configuration', 'status': 'ready',
                        'planner': [m['name'] for m in cfg.decision_models],
                        'executor': cfg.execute_model_name, 'verify': cfg.verify_model_name,
                        'provider': cfg.execute_provider})
-        serial = device or config.get('device') or os.environ.get('HARMONY_DEVICE')
-        checks.append({'name': 'explicit-device', 'status': 'ready' if serial else 'blocked'})
-        checks.append({'name': 'hdc-on-path', 'status': 'ready' if shutil.which('hdc') else 'blocked'})
+        checks.append({'name': 'explicit-device', 'status': 'ready', 'platform': config['platform']})
+        command = 'adb' if config['platform'] == 'android' else 'hdc'
+        checks.append({'name': command + '-on-path', 'status': 'ready' if shutil.which(command) else 'blocked'})
+        if config['platform'] == 'android':
+            importlib.import_module('uiautomator2')
+            checks.append({'name': 'uiautomator2', 'status': 'ready'})
     except Exception as exc:
         checks.append({'name': 'configuration', 'status': 'blocked', 'reason': type(exc).__name__})
     ready = all(c['status'] == 'ready' for c in checks)
@@ -59,7 +62,9 @@ def main():
         c.add_argument('--config', help='Reference configuration copied into the shared run sandbox')
         c.add_argument('--env-file', help='Reference credentials copied privately into the shared run sandbox')
         c.add_argument('--root', help='Run root; required for doctor, otherwise inferred from canonical output')
-        if name != 'design': c.add_argument('--device')
+        if name != 'design':
+            c.add_argument('--device')
+            c.add_argument('--platform', choices=('android', 'harmony'))
         if name == 'test':
             c.add_argument('--query-file', required=True)
             c.add_argument('--result-file', required=True)
@@ -85,7 +90,7 @@ def main():
         argv = [sys.executable, str(SCRIPTS / 'harmony_adapter.py'),
                 '--query-file', str(Path(a.query_file).resolve()),
                 '--result-file', str(output), '--root', str(run_root)]
-        for flag, value in (('--config', a.config), ('--env-file', a.env_file), ('--device', a.device)):
+        for flag, value in (('--config', a.config), ('--env-file', a.env_file), ('--device', a.device), ('--platform', a.platform)):
             if value: argv += [flag, value]
         os.execv(sys.executable, argv)
     from harmony_environment import prepare_environment
@@ -98,6 +103,7 @@ def main():
         argv = [sys.executable, str(Path(__file__).resolve()), 'test', '--config', config,
                 '--env-file', env_file]
         if a.device: argv += ['--device', a.device]
+        if a.platform: argv += ['--platform', a.platform]
         argv += ['--root', str(run_root)]
         out = output
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -110,7 +116,7 @@ def main():
     if a.command == 'doctor':
         output.mkdir(parents=True, exist_ok=False)
         with scope(output):
-            result = doctor(config, a.device)
+            result = doctor(config, a.device, a.platform)
         (output / 'doctor.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result['status'] == 'ready-for-live-preflight' else 2

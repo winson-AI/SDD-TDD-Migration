@@ -8,7 +8,7 @@ import numpy as np
 import time
 from AutoTest.logger import logger
 from AutoTest.storage import output_path as managed_output, temp_directory
-from AutoTest.layered_agent_cli.mcp_tools import collect_function_tool, get_driver
+from AutoTest.layered_agent_cli.mcp_tools import collect_function_tool, get_driver, get_device
 
 
 def generate_random_gradient_image(width=1920, height=1080, output_path="gradient_image.jpg"):
@@ -93,16 +93,14 @@ def generate_random_gradient_video(width=1920, height=1080, duration=5, fps=30, 
     logger.info(f"Video saved to {output_path}")
 
 
-def clear_media_file(driver: UiDriver) -> None:
-    ls_result = driver.shell("ls /mnt/data/100/media_fuse/Photo")
-    ls_result_list = ls_result.split("\n")
-    for i in ls_result_list:
-        ret = driver.shell("rm -rf /mnt/data/100/media_fuse/Photo/{}".format(i))
-        logger.info("delete ret: {}".format(ret))
-
-
 def send_file_to_media(driver: UiDriver, file_path: str):
     file_name = os.path.basename(file_path)
+    if getattr(get_device(), 'platform', 'harmony') == 'android':
+        target = '/sdcard/Pictures/SDD/' + file_name
+        driver.shell(['mkdir', '-p', '/sdcard/Pictures/SDD'])
+        driver.adb_device.sync.push(file_path, target)
+        driver.shell(['am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://' + target])
+        return
     ret = driver.push_file(file_path, "/mnt/data/100/media_fuse/Photo/相机/{}".format(file_name))
     logger.info("push ret: {}".format(ret))
 
@@ -113,7 +111,6 @@ def _generate_random_gradient_image_to_device() -> str:
     try:
         generate_random_gradient_image(output_path=tmp_file)
         if os.path.exists(tmp_file):
-            clear_media_file(driver)
             send_file_to_media(driver, tmp_file)
     finally:
         if os.path.exists(tmp_file):
@@ -134,7 +131,6 @@ def _generate_random_gradient_video_to_device() -> str:
     try:
         generate_random_gradient_video(output_path=tmp_file)
         if os.path.exists(tmp_file):
-            clear_media_file(driver)
             send_file_to_media(driver, tmp_file)
     finally:
         if os.path.exists(tmp_file):

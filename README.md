@@ -80,7 +80,7 @@ Coding → MO 接受代码 → Testing
 | 本地控制器与游标 | 单写事件事务、`status` 游标与阅读卡、恢复与显式追加预算 | [本地运行](skills/migration-protocol/references/local-runtime.md)、[宿主接入](skills/migration-protocol/references/host-integration.md) |
 | 并行 MO 与统一收尾 | 各 MO 独立推进；全量收尾或闭包提前审计才启动 Auditor | [状态机](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾) |
 | Auditor | 先整体代码治理，再复核遗留；修复后验证，失败待人工 | [审计范围](skills/migration-protocol/references/audit-scope.md)、[代码治理](skills/migration-protocol/references/audit-code-review.md) |
-| Harmony 自动测试 | 迁入的 Planner/Executor/Verify 内核，逐 ASSERT 证据接入 Ledger | [Harmony 运行](skills/migration-test/references/harmony-runtime.md) |
+| Android/Harmony 自动测试 | MobileAgenticOperator test 模式，逐 PATH/ASSERT 证据接入 Ledger | [移动端运行](skills/migration-test/references/harmony-runtime.md) |
 | 切片与功能清单 | 默认由 Agent 决定粒度；清单完整可追溯，疑问交人工 | [切片规约](skills/migration-global/references/slicing.md) |
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照 | [项目上下文](skills/migration-protocol/references/project-context.md) |
 | 上下文就绪 | 规划与审计者随操作登记预检；worker 派发后预检，ready 才开工 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |

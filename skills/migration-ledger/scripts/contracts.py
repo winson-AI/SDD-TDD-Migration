@@ -353,6 +353,8 @@ def validate_result(result, module, assignment, run_root=None):
             require(read_json(check_ref(receipt['result_ref'])).get('producer') == 'spec-closure-check',
                     'scenario review requires spec-closure adapter')
         if captured.get('producer') == 'harmony-adapter':
+            from test_completion import mobile_binding
+            mobile_binding(planned[pid], read_json(check_ref(receipt['query_ref'])), captured)
             require(captured.get('quality') == quality and captured.get('flaky') == record.get('flaky', False),
                     'Harmony classification cannot be overridden')
             query = read_json(check_ref(receipt.get('query_ref')))

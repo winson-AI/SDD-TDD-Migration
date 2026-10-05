@@ -2,7 +2,7 @@ import re
 import time
 from hypium import UiDriver, BY
 
-from .apps import APP_PACKAGES, get_package_name
+from .apps import APP_PACKAGES, APP_ABILITIES, get_package_name
 from ...logger import logger
 
 
@@ -209,8 +209,8 @@ def launch_app(
     Returns:
         True if app was launched, False if app not found.
     """
-    bundle_name = get_package_name(app_name)
-    driver.start_app(bundle_name)
+    bundle_name = get_package_name(app_name) or app_name
+    driver.start_app(bundle_name, APP_ABILITIES.get(bundle_name, 'EntryAbility'))
     if delay:
         time.sleep(delay)
     return True

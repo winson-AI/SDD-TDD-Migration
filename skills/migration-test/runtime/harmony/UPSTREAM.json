@@ -33,9 +33,60 @@
       "vendored_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "path": "AutoTest/devices/adb/__init__.py",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "acf093581c5d72164138340a8f0664cec19320609bba517dfe36ce2bfa5f24c0",
+      "vendored_sha256": "acf093581c5d72164138340a8f0664cec19320609bba517dfe36ce2bfa5f24c0"
+    },
+    {
+      "path": "AutoTest/devices/adb/apps.py",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "e92a4d5bc740d388a965ad90ace592c6e9710219aba74285557fa69c7eeecafc",
+      "vendored_sha256": "e92a4d5bc740d388a965ad90ace592c6e9710219aba74285557fa69c7eeecafc"
+    },
+    {
+      "path": "AutoTest/devices/adb/device.py",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "bc5ae74842f9c053b003414065d9843b3d8299aad89a72343a16fdd0d4ce838c",
+      "vendored_sha256": "3c023addbf1f25aa384410947b6f779c2db045e34e7f017b61f0cd58390032c0",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
+    },
+    {
+      "path": "AutoTest/devices/adb/input.py",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "fdb7472400fe493f381b590b9e539c6b5db21ef49268efa38088e3db9700e34f",
+      "vendored_sha256": "d32288411497232c162b49353a4e866f04318fed81622e79ada6990b92d7cec3",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
+    },
+    {
+      "path": "AutoTest/devices/adb/screenshot.py",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "90e8fa4d82a702a513cb641b7ae1a5ea7293d4ec76ed1c82a6965ee5ec079781",
+      "vendored_sha256": "26219e34c0a7ab560fc12ed52a779df29a71761234536577e03f4402ffb39b14",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
+    },
+    {
+      "path": "AutoTest/devices/adb_device.py",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "8bb37d4783c8a834f9b17952d8a9068f2eebb24904766a4d501588dad100b768",
+      "vendored_sha256": "dd912974b81018e1ffed263592dac716dc1516c52add57b1d96922a8d73c47df",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
+    },
+    {
       "path": "AutoTest/devices/device_protocol.py",
       "source_sha256": "c3a94e9a86098e82069beb32e17282c45f51180b0eeac62c62afe47324f03bf6",
-      "vendored_sha256": "c3a94e9a86098e82069beb32e17282c45f51180b0eeac62c62afe47324f03bf6"
+      "vendored_sha256": "94c0850248d0086f065de0be1131835d195b9637a303a6ff313016c4cfe224de",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
     },
     {
       "path": "AutoTest/devices/hdc/__init__.py",
@@ -50,7 +101,10 @@
     {
       "path": "AutoTest/devices/hdc/device.py",
       "source_sha256": "a340e8b698ee31288be6f1498a9b927e021f9e011669ac02959193d6f03ba74a",
-      "vendored_sha256": "a340e8b698ee31288be6f1498a9b927e021f9e011669ac02959193d6f03ba74a"
+      "vendored_sha256": "b7d0a16722687c65f57249e3313e0756faeb62890891e332e25a6c35d55b7aaf",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
     },
     {
       "path": "AutoTest/devices/hdc/input.py",
@@ -60,17 +114,19 @@
     {
       "path": "AutoTest/devices/hdc/screenshot.py",
       "source_sha256": "2f6010263c4e5cded242a1b3604035169f9bde19403e39e3a271579c6bf9130a",
-      "vendored_sha256": "179615109c7964c96a1856d10b1f8f12d5151106d9df617916ad7c11d3381a8c",
+      "vendored_sha256": "3849116fdd340edce3fe05e1ab30233cc2964c14c3939bbc8f68dca654da7af2",
       "local_changes": [
-        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths.",
+        "Reject missing device screenshots instead of synthesizing black evidence."
       ]
     },
     {
       "path": "AutoTest/devices/hdc_device.py",
       "source_sha256": "0c18c7683c56bdd2d8aae31c06e003b78bc42e6e5eb1c82b1beeb095a0af6917",
-      "vendored_sha256": "d001329f9fe9cf67357d3b4115307db93c8d99dfdb9edd1cd5a5374a9dba3093",
+      "vendored_sha256": "09f2cb71a092d6da95e3975653ef453bc25eee990b909712d1276e854f2fd4f7",
       "local_changes": [
-        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths.",
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
       ]
     },
     {
@@ -219,7 +275,10 @@
     {
       "path": "AutoTest/layered_agent_cli/decision.py",
       "source_sha256": "545588821426b3b204bb83fb3de328c758008003aba7f0669a9acea97d9c0f72",
-      "vendored_sha256": "545588821426b3b204bb83fb3de328c758008003aba7f0669a9acea97d9c0f72"
+      "vendored_sha256": "00221c1f8a7ec699252cc1e3dc6edfd35578ecd66a3c80c42a20bf857461073e",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
     },
     {
       "path": "AutoTest/layered_agent_cli/decision_hooks.py",
@@ -229,16 +288,20 @@
     {
       "path": "AutoTest/layered_agent_cli/mcp_tools.py",
       "source_sha256": "f3a48a1def7c9dd3764e78379d29d481e939024484fed8c26c0e54ee1e69231d",
-      "vendored_sha256": "7952f75ab9571e966c9238d3135113bab5ab7357b0399c425131764ac7e4aaa8",
+      "vendored_sha256": "b93c2b7afdf15e1b21e2ae2417fa7965da3a889b0e66bc7869421999491f73c1",
       "local_changes": [
         "Constrain CLI/extension outputs to managed Harmony runners; preserve execution and report semantics.",
-        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths.",
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
       ]
     },
     {
       "path": "AutoTest/layered_agent_cli/model_factory.py",
       "source_sha256": "e7020189193c7a055e861933e19aecccfc6280d99a58e810b8785e3bf4ae283b",
-      "vendored_sha256": "e7020189193c7a055e861933e19aecccfc6280d99a58e810b8785e3bf4ae283b"
+      "vendored_sha256": "4490c3a1ed91713e4fea7a7261f233437ac373026d5b9c588ad552a44fd76645",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
     },
     {
       "path": "AutoTest/layered_agent_cli/planner_agent.py",
@@ -287,7 +350,10 @@
     {
       "path": "AutoTest/memory/tool_player.py",
       "source_sha256": "d397526c582981798297b55de11415d4187439794a2773d4ea23f6b385db4f0d",
-      "vendored_sha256": "d397526c582981798297b55de11415d4187439794a2773d4ea23f6b385db4f0d"
+      "vendored_sha256": "a3b2d1388d20cdd78c25879a725d669faf1c7696c59f7c064049737c1feebad1",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
     },
     {
       "path": "AutoTest/memory/tool_recorder.py",
@@ -341,7 +407,10 @@
     {
       "path": "AutoTest/testcase_preprocessor/converter.py",
       "source_sha256": "082e0682c6c5a40d3edf0f58932b2242a67a94df9723f2d0ff921ddc159c151e",
-      "vendored_sha256": "082e0682c6c5a40d3edf0f58932b2242a67a94df9723f2d0ff921ddc159c151e"
+      "vendored_sha256": "ce9b6829ba3dbf8c2ef56988b7ebf87e44ca89b5a76a7ee72ff7adec27413337",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
     },
     {
       "path": "AutoTest/testcase_preprocessor/pipeline.py",
@@ -378,7 +447,10 @@
     {
       "path": "AutoTest/utils/utils.py",
       "source_sha256": "e574361c6545ace382c431531e051aa82544be10422a80ceb6b91254121dc3d4",
-      "vendored_sha256": "e574361c6545ace382c431531e051aa82544be10422a80ceb6b91254121dc3d4"
+      "vendored_sha256": "684e79aa81d310221edee84a44bb4e7639f504b8ea745616f323f30a7ed06833",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
     },
     {
       "path": "AutoTest/verify_agent/__init__.py",
@@ -422,12 +494,25 @@
       ]
     },
     {
+      "path": "knowledge/app_packages/android.json",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "9e93213648c22f3319ad25388bf8108337ce17bbc566b9e3b62626b1f56ed84a",
+      "vendored_sha256": "9e93213648c22f3319ad25388bf8108337ce17bbc566b9e3b62626b1f56ed84a"
+    },
+    {
+      "path": "knowledge/app_packages/android_launchers.json",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "fd4ba5993c7fd2d7f0dfe6fcebc93f0636cbf341293af723e8d130db9cb9d522",
+      "vendored_sha256": "fd4ba5993c7fd2d7f0dfe6fcebc93f0636cbf341293af723e8d130db9cb9d522"
+    },
+    {
       "path": "main.py",
       "source_sha256": "5a2451b6df3f308b780818b79be5e084dd28a3290cafd46e373664118e39835e",
-      "vendored_sha256": "720ebe3ab6a501fce2b136e20d3c6bcadfb8656e6b06c4edafdbd883636286a4",
+      "vendored_sha256": "ab199a39b59ebd0b1ba95f3d56301860e792f1869bd946fdb98cf588f6b2aba8",
       "local_changes": [
         "Route new runtime output into the owning Harmony run; retain historical inputs as read-only sources.",
-        "Copy native reference configuration and credentials into the shared run sandbox before execution."
+        "Copy native reference configuration and credentials into the shared run sandbox before execution.",
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
       ]
     },
     {
@@ -438,15 +523,19 @@
     {
       "path": "mcp_tools/media_generator.py",
       "source_sha256": "309bcfea0820b58d06457412e14ad4db11b318c13193e9bd45bdf127cc9d724b",
-      "vendored_sha256": "11906fe73efa6ffdaacdf854a5e233c43aa7d20496c896be0728c673da077e19",
+      "vendored_sha256": "7f5574b996a2ec2b3375e3c61d4ec1ff4526ab5e149f9fab2c65403fc0c6ec54",
       "local_changes": [
-        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths."
+        "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths.",
+        "Use Android media fixture upload without clearing unrelated gallery files."
       ]
     },
     {
       "path": "requirements.txt",
       "source_sha256": "8ab770c0b01bf41c63f477f09ba1017229633edad8df8840aaccc377cbc87600",
-      "vendored_sha256": "8ab770c0b01bf41c63f477f09ba1017229633edad8df8840aaccc377cbc87600"
+      "vendored_sha256": "99140b152f712dba18c04860705f276c557a50249d82020b792c2a22b03be82e",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
     },
     {
       "path": "resources/hypium_mcp-0.6.5-py3-none-any.whl",
@@ -486,17 +575,26 @@
     {
       "path": "skills/video-play-control-operate/scripts/click_chained_ephemeral_control.py",
       "source_sha256": "521748c1b62bf94b65c7e5a98a2b2fe43480a5569216d24cc2ac7502adb72c89",
-      "vendored_sha256": "521748c1b62bf94b65c7e5a98a2b2fe43480a5569216d24cc2ac7502adb72c89"
+      "vendored_sha256": "d0ffe643b85338ea509db83c6c71431f9cb8e68169c6dc1f80e0df0ddf560aaa",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
     },
     {
       "path": "skills/video-play-control-operate/scripts/click_video_play_control.py",
       "source_sha256": "5bddedd5d020d4d09473ff746ebe55d1d282803c397c06d3720fbee1f288df27",
-      "vendored_sha256": "5bddedd5d020d4d09473ff746ebe55d1d282803c397c06d3720fbee1f288df27"
+      "vendored_sha256": "9714e3c365426cc82f00aef6cd4ff36779eb4e3611728d6088acc850c3404f33",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
     },
     {
       "path": "skills/video-play-control-operate/scripts/swipe_video_progress_bar.py",
       "source_sha256": "054c68dbaf86f0e5a2f9bb3825fff28f8026c6b759a64b26ff7bc81bd7b2d7d9",
-      "vendored_sha256": "054c68dbaf86f0e5a2f9bb3825fff28f8026c6b759a64b26ff7bc81bd7b2d7d9"
+      "vendored_sha256": "9b739757dce78cfd7b1a257f128d322751afb2ffca146482ca22a11bc62d7b89",
+      "local_changes": [
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
     },
     {
       "path": "tests/test_tool_player.py",
@@ -519,9 +617,71 @@
     "runtime credentials/config.yaml",
     "historical reports/screenshots/memory/knowledge",
     "local environments and lockfile with developer absolute paths",
-    "obsolete 0.5.21 wheel (Git LFS pointer)"
+    "obsolete 0.5.21 wheel (Git LFS pointer)",
+    "MobileAgenticOperator iOS drivers, iOS package maps, facebook-wda, snapshot/recording task modes"
   ],
   "local_additions": [
     "AutoTest/storage.py"
-  ]
+  ],
+  "mobile_extension": {
+    "source": "MobileAgenticOperator",
+    "source_commit": "3d5443e4e83f536f6b297cae358fe9ef780ff769",
+    "snapshot_date": "2026-10-05",
+    "platforms": [
+      "android",
+      "harmony"
+    ],
+    "task_type": "test",
+    "strategy": "Add Android drivers; port shared platform dispatch and explicit test branch onto the existing SDD evidence/storage fork. Other shared test/verify engines are retained.",
+    "source_files": [
+      {
+        "path": "main.py",
+        "sha256": "5aa312e6b710dccaede072f24816ccc8f5d4f0471b95775ebcfd2a322ccf1222"
+      },
+      {
+        "path": "AutoTest/layered_agent_cli/mcp_tools.py",
+        "sha256": "8d29bba0ec78a837994f902da82e45e64d1f813546e613c322cae1af630f30e9"
+      },
+      {
+        "path": "AutoTest/layered_agent_cli/decision.py",
+        "sha256": "a720b111fde540e189e7374231bf143dace5d47ec965e3aa691f37ca64e6cb97"
+      },
+      {
+        "path": "AutoTest/utils/utils.py",
+        "sha256": "1931b5d235ebe2ec38e619d7ef922f9c58b1b920826f57ef238ebf6d8e86af2c"
+      },
+      {
+        "path": "AutoTest/devices/adb_device.py",
+        "sha256": "8bb37d4783c8a834f9b17952d8a9068f2eebb24904766a4d501588dad100b768"
+      },
+      {
+        "path": "AutoTest/devices/adb/device.py",
+        "sha256": "bc5ae74842f9c053b003414065d9843b3d8299aad89a72343a16fdd0d4ce838c"
+      },
+      {
+        "path": "AutoTest/devices/adb/__init__.py",
+        "sha256": "acf093581c5d72164138340a8f0664cec19320609bba517dfe36ce2bfa5f24c0"
+      },
+      {
+        "path": "AutoTest/devices/adb/apps.py",
+        "sha256": "e92a4d5bc740d388a965ad90ace592c6e9710219aba74285557fa69c7eeecafc"
+      },
+      {
+        "path": "AutoTest/devices/adb/input.py",
+        "sha256": "fdb7472400fe493f381b590b9e539c6b5db21ef49268efa38088e3db9700e34f"
+      },
+      {
+        "path": "AutoTest/devices/adb/screenshot.py",
+        "sha256": "90e8fa4d82a702a513cb641b7ae1a5ea7293d4ec76ed1c82a6965ee5ec079781"
+      },
+      {
+        "path": "knowledge/app_packages/android.json",
+        "sha256": "9e93213648c22f3319ad25388bf8108337ce17bbc566b9e3b62626b1f56ed84a"
+      },
+      {
+        "path": "knowledge/app_packages/android_launchers.json",
+        "sha256": "fd4ba5993c7fd2d7f0dfe6fcebc93f0636cbf341293af723e8d130db9cb9d522"
+      }
+    ]
+  }
 }

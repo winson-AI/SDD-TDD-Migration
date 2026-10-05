@@ -192,7 +192,7 @@ def skill_sections(path, test_scope=None):
     """The execution rules of a role skill; the pointer and interface boilerplate every skill repeats is not part of a card."""
     names = re.findall(r'(?m)^## (.*)$', (PACKAGE / path).read_text())
     keep = [n for n in names if n not in ('1. 定位', '4. 接口契约')
-            and (not n.startswith('7. Harmony') or test_scope in ('automation', 'visual'))]
+            and (not n.startswith('7. Android/Harmony') or test_scope in ('automation', 'visual'))]
     return [(path, n) for n in keep]
 
 
@@ -240,10 +240,10 @@ def _topic_rows(text, topics):
 
 
 # Blocks of an Agent definition that only apply in some modes of the role; other blocks always stay.
-MODE_BLOCKS = {'### 设计', '### 构建', '### 单测与静态审查', '### 自动化', '## 10. Harmony 执行器'}
+MODE_BLOCKS = {'### 设计', '### 构建', '### 单测与静态审查', '### 自动化', '## 10. 移动端执行器'}
 TEST_MODES = {'design': ('### 设计',), 'build': ('### 构建', '### 单测与静态审查'),
-              'automation': ('### 自动化', '## 10. Harmony 执行器'),
-              'visual': ('### 自动化', '## 10. Harmony 执行器')}
+              'automation': ('### 自动化', '## 10. 移动端执行器'),
+              'visual': ('### 自动化', '## 10. 移动端执行器')}
 
 
 def _mode_blocks(text, modes):

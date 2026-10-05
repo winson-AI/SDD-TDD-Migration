@@ -40,9 +40,9 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 ## 9. Checkpoints
 所有必需路径都有结果或明确 Yellow；ID/Name/query 完整；参数实例独立；结果绑定版本；原始日志可查。
 
-## 10. Harmony 执行器
+## 10. 移动端执行器
 
-HarmonyOS 路径按 [Harmony 运行协议](../skills/migration-test/references/harmony-runtime.md#3-execute一条-path-到-main) 运行。内部保留 Planner/Executor/Verify、工具回放与视频验证；正式结论只采用逐条冻结 ASSERT 的本次证据。宿主绑定已部署构建与代码基线、分配设备锁；一个 PATH 一个进程。失败交回 Ledger，不在内部擅自修业务代码或调整验收。
+Android/Harmony PATH 按 [移动端运行协议](../skills/migration-test/references/harmony-runtime.md#3-execute一条-path-到-main) 运行，冻结 platform=android|harmony、task_type=test。Planner/Executor/Verify、回放和视频验证只产生逐 ASSERT 的本次证据。宿主绑定已部署 APK/HAP、代码基线和设备锁；一条 PATH 一个进程。失败回交 Ledger，不修代码或改验收。
 
 ## 专题义务
 

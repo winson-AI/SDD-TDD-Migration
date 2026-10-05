@@ -48,7 +48,11 @@ async def create_session_input_filter(session: CompressedSession):
 
 
 
-async def decision(task: str, config: AppConfig, report_generator: ReporterAbs, device: DeviceProtocol):
+async def decision(task: str, config: AppConfig, report_generator: ReporterAbs, device: DeviceProtocol,
+                   task_type: str = 'test'):
+    # The upstream test branch always uses Verify; artifact-only modes cannot pass SDD tests.
+    if task_type != 'test':
+        raise ValueError('SDD automation requires task_type=test')
     task_result = None
 
     # Initialize Planner

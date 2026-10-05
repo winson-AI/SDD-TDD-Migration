@@ -1,4 +1,5 @@
 {
+  "platform": "harmony",
   "device": "{{explicit-device-serial}}",
   "ip": "127.0.0.1",
   "port": 8710,
@@ -21,7 +22,7 @@
       "env": "HARMONY_EXECUTOR_API_KEY"
     },
     "execute_mode": "mcp",
-    "execute_provider": "hypium_mcp_agent",
+    "execute_provider": "general",
     "execute_max_steps": 5,
     "verify_model_name": "{{verify-model}}",
     "verify_base_url": "{{verify-endpoint}}",

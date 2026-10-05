@@ -1,0 +1,13 @@
+{
+  "_comment": "OEM home-screen launcher packages, used to detect 'System Home' instead of misreporting the launcher as an app.",
+  "packages": [
+    "com.android.launcher3",
+    "com.google.android.apps.nexuslauncher",
+    "com.sec.android.app.launcher",
+    "com.miui.home",
+    "com.huawei.android.launcher",
+    "com.oppo.launcher",
+    "com.vivo.launcher",
+    "com.oneplus.launcher"
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 name: migration-test
-description: SDD-TDD-Migration 的测试设计、编译构建与自动化执行；支持项目 Main 及 Harmony 分层 UI 自动测试、截图/视频断言、录制回放、证据和三态归档。
+description: SDD-TDD-Migration 的测试设计、构建与自动化执行；支持项目 Main 及 Android/Harmony test 模式、截图/视频断言、回放、证据和三态归档。
 ---
 
 # migration-test
@@ -31,14 +31,14 @@ design 沿 `assign(mode=design) → submit（附 test-design 预检）→ MO acc
 ## 6. 配套资产
 使用 [主要模板](../../template/test-paths.json)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
-## 7. Harmony 自动化测试
+## 7. Android/Harmony 自动化测试
 
-HarmonyOS UI/端到端测试按 [Harmony 运行协议](references/harmony-runtime.md#3-execute一条-path-到-main)。使用迁入的 Planner → Executor → Verify 内核，保留五类媒体验证、录制回放、失败重规划、记忆压缩、XPath 与原报告。
+两端 UI/端到端 PATH 按 [移动端运行协议](references/harmony-runtime.md#3-execute一条-path-到-main)。使用 MobileAgenticOperator 的 test 流程：Planner → Executor → Verify；保留验证、回放、重规划和报告。冻结 platform=android|harmony、task_type=test；不支持 iOS 或以 snapshot/recording 验收。
 
 - design：用 [harmony_design.py](scripts/harmony_design.py) 导入 MD/XMind，审核完整用例并补齐冻结 ASSERT 描述、类型、匹配规则与 after_step。
 - execute：通过 host execute_test 调用 [harmony_adapter.py](scripts/harmony_adapter.py)，再用 [harmony_stage.py](scripts/harmony_stage.py) 组装全路径结果，按 Ledger submit/accept。
 - 固定 ASSERT ID 绑定冻结谓词；零断言、最终通过文本、旧回放结果不能代替本次验证。原生 memory 是候选执行素材，复用与修复裁决仍受 Ledger 控制。
-- 内核的 Planner/Executor/Verify 仅是当前 Test-Runner 内部组件；不能承担外层 Spec/Fixer/Auditor 权限。其他平台继续使用原 Main 适配器。
+- 内核组件只执行当前 Test-Runner 任务，不承担 Spec/Fixer/Auditor 权限；历史 harmony 文件名/存储路径兼容保留。
 
 复用 fidelity、视觉、手势、埋点、运行环境与留存等角色义务以 [Test-Runner 定义](../../Agents/test-runner.md#专题义务) 为准；本技能只保留执行规约。
 

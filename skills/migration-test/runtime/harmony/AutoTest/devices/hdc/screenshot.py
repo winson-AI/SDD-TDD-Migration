@@ -32,9 +32,7 @@ def get_screenshot(driver: UiDriver | None = None) -> Screenshot:
     Returns:
         Screenshot object containing base64 data and dimensions.
 
-    Note:
-        If the screenshot fails (e.g., on sensitive screens like payment pages),
-        a black fallback image is returned with is_sensitive=True.
+    Capture failure raises; generated fallback pixels cannot be test evidence.
     """
     temporary = temp_directory()
     try:
@@ -43,7 +41,7 @@ def get_screenshot(driver: UiDriver | None = None) -> Screenshot:
         output_path(page.layout_path, boundary=temporary)
 
         if not os.path.exists(page.screenshot_path):
-            return _create_fallback_screenshot(is_sensitive=False)
+            raise FileNotFoundError('Harmony screenshot missing')
 
         # Read JPEG image and convert to PNG for model inference
         # PIL automatically detects the image format from file content
@@ -72,25 +70,7 @@ def get_screenshot(driver: UiDriver | None = None) -> Screenshot:
 
     except Exception as e:
         logger.error(f"Screenshot error: {e}")
-        return _create_fallback_screenshot(is_sensitive=False)
-
-
-def _create_fallback_screenshot(is_sensitive: bool) -> Screenshot:
-    """Create a black fallback image when screenshot fails."""
-    default_width, default_height = 1080, 2400
-
-    black_img = Image.new("RGB", (default_width, default_height), color="black")
-    buffered = BytesIO()
-    black_img.save(buffered, format="PNG")
-    base64_data = base64.b64encode(buffered.getvalue()).decode("utf-8")
-
-    return Screenshot(
-        base64_data=base64_data,
-        layout_data="",
-        width=default_width,
-        height=default_height,
-        is_sensitive=is_sensitive,
-    )
+        raise RuntimeError('Harmony screenshot unavailable') from e
 
 
 RECORD_FILE_NAME = "testing_video_assert.mp4"

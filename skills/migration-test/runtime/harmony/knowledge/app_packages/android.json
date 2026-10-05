@@ -1,0 +1,57 @@
+{
+  "video_entertainment": {
+    "bilibili": "tv.danmaku.bili",
+    "哔哩哔哩": "tv.danmaku.bili",
+    "抖音": "com.ss.android.ugc.aweme",
+    "快手": "com.smile.gifmaker",
+    "腾讯视频": "com.tencent.qqlive",
+    "爱奇艺": "com.qiyi.video",
+    "芒果TV": "com.hunantv.imgo.activity"
+  },
+  "social_messaging": {
+    "微信": "com.tencent.mm",
+    "QQ": "com.tencent.mobileqq",
+    "微博": "com.sina.weibo"
+  },
+  "ecommerce": {
+    "淘宝": "com.taobao.taobao",
+    "支付宝": "com.eg.android.AlipayGphone",
+    "京东": "com.jingdong.app.mall",
+    "拼多多": "com.xunmeng.pinduoduo",
+    "闲鱼": "com.taobao.idlefish",
+    "得物": "com.shizhuang.duapp"
+  },
+  "lifestyle_social": {
+    "小红书": "com.xingin.xhs",
+    "知乎": "com.zhihu.android"
+  },
+  "maps_navigation": {
+    "高德地图": "com.autonavi.minimap",
+    "百度地图": "com.baidu.BaiduMap"
+  },
+  "food_services": {
+    "美团": "com.sankuai.meituan",
+    "大众点评": "com.dianping.v1"
+  },
+  "travel": {
+    "铁路12306": "com.MobileTicket",
+    "12306": "com.MobileTicket",
+    "滴滴出行": "com.sdu.didi.psnger"
+  },
+  "music_audio": {
+    "QQ音乐": "com.tencent.qqmusic",
+    "网易云音乐": "com.netease.cloudmusic",
+    "喜马拉雅": "com.ximalaya.ting.android"
+  },
+  "reading": {
+    "番茄小说": "com.dragon.read",
+    "番茄免费小说": "com.dragon.read"
+  },
+  "news_information": {
+    "今日头条": "com.ss.android.article.news"
+  },
+  "tools": {
+    "百度": "com.baidu.searchbox",
+    "UC浏览器": "com.UCMobile"
+  }
+}

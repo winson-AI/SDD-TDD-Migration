@@ -24,6 +24,27 @@ from harmony_contract import ObservationSink, digest, ref, task_text, validate_q
 ENGINE = Path(__file__).resolve().parents[1] / 'runtime/harmony'
 
 
+def execution_config(raw, query=None, platform=None, device=None):
+    """Resolve a frozen platform and explicit device without cross-platform fallback."""
+    q = query or {}
+    selected = platform or q.get('platform') or raw.get('platform', 'harmony')
+    if selected not in ('android', 'harmony'):
+        raise ValueError('supported platform required: android or harmony')
+    if q.get('platform') and q['platform'] != selected:
+        raise ValueError('execution platform differs from frozen PATH')
+    if any(value != 'test' for value in (q.get('task_type', 'test'), raw.get('task_type', 'test'))):
+        raise ValueError('task_type=test required for automation')
+    serial = device or raw.get('devices', {}).get(selected)
+    if not serial and selected == raw.get('platform', 'harmony'):
+        serial = raw.get('device')
+    serial = serial or os.environ.get(selected.upper() + '_DEVICE', '')
+    if not isinstance(serial, str) or not serial.strip():
+        raise ValueError('explicit device serial required for ' + selected)
+    if selected == 'android' and raw.get('models', {}).get('execute_provider') not in ('general', 'glm'):
+        raise ValueError('Android requires general or glm executor; no provider fallback')
+    return {**raw, 'platform': selected, 'task_type': 'test', 'device': serial}
+
+
 def resolve_env(value):
     if isinstance(value, dict):
         if set(value) == {'env'}:
@@ -49,10 +70,10 @@ def public_config(value):
 
 
 @contextmanager
-def device_lock(device, ip, port):
+def device_lock(device, ip, port, platform='harmony'):
     # A machine-wide lease without a persistent /tmp lock inode. Binding is
     # atomic and the OS releases it even on SIGKILL; collisions fail closed.
-    key = digest([device, ip, port])
+    key = digest(['android', device] if platform == 'android' else [device, ip, port])
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as lease:
         try: lease.bind(('127.0.0.1', 20000 + int(key[:8], 16) % 30000))
         except OSError as exc: raise ValueError('device busy: local device lease unavailable') from exc
@@ -117,7 +138,18 @@ def observing_verifier(base, sink):
 
 
 async def run_engine(q, config, out, sink):
+    # main already resolved CLI overrides; do not let devices[platform] undo them.
+    config = execution_config(config, q, device=config.get('device'))
     sys.path.insert(0, str(ENGINE))
+    app = config.get('apps', {}).get(config['platform'])
+    if app:
+        if not all(isinstance(app.get(k), str) and app[k] for k in ('name', 'package')):
+            raise ValueError('explicit app name/package required')
+        module = importlib.import_module('AutoTest.devices.' + ('adb' if config['platform'] == 'android' else 'hdc') + '.apps')
+        if config['platform'] == 'harmony':
+            if not app.get('ability'): raise ValueError('explicit Harmony app ability required')
+            module.APP_ABILITIES[app['package']] = app['ability']
+        module.APP_PACKAGES[app['name']] = app['package']
     from AutoTest.logger import configure_logger
     cfg = configure(config['models'])
     if any(a['verification'] == 'video_assert' for a in q['expected_assertions']) and not cfg.verify_video_enable:
@@ -130,6 +162,8 @@ async def run_engine(q, config, out, sink):
     from AutoTest.layered_agent_cli import planner_agent
     planner_agent.PLANNER_INSTRUCTIONS += '\nSDD 冻结断言优先于通用文案匹配规则。每个 verify 必须包含单个 [ASSERT:id]，按路径指定时机执行，禁止把几个预期合并。'
     task = task_text(q)
+    if config['platform'] == 'android' and not q.get('platform'):
+        task = '平台：android；任务类型：test\n' + task
     from AutoTest.layered_agent_cli.agent_registry import agent_registry
     knowledge = config.get('knowledge_ref')
     if knowledge:
@@ -140,6 +174,7 @@ async def run_engine(q, config, out, sink):
         task += '\n知识库：\n（仅辅助执行，不得修改冻结步骤或断言）\n' + knowledge_text
     # Fresh process/workdir per path isolates global registries and default memory writes.
     args = SimpleNamespace(task=task, task_name=q['path_id'] + ' ' + q['name'],
+                           platform=config['platform'], task_type='test',
                            report_dir=str(out / 'reports'), device=config['device'],
                            ip=config.get('ip','127.0.0.1'), port=config.get('port',8710),
                            memory_dir=str(out / 'memory'))
@@ -159,7 +194,8 @@ def main():
     for key in ('query-file','result-file'): p.add_argument('--' + key, required=True)
     p.add_argument('--config', help='Initial reference configuration for this run')
     p.add_argument('--env-file', help='Initial credential source for this run')
-    p.add_argument('--device', help='Explicit Harmony serial; overrides config and HARMONY_DEVICE')
+    p.add_argument('--platform', choices=('android', 'harmony'))
+    p.add_argument('--device', help='Explicit serial; overrides platform config/environment')
     p.add_argument('--root', help='Run root; otherwise inferred from the canonical result path')
     a = p.parse_args()
     query_bytes = Path(a.query_file).read_bytes()
@@ -189,18 +225,19 @@ def main():
         config_path, env_path = prepare_environment(run_root, a.config, a.env_file, q['module_id'])
         load_environment(env_path)
         config = json.loads(config_path.read_text())
-        config['device'] = a.device or config.get('device') or os.environ.get('HARMONY_DEVICE', '')
+        config = execution_config(config, q, a.platform, a.device)
         environment.update({'config_ref':ref(config_path), 'device':config.get('device'),
+                            'platform':config['platform'], 'task_type':'test',
                             'ip':config.get('ip','127.0.0.1'), 'port':config.get('port',8710),
                             'recording_ref':config.get('recording_ref'), 'knowledge_ref':config.get('knowledge_ref')})
         environment['configuration'] = public_config(config)
         environment['packages'] = {}
-        for name in ('openai','openai-agents','hypium','hypium-mcp','opencv-python','imageio-ffmpeg'):
+        for name in ('openai','openai-agents','hypium','hypium-mcp','uiautomator2','opencv-python','imageio-ffmpeg'):
             try: environment['packages'][name] = importlib.metadata.version(name)
             except importlib.metadata.PackageNotFoundError: environment['packages'][name] = None
         if not config.get('device'): raise ValueError('explicit device serial required')
         # Native relative media/memory files are contained in the attempt directory.
-        with device_lock(config['device'], config.get('ip','127.0.0.1'), config.get('port',8710)):
+        with device_lock(config['device'], config.get('ip','127.0.0.1'), config.get('port',8710), config['platform']):
             with scope(out):
                 sink.final_output = asyncio.run(run_engine(q, config, out, sink))
                 if not sink.final_output or str(sink.final_output).startswith('Error:'):
@@ -213,6 +250,7 @@ def main():
             detail = str(exc)
         sink.error = f'{type(exc).__name__}: {detail}'
     report = sink.report()
+    report.update(mobile_contract_version=1, platform=environment.get('platform'), task_type='test')
     write(out / 'environment.json', environment)
     report['environment_hash'] = digest(environment)
     report['environment_ref'] = ref(out / 'environment.json')

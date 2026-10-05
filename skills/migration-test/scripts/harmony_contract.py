@@ -26,6 +26,8 @@ def write(path, value):
 
 
 def validate_query(q):
+    if q.get('platform', 'harmony') not in ('android', 'harmony') or q.get('task_type', 'test') != 'test':
+        raise ValueError('android/harmony platform and task_type=test required')
     for key in ('run_id', 'module_id', 'path_id', 'name', 'freeze_id', 'code_baseline'):
         if not q.get(key):
             raise ValueError(f'missing frozen query {key}')
@@ -39,7 +41,7 @@ def validate_query(q):
             raise ValueError('unique assertion IDs required')
         ids.add(aid)
         if a.get('expected') is not True or not a.get('description'):
-            raise ValueError('Harmony predicate requires frozen expected=true and description; request SPEC change for other observations')
+            raise ValueError('Mobile predicate requires frozen expected=true and description; request SPEC change for other observations')
         if a.get('verification') not in ('one_image_assert', 'multi_image_assert', 'cross_step_image_assert', 'refer_image_assert', 'video_assert', 'auto'):
             raise ValueError('explicit frozen verification mode required')
         if a.get('matcher') not in ('exact', 'semantic'):
@@ -57,6 +59,8 @@ def task_text(q):
              '前置条件：' + json.dumps(q.get('preconditions', []), ensure_ascii=False),
              '参数：' + json.dumps(q.get('parameters', {}), ensure_ascii=False),
              '依赖引用：' + json.dumps(q.get('dependency_refs', []), ensure_ascii=False)]
+    if q.get('platform'):
+        lines.insert(1, '平台：' + q['platform'] + '；任务类型：test')
     for i, step in enumerate(q['steps'], 1):
         lines.append(f'步骤 {i}: ' + (step if isinstance(step, str) else json.dumps(step, ensure_ascii=False)))
         for a in q['expected_assertions']:

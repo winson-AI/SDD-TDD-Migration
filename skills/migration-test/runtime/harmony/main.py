@@ -9,7 +9,6 @@ sys.dont_write_bytecode = True
 import hashlib
 import datetime
 
-from hypium import UiDriver
 from agents import set_tracing_disabled
 
 # Add project root to path
@@ -23,7 +22,6 @@ set_tracing_disabled(True)
 from AutoTest.config import config_manager
 from AutoTest.logger import configure_logger, logger
 from AutoTest.devices.hdc_device import HDCDevice
-from AutoTest.devices.hdc.apps import get_package_name
 from AutoTest.reporter import ReportGenerator
 from AutoTest.reporter.summary import generate_summary_report
 
@@ -37,6 +35,23 @@ from AutoTest.memory.tool_recorder import ToolRecorder
 from AutoTest.layered_agent_cli.planner_agent import create_planner_agent
 
 
+def create_device(args, report_generator, config):
+    """MobileAgenticOperator device dispatch, restricted to the two SDD targets."""
+    platform = getattr(args, 'platform', 'harmony')
+    if getattr(args, 'task_type', 'test') != 'test':
+        raise ValueError('SDD automation requires task_type=test')
+    if not args.device:
+        raise ValueError('explicit device serial required')
+    if platform == 'android':
+        if config.execute_provider not in ('general', 'glm'):
+            raise ValueError('Android requires general or glm executor')
+        from AutoTest.devices.adb_device import AdbDevice
+        return AdbDevice(args.device, report_generator=report_generator, config=config)
+    if platform != 'harmony':
+        raise ValueError('supported platforms: android, harmony')
+    return HDCDevice(args.device, args.ip, args.port, report_generator=report_generator, config=config)
+
+
 async def decision_cli(args, config):
     load_tools_from_directory(os.path.join(os.path.dirname(__file__), "mcp_tools"))
 
@@ -46,13 +61,13 @@ async def decision_cli(args, config):
     report_generator = ReportGenerator(args.task, args.task_name, output_dir=args.report_dir)
 
     # Create hdc Device directly
-    hdc_device = HDCDevice(args.device, args.ip, args.port, report_generator=report_generator, config=config)
+    hdc_device = create_device(args, report_generator, config)
 
     # init 验证工具
     verify_agent = VerifyAgent(report_generator, config, hdc_device)
     agent_registry.set_verify_agent(verify_agent)
 
-    return await decision(args.task, config, report_generator, hdc_device)
+    return await decision(args.task, config, report_generator, hdc_device, task_type=getattr(args, 'task_type', 'test'))
 
 
 async def playback_cli(args, config):
@@ -80,7 +95,7 @@ async def playback_cli(args, config):
     report_generator = ReportGenerator(session.task, f"playback_{session.task_hash}",
                                        output_dir=args.report_dir)
 
-    hdc_device = HDCDevice(args.device, args.ip, args.port, report_generator=report_generator, config=config)
+    hdc_device = create_device(args, report_generator, config)
 
     verify_agent = VerifyAgent(report_generator, config, hdc_device)
     agent_registry.set_verify_agent(verify_agent)
@@ -268,6 +283,8 @@ def parse_task_file(file_path, knowledge_path):
 
 async def main():
     parser = argparse.ArgumentParser(description="AutoGLM Layered Agent CLI")
+    parser.add_argument('--platform', choices=['android', 'harmony'], default='harmony')
+    parser.add_argument('--task-type', choices=['test'], default='test')
     parser.add_argument("--device", default=None, help="Device serial number (e.g., emulator-5554)")
     parser.add_argument("--ip", default="127.0.0.1", help="Device ip")
     parser.add_argument("--port", default=8710, help="Device port")
@@ -367,7 +384,7 @@ async def run_native(args, log_file):
         total_start_time = asyncio.get_event_loop().time()
 
         # 创建临时设备实例用于关闭应用
-        temp_driver = UiDriver.connect(device_sn=args.device, connector_server=(args.ip, args.port))
+        temp_driver = create_device(args, None, config)
 
         def parse_case_result(task_result: str) -> str:
             """根据 task_result 解析用例执行结果: PASS / FAIL / UNKNOWN"""
@@ -386,8 +403,7 @@ async def run_native(args, log_file):
             logger.info(f"{'=' * 60}")
 
             try:
-                package_name = get_package_name(args.app_name)
-                temp_driver.stop_app(package_name)
+                temp_driver.stop_app(args.app_name)
                 logger.info(f"已关闭{args.app_name}应用")
             except Exception as e:
                 logger.warning(f"关闭应用失败: {e}")
@@ -488,7 +504,7 @@ async def run_native(args, log_file):
 
         # 关闭临时设备连接
         try:
-            temp_driver.close()
+            temp_driver.teardown()
         except Exception as e:
             logger.warning(f"关闭临时设备连接失败: {e}")
 
