@@ -32,8 +32,21 @@ def manifest_for(root, files):
                       for name, data in files.items()}}
 
 
-def prepare_environment(root, config_source=None, env_source=None):
-    directory = harmony_output(root, Path(root) / 'runs/harmony/sandbox/environment', 'sandbox')
+def prepare_environment(root, config_source=None, env_source=None, module_id=None):
+    root = Path(root).resolve()
+    folder = 'environment'
+    if (root / 'ledger/events.jsonl').exists():
+        from ledger import read_events
+        from run_storage import for_state
+        state, _ = read_events(root)
+        if state.get('project_context_ref'): for_state(root, state)
+        revision = state.get('harmony_environment_revision')
+        pinned = state['modules'].get(module_id, {}).get('execution_context_ref')
+        if pinned:
+            from contracts import check_ref, read_json
+            revision = read_json(check_ref(pinned))['harmony_environment_revision']
+        if revision: folder += '-' + revision
+    directory = harmony_output(root, root / 'runs/harmony/sandbox' / folder, 'sandbox')
     project = directory.parents[4].parent / '.sdd-migration/harmony'
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(directory, 0o700)
@@ -47,7 +60,7 @@ def prepare_environment(root, config_source=None, env_source=None):
             files = {name: path.read_bytes() if path.exists() else None for name, path in targets.items()}
             validate_bundle(files)
             require(json.loads(manifest.read_text()) == manifest_for(root, files),
-                    'run sandbox environment changed; restore its frozen files or use a new run')
+                    'run sandbox environment changed; restore its frozen files or submit a reviewed revise-run')
         else:
             if preparation.exists():
                 draft = json.loads(preparation.read_text())
@@ -63,7 +76,7 @@ def prepare_environment(root, config_source=None, env_source=None):
                     # Legacy complete environments are adopted as they stand, never
                     # supplemented from mutable references. Partial ones need review.
                     require(all(existing[name] for name in FILES[:2]),
-                            'incomplete legacy environment; Host review or a new run required')
+                            'incomplete legacy environment; Host review required; retain this run')
                     files = {name: path.read_bytes() if existing[name] else None for name, path in targets.items()}
                 else:
                     inputs = [('config.json', config_source, project / 'config.json', ENGINE / 'config.default.json'),
@@ -83,14 +96,14 @@ def prepare_environment(root, config_source=None, env_source=None):
             for name, explicit in (('config.json', config_source), ('.env', env_source)):
                 if explicit:
                     require(Path(explicit).read_bytes() == files[name],
-                            'run sandbox configuration already exists; use a new run for changed configuration')
+                            'run sandbox configuration already exists; revise-run approval required for changed configuration')
             for name, path in targets.items():
                 if files[name] is not None and not path.exists(): atomic_bytes(path, files[name])
             private_json(manifest, manifest_for(root, files))
         for name, explicit in (('config.json', config_source), ('.env', env_source)):
             if explicit:
                 require(Path(explicit).read_bytes() == files[name],
-                        'run sandbox configuration already exists; use a new run for changed configuration')
+                        'run sandbox configuration already exists; revise-run approval required for changed configuration')
         for path in targets.values():
             if path.exists(): os.chmod(path, 0o600)
         preparation.unlink(missing_ok=True)

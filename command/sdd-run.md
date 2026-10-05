@@ -4,6 +4,8 @@ description: /sdd-run <run-id> — 并行推进就绪模块
 
 # /sdd-run
 
+消费 status.run_change_next_step，按 [同 Run 修订](../skills/migration-protocol/references/progress-recovery.md#同-run-上游修订) 推进；规划读取 history_refs，审计预算用 audit-recover，不另建 Run。
+
 待应用来源追加时消费 status.source_change_next_step：Host 协调当前 worker 完成后再进行版本切换，不取消无关 MO；若进度使评审过期，GO 重读后重新提交具体影响。切换完成后，受影响叶子回到规划，无关模块用新阶段上下文继续原冻结任务。参考 [来源追加协议](../skills/migration-protocol/references/source-changes.md#2-host版本事务与明确恢复)，不要用旧 input.json 替代 Ledger 当前快照。
 
 ## 1. 用法
@@ -30,7 +32,7 @@ Global 选择 ready 模块 → MO assign/accept。
 
 活动批次按 finding 路由、按依赖交错修复与 Testing，失败仅挂起关联分支。部分成功汇总后待人工；audit-release 需要当前报告摘要批准。主循环及 subagent/skills 调用均由宿主执行，Ledger 返回游标并在每次提交复核门禁。
 
-宿主等待多个 MO 时须逐个收集结果（all-settled 语义）：一次异常只归属对应 module_id，继续等待其他实例；不得使用首次异常即取消整组的 fail-fast 行为。每次收到事件重读 Ledger，继续 ready_modules，保留 active_modules 的会话；不得因 global_next_step.ready=false 或全局 Red 而批量关闭模块。
+宿主逐 module_id 收集结果并重读 Ledger；单次异常只归属该模块，继续 ready 模块并等待活动实例。不得因全局颜色或 global_next_step.ready=false 批量关闭模块。
 
 父子模式下 next_steps 也包含父节点的 decompose/decompose-accept/module-summary；GO 负责接受拆分，父 MO 负责拆分与当前版本汇总。不能只等待 status.modules（叶子），还必须检查 module_groups 和完整 module_rounds。
 

@@ -6,6 +6,7 @@ import unittest
 import test_ledger
 import test_decomposition
 import test_project_context
+import test_source_changes
 import ledger
 import experience
 import openspec_projection
@@ -156,7 +157,10 @@ class ExperienceTests(unittest.TestCase):
             'runs': {
                 'demo-prev': {
                     'sequence': 10,
-                    'entries': [{'kind': 'slicing-gap', 'summary': 'previous lesson'}]
+                    'entries': [{'kind': 'slicing-gap', 'summary': 'previous lesson',
+                        'applicability': 'shared providers', 'root_cause': 'single consumer assumption',
+                        'strategy': 'enumerate consumers', 'result': 'reviewed', 'next_check': 'verify all owners',
+                        'evidence_refs': [file_ref(pj.source)]}]
                 }
             }
         }))
@@ -169,7 +173,68 @@ class ExperienceTests(unittest.TestCase):
         exp_snapshot = Path(snap['source_refs']['experience_ref']['path'])
         self.assertTrue(exp_snapshot.is_file())
         self.assertIn('previous lesson', exp_snapshot.read_text())
+        index = json.loads(exp_snapshot.read_text())
+        self.assertEqual(index['view'], 'index')
+        row = index['runs']['demo-prev']['entries'][0]
+        self.assertNotIn('strategy', row)
+        self.assertEqual(json.loads(Path(row['lesson_ref']['path']).read_text())['strategy'], 'enumerate consumers')
+
+    def test_planning_view_excludes_observations_without_inventing_causes(self):
+        abstract = {'kind': 'planning-gap', 'summary': 'Review consumers', 'applicability': 'shared providers',
+            'root_cause': 'assumed one consumer', 'strategy': 'enumerate consumers', 'result': 'unverified',
+            'next_check': 'inspect current bindings', 'evidence_refs': [self.flow.ref('lesson-evidence.md', 'Review')]}
+        view = experience.planning_view({'runs': {'old': {'sequence': 1, 'entries': [abstract,
+            {'kind': 'planning-gap', 'summary': 'Module replanned'}]}}})
+        self.assertEqual(view['runs']['old']['entries'], [abstract])
+        self.assertEqual(view['observations_omitted'], 1)
 
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class RetrospectiveTests(unittest.TestCase):
+    def setUp(self):
+        self.source = test_source_changes.SourceChangeTests(); self.source.setUp(); self.addCleanup(self.source.doCleanups)
+        self.f = self.source.f
+
+    def test_retrospect_commits_abstract_lessons_and_harvests_automatically(self):
+        f = self.f; before = f.state()
+        proof = f.ref('retrospective-proof.md', 'Committed boundary review')
+        f.call('retrospect', {'lessons_ref': f.ref('retrospective.json', {'schema_version': 1, 'entries': [{
+            'kind': 'planning-gap', 'module_id': 'M001', 'summary': 'Inspect provider ownership before task split',
+            'applicability': 'shared repository consumers', 'root_cause': 'assuming a single consumer',
+            'strategy': 'enumerate all production consumers', 'result': 'reviewed boundary correction',
+            'next_check': 'compare consumers against write owners', 'evidence_refs': [proof]}]})}, role='host', module=None)
+        state = f.state()
+        self.assertEqual(state['modules']['M001']['phase'], before['modules']['M001']['phase'])
+        self.assertIsNone(state['modules']['M001']['freeze_id'])
+        data = experience.load(self.source.config_root)
+        self.assertTrue(data['runs']['demo']['entries'])
+        view = ledger.status(f.root, view='step', module_id='M001')
+        self.assertTrue(read_json(check_ref(view['history_refs']['lessons']))['entries'])
+        self.assertIn(state['modules']['M001']['planning_lessons_ref'],
+                      __import__('context_readiness').input_refs(state, 'M001', 'planning'))
+
+    def test_failed_fix_strategy_is_retained_as_unverified_experience(self):
+        f = self.f
+        note = f.ref('failed-strategy.json', {'root_cause': 'wrong assumption', 'strategy': 'duplicate provider',
+                                              'applicability': 'shared behavior', 'risks': 'conflicting owners'})
+        lessons = openspec_projection.build_lessons({'run_id': 'demo', 'modules': {
+            'M001': {'fix_memory': [{'status': 'failed', 'reusable': False, 'fix_note_ref': note}]}}}, 1)
+        self.assertEqual(lessons['entries'][0]['kind'], 'failed-strategy')
+        self.assertEqual(lessons['entries'][0]['result'], 'failed')
+        self.assertTrue(lessons['entries'][0]['next_check'])
+
+    def test_unscoped_abstract_lesson_reaches_every_leaf_preflight(self):
+        f = self.f
+        entry = {'kind': 'planning-gap', 'summary': 'Inspect shared provider consumers',
+            'applicability': 'shared repository consumers', 'root_cause': 'assuming a single consumer',
+            'strategy': 'enumerate production consumers', 'result': 'reviewed boundary correction',
+            'next_check': 'compare consumers against owners', 'evidence_refs': [f.ref('shared-proof.md', 'Reviewed consumers')]}
+        f.call('retrospect', {'lessons_ref': f.ref('shared-lessons.json', {'schema_version': 1, 'entries': [entry]})}, role='host', module=None)
+        state = f.state()
+        for mid, module in state['modules'].items():
+            ref = module['planning_lessons_ref']
+            self.assertIn(entry, read_json(check_ref(ref))['entries'])
+            self.assertIn(ref, __import__('context_readiness').input_refs(state, mid, 'planning'))

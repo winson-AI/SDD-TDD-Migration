@@ -6,6 +6,8 @@
 
 ## 1. 原则
 
+同 Run 保留冻结的模块，执行阶段从 execution_context_ref 读取已接受上下文与分配；当前全局输入用于新规划。
+
 全局可读、引用有效不等于子任务已经具备执行条件。每个阶段由实际执行角色核对所需内容并经 Ledger 留证，再由既有控制节点接受。执行者自己随后提交的操作（register、global-plan、decompose、plan、audit-plan、audit-verdict、audit-code-review、source-review）携带 context_ref 即随操作登记（游标 `with_operation=true`）；worker 阶段（coding、building、testing、fixing）在派发之后 `context-submit`：ready 报告绑定该派发并授权开工，blocked 报告退回派发；audit-testing 仍由 Auditor 在 audit-assign 前提交。报告是可追溯的理解与环境证据，不代替 SPEC 冻结、权限、测试或 DoD，不新增人工会签。
 
 预检**只读**：允许读获授权材料、写自身 staging、提交 context-submit；报告未被原节点接受或未绑定派发前，不允许改目标代码或执行目标构建/测试。预检和正式执行是同一实例；换实例必须重新核对。宿主继续承担身份认证、工具可用性和文件写隔离。
@@ -27,7 +29,7 @@
 | 修复批次裁决前 | audit-verdict / Auditor | 当前汇总/遗留、SPEC/PATH、每个验证结果与受阻根因、独立性 | Auditor audit-verdict；不以预检 ready 代替验证结果 |
 | 遗留路径独立复核前 | audit-testing / Auditor | 当前汇总、SPEC/PATH、代码与真实提供方、完整环境、独立性 | Auditor 自核就绪，GO audit-assign 绑定该实例；测试验收仍唯一归 Auditor |
 
-闭包提前审计的 problem-assign 同样使用 audit-testing，因为该入口可执行测试。审计期间下游 Fixer/Testing 仍分别通过 fixing/testing，不沿用 Auditor 的报告。
+仅 v1 恢复的 problem-assign 使用 audit-testing，因为该入口可执行测试。v2 审计复测先由独立 Test-Runner 提交 audit-execution ready 预检，再由 GO audit-test-assign；不沿用 Auditor 的预检。审计期间下游 Fixer/Testing 仍分别通过 fixing/testing，不沿用 Auditor 的报告。
 
 ## 3. 报告与传递
 
@@ -58,7 +60,7 @@
 ## 4. 检查内容必须具体
 
 - **source-closure**：入口→调用链→状态/数据→可观察结果，包含正常/边界/异常、必要生命周期和生产绑定，不能只有目录名。
-- **interfaces-ownership**：接口入口、输入输出模型、错误/取消语义、初始化顺序、提供方/消费方、文件 owner、允许修改范围；跨模块或不确定业务边界仍交人工。
+- **interfaces-ownership**：接口入口、输入输出模型、错误/取消语义、初始化顺序、提供方/消费方、文件 owner、允许修改范围；未决业务边界或需求/验收/授权变化仍交人工。
 - **reuse-mapping**：读取冻结的需求→能力→TASK/PATH、差异、版本、接线；没有匹配候选要有评审依据。
 - **复用 fidelity（沿用现有检查项）**：GO/父 MO 的 reuse-sources 核对存量功能与候选的对应关系；planning/coding/fixing/audit-analysis 的 reuse-mapping 核对 fidelity 的存量基线、对齐报告、复现方案及 PATH/ASSERT。Testing 的真实提供方核对与 Auditor 的 spec-paths/验证结果核对必须包含保真断言、实际结果及未决差异；不新增独立状态或把规划 ready 当成复现通过。见 [全局保真规范](reuse-dependencies.md#7-全局保真规范复用必须复现存量功能)。
 - **test-environment**：实际可用的命令、依赖服务、测试数据和部署构建；编码前只可静态核查可行性，不得提前跑目标测试。

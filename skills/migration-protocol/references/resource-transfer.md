@@ -34,12 +34,28 @@ collector 记录范围内代码每处资源引用的使用点（行号、所在�
 | picture / layer | 指向图片文件 / XML 图层 | 走复制清单 / 图层自身的参数 |
 | keyword | 结构性取值（match_parent、gravity、为 0 的间距） | 属于组件结构，不计入填充 |
 | token | 存量代码命名的值（主题键、无唯一取值的主题属性） | 模块内映射一次 |
-| expression | 运行时计算 | 由 Spec 给出目标取值或说明不适用 |
+| expression | 运行时计算 | 保留计算，定值须源证据 |
 
 ## 参数填充
 
 项目在 `target_resources.parameters` 声明每模块一个的参数文件、各类型的行模板与 accessor（字段见同一模板）；声明后，有 UI 的模块必须引用参数表。
 
-Spec 只在 UI 维的 `parameter_fill` 写例外（见 [dimension-analysis.json](../../../template/dimension-analysis.json)）：`not_applicable`（附 reason）、`deviations`（另给取值，`alternative` 属于计划已批准的 allowed_alternatives）、`tokens`（给值，或指向目标已有的 accessor）、`settled`（给 expression 定值）。其余 value 一律按记录取用；冻结拒绝未定值的 expression 与未映射的 token。
+Spec 在 UI parameter_fill 写例外及动态/结构映射（见[四维模板](../../../template/dimension-analysis.json)）：not_applicable 附原因，deviations 给取值和批准的 alternative，tokens 给值/已有 accessor；settled、runtime、structural 见下节。其余 value 按源记录取用；冻结拒绝未处理的 expression/token。
 
 `resource-sync` 按参数表、例外与模板写出文件，字节由三者决定；验收重新生成并比对，且提交的代码须按键出现每个参数（生成文件自身不算）。生成文件不得手改，取值有误走 CR 修订例外。填充率 = 按记录取用与已映射 ÷ 需要决定的参数，随收尾报告披露。
+
+## 动态参数与布局结构
+
+parameter_fill.runtime/structural 每条记录 id、原 source_expression、consumer（绝对生产文件#accessor）、reason、源 evidence_refs 与冻结 assertions（path_id/assertion_id）；runtime 还记录 inputs。v2 定值须 constant_reason/constant_evidence_refs；布局 keyword 须映射或有证据排除。冻结拒绝缺变量或行为断言，build/static 不证明语义。实现核对提交的消费者/accessor，正式测试验证变量变化、单位/字体缩放、约束、可见性和运行时覆盖。填充率只量化搬运，fidelity_proven 不由它推导。
+
+四维 item.fidelity_conditions 记录 condition_id/condition、status、reason/evidence_refs。父条件须承接，叶子 applicable 绑定本 item 行为 assertions(PATH/ASSERT)，N/A 用 assertions=[]。报告 verified 须当前基线真实执行、断言通过且未 stale。
+
+planning_coverage_required 下，仅 applicable UI/Resource 维度需 condition_review：UI 核 theme/density/font-scale/loading-error/visibility-layout，Resource 核 theme/density/loading-error。每项 reason/evidence_refs 说明源依据，condition_refs=[{item_id,condition_id}] 覆盖本维度全部 applicable 条件；空列表表示有证据排除。不适用维度免填。源条件发现与布局语义由规划/Auditor 核验，复制率不证明完备性。
+
+## API 与 URL 契约
+
+业务 API 属 Logic/Adhesive。v2 四维 api_review 记录适用性、reason/evidence_refs；适用须 api_inventory_ref 绑定[清单](../../../template/api-inventory.json)。calls 记录源符号/hash、method/URL、请求/响应、错误及副作用；contracts 记录消费者、fixture 与映射，item 用 api_ids 唯一认领。范围外调用须 exclusions 证据。planning_coverage_required 下 api_review.discovery_refs 必填（含不适用判定），绑定检索范围并包含已登记调用的 source_ref。GO/父 MO/Auditor 核对调用入口及排除依据；门禁不自动发现全部 API。
+
+imageSources/Resource 的 API 图片 item 写 api_binding（api_id/response_field）；字段匹配 model field/JSON key，target_source 等于 API response_mapping。非 API 模型来源须 image_source_review(kind=non-api)、reason/evidence_refs。URL 字面值不变，加载器占位/变换另映射；仍须接线与正式图片断言。
+
+dimension_trace.assertions.api_obligations 覆盖 `api_id/route` 和 `api_id/<facet>:<field>`，facet 为 request_fields/response_fields/error_outcomes/state_effects；对应 PATH 绑定 fixture_contract_ref 且为 unit/automation。exact 保持源 method/URL；approved-adaptation 须理由、信封 alternative 及精确 Human 决定。实现 dimension_evidence.consumer_refs 核对目标文件/符号，正式断言证明语义；出现名字不等于 API 等价。源变化沿同 Run 回溯重冻、接线和复测。

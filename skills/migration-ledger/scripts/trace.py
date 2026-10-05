@@ -105,8 +105,8 @@ def query(root, module_id, scenario_id=None, task_id=None, path_id=None, asserti
         plan = module.get('plan') or {}; result = result or {}
         row = {'module_id': module_id, 'path_id': path.get('path_id'), 'case_id': path.get('case_id'),
                'kind': path.get('kind'), 'scenario_ids': [t['scenario_id'] for t in scenarios], 'task_ids': tasks,
-               'phase': node(state, module_id)['phase'], 'stale': node(state, module_id).get('stale', False),
-               'quality': result.get('quality', 'not-executed'), 'test_run_id': result.get('test_run_id'),
+               'phase': node(state, module_id)['phase'], 'stale': node(state, module_id).get('stale', False) or result.get('stale', False),
+               'quality': 'yellow-blocked' if result.get('stale') and result.get('quality') == 'green-passed' else result.get('quality', 'not-executed'), 'test_run_id': result.get('test_run_id'),
                'retest_of': result.get('retest_of'), 'assertions': result.get('assertions', []),
                'root_cause': result.get('root_cause'), 'freeze_id': module.get('freeze_id'),
                'code_baseline': result.get('code_baseline', module.get('code_baseline')),

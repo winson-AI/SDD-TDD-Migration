@@ -43,6 +43,9 @@ def global_review(state):
     if not state.get('behavior_contract_required'):
         return
     modules = {**state.get('module_groups', {}), **state['modules']}
+    if state.get('control_policy_version', 1) >= 2:
+        verification_partition(list(state['modules'].values()))
+        for module in modules.values(): verification(module)
     owners = {}
     for module in modules.values():
         value = module.get('behavior_review')
@@ -62,6 +65,35 @@ def global_review(state):
         for owner in declared - writers:
             require(writer in state.get('module_groups', {}).get(owner, {}).get('children', []),
                     'shared capability owner outside parent allocation: ' + cid)
+
+
+def verification(module):
+    value = (module.get('behavior_review') or {}).get('verification')
+    require(isinstance(value, dict), 'verification boundary required')
+    require(value.get('acceptance_owner') == module['module_id'], 'verification acceptance owner mismatch')
+    for field in ('independent_observation', 'isolation_strategy', 'integration_responsibility'):
+        require(isinstance(value.get(field), str) and value[field].strip(), 'verification missing ' + field)
+    check_ref(value.get('fixture_contract_ref'))
+    require(set(nonempty(value.get('case_ids'), 'verification cases')) == set(module['case_ids']), 'verification case coverage mismatch')
+    require(isinstance(value.get('integration_case_ids'), list) and set(value['integration_case_ids']) <= set(module['case_ids']),
+            'verification integration cases outside allocation')
+    inputs = value.get('provider_inputs')
+    require(isinstance(inputs, list), 'verification provider inputs required (may be empty)')
+    providers = keyed(inputs, 'module_id') if inputs else {}
+    require(set(providers) == set(module['dependencies']), 'verification providers must match actual dependencies')
+    for row in providers.values():
+        require(row.get('required_stage') in ('implemented', 'verified'), 'provider stage must be implemented or verified')
+        check_ref(row.get('contract_ref'))
+    return value
+
+
+def verification_partition(modules):
+    seen = set()
+    for module in modules:
+        value = verification(module)
+        signature = (module['behavior_review']['entry'], value['independent_observation'])
+        require(signature not in seen, 'duplicate verification boundary; reslice or declare a distinct observation')
+        seen.add(signature)
 
 
 def scenario_index(plan):

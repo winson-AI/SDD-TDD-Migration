@@ -1,0 +1,30 @@
+{
+ "schema_version": 1,
+ "_note": "Merge parameter_fill into the UI dimension. Runtime preserves source calculation and variable inputs. Structural maps keywords. Each binding names its actual consumer, source evidence, and frozen behavior assertions. Settled expressions in policy 2 require constant_reason and constant_evidence_refs.",
+ "parameter_fill": {
+  "runtime": [
+   {
+    "id": "{{recorded-expression-id}}",
+    "source_expression": "{{exact-recorded-expression}}",
+    "inputs": [
+     "{{variable-input}}"
+    ],
+    "consumer": "{{absolute-target-file}}#{{runtime-accessor}}",
+    "reason": "{{semantic-equivalence}}",
+    "evidence_refs": [
+     {
+      "path": "{{absolute-evidence-path}}",
+      "sha256": "{{sha256}}"
+     }
+    ],
+    "assertions": [
+     {
+      "path_id": "{{frozen-behavior-PATH}}",
+      "assertion_id": "{{frozen-ASSERT}}"
+     }
+    ]
+   }
+  ],
+  "structural": []
+ }
+}

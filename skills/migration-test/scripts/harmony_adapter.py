@@ -186,7 +186,7 @@ def main():
         validate_query(q)
         from harmony_environment import prepare_environment, load_environment
         run_root = next(x for x in result_path.parents if x.parent.name == '.sdd-runs')
-        config_path, env_path = prepare_environment(run_root, a.config, a.env_file)
+        config_path, env_path = prepare_environment(run_root, a.config, a.env_file, q['module_id'])
         load_environment(env_path)
         config = json.loads(config_path.read_text())
         config['device'] = a.device or config.get('device') or os.environ.get('HARMONY_DEVICE', '')

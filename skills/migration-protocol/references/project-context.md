@@ -8,7 +8,7 @@
 
 1. 项目配置：跨运行复用的代码根目录、架构/需求/用例/规则文档路径、测试执行器、宿主配置和默认预算。模板 [project-context.json](../../../template/project-context.json) 是 `config` 内容。
 2. 本次请求：run_id、entry_mode、module_name 和明确的临时 overrides。默认 project；single-module 只需模式和模块名，不能将本次模块选择保存成项目默认值。
-3. 运行快照：启动时固定的项目版本、有效配置、文档副本和本次选择，供 Global 生成 SPEC/Testing list，并供下游持续读取。
+3. 运行快照：启动时固定的项目版本、有效配置、文档副本和本次选择，供 GO 分析需求/CASE、叶子角色规划实施与测试，并供下游持续读取。
 
 自然语言解析、项目识别和真实 Agent 派发由宿主完成。[project_context.py](../../migration-ledger/scripts/project_context.py) 实际实现配置保存、增量更新、历史、快照与校验；它不生成业务 SPEC 或测试。
 
@@ -78,7 +78,7 @@
 
 prepare 同一请求重试从 `.sdd-migration/runs/<run_id>.json` 找回原位置并返回原快照，即使项目配置已经更新。相同 run_id 指向另一目录会被拒绝；新任务必须使用新 run_id。相同 run_root 的新请求不能覆盖旧快照；初始化过的旧运行也不能后补快照伪造启动依据。prepare 的返回只代表上下文已固化，init ACK 才代表运行进入 Ledger。
 
-配置更新只影响后续新运行。既有运行继续使用冻结版本；需要采用一般新配置时，由 Global 分析影响，使用新 run_id/run_root 准备运行，相关规格按原门禁重新澄清/冻结/复测。唯一的受控例外是 [同 run 只读来源追加](source-changes.md)：GO 评审所有模块影响，Host 提交绑定批准的版本事务，生成 context/revisions 新快照，保留原文件。受影响模块重新冻结/复测，无关有效证据有明确延续记录；不能把配置更新当作测试通过。
+项目 defaults 更新影响后续新任务；当前任务采用新架构、知识、构建/测试/运行配置时，经 [同 Run 上游修订](progress-recovery.md#同-run-上游修订) 发布 context/revisions，保留初始快照。只读来源追加继续走 source-review/reconfigure-sources；不重跑 prepare 覆盖旧上下文。
 
 快照固定配置和引用文档；业务源码、执行器二进制及设备环境仍由已有 code baseline/测试执行回执验证，不声称复制了整个工程或设备环境。
 
@@ -125,5 +125,5 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 ## 跨运行经验沉淀与复用
 
 宿主仅新业务任务启动新 run，同任务调整经 `realloc-request` / `redecompose` 向上追溯重规划。不同 run 间分析/切分经验在项目层抽象复用：
-1. **经验沉淀**：Run 完成验收归档或 `/sdd-retrospect` 时，Ledger 将 `<run_root>/ledger/lessons.json` 提炼追加至 `<workspace_root>/.sdd-migration/experience/lessons.json` 与 `retrospect.jsonl`。
-2. **规划指导**：新任务 `prepare` 与规划阶段将 `experience/` 注入 planning context，辅助切分与防冲突。
+1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察；失败为 pending，可重试。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 Ledger retrospect 或 run-review 的 lessons_ref 提交；harvest 只投影，不改业务状态。
+2. **规划指导**：prepare 仅固化完整抽象经验，原始观察留存供复盘，不臆造根因。本 Run 的不可变 history_refs 纳入通用及关联叶子经验，预检绑定版本；失败/未验证策略辅助避错，已验证模式也不替代当前冻结/测试。

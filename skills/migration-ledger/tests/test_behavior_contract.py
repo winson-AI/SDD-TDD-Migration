@@ -19,6 +19,11 @@ def review(f, module):
             'observable_result': 'result, empty or error', 'production_binding': 'Search route calls repository',
             'boundary_rationale': 'one user-visible query; history remains a separate capability',
             'requirement_ids': module['scope']['requirement_ids'], 'case_ids': module['case_ids'],
+            'verification': {'acceptance_owner': module['module_id'], 'independent_observation': module['module_id'] + ' isolated result',
+                'isolation_strategy': 'fixed fixture inputs with declared provider doubles', 'integration_responsibility': 'consumer owns live-provider integration',
+                'fixture_contract_ref': f.ref('fixture-boundary-' + module['module_id'] + '.md', 'Pinned input state, provider doubles and observable result'),
+                'case_ids': module['case_ids'], 'integration_case_ids': [],
+                'provider_inputs': [{'module_id': mid, 'required_stage': 'verified', 'contract_ref': f.ref('provider-' + mid + '.md', 'Fixed provider input/output contract')} for mid in module.get('dependencies', [])]},
             'shared_capabilities': [], 'unresolved': [],
             'evidence_refs': [f.ref('behavior-review.md', 'Read legacy entry, target bindings, architecture and dependencies')]}
 

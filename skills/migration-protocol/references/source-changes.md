@@ -1,6 +1,6 @@
 # 同 run 追加只读来源：三层影响评审与局部恢复
 
-使用场景：运行中用户补充新的二方库/其他项目模块，需要沿用本 run 的记录。普通项目配置更新仍仅影响新运行；本入口只追加 source_id，不修改 target/legacy、架构、验收、预算、测试配置、registry、scope、write_paths 或依赖。不能覆盖旧 snapshot 或重跑 prepare 来伪造新输入。
+使用场景：运行中用户补充新的二方库/其他项目模块，需要沿用本 run 的记录。项目 defaults 更新面向新任务；同任务一般修订见 [上游修订](progress-recovery.md#同-run-上游修订)；本入口只追加 source_id，不修改 target/legacy、架构、验收、预算、测试配置、registry、scope、write_paths 或依赖。不能覆盖旧 snapshot 或重跑 prepare 来伪造新输入。
 
 ## 总则
 

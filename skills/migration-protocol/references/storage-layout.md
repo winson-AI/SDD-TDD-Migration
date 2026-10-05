@@ -165,11 +165,11 @@ workspace_root 位于目标工程内时，自动构建发现排除 `.sdd-migrati
 | 明确更新项目输入 | 当前配置和历史增加版本 | 旧 run 仍读其冻结快照 |
 | 新 run_id 启动 | 新索引、新 `.sdd-runs/<id>`、新 `openspec/runs/<id>`；规划后新增该 run changes | 重新 GO 规划；不直接继承旧 Green |
 
-同一 run_id 改请求内容会拒绝，不可借此替换冻结上下文。恢复一般直接读索引→status；若重试 prepare 必须重用原请求。同 run 来源追加仍走 source-review/reconfigure-sources，另增 context/revisions，不以普通配置 update 代替。
+同一 run_id 改请求内容会拒绝，不可借此替换冻结上下文。恢复一般直接读索引→status；若重试 prepare 必须重用原请求。同任务一般修订走 run-review/revise-run；来源追加走 source-review/reconfigure-sources，均另增 context/revisions，不以普通配置 update 或 prepare 覆盖代替。
 
 历史不搬迁/改 hash。嵌套旧控制器/协议引用须有本 run 已提交事件的路径/哈希证明，读受管 artifacts 同哈希归档，新事件记 historical-snapshot/accepted_event；缺损拒绝。其他输入及 SPEC/代码/环境仍严格校验；历史不作当前指令。`trace.py evidence --root <run_root> --sha256 <hash>` 返回引用、归档路径/事件证明，不写状态。
 
-重复 prepare 可登记快照索引。init/apply/status/resume/recover 绑定 prepare 布局，init 绑定 project_context_ref。无 storage_layout 时 `ledger.py history --root <目录>` 仅重放，不刷新投影/写锁/诊断；继续须在三目录 prepare 新 run，记录历史来源后重新规划/冻结，不伪装同路径恢复。
+重复 prepare 可登记快照索引。init/apply/status/resume/recover 绑定 prepare 布局，init 绑定 project_context_ref。无 storage_layout 时 `ledger.py history --root <目录>` 仅重放，不刷新投影/写锁/诊断；继续需原版本兼容宿主恢复；采用新布局需兼容迁移评审，不伪装同路径恢复或用新任务替代原任务。
 
 索引或准备记录缺失时，也必须核对快照的 project_id/run_id/run_root 与请求及实际恢复目录一致，再登记索引。复制出来但仍绑定原路径的快照会被拒绝，不写入错误位置索引；应回到原绑定目录恢复。
 
@@ -219,11 +219,11 @@ Harmony 写入器的路径约束见 [Harmony 运行协议](../../migration-test/
 
 Gradle 启动参数与 init.d 机制参考 [官方 init script 文档](https://docs.gradle.org/current/userguide/init_scripts.html)；实际工程插件/Gradle 版本仍需在目标项目验证，Python wrapper 夹具不等于真实 Gradle 构建通过。
 
-本 run 的 Harmony 环境由 Test-Runner 用 sandbox.py prepare 初始化；配置源优先显式输入、长期项目参考、包内 default。共享 environment 加锁幂等、私密权限，不跟随参考源更新；不同配置使用新 run。子模块仅复用配置，各 attempt 独立写结果；不将凭证目录整体归档为 Ledger 工件。
+本 run 的 Harmony 环境由 Test-Runner 用 sandbox.py prepare 初始化；配置源优先显式输入、长期项目参考、包内 default。共享 environment 加锁幂等、私密权限，不跟随参考源更新；同任务配置变化经 run-review/revise-run 批准后使用 environment-<context摘要> 新目录，旧版本留存；不重建 Run。子模块仅复用配置，各 attempt 独立写结果；不将凭证目录整体归档为 Ledger 工件。
 
 初始化先在 environment/preparation.json 原子保存整套配置内容及摘要，再写成员文件，最后提交 manifest.json（status=ready）。所有调用方经过 prepare 验证后才获得配置路径；中途失败保留 preparing，重试读取同一准备内容，即使参考源后来更改/删除也不混用版本。已写成员必须与准备内容一致；提交后的每次复用校验全部摘要，以及 config.native.yaml 当时是否不存在。提交后删除 preparation.json；若在提交与删除之间中断，下次校验完成后清理。准备文件含 .env 的可恢复内容，属于私密凭证资产：目录 700、文件 600，不加入 Ledger/artifacts 或 Git。失败原因保留在调用方原有错误/Yellow 回执中。
 
-无 manifest 的环境不推断历史版本一致性，也不补入当前参考文件；无可靠准备记录时交 Host 核验或使用新 run。完成清单或成员被修改时拒绝静默覆盖，按原环境异常出口处理相关测试；独立任务继续。
+无 manifest 的环境不推断历史版本一致性，也不补入当前参考文件；无可靠准备记录时交 Host 核验，在原 Run 内按受控版本修订恢复。完成清单或成员被修改时拒绝静默覆盖，按原环境异常出口处理相关测试；独立任务继续。
 
 ## 投影异常与视觉工具留存
 

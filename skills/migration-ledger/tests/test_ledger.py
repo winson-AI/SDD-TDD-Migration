@@ -28,6 +28,15 @@ def code_review(f, findings=None, recovery_resolutions=None):
                   c: {'conclusion': 'finding' if any(x['source_module_id'] == mid and x['category'] == c for x in items) else 'satisfied',
                       'reason': 'Inspected small fixture implementation', 'evidence_refs': [proof]} for c in audit_code_review.CHECKS}}
                   for mid in s['modules']]}
+    if s.get('control_policy_version', 1) >= 2:
+        inventory = (s.get('global_plan') or {}).get('content', {}).get('feature_inventory_ref')
+        from contracts import read_json, check_ref
+        report['goal_review'] = {'global_spec_ref': s['global_spec'], 'origin_spec_ref': s.get('host_task_contract', {}).get('global_spec', s['global_spec']),
+            'feature_ids': [r['feature_id'] for r in read_json(check_ref(inventory))['features']] if inventory else [],
+            'requirements': [{'requirement_id': rid, 'conclusion': 'satisfied', 'reason': 'Independently checked original host goal against actual fixture implementation and verification trace',
+                'tasks': [{'module_id': mid, 'task_id': t['task_id']} for mid, m in s['modules'].items() for t in (m.get('plan') or {}).get('tasks', []) if rid in t.get('global_requirement_ids', t['requirement_ids'])],
+                'path_ids': sorted({pid for m in s['modules'].values() for t in (m.get('plan') or {}).get('tasks', []) if rid in t.get('global_requirement_ids', t['requirement_ids']) for pid in t['path_ids']}),
+                'evidence_refs': [proof]} for rid in s['requirement_ids']]}
     f.call('audit-code-review', {'report_ref': f.ref(f'code-review-{f.n}.json', report)}, role='auditor', module=None)
 
 
@@ -60,6 +69,18 @@ class FlowTests(unittest.TestCase):
         s = ledger.read_events(self.root)[0]
         if op == 'init': module = None
         rev = (s['modules'][module]['revision'] if module else s['revision']) if s else 0
+        if s and s.get('control_policy_version', 1) >= 2 and op == 'assign' and (payload or {}).get('mode') != 'design':
+            payload = copy.deepcopy(payload)
+            m = s['modules'][module]
+            payload.setdefault('task_ids', [t['task_id'] for t in m['plan']['tasks'] if payload['role'] != 'implementer' or t['task_id'] not in m.get('accepted_task_ids', [])])
+            import test_validation as tv
+            scope = payload.get('test_scope')
+            paths = [p for p in m['plan']['paths'] if not scope or (p.get('kind') in tv.PRE if scope == 'build' else p.get('kind', 'automation') == scope)]
+            payload.setdefault('path_ids', [p['path_id'] for p in paths])
+            if payload['role'] == 'fixer':
+                findings = [pid for pid, row in m['results'].items() if row['quality'] != 'green-passed']
+                findings += [row['finding_id'] for row in (m.get('diagnosis') or {}).get('findings', [])]
+                payload.setdefault('finding_ids', findings or list(m.get('repair_findings', {})))
         req = request or {'schema_version': 1, 'request_id': str(self.n), 'run_id': 'demo',
                           'module_id': module, 'expected_revision': rev, 'operation': op, 'payload': payload or {}}
         return ledger.apply(self.root, req, {'role': role, 'instance_id': instance or role})

@@ -63,6 +63,25 @@ def _assignment(root, module_id, assignment_id):
     return s
 
 
+def authoring_snapshot(target_root, scopes, run_root):
+    """Host observation before write permission; unrelated workers may change their own scopes."""
+    head = subprocess.run(['git', '-C', target_root, 'rev-parse', 'HEAD'], capture_output=True, text=True)
+    require(head.returncode == 0, 'planning rollback needs a committed Git baseline')
+    import hashlib
+    files = {}
+    excluded, target = managed_roots(run_root), Path(target_root).resolve()
+    for scope in scopes:
+        path = Path(scope).resolve()
+        for source in ([path] if path.is_file() else path.rglob('*') if path.is_dir() else []):
+            if '.git' in source.relative_to(target).parts or any(source.resolve().is_relative_to(root) for root in excluded):
+                continue
+            require(source.resolve().is_relative_to(target), 'authoring proof cannot cover a source link outside target')
+            if source.is_file():
+                files[str(source)] = hashlib.sha256(source.read_bytes()).hexdigest()
+    # Include ignored production sources/resources; Git dirty paths alone cannot prove no writes.
+    return {'head': head.stdout.strip(), 'scopes': list(scopes), 'files': files}
+
+
 def _write(output, receipt):
     out = Path(output)
     require(not out.exists(), 'write scope receipt must be new')
@@ -107,6 +126,8 @@ def verify(s, m, assignment, result, receipt):
                 'write scope receipt is stale: ' + str(path))
         resolved = str(Path(path).resolve())
         if inside(path, m):
+            if assignment.get('execution_contract'):
+                require(any(Path(path).resolve().is_relative_to(Path(p).resolve()) for p in assignment['execution_contract']['write_paths']), 'write outside assigned TASK scope: ' + path)
             require(blob is None or resolved in declared, 'undeclared change inside module scope: ' + path)
             continue
         authorised = False

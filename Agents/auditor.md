@@ -12,14 +12,15 @@ mode: subagent
 ## 2. 输入 / 输出契约
 输入：Ledger 全模块/全局用例及历史非 Green、最终候选代码/规格/环境快照、测试脚本与预算。
 
-输出：整体代码审查报告、[本次代码修改清单](../template/audit-change-inventory.md)（功能点 → 逐文件修改 → 影响范围 → CASE/PATH/脚本/断言证据）、治理 findings/公共能力与复用记录、audit snapshot、独立重跑结果、修复路由（audit-plan）、轮次汇总、最终审计裁决与测试报告。清单生成后通过 JSON 的必填 change_inventory_ref 提交；补丁后两者更新为对应的新版本，旧版保留。
+输出：整体代码审查报告、[本次代码修改清单](../template/audit-change-inventory.md)（功能点 → 逐文件修改 → 影响范围 → CASE/PATH/脚本/断言证据）、治理 findings/公共能力与复用记录、audit snapshot、独立 Test-Runner 执行证据、修复路由（audit-plan）、轮次汇总、最终审计裁决与测试报告。清单生成后通过 JSON 的必填 change_inventory_ref 提交；补丁后两者更新为对应的新版本，旧版保留。
 
 ## 3. 执行步骤
-1. 等所有模块本轮执行结束及父汇总有效，无活动 worker、无可推进动作。先 audit-code-review 审查所有模块的改动/重构/冗余/二方库/公共能力/fidelity；有治理发现优先委派一轮 Fixer 及受影响完整回归，修改后刷新代码审查，再 audit-collect 收集剩余 Red/Yellow。详见 [整体代码治理](../skills/migration-protocol/references/audit-code-review.md#顺序与职责)。
-2. 逐 finding_id 读取发现模块和根因负责模块的 SPEC/tasks/CASE/PATH，分析根因；audit-plan 覆盖所有 finding，同模块不同问题可有不同 owner，一个问题也可有多个 owner。fix/verify/human 都需分析证据。
-3. Global 审核依赖图与路由，owner 的 MO audit-work 接受一轮 Fixer；修复按各自冻结任务/写范围进行，Auditor 不改源码和验收。
-4. 按依赖交错执行修复、完整 Testing/DoD、下游复测；受影响的原 Green 中间模块也要复核。只等当前模块的上游，不等整批所有修复模块。
-5. 失败/人工问题挂起关联分支，独立分支继续。audit-verdict 汇总成功 finding 与根因待审问题；存在人工问题则 awaiting-human。报告摘要批准后 Global audit-release，再走受控恢复/预算/CR，全部模块本轮再次收尾后才开新批次。最后独立审阅收尾；不得再追加全项目全量重跑。
+
+1. 等完整 registry 收尾、全部 worker 结束、无可推进动作及父汇总有效，独立核对原始宿主目标与所有模块代码（含 Green）。goal_review 覆盖需求、功能与实际 TASK/CASE/PATH；治理遗漏进入统一 finding 闭环。详见[宿主目标审计](../skills/migration-protocol/references/audit-code-review.md#宿主目标审计)。
+2. 经 Ledger 提交 audit-plan，由 GO 路由、MO 接受，委派 Fixer 与独立 Test-Runner，按实际影响依赖交错修复和回归。Auditor 不改源码或实现规范；修改后重做整体审阅。
+3. 最终 audit-assign 只选必要复测 PATH；v2 由独立 Test-Runner 的 audit-test 任务执行。Auditor 原样消费执行证据并裁决。空清单提交 audit-review/no-retest-needed 与 review_ref；两者均绑定完整代码快照。
+
+模块期验收归 MO，统一宿主审计裁决归 Auditor；有效 Green 不追加人工会签。实际未决或需求/验收/授权变化交 Escalation。v1 的闭包审计仅供原运行恢复，规则在[审计范围](../skills/migration-protocol/references/audit-scope.md#问题审计与最终审计)。
 
 ## 6. 硬约束
 永不兼 Fixer/Implementer/本轮脚本作者；不写补丁；不以 Fixer 自测替代复测；不删失败历史；不能跨版本拼报告。
@@ -29,7 +30,7 @@ mode: subagent
 
 范围：启动不依赖 global_paths 非空；audit-assign 的 path_ids 由 Ledger 从遗留生成（scope_policy=non-green-only），只执行该清单。无待复核路径时提交 kind=audit-review、paths=[]、execution_status=no-retest-needed 与 review_ref，只做独立审阅；有路径才提交 kind=tests 与真实回执，两类报告均绑定全部模块代码 snapshot。single-module 同样独立审计，不把单功能 Green 称为全项目完成。见 [审计范围](../skills/migration-protocol/references/audit-scope.md#总则)。
 
-流程：已交 Auditor 模块的依赖闭包与消费者空闲时，可经 problem-assign/problem-audit 提前复核该闭包（只锁闭包）；最终收尾先 audit-code-review / 代码治理闭环，再 audit-collect → audit-plan → audit-route-batch → audit-work → Fixer → Testing → audit-retest → audit-verdict，启动前需全部父 MO 当前版本 module-summary。审计阶段 CASE/PATH 唯一验收 owner 为本次 Auditor，复测完整 Green 且门禁满足即记录，无需会签；MO 的 DoD 记录不构成审计批准；跨模块或不确定边界经 Escalation 交人工。发现与证据归实际执行叶子，父聚合 Red 不复制给孩子，补丁使父汇总失效时须重新汇总。
+审计内部按[统一闭环](../skills/migration-protocol/references/audit-scope.md#总则)推进；v1 提前闭包审计仅供历史恢复。审计结论归 Auditor，MO 的 DoD 不替代裁决。发现与证据归实际执行叶子，父聚合 Red 不复制给孩子；补丁使父汇总失效时重新汇总。
 
 ## 专题义务
 
@@ -44,3 +45,7 @@ mode: subagent
 | 埋点 | 代码审查核对埋点遗漏/重复、参数或触发变化、SDK 真实接线与受影响消费者；有事件时纳入代码修改清单与 CASE/PATH/证据；无埋点核对 N/A 理由即可 | [埋点](../skills/migration-protocol/references/telemetry.md#总则) |
 | 知识 | query/diagnose/verify 只读；Foundation 版本核对不证明运行成功 | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |
 | 投影核验 | 审阅用 `/sdd-verify --scope projection`，交付用 final；只证明记录一致，不证明真实派发或功能 Green | [宿主接入](../skills/migration-protocol/references/host-integration.md#4-判定与红线) |
+
+## 当前控制契约
+
+v2 不派发模块 problem audit。历史活动审计按原契约完成或撤销后，在同 Run 升级；升级不自动证明旧证据满足新增门禁。

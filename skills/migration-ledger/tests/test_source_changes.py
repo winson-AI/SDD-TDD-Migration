@@ -91,6 +91,9 @@ class SourceChangeTests(unittest.TestCase):
         p['reuse_plan_ref'] = f.ref(f'reuse-{mid}-{f.n}.json', review)
         p['behavior_contract_required'] = True
         p['source_closure'].update(behavior_review(f, module))
+        for path in p['paths']:
+            if path.get('kind', 'automation') in behavior_contract.BEHAVIOR_KINDS:
+                path['fixture_contract_ref'] = module['behavior_review']['verification']['fixture_contract_ref']
         for ref in p['definitions']:
             if ref['kind'] == 'spec':
                 text = check_ref(ref).read_text().replace('### Requirement: R1', '### Requirement: R1\nRequirement-ID: R1')
@@ -282,7 +285,9 @@ class SourceChangeTests(unittest.TestCase):
             self.assertEqual(after[key], before[key])
         self.freeze('M001'); self.implement_and_test('M001', value=7)
         step = next(x for x in f.state()['next_steps'] if x['module_id'] == 'M001')
-        self.assertEqual(step['operation'], 'audit-defer')
+        # v2 keeps local convergence with MO until the configured total repair budget is exhausted.
+        self.assertEqual(step['operation'], 'diagnose')
+        self.assertEqual(f.state()['modules']['M001']['fix_rounds_used'], before['fix_rounds_used'])
 
     def test_incomplete_impact_receipt_and_unknown_configuration_rejected(self):
         f = self.f

@@ -21,7 +21,7 @@
 | 命令 | 必须提交的 Ledger op(顺序) | 宿主真实工作 | 自证 |
 | --- | --- | --- | --- |
 | `/sdd-init` | `project_context.py prepare` → `ledger.py init`(payload 带 `project_context_ref`)→ `register`(拓扑序)→ `global-plan` | 认证 host;GO 生成功能清单/切片/覆盖;真实规范/架构/用例引用 | `status.openspec_binding.location==top-level`;`events.jsonl` 逐条增长;顶层 `openspec/runs/<run_id>/workflow.md` 出现 |
-| `/sdd-plan` | 树形先 decompose/accept；叶子 assign(mode=design)→submit→MO accept(review_ref)→Spec plan→MO freeze | 独立 Test-Runner 设计、Spec 六件套、真实人工冻结决定 | Ledger 把已接受设计补进 plan；顶层 change/manifest 投影，freeze 绑定人工证据 |
+| `/sdd-plan` | 树形先 decompose/accept；叶子 assign(mode=design)→submit→MO accept(review_ref)→Spec plan→MO freeze | 独立 Test-Runner 设计、Spec 六件套、MO 技术审核与所需人工决定 | Ledger 补全已接受设计；change/manifest 投影，freeze 绑定审核与所需决定 |
 | `/sdd-run`、`/sdd-module` | `assign`/`context-submit`/`submit`/`accept`(implementer)→ 同序(test-runner:先 build 后 automation)→ 需要则 `diagnose`/`diagnosis-accept`/`assign(fixer)` → `complete`;父节点 `module-summary` | 派发各角色隔离实例;真写 target 代码;execute_test 跑真实命令;真实 diff/DoD 审查 | 每 assignment 有 submit+accept;`code_baseline` 与磁盘一致(否则 `observed_invalidations` 报警);`complete` 前全 PATH Green |
 | `/sdd-audit` | `audit-code-review` → `audit-collect` → `audit-plan` → `audit-route-batch` → `audit-work`/`audit-retest` → `audit-verdict`(→`audit-release`) | **独立** Auditor 实例(≠ 任何 implementer/fixer/test 作者)真实重跑;Fixer 按路由修复 | `authors` 独立性校验通过;audit 报告绑定当前 snapshot;`audit-reports/<batch>.md` 生成 |
 | `/sdd-archive` | 宿主 OpenSpec CLI 同步/归档(无 Ledger `archive` op) | 人工交付授权;代码合并另行授权 | `verify_openspec --scope final` 通过 + 原归档质量门禁;归档不等于合并 |
@@ -85,15 +85,21 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 ## 提示采纳回报
 
-**轮询。** 宿主用 `ledger.py status --view cursor --since <上次 last_sequence>`：没有新事件时只返回 `unchanged` 与进度信号；否则返回游标、`module_summary` 和信号摘要，步骤只带 `card_sha256`，`cards` 只给各卡的字节数与小节数。派发或执行一步用 `--view step --module <id>`（全局步骤省略 `--module`）：本步、请求信封字段、本阶段预检要求（摘要、检查项、必读输入个数与摘要）、本模块分配包与当前 assignment，规划类步骤另带 planning_context。单个模块的状态用 `--view module --module <id>`（不含 plan 与场景索引正文，经 plan_ref 读取）。`--view full`（全部模块正文、`openspec_binding`、`parent_mo_names`、信号证据、卡片行清单）随模块数增长，只供脚本处理，不读入模型上下文。输出是紧凑 JSON。
+**轮询。** status --view cursor --since <sequence> 未变返回 unchanged/进度，变化返回游标、模块/信号摘要及卡大小。--view step [--module <id>] 给本步信封/预检/分配/assignment，规划加 planning_context；--view module 不带 plan/场景正文，full 仅供脚本。
 
-**取卡。** `reading.py render --root <run> --module <id>`（全局步骤用 `--global`）把当前卡写成 `reports/reading/<card_sha256>.md`，派发只传该路径。卡内不保留指向整份协议的链接：小节引用写成“文件 § 小节”，可直接交给 `reading.py show --ref <文件> --section <小节>`（操作矩阵可写 `操作矩阵@<operation>` 只取一行）。卡尾列出本步模板（步骤的 `templates`），不必读模板索引。`card_sha256` 绑定小节正文。
+**取卡。** reading.py render --root <run> (--module <id>|--global) 写 reports/reading/<card_sha256>.md，派发传路径。卡外 reading.py show --ref <文件> --section <小节>；操作矩阵支持 操作矩阵@<operation>。
 
-**会话。** 恢复建议会话时只交尚未持有或正文已变的小节（`render --resumed`，游标的 `card_new` 给出其大小），冷启动用完整卡。任何模块请求可带顶层 `hint{session_id, card_sha256}` 报告所用会话与卡片（assign 也接受 payload 中的同名字段），与当前游标步骤一致时计入该会话已持有的小节。会话累计持有的协议文本达到阈值时，步骤带 `session_rotate`：建议按 checkpoint 冷启动该角色并交完整卡。门禁拒绝的响应与 `reports/rejected-operation.json` 带 `read_hint`（该门禁所在小节）。
+**回报。** hint{session_id,card_sha256,context_inputs} 报实际交付；assign 会话/卡也可用 payload。匹配游标才计协议卡，恢复/轮换见[渐进加载](runtime.md#渐进加载)。拒绝响应及 rejected-operation.json 带 read_hint。
 
-**机械步骤。** `mechanical=true`（全绿测试结果的 accept、执行派发的 assign）不调用模型：`ledger.py advance --root <run> --module <id> --host-context <MO 身份>` 以 MO 身份依次提交该模块全部机械步骤，每步照常过守卫，停在需要模型或人的步骤并写出它的阅读卡；派发的实例默认 `<role>-<module>`，可用 `--worker <role>=<instance>` 指定，已有预检时沿用该实例。派发后 worker 在同一会话内先 context-submit 再工作。被拒再交 MO。人工批准绑定游标步骤的 `approval_subject_sha256`（冻结、恢复、审计放行与审计处置）。
+**机械步骤。** mechanical=true 的 accept（测试全绿）/assign（执行派发）用 `ledger.py advance --root <run> --module <id> --host-context <MO 身份>` 连续执行，逐步守卫；停在模型/人工步骤并写卡。worker 默认 `<role>-<module>`，`--worker <role>=<instance>` 可覆盖，有预检则沿用；先同会话 context-submit，被拒再交 MO。人工决定绑定游标 approval_subject_sha256（冻结/恢复/审计放行与处置）。
 
-以上都是建议：Ledger 只记录是否一致（`status.hint_adoption`），不据此拒绝派发；持续 not_followed/unreported 应在接入层修正，而不是放宽门禁。
+选择建议记 status.hint_adoption；冷恢复须满足版本/宿主回执守卫。
+
+## 会话交接
+
+仅替换会话时读。结束相关 worker，全局须全体 worker/审计结束。Host 创建独立会话，保存 session_rotate.checkpoint 为 checkpoint_ref。MO（模块）/Host（全局）提交 session(role,session_id,reason,checkpoint_ref)，reason=context-rotation|session-unavailable，新旧 ID 必须不同。
+
+新 prepare 固化 host_handoff_required，替换另交 host_receipt_ref：producer=host、status=restored、run_id/module_id/role、previous_session_id/session_id、checkpoint_ref、restored_refs、evidence_refs（实际创建/恢复记录）。Ledger 核版本/恢复引用，禁换 hint 冒充。旧 Run 保留原契约。
 
 ## 本地修复单次派发
 

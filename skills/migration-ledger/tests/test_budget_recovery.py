@@ -116,3 +116,39 @@ class BudgetRecoveryTests(unittest.TestCase):
                 self.assertTrue(s['decisions']['BUDGET']['consumed'])
                 self.assertEqual(m['results'], results)
                 self.assertEqual(s['modules']['M002'], peer)
+
+
+class AuditBudgetRecoveryTests(unittest.TestCase):
+    def setUp(self):
+        import test_ledger
+        self.f = f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        f.prepare(); f.implementation()
+        a, result = f.make_test_result(); f.submit(result, a); f.call('accept', {'assignment_id': a['assignment_id']})
+        f.call('complete', {'dod_ref': f.ref('dod.md', 'All paths Green')})
+        test_ledger.code_review(f)
+        for i in range(3):
+            f.call('audit-assign', {'assignment_id': 'AUD-'+str(i), 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
+            f.call('audit-revoke', {'assignment_id': 'AUD-'+str(i), 'stopped_worker_ref': f.ref('stop-'+str(i)+'.md', 'Fixture auditor stopped')}, role='host', module=None)
+
+    def test_final_audit_renewal_is_same_run_and_does_not_reset_attempts(self):
+        import workflow
+        f = self.f; before = f.state()
+        step = before['global_next_step']
+        self.assertEqual(step['operation'], 'audit-recover')
+        self.assertFalse(step['ready'])
+        subject = workflow.audit_recovery_subject(before, ['GLOBAL'], 2)
+        f.call('decision', {'decision_id': 'AUD-BUDGET', 'module_id': None, 'decision': 'approved', 'subject_sha256': subject,
+                           'human_source_ref': f.ref('audit-budget.md', 'Approve two further audits in this task')}, role='host', module=None)
+        f.call('audit-recover', {'module_ids': ['GLOBAL'], 'additional_rounds': 2, 'decision_id': 'AUD-BUDGET'}, role='global-orchestrator', module=None)
+        after = f.state()
+        self.assertEqual(after['audit_attempts'], 3)
+        self.assertEqual(after['audit_budgets']['GLOBAL'], 5)
+        self.assertEqual(after['modules'], before['modules'])
+        f.call('audit-assign', {'assignment_id': 'AUD-4', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
+        self.assertEqual(f.state()['audit_attempts'], 4)
+
+    def test_audit_renewal_rejects_unapproved_budget(self):
+        f = self.f; before = ledger.read_events(f.root)
+        with self.assertRaisesRegex(Rejected, 'decision'):
+            f.call('audit-recover', {'module_ids': ['GLOBAL'], 'additional_rounds': 1, 'decision_id': 'MISSING'}, role='global-orchestrator', module=None)
+        self.assertEqual(ledger.read_events(f.root), before)

@@ -1,492 +1,501 @@
 {
-  "_note": "Examples, not executed evidence. Generic semantic models are presence-triggered; prepared runs require UI models/evidence for applicable UI.",
-  "ui_item_example": {
-    "semantic_model": {
-      "kind": "ui-component-spec",
-      "model_ref": {
-        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/ui.component.json",
-        "sha256": "{{sha256}}"
-      },
-      "ui_evidence": {
-        "ui_tree_ref": {
-          "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/ui-tree.json",
-          "sha256": "{{sha256}}"
-        },
-        "coverage": "settings:base:viewport",
-        "visual_mode": "runtime",
-        "legacy_executable": true,
-        "baseline_refs": [
-          {
-            "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture-agent}}/{{request-id}}/shot.png",
-            "sha256": "{{sha256}}"
-          }
-        ],
-        "capture_manifest_ref": {
-          "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture-agent}}/{{request-id}}/manifest.json",
-          "sha256": "{{actual-manifest-sha256}}"
-        },
-        "source_index_ref": {
-          "path": "{{absolute-run-root}}/staging/{{spec-designer}}/{{request-id}}/ui-source-index.json",
-          "sha256": "{{actual-source-index-sha256}}"
-        },
-        "resource_scope": {
-          "_note": "Optional reviewed exclusions, each with reason and evidence_refs. exclusions: indexed variants outside this UI scope ({source_resource, qualifier, path}); every remaining resource needs one Resource item or one copy plan row with the same source path/hash, and an excluded qualifier must not be declared active in configuration_mapping.scope.configurations. signal_exclusions: recorded image sources this target does not show ({signal_id}). usage_exclusions: scoped code this target does not show ({symbol and/or ref}; symbol is a class or Class.method) - every other file resource the scoped code uses must be declared by a node of the tree.",
-          "exclusions": [],
-          "signal_exclusions": [],
-          "usage_exclusions": []
-        },
-        "runtime_index_ref": {
-          "path": "{{absolute-run-root}}/staging/{{spec-designer}}/{{request-id}}/runtime-ui-index.json",
-          "sha256": "{{actual-runtime-index-sha256}}"
-        }
-      },
-      "source": {
-        "origin": "legacy",
-        "locator": "ui/SettingsActivity.java#SettingsAdapter",
-        "evidence_refs": []
-      },
-      "implementation_location": {
-        "target_path": "{{absolute-target-root}}/ui/settings/SettingsScreen.kt",
-        "symbol": "SettingsScreen"
-      }
-    }
-  },
-  "logic_item_example": {
-    "semantic_model": {
-      "kind": "logic-statechart",
-      "model_ref": {
-        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/logic.statechart.json",
-        "sha256": "{{sha256}}"
-      },
-      "source": {
-        "origin": "target",
-        "locator": "ui/settings/SettingsViewModel.kt",
-        "evidence_refs": []
-      },
-      "implementation_location": {
-        "target_path": "{{absolute-target-root}}/ui/settings/SettingsViewModel.kt",
-        "symbol": "reducer"
-      }
-    }
-  },
-  "resource_item_example": {
-    "semantic_model": {
-      "kind": "design-tokens",
-      "model_ref": {
-        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/tokens.json",
-        "sha256": "{{sha256}}"
-      },
-      "source": {
-        "origin": "authored",
-        "evidence_refs": []
-      },
-      "implementation_location": {
-        "target_path": "{{absolute-target-root}}/ui/theme/Tokens.kt"
-      }
-    }
-  },
-  "platform_resource_item_example": {
-    "_note": "Optional Resource item fields for an Android framework resource. SDK metadata and data/res definitions are read-only external inputs, never generated migration assets. Use the SDK version actually selected for the source; these placeholders are not evidence. Existing consumer/target/task/assertion trace requirements still apply. The constrained converter handles legacy files; platform tokens/adaptations are implemented under the frozen task. If the real definition/version cannot be established, use blocked with its reason rather than inventing a value.",
-    "source_resource": "@android:color/black",
-    "source_resource_ref": {
-      "path": "{{readonly-sdk-platform-root}}/data/res/values/colors.xml",
-      "sha256": "{{actual-sdk-definition-sha256}}"
+ "_note": "Examples, not executed evidence. Generic semantic models are presence-triggered; prepared runs require UI models/evidence for applicable UI.",
+ "ui_item_example": {
+  "semantic_model": {
+   "kind": "ui-component-spec",
+   "model_ref": {
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/ui.component.json",
+    "sha256": "{{sha256}}"
+   },
+   "ui_evidence": {
+    "ui_tree_ref": {
+     "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/ui-tree.json",
+     "sha256": "{{sha256}}"
     },
-    "platform_resource": {
-      "api_level": 35,
-      "sdk_metadata_ref": {
-        "path": "{{readonly-sdk-platform-root}}/source.properties",
-        "sha256": "{{actual-sdk-metadata-sha256}}"
-      }
-    },
-    "resource_kind": "color",
-    "resource_strategy": "design_token_exact",
-    "qualifier": "base",
-    "target_resource": "{{absolute-target-root}}/ui/theme/Tokens.kt#PlatformBlack",
-    "consumer": [
-      "{{absolute-target-root}}/ui/settings/SettingsScreen.kt#SettingsBackground"
-    ]
-  },
-  "conformance_evidence_example": {
-    "_note": "At implementation, each item's dimension_evidence must bind the frozen model so downstream provably consumed it.",
-    "dimension_evidence": [
-      {
-        "item_id": "M001-Logic",
-        "task_ids": [
-          "TASK-M001-001"
-        ],
-        "summary": "Ported the frozen statechart into SettingsViewModel.reducer",
-        "evidence_refs": [
-          {
-            "path": "{{absolute-run-root}}/staging/implementer/{{request-id}}/binding.md",
-            "sha256": "{{sha256}}"
-          }
-        ],
-        "semantic_conformance": {
-          "model_ref": {
-            "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/logic.statechart.json",
-            "sha256": "{{sha256}}"
-          },
-          "evidence_refs": [
-            {
-              "path": "{{absolute-target-root}}/ui/settings/SettingsViewModel.kt",
-              "sha256": "{{sha256}}"
-            }
-          ],
-          "_ui_note": "UI items whose model carries ui_evidence must add baseline_conformance citing what guided the coding",
-          "baseline_conformance": {
-            "_runtime": "previewable legacy: repeat ui_evidence.baseline_refs exactly",
-            "baseline_refs": [
-              {
-                "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture-agent}}/{{request-id}}/shot.png",
-                "sha256": "{{sha256}}"
-              }
-            ],
-            "_source_only": "non-previewable legacy: cite ui_evidence.ui_tree_ref instead"
-          }
-        }
-      }
-    ]
-  },
-  "image_checks_example": {
-    "_note": "Declared next to ui_evidence in a ui-component-spec model. A check freezes what a node of the UI tree must show on the target screen; kind is image (default: one legacy picture), text (one legacy string) or node (the node is there). screen-checks derives the image checks of a module and renders their references; the selector it writes is the node id without node: as resource-id, so the target gives that node the same key. reference.render_ref is the reference.json rendered for exactly this source_resource and qualifier; target.selector uses exact class/resource-id/text/content-desc values of the node in the captured target view tree. tolerance is optional (shape_iou_min 0.5-1, aspect_delta_max, color null/reference/#RRGGBB, color_delta_max, content_min 0.5-1 for a picture that fills its frame). A text check names a @string and the text the source index holds for that qualifier. Every still picture a node declares needs an image check on that node or a waiver in image_check_waivers (reason and evidence_refs; node_id and source_resource narrow it). A visual PATH carries checks by id (image_check_ids); declared checks that no PATH carries are rejected.",
-    "image_checks": [
-      {
-        "id": "settings-back-icon",
-        "node_id": "node:settings.toolbar.back",
-        "source_resource": "@drawable/ic_back",
-        "qualifier": "xxhdpi",
-        "reference": {
-          "render_ref": {
-            "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/reference.json",
-            "sha256": "{{actual-reference-json-sha256}}"
-          }
-        },
-        "target": {
-          "selector": {
-            "resource-id": "{{exact-resource-id-in-the-target-view-tree}}"
-          },
-          "capture_index": 0
-        },
-        "tolerance": {
-          "shape_iou_min": 0.72
-        }
-      },
-      {
-        "id": "settings-title-text",
-        "kind": "text",
-        "node_id": "node:settings.toolbar.title",
-        "source_resource": "@string/settings_title",
-        "qualifier": "base",
-        "expect": {
-          "text": "{{text-the-source-index-holds-for-this-string-and-qualifier}}"
-        },
-        "target": {
-          "selector": {
-            "resource-id": "settings.toolbar.title"
-          }
-        }
-      },
-      {
-        "id": "settings-toolbar-present",
-        "kind": "node",
-        "node_id": "node:settings.toolbar",
-        "target": {
-          "selector": {
-            "resource-id": "settings.toolbar"
-          }
-        }
-      }
+    "coverage": "settings:base:viewport",
+    "visual_mode": "runtime",
+    "legacy_executable": true,
+    "baseline_refs": [
+     {
+      "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture-agent}}/{{request-id}}/shot.png",
+      "sha256": "{{sha256}}"
+     }
     ],
-    "image_check_waivers": [
-      {
-        "node_id": "node:settings.row.avatar",
-        "source_resource": "@drawable/avatar_placeholder",
-        "reason": "{{why-this-state-of-the-screen-cannot-show-the-picture}}",
-        "evidence_refs": [
-          {
-            "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/waiver-review.md",
-            "sha256": "{{actual-review-sha256}}"
-          }
-        ]
-      }
-    ]
-  },
-  "picture_source_item_example": {
-    "_note": "Resource item for one imageSources record of the source index (a picture without a resource file). source_signal replaces source_resource and qualifier; resource_kind equals the record kind. source_equivalent (remote-image only) names where the target loads the same picture and maps placeholder/error/fallback to Resource item ids, or {absent: reason}, and each transform as {legacy, target}; other kinds use manual_exact or blocked. resource-scan returns a pre-filled skeleton for every record.",
-    "item_id": "DIM-M001-RESOURCE-010",
-    "source_signal": "src:remote-image:{{id-from-imageSources}}",
-    "resource_kind": "remote-image",
-    "resource_strategy": "source_equivalent",
-    "target_source": "{{target-expression-that-yields-the-same-url}}",
-    "loader_mapping": {
-      "placeholder": "{{resource-item-id-of-the-placeholder}}",
-      "error": {
-        "absent": "{{reason-the-legacy-loader-had-none}}"
-      },
-      "transforms": [
-        {
-          "legacy": "circleCrop()",
-          "target": "{{target-equivalent}}"
-        }
-      ]
+    "capture_manifest_ref": {
+     "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture-agent}}/{{request-id}}/manifest.json",
+     "sha256": "{{actual-manifest-sha256}}"
     },
-    "target_resource": "{{absolute-target-root}}/ui/settings/Avatar.kt#loadAvatar",
-    "consumer": [
-      "{{absolute-target-root}}/ui/settings/SettingsScreen.kt#Avatar"
-    ]
+    "source_index_ref": {
+     "path": "{{absolute-run-root}}/staging/{{spec-designer}}/{{request-id}}/ui-source-index.json",
+     "sha256": "{{actual-source-index-sha256}}"
+    },
+    "resource_scope": {
+     "_note": "Optional reviewed exclusions, each with reason and evidence_refs. exclusions: indexed variants outside this UI scope ({source_resource, qualifier, path}); every remaining resource needs one Resource item or one copy plan row with the same source path/hash, and an excluded qualifier must not be declared active in configuration_mapping.scope.configurations. signal_exclusions: recorded image sources this target does not show ({signal_id}). usage_exclusions: scoped code this target does not show ({symbol and/or ref}; symbol is a class or Class.method) - every other file resource the scoped code uses must be declared by a node of the tree.",
+     "exclusions": [],
+     "signal_exclusions": [],
+     "usage_exclusions": []
+    },
+    "runtime_index_ref": {
+     "path": "{{absolute-run-root}}/staging/{{spec-designer}}/{{request-id}}/runtime-ui-index.json",
+     "sha256": "{{actual-runtime-index-sha256}}"
+    }
+   },
+   "source": {
+    "origin": "legacy",
+    "locator": "ui/SettingsActivity.java#SettingsAdapter",
+    "evidence_refs": []
+   },
+   "implementation_location": {
+    "target_path": "{{absolute-target-root}}/ui/settings/SettingsScreen.kt",
+    "symbol": "SettingsScreen"
+   }
+  }
+ },
+ "logic_item_example": {
+  "semantic_model": {
+   "kind": "logic-statechart",
+   "model_ref": {
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/logic.statechart.json",
+    "sha256": "{{sha256}}"
+   },
+   "source": {
+    "origin": "target",
+    "locator": "ui/settings/SettingsViewModel.kt",
+    "evidence_refs": []
+   },
+   "implementation_location": {
+    "target_path": "{{absolute-target-root}}/ui/settings/SettingsViewModel.kt",
+    "symbol": "reducer"
+   }
+  }
+ },
+ "resource_item_example": {
+  "semantic_model": {
+   "kind": "design-tokens",
+   "model_ref": {
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/tokens.json",
+    "sha256": "{{sha256}}"
+   },
+   "source": {
+    "origin": "authored",
+    "evidence_refs": []
+   },
+   "implementation_location": {
+    "target_path": "{{absolute-target-root}}/ui/theme/Tokens.kt"
+   }
+  }
+ },
+ "platform_resource_item_example": {
+  "_note": "Optional Resource item fields for an Android framework resource. SDK metadata and data/res definitions are read-only external inputs, never generated migration assets. Use the SDK version actually selected for the source; these placeholders are not evidence. Existing consumer/target/task/assertion trace requirements still apply. The constrained converter handles legacy files; platform tokens/adaptations are implemented under the frozen task. If the real definition/version cannot be established, use blocked with its reason rather than inventing a value.",
+  "source_resource": "@android:color/black",
+  "source_resource_ref": {
+   "path": "{{readonly-sdk-platform-root}}/data/res/values/colors.xml",
+   "sha256": "{{actual-sdk-definition-sha256}}"
   },
-  "picture_replacement_item_example": {
-    "_note": "A still bitmap or vector replaced by hand (manual_exact) carries exactly one of image_check (a declared check, carried by a visual PATH, for the same source_resource and qualifier) or deviation. deviation.alternative must be one of the plan's decision_envelope.allowed_alternatives, which a human approves with the plan. An animation or a nine-patch cannot be measured offline: replaced by hand it carries a deviation and no image_check. Drawing code (code-drawn) is ported like other code and keeps its reviewed manual_exact.",
-    "item_id": "DIM-M001-RESOURCE-011",
+  "platform_resource": {
+   "api_level": 35,
+   "sdk_metadata_ref": {
+    "path": "{{readonly-sdk-platform-root}}/source.properties",
+    "sha256": "{{actual-sdk-metadata-sha256}}"
+   }
+  },
+  "resource_kind": "color",
+  "resource_strategy": "design_token_exact",
+  "qualifier": "base",
+  "target_resource": "{{absolute-target-root}}/ui/theme/Tokens.kt#PlatformBlack",
+  "consumer": [
+   "{{absolute-target-root}}/ui/settings/SettingsScreen.kt#SettingsBackground"
+  ]
+ },
+ "conformance_evidence_example": {
+  "_note": "At implementation, each item's dimension_evidence must bind the frozen model so downstream provably consumed it.",
+  "dimension_evidence": [
+   {
+    "item_id": "M001-Logic",
+    "task_ids": [
+     "TASK-M001-001"
+    ],
+    "summary": "Ported the frozen statechart into SettingsViewModel.reducer",
+    "evidence_refs": [
+     {
+      "path": "{{absolute-run-root}}/staging/implementer/{{request-id}}/binding.md",
+      "sha256": "{{sha256}}"
+     }
+    ],
+    "semantic_conformance": {
+     "model_ref": {
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/logic.statechart.json",
+      "sha256": "{{sha256}}"
+     },
+     "evidence_refs": [
+      {
+       "path": "{{absolute-target-root}}/ui/settings/SettingsViewModel.kt",
+       "sha256": "{{sha256}}"
+      }
+     ],
+     "_ui_note": "UI items whose model carries ui_evidence must add baseline_conformance citing what guided the coding",
+     "baseline_conformance": {
+      "_runtime": "previewable legacy: repeat ui_evidence.baseline_refs exactly",
+      "baseline_refs": [
+       {
+        "path": "{{absolute-run-root}}/runs/harmony/sandbox/{{capture-agent}}/{{request-id}}/shot.png",
+        "sha256": "{{sha256}}"
+       }
+      ],
+      "_source_only": "non-previewable legacy: cite ui_evidence.ui_tree_ref instead"
+     }
+    }
+   }
+  ]
+ },
+ "image_checks_example": {
+  "_note": "Declared next to ui_evidence in a ui-component-spec model. A check freezes what a node of the UI tree must show on the target screen; kind is image (default: one legacy picture), text (one legacy string) or node (the node is there). screen-checks derives the image checks of a module and renders their references; the selector it writes is the node id without node: as resource-id, so the target gives that node the same key. reference.render_ref is the reference.json rendered for exactly this source_resource and qualifier; target.selector uses exact class/resource-id/text/content-desc values of the node in the captured target view tree. tolerance is optional (shape_iou_min 0.5-1, aspect_delta_max, color null/reference/#RRGGBB, color_delta_max, content_min 0.5-1 for a picture that fills its frame). A text check names a @string and the text the source index holds for that qualifier. Every still picture a node declares needs an image check on that node or a waiver in image_check_waivers (reason and evidence_refs; node_id and source_resource narrow it). A visual PATH carries checks by id (image_check_ids); declared checks that no PATH carries are rejected.",
+  "image_checks": [
+   {
+    "id": "settings-back-icon",
+    "node_id": "node:settings.toolbar.back",
     "source_resource": "@drawable/ic_back",
     "qualifier": "xxhdpi",
-    "resource_kind": "bitmap",
-    "resource_strategy": "manual_exact",
-    "adaptation_evidence_ref": {
-      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/adaptation-review.md",
-      "sha256": "{{actual-review-sha256}}"
+    "reference": {
+     "render_ref": {
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/reference.json",
+      "sha256": "{{actual-reference-json-sha256}}"
+     }
     },
-    "image_check": "settings-back-icon",
-    "deviation": null
-  },
-  "model_schemas": {
-    "ui-component-spec": {
-      "root": {
-        "type": "Column",
-        "props": {},
-        "children": [
-          {
-            "type": "SwitchRow",
-            "props": {
-              "titleKey": "settings.notifications"
-            },
-            "bindings": {
-              "checked": "state.notificationsEnabled"
-            }
-          }
-        ]
-      }
+    "target": {
+     "selector": {
+      "resource-id": "{{exact-resource-id-in-the-target-view-tree}}"
+     },
+     "capture_index": 0
     },
-    "logic-statechart": {
-      "id": "settings",
-      "initial": "idle",
-      "states": {
-        "idle": {
-          "on": {
-            "TOGGLE": {
-              "target": "saving",
-              "cond": {
-                "==": [
-                  {
-                    "var": "network"
-                  },
-                  "online"
-                ]
-              }
-            }
-          }
-        },
-        "saving": {
-          "on": {
-            "DONE": "idle"
-          }
-        }
-      }
-    },
-    "design-tokens": {
-      "color": {
-        "primary": {
-          "$type": "color",
-          "$value": "#336699"
-        }
-      },
-      "space": {
-        "sm": {
-          "$type": "dimension",
-          "$value": "8px"
-        }
-      }
-    },
-    "icu-messages": {
-      "settings.notifications": "Notifications",
-      "settings.saved": "{count, plural, one {# change saved} other {# changes saved}}"
+    "tolerance": {
+     "shape_iou_min": 0.72
     }
-  },
-  "ui_tree_contract": {
-    "_note": "Native source-backed tree example for a screen, its title and one adapter row. Instantiate source anchors and collected XML facts without changing the native object/list shapes. Expand every reachable XML selector and attachment; this example does not declare another application's source closure. For source-only evidence omit runtimeIndex/runtimeIndexSha256 and runtimeObservations. Retain original indexes/capture manifest; structural validation does not prove semantic completeness.",
-    "schemaVersion": 1,
-    "scope": "{{change-id}}",
-    "generatedFrom": {
-      "sourceIndex": "{{source-index-path}}",
-      "sourceIndexSha256": "{{source-index-sha256}}",
-      "runtimeIndex": "{{runtime-index-path}}",
-      "runtimeIndexSha256": "{{runtime-index-sha256}}"
+   },
+   {
+    "id": "settings-title-text",
+    "kind": "text",
+    "node_id": "node:settings.toolbar.title",
+    "source_resource": "@string/settings_title",
+    "qualifier": "base",
+    "expect": {
+     "text": "{{text-the-source-index-holds-for-this-string-and-qualifier}}"
     },
-    "screens": [
-      {
-        "id": "settings",
-        "name": "Settings",
-        "kind": "fragment",
-        "root": {
-          "id": "settings.root",
-          "name": "Settings root",
-          "nodeKind": "container",
-          "viewClass": "LinearLayout",
-          "analysisStatus": "expanded",
-          "source": {
-            "path": "{{screen-layout-path}}",
-            "selector": "{{screen-root-selector}}",
-            "origin": "xml",
-            "line": null
-          },
-          "initialVisibility": "visible",
-          "layout": {
-            "kind": "vertical",
-            "scrollable": false,
-            "rawAttrs": {
-              "android:layout_width": "match_parent",
-              "android:layout_height": "match_parent"
-            },
-            "resolvedAttrs": {}
-          },
-          "presentation": {
-            "purpose": "Container for settings content",
-            "appearance": "{{source-backed-root-appearance}}",
-            "resourceRefs": []
-          },
-          "bindings": [
-            {
-              "target": "{{binding-target}}",
-              "source": "{{binding-source}}",
-              "sourcePath": "{{renderer-source-path}}",
-              "selector": "{{binding-source-selector}}"
-            }
-          ],
-          "events": [
-            {
-              "trigger": "{{event-trigger}}",
-              "handler": "{{event-handler}}",
-              "sourcePath": "{{renderer-source-path}}",
-              "selector": "{{event-source-selector}}"
-            }
-          ],
-          "dynamicRules": [
-            {
-              "when": "{{dynamic-condition}}",
-              "property": "{{dynamic-property}}",
-              "result": "{{dynamic-result}}",
-              "sourcePath": "{{renderer-source-path}}",
-              "selector": "{{dynamic-source-selector}}"
-            }
-          ],
-          "capabilities": {
-            "scroll": false
-          },
-          "runtimeObservations": [
-            {
-              "pageId": "settings",
-              "stateId": "base",
-              "viewSignature": "{{runtime-view-signature}}"
-            }
-          ],
-          "children": [
-            {
-              "id": "settings.root.1",
-              "name": "Settings title",
-              "nodeKind": "view",
-              "viewClass": "TextView",
-              "analysisStatus": "leaf",
-              "source": {
-                "path": "{{screen-layout-path}}",
-                "selector": "{{title-selector}}",
-                "origin": "xml",
-                "line": null
-              },
-              "initialVisibility": "visible",
-              "layout": {
-                "kind": "leaf",
-                "scrollable": false,
-                "rawAttrs": {
-                  "android:layout_width": "match_parent",
-                  "android:layout_height": "wrap_content",
-                  "android:text": "@string/settings_title"
-                },
-                "resolvedAttrs": {}
-              },
-              "presentation": {
-                "purpose": "Settings title",
-                "appearance": "Text from the source string resource",
-                "resourceRefs": ["@string/settings_title"]
-              },
-              "bindings": [],
-              "events": [],
-              "dynamicRules": [],
-              "capabilities": {},
-              "children": []
-            }
-          ]
-        },
-        "attachments": [
-          {
-            "id": "settings.row",
-            "kind": "list_item",
-            "anchorNodeId": "settings.root",
-            "root": {
-              "id": "settings.row",
-              "name": "Settings adapter row",
-              "nodeKind": "view",
-              "viewClass": "TextView",
-              "analysisStatus": "leaf",
-              "source": {
-                "path": "{{row-layout-path}}",
-                "selector": "{{row-root-selector}}",
-                "origin": "xml",
-                "line": null
-              },
-              "initialVisibility": "visible",
-              "layout": {
-                "kind": "leaf",
-                "scrollable": false,
-                "rawAttrs": {
-                  "android:layout_width": "match_parent",
-                  "android:layout_height": "wrap_content",
-                  "android:text": "@string/settings_title"
-                },
-                "resolvedAttrs": {}
-              },
-              "presentation": {
-                "purpose": "Repeated settings row",
-                "appearance": "Text from the source string resource",
-                "resourceRefs": ["@string/settings_title"]
-              },
-              "bindings": [],
-              "events": [],
-              "dynamicRules": [],
-              "capabilities": {},
-              "children": []
-            }
-          }
-        ]
-      }
-    ],
-    "layoutClosure": [
-      {
-        "path": "{{screen-layout-path}}",
-        "role": "screen",
-        "nodeIds": ["settings.root", "settings.root.1"],
-        "status": "mapped",
-        "reason": "Screen root and every child selector are represented"
+    "target": {
+     "selector": {
+      "resource-id": "settings.toolbar.title"
+     }
+    }
+   },
+   {
+    "id": "settings-toolbar-present",
+    "kind": "node",
+    "node_id": "node:settings.toolbar",
+    "target": {
+     "selector": {
+      "resource-id": "settings.toolbar"
+     }
+    }
+   }
+  ],
+  "image_check_waivers": [
+   {
+    "node_id": "node:settings.row.avatar",
+    "source_resource": "@drawable/avatar_placeholder",
+    "reason": "{{why-this-state-of-the-screen-cannot-show-the-picture}}",
+    "evidence_refs": [
+     {
+      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/waiver-review.md",
+      "sha256": "{{actual-review-sha256}}"
+     }
+    ]
+   }
+  ]
+ },
+ "picture_source_item_example": {
+  "_note": "Resource item for one imageSources record of the source index (a picture without a resource file). source_signal replaces source_resource and qualifier; resource_kind equals the record kind. source_equivalent (remote-image only) names where the target loads the same picture and maps placeholder/error/fallback to Resource item ids, or {absent: reason}, and each transform as {legacy, target}; other kinds use manual_exact or blocked. resource-scan returns a pre-filled skeleton for every record.",
+  "item_id": "DIM-M001-RESOURCE-010",
+  "source_signal": "src:remote-image:{{id-from-imageSources}}",
+  "resource_kind": "remote-image",
+  "resource_strategy": "source_equivalent",
+  "target_source": "{{target-expression-that-yields-the-same-url}}",
+  "loader_mapping": {
+   "placeholder": "{{resource-item-id-of-the-placeholder}}",
+   "error": {
+    "absent": "{{reason-the-legacy-loader-had-none}}"
+   },
+   "transforms": [
+    {
+     "legacy": "circleCrop()",
+     "target": "{{target-equivalent}}"
+    }
+   ]
+  },
+  "target_resource": "{{absolute-target-root}}/ui/settings/Avatar.kt#loadAvatar",
+  "consumer": [
+   "{{absolute-target-root}}/ui/settings/SettingsScreen.kt#Avatar"
+  ]
+ },
+ "picture_replacement_item_example": {
+  "_note": "A still bitmap or vector replaced by hand (manual_exact) carries exactly one of image_check (a declared check, carried by a visual PATH, for the same source_resource and qualifier) or deviation. deviation.alternative must be one of the plan's decision_envelope.allowed_alternatives, which a human approves with the plan. An animation or a nine-patch cannot be measured offline: replaced by hand it carries a deviation and no image_check. Drawing code (code-drawn) is ported like other code and keeps its reviewed manual_exact.",
+  "item_id": "DIM-M001-RESOURCE-011",
+  "source_resource": "@drawable/ic_back",
+  "qualifier": "xxhdpi",
+  "resource_kind": "bitmap",
+  "resource_strategy": "manual_exact",
+  "adaptation_evidence_ref": {
+   "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/adaptation-review.md",
+   "sha256": "{{actual-review-sha256}}"
+  },
+  "image_check": "settings-back-icon",
+  "deviation": null
+ },
+ "model_schemas": {
+  "ui-component-spec": {
+   "root": {
+    "type": "Column",
+    "props": {},
+    "children": [
+     {
+      "type": "SwitchRow",
+      "props": {
+       "titleKey": "settings.notifications"
       },
-      {
-        "path": "{{row-layout-path}}",
-        "role": "list_item",
-        "nodeIds": ["settings.row"],
-        "status": "mapped",
-        "reason": "Reachable adapter layout represented as an attachment"
+      "bindings": {
+       "checked": "state.notificationsEnabled"
       }
-    ],
-    "criticalLayoutContracts": [],
-    "unresolved": []
+     }
+    ]
+   }
+  },
+  "logic-statechart": {
+   "id": "settings",
+   "initial": "idle",
+   "states": {
+    "idle": {
+     "on": {
+      "TOGGLE": {
+       "target": "saving",
+       "cond": {
+        "==": [
+         {
+          "var": "network"
+         },
+         "online"
+        ]
+       }
+      }
+     }
+    },
+    "saving": {
+     "on": {
+      "DONE": "idle"
+     }
+    }
+   }
+  },
+  "design-tokens": {
+   "color": {
+    "primary": {
+     "$type": "color",
+     "$value": "#336699"
+    }
+   },
+   "space": {
+    "sm": {
+     "$type": "dimension",
+     "$value": "8px"
+    }
+   }
+  },
+  "icu-messages": {
+   "settings.notifications": "Notifications",
+   "settings.saved": "{count, plural, one {# change saved} other {# changes saved}}"
   }
+ },
+ "ui_tree_contract": {
+  "_note": "Native source-backed tree example for a screen, its title and one adapter row. Instantiate source anchors and collected XML facts without changing the native object/list shapes. Expand every reachable XML selector and attachment; this example does not declare another application's source closure. For source-only evidence omit runtimeIndex/runtimeIndexSha256 and runtimeObservations. Retain original indexes/capture manifest; structural validation does not prove semantic completeness.",
+  "schemaVersion": 1,
+  "scope": "{{change-id}}",
+  "generatedFrom": {
+   "sourceIndex": "{{source-index-path}}",
+   "sourceIndexSha256": "{{source-index-sha256}}",
+   "runtimeIndex": "{{runtime-index-path}}",
+   "runtimeIndexSha256": "{{runtime-index-sha256}}"
+  },
+  "screens": [
+   {
+    "id": "settings",
+    "name": "Settings",
+    "kind": "fragment",
+    "root": {
+     "id": "settings.root",
+     "name": "Settings root",
+     "nodeKind": "container",
+     "viewClass": "LinearLayout",
+     "analysisStatus": "expanded",
+     "source": {
+      "path": "{{screen-layout-path}}",
+      "selector": "{{screen-root-selector}}",
+      "origin": "xml",
+      "line": null
+     },
+     "initialVisibility": "visible",
+     "layout": {
+      "kind": "vertical",
+      "scrollable": false,
+      "rawAttrs": {
+       "android:layout_width": "match_parent",
+       "android:layout_height": "match_parent"
+      },
+      "resolvedAttrs": {}
+     },
+     "presentation": {
+      "purpose": "Container for settings content",
+      "appearance": "{{source-backed-root-appearance}}",
+      "resourceRefs": []
+     },
+     "bindings": [
+      {
+       "target": "{{binding-target}}",
+       "source": "{{binding-source}}",
+       "sourcePath": "{{renderer-source-path}}",
+       "selector": "{{binding-source-selector}}"
+      }
+     ],
+     "events": [
+      {
+       "trigger": "{{event-trigger}}",
+       "handler": "{{event-handler}}",
+       "sourcePath": "{{renderer-source-path}}",
+       "selector": "{{event-source-selector}}"
+      }
+     ],
+     "dynamicRules": [
+      {
+       "when": "{{dynamic-condition}}",
+       "property": "{{dynamic-property}}",
+       "result": "{{dynamic-result}}",
+       "sourcePath": "{{renderer-source-path}}",
+       "selector": "{{dynamic-source-selector}}"
+      }
+     ],
+     "capabilities": {
+      "scroll": false
+     },
+     "runtimeObservations": [
+      {
+       "pageId": "settings",
+       "stateId": "base",
+       "viewSignature": "{{runtime-view-signature}}"
+      }
+     ],
+     "children": [
+      {
+       "id": "settings.root.1",
+       "name": "Settings title",
+       "nodeKind": "view",
+       "viewClass": "TextView",
+       "analysisStatus": "leaf",
+       "source": {
+        "path": "{{screen-layout-path}}",
+        "selector": "{{title-selector}}",
+        "origin": "xml",
+        "line": null
+       },
+       "initialVisibility": "visible",
+       "layout": {
+        "kind": "leaf",
+        "scrollable": false,
+        "rawAttrs": {
+         "android:layout_width": "match_parent",
+         "android:layout_height": "wrap_content",
+         "android:text": "@string/settings_title"
+        },
+        "resolvedAttrs": {}
+       },
+       "presentation": {
+        "purpose": "Settings title",
+        "appearance": "Text from the source string resource",
+        "resourceRefs": [
+         "@string/settings_title"
+        ]
+       },
+       "bindings": [],
+       "events": [],
+       "dynamicRules": [],
+       "capabilities": {},
+       "children": []
+      }
+     ]
+    },
+    "attachments": [
+     {
+      "id": "settings.row",
+      "kind": "list_item",
+      "anchorNodeId": "settings.root",
+      "root": {
+       "id": "settings.row",
+       "name": "Settings adapter row",
+       "nodeKind": "view",
+       "viewClass": "TextView",
+       "analysisStatus": "leaf",
+       "source": {
+        "path": "{{row-layout-path}}",
+        "selector": "{{row-root-selector}}",
+        "origin": "xml",
+        "line": null
+       },
+       "initialVisibility": "visible",
+       "layout": {
+        "kind": "leaf",
+        "scrollable": false,
+        "rawAttrs": {
+         "android:layout_width": "match_parent",
+         "android:layout_height": "wrap_content",
+         "android:text": "@string/settings_title"
+        },
+        "resolvedAttrs": {}
+       },
+       "presentation": {
+        "purpose": "Repeated settings row",
+        "appearance": "Text from the source string resource",
+        "resourceRefs": [
+         "@string/settings_title"
+        ]
+       },
+       "bindings": [],
+       "events": [],
+       "dynamicRules": [],
+       "capabilities": {},
+       "children": []
+      }
+     }
+    ]
+   }
+  ],
+  "layoutClosure": [
+   {
+    "path": "{{screen-layout-path}}",
+    "role": "screen",
+    "nodeIds": [
+     "settings.root",
+     "settings.root.1"
+    ],
+    "status": "mapped",
+    "reason": "Screen root and every child selector are represented"
+   },
+   {
+    "path": "{{row-layout-path}}",
+    "role": "list_item",
+    "nodeIds": [
+     "settings.row"
+    ],
+    "status": "mapped",
+    "reason": "Reachable adapter layout represented as an attachment"
+   }
+  ],
+  "criticalLayoutContracts": [],
+  "unresolved": []
+ }
 }

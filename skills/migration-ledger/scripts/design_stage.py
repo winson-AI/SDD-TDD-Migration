@@ -5,6 +5,8 @@ from pathlib import Path
 from contracts import Rejected, check_ref, digest, keyed, nonempty, read_json, require
 import decomposition
 import workflow
+import prepared_tests
+from prepared_tests import assets as test_assets
 
 PHASES = ('context', 'specifying', 'change-review')
 
@@ -20,6 +22,12 @@ def required(s, m):
 
 
 def subject(s, m):
+    continuation = m.get('planning_continuation') or {}
+    if continuation.get('context_ref') == s.get('project_context_ref') and continuation.get('subject_sha256') and (
+            continuation.get('generation') == m.get('design_generation', 0) and
+            continuation.get('allocation_sha256') == digest({key: m.get(key) for key in (*decomposition.ALLOCATION_KEYS, 'dependencies')})):
+        check_ref(continuation['review_ref'])
+        return continuation['subject_sha256']
     context = decomposition.planning_context(s)
     return digest({'context': context, 'allocation': decomposition.assigned_module(s, m),
                    'generation': m.get('design_generation', 0)})
@@ -122,6 +130,18 @@ def result_check(s, m, a, result, accepted_artifact=False):
             'design result cannot claim code or a freeze')
     check_ref(result.get('design_ref'))
     paths = keyed(result.get('paths'), 'path_id')
+    prepared_tests.preparation(result, s.get("planning_coverage_required", False))
+    assets = test_assets(result)
+    owned = []
+    if assets and s.get('project_context_ref'):
+        import project_context
+        run_root = Path(project_context.verify_snapshot(s['project_context_ref'])['run_root'])
+        owned = [run_root/'staging', run_root/'runs/harmony/sandbox/design']
+    for asset in assets:
+        path = check_ref(asset['ref'])
+        require(any(path.is_relative_to(root) for root in owned) or
+                not any(path.is_relative_to(Path(s[root]).resolve()) for root in ('target_root', 'legacy_root') if s.get(root)),
+                'prepared test asset belongs in staging, not production source roots')
     require({p.get('case_id') for p in paths.values()} == set(m['case_ids']), 'design must cover assigned cases exactly')
     reqs = {r for t in doc['tasks'] for r in t['requirement_ids']}
     for path in paths.values():
@@ -143,6 +163,7 @@ def result_check(s, m, a, result, accepted_artifact=False):
         test_validation.plan_check({'paths': result['paths'], 'tasks': doc['tasks']}, s['target_root'],
                                    static_required=s.get('spec_closure_required', False))
     return doc
+
 
 
 def submission(s, m, a, p, actor=None):
@@ -202,6 +223,7 @@ def materialize(s, m, plan):
     plan = copy.deepcopy(plan)
     plan.setdefault('test_design_ref', copy.deepcopy(m['accepted_test_design']['result_ref']))
     plan.setdefault('paths', copy.deepcopy(result['paths']))
+    if test_assets(result): plan['test_asset_contract_version'] = 1
     designed = {t['task_id']: t for t in doc['tasks']}
     for task in plan.get('tasks') or []:
         for key in ('scope', 'requirement_ids', 'global_requirement_ids'):
@@ -213,6 +235,9 @@ def materialize(s, m, plan):
         definitions += copy.deepcopy(doc['spec_refs'])
     if 'test-design' not in kinds:
         definitions.append({**result['design_ref'], 'kind': 'test-design'})
+    for asset in test_assets(result):
+        definition = {**asset['ref'], 'kind': 'test-' + asset['kind']}
+        if definition not in definitions: definitions.append(definition)
     plan['definitions'] = definitions
     return plan
 
@@ -222,6 +247,7 @@ def plan_check(s, m, plan, author=None):
         require(not plan.get('test_design_ref'), 'test_design_ref requires an accepted design assignment')
         return
     a, result = accepted(s, m)
+    prepared_tests.preparation(result, s.get('planning_coverage_required', False), freezing=True)
     require(author is None or author not in m.get('design_authors', []), 'Spec author must be independent of design author')
     require(plan.get('test_design_ref') == m['accepted_test_design']['result_ref'], 'plan must bind accepted test_design_ref')
     require(plan['paths'] == result['paths'], 'plan PATH/assertions differ from accepted design')
@@ -232,3 +258,6 @@ def plan_check(s, m, plan, author=None):
     defs = [r for r in plan['definitions'] if r['kind'] == 'test-design']
     require(len(defs) == 1 and {k: defs[0][k] for k in ('path', 'sha256')} == result['design_ref'],
             'plan test-design definition differs from accepted design')
+    require([r for r in plan['definitions'] if r['kind'] in ('test-script', 'test-fixture', 'test-adapter')] ==
+            [{**row['ref'], 'kind': 'test-' + row['kind']} for row in test_assets(result)],
+            'plan test assets differ from accepted design')

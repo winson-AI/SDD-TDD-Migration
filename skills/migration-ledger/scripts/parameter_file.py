@@ -67,9 +67,9 @@ def declarations(analysis):
     for row in analysis.get('dimensions', []):
         if row.get('dimension') == 'UI' and row.get('parameter_fill') is not None:
             fill = row['parameter_fill']
-            require(isinstance(fill, dict) and set(fill) <= {'not_applicable', 'deviations', 'tokens', 'settled'},
-                    'parameter_fill takes not_applicable, deviations, tokens and settled')
-            for name in ('not_applicable', 'deviations', 'tokens', 'settled'):
+            require(isinstance(fill, dict) and set(fill) <= {'not_applicable', 'deviations', 'tokens', 'settled', 'runtime', 'structural'},
+                    'parameter_fill takes not_applicable, deviations, tokens, settled, runtime and structural')
+            for name in ('not_applicable', 'deviations', 'tokens', 'settled', 'runtime', 'structural'):
                 require(isinstance(fill.get(name, []), list) and all(isinstance(entry, dict) for entry in fill.get(name, [])),
                         'parameter_fill.' + name + ' is a list of records')
             return fill
@@ -102,6 +102,23 @@ def decisions(parameters, fill, allowed=None):
     for row in fill.get('settled', []):
         require(by_id.get(row.get('id'), {}).get('class') == 'expression', 'a settled record names a recorded expression')
         settled[row['id']] = _value(row.get('value'), row['id'] + ': settled expression')
+    bindings = {}
+    for field, kind in (('runtime', 'expression'), ('structural', 'keyword')):
+        for row in fill.get(field, []):
+            pid = row.get('id')
+            require(by_id.get(pid, {}).get('class') == kind and pid not in bindings,
+                    field + ' mapping must name one recorded ' + kind)
+            require(isinstance(row.get('consumer'), str) and '#' in row['consumer']
+                    and Path(row['consumer'].split('#', 1)[0]).is_absolute(), field + ' needs an absolute production consumer#accessor')
+            require(row['consumer'].split('#', 1)[1].strip(), field + ' needs a target accessor')
+            require(row.get('source_expression') == by_id[pid].get('text', by_id[pid].get('value')),
+                    field + ' mapping differs from recorded source expression/keyword')
+            require(row.get('reason') and row.get('evidence_refs') and row.get('assertions'), field + ' needs source evidence, rationale and frozen assertions')
+            for ref in row['evidence_refs']: check_ref(ref)
+            if field == 'runtime':
+                require(isinstance(row.get('inputs'), list) and bool(row['inputs']), 'runtime mapping needs variable inputs')
+            bindings[pid] = {'status': field, 'binding': row}
+    require(not set(bindings) & (set(skipped) | set(settled)), 'parameter mapping cannot also be excluded or made constant')
     tokens = {}
     known = {p['token'] for p in parameters if p['class'] == 'token'}
     for row in fill.get('tokens', []):
@@ -117,6 +134,8 @@ def decisions(parameters, fill, allowed=None):
         elif kind == 'value':
             result[pid] = ({'status': 'deviation', 'value': deviations[pid]} if pid in deviations else
                            {'status': 'used', 'value': {name: p[name] for name in ('type', 'value', 'unit') if name in p}})
+        elif pid in bindings:
+            result[pid] = bindings[pid]
         elif kind == 'expression':
             result[pid] = {'status': 'settled', 'value': settled[pid]} if pid in settled else {'status': 'unsettled'}
         elif kind == 'token':
@@ -138,6 +157,23 @@ def gate(s, plan, analysis):
     ui_parameters.freeze_check(analysis)
     require(document.get('convention') == rules, 'parameter sheet was derived under another target parameter convention')
     decided = decisions(document['parameters'], declarations(analysis), (plan.get('decision_envelope') or {}).get('allowed_alternatives', []))
+    paths = {p['path_id']: p for p in plan.get('paths', [])}
+    for pid, row in decided.items():
+        if row['status'] not in ('runtime', 'structural') or 'binding' not in row:
+            continue
+        binding = row['binding']
+        require(Path(binding['consumer'].split('#', 1)[0]).resolve().is_relative_to(Path(s['target_root']).resolve()), 'parameter consumer outside target')
+        for pair in binding['assertions']:
+            path = paths.get(pair.get('path_id'), {})
+            require(path.get('kind', 'automation') in ('unit', 'automation', 'visual') and
+                    pair.get('assertion_id') in {a['assertion_id'] for a in path.get('expected_assertions', [])},
+                    'parameter mapping needs a frozen behavioral assertion; build/static alone is not fidelity')
+    if s.get('control_policy_version', 1) >= 2:
+        for row in declarations(analysis).get('settled', []):
+            require(row.get('constant_reason') and row.get('constant_evidence_refs'), 'runtime expression cannot become a constant without source proof')
+            for ref in row['constant_evidence_refs']: check_ref(ref)
+        structural_gaps = [pid for pid, row in decided.items() if row['status'] == 'structural' and 'binding' not in row]
+        require(not structural_gaps, 'layout keywords need structural mapping: ' + ', '.join(structural_gaps[:8]))
     open_ids = sorted(pid for pid, row in decided.items() if row['status'] == 'unsettled')
     require(not open_ids, 'expressions the Spec must settle or mark not applicable: ' + ', '.join(open_ids[:8])
             + (' and ' + str(len(open_ids) - 8) + ' more' if len(open_ids) > 8 else ''))
@@ -207,6 +243,13 @@ def verify_files(analysis):
 def verify(analysis, code_files):
     """Acceptance: the generated files are untouched and the submitted code names every key."""
     files, accessors = verify_files(analysis)
+    document = ui_parameters.load(analysis)
+    bindings = [row['binding'] for row in decisions(document['parameters'], declarations(analysis)).values() if 'binding' in row] if document else []
+    submitted = {str(check_ref(ref).resolve()): ref for ref in code_files or []}
+    for binding in bindings:
+        path, accessor = binding['consumer'].split('#', 1)
+        require(str(Path(path).resolve()) in submitted and named(Path(path).read_text(), accessor),
+                'runtime/layout binding is missing from submitted production consumer')
     if not accessors:
         return
     skip = {str(Path(path).resolve()) for path in files}
@@ -231,8 +274,11 @@ def summary(analysis, resolve=check_ref):
     counts = {}
     for row in decided.values():
         counts[row['status']] = counts.get(row['status'], 0) + 1
-    owed = sum(counts.get(name, 0) for name in ('used', 'deviation', 'settled', 'mapped', 'not-applicable', 'unsettled', 'unmapped'))
+    owed = sum(counts.get(name, 0) for name in ('used', 'deviation', 'settled', 'mapped', 'not-applicable', 'unsettled', 'unmapped', 'runtime'))
     return {'parameters': len(decided), 'counts': dict(sorted(counts.items())),
             'components': len({p['owner'] for p in document['parameters'] if p['owner'].startswith(('layout:', 'code:'))}),
             'layers': len({p['owner'] for p in document['parameters'] if p['owner'].startswith('layer:')}),
+            'runtime_mapped': counts.get('runtime', 0),
+            'structural_mapped': sum(row.get('status') == 'structural' and 'binding' in row for row in decided.values()),
+            'fidelity_proven': False,  # only real behavioral/visual results can establish fidelity
             'fill_rate': round((counts.get('used', 0) + counts.get('mapped', 0)) / owed, 4) if owed else None}

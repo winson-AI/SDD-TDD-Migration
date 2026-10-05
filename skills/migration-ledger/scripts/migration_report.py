@@ -56,7 +56,7 @@ def picture(mid, item, analysis_ref, carriers, rows):
 
 def fidelity(s, rows, ref_check):
     """Disclose proof boundaries without changing business acceptance or scheduling."""
-    visual, limitations, pictures, copied, parameters, checks = [], [], [], 0, {}, {}
+    visual, limitations, pictures, copied, parameters, checks, conditions = [], [], [], 0, {}, {}, []
     for mid, module in s['modules'].items():
         plan = module.get('plan') or {}
         analysis_ref = plan.get('dimension_analysis_ref')
@@ -110,6 +110,16 @@ def fidelity(s, rows, ref_check):
             pass  # the closure gate reports an unreadable plan; the report only counts what it can read
         for dimension in dimensions:
             for item in dimension.get('items', []):
+                for condition in item.get('fidelity_conditions', []):
+                    pairs = condition.get('assertions', [])
+                    verified = bool(pairs) and all(any(r['module_id'] == mid and r['path_id'] == pair['path_id'] and
+                        r['quality'] == 'green-passed' and r.get('attempt_executed') and not r['stale'] and
+                        any(a['assertion_id'] == pair['assertion_id'] and a.get('passed') is True for a in r['assertions'])
+                        for r in rows) for pair in pairs)
+                    conditions.append({'module_id': mid, 'item_id': item['item_id'], 'condition_id': condition['condition_id'],
+                        'condition': condition['condition'], 'status': 'not-applicable' if condition['status'] == 'not-applicable' else
+                        'verified' if verified else 'not-verified', 'reason': condition['reason'], 'assertions': pairs,
+                        'evidence_refs': refs([analysis_ref, condition])})
                 if dimension['dimension'] == 'Resource' and dimension.get('status') == 'applicable' and resource_fidelity.is_picture(item):
                     pictures.append(picture(mid, item, analysis_ref, carriers, rows))
                 if item.get('target_strategy') == 'capture-fixture':
@@ -118,11 +128,13 @@ def fidelity(s, rows, ref_check):
                         'reason': 'capture-fixture 只验证记录样本；未证明在线服务或 provider 行为等价',
                         'evidence_refs': refs([analysis_ref, item])})
     limitations[:0] = [{**v, 'kind': 'visual-coverage'} for v in visual if v['status'] in ('unknown', 'not-verified')]
+    limitations += [{**c, 'kind': 'fidelity-condition', 'reason': c['condition'] + ': current assertions not verified'}
+                    for c in conditions if c['status'] == 'not-verified']
     limitations += [{'module_id': v['module_id'], 'item_id': v['item_id'], 'kind': 'picture-replacement',
                      'reason': f"图片 {v['source']} 与存量不是精确复制（{v['status']}）：{v['reason']}", 'evidence_refs': v['evidence_refs']}
                     for v in pictures if v['status'] not in ('exact', 'verified', 'reviewed')]
     return visual, limitations, {'counts': dict(Counter(v['status'] for v in pictures)), 'copied': copied, 'parameters': parameters, 'checks': checks,
-                                 'items': [v for v in pictures if v['status'] != 'exact']}
+                                 'items': [v for v in pictures if v['status'] != 'exact'], 'conditions': conditions}
 
 
 def build(root, s, sequence, ref_check=check_ref):
@@ -151,7 +163,7 @@ def build(root, s, sequence, ref_check=check_ref):
             (execution_scope_stale or last_execution.get('code_baseline') != current_baseline))
         stale = (m.get('stale') or m.get('effective_quality') == 'yellow-blocked' or
                  record.get('code_baseline', m.get('code_baseline')) != m.get('code_baseline')) if m else (
-                 invalid or record.get('code_baseline') != global_baseline)
+                 invalid or record.get('stale') or record.get('code_baseline') != global_baseline)
         # Environment omissions have no executed baseline to expire.
         stale = bool(stale and record.get('executed'))
         q = record.get('quality', 'yellow-blocked')
@@ -230,7 +242,8 @@ def build(root, s, sequence, ref_check=check_ref):
             'case_counts': {q: Counter(c['quality'] for c in cases)[q] for q in ('green-passed', 'red-bug', 'yellow-blocked')},
             'cases': cases, 'paths': rows, 'non_green': [r for r in rows if r['quality'] != 'green-passed'],
             'unimplemented': gaps, 'code_governance': governance,
-            'visual_coverage': visual, 'fidelity_limitations': limitations, 'picture_fidelity': pictures,
+            'visual_coverage': visual, 'fidelity_limitations': limitations,
+            'fidelity_conditions': pictures.pop('conditions'), 'picture_fidelity': pictures,
             'human_report': copy.deepcopy(batch.get('human_report')),
             'workflow_cost': workflow_cost.build(s, workflow_cost.journal(root)),
             'modules': {mid: {'phase': m.get('phase'), 'quality': m.get('effective_quality', m.get('quality')),
@@ -289,6 +302,8 @@ def render(report):
     for v in report.get('visual_coverage', []):
         text.append('| ' + ' | '.join(cell(x) for x in (f"{v['module_id']} / {v.get('item_id', '—')}",
                     v.get('coverage'), v.get('visual_mode'), v['status'], v['reason'])) + ' |')
+    for condition in report.get('fidelity_conditions', []):
+        text.append(f"- {cell(condition['module_id'])}/{cell(condition['item_id'])} · {cell(condition['condition'])}: {cell(condition['status'])} · {cell(condition['reason'])}")
     for limit in report.get('fidelity_limitations', []):
         text.append(f"- {cell(limit['module_id'])} / {cell(limit.get('item_id'))}: {cell(limit['reason'])}")
         for ref in limit['evidence_refs']:

@@ -112,6 +112,8 @@ def inspect(root):
     expected = [(mid, a) for mid, m in state['modules'].items() for a in m['assignments'].values() if not a.get('closed')]
     audit = state.get('audit_assignment', {})
     if audit and not audit.get('closed'): expected.append((None, audit))
+    audit_test = state.get('audit_test_assignment', {})
+    if audit_test and not audit_test.get('closed'): expected.append((None, audit_test))
     entries = host_input.get('workers', []); workers = []; used = set()
     for mid, assignment in expected:
         matches = [(i, e) for i, e in enumerate(entries) if isinstance(e, dict) and

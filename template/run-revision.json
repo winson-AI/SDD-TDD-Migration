@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "run_id": "{{current-run-id}}",
+  "reason": "{{same-task-upstream-error-and-required-revision}}",
+  "context_patch": {},
+  "global_spec_ref": null,
+  "contract_patch": {},
+  "lessons_ref": null,
+  "root_updates": [],
+  "modules": [
+    {
+      "module_id": "M001",
+      "action": "replan",
+      "reason": "{{evidence-for-replan-unchanged-or-runtime-only-reverify}}",
+      "evidence_refs": [
+        {
+          "path": "{{absolute-staged-impact-evidence}}",
+          "sha256": "{{sha256}}"
+        }
+      ],
+      "resume_blocker_sha256": null
+    }
+  ],
+  "boundary_review": {
+    "semantic_change": false,
+    "authorization_change": false,
+    "unresolved_questions": [],
+    "reason": "{{source-supported-review-of-original-goal-allocation-spec-dimensions-and-test-design}}",
+    "evidence_refs": [
+      {
+        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/review.md",
+        "sha256": "{{sha256}}"
+      }
+    ]
+  }
+}

@@ -1,0 +1,117 @@
+"""Scoped API inventory rides the existing dimension -> TASK -> PATH evidence chain."""
+from pathlib import Path
+from contracts import check_ref, keyed, nonempty, read_json, require
+
+FACETS = ('request_fields', 'response_fields', 'error_outcomes', 'state_effects')
+MAPPINGS = ('request_mapping', 'response_mapping', 'error_mapping', 'state_mapping')
+
+
+def applicability(analysis, required=False):
+    review = analysis.get('api_review')
+    if review is None:
+        require(not required, 'API applicability review required')
+        return
+    require(review.get('status') in ('applicable', 'not-applicable') and review.get('reason'), 'API applicability status/reason required')
+    for ref in nonempty(review.get('evidence_refs'), 'API applicability evidence'): check_ref(ref)
+    if review.get('discovery_refs') is not None:
+        for ref in nonempty(review['discovery_refs'], 'API discovery scope'): check_ref(ref)
+    require((review['status'] == 'applicable') == bool(analysis.get('api_inventory_ref')), 'API applicability and inventory disagree')
+
+
+def load(analysis, items):
+    applicability(analysis)
+    ref = analysis.get('api_inventory_ref')
+    if not ref:
+        require(not any(item.get('api_ids') for item in items.values()), 'API items need api_inventory_ref')
+        return {}, {}
+    inventory = read_json(check_ref(ref))
+    require(inventory.get('schema_version') == 1 and inventory.get('module_id') == analysis['module_id'], 'API inventory scope/schema mismatch')
+    calls = keyed(nonempty(inventory.get('calls'), 'recorded API calls'), 'api_id')
+    for source in calls.values():
+        require(source.get('method') in ('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS') and source.get('url'), 'API source method/URL required')
+        require(source.get('source_symbol'), 'API source production symbol required')
+        check_ref(source.get('source_ref'))
+        reviewed = (analysis.get('api_review') or {}).get('discovery_refs')
+        if reviewed is not None:
+            require(any(all(ref[k] == source['source_ref'][k] for k in ('path', 'sha256')) for ref in reviewed),
+                    'recorded API source missing from reviewed discovery scope')
+        for facet in FACETS:
+            require(isinstance(source.get(facet), list) and all(isinstance(field, str) and field for field in source[facet]) and
+                    len(set(source[facet])) == len(source[facet]), 'API source facet must list explicit unique obligations')
+    for field in ('contracts', 'exclusions'):
+        require(isinstance(inventory.get(field), list), 'API ' + field + ' must be an explicit list')
+    contracts = keyed(inventory['contracts'], 'api_id') if inventory['contracts'] else {}
+    excluded = keyed(inventory['exclusions'], 'api_id') if inventory['exclusions'] else {}
+    require(set(contracts).isdisjoint(excluded) and set(contracts) | set(excluded) == set(calls), 'API call closure incomplete or duplicated')
+    for row in excluded.values():
+        require(row.get('reason'), 'API exclusion needs a source scope rationale')
+        for evidence in nonempty(row.get('evidence_refs'), 'API exclusion evidence'): check_ref(evidence)
+    owners = {}
+    for iid, item in items.items():
+        for aid in item.get('api_ids', []):
+            require(item['dimension'] in ('Logic', 'Adhesive') and aid in contracts and aid not in owners, 'API needs one Logic/Adhesive owner')
+            owners[aid] = iid
+    require(set(owners) == set(contracts), 'API contract missing dimension ownership')
+    for aid, row in contracts.items():
+        source, target = calls[aid], row.get('target', {})
+        check_ref(row.get('fixture_contract_ref'))
+        require(target.get('method') in ('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS') and target.get('url'), 'API target method/URL required')
+        require(isinstance(target.get('consumer'), str) and '#' in target['consumer'] and
+                Path(target['consumer'].split('#', 1)[0]).is_absolute() and target['consumer'].split('#', 1)[1], 'API target needs absolute consumer#symbol')
+        for facet, mapping in zip(FACETS, MAPPINGS):
+            require(isinstance(target.get(mapping), dict) and set(target[mapping]) == set(source[facet]) and
+                    all(isinstance(value, str) and value for value in target[mapping].values()), 'API mapping omits a source obligation: ' + mapping)
+        require(row.get('fidelity') in ('exact', 'approved-adaptation'), 'API fidelity must be explicit')
+        if row['fidelity'] == 'exact':
+            require((source['method'], source['url']) == (target['method'], target['url']), 'API exact method/URL changed')
+        else:
+            require(row.get('alternative') and row.get('reason'), 'API adaptation needs approved alternative and rationale')
+        row = dict(row); row['item_id'] = owners[aid]; contracts[aid] = row
+    return calls, contracts
+
+
+def obligations(aid, source):
+    return {aid + '/' + facet + ':' + field for facet in FACETS for field in source[facet]} | {aid + '/route'}
+
+
+def plan(analysis, items, plan):
+    calls, contracts = load(analysis, items)
+    traces = {row['item_id']: row for row in plan.get('dimension_trace', [])}
+    paths = {row['path_id']: row for row in plan['paths']}
+    for aid, contract in contracts.items():
+        covered = set()
+        for pair in traces[contract['item_id']]['assertions']:
+            declared = pair.get('api_obligations', [])
+            if not declared:
+                continue
+            path = paths[pair['path_id']]
+            require(path.get('kind', 'automation') in ('unit', 'automation'), 'API fidelity requires actual behavior tests')
+            require(path.get('fixture_contract_ref') == contract['fixture_contract_ref'], 'API tests must bind the frozen fixture contract')
+            covered.update(declared)
+        require(obligations(aid, calls[aid]) <= covered, 'API behavior assertion coverage incomplete: ' + aid)
+        require(contract['fidelity'] == 'exact' or contract['alternative'] in plan['decision_envelope']['allowed_alternatives'], 'API adaptation outside decision envelope')
+
+
+def freeze(s, m, payload):
+    ref = m['plan'].get('dimension_analysis_ref')
+    if not ref: return
+    import dimensions
+    analysis, items = dimensions.load(ref, m['module_id'])
+    _, contracts = load(analysis, items)
+    if any(row['fidelity'] != 'exact' for row in contracts.values()):
+        decision = s['decisions'].get(payload.get('decision_id'), {})
+        require(decision.get('module_id') == m['module_id'] and decision.get('subject_sha256') == m['plan_hash'] and
+                not decision.get('consumed'), 'API adaptation requires exact Human decision')
+
+
+def implementation(analysis, items, result):
+    _, contracts = load(analysis, items)
+    evidence = {row['item_id']: row for row in result.get('dimension_evidence', [])}
+    code = {check_ref(ref).resolve() for ref in result.get('code_files', [])}
+    from contracts import named
+    for row in contracts.values():
+        path, symbol = row['target']['consumer'].split('#', 1)
+        target = Path(path).resolve()
+        refs = evidence[row['item_id']].get('consumer_refs', [])
+        require(target in code and target in {check_ref(ref).resolve() for ref in refs}, 'API binding lacks submitted production consumer evidence')
+        require(named(target.read_text(), symbol), 'API target consumer does not name frozen production symbol')

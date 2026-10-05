@@ -20,6 +20,8 @@
 | [module-decomposition.json](module-decomposition.json) | 父 MO | 子功能拆分方案，GO 接受后登记子模块 |
 | [batch-envelope.json](batch-envelope.json) | 父 MO | 批量冻结信封；一次人类批准覆盖条目完全匹配的孩子 |
 | [reuse-catalog.json](reuse-catalog.json) | GO | 功能语义能力目录 |
+| [run-revision.json](run-revision.json) | GO | 同任务根分配与上下文修订的影响报告 |
+| [retrospective.json](retrospective.json) | Host | 有证据的抽象经验，经 Ledger retrospect 提交 |
 | [source-impact.json](source-impact.json) | GO | 同 run 来源追加的影响报告 |
 | [status.md](status.md) | MO | 模块决策；Ledger 生成 status 投影 |
 | [test-design-input.json](test-design-input.json) | MO | 编码前独立测试设计的输入：规格、CASE 与任务范围 |
@@ -71,3 +73,7 @@
 | [migration-report.md](migration-report.md) | GO | 收尾报告展示契约；本地运行优先使用 Ledger 生成的报告 |
 | [watchdog-host-state.json](watchdog-host-state.json) | 宿主 | 本 run 的真实状态导出，不是 Ledger 请求 |
 | [workflow-verification.md](workflow-verification.md) | 宿主 | 适配后的行为验收矩阵 |
+
+控制 v2：[plan-review.json](plan-review.json) 为 MO 技术审核；[execution-assignment.json](execution-assignment.json) 为显式 TASK/PATH/FINDING 分配。验证边界见 module-decomposition/stage-plan；宿主目标矩阵见 audit-code-review，审计执行与裁决分离见 audit-review。
+
+按需契约：[api-inventory.json](api-inventory.json) 绑定四维 API 清单；[parameter-binding.json](parameter-binding.json) 保留动态表达式与布局结构。仅适用任务加载；模板不是已接受的证据。

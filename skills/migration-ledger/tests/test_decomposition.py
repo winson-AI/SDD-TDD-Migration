@@ -346,3 +346,25 @@ class DecompositionTests(unittest.TestCase):
         self.assertEqual(s['superseded_modules']['M001']['phase'], 'superseded')
         self.assertTrue(bool(s['superseded_modules']['M001']['code_files']))
 
+
+    def test_unchanged_reallocation_restores_original_phase(self):
+        self.root_scope(); proposal = self.proposal(); self.split(proposal); self.global_plan()
+        self.call('realloc-request', {'reason': 'Review boundary', 'evidence_refs': [self.ref('boundary.md', 'Review requested')]}, module='M002')
+        self.call('redecompose', {'plan_ref': self.ref('same-split.json', proposal)}, module='M010')
+        self.call('redecompose-accept', {'review_ref': self.ref('same-review.md', 'Boundary remains appropriate')}, role='global-orchestrator', module='M010')
+        state = self.state()
+        self.assertEqual(state['modules']['M002']['phase'], 'context')
+        self.assertNotEqual(dc.group_step(state, state['module_groups']['M010'])['operation'], 'redecompose')
+
+    def test_changed_context_replans_and_preserves_independent_blocker(self):
+        self.root_scope(); proposal = self.proposal(); self.split(proposal); self.global_plan()
+        self.call('suspend', {'kind': 'human', 'reason': 'Independent product answer', 'root_cause': 'product', 'owner': 'human'}, module='M002')
+        before = self.state()['modules']['M002']
+        proposal['children'][1]['context_refs'] = [self.ref('new-context.md', 'Corrected source context')]
+        self.call('redecompose', {'plan_ref': self.ref('context-split.json', proposal)}, module='M010')
+        self.call('redecompose-accept', {'review_ref': self.ref('context-review.md', 'Context correction reviewed')}, role='global-orchestrator', module='M010')
+        m = self.state()['modules']['M002']
+        self.assertEqual(m['phase'], 'waiting-human')
+        self.assertEqual(m['blocked']['reason'], before['blocked']['reason'])
+        self.assertEqual(m['blocked']['resume_phase'], 'specifying')
+        self.assertEqual(m['context_refs'], proposal['children'][1]['context_refs'])

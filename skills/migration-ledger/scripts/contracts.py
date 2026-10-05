@@ -21,7 +21,7 @@ def digest(value):
                                      separators=(',', ':')).encode()).hexdigest()
 
 
-REF_LISTS = ('evidence_refs', 'context_refs')
+REF_LISTS = ('evidence_refs', 'context_refs', 'discovery_refs')
 
 
 def expand_refs(document):
@@ -221,16 +221,35 @@ def validate_result(result, module, assignment, run_root=None):
         for ref in result['code_files']:
             require(any(Path(ref['path']).resolve().is_relative_to(p) for p in scope), 'code outside module scope')
         traces = keyed(result.get('task_trace'), 'task_id')
-        require(set(traces) == {t['task_id'] for t in module['plan']['tasks']}, 'incomplete task trace')
+        import control_policy
+        selected = control_policy.result_scope(module, assignment)
+        required = selected if selected is not None else {t['task_id'] for t in module['plan']['tasks']}
+        require(set(traces) == required, 'incomplete or unassigned task trace')
+        prior = module.get('task_files', {}) if selected is not None else {}
+        owners = {**prior, **{tid: row.get('files', []) for tid, row in traces.items()}}
+        remaining = {str(Path(f).resolve()) for tid, files in prior.items() if tid not in required for f in files}
+        previous = {r['path']: r for r in module.get('code_files', [])}
+        actual = {r['path']: r for r in result['code_files']}
+        require(all(actual.get(path) == previous[path] for path in remaining), 'unassigned TASK code changed or omitted')
+        for tid, row in traces.items():
+            task = next(t for t in module['plan']['tasks'] if t['task_id'] == tid)
+            allowed = (task.get('scope') or {}).get('write_paths', module['write_paths'])
+            require(all(any(Path(path).resolve().is_relative_to(Path(p).resolve()) for p in allowed) for path in row.get('files', [])),
+                    'implementation file outside assigned TASK scope')
         code_paths = {r['path'] for r in result['code_files']}
-        require(code_paths == {str(Path(p).resolve()) for t in traces.values() for p in t.get('files', [])}, 'unowned code or missing task file')
+        require(code_paths == {str(Path(p).resolve()) for files in owners.values() for p in files}, 'unowned code or missing task file')
         require(result.get('production_binding_evidence'), 'production binding evidence required')
         check_ref(result['production_binding_evidence'])
         authoring_diagnostics(result.get('authoring_diagnostics'))
         import reuse
-        reuse.validate_implementation(module['plan'], result)
         import dimensions
-        dimensions.implementation(module['plan'], result)
+        complete = set(owners) == {t['task_id'] for t in module['plan']['tasks']}
+        if complete:
+            cumulative = {**result, 'task_trace': [{'task_id': tid, 'files': files} for tid, files in owners.items()]}
+            reuse.validate_implementation(module['plan'], cumulative)
+            dimensions.implementation(module['plan'], cumulative)
+        else:
+            require(assignment['role'] == 'implementer', 'Fixer cannot leave TASK coverage incomplete')
         if assignment['role'] == 'fixer':
             note = read_json(check_ref(result.get('fix_note_ref')))
             require(all(note.get(k) for k in ('root_cause', 'strategy', 'applicability', 'risks')), 'repair memory note incomplete')
@@ -257,12 +276,20 @@ def validate_result(result, module, assignment, run_root=None):
         require(scope != 'visual' or tv.functional_ready(module), 'functional tests must pass before visual')
         # One build-stage result carries build -> unit -> static and stops at the first kind that is not Green.
         planned = {p['path_id']: p for p in (tv.stage_paths(module, tests) if scope == 'build' else tv.paths(module, scope))}
+    if assignment.get('execution_contract'):
+        import control_policy
+        control_policy.result_scope(module, assignment)
+        require(set(tests) <= set(assignment['execution_contract']['path_ids']), 'result includes unassigned PATH')
+        # Build results may stop at the first failed prerequisite; other scopes exactly cover the dispatch.
+        if assignment.get('test_scope') != 'build':
+            require(set(tests) == set(assignment['execution_contract']['path_ids']), 'result must account for assigned PATHs')
+        planned = {pid: row for pid, row in planned.items() if pid in assignment['execution_contract']['path_ids']}
     require(set(tests) == set(planned), 'result must account for every required path')
     for pid, record in tests.items():
         quality = record.get('quality')
         require(quality in ('green-passed', 'red-bug', 'yellow-blocked'), 'invalid quality')
         previous = module['results'].get(pid)
-        if previous and (previous['quality'] != 'green-passed' or module['stale']):
+        if previous and (previous['quality'] != 'green-passed' or previous.get('stale') or module['stale']):
             require(record.get('retest_of') == previous['test_run_id'], 'missing non-Green/stale retest chain')
             require(record.get('test_run_id') != previous['test_run_id'], 'retest must be a new run')
         require(record.get('test_run_id'), 'test_run_id required')
@@ -285,6 +312,8 @@ def validate_result(result, module, assignment, run_root=None):
             require(receipt.get(field) == expected, f'execution receipt {field} mismatch')
         require(receipt.get('producer') == 'host-executor' and receipt.get('argv') and
                 receipt.get('started_at') and receipt.get('finished_at'), 'invalid host execution receipt')
+        import prepared_tests
+        prepared_tests.validate_receipt(module, planned[pid], receipt, quality)
         check_ref(receipt.get('log_ref'))
         from execution_capture import validate as validate_capture
         validate_capture(receipt)

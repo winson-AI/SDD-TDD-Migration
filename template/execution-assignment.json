@@ -1,0 +1,13 @@
+{
+  "assignment_id": "{{assignment-id}}",
+  "role": "implementer",
+  "instance_id": "{{worker-instance}}",
+  "task_ids": [
+    "{{TASK-ID}}"
+  ],
+  "path_ids": [
+    "{{PATH-ID}}"
+  ],
+  "finding_ids": [],
+  "test_scope": null
+}

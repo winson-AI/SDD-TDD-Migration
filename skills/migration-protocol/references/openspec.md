@@ -11,6 +11,8 @@
 | status | `change_root/status.md` | MO 决策 / Ledger 投影 |
 | checklist | `change_root/checklist.md` | 包内评审清单，Ledger 随 plan 绑定并投影；MO 审核 |
 
+测试设计另以 test-design 工件绑定冻结，为 TDD 提供 CASE/PATH/ASSERT；status/checklist 属运行与治理视图。
+
 不另外维护重复 `spec.md`、`plan.md` 状态源。spec 部分可含多能力 delta 文件；tasks 即可执行计划；status 记录阶段、循环、next_action；追溯及测试报告存不可变 artifacts，由 Ledger 索引。
 
 ## 基线与 Delta
@@ -23,15 +25,15 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 ## 冻结算法
 
-行为契约由运行状态开启，Ledger 在 plan 中写入 `behavior_contract_required=true`，作者不必声明；source_closure 同时是叶子的行为审阅，另含 boundary_rationale、shared_capabilities；它覆盖的范围、需求与 CASE 就是分配包，不再抄写。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。Ledger 接受 plan 时从 SPEC 派生 scenario_index，plan 不携带；`behavior_contract.py --plan <staged-plan.json>` 可预览。SPEC 修改即改变 plan 摘要，须走 CR/冻结。
+行为契约由运行状态开启，Ledger 在 plan 中写入 `behavior_contract_required=true`，作者不必声明；source_closure 同时是叶子的行为审阅，另含 boundary_rationale、shared_capabilities；它覆盖的范围、需求与 CASE 就是分配包，不再抄写。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。Ledger 接受 plan 时从 SPEC 派生 scenario_index，plan 不携带；`behavior_contract.py --plan <staged-plan.json>` 可预览。SPEC 修改即改变 plan 摘要：编码前重新规划，编码后走 CR；均重新审核冻结。
 
 scenario_trace 每行写 scenario_id 与 task_ids，assertions 由 Ledger 按设计断言的 scenario_ids 补全（写了须与之相同）；每个场景至少被一条行为断言验证、每条行为断言至少验证一个场景、全部任务有归属，允许多对多，build/static 不充当行为断言。scenarios.md 为只读投影。
 
 1. 先生成完整六件套草稿（SPEC 带 Requirement-ID/Scenario-ID）；冻结前 Test-Runner design 模式以该 SPEC 为输入独立补齐测试用例与路径大纲，不运行代码。
 2. Spec-Designer 把明确的问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复须绑定 question_id、spec_revision、内容摘要。既有明确答复可复用，若绑定内容已变则重新裁决。
-3. 冻结 manifest 列出 proposal、所有 delta specs、design、tasks 定义与 test design 的实际 path+sha256；checklist 是包内评审清单，与全局上下文一样不进 manifest，由 Ledger 绑定。保留不可变副本，生成 freeze_id/spec_revision。
+3. 冻结 manifest 列出 proposal、所有 delta specs、design、tasks 定义、test design 与已准备测试资产的实际 path+sha256；checklist 是包内评审清单，与全局上下文一样不进 manifest，由 Ledger 绑定。保留不可变副本，生成 freeze_id/spec_revision。
 4. `status`、tasks 完成勾选、checklist 证据等运行字段不纳入语义冻结 hash；冻结的原始定义始终存在不可变 artifacts。动态视图可按已固化映射重定位文档链接及更新运行勾选，不得改变需求、设计和断言语义。验证时比较定义快照，不以可变文件整体 hash 误判失效。
-5. Human R1/R2 批准具体 manifest；MO 独立核验 checklist 后提交 freeze；Ledger 接受后物化状态。Spec-Designer 不能自批。
+5. MO 独立核验完整规划与 checklist，以版本绑定的 plan-review 冻结；仅未决问题、需求/验收/授权变化需要 Human 精确决定。Spec-Designer 不能自批；v1 恢复保留旧批准规则。
 6. 每次编码/修复验证当前冻结引用与 assignment 输入一致。缺失/摘要不符停止，不得自行补成“已冻结”。
 
 ## 变更控制
@@ -50,13 +52,13 @@ Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/
 
 ## 决策边界与执行基线
 
-人类批准 `decision_envelope`：scope、acceptance、allowed_alternatives、forbidden_changes。默认禁止未经批准更换数据提供方、缩减范围、降低验收或引入重大排除。判断是否越界由 Spec-Designer 提交证据、MO 审查；hash 不能证明语义合规。
+`decision_envelope` 记录并经 MO 比对宿主目标：scope、acceptance、allowed_alternatives、forbidden_changes。默认禁止未经批准更换数据提供方、缩减范围、降低验收或引入重大排除。判断是否越界由 Spec-Designer 提交证据、MO 审查；hash 不能证明语义合规。
 
-初次批准绑定 Ledger 补全后的 stage-plan digest（六件套引用、PATH/断言、tasks、闭包、可行性、envelope；即 freeze 游标的 approval_subject_sha256），执行绑定 freeze_id。证据/状态更新不改定义；任务细化走 CR。within-envelope 保留原 envelope 及完整 PATH/预期断言集合，MO 审阅后发布新执行基线，不伪造新人工批准。
+MO 审核或所需 Human 决定绑定 Ledger 补全后的 stage-plan digest，执行绑定 freeze_id。证据/状态更新不改定义；编码前任务细化走 planning-reopen，编码后走 CR。within-envelope 保留原 envelope 及完整 PATH/预期断言集合；v2 命令/显示名属技术规划，变更仍需 CR/新冻结和执行证据，MO 审阅后发布新执行基线，不伪造新人工批准。
 
-快速通道使用 [change-impact.json](../../../template/change-impact.json)，绑定 from_freeze_id、to_plan_hash。只有当前 CR 的同一 impact_ref 能冻结该计划；再次修改需重审，散文记录不授权再冻结。成功后 CR 进入 change_request_history；invalidate 随 planning_history 留存并清除当前 CR。初始/边界外冻结仍需真实人工决定。
+快速通道使用 [change-impact.json](../../../template/change-impact.json)，绑定 from_freeze_id、to_plan_hash。只有当前 CR 的同一 impact_ref 能冻结该计划；再次修改需重审，散文记录不授权再冻结。成功后 CR 进入 change_request_history；invalidate 随 planning_history 留存并清除当前 CR。初始清晰规划允许 MO 审核冻结；边界外变化仍需真实人工决定。
 
-改变范围、验收、替代方案或路径集合必须有新的人类决定；脚本不能自动裁定两段文本语义等价。Spec-Designer/Implementer/Fixer 的写权限不合并。第一次 SPEC 冻结前的 legacy 观察属于理解输入，不等于允许提前执行目标测试。
+改变需求、验收或授权必须有新的人类决定；纯技术规划调整由 MO 提交不改变既有决定的证据。脚本核对结构与版本，不自动证明文本语义等价。Spec-Designer/Implementer/Fixer 的写权限不合并。第一次 SPEC 冻结前的 legacy 观察属于理解输入，不等于允许提前执行目标测试。
 
 原有六件套是可读定义；新 stage-plan 是它们的引用与机器验收索引，不额外创作第二份需求规范。两者一致性由 MO 冻结审查，独立审计再次核对。
 

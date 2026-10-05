@@ -8,14 +8,20 @@ Main 是项目提供的主验证入口，不是固定 `main.py`。输入 `test_a
 
 ## 编码前设计交接
 
-沿用 `assign → submit → accept`，`mode=design` 表示只读设计；它是必选门禁（prepare 固定 test_design_required=true），撤销/invalidate 不关闭。
+assign→submit→accept 的 mode=design 仅设计；prepare 固定 test_design_required=true，revoke/invalidate 不关闭。
 
-1. MO 在 context/specifying/change-review、无 blocker/worker 的叶子 `assign(role=test-runner, mode=design, assignment_id, instance_id, design_input_ref)`；[输入](../../../template/test-design-input.json) 含 MO tasks.scope/需求、spec_refs（Spec-Designer 已在其 staging 写出的本叶子 SPEC 草稿，含 Requirement-ID/Scenario-ID；行为契约下全局规格与上下文文件被拒）、case_refs，并以 subject_sha256 引用游标给出的 input_subject_sha256（当前上下文与分配的摘要，不抄写正文）；此事件提交跨角色输入。草稿先于设计，设计后改草稿须重新设计。无源码写锁、依赖代码/设备前置，仍受并发预算约束。
-2. 独立 Test-Runner 只读整体/模块测试输入及规格，补齐正常/边界/异常、权限/数据等适用路径，在自身 staging 写 [结果](../../../template/test-design-result.json)：CASE-ID → PATH-ID/Name 与预期断言，每条行为断言（unit/automation/visual）用 `scenario_ids` 写明所验证的 SPEC 场景，每个场景至少被一条断言验证（submit 时核对）；`design_ref` 文档只记依据与决策，PATH/断言只在结果 JSON 写一次；不读实现源码推导预期，缺失业务预期经 Spec-Designer 澄清。test-design 预检（assigned-scope/spec-cases/task-coverage/independence，draft_ref 绑定结果）随 submit(assignment_id/fencing_token/result_ref/context_ref) 登记，无需单独 context-submit。kind=test-design，freeze_id/code_baseline=null；禁止 actual/passed/quality 或执行。
-3. MO 审查全 CASE 覆盖并 accept(assignment_id, review_ref)，关闭 assignment，保持规划 phase/质量/代码/修复预算与兄弟模块。返工或 blocked：留证，宿主实际停 worker/revoke，再重新派发或按原 suspend，不能记业务 Red。
-4. test_design_ref、PATH/ASSERT、tasks 的 scope/需求、spec 与 test-design 定义由 Ledger 从已接受设计补全，plan 只写 path_ids/四维追溯、scenario_trace 的 task_ids 等自有内容（场景下的断言由 Ledger 按 scenario_ids 补全），仍携带的部分须与设计一致。人工批准与 impact 审查绑定 freeze 游标的 approval_subject_sha256（补全后 plan 的摘要）。MO freeze 再验。需求/任务/分配/断言变更须重新设计；invalidate/CR 保留旧证据并回规划。活动输入过期提示 host revoke；clarifying 设计过期提示 MO invalidate。
+1. MO 在无 blocker/worker、未待拆分的 context/specifying/change-review 叶子 assign(role=test-runner, mode=design, assignment_id, instance_id, design_input_ref)。[输入](../../../template/test-design-input.json) 含 tasks.scope/需求、case_refs、spec_refs（Spec-Designer staging 中本叶子 SPEC 草稿，带 Requirement-ID/Scenario-ID；行为契约拒绝全局规范/context 代替）。subject_sha256 用游标 input_subject_sha256；草稿变更须重设计。无代码锁、依赖代码/设备前置，仍计并发预算。
+2. 独立 Test-Runner 只读规格/用例，覆盖适用的正常、边界、异常、权限/数据场景，在自身 staging 写[结果](../../../template/test-design-result.json)。JSON 唯一记录 CASE→PATH/ASSERT；行为断言（unit/automation/visual）的 scenario_ids 覆盖每个 SPEC 场景。design_ref 只记依据/决策，不复制 PATH。不从实现推导预期，缺业务预期交 Spec-Designer。submit(assignment_id/fencing_token/result_ref/context_ref) 同带 test-design 预检（assigned-scope/spec-cases/task-coverage/independence，draft_ref 绑定结果），无需另 context-submit；kind=test-design，freeze_id/code_baseline=null，禁 actual/passed/quality/代码/执行。
+3. MO 核全 CASE 后 accept(assignment_id,review_ref)，关闭 assignment，保持规划状态及预算/兄弟模块。返工/阻塞先留证，Host 停 worker/revoke，再重新派发或 suspend。
+4. Ledger 从接受的设计补全 test_design_ref、PATH/ASSERT、tasks.scope/需求、spec/test-design 定义及 scenario_trace 断言；plan 写自身 path_ids/四维追溯和场景 task_ids，重复提供须一致。MO freeze 重验；批准/impact 绑定补全后 approval_subject_sha256。需求/任务/分配/断言变化须重设计，invalidate/CR 留旧证据回规划；活动设计输入过期交 Host revoke，clarifying 时过期交 MO invalidate。
 
-设计者不能兼 MO/Spec/实现/修复作者，登记 authors 后不能兼 Auditor。宿主落实真实独立派发与 staging 写隔离；结构/hash 不证明语义正确。未冻结禁编码、未接受代码禁执行，设计不能替代 building/testing 预检。
+新 prepare 固化 planning_coverage_required（旧 Run 保留原契约）。每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids；已有执行器可复用，prepared 须对应资产，deferred 另记 owner/next_action，解决后才能冻结。测试准备不执行目标代码，不编造 Red。
+
+test_assets 交 script/fixture/adapter 的 asset_id/ref/path_ids，script 再映射 assertions；文件位于 design_ref 同级 staging 内，冻结 definitions 绑定 hash。模块、修复后复测及 GLOBAL 复测共用 PATH 资产解析，query/receipt 的 test_asset_binding 保留来源模块、freeze_id、test_design_ref。GLOBAL 自有路径显式绑定本 GLOBAL 的 test_design_ref/设计作者，不借用模块资产；作者不能兼 Auditor/审计 Test-Runner。
+
+所有执行器可从 SDD_TEST_QUERY_FILE 读 query（非 build/unit 同时带 --query-file）；资产位于 frozen_test_assets。script/adapter 直接作为 argv 参数由 Host 记录 entrypoint_ids；其他消费由执行器向 SDD_TEST_ASSET_USAGE_FILE 写 [{asset_id,ref}]，回执保存 reported_ids 和文件引用。新冻结有资产时，Green 须覆盖所有所选资产，哈希/来源不能变；提供资产不等于消费，执行器上报也不自动证明断言语义。缺证据允许记录真实失败/阻塞。
+
+设计者与 MO/Spec/实现/修复/Auditor 独立；Host 落实派发及 staging 隔离。结构/hash 不证明语义；设计不替代 building/testing 预检及冻结/代码门禁。
 
 ## query
 
@@ -63,7 +69,7 @@ adapter 的 `skipped` / `xfail` 限制必须原样保留。原始报告声称 Gr
 
 `global_paths` 是显式全局测试路径，可以为空或只覆盖已登记 CASE 的子集；它不代表全部模块用例。GO 的 global-plan 仍必须为所有 requirement/case 完整声明 owner，Auditor 沿既有非 Green 与变更影响范围选择复核路径。
 
-本地一轮策略与问题审计：Red/Yellow 可修复根因先自动一轮，确认依赖/外围或仍失败时 audit-defer；问题审计独立执行有效代码，缺代码/前置时只记 Yellow。Auditor 对正式复测证据直接作审计验收；MO 只接收模块恢复/修复任务并执行模块门禁，不会签审计结论；最终审计不能跳过。
+模块修复按[有限循环](state-machine.md#有限循环)执行；v2 在预算内局部收敛，阻塞/超限留证待统一宿主审计，v1 保留原问题审计。独立 Test-Runner 提交正式复测证据，Auditor 审阅并裁决；MO 执行模块恢复/修复门禁，最终审计不能跳过。
 
 ## 逻辑单测
 

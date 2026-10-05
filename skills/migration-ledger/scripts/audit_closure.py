@@ -197,9 +197,12 @@ def test_accepted(s, m, result, result_ref, build_only=False, stage='build'):
     b = s.get('audit_batch', {})
     if not b or m.get('audit_batch_id') != b.get('batch_id') or b.get('status') != 'repairing': return
     mid = m['module_id']
+    b.setdefault('test_history', []).append({'module_id': mid, 'stage': stage, 'result_ref': result_ref,
+        'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'paths': copy.deepcopy(result['paths'])})
     if build_only:
         bad = [r for r in result['paths'] if r['quality'] != 'green-passed']
         if bad:
+            if retry_repair(s, m, bad, result_ref): return
             stop(s, stage + '-verification-failed', mid,
                  {'result_ref': result_ref, 'root_causes': [r['root_cause'] for r in bad]})
         # A successful build is a prerequisite, never proof of automation coverage.
@@ -210,12 +213,50 @@ def test_accepted(s, m, result, result_ref, build_only=False, stage='build'):
     b[stage + '_tests'][mid] = p
     bad = [r for r in result['paths'] if r['quality'] != 'green-passed']
     for memory in m.get('fix_memory', []):
-        if memory.get('audit_batch_id') == b['batch_id']: memory.update(status='failed' if bad else 'awaiting-cross-verification', reusable=False)
+        if memory.get('audit_batch_id') == b['batch_id'] and memory.get('after_baseline') == m['code_baseline'] and memory.get('status') not in ('failed', 'interrupted'):
+            memory.update(status='failed' if bad else 'awaiting-cross-verification', reusable=False)
     if stage == 'owner' and mid in b['sources']: b['source_tests'][mid] = p
     if bad:
+        if retry_repair(s, m, bad, result_ref): return
         stop(s, 'verification-failed', mid, {'result_ref': result_ref, 'root_causes': [r['root_cause'] for r in bad]})
     elif b.get('human_issues'):
         human_report(s, 'partial-verification-awaits-human')
+
+
+def retry_repair(s, source, bad, result_ref):
+    """An accepted observation may reopen only its already-reviewed technical owner route."""
+    if s.get('control_policy_version', 1) < 2: return False
+    b = s['audit_batch']; causes = [row.get('root_cause') or {} for row in bad]
+    routed = {row['owner'] for row in causes if row.get('owner')}
+    if len(routed) != 1 or not routed <= owners(b): return False
+    owner = next(iter(routed)); m = s['modules'][owner]
+    if any(row.get('confidence') != 'confirmed' or row.get('category') in
+           ('human', 'environment', 'tooling', 'external', 'peripheral') for row in causes): return False
+    if m['fix_rounds_used'] >= m.get('fix_budget', s['max_fix_rounds']) or max(m['no_progress_rounds'], source['no_progress_rounds']) >= s['max_no_progress_rounds']: return False
+    routes = [row for row in b['routes'].values() if owner in row['owner_module_ids']]
+    if not any(source['module_id'] in finding_impact(b, row['finding_id']) for row in routes): return False
+    affected = {owner}
+    while True:
+        more = {mid for mid, deps in b['dependencies'].items() if affected.intersection(deps)} - affected
+        if not more: break
+        affected.update(more)
+    if any((s['modules'][mid].get('blocked') or {}).get('kind') not in (None, 'dependency', 'auditor') for mid in affected): return False
+    try:
+        require(m['freeze_id'] == b['contexts'][owner]['freeze_id'] and m['plan_ref'] == b['contexts'][owner]['spec_ref'], 'retry contract changed')
+        current(m, context(m))
+    except (ValueError, OSError, KeyError, TypeError): return False
+    b.setdefault('retry_owners', {})[owner] = {'context': context(m), 'diagnosis_ref': result_ref, 'root_cause': causes[0],
+        'affected_module_ids': sorted(affected)}
+    for mid in affected:
+        b['owner_tests'].pop(mid, None); b['source_tests'].pop(mid, None)
+        mod = s['modules'][mid]
+        active_workers = [aid for aid, a in mod['assignments'].items() if not a.get('closed')]
+        if active_workers: b.setdefault('retry_stops', {})[mid] = active_workers
+        else: mod['phase'] = 'testing'
+        mod['stale'] = mid != source['module_id']
+        for memory in mod.get('fix_memory', []):
+            if memory.get('audit_batch_id') == b['batch_id']: memory.update(status='failed', reusable=False)
+    return True
 
 
 def batch(s):
@@ -291,7 +332,7 @@ def handle(s, req, actor):
             r['owner_module_ids'] = r.get('owner_module_ids', [r['owner_module_id']] if r.get('owner_module_id') else [])
             if b.get('code_review_ref'):
                 require(r['action'] in ('fix', 'human'), 'code governance requires delegated change or human decision')
-                require(not f.get('requires_human') or r['action'] == 'human', 'persistent governance finding requires human review; no second automatic fix')
+                require(not f.get('requires_human') or r['action'] == 'human', 'governance finding requires human review: uncertainty or exhausted budget' if s.get('control_policy_version', 1) >= 2 else 'persistent governance finding requires human review; no second automatic fix')
             mids = r['owner_module_ids']
             require(len(set(mids)) == len(mids) and set(mids) <= set(s['modules']), 'unknown/duplicate repair owner')
             require(bool(mids) == (r['action'] == 'fix'), 'only fix routes must specify repair owners')
@@ -316,19 +357,22 @@ def handle(s, req, actor):
         workflow.role(actor, 'module-orchestrator'); b = batch(s)
         require(b['status'] == 'repairing' and mid in pending_modules(b), 'module not runnable in audit')
         routes = [r for r in b['routes'].values() if mid in r['owner_module_ids']]
-        require(routes and mid not in b['started_owners'], 'owner not routed/already attempted')
+        retry = b.get('retry_owners', {}).get(mid)
+        require(routes and (mid not in b['started_owners'] or retry), 'owner not routed/already attempted')
+        require(not retry or not any(b.get('retry_stops', {}).get(dep) for dep in retry['affected_module_ids']), 'stop affected old workers before audit retry')
         m = s['modules'][mid]; workflow.idle(m)
         require(dependencies_done(s, b, mid), 'wait for dependency repair and full module verification')
         try:
-            current(m, b['contexts'][mid])
+            current(m, retry['context'] if retry else b['contexts'][mid])
             require((m.get('blocked') or {}).get('kind') != 'human', 'unresolved human blocker')
             require(workflow.runnable(s, mid), 'owner prerequisites unavailable')
             require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']) and m['no_progress_rounds'] < s['max_no_progress_rounds'], 'repair budget exhausted')
         except (ValueError, OSError, KeyError, TypeError) as exc:
             stop(s, str(exc), mid, b['plan_ref']); return
-        b['started_owners'].append(mid)
+        if mid not in b['started_owners']: b['started_owners'].append(mid)
+        b.get('retry_owners', {}).pop(mid, None)
         m.update(phase='diagnosing', blocked=None, stale=False, audit_batch_id=b['batch_id'], audit_test_stage='owner',
-                 diagnosis={'diagnosis_ref': b['plan_ref'], 'root_cause': routes[0]['root_cause'],
+                 diagnosis={'diagnosis_ref': retry['diagnosis_ref'] if retry else b['plan_ref'], 'root_cause': retry['root_cause'] if retry else routes[0]['root_cause'],
                             'findings': copy.deepcopy(routes), 'owner': mid}, audit_fix_grant=b['batch_id'])
     elif op == 'audit-retest':
         workflow.role(actor, 'module-orchestrator'); b = batch(s)
@@ -373,7 +417,7 @@ def handle(s, req, actor):
             b['quality'] = 'yellow-blocked' if b['unverified_findings'] else 'green-passed'
             for owner in owners(b):
                 for memory in s['modules'][owner].get('fix_memory', []):
-                    if memory.get('audit_batch_id') == b['batch_id'] and not any(owner in b['routes'][fid]['owner_module_ids'] for fid in b['unverified_findings']):
+                    if memory.get('audit_batch_id') == b['batch_id'] and memory.get('status') == 'awaiting-cross-verification' and memory.get('after_baseline') == s['modules'][owner]['code_baseline'] and not any(owner in b['routes'][fid]['owner_module_ids'] for fid in b['unverified_findings']):
                         memory.update(status='verified', reusable=True, audit_verdict_ref=p['review_ref'])
         for source in {b['findings'][fid]['source_module_id'] for fid in b['resolved_findings'] + b['unverified_findings']}:
             if not any(f['source_module_id'] == source and fid in b['human_issues'] for fid,f in b['findings'].items()):
@@ -408,7 +452,7 @@ def module_step(s, m):
     step = {'module_id': mid, 'phase': m['phase'], 'expected_revision': m['revision'], 'operation': None,
             'role': 'module-orchestrator', 'ready': False, 'reason': 'await-audit-closure', 'assignment_id': None, 'session_id': None}
     if any(not a.get('closed') for a in m['assignments'].values()):
-        if mid in b.get('blocked_modules', []):
+        if mid in b.get('blocked_modules', []) or b.get('retry_stops', {}).get(mid):
             step.update(operation='revoke', role='host', ready=True, reason='stop-blocked-audit-worker'); return step
         return None
     if b['status'] == 'awaiting-human': step['reason'] = 'human-review-required'; return step
@@ -418,7 +462,10 @@ def module_step(s, m):
     if m.get('effective_quality') == 'yellow-blocked':
         step.update(operation='audit-block', ready=True, reason='audit-evidence-stale'); return step
     if not dependencies_done(s,b,mid): step['reason'] = 'dependency-verification-pending'; return step
-    if mid in owners(b) and mid not in b['started_owners']:
+    if mid in owners(b) and (mid not in b['started_owners'] or mid in b.get('retry_owners', {})):
+        retry = b.get('retry_owners', {}).get(mid)
+        if retry and any(b.get('retry_stops', {}).get(dep) for dep in retry['affected_module_ids']):
+            step['reason'] = 'stop-affected-workers-before-audit-retry'; return step
         step.update(operation='audit-work', ready=True, reason=None); return step
     if m.get('audit_batch_id') == b['batch_id'] and m['phase'] in ('diagnosing', 'fixing', 'testing', 'dod'): return None
     if not completed(s,b,mid): step.update(operation='audit-retest', ready=True, reason=None)

@@ -88,3 +88,32 @@ class AuditScopeTests(unittest.TestCase):
         scope = ledger.audit_scope(s)
         self.assertEqual([p['path_id'] for p in scope['plan']['paths']], ['GP1'])
         self.assertTrue(scope['stale'])  # Expired Green must also link retest_of.
+
+    def test_changed_global_acceptance_requires_retest_even_with_identical_code(self):
+        import run_changes
+        f = self.fixture(); f.completed(); s = f.state()
+        base = ledger.audit_scope(s)['code_baseline']
+        path = {**s['modules']['M001']['plan']['paths'][0], 'path_id': 'GP1'}
+        s['global_paths'] = [path]
+        s['audit_results'] = {'GP1': {'quality': 'green-passed', 'executed': True,
+            'test_run_id': 'prior-global', 'code_baseline': base}}
+        updated = copy.deepcopy(path); updated['expected_assertions'][0]['expected'] = 'corrected acceptance'
+        report = {'schema_version': 1, 'run_id': 'demo', 'reason': 'Correct GLOBAL acceptance',
+            'context_patch': {}, 'root_updates': [], 'global_spec_ref': f.ref('corrected-global.md', 'Revised GLOBAL expectation'),
+            'contract_patch': {'global_paths': [updated]}, 'modules': [{'module_id': 'M001', 'action': 'unchanged',
+                'reason': 'Module implementation contract unchanged', 'evidence_refs': [f.ref('impact.md', 'Only integration expectation changed')],
+                'resume_blocker_sha256': None}]}
+        run_changes.handle(f.root.resolve(), s, {'operation': 'run-review', 'payload': {'report_ref': f.ref('global-revision.json', report)}},
+                           {'role': 'global-orchestrator', 'instance_id': 'go'})
+        subject = s['run_change_review']['subject_sha256']
+        s['decisions']['REV'] = {'decision': 'approved', 'module_id': None, 'consumed': False,
+            'subject_sha256': subject, 'human_source_ref': f.ref('approve-global.md', 'Approve corrected acceptance')}
+        run_changes.handle(f.root.resolve(), s, {'operation': 'revise-run', 'payload': {'decision_id': 'REV', 'subject_sha256': subject}},
+                           {'role': 'host', 'instance_id': 'host'})
+        scope = ledger.audit_scope(s)
+        self.assertEqual(scope['code_baseline'], base)
+        self.assertEqual(scope['plan']['paths'], [updated])
+        self.assertTrue(scope['stale'])
+        self.assertEqual(scope['results']['GP1']['test_run_id'], 'prior-global')
+        self.assertTrue(scope['results']['GP1']['stale'])
+        self.assertEqual(s['modules']['M001']['phase'], 'completed')

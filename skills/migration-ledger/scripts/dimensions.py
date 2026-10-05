@@ -8,6 +8,8 @@ from contracts import check_ref, digest, keyed, nonempty, read_json, require
 
 ORDER = ['UI', 'Logic', 'Adhesive', 'Resource']
 SOURCES = ('legacy', 'architecture', 'reuse', 'target')
+CONDITION_FACETS = {'UI': ('theme', 'density', 'font-scale', 'loading-error', 'visibility-layout'),
+                    'Resource': ('theme', 'density', 'loading-error')}
 
 
 def evidence(refs, label):
@@ -57,6 +59,7 @@ def load(ref, module_id):
             nonempty(item.get('requirement_ids'), 'dimension requirements')
             nonempty(item.get('case_ids'), 'dimension cases')
             evidence(item.get('evidence_refs'), 'dimension item evidence')
+            fidelity_conditions(item)
             if row['dimension'] == 'Resource':
                 require(not (item.get('source_signal') and item.get('source_resource')),
                         'a Resource item names a resource file or a recorded image source, not both')
@@ -70,9 +73,54 @@ def load(ref, module_id):
                 resource_fidelity.consumers(item)
             items[iid] = {**item, 'dimension': row['dimension']}
     require(items, 'functional module must contain applicable dimension work')
+    coverage_review(data)
     import semantics
     semantics.validate_items(items)
+    import api_contract
+    api_contract.load(data, items)
     return data, items
+
+
+def fidelity_conditions(item, paths=None, trace=None):
+    """Source-backed conditions share the existing PATH/ASSERT chain; presence is not proof."""
+    rows = item.get('fidelity_conditions', [])
+    require(isinstance(rows, list), 'fidelity_conditions must be a list')
+    for row in (keyed(rows, 'condition_id').values() if rows else []):
+        require(row.get('condition') and row.get('reason') and row.get('status') in ('applicable', 'not-applicable'),
+                'fidelity condition needs applicability and rationale')
+        evidence(row.get('evidence_refs'), 'fidelity condition source evidence')
+        if row['status'] == 'not-applicable':
+            require(row.get('assertions') == [], 'excluded fidelity condition cannot claim assertions')
+            continue
+        if paths is None: continue  # GO/parent records conditions; leaf planning binds actual assertions.
+        for pair in nonempty(row.get('assertions'), 'fidelity condition assertions'):
+            path = paths.get(pair.get('path_id'), {})
+            require(path.get('kind', 'automation') in ('unit', 'automation', 'visual') and
+                    pair.get('assertion_id') in {a['assertion_id'] for a in path.get('expected_assertions', [])} and
+                    any(all(pair.get(k) == entry.get(k) for k in ('path_id', 'assertion_id')) for entry in trace['assertions']),
+                    'fidelity condition needs item-owned behavioral PATH/ASSERT')
+
+
+def coverage_review(data, required=False):
+    """Only applicable UI/resource dimensions owe a source-backed condition review."""
+    for row in data['dimensions']:
+        if row['dimension'] not in CONDITION_FACETS or row['status'] != 'applicable': continue
+        review = row.get('condition_review')
+        require(review is not None or not required, 'UI/Resource condition review required')
+        if review is None: continue
+        require(isinstance(review, dict) and set(review) == set(CONDITION_FACETS[row['dimension']]), 'condition review facets incomplete')
+        applicable = {(item['item_id'], c['condition_id']) for item in row['items']
+                      for c in item.get('fidelity_conditions', []) if c['status'] == 'applicable'}
+        covered = set()
+        for value in review.values():
+            require(value.get('reason'), 'condition review source rationale required')
+            evidence(value.get('evidence_refs'), 'condition review source evidence')
+            refs = value.get('condition_refs')
+            require(isinstance(refs, list), 'condition refs must be explicit, empty means source-backed exclusion')
+            pairs = {(r.get('item_id'), r.get('condition_id')) for r in refs}
+            require(pairs <= applicable, 'condition review references unknown/non-applicable condition')
+            covered.update(pairs)
+        require(covered == applicable, 'condition review omits applicable conditions')
 
 
 def allocation(s, module):
@@ -80,6 +128,11 @@ def allocation(s, module):
     if not s.get('dimension_slicing_required') and not ref:
         return {}
     data, items = load(ref, module['module_id'])
+    coverage_review(data, s.get('planning_coverage_required', False))
+    import api_contract
+    api_contract.applicability(data, s.get('control_policy_version', 1) >= 2)
+    if s.get('planning_coverage_required'):
+        evidence((data.get('api_review') or {}).get('discovery_refs'), 'API discovery scope required for applicability review')
     require(module.get('scope') and data.get('scope') == module['scope'],
             'dimension analysis must bind the already allocated module scope')
     allowed = set(module.get('scope', {}).get('requirement_ids', s['requirement_ids']))
@@ -98,10 +151,19 @@ def partition(s, parent, plan):
     # is refined into multiple subfunctions; shared code still has one writer.
     check_ref(plan.get('dimension_partition_review_ref'))
     covered, child_ids = set(), set()
-    coverage = {iid: {'requirements': set(), 'cases': set()} for iid in expected}
+    import api_contract
+    parent_data = read_json(check_ref(parent['dimension_analysis_ref']))
+    parent_calls, parent_apis = api_contract.load(parent_data, expected)
+    api_covered = set()
+    coverage = {iid: {'requirements': set(), 'cases': set(), 'conditions': set()} for iid in expected}
     for child in plan['children']:
         items = allocation({**s, 'dimension_slicing_required': True}, child)
         data, _ = load(child['dimension_analysis_ref'], child['module_id'])
+        calls, apis = api_contract.load(data, items)
+        require(set(apis) <= set(parent_apis) and all(calls[aid] == parent_calls[aid] for aid in apis),
+                'child API source outside parent boundary; revise GO inventory first')
+        require(not api_covered.intersection(apis), 'API owner duplicated across children')
+        api_covered.update(apis)
         require(data.get('parent_ref') == parent['dimension_analysis_ref'], 'child dimension parent reference mismatch')
         for iid, item in items.items():
             require(iid not in child_ids, 'dimension item ownership duplicated across children')
@@ -116,8 +178,19 @@ def partition(s, parent, plan):
             for pid in origins:
                 coverage[pid]['requirements'].update(item['requirement_ids'])
                 coverage[pid]['cases'].update(item['case_ids'])
+                parent_conditions = {c['condition_id']: c for c in expected[pid].get('fidelity_conditions', [])}
+                for condition in item.get('fidelity_conditions', []):
+                    original = parent_conditions.get(condition['condition_id'])
+                    if original:
+                        require(all(condition.get(k) == original.get(k) for k in ('condition', 'status')) and
+                                all(ref in condition['evidence_refs'] for ref in original['evidence_refs']),
+                                'child changed inherited fidelity condition; revise parent first')
+                        coverage[pid]['conditions'].add(condition['condition_id'])
     require(covered == set(expected), 'child dimensions omit parent work (N/A cannot discard inherited work)')
+    require(api_covered == set(parent_apis), 'child API inventory omits parent contracts')
     for iid, item in expected.items():
+        require({c['condition_id'] for c in item.get('fidelity_conditions', [])} <= coverage[iid]['conditions'],
+                'child dimensions omit parent fidelity conditions')
         require(set(item['requirement_ids']) <= coverage[iid]['requirements'] and
                 set(item['case_ids']) <= coverage[iid]['cases'], 'child dimensions omit parent item requirements/cases')
 
@@ -148,6 +221,9 @@ def validate_plan(plan, module):
                     'unknown dimension assertion')
     require({tid for trace in traces.values() for tid in trace['task_ids']} == set(tasks), 'task missing dimension ownership')
     task_analyses(plan, module, items, traces)
+    for iid, item in items.items(): fidelity_conditions(item, paths, traces[iid])
+    import api_contract
+    api_contract.plan(read_json(check_ref(ref)), items, plan)
     # The machine mapping complements, never replaces, normative OpenSpec text.
     for kind in ('design', 'spec', 'tasks'):
         text = '\n'.join(check_ref(d).read_text() for d in plan['definitions'] if d['kind'] == kind)
@@ -241,6 +317,8 @@ def implementation(plan, result):
     analysis = read_json(check_ref(plan['dimension_analysis_ref']))
     resource_copy.verify(analysis, result.get('code_files'))
     parameter_file.verify(analysis, result.get('code_files'))
+    import api_contract
+    api_contract.implementation(analysis, items, result)
 
 
 def consumer_evidence(trace):

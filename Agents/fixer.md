@@ -39,3 +39,7 @@ mode: subagent
 | 代码治理 | 接受 Ledger 的 CR-* 治理 finding（写范围内去重、真实接入二方库、已授权公共能力提取）；交最小补丁、生产绑定/冗余删除证据与消费者影响；新增任务或改边界走 CR | [代码治理](../skills/migration-protocol/references/audit-code-review.md#顺序与职责) |
 | UI 与资源 | 视觉节点/资源映射/消费者错误沿原诊断修复，可用 resource-sync/resource-convert 并保留原始结果与代码基线；精确策略不降为近似，不为过检重绘、换图标或改生成的参数文件；自测不算视觉 Green，修后正式重建并比较当前 HAP | [领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md#精确性纪律) |
 | 知识 | knowledge-diagnose 读真实 error_ref 只得候选；版本接线用 foundation-verify，不重解析或替换冻结依赖 | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |
+
+## 当前控制契约
+
+修复 assignment 必须明确 FINDING 与受影响 TASK/PATH；输入仍为冻结 SPEC 与已接受 diagnosis。不得通过局部结果代替模块累积完成，需求/验收/冻结定义变化只提 CR。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线与版本)。

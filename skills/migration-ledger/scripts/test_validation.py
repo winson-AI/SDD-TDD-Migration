@@ -18,13 +18,15 @@ def paths(m, scope):
 
 def build_ready(m):
     return bool(split(m) and m.get('build_baseline') == m.get('code_baseline') and m.get('code_baseline')
-                and all(m.get('results', {}).get(p['path_id'], {}).get('quality') == 'green-passed'
+                and all(not m.get('results', {}).get(p['path_id'], {}).get('stale')
+                        and m.get('results', {}).get(p['path_id'], {}).get('quality') == 'green-passed'
                         for p in paths(m, 'build')))
 
 
 def _green_at_baseline(m, scope):
     results = m.get('results', {})
-    return all((results.get(p['path_id']) or {}).get('quality') == 'green-passed'
+    return all(not (results.get(p['path_id']) or {}).get('stale')
+               and (results.get(p['path_id']) or {}).get('quality') == 'green-passed'
                and (results.get(p['path_id']) or {}).get('code_baseline') == m.get('code_baseline')
                for p in paths(m, scope))
 
@@ -64,7 +66,7 @@ def stage_paths(m, tests):
     results, expected = m.get('results', {}), []
     for kind in PRE:
         ready = kind != 'build' or build_ready(m)
-        pending = [p for p in paths(m, kind) if not (ready and (results.get(p['path_id']) or {}).get('quality') == 'green-passed'
+        pending = [p for p in paths(m, kind) if not (ready and not (results.get(p['path_id']) or {}).get('stale') and (results.get(p['path_id']) or {}).get('quality') == 'green-passed'
                                                     and (results.get(p['path_id']) or {}).get('code_baseline') == m.get('code_baseline'))]
         expected += pending
         if any((tests.get(p['path_id']) or {}).get('quality') != 'green-passed' for p in pending):
@@ -75,7 +77,8 @@ def stage_paths(m, tests):
 def all_green(m):
     planned = {p['path_id'] for p in (m.get('plan') or {}).get('paths', [])}
     results = m.get('results', {})
-    return bool(planned) and all((results.get(pid) or {}).get('quality') == 'green-passed' for pid in planned)
+    return bool(planned) and all(not (results.get(pid) or {}).get('stale') and (results.get(pid) or {}).get('quality') == 'green-passed' and
+        (results.get(pid) or {}).get('code_baseline', m.get('code_baseline')) == m.get('code_baseline') for pid in planned)
 
 
 def resume_budget_left(s, m):

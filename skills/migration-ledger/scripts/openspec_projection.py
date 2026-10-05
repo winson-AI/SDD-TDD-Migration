@@ -165,6 +165,10 @@ def build_lessons(state, sequence):
     """In-run lessons: slicing gaps, boundary conflicts, replans and Auditor-verified fix patterns."""
     lessons = {'run_id': state.get('run_id'), 'sequence': sequence, 'entries': []}
     add = lessons['entries'].append
+    for rec in state.get('run_change_history', []):
+        add({'kind': 'slicing-gap', 'root_ids': rec.get('changed_roots', []), 'affected_modules': rec.get('affected_modules', []),
+             'summary': rec['reason'], 'result': 'upstream revision accepted; implementation and regression still required',
+             'evidence_ref': rec['report_ref']})
     for rec in state.get('redecomposition_history', []):
         add({'kind': 'slicing-gap', 'parent_module_id': rec.get('parent_module_id'),
              'affected_modules': rec.get('affected_modules', []), 'retired_modules': rec.get('retired_modules', []),
@@ -183,14 +187,20 @@ def build_lessons(state, sequence):
             add({'kind': 'planning-gap', 'module_id': mid, 'reason': hist.get('reason'),
                  'summary': f"Module {mid} replanned due to {hist.get('reason')}", 'plan_hash': hist.get('plan_hash')})
         for mem in m.get('fix_memory', []):
-            note = _fix_note(mem) if mem.get('reusable') else None
+            note = _fix_note(mem)
             if note:
                 cause = note.get('root_cause')
                 category = cause.get('category') if isinstance(cause, dict) else cause
-                add({'kind': 'fix-pattern', 'module_id': mid, 'root_cause': cause, 'strategy': note.get('strategy'),
+                add({'kind': 'fix-pattern' if mem.get('reusable') else 'failed-strategy', 'status': mem.get('status'),
+                     'result': mem.get('status') or ('verified' if mem.get('reusable') else 'unverified'),
+                     'next_check': 'Match the current SPEC and root cause; rerun the frozen paths',
+                     'module_id': mid, 'root_cause': cause, 'strategy': note.get('strategy'),
                      'applicability': note.get('applicability'), 'risks': note.get('risks'),
-                     'summary': f"Verified fix for {category}: {note.get('strategy')}",
+                     'summary': f"{mem.get('status', 'verified' if mem.get('reusable') else 'unverified')} fix for {category}: {note.get('strategy')}",
                      'evidence_refs': [mem['fix_note_ref']] + ([mem['audit_verdict_ref']] if mem.get('audit_verdict_ref') else [])})
+    for retrospective in state.get('retrospectives', []):
+        from experience import validate_lessons
+        lessons['entries'].extend(validate_lessons(retrospective['lessons_ref']))
     return lessons
 
 

@@ -45,7 +45,7 @@ class SplitTestingTests(unittest.TestCase):
             return r
         def call(op, payload=None, **kwargs):
             payload = copy.deepcopy(payload or {})
-            if op == 'assign' and payload.get('role') == 'test-runner':
+            if op == 'assign' and payload.get('role') == 'test-runner' and payload.get('mode') != 'design':
                 m = f.state()['modules'][kwargs.get('module', 'M001')]
                 payload.setdefault('test_scope', tv.next_scope(m))
             return old_call(op, payload, **kwargs)

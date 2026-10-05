@@ -45,12 +45,29 @@
             "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{behavior-review-evidence}}",
             "sha256": "{{sha256}}"
           }
-        ]
+        ],
+        "verification": {
+          "acceptance_owner": "{{module-id}}",
+          "case_ids": [
+            "{{CASE-ID}}"
+          ],
+          "independent_observation": "{{distinct-observable-result-for-this-slice}}",
+          "isolation_strategy": "{{inputs-fixtures-and-provider-doubles}}",
+          "fixture_contract_ref": {
+            "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/fixture-contract.md",
+            "sha256": "{{sha256}}"
+          },
+          "provider_inputs": [],
+          "integration_case_ids": [],
+          "integration_responsibility": "{{live-provider-integration-owner}}"
+        }
       }
     }
   ],
   "dimension_partition_review_ref": {
     "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
     "sha256": "{{sha256}}"
-  }
+  },
+  "consumer_dependencies": {},
+  "consumer_verifications": {}
 }

@@ -1,247 +1,254 @@
 {
-  "schema_version": 1,
-  "module_id": "M001",
-  "definitions": [
-    {
-      "kind": "proposal",
-      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
-      "sha256": "{{sha256}}"
-    },
-    {
-      "kind": "design",
-      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
-      "sha256": "{{sha256}}"
-    },
-    {
-      "kind": "tasks",
-      "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
-      "sha256": "{{sha256}}"
-    }
-  ],
-  "tasks": [
-    {
-      "task_id": "TASK-M001-001",
-      "path_ids": [
-        "BUILD-M001-001",
-        "UNIT-M001-001",
-        "STATIC-M001-001",
-        "PATH-M001-001"
+ "schema_version": 1,
+ "module_id": "M001",
+ "definitions": [
+  {
+   "kind": "proposal",
+   "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
+   "sha256": "{{sha256}}"
+  },
+  {
+   "kind": "design",
+   "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
+   "sha256": "{{sha256}}"
+  },
+  {
+   "kind": "tasks",
+   "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
+   "sha256": "{{sha256}}"
+  }
+ ],
+ "tasks": [
+  {
+   "task_id": "TASK-M001-001",
+   "path_ids": [
+    "BUILD-M001-001",
+    "UNIT-M001-001",
+    "STATIC-M001-001",
+    "PATH-M001-001"
+   ],
+   "dimension_analysis": {
+    "unresolved": [
+     "{{resolve-task-specific-implementation-questions}}"
+    ],
+    "dimensions": [
+     {
+      "dimension": "UI",
+      "status": "unresolved",
+      "reason": "{{analyze-this-task-scope; N/A-requires-evidence-and-empty-item_ids}}",
+      "item_ids": [
+       "DIM-M001-UI-001"
       ],
-      "dimension_analysis": {
-        "unresolved": [
-          "{{resolve-task-specific-implementation-questions}}"
-        ],
-        "dimensions": [
-          {
-            "dimension": "UI",
-            "status": "unresolved",
-            "reason": "{{analyze-this-task-scope; N/A-requires-evidence-and-empty-item_ids}}",
-            "item_ids": [
-              "DIM-M001-UI-001"
-            ],
-            "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
-            "evidence_refs": [
-              {
-                "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{task-analysis-evidence-path}}",
-                "sha256": "{{sha256}}"
-              }
-            ]
-          },
-          {
-            "dimension": "Logic",
-            "status": "unresolved",
-            "reason": "{{analyze-this-task-scope; N/A-requires-evidence-and-empty-item_ids}}",
-            "item_ids": [
-              "DIM-M001-LOGIC-001"
-            ],
-            "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
-            "evidence_refs": [
-              {
-                "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{task-analysis-evidence-path}}",
-                "sha256": "{{sha256}}"
-              }
-            ]
-          },
-          {
-            "dimension": "Adhesive",
-            "status": "unresolved",
-            "reason": "{{analyze-this-task-scope; N/A-requires-evidence-and-empty-item_ids}}",
-            "item_ids": [
-              "DIM-M001-ADHESIVE-001"
-            ],
-            "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
-            "evidence_refs": [
-              {
-                "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{task-analysis-evidence-path}}",
-                "sha256": "{{sha256}}"
-              }
-            ]
-          },
-          {
-            "dimension": "Resource",
-            "status": "unresolved",
-            "reason": "{{analyze-this-task-scope; N/A-requires-evidence-and-empty-item_ids}}",
-            "item_ids": [
-              "DIM-M001-RESOURCE-001"
-            ],
-            "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
-            "evidence_refs": [
-              {
-                "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{task-analysis-evidence-path}}",
-                "sha256": "{{sha256}}"
-              }
-            ]
-          }
-        ]
-      }
-    }
+      "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
+      "evidence_refs": [
+       "task-proof"
+      ]
+     },
+     {
+      "dimension": "Logic",
+      "status": "unresolved",
+      "reason": "{{analyze-this-task-scope; N/A-requires-evidence-and-empty-item_ids}}",
+      "item_ids": [
+       "DIM-M001-LOGIC-001"
+      ],
+      "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
+      "evidence_refs": [
+       "task-proof"
+      ]
+     },
+     {
+      "dimension": "Adhesive",
+      "status": "unresolved",
+      "reason": "{{analyze-this-task-scope; N/A-requires-evidence-and-empty-item_ids}}",
+      "item_ids": [
+       "DIM-M001-ADHESIVE-001"
+      ],
+      "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
+      "evidence_refs": [
+       "task-proof"
+      ]
+     },
+     {
+      "dimension": "Resource",
+      "status": "unresolved",
+      "reason": "{{analyze-this-task-scope; N/A-requires-evidence-and-empty-item_ids}}",
+      "item_ids": [
+       "DIM-M001-RESOURCE-001"
+      ],
+      "implementation": "{{concrete-source-fidelity/target-reuse/adaptation/wiring/resource-work-within-task-scope}}",
+      "evidence_refs": [
+       "task-proof"
+      ]
+     }
+    ]
+   }
+  }
+ ],
+ "source_closure": {
+  "entry": "{{entry}}",
+  "execution_chain": [
+   "{{handler}}",
+   "{{repository}}"
   ],
-  "source_closure": {
-    "entry": "{{entry}}",
-    "execution_chain": [
-      "{{handler}}",
-      "{{repository}}"
-    ],
-    "observable_result": "{{result}}",
-    "production_binding": "{{binding}}",
-    "evidence_refs": [
-      {
-        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
-        "sha256": "{{sha256}}"
-      }
-    ],
-    "unresolved": [],
-    "boundary_rationale": "{{why-this-scope-is-a-complete-behavior; supporting-tasks-contribute-to-it}}",
-    "shared_capabilities": []
-  },
-  "target_feasibility": {
-    "verdict": "pending",
-    "evidence_refs": [
-      {
-        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
-        "sha256": "{{sha256}}"
-      }
-    ]
-  },
-  "decision_envelope": {
-    "scope": [
-      "{{scope}}"
-    ],
-    "acceptance": [
-      "{{acceptance}}"
-    ],
-    "allowed_alternatives": [],
-    "forbidden_changes": [
-      "scope-reduction",
-      "provider-substitution"
-    ]
-  },
-  "reuse_plan_ref": {
-    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{module-reuse-plan}}",
+  "observable_result": "{{result}}",
+  "production_binding": "{{binding}}",
+  "evidence_refs": [
+   "evidence"
+  ],
+  "unresolved": [],
+  "boundary_rationale": "{{why-this-scope-is-a-complete-behavior; supporting-tasks-contribute-to-it}}",
+  "shared_capabilities": [],
+  "verification": {
+   "acceptance_owner": "{{module-id}}",
+   "case_ids": [
+    "{{CASE-ID}}"
+   ],
+   "independent_observation": "{{distinct-observable-result-for-this-slice}}",
+   "isolation_strategy": "{{inputs-fixtures-and-provider-doubles}}",
+   "fixture_contract_ref": {
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/fixture-contract.md",
     "sha256": "{{sha256}}"
-  },
-  "dimension_analysis_ref": {
-    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{dimension-analysis-path}}",
-    "sha256": "{{sha256}}"
-  },
-  "dimension_trace": [
-    {
-      "item_id": "DIM-M001-UI-001",
-      "task_ids": [
-        "TASK-M001-001"
-      ],
-      "path_ids": [
-        "PATH-M001-001"
-      ],
-      "assertions": [
-        {
-          "path_id": "PATH-M001-001",
-          "assertion_id": "ASSERT-M001-001"
-        }
-      ]
-    },
-    {
-      "item_id": "DIM-M001-LOGIC-001",
-      "task_ids": [
-        "TASK-M001-001"
-      ],
-      "path_ids": [
-        "PATH-M001-001",
-        "UNIT-M001-001"
-      ],
-      "assertions": [
-        {
-          "path_id": "PATH-M001-001",
-          "assertion_id": "ASSERT-M001-001"
-        },
-        {
-          "path_id": "UNIT-M001-001",
-          "assertion_id": "ASSERT-UNIT-M001-CLEAN"
-        }
-      ]
-    },
-    {
-      "item_id": "DIM-M001-ADHESIVE-001",
-      "task_ids": [
-        "TASK-M001-001"
-      ],
-      "path_ids": [
-        "PATH-M001-001"
-      ],
-      "assertions": [
-        {
-          "path_id": "PATH-M001-001",
-          "assertion_id": "ASSERT-M001-001"
-        }
-      ]
-    },
-    {
-      "item_id": "DIM-M001-RESOURCE-001",
-      "task_ids": [
-        "TASK-M001-001"
-      ],
-      "path_ids": [
-        "PATH-M001-001"
-      ],
-      "assertions": [
-        {
-          "path_id": "PATH-M001-001",
-          "assertion_id": "ASSERT-M001-001"
-        }
-      ]
-    }
-  ],
-  "telemetry": {
-    "status": "not-applicable",
-    "reason": "{{after-source-review-no-telemetry-in-this-scope-or-replace-with-applicable-contract}}",
-    "evidence_refs": [
-      {
-        "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{scope-review-snapshot}}",
-        "sha256": "{{sha256}}"
-      }
-    ],
-    "events": [],
-    "tasks": [
-      {
-        "task_id": "TASK-M001-001",
-        "status": "not-applicable",
-        "reason": "{{reviewed-task-has-no-telemetry-trigger-provider-or-config-change}}",
-        "event_ids": []
-      }
-    ]
-  },
-  "scenario_trace": [
-    {
-      "scenario_id": "SCN-M001-001",
-      "task_ids": [
-        "TASK-M001-001"
-      ]
-    },
-    {
-      "scenario_id": "SCN-M001-002",
-      "task_ids": [
-        "TASK-M001-001"
-      ]
-    }
+   },
+   "provider_inputs": [],
+   "integration_case_ids": [],
+   "integration_responsibility": "{{live-provider-integration-owner}}"
+  }
+ },
+ "target_feasibility": {
+  "verdict": "pending",
+  "evidence_refs": [
+   "evidence"
   ]
+ },
+ "decision_envelope": {
+  "scope": [
+   "{{scope}}"
+  ],
+  "acceptance": [
+   "{{acceptance}}"
+  ],
+  "allowed_alternatives": [],
+  "forbidden_changes": [
+   "scope-reduction",
+   "provider-substitution"
+  ]
+ },
+ "reuse_plan_ref": {
+  "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{module-reuse-plan}}",
+  "sha256": "{{sha256}}"
+ },
+ "dimension_analysis_ref": {
+  "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{dimension-analysis-path}}",
+  "sha256": "{{sha256}}"
+ },
+ "dimension_trace": [
+  {
+   "item_id": "DIM-M001-UI-001",
+   "task_ids": [
+    "TASK-M001-001"
+   ],
+   "path_ids": [
+    "PATH-M001-001"
+   ],
+   "assertions": [
+    {
+     "path_id": "PATH-M001-001",
+     "assertion_id": "ASSERT-M001-001"
+    }
+   ]
+  },
+  {
+   "item_id": "DIM-M001-LOGIC-001",
+   "task_ids": [
+    "TASK-M001-001"
+   ],
+   "path_ids": [
+    "PATH-M001-001",
+    "UNIT-M001-001"
+   ],
+   "assertions": [
+    {
+     "path_id": "PATH-M001-001",
+     "assertion_id": "ASSERT-M001-001"
+    },
+    {
+     "path_id": "UNIT-M001-001",
+     "assertion_id": "ASSERT-UNIT-M001-CLEAN"
+    }
+   ]
+  },
+  {
+   "item_id": "DIM-M001-ADHESIVE-001",
+   "task_ids": [
+    "TASK-M001-001"
+   ],
+   "path_ids": [
+    "PATH-M001-001"
+   ],
+   "assertions": [
+    {
+     "path_id": "PATH-M001-001",
+     "assertion_id": "ASSERT-M001-001"
+    }
+   ]
+  },
+  {
+   "item_id": "DIM-M001-RESOURCE-001",
+   "task_ids": [
+    "TASK-M001-001"
+   ],
+   "path_ids": [
+    "PATH-M001-001"
+   ],
+   "assertions": [
+    {
+     "path_id": "PATH-M001-001",
+     "assertion_id": "ASSERT-M001-001"
+    }
+   ]
+  }
+ ],
+ "telemetry": {
+  "status": "not-applicable",
+  "reason": "{{after-source-review-no-telemetry-in-this-scope-or-replace-with-applicable-contract}}",
+  "evidence_refs": [
+   {
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{scope-review-snapshot}}",
+    "sha256": "{{sha256}}"
+   }
+  ],
+  "events": [],
+  "tasks": [
+   {
+    "task_id": "TASK-M001-001",
+    "status": "not-applicable",
+    "reason": "{{reviewed-task-has-no-telemetry-trigger-provider-or-config-change}}",
+    "event_ids": []
+   }
+  ]
+ },
+ "scenario_trace": [
+  {
+   "scenario_id": "SCN-M001-001",
+   "task_ids": [
+    "TASK-M001-001"
+   ]
+  },
+  {
+   "scenario_id": "SCN-M001-002",
+   "task_ids": [
+    "TASK-M001-001"
+   ]
+  }
+ ],
+ "refs": {
+  "evidence": {
+   "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{evidence-path}}",
+   "sha256": "{{sha256}}"
+  },
+  "task-proof": {
+   "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{task-proof-path}}",
+   "sha256": "{{sha256}}"
+  }
+ }
 }

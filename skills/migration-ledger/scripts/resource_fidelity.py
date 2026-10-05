@@ -13,7 +13,7 @@ import copy
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
-from contracts import Rejected, check_ref, file_ref, named, read_json, require
+from contracts import Rejected, check_ref, file_ref, named, nonempty, read_json, require
 import resource_facts
 import resource_signals
 
@@ -462,7 +462,7 @@ def validate_signal_strategy(item, strategy):
         require(item.get('blocked_reason'), 'blocked image source needs an explicit reason')
 
 
-def validate_signal_item(item, signal, item_ids):
+def validate_signal_item(item, signal, item_ids, api_contracts=None):
     """The item for one recorded image source states how the target reproduces what the legacy source does."""
     require(item.get('resource_kind') == signal['kind'], 'resource_kind differs from the recorded image source ' + signal['id'])
     validate_signal_strategy(item, item.get('resource_strategy'))
@@ -472,6 +472,18 @@ def validate_signal_item(item, signal, item_ids):
     require(isinstance(target, str) and target.strip(), 'source_equivalent needs target_source: the URL or field the target loads')
     if signal['source']['kind'] == 'url-literal':
         require(target == signal['source']['value'], 'target_source must load the same URL the legacy source loads')
+    if signal.get('api') and (api_contracts is not None or item.get('api_binding')):
+        origin = item.get('image_source_review') or {}
+        if origin.get('kind') == 'non-api':
+            require(not item.get('api_binding') and origin.get('reason'), 'non-API image origin conflicts with API binding or lacks rationale')
+            for ref in nonempty(origin.get('evidence_refs'), 'non-API image origin evidence'): check_ref(ref)
+        else:
+            binding = item.get('api_binding') or {}; contract = (api_contracts or {}).get(binding.get('api_id'))
+            require(contract, 'image API source requires api_binding to an in-scope contract')
+            field = binding.get('response_field'); source = signal['api']
+            known = {source.get('field')} | {row.get('jsonKey') for row in source.get('candidates', [])}
+            require(field in known and field in contract['target']['response_mapping'], 'image API response field differs from recorded source')
+            require(target == contract['target']['response_mapping'][field], 'image target_source differs from API response mapping')
     mapping = item.get('loader_mapping')
     require(isinstance(mapping, dict), 'source_equivalent needs loader_mapping for the loader behaviour it replaces')
     for key in resource_signals.PLACEHOLDERS:
@@ -723,6 +735,12 @@ def require_indexed_closure(analysis, legacy_root=None):
     """Every applicable indexed variant needs the same source baseline in a Resource item."""
     import ui_evidence
     import resource_copy
+    api_contracts = None
+    if analysis.get('api_inventory_ref') or analysis.get('api_review'):
+        import api_contract
+        all_items = {item['item_id']: {**item, 'dimension': row['dimension']}
+                     for row in analysis.get('dimensions', []) for item in row.get('items', [])}
+        _, api_contracts = api_contract.load(analysis, all_items)
     items = [item for row in analysis.get('dimensions', [])
              if row.get('dimension') == 'Resource' and row.get('status') == 'applicable'
              for item in row.get('items', [])]
@@ -772,7 +790,7 @@ def require_indexed_closure(analysis, legacy_root=None):
             for signal_id, signal in sorted(needed['signals'].items()):
                 matches = [item for item in items if item.get('source_signal') == signal_id]
                 require(len(matches) == 1, 'UI image source closure requires one item for ' + signal_id + ' (' + signal['kind'] + ')')
-                validate_signal_item(matches[0], signal, item_ids)
+                validate_signal_item(matches[0], signal, item_ids, api_contracts)
 
 
 def require_exact_closure(analysis, declared_refs, legacy_root=None):

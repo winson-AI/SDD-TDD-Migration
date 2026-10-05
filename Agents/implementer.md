@@ -40,3 +40,7 @@ mode: subagent
 | UI 与资源 | 消费冻结源树/基线；resource-sync 一次复制清单内文件并写出参数文件，代码按 accessor 与键取用，不重画图片、不重敲取值、不改生成文件，被检查的节点给出约定的 key；清单外资源用 resource-convert（参数与冻结映射一致）并完成消费者接线；提交 baseline_conformance；无法精确转换记 blocked，不近似、不自称 ALIGNED | [搬运](../skills/migration-protocol/references/resource-transfer.md#文件资源按路径复制)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md#资源执行与事实绑定)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md#基线前移截图指导实现而非事后比对) |
 | 埋点 | 有冻结职责才实现事件/参数/时机/接线并提交生产绑定证据；无职责不加 SDK 或占位 | [埋点](../skills/migration-protocol/references/telemetry.md#总则) |
 | 知识 | knowledge-query/diagnose 只给候选；接线后 foundation-verify 对照本 run 解析与目标 TOML；不自行 foundation-resolve 改冻结依赖 | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |
+
+## 当前控制契约
+
+按 assignment.execution_contract 指定的 TASK 执行，输入规范为当前冻结叶子 SPEC；提交本批 task_trace 与完整累积代码 manifest。全部 TASK 完成前不交正式测试；不得修改未分配任务文件。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线与版本)。

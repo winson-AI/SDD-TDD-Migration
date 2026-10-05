@@ -22,17 +22,13 @@ run-id/change-name/capability 使用 kebab-case，module_id 匹配 `M[0-9]{3,}`�
 
 ## 接受与恢复
 
-1. 校验宿主绑定身份与该 operation 的调用角色、作用域、修订号、活动 assignment 的 fencing token 和工件摘要。
-2. 执行该 operation 的守卫；worker 的 submit 不会自动变成模块完成。
-3. payload 引用的工件先复制到 artifacts/<sha256>，可读后才追加事件并 fsync。
-4. 单写者临界区内分配序号、落盘事件，再重建 global/module/status 等投影（临时文件原子替换，携带 last_sequence）。
-5. ACK 仅在事件落盘后返回。投影写失败时日志仍有效，下次 status 或重复请求重建，不重新派发已确认请求；完整事件损坏则停止，不自动截断或删除，由宿主从已校验备份恢复或人工处置。
+校验宿主身份、操作角色/作用域/修订号、活动 assignment 的 fencing token 及工件 hash，再执行守卫。submit 不等于完成。工件先归档 artifacts/<sha256>，可读后才在单写者文件锁内分配序号、追加 events.jsonl 并 fsync；之后原子重建带 last_sequence 的投影，ACK 仅在事件落盘后返回。
 
-`events.jsonl` 是唯一事实日志，受进程文件锁保护；投影可重建，不是第二事实源。hash 链可发现意外篡改，但不是抵御重写整本日志的签名链。首个事件记录初始状态，其后每个事件只记录变化（patch 的 set/del）；状态只存报告与结果的哈希引用。事件保留工件原路径与快照引用（更早事件已归档的工件不重复列出）；原路径用于检测工作区变化，快照用于追溯。`status` 的 observed_invalidations 要求宿主随后提交 revoke/invalidate，不把磁盘改动悄悄写成业务完成。缺少对应事件的文件是孤儿；已提交工件缺失或被手改使相关证据失效，须重建，不能凭文件存在推断完成，也不能倒改历史事件来“修复状态”。
+事件日志是唯一事实源：首条存初始状态，其后存 set/del 变化；状态存报告/结果引用。工件原路径检测漂移，快照供追溯，已归档文件不重复列出。投影失败用 status/同请求重建，不重复派发；完整事件损坏停止，由 Host 从校验备份恢复或人工处置，禁止自动截断/倒改历史。hash 链检测意外篡改，不能抵御整本重写。observed_invalidations 要求 Host 提交 revoke/invalidate，不把磁盘变化记为完成。无事件文件是孤儿，已提交文件缺失/手改使相关证据失效，须重建。
 
 ## 权限
 
-权限来自宿主身份绑定而非模型声明。每个 operation 允许的调用角色见[操作矩阵](local-runtime.md#操作矩阵)，各角色的禁止事项见其 Agent 定义的硬约束。下游只通过已提交事件引用读取跨角色工件；修复报告、调度信息、人工反馈、环境变化都遵守同一路径。
+身份由宿主绑定；operation 权限见[操作矩阵](local-runtime.md#操作矩阵)，禁止事项见角色硬约束。跨角色工件、修复报告、调度、人工反馈及环境变化均经 Ledger 已提交引用交接。
 
 ## 并行、锁与依赖
 
@@ -46,4 +42,20 @@ assign（审计为 audit-assign / problem-assign）被接受后，宿主用真�
 
 ## 项目配置与运行快照
 
-长期配置放在固定 `<workspace_root>/.sdd-migration/project-context.json`，后续显式定位原配置目录，不随 cwd 变化，项目 revision 独立于 run/module revision。配置写入、历史和 prepare 由 [项目上下文协议](project-context.md) 定义；init 绑定本轮 project_context_ref 后，下游只读该固定版本。用户更新只作用于后续运行，不通过修改配置旁路已冻结 SPEC 和测试。
+长期配置固定为 `<workspace_root>/.sdd-migration/project-context.json`，不随 cwd 变化；项目 revision 独立于 run/module。写入、历史及 prepare 见[项目上下文](project-context.md#总则)。init 绑定 project_context_ref，下游只读该版本；更新配置仅作用于后续运行，不能旁路本轮冻结 SPEC/测试。
+
+## 显式执行任务
+
+v2 `assign` 使用 [执行分配模板](../../../template/execution-assignment.json)：Implementer 选 TASK，Test-Runner execute 选 TASK/PATH，Fixer 选 FINDING 与受影响 TASK/PATH。Ledger 固化 plan_ref/hash、freeze_id、基线、写范围、权限及证据要求，提交结果不得含未分配工作；目标执行器也限制 PATH。Test-Runner design 是 MO 指派的规划任务，读取 SPEC/测试输入产出用例，不运行目标代码。
+
+同一模块可分批执行 TASK，复用合规实例；代码 manifest 累积包含已接受文件，未分配任务的文件不可修改或省略。全部 TASK 完成并补齐整体四维/复用证据后才进入正式测试；部分完成不能宣称模块 DoD。build 分配包含 build/unit/static 全阶段 PATH，可在首个非 Green 前置停止；其他测试批次完整核对所选 PATH，DoD 核对模块全部 PATH。
+
+## 渐进加载
+
+常驻红线、权限、assignment、版本/提交门禁；实现必读冻结规范与验收。卡片按 TASK/PATH 取事实，规划/最终审计保留完整范围。新事实/read_hint 按需追加单节；未加载不关闭门禁。
+
+未确认根因/重复失败才加载增强小节。lesson_candidates 最多 5 条，同分优先失败经验；模块按范围/四维/根因检索，GO 切片及上游修订按当前目标/功能检索。核适用后读正文；规划历史默认最近 5 条和总数，完整记录沿 history_refs 读取。
+
+hint.context_inputs=[{kind,ref}] 仅报实际交付的 spec/source/log/history/tool/fixture；核 hash 后按内容去重为 input_bytes，重复交付另计 input_delivered_bytes/input_delivery_count。context_load/session_rotate 统计已报材料，非 token 或宿主完整上下文；不授权读取。日志/工具输出先存工件，按需交付。
+
+render --resumed 不清除旧上下文；Host 按[会话交接](host-integration.md#会话交接)创建同 Run 独立会话并恢复。轮换不改任务、冻结、质量或预算。

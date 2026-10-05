@@ -36,6 +36,13 @@ class ManagedFlow(test_context_readiness.ContextReadinessTests):
             state = ledger.read_events(self.root)[0]
             if op == 'init': module = None
             revision = (state['modules'][module]['revision'] if module else state['revision']) if state else 0
+            if state and state.get('control_policy_version', 1) >= 2 and op == 'assign' and payload.get('mode') != 'design':
+                import copy, test_validation as tv
+                payload = copy.deepcopy(payload); m = state['modules'][module]
+                payload.setdefault('task_ids', [t['task_id'] for t in m['plan']['tasks']])
+                scope = payload.get('test_scope')
+                payload.setdefault('path_ids', [p['path_id'] for p in m['plan']['paths'] if not scope or (p.get('kind') in tv.PRE if scope == 'build' else p.get('kind', 'automation') == scope)])
+                if payload['role'] == 'fixer': payload.setdefault('finding_ids', [pid for pid, row in m['results'].items() if row['quality'] != 'green-passed'])
             request = {'schema_version': 1, 'request_id': str(self.n + 1), 'run_id': self.run_id,
                        'module_id': module, 'expected_revision': revision, 'operation': op, 'payload': payload or {}}
         return super().raw(op, payload, role=role, module=module, instance=instance, request=request)

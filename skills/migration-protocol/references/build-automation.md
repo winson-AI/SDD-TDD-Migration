@@ -6,14 +6,14 @@ Test-Runner 在 Coding 接受后先编译构建，随后在同一派发内运行
 
 ## 1. 职责与全局规则
 
-Test-Runner 同一角色承担三个执行环节：**构建验证**、**功能用例自动化验证**，以及（存量可预览时）**基线视觉对齐**。顺序由 `test_validation.next_scope` 强制：build → automation → visual，visual 需当前 automation Green；DoD 要求全部适用的冻结路径 Green。无 runtime UI 时不添加空 visual 路径。视觉对齐使用普通测试路径及单独 scope/assignment（绑定 `node_ids` + `baseline_ref`），不另设修复循环；不对齐即 Red + 节点级根因，走既有诊断→一轮 Fixer。详见 [UI 保真控制道](ui-fidelity.md)。可由不同实例执行，但身份、assignment 和证据各自绑定。Test-Runner 负责执行、三态和问题报告；源码/构建配置修复仍由 Diagnostician → MO → Fixer 完成，不能自己兼任 Fixer。Auditor 保持独立。
+Test-Runner 同一角色承担三个执行环节：**构建验证**、**功能用例自动化验证**，以及（存量可预览时）**基线视觉对齐**。顺序由 `test_validation.next_scope` 强制：build → automation → visual，visual 需当前 automation Green；DoD 要求全部适用的冻结路径 Green。无 runtime UI 时不添加空 visual 路径。视觉对齐使用普通测试路径及单独 scope/assignment（绑定 `node_ids` + `baseline_ref`），不另设修复循环；不对齐即 Red + 节点级根因，走模块诊断→Fixer→正式复测。详见 [UI 保真控制道](ui-fidelity.md)。可由不同实例执行，但身份、assignment 和证据各自绑定。Test-Runner 负责执行、三态和问题报告；源码/构建配置修复仍由 Diagnostician → MO → Fixer 完成，不能自己兼任 Fixer。Auditor 保持独立。
 
 固定流程：
 
 ```text
 GO 搜索/确认目标构建命令 → 子 SPEC 冻结 build + automation PATH，适用时加 visual PATH
 Coding 接受 → Test-Runner building 预检 → 编译构建
-  ├─ Red / 可修复 Yellow → 根因 → 一轮 Fixer → 重新构建
+  ├─ Red / 可修复 Yellow → 根因 → Fixer → 重新构建
   ├─ 已确认构建依赖/外围阻塞 → 原有记录/审计流程
   └─ Green → Test-Runner testing 预检
        ├─ 环境可用 → Main 执行 automation 用例路径 → 逐条三态
@@ -104,7 +104,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 | --- | --- | --- |
 | Coding/Fixer 代码已接受 | `phase=testing`，`stale=true`，`build_baseline=null`；下一 scope 为 build | 实际 Test-Runner 提交 building 报告；MO assign build，宿主启动 |
 | 构建进程已退出，但结果未接受 | 当前 assignment 仍未关闭；不能开启 automation | 保存 receipt，同一 assignment 继续 unit、static 到第一个非 Green 为止（building 预检已预批准命令），汇总已到达的全部 PATH 一次 submit；MO 一次 accept |
-| build 非 Green 已接受 | 留在 testing；游标 diagnose 或 audit-defer | Diagnostician → MO diagnosis-accept → fixing 预检 → Fixer；依赖/外围或已用完本地一轮则留证待 Auditor |
+| build 非 Green 已接受 | 留在 testing；游标 diagnose 或 audit-defer | Diagnostician → MO diagnosis-accept → fixing 预检 → Fixer；依赖/外围或已用完适用预算则留证待统一 Auditor |
 | Fixer 补丁已接受 | 新 code_baseline；旧结果 stale，旧构建失效 | 再次 build 派发（派发内 building 预检）；不得直接沿用旧 Green 或启动 automation |
 | build、unit、static 全部 Green 已接受 | `build_baseline=code_baseline`；仍在 testing；下一 scope 为 automation | 派发 automation，Test-Runner 在派发内提交 testing 报告，核对设备/安装包/fixture/模型/工具 |
 | automation 结果接受且完整 Green，存在 visual PATH | 仍在 testing；下一 scope 为 visual | MO 另派 visual assignment；Test-Runner 只读比较并留正式回执 |
@@ -117,7 +117,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 ### 本地一轮的预算单位
 
-`local_fix_used` 是模块级计数，build、automation 与 visual 共用；不是每种失败或每个阶段各有一轮。构建已使用 Fixer 后，必须允许重新构建、正式 automation 和适用 visual 完成这一轮的验证；若其中仍有问题，再交 Auditor。只有完整正式回归通过才允许将该修复 memory 标为可复用。额外本地轮次只来自初始化的 `local_fix_rounds`，且仅在全部未解决失败都是 build PATH 时可用（见 [状态机](state-machine.md#有限循环)）；宿主不能自行重置计数。
+`local_fix_used` 是模块级计数，build、automation 与 visual 共用；每次补丁接受后都需完整正式回归，全部通过才将修复 memory 标为可复用。v2 按总预算局部收敛；v1 的一轮及额外 build 限制见[有限循环](state-machine.md#有限循环)。宿主不能重置计数。
 
 ### 构建产物与设备安装
 

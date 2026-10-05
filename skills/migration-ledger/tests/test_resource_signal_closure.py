@@ -122,7 +122,8 @@ class SignalClosureTests(unittest.TestCase):
     def loader(self, extra=''):
         self.write('res/drawable/ic_loading.xml', VECTOR % '')
         self.write('res/drawable/ic_fail.xml', VECTOR % '')
-        self.write('java/example/Account.kt', 'class Account(@SerializedName("avatar_url") val avatarUrl: String)\n')
+        self.write('java/example/Account.kt', 'class Account(@SerializedName("avatar_url") val avatarUrl: String)\n'
+                   'fun localAccount() = Account("https://fixture.example/avatar.png")\n')
         return self.code('\nfun show(account: Account) {\n  Glide.with(this).load(account.avatarUrl)\n'
                          '    .placeholder(R.drawable.ic_loading).error(R.drawable.ic_fail).circleCrop().into(avatar)\n' + extra + '}\n')
 
@@ -138,8 +139,31 @@ class SignalClosureTests(unittest.TestCase):
                                    'transforms': [{'legacy': 'circleCrop()', 'target': 'clip(CircleShape)'}]}}
         for key in ('source_resource', 'source_resource_ref', 'qualifier', 'configuration_mapping', 'semantic_model'):
             item.pop(key, None)
+        if signal.get('api'):
+            item['image_source_review'] = {'kind': 'non-api', 'reason': 'This fixture constructs its Account locally; serialization annotation is field metadata',
+                'evidence_refs': [file_ref(self.n.android / 'app/src/main/java/example/Account.kt')]}
         item.update(over)
         return item
+
+    def test_api_image_binding_is_checked_against_the_actual_collected_model_field(self):
+        self.loader(); self.cover_files(); signal = self.signal()
+        source = file_ref(self.write('java/example/AccountApi.kt', 'fun loadAccount() = GET("/account")\n'))
+        fixture = file_ref(self.n.write('evidence/account-fixture.json', {'avatar_url': 'https://fixture.example/avatar.png'}))
+        self.f.analysis['api_review'].update(status='applicable', reason='Recorded Account endpoint', evidence_refs=[source], discovery_refs=[source])
+        self.f.analysis['api_inventory_ref'] = file_ref(self.n.write('evidence/account-api.json', {
+            'schema_version': 1, 'module_id': self.f.analysis['module_id'], 'calls': [{'api_id': 'ACCOUNT', 'source_ref': source,
+                'source_symbol': 'loadAccount', 'method': 'GET', 'url': '/account', 'request_fields': [], 'response_fields': ['avatar_url'],
+                'error_outcomes': [], 'state_effects': []}], 'contracts': [{'api_id': 'ACCOUNT', 'fidelity': 'exact', 'fixture_contract_ref': fixture,
+                'target': {'method': 'GET', 'url': '/account', 'consumer': str(self.n.target / 'AccountApi.kt') + '#loadAccount',
+                    'request_mapping': {}, 'response_mapping': {'avatar_url': 'account.avatarUrl'}, 'error_mapping': {}, 'state_mapping': {}}}], 'exclusions': []}))
+        logic = copy.deepcopy(self.f.analysis['dimensions'][0]['items'][0]); logic.pop('semantic_model', None)
+        logic.update(item_id='API-OWNER', api_ids=['ACCOUNT'], behavior='Load Account response', source_locator='AccountApi.kt#loadAccount')
+        self.f.analysis['dimensions'][1].update(status='applicable', items=[logic])
+        item = self.signal_item(signal, api_binding={'api_id': 'ACCOUNT', 'response_field': 'avatar_url'})
+        item.pop('image_source_review'); self.f.analysis['dimensions'][3]['items'].append(item)
+        self.s.freeze()
+        item['target_source'] = 'account.wrongUrl'
+        with self.assertRaisesRegex(Rejected, 'API response mapping'): self.s.freeze()
 
     def test_every_recorded_image_source_needs_one_item(self):
         self.loader()

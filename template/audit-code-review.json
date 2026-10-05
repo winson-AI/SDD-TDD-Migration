@@ -81,5 +81,40 @@
   "change_inventory_ref": {
     "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{path-to-audit-change-inventory-revision.md}}",
     "sha256": "{{sha256}}"
+  },
+  "goal_review": {
+    "global_spec_ref": {
+      "path": "{{committed-host-goal-path}}",
+      "sha256": "{{sha256}}"
+    },
+    "feature_ids": [
+      "{{FEATURE-ID}}"
+    ],
+    "requirements": [
+      {
+        "requirement_id": "{{REQ-ID}}",
+        "conclusion": "satisfied",
+        "reason": "{{independent-host-goal-conclusion}}",
+        "tasks": [
+          {
+            "module_id": "{{module-id}}",
+            "task_id": "{{TASK-ID}}"
+          }
+        ],
+        "path_ids": [
+          "{{PATH-ID}}"
+        ],
+        "evidence_refs": [
+          {
+            "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/goal-evidence.md",
+            "sha256": "{{sha256}}"
+          }
+        ]
+      }
+    ],
+    "origin_spec_ref": {
+      "path": "{{original-host-task-contract-path}}",
+      "sha256": "{{sha256}}"
+    }
   }
 }

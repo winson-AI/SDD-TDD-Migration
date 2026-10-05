@@ -11,6 +11,8 @@ from pathlib import Path
 from contracts import Rejected, check_ref, digest, nonempty, read_json, require
 
 OPERATIONS = {'decompose', 'decompose-accept', 'module-summary', 'realloc-request', 'redecompose', 'redecompose-accept'}
+ALLOCATION_KEYS = ('name', 'scope', 'case_ids', 'write_paths', 'context_refs', 'dimension_analysis_ref', 'behavior_review')
+
 TERMINAL = {'completed', 'waiting-auditor', 'waiting-dependency', 'waiting-human', 'automation-deferred', 'waiting-upstream'}
 
 
@@ -188,9 +190,17 @@ def group_step(s, group, ref_check=check_ref):
             'expected_revision': group['revision'], 'operation': None,
             'role': 'module-orchestrator', 'agent_name': 'parent-mo-' + group['module_id'],
             'ready': False, 'reason': 'await-child-modules'}
+    if group.get('realloc_request'):
+        step.update(role='global-orchestrator', reason='await-global-reallocation')
+        return step
     if group.get('redecomposition_submission'):
-        step.update(operation='redecompose-accept', role='global-orchestrator', ready=True,
-                    reason='redecomposition-proposal-ready')
+        affected = group['redecomposition_submission'].get('affected_modules', leaves(s, group['module_id']))
+        busy = any(not a.get('closed') for mid in affected for a in s['modules'].get(mid, {}).get('assignments', {}).values())
+        step.update(operation='redecompose-accept', role='global-orchestrator', ready=not busy,
+                    reason='wait-for-affected-workers' if busy else 'redecomposition-proposal-ready')
+        return step
+    if group.get('replanning_required'):
+        step.update(operation='redecompose', ready=True, reason='root-allocation-revised')
         return step
     realloc_reqs = [mid for mid in group['children'] if mid in s['modules'] and (
         s['modules'][mid].get('realloc_request') or s['modules'][mid].get('phase') == 'waiting-upstream'
@@ -267,12 +277,30 @@ def validate(s, parent, plan, redecompose=False):
     require(cases == set(parent['case_ids']), 'submodules must cover every parent case')
     require(requirements == set(parent['scope']['requirement_ids']), 'submodules must cover every parent requirement')
     dimensions.partition(s, parent, plan)
+    modern = s.get('control_policy_version', 1) >= 2
+    if modern:
+        import behavior_contract
+        behavior_contract.verification_partition(children)
     old_child_ids = set(parent.get('children', [])) if redecompose else set()
     graph = {mid: list(m['dependencies']) for mid, m in s['modules'].items() if mid != parent['module_id'] and mid not in old_child_ids}
     for mid, deps in graph.items():
-        graph[mid] = sorted((set(deps) - {parent['module_id']}) | (set(ids) if parent['module_id'] in deps else set()))
+        replaced = {parent['module_id']} | (old_child_ids - set(ids))
+        if modern and replaced.intersection(deps):
+            bindings = plan.get('consumer_dependencies', {}).get(mid)
+            require(isinstance(bindings, list) and bool(bindings) and set(bindings) <= set(ids), 'consumer_dependencies must name actual provider children')
+            graph[mid] = sorted((set(deps) - replaced) | set(bindings))
+        else:
+            graph[mid] = sorted((set(deps) - replaced) | (set(ids) if replaced.intersection(deps) else set()))
+    if modern:
+        import copy
+        for cid, deps in graph.items():
+            if deps != s['modules'][cid]['dependencies']:
+                candidate = copy.deepcopy(s['modules'][cid])
+                candidate['dependencies'] = deps
+                candidate['behavior_review']['verification'] = plan.get('consumer_verifications', {}).get(cid)
+                behavior_contract.verification(candidate)
     for child in children:
-        graph[child['module_id']] = sorted(set(child.get('dependencies', [])) | set(parent['dependencies']))
+        graph[child['module_id']] = sorted(set(child.get('dependencies', [])) | (set() if modern else set(parent['dependencies'])))
     visiting, visited = set(), set()
     def visit(mid):
         require(mid in graph, 'missing decomposition dependency')
@@ -289,8 +317,21 @@ def validate(s, parent, plan, redecompose=False):
     return children, graph
 
 
-def handle(s, req, actor):
-    from ledger import idle, new_module, role
+def redecomposition_impact(s, parent, children, graph):
+    old, new = set(parent['children']), {c['module_id']: c for c in children}
+    impact = old.symmetric_difference(new)
+    impact.update(cid for cid in old.intersection(new) if
+        any(s['modules'][cid].get(key) != new[cid].get(key) for key in ALLOCATION_KEYS)
+        or graph[cid] != s['modules'][cid]['dependencies'] or (parent.get('replanning_required') and s.get('control_policy_version', 1) < 2))
+    while True:
+        expanded = impact | {cid for cid, mod in s['modules'].items()
+            if impact.intersection(mod['dependencies']) or graph.get(cid, mod['dependencies']) != mod['dependencies']}
+        if expanded == impact: return impact
+        impact = expanded
+
+
+def handle(s, req, actor, run_root):
+    from ledger import idle, new_module, role, replan_module
     mid, op, p = req['module_id'], req['operation'], req.get('payload', {})
     if op == 'module-summary':
         role(actor, 'module-orchestrator')
@@ -303,9 +344,7 @@ def handle(s, req, actor):
         return
     if op == 'realloc-request':
         role(actor, 'module-orchestrator')
-        m = s['modules'][mid]
-        parent_id = m.get('parent_module_id')
-        require(parent_id and parent_id in s.get('module_groups', {}), 'realloc-request requires a parent module')
+        m = s['modules'].get(mid) or s.get('module_groups', {})[mid]
         idle(m)
         reason = p.get('reason')
         require(isinstance(reason, str) and bool(reason.strip()), 'realloc-request reason required')
@@ -313,7 +352,7 @@ def handle(s, req, actor):
         for ref in evidence_refs:
             check_ref(ref)
         m['realloc_request'] = {'reason': reason, 'evidence_refs': evidence_refs,
-                                'actor_instance_id': actor['instance_id'], 'status': 'pending'}
+                                'actor_instance_id': actor['instance_id'], 'status': 'pending', 'resume_phase': m['phase']}
         m['phase'] = 'waiting-upstream'
         m['revision'] += 1
         return
@@ -321,14 +360,11 @@ def handle(s, req, actor):
         role(actor, 'module-orchestrator')
         parent = s.get('module_groups', {}).get(mid)
         require(parent, 'redecompose requires a parent module group')
-        for child_id in parent['children']:
-            if child_id in s['modules']:
-                require(all(a.get('closed') for a in s['modules'][child_id]['assignments'].values()),
-                        'finish or stop/revoke child workers before redecompose')
         plan = read_json(check_ref(p.get('plan_ref')))
-        validate(s, parent, plan, redecompose=True)
+        children, graph = validate(s, parent, plan, redecompose=True)
         parent['redecomposition_submission'] = {'plan_ref': p['plan_ref'], 'actor_instance_id': actor['instance_id'],
-                                                'binding': context_binding(s, parent)}
+                                                'binding': context_binding(s, parent),
+                                                'affected_modules': sorted(redecomposition_impact(s, parent, children, graph))}
         return
     if op == 'redecompose-accept':
         role(actor, 'global-orchestrator')
@@ -351,36 +387,30 @@ def handle(s, req, actor):
         retired_ids = old_children - new_child_ids
         added_ids = new_child_ids - old_children
         common_ids = old_children & new_child_ids
-        affected_ids = set(added_ids)
-
+        impact = redecomposition_impact(s, parent, children, graph)
+        for cid in impact & set(s['modules']):
+            idle(s['modules'][cid])
+        import context_readiness
+        context_readiness.pin_execution(run_root, s, impact)
         for cid in common_ids:
-            old_mod = s['modules'][cid]
-            new_spec = new_children[cid]
-            changed = (old_mod.get('scope') != new_spec.get('scope') or
-                       set(old_mod.get('case_ids', [])) != set(new_spec.get('case_ids', [])) or
-                       old_mod.get('write_paths') != new_spec.get('write_paths') or
-                       graph[cid] != old_mod.get('dependencies', []))
-            if changed:
-                affected_ids.add(cid)
-                from ledger import reset_plan
-                reset_plan(old_mod, reason='parent-redecomposed', evidence_ref=submission['plan_ref'])
-                old_mod['scope'] = copy.deepcopy(new_spec['scope'])
-                old_mod['case_ids'] = copy.deepcopy(new_spec['case_ids'])
-                old_mod['write_paths'] = copy.deepcopy(new_spec['write_paths'])
-                old_mod['dependencies'] = graph[cid]
-                if 'context_refs' in new_spec:
-                    old_mod['context_refs'] = copy.deepcopy(new_spec['context_refs'])
-                old_mod['phase'] = 'specifying'
-                old_mod.pop('realloc_request', None)
+            old_mod, new_spec = s['modules'][cid], new_children[cid]
+            if cid in impact:
+                replan_module(old_mod, 'parent-redecomposed', submission['plan_ref'])
+                for key in ALLOCATION_KEYS:
+                    if key in new_spec:
+                        old_mod[key] = copy.deepcopy(new_spec[key])
+                    else:
+                        old_mod.pop(key, None)
                 old_mod['revision'] += 1
             else:
-                old_mod['dependencies'] = graph[cid]
                 old_mod['allocation_continuation'] = {
-                    'plan_hash': old_mod.get('plan_hash'),
-                    'review_ref': p['review_ref']
-                }
-                old_mod.pop('realloc_request', None)
-                old_mod['revision'] += 1
+                    'plan_hash': old_mod.get('plan_hash'), 'review_ref': p['review_ref']}
+                request = old_mod.get('realloc_request') or {}
+                if old_mod['phase'] == 'waiting-upstream':
+                    old_mod['phase'] = request.get('resume_phase', 'specifying')
+                    old_mod['revision'] += 1
+            old_mod['dependencies'] = graph[cid]
+            old_mod.pop('realloc_request', None)
 
         for cid in retired_ids:
             mod = s['modules'].pop(cid)
@@ -395,21 +425,30 @@ def handle(s, req, actor):
             s['modules'][cid] = new_module(child)
 
         for m_id, mod in s['modules'].items():
-            if m_id not in new_child_ids:
-                if any(dep in (affected_ids | retired_ids) for dep in mod.get('dependencies', [])):
-                    if mod.get('plan'):
-                        from ledger import reset_plan
-                        reset_plan(mod, reason='upstream-dependency-redecomposed', evidence_ref=submission['plan_ref'])
-                    mod['phase'] = 'specifying'
-                    mod['revision'] += 1
-                elif mod.get('dependencies') != graph.get(m_id, mod.get('dependencies')):
-                    mod['dependencies'] = graph[m_id]
-                    mod['revision'] += 1
+            if m_id not in new_child_ids and m_id in impact:
+                replan_module(mod, 'upstream-dependency-redecomposed', submission['plan_ref'])
+                mod['dependencies'] = graph[m_id]
+                if s.get('control_policy_version', 1) >= 2:
+                    mod['behavior_review']['verification'] = copy.deepcopy(plan['consumer_verifications'][m_id])
+                mod['revision'] += 1
+
+        for group_id, group in s.get('module_groups', {}).items():
+            if group_id == mid:
+                continue
+            deps = set(group['dependencies'])
+            if retired_ids.intersection(deps):
+                group['dependencies'] = sorted((deps - retired_ids) | new_child_ids)
+            if retired_ids.intersection(deps) or impact.intersection(leaves(s, group_id)):
+                group.pop('summary_ref', None)
+                group.pop('summary_subject', None)
+                group['revision'] += 1
 
         parent['children'] = [c['module_id'] for c in children]
         parent['decomposition_ref'] = submission['plan_ref']
         parent['decomposition_review_ref'] = p['review_ref']
         parent.pop('redecomposition_submission', None)
+        parent.pop('replanning_required', None)
+        parent.pop('realloc_request', None)
         parent.pop('summary_ref', None)
         parent.pop('summary_subject', None)
         parent['revision'] += 1
@@ -418,12 +457,14 @@ def handle(s, req, actor):
             'parent_module_id': mid,
             'plan_ref': submission['plan_ref'],
             'review_ref': p['review_ref'],
-            'affected_modules': sorted(affected_ids),
+            'affected_modules': sorted(impact - retired_ids),
             'retired_modules': sorted(retired_ids),
             'added_modules': sorted(added_ids),
             'triggering_requests': triggers
         })
         s['global_plan'] = None
+        if s.get('audit'):
+            s.setdefault('audit_history', []).append(copy.deepcopy(s['audit']))
         s['audit'] = {}
         return
     parent = s['modules'][mid]
@@ -444,7 +485,8 @@ def handle(s, req, actor):
         require(submission, 'MO decomposition proposal required')
         require(submission.get('binding') == context_binding(s, parent), STALE_CONTEXT)
         check_ref(p.get('review_ref'))
-        children, graph = validate(s, parent, read_json(check_ref(submission['plan_ref'])))
+        plan = read_json(check_ref(submission['plan_ref']))
+        children, graph = validate(s, parent, plan)
         del s['modules'][mid]
         parent.update(kind='parent-module', phase='coordinating', children=[c['module_id'] for c in children],
                       decomposition_ref=submission['plan_ref'], decomposition_review_ref=p['review_ref'])
@@ -456,7 +498,8 @@ def handle(s, req, actor):
         for leaf_id, module in s['modules'].items():
             if module['dependencies'] != graph[leaf_id]:
                 module['dependencies'] = graph[leaf_id]
+                if s.get('control_policy_version', 1) >= 2:
+                    module['behavior_review']['verification'] = copy.deepcopy(plan['consumer_verifications'][leaf_id])
                 module['revision'] += 1
         s['global_plan'] = None
         s['audit'] = {}
-

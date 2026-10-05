@@ -29,7 +29,7 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 6. build/unit/static 接受后另行派发 automation；接到派发后提交 testing 预检，绑定实际部署版本/fixture，ready 绑定后宿主才启动 Main/Harmony，禁止自行串联。
 7. 本 scope 每条 PATH query 交 Main，汇总冻结 ASSERT、三态、原因/回执，经 MO 验收及 DoD；flaky/skip/缺报告不能 Green。
 8. 运行时页面变体与冻结 SPEC 冲突：记 Yellow + human 根因（reason_code=runtime-spec-variant-conflict），见 [测试协议](../skills/migration-protocol/references/testing.md#运行时变体与冻结-spec-冲突)；不自行选变体。
-9. 仅自动化环境不可用：提交 test-environment=blocked 报告，由 MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务。其他真实错误沿诊断/Fixer/审计规则处理；build 与 automation 共用模块本地一轮修复预算。
+9. 仅自动化环境不可用：提交 test-environment=blocked 报告，由 MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务。其他真实错误沿诊断/Fixer/审计规则处理；build 与 automation 共用模块修复预算，按当前控制版本执行。
 
 ## 5. 阻塞与异常
 缺输入/权限/工具记录 reason_code/root_cause/next_action；automation-unavailable 与诊断/Fixer 分流按上文，依赖/外围或本地失败交 Auditor，人类问题交 Escalation。Global 管理跨模块依赖，无关 MO 继续，最终 Auditor 不提前启动。Ledger 提交失败须报 transport failure、保持 staged 并停机，不能称已记录。
@@ -58,3 +58,7 @@ HarmonyOS 路径按 [Harmony 运行协议](../skills/migration-test/references/h
 | 代码治理回归 | Auditor 委派的变更先构建装机，再完整复测受影响模块与依赖下游（含原 Green，关联 retest_of）；无关有效 Green 保留 | [代码治理](../skills/migration-protocol/references/audit-code-review.md#复测与报告) |
 | 埋点 | 只对 applicable 事件执行冻结 PATH/ASSERT，标明 emitted/sdk-dispatched/server-received 层级；截图或构建通过不能代替上报证据；观测不足记相关 PATH Yellow | [埋点](../skills/migration-protocol/references/telemetry.md#5-验收层级与环境缺口) |
 | 运行环境与留存 | 首次设计转换或自动化预检前执行 `sandbox.py prepare --root <run_root>` 生成本 run 共享的 environment/config.json 与 `.env`（700/600，幂等加锁，已存在不跟随外部更新）；`.env` 内容不进 Ledger/报告/Git；所有输出（XMind、报告、录制、日志、媒体）写本轮受管目录，路径拒绝按本模块 Yellow 处理 | [Harmony 运行](../skills/migration-test/references/harmony-runtime.md#本轮共享环境准备)、[留存布局](../skills/migration-protocol/references/storage-layout.md#总则) |
+
+## 当前控制契约
+
+design 是明确分配的规划任务；execute 是冻结 CASE/PATH 的执行任务。统一审计复测使用 audit-test-assign/audit-test-submit，读取自身 audit-execution 预检与所选 PATH；Auditor 消费证据，Test-Runner 不给宿主任务最终裁决。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线与版本)。

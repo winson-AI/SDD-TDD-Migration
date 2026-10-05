@@ -20,6 +20,6 @@ description: /sdd-resume <run-id> [module-id] [decision.json绝对路径] — �
 
 ## 本地实现接入
 
-MO resume；预算耗尽用 host decision → MO recover；会话替换用 session + checkpoint。
+MO resume；模块预算耗尽用 host decision → MO recover，审计预算用 GO audit-recover；同任务配置/根分配调整用 run-review → Host decision/revise-run；会话替换用 session + checkpoint。
 
 状态读取与派发规则同 [/sdd-run](sdd-run.md)。

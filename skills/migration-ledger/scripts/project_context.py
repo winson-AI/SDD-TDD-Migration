@@ -236,8 +236,11 @@ def prepared_input(ref):
                 'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources', 'target_resources') if k in config},
             'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
             'module_name': snapshot['module_name'], 'single_module_id': None, 'project_context_ref': ref, 'project_sources': sources,
+            'control_policy_version': snapshot.get('control_policy_version', 1),
             'behavior_contract_required': snapshot.get('behavior_contract_required', False),
             'test_design_required': snapshot.get('test_design_required', False),
+            'planning_coverage_required': snapshot.get('planning_coverage_required', False),
+            'host_handoff_required': snapshot.get('host_handoff_required', False),
             'run_root': snapshot['run_root'], 'storage_layout': snapshot.get('storage_layout'),
             'dependency_resolution_required': snapshot.get('dependency_resolution_required'),
             'git_checkpoint': defaults.get('quality_gates', {}).get('git_checkpoint', False),
@@ -368,7 +371,7 @@ def _prepare(root, run_root, request, actor, storage):
             require(snap['project_id'] == request['project_id'], 'context belongs to a different project')
             require(snap['run_id'] == request['run_id'], 'context belongs to a different run id')
             require(snap['run_root'] == str(run_root), 'context belongs to a different run root')
-            require(snap['request_hash'] == fingerprint, 'run context already frozen; use a new run')
+            require(snap['request_hash'] == fingerprint, 'run context already frozen; same-task changes require run-review/revise-run')
             return {'project_context_ref': ref, 'input': prepared_input(ref), 'duplicate': True}
         require(not (run_root / 'ledger/events.jsonl').exists(), 'cannot attach context after run initialization')
         record = current(root)
@@ -391,7 +394,9 @@ def _prepare(root, run_root, request, actor, storage):
             sources['knowledge_paths'] = [copy_ref(files, file_ref(path)) for path in effective['knowledge_paths']]
         exp_path = root / 'experience/lessons.json'
         if exp_path.is_file():
-            sources['experience_ref'] = copy_ref(files, file_ref(str(exp_path)))
+            from experience import planning_view
+            sources['experience_ref'] = archive(files, encoded(planning_view(read_json(exp_path),
+                lambda lesson: archive(files, encoded(lesson), '.json'))), '.json')
         source_paths = {key: copy.deepcopy(effective[key]) for key in DOCUMENTS + ('knowledge_paths',) if effective.get(key)}
         if exp_path.is_file():
             source_paths['experience_ref'] = str(exp_path)
@@ -406,7 +411,7 @@ def _prepare(root, run_root, request, actor, storage):
         if build.get('environment_ref'):
             sources['build_environment'] = copy_ref(files, file_ref(build['environment_ref']))
             build['environment_ref'] = sources['build_environment']['path']
-        snapshot = {'schema_version': 1, 'behavior_contract_required': True, 'test_design_required': True, 'project_id': record['project_id'], 'project_revision': record['revision'],
+        snapshot = {'schema_version': 1, 'planning_coverage_required': True, 'host_handoff_required': True, 'control_policy_version': 2, 'behavior_contract_required': True, 'test_design_required': True, 'project_id': record['project_id'], 'project_revision': record['revision'],
                     'dependency_resolution_required': effective.get('defaults', {}).get('quality_gates', {}).get('dependency_resolution_required', False),
                     'project_revision_hash': digest(record), 'project_config': freeze_refs(files, record['config']), 'effective_config': effective,
                     'run_id': request['run_id'], 'run_root': str(run_root), 'entry_mode': mode, 'module_name': name,
@@ -454,14 +459,20 @@ def bind_run(ref, run_root, run_id, payload):
     require(payload.get('ui_fidelity_required', True) is True, 'prepared run requires UI fidelity evidence')
     require(payload.get('spec_closure_required', True) is True, 'prepared run requires static spec closure review')
     require(payload.get('unit_tests_required', True) is True, 'prepared run requires unit tests for applicable Logic items')
+    policy_version = snapshot.get('control_policy_version', 1)
+    require(payload.get('control_policy_version', policy_version) == policy_version, 'run/config control policy mismatch')
     behavior_required = snapshot.get('behavior_contract_required', False)
     design_required = snapshot.get('test_design_required', False)
+    handoff_required = snapshot.get('host_handoff_required', False)
+    require(payload.get('host_handoff_required', handoff_required) == handoff_required, 'run/config host handoff mismatch')
+    coverage_required = snapshot.get('planning_coverage_required', False)
+    require(payload.get('planning_coverage_required', coverage_required) == coverage_required, 'run/config planning coverage mismatch')
     require(payload.get('test_design_required', design_required) == design_required, 'run/config test design gate mismatch')
     require(payload.get('behavior_contract_required', behavior_required) == behavior_required, 'run/config behavior contract mismatch')
     require(payload.get('dimension_slicing_required', True) is True, 'prepared run requires dimension slicing')
     require(payload.get('context_readiness_required', True) is True, 'prepared run requires context readiness')
     return {'dependency_resolution_required': dependency_gate, 'git_checkpoint': git_gate, 'fixer_self_diagnosis': self_diagnosis, 'write_scope_check': scope_check, 'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': copy.deepcopy(config.get('build', {})), 'target_resources': copy.deepcopy(config.get('target_resources', {})), 'reuse_sources': copy.deepcopy(config.get('reuse_sources', [])), 'reuse_required': True,
-            'behavior_contract_required': behavior_required, 'test_design_required': design_required, 'project_context_ref': ref, 'project_id': snapshot['project_id'],
+            'host_handoff_required': handoff_required, 'planning_coverage_required': coverage_required, 'control_policy_version': policy_version, 'behavior_contract_required': behavior_required, 'test_design_required': design_required, 'project_context_ref': ref, 'project_id': snapshot['project_id'],
             'project_revision': snapshot['project_revision'], 'module_name': snapshot['module_name']}
 
 

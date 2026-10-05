@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import progress_signals
 import reading
 import test_ledger
+from contracts import file_ref
 
 
 class ReadingCardTests(unittest.TestCase):
@@ -75,7 +76,7 @@ class ReadingCardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             analysis = Path(tmp) / 'dimensions.json'
             analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable'}]}))
-            m = {'plan': {'dimension_analysis_ref': {'path': str(analysis)}}}
+            m = {'plan': {'dimension_analysis_ref': file_ref(analysis)}}
             self.assertIn('template/dimension-analysis.json', reading.templates({}, m, {'role': 'spec-designer', 'operation': 'plan'}))
             self.assertIn('template/resource-request.json',
                           reading.templates({}, m, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'implementer'}))
@@ -88,7 +89,7 @@ class ReadingCardTests(unittest.TestCase):
         steps += [{'role': 'module-orchestrator', 'operation': op} for op in
                   ('accept', 'freeze', 'complete', 'diagnosis-accept', 'audit-work', 'audit-resume', 'decompose')]
         steps += [{'role': 'global-orchestrator', 'operation': op} for op in
-                  ('register', 'global-plan', 'audit-collect', 'audit-assign', 'audit-route-batch', 'problem-assign', 'source-review')]
+                  ('register', 'global-plan', 'audit-collect', 'audit-assign', 'audit-route-batch', 'problem-assign', 'source-review', 'run-review', 'audit-recover')]
         steps += [{'role': 'auditor', 'operation': op} for op in ('audit-code-review', 'audit-plan', 'audit-verdict', 'audit')]
         steps += [{'role': 'escalation', 'operation': 'decision'}]
         for step in steps:
@@ -104,7 +105,7 @@ class ReadingCardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             analysis = Path(tmp) / 'dimensions.json'
             analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable'}]}))
-            m = {'plan': {'dimension_analysis_ref': {'path': str(analysis)}, 'telemetry': {'status': 'applicable'}}}
+            m = {'plan': {'dimension_analysis_ref': file_ref(analysis), 'telemetry': {'status': 'applicable'}}}
             s = {'reuse_required': True, 'dependency_resolution_required': True}
             sizes = {}
             for role in reading.ROLE:
@@ -128,6 +129,8 @@ class ReadingCardTests(unittest.TestCase):
             self.assertIn('## 6. 硬约束', part); self.assertIn('## 专题义务', part)
 
     def test_steps_name_the_templates_they_instantiate(self):
+        self.assertIn('template/run-revision.json', reading.templates({}, None, {'role': 'host', 'operation': 'revise-run'}))
+        self.assertIn('template/retrospective.json', reading.templates({}, None, {'role': 'host', 'operation': 'retrospect'}))
         names = set()
         for table in reading.TEMPLATES.values():
             for group in table.values(): names |= set(group)
@@ -166,9 +169,11 @@ class ReadingCardTests(unittest.TestCase):
             analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable'}]}))
             s = {'reuse_required': True, 'dependency_resolution_required': True, 'fixer_self_diagnosis': True}
             m = {'lean_leaf': True, 'audit_batch_id': 'B1',
-                 'plan': {'dimension_analysis_ref': {'path': str(analysis)}, 'telemetry': {'status': 'applicable'}}}
+                 'plan': {'dimension_analysis_ref': file_ref(analysis), 'telemetry': {'status': 'applicable'}}}
             operations = set(reading.AUDIT_OPS) | set(reading.MO_OPS) | {
-                None, 'register', 'global-plan', 'source-review', 'reconfigure-sources', 'audit-code-review', 'plan', 'diagnose', 'decision'}
+                None, 'register', 'global-plan', 'source-review', 'reconfigure-sources', 'run-review', 'revise-run', 'retrospect',
+                'plan-review', 'planning-reopen', 'audit-test-assign', 'audit-test-submit',
+                'audit-code-review', 'plan', 'diagnose', 'decision'}
             steps = [{'role': role, 'operation': op} for role in reading.ROLE for op in operations]
             steps += [{'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': role, 'test_scope': scope,
                        'mode': 'design' if scope == 'design' else None}

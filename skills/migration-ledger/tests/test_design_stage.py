@@ -30,6 +30,11 @@ def start_design(f, plan, mid='M001', designer='designer', spec_refs=None):
               'assignment_id': aid, 'actor_instance_id': designer, 'freeze_id': None, 'code_baseline': None,
               'input_ref': ref, 'design_ref': f.ref(f'design-{mid}-{f.n}.md', 'Independent specification-derived coverage and expected behavior.'),
               'paths': copy.deepcopy(plan['paths'])}
+    if s.get('planning_coverage_required'):
+        for path in result['paths']:
+            path['preparation'] = {'status': 'existing', 'reason': 'Fixture has an existing approved executor',
+                'evidence_refs': [result['design_ref']], 'asset_ids': []}
+        plan['paths'] = copy.deepcopy(result['paths'])
     return a, result
 
 

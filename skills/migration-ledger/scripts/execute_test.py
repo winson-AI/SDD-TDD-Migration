@@ -18,9 +18,10 @@ import context_readiness
 import test_validation as tv
 import run_storage
 import runner_storage
+import prepared_tests
 from execution_capture import Capture
 
-from contracts import baseline, file_ref, read_json, require
+from contracts import baseline, check_ref, file_ref, read_json, require
 from ledger import status, atomic, audit_scope
 
 
@@ -61,7 +62,8 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     if module_id == 'GLOBAL':
         require(all(tv.available(m) for m in s['modules'].values()), 'audit modules no longer ready')
         m = audit_scope(s)
-        a = s.get('audit_assignment', {})
+        a = s.get('audit_test_assignment', {}) if s.get('control_policy_version', 1) >= 2 else s.get('audit_assignment', {})
+        require(not s.get('audit_assignment', {}).get('closed', True), 'host-task audit inactive')
         require(not a.get('closed', True) and a.get('assignment_id') == assignment_id and a.get('snapshot') ==
                 {k:v['code_baseline'] for k,v in s['modules'].items()}, 'audit assignment required')
         require(a.get('scope_policy') == 'non-green-only', 'legacy full audit assignment; revoke and reassign')
@@ -74,9 +76,13 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
         else:
             a = m['assignments'][assignment_id]
         require(a.get('mode') != 'design' and not a['closed'] and ((a['role'] == 'test-runner' and m['phase'] == 'testing') or a.get('mode') == 'problem'), 'test assignment required')
+    if a.get('execution_contract'):
+        require(path_id in a['execution_contract']['path_ids'], 'execution outside assigned PATHs')
     context_readiness.check_execution(s, a, argv, cwd, path_id)
     require(baseline(m['code_files']) == m['code_baseline'], 'code changed before execution')
     path = next(p for p in m['plan']['paths'] if p['path_id'] == path_id)
+    test_binding = prepared_tests.binding(m, path)
+    prepared = (test_binding or {}).get('assets', [])
     is_build = path.get('kind') in ('build', 'unit')  # both execute a frozen, host-bound command
     if tv.split(m) and module_id != 'GLOBAL':
         kind = path.get('kind') or 'automation'
@@ -99,6 +105,8 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     require(command and argv and Path(cwd).is_dir(), 'argv/cwd required')
     out.mkdir(parents=True)
     execution_env = runner_storage.environment(out)
+    execution_env['SDD_TEST_QUERY_FILE'] = str(out / 'query.json')
+    execution_env['SDD_TEST_ASSET_USAGE_FILE'] = str(out / 'test-assets-used.json')
     init = None
     if is_build and runner_storage.gradle_command(argv):
         # Retain the output policy; cache flags must be set before Gradle starts.
@@ -127,6 +135,8 @@ gradle.beforeProject { p ->
     test_run_id = str(uuid.uuid4())
     query = {**path, 'run_id': s['run_id'], 'module_id': module_id,
              'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline']}
+    if prepared: query['frozen_test_assets'] = prepared
+    if test_binding: query['test_asset_binding'] = test_binding
     if path.get('unit_report'):
         query.update(assignment_id=assignment_id, test_run_id=test_run_id)
     if path.get('kind') == 'static':
@@ -234,6 +244,11 @@ gradle.beforeProject { p ->
                'storage_policy_ref': file_ref(init) if init else None,
                'log_ref': file_ref(out / 'execution.log'), 'query_ref': file_ref(out / 'query.json'),
                'result_ref': file_ref(out / 'result.json') if (out / 'result.json').is_file() else None}
+    if test_binding:
+        usage_file = run_storage.checked_path(out / 'test-assets-used.json', out)
+        receipt.update(test_asset_binding=test_binding,
+            test_asset_usage=prepared_tests.usage(test_binding, argv, usage_file),
+            test_asset_usage_ref=file_ref(usage_file) if usage_file.is_file() else None)
     if termination:
         receipt['termination'] = termination
     if not is_build:

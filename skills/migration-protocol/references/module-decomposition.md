@@ -12,7 +12,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 | --- | --- | --- | --- |
 | GO | 本轮项目范围或指定根功能；全局视角 | global_spec、根模块 ID、scope、需求/CASE 映射、代码范围、依赖及上下文 | 全局 registry、DAG、资源锁、父 MO 调度、跨模块升级、统一 Auditor |
 | 父 MO | GO 分配的一个模块及其 scope | 在该范围内划分子模块，为每个子 MO 分配 scope、用例、写范围、依赖和完成子模块所需的上下文 | 看护整个认领模块，防止遗漏与重复，跟踪子 MO、管理依赖、等待并汇总 |
-| 子 MO | 父 MO 分配的一个具体子功能及其 scope/context | 将子功能拆为可执行 tasks，组织 Spec Designer / Test Runner 完成正式六件套、测试路径和追溯 | 独立冻结、Coding → Testing → 一轮 Fixer → 复测 → DoD 或明确挂起 |
+| 子 MO | 父 MO 分配的子功能及 scope/context | 拆 tasks，组织 Spec Designer / Test Runner 完成六件套、测试路径及追溯 | 独立冻结、Coding → Testing → 预算内收敛 → DoD 或挂起 |
 
 拆分方向固定为 **GO 拆模块 → 父 MO 拆子模块 → 子 MO 拆 tasks**。子 MO 不再建下一层 MO；发现粒度或边界冲突，经 `realloc-request` 报父 MO，由父 `redecompose` 或 GO 协调；业务边界变化交人工决策。调整遵守 CR/重新冻结，不可自改分配。
 
@@ -38,7 +38,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 局部 context pack 用于聚焦；全局可读不扩大 scope 或写权限。先检查目标已有实现和兄弟分工，明确“复用什么、谁实现、谁消费、写哪些文件、不实现哪些行为”。共同 CASE/全局需求 ID 可覆盖不同子职责，但须说明参与方式和唯一实现 owner；共享写路径依旧受锁约束，重叠业务分工必须审核。
 
-`planning_context` 仅含职责结构，不含兄弟变化中的 phase/revision；实时进度、锁和修复 memory 另读 Ledger。拆分/冻结/派发核对绑定摘要与当前上下文及分配，过期拒绝；同 run 来源追加仅允许未受影响模块来源字段变化。源码变化沿用 baseline 检测。
+`planning_context` 仅含职责结构，不含兄弟变化中的 phase/revision；实时进度、锁和修复 memory 另读 Ledger。拆分/冻结/派发核对绑定摘要与当前上下文及分配，过期拒绝；上游评审限定影响，未变冻结模块保留 execution_context_ref；重拆仅等待受影响 worker。源码验 baseline。
 
 ## 3. 分配与登记门禁
 
@@ -52,24 +52,24 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 | --- | --- | --- |
 | `decompose` | 父 MO / 父 ID | `plan_ref` 指向拆分方案：parent_module_id、rationale、children；decomposition 预检随本操作登记 |
 | `decompose-accept` | GO / 父 ID | `review_ref`；已有 MO 提案且其绑定的上下文与分配仍是当前版本，复查范围、覆盖和依赖；原子移动父节点至 module_groups 并登记孩子 |
-| `realloc-request` | 子 MO / 子 ID | `reason` + `evidence_refs`；切片/边界冲突提单，进入 `waiting-upstream` |
+| `realloc-request` | MO / 子或根 ID | `reason` + `evidence_refs`；切片/边界冲突提单，保存恢复阶段后进入 `waiting-upstream`；无父或父级上溯交 GO run-review |
 | `redecompose` | 父 MO / 父 ID | `plan_ref`；重组方案重新划分 children 并覆盖父范围 |
-| `redecompose-accept` | GO / 父 ID | `review_ref`；复核方案，保留未变孩子 Green，受影响孩子重置，已实施下线模块转入 superseded_modules |
+| `redecompose-accept` | GO / 父 ID | `review_ref`；复核方案，比较范围、上下文、四维/行为审阅与依赖；保留未变孩子 Green 并恢复请求前阶段，受影响孩子及依赖闭包重新规划、保留 blocker/失败/预算，已实施下线模块转入 superseded_modules |
 | `module-summary` | 父 MO / 父 ID | `summary_ref` + 当前父 next_step.payload 中的 subject_sha256；全部孩子本轮已收尾 |
 
 使用 [拆分模板](../../../template/module-decomposition.json)。每个孩子提供稳定 ID、功能 name、scope、context_refs、case_ids、绝对 write_paths、dependencies。要求：
 
 1. 子需求/CASE 属于父范围；所有孩子的需求并集、CASE 并集各自完整覆盖父范围。子 scope.out 保留父排除项，可新增排除项；scope.in 描述真实子职责，语义不能扩张。
 2. 子写范围包含于父范围；ID 全局唯一。孩子不得设置 decomposition_required 或自行指定 parent_module_id；GO 接受时写入父 ID。
-3. 内部依赖引用本次孩子；外部依赖限父节点已批准依赖，图无环。孩子继承父依赖；依赖父功能的消费者改为等待其全部孩子。
+3. 内部依赖引用本次孩子；外部依赖限父节点已批准依赖，图无环。v2 孩子只认领实际消费的依赖，不继承父依赖并集；父 provider 细化时，consumer_dependencies 明确消费者实际等待的孩子，并提交 consumer_verifications；v1 保留旧展开。
 4. 有 blocker、活动 worker、已冻结或已生成代码的父节点不能直接拆分；不能通过删除/拆分规避失败历史。
 5. 接受拆分后原 global-plan 失效；GO 重新检查全部子模块覆盖与边界；global-plan 中需求 owner 须与已分配子范围一致，接受后才可派发实现。根功能待拆分时禁止直接进入正式子 plan/global-plan/编码。
 6. 子 plan 绑定的分配必须仍是当前分配；每个 task 的 global_requirement_ids（无别名时使用 requirement_ids）限定在该子模块内，并覆盖其全部获分配需求；测试路径不得加入未分配 CASE。原有需求→task→PATH 追溯继续有效。
-7. 拆分与认领不等于 SPEC 冻结批准。子 MO 组织正式六件套、测试设计、plan 澄清和人工冻结后才授权编码。
+7. 拆分与认领不等于 SPEC 冻结批准。子 MO 组织六件套、测试设计和澄清，按[控制主线](state-machine.md#控制主线与版本)审核冻结后才授权编码。
 
 ## 4. 独立执行、父看护与统一审计
 
-每个子 MO 独立 Coding → Testing → 可修复 Red/Yellow 自动一轮 Fixer → 正式复测 → DoD 或明确挂起。一个孩子失败不取消兄弟；父/全局聚合 Red 不回写孩子。真实依赖变化仅影响确认的消费者。
+每个子 MO 独立 Coding → Testing → 可修复 Red/Yellow 在本模块配置预算内 Fixer → 正式复测 → DoD 或明确挂起。一个孩子失败不取消兄弟；父/全局聚合 Red 不回写孩子。真实依赖变化仅影响确认的消费者。
 
 父 MO 持续读取子模块 SPEC、tasks、用例覆盖、基线、根因与修复 memory，确认认领范围无遗漏/重复/扩张。等所有孩子完成或明确挂起；module-summary 记录逐子结论、范围覆盖、遗留问题和审计移交，不代验收子 CASE。
 
@@ -89,7 +89,7 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 
 ## 7. 拆分与任务规划的上下文验收
 
-父 MO 在 decompose 前提交 decomposition 报告，GO 在 decompose-accept 核对同一依据；子 Spec Designer 在 plan 前提交 planning 报告，由子 MO freeze 再验。不可只传目录或摘要，须包含权威输入、生产链路、接口 owner 和可执行任务依据。详见 [上下文就绪协议](context-readiness.md#2-精确插入节点)。
+父 decompose 随交 decomposition 预检，叶子 plan 随交 planning 预检；接受/冻结验同版报告，全球源码/架构/知识/分工不能被局部 context pack 遮蔽。见 [上下文就绪](context-readiness.md#2-精确插入节点)。
 
 ## 父 MO 统一命名
 
@@ -107,3 +107,13 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 ## 父级批量冻结信封
 
 父 MO 拆分出多个孩子时，可以把各孩子的 decision_envelope（scope、acceptance、allowed_alternatives、forbidden_changes）汇成一份 [批量信封](../../../template/batch-envelope.json)，交人类一次批准（decision `kind=batch-envelope`，module_id 为父）。子 plan 的 envelope 与信封条目完全一致时，子 MO 审阅详细 tasks/PATH 后附 review_ref 即可 freeze，不再逐个等待人类；任一孩子超出条目（扩大范围、替换提供方、改变用户可见语义等）仍须自己的人类批准。信封批准不替代 MO 的计划审阅，也不改变冻结后的 CR 规则。
+
+## 验证边界
+
+v2 behavior_review.verification 必填：acceptance_owner、case_ids、independent_observation、isolation_strategy、fixture_contract_ref、provider_inputs、integration_case_ids、integration_responsibility。provider_inputs 精确匹配实际 dependencies，逐项绑定 contract_ref 和 required_stage（implemented/verified）。同触发必须有不同的独立观察，否则重切；隔离策略和固定输入/替身契约由 GO/父 MO 以源码证据审阅。唯一 ID、独立作者或独立颜色不能替代行为独立性。
+
+叶子 source_closure 保持分配的 verification；行为 PATH 引用其 fixture_contract_ref。implemented provider 可解除编码准备依赖，正式测试/DoD 仍需 provider 验证完成。共享 provider 只一个实现 owner；消费者负责明确集成 CASE。结构门禁校验归属、引用、完整性，语义独立性由规划审核和最终 Auditor 复核。
+
+## 最小验收切片
+
+叶子 MO 按独立业务结果/验证闭包切片，是冻结、测试及 DoD 单位。TASK 分批实现、全部接受后才测试；冻结前只设计。互不依赖的大叶子回父 MO 重切，不新增 TASK 状态机。Auditor 统一审计，可同 Run 多轮整改复审。

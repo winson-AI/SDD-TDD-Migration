@@ -14,9 +14,9 @@ description: /sdd-init [input.json绝对路径] [--mode single-module --module-n
 ## 2. 编排步骤
 1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
 2. 读取/初始化当前项目配置；对用户明确更新执行 project_context.py update，临时条件进入 overrides。宿主生成 run-request 和 run_id；prepare 复制文档并固化项目版本，返回 Global 的分析输入。快照相同请求可幂等恢复，不允许覆盖已有 run 快照。
-3. Global 只使用 prepare 固化的项目上下文分析；project 执行项目切片，single-module 按模式和名称定位模块，生成 ID/scope/代码路径及 SPEC 草案、Testing list 和审计路径。宿主保存完整 input.json，校验非空规范/用例后，原样作为载荷提交 Ledger init；收到 ACK 后 Global register 根功能（decomposition_required=true），派父 MO decompose；GO decompose-accept 登记子功能后 global-plan，再由独立子 MO 推进。初始化分析工件仅为 staged，不提前派模块 worker 或编码。
+3. Global 只使用 prepare 固化的项目上下文分析；project 执行项目切片，single-module 按模式和名称定位模块，生成全局业务规范、需求/CASE 与审计路径输入。宿主保存完整 input.json，校验非空规范/用例后，原样作为载荷提交 Ledger init；收到 ACK 后 Global register 根功能（decomposition_required=true），派父 MO decompose；GO decompose-accept 登记子功能后 global-plan，再由独立子 MO 推进。初始化分析工件仅为 staged，不提前派模块 worker 或编码。
 
-single-module 模块名须为非空真实名称；共享项目输入必须可解析。模块 ID、scope、路径、SPEC 和 Testing list 都由 Global 生成，不列为用户入口必填字段。整理后的 Ledger init 输入禁止占位符、未决必填值和零必需用例；尚未 init 的输入澄清由宿主展示，不能声称已有 Ledger 状态。
+single-module 模块名须为非空真实名称；共享项目输入必须可解析。GO 定义模块范围；叶子 Spec-Designer 编制实施六件套，独立 Test-Runner 设计测试，不列为用户入口必填字段。整理后的 Ledger init 输入禁止占位符、未决必填值和零必需用例；尚未 init 的输入澄清由宿主展示，不能声称已有 Ledger 状态。
 
 ## 3. 调用契约
 目标角色：[Global-Orchestrator](../Agents/global-orchestrator.md)。
@@ -30,9 +30,9 @@ project_context init/update → prepare → Global 生成完整运行输入 → 
 
 当前本地入口：init 包含 global_spec/new_architecture/requirement_ids → register → global-plan 覆盖验收。验收前允许规格规划，禁止实现派发。
 
-解析可选 module_slicing：验证人工导入引用及摘要；完整功能 use case 可按一级/二级功能目录初分，由 Global 核对 scope/用例。跨模块或不确定业务边界先经人工裁决，再提交带 boundary_review 的 global-plan。详见 [切片规约](../skills/migration-global/references/slicing.md#总则)。
+解析可选 module_slicing：验证人工导入引用及摘要；完整功能 use case 可按一级/二级功能目录初分，由 Global 核对 scope/用例。未决业务边界或需求/验收/授权变化先经人工裁决，再提交带 boundary_review 的 global-plan。详见 [切片规约](../skills/migration-global/references/slicing.md#总则)。
 
-入口范围：project 指完整项目及各功能/子功能；single-module 指一个特定根功能及其子功能。用户仍只给 entry_mode/module_name；GO 生成根功能 SPEC 草稿/Testing list，父 MO 在规划阶段继续拆分子功能，独立子 MO 执行。single_module_id 映射根功能 ID，不限制叶子数量。完整走 GO→父 MO 拆分→子 MO→父汇总→Auditor；详见 [父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md#总则)。
+入口范围：project 指完整项目及各功能/子功能；single-module 指一个特定根功能及其子功能。single_module_id 映射根功能，不限制叶子数。流程：GO 切片→父 MO 拆分→子 MO 规划/冻结/实现/验证→父汇总→Auditor；详见 [父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md#总则)。
 
 复用输入：宿主保存可选 reuse_sources（用户指定其他项目模块）；TARGET 自动纳入评估。prepare 固化来源范围，GO 提取能力语义目录并结合需求切片，将目录作为 context_refs 交父 MO。新 prepare 运行自动要求复用规划，详见 [二方库协议](../skills/migration-protocol/references/reuse-dependencies.md#总则)。
 

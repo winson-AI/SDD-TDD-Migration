@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "module_id": "M001",
+ "_note": "Record scoped production calls; omissions need source-reviewed exclusions. Logic/Adhesive item api_ids own contracts. Bind every source facet plus route through dimension_trace.assertions.api_obligations; unit/automation PATHs share fixture_contract_ref. API adaptations need exact Human approval.",
+ "calls": [
+  {
+   "api_id": "API-M001-001",
+   "source_ref": {
+    "path": "{{absolute-evidence-path}}",
+    "sha256": "{{sha256}}"
+   },
+   "source_symbol": "{{production-source-symbol}}",
+   "method": "GET",
+   "url": "{{source-URL-or-template}}",
+   "request_fields": [
+    "query"
+   ],
+   "response_fields": [
+    "items",
+    "image_url"
+   ],
+   "error_outcomes": [
+    "unauthorized"
+   ],
+   "state_effects": [
+    "loading-to-content"
+   ]
+  }
+ ],
+ "contracts": [
+  {
+   "api_id": "API-M001-001",
+   "fidelity": "exact",
+   "fixture_contract_ref": {
+    "path": "{{absolute-evidence-path}}",
+    "sha256": "{{sha256}}"
+   },
+   "target": {
+    "method": "GET",
+    "url": "{{same-source-URL-or-template}}",
+    "consumer": "{{absolute-target-file}}#{{production-symbol}}",
+    "request_mapping": {
+     "query": "{{target-query-expression}}"
+    },
+    "response_mapping": {
+     "items": "{{target-items-field}}",
+     "image_url": "{{target-image-source-field}}"
+    },
+    "error_mapping": {
+     "unauthorized": "{{equivalent-error-behavior}}"
+    },
+    "state_mapping": {
+     "loading-to-content": "{{equivalent-state-transition}}"
+    }
+   }
+  }
+ ],
+ "exclusions": []
+}

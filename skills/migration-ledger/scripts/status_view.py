@@ -9,13 +9,13 @@ the sequence it already saw gets a brief answer while nothing has changed.
 """
 import reading
 
-CURSOR_KEYS = ('run_id', 'last_sequence', 'quality', 'projection', 'source_change_next_step', 'global_next_step',
+CURSOR_KEYS = ('run_id', 'last_sequence', 'quality', 'projection', 'source_change_next_step', 'run_change_next_step', 'global_next_step',
                'next_steps', 'ready_modules', 'module_rounds', 'observed_invalidations')
 VIEWS = ('full', 'cursor', 'module', 'step')
 # What a role needs of its module and of the assignment its step refers to.
-MODULE_KEYS = ('phase', 'plan_ref', 'freeze_id', 'code_baseline', 'blocked')
+MODULE_KEYS = ('phase', 'plan_ref', 'freeze_id', 'code_baseline', 'blocked', 'execution_context_ref')
 ASSIGNMENT_KEYS = ('assignment_id', 'role', 'instance_id', 'fencing_token', 'mode', 'test_scope', 'freeze_id',
-                   'code_baseline', 'context_ref', 'design_input_ref')
+                   'code_baseline', 'context_ref', 'design_input_ref', 'execution_contract', 'path_ids', 'audit_assignment_id', 'result_ref')
 
 
 def _attention(progress):
@@ -99,8 +99,26 @@ def _step(st, module_id):
         submission = (m.get('submissions') or {}).get(step.get('assignment_id'))
         if submission:
             out['submission'] = submission
+    if module_id is None and operation in ('audit', 'audit-assign', 'audit-test-assign', 'audit-test-submit'):
+        import ledger
+        assignment = st.get('audit_test_assignment') if operation == 'audit-test-submit' else st.get('audit_assignment')
+        if assignment: out['assignment'] = {k: assignment[k] for k in ASSIGNMENT_KEYS if assignment.get(k) is not None}
+        scope = ledger.audit_scope(st)
+        out['audit_input'] = {'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],
+            'paths': scope['plan']['paths'], 'code_files': scope['code_files'], 'results': scope['results']}
     if operation in reading.PLANNING_OPERATIONS or step.get('mode') == 'design':
         out['planning_context'] = st['planning_context']
+        out['history_refs'] = {'lessons': m.get('planning_lessons_ref') if module_id else st.get('lessons_ref')}
+        if operation in ('run-review', 'revise-run'):
+            import run_changes
+            out['root_allocations'] = {mid: {k: root.get(k) for k in run_changes.ROOT_KEYS} for mid, root in run_changes.roots(st).items()}
+            out['task_contract'] = {key: st[key] for key in run_changes.CONTRACT_KEYS}
+            out['upstream_requests'] = {mid: root['realloc_request'] for mid, root in run_changes.roots(st).items() if root.get('realloc_request')}
+        if module_id:
+            history = m.get('planning_history', [])
+            out['planning_history_count'] = len(history)
+            out['planning_history'] = [{k: h.get(k) for k in ('reason', 'evidence_ref', 'plan_ref', 'plan_hash')} for h in history[-5:]]
+            out['reallocation_request'] = m.get('realloc_request')
     return out
 
 

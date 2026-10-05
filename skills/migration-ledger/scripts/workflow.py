@@ -1,13 +1,39 @@
 """Global coverage, one-round repair policy, and independent problem audit contracts."""
 import copy
+import re
 import test_validation as tv
 import dimensions
 
 from contracts import check_ref, digest, keyed, nonempty, read_json, require, baseline, validate_result, verify_plan
 
 EXTERNAL = {'dependency', 'environment', 'tooling', 'external', 'peripheral', 'human'}
-OPERATIONS = {'global-plan', 'audit-defer', 'problem-assign', 'problem-audit', 'audit-resume'}
-GLOBAL_OPERATIONS = {'global-plan', 'problem-assign', 'problem-audit'}
+OPERATIONS = {'global-plan', 'audit-defer', 'problem-assign', 'problem-audit', 'audit-resume', 'audit-recover'}
+GLOBAL_OPERATIONS = {'global-plan', 'problem-assign', 'problem-audit', 'audit-recover'}
+
+
+def global_paths_check(paths, case_ids):
+    require(isinstance(paths, list), 'global paths must be an array')
+    if paths:
+        paths = keyed(paths, 'path_id')
+        require({v.get('case_id') for v in paths.values()} <= set(case_ids), 'global path case is not registered')
+        for path in paths.values():
+            if path.get('test_design_ref'):
+                import prepared_tests
+                prepared_tests.binding({'path_test_sources': {path['path_id']: {
+                    'module_id': 'GLOBAL', 'freeze_id': digest(path),
+                    'test_design_ref': path['test_design_ref'], 'contract_version': 1}}}, path)
+            assertions = keyed(path.get('expected_assertions'), 'assertion_id')
+            require(all('expected' in a for a in assertions.values()), 'global assertion expected value required')
+            device_interaction = path.get('kind') in ('automation', 'visual') and path.get('interaction_id')
+            if device_interaction:
+                from ui_evidence import interaction_contract
+                interaction = interaction_contract(path.get('frozen_interaction'))
+                require(interaction['id'] == path['interaction_id'], 'GLOBAL frozen interaction ID mismatch')
+            if path.get('kind') == 'visual' or device_interaction:
+                binding = path.get('build_binding') or {}
+                require(isinstance(binding.get('module_id'), str) and re.fullmatch(r'M[0-9]{3,}', binding['module_id'])
+                        and isinstance(binding.get('path_id'), str) and binding['path_id'],
+                        'GLOBAL device path requires frozen integration build_binding module_id/path_id')
 
 
 def registry(s):
@@ -25,6 +51,7 @@ def runtime_allocations(s, module_id):
         visited.add(mid)
         module = s['modules'].get(mid) or s.get('module_groups', {}).get(mid)
         require(module, 'allocated module/dependency missing')
+        require(not module.get('replanning_required'), 'root allocation requires redecomposition')
         dimensions.allocation(s, module)
         if s.get('behavior_contract_required'):
             import behavior_contract
@@ -181,12 +208,41 @@ def closure_blockers(s, closure, blockers=None):
     return [b for b in blockers if b['module_id'] in closure]
 
 
+def audit_budget(s, mid='GLOBAL'):
+    return s.get('audit_budgets', {}).get(mid, s['max_audit_rounds'])
+
+
 def problem_budget_left(s, mid):
-    return s.get('problem_attempts', {}).get(mid, 0) < s['max_audit_rounds']
+    return s.get('problem_attempts', {}).get(mid, 0) < audit_budget(s, mid)
+
+
+def audit_recovery_subject(s, mids, additional_rounds):
+    return digest({'run_id': s['run_id'], 'module_ids': mids, 'additional_rounds': additional_rounds,
+        'attempts': {mid: s.get('audit_attempts', 0) if mid == 'GLOBAL' else s.get('problem_attempts', {}).get(mid, 0) for mid in mids},
+        'budgets': {mid: audit_budget(s, mid) for mid in mids}})
+
+
+def audit_recovery_step(s):
+    mids = sorted(mid for mid in s.get('audit_queue', {}) if not problem_budget_left(s, mid)
+                  and mid not in s.get('audit_resolutions', {}))
+    if s.get('audit_attempts', 0) >= audit_budget(s) and s.get('audit', {}).get('quality') != 'green-passed' \
+            and s['modules'] and all(tv.available(m) for m in s['modules'].values()):
+        mids.append('GLOBAL')
+    if not mids:
+        return None
+    subject = audit_recovery_subject(s, mids, 1)
+    decision = next((d for d in s['decisions'].values() if d.get('module_id') is None and not d.get('consumed')
+                     and d.get('subject_sha256') == subject), None)
+    return {'operation': 'audit-recover', 'role': 'global-orchestrator', 'ready': bool(decision),
+            'reason': 'audit-budget-exhausted', 'approval_subject_sha256': subject,
+            'payload': {'module_ids': mids, 'additional_rounds': 1, **({'decision_id': decision['decision_id']} if decision else {})}}
+
 
 
 def early_audit_candidates(s, blockers=None):
     """Settled closures around queued modules: audit them now instead of waiting for the whole run."""
+    if s.get('control_policy_version', 1) >= 2:
+        return []  # Local convergence belongs to MO; only whole-task Auditor is dispatched.
     queued = sorted(mid for mid in s.get('audit_queue', {}) if s['modules'][mid]['phase'] == 'waiting-auditor'
                     and mid not in s.get('audit_resolutions', {}) and problem_budget_left(s, mid))
     groups = []
@@ -248,7 +304,7 @@ def build_only_failures(m):
     return bool(bad) and all(kinds.get(pid) == 'build' for pid in bad)
 
 
-def defer_reason(m, local_rounds=1):
+def defer_reason(m, local_rounds=1, whole_task=False):
     """One local round always; further configured rounds only while the module is still failing to build."""
     if m.get('audit_fix_grant'):
         return None
@@ -256,7 +312,7 @@ def defer_reason(m, local_rounds=1):
     if cause:
         return cause
     used = m.get('local_fix_used', 0)
-    if m.get('auditor_fix_used') or used >= local_rounds or (used >= 1 and not build_only_failures(m)):
+    if m.get('auditor_fix_used') or used >= local_rounds or (not whole_task and used >= 1 and not build_only_failures(m)):
         return {'category': 'local-round-exhausted', 'summary': f'{used} local repair round(s) used',
                 'confidence': 'confirmed', 'owner': 'auditor', 'next_action': 'problem-audit'}
     return None
@@ -292,11 +348,27 @@ def problem_assignment(s, mid):
 def handle(s, req, actor, run_root=None):
     op, p = req['operation'], req.get('payload', {})
     mid = req.get('module_id'); m = s['modules'].get(mid)
-    if op == 'global-plan':
+    if op == 'audit-recover':
+        role(actor, 'global-orchestrator')
+        mids, extra = p.get('module_ids'), p.get('additional_rounds')
+        require(isinstance(mids, list) and mids and len(set(mids)) == len(mids) and set(mids) <= set(s['modules']) | {'GLOBAL'}, 'audit recovery scope required')
+        require(type(extra) is int and 0 < extra <= 100, 'invalid additional audit budget')
+        require(all((s.get('audit_attempts', 0) if mid == 'GLOBAL' else s.get('problem_attempts', {}).get(mid, 0)) >= audit_budget(s, mid)
+                    for mid in mids), 'audit recovery only after budget exhaustion')
+        decision = s['decisions'].get(p.get('decision_id'), {})
+        require(decision.get('module_id') is None and not decision.get('consumed', True)
+                and decision.get('subject_sha256') == audit_recovery_subject(s, mids, extra), 'explicit audit budget decision required')
+        check_ref(decision['human_source_ref'])
+        for mid in mids:
+            s.setdefault('audit_budgets', {})[mid] = audit_budget(s, mid) + extra
+        s.setdefault('audit_recovery_history', []).append(copy.deepcopy(p))
+        decision['consumed'] = True
+    elif op == 'global-plan':
         role(actor, 'global-orchestrator')
         require(s['modules'], 'no modules')
         require(not any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values()),
                 'complete MO decomposition before global coverage acceptance')
+        require(not any(g.get('replanning_required') for g in s.get('module_groups', {}).values()), 'finish root redecomposition before global coverage acceptance')
         require(not audit_active(s), 'audit active')
         plan = read_json(check_ref(p.get('plan_ref')))
         check_ref(p.get('review_ref'))
@@ -355,6 +427,7 @@ def handle(s, req, actor, run_root=None):
                                                  'root_cause': p['root_cause']})
     elif op == 'problem-assign':
         role(actor, 'global-orchestrator'); planning_guard(s)
+        require(s.get('control_policy_version', 1) < 2, 'policy 2 Auditor only audits the whole host task')
         require(not audit_active(s), 'audit already active')
         mids = p.get('module_ids', list(s.get('audit_queue', {})))
         require(mids and len(set(mids)) == len(mids) and set(mids) <= set(s.get('audit_queue', {})), 'queued modules required')

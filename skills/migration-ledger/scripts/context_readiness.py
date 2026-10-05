@@ -21,16 +21,18 @@ CHECKS = {
     'audit-testing': ('module-summaries', 'spec-paths', 'accepted-code', 'provider-binding', 'test-environment', 'independence'),
     'audit-verdict': ('module-summaries', 'findings', 'spec-paths', 'verification-results', 'independence'),
 }
+CHECKS['audit-execution'] = CHECKS['audit-testing']
 ROLES = {stage: ('auditor' if stage.startswith('audit-') else
                  'global-orchestrator' if stage.startswith('global-') else
                  {'decomposition': 'module-orchestrator', 'planning': 'spec-designer',
                   'coding': 'implementer', 'building': 'test-runner', 'testing': 'test-runner', 'test-design': 'test-runner', 'fixing': 'fixer'}[stage])
          for stage in CHECKS}
+ROLES['audit-execution'] = 'test-runner'
 GLOBAL = {stage for stage in CHECKS if stage.startswith(('global-', 'audit-'))}
 # The actor that preflights is the actor that acts: its report is registered with the operation itself.
 # A worker (coding, building, testing, fixing) reports with context-submit inside its dispatch; only the audit
 # dispatch (audit-testing) still needs the Auditor's report beforehand.
-SELF_REPORTED = ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'audit-code-review')
+SELF_REPORTED = ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'run-review', 'audit-code-review')
 WORKERS = {'implementer': 'coding', 'test-runner': 'testing', 'fixer': 'fixing'}
 
 
@@ -42,16 +44,39 @@ def scope(s, mid):
     return s if mid is None else s['modules'].get(mid) or s.get('module_groups', {})[mid]
 
 
+def execution_context(s, mid, stage):
+    ref = scope(s, mid).get('execution_context_ref') if mid and stage in set(WORKERS.values()) | {'building'} else None
+    return read_json(check_ref(ref)) if ref else None
+
+
+def pin_execution(root, s, affected):
+    """Keep frozen, unaffected workers on the accepted context across upstream revisions."""
+    from project_context import archive, encoded
+    pending = [m for mid, m in s['modules'].items() if mid not in affected
+               and m.get('freeze_id') and not m.get('execution_context_ref')]
+    if pending:
+        data = encoded({'planning_context': decomposition.planning_context(s), 'global_refs': global_refs(s),
+            'harmony_environment_revision': s.get('harmony_environment_revision'),
+            'assigned_modules': {mid: decomposition.assigned_module(s, m) for mid, m in s['modules'].items()}})
+        ref = archive(root / 'artifacts/contexts', data, '.json')
+        for m in pending: m['execution_context_ref'] = ref
+
+
 def subject(s, mid, stage):
     """Do not bind sibling progress or receipt revisions into a leaf receipt."""
     require(stage in CHECKS and ((mid is None) == (stage in GLOBAL)), 'context stage/scope mismatch')
     shared = decomposition.planning_context(s)
+    pinned = execution_context(s, mid, stage)
+    if pinned:
+        shared = pinned['planning_context']
     if stage == 'global-discovery':
         shared = {k: v for k, v in shared.items() if k not in ('modules', 'parents', 'dimension_allocations')}
     value = {'run_id': s['run_id'], 'module_id': mid, 'stage': stage, 'planning_context': shared}
+    if stage in ('global-discovery', 'global-planning', 'decomposition', 'planning'):
+        value['history_ref'] = scope(s, mid).get('planning_lessons_ref') if mid else s.get('lessons_ref')
     if mid:
         m = scope(s, mid)
-        value['assigned_module'] = decomposition.assigned_module(s, m)
+        value['assigned_module'] = pinned['assigned_modules'][mid] if pinned else decomposition.assigned_module(s, m)
         if stage == 'test-design':
             value['design_input_ref'] = m.get('design_input_ref')
             value['design_generation'] = m.get('design_generation', 0)
@@ -94,7 +119,7 @@ def diagnosis_report(m):
     return m.get('diagnosis') or (m.get('diagnosis_submission') or {}).get('report')
 
 
-def input_refs(s, mid, stage):
+def global_refs(s):
     refs = [s['global_spec'], s['new_architecture']]
     if (s.get('global_plan') or {}).get('source_review_ref'):
         change_ref = s['global_plan']['source_review_ref']
@@ -106,6 +131,15 @@ def input_refs(s, mid, stage):
         refs.append(s['project_context_ref'])
         for source in read_json(check_ref(s['project_context_ref'])).get('source_refs', {}).values():
             refs.extend(source if isinstance(source, list) else [source])
+    return refs
+
+
+def input_refs(s, mid, stage):
+    pinned = execution_context(s, mid, stage)
+    refs = list(pinned['global_refs']) if pinned else global_refs(s)
+    if stage in ('global-discovery', 'global-planning', 'decomposition', 'planning'):
+        history = scope(s, mid).get('planning_lessons_ref') if mid else s.get('lessons_ref')
+        if history: refs.append(history)
     if mid:
         m = scope(s, mid)
         if stage == 'test-design' and m.get('design_input_ref'):
@@ -118,7 +152,7 @@ def input_refs(s, mid, stage):
         refs += m.get('context_refs', [])
         if m.get('dimension_analysis_ref'):
             refs.append(m['dimension_analysis_ref'])
-        parent = decomposition.assigned_module(s, m).get('parent_context')
+        parent = (pinned['assigned_modules'][mid] if pinned else decomposition.assigned_module(s, m)).get('parent_context')
         if parent:
             refs += parent['context_refs']
             if parent.get('dimension_analysis_ref'):
@@ -127,6 +161,7 @@ def input_refs(s, mid, stage):
             refs.append(diagnosis_report(m)['diagnosis_ref'])  # the Fixer must have read the diagnosis
         if stage in set(WORKERS.values()) | {'building'} and m.get('plan_ref'):
             refs.append(m['plan_ref'])
+            refs += [r for r in m['plan'].get('definitions', []) if r['kind'] in ('test-script', 'test-fixture', 'test-adapter')]
             if m['plan'].get('reuse_plan_ref'):
                 refs.append(m['plan']['reuse_plan_ref'])
     elif stage.startswith('audit-'):
@@ -134,6 +169,21 @@ def input_refs(s, mid, stage):
         refs += [m['plan_ref'] for m in s['modules'].values() if m.get('plan_ref')]
         refs += [g['summary_ref'] for g in s.get('module_groups', {}).values() if g.get('summary_ref')]
         refs += [m['plan']['reuse_plan_ref'] for m in s['modules'].values() if (m.get('plan') or {}).get('reuse_plan_ref')]
+        if stage == 'audit-execution':
+            import prepared_tests
+            for module in s['modules'].values():
+                for path in (module.get('plan') or {}).get('paths', []):
+                    previous = module.get('results', {}).get(path['path_id'])
+                    if previous and (previous.get('stale') or previous['quality'] != 'green-passed'):
+                        binding = prepared_tests.binding(module, path)
+                        if binding:
+                            refs.append(binding['test_design_ref'])
+                            refs.extend(a['ref'] for a in binding['assets'])
+            for path in s.get('global_paths', []):
+                if path.get('test_design_ref'):
+                    refs.append(path['test_design_ref'])
+                    refs.extend(a['ref'] for a in prepared_tests.assets(read_json(check_ref(path['test_design_ref'])))
+                                if path['path_id'] in a['path_ids'])
         if stage != 'audit-code-review' and s.get('audit_code_review'):
             refs.append(s['audit_code_review']['report_ref'])
     if stage == 'global-planning':
@@ -217,7 +267,7 @@ def submit(s, req, actor):
     required = input_refs(s, mid, stage) if report['verdict'] == 'ready' else None
     if required is not None:
         verify_inputs(s, mid, stage, deep=True, refs=required)
-    if report['verdict'] == 'ready' and stage in ('building', 'testing', 'audit-testing'):
+    if report['verdict'] == 'ready' and stage in ('building', 'testing', 'audit-testing', 'audit-execution'):
         execution = report.get('execution', {})
         argv = execution.get('argv')
         require(isinstance(argv, list) and argv and all(isinstance(arg, str) for arg in argv)
@@ -237,6 +287,7 @@ def submit(s, req, actor):
 
 
 def requirement(op, p, s=None):
+    if op == 'audit-test-assign': return 'audit-execution'
     if op == 'audit-assign' and s is not None:
         from ledger import audit_scope
         return 'audit-testing' if audit_scope(s)['plan']['paths'] else 'audit-verdict'
@@ -244,7 +295,7 @@ def requirement(op, p, s=None):
         if p.get('mode') == 'design':
             return None  # MO commits design inputs first; designer preflights before submit.
         return 'building' if p.get('role') == 'test-runner' and p.get('test_scope') == 'build' else WORKERS.get(p.get('role'))
-    return {'register': 'global-discovery', 'global-plan': 'global-planning', 'source-review': 'global-planning',
+    return {'register': 'global-discovery', 'global-plan': 'global-planning', 'source-review': 'global-planning', 'run-review': 'global-planning',
             'decompose': 'decomposition', 'decompose-accept': 'decomposition',
             'plan': 'planning', 'freeze': 'planning', 'audit-plan': 'audit-analysis', 'audit-code-review': 'audit-code-review',
             'audit-assign': 'audit-testing', 'problem-assign': 'audit-testing',
@@ -311,11 +362,11 @@ def gate(s, req, actor):
     if op in ('freeze', 'decompose-accept'):
         ref = obj.get('context_acceptances', {}).get('plan' if op == 'freeze' else 'decompose', {}).get('report_ref')
     require(ref, 'context readiness receipt required for ' + op)
-    instance = p.get('instance_id') if op in ('assign', 'audit-assign', 'problem-assign') else None
-    if op in ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'audit-code-review'):
+    instance = p.get('instance_id') if op in ('assign', 'audit-assign', 'problem-assign', 'audit-test-assign') else None
+    if op in ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'run-review', 'audit-code-review'):
         instance = actor['instance_id']
     draft = p.get('plan_ref') if op in ('global-plan', 'decompose', 'plan', 'audit-plan') else obj.get('plan_ref') if op == 'freeze' else None
-    if op in ('source-review', 'audit-code-review'): draft = p.get('report_ref')
+    if op in ('source-review', 'run-review', 'audit-code-review'): draft = p.get('report_ref')
     if op in SELF_REPORTED and obj.get('context_receipts', {}).get(stage + ':' + instance, {}).get('report_ref') != ref:
         submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor)
     validate(s, mid, stage, ref, instance, draft)
@@ -407,7 +458,7 @@ def check_execution(s, assignment, argv, cwd, path_id=None):
         return
     require(assignment.get('context_ref'), 'test context missing; context-submit the preflight of this assignment first')
     report = read_json(check_ref(assignment['context_ref']))
-    require(report['stage'] in ('building', 'testing', 'audit-testing') and report['verdict'] == 'ready', 'test context missing')
+    require(report['stage'] in ('building', 'testing', 'audit-testing', 'audit-execution') and report['verdict'] == 'ready', 'test context missing')
     verify_refs(report)
     expected = report['execution'].get('commands', {}).get(path_id, report['execution'])
     require(argv == expected['argv'] and str(Path(cwd).resolve()) == str(Path(expected['cwd']).resolve()),

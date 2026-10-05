@@ -84,6 +84,9 @@ def build(root, state, events, steps, global_step, at=None):
     audit = state.get('audit_assignment', {})
     if audit and not audit.get('closed'):
         assignments.append((None, audit))
+    audit_test = state.get('audit_test_assignment', {})
+    if audit_test and not audit_test.get('closed'):
+        assignments.append((None, audit_test))
     for mid, assignment in assignments:
         matching = [e for e in events if e.get('module_id') == mid]
         stamp = (matching[-1] if matching else events[-1])['timestamp'] if events else at.isoformat()

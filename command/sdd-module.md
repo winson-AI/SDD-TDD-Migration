@@ -26,7 +26,7 @@ worker 接到派发后按阶段提交预检：Implementer 提交 coding；Test R
 
 MO assign → worker submit → MO accept → complete。
 
-本命令推进已有 run 内的一个已注册模块。用户指定已划分的独立功能模块来启动完整迁移时，应在同一项目入口使用 `/sdd-init --mode single-module --module-name "功能模块名"`（自动读取已保存项目配置），由 Global 识别生成模块级 SPEC 草案和 Testing list 并初始化，再运行 sdd-plan 完成正式六件套/测试设计及冻结，然后使用本命令或 sdd-run；后续仍须 Auditor 收尾。
+本命令推进已有 run 内的一个已注册模块。用户指定已划分的独立功能模块来启动完整迁移时，应在同一项目入口使用 `/sdd-init --mode single-module --module-name "功能模块名"`（自动读取已保存项目配置），由 GO 识别根范围与需求/CASE 后初始化，再由 sdd-plan 推进叶子六件套、独立测试设计及冻结，然后使用本命令或 sdd-run；后续仍须 Auditor 收尾。
 
 本命令依据节点类型推进：父 MO 先认领 GO 的 scope/context 后拆子模块并看护迁移，子 MO 认领子 scope/context 后拆 tasks、独立实现；父节点负责管理与汇总。single-module 的“单”限定一个根功能，子功能仍由独立子 MO 执行。
 

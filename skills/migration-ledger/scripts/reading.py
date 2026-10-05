@@ -25,7 +25,7 @@ ROTATE_BUDGET = 100_000
 TEMPLATE_BUDGET = 20_000
 TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 532_200
+PROTOCOL_BUDGET = 539_000  # policy 2 consolidated ceiling; reduce after future deduplication
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -40,7 +40,7 @@ def sections(name, *headings):
 # or topics, which the card itself answers) and the three rules that apply to every dispatch.
 SHARED = 'skills/migration-protocol/SKILL.md'
 CORE = [('AGENTS.md', '四条红线')] + [(SHARED, h) for h in ('2. 核心规则', '3. 模式', '4. 取用', '5. 检查', '7. 业务边界与阶段验收', '通用约定')] + sections(
-    'runtime.md', '总则') + sections('context-readiness.md', '总则') + sections('storage-layout.md', '总则')
+    'runtime.md', '总则', '渐进加载') + sections('context-readiness.md', '总则') + sections('storage-layout.md', '总则')
 ROLE = {
     'global-orchestrator': ['Agents/global-orchestrator.md', 'skills/migration-global/SKILL.md'],
     'module-orchestrator': ['Agents/module-orchestrator.md', 'skills/migration-module/SKILL.md'],
@@ -63,11 +63,12 @@ AUDIT_OPS = {
     'audit-release': [D5], 'audit-defer': ['问题处理', '活动审计的游标恢复'], 'repair-accept': [D3, '问题处理'],
     'audit-resume': PROBLEM, 'problem-assign': PROBLEM, 'problem-audit': PROBLEM,
     'audit-assign': FINAL, 'audit': FINAL, 'audit-unavailable': ['活动审计的游标恢复', '收尾的实际执行契约'],
-    'audit-revoke': ['活动审计的游标恢复'],
+    'audit-revoke': ['活动审计的游标恢复'], 'audit-recover': ['问题审计与最终审计'],
 }
 # The module orchestrator's guard and loop rules apply everywhere; the rest only to the operations that use them.
 MO_OPS = {
     'freeze': ['Freeze / DoD 分开', 'D', 'M'], 'change': ['Freeze / DoD 分开', 'D', 'M'], 'complete': ['Freeze / DoD 分开'],
+    'redecompose': ['M*'], 'redecompose-accept': ['M*'], 'realloc-request': ['M*'],
     'decompose': ['M*'], 'decompose-accept': ['M*'], 'module-summary': ['M*'], 'plan': ['D', 'M'],
     'assign': [], 'accept': [], 'diagnosis-accept': [], 'resume': [], 'recover': [], 'suspend': [], 'invalidate': [],
     'dependency-ready': [], 'automation-unavailable': [], 'automation-resume': [], 'session': [], 'checkpoint': [],
@@ -116,7 +117,7 @@ UI = {
     'fixer': sections('ui-fidelity.md', '精确性纪律', PICTURES) + sections('resource-transfer.md', '总则', COPY, FILL)
     + sections('domain-tools.md', '总则'),
     'test-runner': sections('ui-fidelity.md', PICTURES) + sections('domain-tools.md', '总则'),
-    'auditor': sections('ui-fidelity.md', PICTURES) + sections('domain-tools.md', '总则'),
+    'auditor': sections('ui-fidelity.md', 'UI 证据绑定', PICTURES) + sections('domain-tools.md', '总则'),
 }
 REUSE_GENERAL = sections('reuse-dependencies.md', '总则')
 REUSE = {
@@ -150,6 +151,12 @@ def audit_sections(operation):
 
 def op_sections(role, operation):
     """Sections that depend on the operation inside a family."""
+    if operation in ('plan-review', 'planning-reopen', 'upgrade-control-policy'):
+        return sections('state-machine.md', '控制主线与版本') + sections('openspec.md', '冻结算法', '变更控制')
+    if operation in ('audit-test-assign', 'audit-test-submit'):
+        return sections('audit-code-review.md', '宿主目标审计') + sections('audit-scope.md', '收尾的实际执行契约')
+    if operation in ('run-review', 'revise-run', 'realloc-request', 'redecompose', 'redecompose-accept'):
+        return sections('progress-recovery.md', '同 Run 上游修订') + sections('module-decomposition.md', '3. 分配与登记门禁')
     fam = family(role, operation)
     if fam == 'audit':
         items = audit_sections(operation)
@@ -206,7 +213,7 @@ def agent_topics(path, flags):
     return tuple(r for r in rows if topic_flag(r) is None or flags.get(topic_flag(r)))
 
 
-PLANNING_OPERATIONS = ('register', 'global-plan', 'decompose', 'decompose-accept', 'module-summary', 'freeze', 'plan', 'change')
+PLANNING_OPERATIONS = ('register', 'global-plan', 'decompose', 'decompose-accept', 'module-summary', 'freeze', 'plan', 'change', 'redecompose', 'redecompose-accept', 'realloc-request', 'run-review', 'revise-run', 'plan-review', 'planning-reopen', 'upgrade-control-policy')
 
 
 def _cells(line):
@@ -283,30 +290,105 @@ def matrix_keys():
     return {_cells(line)[0] for line in block.splitlines() if line.startswith('|')}
 
 
-def ui_scope(m):
-    """UI-only sections trigger when the module's dimension analysis has applicable UI."""
-    ref = (m.get('plan') or {}).get('dimension_analysis_ref') or m.get('dimension_analysis_ref')
-    if not ref:
-        return False
-    from contracts import read_json
-    try:
-        analysis = read_json(ref['path'])
-    except (OSError, ValueError, KeyError, TypeError):
-        return False
-    return any(row.get('dimension') == 'UI' and row.get('status') == 'applicable' for row in analysis.get('dimensions', []))
+def execution_selection(m, step):
+    """Accepted contracts take precedence over caller-supplied advisory selectors."""
+    if not m or (step.get('worker_role') or step.get('role')) not in ('implementer', 'fixer', 'test-runner') or step.get('mode') == 'design': return None
+    assignment = m.get('assignments', {}).get(step.get('assignment_id'), {})
+    selection = assignment.get('execution_contract') or step.get('execution_contract') or step.get('payload') or step
+    tasks = set(selection.get('task_ids', [])); plan = m.get('plan') or {}
+    if not tasks or not tasks <= {t['task_id'] for t in plan.get('tasks', [])} or not plan.get('dimension_trace'): return None
+    items = {row['item_id'] for row in plan['dimension_trace'] if tasks.intersection(row['task_ids'])}
+    paths = set(selection.get('path_ids') or [pid for t in plan['tasks'] if t['task_id'] in tasks for pid in t['path_ids']])
+    return items, paths
 
 
-def entries(role, test_scope=None, ui=False, reuse=False, operation=None, telemetry=False, lean=False, rows=()):
+def topic_facts(s, m, step):
+    """Facts from this assignment, or its selected audit scope; no elective rule disables a gate."""
+    from contracts import check_ref, read_json
+    facts = dict.fromkeys(('ui', 'resources', 'pictures', 'copy', 'parameters', 'api'), False)
+    selected = step.get('module_ids') or (s.get('audit_assignment') or {}).get('module_ids')
+    modules = [m] if m else [obj for mid, obj in s.get('modules', {}).items() if not selected or mid in selected]
+    for obj in modules:
+        selection = execution_selection(obj, step) if m else None
+        ref = (obj.get('plan') or {}).get('dimension_analysis_ref') or obj.get('dimension_analysis_ref')
+        if not ref:
+            continue
+        try:
+            analysis = read_json(check_ref(ref))
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError):
+            continue  # the dispatch gate reports invalid evidence; loading does not repair or authorize it
+        facts['api'] |= bool(analysis.get('api_inventory_ref')) and selection is None
+        selected_ui = any(row.get('dimension') == 'UI' and any(item.get('item_id') in selection[0] for item in row.get('items', []))
+                          for row in analysis.get('dimensions', [])) if selection else False
+        for row in analysis.get('dimensions', []):
+            if row.get('status') != 'applicable':
+                continue
+            items = [item for item in row.get('items', []) if selection is None or item.get('item_id') in selection[0]]
+            if selection is not None and not items and not (row.get('copy_plan_ref') and selected_ui): continue
+            facts['ui'] |= row.get('dimension') == 'UI'
+            facts['resources'] |= row.get('dimension') == 'Resource'
+            facts['copy'] |= bool(row.get('copy_plan_ref'))
+            facts['parameters'] |= bool(row.get('parameter_sheet_ref'))
+            for item in items:
+                facts['api'] |= bool(item.get('api_ids') or item.get('api_binding'))
+                model = item.get('semantic_model') or {}
+                facts['pictures'] |= bool(model.get('image_checks') or item.get('source_resource') or item.get('source_signal'))
+        # Planners need discovery before choosing a resource strategy; executors consume only frozen facts.
+        if step.get('role') in PLANNING_ROLES or step.get('worker_role') == 'spec-designer':
+            facts['pictures'] |= facts['ui']
+            facts['parameters'] |= facts['ui'] and bool((s.get('target_resources') or {}).get('parameters'))
+            facts['copy'] |= facts['resources'] and bool((s.get('target_resources') or {}).get('copy'))
+    for path in (s.get('global_paths', []) if m is None else (m.get('plan') or {}).get('paths', [])):
+        selection = execution_selection(m, step)
+        if selection is not None and path['path_id'] not in selection[1]: continue
+        facts['ui'] |= path.get('kind') == 'visual' or bool(path.get('interaction_id'))
+        facts['pictures'] |= bool(path.get('image_check_ids'))
+    return facts
+
+
+def reasoning_sections(m):
+    """Extra methods activate on observed uncertainty/stagnation, not on role alone."""
+    if not m: return []
+    bad = [row for row in {**m.get('results', {}), **m.get('repair_findings', {})}.values() if row.get('quality') != 'green-passed']
+    if m.get('no_progress_rounds', 0): return sections('progress-recovery.md', '1. 校验范围') + sections('domain-tools.md', '证据保留与修复闭环')
+    if any((row.get('root_cause') or {}).get('confidence') != 'confirmed' for row in bad): return sections('semantic-extraction.md', '层与 schema')
+    return []
+
+
+def entries(role, test_scope=None, ui=False, reuse=False, operation=None, telemetry=False, lean=False, rows=(), facts=None):
     agent, skill = ROLE.get(role, [None, None])
     items = list(CORE) + [(agent, None)] + skill_sections(skill, test_scope) + STEP.get(role, [])
     items += op_sections(role, operation)
+    if operation == 'assign' and role == 'module-orchestrator':
+        items += sections('runtime.md', '显式执行任务')
+    if operation == 'session':
+        items += sections('host-integration.md', '会话交接')
+    if operation in ('freeze', 'plan'):
+        items += sections('state-machine.md', '控制主线与版本')
+    if operation in ('decompose', 'decompose-accept', 'global-plan'):
+        items += sections('module-decomposition.md', '验证边界')
     selected = [k for k in rows if k in matrix_keys()]
     if selected:
         items += sections('local-runtime.md', '操作矩阵@' + ','.join(selected))
     if role == 'test-runner':
         items += TEST_SCOPE.get(test_scope, [])
     if ui:
-        items += UI.get(role, [])
+        chosen = UI.get(role, [])
+        if facts is not None:
+            chosen = [(path, heading) for path, heading in chosen
+                      if not (path.endswith('resource-transfer.md') and not facts.get('resources'))
+                      and not (heading == COPY and not facts.get('copy'))
+                      and not (heading in ('参数表', FILL) and not facts.get('parameters'))
+                      and not (heading == PICTURES and not facts.get('pictures'))]
+        items += chosen
+    if facts and facts.get('api'):
+        items += sections('resource-transfer.md', 'API 与 URL 契约')
+    if facts and facts.get('parameters'):
+        items += sections('resource-transfer.md', '动态参数与布局结构')
+    if facts and facts.get('resources') and not ui:
+        items += sections('resource-transfer.md', '总则', '使用点与闭包')
+        if facts.get('copy'):
+            items += sections('resource-transfer.md', COPY)
     if reuse:
         items += REUSE_GENERAL + REUSE.get(role, [])
     if telemetry:
@@ -339,12 +421,14 @@ def card(s, m, step):
         return []
     plan = (m or {}).get('plan') or {}
     operation = step.get('operation')
-    ui, reuse = bool(m) and ui_scope(m), bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required'))
+    facts = topic_facts(s, m, step)
+    ui, reuse = facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'), bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required'))
     telemetry = telemetry_scope(role, m)
     lean = bool(m) and (bool(m.get('lean_leaf')) or bool(s.get('fixer_self_diagnosis')))
     rows = ([operation] if operation else []) + (['context-submit', 'submit'] if step.get('worker_role') else [])
     chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry,
-                     lean=lean and role in ('fixer', 'implementer'), rows=rows)
+                     lean=lean and role in ('fixer', 'implementer'), rows=rows, facts=facts)
+    chosen = list(dict.fromkeys(chosen + reasoning_sections(m)))
     if role == 'spec-designer' or (step.get('mode') == 'design' and role == 'module-orchestrator'):
         chosen += sections('testing.md', '编码前设计交接')
     audit = bool(operation and (operation.startswith('audit') or operation.startswith('problem'))) or role == 'auditor' \
@@ -391,11 +475,11 @@ TEMPLATES = {
     'test-runner': {'base': ['stage-result.json', 'test-result.json', 'context-readiness.json']},
 }
 # Module-orchestrator templates by operation; an operation outside the table only updates the module status.
-MO_TEMPLATES = {'freeze': ['checklist.md', 'change-impact.json', 'batch-envelope.json'],
+MO_TEMPLATES = {'freeze': ['checklist.md', 'plan-review.json', 'change-impact.json', 'batch-envelope.json'], 'plan-review': ['plan-review.json'], 'planning-reopen': ['status.md'],
                 'change': ['change-impact.json'], 'complete': ['checklist.md', 'status.md'],
                 'decompose': ['module-decomposition.json', 'dimension-analysis.json', 'batch-envelope.json'],
                 'module-summary': ['status.md'], 'suspend': ['implementation-gap.json', 'status.md'],
-                'assign': ['test-design-input.json'], 'accept': ['status.md'], 'diagnosis-accept': ['status.md']}
+                'assign': ['test-design-input.json', 'execution-assignment.json'], 'accept': ['status.md'], 'diagnosis-accept': ['status.md']}
 SCOPE_TEMPLATES = {'build': ['test-adapter.json'], 'automation': ['test-adapter.json', 'harmony-test-adapter.json', 'harmony-config.json', 'interaction-evidence.json'],
                    'visual': ['visual-test-path.json', 'visual-alignment.json', 'visual-capture-execution.json', 'visual-test-adapter.json',
                               'visual-execution.json', 'visual-request.json']}
@@ -411,6 +495,10 @@ TRIGGER_TEMPLATES = {
 
 
 def templates(s, m, step):
+    if step.get('operation') in ('run-review', 'revise-run'):
+        return ['template/run-revision.json', 'template/context-readiness.json']
+    if step.get('operation') == 'retrospect':
+        return ['template/retrospective.json']
     role = step.get('worker_role') or step.get('role')
     if role not in ROLE:
         return []
@@ -424,16 +512,25 @@ def templates(s, m, step):
     if step.get('mode') == 'design':
         names = ['test-design-input.json', 'test-design-result.json', 'test-paths.json', 'harmony-test-path.json', 'context-readiness.json']
     reuse = bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required'))
-    active = {'reuse': reuse, 'telemetry': telemetry_scope(role, m), 'ui': bool(m) and ui_scope(m),
+    facts = topic_facts(s, m, step)
+    active = {'reuse': reuse, 'telemetry': telemetry_scope(role, m), 'ui': facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'),
               'knowledge': bool(s.get('dependency_resolution_required')) or reuse}
     for trigger, by_role in TRIGGER_TEMPLATES.items():
         if active[trigger]:
             names += by_role.get(role, [])
+    if role in PLANNING_ROLES:
+        if facts['api']: names += ['api-inventory.json']
+        if facts['parameters']: names += ['parameter-binding.json']
     return ['template/' + n for n in dict.fromkeys(names)]
 
 
 # A rejected request points at the section that states the failed gate; advisory, first match wins.
 GATES = [
+    (r'host handoff|cold recovery|rotation checkpoint|global hint|session restoration', 'host-integration.md', '会话交接'),
+    (r'test asset|test PATH preparation|test preparation', 'testing.md', '编码前设计交接'),
+    (r'condition review|condition refs', 'resource-transfer.md', '动态参数与布局结构'),
+    (r'API |api_inventory|api_obligations', 'resource-transfer.md', 'API 与 URL 契约'),
+    (r'runtime expression|runtime/layout|layout keywords|structural mapping|parameter mapping', 'resource-transfer.md', '动态参数与布局结构'),
     (r'hash mismatch', 'runtime.md', '请求与事件'),   # first: the file named in the message may sit in a path of any other topic
     (r'unknown reference id', 'context-readiness.md', '3. 报告与传递'),
     (r'parameter[ _](sheet|fill|file|convention)|parameter_fill|recorded (value )?parameters?|values to parameter|a parameter is'

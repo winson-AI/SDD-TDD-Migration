@@ -33,10 +33,10 @@ description: 整体代码审查、重构/复用治理委派、独立遗留复核
 
 本地非 Green 审计产生 audit_repairs，由 Global 路由、MO 接受重开；下一轮保留 audit_results 的非 Green retest_of 链。详见 [控制流闭环](../migration-protocol/references/state-machine.md#控制流闭环细则)。
 
-默认收尾扫描全部模块，使用 audit-collect/audit-plan/audit-route-batch/audit-work/audit-retest/audit-verdict；失败问题及依赖下游生成 audit-reports/<batch-id>.md/json 待人工，独立分支继续；汇总后由批准的 audit-release 进入受控恢复。problem-assign/problem-audit 仅用于闭包提前审计。收尾只复核待验证清单；清单为空则独立 audit-review，不启动自动化。详见 [当前运行契约](../migration-protocol/references/local-runtime.md#操作矩阵)。
+默认收尾扫描全部模块，使用 audit-collect/audit-plan/audit-route-batch/audit-work/audit-retest/audit-verdict；失败问题及依赖下游生成 audit-reports/<batch-id>.md/json 待人工，独立分支继续；汇总后由批准的 audit-release 进入受控恢复。v2 的统一宿主目标审计与独立 Test-Runner 复测见[宿主目标审计](../migration-protocol/references/audit-code-review.md#宿主目标审计)；problem-assign/problem-audit 仅用于 v1 恢复。收尾只复核待验证清单；清单为空则独立 audit-review，不启动自动化。详见 [当前运行契约](../migration-protocol/references/local-runtime.md#操作矩阵)。
 
 按 finding_id 路由，支持不同问题分别修复及单问题多 owner；按依赖交错 Testing，不等待全批 owner。宿主实际启动 subagent 与 Used Skills。
 
-Auditor 是审计范围 CASE/PATH 的唯一验收 owner；正式复测完整 Green、证据有效且覆盖门禁满足即直接记录审计结论，无额外会签。MO 保留模块执行守卫。新增跨模块或不确定业务边界交人工决定；不得以多 repair owner 推导多人共同验收。
+Auditor 是审计范围 CASE/PATH 的唯一验收 owner；正式复测完整 Green、证据有效且覆盖门禁满足即直接记录审计结论，无额外会签。MO 保留模块执行守卫。新增未决业务边界或需求/验收/授权变化交人工决定；不得以多 repair owner 推导多人共同验收。
 
 审计读取语义目录、需求映射和实际二方库版本，按依赖图验证共享提供方与受影响消费者；不越权修改外部来源，失败输出根因待人工。见 [复用协议](../migration-protocol/references/reuse-dependencies.md#11-auditor-全局复用治理)。

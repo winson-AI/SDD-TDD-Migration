@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "kind": "planning-gap",
+      "summary": "{{abstract-lesson}}",
+      "applicability": "{{matching-business-code-and-architecture-conditions}}",
+      "root_cause": "{{wrong-assumption-with-evidence}}",
+      "strategy": "{{attempted-or-verified-planning-decision}}",
+      "result": "{{verified-failed-or-unverified-with-limitations}}",
+      "next_check": "{{concrete-check-before-next-plan}}",
+      "evidence_refs": [{"path": "{{absolute-committed-evidence}}", "sha256": "{{sha256}}"}]
+    }
+  ]
+}

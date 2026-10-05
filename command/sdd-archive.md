@@ -20,4 +20,4 @@ description: /sdd-archive <run-id> <decision.json绝对路径> — 核验交付�
 
 ## 本地实现接入
 
-宿主 OpenSpec 同步/归档适配器；本地脚本尚不提供 archive 操作。
+宿主 OpenSpec 同步/归档适配器；本地脚本尚不提供 archive 操作。成功后运行 experience.py harvest 采集已提交的经验；补充抽象教训走 /sdd-retrospect，不把归档视为新 Run。

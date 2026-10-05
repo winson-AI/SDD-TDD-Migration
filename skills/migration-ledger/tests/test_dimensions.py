@@ -39,6 +39,7 @@ class DimensionTests(unittest.TestCase):
                          'reason': 'source-backed scope analysis', 'evidence_refs': [proof],
                          'items': [item] if kind in kinds else []})
         return {'schema_version': 1, 'module_id': mid, 'parent_ref': parent_ref,
+                'api_review': {'status': 'not-applicable', 'reason': 'Source-reviewed fixture has no production API calls', 'evidence_refs': [proof], 'discovery_refs': [proof]},
                 'scope': {'in': ['feature' if mid == 'M010' else 'subfunction-' + mid],
                           'out': ['Orders'], 'requirement_ids': ['R1']},
                 'source_reviews': {k: {'conclusion': 'reviewed source and candidate semantics', 'evidence_refs': [proof]}
@@ -361,3 +362,24 @@ class DimensionTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DimensionRevisionTests(unittest.TestCase):
+    setUp = DimensionTests.setUp
+    analysis = DimensionTests.analysis
+    root = DimensionTests.root
+    proposal = DimensionTests.proposal
+    def test_redecompose_installs_revised_analysis_and_behavior(self):
+        d, f = self, self.f
+        d.root(); original = d.proposal(); f.split(original)
+        proposal = copy.deepcopy(original)
+        revised = d.analysis('M001', parent_ref=d.root_ref)
+        revised['dimensions'][1]['items'][0]['acceptance'] = 'Corrected observable boundary'
+        ref = f.ref('revised-dimensions.json', revised)
+        proposal['children'][0]['dimension_analysis_ref'] = ref
+        f.call('redecompose', {'plan_ref': f.ref('dimension-revision.json', proposal)}, module='M010')
+        f.call('redecompose-accept', {'review_ref': f.ref('dimension-review.md', 'Corrected analysis reviewed')}, role='global-orchestrator', module='M010')
+        state = f.state()
+        self.assertEqual(state['modules']['M001']['dimension_analysis_ref'], ref)
+        self.assertEqual(state['redecomposition_history'][-1]['affected_modules'], ['M001'])
+        self.assertIsNone(state['modules']['M001']['freeze_id'])
