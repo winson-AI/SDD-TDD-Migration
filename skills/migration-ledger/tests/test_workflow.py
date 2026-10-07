@@ -358,7 +358,7 @@ class WorkflowTests(unittest.TestCase):
         self.call('accept', {'assignment_id': a['assignment_id']})  # still an MO event that re-validates the result
 
     def test_dispatching_a_worker_is_marked_mechanical(self):
-        s = self.state(); s['test_design_required'] = True
+        s = self.state(); s['modules']['M001']['test_design_required'] = True
         design = ledger.next_step(s, s['modules']['M001'])
         self.assertEqual((design['operation'], design['mode']), ('assign', 'design'))
         self.assertNotIn('mechanical', design)  # the module orchestrator writes the design input

@@ -160,7 +160,7 @@ def module_execution():
         'UI → Logic → Adhesive → Resource','绑定任务 scope，明确具体实现指导','OpenSpec / PATH / ASSERT；N/A 留证'])
     d.arrow([(800,520),(800,580)])
     d.box(560,580,480,120,'Plan 澄清 → 冻结',[
-        'Human 决策 + 四维覆盖 checklist','存量可预览？→ 截图基线 / 回退中间表征','子 MO 接受当前版本冻结'])
+        '上游全量 CASE / 四维覆盖 checklist','预期明确即可冻结；design 按需协助','子 MO 审核；真实未决才交 Human'])
     d.arrow([(800,700),(800,745)])
     d.box(560,745,480,125,'Coding 预检 → 实现 → MO 接受',[
         '按任务 scope + 四维 + 存量基线/中间表征实现','提交四维证据 / 资源及真实消费者','依赖满足 / 写锁 / 全局覆盖 / 预算'])
@@ -209,9 +209,10 @@ def module_execution():
     d.box(70,190,400,150,'认领范围',[
         'assigned_module 绑定分配包','需求 / CASE / 写范围不得越界','全局可读不扩大执行权限'], 'gray')
     d.box(70,410,400,150,'OpenSpec 六件套',[
-        'proposal / spec / design','tasks / status / checklist','测试设计在冻结前，执行在代码后'], 'gray')
+        'proposal / spec / design','tasks / status / checklist','上游用例在冻结前分配 scope'], 'gray')
     d.box(70,700,400,210,'契约变化 → CR',[
-        'Fixer 只能提出变更建议','Spec Designer 分析；子 MO 审核','业务语义 / 不确定边界交人工','修订后重新冻结，再实现与测试','任何反馈都不能直接写 Green'], 'purple')
+        '遗漏 / fidelity 偏差 → 局部 CR','Spec Designer 更新；子 MO 审核','业务语义 / 不确定边界交人工','重新冻结 → 更新已有代码 / 复测','任何反馈都不能直接写 Green'], 'purple')
+    d.arrow([(470,805),(525,805),(525,640),(560,640)], 'purple')
     d.box(1110,440,410,190,'选中提供方 / 接入证据变化',[
         '相关计划与旧测试证据失效',
         '影响分析 → CR / 重规划 → 冻结',

@@ -546,7 +546,9 @@ def _next_step(s, m):
                     detail='Submodule requested reallocation from parent MO',
                     recovery_action='realloc-request-or-redecompose-parent')
     elif m['phase'] in ('context', 'specifying', 'change-review'):
-        step.update(operation='plan', role='spec-designer', ready=True)
+        step.update(operation='plan', role='spec-designer', ready=True,
+                    input_subject_sha256=design_stage.subject(s, m),
+                    upstream_case_refs=design_stage.upstream_refs(s), upstream_case_ids=m['case_ids'])
         if design_stage.required(s, m) and not design_stage.ready(s, m):
             step.update(operation='assign', role='module-orchestrator', worker_role='test-runner',
                         mode='design', test_scope='design', reason='independent-test-design-required',
@@ -1099,11 +1101,18 @@ def mutate(s, req, principal, events, root=None):
         if s.get('behavior_contract_required'):
             behavior_contract.check_owners(s, owners)
         if s.get('behavior_contract_required') or m.get('behavior_review'):
-            boundary = behavior_contract.verification(m)
-            require(plan['source_closure'].get('verification') == boundary, 'leaf plan verification differs from allocation')
-            for path in plan['paths']:
-                if path.get('kind', 'automation') in behavior_contract.BEHAVIOR_KINDS:
-                    require(path.get('fixture_contract_ref') == boundary['fixture_contract_ref'], 'behavior PATH must bind allocated verification fixture')
+            # ESC-003-A narrow exemption, human-approved
+            # <run>/staging/host/decisions/ESC-003-A-answer.md@ebbdb108: a same-bytes resubmission
+            # of the Ledger-registered plan, or a first submission whose paths byte-equal a
+            # pre-contract accepted design, keeps the contract it was authored under; every other
+            # plan answers to the allocated verification boundary. The allocation write path
+            # (decomposition family) stays strict.
+            if not behavior_contract.verification_exempt(plan, m):
+                boundary = behavior_contract.verification(m)
+                require(plan['source_closure'].get('verification') == boundary, 'leaf plan verification differs from allocation')
+                for path in plan['paths']:
+                    if path.get('kind', 'automation') in behavior_contract.BEHAVIOR_KINDS:
+                        require(path.get('fixture_contract_ref') == boundary['fixture_contract_ref'], 'behavior PATH must bind allocated verification fixture')
         # Plan is content; the artifact remains immutable and is checked at freeze/dispatch.
         # The plan stands on the context and allocation current now; its author does not copy them into it.
         m.pop('plan_review_ref', None)
@@ -1111,6 +1120,8 @@ def mutate(s, req, principal, events, root=None):
                  scenario_index=scenarios, plan_binding=decomposition.context_binding(s, m), checklist_ref=checklist_rubric(root))
         if principal['instance_id'] not in m.setdefault('spec_authors', []):
             m['spec_authors'].append(principal['instance_id'])
+        if plan.get('test_design_ref') and not design_stage.required(s, m) and principal['instance_id'] not in m['authors']:
+            m['authors'].append(principal['instance_id'])
     elif op == 'plan-review':
         role(principal, 'module-orchestrator')
         require(m['phase'] == 'clarifying', 'plan review requires clarifying')
@@ -1145,11 +1156,12 @@ def mutate(s, req, principal, events, root=None):
             m['approved_envelope'] = digest(m['plan']['decision_envelope'])
             m['approved_acceptance_kind'] = 'business'
             m['approved_acceptance'] = control_policy.acceptance_hash(m)
+        m['approved_test_paths'] = copy.deepcopy(control_policy.acceptance(m['plan']['paths']))
         if m.get('change_request'):
             prior_execution = {key: copy.deepcopy(m.get(key)) for key in
                 ('code_files', 'code_baseline', 'accepted_task_ids', 'task_files', 'results', 'dimension_evidence', 'build_artifacts')}
             m.setdefault('change_request_history', []).append({**m.pop('change_request'), 'to_freeze_id': m['plan_hash'],
-                'prior_execution': prior_execution})
+                'kind': 'planning-history', 'executable': False, 'prior_execution': prior_execution})
             m.update(accepted_task_ids=[], task_files={}, execution_partition_pending=True, build_baseline=None, build_artifacts=[])
             m.pop('dimension_evidence', None)
             m['results'] = {pid: {**result, 'stale': True} for pid, result in m['results'].items() if pid in {p['path_id'] for p in m['plan']['paths']}}
@@ -1166,8 +1178,13 @@ def mutate(s, req, principal, events, root=None):
             m['fix_rounds_used'] += 1
             m['total_fix_rounds'] += 1
         m['design_generation'] = m.get('design_generation', 0) + 1
+        previous_plan = {key: copy.deepcopy(m.get(key)) for key in ('plan_ref', 'plan_hash', 'plan', 'accepted_test_design')}
+        # Existing coded work is updated under the next freeze. Design assistance is opt-in again.
+        m.setdefault('approved_test_paths', copy.deepcopy(control_policy.acceptance(m['plan']['paths'])))
         m.pop('accepted_test_design', None)
-        m.update(phase='change-review', stale=True, change_request={**p, 'from_freeze_id': m['freeze_id']}, diagnosis_submission=None)
+        m.pop('test_design_required', None)
+        m.update(phase='change-review', stale=True, change_request={**p, 'from_freeze_id': m['freeze_id'],
+            'previous_plan': previous_plan}, diagnosis_submission=None)
         invalidate_dependents(s, mid)
     elif op == 'assign':
         role(principal, 'module-orchestrator')

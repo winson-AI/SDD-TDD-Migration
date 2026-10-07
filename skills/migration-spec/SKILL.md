@@ -14,7 +14,7 @@ description: OpenSpec 六件套、plan 澄清冻结和 CR 影响分析，用于 
 所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
 
 ## 3. 标准模式
-推荐：用 manifest 绑定六件套定义和测试设计，再接受可追溯的人类决定与 MO 冻结事件。
+推荐：子 MO 拆 TASK 后直接以 manifest 绑定六件套和上游用例路径，MO 审核冻结；design 按需协助，执行中遗漏/fidelity 问题走局部 CR 再冻结，真实未决或语义变化才需 Human。
 
 禁止：把 status/checklist 说成 OpenSpec 内置功能；只冻结文件名不冻结内容；修复时直接改验收。
 

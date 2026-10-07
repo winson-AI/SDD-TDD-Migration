@@ -61,4 +61,4 @@ Android/Harmony PATH 按 [移动端运行协议](../skills/migration-test/refere
 
 ## 当前控制契约
 
-design 是明确分配的规划任务；execute 是冻结 CASE/PATH 的执行任务。统一审计复测使用 audit-test-assign/audit-test-submit，读取自身 audit-execution 预检与所选 PATH；Auditor 消费证据，Test-Runner 不给宿主任务最终裁决。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。
+上游全量 CASE 在冻结前分配 scope 并绑定 SPEC；design 仅作按需协助，execute 是冻结 CASE/PATH 的执行任务。build/unit/static 通过后逐条 automation，记录错误/fidelity 偏差、证据及 task 下成功/失败/未验证路径统计，交 MO/Fixer 修正实现。统一审计复测使用 audit-test-assign/audit-test-submit，读取自身 audit-execution 预检与所选 PATH；Auditor 消费证据，Test-Runner 不给宿主任务最终裁决。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

@@ -15,7 +15,7 @@ mode: subagent
 输出：最小补丁、代码版本、回归证据、影响范围，必要时 change-request。
 
 ## 3. 执行步骤
-1. 核查根因及冻结边界，确认在批准范围内能否修复；需要修改验收或任务定义先提交 CR 并停在 change-review。
+1. 核查 automation 失败及 fidelity 证据；契约内直接修复。若规划遗漏或 tasks/design 不足，提交局部 CR，经 Spec-Designer 更新、MO 审核再冻结后更新已有代码；原 CASE/预期不能削弱，越 scope 才上溯父 MO/GO。
 2. 在获锁目标范围制作最小补丁，保持架构、数据安全和回滚能力；禁止顺手重构无关模块。
 3. 对失败路径和受影响回归执行自验证，记录实际版本、命令、assert、retest_of；不得修改断言使错误消失。
 4. submit 补丁与自验证结果（kind=implementation，附 fix_note_ref），经 MO 验收后由 Test-Runner 正式复测；审计期由 Auditor 再独立裁决。

@@ -10,14 +10,14 @@ mode: subagent
 OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
 
 ## 2. 输入 / 输出契约
-输入：模块范围、规范/架构、legacy 契约、用例、baseline/CR；Global 提供范围、需求/用例输入和四维边界；本角色撰写叶子实施 SPEC，独立 Test-Runner 补齐测试设计，不要求用户提供六件套。
+输入：模块范围、规范/架构、legacy 契约、用例、baseline/CR；Global 提供范围、需求/用例输入和四维边界；本角色直接撰写叶子实施 SPEC 与上游用例路径，Test-Runner design 按需协助，不要求用户提供六件套。
 
 输出：六件套草稿、测试验收语义、决策问题、stage-plan、影响分析与当前规划调整提案。
 
 ## 3. 执行步骤
 1. 读取关联契约及必要存量实现，明确保留、替换和删除行为；整理 legacy→target 映射及不在范围内容。
 2. 基于模板生成 proposal、capability delta specs、design、可执行 tasks 和 status 建议；status 正式值与 checklist 由 Ledger 生成。
-3. staging SPEC 草稿含 Requirement-ID/Scenario-ID；MO 派独立 Test-Runner design 并接受结果，Ledger 按 [设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接) 绑定同版设计、PATH/断言与场景追溯。规格改动须重新设计，不私改预期。
+3. staging SPEC 含 Requirement-ID/Scenario-ID；按 [设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接) 直接绑定上游 CASE/PATH/ASSERT，明确即可提交 plan。独立 design 按需派发；修复发现遗漏/fidelity 偏差时更新受影响定义与路径，不反复重做完整规划，不私改上游预期。
 4. 在 plan 阶段逐项整理阻断问题，通过 Escalation 收回 Human 决策；记录默认选项与实际答复，不假定沉默同意。
 5. 提交 stage-plan 交 MO 审核；遇 CR 做影响分析、生成修订，不直接解锁编码。
 

@@ -130,9 +130,20 @@ def allocation(s, module):
     data, items = load(ref, module['module_id'])
     coverage_review(data, s.get('planning_coverage_required', False))
     import api_contract
-    api_contract.applicability(data, True)
-    if s.get('planning_coverage_required'):
-        evidence((data.get('api_review') or {}).get('discovery_refs'), 'API discovery scope required for applicability review')
+    # ESC-004-A narrow exemption, human-approved
+    # <run>/staging/host/decisions/ESC-004-A-answer.md@675a41a9: on the frozen allocation
+    # surface — this analysis is the module's Ledger-registered dimension_analysis_ref (load's
+    # check_ref proved the live bytes are that registration) — an allocation frozen with no API
+    # face at all (no api_review, no api_inventory_ref, zero api_ids on every allocated item) is
+    # handled as not-applicable. A proposed/unregistered analysis, or any analysis naming API
+    # work or an inventory, answers to applicability in full; api_contract.freeze is untouched.
+    registered = (s['modules'].get(module['module_id'])
+                  or s.get('module_groups', {}).get(module['module_id']) or {}).get('dimension_analysis_ref')
+    if not (registered == ref and not data.get('api_review') and not data.get('api_inventory_ref')
+            and not any(item.get('api_ids') for item in items.values())):
+        api_contract.applicability(data, True)
+        if s.get('planning_coverage_required'):
+            evidence((data.get('api_review') or {}).get('discovery_refs'), 'API discovery scope required for applicability review')
     require(module.get('scope') and data.get('scope') == module['scope'],
             'dimension analysis must bind the already allocated module scope')
     allowed = set(module.get('scope', {}).get('requirement_ids', s['requirement_ids']))

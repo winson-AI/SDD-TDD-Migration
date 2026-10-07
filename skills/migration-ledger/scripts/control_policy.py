@@ -13,6 +13,21 @@ def acceptance_hash(m):
     return digest(acceptance(paths))
 
 
+def preserves_acceptance(m):
+    """Add coverage for original expectations; never erase or weaken frozen obligations."""
+    if not m.get('approved_acceptance') or m['approved_acceptance'] == acceptance_hash(m): return True
+    old = m.get('approved_test_paths')
+    if old is None: return False
+    current = keyed(acceptance(m['plan']['paths']), 'path_id')
+    for path in old:
+        new = current.get(path['path_id'])
+        if new is None or {k: v for k, v in path.items() if k != 'expected_assertions'} != {
+                k: v for k, v in new.items() if k != 'expected_assertions'}: return False
+        assertions = keyed(new['expected_assertions'], 'assertion_id')
+        if any(assertions.get(a['assertion_id']) != a for a in path['expected_assertions']): return False
+    return bool(old)
+
+
 def boundary(review):
     require(isinstance(review, dict), 'structured boundary_review required')
     require(review.get('unresolved_questions') == [], 'unresolved planning questions require human check')
@@ -32,7 +47,7 @@ def technical_review(m, ref, actor=None):
     if actor: require(review['reviewer_instance_id'] == actor['instance_id'], 'MO review identity mismatch')
     require(not execution_started(m) or not m.get('approved_envelope') or m['approved_envelope'] == digest(m['plan']['decision_envelope']),
             'decision boundary changed; human decision required')
-    require(not execution_started(m) or not m.get('approved_acceptance') or m['approved_acceptance'] == acceptance_hash(m),
+    require(not execution_started(m) or preserves_acceptance(m),
             'acceptance changed; human decision required')
     return review
 

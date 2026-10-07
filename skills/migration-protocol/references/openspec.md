@@ -29,7 +29,7 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 scenario_trace 每行写 scenario_id 与 task_ids，assertions 由 Ledger 按设计断言的 scenario_ids 补全（写了须与之相同）；每个场景至少被一条行为断言验证、每条行为断言至少验证一个场景、全部任务有归属，允许多对多，build/static 不充当行为断言。scenarios.md 为只读投影。
 
-1. 先生成完整六件套草稿（SPEC 带 Requirement-ID/Scenario-ID）；冻结前 Test-Runner design 模式以该 SPEC 为输入独立补齐测试用例与路径大纲，不运行代码。
+1. GO/父 MO 划分 scope 和上游全量 CASE，子 MO 拆 TASK，Spec-Designer 直接形成六件套与测试路径（SPEC 带 Requirement-ID/Scenario-ID）。完整且预期明确即可冻结；Test-Runner design 仅按需协助，不运行目标代码。
 2. Spec-Designer 把明确的问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复须绑定 question_id、spec_revision、内容摘要。既有明确答复可复用，若绑定内容已变则重新裁决。
 3. 冻结 manifest 列出 proposal、所有 delta specs、design、tasks 定义、test design 与已准备测试资产的实际 path+sha256；checklist 是包内评审清单，与全局上下文一样不进 manifest，由 Ledger 绑定。保留不可变副本，生成 freeze_id/spec_revision。
 4. `status`、tasks 完成勾选、checklist 证据等运行字段不纳入语义冻结 hash；冻结的原始定义始终存在不可变 artifacts。动态视图可按已固化映射重定位文档链接及更新运行勾选，不得改变需求、设计和断言语义。验证时比较定义快照，不以可变文件整体 hash 误判失效。
@@ -38,7 +38,7 @@ scenario_trace 每行写 scenario_id 与 task_ids，assertions 由 Ledger 按设
 
 ## 变更控制
 
-Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/任务/路径/模块、行为差异、回归和回滚建议。MO 判断：纯实现补丁不改变契约可授权直接修；需改 design/tasks 定义则 Spec-Designer 出新 revision，由 MO 审核；需求/验收、架构原则、外部接口、数据安全底线变化必须 Human 批准。
+automation 的错误、漏实现或 fidelity 偏差进入修复环节：契约内补丁由 Fixer 直接修；规划遗漏则提交 change-request，Spec-Designer 仅更新受影响的 design/tasks/SPEC，MO 审核再冻结后由 Implementer 更新已有代码。原 scope 内补充验证路径/断言可经 MO 技术审核，但必须保留原 PATH 与每条 ASSERT 的完整预期，引用上游用例与失败证据；不能删除失败项或缩小覆盖。超出分配才 bottom-up 请求父 MO/GO 修正并按影响范围 top-down 更新，不重开 Run。未决、改变需求/原验收或授权仍需 Human。
 
 修改冻结定义一律重新冻结；MO 可对仅实现规划调整沿用仍有效的人类需求/设计决定，但必须附“不改变既有决定”的影响分析与新 manifest 接受记录。不能把原人类批准假写成新 hash 的批准。受影响代码任务及测试结果标 stale，经新的实现提交和复测才恢复。
 
@@ -56,7 +56,7 @@ Fixer 只提交 change-request 模板，包含原因、证据、受影响需求/
 
 MO 审核或所需 Human 决定绑定 Ledger 补全后的 stage-plan digest，执行绑定 freeze_id。证据/状态更新不改定义；编码前任务细化走 planning-reopen，编码后走 CR。within-envelope 保留原 envelope 及完整 PATH/预期断言集合；命令/显示名属技术规划，变更仍需 CR/新冻结和执行证据，MO 审阅后发布新执行基线，不伪造新人工批准。
 
-快速通道使用 [change-impact.json](../../../template/change-impact.json)，绑定 from_freeze_id、to_plan_hash。只有当前 CR 的同一 impact_ref 能冻结该计划；再次修改需重审，散文记录不授权再冻结。成功后 CR 进入 change_request_history；invalidate 随 planning_history 留存并清除当前 CR。初始清晰规划允许 MO 审核冻结；边界外变化仍需真实人工决定。
+快速通道使用 [change-impact.json](../../../template/change-impact.json)，绑定 from_freeze_id、to_plan_hash。只有当前 CR 的同一 impact_ref 能冻结该计划；再次修改需重审，散文记录不授权再冻结。成功后 CR 与旧 plan/执行证据进入不可执行的 change_request_history；invalidate 随 planning_history 留存并清除当前 CR。初始清晰规划允许 MO 审核冻结；边界外变化仍需真实人工决定。
 
 改变需求、验收或授权必须有新的人类决定；纯技术规划调整由 MO 提交不改变既有决定的证据。脚本核对结构与版本，不自动证明文本语义等价。Spec-Designer/Implementer/Fixer 的写权限不合并。第一次 SPEC 冻结前的 legacy 观察属于理解输入，不等于允许提前执行目标测试。
 

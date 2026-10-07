@@ -22,29 +22,29 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1167 | 全量运行后完成定向修正与复测，1167 个不同用例均已验证；本轮新增 11 项 |
+| migration-ledger/tests | 1175 | 最终工作区全量通过，零失败/错误/跳过；本轮新增 8 项 |
 | migration-test/tests | 70 | 上轮适配器夹具通过记录；本轮未改适配器、未重跑 |
 | runtime/harmony/tests | 128 | 既有通过记录；本次未改运行内核、未重跑 |
 
-本轮执行 `python3 -B -m unittest discover -s skills/migration-ledger/tests`：1167 项，首次 1146 通过、21 项错误。17 项来自旧控制夹具缺少 scope 对应的 context_refs，补齐后 test_control_policy.py 的 25 项全过；3 项本地 HTTP 端口及 1 项 ps 进程核验受沙箱限制，获准后分别复跑 test_lean_semantic_process.py（3 项）和 test_watchdog.py（25 项）全过。独立执行 Watchdog 需设置 `PYTHONPATH=skills/migration-ledger/scripts`。最终 1167 个不同用例均有通过记录，无遗留失败或跳过；修正后采用定向复测，未重复全量执行。
+本轮使用 Harmony sandbox 的 Python 3.11+ 解释器执行 `python -B -m unittest discover -s skills/migration-ledger/tests`，设置 `PYTHONDONTWRITEBYTECODE=1` 和 `PYTHONPATH=skills/migration-ledger/scripts`。首轮 1174 项发现一个模板体积检查的 28 个组合超限；压缩 JSON 示例排版后全部组合复测通过。最终工作区再次全量运行 1175 项，240.393 秒，全部通过，无失败、错误或跳过。适配器与 Harmony 内核未修改，本轮未重复其独立测试集。
 
-新增原子规划 10 项、阶段预检 1 项；相关拆分、同 Run 回溯、轻量叶子、阶段预检及最终文档的阅读卡回归通过。测试仅使用隔离临时目录、本地模拟端口和测试子进程，不连接真机或外部 LLM。
+新增 8 项验证：prepared Run 无设计 worker 即可直接冻结并完成 build/unit/static/automation；真实路径失败后同 Run 修订 SPEC、更新已有代码并正式复测；补充 fidelity 路径/断言；保留旧代码、失败、规划 history 与修复预算；缺用例、替换上游来源、过期分配、伪造执行结果、资产越 staging、删旧路径或改弱预期均拒绝。测试仅使用隔离临时目录、本地模拟端口和测试子进程，不连接真机或外部 LLM。
 
-协议体积为 535979 / 539000 字节，最大单文件 31702 / 32000 字节；阅读卡、按需小节引用与体积回归通过。源码语法检查及 `git diff --check` 通过。
+协议体积为 537719 / 539000 字节，最大单文件 31702 / 32000 字节；阅读卡、触发模板组合、小节引用及体积回归通过，未放宽门禁。源码语法、JSON 检查与 `git diff --check` 通过。流程图同步生成 SVG/PNG。
 
 ## 已覆盖
 
 | 范围 | 实际验证 |
 | --- | --- |
 | 统一控制与历史 | 初始化拒绝流程版本选择，历史标记不改变当前门禁；编码前调整只保留不可执行 planning_history，过期冻结与缺 TASK/PATH 契约的 assignment 不可执行或提交；Auditor 仅统一宿主审计，独立 Test-Runner 提交复测；旧封存配置按当前预算投影，同 Run 调整不改历史字节 |
-| 编码前独立设计 | assign(mode=design) → submit（预检报告随提交登记，一个事件）→ MO accept(review_ref) 走原 Ledger；Spec plan/freeze 绑定同一规格、任务范围与预期 PATH/ASSERT；设计不能执行或带实际断言；缺预检、角色重叠、错身份/围栏、覆盖缺失、输入漂移均拒绝；撤销/失效回规划并保留历史，不改 CASE 质量或兄弟状态；prepare 固定的门禁不能关闭；plan 可只引用已接受设计，PATH/ASSERT、任务范围与 spec 定义由 Ledger 补全，携带且不一致的部分被拒，批准绑定补全后 plan 的摘要（freeze 游标的 approval_subject_sha256） |
+| 上游用例与按需设计 | prepared Run 默认直接提交 SPEC 与 upstream-test-plan，完整 CASE/PATH/ASSERT 绑定权威输入、当前 scope 与 Scenario；无需 design worker 即可 MO 审核冻结并完成 build/unit/static/automation。缺 CASE、替换来源、过期分配、伪造实际结果或资产越 staging 均拒绝。显式 design 仍走 assign/submit/accept，保持身份、预检、规格/任务/断言一致性与过期拒收；运行级门禁要求覆盖，不强制增加设计轮次。 |
 | 行为契约与场景追溯 | GO/父 MO/子 MO 行为审阅按 scope/REQ/CASE 校验；共享能力按父子归属解析唯一执行 owner，跨模块集成 CASE 归消费者，无关模块证据漂移不阻塞当前模块；SPEC 每个 Scenario-ID 派生并冻结到 TASK/PATH/ASSERT，缺场景、重复 ID、过期索引和以构建替代行为断言均拒绝；scenario_index 与静态审查范围由 Ledger 从 SPEC 派生，plan 携带过期或不全的值被拒；叶子的 source_closure 即其行为审阅；复用目录的 provider owner 与行为审阅解析出的叶子 owner 不一致时拒绝 |
 | 单测报告核验 | JUnit 核验本次 attempt 的测试 ID、计数、报告 hash 与执行身份；零执行、跳过、缺损、错选、过期、越界证据不为 Green，断言失败为 Red，进程信号中断为 Yellow；Gradle 追加 --rerun-tasks --no-build-cache |
 | 日志与按需追溯 | 进程退出前可读双流日志，大输出不依赖内存缓冲；超时、取消、硬终止保留不完整标记，原终止/验收规则不变；capture 引用与身份在接受时复核；trace 只读已提交事件索引对应的归档，按 Scenario/TASK/PATH/ASSERT/测试 ID 过滤并分页、限字节，实时观察标为未验收，查询不取业务锁、不写文件；watchdog 可观察输出但不以此替代存活证明 |
 | 包内文件漂移 | 嵌套的控制器/协议引用在文件变化后，凭本 run 已提交事件的路径与哈希读取同哈希归档；未提交或外来归档、缺损或被重定向的归档均拒绝；SPEC、源码、环境与顶层输入仍校验当前字节 |
 | 真实工具探针 | 在一次性宿主 workspace 用 Gradle 7.6 + JDK 17 + JUnit4 实跑：通过与故意失败的用例分别识别为 Green/Red，JUnit 报告核验无缺口；KMP/native、装机与设备自动化未覆盖 |
 | 冻结与理解门禁 | 未冻结编码、代码未接受即测试、批准 hash 不符、源码未决/目标可行性 unknown 均拒绝 |
-| 变更 | Fixer 越权改 SPEC 拒绝；边界内任务修订可重新冻结；改变验收不能沿用批准 |
+| 变更 | Fixer 越权改 SPEC 拒绝；MO 审核受影响规划后再冻结，保留现有代码与失败证据、清除旧任务验收并要求更新提交及正式复测；旧 plan/执行进入不可执行 history。原 scope 内新增验证路径/断言可技术审核，修改旧预期、删除旧路径/断言或越界仍需明确决定。 |
 | 结果与复测 | 空/遗漏断言、伪装 Green、篡改原始报告拒绝；非 Green 复测需新 test_run_id/retest_of，代码变化拒收旧结果 |
 | 真实闭环 | 子进程 Red → 诊断 → Fixer → 正式复测 → 模块 Green；构建与业务失败共享累计修复预算；实际依赖/外围阻塞或预算耗尽转 waiting-auditor，全模块收尾后统一宿主审计 |
 | 作者自检与会话 | 实现/修复结果缺 authoring_diagnostics、诊断无日志或版本敏感 API 无固定源码引用均拒收；本地修复游标指向原 Implementer 会话 |

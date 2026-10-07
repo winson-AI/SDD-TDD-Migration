@@ -74,7 +74,7 @@ MO_OPS = {
 STEP = {
     'spec-designer': sections('openspec.md', '六件套映射', '基线与 Delta', '冻结算法', '变更控制', '决策边界与执行基线', '四维完整性索引')
     + sections('dimension-slicing.md', '总则', '7. 任务级四维分析契约') + sections('semantic-extraction.md', '总则')
-    + sections('testing.md', '逻辑单测', '静态规格闭合'),
+    + sections('testing.md', '编码前设计交接', '逻辑单测', '静态规格闭合'),
     'implementer': sections('local-runtime.md', '阶段结果') + sections('context-readiness.md', '2. 精确插入节点')
     + sections('dimension-slicing.md', '7. 任务级四维分析契约'),
     'fixer': sections('local-runtime.md', '阶段结果') + sections('state-machine.md', '有限循环')
@@ -463,7 +463,7 @@ TEMPLATES = {
                             'audit': ['migration-report.md'], 'source': ['source-impact.json']},
     'module-orchestrator': {'base': ['status.md'], 'audit': ['status.md']},
     'spec-designer': {'base': ['stage-plan.json', 'proposal.md', 'spec.md', 'design.md', 'tasks.md',
-                               'change-impact.json', 'context-readiness.json']},
+                               'upstream-test-plan.json', 'change-impact.json', 'context-readiness.json']},
     'implementer': {'base': ['implementation.md', 'context-readiness.json']},
     'fixer': {'base': ['implementation.md', 'fix-note.json', 'change-request.md', 'context-readiness.json']},
     'diagnostician': {'base': ['diagnosis.md']},

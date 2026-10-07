@@ -91,7 +91,7 @@ status 先尝试写 workflow-attention.md，再将包含末端写入错误的进
 
 影响 action：replan 更新契约并回规划；unchanged 可保留未冻结 plan/独立设计，绑定原 allocation/generation 与已审修订；reverify 仅限 runtime/test_adapter 执行条件变化且已有冻结代码，保留 SPEC、使旧结果过期并正式复测。源码、范围、需求/验收变化不能用 reverify。
 
-Run 对应一次宿主任务；阻塞、纠错、环境/预算/会话变化均续原 Run。GO 接受根范围/四维，父 MO 接受子分配，叶子在任务四维、SPEC、独立测试设计完备后冻结；逐叶子推进。定义修订后重冻、实现、正式复测，旧 Green 不证明当前基线通过。
+Run 对应一次宿主任务；阻塞、纠错、环境/预算/会话变化均续原 Run。GO 接受根范围/四维，父 MO 接受子分配，叶子在任务四维、可执行 SPEC、上游用例路径齐全后冻结，独立 design 按需协助；逐叶子推进。定义修订后重冻、实现、正式复测，旧 Green 不证明当前基线通过。
 
 问题先上溯到能解决的最低层：编码前叶子 planning-reopen，编码后叶子契约走 CR；父内切片走 realloc-request → redecompose → GO 接受；父范围不足或原子根无父时，同一 realloc-request 交 GO。父 MO 可从父 ID 提交请求，不能私改根范围。
 

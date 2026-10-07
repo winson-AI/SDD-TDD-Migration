@@ -95,6 +95,30 @@ def verification_partition(modules):
         seen.add(signature)
 
 
+def verification_exempt(plan, module):
+    """ESC-003-A narrow exemption, human-approved
+    <run>/staging/host/decisions/ESC-003-A-answer.md@ebbdb108: the verification boundary is
+    allocation data no leaf can author; two machine-decidable anchors keep an already-accepted
+    artifact under the contract it was authored under —
+    (i) same-bytes resubmission: digest(plan) equals the module's registered plan_hash;
+    (ii) first submission bound to a pre-contract accepted design: the plan's paths byte-equal
+    the paths of the hash-registered accepted design (live check_ref) and no PATH of that design
+    carries fixture_contract_ref. A design accepted under the fixture contract, a drifted
+    registration, or any plan whose paths differ answers to verification() in full."""
+    if module.get('plan_hash') and digest(plan) == module['plan_hash']:
+        return True
+    ref = (module.get('accepted_test_design') or {}).get('result_ref')
+    if not ref:
+        return False
+    from contracts import Rejected, read_json
+    try:
+        paths = read_json(check_ref(ref)).get('paths')
+    except (Rejected, OSError, KeyError, TypeError, ValueError):
+        return False  # a drifted registration exempts nothing; the boundary applies
+    return (isinstance(paths, list) and bool(paths) and paths == plan.get('paths')
+            and not any(path.get('fixture_contract_ref') for path in paths))
+
+
 def scenario_index(plan):
     """Derive exact IDs/content hashes from the submitted OpenSpec, not a second spec."""
     rows = []

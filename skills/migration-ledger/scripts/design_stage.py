@@ -1,4 +1,4 @@
-"""Independent, read-only test design on the existing assignment/event bus."""
+"""Upstream test plans and optional independent design on the existing event bus."""
 import copy
 from pathlib import Path
 
@@ -16,9 +16,60 @@ def is_design(assignment):
 
 
 def required(s, m):
-    # Prepared runs set the run-level gate. A low-level run without it enables the gate for a leaf on its
-    # first design dispatch, and it stays on through revocation/invalidation.
-    return s.get('test_design_required', False) or m.get('test_design_required', False)
+    # Run-level test_design_required requires test coverage, not an extra worker round.
+    # An explicitly requested design must still be accepted before it can be consumed.
+    return m.get('test_design_required', False)
+
+
+def upstream_refs(s):
+    context = decomposition.planning_context(s)
+    ref = context.get('project_sources', {}).get('test_cases_path')
+    return [ref or s['global_spec']]
+
+
+def check_assets(s, result):
+    assets = test_assets(result)
+    owned = []
+    if assets and s.get('project_context_ref'):
+        import project_context
+        run_root = Path(project_context.verify_snapshot(s['project_context_ref'])['run_root'])
+        owned = [run_root/'staging', run_root/'runs/harmony/sandbox/design']
+    for asset in assets:
+        path = check_ref(asset['ref'])
+        require(any(path.is_relative_to(root) for root in owned) or
+                not owned and not any(path.is_relative_to(Path(s[root]).resolve()) for root in ('target_root', 'legacy_root') if s.get(root)),
+                'prepared test asset belongs in staging, not production source roots')
+    return assets
+
+
+def coverage(s, m, result, tasks):
+    paths = keyed(result.get('paths'), 'path_id')
+    require({p.get('case_id') for p in paths.values()} == set(m['case_ids']), 'design must cover assigned cases exactly')
+    reqs = {r for t in tasks for r in t['requirement_ids']}
+    for path in paths.values():
+        require(path.get('name') and path.get('requirement_id') in reqs and path.get('required', True) is True,
+                'design PATH name/requirement/required invalid')
+        require(not {'quality', 'executed', 'test_run_id', 'execution_receipt'}.intersection(path), 'design PATH cannot claim execution')
+        for assertion in keyed(path.get('expected_assertions'), 'assertion_id').values():
+            require('expected' in assertion and not {'actual', 'passed'}.intersection(assertion), 'design assertion must be an expectation only')
+    prepared_tests.preparation(result, s.get('planning_coverage_required', False), freezing=True)
+    check_assets(s, result)
+
+
+def upstream_plan(s, m, plan):
+    result = read_json(check_ref(plan.get('test_design_ref')))
+    require(result.get('schema_version') == 1 and result.get('kind') == 'upstream-test-plan' and
+            result.get('module_id') == m['module_id'], 'upstream test plan module/kind/schema mismatch')
+    require(result.get('case_refs') == upstream_refs(s), 'test plan must bind authoritative upstream cases')
+    for ref in result['case_refs']: check_ref(ref)
+    require(result.get('subject_sha256') == subject(s, m), 'test plan allocation/context stale')
+    require(not {'actual', 'passed', 'quality', 'executed', 'code_baseline', 'freeze_id'}.intersection(result),
+            'upstream test plan cannot claim execution')
+    coverage(s, m, result, plan['tasks'])
+    if s.get('behavior_contract_required'):
+        import behavior_contract
+        behavior_contract.check_design(spec_scenarios(m, [d for d in plan['definitions'] if d['kind'] == 'spec']), result['paths'])
+    return result
 
 
 def subject(s, m):
@@ -131,17 +182,7 @@ def result_check(s, m, a, result, accepted_artifact=False):
     check_ref(result.get('design_ref'))
     paths = keyed(result.get('paths'), 'path_id')
     prepared_tests.preparation(result, s.get("planning_coverage_required", False))
-    assets = test_assets(result)
-    owned = []
-    if assets and s.get('project_context_ref'):
-        import project_context
-        run_root = Path(project_context.verify_snapshot(s['project_context_ref'])['run_root'])
-        owned = [run_root/'staging', run_root/'runs/harmony/sandbox/design']
-    for asset in assets:
-        path = check_ref(asset['ref'])
-        require(any(path.is_relative_to(root) for root in owned) or
-                not any(path.is_relative_to(Path(s[root]).resolve()) for root in ('target_root', 'legacy_root') if s.get(root)),
-                'prepared test asset belongs in staging, not production source roots')
+    check_assets(s, result)
     require({p.get('case_id') for p in paths.values()} == set(m['case_ids']), 'design must cover assigned cases exactly')
     reqs = {r for t in doc['tasks'] for r in t['requirement_ids']}
     for path in paths.values():
@@ -216,12 +257,17 @@ def materialize(s, m, plan):
 
     The completed plan is what the Ledger stores, hashes and has approved; anything the submitted plan
     still carries must equal the design, which plan_check verifies."""
-    if not required(s, m):
-        return plan
-    a, result = accepted(s, m)
-    doc = read_json(check_ref(a['design_input_ref']))
+    if required(s, m):
+        a, result = accepted(s, m)
+        doc = read_json(check_ref(a['design_input_ref']))
+        ref = m['accepted_test_design']['result_ref']
+    else:
+        if not s.get('test_design_required') and not plan.get('test_design_ref'): return plan
+        result = upstream_plan(s, m, plan)
+        doc = {'tasks': plan['tasks'], 'spec_refs': [d for d in plan['definitions'] if d['kind'] == 'spec']}
+        ref = plan['test_design_ref']
     plan = copy.deepcopy(plan)
-    plan.setdefault('test_design_ref', copy.deepcopy(m['accepted_test_design']['result_ref']))
+    plan.setdefault('test_design_ref', copy.deepcopy(ref))
     plan.setdefault('paths', copy.deepcopy(result['paths']))
     if test_assets(result): plan['test_asset_contract_version'] = 1
     designed = {t['task_id']: t for t in doc['tasks']}
@@ -244,17 +290,18 @@ def materialize(s, m, plan):
 
 def plan_check(s, m, plan, author=None):
     if not required(s, m):
-        require(not plan.get('test_design_ref'), 'test_design_ref requires an accepted design assignment')
-        return
-    a, result = accepted(s, m)
-    prepared_tests.preparation(result, s.get('planning_coverage_required', False), freezing=True)
-    require(author is None or author not in m.get('design_authors', []), 'Spec author must be independent of design author')
-    require(plan.get('test_design_ref') == m['accepted_test_design']['result_ref'], 'plan must bind accepted test_design_ref')
+        if not s.get('test_design_required') and not plan.get('test_design_ref'): return
+        result = upstream_plan(s, m, plan)
+    else:
+        a, result = accepted(s, m)
+        prepared_tests.preparation(result, s.get('planning_coverage_required', False), freezing=True)
+        require(author is None or author not in m.get('design_authors', []), 'Spec author must be independent of design author')
+        require(plan.get('test_design_ref') == m['accepted_test_design']['result_ref'], 'plan must bind accepted test_design_ref')
+        doc = read_json(check_ref(a['design_input_ref']))
+        require([task_scope(t) for t in plan['tasks']] == [task_scope(t) for t in doc['tasks']], 'plan tasks differ from MO design input')
+        specs = [r for r in plan['definitions'] if r['kind'] == 'spec']
+        require(specs == doc['spec_refs'], 'plan specs differ from design input')
     require(plan['paths'] == result['paths'], 'plan PATH/assertions differ from accepted design')
-    doc = read_json(check_ref(a['design_input_ref']))
-    require([task_scope(t) for t in plan['tasks']] == [task_scope(t) for t in doc['tasks']], 'plan tasks differ from MO design input')
-    specs = [r for r in plan['definitions'] if r['kind'] == 'spec']
-    require(specs == doc['spec_refs'], 'plan specs differ from design input')
     defs = [r for r in plan['definitions'] if r['kind'] == 'test-design']
     require(len(defs) == 1 and {k: defs[0][k] for k in ('path', 'sha256')} == result['design_ref'],
             'plan test-design definition differs from accepted design')

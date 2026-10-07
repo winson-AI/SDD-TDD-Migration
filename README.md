@@ -8,7 +8,7 @@
 
 1. 读取 [AGENTS.md](AGENTS.md)，按角色索引渐进加载。
 2. 首次提供项目资料，宿主根据 [project-context.json](template/project-context.json) 保存到固定 `<workspace_root>/.sdd-migration/project-context.json`（首次未指定 workspace_root 时取配置目录父级）；后续按该目录读取，用户明确更新时增量保存。无需每次重填运行输入。
-3. 在支持此包的宿主中执行 `/sdd-init`，先固定项目配置和本次请求快照，再由 Global 生成 [运行输入](template/global-input.json)、宿主业务契约、需求/用例输入、账本和模块规划；`/sdd-plan <run-id> <module-id>` 组织叶子六件套、独立测试设计，由 MO 审核冻结；真实未决或需求/验收/授权变化才交人工。旧 input.json 也可导入。
+3. 在支持此包的宿主中执行 `/sdd-init`，先固定项目配置和本次请求快照，再由 Global 生成 [运行输入](template/global-input.json)、宿主业务契约、需求/用例输入、账本和模块规划；`/sdd-plan <run-id> <module-id>` 组织叶子 TASK、六件套与上游用例路径，由 MO 审核冻结；真实未决或需求/验收/授权变化才交人工。旧 input.json 也可导入。
 4. `/sdd-run <run-id>` 调度已冻结且依赖就绪的模块，单模块也可用 `/sdd-module <run-id> <module-id>`。模块内自动推进到完成、挂起或预算耗尽。
 5. 用 `/sdd-status <run-id>` 冷读状态；用 `/sdd-resume <run-id> [module-id] [decision.json绝对路径]` 恢复；用 `/sdd-audit <run-id>` 执行独立遗留复核与收尾审阅。
 6. 全局审计通过后，`/sdd-archive <run-id> <decision.json绝对路径>` 验证人类交付授权并同步、归档 OpenSpec。授权必须绑定具体交付内容摘要。
@@ -19,7 +19,7 @@
 
 ## 流程图
 
-编码前的独立测试设计通过 Ledger `assign(mode=design) → submit → MO accept` 留证，再绑定 Spec plan/freeze；无代码阶段只设计，不执行或记录通过。该门禁由 prepare 固定开启。见 [设计交接](skills/migration-protocol/references/testing.md#编码前设计交接)。
+主线：GO/父 MO 划分 scope 与上游全量 CASE → 子 MO 拆 TASK → SPEC/测试路径审核冻结 → Implementer → build/unit/static → automation → Fixer/复测 → 统一 Auditor。独立 Test-Runner design 按需启用；无代码阶段只规划，不执行或记录通过。automation 发现规划遗漏或 fidelity 偏差时局部 CR 更新 SPEC，再冻结并更新已有代码，保留失败历史及修复预算。见 [设计交接](skills/migration-protocol/references/testing.md#编码前设计交接)。
 
 按三层编排阅读 [完整图集](diagrams/README.md)：[总览](diagrams/workflow.svg) → [子 MO 执行与修复](diagrams/module-execution.svg) → [Auditor 跨模块处理](diagrams/auditor-closure.svg)，另见贯穿各阶段的 [二方库语义与复用](diagrams/reuse-dependencies.svg)。每张均提供 PNG 和可再生成的源文件。
 
@@ -96,9 +96,9 @@ Coding → MO 接受代码 → Testing
 
 默认 [global-input.json](template/global-input.json) 的 `entry_mode=project` 覆盖完整项目；`single-module` 选择一个根功能。两种模式均由 GO/MO 按原子性决定是否继续拆 scope，原子根直接进入叶子规划。
 
-单模块只是同一入口的两个参数：`entry_mode=single-module` 与 `module_name`（如“用户登录”）。沿用当前项目输入，用户无需提供模块描述、scope、模块代码路径、SPEC 或 Testing list；由 GO 识别业务范围、MO 按需细分，叶子组织实施规范及独立测试设计。[single-module-input.json](template/single-module-input.json) 仅展示这两个参数，不是独立运行资料包。
+单模块只是同一入口的两个参数：`entry_mode=single-module` 与 `module_name`（如“用户登录”）。沿用当前项目输入，用户无需提供模块描述、scope、模块代码路径、SPEC 或 Testing list；由 GO 识别业务范围并分配上游 CASE，MO 按需细分，叶子组织实施规范和测试路径。[single-module-input.json](template/single-module-input.json) 仅展示这两个参数，不是独立运行资料包。
 
-完整流程：选择项目或根功能 → **GO 划 scope/上下文并审查完整 registry 覆盖** → **MO 按需细分，或经 GO 接受成为原子叶子** → **叶子 tasks、四维、SPEC 与独立测试设计校验后冻结** → **Implementer、Test-Runner，按需 Fixer 与复测** → **实际父节点汇总，GO 统一启动 Auditor**。规划问题在同 Run 内上溯修正，再向下重规划；历史只留痕，每叶子执行唯一当前 SPEC。父子 MO 都读全局代码、架构、知识与分工，见[父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
+完整流程：选择项目或根功能 → **GO/父 MO 划 scope/CASE 并审查 registry 覆盖** → **子 MO 拆 tasks、四维、形成可执行 SPEC 和测试路径** → **MO 审核冻结** → **Implementer、Test-Runner build/automation、Fixer/复测** → **父节点汇总，统一宿主 Auditor**。独立 design 按需协助；执行中发现遗漏/fidelity 偏差，在同 Run 更新受影响 SPEC 和已有代码，只越 scope 才上溯。历史只留痕，每叶子执行唯一当前 SPEC。父子 MO 都读全局代码、架构、知识与分工，见[父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
 
 宿主接入命令后，可按以下阶段执行（路径和 run-id 为示例，冻结须绑定当前规划审核及适用的人工决定）：
 
@@ -118,6 +118,7 @@ Coding → MO 接受代码 → Testing
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-07 | 执行反馈驱动规划修正：GO/父 MO 分配 scope/上游 CASE，子 MO 拆 TASK 后直接形成 SPEC 并冻结执行；独立 design 改为按需。修复中可补充原预期的路径/断言，MO 审核后再冻结、更新已有代码并复测；保留旧计划与失败证据，不新增 Run 或计划版本。 |
 | 2026-10-05 | 规划闭环与原子叶子：MO 通过 decompose 提交 atomic-leaf 结论，GO 接受后保留当前节点进入 SPEC 规划；完整 registry 可先验覆盖，无关根待拆不阻挡就绪叶子，受影响依赖仍受门禁约束。bottom-up 修正、top-down 重规划只留不可执行 history；不恢复局部 Auditor 分支。 |
 | 2026-10-05 | Workflow 统一发布：删除运行期 control_policy_version、策略升级及旧提前审计分支；统一 MO 冻结、累计修复预算、TASK/PATH 执行和独立 Test-Runner/宿主 Auditor。编码前规划变化仅留不可执行 history，不形成计划版本；旧 Run 在当前门禁下继续，历史配置只读投影。版本差异仅在本表留档。 |
 | 2026-10-04 | 同 Run 上溯修订根/父分配、上下文和遗漏需求/CASE；按影响闭包重规划，未变 worker 保留冻结上下文；验收变更复测，抽象经验跨 Run 复用。 |

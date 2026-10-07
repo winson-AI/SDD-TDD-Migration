@@ -115,7 +115,7 @@ snapshot 固定代码、SPEC、上下文与验证定义。必要复测由独立 
 
 ## 控制主线
 
-一个宿主 migration 任务对应一个 Run。主线是宿主目标 → GO 根功能切片/全局覆盖 → MO 按需细分或确认原子叶子 → 叶子 tasks、四维与独立测试设计 → 六件套/SPEC 校验冻结 → Implementer TASK 执行 → Test-Runner build/unit/static 与 CASE/PATH 执行 → 按需 Diagnostician/Fixer/复测 → MO DoD/实际父节点汇总 → 统一宿主任务 Auditor。
+一个宿主 migration 任务对应一个 Run。主线是宿主目标/全量用例 → GO/父 MO 划分 scope 与 CASE → 子 MO 拆 TASK/四维 → 可执行六件套/SPEC/测试路径审核冻结 → Implementer → Test-Runner build/unit/static → 逐路径 automation → 按需诊断/Fixer/复测 → MO DoD/父节点汇总 → 统一宿主任务 Auditor。独立 test design 仅按需协助。先规划后执行，执行中调整：遗漏/fidelity 问题沿 CR 更新受影响 SPEC、再冻结并更新已编码模块；只越 scope 才上溯，不要求冻结前反复规划穷尽实现问题。
 
 `global_spec` 是宿主目标/业务契约，GO 不生成下游实现 SPEC。分析和分配先从上到下接受当前规划；叶子 plan、四维和测试设计完整、问题已解，MO 以 `plan-review` 提交 [审核工件](../../../template/plan-review.json)，随后 `freeze {review_ref}`。未决问题绑定当前内容摘要、证据和可选方案交 Escalation；需求/验收/授权变化绑定真实 Human 决定。技术 hash 变化本身不触发人工批准。
 

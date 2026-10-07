@@ -28,9 +28,9 @@
 <path d="M800,520 L800,580" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="560" y="580" width="480" height="120" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="604.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Plan 澄清 → 冻结</text>
-<text x="800.0" y="638.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Human 决策 + 四维覆盖 checklist</text>
-<text x="800.0" y="667.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">存量可预览？→ 截图基线 / 回退中间表征</text>
-<text x="800.0" y="696.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子 MO 接受当前版本冻结</text>
+<text x="800.0" y="638.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">上游全量 CASE / 四维覆盖 checklist</text>
+<text x="800.0" y="667.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">预期明确即可冻结；design 按需协助</text>
+<text x="800.0" y="696.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子 MO 审核；真实未决才交 Human</text>
 <path d="M800,700 L800,745" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="560" y="745" width="480" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="772.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Coding 预检 → 实现 → MO 接受</text>
@@ -124,14 +124,15 @@
 <text x="270.0" y="449.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">OpenSpec 六件套</text>
 <text x="270.0" y="483.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">proposal / spec / design</text>
 <text x="270.0" y="512.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">tasks / status / checklist</text>
-<text x="270.0" y="541.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">测试设计在冻结前，执行在代码后</text>
+<text x="270.0" y="541.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">上游用例在冻结前分配 scope</text>
 <rect x="70" y="700" width="400" height="210" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="270.0" y="740.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">契约变化 → CR</text>
-<text x="270.0" y="774.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Fixer 只能提出变更建议</text>
-<text x="270.0" y="803.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Spec Designer 分析；子 MO 审核</text>
+<text x="270.0" y="774.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">遗漏 / fidelity 偏差 → 局部 CR</text>
+<text x="270.0" y="803.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Spec Designer 更新；子 MO 审核</text>
 <text x="270.0" y="832.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">业务语义 / 不确定边界交人工</text>
-<text x="270.0" y="861.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">修订后重新冻结，再实现与测试</text>
+<text x="270.0" y="861.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">重新冻结 → 更新已有代码 / 复测</text>
 <text x="270.0" y="890.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">任何反馈都不能直接写 Green</text>
+<path d="M470,805 L525,805 L525,640 L560,640" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <rect x="1110" y="440" width="410" height="190" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="1315.0" y="485.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">选中提供方 / 接入证据变化</text>
 <text x="1315.0" y="519.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">相关计划与旧测试证据失效</text>

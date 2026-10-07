@@ -8,12 +8,13 @@ Main 是项目提供的主验证入口，不是固定 `main.py`。输入 `test_a
 
 ## 编码前设计交接
 
-assign→submit→accept 的 mode=design 仅设计；prepare 固定 test_design_required=true，revoke/invalidate 不关闭。
+GO/父 MO 在冻结前将上游全量 CASE 分配到独立 scope，子 MO 拆 TASK；Spec-Designer 一次形成可执行 SPEC 和测试路径，MO 审核后冻结、派发 Implementer。prepare 的 test_design_required=true 表示必需的测试输入与覆盖，不强制额外 Test-Runner design 轮次。TDD 的预期来自上游用例与源行为，automation 收集实际错误后推动实现修复；首次即 Green 不伪造 Red。
 
-1. MO 在无 blocker/worker、未待拆分的 context/specifying/change-review 叶子 assign(role=test-runner, mode=design, assignment_id, instance_id, design_input_ref)。[输入](../../../template/test-design-input.json) 含 tasks.scope/需求、case_refs、spec_refs（Spec-Designer staging 中本叶子 SPEC 草稿，带 Requirement-ID/Scenario-ID；行为契约拒绝全局规范/context 代替）。subject_sha256 用游标 input_subject_sha256；草稿变更须重设计。无代码锁、依赖代码/设备前置，仍计并发预算。
-2. 独立 Test-Runner 只读规格/用例，覆盖适用的正常、边界、异常、权限/数据场景，在自身 staging 写[结果](../../../template/test-design-result.json)。JSON 唯一记录 CASE→PATH/ASSERT；行为断言（unit/automation/visual）的 scenario_ids 覆盖每个 SPEC 场景。design_ref 只记依据/决策，不复制 PATH。不从实现推导预期，缺业务预期交 Spec-Designer。submit(assignment_id/fencing_token/result_ref/context_ref) 同带 test-design 预检（assigned-scope/spec-cases/task-coverage/independence，draft_ref 绑定结果），无需另 context-submit；kind=test-design，freeze_id/code_baseline=null，禁 actual/passed/quality/代码/执行。
-3. MO 核全 CASE 后 accept(assignment_id,review_ref)，关闭 assignment，保持规划状态及预算/兄弟模块。返工/阻塞先留证，Host 停 worker/revoke，再重新派发或 suspend。
-4. Ledger 从接受的设计补全 test_design_ref、PATH/ASSERT、tasks.scope/需求、spec/test-design 定义及 scenario_trace 断言；plan 写自身 path_ids/四维追溯和场景 task_ids，重复提供须一致。MO freeze 重验；批准/impact 绑定补全后 approval_subject_sha256。需求/任务/分配/断言变化须重设计，invalidate/CR 留旧证据回规划；活动设计输入过期交 Host revoke，clarifying 时过期交 MO invalidate。
+默认 stage-plan.test_design_ref 引用 [upstream-test-plan.json](../../../template/upstream-test-plan.json)：subject_sha256、case_refs 分别取游标 input_subject_sha256、upstream_case_refs，绑定当前分配及权威用例（项目 test_cases_path，未单独提供时取 global_spec）。paths 精确覆盖本模块全部 CASE，每条含需求、预期 ASSERT 与适用 Scenario；不得填 actual/passed/quality 或执行结果。design_ref 和 test_assets 沿用下述资产契约。Ledger 补全 PATH/test-design/资产定义；TASK.scope、需求和 SPEC 定义由 plan 明确提供。MO 检查原始用例与预期的语义一致性，hash 不证明语义；无未决且完整可执行即冻结，无需等待实现后才能发现的问题。
+
+只有确需独立设计协助时，MO 显式 assign(role=test-runner, mode=design, design_input_ref)，输入仍为本叶子 SPEC 草稿、tasks.scope/需求、case_refs 和游标 subject。设计者不得兼 MO/Spec/代码作者；submit 同带 test-design 预检 context_ref，kind=test-design，freeze_id/code_baseline=null。MO accept 后 plan 必须绑定接受的设计、任务与断言；过期/撤销的显式设计仍需重交，不能冒充已接受。设计只读规格与用例，不运行目标代码。
+
+执行中发现遗漏或 fidelity 偏差，按 CR 更新受影响 SPEC/tasks/路径并重新冻结；不强制重做独立 design。保留已有代码、失败证据与预算，历史设计仅可追溯，当前计划必须绑定当前用例。改变或删除旧预期需要明确裁决，不能为通过测试改写标准。详见 [变更控制](openspec.md#变更控制)。
 
 新 prepare 固化 planning_coverage_required（旧 Run 保留原契约）。每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids；已有执行器可复用，prepared 须对应资产，deferred 另记 owner/next_action，解决后才能冻结。测试准备不执行目标代码，不编造 Red。
 
@@ -21,7 +22,7 @@ test_assets 交 script/fixture/adapter 的 asset_id/ref/path_ids，script 再映
 
 所有执行器可从 SDD_TEST_QUERY_FILE 读 query（非 build/unit 同时带 --query-file）；资产位于 frozen_test_assets。script/adapter 直接作为 argv 参数由 Host 记录 entrypoint_ids；其他消费由执行器向 SDD_TEST_ASSET_USAGE_FILE 写 [{asset_id,ref}]，回执保存 reported_ids 和文件引用。新冻结有资产时，Green 须覆盖所有所选资产，哈希/来源不能变；提供资产不等于消费，执行器上报也不自动证明断言语义。缺证据允许记录真实失败/阻塞。
 
-设计者与 MO/Spec/实现/修复/Auditor 独立；Host 落实派发及 staging 隔离。结构/hash 不证明语义；设计不替代 building/testing 预检及冻结/代码门禁。
+显式 design 设计者与 MO/Spec/实现/修复/Auditor 独立；直接测试计划及脚本作者同样不能兼 Auditor。Host 落实派发及 staging 隔离。结构/hash 不证明语义；设计不替代 building/testing 预检及冻结/代码门禁。
 
 ## query
 

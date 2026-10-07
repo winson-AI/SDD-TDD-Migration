@@ -75,8 +75,8 @@ class SpecFirstDesignTests(unittest.TestCase):
     def test_a_global_spec_or_a_context_file_is_not_a_design_input_spec(self):
         f = self.f; plan = self.t.plan('M001')
         step = next(x for x in f.state()['next_steps'] if x['module_id'] == 'M001')
-        self.assertEqual((step['operation'], step['mode']), ('assign', 'design'))
-        self.assertIn('Scenario-ID', step['design_input_needs'])  # the cursor says what the input has to cite
+        self.assertEqual(step['operation'], 'plan')
+        self.assertEqual(step['upstream_case_ids'], ['C1'])
         for specs in ([{**f.state()['global_spec'], 'kind': 'spec'}], [{**f.ref('context.md', 'legacy excerpts'), 'kind': 'spec'}]):
             with self.assertRaisesRegex(Rejected, "own SPEC draft with Requirement-IDs and Scenario-IDs"):
                 start_design(f, copy.deepcopy(plan), 'M001', spec_refs=specs)
@@ -242,7 +242,7 @@ class DesignStageTests(unittest.TestCase):
 
     def test_design_input_cites_the_cursor_subject_instead_of_copying_the_context(self):
         f = self.f
-        s = f.state(); s['test_design_required'] = True; m = s['modules']['M001']
+        s = f.state(); m = s['modules']['M001']; m['test_design_required'] = True
         step = ledger.next_step(s, m)
         self.assertEqual((step['operation'], step['mode']), ('assign', 'design'))
         self.assertEqual(step['input_subject_sha256'], design_stage.subject(s, m))
