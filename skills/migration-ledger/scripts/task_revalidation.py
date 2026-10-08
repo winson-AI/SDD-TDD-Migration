@@ -33,8 +33,9 @@ def prepare(m, review_ref):
     require(proof.get('reviewer_instance_id') == review.get('reviewer_instance_id'), 'TASK independence reviewer mismatch')
     old, new = change['previous_plan']['plan'], m['plan']
     before, after = keyed(old['tasks'], 'task_id'), keyed(new['tasks'], 'task_id')
+    # A revision may leave every TASK as it was (the allocation gained evidence, the contract did not move): none is affected.
     affected = set(proof.get('affected_task_ids', []))
-    require(affected and affected <= set(before) | set(after), 'TASK independence affected set invalid')
+    require(affected <= set(before) | set(after), 'TASK independence affected set invalid')
     require({tid for tid in set(before) | set(after) if before.get(tid) != after.get(tid)} <= affected,
             'TASK independence omits changed TASK')
     retained = set(after) - affected

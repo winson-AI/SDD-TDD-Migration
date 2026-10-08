@@ -280,6 +280,23 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
         m.pop(key, None)
 
 
+def open_change(s, m, request):
+    """Reopen a frozen leaf's contract and keep what was built on it: the plan is revised and frozen again, and the code
+    already written is updated under the next freeze. A request that is already open keeps the plan it started from."""
+    current_request = m.get('change_request') or {}
+    m['design_generation'] = m.get('design_generation', 0) + 1
+    previous_plan = current_request.get('previous_plan') or {
+        key: copy.deepcopy(m.get(key)) for key in ('plan_ref', 'plan_hash', 'plan', 'accepted_test_design')}
+    previous_revalidation = current_request.get('previous_revalidation') if current_request else m.pop('task_revalidation', None)
+    # Existing coded work is updated under the next freeze. Design assistance is opt-in again.
+    m.setdefault('approved_test_paths', copy.deepcopy(control_policy.acceptance(m['plan']['paths'])))
+    m.pop('accepted_test_design', None)
+    m.pop('test_design_required', None)
+    m.update(phase='change-review', stale=True, change_request={**request, 'from_freeze_id': m['freeze_id'],
+        'previous_plan': previous_plan, 'previous_revalidation': previous_revalidation}, diagnosis_submission=None)
+    invalidate_dependents(s, m['module_id'])
+
+
 def replan_module(m, reason, evidence_ref, release_blocker=False):
     """Keep failure/budget history and unrelated blockers when replacing an execution baseline."""
     blocker, phase = copy.deepcopy(m.get('blocked')), m['phase']
@@ -1228,12 +1245,17 @@ def mutate(s, req, principal, events, root=None):
             m.setdefault('change_request_history', []).append({**m.pop('change_request'), 'to_freeze_id': m['plan_hash'],
                 'kind': 'planning-history', 'executable': False, 'prior_execution': prior_execution})
             retained = set(revalidation['retained_task_ids'])
+            # No TASK changed: the code already accepted implements the revised contract, so the leaf goes on to rebuild it.
+            rebuilt = bool(retained) and retained == {t['task_id'] for t in m['plan']['tasks']} and bool(m.get('code_baseline'))
             m.update(accepted_task_ids=sorted(retained), task_files={tid: files for tid, files in m.get('task_files', {}).items() if tid in retained},
-                     execution_partition_pending=True, build_baseline=None, build_artifacts=[], task_revalidation=revalidation)
-            m.pop('dimension_evidence', None)
+                     execution_partition_pending=not rebuilt, build_baseline=None, build_artifacts=[], task_revalidation=revalidation)
+            if not rebuilt:
+                m.pop('dimension_evidence', None)
             m['results'] = {pid: {**result, 'stale': True} for pid, result in m['results'].items() if pid in {p['path_id'] for p in m['plan']['paths']}}
             task_revalidation.carry(m, prior_execution['results'])
-        m.update(freeze_id=m['plan_hash'], phase='frozen', stale=True)
+            m.update(freeze_id=m['plan_hash'], phase='testing' if rebuilt else 'frozen', stale=True)
+        else:
+            m.update(freeze_id=m['plan_hash'], phase='frozen', stale=True)
     elif op == 'change':
         role(principal, 'module-orchestrator')
         require(m.get('freeze_id') and p.get('request_ref') and p.get('impact_ref'), 'CR and impact required')
@@ -1245,16 +1267,7 @@ def mutate(s, req, principal, events, root=None):
             require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']), 'repair budget exhausted; recover requires decision')
             m['fix_rounds_used'] += 1
             m['total_fix_rounds'] += 1
-        m['design_generation'] = m.get('design_generation', 0) + 1
-        previous_plan = {key: copy.deepcopy(m.get(key)) for key in ('plan_ref', 'plan_hash', 'plan', 'accepted_test_design')}
-        previous_revalidation = m.pop('task_revalidation', None)
-        # Existing coded work is updated under the next freeze. Design assistance is opt-in again.
-        m.setdefault('approved_test_paths', copy.deepcopy(control_policy.acceptance(m['plan']['paths'])))
-        m.pop('accepted_test_design', None)
-        m.pop('test_design_required', None)
-        m.update(phase='change-review', stale=True, change_request={**p, 'from_freeze_id': m['freeze_id'],
-            'previous_plan': previous_plan, 'previous_revalidation': previous_revalidation}, diagnosis_submission=None)
-        invalidate_dependents(s, mid)
+        open_change(s, m, p)
     elif op == 'assign':
         role(principal, 'module-orchestrator')
         require(p.get('mode') in (None, 'execute', 'design'), 'unknown assignment mode')

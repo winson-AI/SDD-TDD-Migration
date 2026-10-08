@@ -122,6 +122,7 @@ class HintTests(unittest.TestCase):
                                  ('dependencies not complete', 'Module-Orchestrator 唯一模块守卫'),
                                  ('global coverage review required', '3. 分配与登记门禁'),
                                  ('verification boundary required', '验证边界'),
+                                 ('run impact revise needs a frozen, unblocked leaf whose boundary the revision keeps; replan otherwise', '同 Run 上游修订'),
                                  ('absolute evidence path required, got None', '请求与事件')):
             self.assertEqual(reading.read_hint(message)['section'], heading, message)
 

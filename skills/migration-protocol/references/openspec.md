@@ -45,7 +45,7 @@ SDD 先规划后执行、边执行边调整；完整可执行即冻结，不预�
 
 ## TASK 局部重验
 
-MO plan-review 可附 [task-independence.json](../../../template/task-independence.json) 的 task_independence_ref，绑定 from_freeze_id/to_plan_hash、受影响/未变 TASK、全 TASK 读输入哈希/依赖及源行为、运行时和资源隔离证据。Ledger 检查 TASK 定义、写范围、读依赖、共享 PATH、未变需求和文件追溯；共享影响则全模块重验，过期或漏报变更拒收。没有证明不增加规划，只采用默认验证范围。SPEC/design 的语义独立性仍须 MO 审阅，hash 不证明语义。
+MO plan-review 可附 [task-independence.json](../../../template/task-independence.json) 的 task_independence_ref，绑定 from_freeze_id/to_plan_hash、受影响/未变 TASK、全 TASK 读输入哈希/依赖及源行为、运行时和资源隔离证据。Ledger 检查 TASK 定义、写范围、读依赖、共享 PATH、未变需求和文件追溯；共享影响则全模块重验，过期或漏报变更拒收；受影响 TASK 可为空（契约未动）。没有证明不增加规划，只采用默认验证范围。SPEC/design 的语义独立性仍须 MO 审阅，hash 不证明语义。
 
 局部更新只重开受影响 TASK；build/unit/static 总在新代码上重跑，automation/visual 重跑受影响及非 Green 路径。未影响成功保留原回执、test_run_id/执行基线，另记 validation_reuse 及有效基线；不可伪称新执行。保护代码/输入变化使复用失效，后续修改保留 TASK 回退全验；Red/Yellow 不能凭证明改 Green。统一 Auditor 保留审计权。
 

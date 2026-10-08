@@ -364,6 +364,53 @@ def redecomposition_impact(s, parent, children, graph):
         impact = expanded
 
 
+def boundary_kept(old, new, dependencies):
+    """Nothing a leaf was already asked for is taken away: every statement of its scope, its requirements, cases, accepted
+    cases and write scope stay inside the revised allocation, no exclusion is added and it depends on the same slices.
+    A reworded scope statement cannot be told from a moved one, so it does not count as kept."""
+    import behavior_contract
+    inside = lambda path: any(Path(path).resolve().is_relative_to(Path(scope).resolve()) for scope in new['write_paths'])
+    return (set(old['scope']['in']) <= set(new['scope']['in'])
+            and set(old['scope']['requirement_ids']) <= set(new['scope']['requirement_ids'])
+            and set(old['case_ids']) <= set(new['case_ids'])
+            and set(behavior_contract.accepts(old)) <= set(behavior_contract.accepts(new))
+            and all(inside(path) for path in old['write_paths'])
+            and set(new['scope']['out']) <= set(old['scope']['out'])
+            and set(dependencies) == set(old['dependencies']))
+
+
+def revisable(old, new, dependencies):
+    """A frozen, unblocked leaf whose boundary a revision keeps: it takes the revision as a change to its contract and
+    keeps its code. Any other leaf the revision changes plans again from its new allocation."""
+    return bool(old.get('freeze_id')) and not old.get('blocked') and boundary_kept(old, new, dependencies)
+
+
+def revision_plan(s, parent, children, graph):
+    """(leaves that plan again, leaves that revise their contract) for a re-split. A leaf that only depends on revised
+    leaves is in neither: it keeps its plan and waits for its provider like after any provider change."""
+    import behavior_contract
+    old, new = set(parent['children']), {c['module_id']: c for c in children}
+    changed = {cid for cid in old.intersection(new) if
+               any(s['modules'][cid].get(key) != new[cid].get(key) for key in ALLOCATION_KEYS)
+               or behavior_contract.accepts(s['modules'][cid]) != behavior_contract.accepts(new[cid])
+               or graph[cid] != s['modules'][cid]['dependencies']}
+    revised = {cid for cid in changed if revisable(s['modules'][cid], new[cid], graph[cid])}
+    reset = old.symmetric_difference(new) | (changed - revised) | {
+        cid for cid, mod in s['modules'].items() if graph.get(cid, mod['dependencies']) != mod['dependencies']}
+    while True:
+        expanded = reset | {cid for cid, mod in s['modules'].items() if reset.intersection(mod['dependencies'])}
+        if expanded == reset:
+            return reset, revised - reset
+        reset = expanded
+
+
+def accepted_over(s):
+    """What a global plan was accepted over, apart from the evidence each allocation cites."""
+    return digest({mid: {key: m.get(key) for key in ('case_ids', 'dependencies', 'write_paths', 'scope', 'behavior_review',
+                                                       'acceptance_case_ids', 'parent_module_id')}
+                   for mid, m in {**s.get('module_groups', {}), **s['modules']}.items()})
+
+
 def continue_unaffected(s, affected, review_ref, run_root):
     """An accepted allocation refinement preserves unrelated SPEC and test design inputs."""
     import context_readiness
@@ -382,7 +429,7 @@ def continue_unaffected(s, affected, review_ref, run_root):
 
 
 def handle(s, req, actor, run_root):
-    from ledger import idle, new_module, role, replan_module
+    from ledger import idle, new_module, open_change, role, replan_module
     mid, op, p = req['module_id'], req['operation'], req.get('payload', {})
     if op == 'module-summary':
         role(actor, 'module-orchestrator')
@@ -439,18 +486,26 @@ def handle(s, req, actor, run_root):
         added_ids = new_child_ids - old_children
         common_ids = old_children & new_child_ids
         impact = redecomposition_impact(s, parent, children, graph)
+        reset, revised = revision_plan(s, parent, children, graph)
+        held = accepted_over(s)
         for cid in impact & set(s['modules']):
             idle(s['modules'][cid])
-        continue_unaffected(s, impact, p['review_ref'], run_root)
+        continue_unaffected(s, reset | revised, p['review_ref'], run_root)
         for cid in common_ids:
             old_mod, new_spec = s['modules'][cid], new_children[cid]
-            if cid in impact:
-                replan_module(old_mod, 'parent-redecomposed', submission['plan_ref'])
+            if cid in reset or cid in revised:
+                request = old_mod.get('realloc_request') or {}
+                if cid in reset:
+                    replan_module(old_mod, 'parent-redecomposed', submission['plan_ref'])
+                elif old_mod['phase'] == 'waiting-upstream':
+                    old_mod['phase'] = request.get('resume_phase', 'frozen')
                 for key in (*ALLOCATION_KEYS, 'acceptance_case_ids'):
                     if key in new_spec:
                         old_mod[key] = copy.deepcopy(new_spec[key])
                     else:
                         old_mod.pop(key, None)
+                if cid in revised:
+                    open_change(s, old_mod, {'request_ref': submission['plan_ref'], 'impact_ref': p['review_ref'], 'upstream': True})
                 old_mod['revision'] += 1
             else:
                 old_mod['allocation_continuation'] = {
@@ -475,7 +530,7 @@ def handle(s, req, actor, run_root):
             s['modules'][cid] = new_module(child)
 
         for m_id, mod in s['modules'].items():
-            if m_id not in new_child_ids and m_id in impact:
+            if m_id not in new_child_ids and m_id in reset:
                 replan_module(mod, 'upstream-dependency-redecomposed', submission['plan_ref'])
                 if mod['dependencies'] != graph[m_id]:
                     mod['behavior_review']['verification'] = copy.deepcopy(plan['consumer_verifications'][m_id])
@@ -509,11 +564,13 @@ def handle(s, req, actor, run_root):
             'plan_ref': submission['plan_ref'],
             'review_ref': p['review_ref'],
             'affected_modules': sorted(impact - retired_ids),
+            'revised_modules': sorted(revised),
             'retired_modules': sorted(retired_ids),
             'added_modules': sorted(added_ids),
             'triggering_requests': triggers
         })
-        s['global_plan'] = None
+        if accepted_over(s) != held:  # a revision that only renews evidence leaves the accepted coverage as it was
+            s['global_plan'] = None
         if s.get('audit'):
             s.setdefault('audit_history', []).append(copy.deepcopy(s['audit']))
         s['audit'] = {}

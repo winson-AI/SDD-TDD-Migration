@@ -14,7 +14,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 | 父 MO | GO 分配的一个模块及其 scope | 在该范围内划分子模块，为每个子 MO 分配 scope、用例、写范围、依赖和完成子模块所需的上下文 | 看护整个认领模块，防止遗漏与重复，跟踪子 MO、管理依赖、等待并汇总 |
 | 子 MO | 父 MO 分配的子功能及 scope/context | 拆 tasks，组织 Spec Designer / Test Runner 完成六件套、测试路径及追溯 | 独立冻结、Coding → Testing → 预算内收敛 → DoD 或挂起 |
 
-拆分按需推进 **GO 模块 → MO 子模块 → 叶子 tasks**；原子根可直接成为叶子。子 MO 不再建下一层 MO；粒度或边界冲突经 `realloc-request` 报父，由父 `redecompose` 或 GO 协调。编码前调整后重规划、校验、冻结；编码后契约变化走 CR。业务语义变化交人工，不私改分配。
+拆分按需推进 **GO 模块 → MO 子模块 → 叶子 tasks**；原子根可直接成为叶子。子 MO 不再建下一层 MO；粒度或边界冲突经 `realloc-request` 报父，由父 `redecompose` 或 GO 协调。业务语义变化交人工，不私改分配。
 
 两种入口只决定宿主范围，均允许 GO/MO 确认原子叶子。用户无需额外输入模块 ID、scope、SPEC 或 Testing list。
 
@@ -38,7 +38,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 局部 context pack 用于聚焦；全局可读不扩大 scope 或写权限。先检查目标已有实现和兄弟分工，明确“复用什么、谁实现、谁消费、写哪些文件、不实现哪些行为”。共同 CASE/全局需求 ID 可覆盖不同子职责，但须说明参与方式和唯一实现 owner；共享写路径依旧受锁约束，重叠业务分工必须审核。
 
-`planning_context` 仅含职责结构，不含兄弟变化中的 phase/revision；实时进度、锁和修复 memory 另读 Ledger。拆分/冻结/派发核对绑定摘要与当前上下文及分配，过期拒绝；上游评审限定影响，未变冻结模块保留 execution_context_ref；重拆仅等待受影响 worker。源码验 baseline。
+`planning_context` 仅含职责结构，不含兄弟变化中的 phase/revision；实时进度、锁和修复 memory 另读 Ledger。拆分/冻结/派发核对绑定摘要与当前上下文及分配，过期拒绝。源码验 baseline。
 
 ## 3. 分配与登记门禁
 
@@ -56,7 +56,7 @@ MO 确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`
 | `decompose-accept` | GO / 当前根 ID | `review_ref`；提案绑定仍有效；拆分则移父节点至 module_groups 并登记孩子，原子结论则原节点进入叶子规划 |
 | `realloc-request` | MO / 子或根 ID | `reason` + `evidence_refs`；切片/边界冲突提单，保存恢复阶段后进入 `waiting-upstream`；无父或父级上溯交 GO run-review |
 | `redecompose` | 父 MO / 父 ID | `plan_ref`；重组方案重新划分 children 并覆盖父范围 |
-| `redecompose-accept` | GO / 父 ID | `review_ref`；复核方案，比较范围、上下文、四维/行为审阅与依赖；保留未变孩子 Green 并恢复请求前阶段，受影响孩子及依赖闭包重新规划、保留 blocker/失败/预算，已实施下线模块转入 superseded_modules |
+| `redecompose-accept` | GO / 父 ID | `review_ref`；复核方案，比较范围、上下文、四维/行为审阅与依赖；保留未变孩子 Green 并恢复请求前阶段，边界保持的冻结孩子转 CR，其余受影响孩子及依赖闭包重新规划、保留 blocker/失败/预算，已实施下线模块转入 superseded_modules |
 | `module-summary` | 父 MO / 父 ID | `summary_ref` + 当前父 next_step.payload 中的 subject_sha256；全部孩子本轮已收尾 |
 
 使用 [拆分模板](../../../template/module-decomposition.json)。每个孩子提供稳定 ID、功能 name、scope、context_refs、case_ids、绝对 write_paths、dependencies。要求：

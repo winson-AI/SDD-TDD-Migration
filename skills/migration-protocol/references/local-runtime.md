@@ -60,7 +60,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | decompose-accept | Global / 根 module_id | review_ref；细分则登记孩子、父移入 module_groups；原子结论保留节点进入未冻结叶子规划 |
 | realloc-request | 子 MO / 子 module_id | reason、evidence_refs；切片/边界冲突向上提单，进入 waiting-upstream |
 | redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；重新拆分 children 覆盖父 scope |
-| redecompose-accept | Global / 父 module_id | review_ref；复核重组方案，保留未变孩子 Green，重置受影响孩子，下线模块转入 superseded_modules 供 Auditor 治理 |
+| redecompose-accept | Global / 父 module_id | review_ref；复核重组方案，保留未变孩子 Green，边界保持的冻结孩子转 CR、其余受影响孩子重置，下线模块转入 superseded_modules 供 Auditor 治理 |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
 | decision | host | decision_id、decision=approved、module_id、subject_sha256（取等待该决定的游标步骤的 approval_subject_sha256：冻结、恢复、审计放行、审计处置）、human_source_ref；保存真实人类决定引用。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子 |
 | global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；无关根可待拆，执行仍验当前叶子与依赖。registry 变化后重审 |

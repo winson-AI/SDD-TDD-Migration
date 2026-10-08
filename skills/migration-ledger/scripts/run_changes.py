@@ -158,13 +158,20 @@ def validate(s, ref):
     retired_cases = {r['id'] for r in report.get('retirements', []) if r['kind'] == 'case'}
     for mid, row in rows.items():
         require(set(row) == {'module_id', 'action', 'reason', 'evidence_refs', 'resume_blocker_sha256'}, 'invalid run impact row')
-        require(row['action'] in ('replan', 'reverify', 'unchanged') and row['reason'], 'run impact action/reason required')
+        require(row['action'] in ('replan', 'revise', 'reverify', 'unchanged') and row['reason'], 'run impact action/reason required')
         for evidence in nonempty(row['evidence_refs'], 'run impact evidence'): check_ref(evidence)
         m = s['modules'][mid]
         if retired_requirements.intersection((m.get('scope') or {}).get('requirement_ids', [])) or retired_cases.intersection(m['case_ids']):
             require(row['action'] == 'replan', 'retired contract owners must replan')
         if row['action'] != 'unchanged':
             affected.add(mid)
+            if row['action'] == 'revise':
+                # The leaf keeps its code and revises its contract: only for a frozen leaf whose boundary the revision keeps.
+                update = updates.get(mid) or {}
+                require(m.get('freeze_id') and not m.get('blocked') and decomposition.boundary_kept(
+                    m, {**m, **update}, m['dependencies'] if 'dependencies' not in update else
+                    sorted({leaf for dep in update['dependencies'] for leaf in decomposition.leaves(s, dep)})),
+                    'run impact revise needs a frozen, unblocked leaf whose boundary the revision keeps; replan otherwise')
             if row['action'] == 'reverify':
                 require(m.get('freeze_id') and m.get('code_baseline'), 'reverify needs existing frozen code')
                 require(set(patch) <= {'runtime', 'test_adapter'} and not updates and not report.get('global_spec_ref')
@@ -226,7 +233,7 @@ def revise_context(root, s, patch, review, decision):
 
 
 def handle(root, s, req, actor):
-    from ledger import role, idle, replan_module
+    from ledger import role, idle, open_change, replan_module
     p = req['payload']
     if req['operation'] == 'run-review':
         role(actor, 'global-orchestrator')
@@ -276,6 +283,8 @@ def handle(root, s, req, actor):
                 m.pop('execution_context_ref', None)
                 m.pop('automation_retry_ready', None)
                 for result in m['results'].values(): result['stale'] = True
+            elif rows[mid]['action'] == 'revise':
+                open_change(s, m, {'request_ref': review['report_ref'], 'impact_ref': review['report_ref'], 'upstream': True})
             else:
                 replan_module(m, report['reason'], review['report_ref'], bool(rows[mid]['resume_blocker_sha256']))
             m.pop('realloc_request', None)
@@ -284,7 +293,7 @@ def handle(root, s, req, actor):
             request = m.pop('realloc_request', None)
             if request and m['phase'] == 'waiting-upstream': m['phase'] = request['resume_phase']
             m['planning_continuation'] = {**continuations[mid], 'context_ref': new_ref}
-            m['allocation_continuation'] = {'plan_hash': m['plan_hash'], 'review_ref': review['report_ref'], 'context_ref': new_ref}
+            m['allocation_continuation'] = {'plan_hash': m.get('plan_hash'), 'review_ref': review['report_ref'], 'context_ref': new_ref}
         if mid in affected:
             if rows[mid]['action'] == 'reverify':
                 m['allocation_continuation'] = {'plan_hash': m['plan_hash'], 'review_ref': review['report_ref'], 'context_ref': new_ref}
