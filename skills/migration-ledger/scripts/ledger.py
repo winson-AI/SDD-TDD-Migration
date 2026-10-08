@@ -1163,6 +1163,8 @@ def apply_operation(s, req, principal, events, root=None):
         require(m['phase'] in ('context', 'specifying', 'clarifying', 'change-review'), 'plan not editable in this phase')
         held = m.get('plan_ref') == p['plan_ref']
         plan = design_stage.materialize(s, m, read_json(check_ref(p['plan_ref'])), judge=not held)
+        import minimal_plan
+        plan = minimal_plan.complete(s, m, plan)  # what follows from the leaf's accepted four-dimension specification
         require('checklist' not in {d.get('kind') for d in plan.get('definitions') or []},
                 'the checklist is the package rubric the Ledger binds; omit it from definitions')
         if s.get('behavior_contract_required'):
