@@ -97,7 +97,7 @@ Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试�
 | 并行 MO 与统一收尾 | 各 MO 独立推进；全量收尾后统一审计 | [状态机](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾) |
 | Auditor | 先整体代码治理，再复核遗留；修复后验证，失败待人工 | [审计范围](skills/migration-protocol/references/audit-scope.md)、[代码治理](skills/migration-protocol/references/audit-code-review.md) |
 | Android/Harmony 自动测试 | MobileAgenticOperator test 模式，逐 PATH/ASSERT 证据接入 Ledger | [移动端运行](skills/migration-test/references/harmony-runtime.md) |
-| 切片与功能清单 | 默认由 Agent 决定粒度；清单完整可追溯，疑问交人工；一条 CASE 一个验收切片，成链须写理由 | [切片规约](skills/migration-global/references/slicing.md) |
+| 切片与功能清单 | 默认由 Agent 决定粒度；清单完整可追溯，疑问交人工；一条 CASE 一个验收切片，成链须写理由；往次切分经验生成技能，供后续 Run 的 GO/MO 加载 | [切片规约](skills/migration-global/references/slicing.md) |
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照 | [项目上下文](skills/migration-protocol/references/project-context.md) |
 | 上下文就绪 | 规划与审计者随操作登记预检；worker 派发后预检，ready 才开工；worker 只读执行所需 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
 | 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
@@ -134,6 +134,7 @@ Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-08 | 设备缺口落到质量上：声明了缺口的叶子可以完成，它跑过的路径（含 build）各自保持 Green，该 CASE 的 automation 记 Yellow，模块与本轮质量为 Yellow；其余全部 Green 且审计通过后以 completed-with-unverified-tests 收尾，不征求 Green 交付授权。叶子最小集：叶子有已登记的四维分析时，计划只写六件套、tasks（范围/路径/需求）、测试计划引用与 dimension_trace，四维分析引用、source_closure、target_feasibility、decision_envelope、各任务四维与 scenario_trace 由 Ledger 据已接受的分析与行为审阅补全后存储冻结；作者写了的保留并照常判定，计划模板随之缩为最小集。切分技能：每次经验采集在经验库重生成 `skills/migration-slicing-experience/SKILL.md`（多个 run 印证的抽象教训在前，附往次切分形态与未抽象的观察，内容变才升版），下一 Run 的 prepare 将其固化，GO/MO 在登记、全局规划、拆分与接受、上溯和上游修订步骤经游标 slicing_skill 加载，其余阶段不读。 |
 | 2026-10-08 | 用户可见 CASE 在用户看得到的地方验证：prepared run 中叶子所验收、由适用 UI item 承载的每条 CASE 须有设备或视觉 PATH（visual，或绑定设备平台、交互的 automation），确无可能的在 plan.device_gaps 写明原因与证据，报告列为 Yellow 缺口且不计完整验证；automation 统计按宿主任务/模块/TASK 分列设备、进程内与视觉路径。运行记忆：阻塞及其解除依据、一次冻结三次以上改交计划、同一操作同因被拒三次以上进入经验；项目可用 `experience_root` 指定多工作区共享的经验库。人工与成本可见：游标每一步给出 human_required，报告按用途列出每个人工决定（解除阻塞的带原因），并列出各叶子的规划体量（冻结计划所依据的文件数与字节，对照 CASE/TASK 数）。 |
 | 2026-10-08 | 上游修订按叶子边界分流：再拆分或 run 修订改到的已冻结叶子，边界保持（原 scope 语句、需求、CASE、验收归属、写范围与依赖俱在，无新增排除）时以 CR 接收并保留 plan 与代码，TASK 未变即重冻后直接重建复测，其消费者只等 provider；边界改写、收缩或迁移才整叶重规划；只更新证据的再拆分不清全局规划；独立性证明可声明无 TASK 受影响。资源搬运先定论：prepared run 登记 UI/Resource 适用的分配前，`target_resources` 的 copy 与 parameters 须已声明约定或写明目标不接收的原因，尚未登记任何根时也可经 run 修订写入；约定已声明时可原样加载的文件必须走复制清单；手工替换存量图片的 item 写明不能复制的原因并随报告披露；API 清单按 transport 登记路由，rpc/sdk 以调用名登记。 |
 | 2026-10-08 | 已接受工件沿用接受时的规则：四维分析登记时判定（叶子冻结对它的要求在首次冻结时），设计验收时、计划提交与冻结时判定，此后各步只读取，仅漂移拒收；逐案豁免移除，差异进报告“规则欠账”。拆分写明每条 CASE 的唯一验收切片、支撑切片的理由，依赖成链或过半切片等待时写明不能按行为切的理由；报告列出各拆分的切片形态。渐进加载：worker 的必读输入收敛为执行所需（Test-Runner 为冻结计划与测试资产，代码作者另含本叶子四维分析与目标规范），报告所依据的全部证据仍核对漂移；阅读卡增量按执行实例计算、无需宿主回报，红线每张卡都带，机械验收步骤不带卡，同一小节在一张卡内只出现一次；拒绝消息指向规则小节的比例设为棘轮。 |

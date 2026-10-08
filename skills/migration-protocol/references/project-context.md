@@ -106,13 +106,11 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 ## 导入已有 global-input
 
-新入口先初始化/更新项目配置再 prepare。用户提供旧 global-input 时，宿主将代码根目录、架构 path、执行器、runtime 等提取到项目 config；预算/门禁放入 defaults。整体规范路径可映射 requirements_path；已有整体用例可保存为项目用例文件并引用 test_cases_path。run_id/module_name/基线及生成产物不写项目配置。导入后仍由 Global 为本轮生成范围正确的规范和测试列表。
-
-新宿主入口始终走本页流程，不能跳过上下文固化。
+新入口先初始化/更新项目配置再 prepare。用户提供旧 global-input 时，宿主将代码根目录、架构 path、执行器、runtime 等提取到项目 config；预算/门禁放入 defaults。整体规范路径可映射 requirements_path；已有整体用例可保存为项目用例文件并引用 test_cases_path。run_id/module_name/基线及生成产物不写项目配置。
 
 ## 父子共同规划视野与知识资料
 
-可选 knowledge_paths 是知识文档绝对路径数组，首次保存、增量更新/删除沿用配置版本协议；数组整体替换。prepare 把每份知识文档复制并绑定摘要到 source_refs.knowledge_paths，旧运行继续读取原快照。父 MO 与子 MO 都从步骤视图的 planning_context 读取完整 legacy_root/target_root、global_spec、new_architecture、project_context_ref/project_sources（包括规则与知识），以及最新父子分工/依赖。全局代码目录用于只读理解和复用检查；目标源码不是全文复制快照，实际代码变化仍受 baseline/锁/冻结约束。缺失必要知识或未声明公共能力 owner 时先记录问题，不能凭局部信息重复实现。
+可选 knowledge_paths 是知识文档绝对路径数组，首次保存、增量更新/删除沿用配置版本协议；数组整体替换。prepare 把每份知识文档复制并绑定摘要到 source_refs.knowledge_paths，旧运行继续读取原快照。父 MO 与子 MO 经 planning_context 读取它们，见[全局可见](module-decomposition.md#2-全局可见按分配范围执行)。全局代码目录用于只读理解和复用检查；目标源码不是全文复制快照，实际代码变化仍受 baseline/锁/冻结约束。缺失必要知识或未声明公共能力 owner 时先记录问题，不能凭局部信息重复实现。
 
 ## 二方库/其他项目模块来源
 
@@ -125,5 +123,5 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 ## 跨运行经验沉淀与复用
 
 跨 run 的分析/切分经验只经经验库抽象复用，不手工拷入新 Run：
-1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察（切分/边界调整、重规划、修复模式、阻塞及解除依据、一次冻结改交计划或同因被拒达三次）；失败为 pending，可重试。配置 `experience_root`（绝对目录）则多工作区共用一库，块名 `<project_id>/<run_id>`。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 Ledger retrospect 或 run-review 的 lessons_ref 提交；harvest 只投影，不改业务状态。
-2. **规划指导**：prepare 仅固化完整抽象经验，原始观察留存供复盘，不臆造根因。本 Run 的不可变 history_refs 纳入通用及关联叶子经验，预检绑定版本；失败/未验证策略辅助避错，已验证模式也不替代当前冻结/测试。
+1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察（切分/边界调整、重规划、修复模式、阻塞及解除依据、一次冻结改交计划或同因被拒达三次）；失败为 pending，可重试。配置 `experience_root`（绝对目录）则多工作区共用一库，块名 `<project_id>/<run_id>`。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 Ledger retrospect 或 run-review 的 lessons_ref 提交。每次采集重生成切分技能 `skills/migration-slicing-experience/SKILL.md`：多个 run 印证的抽象教训在前，附往次切分形态与未抽象的观察，内容变才升版。
+2. **规划指导**：prepare 仅固化完整抽象经验，原始观察留存供复盘，不臆造根因。本 Run 的不可变 history_refs 纳入通用及关联叶子经验，预检绑定版本。prepare 一并固化切分技能：GO/MO 的登记、全局规划、拆分与接受、上溯和上游修订步骤以游标 slicing_skill 给出，宿主按技能加载，他处不读。

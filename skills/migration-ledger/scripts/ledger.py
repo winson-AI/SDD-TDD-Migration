@@ -815,6 +815,12 @@ def reasoning_escalated(m):
                for r in results.values())
 
 
+# Where slicing is decided or revised: the steps at which an orchestrator loads the project's slicing skill.
+SLICING_STEPS = {('global-orchestrator', op) for op in ('register', 'global-plan', 'decompose-accept', 'redecompose-accept',
+                                                         'run-review', 'source-review')} | {
+                 ('module-orchestrator', op) for op in ('decompose', 'redecompose', 'realloc-request')}
+
+
 def with_card(s, m, step):
     """A step that asks for an operation names the protocol sections and the templates it needs."""
     # A step the host submits without a model turn is read by nobody; a dispatch still carries its worker's card.
@@ -827,6 +833,9 @@ def with_card(s, m, step):
             ('register', 'global-plan', 'source-review', 'run-review', 'revise-run'))):
         import experience
         snapshot = project_context.verify_snapshot(s['project_context_ref'])
+        skill = snapshot.get('source_refs', {}).get('slicing_skill_ref')
+        if skill and (step.get('role'), step.get('operation')) in SLICING_STEPS:
+            step['slicing_skill'] = {'name': experience.SKILL, 'ref': copy.deepcopy(skill)}
         ref = snapshot.get('source_refs', {}).get('experience_ref')
         if ref:
             candidates = experience.candidates(read_json(check_ref(ref)), m if m is not None else experience.global_scope(s), (step.get('payload') or {}).get('task_ids', []))
