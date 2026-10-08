@@ -1163,6 +1163,8 @@ def mutate(s, req, principal, events, root=None):
         plan = design_stage.materialize(s, m, read_json(check_ref(p['plan_ref'])), judge=not held)
         import minimal_plan
         plan = minimal_plan.complete(s, m, plan)  # what follows from the leaf's accepted four-dimension specification
+        if s.get('planning_coverage_required'):
+            plan = user_paths.settle_gaps(s, m, plan)  # and from the run's statement that no device is available
         require('checklist' not in {d.get('kind') for d in plan.get('definitions') or []},
                 'the checklist is the package rubric the Ledger binds; omit it from definitions')
         if s.get('behavior_contract_required'):

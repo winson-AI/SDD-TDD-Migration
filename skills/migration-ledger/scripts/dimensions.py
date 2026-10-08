@@ -158,7 +158,9 @@ def allocation(s, module):
         if s.get('planning_coverage_required'):
             evidence((data.get('api_review') or {}).get('discovery_refs'), 'API discovery scope required for applicability review')
             import project_context
-            project_context.transfer_settled(s, {row['dimension'] for row in data['dimensions'] if row['status'] == 'applicable'})
+            applicable = {row['dimension'] for row in data['dimensions'] if row['status'] == 'applicable'}
+            project_context.transfer_settled(s, applicable)
+            project_context.device_settled(s, applicable)
     require(module.get('scope') and data.get('scope') == module['scope'],
             'dimension analysis must bind the already allocated module scope')
     allowed = set(module.get('scope', {}).get('requirement_ids', s['requirement_ids']))

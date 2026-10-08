@@ -119,5 +119,5 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 ## 跨运行经验沉淀与复用
 
 跨 run 的分析/切分经验只经经验库抽象复用，不手工拷入新 Run：
-1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察（切分/边界调整、重规划、修复模式、阻塞及解除依据、一次冻结改交计划或同因被拒达三次）；失败为 pending，可重试。配置 `experience_root`（绝对目录）则多工作区共用一库，块名 `<project_id>/<run_id>`。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 Ledger retrospect 或 run-review 的 lessons_ref 提交。每次采集重生成切分技能 `skills/migration-slicing-experience/SKILL.md`：多个 run 印证的抽象教训在前，附往次切分形态与未抽象的观察，内容变才升版。
+1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察（切分/边界调整、重规划、修复模式、阻塞及解除依据、一次冻结改交计划或同因被拒达三次）；失败为 pending，可重试。配置 `experience_root`（绝对目录）则多工作区共用一库，块名 `<project_id>/<run_id>`。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 Ledger retrospect 或 run-review 的 lessons_ref 提交。每次采集重生成切分技能 `skills/migration-slicing-experience/SKILL.md`：多个 run 印证的抽象教训在前，附往次切分形态与未抽象的观察，内容变才升版。run 内定论的 target_resources 与 test_adapter.device 随采集入库，项目配置未声明时下一 Run 的 prepare 取用。
 2. **规划指导**：prepare 仅固化完整抽象经验，原始观察留存供复盘，不臆造根因。本 Run 的不可变 history_refs 纳入通用及关联叶子经验，预检绑定版本。prepare 一并固化切分技能：GO/MO 的登记、全局规划、拆分与接受、上溯和上游修订步骤以游标 slicing_skill 给出，宿主按技能加载，他处不读。

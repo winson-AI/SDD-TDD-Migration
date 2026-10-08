@@ -136,6 +136,17 @@ def validate(config):
         require(isinstance(adapter['args'], list) and all(isinstance(a, str) for a in adapter['args']), 'adapter args must be a string array')
     if 'timeout_seconds' in adapter:
         require(type(adapter['timeout_seconds']) is int and adapter['timeout_seconds'] > 0, 'invalid adapter timeout')
+    device = adapter.get('device')
+    if device is not None:
+        require(isinstance(device, dict) and set(device) in ({'platforms'}, {'unavailable'}),
+                'test_adapter.device states the platforms the target is driven on, or why none is available')
+        if 'platforms' in device:
+            platforms = device['platforms']
+            require(isinstance(platforms, list) and platforms and len(set(platforms)) == len(platforms)
+                    and set(platforms) <= {'android', 'harmony'}, 'test_adapter.device.platforms lists android and/or harmony')
+        else:
+            require(isinstance(device['unavailable'], str) and device['unavailable'].strip(),
+                    'test_adapter.device.unavailable gives the reason no device is available')
     require('{{' not in json.dumps(config), 'unfilled project placeholders')
     return config
 
@@ -153,6 +164,22 @@ def target_resources(value, target_root=None):
             'target_resources.declined gives the reason for each part the target does not take, and names no part it states')
     result = {key: rules[key](value[key], target_root) for key in rules if key in value}
     return {**result, 'declined': dict(declined)} if declined else result
+
+
+def device_verification(s):
+    """What the run states about verifying on a device: {'platforms': [...]}, {'unavailable': reason}, or None while
+    nobody has said. It is read from the run's current context, so a reviewed revision settles it for the whole run."""
+    ref = s.get('project_context_ref')
+    if not ref:
+        return None
+    return (current_config(read_json(check_ref(ref))).get('test_adapter') or {}).get('device')
+
+
+def device_settled(s, applicable):
+    """Before UI work is registered the run knows where a user-visible case can be verified: the device platforms the
+    target is driven on, or the reason this task has none. Each UI leaf then plans against one answer."""
+    require('UI' not in applicable or device_verification(s) is not None,
+            'test_adapter.device is not settled: state the platforms the target is driven on, or why this task has none')
 
 
 def transfer_settled(s, applicable):
@@ -404,6 +431,15 @@ def _prepare(root, run_root, request, actor, storage):
         effective = validate(merge(record['config'], overrides))
         for key in ('legacy_root', 'target_root'):
             require(key in effective and Path(effective[key]).is_dir(), 'missing directory: ' + key)
+        import experience
+        carried = experience.conventions(root)  # what an earlier run settled applies where the project's own configuration is silent
+        if carried.get('target_resources') and not effective.get('target_resources'):
+            try:
+                effective['target_resources'] = target_resources(carried['target_resources'], effective['target_root'])
+            except ValueError:
+                pass  # settled for another target tree: this run settles its own
+        if carried.get('device') and 'device' not in (effective.get('test_adapter') or {}):
+            effective['test_adapter'] = {**(effective.get('test_adapter') or {}), 'device': copy.deepcopy(carried['device'])}
         require(effective.get('architecture_path'), 'architecture_path required before prepare')
         reuse.normalize_sources(effective.get('reuse_sources', []), effective['target_root'], existing=True)
         owner, ownership = check_owner(root, run_root, request, storage, record)
@@ -413,7 +449,6 @@ def _prepare(root, run_root, request, actor, storage):
         sources = {key: copy_ref(files, file_ref(effective[key])) for key in DOCUMENTS if effective.get(key)}
         if 'knowledge_paths' in effective:
             sources['knowledge_paths'] = [copy_ref(files, file_ref(path)) for path in effective['knowledge_paths']]
-        import experience
         exp_path = experience.store(root) / 'lessons.json'
         if exp_path.is_file():
             from experience import planning_view

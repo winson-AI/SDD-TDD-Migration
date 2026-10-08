@@ -138,6 +138,17 @@ def fidelity(s, rows, ref_check):
     limitations += [{**c, 'kind': 'fidelity-condition', 'reason': c['condition'] + ': current assertions not verified'}
                     for c in conditions if c['status'] == 'not-verified']
     limitations += device_gaps
+    for mid, m in sorted(s['modules'].items()):  # whatever the run was asked when its plans were accepted, say what no screen has shown
+        plan = m.get('plan') or {}
+        try:
+            visible = user_paths.visible_cases(m, read_json(ref_check(plan['dimension_analysis_ref'])))
+        except (ValueError, OSError, KeyError, TypeError):
+            continue
+        only = sorted(visible - {path.get('case_id') for path in plan.get('paths', []) if user_paths.on_device(path)} - set(user_paths.gaps(plan)))
+        if only:
+            limitations.append({'module_id': mid, 'item_id': None, 'kind': 'in-process-only', 'case_ids': only,
+                                'reason': '用户可见 CASE 只有进程内路径，未在设备或屏幕上验证：' + '、'.join(only),
+                                'evidence_refs': refs([plan['dimension_analysis_ref']])})
     limitations += [{'module_id': v['module_id'], 'item_id': v['item_id'], 'kind': 'picture-replacement',
                      'reason': f"图片 {v['source']} 与存量不是精确复制（{v['status']}）：{v['reason']}", 'evidence_refs': v['evidence_refs']}
                     for v in pictures if v['status'] not in ('exact', 'verified', 'reviewed')]

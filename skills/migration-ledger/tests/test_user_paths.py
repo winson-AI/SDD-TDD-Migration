@@ -84,7 +84,8 @@ class WiringTests(unittest.TestCase):
     def test_a_prepared_run_judges_a_new_plan_and_not_the_one_it_holds(self):
         t = test_source_changes.SourceChangeTests(); t.setUp(); self.addCleanup(t.doCleanups)
         f = t.f
-        with mock.patch.object(user_paths, 'plan_gate') as gate:
+        import rule_debt
+        with mock.patch.object(user_paths, 'plan_gate') as gate, mock.patch.object(rule_debt, 'collect', return_value=[]):
             plan = t.plan('M001')
             if f.state().get('test_design_required'):
                 from test_design_stage import prepare_design

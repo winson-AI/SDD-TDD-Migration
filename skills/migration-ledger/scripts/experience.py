@@ -118,6 +118,28 @@ def write_skill(directory, data):
     return {'path': str(path), 'revision': record['revision']}
 
 
+def settled(state):
+    """What a run settled that the project's next run would otherwise settle again: how the target takes resources and
+    where a user-visible case is verified."""
+    import project_context
+    facts = {}
+    if state.get('target_resources'):
+        facts['target_resources'] = state['target_resources']
+    try:
+        device = project_context.device_verification(state)
+    except (ValueError, OSError, KeyError, TypeError):
+        device = None
+    if device:
+        facts['device'] = device
+    return facts
+
+
+def conventions(root):
+    """The conventions earlier runs of this project settled, as its experience store holds them."""
+    _, project_id = shared(root)
+    return (load(root).get('conventions') or {}).get(project_id or '', {})
+
+
 def planning_view(data, archive_lesson=None):
     """Project observations remain available for retrospective; new tasks read abstract lessons only."""
     from contracts import digest
@@ -292,6 +314,9 @@ def harvest(root, run_root):
         stamp = datetime.now(timezone.utc).isoformat()
         data['runs'][rid] = {'sequence': sequence, 'run_quality': state.get('quality'), 'harvested_at': stamp,
                              'entries': lessons['entries'], 'slicing': slicing_facts(state)}
+        facts = settled(state)
+        if facts:  # the project's next run starts from what this one settled, unless its own configuration says otherwise
+            data.setdefault('conventions', {})[shared(root)[1] or state.get('project_id') or ''] = {**facts, 'run_id': rid}
         skill = write_skill(directory, data)  # the store's slicing skill follows every run that adds to it
         atomic(directory / 'lessons.json', encoded(data))
         counts = dict(Counter(e['kind'] for e in lessons['entries']))

@@ -537,7 +537,7 @@ GATES = [
     (r'runtime expression|runtime/layout|layout keywords|structural mapping|parameter mapping', 'resource-transfer.md', '动态参数与布局结构'),
     (r'hash mismatch|absolute evidence path|missing file', 'runtime.md', '请求与事件'),   # first: the file named in the message may sit in a path of any other topic
     (r'unknown reference id', 'context-readiness.md', '3. 报告与传递'),
-    (r'is not settled|target_resources (takes|\.declined)|target_resources\.declined', 'resource-transfer.md', '总则'),
+    (r'target_resources\S* is not settled|target_resources (takes|\.declined)|target_resources\.declined', 'resource-transfer.md', '总则'),
     (r'parameter[ _](sheet|fill|file|convention)|parameter_fill|recorded (value )?parameters?|values to parameter|a parameter is'
      r'|expressions the Spec|tokens the Spec|typed value|(not_applicable|settled|token) record|share one key|target_resources\.parameters'
      r'|\b(layout|layer|code|values):\S+: deviation', 'resource-transfer.md', FILL),
@@ -545,7 +545,7 @@ GATES = [
     (r'cop(y|ied) (plan|path|target|resources?)|copy_blocker|target_resources\.copy|resource-sync|one target file|index different files'
      r'|refusing to overwrite|target_resource (must|needs)|file of the target project|never names|not the legacy file|legacy (entry|vector)',
      'resource-transfer.md', COPY),
-    (r'design |test.design|设计|user-visible case|device[ _]gaps?', 'testing.md', '编码前设计交接'),
+    (r'design |test.design|设计|user-visible case|device[ _]gaps?|test_adapter\.device', 'testing.md', '编码前设计交接'),
     (r'TASK independence', 'openspec.md', 'TASK 局部重验'),
     (r'execution capture|output capture|excerpt|committed.*hash', 'testing.md', '日志与按需追溯'),
     (r'write scope|undeclared change|write outside', 'engineering-disciplines.md', '写范围核验（可选，默认关闭）'),
