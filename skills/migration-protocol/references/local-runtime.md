@@ -62,7 +62,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；重新拆分 children 覆盖父 scope |
 | redecompose-accept | Global / 父 module_id | review_ref；复核重组方案，保留未变孩子 Green，边界保持的冻结孩子转 CR、其余受影响孩子重置，下线模块转入 superseded_modules 供 Auditor 治理 |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
-| decision | host | decision_id、decision=approved、module_id、subject_sha256（取等待该决定的游标步骤的 approval_subject_sha256：冻结、恢复、审计放行、审计处置）、human_source_ref；保存真实人类决定引用。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子 |
+| decision | host | decision_id、decision=approved、module_id、subject_sha256（取游标步骤的 approval_subject_sha256；步骤 human_required=true 才需要人，false 时宿主不征求批准）、human_source_ref；保存真实人类决定引用。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子 |
 | global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；无关根可待拆，执行仍验当前叶子与依赖。registry 变化后重审 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
 | audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human |

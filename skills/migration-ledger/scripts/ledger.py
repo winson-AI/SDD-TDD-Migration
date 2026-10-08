@@ -876,6 +876,7 @@ def next_step(s, m):
     if step.get('role'):
         step['model_tier'] = model_routing.advise(step['role'], step.get('operation'),
                                                    step.get('worker_role'), escalate=reasoning_escalated(m))
+    step['human_required'] = control_policy.human_required(step)  # said on every step, so a host asks nobody otherwise
     if step.get('operation'):
         with_card(s, m, step)
         # Without a session the host reported, the instance that last acted in this role is who may still hold cards.
@@ -1031,6 +1032,17 @@ def settle_preflight(m, actor, receipt):
 
 
 def mutate(s, req, principal, events, root=None):
+    """Apply one operation, and note on every human decision it used what the decision was used for."""
+    spent = lambda d: (bool(d.get('consumed')), len(d.get('used_by', {})))
+    before = {did: spent(d) for did, d in s.get('decisions', {}).items()} if isinstance(s, dict) else {}
+    result = apply_operation(s, req, principal, events, root)
+    for did, d in (s.get('decisions', {}) if isinstance(s, dict) else {}).items():
+        if did in before and spent(d) != before[did]:
+            d.setdefault('used_for', req['operation'])
+    return result
+
+
+def apply_operation(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')
@@ -1873,6 +1885,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     cursor = [next_step(s, m) for m in s['modules'].values()]
     for group in s.get('module_groups', {}).values():
         step = decomposition.group_step(s, group, ref_check)
+        step['human_required'] = control_policy.human_required(step)
         if step.get('operation'):
             step['model_tier'] = model_routing.advise(step['role'], step['operation'])
             with_card(s, group, step)
@@ -1947,8 +1960,12 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
         global_next['model_tier'] = model_routing.advise(global_next['role'], global_next.get('operation'))
     if global_next.get('operation'):
         with_card(s, None, global_next)
+    source_step = source_changes.next_action(s)
+    for step in (global_next, source_step, revision_step):
+        if isinstance(step, dict):
+            step['human_required'] = control_policy.human_required(step)
     return {'global_next_step': global_next, 'next_steps': cursor,
-            'source_change_next_step': source_changes.next_action(s), 'run_change_next_step': revision_step, 'module_rounds': rounds}
+            'source_change_next_step': source_step, 'run_change_next_step': revision_step, 'module_rounds': rounds}
 
 
 def status(root, view='full', module_id=None, since=None):

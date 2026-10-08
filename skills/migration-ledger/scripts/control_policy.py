@@ -28,6 +28,16 @@ def preserves_acceptance(m):
     return bool(old)
 
 
+# Reasons for which a step waits for a person's decision. Every other step proceeds on the roles' own review.
+HUMAN_REASONS = ('human-decision-required', 'human-review-required', 'finding-awaits-human', 'run-approval-required',
+                 'budget-exhausted', 'audit-budget-exhausted', 'await-delivery-authorization')
+
+
+def human_required(step):
+    """Whether this step cannot be taken until a person decides. A host asks nobody when it is False."""
+    return not step.get('ready') and step.get('reason') in HUMAN_REASONS
+
+
 def boundary(review):
     require(isinstance(review, dict), 'structured boundary_review required')
     require(review.get('unresolved_questions') == [], 'unresolved planning questions require human check')

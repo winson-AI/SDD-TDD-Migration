@@ -20,7 +20,7 @@ GO 在本轮成功完成、带自动化缺测结束或需人工处理而停止�
 - 宿主接受 Ledger 事件或执行 `ledger.py status --root <run_root>` 时，重建 `reports/migration-report.json` 和 `reports/migration-report.md`。
 - full 视图的 `migration_report` 给出两份文件的绝对路径和 sequence。它们同属该次状态快照，可由事件日志重新生成；GO 不手工修改投影或覆盖模块验收。
 - GO 等 MO 收尾、Auditor 处理和父汇总完成后读取报告，在对用户的收尾回复中给出 CASE 状态统计、完整报告链接及非 Green 原因/证据摘要。未解决 Red/Yellow 不得因进入报告阶段而转为 Green。
-- 若需保留一次交付版本，宿主按原有工件归档规则保存带 sequence 的报告快照。恢复执行后实时投影会更新，旧 Ledger 事件与原始证据仍保留。
+- 若需保留一次交付版本，宿主按原有工件归档规则保存带 sequence 的报告快照。
 
 ## 状态与证据规则
 
@@ -44,4 +44,4 @@ JSON 的 cases/case_counts 按 CASE 聚合，paths/non_green 保留明细与证�
 
 ## 流程成本
 
-报告与 `status.workflow_cost` 由 [workflow_cost.py](../../migration-ledger/scripts/workflow_cost.py) 从已提交事件统计每个模块的事件数、worker 派发数（build 继续进入 static 只算一次）、上下文回执、验收、人工决定（含父级批量信封的使用）、修复轮次与是否轻量叶子，另给全局事件和审计派发合计。这些数字用于发现流程冗余、比较轻量叶子与普通叶子，不是门禁，也不代表质量。
+报告与 `status.workflow_cost` 从已提交事件统计每个模块的事件数、worker 派发数（build 继续进入 static 只算一次）、上下文回执、验收、人工决定（含父级批量信封的使用）、修复轮次与是否轻量叶子，另给全局事件和审计派发合计；并列出各叶子的规划体量（冻结计划所依据的文件数与字节，对照 CASE/TASK 数）和每个人工决定的用途（解除阻塞的带原因）。这些数字用于发现流程冗余，不是门禁，也不代表质量。

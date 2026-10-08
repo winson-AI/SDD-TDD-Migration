@@ -270,7 +270,7 @@ def build(root, s, sequence, ref_check=check_ref):
             'visual_coverage': visual, 'fidelity_limitations': limitations,
             'fidelity_conditions': pictures.pop('conditions'), 'picture_fidelity': pictures,
             'human_report': copy.deepcopy(batch.get('human_report')),
-            'workflow_cost': workflow_cost.build(s, workflow_cost.journal(root)),
+            'workflow_cost': workflow_cost.build(s, workflow_cost.journal(root), ref_check),
             'modules': {mid: {'phase': m.get('phase'), 'quality': m.get('effective_quality', m.get('quality')),
                               'parent_module_id': m.get('parent_module_id'), 'dependencies': m.get('dependencies', [])}
                         for mid, m in s.get('modules', {}).items()},
@@ -395,6 +395,16 @@ def render(report):
              '| 模块 | 事件 | 派发 | 上下文回执 | 验收 | 人工决定 | 修复轮次 | 轻量叶子 | 阅读卡字节（完整/实际交付） |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
              *[f"| {cell(mid)} | {r['events']} | {r['dispatches']} | {r['context_receipts']} | {r['acceptances']} | "
                f"{r['human_decisions']} | {r['fix_rounds']} | {'是' if r['lean_leaf'] else '否'} | {r['card_bytes_full']} / {r['card_bytes_delivered']} |" for mid, r in cost['modules'].items()]]
+    if any('plan_documents' in r for r in cost['modules'].values()):
+        text += ['', '规划体量（冻结计划所依据的文件数与字节，对照叶子的 CASE / TASK 数；用于发现小叶子的过度规划，不是门禁）：', '',
+                 '| 模块 | CASE | TASK | 规划文件 | 字节 |', '| --- | --- | --- | --- | --- |',
+                 *[f"| {cell(mid)} | {r['cases']} | {r['tasks']} | {r['plan_documents']} | {r['plan_bytes']} |"
+                   for mid, r in cost['modules'].items() if 'plan_documents' in r]]
+    if cost.get('human_touches'):
+        text += ['', f"人工介入（按用途）：{cell(cost['human_by_purpose'])}", '',
+                 '| 决定 | 模块 | 用途 | 原因 |', '| --- | --- | --- | --- |',
+                 *[f"| {cell(row['decision_id'])} | {cell(row['module_id'] or '全局')} | {cell(row['used_for'])} | {cell(row['reason'] or '—')} |"
+                   for row in cost['human_touches']]]
     text += ['', '## 路径明细', '', '| CASE-ID | 模块 / 父 MO | PATH / Name | 类型 | 状态 | 曾执行 / 本次执行 / stale | test_run |', '| --- | --- | --- | --- | --- | --- | --- |']
     for r in report['paths']:
         text.append('| ' + ' | '.join(cell(v) for v in (r['case_id'], f"{r['module_id']} / {r['parent_mo_name'] or '—'}", f"{r['path_id'] or '—'} / {r['name']}",

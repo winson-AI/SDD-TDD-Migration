@@ -16,7 +16,39 @@ def journal(root):
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-def build(s, events):
+def plan_volume(plan, resolve=None):
+    """The files a plan stands on and their size: what planning a leaf cost before any code. `resolve` finds a
+    referenced file where it is kept now, so the numbers do not change when evidence is archived."""
+    from contracts import check_ref
+    found, size = {}, 0
+    def visit(value):
+        if isinstance(value, dict):
+            if isinstance(value.get('path'), str) and isinstance(value.get('sha256'), str):
+                found[value['path']] = value
+            for item in value.values(): visit(item)
+        elif isinstance(value, list):
+            for item in value: visit(item)
+    visit(plan or {})
+    for ref in found.values():
+        try:
+            size += Path((resolve or check_ref)(ref)).stat().st_size
+        except (ValueError, OSError):
+            pass  # a missing file is the drift gates' concern; the count still includes it
+    return len(found), size
+
+
+def human_touches(s):
+    """Every human decision of the run with what it was used for; a decision that released a blocker carries its reason."""
+    released = {digest_ref(row.get('resolution_ref')): row.get('reason') for m in s['modules'].values() for row in m.get('blocker_history', [])}
+    return [{'decision_id': did, 'module_id': d.get('module_id'), 'used_for': d.get('used_for') or 'unused',
+             'reason': released.get(digest_ref(d.get('human_source_ref')))} for did, d in sorted(s.get('decisions', {}).items())]
+
+
+def digest_ref(ref):
+    return (ref or {}).get('path'), (ref or {}).get('sha256')
+
+
+def build(s, events, resolve=None):
     per_module = {mid: Counter() for mid in s['modules']}
     global_ops = Counter()
     for e in events:
@@ -37,7 +69,10 @@ def build(s, events):
     rows = {}
     for mid, counts in per_module.items():
         m = s['modules'][mid]
-        rows[mid] = {'events': counts['events'], 'dispatches': counts['dispatches'],
+        documents, size = plan_volume(m.get('plan'), resolve)
+        rows[mid] = {'cases': len(m.get('case_ids', [])), 'tasks': len((m.get('plan') or {}).get('tasks', [])),
+                     'plan_documents': documents, 'plan_bytes': size,
+                     'events': counts['events'], 'dispatches': counts['dispatches'],
                      'context_receipts': counts['context_receipts'], 'acceptances': counts['acceptances'],
                      'human_decisions': human[mid], 'fix_rounds': m.get('total_fix_rounds', 0),
                      'local_fix_used': m.get('local_fix_used', 0), 'lean_leaf': bool(m.get('lean_leaf')),
@@ -49,4 +84,6 @@ def build(s, events):
                'card_dispatches', 'card_bytes_full', 'card_bytes_delivered')}
     totals['global_events'] = sum(global_ops.values())
     totals['audit_dispatches'] = global_ops['audit-assign']
-    return {'modules': rows, 'totals': totals}
+    touches = human_touches(s)
+    return {'modules': rows, 'totals': totals, 'human_touches': touches,
+            'human_by_purpose': dict(Counter(row['used_for'] for row in touches))}
