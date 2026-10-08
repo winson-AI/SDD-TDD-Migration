@@ -269,7 +269,7 @@ class WorkflowTests(unittest.TestCase):
         keys = {reading.key(row) for row in step['must_read']}
         fresh = {reading.key(row) for row in step['must_read_new']}
         self.assertLess(fresh, keys)
-        self.assertNotIn('AGENTS.md#四条红线', fresh)
+        self.assertIn('AGENTS.md#四条红线', fresh)  # the red lines are on every card, whatever the session already holds
         self.assertIn('Agents/fixer.md#', fresh)
         self.assertEqual(step['card_sha256'], reading.digest_card(step['must_read']))
         self.assign = plain
@@ -293,7 +293,8 @@ class WorkflowTests(unittest.TestCase):
         self.implementation()
         m = self.state()['modules']['M001']
         self.assertIn('S-MO', m['delivered_cards'])
-        self.assertEqual(m['card_load']['dispatches'], 1)
+        # The plan, the freeze and the dispatch were recorded for the instances that acted; the accept was reported.
+        self.assertEqual(m['card_load']['dispatches'], 4)
         self.assertEqual(m['card_load']['full'], m['card_load']['delivered'])
         a, r = self.make_test_result()
         self.submit(r, a)
@@ -306,7 +307,7 @@ class WorkflowTests(unittest.TestCase):
                                          'expected_revision': self.state()['modules']['M001']['revision'], 'operation': 'accept',
                                          'payload': {}, 'hint': {'session_id': 'S-MO'}})
         cost = self.state()['workflow_cost']
-        self.assertEqual(cost['modules']['M001']['card_dispatches'], 1)
+        self.assertEqual(cost['modules']['M001']['card_dispatches'], 5)
         self.assertEqual(cost['totals']['card_bytes_delivered'], cost['totals']['card_bytes_full'])
 
     def test_assign_accepts_the_request_level_hint_too(self):

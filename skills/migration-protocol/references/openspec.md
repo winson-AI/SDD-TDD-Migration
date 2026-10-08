@@ -35,6 +35,7 @@ scenario_trace 每行写 scenario_id 与 task_ids，assertions 由 Ledger 按设
 4. `status`、tasks 完成勾选、checklist 证据等运行字段不纳入语义冻结 hash；冻结的原始定义始终存在不可变 artifacts。动态视图可按已固化映射重定位文档链接及更新运行勾选，不得改变需求、设计和断言语义。验证时比较定义快照，不以可变文件整体 hash 误判失效。
 5. MO 独立核验完整规划与 checklist，以当前内容摘要绑定的 plan-review 冻结；仅未决问题、需求/验收/授权变化需要 Human 精确决定。Spec-Designer 不能自批。
 6. 每次编码/修复验证当前冻结引用与 assignment 输入一致。缺失/摘要不符停止，不得自行补成“已冻结”。
+7. 工件只在被接受时按内容规则判定：四维分析在登记时（叶子冻结对它的要求在该叶子首次冻结时），独立设计在验收时，计划在提交与冻结时。此后只读取：它或其引用文件漂移才拒收，后增规则只约束新提交。与当前规则的差异列入报告“规则欠账”，交统一 Auditor 评估，不是门禁。
 
 ## 变更控制
 
@@ -44,7 +45,7 @@ SDD 先规划后执行、边执行边调整；完整可执行即冻结，不预�
 
 ## TASK 局部重验
 
-MO plan-review 可附 [task-independence.json](../../../template/task-independence.json) 的 task_independence_ref，绑定 from_freeze_id/to_plan_hash、受影响/未变 TASK、全 TASK 读输入哈希/依赖及源行为、运行时和资源隔离证据。Ledger 检查 TASK 定义、写范围、读依赖、共享 PATH、未变需求和文件追溯；共享影响则全模块重验，过期或漏报变更拒收。没有证明不增加规划，只采用默认验证范围。SPEC/design 的语义独立性仍须 MO 审阅，hash 不证明语义。
+MO plan-review 可附 [task-independence.json](../../../template/task-independence.json) 的 task_independence_ref，绑定 from_freeze_id/to_plan_hash、受影响/未变 TASK、全 TASK 读输入哈希/依赖及源行为、运行时和资源隔离证据。Ledger 检查 TASK 定义、写范围、读依赖、共享 PATH、未变需求和文件追溯；共享影响则全模块重验，过期或漏报变更拒收；受影响 TASK 可为空（契约未动）。没有证明不增加规划，只采用默认验证范围。SPEC/design 的语义独立性仍须 MO 审阅，hash 不证明语义。
 
 局部更新只重开受影响 TASK；build/unit/static 总在新代码上重跑，automation/visual 重跑受影响及非 Green 路径。未影响成功保留原回执、test_run_id/执行基线，另记 validation_reuse 及有效基线；不可伪称新执行。保护代码/输入变化使复用失效，后续修改保留 TASK 回退全验；Red/Yellow 不能凭证明改 Green。统一 Auditor 保留审计权。
 

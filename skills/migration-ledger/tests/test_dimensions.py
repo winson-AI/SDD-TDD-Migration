@@ -168,7 +168,7 @@ class DimensionTests(unittest.TestCase):
             for row in a['dimensions']:
                 if row['dimension'] == 'Logic':
                     row['items'][0].update(target_strategy=strategy, **extra)
-            return dimensions.load(f.ref('ladder-' + strategy + str(extra) + '.json', a), 'M001')
+            return dimensions.judge(f.ref('ladder-' + strategy + str(extra) + '.json', a), 'M001')
 
         load_with('subclosure-port')                                   # pinned-SCM subclosure port ok
         load_with('capture-fixture', replaceable_boundary='repo:AuthRepository')  # fixture behind boundary ok
@@ -183,7 +183,7 @@ class DimensionTests(unittest.TestCase):
             if row['dimension'] == 'Logic':
                 row['items'][0]['semantic_model']['kind'] = 'ui-component-spec'
         with self.assertRaisesRegex(Rejected, 'kind does not match'):
-            dimensions.load(self.f.ref('bad-semantics.json', analysis), 'M001')
+            dimensions.judge(self.f.ref('bad-semantics.json', analysis), 'M001')
 
     def test_reused_resource_consumer_change_invalidates_accepted_evidence(self):
         f = self.f
@@ -247,7 +247,7 @@ class DimensionTests(unittest.TestCase):
     def test_na_requires_evidence_and_unknown_or_wrong_order_rejected(self):
         f = self.f
         data = self.analysis()
-        dimensions.load(f.ref('valid.json', data), 'M010')  # pure Logic is supported
+        dimensions.judge(f.ref('valid.json', data), 'M010')  # pure Logic is supported
         for change, message in (
             (lambda d: d['dimensions'].reverse(), 'order'),
             (lambda d: d['dimensions'][0].update(evidence_refs=[]), 'evidence'),
@@ -257,7 +257,7 @@ class DimensionTests(unittest.TestCase):
         ):
             bad = copy.deepcopy(data); change(bad)
             with self.subTest(message=message), self.assertRaisesRegex(Rejected, message):
-                dimensions.load(f.ref('bad.json', bad), 'M010')
+                dimensions.judge(f.ref('bad.json', bad), 'M010')
 
     def test_parent_applicable_cannot_disappear_or_cross_dimension(self):
         f = self.f

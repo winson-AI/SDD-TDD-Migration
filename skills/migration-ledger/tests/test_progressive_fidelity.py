@@ -43,9 +43,9 @@ class ProgressiveReadingTests(unittest.TestCase):
         rows = reading.card({}, m, {'role': 'implementer', 'operation': 'assign'})
         self.assertIn((reading.P + 'resource-transfer.md', 'API 与 URL 契约'), [(r['ref'], r['section']) for r in rows])
         held = reading.delivered(rows)
-        self.assertEqual(reading.fresh(rows, held), [])
+        self.assertEqual([row['ref'] for row in reading.fresh(rows, held)], ['AGENTS.md'])  # the red lines are on every card
         changed = copy.deepcopy(rows); changed[-1]['sha256'] = 'new-content'
-        self.assertEqual(reading.fresh(changed, held), [changed[-1]])
+        self.assertEqual(reading.fresh(changed, held)[1:], [changed[-1]])
         self.assertIn('template/api-inventory.json', reading.templates({}, m, {'role': 'spec-designer', 'operation': 'plan'}))
 
     def test_all_fact_triggers_fit_the_card_and_template_budgets(self):
@@ -96,7 +96,7 @@ class ApiContractTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaisesRegex(Rejected, 'omits a source obligation'):
                 api_contract.load(self.analysis(contract), self.items)
         contract = copy.deepcopy(self.contract); contract['target']['url'] = '/other'
-        with self.assertRaisesRegex(Rejected, 'exact method/URL changed'): api_contract.load(self.analysis(contract), self.items)
+        with self.assertRaisesRegex(Rejected, 'exact route changed'): api_contract.load(self.analysis(contract), self.items)
         with self.assertRaisesRegex(Rejected, 'ownership'): api_contract.load(self.analysis(), {})
 
     def test_api_requires_frozen_fixture_and_every_behavior_obligation(self):

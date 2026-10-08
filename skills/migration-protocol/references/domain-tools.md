@@ -90,7 +90,7 @@ execute_test 自动传 query/result 文件并保存正式回执，adapter 只重
 
 复制清单、参数表与 `resource-sync` 的规则见 [资源与参数的搬运](resource-transfer.md#文件资源按路径复制)；本节是清单之外逐项登记的资源。资源扫描对 GO/MO/Spec-Designer/Implementer/Fixer/Test-Runner/Auditor 开放，只读候选索引与源码；发现多个配置变体时 Spec 分别记录。转换仅允许 Implementer/Fixer（请求见 [resource-request.json](../../../template/resource-request.json)）：写入前校验活动 assignment、freeze、fencing token、模块与 task.scope.write_paths、dimension_trace 的任务所有权，以及冻结的 source_resource_ref/目标路径/accessor/消费者/策略。item 的源事实、闭包、变体与平台资源见 [精确性纪律](ui-fidelity.md#精确性纪律)。
 
-未知真实资源类型保留原始类型/hash，选 blocked 或带适配审查证据的 manual_exact；自动转换白名单不因此扩大。无法获取源文件时保留 blocked + blocked_reason，不伪造 source_resource_ref 或篡改 resource_kind。
+未知真实资源类型保留原始类型/hash，自动转换白名单不因此扩大。无法获取源文件时保留 blocked + blocked_reason，不伪造 source_resource_ref 或篡改 resource_kind。
 
 源目标 qualifier 不同（密度与平台版本不算）须冻结 configuration_mapping：source_qualifier、target_qualifier（代码路由用 code）、scope.configurations/reason 和 evidence_refs。限定 night 的模块可有据映射到 base；范围含多个配置时另给 consumer_condition.expression/consumers，多个源变体共用目标文件须给不同的真实消费者条件。条件的语义由 MO 审阅和测试验证；相同 qualifier 与 base 到代码常量的路由无需配置。
 

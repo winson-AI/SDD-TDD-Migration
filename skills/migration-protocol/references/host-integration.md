@@ -89,9 +89,9 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 **取卡。** reading.py render --root <run> (--module <id>|--global) 写 reports/reading/<card_sha256>.md，派发传路径。卡外 reading.py show --ref <文件> --section <小节>；操作矩阵支持 操作矩阵@<operation>。
 
-**回报。** hint{session_id,card_sha256,context_inputs} 报实际交付；assign 会话/卡也可用 payload。匹配游标才计协议卡，恢复/轮换见[渐进加载](runtime.md#渐进加载)。拒绝响应及 rejected-operation.json 带 read_hint。
+**回报。** 步骤的 card_new 是上一执行实例续用原上下文时只需读的小节（红线始终在内）；宿主不回报也按执行实例计。hint{session_id,card_sha256,context_inputs} 可另报实际交付，恢复/轮换见[渐进加载](runtime.md#渐进加载)。拒绝响应及 rejected-operation.json 带 read_hint。
 
-**机械步骤。** mechanical=true 的 accept（测试全绿）/assign（执行派发）用 `ledger.py advance --root <run> --module <id> --host-context <MO 身份>` 连续执行，逐步守卫；停在模型/人工步骤并写卡。worker 默认 `<role>-<module>`，`--worker <role>=<instance>` 可覆盖，有预检则沿用；先同会话 context-submit，被拒再交 MO。人工决定绑定游标 approval_subject_sha256（冻结/恢复/审计放行与处置）。
+**机械步骤。** mechanical=true 的 accept（测试全绿）/assign（执行派发）用 `ledger.py advance --root <run> --module <id> --host-context <MO 身份>` 连续执行，逐步守卫；停在模型/人工步骤并写卡，mechanical accept 不带卡。worker 默认 `<role>-<module>`，`--worker <role>=<instance>` 可覆盖，有预检则沿用；先同会话 context-submit，被拒再交 MO。人工决定绑定游标 approval_subject_sha256（冻结/恢复/审计放行与处置）。
 
 选择建议记 status.hint_adoption；冷恢复须满足版本/宿主回执守卫。
 

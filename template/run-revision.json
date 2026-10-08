@@ -11,7 +11,7 @@
     {
       "module_id": "M001",
       "action": "replan",
-      "reason": "{{evidence-for-replan-unchanged-or-runtime-only-reverify}}",
+      "reason": "{{evidence-for-replan-or-boundary-kept-revise-or-unchanged-or-runtime-only-reverify}}",
       "evidence_refs": [
         {
           "path": "{{absolute-staged-impact-evidence}}",

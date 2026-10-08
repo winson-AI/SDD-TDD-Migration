@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 
 from contracts import Rejected, file_ref, read_json, verify_plan
 from lean_tools import collect_ui_sources, resource_tool
+import dimensions
 import resource_fidelity as rf
 import ui_evidence
 import ui_fidelity
@@ -29,6 +30,7 @@ class ResourceScopeTests(unittest.TestCase):
     def freeze(self):
         module = self.f.module()
         state = {**self.f.state, 'legacy_root': str(self.n.android)}
+        dimensions.judge(module['plan']['dimension_analysis_ref'], module['module_id'])  # what registering it does
         ui_fidelity.freeze_gate(state, module)
         rf.freeze_gate(state, module)
 
@@ -260,16 +262,17 @@ class ResourceScopeTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'hash mismatch'):
             verify_plan(module['plan'], module)
 
-    def test_verify_plan_rechecks_ui_and_resource_source_baseline_agreement(self):
+    def test_ui_and_resource_source_baselines_must_agree_when_the_leaf_is_first_frozen(self):
         self.freeze()
         alternate = self.n.write('android/other/src/main/res/values/strings.xml',
             '<resources><string name="settings_title">Another valid source file</string></resources>')
         self.item['source_resource_ref'] = file_ref(alternate)
         module = self.f.module()
         module['plan'].update(module_id='M001', definitions=[], tasks=[])
-        # Both source refs remain real/current, so file hashes alone cannot expose the mismatch.
+        # Both source refs remain real/current, so file hashes alone cannot expose the mismatch: the first freeze judges it.
         with self.assertRaisesRegex(Rejected, 'different source baselines'):
-            verify_plan(module['plan'], module)
+            ui_fidelity.freeze_gate({**self.f.state, 'legacy_root': str(self.n.android)}, module)
+        verify_plan(module['plan'], module)  # once accepted, a plan is refused for drift only; this is rule debt
 
 
 if __name__ == '__main__':

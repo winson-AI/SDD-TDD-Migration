@@ -2,10 +2,13 @@
 from collections import Counter
 
 
-def summarize(rows, case_ids):
+def summarize(rows, case_ids, device_gaps=()):
     paths = [r for r in rows if r.get('path_id') and r['kind'] in ('automation', 'test')]
     # TASK membership is many-to-many; a shared PATH counts once in the host total.
     paths = list({(r['module_id'], r['path_id']): r for r in paths}.values())
+    visual = list({(r['module_id'], r['path_id']): r for r in rows if r.get('path_id') and r['kind'] == 'visual'}.values())
+    passed = lambda selected: sum(r['quality'] == 'green-passed' and not r['stale'] for r in selected)
+    device = [r for r in paths if r.get('on_device')]
     covered = {(r['module_id'], r['case_id']) for r in paths}
     gaps = sorted({(r['module_id'], r['case_id']) for r in rows} - covered)
     missing = sorted((set(case_ids) - {r['case_id'] for r in paths}) | {cid for _, cid in gaps})
@@ -34,7 +37,12 @@ def summarize(rows, case_ids):
             'missing_case_paths': missing, 'coverage_gaps': [{'module_id': mid, 'case_id': cid} for mid, cid in gaps],
             'coverage_complete': bool(total) and not missing,
             'definition_coverage_complete': bool(total) and not missing,
-            'validation_complete': bool(total) and not missing and completed + len(reused) == total,
+            'validation_complete': bool(total) and not missing and completed + len(reused) == total and not device_gaps,
+            # Where a path runs: on a device, inside a process, or as a comparison of the rendered screen.
+            'device_paths': len(device), 'device_passed_paths': passed(device),
+            'in_process_paths': total - len(device), 'in_process_passed_paths': passed(paths) - passed(device),
+            'visual_paths': len(visual), 'visual_passed_paths': passed(visual),
+            'device_gap_cases': sorted(set(device_gaps)),
             'attempt_coverage': executed / total if total else None,
             'completion_coverage': completed / total if total else None,
             'execution_coverage': executed / total if total else None,
@@ -44,15 +52,18 @@ def summarize(rows, case_ids):
 
 
 def build(state, rows):
-    result = summarize(rows, state['case_ids'])
+    import user_paths
+    gaps = {mid: set(user_paths.gaps(module.get('plan'))) for mid, module in state['modules'].items()}
+    result = summarize(rows, state['case_ids'], set().union(*gaps.values()) if gaps else ())
     result['modules'] = {}
     result['tasks'] = {}
     for mid, module in state['modules'].items():
         selected = [r for r in rows if r['module_id'] == mid]
-        result['modules'][mid] = summarize(selected, set(module['case_ids']) & set(state['case_ids']))
+        result['modules'][mid] = summarize(selected, set(module['case_ids']) & set(state['case_ids']), gaps[mid])
         for task in (module.get('plan') or {}).get('tasks', []):
             result['tasks'][mid + '/' + task['task_id']] = summarize(
-                [r for r in selected if task['task_id'] in r['task_ids']], set(task.get('case_ids', [])) & set(state['case_ids']))
+                [r for r in selected if task['task_id'] in r['task_ids']], set(task.get('case_ids', [])) & set(state['case_ids']),
+                gaps[mid].intersection(task.get('case_ids', [])))
     return result
 
 
@@ -67,6 +78,14 @@ def render(summary, cell):
         lines.append('| ' + ' | '.join(cell(x) for x in (name, row['required_paths'], row['current_executed_paths'],
                      row.get('completed_paths'), row.get('partial_paths'), row.get('completion_unknown_paths'), row.get('reused_passed_paths', 0),
                      row['passed_paths'], row['red_paths'], row['yellow_paths'], row['missing_case_paths'])) + ' |')
+    if 'device_paths' in summary:
+        lines += ['', '路径在哪里执行（成功 / 应测）。进程内路径只证明代码返回的结果，不证明用户在屏幕上看到的结果；'
+                  '设备缺口 CASE 是已声明没有设备或视觉路径的用户可见 CASE，为 Yellow 缺口，不计为完整验证。', '',
+                  '| 范围 | 设备路径 | 进程内路径 | 视觉路径 | 设备缺口 CASE |', '| --- | --- | --- | --- | --- |']
+        for name, row in [('宿主任务', summary), *summary['modules'].items(), *summary['tasks'].items()]:
+            lines.append('| ' + ' | '.join(cell(x) for x in (name, f"{row['device_passed_paths']} / {row['device_paths']}",
+                         f"{row['in_process_passed_paths']} / {row['in_process_paths']}",
+                         f"{row['visual_passed_paths']} / {row['visual_paths']}", row['device_gap_cases'])) + ' |')
     lines += ['', '成功路径：']
     for row in summary['successful_paths']:
         lines.append(f"- {cell(row['module_id'])} / {cell(row['path_id'])} · TASK={cell(row['task_ids'])} · "

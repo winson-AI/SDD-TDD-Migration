@@ -40,7 +40,7 @@ class PictureReportTests(unittest.TestCase):
         _, limitations, pictures = self.disclose(
             self.picture('copy', resource_strategy='exact_vector_xml'),
             self.picture('hand_drawn', image_check='hand-drawn'),
-            self.picture('gradient', deviation=DEVIATION),
+            self.picture('gradient', deviation=DEVIATION, copy_blocker='the target loads no gradient vector'),
             self.picture('gone', resource_strategy='blocked', blocked_reason='no converter'),
             self.picture('loader', resource_kind='remote-image', source_resource=None, source_signal='src:remote-image:ab12'),
             self.picture('spinner', resource_kind='animated-vector', resource_strategy='blocked', blocked_reason='needs an animator port'),
@@ -53,6 +53,7 @@ class PictureReportTests(unittest.TestCase):
         self.assertEqual({v['item_id'] for v in limitations if v['kind'] == 'picture-replacement'}, {'gradient', 'gone', 'spinner'})
         reasons = {v['item_id']: v['reason'] for v in limitations}
         self.assertIn('redraw', reasons['gradient']); self.assertIn('the vector uses a gradient', reasons['gradient'])
+        self.assertIn('未按路径复制的原因：the target loads no gradient vector', reasons['gradient'])
         self.assertIn('no converter', reasons['gone'])
 
     def test_a_replacement_is_verified_only_by_a_current_green_executed_check(self):
@@ -83,8 +84,10 @@ class PictureReportTests(unittest.TestCase):
         state = f.state()
         state['modules']['M001']['plan']['dimension_analysis_ref'] = f.ref('disclosure.json', self.analysis(
             self.picture('gradient', deviation=DEVIATION), self.picture('copy', resource_strategy='exact_vector_xml')))
+        state['target_resources'] = {'declined': {'copy': 'the target bundles no files'}}
         report = migration_report.build(f.root, state, state['last_sequence'])
         self.assertEqual(report['picture_fidelity']['counts'], {'approved-deviation': 1, 'exact': 1})
+        self.assertIn('项目声明目标不接收 target_resources.copy：the target bundles no files', migration_report.render(report))
         self.assertEqual(report['report_stage'], 'completed')  # a disclosure never changes the acceptance
         markdown = migration_report.render(report)
         self.assertIn('| M001 / gradient | @drawable/gradient | vector / manual_exact | approved-deviation |', markdown)

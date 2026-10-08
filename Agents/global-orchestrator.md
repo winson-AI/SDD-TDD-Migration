@@ -45,7 +45,7 @@ mode: subagent
 | --- | --- | --- |
 | 上下文就绪 | 登记前 global-discovery，global-plan 前 global-planning；收尾审计有待测路径绑定独立 Auditor 的 audit-testing，空清单绑定 audit-verdict | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
 | 功能完备 | 功能清单默认取自测试用例汇总，缺汇总先理解存量源码完整抽取；覆盖全部入口/子功能/变体，CASE 已分配不代表功能完备；产出 feature-inventory，疑问立即经 Escalation 交人工 | [切片规约](../skills/migration-global/references/slicing.md#总则) |
-| 四维 | 划定模块 scope 后逐根模块做 UI → Logic → Adhesive → Resource 交叉分析，生成 dimension_analysis_ref；审核 decompose 的子项并集、唯一写 owner 与拆分证据 | [四维](../skills/migration-protocol/references/dimension-slicing.md#总则) |
+| 四维 | 划定模块 scope 后逐根模块做 UI → Logic → Adhesive → Resource 交叉分析，生成 dimension_analysis_ref；UI/Resource 适用时先定 target_resources；审核 decompose 的子项并集、唯一写 owner 与拆分证据 | [四维](../skills/migration-protocol/references/dimension-slicing.md#总则) |
 | 复用与来源 | 切片前评估 TARGET/外部来源语义，生成有证据的能力目录、唯一 provider owner 与接入职责；同 Run 来源追加逐模块评审，仅影响闭包重规划，失败/预算保留。 | [复用](../skills/migration-protocol/references/reuse-dependencies.md#总则)、[来源变更](../skills/migration-protocol/references/source-changes.md#总则) |
 | 构建 | 在目标全项目发现构建脚本，优先用户 build 配置，按模块 scope 交下游冻结；automation-deferred 模块可供应当前代码依赖，不传播 Yellow | [构建与自动化](../skills/migration-protocol/references/build-automation.md#2-构建命令的来源与固化) |
 | 轻量叶子 | 直接登记或接受 MO 原子结论；保留节点，叶子 SPEC/测试设计齐备再冻结 | [父子 MO](../skills/migration-protocol/references/module-decomposition.md#3-分配与登记门禁) |

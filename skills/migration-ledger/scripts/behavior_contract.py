@@ -9,7 +9,7 @@ import re
 import sys
 sys.dont_write_bytecode = True
 
-from contracts import check_ref, digest, keyed, nonempty, require
+from contracts import check_ref, digest, intact, keyed, nonempty, require
 
 
 def review(module, value):
@@ -39,17 +39,15 @@ def review(module, value):
 
 
 def global_review(state):
-    """Full allocation checks only at global acceptance, never during sibling dispatch."""
+    """What holds across the registered allocations. Each allocation was judged when it was registered and is only read here."""
     if not state.get('behavior_contract_required'):
         return
     modules = {**state.get('module_groups', {}), **state['modules']}
-    verification_partition(list(state['modules'].values()))
-    for module in modules.values(): verification(module)
+    distinct(list(state['modules'].values()))
     owners = {}
-    for module in modules.values():
-        value = module.get('behavior_review')
-        review(module, value)
-        for row in value['shared_capabilities']:
+    for mid, module in modules.items():
+        intact(lambda: (review(module, module.get('behavior_review')), mid in state['modules'] and verification(module)))
+        for row in (module.get('behavior_review') or {}).get('shared_capabilities') or []:
             cid, owner = row['capability_id'], row['owner_module_id']
             require(owner in modules and set(row['consumer_module_ids']) <= set(modules), 'shared capability unknown owner/consumer')
             consumer_cases = {cid for mid in row['consumer_module_ids'] for cid in modules[mid]['case_ids']}
@@ -86,37 +84,92 @@ def verification(module):
     return value
 
 
-def verification_partition(modules):
+def accepts(module):
+    """The cases a slice demonstrates from their entry to their observable result. A case it holds without accepting is
+    one it contributes to and another slice demonstrates. A module registered before splits named this accepts what it holds."""
+    return module.get('acceptance_case_ids', module.get('case_ids', []))
+
+
+def assign(children, plan):
+    """Give each proposed child the cases its split says it accepts, so the rest of the proposal is judged with them."""
+    mapping = plan.get('case_acceptance')
+    if isinstance(mapping, dict):
+        for child in children:
+            child['acceptance_case_ids'] = sorted(cid for cid, owner in mapping.items() if owner == child.get('module_id'))
+
+
+def slicing(modules, graph):
+    """The shape of one split: how many slices accept a case, how long the longest chain is, how many must wait."""
+    ids = {module['module_id'] for module in modules}
+    depth = {}
+
+    def chain(mid):
+        if mid not in depth:
+            depth[mid] = 1 + max([chain(dep) for dep in graph.get(mid, []) if dep in ids] or [0])
+        return depth[mid]
+    owners = {}
+    for module in modules:
+        chain(module['module_id'])
+        for cid in accepts(module):
+            owners.setdefault(cid, []).append(module['module_id'])
+    waiting = 0
+    for module in modules:
+        stages = {row.get('module_id'): row.get('required_stage') for row in
+                  ((module.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs') or []}
+        waiting += any(dep in ids and stages.get(dep) != 'implemented' for dep in graph.get(module['module_id'], []))
+    return {'slices': len(modules), 'supporting': sorted(m['module_id'] for m in modules if not accepts(m)),
+            'shared_cases': sorted(cid for cid, mids in owners.items() if len(mids) > 1), 'accepted_cases': sorted(owners),
+            'chain_depth': max(depth.values(), default=0), 'waiting': waiting}
+
+
+def independence(parent, children, graph, plan, taken=()):
+    """One slice accepts a case, a slice that accepts none says why it stands alone, and a chain of slices, or a split
+    where most slices wait for another, is argued for. `taken` are the cases slices outside this split accept."""
+    mapping = plan.get('case_acceptance')
+    require(isinstance(mapping, dict), 'case_acceptance required: for each case the parent accepts, the one slice that accepts it')
+    held = {child['module_id']: set(child['case_ids']) for child in children}
+    require(set(mapping) == set(accepts(parent)), 'case_acceptance names exactly the cases the parent accepts: '
+            + ', '.join(sorted(set(mapping) ^ set(accepts(parent)))[:8]))
+    require(all(cid in held.get(owner, ()) for cid, owner in mapping.items()), 'a case is accepted by a slice of this split that holds it')
+    require(not set(mapping).intersection(taken), 'cases a slice outside this split already accepts: '
+            + ', '.join(sorted(set(mapping).intersection(taken))[:8]))
+    shape = slicing(children, graph)
+    reasons = plan.get('supporting_slices', {})
+    require(isinstance(reasons, dict) and set(reasons) == set(shape['supporting'])
+            and all(isinstance(reason, str) and reason.strip() for reason in reasons.values()),
+            'a slice that accepts no case is a supporting slice; state for each why it cannot live inside the slices that use it '
+            '(supporting_slices): ' + ', '.join(shape['supporting']))
+    if shape['chain_depth'] >= 3 or 2 * shape['waiting'] > shape['slices']:
+        review = plan.get('independence_review')
+        require(isinstance(review, dict) and isinstance(review.get('rationale'), str) and review['rationale'].strip(),
+                'slices form a chain of %d and %d of %d wait for another slice to be verified; cut by behavior, or state in '
+                'independence_review why they cannot be' % (shape['chain_depth'], shape['waiting'], shape['slices']))
+        for ref in nonempty(review.get('evidence_refs'), 'independence review evidence'):
+            check_ref(ref)
+    return shape
+
+
+def slices(state):
+    """The shape of every registered split, and of the roots, for the report and the rule-debt check."""
+    rows = []
+    graph = {mid: m.get('dependencies', []) for mid, m in state['modules'].items()}
+    for gid, group in state.get('module_groups', {}).items():
+        children = [state['modules'][cid] for cid in group.get('children', []) if cid in state['modules']]
+        rows.append({'parent_module_id': gid, **slicing(children, graph)})
+    return rows
+
+
+def distinct(modules):
+    """Two slices with the same entry and the same observation are one slice, whatever their identifiers say."""
     seen = set()
     for module in modules:
-        value = verification(module)
-        signature = (module['behavior_review']['entry'], value['independent_observation'])
+        value = module.get('behavior_review') or {}
+        boundary = value.get('verification')
+        if not boundary:
+            continue
+        signature = (value.get('entry'), boundary.get('independent_observation'))
         require(signature not in seen, 'duplicate verification boundary; reslice or declare a distinct observation')
         seen.add(signature)
-
-
-def verification_exempt(plan, module):
-    """ESC-003-A narrow exemption, human-approved
-    <run>/staging/host/decisions/ESC-003-A-answer.md@ebbdb108: the verification boundary is
-    allocation data no leaf can author; two machine-decidable anchors keep an already-accepted
-    artifact under the contract it was authored under —
-    (i) same-bytes resubmission: digest(plan) equals the module's registered plan_hash;
-    (ii) first submission bound to a pre-contract accepted design: the plan's paths byte-equal
-    the paths of the hash-registered accepted design (live check_ref) and no PATH of that design
-    carries fixture_contract_ref. A design accepted under the fixture contract, a drifted
-    registration, or any plan whose paths differ answers to verification() in full."""
-    if module.get('plan_hash') and digest(plan) == module['plan_hash']:
-        return True
-    ref = (module.get('accepted_test_design') or {}).get('result_ref')
-    if not ref:
-        return False
-    from contracts import Rejected, read_json
-    try:
-        paths = read_json(check_ref(ref)).get('paths')
-    except (Rejected, OSError, KeyError, TypeError, ValueError):
-        return False  # a drifted registration exempts nothing; the boundary applies
-    return (isinstance(paths, list) and bool(paths) and paths == plan.get('paths')
-            and not any(path.get('fixture_contract_ref') for path in paths))
 
 
 def scenario_index(plan):
@@ -220,21 +273,6 @@ def validate_plan(plan, module):
     require(type(enabled) is bool, 'behavior_contract_required must be boolean')
     if not enabled:
         return
-    # ESC-002-A narrow exemption, human-approved
-    # <run>/staging/host/decisions/ESC-002-A-answer.md@3fd331c0: a plan whose bytes the Ledger
-    # already holds (digest == the module's registered plan_hash), or whose paths are byte-equal
-    # to the hash-registered accepted design that itself predates scenario_ids, keeps the
-    # scenario_trace contract it was authored under; every other plan answers to the derived form.
-    exempt = bool(module.get('plan_hash')) and digest(plan) == module['plan_hash']
-    if not exempt and (module.get('accepted_test_design') or {}).get('result_ref'):
-        from contracts import Rejected, read_json
-        try:
-            design = read_json(check_ref(module['accepted_test_design']['result_ref']))
-            exempt = design.get('paths') == plan.get('paths') and not any(
-                assertion.get('scenario_ids') for path in design.get('paths') or []
-                for assertion in path.get('expected_assertions', []))
-        except (Rejected, OSError, KeyError, TypeError, ValueError):
-            exempt = False  # a drifted registration exempts nothing; the new contract applies
     review(module, plan.get('source_closure'))  # the leaf's source closure is its behavior review
     index = scenario_index(plan)
     require(plan.get('scenario_index') in (None, index), 'scenario_index is derived from the OpenSpec definitions; omit it')
@@ -255,24 +293,15 @@ def validate_plan(plan, module):
         linked_paths = {pid for tid in tids for pid in tasks[tid]['path_ids']}
         derived = sorted(found.get(sid, []))
         listed = trace.get('assertions')
-        if exempt:
-            # ESC-002-A ...@3fd331c0: the exempt plan's rows cite the assertions themselves;
-            # each citation is held to the pre-6034468 checks, including naming a real assertion.
-            rows = nonempty(listed, 'scenario behavior assertions')
-        else:
-            require(listed is None or sorted((a.get('path_id'), a.get('assertion_id')) for a in listed) == derived,
-                    'scenario_trace assertions of ' + sid + ' differ from the assertions that name it; omit them')
-            require(derived, 'no assertion names scenario ' + sid + ' (scenario_ids on the designed assertions)')
-            rows = [{'path_id': pid, 'assertion_id': aid} for pid, aid in derived]
-        for item in rows:
-            pid, aid = item.get('path_id'), item.get('assertion_id')
+        require(listed is None or sorted((a.get('path_id'), a.get('assertion_id')) for a in listed) == derived,
+                'scenario_trace assertions of ' + sid + ' differ from the assertions that name it; omit them')
+        require(derived, 'no assertion names scenario ' + sid + ' (scenario_ids on the designed assertions)')
+        for pid, aid in derived:
             require(pid in linked_paths and pid in paths, 'scenario assertion outside task paths')
             path = paths[pid]
             require(path.get('kind', 'automation') in BEHAVIOR_KINDS, 'build/static cannot prove scenario behavior')
             require(rid == path.get('requirement_id') or rid in path.get('requirement_ids', []), 'scenario path/requirement mismatch')
             require(path['case_id'] in module['case_ids'], 'scenario case outside module')
-            if exempt:
-                require(aid in {a['assertion_id'] for a in path['expected_assertions']}, 'unknown scenario assertion')
             covered_assertions.add((pid, aid))
     require(covered_tasks == set(tasks), 'every task must contribute to a scenario, including supporting tasks')
     required = {(p['path_id'], a['assertion_id']) for p in paths.values()

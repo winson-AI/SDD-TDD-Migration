@@ -23,9 +23,9 @@
   sources/<sha256>.*             # 用户输入来源的副本
   .context.lock                  # 单写者文件锁
   runs/<run_id>.json              # 不可变位置索引，不记录模块状态
-  experience/                    # 跨运行经验沉淀：抽象规划/边界经验与复用模式
-    lessons.json                 # 跨 run 经验集合（切分教训、边界冲突、修复模式）
-    retrospect.jsonl             # 历史运行回顾流水（复盘摘要）
+  experience/                    # 经验库
+    lessons.json                 # 各 run 的经验块
+    retrospect.jsonl             # 采集回执流水
 <workspace_root>/.sdd-runs/<run_id>/
   context/snapshot.json           # 本轮冻结上下文
   context/files/<sha256>.*        # 本轮架构、规则、来源等证据副本
@@ -124,6 +124,6 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 ## 跨运行经验沉淀与复用
 
-宿主仅新业务任务启动新 run，同任务调整经 `realloc-request` / `redecompose` 向上追溯重规划。不同 run 间分析/切分经验在项目层抽象复用：
-1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察；失败为 pending，可重试。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 Ledger retrospect 或 run-review 的 lessons_ref 提交；harvest 只投影，不改业务状态。
+跨 run 的分析/切分经验只经经验库抽象复用，不手工拷入新 Run：
+1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察（切分/边界调整、重规划、修复模式、阻塞及解除依据、一次冻结改交计划或同因被拒达三次）；失败为 pending，可重试。配置 `experience_root`（绝对目录）则多工作区共用一库，块名 `<project_id>/<run_id>`。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 Ledger retrospect 或 run-review 的 lessons_ref 提交；harvest 只投影，不改业务状态。
 2. **规划指导**：prepare 仅固化完整抽象经验，原始观察留存供复盘，不臆造根因。本 Run 的不可变 history_refs 纳入通用及关联叶子经验，预检绑定版本；失败/未验证策略辅助避错，已验证模式也不替代当前冻结/测试。

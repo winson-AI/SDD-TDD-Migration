@@ -191,7 +191,7 @@ class ControlPolicyTests(unittest.TestCase):
         f = test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
         f.root_scope('project'); state = f.state()
         parent = state['modules']['M010']; parent['dependencies'] = ['M020']
-        provider = copy.deepcopy(parent); provider.update(module_id='M020', dependencies=[], decomposition_required=False)
+        provider = copy.deepcopy(parent); provider.update(module_id='M020', dependencies=[], decomposition_required=False, acceptance_case_ids=[])
         state['modules']['M020'] = provider
         proposal = f.proposal(dependencies={'M001': ['M020']})
         for child in proposal['children']: child['behavior_review'] = behavior_review(f, child)
@@ -202,7 +202,7 @@ class ControlPolicyTests(unittest.TestCase):
         f = test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
         f.root_scope('project'); state = f.state()
         parent = state['modules']['M010']
-        consumer = copy.deepcopy(parent); consumer.update(module_id='M030', dependencies=['M010'], decomposition_required=False)
+        consumer = copy.deepcopy(parent); consumer.update(module_id='M030', dependencies=['M010'], decomposition_required=False, acceptance_case_ids=[])
         consumer['behavior_review'] = behavior_review(f, consumer); state['modules']['M030'] = consumer
         proposal = f.proposal()
         for child in proposal['children']: child['behavior_review'] = behavior_review(f, child)
@@ -226,9 +226,9 @@ class ControlPolicyTests(unittest.TestCase):
         m = copy.deepcopy(self.f.state()['modules']['M001']); peer = copy.deepcopy(m)
         peer['module_id'] = 'M002'; peer['behavior_review']['verification']['acceptance_owner'] = 'M002'
         with self.assertRaisesRegex(Rejected, 'duplicate verification boundary'):
-            behavior_contract.verification_partition([m, peer])
+            behavior_contract.distinct([m, peer])
         peer['behavior_review']['verification']['independent_observation'] = 'Separate observable history result'
-        behavior_contract.verification_partition([m, peer])
+        behavior_contract.distinct([m, peer])
 
     def test_whole_goal_audit_cannot_omit_an_original_requirement(self):
         self.f.finish_module(); f = self.f

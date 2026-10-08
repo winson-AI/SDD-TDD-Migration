@@ -11,6 +11,7 @@ import parameter_file
 import resource_copy
 import resource_fidelity
 import ui_fidelity
+import user_paths
 import workflow_cost
 
 
@@ -48,6 +49,8 @@ def picture(mid, item, analysis_ref, carriers, rows):
     if state == 'non-exact':
         status, reason = (('verified', '目标屏幕上的节点图像已与存量资源的渲染参考比对，在容差内一致') if measured else
                           ('not-verified', '图像检查所在视觉路径未在当前基线通过' if check else '手工替换的图片没有图像检查，也没有获批偏差'))
+    if item.get('copy_blocker'):
+        reason += '；未按路径复制的原因：' + item['copy_blocker']
     return {'module_id': mid, 'item_id': item.get('item_id'), 'source': item.get('source_resource') or item.get('source_signal'),
             'resource_kind': item.get('resource_kind'), 'strategy': item.get('resource_strategy'), 'state': state, 'status': status,
             'reason': reason, 'image_check': check, 'path_ids': [r['path_id'] for r in paths],
@@ -56,6 +59,10 @@ def picture(mid, item, analysis_ref, carriers, rows):
 
 def fidelity(s, rows, ref_check):
     """Disclose proof boundaries without changing business acceptance or scheduling."""
+    device_gaps = [{'module_id': mid, 'item_id': None, 'kind': 'device-path-gap', 'case_ids': [cid],
+                    'reason': f"用户可见 CASE {cid} 没有设备或视觉路径（Yellow 缺口，未计为完整验证）：{gap.get('reason')}",
+                    'evidence_refs': refs([gap.get('evidence_refs')])}
+                   for mid, m in sorted(s['modules'].items()) for cid, gap in sorted(user_paths.gaps(m.get('plan')).items())]
     visual, limitations, pictures, copied, parameters, checks, conditions = [], [], [], 0, {}, {}, []
     for mid, module in s['modules'].items():
         plan = module.get('plan') or {}
@@ -130,10 +137,12 @@ def fidelity(s, rows, ref_check):
     limitations[:0] = [{**v, 'kind': 'visual-coverage'} for v in visual if v['status'] in ('unknown', 'not-verified')]
     limitations += [{**c, 'kind': 'fidelity-condition', 'reason': c['condition'] + ': current assertions not verified'}
                     for c in conditions if c['status'] == 'not-verified']
+    limitations += device_gaps
     limitations += [{'module_id': v['module_id'], 'item_id': v['item_id'], 'kind': 'picture-replacement',
                      'reason': f"图片 {v['source']} 与存量不是精确复制（{v['status']}）：{v['reason']}", 'evidence_refs': v['evidence_refs']}
                     for v in pictures if v['status'] not in ('exact', 'verified', 'reviewed')]
     return visual, limitations, {'counts': dict(Counter(v['status'] for v in pictures)), 'copied': copied, 'parameters': parameters, 'checks': checks,
+                                 'declined': dict((s.get('target_resources') or {}).get('declined', {})),
                                  'items': [v for v in pictures if v['status'] != 'exact'], 'conditions': conditions}
 
 
@@ -196,6 +205,7 @@ def build(root, s, sequence, ref_check=check_ref):
                      'path_id': pid, 'name': (path or {}).get('name', pid or cid), 'kind': (path or {}).get('kind', 'test'),
                      'task_ids': [t['task_id'] for t in ((m or {}).get('plan') or {}).get('tasks', []) if pid in t.get('path_ids', [])],
                      'platform': (path or {}).get('platform'), 'parameters': copy.deepcopy((path or {}).get('parameters', {})),
+                     'on_device': user_paths.on_device(path or {}),
                      'flaky': bool(record.get('flaky')), 'execution_status': record.get('execution_status'),
                      'coverage': (path or {}).get('coverage'),
                      'quality': q, 'recorded_quality': record.get('quality'),
@@ -243,8 +253,11 @@ def build(root, s, sequence, ref_check=check_ref):
              'awaiting-human' if batch.get('status') == 'awaiting-human' else 'in-progress')
     visual, limitations, pictures = fidelity(s, rows, ref_check)
     import automation_report
+    import behavior_contract
+    import rule_debt
     import run_changes
-    return {'schema_version': 1, 'run_id': s['run_id'], 'sequence': sequence, 'report_stage': stage,
+    return {'schema_version': 1, 'run_id': s['run_id'], 'sequence': sequence, 'report_stage': stage, 'rule_debt': rule_debt.collect(s),
+            'slicing': behavior_contract.slices(s),
             'quality': quality([s.get('quality', 'yellow-blocked'), *[c['quality'] for c in cases]]),
             'entry_mode': s.get('entry_mode', 'project'), 'single_module_id': s.get('single_module_id'),
             'legacy_root': s['legacy_root'], 'target_root': s['target_root'],
@@ -257,7 +270,7 @@ def build(root, s, sequence, ref_check=check_ref):
             'visual_coverage': visual, 'fidelity_limitations': limitations,
             'fidelity_conditions': pictures.pop('conditions'), 'picture_fidelity': pictures,
             'human_report': copy.deepcopy(batch.get('human_report')),
-            'workflow_cost': workflow_cost.build(s, workflow_cost.journal(root)),
+            'workflow_cost': workflow_cost.build(s, workflow_cost.journal(root), ref_check),
             'modules': {mid: {'phase': m.get('phase'), 'quality': m.get('effective_quality', m.get('quality')),
                               'parent_module_id': m.get('parent_module_id'), 'dependencies': m.get('dependencies', [])}
                         for mid, m in s.get('modules', {}).items()},
@@ -333,6 +346,8 @@ def render(report):
     pictures = report.get('picture_fidelity') or {'counts': {}, 'items': []}
     if pictures.get('copied'):
         text += ['', f"按路径复制到目标的文件资源：{pictures['copied']} 个（验收时逐个与存量文件比对）。"]
+    for part, why in sorted((pictures.get('declined') or {}).items()):
+        text += ['', f"项目声明目标不接收 target_resources.{part}：{cell(why)}；对应资源逐项登记。"]
     for mid, row in sorted((pictures.get('checks') or {}).items()):
         text += ['', f"{cell(mid)}：节点显示的图片 {row['uses']} 处，其中 {row['checked']} 处有图像检查，{row['waived']} 处经豁免。"]
     if pictures.get('parameters'):
@@ -366,11 +381,30 @@ def render(report):
             text += [f"- {cell(gap['module_id'])} · REQ={cell(review['requirement_ids'])} · CASE={cell(review['case_ids'])} · TASK={cell(review['task_ids'])}：{cell(review['goal'])}",
                      f"  - 核验：{cell(review['verification']['summary'])}；owner={cell(gap['owner'])}；next={cell(gap['next_action'])}",
                      f"  - 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}"]
+    if report.get('slicing'):
+        text += ['', '## 切片独立性', '', '一条用例由一个切片验收；不验收用例的是支撑切片。链长是最长依赖链上的切片数，等待数是须等另一切片验证完成才能开工的切片数。', '',
+                 '| 父模块 | 切片 | 支撑切片 | 多切片验收的用例 | 链长 | 等待 |', '| --- | --- | --- | --- | --- | --- |',
+                 *['| ' + ' | '.join(cell(value) for value in (row['parent_module_id'], row['slices'], row['supporting'] or '—',
+                   row['shared_cases'] or '—', row['chain_depth'], row['waiting'])) + ' |' for row in report['slicing']]]
+    if report.get('rule_debt'):
+        text += ['', '## 规则欠账', '', '以下工件按接受时的规则已被接受，运行不再重判；按当前规则重判会被拒绝。交统一 Auditor 评估，不是门禁。', '',
+                 '| 模块 | 工件 | 当前规则的拒绝原因 |', '| --- | --- | --- |',
+                 *['| ' + ' | '.join(cell(row[key]) for key in ('module_id', 'artifact', 'reason')) + ' |' for row in report['rule_debt']]]
     cost = report.get('workflow_cost') or {'modules': {}, 'totals': {}}
     text += ['', '## 流程成本', '', f"合计：{cell(cost['totals'])}", '',
              '| 模块 | 事件 | 派发 | 上下文回执 | 验收 | 人工决定 | 修复轮次 | 轻量叶子 | 阅读卡字节（完整/实际交付） |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
              *[f"| {cell(mid)} | {r['events']} | {r['dispatches']} | {r['context_receipts']} | {r['acceptances']} | "
                f"{r['human_decisions']} | {r['fix_rounds']} | {'是' if r['lean_leaf'] else '否'} | {r['card_bytes_full']} / {r['card_bytes_delivered']} |" for mid, r in cost['modules'].items()]]
+    if any('plan_documents' in r for r in cost['modules'].values()):
+        text += ['', '规划体量（冻结计划所依据的文件数与字节，对照叶子的 CASE / TASK 数；用于发现小叶子的过度规划，不是门禁）：', '',
+                 '| 模块 | CASE | TASK | 规划文件 | 字节 |', '| --- | --- | --- | --- | --- |',
+                 *[f"| {cell(mid)} | {r['cases']} | {r['tasks']} | {r['plan_documents']} | {r['plan_bytes']} |"
+                   for mid, r in cost['modules'].items() if 'plan_documents' in r]]
+    if cost.get('human_touches'):
+        text += ['', f"人工介入（按用途）：{cell(cost['human_by_purpose'])}", '',
+                 '| 决定 | 模块 | 用途 | 原因 |', '| --- | --- | --- | --- |',
+                 *[f"| {cell(row['decision_id'])} | {cell(row['module_id'] or '全局')} | {cell(row['used_for'])} | {cell(row['reason'] or '—')} |"
+                   for row in cost['human_touches']]]
     text += ['', '## 路径明细', '', '| CASE-ID | 模块 / 父 MO | PATH / Name | 类型 | 状态 | 曾执行 / 本次执行 / stale | test_run |', '| --- | --- | --- | --- | --- | --- | --- |']
     for r in report['paths']:
         text.append('| ' + ' | '.join(cell(v) for v in (r['case_id'], f"{r['module_id']} / {r['parent_mo_name'] or '—'}", f"{r['path_id'] or '—'} / {r['name']}",

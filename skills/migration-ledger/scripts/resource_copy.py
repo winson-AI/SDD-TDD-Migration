@@ -163,9 +163,12 @@ def rows(analysis, resolve=check_ref):
 def freeze_check(s, analysis):
     """The plan a Spec names is the one its evidence and the project's convention give, row for row."""
     plan = load(analysis)
-    if plan is None:
-        return
     rules = (s.get('target_resources') or {}).get('copy')
+    if plan is None:
+        # A stated convention is used: what the target loads as it is is copied, not authored item by item.
+        require(not rules or not derive(analysis, rules)[0]['rows'],
+                'the project states target_resources.copy: a module whose UI uses files the target loads as they are names its copy_plan_ref')
+        return
     require(rules, 'a copy plan needs the project to state target_resources.copy')
     expected, _ = derive(analysis, rules)
     require(plan.get('convention') == expected['convention'], 'copy plan was derived under another target resource convention')

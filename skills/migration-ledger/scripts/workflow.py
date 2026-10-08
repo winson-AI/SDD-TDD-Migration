@@ -4,7 +4,7 @@ import re
 import test_validation as tv
 import dimensions
 
-from contracts import check_ref, digest, keyed, nonempty, read_json, require, baseline, validate_result, verify_plan
+from contracts import check_ref, digest, intact, keyed, nonempty, read_json, require, baseline, validate_result, verify_plan
 
 EXTERNAL = {'dependency', 'environment', 'tooling', 'external', 'peripheral', 'human'}
 OPERATIONS = {'global-plan', 'audit-defer', 'audit-recover'}
@@ -57,8 +57,8 @@ def runtime_allocations(s, module_id):
         require(not module.get('realloc_request'), 'resolve upstream allocation request before execution')
         dimensions.allocation(s, module)
         if s.get('behavior_contract_required'):
-            import behavior_contract
-            behavior_contract.review(module, module.get('behavior_review'))
+            import behavior_contract  # judged when the allocation was registered; here only drift of what it cites
+            intact(lambda: behavior_contract.review(module, module.get('behavior_review')))
         parent = module.get('parent_module_id')
         if parent:
             pending.append(parent)

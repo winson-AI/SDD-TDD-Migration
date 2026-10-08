@@ -44,7 +44,13 @@ class DecompositionTests(unittest.TestCase):
                     role='global-orchestrator', module=None)
 
     def proposal(self, parent='M010', ids=('M001', 'M002'), dependencies=None):
-        return {'parent_module_id': parent, 'rationale': 'independent functional behaviors and coverage', 'children': [
+        import behavior_contract
+        state = self.state()
+        held = state['modules'].get(parent) or state.get('module_groups', {}).get(parent) or {'case_ids': ['C1']}
+        accepted = behavior_contract.accepts(held)  # the first slice accepts what the parent accepts; the others support it
+        return {'parent_module_id': parent, 'rationale': 'independent functional behaviors and coverage',
+                'case_acceptance': {cid: ids[0] for cid in accepted},
+                'supporting_slices': {mid: 'a provider the accepting slice uses' for mid in (ids[1:] if accepted else ids)}, 'children': [
                     {'module_id': mid, 'name': 'subfunction-' + mid, 'case_ids': ['C1'],
                      'write_paths': [str(self.target / ('m1' if mid == 'M001' else 'm2' if mid == 'M002' else 'm1/nested'))],
                      'dependencies': (dependencies or {}).get(mid, []),

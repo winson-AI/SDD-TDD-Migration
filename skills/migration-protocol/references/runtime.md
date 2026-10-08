@@ -56,6 +56,6 @@ assign（审计为 audit-assign / audit-test-assign）被接受后，宿主用�
 
 未确认根因/重复失败才加载增强小节。lesson_candidates 最多 5 条，同分优先失败经验；模块按范围/四维/根因检索，GO 切片及上游修订按当前目标/功能检索。核适用后读正文；规划历史默认最近 5 条和总数，完整记录沿 history_refs 读取。
 
-hint.context_inputs=[{kind,ref}] 仅报实际交付的 spec/source/log/history/tool/fixture；核 hash 后按内容去重为 input_bytes，重复交付另计 input_delivered_bytes/input_delivery_count。context_load/session_rotate 统计已报材料，非 token 或宿主完整上下文；不授权读取。日志/工具输出先存工件，按需交付。
+hint.context_inputs=[{kind,ref}] 报实际交付的 spec/source/log/history/tool/fixture，核 hash 去重计 input_bytes；context_load/session_rotate 只统计已报材料，不授权读取。日志/工具输出先存工件，按需交付。
 
 render --resumed 不清除旧上下文；Host 按[会话交接](host-integration.md#会话交接)创建同 Run 独立会话并恢复。轮换不改任务、冻结、质量或预算。

@@ -1,10 +1,14 @@
 """Evidence-backed UI/Logic/Adhesive/Resource allocation and task coverage.
 
 Structural gates only: agents still review semantic fidelity and completeness.
+
+An analysis is judged once, when the Ledger registers it (`judge`). Every later step reads it (`load`): only drift of
+its bytes or of what it cites can refuse it then. A rule about the content of an analysis therefore belongs in `judge`,
+and code that reads an analysis must not assume a field `judge` came to require later.
 """
 from pathlib import Path
 
-from contracts import check_ref, digest, keyed, nonempty, read_json, require
+from contracts import check_ref, digest, intact, keyed, nonempty, read_json, require
 
 ORDER = ['UI', 'Logic', 'Adhesive', 'Resource']
 SOURCES = ('legacy', 'architecture', 'reuse', 'target')
@@ -18,6 +22,17 @@ def evidence(refs, label):
 
 
 def load(ref, module_id):
+    """A registered analysis and its items, as accepted."""
+    data = read_json(check_ref(ref))
+    require(data.get('schema_version') == 1 and data.get('module_id') == module_id,
+            'dimension analysis module/schema mismatch')
+    return intact(lambda: judge(ref, module_id)) or (
+        data, {item['item_id']: {**item, 'dimension': row['dimension']} for row in data.get('dimensions', [])
+               if row.get('status') == 'applicable' for item in row.get('items') or []})
+
+
+def judge(ref, module_id):
+    """Every content rule of an analysis the Ledger is asked to register."""
     data = read_json(check_ref(ref))
     require(data.get('schema_version') == 1 and data.get('module_id') == module_id,
             'dimension analysis module/schema mismatch')
@@ -70,6 +85,7 @@ def load(ref, module_id):
                     require(item.get(field), 'resource mapping missing ' + field)
                 import resource_fidelity
                 resource_fidelity.validate_item(item)
+                resource_fidelity.replacement(item)
                 resource_fidelity.consumers(item)
             items[iid] = {**item, 'dimension': row['dimension']}
     require(items, 'functional module must contain applicable dimension work')
@@ -123,27 +139,26 @@ def coverage_review(data, required=False):
         require(covered == applicable, 'condition review omits applicable conditions')
 
 
+def registered(s, module_id):
+    """The analysis the Ledger holds for a module, or None while the module is only proposed."""
+    return (s['modules'].get(module_id) or s.get('module_groups', {}).get(module_id) or {}).get('dimension_analysis_ref')
+
+
 def allocation(s, module):
     ref = module.get('dimension_analysis_ref')
     if not s.get('dimension_slicing_required') and not ref:
         return {}
-    data, items = load(ref, module['module_id'])
-    coverage_review(data, s.get('planning_coverage_required', False))
-    import api_contract
-    # ESC-004-A narrow exemption, human-approved
-    # <run>/staging/host/decisions/ESC-004-A-answer.md@675a41a9: on the frozen allocation
-    # surface — this analysis is the module's Ledger-registered dimension_analysis_ref (load's
-    # check_ref proved the live bytes are that registration) — an allocation frozen with no API
-    # face at all (no api_review, no api_inventory_ref, zero api_ids on every allocated item) is
-    # handled as not-applicable. A proposed/unregistered analysis, or any analysis naming API
-    # work or an inventory, answers to applicability in full; api_contract.freeze is untouched.
-    registered = (s['modules'].get(module['module_id'])
-                  or s.get('module_groups', {}).get(module['module_id']) or {}).get('dimension_analysis_ref')
-    if not (registered == ref and not data.get('api_review') and not data.get('api_inventory_ref')
-            and not any(item.get('api_ids') for item in items.values())):
+    if ref is not None and registered(s, module['module_id']) == ref:
+        data, items = load(ref, module['module_id'])
+    else:
+        data, items = judge(ref, module['module_id'])
+        coverage_review(data, s.get('planning_coverage_required', False))
+        import api_contract
         api_contract.applicability(data, True)
         if s.get('planning_coverage_required'):
             evidence((data.get('api_review') or {}).get('discovery_refs'), 'API discovery scope required for applicability review')
+            import project_context
+            project_context.transfer_settled(s, {row['dimension'] for row in data['dimensions'] if row['status'] == 'applicable'})
     require(module.get('scope') and data.get('scope') == module['scope'],
             'dimension analysis must bind the already allocated module scope')
     allowed = set(module.get('scope', {}).get('requirement_ids', s['requirement_ids']))
@@ -164,13 +179,13 @@ def partition(s, parent, plan):
     covered, child_ids = set(), set()
     import api_contract
     parent_data = read_json(check_ref(parent['dimension_analysis_ref']))
-    parent_calls, parent_apis = api_contract.load(parent_data, expected)
+    parent_calls, parent_apis = api_contract.read(parent_data, expected)
     api_covered = set()
     coverage = {iid: {'requirements': set(), 'cases': set(), 'conditions': set()} for iid in expected}
     for child in plan['children']:
         items = allocation({**s, 'dimension_slicing_required': True}, child)
         data, _ = load(child['dimension_analysis_ref'], child['module_id'])
-        calls, apis = api_contract.load(data, items)
+        calls, apis = api_contract.read(data, items)
         require(set(apis) <= set(parent_apis) and all(calls[aid] == parent_calls[aid] for aid in apis),
                 'child API source outside parent boundary; revise GO inventory first')
         require(not api_covered.intersection(apis), 'API owner duplicated across children')

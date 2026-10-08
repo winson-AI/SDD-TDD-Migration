@@ -83,9 +83,9 @@ adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migrat
 
 ## 精确性纪律
 
-还原度差的根因是**允许了近似**。没有走[复制清单与参数表](resource-transfer.md#总则)的资源逐项登记，规则如下。
+没有走[复制清单与参数表](resource-transfer.md#总则)的资源逐项登记，规则如下。
 
-**① 精确策略与反近似** —— UI 呈现闭包内的 Resource item 必须写 `resource_kind` 与 `resource_strategy`（[resource_fidelity.py](../../migration-ledger/scripts/resource_fidelity.py)），不能靠省略字段避开校验。源类型决定策略：vector → `exact_vector_xml`（保留 viewport/path/group/clip/stroke/fill/alpha/mirroring；**不是** ImageVector）；bitmap/font/raw → `byte_copy`；string/plurals/array → `value_xml_exact`（保留文本、占位符、转义、quantity/数组结构、限定符）；color/dimen/已证 attr → `design_token_exact`；selector/layer-list/shape/有状态绘制 → `compose_semantic_exact`。
+**① 精确策略与反近似** —— UI 呈现闭包内的 Resource item 必须写 `resource_kind` 与 `resource_strategy`，不能靠省略字段避开校验。源类型决定策略：vector → `exact_vector_xml`（保留 viewport/path/group/clip/stroke/fill/alpha/mirroring；**不是** ImageVector）；bitmap/font/raw → `byte_copy`；string/plurals/array → `value_xml_exact`（保留文本、占位符、转义、quantity/数组结构、限定符）；color/dimen/已证 attr → `design_token_exact`；selector/layer-list/shape/有状态绘制 → `compose_semantic_exact`。
 
 **没有 `approximate` 策略**：禁止 Material 图标替代、手绘近似、语义近似、自动栅格化、位图兜底。逃生口仅 `manual_exact`（须 `adaptation_evidence_ref`；图片另受[图片与图标对齐](#图片与图标对齐)闸门约束）与 `blocked`（须 `blocked_reason`，`completion_gate` 拒绝仍带 blocked 资源的模块完成）。`.9.png` 的 stretch/content 区域**永不** `byte_copy`；`sp` 尺寸被间距消费时必须 `scales_with_font`。
 
@@ -93,11 +93,11 @@ adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migrat
 
 **③ 节点 ID、数组与平台资源** —— `R.id` 是节点定位事实，不按资源文件查找；`@array` 以 array 精确迁移，不丢元素结构。平台引用（`@android:` / `?android:`）须声明 platform_resource.api_level 与指向真实 SDK source.properties 的 sdk_metadata_ref，source_resource_ref 位于同 SDK 的 data/res 并含匹配定义；缺定义可显式 blocked，不伪造。示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
-**④ UI 树白盒（按原生采集器真实契约）** —— [ui_evidence.validate_tree](../../migration-ledger/scripts/ui_evidence.py) 校验 `ui_tree_ref` 内容：`schemaVersion:1`、`scope`、合并溯源 `generatedFrom`（runtime 两字段同有或同无）、`screens[]`（递归 source-backed `root` 与 `attachments[]`，重复行只记一次）、完整映射源布局的 `layoutClosure`，以及显式的 `criticalLayoutContracts`/`unresolved`（冲突不得丢弃）。节点字段、attachment kind 与 binding/event/dynamic rule 必填项见模板 `ui_tree_contract`，各记录都带 sourcePath 与 line 或 selector；runtimeObservations 只记实际运行观察，source-only 树不得携带，visual_mode 须与 runtimeIndex 是否存在一致。完整模板见 [semantic-model.json](../../../template/semantic-model.json)。
+**④ UI 树白盒（按原生采集器真实契约）** —— Ledger 校验 `ui_tree_ref` 内容：`schemaVersion:1`、`scope`、合并溯源 `generatedFrom`（runtime 两字段同有或同无）、`screens[]`（递归 source-backed `root` 与 `attachments[]`，重复行只记一次）、完整映射源布局的 `layoutClosure`，以及显式的 `criticalLayoutContracts`/`unresolved`（冲突不得丢弃）。节点字段、attachment kind 与 binding/event/dynamic rule 必填项见模板 `ui_tree_contract`，各记录都带 sourcePath 与 line 或 selector；runtimeObservations 只记实际运行观察，source-only 树不得携带，visual_mode 须与 runtimeIndex 是否存在一致。
 
 **⑤ 源闭包证据面** —— UI 适用时 `source_closure` 必填 `ui_renderers`（仅有 layout 不完整，必须点名真正改变可见状态的 Activity/Fragment/Adapter/ViewHolder/自定义 View 渲染者），以及 `ui_topology`（布局/对话框/菜单/标签/浮层及初始可见性）、`states`（实际存在的 loading/content/empty/error/disabled/transient/refresh/retry/pagination）、`navigation`（目标身份/参数/返回行为/范围外副作用）、`platform_lifecycle`（权限/存储/网络/回调/后台/取消/宿主窗口）。散文控件清单不算闭包。证据质量纪律：**listener 只证事件绑定，不证 UI 层级；类型声明只证 API 形状，不证生产调用路径**；基础工作在被用户可见行为消费前不算已交付切片。
 
-**⑥ 消费者接线纪律（anti-guess，协议）** —— 改任何源声明的 dimension/margin/padding/typography/color 前，须经 UI 树 + 资源映射追溯消费者：存在精确映射而消费者硬编码/猜测 → 必须改为接线映射值；映射缺失/错误 → 路由 Resource owner。**只有所有源值与运行时覆盖都接线后**，截图证据才可用于证明残余跨平台文本布局校正。Resource 的 `consumer` 支持单值或列表；实现证据以 `consumer_refs` 逐文件覆盖冻结消费者（同文件多个符号只需一个 hash），验收核对每个消费者文件出现该资源的 accessor。出现引用只证明用到了它，接线语义仍由角色审阅及正式测试验证。
+**⑥ 消费者接线纪律（anti-guess，协议）** —— 改任何源声明的 dimension/margin/padding/typography/color 前，须经 UI 树 + 资源映射追溯消费者：存在精确映射而消费者硬编码/猜测 → 必须改为接线映射值；映射缺失/错误 → 路由 Resource owner。**只有所有源值与运行时覆盖都接线后**，截图证据才可用于证明残余跨平台文本布局校正。Resource 的 `consumer` 支持单值或列表；实现证据以 `consumer_refs` 逐文件覆盖冻结消费者（同文件多个符号只需一个 hash）。出现引用只证明用到了它，接线语义仍由角色审阅及正式测试验证。
 
 ## 图片与图标对齐
 
@@ -105,11 +105,11 @@ adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migrat
 
 **① 检查。** `ui-component-spec` 的 `image_checks[]` 冻结对屏幕节点的要求，各带 `id`、`node_id`、`target.selector`（目标 view tree 节点的精确 class/resource-id/text/content-desc）与可选 `capture_index`，`kind` 取：`image`（默认，节点显示这张存量图片：`source_resource`+`qualifier`、`reference.render_ref` 为 `render-reference` 离线渲染并绑定源文件 SHA 的参考、可选 `tolerance`）、`text`（节点文本等于存量字符串：`@string` 的 source_resource、qualifier 与索引中的 `expect.text`）、`node`（节点存在）。
 
-**② 每处图片都上屏核对。** 树上节点声明的每张静态图片（位图/矢量，不含 `.9.png`、动画与 XML 图层）必须有同节点同资源的 image 检查，或在 `image_check_waivers` 以 reason 与 evidence_refs 豁免（可限定 node_id / source_resource）；文件进了目标目录不代表屏幕显示了它。`screen-checks` 为模块派生全部缺少的检查并渲染参考，节点以自身 id（去掉 `node:`）作 `resource-id` 定位，目标只需给这些节点同名 key；另给出文本检查建议，由 Spec 按状态取用。
+**② 每处图片都上屏核对。** 树上节点声明的每张静态图片（位图/矢量，不含 `.9.png`、动画与 XML 图层）必须有同节点同资源的 image 检查，或在 `image_check_waivers` 以 reason 与 evidence_refs 豁免（可限定 node_id / source_resource）。`screen-checks` 为模块派生全部缺少的检查并渲染参考，节点以自身 id（去掉 `node:`）作 `resource-id` 定位，目标只需给这些节点同名 key；另给出文本检查建议，由 Spec 按状态取用。
 
 **③ 执行。** visual PATH 以 `image_check_ids` 承载检查，已声明的都要被承载：Test-Runner 抓取目标屏幕并运行 `image-parity`，Ledger 用哈希绑定的同一批输入重算。图标比形状（IoU ≥ 0.72、宽高比偏差 ≤ 0.20，可选颜色），铺满画面的图片比内容（相似度 ≥ 0.80）；MATCH → Green；MISMATCH（含文本不同、node 检查找不到节点）→ Red 并给节点级根因；找不到节点或无法比较 → Yellow。**不依赖存量可运行**：无 `baseline_ref` 的 PATH 只抓取目标，coverage 须是冻结的 UI 目标，node_ids 属于其树并含每个检查的节点；runtime 目标仍须另有基线 PATH，带基线的 PATH 承载检查时其节点须是基线观察到的节点。
 
-**④ 非精确图形闸门。** 静态位图/矢量（bitmap、vector，或 raw/assets 中的静态图）用 `manual_exact` 代替精确复制时，item 恰有其一：`image_check`（已声明、被 visual PATH 承载、属于同一 source_resource+qualifier）或 `deviation` `{alternative, kind: redraw|degrade|absent, reason, evidence_refs?}`。`alternative` 必须是计划 `decision_envelope.allowed_alternatives` 的一项，由人类随计划 hash 批准，Implementer 不能自行认定“足够近似”。动画与 `.9.png` 无法离线测量，手工替换只能带 `deviation`；绘制代码按代码移植，保留经评审的 `manual_exact`；三者均不可挂 `image_check`。
+**④ 非精确图形闸门。** 静态位图/矢量（bitmap、vector，或 raw/assets 中的静态图）用 `manual_exact` 代替精确复制时，item 恰有其一：`image_check`（已声明、被 visual PATH 承载、属于同一 source_resource+qualifier）或 `deviation` `{alternative, kind: redraw|degrade|absent, reason, evidence_refs?}`。`alternative` 必须是计划 `decision_envelope.allowed_alternatives` 的一项，由人类随计划 hash 批准。动画与 `.9.png` 无法离线测量，手工替换只能带 `deviation`；绘制代码按代码移植，保留经评审的 `manual_exact`；三者均不可挂 `image_check`。
 
 ## 最终报告的保真披露
 

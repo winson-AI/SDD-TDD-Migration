@@ -88,7 +88,7 @@ class RootRevisionTests(unittest.TestCase):
     def test_retired_provider_updates_consumer_parent_and_its_children(self):
         f = self.f
         consumer = self.update('M010')
-        consumer.update(module_id='M020', name='Consumer', decomposition_required=True, dependencies=['M001', 'M002'])
+        consumer.update(module_id='M020', name='Consumer', decomposition_required=True, dependencies=['M001', 'M002'], acceptance_case_ids=[])
         f.call('register', consumer, role='global-orchestrator', module=None)
         from test_behavior_contract import review
         plan = f.proposal('M020', ('M003', 'M004'), dependencies={'M003': ['M001'], 'M004': ['M002']})

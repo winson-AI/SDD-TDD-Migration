@@ -150,7 +150,7 @@ python3 <package>/skills/migration-ledger/scripts/ledger.py status --view full \
 
 prepare 核验目录、文档及摘要；缺输入不创建 run/OpenSpec。固化前 Host 写 preparations=preparing；失败写 failed、原因/重试入口，中断保留 preparing。同 run_id 重试验证归属，成功登记索引并写 prepared，保留失败历史；不替代 Ledger，不自动删除或改业务状态，完成的同请求不重写。
 
-工作流测试辅助命令显式传 --root：Harmony design/adapter/doctor/历史报告与阶段汇总写入本轮 runs/harmony/sandbox；正式自动化写 runs/harmony/automation/<新 attempt>。独立模式使用同样的 `.sdd-runs/<run_id>/runs/harmony` 路径，可由显式输出推导根目录，不要求已有 Ledger；doctor 必须指定 --root。独立执行不自动得到冻结、assignment 或验收资格。旧任意输出目录不再接受；兼容入口保留读取历史输入，所有新输出遵循新位置。
+工作流测试辅助命令显式传 --root：Harmony design/adapter/doctor/历史报告与阶段汇总写入本轮 runs/harmony/sandbox；正式自动化写 runs/harmony/automation/<新 attempt>。独立模式使用同样的 `.sdd-runs/<run_id>/runs/harmony` 路径，可由显式输出推导根目录，不要求已有 Ledger；doctor 必须指定 --root。独立执行不自动得到冻结、assignment 或验收资格。兼容入口保留读取历史输入，所有新输出遵循新位置。
 
 Ledger 在查询、变更和拒绝诊断写入前核对快照绑定的 run_root/run_id。复制或移动已有 run 目录不能直接作为新 run 继续写入；恢复应使用原登记位置，新迁移使用新 run_id。Ledger/上下文/OpenSpec 的受管文件写入统一使用路径检查和随机临时文件，拒绝符号链接重定向；事件追加与工件保存也检查实际路径。
 

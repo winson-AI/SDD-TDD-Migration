@@ -4,6 +4,19 @@ from contracts import check_ref, keyed, nonempty, read_json, require
 
 FACETS = ('request_fields', 'response_fields', 'error_outcomes', 'state_effects')
 MAPPINGS = ('request_mapping', 'response_mapping', 'error_mapping', 'state_mapping')
+METHODS = ('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS')
+# How a call is addressed. A remote procedure or a client library has no method and URL: it is called by an operation name.
+ROUTES = {'http': ('method', 'url'), 'rpc': ('operation',), 'sdk': ('operation',)}
+
+
+def route(row, side):
+    transport = row.get('transport', 'http')
+    require(transport in ROUTES, 'API transport must be http, rpc or sdk')
+    if transport == 'http':
+        require(row.get('method') in METHODS and row.get('url'), 'API ' + side + ' method/URL required')
+    else:
+        require(isinstance(row.get('operation'), str) and row['operation'].strip(), 'API ' + side + ' operation required for ' + transport)
+    return (transport, *(row[key] for key in ROUTES[transport]))
 
 
 def applicability(analysis, required=False):
@@ -18,7 +31,19 @@ def applicability(analysis, required=False):
     require((review['status'] == 'applicable') == bool(analysis.get('api_inventory_ref')), 'API applicability and inventory disagree')
 
 
+def read(analysis, items):
+    """The recorded calls and the contracts of an accepted inventory, each contract with the item that owns it."""
+    ref = analysis.get('api_inventory_ref')
+    if not ref:
+        return {}, {}
+    inventory = read_json(check_ref(ref))
+    owners = {aid: iid for iid, item in items.items() for aid in item.get('api_ids', [])}
+    return ({row['api_id']: row for row in inventory.get('calls') or []},
+            {row['api_id']: {**row, 'item_id': owners.get(row['api_id'])} for row in inventory.get('contracts') or []})
+
+
 def load(analysis, items):
+    """Judge an inventory the Ledger is asked to register, then read it."""
     applicability(analysis)
     ref = analysis.get('api_inventory_ref')
     if not ref:
@@ -28,7 +53,7 @@ def load(analysis, items):
     require(inventory.get('schema_version') == 1 and inventory.get('module_id') == analysis['module_id'], 'API inventory scope/schema mismatch')
     calls = keyed(nonempty(inventory.get('calls'), 'recorded API calls'), 'api_id')
     for source in calls.values():
-        require(source.get('method') in ('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS') and source.get('url'), 'API source method/URL required')
+        route(source, 'source')
         require(source.get('source_symbol'), 'API source production symbol required')
         check_ref(source.get('source_ref'))
         reviewed = (analysis.get('api_review') or {}).get('discovery_refs')
@@ -55,7 +80,7 @@ def load(analysis, items):
     for aid, row in contracts.items():
         source, target = calls[aid], row.get('target', {})
         check_ref(row.get('fixture_contract_ref'))
-        require(target.get('method') in ('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS') and target.get('url'), 'API target method/URL required')
+        addressed = route(target, 'target')
         require(isinstance(target.get('consumer'), str) and '#' in target['consumer'] and
                 Path(target['consumer'].split('#', 1)[0]).is_absolute() and target['consumer'].split('#', 1)[1], 'API target needs absolute consumer#symbol')
         for facet, mapping in zip(FACETS, MAPPINGS):
@@ -63,7 +88,7 @@ def load(analysis, items):
                     all(isinstance(value, str) and value for value in target[mapping].values()), 'API mapping omits a source obligation: ' + mapping)
         require(row.get('fidelity') in ('exact', 'approved-adaptation'), 'API fidelity must be explicit')
         if row['fidelity'] == 'exact':
-            require((source['method'], source['url']) == (target['method'], target['url']), 'API exact method/URL changed')
+            require(route(source, 'source') == addressed, 'API exact route changed')
         else:
             require(row.get('alternative') and row.get('reason'), 'API adaptation needs approved alternative and rationale')
         row = dict(row); row['item_id'] = owners[aid]; contracts[aid] = row
@@ -75,7 +100,7 @@ def obligations(aid, source):
 
 
 def plan(analysis, items, plan):
-    calls, contracts = load(analysis, items)
+    calls, contracts = read(analysis, items)
     traces = {row['item_id']: row for row in plan.get('dimension_trace', [])}
     paths = {row['path_id']: row for row in plan['paths']}
     for aid, contract in contracts.items():
@@ -97,7 +122,7 @@ def freeze(s, m, payload):
     if not ref: return
     import dimensions
     analysis, items = dimensions.load(ref, m['module_id'])
-    _, contracts = load(analysis, items)
+    _, contracts = read(analysis, items)
     if any(row['fidelity'] != 'exact' for row in contracts.values()):
         decision = s['decisions'].get(payload.get('decision_id'), {})
         require(decision.get('module_id') == m['module_id'] and decision.get('subject_sha256') == m['plan_hash'] and
@@ -105,7 +130,7 @@ def freeze(s, m, payload):
 
 
 def implementation(analysis, items, result):
-    _, contracts = load(analysis, items)
+    _, contracts = read(analysis, items)
     evidence = {row['item_id']: row for row in result.get('dimension_evidence', [])}
     code = {check_ref(ref).resolve() for ref in result.get('code_files', [])}
     from contracts import named

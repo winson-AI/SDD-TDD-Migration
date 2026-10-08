@@ -426,12 +426,13 @@ def card(s, m, step):
     rows = ([operation] if operation else []) + (['context-submit', 'submit'] if step.get('worker_role') else [])
     chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry,
                      lean=lean and role in ('fixer', 'implementer'), rows=rows, facts=facts)
-    chosen = list(dict.fromkeys(chosen + reasoning_sections(m)))
+    chosen += reasoning_sections(m)
     if role == 'spec-designer' or (step.get('mode') == 'design' and role == 'module-orchestrator'):
         chosen += sections('testing.md', '编码前设计交接')
     if (role == 'module-orchestrator' and (m or {}).get('change_request') and operation in ('plan-review', 'freeze')
             or role == 'auditor' and any(x.get('task_revalidation', {}).get('mode') == 'partial' for x in s.get('modules', {}).values())):
         chosen += sections('openspec.md', 'TASK 局部重验')
+    chosen = list(dict.fromkeys(chosen))  # a section reaches a card once, whichever rule asked for it
     audit = bool(operation and (operation.startswith('audit') or operation.startswith('problem'))) or role == 'auditor' \
         or bool(m and (m.get('audit_fix_grant') or m.get('audit_batch_id')))
     flags = {'ui': ui, 'reuse': reuse, 'telemetry': telemetry, 'audit': audit,
@@ -534,38 +535,68 @@ GATES = [
     (r'condition review|condition refs', 'resource-transfer.md', '动态参数与布局结构'),
     (r'API |api_inventory|api_obligations', 'resource-transfer.md', 'API 与 URL 契约'),
     (r'runtime expression|runtime/layout|layout keywords|structural mapping|parameter mapping', 'resource-transfer.md', '动态参数与布局结构'),
-    (r'hash mismatch', 'runtime.md', '请求与事件'),   # first: the file named in the message may sit in a path of any other topic
+    (r'hash mismatch|absolute evidence path|missing file', 'runtime.md', '请求与事件'),   # first: the file named in the message may sit in a path of any other topic
     (r'unknown reference id', 'context-readiness.md', '3. 报告与传递'),
+    (r'is not settled|target_resources (takes|\.declined)|target_resources\.declined', 'resource-transfer.md', '总则'),
     (r'parameter[ _](sheet|fill|file|convention)|parameter_fill|recorded (value )?parameters?|values to parameter|a parameter is'
      r'|expressions the Spec|tokens the Spec|typed value|(not_applicable|settled|token) record|share one key|target_resources\.parameters'
      r'|\b(layout|layer|code|values):\S+: deviation', 'resource-transfer.md', FILL),
     (r'file resources|usage[ _]exclusion|layout_helpers', 'resource-transfer.md', '使用点与闭包'),
-    (r'cop(y|ied) (plan|path|target|resources?)|target_resources\.copy|resource-sync|one target file|index different files'
+    (r'cop(y|ied) (plan|path|target|resources?)|copy_blocker|target_resources\.copy|resource-sync|one target file|index different files'
      r'|refusing to overwrite|target_resource (must|needs)|file of the target project|never names|not the legacy file|legacy (entry|vector)',
      'resource-transfer.md', COPY),
-    (r'design |test.design|设计', 'testing.md', '编码前设计交接'),
+    (r'design |test.design|设计|user-visible case|device[ _]gaps?', 'testing.md', '编码前设计交接'),
     (r'TASK independence', 'openspec.md', 'TASK 局部重验'),
     (r'execution capture|output capture|excerpt|committed.*hash', 'testing.md', '日志与按需追溯'),
     (r'write scope|undeclared change|write outside', 'engineering-disciplines.md', '写范围核验（可选，默认关闭）'),
     (r'checkpoint', 'engineering-disciplines.md', '模块 Git 检查点（可选，默认关闭）'),
     (r'authoring.diagnostics', 'local-runtime.md', '阶段结果'),
     (r'JUnit|required_test_ids|unit_report|\bunit\b', 'testing.md', '逻辑单测'),
+    (r'verification |acceptance cases|case_acceptance|supporting slice|accepted by|already accepts|slices form|independence review', 'module-decomposition.md', '验证边界'),
     (r'behavior_review|behavior review|behavior contract|shared capability', 'module-decomposition.md', '3. 分配与登记门禁'),
     (r'Scenario|scenario|Requirement-ID', 'openspec.md', '冻结算法'),
     (r'static|spec closure|reached_from|production symbol|fake implementation', 'testing.md', '静态规格闭合'),
     (r'readiness|context[-_ ](gate|report|submit)', 'context-readiness.md', '2. 精确插入节点'),
     (r'telemetry', 'telemetry.md', '1. 适用性与非阻塞原则'),
     (r'image[ _-]?(check|parity|source)|picture|deviation|render-reference', 'ui-fidelity.md', PICTURES),
+    (r'watchdog|notice', 'watchdog.md', '总则'),
+    (r'journal|workflow hub|hub routing|workflow\.md|event artifact|archive entry|projection', 'storage-layout.md', 'OpenSpec 投影完整性收尾门禁'),
+    (r'retirement|run impact|run revision|run review|root revision|root update|contract IDs|replacement IDs', 'progress-recovery.md', '同 Run 上游修订'),
+    (r'code review|code findings|goal review|governance|recovery resolutions', 'audit-code-review.md', 'Ledger 接口'),
+    (r'finding|repair owner|leftover|owner (not|must|prerequisites)|unresolved (human|verification)|block reason|retry contract', 'audit-scope.md', '问题处理'),
+    (r'feature|boundary (review|issue|question|modules|kind)|functional list|test case summary', 'context-readiness.md', '功能清单来源与完备性'),
+    (r'project (context|configuration|placeholders|id)|context snapshot|run context|override field|persistent default|build configuration'
+     r'|configuration patch|context belongs|single-module requires', 'project-context.md', '运行时固化'),
+    (r'context (stage|producer|checklist|verdict|check|understanding|blocked|blocker|test)|wrong context|build not ready|observed failure',
+     'context-readiness.md', '3. 报告与传递'),
+    (r'statechart|icu messages|strategy new has no legacy', 'semantic-extraction.md', '层与 schema'),
+    (r'ui tree|ui_tree|UI node|UI evidence|ui_evidence|UI implementation|screen (must|needs)|runtime ?index|tree modes|native UI', 'ui-fidelity.md', 'UI 证据绑定'),
+    (r'capture|baseline screenshot|frozen baseline|reference manifest|installation command', 'ui-fidelity.md', 'capture / 构建产物契约'),
+    (r'platform api_level|values (target|entry)|value_xml_exact|loader_mapping|signal exclusion|manual implementation', 'ui-fidelity.md', '精确性纪律'),
+    (r'impact review|within-envelope', 'openspec.md', '变更控制'),
+    (r'worker (result|phase)|assignment|unsupported worker role|invalid module id|incorrect global/module scope|accepted before testing'
+     r'|unmapped|result (actor|kind|schema)|baseline mismatch|current code changed|owner mismatch|duplicate code files', 'local-runtime.md', '操作矩阵'),
     (r'reuse|provider|capabilit', 'reuse-dependencies.md', '总则'),
+    (r'configuration[ _]mapping|qualifier|resource_strategy|exact strategy|source baseline|rendition', 'ui-fidelity.md', '精确性纪律'),
     (r'dimension|semantic|resource item|consumer', 'dimension-slicing.md', '总则'),
     (r'visual|alignment', 'ui-fidelity.md', '视觉对齐 = automation 第二层（不是独立阶段）'),
     (r'envelope', 'module-decomposition.md', '父级批量冻结信封'),
+    (r'global coverage review|planning requires current|allocation|decomposition|decompose|child |children|submodule|parent |root ',
+     'module-decomposition.md', '3. 分配与登记门禁'),
+    (r'dependenc|worker still active|module blocked|suspend|resume|not suspended|parallel budget', 'state-machine.md', 'Module-Orchestrator 唯一模块守卫'),
+    (r'path|assertion|test_run|retest|receipt|quality|executed', 'testing.md', '断言与结果'),
+    (r'task|TASK|SPEC|plan |six-piece|definition|closure|feasibility', 'openspec.md', '冻结算法'),
     (r'freeze|approv|decision', 'state-machine.md', 'Freeze / DoD 分开'),
     (r'audit', 'audit-scope.md', '总则'),
     (r'fix round|budget|no.progress|local fix', 'state-machine.md', '有限循环'),
     (r'source', 'source-changes.md', '总则'),
     (r'fencing|revision|request id|principal|role denied|stale', 'runtime.md', '请求与事件'),
 ]
+
+
+# The share of the Ledger's rejection messages that name the section stating their rule. A rejection is where a rule
+# that is not on the card gets loaded; raise this when hints are added, never lower it.
+HINT_COVERAGE = 0.80
 
 
 def read_hint(reason):
@@ -580,13 +611,13 @@ def key(row):
 
 
 def delivered(rows):
-    """Section digests a session holds once it has been handed this card."""
-    return {key(row): row['sha256'] for row in rows}
+    """Section digests a holder has once it has been handed this card; a prefix is enough to tell a changed section."""
+    return {key(row): row['sha256'][:16] for row in rows}
 
 
 def fresh(rows, held):
-    """The rows a session that already holds `held` still has to read."""
-    return [row for row in rows if (held or {}).get(key(row)) != row['sha256']]
+    """The rows a session that already holds `held` still has to read. The red lines are on every card, new or not."""
+    return [row for row in rows if row['ref'] == 'AGENTS.md' or not row['sha256'].startswith((held or {}).get(key(row)) or '\0')]
 
 
 def _slug(heading):

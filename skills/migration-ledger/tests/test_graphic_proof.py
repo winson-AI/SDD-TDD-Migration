@@ -27,7 +27,8 @@ class GraphicProofTests(unittest.TestCase):
 
     def item(self, **over):
         item = {'item_id': 'back', 'source_resource': '@drawable/ic_back', 'qualifier': 'base', 'resource_kind': 'vector',
-                'resource_strategy': 'manual_exact', 'adaptation_evidence_ref': self.ref()}
+                'resource_strategy': 'manual_exact', 'adaptation_evidence_ref': self.ref(),
+                'copy_blocker': 'the target cannot load this file as it is'}
         item.update(over)
         return item
 

@@ -41,7 +41,7 @@ import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
 from contracts import (Rejected, baseline, check_ref, digest, file_ref, keyed, nonempty,
-                       read_json, require, validate_plan, validate_result, verify_plan)
+                       intact, read_json, require, validate_plan, validate_result, verify_plan)
 
 HISTORICAL_TOOL_ROOTS = (Path(__file__).resolve().parent,
                          Path(__file__).resolve().parents[2] / 'migration-protocol')
@@ -280,6 +280,23 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
         m.pop(key, None)
 
 
+def open_change(s, m, request):
+    """Reopen a frozen leaf's contract and keep what was built on it: the plan is revised and frozen again, and the code
+    already written is updated under the next freeze. A request that is already open keeps the plan it started from."""
+    current_request = m.get('change_request') or {}
+    m['design_generation'] = m.get('design_generation', 0) + 1
+    previous_plan = current_request.get('previous_plan') or {
+        key: copy.deepcopy(m.get(key)) for key in ('plan_ref', 'plan_hash', 'plan', 'accepted_test_design')}
+    previous_revalidation = current_request.get('previous_revalidation') if current_request else m.pop('task_revalidation', None)
+    # Existing coded work is updated under the next freeze. Design assistance is opt-in again.
+    m.setdefault('approved_test_paths', copy.deepcopy(control_policy.acceptance(m['plan']['paths'])))
+    m.pop('accepted_test_design', None)
+    m.pop('test_design_required', None)
+    m.update(phase='change-review', stale=True, change_request={**request, 'from_freeze_id': m['freeze_id'],
+        'previous_plan': previous_plan, 'previous_revalidation': previous_revalidation}, diagnosis_submission=None)
+    invalidate_dependents(s, m['module_id'])
+
+
 def replan_module(m, reason, evidence_ref, release_blocker=False):
     """Keep failure/budget history and unrelated blockers when replacing an execution baseline."""
     blocker, phase = copy.deepcopy(m.get('blocked')), m['phase']
@@ -354,23 +371,35 @@ def within_envelope(m, impact_ref):
             'impact review must bind from_freeze_id and to_plan_hash')
 
 
+def allocation_frozen(m):
+    """A leaf frozen before on the analysis it still holds: what concerns that allocation alone was judged then."""
+    ref = m.get('dimension_analysis_ref')
+    return bool(ref) and any(row.get('freeze_id') and (row.get('plan') or {}).get('dimension_analysis_ref') == ref
+                             for row in [m, *m.get('planning_history', [])])
+
+
 def freeze_guard(s, m, p):
-    """Pure shared guard: routing and mutation must recommend/accept the same freeze."""
+    """Pure shared guard: routing and mutation must recommend/accept the same freeze.
+
+    The plan was judged when it was submitted; here it must be intact and stand on the current allocation and
+    context, and the freeze gates judge what only a freeze can."""
     idle(m)
     require(m.get('plan'), 'SPEC not prepared')
-    design_stage.plan_check(s, m, m['plan'])
+    design_stage.plan_check(s, m, m['plan'], judge=False)
     if m.get('scope'):
         decomposition.check_module_plan(s, m, m['plan'])
     require(m['phase'] == 'clarifying' and not m.get('blocked'), 'freeze requires unblocked clarifying')
     verify_plan(m['plan'], m)
-    require(validate_plan(m['plan'], m) == m['plan_hash'], 'plan changed')
+    intact(lambda: validate_plan(m['plan'], m))
+    require(digest(m['plan']) == m['plan_hash'], 'plan changed')
     if m.get('change_request') and task_revalidation.prepare(m, p.get('review_ref'))['mode'] == 'partial':
         require(p['review_ref'] == m.get('plan_review_ref'), 'TASK independence requires accepted MO plan review')
+    first = not allocation_frozen(m)
     import resource_fidelity
-    resource_fidelity.freeze_gate(s, m)
+    resource_fidelity.freeze_gate(s, m, first)
     import api_contract
     api_contract.freeze(s, m, p)
-    ui_fidelity.freeze_gate(s, m)
+    ui_fidelity.freeze_gate(s, m, first)
     knowledge_gate.freeze_gate(s, m)
     if not p.get('decision_id') and p.get('review_ref'):
         control_policy.technical_review(m, p['review_ref'])
@@ -698,6 +727,20 @@ def deliver(m, rows, session_id):
     held.update(reading.delivered(rows))
 
 
+READ_BY_ITS_ACTOR = ('plan', 'plan-review', 'freeze', 'change', 'planning-reopen', 'decompose', 'redecompose', 'realloc-request',
+                     'diagnosis-accept', 'complete', 'suspend', 'resume', 'recover', 'invalidate')
+
+
+def record_actor(s, m, principal, op):
+    """Without a host report the acting instance is the evidence: it performed the step, so it holds the step's card.
+    Steps a host may submit without a model turn are left out, since nobody read a card for them. Advisory."""
+    if op in READ_BY_ITS_ACTOR:
+        rows = reading.card(s, m, {'role': principal['role'], 'operation': op})
+        if rows:
+            deliver(m, rows, principal['instance_id'])
+            m.setdefault('actors', {})[principal['role']] = principal['instance_id']
+
+
 def record_hint(s, m, hint):
     """A request may report the session and card the host acted on; counted when it matches the cursor step."""
     try:
@@ -773,7 +816,8 @@ def reasoning_escalated(m):
 
 def with_card(s, m, step):
     """A step that asks for an operation names the protocol sections and the templates it needs."""
-    step['must_read'] = reading.card(s, m, step)
+    # A step the host submits without a model turn is read by nobody; a dispatch still carries its worker's card.
+    step['must_read'] = [] if step.get('mechanical') and not step.get('worker_role') else reading.card(s, m, step)
     step['card_sha256'] = reading.digest_card(step['must_read'])
     step['templates'] = reading.templates(s, m, step)
     enhancement = reading.reasoning_sections(m)
@@ -832,12 +876,16 @@ def next_step(s, m):
     if step.get('role'):
         step['model_tier'] = model_routing.advise(step['role'], step.get('operation'),
                                                    step.get('worker_role'), escalate=reasoning_escalated(m))
+    step['human_required'] = control_policy.human_required(step)  # said on every step, so a host asks nobody otherwise
     if step.get('operation'):
         with_card(s, m, step)
-        session = step.get('session_id') or ''
+        # Without a session the host reported, the instance that last acted in this role is who may still hold cards.
+        session = step.get('session_id') or (m.get('actors') or {}).get(step.get('worker_role') or step.get('role')) or ''
         held = m.get('delivered_cards', {}).get(session)
         if held:
             step['must_read_new'] = reading.fresh(step['must_read'], held)
+            if not step.get('session_id'):
+                step['card_new_for'] = session
     return step
 
 
@@ -912,8 +960,10 @@ def audit_scope(s):
 def dispatch_record(s, m, p):
     """What every worker dispatch records, whatever its mode: the hints the host followed and what it delivered."""
     hints = hint_record(s, m, p)
-    if hints['card_followed'] and p.get('session_id'):
-        deliver(m, reading.card(s, m, worker_step(p)), p['session_id'])
+    if hints['card_followed'] is not False:  # reported and matching, or not reported: the dispatched instance holds its card
+        holder = p.get('session_id') or p['instance_id']
+        deliver(m, reading.card(s, m, worker_step(p)), holder)
+        m.setdefault('actors', {})[p['role']] = holder
     return {'hints': hints}
 
 
@@ -982,6 +1032,17 @@ def settle_preflight(m, actor, receipt):
 
 
 def mutate(s, req, principal, events, root=None):
+    """Apply one operation, and note on every human decision it used what the decision was used for."""
+    spent = lambda d: (bool(d.get('consumed')), len(d.get('used_by', {})))
+    before = {did: spent(d) for did, d in s.get('decisions', {}).items()} if isinstance(s, dict) else {}
+    result = apply_operation(s, req, principal, events, root)
+    for did, d in (s.get('decisions', {}) if isinstance(s, dict) else {}).items():
+        if did in before and spent(d) != before[did]:
+            d.setdefault('used_for', req['operation'])
+    return result
+
+
+def apply_operation(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')
@@ -1017,6 +1078,8 @@ def mutate(s, req, principal, events, root=None):
             p = {'session_id': hint['session_id'], 'card_sha256': hint['card_sha256'], **p}
         elif mid and mid not in s.get('module_groups', {}):
             record_hint(s, m, hint)
+    elif mid in s['modules']:
+        record_actor(s, m, principal, op)
     if op == 'context-submit':
         receipt = context_readiness.submit(s, req, principal)
         if mid in s['modules']:
@@ -1069,6 +1132,13 @@ def mutate(s, req, principal, events, root=None):
             import behavior_contract
             decomposition.check_scope(p)
             behavior_contract.review(p, p.get('behavior_review'))
+            behavior_contract.verification({**p, 'dependencies': p.get('dependencies', [])})
+            accepted = behavior_contract.accepts(p)
+            require(isinstance(accepted, list) and len(set(accepted)) == len(accepted) and set(accepted) <= set(p['case_ids']),
+                    'acceptance cases outside allocation')
+            shared = sorted({cid for other in run_changes.roots(s).values() for cid in behavior_contract.accepts(other)}.intersection(accepted))
+            require(not shared, 'cases already accepted by another root: ' + ', '.join(shared[:8])
+                    + '; one root accepts a case and the others hold it as a contribution (acceptance_case_ids)')
         s['modules'][mid] = new_module(p)
         s['global_plan'] = None
     elif op == 'decision':
@@ -1090,25 +1160,37 @@ def mutate(s, req, principal, events, root=None):
         require(not m.get('blocked'), 'resolve module blocker before planning')
         require(not m.get('decomposition_required') and not m.get('decomposition_submission'), 'finish MO decomposition before leaf SPEC planning')
         require(m['phase'] in ('context', 'specifying', 'clarifying', 'change-review'), 'plan not editable in this phase')
-        plan = design_stage.materialize(s, m, read_json(check_ref(p['plan_ref'])))
+        held = m.get('plan_ref') == p['plan_ref']
+        plan = design_stage.materialize(s, m, read_json(check_ref(p['plan_ref'])), judge=not held)
         require('checklist' not in {d.get('kind') for d in plan.get('definitions') or []},
                 'the checklist is the package rubric the Ledger binds; omit it from definitions')
         if s.get('behavior_contract_required'):
             plan.setdefault('behavior_contract_required', True)  # the run requires it; the author need not declare it
             import behavior_contract
             behavior_contract.complete(plan)  # the designed assertions say which scenarios they verify
-        design_stage.plan_check(s, m, plan, principal['instance_id'])
+        # The plan the Ledger already holds, submitted again to stand on the current context: it was judged when it
+        # was first submitted, so only its bytes and what it relates to are checked now.
+        resubmitted = held and digest(plan) == m.get('plan_hash')
+        design_stage.plan_check(s, m, plan, principal['instance_id'], judge=not resubmitted)
         if s.get('behavior_contract_required'):
             require(plan.get('behavior_contract_required') is True, 'plan cannot opt out of the behavior contract')
         if m.get('scope'):
             decomposition.check_scopes(s, m)
             decomposition.check_tasks(m, plan)
-        plan_hash = validate_plan(plan, m)
-        if s.get('split_testing_required') or any(path.get('kind') == 'build' for path in plan['paths']):
-            tv.plan_check(plan, s['target_root'], static_required=s.get('spec_closure_required', False),
-                          unit_required=s.get('unit_tests_required', False))
-        if m.get('parent_module_id') or s.get('reuse_required') or plan.get('reuse_plan_ref'):
-            reuse.validate_plan(plan, m, reuse.sources(s), s['modules'], s['legacy_root'])
+        if resubmitted:
+            verify_plan(plan, m)
+            plan_hash = m['plan_hash']
+        else:
+            plan_hash = validate_plan(plan, m)
+            m['plan_submissions'] = m.get('plan_submissions', 0) + 1  # distinct plans accepted for this freeze
+            if s.get('split_testing_required') or any(path.get('kind') == 'build' for path in plan['paths']):
+                tv.plan_check(plan, s['target_root'], static_required=s.get('spec_closure_required', False),
+                              unit_required=s.get('unit_tests_required', False))
+            if m.get('parent_module_id') or s.get('reuse_required') or plan.get('reuse_plan_ref'):
+                reuse.validate_plan(plan, m, reuse.sources(s), s['modules'], s['legacy_root'])
+            if s.get('planning_coverage_required'):
+                import user_paths
+                user_paths.plan_gate(m, plan)
         occupied = {path['path_id'] for path in s['global_paths']}
         occupied.update(path['path_id'] for other in s['modules'].values() if other['module_id'] != mid
                         and other.get('plan') for path in other['plan']['paths'])
@@ -1121,19 +1203,13 @@ def mutate(s, req, principal, events, root=None):
         owners = reuse.selected_owners(plan)
         if s.get('behavior_contract_required'):
             behavior_contract.check_owners(s, owners)
-        if s.get('behavior_contract_required') or m.get('behavior_review'):
-            # ESC-003-A narrow exemption, human-approved
-            # <run>/staging/host/decisions/ESC-003-A-answer.md@ebbdb108: a same-bytes resubmission
-            # of the Ledger-registered plan, or a first submission whose paths byte-equal a
-            # pre-contract accepted design, keeps the contract it was authored under; every other
-            # plan answers to the allocated verification boundary. The allocation write path
-            # (decomposition family) stays strict.
-            if not behavior_contract.verification_exempt(plan, m):
-                boundary = behavior_contract.verification(m)
-                require(plan['source_closure'].get('verification') == boundary, 'leaf plan verification differs from allocation')
-                for path in plan['paths']:
-                    if path.get('kind', 'automation') in behavior_contract.BEHAVIOR_KINDS:
-                        require(path.get('fixture_contract_ref') == boundary['fixture_contract_ref'], 'behavior PATH must bind allocated verification fixture')
+        # The boundary belongs to the allocation and was judged when that was registered; a plan is held to the one it has.
+        boundary = (m.get('behavior_review') or {}).get('verification')
+        if boundary and not resubmitted:
+            require(plan['source_closure'].get('verification') == boundary, 'leaf plan verification differs from allocation')
+            for path in plan['paths']:
+                if path.get('kind', 'automation') in behavior_contract.BEHAVIOR_KINDS:
+                    require(path.get('fixture_contract_ref') == boundary['fixture_contract_ref'], 'behavior PATH must bind allocated verification fixture')
         # Plan is content; the artifact remains immutable and is checked at freeze/dispatch.
         # The plan stands on the context and allocation current now; its author does not copy them into it.
         m.pop('plan_review_ref', None)
@@ -1163,6 +1239,7 @@ def mutate(s, req, principal, events, root=None):
     elif op == 'freeze':
         role(principal, 'module-orchestrator')
         freeze_guard(s, m, p)
+        m.setdefault('plan_rounds', []).append(m.pop('plan_submissions', 0))  # how many distinct plans this freeze took
         if not p.get('decision_id') and p.get('review_ref'):
             control_policy.technical_review(m, p['review_ref'], principal)
             m['plan_review_ref'] = p['review_ref']
@@ -1185,12 +1262,17 @@ def mutate(s, req, principal, events, root=None):
             m.setdefault('change_request_history', []).append({**m.pop('change_request'), 'to_freeze_id': m['plan_hash'],
                 'kind': 'planning-history', 'executable': False, 'prior_execution': prior_execution})
             retained = set(revalidation['retained_task_ids'])
+            # No TASK changed: the code already accepted implements the revised contract, so the leaf goes on to rebuild it.
+            rebuilt = bool(retained) and retained == {t['task_id'] for t in m['plan']['tasks']} and bool(m.get('code_baseline'))
             m.update(accepted_task_ids=sorted(retained), task_files={tid: files for tid, files in m.get('task_files', {}).items() if tid in retained},
-                     execution_partition_pending=True, build_baseline=None, build_artifacts=[], task_revalidation=revalidation)
-            m.pop('dimension_evidence', None)
+                     execution_partition_pending=not rebuilt, build_baseline=None, build_artifacts=[], task_revalidation=revalidation)
+            if not rebuilt:
+                m.pop('dimension_evidence', None)
             m['results'] = {pid: {**result, 'stale': True} for pid, result in m['results'].items() if pid in {p['path_id'] for p in m['plan']['paths']}}
             task_revalidation.carry(m, prior_execution['results'])
-        m.update(freeze_id=m['plan_hash'], phase='frozen', stale=True)
+            m.update(freeze_id=m['plan_hash'], phase='testing' if rebuilt else 'frozen', stale=True)
+        else:
+            m.update(freeze_id=m['plan_hash'], phase='frozen', stale=True)
     elif op == 'change':
         role(principal, 'module-orchestrator')
         require(m.get('freeze_id') and p.get('request_ref') and p.get('impact_ref'), 'CR and impact required')
@@ -1202,16 +1284,7 @@ def mutate(s, req, principal, events, root=None):
             require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']), 'repair budget exhausted; recover requires decision')
             m['fix_rounds_used'] += 1
             m['total_fix_rounds'] += 1
-        m['design_generation'] = m.get('design_generation', 0) + 1
-        previous_plan = {key: copy.deepcopy(m.get(key)) for key in ('plan_ref', 'plan_hash', 'plan', 'accepted_test_design')}
-        previous_revalidation = m.pop('task_revalidation', None)
-        # Existing coded work is updated under the next freeze. Design assistance is opt-in again.
-        m.setdefault('approved_test_paths', copy.deepcopy(control_policy.acceptance(m['plan']['paths'])))
-        m.pop('accepted_test_design', None)
-        m.pop('test_design_required', None)
-        m.update(phase='change-review', stale=True, change_request={**p, 'from_freeze_id': m['freeze_id'],
-            'previous_plan': previous_plan, 'previous_revalidation': previous_revalidation}, diagnosis_submission=None)
-        invalidate_dependents(s, mid)
+        open_change(s, m, p)
     elif op == 'assign':
         role(principal, 'module-orchestrator')
         require(p.get('mode') in (None, 'execute', 'design'), 'unknown assignment mode')
@@ -1372,10 +1445,14 @@ def mutate(s, req, principal, events, root=None):
     elif op == 'resume':
         role(principal, 'module-orchestrator')
         resume_guard(s, m, p)
+        resolved = {key: copy.deepcopy(m['blocked'][key]) for key in ('kind', 'reason', 'reason_code', 'root_cause', 'owner', 'evidence_refs')
+                    if m['blocked'].get(key)}
         if m['blocked']['kind'] == 'dependency':
             m.pop('dependency_release', None)
         else:
             s['decisions'][p['decision_id']]['consumed'] = True
+            resolved['resolution_ref'] = copy.deepcopy(s['decisions'][p['decision_id']]['human_source_ref'])
+        m.setdefault('blocker_history', []).append(resolved)  # what stopped the module and what released it
         m['phase'] = 'testing' if m['blocked']['resume_phase'] == 'dod' else m['blocked']['resume_phase']
         m['blocked'] = None
         m['stale'] = True
@@ -1808,6 +1885,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     cursor = [next_step(s, m) for m in s['modules'].values()]
     for group in s.get('module_groups', {}).values():
         step = decomposition.group_step(s, group, ref_check)
+        step['human_required'] = control_policy.human_required(step)
         if step.get('operation'):
             step['model_tier'] = model_routing.advise(step['role'], step['operation'])
             with_card(s, group, step)
@@ -1882,8 +1960,12 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
         global_next['model_tier'] = model_routing.advise(global_next['role'], global_next.get('operation'))
     if global_next.get('operation'):
         with_card(s, None, global_next)
+    source_step = source_changes.next_action(s)
+    for step in (global_next, source_step, revision_step):
+        if isinstance(step, dict):
+            step['human_required'] = control_policy.human_required(step)
     return {'global_next_step': global_next, 'next_steps': cursor,
-            'source_change_next_step': source_changes.next_action(s), 'run_change_next_step': revision_step, 'module_rounds': rounds}
+            'source_change_next_step': source_step, 'run_change_next_step': revision_step, 'module_rounds': rounds}
 
 
 def status(root, view='full', module_id=None, since=None):

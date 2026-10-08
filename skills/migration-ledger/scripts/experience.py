@@ -25,7 +25,7 @@ import run_storage
 from contracts import read_json, require
 from project_context import atomic, encoded
 
-KINDS = ('slicing-gap', 'boundary-conflict', 'planning-gap', 'fix-pattern', 'failed-strategy')
+KINDS = ('slicing-gap', 'boundary-conflict', 'planning-gap', 'fix-pattern', 'failed-strategy', 'escalation', 'gate-rejection')
 ABSTRACT_FIELDS = ('summary', 'applicability', 'root_cause', 'strategy', 'result', 'next_check', 'evidence_refs')
 
 
@@ -96,8 +96,23 @@ def candidates(index, module, task_ids=()):
     return [row for _, row in sorted(rows, key=lambda pair: (-pair[0], pair[1]['kind'] != 'failed-strategy', pair[1]['summary']))[:5]]
 
 
+def shared(root):
+    """The directory a project names so that several workspaces keep one store (`experience_root`), or None."""
+    path = Path(root).resolve() / 'project-context.json'
+    record = read_json(path) if path.is_file() else {}
+    return record.get('config', {}).get('experience_root'), record.get('project_id')
+
+
 def store(root):
-    return run_storage.checked_path(Path(root).resolve() / 'experience', Path(root).resolve())
+    """Where a project's lessons are kept: its own directory, or the store it shares."""
+    directory, _ = shared(root)
+    return Path(directory).resolve() if directory else run_storage.checked_path(Path(root).resolve() / 'experience', Path(root).resolve())
+
+
+def key(root, run_id):
+    """A run's block in the store. Projects that share a store may reuse a run id, so there the project names it too."""
+    directory, project_id = shared(root)
+    return f'{project_id}/{run_id}' if directory else run_id
 
 
 def load(root):
@@ -136,7 +151,7 @@ def bind_history(root, state, sequence):
     from contracts import check_ref
     from openspec_projection import build_lessons
     from project_context import archive
-    lessons = build_lessons(state, sequence)
+    lessons = build_lessons(state, sequence, root)
     generated = []
     def bind(obj, key, entries):
         previous = obj.get(key)
@@ -149,7 +164,7 @@ def bind_history(root, state, sequence):
         generated.append(obj[key])
     bind(state, 'lessons_ref', lessons['entries'])
     for mid, m in {**state.get('module_groups', {}), **state['modules']}.items():
-        entries = [e for e in lessons['entries'] if not any(e.get(k) for k in ('module_id', 'parent_module_id', 'affected_modules', 'root_ids'))
+        entries = [e for e in lessons['entries'] if not any(e.get(k) for k in ('module_id', 'parent_module_id', 'affected_modules', 'root_ids', 'scope'))
                    or e.get('module_id') == mid or (e.get('parent_module_id') and e['parent_module_id'] in (mid, m.get('parent_module_id')))
                    or mid in e.get('affected_modules', []) or mid in e.get('root_ids', [])]
         bind(m, 'planning_lessons_ref', entries)
@@ -174,9 +189,12 @@ def auto_harvest(run_root, force=False):
 def harvest(root, run_root):
     from openspec_projection import build_lessons
     state, sequence = registered_run(root, run_root)
-    lessons = build_lessons(state, sequence)
-    rid = state['run_id']
-    with run_storage.file_lock(Path(root).resolve() / '.context.lock'):  # prepare reads the store under this lock
+    lessons = build_lessons(state, sequence, run_root)
+    rid = key(root, state['run_id'])
+    directory = store(root)
+    directory.mkdir(parents=True, exist_ok=True)
+    # prepare reads the store under the project lock; a shared store is also written by other projects
+    with run_storage.file_lock(Path(root).resolve() / '.context.lock'), run_storage.file_lock(directory / '.experience.lock'):
         data = load(root)
         previous = data['runs'].get(rid)
         require(not previous or previous['sequence'] <= sequence, 'stored experience is newer than this journal')
@@ -185,8 +203,6 @@ def harvest(root, run_root):
         stamp = datetime.now(timezone.utc).isoformat()
         data['runs'][rid] = {'sequence': sequence, 'run_quality': state.get('quality'), 'harvested_at': stamp,
                              'entries': lessons['entries']}
-        directory = store(root)
-        directory.mkdir(exist_ok=True)
         atomic(directory / 'lessons.json', encoded(data))
         counts = dict(Counter(e['kind'] for e in lessons['entries']))
         missing = planning_view({'runs': {rid: data['runs'][rid]}})['observations_omitted']
@@ -221,7 +237,8 @@ def main(argv=None):
             out = {'entries': entries(args.root, args.kind)}
         else:
             require(args.run_id, '--run-id required')
-            block = load(args.root)['runs'].get(args.run_id)
+            runs = load(args.root)['runs']
+            block = runs.get(args.run_id) or runs.get(key(args.root, args.run_id))
             require(block, 'no experience harvested for run ' + str(args.run_id))
             out = {'run_id': args.run_id, **block}
     except (ValueError, OSError, KeyError, TypeError) as exc:
