@@ -161,8 +161,13 @@ def _fix_note(memory):
         return None
 
 
-def build_lessons(state, sequence):
-    """In-run lessons: slicing gaps, boundary conflicts, replans and Auditor-verified fix patterns."""
+CHURN = 3  # distinct plans for one freeze, or identical refusals of one operation, from which the repetition is a lesson
+
+
+def build_lessons(state, sequence, root=None):
+    """In-run lessons: slicing gaps, boundary conflicts, replans, Auditor-verified fix patterns, and what stopped the
+    run: blockers with what released them, plans that took many submissions and, with the run directory, refusals a
+    role ran into again and again."""
     lessons = {'run_id': state.get('run_id'), 'sequence': sequence, 'entries': []}
     add = lessons['entries'].append
     for rec in state.get('run_change_history', []):
@@ -186,6 +191,15 @@ def build_lessons(state, sequence):
         for hist in m.get('planning_history', []):
             add({'kind': 'planning-gap', 'module_id': mid, 'reason': hist.get('reason'),
                  'summary': f"Module {mid} replanned due to {hist.get('reason')}", 'plan_hash': hist.get('plan_hash')})
+        for submissions in [*m.get('plan_rounds', []), m.get('plan_submissions', 0)]:
+            if submissions >= CHURN:
+                add({'kind': 'planning-gap', 'module_id': mid, 'reason': 'repeated-plan-submission', 'submissions': submissions,
+                     'summary': f"Module {mid} needed {submissions} distinct plan submissions for one freeze"})
+        for blocker, status in [*((row, 'resolved') for row in m.get('blocker_history', [])),
+                                *([(m['blocked'], 'pending')] if m.get('blocked') else [])]:
+            add({'kind': 'escalation', 'status': status, 'module_id': mid, 'blocker_kind': blocker.get('kind'),
+                 'summary': blocker.get('reason'), 'root_cause': blocker.get('root_cause'), 'owner': blocker.get('owner'),
+                 'evidence_refs': blocker.get('evidence_refs', []), 'resolution_ref': blocker.get('resolution_ref')})
         for mem in m.get('fix_memory', []):
             note = _fix_note(mem)
             if note:
@@ -198,10 +212,30 @@ def build_lessons(state, sequence):
                      'applicability': note.get('applicability'), 'risks': note.get('risks'),
                      'summary': f"{mem.get('status', 'verified' if mem.get('reusable') else 'unverified')} fix for {category}: {note.get('strategy')}",
                      'evidence_refs': [mem['fix_note_ref']] + ([mem['audit_verdict_ref']] if mem.get('audit_verdict_ref') else [])})
+    for record in refusals(root):
+        scope = {'module_id': record['module_id']} if record.get('module_id') else {'scope': 'global'}
+        add({'kind': 'gate-rejection', **scope, 'operation': record.get('operation'), 'actor_role': record.get('actor_role'),
+             'attempts': record['attempts'], 'summary': record.get('reason'), 'read_hint': record.get('read_hint')})
     for retrospective in state.get('retrospectives', []):
         from experience import validate_lessons
         lessons['entries'].extend(validate_lessons(retrospective['lessons_ref']))
     return lessons
+
+
+def refusals(root):
+    """Refusals a role met at least CHURN times for the same operation and reason. They are diagnostics outside the
+    journal: a lesson names them, nothing is decided from them."""
+    found = []
+    if root is None or not (Path(root) / 'reports/rejections').is_dir():
+        return found
+    for path in sorted((Path(root) / 'reports/rejections').glob('*.json')):
+        try:
+            record = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if isinstance(record, dict) and type(record.get('attempts')) is int and record['attempts'] >= CHURN:
+            found.append(record)
+    return found
 
 
 def materialize(root, state, sequence):
@@ -231,7 +265,7 @@ def materialize(root, state, sequence):
         attempt(errors, 'semantic-index', lambda: write(root / 'ledger/semantic-index.json', json.dumps(index, ensure_ascii=False, indent=2) + '\n'))
     memories = [{'module_id': mid, **entry} for mid, m in state['modules'].items() for entry in m.get('fix_memory', [])]
     attempt(errors, 'repair-memory', lambda: write(root / 'ledger' / 'repair-memory.json', json.dumps({'sequence': sequence, 'entries': memories}, ensure_ascii=False, indent=2) + '\n'))
-    lessons = build_lessons(state, sequence)
+    lessons = build_lessons(state, sequence, root)
     attempt(errors, 'lessons-json', lambda: write(root / 'ledger/lessons.json', json.dumps(lessons, ensure_ascii=False, indent=2) + '\n'))
 
     if state.get('audit_batch'):

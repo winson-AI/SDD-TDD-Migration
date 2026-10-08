@@ -19,7 +19,7 @@ from contracts import require, digest, file_ref, check_ref, read_json
 FIELDS = {'package_root', 'legacy_root', 'target_root', 'architecture_path', 'requirements_path',
           'test_cases_path', 'project_rules_path', 'test_adapter', 'runtime', 'human_owner',
           'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources', 'build', 'workspace_root', 'watchdog',
-          'target_resources'}
+          'target_resources', 'experience_root'}
 DOCUMENTS = ('architecture_path', 'requirements_path', 'test_cases_path', 'project_rules_path')
 BUDGETS = {'max_parallel_modules': 3, 'max_fix_rounds': 3, 'max_audit_rounds': 3, 'max_no_progress_rounds': 2,
            'max_yellow_retries': 2}
@@ -91,7 +91,7 @@ def validate(config):
             'knowledge_paths must be absolute file paths')
     if 'knowledge_paths' in config:
         config['knowledge_paths'] = list(dict.fromkeys(str(Path(p).resolve()) for p in knowledge))
-    for key in ('package_root', 'legacy_root', 'target_root', 'workspace_root') + DOCUMENTS:
+    for key in ('package_root', 'legacy_root', 'target_root', 'workspace_root', 'experience_root') + DOCUMENTS:
         if key in config:
             require(isinstance(config[key], str) and Path(config[key]).is_absolute(), key + ' must be absolute')
             config[key] = str(Path(config[key]).resolve())
@@ -413,7 +413,8 @@ def _prepare(root, run_root, request, actor, storage):
         sources = {key: copy_ref(files, file_ref(effective[key])) for key in DOCUMENTS if effective.get(key)}
         if 'knowledge_paths' in effective:
             sources['knowledge_paths'] = [copy_ref(files, file_ref(path)) for path in effective['knowledge_paths']]
-        exp_path = root / 'experience/lessons.json'
+        import experience
+        exp_path = experience.store(root) / 'lessons.json'
         if exp_path.is_file():
             from experience import planning_view
             sources['experience_ref'] = archive(files, encoded(planning_view(read_json(exp_path),

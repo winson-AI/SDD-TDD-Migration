@@ -1170,6 +1170,7 @@ def mutate(s, req, principal, events, root=None):
             plan_hash = m['plan_hash']
         else:
             plan_hash = validate_plan(plan, m)
+            m['plan_submissions'] = m.get('plan_submissions', 0) + 1  # distinct plans accepted for this freeze
             if s.get('split_testing_required') or any(path.get('kind') == 'build' for path in plan['paths']):
                 tv.plan_check(plan, s['target_root'], static_required=s.get('spec_closure_required', False),
                               unit_required=s.get('unit_tests_required', False))
@@ -1226,6 +1227,7 @@ def mutate(s, req, principal, events, root=None):
     elif op == 'freeze':
         role(principal, 'module-orchestrator')
         freeze_guard(s, m, p)
+        m.setdefault('plan_rounds', []).append(m.pop('plan_submissions', 0))  # how many distinct plans this freeze took
         if not p.get('decision_id') and p.get('review_ref'):
             control_policy.technical_review(m, p['review_ref'], principal)
             m['plan_review_ref'] = p['review_ref']
@@ -1431,10 +1433,14 @@ def mutate(s, req, principal, events, root=None):
     elif op == 'resume':
         role(principal, 'module-orchestrator')
         resume_guard(s, m, p)
+        resolved = {key: copy.deepcopy(m['blocked'][key]) for key in ('kind', 'reason', 'reason_code', 'root_cause', 'owner', 'evidence_refs')
+                    if m['blocked'].get(key)}
         if m['blocked']['kind'] == 'dependency':
             m.pop('dependency_release', None)
         else:
             s['decisions'][p['decision_id']]['consumed'] = True
+            resolved['resolution_ref'] = copy.deepcopy(s['decisions'][p['decision_id']]['human_source_ref'])
+        m.setdefault('blocker_history', []).append(resolved)  # what stopped the module and what released it
         m['phase'] = 'testing' if m['blocked']['resume_phase'] == 'dod' else m['blocked']['resume_phase']
         m['blocked'] = None
         m['stale'] = True
