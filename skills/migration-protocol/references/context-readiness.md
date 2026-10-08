@@ -39,7 +39,7 @@
 
 - `schema_version/run_id/module_id/stage/producer`：实际身份与作用域；全局 module_id=null。
 - `subject_sha256`：复制 `context.subject_sha256`；绑定分配、冻结、代码、依赖或审计批次，不绑定无关兄弟的进度。
-- 必读输入由 Ledger 从状态派生（步骤视图给出 `input_count` 与 `inputs_sha256`），报告不列：ready 报告绑定该摘要，任一输入变化或漂移即过期，须重读重报；读过什么由 checks 的具体摘要与证据说明。
+- 必读输入由 Ledger 从状态派生（步骤视图给出 `input_count` 与 `inputs_sha256`），报告不列：ready 报告绑定该摘要，任一输入变化或漂移即过期，须重读重报；读过什么由 checks 的具体摘要与证据说明。worker 只读所需：Test-Runner 为冻结计划与测试资产；Implementer/Fixer 另含本叶子四维分析、架构/项目规则/知识，Fixer 再含诊断。分配包的存量源码按条目 source_locator 取用，不整份读。
 - `draft_ref`：global-plan/decompose/plan/audit-plan 必须绑定正在提交的同一 plan_ref。
 - `checks`：每项 `status=ready|blocked`、具体理解摘要；ready 必须给 evidence_refs，blocked 必须给 missing/owner/next_action。
 - `verdict`：任一检查 blocked 则必须 blocked；无可复用库、无历史修复或无依赖可在 ready 中记录“不适用的事实与依据”，不编造材料。
@@ -77,13 +77,13 @@ blocked 报告提交会保留缺失项，但**不会自动将整个 MO 标记收
 
 同 stage/实例的最新报告覆盖可用索引，旧报告留在事件历史；最新 blocked 不能被旧 ready 绕过。草稿、已选提供方、证据、代码或分配变化后重新核对。原计划需要变更时仍经 CR/重新冻结；freeze 依据失效时重新提交 plan 与对应报告。恢复后新报告通过不直接 Green，仍须正式执行、复测与验收。
 
-无关模块继续；收尾规则仍为所有叶子本轮完成/明确挂起、父汇总有效、无 worker/可推进动作。报告缺失本身不是提前启动 Auditor 的理由。
+无关模块继续；收尾规则仍为所有叶子本轮完成/明确挂起、父汇总有效、无 worker/可推进动作。
 
 ## 6. 实现范围
 
 上下文就绪是必选门禁，prepare 强制启用，运行中无切换开关。
 
-控制器验证角色、作用域、必读输入摘要、检查项、摘要、草稿、版本、身份和正式操作门禁；测试执行器校验 argv/cwd/环境证据。它不能自动证明语义理解充分、账号真实可用或 OS 已隔离，这些仍须执行者提供真实证据、宿主落实并由对应 owner 审核。不把结构检查称为完成了业务迁移。
+控制器验证角色、作用域、必读输入摘要、检查项、摘要、草稿、版本、身份和正式操作门禁；测试执行器校验 argv/cwd/环境证据。它不能自动证明语义理解充分、账号真实可用或 OS 已隔离，这些仍须执行者提供真实证据、宿主落实并由对应 owner 审核。
 
 ## 功能清单来源与完备性
 
@@ -95,4 +95,4 @@ global-discovery/global-planning/decomposition/planning 必需检查 feature-inv
 
 ## Auditor 代码审查预检
 
-`audit-code-review` 是全部 MO 收尾后的首个独立审计动作；同名 context stage 要求 module-summaries、whole-change-diff、spec-paths、dependency-owners、reuse-mapping、shared-capabilities、fidelity、independence，draft_ref 绑定代码审查报告。无需自动化运行环境。后续 audit-analysis/verdict/testing 同时读取已提交的代码审查报告。见 [代码治理协议](audit-code-review.md)。
+`audit-code-review` 是全部 MO 收尾后的首个独立审计动作；检查项见步骤视图，draft_ref 绑定代码审查报告，无需自动化运行环境。后续 audit-analysis/verdict/testing 同时读取已提交的代码审查报告。见 [代码治理协议](audit-code-review.md)。

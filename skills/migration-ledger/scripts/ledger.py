@@ -710,6 +710,20 @@ def deliver(m, rows, session_id):
     held.update(reading.delivered(rows))
 
 
+READ_BY_ITS_ACTOR = ('plan', 'plan-review', 'freeze', 'change', 'planning-reopen', 'decompose', 'redecompose', 'realloc-request',
+                     'diagnosis-accept', 'complete', 'suspend', 'resume', 'recover', 'invalidate')
+
+
+def record_actor(s, m, principal, op):
+    """Without a host report the acting instance is the evidence: it performed the step, so it holds the step's card.
+    Steps a host may submit without a model turn are left out, since nobody read a card for them. Advisory."""
+    if op in READ_BY_ITS_ACTOR:
+        rows = reading.card(s, m, {'role': principal['role'], 'operation': op})
+        if rows:
+            deliver(m, rows, principal['instance_id'])
+            m.setdefault('actors', {})[principal['role']] = principal['instance_id']
+
+
 def record_hint(s, m, hint):
     """A request may report the session and card the host acted on; counted when it matches the cursor step."""
     try:
@@ -785,7 +799,8 @@ def reasoning_escalated(m):
 
 def with_card(s, m, step):
     """A step that asks for an operation names the protocol sections and the templates it needs."""
-    step['must_read'] = reading.card(s, m, step)
+    # A step the host submits without a model turn is read by nobody; a dispatch still carries its worker's card.
+    step['must_read'] = [] if step.get('mechanical') and not step.get('worker_role') else reading.card(s, m, step)
     step['card_sha256'] = reading.digest_card(step['must_read'])
     step['templates'] = reading.templates(s, m, step)
     enhancement = reading.reasoning_sections(m)
@@ -846,10 +861,13 @@ def next_step(s, m):
                                                    step.get('worker_role'), escalate=reasoning_escalated(m))
     if step.get('operation'):
         with_card(s, m, step)
-        session = step.get('session_id') or ''
+        # Without a session the host reported, the instance that last acted in this role is who may still hold cards.
+        session = step.get('session_id') or (m.get('actors') or {}).get(step.get('worker_role') or step.get('role')) or ''
         held = m.get('delivered_cards', {}).get(session)
         if held:
             step['must_read_new'] = reading.fresh(step['must_read'], held)
+            if not step.get('session_id'):
+                step['card_new_for'] = session
     return step
 
 
@@ -924,8 +942,10 @@ def audit_scope(s):
 def dispatch_record(s, m, p):
     """What every worker dispatch records, whatever its mode: the hints the host followed and what it delivered."""
     hints = hint_record(s, m, p)
-    if hints['card_followed'] and p.get('session_id'):
-        deliver(m, reading.card(s, m, worker_step(p)), p['session_id'])
+    if hints['card_followed'] is not False:  # reported and matching, or not reported: the dispatched instance holds its card
+        holder = p.get('session_id') or p['instance_id']
+        deliver(m, reading.card(s, m, worker_step(p)), holder)
+        m.setdefault('actors', {})[p['role']] = holder
     return {'hints': hints}
 
 
@@ -1029,6 +1049,8 @@ def mutate(s, req, principal, events, root=None):
             p = {'session_id': hint['session_id'], 'card_sha256': hint['card_sha256'], **p}
         elif mid and mid not in s.get('module_groups', {}):
             record_hint(s, m, hint)
+    elif mid in s['modules']:
+        record_actor(s, m, principal, op)
     if op == 'context-submit':
         receipt = context_readiness.submit(s, req, principal)
         if mid in s['modules']:

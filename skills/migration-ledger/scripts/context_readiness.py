@@ -134,7 +134,45 @@ def global_refs(s):
     return refs
 
 
+def target_rules(s, pinned):
+    """What code is written against: the target architecture, the project rules and the knowledge documents."""
+    context = pinned['planning_context'] if pinned else decomposition.planning_context(s)
+    refs = [context['new_architecture']]
+    for name in ('project_rules_path', 'knowledge_paths'):
+        source = (context.get('project_sources') or {}).get(name)
+        refs.extend(source if isinstance(source, list) else [source] if source else [])
+    return refs
+
+
+def worker_refs(s, m, stage, pinned):
+    """A worker's inputs are what its step executes: a Test-Runner runs the frozen plan with its prepared assets; a code
+    author also holds the allocation the plan implements and the target's rules, a Fixer the diagnosis as well. The
+    legacy sources an allocation lists are reference material, taken item by item where a task's analysis points."""
+    refs = []
+    if stage in ('coding', 'fixing'):
+        refs += target_rules(s, pinned)
+        if m.get('dimension_analysis_ref'):
+            refs.append(m['dimension_analysis_ref'])
+        if stage == 'fixing' and diagnosis_report(m):
+            refs.append(diagnosis_report(m)['diagnosis_ref'])  # the Fixer must have read the diagnosis
+    if m.get('plan_ref'):
+        refs.append(m['plan_ref'])
+        refs += [r for r in m['plan'].get('definitions', []) if r['kind'] in ('test-script', 'test-fixture', 'test-adapter')]
+        if m['plan'].get('reuse_plan_ref'):
+            refs.append(m['plan']['reuse_plan_ref'])
+    return list({(ref['path'], ref['sha256']): ref for ref in refs}.values())
+
+
 def input_refs(s, mid, stage):
+    """What a role has to have read for a stage; its ready report is bound to their digest."""
+    if mid and stage in set(WORKERS.values()) | {'building'}:
+        return worker_refs(s, scope(s, mid), stage, execution_context(s, mid, stage))
+    return standing_refs(s, mid, stage)
+
+
+def standing_refs(s, mid, stage):
+    """Everything a ready report of a stage stands on. A worker reads less than this, but no report is accepted or used
+    over drifted evidence, whether or not its author had to read that evidence."""
     pinned = execution_context(s, mid, stage)
     refs = list(pinned['global_refs']) if pinned else global_refs(s)
     if stage in ('global-discovery', 'global-planning', 'decomposition', 'planning'):
@@ -158,7 +196,7 @@ def input_refs(s, mid, stage):
             if parent.get('dimension_analysis_ref'):
                 refs.append(parent['dimension_analysis_ref'])
         if stage == 'fixing' and diagnosis_report(m):
-            refs.append(diagnosis_report(m)['diagnosis_ref'])  # the Fixer must have read the diagnosis
+            refs.append(diagnosis_report(m)['diagnosis_ref'])
         if stage in set(WORKERS.values()) | {'building'} and m.get('plan_ref'):
             refs.append(m['plan_ref'])
             refs += [r for r in m['plan'].get('definitions', []) if r['kind'] in ('test-script', 'test-fixture', 'test-adapter')]
@@ -200,7 +238,7 @@ def inputs(s, mid, stage, refs=None):
 
 
 def verify_inputs(s, mid, stage, deep=False, refs=None):
-    """No ready report stands on drifted evidence: every mandatory input is as referenced and, with `deep`, so is
+    """No ready report stands on drifted evidence: everything it stands on is as referenced and, with `deep`, so is
     what its JSON cites. Nested live target code may legitimately drift; everything else may not."""
     seen, root = set(), s.get('target_root')
     def walk(value, nested):
@@ -229,7 +267,7 @@ def verify_inputs(s, mid, stage, deep=False, refs=None):
         elif isinstance(value, list):
             for item in value:
                 walk(item, nested)
-    walk(input_refs(s, mid, stage) if refs is None else refs, False)
+    walk(standing_refs(s, mid, stage) if refs is None else refs, False)
 
 
 def submit(s, req, actor):
@@ -266,7 +304,7 @@ def submit(s, req, actor):
             'context verdict disagrees with checks')
     required = input_refs(s, mid, stage) if report['verdict'] == 'ready' else None
     if required is not None:
-        verify_inputs(s, mid, stage, deep=True, refs=required)
+        verify_inputs(s, mid, stage, deep=True)
     if report['verdict'] == 'ready' and stage in ('building', 'testing', 'audit-testing', 'audit-execution'):
         execution = report.get('execution', {})
         argv = execution.get('argv')
@@ -316,7 +354,7 @@ def validate(s, mid, stage, ref, instance=None, draft=None, allow_blocked=False)
         required = input_refs(s, mid, stage)
         require(receipt.get('inputs_sha256') == inputs(s, mid, stage, required)['inputs_sha256'],
                 'context report is stale: its mandatory inputs changed; re-read them and report again')
-        verify_inputs(s, mid, stage, refs=required)
+        verify_inputs(s, mid, stage)
     if draft:
         require(report.get('draft_ref') == draft, 'context report must bind the reviewed draft')
     verify_refs(report)

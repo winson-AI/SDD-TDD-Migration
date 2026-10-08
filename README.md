@@ -97,9 +97,9 @@ Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试�
 | 并行 MO 与统一收尾 | 各 MO 独立推进；全量收尾后统一审计 | [状态机](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾) |
 | Auditor | 先整体代码治理，再复核遗留；修复后验证，失败待人工 | [审计范围](skills/migration-protocol/references/audit-scope.md)、[代码治理](skills/migration-protocol/references/audit-code-review.md) |
 | Android/Harmony 自动测试 | MobileAgenticOperator test 模式，逐 PATH/ASSERT 证据接入 Ledger | [移动端运行](skills/migration-test/references/harmony-runtime.md) |
-| 切片与功能清单 | 默认由 Agent 决定粒度；清单完整可追溯，疑问交人工 | [切片规约](skills/migration-global/references/slicing.md) |
+| 切片与功能清单 | 默认由 Agent 决定粒度；清单完整可追溯，疑问交人工；一条 CASE 一个验收切片，成链须写理由 | [切片规约](skills/migration-global/references/slicing.md) |
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照 | [项目上下文](skills/migration-protocol/references/project-context.md) |
-| 上下文就绪 | 规划与审计者随操作登记预检；worker 派发后预检，ready 才开工 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
+| 上下文就绪 | 规划与审计者随操作登记预检；worker 派发后预检，ready 才开工；worker 只读执行所需 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
 | 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 资源与参数搬运 | 文件资源按清单原样复制、按 accessor 引用；布局、图层与代码里的取值记成参数表，生成到目标后按键取用；Spec 只写例外，验收比对字节与引用 | [搬运](skills/migration-protocol/references/resource-transfer.md#总则) |
 | 图片与图标对齐 | 图片来源逐条记录并入资源闭包；树上每处静态图片都上屏核对或带证据豁免：存量资源离线渲染为参考，目标屏幕节点与之比较（另有文本与节点检查），结论由 Ledger 重算；手工替换的图片须测量或获批偏差 | [图片与图标对齐](skills/migration-protocol/references/ui-fidelity.md#图片与图标对齐) |
@@ -130,10 +130,11 @@ Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试�
 
 ## 版本记录
 
-协议、模板、脚本与测试只描述当前版本；不同版本之间的差异只在此处记录。宿主新迁移任务才 prepare 新 Run；同任务调整走 Ledger 事件事务。规划过程只保留 history，不形成可选的流程或计划版本；恢复统一执行当前规则。历史事件和工件只读留存，缺当前门禁证据则原 Run 补齐。
+协议、模板、脚本与测试只描述当前版本；不同版本之间的差异只在此处记录。宿主新迁移任务才 prepare 新 Run；同任务调整走 Ledger 事件事务。规划过程只保留 history，不形成可选的流程或计划版本。工件只在被接受时按内容规则判定，之后只因自身或所引文件漂移被拒；后增规则约束新提交，已接受工件与当前规则的差异列入报告的规则欠账，交统一 Auditor 评估。
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-08 | 已接受工件沿用接受时的规则：四维分析登记时判定（叶子冻结对它的要求在首次冻结时），设计验收时、计划提交与冻结时判定，此后各步只读取，仅漂移拒收；逐案豁免移除，差异进报告“规则欠账”。拆分写明每条 CASE 的唯一验收切片、支撑切片的理由，依赖成链或过半切片等待时写明不能按行为切的理由；报告列出各拆分的切片形态。渐进加载：worker 的必读输入收敛为执行所需（Test-Runner 为冻结计划与测试资产，代码作者另含本叶子四维分析与目标规范），报告所依据的全部证据仍核对漂移；阅读卡增量按执行实例计算、无需宿主回报，红线每张卡都带，机械验收步骤不带卡，同一小节在一张卡内只出现一次；拒绝消息指向规则小节的比例设为棘轮。 |
 | 2026-10-08 | README 与六张图统一当前主线、按需设计、三类反馈、局部重验和成功统计；PNG 仅本地渲染。执行反馈在派 Fixer 前明确分流：实现错误修代码、规划/功能/依赖契约缺口修 SPEC、超 scope 上溯父 MO/GO。可选 MO 独立性证明保留未影响 TASK 与既有 Green，原回执/执行基线不变；新 build/unit/static 与受影响/非 Green 路径真实复测，共享影响回退全验。统一 GO 测试分工，不新增前置规划轮次或流程版本。 |
 | 2026-10-07 | 执行反馈驱动规划修正：GO/父 MO 分配 scope/上游 CASE，子 MO 拆 TASK 后直接形成 SPEC 并冻结执行；独立 design 改为按需。修复中可补充原预期的路径/断言，MO 审核后再冻结、更新已有代码并复测；保留旧计划与失败证据，不新增 Run 或计划版本。 |
 | 2026-10-05 | 规划闭环与原子叶子：MO 通过 decompose 提交 atomic-leaf 结论，GO 接受后保留当前节点进入 SPEC 规划；完整 registry 可先验覆盖，无关根待拆不阻挡就绪叶子，受影响依赖仍受门禁约束。bottom-up 修正、top-down 重规划只留不可执行 history；不恢复局部 Auditor 分支。 |
