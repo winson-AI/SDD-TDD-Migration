@@ -1082,6 +1082,12 @@ def mutate(s, req, principal, events, root=None):
             decomposition.check_scope(p)
             behavior_contract.review(p, p.get('behavior_review'))
             behavior_contract.verification({**p, 'dependencies': p.get('dependencies', [])})
+            accepted = behavior_contract.accepts(p)
+            require(isinstance(accepted, list) and len(set(accepted)) == len(accepted) and set(accepted) <= set(p['case_ids']),
+                    'acceptance cases outside allocation')
+            shared = sorted({cid for other in run_changes.roots(s).values() for cid in behavior_contract.accepts(other)}.intersection(accepted))
+            require(not shared, 'cases already accepted by another root: ' + ', '.join(shared[:8])
+                    + '; one root accepts a case and the others hold it as a contribution (acceptance_case_ids)')
         s['modules'][mid] = new_module(p)
         s['global_plan'] = None
     elif op == 'decision':

@@ -243,9 +243,11 @@ def build(root, s, sequence, ref_check=check_ref):
              'awaiting-human' if batch.get('status') == 'awaiting-human' else 'in-progress')
     visual, limitations, pictures = fidelity(s, rows, ref_check)
     import automation_report
+    import behavior_contract
     import rule_debt
     import run_changes
     return {'schema_version': 1, 'run_id': s['run_id'], 'sequence': sequence, 'report_stage': stage, 'rule_debt': rule_debt.collect(s),
+            'slicing': behavior_contract.slices(s),
             'quality': quality([s.get('quality', 'yellow-blocked'), *[c['quality'] for c in cases]]),
             'entry_mode': s.get('entry_mode', 'project'), 'single_module_id': s.get('single_module_id'),
             'legacy_root': s['legacy_root'], 'target_root': s['target_root'],
@@ -367,6 +369,11 @@ def render(report):
             text += [f"- {cell(gap['module_id'])} · REQ={cell(review['requirement_ids'])} · CASE={cell(review['case_ids'])} · TASK={cell(review['task_ids'])}：{cell(review['goal'])}",
                      f"  - 核验：{cell(review['verification']['summary'])}；owner={cell(gap['owner'])}；next={cell(gap['next_action'])}",
                      f"  - 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}"]
+    if report.get('slicing'):
+        text += ['', '## 切片独立性', '', '一条用例由一个切片验收；不验收用例的是支撑切片。链长是最长依赖链上的切片数，等待数是须等另一切片验证完成才能开工的切片数。', '',
+                 '| 父模块 | 切片 | 支撑切片 | 多切片验收的用例 | 链长 | 等待 |', '| --- | --- | --- | --- | --- | --- |',
+                 *['| ' + ' | '.join(cell(value) for value in (row['parent_module_id'], row['slices'], row['supporting'] or '—',
+                   row['shared_cases'] or '—', row['chain_depth'], row['waiting'])) + ' |' for row in report['slicing']]]
     if report.get('rule_debt'):
         text += ['', '## 规则欠账', '', '以下工件按接受时的规则已被接受，运行不再重判；按当前规则重判会被拒绝。交统一 Auditor 评估，不是门禁。', '',
                  '| 模块 | 工件 | 当前规则的拒绝原因 |', '| --- | --- | --- |',

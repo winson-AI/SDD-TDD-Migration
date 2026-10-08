@@ -94,6 +94,8 @@ def assigned_module(s, module):
                                 ('module_id', 'scope', 'context_refs')} if parent else None)
     if module.get('behavior_review'):
         result['behavior_review'] = copy.deepcopy(module['behavior_review'])
+    if module.get('acceptance_case_ids') is not None:
+        result['acceptance_case_ids'] = list(module['acceptance_case_ids'])
     if parent and parent.get('behavior_review'):
         result['parent_context']['behavior_review'] = copy.deepcopy(parent['behavior_review'])
     if s.get('dimension_slicing_required'):
@@ -245,9 +247,11 @@ def refresh_groups(s, ref_check=check_ref):
 
 def registered(s, child):
     """A child a re-split restates unchanged is the allocation the Ledger already holds; it is read, not judged again."""
+    import behavior_contract
     held = s['modules'].get(child.get('module_id'))
     return bool(held) and all(held.get(key) == child.get(key) for key in ALLOCATION_KEYS) \
-        and set(held['dependencies']) == set(child.get('dependencies', []))
+        and set(held['dependencies']) == set(child.get('dependencies', [])) \
+        and behavior_contract.accepts(held) == behavior_contract.accepts(child)
 
 
 def validate(s, parent, plan, redecompose=False):
@@ -269,6 +273,8 @@ def validate(s, parent, plan, redecompose=False):
     children = nonempty(plan.get('children'), 'submodules')
     ids = [c.get('module_id') for c in children]
     require(len(set(ids)) == len(ids), 'duplicate child module')
+    import behavior_contract
+    behavior_contract.assign(children, plan)
     existing_all = set(s['modules']) | set(s.get('module_groups', {}))
     allowed_existing = set(parent.get('children', [])) if redecompose else set()
     conflicts = (set(ids) & existing_all) - allowed_existing
@@ -334,14 +340,22 @@ def validate(s, parent, plan, redecompose=False):
         visited.add(mid)
     for mid in graph:
         visit(mid)
+    if (s.get('behavior_contract_required') or any(c.get('behavior_review') for c in children)) \
+            and not all(registered(s, child) for child in children):
+        inside = {parent['module_id'], *ids, *parent.get('children', [])}
+        behavior_contract.independence(parent, children, graph, plan, {
+            cid for mid, module in {**s.get('module_groups', {}), **s['modules']}.items() if mid not in inside
+            for cid in behavior_contract.accepts(module)})
     return children, graph
 
 
 def redecomposition_impact(s, parent, children, graph):
     old, new = set(parent['children']), {c['module_id']: c for c in children}
     impact = old.symmetric_difference(new)
+    import behavior_contract
     impact.update(cid for cid in old.intersection(new) if
         any(s['modules'][cid].get(key) != new[cid].get(key) for key in ALLOCATION_KEYS)
+        or behavior_contract.accepts(s['modules'][cid]) != behavior_contract.accepts(new[cid])
         or graph[cid] != s['modules'][cid]['dependencies'])
     while True:
         expanded = impact | {cid for cid, mod in s['modules'].items()
@@ -432,7 +446,7 @@ def handle(s, req, actor, run_root):
             old_mod, new_spec = s['modules'][cid], new_children[cid]
             if cid in impact:
                 replan_module(old_mod, 'parent-redecomposed', submission['plan_ref'])
-                for key in ALLOCATION_KEYS:
+                for key in (*ALLOCATION_KEYS, 'acceptance_case_ids'):
                     if key in new_spec:
                         old_mod[key] = copy.deepcopy(new_spec[key])
                     else:

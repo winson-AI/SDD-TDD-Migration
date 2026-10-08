@@ -68,6 +68,14 @@
     "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{immutable-evidence-path}}",
     "sha256": "{{sha256}}"
   },
+  "case_acceptance": {
+    "CASE-GLOBAL-001": "M002"
+  },
+  "supporting_slices": {},
+  "independence_review": {
+    "rationale": "{{only-for-a-chain-of-3-slices-or-when-most-slices-wait: why-they-cannot-be-cut-by-behavior}}",
+    "evidence_refs": []
+  },
   "consumer_dependencies": {},
   "consumer_verifications": {}
 }

@@ -84,6 +84,81 @@ def verification(module):
     return value
 
 
+def accepts(module):
+    """The cases a slice demonstrates from their entry to their observable result. A case it holds without accepting is
+    one it contributes to and another slice demonstrates. A module registered before splits named this accepts what it holds."""
+    return module.get('acceptance_case_ids', module.get('case_ids', []))
+
+
+def assign(children, plan):
+    """Give each proposed child the cases its split says it accepts, so the rest of the proposal is judged with them."""
+    mapping = plan.get('case_acceptance')
+    if isinstance(mapping, dict):
+        for child in children:
+            child['acceptance_case_ids'] = sorted(cid for cid, owner in mapping.items() if owner == child.get('module_id'))
+
+
+def slicing(modules, graph):
+    """The shape of one split: how many slices accept a case, how long the longest chain is, how many must wait."""
+    ids = {module['module_id'] for module in modules}
+    depth = {}
+
+    def chain(mid):
+        if mid not in depth:
+            depth[mid] = 1 + max([chain(dep) for dep in graph.get(mid, []) if dep in ids] or [0])
+        return depth[mid]
+    owners = {}
+    for module in modules:
+        chain(module['module_id'])
+        for cid in accepts(module):
+            owners.setdefault(cid, []).append(module['module_id'])
+    waiting = 0
+    for module in modules:
+        stages = {row.get('module_id'): row.get('required_stage') for row in
+                  ((module.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs') or []}
+        waiting += any(dep in ids and stages.get(dep) != 'implemented' for dep in graph.get(module['module_id'], []))
+    return {'slices': len(modules), 'supporting': sorted(m['module_id'] for m in modules if not accepts(m)),
+            'shared_cases': sorted(cid for cid, mids in owners.items() if len(mids) > 1), 'accepted_cases': sorted(owners),
+            'chain_depth': max(depth.values(), default=0), 'waiting': waiting}
+
+
+def independence(parent, children, graph, plan, taken=()):
+    """One slice accepts a case, a slice that accepts none says why it stands alone, and a chain of slices, or a split
+    where most slices wait for another, is argued for. `taken` are the cases slices outside this split accept."""
+    mapping = plan.get('case_acceptance')
+    require(isinstance(mapping, dict), 'case_acceptance required: for each case the parent accepts, the one slice that accepts it')
+    held = {child['module_id']: set(child['case_ids']) for child in children}
+    require(set(mapping) == set(accepts(parent)), 'case_acceptance names exactly the cases the parent accepts: '
+            + ', '.join(sorted(set(mapping) ^ set(accepts(parent)))[:8]))
+    require(all(cid in held.get(owner, ()) for cid, owner in mapping.items()), 'a case is accepted by a slice of this split that holds it')
+    require(not set(mapping).intersection(taken), 'cases a slice outside this split already accepts: '
+            + ', '.join(sorted(set(mapping).intersection(taken))[:8]))
+    shape = slicing(children, graph)
+    reasons = plan.get('supporting_slices', {})
+    require(isinstance(reasons, dict) and set(reasons) == set(shape['supporting'])
+            and all(isinstance(reason, str) and reason.strip() for reason in reasons.values()),
+            'a slice that accepts no case is a supporting slice; state for each why it cannot live inside the slices that use it '
+            '(supporting_slices): ' + ', '.join(shape['supporting']))
+    if shape['chain_depth'] >= 3 or 2 * shape['waiting'] > shape['slices']:
+        review = plan.get('independence_review')
+        require(isinstance(review, dict) and isinstance(review.get('rationale'), str) and review['rationale'].strip(),
+                'slices form a chain of %d and %d of %d wait for another slice to be verified; cut by behavior, or state in '
+                'independence_review why they cannot be' % (shape['chain_depth'], shape['waiting'], shape['slices']))
+        for ref in nonempty(review.get('evidence_refs'), 'independence review evidence'):
+            check_ref(ref)
+    return shape
+
+
+def slices(state):
+    """The shape of every registered split, and of the roots, for the report and the rule-debt check."""
+    rows = []
+    graph = {mid: m.get('dependencies', []) for mid, m in state['modules'].items()}
+    for gid, group in state.get('module_groups', {}).items():
+        children = [state['modules'][cid] for cid in group.get('children', []) if cid in state['modules']]
+        rows.append({'parent_module_id': gid, **slicing(children, graph)})
+    return rows
+
+
 def distinct(modules):
     """Two slices with the same entry and the same observation are one slice, whatever their identifiers say."""
     seen = set()

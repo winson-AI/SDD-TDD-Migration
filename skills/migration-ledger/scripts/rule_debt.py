@@ -53,6 +53,12 @@ def collect(s):
             judge(mid, 'allocation', lambda: allocation(mid, m))
         if s.get('behavior_contract_required'):
             judge(mid, 'allocation-boundary', lambda: boundary(m, mid in s['modules']))
+    graph = {mid: m.get('dependencies', []) for mid, m in s['modules'].items()}
+    for gid, group in s.get('module_groups', {}).items():
+        children = [s['modules'][cid] for cid in group.get('children', []) if cid in s['modules']]
+        if any(child.get('behavior_review') for child in children):
+            judge(gid, 'split', lambda: behavior_contract.independence(
+                group, children, graph, read_json(check_ref(group['decomposition_ref']))))
     for mid, m in s['modules'].items():
         if design_stage.required(s, m) and m.get('accepted_test_design'):
             judge(mid, 'test-design', lambda: design(m))

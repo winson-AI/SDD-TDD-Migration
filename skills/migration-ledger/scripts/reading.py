@@ -550,6 +550,7 @@ GATES = [
     (r'checkpoint', 'engineering-disciplines.md', '模块 Git 检查点（可选，默认关闭）'),
     (r'authoring.diagnostics', 'local-runtime.md', '阶段结果'),
     (r'JUnit|required_test_ids|unit_report|\bunit\b', 'testing.md', '逻辑单测'),
+    (r'verification |acceptance cases|case_acceptance|supporting slice|accepted by|already accepts|slices form|independence review', 'module-decomposition.md', '验证边界'),
     (r'behavior_review|behavior review|behavior contract|shared capability', 'module-decomposition.md', '3. 分配与登记门禁'),
     (r'Scenario|scenario|Requirement-ID', 'openspec.md', '冻结算法'),
     (r'static|spec closure|reached_from|production symbol|fake implementation', 'testing.md', '静态规格闭合'),
