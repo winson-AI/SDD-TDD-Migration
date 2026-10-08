@@ -403,9 +403,11 @@ def render(report):
                      f"  - 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}"]
     if report.get('slicing'):
         text += ['', '## 切片独立性', '', '一条用例由一个切片验收；不验收用例的是支撑切片。链长是最长依赖链上的切片数，等待数是须等另一切片验证完成才能开工的切片数。', '',
-                 '| 父模块 | 切片 | 支撑切片 | 多切片验收的用例 | 链长 | 等待 |', '| --- | --- | --- | --- | --- | --- |',
+                 '| 父模块 | 切片 | 支撑切片 | 多切片验收的用例 | 链长 | 等待 | 界面与逻辑分属两个切片的用例 | 只含界面或只含逻辑的切片 |',
+                 '| --- | --- | --- | --- | --- | --- | --- | --- |',
                  *['| ' + ' | '.join(cell(value) for value in (row['parent_module_id'], row['slices'], row['supporting'] or '—',
-                   row['shared_cases'] or '—', row['chain_depth'], row['waiting'])) + ' |' for row in report['slicing']]]
+                   row['shared_cases'] or '—', row['chain_depth'], row['waiting'], row.get('layered_cases') or '—',
+                   row.get('single_layer') or '—')) + ' |' for row in report['slicing']]]
     if report.get('rule_debt'):
         text += ['', '## 规则欠账', '', '以下工件按接受时的规则已被接受，运行不再重判；按当前规则重判会被拒绝。交统一 Auditor 评估，不是门禁。', '',
                  '| 模块 | 工件 | 当前规则的拒绝原因 |', '| --- | --- | --- |',

@@ -545,6 +545,7 @@ GATES = [
     (r'cop(y|ied) (plan|path|target|resources?)|copy_blocker|target_resources\.copy|resource-sync|one target file|index different files'
      r'|refusing to overwrite|target_resource (must|needs)|file of the target project|never names|not the legacy file|legacy (entry|vector)',
      'resource-transfer.md', COPY),
+    (r'skeleton', 'openspec.md', '冻结算法'),
     (r'design |test.design|设计|user-visible case|device[ _]gaps?|test_adapter\.device', 'testing.md', '编码前设计交接'),
     (r'TASK independence', 'openspec.md', 'TASK 局部重验'),
     (r'execution capture|output capture|excerpt|committed.*hash', 'testing.md', '日志与按需追溯'),

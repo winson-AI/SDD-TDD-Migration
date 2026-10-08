@@ -25,7 +25,7 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 ## 冻结算法
 
-行为契约由运行状态开启，Ledger 在 plan 中写入 `behavior_contract_required=true`，作者不必声明；叶子有已登记的四维分析即按最小集规划：作者只写六件套、tasks（范围/路径/需求）、测试计划引用与 dimension_trace；dimension_analysis_ref、source_closure（即叶子的行为审阅）、target_feasibility、decision_envelope、各任务四维与 scenario_trace 由 Ledger 据该分析与分配的审阅补全并冻结，作者另有内容才写，写了照常判定。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。Ledger 接受 plan 时从 SPEC 派生 scenario_index，plan 不携带；`behavior_contract.py --plan <staged-plan.json>` 可预览。SPEC 修改即改变 plan 摘要，须重新审核冻结。
+行为契约由运行状态开启，Ledger 在 plan 中写入 `behavior_contract_required=true`，作者不必声明；叶子有已登记的四维分析即按最小集规划：作者只写六件套、tasks（范围/路径/需求）、测试计划引用与 dimension_trace；dimension_analysis_ref、source_closure（即叶子的行为审阅）、target_feasibility、decision_envelope、各任务四维与 scenario_trace 由 Ledger 据该分析与分配的审阅补全并冻结，作者另有内容才写，写了照常判定。`spec_skeleton.py --root <run> --module <id> --out <staging 目录>` 按该分析生成 proposal/spec/design/tasks 骨架，待写处以 `[[待写` 标出，留有标记的计划被拒。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。Ledger 接受 plan 时从 SPEC 派生 scenario_index，plan 不携带；`behavior_contract.py --plan <staged-plan.json>` 可预览。SPEC 修改即改变 plan 摘要，须重新审核冻结。
 
 scenario_trace 写时每行给 scenario_id 与 task_ids，assertions 由 Ledger 按设计断言的 scenario_ids 补全（写了须与之相同）；每个场景至少被一条行为断言验证、每条行为断言至少验证一个场景、全部任务有归属，允许多对多，build/static 不充当行为断言。
 

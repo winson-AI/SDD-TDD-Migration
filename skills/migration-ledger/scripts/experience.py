@@ -45,7 +45,25 @@ def slicing_facts(state):
     nodes = {**state.get('module_groups', {}), **state['modules']}
     return {'roots': sum(not node.get('parent_module_id') for node in nodes.values()), 'leaves': len(state['modules']),
             'splits': behavior_contract.slices(state), 'resplits': len(state.get('redecomposition_history', [])),
-            'run_revisions': len(state.get('run_change_history', []))}
+            'run_revisions': len(state.get('run_change_history', [])),
+            'max_plan_rounds': max([n for m in state['modules'].values() for n in [*m.get('plan_rounds', []), m.get('plan_submissions', 0)]] or [0])}
+
+
+def retrospective_due(state):
+    """What a closing retrospective has to turn into lessons: the observations nobody abstracted, and what the slicing
+    itself shows (a chain, slices that mostly wait, cases cut by layer, a freeze that took many plans). None once a
+    retrospective is committed, or when the run leaves nothing to learn from."""
+    if state.get('retrospectives'):
+        return None
+    from openspec_projection import build_lessons
+    facts = slicing_facts(state)
+    observations = sum(not all(entry.get(key) for key in ABSTRACT_FIELDS) for entry in build_lessons(state, 0)['entries'])
+    signals = [name for name, present in (
+        ('chain', any(split['chain_depth'] >= 3 for split in facts['splits'])),
+        ('waiting', any(2 * split['waiting'] > split['slices'] for split in facts['splits'])),
+        ('layered', any(split.get('layered_cases') for split in facts['splits'])),
+        ('plan-rounds', facts['max_plan_rounds'] >= 3)) if present]
+    return {'observations': observations, 'signals': signals} if observations or signals else None
 
 
 def skill_body(data):
@@ -84,14 +102,15 @@ def skill_body(data):
                  f"- 做法：{line(entry['strategy'])}", f"- 结果：{line(entry['result'])}", f"- 下次检查：{line(entry['next_check'])}", '']
     if shapes:
         text += ['## 往次切分形态', '', '事实记录，不含归因：链长是最长依赖链上的切片数，等待是须等另一切片验证完成才能开工的切片数。', '',
-                 '| run | 根 / 叶子 | 父模块 | 切片 | 支撑切片 | 多切片验收的用例 | 链长 | 等待 | 再拆分 | Run 修订 |',
-                 '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
+                 '| run | 根 / 叶子 | 父模块 | 切片 | 支撑切片 | 多切片验收的用例 | 链长 | 等待 | 再拆分 | Run 修订 | 界面逻辑分属 | 单层切片 | 最多改交 |',
+                 '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
         for rid, facts in shapes:
             for split in facts.get('splits') or [{}]:
                 text.append('| ' + ' | '.join(line(value) for value in (
                     rid, f"{facts.get('roots')} / {facts.get('leaves')}", split.get('parent_module_id', '—'), split.get('slices', '—'),
                     '、'.join(split.get('supporting') or []) or '—', some(split.get('shared_cases')),
-                    split.get('chain_depth', '—'), split.get('waiting', '—'), facts.get('resplits', 0), facts.get('run_revisions', 0))) + ' |')
+                    split.get('chain_depth', '—'), split.get('waiting', '—'), facts.get('resplits', 0), facts.get('run_revisions', 0),
+                    some(split.get('layered_cases')), len(split.get('single_layer') or []), facts.get('max_plan_rounds', 0))) + ' |')
         text.append('')
     if observed:
         text += [f'## 尚未抽象的观察（共 {len(observed)} 条，列最近 {min(len(observed), SKILL_OBSERVATIONS)} 条）', '',

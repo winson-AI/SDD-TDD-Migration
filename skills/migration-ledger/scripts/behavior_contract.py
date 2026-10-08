@@ -9,7 +9,7 @@ import re
 import sys
 sys.dont_write_bytecode = True
 
-from contracts import check_ref, digest, intact, keyed, nonempty, require
+from contracts import Rejected, check_ref, digest, intact, keyed, nonempty, read_json, require
 
 
 def review(module, value):
@@ -98,9 +98,27 @@ def assign(children, plan):
             child['acceptance_case_ids'] = sorted(cid for cid, owner in mapping.items() if owner == child.get('module_id'))
 
 
+def carried(module):
+    """{dimension: the cases its applicable items carry} from a slice's accepted analysis; {} when there is none to read."""
+    try:
+        data = read_json(check_ref(module['dimension_analysis_ref']))
+        return {row['dimension']: {cid for item in row.get('items') or [] for cid in item.get('case_ids') or []}
+                for row in data.get('dimensions', []) if row.get('status') == 'applicable'}
+    except (Rejected, OSError, KeyError, TypeError, AttributeError):
+        return {}
+
+
 def slicing(modules, graph):
-    """The shape of one split: how many slices accept a case, how long the longest chain is, how many must wait."""
+    """The shape of one split: how many slices accept a case, how long the longest chain is, how many must wait, and
+    for which cases the screen lives in one slice and the logic in another (a split by layer, read from the slices'
+    own four-dimension analyses)."""
     ids = {module['module_id'] for module in modules}
+    profiles = {module['module_id']: carried(module) for module in modules}
+    shown = {mid: profile.get('UI', set()) for mid, profile in profiles.items()}
+    decided = {mid: profile.get('Logic', set()) for mid, profile in profiles.items()}
+    layered = sorted(cid for cid in set().union(*shown.values(), set())
+                     if any(cid in cases for cases in decided.values())
+                     and not any(cid in shown[mid] and cid in decided[mid] for mid in ids))
     depth = {}
 
     def chain(mid):
@@ -119,7 +137,9 @@ def slicing(modules, graph):
         waiting += any(dep in ids and stages.get(dep) != 'implemented' for dep in graph.get(module['module_id'], []))
     return {'slices': len(modules), 'supporting': sorted(m['module_id'] for m in modules if not accepts(m)),
             'shared_cases': sorted(cid for cid, mids in owners.items() if len(mids) > 1), 'accepted_cases': sorted(owners),
-            'chain_depth': max(depth.values(), default=0), 'waiting': waiting}
+            'chain_depth': max(depth.values(), default=0), 'waiting': waiting, 'layered_cases': layered,
+            # a slice that shows without deciding, or decides without showing, is one layer of a behaviour
+            'single_layer': sorted(mid for mid, profile in profiles.items() if profile and ('UI' in profile) != ('Logic' in profile))}
 
 
 def independence(parent, children, graph, plan, taken=()):
@@ -139,11 +159,12 @@ def independence(parent, children, graph, plan, taken=()):
             and all(isinstance(reason, str) and reason.strip() for reason in reasons.values()),
             'a slice that accepts no case is a supporting slice; state for each why it cannot live inside the slices that use it '
             '(supporting_slices): ' + ', '.join(shape['supporting']))
-    if shape['chain_depth'] >= 3 or 2 * shape['waiting'] > shape['slices']:
+    if shape['chain_depth'] >= 3 or 2 * shape['waiting'] > shape['slices'] or shape['layered_cases']:
         review = plan.get('independence_review')
         require(isinstance(review, dict) and isinstance(review.get('rationale'), str) and review['rationale'].strip(),
-                'slices form a chain of %d and %d of %d wait for another slice to be verified; cut by behavior, or state in '
-                'independence_review why they cannot be' % (shape['chain_depth'], shape['waiting'], shape['slices']))
+                'slices form a chain of %d, %d of %d wait for another slice to be verified and %d cases have their screen in one '
+                'slice and their logic in another; cut by behavior, or state in independence_review why they cannot be'
+                % (shape['chain_depth'], shape['waiting'], shape['slices'], len(shape['layered_cases'])))
         for ref in nonempty(review.get('evidence_refs'), 'independence review evidence'):
             check_ref(ref)
     return shape

@@ -833,6 +833,8 @@ def with_card(s, m, step):
             ('register', 'global-plan', 'source-review', 'run-review', 'revise-run'))):
         import experience
         snapshot = project_context.verify_snapshot(s['project_context_ref'])
+        if (step.get('role'), step.get('operation')) == ('spec-designer', 'plan') and m and m.get('dimension_analysis_ref') and not m.get('plan'):
+            step['spec_skeleton'] = 'spec_skeleton.py --root <run_root> --module ' + m['module_id'] + ' --out <staging directory>'
         skill = snapshot.get('source_refs', {}).get('slicing_skill_ref')
         if skill and (step.get('role'), step.get('operation')) in SLICING_STEPS:
             step['slicing_skill'] = {'name': experience.SKILL, 'ref': copy.deepcopy(skill)}
@@ -1967,6 +1969,11 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
         global_next['model_tier'] = model_routing.advise(global_next['role'], global_next.get('operation'))
     if global_next.get('operation'):
         with_card(s, None, global_next)
+    if global_next.get('reason') in ('await-delivery-authorization', 'completed-with-unverified-tests'):
+        import experience
+        due = experience.retrospective_due(s)  # a finished run that has something to learn from says so before it is closed
+        if due:
+            global_next['retrospective_due'] = due
     source_step = source_changes.next_action(s)
     for step in (global_next, source_step, revision_step):
         if isinstance(step, dict):
