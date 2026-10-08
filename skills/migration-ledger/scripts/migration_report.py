@@ -405,9 +405,10 @@ def render(report):
              *[f"| {cell(mid)} | {r['events']} | {r['dispatches']} | {r['context_receipts']} | {r['acceptances']} | "
                f"{r['human_decisions']} | {r['fix_rounds']} | {'是' if r['lean_leaf'] else '否'} | {r['card_bytes_full']} / {r['card_bytes_delivered']} |" for mid, r in cost['modules'].items()]]
     if any('plan_documents' in r for r in cost['modules'].values()):
-        text += ['', '规划体量（冻结计划所依据的文件数与字节，对照叶子的 CASE / TASK 数；用于发现小叶子的过度规划，不是门禁）：', '',
-                 '| 模块 | CASE | TASK | 规划文件 | 字节 |', '| --- | --- | --- | --- | --- |',
-                 *[f"| {cell(mid)} | {r['cases']} | {r['tasks']} | {r['plan_documents']} | {r['plan_bytes']} |"
+        text += ['', '规划体量（为计划撰写的文件与只被引用的来源分列，对照叶子的 CASE / TASK 数；用于发现小叶子的过度规划，不是门禁）：', '',
+                 '| 模块 | CASE | TASK | 撰写文件 / 字节 | 引用来源 / 字节 |', '| --- | --- | --- | --- | --- |',
+                 *[f"| {cell(mid)} | {r['cases']} | {r['tasks']} | {r['plan_documents']} / {r['plan_bytes']} | "
+                   f"{r.get('cited_documents', 0)} / {r.get('cited_bytes', 0)} |"
                    for mid, r in cost['modules'].items() if 'plan_documents' in r]]
     if cost.get('human_touches'):
         text += ['', f"人工介入（按用途）：{cell(cost['human_by_purpose'])}", '',

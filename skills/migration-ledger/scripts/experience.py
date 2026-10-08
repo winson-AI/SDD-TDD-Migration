@@ -52,6 +52,7 @@ def skill_body(data):
     """The skill a store gives: its abstract slicing lessons merged across runs (a lesson several runs arrived at
     comes first), the shape of earlier splits, and the latest observations nobody has abstracted yet."""
     line = lambda value: ' '.join(str(value).split())
+    some = lambda ids: f"{len(ids)} 条（{'、'.join(ids[:3])}{' 等' if len(ids) > 3 else ''}）" if ids else '—'  # a count reads; a long list does not
     merged, observed, shapes = {}, [], []
     for rid, block in sorted(data['runs'].items(), key=lambda pair: (pair[1].get('harvested_at') or '', pair[0])):
         for entry in block.get('entries', []):
@@ -89,7 +90,7 @@ def skill_body(data):
             for split in facts.get('splits') or [{}]:
                 text.append('| ' + ' | '.join(line(value) for value in (
                     rid, f"{facts.get('roots')} / {facts.get('leaves')}", split.get('parent_module_id', '—'), split.get('slices', '—'),
-                    '、'.join(split.get('supporting') or []) or '—', '、'.join(split.get('shared_cases') or []) or '—',
+                    '、'.join(split.get('supporting') or []) or '—', some(split.get('shared_cases')),
                     split.get('chain_depth', '—'), split.get('waiting', '—'), facts.get('resplits', 0), facts.get('run_revisions', 0))) + ' |')
         text.append('')
     if observed:

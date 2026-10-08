@@ -63,13 +63,16 @@ class ReportTests(unittest.TestCase):
         f.call('resume', {'decision_id': 'RESUME'})
         f.approve('0' * 64, 'SPARE')  # recorded and never used
         state = f.state()
-        self.assertEqual({did: d.get('used_for') for did, d in state['decisions'].items()},
-                         {'D1': 'freeze', 'RESUME': 'resume', 'SPARE': None})
+        self.assertEqual(workflow_cost.decision_uses(workflow_cost.journal(f.root)),  # read from the journal, not tagged in the state
+                         {'D1': [('freeze', 'M001')], 'RESUME': [('resume', 'M001')]})
         cost = workflow_cost.build(state, workflow_cost.journal(f.root))
         self.assertEqual(cost['human_by_purpose'], {'freeze': 1, 'resume': 1, 'unused': 1})
         rows = {row['decision_id']: row for row in cost['human_touches']}
         self.assertEqual((rows['RESUME']['module_id'], rows['RESUME']['reason']), ('M001', 'need decision'))
         self.assertIsNone(rows['D1']['reason'])
+        self.assertEqual((rows['D1']['uses'], rows['D1']['used_by_modules'], rows['SPARE']['uses']), (1, ['M001'], 0))
+        # a decision spent before the journal could say what for is still not called unused
+        self.assertEqual(workflow_cost.human_touches({'modules': {}, 'decisions': {'OLD': {'consumed': True}}})[0]['used_for'], 'used')
         markdown = migration_report.render(migration_report.build(f.root, state, state['last_sequence']))
         self.assertIn('| RESUME | M001 | resume | need decision |', markdown)
         self.assertIn('人工介入（按用途）', markdown)
@@ -80,13 +83,21 @@ class ReportTests(unittest.TestCase):
         row = workflow_cost.build(state, workflow_cost.journal(f.root))['modules']['M001']
         plan = state['modules']['M001']['plan']
         self.assertEqual((row['cases'], row['tasks']), (len(state['modules']['M001']['case_ids']), len(plan['tasks'])))
-        documents, size = workflow_cost.plan_volume(plan)
-        self.assertEqual((row['plan_documents'], row['plan_bytes']), (documents, size))
-        self.assertGreaterEqual(documents, len(plan['definitions']))  # at least the six-piece itself, each file once
-        self.assertGreater(size, 0)
+        volume = workflow_cost.plan_volume(plan)
+        self.assertEqual((row['plan_documents'], row['plan_bytes']), volume['authored'])
+        self.assertEqual((row['cited_documents'], row['cited_bytes']), volume['cited'])
+        self.assertGreaterEqual(volume['authored'][0], len(plan['definitions']))  # at least the six-piece itself, each file once
+        self.assertGreater(volume['authored'][1], 0)
         markdown = migration_report.render(migration_report.build(f.root, state, state['last_sequence']))
-        self.assertIn(f"| M001 | {row['cases']} | {row['tasks']} | {documents} | {size} |", markdown)
-        self.assertEqual(workflow_cost.plan_volume(None), (0, 0))
+        self.assertIn(f"| M001 | {row['cases']} | {row['tasks']} | {volume['authored'][0]} / {volume['authored'][1]} | "
+                      f"{volume['cited'][0]} / {volume['cited'][1]} |", markdown)
+        self.assertEqual(workflow_cost.plan_volume(None), {'authored': (0, 0), 'cited': (0, 0)})
+
+    def test_a_source_a_plan_only_cites_is_not_what_was_written_for_it(self):
+        f = self.f
+        written, staged, cited = f.ref('spec.md', 'x' * 100), f.ref('staging/spec-designer/r1/notes.md', 'y' * 40), f.ref('LegacyActivity.java', 'z' * 5000)
+        plan = {'definitions': [{**written, 'kind': 'spec'}], 'source_closure': {'evidence_refs': [cited, staged, cited]}}
+        self.assertEqual(workflow_cost.plan_volume(plan), {'authored': (2, 140), 'cited': (1, 5000)})
 
 
 if __name__ == '__main__':

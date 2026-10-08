@@ -62,7 +62,9 @@ class GenerationTests(unittest.TestCase):
         data = store(first={'entries': [{'kind': 'boundary-conflict', 'summary': 'the child scope left out the navigation handler', 'module_id': 'M002'}],
                             'slicing': SPLIT})
         body = experience.skill_body(data)
-        self.assertIn('| first | 1 / 3 | M010 | 3 | M001 | C2 | 3 | 2 | 2 | 0 |', body)
+        self.assertIn('| first | 1 / 3 | M010 | 3 | M001 | 1 条（C2） | 3 | 2 | 2 | 0 |', body)
+        many = copy.deepcopy(SPLIT); many['splits'][0]['shared_cases'] = ['C%d' % n for n in range(1, 18)]
+        self.assertIn('| 17 条（C1、C2、C3 等） |', experience.skill_body(store(first={'entries': [], 'slicing': many})))  # a count, not seventeen ids
         self.assertIn('## 尚未抽象的观察（共 1 条，列最近 1 条）', body)
         self.assertIn('- first · boundary-conflict：the child scope left out the navigation handler', body)
         self.assertIn('## 已抽象的经验（0 条）', body)
@@ -81,6 +83,21 @@ class GenerationTests(unittest.TestCase):
         self.assertEqual(experience.write_skill(self.directory, data)['revision'], 2)  # the next run refined it
         self.assertIn('第 2 版，来自 2 个 run', path.read_text())
         self.assertIn('one accepting slice per case', path.read_text())
+
+
+class CardTests(unittest.TestCase):
+    def test_the_card_a_host_hands_over_carries_the_skill_the_step_names(self):
+        import reading
+        tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
+        base = Path(tmp.name).resolve()
+        experience.write_skill(base / 'experience', store(first={'entries': [lesson('cut by behaviour')]}))
+        skill = {'name': experience.SKILL, 'ref': file_ref(base / 'experience/skills' / experience.SKILL / 'SKILL.md')}
+        rows = [{'ref': 'AGENTS.md', 'section': '四条红线', 'bytes': 1, 'sha256': 'x'}]
+        plain = Path(reading.render(rows, base / 'cards')['path']).read_text()
+        self.assertNotIn('cut by behaviour', plain)
+        loaded = Path(reading.render(rows, base / 'cards', (), skill)['path']).read_text()
+        self.assertIn('<!-- 技能 migration-slicing-experience -->', loaded)
+        self.assertIn('cut by behaviour', loaded)
 
 
 class HarvestTests(unittest.TestCase):

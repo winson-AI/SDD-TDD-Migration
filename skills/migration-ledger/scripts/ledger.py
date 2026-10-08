@@ -1042,17 +1042,6 @@ def settle_preflight(m, actor, receipt):
 
 
 def mutate(s, req, principal, events, root=None):
-    """Apply one operation, and note on every human decision it used what the decision was used for."""
-    spent = lambda d: (bool(d.get('consumed')), len(d.get('used_by', {})))
-    before = {did: spent(d) for did, d in s.get('decisions', {}).items()} if isinstance(s, dict) else {}
-    result = apply_operation(s, req, principal, events, root)
-    for did, d in (s.get('decisions', {}) if isinstance(s, dict) else {}).items():
-        if did in before and spent(d) != before[did]:
-            d.setdefault('used_for', req['operation'])
-    return result
-
-
-def apply_operation(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')

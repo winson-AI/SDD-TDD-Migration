@@ -658,10 +658,14 @@ FOOTER = ('<!-- 取用 -->\n本卡之外的规则不整份读取：`reading.py s
           '上文“（文件 § 小节）”即可直接作为参数。\n')
 
 
-def render(rows, output_dir, extra=()):
-    """Write the card as one file named by its digest; a dispatch then hands the role a single path."""
+def render(rows, output_dir, extra=(), skill=None):
+    """Write the card as one file named by its digest; a dispatch then hands the role a single path. A skill the step
+    names travels in the same file, so loading the card loads it."""
     body = ''.join(f'<!-- {row["ref"]}{"#" + row["section"] if row["section"] else ""} -->\n'
                    f'{unlink(text_of(row), row["ref"]).rstrip()}\n\n' for row in rows)
+    if skill:
+        from contracts import check_ref
+        body += f'<!-- 技能 {skill["name"]} -->\n{check_ref(skill["ref"]).read_text().rstrip()}\n\n'
     if extra:
         body += '<!-- 本步模板 -->\n' + ''.join(f'- {name}\n' for name in extra) + '\n'
     body += FOOTER
@@ -712,7 +716,8 @@ def main():
             if not rows:
                 print(json.dumps({'path': None, 'card_sha256': step['card_sha256'], 'bytes': 0, 'sections': 0}))
                 return 0
-        print(json.dumps(render(rows, Path(st['run_root']) / 'reports/reading', step.get('templates', ())), ensure_ascii=False))
+        print(json.dumps(render(rows, Path(st['run_root']) / 'reports/reading', step.get('templates', ()),
+                                None if args.resumed else step.get('slicing_skill')), ensure_ascii=False))
         return 0
     except (KeyError, ValueError, OSError) as exc:
         print(json.dumps({'status': 'rejected', 'reason': str(exc)}, ensure_ascii=False), file=sys.stderr)
