@@ -8,6 +8,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import automation_report
+import ledger
 import migration_report
 import user_paths
 from contracts import Rejected, file_ref
@@ -100,6 +101,70 @@ class WiringTests(unittest.TestCase):
         with mock.patch.object(user_paths, 'plan_gate') as gate:
             f.call('plan', {'plan_ref': f.ref('plan.json', f.plan())}, role='spec-designer')
             gate.assert_not_called()
+
+
+class UnverifiedRunTests(unittest.TestCase):
+    """What was built passes; the automation of the case with no device path does not, and the run says so at the end."""
+    def setUp(self):
+        self.f = f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        authored = f.plan
+        f.plan = lambda: {**authored(), 'device_gaps': [{'case_id': 'C1', 'reason': 'the screen needs a paired second device',
+                                                         'evidence_refs': [f.ref('gap.md', 'reviewed')]}]}
+
+    def finish(self):
+        f = self.f
+        f.prepare(); f.implementation()
+        a, result = f.make_test_result()
+        f.submit(result, a); f.call('accept', {'assignment_id': a['assignment_id']})
+        f.call('complete', {'dod_ref': f.ref('dod.md', 'all reviewed')})
+
+    def audit(self):
+        f = self.f
+        test_ledger.code_review(f)
+        f.call('audit-assign', {'assignment_id': 'AUDIT', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
+        scope = ledger.audit_scope(f.state())
+        test_id = test_ledger.start_audit_test(f, 'AUDIT')
+        rr = test_ledger.execute(f.root, 'GLOBAL', test_id, 'GP1', [sys.executable, str(f.base / 'adapter.py')], str(f.target), f.base / 'global-exec')
+        receipt = json.loads(Path(rr['path']).read_text())
+        report = {'schema_version': 1, 'kind': 'tests', 'run_id': 'demo', 'module_id': 'GLOBAL', 'assignment_id': 'AUDIT',
+                  'actor_instance_id': 'auditor', 'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],
+                  'snapshot': {'M001': f.state()['modules']['M001']['code_baseline']},
+                  'paths': [{'path_id': 'GP1', 'quality': 'green-passed', 'executed': True, 'test_run_id': receipt['test_run_id'],
+                             'execution_receipt': rr, 'assertions': json.loads(Path(receipt['result_ref']['path']).read_text())['assertions']}]}
+        f.call('audit', {'report_ref': f.ref('audit.json', test_ledger.accept_audit_test(f, report))}, role='auditor', module=None)
+
+    def test_the_module_completes_and_is_yellow_while_everything_it_ran_is_green(self):
+        f = self.f; self.finish()
+        m = f.state()['modules']['M001']
+        self.assertEqual((m['phase'], m['quality']), ('completed', 'yellow-blocked'))
+        self.assertTrue(all(row['quality'] == 'green-passed' for row in m['results'].values()))  # the build and what ran
+        self.assertEqual(f.state()['global_next_step']['operation'], 'audit-code-review')  # the run goes on to its audit
+
+    def test_the_run_ends_unverified_and_asks_nobody_to_authorize_a_green_delivery(self):
+        f = self.f; self.finish(); self.audit()
+        state = f.state()
+        self.assertEqual((state['audit']['quality'], state['quality']), ('green-passed', 'yellow-blocked'))
+        step = state['global_next_step']
+        self.assertEqual((step['reason'], step['quality'], step['human_required']), ('completed-with-unverified-tests', 'yellow-blocked', False))
+        self.assertEqual(step['device_gap_cases'], {'M001': ['C1']})
+
+    def test_the_report_marks_the_case_and_its_automation_yellow_and_leaves_the_build_green(self):
+        f = self.f; self.finish(); self.audit()
+        state = f.state()
+        report = migration_report.build(f.root, state, state['last_sequence'])
+        self.assertEqual(report['report_stage'], 'completed-with-unverified-tests')
+        case, = [c for c in report['cases'] if c['case_id'] == 'C1']
+        self.assertEqual(case['quality'], 'yellow-blocked')
+        gap, = [row for row in report['paths'] if row['path_id'] == 'DEVICE-GAP:C1']
+        self.assertEqual((gap['kind'], gap['quality'], gap['executed'], gap['on_device']), ('automation', 'yellow-blocked', False, True))
+        self.assertEqual(gap['root_causes'][0]['category'], 'device-path-gap')
+        self.assertIn('the screen needs a paired second device', gap['root_causes'][0]['summary'])
+        built = [row for row in report['paths'] if row['module_id'] == 'M001' and row['path_id'] != 'DEVICE-GAP:C1']
+        self.assertTrue(built and all(row['quality'] == 'green-passed' for row in built))
+        module = report['automation']['modules']['M001']
+        self.assertEqual((module['yellow_paths'], module['yellow_reasons'], module['device_paths'], module['device_passed_paths']),
+                         (1, {'not-executed': 1}, 1, 0))
+        self.assertFalse(module['validation_complete'])
 
 
 class StatisticsTests(unittest.TestCase):

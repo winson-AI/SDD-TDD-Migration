@@ -226,6 +226,14 @@ def build(root, s, sequence, ref_check=check_ref):
         for p in paths: row(mid, p['case_id'], p, m)
         for cid in m['case_ids']:
             if not any(p['case_id'] == cid and p.get('kind') != 'build' for p in paths): row(mid, cid, m=m)
+        # A declared device gap is the automation path the case is owed and did not get: Yellow, never executed.
+        for cid, gap in sorted(user_paths.gaps(m.get('plan')).items()):
+            before = len(rows)
+            row(mid, cid, {'path_id': 'DEVICE-GAP:' + cid, 'case_id': cid, 'kind': 'automation', 'name': '设备/视觉路径缺口'}, m)
+            if len(rows) > before:
+                rows[-1].update(on_device=True, quality='yellow-blocked', evidence_refs=refs([gap.get('evidence_refs')]),
+                                root_causes=[{'category': 'device-path-gap', 'summary': gap.get('reason'), 'owner': mid,
+                                              'next_action': 'provide-device-or-visual-path'}])
     for p in s.get('global_paths', []): row('GLOBAL', p['case_id'], p)
     for cid in s['case_ids']:
         if not any(r['case_id'] == cid for r in rows): row('UNASSIGNED', cid)
@@ -249,7 +257,8 @@ def build(root, s, sequence, ref_check=check_ref):
     reviewed = governance['current'] and not governance['pending_findings']
     stage = ('completed' if settled and reviewed and not invalid and s.get('quality') == 'green-passed' and
              all(c['quality'] == 'green-passed' for c in cases) else
-             'completed-with-unverified-tests' if settled and reviewed and not invalid and tv.final_deferred_current(s) else
+             'completed-with-unverified-tests' if settled and reviewed and not invalid
+             and (tv.final_deferred_current(s) or user_paths.unverified_only(s)) else
              'awaiting-human' if batch.get('status') == 'awaiting-human' else 'in-progress')
     visual, limitations, pictures = fidelity(s, rows, ref_check)
     import automation_report
