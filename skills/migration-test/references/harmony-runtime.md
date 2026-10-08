@@ -74,7 +74,7 @@ Planner 仅用 `execute_step(step_number)` 执行冻结原文，再逐个 verify
 
 验证请求默认 60 秒、步骤/验证 120 秒、PATH 1800 秒，由 models 的 verify_request_timeout/step_timeout/task_timeout 调整；子预算受剩余 PATH/宿主预算约束。验证请求无隐式重试；超时终止进程组，保留观察、步骤及 interruption 供宿主收集。未完成记 Yellow，已观察失败仍披露；不复用活动 worker。
 
-正式入口固定 test；platform/device/部署基线沿原门禁。新宿主 query/receipt 绑定 execution_contract_version=2，移动端报告均须步骤证据及 host normalization，缺 platform 的旧 PATH 也适用。缺步骤/检查点时同 Run 重规划；历史回执按原契约重放。旧工具录制不能冒充新步骤回放，需重新执行冻结 PATH。最终文本、回放成功数或临时 ADB 接续均不能替代正式断言/回执；截图失败不生成黑图证据。
+正式入口固定 test；platform/device/部署基线沿原门禁。新宿主 query/receipt 绑定 execution_contract_version=2，移动端报告均须步骤证据及 host normalization，缺 platform 的旧 PATH 也适用。缺步骤/检查点时同 Run 重规划。旧工具录制不能冒充新步骤回放，需重新执行冻结 PATH。最终文本、回放成功数或临时 ADB 接续均不能替代正式断言/回执；截图失败不生成黑图证据。
 
 ## 4. 输出与三态
 

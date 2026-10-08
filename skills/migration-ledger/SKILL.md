@@ -51,7 +51,7 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 
 [design_stage.py](scripts/design_stage.py) 处理 mode=design 的派发/提交/接受及 plan/freeze 绑定，不改测试质量，见 [设计交接](../migration-protocol/references/testing.md#编码前设计交接)。
 
-新运行启用 context-submit 与各原节点的 context_ref 验收，维护 context_receipts/context_acceptances；步骤视图的 `context` 给出本阶段要求；不把预检失败自动扩散或标作模块收尾。按 [阶段协议](../migration-protocol/references/context-readiness.md) 校验身份、必读输入摘要、草稿与版本，保留失败与恢复证据。
+启用 context-submit 与各原节点的 context_ref 验收，维护 context_receipts/context_acceptances；步骤视图的 `context` 给出本阶段要求；不把预检失败自动扩散或标作模块收尾。按 [阶段协议](../migration-protocol/references/context-readiness.md) 校验身份、必读输入摘要、草稿与版本，保留失败与恢复证据。
 
 Auditor 收尾先接受 `audit-code-review` 的独立全模块代码审查；`audit-collect` 优先代码治理批次，再处理剩余 Red/Yellow；最终 audit-assign/audit-unavailable 均校验当前审查及无待治理发现。接口、证据和恢复见 [代码治理协议](../migration-protocol/references/audit-code-review.md)。
 

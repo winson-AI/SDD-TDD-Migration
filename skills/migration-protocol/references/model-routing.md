@@ -32,7 +32,7 @@
 
 ## 游标建议（status.next_steps[].model_tier）
 
-`status` 的每个 `next_steps`（及 `global_next_step`）附 `model_tier`，由角色/操作查策略表并叠加升级信号得出。宿主读它，用 `runtime.model_routing` 解析出的模型 dispatch。该字段为纯建议、始终存在、向后兼容。
+`status` 的每个 `next_steps`（及 `global_next_step`）附 `model_tier`，由角色/操作查策略表并叠加升级信号得出。宿主读它，用 `runtime.model_routing` 解析出的模型 dispatch。该字段为纯建议、始终存在。
 
 ## 实际模型留存（辅助排查）
 

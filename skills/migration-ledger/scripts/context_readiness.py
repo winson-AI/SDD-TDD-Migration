@@ -36,6 +36,41 @@ SELF_REPORTED = ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', '
 WORKERS = {'implementer': 'coding', 'test-runner': 'testing', 'fixer': 'fixing'}
 
 
+# The stage whose preflight asks nothing the Ledger cannot check by itself: every input exists and is the bytes its
+# reference names, and the subject is current. A build or a test run also approves commands and an environment, which
+# only the worker that will run them can state; a repair round is spent when the Fixer says it can start.
+MECHANICAL = {'implementer': 'coding'}
+
+
+def mechanical(root, s, mid, assignment):
+    """Write and register, in the worker's name, the preflight of a dispatch the Ledger can check by itself; None when
+    the stage needs the worker's own report or an input is not as referenced (the worker then reports what is missing)."""
+    stage = MECHANICAL.get(assignment.get('role'))
+    if not stage or root is None:
+        return None
+    m = scope(s, mid)
+    actor = {'role': assignment['role'], 'instance_id': assignment['instance_id']}
+    try:
+        verify_inputs(s, mid, stage, deep=True)
+        refs = input_refs(s, mid, stage)
+        proof = {'frozen-spec': m['plan_ref'], 'reuse-mapping': (m.get('plan') or {}).get('reuse_plan_ref'),
+                 'source-closure': m.get('dimension_analysis_ref'),
+                 'failure-diagnosis': (diagnosis_report(m) or {}).get('diagnosis_ref')}
+        fact = {'frozen-spec': 'freeze ' + str(m.get('freeze_id'))[:12], 'task-trace': str(len(m['plan']['tasks'])) + ' tasks traced to their paths',
+                'repair-history': str(len(m.get('fix_memory', []))) + ' earlier repair records', 'permissions-tools': 'write scope ' + ', '.join(m.get('write_paths', []))}
+        checks = {name: {'status': 'ready', 'evidence_refs': [proof.get(name) or m['plan_ref']],
+                         'summary': 'checked by the Ledger: the %d inputs of this stage exist and match their hashes; %s'
+                                    % (len(refs), fact.get(name, 'bound to the frozen plan'))} for name in CHECKS[stage]}
+        report = {'schema_version': 1, 'run_id': s['run_id'], 'module_id': mid, 'stage': stage, 'producer': actor, 'mechanical': True,
+                  'subject_sha256': subject(s, mid, stage), 'checks': checks, 'verdict': 'ready'}
+        import project_context
+        ref = project_context.archive(Path(root) / 'artifacts/preflight', project_context.encoded(report), '.json')
+        submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor)
+        return ref
+    except (Rejected, OSError, KeyError, TypeError):
+        return None
+
+
 def enabled(s):
     return s.get('context_readiness_required', False)
 
@@ -178,7 +213,13 @@ def input_refs(s, mid, stage):
     """What a role has to have read for a stage; its ready report is bound to their digest."""
     if mid and stage in set(WORKERS.values()) | {'building'}:
         return worker_refs(s, scope(s, mid), stage, execution_context(s, mid, stage))
-    return standing_refs(s, mid, stage)
+    refs = standing_refs(s, mid, stage)
+    if mid and stage in ('planning', 'decomposition'):
+        # The legacy and target trees are opened where an item's locator points; the analysis, the parent's context and
+        # the upstream cases are what a plan or a split is written from. The whole set still may not drift.
+        trees = [Path(s[key]).resolve() for key in ('legacy_root', 'target_root') if s.get(key)]
+        refs = [ref for ref in refs if not any(Path(ref['path']).resolve().is_relative_to(tree) for tree in trees)]
+    return refs
 
 
 def standing_refs(s, mid, stage):
