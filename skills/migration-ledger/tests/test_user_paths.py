@@ -12,6 +12,7 @@ import ledger
 import migration_report
 import user_paths
 from contracts import Rejected, file_ref
+import test_decomposition
 import test_ledger
 import test_source_changes
 
@@ -165,6 +166,25 @@ class UnverifiedRunTests(unittest.TestCase):
         self.assertEqual((module['yellow_paths'], module['yellow_reasons'], module['device_paths'], module['device_passed_paths']),
                          (1, {'not-executed': 1}, 1, 0))
         self.assertFalse(module['validation_complete'])
+
+
+class GapUnderAParentTests(unittest.TestCase):
+    def test_a_parent_whose_children_have_a_gap_settles_and_the_run_goes_on_to_its_audit(self):
+        f = test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        authored = f.plan
+        f.plan = lambda: {**authored(), 'device_gaps': [{'case_id': 'C1', 'reason': 'the screen needs a paired second device',
+                                                         'evidence_refs': [f.ref('gap.md', 'reviewed')]}]}
+        f.root_scope(); f.split(); f.global_plan()
+        for mid in ('M001', 'M002'):
+            f.prepare_leaf(mid); f.complete_leaf(mid)
+        f.summarize()
+        state = f.state()
+        self.assertEqual({mid: (m['phase'], m['quality']) for mid, m in state['modules'].items()},
+                         {'M001': ('completed', 'yellow-blocked'), 'M002': ('completed', 'yellow-blocked')})
+        group = state['module_groups']['M010']
+        self.assertEqual((group['phase'], group['quality']), ('waiting-auditor', 'yellow-blocked'))  # settled, and not Green
+        self.assertTrue(state['module_rounds']['all_settled'])
+        self.assertEqual(state['global_next_step']['operation'], 'audit-code-review')
 
 
 class StatisticsTests(unittest.TestCase):

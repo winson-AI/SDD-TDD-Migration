@@ -22,13 +22,13 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1274 | 全量通过，零失败/错误/跳过；本轮新增 17 项 |
+| migration-ledger/tests | 1275 | 全量通过，零失败/错误/跳过；本轮新增 18 项 |
 | migration-test/tests | 70 | 全量通过；本轮未改适配器 |
 | runtime/harmony/tests | 128 | 全量通过；本轮未改运行内核 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-新增 17 项验证：声明设备缺口的模块完成后为 Yellow 而其已执行路径（含 build）保持 Green，审计通过后全局游标以 completed-with-unverified-tests 收尾且不需要人，报告把该 CASE 与其 automation 记为 Yellow（一条未执行的应测设备路径，原因取缺口说明），阶段为带缺测结束；最小集计划（去掉四维分析引用、source_closure、target_feasibility、decision_envelope、各任务四维与 scenario_trace）在 prepared run 被接受并冻结，补全值取自已接受的四维分析与行为审阅，同一最小集文件重交不算新的规划轮次，作者自写的值被保留并照常判定（未就绪的可行性仍被拒），多任务计划按 dimension_trace 分给各任务，没有四维分析或绑定了别的分析时不补全；经验库无切分内容时不生成技能，多个 run 的同一抽象教训合并并排在前，往次切分形态与未抽象观察照录，内容不变则修订号不变、有新教训才升版，发生过拆分的 run 采集后经验库出现技能，prepare 把技能固化进下一 Run，游标只在 GO/MO 的切分步骤给出它，切分阶段之外的必读输入不含它。
+新增 18 项验证：声明设备缺口的模块完成后为 Yellow 而其已执行路径（含 build）保持 Green，审计通过后全局游标以 completed-with-unverified-tests 收尾且不需要人，报告把该 CASE 与其 automation 记为 Yellow（一条未执行的应测设备路径，原因取缺口说明），阶段为带缺测结束，父模块下的缺口叶子完成并汇总后父为 Yellow、本轮照常进入审计；最小集计划（去掉四维分析引用、source_closure、target_feasibility、decision_envelope、各任务四维与 scenario_trace）在 prepared run 被接受并冻结，补全值取自已接受的四维分析与行为审阅，同一最小集文件重交不算新的规划轮次，作者自写的值被保留并照常判定（未就绪的可行性仍被拒），多任务计划按 dimension_trace 分给各任务，没有四维分析或绑定了别的分析时不补全；经验库无切分内容时不生成技能，多个 run 的同一抽象教训合并并排在前，往次切分形态与未抽象观察照录，内容不变则修订号不变、有新教训才升版，发生过拆分的 run 采集后经验库出现技能，prepare 把技能固化进下一 Run，游标只在 GO/MO 的切分步骤给出它，切分阶段之外的必读输入不含它。
 
 协议体积为 538996 / 539000 字节，最大单文件 31702 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 56267 / 60000 字节，最大模板组合 52847 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
