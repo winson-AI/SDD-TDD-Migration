@@ -1175,6 +1175,9 @@ def mutate(s, req, principal, events, root=None):
                               unit_required=s.get('unit_tests_required', False))
             if m.get('parent_module_id') or s.get('reuse_required') or plan.get('reuse_plan_ref'):
                 reuse.validate_plan(plan, m, reuse.sources(s), s['modules'], s['legacy_root'])
+            if s.get('planning_coverage_required'):
+                import user_paths
+                user_paths.plan_gate(m, plan)
         occupied = {path['path_id'] for path in s['global_paths']}
         occupied.update(path['path_id'] for other in s['modules'].values() if other['module_id'] != mid
                         and other.get('plan') for path in other['plan']['paths'])

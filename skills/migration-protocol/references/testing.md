@@ -8,15 +8,15 @@ Main 是项目提供的主验证入口，不是固定 `main.py`。输入 `test_a
 
 ## 编码前设计交接
 
-GO/父 MO 在冻结前将上游全量 CASE 分配到独立 scope，子 MO 拆 TASK；Spec-Designer 一次形成可执行 SPEC 和测试路径，MO 审核后冻结、派发 Implementer。prepare 的 test_design_required=true 表示必需的测试输入与覆盖，不强制额外 Test-Runner design 轮次。TDD 的预期来自上游用例与源行为，automation 收集实际错误后推动实现修复；首次即 Green 不伪造 Red。
+prepare 的 test_design_required=true 表示必需的测试输入与覆盖，不强制额外 Test-Runner design 轮次。TDD 的预期来自上游用例与源行为，automation 收集实际错误后推动实现修复；首次即 Green 不伪造 Red。
 
 默认 stage-plan.test_design_ref 引用 [upstream-test-plan.json](../../../template/upstream-test-plan.json)：subject_sha256、case_refs 分别取游标 input_subject_sha256、upstream_case_refs，绑定当前分配及权威用例（项目 test_cases_path，未单独提供时取 global_spec）。paths 精确覆盖本模块全部 CASE，每条含需求、预期 ASSERT 与适用 Scenario；不得填 actual/passed/quality 或执行结果。design_ref 和 test_assets 沿用下述资产契约。Ledger 补全 PATH/test-design/资产定义；TASK.scope、需求和 SPEC 定义由 plan 明确提供。MO 检查原始用例与预期的语义一致性，hash 不证明语义；无未决且完整可执行即冻结，无需等待实现后才能发现的问题。
 
-只有确需独立设计协助时，MO 显式 assign(role=test-runner, mode=design, design_input_ref)，输入仍为本叶子 SPEC 草稿、tasks.scope/需求、case_refs 和游标 subject。设计者不得兼 MO/Spec/代码作者；submit 同带 test-design 预检 context_ref，kind=test-design，freeze_id/code_baseline=null。MO accept 后 plan 必须绑定接受的设计、任务与断言；过期/撤销的显式设计仍需重交，不能冒充已接受。设计只读规格与用例，不运行目标代码。
+只有确需独立设计协助时，MO 显式 assign(role=test-runner, mode=design, design_input_ref)，输入仍为本叶子 SPEC 草稿、tasks.scope/需求、case_refs 和游标 subject。submit 同带 test-design 预检 context_ref，kind=test-design，freeze_id/code_baseline=null。MO accept 后 plan 必须绑定接受的设计、任务与断言；过期/撤销的显式设计仍需重交，不能冒充已接受。设计只读规格与用例，不运行目标代码。
 
 执行反馈分流、同 Run CR 及独立 TASK 保留统一按[变更控制](openspec.md#变更控制)；不强制重做独立 design，当前计划仍绑定上游用例，历史设计只供追溯。
 
-新 prepare 固化 planning_coverage_required。每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids；已有执行器可复用，prepared 须对应资产，deferred 另记 owner/next_action，解决后才能冻结。测试准备不执行目标代码，不编造 Red。
+新 prepare 固化 planning_coverage_required。每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids；已有执行器可复用，prepared 须对应资产，deferred 另记 owner/next_action，解决后才能冻结。测试准备不执行目标代码，不编造 Red。叶子验收的用户可见 CASE（适用 UI item 承载）须有设备或视觉 PATH：visual，或绑定 android/harmony 平台、交互的 automation；确无可能的写 plan.device_gaps[{case_id,reason,evidence_refs}]，报告列为 Yellow 缺口、不计完整验证。环境缺失不是缺口：照常规划，走缺测出口。
 
 test_assets 交 script/fixture/adapter 的 asset_id/ref/path_ids，script 再映射 assertions；文件位于 design_ref 同级 staging 内，冻结 definitions 绑定 hash。模块、修复后复测及 GLOBAL 复测共用 PATH 资产解析，query/receipt 的 test_asset_binding 保留来源模块、freeze_id、test_design_ref。GLOBAL 自有路径显式绑定本 GLOBAL 的 test_design_ref/设计作者，不借用模块资产；作者不能兼 Auditor/审计 Test-Runner。
 
@@ -135,7 +135,7 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 Test Runner 接到 build 派发后提交 building、接到 automation 派发后提交 testing 报告，ready 报告绑定派发后才执行；Auditor 最终验证在 audit-assign 前提交 audit-testing 报告。报告包括已接受代码、冻结 PATH/assert、提供方、工具/环境/数据与 execution.argv/cwd/environment_ref。execute_test 只接受已绑定 ready 报告的派发，并再核对命令和环境引用；不匹配须重新预检和派发，不能换命令绕过。缺条件不生成假测试结果。见 [上下文就绪协议](context-readiness.md)。
 
-仅自动化环境缺失采用 automation-unavailable/automation-deferred 专门分流；不耗修复轮次、不阻塞可执行的下游或并行工作，也不冒充 Green。Auditor 可记录完整缺测清单后完成本轮；其余真实 Red/Yellow 保持原诊断修复流程。
+仅自动化环境缺失走[缺测出口](progress-recovery.md#4-自动化缺测出口)，不冒充 Green。
 
 ## 埋点上报断言
 

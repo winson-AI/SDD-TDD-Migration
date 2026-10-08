@@ -11,7 +11,7 @@ GO 在本轮成功完成、带自动化缺测结束或需人工处理而停止�
 1. run_id、入口范围、Ledger sequence、当前模块代码基线和 Auditor 结论。
 2. 父 MO 名称表：`parent-mo-<module_id>`，如 parent-mo-M010。
 3. **全部输入 CASE-ID 的状态表**，包括 Green、Red、Yellow，不能只列失败用例或成功模块。一个 CASE 有多个模块/PATH 时，全部参与项共同决定该 CASE 状态；父节点不重复计数。
-4. PATH-ID/Name、模块/父 MO/TASK、类型、平台/参数、executed/stale、test_run_id/retest_of、断言与证据；`automation` 按宿主任务、模块、TASK 列应测/已尝试/完整执行/部分执行/完整性未知/有效成功/Red/Yellow及成功集合。只计 automation（历史无 kind 的业务 PATH 兼容），build/unit/static/visual 单列；共享 TASK 的 PATH 总计一次，重试不加分母。缺路径 CASE 保留覆盖缺口，旧 Green 失效退出成功集合；Yellow 细分未执行/受阻/过期/flaky，已观察失败断言单列且不重复计数。
+4. PATH-ID/Name、模块/父 MO/TASK、类型、平台/参数、executed/stale、test_run_id/retest_of、断言与证据；`automation` 按宿主任务、模块、TASK 列应测/已尝试/完整执行/部分执行/完整性未知/有效成功/Red/Yellow及成功集合。只计 automation（历史无 kind 的业务 PATH 兼容），build/unit/static/visual 单列，并分列设备/进程内/视觉路径的成功与应测及设备缺口 CASE；共享 TASK 的 PATH 总计一次，重试不加分母。缺路径 CASE 保留覆盖缺口，旧 Green 失效退出成功集合；Yellow 细分未执行/受阻/过期/flaky，已观察失败断言单列且不重复计数。
 5. 每条非 Green 的原因、根因置信度（若已有）、owner、next_action 和证据引用；原因未知明确待诊断，不能臆测，也不能以一句“环境问题”代替已有错误证据。
 6. 有已接受的实现缺口时，展示 `unimplemented` 清单和“未实现：需要人工决策”：具体目标行为、REQ/CASE/TASK、替代方案核验结论、review_ref、owner 与下一步；对应路径的 `implementation_status=not-implemented` 是实现缺口标记，不新增第四种测试质量。一般复用失败应继续 Coding，自动化缺测仍按缺测展示。入口及恢复见 [复用协议第 8 节](reuse-dependencies.md)。
 

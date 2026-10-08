@@ -11,6 +11,7 @@ import parameter_file
 import resource_copy
 import resource_fidelity
 import ui_fidelity
+import user_paths
 import workflow_cost
 
 
@@ -58,6 +59,10 @@ def picture(mid, item, analysis_ref, carriers, rows):
 
 def fidelity(s, rows, ref_check):
     """Disclose proof boundaries without changing business acceptance or scheduling."""
+    device_gaps = [{'module_id': mid, 'item_id': None, 'kind': 'device-path-gap', 'case_ids': [cid],
+                    'reason': f"用户可见 CASE {cid} 没有设备或视觉路径（Yellow 缺口，未计为完整验证）：{gap.get('reason')}",
+                    'evidence_refs': refs([gap.get('evidence_refs')])}
+                   for mid, m in sorted(s['modules'].items()) for cid, gap in sorted(user_paths.gaps(m.get('plan')).items())]
     visual, limitations, pictures, copied, parameters, checks, conditions = [], [], [], 0, {}, {}, []
     for mid, module in s['modules'].items():
         plan = module.get('plan') or {}
@@ -132,6 +137,7 @@ def fidelity(s, rows, ref_check):
     limitations[:0] = [{**v, 'kind': 'visual-coverage'} for v in visual if v['status'] in ('unknown', 'not-verified')]
     limitations += [{**c, 'kind': 'fidelity-condition', 'reason': c['condition'] + ': current assertions not verified'}
                     for c in conditions if c['status'] == 'not-verified']
+    limitations += device_gaps
     limitations += [{'module_id': v['module_id'], 'item_id': v['item_id'], 'kind': 'picture-replacement',
                      'reason': f"图片 {v['source']} 与存量不是精确复制（{v['status']}）：{v['reason']}", 'evidence_refs': v['evidence_refs']}
                     for v in pictures if v['status'] not in ('exact', 'verified', 'reviewed')]
@@ -199,6 +205,7 @@ def build(root, s, sequence, ref_check=check_ref):
                      'path_id': pid, 'name': (path or {}).get('name', pid or cid), 'kind': (path or {}).get('kind', 'test'),
                      'task_ids': [t['task_id'] for t in ((m or {}).get('plan') or {}).get('tasks', []) if pid in t.get('path_ids', [])],
                      'platform': (path or {}).get('platform'), 'parameters': copy.deepcopy((path or {}).get('parameters', {})),
+                     'on_device': user_paths.on_device(path or {}),
                      'flaky': bool(record.get('flaky')), 'execution_status': record.get('execution_status'),
                      'coverage': (path or {}).get('coverage'),
                      'quality': q, 'recorded_quality': record.get('quality'),
