@@ -28,7 +28,7 @@ mode: subagent
 
 诊断补充：纯视觉失败最多列两条 visual_issues，见 [视觉修复聚焦](../skills/migration-protocol/references/ui-fidelity.md#视觉修复聚焦)。反馈必须包含 owner_module_id、owner_role、根因置信度、source/target 证据、受影响 PATH、建议 next_action 与是否可能改变 decision_envelope。owner 表示路由建议，MO 审核后派发，不赋予诊断者修改权限。
 
-本地操作 diagnose 仅提交，不推进 phase；MO diagnosis-accept 后才能派 Fixer。活动复测未结束时不能提交诊断。
+diagnose 只提交；MO 按游标接受实现诊断、提交 CR 或上溯 scope，不先派 Fixer 再判断。repair_route/category 见[变更控制](../skills/migration-protocol/references/openspec.md#变更控制)。活动复测未结束不能诊断。
 
 ## 复用问题归因
 

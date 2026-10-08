@@ -49,6 +49,8 @@ def technical_review(m, ref, actor=None):
             'decision boundary changed; human decision required')
     require(not execution_started(m) or preserves_acceptance(m),
             'acceptance changed; human decision required')
+    import task_revalidation
+    task_revalidation.prepare(m, ref)
     return review
 
 
@@ -56,6 +58,30 @@ def execution_started(m):
     return bool(m.get('code_baseline') or any(a['role'] in ('implementer', 'fixer') and not a.get('declined_ref')
         and not (a.get('closed') and a.get('no_code_change_ref'))
         and (a.get('context_ref') or not a.get('preflight_pending')) for a in m['assignments'].values()))
+
+
+def repair_route(report):
+    """Classify existing execution feedback; do not add a planning round."""
+    cause = report.get('root_cause', {})
+    category = cause.get('category') if isinstance(cause, dict) else cause
+    inferred = ('upstream' if category in ('scope', 'scope-insufficient') else
+                'spec' if category in ('spec', 'planning-gap', 'dependency-gap', 'function-gap', 'fidelity-gap') else 'fixer')
+    route = report.get('repair_route', inferred)
+    require(route in ('fixer', 'spec', 'upstream'), 'unknown repair_route')
+    require(inferred == 'fixer' or route != 'fixer', 'planning/scope gap cannot route directly to Fixer')
+    require(inferred != 'upstream' or route == 'upstream', 'scope gap requires upstream allocation review')
+    return route
+
+
+def repair_step(report):
+    route = repair_route(report)
+    if route == 'fixer': return None
+    ref = report['diagnosis_ref']
+    if route == 'spec':
+        return {'operation': 'change', 'role': 'module-orchestrator', 'ready': True, 'reason': 'execution-feedback-spec-gap',
+                'payload': {'request_ref': ref, 'impact_ref': report.get('impact_ref', ref)}}
+    return {'operation': 'realloc-request', 'role': 'module-orchestrator', 'ready': True, 'reason': 'execution-feedback-scope-gap',
+            'payload': {'reason': 'Execution feedback exceeds allocated scope', 'evidence_refs': [ref]}}
 
 
 def execution_contract(m, p):

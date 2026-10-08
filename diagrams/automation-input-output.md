@@ -1,19 +1,19 @@
 # 自动化测试：输入、输出与完整控制流
 
-核对日期：2026-09-19。范围为本包当前协议、模板、宿主执行脚本和内置 Harmony 内核；这是现状说明，不更改运行协议。以下 JSON 是格式示例，占位摘要、路径和执行结果均不是实际测试证据。
+核对日期：2026-10-08。范围为本包当前协议、模板、宿主执行脚本和内置 Android/Harmony test 内核；这是现状说明，不更改运行协议。以下 JSON 是格式示例，占位摘要、路径和执行结果均不是实际测试证据。
 
 ## 1. 自动化在整个迁移流程中的位置
 
-**Test-Runner 设计测试 → SPEC/PATH 冻结 → Coding 接受 → build Green → automation 预检 → 逐 PATH 执行 → 结果验收 → 修复复测 / DoD → 全量收尾后 Auditor。**
+**GO/父 MO 分配 scope/全量 CASE → 子 MO 拆 TASK → Spec-Designer 形成 SPEC/PATH 并由 MO 冻结 → Implementer/Coding 接受 → build/unit/static Green → automation 派发与预检 → 逐 PATH 执行 → visual（适用时）→ 反馈分流 / DoD → 全量收尾后统一 Auditor。**
 
-- 测试设计可以提前，自动化执行必须晚于代码接受和当前代码的构建通过。
-- `Main` 是项目实际验证入口，不是固定文件名。`execute_test.py` 是宿主包装器，Harmony 是已内置的一种 Main；其他平台需要真实项目 adapter。
-- Test-Runner 执行和产出证据；模块 CASE 由 MO 唯一验收，审计 CASE 由 Auditor 唯一验收。缺陷修复交 Fixer，不能由测试执行器或 Auditor 越权修改源码/验收标准。
+- 预期路径来自上游用例和 SPEC；Test-Runner 独立 design 按需协助，不新增必经规划轮次。自动化执行必须晚于代码接受和当前代码的 build/unit/static 通过。
+- `Main` 是项目实际验证入口，不是固定文件名。`execute_test.py` 是宿主包装器，内置移动端 adapter 支持 Android/Harmony 的 test 模式（不含 iOS）；其他执行入口需真实项目 adapter。
+- Test-Runner 执行和产出证据；模块 CASE 由 MO 唯一验收，审计 CASE 由 Auditor 唯一验收。实现错误交 Fixer；规划缺口走 CR 更新 SPEC，再由 Implementer 更新已有代码；范围不足上溯父 MO/GO。测试执行器和 Auditor 不修改源码/验收标准。
 - **自动化环境不可用可以结束本轮调度，但仍是 Yellow/未验证。** 它不让其他独立 MO 失败，也不取消可执行下游。
 
 ![自动化外层流程](automation-flow.svg)
 
-[Harmony 内核详图](automation-engine.svg)
+[Android/Harmony 内核详图](automation-engine.svg)
 
 ## 2. 输入分层：用户提供什么，系统生成什么
 
@@ -21,7 +21,7 @@
 | --- | --- | --- | --- |
 | 项目配置 | legacy/target、架构/需求、`test_cases_path`、`test_adapter`、知识、复用来源；JSON + 文件路径 | 用户输入，宿主持久化并 prepare 固化 | GO / 父子 MO |
 | 功能与 CASE | 模块功能、REQ/CASE、SPEC 草稿、模块 Testing list | GO 分配，父 MO 按 scope 拆分 | 子 MO / Spec-Designer / Test-Runner |
-| 测试设计 | `stage-plan.paths[]`：稳定 ID、Name、前置、步骤、参数、ASSERT、依赖；`kind=automation` | Test-Runner 设计；随 SPEC 审核冻结 | 执行模式 Test-Runner |
+| 测试设计 | `stage-plan.paths[]`：稳定 ID、Name、前置、步骤、参数、ASSERT、依赖；`kind=automation` | Spec-Designer 随 SPEC 组织；Test-Runner design 按需协助，MO 审核冻结 | 执行模式 Test-Runner |
 | 执行授权 | Ledger assignment、`test_scope=automation`、`freeze_id`、`code_baseline`、执行实例；ready 上下文报告 | 实际执行实例预检，MO/审计节点接受 | 宿主 `execute_test.py` |
 | 单路径 query | **完整冻结 PATH** + run/module/freeze/code 身份，JSON 文件 | `execute_test.py` 从 Ledger 组装 | 项目 Main / Harmony adapter |
 | 引擎配置 | adapter argv/timeout；Harmony device、模型、服务地址、可选录制/知识引用 | 宿主配置，经上下文预检 | adapter / 内核 |
@@ -75,7 +75,7 @@ Harmony 配置的独立输入见 [harmony-config.json](../template/harmony-confi
 | Markdown | 识别 `## 用例描述：` 标题，保留块内原文 | `source.md`、`test-design-draft.json` |
 | XMind | 提取全部主题树，经配置模型转换 Markdown，再提取候选 | 以上文件 + `xmind-tree.txt`、`converted.md` |
 
-候选标记为 `draft-not-executable`：`requirement_id=null`、steps/assertions 待补。这一步不等于已完成语义拆分或冻结。Test-Runner 仍需人工可审核的 CASE/REQ 映射、参数展开、正常/边界/异常覆盖和断言时序。导入候选 ID 依赖内容摘要，审核时要对齐已有稳定 ID，冻结后不能因名称调整而重编号。
+候选标记为 `draft-not-executable`：`requirement_id=null`、steps/assertions 待补。这一步不等于已完成语义拆分或冻结。Spec-Designer（或按需 Test-Runner design）仍需可审核的 CASE/REQ 映射、参数展开、正常/边界/异常覆盖和断言时序。导入候选 ID 依赖内容摘要，审核时要对齐已有稳定 ID，冻结后不能因名称调整而重编号。
 
 ### 2.3 真正交给 Main 的 query 样式
 
@@ -121,8 +121,8 @@ Harmony 配置的独立输入见 [harmony-config.json](../template/harmony-confi
 
 ### 3.1 外层逐 PATH 执行
 
-1. Test-Runner 提交 `stage=testing` 上下文报告，检查 frozen-spec、test-paths、accepted-code、provider-binding、test-environment、permissions-tools。
-2. 环境就绪，MO 派发有效 assignment；宿主调用 `execute_test.py`。脚本再次核对阶段、scope、代码、命令与环境引用。
+1. MO 经 Ledger 派发 automation assignment；Test-Runner 接到派发后提交 `stage=testing` 上下文报告，检查 frozen-spec、test-paths、accepted-code、provider-binding、test-environment、permissions-tools。
+2. ready 报告绑定后，宿主才调用 `execute_test.py`；blocked 报告退回派发或走适用缺测分支。脚本再次核对阶段、scope、代码、命令与环境引用。
 3. 创建新的执行目录，写 `query.json`；调用 `argv + [--query-file, query, --result-file, result]`。
 4. Main 执行实际测试；宿主收集 stdout/stderr、时间、退出码。每条 PATH 独立子进程；超时杀掉整个进程组。
 5. 宿主保存回执；全部本次 scope 路径执行/记账后组装 tests stage。Harmony 使用 `harmony_stage.py`，其他 adapter 按通用 tests 契约组装。
@@ -139,9 +139,9 @@ python3 /work/SDD-TDD-Migration/skills/migration-ledger/scripts/execute_test.py 
 
 **注意两层退出码**：Harmony 子进程为 0/1/2，含义分别为 Green/Red/Yellow，记录在 receipt.exit_code。外层 `execute_test.py` CLI 正常完成回执写入时返回 0，即使子进程测试失败；宿主必须读取 receipt/result，不能把包装器退出成功当测试成功。
 
-### 3.2 Harmony 内部过程
+### 3.2 Android/Harmony 内部过程
 
-![Harmony 内核](automation-engine.svg)
+![Android/Harmony 内核](automation-engine.svg)
 
 1. 校验 query、配置、依赖、设备；获取设备文件锁，在本次 `harmony/` 目录运行。
 2. 把前置、参数、步骤和断言转为交错任务文本；每条断言使用单个 `[ASSERT:id]`。已校验知识只辅助执行，不改预期。
@@ -286,19 +286,27 @@ log_ref={path,sha256}, query_ref={path,sha256}, result_ref={path,sha256}|null
 | 结果 | Harmony 当前判定 | 外层动作 |
 | --- | --- | --- |
 | Green | 冻结 ASSERT 齐全、有效媒体/类型、全部观察 true、无执行异常、exit 0 | MO 校验覆盖/证据/DoD 后记录；审计范围由 Auditor 验收 |
-| Red | 无阻断项，存在有效媒体支持的 false 断言 | Diagnostician 定位；可修复问题优先一轮 Fixer；新代码必须重新构建和正式 Testing |
-| Yellow（运行中） | 缺 ASSERT/媒体、异常/超时、解析歧义、未知身份、模式不符、同断言 pass/fail 混合 | 诊断；可修复则一轮 Fixer，确认依赖/外围或修复仍失败则留证待 Auditor |
+| Red | 无阻断项，存在有效媒体支持的 false 断言 | 现有诊断/MO 分类：实现错误 → Fixer；规划缺口 → CR；范围不足 → 父 MO/GO；更新代码后重新 build/unit/static 和正式 Testing |
+| Yellow（运行中） | 缺 ASSERT/媒体、异常/超时、解析歧义、未知身份、模式不符、同断言 pass/fail 混合 | 诊断并按上述三类分流；已有提供方/环境暂不可用沿恢复，预算内收敛；受阻或预算耗尽留证统一审计 |
 | Yellow（环境缺测） | testing 预检仅环境 blocked，满足专门门禁 | automation-deferred；不强迫人工、不阻塞无关任务，最终列入缺测报告 |
 
 Harmony 中 **阻断优先于 Red**：同次运行已有失败断言但又有缺证据等阻断时，总体可能为 Yellow；失败断言仍须保留。该情况不能读成“没有发生失败”。同轮 flaky 保留全部尝试，不能只挑最后一次 Green。
 
-所有叶子 MO 各自完成/明确收尾、所有父汇总有效、无在途 worker 和 ready 动作后，GO 才启动统一 Auditor：
+所有叶子 MO 各自完成/明确收尾、所有父汇总有效、无在途 worker 和 ready 动作后，GO 才启动统一 Auditor。先审阅全部模块（含 Green）的代码和宿主目标，治理并回归实际影响，再处理遗留：
 
 1. 收集实际 Red/其他 Yellow，读取相应 SPEC/PATH/代码与根因证据，独立复现或明确记不可执行。
-2. 按责任和依赖派发 Fixer；修复后重建、模块/受影响路径 Testing，Auditor 独立裁决。失败保留根因待人工。
+2. 按责任和依赖使用审计 fix/verify/human 路由；需新任务/契约或范围调整时恢复相应 CR/上游规划。补丁后重建、对审计实际影响模块完整回归，Auditor 独立裁决；失败按预算/根因恢复或留证待人工。
 3. 纯自动化环境缺测不塞入源码 Fixer 队列；环境可用时仍要真实验证这些路径。
 4. 独立审计绑定全部模块代码快照，但只执行 Red/Yellow 遗留和有依据的受影响回归；不会把所有模块路径加入清单。global_paths 可为空，零待测路径只做 audit-review。
 5. 最终仅缺环境且其他问题已收尾，可 `audit-unavailable` 输出 `completed-with-unverified-tests`，质量保持 Yellow。该审计缺测记录仅包含当前选中的待验证路径，已有模块构建 Green 单独保留，不能声称构建证据被抹掉。
+
+### 5.1 CR 后的局部验证与统计
+
+正常模块 CR 默认全模块重验。MO 在 plan-review 提交有效 [TASK 独立性证明](../template/task-independence.json) 后，Ledger 才保留未影响 TASK 与成功路径；共享写范围、读依赖、PATH 或验收影响回退全模块重验，过期/漏报证明拒收。新代码一律重新 build/unit/static，automation/visual 执行受影响及非 Green 路径。本 assignment 的全部选中路径仍须逐条提交，不能由 worker 自行缩减。
+
+保留的 Green 不创建新执行：原 receipt/test_run_id/code_baseline 不变，Ledger 另记 `validation_reuse` 的证明、计划摘要和当前有效基线。测试执行者不能提交此标记；代码或输入变化使证明失效。统一 Auditor 仍审阅整个宿主任务，审计回归范围遵守图 03/审计协议，不由模块局部证明直接缩减。
+
+[automation_report.py](../skills/migration-ledger/scripts/automation_report.py) 按宿主/模块/TASK 派生应测 PATH、已尝试、完整执行、部分执行、有效成功、Red/Yellow 和缺路径 CASE，以及带证据的成功集合。参数/平台实例独立编号，重试不增加分母；`reused_passed_paths` 单列，排除在 `current_executed_paths` 之外。`validation_complete` 不等于全 Green，仍需核对成功/失败和覆盖缺口。
 
 ## 6. 当前能力边界与阅读注意
 
@@ -320,6 +328,7 @@ Harmony 中 **阻断优先于 Red**：同次运行已有失败断言但又有缺
 | adapter / 断言归一化 | [harmony_adapter.py](../skills/migration-test/scripts/harmony_adapter.py)、[harmony_contract.py](../skills/migration-test/scripts/harmony_contract.py) |
 | 原生规划 / 回放 / 验证 | [main.py](../skills/migration-test/runtime/harmony/main.py)、[decision.py](../skills/migration-test/runtime/harmony/AutoTest/layered_agent_cli/decision.py)、[tool_player.py](../skills/migration-test/runtime/harmony/AutoTest/memory/tool_player.py)、[Verify](../skills/migration-test/runtime/harmony/AutoTest/verify_agent/agent.py) |
 | 阶段组装 / 接受 | [harmony_stage.py](../skills/migration-test/scripts/harmony_stage.py)、[contracts.py](../skills/migration-ledger/scripts/contracts.py)、[ledger.py](../skills/migration-ledger/scripts/ledger.py) |
+| CR 独立性与路径统计 | [task_revalidation.py](../skills/migration-ledger/scripts/task_revalidation.py)、[automation_report.py](../skills/migration-ledger/scripts/automation_report.py)、[TASK 局部重验](../skills/migration-protocol/references/openspec.md#task-局部重验) |
 | 缺环境旁路 / 审计 | [test_validation.py](../skills/migration-ledger/scripts/test_validation.py)、[audit_closure.py](../skills/migration-ledger/scripts/audit_closure.py) |
 
 绘图源：[generate_automation.py](generate_automation.py)。本页及两张图描述当前实现；若协议或运行脚本后续变化，应同步核对。

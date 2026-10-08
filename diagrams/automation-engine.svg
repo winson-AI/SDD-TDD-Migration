@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2230" viewBox="0 0 1600 2230" role="img" aria-labelledby="title desc">
-<title id="title">Harmony · 单 PATH 自动化内核</title>
+<title id="title">Android / Harmony · 单 PATH 自动化内核</title>
 <desc id="desc">内核属于同一次 Test-Runner 执行；只负责设备操作与断言取证，不承担外层修复或验收权限</desc>
 <style>text {font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;}</style>
 <defs>
@@ -11,7 +11,7 @@
 </defs>
 <rect width="1600" height="2230" fill="white"/>
 <text x="60" y="56" font-size="21.00" fill="#6b7280" text-anchor="start" font-weight="400">06  /  SDD-TDD-Migration</text>
-<text x="60" y="108" font-size="38.00" fill="#111827" text-anchor="start" font-weight="700">Harmony · 单 PATH 自动化内核</text>
+<text x="60" y="108" font-size="38.00" fill="#111827" text-anchor="start" font-weight="700">Android / Harmony · 单 PATH 自动化内核</text>
 <text x="60" y="145" font-size="21.00" fill="#6b7280" text-anchor="start" font-weight="400">内核属于同一次 Test-Runner 执行；只负责设备操作与断言取证，不承担外层修复或验收权限</text>
 <path d="M458,190 H1160 L1142,320 H440 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="800.0" y="234.0" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">完整 query + 引擎配置</text>
@@ -20,8 +20,8 @@
 <path d="M800,320 L800,375" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="440" y="375" width="720" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="416.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">adapter 校验与隔离</text>
-<text x="800.0" y="450.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">验证字段与引用 hash → 设备互斥锁 → 本次独立目录</text>
-<text x="800.0" y="479.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">注册 Verify wrapper；加载技能 / 自定义工具</text>
+<text x="800.0" y="450.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">校验字段 / hash / 平台 → 设备互斥锁 → 本次独立目录</text>
+<text x="800.0" y="479.5" font-size="20.17" fill="#4b5563" text-anchor="middle" font-weight="400">platform=android|harmony、task_type=test；注册 Verify wrapper</text>
 <path d="M800,500 L800,555" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="440" y="555" width="720" height="110" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="603.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">task_text：步骤与冻结断言交错</text>
@@ -40,7 +40,7 @@
 <rect x="85" y="885" width="590" height="130" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="380.0" y="914.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Planner → Executor</text>
 <text x="380.0" y="948.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Observe → 单步工具 / execute → 实际反馈</text>
-<text x="380.0" y="977.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">general / glm / MCP / Hypium MCP</text>
+<text x="380.0" y="977.5" font-size="18.26" fill="#4b5563" text-anchor="middle" font-weight="400">Android ADB / Harmony hdc；general / glm / MCP / Hypium</text>
 <text x="380.0" y="1006.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">压缩上下文 / 可选反思 / 技能 / XPath 缓存</text>
 <rect x="920" y="880" width="600" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="925" y="885" width="590" height="130" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>

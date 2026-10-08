@@ -429,6 +429,9 @@ def card(s, m, step):
     chosen = list(dict.fromkeys(chosen + reasoning_sections(m)))
     if role == 'spec-designer' or (step.get('mode') == 'design' and role == 'module-orchestrator'):
         chosen += sections('testing.md', '编码前设计交接')
+    if (role == 'module-orchestrator' and (m or {}).get('change_request') and operation in ('plan-review', 'freeze')
+            or role == 'auditor' and any(x.get('task_revalidation', {}).get('mode') == 'partial' for x in s.get('modules', {}).values())):
+        chosen += sections('openspec.md', 'TASK 局部重验')
     audit = bool(operation and (operation.startswith('audit') or operation.startswith('problem'))) or role == 'auditor' \
         or bool(m and (m.get('audit_fix_grant') or m.get('audit_batch_id')))
     flags = {'ui': ui, 'reuse': reuse, 'telemetry': telemetry, 'audit': audit,
@@ -505,6 +508,8 @@ def templates(s, m, step):
     names = list(table.get(family(role, step.get('operation')), table.get('base', [])))
     if role == 'module-orchestrator' and family(role, step.get('operation')) == 'base':
         names = list(MO_TEMPLATES.get(step.get('operation'), ['status.md']))
+        if (m or {}).get('change_request') and step.get('operation') in ('plan-review', 'freeze'):
+            names.append('task-independence.json')
     if role == 'test-runner':
         names += SCOPE_TEMPLATES.get(step.get('test_scope'), [])
     if step.get('mode') == 'design':
@@ -539,6 +544,7 @@ GATES = [
      r'|refusing to overwrite|target_resource (must|needs)|file of the target project|never names|not the legacy file|legacy (entry|vector)',
      'resource-transfer.md', COPY),
     (r'design |test.design|设计', 'testing.md', '编码前设计交接'),
+    (r'TASK independence', 'openspec.md', 'TASK 局部重验'),
     (r'execution capture|output capture|excerpt|committed.*hash', 'testing.md', '日志与按需追溯'),
     (r'write scope|undeclared change|write outside', 'engineering-disciplines.md', '写范围核验（可选，默认关闭）'),
     (r'checkpoint', 'engineering-disciplines.md', '模块 Git 检查点（可选，默认关闭）'),

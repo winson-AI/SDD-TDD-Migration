@@ -32,7 +32,7 @@
 | testing / automation | automation-deferred | 仅自动化环境缺失，automation-unavailable 留逐 PATH Yellow/未执行；构建保持 Green |
 | automation-deferred | testing / automation | 新 testing ready 报告 + automation-resume；无需人工批准，仍须真实补测 |
 | testing | dod | 冻结的全部必需路径 Green（build + automation 功能层 + visual 基线对齐层，`all_green`） |
-| testing | diagnosing | 存在未解决问题；Diagnostician 仅提交报告，MO 接受当前版本诊断；无活动 worker |
+| testing | diagnosing / change-review / waiting-upstream | 现有诊断经 MO 分流：实现错误接受后 Fixer；规划缺口 CR；超 scope 上溯，见 OpenSpec 变更控制 |
 | diagnosing | fixing | 根因报告、当前版本本地预算或 Auditor 明确授权、合法写锁；不需改验收的补丁任务 |
 | fixing | testing | 补丁与回归证据已接收、代码版本更新、受影响路径标 stale；正式 Test-Runner 复测 |
 | diagnosing / fixing | change-review | 修改需求/验收/冻结任务或设计契约才可解决，提出 CR |

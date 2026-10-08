@@ -38,9 +38,15 @@ scenario_trace 每行写 scenario_id 与 task_ids，assertions 由 Ledger 按设
 
 ## 变更控制
 
-automation 的错误、漏实现或 fidelity 偏差进入修复环节：契约内补丁由 Fixer 直接修；规划遗漏则提交 change-request，Spec-Designer 仅更新受影响的 design/tasks/SPEC，MO 审核再冻结后由 Implementer 更新已有代码。原 scope 内补充验证路径/断言可经 MO 技术审核，但必须保留原 PATH 与每条 ASSERT 的完整预期，引用上游用例与失败证据；不能删除失败项或缩小覆盖。超出分配才 bottom-up 请求父 MO/GO 修正并按影响范围 top-down 更新，不重开 Run。未决、改变需求/原验收或授权仍需 Human。
+SDD 先规划后执行、边执行边调整；完整可执行即冻结，不预演所有实现问题。现有 diagnose 的 repair_route 为 fixer/spec/upstream：code 默认 Fixer；spec、planning-gap、function-gap、dependency-gap、fidelity-gap 走 change；scope/scope-insufficient 走 realloc-request。依赖契约缺失区别于已有提供方暂不可用，后者沿原等待/恢复。MO 按游标审核提交；分类不能把规划缺口改称 fixer。轻量叶子沿现有自诊断，不新增 Agent/规划轮次。CR 由 Spec-Designer 修订、MO 重冻、Implementer 更新已有代码；超 scope 才父 MO/GO。保留旧 PATH/ASSERT，可补原预期覆盖；未决或需求/验收/授权变化交 Human，同 Run 留 history。
 
-修改冻结定义一律重新冻结；MO 可对仅实现规划调整沿用仍有效的人类需求/设计决定，但必须附“不改变既有决定”的影响分析与新 manifest 接受记录。不能把原人类批准假写成新 hash 的批准。受影响代码任务及测试结果标 stale，经新的实现提交和复测才恢复。
+修改冻结定义须重冻；原决定仅在仍有效且有影响分析时沿用，不能假写新 hash 批准。默认全模块重验；有独立性证据才保留未影响 TASK 与既有 Green。
+
+## TASK 局部重验
+
+MO plan-review 可附 [task-independence.json](../../../template/task-independence.json) 的 task_independence_ref，绑定 from_freeze_id/to_plan_hash、受影响/未变 TASK、全 TASK 读输入哈希/依赖及源行为、运行时和资源隔离证据。Ledger 检查 TASK 定义、写范围、读依赖、共享 PATH、未变需求和文件追溯；共享影响则全模块重验，过期或漏报变更拒收。没有证明不增加规划，只采用默认验证范围。SPEC/design 的语义独立性仍须 MO 审阅，hash 不证明语义。
+
+局部更新只重开受影响 TASK；build/unit/static 总在新代码上重跑，automation/visual 重跑受影响及非 Green 路径。未影响成功保留原回执、test_run_id/执行基线，另记 validation_reuse 及有效基线；不可伪称新执行。保护代码/输入变化使复用失效，后续修改保留 TASK 回退全验；Red/Yellow 不能凭证明改 Green。统一 Auditor 保留审计权。
 
 ## 验证、同步与归档
 

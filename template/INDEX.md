@@ -33,6 +33,7 @@
 | [tasks.md](tasks.md) | Spec-Designer | 任务定义；完成勾选由 Ledger 投影 |
 | [checklist.md](checklist.md) | 包内固定 | 冻结与 DoD 评审清单；Ledger 接受 plan 时按哈希绑定到模块，投影时附证据链接与运行勾选 |
 | [change-impact.json](change-impact.json) | Spec-Designer / MO | within-envelope 再冻结的影响审查，绑定旧 freeze 与新 plan 摘要 |
+| [task-independence.json](task-independence.json) | MO | CR 的可选独立性证明；plan-review.task_independence_ref，缺失或共享影响全验 |
 | [reuse-plan.json](reuse-plan.json) | Spec-Designer | 逐需求的能力选择与接入映射，由 stage-plan.reuse_plan_ref 冻结 |
 | [reuse-fidelity.md](reuse-fidelity.md) | Spec-Designer | 存量源码与选中能力的逐行为对齐 |
 | [telemetry-contract.json](telemetry-contract.json) | Spec-Designer | 适用埋点的 stage-plan.telemetry 片段，不是独立请求 |

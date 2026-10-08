@@ -156,14 +156,17 @@ def build(root, s, sequence, ref_check=check_ref):
         record = (m.get('results', {}) if m else s.get('audit_results', {})).get(pid, {})
         audit_row = next((r for r in s.get('audit', {}).get('paths', []) if r['path_id'] == pid), None)
         audited = bool(audit_row and s['audit'].get('snapshot') == snapshot)
-        if audited: record = {**record, **audit_row}
+        if audited:
+            record = {**record, **audit_row}
+            if record.get('validation_reuse', {}).get('source_test_run_id') != record.get('test_run_id'):
+                record.pop('validation_reuse', None)
         last_execution = copy.deepcopy(record.get('last_execution'))
         current_baseline = m.get('code_baseline') if m else global_baseline
         execution_scope_stale = invalid if not m else m.get('stale') or m.get('effective_quality') == 'yellow-blocked'
         last_execution_stale = bool(last_execution and
             (execution_scope_stale or last_execution.get('code_baseline') != current_baseline))
         stale = (m.get('stale') or m.get('effective_quality') == 'yellow-blocked' or
-                 record.get('code_baseline', m.get('code_baseline')) != m.get('code_baseline')) if m else (
+                 not tv.task_revalidation.valid(m, record)) if m else (
                  invalid or record.get('stale') or record.get('code_baseline') != global_baseline)
         # Environment omissions have no executed baseline to expire.
         stale = bool(stale and record.get('executed'))
@@ -202,6 +205,7 @@ def build(root, s, sequence, ref_check=check_ref):
                      'implementation_status': 'not-implemented' if not_implemented else None,
                      'stale': bool(record and stale), 'test_run_id': record.get('test_run_id'), 'retest_of': record.get('retest_of'),
                      'code_baseline': record.get('code_baseline', (m or {}).get('code_baseline')),
+                     'validation_reuse': record.get('validation_reuse'),
                      'assertions': copy.deepcopy(record.get('assertions', [])), 'root_causes': causes,
                      'evidence_refs': refs(related), 'spec_ref': m.get('plan_ref') if m else s.get('global_spec'),
                      'ledger_evidence': {'path': str(root / 'ledger/events.jsonl'), 'sequence': sequence,

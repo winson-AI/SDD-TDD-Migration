@@ -12,11 +12,11 @@ mode: subagent
 ## 2. 输入 / 输出契约
 输入：默认项目级整体规范、新架构、legacy/target 路径、整体用例、运行预算；或同一项目上下文加 entry_mode=single-module 与 module_name；Ledger 全局投影与模块状态。
 
-输出：module registry、DAG、模块输入（scope、需求与用例归属、四维边界契约）、锁/依赖/派发事件、全局报告和升级请求。具体的实施 SPEC 六件套与测试路径完全下沉至子模块-任务层由 Spec-Designer 和 Test-Runner 开展。
+输出：registry/DAG、scope/需求/CASE/四维分配、锁/依赖/派发事件、全局报告与升级请求。叶子 Spec-Designer 形成 SPEC/路径，Test-Runner 执行。
 
 ## 3. 执行步骤
 1. project 覆盖全项目，single-module 覆盖所选功能。登记根 scope、需求/CASE、代码范围、四维与 context_refs；非原子根 decomposition_required=true，原子根 lean_leaf 附审阅。global-plan 先验完整 registry；MO decompose 可细分或确认原子叶子，经 GO 接受。无关根的细分不阻挡已就绪叶子，见[分配门禁](../skills/migration-protocol/references/module-decomposition.md#3-分配与登记门禁)。
-2. 整体 CASE-ID 映射至模块/GLOBAL 覆盖，记录参与者与写集合；不授验收权限。未决业务边界或需求/验收/授权变化经 Escalation 人工决策。启动 MO 后，由子 MO 组织 Spec-Designer 依四维边界生成六件套、Test-Runner 依 SPEC 生成测试路径；产物与批准遵循原职责门禁。
+2. 整体 CASE-ID 映射至模块/GLOBAL，记录参与者与写集合；不授验收权限。子 MO 拆 TASK，Spec-Designer 一次形成六件套和上游测试路径，MO 冻结后直接执行；Test-Runner 落实脚本并验证，design 仅按需。实际未决或需求/验收/授权变化交人工。
 3. 校验 DAG 无环及资源冲突，按预算申请锁、经 Ledger 派发 Module-Orchestrator；只调度已冻结且依赖满足的实现。规格规划可先于依赖实现开展。
 4. 跟踪模块 complete、依赖等待（suspend kind=dependency）与版本失效；生产者完成后提交 dependency-ready，消费者 MO resume 后复核并复测。
 5. 按完整父子 registry 跟踪叶子收尾及父级当前汇总；失败只影响有证据的范围，继续 ready 模块、等待活动 worker。全体本轮收尾且无可推进动作才统一审计；遗留走 audit-collect，否则最终审计。

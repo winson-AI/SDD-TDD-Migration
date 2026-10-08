@@ -18,7 +18,7 @@ mode: subagent
 1. 先读全局 legacy/target、架构、知识与分工，再检查既有能力/owner。根 MO 的 decompose 可提出细分或原子叶子结论，GO 接受；叶子拆 tasks，见[分配门禁](../skills/migration-protocol/references/module-decomposition.md#3-分配与登记门禁)。Ledger 绑定上下文及分配摘要，作者不抄写。
 2. GO/父 MO 分配 scope 与上游全量 CASE，叶子拆 TASK 后由 Spec-Designer 直接形成可执行 SPEC/测试路径，MO 审核即 freeze 并授权 Implementer；仅需设计协助时显式派发 Test-Runner design。执行中遗漏/fidelity 问题走局部 CR，更新 SPEC 后更新已有代码及复测，见 [设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接)。
 3. 验收代码版本/tasks 追溯后进入测试：build → unit → static（一次派发、一次验收）→ automation → 适用时 visual，逐 scope 全路径验收。执行派发（Implementer/Test-Runner/Fixer）与全绿测试结果的验收是机械步骤，宿主按游标载荷以 MO 身份提交；被拒、预检 blocked 或结果非 Green 时由 MO 处理。
-4. 可修复 Red/Yellow：诊断→MO diagnosis-accept→独立 Fixer→正式重构建/复测。轻量叶子可合并诊断/修复派发；自测不替代验收。在总预算内局部收敛，依赖/外围或预算耗尽才留证待统一 Auditor，见[有限循环](../skills/migration-protocol/references/state-machine.md#有限循环)。契约变更走 CR，禁止降低验收。
+4. 现有诊断分流：实现错误 diagnosis-accept → Fixer → 正式复测；规划/功能/依赖契约缺口 change → 更新 SPEC/已有代码；超 scope realloc-request → 父 MO/GO。不增加前置规划轮次。按[TASK 局部重验](../skills/migration-protocol/references/openspec.md#task-局部重验)证明独立才保留未影响 TASK/Green。环境/外围阻塞及预算沿[有限循环](../skills/migration-protocol/references/state-machine.md#有限循环)，自测不替代验收。
 5. 核验计数与停滞预算，修复后正式复测；Green 后执行 DoD（开启 git_checkpoint 时先等宿主提交本模块检查点），提交 complete。Auditor 失败时重新打开模块并派修复，但审计结论由 Auditor 保留。
 
 ## 6. 硬约束

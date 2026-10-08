@@ -80,26 +80,26 @@ class Diagram:
 
 
 def overview():
-    d=Diagram('workflow',2320,'01','三层编排 · 迁移总览','GO 拆模块 → 父 MO 拆子模块 → 子 MO 拆 tasks；独立执行，逐层收尾，统一审计')
+    d=Diagram('workflow',2320,'01','三层编排 · 迁移总览','scope / 全量 CASE → TASK / 四维 → SPEC 冻结 → 任务执行与反馈调整 → 统一宿主 Auditor')
     d.box(100,190,1020,140,'用户输入 → 项目上下文固化',[
         '规范 / 新架构 / 存量与目标代码 / 知识 / 测试用例 / 可选外部复用来源',
         '宿主 init / update 配置；prepare 固化本轮快照'], 'gray')
     d.arrow([(610,330),(610,425)])
     d.band(60,365,1100,230,'GO  ·  全局规划','全局管理迁移、DAG、锁与依赖')
-    d.box(100,425,1020,165,'GO 上下文 / 功能清单 → 划模块 → 模块四维分析',[
+    d.box(100,425,1020,165,'GO · 功能覆盖 → 划 scope / 分配全量 CASE',[
         '默认从测试用例汇总抽取；无汇总则先理解存量源码；查漏，有疑问即人工',
         'TARGET + 指定二方库：reuse-catalog / 功能语义 / 行为差异 / 接入可行性',
-        '先确定模块 scope，再按 UI → Logic → Adhesive → Resource 分析实现',
-        'project：多个根模块；single-module：一个根模块，其子功能仍须拆分'],controller=True)
+        '先分配 scope / CASE；四维形式化业务、功能与代码边界',
+        'project / single-module 同一主线；原子能力可直接作为执行叶子'],controller=True)
     # Fan out through a shared branch; two parents show project multiplicity.
     d.arrow([(610,590),(610,690)],end=False)
     d.arrow([(340,690),(880,690)],end=False)
     for x in (340,880): d.arrow([(x,690),(x,700)])
     d.band(60,635,1100,265,'父 MO  ·  认领与拆分','每个父 MO 持续看护自己认领的整个模块')
     d.box(100,700,480,170,'父 MO · 根模块 A',[
-        '认领模块 / 实现 / 四维上下文', '先划子模块 A1 / A2 的 scope', '再逐子模块四维分析', '明确实现指导 / owner / 完整性'],controller=True)
+        '认领模块 / 实现 / 四维上下文', '切子 scope / CASE；原子则作叶子', '按范围组织四维边界与依赖', '明确实现指导 / owner / 完整性'],controller=True)
     d.box(640,700,480,170,'父 MO · 其他根模块 × N',[
-        'project 按根模块分别建立父 MO', '先划子模块范围，再逐个分析', '继承实现 / 复用 / 四维上下文', 'single-module 仅保留选定根模块'],controller=True)
+        'project 按根模块分别建立父 MO', '子 scope / CASE；原子不继续拆分', '继承实现 / 复用 / 四维上下文', 'single-module 仅保留选定根模块'],controller=True)
     # Anchor branch endpoints to the cards (container crossings remain open).
     for x in (340,880):
         d.arrow([(x,870),(x,940),(610,940)],end=False)
@@ -112,13 +112,13 @@ def overview():
     for x,title,subtitle in [(100,'子 MO · A1','子 scope A1'),(365,'子 MO · A2','子 scope A2'),(630,'子 MO · B1','子 scope B1'),(895,'子 MO · B…','其他子 scope')]:
         cx=x+115
         d.arrow([(cx,1220),(cx,1240)])
-        d.box(x,1240,230,165,title,['先划任务 scope','四维分析 → 冻结','编码→构建→自动化','修复 / DoD / 挂起'],controller=True)
+        d.box(x,1240,230,165,title,['TASK / 四维 → SPEC','MO 审核冻结','实现→测试→反馈调整','DoD / 明确挂起'],controller=True)
     for centers,summaryx in [((215,480),100),((745,1010),640)]:
         for cx in centers: d.arrow([(cx,1405),(cx,1480)],end=False)
         d.arrow([(centers[0],1480),(centers[1],1480)],end=False)
         d.arrow([(sum(centers)/2,1480),(sum(centers)/2,1520)])
         d.box(summaryx,1520,480,115,'对应父 MO 汇总',[
-            '等全部孩子本轮结束，检查完整性','module-summary 绑定当前子版本'])
+            '等全部孩子本轮结束，检查完整性','module-summary 绑定当前子状态'])
     for x in (340,880): d.arrow([(x,1635),(x,1670),(610,1670)],end=False)
     d.arrow([(610,1670),(610,1710)],'orange')
     d.box(100,1710,1020,140,'GO · 全量收尾门禁',[
@@ -136,15 +136,15 @@ def overview():
     d.box(1210,190,330,280,'全局读取视野',[
         'GO / 父 MO / 子 MO', '均可读全局存量与目标代码', '架构 / 知识 / 分工 / 复用来源', '', '局部 context pack 聚焦任务', '不截断全局只读上下文'], 'gray')
     d.box(1210,540,330,270,'范围逐层细化',[
-        'GO → 根模块 scope', '父 MO → 子模块 scope', '子 MO → tasks', '', '范围先定，四维分析指导实现', '跨模块或不确定处交人工'], 'orange')
+        'GO → 根模块 scope', '父 MO → 子模块 scope', '子 MO → tasks', '', '可执行即冻结；design 按需', '真实未决 / 语义授权变化交人工'], 'orange')
     d.box(1210,880,330,280,'Ledger · 唯一总线',[
         '分配包 / 事件 / 状态 / 证据', 'planning_context：全局视野', 'module_inputs：认领范围', 'context-submit：派发后预检', '就绪才开工，阻塞退回派发前', '父聚合颜色不回写子模块'], 'green')
     d.box(1210,1230,330,230,'宿主执行层',[
-        '实际启动 / 恢复 subagent', '绑定实例、模块及 Used Skills', '遵守 DAG / 写锁 / 预算', '', '状态投影不代表 Agent 已启动'], 'gray')
+        '实际派发执行角色并绑定身份', '实现 / 测试 / 修复执行角色', '同 Run：Fixer / CR / 父 MO / GO', '历史留痕，仅执行当前 SPEC', '遵守 DAG / 写锁 / 累计预算'], 'gray')
     d.box(1210,1530,330,280,'收尾 ≠ 全部通过',[
         'Green：真实复测与 DoD 完成', '仅缺自动化环境：Yellow 收尾', '排队、锁等待、worker 退出', '均不能独立算作 MO 收尾', '', '有 ready 动作继续推进', '一个失败不提前拉起 Auditor'], 'orange')
     d.text(1375,1935,'细节阅读',24,weight=650)
-    d.text(1375,1985,'02 · 子 MO 执行与修复',21,'#4b5563')
+    d.text(1375,1985,'02 · 子 MO 执行与反馈调整',21,'#4b5563')
     d.text(1375,2025,'03 · Auditor 跨模块收尾',21,'#4b5563')
     d.text(1375,2065,'04 · 二方库语义与复用',21,'#4b5563')
     d.legend(2270)
@@ -152,87 +152,134 @@ def overview():
 
 
 def module_execution():
-    d=Diagram('module-execution',1970,'02','子 MO · 执行与首轮修复','每个子 MO 独立维护 SPEC、tasks、测试结果、修复预算和 DoD；父 MO 持续看护并等待')
-    d.box(560,190,480,130,'认领上下文 → 划定任务 scope',[
-        '子模块实现 / 四维分析 / 全局上下文','划任务：职责 / 排除 / 允许写范围','禁止再次创建下一层 MO'],controller=True)
-    d.arrow([(800,320),(800,380)])
-    d.box(560,380,480,140,'任务四维分析 → SPEC / 测试设计',[
-        'UI → Logic → Adhesive → Resource','绑定任务 scope，明确具体实现指导','OpenSpec / PATH / ASSERT；N/A 留证'])
-    d.arrow([(800,520),(800,580)])
-    d.box(560,580,480,120,'Plan 澄清 → 冻结',[
-        '上游全量 CASE / 四维覆盖 checklist','预期明确即可冻结；design 按需协助','子 MO 审核；真实未决才交 Human'])
-    d.arrow([(800,700),(800,745)])
-    d.box(560,745,480,125,'Coding 预检 → 实现 → MO 接受',[
-        '按任务 scope + 四维 + 存量基线/中间表征实现','提交四维证据 / 资源及真实消费者','依赖满足 / 写锁 / 全局覆盖 / 预算'])
-    d.arrow([(800,870),(800,920)])
-    d.box(560,920,480,165,'Test-Runner · build → automation → visual',[
-        'build Green 后预检自动化环境','① 功能层：Main 按用例路径验证',
-        '② 视觉层：逐基线节点对齐（有基线时）','缺环境：两层 Yellow / 未执行（旁路）'])
-    d.arrow([(800,1085),(800,1105)])
-    d.diamond(800,1170,310,130,'三态结果','Green / Red / Yellow')
-    d.arrow([(645,1170),(500,1170)],'orange');d.label(570,1152,'Green','green')
-    d.box(70,1100,430,150,'子 MO · DoD 验收',[
-        '全部必需路径有效 Green','任务追溯完整，无遗留 Red / Yellow','不通过则补齐合法动作或明确挂起'], 'green')
-    d.arrow([(285,1250),(285,1500)])
-    d.label(285,1380,'DoD 满足','green')
-    d.box(70,1500,430,130,'模块完成 → Ledger',[
-        '子 MO 为模块阶段唯一验收 owner','记录结果、版本与修复 memory'], 'green')
-    d.arrow([(955,1170),(1110,1170)],'orange');d.label(1030,1148,'其他非 Green','orange')
-    d.box(1110,1100,410,140,'Diagnostician · 根因',[
-        '只读分析；Red / Yellow 留根因','子 MO 接受当前版本诊断', '确认依赖 / 外围问题直接留待审计'], 'orange')
-    d.arrow([(1315,1240),(1315,1315)],'orange')
-    d.diamond(1315,1380,300,130,'可修复且首轮可用？')
-    d.arrow([(1465,1380),(1555,1380),(1555,767),(1520,767)],'purple')
-    d.label(1510,1350,'是','purple')
-    d.box(1110,700,410,135,'Fixer 预检 → 自动一轮',[
-        '最小补丁 + 自验证 + fix_note','子 MO 接受补丁，旧结果失效','修复记录保留为 memory'], 'purple')
-    d.arrow([(1110,767),(1080,767),(1080,990),(1040,990)],'purple')
-    d.label(1305,882,'重新构建，再正式自动化复测','purple')
-    d.arrow([(1315,1445),(1315,1540)],'orange');d.label(1315,1495,'否 / 一轮仍未通过','orange')
-    d.box(1110,1540,410,130,'留证 → 明确挂起',[
-        'audit-defer / 依赖 / 人工阻塞','保留根因、路径、结果与恢复点','无关兄弟继续推进'], 'orange')
-    d.arrow([(285,1630),(285,1720),(600,1720),(600,1770)])
-    d.arrow([(1315,1670),(1315,1720),(1000,1720),(1000,1770)],'orange')
-    d.arrow([(800,1235),(800,1365)],'orange')
-    d.label(800,1305,'仅自动化环境缺失','orange')
-    d.box(560,1365,480,180,'Yellow 缺测 → 本轮收尾',[
-        '当前 build Green；自动用例未执行','记录 automation-deferred','可执行的下游 / 并行任务继续','不是 DoD 或功能验收通过'], 'orange')
-    d.arrow([(800,1545),(800,1770)],'orange')
-    d.box(400,1770,800,115,'本子 MO 收尾 → 父 MO 检查与汇总',[
-        '当前子 MO 已收尾不触发提前审计；仍等待其他子 MO 和其他父模块'])
-    d.box(1110,190,410,190,'编码前阻塞',[
-        '缺输入 / 未决边界 / 目标不可行',
-        '派发后预检：就绪开工 / 阻塞退回',
-        '先澄清、恢复条件或明确挂起',
-        'SPEC 未冻结不编码',
-        '代码未接受不启动 Main'], 'orange')
-    d.box(70,190,400,150,'认领范围',[
-        'assigned_module 绑定分配包','需求 / CASE / 写范围不得越界','全局可读不扩大执行权限'], 'gray')
-    d.box(70,410,400,150,'OpenSpec 六件套',[
-        'proposal / spec / design','tasks / status / checklist','上游用例在冻结前分配 scope'], 'gray')
-    d.box(70,700,400,210,'契约变化 → CR',[
-        '遗漏 / fidelity 偏差 → 局部 CR','Spec Designer 更新；子 MO 审核','业务语义 / 不确定边界交人工','重新冻结 → 更新已有代码 / 复测','任何反馈都不能直接写 Green'], 'purple')
-    d.arrow([(470,805),(525,805),(525,640),(560,640)], 'purple')
-    d.box(1110,440,410,190,'选中提供方 / 接入证据变化',[
-        '相关计划与旧测试证据失效',
-        '影响分析 → CR / 重规划 → 冻结',
-        '新代码接受后正式复测',
-        '仅影响相关消费者，无关 MO 继续'], 'purple')
-    d.legend(1920)
+    d=Diagram('module-execution',2470,'02','子 MO · 执行与反馈调整','SDD 先规划后执行、边执行边调整；TDD 从全量用例建立覆盖，再以路径证据修正实现')
+    d.box(550,190,500,130,'子 MO · TASK 划分',[
+        '继承 GO / 父 MO 的 scope / 全量 CASE',
+        '职责、排除、允许写范围和依赖',
+        '原子能力作叶子，不继续拆 MO'],controller=True)
+    d.arrow([(800,320),(800,400)])
+    d.box(550,400,500,140,'四维 → SPEC / 测试路径',[
+        'UI → Logic → Adhesive → Resource',
+        'Spec-Designer：实施规范 + CASE / PATH / ASSERT',
+        '实现指导 / fidelity；独立 design 按需'])
+    d.arrow([(800,540),(800,610)])
+    d.box(550,610,500,130,'MO 审核冻结',[
+        '规划完整可执行即冻结，不预演全部缺陷',
+        'SPEC 是 Implementer 的规范',
+        '真实未决 / 需求验收授权变化交 Human'],controller=True)
+    d.arrow([(800,740),(800,810)])
+    d.box(550,810,500,130,'Implementer · 按 TASK 执行',[
+        '派发后预检 ready 才开工',
+        '按冻结 SPEC / 资源参数表生成或更新代码',
+        '代码 / 追溯提交 → MO 接受'])
+    d.arrow([(800,940),(800,1010)])
+    d.box(550,1010,500,180,'Test-Runner · 正式验证',[
+        'build → unit → static（同一派发）',
+        '全部通过后另派 automation，逐 PATH / ASSERT',
+        '适用时另派 visual；原始回执 / 媒体 / 根因',
+        '执行证据经 Ledger → MO 验收'])
+    d.arrow([(800,1190),(800,1245)])
+    d.diamond(800,1310,310,130,'验证结果','Green / Red / Yellow')
+    d.arrow([(645,1310),(500,1310)],'green');d.label(570,1290,'Green','green')
+    d.box(70,1220,430,180,'MO · DoD / 模块完成',[
+        '全部必需路径有效 Green',
+        'TASK 追溯 / checklist 完整',
+        '保留当前证据和修复 memory',
+        '不触发提前 Auditor'], 'green',True)
+    d.arrow([(70,1310),(50,1310),(50,2180),(300,2180),(300,2240)],'green')
+    d.arrow([(955,1310),(1110,1310)],'orange');d.label(1030,1290,'非 Green','orange')
+    d.box(1110,1220,410,180,'现有诊断 → MO 分流',[
+        '按根因在派修复前选控制分支',
+        'Diagnostician 只读；轻量叶子沿自诊断',
+        '未决 / 环境 / 预算沿既有恢复',
+        '不增加前置规划轮次'], 'orange',True)
+    # One classified diagnosis feeds three distinct control branches.
+    d.arrow([(1315,1400),(1315,1430),(285,1430)],'purple',end=False)
+    for cx in (285,800,1315):
+        d.arrow([(cx,1430),(cx,1480)],'purple')
+    d.box(70,1480,430,180,'实现错误 → Fixer',[
+        '当前 SPEC 已明确，实现与其不符',
+        '预算内最小补丁 / 自验证 / fix_note',
+        '不改冻结 TASK / 需求 / 验收',
+        'MO 接受后重新正式测试'], 'purple')
+    d.arrow('M70,1570 L60,1570 Q50,1555 40,1570 L35,1570 L35,1090 L550,1090','purple')
+    d.label(285,1070,'新 build / unit / static + 正式复测','purple',18)
+    d.box(550,1480,500,180,'规划缺口 → CR',[
+        'scope 内功能 / 依赖契约 / fidelity 规划遗漏',
+        'Spec-Designer 修订 SPEC；MO 审核重冻',
+        'Implementer 更新已经 coding 的代码',
+        '保留原预期；语义 / 授权变化交 Human'], 'purple')
+    # Jump over the diagnosis input: crossing is not a shared control junction.
+    d.arrow('M1050,1570 L1080,1570 L1080,1440 Q1095,1430 1080,1420 L1080,1320 Q1095,1310 1080,1300 L1080,675 L1050,675','purple')
+    d.box(1110,1480,410,180,'范围不足 → 父 MO / GO',[
+        'realloc-request 上溯负责上游',
+        '修正分配，再 top-down 更新影响规划',
+        '重新冻结，更新代码并正式复测',
+        '无关 MO 保留当前有效状态'], 'purple')
+    d.arrow([(1520,1570),(1570,1570),(1570,350),(1080,350),(1080,255),(1050,255)],'purple')
+    d.box(550,1750,500,260,'CR 重验范围',[
+        '默认：全模块重验',
+        '可选 MO TASK 独立性证明，绑定旧冻/新计划',
+        '核对写范围、读依赖、共享 PATH 与追溯',
+        '独立才保留未影响 TASK / 有效 Green',
+        '新 build/unit/static；影响及非 Green 路径复测',
+        '共享影响 / 无证明回退全验；过期漏报拒收'], 'orange')
+    d.box(70,1750,430,230,'证据与路径统计',[
+        '保留原 receipt / test_run_id / 执行基线',
+        'Ledger 另记 validation_reuse 有效性',
+        '宿主 / 模块 / TASK 统计成功及缺测',
+        '复用成功单列，不计本次新执行',
+        'Red / Yellow 不凭证明转 Green'], 'gray')
+    d.box(1110,1750,410,230,'阻塞与明确收尾',[
+        '已有提供方暂不可用：等待 / 恢复',
+        '仅自动化环境缺失：Yellow / 未执行',
+        '不耗 Fixer 轮次，不掩盖实际失败',
+        '受阻 / 预算耗尽：留证明确挂起',
+        '条件恢复后真实测试，不直接 Green'], 'orange')
+    d.arrow([(1520,1310),(1550,1310),(1550,1865),(1520,1865)],'orange',dashed=True)
+    d.arrow([(1315,1980),(1315,2180),(1300,2180),(1300,2240)],'orange')
+    d.box(300,2240,1000,130,'本模块收尾 → 父汇总 → 全量门禁 → 统一宿主 Auditor',[
+        '各 MO 独立完成 / 明确挂起；全 registry 收尾、无 worker / 可推进动作才统一审计',
+        '审阅全部模块与宿主目标；局部独立性证明不免除 Auditor 权限'])
+    d.box(70,190,430,160,'一任务 · 一 Run',[
+        '执行唯一当前冻结 SPEC',
+        '规划修订只留不可执行 history',
+        '失败、经验与累计预算持续保留'], 'gray')
+    d.box(70,420,430,160,'OpenSpec 六件套',[
+        'proposal / spec / design',
+        'tasks / status / checklist',
+        'status / checklist 由 Ledger 绑定投影'], 'gray')
+    d.box(70,760,430,210,'资源与 fidelity 输入',[
+        'API / URL / image / icon 来源追溯',
+        '文件资源按清单复制并核对引用',
+        'XML / 图层 / 代码取值按参数表复用',
+        '存量基线 / 中间表征指导实现',
+        '真实证据验证，不以 build 替代'], 'gray')
+    d.box(1110,190,410,130,'冻结与执行门禁',[
+        'SPEC 未冻结不生成代码',
+        '代码未生成不执行目标测试',
+        '预检 / 锁 / 依赖 / 预算按步骤检查'], 'orange')
+    d.box(1110,420,410,200,'SDD / TDD 控制原则',[
+        '按明确规划先执行，再按反馈调整',
+        '冻结前分配全量 CASE 与预期',
+        'automation 逐路径收集错误证据',
+        'Fixer 自测不能代替正式验证',
+        '首次 Green 不伪造 RED'], 'gray')
+    d.legend(2420)
     d.save()
 
 
 def auditor_closure():
-    d=Diagram('auditor-closure',2110,'03','Auditor · 跨模块处理与最终裁决','独立 Auditor 保留审计验收权；修复由负责模块的 MO 派发 Fixer，正式 Testing 必须复核')
+    d=Diagram('auditor-closure',2110,'03','统一 Auditor · 宿主审计与跨模块处理','独立 Auditor 保留审计验收权；修复由负责模块的 MO 派发 Fixer，正式 Testing 必须复核')
     d.box(340,195,920,115,'入口：GO 全量收尾门禁已满足',[
         '全部子 MO 本轮结束 + 所有父汇总有效 + 无活动 worker / 可推进动作',
-        '先整体代码审查 / 治理，再收集剩余 Red / Yellow；global_paths 可为空'], 'orange')
+        '审阅全部模块（含 Green）及宿主目标；先治理再遗留复核；global_paths 可为空'], 'orange')
     d.arrow([(800,310),(800,370)])
     d.box(500,370,600,135,'整体代码审查 → 分批收集',[
-        'audit-code-review：改动 / 冗余 / 复用 / 公共能力','audit-collect：先治理 CR-*，再剩余 Red / Yellow','绑定 SPEC / PATH / provider 与消费者证据'])
+        'audit-code-review：目标覆盖 / 改动 / 冗余 / 复用 / 公共能力','audit-collect：先治理 CR-*，再剩余 Red / Yellow','绑定 SPEC / PATH / provider 与消费者证据'])
     d.arrow([(800,505),(800,565)])
     d.box(500,565,600,135,'根因分析 → 路由审核',[
-        '治理用 fix / human；遗留可 fix / verify / human','GO 审核提供方 owner、消费者及依赖图','无有效冻结 SPEC / 代码：转人工恢复规划'],controller=True)
+        '治理用 fix / human；遗留可 fix / verify / human','GO 审核提供方 owner、消费者及依赖图','需新 TASK / 契约 / scope：恢复 CR / 上游规划'],controller=True)
     d.box(90,370,330,200,'复用与公共能力治理',[
         '重复实现 / 接线 / 公共能力',
         '核对已选映射与影响消费者',
@@ -250,8 +297,8 @@ def auditor_closure():
         '前置条件已恢复 / 无需补丁','仍须新 Main 结果','不能沿用旧非 Green 直接通过'])
     d.arrow([(300,965),(300,1155),(590,1155)],'purple')
     d.arrow([(800,965),(800,1080)])
-    d.box(590,1080,420,155,'构建 → 自动化 → 记录结果',[
-        '按 finding 依赖图交错推进','验证 owner / source / 中间与下游','原 Green 受影响也须正式复测','发现模块与负责模块相同时合并证据'])
+    d.box(590,1080,420,155,'构建 / 单测 / 静态 → 路径回归',[
+        '按 finding 依赖图交错推进','验证 owner / source / 中间与下游','审计影响模块完整回归；无关 Green 保留','发现模块与负责模块相同时合并证据'])
     d.arrow([(1010,1155),(1120,1155)],'orange')
     d.label(1067,1136,'失败','orange')
     d.box(1120,1080,380,155,'记录人工问题',[
@@ -263,7 +310,7 @@ def auditor_closure():
     d.box(500,1360,600,145,'Auditor · 核对当前证据 → 裁决',[
         'audit-verdict：统一审阅 owner / source 新证据','已解决 / 缺测未验证 / 人工问题分别记录','Fixer 自测不能代替 Testing 与独立审计'],controller=True)
     d.arrow([(640,1505),(640,1540),(400,1540),(400,1590)])
-    d.label(430,1540,'通过 / 仅自动化缺测','green')
+    d.label(430,1540,'已解决 / 仅自动化缺测','green')
     d.arrow([(960,1505),(960,1540),(1200,1540),(1200,1590)],'orange')
     d.label(1190,1540,'Red / 其他 Yellow','orange')
     d.box(90,1590,620,145,'批次收尾 → 刷新父汇总',[
@@ -328,7 +375,7 @@ def reuse_flow():
     d.box(400,1765,800,140,'代码接受 → 构建 → 自动化与保真验证',[
         '正常 / 边界 / 异常 / 取消；真实提供方接线与适配差异',
         '编译、导入或 mock 通过，不能代替必要的集成验证',
-        '本模块可修复先一轮 Fixer；提供方/外围问题留证待 Auditor'])
+        '实现错误 → Fixer；契约缺口 → CR；超 scope → 父 MO / GO'])
     d.arrow([(800,1905),(800,1970)])
     d.box(400,1970,800,145,'全量收尾后 → Auditor 跨模块验证',[
         '定位 source / capability / mapping / version 与影响消费者',
@@ -357,8 +404,8 @@ def reuse_flow():
         '稳定库不虚设待完成 MO'], 'gray')
     d.box(1250,1535,290,195,'选中提供方证据变化',[
         '相关计划 / 旧测试失效',
-        '仅相关消费者回到规划',
-        'CR → 冻结 → 正式复测',
+        '按影响核验 TASK 独立性',
+        'CR / 上溯 → 冻结 → 正式复测',
         '无关模块继续'], 'purple')
     d.arrow([(1540,1630),(1560,1630),(1560,1030),(1230,1030),(1230,945),(1200,945)],'purple',dashed=True)
     d.text(800,2180,'来源、目录、映射和绑定证据均经 Ledger；语义分析由 Agent 完成，结构校验不能证明行为等价。',21,'#4b5563')

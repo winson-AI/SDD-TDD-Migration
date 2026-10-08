@@ -15,15 +15,15 @@ def automation_flow():
     d = Diagram('automation-flow', 2850, '05', 'Automation · 输入、执行与验收闭环',
                 '构建是前置门禁；每条 PATH 独立执行；环境缺测不传播失败，完整 Green 才能验收通过')
     artifact(d, 460, 190, 640, 130, '测试输入 → 冻结 PATH',
-             ['SPEC / CASE → PATH ID + Name / 参数 / 步骤 / ASSERT', '测试设计先完成；冻结后禁止自行放宽预期'])
+             ['GO / 父 MO 分配全量 CASE；SPEC → PATH / 参数 / 步骤 / ASSERT', 'Spec-Designer 组织路径；design 按需；冻结后不自行放宽预期'])
     d.box(60, 190, 340, 210, '项目上下文',
           ['存量 / 目标 / 架构 / 测试', '二方库行为对齐与 fidelity', 'adapter + 环境 / fixture', '项目配置 → 本轮快照'], 'gray')
     d.arrow([(400, 255), (460, 255)])
     d.arrow([(780, 320), (780, 375)])
-    d.box(460, 375, 640, 115, 'Coding 接受 → 当前 build Green',
-          ['编译失败先诊断 / Fixer；新代码必须重新构建', '构建通过不代表任何业务 CASE 已通过'])
+    d.box(460, 375, 640, 115, 'Coding 接受 → build / unit / static Green',
+          ['非 Green 按根因分流；新代码必须重新 build / unit / static', '构建通过不代表任何业务 CASE 已通过'])
     d.arrow([(780, 490), (780, 550)])
-    d.box(460, 550, 640, 140, 'Test-Runner · testing 预检',
+    d.box(460, 550, 640, 140, 'MO 派发 → Test-Runner testing 预检',
           ['冻结规格 / 路径 / 代码 / 提供方 / 环境 / 权限', '提交 context-submit；绑定实际 argv / cwd / 环境', '宿主负责实际启动、角色身份和资源锁'], controller=True)
     d.arrow([(780, 690), (780, 735)])
     d.diamond(780, 800, 330, 130, '预检结果', '是否具备执行条件')
@@ -34,32 +34,36 @@ def automation_flow():
     d.box(1160, 725, 380, 230, 'MO · 缺测旁路',
           ['automation-unavailable', '→ automation-deferred', '逐 PATH：Yellow / 未执行', '保留 build Green，不耗修复轮次', '不能掩盖已观察到的 Red'], 'orange', True)
     d.arrow([(780, 865), (780, 940)]); d.label(780, 910, 'ready')
-    d.box(460, 940, 640, 125, 'assignment → 宿主 execute_test',
+    d.box(460, 940, 640, 125, 'ready 绑定 → 宿主 execute_test',
           ['scope=automation；重验代码 / 环境 / 命令', '每条 PATH 新目录 + 新进程；写完整 query.json'])
     d.arrow([(780, 1065), (780, 1120)])
     d.box(460, 1120, 640, 145, '逐 PATH 调用项目 Main',
-          ['argv + --query-file … --result-file …', 'Harmony：Planner / Executor / Verify（图 06）', '其他平台：项目真实 adapter'], controller=True)
+          ['argv + --query-file … --result-file …', 'Android / Harmony test：Planner / Executor / Verify（图 06）', '冻结 platform 与已部署 APK / HAP 绑定（不含 iOS）'], controller=True)
     d.box(60, 1080, 340, 190, '两层执行结果',
           ['包装器 exit 0：已写回执', '不等于 CASE 通过', '超时 124 / 启动失败 127', '以 receipt / assertions 为准'], 'orange')
     d.arrow([(780, 1265), (780, 1320)])
     artifact(d, 460, 1320, 640, 130, '单路径执行工件',
              ['result.json + 日志 / 媒体 / observations', 'receipt.json：身份 / 时间 / argv / 退出码 / hash'])
+    d.box(60, 1340, 340, 235, 'CR 验证范围',
+          ['无证明 / 共享影响：全模块重验', 'MO TASK 独立性证明通过', '保留未影响 TASK / Green', '影响及非 Green 路径重跑', '新构建 / 单测 / 静态总重跑'], 'purple')
+    d.box(60, 1640, 340, 170, '成功证据统计',
+          ['Ledger 记录 validation_reuse', '原回执 / 执行基线不变', '复用成功单列，不计新执行', '成功集合带 PATH / TASK / 证据'], 'gray')
     d.arrow([(780, 1450), (780, 1505)])
     artifact(d, 460, 1505, 640, 125, '汇总 stage-result.json',
              ['本 assignment scope 的所有 PATH 均须记账', '每条：三态 / ASSERT / 根因 / receipt / retest_of'])
     d.arrow([(780, 1630), (780, 1685)])
     d.box(460, 1685, 640, 140, 'Ledger submit → owner 接受',
-          ['两次核对版本 / 覆盖 / 回执 / 断言 / 证据摘要', '模块 CASE：MO；审计 CASE：Auditor', '缺证据或不匹配被拒绝，不能按通过处理'], controller=True)
+          ['两次核对冻结 / 基线 / 覆盖 / 回执 / 断言 / 证据摘要', '模块 CASE：MO；审计 CASE：Auditor', '缺证据或不匹配被拒绝，不能按通过处理'], controller=True)
     d.arrow([(780, 1825), (780, 1875)])
     d.diamond(780, 1940, 330, 130, '正式三态', '以本次证据为准')
     d.arrow([(615, 1940), (400, 1940)], 'green'); d.label(505, 1920, 'Green', 'green')
     d.box(60, 1870, 340, 170, 'MO · 完整 DoD',
-          ['build + automation 全覆盖', '当前基线全部 Green', '任务追溯 / checklist 完整', '记录模块通过'], 'green', True)
+          ['构建 / 单测 / 静态 + 自动化', '当前基线全部 Green', '适用 visual 须另派并通过', '记录模块通过'], 'green', True)
     d.arrow([(945, 1940), (1160, 1940)], 'orange'); d.label(1045, 1920, 'Red / Yellow', 'orange')
     d.box(1160, 1855, 380, 180, '诊断 → 修复路由',
-          ['可修复：本地先一轮 Fixer', '补丁接受 → 重建 → 正式复测', '依赖 / 外围 / 仍失败：留证', '待统一 Auditor，不终止兄弟'], 'purple')
-    d.box(1160, 1505, 380, 170, '修复返回 B',
-          ['入口 B = Coding 接受 / build', '新 code_baseline，旧构建失效', '保留失败与 repair memory', '复测必须关联 retest_of'], 'purple')
+          ['实现错误 → Fixer；规划缺口 → CR', '超 scope → 父 MO / GO', '更新 SPEC 时 MO 重冻后再改代码', '预算内正式复测；阻塞按原恢复'], 'purple')
+    d.box(1160, 1505, 380, 170, '更新代码后返回 B',
+          ['入口 B = Coding 接受 / build', '新 code_baseline，旧构建失效', '保留失败与 repair memory', '新 build / unit / static；正式路径复测'], 'purple')
     d.arrow([(1350, 1855), (1350, 1675)], 'purple'); d.label(1350, 1770, '修复获接受', 'purple')
     d.label(1045, 360, '入口 B', 'purple')
     d.box(1160, 1020, 380, 190, '环境恢复返回 A',
@@ -76,22 +80,22 @@ def automation_flow():
           ['全部叶子本轮结束，全部父汇总当前有效', '无 worker / ready 动作，才统一启动 Auditor'], 'orange', True)
     d.arrow([(780, 2360), (780, 2410)])
     d.box(460, 2410, 640, 150, 'Auditor · 独立闭环',
-          ['实际遗留：SPEC / PATH → 根因 → Fixer → Testing', '裁决失败：结构化根因待人工；缺环境保留未验证', '只复核遗留 / 受影响路径；空清单只审阅'], controller=True)
+          ['审阅全宿主目标 / 代码；遗留按审计 fix / verify / human 路由', '裁决失败：结构化根因待人工；缺环境保留未验证', '只复核遗留 / 受影响路径；空清单只审阅'], controller=True)
     d.arrow([(780, 2560), (780, 2620)])
     artifact(d, 300, 2620, 960, 125, '最终输出：通过 / 问题待决 / 缺测清单',
-             ['全覆盖真实 Green 才通过；纯缺环境可 completed-with-unverified-tests（Yellow）', '模块原始结果、审计结果与历次失败均保留；收尾不等于验证通过'])
+             ['全覆盖真实 Green 才通过；纯缺环境可 completed-with-unverified-tests（Yellow）', '按宿主 / 模块 / TASK 统计有效成功与缺测；历次原始证据均保留'])
     d.legend(2800)
     d.save()
 
 
 def automation_engine():
-    d = Diagram('automation-engine', 2230, '06', 'Harmony · 单 PATH 自动化内核',
+    d = Diagram('automation-engine', 2230, '06', 'Android / Harmony · 单 PATH 自动化内核',
                 '内核属于同一次 Test-Runner 执行；只负责设备操作与断言取证，不承担外层修复或验收权限')
     artifact(d, 440, 190, 720, 130, '完整 query + 引擎配置',
              ['冻结步骤 / 参数 / ASSERT / after_step / 当前代码身份', '设备 / 三类模型 / 预算 / 可选 knowledge_ref 与 recording_ref'])
     d.arrow([(800, 320), (800, 375)])
     d.box(440, 375, 720, 125, 'adapter 校验与隔离',
-          ['验证字段与引用 hash → 设备互斥锁 → 本次独立目录', '注册 Verify wrapper；加载技能 / 自定义工具'])
+          ['校验字段 / hash / 平台 → 设备互斥锁 → 本次独立目录', 'platform=android|harmony、task_type=test；注册 Verify wrapper'])
     d.arrow([(800, 500), (800, 555)])
     d.box(440, 555, 720, 110, 'task_text：步骤与冻结断言交错',
           ['每条 verify 使用单个 [ASSERT:id]；知识只辅助执行'])
@@ -100,7 +104,7 @@ def automation_engine():
     d.arrow([(635, 780), (380, 780), (380, 880)]); d.label(490, 760, '无录制')
     d.arrow([(965, 780), (1220, 780), (1220, 880)]); d.label(1100, 760, '有效录制')
     d.box(80, 880, 600, 140, 'Planner → Executor',
-          ['Observe → 单步工具 / execute → 实际反馈', 'general / glm / MCP / Hypium MCP', '压缩上下文 / 可选反思 / 技能 / XPath 缓存'], controller=True)
+          ['Observe → 单步工具 / execute → 实际反馈', 'Android ADB / Harmony hdc；general / glm / MCP / Hypium', '压缩上下文 / 可选反思 / 技能 / XPath 缓存'], controller=True)
     d.box(920, 880, 600, 140, 'ToolPlayer · 导航回放',
           ['坐标 / XPath / 输入 / 进度条 / 临时控件', '意外弹窗处理；验证不复用旧通过结果', '失败时携带历史，在剩余预算内重规划'], controller=True)
     d.label(580, 865, '入口 C', 'purple')

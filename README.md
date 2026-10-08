@@ -19,9 +19,9 @@
 
 ## 流程图
 
-主线：GO/父 MO 划分 scope 与上游全量 CASE → 子 MO 拆 TASK → SPEC/测试路径审核冻结 → Implementer → build/unit/static → automation → Fixer/复测 → 统一 Auditor。独立 Test-Runner design 按需启用；无代码阶段只规划，不执行或记录通过。automation 发现规划遗漏或 fidelity 偏差时局部 CR 更新 SPEC，再冻结并更新已有代码，保留失败历史及修复预算。见 [设计交接](skills/migration-protocol/references/testing.md#编码前设计交接)。
+主线：GO/父 MO 划分 scope/全量 CASE → 子 MO 拆 TASK → SPEC/路径审核冻结 → Implementer → build/unit/static → automation → 反馈分流与复测 → 统一 Auditor。SDD 先规划后执行、边执行边调整，完整可执行即开工；独立 design 按需。实现错误交 Fixer，规划/功能/依赖契约缺口走 CR 更新 SPEC 和已有代码，超 scope 上溯父 MO/GO。同 Run 保留历史和预算；有 TASK 独立性证明才保留未影响验收与成功路径，否则全模块重验。build/unit/static 始终验证新代码。见[变更控制](skills/migration-protocol/references/openspec.md#变更控制)。
 
-按三层编排阅读 [完整图集](diagrams/README.md)：[总览](diagrams/workflow.svg) → [子 MO 执行与修复](diagrams/module-execution.svg) → [Auditor 跨模块处理](diagrams/auditor-closure.svg)，另见贯穿各阶段的 [二方库语义与复用](diagrams/reuse-dependencies.svg)。每张均提供 PNG 和可再生成的源文件。
+按三层编排阅读 [完整图集](diagrams/README.md)：[总览](diagrams/workflow.svg) → [子 MO 执行与修复](diagrams/module-execution.svg) → [Auditor 跨模块处理](diagrams/auditor-closure.svg)，另见贯穿各阶段的 [二方库语义与复用](diagrams/reuse-dependencies.svg)。SVG 入库，PNG 由源文件在本地再生成。自动化详见 [外层执行闭环](diagrams/automation-flow.svg) 与 [Android/Harmony 单 PATH 内核](diagrams/automation-engine.svg)。
 
 ## 目录
 
@@ -31,7 +31,7 @@
 | `skills/` | 共享协议与 10 个职责技能，按需读取 |
 | `command/` | 10 个命令入口，负责上下文配置、参数、门控、派发与投影完整性核验 |
 | `template/` | 全局输入、模块输入、六件套及诊断、测试、Ledger 请求、人工决策等运行工件模板 |
-| `diagrams/` | 三层编排总览、子 MO/Auditor 细节图及生成源文件 |
+| `diagrams/` | 三层编排、子 MO/Auditor、复用与自动化图及生成源文件 |
 
 运行期资产集中在固定 `workspace_root`，其下 `.sdd-migration`（长期配置）、`.sdd-runs/<run_id>`（运行证据）、`openspec`（规格与状态中枢）顶层并列；包目录自身不存迁移状态。Harmony 执行统一在 `.sdd-runs/<run_id>/runs/harmony/`（automation/sandbox），构建资产在 runs/build；临时文件归 runner，结束清理，失败留存原因。项目模型参考配置/凭证在 `.sdd-migration/harmony/`；Test-Runner 首次准备时复制到本轮 `runs/harmony/sandbox/environment/`，各模块共享本轮副本。入口为 `openspec/runs/<run_id>/workflow.md`。见 [完整留存布局与二次启动](skills/migration-protocol/references/storage-layout.md)。模块 ID 永久稳定，如 `M001`；OpenSpec change 名如 `migration-demo-m001`。新增模块只追加编号，不因排序改变历史 ID。顶层 `openspec` 是 prepare→init→apply 真实跑通后的投影，不能手写；最终交付用只读门禁 `verify_openspec.py --root <run> --scope final` 核验投影与正式收尾报告；缺事件证据时恢复其有效来源，不由核验结果推断真实派发或功能通过，细则见 [投影完整性收尾门禁](skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。
 
@@ -54,20 +54,36 @@
 
 本包可检查入口引用、frontmatter、JSON 模板与流程契约；真实迁移须在填写技术栈、宿主适配和真实测试命令后验证。推荐的行为验收场景见 [workflow-verification.md](template/workflow-verification.md)。协议总量与单文件大小受 `reading.py` 的 PROTOCOL_BUDGET/FILE_BUDGET 棘轮约束，阅读卡另有 60KB 预算：新增规则写入其专题协议并合并重复表述，不在运行指南中再追加一份。
 
-## 模块 Coding 与 Testing 顺序
+## 规划、执行与反馈控制
 
-项目级和指定单模块均执行：
+GO/父 MO 负责模块与子模块的 scope 切片，并在冻结前分配上游全量 CASE；原子能力可直接作为叶子。子 MO 在叶子范围内拆 TASK、组织四维分析，Spec-Designer 编制 proposal/spec/design/tasks 与 CASE/PATH/ASSERT；MO 决策经 Ledger 投影为 status，包内 checklist 由 Ledger 绑定并投影，组成 OpenSpec 六件套。SPEC 是 Implementer 的执行规范，四维分析描述业务、功能与代码边界，两者承担不同职责。规划完整可执行即可由 MO 审核冻结，不增加预演全部缺陷的规划轮次；Test-Runner 的独立 design 仅按需协助。
 
 ```text
-Coding → MO 接受代码 → Testing
-  ├─ Green → MO 核验 DoD、验收记录
-  └─ 可修复 Red/Yellow → 诊断 → MO 在预算内派发 Fixer
-                       → 接受补丁 → Testing 正式复测
-                       ├─ Green → MO 核验 DoD、验收记录
-                       └─ 仍非 Green → 留证，预算内继续局部收敛；达到收尾条件后交 Auditor
+GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻结
+  → Implementer → MO 接受代码
+  → Test-Runner：build → unit → static（同一派发）
+  → automation：逐 PATH / ASSERT → visual（适用时）
+  ├─ 全部必需路径有效 Green → MO 验收 DoD → 模块收尾
+  └─ 非 Green → 现有诊断 / MO 归因分流 → 更新后正式复测
+全部模块本轮收尾、父汇总有效、无 worker / 可推进动作 → 统一宿主 Auditor
 ```
 
-已确认依赖/外围问题直接记录并等待 Auditor。Fixer 自测不能代替正式 Testing；所有模块本轮结束后才统一启动 Auditor，首轮 Green 同样保留最终独立审计。
+**SDD 先规划后执行、边执行边调整；TDD 从上游全量用例建立冻结前覆盖，在 automation 中收集实现错误和不符合预期的证据，再调整 TASK 实现。** 未生成代码不执行目标测试，首次即 Green 如实记录，不伪造 test-first RED。
+
+| 执行反馈 | 控制分支 | 后续动作 |
+| --- | --- | --- |
+| 实现违反当前 SPEC | `fixer` | MO 在累计预算内派发 Fixer；最小补丁、自验证、MO 接受后正式复测 |
+| 当前 scope 内规划遗漏、功能/依赖契约缺口、fidelity 规划不足 | `spec` → CR（`change`） | Spec-Designer 修订 SPEC，MO 审核再冻结，Implementer 更新已经 coding 的代码 |
+| 原分配范围不足 | `upstream` → `realloc-request` | 上溯负责的父 MO/GO，修正分配后 top-down 更新受影响规划，再冻结执行 |
+| 已有提供方暂不可用或环境/外围阻塞 | 既有等待/恢复分支 | 留存根因和证据；自动化环境缺测保持 Yellow/未执行，条件恢复后真实验证 |
+
+分类在派发修复前完成；不把所有问题先交 Fixer 再判断。Fixer 不修改需求、验收或冻结 TASK，只能提出 CR。原预期内的技术补全由 MO 审核；真实未决或需求、验收、授权变化交 Human。源码实现错误造成的 fidelity 偏差仍走 Fixer，规划遗漏造成的偏差才走 CR。
+
+修订默认全模块重验。MO 可在 CR 的 plan-review 提交 [TASK 独立性证明](template/task-independence.json)：核对定义、写范围、读依赖、共享 PATH、未变需求及文件追溯后，只重开受影响 TASK，保留未影响 TASK 和有效成功证据。无证明或共享影响则全模块重验；过期或漏报变更的证明拒收。**新代码始终重跑 build/unit/static**，automation/visual 重跑受影响及非 Green 路径；原回执、test_run_id 和执行基线保留，另记 `validation_reuse`，不能标为本次新执行。详见 [TASK 局部重验](skills/migration-protocol/references/openspec.md#task-局部重验)。
+
+Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试、完整执行、有效成功、Red/Yellow 和缺路径 CASE；参数/平台实例分别计 PATH，重试不增加分母。`reused_passed_paths` 单列，排除在 `current_executed_paths` 之外；成功集合附原始执行身份与证据。缺路径、缺测或失效证据不能据现有成功集合宣称全量通过。
+
+同一宿主迁移任务始终沿用一个 Run，保留失败、规划 history 和累计预算；执行仅绑定当前冻结 SPEC。只有新宿主任务新建 Run，抽象且已验证的经验可跨 Run 复用。各 MO 独立推进；某个失败只影响自身及有证据的依赖范围。统一 Auditor 审阅全部模块与宿主目标、治理代码并独立裁决；实际复测覆盖遗留和受影响路径，空清单只做独立审阅。TASK 局部证明不削弱 Auditor 的权限，Fixer 自测也不能代替正式测试或独立审计。
 
 ## 专题速览
 
@@ -118,6 +134,7 @@ Coding → MO 接受代码 → Testing
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-08 | README 与六张图统一当前主线、按需设计、三类反馈、局部重验和成功统计；PNG 仅本地渲染。执行反馈在派 Fixer 前明确分流：实现错误修代码、规划/功能/依赖契约缺口修 SPEC、超 scope 上溯父 MO/GO。可选 MO 独立性证明保留未影响 TASK 与既有 Green，原回执/执行基线不变；新 build/unit/static 与受影响/非 Green 路径真实复测，共享影响回退全验。统一 GO 测试分工，不新增前置规划轮次或流程版本。 |
 | 2026-10-07 | 执行反馈驱动规划修正：GO/父 MO 分配 scope/上游 CASE，子 MO 拆 TASK 后直接形成 SPEC 并冻结执行；独立 design 改为按需。修复中可补充原预期的路径/断言，MO 审核后再冻结、更新已有代码并复测；保留旧计划与失败证据，不新增 Run 或计划版本。 |
 | 2026-10-05 | 规划闭环与原子叶子：MO 通过 decompose 提交 atomic-leaf 结论，GO 接受后保留当前节点进入 SPEC 规划；完整 registry 可先验覆盖，无关根待拆不阻挡就绪叶子，受影响依赖仍受门禁约束。bottom-up 修正、top-down 重规划只留不可执行 history；不恢复局部 Auditor 分支。 |
 | 2026-10-05 | Workflow 统一发布：删除运行期 control_policy_version、策略升级及旧提前审计分支；统一 MO 冻结、累计修复预算、TASK/PATH 执行和独立 Test-Runner/宿主 Auditor。编码前规划变化仅留不可执行 history，不形成计划版本；旧 Run 在当前门禁下继续，历史配置只读投影。版本差异仅在本表留档。 |
@@ -153,4 +170,4 @@ Coding → MO 接受代码 → Testing
 
 ## 控制工作流
 
-新 prepare 默认采用 GO/MO 垂域切片 → 四维与叶子 OpenSpec 规划 → MO 冻结 → 显式 TASK/PATH 执行与收敛 → 统一宿主 Auditor。同 Run 修正保留历史证据，人工仅裁决实际未决或业务授权变化。规则见[控制主线](skills/migration-protocol/references/state-machine.md#控制主线)。
+当前统一主线为 GO/父 MO 切 scope/CASE → 子 MO 拆 TASK/四维 → SPEC 冻结 → Implementer/Test-Runner/Fixer 任务执行与反馈调整 → 统一宿主 Auditor。同 Run 修正保留历史证据，人工仅裁决实际未决或业务授权变化。规则见[控制主线](skills/migration-protocol/references/state-machine.md#控制主线)。

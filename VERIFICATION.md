@@ -22,20 +22,21 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1175 | 最终工作区全量通过，零失败/错误/跳过；本轮新增 8 项 |
+| migration-ledger/tests | 1189 | 最终工作区全量通过，零失败/错误/跳过；本轮新增 14 项 |
 | migration-test/tests | 70 | 上轮适配器夹具通过记录；本轮未改适配器、未重跑 |
 | runtime/harmony/tests | 128 | 既有通过记录；本次未改运行内核、未重跑 |
 
-本轮使用 Harmony sandbox 的 Python 3.11+ 解释器执行 `python -B -m unittest discover -s skills/migration-ledger/tests`，设置 `PYTHONDONTWRITEBYTECODE=1` 和 `PYTHONPATH=skills/migration-ledger/scripts`。首轮 1174 项发现一个模板体积检查的 28 个组合超限；压缩 JSON 示例排版后全部组合复测通过。最终工作区再次全量运行 1175 项，240.393 秒，全部通过，无失败、错误或跳过。适配器与 Harmony 内核未修改，本轮未重复其独立测试集。
+本轮使用 Harmony sandbox 的 Python 3.11+ 解释器执行 `python -B -m unittest discover -s skills/migration-ledger/tests`，设置 `PYTHONDONTWRITEBYTECODE=1` 和 `PYTHONPATH=skills/migration-ledger/scripts`。最终全量 1189 项，259.834 秒，零失败/错误/跳过。沙箱最初禁止 3 项本地 HTTP 夹具及 1 项进程查询；在允许回环端口和只读进程探测的环境完成全量。本轮还修正阅读卡超限及人工/批量审核工件的格式假设：局部重验规则按触发加载，无结构化独立性证明的审核采用全验，不强制改成 JSON。适配器与 Harmony 内核未修改，未重复其独立测试集。
 
-新增 8 项验证：prepared Run 无设计 worker 即可直接冻结并完成 build/unit/static/automation；真实路径失败后同 Run 修订 SPEC、更新已有代码并正式复测；补充 fidelity 路径/断言；保留旧代码、失败、规划 history 与修复预算；缺用例、替换上游来源、过期分配、伪造执行结果、资产越 staging、删旧路径或改弱预期均拒绝。测试仅使用隔离临时目录、本地模拟端口和测试子进程，不连接真机或外部 LLM。
+新增 14 项验证：执行错误直接 Fixer；规划/功能/依赖契约/fidelity 缺口直接 CR；超 scope 上溯且禁止强派 Fixer。两个真实代码任务经构建和路径测试后，局部 CR 仅重开受影响 TASK，独立成功保留原回执/执行基线，正式重构建后只测必要路径；连续两次 CR 保留原始证据。共享写入、读依赖、路径或 SPEC 影响回退全验；过期证明、漏报 TASK、保护资源/代码变化、伪造复用标记均拒绝或失效，非 Green 不凭证明变 Green。报告单列复用成功，不计为新执行；未测 GLOBAL 路径仍未完成。测试仅使用隔离临时目录、本地模拟端口和测试子进程，不连接真机或外部 LLM。
 
-协议体积为 537719 / 539000 字节，最大单文件 31702 / 32000 字节；阅读卡、触发模板组合、小节引用及体积回归通过，未放宽门禁。源码语法、JSON 检查与 `git diff --check` 通过。流程图同步生成 SVG/PNG。
+协议体积为 538824 / 539000 字节，最大单文件 31702 / 32000 字节。另验证 360 个全专题触发且带 CR/独立性审计的阅读组合：最大卡片 59445 / 60000 字节，最大模板组合 55393 / 56200 字节；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。流程图同步生成 SVG/PNG 并检查布局。
 
 ## 已覆盖
 
 | 范围 | 实际验证 |
 | --- | --- |
+| 执行反馈与 TASK 独立性 | 现有诊断直接分流 Fixer/CR/上溯，不新增冻结前规划轮次；MO 可选证明绑定新旧计划、TASK/读写依赖/原验收，局部更新保留未影响 TASK/Green，构建等前置门禁与受影响路径正式复测；保护输入改变则失效，原回执/执行基线和有效基线分开统计。 |
 | 统一控制与历史 | 初始化拒绝流程版本选择，历史标记不改变当前门禁；编码前调整只保留不可执行 planning_history，过期冻结与缺 TASK/PATH 契约的 assignment 不可执行或提交；Auditor 仅统一宿主审计，独立 Test-Runner 提交复测；旧封存配置按当前预算投影，同 Run 调整不改历史字节 |
 | 上游用例与按需设计 | prepared Run 默认直接提交 SPEC 与 upstream-test-plan，完整 CASE/PATH/ASSERT 绑定权威输入、当前 scope 与 Scenario；无需 design worker 即可 MO 审核冻结并完成 build/unit/static/automation。缺 CASE、替换来源、过期分配、伪造实际结果或资产越 staging 均拒绝。显式 design 仍走 assign/submit/accept，保持身份、预检、规格/任务/断言一致性与过期拒收；运行级门禁要求覆盖，不强制增加设计轮次。 |
 | 行为契约与场景追溯 | GO/父 MO/子 MO 行为审阅按 scope/REQ/CASE 校验；共享能力按父子归属解析唯一执行 owner，跨模块集成 CASE 归消费者，无关模块证据漂移不阻塞当前模块；SPEC 每个 Scenario-ID 派生并冻结到 TASK/PATH/ASSERT，缺场景、重复 ID、过期索引和以构建替代行为断言均拒绝；scenario_index 与静态审查范围由 Ledger 从 SPEC 派生，plan 携带过期或不全的值被拒；叶子的 source_closure 即其行为审阅；复用目录的 provider owner 与行为审阅解析出的叶子 owner 不一致时拒绝 |

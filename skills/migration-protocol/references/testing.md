@@ -14,7 +14,7 @@ GO/父 MO 在冻结前将上游全量 CASE 分配到独立 scope，子 MO 拆 TA
 
 只有确需独立设计协助时，MO 显式 assign(role=test-runner, mode=design, design_input_ref)，输入仍为本叶子 SPEC 草稿、tasks.scope/需求、case_refs 和游标 subject。设计者不得兼 MO/Spec/代码作者；submit 同带 test-design 预检 context_ref，kind=test-design，freeze_id/code_baseline=null。MO accept 后 plan 必须绑定接受的设计、任务与断言；过期/撤销的显式设计仍需重交，不能冒充已接受。设计只读规格与用例，不运行目标代码。
 
-执行中发现遗漏或 fidelity 偏差，按 CR 更新受影响 SPEC/tasks/路径并重新冻结；不强制重做独立 design。保留已有代码、失败证据与预算，历史设计仅可追溯，当前计划必须绑定当前用例。改变或删除旧预期需要明确裁决，不能为通过测试改写标准。详见 [变更控制](openspec.md#变更控制)。
+执行反馈分流、同 Run CR 及独立 TASK 保留统一按[变更控制](openspec.md#变更控制)；不强制重做独立 design，当前计划仍绑定上游用例，历史设计只供追溯。
 
 新 prepare 固化 planning_coverage_required（旧 Run 保留原契约）。每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids；已有执行器可复用，prepared 须对应资产，deferred 另记 owner/next_action，解决后才能冻结。测试准备不执行目标代码，不编造 Red。
 

@@ -22,6 +22,7 @@
 ## Owner Routing
 - owner_module_id: {{module}}
 - owner_role: {{fixer|spec-designer|global-orchestrator|host}}
+- repair_route: {{fixer|spec|upstream; diagnose payload field; dependency/function/fidelity gap -> spec, scope gap -> upstream}}
 - decision_envelope_impact: {{none|possible|confirmed}}
 - resume_session_ref: {{session-or-null}}
 - checkpoint_ref: {{ledger-reference}}

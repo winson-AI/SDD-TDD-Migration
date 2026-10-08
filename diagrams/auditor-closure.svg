@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2110" viewBox="0 0 1600 2110" role="img" aria-labelledby="title desc">
-<title id="title">Auditor · 跨模块处理与最终裁决</title>
+<title id="title">统一 Auditor · 宿主审计与跨模块处理</title>
 <desc id="desc">独立 Auditor 保留审计验收权；修复由负责模块的 MO 派发 Fixer，正式 Testing 必须复核</desc>
 <style>text {font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;}</style>
 <defs>
@@ -11,16 +11,16 @@
 </defs>
 <rect width="1600" height="2110" fill="white"/>
 <text x="60" y="56" font-size="21.00" fill="#6b7280" text-anchor="start" font-weight="400">03  /  SDD-TDD-Migration</text>
-<text x="60" y="108" font-size="38.00" fill="#111827" text-anchor="start" font-weight="700">Auditor · 跨模块处理与最终裁决</text>
+<text x="60" y="108" font-size="38.00" fill="#111827" text-anchor="start" font-weight="700">统一 Auditor · 宿主审计与跨模块处理</text>
 <text x="60" y="145" font-size="21.00" fill="#6b7280" text-anchor="start" font-weight="400">独立 Auditor 保留审计验收权；修复由负责模块的 MO 派发 Fixer，正式 Testing 必须复核</text>
 <rect x="340" y="195" width="920" height="115" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="800.0" y="231.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">入口：GO 全量收尾门禁已满足</text>
 <text x="800.0" y="265.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全部子 MO 本轮结束 + 所有父汇总有效 + 无活动 worker / 可推进动作</text>
-<text x="800.0" y="294.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先整体代码审查 / 治理，再收集剩余 Red / Yellow；global_paths 可为空</text>
+<text x="800.0" y="294.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">审阅全部模块（含 Green）及宿主目标；先治理再遗留复核；global_paths 可为空</text>
 <path d="M800,310 L800,370" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="500" y="370" width="600" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="402.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">整体代码审查 → 分批收集</text>
-<text x="800.0" y="436.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">audit-code-review：改动 / 冗余 / 复用 / 公共能力</text>
+<text x="800.0" y="436.0" font-size="18.08" fill="#4b5563" text-anchor="middle" font-weight="400">audit-code-review：目标覆盖 / 改动 / 冗余 / 复用 / 公共能力</text>
 <text x="800.0" y="465.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">audit-collect：先治理 CR-*，再剩余 Red / Yellow</text>
 <text x="800.0" y="494.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">绑定 SPEC / PATH / provider 与消费者证据</text>
 <path d="M800,505 L800,565" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
@@ -29,7 +29,7 @@
 <text x="800.0" y="597.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">根因分析 → 路由审核</text>
 <text x="800.0" y="631.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">治理用 fix / human；遗留可 fix / verify / human</text>
 <text x="800.0" y="660.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GO 审核提供方 owner、消费者及依赖图</text>
-<text x="800.0" y="689.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无有效冻结 SPEC / 代码：转人工恢复规划</text>
+<text x="800.0" y="689.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">需新 TASK / 契约 / scope：恢复 CR / 上游规划</text>
 <rect x="90" y="370" width="330" height="200" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="255.0" y="420.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">复用与公共能力治理</text>
 <text x="255.0" y="454.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">重复实现 / 接线 / 公共能力</text>
@@ -40,7 +40,7 @@
 <rect x="273.9" y="740" width="52.2" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="300" y="760" font-size="20.00" fill="#2563eb" text-anchor="middle" font-weight="400">fix</text>
 <path d="M800,700 L800,820" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
-<rect x="756.8" y="744" width="86.4" height="29" rx="4" fill="white" opacity="0.97"/>
+<rect x="756.8" y="744" width="86.39999999999999" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="800" y="764" font-size="20.00" fill="#2563eb" text-anchor="middle" font-weight="400">verify</text>
 <path d="M1100,630 L1310,630 L1310,1080" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
 <rect x="1272.5" y="750" width="75.0" height="29" rx="4" fill="white" opacity="0.97"/>
@@ -58,10 +58,10 @@
 <path d="M300,965 L300,1155 L590,1155" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <path d="M800,965 L800,1080" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="590" y="1080" width="420" height="155" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
-<text x="800.0" y="1107.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">构建 → 自动化 → 记录结果</text>
+<text x="800.0" y="1107.5" font-size="25.78" fill="#111827" text-anchor="middle" font-weight="650">构建 / 单测 / 静态 → 路径回归</text>
 <text x="800.0" y="1141.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按 finding 依赖图交错推进</text>
 <text x="800.0" y="1170.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">验证 owner / source / 中间与下游</text>
-<text x="800.0" y="1199.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">原 Green 受影响也须正式复测</text>
+<text x="800.0" y="1199.5" font-size="20.54" fill="#4b5563" text-anchor="middle" font-weight="400">审计影响模块完整回归；无关 Green 保留</text>
 <text x="800.0" y="1228.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">发现模块与负责模块相同时合并证据</text>
 <path d="M1010,1155 L1120,1155" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
 <rect x="1038.0" y="1116" width="58" height="29" rx="4" fill="white" opacity="0.97"/>
@@ -84,10 +84,10 @@
 <text x="800.0" y="1460.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已解决 / 缺测未验证 / 人工问题分别记录</text>
 <text x="800.0" y="1489.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Fixer 自测不能代替 Testing 与独立审计</text>
 <path d="M640,1505 L640,1540 L400,1540 L400,1590" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
-<rect x="323.9" y="1520" width="212.2" height="29" rx="4" fill="white" opacity="0.97"/>
-<text x="430" y="1540" font-size="20.00" fill="#059669" text-anchor="middle" font-weight="400">通过 / 仅自动化缺测</text>
+<rect x="313.9" y="1520" width="232.20000000000002" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="430" y="1540" font-size="20.00" fill="#059669" text-anchor="middle" font-weight="400">已解决 / 仅自动化缺测</text>
 <path d="M960,1505 L960,1540 L1200,1540 L1200,1590" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
-<rect x="1086.9" y="1520" width="206.2" height="29" rx="4" fill="white" opacity="0.97"/>
+<rect x="1086.9" y="1520" width="206.20000000000005" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="1190" y="1540" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">Red / 其他 Yellow</text>
 <rect x="90" y="1590" width="620" height="145" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
 <text x="400.0" y="1627.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">批次收尾 → 刷新父汇总</text>

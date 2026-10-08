@@ -85,7 +85,7 @@
 <text x="800.0" y="1799.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">代码接受 → 构建 → 自动化与保真验证</text>
 <text x="800.0" y="1833.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">正常 / 边界 / 异常 / 取消；真实提供方接线与适配差异</text>
 <text x="800.0" y="1862.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编译、导入或 mock 通过，不能代替必要的集成验证</text>
-<text x="800.0" y="1891.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">本模块可修复先一轮 Fixer；提供方/外围问题留证待 Auditor</text>
+<text x="800.0" y="1891.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实现错误 → Fixer；契约缺口 → CR；超 scope → 父 MO / GO</text>
 <path d="M800,1905 L800,1970" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="400" y="1970" width="800" height="145" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
 <text x="800.0" y="2007.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">全量收尾后 → Auditor 跨模块验证</text>
@@ -119,8 +119,8 @@
 <rect x="1250" y="1535" width="290" height="195" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="1395.0" y="1582.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">选中提供方证据变化</text>
 <text x="1395.0" y="1616.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">相关计划 / 旧测试失效</text>
-<text x="1395.0" y="1645.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅相关消费者回到规划</text>
-<text x="1395.0" y="1674.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">CR → 冻结 → 正式复测</text>
+<text x="1395.0" y="1645.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按影响核验 TASK 独立性</text>
+<text x="1395.0" y="1674.5" font-size="18.22" fill="#4b5563" text-anchor="middle" font-weight="400">CR / 上溯 → 冻结 → 正式复测</text>
 <text x="1395.0" y="1703.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无关模块继续</text>
 <path d="M1540,1630 L1560,1630 L1560,1030 L1230,1030 L1230,945 L1200,945" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#arrow-purple)"/>
 <text x="800" y="2180" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">来源、目录、映射和绑定证据均经 Ledger；语义分析由 Agent 完成，结构校验不能证明行为等价。</text>

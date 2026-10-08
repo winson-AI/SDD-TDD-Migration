@@ -35,6 +35,7 @@ import progress_signals
 import source_changes
 import run_changes
 import control_policy
+import task_revalidation
 import audit_execution
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
@@ -211,7 +212,7 @@ def current(m, observe_worker=False):
                    worker['role'] in ('implementer', 'fixer') and
                    m['phase'] == ('implementing' if worker['role'] == 'implementer' else 'fixing') and
                    worker['freeze_id'] == m['freeze_id'])
-    mutable = m['write_paths'] if writing else []
+    mutable = (worker.get('execution_contract', {}).get('write_paths') or m['write_paths']) if writing else []
     if not m.get('execution_partition_pending'):
         dimensions.current(m, mutable)
     if m.get('code_files'):
@@ -224,6 +225,9 @@ def current(m, observe_worker=False):
                     check_ref(ref)
         else:
             require(baseline(m['code_files']) == m['code_baseline'], 'code evidence stale; invalidate before continuing')
+    retained_write = writing and set(worker.get('execution_contract', {}).get('task_ids', [])) & set(m.get('task_revalidation', {}).get('retained_task_ids', []))
+    if not retained_write:
+        task_revalidation.current(m)
 
 
 def invalidate_dependents(s, mid):
@@ -272,7 +276,7 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
              code_files=[], code_baseline=None, provider_owners=[])
     for key in ('dimension_evidence', 'effective_quality', 'context_acceptances', 'automation_retry_ready',
                 'dependency_release', 'source_context_continuation', 'allocation_continuation', 'change_request', 'scenario_index', 'plan_binding',
-                'checklist_ref', 'execution_context_ref', 'plan_review_ref', 'task_files', 'execution_partition_pending', 'planning_continuation'):
+                'checklist_ref', 'execution_context_ref', 'plan_review_ref', 'task_files', 'execution_partition_pending', 'planning_continuation', 'task_revalidation'):
         m.pop(key, None)
 
 
@@ -360,6 +364,8 @@ def freeze_guard(s, m, p):
     require(m['phase'] == 'clarifying' and not m.get('blocked'), 'freeze requires unblocked clarifying')
     verify_plan(m['plan'], m)
     require(validate_plan(m['plan'], m) == m['plan_hash'], 'plan changed')
+    if m.get('change_request') and task_revalidation.prepare(m, p.get('review_ref'))['mode'] == 'partial':
+        require(p['review_ref'] == m.get('plan_review_ref'), 'TASK independence requires accepted MO plan review')
     import resource_fidelity
     resource_fidelity.freeze_gate(s, m)
     import api_contract
@@ -368,6 +374,7 @@ def freeze_guard(s, m, p):
     knowledge_gate.freeze_gate(s, m)
     if not p.get('decision_id') and p.get('review_ref'):
         control_policy.technical_review(m, p['review_ref'])
+        task_revalidation.prepare(m, p['review_ref'])
     elif p.get('change_class') == 'within-envelope':
         within_envelope(m, p.get('impact_ref'))
     else:
@@ -455,6 +462,7 @@ def dispatch_guard(s, m, worker):
         require(m['code_baseline'], 'code must be accepted before testing')
         require((set(m.get('accepted_task_ids', [])) == {t['task_id'] for t in m['plan']['tasks']}), 'all TASKs must be implemented before target tests')
     if worker == 'fixer':
+        require(control_policy.repair_route(m.get('diagnosis') or {}) == 'fixer', 'SPEC/scope repair must route through CR/upstream before Fixer')
         require(not workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])), 'local repair deferred to Auditor')
         require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']), 'fix budget exhausted; recover requires decision')
 
@@ -599,15 +607,20 @@ def _next_step(s, m):
                             payload={'kind': 'human', 'reason': conflict['summary'], 'reason_code': conflict['reason_code'],
                                      'root_cause': conflict, 'owner': 'human'})
             elif draft and draft['subject'] == diagnosis_subject(m):
-                step.update(operation='diagnosis-accept', role='module-orchestrator', ready=True,
+                routed = control_policy.repair_step(draft['report'])
+                step.update(routed or dict(operation='diagnosis-accept', role='module-orchestrator', ready=True,
                             # Optional: once the Fixer preflighted this diagnosis, accept and dispatch in one step.
-                            then_assign={'role': 'fixer', 'session_id': suggested_session(s, m, 'fixer')[0]})
+                            then_assign={'role': 'fixer', 'session_id': suggested_session(s, m, 'fixer')[0]}))
             elif workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])):
                 step.update(operation='audit-defer', role='module-orchestrator', ready=True,
                             root_cause=workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])), reason='auditor-handoff')
             else:
                 step.update(operation='diagnose', role='fixer' if self_diagnosis(s, m) else 'diagnostician', ready=True)
         else:
+            routed = control_policy.repair_step(m['diagnosis']) if m['phase'] == 'diagnosing' else None
+            if routed:
+                step.update(routed)
+                return step
             worker = {'frozen': 'implementer', 'testing': 'test-runner', 'diagnosing': 'fixer'}[m['phase']]
             if worker == 'fixer' and workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])):
                 step.update(operation='audit-defer', role='module-orchestrator', ready=True,
@@ -799,8 +812,16 @@ def next_step(s, m):
         step['mechanical'] = True
         step['payload'] = {**step.get('payload', {}), 'role': step['worker_role']}
         selected = [t for t in m['plan']['tasks'] if step['worker_role'] != 'implementer' or t['task_id'] not in m.get('accepted_task_ids', [])]
+        if step['worker_role'] == 'fixer' and m.get('task_revalidation', {}).get('mode') == 'partial' and not m.get('repair_findings'):
+            affected_paths = set(unresolved(m))
+            selected = [t for t in selected if affected_paths.intersection(t['path_ids'])]
         scope = step.get('test_scope')
         paths = [p for p in m['plan']['paths'] if not scope or (p.get('kind') in tv.PRE if scope == 'build' else p.get('kind', 'automation') == scope)]
+        if step['worker_role'] == 'implementer' or step['worker_role'] == 'fixer' and m.get('task_revalidation', {}).get('mode') == 'partial':
+            wanted = {pid for t in selected for pid in t['path_ids']}
+            paths = [p for p in paths if p['path_id'] in wanted]
+        elif step['worker_role'] == 'test-runner' and scope != 'build' and m.get('task_revalidation', {}).get('mode') == 'partial':
+            paths = [p for p in paths if not tv.path_green(m, p['path_id'])]
         step['payload'].update(task_ids=[t['task_id'] for t in selected], path_ids=[p['path_id'] for p in paths])
         if step['worker_role'] == 'fixer':
             step['payload']['finding_ids'] = list(unresolved(m)) + [r['finding_id'] for r in (m.get('diagnosis') or {}).get('findings', [])]
@@ -1158,13 +1179,17 @@ def mutate(s, req, principal, events, root=None):
             m['approved_acceptance'] = control_policy.acceptance_hash(m)
         m['approved_test_paths'] = copy.deepcopy(control_policy.acceptance(m['plan']['paths']))
         if m.get('change_request'):
+            revalidation = task_revalidation.prepare(m, p.get('review_ref'))
             prior_execution = {key: copy.deepcopy(m.get(key)) for key in
                 ('code_files', 'code_baseline', 'accepted_task_ids', 'task_files', 'results', 'dimension_evidence', 'build_artifacts')}
             m.setdefault('change_request_history', []).append({**m.pop('change_request'), 'to_freeze_id': m['plan_hash'],
                 'kind': 'planning-history', 'executable': False, 'prior_execution': prior_execution})
-            m.update(accepted_task_ids=[], task_files={}, execution_partition_pending=True, build_baseline=None, build_artifacts=[])
+            retained = set(revalidation['retained_task_ids'])
+            m.update(accepted_task_ids=sorted(retained), task_files={tid: files for tid, files in m.get('task_files', {}).items() if tid in retained},
+                     execution_partition_pending=True, build_baseline=None, build_artifacts=[], task_revalidation=revalidation)
             m.pop('dimension_evidence', None)
             m['results'] = {pid: {**result, 'stale': True} for pid, result in m['results'].items() if pid in {p['path_id'] for p in m['plan']['paths']}}
+            task_revalidation.carry(m, prior_execution['results'])
         m.update(freeze_id=m['plan_hash'], phase='frozen', stale=True)
     elif op == 'change':
         role(principal, 'module-orchestrator')
@@ -1179,12 +1204,13 @@ def mutate(s, req, principal, events, root=None):
             m['total_fix_rounds'] += 1
         m['design_generation'] = m.get('design_generation', 0) + 1
         previous_plan = {key: copy.deepcopy(m.get(key)) for key in ('plan_ref', 'plan_hash', 'plan', 'accepted_test_design')}
+        previous_revalidation = m.pop('task_revalidation', None)
         # Existing coded work is updated under the next freeze. Design assistance is opt-in again.
         m.setdefault('approved_test_paths', copy.deepcopy(control_policy.acceptance(m['plan']['paths'])))
         m.pop('accepted_test_design', None)
         m.pop('test_design_required', None)
         m.update(phase='change-review', stale=True, change_request={**p, 'from_freeze_id': m['freeze_id'],
-            'previous_plan': previous_plan}, diagnosis_submission=None)
+            'previous_plan': previous_plan, 'previous_revalidation': previous_revalidation}, diagnosis_submission=None)
         invalidate_dependents(s, mid)
     elif op == 'assign':
         role(principal, 'module-orchestrator')
@@ -1237,6 +1263,7 @@ def mutate(s, req, principal, events, root=None):
         kind = validate_result(result, m, assignment, run_root=root)
         assignment['closed'] = True
         if kind == 'implementation':
+            prior_results = copy.deepcopy(m['results'])
             m['results'] = {pid: {**row, 'stale': True} for pid, row in m['results'].items()}
             m['build_artifacts'] = []
             m['accepted_task_ids'] = sorted(set(m.get('accepted_task_ids', [])) | {t['task_id'] for t in result['task_trace']})
@@ -1250,6 +1277,9 @@ def mutate(s, req, principal, events, root=None):
             m['execution_partition_pending'] = set(m['accepted_task_ids']) != {t['task_id'] for t in m['plan']['tasks']}
             complete_tasks = set(m['accepted_task_ids']) == {t['task_id'] for t in m['plan']['tasks']}
             m.update(code_files=result['code_files'], code_baseline=result['code_baseline'], phase='testing' if complete_tasks else 'frozen', stale=True, build_baseline=None)
+            if {t['task_id'] for t in result['task_trace']} & set(m.get('task_revalidation', {}).get('retained_task_ids', [])):
+                m['task_revalidation'] = {'mode': 'full', 'reason': 'retained-task-updated', 'retained_task_ids': [], 'retained_path_ids': []}
+            task_revalidation.carry(m, prior_results)
             m.pop('automation_retry_ready', None)
             invalidate_dependents(s, mid)
         else:
@@ -1288,6 +1318,7 @@ def mutate(s, req, principal, events, root=None):
         idle(m); current(m)
         check_ref(p['diagnosis_ref'])
         require(p.get('owner') and p.get('root_cause'), 'root cause and owner required')
+        control_policy.repair_route(p)
         diagnosis_focus(m, p)
         m['diagnosis_submission'] = {'report': p, 'subject': diagnosis_subject(m)}
     elif op == 'diagnosis-accept':

@@ -1,6 +1,7 @@
 """Build, unit tests, static spec closure, functional automation and baseline visual alignment are Test-Runner stages."""
 import copy
 from pathlib import Path
+import task_revalidation
 
 from contracts import require, check_ref, nonempty, verify_plan, baseline
 
@@ -27,8 +28,14 @@ def _green_at_baseline(m, scope):
     results = m.get('results', {})
     return all(not (results.get(p['path_id']) or {}).get('stale')
                and (results.get(p['path_id']) or {}).get('quality') == 'green-passed'
-               and (results.get(p['path_id']) or {}).get('code_baseline') == m.get('code_baseline')
+               and ((results.get(p['path_id']) or {}).get('code_baseline') == m.get('code_baseline')
+                    or bool((results.get(p['path_id']) or {}).get('validation_reuse')) and task_revalidation.valid(m, results[p['path_id']]))
                for p in paths(m, scope))
+
+
+def path_green(m, pid):
+    row = m.get('results', {}).get(pid) or {}
+    return row.get('quality') == 'green-passed' and task_revalidation.valid(m, row)
 
 
 def unit_ready(m):
@@ -77,8 +84,7 @@ def stage_paths(m, tests):
 def all_green(m):
     planned = {p['path_id'] for p in (m.get('plan') or {}).get('paths', [])}
     results = m.get('results', {})
-    return bool(planned) and all(not (results.get(pid) or {}).get('stale') and (results.get(pid) or {}).get('quality') == 'green-passed' and
-        (results.get(pid) or {}).get('code_baseline', m.get('code_baseline')) == m.get('code_baseline') for pid in planned)
+    return bool(planned) and all(path_green(m, pid) for pid in planned)
 
 
 def resume_budget_left(s, m):

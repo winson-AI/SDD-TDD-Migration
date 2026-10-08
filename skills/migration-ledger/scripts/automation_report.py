@@ -11,8 +11,9 @@ def summarize(rows, case_ids):
     missing = sorted((set(case_ids) - {r['case_id'] for r in paths}) | {cid for _, cid in gaps})
     counts = Counter(r['quality'] for r in paths)
     successful = [r for r in paths if r['quality'] == 'green-passed' and not r['stale']]
-    executed = sum(bool(r['attempt_executed']) and not r['stale'] for r in paths)
-    current = [r for r in paths if r['attempt_executed'] and not r['stale']]
+    reused = [r for r in successful if r.get('validation_reuse')]
+    executed = sum(bool(r['attempt_executed']) and not r['stale'] and not r.get('validation_reuse') for r in paths)
+    current = [r for r in paths if r['attempt_executed'] and not r['stale'] and not r.get('validation_reuse')]
     completed = sum(r.get('execution_status') == 'completed' or
                     (not r.get('execution_status') and r['quality'] == 'green-passed') for r in current)
     partial = sum(r.get('execution_status') == 'incomplete' for r in current)
@@ -22,18 +23,18 @@ def summarize(rows, case_ids):
                      'not-executed' if not r['attempt_executed'] else 'blocked'
                      for r in paths if r['quality'] == 'yellow-blocked')
     identity = lambda r: {k: r[k] for k in ('module_id', 'task_ids', 'case_id', 'path_id', 'platform',
-                                          'parameters', 'code_baseline', 'test_run_id', 'evidence_refs', 'stale', 'quality')}
+                                          'parameters', 'code_baseline', 'test_run_id', 'evidence_refs', 'stale', 'quality', 'validation_reuse') if k in r}
     total = len(paths)
     return {'schema_version': 2, 'required_paths': total, 'current_executed_paths': executed,
             'attempted_paths': executed, 'completed_paths': completed, 'partial_paths': partial,
             'completion_unknown_paths': executed - completed - partial,
-            'unattempted_paths': total - executed,
+            'unattempted_paths': total - executed - len(reused), 'reused_passed_paths': len(reused),
             'passed_paths': len(successful), 'red_paths': counts['red-bug'],
             'yellow_paths': counts['yellow-blocked'], 'yellow_reasons': dict(yellow),
             'missing_case_paths': missing, 'coverage_gaps': [{'module_id': mid, 'case_id': cid} for mid, cid in gaps],
             'coverage_complete': bool(total) and not missing,
             'definition_coverage_complete': bool(total) and not missing,
-            'validation_complete': bool(total) and not missing and completed == total,
+            'validation_complete': bool(total) and not missing and completed + len(reused) == total,
             'attempt_coverage': executed / total if total else None,
             'completion_coverage': completed / total if total else None,
             'execution_coverage': executed / total if total else None,
@@ -59,12 +60,12 @@ def render(summary, cell):
     lines = ['', '## Automation 路径统计', '',
              '仅统计当前任务的 automation PATH 实例；平台/参数实例由冻结 PATH 区分，重试不增加分母。'
              '成功列表只含当前有效且已接受的 Green；缺路径 CASE 单列，不能据已有路径宣称全量覆盖。', '',
-             '已尝试不等于完整执行；完整执行要求步骤与断言齐全，仍须另看成功/失败。历史非 Green 缺完整性字段时记未知。', '',
-             '| 范围 | 应测 | 已尝试 | 完整执行 | 部分执行 | 完整性未知 | 有效成功 | Red | Yellow | 缺路径 CASE |',
-             '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
+             '已尝试不等于完整执行。独立性复用单列，不计新执行；原回执/执行基线及 validation_reuse 见 JSON。历史非 Green 缺完整性字段时记未知。', '',
+             '| 范围 | 应测 | 已尝试 | 完整执行 | 部分执行 | 完整性未知 | 复用成功 | 有效成功 | Red | Yellow | 缺路径 CASE |',
+             '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
     for name, row in [('宿主任务', summary), *summary['modules'].items(), *summary['tasks'].items()]:
         lines.append('| ' + ' | '.join(cell(x) for x in (name, row['required_paths'], row['current_executed_paths'],
-                     row.get('completed_paths'), row.get('partial_paths'), row.get('completion_unknown_paths'),
+                     row.get('completed_paths'), row.get('partial_paths'), row.get('completion_unknown_paths'), row.get('reused_passed_paths', 0),
                      row['passed_paths'], row['red_paths'], row['yellow_paths'], row['missing_case_paths'])) + ' |')
     lines += ['', '成功路径：']
     for row in summary['successful_paths']:
