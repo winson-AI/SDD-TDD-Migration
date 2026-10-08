@@ -167,8 +167,8 @@ class CoverageTests(unittest.TestCase):
     def test_api_applicability_requires_discovery_on_new_runs_only(self):
         t = test_dimensions.DimensionTests(); t.setUp(); self.addCleanup(t.doCleanups); t.root()
         s = t.f.state(); module = s['modules']['M010']; doc = read_json(check_ref(module['dimension_analysis_ref']))
-        doc['api_review'].pop('discovery_refs'); module['dimension_analysis_ref'] = t.f.ref('old-discovery.json', doc)
-        dimensions.allocation(s, module)
+        doc['api_review'].pop('discovery_refs'); module = {**module, 'dimension_analysis_ref': t.f.ref('old-discovery.json', doc)}
+        dimensions.allocation(s, module)  # a proposed allocation: the registered module holds another analysis
         s['planning_coverage_required'] = True
         with self.assertRaisesRegex(Rejected, 'API discovery scope'): dimensions.allocation(s, module)
 

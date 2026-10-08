@@ -243,8 +243,9 @@ def build(root, s, sequence, ref_check=check_ref):
              'awaiting-human' if batch.get('status') == 'awaiting-human' else 'in-progress')
     visual, limitations, pictures = fidelity(s, rows, ref_check)
     import automation_report
+    import rule_debt
     import run_changes
-    return {'schema_version': 1, 'run_id': s['run_id'], 'sequence': sequence, 'report_stage': stage,
+    return {'schema_version': 1, 'run_id': s['run_id'], 'sequence': sequence, 'report_stage': stage, 'rule_debt': rule_debt.collect(s),
             'quality': quality([s.get('quality', 'yellow-blocked'), *[c['quality'] for c in cases]]),
             'entry_mode': s.get('entry_mode', 'project'), 'single_module_id': s.get('single_module_id'),
             'legacy_root': s['legacy_root'], 'target_root': s['target_root'],
@@ -366,6 +367,10 @@ def render(report):
             text += [f"- {cell(gap['module_id'])} · REQ={cell(review['requirement_ids'])} · CASE={cell(review['case_ids'])} · TASK={cell(review['task_ids'])}：{cell(review['goal'])}",
                      f"  - 核验：{cell(review['verification']['summary'])}；owner={cell(gap['owner'])}；next={cell(gap['next_action'])}",
                      f"  - 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}"]
+    if report.get('rule_debt'):
+        text += ['', '## 规则欠账', '', '以下工件按接受时的规则已被接受，运行不再重判；按当前规则重判会被拒绝。交统一 Auditor 评估，不是门禁。', '',
+                 '| 模块 | 工件 | 当前规则的拒绝原因 |', '| --- | --- | --- |',
+                 *['| ' + ' | '.join(cell(row[key]) for key in ('module_id', 'artifact', 'reason')) + ' |' for row in report['rule_debt']]]
     cost = report.get('workflow_cost') or {'modules': {}, 'totals': {}}
     text += ['', '## 流程成本', '', f"合计：{cell(cost['totals'])}", '',
              '| 模块 | 事件 | 派发 | 上下文回执 | 验收 | 人工决定 | 修复轮次 | 轻量叶子 | 阅读卡字节（完整/实际交付） |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',

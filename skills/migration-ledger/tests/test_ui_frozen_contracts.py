@@ -8,6 +8,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 
 from contracts import Rejected, baseline, file_ref, read_json
+import dimensions
 import lean_adapter
 import lean_visual_adapter
 import ledger
@@ -49,6 +50,7 @@ class FrozenUiContracts(unittest.TestCase):
 
     def freeze(self):
         module = self.module()
+        dimensions.judge(module['plan']['dimension_analysis_ref'], module['module_id'])  # what registering it does
         ui_fidelity.freeze_gate(self.state, module)
         return module
 

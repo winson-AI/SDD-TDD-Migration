@@ -18,7 +18,19 @@ def applicability(analysis, required=False):
     require((review['status'] == 'applicable') == bool(analysis.get('api_inventory_ref')), 'API applicability and inventory disagree')
 
 
+def read(analysis, items):
+    """The recorded calls and the contracts of an accepted inventory, each contract with the item that owns it."""
+    ref = analysis.get('api_inventory_ref')
+    if not ref:
+        return {}, {}
+    inventory = read_json(check_ref(ref))
+    owners = {aid: iid for iid, item in items.items() for aid in item.get('api_ids', [])}
+    return ({row['api_id']: row for row in inventory.get('calls') or []},
+            {row['api_id']: {**row, 'item_id': owners.get(row['api_id'])} for row in inventory.get('contracts') or []})
+
+
 def load(analysis, items):
+    """Judge an inventory the Ledger is asked to register, then read it."""
     applicability(analysis)
     ref = analysis.get('api_inventory_ref')
     if not ref:
@@ -75,7 +87,7 @@ def obligations(aid, source):
 
 
 def plan(analysis, items, plan):
-    calls, contracts = load(analysis, items)
+    calls, contracts = read(analysis, items)
     traces = {row['item_id']: row for row in plan.get('dimension_trace', [])}
     paths = {row['path_id']: row for row in plan['paths']}
     for aid, contract in contracts.items():
@@ -97,7 +109,7 @@ def freeze(s, m, payload):
     if not ref: return
     import dimensions
     analysis, items = dimensions.load(ref, m['module_id'])
-    _, contracts = load(analysis, items)
+    _, contracts = read(analysis, items)
     if any(row['fidelity'] != 'exact' for row in contracts.values()):
         decision = s['decisions'].get(payload.get('decision_id'), {})
         require(decision.get('module_id') == m['module_id'] and decision.get('subject_sha256') == m['plan_hash'] and
@@ -105,7 +117,7 @@ def freeze(s, m, payload):
 
 
 def implementation(analysis, items, result):
-    _, contracts = load(analysis, items)
+    _, contracts = read(analysis, items)
     evidence = {row['item_id']: row for row in result.get('dimension_evidence', [])}
     code = {check_ref(ref).resolve() for ref in result.get('code_files', [])}
     from contracts import named

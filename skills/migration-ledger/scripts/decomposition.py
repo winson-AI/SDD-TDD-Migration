@@ -243,6 +243,13 @@ def refresh_groups(s, ref_check=check_ref):
         group['phase'] = ('completed' if green else 'waiting-auditor') if summary_current(s, group, ref_check) else 'coordinating'
 
 
+def registered(s, child):
+    """A child a re-split restates unchanged is the allocation the Ledger already holds; it is read, not judged again."""
+    held = s['modules'].get(child.get('module_id'))
+    return bool(held) and all(held.get(key) == child.get(key) for key in ALLOCATION_KEYS) \
+        and set(held['dependencies']) == set(child.get('dependencies', []))
+
+
 def validate(s, parent, plan, redecompose=False):
     from ledger import new_module
     require(plan.get('parent_module_id') == parent['module_id'], 'decomposition parent mismatch')
@@ -271,7 +278,7 @@ def validate(s, parent, plan, redecompose=False):
         require(child.get('name'), 'child functional name required')
         new_module(child)
         check_scope(child)
-        if s.get('behavior_contract_required'):
+        if s.get('behavior_contract_required') and not registered(s, child):
             import behavior_contract
             behavior_contract.review(child, child.get('behavior_review'))
         require(not child.get('decomposition_required') and not child.get('parent_module_id'),
@@ -290,7 +297,10 @@ def validate(s, parent, plan, redecompose=False):
     dimensions.partition(s, parent, plan)
     import behavior_contract
     if s.get('behavior_contract_required') or any(c.get('behavior_review') for c in children):
-        behavior_contract.verification_partition(children)
+        for child in children:
+            if not registered(s, child):
+                behavior_contract.verification(child)
+        behavior_contract.distinct(children)
     old_child_ids = set(parent.get('children', [])) if redecompose else set()
     graph = {mid: list(m['dependencies']) for mid, m in s['modules'].items() if mid != parent['module_id'] and mid not in old_child_ids}
     for mid, deps in graph.items():

@@ -11,6 +11,10 @@ class Rejected(ValueError):
     pass
 
 
+class Drifted(Rejected):
+    """A referenced file is gone or is no longer the bytes its reference names."""
+
+
 def require(condition, message):
     if not condition:
         raise Rejected(message)
@@ -65,11 +69,29 @@ def file_ref(path):
 
 def check_ref(ref):
     require(isinstance(ref, dict) and Path(ref.get('path', '')).is_absolute(), 'absolute evidence path required, got ' + str(ref)[:100])
-    actual = file_ref(ref['path'])
+    try:
+        actual = file_ref(ref['path'])
+    except Rejected as exc:
+        raise Drifted(str(exc)) from None
     # The message names the file and its real digest: a request holding dozens of references is otherwise unfixable.
-    require(actual == {'path': str(Path(ref['path']).resolve()), 'sha256': ref.get('sha256')},
-            f"evidence hash mismatch: {actual['path']} is {actual['sha256']}, the reference says {ref.get('sha256')}; recompute it with contracts.py ref")
+    if actual != {'path': str(Path(ref['path']).resolve()), 'sha256': ref.get('sha256')}:
+        raise Drifted(f"evidence hash mismatch: {actual['path']} is {actual['sha256']}, the reference says {ref.get('sha256')}; recompute it with contracts.py ref")
     return Path(ref['path'])
+
+
+def intact(check):
+    """Run the checks of an artifact the Ledger already accepted and return their result, or None.
+
+    An accepted artifact keeps the contract it was accepted under. Only drift can refuse it afterwards: its bytes, or a
+    file it cites, are no longer what was accepted. Whatever else a check written since then would say is rule debt,
+    reported by rule_debt.py and never a gate. A check that compares the artifact with something that can change
+    (the current allocation, context or code) is not a rule about its content and must be made outside this call."""
+    try:
+        return check()
+    except Drifted:
+        raise
+    except (Rejected, KeyError, TypeError, AttributeError, IndexError):
+        return None
 
 
 def named(text, name):
@@ -151,33 +173,41 @@ def validate_plan(plan, module):
 
 
 def verify_plan(plan, module=None):
+    """A registered plan is still what was registered: the files it stands on are the files it names. Its content was
+    judged when it was submitted and when it was frozen, so each group of checks below can only refuse drift."""
     require(isinstance(plan, dict), 'SPEC not frozen/prepared')
     for ref in plan['definitions']:
         check_ref(ref)
-    for path in plan['paths']:
-        if path.get('kind') in ('build', 'unit'):
-            check_ref(path['command']['selection_ref'])
-        if path.get('visual_execution') is not None:
-            execution = path['visual_execution']
-            require(isinstance(execution, dict) and path.get('kind') in ('automation', 'visual'),
-                    'visual execution configuration requires an automation or visual PATH')
-            check_ref(execution.get('environment_ref'))
-        if path.get('visual_evidence') is not None:
-            require(path.get('kind') == 'visual', 'explicit visual evidence requires a visual PATH')
-            import visual_evidence
-            visual_evidence.frozen_evidence({'plan': {}}, path)
-    import reuse
-    reuse.verify(plan)
+
+    def paths():
+        for path in plan['paths']:
+            if path.get('kind') in ('build', 'unit'):
+                check_ref(path['command']['selection_ref'])
+            if path.get('visual_execution') is not None:
+                execution = path['visual_execution']
+                require(isinstance(execution, dict) and path.get('kind') in ('automation', 'visual'),
+                        'visual execution configuration requires an automation or visual PATH')
+                check_ref(execution.get('environment_ref'))
+            if path.get('visual_evidence') is not None:
+                require(path.get('kind') == 'visual', 'explicit visual evidence requires a visual PATH')
+                import visual_evidence
+                visual_evidence.frozen_evidence({'plan': {}}, path)
+
+    def closure():
+        if plan.get('dimension_analysis_ref'):
+            import resource_fidelity
+            resource_fidelity.require_indexed_closure(read_json(check_ref(plan['dimension_analysis_ref'])))
+
+    def resolution():
+        if plan.get('dependency_resolution_ref'):
+            import knowledge_gate
+            knowledge_gate.validate_resolution(plan['dependency_resolution_ref'], strict=True)
     import dimensions
-    dimensions.verify(plan)
-    if plan.get('dimension_analysis_ref'):
-        import resource_fidelity
-        resource_fidelity.require_indexed_closure(read_json(check_ref(plan['dimension_analysis_ref'])))
+    import reuse
     import telemetry
-    telemetry.verify(plan)
-    if plan.get('dependency_resolution_ref'):
-        import knowledge_gate
-        knowledge_gate.validate_resolution(plan['dependency_resolution_ref'], strict=True)
+    for check in (paths, lambda: reuse.verify(plan), lambda: dimensions.verify(plan), closure,
+                  lambda: telemetry.verify(plan), resolution):
+        intact(check)
 
 
 def baseline(refs):

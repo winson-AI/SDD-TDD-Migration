@@ -129,7 +129,7 @@ def validate(s, ref):
         require(all(Path(p).is_absolute() and Path(p).resolve().is_relative_to(Path(s['target_root'])) for p in candidate['write_paths']),
                 'root write scope outside target')
         dimensions.allocation(s, candidate)
-        if s.get('behavior_contract_required'):
+        if s.get('behavior_contract_required') and any(current[mid].get(key) != candidate.get(key) for key in ROOT_KEYS):
             import behavior_contract
             behavior_contract.review(candidate, candidate.get('behavior_review'))
     proposed = {mid: {**root, **updates.get(mid, {})} for mid, root in current.items()}

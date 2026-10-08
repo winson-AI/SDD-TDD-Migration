@@ -2,7 +2,7 @@
 import copy
 from pathlib import Path
 
-from contracts import Rejected, check_ref, digest, keyed, nonempty, read_json, require
+from contracts import Rejected, check_ref, digest, intact, keyed, nonempty, read_json, require
 import decomposition
 import workflow
 import prepared_tests
@@ -56,13 +56,17 @@ def coverage(s, m, result, tasks):
     check_assets(s, result)
 
 
-def upstream_plan(s, m, plan):
+def upstream_plan(s, m, plan, judge=True):
+    """The test plan a SPEC brings with it. It is judged with the plan that submits it; the plan the Ledger already
+    holds is only held to the upstream cases, allocation and context that are current now."""
     result = read_json(check_ref(plan.get('test_design_ref')))
     require(result.get('schema_version') == 1 and result.get('kind') == 'upstream-test-plan' and
             result.get('module_id') == m['module_id'], 'upstream test plan module/kind/schema mismatch')
     require(result.get('case_refs') == upstream_refs(s), 'test plan must bind authoritative upstream cases')
     for ref in result['case_refs']: check_ref(ref)
     require(result.get('subject_sha256') == subject(s, m), 'test plan allocation/context stale')
+    if not judge:
+        return result
     require(not {'actual', 'passed', 'quality', 'executed', 'code_baseline', 'freeze_id'}.intersection(result),
             'upstream test plan cannot claim execution')
     coverage(s, m, result, plan['tasks'])
@@ -170,7 +174,7 @@ def valid(s, m, a):
         return False
 
 
-def result_check(s, m, a, result, accepted_artifact=False):
+def result_check(s, m, a, result):
     doc = current(s, m, a)
     require(result.get('schema_version') == 1 and result.get('kind') == 'test-design', 'design assignment only accepts test-design result')
     for field in ('run_id', 'module_id', 'assignment_id'):
@@ -191,12 +195,7 @@ def result_check(s, m, a, result, accepted_artifact=False):
         require(not {'quality', 'executed', 'test_run_id', 'execution_receipt'}.intersection(path), 'design PATH cannot claim execution')
         for assertion in keyed(path.get('expected_assertions'), 'assertion_id').values():
             require('expected' in assertion and not {'actual', 'passed'}.intersection(assertion), 'design assertion must be an expectation only')
-    # ESC-002-A narrow exemption, human-approved
-    # <run>/staging/host/decisions/ESC-002-A-answer.md@3fd331c0: accepted() consumes a design whose
-    # live bytes check_ref has just proven equal to the Ledger-registered result_ref; that artifact
-    # keeps the contract it was accepted under. A submitted (not yet registered) design answers to
-    # check_design in full, so new artifacts are never relaxed.
-    if s.get('behavior_contract_required') and not accepted_artifact:
+    if s.get('behavior_contract_required'):
         import behavior_contract
         behavior_contract.check_design(spec_scenarios(m, doc['spec_refs']), result['paths'])
     if s.get('split_testing_required') or any(p.get('kind') == 'build' for p in paths.values()):
@@ -233,13 +232,14 @@ def accept(s, m, a, p, actor):
 
 
 def accepted(s, m):
+    """The accepted design, read. It was judged when it was accepted; here its input must still be the current
+    allocation and context, and only drift of its bytes or of what it stands on can refuse it."""
     record = m.get('accepted_test_design') or {}
     a = m['assignments'].get(record.get('assignment_id'), {})
     require(a.get('closed') and not a.get('revoked'), 'accepted independent test design required')
+    require(is_design(a) and a.get('input_subject') == subject(s, m), 'design input stale; revoke or redesign')
     result = read_json(check_ref(record.get('result_ref')))
-    # ESC-002-A narrow exemption ...@3fd331c0: the check_ref above proved the result's bytes are the
-    # Ledger-registered sha256; only this hash-bound consumption takes the exemption.
-    result_check(s, m, a, result, accepted_artifact=True)
+    intact(lambda: result_check(s, m, a, result))
     check_ref(record['review_ref'])
     return a, result
 
@@ -252,7 +252,7 @@ def ready(s, m):
         return False
 
 
-def materialize(s, m, plan):
+def materialize(s, m, plan, judge=True):
     """Complete a plan with what it takes unchanged from the accepted design, so its author does not copy it.
 
     The completed plan is what the Ledger stores, hashes and has approved; anything the submitted plan
@@ -263,7 +263,7 @@ def materialize(s, m, plan):
         ref = m['accepted_test_design']['result_ref']
     else:
         if not s.get('test_design_required') and not plan.get('test_design_ref'): return plan
-        result = upstream_plan(s, m, plan)
+        result = upstream_plan(s, m, plan, judge)
         doc = {'tasks': plan['tasks'], 'spec_refs': [d for d in plan['definitions'] if d['kind'] == 'spec']}
         ref = plan['test_design_ref']
     plan = copy.deepcopy(plan)
@@ -288,13 +288,15 @@ def materialize(s, m, plan):
     return plan
 
 
-def plan_check(s, m, plan, author=None):
+def plan_check(s, m, plan, author=None, judge=True):
+    """A plan carries the paths of its design unchanged. `judge` is off for the plan the Ledger already holds."""
     if not required(s, m):
         if not s.get('test_design_required') and not plan.get('test_design_ref'): return
-        result = upstream_plan(s, m, plan)
+        result = upstream_plan(s, m, plan, judge)
     else:
         a, result = accepted(s, m)
-        prepared_tests.preparation(result, s.get('planning_coverage_required', False), freezing=True)
+        require(not any((path.get('preparation') or {}).get('status') == 'deferred' for path in result['paths']),
+                'resolve deferred test preparation before freeze')
         require(author is None or author not in m.get('design_authors', []), 'Spec author must be independent of design author')
         require(plan.get('test_design_ref') == m['accepted_test_design']['result_ref'], 'plan must bind accepted test_design_ref')
         doc = read_json(check_ref(a['design_input_ref']))

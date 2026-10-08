@@ -408,15 +408,15 @@ class AuthoredItemTests(unittest.TestCase):
         plan = self.f.ref('copy-plan.json', {'schema_version': 1, 'producer': 'sdd-resource-plan', 'rows': []})
         analysis = self.d.analysis('M001', ('Logic', 'Resource'))
         analysis['dimensions'][3].update(items=[], copy_plan_ref=plan)
-        _, items = dimensions.load(self.f.ref('copied.json', analysis), 'M001')
+        _, items = dimensions.judge(self.f.ref('copied.json', analysis), 'M001')
         self.assertEqual({item['dimension'] for item in items.values()}, {'Logic'})
         analysis['dimensions'][3].pop('copy_plan_ref')
         with self.assertRaises(Rejected):
-            dimensions.load(self.f.ref('copied.json', analysis), 'M001')  # applicable work with nothing in it
+            dimensions.judge(self.f.ref('copied.json', analysis), 'M001')  # applicable work with nothing in it
         analysis['dimensions'][1]['copy_plan_ref'] = plan
         analysis['dimensions'][3]['copy_plan_ref'] = plan
         with self.assertRaisesRegex(Rejected, 'a copy plan belongs to an applicable Resource dimension'):
-            dimensions.load(self.f.ref('copied.json', analysis), 'M001')
+            dimensions.judge(self.f.ref('copied.json', analysis), 'M001')
 
     def test_at_freeze_a_migrated_resource_lives_in_the_target_has_a_name_and_target_consumers(self):
         root = self.f.target

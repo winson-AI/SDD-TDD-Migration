@@ -28,7 +28,7 @@ python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run
 
 `verify_openspec.py` 只读核验指定范围的记录/投影：global 用于公共基础，module 用于当前模块、祖先和实际依赖，projection（默认）检查全量视图，final 另要求正式收尾报告。planning 阶段 projection 可以通过；这不证明真实派发、命令执行或功能 Green。失败按 scope/module_id/recovery_action 恢复相关范围，无关 MO 继续，不把全量 projection 失败作为所有模块的共同门禁。详见 [留存布局](storage-layout.md#openspec-投影完整性收尾门禁)。
 
-正式 CLI 只用 prepare 固化的 `.sdd-runs/<run_id>`（init 绑定 project_context_ref）；任意旧根目录用 `ledger.py history --root <旧根>` 只读重放；继续执行统一采用当前规则，在同 Run 补齐缺失输入、规划及证据，不切换旧流程。`init/resume/recover` 是对同名 operation 的入口校验，仍经过同一事务函数。成功返回 event_id/sequence/duplicate，拒绝返回 exit 1 和原因。业务状态以日志/投影为准，CLI exit 0 仅说明请求已接受。
+正式 CLI 只用 prepare 固化的 `.sdd-runs/<run_id>`（init 绑定 project_context_ref）；任意旧根目录用 `ledger.py history --root <旧根>` 只读重放；已接受的工件沿用接受时的规则，新提交的按当前规则（[冻结算法](openspec.md#冻结算法) 第 7 条）。`init/resume/recover` 是对同名 operation 的入口校验，仍经过同一事务函数。成功返回 event_id/sequence/duplicate，拒绝返回 exit 1 和原因。业务状态以日志/投影为准，CLI exit 0 仅说明请求已接受。
 
 宿主 context 的最小结构：`{"role":"module-orchestrator","instance_id":"mo-M001"}`。这些值必须由宿主认证后注入，不能从业务请求推导。请求参考 [ledger-request.json](../../../template/ledger-request.json)：
 
@@ -182,6 +182,6 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 
 global-plan 必须增加 `boundary_review: {"issues": []}`。无边界问题时 Global 自主提交；有未决业务边界或需求/验收/授权变化时，先记录 question_id/kind/module_ids/question/proposed_resolution，再获取真实人工决定。宿主提交全局 `decision`（payload.module_id=null、decision=approved、human_source_ref），其 subject_sha256 使用 `contracts.digest({"plan": 完整global-plan内容, "registry": workflow.registry(当前状态)})`；Global 再以 `boundary_decision_id` 提交 global-plan。Ledger 校验问题、模块、精确摘要、批准作用域与未消费状态，成功后消费批准；修改方案或 registry 必须重新批准。
 
-新 global-plan 请求缺少 boundary_review 会被拒绝。旧已接受日志不会自动补造边界审核；需要重新规划时补齐字段并实际审核。空 issues 代表已检查无问题，语义真实性由角色负责。运行中发现新边界问题，受影响模块先 suspend/CR；审计中走 human 路由与原有人工释放门禁，不靠覆盖全局规划绕过活动审计锁。
+新 global-plan 请求缺少 boundary_review 会被拒绝。空 issues 代表已检查无问题，语义真实性由角色负责。运行中发现新边界问题，受影响模块先 suspend/CR；审计中走 human 路由与原有人工释放门禁，不靠覆盖全局规划绕过活动审计锁。
 
 `case_owners`/`requirement_owners` 是覆盖/责任映射，允许多模块；不是多人验收。模块 `complete` 仅 MO 可提交，审计 `audit-verdict`/`audit` 仅对应 Auditor 可提交；Green 且原有证据、DoD、覆盖门禁满足后直接记录，不新增人工批准。审计期间 MO complete 表示修复模块的执行/DoD 完成，审计验收仍由 Auditor 独立提交。

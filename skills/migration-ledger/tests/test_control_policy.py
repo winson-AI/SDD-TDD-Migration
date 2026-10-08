@@ -226,9 +226,9 @@ class ControlPolicyTests(unittest.TestCase):
         m = copy.deepcopy(self.f.state()['modules']['M001']); peer = copy.deepcopy(m)
         peer['module_id'] = 'M002'; peer['behavior_review']['verification']['acceptance_owner'] = 'M002'
         with self.assertRaisesRegex(Rejected, 'duplicate verification boundary'):
-            behavior_contract.verification_partition([m, peer])
+            behavior_contract.distinct([m, peer])
         peer['behavior_review']['verification']['independent_observation'] = 'Separate observable history result'
-        behavior_contract.verification_partition([m, peer])
+        behavior_contract.distinct([m, peer])
 
     def test_whole_goal_audit_cannot_omit_an_original_requirement(self):
         self.f.finish_module(); f = self.f

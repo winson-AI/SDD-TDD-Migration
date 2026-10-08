@@ -95,7 +95,7 @@ Run 对应一次宿主任务；阻塞、纠错、环境/预算/会话变化均�
 
 问题先上溯到能解决的最低层：编码前叶子 planning-reopen，编码后叶子契约走 CR；父内切片走 realloc-request → redecompose → GO 接受；父范围不足或原子根无父时，同一 realloc-request 交 GO。父 MO 可从父 ID 提交请求，不能私改根范围。
 
-冻结前的问题闭环归 GO/MO：留原因/证据 → bottom-up 定位责任 → 修正 → 受影响范围 top-down 重规划 → 校验 → 当前 SPEC 冻结。调整、旧分配和旧草稿均为不可执行 history；每叶子只有一套有效六件套，摘要/freeze_id 仅绑定工件。规划验证检查边界、覆盖、依赖与 TASK/CASE/PATH 一致性，不执行目标代码测试。problem-assign/problem-audit/audit-resume 的局部 Auditor 分支不启用；上述现有入口承接规划闭环，统一宿主审计内修复走 audit-work。
+冻结前的问题闭环归 GO/MO：留原因/证据 → bottom-up 定位责任 → 修正 → 受影响范围 top-down 重规划 → 校验 → 当前 SPEC 冻结。调整、旧分配和旧草稿均为不可执行 history；每叶子只有一套有效六件套，摘要/freeze_id 仅绑定工件。规划验证检查边界、覆盖、依赖与 TASK/CASE/PATH 一致性，不执行目标代码测试。统一宿主审计内修复走 audit-work。
 
 GO `run-review(report_ref, context_ref)` 使用 [run-revision.json](../../../template/run-revision.json)：原因、context_patch、完整 root_updates、逐叶子影响证据、可选 blocker 摘要与 lessons_ref。支持架构/知识/规则、构建/测试/运行/资源修订；global_spec_ref 更新业务规范。contract_patch 更新当前需求/CASE/GLOBAL 路径并绑定新业务规范；移出项须 retirements=[{kind:requirement|case|global-path,id,replacement_ids,reason,evidence_refs}]，replacement_ids=[] 表示停用，否则指向同类有效 ID。semantic_change=true、精确 Human 决定可应用；旧 ID 不复用，原契约/失败/批准留历史，受影响 owner 重规划。身份、源码根、预算和质量门禁不变。新增根走 register；父内增删走 redecompose。
 

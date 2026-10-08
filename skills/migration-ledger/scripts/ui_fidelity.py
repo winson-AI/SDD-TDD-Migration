@@ -20,7 +20,7 @@ import dimensions
 import resource_fidelity
 import semantics
 import ui_evidence as ue
-from contracts import check_ref, file_ref, nonempty, read_json, require
+from contracts import check_ref, file_ref, intact, nonempty, read_json, require
 
 
 def _analysis(m):
@@ -46,18 +46,26 @@ def _declared_refs(analysis):
     return sorted(set(refs))
 
 
-def freeze_gate(s, m):
-    if not s.get('ui_fidelity_required'):
-        return
-    analysis = _analysis(m)
-    if analysis is None:
-        return
+def allocation_gate(s, analysis):
+    """What a leaf's allocation owes its UI before the leaf can be frozen: evidence for every screen and an unreduced closure."""
     gaps = semantics.ui_fidelity_gaps(analysis)
     require(not gaps, 'ui_fidelity_required: UI items lack capture-bound ui_evidence before freeze: ' + ', '.join(gaps))
     declared_refs = _declared_refs(analysis)
     uncovered = resource_fidelity.closure_gaps(analysis, declared_refs)
     require(not uncovered, 'ui_fidelity_required: resource closure reduced; uncovered presentation refs: ' + ', '.join(uncovered))
     resource_fidelity.require_exact_closure(analysis, declared_refs, s.get('legacy_root'))
+
+
+def freeze_gate(s, m, allocation=True):
+    if not s.get('ui_fidelity_required'):
+        return
+    analysis = _analysis(m)
+    if analysis is None:
+        return
+    if allocation:
+        allocation_gate(s, analysis)
+    else:
+        intact(lambda: allocation_gate(s, analysis))
     if any(row.get('dimension') == 'UI' and row.get('status') == 'applicable' for row in analysis.get('dimensions', [])):
         closure = ((m.get('plan') or {}).get('source_closure') or {})
         renderers = closure.get('ui_renderers')
@@ -69,7 +77,7 @@ def freeze_gate(s, m):
         for facet in ('ui_topology', 'states', 'navigation', 'platform_lifecycle'):
             require(closure.get(facet),
                     'ui_fidelity_required: source_closure.' + facet + ' required for UI scope')
-    baseline_gate(s, m)
+    baseline_gate(s, m, allocation)
     import parameter_file
     parameter_file.gate(s, m.get('plan') or {}, analysis)
 
@@ -246,7 +254,7 @@ def frozen_interaction(module, path):
     return matches[0]
 
 
-def baseline_gate(s, m):
+def baseline_gate(s, m, allocation=True):
     """Legacy executability is decided before freeze and drives SPEC/coding inputs.
 
     Previewable legacy screens contribute captured baseline screenshots that guide the SPEC and the
@@ -261,7 +269,7 @@ def baseline_gate(s, m):
         return
     plan = m.get('plan') or {}
     visual = [path for path in plan.get('paths', []) if path.get('kind') == 'visual']
-    for row in analysis.get('dimensions', []):
+    for row in analysis.get('dimensions', []) if allocation else []:
         if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
             continue
         for item in row.get('items', []):
