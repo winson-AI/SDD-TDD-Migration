@@ -126,6 +126,10 @@ class ResourceFidelityTests(unittest.TestCase):
             rf.validate_facts(item)
         item['adaptation_evidence_ref'] = self.ref()
         rf.validate_facts(item)
+        with self.assertRaisesRegex(Rejected, 'copy_blocker'):
+            rf.replacement(item)  # a picture the legacy app ships: the planned item states what stops the copy
+        rf.replacement({**item, 'copy_blocker': 'the target has no animated vector loader'})
+        rf.replacement({**item, 'resource_kind': 'string'})  # a value is not a picture
         with self.assertRaisesRegex(Rejected, 'needs an approved deviation'):  # a review alone does not replace a shipped animation
             self.freeze(item)
         approved = 'the animator is re-implemented with the target animation API'

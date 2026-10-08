@@ -141,12 +141,27 @@ def validate(config):
 
 
 def target_resources(value, target_root=None):
-    """How legacy resources reach the target: stated once per project, read by every module."""
-    require(isinstance(value, dict) and set(value) <= {'copy', 'parameters'}, 'target_resources takes copy and parameters')
+    """How legacy resources reach the target: stated once per project, read by every module. A part the target does
+    not take is declined with the reason, so a run can tell a decision from an omission."""
     import parameter_file
     import resource_copy
     rules = {'copy': resource_copy.convention, 'parameters': parameter_file.convention}
-    return {key: rules[key](value[key], target_root) for key in value}
+    require(isinstance(value, dict) and set(value) <= {*rules, 'declined'}, 'target_resources takes copy, parameters and declined')
+    declined = value.get('declined', {})
+    require(isinstance(declined, dict) and set(declined) <= set(rules) and not set(declined).intersection(value)
+            and all(isinstance(reason, str) and reason.strip() for reason in declined.values()),
+            'target_resources.declined gives the reason for each part the target does not take, and names no part it states')
+    result = {key: rules[key](value[key], target_root) for key in rules if key in value}
+    return {**result, 'declined': dict(declined)} if declined else result
+
+
+def transfer_settled(s, applicable):
+    """Before UI or resource work is registered the run knows how the target takes copied files and recorded values:
+    the convention read from the target project, or the reason the target takes none."""
+    resources = s.get('target_resources') or {}
+    for part, dimensions in (('copy', {'UI', 'Resource'}), ('parameters', {'UI'})):
+        require(not dimensions.intersection(applicable) or part in resources or part in resources.get('declined', {}),
+                'target_resources.' + part + ' is not settled: state how the target takes it or decline it with the reason')
 
 
 def current(root):

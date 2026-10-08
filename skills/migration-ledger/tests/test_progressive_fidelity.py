@@ -96,7 +96,7 @@ class ApiContractTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaisesRegex(Rejected, 'omits a source obligation'):
                 api_contract.load(self.analysis(contract), self.items)
         contract = copy.deepcopy(self.contract); contract['target']['url'] = '/other'
-        with self.assertRaisesRegex(Rejected, 'exact method/URL changed'): api_contract.load(self.analysis(contract), self.items)
+        with self.assertRaisesRegex(Rejected, 'exact route changed'): api_contract.load(self.analysis(contract), self.items)
         with self.assertRaisesRegex(Rejected, 'ownership'): api_contract.load(self.analysis(), {})
 
     def test_api_requires_frozen_fixture_and_every_behavior_obligation(self):

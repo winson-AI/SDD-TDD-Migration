@@ -77,6 +77,13 @@ def validate_item(item):
         validate_configuration(item, item.get('qualifier', 'base'))
 
 
+def replacement(item):
+    """A picture the legacy app ships is copied. An item that replaces it by hand says what stops the copy."""
+    replaced = item.get('resource_strategy') == 'manual_exact' and not item.get('source_signal') and is_graphic(item)
+    require(not replaced or isinstance(item.get('copy_blocker'), str) and item['copy_blocker'].strip(),
+            'a picture replaced by hand states why the legacy file cannot be copied as it is (copy_blocker)')
+
+
 def consumers(item):
     """Normalize the historical scalar and current multi-consumer contract."""
     values = item.get('consumer')

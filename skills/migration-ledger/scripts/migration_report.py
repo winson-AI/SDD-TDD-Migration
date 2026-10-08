@@ -48,6 +48,8 @@ def picture(mid, item, analysis_ref, carriers, rows):
     if state == 'non-exact':
         status, reason = (('verified', '目标屏幕上的节点图像已与存量资源的渲染参考比对，在容差内一致') if measured else
                           ('not-verified', '图像检查所在视觉路径未在当前基线通过' if check else '手工替换的图片没有图像检查，也没有获批偏差'))
+    if item.get('copy_blocker'):
+        reason += '；未按路径复制的原因：' + item['copy_blocker']
     return {'module_id': mid, 'item_id': item.get('item_id'), 'source': item.get('source_resource') or item.get('source_signal'),
             'resource_kind': item.get('resource_kind'), 'strategy': item.get('resource_strategy'), 'state': state, 'status': status,
             'reason': reason, 'image_check': check, 'path_ids': [r['path_id'] for r in paths],
@@ -134,6 +136,7 @@ def fidelity(s, rows, ref_check):
                      'reason': f"图片 {v['source']} 与存量不是精确复制（{v['status']}）：{v['reason']}", 'evidence_refs': v['evidence_refs']}
                     for v in pictures if v['status'] not in ('exact', 'verified', 'reviewed')]
     return visual, limitations, {'counts': dict(Counter(v['status'] for v in pictures)), 'copied': copied, 'parameters': parameters, 'checks': checks,
+                                 'declined': dict((s.get('target_resources') or {}).get('declined', {})),
                                  'items': [v for v in pictures if v['status'] != 'exact'], 'conditions': conditions}
 
 
@@ -336,6 +339,8 @@ def render(report):
     pictures = report.get('picture_fidelity') or {'counts': {}, 'items': []}
     if pictures.get('copied'):
         text += ['', f"按路径复制到目标的文件资源：{pictures['copied']} 个（验收时逐个与存量文件比对）。"]
+    for part, why in sorted((pictures.get('declined') or {}).items()):
+        text += ['', f"项目声明目标不接收 target_resources.{part}：{cell(why)}；对应资源逐项登记。"]
     for mid, row in sorted((pictures.get('checks') or {}).items()):
         text += ['', f"{cell(mid)}：节点显示的图片 {row['uses']} 处，其中 {row['checked']} 处有图像检查，{row['waived']} 处经豁免。"]
     if pictures.get('parameters'):

@@ -101,7 +101,7 @@ Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试�
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照 | [项目上下文](skills/migration-protocol/references/project-context.md) |
 | 上下文就绪 | 规划与审计者随操作登记预检；worker 派发后预检，ready 才开工；worker 只读执行所需 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
 | 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
-| 资源与参数搬运 | 文件资源按清单原样复制、按 accessor 引用；布局、图层与代码里的取值记成参数表，生成到目标后按键取用；Spec 只写例外，验收比对字节与引用 | [搬运](skills/migration-protocol/references/resource-transfer.md#总则) |
+| 资源与参数搬运 | 文件资源按清单原样复制、按 accessor 引用；布局、图层与代码里的取值记成参数表，生成到目标后按键取用；Spec 只写例外，验收比对字节与引用；登记 UI/Resource 分配前对约定定论（声明，或写明目标不接收的原因） | [搬运](skills/migration-protocol/references/resource-transfer.md#总则) |
 | 图片与图标对齐 | 图片来源逐条记录并入资源闭包；树上每处静态图片都上屏核对或带证据豁免：存量资源离线渲染为参考，目标屏幕节点与之比较（另有文本与节点检查），结论由 Ledger 重算；手工替换的图片须测量或获批偏差 | [图片与图标对齐](skills/migration-protocol/references/ui-fidelity.md#图片与图标对齐) |
 | 四维切片与语义模型 | UI → Logic → Adhesive → Resource 逐层映射到 TASK/PATH/ASSERT | [四维](skills/migration-protocol/references/dimension-slicing.md)、[语义抽取](skills/migration-protocol/references/semantic-extraction.md) |
 | 阻塞感知与恢复 | 局部校验、invalidate 出口、进度信号；watchdog 只观察 | [恢复与进度](skills/migration-protocol/references/progress-recovery.md)、[watchdog](skills/migration-protocol/references/watchdog.md) |
@@ -134,6 +134,7 @@ Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-08 | 上游修订按叶子边界分流：再拆分或 run 修订改到的已冻结叶子，边界保持（原 scope 语句、需求、CASE、验收归属、写范围与依赖俱在，无新增排除）时以 CR 接收并保留 plan 与代码，TASK 未变即重冻后直接重建复测，其消费者只等 provider；边界改写、收缩或迁移才整叶重规划；只更新证据的再拆分不清全局规划；独立性证明可声明无 TASK 受影响。资源搬运先定论：prepared run 登记 UI/Resource 适用的分配前，`target_resources` 的 copy 与 parameters 须已声明约定或写明目标不接收的原因，尚未登记任何根时也可经 run 修订写入；约定已声明时可原样加载的文件必须走复制清单；手工替换存量图片的 item 写明不能复制的原因并随报告披露；API 清单按 transport 登记路由，rpc/sdk 以调用名登记。 |
 | 2026-10-08 | 已接受工件沿用接受时的规则：四维分析登记时判定（叶子冻结对它的要求在首次冻结时），设计验收时、计划提交与冻结时判定，此后各步只读取，仅漂移拒收；逐案豁免移除，差异进报告“规则欠账”。拆分写明每条 CASE 的唯一验收切片、支撑切片的理由，依赖成链或过半切片等待时写明不能按行为切的理由；报告列出各拆分的切片形态。渐进加载：worker 的必读输入收敛为执行所需（Test-Runner 为冻结计划与测试资产，代码作者另含本叶子四维分析与目标规范），报告所依据的全部证据仍核对漂移；阅读卡增量按执行实例计算、无需宿主回报，红线每张卡都带，机械验收步骤不带卡，同一小节在一张卡内只出现一次；拒绝消息指向规则小节的比例设为棘轮。 |
 | 2026-10-08 | README 与六张图统一当前主线、按需设计、三类反馈、局部重验和成功统计；PNG 仅本地渲染。执行反馈在派 Fixer 前明确分流：实现错误修代码、规划/功能/依赖契约缺口修 SPEC、超 scope 上溯父 MO/GO。可选 MO 独立性证明保留未影响 TASK 与既有 Green，原回执/执行基线不变；新 build/unit/static 与受影响/非 Green 路径真实复测，共享影响回退全验。统一 GO 测试分工，不新增前置规划轮次或流程版本。 |
 | 2026-10-07 | 执行反馈驱动规划修正：GO/父 MO 分配 scope/上游 CASE，子 MO 拆 TASK 后直接形成 SPEC 并冻结执行；独立 design 改为按需。修复中可补充原预期的路径/断言，MO 审核后再冻结、更新已有代码并复测；保留旧计划与失败证据，不新增 Run 或计划版本。 |

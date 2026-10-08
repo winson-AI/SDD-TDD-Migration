@@ -134,14 +134,18 @@ def validate(s, ref):
             behavior_contract.review(candidate, candidate.get('behavior_review'))
     proposed = {mid: {**root, **updates.get(mid, {})} for mid, root in current.items()}
     paths = proposed_contract['global_paths']
-    global_requirements = {rid for path in paths for rid in path.get('requirement_ids', [path['requirement_id']] if path.get('requirement_id') else [])}
-    coverage = set(global_requirements)
-    for mid, m in proposed.items():
-        coverage.update(m['scope']['requirement_ids'] if m.get('scope') else
-            (rid for rid, owners in (s.get('global_plan') or {}).get('content', {}).get('requirement_owners', {}).items()
-             if set(decomposition.leaves(s, mid)).intersection(owners)))
-    require(coverage == set(proposed_contract['requirement_ids']), 'root revision loses requirement coverage')
-    require({c for m in proposed.values() for c in m['case_ids']} | {p['case_id'] for p in paths} == set(proposed_contract['case_ids']), 'root revision loses case coverage')
+    def covered(registry, global_paths):
+        requirements = {rid for path in global_paths for rid in path.get('requirement_ids', [path['requirement_id']] if path.get('requirement_id') else [])}
+        for mid, m in registry.items():
+            requirements.update(m['scope']['requirement_ids'] if m.get('scope') else
+                (rid for rid, owners in (s.get('global_plan') or {}).get('content', {}).get('requirement_owners', {}).items()
+                 if set(decomposition.leaves(s, mid)).intersection(owners)))
+        return requirements, {c for m in registry.values() for c in m['case_ids']} | {p['case_id'] for p in global_paths}
+    # A registry that covered the task keeps covering it. One still being registered is judged when its global plan is accepted.
+    if covered(current, s['global_paths']) == (set(s['requirement_ids']), set(s['case_ids'])):
+        requirements, cases = covered(proposed, paths)
+        require(requirements == set(proposed_contract['requirement_ids']), 'root revision loses requirement coverage')
+        require(cases == set(proposed_contract['case_ids']), 'root revision loses case coverage')
     graph = {mid: set(m['dependencies']) for mid, m in proposed.items()}
     def visit(mid, trail):
         require(mid not in trail, 'root revision dependency cycle')
@@ -151,7 +155,7 @@ def validate(s, ref):
             visit(owner, trail | {mid})
     for mid in graph:
         visit(mid, set())
-    rows = keyed(report['modules'], 'module_id')
+    rows = keyed(report['modules'], 'module_id') if report['modules'] else {}  # no leaf yet: nothing to review
     require(set(rows) == set(s['modules']), 'run impact must review every leaf')
     affected = set()
     retired_requirements = {r['id'] for r in report.get('retirements', []) if r['kind'] == 'requirement'}
@@ -274,7 +278,7 @@ def handle(root, s, req, actor):
     import context_readiness
     context_readiness.pin_execution(root, s, affected)
     new_ref = revise_context(root, s, report['context_patch'], review, decision)
-    rows = keyed(report['modules'], 'module_id')
+    rows = keyed(report['modules'], 'module_id') if report['modules'] else {}  # no leaf yet: nothing to review
     for mid, m in s['modules'].items():
         if mid in affected:
             if rows[mid]['action'] == 'reverify':

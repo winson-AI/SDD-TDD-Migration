@@ -85,6 +85,7 @@ def judge(ref, module_id):
                     require(item.get(field), 'resource mapping missing ' + field)
                 import resource_fidelity
                 resource_fidelity.validate_item(item)
+                resource_fidelity.replacement(item)
                 resource_fidelity.consumers(item)
             items[iid] = {**item, 'dimension': row['dimension']}
     require(items, 'functional module must contain applicable dimension work')
@@ -156,6 +157,8 @@ def allocation(s, module):
         api_contract.applicability(data, True)
         if s.get('planning_coverage_required'):
             evidence((data.get('api_review') or {}).get('discovery_refs'), 'API discovery scope required for applicability review')
+            import project_context
+            project_context.transfer_settled(s, {row['dimension'] for row in data['dimensions'] if row['status'] == 'applicable'})
     require(module.get('scope') and data.get('scope') == module['scope'],
             'dimension analysis must bind the already allocated module scope')
     allowed = set(module.get('scope', {}).get('requirement_ids', s['requirement_ids']))

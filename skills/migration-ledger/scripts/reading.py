@@ -537,11 +537,12 @@ GATES = [
     (r'runtime expression|runtime/layout|layout keywords|structural mapping|parameter mapping', 'resource-transfer.md', '动态参数与布局结构'),
     (r'hash mismatch|absolute evidence path|missing file', 'runtime.md', '请求与事件'),   # first: the file named in the message may sit in a path of any other topic
     (r'unknown reference id', 'context-readiness.md', '3. 报告与传递'),
+    (r'is not settled|target_resources (takes|\.declined)|target_resources\.declined', 'resource-transfer.md', '总则'),
     (r'parameter[ _](sheet|fill|file|convention)|parameter_fill|recorded (value )?parameters?|values to parameter|a parameter is'
      r'|expressions the Spec|tokens the Spec|typed value|(not_applicable|settled|token) record|share one key|target_resources\.parameters'
      r'|\b(layout|layer|code|values):\S+: deviation', 'resource-transfer.md', FILL),
     (r'file resources|usage[ _]exclusion|layout_helpers', 'resource-transfer.md', '使用点与闭包'),
-    (r'cop(y|ied) (plan|path|target|resources?)|target_resources\.copy|resource-sync|one target file|index different files'
+    (r'cop(y|ied) (plan|path|target|resources?)|copy_blocker|target_resources\.copy|resource-sync|one target file|index different files'
      r'|refusing to overwrite|target_resource (must|needs)|file of the target project|never names|not the legacy file|legacy (entry|vector)',
      'resource-transfer.md', COPY),
     (r'design |test.design|设计', 'testing.md', '编码前设计交接'),

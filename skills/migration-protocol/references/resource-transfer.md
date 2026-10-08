@@ -2,7 +2,7 @@
 
 ## 总则
 
-存量 UI 用到的文件和取值是数据，按“记录 → 派生 → 工具写入 → 核对引用”到达目标，不由角色重新实现：图片、动画、字体按路径复制；尺寸、颜色、文案等参数生成到目标文件、按键取用。清单与参数表由 Ledger 从冻结证据重算，Spec 只写例外，验收比对字节并在提交的代码里找引用。项目未声明约定的部分按 [精确性纪律](ui-fidelity.md#精确性纪律) 逐项登记。
+存量 UI 用到的文件和取值是数据，按“记录 → 派生 → 工具写入 → 核对引用”到达目标，不由角色重新实现：图片、动画、字体按路径复制；尺寸、颜色、文案等参数生成到目标文件、按键取用。清单与参数表由 Ledger 从冻结证据重算，Spec 只写例外，验收比对字节并在提交的代码里找引用。登记 UI/Resource 适用的分配前，`target_resources` 的 copy 与（UI 适用时）parameters 须已定论：GO 依目标工程的资源目录与取用写法给出约定，经 run-review 的 context_patch 写入，推不出才问人；目标不接收的部分记入 `declined` 并写原因，按 [精确性纪律](ui-fidelity.md#精确性纪律) 逐项登记。
 
 ## 使用点与闭包
 
@@ -10,7 +10,7 @@ collector 记录范围内代码每处资源引用的使用点（行号、所在�
 
 - **用到即入账**：代码用到的文件资源（drawable/mipmap/raw/font），不论传给哪个方法，都要由 UI 树某节点声明，或在 `resource_scope.usage_exclusions` 以 `symbol`（类或方法）和/或 `ref` 加 reason、evidence_refs 排除；加载器的占位图随其图片来源入账。
 - **闭包**：树触达的每个资源（含嵌套与主题取值）有一个 Resource item 或复制清单的一行；每条 `imageSources` 有一个 `source_signal` item 或 `signal_exclusions`。`remote-image` 可用 `source_equivalent`（`target_source` 取同一来源，`loader_mapping` 把占位图指到 item id 或 `{absent: 原因}`，变换逐条 `{legacy, target}`），其余信号用 `manual_exact`/`blocked`。
-- **同图多档**：drawable 的密度与平台版本（`xxhdpi`、`anydpi-v24`）是同一张图的副本，一个条目指明迁移哪一档；night、语言等限定符内容不同，各自登记。
+- **同图多档**：drawable 的密度与平台版本（`xxhdpi`、`anydpi-v24`）是同一张图的副本，一个条目指明迁移哪一档。
 
 ## 文件资源按路径复制
 
@@ -20,6 +20,8 @@ collector 记录范围内代码每处资源引用的使用点（行号、所在�
 2. 冻结时 Ledger 按证据与约定重算清单，逐行相同才通过；一个资源只由清单或 item 之一覆盖。
 3. Implementer 以 `resource-sync`（给出拥有目标目录的 task_id）一次复制全部行：字节相同则保留，不同则拒绝覆盖。
 4. 验收逐行核对副本哈希等于存量哈希，且提交的代码完整出现每行的 accessor；副本自身不算引用。
+
+约定已声明时可原样加载的文件必须走清单；手工替换存量图片的 item 以 `copy_blocker` 写明不能复制的原因，随报告披露。
 
 清单之外的 item 同样被核对：非 blocked 的 `target_resource` 与 consumer 必须是目标工程内的文件，产出资源的策略须写 `#accessor`；验收时 `byte_copy` 比对哈希，`value_xml_exact` 比对条目，`exact_vector_xml` 比对确定性转换结果，每个 consumer 文件须出现该 accessor。
 
@@ -54,8 +56,8 @@ planning_coverage_required 下，仅 applicable UI/Resource 维度需 condition_
 
 ## API 与 URL 契约
 
-业务 API 属 Logic/Adhesive。四维 api_review 记录适用性、reason/evidence_refs；适用须 api_inventory_ref 绑定[清单](../../../template/api-inventory.json)。calls 记录源符号/hash、method/URL、请求/响应、错误及副作用；contracts 记录消费者、fixture 与映射，item 用 api_ids 唯一认领。范围外调用须 exclusions 证据。planning_coverage_required 下 api_review.discovery_refs 必填（含不适用判定），绑定检索范围并包含已登记调用的 source_ref。GO/父 MO/Auditor 核对调用入口及排除依据；门禁不自动发现全部 API。
+业务 API 属 Logic/Adhesive。四维 api_review 记录适用性、reason/evidence_refs；适用须 api_inventory_ref 绑定[清单](../../../template/api-inventory.json)。calls 记录源符号/hash、路由（`transport`：http 记 method/URL，rpc/sdk 记调用名 `operation`）、请求/响应、错误及副作用；contracts 记录消费者、fixture 与映射，item 用 api_ids 唯一认领。范围外调用须 exclusions 证据。planning_coverage_required 下 api_review.discovery_refs 必填（含不适用判定），绑定检索范围并包含已登记调用的 source_ref。GO/父 MO/Auditor 核对调用入口及排除依据；门禁不自动发现全部 API。
 
 imageSources/Resource 的 API 图片 item 写 api_binding（api_id/response_field）；字段匹配 model field/JSON key，target_source 等于 API response_mapping。非 API 模型来源须 image_source_review(kind=non-api)、reason/evidence_refs。URL 字面值不变，加载器占位/变换另映射；仍须接线与正式图片断言。
 
-dimension_trace.assertions.api_obligations 覆盖 `api_id/route` 和 `api_id/<facet>:<field>`，facet 为 request_fields/response_fields/error_outcomes/state_effects；对应 PATH 绑定 fixture_contract_ref 且为 unit/automation。exact 保持源 method/URL；approved-adaptation 须理由、信封 alternative 及精确 Human 决定。实现 dimension_evidence.consumer_refs 核对目标文件/符号，正式断言证明语义；出现名字不等于 API 等价。源变化沿同 Run 回溯重冻、接线和复测。
+dimension_trace.assertions.api_obligations 覆盖 `api_id/route` 和 `api_id/<facet>:<field>`，facet 为 request_fields/response_fields/error_outcomes/state_effects；对应 PATH 绑定 fixture_contract_ref 且为 unit/automation。exact 保持源 transport 与路由；approved-adaptation 须理由、信封 alternative 及精确 Human 决定。实现 dimension_evidence.consumer_refs 核对目标文件/符号，正式断言证明语义；出现名字不等于 API 等价。源变化沿同 Run 回溯重冻、接线和复测。

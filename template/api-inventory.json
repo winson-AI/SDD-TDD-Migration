@@ -1,7 +1,7 @@
 {
  "schema_version": 1,
  "module_id": "M001",
- "_note": "Record scoped production calls; omissions need source-reviewed exclusions. Logic/Adhesive item api_ids own contracts. Bind every source facet plus route through dimension_trace.assertions.api_obligations; unit/automation PATHs share fixture_contract_ref. API adaptations need exact Human approval.",
+ "_note": "Record scoped production calls; omissions need source-reviewed exclusions. A call and its target are addressed by transport: http (default) by method and url; rpc or sdk by operation, the name the remote procedure or the client library is called by, with no method/url. Logic/Adhesive item api_ids own contracts. Bind every source facet plus route through dimension_trace.assertions.api_obligations; unit/automation PATHs share fixture_contract_ref. API adaptations need exact Human approval.",
  "calls": [
   {
    "api_id": "API-M001-001",
