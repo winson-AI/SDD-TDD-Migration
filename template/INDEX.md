@@ -25,7 +25,7 @@
 | [source-impact.json](source-impact.json) | GO | 同 run 来源追加的影响报告 |
 | [status.md](status.md) | MO | 模块决策；Ledger 生成 status 投影 |
 | [test-design-input.json](test-design-input.json) | MO | 编码前独立测试设计的输入：规格、CASE 与任务范围 |
-| [stage-plan.json](stage-plan.json) | Spec-Designer | 规划提交：六件套引用、TASK 范围/追溯、理解证据与批准边界；PATH 与资产由绑定的上游测试计划补全，独立 design 按需 |
+| [stage-plan.json](stage-plan.json) | Spec-Designer | 规划提交的最小集：六件套引用、TASK 范围/追溯；PATH 与资产由上游测试计划补全，其余由叶子四维分析补全 |
 | [upstream-test-plan.json](upstream-test-plan.json) | Spec-Designer | 默认测试输入：绑定权威上游用例/当前 scope，完整 CASE/PATH/ASSERT；不记录实际结果 |
 | [proposal.md](proposal.md) | Spec-Designer | 六件套 proposal |
 | [spec.md](spec.md) | Spec-Designer | specs/<capability>/spec.md 的 delta |

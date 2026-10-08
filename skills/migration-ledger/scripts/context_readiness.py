@@ -129,9 +129,20 @@ def global_refs(s):
         refs.append(inventory)
     if s.get('project_context_ref'):
         refs.append(s['project_context_ref'])
-        for source in read_json(check_ref(s['project_context_ref'])).get('source_refs', {}).values():
-            refs.extend(source if isinstance(source, list) else [source])
+        for key, source in read_json(check_ref(s['project_context_ref'])).get('source_refs', {}).items():
+            if key != 'slicing_skill_ref':  # read where slicing is decided, not by every stage: see standing_refs
+                refs.extend(source if isinstance(source, list) else [source])
     return refs
+
+
+SLICING_STAGES = ('global-discovery', 'global-planning', 'decomposition')
+
+
+def slicing_skill(s):
+    """The slicing skill earlier runs of the project left, as frozen into this run; None on a project's first runs."""
+    if not s.get('project_context_ref'):
+        return None
+    return read_json(check_ref(s['project_context_ref'])).get('source_refs', {}).get('slicing_skill_ref')
 
 
 def target_rules(s, pinned):
@@ -178,6 +189,8 @@ def standing_refs(s, mid, stage):
     if stage in ('global-discovery', 'global-planning', 'decomposition', 'planning'):
         history = scope(s, mid).get('planning_lessons_ref') if mid else s.get('lessons_ref')
         if history: refs.append(history)
+    if stage in SLICING_STAGES and slicing_skill(s):
+        refs.append(slicing_skill(s))
     if mid:
         m = scope(s, mid)
         if stage == 'test-design' and m.get('design_input_ref'):

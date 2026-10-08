@@ -36,6 +36,7 @@ import source_changes
 import run_changes
 import control_policy
 import task_revalidation
+import user_paths
 import audit_execution
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
@@ -63,8 +64,8 @@ def overlaps(a, b):
 def refresh(s):
     for m in s['modules'].values():
         qualities = [p['quality'] for p in m['results'].values()] + [p['quality'] for p in m.get('repair_findings', {}).values()]
-        m['quality'] = ('red-bug' if 'red-bug' in qualities else
-                        'green-passed' if m['phase'] == 'completed' and not m['stale'] else 'yellow-blocked')
+        m['quality'] = ('red-bug' if 'red-bug' in qualities else 'green-passed' if m['phase'] == 'completed'
+                        and not m['stale'] and not user_paths.gaps(m.get('plan')) else 'yellow-blocked')
     decomposition.refresh_groups(s)
     mods = list(s['modules'].values())
     s['quality'] = ('red-bug' if any(m['quality'] == 'red-bug' for m in mods) or s.get('audit', {}).get('quality') == 'red-bug' else
@@ -814,6 +815,12 @@ def reasoning_escalated(m):
                for r in results.values())
 
 
+# Where slicing is decided or revised: the steps at which an orchestrator loads the project's slicing skill.
+SLICING_STEPS = {('global-orchestrator', op) for op in ('register', 'global-plan', 'decompose-accept', 'redecompose-accept',
+                                                         'run-review', 'source-review')} | {
+                 ('module-orchestrator', op) for op in ('decompose', 'redecompose', 'realloc-request')}
+
+
 def with_card(s, m, step):
     """A step that asks for an operation names the protocol sections and the templates it needs."""
     # A step the host submits without a model turn is read by nobody; a dispatch still carries its worker's card.
@@ -826,6 +833,9 @@ def with_card(s, m, step):
             ('register', 'global-plan', 'source-review', 'run-review', 'revise-run'))):
         import experience
         snapshot = project_context.verify_snapshot(s['project_context_ref'])
+        skill = snapshot.get('source_refs', {}).get('slicing_skill_ref')
+        if skill and (step.get('role'), step.get('operation')) in SLICING_STEPS:
+            step['slicing_skill'] = {'name': experience.SKILL, 'ref': copy.deepcopy(skill)}
         ref = snapshot.get('source_refs', {}).get('experience_ref')
         if ref:
             candidates = experience.candidates(read_json(check_ref(ref)), m if m is not None else experience.global_scope(s), (step.get('payload') or {}).get('task_ids', []))
@@ -1162,6 +1172,8 @@ def apply_operation(s, req, principal, events, root=None):
         require(m['phase'] in ('context', 'specifying', 'clarifying', 'change-review'), 'plan not editable in this phase')
         held = m.get('plan_ref') == p['plan_ref']
         plan = design_stage.materialize(s, m, read_json(check_ref(p['plan_ref'])), judge=not held)
+        import minimal_plan
+        plan = minimal_plan.complete(s, m, plan)  # what follows from the leaf's accepted four-dimension specification
         require('checklist' not in {d.get('kind') for d in plan.get('definitions') or []},
                 'the checklist is the package rubric the Ledger binds; omit it from definitions')
         if s.get('behavior_contract_required'):
@@ -1189,7 +1201,6 @@ def apply_operation(s, req, principal, events, root=None):
             if m.get('parent_module_id') or s.get('reuse_required') or plan.get('reuse_plan_ref'):
                 reuse.validate_plan(plan, m, reuse.sources(s), s['modules'], s['legacy_root'])
             if s.get('planning_coverage_required'):
-                import user_paths
                 user_paths.plan_gate(m, plan)
         occupied = {path['path_id'] for path in s['global_paths']}
         occupied.update(path['path_id'] for other in s['modules'].values() if other['module_id'] != mid
@@ -1941,6 +1952,11 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     elif tv.final_deferred_current(s) and not observed and not tv.audit_resume_context(s):
         global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False,
                        'reason': 'completed-with-unverified-tests', 'quality': 'yellow-blocked'}
+    elif user_paths.unverified_only(s) and not observed:
+        global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False,
+                       'reason': 'completed-with-unverified-tests', 'quality': 'yellow-blocked',
+                       'device_gap_cases': {mid: sorted(user_paths.gaps(m.get('plan'))) for mid, m in s['modules'].items()
+                                            if user_paths.gaps(m.get('plan'))}}
     elif cursor and all(tv.available(m) for m in s['modules'].values()) and not observed:
         ready = rounds['all_settled'] and s.get('audit_attempts', 0) < workflow.audit_budget(s)
         global_next = {'operation': 'audit-assign' if rounds['all_settled'] else None, 'role': 'global-orchestrator', 'ready': ready,

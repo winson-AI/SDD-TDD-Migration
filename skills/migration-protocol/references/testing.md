@@ -16,13 +16,13 @@ prepare 的 test_design_required=true 表示必需的测试输入与覆盖，不
 
 执行反馈分流、同 Run CR 及独立 TASK 保留统一按[变更控制](openspec.md#变更控制)；不强制重做独立 design，当前计划仍绑定上游用例，历史设计只供追溯。
 
-新 prepare 固化 planning_coverage_required。每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids；已有执行器可复用，prepared 须对应资产，deferred 另记 owner/next_action，解决后才能冻结。测试准备不执行目标代码，不编造 Red。叶子验收的用户可见 CASE（适用 UI item 承载）须有设备或视觉 PATH：visual，或绑定 android/harmony 平台、交互的 automation；确无可能的写 plan.device_gaps[{case_id,reason,evidence_refs}]，报告列为 Yellow 缺口、不计完整验证。环境缺失不是缺口：照常规划，走缺测出口。
+新 prepare 固化 planning_coverage_required。每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids；已有执行器可复用，prepared 须对应资产，deferred 另记 owner/next_action，解决后才能冻结。测试准备不执行目标代码。叶子验收的用户可见 CASE（适用 UI item 承载）须有设备或视觉 PATH：visual，或绑定 android/harmony 平台、交互的 automation；确无可能的写 plan.device_gaps[{case_id,reason,evidence_refs}]：build 可 Green，该 CASE 的 automation 与模块、本轮记 Yellow，以 completed-with-unverified-tests 收尾。环境缺失不是缺口，走缺测出口。
 
 test_assets 交 script/fixture/adapter 的 asset_id/ref/path_ids，script 再映射 assertions；文件位于 design_ref 同级 staging 内，冻结 definitions 绑定 hash。模块、修复后复测及 GLOBAL 复测共用 PATH 资产解析，query/receipt 的 test_asset_binding 保留来源模块、freeze_id、test_design_ref。GLOBAL 自有路径显式绑定本 GLOBAL 的 test_design_ref/设计作者，不借用模块资产；作者不能兼 Auditor/审计 Test-Runner。
 
 所有执行器可从 SDD_TEST_QUERY_FILE 读 query（非 build/unit 同时带 --query-file）；资产位于 frozen_test_assets。script/adapter 直接作为 argv 参数由 Host 记录 entrypoint_ids；其他消费由执行器向 SDD_TEST_ASSET_USAGE_FILE 写 [{asset_id,ref}]，回执保存 reported_ids 和文件引用。新冻结有资产时，Green 须覆盖所有所选资产，哈希/来源不能变；提供资产不等于消费，执行器上报也不自动证明断言语义。缺证据允许记录真实失败/阻塞。
 
-显式 design 设计者与 MO/Spec/实现/修复/Auditor 独立；直接测试计划及脚本作者同样不能兼 Auditor。Host 落实派发及 staging 隔离。结构/hash 不证明语义；设计不替代 building/testing 预检及冻结/代码门禁。
+显式 design 设计者与 MO/Spec/实现/修复/Auditor 独立；直接测试计划及脚本作者同样不能兼 Auditor。Host 落实派发及 staging 隔离。设计不替代 building/testing 预检及冻结/代码门禁。
 
 ## query
 

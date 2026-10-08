@@ -24,6 +24,16 @@ def gaps(plan):
     return {row['case_id']: row for row in (plan or {}).get('device_gaps') or [] if isinstance(row, dict) and row.get('case_id')}
 
 
+def unverified_only(s):
+    """The run is finished and everything that ran is Green: only declared device gaps keep it from Green."""
+    import decomposition
+    modules = list(s['modules'].values())
+    return (any(gaps(m.get('plan')) for m in modules)
+            and all(m['phase'] == 'completed' and not m['stale'] and m.get('quality') != 'red-bug' for m in modules)
+            and all(decomposition.summary_current(s, group) for group in s.get('module_groups', {}).values())
+            and s.get('audit', {}).get('quality') == 'green-passed')
+
+
 def plan_gate(module, plan):
     """Every user-visible case the leaf accepts has a device or visual path. A case that cannot have one is declared,
     with the reason and its evidence: the gap is reported and the case is not counted as fully verified."""

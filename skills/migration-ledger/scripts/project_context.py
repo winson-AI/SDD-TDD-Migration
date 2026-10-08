@@ -422,6 +422,10 @@ def _prepare(root, run_root, request, actor, storage):
         source_paths = {key: copy.deepcopy(effective[key]) for key in DOCUMENTS + ('knowledge_paths',) if effective.get(key)}
         if exp_path.is_file():
             source_paths['experience_ref'] = str(exp_path)
+        skill_path = experience.skill_path(root)
+        if skill_path.is_file():  # what earlier runs learned about slicing, as the skill the orchestrators load
+            sources['slicing_skill_ref'] = copy_ref(files, file_ref(skill_path))
+            source_paths['slicing_skill_ref'] = str(skill_path)
         effective = freeze_refs(files, effective)
         for key, source in sources.items():
             effective[key] = [ref['path'] for ref in source] if isinstance(source, list) else source['path']

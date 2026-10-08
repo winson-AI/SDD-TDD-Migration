@@ -25,11 +25,11 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 ## 冻结算法
 
-行为契约由运行状态开启，Ledger 在 plan 中写入 `behavior_contract_required=true`，作者不必声明；source_closure 同时是叶子的行为审阅，另含 boundary_rationale、shared_capabilities；它覆盖的范围、需求与 CASE 就是分配包，不再抄写。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。Ledger 接受 plan 时从 SPEC 派生 scenario_index，plan 不携带；`behavior_contract.py --plan <staged-plan.json>` 可预览。SPEC 修改即改变 plan 摘要：编码前重新规划，编码后走 CR；均重新审核冻结。
+行为契约由运行状态开启，Ledger 在 plan 中写入 `behavior_contract_required=true`，作者不必声明；叶子有已登记的四维分析即按最小集规划：作者只写六件套、tasks（范围/路径/需求）、测试计划引用与 dimension_trace；dimension_analysis_ref、source_closure（即叶子的行为审阅）、target_feasibility、decision_envelope、各任务四维与 scenario_trace 由 Ledger 据该分析与分配的审阅补全并冻结，作者另有内容才写，写了照常判定。SPEC 每个需求/场景分别写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`。Ledger 接受 plan 时从 SPEC 派生 scenario_index，plan 不携带；`behavior_contract.py --plan <staged-plan.json>` 可预览。SPEC 修改即改变 plan 摘要，须重新审核冻结。
 
-scenario_trace 每行写 scenario_id 与 task_ids，assertions 由 Ledger 按设计断言的 scenario_ids 补全（写了须与之相同）；每个场景至少被一条行为断言验证、每条行为断言至少验证一个场景、全部任务有归属，允许多对多，build/static 不充当行为断言。scenarios.md 为只读投影。
+scenario_trace 写时每行给 scenario_id 与 task_ids，assertions 由 Ledger 按设计断言的 scenario_ids 补全（写了须与之相同）；每个场景至少被一条行为断言验证、每条行为断言至少验证一个场景、全部任务有归属，允许多对多，build/static 不充当行为断言。
 
-1. GO/父 MO 划分 scope 和上游全量 CASE，子 MO 拆 TASK，Spec-Designer 直接形成六件套与测试路径（SPEC 带 Requirement-ID/Scenario-ID）。完整且预期明确即可冻结；Test-Runner design 仅按需协助，不运行目标代码。
+1. 六件套与测试路径（SPEC 带 Requirement-ID/Scenario-ID）完整且预期明确即可冻结；Test-Runner design 仅按需协助，不运行目标代码。
 2. Spec-Designer 把明确的问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复须绑定 question_id、spec_revision、内容摘要。既有明确答复可复用，若绑定内容已变则重新裁决。
 3. 冻结 manifest 列出 proposal、所有 delta specs、design、tasks 定义、test design 与已准备测试资产的实际 path+sha256；checklist 是包内评审清单，与全局上下文一样不进 manifest，由 Ledger 绑定。保留不可变副本，生成 freeze_id/spec_revision。
 4. `status`、tasks 完成勾选、checklist 证据等运行字段不纳入语义冻结 hash；冻结的原始定义始终存在不可变 artifacts。动态视图可按已固化映射重定位文档链接及更新运行勾选，不得改变需求、设计和断言语义。验证时比较定义快照，不以可变文件整体 hash 误判失效。
@@ -39,7 +39,7 @@ scenario_trace 每行写 scenario_id 与 task_ids，assertions 由 Ledger 按设
 
 ## 变更控制
 
-SDD 先规划后执行、边执行边调整；完整可执行即冻结，不预演所有实现问题。现有 diagnose 的 repair_route 为 fixer/spec/upstream：code 默认 Fixer；spec、planning-gap、function-gap、dependency-gap、fidelity-gap 走 change；scope/scope-insufficient 走 realloc-request。依赖契约缺失区别于已有提供方暂不可用，后者沿原等待/恢复。MO 按游标审核提交；分类不能把规划缺口改称 fixer。轻量叶子沿现有自诊断，不新增 Agent/规划轮次。CR 由 Spec-Designer 修订、MO 重冻、Implementer 更新已有代码；超 scope 才父 MO/GO。保留旧 PATH/ASSERT，可补原预期覆盖；未决或需求/验收/授权变化交 Human，同 Run 留 history。
+SDD 先规划后执行、边执行边调整；完整可执行即冻结，不预演所有实现问题。现有 diagnose 的 repair_route 为 fixer/spec/upstream：code 默认 Fixer；spec、planning-gap、function-gap、dependency-gap、fidelity-gap 走 change；scope/scope-insufficient 走 realloc-request。依赖契约缺失区别于已有提供方暂不可用，后者沿原等待/恢复。MO 按游标审核提交；分类不能把规划缺口改称 fixer。CR 由 Spec-Designer 修订、MO 重冻、Implementer 更新已有代码；超 scope 才父 MO/GO。保留旧 PATH/ASSERT，可补原预期覆盖；未决或需求/验收/授权变化交 Human，同 Run 留 history。
 
 修改冻结定义须重冻；原决定仅在仍有效且有影响分析时沿用，不能假写新 hash 批准。默认全模块重验；有独立性证据才保留未影响 TASK 与既有 Green。
 

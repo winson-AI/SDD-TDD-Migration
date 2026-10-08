@@ -29,6 +29,94 @@ KINDS = ('slicing-gap', 'boundary-conflict', 'planning-gap', 'fix-pattern', 'fai
 ABSTRACT_FIELDS = ('summary', 'applicability', 'root_cause', 'strategy', 'result', 'next_check', 'evidence_refs')
 
 
+SKILL = 'migration-slicing-experience'
+SLICING_KINDS = ('slicing-gap', 'boundary-conflict', 'planning-gap')
+SKILL_LESSONS, SKILL_OBSERVATIONS = 30, 10  # what one skill carries; the store keeps everything
+
+
+def skill_path(root):
+    """The slicing skill of a project's store. It exists once a run has left a slicing lesson or a split to learn from."""
+    return store(root) / 'skills' / SKILL / 'SKILL.md'
+
+
+def slicing_facts(state):
+    """How a run was sliced and what the slicing cost, recorded as it was: no cause is attached here."""
+    import behavior_contract
+    nodes = {**state.get('module_groups', {}), **state['modules']}
+    return {'roots': sum(not node.get('parent_module_id') for node in nodes.values()), 'leaves': len(state['modules']),
+            'splits': behavior_contract.slices(state), 'resplits': len(state.get('redecomposition_history', [])),
+            'run_revisions': len(state.get('run_change_history', []))}
+
+
+def skill_body(data):
+    """The skill a store gives: its abstract slicing lessons merged across runs (a lesson several runs arrived at
+    comes first), the shape of earlier splits, and the latest observations nobody has abstracted yet."""
+    line = lambda value: ' '.join(str(value).split())
+    merged, observed, shapes = {}, [], []
+    for rid, block in sorted(data['runs'].items(), key=lambda pair: (pair[1].get('harvested_at') or '', pair[0])):
+        for entry in block.get('entries', []):
+            if entry.get('kind') not in SLICING_KINDS:
+                continue
+            if all(entry.get(key) for key in ABSTRACT_FIELDS):
+                row = merged.setdefault((entry['kind'], line(entry['applicability']).casefold(), line(entry['strategy']).casefold()),
+                                        {'runs': []})
+                row['entry'] = entry  # the latest wording and result
+                if rid not in row['runs']:
+                    row['runs'].append(rid)
+            elif entry.get('summary'):
+                observed.append((rid, entry['kind'], line(entry['summary'])))
+        facts = block.get('slicing')
+        if facts and (facts.get('splits') or facts.get('resplits') or facts.get('run_revisions')):
+            shapes.append((rid, facts))
+    if not merged and not observed and not shapes:
+        return None
+    lessons = sorted(merged.values(), key=lambda row: (-len(row['runs']), line(row['entry']['summary'])))[:SKILL_LESSONS]
+    text = ['# 切分经验', '',
+            '由经验库生成，勿手改；补充或更正经 /sdd-retrospect 提交教训，下一次采集时本技能随之更新。'
+            '只指导本次切分与边界判断：适用条件不符的条目不套用，不授予批准，不替代当前门禁。', '',
+            f'## 已抽象的经验（{len(lessons)} 条）', '']
+    for number, row in enumerate(lessons, 1):
+        entry = row['entry']
+        text += [f"### {number}. {line(entry['summary'])}",
+                 f"- 类型：{entry['kind']}；印证：{len(row['runs'])} 个 run（{'、'.join(row['runs'])}）",
+                 f"- 适用条件：{line(entry['applicability'])}", f"- 根因：{line(entry['root_cause'])}",
+                 f"- 做法：{line(entry['strategy'])}", f"- 结果：{line(entry['result'])}", f"- 下次检查：{line(entry['next_check'])}", '']
+    if shapes:
+        text += ['## 往次切分形态', '', '事实记录，不含归因：链长是最长依赖链上的切片数，等待是须等另一切片验证完成才能开工的切片数。', '',
+                 '| run | 根 / 叶子 | 父模块 | 切片 | 支撑切片 | 多切片验收的用例 | 链长 | 等待 | 再拆分 | Run 修订 |',
+                 '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
+        for rid, facts in shapes:
+            for split in facts.get('splits') or [{}]:
+                text.append('| ' + ' | '.join(line(value) for value in (
+                    rid, f"{facts.get('roots')} / {facts.get('leaves')}", split.get('parent_module_id', '—'), split.get('slices', '—'),
+                    '、'.join(split.get('supporting') or []) or '—', '、'.join(split.get('shared_cases') or []) or '—',
+                    split.get('chain_depth', '—'), split.get('waiting', '—'), facts.get('resplits', 0), facts.get('run_revisions', 0))) + ' |')
+        text.append('')
+    if observed:
+        text += [f'## 尚未抽象的观察（共 {len(observed)} 条，列最近 {min(len(observed), SKILL_OBSERVATIONS)} 条）', '',
+                 '原文照录，未归因；经 /sdd-retrospect 抽象后进入上一节。', '',
+                 *[f'- {rid} · {kind}：{summary}' for rid, kind, summary in observed[-SKILL_OBSERVATIONS:]], '']
+    return '\n'.join(text)
+
+
+def write_skill(directory, data):
+    """Regenerate the skill from the store. Its revision moves only when what it says changes."""
+    from contracts import digest
+    body = skill_body(data)
+    if body is None:
+        return None
+    record = data.get('skill') or {}
+    if record.get('body_sha256') != digest(body):
+        record = {'revision': record.get('revision', 0) + 1, 'body_sha256': digest(body)}
+    data['skill'] = record
+    path = directory / 'skills' / SKILL / 'SKILL.md'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    head = (f'---\nname: {SKILL}\ndescription: 本项目往次迁移沉淀的切分经验（第 {record["revision"]} 版，来自 {len(data["runs"])} 个 run）；'
+            'GO 登记根功能、全局规划与接受拆分，MO 拆分、再拆分与上溯之前加载。\n---\n\n')
+    atomic(path, (head + body).encode('utf-8'))
+    return {'path': str(path), 'revision': record['revision']}
+
+
 def planning_view(data, archive_lesson=None):
     """Project observations remain available for retrospective; new tasks read abstract lessons only."""
     from contracts import digest
@@ -202,12 +290,14 @@ def harvest(root, run_root):
             return {'run_id': rid, 'sequence': sequence, 'entries': len(previous['entries']), 'duplicate': True}
         stamp = datetime.now(timezone.utc).isoformat()
         data['runs'][rid] = {'sequence': sequence, 'run_quality': state.get('quality'), 'harvested_at': stamp,
-                             'entries': lessons['entries']}
+                             'entries': lessons['entries'], 'slicing': slicing_facts(state)}
+        skill = write_skill(directory, data)  # the store's slicing skill follows every run that adds to it
         atomic(directory / 'lessons.json', encoded(data))
         counts = dict(Counter(e['kind'] for e in lessons['entries']))
         missing = planning_view({'runs': {rid: data['runs'][rid]}})['observations_omitted']
         receipt = {'run_id': rid, 'sequence': sequence, 'run_quality': state.get('quality'),
                    'harvested_at': stamp, 'counts': counts, 'observations_needing_retrospective': missing,
+                   **({'slicing_skill': skill} if skill else {}),
                    **({'next_action': 'sdd-retrospect: extract conditions, causes, strategies and next checks from committed observations'} if missing else {})}
         with (directory / 'retrospect.jsonl').open('a') as f:
             f.write(json.dumps(receipt, ensure_ascii=False, sort_keys=True) + '\n')
