@@ -24,6 +24,24 @@ def gaps(plan):
     return {row['case_id']: row for row in (plan or {}).get('device_gaps') or [] if isinstance(row, dict) and row.get('case_id')}
 
 
+def settle_gaps(s, module, plan):
+    """When the run has stated that no device is available, the user-visible cases this leaf accepts and no path
+    reaches on a device are gaps for that stated reason. The leaf does not argue each of them again."""
+    import copy
+    import project_context
+    stated = project_context.device_verification(s) or {}
+    if not stated.get('unavailable') or not plan.get('dimension_analysis_ref') or not isinstance(plan.get('paths'), list):
+        return plan
+    visible = visible_cases(module, read_json(check_ref(plan['dimension_analysis_ref'])))
+    covered = {path.get('case_id') for path in plan['paths'] if on_device(path)}
+    rows = [row for row in plan.get('device_gaps') or []]
+    for cid in sorted(visible - covered - set(gaps(plan))):
+        rows.append({'case_id': cid, 'reason': stated['unavailable'], 'evidence_refs': [copy.deepcopy(s['project_context_ref'])]})
+    if rows:
+        plan['device_gaps'] = rows
+    return plan
+
+
 def unverified_only(s):
     """The run is finished and everything that ran is Green: only declared device gaps keep it from Green."""
     import decomposition

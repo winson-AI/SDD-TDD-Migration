@@ -20,6 +20,9 @@ def require(condition, message):
         raise Rejected(message)
 
 
+SKELETON_MARK = '[[待写'  # opens a part of a generated skeleton only its author can write; no frozen definition holds one
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
                                      separators=(',', ':')).encode()).hexdigest()
@@ -121,6 +124,8 @@ def validate_plan(plan, module):
     names = set()
     for item in defs:
         check_ref(item)
+        if item['kind'] in ('proposal', 'spec', 'design', 'tasks'):
+            require(SKELETON_MARK not in check_ref(item).read_text(errors='replace'), 'unfilled skeleton section left in ' + item['kind'])
         key = (item['kind'], item.get('capability', module['module_id'].lower()) if item['kind'] == 'spec' else '')
         require(key not in names, 'duplicate definition output')
         names.add(key)

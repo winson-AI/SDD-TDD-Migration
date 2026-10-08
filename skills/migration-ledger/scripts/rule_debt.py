@@ -64,4 +64,21 @@ def collect(s):
             judge(mid, 'test-design', lambda: design(m))
         if m.get('plan'):
             judge(mid, 'plan', lambda: plan(m))
+    if s.get('planning_coverage_required'):
+        # What a new registration or a new plan is asked today: how the target takes resources, where a user-visible
+        # case is verified, and a device or visual path for each such case.
+        import project_context
+        import user_paths
+        applicable = set()
+        for m in {**s.get('module_groups', {}), **s['modules']}.values():
+            try:
+                applicable.update(row['dimension'] for row in read_json(check_ref(m['dimension_analysis_ref']))['dimensions']
+                                  if row.get('status') == 'applicable')
+            except FAILURES:
+                pass
+        judge('RUN', 'project-context', lambda: project_context.transfer_settled(s, applicable))
+        judge('RUN', 'project-context', lambda: project_context.device_settled(s, applicable))
+        for mid, m in s['modules'].items():
+            if m.get('plan'):
+                judge(mid, 'plan', lambda: user_paths.plan_gate(m, m['plan']))
     return rows

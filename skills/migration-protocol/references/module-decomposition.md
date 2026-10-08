@@ -81,7 +81,7 @@ GO 等全部子 MO 收尾且父汇总有效后启动 Auditor。status.module_rou
 
 ## 5. 宿主与兼容
 
-本地控制器维护事件、分配范围、引用、摘要和门禁；宿主负责实际创建/恢复父子 MO、实例与模块绑定、传递 Ledger 引用和执行写隔离。投影不表示 Agent 已启动。
+宿主实际创建/恢复 MO 并执行写隔离，见[宿主接入](host-integration.md#总则)；投影不表示 Agent 已启动。
 
 ## 6. 二方库作为逐层规划依据
 
@@ -112,7 +112,7 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 
 behavior_review.verification 必填，字段见[模板](../../../template/module-decomposition.json)。provider_inputs 精确匹配实际 dependencies，逐项绑定 contract_ref 和 required_stage（implemented/verified）。同触发必须有不同的独立观察，否则重切；隔离策略和固定输入/替身契约由 GO/父 MO 以源码证据审阅。唯一 ID、独立作者或独立颜色不能替代行为独立性。
 
-拆分文档写 case_acceptance：父模块验收的每条 CASE 对应唯一验收它的子模块（记为其 acceptance_case_ids），其余持有该 CASE 的是贡献方；不验收任何 CASE 的子模块在 supporting_slices 写明为何不能并入使用它的切片。依赖链达 3 个切片或过半切片须等另一切片验证完成时，independence_review（rationale、evidence_refs）说明为何不能按业务行为切。根模块以 acceptance_case_ids 声明（缺省为全部），一条 CASE 只由一个根验收。
+拆分文档写 case_acceptance：父模块验收的每条 CASE 对应唯一验收它的子模块（记为其 acceptance_case_ids），其余持有该 CASE 的是贡献方；不验收任何 CASE 的子模块在 supporting_slices 写明为何不能并入使用它的切片。依赖链达 3 个切片、过半切片须等另一切片验证完成，或某 CASE 的界面与逻辑分属两个切片（按各切片四维分析的适用 item 判定）时，independence_review（rationale、evidence_refs）说明为何不能按业务行为切。根模块以 acceptance_case_ids 声明（缺省为全部），一条 CASE 只由一个根验收。
 
 叶子 source_closure 保持分配的 verification；行为 PATH 引用其 fixture_contract_ref。implemented provider 可解除编码准备依赖，正式测试/DoD 仍需 provider 验证完成。共享 provider 只一个实现 owner；消费者负责明确集成 CASE。结构门禁校验归属、引用、完整性，语义独立性由规划审核和最终 Auditor 复核。
 

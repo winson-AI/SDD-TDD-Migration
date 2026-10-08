@@ -197,6 +197,8 @@ def build_lessons(state, sequence, root=None):
                      'summary': f"Module {mid} needed {submissions} distinct plan submissions for one freeze"})
         for blocker, status in [*((row, 'resolved') for row in m.get('blocker_history', [])),
                                 *([(m['blocked'], 'pending')] if m.get('blocked') else [])]:
+            if blocker.get('kind') not in ('human', 'tooling'):
+                continue  # waiting for a provider or for automation is the run's own order of work, not what stopped it
             add({'kind': 'escalation', 'status': status, 'module_id': mid, 'blocker_kind': blocker.get('kind'),
                  'summary': blocker.get('reason'), 'root_cause': blocker.get('root_cause'), 'owner': blocker.get('owner'),
                  'evidence_refs': blocker.get('evidence_refs', []), 'resolution_ref': blocker.get('resolution_ref')})

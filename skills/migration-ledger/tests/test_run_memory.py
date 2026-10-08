@@ -45,6 +45,14 @@ class WhatStoppedTheRunTests(unittest.TestCase):
         bound = read_json(check_ref(m['planning_lessons_ref']))['entries']
         self.assertEqual([entry['summary'] for entry in bound if entry['kind'] == 'escalation'], ['need decision'])
 
+    def test_a_wait_the_ledger_arranges_is_not_what_stopped_the_run(self):
+        waits = {'run_id': 'demo', 'modules': {'M002': {
+            'blocked': {'kind': 'dependency', 'reason': 'dependency-version-changed'},
+            'blocker_history': [{'kind': 'dependency', 'reason': 'provider not complete'}, {'kind': 'automation', 'reason': 'automation-not-run'},
+                                {'kind': 'tooling', 'reason': 'the build cache was unreachable', 'root_cause': 'proxy'}]}}}
+        lessons = openspec_projection.build_lessons(waits, 1)
+        self.assertEqual([(entry['blocker_kind'], entry['status']) for entry in kinds(lessons, 'escalation')], [('tooling', 'resolved')])
+
     def test_a_freeze_that_took_many_distinct_plans_is_remembered(self):
         f = self.f; f.global_plan()
         for round_ in range(3):

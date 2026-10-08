@@ -537,7 +537,7 @@ GATES = [
     (r'runtime expression|runtime/layout|layout keywords|structural mapping|parameter mapping', 'resource-transfer.md', '动态参数与布局结构'),
     (r'hash mismatch|absolute evidence path|missing file', 'runtime.md', '请求与事件'),   # first: the file named in the message may sit in a path of any other topic
     (r'unknown reference id', 'context-readiness.md', '3. 报告与传递'),
-    (r'is not settled|target_resources (takes|\.declined)|target_resources\.declined', 'resource-transfer.md', '总则'),
+    (r'target_resources\S* is not settled|target_resources (takes|\.declined)|target_resources\.declined', 'resource-transfer.md', '总则'),
     (r'parameter[ _](sheet|fill|file|convention)|parameter_fill|recorded (value )?parameters?|values to parameter|a parameter is'
      r'|expressions the Spec|tokens the Spec|typed value|(not_applicable|settled|token) record|share one key|target_resources\.parameters'
      r'|\b(layout|layer|code|values):\S+: deviation', 'resource-transfer.md', FILL),
@@ -545,7 +545,8 @@ GATES = [
     (r'cop(y|ied) (plan|path|target|resources?)|copy_blocker|target_resources\.copy|resource-sync|one target file|index different files'
      r'|refusing to overwrite|target_resource (must|needs)|file of the target project|never names|not the legacy file|legacy (entry|vector)',
      'resource-transfer.md', COPY),
-    (r'design |test.design|设计|user-visible case|device[ _]gaps?', 'testing.md', '编码前设计交接'),
+    (r'skeleton', 'openspec.md', '冻结算法'),
+    (r'design |test.design|设计|user-visible case|device[ _]gaps?|test_adapter\.device', 'testing.md', '编码前设计交接'),
     (r'TASK independence', 'openspec.md', 'TASK 局部重验'),
     (r'execution capture|output capture|excerpt|committed.*hash', 'testing.md', '日志与按需追溯'),
     (r'write scope|undeclared change|write outside', 'engineering-disciplines.md', '写范围核验（可选，默认关闭）'),
@@ -658,10 +659,14 @@ FOOTER = ('<!-- 取用 -->\n本卡之外的规则不整份读取：`reading.py s
           '上文“（文件 § 小节）”即可直接作为参数。\n')
 
 
-def render(rows, output_dir, extra=()):
-    """Write the card as one file named by its digest; a dispatch then hands the role a single path."""
+def render(rows, output_dir, extra=(), skill=None):
+    """Write the card as one file named by its digest; a dispatch then hands the role a single path. A skill the step
+    names travels in the same file, so loading the card loads it."""
     body = ''.join(f'<!-- {row["ref"]}{"#" + row["section"] if row["section"] else ""} -->\n'
                    f'{unlink(text_of(row), row["ref"]).rstrip()}\n\n' for row in rows)
+    if skill:
+        from contracts import check_ref
+        body += f'<!-- 技能 {skill["name"]} -->\n{check_ref(skill["ref"]).read_text().rstrip()}\n\n'
     if extra:
         body += '<!-- 本步模板 -->\n' + ''.join(f'- {name}\n' for name in extra) + '\n'
     body += FOOTER
@@ -712,7 +717,8 @@ def main():
             if not rows:
                 print(json.dumps({'path': None, 'card_sha256': step['card_sha256'], 'bytes': 0, 'sections': 0}))
                 return 0
-        print(json.dumps(render(rows, Path(st['run_root']) / 'reports/reading', step.get('templates', ())), ensure_ascii=False))
+        print(json.dumps(render(rows, Path(st['run_root']) / 'reports/reading', step.get('templates', ()),
+                                None if args.resumed else step.get('slicing_skill')), ensure_ascii=False))
         return 0
     except (KeyError, ValueError, OSError) as exc:
         print(json.dumps({'status': 'rejected', 'reason': str(exc)}, ensure_ascii=False), file=sys.stderr)

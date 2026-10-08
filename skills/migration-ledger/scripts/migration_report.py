@@ -138,6 +138,17 @@ def fidelity(s, rows, ref_check):
     limitations += [{**c, 'kind': 'fidelity-condition', 'reason': c['condition'] + ': current assertions not verified'}
                     for c in conditions if c['status'] == 'not-verified']
     limitations += device_gaps
+    for mid, m in sorted(s['modules'].items()):  # whatever the run was asked when its plans were accepted, say what no screen has shown
+        plan = m.get('plan') or {}
+        try:
+            visible = user_paths.visible_cases(m, read_json(ref_check(plan['dimension_analysis_ref'])))
+        except (ValueError, OSError, KeyError, TypeError):
+            continue
+        only = sorted(visible - {path.get('case_id') for path in plan.get('paths', []) if user_paths.on_device(path)} - set(user_paths.gaps(plan)))
+        if only:
+            limitations.append({'module_id': mid, 'item_id': None, 'kind': 'in-process-only', 'case_ids': only,
+                                'reason': '用户可见 CASE 只有进程内路径，未在设备或屏幕上验证：' + '、'.join(only),
+                                'evidence_refs': refs([plan['dimension_analysis_ref']])})
     limitations += [{'module_id': v['module_id'], 'item_id': v['item_id'], 'kind': 'picture-replacement',
                      'reason': f"图片 {v['source']} 与存量不是精确复制（{v['status']}）：{v['reason']}", 'evidence_refs': v['evidence_refs']}
                     for v in pictures if v['status'] not in ('exact', 'verified', 'reviewed')]
@@ -392,9 +403,11 @@ def render(report):
                      f"  - 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}"]
     if report.get('slicing'):
         text += ['', '## 切片独立性', '', '一条用例由一个切片验收；不验收用例的是支撑切片。链长是最长依赖链上的切片数，等待数是须等另一切片验证完成才能开工的切片数。', '',
-                 '| 父模块 | 切片 | 支撑切片 | 多切片验收的用例 | 链长 | 等待 |', '| --- | --- | --- | --- | --- | --- |',
+                 '| 父模块 | 切片 | 支撑切片 | 多切片验收的用例 | 链长 | 等待 | 界面与逻辑分属两个切片的用例 | 只含界面或只含逻辑的切片 |',
+                 '| --- | --- | --- | --- | --- | --- | --- | --- |',
                  *['| ' + ' | '.join(cell(value) for value in (row['parent_module_id'], row['slices'], row['supporting'] or '—',
-                   row['shared_cases'] or '—', row['chain_depth'], row['waiting'])) + ' |' for row in report['slicing']]]
+                   row['shared_cases'] or '—', row['chain_depth'], row['waiting'], row.get('layered_cases') or '—',
+                   row.get('single_layer') or '—')) + ' |' for row in report['slicing']]]
     if report.get('rule_debt'):
         text += ['', '## 规则欠账', '', '以下工件按接受时的规则已被接受，运行不再重判；按当前规则重判会被拒绝。交统一 Auditor 评估，不是门禁。', '',
                  '| 模块 | 工件 | 当前规则的拒绝原因 |', '| --- | --- | --- |',
@@ -405,9 +418,10 @@ def render(report):
              *[f"| {cell(mid)} | {r['events']} | {r['dispatches']} | {r['context_receipts']} | {r['acceptances']} | "
                f"{r['human_decisions']} | {r['fix_rounds']} | {'是' if r['lean_leaf'] else '否'} | {r['card_bytes_full']} / {r['card_bytes_delivered']} |" for mid, r in cost['modules'].items()]]
     if any('plan_documents' in r for r in cost['modules'].values()):
-        text += ['', '规划体量（冻结计划所依据的文件数与字节，对照叶子的 CASE / TASK 数；用于发现小叶子的过度规划，不是门禁）：', '',
-                 '| 模块 | CASE | TASK | 规划文件 | 字节 |', '| --- | --- | --- | --- | --- |',
-                 *[f"| {cell(mid)} | {r['cases']} | {r['tasks']} | {r['plan_documents']} | {r['plan_bytes']} |"
+        text += ['', '规划体量（为计划撰写的文件与只被引用的来源分列，对照叶子的 CASE / TASK 数；用于发现小叶子的过度规划，不是门禁）：', '',
+                 '| 模块 | CASE | TASK | 撰写文件 / 字节 | 引用来源 / 字节 |', '| --- | --- | --- | --- | --- |',
+                 *[f"| {cell(mid)} | {r['cases']} | {r['tasks']} | {r['plan_documents']} / {r['plan_bytes']} | "
+                   f"{r.get('cited_documents', 0)} / {r.get('cited_bytes', 0)} |"
                    for mid, r in cost['modules'].items() if 'plan_documents' in r]]
     if cost.get('human_touches'):
         text += ['', f"人工介入（按用途）：{cell(cost['human_by_purpose'])}", '',

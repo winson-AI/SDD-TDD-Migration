@@ -104,10 +104,6 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 [run-request.json](../../../template/run-request.json) 中的元数据、项目标识、来源引用由宿主生成；用户的单模块选择仍只有 `single-module + 功能模块名`。
 
-## 导入已有 global-input
-
-新入口先初始化/更新项目配置再 prepare。用户提供旧 global-input 时，宿主将代码根目录、架构 path、执行器、runtime 等提取到项目 config；预算/门禁放入 defaults。整体规范路径可映射 requirements_path；已有整体用例可保存为项目用例文件并引用 test_cases_path。run_id/module_name/基线及生成产物不写项目配置。
-
 ## 父子共同规划视野与知识资料
 
 可选 knowledge_paths 是知识文档绝对路径数组，首次保存、增量更新/删除沿用配置版本协议；数组整体替换。prepare 把每份知识文档复制并绑定摘要到 source_refs.knowledge_paths，旧运行继续读取原快照。父 MO 与子 MO 经 planning_context 读取它们，见[全局可见](module-decomposition.md#2-全局可见按分配范围执行)。全局代码目录用于只读理解和复用检查；目标源码不是全文复制快照，实际代码变化仍受 baseline/锁/冻结约束。缺失必要知识或未声明公共能力 owner 时先记录问题，不能凭局部信息重复实现。
@@ -118,10 +114,10 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 ## 独立构建配置
 
-可选 build 保存 argv/cwd/timeout_seconds/environment_ref，用户更新直接按原协议更新，prepare 固化命令与环境文档。没有指定命令时 GO 全目标搜索脚本、默认评估 Gradle assemble；宿主将旧 quality_gates.build_argv 迁入 build.argv。新输入 split_testing_required=true，不能通过缺自动化环境关闭编译门禁。详见 [构建与自动化协议](build-automation.md)。
+可选 build 保存 argv/cwd/timeout_seconds/environment_ref，用户更新直接按原协议更新，prepare 固化命令与环境文档。没有指定命令时 GO 全目标搜索脚本、默认评估 Gradle assemble。新输入 split_testing_required=true，不能通过缺自动化环境关闭编译门禁。详见 [构建与自动化协议](build-automation.md)。
 
 ## 跨运行经验沉淀与复用
 
 跨 run 的分析/切分经验只经经验库抽象复用，不手工拷入新 Run：
-1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察（切分/边界调整、重规划、修复模式、阻塞及解除依据、一次冻结改交计划或同因被拒达三次）；失败为 pending，可重试。配置 `experience_root`（绝对目录）则多工作区共用一库，块名 `<project_id>/<run_id>`。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 Ledger retrospect 或 run-review 的 lessons_ref 提交。每次采集重生成切分技能 `skills/migration-slicing-experience/SKILL.md`：多个 run 印证的抽象教训在前，附往次切分形态与未抽象的观察，内容变才升版。
-2. **规划指导**：prepare 仅固化完整抽象经验，原始观察留存供复盘，不臆造根因。本 Run 的不可变 history_refs 纳入通用及关联叶子经验，预检绑定版本。prepare 一并固化切分技能：GO/MO 的登记、全局规划、拆分与接受、上溯和上游修订步骤以游标 slicing_skill 给出，宿主按技能加载，他处不读。
+1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察（切分/边界调整、重规划、修复模式、阻塞及解除依据、一次冻结改交计划或同因被拒达三次）；失败为 pending，可重试。配置 `experience_root`（绝对目录）则多工作区共用一库，块名 `<project_id>/<run_id>`。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 Ledger retrospect 或 run-review 的 lessons_ref 提交。每次采集重生成切分技能 `skills/migration-slicing-experience/SKILL.md`：多个 run 印证的抽象教训在前，附往次切分形态与未抽象的观察，内容变才升版。run 内定论的 target_resources 与 test_adapter.device 随采集入库，项目配置未声明时下一 Run 的 prepare 取用。
+2. **规划指导**：prepare 仅固化完整抽象经验，原始观察留存供复盘，不臆造根因。本 Run 的不可变 history_refs 纳入通用及关联叶子经验，预检绑定版本。prepare 一并固化切分技能：GO/MO 的登记、全局规划、拆分与接受、上溯和上游修订步骤以游标 slicing_skill 给出，宿主按技能加载，他处不读。收尾的全局游标在有未抽象观察或切分信号（成链、过半等待、界面逻辑分属、一次冻结改交达三次）且尚无复盘时给出 retrospective_due，宿主让统一 Auditor 按 retrospective.json 抽象并提交 retrospect。

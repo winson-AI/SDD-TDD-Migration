@@ -45,13 +45,32 @@ def slicing_facts(state):
     nodes = {**state.get('module_groups', {}), **state['modules']}
     return {'roots': sum(not node.get('parent_module_id') for node in nodes.values()), 'leaves': len(state['modules']),
             'splits': behavior_contract.slices(state), 'resplits': len(state.get('redecomposition_history', [])),
-            'run_revisions': len(state.get('run_change_history', []))}
+            'run_revisions': len(state.get('run_change_history', [])),
+            'max_plan_rounds': max([n for m in state['modules'].values() for n in [*m.get('plan_rounds', []), m.get('plan_submissions', 0)]] or [0])}
+
+
+def retrospective_due(state):
+    """What a closing retrospective has to turn into lessons: the observations nobody abstracted, and what the slicing
+    itself shows (a chain, slices that mostly wait, cases cut by layer, a freeze that took many plans). None once a
+    retrospective is committed, or when the run leaves nothing to learn from."""
+    if state.get('retrospectives'):
+        return None
+    from openspec_projection import build_lessons
+    facts = slicing_facts(state)
+    observations = sum(not all(entry.get(key) for key in ABSTRACT_FIELDS) for entry in build_lessons(state, 0)['entries'])
+    signals = [name for name, present in (
+        ('chain', any(split['chain_depth'] >= 3 for split in facts['splits'])),
+        ('waiting', any(2 * split['waiting'] > split['slices'] for split in facts['splits'])),
+        ('layered', any(split.get('layered_cases') for split in facts['splits'])),
+        ('plan-rounds', facts['max_plan_rounds'] >= 3)) if present]
+    return {'observations': observations, 'signals': signals} if observations or signals else None
 
 
 def skill_body(data):
     """The skill a store gives: its abstract slicing lessons merged across runs (a lesson several runs arrived at
     comes first), the shape of earlier splits, and the latest observations nobody has abstracted yet."""
     line = lambda value: ' '.join(str(value).split())
+    some = lambda ids: f"{len(ids)} 条（{'、'.join(ids[:3])}{' 等' if len(ids) > 3 else ''}）" if ids else '—'  # a count reads; a long list does not
     merged, observed, shapes = {}, [], []
     for rid, block in sorted(data['runs'].items(), key=lambda pair: (pair[1].get('harvested_at') or '', pair[0])):
         for entry in block.get('entries', []):
@@ -83,14 +102,15 @@ def skill_body(data):
                  f"- 做法：{line(entry['strategy'])}", f"- 结果：{line(entry['result'])}", f"- 下次检查：{line(entry['next_check'])}", '']
     if shapes:
         text += ['## 往次切分形态', '', '事实记录，不含归因：链长是最长依赖链上的切片数，等待是须等另一切片验证完成才能开工的切片数。', '',
-                 '| run | 根 / 叶子 | 父模块 | 切片 | 支撑切片 | 多切片验收的用例 | 链长 | 等待 | 再拆分 | Run 修订 |',
-                 '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
+                 '| run | 根 / 叶子 | 父模块 | 切片 | 支撑切片 | 多切片验收的用例 | 链长 | 等待 | 再拆分 | Run 修订 | 界面逻辑分属 | 单层切片 | 最多改交 |',
+                 '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
         for rid, facts in shapes:
             for split in facts.get('splits') or [{}]:
                 text.append('| ' + ' | '.join(line(value) for value in (
                     rid, f"{facts.get('roots')} / {facts.get('leaves')}", split.get('parent_module_id', '—'), split.get('slices', '—'),
-                    '、'.join(split.get('supporting') or []) or '—', '、'.join(split.get('shared_cases') or []) or '—',
-                    split.get('chain_depth', '—'), split.get('waiting', '—'), facts.get('resplits', 0), facts.get('run_revisions', 0))) + ' |')
+                    '、'.join(split.get('supporting') or []) or '—', some(split.get('shared_cases')),
+                    split.get('chain_depth', '—'), split.get('waiting', '—'), facts.get('resplits', 0), facts.get('run_revisions', 0),
+                    some(split.get('layered_cases')), len(split.get('single_layer') or []), facts.get('max_plan_rounds', 0))) + ' |')
         text.append('')
     if observed:
         text += [f'## 尚未抽象的观察（共 {len(observed)} 条，列最近 {min(len(observed), SKILL_OBSERVATIONS)} 条）', '',
@@ -115,6 +135,28 @@ def write_skill(directory, data):
             'GO 登记根功能、全局规划与接受拆分，MO 拆分、再拆分与上溯之前加载。\n---\n\n')
     atomic(path, (head + body).encode('utf-8'))
     return {'path': str(path), 'revision': record['revision']}
+
+
+def settled(state):
+    """What a run settled that the project's next run would otherwise settle again: how the target takes resources and
+    where a user-visible case is verified."""
+    import project_context
+    facts = {}
+    if state.get('target_resources'):
+        facts['target_resources'] = state['target_resources']
+    try:
+        device = project_context.device_verification(state)
+    except (ValueError, OSError, KeyError, TypeError):
+        device = None
+    if device:
+        facts['device'] = device
+    return facts
+
+
+def conventions(root):
+    """The conventions earlier runs of this project settled, as its experience store holds them."""
+    _, project_id = shared(root)
+    return (load(root).get('conventions') or {}).get(project_id or '', {})
 
 
 def planning_view(data, archive_lesson=None):
@@ -291,6 +333,9 @@ def harvest(root, run_root):
         stamp = datetime.now(timezone.utc).isoformat()
         data['runs'][rid] = {'sequence': sequence, 'run_quality': state.get('quality'), 'harvested_at': stamp,
                              'entries': lessons['entries'], 'slicing': slicing_facts(state)}
+        facts = settled(state)
+        if facts:  # the project's next run starts from what this one settled, unless its own configuration says otherwise
+            data.setdefault('conventions', {})[shared(root)[1] or state.get('project_id') or ''] = {**facts, 'run_id': rid}
         skill = write_skill(directory, data)  # the store's slicing skill follows every run that adds to it
         atomic(directory / 'lessons.json', encoded(data))
         counts = dict(Counter(e['kind'] for e in lessons['entries']))

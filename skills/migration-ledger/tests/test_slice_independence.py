@@ -14,6 +14,44 @@ from contracts import Rejected
 from test_behavior_contract import review
 
 
+class LayerTests(unittest.TestCase):
+    """A split is read from what each slice's own four-dimension analysis carries."""
+    def setUp(self):
+        self.f = f = test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
+
+    def child(self, mid, accepted=(), **dimensions):
+        analysis = {'dimensions': [{'dimension': name, 'status': 'applicable', 'items': [{'item_id': mid + '-' + name, 'case_ids': list(cases)}]}
+                                   for name, cases in dimensions.items()]}
+        return {'module_id': mid, 'case_ids': ['C1', 'C2'], 'acceptance_case_ids': list(accepted),
+                'dimension_analysis_ref': self.f.ref(mid + '-profile.json', analysis)}
+
+    def judge(self, children, **plan):
+        parent = {'module_id': 'M010', 'case_ids': ['C1', 'C2']}
+        graph = {child['module_id']: [] for child in children}
+        supporting = {child['module_id']: 'a provider the accepting slice uses' for child in children if not child['acceptance_case_ids']}
+        return behavior_contract.independence(parent, children, graph, {'case_acceptance': {'C1': 'M001', 'C2': 'M001'},
+                                                                         'supporting_slices': supporting, **plan})
+
+    def test_a_case_whose_screen_and_logic_live_in_two_slices_is_cut_by_layer(self):
+        layered = [self.child('M001', ('C1', 'C2'), UI=['C1', 'C2']), self.child('M002', Logic=['C1', 'C2'], Resource=['C1'])]
+        shape = behavior_contract.slicing(layered, {'M001': [], 'M002': []})
+        self.assertEqual((shape['layered_cases'], shape['single_layer']), (['C1', 'C2'], ['M001', 'M002']))
+        with self.assertRaisesRegex(Rejected, '2 cases have their screen in one slice and their logic in another'):
+            self.judge(layered)
+        self.judge(layered, independence_review={'rationale': 'the logic is one provider every screen of the product uses',
+                                                 'evidence_refs': [self.f.ref('layer-review.md', 'why it cannot live in the screen slice')]})
+
+    def test_a_slice_that_shows_and_decides_its_case_is_vertical(self):
+        vertical = [self.child('M001', ('C1', 'C2'), UI=['C1', 'C2'], Logic=['C1', 'C2']), self.child('M002', Logic=['C2'], Adhesive=['C1'])]
+        shape = behavior_contract.slicing(vertical, {'M001': [], 'M002': []})
+        self.assertEqual((shape['layered_cases'], shape['single_layer']), ([], ['M002']))  # M002 still decides without showing
+        self.judge(vertical)
+
+    def test_a_slice_without_a_readable_analysis_is_not_guessed_at(self):
+        children = [{'module_id': 'M001', 'case_ids': ['C1', 'C2'], 'acceptance_case_ids': ['C1', 'C2']}, self.child('M002', Logic=['C1'])]
+        self.assertEqual(behavior_contract.slicing(children, {'M001': [], 'M002': []})['layered_cases'], [])
+
+
 class SplitTests(unittest.TestCase):
     def setUp(self):
         self.f = f = test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
@@ -51,7 +89,7 @@ class SplitTests(unittest.TestCase):
 
     def test_a_chain_of_slices_is_argued_for(self):
         plan = self.proposal(ids=('M001', 'M002', 'M003'), dependencies={'M002': ['M001'], 'M003': ['M002']})
-        with self.assertRaisesRegex(Rejected, 'chain of 3 and 2 of 3 wait'):
+        with self.assertRaisesRegex(Rejected, 'chain of 3, 2 of 3 wait'):
             self.judge(plan)
         plan['independence_review'] = {'rationale': 'the third slice renders what the second computes from the first'}
         with self.assertRaisesRegex(Rejected, 'independence review evidence'):
@@ -77,7 +115,7 @@ class SplitTests(unittest.TestCase):
         self.assertEqual(state['modules']['M002']['acceptance_case_ids'], [])
         self.assertEqual(decomposition.assigned_module(state, state['modules']['M001'])['acceptance_case_ids'], ['C1'])
         self.assertEqual(behavior_contract.slices(state), [{'parent_module_id': 'M010', 'slices': 2, 'supporting': ['M002'],
-            'shared_cases': [], 'accepted_cases': ['C1'], 'chain_depth': 1, 'waiting': 0}])
+            'shared_cases': [], 'accepted_cases': ['C1'], 'chain_depth': 1, 'waiting': 0, 'layered_cases': [], 'single_layer': []}])
         self.assertIn('## 切片独立性', migration_report.render(migration_report.build(f.root, state, 1)))
 
     def test_moving_acceptance_in_a_resplit_replans_both_slices(self):

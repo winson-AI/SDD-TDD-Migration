@@ -54,7 +54,7 @@ Resource 指应用资源；原 Dependencies / Resources 中的文件锁、设备
 
 ## 5. OpenSpec 与运行兼容
 
-`dimension_analysis_ref`、`dimension_trace`、`tasks[].scope` 和 `tasks[].dimension_analysis` 一起纳入 stage-plan 摘要和冻结；design 解释逐维差异、复用与接线，spec 给出应保留的可观察行为，tasks 给出实现/验证责任，checklist 验收覆盖。Ledger 将模块分析、任务 scope/四维分析及追溯物化为 `change/dimensions.md`，它是六件套的辅助索引，不是第二份可修改需求或状态源。登记后分配引用不可就地隐式覆盖；范围/分配缺陷经 `realloc-request` / `redecompose` 在本 Run 内更新当前分配并保留 history，仅重规划受影响闭包，无关模块保留 Green；既有 tasks 调整按 CR 与重冻结。
+`dimension_analysis_ref`、`dimension_trace`、`tasks[].scope` 和 `tasks[].dimension_analysis` 一起纳入 stage-plan 摘要和冻结；design 解释逐维差异、复用与接线，spec 给出应保留的可观察行为，tasks 给出实现/验证责任，checklist 验收覆盖。Ledger 将模块分析、任务 scope/四维分析及追溯物化为 `change/dimensions.md`，它是六件套的辅助索引，不是第二份可修改需求或状态源。登记后分配引用不可就地隐式覆盖，修订见[同 Run 上游修订](progress-recovery.md#同-run-上游修订)。
 
 四维分析是必选门禁，prepare 固化且不可关闭。
 
@@ -74,10 +74,6 @@ GO 先从功能清单划定“搜索”模块 scope，再在 UI 记录搜索框/
 - applicable 行必须填写 `implementation`：具体改哪些行为/节点/接口、如何复用或适配、怎样接线、怎样保留源语义；Resource 引用源资源→目标访问器→消费者，不得只写“完成本维度”。验证沿用该任务已冻结的 PATH/ASSERT。
 - not-applicable 行 item_ids=[]，给出本任务范围内的理由。子模块适用某维度不代表每个任务都适用，但所有适用条目必须被任务集合完整承接；不能用 N/A 删除已分配给该任务的条目。
 - `unresolved=[]` 才可冻结。任务间共享修改先明确单一写 owner/前置依赖；实施中发现需越过 task scope，先走 CR/影响分析，不能用全模块写权限绕过。
-
-例如“提交查询”子模块先拆出“参数校验”和“按钮事件接线”任务，再分别四维分析。前者 Logic 指导校验规则、错误类型与边界值测试，UI/Resource 可有依据地 N/A；后者按实际职责分析 UI 状态/事件及 Adhesive 的处理器接线。任务分析描述实际实现决策，模块级条目映射仅作为继承与覆盖索引。
-
-结构校验能绑定范围和证据，真实阅读/决策的先后顺序仍需编排角色遵守。
 
 ## 埋点跨四维的条件分析
 

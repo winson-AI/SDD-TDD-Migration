@@ -4,6 +4,7 @@ import copy
 from pathlib import Path
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import api_contract
@@ -65,7 +66,10 @@ class SettledBeforeRegistrationTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, r'target_resources\.parameters is not settled'):
             dimensions.allocation(state, self.module('Logic', 'UI'))
         state['target_resources']['declined']['parameters'] = 'values are typed in the design system'
-        dimensions.allocation(state, self.module('Logic', 'UI'))
+        with self.assertRaisesRegex(Rejected, r'test_adapter\.device is not settled'):  # nor where a user-visible case is verified
+            dimensions.allocation(state, self.module('Logic', 'UI'))
+        with mock.patch.object(pc, 'device_verification', return_value={'platforms': ['android']}):
+            dimensions.allocation(state, self.module('Logic', 'UI'))
 
     def test_an_analysis_the_ledger_already_holds_is_not_asked_again(self):
         state, module = self.f.state(), self.module('Logic', 'UI')
@@ -75,7 +79,8 @@ class SettledBeforeRegistrationTests(unittest.TestCase):
     def test_a_run_settles_it_through_a_reviewed_context_revision(self):
         f, t = self.f, self.t
         report = t.report({'target_resources': {'declined': {'copy': 'the target bundles no files',
-                                                             'parameters': 'values are typed in the design system'}}}, affected=())
+                                                             'parameters': 'values are typed in the design system'}},
+                           'test_adapter': {'device': {'unavailable': 'this task has no device farm'}}}, affected=())
         ref = f.ref('settle-resources.json', report)
         receipt = f.ref('settle-context.json', f.report('global-planning', module=None, draft=ref))
         f.raw('run-review', {'report_ref': ref, 'context_ref': receipt}, role='global-orchestrator', module=None)
@@ -84,6 +89,7 @@ class SettledBeforeRegistrationTests(unittest.TestCase):
         f.call('revise-run', step['payload'], role='host', module=None)
         state = f.state()
         self.assertEqual(sorted(state['target_resources']['declined']), ['copy', 'parameters'])
+        self.assertEqual(pc.device_verification(state), {'unavailable': 'this task has no device farm'})
         dimensions.allocation(state, self.module('Logic', 'UI'))
 
 
