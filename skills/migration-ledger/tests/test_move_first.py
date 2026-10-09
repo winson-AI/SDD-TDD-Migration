@@ -415,5 +415,21 @@ class LeafBoundConditionTests(unittest.TestCase):
             f.call('plan', {'plan_ref': f.ref('unknown-condition.json', plan)}, role='spec-designer')
 
 
+class ProviderRequestTests(unittest.TestCase):
+    """A leaf that plans is not held by what its provider is waiting for: it needs the provider's code only when dispatched."""
+    def test_a_providers_request_to_its_parent_does_not_stop_its_consumers_from_planning(self):
+        import workflow
+        from unittest import mock
+        modules = {'M001': {'module_id': 'M001', 'dependencies': [], 'realloc_request': {'reason': 'its allocation is out of date'}},
+                   'M002': {'module_id': 'M002', 'dependencies': ['M001']}}
+        state = {'modules': modules, 'module_groups': {}}
+        with mock.patch.object(workflow.dimensions, 'allocation'):
+            self.assertEqual(workflow.runtime_allocations(state, 'M002', planning=True), {'M001', 'M002'})
+            with self.assertRaisesRegex(Rejected, 'resolve upstream allocation request'):  # its dispatch still waits for the provider
+                workflow.runtime_allocations(state, 'M002')
+            with self.assertRaisesRegex(Rejected, 'resolve upstream allocation request'):  # and the leaf that asked waits for its answer
+                workflow.runtime_allocations(state, 'M001', planning=True)
+
+
 if __name__ == '__main__':
     unittest.main()

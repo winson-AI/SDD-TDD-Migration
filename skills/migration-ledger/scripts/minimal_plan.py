@@ -21,8 +21,12 @@ def unique(values):
 def complete(s, m, plan):
     import dimensions
     ref = m.get('dimension_analysis_ref')
-    if not ref or not isinstance(plan, dict) or plan.get('dimension_analysis_ref', ref) != ref:
-        return plan  # no four-dimension specification, or a plan bound to another one: nothing follows from it
+    if not ref or not isinstance(plan, dict):
+        return plan  # no four-dimension specification: nothing follows from it
+    own = plan.get('dimension_analysis_ref', ref)
+    if own != ref and not dimensions.refines(ref, own):
+        return plan  # a plan bound to another analysis: the gates refuse it
+    ref = own  # the leaf's refinement of its allocation says everything the allocation says
     try:
         analysis, items = dimensions.load(ref, m['module_id'])
     except (Rejected, OSError):

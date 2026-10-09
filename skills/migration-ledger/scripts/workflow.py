@@ -63,7 +63,7 @@ def runtime_allocations(s, module_id, planning=False):
                 'root allocation requires redecomposition')
         require(mid not in s['modules'] or (not module.get('decomposition_required') and not module.get('decomposition_submission')),
                 'complete MO decomposition for this leaf and its dependencies before execution')
-        require(not module.get('realloc_request'), 'resolve upstream allocation request before execution')
+        require(not module.get('realloc_request') or (planning and mid != module_id), 'resolve upstream allocation request before execution')
         dimensions.allocation(s, module)
         if s.get('behavior_contract_required'):
             import behavior_contract  # judged when the allocation was registered; here only drift of what it cites

@@ -549,9 +549,10 @@ def templates(s, m, step):
         if facts['parameters']: names += ['parameter-binding.json']
     unwritten = set()
     if role == 'spec-designer' and step.get('mode') != 'design' and (m or {}).get('dimension_analysis_ref'):
-        # The leaf's analysis is registered: its plan does not write the analysis or its models again, the four documents
-        # start from spec_skeleton.py, and an impact statement belongs to a change request.
-        unwritten = {'dimension-analysis.json', 'semantic-model.json'}
+        # The leaf's analysis is registered: a refinement starts from that file, not from the template; the model template
+        # is for a leaf that has a screen to give evidence for; the four documents start from spec_skeleton.py, and an
+        # impact statement belongs to a change request.
+        unwritten = {'dimension-analysis.json'} | (set() if active['ui'] else {'semantic-model.json'})
         if not (m or {}).get('plan'):
             unwritten |= {'proposal.md', 'spec.md', 'design.md', 'tasks.md'}
         if not (m or {}).get('change_request'):
