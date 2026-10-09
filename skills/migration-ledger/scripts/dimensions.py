@@ -287,6 +287,8 @@ def keeps(allocated, refined, where='analysis', key=None):
             require(name in refined, 'refined analysis drops ' + where + '.' + name)
             if name == 'items' and allocated.get('dimension') == 'Resource':
                 detailed(value, refined[name], where + '.' + name)
+            elif name == 'consumer' and 'source_resource' in allocated:
+                narrowed(value, refined[name], where + '.' + name)
             else:
                 keeps(value, refined[name], where + '.' + name, name)
     elif isinstance(allocated, list) and key in GROWS:
@@ -303,6 +305,22 @@ def keeps(allocated, refined, where='analysis', key=None):
             keeps(old, new, where + '[' + str(old[name]) + ']')
     else:
         require(allocated == refined, 'refined analysis changes ' + where)
+
+
+def narrowed(allocated, refined, where):
+    """Who consumes a resource. An allocation is written before its leaf reads the source and may name only the
+    directory whose code will consume a resource; the leaf names the files in it. A file the allocation names stays,
+    every directory it names gets at least one file, and no consumer is added outside them."""
+    listed = lambda value: [value] if isinstance(value, str) else value
+    place = lambda value: Path(str(value).split('#', 1)[0])
+    old, new = listed(allocated), listed(refined)
+    require(isinstance(new, list) and new and all(isinstance(value, str) and value.strip() for value in new),
+            'refined analysis changes ' + where)
+    inside = lambda value, directory: bool(place(value).suffix) and not place(directory).suffix and place(value).is_relative_to(place(directory))
+    for value in old:
+        require(value in new or any(inside(file, value) for file in new), 'refined analysis changes ' + where)
+    require(all(value in old or any(inside(value, directory) for directory in old) for value in new),
+            'refined analysis adds a consumer outside ' + where)
 
 
 def detailed(allocated, refined, where):
@@ -462,7 +480,7 @@ def implementation(plan, result):
         require(trace.get('summary'), 'dimension implementation summary required')
         evidence(trace.get('evidence_refs'), 'dimension implementation evidence')
         # Reused assets need not be modified, but must have real production consumers.
-        if items[iid]['dimension'] == 'Resource':
+        if items[iid]['dimension'] == 'Resource' and items[iid].get('resource_strategy') != 'blocked':  # a gap has no target
             import resource_fidelity
             actual = check_ref(trace.get('target_resource_ref'))
             expected = Path(items[iid]['target_resource'].split('#', 1)[0])

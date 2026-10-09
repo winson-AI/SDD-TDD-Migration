@@ -312,6 +312,21 @@ def require_target_binding(item, target_root):
     require(strategy not in WIRED or name.strip(), label + ': target_resource needs #<the name consumers use for it>')
 
 
+def require_consumer_files(item, write_paths):
+    """What an implementation result is held to is asked of the plan it is written from: a migrated resource is
+    consumed by named production files, each one the module writes or one the target already holds. A directory or a
+    note about the consumer cannot be shown in a result, so it is refused before code is written."""
+    if item.get('resource_strategy') in (None, 'blocked'):
+        return
+    label, scope = item.get('item_id', '?'), [Path(path).resolve() for path in write_paths or []]
+    for consumer in consumers(item):
+        path = Path(consumer.split('#', 1)[0])
+        require(path.suffix and not path.is_dir(), label + ': a consumer is a production file, not a directory or a note: ' + consumer)
+        # A module registered without write paths (the minimal low-level API) is held to the shape alone.
+        require(not scope or path.is_file() or any(path.resolve().is_relative_to(base) for base in scope),
+                label + ': a consumer is a file this module writes or the target already holds: ' + consumer)
+
+
 def verify_exact(item, target):
     """The target holds what the frozen strategy promises: the legacy bytes, the legacy entry, or the converted vector."""
     strategy, source, label = item.get('resource_strategy'), item.get('source_resource_ref') or {}, item.get('item_id', '?')
@@ -808,6 +823,10 @@ def freeze_gate(s, m, allocation=True):
         allocation_gate(s, analysis)
     else:
         intact(lambda: allocation_gate(s, analysis))
+    for row in analysis['dimensions']:
+        if row.get('dimension') == 'Resource' and row.get('status') == 'applicable':
+            for item in row.get('items', []):
+                require_consumer_files(item, m.get('write_paths'))
     import ui_fidelity
     plan = m['plan']
     require_graphic_proof([item for row in analysis['dimensions'] if row.get('dimension') == 'Resource'

@@ -57,6 +57,14 @@ class ResourceScopeTests(unittest.TestCase):
                 'path': path.relative_to(self.n.android).as_posix(), 'reason': 'Outside this approved UI scope',
                 'evidence_refs': [file_ref(self.n.write('evidence/scope-review.json', {'active': ['base']}))]}
 
+    def test_a_plan_whose_resource_is_consumed_by_a_directory_is_refused_at_freeze(self):
+        """Not after the code is written: an implementation result has to show the consumer files."""
+        self.freeze()
+        consumer = self.item['consumer']
+        self.item['consumer'] = str(Path(str(consumer if isinstance(consumer, str) else consumer[0]).split('#', 1)[0]).parent)
+        with self.assertRaisesRegex(Rejected, 'a consumer is a production file, not a directory or a note'):
+            self.freeze()
+
     def test_stateful_colors_are_scanned_and_require_semantic_strategy(self):
         color = self.n.write('android/app/src/main/res/color-night/title.xml',
             '<selector xmlns:android="http://schemas.android.com/apk/res/android">'

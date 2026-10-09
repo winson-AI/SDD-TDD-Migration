@@ -134,6 +134,39 @@ class TemplateTests(unittest.TestCase):
         self.assertFalse({'dimension-analysis.json'} & (with_screen | without))  # it copies its allocation and adds to it
 
 
+class ConsumerTests(unittest.TestCase):
+    """An allocation is written before its leaf reads the source: it may name only the directory whose code will consume
+    a resource. The leaf names the files; a result is then held to exactly those."""
+    ALLOCATED = {'dimensions': [{'dimension': 'Resource', 'status': 'applicable', 'items': [
+        {'item_id': 'ICONS', 'source_resource': '@drawable/ic_back', 'consumer': ['/t/ui/phone', '/t/res/Fonts.kt#Bold']}]}]}
+
+    def refined(self, consumer, allocated=None):
+        value = copy.deepcopy(allocated or self.ALLOCATED)
+        value['dimensions'][0]['items'][0]['consumer'] = consumer
+        return value
+
+    def test_a_leaf_names_the_files_in_the_directory_its_allocation_gave(self):
+        for consumer in (['/t/ui/phone/PhoneScreen.kt#Arrow', '/t/res/Fonts.kt#Bold'],
+                         ['/t/ui/phone/PhoneScreen.kt', '/t/ui/phone/parts/Row.kt', '/t/res/Fonts.kt#Bold'],
+                         ['/t/ui/phone', '/t/res/Fonts.kt#Bold']):  # the allocation as it is
+            dimensions.keeps(self.ALLOCATED, self.refined(consumer))
+        single = self.refined('/t/ui/phone')  # one consumer written as a string
+        dimensions.keeps(single, self.refined(['/t/ui/phone/PhoneScreen.kt'], single))
+
+    def test_a_file_the_allocation_names_stays_and_nothing_is_consumed_outside_it(self):
+        refused = (
+            (['/t/ui/phone/PhoneScreen.kt'], r'changes .*\[ICONS\]\.consumer'),                           # drops the file it named
+            (['/t/ui/phone/PhoneScreen.kt', '/t/res/Other.kt#Bold'], r'changes .*\.consumer'),             # replaces it
+            (['/t/res/Fonts.kt#Bold'], r'changes .*\.consumer'),                                           # leaves the directory without a file
+            (['/t/ui/phone/parts', '/t/res/Fonts.kt#Bold'], r'changes .*\.consumer'),                       # a narrower directory is not a file
+            (['/t/ui/phone/PhoneScreen.kt', '/t/res/Fonts.kt#Bold', '/t/ui/code/CodeScreen.kt'], 'adds a consumer outside'),
+            ([], r'changes .*\.consumer'),
+        )
+        for consumer, message in refused:
+            with self.subTest(consumer=consumer), self.assertRaisesRegex(Rejected, message):
+                dimensions.keeps(self.ALLOCATED, self.refined(consumer))
+
+
 class DetailTests(unittest.TestCase):
     """A leaf details an allocated Resource item into items of its own, one per file or drawing its evidence finds."""
     ALLOCATED = {'dimensions': [

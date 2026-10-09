@@ -199,6 +199,21 @@ class DimensionTests(unittest.TestCase):
         m['code_files'] = []  # Existing invalidate -> implement route remains usable.
         dimensions.current(m)
 
+    def test_a_blocked_resource_owes_no_target_or_consumer_in_the_result(self):
+        f = self.f
+        analysis = self.analysis('M001', ('Resource',))
+        item = analysis['dimensions'][3]['items'][0]
+        item.update(resource_strategy='blocked', blocked_reason='the target cannot play the animation')
+        plan = {'module_id': 'M001', 'dimension_analysis_ref': f.ref('blocked-resource.json', analysis),
+                'dimension_trace': [{'item_id': item['item_id'], 'task_ids': ['T1']}], 'tasks': []}
+        trace = {'item_id': item['item_id'], 'task_ids': ['T1'], 'summary': 'Left out: recorded as a gap, nothing reaches the target',
+                 'evidence_refs': [f.ref('target/m1/gap.md', 'no player in the target')]}
+        dimensions.implementation(plan, {'dimension_evidence': [trace]})  # the module still cannot be Green while it is blocked
+        item.update(resource_strategy='byte_copy'); item.pop('blocked_reason')
+        plan['dimension_analysis_ref'] = f.ref('copied-resource.json', analysis)
+        with self.assertRaises(Rejected):
+            dimensions.implementation(plan, {'dimension_evidence': [trace]})  # a migrated resource shows its target and consumers
+
     def test_multiple_consumers_are_all_verified_and_remain_live(self):
         f = self.f
         analysis = self.analysis('M001', ('Resource',))
