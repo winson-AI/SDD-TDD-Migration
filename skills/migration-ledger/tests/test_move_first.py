@@ -207,6 +207,13 @@ class ItemCaseTests(unittest.TestCase):
     def test_a_case_of_the_item_held_by_another_slice_is_carried_by_its_holder(self):
         self.partition(M001={'A-UI': ('P-UI', ['C1'])}, M002={'B-LOGIC': ('P-LOGIC', ['C2'])})  # C2 of the screen item is M002's case
 
+    def test_a_slice_verifies_what_it_cites_by_cases_of_its_own(self):
+        # M002 holds C3, which the screen item was not written against: its share of the screen is verified by its own case
+        items = dict(self.ITEMS, **{'P-RES': {'dimension': 'Resource', 'requirement_ids': ['R1'], 'case_ids': ['C9']}})
+        with mock.patch.object(ItemCaseTests, 'ITEMS', items):
+            self.partition(M001={'A-UI': ('P-UI', ['C1', 'C2']), 'A-LOGIC': ('P-LOGIC', ['C2'])},
+                           M002={'B-UI': ('P-UI', ['C3']), 'B-RES': ('P-RES', ['C3'])})
+
     def test_a_case_a_citing_child_holds_stays_attached_to_what_it_cites(self):
         with self.assertRaisesRegex(Rejected, 'omit parent item requirements/cases'):
             self.partition(M001={'A-UI': ('P-UI', ['C1']), 'A-LOGIC': ('P-LOGIC', ['C2'])})  # it holds C2 and cites the screen item without it

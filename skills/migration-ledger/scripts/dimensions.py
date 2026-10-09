@@ -243,9 +243,10 @@ def partition(s, parent, plan):
             origins = set(nonempty(item.get('parent_item_ids'), 'child dimension parent item trace'))
             require(origins <= set(expected), 'unknown parent dimension item; revise GO scope first')
             require(all(expected[pid]['dimension'] == item['dimension'] for pid in origins), 'child dimension changed')
-            require(set(item['requirement_ids']) <= {r for pid in origins for r in expected[pid]['requirement_ids']}
-                    and set(item['case_ids']) <= {c for pid in origins for c in expected[pid]['case_ids']},
-                    'child dimension requirement/case outside parent item')
+            # A slice verifies its items by the cases it holds: they are the slice's own (its allocation covers exactly
+            # them), whichever cases the parent item was written against. Its requirements stay inside the parent item's.
+            require(set(item['requirement_ids']) <= {r for pid in origins for r in expected[pid]['requirement_ids']},
+                    'child dimension requirement outside parent item')
             covered.update(origins)
             for pid in origins:
                 coverage[pid]['requirements'].update(item['requirement_ids'])
