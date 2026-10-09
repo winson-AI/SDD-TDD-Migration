@@ -1,4 +1,5 @@
-"""A screen that is one class of a large source file is collected alone: an entry `path#Class` indexes that class."""
+"""A screen that is one class of a large source file is collected alone: an entry `path#Class` indexes that class,
+and `path#Class.member` one function of it."""
 from pathlib import Path
 import sys
 import unittest
@@ -26,6 +27,26 @@ class LoginActivity {
             spinner.setAnimation(R.raw.spinner)
         }
     }
+    fun createView(context: Context): View {
+        back.setImageResource(R.drawable.ic_loading)
+        back.setOnClickListener { card.setBackground(ContextCompat.getDrawable(context, R.drawable.bg_card)) }
+        return root
+    }
+    fun setPage(page: Int) { bind(); title.setText(R.string.app_name) }
+}
+'''
+
+HOST = '''class Host extends Base {
+    // void onBackPressed() { in a comment }
+    private final String note = "void onBackPressed() { in a string }";
+    private final int size = measure();
+    @Override
+    public void onBackPressed() throws IllegalStateException, RuntimeException {
+        if (page == 0) { measure(); }
+    }
+    int measure() { return 1; }
+    int measure(int scale) { return scale; }
+    class Inner { void hidden() { } }
 }
 '''
 
@@ -72,6 +93,33 @@ class ScopeTests(unittest.TestCase):
         index = self.collect('demo.HomeActivity')
         self.assertEqual([fact['path'] for fact in index['sourceFiles']], ['app/src/main/java/demo/HomeActivity.kt'])
         self.assertEqual(index['unresolved'], [])
+
+    def test_an_entry_that_names_a_function_collects_that_function_alone(self):
+        fact = self.source(self.collect('app/src/main/java/demo/LoginActivity.kt#LoginActivity.createView'))
+        self.assertEqual(fact['scope'], {'symbols': ['LoginActivity.createView'], 'ranges': [{'lines': [19, 23]}]})
+        self.assertEqual(sorted(fact['resourceRefs']), ['@drawable/bg_card', '@drawable/ic_loading'])  # the block it opens too
+        self.assertTrue(fact['presentationMutations'])
+        self.assertTrue(all(19 <= row['line'] <= 23 for row in fact['presentationMutations'] + fact['resourceUsages']))
+
+    def test_a_function_and_a_class_of_one_file_are_collected_together(self):
+        fact = self.source(self.collect('app/src/main/java/demo/LoginActivity.kt#PhoneScreen',
+                                        'app/src/main/java/demo/LoginActivity.kt#LoginActivity.createView',
+                                        'app/src/main/java/demo/LoginActivity.kt#LoginActivity.setPage'))
+        self.assertEqual((fact['scope']['symbols'], [row['lines'] for row in fact['scope']['ranges']]),
+                         (['LoginActivity.createView', 'LoginActivity.setPage', 'PhoneScreen'], [[6, 12], [19, 23], [24, 24]]))
+        self.assertNotIn('@raw/spinner', fact['resourceRefs'])  # the other screen of the file
+
+    def test_a_function_declared_in_a_nested_class_is_not_a_function_of_the_outer_class(self):
+        index = self.collect('app/src/main/java/demo/LoginActivity.kt#LoginActivity.bind')
+        self.assertEqual(index['sourceFiles'], [])
+        self.assertIn('symbol is not declared in the source file', [row['reason'] for row in index['unresolved']])
+
+    def test_a_function_is_found_by_its_declaration_not_by_a_call_or_a_mention(self):
+        lines = lambda symbol: [[collect_ui_sources.line_number(HOST, start), collect_ui_sources.line_number(HOST, end - 1)]
+                                for start, end in collect_ui_sources.declaration_spans(HOST, symbol)]
+        self.assertEqual(lines('Host.onBackPressed'), [[6, 8]])  # not the comment, the string, or its annotation line
+        self.assertEqual(lines('Host.measure'), [[9, 9], [10, 10]])  # both overloads; neither the initializer nor the call
+        self.assertEqual((lines('Host.hidden'), lines('Host.missing'), lines('Inner.hidden')), ([], [], [[11, 11]]))
 
     def test_braces_in_strings_chars_and_comments_do_not_end_a_class(self):
         spans = collect_ui_sources.declaration_spans(SCREENS, 'PhoneScreen')

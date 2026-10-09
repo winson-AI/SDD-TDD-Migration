@@ -285,39 +285,75 @@ def line_number(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
+def literal_end(text: str, index: int) -> int | None:
+    """Offset just past the comment, string or char that starts at `index`; None when none starts there."""
+    size = len(text)
+    if text.startswith("//", index):
+        end = text.find("\n", index)
+        return size if end < 0 else end
+    if text.startswith("/*", index):
+        end = text.find("*/", index + 2)
+        return size if end < 0 else end + 2
+    if text.startswith('"""', index):
+        end = text.find('"""', index + 3)
+        return size if end < 0 else end + 3
+    if text[index] in "\"'":
+        quote, index = text[index], index + 1
+        while index < size and text[index] != quote and text[index] != "\n":
+            index += 2 if text[index] == "\\" else 1
+        return index + 1
+    return None
+
+
 def block_end(text: str, open_brace: int) -> int | None:
     """Offset just past the brace closing the block opened at `open_brace`; comments, strings and chars are skipped."""
     depth, index, size = 0, open_brace, len(text)
     while index < size:
+        after = literal_end(text, index)
+        if after is not None:
+            index = after
+            continue
         char = text[index]
-        if text.startswith("//", index):
-            index = text.find("\n", index)
-            index = size if index < 0 else index
-        elif text.startswith("/*", index):
-            index = text.find("*/", index + 2)
-            index = size if index < 0 else index + 2
-        elif text.startswith('"""', index):
-            index = text.find('"""', index + 3)
-            index = size if index < 0 else index + 3
-        elif char in "\"'":
-            index += 1
-            while index < size and text[index] != char and text[index] != "\n":
-                index += 2 if text[index] == "\\" else 1
-            index += 1
-        else:
-            depth += char == "{"
-            if char == "}":
-                depth -= 1
-                if depth == 0:
-                    return index + 1
-            index += 1
+        depth += char == "{"
+        if char == "}":
+            depth -= 1
+            if depth == 0:
+                return index + 1
+        index += 1
     return None
 
 
+MEMBER_HEAD_RE = re.compile(r"\s*(?:throws\s+[\w.,\s]+?|:\s*[\w.<>?,\[\]\s]+?)?\s*\{")
+
+
+def member_spans(text: str, start: int, end: int, member: str) -> list[tuple[int, int]]:
+    """(start, end) offsets of every function named `member` with a block body whose signature stands directly in the
+    body of the declaration at [start, end): not inside a nested class or another function."""
+    spans, index = [], text.find("{", start) + 1
+    name = re.compile(r"\b" + re.escape(member) + r"\s*\(")
+    while index < end - 1:
+        after = literal_end(text, index)
+        if after is None and text[index] == "{":
+            after = block_end(text, index)
+        if after is not None:
+            index = after
+            continue
+        match = name.match(text, index) if text[index] == member[0] else None
+        close = call_end(text, match.end() - 1) if match else None
+        head = MEMBER_HEAD_RE.match(text, close) if close else None
+        stop = block_end(text, head.end() - 1) if head else None
+        if stop:
+            spans.append((text.rfind("\n", 0, index) + 1, stop))
+        index = stop or index + 1
+    return spans
+
+
 def declaration_spans(text: str, symbol: str) -> list[tuple[int, int]]:
-    """(start, end) offsets of every class, interface, enum or object named `symbol` declared in the text."""
+    """(start, end) offsets of every class, interface, enum or object named `symbol` declared in the text; for
+    `Class.member`, of every function `member` declared directly in such a class."""
+    owner, _, member = symbol.partition(".")
     spans = []
-    for match in re.finditer(r"\b(?:class|interface|enum|object|record)\s+" + re.escape(symbol) + r"\b", text):
+    for match in re.finditer(r"\b(?:class|interface|enum|object|record)\s+" + re.escape(owner) + r"\b", text):
         start = text.rfind("\n", 0, match.start()) + 1
         if text[start:match.start()].lstrip().startswith(("//", "*", "/*")):
             continue  # a mention in a comment, not a declaration
@@ -325,13 +361,16 @@ def declaration_spans(text: str, symbol: str) -> list[tuple[int, int]]:
         end = block_end(text, opening) if opening >= 0 else None
         if end:
             spans.append((start, end))
+    if member:
+        return [span for start, end in spans for span in member_spans(text, start, end, member)]
     return spans
 
 
 def scoped_text(text: str, symbols) -> tuple[str, list[dict]]:
     """The text with everything outside the named declarations blanked, so offsets and line numbers stay those of the
     file, and the line ranges kept. An entry `path#Class` collects that class alone: a screen that is one class of a
-    large file is indexed without the other screens the file holds."""
+    large file is indexed without the other screens the file holds. `path#Class.member` collects one function of it:
+    what a container builds in its own methods is indexed without the classes nested beside them."""
     spans = sorted({span for symbol in sorted(symbols) for span in declaration_spans(text, symbol)})
     kept, cursor, pieces = [], 0, []
     for start, end in spans:
@@ -539,7 +578,8 @@ def collect(args: argparse.Namespace) -> dict:
             )
             entries.append({"requested": requested, "sourcePath": None, "symbol": symbol})
             continue
-        # `path#Class` asks for that class alone; a path or a class name asks for the whole file.
+        # `path#Class` asks for that class alone, `path#Class.member` for one function of it; a path or a class name
+        # asks for the whole file.
         named = symbol if "#" in requested else None
         if named and not declaration_spans(path.read_text(encoding="utf-8", errors="replace"), named):
             unresolved.append({"kind": "entry", "requested": requested, "reason": "symbol is not declared in the source file"})
