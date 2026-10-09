@@ -382,8 +382,8 @@ def within_envelope(m, impact_ref):
 
 
 def allocation_frozen(m):
-    """A leaf frozen before on the analysis it still holds: what concerns that allocation alone was judged then."""
-    ref = m.get('dimension_analysis_ref')
+    """A leaf frozen before on the analysis it still works from: what concerns that analysis alone was judged then."""
+    ref = dimensions.of_leaf(m)
     return bool(ref) and any(row.get('freeze_id') and (row.get('plan') or {}).get('dimension_analysis_ref') == ref
                              for row in [m, *m.get('planning_history', [])])
 
@@ -1196,6 +1196,7 @@ def mutate(s, req, principal, events, root=None):
         held = m.get('plan_ref') == p['plan_ref']
         plan = design_stage.materialize(s, m, read_json(check_ref(p['plan_ref'])), judge=not held)
         import minimal_plan
+        dimensions.refinement(s, m, plan)  # an analysis the leaf refined from its allocation is judged like a registered one
         plan = minimal_plan.complete(s, m, plan)  # what follows from the leaf's accepted four-dimension specification
         if s.get('planning_coverage_required'):
             plan = user_paths.settle_gaps(s, m, plan)  # and from the run's statement that no device is available

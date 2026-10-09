@@ -8,7 +8,7 @@ and code that reads an analysis must not assume a field `judge` came to require 
 """
 from pathlib import Path
 
-from contracts import check_ref, digest, intact, keyed, nonempty, read_json, require
+from contracts import Rejected, check_ref, digest, intact, keyed, nonempty, read_json, require
 
 ORDER = ['UI', 'Logic', 'Adhesive', 'Resource']
 SOURCES = ('legacy', 'architecture', 'reuse', 'target')
@@ -270,11 +270,70 @@ def partition(s, parent, plan):
                 set(item['case_ids']) & coverage[iid]['held'] <= coverage[iid]['cases'], 'child dimensions omit parent item requirements/cases')
 
 
+IDENTIFIED = ('item_id', 'condition_id', 'dimension', 'api_id')
+GROWS = ('evidence_refs', 'assertions')
+
+
+def keeps(allocated, refined, where='analysis', key=None):
+    """Refuse a refinement that changes or drops something its allocation states. An object may gain fields, a field the
+    allocation left null may be filled, evidence and the assertions bound to a condition may gain entries; items,
+    conditions and dimensions are matched by their identifiers and none is added, dropped or reordered."""
+    if allocated is None:
+        return
+    if isinstance(allocated, dict):
+        require(isinstance(refined, dict), 'refined analysis changes ' + where)
+        for name, value in allocated.items():
+            require(name in refined, 'refined analysis drops ' + where + '.' + name)
+            keeps(value, refined[name], where + '.' + name, name)
+    elif isinstance(allocated, list) and key in GROWS:
+        require(isinstance(refined, list) and all(row in refined for row in allocated), 'refined analysis drops entries of ' + where)
+    elif isinstance(allocated, list):
+        require(isinstance(refined, list), 'refined analysis changes ' + where)
+        name = next((k for k in IDENTIFIED if allocated and all(isinstance(row, dict) and k in row for row in allocated)), None)
+        if not name:
+            require(allocated == refined, 'refined analysis changes ' + where)
+            return
+        require([row[name] for row in allocated] == [row.get(name) if isinstance(row, dict) else None for row in refined],
+                'refined analysis adds, drops or reorders ' + where)
+        for old, new in zip(allocated, refined):
+            keeps(old, new, where + '[' + str(old[name]) + ']')
+    else:
+        require(allocated == refined, 'refined analysis changes ' + where)
+
+
+def refines(allocated_ref, ref):
+    """Whether the analysis at `ref` is its allocation with things added and nothing it states changed."""
+    try:
+        keeps(read_json(check_ref(allocated_ref)), read_json(check_ref(ref)))
+        return True
+    except (Rejected, OSError, KeyError, TypeError, AttributeError):
+        return False
+
+
+def of_leaf(module):
+    """The analysis a leaf works from: the refinement its plan binds, or its allocation while it has none."""
+    return (module.get('plan') or {}).get('dimension_analysis_ref') or module.get('dimension_analysis_ref')
+
+
+def refinement(s, module, plan):
+    """Judge the analysis a plan binds when it is not the allocation itself: it is written by the leaf from its
+    allocation - same scope, items, conditions and requirements - with the evidence, models and bindings only the leaf
+    can produce, and it is judged like an analysis being registered."""
+    held, own = module.get('dimension_analysis_ref'), plan.get('dimension_analysis_ref')
+    if not held or not own or own == held:
+        return
+    keeps(read_json(check_ref(held)), read_json(check_ref(own)))
+    allocation(s, {**module, 'dimension_analysis_ref': own})
+
+
 def validate_plan(plan, module):
     ref = module.get('dimension_analysis_ref')
     if not ref and not plan.get('dimension_analysis_ref'):
         return
-    require(ref and plan.get('dimension_analysis_ref') == ref, 'SPEC must bind allocated dimension analysis')
+    own = plan.get('dimension_analysis_ref')
+    require(ref and (own == ref or refines(ref, own)),
+            'SPEC must bind the allocated dimension analysis, or a refinement that keeps everything it states')
+    ref = own
     _, items = load(ref, module['module_id'])
     traces = keyed(plan.get('dimension_trace'), 'item_id')
     require(set(traces) == set(items), 'SPEC dimension trace must cover every allocated item')

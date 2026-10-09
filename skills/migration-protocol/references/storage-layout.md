@@ -205,8 +205,6 @@ PYTHONDONTWRITEBYTECODE=1 python3 <package>/skills/migration-ledger/tests/simula
 | --- | --- |
 | harmony/.env、项目模型配置 | 长期参考为 .sdd-migration/harmony；Test-Runner 首次 prepare 复制到本 run runs/harmony/sandbox/environment/.env、config.json。旧文件仅作显式复制来源，密钥不入证据 |
 | SDK reports/dumps、系统截图/视频/concat临时文件 | 本 runner 的 sdk、temp；SDK 环境覆盖不能改变位置 |
-| context/spec/诊断/缺口/审查等生成记录 | run staging → artifacts；六件套与导航在顶层 openspec |
-| 外部需求/源码/二方库/测试历史 | 原文件只读，文档经 context/files 固化，证据按 artifacts 归档；不搬迁业务源码 |
 | .venv、wheel、公开默认配置、包源码/文档/diagrams、包自身测试日志 | 工具安装/维护资产保持原位置；运行期间新增的缓存、配置、证据不写回包目录 |
 
 Harmony 写入器的路径约束见 [Harmony 运行协议](../../migration-test/references/harmony-runtime.md#底层直接调用的留存路径约束)。

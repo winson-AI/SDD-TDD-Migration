@@ -4,6 +4,7 @@ from pathlib import Path
 
 from contracts import Rejected, check_ref, digest, nonempty, read_json, require
 import decomposition
+import dimensions
 
 
 CHECKS = {
@@ -54,7 +55,7 @@ def mechanical(root, s, mid, assignment):
         verify_inputs(s, mid, stage, deep=True)
         refs = input_refs(s, mid, stage)
         proof = {'frozen-spec': m['plan_ref'], 'reuse-mapping': (m.get('plan') or {}).get('reuse_plan_ref'),
-                 'source-closure': m.get('dimension_analysis_ref'),
+                 'source-closure': dimensions.of_leaf(m),
                  'failure-diagnosis': (diagnosis_report(m) or {}).get('diagnosis_ref')}
         fact = {'frozen-spec': 'freeze ' + str(m.get('freeze_id'))[:12], 'task-trace': str(len(m['plan']['tasks'])) + ' tasks traced to their paths',
                 'repair-history': str(len(m.get('fix_memory', []))) + ' earlier repair records', 'permissions-tools': 'write scope ' + ', '.join(m.get('write_paths', []))}
@@ -197,8 +198,8 @@ def worker_refs(s, m, stage, pinned):
     refs = []
     if stage in ('coding', 'fixing'):
         refs += target_rules(s, pinned)
-        if m.get('dimension_analysis_ref'):
-            refs.append(m['dimension_analysis_ref'])
+        if dimensions.of_leaf(m):
+            refs.append(dimensions.of_leaf(m))  # the leaf's refinement when its plan binds one
         if stage == 'fixing' and diagnosis_report(m):
             refs.append(diagnosis_report(m)['diagnosis_ref'])  # the Fixer must have read the diagnosis
     if m.get('plan_ref'):
