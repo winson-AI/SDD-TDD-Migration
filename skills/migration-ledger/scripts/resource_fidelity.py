@@ -108,10 +108,19 @@ def blocked(analysis):
                   for item in row.get('items', []) if item.get('resource_strategy') == 'blocked')
 
 
+def carried(analysis):
+    """The values a module's parameter sheet carries (`values:string/title` is `@string/title`). Each is materialised
+    for the target with its variants and used there by its key, and the sheet is derived again and compared at freeze:
+    a value travels by the sheet and needs no Resource item of its own."""
+    import ui_parameters
+    return {'@' + row['id'][len('values:'):] for row in ui_parameters.parameters(analysis) if str(row.get('id', '')).startswith('values:')}
+
+
 def closure_gaps(analysis, declared_refs):
-    """Presentation refs the UI tree declares but no Resource item covers (reduced closure)."""
+    """Presentation refs the UI tree declares but neither a Resource item, the copy plan nor the parameter sheet covers
+    (reduced closure)."""
     import resource_copy
-    covered = {row['source_resource'] for row in resource_copy.rows(analysis)}
+    covered = {row['source_resource'] for row in resource_copy.rows(analysis)} | carried(analysis)
     for row in analysis.get('dimensions', []):
         if row.get('dimension') != 'Resource':
             continue
@@ -711,6 +720,7 @@ def require_indexed_closure(analysis, legacy_root=None):
              if row.get('dimension') == 'Resource' and row.get('status') == 'applicable'
              for item in row.get('items', [])]
     copied = {(row['source_resource'], row['variant']): row for row in resource_copy.rows(analysis)}
+    by_sheet = carried(analysis)
     for row in analysis.get('dimensions', []):
         if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
             continue
@@ -743,6 +753,8 @@ def require_indexed_closure(analysis, legacy_root=None):
                 label = source_id + ' / ' + variant
                 matches = [item for item in items if item.get('source_resource') == source_id and item_variant(item) == variant]
                 copy = copied.get((source_id, variant))
+                if source_id in by_sheet and not matches and not copy:
+                    continue  # the sheet carries this value and its variants
                 require(len(matches) + bool(copy) == 1, 'UI resource closure requires one item for ' + label)
                 qualifier = copy['qualifier'] if copy else matches[0].get('qualifier', 'base')
                 require(qualifier in renditions, 'resource item names a rendition the source index does not hold: ' + source_id + ' / ' + qualifier)
