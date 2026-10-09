@@ -418,6 +418,19 @@ class AuthoredItemTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'a copy plan belongs to an applicable Resource dimension'):
             dimensions.judge(self.f.ref('copied.json', analysis), 'M001')
 
+    def test_at_freeze_a_consumer_is_a_file_the_module_can_show_in_its_result(self):
+        """What an implementation result is held to is asked of the plan, before code is written."""
+        root = Path(self.f.target)
+        scope = [str(root / 'ui')]
+        rf.require_consumer_files({**self.item, 'consumer': [str(root / 'ui' / 'Later.kt') + '#Icon']}, scope)  # the module will write it
+        rf.require_consumer_files({**self.item, 'consumer': [self.screen['path']]}, [str(root / 'elsewhere')])  # the target holds it
+        for consumer, message in ((str(root / 'ui'), 'not a directory or a note'),
+                                  (str(root / 'ui') + '（the screen）', 'not a directory or a note'),
+                                  (str(root / 'another-slice' / 'Phone.kt'), 'a file this module writes or the target already holds')):
+            with self.subTest(consumer=consumer), self.assertRaisesRegex(Rejected, message):
+                rf.require_consumer_files({**self.item, 'consumer': [consumer]}, scope)
+        rf.require_consumer_files({**self.item, 'resource_strategy': 'blocked', 'consumer': [str(root / 'ui')]}, scope)  # a gap has no consumer yet
+
     def test_at_freeze_a_migrated_resource_lives_in_the_target_has_a_name_and_target_consumers(self):
         root = self.f.target
         rf.require_target_binding(self.item, root)
