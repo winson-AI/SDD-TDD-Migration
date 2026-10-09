@@ -2,7 +2,7 @@
 
 ## 总则
 
-所有角色遵守本协议。新运行资产固定在 workspace_root 下的 .sdd-migration、.sdd-runs、openspec 三个并列目录；读取 prepare 返回的 run_root/storage_layout 和 status.openspec_hub，不按 cwd 猜目录，不在目标仓另建一份 SPEC。一般生成工件放当前 run staging；Harmony 辅助产物放 runs/harmony/sandbox，正式自动化放 runs/harmony/automation，构建放 runs/build；临时目录归当前 runner，结束清理或留存 cleanup 原因；工作流状态变更仍经 Ledger。
+所有角色遵守本协议。资产固定在 workspace_root 下的 .sdd-migration、.sdd-runs、openspec 三个并列目录；读取 prepare 返回的 run_root/storage_layout 和 status.openspec_hub，不按 cwd 猜目录，不在目标仓另建一份 SPEC。一般生成工件放当前 run staging；Harmony 辅助产物放 runs/harmony/sandbox，正式自动化放 runs/harmony/automation，构建放 runs/build；临时目录归当前 runner，结束清理或留存 cleanup 原因；工作流状态变更仍经 Ledger。
 
 ## 唯一项目根与三类资产
 
@@ -150,7 +150,7 @@ python3 <package>/skills/migration-ledger/scripts/ledger.py status --view full \
 
 prepare 核验目录、文档及摘要；缺输入不创建 run/OpenSpec。固化前 Host 写 preparations=preparing；失败写 failed、原因/重试入口，中断保留 preparing。同 run_id 重试验证归属，成功登记索引并写 prepared，保留失败历史；不替代 Ledger，不自动删除或改业务状态，完成的同请求不重写。
 
-工作流测试辅助命令显式传 --root：Harmony design/adapter/doctor/历史报告与阶段汇总写入本轮 runs/harmony/sandbox；正式自动化写 runs/harmony/automation/<新 attempt>。独立模式使用同样的 `.sdd-runs/<run_id>/runs/harmony` 路径，可由显式输出推导根目录，不要求已有 Ledger；doctor 必须指定 --root。独立执行不自动得到冻结、assignment 或验收资格。兼容入口保留读取历史输入，所有新输出遵循新位置。
+工作流测试辅助命令显式传 --root：Harmony design/adapter/doctor/历史报告与阶段汇总写入本轮 runs/harmony/sandbox；正式自动化写 runs/harmony/automation/<新 attempt>。独立模式使用同样的 `.sdd-runs/<run_id>/runs/harmony` 路径，可由显式输出推导根目录，不要求已有 Ledger；doctor 必须指定 --root。独立执行不自动得到冻结、assignment 或验收资格。
 
 Ledger 在查询、变更和拒绝诊断写入前核对快照绑定的 run_root/run_id。复制或移动已有 run 目录不能直接作为新 run 继续写入；恢复应使用原登记位置，新迁移使用新 run_id。Ledger/上下文/OpenSpec 的受管文件写入统一使用路径检查和随机临时文件，拒绝符号链接重定向；事件追加与工件保存也检查实际路径。
 
@@ -204,13 +204,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 <package>/skills/migration-ledger/tests/simula
 | 原位置/内容 | 新位置/处理 |
 | --- | --- |
 | harmony/.env、项目模型配置 | 长期参考为 .sdd-migration/harmony；Test-Runner 首次 prepare 复制到本 run runs/harmony/sandbox/environment/.env、config.json。旧文件仅作显式复制来源，密钥不入证据 |
-| harmony/adapter.local.json | .sdd-runs/<run_id>/runs/harmony/sandbox/<request>/adapter.json，按新 run 重新生成 |
 | cwd reports/memory、独立任意输出 | runs/harmony/automation/<attempt>/harmony/reports、memory；CLI 拒绝旧任意输出路径 |
 | 原 XMind 旁的转换 Markdown | runs/harmony/sandbox/<request>/converted.md；原生兼容 CLI 转换落入该自动化 attempt/design |
 | SDK reports/dumps、系统截图/视频/concat临时文件 | 本 runner 的 sdk、temp；SDK 环境覆盖不能改变位置 |
 | context/spec/诊断/缺口/审查等生成记录 | run staging → artifacts；六件套与导航在顶层 openspec |
 | 外部需求/源码/二方库/测试历史 | 原文件只读，文档经 context/files 固化，证据按 artifacts 归档；不搬迁业务源码 |
-| 既有外部运行结果 | 保留只读历史；新输出创建受管 run，不改历史 hash、不自动删除原件 |
 | .venv、wheel、公开默认配置、包源码/文档/diagrams、包自身测试日志 | 工具安装/维护资产保持原位置；运行期间新增的缓存、配置、证据不写回包目录 |
 
 Harmony 写入器的路径约束见 [Harmony 运行协议](../../migration-test/references/harmony-runtime.md#底层直接调用的留存路径约束)。

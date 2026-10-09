@@ -122,7 +122,7 @@ class ReadingCardTests(unittest.TestCase):
             return reading.text_of(row)
         build, automation, design = text('build'), text('automation'), text('design')
         self.assertIn('### 构建', build); self.assertIn('### 单测与静态审查', build)
-        self.assertNotIn('### 自动化', build); self.assertNotIn('## 10. 移动端执行器', build)
+        self.assertEqual(build, automation)  # two stages of one executing Test-Runner read one role text, once
         self.assertIn('### 自动化', automation); self.assertIn('## 10. 移动端执行器', automation); self.assertNotIn('### 设计', automation)
         self.assertIn('### 设计', design); self.assertNotIn('### 构建', design)
         for part in (build, automation, design):

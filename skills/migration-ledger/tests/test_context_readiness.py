@@ -12,7 +12,7 @@ import test_decomposition
 import ledger
 import workflow
 import context_readiness as cr
-from contracts import Rejected, digest
+from contracts import Rejected, check_ref, digest, read_json
 from execute_test import execute
 
 
@@ -130,19 +130,24 @@ class ContextReadinessTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'not submitted'):  # the MO cannot register the worker's report for it
             self.raw('assign', {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'implementer', 'context_ref': coding})
 
-    def test_a_worker_preflights_inside_its_dispatch_and_the_ready_report_authorizes_the_work(self):
+    def test_a_coder_is_preflighted_by_the_ledger_at_dispatch_and_may_still_report_itself(self):
         self.prepare()
         self.raw('assign', {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'implementer'})
         a = self.state()['modules']['M001']['assignments']['I1']
-        self.assertNotIn('context_ref', a)
+        report = read_json(check_ref(a['context_ref']))  # written by the Ledger in the worker's name, and it says so
+        self.assertEqual((report['mechanical'], report['stage'], report['producer'], report['verdict']),
+                         (True, 'coding', {'role': 'implementer', 'instance_id': 'implementer'}, 'ready'))
+        self.assertEqual((a['preflight'], report['subject_sha256']), ('mechanical', cr.subject(self.state(), 'M001', 'coding')))
+        self.assertEqual(set(report['checks']), set(cr.CHECKS['coding']))
         step = self.state()['next_steps'][0]
-        self.assertEqual((step['operation'], step['role'], step['context_gate']['stage']), ('await-result', 'implementer', 'coding'))
-        view = ledger.status(self.root, 'step', 'M001')  # the worker finds what its report must contain
-        self.assertEqual(view['request']['operation'], 'context-submit')
-        self.assertEqual(view['context']['subject_sha256'], cr.subject(self.state(), 'M001', 'coding'))
-        self.assertNotIn('required_input_refs', view['context'])  # the Ledger derives the mandatory inputs
-        self.assertEqual(view['context']['inputs_sha256'], cr.inputs(self.state(), 'M001', 'coding')['inputs_sha256'])
-        self.assertGreater(view['context']['input_count'], 0)
+        self.assertEqual((step['operation'], step['role']), ('await-result', 'implementer'))
+        self.assertNotIn('context_gate', step)  # nothing is owed: the worker starts on its task
+        self.assertEqual(ledger.status(self.root, 'step', 'M001')['request']['operation'], 'submit')
+        self.record(self.report('coding', instance='someone-else'))  # another instance's report is not this worker's
+        self.assertEqual(self.state()['modules']['M001']['assignments']['I1']['context_ref'], a['context_ref'])
+        ref = self.record(self.report('coding'))  # the worker may still report in its own words; its report then stands
+        bound = self.state()['modules']['M001']['assignments']['I1']
+        self.assertEqual((bound['context_ref'], bound.get('preflight')), (ref, None))
         source = self.target / 'm1/code.py'; source.parent.mkdir(exist_ok=True); source.write_text('value = 2\n')
         from contracts import baseline, file_ref
         refs = [file_ref(source)]
@@ -151,16 +156,22 @@ class ContextReadinessTests(unittest.TestCase):
                   'task_trace': [{'task_id': 'T1', 'files': [str(source)]}],
                   'production_binding_evidence': self.ref('binding.txt', 'real binding reviewed'),
                   'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': self.ref('diag.log', '0 errors')}}
-        with self.assertRaisesRegex(Rejected, 'preflight required'):
-            self.submit(result, a)
-        self.record(self.report('coding', instance='someone-else'))  # another instance's report is not this worker's
-        self.assertNotIn('context_ref', self.state()['modules']['M001']['assignments']['I1'])
-        ref = self.record(self.report('coding'))
-        self.assertEqual(self.state()['modules']['M001']['assignments']['I1']['context_ref'], ref)
-        self.assertNotIn('context_gate', self.state()['next_steps'][0])  # nothing is owed any more
-        self.assertEqual(ledger.status(self.root, 'step', 'M001')['request']['operation'], 'submit')
         self.submit(result, a); self.raw('accept', {'assignment_id': 'I1'})
         self.assertEqual(self.state()['modules']['M001']['phase'], 'testing')
+
+    def test_a_worker_that_runs_commands_preflights_inside_its_dispatch(self):
+        self.prepare(); self.implementation()
+        self.raw('assign', {'assignment_id': 'T1', 'role': 'test-runner', 'instance_id': 'test-runner'})
+        a = self.state()['modules']['M001']['assignments']['T1']
+        self.assertNotIn('context_ref', a)  # only the runner can state its commands and its environment
+        step = self.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['role'], step['context_gate']['stage']), ('await-result', 'test-runner', 'testing'))
+        view = ledger.status(self.root, 'step', 'M001')  # the worker finds what its report must contain
+        self.assertEqual(view['request']['operation'], 'context-submit')
+        self.assertEqual(view['context']['subject_sha256'], cr.subject(self.state(), 'M001', 'testing'))
+        self.assertNotIn('required_input_refs', view['context'])  # the Ledger derives the mandatory inputs
+        self.assertEqual(view['context']['inputs_sha256'], cr.inputs(self.state(), 'M001', 'testing')['inputs_sha256'])
+        self.assertGreater(view['context']['input_count'], 0)
 
     def test_a_blocked_report_hands_the_dispatch_back_and_holds_the_next_one(self):
         self.prepare()

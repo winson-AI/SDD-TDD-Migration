@@ -34,7 +34,7 @@ project_context init/update → prepare → Global 生成完整运行输入 → 
 
 入口范围：project 指完整项目及各功能/子功能；single-module 指一个特定根功能及其子功能。single_module_id 映射根功能，不限制叶子数。流程：GO 切片→父 MO 拆分→子 MO 规划/冻结/实现/验证→父汇总→Auditor；详见 [父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md#总则)。
 
-复用输入：宿主保存可选 reuse_sources（用户指定其他项目模块）；TARGET 自动纳入评估。prepare 固化来源范围，GO 提取能力语义目录并结合需求切片，将目录作为 context_refs 交父 MO。新 prepare 运行自动要求复用规划，详见 [二方库协议](../skills/migration-protocol/references/reuse-dependencies.md#总则)。
+复用输入：宿主保存可选 reuse_sources（用户指定其他项目模块）；TARGET 自动纳入评估。prepare 固化来源范围，GO 提取能力语义目录并结合需求切片，将目录作为 context_refs 交父 MO。详见 [二方库协议](../skills/migration-protocol/references/reuse-dependencies.md#总则)。
 
 ## 初始化上下文门禁
 

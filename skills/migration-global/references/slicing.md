@@ -76,7 +76,7 @@ GO 必须逐项核对：
 
 `coverage.status=complete` 仅在逐项核查结束、`unclassified=[]`、`unresolved_questions=[]` 时填写。已发现疑问保留在 `questions`，必须同步到 global-plan.boundary_review.issues，并通过现有真实人工批准绑定整份规划；不得删除疑问以绕过审核。未解决时停止受影响规划并提交 Escalation，独立明确的分析可以继续；不得生成代码。
 
-GO 在根登记前的 global-discovery 预检中核对功能草案；父 MO decomposition 和子 planning 预检核对各自功能清单；全部孩子登记后的 global-plan 是完整功能清单/叶子归属的正式接受点。新运行缺少清单、来源映射、需求/用例覆盖或功能 owner 时拒绝接受；后续执行/审计再次检查清单及证据摘要。脚本只能证明已登记清单的结构与追溯完整，真实源码功能是否穷尽由 Agent 审核，存在疑问必须人工裁决。
+GO 在根登记前的 global-discovery 预检中核对功能草案；父 MO decomposition 和子 planning 预检核对各自功能清单；全部孩子登记后的 global-plan 是完整功能清单/叶子归属的正式接受点。缺少清单、来源映射、需求/用例覆盖或功能 owner 时拒绝接受；后续执行/审计再次检查清单及证据摘要。脚本只能证明已登记清单的结构与追溯完整，真实源码功能是否穷尽由 Agent 审核，存在疑问必须人工裁决。
 
 各 Agent 在自身职责与已批准 scope 内自主工作。新出现的跨模块业务归属、共享契约责任、scope 重划，或不确定的业务预期，必须交人工决定。Global 负责汇总与落实，不能自行代决；Diagnostician/Auditor 可以分析并提出建议，Fixer 不得据此扩大范围。
 

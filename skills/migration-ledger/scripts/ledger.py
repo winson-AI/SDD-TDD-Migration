@@ -725,7 +725,10 @@ def deliver(m, rows, session_id):
     load['delivered'] += new
     sessions = m.setdefault('session_load', {})
     sessions[session_id] = sessions.get(session_id, 0) + new
-    held.update(reading.delivered(rows))
+    for section, digest in reading.delivered(rows).items():
+        seen = held.get(section) or []
+        seen = [seen] if isinstance(seen, str) else seen
+        held[section] = seen if digest in seen else [*seen, digest]
 
 
 READ_BY_ITS_ACTOR = ('plan', 'plan-review', 'freeze', 'change', 'planning-reopen', 'decompose', 'redecompose', 'realloc-request',
@@ -824,7 +827,8 @@ SLICING_STEPS = {('global-orchestrator', op) for op in ('register', 'global-plan
 def with_card(s, m, step):
     """A step that asks for an operation names the protocol sections and the templates it needs."""
     # A step the host submits without a model turn is read by nobody; a dispatch still carries its worker's card.
-    step['must_read'] = [] if step.get('mechanical') and not step.get('worker_role') else reading.card(s, m, step)
+    waiting = not step.get('ready') and step.get('reason') == 'dependency-incomplete'  # nothing to do until the provider is done
+    step['must_read'] = [] if waiting or step.get('mechanical') and not step.get('worker_role') else reading.card(s, m, step)
     step['card_sha256'] = reading.digest_card(step['must_read'])
     step['templates'] = reading.templates(s, m, step)
     enhancement = reading.reasoning_sections(m)
@@ -1006,6 +1010,10 @@ def assign_worker(s, m, mid, p, events, root):
     if s.get('write_scope_check') and p['role'] == 'implementer':
         a['authoring_snapshot'] = write_scope.authoring_snapshot(s['target_root'], m['write_paths'],
             root)
+    if preflight and not context_ref:
+        context_ref = context_readiness.mechanical(root, s, mid, a)  # coding: nothing a model has to attest
+        if context_ref:
+            a['preflight'] = 'mechanical'
     if context_ref:
         a['context_ref'] = copy.deepcopy(context_ref)
     if context_ref or not preflight:
@@ -1029,13 +1037,18 @@ def start_work(m, a):
 
 def settle_preflight(m, actor, receipt):
     """A worker's report inside its own dispatch: ready authorizes the work, blocked hands the dispatch back."""
+    # A dispatch the Ledger preflighted by itself still takes its worker's own report: a blocked one hands it back.
     a = next((x for x in m['assignments'].values() if not x.get('closed') and not design_stage.is_design(x)
-              and not x.get('context_ref') and (x['role'], x['instance_id']) == (actor['role'], actor['instance_id'])), None)
-    if not a or context_readiness.requirement('assign', a) != receipt['stage']:
+              and (not x.get('context_ref') or x.get('preflight') == 'mechanical')
+              and (x['role'], x['instance_id']) == (actor['role'], actor['instance_id'])), None)
+    if not a or context_readiness.requirement('assign', a) != receipt['stage'] or a.get('context_ref') == receipt['report_ref']:
         return
     if receipt['verdict'] == 'ready':
+        started = bool(a.get('context_ref'))
         a['context_ref'] = copy.deepcopy(receipt['report_ref'])
-        start_work(m, a)
+        a.pop('preflight', None)
+        if not started:
+            start_work(m, a)
     else:
         # Nothing was authorized, so there is no worker to stop: the module is back where a blocked preflight
         # before any dispatch leaves it, and the gap is handled the same way.

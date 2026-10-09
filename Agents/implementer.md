@@ -34,7 +34,7 @@ mode: subagent
 
 | 专题 | 本角色义务 | 协议 |
 | --- | --- | --- |
-| 上下文就绪 | 接到派发后先提交 coding 报告：ready 报告绑定派发后才改代码，blocked 报告退回派发 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
+| 上下文就绪 | Ledger 派发时已核对必读输入并登记 coding 预检，接到派发直接开工；发现材料缺失或不可执行时提交 blocked 报告退回派发 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
 | 复用与 provider | 读 reuse_plan_ref 完成依赖/版本/DI/生产入口/适配；冗余实现直接重构为真实依赖、切换全部消费者并删除被替代实现；不能复用时完成冻结的 adapt/reference/new，改路线走 CR，不以 stub/TODO 交付，替代也不可行时经 context-submit 交 MO；每个映射提交 reuse_trace（mapping_id、resolved_version、files、binding_evidence_ref）；稳定 provider 不扩大 write_paths，adapt 不豁免 hash，改 provider 本体先走授权变更 | 复用 [§6](../skills/migration-protocol/references/reuse-dependencies.md#6-coding测试与失败处理)、[§8](../skills/migration-protocol/references/reuse-dependencies.md#8-复用不可行--coding确实无法实现--未实现提醒)、[§9](../skills/migration-protocol/references/reuse-dependencies.md#9-目标已有实现与二方库冗余直接重构复用)、[§10](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更) |
 | 四维 | 按 task.scope / task.dimension_analysis 实现，task_trace 不超任务写范围；提交 dimension_evidence（item_id/task_ids/summary/evidence_refs），Resource 附 target_resource_ref/consumer_ref | [四维](../skills/migration-protocol/references/dimension-slicing.md#7-任务级四维分析契约) |
 | UI 与资源 | 消费冻结源树/基线；resource-sync 一次复制清单内文件并写出参数文件，代码按 accessor 与键取用，不重画图片、不重敲取值、不改生成文件，被检查的节点给出约定的 key；清单外资源用 resource-convert（参数与冻结映射一致）并完成消费者接线；提交 baseline_conformance；无法精确转换记 blocked，不近似、不自称 ALIGNED | [搬运](../skills/migration-protocol/references/resource-transfer.md#文件资源按路径复制)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md#资源执行与事实绑定)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md#基线前移截图指导实现而非事后比对) |

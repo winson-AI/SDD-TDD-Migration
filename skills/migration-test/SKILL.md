@@ -38,7 +38,7 @@ design 沿 `assign(mode=design) → submit（附 test-design 预检）→ MO acc
 - design：用 [harmony_design.py](scripts/harmony_design.py) 导入 MD/XMind，审核完整用例并补齐冻结 ASSERT 描述、类型、匹配规则与 after_step。
 - execute：通过 host execute_test 调用 [harmony_adapter.py](scripts/harmony_adapter.py)，再用 [harmony_stage.py](scripts/harmony_stage.py) 组装全路径结果，按 Ledger submit/accept。
 - 固定 ASSERT ID 绑定冻结谓词；零断言、最终通过文本、旧回放结果不能代替本次验证。原生 memory 是候选执行素材，复用与修复裁决仍受 Ledger 控制。
-- 内核组件只执行当前 Test-Runner 任务，不承担 Spec/Fixer/Auditor 权限；历史 harmony 文件名/存储路径兼容保留。
+- 内核组件只执行当前 Test-Runner 任务，不承担 Spec/Fixer/Auditor 权限。
 
 复用 fidelity、视觉、手势、埋点、运行环境与留存等角色义务以 [Test-Runner 定义](../../Agents/test-runner.md#专题义务) 为准；本技能只保留执行规约。
 

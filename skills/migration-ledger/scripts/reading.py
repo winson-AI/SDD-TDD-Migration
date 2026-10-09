@@ -239,9 +239,10 @@ def _topic_rows(text, topics):
 
 # Blocks of an Agent definition that only apply in some modes of the role; other blocks always stay.
 MODE_BLOCKS = {'### 设计', '### 构建', '### 单测与静态审查', '### 自动化', '## 10. 移动端执行器'}
-TEST_MODES = {'design': ('### 设计',), 'build': ('### 构建', '### 单测与静态审查'),
-              'automation': ('### 自动化', '## 10. 移动端执行器'),
-              'visual': ('### 自动化', '## 10. 移动端执行器')}
+# Build and automation are two stages of one executing Test-Runner, run one after the other: it is handed the role text
+# of both once, so the second stage adds only the sections that stage needs.
+EXECUTE_MODES = ('### 构建', '### 单测与静态审查', '### 自动化', '## 10. 移动端执行器')
+TEST_MODES = {'design': ('### 设计',), 'build': EXECUTE_MODES, 'automation': EXECUTE_MODES, 'visual': EXECUTE_MODES}
 
 
 def _mode_blocks(text, modes):
@@ -413,6 +414,23 @@ def digest_card(rows):
     return digest([{k: row[k] for k in ('ref', 'section', 'sha256')} for row in rows])
 
 
+EXECUTORS = ('implementer', 'fixer', 'test-runner', 'diagnostician')
+
+
+def reuse_applies(s, m, role):
+    """Planners always weigh reuse. An executor follows the reuse protocol only when the frozen plan it executes takes
+    something from a provider: a plan whose every mapping is `new` leaves it nothing of that protocol to follow."""
+    plan = (m or {}).get('plan') or {}
+    required = bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required'))
+    if not required or role not in EXECUTORS or not plan.get('reuse_plan_ref') or not (m or {}).get('freeze_id'):
+        return required
+    from contracts import check_ref, read_json
+    try:
+        return any(row.get('decision') != 'new' for row in read_json(check_ref(plan['reuse_plan_ref'])).get('mappings') or [])
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return True  # unreadable: keep the sections, the gates report the plan
+
+
 def card(s, m, step):
     role = step.get('worker_role') or step.get('role')
     if role not in ROLE:
@@ -420,10 +438,12 @@ def card(s, m, step):
     plan = (m or {}).get('plan') or {}
     operation = step.get('operation')
     facts = topic_facts(s, m, step)
-    ui, reuse = facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'), bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required'))
+    ui, reuse = facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'), reuse_applies(s, m, role)
     telemetry = telemetry_scope(role, m)
     lean = bool(m) and (bool(m.get('lean_leaf')) or bool(s.get('fixer_self_diagnosis')))
-    rows = ([operation] if operation else []) + (['context-submit', 'submit'] if step.get('worker_role') else [])
+    # A coder's preflight is written by the Ledger at dispatch: its card carries nothing about reporting one.
+    self_checked = bool(s.get('context_readiness_required')) and role == 'implementer' and bool(step.get('worker_role'))
+    rows = ([operation] if operation else []) + ((['submit'] if self_checked else ['context-submit', 'submit']) if step.get('worker_role') else [])
     chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry,
                      lean=lean and role in ('fixer', 'implementer'), rows=rows, facts=facts)
     chosen += reasoning_sections(m)
@@ -432,6 +452,8 @@ def card(s, m, step):
     if (role == 'module-orchestrator' and (m or {}).get('change_request') and operation in ('plan-review', 'freeze')
             or role == 'auditor' and any(x.get('task_revalidation', {}).get('mode') == 'partial' for x in s.get('modules', {}).values())):
         chosen += sections('openspec.md', 'TASK 局部重验')
+    if self_checked:
+        chosen = [item for item in chosen if item != (P + 'context-readiness.md', '2. 精确插入节点')]
     chosen = list(dict.fromkeys(chosen))  # a section reaches a card once, whichever rule asked for it
     audit = bool(operation and (operation.startswith('audit') or operation.startswith('problem'))) or role == 'auditor' \
         or bool(m and (m.get('audit_fix_grant') or m.get('audit_batch_id')))
@@ -515,7 +537,7 @@ def templates(s, m, step):
         names += SCOPE_TEMPLATES.get(step.get('test_scope'), [])
     if step.get('mode') == 'design':
         names = ['test-design-input.json', 'test-design-result.json', 'test-paths.json', 'harmony-test-path.json', 'context-readiness.json']
-    reuse = bool(plan.get('reuse_plan_ref')) or bool(s.get('reuse_required'))
+    reuse = reuse_applies(s, m, role)
     facts = topic_facts(s, m, step)
     active = {'reuse': reuse, 'telemetry': telemetry_scope(role, m), 'ui': facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'),
               'knowledge': bool(s.get('dependency_resolution_required')) or reuse}
@@ -525,7 +547,18 @@ def templates(s, m, step):
     if role in PLANNING_ROLES:
         if facts['api']: names += ['api-inventory.json']
         if facts['parameters']: names += ['parameter-binding.json']
-    return ['template/' + n for n in dict.fromkeys(names)]
+    unwritten = set()
+    if role == 'spec-designer' and step.get('mode') != 'design' and (m or {}).get('dimension_analysis_ref'):
+        # The leaf's analysis is registered: its plan does not write the analysis or its models again, the four documents
+        # start from spec_skeleton.py, and an impact statement belongs to a change request.
+        unwritten = {'dimension-analysis.json', 'semantic-model.json'}
+        if not (m or {}).get('plan'):
+            unwritten |= {'proposal.md', 'spec.md', 'design.md', 'tasks.md'}
+        if not (m or {}).get('change_request'):
+            unwritten.add('change-impact.json')
+    if s.get('context_readiness_required') and role == 'implementer' and step.get('worker_role'):
+        unwritten.add('context-readiness.json')  # written by the Ledger at dispatch
+    return ['template/' + n for n in dict.fromkeys(names) if n not in unwritten]
 
 
 # A rejected request points at the section that states the failed gate; advisory, first match wins.
@@ -616,9 +649,16 @@ def delivered(rows):
     return {key(row): row['sha256'][:16] for row in rows}
 
 
+def known(held, row):
+    """Whether a holder has read this exact text of a section. It keeps every text of a section it was handed, so a
+    section that differs by stage is not handed again when the stage comes round."""
+    seen = (held or {}).get(key(row)) or []
+    return any(row['sha256'].startswith(digest) for digest in ([seen] if isinstance(seen, str) else seen) if digest)
+
+
 def fresh(rows, held):
     """The rows a session that already holds `held` still has to read. The red lines are on every card, new or not."""
-    return [row for row in rows if row['ref'] == 'AGENTS.md' or not row['sha256'].startswith((held or {}).get(key(row)) or '\0')]
+    return [row for row in rows if row['ref'] == 'AGENTS.md' or not known(held, row)]
 
 
 def _slug(heading):
