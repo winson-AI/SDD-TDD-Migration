@@ -2,7 +2,7 @@
 import copy
 from pathlib import Path
 
-from contracts import Rejected, check_ref, digest, nonempty, read_json, require
+from contracts import Rejected, check_ref, cited, digest, nonempty, read_json, require
 import decomposition
 import dimensions
 
@@ -298,7 +298,7 @@ def verify_inputs(s, mid, stage, deep=False, refs=None):
     seen, root = set(), s.get('target_root')
     def walk(value, nested):
         if isinstance(value, dict):
-            if 'path' in value and 'sha256' in value:
+            if cited(value, nested):
                 if (value['path'], value['sha256']) in seen:
                     return
                 seen.add((value['path'], value['sha256']))
@@ -310,12 +310,12 @@ def verify_inputs(s, mid, stage, deep=False, refs=None):
                     raise
                 if deep and path.suffix == '.json':
                     try:
-                        cited = read_json(path)
+                        document = read_json(path)
                     except Rejected:
                         raise
                     except ValueError:  # not JSON after all
-                        cited = None
-                    walk(cited, True)
+                        document = None
+                    walk(document, True)
                 return
             for item in value.values():
                 walk(item, nested)

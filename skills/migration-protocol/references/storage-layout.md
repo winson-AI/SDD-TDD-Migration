@@ -203,7 +203,6 @@ PYTHONDONTWRITEBYTECODE=1 python3 <package>/skills/migration-ledger/tests/simula
 
 | 原位置/内容 | 新位置/处理 |
 | --- | --- |
-| harmony/.env、项目模型配置 | 长期参考为 .sdd-migration/harmony；Test-Runner 首次 prepare 复制到本 run runs/harmony/sandbox/environment/.env、config.json。旧文件仅作显式复制来源，密钥不入证据 |
 | SDK reports/dumps、系统截图/视频/concat临时文件 | 本 runner 的 sdk、temp；SDK 环境覆盖不能改变位置 |
 | .venv、wheel、公开默认配置、包源码/文档/diagrams、包自身测试日志 | 工具安装/维护资产保持原位置；运行期间新增的缓存、配置、证据不写回包目录 |
 

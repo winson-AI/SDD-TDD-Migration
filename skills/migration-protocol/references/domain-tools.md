@@ -33,7 +33,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 | operation | args 要点 | 当前实际能力 |
 | --- | --- | --- |
-| `analyze-ui` | entry/source_files/layouts，选填 capture_ref、targets、manifests、image_sinks、layout_helpers | 从固定 legacy_root 收集源索引（含使用点、图片来源与参数，见 [搬运](resource-transfer.md#使用点与闭包)）；有合法 Capture 时选择运行时索引。Spec-Designer 据此生成 UI 树，再 validate-ui；不自动证明源闭包完整 |
+| `analyze-ui` | entry/source_files/layouts，选填 capture_ref、targets、manifests、image_sinks、layout_helpers | 从固定 legacy_root 收集源索引（含使用点、图片来源与参数，见 [搬运](resource-transfer.md#使用点与闭包)）；entry 写 `文件#类名` 只采该类的源码段（索引记行段），一个文件含多屏时各屏分别采；有合法 Capture 时选运行时索引。据此生成 UI 树再 validate-ui；不自动证明源闭包完整 |
 | `validate-ui` | ui_tree_ref/source_index_ref/runtime_index_ref，选填 resource_scope | 校验树与原始索引一致；source-only 不伪造 runtime_index_ref；resource_scope 仅说明有证据的范围外变体 |
 | `resource-scan` | 选填 source_index_ref/ui_tree_ref/extra_refs | 只读查找当前闭包资源，输出候选文件及 hash，保留 base/night/语言等源变体；给出树与索引时另附按记录预填的 skeletons；不写目标、不作精确性裁决 |
 | `resource-plan` | dimension_analysis_ref | 派生模块的参数表与复制清单（项目声明了约定时），并列出待登记的资源、未声明的使用点、待映射的 token 与待定值的 expression；MO 可用 |
