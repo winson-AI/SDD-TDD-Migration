@@ -98,7 +98,19 @@ def pin_execution(root, s, affected):
         for m in pending: m['execution_context_ref'] = ref
 
 
-def subject(s, mid, stage):
+# The stages whose report reads what the run has learnt, and the history a report written now has to have read.
+HISTORY_STAGES = ('global-discovery', 'global-planning', 'decomposition', 'planning')
+CURRENT = object()
+
+
+def history(s, mid, read=CURRENT):
+    """The lessons a report of the scope reads: the scope's own as they are now, or the version a receipt kept."""
+    if read is not CURRENT:
+        return read
+    return scope(s, mid).get('planning_lessons_ref') if mid else s.get('lessons_ref')
+
+
+def subject(s, mid, stage, read=CURRENT):
     """Do not bind sibling progress or receipt revisions into a leaf receipt."""
     require(stage in CHECKS and ((mid is None) == (stage in GLOBAL)), 'context stage/scope mismatch')
     shared = decomposition.planning_context(s)
@@ -108,8 +120,8 @@ def subject(s, mid, stage):
     if stage == 'global-discovery':
         shared = {k: v for k, v in shared.items() if k not in ('modules', 'parents', 'dimension_allocations')}
     value = {'run_id': s['run_id'], 'module_id': mid, 'stage': stage, 'planning_context': shared}
-    if stage in ('global-discovery', 'global-planning', 'decomposition', 'planning'):
-        value['history_ref'] = scope(s, mid).get('planning_lessons_ref') if mid else s.get('lessons_ref')
+    if stage in HISTORY_STAGES:
+        value['history_ref'] = history(s, mid, read)
     if mid:
         m = scope(s, mid)
         value['assigned_module'] = pinned['assigned_modules'][mid] if pinned else decomposition.assigned_module(s, m)
@@ -210,11 +222,11 @@ def worker_refs(s, m, stage, pinned):
     return list({(ref['path'], ref['sha256']): ref for ref in refs}.values())
 
 
-def input_refs(s, mid, stage):
+def input_refs(s, mid, stage, read=CURRENT):
     """What a role has to have read for a stage; its ready report is bound to their digest."""
     if mid and stage in set(WORKERS.values()) | {'building'}:
         return worker_refs(s, scope(s, mid), stage, execution_context(s, mid, stage))
-    refs = standing_refs(s, mid, stage)
+    refs = standing_refs(s, mid, stage, read)
     if mid and stage in ('planning', 'decomposition'):
         # The legacy and target trees are opened where an item's locator points; the analysis, the parent's context and
         # the upstream cases are what a plan or a split is written from. The whole set still may not drift.
@@ -223,14 +235,13 @@ def input_refs(s, mid, stage):
     return refs
 
 
-def standing_refs(s, mid, stage):
+def standing_refs(s, mid, stage, read=CURRENT):
     """Everything a ready report of a stage stands on. A worker reads less than this, but no report is accepted or used
     over drifted evidence, whether or not its author had to read that evidence."""
     pinned = execution_context(s, mid, stage)
     refs = list(pinned['global_refs']) if pinned else global_refs(s)
-    if stage in ('global-discovery', 'global-planning', 'decomposition', 'planning'):
-        history = scope(s, mid).get('planning_lessons_ref') if mid else s.get('lessons_ref')
-        if history: refs.append(history)
+    if stage in HISTORY_STAGES and history(s, mid, read):
+        refs.append(history(s, mid, read))
     if stage in SLICING_STAGES and slicing_skill(s):
         refs.append(slicing_skill(s))
     if mid:
@@ -375,6 +386,7 @@ def submit(s, req, actor):
     receipt = scope(s, mid).setdefault('context_receipts', {})[key] = {
         'report_ref': copy.deepcopy(p['report_ref']), 'stage': stage,
         'producer': copy.deepcopy(report['producer']), 'verdict': report['verdict'],
+        **({'history_ref': copy.deepcopy(history(s, mid))} if stage in HISTORY_STAGES else {}),
         **({'inputs_sha256': inputs(s, mid, stage, required)['inputs_sha256']} if required is not None else {})}
     return receipt
 
@@ -403,13 +415,16 @@ def validate(s, mid, stage, ref, instance=None, draft=None, allow_blocked=False)
     require(instance is None or producer.get('instance_id') == instance, 'context receipt belongs to another worker')
     receipt = scope(s, mid).get('context_receipts', {}).get(stage + ':' + producer.get('instance_id', ''))
     require(receipt and receipt['report_ref'] == ref, 'context receipt not submitted/current')
-    require(report['subject_sha256'] == subject(s, mid, stage), 'context subject stale; re-read and resubmit')
+    # The history is read when a report is written: its receipt keeps the version it read, and what the run learns
+    # afterwards is for the next report. Whatever else the report stands on still may not change.
+    read = receipt.get('history_ref', CURRENT) if stage in HISTORY_STAGES else CURRENT
+    require(report['subject_sha256'] == subject(s, mid, stage, read), 'context subject stale; re-read and resubmit')
     require(report['verdict'] == 'ready' or allow_blocked, 'context blocked; record suspension or resolve missing inputs')
     if report['verdict'] == 'ready':
-        required = input_refs(s, mid, stage)
+        required = input_refs(s, mid, stage, read)
         require(receipt.get('inputs_sha256') == inputs(s, mid, stage, required)['inputs_sha256'],
                 'context report is stale: its mandatory inputs changed; re-read them and report again')
-        verify_inputs(s, mid, stage)
+        verify_inputs(s, mid, stage, refs=standing_refs(s, mid, stage, read))
     if draft:
         require(report.get('draft_ref') == draft, 'context report must bind the reviewed draft')
     verify_refs(report)

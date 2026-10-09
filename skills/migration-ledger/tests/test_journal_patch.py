@@ -135,8 +135,10 @@ class StateReferenceTests(unittest.TestCase):
         self.assertEqual((submission['kind'], submission['green']), ('tests', True))
         self.assertTrue(m['context_receipts'])
         for receipt in m['context_receipts'].values():
-            # A receipt is references and a digest: the report stays in its file, the derived inputs in one hash.
-            self.assertEqual(set(receipt), {'report_ref', 'stage', 'producer', 'verdict', 'inputs_sha256'})
+            # A receipt is references and a digest: the report stays in its file, the derived inputs in one hash, and
+            # a report that reads the run's history keeps the version it read.
+            self.assertEqual(set(receipt) - {'history_ref'}, {'report_ref', 'stage', 'producer', 'verdict', 'inputs_sha256'})
+            self.assertEqual('history_ref' in receipt, receipt['stage'] in test_context_readiness.cr.HISTORY_STAGES)
         path = Path(submission['ref']['path']); original = path.read_text()
         path.write_text(original.replace('green-passed', 'red-bug'))
         with self.assertRaises(Rejected):  # the accepted result is the hash-bound file, read again at accept

@@ -38,8 +38,8 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 报告包含：
 
 - `schema_version/run_id/module_id/stage/producer`：实际身份与作用域；全局 module_id=null。
-- `subject_sha256`：复制 `context.subject_sha256`；绑定分配、冻结、代码、依赖或审计批次，不绑定无关兄弟的进度。
-- 必读输入由 Ledger 从状态派生（步骤视图给出 `input_count` 与 `inputs_sha256`），报告不列：ready 报告绑定该摘要，任一输入变化或漂移即过期，须重读重报；读过什么由 checks 的具体摘要与证据说明。worker 只读所需：Test-Runner 为冻结计划与测试资产；Implementer/Fixer 另含本叶子四维分析、架构/项目规则/知识，Fixer 再含诊断。存量/目标源码树内的文件按条目 source_locator 取用、不整份读；规划与拆分也不列为必读，但仍不得漂移。
+- `subject_sha256`：复制 `context.subject_sha256`；绑定分配、冻结、代码、依赖或审计批次，不绑定无关兄弟的进度，也不因其后新增的经验过期。
+- 必读输入由 Ledger 从状态派生（步骤视图给出 `input_count` 与 `inputs_sha256`），报告不列：ready 报告绑定该摘要，任一输入变化或漂移即过期须重报；读过什么由 checks 的具体摘要与证据说明。worker 只读所需：Test-Runner 为冻结计划与测试资产；Implementer/Fixer 另含本叶子四维分析、架构/项目规则/知识，Fixer 再含诊断。存量/目标源码树内的文件按条目 source_locator 取用、不整份读；规划与拆分也不列为必读，但仍不得漂移。
 - `draft_ref`：global-plan/decompose/plan/audit-plan 必须绑定正在提交的同一 plan_ref。
 - `checks`：每项 `status=ready|blocked`、具体理解摘要；ready 必须给 evidence_refs，blocked 必须给 missing/owner/next_action。
 - `verdict`：任一检查 blocked 则必须 blocked；无可复用库、无历史修复或无依赖可在 ready 中记录“不适用的事实与依据”，不编造材料。
@@ -71,11 +71,11 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 
 ## 5. 缺失、失效与恢复
 
-`status.next_steps/global_next_step.context_gate` 展示当前必需 stage、检查项及可用报告；已派发但未授权的 worker 步骤（await-result）同样带出所欠的报告。worker 的 blocked 报告退回派发（尚未授权执行，无需停止证据），游标 reason=context-blocked：补齐后由 worker 重新提交 ready 报告，或按原因挂起；该实例当前仍 blocked 时 assign 被拒。审计派发因 context-readiness-required 未就绪时，宿主启动 Auditor 预检，不得把它当作全局无工作可做。
+`status.next_steps/global_next_step.context_gate` 展示必需 stage、检查项及可用报告；已派发但未授权的 worker 步骤（await-result）同样带出所欠的报告。worker 的 blocked 报告退回派发（尚未授权执行，无需停止证据），游标 reason=context-blocked：补齐后由 worker 重新提交 ready 报告，或按原因挂起；该实例当前仍 blocked 时 assign 被拒。审计派发因 context-readiness-required 未就绪时，宿主启动 Auditor 预检，不得把它当作全局无工作可做。
 
-blocked 报告提交会保留缺失项，但**不会自动将整个 MO 标记收尾**。例外分流：当前构建通过且仅自动化 test-environment 缺失时，游标提示 automation-unavailable；MO 接受后进入 automation-deferred，保留 Yellow/未执行并允许其他可执行任务继续，不要求人工批准。最终审计同类问题使用 audit-unavailable。见 [双环节协议](build-automation.md)。责任编排者必须继续补材料，或基于本模块实际原因提交已有 suspend（dependency/human/tooling）；已确认依赖/外围问题符合 audit-defer 条件时走该分支。审计修复中的阻塞经 audit-block 进入相关 finding 的人工报告。缺失不伪造失败测试，未执行路径仍为未执行；保留 Yellow 原因和恢复条件。
+blocked 报告提交会保留缺失项，但**不会自动把 MO 标记收尾**。例外分流：当前构建通过且仅自动化 test-environment 缺失时，游标提示 automation-unavailable；MO 接受后进入 automation-deferred，保留 Yellow/未执行并允许其他可执行任务继续，不要求人工批准。最终审计同类问题使用 audit-unavailable。见 [双环节协议](build-automation.md)。责任编排者必须继续补材料，或基于本模块实际原因提交已有 suspend（dependency/human/tooling）；已确认依赖/外围问题符合 audit-defer 条件时走该分支。审计修复中的阻塞经 audit-block 进入相关 finding 的人工报告。缺失不伪造失败测试，未执行路径仍为未执行；保留 Yellow 原因和恢复条件。
 
-同 stage/实例的最新报告覆盖可用索引，旧报告留在事件历史；最新 blocked 不能被旧 ready 绕过。草稿、已选提供方、证据、代码或分配变化后重新核对。原计划需要变更时仍经 CR/重新冻结；freeze 依据失效时重新提交 plan 与对应报告。恢复后新报告通过不直接 Green，仍须正式执行、复测与验收。
+同 stage/实例以最新报告为准，旧报告留在事件历史；最新 blocked 不能被旧 ready 绕过。草稿、已选提供方、证据、代码或分配变化后重新核对。原计划需要变更时仍经 CR/重新冻结；freeze 依据失效时重新提交 plan 与对应报告。恢复后新报告通过不直接 Green，仍须执行、复测与验收。
 
 无关模块继续；收尾规则仍为所有叶子本轮完成/明确挂起、父汇总有效、无 worker/可推进动作。
 
