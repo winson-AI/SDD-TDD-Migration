@@ -258,7 +258,8 @@ def source_presentation_mutations(source_index: dict) -> set[tuple[str, int, str
     return mutations
 
 
-def validate(tree_path: Path, index_path: Path, runtime_index_path: Path | None = None) -> dict:
+def validate(tree_path: Path, index_path: Path, runtime_index_path: Path | None = None, scoped_out=()) -> dict:
+    """`scoped_out`: references every use of which was reviewed out of this UI target; its tree need not declare them."""
     tree = load_json(tree_path)
     source_index = load_json(index_path)
     if tree.get("schemaVersion") != 1:
@@ -418,7 +419,7 @@ def validate(tree_path: Path, index_path: Path, runtime_index_path: Path | None 
         for ref in facts["presentationRefs"]
     }
     missing_runtime_refs = sorted(
-        source_presentation_refs(source_index) - tree_presentation_refs
+        source_presentation_refs(source_index) - tree_presentation_refs - set(scoped_out)
     )
     if missing_runtime_refs:
         raise ValidationError(

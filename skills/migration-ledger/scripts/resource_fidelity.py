@@ -516,6 +516,15 @@ def usage_exclusions(index, scope):
     return rows
 
 
+def scoped_out_refs(index, scope):
+    """References whose every use in the scoped code a reviewer scoped out: no node of this UI target shows them."""
+    excluded, kept, dropped = usage_exclusions(index, scope), set(), set()
+    for source in index.get('sourceFiles', []):
+        for site in source.get('resourceUsages', []):
+            (dropped if _scoped_out(site, excluded) else kept).add(site['ref'])
+    return dropped - kept
+
+
 def used_files(index, scope=None):
     """{reference: where it is used} for the file resources the scoped code names, less what a reviewer scoped out.
 
