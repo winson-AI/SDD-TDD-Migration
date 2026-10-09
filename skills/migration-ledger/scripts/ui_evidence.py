@@ -180,12 +180,13 @@ def validate_tree_ref(ref, source_index_ref=None, runtime_index_ref=None, target
     runtime = check_ref(runtime_index_ref) if runtime_index_ref else None
     require(bool(runtime) == merged_runtime(tree), 'runtime index evidence does not match tree mode')
     from lean_tools import validate_ui_tree
+    import resource_fidelity
+    index = read_json(source)
     try:
-        validate_ui_tree.validate(path, source, runtime)
+        validate_ui_tree.validate(path, source, runtime, resource_fidelity.scoped_out_refs(index, resource_scope))
     except (RuntimeError, KeyError, TypeError) as exc:
         require(False, 'native UI validation: ' + str(exc))
     require(not tree['unresolved'], 'UI tree has unresolved source conflicts')
-    index = read_json(source)
     require(not index.get('unresolved'), 'source index has unresolved closure')
     # Index hashes bind extracted facts; file hashes bind them to the actual source revision.
     base = Path(index.get('androidRoot', ''))
@@ -194,7 +195,6 @@ def validate_tree_ref(ref, source_index_ref=None, runtime_index_ref=None, target
         for item in index.get(group, []):
             if item.get('path') and item.get('sha256'):
                 check_ref({'path': str(base / item['path']), 'sha256': item['sha256']})
-    import resource_fidelity
     needed = resource_fidelity.obligations(index, tree, resource_scope)
     resource_fidelity.require_declared(needed)
     resource_fidelity.indexed_resources(index, needed['refs'], resource_scope)

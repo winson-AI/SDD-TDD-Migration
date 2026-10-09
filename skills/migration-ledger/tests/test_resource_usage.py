@@ -11,6 +11,7 @@ from contracts import Rejected, file_ref
 import resource_facts
 import resource_fidelity as rf
 import resource_signals as signals
+import ui_evidence
 import test_resource_signal_closure as closure
 
 JAVA = '''package demo;
@@ -176,6 +177,41 @@ class UsageClosureTests(unittest.TestCase):
             self.scope(usage_exclusions=[row])
             with self.subTest(row=row), self.assertRaisesRegex(Rejected, message):
                 self.s.freeze()
+
+    def setter(self):
+        """A picture a setter the collector knows shows in one function: the use is also a presentation mutation."""
+        self.c.write('res/drawable/ic_nav.xml', closure.VECTOR % '')
+        index = self.c.code('\nfun otherChannel() {\n  icon.setImageResource(R.drawable.ic_nav)\n}\n')
+        source = next(s for s in index['sourceFiles'] if s['path'].endswith('SettingsFragment.kt'))
+        row = next(m for m in source['presentationMutations'] if '@drawable/ic_nav' in m['resourceRefs'])
+        # The tree records that the source sets it, as a rule that names no resource of this target.
+        self.f.fixture['tree']['screens'][0]['root']['dynamicRules'].append({'when': 'another channel', 'property': row['property'],
+            'result': 'outside this module', 'sourcePath': row['sourcePath'], 'line': row['line']})
+        self.s.source_index(index)
+        return index
+
+    def validate(self):
+        evidence = self.f.evidence
+        return ui_evidence.validate_tree_ref(evidence['ui_tree_ref'], source_index_ref=evidence['source_index_ref'],
+            runtime_index_ref=evidence.get('runtime_index_ref'), resource_scope=evidence.get('resource_scope'))
+
+    def test_a_picture_a_setter_shows_in_excluded_code_need_not_be_declared_by_the_tree(self):
+        self.setter()
+        with self.assertRaisesRegex(Rejected, 'omits source runtime presentation references: @drawable/ic_nav'):
+            self.validate()
+        for row in ({'symbol': 'otherChannel'}, {'ref': '@drawable/ic_nav'}):
+            self.scope(usage_exclusions=[{**row, 'reason': 'a channel outside this module', 'evidence_refs': self.review()}])
+            with self.subTest(row=row):
+                self.validate(); self.s.freeze()  # scoped out with evidence: no node declares it and no item covers it
+                self.assertNotIn('@drawable/ic_nav', self.c.needs()['refs'])
+
+    def test_a_setter_outside_the_excluded_symbol_keeps_the_reference_on_the_tree(self):
+        self.setter()
+        index = self.c.code('\nfun header() { logo.setImageResource(R.drawable.ic_nav) }\n')
+        self.scope(usage_exclusions=[{'symbol': 'otherChannel', 'reason': 'a channel outside this module', 'evidence_refs': self.review()}])
+        self.assertEqual(rf.scoped_out_refs(index, self.f.evidence['resource_scope']), set())
+        with self.assertRaisesRegex(Rejected, 'omits source runtime presentation references: @drawable/ic_nav'):
+            self.validate()
 
     def test_a_use_outside_the_excluded_symbol_keeps_the_obligation(self):
         self.wrapper()
