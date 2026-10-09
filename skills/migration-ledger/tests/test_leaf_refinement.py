@@ -134,5 +134,75 @@ class TemplateTests(unittest.TestCase):
         self.assertFalse({'dimension-analysis.json'} & (with_screen | without))  # it copies its allocation and adds to it
 
 
+class DetailTests(unittest.TestCase):
+    """A leaf details an allocated Resource item into items of its own, one per file or drawing its evidence finds."""
+    ALLOCATED = {'dimensions': [
+        {'dimension': 'Logic', 'status': 'applicable', 'items': [{'item_id': 'RULE', 'requirement_ids': ['R1'], 'case_ids': ['C1']}]},
+        {'dimension': 'Resource', 'status': 'applicable', 'items': [
+            {'item_id': 'ICONS', 'source_resource': 'the icons of the screen', 'requirement_ids': ['R1', 'R2'], 'case_ids': ['C1', 'C2'],
+             'parent_item_ids': ['ROOT-RES']}]}]}
+    DETAIL = {'item_id': 'ICONS.back', 'detail_of': 'ICONS', 'source_resource': '@drawable/ic_back', 'requirement_ids': ['R1'], 'case_ids': ['C2']}
+
+    def refined(self, *details, dimension=1, change=None):
+        value = copy.deepcopy(self.ALLOCATED)
+        value['dimensions'][dimension]['items'].extend(copy.deepcopy(list(details)))
+        if change: change(value)
+        return value
+
+    def test_a_detail_item_names_what_it_details_and_stays_inside_it(self):
+        dimensions.keeps(self.ALLOCATED, self.refined(self.DETAIL))
+        dimensions.keeps(self.ALLOCATED, self.refined(self.DETAIL, {**self.DETAIL, 'item_id': 'ICONS.search', 'parent_item_ids': ['ROOT-RES']}))
+        refused = (
+            ({**self.DETAIL, 'item_id': 'back'}, 'carries its identifier as a prefix'),
+            ({**self.DETAIL, 'item_id': 'ICONS.'}, 'carries its identifier as a prefix'),
+            ({**self.DETAIL, 'detail_of': 'ELSEWHERE'}, 'names the allocated Resource item it details'),
+            ({**self.DETAIL, 'requirement_ids': ['R3']}, 'stays inside the requirements, cases and parent items'),
+            ({**self.DETAIL, 'case_ids': ['C1', 'C9']}, 'stays inside the requirements, cases and parent items'),
+            ({**self.DETAIL, 'parent_item_ids': ['ANOTHER-ROOT-ITEM']}, 'stays inside the requirements, cases and parent items'),
+        )
+        for detail, message in refused:
+            with self.subTest(detail=detail), self.assertRaisesRegex(Rejected, message):
+                dimensions.keeps(self.ALLOCATED, self.refined(detail))
+
+    def test_the_allocated_items_stay_and_nothing_else_is_added(self):
+        plain = {key: value for key, value in self.DETAIL.items() if key != 'detail_of'}
+        with self.assertRaisesRegex(Rejected, 'adds, drops or reorders'):  # an item that details nothing is new work
+            dimensions.keeps(self.ALLOCATED, self.refined(plain))
+        with self.assertRaisesRegex(Rejected, 'adds, drops or reorders'):
+            dimensions.keeps(self.ALLOCATED, self.refined(self.DETAIL, change=lambda v: v['dimensions'][1]['items'].pop(0)))
+        with self.assertRaisesRegex(Rejected, r'changes analysis\.dimensions\[Resource\]\.items\[ICONS\]\.source_resource'):
+            dimensions.keeps(self.ALLOCATED, self.refined(self.DETAIL, change=lambda v: v['dimensions'][1]['items'][0].update(source_resource='@drawable/ic_back')))
+        with self.assertRaisesRegex(Rejected, 'adds, drops or reorders'):  # only resources are detailed this way
+            dimensions.keeps(self.ALLOCATED, self.refined({'item_id': 'RULE.more', 'detail_of': 'RULE', 'requirement_ids': ['R1'], 'case_ids': ['C1']}, dimension=0))
+
+    def test_a_plan_traces_the_detail_item_like_any_other(self):
+        d = test_dimensions.DimensionTests(); d.setUp(); self.addCleanup(d.doCleanups)
+        f = d.f
+        d.root(('Logic', 'Resource')); f.split(d.proposal(('Logic', 'Resource')))
+        held = f.state()['modules']['M001']['dimension_analysis_ref']
+        analysis = read_json(check_ref(held))
+        resource = analysis['dimensions'][3]['items']
+        detail = {**copy.deepcopy(resource[0]), 'item_id': resource[0]['item_id'] + '.badge', 'detail_of': resource[0]['item_id'],
+                  'source_resource': 'legacy/badge.svg', 'target_resource': str(f.target / 'm1/badge.svg')}
+        resource.append(detail)
+        plan = d.leaf_plan()
+        plan['dimension_analysis_ref'] = f.ref('M001-detailed.json', analysis)
+        with self.assertRaisesRegex(Rejected, 'SPEC dimension trace must cover every allocated item'):  # the leaf owes what it added
+            f.call('plan', {'plan_ref': f.ref('untraced-detail.json', plan)}, role='spec-designer')
+        plan['dimension_trace'].append({'item_id': detail['item_id'], 'task_ids': ['T1'], 'path_ids': ['P1'],
+                                        'assertions': [{'path_id': 'P1', 'assertion_id': 'A1'}]})
+        for task in plan['tasks']:
+            task['dimension_analysis']['dimensions'][3]['item_ids'].append(detail['item_id'])
+        for definition in plan['definitions']:
+            if definition['kind'] in ('design', 'spec', 'tasks'):
+                path = check_ref(definition); path.write_text(path.read_text() + '\nDetail: ' + detail['item_id'] + '\n')
+                from contracts import file_ref
+                definition.update(file_ref(path))
+        f.call('plan', {'plan_ref': f.ref('traced-detail.json', plan)}, role='spec-designer')
+        module = f.state()['modules']['M001']
+        self.assertEqual(module['dimension_analysis_ref'], held)
+        self.assertIn(detail['item_id'], [row['item_id'] for row in module['plan']['dimension_trace']])
+
+
 if __name__ == '__main__':
     unittest.main()

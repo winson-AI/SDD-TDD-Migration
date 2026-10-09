@@ -201,10 +201,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 <package>/skills/migration-ledger/tests/simula
 
 ## 原位置与治理映射
 
-| 原位置/内容 | 新位置/处理 |
-| --- | --- |
-| SDK reports/dumps、系统截图/视频/concat临时文件 | 本 runner 的 sdk、temp；SDK 环境覆盖不能改变位置 |
-| .venv、wheel、公开默认配置、包源码/文档/diagrams、包自身测试日志 | 工具安装/维护资产保持原位置；运行期间新增的缓存、配置、证据不写回包目录 |
+SDK 的 reports/dumps、截图/视频与临时文件写入本 runner 的 sdk、temp，环境覆盖不能改位置；工具安装与维护资产留在原位置，运行期新增的缓存、配置、证据不写回包目录。
 
 Harmony 写入器的路径约束见 [Harmony 运行协议](../../migration-test/references/harmony-runtime.md#底层直接调用的留存路径约束)。
 

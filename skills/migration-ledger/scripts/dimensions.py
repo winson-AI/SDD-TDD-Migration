@@ -285,7 +285,10 @@ def keeps(allocated, refined, where='analysis', key=None):
         require(isinstance(refined, dict), 'refined analysis changes ' + where)
         for name, value in allocated.items():
             require(name in refined, 'refined analysis drops ' + where + '.' + name)
-            keeps(value, refined[name], where + '.' + name, name)
+            if name == 'items' and allocated.get('dimension') == 'Resource':
+                detailed(value, refined[name], where + '.' + name)
+            else:
+                keeps(value, refined[name], where + '.' + name, name)
     elif isinstance(allocated, list) and key in GROWS:
         require(isinstance(refined, list) and all(row in refined for row in allocated), 'refined analysis drops entries of ' + where)
     elif isinstance(allocated, list):
@@ -300,6 +303,30 @@ def keeps(allocated, refined, where='analysis', key=None):
             keeps(old, new, where + '[' + str(old[name]) + ']')
     else:
         require(allocated == refined, 'refined analysis changes ' + where)
+
+
+def detailed(allocated, refined, where):
+    """The Resource items of a refinement: every allocated item, kept, and the items the leaf adds to detail one of
+    them - one per file or drawing its UI evidence finds. A detail item names the allocated item it details, carries
+    that item's identifier as a prefix, cites the same parent items and stays inside its requirements and cases; the
+    allocation's scope is unchanged, and what the leaf adds is judged like any registered item."""
+    require(isinstance(allocated, list) and isinstance(refined, list) and all(isinstance(row, dict) for row in refined),
+            'refined analysis changes ' + where)
+    held = {row['item_id']: row for row in allocated}
+    kept = [row for row in refined if 'detail_of' not in row]
+    require([row.get('item_id') for row in kept] == list(held), 'refined analysis adds, drops or reorders ' + where)
+    for old, new in zip(allocated, kept):
+        keeps(old, new, where + '[' + str(old['item_id']) + ']')
+    for row in refined:
+        if 'detail_of' not in row:
+            continue
+        origin, iid = held.get(row['detail_of']), str(row.get('item_id', ''))
+        require(origin and iid.startswith(origin['item_id'] + '.') and len(iid) > len(origin['item_id']) + 1,
+                'a detail item names the allocated Resource item it details and carries its identifier as a prefix: ' + iid)
+        require(set(row.get('requirement_ids') or []) <= set(origin.get('requirement_ids') or [])
+                and set(row.get('case_ids') or []) <= set(origin.get('case_ids') or [])
+                and row.get('parent_item_ids', origin.get('parent_item_ids')) == origin.get('parent_item_ids'),
+                'a detail item stays inside the requirements, cases and parent items of the item it details: ' + iid)
 
 
 def refines(allocated_ref, ref):
