@@ -269,7 +269,8 @@ def resolve_source_argument(value: str, root: Path) -> tuple[Path | None, str | 
     if candidate.is_file():
         return candidate.resolve(), symbol or None
 
-    requested = Path(path_text).stem
+    # A class may be named by its file name or by its qualified name (package.Class).
+    requested = Path(path_text).stem if Path(path_text).suffix in SOURCE_SUFFIXES else path_text.rsplit(".", 1)[-1]
     matches = [
         path.resolve()
         for path in root.rglob("*")
@@ -284,6 +285,66 @@ def line_number(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
+def block_end(text: str, open_brace: int) -> int | None:
+    """Offset just past the brace closing the block opened at `open_brace`; comments, strings and chars are skipped."""
+    depth, index, size = 0, open_brace, len(text)
+    while index < size:
+        char = text[index]
+        if text.startswith("//", index):
+            index = text.find("\n", index)
+            index = size if index < 0 else index
+        elif text.startswith("/*", index):
+            index = text.find("*/", index + 2)
+            index = size if index < 0 else index + 2
+        elif text.startswith('"""', index):
+            index = text.find('"""', index + 3)
+            index = size if index < 0 else index + 3
+        elif char in "\"'":
+            index += 1
+            while index < size and text[index] != char and text[index] != "\n":
+                index += 2 if text[index] == "\\" else 1
+            index += 1
+        else:
+            depth += char == "{"
+            if char == "}":
+                depth -= 1
+                if depth == 0:
+                    return index + 1
+            index += 1
+    return None
+
+
+def declaration_spans(text: str, symbol: str) -> list[tuple[int, int]]:
+    """(start, end) offsets of every class, interface, enum or object named `symbol` declared in the text."""
+    spans = []
+    for match in re.finditer(r"\b(?:class|interface|enum|object|record)\s+" + re.escape(symbol) + r"\b", text):
+        start = text.rfind("\n", 0, match.start()) + 1
+        if text[start:match.start()].lstrip().startswith(("//", "*", "/*")):
+            continue  # a mention in a comment, not a declaration
+        opening = text.find("{", match.end())
+        end = block_end(text, opening) if opening >= 0 else None
+        if end:
+            spans.append((start, end))
+    return spans
+
+
+def scoped_text(text: str, symbols) -> tuple[str, list[dict]]:
+    """The text with everything outside the named declarations blanked, so offsets and line numbers stay those of the
+    file, and the line ranges kept. An entry `path#Class` collects that class alone: a screen that is one class of a
+    large file is indexed without the other screens the file holds."""
+    spans = sorted({span for symbol in sorted(symbols) for span in declaration_spans(text, symbol)})
+    kept, cursor, pieces = [], 0, []
+    for start, end in spans:
+        if start < cursor:
+            continue  # nested in a span already kept
+        pieces.append(re.sub(r"[^\n]", " ", text[cursor:start]))
+        pieces.append(text[start:end])
+        kept.append({"lines": [line_number(text, start), line_number(text, end - 1)]})
+        cursor = end
+    pieces.append(re.sub(r"[^\n]", " ", text[cursor:]))
+    return "".join(pieces), kept
+
+
 def role_hint(text: str, offset: int) -> str:
     window = text[max(0, offset - 800) : min(len(text), offset + 800)]
     if re.search(r"\b(?:Adapter|ViewHolder|ListAdapter|RecyclerView\.Adapter)\b", window):
@@ -295,8 +356,8 @@ def role_hint(text: str, offset: int) -> str:
     return "unknown"
 
 
-def inspect_source(path: Path, root: Path) -> tuple[dict, list[dict], list[dict]]:
-    text = path.read_text(encoding="utf-8", errors="replace")
+def inspect_source(path: Path, root: Path, text: str | None = None) -> tuple[dict, list[dict], list[dict]]:
+    text = path.read_text(encoding="utf-8", errors="replace") if text is None else text
     relative = relative_to_root(path, root)
     layout_refs: list[dict] = []
     seen_refs: set[tuple[int, str, str]] = set()
@@ -478,7 +539,14 @@ def collect(args: argparse.Namespace) -> dict:
             )
             entries.append({"requested": requested, "sourcePath": None, "symbol": symbol})
             continue
-        source_paths[path] = {}
+        # `path#Class` asks for that class alone; a path or a class name asks for the whole file.
+        named = symbol if "#" in requested else None
+        if named and not declaration_spans(path.read_text(encoding="utf-8", errors="replace"), named):
+            unresolved.append({"kind": "entry", "requested": requested, "reason": "symbol is not declared in the source file"})
+            entries.append({"requested": requested, "sourcePath": relative_to_root(path, root), "symbol": symbol})
+            continue
+        scope = source_paths.setdefault(path, {"symbols": set(), "whole": False})
+        scope["symbols" if named else "whole"] = scope["symbols"] | {named} if named else True
         entries.append(
             {
                 "requested": requested,
@@ -498,7 +566,7 @@ def collect(args: argparse.Namespace) -> dict:
                 }
             )
             continue
-        source_paths[path] = {}
+        source_paths.setdefault(path, {"symbols": set(), "whole": False})["whole"] = True
 
     source_facts: list[dict] = []
     layout_references: list[dict] = []
@@ -509,13 +577,20 @@ def collect(args: argparse.Namespace) -> dict:
     sink_candidates: list[dict] = []
     asset_names: set[str] = set()
     for path in sorted(source_paths):
-        fact, references, composables = inspect_source(path, root)
+        scope = source_paths[path]
+        text = path.read_text(encoding="utf-8", errors="replace")
+        kept = None
+        if scope["symbols"] and not scope["whole"]:
+            text, kept = scoped_text(text, scope["symbols"])
+        fact, references, composables = inspect_source(path, root, text)
+        if kept is not None:
+            fact["scope"] = {"symbols": sorted(scope["symbols"]), "ranges": kept}
         source_facts.append(fact)
         source_resource_refs.update(fact["resourceRefs"])
         layout_references.extend(references)
         compose_functions.extend(composables)
         found = resource_signals.code_sources(
-            catalog, path.read_text(encoding="utf-8", errors="replace"), fact["path"],
+            catalog, text, fact["path"],
             getattr(args, "image_sinks", None) or (), getattr(args, "layout_helpers", None) or ())
         image_rows.extend(found["imageSources"])
         asset_names.update(found["assets"])

@@ -41,7 +41,7 @@ import audit_execution
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
-from contracts import (Rejected, baseline, check_ref, digest, file_ref, keyed, nonempty,
+from contracts import (Rejected, baseline, check_ref, cited, digest, file_ref, keyed, nonempty,
                        intact, read_json, require, validate_plan, validate_result, verify_plan)
 
 HISTORICAL_TOOL_ROOTS = (Path(__file__).resolve().parent,
@@ -1729,7 +1729,7 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
     seen = set() if seen is None else seen
     saved = []
     if isinstance(value, dict):
-        if 'path' in value and 'sha256' in value:
+        if cited(value, nested):
             key = (value['path'], value['sha256'])
             if key in seen:
                 return []

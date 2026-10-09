@@ -70,6 +70,15 @@ def file_ref(path):
     return {'path': str(p), 'sha256': sha.hexdigest()}
 
 
+def cited(value, nested=False):
+    """Whether an object is a reference to a file: it carries a path and a digest. Inside a document that is itself
+    evidence, an object whose path is not absolute is a record the document keeps about a file - a tool listing what it
+    scanned, relative to the tree it scanned - not a reference of the run: it is neither checked nor archived."""
+    if not (isinstance(value, dict) and 'path' in value and 'sha256' in value):
+        return False
+    return not nested or (isinstance(value['path'], str) and Path(value['path']).is_absolute())
+
+
 def check_ref(ref):
     require(isinstance(ref, dict) and Path(ref.get('path', '')).is_absolute(), 'absolute evidence path required, got ' + str(ref)[:100])
     try:
