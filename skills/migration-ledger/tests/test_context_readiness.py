@@ -351,6 +351,38 @@ class ContextReadinessTests(unittest.TestCase):
         self.assertEqual(self.state()['modules']['M001']['phase'], 'implementing')
         self.assertEqual(self.state()['modules']['M002']['phase'], 'context')
 
+    def test_what_the_run_learns_after_a_report_does_not_make_the_report_stale(self):
+        """The history is read when a report is written. The third distinct plan of one freeze leaves a lesson in the
+        run's memory in the very event that accepts it; the report that plan was accepted with still stands."""
+        self.global_plan()
+        for round_ in range(3):
+            plan = self.plan(); plan['decision_envelope']['acceptance'] = ['same result', 'draft ' + str(round_)]
+            self.call('plan', {'plan_ref': self.ref('plan-%d.json' % round_, plan)}, role='spec-designer')
+        m = self.state()['modules']['M001']
+        receipt = m['context_receipts']['planning:spec-designer']
+        learnt = [entry.get('reason') for entry in read_json(check_ref(m['planning_lessons_ref']))['entries']]
+        self.assertIn('repeated-plan-submission', learnt)
+        self.assertNotEqual(receipt['history_ref'], m['planning_lessons_ref'])  # the report read the history before it
+        late = self.report('planning'); late['subject_sha256'] = cr.subject(self.state(), 'M001', 'planning', receipt['history_ref'])
+        with self.assertRaisesRegex(Rejected, 'context subject stale'):
+            self.record(late)  # a report written now has to have read what the run has learnt since
+        self.approve(m['plan_hash'], 'D1')
+        self.raw('freeze', {'decision_id': 'D1'})
+        self.assertTrue(self.state()['modules']['M001']['freeze_id'])
+
+    def test_a_siblings_request_to_the_parent_does_not_make_a_leafs_report_stale(self):
+        self.root_scope(); self.split(); self.global_plan()
+        plan = self.plan(); test_decomposition.DecompositionTests.attach_reuse(self, plan)
+        self.call('plan', {'plan_ref': self.ref('leaf-plan.json', plan)}, role='spec-designer')
+        before = self.state()['modules']['M001'].get('planning_lessons_ref')
+        self.call('realloc-request', {'reason': 'the write scope lacks a target', 'evidence_refs': [self.ref('boundary.md', 'found while planning')]},
+                  module='M002')
+        m = self.state()['modules']['M001']
+        self.assertNotEqual(m['planning_lessons_ref'], before)  # the sibling's request is history every child of the parent reads
+        self.approve(m['plan_hash'], 'D1')
+        self.raw('freeze', {'decision_id': 'D1'})
+        self.assertTrue(self.state()['modules']['M001']['freeze_id'])
+
     def test_audit_analysis_and_verdict_cannot_skip_context_receipts(self):
         self.cross_module_failure()
         test_ledger.code_review(self)
