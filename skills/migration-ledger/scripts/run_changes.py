@@ -192,15 +192,26 @@ def validate(s, ref):
         require(spec_ref != s['global_spec'], 'global spec revision must change the specification')
     changed_roots = {mid for mid, update in updates.items() if any(current[mid].get(k) != update.get(k, current[mid].get(k)) for k in ROOT_KEYS - {'module_id'})}
     for mid in changed_roots:
-        root = proposed[mid]
-        for leaf in set(decomposition.leaves(s, mid)) - affected:
+        root, was = proposed[mid], current[mid]
+        leaves = set(decomposition.leaves(s, mid))
+        analysed = mid in s.get('module_groups', {}) and root.get('dimension_analysis_ref') and was.get('dimension_analysis_ref')
+        if analysed and root['dimension_analysis_ref'] != was['dimension_analysis_ref']:
+            added = set(dimensions.load(root['dimension_analysis_ref'], mid)[1]) - set(dimensions.load(was['dimension_analysis_ref'], mid)[1])
+            require(not added or affected.intersection(leaves), 'root revision adds work no leaf is asked to take: '
+                    + ', '.join(sorted(added)[:8]) + '; the leaf that takes it plans again')
+        for leaf in leaves - affected:
             child = s['modules'][leaf]
             require(set(child['scope']['requirement_ids']) <= set(root['scope']['requirement_ids'])
                 and set(child['case_ids']) <= set(root['case_ids'])
-                and all(any(Path(p).resolve().is_relative_to(Path(w).resolve()) for w in root['write_paths']) for p in child['write_paths'])
-                and set(root['scope']['out']) <= set(child['scope']['out']), 'retained child outside revised root boundary')
-    for mid, m in s['modules'].items():
-        require(not affected.intersection(m['dependencies']) or mid in affected, 'run impact must include dependent closure')
+                and all(any(Path(p).resolve().is_relative_to(Path(w).resolve()) for w in root['write_paths']) for p in child['write_paths']),
+                'retained child outside revised root boundary')
+            if analysed and child.get('dimension_analysis_ref'):
+                # A child stands under the revised root while the root has not changed what the child cites of it.
+                found = dimensions.touched(root, *dimensions.load(child['dimension_analysis_ref'], leaf))
+                require(not found, 'retained child %s cites what the revision changes (%s); its impact is replan or revise'
+                        % (leaf, ', '.join(found[:8])))
+            else:
+                require(set(root['scope']['out']) <= set(child['scope']['out']), 'retained child outside revised root boundary')
     require(patch or spec_ref or changed_roots or any(m.get('realloc_request') for m in current.values()), 'empty run revision')
     return report, affected, changed_roots
 
@@ -237,7 +248,7 @@ def revise_context(root, s, patch, review, decision):
 
 
 def handle(root, s, req, actor):
-    from ledger import role, idle, open_change, replan_module
+    from ledger import role, idle, open_change, replan_module, await_provider
     p = req['payload']
     if req['operation'] == 'run-review':
         role(actor, 'global-orchestrator')
@@ -279,6 +290,9 @@ def handle(root, s, req, actor):
     context_readiness.pin_execution(root, s, affected)
     new_ref = revise_context(root, s, report['context_patch'], review, decision)
     rows = keyed(report['modules'], 'module_id') if report['modules'] else {}  # no leaf yet: nothing to review
+    replanned = {mid for mid in affected if rows[mid]['action'] == 'replan'}
+    for mid in decomposition.built_on(s, replanned) - affected:
+        await_provider(s['modules'][mid])  # it keeps its plan and code and verifies again once its provider is back
     for mid, m in s['modules'].items():
         if mid in affected:
             if rows[mid]['action'] == 'reverify':
@@ -309,8 +323,10 @@ def handle(root, s, req, actor):
             **{k: copy.deepcopy(m.get(k)) for k in ROOT_KEYS}})
         m.update(copy.deepcopy(update))
         m['dependencies'] = sorted({leaf for dep in update['dependencies'] for leaf in decomposition.leaves(s, dep)})
-        if mid in s.get('module_groups', {}) and mid in changed_roots:
-            m['replanning_required'] = True
+        reached = sorted(affected.intersection(decomposition.leaves(s, mid)))
+        if mid in s.get('module_groups', {}) and mid in changed_roots and reached:
+            # The parent writes again only the children the revision reaches; the others stand and keep moving.
+            m.update(replanning_required=True, replanning_children=reached)
             m.pop('redecomposition_submission', None)
     for group in s.get('module_groups', {}).values():
         group.pop('realloc_request', None)

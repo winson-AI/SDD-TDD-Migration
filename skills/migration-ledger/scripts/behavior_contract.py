@@ -125,26 +125,29 @@ def slicing(modules, graph):
         if mid not in depth:
             depth[mid] = 1 + max([chain(dep) for dep in graph.get(mid, []) if dep in ids] or [0])
         return depth[mid]
-    owners = {}
+    owners, holders = {}, {}
     for module in modules:
         chain(module['module_id'])
         for cid in accepts(module):
             owners.setdefault(cid, []).append(module['module_id'])
+        for cid in module.get('case_ids', []):
+            holders.setdefault(cid, []).append(module['module_id'])
     waiting = 0
     for module in modules:
         stages = {row.get('module_id'): row.get('required_stage') for row in
                   ((module.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs') or []}
         waiting += any(dep in ids and stages.get(dep) != 'implemented' for dep in graph.get(module['module_id'], []))
     return {'slices': len(modules), 'supporting': sorted(m['module_id'] for m in modules if not accepts(m)),
-            'shared_cases': sorted(cid for cid, mids in owners.items() if len(mids) > 1), 'accepted_cases': sorted(owners),
+            'shared_cases': sorted(cid for cid, mids in holders.items() if len(mids) > 1), 'accepted_cases': sorted(owners),
             'chain_depth': max(depth.values(), default=0), 'waiting': waiting, 'layered_cases': layered,
             # a slice that shows without deciding, or decides without showing, is one layer of a behaviour
             'single_layer': sorted(mid for mid, profile in profiles.items() if profile and ('UI' in profile) != ('Logic' in profile))}
 
 
-def independence(parent, children, graph, plan, taken=()):
-    """One slice accepts a case, a slice that accepts none says why it stands alone, and a chain of slices, or a split
-    where most slices wait for another, is argued for. `taken` are the cases slices outside this split accept."""
+def independence(parent, children, graph, plan, taken=(), judged=None):
+    """One slice accepts a case and holds it, a slice that accepts none says why it stands alone, and a chain of slices,
+    or a split where most slices wait for another, is argued for. `taken` are the cases slices outside this split accept;
+    `judged` are the slices this proposal writes (all of them unless it restates some the Ledger already holds)."""
     mapping = plan.get('case_acceptance')
     require(isinstance(mapping, dict), 'case_acceptance required: for each case the parent accepts, the one slice that accepts it')
     held = {child['module_id']: set(child['case_ids']) for child in children}
@@ -153,6 +156,14 @@ def independence(parent, children, graph, plan, taken=()):
     require(all(cid in held.get(owner, ()) for cid, owner in mapping.items()), 'a case is accepted by a slice of this split that holds it')
     require(not set(mapping).intersection(taken), 'cases a slice outside this split already accepts: '
             + ', '.join(sorted(set(mapping).intersection(taken))[:8]))
+    for child in children:
+        mine = {cid for cid, owner in mapping.items() if owner == child['module_id']}
+        extra = sorted(held[child['module_id']] - mine)
+        # Overlapping slices are not a split. Only a slice that accepts nothing holds the cases of the slices it serves.
+        require(not mine or not extra or (judged is not None and child['module_id'] not in judged),
+                'a case has one holder: %s also holds %s, which another slice accepts. What a slice supplies for another '
+                'slice\'s case is that slice\'s provider input, and what every slice must meet is a fidelity condition of '
+                'each slice\'s own items' % (child['module_id'], ', '.join(extra[:8])))
     shape = slicing(children, graph)
     reasons = plan.get('supporting_slices', {})
     require(isinstance(reasons, dict) and set(reasons) == set(shape['supporting'])

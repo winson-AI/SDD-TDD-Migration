@@ -202,7 +202,8 @@ def group_step(s, group, ref_check=check_ref):
                     reason='wait-for-affected-workers' if busy else 'redecomposition-proposal-ready')
         return step
     if group.get('replanning_required'):
-        step.update(operation='redecompose', ready=True, reason='root-allocation-revised')
+        step.update(operation='redecompose', ready=True, reason='root-allocation-revised',
+                    affected_children=group.get('replanning_children', group['children']))
         return step
     realloc_reqs = [mid for mid in group['children'] if mid in s['modules'] and (
         s['modules'][mid].get('realloc_request') or s['modules'][mid].get('phase') == 'waiting-upstream'
@@ -291,7 +292,9 @@ def validate(s, parent, plan, redecompose=False):
                 'child MO decomposes tasks; child hierarchy is assigned by GO acceptance')
         require(set(child['scope']['requirement_ids']) <= set(parent['scope']['requirement_ids']),
                 'child requirements outside parent scope')
-        require(set(parent['scope']['out']) <= set(child['scope']['out']), 'child must retain parent exclusions')
+        # A child the Ledger already holds keeps the exclusions it restated when it was accepted; the parent's current
+        # ones reach its planner with the parent's allocation.
+        require(registered(s, child) or set(parent['scope']['out']) <= set(child['scope']['out']), 'child must retain parent exclusions')
         require(set(child['case_ids']) <= set(parent['case_ids']), 'child cases outside selected function')
         require(all(any(Path(path).resolve().is_relative_to(Path(scope).resolve())
                         for scope in parent['write_paths']) for path in child['write_paths']), 'child write scope outside parent')
@@ -345,11 +348,19 @@ def validate(s, parent, plan, redecompose=False):
         inside = {parent['module_id'], *ids, *parent.get('children', [])}
         behavior_contract.independence(parent, children, graph, plan, {
             cid for mid, module in {**s.get('module_groups', {}), **s['modules']}.items() if mid not in inside
-            for cid in behavior_contract.accepts(module)})
+            for cid in behavior_contract.accepts(module)}, {child['module_id'] for child in children if not registered(s, child)})
     return children, graph
 
 
+def built_on(s, providers):
+    """The leaves that hold code built on one of `providers` and are not among them."""
+    return {cid for cid, mod in s['modules'].items()
+            if cid not in providers and mod.get('code_baseline') and set(providers).intersection(mod['dependencies'])}
+
+
 def redecomposition_impact(s, parent, children, graph):
+    """The leaves a re-split reaches: the children it changes, the leaves whose providers it rebinds, and the leaves
+    holding code built on a changed child. A leaf that only plans next to them is not reached."""
     old, new = set(parent['children']), {c['module_id']: c for c in children}
     impact = old.symmetric_difference(new)
     import behavior_contract
@@ -357,11 +368,8 @@ def redecomposition_impact(s, parent, children, graph):
         any(s['modules'][cid].get(key) != new[cid].get(key) for key in ALLOCATION_KEYS)
         or behavior_contract.accepts(s['modules'][cid]) != behavior_contract.accepts(new[cid])
         or graph[cid] != s['modules'][cid]['dependencies'])
-    while True:
-        expanded = impact | {cid for cid, mod in s['modules'].items()
-            if impact.intersection(mod['dependencies']) or graph.get(cid, mod['dependencies']) != mod['dependencies']}
-        if expanded == impact: return impact
-        impact = expanded
+    impact.update(cid for cid, mod in s['modules'].items() if graph.get(cid, mod['dependencies']) != mod['dependencies'])
+    return impact | built_on(s, impact)
 
 
 def boundary_kept(old, new, dependencies):
@@ -386,8 +394,9 @@ def revisable(old, new, dependencies):
 
 
 def revision_plan(s, parent, children, graph):
-    """(leaves that plan again, leaves that revise their contract) for a re-split. A leaf that only depends on revised
-    leaves is in neither: it keeps its plan and waits for its provider like after any provider change."""
+    """(leaves that plan again, leaves that revise their contract) for a re-split. A leaf that only depends on one of
+    them is in neither: it keeps its plan, and if it already holds code it waits for its provider like after any
+    provider change."""
     import behavior_contract
     old, new = set(parent['children']), {c['module_id']: c for c in children}
     changed = {cid for cid in old.intersection(new) if
@@ -397,11 +406,7 @@ def revision_plan(s, parent, children, graph):
     revised = {cid for cid in changed if revisable(s['modules'][cid], new[cid], graph[cid])}
     reset = old.symmetric_difference(new) | (changed - revised) | {
         cid for cid, mod in s['modules'].items() if graph.get(cid, mod['dependencies']) != mod['dependencies']}
-    while True:
-        expanded = reset | {cid for cid, mod in s['modules'].items() if reset.intersection(mod['dependencies'])}
-        if expanded == reset:
-            return reset, revised - reset
-        reset = expanded
+    return reset, revised - reset
 
 
 def accepted_over(s):
@@ -487,6 +492,7 @@ def handle(s, req, actor, run_root):
         common_ids = old_children & new_child_ids
         impact = redecomposition_impact(s, parent, children, graph)
         reset, revised = revision_plan(s, parent, children, graph)
+        waiting = built_on(s, reset)
         held = accepted_over(s)
         for cid in impact & set(s['modules']):
             idle(s['modules'][cid])
@@ -553,7 +559,11 @@ def handle(s, req, actor, run_root):
         parent['decomposition_review_ref'] = p['review_ref']
         parent.pop('redecomposition_submission', None)
         parent.pop('replanning_required', None)
+        parent.pop('replanning_children', None)
         parent.pop('realloc_request', None)
+        from ledger import await_provider
+        for cid in waiting & set(s['modules']):
+            await_provider(s['modules'][cid])
         parent.pop('summary_ref', None)
         parent.pop('summary_subject', None)
         parent['revision'] += 1

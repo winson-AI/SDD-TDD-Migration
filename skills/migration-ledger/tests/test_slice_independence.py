@@ -115,7 +115,8 @@ class SplitTests(unittest.TestCase):
         self.assertEqual(state['modules']['M002']['acceptance_case_ids'], [])
         self.assertEqual(decomposition.assigned_module(state, state['modules']['M001'])['acceptance_case_ids'], ['C1'])
         self.assertEqual(behavior_contract.slices(state), [{'parent_module_id': 'M010', 'slices': 2, 'supporting': ['M002'],
-            'shared_cases': [], 'accepted_cases': ['C1'], 'chain_depth': 1, 'waiting': 0, 'layered_cases': [], 'single_layer': []}])
+            'shared_cases': ['C1'],  # the supporting slice holds the case of the slice it serves
+            'accepted_cases': ['C1'], 'chain_depth': 1, 'waiting': 0, 'layered_cases': [], 'single_layer': []}])
         self.assertIn('## 切片独立性', migration_report.render(migration_report.build(f.root, state, 1)))
 
     def test_moving_acceptance_in_a_resplit_replans_both_slices(self):

@@ -253,6 +253,15 @@ def invalidate_dependents(s, mid):
     s['audit'] = {}
 
 
+def await_provider(m):
+    """A leaf holding code built on a provider that plans again keeps its plan and code, and verifies again once the
+    provider is back. A leaf without code has nothing built on it and is left to move."""
+    resume_phase = 'frozen' if m.get('freeze_id') else (m.get('blocked') or {}).get('resume_phase', m['phase'])
+    m.update(stale=True, phase='waiting-dependency',
+             blocked={'kind': 'dependency', 'reason': 'dependency-version-changed', 'resume_phase': resume_phase})
+    m['revision'] += 1
+
+
 def checklist_rubric(root):
     """The package's freeze/DoD rubric as this run's content-addressed copy; a plan is bound to it, its author does not write it."""
     data = (reading.PACKAGE / 'template' / 'checklist.md').read_bytes()
@@ -597,7 +606,7 @@ def _next_step(s, m):
                 step['design_input_needs'] = ('spec_refs: the leaf SPEC draft the Spec-Designer staged, with Requirement-ID and '
                                               'Scenario-ID lines; have it staged before assigning the design')
         try:
-            workflow.runtime_allocations(s, m['module_id'])
+            workflow.runtime_allocations(s, m['module_id'], planning=True)
         except (Rejected, OSError) as exc:
             step.update(operation=None, role='global-orchestrator', ready=False,
                         reason='allocation-review-required', detail=str(exc),
@@ -623,6 +632,13 @@ def _next_step(s, m):
                     approval_subject_sha256=m['plan_hash'])
         if not decision and not eligible and not m.get('plan_review_ref'):
             step.update(operation='plan-review', ready=True, reason='MO-technical-review', payload={})
+        elif not decision:
+            import api_contract
+            if api_contract.undecided(s, api_contract.adaptations(m)):
+                # One decision names every adaptation the run still has open, so no other leaf asks again.
+                wanted = api_contract.undecided(s, api_contract.registered(s))
+                step.update(ready=False, reason='human-decision-required', approval_kind='api-adaptation', adaptations=wanted,
+                            approval_subject_sha256=digest(wanted))
         if design_stage.required(s, m) and not design_stage.ready(s, m):
             step.update(operation='invalidate', ready=True, reason='independent-test-design-stale',
                         payload={'reason': 'independent-test-design-stale'})
@@ -1167,6 +1183,9 @@ def mutate(s, req, principal, events, root=None):
             require(parent and p['subject_sha256'] == p['envelope_ref']['sha256'] and doc.get('parent_module_id') == p['module_id']
                     and isinstance(children, dict) and children and set(children) <= set(parent.get('children', [])),
                     'batch envelope decision must hash its document and cover only this parent\'s children')
+        if p.get('kind') == 'api-adaptation':
+            import api_contract
+            api_contract.decision(s, p)
         s['decisions'][p['decision_id']] = {**p, 'consumed': False}
     elif op == 'plan':
         role(principal, 'spec-designer')
@@ -1851,7 +1870,7 @@ def _apply(root, req, principal):
                  'global_plan': None, 'audit_queue': {}, 'run_id': req['run_id'], 'revision': 1, 'target_root': str(Path(p['target_root']).resolve()),
                  'legacy_root': str(Path(p['legacy_root']).resolve()), 'case_ids': p['case_ids'],
                  'modules': {}, 'decisions': {}, 'audit': {}, 'global_paths': p.get('global_paths', []), 'quality': 'yellow-blocked',
-                 'max_parallel_modules': p.get('max_parallel_modules', 3), 'max_audit_rounds': p.get('max_audit_rounds', 3),
+                 'max_parallel_modules': p.get('max_parallel_modules', 5), 'max_audit_rounds': p.get('max_audit_rounds', 3),
                  'max_fix_rounds': p.get('max_fix_rounds', 3), 'max_no_progress_rounds': p.get('max_no_progress_rounds', 2),
                  'max_yellow_retries': p.get('max_yellow_retries', 2)}
             workflow.global_paths_check(s['global_paths'], s['case_ids'])

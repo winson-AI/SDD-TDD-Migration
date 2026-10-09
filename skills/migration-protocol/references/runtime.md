@@ -32,7 +32,7 @@ run-id/change-name/capability 使用 kebab-case，module_id 匹配 `M[0-9]{3,}`�
 
 ## 并行、锁与依赖
 
-依赖在 register / decompose 时登记：依赖必须已存在，拒绝环和未知模块。不同模块可并行，活动 assignment 总数受 max_parallel_modules 限制；每个模块同一时刻只有一个活动 assignment，它占用该模块直到 accept 或带真实停止证据的 revoke，不按时间自动重授。写集合重叠（目录与其子路径视为冲突）的两个模块不能同时有活动 worker，后者的 assign 被拒，等前者结束后串行执行；共享文件独立成前置模块或由唯一 owner 处理。宿主仍须在每次真实写操作执行 ACL/fencing。
+依赖在 register / decompose 时登记：依赖必须已存在，拒绝环和未知模块。不同模块可并行，活动 assignment 总数受 max_parallel_modules（默认 5）限制，游标 module_rounds.start_modules 列出当前应推进的叶子（持有 worker 的在先，其余 provider 优先取到上限）；每个模块同一时刻只有一个活动 assignment，它占用该模块直到 accept 或带真实停止证据的 revoke，不按时间自动重授。写集合重叠（目录与其子路径视为冲突）的两个模块不能同时有活动 worker，后者的 assign 被拒，等前者结束后串行执行；共享文件独立成前置模块或由唯一 owner 处理。宿主仍须在每次真实写操作执行 ACL/fencing。
 
 模块依赖未就绪时以 suspend(kind=dependency) 记录生产者、原因与恢复条件；生产者完成后 Global 提交 dependency-ready，MO resume 回到需重验的阶段，不改 Green。生产者代码或契约变化使消费者旧结果失效。环、缺失模块或无法满足的依赖交人工裁决，不无限轮询；全部模块都在等待且无可推进动作时由 status.workflow_progress 给出阻塞信号。
 

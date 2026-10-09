@@ -603,6 +603,7 @@ GATES = [
      r'|configuration patch|context belongs|single-module requires', 'project-context.md', '运行时固化'),
     (r'context (stage|producer|checklist|verdict|check|understanding|blocked|blocker|test)|wrong context|build not ready|observed failure',
      'context-readiness.md', '3. 报告与传递'),
+    (r'fidelity condition|condition_assertions', 'resource-transfer.md', '动态参数与布局结构'),
     (r'statechart|icu messages|strategy new has no legacy', 'semantic-extraction.md', '层与 schema'),
     (r'ui tree|ui_tree|UI node|UI evidence|ui_evidence|UI implementation|screen (must|needs)|runtime ?index|tree modes|native UI', 'ui-fidelity.md', 'UI 证据绑定'),
     (r'capture|baseline screenshot|frozen baseline|reference manifest|installation command', 'ui-fidelity.md', 'capture / 构建产物契约'),

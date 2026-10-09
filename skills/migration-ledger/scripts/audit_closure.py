@@ -48,11 +48,25 @@ def collection_blockers(s, ref_check=check_ref):
     return blockers
 
 
+def start_modules(s, steps):
+    """The leaves a host works on now: those holding a worker, then the leaves with a step to take, providers first, up
+    to the run's parallel budget. A leaf beyond it starts when one of these settles or has to wait for something."""
+    order = list(s['modules'])
+    def depth(mid, trail=()):
+        return 1 + max((depth(dep, (*trail, mid)) for dep in s['modules'][mid]['dependencies']
+                        if dep in s['modules'] and dep not in trail), default=0)
+    busy = [mid for mid in order if any(not a.get('closed') for a in s['modules'][mid]['assignments'].values())]
+    ready = sorted({step['module_id'] for step in steps if step.get('ready') and step.get('module_id') in s['modules']} - set(busy),
+                   key=lambda mid: (depth(mid), order.index(mid)))
+    return busy + ready[:max(0, s['max_parallel_modules'] - len(busy))]
+
+
 def module_rounds(s, steps, ref_check=check_ref):
     """Separate per-module progress from aggregate quality; never mutate peers."""
     blockers = collection_blockers(s, ref_check)
     unfinished = {item['module_id'] for item in blockers}
     return {
+        'parallel_limit': s['max_parallel_modules'], 'start_modules': start_modules(s, steps),
         'all_settled': not blockers,
         'registered_modules': sorted(set(s['modules']) | set(s.get('module_groups', {}))),
         'leaf_modules': sorted(s['modules']),

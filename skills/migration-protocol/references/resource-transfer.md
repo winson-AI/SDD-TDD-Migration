@@ -50,7 +50,7 @@ Spec 在 UI parameter_fill 写例外及动态/结构映射（见[四维模板](.
 
 parameter_fill.runtime/structural 每条记录 id、原 source_expression、consumer（绝对生产文件#accessor）、reason、源 evidence_refs 与冻结 assertions（path_id/assertion_id）；runtime 还记录 inputs。定值须 constant_reason/constant_evidence_refs；布局 keyword 须映射或有证据排除。冻结拒绝缺变量或行为断言，build/static 不证明语义。实现核对提交的消费者/accessor，正式测试验证变量变化、单位/字体缩放、约束、可见性和运行时覆盖。填充率只量化搬运，fidelity_proven 不由它推导。
 
-四维 item.fidelity_conditions 记录 condition_id/condition、status、reason/evidence_refs。父条件须承接，叶子 applicable 绑定本 item 行为 assertions(PATH/ASSERT)，N/A 用 assertions=[]。报告 verified 须当前基线真实执行、断言通过且未 stale。
+四维 item.fidelity_conditions 记录 condition_id/condition、status、reason/evidence_refs。父条件须承接；applicable 条件由叶子计划在该 item 的 dimension_trace.condition_assertions={condition_id:[{path_id,assertion_id}]} 绑定本 item 的行为断言（分析里已写 assertions 的以分析为准），N/A 用 assertions=[]。报告 verified 须当前基线真实执行、断言通过且未 stale。
 
 planning_coverage_required 下，仅 applicable UI/Resource 维度需 condition_review：UI 核 theme/density/font-scale/loading-error/visibility-layout，Resource 核 theme/density/loading-error。每项 reason/evidence_refs 说明源依据，condition_refs=[{item_id,condition_id}] 覆盖本维度全部 applicable 条件；空列表表示有证据排除。不适用维度免填。源条件发现与布局语义由规划/Auditor 核验，复制率不证明完备性。
 
@@ -60,4 +60,4 @@ planning_coverage_required 下，仅 applicable UI/Resource 维度需 condition_
 
 imageSources/Resource 的 API 图片 item 写 api_binding（api_id/response_field）；字段匹配 model field/JSON key，target_source 等于 API response_mapping。非 API 模型来源须 image_source_review(kind=non-api)、reason/evidence_refs。URL 字面值不变，加载器占位/变换另映射；仍须接线与正式图片断言。
 
-dimension_trace.assertions.api_obligations 覆盖 `api_id/route` 和 `api_id/<facet>:<field>`，facet 为 request_fields/response_fields/error_outcomes/state_effects；对应 PATH 绑定 fixture_contract_ref 且为 unit/automation。exact 保持源 transport 与路由；approved-adaptation 须理由、信封 alternative 及精确 Human 决定。实现 dimension_evidence.consumer_refs 核对目标文件/符号，正式断言证明语义；出现名字不等于 API 等价。源变化沿同 Run 回溯重冻、接线和复测。
+dimension_trace.assertions.api_obligations 覆盖 `api_id/route` 和 `api_id/<facet>:<field>`，facet 为 request_fields/response_fields/error_outcomes/state_effects；对应 PATH 绑定 fixture_contract_ref 且为 unit/automation。exact 保持源 transport 与路由；approved-adaptation 须理由、信封 alternative 及人工决定：该计划的精确决定、父批量信封，或逐契约命名 alternative 的 run 级决定（kind=api-adaptation，一次覆盖持有这些契约的所有叶子）。实现 dimension_evidence.consumer_refs 核对目标文件/符号，正式断言证明语义；出现名字不等于 API 等价。源变化沿同 Run 回溯重冻、接线和复测。

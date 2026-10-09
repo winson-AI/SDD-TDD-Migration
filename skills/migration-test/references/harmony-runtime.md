@@ -2,7 +2,7 @@
 
 ## 定位与读取
 
-Test-Runner 的 Android/Harmony UI/端到端 Main；构建/单测仍用项目 adapter。入口 [harmony_adapter.py](../scripts/harmony_adapter.py)，内核 [runtime/harmony](../runtime/harmony/main.py)。历史 harmony 命名与目录兼容保留。按节点取本页小节，诊断时才加载内核源码/提示词。
+Test-Runner 的 Android/Harmony UI/端到端 Main；构建/单测仍用项目 adapter。入口 [harmony_adapter.py](../scripts/harmony_adapter.py)，内核 [runtime/harmony](../runtime/harmony/main.py)。按节点取本页小节，诊断时才加载内核源码/提示词。
 
 外层仍走 SPEC 冻结→代码接受→Test-Runner assignment→execute_test→Ledger→MO/审计。Planner/Executor/Verify 是同一 assignment 内的执行组件，只产出证据；不派 Fixer、不改 SPEC/状态。跨角色共享经 Ledger。
 
@@ -74,7 +74,7 @@ Planner 仅用 `execute_step(step_number)` 执行冻结原文，再逐个 verify
 
 验证请求默认 60 秒、步骤/验证 120 秒、PATH 1800 秒，由 models 的 verify_request_timeout/step_timeout/task_timeout 调整；子预算受剩余 PATH/宿主预算约束。验证请求无隐式重试；超时终止进程组，保留观察、步骤及 interruption 供宿主收集。未完成记 Yellow，已观察失败仍披露；不复用活动 worker。
 
-正式入口固定 test；platform/device/部署基线沿原门禁。新宿主 query/receipt 绑定 execution_contract_version=2，移动端报告均须步骤证据及 host normalization，缺 platform 的旧 PATH 也适用。缺步骤/检查点时同 Run 重规划。旧工具录制不能冒充新步骤回放，需重新执行冻结 PATH。最终文本、回放成功数或临时 ADB 接续均不能替代正式断言/回执；截图失败不生成黑图证据。
+正式入口固定 test；platform/device/部署基线沿原门禁。新宿主 query/receipt 绑定 execution_contract_version=2，移动端报告均须步骤证据及 host normalization。缺步骤/检查点时同 Run 重规划。旧工具录制不能冒充新步骤回放，需重新执行冻结 PATH。最终文本、回放成功数或临时 ADB 接续均不能替代正式断言/回执；截图失败不生成黑图证据。
 
 ## 4. 输出与三态
 
