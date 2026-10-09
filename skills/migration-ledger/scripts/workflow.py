@@ -41,8 +41,16 @@ def registry(s):
             for mid, m in s['modules'].items()}
 
 
-def runtime_allocations(s, module_id):
-    """Only this leaf, its actual dependency closure, and their parent allocations."""
+def awaits_resplit(s, module):
+    """A leaf waits for its parent's re-split only when the revision reaches what it holds."""
+    parent = s.get('module_groups', {}).get(module.get('parent_module_id'))
+    return bool(parent and parent.get('replanning_required')
+                and module['module_id'] in parent.get('replanning_children', parent['children']))
+
+
+def runtime_allocations(s, module_id, planning=False):
+    """Only this leaf, its actual dependency closure, and their parent allocations. While it plans, a leaf is not held
+    by a provider that waits for a re-split: it needs the provider's code only when it is dispatched."""
     pending, visited = [module_id], set()
     while pending:
         mid = pending.pop()
@@ -51,7 +59,8 @@ def runtime_allocations(s, module_id):
         visited.add(mid)
         module = s['modules'].get(mid) or s.get('module_groups', {}).get(mid)
         require(module, 'allocated module/dependency missing')
-        require(not module.get('replanning_required'), 'root allocation requires redecomposition')
+        require(mid not in s['modules'] or not awaits_resplit(s, module) or (planning and mid != module_id),
+                'root allocation requires redecomposition')
         require(mid not in s['modules'] or (not module.get('decomposition_required') and not module.get('decomposition_submission')),
                 'complete MO decomposition for this leaf and its dependencies before execution')
         require(not module.get('realloc_request'), 'resolve upstream allocation request before execution')

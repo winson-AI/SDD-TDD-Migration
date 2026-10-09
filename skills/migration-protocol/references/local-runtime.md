@@ -58,11 +58,11 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | register | Global | module_id、case_ids、write_paths、dependencies；按拓扑顺序登记，依赖必须已存在，从而拒绝环/未知模块。原子根功能可登记为 `lean_leaf=true`：须有 scope（in/out/requirement_ids）、context_refs 与 GO 的 leaf_review_ref，不可同时 decomposition_required |
 | decompose | MO / 根 module_id | plan_ref（细分方案或 kind=atomic-leaf 结论）、context_ref；Ledger 绑定当前上下文与分配，见[分配门禁](module-decomposition.md#3-分配与登记门禁) |
 | decompose-accept | Global / 根 module_id | review_ref；细分则登记孩子、父移入 module_groups；原子结论保留节点进入未冻结叶子规划 |
-| realloc-request | 子 MO / 子 module_id | reason、evidence_refs；切片/边界冲突向上提单，进入 waiting-upstream |
-| redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；重新拆分 children 覆盖父 scope |
-| redecompose-accept | Global / 父 module_id | review_ref；复核重组方案，保留未变孩子 Green，边界保持的冻结孩子转 CR、其余受影响孩子重置，下线模块转入 superseded_modules 供 Auditor 治理 |
+| realloc-request | MO / 子或根 module_id | reason、evidence_refs；切片/边界冲突向上提单，保存恢复阶段后进入 waiting-upstream；无父或父级上溯交 GO run-review |
+| redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；children 覆盖父 scope。根修订后游标 affected_children 列出须重写的孩子，其余原样复述即沿用 |
+| redecompose-accept | Global / 父 module_id | review_ref；复核重组方案；未变孩子保留进度并恢复请求前阶段，边界保持的冻结孩子转 CR，其余被改的孩子重新规划（保留 blocker/失败/预算）；只依赖它们的叶子不重规划，已有代码的等 provider 后复验；下线模块转入 superseded_modules 供 Auditor 治理 |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
-| decision | host | decision_id、decision=approved、module_id、subject_sha256（取游标步骤的 approval_subject_sha256；步骤 human_required=true 才需要人，false 时宿主不征求批准）、human_source_ref；保存真实人类决定引用。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子 |
+| decision | host | decision_id、decision=approved、module_id、subject_sha256（取游标步骤的 approval_subject_sha256；步骤 human_required=true 才需要人，false 时宿主不征求批准）、human_source_ref；保存真实人类决定引用。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子；`kind=api-adaptation` 时 module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
 | global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；无关根可待拆，执行仍验当前叶子与依赖。registry 变化后重审 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
 | audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human |

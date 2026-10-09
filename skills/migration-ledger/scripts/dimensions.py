@@ -97,6 +97,13 @@ def judge(ref, module_id):
     return data, items
 
 
+def bound(condition, trace=None):
+    """The assertions that prove a condition: the ones its analysis names, else the ones the leaf's plan binds to it in the
+    trace of the item that carries it. Whoever allocates an item records its conditions before any PATH exists; the leaf
+    that plans the item says which of its own assertions prove each of them."""
+    return condition.get('assertions') or ((trace or {}).get('condition_assertions') or {}).get(condition['condition_id']) or []
+
+
 def fidelity_conditions(item, paths=None, trace=None):
     """Source-backed conditions share the existing PATH/ASSERT chain; presence is not proof."""
     rows = item.get('fidelity_conditions', [])
@@ -109,7 +116,8 @@ def fidelity_conditions(item, paths=None, trace=None):
             require(row.get('assertions') == [], 'excluded fidelity condition cannot claim assertions')
             continue
         if paths is None: continue  # GO/parent records conditions; leaf planning binds actual assertions.
-        for pair in nonempty(row.get('assertions'), 'fidelity condition assertions'):
+        for pair in nonempty(bound(row, trace), 'fidelity condition %s assertions (the trace of %s binds them: '
+                             'dimension_trace.condition_assertions)' % (row['condition_id'], item.get('item_id'))):
             path = paths.get(pair.get('path_id'), {})
             require(path.get('kind', 'automation') in ('unit', 'automation', 'visual') and
                     pair.get('assertion_id') in {a['assertion_id'] for a in path.get('expected_assertions', [])} and
@@ -171,6 +179,35 @@ def allocation(s, module):
     return items
 
 
+def asks(item):
+    """What a parent item asks of the children that cite it: all of it except the evidence it was written from."""
+    return {**{key: value for key, value in item.items() if key != 'evidence_refs'},
+            'fidelity_conditions': [{key: value for key, value in row.items() if key != 'evidence_refs'}
+                                    for row in item.get('fidelity_conditions', [])]}
+
+
+def revised(before, after, module_id):
+    """(items, API contracts) of a parent analysis whose ask differs between two of its versions, or that the later one
+    no longer has."""
+    import api_contract
+    old_data, old = load(before, module_id)
+    new_data, new = load(after, module_id)
+    old_apis, new_apis = api_contract.read(old_data, old)[1], api_contract.read(new_data, new)[1]
+    return ({iid for iid in old if iid not in new or asks(old[iid]) != asks(new[iid])},
+            {aid for aid in old_apis if old_apis[aid] != new_apis.get(aid)})
+
+
+def touched(parent, data, items):
+    """What a child written against an earlier version of its parent's analysis cites that the parent has revised since.
+    A child that cites none of it stands on the current version as it stood on the earlier one."""
+    require(data.get('parent_ref'), 'child dimension parent reference mismatch')
+    if data['parent_ref'] == parent['dimension_analysis_ref']:
+        return []
+    changed_items, changed_apis = revised(data['parent_ref'], parent['dimension_analysis_ref'], parent['module_id'])
+    return sorted(changed_items.intersection(pid for item in items.values() for pid in item.get('parent_item_ids', []))) + \
+        sorted(changed_apis.intersection(aid for item in items.values() for aid in item.get('api_ids', [])))
+
+
 def partition(s, parent, plan):
     expected = allocation(s, parent)
     if not expected:
@@ -183,7 +220,7 @@ def partition(s, parent, plan):
     parent_data = read_json(check_ref(parent['dimension_analysis_ref']))
     parent_calls, parent_apis = api_contract.read(parent_data, expected)
     api_covered = set()
-    coverage = {iid: {'requirements': set(), 'cases': set(), 'conditions': set()} for iid in expected}
+    coverage = {iid: {'requirements': set(), 'cases': set(), 'conditions': set(), 'held': set()} for iid in expected}
     for child in plan['children']:
         items = allocation({**s, 'dimension_slicing_required': True}, child)
         data, _ = load(child['dimension_analysis_ref'], child['module_id'])
@@ -192,7 +229,14 @@ def partition(s, parent, plan):
                 'child API source outside parent boundary; revise GO inventory first')
         require(not api_covered.intersection(apis), 'API owner duplicated across children')
         api_covered.update(apis)
-        require(data.get('parent_ref') == parent['dimension_analysis_ref'], 'child dimension parent reference mismatch')
+        earlier = data.get('parent_ref') != parent['dimension_analysis_ref']
+        if earlier:
+            # Only an analysis the Ledger already holds for this child may name an earlier version of its parent, and
+            # only while the parent has not revised anything it cites.
+            require(registered(s, child['module_id']) == child['dimension_analysis_ref'], 'child dimension parent reference mismatch')
+            found = touched(parent, data, items)
+            require(not found, 'child %s cites what its parent revised since it was allocated (%s); write its analysis '
+                    'again against the parent\'s current one' % (child['module_id'], ', '.join(found[:8])))
         for iid, item in items.items():
             require(iid not in child_ids, 'dimension item ownership duplicated across children')
             child_ids.add(iid)
@@ -206,12 +250,13 @@ def partition(s, parent, plan):
             for pid in origins:
                 coverage[pid]['requirements'].update(item['requirement_ids'])
                 coverage[pid]['cases'].update(item['case_ids'])
+                coverage[pid]['held'].update(child['case_ids'])
                 parent_conditions = {c['condition_id']: c for c in expected[pid].get('fidelity_conditions', [])}
                 for condition in item.get('fidelity_conditions', []):
                     original = parent_conditions.get(condition['condition_id'])
                     if original:
                         require(all(condition.get(k) == original.get(k) for k in ('condition', 'status')) and
-                                all(ref in condition['evidence_refs'] for ref in original['evidence_refs']),
+                                (earlier or all(ref in condition['evidence_refs'] for ref in original['evidence_refs'])),
                                 'child changed inherited fidelity condition; revise parent first')
                         coverage[pid]['conditions'].add(condition['condition_id'])
     require(covered == set(expected), 'child dimensions omit parent work (N/A cannot discard inherited work)')
@@ -219,8 +264,10 @@ def partition(s, parent, plan):
     for iid, item in expected.items():
         require({c['condition_id'] for c in item.get('fidelity_conditions', [])} <= coverage[iid]['conditions'],
                 'child dimensions omit parent fidelity conditions')
+        # A case of the item that a citing child holds stays attached to that child's items; a case another child holds
+        # is carried by its holder, which is supplied through its provider's contract.
         require(set(item['requirement_ids']) <= coverage[iid]['requirements'] and
-                set(item['case_ids']) <= coverage[iid]['cases'], 'child dimensions omit parent item requirements/cases')
+                set(item['case_ids']) & coverage[iid]['held'] <= coverage[iid]['cases'], 'child dimensions omit parent item requirements/cases')
 
 
 def validate_plan(plan, module):
@@ -249,7 +296,11 @@ def validate_plan(plan, module):
                     'unknown dimension assertion')
     require({tid for trace in traces.values() for tid in trace['task_ids']} == set(tasks), 'task missing dimension ownership')
     task_analyses(plan, module, items, traces)
-    for iid, item in items.items(): fidelity_conditions(item, paths, traces[iid])
+    for iid, item in items.items():
+        named = set((traces[iid].get('condition_assertions') or {}))
+        require(named <= {c['condition_id'] for c in item.get('fidelity_conditions', []) if c['status'] == 'applicable'},
+                'condition_assertions names a condition the item does not carry as applicable: ' + iid)
+        fidelity_conditions(item, paths, traces[iid])
     import api_contract
     api_contract.plan(read_json(check_ref(ref)), items, plan)
     # The machine mapping complements, never replaces, normative OpenSpec text.

@@ -50,18 +50,11 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 MO 确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`、`parent_module_id`、`rationale`、`leaf_review_ref`。审阅说明职责完整、唯一 writer、依赖可控及独立验证路径；现有四维/行为/验证边界门禁仍适用。GO `decompose-accept` 核对当前绑定与证据，保留 ID/scope/CASE/依赖，清待拆分标记，进入未冻结 SPEC 规划。不允许夹带 children 或范围变化；已编码节点不能用此入口绕过 CR，已拆父组调整走 redecompose。
 
-| 操作 | 角色 / 请求 scope | 输入与门禁 |
-| --- | --- | --- |
-| `decompose` | MO / 当前根 ID | `plan_ref` 为拆分方案或原子叶子结论；decomposition 预检随操作登记 |
-| `decompose-accept` | GO / 当前根 ID | `review_ref`；提案绑定仍有效；拆分则移父节点至 module_groups 并登记孩子，原子结论则原节点进入叶子规划 |
-| `realloc-request` | MO / 子或根 ID | `reason` + `evidence_refs`；切片/边界冲突提单，保存恢复阶段后进入 `waiting-upstream`；无父或父级上溯交 GO run-review |
-| `redecompose` | 父 MO / 父 ID | `plan_ref`；重组方案重新划分 children 并覆盖父范围 |
-| `redecompose-accept` | GO / 父 ID | `review_ref`；复核方案，比较范围、上下文、四维/行为审阅与依赖；保留未变孩子 Green 并恢复请求前阶段，边界保持的冻结孩子转 CR，其余受影响孩子及依赖闭包重新规划、保留 blocker/失败/预算，已实施下线模块转入 superseded_modules |
-| `module-summary` | 父 MO / 父 ID | `summary_ref` + 当前父 next_step.payload 中的 subject_sha256；全部孩子本轮已收尾 |
+各操作的角色与载荷见[操作矩阵](local-runtime.md#操作矩阵)。
 
 使用 [拆分模板](../../../template/module-decomposition.json)。每个孩子提供稳定 ID、功能 name、scope、context_refs、case_ids、绝对 write_paths、dependencies。要求：
 
-1. 子需求/CASE 属于父范围；所有孩子的需求并集、CASE 并集各自完整覆盖父范围。子 scope.out 保留父排除项，可新增排除项；scope.in 描述真实子职责，语义不能扩张。
+1. 子需求/CASE 属于父范围；所有孩子的需求并集、CASE 并集各自完整覆盖父范围。新写的子 scope.out 保留父当前排除项，可新增；已登记的孩子沿用登记时所写，父的现行排除项随 parent_context 到达其规划者；scope.in 描述真实子职责，语义不能扩张。
 2. 子写范围包含于父范围；ID 全局唯一。孩子不得设置 decomposition_required 或自行指定 parent_module_id；GO 接受时写入父 ID。
 3. 内部依赖引用本次孩子；外部依赖限父节点已批准依赖，图无环。孩子只认领实际消费的依赖，不继承父依赖并集；父 provider 细化时，consumer_dependencies 明确消费者实际等待的孩子，并提交 consumer_verifications。
 4. 有 blocker、活动 worker、已冻结或已生成代码的父节点不能直接拆分；不能通过删除/拆分规避失败历史。
@@ -78,10 +71,6 @@ MO 确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`
 Ledger 的 subject_sha256 绑定当前拆分引用和孩子 revision；孩子状态/证据变化后，旧父汇总失效，须重新核验。父 Green 要求全部孩子当前 DoD Green 且汇总有效，不替代 Auditor。
 
 GO 等全部子 MO 收尾且父汇总有效后启动 Auditor。status.module_rounds 区分 leaf/parent modules。收集问题子模块，不把父聚合 Red 记成失败 CASE。Auditor 读取对应 SPEC/测试路径并委派修复复测，裁决只归 Auditor。最终审计要求全子模块 Green、遗留清空且父汇总有效。
-
-## 5. 宿主与兼容
-
-宿主实际创建/恢复 MO 并执行写隔离，见[宿主接入](host-integration.md#总则)；投影不表示 Agent 已启动。
 
 ## 6. 二方库作为逐层规划依据
 
@@ -112,7 +101,7 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 
 behavior_review.verification 必填，字段见[模板](../../../template/module-decomposition.json)。provider_inputs 精确匹配实际 dependencies，逐项绑定 contract_ref 和 required_stage（implemented/verified）。同触发必须有不同的独立观察，否则重切；隔离策略和固定输入/替身契约由 GO/父 MO 以源码证据审阅。唯一 ID、独立作者或独立颜色不能替代行为独立性。
 
-拆分文档写 case_acceptance：父模块验收的每条 CASE 对应唯一验收它的子模块（记为其 acceptance_case_ids），其余持有该 CASE 的是贡献方；不验收任何 CASE 的子模块在 supporting_slices 写明为何不能并入使用它的切片。依赖链达 3 个切片、过半切片须等另一切片验证完成，或某 CASE 的界面与逻辑分属两个切片（按各切片四维分析的适用 item 判定）时，independence_review（rationale、evidence_refs）说明为何不能按业务行为切。根模块以 acceptance_case_ids 声明（缺省为全部），一条 CASE 只由一个根验收。
+拆分文档写 case_acceptance：父模块验收的每条 CASE 对应唯一验收它的子模块（记为其 acceptance_case_ids）。一条 CASE 只有一个持有者：验收用例的子模块只持有它验收的用例，为别的切片的用例供给能力写进对方的 provider_inputs，各切片都须满足的约束写成各自条目的保真条件；只有不验收任何 CASE 的支撑切片持有它所服务切片的用例，并在 supporting_slices 写明为何不能并入使用它的切片。依赖链达 3 个切片、过半切片须等另一切片验证完成，或某 CASE 的界面与逻辑分属两个切片（按各切片四维分析的适用 item 判定）时，independence_review（rationale、evidence_refs）说明为何不能按业务行为切。根模块以 acceptance_case_ids 声明（缺省为全部），一条 CASE 只由一个根验收。
 
 叶子 source_closure 保持分配的 verification；行为 PATH 引用其 fixture_contract_ref。implemented provider 可解除编码准备依赖，正式测试/DoD 仍需 provider 验证完成。共享 provider 只一个实现 owner；消费者负责明确集成 CASE。结构门禁校验归属、引用、完整性，语义独立性由规划审核和最终 Auditor 复核。
 

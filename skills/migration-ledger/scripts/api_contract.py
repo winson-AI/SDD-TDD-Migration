@@ -117,16 +117,53 @@ def plan(analysis, items, plan):
         require(contract['fidelity'] == 'exact' or contract['alternative'] in plan['decision_envelope']['allowed_alternatives'], 'API adaptation outside decision envelope')
 
 
-def freeze(s, m, payload):
-    ref = m['plan'].get('dimension_analysis_ref')
-    if not ref: return
+def adaptations(module):
+    """{api_id: alternative} of the contracts a registered allocation adapts instead of keeping exact."""
+    ref = (module.get('plan') or {}).get('dimension_analysis_ref') or module.get('dimension_analysis_ref')
+    if not ref:
+        return {}
     import dimensions
-    analysis, items = dimensions.load(ref, m['module_id'])
-    _, contracts = read(analysis, items)
-    if any(row['fidelity'] != 'exact' for row in contracts.values()):
-        decision = s['decisions'].get(payload.get('decision_id'), {})
-        require(decision.get('module_id') == m['module_id'] and decision.get('subject_sha256') == m['plan_hash'] and
-                not decision.get('consumed'), 'API adaptation requires exact Human decision')
+    _, contracts = read(*dimensions.load(ref, module['module_id']))
+    return {aid: row['alternative'] for aid, row in contracts.items() if row['fidelity'] != 'exact'}
+
+
+def undecided(s, wanted):
+    """The adaptations among `wanted` that no human decision of the run names with the same alternative. A human decides
+    an adaptation once, for the contract: every leaf that holds the contract then freezes without asking again."""
+    held = {aid: alternative for d in s['decisions'].values() if d.get('kind') == 'api-adaptation'
+            for aid, alternative in d['adaptations'].items()}
+    return {aid: alternative for aid, alternative in wanted.items() if held.get(aid) != alternative}
+
+
+def registered(s):
+    """Every adaptation the run's root allocations hold; a child's contracts are its parent's."""
+    found = {}
+    for module in (m for m in {**s.get('module_groups', {}), **s['modules']}.values() if not m.get('parent_module_id')):
+        found.update(adaptations(module))
+    return found
+
+
+def decision(s, payload):
+    """A human decision of kind api-adaptation: it names registered contracts and the alternative of each."""
+    named = payload.get('adaptations')
+    require(isinstance(named, dict) and named and payload.get('module_id') is None, 'api-adaptation decision names contracts for the run')
+    held = registered(s)
+    require(all(held.get(aid) == alternative for aid, alternative in named.items()),
+            'api-adaptation decision names a contract or alternative the run has not registered')
+    from contracts import digest
+    require(payload['subject_sha256'] == digest(named), 'api-adaptation decision must hash the adaptations it names')
+
+
+def freeze(s, m, payload):
+    pending = undecided(s, adaptations(m))
+    if not pending:
+        return
+    decision = s['decisions'].get(payload.get('decision_id'), {})
+    exact = decision.get('module_id') == m['module_id'] and decision.get('subject_sha256') == m['plan_hash'] and not decision.get('consumed')
+    enveloped = decision.get('kind') == 'batch-envelope' and decision.get('module_id') == m.get('parent_module_id') and \
+        read_json(check_ref(decision['envelope_ref']))['children'].get(m['module_id']) == m['plan']['decision_envelope']
+    require(exact or enveloped, 'API adaptation requires exact Human decision, the parent\'s batch envelope, or a run '
+            'decision of kind api-adaptation naming: ' + ', '.join(sorted(pending)))
 
 
 def implementation(analysis, items, result):

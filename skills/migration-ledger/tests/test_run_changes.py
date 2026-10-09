@@ -362,14 +362,22 @@ class PreparedRunRevisionTests(unittest.TestCase):
         f.global_plan()
         decomposition.check_module_plan(f.state(), f.state()['modules']['M002'], old['plan'])
 
-    def test_impact_must_include_consumers_even_for_partial_global_spec_change(self):
+    def test_a_consumer_of_a_leaf_that_plans_again_keeps_its_plan(self):
         src, f = self.source, self.f
         src.freeze('M001'); src.freeze('M002')
         state = f.state(); state['modules']['M002']['dependencies'] = ['M001']
         report = self.report({}, affected=('M001',))
         report['global_spec_ref'] = f.ref('provider-business.md', 'Correct shared provider behavior')
-        with self.assertRaisesRegex(Rejected, 'dependent closure'):
-            run_changes.validate(state, f.ref('incomplete-impact.json', report))
+        _, affected, _ = run_changes.validate(state, f.ref('provider-only-impact.json', report))
+        self.assertEqual(affected, {'M001'})  # the consumer is not sent back with its provider
+        self.assertEqual(decomposition.built_on(state, {'M001'}), set())  # and holds no code that would have to wait
+        state['modules']['M002']['code_baseline'] = {'files': 'built on the provider'}
+        self.assertEqual(decomposition.built_on(state, {'M001'}), {'M002'})
+        waiting = state['modules']['M002']; revision = waiting['revision']
+        ledger.await_provider(waiting)
+        self.assertEqual((waiting['phase'], waiting['stale'], waiting['blocked']['reason'], waiting['blocked']['resume_phase'], waiting['revision']),
+                         ('waiting-dependency', True, 'dependency-version-changed', 'frozen', revision + 1))
+        self.assertTrue(waiting['freeze_id'] and waiting['plan'])  # its plan and freeze stand
 
     def test_revision_only_releases_the_exact_reviewed_blocker(self):
         src, f = self.source, self.f

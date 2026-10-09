@@ -5,6 +5,7 @@ from html import escape
 
 from contracts import check_ref, digest, read_json
 import decomposition as dc
+import dimensions as dimension_rules
 import test_validation as tv
 import audit_code_review
 import parameter_file
@@ -115,10 +116,11 @@ def fidelity(s, rows, ref_check):
                 checks[mid] = dict(counts)
         except (ValueError, OSError, KeyError, TypeError):
             pass  # the closure gate reports an unreadable plan; the report only counts what it can read
+        traces = {row.get('item_id'): row for row in plan.get('dimension_trace') or []}
         for dimension in dimensions:
             for item in dimension.get('items', []):
                 for condition in item.get('fidelity_conditions', []):
-                    pairs = condition.get('assertions', [])
+                    pairs = dimension_rules.bound(condition, traces.get(item.get('item_id')))
                     verified = bool(pairs) and all(any(r['module_id'] == mid and r['path_id'] == pair['path_id'] and
                         r['quality'] == 'green-passed' and r.get('attempt_executed') and not r['stale'] and
                         any(a['assertion_id'] == pair['assertion_id'] and a.get('passed') is True for a in r['assertions'])
