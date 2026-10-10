@@ -140,6 +140,57 @@ class ApiContractTests(unittest.TestCase):
         state['decisions']['D']['consumed'] = True
         with self.assertRaisesRegex(Rejected, 'exact Human decision'): api_contract.freeze(state, module, {'decision_id': 'D'})
 
+    def directory(self, consumer, **changed):
+        """An inventory whose contract is consumed at `consumer`; `changed` replaces fields of its target."""
+        contract = copy.deepcopy(self.contract)
+        contract['target'].update(consumer=consumer, **changed)
+        return {'api_inventory_ref': self.f.ref('inventory-%d.json' % next(self.names), {
+            'schema_version': 1, 'module_id': 'M001', 'calls': [self.source], 'contracts': [contract], 'exclusions': []})}
+
+    def test_a_leaf_names_the_file_in_the_directory_its_allocation_gave_a_call(self):
+        self.names = itertools.count()
+        home = str(self.f.target / 'm1/state')
+        allocated = self.directory(home + '#query')
+        dimensions.keeps(allocated, allocated)
+        dimensions.keeps(allocated, self.directory(home + '#query'))  # the same statement in a file of its own
+        dimensions.keeps(allocated, self.directory(home + '/Handlers.kt#query'))
+        dimensions.keeps(allocated, self.directory(home + '/search/Handlers.kt#query'))
+        named = self.directory(home + '/Handlers.kt#query')
+        dimensions.keeps(named, self.directory(home + '/Handlers.kt#query'))
+        refused = (
+            (allocated, self.directory(home + '/Handlers.kt#search'), r'\[QUERY\]\.target\.consumer'),   # another symbol
+            (allocated, self.directory(str(self.f.target / 'm1/ui/Screen.kt') + '#query'), r'\[QUERY\]\.target\.consumer'),
+            (allocated, self.directory(home + '/search#query'), r'\[QUERY\]\.target\.consumer'),         # a narrower directory is not a file
+            (named, self.directory(home + '/Other.kt#query'), r'\[QUERY\]\.target\.consumer'),          # a file the allocation named stays
+            (allocated, self.directory(home + '/Handlers.kt#query', response_mapping={'items': 'rows'}), 'changes analysis.api_inventory_ref$'),
+            (allocated, {'api_inventory_ref': self.f.ref('empty.json', {'schema_version': 1, 'module_id': 'M001', 'calls': [self.source],
+                                                                        'contracts': [], 'exclusions': []})}, 'changes analysis.api_inventory_ref$'),
+        )
+        for held, own, message in refused:
+            with self.subTest(own=own), self.assertRaisesRegex(Rejected, message):
+                dimensions.keeps(held, own)
+
+    def module(self, consumer, write_paths):
+        self.names = getattr(self, 'names', itertools.count())
+        complete = self.d.analysis('M001'); complete.update(self.directory(consumer))
+        complete['api_review'].update(status='applicable', discovery_refs=[self.source['source_ref']])
+        next(row for row in complete['dimensions'] if row['dimension'] == 'Logic')['items'][0]['api_ids'] = ['QUERY']
+        return {'module_id': 'M001', 'plan_hash': 'frozen-plan', 'write_paths': write_paths,
+                'plan': {'dimension_analysis_ref': self.f.ref('dimensions-%d.json' % next(self.names), complete)}}
+
+    def test_at_freeze_the_consumer_of_a_call_is_a_file_the_module_can_show_in_its_result(self):
+        home, scope = self.f.target / 'm1/state', [str(self.f.target / 'm1')]
+        home.mkdir(parents=True)
+        api_contract.freeze({'decisions': {}}, self.module(str(home / 'Handlers.kt') + '#query', scope), {})  # a file it will write
+        held = self.f.target / 'shared/Client.kt'; held.parent.mkdir(parents=True); held.write_text('fun query() = Unit')
+        api_contract.freeze({'decisions': {}}, self.module(str(held) + '#query', scope), {})                # a file the target holds
+        api_contract.freeze({'decisions': {}}, self.module(str(self.f.target / 'elsewhere/Client.kt') + '#query', None), {})  # no write paths: the shape alone
+        for consumer in (str(home) + '#query', str(self.f.target / 'm1/missing') + '#query'):
+            with self.subTest(consumer=consumer), self.assertRaisesRegex(Rejected, 'QUERY: an API consumer is a production file, not a directory'):
+                api_contract.freeze({'decisions': {}}, self.module(consumer, scope), {})
+        with self.assertRaisesRegex(Rejected, 'QUERY: an API consumer is a file this module writes or the target already holds'):
+            api_contract.freeze({'decisions': {}}, self.module(str(self.f.target / 'elsewhere/Client.kt') + '#query', scope), {})
+
     def test_declared_consumer_is_hash_checked_and_is_an_actual_submitted_production_file(self):
         analysis = self.analysis()
         code = self.f.ref('target/m1/api.py', 'def query(q): return {"items": [q]}')

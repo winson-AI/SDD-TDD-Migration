@@ -56,7 +56,7 @@ planning_coverage_required 下，仅 applicable UI/Resource 维度需 condition_
 
 ## API 与 URL 契约
 
-业务 API 属 Logic/Adhesive。四维 api_review 记录适用性、reason/evidence_refs；适用须 api_inventory_ref 绑定[清单](../../../template/api-inventory.json)。calls 记录源符号/hash、路由（`transport`：http 记 method/URL，rpc/sdk 记调用名 `operation`）、请求/响应、错误及副作用；contracts 记录消费者、fixture 与映射，item 用 api_ids 唯一认领。范围外调用须 exclusions 证据。planning_coverage_required 下 api_review.discovery_refs 必填（含不适用判定），绑定检索范围并包含已登记调用的 source_ref。GO/父 MO/Auditor 核对调用入口及排除依据；门禁不自动发现全部 API。
+业务 API 属 Logic/Adhesive。四维 api_review 记录适用性、reason/evidence_refs；适用须 api_inventory_ref 绑定[清单](../../../template/api-inventory.json)。calls 记录源符号/hash、路由（`transport`：http 记 method/URL，rpc/sdk 记调用名 `operation`）、请求/响应、错误及副作用；contracts 记录消费者（冻结前须是本模块写或目标已有的文件）、fixture 与映射，item 用 api_ids 唯一认领。范围外调用须 exclusions 证据。planning_coverage_required 下 api_review.discovery_refs 必填（含不适用判定），绑定检索范围并包含已登记调用的 source_ref。GO/父 MO/Auditor 核对调用入口及排除依据；门禁不自动发现全部 API。
 
 imageSources/Resource 的 API 图片 item 写 api_binding（api_id/response_field）；字段匹配 model field/JSON key，target_source 等于 API response_mapping。非 API 模型来源须 image_source_review(kind=non-api)、reason/evidence_refs。URL 字面值不变，加载器占位/变换另映射；仍须接线与正式图片断言。
 
