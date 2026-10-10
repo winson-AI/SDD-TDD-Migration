@@ -232,6 +232,9 @@ def current(m, observe_worker=False):
 
 
 def invalidate_dependents(s, mid):
+    """What was built on a module that changed is verified again: the leaves holding code built on it, and what was
+    built on those in turn. A leaf without code has nothing built on it and is left to move - it plans and is reviewed
+    as before, and its own dispatch still waits for the provider's accepted code."""
     pending = [mid]
     visited = set()
     while pending:
@@ -240,7 +243,7 @@ def invalidate_dependents(s, mid):
             continue
         visited.add(parent)
         for m in s['modules'].values():
-            if parent in m['dependencies']:
+            if parent in m['dependencies'] and m.get('code_baseline'):
                 m['stale'] = True
                 resume_phase = 'frozen' if m.get('freeze_id') else (m.get('blocked') or {}).get('resume_phase', m['phase'])
                 if m['module_id'] not in s.get('audit_queue', {}):

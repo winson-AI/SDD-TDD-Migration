@@ -285,8 +285,6 @@ class DecompositionTests(unittest.TestCase):
     def test_hierarchical_audit_repair_requires_fresh_parent_summary(self):
         self.root_scope(); self.split(self.proposal(dependencies={'M002': ['M001']})); self.global_plan()
         self.prepare_leaf('M001'); self.complete_leaf('M001')
-        self.call('dependency-ready', role='global-orchestrator', module='M002')
-        self.call('resume', module='M002')
         self.prepare_leaf('M002')
         result = test_audit_closure.ClosureTests.verify_module(self, 'M002', 'FAIL', consume=True)
         self.call('audit-defer', {'root_cause': result['paths'][0]['root_cause'],

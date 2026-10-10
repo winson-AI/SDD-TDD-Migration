@@ -315,8 +315,9 @@ def require_target_binding(item, target_root):
 def require_consumer_files(item, write_paths):
     """What an implementation result is held to is asked of the plan it is written from: a migrated resource is
     consumed by named production files, each one the module writes or one the target already holds. A directory or a
-    note about the consumer cannot be shown in a result, so it is refused before code is written."""
-    if item.get('resource_strategy') in (None, 'blocked'):
+    note about the consumer cannot be shown in a result, so it is refused before code is written. A result is held to
+    this for every item that is not blocked, whether or not it names a strategy; so is the plan."""
+    if item.get('resource_strategy') == 'blocked':
         return
     label, scope = item.get('item_id', '?'), [Path(path).resolve() for path in write_paths or []]
     for consumer in consumers(item):

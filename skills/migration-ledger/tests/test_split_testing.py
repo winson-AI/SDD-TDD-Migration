@@ -351,8 +351,6 @@ class SplitTestingTests(unittest.TestCase):
         f.call('register', {'module_id': 'M002', 'case_ids': ['C1'], 'dependencies': ['M001'],
                            'write_paths': [str(f.target / 'm2')]}, role='global-orchestrator', module=None)
         self.prepare(); self.compile(); self.defer()
-        f.call('dependency-ready', role='global-orchestrator', module='M002')
-        f.call('resume', module='M002')
         # Compile a consumer plan in the same real Ledger; no direct state mutations.
         plan = f.plan(); plan['module_id'] = 'M002'
         for path in plan['paths']: path['path_id'] += '-M2'

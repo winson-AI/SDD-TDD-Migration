@@ -16,6 +16,7 @@ class AuditSchedulerTests(unittest.TestCase):
         f=self.f
         f.call('register', {'module_id':'M002','case_ids':['C1'],'dependencies':['M001'],
                            'write_paths':[str(f.target/'m2')]}, role='global-orchestrator', module=None)
+        f.call('suspend', {'kind':'dependency','reason':'M001 pending','root_cause':'missing producer','owner':'global-orchestrator'}, module='M002')
         f.prepare(); f.implement('M001','I1'); f.verify_module('M001','T1'); f.complete('M001')
         s=f.state(); self.assertFalse(s['global_next_step']['ready'])
         self.assertEqual(next(x for x in s['next_steps'] if x['module_id']=='M002')['operation'],'dependency-ready')

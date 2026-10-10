@@ -430,6 +430,8 @@ class AuthoredItemTests(unittest.TestCase):
             with self.subTest(consumer=consumer), self.assertRaisesRegex(Rejected, message):
                 rf.require_consumer_files({**self.item, 'consumer': [consumer]}, scope)
         rf.require_consumer_files({**self.item, 'resource_strategy': 'blocked', 'consumer': [str(root / 'ui')]}, scope)  # a gap has no consumer yet
+        with self.assertRaisesRegex(Rejected, 'not a directory or a note'):  # a result is held to it whether or not a strategy is named
+            rf.require_consumer_files({**self.item, 'resource_strategy': None, 'consumer': [str(root / 'ui')]}, scope)
 
     def test_at_freeze_a_migrated_resource_lives_in_the_target_has_a_name_and_target_consumers(self):
         root = self.f.target

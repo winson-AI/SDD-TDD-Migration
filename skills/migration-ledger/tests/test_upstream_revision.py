@@ -101,27 +101,44 @@ class ResplitTests(unittest.TestCase):
 
 
 class DependentTests(unittest.TestCase):
-    def test_a_leaf_that_only_depends_on_a_revised_leaf_keeps_its_plan_and_waits(self):
+    """What was built on a provider that changes is verified again; a leaf that has built nothing on it is left to move."""
+    def revised_provider(self, coded):
         t = test_run_changes.RootRevisionTests()
         t.f = f = test_run_changes.test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
         f.root_scope('project'); f.split(f.proposal(dependencies={'M002': ['M001']})); f.global_plan()
-        plan = f.plan(); plan['module_id'] = 'M002'; plan['paths'][0]['path_id'] = 'P2'; plan['tasks'][0]['path_ids'] = ['P2']
-        f.attach_reuse(plan)
-        f.call('plan', {'plan_ref': f.ref('plan-M002.json', plan)}, role='spec-designer', module='M002')
-        f.call('decision', {'decision_id': 'M002', 'decision': 'approved', 'module_id': 'M002', 'subject_sha256': f.state()['modules']['M002']['plan_hash'],
-                            'human_source_ref': f.ref('decision-M002.md', 'approved')}, role='host', module=None)
-        f.call('freeze', {'decision_id': 'M002'}, module='M002')  # the consumer is frozen and waits for its provider
-        f.prepare_leaf('M001'); f.complete_leaf('M001')
+        if coded:
+            f.prepare_leaf('M001'); f.complete_leaf('M001'); f.prepare_leaf('M002')  # the consumer's code is built on the provider's
+        else:
+            plan = f.plan(); plan['module_id'] = 'M002'; plan['paths'][0]['path_id'] = 'P2'; plan['tasks'][0]['path_ids'] = ['P2']
+            f.attach_reuse(plan)
+            f.call('plan', {'plan_ref': f.ref('plan-M002.json', plan)}, role='spec-designer', module='M002')
+            f.call('decision', {'decision_id': 'M002', 'decision': 'approved', 'module_id': 'M002', 'subject_sha256': f.state()['modules']['M002']['plan_hash'],
+                                'human_source_ref': f.ref('decision-M002.md', 'approved')}, role='host', module=None)
+            f.call('freeze', {'decision_id': 'M002'}, module='M002')  # frozen before its provider has any code
+            f.prepare_leaf('M001'); f.complete_leaf('M001')
         before = f.state()['modules']['M002']
-        self.assertEqual(before['phase'], 'waiting-dependency')
         proposal = f.proposal(dependencies={'M002': ['M001']})
         proposal['children'][0]['context_refs'] = proposal['children'][0]['context_refs'] + [f.ref('supplement.md', 'more evidence')]
         f.call('redecompose', {'plan_ref': f.ref('revision.json', proposal)}, module='M010')
         f.call('redecompose-accept', {'review_ref': f.ref('revision-review.md', 'reviewed')}, role='global-orchestrator', module='M010')
-        state = f.state(); consumer = state['modules']['M002']
+        state = f.state()
         self.assertEqual(state['modules']['M001']['phase'], 'change-review')
+        return f, before, state['modules']['M002']
+
+    def test_a_leaf_without_code_keeps_its_plan_and_is_left_to_move(self):
+        f, before, consumer = self.revised_provider(coded=False)
+        self.assertEqual((before['phase'], consumer['phase'], consumer.get('blocked')), ('frozen', 'frozen', None))  # not while its provider gained code, not now
+        for key in ('plan_hash', 'freeze_id', 'revision'):
+            self.assertEqual(consumer[key], before[key], key)
+        self.assertEqual(consumer.get('planning_history', []), [])
+        step = next(row for row in f.state()['next_steps'] if row['module_id'] == 'M002')
+        self.assertEqual((step['operation'], step['ready']), ('assign', False))  # its dispatch still waits for the provider's accepted code
+
+    def test_a_leaf_holding_code_built_on_it_keeps_plan_and_code_and_waits(self):
+        f, before, consumer = self.revised_provider(coded=True)
+        self.assertTrue(before['code_baseline'])
         self.assertEqual((consumer['phase'], consumer['blocked']['reason']), ('waiting-dependency', 'dependency-version-changed'))
-        for key in ('plan_hash', 'freeze_id'):
+        for key in ('plan_hash', 'freeze_id', 'code_baseline'):
             self.assertEqual(consumer[key], before[key], key)
         self.assertEqual(consumer.get('planning_history', []), [])
 
