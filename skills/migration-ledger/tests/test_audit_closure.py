@@ -71,8 +71,6 @@ class ClosureTests(unittest.TestCase):
         self.call('register', {'module_id': 'M002', 'case_ids': ['C1'], 'dependencies': ['M001'],
                               'write_paths': [str(self.target / 'm2')]}, role='global-orchestrator', module=None)
         self.prepare(); self.implement('M001', 'I1'); self.verify_module('M001', 'T1'); self.complete('M001')
-        self.call('dependency-ready', role='global-orchestrator', module='M002')
-        self.call('resume', module='M002')
         p = self.plan(); p['module_id'] = 'M002'; p['paths'][0]['path_id'] = 'P2'; p['tasks'][0]['path_ids'] = ['P2']
         self.call('plan', {'plan_ref': self.ref('p2.json', p)}, role='spec-designer', module='M002')
         self.call('decision', {'decision_id': 'D2', 'decision': 'approved', 'module_id': 'M002', 'subject_sha256': digest(p),
