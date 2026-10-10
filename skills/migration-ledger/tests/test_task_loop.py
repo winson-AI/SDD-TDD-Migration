@@ -168,6 +168,31 @@ class RedirectionTests(unittest.TestCase):
             with self.subTest(output=output), self.assertRaisesRegex(Rejected, 'a new directory outside the tree it builds'):
                 execute_test.selfcheck(argv, str(tree), str(output))
 
+    def test_a_host_may_seed_the_cold_gradle_home_of_each_execution(self):
+        from unittest import mock
+        import runner_storage
+        directory = tempfile.TemporaryDirectory(); self.addCleanup(directory.cleanup)
+        base = Path(directory.name).resolve()
+        seed = base / 'seed'
+        for name in ('wrapper/dists', 'caches/modules-2', 'caches/jars-9'):
+            (seed / name).mkdir(parents=True)
+        home = lambda env: Path(env['GRADLE_USER_HOME'])
+        with mock.patch.dict(os.environ, {'SDD_GRADLE_CACHE_SEED': str(seed)}):
+            seeded = home(runner_storage.environment(base / 'first'))
+            kept = base / 'second/cache/gradle/wrapper/dists'; kept.mkdir(parents=True)
+            runner_storage.environment(base / 'second')
+        for name in ('wrapper/dists', 'caches/modules-2'):  # what Gradle only reads once it has it
+            self.assertTrue((seeded / name).is_symlink())
+            self.assertEqual((seeded / name).resolve(), (seed / name).resolve())
+        self.assertFalse((seeded / 'caches/jars-9').exists())  # the rest stays this execution's own
+        self.assertFalse(kept.is_symlink())                     # what an execution already has is left alone
+        for value in ({}, {'SDD_GRADLE_CACHE_SEED': str(base / 'no-such-seed')}):
+            with self.subTest(value=value), mock.patch.dict(os.environ, value):
+                if not value:
+                    os.environ.pop('SDD_GRADLE_CACHE_SEED', None)
+                cold = home(runner_storage.environment(base / ('cold-%d' % len(value))))
+                self.assertFalse((cold / 'wrapper').exists())  # not asked for: every execution starts cold, as before
+
 
 if __name__ == '__main__':
     unittest.main()

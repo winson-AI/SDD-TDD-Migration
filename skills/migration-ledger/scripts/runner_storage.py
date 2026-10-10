@@ -58,6 +58,18 @@ def environment(directory):
     directory = checked_path(directory)
     temp = checked_path(directory / 'temp'); temp.mkdir(parents=True, exist_ok=True)
     cache = checked_path(directory / 'cache'); cache.mkdir(parents=True, exist_ok=True)
+    # Opt-in via SDD_GRADLE_CACHE_SEED (a Gradle user home the host provides): share its read-mostly subtrees - wrapper
+    # distributions and the dependency cache - so a runner-local cold cache survives artifact repositories that cannot
+    # be reached. Default behavior unchanged; frozen argv, receipts, integrity guards and unit-report policy are untouched.
+    seed = os.environ.get('SDD_GRADLE_CACHE_SEED')
+    if seed and Path(seed).is_dir():
+        gradle_home = cache / 'gradle'
+        for relative in ('wrapper/dists', 'caches/modules-2'):
+            source = (Path(seed) / relative).resolve()
+            destination = gradle_home / relative
+            if source.is_dir() and not destination.exists():
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.symlink_to(source)
     env = dict(os.environ)
     env.update({k: str(temp) for k in ('TMPDIR', 'TMP', 'TEMP')})
     env.update(PYTHONDONTWRITEBYTECODE='1', XDG_CACHE_HOME=str(cache),
