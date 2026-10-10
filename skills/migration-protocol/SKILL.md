@@ -12,7 +12,7 @@ description: SDD-TDD-Migration 各角色共享的读取、Ledger、冻结和三�
 遵守[四条红线](../../AGENTS.md#四条红线)。Ledger 单写者负责持久化，Module-Orchestrator 决定模块业务迁移，Global-Orchestrator 决定跨模块调度，Auditor 决定独立审计结论，职责不能互换。并行 MO 的状态与结果彼此独立；单模块失败不向无关模块传播，全局聚合颜色不回写模块。Auditor 等完整 registry 中全部模块本轮结束后统一启动。
 
 ## 3. 模式
-assignment → 摘要绑定当前输入 → 职责内工件 → 请求 → ACK → 事件引用后退出。编排器限预算循环；无 ACK 仅 staged。
+assignment → 摘要绑定当前输入 → 职责内工件 → 请求 → ACK → 事件引用后退出。编排器限预算循环；无 ACK 仅 staged。发现问题先以 `issue` 登记给适用模块再继续；只有必然使构建或已有用例失败的才标 blocks。
 
 ## 4. 取用
 - 规则：阅读卡外用 reading.py show --ref <文件> --section <小节> 取单节。

@@ -1,5 +1,6 @@
 """Structural/evidence checks; business review and caller identity belong to the host."""
 import argparse
+import contextvars
 import hashlib
 import json
 import re
@@ -18,6 +19,36 @@ class Drifted(Rejected):
 def require(condition, message):
     if not condition:
         raise Rejected(message)
+
+
+_owed = contextvars.ContextVar('owed', default=None)  # the gaps collected while the Ledger judges a leaf's request
+
+
+class carrying:
+    """What a plan still owes to fidelity does not stop its module: while the Ledger judges a request of a leaf the gap
+    is collected, recorded as an issue of that leaf and owed until a later plan answers it. Elsewhere - a tool, a
+    rehearsal, a direct call, a request that allocates (`collect=False`) - the same check refuses, so an author still
+    sees it before submitting."""
+    def __init__(self, collect=True):
+        self.collect = collect
+
+    def __enter__(self):
+        gaps = [] if self.collect else None
+        self.token = _owed.set(gaps)
+        return gaps
+
+    def __exit__(self, *exc):
+        _owed.reset(self.token)
+
+
+def owed(condition, message):
+    """A check of fidelity completeness: nothing later is built on it being met, so work may go on while it is owed."""
+    if condition:
+        return
+    gaps = _owed.get()
+    if gaps is None:
+        raise Rejected(message)
+    gaps.append(message)
 
 
 SKELETON_MARK = '[[待写'  # opens a part of a generated skeleton only its author can write; no frozen definition holds one

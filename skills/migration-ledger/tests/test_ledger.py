@@ -65,7 +65,7 @@ def execution_payload(s, module, payload):
     payload.setdefault('task_ids', [t['task_id'] for t in m['plan']['tasks'] if payload['role'] != 'implementer' or t['task_id'] not in m.get('accepted_task_ids', [])])
     import test_validation as tv
     scope = payload.get('test_scope')
-    paths = [p for p in m['plan']['paths'] if not scope or (p.get('kind') in tv.PRE if scope == 'build' else p.get('kind', 'automation') == scope)]
+    paths = tv.due(m) if scope == 'build' else [p for p in m['plan']['paths'] if not scope or p.get('kind', 'automation') == scope]
     payload.setdefault('path_ids', [p['path_id'] for p in paths])
     if payload['role'] == 'fixer':
         findings = [pid for pid, row in m['results'].items() if row['quality'] != 'green-passed']

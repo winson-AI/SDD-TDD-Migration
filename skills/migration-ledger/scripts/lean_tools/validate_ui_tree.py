@@ -43,6 +43,12 @@ def load_json(path: Path) -> dict:
     return value
 
 
+def omit(omitted: list | None, message: str) -> None:
+    if omitted is None:
+        raise ValidationError(message)
+    omitted.append(message)
+
+
 def require_object(value: object, label: str) -> dict:
     if not isinstance(value, dict):
         raise ValidationError(f"{label} must be an object")
@@ -258,8 +264,9 @@ def source_presentation_mutations(source_index: dict) -> set[tuple[str, int, str
     return mutations
 
 
-def validate(tree_path: Path, index_path: Path, runtime_index_path: Path | None = None, scoped_out=()) -> dict:
-    """`scoped_out`: references every use of which was reviewed out of this UI target; its tree need not declare them."""
+def validate(tree_path: Path, index_path: Path, runtime_index_path: Path | None = None, scoped_out=(), omitted=None) -> dict:
+    """`scoped_out`: references every use of which was reviewed out of this UI target; its tree need not declare them.
+    `omitted`: a list that receives what the tree omits of the source's runtime presentation, instead of raising it."""
     tree = load_json(tree_path)
     source_index = load_json(index_path)
     if tree.get("schemaVersion") != 1:
@@ -422,7 +429,7 @@ def validate(tree_path: Path, index_path: Path, runtime_index_path: Path | None 
         source_presentation_refs(source_index) - tree_presentation_refs - set(scoped_out)
     )
     if missing_runtime_refs:
-        raise ValidationError(
+        omit(omitted,
             "ui-tree presentation.resourceRefs omits source runtime presentation references: "
             + ", ".join(missing_runtime_refs)
         )
@@ -438,7 +445,7 @@ def validate(tree_path: Path, index_path: Path, runtime_index_path: Path | None 
             f"{path}:{line}:{property_name}"
             for path, line, property_name in missing_mutations
         )
-        raise ValidationError(
+        omit(omitted,
             "ui-tree dynamicRules omits source runtime presentation mutations: " + formatted
         )
 

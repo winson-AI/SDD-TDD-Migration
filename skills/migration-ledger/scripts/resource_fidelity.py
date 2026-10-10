@@ -13,7 +13,7 @@ import copy
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
-from contracts import Rejected, check_ref, file_ref, intact, named, nonempty, read_json, require
+from contracts import Rejected, check_ref, file_ref, intact, named, nonempty, owed, read_json, require
 import resource_facts
 import resource_signals
 
@@ -564,7 +564,7 @@ def require_declared(needed):
         where = site['sourcePath'].rsplit('/', 1)[-1] + ':' + str(site['line'])
         return ref + ' (' + ' '.join(part for part in (where, site.get('symbol'), 'via ' + site['call'] if site.get('call') else None) if part) + ')'
     listed = sorted(missing)
-    require(False, 'UI tree omits file resources the scoped code uses: ' + ', '.join(shown(ref) for ref in listed[:12])
+    owed(False, 'UI tree omits file resources the scoped code uses: ' + ', '.join(shown(ref) for ref in listed[:12])
             + (' and ' + str(len(listed) - 12) + ' more' if len(listed) > 12 else '')
             + '; declare each on the node that shows it, or scope it out in resource_scope.usage_exclusions with evidence')
 

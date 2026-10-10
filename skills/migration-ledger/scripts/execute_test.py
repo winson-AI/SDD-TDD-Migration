@@ -55,6 +55,47 @@ def finish_timeout(proc, capture):
     return termination
 
 
+INIT = b'''def runner = new File(System.getenv('SDD_RUNNER_DIR'))
+gradle.beforeProject { p ->
+    def key = java.security.MessageDigest.getInstance('SHA-256').digest(p.projectDir.canonicalPath.bytes).encodeHex().toString()
+    def outputs = new File(runner, 'outputs/' + key)
+    p.layout.buildDirectory.set(outputs)
+    p.afterEvaluate {
+        if (!p.layout.buildDirectory.get().asFile.canonicalFile.toPath().startsWith(runner.canonicalFile.toPath())) {
+            throw new GradleException('Build output escapes SDD runner; configure buildDirectory under SDD_RUNNER_DIR')
+        }
+    }
+    if (System.getenv('SDD_UNIT_REPORTS_REQUIRED') == '1') {
+        p.tasks.withType(org.gradle.api.tasks.testing.Test).configureEach { task ->
+            task.outputs.upToDateWhen { false }
+            task.outputs.cacheIf { false }
+            task.reports.junitXml.required.set(true)
+        }
+    }
+}
+'''
+
+
+def redirected(env):
+    """Send every project's build directory into the runner directory `env` names: its Gradle home carries the init
+    script, so a Gradle started with this environment builds outside the target tree. Returns the script."""
+    init = Path(env['GRADLE_USER_HOME']) / 'init.d/sdd-storage.init.gradle'
+    run_storage.atomic_bytes(init, INIT)
+    return init
+
+
+def selfcheck(argv, cwd, output):
+    """A build or test run a role makes for itself, under the storage policy of an official execution: nothing it
+    builds lands in the tree it builds. It leaves no receipt and is no result."""
+    out = Path(output).resolve()
+    require(argv and Path(cwd).is_dir(), 'argv/cwd required')
+    require(not out.exists() and not out.is_relative_to(Path(cwd).resolve()), 'self-check output must be a new directory outside the tree it builds')
+    out.mkdir(parents=True)
+    env = runner_storage.environment(out)
+    redirected(env)
+    return subprocess.run(runner_storage.build_command(argv, out), cwd=cwd, env=env).returncode
+
+
 def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=300):
     root = Path(root).resolve()
     s = status(root)
@@ -103,29 +144,9 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     execution_env = runner_storage.environment(out)
     execution_env['SDD_TEST_QUERY_FILE'] = str(out / 'query.json')
     execution_env['SDD_TEST_ASSET_USAGE_FILE'] = str(out / 'test-assets-used.json')
-    init = None
-    if is_build and runner_storage.gradle_command(argv):
-        # Retain the output policy; cache flags must be set before Gradle starts.
-        init = Path(execution_env['GRADLE_USER_HOME']) / 'init.d/sdd-storage.init.gradle'
-        run_storage.atomic_bytes(init, b'''def runner = new File(System.getenv('SDD_RUNNER_DIR'))
-gradle.beforeProject { p ->
-    def key = java.security.MessageDigest.getInstance('SHA-256').digest(p.projectDir.canonicalPath.bytes).encodeHex().toString()
-    def outputs = new File(runner, 'outputs/' + key)
-    p.layout.buildDirectory.set(outputs)
-    p.afterEvaluate {
-        if (!p.layout.buildDirectory.get().asFile.canonicalFile.toPath().startsWith(runner.canonicalFile.toPath())) {
-            throw new GradleException('Build output escapes SDD runner; configure buildDirectory under SDD_RUNNER_DIR')
-        }
-    }
-    if (System.getenv('SDD_UNIT_REPORTS_REQUIRED') == '1') {
-        p.tasks.withType(org.gradle.api.tasks.testing.Test).configureEach { task ->
-            task.outputs.upToDateWhen { false }
-            task.outputs.cacheIf { false }
-            task.reports.junitXml.required.set(true)
-        }
-    }
-}
-''')
+    # Retain the output policy; cache flags must be set before Gradle starts. A path whose own script calls the build
+    # inherits this environment, so what it builds lands in the runner too, not in the target tree.
+    init = redirected(execution_env) if not is_build or runner_storage.gradle_command(argv) else None
     if path.get('unit_report'):
         execution_env['SDD_UNIT_REPORTS_REQUIRED'] = '1'
     test_run_id = str(uuid.uuid4())
@@ -274,6 +295,16 @@ gradle.beforeProject { p ->
 
 
 def main():
+    if sys.argv[1:2] == ['selfcheck']:  # execute_test.py selfcheck --cwd <tree> --output <new dir> -- <command...>
+        parser = argparse.ArgumentParser(prog='execute_test.py selfcheck', description=selfcheck.__doc__)
+        parser.add_argument('--cwd', required=True); parser.add_argument('--output', required=True)
+        parser.add_argument('command', nargs=argparse.REMAINDER)
+        args = parser.parse_args(sys.argv[2:])
+        try:
+            return selfcheck([arg for arg in args.command if arg != '--'], args.cwd, args.output)
+        except (ValueError, OSError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
     parser = argparse.ArgumentParser(description=__doc__)
     for arg in ('root', 'module', 'assignment', 'path-id', 'adapter', 'cwd', 'output'):
         parser.add_argument('--' + arg, required=True)

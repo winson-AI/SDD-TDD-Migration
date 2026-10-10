@@ -7,6 +7,7 @@ not the other modules. Steps refer to their reading card by digest; the card's r
 `reading.py render` (or the full view), so a poll carries only the card's size. A poll that passes
 the sequence it already saw gets a brief answer while nothing has changed.
 """
+import issues
 import reading
 
 CURSOR_KEYS = ('run_id', 'last_sequence', 'quality', 'projection', 'source_change_next_step', 'run_change_next_step', 'global_next_step',
@@ -59,6 +60,8 @@ def _cursor(st, cards):
     out['module_summary'] = {mid: {'phase': m['phase'], 'quality': m.get('effective_quality') or m['quality'],
                                    'blocked': (m.get('blocked') or {}).get('reason_code')}
                              for mid, m in st['modules'].items()}
+    owed = [target for row in issues.of_module(st)[0] for target in row['open_for']]
+    out['open_issues'] = {mid: owed.count(mid) for mid in sorted(set(owed))}  # the step view of a module lists them
     adoption = st['hint_adoption']
     out['hint_adoption'] = {k: adoption[k] for k in ('session', 'card')}
     return out
@@ -83,6 +86,7 @@ def _step(st, module_id):
            # The envelope of the request this step asks for.
            'request': {'schema_version': 1, 'run_id': st['run_id'], 'module_id': module_id, 'expected_revision': revision,
                        'operation': operation}}
+    out['open_issues'], out['standing_rules'] = issues.of_module(st, module_id)
     if gate:  # one object says what the preflight report of this stage must contain and which reports exist
         required = dict(st['context_requirements'].get(module_id or 'GLOBAL', {}).get(gate['stage'], {}))
         required.pop('required_input_refs', None)  # the Ledger derives them; the step carries their count and digest

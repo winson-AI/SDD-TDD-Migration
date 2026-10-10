@@ -3,7 +3,7 @@ import copy
 from pathlib import Path
 import re
 
-from contracts import check_ref, keyed, nonempty, read_json, require
+from contracts import check_ref, keyed, nonempty, owed, read_json, require
 
 
 def normalize_sources(items, target_root=None, existing=False):
@@ -92,7 +92,7 @@ def validate_fidelity(row, plan, legacy_root=None):
         require(all(scenario.get(k) for k in ('legacy_behavior', 'reuse_behavior', 'reproduction_strategy')),
                 'fidelity needs source behavior, reuse comparison and reproduction strategy')
         covered.add(pid)
-    require(covered == set(row['path_ids']), 'fidelity must cover every mapped path')
+    owed(covered == set(row['path_ids']), 'fidelity must cover every mapped path')
 
 
 def validate_plan(plan, module, expected_sources, modules=None, legacy_root=None):

@@ -366,7 +366,7 @@ def entries(role, test_scope=None, ui=False, reuse=False, operation=None, teleme
         items += sections('state-machine.md', '控制主线')
     if operation in ('decompose', 'decompose-accept', 'global-plan'):
         items += sections('module-decomposition.md', '验证边界')
-    selected = [k for k in rows if k in matrix_keys()]
+    selected = [k for k in (*rows, 'issue / issue-resolve') if k in matrix_keys()]  # any role may record a problem at any step
     if selected:
         items += sections('local-runtime.md', '操作矩阵@' + ','.join(selected))
     if role == 'test-runner':
@@ -564,6 +564,9 @@ def templates(s, m, step):
 
 # A rejected request points at the section that states the failed gate; advisory, first match wins.
 GATES = [
+    (r'\bissues? |issue[_-]|blocking issue|gap the Ledger recorded|standing rule', 'local-runtime.md', '操作矩阵'),  # first: an issue's text may name any topic
+    (r'build unit busy', 'build-automation.md', '总则'),
+    (r'self-check output', 'build-automation.md', '构建资产位置'),
     (r'host handoff|cold recovery|rotation checkpoint|global hint|session restoration', 'host-integration.md', '会话交接'),
     (r'test asset|test PATH preparation|test preparation', 'testing.md', '编码前设计交接'),
     (r'condition review|condition refs', 'resource-transfer.md', '动态参数与布局结构'),

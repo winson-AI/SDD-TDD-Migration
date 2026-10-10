@@ -276,6 +276,7 @@ def build(root, s, sequence, ref_check=check_ref):
     visual, limitations, pictures = fidelity(s, rows, ref_check)
     import automation_report
     import behavior_contract
+    import issues
     import rule_debt
     import run_changes
     return {'schema_version': 1, 'run_id': s['run_id'], 'sequence': sequence, 'report_stage': stage, 'rule_debt': rule_debt.collect(s),
@@ -288,7 +289,7 @@ def build(root, s, sequence, ref_check=check_ref):
             'cases': cases, 'paths': rows, 'non_green': [r for r in rows if r['quality'] != 'green-passed'],
             'automation': automation_report.build(s, rows),
             'contract_retirements': run_changes.retirements(s),
-            'unimplemented': gaps, 'code_governance': governance,
+            'unimplemented': gaps, 'code_governance': governance, 'open_issues': issues.of_module(s)[0],
             'visual_coverage': visual, 'fidelity_limitations': limitations,
             'fidelity_conditions': pictures.pop('conditions'), 'picture_fidelity': pictures,
             'human_report': copy.deepcopy(batch.get('human_report')),
@@ -343,6 +344,10 @@ def render(report):
     text += ['## 全部测试用例', '', '| CASE-ID | 模块 | 状态 | 路径数 | 曾执行数 |', '| --- | --- | --- | --- | --- |']
     for c in report['cases']:
         text.append('| ' + ' | '.join(cell(v) for v in (c['case_id'], ', '.join(c['module_ids']), c['quality'], c['path_count'], c['executed_count'])) + ' |')
+    if report.get('open_issues'):
+        text += ['', '## 未消去的登记问题', '', '| 问题 | 种类 | 待落实的模块 | 摘要 |', '| --- | --- | --- | --- |']
+        text += ['| ' + ' | '.join(cell(v) for v in (row['issue_id'], row['kind'] + ('（挡冻结）' if row['blocks'] else ''),
+                                                    ', '.join(row['open_for']), row['summary'])) + ' |' for row in report['open_issues']]
     import automation_report
     if 'automation' in report:
         text += automation_report.render(report['automation'], cell)

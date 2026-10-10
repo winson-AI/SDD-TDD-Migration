@@ -107,6 +107,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | run-review / revise-run | GO / Host，全局 | 影响评审/预检 → 具体 decision → 上下文调整事务；见 [同 Run 上游修订](progress-recovery.md#同-run-上游修订) |
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
 | retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
+| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary、applies_to（模块）、可选 evidence_refs、blocks；消去：issue_id、module_id、evidence_ref。不推进修订号。blocks 挡该模块 freeze，任何未消去项挡 complete。叶子计划欠的保真完整性（界面树遗漏源引用/变更、复用保真未覆盖路径）由 Ledger 记为 gap 并放行，不再欠的新计划自动消去 |
 
 ## 阶段结果
 

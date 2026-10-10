@@ -67,13 +67,59 @@ def next_scope(m):
     return 'automation'
 
 
+def awaits_assembly(m, modules):
+    """The static closure of a module looks for its production callers: it waits while a slice that needs only this
+    module's code (not its verification) has not written its own."""
+    def needs_code(other):
+        inputs = ((other.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs') or []
+        return m['module_id'] in other['dependencies'] and any(
+            row.get('module_id') == m['module_id'] and row.get('required_stage') == 'implemented' for row in inputs)
+    return any(needs_code(other) and not (other.get('code_baseline') and not other.get('execution_partition_pending'))
+               for other in modules)
+
+
+def build_units(m):
+    """What a module's build commands compile: two modules with one build command are compiled together."""
+    return {(tuple(path['command']['argv']), str(Path(path['command']['cwd']).resolve()))
+            for path in (m.get('plan') or {}).get('paths', []) if path.get('kind') == 'build' and path.get('command')}
+
+
+def build_unit_free(m, modules):
+    """Code is written into a build unit by one module at a time: another module's half-written files would be
+    compiled into this one's build, and its failure would be read as this module's."""
+    mine = build_units(m)
+    for other in modules:
+        writing = any(not a.get('closed') and a.get('role') in ('implementer', 'fixer') for a in other.get('assignments', {}).values())
+        require(other is m or not writing or not mine & build_units(other),
+                'build unit busy: %s is being written into the build this module compiles; dispatch after its result' % other['module_id'])
+
+
+def due(m):
+    """The device-free paths that can be judged on the code a module holds now. Its build paths, whatever is accepted;
+    a unit path once every task that lists it is accepted, so a task is tested as soon as it is written; the static
+    closure once every task is, and nothing built on the module is still to be written - the callers it looks for
+    exist only then."""
+    tasks = (m.get('plan') or {}).get('tasks', [])
+    accepted = set(m.get('accepted_task_ids', []))
+    whole = accepted >= {t['task_id'] for t in tasks}
+
+    def judged(path):
+        if path.get('kind') == 'build':
+            return True
+        if path.get('kind') == 'static':
+            return whole and not m.get('awaiting_assembly')
+        owners = {t['task_id'] for t in tasks if path['path_id'] in t.get('path_ids', [])}
+        return whole or bool(owners) and owners <= accepted
+    return [p for p in (m.get('plan') or {}).get('paths', []) if p.get('kind') in PRE and judged(p)]
+
+
 def stage_paths(m, tests):
-    """Paths one build-stage result must cover: every build, unit and static path not yet Green on the current code,
-    in order, stopping after the first kind whose rows are not all Green."""
+    """Paths one build-stage result must cover: every due build, unit and static path not yet Green on the current
+    code, in order, stopping after the first kind whose rows are not all Green."""
     results, expected = m.get('results', {}), []
     for kind in PRE:
         ready = kind != 'build' or build_ready(m)
-        pending = [p for p in paths(m, kind) if not (ready and not (results.get(p['path_id']) or {}).get('stale') and (results.get(p['path_id']) or {}).get('quality') == 'green-passed'
+        pending = [p for p in due(m) if p['kind'] == kind and not (ready and not (results.get(p['path_id']) or {}).get('stale') and (results.get(p['path_id']) or {}).get('quality') == 'green-passed'
                                                     and (results.get(p['path_id']) or {}).get('code_baseline') == m.get('code_baseline'))]
         expected += pending
         if any((tests.get(p['path_id']) or {}).get('quality') != 'green-passed' for p in pending):
