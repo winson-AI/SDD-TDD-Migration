@@ -156,6 +156,10 @@ class UsageClosureTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, r'UI tree omits file resources the scoped code uses: @drawable/ic_nav '
                                               r'\(SettingsFragment.kt:\d+ build via setNavIcon\)'):
             self.s.freeze()
+        import contracts
+        with contracts.carrying() as owed:  # where a leaf's request is judged, the same gap is collected and the rest is judged too
+            self.s.freeze()
+        self.assertRegex(owed[0], 'UI tree omits file resources the scoped code uses: @drawable/ic_nav ')
         self.c.declare('@drawable/ic_nav'); self.s.recollect()
         self.assertEqual(self.c.needs()['undeclared'], {})
         with self.assertRaisesRegex(Rejected, 'uncovered presentation refs: @drawable/ic_nav'):
@@ -199,6 +203,12 @@ class UsageClosureTests(unittest.TestCase):
         self.setter()
         with self.assertRaisesRegex(Rejected, 'omits source runtime presentation references: @drawable/ic_nav'):
             self.validate()
+        import contracts
+        with contracts.carrying() as owed:
+            self.validate()
+        self.assertEqual(owed[0], 'native UI validation: ui-tree presentation.resourceRefs omits source runtime presentation references: @drawable/ic_nav')
+        self.assertRegex(owed[1], '^UI tree omits file resources the scoped code uses: @drawable/ic_nav ')  # judged on, so both are seen at once
+        self.assertEqual(len(owed), 2)
         for row in ({'symbol': 'otherChannel'}, {'ref': '@drawable/ic_nav'}):
             self.scope(usage_exclusions=[{**row, 'reason': 'a channel outside this module', 'evidence_refs': self.review()}])
             with self.subTest(row=row):

@@ -2,7 +2,7 @@
 
 ## 总则
 
-Test-Runner 在 Coding 接受后先编译构建，随后在同一派发内运行逻辑单测，再做静态规格闭合审查（逐需求核对生产符号与假实现清单，见 [静态规格闭合](testing.md#静态规格闭合)），然后执行自动化测试；构建命令优先用户指定，否则全目标搜索脚本并默认评估 Gradle assemble。构建/真实用例错误记录三态与根因，修复仍由 Fixer。仅自动化环境不可启动时，保留当前构建 Green，逐用例记录 Yellow/未执行，经 automation-unavailable 进入 automation-deferred；独立任务及依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复。全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。本节细化既有“缺条件挂起”规则，不允许跳过构建或吞掉已观察到的 Red。
+Test-Runner 在 Coding 接受后先编译构建，随后在同一派发内运行逻辑单测，再做静态规格闭合审查（逐需求核对生产符号与假实现清单，见 [静态规格闭合](testing.md#静态规格闭合)），然后执行自动化测试。任务分批编写时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且依赖本模块（implemented）的切片已有代码，此前为 awaiting-assembly。构建命令相同的模块同时只一个在写。构建命令优先用户指定，否则全目标搜索脚本并默认评估 Gradle assemble。构建/真实用例错误记录三态与根因，修复仍由 Fixer。仅自动化环境不可启动时，保留当前构建 Green，逐用例记录 Yellow/未执行，经 automation-unavailable 进入 automation-deferred；独立任务及依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复。全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。不允许跳过构建或吞掉已观察到的 Red。
 
 ## 1. 职责与全局规则
 
@@ -23,13 +23,13 @@ Coding 接受 → Test-Runner building 预检 → 编译构建
             → 并行任务、依赖当前可构建代码的下游继续 → 父 MO 汇总 → Auditor
 ```
 
-**调度完成与功能验收通过分开**：automation-deferred 不是 completed/Green。它只表示代码已接受、当前构建通过、自动测试没有执行。本轮可以带缺测记录结束；不能宣称功能已验证、fidelity 已通过或全局 Green。真实用例失败、构建失败、业务契约/提供方缺失不适用此例外。
+**调度完成与功能验收通过分开**：automation-deferred 不是 completed/Green。它只表示代码已接受、当前构建通过、自动测试没有执行。真实用例失败、构建失败、业务契约/提供方缺失不适用此例外。
 
 ## 2. 构建命令的来源与固化
 
 项目配置增加可选 `build`，按既有 init/update/prepare 保存并固化，下游通过 planning_context 读取；用户不用手工写 SPEC 或构建 PATH。
 
-自动发现排除 `.sdd-migration`、`.sdd-runs`、`openspec` 及指向其内部脚本的文件链接，防止目标工程内的迁移记录被当作当前构建入口。用户明确指定的命令仍优先，候选选择不替代后续冻结和执行预检。
+自动发现排除 `.sdd-migration`、`.sdd-runs`、`openspec` 及指向其内部脚本的文件链接，防止目标工程内的迁移记录被当作当前构建入口。候选选择不替代后续冻结和执行预检。
 
 ```json
 {
@@ -42,10 +42,9 @@ Coding 接受 → Test-Runner building 预检 → 编译构建
 }
 ```
 
-- 用户明确命令优先；没有指定时，GO/Test-Runner 在整个目标项目搜索 Gradle wrapper、Gradle 配置及构建脚本，阅读实际任务和模块/variant，不执行搜索到的所有脚本。
+- 没有指定命令时，GO/Test-Runner 在整个目标项目搜索 Gradle wrapper、Gradle 配置及构建脚本，阅读实际任务和模块/variant，不执行搜索到的所有脚本。
 - [discover_build.py](../../migration-test/scripts/discover_build.py) 提供只读候选搜索：项目根 wrapper 优先，其次唯一嵌套 wrapper，否则本机 Gradle。默认候选为 `assemble`；避免使用会顺带运行自动化测试的 `build/check`，确保设备/自动化环境缺失不会使编译阶段失败。
 - 多个构建根或不同目标有歧义时由 Agent 结合模块 scope 选择并留依据，无法判断再询问用户。缺少 Gradle、SDK/JDK、必要脚本则记录构建环境 Yellow；不伪造命令、不替换为 `echo success`。
-- 历史 `quality_gates.build_argv` 应由宿主转换为 `build.argv`；构建命令是可执行的冻结 PATH 字段。
 - 每个 build PATH 的 `command` 固定绝对 argv、目标内 cwd、timeout_seconds、selection_ref。selection_ref 记录搜索候选、选中理由、目标/variant、必要工具版本及模块范围。building 预检另提供实际环境证据；源码生成前不执行构建。
 - 共享构建目录/设备锁由宿主落实，锁等待不能污染其他模块的测试质量。构建只产生授权输出，不授予 Test-Runner 修改业务源码的权限。
 
@@ -55,14 +54,14 @@ Coding 接受 → Test-Runner building 预检 → 编译构建
 
 覆盖门禁同时要求每个已分配 CASE 至少关联一个 automation PATH；不得只给某 CASE 关联 build PATH 来满足整体 CASE 映射。模块边界和 uv 执行方式见 [Harmony sandbox README](../../migration-test/runtime/harmony/README.md#1-测试覆盖与模块边界)。
 
-MO 派发同一 test-runner 角色时明确 `test_scope=build|automation|visual`。控制器只允许先 build，当前 build 全绿后才 automation，当前功能路径全绿后才 visual；每次 Coding/Fixer 接受新代码，旧构建失效，必须重新 build。
+MO 派发 test-runner 时明确 `test_scope=build|automation|visual`，顺序同上；每次接受新代码，旧构建失效，须重新 build。
 
 - building 预检只检查冻结方案、代码、构建命令、构建环境和权限，不检查设备/UI/自动化账号。
 - `execute_test.py` 对 build PATH 直接执行冻结命令，**不追加 query-file/result-file 参数**；宿主保存 stdout/stderr、退出码和 receipt，并生成唯一构建断言（expected=0，actual=真实退出码）。编译错误按 Red、环境/工具或未知原因按 Yellow，均保留根因及日志，由角色核实分类；127/124 默认 Yellow。
-- 每次结果提交覆盖 assignment scope 下全部 PATH；build、automation、visual 分别提交/接受。Ledger 合并各部分，保留构建状态及每条路径结果；DoD 必须全部冻结路径有效 Green。
+- 每次结果提交覆盖 assignment scope 下全部 PATH；build、automation、visual 分别提交/接受。Ledger 合并各部分，保留构建状态及每条路径结果。
 - visual 使用正式 `execute_test.py` adapter 回执；`compare-only` 的独立 score 不能当作正式通过。逐目标绑定、HAP 与声明手势要求见 [UI 保真](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)。
 - [harmony_stage.py](../../migration-test/scripts/harmony_stage.py) 可组装构建回执及 Harmony 自动化回执，按 assignment scope 校验覆盖；其他自动化框架继续使用通用 tests stage 契约。
-- 首轮修复和后续审计修复沿既有预算执行。Fixer 自测不是正式复测；修复 memory 只有完整验证后才能 reusable，缺自动化验证时标 unverified。
+- 首轮修复和后续审计修复沿既有预算执行。Fixer 自测不是正式复测；缺自动化验证时修复 memory 标 unverified。
 
 ## 4. 自动化环境缺失：直接记 Yellow 并继续
 
@@ -76,7 +75,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 下游仍需真实代码和依赖接口可用。仅自动化缺测的上游可作为代码依赖继续编译/实现/验证，质量 Yellow 不向消费者传播；消费者自己缺环境则独立记录。上游代码或 SPEC 变更仍使相关下游失效，不能利用缺测绕过版本/边界校验。
 
-父 MO 可汇总 automation-deferred 子节点。全部叶子逐个结束且父汇总有效后才统一启动 Auditor；仍不得因一个子模块缺环境提前结束其他 MO。
+父 MO 可汇总 automation-deferred 子节点；不得因一个子模块缺环境提前结束其他 MO。
 
 ## 5. Auditor 与恢复
 
@@ -108,10 +107,10 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 | Fixer 补丁已接受 | 新 code_baseline；旧结果 stale，旧构建失效 | 再次 build 派发（派发内 building 预检）；不得直接沿用旧 Green 或启动 automation |
 | build、unit、static 全部 Green 已接受 | `build_baseline=code_baseline`；仍在 testing；下一 scope 为 automation | 派发 automation，Test-Runner 在派发内提交 testing 报告，核对设备/安装包/fixture/模型/工具 |
 | automation 结果接受且完整 Green，存在 visual PATH | 仍在 testing；下一 scope 为 visual | MO 另派 visual assignment；Test-Runner 只读比较并留正式回执 |
-| 全部适用的 build/automation/visual 路径有效 Green | `phase=dod`；修复 memory 有完整回归后才 verified/reusable | MO 完成 DoD；父汇总，全量收尾后统一 Auditor |
+| 全部适用的 build/automation/visual 路径有效 Green | `phase=dod` | MO 完成 DoD；父汇总，全量收尾后统一 Auditor |
 | 仅自动化环境缺失 | `automation-unavailable → automation-deferred`，逐 PATH Yellow/未执行 | 保存缺测证据，其他任务继续；环境恢复后再预检和正式复测 |
 
-宿主每次事件 ACK 后重新查询状态，不缓存旧 assignment、scope 或 context_ref。派发不等预检：Test-Runner 接到派发后提交该阶段报告，ready 后才执行；build 使用 building，automation/visual 使用 testing；切换 scope 时按当前游标重新提交报告，不能沿用旧 assignment。即使由同一个 Test-Runner 实例完成，也须分别派发。
+宿主每次事件 ACK 后重新查询状态，不缓存旧 assignment、scope 或 context_ref。切换 scope 时按当前游标重新提交该阶段报告，不能沿用旧 assignment。
 
 构建使用 `execute_test.py` 直接运行冻结 argv；automation 使用同一宿主包装器传递完整 query 到 Main。模块派发和实际执行均检查 build_ready；结果 submit/accept 再检查覆盖、版本和证据。构建 CLI 外层退出码 0 仅表示已写回执，应读取 receipt/result 并等待接受，不能凭这一个退出码转阶段。
 
@@ -121,12 +120,12 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 ### 构建产物与设备安装
 
-构建 Green 只证明所选命令通过。Harmony Main adapter 不隐式安装 App；宿主可继续提供已安装包与当前构建/代码基线的关联证据，也可由当前 Test-Runner 的 automation/visual assignment 使用受限 visual-install，校验当前 HAP 身份并实际装机留证。工具输入、锁、配置及 Capture/语义比较见 [视觉执行](visual-execution.md)。uv sandbox 只准备 Python 执行环境，不替代部署；安装/设备等仅自动化环境条件缺失时沿缺测分流，不得把旧安装包上的测试当作当前代码通过。
+Harmony Main adapter 不隐式安装 App；宿主可继续提供已安装包与当前构建/代码基线的关联证据，也可由当前 Test-Runner 的 automation/visual assignment 使用受限 visual-install，校验当前 HAP 身份并实际装机留证。工具输入、锁、配置及 Capture/语义比较见 [视觉执行](visual-execution.md)。uv sandbox 只准备 Python 执行环境，不替代部署；安装/设备等仅自动化环境条件缺失时沿缺测分流，不得把旧安装包上的测试当作当前代码通过。
 
 
 ## 构建资产位置
 
-冻结 build PATH 时同时审核构建输出位置，遵守 [留存文件系统](storage-layout.md)。正式执行输出为 runs/build/<新 attempt>，执行器绑定临时目录和工具缓存；直接 Gradle/gradlew 入口加载本轮 init.d，把常规 buildDirectory/项目缓存定向到 runner 并保存策略。冻结任务参数保留；实际命令仅扩展明确的缓存目录参数，回执校验禁止夹带其他改动。自定义构建脚本必须显式使用 SDD_RUNNER_DIR 下的 outputs/cache；禁止把 APK、构建报告、测试脚本留在目标源码旁。存在硬编码自定义输出时先调整冻结任务/构建配置，再执行；工程不支持时如实记录局部构建问题，沿 Diagnostician/Fixer/Yellow 机制推进其他模块。安装步骤从本轮实际 APK 路径读取，不再假定 target/app/build。
+冻结 build PATH 时同时审核构建输出位置，遵守 [留存文件系统](storage-layout.md)。正式执行输出为 runs/build/<新 attempt>；执行器绑定临时目录与工具缓存，并在该次执行的 Gradle home 放入 init.d，把各工程 buildDirectory 与项目缓存定向到 runner：直接的 Gradle 入口与路径自带脚本里调用的构建都继承它。角色自查用 `execute_test.py selfcheck --cwd <树> --output <新目录> -- <命令>`，同一份定向，不留回执、不算结果。冻结任务参数保留，实际命令仅扩展缓存目录参数。禁止把 APK、构建报告、测试脚本留在目标源码旁；硬编码的自定义输出先调整冻结任务/构建配置，工程不支持时如实记录局部构建问题，沿 Diagnostician/Fixer/Yellow 推进其他模块。安装步骤从本轮实际 APK 路径读取。
 
 ## 构建和自动化异常回执
 

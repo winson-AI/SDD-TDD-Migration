@@ -228,7 +228,8 @@ class ReadingCardTests(unittest.TestCase):
         f.prepare(); f.implementation()
         step = f.state()['next_steps'][0]
         row = next(r for r in step['must_read'] if r['section'] and r['section'].startswith('操作矩阵@'))
-        self.assertEqual(row['section'], '操作矩阵@assign,context-submit,submit')  # a dispatched worker reports, then submits
+        # a dispatched worker reports, then submits; and any role may record a problem at any step
+        self.assertEqual(row['section'], '操作矩阵@assign,context-submit,submit,issue / issue-resolve')
         with self.assertRaises(KeyError):
             reading.section(reading.P + 'local-runtime.md', '没有这一节@x')
 
@@ -283,7 +284,13 @@ class ReadingCardTests(unittest.TestCase):
                 ('QUERY: an API consumer is a production file, not a directory: /t/state#query', 'resource-transfer.md', 'API 与 URL 契约'),
                 ('QUERY: an API consumer is a file this module writes or the target already holds: /t/other/Client.kt#query',
                  'resource-transfer.md', 'API 与 URL 契约'),
-                ('API binding lacks submitted production consumer evidence', 'resource-transfer.md', 'API 与 URL 契约')):
+                ('API binding lacks submitted production consumer evidence', 'resource-transfer.md', 'API 与 URL 契约'),
+                ('blocking issue open for this module: STOP; settle it with issue-resolve citing the plan that answers it', 'local-runtime.md', '操作矩阵'),
+                ('open issues of this module: OWED-M001-0a1b2c3d; settle each', 'local-runtime.md', '操作矩阵'),
+                ('a gap the Ledger recorded is settled by a plan that no longer owes it', 'local-runtime.md', '操作矩阵'),
+                ('a standing rule is followed, not settled; it cannot block', 'local-runtime.md', '操作矩阵'),
+                ('build unit busy: M002 is being written into the build this module compiles; dispatch after its result', 'build-automation.md', '总则'),
+                ('self-check output must be a new directory outside the tree it builds', 'build-automation.md', '构建资产位置')):
             hint = reading.read_hint(reason)
             self.assertEqual((hint['ref'], hint['section']), (reading.P + name, heading), reason)
         transfer = {

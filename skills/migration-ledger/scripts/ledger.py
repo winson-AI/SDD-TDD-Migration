@@ -35,13 +35,14 @@ import progress_signals
 import source_changes
 import run_changes
 import control_policy
+import issues
 import task_revalidation
 import user_paths
 import audit_execution
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
-from contracts import (Rejected, baseline, check_ref, cited, digest, file_ref, keyed, nonempty,
+from contracts import (Rejected, baseline, carrying, check_ref, cited, digest, file_ref, keyed, nonempty,
                        intact, read_json, require, validate_plan, validate_result, verify_plan)
 
 HISTORICAL_TOOL_ROOTS = (Path(__file__).resolve().parent,
@@ -68,6 +69,11 @@ def refresh(s):
                         and not m['stale'] and not user_paths.gaps(m.get('plan')) else 'yellow-blocked')
     decomposition.refresh_groups(s)
     mods = list(s['modules'].values())
+    for m in mods:
+        if tv.awaits_assembly(m, mods):
+            m['awaiting_assembly'] = True
+        else:
+            m.pop('awaiting_assembly', None)
     s['quality'] = ('red-bug' if any(m['quality'] == 'red-bug' for m in mods) or s.get('audit', {}).get('quality') == 'red-bug' else
                     'green-passed' if mods and all(m['quality'] == 'green-passed' for m in mods)
                     and all(decomposition.summary_current(s, group) for group in s.get('module_groups', {}).values())
@@ -398,6 +404,7 @@ def freeze_guard(s, m, p):
     context, and the freeze gates judge what only a freeze can."""
     idle(m)
     require(m.get('plan'), 'SPEC not prepared')
+    issues.hold(s, m['module_id'])
     design_stage.plan_check(s, m, m['plan'], judge=False)
     if m.get('scope'):
         decomposition.check_module_plan(s, m, m['plan'])
@@ -466,6 +473,7 @@ def complete_guard(s, m):
             set(m['results']) == {p['path_id'] for p in m['plan']['paths']}, 'DoD requires all paths Green')
     current(m); dependencies_ready(s, m)
     require((set(m.get('accepted_task_ids', [])) == {t['task_id'] for t in m['plan']['tasks']}), 'DoD requires cumulative TASK completion')
+    issues.settled(s, m['module_id'])
     if s.get('git_checkpoint'):
         require((m.get('git_checkpoint') or {}).get('code_baseline') == m['code_baseline'],
                 'git checkpoint of the current code baseline required before completion')
@@ -498,15 +506,28 @@ def dispatch_guard(s, m, worker):
     for other in s['modules'].values():
         if any(not a.get('closed') for a in other['assignments'].values()):
             require(not any(overlaps(x, y) for x in m['write_paths'] for y in other['write_paths']), 'resource lock conflict')
-    require(m['phase'] == {'implementer': 'frozen', 'fixer': 'diagnosing', 'test-runner': 'testing'}[worker], 'worker phase gate rejected')
+    if worker in ('implementer', 'fixer'):
+        tv.build_unit_free(m, s['modules'].values())
+    require(m['phase'] == {'implementer': 'frozen', 'fixer': 'diagnosing', 'test-runner': 'testing'}[worker]
+            or worker == 'test-runner' and written_untested(m), 'worker phase gate rejected')
     if worker == 'test-runner':
         require(not (unresolved(m) and workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds']))) or m.get('automation_retry_ready'), 'unresolved failure awaits Auditor')
         require(m['code_baseline'], 'code must be accepted before testing')
-        require((set(m.get('accepted_task_ids', [])) == {t['task_id'] for t in m['plan']['tasks']}), 'all TASKs must be implemented before target tests')
+        # A task is built and unit-tested as soon as it is accepted; what runs the whole module waits for all of them.
+        require(tv.split(m) and tv.next_scope(m) == 'build' or set(m.get('accepted_task_ids', [])) == {t['task_id'] for t in m['plan']['tasks']},
+                'all TASKs must be implemented before target tests')
     if worker == 'fixer':
         require(control_policy.repair_route(m.get('diagnosis') or {}) == 'fixer', 'SPEC/scope repair must route through CR/upstream before Fixer')
         require(not workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])), 'local repair deferred to Auditor')
         require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']), 'fix budget exhausted; recover requires decision')
+
+
+def written_untested(m):
+    """Some tasks of a module are accepted, more are to be written, and a build or unit path due on the accepted ones
+    has never run on this code: it can be run now, without waiting for the rest."""
+    results = m.get('results', {})
+    return bool(m['phase'] == 'frozen' and m.get('code_baseline') and m.get('execution_partition_pending') and tv.split(m)
+                and any((results.get(path['path_id']) or {}).get('code_baseline') != m['code_baseline'] for path in tv.stage_paths(m, {})))
 
 
 def resume_guard(s, m, p):
@@ -670,7 +691,8 @@ def _next_step(s, m):
             if routed:
                 step.update(routed)
                 return step
-            worker = {'frozen': 'implementer', 'testing': 'test-runner', 'diagnosing': 'fixer'}[m['phase']]
+            # What is written is tested before more is written: the result reaches the next task's author.
+            worker = 'test-runner' if written_untested(m) else {'frozen': 'implementer', 'testing': 'test-runner', 'diagnosing': 'fixer'}[m['phase']]
             if worker == 'fixer' and workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])):
                 step.update(operation='audit-defer', role='module-orchestrator', ready=True,
                             root_cause=workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])), reason='auditor-handoff')
@@ -682,6 +704,10 @@ def _next_step(s, m):
             if worker == 'test-runner' and tv.split(m):
                 step['test_scope'] = tv.next_scope(m)
                 step['payload'] = {'test_scope': step['test_scope']}
+                if step['ready'] and step['test_scope'] == 'build' and not tv.stage_paths(m, {}):
+                    # Build and unit tests pass; the static closure is judged once what is built on this module is written.
+                    step.update(operation=None, ready=False, reason='awaiting-assembly')
+                    return step
             if step['ready']:
                 try:
                     dispatch_guard(s, m, worker)
@@ -895,7 +921,7 @@ def next_step(s, m):
             affected_paths = set(unresolved(m))
             selected = [t for t in selected if affected_paths.intersection(t['path_ids'])]
         scope = step.get('test_scope')
-        paths = [p for p in m['plan']['paths'] if not scope or (p.get('kind') in tv.PRE if scope == 'build' else p.get('kind', 'automation') == scope)]
+        paths = tv.due(m) if scope == 'build' else [p for p in m['plan']['paths'] if not scope or p.get('kind', 'automation') == scope]
         if step['worker_role'] == 'implementer' or step['worker_role'] == 'fixer' and m.get('task_revalidation', {}).get('mode') == 'partial':
             wanted = {pid for t in selected for pid in t['path_ids']}
             paths = [p for p in paths if p['path_id'] in wanted]
@@ -1021,6 +1047,8 @@ def assign_worker(s, m, mid, p, events, root):
     context_ref = p.get('context_ref') or (context_readiness.reported(s, mid, p) if preflight else None)
     if p['role'] in ('implementer', 'fixer'):
         m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
+    elif p['role'] == 'test-runner' and not design_stage.is_design(p):
+        m['phase'] = 'testing'  # also from frozen: the tasks written so far are tested before the next one
     a = m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
         'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
         'fencing_token': len(events) + 1, **dispatch_record(s, m, p), **(usage or {})}
@@ -1077,6 +1105,9 @@ def settle_preflight(m, actor, receipt):
 
 def mutate(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
+    if op in issues.OPS:  # a record: no gate stands before it and it moves no revision
+        require(req.get('module_id') is None, 'operation has incorrect global/module scope')
+        return issues.handle(s, req, principal)
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')
     global_ops = {'register', 'decision', 'audit-code-review', 'audit-assign', 'audit', 'audit-revoke', 'audit-route', 'audit-unavailable'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS | source_changes.OPS | run_changes.OPS | audit_execution.OPS | {'retrospect'}
@@ -1421,7 +1452,9 @@ def mutate(s, req, principal, events, root=None):
                 if not build_only and memory['status'] == 'awaiting-regression' and memory.get('after_baseline') == m['code_baseline']:
                     memory.update(status='verified' if not bad else 'failed', reusable=not bad,
                                   regression_ref=sub['ref'], regression_paths=copy.deepcopy(result['paths']))
-            m.update(stale=False, phase='dod' if tv.all_green(m) else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
+            # The tasks written so far pass their build and unit tests: the next task is written.
+            written = build_only and not bad and m.get('execution_partition_pending')
+            m.update(stale=False, phase='dod' if tv.all_green(m) else 'frozen' if written else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
             audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only,
                                         stage=assignment.get('test_scope') or 'build')
     elif op == 'diagnose':
@@ -1805,6 +1838,11 @@ def apply(root, req, principal):
 
 
 def _apply(root, req, principal):
+    with carrying():  # routing looks at every module's guards; what one of them owes is recorded with its own requests
+        return _judge(root, req, principal)
+
+
+def _judge(root, req, principal):
     root = Path(root).resolve()
     root.mkdir(parents=True, exist_ok=True)
     with run_storage.file_lock(root / '.ledger.lock'):
@@ -1887,8 +1925,14 @@ def _apply(root, req, principal):
         else:
             require(s and req.get('run_id') == s['run_id'], 'run mismatch')
             scope = (s['modules'].get(req.get('module_id')) or s.get('module_groups', {}).get(req.get('module_id'))) if req.get('module_id') else s
-            require(scope is not None and req.get('expected_revision') == scope['revision'], 'stale revision')
-            mutate(s, req, principal, events, root)
+            require(scope is not None and (req['operation'] in issues.OPS or req.get('expected_revision') == scope['revision']), 'stale revision')
+            leaf = s['modules'].get(req.get('module_id'))
+            held = leaf and leaf.get('plan_hash')
+            with carrying(bool(leaf)) as gaps:  # a leaf goes on with what its plan owes; an allocation is refused for it
+                mutate(s, req, principal, events, root)
+            leaf = leaf and s['modules'].get(req['module_id'])  # still registered after what the request did
+            if leaf:
+                issues.owe(s, req['module_id'], gaps, renewed=req['operation'] == 'plan' and leaf.get('plan_hash') != held)
         import experience
         history_refs = experience.bind_history(root, s, len(events) + 1)
         history_refs += [m['execution_context_ref'] for m in s['modules'].values() if m.get('execution_context_ref')]
@@ -2019,6 +2063,11 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
 
 
 def status(root, view='full', module_id=None, since=None):
+    with carrying():
+        return _status(root, view, module_id, since)
+
+
+def _status(root, view='full', module_id=None, since=None):
     root = Path(root).resolve()
     require(root.is_dir(), 'run root missing')
     with run_storage.file_lock(root / '.ledger.lock'):

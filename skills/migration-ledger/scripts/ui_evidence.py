@@ -15,7 +15,7 @@ import re
 
 from pathlib import Path
 
-from contracts import check_ref, file_ref, nonempty, read_json, require
+from contracts import check_ref, file_ref, nonempty, owed, read_json, require
 
 # Stable ids shared with OpenSpec.
 STABLE_ID = re.compile(r'^(screen|state|node|binding|event|resource|interaction):[A-Za-z0-9][A-Za-z0-9/_.\-]*$')
@@ -182,10 +182,13 @@ def validate_tree_ref(ref, source_index_ref=None, runtime_index_ref=None, target
     from lean_tools import validate_ui_tree
     import resource_fidelity
     index = read_json(source)
+    omitted = []
     try:
-        validate_ui_tree.validate(path, source, runtime, resource_fidelity.scoped_out_refs(index, resource_scope))
+        validate_ui_tree.validate(path, source, runtime, resource_fidelity.scoped_out_refs(index, resource_scope), omitted)
     except (RuntimeError, KeyError, TypeError) as exc:
         require(False, 'native UI validation: ' + str(exc))
+    for message in omitted:
+        owed(False, 'native UI validation: ' + message)
     require(not tree['unresolved'], 'UI tree has unresolved source conflicts')
     require(not index.get('unresolved'), 'source index has unresolved closure')
     # Index hashes bind extracted facts; file hashes bind them to the actual source revision.
