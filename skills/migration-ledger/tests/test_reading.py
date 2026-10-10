@@ -279,7 +279,11 @@ class ReadingCardTests(unittest.TestCase):
                  'testing.md', '编码前设计交接'),
                 ('design assertion P1/A1 needs scenario_ids: the SPEC scenarios it verifies', 'testing.md', '编码前设计交接'),
                 ('scenario_trace assertions of SCN-1 differ from the assertions that name it; omit them', 'openspec.md', '冻结算法'),
-                ('context report is stale: its mandatory inputs changed; re-read them and report again', 'context-readiness.md', '2. 精确插入节点')):
+                ('context report is stale: its mandatory inputs changed; re-read them and report again', 'context-readiness.md', '2. 精确插入节点'),
+                ('QUERY: an API consumer is a production file, not a directory: /t/state#query', 'resource-transfer.md', 'API 与 URL 契约'),
+                ('QUERY: an API consumer is a file this module writes or the target already holds: /t/other/Client.kt#query',
+                 'resource-transfer.md', 'API 与 URL 契约'),
+                ('API binding lacks submitted production consumer evidence', 'resource-transfer.md', 'API 与 URL 契约')):
             hint = reading.read_hint(reason)
             self.assertEqual((hint['ref'], hint['section']), (reading.P + name, heading), reason)
         transfer = {

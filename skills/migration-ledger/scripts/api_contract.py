@@ -154,7 +154,47 @@ def decision(s, payload):
     require(payload['subject_sha256'] == digest(named), 'api-adaptation decision must hash the adaptations it names')
 
 
+def narrowed(allocated_ref, refined_ref, where):
+    """Who makes a call. An allocation is written before its leaf reads the source and may name only the directory
+    whose code will make a call; the leaf names the file in it, under the same symbol. Its inventory is otherwise the
+    allocation's."""
+    if refined_ref == allocated_ref:
+        return
+    old, new = read_json(check_ref(allocated_ref)), read_json(check_ref(refined_ref))
+    rows = lambda inventory: inventory.get('contracts') or [] if isinstance(inventory, dict) else None
+    target = lambda row: row['target'] if isinstance(row, dict) and isinstance(row.get('target'), dict) else {}
+    apart = lambda inventory: {**inventory, 'contracts': [
+        {**row, 'target': {key: value for key, value in target(row).items() if key != 'consumer'}} for row in rows(inventory)]}
+    require(isinstance(rows(new), list) and all(isinstance(target(row).get('consumer'), str) for row in rows(new))
+            and apart(old) == apart(new), 'refined analysis changes ' + where)
+    for before, after in zip(rows(old), rows(new)):
+        (directory, _, symbol), (file, _, named) = (target(row)['consumer'].partition('#') for row in (before, after))
+        require((file, named) == (directory, symbol) or named == symbol and Path(file).suffix and not Path(directory).suffix
+                and Path(file).is_relative_to(directory),
+                'refined analysis changes ' + where + '[' + str(before.get('api_id')) + '].target.consumer')
+
+
+def consumer_files(module):
+    """What an implementation result is held to is asked of the plan it is written from: a call is made by a named
+    production file, one the module writes or one the target already holds. A directory cannot be shown in a result,
+    so it is refused before code is written."""
+    ref = (module.get('plan') or {}).get('dimension_analysis_ref') or module.get('dimension_analysis_ref')
+    if not ref:
+        return
+    import dimensions
+    _, contracts = read(*dimensions.load(ref, module['module_id']))
+    scope = [Path(path).resolve() for path in module.get('write_paths') or []]
+    for aid, row in contracts.items():
+        consumer = row['target']['consumer']
+        path = Path(consumer.split('#', 1)[0])
+        require(path.suffix and not path.is_dir(), aid + ': an API consumer is a production file, not a directory: ' + consumer)
+        # A module registered without write paths (the minimal low-level API) is held to the shape alone.
+        require(not scope or path.is_file() or any(path.resolve().is_relative_to(base) for base in scope),
+                aid + ': an API consumer is a file this module writes or the target already holds: ' + consumer)
+
+
 def freeze(s, m, payload):
+    consumer_files(m)
     pending = undecided(s, adaptations(m))
     if not pending:
         return

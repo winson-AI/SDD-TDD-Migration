@@ -289,6 +289,9 @@ def keeps(allocated, refined, where='analysis', key=None):
                 detailed(value, refined[name], where + '.' + name)
             elif name == 'consumer' and 'source_resource' in allocated:
                 narrowed(value, refined[name], where + '.' + name)
+            elif name == 'api_inventory_ref' and value:
+                import api_contract
+                api_contract.narrowed(value, refined[name], where + '.' + name)
             else:
                 keeps(value, refined[name], where + '.' + name, name)
     elif isinstance(allocated, list) and key in GROWS:
