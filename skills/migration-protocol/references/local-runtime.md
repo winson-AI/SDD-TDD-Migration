@@ -75,7 +75,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | plan | Spec-Designer | plan_ref、context_ref（planning 预检随本操作登记）；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围与 spec 由 Ledger 从已接受设计补全，checklist 由 Ledger 绑定包内清单；不抄写全局上下文与分配包，Ledger 绑定当前版本并在冻结、派发时复核 |
 | plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断；编码前 reason_ref 重规划，留历史；已派实现走 CR |
 | audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id、全部所选 path_ids、自身 context_ref；结果以 result_ref 提交，Auditor 原样消费 |
-| freeze | MO | 清晰规划用 review_ref；所需语义决定用 decision_id； 初始/边界外变更 decision_id；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
+| freeze | MO | 清晰规划用 review_ref；所需人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
 | assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；design 用 mode=design + design_input_ref，无执行 test_scope；可选 session_id/card_sha256；合法阶段且无活动 worker，返回 fencing_token。不等预检：worker 派发后 context-submit（implementer 由 Ledger 代登记）；该实例已有当前 ready 报告时直接绑定，当前 blocked 时拒绝派发。执行派发 `mechanical=true` 时宿主按步骤 payload 直接提交 |
 | context-submit | 执行者 | report_ref；登记预检报告，同 stage/实例的最新报告生效。worker 有同阶段的活动派发时：ready 绑定并授权开工（Fixer 此时计一轮），blocked 退回派发 |

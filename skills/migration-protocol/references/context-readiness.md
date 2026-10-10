@@ -8,7 +8,7 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 
 同 Run 保留冻结的模块，执行阶段从 execution_context_ref 读取已接受上下文与分配；当前全局输入用于新规划。
 
-全局可读、引用有效不等于子任务已经具备执行条件。执行者自己随后提交的操作（register、global-plan、decompose、plan、audit-plan、audit-verdict、audit-code-review、source-review）携带 context_ref 即随操作登记（游标 `with_operation=true`）；worker 阶段（building、testing、fixing）在派发之后 `context-submit`：ready 报告绑定该派发并授权开工，blocked 报告退回派发；coding 的报告由 Ledger 派发时写出并绑定（`mechanical=true`：必读输入逐项存在且摘要一致），输入不符则不写、由 Implementer 自报，自报取代代写；audit-testing 仍由 Auditor 在 audit-assign 前提交。报告是可追溯的理解与环境证据，不代替 SPEC 冻结、权限、测试或 DoD，不新增人工会签。
+全局可读、引用有效不等于子任务已经具备执行条件。执行者自己随后提交的操作（register、global-plan、decompose、plan、audit-plan、audit-verdict、audit-code-review、source-review）携带 context_ref 即随操作登记（游标 `with_operation=true`）；worker 阶段（building、testing、fixing）在派发之后 `context-submit`；coding 的报告由 Ledger 派发时写出并绑定（`mechanical=true`：必读输入逐项存在且摘要一致），输入不符则不写、由 Implementer 自报，自报取代代写；audit-testing 仍由 Auditor 在 audit-assign 前提交。报告是可追溯的理解与环境证据，不代替 SPEC 冻结、权限、测试或 DoD，不新增人工会签。
 
 预检**只读**：允许读获授权材料、写自身 staging、提交 context-submit；报告未被原节点接受或未绑定派发前，不允许改目标代码或执行目标构建/测试。预检和正式执行是同一实例；换实例必须重新核对。宿主继续承担身份认证、工具可用性和文件写隔离。
 
@@ -71,13 +71,11 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 
 ## 5. 缺失、失效与恢复
 
-`status.next_steps/global_next_step.context_gate` 展示必需 stage、检查项及可用报告；已派发但未授权的 worker 步骤（await-result）同样带出所欠的报告。worker 的 blocked 报告退回派发（尚未授权执行，无需停止证据），游标 reason=context-blocked：补齐后由 worker 重新提交 ready 报告，或按原因挂起；该实例当前仍 blocked 时 assign 被拒。审计派发因 context-readiness-required 未就绪时，宿主启动 Auditor 预检，不得把它当作全局无工作可做。
+`status.next_steps/global_next_step.context_gate` 展示必需 stage、检查项及可用报告；已派发但未授权的 worker 步骤（await-result）同样带出所欠的报告。worker 的 blocked 报告退回派发（尚未授权执行，无需停止证据；摘要已变也收），游标 reason=context-blocked 并列 blocked_checks，coding 的缺口在计划或分配上时给 recovery_action=change-or-realloc-request：补齐后由 worker 重新提交 ready 报告，或按原因挂起。审计派发因 context-readiness-required 未就绪时，宿主启动 Auditor 预检，不得把它当作全局无工作可做。
 
 blocked 报告提交会保留缺失项，但**不会自动把 MO 标记收尾**。例外分流：当前构建通过且仅自动化 test-environment 缺失时，游标提示 automation-unavailable；MO 接受后进入 automation-deferred，保留 Yellow/未执行并允许其他可执行任务继续，不要求人工批准。最终审计同类问题使用 audit-unavailable。见 [双环节协议](build-automation.md)。责任编排者必须继续补材料，或基于本模块实际原因提交已有 suspend（dependency/human/tooling）；已确认依赖/外围问题符合 audit-defer 条件时走该分支。审计修复中的阻塞经 audit-block 进入相关 finding 的人工报告。缺失不伪造失败测试，未执行路径仍为未执行；保留 Yellow 原因和恢复条件。
 
-同 stage/实例以最新报告为准，旧报告留在事件历史；最新 blocked 不能被旧 ready 绕过。草稿、已选提供方、证据、代码或分配变化后重新核对。原计划需要变更时仍经 CR/重新冻结；freeze 依据失效时重新提交 plan 与对应报告。恢复后新报告通过不直接 Green，仍须执行、复测与验收。
-
-无关模块继续；收尾规则仍为所有叶子本轮完成/明确挂起、父汇总有效、无 worker/可推进动作。
+同 stage/实例以最新报告为准，旧报告留在事件历史；最新 blocked 不能被旧 ready 绕过。草稿、已选提供方、证据、代码或分配变化后重新核对。原计划需要变更时仍经 CR/重新冻结；freeze 依据失效时重新提交 plan 与对应报告。
 
 ## 6. 实现范围
 

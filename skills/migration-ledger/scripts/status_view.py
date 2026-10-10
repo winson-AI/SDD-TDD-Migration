@@ -14,7 +14,7 @@ CURSOR_KEYS = ('run_id', 'last_sequence', 'quality', 'projection', 'source_chang
                'next_steps', 'ready_modules', 'module_rounds', 'observed_invalidations')
 VIEWS = ('full', 'cursor', 'module', 'step')
 # What a role needs of its module and of the assignment its step refers to.
-MODULE_KEYS = ('phase', 'plan_ref', 'freeze_id', 'code_baseline', 'blocked', 'execution_context_ref', 'carried_files')
+MODULE_KEYS = ('phase', 'plan_ref', 'freeze_id', 'code_baseline', 'blocked', 'execution_context_ref', 'carried_files', 'allocation_changes')
 ASSIGNMENT_KEYS = ('assignment_id', 'role', 'instance_id', 'fencing_token', 'mode', 'test_scope', 'freeze_id',
                    'code_baseline', 'context_ref', 'design_input_ref', 'execution_contract', 'path_ids', 'audit_assignment_id', 'result_ref')
 
@@ -67,6 +67,19 @@ def _cursor(st, cards):
     return out
 
 
+def _standing(st, module_id):
+    """The planning context a step is handed: for a leaf, what it stands on in full and the other slices by name, write
+    paths and dependencies only - enough to see whom to ask; their allocations are a `--view module` away."""
+    import decomposition
+    context = st['planning_context']
+    if module_id not in st['modules']:
+        return context
+    scoped = decomposition.standing(st, module_id, context)
+    others = {mid: {'name': m.get('name'), 'write_paths': m.get('write_paths'), 'dependencies': m.get('dependencies')}
+              for mid, m in st['modules'].items() if mid not in scoped['modules']}
+    return {**scoped, **({'other_modules': others} if others else {})}
+
+
 def _step(st, module_id):
     """The state one role needs to act on the current step of a module (or on the global step)."""
     if module_id is None:
@@ -113,7 +126,7 @@ def _step(st, module_id):
         out['audit_input'] = {'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],
             'paths': scope['plan']['paths'], 'code_files': scope['code_files'], 'results': scope['results']}
     if operation in reading.PLANNING_OPERATIONS or step.get('mode') == 'design':
-        out['planning_context'] = st['planning_context']
+        out['planning_context'] = _standing(st, module_id)
         out['history_refs'] = {'lessons': m.get('planning_lessons_ref') if module_id else st.get('lessons_ref')}
         if operation in ('run-review', 'revise-run'):
             import run_changes

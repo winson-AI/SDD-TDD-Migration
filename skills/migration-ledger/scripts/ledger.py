@@ -374,6 +374,14 @@ def approval(s, m, subject):
                  and d.get('subject_sha256') == subject and not d.get('consumed')), None)
 
 
+def covering(s, m):
+    """An unused approval of this module's plan as it was, whose decision boundary the plan still has: a reworded plan
+    freezes under it with the MO's review of the text, and no one is asked again for what they already decided."""
+    boundary = control_policy.boundary_hash(m) if m.get('plan') else None
+    return next((d for d in s['decisions'].values() if d.get('module_id') == m['module_id'] and not d.get('consumed')
+                 and d.get('boundary_sha256') and d['boundary_sha256'] == boundary), None)
+
+
 def self_diagnosis(s, m):
     """A lightweight leaf's local round is diagnosed by the repairing session; audit rounds stay independent."""
     return (bool(m.get('lean_leaf')) or bool(s.get('fixer_self_diagnosis'))) and not audit_closure.active(s) \
@@ -451,8 +459,12 @@ def freeze_guard(s, m, p):
                     read_json(check_ref(decision['envelope_ref']))['children'].get(m['module_id']) == m['plan']['decision_envelope'],
                     'child plan envelope differs from the approved batch envelope')
             return
-        require(decision.get('subject_sha256') == m['plan_hash'] and decision.get('module_id') == m['module_id'] and
-                not decision.get('consumed'), 'approval missing/stale/wrong module')
+        require(decision.get('module_id') == m['module_id'] and not decision.get('consumed'), 'approval missing/stale/wrong module')
+        if decision.get('subject_sha256') != m['plan_hash']:
+            require(decision.get('boundary_sha256') == control_policy.boundary_hash(m), 'approval missing/stale/wrong module')
+            require(p.get('review_ref') and p['review_ref'] == m.get('plan_review_ref'),
+                    'an approval of this decision boundary freezes the reworded plan with the MO plan review_ref')
+            control_policy.technical_review(m, p['review_ref'], decided=True)
 
 
 def unresolved(m):
@@ -695,14 +707,21 @@ def _next_step(s, m):
                 eligible = True
             except (ValueError, OSError, TypeError):
                 pass
+        # A person who approved this decision boundary is not asked again for a reworded plan: the MO reviews the text.
+        covered = None if decision or eligible else covering(s, m)
+        human = None if decision or eligible or covered else control_policy.needs_human(m)
         step.update(operation='freeze', role='module-orchestrator', ready=bool(decision) or eligible or bool(m.get('plan_review_ref')),
                     payload={'decision_id': decision['decision_id']} if decision else
                             {'change_class': 'within-envelope', 'impact_ref': impact} if eligible else
-                            {'review_ref': m['plan_review_ref']} if m.get('plan_review_ref') else {},
+                            {**({'decision_id': covered['decision_id']} if covered else {}), 'review_ref': m['plan_review_ref']}
+                            if m.get('plan_review_ref') else {},
                     reason=None if decision or eligible else 'MO-plan-review-required',
                     # What a human approval or an impact review binds: the hash of the plan as the Ledger completed it.
                     approval_subject_sha256=m['plan_hash'])
-        if not decision and not eligible and not m.get('plan_review_ref'):
+        if human:
+            # Code exists and the plan moved what was approved: the review alone would be refused, so say who decides.
+            step.update(ready=False, reason='human-decision-required', approval_kind='plan', detail=human, payload={})
+        elif not decision and not eligible and not m.get('plan_review_ref'):
             step.update(operation='plan-review', ready=True, reason='MO-technical-review', payload={})
         elif not decision:
             import api_contract
@@ -1275,7 +1294,11 @@ def mutate(s, req, principal, events, root=None):
         if p.get('kind') == 'api-adaptation':
             import api_contract
             api_contract.decision(s, p)
-        s['decisions'][p['decision_id']] = {**p, 'consumed': False}
+        s['decisions'][p['decision_id']] = decided = {**p, 'consumed': False}
+        decided.pop('boundary_sha256', None)  # the Ledger states what was approved, not the request
+        subject = s['modules'].get(p.get('module_id')) or {}
+        if not p.get('kind') and subject.get('plan') and subject.get('plan_hash') == p['subject_sha256']:
+            decided['boundary_sha256'] = control_policy.boundary_hash(subject)
     elif op == 'plan':
         role(principal, 'spec-designer')
         idle(m)
@@ -1336,6 +1359,7 @@ def mutate(s, req, principal, events, root=None):
         # Plan is content; the artifact remains immutable and is checked at freeze/dispatch.
         # The plan stands on the context and allocation current now; its author does not copy them into it.
         m.pop('plan_review_ref', None)
+        m.pop('allocation_changes', None)  # planned against the allocation as it is now
         m.update(plan=plan, plan_ref=p['plan_ref'], plan_hash=plan_hash, phase='clarifying', provider_owners=owners,
                  scenario_index=scenarios, plan_binding=decomposition.context_binding(s, m), checklist_ref=checklist_rubric(root))
         if principal['instance_id'] not in m.setdefault('spec_authors', []):
@@ -1346,7 +1370,7 @@ def mutate(s, req, principal, events, root=None):
         role(principal, 'module-orchestrator')
         require(m['phase'] == 'clarifying', 'plan review requires clarifying')
         idle(m)
-        control_policy.technical_review(m, p.get('review_ref'), principal)
+        control_policy.technical_review(m, p.get('review_ref'), principal, bool(approval(s, m, m['plan_hash']) or covering(s, m)))
         m['plan_review_ref'] = p['review_ref']
     elif op == 'planning-reopen':
         role(principal, 'module-orchestrator')

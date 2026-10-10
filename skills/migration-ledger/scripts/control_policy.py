@@ -48,17 +48,30 @@ def boundary(review):
     return review['semantic_change'] or review['authorization_change']
 
 
-def technical_review(m, ref, actor=None):
+def boundary_hash(m):
+    """What a person decides when approving a plan: its decision envelope and what it accepts. The rest of its text is
+    reviewed by the MO."""
+    return digest({'envelope': m['plan']['decision_envelope'], 'acceptance': acceptance(m['plan']['paths'])})
+
+
+def needs_human(m):
+    """Why the MO's own review cannot freeze this plan, or None: code exists and the plan moved what was approved."""
+    if not execution_started(m):
+        return None
+    if m.get('approved_envelope') and m['approved_envelope'] != digest(m['plan']['decision_envelope']):
+        return 'decision boundary changed'
+    return None if preserves_acceptance(m) else 'acceptance changed'
+
+
+def technical_review(m, ref, actor=None, decided=False):
+    """`decided`: a person has approved this plan's decision boundary, so the review speaks for its text only."""
     review = read_json(check_ref(ref))
     require(review.get('plan_hash') == m['plan_hash'], 'MO plan review stale')
     require(not boundary(review), 'semantic/authorization changes require exact human decision')
     require(review.get('reviewer_instance_id') and review['reviewer_instance_id'] not in
             m.get('spec_authors', []) + m.get('design_authors', []), 'MO review must be independent of plan authors')
     if actor: require(review['reviewer_instance_id'] == actor['instance_id'], 'MO review identity mismatch')
-    require(not execution_started(m) or not m.get('approved_envelope') or m['approved_envelope'] == digest(m['plan']['decision_envelope']),
-            'decision boundary changed; human decision required')
-    require(not execution_started(m) or preserves_acceptance(m),
-            'acceptance changed; human decision required')
+    require(decided or not needs_human(m), str(needs_human(m)) + '; human decision required')
     import task_revalidation
     task_revalidation.prepare(m, ref)
     return review

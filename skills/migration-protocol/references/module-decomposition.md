@@ -32,13 +32,13 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 | `modules` | 当前执行节点的父级、scope、context_refs、CASE、写范围、依赖 |
 | `parents` | 父子关系及汇总责任 |
 
-再读取同一视图的 `module_input` 作为本 MO 的权威分配包：`module_id`、`parent_module_id`、`scope`、`case_ids`、`write_paths`、`dependencies`、`context_refs`；子包另带 `parent_context`，保留父模块 ID/scope/context_refs。父 MO 认领 GO 的包，子 MO 认领父 MO 经 GO 接受的包。认领由宿主将实例绑定到模块；拆分提案与 plan 不抄写分配包或全局上下文，Ledger 接受时绑定两者当前内容的摘要，不新增一个虚假的 claim 操作。
+再读取同一视图的 `module_input` 作为本 MO 的权威分配包：`module_id`、`parent_module_id`、`scope`、`case_ids`、`write_paths`、`dependencies`、`context_refs`；子包另带 `parent_context`，保留父模块 ID/scope/context_refs。父 MO 认领 GO 的包，子 MO 认领父 MO 经 GO 接受的包。认领由宿主将实例绑定到模块；拆分提案与 plan 不抄写分配包或全局上下文，Ledger 接受时绑定两者当前内容的摘要。
 
 上下文逐层细化：GO 的 context_refs 指向入口、相关代码、架构约束、知识、接口/复用 owner 及需求/用例映射；父 MO 为每个子功能提供聚焦文档绝对 path/sha256。子 MO 综合全局/父/子上下文拆 tasks，标明需求、PATH 与复用关系。共享上下文可引同一工件，不截断全局读取。
 
 局部 context pack 用于聚焦；全局可读不扩大 scope 或写权限。先检查目标已有实现和兄弟分工，明确“复用什么、谁实现、谁消费、写哪些文件、不实现哪些行为”。全局需求 ID 可覆盖不同子职责，但须说明参与方式和唯一实现 owner；共享写路径依旧受锁约束，重叠业务分工必须审核。
 
-`planning_context` 仅含职责结构，不含兄弟变化中的 phase/revision；实时进度、锁和修复 memory 另读 Ledger。拆分/冻结/派发核对绑定摘要与当前上下文及分配，过期拒绝。源码验 baseline。
+`planning_context` 仅含职责结构，不含兄弟变化中的 phase/revision；实时进度、锁和修复 memory 另读 Ledger。拆分/冻结/派发核对绑定摘要与当前上下文及分配，过期拒绝。叶子只绑定其立足部分——自身、上级父模块、所依赖切片：步骤视图只带这部分，其余切片在 `other_modules` 列名称/写范围/依赖，它们改写不使叶子的报告与 plan 过期；父模块、待拆模块与全局绑定全量。重组保留的孩子由 `allocation_changes` 得知变动的字段、条目与 API，重交 plan 后清除。
 
 ## 3. 分配与登记门禁
 

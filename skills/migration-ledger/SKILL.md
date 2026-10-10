@@ -43,9 +43,9 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 
 [context_links.py](scripts/context_links.py) 将 context/files 中 Markdown 的本地链接目标一起固化，保留原始证据、生成重定位后的阅读副本及链接 manifest；OpenSpec 用同一映射更新知识链接和六件套内部跳转。宿主检查 document_link_warnings / change manifest.link_warnings，不能直接修改旧快照的正文/hash 来修链接。
 
-[decomposition.py](scripts/decomposition.py) 提供父 MO decompose、GO decompose-accept、父 MO module-summary；modules 保存叶子，module_groups 保存父节点。planning_context 提供父子共享全局代码/架构/知识/分工；拆分提案与子 plan 不抄写它，Ledger 接受时绑定当前上下文与分配的摘要并在冻结、派发时复核；详见 [父子 MO 协议](../migration-protocol/references/module-decomposition.md)。
+[decomposition.py](scripts/decomposition.py) 提供父 MO decompose、GO decompose-accept、父 MO module-summary；modules 保存叶子，module_groups 保存父节点。planning_context 与摘要绑定见 [父子 MO 协议](../migration-protocol/references/module-decomposition.md)。
 
-复用契约纳入项目快照、plan 冻结、实现 trace 和当前证据校验；OpenSpec reuse.md 投影冻结映射。所选 provider 或接入证据变更阻止旧 Green 复用。结构校验不证明语义等价，详见 [二方库协议](../migration-protocol/references/reuse-dependencies.md)。
+复用契约纳入项目快照、plan 冻结、实现 trace 和当前证据校验；OpenSpec reuse.md 投影冻结映射。所选 provider 或接入证据变更阻止旧 Green 复用。详见 [二方库协议](../migration-protocol/references/reuse-dependencies.md)。
 
 ## 上下文就绪
 
