@@ -37,11 +37,15 @@ def complete(s, m, plan):
     locators = unique(item.get('source_locator') for item in items.values())
     closure = plan.setdefault('source_closure', {})
     if isinstance(closure, dict) and locators:
+        boundary, own = (m.get('behavior_review') or {}).get('verification'), closure.get('verification')
+        if isinstance(boundary, dict) and isinstance(own, dict):
+            # An author states what the allocation left to the leaf - its fixture; the rest is the allocation's.
+            own.update({key: copy.deepcopy(value) for key, value in boundary.items() if own.get(key) is None})
         for key, value in {**copy.deepcopy(m.get('behavior_review') or {}), 'execution_chain': locators}.items():
             closure.setdefault(key, value)
         closure.setdefault('entry', locators[0])
         closure.setdefault('observable_result', '; '.join(accepted))
-        closure.setdefault('production_binding', '; '.join(unique(item.get('target_binding') for item in items.values())))
+        closure.setdefault('production_binding', '; '.join(unique(item['target_binding'] for item in items.values() if item.get('target_binding'))))
         closure.setdefault('evidence_refs', copy.deepcopy(evidence))
         closure.setdefault('unresolved', [])
     target = (analysis.get('source_reviews') or {}).get('target') or {}
@@ -65,7 +69,7 @@ def complete(s, m, plan):
             rows.append({'dimension': dimension, 'status': 'applicable' if owned else 'not-applicable', 'item_ids': owned,
                          'reason': row.get('reason') if owned or row.get('status') != 'applicable'
                          else 'no item of this dimension is traced to this task',
-                         **({'implementation': '; '.join(f"{iid}: {items[iid]['target_strategy']} -> {items[iid]['target_binding']}"
+                         **({'implementation': '; '.join(f"{iid}: {items[iid]['target_strategy']} -> {items[iid].get('target_binding') or 'to be settled by the leaf'}"
                                                          for iid in owned)} if owned else {})})
         task['dimension_analysis'] = {'unresolved': [], 'dimensions': rows}
     if (s.get('behavior_contract_required') or plan.get('behavior_contract_required')) and 'scenario_trace' not in plan:

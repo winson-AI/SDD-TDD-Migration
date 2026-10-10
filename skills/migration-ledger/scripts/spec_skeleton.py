@@ -34,7 +34,7 @@ def documents(s, m):
                 f"## Impact\n{todo('旧架构到新架构的影响、上下游契约、数据迁移、安全与性能约束')}\n\n"
                 f"## References\n- run_id: {s.get('run_id')}\n- module_id: {mid}\n- global_spec_ref: {ref(s.get('global_spec'))}\n"
                 f"- dimension_analysis_ref: {ref(m['dimension_analysis_ref'])}\n- cases: {'、'.join(m.get('case_ids', []))}\n")
-    mapping = ''.join(f"| {item['source_locator']} | {item['behavior']} | {item['target_binding']} | {item['target_strategy']} | "
+    mapping = ''.join(f"| {item['source_locator']} | {item['behavior']} | {item.get('target_binding') or todo('目标绑定')} | {item['target_strategy']} | "
                       f"{'、'.join(item['requirement_ids'])} | `{iid}` |\n" for iid, item in items.items())
     dimensions_text = ''
     for row in analysis.get('dimensions', []):

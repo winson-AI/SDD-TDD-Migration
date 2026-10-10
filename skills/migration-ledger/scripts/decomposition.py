@@ -213,6 +213,11 @@ def group_step(s, group, ref_check=check_ref):
                     reason='child-reallocation-requested',
                     affected_children=realloc_reqs)
         return step
+    import issues
+    owed = [row['issue_id'] for row in issues.of_module(s, group['module_id'])[0]]
+    if owed:  # recorded for this parent: its split is revised, or the issue is settled with what answers it
+        step.update(operation='redecompose', ready=True, role='module-orchestrator', reason='open-issues', issue_ids=owed)
+        return step
     for mid in leaves(s, group['module_id']):
         m = s['modules'][mid]
         if m.get('plan'):

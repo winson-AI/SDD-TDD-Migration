@@ -91,7 +91,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 ## 6. 实现边界
 
-脚本不自动安装 SDK、创建设备、发放账号或证明命令确实覆盖了目标模块；Agent/宿主必须审核范围、环境和真实日志。构建成功只证明该命令通过，不等于业务自动化或复用保真通过。
+脚本不自动安装 SDK、创建设备、发放账号或证明命令确实覆盖了目标模块；Agent/宿主必须审核范围、环境和真实日志。
 
 若最终 Auditor 环境可用且对原缺测模块的 Yellow 自动化路径真实复测 Green（当前已通过构建证据保留），Ledger 将审计结果关联回模块并进入 dod，由 MO 完成管理性 DoD/父汇总；测试验收 owner 仍是 Auditor，不要求再跑同一轮测试或再次会签。原 Yellow 通过 retest_of/module_retest_of 保留追溯。
 
@@ -108,7 +108,6 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 | build、unit、static 全部 Green 已接受 | `build_baseline=code_baseline`；仍在 testing；下一 scope 为 automation | 派发 automation，Test-Runner 在派发内提交 testing 报告，核对设备/安装包/fixture/模型/工具 |
 | automation 结果接受且完整 Green，存在 visual PATH | 仍在 testing；下一 scope 为 visual | MO 另派 visual assignment；Test-Runner 只读比较并留正式回执 |
 | 全部适用的 build/automation/visual 路径有效 Green | `phase=dod` | MO 完成 DoD；父汇总，全量收尾后统一 Auditor |
-| 仅自动化环境缺失 | `automation-unavailable → automation-deferred`，逐 PATH Yellow/未执行 | 保存缺测证据，其他任务继续；环境恢复后再预检和正式复测 |
 
 宿主每次事件 ACK 后重新查询状态，不缓存旧 assignment、scope 或 context_ref。切换 scope 时按当前游标重新提交该阶段报告，不能沿用旧 assignment。
 
@@ -125,7 +124,7 @@ Harmony Main adapter 不隐式安装 App；宿主可继续提供已安装包与�
 
 ## 构建资产位置
 
-冻结 build PATH 时同时审核构建输出位置，遵守 [留存文件系统](storage-layout.md)。正式执行输出为 runs/build/<新 attempt>；执行器绑定临时目录与工具缓存，并在该次执行的 Gradle home 放入 init.d，把各工程 buildDirectory 与项目缓存定向到 runner：直接的 Gradle 入口与路径自带脚本里调用的构建都继承它。角色自查用 `execute_test.py selfcheck --cwd <树> --output <新目录> -- <命令>`，同一份定向，不留回执、不算结果。冻结任务参数保留，实际命令仅扩展缓存目录参数。禁止把 APK、构建报告、测试脚本留在目标源码旁；硬编码的自定义输出先调整冻结任务/构建配置，工程不支持时如实记录局部构建问题，沿 Diagnostician/Fixer/Yellow 推进其他模块。安装步骤从本轮实际 APK 路径读取。
+冻结 build PATH 时同时审核构建输出位置，遵守 [留存文件系统](storage-layout.md)。正式执行输出为 runs/build/<新 attempt>；执行器绑定临时目录与工具缓存，并在该次执行的 Gradle home 放入 init.d，把各工程 buildDirectory 与项目缓存定向到 runner：直接的 Gradle 入口与路径自带脚本里调用的构建都继承它。角色自查用 `execute_test.py selfcheck --cwd <树> --output <新目录> -- <命令>`，同一定向，不留回执、不算结果。宿主可设 `SDD_GRADLE_CACHE_SEED`（一个 Gradle user home），各次执行链接其 wrapper 与依赖缓存。冻结任务参数保留，实际命令仅扩展缓存目录参数。禁止把 APK、构建报告、测试脚本留在目标源码旁；硬编码的自定义输出先调整冻结任务/构建配置，工程不支持时如实记录局部构建问题，其他模块照常推进。安装步骤从本轮实际 APK 路径读取。
 
 ## 构建和自动化异常回执
 

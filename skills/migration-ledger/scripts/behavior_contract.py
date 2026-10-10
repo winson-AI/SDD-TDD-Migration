@@ -70,7 +70,8 @@ def verification(module):
     require(value.get('acceptance_owner') == module['module_id'], 'verification acceptance owner mismatch')
     for field in ('independent_observation', 'isolation_strategy', 'integration_responsibility'):
         require(isinstance(value.get(field), str) and value[field].strip(), 'verification missing ' + field)
-    check_ref(value.get('fixture_contract_ref'))
+    if value.get('fixture_contract_ref') is not None:  # fixed inputs and stand-ins are test design: the leaf states them when its allocation does not
+        check_ref(value['fixture_contract_ref'])
     require(set(nonempty(value.get('case_ids'), 'verification cases')) == set(module['case_ids']), 'verification case coverage mismatch')
     require(isinstance(value.get('integration_case_ids'), list) and set(value['integration_case_ids']) <= set(module['case_ids']),
             'verification integration cases outside allocation')
@@ -80,8 +81,25 @@ def verification(module):
     require(set(providers) == set(module['dependencies']), 'verification providers must match actual dependencies')
     for row in providers.values():
         require(row.get('required_stage') in ('implemented', 'verified'), 'provider stage must be implemented or verified')
-        check_ref(row.get('contract_ref'))
+        if row.get('contract_ref') is not None:  # a slice plans against what its provider is, once it is; a document about it is optional
+            check_ref(row['contract_ref'])
     return value
+
+
+def fixture_bound(boundary, plan, settled=False):
+    """A plan keeps the verification boundary of its allocation and binds its behavior paths to one fixture: the
+    allocation's, or the leaf's own where the allocation left the fixed inputs and stand-ins to it. Before code is
+    written (`settled`) the fixture is stated."""
+    import dimensions
+    own = (plan.get('source_closure') or {}).get('verification')
+    require(isinstance(own, dict) and dimensions.kept(boundary, own), 'leaf plan verification differs from allocation')
+    fixture = own.get('fixture_contract_ref')
+    require(fixture or not settled, 'the plan states its verification fixture before freeze; its allocation left that to the leaf')
+    if fixture is not None:
+        check_ref(fixture)
+    for path in plan['paths']:
+        if path.get('kind', 'automation') in BEHAVIOR_KINDS:
+            require(path.get('fixture_contract_ref') == fixture, 'behavior PATH must bind its verification fixture')
 
 
 def accepts(module):

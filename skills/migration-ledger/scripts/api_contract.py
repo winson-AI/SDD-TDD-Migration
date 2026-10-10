@@ -78,17 +78,21 @@ def load(analysis, items):
             owners[aid] = iid
     require(set(owners) == set(contracts), 'API contract missing dimension ownership')
     for aid, row in contracts.items():
-        source, target = calls[aid], row.get('target', {})
-        check_ref(row.get('fixture_contract_ref'))
-        addressed = route(target, 'target')
-        require(isinstance(target.get('consumer'), str) and '#' in target['consumer'] and
-                Path(target['consumer'].split('#', 1)[0]).is_absolute() and target['consumer'].split('#', 1)[1], 'API target needs absolute consumer#symbol')
-        for facet, mapping in zip(FACETS, MAPPINGS):
-            require(isinstance(target.get(mapping), dict) and set(target[mapping]) == set(source[facet]) and
-                    all(isinstance(value, str) and value for value in target[mapping].values()), 'API mapping omits a source obligation: ' + mapping)
+        source, target = calls[aid], row.get('target')
+        if row.get('fixture_contract_ref') is not None:
+            check_ref(row['fixture_contract_ref'])
+        # How the target makes the call and what it is tested against are the leaf's: an allocation may leave both
+        # open, and a plan settles them before freeze.
+        if target is not None:
+            addressed = route(target, 'target')
+            require(isinstance(target.get('consumer'), str) and '#' in target['consumer'] and
+                    Path(target['consumer'].split('#', 1)[0]).is_absolute() and target['consumer'].split('#', 1)[1], 'API target needs absolute consumer#symbol')
+            for facet, mapping in zip(FACETS, MAPPINGS):
+                require(isinstance(target.get(mapping), dict) and set(target[mapping]) == set(source[facet]) and
+                        all(isinstance(value, str) and value for value in target[mapping].values()), 'API mapping omits a source obligation: ' + mapping)
         require(row.get('fidelity') in ('exact', 'approved-adaptation'), 'API fidelity must be explicit')
         if row['fidelity'] == 'exact':
-            require(route(source, 'source') == addressed, 'API exact route changed')
+            require(target is None or route(source, 'source') == addressed, 'API exact route changed')
         else:
             require(row.get('alternative') and row.get('reason'), 'API adaptation needs approved alternative and rationale')
         row = dict(row); row['item_id'] = owners[aid]; contracts[aid] = row
@@ -111,7 +115,8 @@ def plan(analysis, items, plan):
                 continue
             path = paths[pair['path_id']]
             require(path.get('kind', 'automation') in ('unit', 'automation'), 'API fidelity requires actual behavior tests')
-            require(path.get('fixture_contract_ref') == contract['fixture_contract_ref'], 'API tests must bind the frozen fixture contract')
+            require(contract.get('fixture_contract_ref') is None or path.get('fixture_contract_ref') == contract['fixture_contract_ref'],
+                    'API tests must bind the frozen fixture contract')
             covered.update(declared)
         require(obligations(aid, calls[aid]) <= covered, 'API behavior assertion coverage incomplete: ' + aid)
         require(contract['fidelity'] == 'exact' or contract['alternative'] in plan['decision_envelope']['allowed_alternatives'], 'API adaptation outside decision envelope')
@@ -163,11 +168,17 @@ def narrowed(allocated_ref, refined_ref, where):
     old, new = read_json(check_ref(allocated_ref)), read_json(check_ref(refined_ref))
     rows = lambda inventory: inventory.get('contracts') or [] if isinstance(inventory, dict) else None
     target = lambda row: row['target'] if isinstance(row, dict) and isinstance(row.get('target'), dict) else {}
+    require(isinstance(rows(new), list) and len(rows(new)) == len(rows(old)), 'refined analysis changes ' + where)
+    # What the allocation left open - a contract's target side, its fixture - is the leaf's to state.
+    open_fields = [{field for field in ('target', 'fixture_contract_ref') if isinstance(row, dict) and row.get(field) is None} for row in rows(old)]
     apart = lambda inventory: {**inventory, 'contracts': [
-        {**row, 'target': {key: value for key, value in target(row).items() if key != 'consumer'}} for row in rows(inventory)]}
-    require(isinstance(rows(new), list) and all(isinstance(target(row).get('consumer'), str) for row in rows(new))
+        {key: value for key, value in {**row, **({'target': {k: v for k, v in target(row).items() if k != 'consumer'}} if 'target' not in left else {})}.items()
+         if key not in left} if isinstance(row, dict) else row for row, left in zip(rows(inventory), open_fields)]}
+    require(all(isinstance(target(row).get('consumer'), str) for row, left in zip(rows(new), open_fields) if 'target' not in left)
             and apart(old) == apart(new), 'refined analysis changes ' + where)
-    for before, after in zip(rows(old), rows(new)):
+    for before, after, left in zip(rows(old), rows(new), open_fields):
+        if 'target' in left:
+            continue
         (directory, _, symbol), (file, _, named) = (target(row)['consumer'].partition('#') for row in (before, after))
         require((file, named) == (directory, symbol) or named == symbol and Path(file).suffix and not Path(directory).suffix
                 and Path(file).is_relative_to(directory),
@@ -185,6 +196,8 @@ def consumer_files(module):
     _, contracts = read(*dimensions.load(ref, module['module_id']))
     scope = [Path(path).resolve() for path in module.get('write_paths') or []]
     for aid, row in contracts.items():
+        require(row.get('target') and row.get('fixture_contract_ref'),
+                aid + ': the plan settles an API contract\'s target side and fixture before freeze; its allocation left that to the leaf')
         consumer = row['target']['consumer']
         path = Path(consumer.split('#', 1)[0])
         require(path.suffix and not path.is_dir(), aid + ': an API consumer is a production file, not a directory: ' + consumer)

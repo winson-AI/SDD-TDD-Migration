@@ -183,6 +183,12 @@ def build_lessons(state, sequence, root=None):
             add({'kind': 'boundary-conflict', 'status': 'resolved', 'module_id': req['module_id'],
                  'parent_module_id': rec.get('parent_module_id'), 'summary': req['reason'],
                  'evidence_refs': req.get('evidence_refs', []), 'resolution_ref': rec.get('review_ref')})
+    for iid, issue in sorted(state.get('issues', {}).items()):
+        if issue.get('traced_from'):  # an audit sent it back to the SPEC or the split it came from
+            open_for = [target for target in issue['applies_to'] if target not in issue['resolved']]
+            add({'kind': 'boundary-conflict', 'status': 'pending' if open_for else 'resolved', 'module_id': issue['traced_from']['source_module_id'],
+                 'affected_modules': issue['applies_to'], 'summary': issue['summary'], 'evidence_refs': issue['evidence_refs'],
+                 'result': 'found by the unified audit and traced back to the slices that revise; the code is kept'})
     for mid, m in state.get('modules', {}).items():
         if m.get('realloc_request'):
             add({'kind': 'boundary-conflict', 'status': 'pending', 'module_id': mid,

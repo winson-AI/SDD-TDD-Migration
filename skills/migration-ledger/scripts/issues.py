@@ -38,6 +38,12 @@ def handle(s, req, actor):
     issue['resolved'][mid] = {'evidence_ref': p['evidence_ref'], 'by': actor}
 
 
+def record(s, iid, kind, summary, applies_to, raised_by, evidence_refs=(), **extra):
+    """An issue the Ledger records itself, once: what an audit sends back to be revised."""
+    s.setdefault('issues', {}).setdefault(iid, {'kind': kind, 'summary': summary, 'applies_to': sorted(set(applies_to)), 'blocks': False,
+                                                'evidence_refs': list(evidence_refs), 'raised_by': raised_by, 'resolved': {}, **extra})
+
+
 def of_module(s, mid=None):
     """(open, standing) for one module, or for every module when none is named: what is still owed, and what is always followed."""
     rows = [{'issue_id': iid, **{key: issue[key] for key in ('kind', 'summary', 'blocks', 'evidence_refs')},

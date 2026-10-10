@@ -146,9 +146,9 @@ class CarriedToTheNextRunTests(unittest.TestCase):
         f.call('revise-run', f.state()['global_next_step']['payload'], role='host', module=None)
         self.assertEqual(experience.settled(f.state()), {'target_resources': DECLINED, 'device': NO_DEVICE})
         project = t.source.config_root
-        self.assertEqual(experience.conventions(project), {})
-        experience.harvest(project, f.root)
+        # A revision of the run is harvested when it happens: what it settled is kept even if the run never ends.
         self.assertEqual(experience.conventions(project), {'target_resources': DECLINED, 'device': NO_DEVICE, 'run_id': 'demo'})
+        self.assertTrue(experience.harvest(project, f.root)['duplicate'])
 
     def store(self, pj, facts):
         directory = experience.store(pj.root); directory.mkdir(parents=True, exist_ok=True)

@@ -14,7 +14,7 @@ CURSOR_KEYS = ('run_id', 'last_sequence', 'quality', 'projection', 'source_chang
                'next_steps', 'ready_modules', 'module_rounds', 'observed_invalidations')
 VIEWS = ('full', 'cursor', 'module', 'step')
 # What a role needs of its module and of the assignment its step refers to.
-MODULE_KEYS = ('phase', 'plan_ref', 'freeze_id', 'code_baseline', 'blocked', 'execution_context_ref')
+MODULE_KEYS = ('phase', 'plan_ref', 'freeze_id', 'code_baseline', 'blocked', 'execution_context_ref', 'carried_files')
 ASSIGNMENT_KEYS = ('assignment_id', 'role', 'instance_id', 'fencing_token', 'mode', 'test_scope', 'freeze_id',
                    'code_baseline', 'context_ref', 'design_input_ref', 'execution_contract', 'path_ids', 'audit_assignment_id', 'result_ref')
 
@@ -94,6 +94,8 @@ def _step(st, module_id):
     if module_id is not None:
         m = st['modules'].get(module_id) or st.get('module_groups', {}).get(module_id) or {}
         out['module_input'] = st['module_inputs'].get(module_id)
+        if st.get('providers', {}).get(module_id):
+            out['providers'] = st['providers'][module_id]  # what this leaf plans against, instead of a description of it
         out['module'] = {'quality': m.get('effective_quality') or m.get('quality'),
                          **{k: m[k] for k in MODULE_KEYS if m.get(k) is not None},
                          'results': {pid: row.get('quality') for pid, row in (m.get('results') or {}).items()}}
