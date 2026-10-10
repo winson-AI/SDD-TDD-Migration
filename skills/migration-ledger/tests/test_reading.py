@@ -290,7 +290,13 @@ class ReadingCardTests(unittest.TestCase):
                 ('a gap the Ledger recorded is settled by a plan that no longer owes it', 'local-runtime.md', '操作矩阵'),
                 ('a standing rule is followed, not settled; it cannot block', 'local-runtime.md', '操作矩阵'),
                 ('build unit busy: M002 is being written into the build this module compiles; dispatch after its result', 'build-automation.md', '总则'),
-                ('self-check output must be a new directory outside the tree it builds', 'build-automation.md', '构建资产位置')):
+                ('self-check output must be a new directory outside the tree it builds', 'build-automation.md', '构建资产位置'),
+                ('M010-Logic: the plan settles target_binding before freeze; its allocation left that to the leaf', 'dimension-slicing.md', '4. 控制节点与交接'),
+                ("QUERY: the plan settles an API contract's target side and fixture before freeze; its allocation left that to the leaf",
+                 'resource-transfer.md', 'API 与 URL 契约'),
+                ('the plan states its verification fixture before freeze; its allocation left that to the leaf', 'module-decomposition.md', '验证边界'),
+                ('behavior PATH must bind its verification fixture', 'module-decomposition.md', '验证边界'),
+                ('only fix and trace routes specify owners', 'local-runtime.md', '操作矩阵')):
             hint = reading.read_hint(reason)
             self.assertEqual((hint['ref'], hint['section']), (reading.P + name, heading), reason)
         transfer = {

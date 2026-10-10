@@ -65,8 +65,8 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | decision | host | decision_id、decision=approved、module_id、subject_sha256（取游标步骤的 approval_subject_sha256；步骤 human_required=true 才需要人，false 时宿主不征求批准）、human_source_ref；保存真实人类决定引用。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子；`kind=api-adaptation` 时 module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
 | global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；无关根可待拆，执行仍验当前叶子与依赖。registry 变化后重审 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
-| audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human |
-| audit-route-batch | Global | review_ref；审核 finding 责任映射及依赖图；human 分支挂起，独立分支继续 |
+| audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human/trace（根因在 SPEC 或切片划分，owner 为须修订的叶子或父模块） |
+| audit-route-batch | Global | review_ref；审核 finding 责任映射及依赖图；human 分支挂起，独立分支继续；trace 记为各 owner 的问题，无 human 路由时放开批次：owner 以 change/realloc-request/redecompose 自下而上修订，代码保留，消去后重新收集 |
 | audit-work | MO | 顶层 module_id 指负责模块；接受被冻结的修复任务，一轮 Fixer 授权；前置不可满足则报告待人工 |
 | audit-retest | MO | 顶层 module_id 指发现模块或受影响中间模块；只等待本模块的上游修复/复测完成，执行完整模块路径 |
 | audit-verdict | Auditor | review_ref；双方验证齐全、同基线、DoD 完成才裁决通过；过期证据报告待人工 |
@@ -75,7 +75,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | plan | Spec-Designer | plan_ref、context_ref（planning 预检随本操作登记）；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围与 spec 由 Ledger 从已接受设计补全，checklist 由 Ledger 绑定包内清单；不抄写全局上下文与分配包，Ledger 绑定当前版本并在冻结、派发时复核 |
 | plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断；编码前 reason_ref 重规划，留历史；已派实现走 CR |
 | audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id、全部所选 path_ids、自身 context_ref；结果以 result_ref 提交，Auditor 原样消费 |
-| freeze | MO | 清晰规划用 review_ref；所需语义决定用 decision_id； 初始/边界外变更 decision_id；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref（MO 对详细 tasks/PATH 的审阅），子 plan 的 decision_envelope 必须与信封条目完全一致，信封可被多个孩子使用并记录 used_by |
+| freeze | MO | 清晰规划用 review_ref；所需语义决定用 decision_id； 初始/边界外变更 decision_id；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
 | assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；design 用 mode=design + design_input_ref，无执行 test_scope；可选 session_id/card_sha256；合法阶段且无活动 worker，返回 fencing_token。不等预检：worker 派发后 context-submit（implementer 由 Ledger 代登记）；该实例已有当前 ready 报告时直接绑定，当前 blocked 时拒绝派发。执行派发 `mechanical=true` 时宿主按步骤 payload 直接提交 |
 | context-submit | 执行者 | report_ref；登记预检报告，同 stage/实例的最新报告生效。worker 有同阶段的活动派发时：ready 绑定并授权开工（Fixer 此时计一轮），blocked 退回派发 |
@@ -142,7 +142,7 @@ python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> -
 
 适配器接收 `--query-file <json> --result-file <json>`，写 `{"assertions":[{"assertion_id":"A1","expected":2,"actual":2,"passed":true}]}`。具体测试逻辑来自真实项目，本包只负责调用与采集。
 
-每条执行使用新目录，不覆盖历史。`receipt.json` 包含 test_run_id、代码/SPEC/路径绑定、实际 argv/cwd、时间、退出码及 result/log/query refs。执行结束不直接推进 Ledger：Test-Runner 整理完整 paths 后 submit，MO 再 accept。缺报告、超时、适配器异常保留日志并报告 Yellow；不拼造 Green。不得把同基线 flaky 结果择优记绿；稳定性判断由 Test-Runner/Auditor 承担，本地字段 `flaky=true` 会拒绝 Green，跨进程历史 flaky 自动识别尚不提供。
+每条执行使用新目录，不覆盖历史。`receipt.json` 包含 test_run_id、代码/SPEC/路径绑定、实际 argv/cwd、时间、退出码及 result/log/query refs。执行结束不直接推进 Ledger：Test-Runner 整理完整 paths 后 submit，MO 再 accept。缺报告、超时、适配器异常保留日志并报告 Yellow；不拼造 Green。不得把同基线 flaky 结果择优记绿；稳定性判断由 Test-Runner/Auditor 承担，本地字段 `flaky=true` 会拒绝 Green。
 
 全局审计由 Global audit-assign 后，使用 `--module GLOBAL --assignment <audit-id>` 仅对 audit_assignment.path_ids 分别执行。报告 kind=tests、module_id=GLOBAL，freeze_id/code_baseline 来自 `ledger.audit_scope(state)`，另带 `snapshot={module_id: code_baseline}`。非 Green 报告生成 audit_repairs：模块 PATH 自动对应所属模块；全局 PATH 由 Global audit-route 分配一个或多个责任模块，MO repair-accept 后重开。Auditor 不改源码。
 

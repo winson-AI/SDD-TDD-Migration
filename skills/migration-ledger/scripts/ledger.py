@@ -251,7 +251,7 @@ def invalidate_dependents(s, mid):
         for m in s['modules'].values():
             if parent in m['dependencies'] and m.get('code_baseline'):
                 m['stale'] = True
-                resume_phase = 'frozen' if m.get('freeze_id') else (m.get('blocked') or {}).get('resume_phase', m['phase'])
+                resume_phase = resume_after_provider(m)
                 if m['module_id'] not in s.get('audit_queue', {}):
                     m['phase'] = 'waiting-dependency'
                     m['blocked'] = {'kind': 'dependency', 'reason': 'dependency-version-changed', 'resume_phase': resume_phase}
@@ -262,10 +262,18 @@ def invalidate_dependents(s, mid):
     s['audit'] = {}
 
 
+def resume_after_provider(m):
+    """Where a leaf that waited for its provider goes on: in the revision of its own SPEC if it was in one, else at its
+    freeze, else where it was."""
+    if m.get('change_request') and m['phase'] in ('change-review', 'clarifying'):
+        return m['phase']
+    return 'frozen' if m.get('freeze_id') else (m.get('blocked') or {}).get('resume_phase', m['phase'])
+
+
 def await_provider(m):
     """A leaf holding code built on a provider that plans again keeps its plan and code, and verifies again once the
     provider is back. A leaf without code has nothing built on it and is left to move."""
-    resume_phase = 'frozen' if m.get('freeze_id') else (m.get('blocked') or {}).get('resume_phase', m['phase'])
+    resume_phase = resume_after_provider(m)
     m.update(stale=True, phase='waiting-dependency',
              blocked={'kind': 'dependency', 'reason': 'dependency-version-changed', 'resume_phase': resume_phase})
     m['revision'] += 1
@@ -287,6 +295,10 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
          'results', 'repair_findings', 'blocked', 'dimension_evidence', 'provider_owners', 'change_request', 'accepted_test_design', 'design_input_ref', 'execution_context_ref')}
     history.update(kind='planning-history', executable=False, reason=reason, evidence_ref=evidence_ref)
     m.setdefault('planning_history', []).append(history)
+    if m.get('code_files'):
+        # Written under the plan that is given up: it stays in the target and is brought to the next plan, not written
+        # again from nothing. Its acceptance does not stand; the files do.
+        m['carried_files'] = copy.deepcopy(m['code_files'])
     m['design_generation'] = m.get('design_generation', 0) + 1
     m.pop('accepted_test_design', None)
     m.pop('design_input_ref', None)
@@ -412,6 +424,12 @@ def freeze_guard(s, m, p):
     verify_plan(m['plan'], m)
     intact(lambda: validate_plan(m['plan'], m))
     require(digest(m['plan']) == m['plan_hash'], 'plan changed')
+    # What an allocation may leave to its leaf is settled before code is written: the result is held to it.
+    if (m.get('behavior_review') or {}).get('verification'):
+        import behavior_contract
+        behavior_contract.fixture_bound(m['behavior_review']['verification'], m['plan'], settled=True)
+    if dimensions.of_leaf(m):
+        dimensions.settled(read_json(check_ref(dimensions.of_leaf(m))))
     if m.get('change_request') and task_revalidation.prepare(m, p.get('review_ref'))['mode'] == 'partial':
         require(p['review_ref'] == m.get('plan_review_ref'), 'TASK independence requires accepted MO plan review')
     first = not allocation_frozen(m)
@@ -522,6 +540,31 @@ def dispatch_guard(s, m, worker):
         require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']), 'fix budget exhausted; recover requires decision')
 
 
+def providers(s, m):
+    """What a leaf plans against: for each slice it depends on, the stage it needs of it and whether that is there. A
+    slice that needs another's code plans against the accepted code of all its tasks, one that needs its verification
+    against the completed slice - not against a description of either."""
+    inputs = ((m.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs') or []
+    stages = {row['module_id']: row.get('required_stage') for row in inputs}
+    rows = []
+    for dependency in m.get('dependencies', []):
+        for mid in decomposition.leaves(s, dependency) if dependency in s['modules'] or dependency in s.get('module_groups', {}) else []:
+            p, stage = s['modules'][mid], stages.get(dependency, 'verified')
+            written = bool(p.get('code_baseline')) and set(p.get('accepted_task_ids', [])) == {t['task_id'] for t in (p.get('plan') or {}).get('tasks', [])}
+            rows.append({'module_id': mid, 'required_stage': stage, 'phase': p['phase'], 'plan_ref': p.get('plan_ref'),
+                         'code_baseline': p.get('code_baseline'), 'ready': written if stage == 'implemented' else tv.available(p)})
+    return rows
+
+
+def wave(s, mid, seen=()):
+    """The first wave holds the leaves that depend on no other; each other leaf comes one wave after the last of the
+    slices it depends on. Derived from the dependencies, written by nobody."""
+    below = [leaf for dependency in (s['modules'].get(mid) or {}).get('dependencies', [])
+             if dependency in s['modules'] or dependency in s.get('module_groups', {})
+             for leaf in decomposition.leaves(s, dependency) if leaf != mid and leaf not in seen]
+    return 1 + max((wave(s, leaf, (*seen, mid)) for leaf in below), default=0)
+
+
 def written_untested(m):
     """Some tasks of a module are accepted, more are to be written, and a build or unit path due on the accepted ones
     has never run on this code: it can be run now, without waiting for the rest."""
@@ -629,6 +672,11 @@ def _next_step(s, m):
             if s.get('behavior_contract_required'):
                 step['design_input_needs'] = ('spec_refs: the leaf SPEC draft the Spec-Designer staged, with Requirement-ID and '
                                               'Scenario-ID lines; have it staged before assigning the design')
+        waiting = [row['module_id'] for row in providers(s, m) if not row['ready']]
+        if waiting:
+            # Planned against what its providers are, once they are: the step is offered then. A plan submitted
+            # earlier is still judged - this orders the work, it refuses nothing.
+            step.update(ready=False, reason='provider-first-version-pending', waiting_for=waiting)
         try:
             workflow.runtime_allocations(s, m['module_id'], planning=True)
         except (Rejected, OSError) as exc:
@@ -725,6 +773,9 @@ def _next_step(s, m):
             step.update(ready=False, reason='DoD-or-baseline-incomplete')
     elif m['phase'] == 'completed':
         step.update(reason='module-complete')
+        owed = [row['issue_id'] for row in issues.of_module(s, m['module_id'])[0]]
+        if owed:  # recorded after it was done: its SPEC is revised (change) or its parent is asked (realloc-request); the code stays
+            step.update(reason='open-issues', issue_ids=owed, recovery_action='change-or-realloc-request')
     else:
         step.update(reason='unrecognized-phase')
     if step['ready']:
@@ -909,6 +960,8 @@ def with_card(s, m, step):
 
 def next_step(s, m):
     step = context_readiness.annotate(s, m['module_id'], _next_step(s, m))
+    if m.get('dependencies') or any(m.get('module_id') in other.get('dependencies', []) for other in s['modules'].values()):
+        step['wave'] = wave(s, m['module_id'])
     if m.get('decomposition_required') and step['role'] == 'module-orchestrator':
         step['agent_name'] = 'parent-mo-' + m['module_id']
     if step.get('operation') == 'assign' and step.get('mode') != 'design' and step['ready']:
@@ -916,6 +969,8 @@ def next_step(s, m):
         # reports its own readiness, so the host may submit it as the module orchestrator without a model turn.
         step['mechanical'] = True
         step['payload'] = {**step.get('payload', {}), 'role': step['worker_role']}
+        if step['worker_role'] == 'implementer' and m.get('carried_files'):
+            step['carried_files'] = [ref['path'] for ref in m['carried_files']]  # written under an earlier plan: adjust them, do not start over
         selected = [t for t in m['plan']['tasks'] if step['worker_role'] != 'implementer' or t['task_id'] not in m.get('accepted_task_ids', [])]
         if step['worker_role'] == 'fixer' and m.get('task_revalidation', {}).get('mode') == 'partial' and not m.get('repair_findings'):
             affected_paths = set(unresolved(m))
@@ -1277,10 +1332,7 @@ def mutate(s, req, principal, events, root=None):
         # The boundary belongs to the allocation and was judged when that was registered; a plan is held to the one it has.
         boundary = (m.get('behavior_review') or {}).get('verification')
         if boundary and not resubmitted:
-            require(plan['source_closure'].get('verification') == boundary, 'leaf plan verification differs from allocation')
-            for path in plan['paths']:
-                if path.get('kind', 'automation') in behavior_contract.BEHAVIOR_KINDS:
-                    require(path.get('fixture_contract_ref') == boundary['fixture_contract_ref'], 'behavior PATH must bind allocated verification fixture')
+            behavior_contract.fixture_bound(boundary, plan)
         # Plan is content; the artifact remains immutable and is checked at freeze/dispatch.
         # The plan stands on the context and allocation current now; its author does not copy them into it.
         m.pop('plan_review_ref', None)
@@ -1421,6 +1473,8 @@ def mutate(s, req, principal, events, root=None):
             m['execution_partition_pending'] = set(m['accepted_task_ids']) != {t['task_id'] for t in m['plan']['tasks']}
             complete_tasks = set(m['accepted_task_ids']) == {t['task_id'] for t in m['plan']['tasks']}
             m.update(code_files=result['code_files'], code_baseline=result['code_baseline'], phase='testing' if complete_tasks else 'frozen', stale=True, build_baseline=None)
+            if complete_tasks:
+                m.pop('carried_files', None)  # every task is written under the new plan: nothing is left over from the old one
             if {t['task_id'] for t in result['task_trace']} & set(m.get('task_revalidation', {}).get('retained_task_ids', [])):
                 m['task_revalidation'] = {'mode': 'full', 'reason': 'retained-task-updated', 'retained_task_ids': [], 'retained_path_ids': []}
             task_revalidation.carry(m, prior_results)
@@ -1817,14 +1871,17 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
     return saved
 
 
+RESLICED = ('redecompose-accept', 'revise-run', 'audit-route-batch')  # how the scope was cut has just been revised: a lesson, whether or not the run ends
+
+
 def apply(root, req, principal):
     try:
         ack = _apply(root, req, principal)
-        if req['operation'] in ('audit', 'audit-verdict', 'module-summary', 'retrospect'):
+        if req['operation'] in ('audit', 'audit-verdict', 'module-summary', 'retrospect', *RESLICED):
             # Project lock comes after the Ledger transaction releases its lock (prepare takes the reverse order).
             import experience
             try:
-                ack['experience'] = experience.auto_harvest(root, force=req['operation'] == 'retrospect')
+                ack['experience'] = experience.auto_harvest(root, force=req['operation'] in ('retrospect', *RESLICED))
             except (Rejected, OSError, ValueError, KeyError, TypeError) as exc:
                 ack['experience'] = {'status': 'pending', 'reason': str(exc), 'recovery_action': 'retry same request or sdd-retrospect'}
         return ack
@@ -2125,6 +2182,7 @@ def _status(root, view='full', module_id=None, since=None):
                 'planning_context': decomposition.planning_context(s),
                 'module_inputs': {mid: decomposition.assigned_module(s, m) for mid, m in
                                   {**s.get('module_groups', {}), **s['modules']}.items()},
+                'providers': {mid: providers(s, m) for mid, m in s['modules'].items() if m['dependencies']},
                 'quality': 'yellow-blocked' if observed and s['quality'] != 'red-bug' else s['quality']}
         return status_view.select(full, view, module_id, since)
 

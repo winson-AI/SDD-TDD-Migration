@@ -66,8 +66,8 @@ def judge(ref, module_id):
                 continue  # everything this module's UI needs travels by path; nothing is left to author
         for iid, item in keyed(row.get('items'), 'item_id').items():
             require(iid not in items, 'duplicate dimension item')
-            require(all(item.get(k) for k in ('behavior', 'source_locator', 'target_strategy', 'target_binding', 'acceptance')),
-                    'dimension item needs source, behavior, target binding and acceptance')
+            require(all(item.get(k) for k in ('behavior', 'source_locator', 'target_strategy', 'acceptance')),
+                    'dimension item needs source, behavior, target strategy and acceptance')
             require(item['target_strategy'] in ('reuse', 'adapt', 'reference', 'new', 'subclosure-port', 'capture-fixture'), 'invalid dimension target strategy')
             if item['target_strategy'] == 'capture-fixture':
                 require(item.get('replaceable_boundary'), 'capture-fixture requires a replaceable repository/datasource boundary')
@@ -79,14 +79,13 @@ def judge(ref, module_id):
                 require(not (item.get('source_signal') and item.get('source_resource')),
                         'a Resource item names a resource file or a recorded image source, not both')
                 # An image source without a file (a URL, a run-time name, drawing code) has no qualifier family.
-                fields = ('target_resource', 'consumer', 'conversion') + (
-                    ('source_signal',) if item.get('source_signal') else ('source_resource', 'qualifiers'))
-                for field in fields:
+                for field in ('source_signal',) if item.get('source_signal') else ('source_resource', 'qualifiers'):
                     require(item.get(field), 'resource mapping missing ' + field)
                 import resource_fidelity
                 resource_fidelity.validate_item(item)
                 resource_fidelity.replacement(item)
-                resource_fidelity.consumers(item)
+                if item.get('consumer') is not None:
+                    resource_fidelity.consumers(item)
             items[iid] = {**item, 'dimension': row['dimension']}
     require(items, 'functional module must contain applicable dimension work')
     coverage_review(data)
@@ -145,6 +144,20 @@ def coverage_review(data, required=False):
             require(pairs <= applicable, 'condition review references unknown/non-applicable condition')
             covered.update(pairs)
         require(covered == applicable, 'condition review omits applicable conditions')
+
+
+TARGET_SIDE = {None: ('target_binding',), 'Resource': ('target_binding', 'target_resource', 'consumer', 'conversion')}
+
+
+def settled(analysis):
+    """Where an item is bound in the target, and for a resource where it lands, how it is converted and who consumes
+    it, are known once the source and the target have been read: an allocation may leave them to its leaf, and a plan
+    settles them before code is written, because its result is held to them."""
+    for row in analysis.get('dimensions', []):
+        for item in row.get('items') or [] if row.get('status') == 'applicable' else []:
+            missing = [field for field in TARGET_SIDE.get(row['dimension'], TARGET_SIDE[None]) if not item.get(field)]
+            require(not missing, '%s: the plan settles %s before freeze; its allocation left that to the leaf'
+                    % (item.get('item_id', '?'), ', '.join(missing)))
 
 
 def registered(s, module_id):
@@ -356,6 +369,15 @@ def refines(allocated_ref, ref):
         keeps(read_json(check_ref(allocated_ref)), read_json(check_ref(ref)))
         return True
     except (Rejected, OSError, KeyError, TypeError, AttributeError):
+        return False
+
+
+def kept(allocated, refined):
+    """Whether a value a leaf writes is its allocation's with things added and nothing it states changed."""
+    try:
+        keeps(allocated, refined)
+        return True
+    except (Rejected, KeyError, TypeError, AttributeError):
         return False
 
 

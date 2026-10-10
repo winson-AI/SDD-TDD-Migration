@@ -41,6 +41,12 @@ def collection_blockers(s, ref_check=check_ref):
             step = next_step(s, m)
             if step.get('ready'):
                 blockers.append({'module_id': mid, 'reason': 'module-work-ready', 'operation': step['operation']})
+    import issues
+    for row in issues.of_module(s)[0]:
+        # Recorded for a finished leaf or for a parent: revised before the audit collects again. A leaf still at work
+        # is held by its own round.
+        blockers.extend({'module_id': mid, 'reason': 'open-issues', 'issue_id': row['issue_id']} for mid in row['open_for']
+                        if mid in s.get('module_groups', {}) or s['modules'][mid]['phase'] == 'completed')
     for mid, group in s.get('module_groups', {}).items():
         if not decomposition.summary_current(s, group, ref_check):
             step = decomposition.group_step(s, group, ref_check)
@@ -272,6 +278,25 @@ def retry_repair(s, source, bad, result_ref):
     return True
 
 
+def trace_back(s, b, actor):
+    """A finding whose cause is a SPEC, or how the scope was cut, is not repaired inside the audit. It is recorded for the
+    leaves and parents that have to revise, and the batch is released so that they can: a change of a leaf's SPEC, a
+    request to its parent, a re-split, a revision of the run - bottom-up, each on its own records. What was built stays
+    and is brought to the revised SPEC. The audit collects again once nothing recorded is open."""
+    import issues
+    traced = {fid: r for fid, r in b['routes'].items() if r['action'] == 'trace'}
+    for fid, r in sorted(traced.items()):
+        issues.record(s, 'TRACE-%s-%s' % (b['batch_id'], fid), 'defect', (r['root_cause'].get('summary') or fid), r['owner_module_ids'], actor,
+                      [r['analysis_ref']], traced_from={'batch_id': b['batch_id'], 'finding_id': fid, 'source_module_id': r['source_module_id']})
+    if not traced or any(r['action'] == 'human' for r in b['routes'].values()):
+        return  # a decision only a human can make keeps the batch for the human
+    b.update(status='released', released_for='traceback')
+    s.setdefault('audit_batch_history', []).append(copy.deepcopy(b))
+    for m in s['modules'].values():
+        if m.get('audit_batch_id') == b['batch_id']:
+            m.pop('audit_batch_id', None); m.pop('audit_test_stage', None); m.pop('audit_fix_grant', None)
+
+
 def batch(s):
     require(active(s), 'no active audit closure')
     return s['audit_batch']
@@ -280,6 +305,8 @@ def batch(s):
 def build_graph(s, b):
     deps = {mid: set(m['dependencies']) for mid, m in s['modules'].items()}
     for r in b['routes'].values():
+        if r['action'] == 'trace':
+            continue  # revised outside the batch: it orders no repair inside it
         deps[r['source_module_id']].update(set(r['owner_module_ids']) - {r['source_module_id']})
         for consumer in b['findings'][r['finding_id']].get('affected_module_ids', []):
             if consumer not in r['owner_module_ids']:
@@ -341,15 +368,17 @@ def handle(s, req, actor):
                 r['finding_id'] = matches[0]
             f = b['findings'].get(r['finding_id']); require(f and r.get('source_module_id') == f['source_module_id'], 'unknown finding/source')
             workflow.root_cause(r.get('root_cause')); check_ref(r.get('analysis_ref'))
-            require(r.get('action') in ('fix', 'verify', 'human'), 'invalid finding action')
+            require(r.get('action') in ('fix', 'verify', 'human', 'trace'), 'invalid finding action')
             r['owner_module_ids'] = r.get('owner_module_ids', [r['owner_module_id']] if r.get('owner_module_id') else [])
             if b.get('code_review_ref'):
-                require(r['action'] in ('fix', 'human'), 'code governance requires delegated change or human decision')
+                require(r['action'] in ('fix', 'human', 'trace'), 'code governance requires delegated change, traceback or human decision')
                 require(not f.get('requires_human') or r['action'] == 'human', 'governance finding requires human review: uncertainty or exhausted budget')
             mids = r['owner_module_ids']
-            require(len(set(mids)) == len(mids) and set(mids) <= set(s['modules']), 'unknown/duplicate repair owner')
-            require(bool(mids) == (r['action'] == 'fix'), 'only fix routes must specify repair owners')
-            if r['action'] != 'human':
+            # A finding traced back names who revises: the leaves whose SPEC is wrong, the parents whose split is.
+            known = set(s['modules']) | (set(s.get('module_groups', {})) if r['action'] == 'trace' else set())
+            require(len(set(mids)) == len(mids) and set(mids) <= known, 'unknown/duplicate repair owner')
+            require(bool(mids) == (r['action'] in ('fix', 'trace')), 'only fix and trace routes specify owners')
+            if r['action'] not in ('human', 'trace'):
                 require(r.get('source_context') == b['contexts'][f['source_module_id']], 'source SPEC/test context mismatch')
                 contexts = r.get('owner_contexts', {mids[0]:r.get('owner_context')} if len(mids) == 1 else {})
                 require(contexts == {owner:b['contexts'][owner] for owner in mids}, 'owner SPEC/test contexts mismatch')
@@ -366,6 +395,7 @@ def handle(s, req, actor):
         b.update(review_ref=p['review_ref'], status='repairing')
         for fid,r in b['routes'].items():
             if r['action'] == 'human': stop(s, 'unrepairable-or-contract-decision', r['source_module_id'], r['analysis_ref'], fid)
+        trace_back(s, b, actor)
     elif op == 'audit-work':
         workflow.role(actor, 'module-orchestrator'); b = batch(s)
         require(b['status'] == 'repairing' and mid in pending_modules(b), 'module not runnable in audit')

@@ -36,7 +36,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 上下文逐层细化：GO 的 context_refs 指向入口、相关代码、架构约束、知识、接口/复用 owner 及需求/用例映射；父 MO 为每个子功能提供聚焦文档绝对 path/sha256。子 MO 综合全局/父/子上下文拆 tasks，标明需求、PATH 与复用关系。共享上下文可引同一工件，不截断全局读取。
 
-局部 context pack 用于聚焦；全局可读不扩大 scope 或写权限。先检查目标已有实现和兄弟分工，明确“复用什么、谁实现、谁消费、写哪些文件、不实现哪些行为”。共同 CASE/全局需求 ID 可覆盖不同子职责，但须说明参与方式和唯一实现 owner；共享写路径依旧受锁约束，重叠业务分工必须审核。
+局部 context pack 用于聚焦；全局可读不扩大 scope 或写权限。先检查目标已有实现和兄弟分工，明确“复用什么、谁实现、谁消费、写哪些文件、不实现哪些行为”。全局需求 ID 可覆盖不同子职责，但须说明参与方式和唯一实现 owner；共享写路径依旧受锁约束，重叠业务分工必须审核。
 
 `planning_context` 仅含职责结构，不含兄弟变化中的 phase/revision；实时进度、锁和修复 memory 另读 Ledger。拆分/冻结/派发核对绑定摘要与当前上下文及分配，过期拒绝。源码验 baseline。
 
@@ -64,13 +64,13 @@ MO 确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`
 
 ## 4. 独立执行、父看护与统一审计
 
-每个子 MO 独立 Coding → Testing → 可修复 Red/Yellow 在本模块配置预算内 Fixer → 正式复测 → DoD 或明确挂起。一个孩子失败不取消兄弟；父/全局聚合 Red 不回写孩子。真实依赖变化仅影响确认的消费者。
+每个子 MO 独立 Coding → Testing → 预算内 Fixer → 正式复测 → DoD 或明确挂起；隔离见[模块隔离](state-machine.md#模块隔离与全量收尾)。
 
 父 MO 持续读取子模块 SPEC、tasks、用例覆盖、基线、根因与修复 memory，确认认领范围无遗漏/重复/扩张。等所有孩子完成或明确挂起；module-summary 记录逐子结论、范围覆盖、遗留问题和审计移交，不代验收子 CASE。
 
 Ledger 的 subject_sha256 绑定当前拆分引用和孩子 revision；孩子状态/证据变化后，旧父汇总失效，须重新核验。父 Green 要求全部孩子当前 DoD Green 且汇总有效，不替代 Auditor。
 
-GO 等全部子 MO 收尾且父汇总有效后启动 Auditor。status.module_rounds 区分 leaf/parent modules。收集问题子模块，不把父聚合 Red 记成失败 CASE。Auditor 读取对应 SPEC/测试路径并委派修复复测，裁决只归 Auditor。最终审计要求全子模块 Green、遗留清空且父汇总有效。
+status.module_rounds 区分 leaf/parent modules。收集问题子模块，不把父聚合 Red 记成失败 CASE。Auditor 读取对应 SPEC/测试路径并委派修复复测，裁决只归 Auditor。最终审计要求全子模块 Green、遗留清空且父汇总有效。
 
 ## 6. 二方库作为逐层规划依据
 
@@ -95,11 +95,11 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 
 ## 父级批量冻结信封
 
-父 MO 拆分出多个孩子时，可以把各孩子的 decision_envelope（scope、acceptance、allowed_alternatives、forbidden_changes）汇成一份 [批量信封](../../../template/batch-envelope.json)，交人类一次批准（decision `kind=batch-envelope`，module_id 为父）。子 plan 的 envelope 与信封条目完全一致时，子 MO 审阅详细 tasks/PATH 后附 review_ref 即可 freeze，不再逐个等待人类；任一孩子超出条目（扩大范围、替换提供方、改变用户可见语义等）仍须自己的人类批准。信封批准不替代 MO 的计划审阅，也不改变冻结后的 CR 规则。
+父 MO 拆分出多个孩子时，可以把各孩子的 decision_envelope（scope、acceptance、allowed_alternatives、forbidden_changes）汇成一份 [批量信封](../../../template/batch-envelope.json)，交人类一次批准。子 plan 的 envelope 与信封条目完全一致时，子 MO 审阅详细 tasks/PATH 后附 review_ref 即可 freeze，不再逐个等待人类；任一孩子超出条目（扩大范围、替换提供方、改变用户可见语义等）仍须自己的人类批准。信封批准不替代 MO 的计划审阅。
 
 ## 验证边界
 
-behavior_review.verification 必填，字段见[模板](../../../template/module-decomposition.json)。provider_inputs 精确匹配实际 dependencies，逐项绑定 contract_ref 和 required_stage（implemented/verified）。同触发必须有不同的独立观察，否则重切；隔离策略和固定输入/替身契约由 GO/父 MO 以源码证据审阅。唯一 ID、独立作者或独立颜色不能替代行为独立性。
+behavior_review.verification 必填，字段见[模板](../../../template/module-decomposition.json)。provider_inputs 精确匹配实际 dependencies，逐项写 required_stage（implemented/verified）。父级只切范围与语义，contract_ref、fixture_contract_ref 可不写：叶子在提供方到达该阶段后对着其计划与代码规划（步骤视图 providers；此前游标 provider-first-version-pending，不拒绝提前提交），fixture 由叶子计划写明，冻结前必填。同触发必须有不同的独立观察，否则重切。唯一 ID、独立作者或独立颜色不能替代行为独立性。
 
 拆分文档写 case_acceptance：父模块验收的每条 CASE 对应唯一验收它的子模块（记为其 acceptance_case_ids）。一条 CASE 只有一个持有者：验收用例的子模块只持有它验收的用例，为别的切片的用例供给能力写进对方的 provider_inputs，各切片都须满足的约束写成各自条目的保真条件；只有不验收任何 CASE 的支撑切片持有它所服务切片的用例，并在 supporting_slices 写明为何不能并入使用它的切片。依赖链达 3 个切片、过半切片须等另一切片验证完成，或某 CASE 的界面与逻辑分属两个切片（按各切片四维分析的适用 item 判定）时，independence_review（rationale、evidence_refs）说明为何不能按业务行为切。根模块以 acceptance_case_ids 声明（缺省为全部），一条 CASE 只由一个根验收。
 
@@ -107,4 +107,4 @@ behavior_review.verification 必填，字段见[模板](../../../template/module
 
 ## 最小验收切片
 
-叶子 MO 按独立业务结果/验证闭包切片，是冻结、测试及 DoD 单位。TASK 分批实现、全部接受后才测试；冻结前只设计。互不依赖的大叶子回父 MO 重切，不新增 TASK 状态机。Auditor 统一审计，可同 Run 多轮整改复审。
+叶子 MO 按独立业务结果/验证闭包切片，是冻结、测试及 DoD 单位。TASK 分批实现，写完即测其构建与单测；冻结前只设计。互不依赖的大叶子回父 MO 重切，不新增 TASK 状态机。Auditor 统一审计，可同 Run 多轮整改复审。

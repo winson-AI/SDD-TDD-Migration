@@ -218,7 +218,7 @@ def validate_facts(item, legacy_root=None, *, check_configuration=False):
 
 def target_qualifier(item):
     """Read directory routing; code-based routing must be explained by the mapping."""
-    target = Path(item.get('target_resource', '').split('#', 1)[0])
+    target = Path((item.get('target_resource') or '').split('#', 1)[0])
     for parent in target.parents:
         directory, _, qualifier = parent.name.partition('-')
         if directory in ('values', 'drawable', 'mipmap', 'font', 'raw', 'color'):
@@ -302,7 +302,7 @@ def require_target_binding(item, target_root):
     if strategy in (None, 'blocked'):
         return
     label, root = item.get('item_id', '?'), Path(target_root).resolve()
-    target, _, name = item.get('target_resource', '').partition('#')
+    target, _, name = (item.get('target_resource') or '').partition('#')
     require(Path(target).is_absolute() and Path(target).resolve().is_relative_to(root),
             label + ': target_resource must be a file of the target project')
     for consumer in consumers(item):
@@ -343,7 +343,7 @@ def verify_exact(item, target):
         try:
             resource_tool.prepare_vector(SimpleNamespace(
                 android_root=Path(source.get('path', '')).anchor, target_root=Path(target).anchor, source=source.get('path', ''),
-                destination=str(target), source_id=item['source_resource'], target_ref=item.get('target_resource', '').partition('#')[2] or '-',
+                destination=str(target), source_id=item['source_resource'], target_ref=(item.get('target_resource') or '').partition('#')[2] or '-',
                 consumer=consumers(item), resolve_ref=item.get('resolve_ref', []), consumer_tint=item.get('consumer_tint')))
         except resource_tool.ResourceError as exc:
             require(False, label + ': exact_vector_xml target is not the conversion of the legacy vector (' + str(exc) + ')')
@@ -351,7 +351,7 @@ def verify_exact(item, target):
 
 def verify_wiring(item, consumer_paths):
     """Each consumer names the migrated resource; a file that never mentions it does not use it."""
-    name = item.get('target_resource', '').partition('#')[2].strip()
+    name = (item.get('target_resource') or '').partition('#')[2].strip()
     if item.get('resource_strategy') not in WIRED or not name:
         return
     for path in consumer_paths:
@@ -854,7 +854,7 @@ def allocation_gate(s, analysis):
                     require(key not in variants, 'duplicate resource source/qualifier; share one item across consumers')
                     variants.add(key)
                     if item['resource_strategy'] != 'blocked':
-                        target_path = Path(item.get('target_resource', '').split('#', 1)[0]).resolve()
+                        target_path = Path((item.get('target_resource') or '').split('#', 1)[0]).resolve()
                         target = (item['source_resource'], target_path)
                         destinations.setdefault(target, []).append(item)
     for items in destinations.values():

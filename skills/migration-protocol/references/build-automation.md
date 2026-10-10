@@ -108,7 +108,6 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 | build、unit、static 全部 Green 已接受 | `build_baseline=code_baseline`；仍在 testing；下一 scope 为 automation | 派发 automation，Test-Runner 在派发内提交 testing 报告，核对设备/安装包/fixture/模型/工具 |
 | automation 结果接受且完整 Green，存在 visual PATH | 仍在 testing；下一 scope 为 visual | MO 另派 visual assignment；Test-Runner 只读比较并留正式回执 |
 | 全部适用的 build/automation/visual 路径有效 Green | `phase=dod` | MO 完成 DoD；父汇总，全量收尾后统一 Auditor |
-| 仅自动化环境缺失 | `automation-unavailable → automation-deferred`，逐 PATH Yellow/未执行 | 保存缺测证据，其他任务继续；环境恢复后再预检和正式复测 |
 
 宿主每次事件 ACK 后重新查询状态，不缓存旧 assignment、scope 或 context_ref。切换 scope 时按当前游标重新提交该阶段报告，不能沿用旧 assignment。
 
