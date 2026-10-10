@@ -189,6 +189,18 @@ def expression(text, unit=None, colour=False):
     return {'type': 'expression', 'text': text}
 
 
+FLOAT = re.compile(r'^-?(?:\d+\.?\d*|\.\d+)[fF]$')
+
+
+def overloaded(name, argument):
+    """Overloads of one arity differ by the type of an argument, which a table of names per arity cannot say: a float
+    literal is a weight and a Gravity expression is a gravity, whichever of the two the table declares there."""
+    if name in ('layout_weight', 'layout_gravity'):
+        argument = argument.strip()
+        return 'layout_weight' if FLOAT.match(argument) else 'layout_gravity' if 'Gravity.' in argument else name
+    return name
+
+
 def _row(text, offset, symbols, receiver, name, value, raw):
     row = {'receiver': receiver, 'name': name, 'line': resource_signals.line_of(text, offset), 'raw': resource_signals.normalize(raw, 240), **value}
     symbol = symbols.at(offset)
@@ -221,9 +233,10 @@ def code_parameters(text, relative, symbols=None, helpers=()):
         name = match.group('name')
         value = expression(match.group('value'), PROPERTIES[name], 'Color' in name)
         rows.append(_row(text, match.start(), symbols, match.group('receiver'), name, value, match.group(0)))
-    signatures = {}
+    signatures, declared = {}, set()
     for helper in helpers:
         signatures[(helper['call'].rsplit('.', 1)[-1], len(helper['params']))] = helper
+        declared.add(helper['call'].rsplit('.', 1)[-1])
     for match in ADD_VIEW.finditer(text):
         close = resource_signals.balanced(text, match.end() - 1)
         args = resource_signals.split_args(text[match.end():close - 1]) if close else []
@@ -238,9 +251,16 @@ def code_parameters(text, relative, symbols=None, helpers=()):
             names, unit = helper['params'], helper.get('unit')
         elif LAYOUT_PARAMS.match(call.group('name')) and len(inner) >= 2:
             names, unit = ('layout_width', 'layout_height', 'layout_weight')[:len(inner)], 'px'
+        elif call.group('name').rsplit('.', 1)[-1] in declared:
+            # An overload the table does not declare: the call is kept whole as one expression for its reader to
+            # settle, not left out as if the view were given no layout parameters.
+            rows.append(_row(text, match.start(), symbols, args[0].strip(), 'layout_params',
+                             {'type': 'expression', 'text': ' '.join(args[-1].split())}, text[match.start():close]))
+            continue
         else:
             continue
         for name, argument in zip(names, inner):
+            name = overloaded(name, argument)
             rows.append(_row(text, match.start(), symbols, args[0].strip(), name,
                              expression(argument, None if name in ('layout_weight', 'layout_gravity', 'gravity') else unit), text[match.start():close]))
     rows.sort(key=lambda row: (row['line'], row['receiver'], row['name']))

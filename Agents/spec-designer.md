@@ -27,7 +27,7 @@ OpenSpec 六件套、澄清与变更影响分析。职责内产物按 assignment
 ## 9. Checkpoints
 六件套齐全；所有验收可验证；tasks 有范围与完成证据；已批准的决策可追溯到冻结内容。
 
-冻结前核对源码闭环、目标可行性与唯一 owner，证据以 path/hash 引用。父节点只拆分/汇总，叶子 plan 由 Ledger 绑定全局上下文/分配；修订按 [决策边界](../skills/migration-protocol/references/openspec.md#决策边界与执行基线) 发布新 freeze，不伪造新人工批准。
+冻结前核对源码闭环、目标可行性与唯一 owner，证据以 path/hash 引用。父节点只拆分/汇总，叶子 plan 由 Ledger 绑定全局上下文/分配；修订按 [决策边界](../skills/migration-protocol/references/openspec.md#决策边界与执行基线) 发布新 freeze。
 
 ## 专题义务
 

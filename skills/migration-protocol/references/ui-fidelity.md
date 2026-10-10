@@ -85,7 +85,7 @@ adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migrat
 
 没有走[复制清单与参数表](resource-transfer.md#总则)的资源逐项登记，规则如下。
 
-**① 精确策略与反近似** —— UI 呈现闭包内的 Resource item 必须写 `resource_kind` 与 `resource_strategy`，不能靠省略字段避开校验。源类型决定策略：vector → `exact_vector_xml`（保留 viewport/path/group/clip/stroke/fill/alpha/mirroring；**不是** ImageVector）；bitmap/font/raw → `byte_copy`；string/plurals/array → `value_xml_exact`（保留文本、占位符、转义、quantity/数组结构、限定符）；color/dimen/已证 attr → `design_token_exact`；selector/layer-list/shape/有状态绘制 → `compose_semantic_exact`。
+**① 精确策略与反近似** —— UI 呈现闭包内的 Resource item 必须写 `resource_kind` 与 `resource_strategy`，不能靠省略字段避开校验。源类型决定策略：vector → `exact_vector_xml`（保留 viewport/path/group/clip/stroke/fill/alpha/mirroring；**不是** ImageVector）；bitmap/font/raw → `byte_copy`；string/plurals/array → `value_xml_exact`（保留文本、占位符、转义、quantity/数组结构、限定符；显示值以存量平台解析结果为准，由持有该资源的切片提供唯一取值入口，消费方不各自还原转义）；color/dimen/已证 attr → `design_token_exact`；selector/layer-list/shape/有状态绘制 → `compose_semantic_exact`。
 
 **没有 `approximate` 策略**：禁止 Material 图标替代、手绘近似、语义近似、自动栅格化、位图兜底。逃生口仅 `manual_exact`（须 `adaptation_evidence_ref`；图片另受[图片与图标对齐](#图片与图标对齐)闸门约束）与 `blocked`（须 `blocked_reason`，`completion_gate` 拒绝仍带 blocked 资源的模块完成）。`.9.png` 的 stretch/content 区域**永不** `byte_copy`；`sp` 尺寸被间距消费时必须 `scales_with_font`。
 

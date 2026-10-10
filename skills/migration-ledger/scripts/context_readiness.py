@@ -113,10 +113,10 @@ def history(s, mid, read=CURRENT):
 def subject(s, mid, stage, read=CURRENT):
     """Do not bind sibling progress or receipt revisions into a leaf receipt."""
     require(stage in CHECKS and ((mid is None) == (stage in GLOBAL)), 'context stage/scope mismatch')
-    shared = decomposition.planning_context(s)
     pinned = execution_context(s, mid, stage)
-    if pinned:
-        shared = pinned['planning_context']
+    shared = pinned['planning_context'] if pinned else decomposition.planning_context(s)
+    if mid:
+        shared = decomposition.standing(s, mid, shared)
     if stage == 'global-discovery':
         shared = {k: v for k, v in shared.items() if k not in ('modules', 'parents', 'dimension_allocations')}
     value = {'run_id': s['run_id'], 'module_id': mid, 'stage': stage, 'planning_context': shared}
@@ -348,7 +348,9 @@ def submit(s, req, actor):
         m = scope(s, mid)
         require(any(a.get('mode') == 'design' and not a.get('closed') and a['instance_id'] == actor['instance_id']
                     for a in m['assignments'].values()), 'test-design context requires active design assignment')
-    require(report.get('subject_sha256') == subject(s, mid, stage), 'context subject stale')
+    # A blocked report authorizes nothing: one a worker wrote before its subject moved still hands its dispatch back.
+    require(report.get('subject_sha256') == subject(s, mid, stage)
+            or (report.get('verdict') == 'blocked' and stage in set(WORKERS.values()) | {'building'}), 'context subject stale')
     if stage.startswith('audit-'):
         import audit_closure
         if not audit_closure.active(s):
@@ -542,18 +544,22 @@ def annotate(s, mid, step):
             return step
         if step.get('operation') == 'assign':
             # Dispatch first; only a report that is still blocked on the current subject holds the dispatch back.
-            blocked = []
+            blocked, checks = [], set()
             for receipt in scope(s, mid).get('context_receipts', {}).values():
                 if receipt['stage'] == stage and receipt['verdict'] == 'blocked':
                     try:
-                        validate(s, mid, stage, receipt['report_ref'], allow_blocked=True)
+                        report = validate(s, mid, stage, receipt['report_ref'], allow_blocked=True)
                         blocked.append(receipt['report_ref'])
+                        checks.update(name for name, check in report['checks'].items() if check['status'] == 'blocked')
                     except (Rejected, OSError, ValueError):
                         pass
             if blocked:
                 step['context_gate']['blocked_receipts'] = blocked
-                step.update(ready=False, reason='context-blocked',
+                step.update(ready=False, reason='context-blocked', blocked_checks=sorted(checks),
                             context_next_action='resolve the reported gap, then the worker reports again; or record explicit blocker')
+                if stage == 'coding' and checks - {'permissions-tools'}:
+                    # What stops the code is in the frozen plan or the allocation: dispatching again would stop the same way.
+                    step['recovery_action'] = 'change-or-realloc-request'
             return step
         step.update(ready=False, reason='context-readiness-required', context_next_action='context-submit or record explicit blocker')
         if step.get('operation') in ('freeze', 'decompose-accept'):

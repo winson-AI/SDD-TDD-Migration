@@ -614,6 +614,8 @@ GATES = [
     (r'ui tree|ui_tree|UI node|UI evidence|ui_evidence|UI implementation|screen (must|needs)|runtime ?index|tree modes|native UI', 'ui-fidelity.md', 'UI 证据绑定'),
     (r'capture|baseline screenshot|frozen baseline|reference manifest|installation command', 'ui-fidelity.md', 'capture / 构建产物契约'),
     (r'platform api_level|values (target|entry)|value_xml_exact|loader_mapping|signal exclusion|manual implementation', 'ui-fidelity.md', '精确性纪律'),
+    (r'decision boundary|human decision|approval missing', 'openspec.md', '冻结算法'),
+    (r'context subject', 'context-readiness.md', '5. 缺失、失效与恢复'),
     (r'impact review|within-envelope', 'openspec.md', '变更控制'),
     (r'worker (result|phase)|assignment|unsupported worker role|invalid module id|incorrect global/module scope|accepted before testing'
      r'|unmapped|result (actor|kind|schema)|baseline mismatch|current code changed|owner mismatch|duplicate code files', 'local-runtime.md', '操作矩阵'),

@@ -59,6 +59,33 @@ def planning_context(s):
     return result
 
 
+def standing(s, mid, context=None):
+    """The part of a planning context a leaf stands on: what the run shares, the leaf itself, the parents above it and
+    the slices it depends on. What concerns only other slices may be rewritten without making its reports or its plan
+    stale - their owners keep them apart (one writer per path, one holder per case), not every leaf's digest.
+    A parent, a module still to be split and the run itself stand on all of it."""
+    context = planning_context(s) if context is None else context
+    own, parents = context['modules'].get(mid), context['parents']
+    if own is None or (s['modules'].get(mid) or {}).get('decomposition_required'):
+        return context
+    above = lambda node: next((parent for parent, children in parents.items() if node in children), None)
+    keep, parent = {mid}, own.get('parent_module_id') or above(mid)
+    while parent and parent not in keep:
+        keep.add(parent)
+        parent = above(parent)
+    pending = list(own.get('dependencies') or [])
+    while pending:
+        node = pending.pop()
+        if node not in keep:
+            keep.add(node)
+            pending.extend(parents.get(node, []))
+    scoped = {**context, **{key: {k: v for k, v in context[key].items() if k in keep}
+                            for key in ('modules', 'parents', 'dimension_allocations') if key in context}}
+    if 'feature_owners' in context:
+        scoped['feature_owners'] = {fid: owners for fid, owners in context['feature_owners'].items() if keep.intersection(owners)}
+    return scoped
+
+
 # The only parts of the planning context a reviewed source append changes for a module that keeps its frozen plan.
 SOURCE_KEYS = ('project_context_ref', 'reuse_sources', 'source_change_ref')
 STALE_CONTEXT = 'planning requires current global code/architecture/knowledge/allocation context'
@@ -69,7 +96,7 @@ def context_binding(s, module):
 
     Authors do not copy either object into their document: the Ledger binds what is current at
     acceptance and compares these digests whenever the document is used again."""
-    context = planning_context(s)
+    context = standing(s, module['module_id'])
     return {'planning_context_sha256': digest(context),
             'planning_base_sha256': digest({k: v for k, v in context.items() if k not in SOURCE_KEYS}),
             'assigned_module_sha256': digest(assigned_module(s, module))}
@@ -415,10 +442,33 @@ def revision_plan(s, parent, children, graph):
 
 
 def accepted_over(s):
-    """What a global plan was accepted over, apart from the evidence each allocation cites."""
-    return digest({mid: {key: m.get(key) for key in ('case_ids', 'dependencies', 'write_paths', 'scope', 'behavior_review',
-                                                       'acceptance_case_ids', 'parent_module_id')}
+    """What a global plan was accepted over: who holds which cases and requirements, who depends on whom at which
+    stage, who writes where and who owns what is shared. How a review words or evidences a boundary is not part of it."""
+    def boundary(review):
+        verification = (review or {}).get('verification') or {}
+        return {'shared_capabilities': (review or {}).get('shared_capabilities'),
+                **{key: verification.get(key) for key in ('acceptance_owner', 'case_ids', 'integration_case_ids')},
+                'provider_inputs': [{key: row.get(key) for key in ('module_id', 'required_stage')} for row in verification.get('provider_inputs') or []]}
+    return digest({mid: {**{key: m.get(key) for key in ('case_ids', 'dependencies', 'write_paths', 'scope', 'acceptance_case_ids', 'parent_module_id')},
+                         'boundary': boundary(m.get('behavior_review'))}
                    for mid, m in {**s.get('module_groups', {}), **s['modules']}.items()})
+
+
+def allocation_delta(old, new):
+    """What a re-split changed for a child it keeps: the fields of its allocation that differ and, where its analysis
+    was rewritten, the items and API contracts whose ask differs or that are new. Its planner starts from this instead
+    of comparing two documents."""
+    delta = {'fields': sorted(key for key in (*ALLOCATION_KEYS, 'acceptance_case_ids') if old.get(key) != new.get(key))}
+    before, after = old.get('dimension_analysis_ref'), new.get('dimension_analysis_ref')
+    if before and after and before != after:
+        import dimensions
+        try:
+            items, apis = dimensions.revised(before, after, old['module_id'])
+            added = set(dimensions.load(after, old['module_id'])[1]) - set(dimensions.load(before, old['module_id'])[1])
+            delta.update(items=sorted(items | added), apis=sorted(apis))
+        except (Rejected, OSError, KeyError):
+            pass  # an analysis that cannot be read is reported by the gates; the fields still say what moved
+    return delta
 
 
 def continue_unaffected(s, affected, review_ref, run_root):
@@ -510,6 +560,7 @@ def handle(s, req, actor, run_root):
                     replan_module(old_mod, 'parent-redecomposed', submission['plan_ref'])
                 elif old_mod['phase'] == 'waiting-upstream':
                     old_mod['phase'] = request.get('resume_phase', 'frozen')
+                old_mod['allocation_changes'] = allocation_delta(old_mod, new_spec)
                 for key in (*ALLOCATION_KEYS, 'acceptance_case_ids'):
                     if key in new_spec:
                         old_mod[key] = copy.deepcopy(new_spec[key])

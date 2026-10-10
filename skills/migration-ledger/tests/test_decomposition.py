@@ -110,16 +110,22 @@ class DecompositionTests(unittest.TestCase):
         self.call('plan', {'plan_ref': self.ref('plan-without-copies.json', plan)}, role='spec-designer')
         s = self.state(); m = s['modules']['M001']
         self.assertEqual(m['plan_binding'], dc.context_binding(s, m))
-        self.assertEqual(m['plan_binding']['planning_context_sha256'], digest(context))
+        self.assertEqual(m["plan_binding"]["planning_context_sha256"], digest(dc.standing(s, "M001")))  # what this leaf stands on, not all of it
         self.assertEqual(m['plan_binding']['assigned_module_sha256'], digest(s['module_inputs']['M001']))
         self.assertEqual(m['plan'], plan)  # the binding is kept beside the plan, not hashed into it
         self.call('decision', {'decision_id': 'D', 'decision': 'approved', 'module_id': 'M001', 'subject_sha256': m['plan_hash'],
                   'human_source_ref': self.ref('decision.md', 'approved')}, role='host', module=None)
-        # Another root changes the global context: the plan has to be made again before it can be frozen.
+        # Another root joins the run: this leaf does not stand on it, so its plan is still the one that was approved.
         self.call('register', {'module_id': 'M020', 'name': 'Orders', 'case_ids': ['C1'],
                   'write_paths': [str(self.target / 'orders')], 'dependencies': []}, role='global-orchestrator', module=None)
+        s = self.state()
+        self.assertIn('M020', s['planning_context']['modules'])
+        self.assertEqual(s['modules']['M001']['plan_binding'], dc.context_binding(s, s['modules']['M001']))
+        dc.check_module_plan(s, s['modules']['M001'], plan)
+        # What it does stand on changed: the plan has to be made again before it can be frozen.
+        s['new_architecture'] = self.ref('architecture-revised.md', 'layers revised')
         with self.assertRaisesRegex(Rejected, 'current global'):
-            self.call('freeze', {'decision_id': 'D'})
+            dc.check_module_plan(s, s['modules']['M001'], plan)
 
     def test_scope_coverage_cycles_and_role_boundaries(self):
         self.root_scope()

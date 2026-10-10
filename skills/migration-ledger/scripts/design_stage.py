@@ -83,7 +83,7 @@ def subject(s, m):
             continuation.get('allocation_sha256') == digest({key: m.get(key) for key in (*decomposition.ALLOCATION_KEYS, 'dependencies')})):
         check_ref(continuation['review_ref'])
         return continuation['subject_sha256']
-    context = decomposition.planning_context(s)
+    context = decomposition.standing(s, m['module_id'])
     return digest({'context': context, 'allocation': decomposition.assigned_module(s, m),
                    'generation': m.get('design_generation', 0)})
 
