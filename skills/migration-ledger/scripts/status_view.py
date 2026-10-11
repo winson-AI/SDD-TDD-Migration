@@ -14,7 +14,7 @@ CURSOR_KEYS = ('run_id', 'last_sequence', 'quality', 'projection', 'source_chang
                'next_steps', 'ready_modules', 'module_rounds', 'observed_invalidations')
 VIEWS = ('full', 'cursor', 'module', 'step')
 # What a role needs of its module and of the assignment its step refers to.
-MODULE_KEYS = ('phase', 'plan_ref', 'freeze_id', 'code_baseline', 'blocked', 'execution_context_ref', 'carried_files', 'allocation_changes')
+MODULE_KEYS = ('phase', 'plan_ref', 'freeze_id', 'code_baseline', 'blocked', 'execution_context_ref', 'carried_files', 'allocation_changes', 'plan_changes')
 ASSIGNMENT_KEYS = ('assignment_id', 'role', 'instance_id', 'fencing_token', 'mode', 'test_scope', 'freeze_id',
                    'code_baseline', 'context_ref', 'design_input_ref', 'execution_contract', 'path_ids', 'audit_assignment_id', 'result_ref')
 

@@ -288,6 +288,27 @@ def checklist_rubric(root):
     return file_ref(blob)
 
 
+PLAN_LISTS = (('tasks', 'task_id'), ('paths', 'path_id'), ('definitions', 'kind'), ('dimension_trace', 'item_id'), ('scenario_trace', 'scenario_id'))
+PLAN_FIELDS = ('decision_envelope', 'source_closure', 'target_feasibility', 'reuse_plan_ref', 'dimension_analysis_ref', 'test_design_ref')
+
+
+def plan_changes(old, new):
+    """What a plan submitted again changes against the one it replaces, by identifier: rows added, removed or changed in
+    each list of the plan, and the fields that differ."""
+    out = {}
+    for key, ident in PLAN_LISTS:
+        before = {row.get(ident): row for row in old.get(key) or [] if isinstance(row, dict)}
+        after = {row.get(ident): row for row in new.get(key) or [] if isinstance(row, dict)}
+        rows = {'added': sorted(k for k in after if k not in before), 'removed': sorted(k for k in before if k not in after),
+                'changed': sorted(k for k in after if k in before and digest(after[k]) != digest(before[k]))}
+        if any(rows.values()):
+            out[key] = rows
+    fields = [key for key in PLAN_FIELDS if digest(old.get(key)) != digest(new.get(key))]
+    if fields:
+        out['fields'] = fields
+    return out
+
+
 def reset_plan(m, reason='invalidated', evidence_ref=None):
     """Preserve failures/budgets and old evidence while returning to explicit planning."""
     history = {k: copy.deepcopy(m.get(k)) for k in
@@ -295,10 +316,21 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
          'results', 'repair_findings', 'blocked', 'dimension_evidence', 'provider_owners', 'change_request', 'accepted_test_design', 'design_input_ref', 'execution_context_ref')}
     history.update(kind='planning-history', executable=False, reason=reason, evidence_ref=evidence_ref)
     m.setdefault('planning_history', []).append(history)
-    if m.get('code_files'):
-        # Written under the plan that is given up: it stays in the target and is brought to the next plan, not written
-        # again from nothing. Its acceptance does not stand; the files do.
-        m['carried_files'] = copy.deepcopy(m['code_files'])
+    # Written under the plan that is given up - accepted, or submitted and not yet accepted: it stays in the target and is
+    # brought to the next plan, not written again from nothing. Its acceptance does not stand; the files do.
+    carried = {ref['path']: copy.deepcopy(ref) for ref in m.get('code_files') or []}
+    for sub in (m.get('submissions') or {}).values():
+        if sub.get('kind') != 'implementation':
+            continue
+        try:
+            files = read_json(check_ref(sub['ref'])).get('code_files') or []
+        except (Rejected, OSError, ValueError, KeyError, TypeError):
+            continue
+        for ref in files:
+            if isinstance(ref, dict) and ref.get('path') and Path(ref['path']).is_file():
+                carried.setdefault(ref['path'], copy.deepcopy(ref))
+    if carried:
+        m['carried_files'] = list(carried.values())
     m['design_generation'] = m.get('design_generation', 0) + 1
     m.pop('accepted_test_design', None)
     m.pop('design_input_ref', None)
@@ -307,7 +339,7 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
              code_files=[], code_baseline=None, provider_owners=[])
     for key in ('dimension_evidence', 'effective_quality', 'context_acceptances', 'automation_retry_ready',
                 'dependency_release', 'source_context_continuation', 'allocation_continuation', 'change_request', 'scenario_index', 'plan_binding',
-                'checklist_ref', 'execution_context_ref', 'plan_review_ref', 'task_files', 'execution_partition_pending', 'planning_continuation', 'task_revalidation'):
+                'checklist_ref', 'execution_context_ref', 'plan_review_ref', 'task_files', 'execution_partition_pending', 'planning_continuation', 'task_revalidation', 'plan_changes'):
         m.pop(key, None)
 
 
@@ -343,7 +375,7 @@ def replan_module(m, reason, evidence_ref, release_blocker=False):
 def dependencies_ready(s, m):
     providers = ((m.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs', [])
     stages = {row['module_id']: row['required_stage'] for row in providers}
-    require(all((bool(s['modules'][d].get('code_baseline')) and set(s['modules'][d].get('accepted_task_ids', [])) ==
+    require(all((bool(s['modules'][d].get('code_baseline')) and not s['modules'][d].get('change_request') and set(s['modules'][d].get('accepted_task_ids', [])) ==
                 {t['task_id'] for t in (s['modules'][d].get('plan') or {}).get('tasks', [])})
                 if stages.get(d) == 'implemented' and m.get('phase') not in ('testing', 'dod', 'completed')
                 else tv.available(s['modules'][d]) for d in m['dependencies']), 'dependencies not complete')
@@ -616,7 +648,7 @@ def providers(s, m):
     for dependency in m.get('dependencies', []):
         for mid in decomposition.leaves(s, dependency) if dependency in s['modules'] or dependency in s.get('module_groups', {}) else []:
             p, stage = s['modules'][mid], stages.get(dependency, 'verified')
-            written = bool(p.get('code_baseline')) and set(p.get('accepted_task_ids', [])) == {t['task_id'] for t in (p.get('plan') or {}).get('tasks', [])}
+            written = bool(p.get('code_baseline')) and not p.get('change_request') and set(p.get('accepted_task_ids', [])) == {t['task_id'] for t in (p.get('plan') or {}).get('tasks', [])}  # a reopened contract is not there yet
             rows.append({'module_id': mid, 'required_stage': stage, 'phase': p['phase'], 'plan_ref': p.get('plan_ref'),
                          'code_baseline': p.get('code_baseline'), 'ready': written if stage == 'implemented' else tv.available(p)})
     return rows
@@ -772,6 +804,10 @@ def _next_step(s, m):
                     reason=None if decision or eligible else 'MO-plan-review-required',
                     # What a human approval or an impact review binds: the hash of the plan as the Ledger completed it.
                     approval_subject_sha256=m['plan_hash'])
+        # What a Spec-Designer resubmits against while the plan is with the MO: the review step does not hide it.
+        step['resubmit'] = {'input_subject_sha256': design_stage.subject(s, m), 'upstream_case_refs': design_stage.upstream_refs(s), 'upstream_case_ids': m['case_ids']}
+        if context_readiness.enabled(s):
+            step['resubmit']['planning_subject_sha256'] = context_readiness.subject(s, m['module_id'], 'planning')
         if human:
             # Code exists and the plan moved what was approved: the review alone would be refused, so say who decides.
             step.update(ready=False, reason='human-decision-required', approval_kind='plan', detail=human, payload={})
@@ -1414,6 +1450,10 @@ def mutate(s, req, principal, events, root=None):
         # The plan stands on the context and allocation current now; its author does not copy them into it.
         m.pop('plan_review_ref', None)
         m.pop('allocation_changes', None)  # planned against the allocation as it is now
+        if m.get('plan') and not resubmitted:
+            m['plan_changes'] = plan_changes(m['plan'], plan)  # the reviewer reads the difference, not two whole plans
+        else:
+            m.pop('plan_changes', None)
         m.update(plan=plan, plan_ref=p['plan_ref'], plan_hash=plan_hash, phase='clarifying', provider_owners=owners,
                  scenario_index=scenarios, plan_binding=decomposition.context_binding(s, m), checklist_ref=checklist_rubric(root))
         if principal['instance_id'] not in m.setdefault('spec_authors', []):
@@ -1441,6 +1481,7 @@ def mutate(s, req, principal, events, root=None):
         role(principal, 'module-orchestrator')
         freeze_guard(s, m, p)
         m.setdefault('plan_rounds', []).append(m.pop('plan_submissions', 0))  # how many distinct plans this freeze took
+        m.pop('plan_changes', None)
         if not p.get('decision_id') and p.get('review_ref'):
             control_policy.technical_review(m, p['review_ref'], principal)
             m['plan_review_ref'] = p['review_ref']

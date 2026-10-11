@@ -78,7 +78,7 @@ unit 冻结 argv/cwd/timeout/selection_ref。unit_report 固定 format=junit、r
 
 解析 testcase/计数，保存具体 ID、执行/失败/跳过数量与报告 hash，绑定 run/module/PATH/assignment/test_run/freeze/code_baseline，接受时重核原报告。exit=0、实际执行非零、全部必需 ID 通过、无跳过/证据缺口才 Green。零执行、漏测、缺失/损坏/过期报告为 Yellow；断言失败或非环境中断的命令失败为 code Red，走既有诊断/Fixer。只收本 attempt 的新报告，旧 mtime/越界链接无效；任意可写 XML 的真实性仍依赖可信宿主执行。
 
-prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据。unit 无需设备，可证明逻辑 Scenario，但不替代 CASE 的 automation；环境缺失保留已通过 unit，Red/Yellow 仅影响本模块及实际依赖。
+prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据。unit 无需设备，可证明逻辑 Scenario，但不替代 CASE 的 automation；环境缺失保留已通过 unit。枚举与唯一性类断言（键只定义一次、无多余键）挂扫描类进程内路径，不挂 unit。
 
 ## 日志与按需追溯
 
