@@ -7,7 +7,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import ledger
 import test_ledger
-from contracts import Rejected, digest
+from contracts import Rejected, carrying, check_ref, digest, read_json
 
 
 class IssueTests(unittest.TestCase):
@@ -214,6 +214,35 @@ class OwedTests(unittest.TestCase):
             self.assertEqual(seen, ['another thread'])  # nothing carries it there
         with self.assertRaisesRegex(Rejected, 'owed'):
             contracts.owed(False, 'owed')
+
+
+class OwedCompletenessTests(unittest.TestCase):
+    """What a result is later held to may be owed by the plan: inside a leaf's request the check records a gap; outside it,
+    in a tool or a rehearsal, the same check refuses so its author sees it."""
+    def test_scenario_coverage_is_owed_not_refused(self):
+        import behavior_contract as bc
+        rows = [{'scenario_id': 'SCN-M001-' + name, 'requirement_id': 'R1'} for name in ('success', 'empty', 'error')]
+        paths = [{'path_id': 'P1', 'kind': 'automation', 'requirement_id': 'R1', 'expected_assertions': [
+            {'assertion_id': name, 'expected': name, 'scenario_ids': ['SCN-M001-' + name]} for name in ('success', 'empty')]}]
+        with self.assertRaisesRegex(Rejected, 'SPEC scenarios no design assertion verifies: SCN-M001-error'):
+            bc.check_design(rows, paths)
+        with carrying() as gaps:
+            bc.check_design(rows, paths)
+        self.assertEqual(gaps, ['SPEC scenarios no design assertion verifies: SCN-M001-error'])
+
+    def test_reuse_decision_coverage_is_owed_not_refused(self):
+        import reuse
+        f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        f.global_plan()
+        plan = f.attach_reuse(f.plan())  # its one mapping decides R1
+        state = f.state()
+        module = {**state['modules']['M001'], 'scope': {'in': ['query'], 'out': [], 'requirement_ids': ['R1', 'R2']}}  # R2 is not decided
+        args = (plan, module, reuse.sources(state), state['modules'], state['legacy_root'])
+        with self.assertRaisesRegex(Rejected, 'reuse decisions must cover every module requirement'):
+            reuse.validate_plan(*args)
+        with carrying() as gaps:
+            reuse.validate_plan(*args)
+        self.assertEqual(gaps, ['reuse decisions must cover every module requirement'])
 
 
 if __name__ == '__main__':

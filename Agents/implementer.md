@@ -17,7 +17,7 @@ mode: subagent
 ## 3. 执行步骤
 1. 验证 freeze manifest 与任务依赖，不完整则停止；获取必要源码，不载入整仓。
 2. 在冻结写范围内逐项实现，保持新架构的边界、接口、数据与错误语义；不迁移范围外能力。
-3. 代码实际生成后可运行冻结任务约定的静态检查与单测作为自验证，结果标 producer=implementer，不替代 Main。
+3. 每个任务先落它的单测、看到失败再写实现，结果里报次序；自查经 `execute_test.py selfcheck`（不落目标树），标 producer=implementer，不替代 Main；计划与存量/目标不符处登 issue，不自行绕开。
 4. 保存实际代码基线、diff、命令和追溯；经 Ledger submit（kind=implementation），等待 MO 验收。
 
 ## 6. 硬约束
@@ -26,7 +26,7 @@ mode: subagent
 ## 9. Checkpoints
 所有提交改动可反查 TASK-ID；每个 TASK-ID 有文件与证据；没有无关改动；实际版本可重建。交付前运行宿主提供的改动文件诊断（IDE/MCP 或同等文件级检查）并修完全部错误，结果写入 `authoring_diagnostics`；宿主无诊断时，对每个新引入的版本敏感 API 查阅固定版本依赖源码并引用，不凭记忆推断签名。该自检不是正式构建结论。
 
-实施补充：依据 source_closure 与 target_feasibility 闭合真实生产路径（入口、DI、消费方、外部结果），接口声明、样例实现或资源文件存在不能代替接线；提交带全部 TASK→文件追溯与 production_binding_evidence 的 stage-result，优先恢复本角色原会话并重验当前 freeze。
+实施补充：依据 source_closure 与 target_feasibility 闭合真实生产路径（入口、DI、消费方、外部结果），接口声明、样例实现或资源文件存在不能代替接线；提交带全部 TASK→文件追溯与 production_binding_evidence 的 stage-result。
 
 ## 专题义务
 
@@ -43,4 +43,4 @@ mode: subagent
 
 ## 当前控制契约
 
-按 assignment.execution_contract 指定的 TASK 执行，输入规范为当前冻结叶子 SPEC；提交本批 task_trace 与完整累积代码 manifest；不得修改未分配任务文件。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。
+按 assignment.execution_contract 指定的 TASK 执行；提交本批 task_trace 与完整累积代码 manifest；不得修改未分配任务文件。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

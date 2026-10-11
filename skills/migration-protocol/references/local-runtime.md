@@ -23,6 +23,7 @@ python3 <package>/skills/migration-ledger/scripts/ledger.py status --root <run> 
 python3 <package>/skills/migration-ledger/scripts/ledger.py resume --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/ledger.py recover --root <run> --request <request.json> --host-context <principal.json>
 python3 <package>/skills/migration-ledger/scripts/ledger.py advance --root <run> --module <module-id> --host-context <mo-principal.json> [--worker <role>=<instance>]
+python3 <package>/skills/migration-ledger/scripts/ledger.py preview --root <run> --module <module-id> [--plan <stage-plan.json>]
 python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run> --scope module --module-id <module-id>
 ```
 
@@ -62,7 +63,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；children 覆盖父 scope。根修订后游标 affected_children 列出须重写的孩子，其余原样复述即沿用 |
 | redecompose-accept | Global / 父 module_id | review_ref；复核重组方案；未变孩子保留进度并恢复请求前阶段，边界保持的冻结孩子转 CR，其余被改的孩子重新规划（保留 blocker/失败/预算）；只依赖它们的叶子不重规划，已有代码的等 provider 后复验；下线模块转入 superseded_modules 供 Auditor 治理 |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
-| decision | host | decision_id、decision=approved、module_id、subject_sha256（取游标步骤的 approval_subject_sha256；步骤 human_required=true 才需要人，false 时宿主不征求批准）、human_source_ref；保存真实人类决定引用。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子；`kind=api-adaptation` 时 module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
+| decision | host | decision_id、decision=approved、module_id、subject_sha256（取游标步骤的 approval_subject_sha256）、human_source_ref；保存真实人类决定引用；决定与常设裁定另以 issue（kind=decision/standing）寄给适用模块。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子；`kind=api-adaptation` 时 module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
 | global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；无关根可待拆，执行仍验当前叶子与依赖。registry 变化后重审 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
 | audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human/trace（根因在 SPEC 或切片划分，owner 为须修订的叶子或父模块） |
@@ -72,7 +73,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | audit-verdict | Auditor | review_ref；双方验证齐全、同基线、DoD 完成才裁决通过；过期证据报告待人工 |
 | audit-defer | MO | root_cause + evidence_ref；记录根因、结果和恢复点，进入 waiting-auditor；可修复错误先按当前版本本地收敛，依赖/外围问题留证交接 |
 | audit-code-review | Auditor | report_ref、context_ref（预检随本操作登记）；全部 MO 收尾后、audit-collect 前提交，字段与治理闭环见[代码治理](audit-code-review.md#ledger-接口) |
-| plan | Spec-Designer | plan_ref、context_ref（planning 预检随本操作登记）；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围与 spec 由 Ledger 从已接受设计补全，checklist 由 Ledger 绑定包内清单；不抄写全局上下文与分配包，Ledger 绑定当前版本并在冻结、派发时复核 |
+| plan | Spec-Designer | plan_ref、context_ref（planning 预检随本操作登记）；提交前 `preview` 只读一次报出会被拒的原因、会欠的缺口、不过的冻结门禁与是否须人工，不写事件；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围与 spec 由 Ledger 从已接受设计补全，checklist 由 Ledger 绑定包内清单；不抄写全局上下文与分配包，Ledger 绑定当前版本并在冻结、派发时复核 |
 | plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断；编码前 reason_ref 重规划，留历史；已派实现走 CR |
 | audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id、全部所选 path_ids、自身 context_ref；结果以 result_ref 提交，Auditor 原样消费 |
 | freeze | MO | 清晰规划用 review_ref；所需人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |

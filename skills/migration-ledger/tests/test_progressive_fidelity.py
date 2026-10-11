@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 
 import api_contract
 import dimensions
+import ledger
 import parameter_file
 import reading
 import test_dimensions
@@ -199,7 +200,7 @@ class ApiContractTests(unittest.TestCase):
         result['dimension_evidence'][0]['consumer_refs'] = []
         with self.assertRaisesRegex(Rejected, 'production consumer'): api_contract.implementation(analysis, self.items, result)
 
-    def test_actual_ledger_plan_and_freeze_require_api_assertion_coverage(self):
+    def test_actual_ledger_plan_owes_api_assertion_coverage_until_a_plan_covers_it(self):
         d, f = self.d, self.f; original = d.analysis
         def analysis(*args, **kwargs):
             data = original(*args, **kwargs); mid = data['module_id']
@@ -211,10 +212,12 @@ class ApiContractTests(unittest.TestCase):
         d.analysis = analysis
         d.root(); f.split(d.proposal()); f.global_plan()
         plan = d.leaf_plan(); plan['paths'][0]['fixture_contract_ref'] = self.fixture
-        with self.assertRaisesRegex(Rejected, 'coverage incomplete'):
-            f.call('plan', {'plan_ref': f.ref('missing-api-plan.json', plan)}, role='spec-designer')
+        f.call('plan', {'plan_ref': f.ref('missing-api-plan.json', plan)}, role='spec-designer')  # accepted: the coverage is owed
+        gap, = ledger.status(f.root, 'step', 'M001')['open_issues']
+        self.assertEqual((gap['kind'], gap['summary']), ('gap', 'API behavior assertion coverage incomplete: QUERY'))
         plan['dimension_trace'][0]['assertions'][0]['api_obligations'] = sorted(api_contract.obligations('QUERY', self.source))
         f.call('plan', {'plan_ref': f.ref('complete-api-plan.json', plan)}, role='spec-designer')
+        self.assertEqual(ledger.status(f.root, 'step', 'M001')['open_issues'], [])  # the plan that covers it settles the gap
         f.call('decision', {'decision_id': 'API-APPROVAL', 'decision': 'approved', 'module_id': 'M001',
             'subject_sha256': f.state()['modules']['M001']['plan_hash'],
             'human_source_ref': f.ref('approval.md', 'Fixture approval of this exact plan')}, role='host', module=None)
