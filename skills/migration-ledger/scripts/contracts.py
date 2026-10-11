@@ -307,6 +307,7 @@ def validate_result(result, module, assignment, run_root=None):
         actual = {r['path']: r for r in result['code_files']}
         require(all(actual.get(path) == previous[path] for path in remaining), 'unassigned TASK code changed or omitted')
         for tid, row in traces.items():
+            require(row.get('test_order') in (None, 'tests-first', 'code-first'), 'task test_order is tests-first or code-first')  # declared, not enforced
             task = next(t for t in module['plan']['tasks'] if t['task_id'] == tid)
             allowed = (task.get('scope') or {}).get('write_paths', module['write_paths'])
             require(all(any(Path(path).resolve().is_relative_to(Path(p).resolve()) for p in allowed) for path in row.get('files', [])),

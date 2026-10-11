@@ -520,7 +520,8 @@ def preview(root, module_id, plan_ref=None, principal=None):
     the rehearsal scripts each role wrote for itself and reports the same list to the author and to the reviewer."""
     root = Path(root).resolve()
     s, events = read_events(root)
-    require(s and module_id in s['modules'], 'unknown module: ' + str(module_id))
+    require(s, 'run not initialised: no journal under ' + str(root))
+    require(module_id in s['modules'], 'unknown module: ' + str(module_id))
     s = copy.deepcopy(s)
     m = s['modules'][module_id]
     hinted = lambda reason: {'reason': str(reason), 'read_hint': reading.read_hint(str(reason))}

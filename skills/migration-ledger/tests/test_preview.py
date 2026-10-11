@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
@@ -66,6 +67,11 @@ class PreviewTests(unittest.TestCase):
 
 
 class PreviewOwedTests(unittest.TestCase):
+    def test_a_run_without_a_journal_is_refused_by_name(self):
+        with tempfile.TemporaryDirectory() as empty, self.assertRaises(ValueError) as caught:
+            ledger.preview(empty, 'M001')
+        self.assertEqual(str(caught.exception), 'run not initialised: no journal under ' + str(Path(empty).resolve()))  # the run, not the module, is what is missing
+
     def test_what_a_plan_owes_and_every_gate_it_fails_are_reported_together(self):
         d = test_dimensions.DimensionTests(); d.setUp(); self.addCleanup(d.doCleanups)
         f = d.f
