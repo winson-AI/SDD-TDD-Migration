@@ -43,7 +43,7 @@ import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
 from contracts import (Rejected, baseline, carrying, check_ref, cited, digest, file_ref, keyed, nonempty,
-                       intact, read_json, require, validate_plan, validate_result, verify_plan)
+                       intact, owed, read_json, require, validate_plan, validate_result, verify_plan)
 
 HISTORICAL_TOOL_ROOTS = (Path(__file__).resolve().parent,
                          Path(__file__).resolve().parents[2] / 'migration-protocol')
@@ -520,7 +520,8 @@ def preview(root, module_id, plan_ref=None, principal=None):
     the rehearsal scripts each role wrote for itself and reports the same list to the author and to the reviewer."""
     root = Path(root).resolve()
     s, events = read_events(root)
-    require(s and module_id in s['modules'], 'unknown module: ' + str(module_id))
+    require(s, 'run not initialised: no journal under ' + str(root))
+    require(module_id in s['modules'], 'unknown module: ' + str(module_id))
     s = copy.deepcopy(s)
     m = s['modules'][module_id]
     hinted = lambda reason: {'reason': str(reason), 'read_hint': reading.read_hint(str(reason))}
@@ -652,6 +653,35 @@ def providers(s, m):
             rows.append({'module_id': mid, 'required_stage': stage, 'phase': p['phase'], 'plan_ref': p.get('plan_ref'),
                          'code_baseline': p.get('code_baseline'), 'ready': written if stage == 'implemented' else tv.available(p)})
     return rows
+
+
+def superseded_plans(s, m):
+    """{provider: [directories]} of the plans a leaf's providers have given up - their planning history and the plans a
+    change replaced - other than the directory of the plan each holds now."""
+    out = {}
+    for row in providers(s, m):
+        p = s['modules'][row['module_id']]
+        refs = [h.get('plan_ref') for h in p.get('planning_history', [])] \
+            + [(c.get('previous_plan') or {}).get('plan_ref') for c in p.get('change_request_history', [])] \
+            + [((p.get('change_request') or {}).get('previous_plan') or {}).get('plan_ref')]
+        current = str(Path(p['plan_ref']['path']).parent) if p.get('plan_ref') else None
+        gone = sorted({str(Path(ref['path']).parent) for ref in refs if ref and ref.get('path')} - {current})
+        if gone:
+            out[row['module_id']] = gone
+    return out
+
+
+def superseded_citations(s, m, plan):
+    """A leaf that still cites a plan its provider has given up owes the citation of the current one: it is recorded,
+    and the plan goes on."""
+    gone = superseded_plans(s, m)
+    if not gone:
+        return
+    texts = [json.dumps(plan, ensure_ascii=False)] + [check_ref(d).read_text() for d in plan.get('definitions') or []
+                                                        if isinstance(d, dict) and d.get('path')]
+    for mid, directories in gone.items():
+        for directory in directories:
+            owed(not any(directory in text for text in texts), 'cites a superseded plan of provider %s: %s' % (mid, directory))
 
 
 def wave(s, mid, seen=()):
@@ -1109,6 +1139,7 @@ def next_step(s, m):
         held = m.get('delivered_cards', {}).get(session)
         if held:
             step['must_read_new'] = reading.fresh(step['must_read'], held)
+            step['card_new_sections'] = reading.changed(step['must_read'], held)  # by name: never handed, or handed in another text
             if not step.get('session_id'):
                 step['card_new_for'] = session
     return step
@@ -1446,6 +1477,8 @@ def mutate(s, req, principal, events, root=None):
         boundary = (m.get('behavior_review') or {}).get('verification')
         if boundary and not resubmitted:
             behavior_contract.fixture_bound(boundary, plan)
+        if not resubmitted:
+            superseded_citations(s, m, plan)  # a provider's given-up plan is not what this leaf plans against
         # Plan is content; the artifact remains immutable and is checked at freeze/dispatch.
         # The plan stands on the context and allocation current now; its author does not copy them into it.
         m.pop('plan_review_ref', None)

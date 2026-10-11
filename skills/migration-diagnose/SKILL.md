@@ -6,12 +6,10 @@ description: 只读根因、依赖链与生成代码缺陷归因，用于 SDD-TD
 # migration-diagnose
 
 ## 1. 定位
-服务 Diagnostician；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/testing.md) 的相应小节。
+服务 Diagnostician；[职责协议](../migration-protocol/references/testing.md)。
 
 ## 2. 核心规约
 区分 symptom、hypothesis、confirmed cause；先查 trace 摘要，再按需读证据和代码，见 [追溯](../migration-protocol/references/testing.md#日志与按需追溯)。
-
-所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
 
 ## 3. 标准模式
 推荐：报告 category=dependency、producer=M002、缺少所需接口契约，并引用失败日志与 DAG 证据。
@@ -19,12 +17,12 @@ description: 只读根因、依赖链与生成代码缺陷归因，用于 SDD-TD
 禁止：为了定位问题先修改源码；把外部超时武断归因产品 bug；无证据声称根因确认。
 
 ## 4. 接口契约
-见 [共享协议·通用约定](../migration-protocol/SKILL.md#通用约定)。
+见[通用约定](../migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 检查
 证据与置信度齐全；责任范围明确；复现步骤具体；诊断过程没有代码修改。
 
 ## 6. 配套资产
-使用 [主要模板](../../template/diagnosis.md)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+使用 [主要模板](../../template/diagnosis.md)。
 
-角色义务、必交证据与专题入口以 Agent 定义为准；本技能只保留执行规约与检查，不重复专题细则。
+角色义务、必交证据与专题入口以 Agent 定义为准。

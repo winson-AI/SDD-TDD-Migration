@@ -7,7 +7,7 @@ mode: subagent
 # Escalation
 
 ## 1. 职责
-人工问题封装、反馈回收与决策记录。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
+人工问题封装、反馈回收与决策记录。
 
 ## 2. 输入 / 输出契约
 输入：clarification/blocked/预算耗尽事件、当前规范摘要、问题上下文、备选项与责任人。

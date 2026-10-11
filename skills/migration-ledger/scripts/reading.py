@@ -25,7 +25,7 @@ ROTATE_BUDGET = 100_000
 TEMPLATE_BUDGET = 20_000
 TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 539_000  # consolidated ceiling; reduce after future deduplication
+PROTOCOL_BUDGET = 536_500  # consolidated ceiling, lowered after the 2026 deduplication; reduce again after the next
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -477,6 +477,13 @@ def text_of(row):
                    tuple(row['modes']) if 'modes' in row else None)
 
 
+def changed(rows, held):
+    """Of a card, by name: the sections a holder was never handed, and the ones it holds in another text."""
+    held = held or {}
+    return {'new': [key(row) for row in rows if key(row) not in held],
+            'changed': [key(row) for row in rows if key(row) in held and not known(held, row)]}
+
+
 def summary(rows):
     """What a polling host needs to know about a card; the rows themselves come from render."""
     return {'bytes': sum(row['bytes'] for row in rows), 'sections': len(rows)}
@@ -574,6 +581,7 @@ GATES = [
     (r'condition review|condition refs', 'resource-transfer.md', '动态参数与布局结构'),
     (r'API |api_inventory|api_obligations', 'resource-transfer.md', 'API 与 URL 契约'),
     (r'dimension (trace|task|path|paths|behavior|assertion)|dimension item IDs|SPEC must bind the allocated', 'dimension-slicing.md', '4. 控制节点与交接'),
+    (r'superseded plan', 'module-decomposition.md', '验证边界'),
     (r'runtime expression|runtime/layout|layout keywords|structural mapping|parameter mapping', 'resource-transfer.md', '动态参数与布局结构'),
     (r'hash mismatch|absolute evidence path|missing file', 'runtime.md', '请求与事件'),   # first: the file named in the message may sit in a path of any other topic
     (r'unknown reference id', 'context-readiness.md', '3. 报告与传递'),

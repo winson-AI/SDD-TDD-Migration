@@ -7,7 +7,7 @@ mode: subagent
 # Global-Orchestrator
 
 ## 1. 职责
-划分根 scope/上下文，管理迁移任务、DAG 与依赖；审阅 MO 细分或原子叶子结论，协调上溯问题。职责内产物按 assignment 提交，共享状态仅 Ledger 写入。
+划分根 scope/上下文，管理迁移任务、DAG 与依赖；审阅 MO 细分或原子叶子结论，协调上溯问题。
 
 ## 2. 输入 / 输出契约
 输入：默认项目级整体规范、新架构、legacy/target 路径、整体用例、运行预算；或同一项目上下文加 entry_mode=single-module 与 module_name；Ledger 全局投影与模块状态。
@@ -39,7 +39,7 @@ mode: subagent
 
 ## 专题义务
 
-细则在所列小节（本卡已带适用的，其余按小节取）；本表只列 GO 的规划产物与门禁。
+本表只列 GO 的规划产物与门禁。
 
 | 专题 | GO 义务 | 协议 |
 | --- | --- | --- |

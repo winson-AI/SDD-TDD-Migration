@@ -129,6 +129,8 @@ SETTERS = {
     'setTranslationY': (('translationY',), 'px'), 'setScaleX': (('scaleX',), None), 'setScaleY': (('scaleY',), None),
     'setRotation': (('rotation',), None), 'setTextAlignment': (('textAlignment',), None), 'setIncludeFontPadding': (('includeFontPadding',), None),
     'setOrientation': (('orientation',), None), 'setHorizontalGravity': (('horizontalGravity',), None), 'setVerticalGravity': (('verticalGravity',), None),
+    # what drawing code gives a Paint (a colour drawable's setColor is a colour as well)
+    'setColor': (('paintColor',), None), 'setStrokeWidth': (('strokeWidth',), 'px'), 'setShadowLayer': (('shadowRadius', 'shadowDx', 'shadowDy', 'shadowColor'), 'px'),
 }
 PROPERTIES = {'textSize': 'sp', 'alpha': None, 'text': None, 'hint': None, 'contentDescription': None, 'visibility': None, 'gravity': None,
               'maxLines': None, 'minLines': None, 'elevation': 'px', 'translationX': 'px', 'translationY': 'px', 'scaleX': None, 'scaleY': None,
@@ -137,7 +139,10 @@ SETTER = re.compile(r'\b(?P<receiver>[A-Za-z_][\w.]*?)\s*\.\s*(?P<method>' + '|'
 PROPERTY = re.compile(r'\b(?P<receiver>[A-Za-z_][\w.]*?)\s*\.\s*(?P<name>' + '|'.join(sorted(PROPERTIES, key=len, reverse=True)) + r')\s*=(?!=)\s*(?P<value>[^\n;]+)')
 ADD_VIEW = re.compile(r'\.\s*addView\s*\(')
 LAYOUT_PARAMS = re.compile(r'^(?:new\s+)?[\w.]*LayoutParams$')
-LENGTH = re.compile(r'^(?:[\w.]+\.)?(?P<unit>dp|sp)(?:ToPx|Float|f)?\s*\(\s*(?P<number>-?\d+(?:\.\d+)?)[fFdL]?\s*\)$')
+LENGTH = re.compile(r'^(?:[\w.]+\.)?(?P<unit>dp|sp)(?:ToPx|Float|f2|f|r)?\s*\(\s*(?P<number>-?\d+(?:\.\d+)?)[fFdL]?\s*\)$')
+# Drawing code hands lengths and colours to a canvas, a rect, a path or a drawable; those are parameters too.
+DRAWING = re.compile(r'\b(?P<receiver>[A-Za-z_][\w.]*?)\s*\.\s*(?P<method>draw[A-Z]\w*|setBounds|inset|offset|moveTo|lineTo|quadTo|cubicTo|arcTo'
+                     r'|addRoundRect|addCircle|addRect|addOval|set)\s*\(')
 POSTFIX = re.compile(r'^(?P<number>-?\d+(?:\.\d+)?)[fF]?\s*\.\s*(?P<unit>dp|sp)$')
 BARE = re.compile(r'^-?\d+(?:\.\d+)?[fFdL]?$')
 HEX = re.compile(r'^0[xX]([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$')
@@ -210,7 +215,8 @@ def _row(text, offset, symbols, receiver, name, value, raw):
 
 
 def code_parameters(text, relative, symbols=None, helpers=()):
-    """What setter calls, property assignments and layout parameters give the views of one source file.
+    """What setter calls, property assignments and layout parameters give the views of one source file, and the lengths and
+    colours its drawing code hands to a canvas, a rect, a path or a drawable.
 
     `helpers` are a project's own layout-parameter builders: {call, params[, unit]} per arity, declared once."""
     symbols = symbols or resource_signals.Symbols(text, relative.endswith('.kt'))
@@ -263,5 +269,13 @@ def code_parameters(text, relative, symbols=None, helpers=()):
             name = overloaded(name, argument)
             rows.append(_row(text, match.start(), symbols, args[0].strip(), name,
                              expression(argument, None if name in ('layout_weight', 'layout_gravity', 'gravity') else unit), text[match.start():close]))
+    for match in DRAWING.finditer(text):
+        close = resource_signals.balanced(text, match.end() - 1)
+        if close is None or symbols.outside_code(match.start()):
+            continue
+        for index, argument in enumerate(resource_signals.split_args(text[match.end():close - 1]), 1):
+            value = expression(argument)
+            if value['type'] in ('dimension', 'color'):  # a bare number or a computed value is the drawing's own structure
+                rows.append(_row(text, match.start(), symbols, match.group('receiver'), match.group('method') + '.arg' + str(index), value, text[match.start():close]))
     rows.sort(key=lambda row: (row['line'], row['receiver'], row['name']))
     return rows

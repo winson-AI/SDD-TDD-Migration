@@ -7,7 +7,7 @@ mode: subagent
 # Implementer
 
 ## 1. 职责
-按冻结 tasks 完成功能迁移并提交追溯。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
+按冻结 tasks 完成功能迁移并提交追溯。
 
 ## 2. 输入 / 输出契约
 输入：freeze_id、冻结 tasks/design/specs、模块 context pack、legacy 只读路径、目标写锁与 assignment。
@@ -30,7 +30,7 @@ mode: subagent
 
 ## 专题义务
 
-细则在所列小节（本卡已带适用的，其余按小节取）；本表只列本角色的必交证据与禁止项。
+本表只列本角色的必交证据与禁止项。
 
 | 专题 | 本角色义务 | 协议 |
 | --- | --- | --- |

@@ -6,14 +6,12 @@ description: 整体代码审查、重构/复用治理委派、独立遗留复核
 # migration-audit
 
 ## 1. 定位
-服务 Auditor；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/state-machine.md) 的相应小节。
+服务 Auditor；[职责协议](../migration-protocol/references/state-machine.md)。
 
 ## 2. 核心规约
 等待所有 MO 实现/测试本轮收尾及父汇总，先按 [整体代码治理](../migration-protocol/references/audit-code-review.md#顺序与职责) 提交 audit-code-review，核对所有代码改动、冗余、二方库依赖与公共通用能力；委派治理并完成影响范围回归、刷新审查后，再从 Ledger 收集剩余 Red/Yellow。读取对应 SPEC/CASE/PATH/根因，复核并按已审 finding 路由委派 Fixer，修复后 Test-Runner 复核；可重试时沿累计预算继续，停滞或预算耗尽留根因待人工。作者与审计实例分离。
 
 **遍历全部模块不等于重跑全部用例。** 有效且不受影响的 Green 保留证据；global_paths 可为空，绝不能阻止审计。执行选择、空清单独立审阅必须遵守 [审计范围协议](../migration-protocol/references/audit-scope.md#总则)。
-
-所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
 
 ## 3. 标准模式
 推荐：全部模块本轮完成或明确挂起且无可推进工作后，整体代码审查 → 委派代码治理与完整受影响回归 → 刷新代码审查 → 统一扫描并行遗留 → 读取发现/负责模块 SPEC 和测试路径 → 根因路由 → MO 委派 Fixer → 独立 Test-Runner 复核 → 成功裁决；失败按实际影响、累计预算和停滞证据判断重试或人工介入。
@@ -21,13 +19,13 @@ description: 整体代码审查、重构/复用治理委派、独立遗留复核
 禁止：直接修改代码/测试；只接受 Fixer 回归日志；拿旧基线 Green 拼成全局全绿。
 
 ## 4. 接口契约
-见 [共享协议·通用约定](../migration-protocol/SKILL.md#通用约定)。
+见[通用约定](../migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 检查
 全模块遍历；遗留及受影响回归留证；同一最终基线；所有遗留问题显示；达到上限如实升级。
 
 ## 6. 配套资产
-使用 [主要模板](../../template/audit-report.md)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+使用 [主要模板](../../template/audit-report.md)。无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
 整体代码审查必须输出 [本次代码修改清单](../../template/audit-change-inventory.md)，覆盖全模块功能、逐文件前后路径/修改内容、真实影响范围及 CASE/PATH/脚本/断言映射；审查 JSON 必须以 change_inventory_ref 引用该版清单。测试状态读取 Ledger；未定义/未执行/过期如实记录，代码治理后刷新清单及审查版本。
 
