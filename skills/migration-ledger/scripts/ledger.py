@@ -417,54 +417,108 @@ def allocation_frozen(m):
                              for row in [m, *m.get('planning_history', [])])
 
 
+def freeze_gates(s, m, p):
+    """The gates of a freeze, named and in the order they are judged. `freeze_guard` stops at the first that fails;
+    `preview` runs them all and reports every one."""
+    mid = m['module_id']
+    gates = [('idle', lambda: idle(m)),
+             ('plan', lambda: require(m.get('plan'), 'SPEC not prepared')),
+             ('issues', lambda: issues.hold(s, mid)),
+             ('design', lambda: design_stage.plan_check(s, m, m['plan'], judge=False))]
+    if m.get('scope'):
+        gates.append(('scope', lambda: decomposition.check_module_plan(s, m, m['plan'])))
+    gates += [('phase', lambda: require(m['phase'] == 'clarifying' and not m.get('blocked'), 'freeze requires unblocked clarifying')),
+              ('paths', lambda: verify_plan(m['plan'], m)),
+              ('binding', lambda: intact(lambda: validate_plan(m['plan'], m))),
+              ('digest', lambda: require(digest(m['plan']) == m['plan_hash'], 'plan changed'))]
+    # What an allocation may leave to its leaf is settled before code is written: the result is held to it.
+    if (m.get('behavior_review') or {}).get('verification'):
+        import behavior_contract
+        gates.append(('fixture', lambda: behavior_contract.fixture_bound(m['behavior_review']['verification'], m['plan'], settled=True)))
+    if dimensions.of_leaf(m):
+        gates.append(('settled', lambda: dimensions.settled(read_json(check_ref(dimensions.of_leaf(m))))))
+    if m.get('change_request'):
+        gates.append(('independence', lambda: require(task_revalidation.prepare(m, p.get('review_ref'))['mode'] != 'partial'
+                                                      or p.get('review_ref') == m.get('plan_review_ref'), 'TASK independence requires accepted MO plan review')))
+    first = not allocation_frozen(m)
+    import resource_fidelity
+    import api_contract
+    gates += [('resources', lambda: resource_fidelity.freeze_gate(s, m, first)),
+              ('api', lambda: api_contract.freeze(s, m, p)),
+              ('ui', lambda: ui_fidelity.freeze_gate(s, m, first)),
+              ('knowledge', lambda: knowledge_gate.freeze_gate(s, m))]
+    if not p.get('decision_id') and p.get('review_ref'):
+        gates.append(('review', lambda: (control_policy.technical_review(m, p['review_ref']), task_revalidation.prepare(m, p['review_ref']))))
+    elif p.get('change_class') == 'within-envelope':
+        gates.append(('envelope', lambda: within_envelope(m, p.get('impact_ref'))))
+    else:
+        def approved():
+            decision = s['decisions'].get(p.get('decision_id'), {})
+            if decision.get('kind') == 'batch-envelope':
+                require(decision.get('module_id') == m.get('parent_module_id') and
+                        read_json(check_ref(decision['envelope_ref']))['children'].get(m['module_id']) == m['plan']['decision_envelope'],
+                        'child plan envelope differs from the approved batch envelope')
+                return
+            require(decision.get('module_id') == m['module_id'] and not decision.get('consumed'), 'approval missing/stale/wrong module')
+            if decision.get('subject_sha256') != m['plan_hash']:
+                require(decision.get('boundary_sha256') == control_policy.boundary_hash(m), 'approval missing/stale/wrong module')
+                require(p.get('review_ref') and p['review_ref'] == m.get('plan_review_ref'),
+                        'an approval of this decision boundary freezes the reworded plan with the MO plan review_ref')
+                control_policy.technical_review(m, p['review_ref'], decided=True)
+        gates.append(('approval', approved))
+    return gates
+
+
+REQUEST_GATES = ('review', 'envelope', 'approval')  # judged on what the freeze request brings, so a preview leaves them out
+
+
 def freeze_guard(s, m, p):
     """Pure shared guard: routing and mutation must recommend/accept the same freeze.
 
     The plan was judged when it was submitted; here it must be intact and stand on the current allocation and
     context, and the freeze gates judge what only a freeze can."""
-    idle(m)
-    require(m.get('plan'), 'SPEC not prepared')
-    issues.hold(s, m['module_id'])
-    design_stage.plan_check(s, m, m['plan'], judge=False)
-    if m.get('scope'):
-        decomposition.check_module_plan(s, m, m['plan'])
-    require(m['phase'] == 'clarifying' and not m.get('blocked'), 'freeze requires unblocked clarifying')
-    verify_plan(m['plan'], m)
-    intact(lambda: validate_plan(m['plan'], m))
-    require(digest(m['plan']) == m['plan_hash'], 'plan changed')
-    # What an allocation may leave to its leaf is settled before code is written: the result is held to it.
-    if (m.get('behavior_review') or {}).get('verification'):
-        import behavior_contract
-        behavior_contract.fixture_bound(m['behavior_review']['verification'], m['plan'], settled=True)
-    if dimensions.of_leaf(m):
-        dimensions.settled(read_json(check_ref(dimensions.of_leaf(m))))
-    if m.get('change_request') and task_revalidation.prepare(m, p.get('review_ref'))['mode'] == 'partial':
-        require(p['review_ref'] == m.get('plan_review_ref'), 'TASK independence requires accepted MO plan review')
-    first = not allocation_frozen(m)
-    import resource_fidelity
-    resource_fidelity.freeze_gate(s, m, first)
-    import api_contract
-    api_contract.freeze(s, m, p)
-    ui_fidelity.freeze_gate(s, m, first)
-    knowledge_gate.freeze_gate(s, m)
-    if not p.get('decision_id') and p.get('review_ref'):
-        control_policy.technical_review(m, p['review_ref'])
-        task_revalidation.prepare(m, p['review_ref'])
-    elif p.get('change_class') == 'within-envelope':
-        within_envelope(m, p.get('impact_ref'))
-    else:
-        decision = s['decisions'].get(p.get('decision_id'), {})
-        if decision.get('kind') == 'batch-envelope':
-            require(decision.get('module_id') == m.get('parent_module_id') and
-                    read_json(check_ref(decision['envelope_ref']))['children'].get(m['module_id']) == m['plan']['decision_envelope'],
-                    'child plan envelope differs from the approved batch envelope')
-            return
-        require(decision.get('module_id') == m['module_id'] and not decision.get('consumed'), 'approval missing/stale/wrong module')
-        if decision.get('subject_sha256') != m['plan_hash']:
-            require(decision.get('boundary_sha256') == control_policy.boundary_hash(m), 'approval missing/stale/wrong module')
-            require(p.get('review_ref') and p['review_ref'] == m.get('plan_review_ref'),
-                    'an approval of this decision boundary freezes the reworded plan with the MO plan review_ref')
-            control_policy.technical_review(m, p['review_ref'], decided=True)
+    for _, gate in freeze_gates(s, m, p):
+        gate()
+
+
+def preview(root, module_id, plan_ref=None, principal=None):
+    """What a plan meets and what it owes, read-only and all at once: the refusal the plan request would get, the gaps
+    the Ledger would record for the leaf, every freeze gate the current (or the given) plan does not pass yet, and
+    whether a person has to decide. The run is read into a copy: no event, receipt or archive is written. It replaces
+    the rehearsal scripts each role wrote for itself and reports the same list to the author and to the reviewer."""
+    root = Path(root).resolve()
+    s, events = read_events(root)
+    require(s and module_id in s['modules'], 'unknown module: ' + str(module_id))
+    s = copy.deepcopy(s)
+    m = s['modules'][module_id]
+    hinted = lambda reason: {'reason': str(reason), 'read_hint': reading.read_hint(str(reason))}
+    out = {'module_id': module_id, 'refused': None, 'owed': [], 'gates': [], 'human': None}
+    if plan_ref:
+        req = {'schema_version': 1, 'request_id': 'preview', 'run_id': s['run_id'], 'module_id': module_id,
+               'expected_revision': m['revision'], 'operation': 'plan', 'payload': {'plan_ref': plan_ref}}
+        import tempfile
+        with carrying() as gaps, tempfile.TemporaryDirectory() as scratch:  # the plan operation writes only the run's copy of the rubric
+            try:
+                mutate(s, req, principal or {'role': 'spec-designer', 'instance_id': 'preview'}, list(events), Path(scratch).resolve())
+            except (Rejected, OSError, KeyError, ValueError, TypeError) as exc:
+                out['refused'] = hinted(exc)
+        out['owed'] += [hinted(gap) for gap in gaps]
+        m = s['modules'][module_id]
+    out['plan_hash'] = m.get('plan_hash')
+    if m.get('plan') and out['refused'] is None:
+        for name, gate in freeze_gates(s, m, {}):
+            if name in REQUEST_GATES:
+                continue
+            with carrying() as gaps:
+                try:
+                    gate()
+                except (Rejected, OSError, KeyError, ValueError, TypeError) as exc:
+                    out['gates'].append({'gate': name, **hinted(exc)})
+            out['owed'] += [hinted(gap) for gap in gaps]
+        out['human'] = control_policy.needs_human(m)
+    seen = set()
+    out['owed'] = [row for row in out['owed'] if not (row['reason'] in seen or seen.add(row['reason']))]
+    return out
 
 
 def unresolved(m):
@@ -2243,7 +2297,7 @@ def advance(root, principal, module_id, workers=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('init', 'apply', 'status', 'resume', 'recover', 'history', 'advance'))
+    parser.add_argument('command', choices=('init', 'apply', 'status', 'resume', 'recover', 'history', 'advance', 'preview'))
     parser.add_argument('--root', required=True)
     parser.add_argument('--request')
     parser.add_argument('--view', choices=status_view.VIEWS, default='cursor',
@@ -2254,12 +2308,17 @@ def main():
     parser.add_argument('--host-context', help='Host-protected principal JSON; CLI does not authenticate humans')
     parser.add_argument('--worker', action='append', default=[], metavar='ROLE=INSTANCE',
                         help='advance only: instance to dispatch for a role (default <role>-<module>)')
+    parser.add_argument('--plan', help='preview only: a stage-plan file judged as if submitted; default the module\'s current plan')
     args = parser.parse_args()
     try:
         if args.command == 'history':
             state, _ = read_events(Path(args.root).resolve())
             require(state, 'run not initialized')
             print(json.dumps(state, ensure_ascii=False, separators=(',', ':')))
+            return 0
+        if args.command == 'preview':
+            require(args.module, 'preview needs --module')
+            print(json.dumps(preview(args.root, args.module, file_ref(args.plan) if args.plan else None), ensure_ascii=False, separators=(',', ':')))
             return 0
         root = Path(args.root).resolve()
         require(root.parent.name == '.sdd-runs', 'managed CLI requires .sdd-runs/<run_id>; use history for old read-only evidence')

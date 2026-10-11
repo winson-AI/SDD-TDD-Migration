@@ -1,6 +1,6 @@
 """Scoped API inventory rides the existing dimension -> TASK -> PATH evidence chain."""
 from pathlib import Path
-from contracts import check_ref, keyed, nonempty, read_json, require
+from contracts import check_ref, keyed, nonempty, owed, read_json, require
 
 FACETS = ('request_fields', 'response_fields', 'error_outcomes', 'state_effects')
 MAPPINGS = ('request_mapping', 'response_mapping', 'error_mapping', 'state_mapping')
@@ -109,7 +109,8 @@ def plan(analysis, items, plan):
     paths = {row['path_id']: row for row in plan['paths']}
     for aid, contract in contracts.items():
         covered = set()
-        for pair in traces[contract['item_id']]['assertions']:
+        trace = traces.get(contract['item_id'])  # an item the plan does not trace yet owes its coverage
+        for pair in (trace or {}).get('assertions', []):
             declared = pair.get('api_obligations', [])
             if not declared:
                 continue
@@ -118,7 +119,7 @@ def plan(analysis, items, plan):
             require(contract.get('fixture_contract_ref') is None or path.get('fixture_contract_ref') == contract['fixture_contract_ref'],
                     'API tests must bind the frozen fixture contract')
             covered.update(declared)
-        require(obligations(aid, calls[aid]) <= covered, 'API behavior assertion coverage incomplete: ' + aid)
+        owed(obligations(aid, calls[aid]) <= covered, 'API behavior assertion coverage incomplete: ' + aid)
         require(contract['fidelity'] == 'exact' or contract['alternative'] in plan['decision_envelope']['allowed_alternatives'], 'API adaptation outside decision envelope')
 
 

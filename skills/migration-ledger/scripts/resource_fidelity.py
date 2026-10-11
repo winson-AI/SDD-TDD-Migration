@@ -420,8 +420,8 @@ def require_graphic_proof(items, plan, declared, carried):
             continue
         check, deviation = item.get('image_check'), item.get('deviation')
         if measurable(item):
-            require(bool(check) != bool(deviation),
-                    label + ': a non-exact graphic needs either an image_check carried by a visual PATH or an approved deviation, not both and not neither')
+            require(not (check and deviation), label + ': a non-exact graphic takes an image_check or an approved deviation, not both')
+            owed(bool(check or deviation), label + ': a non-exact graphic needs either an image_check carried by a visual PATH or an approved deviation')
         else:
             require(not check, label + ': animations, nine-patches and drawing code are not rendered offline, so an image_check cannot measure them')
             require(deviation or item.get('resource_kind') == 'code-drawn',

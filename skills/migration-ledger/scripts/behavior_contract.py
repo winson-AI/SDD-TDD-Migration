@@ -9,7 +9,7 @@ import re
 import sys
 sys.dont_write_bytecode = True
 
-from contracts import Rejected, check_ref, digest, intact, keyed, nonempty, read_json, require
+from contracts import Rejected, check_ref, digest, intact, keyed, nonempty, owed, read_json, require
 
 
 def review(module, value):
@@ -298,7 +298,7 @@ def check_design(rows, paths):
                         'design assertion ' + label + ' names ' + sid + ', a scenario of another requirement')
             named.update(ids)
     missing = sorted(set(scenarios) - named)
-    require(not missing, 'SPEC scenarios no design assertion verifies: ' + ', '.join(missing[:8]) + (' ...' if len(missing) > 8 else ''))
+    owed(not missing, 'SPEC scenarios no design assertion verifies: ' + ', '.join(missing[:8]) + (' ...' if len(missing) > 8 else ''))
 
 
 def shared_writers(state):

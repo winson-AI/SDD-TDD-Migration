@@ -220,8 +220,13 @@ class DetailTests(unittest.TestCase):
         resource.append(detail)
         plan = d.leaf_plan()
         plan['dimension_analysis_ref'] = f.ref('M001-detailed.json', analysis)
-        with self.assertRaisesRegex(Rejected, 'SPEC dimension trace must cover every allocated item'):  # the leaf owes what it added
-            f.call('plan', {'plan_ref': f.ref('untraced-detail.json', plan)}, role='spec-designer')
+        f.call('plan', {'plan_ref': f.ref('untraced-detail.json', plan)}, role='spec-designer')  # accepted: the leaf owes the trace of what it added
+        owed = ledger.status(f.root, 'step', 'M001')['open_issues']  # the trace, and the texts that do not name the item yet
+        self.assertIn('SPEC dimension trace must cover every allocated item: ' + detail['item_id'], [row['summary'] for row in owed])
+        self.assertTrue(all(row['kind'] == 'gap' and row['summary'].startswith(('SPEC dimension trace', 'OpenSpec ')) for row in owed), owed)
+        module = f.state()['modules']['M001']
+        with self.assertRaisesRegex(Rejected, 'SPEC dimension trace must cover every allocated item'):  # a rehearsal outside the Ledger still refuses
+            dimensions.validate_plan(module['plan'], module)
         plan['dimension_trace'].append({'item_id': detail['item_id'], 'task_ids': ['T1'], 'path_ids': ['P1'],
                                         'assertions': [{'path_id': 'P1', 'assertion_id': 'A1'}]})
         for task in plan['tasks']:
@@ -232,6 +237,7 @@ class DetailTests(unittest.TestCase):
                 from contracts import file_ref
                 definition.update(file_ref(path))
         f.call('plan', {'plan_ref': f.ref('traced-detail.json', plan)}, role='spec-designer')
+        self.assertEqual(ledger.status(f.root, 'step', 'M001')['open_issues'], [])  # the plan that traces it settles the gap
         module = f.state()['modules']['M001']
         self.assertEqual(module['dimension_analysis_ref'], held)
         self.assertIn(detail['item_id'], [row['item_id'] for row in module['plan']['dimension_trace']])

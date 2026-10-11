@@ -69,8 +69,14 @@ class GraphicProofTests(unittest.TestCase):
 
     def test_a_replaced_graphic_needs_a_measured_check_or_a_deviation_not_neither(self):
         self.refuses('either an image_check .* or an approved deviation', self.item())
-        self.refuses('not both and not neither', self.item(image_check='back-icon', deviation=self.deviation()),
+        self.refuses('not both', self.item(image_check='back-icon', deviation=self.deviation()),
                      declared=[self.check()], carried=['back-icon'])
+        from contracts import carrying
+        with carrying() as gaps:  # judged inside a leaf's request, the missing proof is owed and the plan goes on
+            self.prove(self.item())
+        self.assertEqual(gaps, ['back: a non-exact graphic needs either an image_check carried by a visual PATH or an approved deviation'])
+        with carrying() as gaps, self.assertRaisesRegex(Rejected, 'not both'):  # a contradiction is not owed
+            self.prove(self.item(image_check='back-icon', deviation=self.deviation()), declared=[self.check()], carried=['back-icon'])
         self.prove(self.item(resource_kind='shape'))  # not a picture: untouched
         self.prove(self.item(resource_kind='raw', source_resource_ref={'path': '/legacy/res/raw/config.xml'}))
         self.prove(self.item(resource_strategy='exact_vector_xml'))

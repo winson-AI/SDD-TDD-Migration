@@ -5,6 +5,7 @@
   "semantic_change": false,
   "authorization_change": false,
   "unresolved_questions": [],
+  "recorded_issue_ids": [],
   "reason": "{{source-supported-review-of-original-goal-allocation-spec-dimensions-and-test-design}}",
   "evidence_refs": [
     {

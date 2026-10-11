@@ -139,7 +139,7 @@ def validate_plan(plan, module, expected_sources, modules=None, legacy_root=None
                 check_ref(evidence)
             validate_fidelity(row, plan, legacy_root)
         covered.update(reqs)
-    require(covered == allowed, 'reuse decisions must cover every module requirement')
+    owed(covered == allowed, 'reuse decisions must cover every module requirement')
     return review
 
 

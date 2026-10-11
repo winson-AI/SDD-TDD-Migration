@@ -20,7 +20,7 @@ import dimensions
 import resource_fidelity
 import semantics
 import ui_evidence as ue
-from contracts import check_ref, file_ref, intact, nonempty, read_json, require
+from contracts import check_ref, file_ref, intact, nonempty, owed, read_json, require
 
 
 def _analysis(m):
@@ -307,7 +307,7 @@ def baseline_gate(s, m, allocation=True):
     visual_plan_gate(analysis, visual)
     carried = {cid for path in visual for cid in path.get('image_check_ids', [])}
     missing = sorted(set(declared_image_checks(analysis)) - carried)
-    require(not missing, 'declared image checks need a visual path carrying device proof: ' + ', '.join(missing))
+    owed(not missing, 'declared image checks need a visual path carrying device proof: ' + ', '.join(missing))
 
 
 def visual_plan_gate(analysis, visual):

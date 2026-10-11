@@ -118,6 +118,10 @@ class ImagePlanTests(unittest.TestCase):
         self.declare(self.check)
         with self.assertRaisesRegex(Rejected, 'declared image checks need a visual path carrying device proof: back-arrow'):
             self.gate()
+        from contracts import carrying
+        with carrying() as gaps:  # inside a leaf's request the missing path is owed, and the plan goes on
+            self.gate()
+        self.assertEqual(gaps, ['declared image checks need a visual path carrying device proof: back-arrow'])
         self.gate(self.asset_path())
 
     def test_an_asset_path_adds_to_the_baseline_comparison_of_a_runnable_legacy_never_replaces_it(self):

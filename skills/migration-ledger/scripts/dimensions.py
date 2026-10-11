@@ -8,7 +8,7 @@ and code that reads an analysis must not assume a field `judge` came to require 
 """
 from pathlib import Path
 
-from contracts import Rejected, check_ref, digest, intact, keyed, nonempty, read_json, require
+from contracts import Rejected, check_ref, digest, intact, keyed, nonempty, owed, read_json, require
 
 ORDER = ['UI', 'Logic', 'Adhesive', 'Resource']
 SOURCES = ('legacy', 'architecture', 'reuse', 'target')
@@ -407,7 +407,8 @@ def validate_plan(plan, module):
     ref = own
     _, items = load(ref, module['module_id'])
     traces = keyed(plan.get('dimension_trace'), 'item_id')
-    require(set(traces) == set(items), 'SPEC dimension trace must cover every allocated item')
+    require(set(traces) <= set(items), 'dimension trace names an item the analysis does not have: ' + ', '.join(sorted(set(traces) - set(items))[:8]))
+    owed(set(items) <= set(traces), 'SPEC dimension trace must cover every allocated item: ' + ', '.join(sorted(set(items) - set(traces))[:8]))
     tasks = {t['task_id']: t for t in plan['tasks']}
     paths = {p['path_id']: p for p in plan['paths']}
     for iid, trace in traces.items():
@@ -427,6 +428,8 @@ def validate_plan(plan, module):
     require({tid for trace in traces.values() for tid in trace['task_ids']} == set(tasks), 'task missing dimension ownership')
     task_analyses(plan, module, items, traces)
     for iid, item in items.items():
+        if iid not in traces:
+            continue  # owed above; a later plan traces it
         named = set((traces[iid].get('condition_assertions') or {}))
         require(named <= {c['condition_id'] for c in item.get('fidelity_conditions', []) if c['status'] == 'applicable'},
                 'condition_assertions names a condition the item does not carry as applicable: ' + iid)
@@ -436,7 +439,7 @@ def validate_plan(plan, module):
     # The machine mapping complements, never replaces, normative OpenSpec text.
     for kind in ('design', 'spec', 'tasks'):
         text = '\n'.join(check_ref(d).read_text() for d in plan['definitions'] if d['kind'] == kind)
-        require(all(iid in text for iid in items), 'OpenSpec ' + kind + ' missing dimension item IDs')
+        owed(all(iid in text for iid in items), 'OpenSpec ' + kind + ' missing dimension item IDs: ' + ', '.join(iid for iid in items if iid not in text)[:200])
 
 
 
