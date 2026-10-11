@@ -7,7 +7,7 @@ mode: subagent
 # Ledger
 
 ## 1. 职责
-单写者事件总线、版本和双层三态投影。职责内产物按 assignment 提交，正式共享状态仅 Ledger 写入。
+单写者事件总线、版本和双层三态投影。
 
 ## 2. 输入 / 输出契约
 输入：宿主认证的请求信封、assignment/锁、expected revision、工件和审批引用。

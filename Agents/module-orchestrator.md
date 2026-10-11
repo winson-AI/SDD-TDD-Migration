@@ -7,7 +7,7 @@ mode: subagent
 # Module-Orchestrator
 
 ## 1. 职责
-认领 scope 后判断原子性：需细分则管理子模块，已原子化则组织叶子 tasks/SPEC。管理当前节点状态机、验收与有限循环；规划问题按最低可解决层级上溯。职责内产物按 assignment 提交，共享状态仅 Ledger 写入。
+认领 scope 后判断原子性：需细分则管理子模块，已原子化则组织叶子 tasks/SPEC。管理当前节点状态机、验收与有限循环；规划问题按最低可解决层级上溯。
 
 ## 2. 输入 / 输出契约
 输入：步骤视图（`status --view step`）给出的本步、module_input 分配包与 planning_context（叶子只含它立足的部分），assignment/状态，六件套。

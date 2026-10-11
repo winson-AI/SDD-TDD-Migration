@@ -46,7 +46,7 @@ Android/Harmony PATH 按 [移动端运行协议](../skills/migration-test/refere
 
 ## 专题义务
 
-细则在所列小节（本卡已带适用的，其余按小节取）；本表只列本角色的必交证据与禁止项。本角色不修源码、资源、构建配置、SPEC 或断言；知识工具（knowledge-query/diagnose、foundation-verify）只辅助准备与归因，不替代真实回执。
+本表只列本角色的必交证据与禁止项。本角色不修源码、资源、构建配置、SPEC 或断言；知识工具（knowledge-query/diagnose、foundation-verify）只辅助准备与归因，不替代真实回执。
 
 | 专题 | 本角色义务 | 协议 |
 | --- | --- | --- |

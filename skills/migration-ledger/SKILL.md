@@ -6,12 +6,10 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 # migration-ledger
 
 ## 1. 定位
-服务 Ledger；先读取 [共享协议](../migration-protocol/SKILL.md)，再按阅读卡读 [职责协议](../migration-protocol/references/runtime.md) 的相应小节。
+服务 Ledger；[职责协议](../migration-protocol/references/runtime.md)。
 
 ## 2. 核心规约
 宿主绑定身份、revision CAS、request 幂等；产物先落盘再提交事实事件，投影可从日志重建。
-
-所有跨层输入输出通过 Ledger 已提交引用传递；本技能不授予角色之外的写权限。
 
 ## 3. 标准模式
 推荐：模块守卫提交的请求经校验落盘，再更新 status/global/module 投影返回 ACK。
@@ -19,13 +17,13 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 禁止：多个 Agent append 同一文件；用户改 status 当事实；以请求自报 actor 验证权限。
 
 ## 4. 接口契约
-见 [共享协议·通用约定](../migration-protocol/SKILL.md#通用约定)。
+见[通用约定](../migration-protocol/SKILL.md#通用约定)。
 
 ## 5. 检查
 重复提交不重复生效；失效锁拒绝；越权拒绝；空测试非 Green；重放不丢失败。
 
 ## 6. 配套资产
-请求用 [ledger-request.json](../../template/ledger-request.json)；其他工件用游标步骤 `templates` 列出的模板。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+请求用 [ledger-request.json](../../template/ledger-request.json)。
 
 ## 本地工具
 
