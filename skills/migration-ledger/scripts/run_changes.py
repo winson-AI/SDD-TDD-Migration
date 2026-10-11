@@ -172,9 +172,11 @@ def validate(s, ref):
             if row['action'] == 'revise':
                 # The leaf keeps its code and revises its contract: only for a frozen leaf whose boundary the revision keeps.
                 update = updates.get(mid) or {}
+                parent = {**(s.get('module_groups', {}).get(m.get('parent_module_id')) or {}), **(updates.get(m.get('parent_module_id')) or {})}
                 require(m.get('freeze_id') and not m.get('blocked') and decomposition.boundary_kept(
                     m, {**m, **update}, m['dependencies'] if 'dependencies' not in update else
-                    sorted({leaf for dep in update['dependencies'] for leaf in decomposition.leaves(s, dep)})),
+                    sorted({leaf for dep in update['dependencies'] for leaf in decomposition.leaves(s, dep)}),
+                    (parent.get('scope') or {}).get('out') or []),
                     'run impact revise needs a frozen, unblocked leaf whose boundary the revision keeps; replan otherwise')
             if row['action'] == 'reverify':
                 require(m.get('freeze_id') and m.get('code_baseline'), 'reverify needs existing frozen code')

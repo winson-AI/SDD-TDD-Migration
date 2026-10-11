@@ -404,10 +404,11 @@ def redecomposition_impact(s, parent, children, graph):
     return impact | built_on(s, impact)
 
 
-def boundary_kept(old, new, dependencies):
+def boundary_kept(old, new, dependencies, inherited=()):
     """Nothing a leaf was already asked for is taken away: every statement of its scope, its requirements, cases, accepted
     cases and write scope stay inside the revised allocation, no exclusion is added and it depends on the same slices.
-    A reworded scope statement cannot be told from a moved one, so it does not count as kept."""
+    A reworded scope statement cannot be told from a moved one, so it does not count as kept. An exclusion the parent
+    now states for every child (`inherited`) narrows the parent, not this child: it is carried, not counted."""
     import behavior_contract
     inside = lambda path: any(Path(path).resolve().is_relative_to(Path(scope).resolve()) for scope in new['write_paths'])
     return (set(old['scope']['in']) <= set(new['scope']['in'])
@@ -415,14 +416,14 @@ def boundary_kept(old, new, dependencies):
             and set(old['case_ids']) <= set(new['case_ids'])
             and set(behavior_contract.accepts(old)) <= set(behavior_contract.accepts(new))
             and all(inside(path) for path in old['write_paths'])
-            and set(new['scope']['out']) <= set(old['scope']['out'])
+            and set(new['scope']['out']) - set(old['scope']['out']) <= set(inherited)
             and set(dependencies) == set(old['dependencies']))
 
 
-def revisable(old, new, dependencies):
+def revisable(old, new, dependencies, inherited=()):
     """A frozen, unblocked leaf whose boundary a revision keeps: it takes the revision as a change to its contract and
     keeps its code. Any other leaf the revision changes plans again from its new allocation."""
-    return bool(old.get('freeze_id')) and not old.get('blocked') and boundary_kept(old, new, dependencies)
+    return bool(old.get('freeze_id')) and not old.get('blocked') and boundary_kept(old, new, dependencies, inherited)
 
 
 def revision_plan(s, parent, children, graph):
@@ -435,7 +436,8 @@ def revision_plan(s, parent, children, graph):
                any(s['modules'][cid].get(key) != new[cid].get(key) for key in ALLOCATION_KEYS)
                or behavior_contract.accepts(s['modules'][cid]) != behavior_contract.accepts(new[cid])
                or graph[cid] != s['modules'][cid]['dependencies']}
-    revised = {cid for cid in changed if revisable(s['modules'][cid], new[cid], graph[cid])}
+    inherited = (parent.get('scope') or {}).get('out') or []  # what the parent now excludes for every child
+    revised = {cid for cid in changed if revisable(s['modules'][cid], new[cid], graph[cid], inherited)}
     reset = old.symmetric_difference(new) | (changed - revised) | {
         cid for cid, mod in s['modules'].items() if graph.get(cid, mod['dependencies']) != mod['dependencies']}
     return reset, revised - reset

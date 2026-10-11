@@ -54,6 +54,26 @@ class ResplitTests(unittest.TestCase):
         step = next(row for row in state['next_steps'] if row['module_id'] == 'M001')
         self.assertEqual((step['operation'], step['role'], step['ready']), ('plan', 'spec-designer', True))
 
+    def test_an_exclusion_the_root_adds_for_every_child_keeps_the_childrens_boundary(self):
+        self.build(); f, t = self.f, self.t
+        before = {mid: f.state()['modules'][mid] for mid in ('M001', 'M002')}
+        update = t.update('M010'); update['scope']['out'] = update['scope']['out'] + ['QR login']  # the root excludes one more thing
+        report = t.report([update])
+        for row in report['modules']:
+            row['action'] = 'revise'  # nothing of the leaves is taken away: they keep their code and revise their contract
+        t.apply(report)
+        def change(proposal):
+            for child in proposal['children']:
+                child['scope']['out'] = child['scope']['out'] + ['QR login']  # a child retains its parent's exclusions
+        state = self.resplit(change)
+        for mid in ('M001', 'M002'):
+            m = state['modules'][mid]
+            self.assertEqual(m['phase'], 'change-review', mid)  # carried, not counted: the plan and the code stand
+            for key in ('freeze_id', 'plan_hash', 'code_baseline', 'code_files'):
+                self.assertEqual(m[key], before[mid][key], (mid, key))
+            self.assertEqual((m.get('planning_history', []), m['scope']['out']), ([], ['Orders', 'QR login']))
+        self.assertEqual(sorted(state['redecomposition_history'][-1]['revised_modules']), ['M001', 'M002'])
+
     def test_a_revision_that_only_renews_evidence_does_not_stop_the_sibling(self):
         self.build(); f = self.f
         before = f.state()
@@ -98,6 +118,9 @@ class ResplitTests(unittest.TestCase):
         self.assertFalse(kept(scope={**old['scope'], 'requirement_ids': []}))
         self.assertFalse(kept(acceptance_case_ids=[]))
         self.assertFalse(decomposition.boundary_kept(old, old, ['M002']))  # another dependency is another boundary
+        narrowed = {**copy.deepcopy(old), 'scope': {**old['scope'], 'out': old['scope']['out'] + ['QR login']}}
+        self.assertFalse(decomposition.boundary_kept(old, narrowed, old['dependencies']))                           # an exclusion of its own narrows it
+        self.assertTrue(decomposition.boundary_kept(old, narrowed, old['dependencies'], inherited=['QR login']))    # one the parent states for every child does not
 
 
 class DependentTests(unittest.TestCase):
