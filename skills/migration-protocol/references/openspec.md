@@ -59,15 +59,15 @@ MO plan-review 可附 [task-independence.json](../../../template/task-independen
 
 ## 决策边界与执行基线
 
-`decision_envelope` 记录并经 MO 比对宿主目标：scope、acceptance、allowed_alternatives、forbidden_changes。默认禁止未经批准更换数据提供方、缩减范围、降低验收或引入重大排除。判断是否越界由 Spec-Designer 提交证据、MO 审查；hash 不能证明语义合规。
+`decision_envelope` 记录并经 MO 比对宿主目标：scope、acceptance、allowed_alternatives、forbidden_changes。默认禁止未经批准更换数据提供方、缩减范围、降低验收或引入重大排除。判断是否越界由 Spec-Designer 提交证据、MO 审查；hash 不能证明语义合规。与存量的每处差异引用批准它的决定或常设裁定，否则登为 issue（gap）。
 
 MO 审核或所需 Human 决定绑定 Ledger 补全后的 stage-plan digest，执行绑定 freeze_id。证据/状态更新不改定义。within-envelope 保留原 envelope 及完整 PATH/预期断言集合；命令/显示名属技术规划，变更仍需 CR/新冻结和执行证据，MO 审阅后发布新执行基线，不伪造新人工批准。
 
 快速通道使用 [change-impact.json](../../../template/change-impact.json)，绑定 from_freeze_id、to_plan_hash。只有当前 CR 的同一 impact_ref 能冻结该计划；再次修改需重审，散文记录不授权再冻结。成功后 CR 与旧 plan/执行证据进入不可执行的 change_request_history；invalidate 随 planning_history 留存并清除当前 CR。
 
-纯技术规划调整由 MO 提交不改变既有决定的证据。Spec-Designer/Implementer/Fixer 的写权限不合并。
+纯技术规划调整由 MO 提交不改变既有决定的证据。
 
-原有六件套是可读定义；新 stage-plan 是它们的引用与机器验收索引，不额外创作第二份需求规范。两者一致性由 MO 冻结审查，独立审计再次核对。
+原有六件套是可读定义；新 stage-plan 是它们的引用与机器验收索引，不额外创作第二份需求规范。两者一致性由 MO 冻结审查。
 
 ## Ledger 物化与修复记忆
 

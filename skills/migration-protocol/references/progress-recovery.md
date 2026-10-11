@@ -89,7 +89,7 @@ status 先尝试写 workflow-attention.md，再将包含末端写入错误的进
 
 ## 同 Run 上游修订
 
-影响 action：replan 更新契约并回规划；revise 仅限已冻结、未阻塞且边界保持的叶子（原 scope 语句、需求、CASE、验收归属、写范围、依赖全在，无新增排除）：修订经 CR 到达，plan/代码保留，TASK 未变即重冻后直接重建复测；边界改写、收缩或迁移只能 replan。unchanged 可保留未冻结 plan/独立设计，绑定原 allocation/generation 与已审修订；reverify 仅限 runtime/test_adapter 执行条件变化且已有冻结代码，保留 SPEC、使旧结果过期并正式复测。源码、范围、需求/验收变化不能用 reverify。
+影响 action：replan 更新契约并回规划；revise 仅限已冻结、未阻塞且边界保持的叶子（原 scope 语句、需求、CASE、验收归属、写范围、依赖全在，无本切片自己新增的排除；父级为全体孩子新增的不算）：修订经 CR 到达，plan/代码保留，TASK 未变即重冻后直接重建复测；边界改写、收缩或迁移只能 replan。unchanged 可保留未冻结 plan/独立设计，绑定原 allocation/generation 与已审修订；reverify 仅限 runtime/test_adapter 执行条件变化且已有冻结代码，保留 SPEC、使旧结果过期并正式复测。源码、范围、需求/验收变化不能用 reverify。
 
 Run 对应一次宿主任务；阻塞、纠错、环境/预算/会话变化均续原 Run。
 

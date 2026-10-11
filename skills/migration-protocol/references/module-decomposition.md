@@ -103,7 +103,7 @@ behavior_review.verification 必填，字段见[模板](../../../template/module
 
 拆分文档写 case_acceptance：父模块验收的每条 CASE 对应唯一验收它的子模块（记为其 acceptance_case_ids）。一条 CASE 只有一个持有者：验收用例的子模块只持有它验收的用例，为别的切片的用例供给能力写进对方的 provider_inputs，各切片都须满足的约束写成各自条目的保真条件；只有不验收任何 CASE 的支撑切片持有它所服务切片的用例，并在 supporting_slices 写明为何不能并入使用它的切片。依赖链达 3 个切片、过半切片须等另一切片验证完成，或某 CASE 的界面与逻辑分属两个切片（按各切片四维分析的适用 item 判定）时，independence_review（rationale、evidence_refs）说明为何不能按业务行为切。根模块以 acceptance_case_ids 声明（缺省为全部），一条 CASE 只由一个根验收。
 
-叶子 source_closure 保持分配的 verification；行为 PATH 引用其 fixture_contract_ref。implemented provider 可解除编码准备依赖，正式测试/DoD 仍需 provider 验证完成。共享 provider 只一个实现 owner；消费者负责明确集成 CASE。结构门禁校验归属、引用、完整性，语义独立性由规划审核和最终 Auditor 复核。
+叶子 source_closure 保持分配的 verification；行为 PATH 引用其 fixture_contract_ref。implemented provider 可解除编码准备依赖，正式测试/DoD 仍需 provider 验证完成。消费者负责明确集成 CASE。结构门禁校验归属、引用、完整性，语义独立性由规划审核和最终 Auditor 复核。
 
 ## 最小验收切片
 
