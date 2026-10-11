@@ -27,7 +27,7 @@ collector 记录范围内代码每处资源引用的使用点（行号、所在�
 
 ## 参数表
 
-`resource-plan` 同时派生模块的**参数表**（UI 维以 `parameter_sheet_ref` 引用，冻结时重算）：布局 XML 属性（style 展开，`@dimen`/`@color`/`@string`/主题属性跟随到取值）、drawable XML 各层（shape 的填充/圆角/描边/渐变、selector 各状态、layer-list 各层）、代码里 setter、属性赋值与布局参数的实参。每个参数有 id、所属组件或图层、名称、带单位的值和出处，并归为一类：
+`resource-plan` 同时派生模块的**参数表**（UI 维以 `parameter_sheet_ref` 引用，冻结时重算）：布局 XML 属性（style 展开，`@dimen`/`@color`/`@string`/主题属性跟随到取值）、drawable XML 各层（shape 的填充/圆角/描边/渐变、selector 各状态、layer-list 各层）、代码里 setter、属性赋值、布局参数的实参，以及绘制代码交给 Paint、Canvas、Rect、Path 的长度与颜色。每个参数有 id、所属组件或图层、名称、带单位的值和出处，并归为一类：
 
 | 类 | 含义 | 目标的义务 |
 | --- | --- | --- |
