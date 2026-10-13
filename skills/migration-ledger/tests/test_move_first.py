@@ -365,7 +365,7 @@ class DependentTests(unittest.TestCase):
             f.call('redecompose-accept', {'review_ref': f.ref('provider-review.md', 'Only M001 changes')}, role='global-orchestrator', module='M010')
         after = f.state()['modules']['M002']
         self.assertEqual((after['phase'], after['blocked']['reason'], after['blocked']['resume_phase']),
-                         ('waiting-dependency', 'dependency-version-changed', 'frozen'))
+                         ('waiting-dependency', 'dependency-version-changed', 'testing'))  # every TASK accepted: it tests again when M001 is back
         self.assertEqual((after['freeze_id'], after['plan_ref'], after['code_baseline']), (before['freeze_id'], before['plan_ref'], before['code_baseline']))
         self.assertIsNone(f.state()['modules']['M001']['freeze_id'])
 
