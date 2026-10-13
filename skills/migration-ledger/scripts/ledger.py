@@ -263,11 +263,14 @@ def invalidate_dependents(s, mid):
 
 
 def resume_after_provider(m):
-    """Where a leaf that waited for its provider goes on: in the revision of its own SPEC if it was in one, else at its
-    freeze, else where it was."""
+    """Where a leaf that waited for its provider goes on: in the revision of its own SPEC if it was in one; with every
+    TASK accepted, at its tests, which it runs again; with TASKs still to write, at its freeze; else where it was."""
     if m.get('change_request') and m['phase'] in ('change-review', 'clarifying'):
         return m['phase']
-    return 'frozen' if m.get('freeze_id') else (m.get('blocked') or {}).get('resume_phase', m['phase'])
+    if m.get('freeze_id'):
+        tasks = {t['task_id'] for t in (m.get('plan') or {}).get('tasks', [])}
+        return 'testing' if tasks and tasks <= set(m.get('accepted_task_ids', [])) else 'frozen'
+    return (m.get('blocked') or {}).get('resume_phase', m['phase'])
 
 
 def await_provider(m):

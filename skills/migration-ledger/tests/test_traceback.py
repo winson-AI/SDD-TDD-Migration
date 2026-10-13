@@ -107,6 +107,9 @@ class KeptCodeTests(unittest.TestCase):
         self.assertEqual(ledger.resume_after_provider(revising), 'change-review')  # in the revision of its own SPEC
         self.assertEqual(ledger.resume_after_provider({**revising, 'phase': 'clarifying'}), 'clarifying')
         self.assertEqual(ledger.resume_after_provider({'phase': 'testing', 'freeze_id': 'F1'}), 'frozen')
+        written = {'phase': 'testing', 'freeze_id': 'F1', 'plan': {'tasks': [{'task_id': 'T1'}, {'task_id': 'T2'}]}}
+        self.assertEqual(ledger.resume_after_provider({**written, 'accepted_task_ids': ['T1', 'T2']}), 'testing')  # every TASK accepted: it tests again
+        self.assertEqual(ledger.resume_after_provider({**written, 'phase': 'frozen', 'accepted_task_ids': ['T1']}), 'frozen')  # a TASK still to write
         self.assertEqual(ledger.resume_after_provider({'phase': 'specifying', 'freeze_id': None}), 'specifying')
         self.assertEqual(ledger.resume_after_provider({'phase': 'waiting-human', 'freeze_id': None, 'blocked': {'resume_phase': 'clarifying'}}), 'clarifying')
         module = {**copy.deepcopy(revising), 'revision': 3}
