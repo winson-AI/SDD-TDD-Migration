@@ -1482,6 +1482,9 @@ def mutate(s, req, principal, events, root=None):
             behavior_contract.fixture_bound(boundary, plan)
         if not resubmitted:
             superseded_citations(s, m, plan)  # a provider's given-up plan is not what this leaf plans against
+        if not resubmitted and m.get('kind') != 'scaffold':
+            owed(len(plan.get('tasks') or []) <= 8, 'a leaf plans at most 8 tasks: the fine grain is the task, a coarser leaf splits by UI surface')
+            owed(Path(p['plan_ref']['path']).stat().st_size <= 60_000, 'plan over 60 KB: move evidence behind references or split the leaf by UI surface')
         # Plan is content; the artifact remains immutable and is checked at freeze/dispatch.
         # The plan stands on the context and allocation current now; its author does not copy them into it.
         m.pop('plan_review_ref', None)

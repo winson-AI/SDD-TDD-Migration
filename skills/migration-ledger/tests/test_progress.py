@@ -21,7 +21,7 @@ class RecoveryTests(unittest.TestCase):
     def freeze(self, dependencies=False):
         d, f = self.d, self.f
         d.root(); p = d.proposal(ids=('M001', 'M002'))
-        if dependencies: p['children'][0]['dependencies'] = ['M002']
+        if dependencies: p['children'][0]['dependencies'] = ['M002']; p['children'][1]['kind'] = 'scaffold'  # what a leaf depends on is a scaffold
         f.split(p); f.global_plan()
         plan = d.leaf_plan()
         f.call('plan', {'plan_ref': f.ref('recovery-plan.json', plan)}, role='spec-designer')

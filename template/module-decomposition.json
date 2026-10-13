@@ -5,6 +5,8 @@
     {
       "module_id": "M002",
       "name": "{{subfunction-name}}",
+      "kind": "feature",
+      "anchor_ui": "{{page-or-screen-this-leaf-accepts; scaffold children omit it}}",
       "case_ids": [
         "CASE-GLOBAL-001"
       ],

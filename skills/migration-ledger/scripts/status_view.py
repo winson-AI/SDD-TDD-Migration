@@ -62,6 +62,8 @@ def _cursor(st, cards):
                              for mid, m in st['modules'].items()}
     owed = [target for row in issues.of_module(st)[0] for target in row['open_for']]
     out['open_issues'] = {mid: owed.count(mid) for mid in sorted(set(owed))}  # the step view of a module lists them
+    import decomposition
+    out['slicing_signals'] = {mid: row for mid, row in decomposition.slicing_signals(st).items() if row['flags']}  # what the audit traces back to the split
     adoption = st['hint_adoption']
     out['hint_adoption'] = {k: adoption[k] for k in ('session', 'card')}
     return out

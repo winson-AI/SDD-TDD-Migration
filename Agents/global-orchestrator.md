@@ -17,7 +17,7 @@ mode: subagent
 ## 3. 执行步骤
 1. project 覆盖全项目，single-module 覆盖所选功能。登记根 scope、需求/CASE、代码范围、四维与 context_refs；非原子根 decomposition_required=true，原子根 lean_leaf 附审阅。global-plan 先验完整 registry；MO decompose 可细分或确认原子叶子，经 GO 接受。无关根的细分不阻挡已就绪叶子，见[分配门禁](../skills/migration-protocol/references/module-decomposition.md#3-分配与登记门禁)。
 2. 整体 CASE-ID 映射至模块/GLOBAL，记录参与者与写集合；不授验收权限。子 MO 拆 TASK，Spec-Designer 一次形成六件套和上游测试路径，MO 冻结后直接执行。只有需求/验收/授权变化交人工。
-3. 校验 DAG 无环及资源冲突，按预算申请锁、经 Ledger 派发 Module-Orchestrator；只调度已冻结且依赖满足的实现。规格规划可先于依赖实现开展。
+3. 校验 DAG 无环及资源冲突，按预算申请锁、经 Ledger 派发 Module-Orchestrator；只调度已冻结且依赖满足的实现；脚手架叶第 0 波先于功能叶。规格规划可先于依赖实现开展。
 4. 跟踪模块 complete、依赖等待（suspend kind=dependency）与版本失效；生产者完成后提交 dependency-ready，消费者 MO resume 后复核并复测。
 5. 按完整父子 registry 跟踪叶子收尾及父级当前汇总；失败只影响有证据的范围，继续 ready 模块、等待活动 worker。全体本轮收尾且无可推进动作才统一审计；遗留走 audit-collect，否则最终审计。
 

@@ -233,6 +233,7 @@ class CarriedChildrenTests(unittest.TestCase):
                      'M002': f.ref('M002-resource.json', d.analysis('M002', ('Resource',), d.root_ref))}  # cites its resource item
         for child in plan['children']:
             child['dimension_analysis_ref'] = self.held[child['module_id']]
+        plan['children'][0]['kind'] = 'scaffold'  # a one-layer slice is a scaffold under the slicing standard
         f.split(plan)
 
     def root_version(self, change=None, kinds=('Logic', 'Resource')):

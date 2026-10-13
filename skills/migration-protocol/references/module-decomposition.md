@@ -105,6 +105,10 @@ behavior_review.verification 必填，字段见[模板](../../../template/module
 
 叶子 source_closure 保持分配的 verification；行为 PATH 引用其 fixture_contract_ref。implemented provider 可解除编码准备依赖，正式测试/DoD 仍需 provider 验证完成。消费者负责明确集成 CASE。结构门禁校验归属、引用、完整性，语义独立性由规划审核和最终 Auditor 复核。
 
+## 切片标准
+
+叶子是一个 UI 面（页面/屏幕；对话框与弹层并入所属页面）连同它背后的 Logic、Adhesive、Resource 条目，端到端验收自己的 CASE：至少一条用户可见 CASE 带设备或视觉 PATH；它消费的资源由它搬运与声明，共享资源归脚手架。孩子的 `kind` 为 feature（缺省）或 scaffold：脚手架是功能叶插入的外壳——模块壳与接线（settings include、manifest、module gradle）、领域/API 门面与 mock、共享资源表、Store/导航骨架——作为第 0 波先规划、先实现，构建与骨架单测 Green 后再派功能叶；宿主前置写入都在脚手架的写范围内。功能叶只依赖脚手架叶，功能叶之间不直接依赖（要什么走脚手架接口或 need issue）；功能叶写 `anchor_ui`，父级有 UI 时它必须有 UI 条目，父级多维时它不能只有一维；一叶最多 20 条 CASE，更多就按 UI 面再切；计划最多 8 个 TASK、不超过 60 KB（超出记欠项）——细粒度放在 TASK，不放在叶。功能叶的代码只引用脚手架与自身，构建与单测 PATH 须在"脚手架 + 本叶"下可跑。完整项目按导航图每模块一个脚手架、每页一叶；指定模块补缺失的模块脚手架再分页；指定页面一叶，外壳缺失时加脚手架叶。审计回溯看三项信号（步骤视图 slicing_signals）：某叶跨模块 issue > 3、CR 连锁 > 1、链深 > 2，任一触发即建议合并或重新锚定，并收进切片经验技能。
+
 ## 最小验收切片
 
 叶子 MO 按独立业务结果/验证闭包切片，是冻结、测试及 DoD 单位。TASK 分批实现，写完即测其构建与单测；冻结前只设计。互不依赖的大叶子回父 MO 重切，不新增 TASK 状态机。Auditor 统一审计，可同 Run 多轮整改复审。

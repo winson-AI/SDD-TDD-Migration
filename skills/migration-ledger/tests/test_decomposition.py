@@ -54,6 +54,7 @@ class DecompositionTests(unittest.TestCase):
                     {'module_id': mid, 'name': 'subfunction-' + mid, 'case_ids': ['C1'],
                      'write_paths': [str(self.target / ('m1' if mid == 'M001' else 'm2' if mid == 'M002' else 'm1/nested'))],
                      'dependencies': (dependencies or {}).get(mid, []),
+                     **({'kind': 'scaffold'} if any(mid in deps for deps in (dependencies or {}).values()) else {}),  # what others build on is the scaffold
                      'scope': {'in': ['subfunction-' + mid], 'out': ['Orders'], 'requirement_ids': ['R1']},
                      'context_refs': [self.ref('context-'+mid+'.md', 'Subfunction '+mid+' entry and reuse ownership')]} for mid in ids]}
 
