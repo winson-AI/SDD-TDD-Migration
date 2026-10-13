@@ -99,7 +99,7 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 
 ## 验证边界
 
-behavior_review.verification 必填，字段见[模板](../../../template/module-decomposition.json)。provider_inputs 精确匹配实际 dependencies，逐项写 required_stage（implemented/verified）。父级只切范围与语义，contract_ref、fixture_contract_ref 可不写：叶子在提供方到达该阶段后对着其计划与代码规划（步骤视图 providers；此前游标 provider-first-version-pending，不拒绝提前提交），fixture 由叶子计划写明，冻结前必填；叶子引用提供方已作废的计划目录记为欠项。同触发必须有不同的独立观察，否则重切。唯一 ID、独立作者或独立颜色不能替代行为独立性。
+behavior_review.verification 必填，字段见[模板](../../../template/module-decomposition.json)。provider_inputs 精确匹配实际 dependencies，逐项写 required_stage（implemented/verified）。父级只切范围与语义，contract_ref、fixture_contract_ref 可不写：叶子在提供方到达该阶段后对着其计划与代码规划（步骤视图 providers；此前游标 provider-first-version-pending，不拒绝提前提交），fixture 由叶子计划写明，冻结前必填；叶子引用提供方已作废的计划目录记为欠项；叶子只按哈希钉住自己写范围内的 target 文件，别人写的引用其计划或契约。同触发必须有不同的独立观察，否则重切。唯一 ID、独立作者或独立颜色不能替代行为独立性。
 
 拆分文档写 case_acceptance：父模块验收的每条 CASE 对应唯一验收它的子模块（记为其 acceptance_case_ids）。一条 CASE 只有一个持有者：验收用例的子模块只持有它验收的用例，为别的切片的用例供给能力写进对方的 provider_inputs，各切片都须满足的约束写成各自条目的保真条件；只有不验收任何 CASE 的支撑切片持有它所服务切片的用例，并在 supporting_slices 写明为何不能并入使用它的切片。依赖链达 3 个切片、过半切片须等另一切片验证完成，或某 CASE 的界面与逻辑分属两个切片（按各切片四维分析的适用 item 判定）时，independence_review（rationale、evidence_refs）说明为何不能按业务行为切。根模块以 acceptance_case_ids 声明（缺省为全部），一条 CASE 只由一个根验收。
 

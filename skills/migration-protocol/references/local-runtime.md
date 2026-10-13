@@ -74,7 +74,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | audit-defer | MO | root_cause + evidence_ref；记录根因、结果和恢复点，进入 waiting-auditor；可修复错误先按当前版本本地收敛，依赖/外围问题留证交接 |
 | audit-code-review | Auditor | report_ref；Ledger 预检（context_ref 可选）；全部 MO 收尾后、audit-collect 前提交，字段与治理闭环见[代码治理](audit-code-review.md#ledger-接口) |
 | plan | Spec-Designer | plan_ref；Ledger 预检（context_ref 可选）；提交前先 `preview`（只读，一次报全）；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围与 spec 由 Ledger 从已接受设计补全，checklist 由 Ledger 绑定包内清单；不抄写全局上下文与分配包，Ledger 绑定当前版本并在冻结、派发时复核 |
-| plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断；编码前 reason_ref 重规划，留历史；已派实现走 CR |
+| plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断，证据文档合计 ≤ 8 KB：裁决、阻塞缺陷、登记的 issue、未过门禁，不写叙事；裁决前先看步骤视图的 review_gates（plan 与 plan-review 后由 Ledger 一次列出未过的冻结门禁）；编码前 reason_ref 重规划，留历史；已派实现走 CR |
 | audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id、全部所选 path_ids、自身 context_ref；结果以 result_ref 提交，Auditor 原样消费 |
 | freeze | MO | 清晰规划用 review_ref；所需人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |

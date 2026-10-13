@@ -542,19 +542,29 @@ def preview(root, module_id, plan_ref=None, principal=None):
         m = s['modules'][module_id]
     out['plan_hash'] = m.get('plan_hash')
     if m.get('plan') and out['refused'] is None:
-        for name, gate in freeze_gates(s, m, {}):
-            if name in REQUEST_GATES:
-                continue
-            with carrying() as gaps:
-                try:
-                    gate()
-                except (Rejected, OSError, KeyError, ValueError, TypeError) as exc:
-                    out['gates'].append({'gate': name, **hinted(exc)})
-            out['owed'] += [hinted(gap) for gap in gaps]
+        gates, gaps = failing_gates(s, m)
+        out['gates'] += gates
+        out['owed'] += [hinted(gap) for gap in gaps]
         out['human'] = control_policy.needs_human(m)
     seen = set()
     out['owed'] = [row for row in out['owed'] if not (row['reason'] in seen or seen.add(row['reason']))]
     return out
+
+
+def failing_gates(s, m):
+    """Every freeze gate the current plan does not pass yet, with its reading hint, and what the gates owe: read only,
+    reported all at once - to the author after a plan and to the reviewer before a verdict."""
+    gates, owed_gaps = [], []
+    for name, gate in freeze_gates(s, m, {}):
+        if name in REQUEST_GATES:
+            continue
+        with carrying() as gaps:
+            try:
+                gate()
+            except (Rejected, OSError, KeyError, ValueError, TypeError) as exc:
+                gates.append({'gate': name, 'reason': str(exc), 'read_hint': reading.read_hint(str(exc))})
+        owed_gaps += list(gaps)
+    return gates, owed_gaps
 
 
 def unresolved(m):
@@ -685,6 +695,27 @@ def superseded_citations(s, m, plan):
     for mid, directories in gone.items():
         for directory in directories:
             owed(not any(directory in text for text in texts), 'cites a superseded plan of provider %s: %s' % (mid, directory))
+
+
+def pins_only_own_code(s, m, plan):
+    """A leaf pins by hash only the target files it writes. What another leaf or the host writes changes under it;
+    a leaf that needs it cites the provider's plan or contract, which the Ledger holds, not the code."""
+    target = s.get('target_root')
+    if not target:
+        return
+    own = [Path(p).resolve() for p in m.get('write_paths', [])]
+    documents = [plan]
+    analysis = dimensions.of_leaf(m)
+    if analysis and str(analysis.get('path', '')).endswith('.json'):
+        try:
+            documents.append(read_json(check_ref(analysis)))
+        except (Rejected, OSError, ValueError):
+            pass
+    for document in documents:
+        for ref in context_readiness.verify_refs_in(document):
+            path = Path(str(ref['path'])).resolve()
+            if path.is_relative_to(Path(target).resolve()) and not any(path.is_relative_to(o) for o in own):
+                require(False, 'a leaf pins only its own target files: cite the provider plan or contract, not ' + str(ref['path']))
 
 
 def wave(s, mid, seen=()):
@@ -1482,6 +1513,7 @@ def mutate(s, req, principal, events, root=None):
             behavior_contract.fixture_bound(boundary, plan)
         if not resubmitted:
             superseded_citations(s, m, plan)  # a provider's given-up plan is not what this leaf plans against
+            pins_only_own_code(s, m, plan)  # what others write is not pinned under this leaf
         issues.cite(s, mid, p.get('resolves'), p['plan_ref'], principal)  # what the plan answers is settled with it
         if not resubmitted and m.get('kind') != 'scaffold':
             owed(len(plan.get('tasks') or []) <= 8, 'a leaf plans at most 8 tasks: the fine grain is the task, a coarser leaf splits by UI surface')
@@ -1500,6 +1532,7 @@ def mutate(s, req, principal, events, root=None):
             m['spec_authors'].append(principal['instance_id'])
         if plan.get('test_design_ref') and not design_stage.required(s, m) and principal['instance_id'] not in m['authors']:
             m['authors'].append(principal['instance_id'])
+        m['review_gates'] = [{'gate': g['gate'], 'reason': g['reason']} for g in failing_gates(s, m)[0]]  # what the freeze would refuse, reported all at once
     elif op == 'plan-review':
         role(principal, 'module-orchestrator')
         require(m['phase'] == 'clarifying', 'plan review requires clarifying')
@@ -1507,6 +1540,7 @@ def mutate(s, req, principal, events, root=None):
         control_policy.technical_review(m, p.get('review_ref'), principal, bool(approval(s, m, m['plan_hash']) or covering(s, m)))
         m['plan_review_ref'] = p['review_ref']
         issues.cite(s, mid, p.get('resolves'), p['review_ref'], principal)  # what the review settles is settled with it
+        m['review_gates'] = [{'gate': g['gate'], 'reason': g['reason']} for g in failing_gates(s, m)[0]]
     elif op == 'planning-reopen':
         role(principal, 'module-orchestrator')
         require(m['phase'] in ('clarifying', 'frozen') and not m.get('blocked'), 'planning reopen requires unblocked planning')
@@ -1517,12 +1551,14 @@ def mutate(s, req, principal, events, root=None):
                 require(a['authoring_snapshot'] == write_scope.authoring_snapshot(s['target_root'],
                     a['authoring_snapshot']['scopes'], root), 'code changed after stop; use CR/upstream revision')
         check_ref(p.get('reason_ref'))
+        m.pop('review_gates', None)
         reset_plan(m, 'pre-implementation replanning', p['reason_ref'])
     elif op == 'freeze':
         role(principal, 'module-orchestrator')
         freeze_guard(s, m, p)
         m.setdefault('plan_rounds', []).append(m.pop('plan_submissions', 0))  # how many distinct plans this freeze took
         m.pop('plan_changes', None)
+        m.pop('review_gates', None)  # frozen: nothing is failing any more
         if not p.get('decision_id') and p.get('review_ref'):
             control_policy.technical_review(m, p['review_ref'], principal)
             m['plan_review_ref'] = p['review_ref']

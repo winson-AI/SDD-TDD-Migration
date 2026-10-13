@@ -1,5 +1,6 @@
 """Planning acceptance and explicit execution contracts on the Ledger bus."""
 import copy
+from pathlib import Path
 from contracts import check_ref, digest, keyed, nonempty, read_json, require
 
 def acceptance(paths):
@@ -63,10 +64,15 @@ def needs_human(m):
     return None if preserves_acceptance(m) else 'acceptance changed'
 
 
+REVIEW_BYTES = 8_000  # what a review says fits in this: a verdict, the blocking defects, the issues it recorded, the failing gates
+
+
 def technical_review(m, ref, actor=None, decided=False):
     """`decided`: a person has approved this plan's decision boundary, so the review speaks for its text only."""
     review = read_json(check_ref(ref))
     require(review.get('plan_hash') == m['plan_hash'], 'MO plan review stale')
+    require(sum(Path(r['path']).stat().st_size for r in review.get('evidence_refs') or [] if isinstance(r, dict) and r.get('path')) <= REVIEW_BYTES,
+            'review over %d KB: a verdict, the blocking defects, the issues recorded and the gates still failing - no narrative' % (REVIEW_BYTES // 1000))
     require(not boundary(review), 'semantic/authorization changes require exact human decision')
     require(review.get('reviewer_instance_id') and review['reviewer_instance_id'] not in
             m.get('spec_authors', []) + m.get('design_authors', []), 'MO review must be independent of plan authors')
