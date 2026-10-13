@@ -1322,7 +1322,7 @@ def mutate(s, req, principal, events, root=None):
         raise Rejected('audit snapshot locked; close or revoke audit before mutation')
     if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
-    context_readiness.gate(s, req, principal)
+    context_readiness.gate(s, req, principal, root=root)
     hint = req.get('hint')
     if hint is not None:
         require(isinstance(hint, dict) and isinstance(hint.get('session_id'), str) and hint['session_id']
@@ -1953,16 +1953,33 @@ def artifact_index(events):
     return index
 
 
-def new_snapshots(root, payload, target_root, index):
+def new_snapshots(root, payload, target_root, index, externals=()):
     """Archive every ref of a payload; list what this event adds to the cumulative index.
 
     An artifact some earlier event already archived is found through that event, so it is not listed
     again. Drift and historical-snapshot records describe this event and are always kept."""
-    return [item for item in preserve_refs(root, payload, target_root=target_root, accepted=index)
-            if item.get('status') or (item.get('source_path'), item.get('sha256')) not in index]
+    return [item for item in preserve_refs(root, payload, target_root=target_root, accepted=index, externals=externals)
+            if item.get('status') in ('drifted-or-missing-live-target-code', 'historical-snapshot')
+            or (item.get('source_path'), item.get('sha256')) not in index]
 
 
-def preserve_refs(root, value, seen=None, nested=False, target_root=None, accepted=None):
+DEPENDENCY_STORES = ('.gradle', '.m2', 'node_modules', '.cargo', '.pub-cache', 'Pods')  # what a build tool keeps for the project
+
+
+def external_roots(s):
+    """The trees a run reads but did not write: its legacy source and its reuse sources."""
+    roots = [s.get('legacy_root')] + [src.get('root') for src in (s.get('reuse_sources') or []) if isinstance(src, dict)]
+    return [Path(r).resolve() for r in roots if r]
+
+
+def external(path, externals):
+    """An input the run reads but did not produce - a legacy source, a reuse checkout, a library in a dependency store:
+    it is cited by hash and left where it is; the archive holds what the run wrote."""
+    p = Path(path).resolve()
+    return any(p.is_relative_to(r) for r in externals or ()) or any(part in DEPENDENCY_STORES for part in p.parts)
+
+
+def preserve_refs(root, value, seen=None, nested=False, target_root=None, accepted=None, externals=()):
     """Archive evidence bytes before commit; keep live refs for stale-code detection.
 
     Nested historical controller/protocol refs may read an exact archive from a prior committed event;
@@ -1982,6 +1999,8 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
             if key in seen:
                 return []
             seen.add(key)
+            require(not Path(value['path']).resolve().is_relative_to((Path(root) / 'ledger').resolve()),
+                    'a ledger projection is not evidence: cite the artifact it was projected from')
             historical = None
             try:
                 path = check_ref(value)
@@ -2001,6 +2020,8 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
                         raise
                     return [{'source_path': value.get('path'), 'expected_sha256': value.get('sha256'),
                              'status': 'drifted-or-missing-live-target-code'}]
+            if not historical and external(value['path'], externals):
+                return [{'source_path': value['path'], 'sha256': value['sha256'], 'status': 'external-reference'}]
             blob = run_storage.checked_path(root / 'artifacts' / value['sha256'], root / 'artifacts')
             blob.parent.mkdir(exist_ok=True)
             if not blob.exists():
@@ -2019,13 +2040,13 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
                     raise  # a document that cites an id its refs table lacks is wrong, not merely not JSON
                 except ValueError:
                     nested_value = None
-                saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root, accepted=accepted))
+                saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root, accepted=accepted, externals=externals))
         else:
             for item in value.values():
-                saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted))
+                saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted, externals))
     elif isinstance(value, list):
         for item in value:
-            saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted))
+            saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted, externals))
     return saved
 
 
@@ -2166,7 +2187,7 @@ def _judge(root, req, principal):
              'actor': principal, 'operation': req['operation'], 'module_id': req.get('module_id'),
              'previous_hash': events[-1]['sha256'] if events else None, **change,
              'artifact_snapshots': new_snapshots(root, {'payload': req.get('payload', {}), 'history_refs': history_refs},
-                                               s.get('target_root'), artifact_index(events))}
+                                               s.get('target_root'), artifact_index(events), external_roots(s))}
         e['sha256'] = digest(e)
         journal = run_storage.checked_path(root / 'ledger/events.jsonl', root)
         journal.parent.mkdir(exist_ok=True)

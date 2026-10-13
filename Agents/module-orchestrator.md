@@ -39,7 +39,7 @@ freeze/DoD 不混用；路径完整；CR 已处理；无遗留 Red/Yellow；回�
 
 | 专题 | 父 MO | 子 MO | 协议 |
 | --- | --- | --- | --- |
-| 上下文就绪 | 提交 decomposition 预检 | freeze 验收 planning 报告；执行派发不等预检，worker 的 ready 报告经 Ledger 校验后授权开工，blocked 报告退回派发：缺项补齐或按原因挂起，不消耗修复轮次 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
+| 上下文就绪 | decompose、plan、freeze 由 Ledger 预检；执行派发不等预检，worker 的 ready 报告经 Ledger 校验后授权开工，blocked 报告退回派发：缺项补齐或按原因挂起，不消耗修复轮次 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
 | 功能完备 | 拆分时核对孩子功能并集完整 | 按分配包的 feature_ids 与 feature_inventory_ref 追溯到需求/TASK/PATH；未知、遗漏、重复立即人工 | [切片规约](../skills/migration-global/references/slicing.md#总则) |
 | 四维 | 先划子模块，再生成子模块四维分析与 dimension_partition_review_ref，父项无遗漏、共享代码不重复 | 先划 tasks.scope，再逐任务 dimension_analysis，与 tasks/PATH/ASSERT 一起冻结；接受实现查 dimension_evidence；N/A 要源证据 | [四维](../skills/migration-protocol/references/dimension-slicing.md#4-控制节点与交接) |
 | 复用与 provider | 统一公共适配/唯一 owner，细化写集合与来源影响；变更上溯 GO。 | 冻结 reuse_plan 与生产绑定；验收 trace/fidelity/冗余清理。provider 改动走 CR/重新冻结；全部替代路线不可行才接受有证据 not-implemented，live hash 不因 adapt 放宽。 | [复用](../skills/migration-protocol/references/reuse-dependencies.md#总则)、[来源变更](../skills/migration-protocol/references/source-changes.md#总则) |

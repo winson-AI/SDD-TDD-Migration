@@ -58,8 +58,8 @@ class JournalPatchTests(unittest.TestCase):
         listed = set()
         for event in events:
             for item in event['artifact_snapshots']:
-                if item.get('status'):
-                    continue  # drift and historical-snapshot records belong to their event
+                if item.get('status') in ('drifted-or-missing-live-target-code', 'historical-snapshot'):
+                    continue  # drift and historical-snapshot records belong to their event; an external input is indexed like an archive
                 key = (item['source_path'], item['sha256'])
                 self.assertNotIn(key, listed)
                 listed.add(key)

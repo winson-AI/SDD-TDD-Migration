@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1464 | 全量通过，零失败/错误/跳过；本轮新增 6 项（切片标准：依赖形状与种类、UI 锚定与单层拒绝、无 UI 父级不要求、计划上限欠项、审计信号与指引） |
+| migration-ledger/tests | 1470 | 全量通过，零失败/错误/跳过；本轮新增 6 项（run 外输入只引用不归档、账本投影不是证据、自报阶段由 Ledger 机械预检、输入漂移拒绝、自带报告仍可随操作） |
 | migration-test/tests | 70 | 全量通过；本轮未改适配器 |
 | runtime/harmony/tests | 128 | 全量通过；本轮未改运行内核 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮加入切片标准：孩子的 kind 为 feature 或 scaffold，功能叶只依赖脚手架叶；父级有 UI 时功能叶须声明 anchor_ui 并带 UI 条目，父级多维时功能叶不能只有一维（支撑切片与脚手架除外）；一叶最多 20 条 CASE；计划超过 8 个 TASK 或 60 KB 记欠项；游标视图按叶给出 slicing_signals（跨模块 issue、CR 连锁、链深）。协议只在 module-decomposition.md 的"切片标准"一节陈述，切片相关文本指向它；夹具把被依赖的孩子声明为脚手架。
+本轮压缩归档与回执：run 读到但没写的输入——存量源码、复用来源、构建工具的依赖库——只按哈希引用、不拷入归档，归档只放 run 自己写的工件；引用 `ledger/` 投影一律拒绝。register、global-plan、decompose、plan、audit-plan、audit-verdict、audit-code-review、source-review、run-review 这些自报阶段改由 Ledger 机械预检（必读输入齐备且未漂移、subject 当前），角色不再手写就绪报告，自带的报告仍可随操作提交；输入漂移则操作被拒。worker 阶段（building/testing/fixing）仍由执行者报告执行契约。
 
-协议体积为 536264 / 536500 字节，最大单文件 31626 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 47740 / 60000 字节，最大模板组合 50300 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 535463 / 536500 字节，最大单文件 31626 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 47727 / 60000 字节，最大模板组合 50300 / 56200 字节；拒绝消息带小节指引的比例 83.3%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 

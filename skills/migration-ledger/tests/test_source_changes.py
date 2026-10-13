@@ -297,9 +297,9 @@ class SourceChangeTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'parent allocations'): self.review(report)
         report = self.report(); report['write_paths'] = [str(f.target)]
         with self.assertRaisesRegex(Rejected, 'fields invalid'): self.review(report)
-        ref = f.ref('missing-receipt.json', self.report())
-        with self.assertRaisesRegex(Rejected, 'receipt required'):
-            f.raw('source-review', {'report_ref': ref}, role='global-orchestrator', module=None)
+        ref = f.ref('no-receipt.json', self.report())
+        f.raw('source-review', {'report_ref': ref}, role='global-orchestrator', module=None)  # no report from GO: the Ledger preflights the review itself
+        self.assertTrue(read_json(check_ref(f.state()['context_acceptances']['source-review']['report_ref']))['mechanical'])
 
     def test_dependency_closure_cannot_be_omitted_from_impact(self):
         self.freeze('M001'); self.freeze('M002')

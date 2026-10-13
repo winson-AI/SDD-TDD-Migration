@@ -101,7 +101,10 @@ class AcceptanceEvidence:
         if key in self.resolved:
             return self.resolved[key]
         entry = self.index.get(key)
-        if entry:
+        if entry and entry.get('status') == 'external-reference':
+            path = check_ref(ref)  # an input the run did not produce stands where it is, verified by its hash
+            self.legacy_live.add(key)
+        elif entry:
             archive = run_storage.checked_path(self.root / 'artifacts' / ref['sha256'], self.root / 'artifacts')
             require(entry.get('path') == str(archive), 'event artifact location differs from managed archive')
             # An explicitly promised archive must exist, even if live bytes survive.
