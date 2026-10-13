@@ -7,12 +7,12 @@
 {{功能与技术范围；批准的行为保真/差异}}
 
 ## Legacy → Target Mapping
-| Legacy 路径/符号与证据 | 行为 | Target 架构/路径 | 保留/替换/删除依据 | REQ-ID |
+| Legacy `path#symbol` / `path:line` | 行为 | Target 架构/路径 | 保留/替换/删除依据 | REQ-ID |
 | --- | --- | --- | --- | --- |
 | {{legacy-ref}} | {{behavior}} | {{target-ref}} | {{decision}} | {{req-id}} |
 
-## Decisions
-{{候选方案、选择及理由；接口入出参/错误码、数据模型/状态、鉴权、兼容性与资源释放}}
+## Interfaces / Data
+{{接口入出参/错误码、数据模型/状态、鉴权、兼容性与资源释放；方案选择只记在 decision_envelope 与 decision 记录，本文不设 Decisions 节}}
 
 ## 埋点上报（条件适用）
 
@@ -27,7 +27,7 @@
 ## Risks / Rollback
 {{数据迁移/一致性/性能风险、回滚条件与操作；禁止仅写“无风险”}}
 
-## Open Questions / Decisions
+## Open Questions
 {{question_id、人工答案引用、影响范围；不得保留未决阻断问题进入冻结}}
 
 ## Source Closure / Target Feasibility

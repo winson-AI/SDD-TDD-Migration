@@ -29,13 +29,11 @@ def documents(s, m):
     ids = lambda rows: '、'.join(f'`{iid}`' for iid in rows) or '—'
     ref = lambda value: f"{value['path']} · sha256={value['sha256']}" if isinstance(value, dict) and value.get('path') else '—'
     proposal = (f"# {mid} {(scope.get('in') or [mid])[0]}\n\n## Why\n{todo('业务目标、迁移原因、可观察收益')}\n\n"
-                f"## What Changes\n{listed(scope.get('in') or [])}\n不在范围：\n{listed(scope.get('out') or [])}\n"
+                f"## What Changes\n{listed(scope.get('in') or [])}\n不在范围：沿用分配包 scope.out（{len(scope.get('out') or [])} 条），不复写。\n\n"
                 f"## Capabilities\n{todo('新增或修改的 capability；没有则写 none')}\n\n"
                 f"## Impact\n{todo('旧架构到新架构的影响、上下游契约、数据迁移、安全与性能约束')}\n\n"
                 f"## References\n- run_id: {s.get('run_id')}\n- module_id: {mid}\n- global_spec_ref: {ref(s.get('global_spec'))}\n"
                 f"- dimension_analysis_ref: {ref(m['dimension_analysis_ref'])}\n- cases: {'、'.join(m.get('case_ids', []))}\n")
-    mapping = ''.join(f"| {item['source_locator']} | {item['behavior']} | {item.get('target_binding') or todo('目标绑定')} | {item['target_strategy']} | "
-                      f"{'、'.join(item['requirement_ids'])} | `{iid}` |\n" for iid, item in items.items())
     dimensions_text = ''
     for row in analysis.get('dimensions', []):
         dimensions_text += f"### {row['dimension']}（{row.get('status')}：{row.get('reason', '')}）\n"
@@ -44,10 +42,10 @@ def documents(s, m):
                                 f"  - {todo('实现要点与接线')}\n")
         dimensions_text += '\n'
     design = (f"# {mid} Design\n\n## Context\n{todo('全局规范、架构、legacy 基线与相关模块接口')}\n\n"
-              f"## Goals / Non-Goals\n范围内：\n{listed(scope.get('in') or [])}\n范围外：\n{listed(scope.get('out') or [])}\n"
-              "## Legacy → Target Mapping\n| Legacy 路径/符号 | 行为 | Target 绑定 | 策略 | REQ-ID | Item |\n| --- | --- | --- | --- | --- | --- |\n"
-              f"{mapping}\n## UI → Logic → Adhesive → Resource\n{dimensions_text}"
-              f"## Decisions\n{todo('候选方案、选择及理由')}\n\n## Test Design\n{todo('正常、边界、异常路径与允许 Mock 的外部边界')}\n\n"
+              f"## Goals / Non-Goals\n范围内：\n{listed(scope.get('in') or [])}\n范围外：沿用分配包 scope.out（{len(scope.get('out') or [])} 条），不复写。\n\n"
+              f"## Legacy → Target Mapping\n源定位、行为、目标绑定与策略见 dimension_analysis_ref（{len(items)} 个 item），引用为 `path#symbol`/`path:line`，不抄源码。\n\n"
+              f"## UI → Logic → Adhesive → Resource\n{dimensions_text}"
+              f"## Test Design\n{todo('正常、边界、异常路径与允许 Mock 的外部边界')}\n\n"
               f"## Risks / Rollback\n{todo('风险、回滚条件与操作')}\n")
     spec, number = '## ADDED Requirements\n', 0
     for rid in requirements:
