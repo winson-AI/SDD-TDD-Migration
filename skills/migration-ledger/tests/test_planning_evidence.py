@@ -14,6 +14,7 @@ import ledger
 import migration_report
 import status_view
 import test_design_stage
+import test_iterative_spec
 import test_dimensions
 import test_ledger
 import test_progressive_fidelity
@@ -28,8 +29,8 @@ class PreparedTests(unittest.TestCase):
 
     def design(self):
         f = self.f; plan = f.plan()
-        a, result = test_design_stage.start_design(f, plan)
-        script = f.ref('prepared.py', '''import argparse,json
+        result = test_iterative_spec.direct_plan(f, plan)  # the Spec-Designer's own test plan
+        script = f.ref('defs/prepared.py', '''import argparse,json
 from pathlib import Path
 p=argparse.ArgumentParser();p.add_argument('--query-file');p.add_argument('--result-file');a=p.parse_args()
 q=json.load(open(a.query_file));assert q['frozen_test_assets'][0]['asset_id']=='TEST1'
@@ -38,21 +39,18 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':actual,'pass
 ''')
         result['test_assets'] = [{'asset_id': 'TEST1', 'kind': 'script', 'ref': script, 'path_ids': ['P1'],
                                  'assertions': [{'path_id': 'P1', 'assertion_id': 'A1'}]}]
-        return plan, a, result
+        result['paths'][0]['preparation'].update(status='prepared', asset_ids=['TEST1'])  # the path is prepared by that script
+        plan['test_design_ref'] = f.ref(f'upstream-assets-{f.n}.json', result)
+        return plan, result
 
-    def freeze(self, plan, a, result):
-        f = self.f; test_design_stage.submit_design(f, a, result)
-        f.call('accept', {'assignment_id': a['assignment_id'], 'review_ref': f.ref('review.md', 'Independent coverage reviewed')})
-        plan['definitions'] = [r for r in plan['definitions'] if r['kind'] != 'test-design']
+    def freeze(self, plan, result):
+        f = self.f
         f.call('plan', {'plan_ref': f.ref('asset-plan.json', plan)}, role='spec-designer')
         f.approve(f.state()['modules']['M001']['plan_hash'], 'D-ASSET'); f.call('freeze', {'decision_id': 'D-ASSET'})
 
     def test_prepared_script_freezes_and_executes_only_after_accepted_code(self):
-        f = self.f; plan, a, result = self.design()
-        with self.assertRaisesRegex(Rejected, 'test assignment required'):
-            execute(f.root, 'M001', a['assignment_id'], 'P1', [sys.executable, result['test_assets'][0]['ref']['path']], f.target, f.base/'early')
-        self.assertFalse((f.base/'early').exists())
-        self.freeze(plan, a, result)
+        f = self.f; plan, result = self.design()
+        self.freeze(plan, result)
         definition = {**result['test_assets'][0]['ref'], 'kind': 'test-script'}
         self.assertIn(definition, f.state()['modules']['M001']['plan']['definitions'])
         f.implementation(); a = f.assign('test-runner', 'EXEC')
@@ -69,21 +67,23 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':actual,'pass
         self.assertEqual(f.state()['modules']['M001']['results']['P1']['quality'], 'green-passed')
 
     def test_asset_drift_invalidates_frozen_inputs(self):
-        plan, a, result = self.design(); self.freeze(plan, a, result)
+        plan, result = self.design(); self.freeze(plan, result)
         Path(result['test_assets'][0]['ref']['path']).write_text('changed acceptance')
-        self.assertFalse(design_stage.ready(self.f.state(), self.f.state()['modules']['M001']))
-        with self.assertRaises(Rejected): self.f.assign('implementer', 'BAD')
+        with self.assertRaises(Rejected): self.f.assign('implementer', 'BAD')  # a frozen input that drifted refuses the dispatch
 
     def test_asset_cannot_claim_execution_or_map_unowned_assertion(self):
-        plan, a, result = self.design()
+        plan, result = self.design(); f = self.f
+        def submit(bad):
+            plan['test_design_ref'] = f.ref(f'bad-{f.n}.json', bad)
+            f.call('plan', {'plan_ref': f.ref(f'bad-plan-{f.n}.json', plan)}, role='spec-designer')
         for field, value in (('executed', True), ('assertions', [{'path_id': 'P1', 'assertion_id': 'UNKNOWN'}])):
             bad = copy.deepcopy(result); bad['test_assets'][0][field] = value
-            with self.assertRaises(Rejected): test_design_stage.submit_design(self.f, a, bad)
+            with self.assertRaises(Rejected): submit(bad)
         bad = copy.deepcopy(result)
         outside = self.f.target/'source.py'; outside.write_text('target source')
         from contracts import file_ref
         bad['test_assets'][0]['ref'] = file_ref(outside)
-        with self.assertRaisesRegex(Rejected, 'staging'): test_design_stage.submit_design(self.f, a, bad)
+        with self.assertRaisesRegex(Rejected, 'staging'): submit(bad)
 
 
 class ContextAccounting(unittest.TestCase):

@@ -139,29 +139,5 @@ class AcceptedDesignTests(unittest.TestCase):
         f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups); f.global_plan()
         return f
 
-    def test_a_later_rule_does_not_refuse_an_accepted_design_but_a_new_design_answers_to_it(self):
-        f = self.flow()
-        plan = test_design_stage.prepare_design(f, f.plan())
-        with mock.patch.object(design_stage, 'check_assets', side_effect=LATER):
-            state = f.state()
-            self.assertTrue(design_stage.ready(state, state['modules']['M001']))
-            f.call('plan', {'plan_ref': f.ref('accepted-plan.json', plan)}, role='spec-designer')
-            f.approve(f.state()['modules']['M001']['plan_hash'], 'D'); f.call('freeze', {'decision_id': 'D'})
-            self.assertIn(('M001', 'test-design'), debts(f.state()))
-            g = self.flow()
-            a, result = test_design_stage.start_design(g, g.plan())
-            with self.assertRaisesRegex(Rejected, 'written after'):
-                test_design_stage.submit_design(g, a, result)
-        self.assertEqual(f.state()['modules']['M001']['phase'], 'frozen')
-
-    def test_a_stale_input_still_refuses_an_accepted_design(self):
-        f = self.flow()
-        test_design_stage.prepare_design(f, f.plan())
-        state = f.state(); m = state['modules']['M001']
-        m['design_generation'] = m.get('design_generation', 0) + 1  # the allocation or context moved on
-        with self.assertRaisesRegex(Rejected, 'design input stale'):
-            design_stage.accepted(state, m)
-
-
 if __name__ == '__main__':
     unittest.main()

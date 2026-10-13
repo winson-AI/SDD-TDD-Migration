@@ -12,7 +12,7 @@ prepare 的 test_design_required=true 表示必需的测试输入与覆盖，不
 
 默认 stage-plan.test_design_ref 引用 [upstream-test-plan.json](../../../template/upstream-test-plan.json)：subject_sha256、case_refs 分别取游标 input_subject_sha256、upstream_case_refs，绑定当前分配及权威用例（项目 test_cases_path，未单独提供时取 global_spec）。paths 精确覆盖本模块全部 CASE，每条含需求、预期 ASSERT 与适用 Scenario；不得填 actual/passed/quality 或执行结果。design_ref 和 test_assets 沿用下述资产契约。Ledger 补全 PATH/test-design/资产定义；TASK.scope、需求和 SPEC 定义由 plan 明确提供。MO 检查原始用例与预期的语义一致性，hash 不证明语义；无未决且完整可执行即冻结，无需等待实现后才能发现的问题。
 
-只有确需独立设计协助时，MO 显式 assign(role=test-runner, mode=design, design_input_ref)，输入仍为本叶子 SPEC 草稿、tasks.scope/需求、case_refs 和游标 subject。submit 同带 test-design 预检 context_ref，kind=test-design，freeze_id/code_baseline=null。MO accept 后 plan 必须绑定接受的设计、任务与断言；过期/撤销的显式设计仍需重交，不能冒充已接受。设计只读规格与用例，不运行目标代码。
+设计只读规格与用例，不运行目标代码；没有独立的测试设计派发。
 
 执行反馈分流、同 Run CR 及独立 TASK 保留统一按[变更控制](openspec.md#变更控制)；不强制重做独立 design，当前计划仍绑定上游用例，历史设计只供追溯。
 

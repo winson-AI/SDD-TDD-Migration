@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1476 | 全量通过，零失败/错误/跳过；本轮新增 3 项（计划与评审后列出未过门禁、评审超 8 KB 拒绝、叶子只钉自己的 target 文件） |
+| migration-ledger/tests | 1452 | 全量通过，零失败/错误/跳过；本轮撤掉编码前测试设计派发，删除只为它存在的 24 项测试，走资产与覆盖的 6 项改为经 Spec-Designer 的计划 |
 | migration-test/tests | 70 | 全量通过；本轮未改适配器 |
 | runtime/harmony/tests | 128 | 全量通过；本轮未改运行内核 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮收紧评审与引用：plan 与 plan-review 后 Ledger 在模块上列出当前计划仍未过的冻结门禁（review_gates，冻结时清除），作者与评审者一次看全；评审证据文档合计超过 8 KB 拒绝，评审只写裁决、阻塞缺陷、登记的 issue 与未过门禁；叶子计划按哈希钉住本叶写范围之外的 target 文件被拒，别人写的引用其计划或契约。
+本轮撤掉 Test-Runner 的编码前设计派发：叶子的测试设计就是 Spec-Designer 随计划提交的 upstream-test-plan，Ledger 据它补全 PATH 与资产；mode=design 的派发、输入、报告、接受、就绪阶段、模板与卡片一并删除，没有任何步骤再等它。
 
-协议体积为 536049 / 536500 字节，最大单文件 31626 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 47990 / 60000 字节，最大模板组合 50300 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 533847 / 536500 字节，最大单文件 31626 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 47579 / 60000 字节，最大模板组合 50300 / 56200 字节；拒绝消息带小节指引的比例 83.1%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 

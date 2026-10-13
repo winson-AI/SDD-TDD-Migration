@@ -120,12 +120,11 @@ class ReadingCardTests(unittest.TestCase):
             step = {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': scope}
             row = next(r for r in reading.card({}, None, step) if r['ref'] == 'Agents/test-runner.md')
             return reading.text_of(row)
-        build, automation, design = text('build'), text('automation'), text('design')
+        build, automation = text('build'), text('automation')
         self.assertIn('### 构建', build); self.assertIn('### 单测与静态审查', build)
         self.assertEqual(build, automation)  # two stages of one executing Test-Runner read one role text, once
-        self.assertIn('### 自动化', automation); self.assertIn('## 10. 移动端执行器', automation); self.assertNotIn('### 设计', automation)
-        self.assertIn('### 设计', design); self.assertNotIn('### 构建', design)
-        for part in (build, automation, design):
+        self.assertIn('### 自动化', automation); self.assertIn('## 10. 移动端执行器', automation)
+        for part in (build, automation):
             self.assertIn('## 6. 硬约束', part); self.assertIn('## 专题义务', part)
 
     def test_steps_name_the_templates_they_instantiate(self):

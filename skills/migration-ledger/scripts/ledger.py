@@ -801,11 +801,6 @@ def _next_step(s, m):
         if submitted and m['submissions'][active['assignment_id']].get('green'):
             # Nothing to judge: accept re-validates the result, so the host may submit it without a model turn.
             step['mechanical'] = True
-        if design_stage.is_design(active):
-            step.update(mode='design', test_scope='design')
-            if not design_stage.valid(s, m, active):
-                step.update(operation='revoke', role='host', ready=True, reason='design-input-stale',
-                            recovery_action='stop-design-worker-and-revoke-before-redesign')
     elif m.get('decomposition_submission'):
         step.update(operation='decompose-accept', role='global-orchestrator', ready=True)
     elif m.get('decomposition_required') and m['phase'] in ('context', 'specifying', 'clarifying'):
@@ -825,15 +820,6 @@ def _next_step(s, m):
         step.update(operation='plan', role='spec-designer', ready=True,
                     input_subject_sha256=design_stage.subject(s, m),
                     upstream_case_refs=design_stage.upstream_refs(s), upstream_case_ids=m['case_ids'])
-        if design_stage.required(s, m) and not design_stage.ready(s, m):
-            step.update(operation='assign', role='module-orchestrator', worker_role='test-runner',
-                        mode='design', test_scope='design', reason='independent-test-design-required',
-                        payload={'role': 'test-runner', 'mode': 'design'},
-                        # What the design input cites instead of copying the context and the allocation.
-                        input_subject_sha256=design_stage.subject(s, m))
-            if s.get('behavior_contract_required'):
-                step['design_input_needs'] = ('spec_refs: the leaf SPEC draft the Spec-Designer staged, with Requirement-ID and '
-                                              'Scenario-ID lines; have it staged before assigning the design')
         waiting = [row['module_id'] for row in providers(s, m) if not row['ready']]
         if waiting:
             # Planned against what its providers are, once they are: the step is offered then. A plan submitted
@@ -884,9 +870,6 @@ def _next_step(s, m):
                 wanted = api_contract.undecided(s, api_contract.registered(s))
                 step.update(ready=False, reason='human-decision-required', approval_kind='api-adaptation', adaptations=wanted,
                             approval_subject_sha256=digest(wanted))
-        if design_stage.required(s, m) and not design_stage.ready(s, m):
-            step.update(operation='invalidate', ready=True, reason='independent-test-design-stale',
-                        payload={'reason': 'independent-test-design-stale'})
     elif m['phase'] in ('frozen', 'testing', 'diagnosing'):
         bad = unresolved(m)
         if m['phase'] == 'testing' and bad and not m.get('automation_retry_ready'):
@@ -1027,7 +1010,7 @@ def record_hint(s, m, hint):
 def worker_step(p):
     """The cursor step a host acts on when it dispatches a worker: the assign the module orchestrator performs."""
     return {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': p['role'],
-            'mode': p.get('mode'), 'test_scope': 'design' if design_stage.is_design(p) else p.get('test_scope'),
+            'mode': p.get('mode'), 'test_scope': p.get('test_scope'),
             'assignment_id': p.get('assignment_id'), 'payload': {key: p[key] for key in ('task_ids', 'path_ids') if key in p}}
 
 
@@ -1137,7 +1120,7 @@ def next_step(s, m):
         step['wave'] = wave(s, m['module_id'])
     if m.get('decomposition_required') and step['role'] == 'module-orchestrator':
         step['agent_name'] = 'parent-mo-' + m['module_id']
-    if step.get('operation') == 'assign' and step.get('mode') != 'design' and step['ready']:
+    if step.get('operation') == 'assign' and step['ready']:
         # Who works next and on which stage are facts the Ledger holds; assign re-checks every guard and the worker
         # reports its own readiness, so the host may submit it as the module orchestrator without a model turn.
         step['mechanical'] = True
@@ -1276,7 +1259,7 @@ def assign_worker(s, m, mid, p, events, root):
     context_ref = p.get('context_ref') or (context_readiness.reported(s, mid, p) if preflight else None)
     if p['role'] in ('implementer', 'fixer'):
         m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
-    elif p['role'] == 'test-runner' and not design_stage.is_design(p):
+    elif p['role'] == 'test-runner':
         m['phase'] = 'testing'  # also from frozen: the tasks written so far are tested before the next one
     a = m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
         'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
@@ -1314,7 +1297,7 @@ def start_work(m, a):
 def settle_preflight(m, actor, receipt):
     """A worker's report inside its own dispatch: ready authorizes the work, blocked hands the dispatch back."""
     # A dispatch the Ledger preflighted by itself still takes its worker's own report: a blocked one hands it back.
-    a = next((x for x in m['assignments'].values() if not x.get('closed') and not design_stage.is_design(x)
+    a = next((x for x in m['assignments'].values() if not x.get('closed')
               and (not x.get('context_ref') or x.get('preflight') == 'mechanical')
               and (x['role'], x['instance_id']) == (actor['role'], actor['instance_id'])), None)
     if not a or context_readiness.requirement('assign', a) != receipt['stage'] or a.get('context_ref') == receipt['report_ref']:
@@ -1530,7 +1513,7 @@ def mutate(s, req, principal, events, root=None):
                  scenario_index=scenarios, plan_binding=decomposition.context_binding(s, m), checklist_ref=checklist_rubric(root))
         if principal['instance_id'] not in m.setdefault('spec_authors', []):
             m['spec_authors'].append(principal['instance_id'])
-        if plan.get('test_design_ref') and not design_stage.required(s, m) and principal['instance_id'] not in m['authors']:
+        if plan.get('test_design_ref') and principal['instance_id'] not in m['authors']:
             m['authors'].append(principal['instance_id'])
         m['review_gates'] = [{'gate': g['gate'], 'reason': g['reason']} for g in failing_gates(s, m)[0]]  # what the freeze would refuse, reported all at once
     elif op == 'plan-review':
@@ -1606,37 +1589,29 @@ def mutate(s, req, principal, events, root=None):
         open_change(s, m, p)
     elif op == 'assign':
         role(principal, 'module-orchestrator')
-        require(p.get('mode') in (None, 'execute', 'design'), 'unknown assignment mode')
-        if design_stage.is_design(p):
-            record = {**dispatch_record(s, m, p), **(model_routing.record(p, role=p['role']) or {})}
-            design_stage.dispatch(s, m, p, principal, len(events) + 1)
-            m['assignments'][p['assignment_id']].update(record)
-        else:
-            assign_worker(s, m, mid, p, events, root)
+        require(p.get('mode') in (None, 'execute'), 'unknown assignment mode')
+        assign_worker(s, m, mid, p, events, root)
     elif op == 'submit':
         assignment = m['assignments'].get(p.get('assignment_id'), {})
         require(not assignment.get('closed', True), 'assignment inactive')
         require(principal == {'role': assignment['role'], 'instance_id': assignment['instance_id']}, 'worker identity mismatch')
         require(p.get('fencing_token') == assignment['fencing_token'], 'stale fencing token')
-        if design_stage.is_design(assignment):
-            design_stage.submission(s, m, assignment, p, principal)
-        else:
-            require(assignment.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
-            require(assignment['freeze_id'] == m['freeze_id'], 'assignment freeze stale')
-            require(assignment.get('context_ref') or not context_readiness.enabled(s),
-                    'preflight required: context-submit a ready report for this assignment before its result')
-            worker_phase(m, assignment)
-            dependencies_ready(s, m)
-            result = read_json(check_ref(p['result_ref']))
-            validate_result(result, m, assignment, run_root=root)
-            issues.cite(s, mid, p.get('resolves'), p['result_ref'], principal)  # what the work answers is settled with it
-            if s.get('write_scope_check') and result.get('kind') == 'implementation':
-                require(p.get('write_scope_ref'), 'write_scope_ref required: host write-scope delta receipt')
-                write_scope.verify(s, m, assignment, result, read_json(check_ref(p['write_scope_ref'])))
-            # The submission is the hash-bound reference plus what the cursor and the report need from it.
-            m['submissions'][p['assignment_id']] = {
-                'ref': p['result_ref'], 'kind': result.get('kind'), 'green': all_green_tests(result),
-                'test_run_ids': [row.get('test_run_id') for row in result.get('paths', [])] if result.get('kind') == 'tests' else []}
+        require(assignment.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
+        require(assignment['freeze_id'] == m['freeze_id'], 'assignment freeze stale')
+        require(assignment.get('context_ref') or not context_readiness.enabled(s),
+                'preflight required: context-submit a ready report for this assignment before its result')
+        worker_phase(m, assignment)
+        dependencies_ready(s, m)
+        result = read_json(check_ref(p['result_ref']))
+        validate_result(result, m, assignment, run_root=root)
+        issues.cite(s, mid, p.get('resolves'), p['result_ref'], principal)  # what the work answers is settled with it
+        if s.get('write_scope_check') and result.get('kind') == 'implementation':
+            require(p.get('write_scope_ref'), 'write_scope_ref required: host write-scope delta receipt')
+            write_scope.verify(s, m, assignment, result, read_json(check_ref(p['write_scope_ref'])))
+        # The submission is the hash-bound reference plus what the cursor and the report need from it.
+        m['submissions'][p['assignment_id']] = {
+            'ref': p['result_ref'], 'kind': result.get('kind'), 'green': all_green_tests(result),
+            'test_run_ids': [row.get('test_run_id') for row in result.get('paths', [])] if result.get('kind') == 'tests' else []}
     elif op == 'accept':
         require(not s.get('audit_batch', {}).get('retry_stops', {}).get(mid), 'stop affected old worker before accepting stale audit output')
         role(principal, 'module-orchestrator')
@@ -1644,11 +1619,6 @@ def mutate(s, req, principal, events, root=None):
         assignment = m['assignments'].get(aid, {})
         require(not assignment.get('closed', True) and aid in m['submissions'], 'no active submission')
         issues.cite(s, mid, p.get('resolves'), m['submissions'][aid]['ref'], principal)  # what the accepted work answers is settled with it
-        if design_stage.is_design(assignment):
-            design_stage.accept(s, m, assignment, p, principal)
-            m['revision'] += 1
-            refresh(s)
-            return
         require(assignment.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
         worker_phase(m, assignment)
         dependencies_ready(s, m)
@@ -1829,9 +1799,6 @@ def mutate(s, req, principal, events, root=None):
                 a['authoring_snapshot']['scopes'], root), 'code changed; use CR/upstream revision')
             a['no_code_change_ref'] = copy.deepcopy(p['stopped_worker_ref'])
         a['closed'] = True
-        if design_stage.is_design(a):
-            a['revoked'] = True
-            m['submissions'].pop(a['assignment_id'], None)
         if not retry_stop and audit_closure.active(s) and m.get('audit_batch_id') == s['audit_batch']['batch_id']:
             audit_closure.stop(s, 'worker-interrupted', mid, p['stopped_worker_ref'])
         m['stale'] = True
@@ -1839,7 +1806,7 @@ def mutate(s, req, principal, events, root=None):
             if memory['assignment_id'] == p['assignment_id'] and memory['status'] == 'pending':
                 memory['status'] = 'interrupted'
         if not m.get('blocked'):
-            m['phase'] = a['resume_phase'] if design_stage.is_design(a) else 'diagnosing' if a['role'] == 'fixer' else 'frozen' if a['role'] == 'implementer' else 'testing'
+            m['phase'] = 'diagnosing' if a['role'] == 'fixer' else 'frozen' if a['role'] == 'implementer' else 'testing'
     elif op == 'invalidate':
         role(principal, 'module-orchestrator', 'host')
         require(p.get('reason'), 'invalidation reason required')

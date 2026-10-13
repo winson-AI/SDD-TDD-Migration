@@ -166,7 +166,7 @@ class PlanningRetentionTests(unittest.TestCase):
         self.helper = test_run_changes.PreparedRunRevisionTests(); self.helper.setUp(); self.addCleanup(self.helper.doCleanups)
         self.f = self.helper.f
 
-    def test_unfrozen_plan_and_independent_design_survive_unrelated_context_revision(self):
+    def test_an_unfrozen_plan_survives_an_unrelated_context_revision(self):
         f = self.f; self.helper.source.freeze('M001'); self.helper.source.freeze('M002')
         f.call('planning-reopen', {'reason_ref': f.ref('reopen.md', 'Planning review before coding')}, module='M002')
         plan = self.helper.source.plan('M002')
@@ -178,8 +178,7 @@ class PlanningRetentionTests(unittest.TestCase):
         f.raw('revise-run', payload, role='host', module=None)
         s = f.state(); kept = s['modules']['M002']
         self.assertIsNone(kept['freeze_id']); self.assertEqual(kept['plan_ref'], m['plan_ref'])
-        self.assertEqual(kept['accepted_test_design'], m['accepted_test_design'])
-        self.assertEqual(design_stage.subject(s, kept), subject); self.assertTrue(design_stage.ready(s, kept))
+        self.assertEqual(design_stage.subject(s, kept), subject)  # the plan it holds still binds the context it read
 
     def test_environment_reverify_retains_spec_but_requires_new_execution(self):
         f = self.f; src = self.helper.source

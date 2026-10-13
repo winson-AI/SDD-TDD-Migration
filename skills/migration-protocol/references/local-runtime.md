@@ -78,10 +78,10 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id、全部所选 path_ids、自身 context_ref；结果以 result_ref 提交，Auditor 原样消费 |
 | freeze | MO | 清晰规划用 review_ref；所需人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
-| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；design 用 mode=design + design_input_ref，无执行 test_scope；可选 session_id/card_sha256；合法阶段且无活动 worker，返回 fencing_token。不等预检：worker 派发后 context-submit（implementer 由 Ledger 代登记）；该实例已有当前 ready 报告时直接绑定，当前 blocked 时拒绝派发。执行派发 `mechanical=true` 时宿主按步骤 payload 直接提交 |
+| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；可选 session_id/card_sha256；合法阶段且无活动 worker，返回 fencing_token。不等预检：worker 派发后 context-submit（implementer 由 Ledger 代登记）；该实例已有当前 ready 报告时直接绑定，当前 blocked 时拒绝派发。执行派发 `mechanical=true` 时宿主按步骤 payload 直接提交 |
 | context-submit | 执行者 | report_ref；登记预检报告，同 stage/实例的最新报告生效。worker 有同阶段的活动派发时：ready 绑定并授权开工（Fixer 此时计一轮），blocked 退回派发 |
-| submit | worker | assignment_id、fencing_token、result_ref；执行派发须已绑定 ready 预检；design 另需 test-design context_ref，kind=test-design；不推进阶段 |
-| accept | MO | assignment_id；重验工件和版本后关闭；design 必需 review_ref，保持规划阶段与质量。`mechanical=true` 时宿主直接提交 |
+| submit | worker | assignment_id、fencing_token、result_ref；执行派发须已绑定 ready 预检；不推进阶段 |
+| accept | MO | assignment_id；重验工件和版本后关闭。`mechanical=true` 时宿主直接提交 |
 | diagnose | Diagnostician（轻量叶子本地轮为 Fixer） | diagnosis_ref、owner、root_cause；仅保存绑定当前冻结、代码和未解决结果的 diagnosis_submission，不改变 phase；模块必须无活动 worker |
 | diagnosis-accept | MO | 可选 `assign`（fixer 的 assign 参数）；重验诊断后进入 diagnosing，带 assign 时同一事务按 assign 守卫派发（已提交的 fixing 预检随之绑定），失败整体拒绝 |
 | suspend | MO | kind=dependency/human/tooling、reason、root_cause、owner；保存原阶段，必须先停止活动 worker |
@@ -114,7 +114,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 
 所有结果必需 schema_version=1、kind、run_id、module_id、assignment_id、actor_instance_id、freeze_id、code_baseline。
 
-`kind=test-design` 的 freeze_id/code_baseline 为 null，含 input_ref/design_ref/预期 paths。门禁与恢复见 [编码前设计](testing.md#编码前设计交接)。
+
 
 implementation 另需：
 

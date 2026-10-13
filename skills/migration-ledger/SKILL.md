@@ -47,7 +47,7 @@ description: Ledger 单写者、版本、权限、事件追溯与状态投影，
 
 ## 上下文就绪
 
-[design_stage.py](scripts/design_stage.py) 处理 mode=design 的派发/提交/接受及 plan/freeze 绑定，不改测试质量，见 [设计交接](../migration-protocol/references/testing.md#编码前设计交接)。
+[design_stage.py](scripts/design_stage.py) 校验 Spec-Designer 随计划提交的 upstream-test-plan 并把 PATH、资产补进计划，见 [设计交接](../migration-protocol/references/testing.md#编码前设计交接)。
 
 自报阶段由 Ledger 机械预检，worker 阶段经 context-submit 登记报告，维护 context_receipts/context_acceptances；步骤视图的 `context` 给出本阶段要求；不把预检失败自动扩散或标作模块收尾。按 [阶段协议](../migration-protocol/references/context-readiness.md) 校验身份、必读输入摘要、草稿与版本，保留失败与恢复证据。
 

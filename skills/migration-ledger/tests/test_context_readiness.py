@@ -315,7 +315,7 @@ class ContextReadinessTests(unittest.TestCase):
         m = self.state()['modules']['M010']
         self.assertTrue(m['lean_leaf']); self.assertIsNone(m['freeze_id'])
         self.assertEqual(set(cr.requirements(self.state())['M010']),
-                         {'planning', 'test-design', 'coding', 'building', 'testing', 'fixing'})
+                         {'planning', 'coding', 'building', 'testing', 'fixing'})
 
     def test_local_fixer_needs_fresh_diagnosis_context_without_extra_budget(self):
         self.prepare(); self.implementation()

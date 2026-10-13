@@ -146,10 +146,3 @@ class StateReferenceTests(unittest.TestCase):
         path.write_text(original)
         f.call('accept', {'assignment_id': a['assignment_id']})
         self.assertEqual(f.state()['modules']['M001']['phase'], 'dod')
-
-    def test_design_assignment_keeps_the_refs_it_must_read_not_the_input_document(self):
-        import test_design_stage
-        f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups); f.global_plan()
-        a, _ = test_design_stage.start_design(f, f.plan())
-        self.assertNotIn('input_content', a)
-        self.assertTrue(a['input_refs'])

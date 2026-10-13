@@ -17,7 +17,6 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 | 控制节点 | stage / 提交角色 | 核对内容 | 接受节点与责任 |
 | --- | --- | --- | --- |
 | register、global-plan、source-review、run-review、decompose、plan、audit-plan、audit-verdict、audit-code-review | 自报阶段 / 提交该操作的角色 | 由 Ledger 机械预检：本阶段必读输入齐备且未漂移、subject 当前；角色不写报告，自带的报告可随操作作 context_ref | 操作被接受即登记 acceptance；freeze/decompose-accept 复用原提案接受的引用；输入漂移则该操作被拒 |
-| design assign 后、随设计 submit | test-design / Test Runner | assigned-scope/spec-cases/task-coverage/independence；必读 design_input_ref 的规格/CASE/tasks | submit 绑定本实例与结果 draft_ref；MO accept(review_ref) 再验，无代码/设备前置 |
 | Coding 派发时 | coding / Ledger 代 Implementer | 冻结 SPEC/tasks、完整生产链路、目标可行性、共享接口、复用接线、工具/读写授权的输入齐备且未漂移 | Ledger 登记并绑定 assign，Implementer 直接开工，发现缺项仍可自报 blocked 退回；锁、依赖、版本门禁在派发时执行 |
 | 构建派发后、执行前 | building / Test Runner | 已接受代码、冻结构建命令、目标/JDK/SDK/Gradle 环境、工具与权限，不要求自动化设备 | ready 报告绑定 assign(test_scope=build) 后执行 |
 | Main 派发后、执行前 | testing / Test Runner | 需求与 PATH、已接受代码、真实提供方、适配器、环境/数据/账号条件、工具与权限 | ready 报告绑定 assign 后执行；执行器再核对批准 argv/cwd/环境证据 |
@@ -28,7 +27,7 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 
 ## 3. 报告与传递
 
-只有 worker 阶段（building、testing、fixing、audit-testing/audit-execution、test-design）由执行者写报告；模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256 与必需检查项取自步骤视图（`status --view step`）的 `context`；checks 的键必须与其 required_checks 完全一致。同一文件被多次引用时，在报告顶层 `refs` 写一次，`evidence_refs` 写其 id。
+只有 worker 阶段（building、testing、fixing、audit-testing/audit-execution）由执行者写报告；模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256 与必需检查项取自步骤视图（`status --view step`）的 `context`；checks 的键必须与其 required_checks 完全一致。同一文件被多次引用时，在报告顶层 `refs` 写一次，`evidence_refs` 写其 id。
 
 报告包含：
 

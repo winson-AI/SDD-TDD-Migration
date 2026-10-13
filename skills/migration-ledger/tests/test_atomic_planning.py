@@ -3,7 +3,6 @@ import copy
 import unittest
 
 import test_decomposition
-import test_design_stage
 import ledger
 import workflow
 import design_stage
@@ -140,16 +139,6 @@ class AtomicPlanningTests(unittest.TestCase):
             self.assertEqual(after[key], before[key])
         self.assertIsNotNone(after.get('execution_context_ref'))
         ledger.decomposition.check_module_plan(f.state(), after, after['plan'])
-
-    def test_sibling_split_preserves_inflight_independent_test_design(self):
-        f = self.f; self.pending_root(); f.global_plan()
-        plan = f.plan(); a, result = test_design_stage.start_design(f, plan)
-        self.split_pending(); f.global_plan()
-        m = f.state()['modules']['M001']
-        self.assertTrue(design_stage.valid(f.state(), m, m['assignments'][a['assignment_id']]))
-        test_design_stage.submit_design(f, a, result)
-        f.call('accept', {'assignment_id': a['assignment_id'], 'review_ref': f.ref('design-review.md', 'Path coverage verified')})
-        self.assertTrue(f.state()['modules']['M001']['accepted_test_design'])
 
     def test_replanning_is_history_and_requires_new_freeze(self):
         f = self.f; f.root_scope(); self.submit_atomic(); self.accept_atomic(); f.global_plan()

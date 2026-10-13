@@ -96,7 +96,7 @@ def _step(st, module_id):
     gate = slim.pop('context_gate', None)
     operation = step.get('operation')
     if operation == 'await-result':  # a running worker reports first if its report is still owed, then submits
-        operation = 'context-submit' if gate and step.get('mode') != 'design' else 'submit'
+        operation = 'context-submit' if gate else 'submit'
     out = {'view': 'step', 'run_id': st['run_id'], 'last_sequence': st['last_sequence'], 'step': slim, 'cards': cards,
            # The envelope of the request this step asks for.
            'request': {'schema_version': 1, 'run_id': st['run_id'], 'module_id': module_id, 'expected_revision': revision,
@@ -127,7 +127,7 @@ def _step(st, module_id):
         scope = ledger.audit_scope(st)
         out['audit_input'] = {'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],
             'paths': scope['plan']['paths'], 'code_files': scope['code_files'], 'results': scope['results']}
-    if operation in reading.PLANNING_OPERATIONS or step.get('mode') == 'design':
+    if operation in reading.PLANNING_OPERATIONS:
         out['planning_context'] = _standing(st, module_id)
         out['history_refs'] = {'lessons': m.get('planning_lessons_ref') if module_id else st.get('lessons_ref')}
         if operation in ('run-review', 'revise-run'):

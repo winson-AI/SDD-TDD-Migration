@@ -12,7 +12,6 @@ CHECKS = {
     'global-planning': ('global-inputs', 'feature-inventory', 'allocation-coverage', 'interfaces-ownership', 'reuse-sources'),
     'decomposition': ('global-inputs', 'feature-inventory', 'assigned-scope', 'source-target', 'interfaces-ownership', 'reuse-sources'),
     'planning': ('global-inputs', 'feature-inventory', 'assigned-scope', 'source-closure', 'target-feasibility', 'interfaces-ownership', 'test-design', 'reuse-mapping'),
-    'test-design': ('assigned-scope', 'spec-cases', 'task-coverage', 'independence'),
     'coding': ('frozen-spec', 'task-trace', 'source-closure', 'target-feasibility', 'interfaces-ownership', 'reuse-mapping', 'permissions-tools'),
     'building': ('frozen-spec', 'accepted-code', 'build-command', 'build-environment', 'permissions-tools'),
     'testing': ('frozen-spec', 'test-paths', 'accepted-code', 'provider-binding', 'test-environment', 'permissions-tools'),
@@ -26,7 +25,7 @@ CHECKS['audit-execution'] = CHECKS['audit-testing']
 ROLES = {stage: ('auditor' if stage.startswith('audit-') else
                  'global-orchestrator' if stage.startswith('global-') else
                  {'decomposition': 'module-orchestrator', 'planning': 'spec-designer',
-                  'coding': 'implementer', 'building': 'test-runner', 'testing': 'test-runner', 'test-design': 'test-runner', 'fixing': 'fixer'}[stage])
+                  'coding': 'implementer', 'building': 'test-runner', 'testing': 'test-runner', 'fixing': 'fixer'}[stage])
          for stage in CHECKS}
 ROLES['audit-execution'] = 'test-runner'
 GLOBAL = {stage for stage in CHECKS if stage.startswith(('global-', 'audit-'))}
@@ -266,13 +265,6 @@ def standing_refs(s, mid, stage, read=CURRENT):
         refs.append(slicing_skill(s))
     if mid:
         m = scope(s, mid)
-        if stage == 'test-design' and m.get('design_input_ref'):
-            refs.append(m['design_input_ref'])
-            assignment = next((a for a in reversed(list(m['assignments'].values()))
-                               if a.get('mode') == 'design'), {})
-            refs += assignment.get('input_refs', [])
-        if stage == 'planning' and m.get('accepted_test_design'):
-            refs.append(m['accepted_test_design']['result_ref'])
         refs += m.get('context_refs', [])
         if m.get('dimension_analysis_ref'):
             refs.append(m['dimension_analysis_ref'])
@@ -364,10 +356,6 @@ def submit(s, req, actor):
     require(report.get('schema_version') == 1 and report.get('run_id') == s['run_id'] and report.get('module_id') == mid,
             'context report run/module mismatch')
     require(report.get('producer') == actor, 'context producer identity mismatch')
-    if stage == 'test-design':
-        m = scope(s, mid)
-        require(any(a.get('mode') == 'design' and not a.get('closed') and a['instance_id'] == actor['instance_id']
-                    for a in m['assignments'].values()), 'test-design context requires active design assignment')
     # A blocked report authorizes nothing: one a worker wrote before its subject moved still hands its dispatch back.
     require(report.get('subject_sha256') == subject(s, mid, stage)
             or (report.get('verdict') == 'blocked' and stage in set(WORKERS.values()) | {'building'}), 'context subject stale')
@@ -419,8 +407,6 @@ def requirement(op, p, s=None):
         from ledger import audit_scope
         return 'audit-testing' if audit_scope(s)['plan']['paths'] else 'audit-verdict'
     if op == 'assign':
-        if p.get('mode') == 'design':
-            return None  # MO commits design inputs first; designer preflights before submit.
         return 'building' if p.get('role') == 'test-runner' and p.get('test_scope') == 'build' else WORKERS.get(p.get('role'))
     return {'register': 'global-discovery', 'global-plan': 'global-planning', 'source-review': 'global-planning', 'run-review': 'global-planning',
             'decompose': 'decomposition', 'decompose-accept': 'decomposition',
@@ -472,8 +458,6 @@ def owed(s, mid, step):
     """The stage a running worker still has to report on: a designer's report rides its submit, any other
     worker's report authorizes the work and is owed until it is bound to the assignment."""
     assignment = scope(s, mid).get('assignments', {}).get(step.get('assignment_id')) or {}
-    if assignment.get('mode') == 'design':
-        return 'test-design'
     return None if assignment.get('context_ref') else requirement('assign', assignment)
 
 
@@ -513,7 +497,7 @@ def requirements(s):
         return {}
     result = {}
     for mid in [None, *s['modules']]:
-        stages = GLOBAL if mid is None else ('decomposition',) if s['modules'][mid].get('decomposition_required') else ('planning', 'test-design', 'coding', 'building', 'testing', 'fixing')
+        stages = GLOBAL if mid is None else ('decomposition',) if s['modules'][mid].get('decomposition_required') else ('planning', 'coding', 'building', 'testing', 'fixing')
         result[mid or 'GLOBAL'] = {stage: {'subject_sha256': subject(s, mid, stage),
             'producer_role': ROLES[stage], 'required_checks': list(CHECKS[stage]),
             'required_input_refs': input_refs(s, mid, stage), **inputs(s, mid, stage)} for stage in sorted(stages)}

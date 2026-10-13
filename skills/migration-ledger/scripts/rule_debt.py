@@ -23,7 +23,6 @@ def collect(s):
 
     import api_contract
     import behavior_contract
-    import design_stage
     import dimensions
     import resource_fidelity
     import ui_fidelity
@@ -37,10 +36,6 @@ def collect(s):
         behavior_contract.review(m, m.get('behavior_review'))
         if leaf:
             behavior_contract.verification(m)
-
-    def design(m):
-        record = m['accepted_test_design']
-        design_stage.result_check(s, m, m['assignments'][record['assignment_id']], read_json(check_ref(record['result_ref'])))
 
     def plan(m):
         validate_plan(m['plan'], m)
@@ -60,8 +55,6 @@ def collect(s):
             judge(gid, 'split', lambda: behavior_contract.independence(
                 group, children, graph, read_json(check_ref(group['decomposition_ref']))))
     for mid, m in s['modules'].items():
-        if design_stage.required(s, m) and m.get('accepted_test_design'):
-            judge(mid, 'test-design', lambda: design(m))
         if m.get('plan'):
             judge(mid, 'plan', lambda: plan(m))
     if s.get('planning_coverage_required'):

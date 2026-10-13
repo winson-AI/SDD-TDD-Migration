@@ -96,7 +96,6 @@ OPS = {
     ('auditor', 'code-review'): [(P + 'audit-code-review.md', None)] + sections('audit-scope.md', '总则', '入口与范围', '代码治理前置'),
 }
 TEST_SCOPE = {
-    'design': sections('testing.md', '编码前设计交接', 'query', '逻辑单测', '静态规格闭合'),
     'build': sections('build-automation.md', '总则', '3. 冻结路径与分阶段证据')
     + sections('testing.md', '断言与结果', '逻辑单测', '静态规格闭合'),
     'automation': sections('build-automation.md', '总则') + sections('testing.md', '断言与结果', '本地执行与严格结果验收')
@@ -242,7 +241,7 @@ MODE_BLOCKS = {'### 设计', '### 构建', '### 单测与静态审查', '### 自
 # Build and automation are two stages of one executing Test-Runner, run one after the other: it is handed the role text
 # of both once, so the second stage adds only the sections that stage needs.
 EXECUTE_MODES = ('### 构建', '### 单测与静态审查', '### 自动化', '## 10. 移动端执行器')
-TEST_MODES = {'design': ('### 设计',), 'build': EXECUTE_MODES, 'automation': EXECUTE_MODES, 'visual': EXECUTE_MODES}
+TEST_MODES = {'build': EXECUTE_MODES, 'automation': EXECUTE_MODES, 'visual': EXECUTE_MODES}
 
 
 def _mode_blocks(text, modes):
@@ -291,7 +290,7 @@ def matrix_keys():
 
 def execution_selection(m, step):
     """Accepted contracts take precedence over caller-supplied advisory selectors."""
-    if not m or (step.get('worker_role') or step.get('role')) not in ('implementer', 'fixer', 'test-runner') or step.get('mode') == 'design': return None
+    if not m or (step.get('worker_role') or step.get('role')) not in ('implementer', 'fixer', 'test-runner'): return None
     assignment = m.get('assignments', {}).get(step.get('assignment_id'), {})
     selection = assignment.get('execution_contract') or step.get('execution_contract') or step.get('payload') or step
     tasks = set(selection.get('task_ids', [])); plan = m.get('plan') or {}
@@ -447,7 +446,7 @@ def card(s, m, step):
     chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry,
                      lean=lean and role in ('fixer', 'implementer'), rows=rows, facts=facts)
     chosen += reasoning_sections(m)
-    if role == 'spec-designer' or (step.get('mode') == 'design' and role == 'module-orchestrator'):
+    if role == 'spec-designer':
         chosen += sections('testing.md', '编码前设计交接')
     if (role == 'module-orchestrator' and (m or {}).get('change_request') and operation in ('plan-review', 'freeze')
             or role == 'auditor' and any(x.get('task_revalidation', {}).get('mode') == 'partial' for x in s.get('modules', {}).values())):
@@ -510,7 +509,7 @@ MO_TEMPLATES = {'freeze': ['checklist.md', 'plan-review.json', 'change-impact.js
                 'change': ['change-impact.json'], 'complete': ['checklist.md', 'status.md'],
                 'decompose': ['module-decomposition.json', 'dimension-analysis.json', 'batch-envelope.json'],
                 'module-summary': ['status.md'], 'suspend': ['implementation-gap.json', 'status.md'],
-                'assign': ['test-design-input.json', 'execution-assignment.json'], 'accept': ['status.md'], 'diagnosis-accept': ['status.md']}
+                'assign': ['execution-assignment.json'], 'accept': ['status.md'], 'diagnosis-accept': ['status.md']}
 SCOPE_TEMPLATES = {'build': ['test-adapter.json'], 'automation': ['test-adapter.json', 'harmony-test-adapter.json', 'harmony-config.json', 'interaction-evidence.json'],
                    'visual': ['visual-test-path.json', 'visual-alignment.json', 'visual-capture-execution.json', 'visual-test-adapter.json',
                               'visual-execution.json', 'visual-request.json']}
@@ -542,8 +541,6 @@ def templates(s, m, step):
             names.append('task-independence.json')
     if role == 'test-runner':
         names += SCOPE_TEMPLATES.get(step.get('test_scope'), [])
-    if step.get('mode') == 'design':
-        names = ['test-design-input.json', 'test-design-result.json', 'test-paths.json', 'harmony-test-path.json', 'context-readiness.json']
     reuse = reuse_applies(s, m, role)
     facts = topic_facts(s, m, step)
     active = {'reuse': reuse, 'telemetry': telemetry_scope(role, m), 'ui': facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'),
@@ -555,7 +552,7 @@ def templates(s, m, step):
         if facts['api']: names += ['api-inventory.json']
         if facts['parameters']: names += ['parameter-binding.json']
     unwritten = set()
-    if role == 'spec-designer' and step.get('mode') != 'design' and (m or {}).get('dimension_analysis_ref'):
+    if role == 'spec-designer' and (m or {}).get('dimension_analysis_ref'):
         # The leaf's analysis is registered: a refinement starts from that file, not from the template; the model template
         # is for a leaf that has a screen to give evidence for; the four documents start from spec_skeleton.py, and an
         # impact statement belongs to a change request.

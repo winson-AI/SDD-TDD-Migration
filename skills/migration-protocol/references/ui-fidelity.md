@@ -12,7 +12,7 @@ UI scope 使用可校验载体：
 
 ### 稳定截图目标与瞬态行为
 
-GO/父 MO 在范围分配时保留全部源状态；子 MO 的 Spec-Designer 与 Test-Runner design 在冻结前区分两类验证义务，并在已有 SPEC/test-design 中逐状态记录源码依据、验证方式和 PATH/ASSERT：
+GO/父 MO 在范围分配时保留全部源状态；子 MO 的 Spec-Designer 在冻结前区分两类验证义务，并在已有 SPEC/test-design 中逐状态记录源码依据、验证方式和 PATH/ASSERT：
 
 | 状态 | 实现与验证 | 截图要求 |
 | --- | --- | --- |

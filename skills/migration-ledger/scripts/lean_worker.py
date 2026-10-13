@@ -94,7 +94,7 @@ def assignment(state, request, actor):
     require(task and not task.get('closed', True) and task.get('assignment_id') == request.get('assignment_id'),
             'active assignment required')
     require(task.get('role') == actor['role'] and task.get('instance_id') == actor['instance_id'], 'assignment owner mismatch')
-    if mid != 'GLOBAL' and task.get('mode') != 'design':
+    if mid != 'GLOBAL':
         require(task.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
     require(task.get('fencing_token') == request.get('fencing_token'), 'stale fencing token')
     require(task.get('freeze_id') == module.get('freeze_id') or mid == 'GLOBAL',
