@@ -252,7 +252,7 @@ class ReadingCardTests(unittest.TestCase):
         for role in reading.ROLE:
             for scope in (list(reading.TEST_SCOPE) if role == 'test-runner' else [None]):
                 for op in (None, 'audit-code-review', 'audit-plan', 'audit-assign', 'source-review', 'register'):
-                    reachable |= {p for p, h in reading.entries(role, scope, True, True, op, True, True) if h in ('总则', None)}
+                    reachable |= {p for p, h in reading.entries(role, scope, True, True, op, True, True, readiness=True) if h in ('总则', None)}
         host_only = {reading.P + 'host-integration.md', reading.P + 'model-routing.md', reading.P + 'watchdog.md'}
         missing = sorted(path for path in wanted if path not in reachable and path not in host_only)
         self.assertEqual(missing, [])

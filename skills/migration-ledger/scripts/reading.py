@@ -36,11 +36,17 @@ def sections(name, *headings):
     return [(P + name, heading) for heading in headings]
 
 
-# Every card carries the red lines, the rules of the shared protocol (not its notes on where it sits, assets
-# or topics, which the card itself answers) and the three rules that apply to every dispatch.
+# Every card carries the red lines and the rules of the shared protocol (not its notes on where it sits, assets
+# or topics, which the card itself answers). The other general sections ride only where they apply.
 SHARED = 'skills/migration-protocol/SKILL.md'
-CORE = [('AGENTS.md', '四条红线')] + [(SHARED, h) for h in ('2. 核心规则', '3. 模式', '4. 取用', '5. 检查', '7. 业务边界与阶段验收', '通用约定')] + sections(
-    'runtime.md', '总则', '渐进加载') + sections('context-readiness.md', '总则') + sections('storage-layout.md', '总则')
+CORE = [('AGENTS.md', '四条红线')] + [(SHARED, h) for h in ('2. 核心规则', '3. 模式', '4. 取用', '5. 检查', '通用约定')]
+CONTROLLER = sections('runtime.md', '总则', '渐进加载')          # who runs the controller or resumes a session
+BOUNDARY = [(SHARED, '7. 业务边界与阶段验收')]                   # who judges business boundaries and stage acceptance
+WRITERS = sections('storage-layout.md', '总则')                  # who writes files under the run
+READINESS = sections('context-readiness.md', '总则')             # a run that requires readiness reports
+CONTROLLER_ROLES = ('global-orchestrator', 'module-orchestrator')
+BOUNDARY_ROLES = CONTROLLER_ROLES + ('auditor', 'escalation')
+WRITER_ROLES = ('spec-designer', 'implementer', 'fixer', 'test-runner', 'diagnostician', 'auditor')
 ROLE = {
     'global-orchestrator': ['Agents/global-orchestrator.md', 'skills/migration-global/SKILL.md'],
     'module-orchestrator': ['Agents/module-orchestrator.md', 'skills/migration-module/SKILL.md'],
@@ -353,9 +359,15 @@ def reasoning_sections(m):
     return []
 
 
-def entries(role, test_scope=None, ui=False, reuse=False, operation=None, telemetry=False, lean=False, rows=(), facts=None):
+def entries(role, test_scope=None, ui=False, reuse=False, operation=None, telemetry=False, lean=False, rows=(), facts=None, readiness=False):
     agent, skill = ROLE.get(role, [None, None])
     items = list(CORE) + [(agent, None)] + skill_sections(skill, test_scope) + STEP.get(role, [])
+    if role in CONTROLLER_ROLES or operation == 'session':
+        items += CONTROLLER
+    if role in BOUNDARY_ROLES:
+        items += BOUNDARY
+    if role in WRITER_ROLES:
+        items += WRITERS
     items += op_sections(role, operation)
     if operation == 'assign' and role == 'module-orchestrator':
         items += sections('runtime.md', '显式执行任务')
@@ -393,6 +405,8 @@ def entries(role, test_scope=None, ui=False, reuse=False, operation=None, teleme
         items += TELEMETRY
     if lean:
         items += LEAN
+    if readiness:
+        items += READINESS
     seen, out = set(), []
     for item in items:
         if item not in seen:
@@ -444,7 +458,7 @@ def card(s, m, step):
     self_checked = bool(s.get('context_readiness_required')) and role == 'implementer' and bool(step.get('worker_role'))
     rows = ([operation] if operation else []) + ((['submit'] if self_checked else ['context-submit', 'submit']) if step.get('worker_role') else [])
     chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry,
-                     lean=lean and role in ('fixer', 'implementer'), rows=rows, facts=facts)
+                     lean=lean and role in ('fixer', 'implementer'), rows=rows, facts=facts, readiness=bool(s.get('context_readiness_required')))
     chosen += reasoning_sections(m)
     if role == 'spec-designer':
         chosen += sections('testing.md', '编码前设计交接')
