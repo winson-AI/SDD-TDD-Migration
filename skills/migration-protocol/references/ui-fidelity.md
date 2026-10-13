@@ -24,7 +24,7 @@ GO/父 MO 在范围分配时保留全部源状态；子 MO 的 Spec-Designer 在
 
 ## UI 证据绑定
 
-`ui-component-spec` 语义模型携带 `ui_evidence`，随冻结经 [semantics.py](../../migration-ledger/scripts/semantics.py) 结构校验：
+`ui-component-spec` 语义模型携带 `ui_evidence`，随冻结经 [semantics.py](../../migration-ledger/scripts/semantics.py) 结构校验；UI 证据与采集器产物（参数表、UI 树与索引）以引用进入计划、不内联，重提只改引用：
 
 `ui_evidence` 字段：`capture_manifest_ref`、`source_index_ref`、`runtime_index_ref`（source-only 不提供）、`ui_tree_ref`（合并 source+runtime 的 UI 树）、`coverage`（page:state:coverage）、`legacy_executable`（冻结前判定存量能否预览）、`visual_mode`（runtime ⟺ 可预览，须与树的 runtimeIndex 一致）、`baseline_refs`（存量截图，source-only 省略）与可选 `resource_scope`；同一模型可带 `interactions`、`image_checks` 与 `image_check_waivers`。示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
