@@ -101,7 +101,7 @@ def _step(st, module_id):
            # The envelope of the request this step asks for.
            'request': {'schema_version': 1, 'run_id': st['run_id'], 'module_id': module_id, 'expected_revision': revision,
                        'operation': operation}}
-    out['open_issues'], out['standing_rules'] = issues.of_module(st, module_id)
+    out['open_issues'], out['standing_rules'] = [[issues.brief(row) for row in rows] for rows in issues.of_module(st, module_id)]
     if gate:  # one object says what the preflight report of this stage must contain and which reports exist
         required = dict(st['context_requirements'].get(module_id or 'GLOBAL', {}).get(gate['stage'], {}))
         required.pop('required_input_refs', None)  # the Ledger derives them; the step carries their count and digest

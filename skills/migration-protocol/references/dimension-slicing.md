@@ -66,7 +66,7 @@ GO 先从功能清单划定“搜索”模块 scope，再在 UI 记录搜索框/
 
 ## 7. 任务级四维分析契约
 
-子 MO 先为每个 task 定义 `scope.in/out/write_paths`：具体负责的行为、排除内容、允许写入的目标路径。保留子模块排除项，写范围不得超出认领子模块。随后填写 `dimension_analysis`：它分析所在 task 的 scope，继承认领子模块 dimension_analysis_ref 的源码/架构/二方库/目标能力证据，再补任务针对性分析；范围变化必须重新分析并重新冻结。
+子 MO 先为每个 task 定义 `scope.in/out/write_paths`：具体负责的行为、排除内容、允许写入的目标路径。保留子模块排除项，写范围不得超出认领子模块。`in` 与本任务新增的 `out` 各不超过 3 条、每条不超过 300 字符，细节写在 design.md/tasks.md。随后填写 `dimension_analysis`：它分析所在 task 的 scope，继承认领子模块 dimension_analysis_ref 的源码/架构/二方库/目标能力证据，再补任务针对性分析；范围变化必须重新分析并重新冻结。
 
 - `dimensions`：UI/Logic/Adhesive/Resource 四行，分别填写 status、reason、item_ids；evidence_refs 可省，省略时认领的 dimension_analysis_ref 即证据，另有证据才写。item_ids 与 dimension_trace 分配到该任务且同维度的条目一致。
 - applicable 行必须填写 `implementation`：具体改哪些行为/节点/接口、如何复用或适配、怎样接线、怎样保留源语义，不得只写“完成本维度”。验证沿用该任务已冻结的 PATH/ASSERT。

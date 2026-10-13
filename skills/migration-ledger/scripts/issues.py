@@ -11,6 +11,8 @@ import hashlib
 OPS = {'issue', 'issue-resolve'}
 KINDS = ('defect', 'fact', 'gap', 'need', 'decision', 'standing')
 LEDGER = {'role': 'ledger', 'instance_id': 'ledger'}
+SUMMARY_CHARS = 400  # an issue is stated in one line; its detail is in evidence_refs
+STEP_CHARS = 200     # what a step view shows of each line
 
 
 def handle(s, req, actor):
@@ -27,6 +29,7 @@ def handle(s, req, actor):
             require(isinstance(iid, str) and iid.strip() and iid not in issues and iid not in judged, 'issue_id must be new')
             require(e.get('kind') in KINDS, 'issue kind is one of ' + ', '.join(KINDS))
             require(isinstance(e.get('summary'), str) and e['summary'].strip(), 'issue summary required')
+            require(len(e['summary'].strip()) <= SUMMARY_CHARS, f'an issue summary is at most {SUMMARY_CHARS} characters; the detail goes in evidence_refs')
             require(isinstance(targets, list) and targets and set(targets) <= set(s['modules']) | set(s.get('module_groups', {})),
                     'issue applies_to names the registered modules it concerns')
             require(not (e.get('blocks') and e['kind'] == 'standing'), 'a standing rule is followed, not settled; it cannot block')
@@ -81,6 +84,12 @@ def of_module(s, mid=None):
             for iid, issue in sorted(s.get('issues', {}).items()) if mid is None or mid in issue['applies_to']]
     standing = [row for row in rows if row['kind'] == 'standing']
     return [row for row in rows if row['kind'] != 'standing' and (mid in row['open_for'] if mid else row['open_for'])], standing
+
+
+def brief(row, limit=STEP_CHARS):
+    """A row as a step view shows it: the head of the line; the state keeps the whole line."""
+    text = row['summary']
+    return row if len(text) <= limit else {**row, 'summary': text[:limit - 1] + '…'}
 
 
 def owe(s, mid, gaps, renewed=False):
