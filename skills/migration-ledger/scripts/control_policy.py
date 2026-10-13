@@ -14,18 +14,24 @@ def acceptance_hash(m):
     return digest(acceptance(paths))
 
 
+def acceptance_digests(paths):
+    """Per-path and per-assertion digests of the frozen acceptance: enough to verify that a revision keeps every expectation,
+    without carrying the paths' text in the state."""
+    return {path['path_id']: {'shape': digest({k: v for k, v in path.items() if k != 'expected_assertions'}),
+                              'assertions': {a['assertion_id']: digest(a) for a in path['expected_assertions']}}
+            for path in acceptance(paths)}
+
+
 def preserves_acceptance(m):
     """Add coverage for original expectations; never erase or weaken frozen obligations."""
     if not m.get('approved_acceptance') or m['approved_acceptance'] == acceptance_hash(m): return True
-    old = m.get('approved_test_paths')
+    old = m.get('approved_acceptance_digests')
     if old is None: return False
-    current = keyed(acceptance(m['plan']['paths']), 'path_id')
-    for path in old:
-        new = current.get(path['path_id'])
-        if new is None or {k: v for k, v in path.items() if k != 'expected_assertions'} != {
-                k: v for k, v in new.items() if k != 'expected_assertions'}: return False
-        assertions = keyed(new['expected_assertions'], 'assertion_id')
-        if any(assertions.get(a['assertion_id']) != a for a in path['expected_assertions']): return False
+    current = acceptance_digests(m['plan']['paths'])
+    for path_id, frozen in old.items():
+        new = current.get(path_id)
+        if new is None or new['shape'] != frozen['shape']: return False
+        if any(new['assertions'].get(aid) != d for aid, d in frozen['assertions'].items()): return False
     return bool(old)
 
 

@@ -29,9 +29,9 @@ class JournalPatchTests(unittest.TestCase):
         f = self.repaired_run()
         state, events = ledger.read_events(f.root)
         projected = json.loads((f.root / 'ledger/global.json').read_text())
-        for extra in ('last_sequence', 'parent_mo_names'):
-            projected.pop(extra)
-        self.assertEqual(state, projected)
+        self.assertEqual(ledger.global_projection(state, projected['last_sequence']), projected)
+        self.assertNotIn('plan', projected['modules']['M001'])  # the body is in the module's projection
+        self.assertEqual(json.loads((f.root / 'ledger/modules/M001.json').read_text())['plan'], state['modules']['M001']['plan'])
         self.assertEqual(state['modules']['M001']['phase'], 'completed')
         self.assertIn('effect', events[0]); self.assertNotIn('patch', events[0])
         self.assertTrue(all('patch' in e and 'effect' not in e for e in events[1:]))

@@ -296,8 +296,7 @@ def inspect(run_root, scope='projection', module_id=None):
                 fail('parent-allocation', exc, 'module', mid, REPLAN)
     if scope != 'module':
         decomposition.refresh_groups(observed_state, ref_check)
-        compare(root / 'ledger/global.json', {**observed_state, 'last_sequence': sequence,
-                'parent_mo_names': decomposition.parent_mo_names(observed_state)}, 'global-state', structured=True)
+        compare(root / 'ledger/global.json', ledger.global_projection(observed_state, sequence), 'global-state', structured=True)
     expected_state = {**observed_state, 'projection_steps': {
         mid: ledger.next_step(observed_state, observed_state['modules'][mid])
         for mid in selected if mid in observed_state['modules']}}

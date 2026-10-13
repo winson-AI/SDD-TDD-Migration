@@ -63,7 +63,7 @@ MO plan-review 可附 [task-independence.json](../../../template/task-independen
 
 MO 审核或所需 Human 决定绑定 Ledger 补全后的 stage-plan digest，执行绑定 freeze_id。证据/状态更新不改定义。within-envelope 保留原 envelope 及完整 PATH/预期断言集合；命令/显示名属技术规划，变更仍需 CR/新冻结和执行证据，MO 审阅后发布新执行基线，不伪造新人工批准。
 
-快速通道使用 [change-impact.json](../../../template/change-impact.json)，绑定 from_freeze_id、to_plan_hash。只有当前 CR 的同一 impact_ref 能冻结该计划；再次修改需重审，散文记录不授权再冻结。成功后 CR 与旧 plan/执行证据进入不可执行的 change_request_history；invalidate 随 planning_history 留存并清除当前 CR。
+快速通道使用 [change-impact.json](../../../template/change-impact.json)，绑定 from_freeze_id、to_plan_hash。只有当前 CR 的同一 impact_ref 能冻结该计划；再次修改需重审，散文记录不授权再冻结。成功后 CR 进入不可执行的 change_request_history，旧 plan 只以 plan_ref/plan_hash 引用，旧执行证据随之留存；invalidate 随 planning_history 留存并清除当前 CR。
 
 纯技术规划调整由 MO 提交不改变既有决定的证据。
 

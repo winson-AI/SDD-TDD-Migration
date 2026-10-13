@@ -41,7 +41,7 @@
 │       │   └── revisions/<sha256>.json    # 同 run 来源追加时产生
 │       ├── ledger/
 │       │   ├── events.jsonl              # 只追加的唯一状态事实
-│       │   ├── global.json               # 全局状态、规划、审计等投影
+│       │   ├── global.json               # 全局状态投影；模块 plan 只以 plan_ref 引用
 │       │   ├── modules/<module_id>.json   # 父/子 MO，含分配/assignment/结果
 │       │   ├── repair-memory.json        # 修复策略、根因、回归证据
 │       │   ├── progress.json             # 查询时生成的宿主进度信号

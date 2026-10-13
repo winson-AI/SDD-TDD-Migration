@@ -188,9 +188,15 @@ def model_usage(s):
     return rows
 
 
+def global_projection(s, sequence):
+    """The run-wide projection names each module's plan by `plan_ref`; the plan body lives in the module's own projection."""
+    return {**s, 'last_sequence': sequence, 'parent_mo_names': decomposition.parent_mo_names(s),
+            'modules': {mid: {k: v for k, v in m.items() if k != 'plan'} for mid, m in s['modules'].items()}}
+
+
 def project(root, s, sequence):
     errors = []
-    project_attempt(errors, 'global-state', lambda: atomic(root / 'ledger/global.json', {**s, 'last_sequence': sequence, 'parent_mo_names': decomposition.parent_mo_names(s)}))
+    project_attempt(errors, 'global-state', lambda: atomic(root / 'ledger/global.json', global_projection(s, sequence)))
     project_attempt(errors, 'model-usage', lambda: atomic(root / 'ledger/model-usage.json', {'sequence': sequence, 'usage': model_usage(s),
                                                                                           'hint_adoption': hint_adoption(s)}))
     for mid, m in s['modules'].items():
@@ -355,7 +361,7 @@ def open_change(s, m, request):
         key: copy.deepcopy(m.get(key)) for key in ('plan_ref', 'plan_hash', 'plan', 'accepted_test_design')}
     previous_revalidation = current_request.get('previous_revalidation') if current_request else m.pop('task_revalidation', None)
     # Existing coded work is updated under the next freeze. Design assistance is opt-in again.
-    m.setdefault('approved_test_paths', copy.deepcopy(control_policy.acceptance(m['plan']['paths'])))
+    m.setdefault('approved_acceptance_digests', control_policy.acceptance_digests(m['plan']['paths']))
     m.pop('accepted_test_design', None)
     m.pop('test_design_required', None)
     m.update(phase='change-review', stale=True, change_request={**request, 'from_freeze_id': m['freeze_id'],
@@ -1549,12 +1555,15 @@ def mutate(s, req, principal, events, root=None):
             m['approved_envelope'] = digest(m['plan']['decision_envelope'])
             m['approved_acceptance_kind'] = 'business'
             m['approved_acceptance'] = control_policy.acceptance_hash(m)
-        m['approved_test_paths'] = copy.deepcopy(control_policy.acceptance(m['plan']['paths']))
+        m['approved_acceptance_digests'] = control_policy.acceptance_digests(m['plan']['paths'])
         if m.get('change_request'):
             revalidation = task_revalidation.prepare(m, p.get('review_ref'))
             prior_execution = {key: copy.deepcopy(m.get(key)) for key in
                 ('code_files', 'code_baseline', 'accepted_task_ids', 'task_files', 'results', 'dimension_evidence', 'build_artifacts')}
-            m.setdefault('change_request_history', []).append({**m.pop('change_request'), 'to_freeze_id': m['plan_hash'],
+            closed = m.pop('change_request')
+            # The revalidation above read the previous plan's body; the history names that plan by reference and hash.
+            m.setdefault('change_request_history', []).append({**closed, 'to_freeze_id': m['plan_hash'],
+                'previous_plan': {k: v for k, v in (closed.get('previous_plan') or {}).items() if k != 'plan'},
                 'kind': 'planning-history', 'executable': False, 'prior_execution': prior_execution})
             retained = set(revalidation['retained_task_ids'])
             # No TASK changed: the code already accepted implements the revised contract, so the leaf goes on to rebuild it.
