@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1452 | 全量通过，零失败/错误/跳过；本轮撤掉编码前测试设计派发，删除只为它存在的 24 项测试，走资产与覆盖的 6 项改为经 Spec-Designer 的计划 |
+| migration-ledger/tests | 1450 | 全量通过，零失败/错误/跳过；本轮删除 lean_leaf 的 2 项测试，独立性与一持有者测试改按脚手架种类 |
 | migration-test/tests | 70 | 全量通过；本轮未改适配器 |
 | runtime/harmony/tests | 128 | 全量通过；本轮未改运行内核 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮撤掉 Test-Runner 的编码前设计派发：叶子的测试设计就是 Spec-Designer 随计划提交的 upstream-test-plan，Ledger 据它补全 PATH 与资产；mode=design 的派发、输入、报告、接受、就绪阶段、模板与卡片一并删除，没有任何步骤再等它。
+本轮合并切片概念：不验收任何 CASE 的切片即脚手架（kind: scaffold），supporting_slices 取消；independence_review 只在某 CASE 的界面与逻辑分属两叶时要求，依赖链与等待比例不再触发；lean_leaf 登记取消，原子根由 GO 直接登记为叶子或由 MO 确认（atomic-leaf），本地自诊断只由运行级选项决定；规则欠账按切片标准重判已登记的拆分。
 
-协议体积为 533847 / 536500 字节，最大单文件 31626 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 47579 / 60000 字节，最大模板组合 50300 / 56200 字节；拒绝消息带小节指引的比例 83.1%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 533575 / 536500 字节，最大单文件 31626 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 47579 / 60000 字节，最大模板组合 50300 / 56200 字节；拒绝消息带小节指引的比例 83.1%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 

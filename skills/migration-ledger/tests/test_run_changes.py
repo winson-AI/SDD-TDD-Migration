@@ -111,7 +111,7 @@ class RootRevisionTests(unittest.TestCase):
 
     def test_atomic_root_can_request_go_review_and_decision_is_mandatory(self):
         f = self.f
-        root = self.update('M010'); root.update(module_id='M020', lean_leaf=True, leaf_review_ref=f.ref('leaf.md', 'Atomic root'))
+        root = self.update('M010'); root.update(module_id='M020', leaf_review_ref=f.ref('leaf.md', 'Atomic root'))
         f.call('register', root, role='global-orchestrator', module=None)
         f.call('realloc-request', {'reason': 'Root slice conflict', 'evidence_refs': [f.ref('conflict.md', 'Cross-root overlap')]}, module='M020')
         self.assertEqual(f.state()['global_next_step']['operation'], 'run-review')
@@ -125,7 +125,7 @@ class RootRevisionTests(unittest.TestCase):
 
     def test_atomic_dependency_revision_recommends_global_coverage_review(self):
         f = self.f
-        root = self.update('M010'); root.update(module_id='M020', lean_leaf=True, leaf_review_ref=f.ref('atomic.md', 'Atomic root'))
+        root = self.update('M010'); root.update(module_id='M020', leaf_review_ref=f.ref('atomic.md', 'Atomic root'))
         f.call('register', root, role='global-orchestrator', module=None); f.global_plan()
         update = self.update('M020'); update['dependencies'] = ['M001']
         self.apply(self.report([update]))

@@ -29,7 +29,7 @@ class DependencyShapeTests(unittest.TestCase):
         plan['children'][0]['kind'] = 'scaffold'
         f.call('decompose', {'plan_ref': f.ref('scaffolded.json', plan)}, module='M010')
         f.call('decompose-accept', {'review_ref': f.ref('review.md', 'reviewed')}, role='global-orchestrator', module='M010')
-        self.assertEqual((f.state()['modules']['M001']['kind'], f.state()['modules']['M002'].get('kind')), ('scaffold', None))  # the kind is registered
+        self.assertEqual((f.state()['modules']['M001']['kind'], f.state()['modules']['M002']['kind']), ('scaffold', 'scaffold'))  # the kind is registered; M002 accepts no case, so it is a scaffold too
 
     def test_an_unknown_kind_and_a_leaf_over_twenty_cases_are_refused(self):
         f = self.f

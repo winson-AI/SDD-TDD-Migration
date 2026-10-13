@@ -167,7 +167,7 @@ class ReadingCardTests(unittest.TestCase):
             analysis = Path(tmp) / 'dimensions.json'
             analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable'}]}))
             s = {'reuse_required': True, 'dependency_resolution_required': True, 'fixer_self_diagnosis': True}
-            m = {'lean_leaf': True, 'audit_batch_id': 'B1',
+            m = {'audit_batch_id': 'B1',
                  'plan': {'dimension_analysis_ref': file_ref(analysis), 'telemetry': {'status': 'applicable'}}}
             operations = set(reading.AUDIT_OPS) | set(reading.MO_OPS) | {
                 None, 'register', 'global-plan', 'source-review', 'reconfigure-sources', 'run-review', 'revise-run', 'retrospect',

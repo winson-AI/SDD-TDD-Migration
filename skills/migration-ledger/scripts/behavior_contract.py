@@ -183,17 +183,14 @@ def independence(parent, children, graph, plan, taken=(), judged=None):
                 'slice\'s case is that slice\'s provider input, and what every slice must meet is a fidelity condition of '
                 'each slice\'s own items' % (child['module_id'], ', '.join(extra[:8])))
     shape = slicing(children, graph)
-    reasons = plan.get('supporting_slices', {})
-    require(isinstance(reasons, dict) and set(reasons) == set(shape['supporting'])
-            and all(isinstance(reason, str) and reason.strip() for reason in reasons.values()),
-            'a slice that accepts no case is a supporting slice; state for each why it cannot live inside the slices that use it '
-            '(supporting_slices): ' + ', '.join(shape['supporting']))
-    if shape['chain_depth'] >= 3 or 2 * shape['waiting'] > shape['slices'] or shape['layered_cases']:
+    kinds = {child['module_id']: child.get('kind') for child in children}
+    require(all(kinds.get(mid) == 'scaffold' for mid in shape['supporting']),
+            'a slice that accepts no case is a scaffold (kind: scaffold), the shell the others plug into: ' + ', '.join(shape['supporting']))
+    if shape['layered_cases']:
         review = plan.get('independence_review')
         require(isinstance(review, dict) and isinstance(review.get('rationale'), str) and review['rationale'].strip(),
-                'slices form a chain of %d, %d of %d wait for another slice to be verified and %d cases have their screen in one '
-                'slice and their logic in another; cut by behavior, or state in independence_review why they cannot be'
-                % (shape['chain_depth'], shape['waiting'], shape['slices'], len(shape['layered_cases'])))
+                '%d cases have their screen in one slice and their logic in another; cut by behavior, or state in '
+                'independence_review why they cannot be' % len(shape['layered_cases']))
         for ref in nonempty(review.get('evidence_refs'), 'independence review evidence'):
             check_ref(ref)
     return shape

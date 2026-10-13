@@ -23,6 +23,7 @@ def collect(s):
 
     import api_contract
     import behavior_contract
+    import decomposition
     import dimensions
     import resource_fidelity
     import ui_fidelity
@@ -52,8 +53,9 @@ def collect(s):
     for gid, group in s.get('module_groups', {}).items():
         children = [s['modules'][cid] for cid in group.get('children', []) if cid in s['modules']]
         if any(child.get('behavior_review') for child in children):
-            judge(gid, 'split', lambda: behavior_contract.independence(
-                group, children, graph, read_json(check_ref(group['decomposition_ref']))))
+            judge(gid, 'split', lambda: (behavior_contract.independence(
+                group, children, graph, read_json(check_ref(group['decomposition_ref']))),
+                decomposition.standard(s, group, children, read_json(check_ref(group['decomposition_ref'])))))  # kinds, dependencies, bounds
     for mid, m in s['modules'].items():
         if m.get('plan'):
             judge(mid, 'plan', lambda: plan(m))

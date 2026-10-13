@@ -56,7 +56,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | operation | 调用角色 | payload 必需内容 / 行为 |
 | --- | --- | --- |
 | init | host | prepare 返回、GO 补齐的 input.json 原样作为载荷：target_root、legacy_root、非空唯一 case_ids 与 requirement_ids、global_spec/new_architecture 文件引用；可选 global_paths；预算缺省 3/2/3/3 |
-| register | Global | module_id、case_ids、write_paths、dependencies；按拓扑顺序登记，依赖必须已存在，从而拒绝环/未知模块。原子根功能可登记为 `lean_leaf=true`：须有 scope（in/out/requirement_ids）、context_refs 与 GO 的 leaf_review_ref，不可同时 decomposition_required |
+| register | Global | module_id、case_ids、write_paths、dependencies；按拓扑顺序登记，依赖必须已存在，从而拒绝环/未知模块。原子根功能直接登记为叶子（不设 decomposition_required） |
 | decompose | MO / 根 module_id | plan_ref（细分方案或 kind=atomic-leaf 结论）；Ledger 预检（context_ref 可选）；Ledger 绑定当前上下文与分配，见[分配门禁](module-decomposition.md#3-分配与登记门禁) |
 | decompose-accept | Global / 根 module_id | review_ref；细分则登记孩子、父移入 module_groups；原子结论保留节点进入未冻结叶子规划 |
 | realloc-request | MO / 子或根 module_id | reason、evidence_refs；切片/边界冲突向上提单，保存恢复阶段后进入 waiting-upstream；无父或父级上溯交 GO run-review |

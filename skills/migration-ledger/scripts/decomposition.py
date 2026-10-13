@@ -398,7 +398,6 @@ def standard(s, parent, children, plan):
     shell they plug into, features depend on scaffolds only, and a leaf holds at most LEAF_CASES cases. A split without
     dimension analyses is judged on its kinds and dependencies alone."""
     scaffolds = {c['module_id'] for c in children if c.get('kind') == 'scaffold'}
-    supporting = set(plan.get('supporting_slices') or {})
     ids = {c['module_id'] for c in children}
     parent_dims = applicable(parent['dimension_analysis_ref'], parent['module_id']) \
         if s.get('dimension_slicing_required') and parent.get('dimension_analysis_ref') else set()
@@ -407,7 +406,7 @@ def standard(s, parent, children, plan):
             continue
         require(child.get('kind') in (None, *KINDS), 'unknown child kind: feature or scaffold')
         require(set(child.get('dependencies', [])) & ids <= scaffolds, 'a leaf depends only on scaffold leaves; features do not depend on each other')
-        if child.get('kind') == 'scaffold' or child['module_id'] in supporting:
+        if child.get('kind') == 'scaffold':
             continue
         require(len(child['case_ids']) <= LEAF_CASES, 'a leaf holds at most %d cases: split it by UI surface' % LEAF_CASES)
         if parent_dims and child.get('dimension_analysis_ref'):
@@ -720,7 +719,7 @@ def handle(s, req, actor, run_root):
         if plan.get('kind') == 'atomic-leaf':
             replan_module(parent, 'atomic-leaf-confirmed', submission['plan_ref'])
             parent['planning_history'][-1]['review_ref'] = p['review_ref']
-            parent.update(lean_leaf=True, decomposition_required=False, leaf_review_ref=plan['leaf_review_ref'])
+            parent.update(decomposition_required=False, leaf_review_ref=plan['leaf_review_ref'])
             parent.pop('decomposition_submission', None)
             return
         parent.setdefault('planning_history', []).append({'kind': 'planning-history', 'executable': False,

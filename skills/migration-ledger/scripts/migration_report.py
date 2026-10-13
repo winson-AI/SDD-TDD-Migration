@@ -421,9 +421,9 @@ def render(report):
                  *['| ' + ' | '.join(cell(row[key]) for key in ('module_id', 'artifact', 'reason')) + ' |' for row in report['rule_debt']]]
     cost = report.get('workflow_cost') or {'modules': {}, 'totals': {}}
     text += ['', '## 流程成本', '', f"合计：{cell(cost['totals'])}", '',
-             '| 模块 | 事件 | 派发 | 上下文回执 | 验收 | 人工决定 | 修复轮次 | 轻量叶子 | 阅读卡字节（完整/实际交付） |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+             '| 模块 | 事件 | 派发 | 上下文回执 | 验收 | 人工决定 | 修复轮次 | 阅读卡字节（完整/实际交付） |', '| --- | --- | --- | --- | --- | --- | --- | --- |',
              *[f"| {cell(mid)} | {r['events']} | {r['dispatches']} | {r['context_receipts']} | {r['acceptances']} | "
-               f"{r['human_decisions']} | {r['fix_rounds']} | {'是' if r['lean_leaf'] else '否'} | {r['card_bytes_full']} / {r['card_bytes_delivered']} |" for mid, r in cost['modules'].items()]]
+               f"{r['human_decisions']} | {r['fix_rounds']} | {r['card_bytes_full']} / {r['card_bytes_delivered']} |" for mid, r in cost['modules'].items()]]
     if any('plan_documents' in r for r in cost['modules'].values()):
         text += ['', '规划体量（为计划撰写的文件与只被引用的来源分列，对照叶子的 CASE / TASK 数；用于发现小叶子的过度规划，不是门禁）：', '',
                  '| 模块 | CASE | TASK | 撰写文件 / 字节 | 引用来源 / 字节 |', '| --- | --- | --- | --- | --- |',

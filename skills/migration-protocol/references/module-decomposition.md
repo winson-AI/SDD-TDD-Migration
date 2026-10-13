@@ -4,7 +4,7 @@
 
 project 指完整项目及其功能树；single-module 只选择一个根功能。GO 划模块 scope/上下文，MO 按原子性决定细分或进入叶子 tasks 规划；不为凑层级创建同范围孩子。父子均读全局代码/架构/知识，权限限定于认领 scope；规划绑定 Ledger 的 planning_context 和 module_inputs。实际父节点只管理/汇总，叶子持有 SPEC、代码、测试与验收；父聚合失败不回写兄弟。全部叶子本轮结束且父 MO 汇总有效后，GO 才统一启动 Auditor。
 
-轻量叶子：GO 可直接登记 `lean_leaf`；MO 也可在拆分提案中确认当前根为原子叶子，经 GO 接受后保留节点进入 SPEC 规划。原子性不替代测试设计与冻结；有代码问题才进入 Fixer，其本地轮可在原 Implementer 会话先诊断后修复，MO 接受诊断，审计期恢复独立 Diagnostician。运行级 `fixer_self_diagnosis` 可用于所有模块（默认关闭）。多个孩子的具体批准可汇总一次提交，见[批量冻结](#父级批量冻结信封)。
+原子根：GO 直接登记为叶子，或 MO 在拆分提案中确认当前根为原子叶子，经 GO 接受后进入 SPEC 规划。原子性不替代测试设计与冻结；运行级 `fixer_self_diagnosis` 打开时本地修复轮可在原 Implementer 会话先诊断后修复，MO 接受诊断，审计期恢复独立 Diagnostician。运行级 `fixer_self_diagnosis` 可用于所有模块（默认关闭）。多个孩子的具体批准可汇总一次提交，见[批量冻结](#父级批量冻结信封)。
 
 ## 1. 三层职责
 
@@ -46,7 +46,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 子 MO 的 source_closure 即其行为审阅，以 scenario_trace 覆盖任务。共享能力与复用目录使用同一 capability_id 时，目录的 provider owner 必须是行为审阅解析出的叶子 owner。子功能可验收，任务可单层；基础能力需消费者。
 
-原子根功能可由 GO 登记为 `lean_leaf=true` 执行叶子（跳过拆分与汇总），附 `leaf_review_ref`；其余根功能由 GO `register` 设 `decomposition_required=true`，提交非空 `scope.in`、显式 `scope.out`、非空 `requirement_ids` 与 `context_refs`。CASE/需求须来自本轮输入，写范围包含于 target_root。导入方案由 GO 补全转为此格式。
+原子根功能由 GO `register` 直接登记为叶子（不设 decomposition_required）；其余根功能设 `decomposition_required=true`，提交非空 `scope.in`、显式 `scope.out`、非空 `requirement_ids` 与 `context_refs`。CASE/需求须来自本轮输入，写范围包含于 target_root。导入方案由 GO 补全转为此格式。
 
 MO 确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`、`parent_module_id`、`rationale`、`leaf_review_ref`。审阅说明职责完整、唯一 writer、依赖可控及独立验证路径；现有四维/行为/验证边界门禁仍适用。GO `decompose-accept` 核对当前绑定与证据，保留 ID/scope/CASE/依赖，清待拆分标记，进入未冻结 SPEC 规划。不允许夹带 children 或范围变化；已编码节点不能用此入口绕过 CR，已拆父组调整走 redecompose。
 
@@ -101,7 +101,7 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 
 behavior_review.verification 必填，字段见[模板](../../../template/module-decomposition.json)。provider_inputs 精确匹配实际 dependencies，逐项写 required_stage（implemented/verified）。父级只切范围与语义，contract_ref、fixture_contract_ref 可不写：叶子在提供方到达该阶段后对着其计划与代码规划（步骤视图 providers；此前游标 provider-first-version-pending，不拒绝提前提交），fixture 由叶子计划写明，冻结前必填；叶子引用提供方已作废的计划目录记为欠项；叶子只按哈希钉住自己写范围内的 target 文件，别人写的引用其计划或契约。同触发必须有不同的独立观察，否则重切。唯一 ID、独立作者或独立颜色不能替代行为独立性。
 
-拆分文档写 case_acceptance：父模块验收的每条 CASE 对应唯一验收它的子模块（记为其 acceptance_case_ids）。一条 CASE 只有一个持有者：验收用例的子模块只持有它验收的用例，为别的切片的用例供给能力写进对方的 provider_inputs，各切片都须满足的约束写成各自条目的保真条件；只有不验收任何 CASE 的支撑切片持有它所服务切片的用例，并在 supporting_slices 写明为何不能并入使用它的切片。依赖链达 3 个切片、过半切片须等另一切片验证完成，或某 CASE 的界面与逻辑分属两个切片（按各切片四维分析的适用 item 判定）时，independence_review（rationale、evidence_refs）说明为何不能按业务行为切。根模块以 acceptance_case_ids 声明（缺省为全部），一条 CASE 只由一个根验收。
+拆分文档写 case_acceptance：父模块验收的每条 CASE 对应唯一验收它的子模块（记为其 acceptance_case_ids）。一条 CASE 只有一个持有者：验收用例的子模块只持有它验收的用例，为别的切片的用例供给能力写进对方的 provider_inputs，各切片都须满足的约束写成各自条目的保真条件；不验收任何 CASE 的切片是脚手架（kind: scaffold），持有它所服务切片的用例。某 CASE 的界面与逻辑分属两个切片（按各切片四维分析的适用 item 判定）时，independence_review（rationale、evidence_refs）说明为何不能按业务行为切。根模块以 acceptance_case_ids 声明（缺省为全部），一条 CASE 只由一个根验收。
 
 叶子 source_closure 保持分配的 verification；行为 PATH 引用其 fixture_contract_ref。implemented provider 可解除编码准备依赖，正式测试/DoD 仍需 provider 验证完成。消费者负责明确集成 CASE。结构门禁校验归属、引用、完整性，语义独立性由规划审核和最终 Auditor 复核。
 

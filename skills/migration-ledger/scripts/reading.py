@@ -439,7 +439,7 @@ def card(s, m, step):
     facts = topic_facts(s, m, step)
     ui, reuse = facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'), reuse_applies(s, m, role)
     telemetry = telemetry_scope(role, m)
-    lean = bool(m) and (bool(m.get('lean_leaf')) or bool(s.get('fixer_self_diagnosis')))
+    lean = bool(m) and bool(s.get('fixer_self_diagnosis'))
     # A coder's preflight is written by the Ledger at dispatch: its card carries nothing about reporting one.
     self_checked = bool(s.get('context_readiness_required')) and role == 'implementer' and bool(step.get('worker_role'))
     rows = ([operation] if operation else []) + ((['submit'] if self_checked else ['context-submit', 'submit']) if step.get('worker_role') else [])

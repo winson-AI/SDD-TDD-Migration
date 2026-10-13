@@ -1,5 +1,4 @@
-"""Lightweight leaves: atomic roots skip parent decomposition, local fixes self-diagnose,
-and one human envelope approval can cover a parent's children."""
+"""Local fixes may self-diagnose by run option, and one human envelope approval can cover a parent's children."""
 import copy
 import json
 import unittest
@@ -14,55 +13,15 @@ class LeanLeafRootTests(unittest.TestCase):
     def setUp(self):
         self.f = f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
 
-    def leaf(self, mid='M002', **over):
-        f = self.f
-        payload = {'module_id': mid, 'case_ids': ['C1'], 'write_paths': [str(f.target / 'm2')], 'lean_leaf': True,
-                   'scope': {'in': ['Search box'], 'out': [], 'requirement_ids': ['R1']},
-                   'context_refs': [f.ref('leaf-context.md', 'Search entry and reuse owner')],
-                   'leaf_review_ref': f.ref('leaf-review.md', 'One screen, one requirement, one writer; no subfunction split')}
-        payload.update(over)
-        return payload
-
-    def test_atomic_root_registers_as_governed_leaf(self):
-        f = self.f
-        for bad in ({'leaf_review_ref': None}, {'decomposition_required': True}, {'scope': None}):
-            with self.subTest(bad=bad), self.assertRaises(Rejected):
-                f.call('register', self.leaf(**bad), role='global-orchestrator', module=None)
-        f.call('register', self.leaf(), role='global-orchestrator', module=None)
-        m = f.state()['modules']['M002']
-        self.assertTrue(m['lean_leaf'])
-        self.assertFalse(m.get('decomposition_required'))
-
-
 class LeanLeafDiagnosisTests(unittest.TestCase):
     def setUp(self):
         self.w = w = test_workflow.WorkflowTests(); w.setUp(); self.addCleanup(w.doCleanups)
-
-    def lean(self):
-        w = self.w; original = w.state()
-        w.root = w.base / 'lean-run'
-        w.call('init', {**{k: original[k] for k in ('dimension_slicing_required', 'split_testing_required', 'context_readiness_required',
-                 'target_root', 'legacy_root', 'case_ids', 'requirement_ids', 'global_spec', 'new_architecture', 'global_paths')},
-                 'max_fix_rounds': 1}, role='host')
-        w.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'write_paths': [str(w.target / 'm1')], 'lean_leaf': True,
-                            'scope': {'in': ['feature'], 'out': [], 'requirement_ids': ['R1']},
-                            'context_refs': [w.ref('ctx.md', 'entry')], 'leaf_review_ref': w.ref('leaf.md', 'atomic')},
-               role='global-orchestrator', module=None)
 
     def diagnose_as(self, role):
         w = self.w
         w.call('diagnose', {'diagnosis_ref': w.ref(f'diag-{w.n}.md', 'compared failing value with source'), 'owner': 'M001',
                             'root_cause': {'category': 'code', 'summary': 'wrong value', 'confidence': 'confirmed',
                                            'owner': 'M001', 'next_action': 'fix'}}, role=role)
-
-    def test_local_round_is_diagnosed_by_the_fixer_session(self):
-        w = self.w; self.lean(); w.failed_module()
-        w.call('session', {'role': 'implementer', 'session_id': 'S-IMPL'})
-        step = w.state()['next_steps'][0]
-        self.assertEqual((step['operation'], step['role'], step['session_id']), ('diagnose', 'fixer', 'S-IMPL'))
-        self.diagnose_as('fixer')
-        w.call('diagnosis-accept')
-        self.assertEqual(w.state()['next_steps'][0]['worker_role'], 'fixer')
 
     def test_regular_leaf_keeps_independent_diagnostician(self):
         w = self.w; w.failed_module()

@@ -73,9 +73,8 @@
   "case_acceptance": {
     "CASE-GLOBAL-001": "M002"
   },
-  "supporting_slices": {},
   "independence_review": {
-    "rationale": "{{only-for-a-chain-of-3-slices-or-when-most-slices-wait: why-they-cannot-be-cut-by-behavior}}",
+    "rationale": "{{only-when-a-case-shows-in-one-slice-and-decides-in-another: why-it-cannot-be-cut-by-behavior}}",
     "evidence_refs": []
   },
   "consumer_dependencies": {},

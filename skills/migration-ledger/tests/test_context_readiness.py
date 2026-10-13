@@ -313,7 +313,7 @@ class ContextReadinessTests(unittest.TestCase):
         self.call('decompose-accept', {'review_ref': self.ref('go-atomic-review.md', 'Allocation unchanged; leaf accepted')},
                   role='global-orchestrator', module='M010')
         m = self.state()['modules']['M010']
-        self.assertTrue(m['lean_leaf']); self.assertIsNone(m['freeze_id'])
+        self.assertFalse(m['decomposition_required']); self.assertIsNone(m['freeze_id'])
         self.assertEqual(set(cr.requirements(self.state())['M010']),
                          {'planning', 'coding', 'building', 'testing', 'fixing'})
 
