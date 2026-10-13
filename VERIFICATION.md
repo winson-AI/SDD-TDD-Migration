@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1470 | 全量通过，零失败/错误/跳过；本轮新增 6 项（run 外输入只引用不归档、账本投影不是证据、自报阶段由 Ledger 机械预检、输入漂移拒绝、自带报告仍可随操作） |
+| migration-ledger/tests | 1473 | 全量通过，零失败/错误/跳过；本轮新增 3 项（一次登记/消去多条 issue、计划与评审引用即结清） |
 | migration-test/tests | 70 | 全量通过；本轮未改适配器 |
 | runtime/harmony/tests | 128 | 全量通过；本轮未改运行内核 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮压缩归档与回执：run 读到但没写的输入——存量源码、复用来源、构建工具的依赖库——只按哈希引用、不拷入归档，归档只放 run 自己写的工件；引用 `ledger/` 投影一律拒绝。register、global-plan、decompose、plan、audit-plan、audit-verdict、audit-code-review、source-review、run-review 这些自报阶段改由 Ledger 机械预检（必读输入齐备且未漂移、subject 当前），角色不再手写就绪报告，自带的报告仍可随操作提交；输入漂移则操作被拒。worker 阶段（building/testing/fixing）仍由执行者报告执行契约。
+本轮压缩 issue 记账：一个 issue 请求可带 `issues[]` 一次登记多条（全部成立才记），一个 issue-resolve 可带 `resolutions[]` 一次消去多条；plan、plan-review、submit、accept 可带 `resolves[]`，本操作答复的 issue 以其工件为证据在同一事件结清，不另发消去、不为绑定重提。
 
-协议体积为 535463 / 536500 字节，最大单文件 31626 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 47727 / 60000 字节，最大模板组合 50300 / 56200 字节；拒绝消息带小节指引的比例 83.3%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 535726 / 536500 字节，最大单文件 31626 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 47990 / 60000 字节，最大模板组合 50300 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 

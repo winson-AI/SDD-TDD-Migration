@@ -14,28 +14,58 @@ LEDGER = {'role': 'ledger', 'instance_id': 'ledger'}
 
 
 def handle(s, req, actor):
+    """One request records every issue it carries, or settles every resolution it carries: a role that has several to
+    say says them in one event, and nothing is recorded unless all of them stand."""
     p = req.get('payload', {})
     issues = s.setdefault('issues', {})
     if req['operation'] == 'issue':
-        iid, targets = p.get('issue_id'), p.get('applies_to')
-        require(isinstance(iid, str) and iid.strip() and iid not in issues, 'issue_id must be new')
-        require(p.get('kind') in KINDS, 'issue kind is one of ' + ', '.join(KINDS))
-        require(isinstance(p.get('summary'), str) and p['summary'].strip(), 'issue summary required')
-        require(isinstance(targets, list) and targets and set(targets) <= set(s['modules']) | set(s.get('module_groups', {})),
-                'issue applies_to names the registered modules it concerns')
-        require(not (p.get('blocks') and p['kind'] == 'standing'), 'a standing rule is followed, not settled; it cannot block')
-        for ref in p.get('evidence_refs') or []:
-            check_ref(ref)
-        issues[iid] = {'kind': p['kind'], 'summary': p['summary'].strip(), 'applies_to': sorted(set(targets)),
-                       'blocks': bool(p.get('blocks')), 'evidence_refs': list(p.get('evidence_refs') or []),
-                       'raised_by': actor, 'resolved': {}}
+        entries = p['issues'] if isinstance(p.get('issues'), list) else [p]
+        require(entries, 'an issue request records at least one issue')
+        judged = {}
+        for e in entries:
+            iid, targets = e.get('issue_id'), e.get('applies_to')
+            require(isinstance(iid, str) and iid.strip() and iid not in issues and iid not in judged, 'issue_id must be new')
+            require(e.get('kind') in KINDS, 'issue kind is one of ' + ', '.join(KINDS))
+            require(isinstance(e.get('summary'), str) and e['summary'].strip(), 'issue summary required')
+            require(isinstance(targets, list) and targets and set(targets) <= set(s['modules']) | set(s.get('module_groups', {})),
+                    'issue applies_to names the registered modules it concerns')
+            require(not (e.get('blocks') and e['kind'] == 'standing'), 'a standing rule is followed, not settled; it cannot block')
+            for ref in e.get('evidence_refs') or []:
+                check_ref(ref)
+            judged[iid] = {'kind': e['kind'], 'summary': e['summary'].strip(), 'applies_to': sorted(set(targets)),
+                           'blocks': bool(e.get('blocks')), 'evidence_refs': list(e.get('evidence_refs') or []),
+                           'raised_by': actor, 'resolved': {}}
+        issues.update(judged)
         return
-    issue, mid = issues.get(p.get('issue_id')), p.get('module_id')
-    require(issue and issue['kind'] != 'standing', 'issue-resolve names a recorded issue that is not a standing rule')
-    require(issue['raised_by'] != LEDGER, 'a gap the Ledger recorded is settled by a plan that no longer owes it')
-    require(mid in issue['applies_to'] and mid not in issue['resolved'], 'issue is not open for this module')
-    check_ref(p.get('evidence_ref'))
-    issue['resolved'][mid] = {'evidence_ref': p['evidence_ref'], 'by': actor}
+    entries = p['resolutions'] if isinstance(p.get('resolutions'), list) else [p]
+    require(entries, 'an issue-resolve request settles at least one issue')
+    pending = []
+    for e in entries:
+        iid, mid, ref = e.get('issue_id'), e.get('module_id', p.get('module_id')), e.get('evidence_ref', p.get('evidence_ref'))
+        issue = issues.get(iid)
+        require(issue and issue['kind'] != 'standing', 'issue-resolve names a recorded issue that is not a standing rule')
+        require(issue['raised_by'] != LEDGER, 'a gap the Ledger recorded is settled by a plan that no longer owes it')
+        require(mid in issue['applies_to'] and mid not in issue['resolved'] and (iid, mid) not in [(a, b) for a, b, _ in pending],
+                'issue is not open for this module')
+        check_ref(ref)
+        pending.append((iid, mid, ref))
+    for iid, mid, ref in pending:
+        issues[iid]['resolved'][mid] = {'evidence_ref': ref, 'by': actor}
+
+
+def cite(s, mid, ids, evidence_ref, actor):
+    """What an operation settles by naming it: the issues it lists, open for this module, are resolved with the
+    operation's own artifact as evidence - no separate resolution, and nothing is resubmitted to bind them."""
+    if not ids:
+        return
+    require(isinstance(ids, list) and ids and all(isinstance(i, str) for i in ids), 'resolves names issue ids')
+    issues = s.get('issues') or {}
+    for iid in ids:
+        issue = issues.get(iid)
+        require(issue and issue['kind'] != 'standing' and issue['raised_by'] != LEDGER,
+                'resolves names a recorded issue that is neither a standing rule nor a gap the Ledger owes: ' + str(iid))
+        require(mid in issue['applies_to'] and mid not in issue['resolved'], 'issue is not open for this module: ' + iid)
+        issue['resolved'][mid] = {'evidence_ref': evidence_ref, 'by': actor}
 
 
 def record(s, iid, kind, summary, applies_to, raised_by, evidence_refs=(), **extra):

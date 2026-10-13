@@ -1482,6 +1482,7 @@ def mutate(s, req, principal, events, root=None):
             behavior_contract.fixture_bound(boundary, plan)
         if not resubmitted:
             superseded_citations(s, m, plan)  # a provider's given-up plan is not what this leaf plans against
+        issues.cite(s, mid, p.get('resolves'), p['plan_ref'], principal)  # what the plan answers is settled with it
         if not resubmitted and m.get('kind') != 'scaffold':
             owed(len(plan.get('tasks') or []) <= 8, 'a leaf plans at most 8 tasks: the fine grain is the task, a coarser leaf splits by UI surface')
             owed(Path(p['plan_ref']['path']).stat().st_size <= 60_000, 'plan over 60 KB: move evidence behind references or split the leaf by UI surface')
@@ -1505,6 +1506,7 @@ def mutate(s, req, principal, events, root=None):
         idle(m)
         control_policy.technical_review(m, p.get('review_ref'), principal, bool(approval(s, m, m['plan_hash']) or covering(s, m)))
         m['plan_review_ref'] = p['review_ref']
+        issues.cite(s, mid, p.get('resolves'), p['review_ref'], principal)  # what the review settles is settled with it
     elif op == 'planning-reopen':
         role(principal, 'module-orchestrator')
         require(m['phase'] in ('clarifying', 'frozen') and not m.get('blocked'), 'planning reopen requires unblocked planning')
@@ -1591,6 +1593,7 @@ def mutate(s, req, principal, events, root=None):
             dependencies_ready(s, m)
             result = read_json(check_ref(p['result_ref']))
             validate_result(result, m, assignment, run_root=root)
+            issues.cite(s, mid, p.get('resolves'), p['result_ref'], principal)  # what the work answers is settled with it
             if s.get('write_scope_check') and result.get('kind') == 'implementation':
                 require(p.get('write_scope_ref'), 'write_scope_ref required: host write-scope delta receipt')
                 write_scope.verify(s, m, assignment, result, read_json(check_ref(p['write_scope_ref'])))
@@ -1604,6 +1607,7 @@ def mutate(s, req, principal, events, root=None):
         aid = p['assignment_id']
         assignment = m['assignments'].get(aid, {})
         require(not assignment.get('closed', True) and aid in m['submissions'], 'no active submission')
+        issues.cite(s, mid, p.get('resolves'), m['submissions'][aid]['ref'], principal)  # what the accepted work answers is settled with it
         if design_stage.is_design(assignment):
             design_stage.accept(s, m, assignment, p, principal)
             m['revision'] += 1
