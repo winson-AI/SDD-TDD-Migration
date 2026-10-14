@@ -317,6 +317,20 @@ def registered(s, child):
         and behavior_contract.accepts(held) == behavior_contract.accepts(child)
 
 
+def restated_shape(s, child):
+    """A re-split that restates a registered child's SLICING SHAPE unchanged - same kind, same dependency edges, same
+    case set, same UI anchor - is a rebind of an allocation the Ledger already accepted, not a new cut. The slicing
+    standard judges new and re-cut leaves; it does not retroactively re-judge the shape of an in-flight run. Later rules
+    bind new submissions; an already-accepted shape is grandfathered (version doctrine: accepted artifacts keep the
+    rules they were accepted under, and the difference is reported as rule debt, not refused here)."""
+    held = s['modules'].get(child.get('module_id'))
+    return bool(held) \
+        and held.get('kind') == child.get('kind') \
+        and set(held.get('dependencies', [])) == set(child.get('dependencies', [])) \
+        and set(held.get('case_ids', [])) == set(child.get('case_ids', [])) \
+        and held.get('anchor_ui') == child.get('anchor_ui')
+
+
 def validate(s, parent, plan, redecompose=False):
     from ledger import new_module
     require(plan.get('parent_module_id') == parent['module_id'], 'decomposition parent mismatch')
@@ -430,7 +444,7 @@ def standard(s, parent, children, plan):
     parent_dims = applicable(parent['dimension_analysis_ref'], parent['module_id']) \
         if s.get('dimension_slicing_required') and parent.get('dimension_analysis_ref') else set()
     for child in children:
-        if registered(s, child):
+        if registered(s, child) or restated_shape(s, child):
             continue
         require(child.get('kind') in (None, *KINDS), 'unknown child kind: feature or scaffold')
         require(set(child.get('dependencies', [])) & ids <= scaffolds, 'a leaf depends only on scaffold leaves; features do not depend on each other')

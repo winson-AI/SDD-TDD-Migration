@@ -61,6 +61,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | issue 卫生 | fact 记录即对每个目标结清、不能 blocks、不挡 complete；step 视图最多列 10 条 open issue（blocking 优先、最新优先）并给总数；standing 规则在 `--since` 之后无新增时只给数量与摘要 |
 | 提供方修订不挡依赖方 | 提供方打开 CR 后，依赖方的规划与派发仍以其已接受代码为准（providers 行带 revising）；修订冻结后被替代的引用按既有规则记 gap 并失效复测 |
 | 薄脚手架 | 脚手架计划多于 3 个 TASK 须声明 ≤3 个 skeleton_task_ids，骨架 TASK 的 PATH 只许 build/unit/static，功能叶不得声明；骨架被接受且 build Green 即视为提供方就位（providers / dependencies_ready），其余 TASK 落地不逐次失效依赖方，全部落地时失效一次 |
+| 在途形状沿用 | 再拆分复述一个已登记孩子时，若其切片形状（kind / 依赖边 / CASE 集 / anchor_ui）与账本所持一致，切片标准不追溯重判（`restated_shape` grandfather）；只判新叶与被重切的叶。后增切片规则约束新提交，已接受形状的差异进规则欠账交审计，不在 standard() 拒绝 |
 | 调用登记不重切 | `api-register` 把分配后发现的调用登记给叶子与其 Logic/Adhesive 条目（run 内新 id、call/contract 形状、证据、角色与全局作用域校验，不推进修订号）；该叶 refinement 的清单可多出已登记行（narrowed、partition 放行，item api_ids / discovery_refs 可增），其他新增仍拒；step 视图列出本叶登记 |
 | 可推导指针 | 计划只带一个 test-fixture 定义且 verification 未写 fixture 时，Ledger 补全指针并绑到行为 PATH；Logic/Adhesive 的 target_binding 未定在 plan/freeze 判定里记为欠项而非拒绝，Resource 目标侧字段仍拒 |
 | 包文件不是证据 | evidence_refs 指向包内协议/角色/技能/命令 Markdown 或脚本被拒并指向 storage-layout 总则；包内知识资产（如 catalog）仍可引用；相对路径仍先报须为绝对路径 |
