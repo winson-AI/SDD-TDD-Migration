@@ -7,6 +7,7 @@ import copy
 import reuse
 import dimensions
 from pathlib import Path
+import re
 
 from contracts import Rejected, check_ref, digest, nonempty, read_json, require
 
@@ -176,6 +177,7 @@ def check_module_plan(s, module, plan):
         require(binding.get('planning_context_sha256') == now['planning_context_sha256'], STALE_CONTEXT)
     check_assignment(s, module)
     check_tasks(module, plan)
+    check_path_evidence(s, module, plan)
 
 
 def check_tasks(module, plan):
@@ -209,6 +211,28 @@ def check_skeleton(module, plan):
     for tid in declared:
         require(all(kinds.get(pid) in SKELETON_PATHS for pid in tasks[tid].get('path_ids', [])),
                 'a skeleton task is verified by build, unit and static paths only: ' + tid)
+
+
+FILE_TOKEN = re.compile(r'[\w./-]+\.(?:kt|kts|java|swift|mm?|ts|tsx|js|py|xml|json|ya?ml|toml|gradle|ets|h|cpp)\b')
+MODULE_TOKEN = re.compile(r'\bM\d{3,}\b')
+
+
+def check_path_evidence(s, module, plan):
+    """A PATH is verified on the leaf's own code and its providers': its preconditions and steps name no registered leaf that
+    is not a provider, and no target file outside the leaf's and its providers' write scopes. A split that puts a flow's
+    screen and its logic in two leaves shows up here, before anything is parked on the sibling."""
+    allowed = {module['module_id'], *module.get('dependencies', [])}
+    roots = [Path(p).resolve() for mid in allowed for p in (s['modules'].get(mid) or module if mid == module['module_id'] else s['modules'].get(mid) or {}).get('write_paths', [])]
+    target = Path(s['target_root']).resolve() if s.get('target_root') else None
+    for path in plan.get('paths', []):
+        text = ' '.join(str(x) for x in (path.get('preconditions') or []) + (path.get('steps') or []))
+        strangers = sorted(mid for mid in set(MODULE_TOKEN.findall(text)) if mid in s['modules'] and mid not in allowed)
+        require(not strangers, 'PATH %s takes evidence from %s, which is not a provider of this leaf: a leaf verifies on its own code and its providers' % (path.get('path_id'), ', '.join(strangers)))
+        for token in FILE_TOKEN.findall(text):
+            p = Path(token)
+            if p.is_absolute() and target and p.resolve().is_relative_to(target):
+                require(any(p.resolve().is_relative_to(root) for root in roots),
+                        'PATH %s takes evidence from %s, outside this leaf and its providers' % (path.get('path_id'), token))
 
 
 def skeleton(m):

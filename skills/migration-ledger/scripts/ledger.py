@@ -1480,6 +1480,7 @@ def mutate(s, req, principal, events, root=None):
             decomposition.check_scopes(s, m)
             decomposition.check_tasks(m, plan)
         decomposition.check_skeleton(m, plan)
+        decomposition.check_path_evidence(s, m, plan)
         if resubmitted:
             verify_plan(plan, m)
             plan_hash = m['plan_hash']

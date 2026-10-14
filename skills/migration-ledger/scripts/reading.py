@@ -594,6 +594,7 @@ GATES = [
     (r'API |api_inventory|api_obligations', 'resource-transfer.md', 'API 与 URL 契约'),
     (r'dimension (trace|task|path|paths|behavior|assertion)|dimension item IDs|SPEC must bind the allocated', 'dimension-slicing.md', '4. 控制节点与交接'),
     (r'superseded plan|pins only its own target files', 'module-decomposition.md', '验证边界'),
+    (r'takes evidence from', 'module-decomposition.md', '切片标准'),
     (r'task scope (in|out):', 'dimension-slicing.md', '7. 任务级四维分析契约'),
     (r'review over \d+ KB', 'local-runtime.md', '操作矩阵'),
     (r'scaffold leaves|anchors on a UI surface|single layer|at most \d+ cases|at most \d+ tasks|plan over \d+ KB|unknown child kind|skeleton', 'module-decomposition.md', '切片标准'),
