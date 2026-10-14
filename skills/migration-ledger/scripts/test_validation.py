@@ -73,7 +73,7 @@ def awaits_assembly(m, modules):
     def needs_code(other):
         inputs = ((other.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs') or []
         return m['module_id'] in other['dependencies'] and any(
-            row.get('module_id') == m['module_id'] and row.get('required_stage') == 'implemented' for row in inputs)
+            row.get('module_id') == m['module_id'] and (row.get('required_stage') or 'implemented') == 'implemented' for row in inputs)
     return any(needs_code(other) and not (other.get('code_baseline') and not other.get('execution_partition_pending'))
                for other in modules)
 

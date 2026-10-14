@@ -45,7 +45,7 @@ class WaveTests(unittest.TestCase):
         self.assertFalse(ready({**tasks, 'code_baseline': 'c1', 'accepted_task_ids': ['T1', 'T2']}, 'verified'))
         self.assertTrue(ready({**tasks, 'phase': 'completed', 'stale': False}, 'verified'))
         s = {'modules': {'M001': leaf('M001'), 'M002': leaf('M002', 'M001')}, 'module_groups': {}}
-        self.assertEqual(ledger.providers(s, s['modules']['M002'])[0]['required_stage'], 'verified')  # unless the split says its code is enough
+        self.assertEqual(ledger.providers(s, s['modules']['M002'])[0]['required_stage'], 'implemented')  # its code, unless the split asks for its verification
 
     def split(self):
         f = test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
