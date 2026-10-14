@@ -104,6 +104,9 @@ def _step(st, module_id, since=None):
     open_rows, standing = issues.of_module(st, module_id)
     out['open_issues'], out['open_issue_count'] = issues.listed(open_rows)
     out['standing_rules'] = issues.standing_view(standing, since)
+    if module_id is not None and st.get('api_registry'):  # the calls registered to this leaf after its allocation
+        out['api_registry'] = [{'api_id': aid, 'item_id': row['item_id'], 'sequence': row.get('sequence')}
+                               for aid, row in st['api_registry'].items() if row['owner'] == module_id]
     if gate:  # one object says what the preflight report of this stage must contain and which reports exist
         required = dict(st['context_requirements'].get(module_id or 'GLOBAL', {}).get(gate['stage'], {}))
         required.pop('required_input_refs', None)  # the Ledger derives them; the step carries their count and digest

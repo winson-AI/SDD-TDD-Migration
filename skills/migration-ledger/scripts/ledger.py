@@ -12,6 +12,7 @@ import sys
 sys.dont_write_bytecode = True
 
 import workflow
+import api_contract
 import audit_closure
 import audit_code_review
 import decomposition
@@ -495,7 +496,6 @@ def freeze_gates(s, m, p):
                                                       or p.get('review_ref') == m.get('plan_review_ref'), 'TASK independence requires accepted MO plan review')))
     first = not allocation_frozen(m)
     import resource_fidelity
-    import api_contract
     gates += [('resources', lambda: resource_fidelity.freeze_gate(s, m, first)),
               ('api', lambda: api_contract.freeze(s, m, p)),
               ('ui', lambda: ui_fidelity.freeze_gate(s, m, first)),
@@ -884,7 +884,6 @@ def _next_step(s, m):
         elif not decision and not eligible and not m.get('plan_review_ref'):
             step.update(operation='plan-review', ready=True, reason='MO-technical-review', payload={})
         elif not decision:
-            import api_contract
             if api_contract.undecided(s, api_contract.adaptations(m)):
                 # One decision names every adaptation the run still has open, so no other leaf asks again.
                 wanted = api_contract.undecided(s, api_contract.registered(s))
@@ -1337,8 +1336,11 @@ def settle_preflight(m, actor, receipt):
 
 def mutate(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
-    if op in issues.OPS:  # a record: no gate stands before it and it moves no revision
+    if op in issues.OPS or op in api_contract.REGISTER_OPS:  # a record: no gate stands before it and it moves no revision
         require(req.get('module_id') is None, 'operation has incorrect global/module scope')
+        if op in api_contract.REGISTER_OPS:
+            role(principal, 'global-orchestrator', 'module-orchestrator', 'spec-designer')
+            return api_contract.register(s, req, principal, sequence=len(events) + 1)
         return issues.handle(s, req, principal, sequence=len(events) + 1)
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')
@@ -1443,7 +1445,6 @@ def mutate(s, req, principal, events, root=None):
                     and isinstance(children, dict) and children and set(children) <= set(parent.get('children', [])),
                     'batch envelope decision must hash its document and cover only this parent\'s children')
         if p.get('kind') == 'api-adaptation':
-            import api_contract
             api_contract.decision(s, p)
         s['decisions'][p['decision_id']] = decided = {**p, 'consumed': False}
         decided.pop('boundary_sha256', None)  # the Ledger states what was approved, not the request
@@ -2241,7 +2242,7 @@ def _judge(root, req, principal):
         else:
             require(s and req.get('run_id') == s['run_id'], 'run mismatch')
             scope = (s['modules'].get(req.get('module_id')) or s.get('module_groups', {}).get(req.get('module_id'))) if req.get('module_id') else s
-            require(scope is not None and (req['operation'] in issues.OPS or req.get('expected_revision') == scope['revision']), 'stale revision')
+            require(scope is not None and (req['operation'] in issues.OPS | api_contract.REGISTER_OPS or req.get('expected_revision') == scope['revision']), 'stale revision')
             leaf = s['modules'].get(req.get('module_id'))
             held = leaf and leaf.get('plan_hash')
             with carrying(bool(leaf)) as gaps:  # a leaf goes on with what its plan owes; an allocation is refused for it

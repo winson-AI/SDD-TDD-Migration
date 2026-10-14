@@ -24,7 +24,8 @@ def complete(s, m, plan):
     if not ref or not isinstance(plan, dict):
         return plan  # no four-dimension specification: nothing follows from it
     own = plan.get('dimension_analysis_ref', ref)
-    if own != ref and not dimensions.refines(ref, own):
+    import api_contract
+    if own != ref and not dimensions.refines(ref, own, api_contract.added(s, m['module_id']) if isinstance(s, dict) else ()):
         return plan  # a plan bound to another analysis: the gates refuse it
     ref = own  # the leaf's refinement of its allocation says everything the allocation says
     try:

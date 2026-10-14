@@ -238,7 +238,8 @@ def partition(s, parent, plan):
         items = allocation({**s, 'dimension_slicing_required': True}, child)
         data, _ = load(child['dimension_analysis_ref'], child['module_id'])
         calls, apis = api_contract.read(data, items)
-        require(set(apis) <= set(parent_apis) and all(calls[aid] == parent_calls[aid] for aid in apis),
+        own = api_contract.added(s, child['module_id'])  # what was registered to the child after its allocation is its own
+        require(set(apis) - own <= set(parent_apis) and all(calls[aid] == parent_calls[aid] for aid in set(apis) - own),
                 'child API source outside parent boundary; revise GO inventory first')
         require(not api_covered.intersection(apis), 'API owner duplicated across children')
         api_covered.update(apis)
@@ -286,10 +287,10 @@ def partition(s, parent, plan):
 
 SCOPE_ITEMS, SCOPE_CHARS = 3, 300  # a task's own scope lines; design.md and tasks.md hold the detail
 IDENTIFIED = ('item_id', 'condition_id', 'dimension', 'api_id')
-GROWS = ('evidence_refs', 'assertions', 'condition_refs')
+GROWS = ('evidence_refs', 'assertions', 'condition_refs', 'api_ids', 'discovery_refs')
 
 
-def keeps(allocated, refined, where='analysis', key=None):
+def keeps(allocated, refined, where='analysis', key=None, added=()):
     """Refuse a refinement that changes or drops something its allocation states. An object may gain fields, a field the
     allocation left null may be filled, evidence, condition review refs and bound assertions may gain entries; items,
     conditions and dimensions are matched by their identifiers and none is added, dropped or reordered."""
@@ -305,9 +306,9 @@ def keeps(allocated, refined, where='analysis', key=None):
                 narrowed(value, refined[name], where + '.' + name)
             elif name == 'api_inventory_ref' and value:
                 import api_contract
-                api_contract.narrowed(value, refined[name], where + '.' + name)
+                api_contract.narrowed(value, refined[name], where + '.' + name, added)
             else:
-                keeps(value, refined[name], where + '.' + name, name)
+                keeps(value, refined[name], where + '.' + name, name, added)
     elif isinstance(allocated, list) and key in GROWS:
         require(isinstance(refined, list) and all(row in refined for row in allocated), 'refined analysis drops entries of ' + where)
     elif isinstance(allocated, list):
@@ -319,7 +320,7 @@ def keeps(allocated, refined, where='analysis', key=None):
         require([row[name] for row in allocated] == [row.get(name) if isinstance(row, dict) else None for row in refined],
                 'refined analysis adds, drops or reorders ' + where)
         for old, new in zip(allocated, refined):
-            keeps(old, new, where + '[' + str(old[name]) + ']')
+            keeps(old, new, where + '[' + str(old[name]) + ']', added=added)
     else:
         require(allocated == refined, 'refined analysis changes ' + where)
 
@@ -364,10 +365,10 @@ def detailed(allocated, refined, where):
                 'a detail item stays inside the requirements, cases and parent items of the item it details: ' + iid)
 
 
-def refines(allocated_ref, ref):
+def refines(allocated_ref, ref, added=()):
     """Whether the analysis at `ref` is its allocation with things added and nothing it states changed."""
     try:
-        keeps(read_json(check_ref(allocated_ref)), read_json(check_ref(ref)))
+        keeps(read_json(check_ref(allocated_ref)), read_json(check_ref(ref)), added=added)
         return True
     except (Rejected, OSError, KeyError, TypeError, AttributeError):
         return False
@@ -394,7 +395,8 @@ def refinement(s, module, plan):
     held, own = module.get('dimension_analysis_ref'), plan.get('dimension_analysis_ref')
     if not held or not own or own == held:
         return
-    keeps(read_json(check_ref(held)), read_json(check_ref(own)))
+    import api_contract
+    keeps(read_json(check_ref(held)), read_json(check_ref(own)), added=api_contract.added(s, module['module_id']))
     allocation(s, {**module, 'dimension_analysis_ref': own})
 
 

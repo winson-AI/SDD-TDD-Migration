@@ -108,7 +108,8 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | run-review / revise-run | GO / Host，全局 | 影响评审/预检 → 具体 decision → 上下文调整事务；见 [同 Run 上游修订](progress-recovery.md#同-run-上游修订) |
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
 | retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
-| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary（一行 ≤400 字符，细节走 evidence_refs）、applies_to（模块）、可选 evidence_refs、blocks，或 `issues[]` 批量；消去：issue_id、module_id、evidence_ref，或 `resolutions[]` 批量，全部成立才记。plan、plan-review、submit、accept 可带 `resolves[]` 以本工件结清。不推进修订号。fact 记录即结清，不挡 complete；standing 不消去，只在新增后随 step 交付一次，其余时候给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete。step 视图每模块最多列 10 条（blocking 优先、最新优先）并给总数，每条显示前 200 字符。叶子计划欠的保真完整性由 Ledger 记为 gap 并放行，不再欠的新计划自动消去 |
+| api-register | GO / MO / Spec-Designer，全局 | module_id（owner 叶）、api_id（run 内新）、item_id（该叶的 Logic/Adhesive 条目）、call、contract、evidence_refs；登记后该叶下次 plan 的清单可多出这些行，不重切、不推进修订号；owner 或 consumer 变化仍走 realloc / redecompose |
+| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary（≤400 字符，细节走 evidence_refs）、applies_to（模块）、可选 evidence_refs、blocks，或 `issues[]` 批量；消去：issue_id、module_id、evidence_ref，或 `resolutions[]` 批量，全部成立才记。plan、plan-review、submit、accept 可带 `resolves[]` 以本工件结清。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余时候给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete。step 视图每模块最多列 10 条（blocking、最新优先）并给总数，每条显示前 200 字符。叶子计划欠的保真完整性由 Ledger 记为 gap 并放行，不再欠的新计划自动消去 |
 
 ## 阶段结果
 
@@ -161,7 +162,7 @@ decision 为全局操作，不增加模块 revision，因此记录批准后 reco
 
 recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时，保留 blocked、当前等待阶段及 resume_phase，继续展示原阻塞和恢复动作。human/tooling 仍须绑定该 blocked 摘要的单独 resume 决定；dependency 仍须依赖就绪和 GO 的 dependency-ready。预算批准不能同时充当解除阻塞的批准。无阻塞时保持原恢复行为：有 diagnosis 回到 diagnosing，否则回到 testing；不改变其他模块状态或测试颜色。
 
-本地使用 fix_rounds_used（累计）+ recovery_cycle + 可增加的 fix_budget；no_progress 根据未解决 PATH 的 ID、三态、根因 category/summary/owner 的稳定摘要计数；相同问题才累加，根因改变会重新观察。此处比较结构化声明，语义真实性仍由诊断者和 MO 审核。审计预算耗尽后由 GO 提交 audit-recover(module_ids, additional_rounds, decision_id)，绑定本 Run 的当前次数与预算摘要；module_ids 只能为 [GLOBAL]，恢复宿主整体审计预算。只增加获批预算，次数、失败和 blocker 不清零，不替代复测。协议里的独立 yellow retry/超时升级由宿主策略执行，本地重复验证另受 no-progress 守卫限制。
+本地用 fix_rounds_used（累计）+ recovery_cycle + 可增的 fix_budget；no_progress 按未解决 PATH 的 ID、三态与根因 category/summary/owner 的稳定摘要计数，相同问题才累加，根因变则重新观察；比较的是结构化声明，语义真实性由诊断者与 MO 审核。审计预算耗尽后 GO 提交 audit-recover(module_ids=[GLOBAL], additional_rounds, decision_id)，绑定当前次数与预算摘要，只增获批预算，次数、失败与 blocker 不清零，不替代复测。独立 yellow retry/超时升级由宿主策略执行，本地重复验证另受 no-progress 守卫限制。
 
 本地锁不使用自动租约超时重授：活动 assignment 一直占用模块资源，直到 accept 或带真实停止证据的 revoke。此方式避免仅因时钟到期就允许两个 worker 写同一路径。宿主仍必须在每次真实写操作执行 ACL/fencing。
 
@@ -169,7 +170,7 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 
 游标由 Ledger 派生，沿用 NEXT/next_skill、blocked_from、阶段 require_state 和轮次保留机制：
 
-- `status.next_steps`：每模块 operation、role、worker_role（如适用）、session_id、assignment_id、expected_revision、ready、reason；执行其中一步所需的状态用 `--view step` 取。每个有 operation 的步骤带阅读卡摘要 `card_sha256` 与本步模板 `templates`，`global_next_step` 同样提供；取卡、增量交付、会话轮换与采纳统计见[宿主接入](host-integration.md#提示采纳回报)。本地修复无 fixer 会话时，session_id 指向原 Implementer 会话（`session_affinity=implementer`）；审计期修复不做此提示。未解决结果含已确认 `runtime-spec-variant-conflict` 时，游标为 `suspend(kind=human)`，不进入诊断或修复。
+- `status.next_steps`：每模块 operation、role、worker_role、session_id、assignment_id、expected_revision、ready、reason；本步状态用 `--view step` 取。有 operation 的步骤带 `card_sha256` 与本步 `templates`，`global_next_step` 同；取卡、增量交付、会话轮换与采纳统计见[宿主接入](host-integration.md#提示采纳回报)。本地修复无 fixer 会话时 session_id 指向原 Implementer 会话（`session_affinity=implementer`），审计期修复不提示。未解决结果含已确认 `runtime-spec-variant-conflict` 时游标为 `suspend(kind=human)`，不进诊断或修复。
 - `status.ready_modules`：当前有可推进步骤的模块；并非可以同时启动的预约。多个候选可能争用同一资源，真正 assign 仍在事务内再次校验。
 - `status.global_next_step`：等待模块完成、创建审计、等待活动审计、撤销失效审计或等待交付授权。游标不自动派发，也不赋予额外权限。
 - 已提交 worker 结果对应 `accept`；未提交对应 `await-result`。原会话通过 session_id 提示复用；短交接只传 Ledger/assignment/artifact 引用。
@@ -182,7 +183,7 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 
 高层 global-input 可省略 `module_slicing`，也可设置 `module_import_ref`、`functional_use_cases_complete`、`functional_directory_level`。字段与人工导入格式见 [切片规约](../../migration-global/references/slicing.md)。宿主/Global 读取并校验输入，形成 register 和模块 `_input`；Ledger 不自动扫描业务目录或执行语义切片。
 
-global-plan 必须增加 `boundary_review: {"issues": []}`。无边界问题时 Global 自主提交；有未决业务边界或需求/验收/授权变化时，先记录 question_id/kind/module_ids/question/proposed_resolution，再获取真实人工决定。宿主提交全局 `decision`（payload.module_id=null、decision=approved、human_source_ref），其 subject_sha256 使用 `contracts.digest({"plan": 完整global-plan内容, "registry": workflow.registry(当前状态)})`；Global 再以 `boundary_decision_id` 提交 global-plan。Ledger 校验问题、模块、精确摘要、批准作用域与未消费状态，成功后消费批准；修改方案或 registry 必须重新批准。
+global-plan 必须带 `boundary_review: {"issues": []}`。无边界问题时 Global 自主提交；有未决业务边界或需求/验收/授权变化时先记 question_id/kind/module_ids/question/proposed_resolution，再取真实人工决定：宿主提交全局 `decision`（module_id=null、decision=approved、human_source_ref），subject_sha256 = `contracts.digest({"plan": 完整 global-plan, "registry": workflow.registry(当前状态)})`；Global 再以 `boundary_decision_id` 提交 global-plan。Ledger 校验问题、模块、摘要、批准作用域与未消费状态，成功后消费批准；改方案或 registry 须重新批准。
 
 新 global-plan 请求缺少 boundary_review 会被拒绝。空 issues 代表已检查无问题，语义真实性由角色负责。运行中发现新边界问题，受影响模块先 suspend/CR；审计中走 human 路由与原有人工释放门禁，不靠覆盖全局规划绕过活动审计锁。
 
