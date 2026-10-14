@@ -2,11 +2,11 @@
 
 ## 总则
 
-Test-Runner 在 Coding 接受后先编译构建，随后同一派发内运行逻辑单测，再做静态规格闭合审查（逐需求核对生产符号与假实现清单，见 [静态规格闭合](testing.md#静态规格闭合)），然后执行自动化测试。任务分批编写时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且依赖本模块（implemented）的切片已有代码，此前为 awaiting-assembly。构建命令相同的模块同时只一个在写。构建命令优先用户指定，否则全目标搜索脚本并默认评估 Gradle assemble。构建/真实用例错误记三态与根因，修复仍由 Fixer。仅自动化环境不可启动时，保留当前构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred；独立任务及依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复。全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。不允许跳过构建或吞掉已观察到的 Red。
+Test-Runner 在 Coding 接受后先构建，同一派发内运行逻辑单测，再做静态规格闭合审查（逐需求核对生产符号与假实现清单，见 [静态规格闭合](testing.md#静态规格闭合)），然后执行自动化。任务分批编写时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且需要本模块代码的切片已有代码，此前为 awaiting-assembly。构建命令相同的模块同时只一个在写；命令优先用户指定，否则搜索构建脚本并默认评估 Gradle assemble。构建/用例错误记三态与根因，修复仍由 Fixer。仅自动化环境不可启动时保留构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred，独立任务与依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复；全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。不跳过构建、不吞已观察到的 Red。
 
 ## 1. 职责与全局规则
 
-Test-Runner 同一角色承担三个执行环节：**构建验证**、**功能用例自动化验证**，以及（存量可预览时）**基线视觉对齐**。顺序由 `test_validation.next_scope` 强制：build → automation → visual，visual 需当前 automation Green；DoD 要求全部适用的冻结路径 Green。无 runtime UI 时不添加空 visual 路径。视觉对齐使用普通测试路径及单独 scope/assignment（绑定 `node_ids` + `baseline_ref`），不另设修复循环；不对齐即 Red + 节点级根因，走模块诊断→Fixer→正式复测。详见 [UI 保真控制道](ui-fidelity.md)。可由不同实例执行，但身份、assignment 和证据各自绑定。Test-Runner 负责执行、三态和问题报告；源码/构建配置修复仍由 Diagnostician → MO → Fixer 完成，不能自己兼任 Fixer。Auditor 保持独立。
+Test-Runner 一个角色承担构建验证、功能用例自动化和（存量可预览时）基线视觉对齐，顺序由 `test_validation.next_scope` 强制：build → automation → visual，visual 需当前 automation Green；DoD 要求全部适用冻结路径 Green，无 runtime UI 不加空 visual 路径。视觉对齐用普通测试路径与单独 scope/assignment（绑定 `node_ids` + `baseline_ref`），不另设修复循环，不对齐即 Red + 节点级根因走诊断→Fixer→复测，见 [UI 保真控制道](ui-fidelity.md)。可由不同实例执行，身份、assignment 与证据各自绑定；Test-Runner 只执行、定三态和报告，修复由 Diagnostician → MO → Fixer，Auditor 独立。
 
 固定流程：
 
@@ -124,15 +124,15 @@ Harmony Main adapter 不隐式安装 App；宿主可继续提供已安装包与�
 
 ## 构建资产位置
 
-冻结 build PATH 时同时审核构建输出位置，遵守 [留存文件系统](storage-layout.md)。正式执行输出为 runs/build/<新 attempt>；执行器绑定临时目录与工具缓存，并在该次执行的 Gradle home 放入 init.d，把各工程 buildDirectory 与项目缓存定向到 runner：直接的 Gradle 入口与路径自带脚本里调用的构建都继承它。角色自查用 `execute_test.py selfcheck --cwd <树> --output <新目录> -- <命令>`，同一定向，不留回执、不算结果。宿主可设 `SDD_GRADLE_CACHE_SEED`（一个 Gradle user home），各次执行链接其 wrapper 与依赖缓存。冻结任务参数保留，实际命令仅扩展缓存目录参数。禁止把 APK、构建报告、测试脚本留在目标源码旁；硬编码的自定义输出先调整冻结任务/构建配置，工程不支持时如实记录局部构建问题，其他模块照常推进。安装步骤从本轮实际 APK 路径读取。
+冻结 build PATH 时审核构建输出位置，遵守 [留存文件系统](storage-layout.md)：正式输出为 runs/build/<新 attempt>；执行器绑定临时目录与工具缓存，在该次 Gradle home 放 init.d 把各工程 buildDirectory 与项目缓存定向到 runner，脚本内调用的构建同样继承。角色自查用 `execute_test.py selfcheck --cwd <树> --output <新目录> -- <命令>`，同一定向，不留回执、不算结果。宿主可设 `SDD_GRADLE_CACHE_SEED`（一个 Gradle user home）供各次执行链接 wrapper 与依赖缓存；冻结任务参数保留，实际命令只扩展缓存目录参数。APK、构建报告、测试脚本不留在目标源码旁；硬编码输出先调整冻结任务/构建配置，工程不支持则如实记录局部构建问题，其他模块照常。安装步骤读本轮实际 APK 路径。
 
 ## 构建和自动化异常回执
 
-可捕获的执行器中断（KeyboardInterrupt/SystemExit）及启动后的运行异常同样先停止本 attempt、限时回收并保存 execution.log、cleanup.json、receipt.json，再向宿主重新抛出原异常。CLI 的 SIGTERM 转为 SystemExit(143)，SIGINT 为 KeyboardInterrupt；不修改调用 Python API 的宿主信号处理器。回执 termination.executor_aborted=true，保留异常类型及退出码（中断通常 130/143，运行异常 125），不能作为普通完成结果接受；Host 核验停止/隔离并留证后走 revoke/audit-revoke。用户取消不自动重启、不自动派发 Fixer，不影响无关模块。退出未确认时保留 temp；强制 SIGKILL/断电等无法捕获情况仍由 Host 根据运行记录核验与恢复。
+可捕获的执行器中断（KeyboardInterrupt/SystemExit）与启动后的运行异常先停止本 attempt、限时回收并保存 execution.log、cleanup.json、receipt.json，再向宿主重新抛出；CLI 的 SIGTERM 转 SystemExit(143)、SIGINT 转 KeyboardInterrupt，不改宿主的信号处理器。回执 termination.executor_aborted=true 并保留异常类型与退出码（中断 130/143，运行异常 125），不能作为完成结果接受；Host 核验停止/隔离并留证后走 revoke/audit-revoke。用户取消不自动重启或派 Fixer，不影响无关模块；退出未确认时保留 temp；SIGKILL/断电等由 Host 据运行记录核验恢复。
 
 执行超时后，Host executor 向本 attempt 的进程组发送 SIGKILL；输出回收另限 2 秒，不能因脱离进程组的子进程持有 stdout/stderr 再无限等待。回执 termination 分别记录信号结果、direct_process_exited、output_drained、descendants_status 和 host_stop_required；仅发送信号或得到管道 EOF 不代表所有外部子进程已停止。
 
-若回收仍超时、直接进程未确认退出或信号失败，及时保存已捕获日志、exit_code=124 及诊断回执，host_stop_required=true；当前 attempt 与嵌套 Harmony temp 保留，cleanup.json 说明 process-stop-unconfirmed。Host 必须先核验/停止或隔离相关进程，保留本回执和 stopped_worker_ref，再按原 revoke（全局审计用 audit-revoke）恢复；该回执不可通过 submit/accept 关闭 assignment，不能被当成普通自动化缺测放行。保持已有失败观测，不自动重授资源锁或删除仍在使用的临时目录；无关模块继续。停机/隔离确认后由 Host 清理该 attempt，后续测试用新 attempt。正常回收的超时仍沿以下既有三态机制提交。
+回收超时、直接进程未确认退出或信号失败时，保存已捕获日志、exit_code=124 与诊断回执，host_stop_required=true；当前 attempt 与嵌套 Harmony temp 保留，cleanup.json 记 process-stop-unconfirmed。Host 先核验/停止或隔离进程，保留回执与 stopped_worker_ref，再按 revoke（全局审计用 audit-revoke）恢复；该回执不能经 submit/accept 关闭 assignment，也不算普通自动化缺测。保持已有失败观测，不自动重授资源锁或删除仍在使用的临时目录，无关模块继续；确认后由 Host 清理该 attempt，后续测试用新 attempt。正常回收的超时仍按下述三态提交。
 
 Auditor 批次中的构建 Red/Yellow 同样属于验证失败：接受构建结果时直接记录 build-verification-failed、结果引用及编译/超时根因，关联分支等待人工审核，独立审计分支继续。批次内禁止 audit-defer；构建 Green 只开放 Automation，不写入自动化通过证明。纯自动化环境缺失仍走原缺测出口，不能用于跳过失败构建。
 

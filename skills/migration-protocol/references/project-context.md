@@ -63,7 +63,7 @@
 
 默认值存放在 config.defaults：entry_mode 固定 project，另有 budgets 与 quality_gates（字段见模板）。test_adapter 与 input 中的结构一致，runtime 只放 model_routing。配置只引用宿主环境或凭证名称，不在模板中放凭证值。
 
-模块 Git 检查点开关为 `defaults.quality_gates.git_checkpoint`、写范围核验开关为 `write_scope_check`（均 bool，默认 false）；本地轮 Fixer 自诊断开关为 `defaults.quality_gates.fixer_self_diagnosis`（bool，默认 false，开启后不再为本地轮启动独立 Diagnostician）；模块累计修复预算用 `defaults.budgets.max_fix_rounds`（默认 3，各类失败共用）。Foundation 冻结开关只配置在 `defaults.quality_gates.dependency_resolution_required`，必须是 bool，默认 false，例如 `{"defaults":{"quality_gates":{"dependency_resolution_required":true}}}`。prepare 把该值固化到快照及派生 Global input，init 按快照继承，不能在 prepared init 中降级或另加顶层项目字段覆盖。Global input 中派生的顶层 dependency_resolution_required 是运行协议字段，不是第二个项目配置入口。开启后本切片无新增依赖/非适用目标也须保留明确 not-required 解析证据，见 [知识执行与冻结](engineering-disciplines.md)。
+质量门开关都在 `defaults.quality_gates`，均 bool 默认 false：`git_checkpoint`（模块 Git 检查点）、`write_scope_check`（写范围核验）、`fixer_self_diagnosis`（本地轮 Fixer 自诊断，开启后不再为本地轮启动独立 Diagnostician）、`dependency_resolution_required`（Foundation 冻结，例如 `{"defaults":{"quality_gates":{"dependency_resolution_required":true}}}`）；模块累计修复预算为 `defaults.budgets.max_fix_rounds`（默认 3，各类失败共用）。prepare 把这些值固化到快照与派生 Global input，init 按快照继承，不能在 prepared init 中降级或另加顶层字段覆盖；Global input 顶层的 dependency_resolution_required 是运行协议字段，不是第二个配置入口。开启 Foundation 冻结后，本切片无新增依赖或非适用目标也须保留明确 not-required 解析证据，见 [知识执行与冻结](engineering-disciplines.md)。
 
 ## 运行时固化
 
@@ -119,5 +119,5 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 ## 跨运行经验沉淀与复用
 
 跨 run 的分析/切分经验只经经验库抽象复用，不手工拷入新 Run：
-1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察（切分/边界调整、重规划、修复模式、阻塞及解除依据、一次冻结改交计划或同因被拒达三次）；失败为 pending，可重试。配置 `experience_root`（绝对目录）则多工作区共用一库，块名 `<project_id>/<run_id>`。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 Ledger retrospect 或 run-review 的 lessons_ref 提交。每次采集重生成切分技能 `skills/migration-slicing-experience/SKILL.md`：多个 run 印证的抽象教训在前，附往次切分形态与未抽象的观察，内容变才升版。run 内定论的 target_resources 与 test_adapter.device 随采集入库，项目配置未声明时下一 Run 的 prepare 取用。
+1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察（切分/边界调整、重规划、修复模式、阻塞与解除依据、一次冻结改交计划或同因被拒三次）；失败为 pending 可重试。配置 `experience_root`（绝对目录）则多工作区共用一库，块名 `<project_id>/<run_id>`。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 Ledger retrospect 或 run-review 的 lessons_ref 提交。每次采集重生成切分技能 `skills/migration-slicing-experience/SKILL.md`（多 run 印证的教训在前，附往次切分形态与未抽象观察，内容变才升版）。run 内定论的 target_resources 与 test_adapter.device 随采集入库，项目配置未声明时下一 Run 的 prepare 取用。
 2. **规划指导**：prepare 仅固化完整抽象经验，原始观察留存供复盘，不臆造根因。本 Run 的不可变 history_refs 纳入通用及关联叶子经验，预检绑定版本。prepare 一并固化切分技能：GO/MO 的登记、全局规划、拆分与接受、上溯和上游修订步骤以游标 slicing_skill 给出，宿主按技能加载，他处不读。收尾的全局游标在有未抽象观察或切分信号（成链、过半等待、界面逻辑分属、一次冻结改交达三次）且尚无复盘时给出 retrospective_due，宿主让统一 Auditor 按 retrospective.json 抽象并提交 retrospect。

@@ -27,27 +27,11 @@ python3 <package>/skills/migration-ledger/scripts/ledger.py preview --root <run>
 python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run> --scope module --module-id <module-id>
 ```
 
-`verify_openspec.py` 只读核验指定范围的记录/投影：global 用于公共基础，module 用于当前模块、祖先和实际依赖，projection（默认）检查全量视图，final 另要求正式收尾报告。planning 阶段 projection 可以通过；这不证明真实派发、命令执行或功能 Green。失败按 scope/module_id/recovery_action 恢复相关范围，无关 MO 继续，不把全量 projection 失败作为所有模块的共同门禁。详见 [留存布局](storage-layout.md#openspec-投影完整性收尾门禁)。
+`verify_openspec.py` 只读核验指定范围：global 公共基础，module 当前模块、祖先与实际依赖，projection（默认）全量视图，final 另要求正式收尾报告；planning 阶段 projection 可通过。核验不证明真实派发、命令执行或功能 Green；失败按 scope/module_id/recovery_action 恢复相关范围，无关 MO 继续，见 [留存布局](storage-layout.md#openspec-投影完整性收尾门禁)。
 
-正式 CLI 只用 prepare 固化的 `.sdd-runs/<run_id>`（init 绑定 project_context_ref）；任意旧根目录用 `ledger.py history --root <旧根>` 只读重放；已接受的工件沿用接受时的规则，新提交的按当前规则（[冻结算法](openspec.md#冻结算法) 第 7 条）。`init/resume/recover` 是对同名 operation 的入口校验，仍经过同一事务函数。成功返回 event_id/sequence/duplicate，拒绝返回 exit 1 和原因。业务状态以日志/投影为准，CLI exit 0 仅说明请求已接受。
+正式 CLI 只用 prepare 固化的 `.sdd-runs/<run_id>`（init 绑定 project_context_ref）；旧根目录用 `ledger.py history --root <旧根>` 只读重放；已接受的工件沿用接受时的规则，新提交的按当前规则（[冻结算法](openspec.md#冻结算法) 第 7 条）。`init/resume/recover` 是同名 operation 的入口校验，仍走同一事务；成功返回 event_id/sequence/duplicate，拒绝返回 exit 1 和原因，CLI exit 0 仅说明请求已接受。宿主 context 最小为 `{"role":"module-orchestrator","instance_id":"mo-M001"}`，由宿主认证后注入，不从业务请求推导；请求形状见 [ledger-request.json](../../../template/ledger-request.json)。相同 request_id + 完整请求 + 身份重复提交返回原 ACK，内容变化拒绝。module_id 非空校验模块 revision，否则校验全局 revision；**decision/register/global-plan/audit-collect/audit-plan/audit-route-batch/audit-verdict/audit-release/audit-assign/audit/audit-revoke/audit-route 的请求顶层 module_id 必须为 null**，适用模块写在 payload。每次有效模块操作增加模块 revision，跨模块失效增加相关消费者 revision。
 
-宿主 context 的最小结构：`{"role":"module-orchestrator","instance_id":"mo-M001"}`。这些值必须由宿主认证后注入，不能从业务请求推导。请求参考 [ledger-request.json](../../../template/ledger-request.json)：
-
-```json
-{
-  "schema_version": 1,
-  "request_id": "unique-request-id",
-  "run_id": "migration-demo",
-  "module_id": "M001",
-  "expected_revision": 3,
-  "operation": "plan",
-  "payload": {"plan_ref": {"path": "/workspace/migration/.sdd-runs/run-demo/staging/stage-plan.json", "sha256": "actual-sha256"}}
-}
-```
-
-相同 request_id+完整请求+调用身份重复提交返回原 ACK，内容变化拒绝。module_id 非空校验模块 revision，否则校验全局 revision；**decision/register/global-plan/audit-collect/audit-plan/audit-route-batch/audit-verdict/audit-release/audit-assign/audit/audit-revoke/audit-route 的请求顶层 module_id 必须为 null**，其适用模块在 payload 中记录。每次有效模块操作增加模块 revision；跨模块失效会增加相关消费者 revision。
-
-hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的 SHA256；`contracts.file_ref(path)` 返回真实绝对路径与文件字节 SHA256。命令行为 `contracts.py ref <文件>...`、`contracts.py baseline <代码文件>...`（输出 code_files 与 code_baseline）、`contracts.py digest <json 文件>`。不要用系统 `shasum` 计算 JSON 对象摘要冒充 canonical digest。
+hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的 SHA256；`contracts.file_ref(path)` 返回真实绝对路径与文件字节 SHA256。命令行 `contracts.py ref <文件>...`、`contracts.py baseline <代码文件>...`（输出 code_files 与 code_baseline）、`contracts.py digest <json 文件>`；不用系统 `shasum` 冒充 canonical digest。
 
 ## 操作矩阵
 
@@ -61,7 +45,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | decompose-accept | Global / 根 module_id | review_ref；细分则登记孩子、父移入 module_groups；原子结论保留节点进入未冻结叶子规划 |
 | realloc-request | MO / 子或根 module_id | reason、evidence_refs；切片/边界冲突向上提单，保存恢复阶段后进入 waiting-upstream；无父或父级上溯交 GO run-review |
 | redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；children 覆盖父 scope。根修订后游标 affected_children 列出须重写的孩子，其余原样复述即沿用 |
-| redecompose-accept | Global / 父 module_id | review_ref；复核重组方案；未变孩子保留进度并恢复请求前阶段，边界保持的冻结孩子转 CR，其余被改的孩子重新规划（保留 blocker/失败/预算）；只依赖它们的叶子不重规划，已有代码的等 provider 后复验；下线模块转入 superseded_modules 供 Auditor 治理 |
+| redecompose-accept | Global / 父 module_id | review_ref；复核重组方案：未变孩子保留进度并恢复请求前阶段，边界保持的冻结孩子转 CR，其余被改的孩子重新规划（保留 blocker/失败/预算）；只依赖它们的叶子不重规划，已有代码的等 provider 后复验；下线模块转入 superseded_modules 供 Auditor 治理 |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
 | decision | host | decision_id、decision=approved、module_id、subject_sha256（取游标步骤的 approval_subject_sha256）、human_source_ref，保存真实人类决定引用；决定与常设裁定另以 issue（kind=decision/standing）寄给适用模块。`kind=batch-envelope`：module_id 为父模块，envelope_ref 指向[批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子；`kind=api-adaptation`：module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
 | global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；无关根可待拆，执行仍验当前叶子与依赖。registry 变化后重审 |
@@ -73,12 +57,12 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | audit-verdict | Auditor | review_ref；双方验证齐全、同基线、DoD 完成才裁决通过；过期证据报告待人工 |
 | audit-defer | MO | root_cause + evidence_ref；记录根因、结果和恢复点，进入 waiting-auditor；可修复错误先按当前版本本地收敛，依赖/外围问题留证交接 |
 | audit-code-review | Auditor | report_ref；Ledger 预检（context_ref 可选）；全部 MO 收尾后、audit-collect 前提交，字段与治理闭环见[代码治理](audit-code-review.md#ledger-接口) |
-| plan | Spec-Designer | plan_ref；Ledger 预检（context_ref 可选）；提交前先 `preview`（只读，一次报全）；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围与 spec 由 Ledger 从已接受设计补全，checklist 由 Ledger 绑定包内清单；不抄写全局上下文与分配包，Ledger 绑定当前版本并在冻结、派发时复核 |
-| plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断，证据文档合计 ≤ 8 KB：裁决、阻塞缺陷、登记的 issue、未过门禁，不写叙事；裁决前先看步骤视图的 review_gates（plan 与 plan-review 后由 Ledger 一次列出未过的冻结门禁）；编码前 reason_ref 重规划，留历史；已派实现走 CR |
+| plan | Spec-Designer | plan_ref；Ledger 预检（context_ref 可选）；提交前先 `preview`；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围与 spec 由 Ledger 从已接受设计补全，checklist 由 Ledger 绑定包内清单；不抄写全局上下文与分配包 |
+| plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断，证据合计 ≤ 8 KB：裁决、阻塞缺陷、登记的 issue、未过门禁；裁决前看步骤视图的 review_gates（plan 与 plan-review 后 Ledger 一次列出未过的冻结门禁）；编码前 reason_ref 重规划留历史，已派实现走 CR |
 | audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id、全部所选 path_ids、自身 context_ref；结果以 result_ref 提交，Auditor 原样消费 |
 | freeze | MO | 清晰规划用 review_ref；所需人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
-| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；可选 session_id/card_sha256；合法阶段且无活动 worker，返回 fencing_token。不等预检：worker 派发后 context-submit（implementer 由 Ledger 代登记）；该实例已有当前 ready 报告时直接绑定，当前 blocked 时拒绝派发。执行派发 `mechanical=true` 时宿主按步骤 payload 直接提交 |
+| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id，可选 session_id/card_sha256；合法阶段且无活动 worker，返回 fencing_token。不等预检：worker 派发后 context-submit（implementer 由 Ledger 代登记），该实例已有当前 ready 报告时直接绑定，当前 blocked 时拒绝；`mechanical=true` 时宿主按步骤 payload 直接提交 |
 | context-submit | 执行者 | report_ref；登记预检报告，同 stage/实例的最新报告生效。worker 有同阶段的活动派发时：ready 绑定并授权开工（Fixer 此时计一轮），blocked 退回派发 |
 | submit | worker | assignment_id、fencing_token、result_ref；执行派发须已绑定 ready 预检；不推进阶段 |
 | accept | MO | assignment_id；重验工件和版本后关闭。`mechanical=true` 时宿主直接提交 |
@@ -109,7 +93,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
 | retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
 | api-register | GO / MO / Spec-Designer，全局 | module_id（owner 叶）、api_id（run 内新）、item_id（该叶 Logic/Adhesive 条目）、call、contract、evidence_refs；该叶下次 plan 的清单可多出已登记行，不重切、不推进修订号；owner/consumer 变化走 realloc/redecompose |
-| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary（≤400 字符，细节走 evidence_refs）、applies_to（模块）、可选 evidence_refs、blocks，或 `issues[]` 批量；消去：issue_id、module_id、evidence_ref，或 `resolutions[]` 批量，全部成立才记。plan、plan-review、submit、accept 可带 `resolves[]` 以本工件结清。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余时候给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete。step 视图每模块最多列 10 条（blocking、最新优先）并给总数，每条 200 字符。叶子计划欠的保真完整性由 Ledger 记为 gap 并放行，不再欠的新计划自动消去 |
+| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary（≤400 字符，细节走 evidence_refs）、applies_to、可选 evidence_refs、blocks，或 `issues[]` 批量；消去：issue_id、module_id、evidence_ref，或 `resolutions[]` 批量，全部成立才记。plan、plan-review、submit、accept 可带 `resolves[]` 以本工件结清。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余时候给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete。step 视图每模块最多列 10 条（blocking、最新优先）并给总数，每条 200 字符。Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
 
 ## 阶段结果
 
