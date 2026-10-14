@@ -9,6 +9,26 @@ import json
 from pathlib import Path
 
 
+def staging_usage(root, events):
+    """What the roles left under staging against what some event cites. The share no event cites is output the roles
+    can stop writing; scratch/ is counted apart, since nothing there is meant to be cited."""
+    cited = {str(Path(item['source_path']).resolve()) for e in events for item in e.get('artifact_snapshots') or []
+             if item.get('source_path')}
+    staging = Path(root) / 'staging'
+    total = cited_bytes = scratch_bytes = 0
+    for p in staging.rglob('*') if staging.is_dir() else ():
+        if not p.is_file():
+            continue
+        size = p.stat().st_size
+        if 'scratch' in p.relative_to(staging).parts:
+            scratch_bytes += size
+            continue
+        total += size
+        cited_bytes += size if str(p.resolve()) in cited else 0
+    return {'bytes': total, 'cited_bytes': cited_bytes, 'uncited_share': round(1 - cited_bytes / total, 3) if total else 0.0,
+            'scratch_bytes': scratch_bytes}
+
+
 def journal(root):
     path = Path(root) / 'ledger/events.jsonl'
     if not path.exists():

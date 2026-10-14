@@ -625,6 +625,7 @@ GATES = [
     (r'image[ _-]?(check|parity|source)|picture|deviation|render-reference', 'ui-fidelity.md', PICTURES),
     (r'watchdog|notice', 'watchdog.md', '总则'),
     (r'journal|workflow hub|hub routing|workflow\.md|event artifact|archive entry|projection', 'storage-layout.md', 'OpenSpec 投影完整性收尾门禁'),
+    (r'scratch', 'storage-layout.md', '总则'),
     (r'retirement|run impact|run revision|run review|root revision|root update|contract IDs|replacement IDs', 'progress-recovery.md', '同 Run 上游修订'),
     (r'code review|code findings|goal review|governance|recovery resolutions', 'audit-code-review.md', 'Ledger 接口'),
     (r'finding|repair owner|leftover|owner (not|must|prerequisites)|unresolved (human|verification)|block reason|retry contract', 'audit-scope.md', '问题处理'),

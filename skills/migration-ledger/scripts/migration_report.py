@@ -160,6 +160,7 @@ def fidelity(s, rows, ref_check):
 
 
 def build(root, s, sequence, ref_check=check_ref):
+    events = workflow_cost.journal(root)
     rows = []
     gaps = [{'module_id': mid, 'label': '未实现', 'review': copy.deepcopy(m['blocked']['implementation_gap']),
              'review_ref': m['blocked']['implementation_gap_ref'], 'owner': m['blocked']['owner'],
@@ -293,7 +294,7 @@ def build(root, s, sequence, ref_check=check_ref):
             'visual_coverage': visual, 'fidelity_limitations': limitations,
             'fidelity_conditions': pictures.pop('conditions'), 'picture_fidelity': pictures,
             'human_report': copy.deepcopy(batch.get('human_report')),
-            'workflow_cost': workflow_cost.build(s, workflow_cost.journal(root), ref_check),
+            'workflow_cost': workflow_cost.build(s, events, ref_check), 'staging_usage': workflow_cost.staging_usage(root, events),
             'modules': {mid: {'phase': m.get('phase'), 'quality': m.get('effective_quality', m.get('quality')),
                               'parent_module_id': m.get('parent_module_id'), 'dependencies': m.get('dependencies', [])}
                         for mid, m in s.get('modules', {}).items()},
@@ -424,6 +425,9 @@ def render(report):
              '| 模块 | 事件 | 派发 | 上下文回执 | 验收 | 人工决定 | 修复轮次 | 阅读卡字节（完整/实际交付） |', '| --- | --- | --- | --- | --- | --- | --- | --- |',
              *[f"| {cell(mid)} | {r['events']} | {r['dispatches']} | {r['context_receipts']} | {r['acceptances']} | "
                f"{r['human_decisions']} | {r['fix_rounds']} | {r['card_bytes_full']} / {r['card_bytes_delivered']} |" for mid, r in cost['modules'].items()]]
+    usage = report.get('staging_usage')
+    if usage:
+        text += ['', f"staging 产出：{usage['bytes']} 字节，其中未被任何事件引用 {usage['uncited_share']:.0%}；scratch {usage['scratch_bytes']} 字节不归档。"]
     if any('plan_documents' in r for r in cost['modules'].values()):
         text += ['', '规划体量（为计划撰写的文件与只被引用的来源分列，对照叶子的 CASE / TASK 数；用于发现小叶子的过度规划，不是门禁）：', '',
                  '| 模块 | CASE | TASK | 撰写文件 / 字节 | 引用来源 / 字节 |', '| --- | --- | --- | --- | --- |',

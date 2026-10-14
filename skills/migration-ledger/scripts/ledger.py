@@ -1974,6 +1974,12 @@ def new_snapshots(root, payload, target_root, index, externals=()):
 
 
 DEPENDENCY_STORES = ('.gradle', '.m2', 'node_modules', '.cargo', '.pub-cache', 'Pods')  # what a build tool keeps for the project
+SCRATCH = 'scratch'  # a role's drafts, probe scripts and logs under its staging: the Ledger neither reads nor archives them
+
+
+def scratch(root, path):
+    p, run = Path(path).resolve(), Path(root).resolve()
+    return p.is_relative_to(run) and SCRATCH in p.relative_to(run).parts
 
 
 def external_roots(s):
@@ -2011,6 +2017,7 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
             seen.add(key)
             require(not Path(value['path']).resolve().is_relative_to((Path(root) / 'ledger').resolve()),
                     'a ledger projection is not evidence: cite the artifact it was projected from')
+            require(not scratch(root, value['path']), 'a scratch file is not evidence: cite the artifact it informed')
             historical = None
             try:
                 path = check_ref(value)

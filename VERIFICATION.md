@@ -56,6 +56,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 精简状态与拒绝提示 | `status --view cursor/module` 不含模块正文、卡片行清单与信号证据，卡片只给字节数与小节数（单模块夹具 13.7KB → 1.8KB）；`--since` 命中当前 sequence 时只返回 unchanged 与信号摘要（约 0.4KB），有新事件即返回完整游标；`--view step` 只给一个模块当前步骤所需：请求信封字段、本阶段预检要求（含必读引用）、分配包、当前 assignment 与待验收提交，规划类步骤和设计派发另带 planning_context，运行中的设计者得到自己阶段的要求，不含其他模块（已冻结叶子的派发步骤小于 module 视图的一半、full 视图的八分之一）；父模块汇总步骤同样带阅读卡与模板；CLI 输出为单行紧凑 JSON；未知模块或视图被拒；拒绝记录带 `read_hint`，每个提示指向真实小节 |
 | 结构化字段限长 | issue summary 超过 400 字符被拒，step 视图只显示前 200 字符而状态保留整行；task scope 的 `in` 与自增的 `out` 各限 3 条 × 300 字符，模块排除项不计；device_gaps.reason 与 run 的 device.unavailable 声明限 400 字符 |
 | 文档体量与引用 | plan 时 proposal/spec/design/tasks/test-design 各超上限或合计超 60 KB 被拒并指向六件套映射；upstream-test-plan、fixture-contract 与全为 new 的 reuse-plan 各有上限，含非 new mapping 的 reuse-plan 不计；骨架不复写分配包 scope.out 与分析映射，design 无 Decisions 节 |
+| 草稿不进证据 | 引用 run 内任何 scratch/ 下的文件被拒并指向 storage-layout 总则；收尾报告给出 staging 字节、未被事件引用占比与 scratch 字节，核验沿用投影时的这一观测，之后 staging 的增减不算投影失真 |
 | 统一全量审计 | 独立同伴运行时仅保留本模块问题；全部模块本轮收尾后启动宿主审计，不允许提前派发局部审计 |
 | 轻量叶子与批量信封 | lean_leaf 登记需 scope/context/不可再拆审阅；本地轮由 Fixer 自诊断（`fixer_self_diagnosis` 对全部模块开启），未开启的普通模块拒绝；批量信封绑定文件 hash 与父的孩子，条目完全匹配且 MO 附 review_ref 才冻结 |
 | 原子规划与历史 | MO 原子结论经 decompose/GO accept 保留节点；缺预检、行为/验证边界或扩大范围均拒绝；无关根待拆时叶子可完成实现/验证，依赖待拆仍阻塞；兄弟拆分保留冻结/活动执行和独立测试设计；reopen 留不可执行 history、重新冻结唯一 SPEC，禁止提前 coding/testing/fixer 或宿主审计 |

@@ -2,7 +2,7 @@
 
 ## 总则
 
-所有角色遵守本协议。资产固定在 workspace_root 下的 .sdd-migration、.sdd-runs、openspec 三个并列目录；读取 prepare 返回的 run_root/storage_layout 和 status.openspec_hub，不按 cwd 猜目录，不在目标仓另建一份 SPEC。一般生成工件放当前 run staging；Harmony 辅助产物放 runs/harmony/sandbox，正式自动化放 runs/harmony/automation，构建放 runs/build；临时目录归当前 runner，结束清理或留存 cleanup 原因；工作流状态变更仍经 Ledger。
+所有角色遵守本协议。资产固定在 workspace_root 下的 .sdd-migration、.sdd-runs、openspec 三个并列目录；读取 prepare 返回的 run_root/storage_layout 和 status.openspec_hub，不按 cwd 猜目录，不在目标仓另建一份 SPEC。一般生成工件放当前 run staging；Harmony 辅助产物放 runs/harmony/sandbox，正式自动化放 runs/harmony/automation，构建放 runs/build；临时目录归当前 runner，结束清理或留存 cleanup 原因；工作流状态变更仍经 Ledger。草稿、探针脚本与日志放本实例 staging/<agent>/<request>/scratch/，Ledger 不读、不归档、拒绝作为证据；staging 其余产出应被某事件引用，收尾报告给出未引用占比。
 
 ## 唯一项目根与三类资产
 
@@ -47,10 +47,11 @@
 │       │   ├── progress.json             # 查询时生成的宿主进度信号
 │       │   └── audit-batch.json           # 有治理/遗留批次时产生
 │       ├── artifacts/<sha256>            # 提交前保存的不可变内容寻址工件
-│       ├── staging/<agent>/<request>/    # 角色/Host 原始生成件，提交后保留
-│       │   └── ...                       # GO 功能清单/分配、SPEC 定义、四维/复用/
+│       ├── staging/<agent>/<request>/    # 角色/Host 提交并被事件引用的生成件，提交后保留
+│       │   ├── ...                       # GO 功能清单/分配、SPEC 定义、四维/复用/
 │       │                                 # 埋点、测试设计/脚本、诊断/Fixer/CR、
 │       │                                 # Auditor 代码清单、人工决策、GO 报告输入
+│       │   └── scratch/                  # 草稿、探针脚本、日志；Ledger 不读、不归档、拒绝引用
 │       ├── runs/
 │       │   ├── build/<module-attempt>/    # query/result/receipt/execution.log、cleanup.json
 │       │   │   ├── stdout.log / stderr.log / output-events.jsonl

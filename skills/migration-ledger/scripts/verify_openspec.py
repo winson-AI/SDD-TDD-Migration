@@ -396,6 +396,10 @@ def inspect(run_root, scope='projection', module_id=None):
     if scope != 'module':
         try:
             report = migration_report.build(root, observed_state, sequence, ref_check)
+            try:  # what staging held when the report was projected is an observation of that moment, not a projection of the journal
+                report['staging_usage'] = json.loads((root / 'reports/migration-report.json').read_text())['staging_usage']
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
             compare(root / 'reports/migration-report.json', report, 'migration-report', structured=True)
             compare(root / 'reports/migration-report.md', migration_report.render(report), 'migration-report')
             if evidence:
