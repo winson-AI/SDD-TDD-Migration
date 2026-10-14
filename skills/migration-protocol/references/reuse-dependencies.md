@@ -86,7 +86,7 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 
 `reuse-plan.mappings[].fidelity` 含：`legacy_root`（等于本轮 Ledger 的存量根）；`legacy_source_refs`（该目录内真实入口/调用链的 path/sha256，不以提供方源码冒充基线）；`alignment_ref`（按 [reuse-fidelity.md](../../../template/reuse-fidelity.md) 的逐行为对齐报告：正常/边界/失败、默认值、输入输出、状态/生命周期、副作用逐项核对，不适用有理由）；`scenarios`（稳定 scenario_id、legacy_behavior、reuse_behavior、reproduction_strategy 及已冻结的 path_id/assertion_ids，覆盖该映射全部 path_ids；经 mapping 的 requirement_ids/task_ids 与 PATH 的 case_id 关联需求和用例，不另建验收状态机）。
 
-报告区分**源码分析得出的基线**与**已有真实运行证据**：规划只读分析，不为对齐在代码生成前运行目标测试；存量运行轨迹可辅助固化场景，没有就记未执行/限制，不伪造。源码与需求足以确定行为即可冻结；预期无法确定、基线缺失或有疑问先补材料/人工澄清；正式复现仍必须执行 Main。复现是满足冻结的业务可观察契约，不是内部实现相同；数据/平台差异的转换与允许偏差须有依据，不用宽泛"相似"替代断言；Test Runner 从已审核的存量契约与需求设计预期，不从目标实现或提供方返回值倒推。记录链固定为：**存量源码引用 → alignment_ref → mapping/scenario → REQ/CASE/TASK/PATH/ASSERT → 冻结版本 → reuse_trace → Main 结果/回执 → MO 或 Auditor 裁决**；规划报告不可变，结果沿测试记录保留 test_run_id、freeze_id、code_baseline、环境、日志、expected/actual 与 execution_receipt，所有共享记录经 Ledger，不建第二份可手改的通过状态。
+报告区分**源码分析得出的基线**与**已有真实运行证据**：规划只读分析，不为对齐在代码生成前运行目标测试；存量运行轨迹可辅助固化场景，没有就记未执行/限制，不伪造。源码与需求足以确定行为即可冻结；预期无法确定、基线缺失或有疑问先补材料/人工澄清；正式复现仍须执行 Main。复现是满足冻结的业务可观察契约，不是内部实现相同；数据/平台差异的转换与允许偏差须有依据，不用"相似"代替断言；Test Runner 从已审核的存量契约与需求设计预期，不从目标实现或提供方返回值倒推。记录链固定为：**存量源码引用 → alignment_ref → mapping/scenario → REQ/CASE/TASK/PATH/ASSERT → 冻结版本 → reuse_trace → Main 结果/回执 → MO 或 Auditor 裁决**；规划报告不可变，结果沿测试记录保留 test_run_id、freeze_id、code_baseline、环境、日志、expected/actual 与 execution_receipt，共享记录经 Ledger，不建第二份可手改的通过状态。
 
 ### 7.3 失败、变化与实现边界
 
@@ -150,7 +150,7 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 
 ### 记录与完成准则
 
-对齐报告记"目标冗余文件/符号 → 库 source/capability/version → 消费者 → 保留差异/适配 → 清理范围 → TASK/PATH/ASSERT"，沿用 reuse-plan 的 rationale、behavior_delta、binding_plan、verification 与 fidelity.alignment_ref，不新增状态机或第二套验收。可直接替代选 `reuse`，有真实行为/模型/生命周期差异选 `adapt`，适配层只实现必要差异；完成要求所有受影响生产调用转到真实库/适配入口、重复实现已清理，必要兼容 façade 可保留并说明理由，不能只加依赖仍走旧实现或两套并行；清理前核对全局调用者与唯一 owner，状态持久化、数据格式与公共契约保持冻结语义；已授权范围内直接执行，冻结路线变化先走 CR/重新冻结，未决行为或授权变化交人工；已有测试只补充回归，不删失败断言或以库自测替代目标验证，缺自动化仍 Yellow；库不兼容时记证据按第 8 节继续，不为消除表面重复削弱需求，也不以未评估的"不适合"重复造轮子。冗余、适配必要性与调用链是否穷尽由 Agent 审查，脚本只校验版本、范围、映射与证据。
+对齐报告记"目标冗余文件/符号 → 库 source/capability/version → 消费者 → 保留差异/适配 → 清理范围 → TASK/PATH/ASSERT"，沿用 reuse-plan 的 rationale、behavior_delta、binding_plan、verification 与 fidelity.alignment_ref，不另设状态机或第二套验收。可直接替代选 `reuse`，有真实行为/模型/生命周期差异选 `adapt`，适配层只实现必要差异；完成 = 所有受影响生产调用转到真实库/适配入口且重复实现已清理，必要兼容 façade 可保留并说明理由，不能只加依赖仍走旧实现或两套并行；清理前核对全局调用者与唯一 owner，持久化、数据格式与公共契约保持冻结语义；已授权范围内直接执行，路线变化先走 CR/重新冻结，未决行为或授权变化交人工；已有测试只补回归，不删失败断言、不以库自测代替目标验证，缺自动化仍 Yellow；库不兼容时记证据按第 8 节继续，不为消除表面重复削弱需求，也不以未评估的"不适合"重复造轮子。冗余、适配必要性与调用链是否穷尽由 Agent 审查，脚本只校验版本、范围、映射与证据。
 
 ## 10. 显式 provider 归属与合法版本变更
 
@@ -164,11 +164,11 @@ reuse-catalog 用 schema_version=2，每个 capability 必填 provider_owner_mod
 
 沿用 CR、invalidate、冻结、代码验收与依赖恢复，按序执行，不加隐藏写通道：
 
-1. 父 MO/GO 提供变更与影响报告，确认唯一 owner、消费者闭包、写集合与公共契约；需求/验收/授权变化交人工；记旧版本与不可变旧证据。
-2. 修改前停止相关活动 worker 并经 Host revoke；相关消费者 invalidate，保留旧测试/失败并重新规划；无关模块继续，不只解除依赖就把旧测试当 Green。
-3. owner 对既有冻结计划提 CR/影响分析或 invalidate 后重规划并获批准；被修改文件作为明确的实现目标，不再同时声明为不变 provider，仍用的稳定依赖保持真实映射与 hash 校验。
+1. 父 MO/GO 给变更与影响报告，确认唯一 owner、消费者闭包、写集合与公共契约；需求/验收/授权变化交人工；记旧版本与不可变旧证据。
+2. 修改前停止相关活动 worker 并经 Host revoke；相关消费者 invalidate，保留旧测试/失败并重新规划；无关模块继续，不把解除依赖当 Green。
+3. owner 对既有冻结计划提 CR/影响分析或 invalidate 后重规划并获批准；被修改文件是明确实现目标，不再同时声明为不变 provider，仍用的稳定依赖保持真实映射与 hash 校验。
 4. owner Coding → Build → Automation → MO 验收，保存新 code baseline；缺自动化沿用 Yellow/可用构建规则，不称 fidelity 通过。
-5. 用 owner 已接受的真实文件/hash/version 生成新目录，消费者重新映射/六件套并冻结，再正式构建与回归；不在旧冻结 plan 静默替换 ref；waiting-dependency 按 dependency-ready/resume 恢复，需重规划则进入 specifying。
+5. 用 owner 已接受的真实文件/hash/version 生成新目录，消费者重新映射/六件套并冻结，再正式构建与回归；不在旧冻结 plan 静默换 ref；waiting-dependency 按 dependency-ready/resume 恢复，需重规划则进入 specifying。
 6. 非 Green 复测保留 retest_of；父 MO 重汇总，Auditor 全量收尾后复核；失败仍守预算、Fixer 与人工升级规则。
 
 未交付、文件不存在的 provider 不能伪造 ref 供消费者冻结，先完成 owner 或选真实稳定接口；registry 缺必要 owner/依赖先解决分配，不以 null 隐藏本轮写入责任；同 run 来源追加只处理只读来源。

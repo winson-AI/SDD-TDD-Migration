@@ -2,7 +2,7 @@
 
 ## 总则
 
-Test-Runner 在 Coding 接受后先构建，同一派发内运行逻辑单测，再做静态规格闭合审查（逐需求核对生产符号与假实现清单，见 [静态规格闭合](testing.md#静态规格闭合)），然后执行自动化。任务分批编写时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且需要本模块代码的切片已有代码，此前为 awaiting-assembly。构建命令相同的模块同时只一个在写；命令优先用户指定，否则搜索构建脚本并默认评估 Gradle assemble。构建/用例错误记三态与根因，修复仍由 Fixer。仅自动化环境不可启动时保留构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred，独立任务与依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复；全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。不跳过构建、不吞已观察到的 Red。
+Test-Runner 在 Coding 接受后先构建，同一派发内跑逻辑单测，再做静态规格闭合审查（逐需求核对生产符号与假实现，见[静态规格闭合](testing.md#静态规格闭合)），然后自动化。任务分批时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且需要本模块代码的切片已有代码，此前为 awaiting-assembly。构建命令相同的模块同时只一个在写；命令优先用户指定，否则搜索构建脚本并默认评估 Gradle assemble。构建/用例错误记三态与根因，修复仍由 Fixer。仅自动化环境不可启动时保留构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred，独立任务与依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复；全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。不跳过构建、不吞已观察到的 Red。
 
 ## 1. 职责与全局规则
 
@@ -42,11 +42,11 @@ Coding 接受 → Test-Runner building 预检 → 编译构建
 }
 ```
 
-- 没有指定命令时，GO/Test-Runner 在整个目标项目搜索 Gradle wrapper、Gradle 配置及构建脚本，阅读实际任务和模块/variant，不执行搜索到的所有脚本。
-- [discover_build.py](../../migration-test/scripts/discover_build.py) 提供只读候选搜索：项目根 wrapper 优先，其次唯一嵌套 wrapper，否则本机 Gradle。默认候选为 `assemble`；避免使用会顺带运行自动化测试的 `build/check`，确保设备/自动化环境缺失不会使编译阶段失败。
-- 多个构建根或不同目标有歧义时由 Agent 结合模块 scope 选择并留依据，无法判断再询问用户。缺少 Gradle、SDK/JDK、必要脚本则记录构建环境 Yellow；不伪造命令、不替换为 `echo success`。
-- 每个 build PATH 的 `command` 固定绝对 argv、目标内 cwd、timeout_seconds、selection_ref。selection_ref 记录搜索候选、选中理由、目标/variant、必要工具版本及模块范围。building 预检另提供实际环境证据；源码生成前不执行构建。
-- 共享构建目录/设备锁由宿主落实，锁等待不能污染其他模块的测试质量。构建只产生授权输出，不授予 Test-Runner 修改业务源码的权限。
+- 没有指定命令时，GO/Test-Runner 在整个目标项目搜索 Gradle wrapper、配置与构建脚本，阅读实际任务和模块/variant，不执行搜索到的所有脚本。
+- [discover_build.py](../../migration-test/scripts/discover_build.py) 只读搜索候选：项目根 wrapper 优先，其次唯一嵌套 wrapper，否则本机 Gradle；默认候选 `assemble`，避免会顺带跑自动化测试的 `build/check`，使设备/自动化环境缺失不影响编译阶段。
+- 多个构建根或目标有歧义时由 Agent 结合模块 scope 选择并留依据，无法判断再问用户。缺 Gradle、SDK/JDK、必要脚本记构建环境 Yellow；不伪造命令、不换成 `echo success`。
+- 每个 build PATH 的 `command` 固定绝对 argv、目标内 cwd、timeout_seconds、selection_ref（搜索候选、选中理由、目标/variant、工具版本与模块范围）；building 预检另给实际环境证据；源码生成前不构建。
+- 共享构建目录/设备锁由宿主落实，锁等待不污染其他模块的测试质量；构建只产生授权输出，不授予 Test-Runner 改业务源码的权限。
 
 ## 3. 冻结路径与分阶段证据
 
@@ -57,11 +57,11 @@ Coding 接受 → Test-Runner building 预检 → 编译构建
 MO 派发 test-runner 时明确 `test_scope=build|automation|visual`，顺序同上；每次接受新代码，旧构建失效，须重新 build。
 
 - building 预检只检查冻结方案、代码、构建命令、构建环境和权限，不检查设备/UI/自动化账号。
-- `execute_test.py` 对 build PATH 直接执行冻结命令，**不追加 query-file/result-file 参数**；宿主保存 stdout/stderr、退出码和 receipt，并生成唯一构建断言（expected=0，actual=真实退出码）。编译错误按 Red、环境/工具或未知原因按 Yellow，均保留根因及日志，由角色核实分类；127/124 默认 Yellow。
-- 每次结果提交覆盖 assignment scope 下全部 PATH；build、automation、visual 分别提交/接受。Ledger 合并各部分，保留构建状态及每条路径结果。
-- visual 使用正式 `execute_test.py` adapter 回执；`compare-only` 的独立 score 不能当作正式通过。逐目标绑定、HAP 与声明手势要求见 [UI 保真](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)。
-- [harmony_stage.py](../../migration-test/scripts/harmony_stage.py) 可组装构建回执及 Harmony 自动化回执，按 assignment scope 校验覆盖；其他自动化框架继续使用通用 tests stage 契约。
-- 首轮修复和后续审计修复沿既有预算执行。Fixer 自测不是正式复测；缺自动化验证时修复 memory 标 unverified。
+- `execute_test.py` 对 build PATH 直接执行冻结命令，**不追加 query-file/result-file 参数**；宿主保存 stdout/stderr、退出码和 receipt，生成唯一构建断言（expected=0，actual=真实退出码）。编译错误 Red，环境/工具或未知原因 Yellow（127/124 默认 Yellow），均留根因与日志，由角色核实分类。
+- 每次结果提交覆盖 assignment scope 下全部 PATH；build、automation、visual 分别提交/接受，Ledger 合并并保留每条路径结果。
+- visual 用正式 `execute_test.py` adapter 回执；`compare-only` 的 score 不算正式通过。逐目标绑定、HAP 与手势要求见[UI 保真](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)。
+- [harmony_stage.py](../../migration-test/scripts/harmony_stage.py) 组装构建与 Harmony 自动化回执并按 assignment scope 校验覆盖；其他自动化框架用通用 tests stage 契约。
+- 首轮修复与审计修复沿既有预算；Fixer 自测不是正式复测，缺自动化验证时修复 memory 标 unverified。
 
 ## 4. 自动化环境缺失：直接记 Yellow 并继续
 
@@ -124,7 +124,7 @@ Harmony Main adapter 不隐式安装 App；宿主可继续提供已安装包与�
 
 ## 构建资产位置
 
-冻结 build PATH 时审核构建输出位置，遵守 [留存文件系统](storage-layout.md)：正式输出为 runs/build/<新 attempt>；执行器绑定临时目录与工具缓存，在该次 Gradle home 放 init.d 把各工程 buildDirectory 与项目缓存定向到 runner，脚本内调用的构建同样继承。角色自查用 `execute_test.py selfcheck --cwd <树> --output <新目录> -- <命令>`，同一定向，不留回执、不算结果。宿主可设 `SDD_GRADLE_CACHE_SEED`（一个 Gradle user home）供各次执行链接 wrapper 与依赖缓存；冻结任务参数保留，实际命令只扩展缓存目录参数。APK、构建报告、测试脚本不留在目标源码旁；硬编码输出先调整冻结任务/构建配置，工程不支持则如实记录局部构建问题，其他模块照常。安装步骤读本轮实际 APK 路径。
+冻结 build PATH 时审核构建输出位置，遵守[留存文件系统](storage-layout.md)：正式输出为 runs/build/<新 attempt>；执行器绑定临时目录与工具缓存，在该次 Gradle home 放 init.d 把各工程 buildDirectory 与项目缓存定向到 runner，脚本内调用的构建同样继承。自查用 `execute_test.py selfcheck --cwd <树> --output <新目录> -- <命令>`，同一定向，不留回执、不算结果。宿主可设 `SDD_GRADLE_CACHE_SEED`（一个 Gradle user home）供各次执行链接 wrapper 与依赖缓存；冻结参数保留，实际命令只扩展缓存目录参数。APK、构建报告、测试脚本不留在目标源码旁；硬编码输出先调整冻结任务/构建配置，工程不支持则如实记录，其他模块照常。安装步骤读本轮实际 APK 路径。
 
 ## 构建和自动化异常回执
 

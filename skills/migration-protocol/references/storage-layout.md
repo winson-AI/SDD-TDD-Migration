@@ -2,7 +2,7 @@
 
 ## 总则
 
-所有角色遵守本协议。资产固定在 workspace_root 下并列的 .sdd-migration、.sdd-runs、openspec；读 prepare 返回的 run_root/storage_layout 与 status.openspec_hub，不按 cwd 猜目录，不在目标仓另建 SPEC。一般生成工件放当前 run staging，Harmony 辅助产物放 runs/harmony/sandbox，正式自动化放 runs/harmony/automation，构建放 runs/build；临时目录归当前 runner，结束清理或留存 cleanup 原因；状态变更仍经 Ledger。草稿、探针脚本与日志放本实例 staging/<agent>/<request>/scratch/，Ledger 不读、不归档、拒绝作证据；staging 其余产出应被某事件引用，收尾报告给出未引用占比。包内规则与脚本文件不是证据，按卡片小节引用。
+所有角色遵守本协议。资产固定在 workspace_root 下并列的 .sdd-migration、.sdd-runs、openspec；读 prepare 返回的 run_root/storage_layout 与 status.openspec_hub，不按 cwd 猜目录，不在目标仓另建 SPEC。一般生成工件放当前 run staging，Harmony 辅助产物放 runs/harmony/sandbox，正式自动化放 runs/harmony/automation，构建放 runs/build；临时目录归当前 runner，结束清理或留 cleanup 原因；状态变更经 Ledger。草稿、探针脚本与日志放本实例 staging/<agent>/<request>/scratch/，Ledger 不读、不归档、拒绝作证据；staging 其余产出应被事件引用，收尾报告给未引用占比。包内规则与脚本文件不是证据，按卡片小节引用。
 
 ## 唯一项目根与三类资产
 
@@ -14,28 +14,28 @@
 - `.sdd-runs/<run_id>`：一次迁移的唯一运行根，由 prepare 自动派生；模块用 module_id、每次测试用新 attempt 子目录继续隔离。
 - `openspec`：规格、状态机与工作流中枢。`runs/<run_id>/workflow.md` 导航本轮 GO/父子 MO/审计状态；`changes/<run_id>-<module_id小写>` 保存叶子六件套。两者都按 run_id 隔离。
 
-`package_root` 的脚本、模板和 uv 依赖环境属于工具安装资产；legacy/target/reuse_sources 是代码输入或目标。原始业务文档可以位于外部，只读输入通过 context/files 固化。为本轮生成的说明、计划、脚本、报告及录制媒体应在三目录内留存，不能另外建立目标仓 SPEC 副本。除目标源码修改外，全部迁移资产集中管理。构建缓存/APK/测试素材也属于运行资产；默认 Gradle 执行注入本轮缓存与 buildDirectory，自定义构建脚本的输出位置必须在冻结前审核并映射到本轮 runner。工具安装依赖、工作流包自身文档/绘图/回归夹具不属于迁移运行资产。
+`package_root` 的脚本、模板和 uv 依赖环境是工具安装资产；legacy/target/reuse_sources 是代码输入或目标。原始业务文档可在外部，只读输入经 context/files 固化。本轮生成的说明、计划、脚本、报告与录制媒体留在三目录内，不另建目标仓 SPEC 副本；除目标源码修改外，全部迁移资产集中管理。构建缓存/APK/测试素材也是运行资产：默认 Gradle 执行注入本轮缓存与 buildDirectory，自定义构建脚本的输出位置在冻结前审核并映射到本轮 runner。工具安装依赖、工作流包自身文档/绘图/回归夹具不属于迁移运行资产。
 
 ## 从开始到完成的目录
 
 ```text
 <workspace_root>/
-├── .sdd-migration/                      # 项目配置：project-context.json、history/、sources/、runs/、preparations/、harmony/（凭证不入 Ledger）、inputs/
+├── .sdd-migration/                      # 项目配置、history/、sources/、runs/、preparations/、harmony/（凭证不入 Ledger）、inputs/
 ├── .sdd-runs/<run_id>/
-│   ├── input.json                       # GO 完成后 Host 保存的本轮高层输入
+│   ├── input.json                       # 本轮高层输入
 │   ├── context/                         # snapshot.json（不可改写）、files/<sha256>.*、files/<sha256>.links.json、files/linked/、revisions/
-│   ├── ledger/                          # events.jsonl（唯一事实）、global.json（模块 plan 只以 plan_ref 引用）、modules/<id>.json、repair-memory.json、progress.json、audit-batch.json
-│   ├── artifacts/<sha256>               # 提交前保存的不可变内容寻址工件
-│   ├── staging/<agent>/<request>/       # 角色/Host 提交并被事件引用的生成件；其 scratch/ 放草稿、探针、日志，Ledger 不读不归档、拒绝引用
+│   ├── ledger/                          # events.jsonl（唯一事实）、global.json（plan 只以 plan_ref 引用）、modules/<id>.json、repair-memory.json、progress.json、audit-batch.json
+│   ├── artifacts/<sha256>               # 不可变内容寻址工件
+│   ├── staging/<agent>/<request>/       # 被事件引用的生成件；scratch/ 放草稿、探针、日志，Ledger 不读不归档、拒绝引用
 │   ├── runs/
-│   │   ├── build/<module-attempt>/      # query/result/receipt、stdout/stderr、execution-state.json（I/O 观察，非业务状态）、outputs/、cache/、temp/
-│   │   ├── watchdog/                    # 旁路监听自身状态与 acknowledged/ 回执；不改业务状态
-│   │   └── harmony/                     # sandbox/environment/（共享 config/.env 与 manifest；preparation.json 提交后删除）、sandbox/<request>/、automation/<module-path-attempt>/（query/result/receipt、日志、cleanup、harmony/ 观察与报告）
+│   │   ├── build/<module-attempt>/      # query/result/receipt、stdout/stderr、execution-state.json（I/O 观察）、outputs/、cache/、temp/
+│   │   ├── watchdog/                    # 旁路监听状态与 acknowledged/ 回执
+│   │   └── harmony/                     # sandbox/environment/（共享 config/.env 与 manifest）、sandbox/<request>/、automation/<module-path-attempt>/
 │   ├── reports/                         # migration-report.json/.md、workflow-attention.md、rejected-operation.json、rejections/、projection-recovery/、watchdog/
 │   └── audit-reports/<batch_id>.json/.md  # 有人工问题时产生
 └── openspec/
     ├── runs/<run_id>/                   # owner.json、projection-owners/<module_id>.json、workflow.json、workflow.md
-    └── changes/<run_id>-<module_id小写>/  # 六件套与 status/checklist/memory；reuse.md、dimensions.md、scenarios.md 按计划内容产生；manifest.json 记冻结版本与文件清单
+    └── changes/<run_id>-<module_id小写>/  # 六件套与 status/checklist/memory；reuse.md、dimensions.md、scenarios.md 按计划产生；manifest.json 记冻结版本与清单
 ```
 
 目录树表示全部支持的留存类别，不意味着无条件创建每个文件。没有修复、来源追加、Harmony 执行或人工问题，就不伪造对应记录；父 MO 的分配/汇总在 Ledger 与 staging/artifacts，不能伪装成叶子实现规格。未执行的测试保留 Yellow，不能用空目录当通过证据。
@@ -128,11 +128,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 <package>/skills/migration-ledger/tests/simula
 
 ## 执行临时目录与外部工具
 
-- 执行器向子进程传递本轮 TMPDIR/TMP/TEMP、XDG/uv/pip/Gradle 缓存目录，禁用 Python 字节码。Harmony 在 SDK 导入前同时绑定 Python tempfile、SDK output/working_dir 和当前工作目录；覆盖外部 HYPIUM_MCP 路径变量，扩展 skill 使用 runner 工作目录读写，源码仍用绝对路径读取。
-- 正常结束/异常返回清除本执行的 temp，保留 cleanup.json；执行器超时向 attempt 进程组发停止信号，并限时回收输出。若 termination.host_stop_required=true，外层及 Harmony temp 均不删除，记录 retained-in-run/process-stop-unconfirmed，交 Host 停止或隔离后清理；否则沿原规则清理。清理失败同样留存原因，不另建系统临时文件。宿主/机器强制中断可能使 finally 无法执行，残留已位于该 run，恢复时先确认 worker 已停止再检查该 temp；禁止清理仍活跃的兄弟 attempt。
-- 设备互斥使用本机 loopback 端口租约，不再创建系统临时锁文件。按 device/ip/port 稳定映射，进程退出自动释放；端口冲突或宿主不允许绑定时返回不可执行信号，绝不绕过互斥或称测试通过。该租约不监听/发送网络数据。
-- 默认 Gradle 的 GRADLE_USER_HOME、project cache、buildDirectory 指向构建 attempt，init.d 策略留证；启动时只追加确定的 project-cache-dir/gradle-user-home 参数，回执保留 requested_argv 与实际 argv，验收重新计算并校验；工程自行覆盖 buildDirectory 到外部会失败并走既有诊断/Fixer。自定义 Gradle 插件、shell、其他构建工具的绝对输出必须由宿主在冻结前审核/配置，必要时由宿主文件权限约束。环境变量和路径校验不等于 OS 沙箱，不能承诺任意命令都无法越界。
-- 设备端 /data/local/tmp 录屏与相册 fixture 是设备 I/O，不是宿主资产目录：正常结束清理录屏临时副本，拉回本轮 reports；断连/强杀后的设备清理须在下次使用设备前核验。不得把系统文件或用户相册当作可批量迁移/清除的宿主资产。
+- 执行器向子进程传递本轮 TMPDIR/TMP/TEMP、XDG/uv/pip/Gradle 缓存目录，禁用 Python 字节码。Harmony 在 SDK 导入前绑定 Python tempfile、SDK output/working_dir 与当前工作目录；覆盖外部 HYPIUM_MCP 路径变量，扩展 skill 用 runner 工作目录读写，源码仍用绝对路径读取。
+- 正常结束/异常返回清除本执行的 temp，保留 cleanup.json；超时向 attempt 进程组发停止信号并限时回收输出。termination.host_stop_required=true 时外层与 Harmony temp 都不删，记 retained-in-run/process-stop-unconfirmed，交 Host 停止或隔离后清理；清理失败留原因，不另建系统临时文件。强制中断可能使 finally 未执行，残留在该 run 内，恢复时先确认 worker 已停止再检查；不清理仍活跃的兄弟 attempt。
+- 设备互斥用本机 loopback 端口租约，不建系统临时锁文件；按 device/ip/port 稳定映射，进程退出自动释放；端口冲突或不允许绑定时返回不可执行信号，绝不绕过互斥或称测试通过；租约不收发网络数据。
+- 默认 Gradle 的 GRADLE_USER_HOME、project cache、buildDirectory 指向构建 attempt，init.d 策略留证；启动只追加确定的 project-cache-dir/gradle-user-home 参数，回执保留 requested_argv 与实际 argv，验收重算校验；工程自行覆盖 buildDirectory 到外部会失败并走诊断/Fixer。自定义 Gradle 插件、shell、其他构建工具的绝对输出须由宿主在冻结前审核/配置，必要时用文件权限约束。环境变量与路径校验不是 OS 沙箱，不承诺任意命令都无法越界。
+- 设备端 /data/local/tmp 录屏与相册 fixture 是设备 I/O，不是宿主资产：正常结束清理录屏临时副本并拉回本轮 reports；断连/强杀后的设备清理在下次使用前核验。不把系统文件或用户相册当作可批量迁移/清除的宿主资产。
 
 ## 原位置与治理映射
 
