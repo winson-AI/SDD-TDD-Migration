@@ -384,7 +384,7 @@ def replan_module(m, reason, evidence_ref, release_blocker=False):
 def dependencies_ready(s, m):
     providers = ((m.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs', [])
     stages = {row['module_id']: row['required_stage'] for row in providers}
-    require(all((bool(s['modules'][d].get('code_baseline')) and not s['modules'][d].get('change_request') and set(s['modules'][d].get('accepted_task_ids', [])) ==
+    require(all((bool(s['modules'][d].get('code_baseline')) and set(s['modules'][d].get('accepted_task_ids', [])) ==
                 {t['task_id'] for t in (s['modules'][d].get('plan') or {}).get('tasks', [])})
                 if stages.get(d) == 'implemented' and m.get('phase') not in ('testing', 'dod', 'completed')
                 else tv.available(s['modules'][d]) for d in m['dependencies']), 'dependencies not complete')
@@ -668,8 +668,10 @@ def providers(s, m):
     for dependency in m.get('dependencies', []):
         for mid in decomposition.leaves(s, dependency) if dependency in s['modules'] or dependency in s.get('module_groups', {}) else []:
             p, stage = s['modules'][mid], stages.get(dependency, 'verified')
-            written = bool(p.get('code_baseline')) and not p.get('change_request') and set(p.get('accepted_task_ids', [])) == {t['task_id'] for t in (p.get('plan') or {}).get('tasks', [])}  # a reopened contract is not there yet
-            rows.append({'module_id': mid, 'required_stage': stage, 'phase': p['phase'], 'plan_ref': p.get('plan_ref'),
+            # A provider revising its SPEC keeps the code it accepted: a dependent goes on against that code, and what the
+            # revision supersedes reaches it as a gap when the revision freezes.
+            written = bool(p.get('code_baseline')) and set(p.get('accepted_task_ids', [])) == {t['task_id'] for t in (p.get('plan') or {}).get('tasks', [])}  # a reopened contract is not there yet
+            rows.append({'module_id': mid, 'required_stage': stage, 'phase': p['phase'], 'plan_ref': p.get('plan_ref'), 'revising': bool(p.get('change_request')),
                          'code_baseline': p.get('code_baseline'), 'ready': written if stage == 'implemented' else tv.available(p)})
     return rows
 
