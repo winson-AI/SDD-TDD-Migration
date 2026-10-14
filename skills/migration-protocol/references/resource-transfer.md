@@ -61,3 +61,7 @@ planning_coverage_required 下，仅 applicable UI/Resource 维度需 condition_
 imageSources/Resource 的 API 图片 item 写 api_binding（api_id/response_field）；字段匹配 model field/JSON key，target_source 等于 API response_mapping。非 API 模型来源须 image_source_review(kind=non-api)、reason/evidence_refs。URL 字面值不变，加载器占位/变换另映射；仍须接线与正式图片断言。
 
 dimension_trace.assertions.api_obligations 覆盖 `api_id/route` 和 `api_id/<facet>:<field>`，facet 为 request_fields/response_fields/error_outcomes/state_effects；对应 PATH 绑定 fixture_contract_ref 且为 unit/automation。exact 保持源 transport 与路由；approved-adaptation 须理由、信封 alternative 及人工决定：该计划的精确决定、父批量信封，或逐契约命名 alternative 的 run 级决定（kind=api-adaptation，一次覆盖持有这些契约的所有叶子）。实现 dimension_evidence.consumer_refs 核对目标文件/符号，正式断言证明语义；出现名字不等于 API 等价。源变化沿同 Run 回溯重冻、接线和复测。
+
+## 数据契约
+
+数据属 Logic。四维 `data_review` 记适用性与依据，适用须 data_inventory_ref 绑定[清单](../../../template/data-inventory.json)：entities 逐实体记源符号/hash 与四类义务——sources（字段来源：API 字段、表与键、持久化键、缓存）、fetch_conditions（查询条件、排序、分页、缓存/离线）、derived_fields（派生字段的计算：源符号或 JSON-Logic，附单位/精度/时区）、invalidation（失效）；contracts 记目标 repository/model 符号与四个映射，逐义务覆盖；item 用 data_ids 认领，范围外实体入 exclusions。fidelity exact 保持取数与计算语义，approved-adaptation 须理由与信封 alternative。目标已有 repository/model 对同一数据取数或计算不同时，existing_target 记符号、差异与 refactor/adapt 决定，不留两套计算。dimension_trace.assertions.data_obligations 覆盖 `data_id/<facet>:<义务>`，PATH 为 unit/automation 并绑定 fixture_contract_ref：同一 fixture 下逐字段 expected/actual，分页/排序、空值/默认值、缓存失效各至少一条场景；实现 consumer_refs 核对目标 repository 文件与符号。清单由叶子在细化分析中写出；字段同名不等于取数与计算等价。

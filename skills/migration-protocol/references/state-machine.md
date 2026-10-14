@@ -24,16 +24,16 @@
 | --- | --- | --- |
 | context | specifying | `_input`、全局规范/架构/用例、legacy/target baseline 可读 |
 | specifying | clarifying | 六件套草稿、独立 test design、覆盖映射齐全 |
-| clarifying | frozen | MO 技术审核绑定 plan 摘要；仅所需 Human 决定须精确绑定；freeze checklist 通过，无未决阻断；MO 接受 |
-| frozen | implementing | 全局覆盖验收通过、冻结内容摘要匹配、依赖满足、目标写锁有效、tasks 非空 |
-| implementing | testing | 实现结果 submit 后被 MO accept；测试路径与断言已在冻结前定义，现绑定实际代码、脚本和环境执行 |
-| testing / build | testing / automation | 当前代码全部 build PATH Green；同一 Test-Runner 职责切换 |
+| clarifying | frozen | MO 技术审核绑定 plan 摘要；所需 Human 决定精确绑定；checklist 通过，无未决阻断；MO 接受 |
+| frozen | implementing | 全局覆盖验收通过、冻结摘要匹配、依赖满足、目标写锁有效、tasks 非空 |
+| implementing | testing | 实现 submit 后被 MO accept；冻结前定义的路径与断言现绑定实际代码、脚本和环境执行 |
+| testing / build | testing / automation | 当前代码全部 build PATH Green；同一 Test-Runner 切换职责 |
 | testing / automation | testing / visual | 功能用例层全 Green（`functional_ready`）；仅存在 visual PATH 时进入，逐基线节点对齐 |
 | testing / automation | automation-deferred | 仅自动化环境缺失，automation-unavailable 留逐 PATH Yellow/未执行；构建保持 Green |
 | automation-deferred | testing / automation | 新 testing ready 报告 + automation-resume；无需人工批准，仍须真实补测 |
-| testing | dod | 冻结的全部必需路径 Green（build + automation 功能层 + visual 基线对齐层，`all_green`） |
-| testing | diagnosing / change-review / waiting-upstream | 现有诊断经 MO 分流：实现错误接受后 Fixer；规划缺口 CR；超 scope 上溯，见 OpenSpec 变更控制 |
-| diagnosing | fixing | 根因报告、当前版本本地预算或 Auditor 明确授权、合法写锁；不需改验收的补丁任务 |
+| testing | dod | 冻结的全部必需路径 Green（build + automation 功能层 + visual 对齐层，`all_green`） |
+| testing | diagnosing / change-review / waiting-upstream | 现有诊断经 MO 分流：实现错误接受后 Fixer；规划缺口 CR；超 scope 上溯 |
+| diagnosing | fixing | 根因报告、当前版本本地预算或 Auditor 授权、合法写锁；不需改验收的补丁任务 |
 | fixing | testing | 补丁与回归证据已接收、代码版本更新、受影响路径标 stale；正式 Test-Runner 复测 |
 | diagnosing / fixing | change-review | 修改需求/验收/冻结任务或设计契约才可解决，提出 CR |
 | change-review | specifying | Spec-Designer 影响分析、MO 审核；语义变化需人工；更新规划后重走冻结 |
@@ -42,9 +42,9 @@
 | 规划/重建阶段 | waiting-dependency | 普通 DAG 前置等待；需全局裁决时 audit-defer |
 | 任意未完成阶段 | waiting-human | 非依赖 Yellow 需人工或预算耗尽，Escalation 已登记 |
 | waiting-dependency | 恢复点 | Global 的 dependency-ready + MO resume + baseline 复核；测试仍需复测 |
-| waiting-human | 恢复点（原 dod 改为 testing） | decision 已接受且绑定当前问题/版本；若改契约则先 specifying |
+| waiting-human | 恢复点（原 dod 改为 testing） | decision 已接受且绑定当前问题/版本；改契约则先 specifying |
 | dod | completed | 所有 DoD 检查与证据齐全，MO 提 complete，Ledger 接受 |
-| completed | testing / specifying | 审计问题经 MO repair-accept 进入 testing；代码/证据失效经 invalidate 进入 specifying；不能保留旧 Green |
+| completed | testing / specifying | 审计问题经 MO repair-accept 进入 testing；代码/证据失效经 invalidate 进入 specifying；不保留旧 Green |
 
 模块执行为 Coding → 接受代码 → Test-Runner build/unit/static → automation/visual → DoD。按总预算局部收敛。Fixer 自测不替代正式复测；规划期不执行目标测试。
 
@@ -104,14 +104,14 @@ snapshot 固定代码、SPEC、上下文与验证定义。必要复测由独立 
 
 ## 控制流闭环细则
 
-- `diagnose` 只提交诊断，调用方必须追加 MO 的 `diagnosis-accept`；不得在诊断 ACK 后直接 assign Fixer。复测后旧诊断作废，不能用旧问题的报告批准新修复。
+- `diagnose` 只提交诊断，调用方须追加 MO 的 `diagnosis-accept`，不得在诊断 ACK 后直接 assign Fixer；复测后旧诊断作废，不能用旧报告批准新修复。
 - `next_steps` 按统一规则执行有限循环；未知根因不能伪报已确认，实际依赖/外围或适用预算耗尽才留证待审计。
-- 人工恢复游标返回当前有效 `decision_id`；再冻结游标返回可提交的 `payload`，包括 within-envelope 的影响分析引用。候选 ready 仍需宿主补齐实际审查证据并经事务复核。
-- DoD 挂起恢复进入 testing，旧结果 stale，正式新一轮复测后才能 complete；其余恢复点保持原阶段。`invalidate` 清除阻塞及解除许可、旧 freeze_id；历史 blocker 留在事件中。原来有 blocker 时同时撤销批准边界复用，重规划必须取得新人工冻结批准，不能靠 invalidate 绕过未决问题。存在 blocker 时禁止 CR 和 assign。
-- 审计问题保存在 `audit_repairs`，`module_ids/accepted_by` 记录责任和 MO 接受情况。全局游标先提示 audit-route 或等待 MO 接受；未路由/未接受的问题禁止下一轮 audit-assign。有关联依赖的模块先完成原有恢复/重建，再接收其修复项。
-- MO repair-accept 保留 `repair_findings` 供 diagnose/Yellow 路由，按原有 CR、修复预算和复测规则执行。模块正式测试接受后清除此轮 repair_findings；这只表示模块验证结束，审计问题仍须 Auditor 重跑裁决。
-- `audit_results` 保留上一轮独立审计结果，不随代码失效清空。下一轮非 Green 同 PATH 必须提供新的 test_run_id 和 retest_of；模块重新 Green 不能解除这一要求。新审计覆盖完整集合后替换当前 repair 列表，旧报告保留于事件和工件。
-- 全局问题无法归属现有模块时，GO 经 Escalation 取得范围/架构决策，禁止随意归属或跳过。审计预算耗尽凭具体决定 audit-recover，同 Run 续作。
+- 人工恢复游标返回当前有效 `decision_id`；再冻结游标返回可提交的 `payload`，含 within-envelope 的影响分析引用；候选 ready 仍需宿主补齐审查证据并经事务复核。
+- DoD 挂起恢复进入 testing，旧结果 stale，正式复测后才能 complete；其余恢复点保持原阶段。`invalidate` 清除阻塞、解除许可与旧 freeze_id，历史 blocker 留在事件中；原有 blocker 时同时撤销批准边界复用，重规划须取得新人工冻结批准，不能靠 invalidate 绕过未决问题；存在 blocker 时禁止 CR 和 assign。
+- 审计问题存于 `audit_repairs`，`module_ids/accepted_by` 记责任与 MO 接受情况；全局游标先提示 audit-route 或等 MO 接受，未路由/未接受的问题禁止下一轮 audit-assign；有依赖的模块先完成原有恢复/重建再接收修复项。
+- MO repair-accept 保留 `repair_findings` 供 diagnose/Yellow 路由，按原 CR、修复预算和复测规则执行；模块正式测试接受后清除此轮 repair_findings，审计问题仍须 Auditor 重跑裁决。
+- `audit_results` 保留上一轮独立审计结果，不随代码失效清空；下一轮非 Green 同 PATH 须提供新 test_run_id 和 retest_of，模块重新 Green 不解除这一要求；新审计覆盖完整集合后替换当前 repair 列表，旧报告留在事件与工件。
+- 全局问题无法归属现有模块时，GO 经 Escalation 取得范围/架构决策，禁止随意归属或跳过；审计预算耗尽凭具体决定 audit-recover，同 Run 续作。
 
 ## 控制主线
 
