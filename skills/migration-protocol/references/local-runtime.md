@@ -58,7 +58,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | audit-defer | MO | root_cause + evidence_ref；记录根因、结果和恢复点，进入 waiting-auditor；可修复错误先按当前版本本地收敛，依赖/外围问题留证交接 |
 | audit-code-review | Auditor | report_ref；Ledger 预检（context_ref 可选）；全部 MO 收尾后、audit-collect 前提交，字段与治理闭环见[代码治理](audit-code-review.md#ledger-接口) |
 | plan | Spec-Designer | plan_ref；Ledger 预检（context_ref 可选）；先 `preview`；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围、spec 与 checklist 由 Ledger 从已接受设计和包内清单补全；不抄写全局上下文与分配包 |
-| plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断，证据 ≤ 8 KB：裁决、阻塞缺陷、登记的 issue、未过门禁（步骤视图的 review_gates 列出未过的冻结门禁）；编码前重规划留 reason_ref 历史，已派实现走 CR |
+| plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断，证据：裁决、阻塞缺陷、登记的 issue、未过门禁（步骤视图的 review_gates 列出未过的冻结门禁）；编码前重规划留 reason_ref 历史，已派实现走 CR |
 | audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id、全部所选 path_ids、自身 context_ref；结果以 result_ref 提交，Auditor 原样消费 |
 | freeze | MO | 清晰规划用 review_ref；所需人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
@@ -93,7 +93,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
 | retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
 | api-register | GO / MO / Spec-Designer，全局 | module_id（owner 叶）、api_id（run 内新）、item_id（该叶 Logic/Adhesive 条目）、call、contract、evidence_refs；该叶下次 plan 的清单可多出已登记行，不重切、不推进修订号；owner/consumer 变化走 realloc/redecompose |
-| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary ≤400 字符、applies_to，可选 evidence_refs、blocks，或 issues[] 批量；消去：issue_id、module_id、evidence_ref，或 resolutions[] 批量，全部成立才记；plan/plan-review/submit/accept 可带 resolves[]。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete；step 视图每模块最多 10 条（blocking、最新优先），每条 200 字符。Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
+| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary、applies_to，可选 evidence_refs、blocks，或 issues[] 批量；消去：issue_id、module_id、evidence_ref，或 resolutions[] 批量，全部成立才记；plan/plan-review/submit/accept 可带 resolves[]。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete；step 视图每模块最多 10 条（blocking、最新优先），每条 200 字符。Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
 
 ## 阶段结果
 

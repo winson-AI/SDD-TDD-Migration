@@ -1492,7 +1492,6 @@ def mutate(s, req, principal, events, root=None):
             plan_hash = m['plan_hash']
         else:
             plan_hash = validate_plan(plan, m)
-            control_policy.document_sizes(plan)
             m['plan_submissions'] = m.get('plan_submissions', 0) + 1  # distinct plans accepted for this freeze
             if s.get('split_testing_required') or any(path.get('kind') == 'build' for path in plan['paths']):
                 tv.plan_check(plan, s['target_root'], static_required=s.get('spec_closure_required', False),

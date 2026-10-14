@@ -34,17 +34,15 @@ class ReviewShapeTests(unittest.TestCase):
         f.call('freeze', {'decision_id': 'D1'})
         self.assertNotIn('review_gates', f.state()['modules']['M001'])  # frozen: nothing is failing any more
 
-    def test_a_review_over_eight_kilobytes_is_refused(self):
-        f = self.f
+    def test_a_review_carries_as_much_evidence_as_it_needs(self):
+        f = self.f  # a run's artifacts have no size gate; the task's completion is the criterion
         plan = f.plan(); f.call('plan', {'plan_ref': f.ref('plan.json', plan)}, role='spec-designer')
         f.approve(digest(plan), 'D1')
         review = f.ref('long-review.json', {'schema_version': 1, 'plan_hash': f.state()['modules']['M001']['plan_hash'], 'reviewer_instance_id': 'module-orchestrator',
                                             'semantic_change': False, 'authorization_change': False, 'unresolved_questions': [], 'recorded_issue_ids': [],
                                             'reason': 'reviewed', 'evidence_refs': [f.ref('narrative.md', 'x' * 9_000)]})
-        with self.assertRaisesRegex(Rejected, 'review over 8 KB') as caught:
-            f.call('plan-review', {'review_ref': review}, role='module-orchestrator')
-        import reading
-        self.assertEqual(reading.read_hint(str(caught.exception))['section'], '操作矩阵')
+        f.call('plan-review', {'review_ref': review}, role='module-orchestrator')
+        self.assertEqual(f.state()['modules']['M001']['plan_review_ref'], review)
 
 
 if __name__ == '__main__':

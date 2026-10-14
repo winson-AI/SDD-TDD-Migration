@@ -30,7 +30,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 本轮合并协议文字：GO、父 MO、子 MO 三层职责只在 module-decomposition.md 陈述一次，dimension-slicing.md 与 slicing.md 改为指引；UI 证据与采集器产物以引用进入计划、不内联，重提只改引用；协议上限随本轮压缩下调。
 
-协议体积为 498495 / 498500 字节，最大单文件 27538 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 44532 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 498223 / 498300 字节，最大单文件 27538 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 44287 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 
@@ -51,6 +51,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 作者自检与会话 | 实现/修复结果缺 authoring_diagnostics、诊断无日志或版本敏感 API 无固定源码引用均拒收；本地修复游标指向原 Implementer 会话 |
 | 静态规格闭合 | build 全绿后同一派发继续 static，再到 automation；passed 场景须给出另一目标文件中的调用位置（reached_from）；审查需覆盖全部冻结需求、引用目标文件中真实存在的符号、逐项判定假实现清单；反模式 present 为 Red 并进入修复；prepared run 必须冻结 static PATH |
 | 文本压缩 | 角色执行步骤、两张操作矩阵、模板索引与四个最大引用文件的长段落改写，规则不变；棘轮 500,500 → 498,500 |
+| 产物体量不是门禁 | 运行产物（六件套、上游测试计划、fixture 契约、reuse-plan、评审证据、issue 摘要、任务 scope、设备缺口原因）不设大小上限，Ledger 不因大小拒绝或记欠项；体量棘轮只约束工作流包自身的协议、卡片与模板；step 视图仍只显示 issue 摘要前 200 字符 |
 | 数据契约 | 四维 data_review 适用时 data_inventory_ref 绑定清单：实体逐字段的 sources / fetch_conditions / derived_fields / invalidation 义务，contracts 的目标 repository#symbol 与四个映射逐义务覆盖，fidelity exact / approved-adaptation（适配须信封 alternative），existing_target 须 refactor/adapt 决定；plan 时 data_obligations 覆盖全部义务且 PATH 为 unit/automation 并绑定 fixture；freeze 时目标与 fixture 已定、repository 在写范围或目标已有；实现提交 repository 文件与符号证据 |
 | 一种版本学说 | 已接受的工件沿用接受时的规则，重新提交按当前规则全判：取消 restated_shape / restated_task_scope 豁免；原样复述且分配未变的孩子不再判，分配任一字段变动即全判 |
 | 根自带清单 | readiness 开启且 decomposition_required 的根在 register 时必须带 feature_inventory_ref；分配包在 global-plan 之前暴露它；拆分计划不写引用则取根的 |
@@ -62,8 +63,6 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 提示采纳与流程成本 | assign 回填的会话/阅读卡与建议比对并汇总为 hint_adoption；workflow_cost 按模块统计事件、派发、回执、验收、人工决定与修复轮次并进入收尾报告 |
 | 单文件卡与增量交付 | `reading.py render` 以摘要命名写出单个卡片文件且幂等；`show` 只读包内 Markdown 单节并拒绝越界路径；会话已持有的小节不再进入 `must_read_new`，正文变化的小节重新交付；任意模块请求可带 `hint` 报告所用会话与卡片，匹配当前游标步骤才计入，格式不符被拒；流程成本统计每模块完整/实际交付的阅读卡字节；渲染后的卡片不含指向包内文件的链接（整份协议链接变纯文本、小节链接变“文件 § 小节”选择器），卡尾列出本步模板；Test-Runner 的角色定义按测试阶段取块；每步 `templates` 指向真实模板；会话累计持有的协议文本超过阈值时步骤带 `session_rotate` 建议 |
 | 精简状态与拒绝提示 | `status --view cursor/module` 不含模块正文、卡片行清单与信号证据，卡片只给字节数与小节数（单模块夹具 13.7KB → 1.8KB）；`--since` 命中当前 sequence 时只返回 unchanged 与信号摘要（约 0.4KB），有新事件即返回完整游标；`--view step` 只给一个模块当前步骤所需：请求信封字段、本阶段预检要求（含必读引用）、分配包、当前 assignment 与待验收提交，规划类步骤和设计派发另带 planning_context，运行中的设计者得到自己阶段的要求，不含其他模块（已冻结叶子的派发步骤小于 module 视图的一半、full 视图的八分之一）；父模块汇总步骤同样带阅读卡与模板；CLI 输出为单行紧凑 JSON；未知模块或视图被拒；拒绝记录带 `read_hint`，每个提示指向真实小节 |
-| 结构化字段限长 | issue summary 超过 400 字符被拒，step 视图只显示前 200 字符而状态保留整行；task scope 的 `in` 与自增的 `out` 各限 3 条 × 300 字符，模块排除项不计；device_gaps.reason 与 run 的 device.unavailable 声明限 400 字符 |
-| 文档体量与引用 | plan 时 proposal/spec/design/tasks/test-design 各超上限或合计超 60 KB 被拒并指向六件套映射；upstream-test-plan、fixture-contract 与全为 new 的 reuse-plan 各有上限，含非 new mapping 的 reuse-plan 不计；骨架不复写分配包 scope.out 与分析映射，design 无 Decisions 节 |
 | 草稿不进证据 | 引用 run 内任何 scratch/ 下的文件被拒并指向 storage-layout 总则；收尾报告给出 staging 字节、未被事件引用占比与 scratch 字节，核验沿用投影时的这一观测，之后 staging 的增减不算投影失真 |
 | 模板按名取用 | 卡片只列本步模板名并在脚注说明按名取用；`reading.py show --template <名>` 打印单份包模板并拒绝越界路径与不存在的名字 |
 | issue 卫生 | fact 记录即对每个目标结清、不能 blocks、不挡 complete；step 视图最多列 10 条 open issue（blocking 优先、最新优先）并给总数；standing 规则在 `--since` 之后无新增时只给数量与摘要 |

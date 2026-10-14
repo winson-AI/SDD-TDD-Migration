@@ -2,7 +2,6 @@
 from contracts import check_ref, keyed, nonempty, read_json, require
 
 DEVICE_PLATFORMS = ('android', 'harmony')
-GAP_CHARS = 400  # a declared gap states its reason in one paragraph; evidence_refs hold the detail
 
 
 def on_device(path):
@@ -69,7 +68,6 @@ def plan_gate(module, plan):
     for gap in declared.values():
         require(isinstance(gap.get('reason'), str) and gap['reason'].strip(),
                 'a device gap states why no device or visual path can verify the case')
-        require(len(gap['reason'].strip()) <= GAP_CHARS, f'a device gap states its reason in at most {GAP_CHARS} characters; evidence_refs hold the detail')
         for evidence in nonempty(gap.get('evidence_refs'), 'device gap evidence'):
             check_ref(evidence)
     missing = sorted(visible - covered - set(declared))
