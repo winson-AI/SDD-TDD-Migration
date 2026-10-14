@@ -58,6 +58,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 文档体量与引用 | plan 时 proposal/spec/design/tasks/test-design 各超上限或合计超 60 KB 被拒并指向六件套映射；upstream-test-plan、fixture-contract 与全为 new 的 reuse-plan 各有上限，含非 new mapping 的 reuse-plan 不计；骨架不复写分配包 scope.out 与分析映射，design 无 Decisions 节 |
 | 草稿不进证据 | 引用 run 内任何 scratch/ 下的文件被拒并指向 storage-layout 总则；收尾报告给出 staging 字节、未被事件引用占比与 scratch 字节，核验沿用投影时的这一观测，之后 staging 的增减不算投影失真 |
 | 模板按名取用 | 卡片只列本步模板名并在脚注说明按名取用；`reading.py show --template <名>` 打印单份包模板并拒绝越界路径与不存在的名字 |
+| issue 卫生 | fact 记录即对每个目标结清、不能 blocks、不挡 complete；step 视图最多列 10 条 open issue（blocking 优先、最新优先）并给总数；standing 规则在 `--since` 之后无新增时只给数量与摘要 |
 | 统一全量审计 | 独立同伴运行时仅保留本模块问题；全部模块本轮收尾后启动宿主审计，不允许提前派发局部审计 |
 | 轻量叶子与批量信封 | lean_leaf 登记需 scope/context/不可再拆审阅；本地轮由 Fixer 自诊断（`fixer_self_diagnosis` 对全部模块开启），未开启的普通模块拒绝；批量信封绑定文件 hash 与父的孩子，条目完全匹配且 MO 附 review_ref 才冻结 |
 | 原子规划与历史 | MO 原子结论经 decompose/GO accept 保留节点；缺预检、行为/验证边界或扩大范围均拒绝；无关根待拆时叶子可完成实现/验证，依赖待拆仍阻塞；兄弟拆分保留冻结/活动执行和独立测试设计；reopen 留不可执行 history、重新冻结唯一 SPEC，禁止提前 coding/testing/fixer 或宿主审计 |

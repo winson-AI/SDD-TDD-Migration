@@ -4,7 +4,7 @@ An issue is addressed to the modules it concerns and stays open for each of them
 it. Recording or settling one moves nobody's revision, so it never makes a request somebody else is about to submit
 stale. Only an issue raised as blocking holds anything, and only the freeze of a module it is addressed to: that is how
 a review says a plan is certain to fail. A standing rule is followed, not settled."""
-from contracts import check_ref, require
+from contracts import check_ref, digest, require
 
 import hashlib
 
@@ -13,9 +13,10 @@ KINDS = ('defect', 'fact', 'gap', 'need', 'decision', 'standing')
 LEDGER = {'role': 'ledger', 'instance_id': 'ledger'}
 SUMMARY_CHARS = 400  # an issue is stated in one line; its detail is in evidence_refs
 STEP_CHARS = 200     # what a step view shows of each line
+STEP_ROWS = 10       # how many open issues a step lists: the blocking ones first, then the newest
 
 
-def handle(s, req, actor):
+def handle(s, req, actor, sequence=None):
     """One request records every issue it carries, or settles every resolution it carries: a role that has several to
     say says them in one event, and nothing is recorded unless all of them stand."""
     p = req.get('payload', {})
@@ -32,12 +33,14 @@ def handle(s, req, actor):
             require(len(e['summary'].strip()) <= SUMMARY_CHARS, f'an issue summary is at most {SUMMARY_CHARS} characters; the detail goes in evidence_refs')
             require(isinstance(targets, list) and targets and set(targets) <= set(s['modules']) | set(s.get('module_groups', {})),
                     'issue applies_to names the registered modules it concerns')
-            require(not (e.get('blocks') and e['kind'] == 'standing'), 'a standing rule is followed, not settled; it cannot block')
+            require(not (e.get('blocks') and e['kind'] in ('standing', 'fact')), 'a standing rule is followed and a fact is recorded, not settled; it cannot block')
             for ref in e.get('evidence_refs') or []:
                 check_ref(ref)
             judged[iid] = {'kind': e['kind'], 'summary': e['summary'].strip(), 'applies_to': sorted(set(targets)),
                            'blocks': bool(e.get('blocks')), 'evidence_refs': list(e.get('evidence_refs') or []),
-                           'raised_by': actor, 'resolved': {}}
+                           'raised_by': actor, 'sequence': sequence,
+                           # a fact is kept for the trace and owed to nobody: it is settled as it is recorded
+                           'resolved': {t: {'by': actor, 'recorded': True} for t in targets} if e['kind'] == 'fact' else {}}
         issues.update(judged)
         return
     entries = p['resolutions'] if isinstance(p.get('resolutions'), list) else [p]
@@ -79,11 +82,26 @@ def record(s, iid, kind, summary, applies_to, raised_by, evidence_refs=(), **ext
 
 def of_module(s, mid=None):
     """(open, standing) for one module, or for every module when none is named: what is still owed, and what is always followed."""
-    rows = [{'issue_id': iid, **{key: issue[key] for key in ('kind', 'summary', 'blocks', 'evidence_refs')},
+    rows = [{'issue_id': iid, **{key: issue[key] for key in ('kind', 'summary', 'blocks', 'evidence_refs')}, 'sequence': issue.get('sequence'),
              'open_for': [target for target in issue['applies_to'] if target not in issue['resolved']]}
             for iid, issue in sorted(s.get('issues', {}).items()) if mid is None or mid in issue['applies_to']]
     standing = [row for row in rows if row['kind'] == 'standing']
     return [row for row in rows if row['kind'] != 'standing' and (mid in row['open_for'] if mid else row['open_for'])], standing
+
+
+def listed(rows):
+    """What a step shows of a module's open issues: the blocking ones first, then the newest, at most STEP_ROWS of them,
+    and how many there are in all."""
+    ordered = sorted(rows, key=lambda row: (not row['blocks'], -(row.get('sequence') or 0)))
+    return [brief(row) for row in ordered[:STEP_ROWS]], len(rows)
+
+
+def standing_view(rows, since=None):
+    """Standing rules ride a step in full when the reader may not have them: at the first read, or when one was recorded
+    after the sequence the reader has seen. Otherwise the step names their number and digest."""
+    if since is None or any((row.get('sequence') or 0) > since for row in rows):
+        return [brief(row) for row in rows]
+    return {'count': len(rows), 'sha256': digest(sorted(row['issue_id'] for row in rows))}
 
 
 def brief(row, limit=STEP_CHARS):

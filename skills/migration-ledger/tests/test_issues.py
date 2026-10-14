@@ -30,8 +30,8 @@ class IssueTests(unittest.TestCase):
         proof = self.f.ref('review.md', 'read the text field down to the rendering layer')
         self.raise_issue(evidence_refs=[proof])
         view = self.step()
-        self.assertEqual(view['open_issues'], [{'issue_id': 'I1', 'kind': 'defect', 'summary': 'the mask never reaches the renderer',
-                                                'blocks': False, 'evidence_refs': [proof], 'open_for': ['M001']}])
+        self.assertEqual(view['open_issues'], [{'issue_id': 'I1', 'kind': 'defect', 'summary': 'the mask never reaches the renderer', 'blocks': False,
+                                                'evidence_refs': [proof], 'sequence': self.f.state()['last_sequence'], 'open_for': ['M001']}])
         self.assertEqual(ledger.status(self.f.root, 'cursor')['open_issues'], {'M001': 1})
         self.settle()
         self.assertEqual((self.step()['open_issues'], ledger.status(self.f.root, 'cursor')['open_issues']), ([], {}))

@@ -1325,7 +1325,7 @@ def mutate(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
     if op in issues.OPS:  # a record: no gate stands before it and it moves no revision
         require(req.get('module_id') is None, 'operation has incorrect global/module scope')
-        return issues.handle(s, req, principal)
+        return issues.handle(s, req, principal, sequence=len(events) + 1)
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')
     global_ops = {'register', 'decision', 'audit-code-review', 'audit-assign', 'audit', 'audit-revoke', 'audit-route', 'audit-unavailable'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS | source_changes.OPS | run_changes.OPS | audit_execution.OPS | {'retrospect'}
