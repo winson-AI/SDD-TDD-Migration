@@ -29,9 +29,9 @@ class JournalPatchTests(unittest.TestCase):
         f = self.repaired_run()
         state, events = ledger.read_events(f.root)
         projected = json.loads((f.root / 'ledger/global.json').read_text())
-        for extra in ('last_sequence', 'parent_mo_names'):
-            projected.pop(extra)
-        self.assertEqual(state, projected)
+        self.assertEqual(ledger.global_projection(state, projected['last_sequence']), projected)
+        self.assertNotIn('plan', projected['modules']['M001'])  # the body is in the module's projection
+        self.assertEqual(json.loads((f.root / 'ledger/modules/M001.json').read_text())['plan'], state['modules']['M001']['plan'])
         self.assertEqual(state['modules']['M001']['phase'], 'completed')
         self.assertIn('effect', events[0]); self.assertNotIn('patch', events[0])
         self.assertTrue(all('patch' in e and 'effect' not in e for e in events[1:]))
@@ -58,8 +58,8 @@ class JournalPatchTests(unittest.TestCase):
         listed = set()
         for event in events:
             for item in event['artifact_snapshots']:
-                if item.get('status'):
-                    continue  # drift and historical-snapshot records belong to their event
+                if item.get('status') in ('drifted-or-missing-live-target-code', 'historical-snapshot'):
+                    continue  # drift and historical-snapshot records belong to their event; an external input is indexed like an archive
                 key = (item['source_path'], item['sha256'])
                 self.assertNotIn(key, listed)
                 listed.add(key)
@@ -146,10 +146,3 @@ class StateReferenceTests(unittest.TestCase):
         path.write_text(original)
         f.call('accept', {'assignment_id': a['assignment_id']})
         self.assertEqual(f.state()['modules']['M001']['phase'], 'dod')
-
-    def test_design_assignment_keeps_the_refs_it_must_read_not_the_input_document(self):
-        import test_design_stage
-        f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups); f.global_plan()
-        a, _ = test_design_stage.start_design(f, f.plan())
-        self.assertNotIn('input_content', a)
-        self.assertTrue(a['input_refs'])

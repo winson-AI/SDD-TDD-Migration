@@ -130,16 +130,6 @@ class StepViewTests(unittest.TestCase):
         f.prepare()  # frozen: dispatching the Implementer is not a planning operation
         self.assertNotIn('planning_context', ledger.status(f.root, 'step', 'M001'))
 
-    def test_a_designer_reads_its_own_stage_requirement_while_its_assignment_runs(self):
-        f = self.f; f.global_plan()
-        a, _ = test_design_stage.start_design(f, f.plan())
-        full, view = ledger.status(f.root), ledger.status(f.root, 'step', 'M001')
-        self.assertEqual((view['step']['operation'], view['request']['operation']), ('await-result', 'submit'))
-        required = {k: v for k, v in full['context_requirements']['M001']['test-design'].items() if k != 'required_input_refs'}
-        self.assertEqual(view['context'], {'stage': 'test-design', **required})
-        self.assertEqual(view['assignment']['design_input_ref'], a['design_input_ref'])
-        self.assertIn('planning_context', view)
-
     def test_a_parent_summary_step_has_a_card_like_any_other_step(self):
         d = test_decomposition.DecompositionTests(); d.setUp(); self.addCleanup(d.doCleanups)
         d.root_scope(); d.split(); d.global_plan()

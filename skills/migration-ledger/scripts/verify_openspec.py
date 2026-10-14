@@ -101,7 +101,10 @@ class AcceptanceEvidence:
         if key in self.resolved:
             return self.resolved[key]
         entry = self.index.get(key)
-        if entry:
+        if entry and entry.get('status') == 'external-reference':
+            path = check_ref(ref)  # an input the run did not produce stands where it is, verified by its hash
+            self.legacy_live.add(key)
+        elif entry:
             archive = run_storage.checked_path(self.root / 'artifacts' / ref['sha256'], self.root / 'artifacts')
             require(entry.get('path') == str(archive), 'event artifact location differs from managed archive')
             # An explicitly promised archive must exist, even if live bytes survive.
@@ -295,8 +298,7 @@ def inspect(run_root, scope='projection', module_id=None):
                 fail('parent-allocation', exc, 'module', mid, REPLAN)
     if scope != 'module':
         decomposition.refresh_groups(observed_state, ref_check)
-        compare(root / 'ledger/global.json', {**observed_state, 'last_sequence': sequence,
-                'parent_mo_names': decomposition.parent_mo_names(observed_state)}, 'global-state', structured=True)
+        compare(root / 'ledger/global.json', ledger.global_projection(observed_state, sequence), 'global-state', structured=True)
     expected_state = {**observed_state, 'projection_steps': {
         mid: ledger.next_step(observed_state, observed_state['modules'][mid])
         for mid in selected if mid in observed_state['modules']}}
@@ -396,6 +398,10 @@ def inspect(run_root, scope='projection', module_id=None):
     if scope != 'module':
         try:
             report = migration_report.build(root, observed_state, sequence, ref_check)
+            try:  # what staging held when the report was projected is an observation of that moment, not a projection of the journal
+                report['staging_usage'] = json.loads((root / 'reports/migration-report.json').read_text())['staging_usage']
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
             compare(root / 'reports/migration-report.json', report, 'migration-report', structured=True)
             compare(root / 'reports/migration-report.md', migration_report.render(report), 'migration-report')
             if evidence:

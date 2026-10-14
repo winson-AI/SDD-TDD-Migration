@@ -3,7 +3,6 @@ import copy
 import unittest
 
 import test_decomposition
-import test_design_stage
 import ledger
 import workflow
 import design_stage
@@ -35,7 +34,7 @@ class AtomicPlanningTests(unittest.TestCase):
         f.call('init', {k: original[k] for k in ('dimension_slicing_required', 'split_testing_required', 'context_readiness_required',
             'target_root', 'legacy_root', 'case_ids', 'requirement_ids', 'global_spec', 'new_architecture', 'global_paths')}, role='host')
         f.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'write_paths': [str(f.target / 'm1')],
-            'lean_leaf': True, 'scope': {'in': ['Atomic capability'], 'out': [], 'requirement_ids': ['R1']},
+            'scope': {'in': ['Atomic capability'], 'out': [], 'requirement_ids': ['R1']},
             'context_refs': [f.ref('leaf-context.md', 'Source and target entry')],
             'leaf_review_ref': f.ref('leaf-review.md', 'Independent behavior and verification, unique writer')}, role='global-orchestrator', module=None)
         f.call('register', {'module_id': 'M010', 'name': 'Pending capability', 'case_ids': ['C1'],
@@ -60,7 +59,7 @@ class AtomicPlanningTests(unittest.TestCase):
         self.assertFalse(s.get('module_groups'))
         self.assertEqual(m['scope'], before['scope'])
         self.assertEqual(m['case_ids'], before['case_ids'])
-        self.assertTrue(m['lean_leaf']); self.assertFalse(m['decomposition_required'])
+        self.assertFalse(m['decomposition_required'])
         self.assertIsNone(m['freeze_id']); self.assertIsNone(m['code_baseline'])
         self.assertTrue(all(row['kind'] == 'planning-history' and row['executable'] is False for row in m['planning_history']))
         workflow.planning_guard(s, 'M010')
@@ -140,16 +139,6 @@ class AtomicPlanningTests(unittest.TestCase):
             self.assertEqual(after[key], before[key])
         self.assertIsNotNone(after.get('execution_context_ref'))
         ledger.decomposition.check_module_plan(f.state(), after, after['plan'])
-
-    def test_sibling_split_preserves_inflight_independent_test_design(self):
-        f = self.f; self.pending_root(); f.global_plan()
-        plan = f.plan(); a, result = test_design_stage.start_design(f, plan)
-        self.split_pending(); f.global_plan()
-        m = f.state()['modules']['M001']
-        self.assertTrue(design_stage.valid(f.state(), m, m['assignments'][a['assignment_id']]))
-        test_design_stage.submit_design(f, a, result)
-        f.call('accept', {'assignment_id': a['assignment_id'], 'review_ref': f.ref('design-review.md', 'Path coverage verified')})
-        self.assertTrue(f.state()['modules']['M001']['accepted_test_design'])
 
     def test_replanning_is_history_and_requires_new_freeze(self):
         f = self.f; f.root_scope(); self.submit_atomic(); self.accept_atomic(); f.global_plan()

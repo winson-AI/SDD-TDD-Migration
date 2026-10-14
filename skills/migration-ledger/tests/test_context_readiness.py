@@ -98,15 +98,14 @@ class ContextReadinessTests(unittest.TestCase):
         finally:
             del self.test_argv
 
-    def test_default_on_and_missing_global_plan_receipt_is_rejected(self):
+    def test_default_on_and_a_stage_without_a_report_is_preflighted_by_the_ledger(self):
         self.assertTrue(self.state()['context_readiness_required'])
-        with self.assertRaisesRegex(Rejected, 'context readiness receipt required'):
-            self.raw('register', {'module_id': 'M002', 'case_ids': ['C1'], 'write_paths': [str(self.target / 'm2')]},
-                     role='global-orchestrator', module=None)
         self.auto_context = False
-        with self.assertRaisesRegex(Rejected, 'context readiness receipt required'):
-            self.global_plan()
-        self.assertIsNone(self.state()['global_plan'])
+        self.raw('register', {'module_id': 'M002', 'case_ids': ['C1'], 'write_paths': [str(self.target / 'm2')]},
+                 role='global-orchestrator', module=None)  # nobody wrote a report: the Ledger checked the inputs itself
+        self.assertTrue(read_json(check_ref(self.state()['context_acceptances']['register']['report_ref']))['mechanical'])
+        self.global_plan()
+        self.assertIsNotNone(self.state()['global_plan'])
 
     def test_own_preflight_rides_the_operation_and_a_workers_report_stays_its_own(self):
         self.global_plan()
@@ -297,27 +296,26 @@ class ContextReadinessTests(unittest.TestCase):
             self.raw('audit-assign', {'assignment_id': 'AUD', 'instance_id': 'auditor', 'context_ref': ref}, role='global-orchestrator', module=None)
         self.assertNotIn('audit_assignment', self.state())
 
-    def test_parent_decomposition_requires_context_and_go_accepts_same_receipt(self):
+    def test_parent_decomposition_is_preflighted_by_the_ledger_and_go_accepts_the_same_receipt(self):
         self.root_scope()
-        with self.assertRaisesRegex(Rejected, 'context readiness receipt required'):
-            self.raw('decompose', {'plan_ref': self.ref('missing.json', self.proposal())}, module='M010')
-        self.split()
+        self.raw('decompose', {'plan_ref': self.ref('split.json', self.proposal())}, module='M010')  # no report from the MO
+        accepted = self.state()['modules']['M010']['context_acceptances']['decompose']['report_ref']  # the parent moves to module_groups when GO accepts
+        self.assertTrue(read_json(check_ref(accepted))['mechanical'])
+        self.raw('decompose-accept', {'review_ref': self.ref('review.md', 'scope and ownership reviewed')}, role='global-orchestrator', module='M010')
         self.assertEqual(set(self.state()['modules']), {'M001', 'M002'})
 
-    def test_atomic_confirmation_requires_mo_preflight_and_go_acceptance(self):
+    def test_atomic_confirmation_is_preflighted_by_the_ledger_and_go_accepts_it(self):
         self.root_scope()
         proposal = self.ref('atomic-proposal.json', {'kind': 'atomic-leaf', 'parent_module_id': 'M010',
             'rationale': 'One capability with an independently observable result',
             'leaf_review_ref': self.ref('atomic-review.md', 'Checked scope, single owner, dependencies and independent verification')})
-        with self.assertRaisesRegex(Rejected, 'context readiness receipt required'):
-            self.raw('decompose', {'plan_ref': proposal}, module='M010')
-        self.call('decompose', {'plan_ref': proposal}, module='M010')
+        self.raw('decompose', {'plan_ref': proposal}, module='M010')  # preflighted by the Ledger
         self.call('decompose-accept', {'review_ref': self.ref('go-atomic-review.md', 'Allocation unchanged; leaf accepted')},
                   role='global-orchestrator', module='M010')
         m = self.state()['modules']['M010']
-        self.assertTrue(m['lean_leaf']); self.assertIsNone(m['freeze_id'])
+        self.assertFalse(m['decomposition_required']); self.assertIsNone(m['freeze_id'])
         self.assertEqual(set(cr.requirements(self.state())['M010']),
-                         {'planning', 'test-design', 'coding', 'building', 'testing', 'fixing'})
+                         {'planning', 'coding', 'building', 'testing', 'fixing'})
 
     def test_local_fixer_needs_fresh_diagnosis_context_without_extra_budget(self):
         self.prepare(); self.implementation()
@@ -387,10 +385,12 @@ class ContextReadinessTests(unittest.TestCase):
         self.cross_module_failure()
         test_ledger.code_review(self)
         self.call('audit-collect', {'batch_id': 'B1', 'auditor_instance_id': 'auditor'}, role='global-orchestrator', module=None)
-        with self.assertRaisesRegex(Rejected, 'context readiness receipt required'):
+        with self.assertRaises(Rejected) as caught:  # preflighted by the Ledger; refused for what it says, not for a missing report
             self.raw('audit-plan', {'plan_ref': self.ref('unreviewed.json', {})}, role='auditor', module=None)
-        with self.assertRaisesRegex(Rejected, 'context readiness receipt required'):
+        self.assertNotIn('receipt required', str(caught.exception))
+        with self.assertRaises(Rejected) as caught:
             self.raw('audit-verdict', {'review_ref': self.ref('verdict.md', 'no review')}, role='auditor', module=None)
+        self.assertNotIn('receipt required', str(caught.exception))
 
     def feature_draft(self):
         self.global_plan()

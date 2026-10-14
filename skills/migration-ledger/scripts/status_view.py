@@ -14,7 +14,7 @@ CURSOR_KEYS = ('run_id', 'last_sequence', 'quality', 'projection', 'source_chang
                'next_steps', 'ready_modules', 'module_rounds', 'observed_invalidations')
 VIEWS = ('full', 'cursor', 'module', 'step')
 # What a role needs of its module and of the assignment its step refers to.
-MODULE_KEYS = ('phase', 'plan_ref', 'freeze_id', 'code_baseline', 'blocked', 'execution_context_ref', 'carried_files', 'allocation_changes', 'plan_changes')
+MODULE_KEYS = ('phase', 'plan_ref', 'freeze_id', 'code_baseline', 'blocked', 'execution_context_ref', 'carried_files', 'allocation_changes', 'plan_changes', 'review_gates')
 ASSIGNMENT_KEYS = ('assignment_id', 'role', 'instance_id', 'fencing_token', 'mode', 'test_scope', 'freeze_id',
                    'code_baseline', 'context_ref', 'design_input_ref', 'execution_contract', 'path_ids', 'audit_assignment_id', 'result_ref')
 
@@ -62,6 +62,8 @@ def _cursor(st, cards):
                              for mid, m in st['modules'].items()}
     owed = [target for row in issues.of_module(st)[0] for target in row['open_for']]
     out['open_issues'] = {mid: owed.count(mid) for mid in sorted(set(owed))}  # the step view of a module lists them
+    import decomposition
+    out['slicing_signals'] = {mid: row for mid, row in decomposition.slicing_signals(st).items() if row['flags']}  # what the audit traces back to the split
     adoption = st['hint_adoption']
     out['hint_adoption'] = {k: adoption[k] for k in ('session', 'card')}
     return out
@@ -94,12 +96,12 @@ def _step(st, module_id):
     gate = slim.pop('context_gate', None)
     operation = step.get('operation')
     if operation == 'await-result':  # a running worker reports first if its report is still owed, then submits
-        operation = 'context-submit' if gate and step.get('mode') != 'design' else 'submit'
+        operation = 'context-submit' if gate else 'submit'
     out = {'view': 'step', 'run_id': st['run_id'], 'last_sequence': st['last_sequence'], 'step': slim, 'cards': cards,
            # The envelope of the request this step asks for.
            'request': {'schema_version': 1, 'run_id': st['run_id'], 'module_id': module_id, 'expected_revision': revision,
                        'operation': operation}}
-    out['open_issues'], out['standing_rules'] = issues.of_module(st, module_id)
+    out['open_issues'], out['standing_rules'] = [[issues.brief(row) for row in rows] for rows in issues.of_module(st, module_id)]
     if gate:  # one object says what the preflight report of this stage must contain and which reports exist
         required = dict(st['context_requirements'].get(module_id or 'GLOBAL', {}).get(gate['stage'], {}))
         required.pop('required_input_refs', None)  # the Ledger derives them; the step carries their count and digest
@@ -125,7 +127,7 @@ def _step(st, module_id):
         scope = ledger.audit_scope(st)
         out['audit_input'] = {'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],
             'paths': scope['plan']['paths'], 'code_files': scope['code_files'], 'results': scope['results']}
-    if operation in reading.PLANNING_OPERATIONS or step.get('mode') == 'design':
+    if operation in reading.PLANNING_OPERATIONS:
         out['planning_context'] = _standing(st, module_id)
         out['history_refs'] = {'lessons': m.get('planning_lessons_ref') if module_id else st.get('lessons_ref')}
         if operation in ('run-review', 'revise-run'):

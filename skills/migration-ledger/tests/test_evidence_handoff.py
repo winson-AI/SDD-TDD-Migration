@@ -13,6 +13,7 @@ import dimensions
 import ledger
 import prepared_tests
 import test_design_stage
+import test_iterative_spec
 import test_dimensions
 import test_ledger
 import test_planning_evidence
@@ -26,7 +27,7 @@ class AssetHandoffTests(unittest.TestCase):
         import workflow
         import audit_code_review
         t = test_planning_evidence.PreparedTests(); t.setUp(); self.addCleanup(t.doCleanups)
-        f = t.f; plan, assignment, design = t.design()
+        f = t.f; plan, design = t.design()
         design['paths'][0]['path_id'] = 'GP1'
         design['test_assets'][0]['path_ids'] = ['GP1']
         design['test_assets'][0]['assertions'][0]['path_id'] = 'GP1'
@@ -44,8 +45,8 @@ class AssetHandoffTests(unittest.TestCase):
     def test_deferred_module_retest_keeps_prepared_inputs_in_global_scope(self):
         t = test_split_testing.SplitTestingTests(); t.setUp(); self.addCleanup(t.doCleanups)
         f = t.f; f.global_plan(); plan = f.plan()
-        a, design = test_design_stage.start_design(f, plan)
-        script = f.ref('prepared.py', '''import argparse,json
+        design = test_iterative_spec.direct_plan(f, plan)  # the Spec-Designer's own test plan
+        script = f.ref('defs/prepared.py', '''import argparse,json
 p=argparse.ArgumentParser();p.add_argument('--query-file');p.add_argument('--result-file');a=p.parse_args()
 q=json.load(open(a.query_file))
 if q['path_id']=='P1':
@@ -55,9 +56,8 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
 ''')
         design['test_assets'] = [{'asset_id': 'SCRIPT', 'kind': 'script', 'ref': script, 'path_ids': ['P1'],
             'assertions': [{'path_id': 'P1', 'assertion_id': 'A1'}]}]
-        test_design_stage.submit_design(f, a, design)
-        f.call('accept', {'assignment_id': a['assignment_id'], 'review_ref': f.ref('review.md', 'Reviewed independent test script')})
-        plan['definitions'] = [r for r in plan['definitions'] if r['kind'] != 'test-design']
+        design['paths'][0]['preparation'].update(status='prepared', asset_ids=['SCRIPT'])
+        plan['test_design_ref'] = f.ref('upstream-script.json', design)
         f.call('plan', {'plan_ref': f.ref('prepared-plan.json', plan)}, role='spec-designer')
         f.approve(f.state()['modules']['M001']['plan_hash'], 'D-PREP'); f.call('freeze', {'decision_id': 'D-PREP'})
         f.implementation(); t.compile(); t.defer()
@@ -92,8 +92,8 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
 
     def test_unit_command_receives_assets_and_unused_fixture_cannot_claim_green(self):
         t = test_planning_evidence.PreparedTests(); t.setUp(); self.addCleanup(t.doCleanups)
-        f = t.f; plan, a, design = t.design()
-        fixture = f.ref('unit-fixture.json', {'expected': 2})
+        f = t.f; plan, design = t.design()
+        fixture = f.ref('defs/unit-fixture.json', {'expected': 2})
         code = '''import json,os
 q=json.load(open(os.environ['SDD_TEST_QUERY_FILE']))
 a=q['frozen_test_assets'][0]
@@ -104,9 +104,11 @@ json.dump([{'asset_id':a['asset_id'],'ref':a['ref']}],open(os.environ['SDD_TEST_
             'command': {'argv': [sys.executable, '-c', code], 'cwd': str(f.target), 'timeout_seconds': 20,
                         'selection_ref': f.ref('unit-selection.md', 'Approved unit fixture command')},
             'expected_assertions': [{'assertion_id': 'A1', 'expected': 0}]}
+        unit['preparation'] = {'status': 'prepared', 'reason': 'unit fixture prepared', 'evidence_refs': [fixture], 'asset_ids': ['FIXTURE']}
         plan['paths'] = design['paths'] = [unit]
         design['test_assets'] = [{'asset_id': 'FIXTURE', 'kind': 'fixture', 'ref': fixture, 'path_ids': ['P1']}]
-        t.freeze(plan, a, design); f.implementation(); assignment = f.assign('test-runner', 'UNIT')
+        plan['test_design_ref'] = f.ref('upstream-unit.json', design)
+        t.freeze(plan, design); f.implementation(); assignment = f.assign('test-runner', 'UNIT')
         ref = execute(f.root, 'M001', 'UNIT', 'P1', unit['command']['argv'], f.target, f.base/'unit')
         receipt = read_json(check_ref(ref)); module = f.state()['modules']['M001']
         prepared_tests.validate_receipt(module, unit, receipt, 'green-passed')
@@ -129,7 +131,8 @@ class CoverageTests(unittest.TestCase):
         self.f = test_ledger.FlowTests(); self.f.setUp(); self.addCleanup(self.f.doCleanups)
 
     def test_preparation_cannot_be_omitted_or_deferred_at_freeze(self):
-        f = self.f; f.global_plan(); a, design = test_design_stage.start_design(f, f.plan())
+        f = self.f; f.global_plan(); design = test_iterative_spec.direct_plan(f, f.plan())
+        for path in design['paths']: path.pop('preparation', None)  # the plan's test design, before anyone says how each path is prepared
         with self.assertRaisesRegex(Rejected, 'preparation review'):
             prepared_tests.preparation(design, required=True)
         review = {'status': 'deferred', 'reason': 'Fixture absent', 'asset_ids': [], 'evidence_refs': [design['design_ref']],

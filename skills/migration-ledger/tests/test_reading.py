@@ -120,12 +120,11 @@ class ReadingCardTests(unittest.TestCase):
             step = {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': scope}
             row = next(r for r in reading.card({}, None, step) if r['ref'] == 'Agents/test-runner.md')
             return reading.text_of(row)
-        build, automation, design = text('build'), text('automation'), text('design')
+        build, automation = text('build'), text('automation')
         self.assertIn('### 构建', build); self.assertIn('### 单测与静态审查', build)
         self.assertEqual(build, automation)  # two stages of one executing Test-Runner read one role text, once
-        self.assertIn('### 自动化', automation); self.assertIn('## 10. 移动端执行器', automation); self.assertNotIn('### 设计', automation)
-        self.assertIn('### 设计', design); self.assertNotIn('### 构建', design)
-        for part in (build, automation, design):
+        self.assertIn('### 自动化', automation); self.assertIn('## 10. 移动端执行器', automation)
+        for part in (build, automation):
             self.assertIn('## 6. 硬约束', part); self.assertIn('## 专题义务', part)
 
     def test_steps_name_the_templates_they_instantiate(self):
@@ -168,7 +167,7 @@ class ReadingCardTests(unittest.TestCase):
             analysis = Path(tmp) / 'dimensions.json'
             analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable'}]}))
             s = {'reuse_required': True, 'dependency_resolution_required': True, 'fixer_self_diagnosis': True}
-            m = {'lean_leaf': True, 'audit_batch_id': 'B1',
+            m = {'audit_batch_id': 'B1',
                  'plan': {'dimension_analysis_ref': file_ref(analysis), 'telemetry': {'status': 'applicable'}}}
             operations = set(reading.AUDIT_OPS) | set(reading.MO_OPS) | {
                 None, 'register', 'global-plan', 'source-review', 'reconfigure-sources', 'run-review', 'revise-run', 'retrospect',
@@ -253,7 +252,7 @@ class ReadingCardTests(unittest.TestCase):
         for role in reading.ROLE:
             for scope in (list(reading.TEST_SCOPE) if role == 'test-runner' else [None]):
                 for op in (None, 'audit-code-review', 'audit-plan', 'audit-assign', 'source-review', 'register'):
-                    reachable |= {p for p, h in reading.entries(role, scope, True, True, op, True, True) if h in ('总则', None)}
+                    reachable |= {p for p, h in reading.entries(role, scope, True, True, op, True, True, readiness=True) if h in ('总则', None)}
         host_only = {reading.P + 'host-integration.md', reading.P + 'model-routing.md', reading.P + 'watchdog.md'}
         missing = sorted(path for path in wanted if path not in reachable and path not in host_only)
         self.assertEqual(missing, [])

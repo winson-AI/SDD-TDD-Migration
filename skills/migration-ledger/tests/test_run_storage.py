@@ -66,8 +66,9 @@ class RunStorageTests(unittest.TestCase):
         outside_dir = f.base / 'external-artifacts'; outside_dir.mkdir()
         shutil.rmtree(f.run / 'artifacts')
         (f.run / 'artifacts').symlink_to(outside_dir, target_is_directory=True)
+        inside = f.run / 'staging' / 'evidence.txt'; inside.parent.mkdir(exist_ok=True); inside.write_text('what the run wrote')
         with self.assertRaisesRegex(Rejected, 'symlink'):
-            ledger.preserve_refs(f.run, file_ref(f.source))
+            ledger.preserve_refs(f.run, file_ref(inside))  # an input outside the run is cited, not archived: it would not reach the link
         self.assertEqual(list(outside_dir.iterdir()), [])
 
     def test_linked_context_never_uses_redirected_temp_or_view(self):

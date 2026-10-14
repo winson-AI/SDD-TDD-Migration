@@ -12,7 +12,6 @@ CHECKS = {
     'global-planning': ('global-inputs', 'feature-inventory', 'allocation-coverage', 'interfaces-ownership', 'reuse-sources'),
     'decomposition': ('global-inputs', 'feature-inventory', 'assigned-scope', 'source-target', 'interfaces-ownership', 'reuse-sources'),
     'planning': ('global-inputs', 'feature-inventory', 'assigned-scope', 'source-closure', 'target-feasibility', 'interfaces-ownership', 'test-design', 'reuse-mapping'),
-    'test-design': ('assigned-scope', 'spec-cases', 'task-coverage', 'independence'),
     'coding': ('frozen-spec', 'task-trace', 'source-closure', 'target-feasibility', 'interfaces-ownership', 'reuse-mapping', 'permissions-tools'),
     'building': ('frozen-spec', 'accepted-code', 'build-command', 'build-environment', 'permissions-tools'),
     'testing': ('frozen-spec', 'test-paths', 'accepted-code', 'provider-binding', 'test-environment', 'permissions-tools'),
@@ -26,7 +25,7 @@ CHECKS['audit-execution'] = CHECKS['audit-testing']
 ROLES = {stage: ('auditor' if stage.startswith('audit-') else
                  'global-orchestrator' if stage.startswith('global-') else
                  {'decomposition': 'module-orchestrator', 'planning': 'spec-designer',
-                  'coding': 'implementer', 'building': 'test-runner', 'testing': 'test-runner', 'test-design': 'test-runner', 'fixing': 'fixer'}[stage])
+                  'coding': 'implementer', 'building': 'test-runner', 'testing': 'test-runner', 'fixing': 'fixer'}[stage])
          for stage in CHECKS}
 ROLES['audit-execution'] = 'test-runner'
 GLOBAL = {stage for stage in CHECKS if stage.startswith(('global-', 'audit-'))}
@@ -43,31 +42,38 @@ WORKERS = {'implementer': 'coding', 'test-runner': 'testing', 'fixer': 'fixing'}
 MECHANICAL = {'implementer': 'coding'}
 
 
+def mechanical_report(root, s, mid, stage, actor, draft=None, fallback=None):
+    """Write, register and return the preflight of a stage the Ledger checks by itself: every input of the stage exists
+    and is the bytes its reference names, and the subject is current. Rejected when an input is not as referenced."""
+    m = scope(s, mid)
+    verify_inputs(s, mid, stage, deep=True, run_root=root)
+    refs = input_refs(s, mid, stage)
+    anchor = draft or (m.get('plan_ref') if mid else s.get('global_spec')) or fallback or (refs[0] if refs else None)
+    require(anchor, 'nothing to bind a mechanical preflight to')
+    proof = {'frozen-spec': m.get('plan_ref'), 'reuse-mapping': (m.get('plan') or {}).get('reuse_plan_ref'),
+             'source-closure': dimensions.of_leaf(m) if mid else None,
+             'failure-diagnosis': (diagnosis_report(m) or {}).get('diagnosis_ref') if mid else None} if mid else {}
+    fact = {'frozen-spec': 'freeze ' + str(m.get('freeze_id'))[:12], 'task-trace': str(len((m.get('plan') or {}).get('tasks', []))) + ' tasks traced to their paths',
+            'repair-history': str(len(m.get('fix_memory', []))) + ' earlier repair records', 'permissions-tools': 'write scope ' + ', '.join(m.get('write_paths', []))} if mid else {}
+    checks = {name: {'status': 'ready', 'evidence_refs': [proof.get(name) or anchor],
+                     'summary': 'checked by the Ledger: the %d inputs of this stage exist and match their hashes; %s'
+                                % (len(refs), fact.get(name, 'bound to the current subject'))} for name in CHECKS[stage]}
+    report = {'schema_version': 1, 'run_id': s['run_id'], 'module_id': mid, 'stage': stage, 'producer': actor, 'mechanical': True,
+              'subject_sha256': subject(s, mid, stage), 'checks': checks, 'verdict': 'ready', **({'draft_ref': draft} if draft else {})}
+    import project_context
+    ref = project_context.archive(Path(root) / 'artifacts/preflight', project_context.encoded(report), '.json')
+    submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor, run_root=root)
+    return ref
+
+
 def mechanical(root, s, mid, assignment):
     """Write and register, in the worker's name, the preflight of a dispatch the Ledger can check by itself; None when
     the stage needs the worker's own report or an input is not as referenced (the worker then reports what is missing)."""
     stage = MECHANICAL.get(assignment.get('role'))
     if not stage or root is None:
         return None
-    m = scope(s, mid)
-    actor = {'role': assignment['role'], 'instance_id': assignment['instance_id']}
     try:
-        verify_inputs(s, mid, stage, deep=True, run_root=root)
-        refs = input_refs(s, mid, stage)
-        proof = {'frozen-spec': m['plan_ref'], 'reuse-mapping': (m.get('plan') or {}).get('reuse_plan_ref'),
-                 'source-closure': dimensions.of_leaf(m),
-                 'failure-diagnosis': (diagnosis_report(m) or {}).get('diagnosis_ref')}
-        fact = {'frozen-spec': 'freeze ' + str(m.get('freeze_id'))[:12], 'task-trace': str(len(m['plan']['tasks'])) + ' tasks traced to their paths',
-                'repair-history': str(len(m.get('fix_memory', []))) + ' earlier repair records', 'permissions-tools': 'write scope ' + ', '.join(m.get('write_paths', []))}
-        checks = {name: {'status': 'ready', 'evidence_refs': [proof.get(name) or m['plan_ref']],
-                         'summary': 'checked by the Ledger: the %d inputs of this stage exist and match their hashes; %s'
-                                    % (len(refs), fact.get(name, 'bound to the frozen plan'))} for name in CHECKS[stage]}
-        report = {'schema_version': 1, 'run_id': s['run_id'], 'module_id': mid, 'stage': stage, 'producer': actor, 'mechanical': True,
-                  'subject_sha256': subject(s, mid, stage), 'checks': checks, 'verdict': 'ready'}
-        import project_context
-        ref = project_context.archive(Path(root) / 'artifacts/preflight', project_context.encoded(report), '.json')
-        submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor, run_root=root)
-        return ref
+        return mechanical_report(root, s, mid, stage, {'role': assignment['role'], 'instance_id': assignment['instance_id']})
     except (Rejected, OSError, KeyError, TypeError):
         return None
 
@@ -150,6 +156,19 @@ def subject(s, mid, stage, read=CURRENT):
         value['audit_assignment'] = s.get('audit_assignment')
         value['audit_code_review'] = s.get('audit_code_review')
     return digest(value)
+
+
+def verify_refs_in(value):
+    """The references a payload carries, in order."""
+    if isinstance(value, dict):
+        if 'path' in value and 'sha256' in value:
+            yield value
+        else:
+            for item in value.values():
+                yield from verify_refs_in(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from verify_refs_in(item)
 
 
 def verify_refs(value):
@@ -246,13 +265,6 @@ def standing_refs(s, mid, stage, read=CURRENT):
         refs.append(slicing_skill(s))
     if mid:
         m = scope(s, mid)
-        if stage == 'test-design' and m.get('design_input_ref'):
-            refs.append(m['design_input_ref'])
-            assignment = next((a for a in reversed(list(m['assignments'].values()))
-                               if a.get('mode') == 'design'), {})
-            refs += assignment.get('input_refs', [])
-        if stage == 'planning' and m.get('accepted_test_design'):
-            refs.append(m['accepted_test_design']['result_ref'])
         refs += m.get('context_refs', [])
         if m.get('dimension_analysis_ref'):
             refs.append(m['dimension_analysis_ref'])
@@ -372,10 +384,6 @@ def submit(s, req, actor, run_root=None):
     require(report.get('schema_version') == 1 and report.get('run_id') == s['run_id'] and report.get('module_id') == mid,
             'context report run/module mismatch')
     require(report.get('producer') == actor, 'context producer identity mismatch')
-    if stage == 'test-design':
-        m = scope(s, mid)
-        require(any(a.get('mode') == 'design' and not a.get('closed') and a['instance_id'] == actor['instance_id']
-                    for a in m['assignments'].values()), 'test-design context requires active design assignment')
     # A blocked report authorizes nothing: one a worker wrote before its subject moved still hands its dispatch back.
     require(report.get('subject_sha256') == subject(s, mid, stage)
             or (report.get('verdict') == 'blocked' and stage in set(WORKERS.values()) | {'building'}), 'context subject stale')
@@ -427,8 +435,6 @@ def requirement(op, p, s=None):
         from ledger import audit_scope
         return 'audit-testing' if audit_scope(s)['plan']['paths'] else 'audit-verdict'
     if op == 'assign':
-        if p.get('mode') == 'design':
-            return None  # MO commits design inputs first; designer preflights before submit.
         return 'building' if p.get('role') == 'test-runner' and p.get('test_scope') == 'build' else WORKERS.get(p.get('role'))
     return {'register': 'global-discovery', 'global-plan': 'global-planning', 'source-review': 'global-planning', 'run-review': 'global-planning',
             'decompose': 'decomposition', 'decompose-accept': 'decomposition',
@@ -480,13 +486,12 @@ def owed(s, mid, step):
     """The stage a running worker still has to report on: a designer's report rides its submit, any other
     worker's report authorizes the work and is owed until it is bound to the assignment."""
     assignment = scope(s, mid).get('assignments', {}).get(step.get('assignment_id')) or {}
-    if assignment.get('mode') == 'design':
-        return 'test-design'
     return None if assignment.get('context_ref') else requirement('assign', assignment)
 
 
-def gate(s, req, actor, run_root=None):
-    """Existing owner action accepts the read-only preflight; no extra human approval."""
+def gate(s, req, actor, root=None):
+    """Existing owner action accepts the read-only preflight; no extra human approval. An operation its actor reports
+    for itself carries its preflight, or the Ledger writes the preflight it can check by itself."""
     if not enabled(s):
         return
     op, p, mid = req['operation'], req.get('payload', {}), req.get('module_id')
@@ -499,14 +504,17 @@ def gate(s, req, actor, run_root=None):
         return  # dispatch first: the worker reports inside its assignment
     if op in ('freeze', 'decompose-accept'):
         ref = obj.get('context_acceptances', {}).get('plan' if op == 'freeze' else 'decompose', {}).get('report_ref')
+    draft = p.get('plan_ref') if op in ('global-plan', 'decompose', 'plan', 'audit-plan') else obj.get('plan_ref') if op == 'freeze' else None
+    if op in ('source-review', 'run-review', 'audit-code-review'): draft = p.get('report_ref')
+    if not ref and op in SELF_REPORTED and root is not None:
+        ref = mechanical_report(root, s, mid, stage, {'role': actor['role'], 'instance_id': actor['instance_id']}, draft,
+                                next(verify_refs_in(p), None))  # the Ledger's own preflight of what the actor submits
     require(ref, 'context readiness receipt required for ' + op)
     instance = p.get('instance_id') if op in ('assign', 'audit-assign', 'audit-test-assign') else None
     if op in ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'run-review', 'audit-code-review'):
         instance = actor['instance_id']
-    draft = p.get('plan_ref') if op in ('global-plan', 'decompose', 'plan', 'audit-plan') else obj.get('plan_ref') if op == 'freeze' else None
-    if op in ('source-review', 'run-review', 'audit-code-review'): draft = p.get('report_ref')
     if op in SELF_REPORTED and obj.get('context_receipts', {}).get(stage + ':' + instance, {}).get('report_ref') != ref:
-        submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor, run_root=run_root)
+        submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor, run_root=root)
     validate(s, mid, stage, ref, instance, draft)
     obj.setdefault('context_acceptances', {})[op] = {'report_ref': copy.deepcopy(ref), 'accepted_by': copy.deepcopy(actor)}
 
@@ -517,7 +525,7 @@ def requirements(s):
         return {}
     result = {}
     for mid in [None, *s['modules']]:
-        stages = GLOBAL if mid is None else ('decomposition',) if s['modules'][mid].get('decomposition_required') else ('planning', 'test-design', 'coding', 'building', 'testing', 'fixing')
+        stages = GLOBAL if mid is None else ('decomposition',) if s['modules'][mid].get('decomposition_required') else ('planning', 'coding', 'building', 'testing', 'fixing')
         result[mid or 'GLOBAL'] = {stage: {'subject_sha256': subject(s, mid, stage),
             'producer_role': ROLES[stage], 'required_checks': list(CHECKS[stage]),
             'required_input_refs': input_refs(s, mid, stage), **inputs(s, mid, stage)} for stage in sorted(stages)}
@@ -568,7 +576,7 @@ def annotate(s, mid, step):
                 except (Rejected, OSError, ValueError):
                     pass
         if step.get('operation') in SELF_REPORTED:
-            step['context_gate']['with_operation'] = True  # the report rides the operation: pass it as context_ref
+            step['context_gate'].update(with_operation=True, mechanical=True)  # the Ledger preflights what the actor submits; a report of its own may ride as context_ref
             return step
         if step.get('operation') == 'assign':
             # Dispatch first; only a report that is still blocked on the current subject holds the dispatch back.

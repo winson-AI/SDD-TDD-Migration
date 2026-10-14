@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import test_ledger
 import ledger
-from contracts import Rejected, check_ref, digest
+from contracts import file_ref, Rejected, check_ref, digest
 from verify_openspec import AcceptanceEvidence
 
 
@@ -88,8 +88,8 @@ class HistoricalRefsTests(unittest.TestCase):
             ledger.preserve_refs(self.f.root, wrapper, accepted=bad)
 
     def test_target_drift_without_archived_bytes_keeps_existing_record(self):
-        ref = self.f.ref('target/new.py', 'before')
-        Path(ref['path']).write_text('after')
+        new = self.f.target / 'new.py'; new.write_text('before'); ref = file_ref(new)  # live target code, which may drift
+        new.write_text('after')
         wrapper = self.f.ref('wrapper.json', {'old': ref})
         rows = ledger.preserve_refs(self.f.root, wrapper, target_root=self.f.target, accepted=self.index)
         self.assertEqual(rows[-1]['status'], 'drifted-or-missing-live-target-code')

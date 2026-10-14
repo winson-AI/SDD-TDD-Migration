@@ -13,6 +13,8 @@
 
 测试设计另以 test-design 工件绑定冻结，为 TDD 提供 CASE/PATH/ASSERT；status/checklist 属运行与治理视图。
 
+体量上限（Ledger 在 plan 拒绝）：proposal 4 KB、每份 spec 12 KB、design 16 KB、tasks 8 KB、test-design 8 KB，五者合计 60 KB；upstream-test-plan 20 KB、fixture-contract 20 KB、全部 mapping 为 new 的 reuse-plan 2 KB。引用不复述：legacy 以 `path#symbol` 或 `path:line` 引用，不抄源码，每份文档代码块合计不超过 2 KB；分配包与分析已有的 scope.out、item 映射只引用；design.md 不设 Decisions 节，决定只记 decision_envelope 与 decision 记录。
+
 不另外维护重复 `spec.md`、`plan.md` 状态源。spec 部分可含多能力 delta 文件；tasks 即可执行计划；status 记录阶段、循环、next_action；追溯及测试报告存不可变 artifacts，由 Ledger 索引。
 
 ## 基线与 Delta
@@ -29,7 +31,7 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 scenario_trace 写时每行给 scenario_id 与 task_ids，assertions 由 Ledger 按设计断言的 scenario_ids 补全（写了须与之相同）；每个场景至少被一条行为断言验证、每条行为断言至少验证一个场景、全部任务有归属，允许多对多，build/static 不充当行为断言。
 
-1. 六件套与测试路径（SPEC 带 Requirement-ID/Scenario-ID）完整且预期明确即可冻结；Test-Runner design 仅按需协助，不运行目标代码。
+1. 六件套与测试路径（SPEC 带 Requirement-ID/Scenario-ID）完整且预期明确即可冻结；测试设计不运行目标代码。
 2. Spec-Designer 把明确的问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复须绑定 question_id、spec_revision、内容摘要。既有明确答复可复用，若绑定内容已变则重新裁决。
 3. 冻结 manifest 列出 proposal、所有 delta specs、design、tasks 定义、test design 与已准备测试资产的实际 path+sha256；checklist 是包内评审清单，与全局上下文一样不进 manifest，由 Ledger 绑定。保留不可变副本，生成 freeze_id/spec_revision。
 4. `status`、tasks 完成勾选、checklist 证据等运行字段不纳入语义冻结 hash；冻结的原始定义始终存在不可变 artifacts。动态视图可按已固化映射重定位文档链接及更新运行勾选，不得改变需求、设计和断言语义。验证时比较定义快照，不以可变文件整体 hash 误判失效。
@@ -63,7 +65,7 @@ MO plan-review 可附 [task-independence.json](../../../template/task-independen
 
 MO 审核或所需 Human 决定绑定 Ledger 补全后的 stage-plan digest，执行绑定 freeze_id。证据/状态更新不改定义。within-envelope 保留原 envelope 及完整 PATH/预期断言集合；命令/显示名属技术规划，变更仍需 CR/新冻结和执行证据，MO 审阅后发布新执行基线，不伪造新人工批准。
 
-快速通道使用 [change-impact.json](../../../template/change-impact.json)，绑定 from_freeze_id、to_plan_hash。只有当前 CR 的同一 impact_ref 能冻结该计划；再次修改需重审，散文记录不授权再冻结。成功后 CR 与旧 plan/执行证据进入不可执行的 change_request_history；invalidate 随 planning_history 留存并清除当前 CR。
+快速通道使用 [change-impact.json](../../../template/change-impact.json)，绑定 from_freeze_id、to_plan_hash。只有当前 CR 的同一 impact_ref 能冻结该计划；再次修改需重审，散文记录不授权再冻结。成功后 CR 进入不可执行的 change_request_history，旧 plan 只以 plan_ref/plan_hash 引用，旧执行证据随之留存；invalidate 随 planning_history 留存并清除当前 CR。
 
 纯技术规划调整由 MO 提交不改变既有决定的证据。
 

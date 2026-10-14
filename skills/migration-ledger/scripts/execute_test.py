@@ -111,7 +111,7 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     else:
         m = s['modules'][module_id]
         a = m['assignments'][assignment_id]
-        require(a.get('mode') != 'design' and not a['closed'] and (a['role'] == 'test-runner' and m['phase'] == 'testing'), 'test assignment required')
+        require(not a['closed'] and (a['role'] == 'test-runner' and m['phase'] == 'testing'), 'test assignment required')
         require(a.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
     if a.get('execution_contract'):
         require(path_id in a['execution_contract']['path_ids'], 'execution outside assigned PATHs')

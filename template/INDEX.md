@@ -24,7 +24,6 @@
 | [retrospective.json](retrospective.json) | Host | 有证据的抽象经验，经 Ledger retrospect 提交 |
 | [source-impact.json](source-impact.json) | GO | 同 run 来源追加的影响报告 |
 | [status.md](status.md) | MO | 模块决策；Ledger 生成 status 投影 |
-| [test-design-input.json](test-design-input.json) | MO | 编码前独立测试设计的输入：规格、CASE 与任务范围 |
 | [stage-plan.json](stage-plan.json) | Spec-Designer | 规划提交的最小集：六件套引用、TASK 范围/追溯；PATH 与资产由上游测试计划补全，其余由叶子四维分析补全 |
 | [upstream-test-plan.json](upstream-test-plan.json) | Spec-Designer | 默认测试输入：绑定权威上游用例/当前 scope，完整 CASE/PATH/ASSERT；不记录实际结果 |
 | [proposal.md](proposal.md) | Spec-Designer | 六件套 proposal |
@@ -42,7 +41,6 @@
 | [ui-state-test-design.md](ui-state-test-design.md) | Spec-Designer | 并入模块 test-design 的 UI 状态设计 |
 | [domain-worker-request.json](domain-worker-request.json) | Spec-Designer | 受限 UI 源分析、资源计划与上屏检查请求 |
 | [knowledge-request.json](knowledge-request.json) | Spec-Designer / Implementer / Fixer / Diagnostician | 知识主题查询请求，不要求 assignment |
-| [test-design-result.json](test-design-result.json) | Test-Runner | 独立测试设计结果；MO 接受后由 Ledger 绑定进 plan |
 | [test-paths.json](test-paths.json) | Test-Runner | build/unit/static/automation 各类 PATH 的写法 |
 | [harmony-test-path.json](harmony-test-path.json) | Test-Runner | 逐 ASSERT 的冻结谓词、验证类型、匹配与时序 |
 | [visual-test-path.json](visual-test-path.json) | Test-Runner | 逐 runtime 目标的视觉路径片段（含仅承载图像检查的变体） |

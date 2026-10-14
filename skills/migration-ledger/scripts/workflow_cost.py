@@ -9,6 +9,26 @@ import json
 from pathlib import Path
 
 
+def staging_usage(root, events):
+    """What the roles left under staging against what some event cites. The share no event cites is output the roles
+    can stop writing; scratch/ is counted apart, since nothing there is meant to be cited."""
+    cited = {str(Path(item['source_path']).resolve()) for e in events for item in e.get('artifact_snapshots') or []
+             if item.get('source_path')}
+    staging = Path(root) / 'staging'
+    total = cited_bytes = scratch_bytes = 0
+    for p in staging.rglob('*') if staging.is_dir() else ():
+        if not p.is_file():
+            continue
+        size = p.stat().st_size
+        if 'scratch' in p.relative_to(staging).parts:
+            scratch_bytes += size
+            continue
+        total += size
+        cited_bytes += size if str(p.resolve()) in cited else 0
+    return {'bytes': total, 'cited_bytes': cited_bytes, 'uncited_share': round(1 - cited_bytes / total, 3) if total else 0.0,
+            'scratch_bytes': scratch_bytes}
+
+
 def journal(root):
     path = Path(root) / 'ledger/events.jsonl'
     if not path.exists():
@@ -101,7 +121,7 @@ def build(s, events, resolve=None):
                      'events': counts['events'], 'dispatches': counts['dispatches'],
                      'context_receipts': counts['context_receipts'], 'acceptances': counts['acceptances'],
                      'human_decisions': human[mid], 'fix_rounds': m.get('total_fix_rounds', 0),
-                     'local_fix_used': m.get('local_fix_used', 0), 'lean_leaf': bool(m.get('lean_leaf')),
+                     'local_fix_used': m.get('local_fix_used', 0),
                      'card_dispatches': m.get('card_load', {}).get('dispatches', 0),
                      'card_bytes_full': m.get('card_load', {}).get('full', 0),
                      'card_bytes_delivered': m.get('card_load', {}).get('delivered', 0)}

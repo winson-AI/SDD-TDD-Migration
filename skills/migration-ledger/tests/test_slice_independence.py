@@ -28,9 +28,9 @@ class LayerTests(unittest.TestCase):
     def judge(self, children, **plan):
         parent = {'module_id': 'M010', 'case_ids': ['C1', 'C2']}
         graph = {child['module_id']: [] for child in children}
-        supporting = {child['module_id']: 'a provider the accepting slice uses' for child in children if not child['acceptance_case_ids']}
-        return behavior_contract.independence(parent, children, graph, {'case_acceptance': {'C1': 'M001', 'C2': 'M001'},
-                                                                         'supporting_slices': supporting, **plan})
+        for child in children:
+            if not child['acceptance_case_ids']: child.setdefault('kind', 'scaffold')  # a slice accepting no case is the scaffold
+        return behavior_contract.independence(parent, children, graph, {'case_acceptance': {'C1': 'M001', 'C2': 'M001'}, **plan})
 
     def test_a_case_whose_screen_and_logic_live_in_two_slices_is_cut_by_layer(self):
         layered = [self.child('M001', ('C1', 'C2'), UI=['C1', 'C2']), self.child('M002', Logic=['C1', 'C2'], Resource=['C1'])]
@@ -81,22 +81,15 @@ class SplitTests(unittest.TestCase):
             with self.subTest(message=message), self.assertRaisesRegex(Rejected, message):
                 self.judge(bad)
 
-    def test_a_slice_that_accepts_no_case_says_why_it_stands_alone(self):
+    def test_a_slice_that_accepts_no_case_is_a_scaffold(self):
         plan = self.proposal()
-        for value in ({}, {'M002': ' '}, {'M001': 'a reason for the wrong slice'}):
-            with self.subTest(value=value), self.assertRaisesRegex(Rejected, 'supporting slice.*M002'):
-                self.judge({**plan, 'supporting_slices': value})
+        plan['children'][1]['kind'] = 'feature'  # accepts nothing, yet declared a feature
+        with self.assertRaisesRegex(Rejected, 'scaffold.*M002'):
+            self.judge(plan)
 
-    def test_a_chain_of_slices_is_argued_for(self):
-        plan = self.proposal(ids=('M001', 'M002', 'M003'), dependencies={'M002': ['M001'], 'M003': ['M002']})
-        with self.assertRaisesRegex(Rejected, 'chain of 3, 2 of 3 wait'):
-            self.judge(plan)
-        plan['independence_review'] = {'rationale': 'the third slice renders what the second computes from the first'}
-        with self.assertRaisesRegex(Rejected, 'independence review evidence'):
-            self.judge(plan)
-        plan['independence_review']['evidence_refs'] = [self.f.ref('chain-review.md', 'why the slices cannot be cut by behavior')]
-        self.judge(plan)
-        self.judge(self.proposal(dependencies={'M002': ['M001']}))  # one slice waiting for another needs no argument
+    def test_a_chain_of_scaffolds_needs_no_argument(self):
+        self.judge(self.proposal(ids=('M001', 'M002', 'M003'), dependencies={'M002': ['M001'], 'M003': ['M002']}))  # scaffold under scaffold under the leaf
+        self.judge(self.proposal(dependencies={'M002': ['M001']}))
 
     def test_a_slice_cannot_accept_a_case_a_slice_outside_its_split_accepts(self):
         f = self.f; state = f.state()
@@ -126,7 +119,9 @@ class SplitTests(unittest.TestCase):
         same = self.proposal()
         children, graph = decomposition.validate(state, parent, same, redecompose=True)
         self.assertEqual(decomposition.redecomposition_impact(state, parent, children, graph), set())
-        moved = self.proposal(); moved.update(case_acceptance={'C1': 'M002'}, supporting_slices={'M001': 'now a provider of M002'})
+        moved = self.proposal(); moved.update(case_acceptance={'C1': 'M002'})
+        for child in moved['children']: child['kind'] = 'scaffold' if child['module_id'] == 'M001' else child.get('kind')
+        moved['children'][1].pop('kind', None)  # M002 now accepts the case
         children, graph = decomposition.validate(state, parent, moved, redecompose=True)
         self.assertEqual(decomposition.redecomposition_impact(state, parent, children, graph), {'M001', 'M002'})
 
@@ -135,7 +130,7 @@ class SplitTests(unittest.TestCase):
         f.split(self.proposal())
         state = f.state()
         self.assertNotIn(('M010', 'split'), {(row['module_id'], row['artifact']) for row in rule_debt.collect(state)})
-        state['modules']['M002'].pop('acceptance_case_ids')  # as registered before splits named the accepting slice
+        state['modules']['M002']['kind'] = 'feature'  # as registered before the standard named the scaffold
         self.assertEqual(behavior_contract.slices(state)[0]['shared_cases'], ['C1'])
         self.assertIn(('M010', 'split'), {(row['module_id'], row['artifact']) for row in rule_debt.collect(state)})
 

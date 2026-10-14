@@ -8,9 +8,7 @@ GO 先划模块、父 MO 先划子模块、子 MO 先划任务；各层划定 sc
 
 **先划分范围，再做该范围的四维分析；划分决定负责什么，四维分析形式化声明业务边界、功能边界与代码/资产边界，约束并指导下游 SPEC 与测试设计。** 三层固定顺序：
 
-- GO：全局上下文/完整功能清单 → 划分根模块及 scope → 针对每个已划分根模块做四维边界分析（业务/功能/代码边界） → 根模块交接包（需求/CASE归属与边界契约）。实施规格完全下沉。
-- 父 MO：认领模块 → 读取该模块存量/目标已有实现、根四维分析及全局上下文 → 划分子模块及 scope → 针对每个已划分子模块做四维分析（子边界契约） → 子模块交接包。
-- 子 MO：认领子模块 → 读取该子模块存量/目标已有实现、子模块四维分析及全局上下文 → 划分任务及 scope → 针对每个已划分任务做四维边界映射与指引 → 冻结实现计划 → Coding/Testing。
+- 三层职责见[父子 MO 协议](module-decomposition.md#1-三层职责)：GO 划根模块并做根四维分析，父 MO 划子模块并做子四维分析，子 MO 划任务并做任务级四维映射，再冻结、Coding/Testing。实施规格完全下沉。
 
 这里的“实现上下文”是现有源码、目标能力及已批准设计，不要求迁移代码在规划前已生成。每一级的四维分析均按 UI → Logic → Adhesive → Resource 顺序进行；任务执行顺序仍按真实依赖决定。分析发现范围缺口时回到负责该范围的编排层调整，再重做受影响分析；不得用分析结论静默扩大职责或遗漏功能。
 
@@ -44,7 +42,7 @@ Resource 指应用资源；原 Dependencies / Resources 中的文件锁、设备
 ## 4. 控制节点与交接
 
 1. **GO / register**：全局上下文/完整功能清单 → 划分模块 scope → 对每个模块做四维源闭包/目标映射，确立业务/功能/代码边界。每个根模块提交 `dimension_analysis_ref`（path+sha256），由 Ledger 接受与归档；分析里反复引用的文件在顶层 `refs` 写一次，`evidence_refs`/`context_refs` 写其 id。GO 定义边界；正式六件套与测试设计由下游撰写，GO 不替 MO 冻结。输入源缺项先澄清，不把空模板当完成。
-2. **父 MO / decompose → GO / decompose-accept**：认领模块，读取模块实现、根四维分析及全局上下文 → 划分子功能 scope → 为每个已划分子功能生成四维分析，`parent_ref` 指向写它时的根分析；子 item 的 `parent_item_ids` 关联同维度父 item。所有父 item 必须被子项覆盖，子项需求不得超出对应父项；子项挂本子模块持有的用例，不必取自父项的用例；父项的用例由持有它并引用该父项的孩子挂在自己的子项上，别的孩子持有的由其持有者承担。目标侧（target_binding；资源的 target_resource/consumer/conversion；接口契约的 target 与 fixture）父级可留空，叶子细化时填写，冻结前必填。根分析修订后哪些子分析沿用见[同 Run 上游修订](progress-recovery.md#同-run-上游修订)。父项可细分给多个孩子，但子 item_id 全局唯一，`dimension_partition_review_ref` 解释分割依据、职责不重叠及共享提供方/消费者/唯一写 owner；共享修改采用既有依赖、写范围/锁及人工边界决策，不复制实现。新增未分配功能须回 GO，不能偷偷扩 scope。
+2. **父 MO / decompose → GO / decompose-accept**：认领模块，读取模块实现、根四维分析及全局上下文 → 划分子功能 scope → 为每个已划分子功能生成四维分析，`parent_ref` 指向写它时的根分析；子 item 的 `parent_item_ids` 关联同维度父 item。所有父 item 必须被子项覆盖，子项需求不得超出对应父项；子项挂本子模块持有的用例，不必取自父项的用例；父项的用例由持有它并引用该父项的孩子挂在自己的子项上，别的孩子持有的由其持有者承担。目标侧（target_binding；资源的 target_resource/consumer/conversion；接口契约的 target 与 fixture）父级可留空，叶子细化时填写，冻结前必填。根分析修订后哪些子分析沿用见[同 Run 上游修订](progress-recovery.md#同-run-上游修订)。父项可细分给多个孩子，但子 item_id 全局唯一，`dimension_partition_review_ref` 解释分割依据、职责不重叠及共享提供方/消费者/唯一写 owner；共享修改采用既有依赖、写范围/锁及人工边界决策，不复制实现。新增未分配功能须回 GO，不能偷偷扩 scope。孩子按[切片标准](module-decomposition.md#切片标准)判定 kind、anchor_ui、依赖形状与 CASE 上限。
 3. **GO / global-plan**：核验完整 registry 的四维分配和引用仍有效，并结合 feature-inventory、需求/CASE owners 与边界裁决接受全局覆盖。全局 planning_context.dimension_allocations 对父子均可读；权威 assigned_module 包含本模块及父级分析引用。
 
    全量检查保留于本节点；运行派发只遍历当前模块、其实际依赖链与父级分配，不让无关模块的四维证据损坏阻塞当前工作。invalidate 后若认领分配本身失效，返回 GO 分配审查；仅旧任务/实现证据失效则保留历史后重新 plan。见 [恢复协议](progress-recovery.md)。
@@ -68,7 +66,7 @@ GO 先从功能清单划定“搜索”模块 scope，再在 UI 记录搜索框/
 
 ## 7. 任务级四维分析契约
 
-子 MO 先为每个 task 定义 `scope.in/out/write_paths`：具体负责的行为、排除内容、允许写入的目标路径。保留子模块排除项，写范围不得超出认领子模块。随后填写 `dimension_analysis`：它分析所在 task 的 scope，继承认领子模块 dimension_analysis_ref 的源码/架构/二方库/目标能力证据，再补任务针对性分析；范围变化必须重新分析并重新冻结。
+子 MO 先为每个 task 定义 `scope.in/out/write_paths`：具体负责的行为、排除内容、允许写入的目标路径。保留子模块排除项，写范围不得超出认领子模块。`in` 与本任务新增的 `out` 各不超过 3 条、每条不超过 300 字符，细节写在 design.md/tasks.md。随后填写 `dimension_analysis`：它分析所在 task 的 scope，继承认领子模块 dimension_analysis_ref 的源码/架构/二方库/目标能力证据，再补任务针对性分析；范围变化必须重新分析并重新冻结。
 
 - `dimensions`：UI/Logic/Adhesive/Resource 四行，分别填写 status、reason、item_ids；evidence_refs 可省，省略时认领的 dimension_analysis_ref 即证据，另有证据才写。item_ids 与 dimension_trace 分配到该任务且同维度的条目一致。
 - applicable 行必须填写 `implementation`：具体改哪些行为/节点/接口、如何复用或适配、怎样接线、怎样保留源语义，不得只写“完成本维度”。验证沿用该任务已冻结的 PATH/ASSERT。

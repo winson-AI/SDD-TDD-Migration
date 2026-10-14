@@ -16,7 +16,7 @@ description: SDD-TDD-Migration 的测试设计、构建与自动化执行；支�
 需要当前 HAP 装机、视觉捕获或模型语义比较时按 [受限视觉执行](../migration-protocol/references/visual-execution.md#2-执行节点)。在现有测试 assignment 下使用 visual-install/visual-capture/semantic-inspect/image-parity，读取冻结配置、保存原始证据；正式结果仍通过 execute_test/adapter 提交，不在工具中修代码或直接验收。
 
 ## 3. 标准模式
-design 沿 `assign(mode=design) → submit（附 test-design 预检）→ MO accept(review_ref)` 提交预期路径，再由 Ledger 补进 Spec plan、MO 冻结；见 [编码前交接](../migration-protocol/references/testing.md#编码前设计交接)。code accepted 后依次 build → unit（本轮 JUnit）→ static（逐 Scenario）→ automation → 适用时 visual。错误交 Fixer；仅 automation 环境缺失记 Yellow/未执行，其他任务继续。
+测试设计由 Spec-Designer 随计划提交（upstream-test-plan），见 [编码前设计交接](../migration-protocol/references/testing.md#编码前设计交接)。code accepted 后依次 build → unit（本轮 JUnit）→ static（逐 Scenario）→ automation → 适用时 visual。错误交 Fixer；仅 automation 环境缺失记 Yellow/未执行，其他任务继续。
 
 禁止：自然语言 query 当 shell；以构建 exit 0 代替业务用例通过；无断言或 skip 当通过；重跑只保留最好一次。
 
@@ -33,7 +33,7 @@ design 沿 `assign(mode=design) → submit（附 test-design 预检）→ MO acc
 
 两端 UI/端到端 PATH 按 [移动端运行协议](references/harmony-runtime.md#3-execute一条-path-到-main)。使用 MobileAgenticOperator 的 test 流程：Planner → Executor → Verify；保留验证、回放、重规划和报告。冻结 platform=android|harmony、task_type=test；不支持 iOS 或以 snapshot/recording 验收。
 
-- design：用 [harmony_design.py](scripts/harmony_design.py) 导入 MD/XMind，审核完整用例并补齐冻结 ASSERT 描述、类型、匹配规则与 after_step。
+- 用例导入：用 [harmony_design.py](scripts/harmony_design.py) 导入 MD/XMind，审核完整用例并补齐冻结 ASSERT 描述、类型、匹配规则与 after_step。
 - execute：通过 host execute_test 调用 [harmony_adapter.py](scripts/harmony_adapter.py)，再用 [harmony_stage.py](scripts/harmony_stage.py) 组装全路径结果，按 Ledger submit/accept。
 - 固定 ASSERT ID 绑定冻结谓词；零断言、最终通过文本、旧回放结果不能代替本次验证。原生 memory 是候选执行素材，复用与修复裁决仍受 Ledger 控制。
 - 内核组件只执行当前 Test-Runner 任务，不承担 Spec/Fixer/Auditor 权限。

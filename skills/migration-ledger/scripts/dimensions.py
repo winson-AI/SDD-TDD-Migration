@@ -284,6 +284,7 @@ def partition(s, parent, plan):
                 set(item['case_ids']) & coverage[iid]['held'] <= coverage[iid]['cases'], 'child dimensions omit parent item requirements/cases')
 
 
+SCOPE_ITEMS, SCOPE_CHARS = 3, 300  # a task's own scope lines; design.md and tasks.md hold the detail
 IDENTIFIED = ('item_id', 'condition_id', 'dimension', 'api_id')
 GROWS = ('evidence_refs', 'assertions', 'condition_refs')
 
@@ -450,6 +451,10 @@ def task_analyses(plan, module, items, traces):
         nonempty(scope.get('in'), 'task business scope')
         require(isinstance(scope.get('out'), list), 'task exclusions required')
         require(set(module['scope']['out']) <= set(scope['out']), 'task must retain module exclusions')
+        own = [line for line in scope['out'] if line not in module['scope']['out']]
+        for label, lines in (('in', scope['in']), ('out', own)):
+            require(len(lines) <= SCOPE_ITEMS and all(isinstance(line, str) and len(line) <= SCOPE_CHARS for line in lines),
+                    f'task scope {label}: at most {SCOPE_ITEMS} own lines of at most {SCOPE_CHARS} characters each; design.md and tasks.md hold the detail')
         writes = nonempty(scope.get('write_paths'), 'task write scope')
         require(all(Path(p).is_absolute() and any(Path(p).resolve().is_relative_to(Path(m).resolve())
                     for m in module['write_paths']) for p in writes), 'task write scope outside assigned module')

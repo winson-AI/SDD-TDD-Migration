@@ -188,9 +188,15 @@ def model_usage(s):
     return rows
 
 
+def global_projection(s, sequence):
+    """The run-wide projection names each module's plan by `plan_ref`; the plan body lives in the module's own projection."""
+    return {**s, 'last_sequence': sequence, 'parent_mo_names': decomposition.parent_mo_names(s),
+            'modules': {mid: {k: v for k, v in m.items() if k != 'plan'} for mid, m in s['modules'].items()}}
+
+
 def project(root, s, sequence):
     errors = []
-    project_attempt(errors, 'global-state', lambda: atomic(root / 'ledger/global.json', {**s, 'last_sequence': sequence, 'parent_mo_names': decomposition.parent_mo_names(s)}))
+    project_attempt(errors, 'global-state', lambda: atomic(root / 'ledger/global.json', global_projection(s, sequence)))
     project_attempt(errors, 'model-usage', lambda: atomic(root / 'ledger/model-usage.json', {'sequence': sequence, 'usage': model_usage(s),
                                                                                           'hint_adoption': hint_adoption(s)}))
     for mid, m in s['modules'].items():
@@ -355,7 +361,7 @@ def open_change(s, m, request):
         key: copy.deepcopy(m.get(key)) for key in ('plan_ref', 'plan_hash', 'plan', 'accepted_test_design')}
     previous_revalidation = current_request.get('previous_revalidation') if current_request else m.pop('task_revalidation', None)
     # Existing coded work is updated under the next freeze. Design assistance is opt-in again.
-    m.setdefault('approved_test_paths', copy.deepcopy(control_policy.acceptance(m['plan']['paths'])))
+    m.setdefault('approved_acceptance_digests', control_policy.acceptance_digests(m['plan']['paths']))
     m.pop('accepted_test_design', None)
     m.pop('test_design_required', None)
     m.update(phase='change-review', stale=True, change_request={**request, 'from_freeze_id': m['freeze_id'],
@@ -419,7 +425,7 @@ def covering(s, m):
 
 def self_diagnosis(s, m):
     """A lightweight leaf's local round is diagnosed by the repairing session; audit rounds stay independent."""
-    return (bool(m.get('lean_leaf')) or bool(s.get('fixer_self_diagnosis'))) and not audit_closure.active(s) \
+    return bool(s.get('fixer_self_diagnosis')) and not audit_closure.active(s) \
         and not m.get('audit_fix_grant')
 
 
@@ -542,19 +548,29 @@ def preview(root, module_id, plan_ref=None, principal=None):
         m = s['modules'][module_id]
     out['plan_hash'] = m.get('plan_hash')
     if m.get('plan') and out['refused'] is None:
-        for name, gate in freeze_gates(s, m, {}):
-            if name in REQUEST_GATES:
-                continue
-            with carrying() as gaps:
-                try:
-                    gate()
-                except (Rejected, OSError, KeyError, ValueError, TypeError) as exc:
-                    out['gates'].append({'gate': name, **hinted(exc)})
-            out['owed'] += [hinted(gap) for gap in gaps]
+        gates, gaps = failing_gates(s, m)
+        out['gates'] += gates
+        out['owed'] += [hinted(gap) for gap in gaps]
         out['human'] = control_policy.needs_human(m)
     seen = set()
     out['owed'] = [row for row in out['owed'] if not (row['reason'] in seen or seen.add(row['reason']))]
     return out
+
+
+def failing_gates(s, m):
+    """Every freeze gate the current plan does not pass yet, with its reading hint, and what the gates owe: read only,
+    reported all at once - to the author after a plan and to the reviewer before a verdict."""
+    gates, owed_gaps = [], []
+    for name, gate in freeze_gates(s, m, {}):
+        if name in REQUEST_GATES:
+            continue
+        with carrying() as gaps:
+            try:
+                gate()
+            except (Rejected, OSError, KeyError, ValueError, TypeError) as exc:
+                gates.append({'gate': name, 'reason': str(exc), 'read_hint': reading.read_hint(str(exc))})
+        owed_gaps += list(gaps)
+    return gates, owed_gaps
 
 
 def unresolved(m):
@@ -687,6 +703,27 @@ def superseded_citations(s, m, plan):
             owed(not any(directory in text for text in texts), 'cites a superseded plan of provider %s: %s' % (mid, directory))
 
 
+def pins_only_own_code(s, m, plan):
+    """A leaf pins by hash only the target files it writes. What another leaf or the host writes changes under it;
+    a leaf that needs it cites the provider's plan or contract, which the Ledger holds, not the code."""
+    target = s.get('target_root')
+    if not target:
+        return
+    own = [Path(p).resolve() for p in m.get('write_paths', [])]
+    documents = [plan]
+    analysis = dimensions.of_leaf(m)
+    if analysis and str(analysis.get('path', '')).endswith('.json'):
+        try:
+            documents.append(read_json(check_ref(analysis)))
+        except (Rejected, OSError, ValueError):
+            pass
+    for document in documents:
+        for ref in context_readiness.verify_refs_in(document):
+            path = Path(str(ref['path'])).resolve()
+            if path.is_relative_to(Path(target).resolve()) and not any(path.is_relative_to(o) for o in own):
+                require(False, 'a leaf pins only its own target files: cite the provider plan or contract, not ' + str(ref['path']))
+
+
 def wave(s, mid, seen=()):
     """The first wave holds the leaves that depend on no other; each other leaf comes one wave after the last of the
     slices it depends on. Derived from the dependencies, written by nobody."""
@@ -770,11 +807,6 @@ def _next_step(s, m):
         if submitted and m['submissions'][active['assignment_id']].get('green'):
             # Nothing to judge: accept re-validates the result, so the host may submit it without a model turn.
             step['mechanical'] = True
-        if design_stage.is_design(active):
-            step.update(mode='design', test_scope='design')
-            if not design_stage.valid(s, m, active):
-                step.update(operation='revoke', role='host', ready=True, reason='design-input-stale',
-                            recovery_action='stop-design-worker-and-revoke-before-redesign')
     elif m.get('decomposition_submission'):
         step.update(operation='decompose-accept', role='global-orchestrator', ready=True)
     elif m.get('decomposition_required') and m['phase'] in ('context', 'specifying', 'clarifying'):
@@ -794,15 +826,6 @@ def _next_step(s, m):
         step.update(operation='plan', role='spec-designer', ready=True,
                     input_subject_sha256=design_stage.subject(s, m),
                     upstream_case_refs=design_stage.upstream_refs(s), upstream_case_ids=m['case_ids'])
-        if design_stage.required(s, m) and not design_stage.ready(s, m):
-            step.update(operation='assign', role='module-orchestrator', worker_role='test-runner',
-                        mode='design', test_scope='design', reason='independent-test-design-required',
-                        payload={'role': 'test-runner', 'mode': 'design'},
-                        # What the design input cites instead of copying the context and the allocation.
-                        input_subject_sha256=design_stage.subject(s, m))
-            if s.get('behavior_contract_required'):
-                step['design_input_needs'] = ('spec_refs: the leaf SPEC draft the Spec-Designer staged, with Requirement-ID and '
-                                              'Scenario-ID lines; have it staged before assigning the design')
         waiting = [row['module_id'] for row in providers(s, m) if not row['ready']]
         if waiting:
             # Planned against what its providers are, once they are: the step is offered then. A plan submitted
@@ -853,9 +876,6 @@ def _next_step(s, m):
                 wanted = api_contract.undecided(s, api_contract.registered(s))
                 step.update(ready=False, reason='human-decision-required', approval_kind='api-adaptation', adaptations=wanted,
                             approval_subject_sha256=digest(wanted))
-        if design_stage.required(s, m) and not design_stage.ready(s, m):
-            step.update(operation='invalidate', ready=True, reason='independent-test-design-stale',
-                        payload={'reason': 'independent-test-design-stale'})
     elif m['phase'] in ('frozen', 'testing', 'diagnosing'):
         bad = unresolved(m)
         if m['phase'] == 'testing' and bad and not m.get('automation_retry_ready'):
@@ -996,7 +1016,7 @@ def record_hint(s, m, hint):
 def worker_step(p):
     """The cursor step a host acts on when it dispatches a worker: the assign the module orchestrator performs."""
     return {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': p['role'],
-            'mode': p.get('mode'), 'test_scope': 'design' if design_stage.is_design(p) else p.get('test_scope'),
+            'mode': p.get('mode'), 'test_scope': p.get('test_scope'),
             'assignment_id': p.get('assignment_id'), 'payload': {key: p[key] for key in ('task_ids', 'path_ids') if key in p}}
 
 
@@ -1106,7 +1126,7 @@ def next_step(s, m):
         step['wave'] = wave(s, m['module_id'])
     if m.get('decomposition_required') and step['role'] == 'module-orchestrator':
         step['agent_name'] = 'parent-mo-' + m['module_id']
-    if step.get('operation') == 'assign' and step.get('mode') != 'design' and step['ready']:
+    if step.get('operation') == 'assign' and step['ready']:
         # Who works next and on which stage are facts the Ledger holds; assign re-checks every guard and the worker
         # reports its own readiness, so the host may submit it as the module orchestrator without a model turn.
         step['mechanical'] = True
@@ -1245,7 +1265,7 @@ def assign_worker(s, m, mid, p, events, root):
     context_ref = p.get('context_ref') or (context_readiness.reported(s, mid, p) if preflight else None)
     if p['role'] in ('implementer', 'fixer'):
         m['phase'] = 'implementing' if p['role'] == 'implementer' else 'fixing'
-    elif p['role'] == 'test-runner' and not design_stage.is_design(p):
+    elif p['role'] == 'test-runner':
         m['phase'] = 'testing'  # also from frozen: the tasks written so far are tested before the next one
     a = m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
         'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
@@ -1283,7 +1303,7 @@ def start_work(m, a):
 def settle_preflight(m, actor, receipt):
     """A worker's report inside its own dispatch: ready authorizes the work, blocked hands the dispatch back."""
     # A dispatch the Ledger preflighted by itself still takes its worker's own report: a blocked one hands it back.
-    a = next((x for x in m['assignments'].values() if not x.get('closed') and not design_stage.is_design(x)
+    a = next((x for x in m['assignments'].values() if not x.get('closed')
               and (not x.get('context_ref') or x.get('preflight') == 'mechanical')
               and (x['role'], x['instance_id']) == (actor['role'], actor['instance_id'])), None)
     if not a or context_readiness.requirement('assign', a) != receipt['stage'] or a.get('context_ref') == receipt['report_ref']:
@@ -1322,7 +1342,7 @@ def mutate(s, req, principal, events, root=None):
         raise Rejected('audit snapshot locked; close or revoke audit before mutation')
     if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
-    context_readiness.gate(s, req, principal, run_root=root)
+    context_readiness.gate(s, req, principal, root=root)
     hint = req.get('hint')
     if hint is not None:
         require(isinstance(hint, dict) and isinstance(hint.get('session_id'), str) and hint['session_id']
@@ -1379,13 +1399,6 @@ def mutate(s, req, principal, events, root=None):
         require(set(p['case_ids']) <= set(s['case_ids']), 'unknown global case')
         require(all(Path(x).resolve().is_relative_to(Path(s['target_root'])) for x in p['write_paths']), 'write scope outside target')
         require(not p.get('parent_module_id'), 'register GO root modules; children require decompose-accept')
-        require(p.get('lean_leaf') in (None, True), 'lean_leaf must be true when present')
-        if p.get('lean_leaf'):
-            require(not p.get('decomposition_required'), 'a lightweight leaf is an atomic root; it cannot also require decomposition')
-            decomposition.check_scope(p)
-            require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in leaf scope')
-            require(p.get('leaf_review_ref'), 'lean leaf requires the GO atomic-root review')
-            check_ref(p['leaf_review_ref'])
         if p.get('decomposition_required'):
             decomposition.check_scope(p)
             require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in root scope')
@@ -1456,6 +1469,7 @@ def mutate(s, req, principal, events, root=None):
             plan_hash = m['plan_hash']
         else:
             plan_hash = validate_plan(plan, m)
+            control_policy.document_sizes(plan)
             m['plan_submissions'] = m.get('plan_submissions', 0) + 1  # distinct plans accepted for this freeze
             if s.get('split_testing_required') or any(path.get('kind') == 'build' for path in plan['paths']):
                 tv.plan_check(plan, s['target_root'], static_required=s.get('spec_closure_required', False),
@@ -1482,6 +1496,11 @@ def mutate(s, req, principal, events, root=None):
             behavior_contract.fixture_bound(boundary, plan)
         if not resubmitted:
             superseded_citations(s, m, plan)  # a provider's given-up plan is not what this leaf plans against
+            pins_only_own_code(s, m, plan)  # what others write is not pinned under this leaf
+        issues.cite(s, mid, p.get('resolves'), p['plan_ref'], principal)  # what the plan answers is settled with it
+        if not resubmitted and m.get('kind') != 'scaffold':
+            owed(len(plan.get('tasks') or []) <= 8, 'a leaf plans at most 8 tasks: the fine grain is the task, a coarser leaf splits by UI surface')
+            owed(Path(p['plan_ref']['path']).stat().st_size <= 60_000, 'plan over 60 KB: move evidence behind references or split the leaf by UI surface')
         # Plan is content; the artifact remains immutable and is checked at freeze/dispatch.
         # The plan stands on the context and allocation current now; its author does not copy them into it.
         m.pop('plan_review_ref', None)
@@ -1494,14 +1513,17 @@ def mutate(s, req, principal, events, root=None):
                  scenario_index=scenarios, plan_binding=decomposition.context_binding(s, m), checklist_ref=checklist_rubric(root))
         if principal['instance_id'] not in m.setdefault('spec_authors', []):
             m['spec_authors'].append(principal['instance_id'])
-        if plan.get('test_design_ref') and not design_stage.required(s, m) and principal['instance_id'] not in m['authors']:
+        if plan.get('test_design_ref') and principal['instance_id'] not in m['authors']:
             m['authors'].append(principal['instance_id'])
+        m['review_gates'] = [{'gate': g['gate'], 'reason': g['reason']} for g in failing_gates(s, m)[0]]  # what the freeze would refuse, reported all at once
     elif op == 'plan-review':
         role(principal, 'module-orchestrator')
         require(m['phase'] == 'clarifying', 'plan review requires clarifying')
         idle(m)
         control_policy.technical_review(m, p.get('review_ref'), principal, bool(approval(s, m, m['plan_hash']) or covering(s, m)))
         m['plan_review_ref'] = p['review_ref']
+        issues.cite(s, mid, p.get('resolves'), p['review_ref'], principal)  # what the review settles is settled with it
+        m['review_gates'] = [{'gate': g['gate'], 'reason': g['reason']} for g in failing_gates(s, m)[0]]
     elif op == 'planning-reopen':
         role(principal, 'module-orchestrator')
         require(m['phase'] in ('clarifying', 'frozen') and not m.get('blocked'), 'planning reopen requires unblocked planning')
@@ -1512,12 +1534,14 @@ def mutate(s, req, principal, events, root=None):
                 require(a['authoring_snapshot'] == write_scope.authoring_snapshot(s['target_root'],
                     a['authoring_snapshot']['scopes'], root), 'code changed after stop; use CR/upstream revision')
         check_ref(p.get('reason_ref'))
+        m.pop('review_gates', None)
         reset_plan(m, 'pre-implementation replanning', p['reason_ref'])
     elif op == 'freeze':
         role(principal, 'module-orchestrator')
         freeze_guard(s, m, p)
         m.setdefault('plan_rounds', []).append(m.pop('plan_submissions', 0))  # how many distinct plans this freeze took
         m.pop('plan_changes', None)
+        m.pop('review_gates', None)  # frozen: nothing is failing any more
         if not p.get('decision_id') and p.get('review_ref'):
             control_policy.technical_review(m, p['review_ref'], principal)
             m['plan_review_ref'] = p['review_ref']
@@ -1532,12 +1556,15 @@ def mutate(s, req, principal, events, root=None):
             m['approved_envelope'] = digest(m['plan']['decision_envelope'])
             m['approved_acceptance_kind'] = 'business'
             m['approved_acceptance'] = control_policy.acceptance_hash(m)
-        m['approved_test_paths'] = copy.deepcopy(control_policy.acceptance(m['plan']['paths']))
+        m['approved_acceptance_digests'] = control_policy.acceptance_digests(m['plan']['paths'])
         if m.get('change_request'):
             revalidation = task_revalidation.prepare(m, p.get('review_ref'))
             prior_execution = {key: copy.deepcopy(m.get(key)) for key in
                 ('code_files', 'code_baseline', 'accepted_task_ids', 'task_files', 'results', 'dimension_evidence', 'build_artifacts')}
-            m.setdefault('change_request_history', []).append({**m.pop('change_request'), 'to_freeze_id': m['plan_hash'],
+            closed = m.pop('change_request')
+            # The revalidation above read the previous plan's body; the history names that plan by reference and hash.
+            m.setdefault('change_request_history', []).append({**closed, 'to_freeze_id': m['plan_hash'],
+                'previous_plan': {k: v for k, v in (closed.get('previous_plan') or {}).items() if k != 'plan'},
                 'kind': 'planning-history', 'executable': False, 'prior_execution': prior_execution})
             retained = set(revalidation['retained_task_ids'])
             # No TASK changed: the code already accepted implements the revised contract, so the leaf goes on to rebuild it.
@@ -1565,47 +1592,36 @@ def mutate(s, req, principal, events, root=None):
         open_change(s, m, p)
     elif op == 'assign':
         role(principal, 'module-orchestrator')
-        require(p.get('mode') in (None, 'execute', 'design'), 'unknown assignment mode')
-        if design_stage.is_design(p):
-            record = {**dispatch_record(s, m, p), **(model_routing.record(p, role=p['role']) or {})}
-            design_stage.dispatch(s, m, p, principal, len(events) + 1)
-            m['assignments'][p['assignment_id']].update(record)
-        else:
-            assign_worker(s, m, mid, p, events, root)
+        require(p.get('mode') in (None, 'execute'), 'unknown assignment mode')
+        assign_worker(s, m, mid, p, events, root)
     elif op == 'submit':
         assignment = m['assignments'].get(p.get('assignment_id'), {})
         require(not assignment.get('closed', True), 'assignment inactive')
         require(principal == {'role': assignment['role'], 'instance_id': assignment['instance_id']}, 'worker identity mismatch')
         require(p.get('fencing_token') == assignment['fencing_token'], 'stale fencing token')
-        if design_stage.is_design(assignment):
-            design_stage.submission(s, m, assignment, p, principal)
-        else:
-            require(assignment.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
-            require(assignment['freeze_id'] == m['freeze_id'], 'assignment freeze stale')
-            require(assignment.get('context_ref') or not context_readiness.enabled(s),
-                    'preflight required: context-submit a ready report for this assignment before its result')
-            worker_phase(m, assignment)
-            dependencies_ready(s, m)
-            result = read_json(check_ref(p['result_ref']))
-            validate_result(result, m, assignment, run_root=root)
-            if s.get('write_scope_check') and result.get('kind') == 'implementation':
-                require(p.get('write_scope_ref'), 'write_scope_ref required: host write-scope delta receipt')
-                write_scope.verify(s, m, assignment, result, read_json(check_ref(p['write_scope_ref'])))
-            # The submission is the hash-bound reference plus what the cursor and the report need from it.
-            m['submissions'][p['assignment_id']] = {
-                'ref': p['result_ref'], 'kind': result.get('kind'), 'green': all_green_tests(result),
-                'test_run_ids': [row.get('test_run_id') for row in result.get('paths', [])] if result.get('kind') == 'tests' else []}
+        require(assignment.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
+        require(assignment['freeze_id'] == m['freeze_id'], 'assignment freeze stale')
+        require(assignment.get('context_ref') or not context_readiness.enabled(s),
+                'preflight required: context-submit a ready report for this assignment before its result')
+        worker_phase(m, assignment)
+        dependencies_ready(s, m)
+        result = read_json(check_ref(p['result_ref']))
+        validate_result(result, m, assignment, run_root=root)
+        issues.cite(s, mid, p.get('resolves'), p['result_ref'], principal)  # what the work answers is settled with it
+        if s.get('write_scope_check') and result.get('kind') == 'implementation':
+            require(p.get('write_scope_ref'), 'write_scope_ref required: host write-scope delta receipt')
+            write_scope.verify(s, m, assignment, result, read_json(check_ref(p['write_scope_ref'])))
+        # The submission is the hash-bound reference plus what the cursor and the report need from it.
+        m['submissions'][p['assignment_id']] = {
+            'ref': p['result_ref'], 'kind': result.get('kind'), 'green': all_green_tests(result),
+            'test_run_ids': [row.get('test_run_id') for row in result.get('paths', [])] if result.get('kind') == 'tests' else []}
     elif op == 'accept':
         require(not s.get('audit_batch', {}).get('retry_stops', {}).get(mid), 'stop affected old worker before accepting stale audit output')
         role(principal, 'module-orchestrator')
         aid = p['assignment_id']
         assignment = m['assignments'].get(aid, {})
         require(not assignment.get('closed', True) and aid in m['submissions'], 'no active submission')
-        if design_stage.is_design(assignment):
-            design_stage.accept(s, m, assignment, p, principal)
-            m['revision'] += 1
-            refresh(s)
-            return
+        issues.cite(s, mid, p.get('resolves'), m['submissions'][aid]['ref'], principal)  # what the accepted work answers is settled with it
         require(assignment.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
         worker_phase(m, assignment)
         dependencies_ready(s, m)
@@ -1786,9 +1802,6 @@ def mutate(s, req, principal, events, root=None):
                 a['authoring_snapshot']['scopes'], root), 'code changed; use CR/upstream revision')
             a['no_code_change_ref'] = copy.deepcopy(p['stopped_worker_ref'])
         a['closed'] = True
-        if design_stage.is_design(a):
-            a['revoked'] = True
-            m['submissions'].pop(a['assignment_id'], None)
         if not retry_stop and audit_closure.active(s) and m.get('audit_batch_id') == s['audit_batch']['batch_id']:
             audit_closure.stop(s, 'worker-interrupted', mid, p['stopped_worker_ref'])
         m['stale'] = True
@@ -1796,7 +1809,7 @@ def mutate(s, req, principal, events, root=None):
             if memory['assignment_id'] == p['assignment_id'] and memory['status'] == 'pending':
                 memory['status'] = 'interrupted'
         if not m.get('blocked'):
-            m['phase'] = a['resume_phase'] if design_stage.is_design(a) else 'diagnosing' if a['role'] == 'fixer' else 'frozen' if a['role'] == 'implementer' else 'testing'
+            m['phase'] = 'diagnosing' if a['role'] == 'fixer' else 'frozen' if a['role'] == 'implementer' else 'testing'
     elif op == 'invalidate':
         role(principal, 'module-orchestrator', 'host')
         require(p.get('reason'), 'invalidation reason required')
@@ -1950,13 +1963,36 @@ def artifact_index(events):
     return index
 
 
-def new_snapshots(root, payload, target_root, index):
+def new_snapshots(root, payload, target_root, index, externals=()):
     """Archive every ref of a payload; list what this event adds to the cumulative index.
 
     An artifact some earlier event already archived is found through that event, so it is not listed
     again. Drift and historical-snapshot records describe this event and are always kept."""
-    return [item for item in preserve_refs(root, payload, target_root=target_root, accepted=index)
-            if item.get('status') or (item.get('source_path'), item.get('sha256')) not in index]
+    return [item for item in preserve_refs(root, payload, target_root=target_root, accepted=index, externals=externals)
+            if item.get('status') in ('drifted-or-missing-live-target-code', 'historical-snapshot')
+            or (item.get('source_path'), item.get('sha256')) not in index]
+
+
+DEPENDENCY_STORES = ('.gradle', '.m2', 'node_modules', '.cargo', '.pub-cache', 'Pods')  # what a build tool keeps for the project
+SCRATCH = 'scratch'  # a role's drafts, probe scripts and logs under its staging: the Ledger neither reads nor archives them
+
+
+def scratch(root, path):
+    p, run = Path(path).resolve(), Path(root).resolve()
+    return p.is_relative_to(run) and SCRATCH in p.relative_to(run).parts
+
+
+def external_roots(s):
+    """The trees a run reads but did not write: its legacy source and its reuse sources."""
+    roots = [s.get('legacy_root')] + [src.get('root') for src in (s.get('reuse_sources') or []) if isinstance(src, dict)]
+    return [Path(r).resolve() for r in roots if r]
+
+
+def external(path, externals):
+    """An input the run reads but did not produce - a legacy source, a reuse checkout, a library in a dependency store:
+    it is cited by hash and left where it is; the archive holds what the run wrote."""
+    p = Path(path).resolve()
+    return any(p.is_relative_to(r) for r in externals or ()) or any(part in DEPENDENCY_STORES for part in p.parts)
 
 
 def historical_tool_ref(root, value, accepted, nested=False):
@@ -2003,7 +2039,7 @@ def prior_run_artifact(root, value, nested, prior_runs):
     return check_ref({'path': str(archive), 'sha256': value['sha256']}), previous.name, event
 
 
-def preserve_refs(root, value, seen=None, nested=False, target_root=None, accepted=None, prior_runs=None):
+def preserve_refs(root, value, seen=None, nested=False, target_root=None, accepted=None, externals=(), prior_runs=None):
     """Archive evidence bytes before commit; keep live refs for stale-code detection.
 
     Nested historical controller/protocol refs may read an exact archive from a prior committed event;
@@ -2026,6 +2062,9 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
                     check_ref(value)  # A nested archive cannot authorize the same reference as a current input.
                 return []
             seen.add(key)
+            require(not Path(value['path']).resolve().is_relative_to((Path(root) / 'ledger').resolve()),
+                    'a ledger projection is not evidence: cite the artifact it was projected from')
+            require(not scratch(root, value['path']), 'a scratch file is not evidence: cite the artifact it informed')
             historical = None
             imported = prior_run_artifact(root, value, nested, prior_runs)
             try:
@@ -2041,6 +2080,8 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
                         raise
                     return [{'source_path': value.get('path'), 'expected_sha256': value.get('sha256'),
                              'status': 'drifted-or-missing-live-target-code'}]
+            if not historical and external(value['path'], externals):
+                return [{'source_path': value['path'], 'sha256': value['sha256'], 'status': 'external-reference'}]
             blob = run_storage.checked_path(root / 'artifacts' / value['sha256'], root / 'artifacts')
             blob.parent.mkdir(exist_ok=True)
             if not blob.exists():
@@ -2061,13 +2102,13 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
                     raise  # a document that cites an id its refs table lacks is wrong, not merely not JSON
                 except ValueError:
                     nested_value = None
-                saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root, accepted=accepted, prior_runs=prior_runs))
+                saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root, accepted=accepted, externals=externals, prior_runs=prior_runs))
         else:
             for item in value.values():
-                saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted, prior_runs))
+                saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted, externals, prior_runs))
     elif isinstance(value, list):
         for item in value:
-            saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted, prior_runs))
+            saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted, externals, prior_runs))
     return saved
 
 
@@ -2208,7 +2249,7 @@ def _judge(root, req, principal):
              'actor': principal, 'operation': req['operation'], 'module_id': req.get('module_id'),
              'previous_hash': events[-1]['sha256'] if events else None, **change,
              'artifact_snapshots': new_snapshots(root, {'payload': req.get('payload', {}), 'history_refs': history_refs},
-                                               s.get('target_root'), artifact_index(events))}
+                                               s.get('target_root'), artifact_index(events), external_roots(s))}
         e['sha256'] = digest(e)
         journal = run_storage.checked_path(root / 'ledger/events.jsonl', root)
         journal.parent.mkdir(exist_ok=True)

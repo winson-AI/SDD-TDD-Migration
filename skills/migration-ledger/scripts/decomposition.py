@@ -11,7 +11,9 @@ from pathlib import Path
 from contracts import Rejected, check_ref, digest, nonempty, read_json, require
 
 OPERATIONS = {'decompose', 'decompose-accept', 'module-summary', 'realloc-request', 'redecompose', 'redecompose-accept'}
-ALLOCATION_KEYS = ('name', 'scope', 'case_ids', 'write_paths', 'context_refs', 'dimension_analysis_ref', 'behavior_review')
+ALLOCATION_KEYS = ('name', 'scope', 'case_ids', 'write_paths', 'context_refs', 'dimension_analysis_ref', 'behavior_review', 'kind', 'anchor_ui')
+KINDS = ('feature', 'scaffold')  # a feature leaf anchors on a UI surface; a scaffold is the shell the features plug into
+LEAF_CASES = 20  # more cases than this is a surface to split
 
 TERMINAL = {'completed', 'waiting-auditor', 'waiting-dependency', 'waiting-human', 'automation-deferred', 'waiting-upstream'}
 
@@ -375,6 +377,7 @@ def validate(s, parent, plan, redecompose=False):
         visited.add(mid)
     for mid in graph:
         visit(mid)
+    standard(s, parent, children, plan)
     if (s.get('behavior_contract_required') or any(c.get('behavior_review') for c in children)) \
             and not all(registered(s, child) for child in children):
         inside = {parent['module_id'], *ids, *parent.get('children', [])}
@@ -382,6 +385,54 @@ def validate(s, parent, plan, redecompose=False):
             cid for mid, module in {**s.get('module_groups', {}), **s['modules']}.items() if mid not in inside
             for cid in behavior_contract.accepts(module)}, {child['module_id'] for child in children if not registered(s, child)})
     return children, graph
+
+
+def applicable(ref, module_id):
+    """The dimensions an analysis finds applicable and gives items."""
+    data, items = dimensions.load(ref, module_id)
+    return {row['dimension'] for row in data.get('dimensions', []) if row.get('status') == 'applicable' and row.get('items')}
+
+
+def standard(s, parent, children, plan):
+    """The slicing standard: a leaf is one UI surface with the Logic, Adhesive and Resource items behind it, a scaffold is the
+    shell they plug into, features depend on scaffolds only, and a leaf holds at most LEAF_CASES cases. A split without
+    dimension analyses is judged on its kinds and dependencies alone."""
+    scaffolds = {c['module_id'] for c in children if c.get('kind') == 'scaffold'}
+    ids = {c['module_id'] for c in children}
+    parent_dims = applicable(parent['dimension_analysis_ref'], parent['module_id']) \
+        if s.get('dimension_slicing_required') and parent.get('dimension_analysis_ref') else set()
+    for child in children:
+        if registered(s, child):
+            continue
+        require(child.get('kind') in (None, *KINDS), 'unknown child kind: feature or scaffold')
+        require(set(child.get('dependencies', [])) & ids <= scaffolds, 'a leaf depends only on scaffold leaves; features do not depend on each other')
+        if child.get('kind') == 'scaffold':
+            continue
+        require(len(child['case_ids']) <= LEAF_CASES, 'a leaf holds at most %d cases: split it by UI surface' % LEAF_CASES)
+        if parent_dims and child.get('dimension_analysis_ref'):
+            dims = applicable(child['dimension_analysis_ref'], child['module_id'])
+            if 'UI' in parent_dims:
+                require('UI' in dims and isinstance(child.get('anchor_ui'), str) and child['anchor_ui'].strip(),
+                        'a feature leaf anchors on a UI surface: declare anchor_ui and UI items, or mark the child scaffold')
+            if len(parent_dims) >= 2:
+                require(len(dims) >= 2, 'a leaf is not a single layer: it carries the Logic, Adhesive and Resource items behind its UI, or is a scaffold')
+
+
+def slicing_signals(s):
+    """What the audit reads back about the split: per leaf, the issues it shares with other modules, its change requests
+    and the depth of its provider chain; a flag names the bound a leaf exceeds."""
+    modules = s['modules']
+    def depth(mid, seen=()):
+        deps = [d for d in modules.get(mid, {}).get('dependencies', []) if d in modules and d not in seen]
+        return 1 + max([depth(d, (*seen, mid)) for d in deps] or [0])
+    out = {}
+    for mid, m in modules.items():
+        cross = sum(1 for it in (s.get('issues') or {}).values() if mid in (it.get('applies_to') or []) and len(it.get('applies_to') or []) > 1)
+        crs = len(m.get('change_request_history') or []) + (1 if m.get('change_request') else 0)
+        chain = depth(mid)
+        flags = [name for name, hit in (('cross-module-issues', cross > 3), ('change-request-cascade', crs > 1), ('chain-depth', chain > 2)) if hit]
+        out[mid] = {'cross_module_issues': cross, 'change_requests': crs, 'chain_depth': chain, 'flags': flags}
+    return out
 
 
 def built_on(s, providers):
@@ -668,7 +719,7 @@ def handle(s, req, actor, run_root):
         if plan.get('kind') == 'atomic-leaf':
             replan_module(parent, 'atomic-leaf-confirmed', submission['plan_ref'])
             parent['planning_history'][-1]['review_ref'] = p['review_ref']
-            parent.update(lean_leaf=True, decomposition_required=False, leaf_review_ref=plan['leaf_review_ref'])
+            parent.update(decomposition_required=False, leaf_review_ref=plan['leaf_review_ref'])
             parent.pop('decomposition_submission', None)
             return
         parent.setdefault('planning_history', []).append({'kind': 'planning-history', 'executable': False,

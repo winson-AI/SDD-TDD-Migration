@@ -66,7 +66,7 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 1. 先读[四条红线](../../../AGENTS.md#四条红线)、[调用约定](../../../AGENTS.md#调用约定)和[轮询与派发](#提示采纳回报)，解析参数为绝对路径及规范 ID；协议其余部分按小节取（`reading.py show`），不整份加载。
 2. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影。
-3. 宿主把已授权身份绑定到 host-context，不能让请求内自报 role 获得权限；控制器不自动启动 Agent，不替宿主写目标代码；宿主用实际可用的任务工具启动目标角色，只传 package_root、run_root、module_id 与阅读卡路径，Ledger 按协议串行服务，定义文件不会自动安装或注册不存在的工具。payload 与命令用法见[操作矩阵](local-runtime.md#操作矩阵)。
+3. 宿主把已授权身份绑定到 host-context，不能让请求内自报 role 获得权限；控制器不自动启动 Agent，不替宿主写目标代码；宿主用实际可用的任务工具启动目标角色，只传 package_root、run_root、module_id 与阅读卡路径，Ledger 按协议串行服务，定义文件不会自动安装或注册不存在的工具。payload 与命令用法见[操作矩阵](local-runtime.md#操作矩阵)。无冲突模块的 MO 审核（plan-review、freeze、decompose-accept）由宿主并行派发独立实例，不等一个模块审完再派下一个；并行数受输入与宿主限制。
 4. 结束时输出已提交事件/当前状态/产物路径和下一动作。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
 
 参数：run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃逸。JSON 中占位符、未决必填值、零必需用例不能作为有效运行输入。status 可读取尚未完成的输入状态。
@@ -87,7 +87,7 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 **轮询。** status --view cursor --since <sequence> 未变返回 unchanged/进度，变化返回游标、模块/信号摘要及卡大小。--view step [--module <id>] 给本步信封/预检/分配/assignment，规划加 planning_context；--view module 不带 plan/场景正文，full 仅供脚本。
 
-**取卡。** reading.py render --root <run> (--module <id>|--global) 写 reports/reading/<card_sha256>.md，派发传路径；步骤带 slicing_skill 时技能随卡写入。human_required=false 的步骤不征求人工。卡外 reading.py show --ref <文件> --section <小节>；操作矩阵支持 操作矩阵@<operation>。卡片只给本步要用的：模板限本步所写工件（分析已登记的叶子，计划步不带分析/语义模型模板，文档由骨架起稿）；执行角色仅在冻结计划取用 provider 时带复用小节；Test-Runner 构建与自动化先后两次派发、共读一份角色文本，后者只追加本阶段小节；等待依赖的步骤不带卡。
+**取卡。** reading.py render --root <run> (--module <id>|--global) 写 reports/reading/<card_sha256>.md，派发传路径；步骤带 slicing_skill 时技能随卡写入。human_required=false 的步骤不征求人工。卡外 reading.py show --ref <文件> --section <小节>，模板 reading.py show --template <名>；操作矩阵支持 操作矩阵@<operation>。卡片只给本步要用的：模板限本步所写工件（分析已登记的叶子，计划步不带分析/语义模型模板，文档由骨架起稿）；执行角色仅在冻结计划取用 provider 时带复用小节；Test-Runner 构建与自动化先后两次派发、共读一份角色文本，后者只追加本阶段小节；等待依赖的步骤不带卡。
 
 **回报。** 步骤的 card_new 是上一执行实例续用原上下文时只需读的小节（红线始终在内）；宿主不回报也按执行实例计。hint{session_id,card_sha256,context_inputs} 可另报实际交付，恢复/轮换见[渐进加载](runtime.md#渐进加载)。拒绝响应及 rejected-operation.json 带 read_hint。
 

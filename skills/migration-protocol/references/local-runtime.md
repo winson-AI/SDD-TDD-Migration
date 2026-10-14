@@ -56,8 +56,8 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | operation | 调用角色 | payload 必需内容 / 行为 |
 | --- | --- | --- |
 | init | host | prepare 返回、GO 补齐的 input.json 原样作为载荷：target_root、legacy_root、非空唯一 case_ids 与 requirement_ids、global_spec/new_architecture 文件引用；可选 global_paths；预算缺省 3/2/3/3 |
-| register | Global | module_id、case_ids、write_paths、dependencies；按拓扑顺序登记，依赖必须已存在，从而拒绝环/未知模块。原子根功能可登记为 `lean_leaf=true`：须有 scope（in/out/requirement_ids）、context_refs 与 GO 的 leaf_review_ref，不可同时 decomposition_required |
-| decompose | MO / 根 module_id | plan_ref（细分方案或 kind=atomic-leaf 结论）、context_ref；Ledger 绑定当前上下文与分配，见[分配门禁](module-decomposition.md#3-分配与登记门禁) |
+| register | Global | module_id、case_ids、write_paths、dependencies；按拓扑顺序登记，依赖必须已存在，从而拒绝环/未知模块。原子根功能直接登记为叶子（不设 decomposition_required） |
+| decompose | MO / 根 module_id | plan_ref（细分方案或 kind=atomic-leaf 结论）；Ledger 预检（context_ref 可选）；Ledger 绑定当前上下文与分配，见[分配门禁](module-decomposition.md#3-分配与登记门禁) |
 | decompose-accept | Global / 根 module_id | review_ref；细分则登记孩子、父移入 module_groups；原子结论保留节点进入未冻结叶子规划 |
 | realloc-request | MO / 子或根 module_id | reason、evidence_refs；切片/边界冲突向上提单，保存恢复阶段后进入 waiting-upstream；无父或父级上溯交 GO run-review |
 | redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；children 覆盖父 scope。根修订后游标 affected_children 列出须重写的孩子，其余原样复述即沿用 |
@@ -72,16 +72,16 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | audit-retest | MO | 顶层 module_id 指发现模块或受影响中间模块；只等待本模块的上游修复/复测完成，执行完整模块路径 |
 | audit-verdict | Auditor | review_ref；双方验证齐全、同基线、DoD 完成才裁决通过；过期证据报告待人工 |
 | audit-defer | MO | root_cause + evidence_ref；记录根因、结果和恢复点，进入 waiting-auditor；可修复错误先按当前版本本地收敛，依赖/外围问题留证交接 |
-| audit-code-review | Auditor | report_ref、context_ref（预检随本操作登记）；全部 MO 收尾后、audit-collect 前提交，字段与治理闭环见[代码治理](audit-code-review.md#ledger-接口) |
-| plan | Spec-Designer | plan_ref、context_ref（planning 预检随本操作登记）；提交前先 `preview`（只读，一次报全）；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围与 spec 由 Ledger 从已接受设计补全，checklist 由 Ledger 绑定包内清单；不抄写全局上下文与分配包，Ledger 绑定当前版本并在冻结、派发时复核 |
-| plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断；编码前 reason_ref 重规划，留历史；已派实现走 CR |
+| audit-code-review | Auditor | report_ref；Ledger 预检（context_ref 可选）；全部 MO 收尾后、audit-collect 前提交，字段与治理闭环见[代码治理](audit-code-review.md#ledger-接口) |
+| plan | Spec-Designer | plan_ref；Ledger 预检（context_ref 可选）；提交前先 `preview`（只读，一次报全）；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围与 spec 由 Ledger 从已接受设计补全，checklist 由 Ledger 绑定包内清单；不抄写全局上下文与分配包，Ledger 绑定当前版本并在冻结、派发时复核 |
+| plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断，证据文档合计 ≤ 8 KB：裁决、阻塞缺陷、登记的 issue、未过门禁，不写叙事；裁决前先看步骤视图的 review_gates（plan 与 plan-review 后由 Ledger 一次列出未过的冻结门禁）；编码前 reason_ref 重规划，留历史；已派实现走 CR |
 | audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id、全部所选 path_ids、自身 context_ref；结果以 result_ref 提交，Auditor 原样消费 |
 | freeze | MO | 清晰规划用 review_ref；所需人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
-| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；design 用 mode=design + design_input_ref，无执行 test_scope；可选 session_id/card_sha256；合法阶段且无活动 worker，返回 fencing_token。不等预检：worker 派发后 context-submit（implementer 由 Ledger 代登记）；该实例已有当前 ready 报告时直接绑定，当前 blocked 时拒绝派发。执行派发 `mechanical=true` 时宿主按步骤 payload 直接提交 |
+| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id；可选 session_id/card_sha256；合法阶段且无活动 worker，返回 fencing_token。不等预检：worker 派发后 context-submit（implementer 由 Ledger 代登记）；该实例已有当前 ready 报告时直接绑定，当前 blocked 时拒绝派发。执行派发 `mechanical=true` 时宿主按步骤 payload 直接提交 |
 | context-submit | 执行者 | report_ref；登记预检报告，同 stage/实例的最新报告生效。worker 有同阶段的活动派发时：ready 绑定并授权开工（Fixer 此时计一轮），blocked 退回派发 |
-| submit | worker | assignment_id、fencing_token、result_ref；执行派发须已绑定 ready 预检；design 另需 test-design context_ref，kind=test-design；不推进阶段 |
-| accept | MO | assignment_id；重验工件和版本后关闭；design 必需 review_ref，保持规划阶段与质量。`mechanical=true` 时宿主直接提交 |
+| submit | worker | assignment_id、fencing_token、result_ref；执行派发须已绑定 ready 预检；不推进阶段 |
+| accept | MO | assignment_id；重验工件和版本后关闭。`mechanical=true` 时宿主直接提交 |
 | diagnose | Diagnostician（轻量叶子本地轮为 Fixer） | diagnosis_ref、owner、root_cause；仅保存绑定当前冻结、代码和未解决结果的 diagnosis_submission，不改变 phase；模块必须无活动 worker |
 | diagnosis-accept | MO | 可选 `assign`（fixer 的 assign 参数）；重验诊断后进入 diagnosing，带 assign 时同一事务按 assign 守卫派发（已提交的 fixing 预检随之绑定），失败整体拒绝 |
 | suspend | MO | kind=dependency/human/tooling、reason、root_cause、owner；保存原阶段，必须先停止活动 worker |
@@ -108,13 +108,13 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | run-review / revise-run | GO / Host，全局 | 影响评审/预检 → 具体 decision → 上下文调整事务；见 [同 Run 上游修订](progress-recovery.md#同-run-上游修订) |
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
 | retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
-| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary、applies_to（模块）、可选 evidence_refs、blocks；消去：issue_id、module_id、evidence_ref。不推进修订号。blocks 挡该模块 freeze，任何未消去项挡 complete。叶子计划欠的保真完整性（界面树遗漏源引用/变更、复用保真未覆盖路径）由 Ledger 记为 gap 并放行，不再欠的新计划自动消去 |
+| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary（一行，不超过 400 字符，细节走 evidence_refs；step 视图只显示前 200 字符）、applies_to（模块）、可选 evidence_refs、blocks，或 `issues[]` 一次登记多条；消去：issue_id、module_id、evidence_ref，或 `resolutions[]` 一次消去多条，全部成立才记。plan、plan-review、submit、accept 可带 `resolves[]`：本操作答复的 issue 以其工件为证据同一事件结清，不另发消去、不为绑定重提。不推进修订号。blocks 挡该模块 freeze，任何未消去项挡 complete。叶子计划欠的保真完整性（界面树遗漏源引用/变更、复用保真未覆盖路径）由 Ledger 记为 gap 并放行，不再欠的新计划自动消去 |
 
 ## 阶段结果
 
 所有结果必需 schema_version=1、kind、run_id、module_id、assignment_id、actor_instance_id、freeze_id、code_baseline。
 
-`kind=test-design` 的 freeze_id/code_baseline 为 null，含 input_ref/design_ref/预期 paths。门禁与恢复见 [编码前设计](testing.md#编码前设计交接)。
+
 
 implementation 另需：
 

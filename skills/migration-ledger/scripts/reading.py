@@ -25,7 +25,7 @@ ROTATE_BUDGET = 100_000
 TEMPLATE_BUDGET = 20_000
 TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 536_500  # consolidated ceiling, lowered after the 2026 deduplication; reduce again after the next
+PROTOCOL_BUDGET = 535_200  # consolidated ceiling, lowered after the compression round; reduce again after the next
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -36,11 +36,17 @@ def sections(name, *headings):
     return [(P + name, heading) for heading in headings]
 
 
-# Every card carries the red lines, the rules of the shared protocol (not its notes on where it sits, assets
-# or topics, which the card itself answers) and the three rules that apply to every dispatch.
+# Every card carries the red lines and the rules of the shared protocol (not its notes on where it sits, assets
+# or topics, which the card itself answers). The other general sections ride only where they apply.
 SHARED = 'skills/migration-protocol/SKILL.md'
-CORE = [('AGENTS.md', '四条红线')] + [(SHARED, h) for h in ('2. 核心规则', '3. 模式', '4. 取用', '5. 检查', '7. 业务边界与阶段验收', '通用约定')] + sections(
-    'runtime.md', '总则', '渐进加载') + sections('context-readiness.md', '总则') + sections('storage-layout.md', '总则')
+CORE = [('AGENTS.md', '四条红线')] + [(SHARED, h) for h in ('2. 核心规则', '3. 模式', '4. 取用', '5. 检查', '通用约定')]
+CONTROLLER = sections('runtime.md', '总则', '渐进加载')          # who runs the controller or resumes a session
+BOUNDARY = [(SHARED, '7. 业务边界与阶段验收')]                   # who judges business boundaries and stage acceptance
+WRITERS = sections('storage-layout.md', '总则')                  # who writes files under the run
+READINESS = sections('context-readiness.md', '总则')             # a run that requires readiness reports
+CONTROLLER_ROLES = ('global-orchestrator', 'module-orchestrator')
+BOUNDARY_ROLES = CONTROLLER_ROLES + ('auditor', 'escalation')
+WRITER_ROLES = ('spec-designer', 'implementer', 'fixer', 'test-runner', 'diagnostician', 'auditor')
 ROLE = {
     'global-orchestrator': ['Agents/global-orchestrator.md', 'skills/migration-global/SKILL.md'],
     'module-orchestrator': ['Agents/module-orchestrator.md', 'skills/migration-module/SKILL.md'],
@@ -96,7 +102,6 @@ OPS = {
     ('auditor', 'code-review'): [(P + 'audit-code-review.md', None)] + sections('audit-scope.md', '总则', '入口与范围', '代码治理前置'),
 }
 TEST_SCOPE = {
-    'design': sections('testing.md', '编码前设计交接', 'query', '逻辑单测', '静态规格闭合'),
     'build': sections('build-automation.md', '总则', '3. 冻结路径与分阶段证据')
     + sections('testing.md', '断言与结果', '逻辑单测', '静态规格闭合'),
     'automation': sections('build-automation.md', '总则') + sections('testing.md', '断言与结果', '本地执行与严格结果验收')
@@ -242,7 +247,7 @@ MODE_BLOCKS = {'### 设计', '### 构建', '### 单测与静态审查', '### 自
 # Build and automation are two stages of one executing Test-Runner, run one after the other: it is handed the role text
 # of both once, so the second stage adds only the sections that stage needs.
 EXECUTE_MODES = ('### 构建', '### 单测与静态审查', '### 自动化', '## 10. 移动端执行器')
-TEST_MODES = {'design': ('### 设计',), 'build': EXECUTE_MODES, 'automation': EXECUTE_MODES, 'visual': EXECUTE_MODES}
+TEST_MODES = {'build': EXECUTE_MODES, 'automation': EXECUTE_MODES, 'visual': EXECUTE_MODES}
 
 
 def _mode_blocks(text, modes):
@@ -291,7 +296,7 @@ def matrix_keys():
 
 def execution_selection(m, step):
     """Accepted contracts take precedence over caller-supplied advisory selectors."""
-    if not m or (step.get('worker_role') or step.get('role')) not in ('implementer', 'fixer', 'test-runner') or step.get('mode') == 'design': return None
+    if not m or (step.get('worker_role') or step.get('role')) not in ('implementer', 'fixer', 'test-runner'): return None
     assignment = m.get('assignments', {}).get(step.get('assignment_id'), {})
     selection = assignment.get('execution_contract') or step.get('execution_contract') or step.get('payload') or step
     tasks = set(selection.get('task_ids', [])); plan = m.get('plan') or {}
@@ -354,9 +359,15 @@ def reasoning_sections(m):
     return []
 
 
-def entries(role, test_scope=None, ui=False, reuse=False, operation=None, telemetry=False, lean=False, rows=(), facts=None):
+def entries(role, test_scope=None, ui=False, reuse=False, operation=None, telemetry=False, lean=False, rows=(), facts=None, readiness=False):
     agent, skill = ROLE.get(role, [None, None])
     items = list(CORE) + [(agent, None)] + skill_sections(skill, test_scope) + STEP.get(role, [])
+    if role in CONTROLLER_ROLES or operation == 'session':
+        items += CONTROLLER
+    if role in BOUNDARY_ROLES:
+        items += BOUNDARY
+    if role in WRITER_ROLES:
+        items += WRITERS
     items += op_sections(role, operation)
     if operation == 'assign' and role == 'module-orchestrator':
         items += sections('runtime.md', '显式执行任务')
@@ -394,6 +405,8 @@ def entries(role, test_scope=None, ui=False, reuse=False, operation=None, teleme
         items += TELEMETRY
     if lean:
         items += LEAN
+    if readiness:
+        items += READINESS
     seen, out = set(), []
     for item in items:
         if item not in seen:
@@ -440,14 +453,14 @@ def card(s, m, step):
     facts = topic_facts(s, m, step)
     ui, reuse = facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'), reuse_applies(s, m, role)
     telemetry = telemetry_scope(role, m)
-    lean = bool(m) and (bool(m.get('lean_leaf')) or bool(s.get('fixer_self_diagnosis')))
+    lean = bool(m) and bool(s.get('fixer_self_diagnosis'))
     # A coder's preflight is written by the Ledger at dispatch: its card carries nothing about reporting one.
     self_checked = bool(s.get('context_readiness_required')) and role == 'implementer' and bool(step.get('worker_role'))
     rows = ([operation] if operation else []) + ((['submit'] if self_checked else ['context-submit', 'submit']) if step.get('worker_role') else [])
     chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry,
-                     lean=lean and role in ('fixer', 'implementer'), rows=rows, facts=facts)
+                     lean=lean and role in ('fixer', 'implementer'), rows=rows, facts=facts, readiness=bool(s.get('context_readiness_required')))
     chosen += reasoning_sections(m)
-    if role == 'spec-designer' or (step.get('mode') == 'design' and role == 'module-orchestrator'):
+    if role == 'spec-designer':
         chosen += sections('testing.md', '编码前设计交接')
     if (role == 'module-orchestrator' and (m or {}).get('change_request') and operation in ('plan-review', 'freeze')
             or role == 'auditor' and any(x.get('task_revalidation', {}).get('mode') == 'partial' for x in s.get('modules', {}).values())):
@@ -510,7 +523,7 @@ MO_TEMPLATES = {'freeze': ['checklist.md', 'plan-review.json', 'change-impact.js
                 'change': ['change-impact.json'], 'complete': ['checklist.md', 'status.md'],
                 'decompose': ['module-decomposition.json', 'dimension-analysis.json', 'batch-envelope.json'],
                 'module-summary': ['status.md'], 'suspend': ['implementation-gap.json', 'status.md'],
-                'assign': ['test-design-input.json', 'execution-assignment.json'], 'accept': ['status.md'], 'diagnosis-accept': ['status.md']}
+                'assign': ['execution-assignment.json'], 'accept': ['status.md'], 'diagnosis-accept': ['status.md']}
 SCOPE_TEMPLATES = {'build': ['test-adapter.json'], 'automation': ['test-adapter.json', 'harmony-test-adapter.json', 'harmony-config.json', 'interaction-evidence.json'],
                    'visual': ['visual-test-path.json', 'visual-alignment.json', 'visual-capture-execution.json', 'visual-test-adapter.json',
                               'visual-execution.json', 'visual-request.json']}
@@ -542,8 +555,6 @@ def templates(s, m, step):
             names.append('task-independence.json')
     if role == 'test-runner':
         names += SCOPE_TEMPLATES.get(step.get('test_scope'), [])
-    if step.get('mode') == 'design':
-        names = ['test-design-input.json', 'test-design-result.json', 'test-paths.json', 'harmony-test-path.json', 'context-readiness.json']
     reuse = reuse_applies(s, m, role)
     facts = topic_facts(s, m, step)
     active = {'reuse': reuse, 'telemetry': telemetry_scope(role, m), 'ui': facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'),
@@ -555,7 +566,7 @@ def templates(s, m, step):
         if facts['api']: names += ['api-inventory.json']
         if facts['parameters']: names += ['parameter-binding.json']
     unwritten = set()
-    if role == 'spec-designer' and step.get('mode') != 'design' and (m or {}).get('dimension_analysis_ref'):
+    if role == 'spec-designer' and (m or {}).get('dimension_analysis_ref'):
         # The leaf's analysis is registered: a refinement starts from that file, not from the template; the model template
         # is for a leaf that has a screen to give evidence for; the four documents start from spec_skeleton.py, and an
         # impact statement belongs to a change request.
@@ -572,6 +583,7 @@ def templates(s, m, step):
 # A rejected request points at the section that states the failed gate; advisory, first match wins.
 GATES = [
     (r'\bissues? |issue[_-]|blocking issue|gap the Ledger recorded|standing rule', 'local-runtime.md', '操作矩阵'),  # first: an issue's text may name any topic
+    (r'(proposal|spec|design|tasks|test-design|definitions|upstream test plan|fixture contract|reuse plan) over \d+ KB', 'openspec.md', '六件套映射'),
     (r'build unit busy', 'build-automation.md', '总则'),
     (r'the plan settles (?!an API)', 'dimension-slicing.md', '4. 控制节点与交接'),
     (r'trace routes|invalid finding action', 'local-runtime.md', '操作矩阵'),
@@ -581,7 +593,10 @@ GATES = [
     (r'condition review|condition refs', 'resource-transfer.md', '动态参数与布局结构'),
     (r'API |api_inventory|api_obligations', 'resource-transfer.md', 'API 与 URL 契约'),
     (r'dimension (trace|task|path|paths|behavior|assertion)|dimension item IDs|SPEC must bind the allocated', 'dimension-slicing.md', '4. 控制节点与交接'),
-    (r'superseded plan', 'module-decomposition.md', '验证边界'),
+    (r'superseded plan|pins only its own target files', 'module-decomposition.md', '验证边界'),
+    (r'task scope (in|out):', 'dimension-slicing.md', '7. 任务级四维分析契约'),
+    (r'review over \d+ KB', 'local-runtime.md', '操作矩阵'),
+    (r'scaffold leaves|anchors on a UI surface|single layer|at most \d+ cases|at most \d+ tasks|plan over \d+ KB|unknown child kind', 'module-decomposition.md', '切片标准'),
     (r'runtime expression|runtime/layout|layout keywords|structural mapping|parameter mapping', 'resource-transfer.md', '动态参数与布局结构'),
     (r'hash mismatch|absolute evidence path|missing file', 'runtime.md', '请求与事件'),   # first: the file named in the message may sit in a path of any other topic
     (r'unknown reference id', 'context-readiness.md', '3. 报告与传递'),
@@ -610,6 +625,7 @@ GATES = [
     (r'image[ _-]?(check|parity|source)|picture|deviation|render-reference', 'ui-fidelity.md', PICTURES),
     (r'watchdog|notice', 'watchdog.md', '总则'),
     (r'journal|workflow hub|hub routing|workflow\.md|event artifact|archive entry|projection', 'storage-layout.md', 'OpenSpec 投影完整性收尾门禁'),
+    (r'scratch', 'storage-layout.md', '总则'),
     (r'retirement|run impact|run revision|run review|root revision|root update|contract IDs|replacement IDs', 'progress-recovery.md', '同 Run 上游修订'),
     (r'code review|code findings|goal review|governance|recovery resolutions', 'audit-code-review.md', 'Ledger 接口'),
     (r'finding|repair owner|leftover|owner (not|must|prerequisites)|unresolved (human|verification)|block reason|retry contract', 'audit-scope.md', '问题处理'),
@@ -714,7 +730,7 @@ def unlink(text, ref):
 
 
 FOOTER = ('<!-- 取用 -->\n本卡之外的规则不整份读取：`reading.py show --ref <文件> --section <小节>` 读单节，'
-          '上文“（文件 § 小节）”即可直接作为参数。\n')
+          '上文“（文件 § 小节）”即可直接作为参数。本步模板只列名：写该工件前 `reading.py show --template <名>` 取单份，不预读全部。\n')
 
 
 def render(rows, output_dir, extra=(), skill=None):
@@ -746,6 +762,15 @@ def show(ref, heading=None):
     return section(str(path.relative_to(PACKAGE)), heading)
 
 
+def show_template(name):
+    """One template, for the role about to write that artifact; a card names its step's templates and carries none."""
+    folder = (PACKAGE / 'template').resolve()
+    path = (folder / name).resolve()
+    if not path.is_relative_to(folder) or not path.is_file():
+        raise KeyError(f'not a package template: {name}')
+    return path.read_text()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -755,13 +780,15 @@ def main():
     target = r.add_mutually_exclusive_group(required=True)
     target.add_argument('--module')
     target.add_argument('--global', dest='is_global', action='store_true')
-    sh = sub.add_parser('show', help='print one section of a package Markdown file')
-    sh.add_argument('--ref', required=True)
+    sh = sub.add_parser('show', help='print one section of a package Markdown file, or one template by name')
+    what = sh.add_mutually_exclusive_group(required=True)
+    what.add_argument('--ref')
+    what.add_argument('--template')
     sh.add_argument('--section')
     args = parser.parse_args()
     try:
         if args.command == 'show':
-            sys.stdout.write(show(args.ref, args.section))
+            sys.stdout.write(show_template(args.template) if args.template else show(args.ref, args.section))
             return 0
         from ledger import status
         st = status(args.root)

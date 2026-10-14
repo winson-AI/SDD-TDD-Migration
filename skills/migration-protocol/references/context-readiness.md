@@ -16,31 +16,24 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 
 | 控制节点 | stage / 提交角色 | 核对内容 | 接受节点与责任 |
 | --- | --- | --- | --- |
-| prepare / Ledger init 后、根模块登记前 | global-discovery / GO | 全局需求与用例来源、存量/目标代码、架构/知识、TARGET/外部来源、宿主能力 | register，GO；初始化分析结果先 staged，正式登记前留证 |
-| 父 MO 拆分前 | decomposition / 父 MO | 全局/父范围、源码入口、共享接口、唯一 owner、复用来源、所需子上下文 | decompose 提案绑定；GO decompose-accept 复核同一报告 |
-| 子模块全部登记后 | global-planning / GO | 全局需求/CASE 覆盖、分工/接口契约、复用 owner | global-plan，GO |
-| design assign 后、随设计 submit | test-design / Test Runner | assigned-scope/spec-cases/task-coverage/independence；必读 design_input_ref 的规格/CASE/tasks | submit 绑定本实例与结果 draft_ref；MO accept(review_ref) 再验，无代码/设备前置 |
-| 子 MO 组织正式 SPEC/测试设计 | planning / Spec Designer | 全局/父/子范围、source_closure、target_feasibility、接口、CASE/PATH、复用映射 | plan 绑定草稿；子 MO freeze 再验当前报告与同一 plan_ref |
+| register、global-plan、source-review、run-review、decompose、plan、audit-plan、audit-verdict、audit-code-review | 自报阶段 / 提交该操作的角色 | 由 Ledger 机械预检：本阶段必读输入齐备且未漂移、subject 当前；角色不写报告，自带的报告可随操作作 context_ref | 操作被接受即登记 acceptance；freeze/decompose-accept 复用原提案接受的引用；输入漂移则该操作被拒 |
 | Coding 派发时 | coding / Ledger 代 Implementer | 冻结 SPEC/tasks、完整生产链路、目标可行性、共享接口、复用接线、工具/读写授权的输入齐备且未漂移 | Ledger 登记并绑定 assign，Implementer 直接开工，发现缺项仍可自报 blocked 退回；锁、依赖、版本门禁在派发时执行 |
 | 构建派发后、执行前 | building / Test Runner | 已接受代码、冻结构建命令、目标/JDK/SDK/Gradle 环境、工具与权限，不要求自动化设备 | ready 报告绑定 assign(test_scope=build) 后执行 |
 | Main 派发后、执行前 | testing / Test Runner | 需求与 PATH、已接受代码、真实提供方、适配器、环境/数据/账号条件、工具与权限 | ready 报告绑定 assign 后执行；执行器再核对批准 argv/cwd/环境证据 |
 | 首轮或审计 Fixer 派发后、修复前 | fixing / Fixer | 冻结契约、TASK、接口、复用映射、失败 PATH/assert、当前诊断、历史尝试/预算、最小修复范围 | ready 报告绑定 assign 后修复并计一轮，缺上下文不消耗修复轮次；必须确认已读诊断报告（diagnosis_ref 为必读输入）。fixing 预检绑定诊断内容本身，MO 接受诊断前后均可提交；diagnosis-accept 可带 assign 一步派发 |
-| 全部 MO 收尾、收集遗留后 | audit-analysis / Auditor | 父汇总、finding、各相关 SPEC/PATH、依赖 owner、复用映射和独立性 | Auditor audit-plan；GO 后续审核路由 |
-| 修复批次裁决前 | audit-verdict / Auditor | 当前汇总/遗留、SPEC/PATH、每个验证结果与受阻根因、独立性 | Auditor audit-verdict；不以预检 ready 代替验证结果 |
 | 遗留路径独立复核前 | audit-testing / Auditor | 当前汇总、SPEC/PATH、代码与真实提供方、完整环境、独立性 | Auditor 自核就绪，GO audit-assign 绑定该实例；测试验收仍唯一归 Auditor |
 
 审计复测先由独立 Test-Runner 提交 audit-execution ready 预检，再由 GO audit-test-assign；不沿用 Auditor 的预检。审计期间下游 Fixer/Testing 仍分别通过 fixing/testing，不沿用 Auditor 的报告。
 
 ## 3. 报告与传递
 
-模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256 与必需检查项取自步骤视图（`status --view step`）的 `context`；checks 的键必须与其 required_checks 完全一致。同一文件被多次引用时，在报告顶层 `refs` 写一次，`evidence_refs` 写其 id。
+只有 worker 阶段（building、testing、fixing、audit-testing/audit-execution）由执行者写报告；模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256 与必需检查项取自步骤视图（`status --view step`）的 `context`；checks 的键必须与其 required_checks 完全一致。同一文件被多次引用时，在报告顶层 `refs` 写一次，`evidence_refs` 写其 id。
 
 报告包含：
 
 - `schema_version/run_id/module_id/stage/producer`：实际身份与作用域；全局 module_id=null。
 - `subject_sha256`：复制 `context.subject_sha256`；绑定分配、冻结、代码、依赖或审计批次，不绑定无关兄弟的进度，也不因其后新增的经验过期。
 - 必读输入由 Ledger 从状态派生（步骤视图给出 `input_count` 与 `inputs_sha256`），报告不列：ready 报告绑定该摘要，任一输入变化或漂移即过期须重报；读过什么由 checks 的具体摘要与证据说明。worker 只读所需：Test-Runner 为冻结计划与测试资产；Implementer/Fixer 另含本叶子四维分析、架构/项目规则/知识，Fixer 再含诊断。存量/目标源码树内的文件按条目 source_locator 取用、不整份读；规划与拆分也不列为必读，但仍不得漂移。
-- `draft_ref`：global-plan/decompose/plan/audit-plan 必须绑定正在提交的同一 plan_ref。
 - `checks`：每项 `status=ready|blocked`、具体理解摘要；ready 必须给 evidence_refs，blocked 必须给 missing/owner/next_action。
 - `verdict`：任一检查 blocked 则必须 blocked；无可复用库、无历史修复或无依赖可在 ready 中记录“不适用的事实与依据”，不编造材料。
 - `execution`：building/testing/audit-testing 的 ready 报告必填 argv、绝对 cwd、environment_ref；说明工具版本、构建、设备/服务、fixtures/账号可用性、seed、重置/清理方法。秘密值不入报告。
@@ -55,7 +48,7 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 }
 ```
 
-仍需完整 request 信封及宿主绑定 principal。worker 的报告与它的活动派发同阶段时由 Ledger 直接绑定，无需再引用；没有派发时报告只留证，下次派发同一实例时自动绑定其当前 ready 报告。随操作登记的报告作为该操作的 context_ref；freeze/decompose-accept 自动使用原提案接受的引用。Ledger 保存 `context_receipts` 与 `context_acceptances`，不存在另一份可手改的权威状态。
+仍需完整 request 信封及宿主绑定 principal。worker 的报告与它的活动派发同阶段时由 Ledger 直接绑定，无需再引用；没有派发时报告只留证，下次派发同一实例时自动绑定其当前 ready 报告。自报阶段的 context_ref 可选，缺省由 Ledger 预检。Ledger 保存 `context_receipts` 与 `context_acceptances`，不存在另一份可手改的权威状态。
 
 ## 4. 检查内容必须具体
 

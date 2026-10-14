@@ -160,12 +160,12 @@ class AdaptationStepTests(unittest.TestCase):
 class OneHolderTests(unittest.TestCase):
     """Overlapping slices are not a split: a slice that accepts cases holds exactly those."""
     def child(self, mid, held, accepted=()):
-        return {'module_id': mid, 'case_ids': list(held), 'acceptance_case_ids': list(accepted)}
+        return {'module_id': mid, 'case_ids': list(held), 'acceptance_case_ids': list(accepted), **({} if accepted else {'kind': 'scaffold'})}
 
     def judge(self, children, judged=None):
         parent = {'module_id': 'M010', 'case_ids': ['C1', 'C2', 'C3']}
         plan = {'case_acceptance': {cid: child['module_id'] for child in children for cid in child['acceptance_case_ids']},
-                'supporting_slices': {child['module_id']: 'a provider every slice uses' for child in children if not child['acceptance_case_ids']}}
+                }
         return behavior_contract.independence(parent, children, {child['module_id']: [] for child in children}, plan, (), judged)
 
     def test_slices_that_each_hold_what_they_accept_share_nothing(self):
@@ -233,6 +233,7 @@ class CarriedChildrenTests(unittest.TestCase):
                      'M002': f.ref('M002-resource.json', d.analysis('M002', ('Resource',), d.root_ref))}  # cites its resource item
         for child in plan['children']:
             child['dimension_analysis_ref'] = self.held[child['module_id']]
+        plan['children'][0]['kind'] = 'scaffold'  # a one-layer slice is a scaffold under the slicing standard
         f.split(plan)
 
     def root_version(self, change=None, kinds=('Logic', 'Resource')):

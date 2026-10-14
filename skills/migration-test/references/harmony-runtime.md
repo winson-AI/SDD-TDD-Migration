@@ -24,7 +24,7 @@ Test-Runner 的 Android/Harmony UI/端到端 Main；构建/单测仍用项目 ad
 
 早期 HarmonyAgenticTesting 内核叠加 MobileAgenticOperator 的 Android 驱动、平台路由及 test 分支；来源 commit、逐文件摘要和修订见 [UPSTREAM.json](../runtime/harmony/UPSTREAM.json)。保留 Apache LICENSE；不迁入 iOS/WDA、凭证或历史报告/记忆。原生 CLI 仅兼容入口，正式验收走 adapter。
 
-## 1. design：用例导入与冻结
+## 1. 用例导入与冻结
 
 [harmony_design.py](../scripts/harmony_design.py) 在工作流内接受 `--root <run_root> --input <MD或XMind绝对路径> --module M001 --output <run_root>/runs/harmony/sandbox/test-designer/<新请求>`；独立导入可从同样结构的输出路径推导 run_root。XMind 另需 `--config <配置JSON> --app-name <被测应用>`，只运行转换模型，不连接设备。
 

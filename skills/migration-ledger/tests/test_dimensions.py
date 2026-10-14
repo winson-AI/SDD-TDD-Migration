@@ -73,6 +73,8 @@ class DimensionTests(unittest.TestCase):
                 child['behavior_review'] = review(f, child)
             child['dimension_analysis_ref'] = f.ref(child['module_id'] + '-dimensions.json',
                 self.analysis(child['module_id'], kinds, self.root_ref, semantic))
+            if 'UI' in kinds:
+                child['anchor_ui'] = 'the subfunction screen'  # a feature leaf anchors on a UI surface
         return p
 
     def leaf_plan(self):
