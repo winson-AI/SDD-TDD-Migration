@@ -39,15 +39,15 @@ freeze/DoD 不混用；路径完整；CR 已处理；无遗留 Red/Yellow；回�
 
 | 专题 | 父 MO | 子 MO | 协议 |
 | --- | --- | --- | --- |
-| 上下文就绪 | decompose、plan、freeze 由 Ledger 预检；执行派发不等预检，worker 的 ready 报告经 Ledger 校验后授权开工，blocked 报告退回派发：缺项补齐或按原因挂起，不消耗修复轮次 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
-| 功能完备 | 拆分时核对孩子功能并集完整 | 按分配包的 feature_ids 与 feature_inventory_ref 追溯到需求/TASK/PATH；未知、遗漏、重复立即人工 | [切片规约](../skills/migration-global/references/slicing.md#总则) |
-| 四维 | 先划子模块，再生成子模块四维分析与 dimension_partition_review_ref，父项无遗漏、共享代码不重复 | 先划 tasks.scope，再逐任务 dimension_analysis，与 tasks/PATH/ASSERT 一起冻结；接受实现查 dimension_evidence；N/A 要源证据 | [四维](../skills/migration-protocol/references/dimension-slicing.md#4-控制节点与交接) |
-| 复用与 provider | 统一公共适配/唯一 owner，细化写集合与来源影响；变更上溯 GO。 | 冻结 reuse_plan 与生产绑定；验收 trace/fidelity/冗余清理。provider 改动走 CR/重新冻结；全部替代路线不可行才接受有证据 not-implemented，live hash 不因 adapt 放宽。 | [复用](../skills/migration-protocol/references/reuse-dependencies.md#总则)、[来源变更](../skills/migration-protocol/references/source-changes.md#总则) |
-| 测试分流 | — | build/unit 随任务、static 等装配、automation → visual 依次接受；仅自动化环境缺失时接受 automation-unavailable（模块 automation-deferred，可进入父汇总），恢复用 automation-resume，不掩盖真实 Red | [构建与自动化](../skills/migration-protocol/references/build-automation.md#4-自动化环境缺失直接记-yellow-并继续) |
-| 轻量叶子与批量冻结 | 汇总批量信封供一次具体批准。 | 逐叶子审核匹配条目后冻结；合并诊断/修复仍需 diagnosis-accept；git_checkpoint 开启时 DoD 等宿主检查点。 | [父子 MO](../skills/migration-protocol/references/module-decomposition.md#父级批量冻结信封)、[工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#模块-git-检查点可选默认关闭) |
-| 代码治理 | 配合 Auditor 核对模块间冗余与公共能力 owner | 接受治理 finding，Fixer 修后先 Build 再 Automation 并回归受影响完整用例；新增任务/边界走 CR | [代码治理](../skills/migration-protocol/references/audit-code-review.md#顺序与职责) |
-| 埋点 | 分配存在的事件与公共接入职责，允许孩子 N/A | 区分 applicable / not-applicable 任务；无埋点不新增门禁 | [埋点](../skills/migration-protocol/references/telemetry.md#总则) |
-| 知识 | 本模块范围内 query/resolve | 要求 Spec-Designer 绑定 plan.dependency_resolution_ref（开关开启时） | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |
+| 上下文就绪 | decompose 由 Ledger 预检 | plan/freeze 由 Ledger 预检；worker ready 报告授权开工，blocked 退回不耗轮次 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
+| 功能完备 | 孩子功能并集完整，叶子是功能树节点 | 按 feature_ids 追溯到需求/TASK/PATH；未知、遗漏、重复交人工 | [切片规约](../skills/migration-global/references/slicing.md#总则) |
+| 四维 | 先划子模块，再生成子四维分析与 partition review | 先划 tasks.scope，再逐任务分析并与 tasks/PATH 一起冻结；N/A 要源证据 | [四维](../skills/migration-protocol/references/dimension-slicing.md#4-控制节点与交接) |
+| 复用与 provider | 统一公共适配与唯一 owner，变更上溯 GO | 冻结 reuse_plan 与生产绑定；provider 改动走 CR，not-implemented 要证据 | [复用](../skills/migration-protocol/references/reuse-dependencies.md#总则)、[来源变更](../skills/migration-protocol/references/source-changes.md#总则) |
+| 测试分流 | — | build/unit → static → automation → visual 依次接受；仅环境缺失接受 automation-unavailable | [构建与自动化](../skills/migration-protocol/references/build-automation.md#4-自动化环境缺失直接记-yellow-并继续) |
+| 轻量叶子与批量冻结 | 汇总批量信封一次批准 | 逐叶核对条目后冻结；合并诊断/修复仍需 diagnosis-accept | [父子 MO](../skills/migration-protocol/references/module-decomposition.md#父级批量冻结信封)、[工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#模块-git-检查点可选默认关闭) |
+| 代码治理 | 配合 Auditor 核对冗余与公共能力 owner | 接受治理 finding，修后先 Build 再 Automation 回归；新增任务走 CR | [代码治理](../skills/migration-protocol/references/audit-code-review.md#顺序与职责) |
+| 埋点 | 分配事件与公共接入职责，允许孩子 N/A | 区分 applicable / not-applicable 任务 | [埋点](../skills/migration-protocol/references/telemetry.md#总则) |
+| 知识 | 本模块范围内 query/resolve | 开关开启时要求绑定 plan.dependency_resolution_ref | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |
 
 父 MO 名称固定为 `parent-mo-<module_id>`，宿主读取父步骤 agent_name；子 MO 不加前缀。见 [父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md#父-mo-统一命名)。
 

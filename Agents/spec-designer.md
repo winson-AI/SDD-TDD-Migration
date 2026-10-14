@@ -35,11 +35,11 @@ OpenSpec 六件套、澄清与变更影响分析。
 
 | 专题 | 本角色义务 | 协议 |
 | --- | --- | --- |
-| 上下文就绪 | planning 报告随 plan 提交并绑定同一 plan_ref（全局/父/子范围、source_closure、target_feasibility、接口、测试设计、复用映射），MO freeze 再验 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
-| 测试路径 | 冻结 build/unit 命令与 unit_report、一条 static 及 automation PATH；Logic 不适用单测写 unit_test_na 依据。SPEC 派生 Scenario 索引，任务/断言全覆盖；缺设备不删路径或阻止冻结 | [逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
-| 复用与 fidelity | 按源行为核验等价/差异，不按 API 名；proposal 策略、design 提供方/版本/DI/边界、tasks 接入/缺口；reuse_plan_ref 逐需求覆盖 capability/decision/task/PATH/fidelity。改 provider 声明 owner、交付版本与消费者复测 | [复用](../skills/migration-protocol/references/reuse-dependencies.md#5-需求映射与-openspec)、[来源变更](../skills/migration-protocol/references/source-changes.md#4-子-mo规划编码与验证) |
-| 四维 | 协助子 MO 先划 tasks.scope，再逐任务就该 scope 做 UI → Logic → Adhesive → Resource 分析；item 与实现指导写入 design/spec/tasks，生成完整 dimension_trace，N/A 要依据，未决项登 issue | [四维](../skills/migration-protocol/references/dimension-slicing.md#7-任务级四维分析契约) |
-| UI 与资源 | 源分析形成 UI 树/状态/覆盖与资源闭包；冻结交互及适用 visual PATH。用 resource-plan/screen-checks 派生复制、参数与图像检查，只手写有证据的例外；无截图不伪造 runtime，过期索引重抽取。 | [搬运](../skills/migration-protocol/references/resource-transfer.md#总则)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md#ui-证据绑定)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则)、[状态测试表](../template/ui-state-test-design.md) |
-| 埋点 | 已审核的源事件/参数/触发与禁止条件/生产接线/验收层级写入 SPEC/design/tasks；无埋点记有据 N/A、events=[] | [埋点](../skills/migration-protocol/references/telemetry.md#总则) |
-| 知识与依赖 | knowledge-query 按实际触发；Foundation 需求用 foundation-resolve，开关开启时绑定 plan.dependency_resolution_ref，不适用用显式 not-required 产物 | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |
-| 边界内修订 | within-envelope 影响审查绑定 from_freeze_id + to_plan_hash，计划再变须重审 | [OpenSpec](../skills/migration-protocol/references/openspec.md#变更控制) |
+| 上下文就绪 | planning 报告随 plan 提交并绑定同一 plan_ref，MO freeze 再验 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
+| 测试路径 | 冻结 build/unit 命令、static 及 automation PATH，Scenario 索引全覆盖；缺设备不删路径 | [逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
+| 复用与 fidelity | 按源行为核验等价/差异；reuse_plan_ref 逐需求覆盖 capability/decision/task/PATH/fidelity | [复用](../skills/migration-protocol/references/reuse-dependencies.md#5-需求映射与-openspec)、[来源变更](../skills/migration-protocol/references/source-changes.md#4-子-mo规划编码与验证) |
+| 四维 | 先划 tasks.scope，再逐任务 UI → Logic → Adhesive → Resource 写入 design/spec/tasks，生成 dimension_trace | [四维](../skills/migration-protocol/references/dimension-slicing.md#7-任务级四维分析契约) |
+| UI 与资源 | 源分析形成 UI 树/状态/资源闭包；用 resource-plan/screen-checks 派生检查，只手写有证据的例外 | [搬运](../skills/migration-protocol/references/resource-transfer.md#总则)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md#ui-证据绑定)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则)、[状态测试表](../template/ui-state-test-design.md) |
+| 埋点 | 已审核的源事件/参数/触发/接线写入 SPEC；无埋点记 N/A、events=[] | [埋点](../skills/migration-protocol/references/telemetry.md#总则) |
+| 知识与依赖 | knowledge-query 按触发；Foundation 需求 foundation-resolve，开关开启时绑定 dependency_resolution_ref | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |
+| 边界内修订 | within-envelope 影响审查绑定 from_freeze_id + to_plan_hash | [OpenSpec](../skills/migration-protocol/references/openspec.md#变更控制) |

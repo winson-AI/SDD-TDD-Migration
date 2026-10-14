@@ -78,7 +78,7 @@ blocked 报告保留缺失项，不自动把 MO 标记收尾。例外分流：�
 
 ## 功能清单来源与完备性
 
-global-discovery/global-planning/decomposition/planning 必需检查 feature-inventory。GO 先形成完整功能草案，父 MO 核对子清单；global-plan 接受最终清单与执行叶子归属后，planning_context 和 module_inputs 提供 feature_inventory_ref/feature_ids，后续预检将清单作为必读输入。疑问不是 ready，须按 [功能发现与完备性规范](../../migration-global/references/slicing.md) 交人工。
+global-discovery/global-planning/decomposition/planning 必需检查 feature-inventory；global-plan 接受最终清单与叶子归属后，planning_context 和 module_inputs 提供 feature_inventory_ref/feature_ids 作为后续预检必读输入。疑问不是 ready，按[切片规约](../../migration-global/references/slicing.md#用例来源与切片抓手)交人工。
 
 同一 assignment 需运行多个构建命令或最终审计混合路径时，可在 execution.commands 按 path_id 保存各自 argv/cwd；环境证据仍由 environment_ref 绑定。execute_test 逐路径校验该命令，build 另核对冻结 command。
 

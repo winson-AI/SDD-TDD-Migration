@@ -48,14 +48,14 @@ Android/Harmony PATH 按 [移动端运行协议](../skills/migration-test/refere
 
 | 专题 | 本角色义务 | 协议 |
 | --- | --- | --- |
-| 上下文就绪 | 执行派发后分别提交 building/testing 预检（实例/argv/cwd/environment_ref），ready 绑定后才执行 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
-| build / static / automation | 用户构建命令优先，否则搜索目标脚本/评估 Gradle assemble；遵守上述顺序，缺自动化环境走 automation-unavailable，逐 PATH Yellow，不影响其他模块 | [构建与自动化](../skills/migration-protocol/references/build-automation.md#总则)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
-| 复用 fidelity | 预期来自需求与已审核的存量行为，按冻结 scenario → PATH/ASSERT 复现；真实提供方集成不能以 mock、导入或编译证据代替；依赖受阻留 Yellow 与 capability/mapping/version 根因，行为偏差为 Red | [复用](../skills/migration-protocol/references/reuse-dependencies.md#7-全局保真规范复用必须复现存量功能) |
-| 视觉 | 功能 automation 满足后只用 compare-only/受限工具；当前 captured/round/target/index 派生 comparison_evidence，绑定冻结目标/node_ids/baseline/code/HAP/assignment/fence，ALIGNED_CARRIED 也复拍；逐项裁决 semantic，外部 capture 留[回执](../template/visual-capture-execution.json)；差异 Red、工具缺失 Yellow，无额外对齐循环；带 image_check_ids 的 PATH 抓取目标后 image-parity（图片、文本、节点检查），Ledger 重算 | [UI 保真](../skills/migration-protocol/references/ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)、[视觉执行](../skills/migration-protocol/references/visual-execution.md#2-执行节点)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则) |
-| 手势 | 冻结 interaction 的 Green 须核对 frozen_interaction、required_interaction、实际 action 与 observed；source-only 用 automation 的 [interaction_evidence](../template/interaction-evidence.json)，缺结构化证据记已执行 Yellow，不从 expected 合成 observed | [测试](../skills/migration-protocol/references/testing.md#query) |
-| 代码治理回归 | Auditor 委派的变更先构建装机，再完整复测受影响模块与依赖下游（含原 Green，关联 retest_of）；无关有效 Green 保留 | [代码治理](../skills/migration-protocol/references/audit-code-review.md#复测与报告) |
-| 埋点 | 只对 applicable 事件执行冻结 PATH/ASSERT，标明 emitted/sdk-dispatched/server-received 层级；截图或构建通过不能代替上报证据；观测不足记相关 PATH Yellow | [埋点](../skills/migration-protocol/references/telemetry.md#5-验收层级与环境缺口) |
-| 运行环境与留存 | 首次设计转换或自动化预检前执行 `sandbox.py prepare --root <run_root>` 生成本 run 共享的 environment/config.json 与 `.env`（700/600，幂等加锁，已存在不跟随外部更新）；`.env` 内容不进 Ledger/报告/Git；所有输出（XMind、报告、录制、日志、媒体）写本轮受管目录，路径拒绝按本模块 Yellow 处理 | [Harmony 运行](../skills/migration-test/references/harmony-runtime.md#本轮共享环境准备)、[留存布局](../skills/migration-protocol/references/storage-layout.md#总则) |
+| 上下文就绪 | 派发后提交 building/testing 预检，ready 绑定后才执行 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
+| build / static / automation | 用户构建命令优先；缺自动化环境走 automation-unavailable，逐 PATH Yellow | [构建与自动化](../skills/migration-protocol/references/build-automation.md#总则)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
+| 复用 fidelity | 按冻结 scenario → PATH/ASSERT 复现源行为；真实提供方集成不以 mock 代替；依赖受阻 Yellow，偏差 Red | [复用](../skills/migration-protocol/references/reuse-dependencies.md#7-全局保真规范复用必须复现存量功能) |
+| 视觉 | automation 后只用 compare-only 工具派生 comparison_evidence 并绑定冻结目标；逐项裁决 semantic；带 image_check_ids 的 PATH 重抓 image-parity | [UI 保真](../skills/migration-protocol/references/ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)、[视觉执行](../skills/migration-protocol/references/visual-execution.md#2-执行节点)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则) |
+| 手势 | Green 须核对 frozen_interaction 与实际 observed；缺结构化证据记 Yellow，不从 expected 合成 | [测试](../skills/migration-protocol/references/testing.md#query) |
+| 代码治理回归 | 委派变更先构建装机，再完整复测受影响模块与下游（关联 retest_of） | [代码治理](../skills/migration-protocol/references/audit-code-review.md#复测与报告) |
+| 埋点 | 只对 applicable 事件执行冻结 PATH，标明上报层级；观测不足记 Yellow | [埋点](../skills/migration-protocol/references/telemetry.md#5-验收层级与环境缺口) |
+| 运行环境与留存 | 首次执行前 `sandbox.py prepare --root <run_root>`；`.env` 不进 Ledger/报告/Git；输出写本轮受管目录 | [Harmony 运行](../skills/migration-test/references/harmony-runtime.md#本轮共享环境准备)、[留存布局](../skills/migration-protocol/references/storage-layout.md#总则) |
 
 ## 当前控制契约
 
