@@ -43,21 +43,6 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 
 Android/Harmony PATH 按 [移动端运行协议](../skills/migration-test/references/harmony-runtime.md#3-execute一条-path-到-main) 运行，冻结 platform=android|harmony、task_type=test。Planner/Executor/Verify、回放和视频验证只产生逐 ASSERT 的本次证据。宿主绑定已部署 APK/HAP、代码基线和设备锁；一条 PATH 一个进程。失败回交 Ledger，不修代码或改验收。
 
-## 专题义务
-
-本表只列本角色的必交证据与禁止项。本角色不修源码、资源、构建配置、SPEC 或断言；知识工具（knowledge-query/diagnose、foundation-verify）只辅助准备与归因，不替代真实回执。
-
-| 专题 | 本角色义务 | 协议 |
-| --- | --- | --- |
-| 上下文就绪 | 派发后提交 building/testing 预检，ready 绑定后才执行 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
-| build / static / automation | 用户构建命令优先；缺自动化环境走 automation-unavailable，逐 PATH Yellow | [构建与自动化](../skills/migration-protocol/references/build-automation.md#总则)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
-| 复用 fidelity | 按冻结 scenario → PATH/ASSERT 复现源行为；真实提供方集成不以 mock 代替；依赖受阻 Yellow，偏差 Red | [复用](../skills/migration-protocol/references/reuse-dependencies.md#7-全局保真规范复用必须复现存量功能) |
-| 视觉 | automation 后只用 compare-only 派生 comparison_evidence 并绑定冻结目标，逐项裁决 semantic；image_check_ids 的 PATH 重抓 image-parity | [UI 保真](../skills/migration-protocol/references/ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)、[视觉执行](../skills/migration-protocol/references/visual-execution.md#2-执行节点)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则) |
-| 手势 | Green 须核对 frozen_interaction 与实际 observed；缺结构化证据记 Yellow，不从 expected 合成 | [测试](../skills/migration-protocol/references/testing.md#query) |
-| 代码治理回归 | 委派变更先构建装机，再完整复测受影响模块与下游（关联 retest_of） | [代码治理](../skills/migration-protocol/references/audit-code-review.md#复测与报告) |
-| 埋点 | 只对 applicable 事件执行冻结 PATH，标明上报层级；观测不足记 Yellow | [埋点](../skills/migration-protocol/references/telemetry.md#5-验收层级与环境缺口) |
-| 运行环境与留存 | 首次执行前 `sandbox.py prepare --root <run_root>`；`.env` 不进 Ledger/报告/Git；输出写本轮受管目录 | [Harmony 运行](../skills/migration-test/references/harmony-runtime.md#本轮共享环境准备)、[留存布局](../skills/migration-protocol/references/storage-layout.md#总则) |
-
 ## 当前控制契约
 
 上游全量 CASE 在冻结前分配 scope 并绑定 SPEC；执行冻结的 CASE/PATH。build/unit/static 通过后逐条 automation，记录错误/fidelity 偏差、证据及 task 下成功/失败/未验证路径统计，交 MO/Fixer 修正实现。统一审计复测使用 audit-test-assign/audit-test-submit，读取自身 audit-execution 预检与所选 PATH；Auditor 消费证据，Test-Runner 不给宿主任务最终裁决。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

@@ -25,7 +25,7 @@ ROTATE_BUDGET = 100_000
 TEMPLATE_BUDGET = 20_000
 TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 498300  # consolidated ceiling, lowered when the run-artifact size gates left; reduce again after the next
+PROTOCOL_BUDGET = 483500  # consolidated ceiling, lowered when the role topic tables left; reduce again after the next
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -199,25 +199,9 @@ def skill_sections(path, test_scope=None):
     return [(path, n) for n in keep]
 
 
-def topic_flag(topic):
-    """Which Ledger fact makes a row of an Agent's 专题义务 table relevant; None means always."""
-    for pattern, flag in (('埋点', 'telemetry'), ('UI|视觉|手势', 'ui'), ('复用|provider|fidelity|来源', 'reuse'),
-                          ('轻量叶子|功能完备', 'planning'), ('代码治理|自动化缺测|投影核验', 'audit'), ('知识', 'knowledge')):
-        if re.search(pattern, topic):
-            return flag
-    return None
 
 
-def agent_topics(path, flags):
-    text = (PACKAGE / path).read_text()
-    m = re.search(r'(?ms)^## 专题义务\n.*', text)
-    rows = [line.split('|')[1].strip() for line in (m.group(0).splitlines() if m else []) if line.startswith('| ')]
-    rows = [r for r in rows if r not in ('专题',) and not set(r) <= {'-', ' '}]
-    return tuple(r for r in rows if topic_flag(r) is None or flags.get(topic_flag(r)))
-
-
-PLANNING_OPERATIONS = ('register', 'global-plan', 'decompose', 'decompose-accept', 'module-summary', 'freeze', 'plan', 'change', 'redecompose', 'redecompose-accept', 'realloc-request', 'run-review', 'revise-run', 'plan-review', 'planning-reopen')
-
+PLANNING_OPERATIONS = ('register', 'global-plan', 'decompose', 'decompose-accept', 'module-summary', 'freeze', 'plan', 'change', 'redecompose', 'redecompose-accept', 'realloc-request', 'run-review', 'revise-run', 'plan-review', 'planning-reopen')  # the steps the status view calls planning
 
 def _cells(line):
     return [c.strip().strip('`') for c in line.strip().strip('|').split('|')]
@@ -229,17 +213,6 @@ def _rows(block, keys):
     table = [i for i, line in enumerate(lines) if line.startswith('|')]
     keep = [lines[0]] + [lines[i] for i in table[:2]] + [lines[i] for i in table[2:] if _cells(lines[i])[0] in keys]
     return ''.join(keep)
-
-
-def _topic_rows(text, topics):
-    out, inside = [], False
-    for line in text.splitlines(keepends=True):
-        if line.startswith('## '):
-            inside = line.strip() == '## 专题义务'
-        if inside and line.startswith('| ') and _cells(line)[0] not in topics | {'专题'} and not set(_cells(line)[0]) <= {'-', ' '}:
-            continue
-        out.append(line)
-    return ''.join(out)
 
 
 # Blocks of an Agent definition that only apply in some modes of the role; other blocks always stay.
@@ -265,16 +238,13 @@ def _mode_blocks(text, modes):
 
 
 @lru_cache(maxsize=None)
-def section(path, heading=None, topics=None, modes=None):
+def section(path, heading=None, modes=None):
     """Text of one Markdown section: from its heading to the next heading of the same or higher level.
 
-    `heading@a,b` keeps only the table rows whose first cell is a or b; `topics` filters an Agent's 专题义务
-    table and `modes` its mode-specific blocks."""
+    `heading@a,b` keeps only the table rows whose first cell is a or b; `modes` keeps an Agent's mode-specific blocks."""
     text = (PACKAGE / path).read_text()
     if heading is None:
-        if modes is not None:
-            text = _mode_blocks(text, set(modes))
-        return _topic_rows(text, set(topics)) if topics is not None else text
+        return _mode_blocks(text, set(modes)) if modes is not None else text
     name, _, keys = heading.partition('@')
     lines = text.splitlines(keepends=True)
     for i, line in enumerate(lines):
@@ -470,26 +440,17 @@ def card(s, m, step):
     if self_checked:
         chosen = [item for item in chosen if item != (P + 'context-readiness.md', '2. 精确插入节点')]
     chosen = list(dict.fromkeys(chosen))  # a section reaches a card once, whichever rule asked for it
-    audit = bool(operation and (operation.startswith('audit') or operation.startswith('problem'))) or role == 'auditor' \
-        or bool(m and (m.get('audit_fix_grant') or m.get('audit_batch_id')))
-    flags = {'ui': ui, 'reuse': reuse, 'telemetry': telemetry, 'audit': audit,
-             'planning': role == 'spec-designer' or operation in PLANNING_OPERATIONS or lean,
-             'knowledge': bool(s.get('dependency_resolution_required')) or reuse}
     out = []
     for path, heading in chosen:
-        agent = path.startswith('Agents/')
-        topics = agent_topics(path, flags) if agent else None
-        modes = TEST_MODES.get(step.get('test_scope')) if agent and role == 'test-runner' else None
-        text = section(path, heading, topics, modes)
+        modes = TEST_MODES.get(step.get('test_scope')) if path.startswith('Agents/') and role == 'test-runner' else None
+        text = section(path, heading, modes)
         out.append({'ref': path, 'section': heading, 'bytes': len(text.encode()),
-                    'sha256': hashlib.sha256(text.encode()).hexdigest(), **({'topics': list(topics)} if topics is not None else {}),
-                    **({'modes': list(modes)} if modes is not None else {})})
+                    'sha256': hashlib.sha256(text.encode()).hexdigest(), **({'modes': list(modes)} if modes is not None else {})})
     return out
 
 
 def text_of(row):
-    return section(row['ref'], row['section'], tuple(row['topics']) if 'topics' in row else None,
-                   tuple(row['modes']) if 'modes' in row else None)
+    return section(row['ref'], row['section'], tuple(row['modes']) if 'modes' in row else None)
 
 
 def changed(rows, held):
@@ -593,6 +554,7 @@ GATES = [
     (r'host handoff|cold recovery|rotation checkpoint|global hint|session restoration', 'host-integration.md', '会话交接'),
     (r'test asset|test PATH preparation|test preparation', 'testing.md', '编码前设计交接'),
     (r'condition review|condition refs', 'resource-transfer.md', '动态参数与布局结构'),
+    (r'pinned to package', 'runtime.md', '总则'),
     (r'API |api_inventory|api_obligations', 'resource-transfer.md', 'API 与 URL 契约'),
     (r'\bdata (source|mapping|fidelity|inventory|entity|contract|target|exclusion|applicability|needs|items|behavior|adaptation|binding|tests|repository)|data_obligations|holds this data', 'resource-transfer.md', '数据契约'),
     (r'dimension (trace|task|path|paths|behavior|assertion)|dimension item IDs|SPEC must bind the allocated', 'dimension-slicing.md', '4. 控制节点与交接'),

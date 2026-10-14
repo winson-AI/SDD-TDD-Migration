@@ -125,7 +125,7 @@ class ReadingCardTests(unittest.TestCase):
         self.assertEqual(build, automation)  # two stages of one executing Test-Runner read one role text, once
         self.assertIn('### 自动化', automation); self.assertIn('## 10. 移动端执行器', automation)
         for part in (build, automation):
-            self.assertIn('## 6. 硬约束', part); self.assertIn('## 专题义务', part)
+            self.assertIn('## 6. 硬约束', part)
 
     def test_steps_name_the_templates_they_instantiate(self):
         self.assertIn('template/run-revision.json', reading.templates({}, None, {'role': 'host', 'operation': 'revise-run'}))
@@ -231,18 +231,6 @@ class ReadingCardTests(unittest.TestCase):
         self.assertEqual(row['section'], '操作矩阵@assign,context-submit,submit,issue / issue-resolve')
         with self.assertRaises(KeyError):
             reading.section(reading.P + 'local-runtime.md', '没有这一节@x')
-
-    def test_agent_obligation_rows_follow_the_triggers(self):
-        quiet = reading.agent_topics('Agents/test-runner.md', {})
-        full = reading.agent_topics('Agents/test-runner.md', {'ui': True, 'reuse': True, 'telemetry': True, 'audit': True})
-        self.assertIn('上下文就绪', quiet)
-        self.assertNotIn('埋点', quiet); self.assertIn('埋点', full)
-        self.assertNotIn('视觉', quiet); self.assertIn('视觉', full)
-        short = reading.section('Agents/test-runner.md', None, quiet)
-        self.assertLess(len(short), len(reading.section('Agents/test-runner.md')))
-        self.assertIn('| 上下文就绪 |', short)
-        self.assertNotIn('| 埋点 |', short)
-        self.assertIn('## 10. 移动端执行器', short)  # only the obligation table is filtered
 
     def test_every_moved_topic_rule_is_reachable_from_some_card(self):
         """The topic index in AGENTS.md points at each 总则 section; some card must deliver it when its trigger holds."""

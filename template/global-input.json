@@ -6,6 +6,7 @@
   "single_module_id": null,
   "workspace_root": "{{absolute-migration-workspace}}",
   "package_root": "{{absolute-package-root}}",
+  "package_sha": "{{git-commit-of-package_root-recorded-by-prepare}}",
   "run_root": "{{absolute-migration-workspace}}/.sdd-runs/{{run-id}}",
   "legacy_root": "{{absolute-legacy-root}}",
   "target_root": "{{absolute-target-root}}",

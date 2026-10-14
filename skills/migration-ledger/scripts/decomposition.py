@@ -543,6 +543,25 @@ def bound(s, parent, children, plan, record=True):
     require(not unheld, 'features without a leaf: %s' % ', '.join(unheld))
 
 
+def task_shape_facts(s, mid, plan, sequence=None):
+    """Record, once per module, that most of a plan's behaviour paths bind at least half of its tasks: tasks cut by layer,
+    none of which a path can verify alone. A fact for the trace and the audit, never a gate."""
+    import issues
+    tasks = plan.get('tasks') or []
+    paths = [p['path_id'] for p in plan.get('paths') or [] if p.get('kind', 'automation') == 'automation']
+    if len(tasks) < 2 or not paths or 'SLICE-%s-tasks-by-layer' % mid in s.get('issues', {}):
+        return
+    held = {}
+    for task in tasks:
+        for pid in task.get('path_ids') or []:
+            held[pid] = held.get(pid, 0) + 1
+    shared = [pid for pid in paths if held.get(pid, 0) * 2 >= len(tasks)]
+    if len(shared) * 2 >= len(paths):
+        issues.record(s, 'SLICE-%s-tasks-by-layer' % mid, 'fact', '%s: %d of %d behaviour paths bind at least half of its %d tasks - tasks cut by layer, '
+                      'none verifiable on its own; cut tasks by behaviour, each with paths of its own' % (mid, len(shared), len(paths), len(tasks)),
+                      [mid], issues.LEDGER, sequence=sequence, resolved={mid: {'by': issues.LEDGER, 'recorded': True}})
+
+
 def slicing_signals(s):
     """What the audit reads back about the split: per leaf, the issues it shares with other modules, its change requests
     and the depth of its provider chain; a flag names the bound a leaf exceeds."""

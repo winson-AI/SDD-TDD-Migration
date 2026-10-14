@@ -30,7 +30,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 本轮合并协议文字：GO、父 MO、子 MO 三层职责只在 module-decomposition.md 陈述一次，dimension-slicing.md 与 slicing.md 改为指引；UI 证据与采集器产物以引用进入计划、不内联，重提只改引用；协议上限随本轮压缩下调。
 
-协议体积为 498223 / 498300 字节，最大单文件 27538 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 44287 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 483302 / 483500 字节，最大单文件 27538 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 44287 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 
@@ -51,6 +51,11 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 作者自检与会话 | 实现/修复结果缺 authoring_diagnostics、诊断无日志或版本敏感 API 无固定源码引用均拒收；本地修复游标指向原 Implementer 会话 |
 | 静态规格闭合 | build 全绿后同一派发继续 static，再到 automation；passed 场景须给出另一目标文件中的调用位置（reached_from）；审查需覆盖全部冻结需求、引用目标文件中真实存在的符号、逐项判定假实现清单；反模式 present 为 Red 并进入修复；prepared run 必须冻结 static PATH |
 | 文本压缩 | 角色执行步骤、两张操作矩阵、模板索引与四个最大引用文件的长段落改写，规则不变；棘轮 500,500 → 498,500 |
+| run 固定包版本 | prepare 记 package_sha（包目录的 git HEAD），init 存入状态；此后每个请求都核对执行中的包提交，不同则拒绝并指引用该提交的 worktree；未记 pin 的旧 run 不判 |
+| Implementer 只选 TASK | assign 省略 path_ids 时 Ledger 取所选 TASK 的 PATH 并集并记入 assignment；Test-Runner/Fixer 仍显式 |
+| 任务按层信号 | plan 接受时过半行为 PATH（automation）绑定过半 TASK 则记事实 SLICE-<module>-tasks-by-layer（一次）；build/unit/static 共享不计；不阻塞 |
+| 完整性标志一致 | module_slicing.functional_use_cases_complete=true 而无 test_cases_path 时 prepare 校验与 init 均拒绝 |
+| 角色文件无专题表 | Agents/*.md 不再带专题义务表，卡片按触发直接携带协议小节；section() 不再按专题过滤行 |
 | 产物体量不是门禁 | 运行产物（六件套、上游测试计划、fixture 契约、reuse-plan、评审证据、issue 摘要、任务 scope、设备缺口原因）不设大小上限，Ledger 不因大小拒绝或记欠项；体量棘轮只约束工作流包自身的协议、卡片与模板；step 视图仍只显示 issue 摘要前 200 字符 |
 | 数据契约 | 四维 data_review 适用时 data_inventory_ref 绑定清单：实体逐字段的 sources / fetch_conditions / derived_fields / invalidation 义务，contracts 的目标 repository#symbol 与四个映射逐义务覆盖，fidelity exact / approved-adaptation（适配须信封 alternative），existing_target 须 refactor/adapt 决定；plan 时 data_obligations 覆盖全部义务且 PATH 为 unit/automation 并绑定 fixture；freeze 时目标与 fixture 已定、repository 在写范围或目标已有；实现提交 repository 文件与符号证据 |
 | 一种版本学说 | 已接受的工件沿用接受时的规则，重新提交按当前规则全判：取消 restated_shape / restated_task_scope 豁免；原样复述且分配未变的孩子不再判，分配任一字段变动即全判 |

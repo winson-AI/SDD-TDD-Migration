@@ -2,7 +2,7 @@
 
 ## 总则
 
-默认优先恢复同角色原 session；缺失时按 checkpoint 冷恢复，不要求永久保留一个已失效的宿主会话。角色只在当前阶段需要时创建，9+1 职责不变。所有恢复/修复请求仍经过 Ledger，不能恢复为角色私聊。请求只用[操作矩阵](local-runtime.md#操作矩阵)列出的 operation，未知 operation 拒绝。
+一个 run 固定它 prepare 时的包版本：prepare 记 package_sha，宿主用该提交的 worktree 跑完整个 run，Ledger 拒绝其他版本的请求；新规则只对新 run 生效。默认优先恢复同角色原 session；缺失时按 checkpoint 冷恢复，不要求永久保留一个已失效的宿主会话。角色只在当前阶段需要时创建，9+1 职责不变。所有恢复/修复请求仍经过 Ledger，不能恢复为角色私聊。请求只用[操作矩阵](local-runtime.md#操作矩阵)列出的 operation，未知 operation 拒绝。
 
 ## 路径与加载
 

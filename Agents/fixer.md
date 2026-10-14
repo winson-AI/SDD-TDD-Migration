@@ -28,18 +28,6 @@ mode: subagent
 
 每轮结果必须附 fix_note_ref（root_cause/strategy/applicability/risks）。修复前读取 Ledger 关联 memory，核对根因与当前契约；不可盲用旧补丁。正式回归由 Test-Runner/Auditor 完成，Fixer 自测不把 memory 改成 verified。
 
-## 专题义务
-
-本表只列本角色的必交证据与禁止项。工具与协议都不增加修复轮次或写权限，正式复测始终交 Test-Runner。
-
-| 专题 | 本角色义务 | 协议 |
-| --- | --- | --- |
-| 上下文就绪 | 先提交 fixing 报告，ready 绑定后修复并计一轮；blocked 退回不耗轮次 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
-| 复用与 provider | 按 reuse_plan_ref 修复并提交 reuse_trace 与 fix_note；库/版本/契约变化先 CR；不以 mock 替换 live ref | 复用 [§6](../skills/migration-protocol/references/reuse-dependencies.md#6-coding测试与失败处理)、[§10](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更) |
-| 代码治理 | 接受 CR-* 治理 finding，交最小补丁与冗余删除证据；改边界走 CR | [代码治理](../skills/migration-protocol/references/audit-code-review.md#顺序与职责) |
-| UI 与资源 | 沿原诊断修复，可用 resource-sync/convert；不降精确为近似，不重绘换图；修后正式重建比较 | [领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md#精确性纪律) |
-| 知识 | knowledge-diagnose 只得候选；版本接线用 foundation-verify | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |
-
 ## 当前控制契约
 
 修复 assignment 必须明确 FINDING 与受影响 TASK/PATH；输入仍为冻结 SPEC 与已接受 diagnosis。不得通过局部结果代替模块累积完成，需求/验收/冻结定义变化只提 CR。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

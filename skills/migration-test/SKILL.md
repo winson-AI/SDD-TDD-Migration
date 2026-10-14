@@ -38,6 +38,6 @@ description: SDD-TDD-Migration 的测试设计、构建与自动化执行；支�
 - 固定 ASSERT ID 绑定冻结谓词；零断言、最终通过文本、旧回放结果不能代替本次验证。原生 memory 是候选执行素材，复用与修复裁决仍受 Ledger 控制。
 - 内核组件只执行当前 Test-Runner 任务，不承担 Spec/Fixer/Auditor 权限。
 
-复用 fidelity、视觉、手势、埋点、运行环境与留存等角色义务以 [Test-Runner 定义](../../Agents/test-runner.md#专题义务) 为准。
+角色硬约束以 [Test-Runner 定义](../../Agents/test-runner.md#6-硬约束) 为准；复用 fidelity、视觉、手势、埋点、运行环境等专题规则由阅读卡按触发携带。
 
 输出位置：构建 `.sdd-runs/<run_id>/runs/build/<new-attempt>`，自动化 `runs/harmony/automation/<new-attempt>`，Harmony 设计/适配/汇总 `runs/harmony/sandbox/<request>`；本 run 共享环境 `runs/harmony/sandbox/environment` 由 `sandbox.py prepare --root <run_root>` 生成。见 [留存布局](../migration-protocol/references/storage-layout.md#总则)。
