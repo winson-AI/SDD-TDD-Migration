@@ -155,7 +155,7 @@ class DependentTests(unittest.TestCase):
             self.assertEqual(consumer[key], before[key], key)
         self.assertEqual(consumer.get('planning_history', []), [])
         step = next(row for row in f.state()['next_steps'] if row['module_id'] == 'M002')
-        self.assertEqual((step['operation'], step['ready']), ('assign', False))  # its dispatch still waits for the provider's accepted code
+        self.assertEqual((step['operation'], step['ready']), ('assign', True))  # its dispatch goes on against the provider's accepted code
 
     def test_a_leaf_holding_code_built_on_it_keeps_plan_and_code_and_waits(self):
         f, before, consumer = self.revised_provider(coded=True)
