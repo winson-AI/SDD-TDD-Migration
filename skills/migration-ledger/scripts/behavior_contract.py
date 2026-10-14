@@ -80,7 +80,10 @@ def verification(module):
     providers = keyed(inputs, 'module_id') if inputs else {}
     require(set(providers) == set(module['dependencies']), 'verification providers must match actual dependencies')
     for row in providers.values():
-        require(row.get('required_stage') in ('implemented', 'verified'), 'provider stage must be implemented or verified')
+        stage = row.get('required_stage') or 'implemented'  # a dependent plans against its provider's accepted code
+        require(stage in ('implemented', 'verified'), 'provider stage must be implemented or verified')
+        require(stage != 'verified' or (isinstance(row.get('reason'), str) and row['reason'].strip()),
+                'a provider stage of verified states its reason: the code is what a dependent plans against')
         if row.get('contract_ref') is not None:  # a slice plans against what its provider is, once it is; a document about it is optional
             check_ref(row['contract_ref'])
     return value
@@ -154,7 +157,7 @@ def slicing(modules, graph):
     for module in modules:
         stages = {row.get('module_id'): row.get('required_stage') for row in
                   ((module.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs') or []}
-        waiting += any(dep in ids and stages.get(dep) != 'implemented' for dep in graph.get(module['module_id'], []))
+        waiting += any(dep in ids and (stages.get(dep) or 'implemented') != 'implemented' for dep in graph.get(module['module_id'], []))
     return {'slices': len(modules), 'supporting': sorted(m['module_id'] for m in modules if not accepts(m)),
             'shared_cases': sorted(cid for cid, mids in holders.items() if len(mids) > 1), 'accepted_cases': sorted(owners),
             'chain_depth': max(depth.values(), default=0), 'waiting': waiting, 'layered_cases': layered,

@@ -55,7 +55,7 @@ def collect(s):
         if any(child.get('behavior_review') for child in children):
             judge(gid, 'split', lambda: (behavior_contract.independence(
                 group, children, graph, read_json(check_ref(group['decomposition_ref']))),
-                decomposition.standard(s, group, children, read_json(check_ref(group['decomposition_ref'])))))  # kinds, dependencies, bounds
+                decomposition.standard(s, group, children, read_json(check_ref(group['decomposition_ref'])), record=False)))  # kinds, dependencies, bounds
     for mid, m in s['modules'].items():
         if m.get('plan'):
             judge(mid, 'plan', lambda: plan(m))

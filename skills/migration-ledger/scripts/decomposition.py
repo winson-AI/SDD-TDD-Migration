@@ -7,13 +7,17 @@ import copy
 import reuse
 import dimensions
 from pathlib import Path
+import re
 
 from contracts import Rejected, check_ref, digest, nonempty, read_json, require
 
 OPERATIONS = {'decompose', 'decompose-accept', 'module-summary', 'realloc-request', 'redecompose', 'redecompose-accept'}
 ALLOCATION_KEYS = ('name', 'scope', 'case_ids', 'write_paths', 'context_refs', 'dimension_analysis_ref', 'behavior_review', 'kind', 'anchor_ui')
 KINDS = ('feature', 'scaffold')  # a feature leaf anchors on a UI surface; a scaffold is the shell the features plug into
-LEAF_CASES = 20  # more cases than this is a surface to split
+LEAF_MIN_CASES = 3   # fewer is a screen or a branch of a flow, not a leaf: it merges into the flow it belongs to
+LEAF_CASES = 20      # more is a wide flow: recorded as a fact, the split is the orchestrator's call
+LEAF_MAX_CASES = 30  # more than this is a flow to split by sub-flow
+FEATURE_LEAVES = 6   # more feature leaves under one parent says the split went by screen
 SKELETON_TASKS = 3  # the tasks that make a scaffold's shell: what its features are released on before the rest of it is written
 SKELETON_PATHS = ('build', 'unit', 'static')
 TASK_FILES = 40  # more files than this in one version of a task is a task to split
@@ -176,6 +180,7 @@ def check_module_plan(s, module, plan):
         require(binding.get('planning_context_sha256') == now['planning_context_sha256'], STALE_CONTEXT)
     check_assignment(s, module)
     check_tasks(module, plan)
+    check_path_evidence(s, module, plan)
 
 
 def check_tasks(module, plan):
@@ -209,6 +214,28 @@ def check_skeleton(module, plan):
     for tid in declared:
         require(all(kinds.get(pid) in SKELETON_PATHS for pid in tasks[tid].get('path_ids', [])),
                 'a skeleton task is verified by build, unit and static paths only: ' + tid)
+
+
+FILE_TOKEN = re.compile(r'[\w./-]+\.(?:kt|kts|java|swift|mm?|ts|tsx|js|py|xml|json|ya?ml|toml|gradle|ets|h|cpp)\b')
+MODULE_TOKEN = re.compile(r'\bM\d{3,}\b')
+
+
+def check_path_evidence(s, module, plan):
+    """A PATH is verified on the leaf's own code and its providers': its preconditions and steps name no registered leaf that
+    is not a provider, and no target file outside the leaf's and its providers' write scopes. A split that puts a flow's
+    screen and its logic in two leaves shows up here, before anything is parked on the sibling."""
+    allowed = {module['module_id'], *module.get('dependencies', [])}
+    roots = [Path(p).resolve() for mid in allowed for p in (s['modules'].get(mid) or module if mid == module['module_id'] else s['modules'].get(mid) or {}).get('write_paths', [])]
+    target = Path(s['target_root']).resolve() if s.get('target_root') else None
+    for path in plan.get('paths', []):
+        text = ' '.join(str(x) for x in (path.get('preconditions') or []) + (path.get('steps') or []))
+        strangers = sorted(mid for mid in set(MODULE_TOKEN.findall(text)) if mid in s['modules'] and mid not in allowed)
+        require(not strangers, 'PATH %s takes evidence from %s, which is not a provider of this leaf: a leaf verifies on its own code and its providers' % (path.get('path_id'), ', '.join(strangers)))
+        for token in FILE_TOKEN.findall(text):
+            p = Path(token)
+            if p.is_absolute() and target and p.resolve().is_relative_to(target):
+                require(any(p.resolve().is_relative_to(root) for root in roots),
+                        'PATH %s takes evidence from %s, outside this leaf and its providers' % (path.get('path_id'), token))
 
 
 def skeleton(m):
@@ -435,11 +462,17 @@ def applicable(ref, module_id):
     return {row['dimension'] for row in data.get('dimensions', []) if row.get('status') == 'applicable' and row.get('items')}
 
 
-def standard(s, parent, children, plan):
-    """The slicing standard: a leaf is one UI surface with the Logic, Adhesive and Resource items behind it, a scaffold is the
-    shell they plug into, features depend on scaffolds only, and a leaf holds at most LEAF_CASES cases. A split without
-    dimension analyses is judged on its kinds and dependencies alone."""
+def standard(s, parent, children, plan, record=True):
+    """The slicing standard: a leaf is a sub-business flow - the screens a user crosses to one outcome with the Logic, Adhesive
+    and Resource items behind them - a scaffold is the shell they plug into, features depend on scaffolds only, and a feature
+    leaf holds LEAF_MIN_CASES..LEAF_MAX_CASES cases. A wide leaf and a parent of many feature leaves are recorded as facts
+    (`record`); a split without dimension analyses is judged on its kinds and dependencies alone."""
+    import issues
     scaffolds = {c['module_id'] for c in children if c.get('kind') == 'scaffold'}
+    features = [c for c in children if c.get('kind') != 'scaffold' and not registered(s, c)]
+    if record and len(features) > FEATURE_LEAVES:
+        issues.record(s, 'SLICE-%s-features' % parent['module_id'], 'fact', '%s splits into %d feature leaves (over %d): a flow is one leaf, its screens are tasks'
+                      % (parent['module_id'], len(features), FEATURE_LEAVES), [parent['module_id']], issues.LEDGER, resolved={parent['module_id']: {'by': issues.LEDGER, 'recorded': True}})
     ids = {c['module_id'] for c in children}
     parent_dims = applicable(parent['dimension_analysis_ref'], parent['module_id']) \
         if s.get('dimension_slicing_required') and parent.get('dimension_analysis_ref') else set()
@@ -450,12 +483,19 @@ def standard(s, parent, children, plan):
         require(set(child.get('dependencies', [])) & ids <= scaffolds, 'a leaf depends only on scaffold leaves; features do not depend on each other')
         if child.get('kind') == 'scaffold':
             continue
-        require(len(child['case_ids']) <= LEAF_CASES, 'a leaf holds at most %d cases: split it by UI surface' % LEAF_CASES)
+        cases = len(child['case_ids'])
+        require(cases <= LEAF_MAX_CASES, 'a leaf holds at most %d cases: split it by sub-flow' % LEAF_MAX_CASES)
+        require(cases >= LEAF_MIN_CASES or len(parent['case_ids']) < LEAF_MIN_CASES,
+                'a leaf holds at least %d cases: merge it into the flow it belongs to; a screen is a task' % LEAF_MIN_CASES)
+        if record and cases > LEAF_CASES:
+            issues.record(s, 'SLICE-%s-wide' % child['module_id'], 'fact', '%s holds %d cases (over %d): consider a split by sub-flow' % (child['module_id'], cases, LEAF_CASES),
+                          [parent['module_id']], issues.LEDGER, resolved={parent['module_id']: {'by': issues.LEDGER, 'recorded': True}})
         if parent_dims and child.get('dimension_analysis_ref'):
             dims = applicable(child['dimension_analysis_ref'], child['module_id'])
             if 'UI' in parent_dims:
-                require('UI' in dims and isinstance(child.get('anchor_ui'), str) and child['anchor_ui'].strip(),
-                        'a feature leaf anchors on a UI surface: declare anchor_ui and UI items, or mark the child scaffold')
+                anchor = child.get('anchor_ui')
+                anchored = isinstance(anchor, str) and anchor.strip() or isinstance(anchor, list) and anchor and all(isinstance(x, str) and x.strip() for x in anchor)
+                require('UI' in dims and anchored, 'a feature leaf anchors on a UI surface: declare anchor_ui (the flow\'s screens) and UI items, or mark the child scaffold')
             if len(parent_dims) >= 2:
                 require(len(dims) >= 2, 'a leaf is not a single layer: it carries the Logic, Adhesive and Resource items behind its UI, or is a scaffold')
 
@@ -473,9 +513,13 @@ def slicing_signals(s):
         crs = len(m.get('change_request_history') or []) + (1 if m.get('change_request') else 0)
         chain = depth(mid)
         large = sorted(tid for tid, files in (m.get('task_files') or {}).items() if len(files) > TASK_FILES)
+        wide = len(m.get('case_ids', [])) > LEAF_CASES and m.get('kind') != 'scaffold'
         flags = [name for name, hit in (('cross-module-issues', cross > 3), ('change-request-cascade', crs > 1), ('chain-depth', chain > 2),
-                                        ('large-tasks', bool(large))) if hit]
+                                        ('large-tasks', bool(large)), ('wide-leaf', wide)) if hit]
         out[mid] = {'cross_module_issues': cross, 'change_requests': crs, 'chain_depth': chain, 'large_tasks': large, 'flags': flags}
+    for pid, group in (s.get('module_groups') or {}).items():
+        n = sum(1 for cid in group.get('children', []) if modules.get(cid, {}).get('kind') != 'scaffold')
+        out[pid] = {'feature_leaves': n, 'flags': ['many-features'] if n > FEATURE_LEAVES else []}
     return out
 
 

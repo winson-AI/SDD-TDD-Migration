@@ -54,16 +54,16 @@ class ReviewStepTests(unittest.TestCase):
 
 
 class ProviderInChangeTests(unittest.TestCase):
-    def test_a_provider_that_reopened_its_contract_is_not_there_for_a_dependent_in_the_gate_or_the_cursor(self):
+    def test_a_provider_that_reopened_its_contract_is_still_there_for_a_dependent_that_needs_its_code(self):
         d = test_upstream_revision.DependentTests('test_a_leaf_without_code_keeps_its_plan_and_is_left_to_move'); self.addCleanup(d.doCleanups)
         f, before, consumer = d.revised_provider(coded=False)
         state = f.state()
         self.assertEqual(state['modules']['M001']['phase'], 'change-review')
         self.assertTrue(state['modules']['M001']['code_baseline'])  # the code is still accepted, the contract is open
         row, = ledger.providers(state, consumer)
-        self.assertEqual((row['module_id'], row['ready']), ('M001', False))
-        with self.assertRaisesRegex(Rejected, 'dependencies not complete'):
-            f.call('assign', {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'implementer'}, module='M002')
+        self.assertEqual((row['module_id'], row['ready'], row['revising']), ('M001', True, True))
+        f.call('assign', {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'implementer'}, module='M002')  # the code it needs is accepted
+        self.assertIn('I1', f.state()['modules']['M002']['assignments'])
 
 
 class CarriedFilesTests(unittest.TestCase):

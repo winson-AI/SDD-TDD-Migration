@@ -20,88 +20,22 @@
 
 ```text
 <workspace_root>/
-├── .sdd-migration/
-│   ├── project-context.json               # 当前配置；revision 与 run 独立
-│   ├── history/<sha256>.json              # 每版配置，previous_ref 串联
-│   ├── sources/<sha256>.*                 # 用户输入来源快照
-│   ├── runs/<run_id>.json                 # run_id → run_root/初始快照索引
-│   ├── preparations/<run_id>.json         # preparing/failed/prepared，失败原因与重试入口
-│   ├── harmony/                          # config.json、.env、可选 config.native.yaml；凭证不入 Ledger
-│   ├── inputs/                           # Host 可选保存原始输入/请求；不是自动生成
-│   └── .context.lock
-├── .sdd-runs/
-│   └── <run_id>/
-│       ├── .ledger.lock
-│       ├── input.json                    # GO 完成后 Host 保存的本轮高层输入
-│       ├── context/
-│       │   ├── snapshot.json             # 初始配置/来源/布局；不可原地改写
-│       │   ├── files/<sha256>.*           # 架构、知识、来源、sealed snapshot
-│       │   ├── files/<sha256>.links.json  # 跨文件链接映射（按输入产生）
-│       │   ├── files/linked/<bundle>/...  # 重定位后的可读知识副本
-│       │   └── revisions/<sha256>.json    # 同 run 来源追加时产生
-│       ├── ledger/
-│       │   ├── events.jsonl              # 只追加的唯一状态事实
-│       │   ├── global.json               # 全局状态投影；模块 plan 只以 plan_ref 引用
-│       │   ├── modules/<module_id>.json   # 父/子 MO，含分配/assignment/结果
-│       │   ├── repair-memory.json        # 修复策略、根因、回归证据
-│       │   ├── progress.json             # 查询时生成的宿主进度信号
-│       │   └── audit-batch.json           # 有治理/遗留批次时产生
-│       ├── artifacts/<sha256>            # 提交前保存的不可变内容寻址工件
-│       ├── staging/<agent>/<request>/    # 角色/Host 提交并被事件引用的生成件，提交后保留
-│       │   ├── ...                       # GO 功能清单/分配、SPEC 定义、四维/复用/
-│       │                                 # 埋点、测试设计/脚本、诊断/Fixer/CR、
-│       │                                 # Auditor 代码清单、人工决策、GO 报告输入
-│       │   └── scratch/                  # 草稿、探针脚本、日志；Ledger 不读、不归档、拒绝引用
-│       ├── runs/
-│       │   ├── build/<module-attempt>/    # query/result/receipt/execution.log、cleanup.json
-│       │   │   ├── stdout.log / stderr.log / output-events.jsonl
-│       │   │   ├── execution-state.json  # 本 attempt I/O 观察；不是业务状态
-│       │   │   ├── outputs/              # Gradle 工程产物及 APK
-│       │   │   ├── cache/                # 构建缓存、Gradle init.d 输出策略
-│       │   │   └── temp/                 # 可确认安全结束后清理；退出未确认时留存
-│       │   ├── watchdog/                 # 可选旁路监听：自身锁、Host 导出、去重状态
-│       │   │   └── acknowledged/         # notice-ID.json 交付确认；不改变业务状态
-│       │   └── harmony/
-│       │       ├── sandbox/environment/  # 本 run 共享 config.json/.env，由 Test-Runner 从参考复制
-│       │       │   ├── manifest.json     # 整套环境完成清单、摘要及 native 缺省记录
-│       │       │   └── preparation.json  # 仅准备/恢复期间保留；含私密配置内容，提交后删除
-│       │       ├── sandbox/<request>/    # adapter、design、doctor、阶段/历史报告
-│       │       │   └── runtime/          # 转换调用的 temp/cache/cleanup（按需）
-│       │       └── automation/<module-path-attempt>/
-│       │           ├── query.json / result.json / receipt.json / execution.log
-│       │           ├── stdout.log / stderr.log / output-events.jsonl / execution-state.json
-│       │           ├── cleanup.json / cache/ / temp/
-│       │           └── harmony/
-│       │               ├── observations.json / environment.json / engine.log
-│       │               ├── reports/ / memory/ / sdk/ / cache/
-│       │               └── temp/ / cleanup.json
-│       ├── reports/
-│       │   ├── migration-report.json
-│       │   ├── migration-report.md       # GO 全 CASE/PATH 三态、非 Green 证据
-│       │   ├── workflow-attention.md
-│       │   ├── rejected-operation.json   # 最新拒绝导航
-│       │   ├── rejections/<fingerprint>.json # 各作用域独立计数与历史
-│       │   ├── projection-recovery/      # 损坏投影原件（按需）
-│       │   └── watchdog/                 # 可选 latest.json、notice-<timestamp>.json
-│       └── audit-reports/<batch_id>.json/.md # 有人工问题时产生
+├── .sdd-migration/                      # 项目配置：project-context.json、history/、sources/、runs/、preparations/、harmony/（凭证不入 Ledger）、inputs/
+├── .sdd-runs/<run_id>/
+│   ├── input.json                       # GO 完成后 Host 保存的本轮高层输入
+│   ├── context/                         # snapshot.json（不可改写）、files/<sha256>.*、files/<sha256>.links.json、files/linked/、revisions/
+│   ├── ledger/                          # events.jsonl（唯一事实）、global.json（模块 plan 只以 plan_ref 引用）、modules/<id>.json、repair-memory.json、progress.json、audit-batch.json
+│   ├── artifacts/<sha256>               # 提交前保存的不可变内容寻址工件
+│   ├── staging/<agent>/<request>/       # 角色/Host 提交并被事件引用的生成件；其 scratch/ 放草稿、探针、日志，Ledger 不读不归档、拒绝引用
+│   ├── runs/
+│   │   ├── build/<module-attempt>/      # query/result/receipt、stdout/stderr、execution-state.json（I/O 观察，非业务状态）、outputs/、cache/、temp/
+│   │   ├── watchdog/                    # 旁路监听自身状态与 acknowledged/ 回执；不改业务状态
+│   │   └── harmony/                     # sandbox/environment/（共享 config/.env 与 manifest；preparation.json 提交后删除）、sandbox/<request>/、automation/<module-path-attempt>/（query/result/receipt、日志、cleanup、harmony/ 观察与报告）
+│   ├── reports/                         # migration-report.json/.md、workflow-attention.md、rejected-operation.json、rejections/、projection-recovery/、watchdog/
+│   └── audit-reports/<batch_id>.json/.md  # 有人工问题时产生
 └── openspec/
-    ├── runs/<run_id>/
-    │   ├── owner.json                    # 本轮命名空间归属，绑定配置/运行根
-    │   ├── projection-owners/<module_id>.json # 写六件套前固化的归属；投影中断恢复
-    │   ├── workflow.json                 # 当前 sequence、父子模块、路由、引用
-    │   └── workflow.md                   # Host/GO/MO/Auditor 统一阅读入口
-    └── changes/<run_id>-<module_id小写>/
-        ├── proposal.md
-        ├── specs/<capability>/spec.md
-        ├── design.md
-        ├── tasks.md
-        ├── status.md
-        ├── checklist.md
-        ├── memory.md
-        ├── reuse.md                      # 计划包含复用映射时
-        ├── dimensions.md                 # 计划包含四维分析时
-        ├── scenarios.md                  # SPEC 派生的 Scenario/TASK/PATH/ASSERT 索引
-        └── manifest.json                 # run_root/module/冻结版本/生成文件清单
+    ├── runs/<run_id>/                   # owner.json、projection-owners/<module_id>.json、workflow.json、workflow.md
+    └── changes/<run_id>-<module_id小写>/  # 六件套与 status/checklist/memory；reuse.md、dimensions.md、scenarios.md 按计划内容产生；manifest.json 记冻结版本与文件清单
 ```
 
 目录树表示全部支持的留存类别，不意味着无条件创建每个文件。没有修复、来源追加、Harmony 执行或人工问题，就不伪造对应记录；父 MO 的分配/汇总在 Ledger 与 staging/artifacts，不能伪装成叶子实现规格。未执行的测试保留 Yellow，不能用空目录当通过证据。

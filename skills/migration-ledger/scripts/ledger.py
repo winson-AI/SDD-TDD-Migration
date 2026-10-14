@@ -397,9 +397,9 @@ def provider_written(p):
 
 def dependencies_ready(s, m):
     providers = ((m.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs', [])
-    stages = {row['module_id']: row['required_stage'] for row in providers}
+    stages = {row['module_id']: row.get('required_stage') or 'implemented' for row in providers}
     require(all(provider_written(s['modules'][d])
-                if stages.get(d) == 'implemented' and m.get('phase') not in ('testing', 'dod', 'completed')
+                if stages.get(d, 'implemented') == 'implemented' and m.get('phase') not in ('testing', 'dod', 'completed')
                 else tv.available(s['modules'][d]) for d in m['dependencies']), 'dependencies not complete')
     for d in m['dependencies']:
         current(s['modules'][d])
@@ -679,7 +679,7 @@ def providers(s, m):
     rows = []
     for dependency in m.get('dependencies', []):
         for mid in decomposition.leaves(s, dependency) if dependency in s['modules'] or dependency in s.get('module_groups', {}) else []:
-            p, stage = s['modules'][mid], stages.get(dependency, 'verified')
+            p, stage = s['modules'][mid], stages.get(dependency) or 'implemented'
             # A provider revising its SPEC keeps the code it accepted: a dependent goes on against that code, and what the
             # revision supersedes reaches it as a gap when the revision freezes.
             written = provider_written(p)
@@ -1480,6 +1480,7 @@ def mutate(s, req, principal, events, root=None):
             decomposition.check_scopes(s, m)
             decomposition.check_tasks(m, plan)
         decomposition.check_skeleton(m, plan)
+        decomposition.check_path_evidence(s, m, plan)
         if resubmitted:
             verify_plan(plan, m)
             plan_hash = m['plan_hash']

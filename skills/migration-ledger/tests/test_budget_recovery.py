@@ -66,7 +66,7 @@ class BudgetRecoveryTests(unittest.TestCase):
     def test_dependency_blocker_and_release_gate_survive_budget_recovery(self):
         # Isolate the transition with an unavailable provider; use real frozen evidence.
         s = ledger.read_events(self.f.root)[0]; m = s['modules']['M001']
-        m['dependencies'] = ['M002']
+        m['dependencies'] = ['M002']; s['modules']['M002']['code_baseline'] = None  # a provider whose code is not there
         s['context_readiness_required'] = True
         actor = {'role': 'module-orchestrator', 'instance_id': 'mo'}
         ledger.mutate(s, {'operation': 'suspend', 'module_id': 'M001', 'payload': {
