@@ -65,6 +65,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 可推导指针 | 计划只带一个 test-fixture 定义且 verification 未写 fixture 时，Ledger 补全指针并绑到行为 PATH；Logic/Adhesive 的 target_binding 未定在 plan/freeze 判定里记为欠项而非拒绝，Resource 目标侧字段仍拒 |
 | 包文件不是证据 | evidence_refs 指向工作流包内文件被拒并指向 storage-layout 总则；规则以卡片小节引用 |
 | 任务体量信号 | 实现结果里一个 TASK 超过 40 个文件时 Ledger 记一条已结清的 fact，游标 slicing_signals 加 large-tasks 标志；不挡接受与完成 |
+| 投影文本确定 | 投影里的 JSON 一律按键排序写出，状态重放的键序变化不再使 change-content / status 投影被判失真 |
 | 统一全量审计 | 独立同伴运行时仅保留本模块问题；全部模块本轮收尾后启动宿主审计，不允许提前派发局部审计 |
 | 轻量叶子与批量信封 | lean_leaf 登记需 scope/context/不可再拆审阅；本地轮由 Fixer 自诊断（`fixer_self_diagnosis` 对全部模块开启），未开启的普通模块拒绝；批量信封绑定文件 hash 与父的孩子，条目完全匹配且 MO 附 review_ref 才冻结 |
 | 原子规划与历史 | MO 原子结论经 decompose/GO accept 保留节点；缺预检、行为/验证边界或扩大范围均拒绝；无关根待拆时叶子可完成实现/验证，依赖待拆仍阻塞；兄弟拆分保留冻结/活动执行和独立测试设计；reopen 留不可执行 history、重新冻结唯一 SPEC，禁止提前 coding/testing/fixer 或宿主审计 |
