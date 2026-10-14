@@ -30,7 +30,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 本轮合并协议文字：GO、父 MO、子 MO 三层职责只在 module-decomposition.md 陈述一次，dimension-slicing.md 与 slicing.md 改为指引；UI 证据与采集器产物以引用进入计划、不内联，重提只改引用；协议上限随本轮压缩下调。
 
-协议体积为 498168 / 498500 字节，最大单文件 27420 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 44614 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.2%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 498495 / 498500 字节，最大单文件 27538 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 44532 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 
@@ -51,6 +51,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 作者自检与会话 | 实现/修复结果缺 authoring_diagnostics、诊断无日志或版本敏感 API 无固定源码引用均拒收；本地修复游标指向原 Implementer 会话 |
 | 静态规格闭合 | build 全绿后同一派发继续 static，再到 automation；passed 场景须给出另一目标文件中的调用位置（reached_from）；审查需覆盖全部冻结需求、引用目标文件中真实存在的符号、逐项判定假实现清单；反模式 present 为 Red 并进入修复；prepared run 必须冻结 static PATH |
 | 文本压缩 | 角色执行步骤、两张操作矩阵、模板索引与四个最大引用文件的长段落改写，规则不变；棘轮 500,500 → 498,500 |
+| 数据契约 | 四维 data_review 适用时 data_inventory_ref 绑定清单：实体逐字段的 sources / fetch_conditions / derived_fields / invalidation 义务，contracts 的目标 repository#symbol 与四个映射逐义务覆盖，fidelity exact / approved-adaptation（适配须信封 alternative），existing_target 须 refactor/adapt 决定；plan 时 data_obligations 覆盖全部义务且 PATH 为 unit/automation 并绑定 fixture；freeze 时目标与 fixture 已定、repository 在写范围或目标已有；实现提交 repository 文件与符号证据 |
 | 一种版本学说 | 已接受的工件沿用接受时的规则，重新提交按当前规则全判：取消 restated_shape / restated_task_scope 豁免；原样复述且分配未变的孩子不再判，分配任一字段变动即全判 |
 | 根自带清单 | readiness 开启且 decomposition_required 的根在 register 时必须带 feature_inventory_ref；分配包在 global-plan 之前暴露它；拆分计划不写引用则取根的 |
 | 树形事实 | 清单接受时记 SLICE-tree-fine（二级节点过半少于 3 条 CASE）与 SLICE-tree-flat（每功能一条用例）；少于 5 个功能不记；事实不阻塞 |

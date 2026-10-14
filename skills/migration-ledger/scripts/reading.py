@@ -309,7 +309,7 @@ def execution_selection(m, step):
 def topic_facts(s, m, step):
     """Facts from this assignment, or its selected audit scope; no elective rule disables a gate."""
     from contracts import check_ref, read_json
-    facts = dict.fromkeys(('ui', 'resources', 'pictures', 'copy', 'parameters', 'api'), False)
+    facts = dict.fromkeys(('ui', 'resources', 'pictures', 'copy', 'parameters', 'api', 'data'), False)
     selected = step.get('module_ids') or (s.get('audit_assignment') or {}).get('module_ids')
     modules = [m] if m else [obj for mid, obj in s.get('modules', {}).items() if not selected or mid in selected]
     for obj in modules:
@@ -322,6 +322,7 @@ def topic_facts(s, m, step):
         except (OSError, ValueError, KeyError, TypeError, RuntimeError):
             continue  # the dispatch gate reports invalid evidence; loading does not repair or authorize it
         facts['api'] |= bool(analysis.get('api_inventory_ref')) and selection is None
+        facts['data'] |= bool(analysis.get('data_inventory_ref')) and selection is None
         selected_ui = any(row.get('dimension') == 'UI' and any(item.get('item_id') in selection[0] for item in row.get('items', []))
                           for row in analysis.get('dimensions', [])) if selection else False
         for row in analysis.get('dimensions', []):
@@ -335,6 +336,7 @@ def topic_facts(s, m, step):
             facts['parameters'] |= bool(row.get('parameter_sheet_ref'))
             for item in items:
                 facts['api'] |= bool(item.get('api_ids') or item.get('api_binding'))
+                facts['data'] |= bool(item.get('data_ids'))
                 model = item.get('semantic_model') or {}
                 facts['pictures'] |= bool(model.get('image_checks') or item.get('source_resource') or item.get('source_signal'))
         # Planners need discovery before choosing a resource strategy; executors consume only frozen facts.
@@ -564,6 +566,7 @@ def templates(s, m, step):
             names += by_role.get(role, [])
     if role in PLANNING_ROLES:
         if facts['api']: names += ['api-inventory.json']
+        if facts['data']: names += ['data-inventory.json']
         if facts['parameters']: names += ['parameter-binding.json']
     unwritten = set()
     if role == 'spec-designer' and (m or {}).get('dimension_analysis_ref'):
@@ -592,6 +595,7 @@ GATES = [
     (r'test asset|test PATH preparation|test preparation', 'testing.md', '编码前设计交接'),
     (r'condition review|condition refs', 'resource-transfer.md', '动态参数与布局结构'),
     (r'API |api_inventory|api_obligations', 'resource-transfer.md', 'API 与 URL 契约'),
+    (r'\bdata (source|mapping|fidelity|inventory|entity|contract|target|exclusion|applicability|needs|items|behavior|adaptation|binding|tests|repository)|data_obligations|holds this data', 'resource-transfer.md', '数据契约'),
     (r'dimension (trace|task|path|paths|behavior|assertion)|dimension item IDs|SPEC must bind the allocated', 'dimension-slicing.md', '4. 控制节点与交接'),
     (r'superseded plan|pins only its own target files', 'module-decomposition.md', '验证边界'),
     (r'takes evidence from', 'module-decomposition.md', '切片标准'),

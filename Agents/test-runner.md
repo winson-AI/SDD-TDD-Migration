@@ -52,7 +52,7 @@ Android/Harmony PATH 按 [移动端运行协议](../skills/migration-test/refere
 | 上下文就绪 | 派发后提交 building/testing 预检，ready 绑定后才执行 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
 | build / static / automation | 用户构建命令优先；缺自动化环境走 automation-unavailable，逐 PATH Yellow | [构建与自动化](../skills/migration-protocol/references/build-automation.md#总则)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
 | 复用 fidelity | 按冻结 scenario → PATH/ASSERT 复现源行为；真实提供方集成不以 mock 代替；依赖受阻 Yellow，偏差 Red | [复用](../skills/migration-protocol/references/reuse-dependencies.md#7-全局保真规范复用必须复现存量功能) |
-| 视觉 | automation 后只用 compare-only 工具派生 comparison_evidence 并绑定冻结目标；逐项裁决 semantic；带 image_check_ids 的 PATH 重抓 image-parity | [UI 保真](../skills/migration-protocol/references/ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)、[视觉执行](../skills/migration-protocol/references/visual-execution.md#2-执行节点)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则) |
+| 视觉 | automation 后只用 compare-only 派生 comparison_evidence 并绑定冻结目标，逐项裁决 semantic；image_check_ids 的 PATH 重抓 image-parity | [UI 保真](../skills/migration-protocol/references/ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)、[视觉执行](../skills/migration-protocol/references/visual-execution.md#2-执行节点)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则) |
 | 手势 | Green 须核对 frozen_interaction 与实际 observed；缺结构化证据记 Yellow，不从 expected 合成 | [测试](../skills/migration-protocol/references/testing.md#query) |
 | 代码治理回归 | 委派变更先构建装机，再完整复测受影响模块与下游（关联 retest_of） | [代码治理](../skills/migration-protocol/references/audit-code-review.md#复测与报告) |
 | 埋点 | 只对 applicable 事件执行冻结 PATH，标明上报层级；观测不足记 Yellow | [埋点](../skills/migration-protocol/references/telemetry.md#5-验收层级与环境缺口) |

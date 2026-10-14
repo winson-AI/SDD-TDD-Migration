@@ -93,6 +93,8 @@ def judge(ref, module_id):
     semantics.validate_items(items)
     import api_contract
     api_contract.load(data, items)
+    import data_contract
+    data_contract.load(data, items)
     return data, items
 
 
@@ -441,6 +443,8 @@ def validate_plan(plan, module):
         fidelity_conditions(item, paths, traces[iid])
     import api_contract
     api_contract.plan(read_json(check_ref(ref)), items, plan)
+    import data_contract
+    data_contract.plan(read_json(check_ref(ref)), items, plan)
     # The machine mapping complements, never replaces, normative OpenSpec text.
     for kind in ('design', 'spec', 'tasks'):
         text = '\n'.join(check_ref(d).read_text() for d in plan['definitions'] if d['kind'] == kind)
@@ -540,6 +544,8 @@ def implementation(plan, result):
     parameter_file.verify(analysis, result.get('code_files'))
     import api_contract
     api_contract.implementation(analysis, items, result)
+    import data_contract
+    data_contract.implementation(analysis, items, result)
 
 
 def consumer_evidence(trace):

@@ -93,7 +93,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
 | retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
 | api-register | GO / MO / Spec-Designer，全局 | module_id（owner 叶）、api_id（run 内新）、item_id（该叶 Logic/Adhesive 条目）、call、contract、evidence_refs；该叶下次 plan 的清单可多出已登记行，不重切、不推进修订号；owner/consumer 变化走 realloc/redecompose |
-| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary ≤400 字符（细节走 evidence_refs）、applies_to，可选 evidence_refs、blocks，或 issues[] 批量；消去：issue_id、module_id、evidence_ref，或 resolutions[] 批量，全部成立才记；plan/plan-review/submit/accept 可带 resolves[]。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete；step 视图每模块最多 10 条（blocking、最新优先），每条 200 字符。Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
+| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary ≤400 字符、applies_to，可选 evidence_refs、blocks，或 issues[] 批量；消去：issue_id、module_id、evidence_ref，或 resolutions[] 批量，全部成立才记；plan/plan-review/submit/accept 可带 resolves[]。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete；step 视图每模块最多 10 条（blocking、最新优先），每条 200 字符。Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
 
 ## 阶段结果
 

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "module_id": "M001",
+  "_note": "Record the data a leaf fetches or computes. Each entity's fields come from somewhere (sources), are fetched under conditions (fetch_conditions), may be derived by a computation (derived_fields) and go stale on events (invalidation); each is an explicit obligation the target mapping binds and dimension_trace.assertions.data_obligations proves on unit/automation PATHs under the shared fixture_contract_ref. Logic/Adhesive item data_ids own contracts. A target that already fetches or computes the same data another way is named in existing_target with a refactor/adapt decision; a data adaptation is approved through the plan's decision envelope.",
+  "entities": [
+    {
+      "data_id": "DATA-M001-001",
+      "name": "{{entity}}",
+      "source_ref": {
+        "path": "{{absolute-evidence-path}}",
+        "sha256": "{{sha256}}"
+      },
+      "source_symbol": "{{production-source-symbol}}",
+      "sources": [
+        "price<-API-M001-001.response.price",
+        "title<-table:items.title"
+      ],
+      "fetch_conditions": [
+        "sort:createdAt desc",
+        "page:20"
+      ],
+      "derived_fields": [
+        "total=sum(items.price)*rate"
+      ],
+      "invalidation": [
+        "on:order-placed"
+      ]
+    }
+  ],
+  "contracts": [
+    {
+      "data_id": "DATA-M001-001",
+      "fidelity": "exact",
+      "fixture_contract_ref": {
+        "path": "{{absolute-evidence-path}}",
+        "sha256": "{{sha256}}"
+      },
+      "existing_target": null,
+      "target": {
+        "repository": "{{absolute-target-file}}#{{repository-or-model-symbol}}",
+        "source_mapping": {
+          "price<-API-M001-001.response.price": "{{target-field-and-its-source}}",
+          "title<-table:items.title": "{{target-field-and-its-source}}"
+        },
+        "fetch_mapping": {
+          "sort:createdAt desc": "{{target-query}}",
+          "page:20": "{{target-paging}}"
+        },
+        "compute_mapping": {
+          "total=sum(items.price)*rate": "{{target-computation-symbol}}"
+        },
+        "invalidation_mapping": {
+          "on:order-placed": "{{target-invalidation}}"
+        }
+      }
+    }
+  ],
+  "exclusions": []
+}

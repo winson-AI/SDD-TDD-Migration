@@ -17,4 +17,4 @@
 | Auditor | [audit-code-review.json](audit-code-review.json) 整体代码审查；[audit-change-inventory.md](audit-change-inventory.md) 修改清单；[audit-closure-plan.json](audit-closure-plan.json) finding 路由；[audit-review.json](audit-review.json) 独立证据审阅；[audit-report.md](audit-report.md) 全局快照与裁决 |
 | Host | [retrospective.json](retrospective.json) 经 retrospect 提交的抽象经验 |
 
-按需契约：[api-inventory.json](api-inventory.json) 四维 API 清单；[parameter-binding.json](parameter-binding.json) 动态表达式与布局结构。仅适用任务加载；模板不是已接受的证据。
+按需契约：[api-inventory.json](api-inventory.json) 四维 API 清单；[data-inventory.json](data-inventory.json) 数据取数/计算清单；[parameter-binding.json](parameter-binding.json) 动态表达式与布局结构。仅适用任务加载；模板不是已接受的证据。

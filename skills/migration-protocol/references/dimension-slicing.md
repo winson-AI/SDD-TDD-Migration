@@ -41,14 +41,14 @@ Resource 指应用资源；原 Dependencies / Resources 中的文件锁、设备
 
 ## 4. 控制节点与交接
 
-1. **GO / register**：全局上下文/完整功能清单 → 划分模块 scope → 对每个模块做四维源闭包/目标映射，确立业务/功能/代码边界。每个根模块提交 `dimension_analysis_ref`（path+sha256），由 Ledger 接受与归档；分析里反复引用的文件在顶层 `refs` 写一次，`evidence_refs`/`context_refs` 写其 id。GO 定义边界；正式六件套与测试设计由下游撰写，GO 不替 MO 冻结。输入源缺项先澄清，不把空模板当完成。
-2. **父 MO / decompose → GO / decompose-accept**：认领模块，读取模块实现、根四维分析及全局上下文 → 划分子功能 scope → 为每个子功能生成四维分析，`parent_ref` 指向写它时的根分析，子 item 的 `parent_item_ids` 关联同维度父 item。所有父 item 须被子项覆盖，子项需求不得超出对应父项；子项挂本子模块持有的用例，不必取自父项；父项的用例由持有它并引用该父项的孩子挂在自己的子项上。目标侧（target_binding；资源的 target_resource/consumer/conversion；接口契约的 target 与 fixture）父级可留空，叶子细化时填写。根分析修订后哪些子分析沿用见[同 Run 上游修订](progress-recovery.md#同-run-上游修订)。父项可细分给多个孩子，但子 item_id 全局唯一，`dimension_partition_review_ref` 解释分割依据、职责不重叠及共享提供方/消费者/唯一写 owner；共享修改采用既有依赖、写范围/锁及人工边界决策，不复制实现。新增未分配功能须回 GO，不能偷偷扩 scope。孩子按[切片标准](module-decomposition.md#切片标准)判定 kind、anchor_ui、依赖形状与 CASE 上限。
-3. **GO / global-plan**：核验完整 registry 的四维分配和引用仍有效，并结合 feature-inventory、需求/CASE owners 与边界裁决接受全局覆盖。全局 planning_context.dimension_allocations 对父子均可读；权威 assigned_module 包含本模块及父级分析引用。
+1. **GO / register**：全局上下文/完整功能清单 → 划模块 scope → 逐模块做四维源闭包/目标映射，确立业务/功能/代码边界。每个根模块提交 `dimension_analysis_ref`（path+sha256）由 Ledger 接受归档；反复引用的文件在顶层 `refs` 写一次，`evidence_refs`/`context_refs` 写其 id。GO 定边界，六件套与测试设计由下游撰写；输入缺项先澄清，不把空模板当完成。
+2. **父 MO / decompose → GO / decompose-accept**：认领模块，读模块实现、根四维分析与全局上下文 → 划子功能 scope → 为每个子功能生成四维分析，`parent_ref` 指向写它时的根分析，子 item 的 `parent_item_ids` 关联同维度父 item。父 item 须被子项覆盖，子项需求不超出父项；子项挂本子模块持有的用例。目标侧（target_binding；资源的 target_resource/consumer/conversion；契约的 target 与 fixture）父级可留空，叶子细化时填。根分析修订后子分析的沿用见[同 Run 上游修订](progress-recovery.md#同-run-上游修订)。父项可细分给多个孩子，子 item_id 全局唯一，`dimension_partition_review_ref` 解释分割依据、职责不重叠与共享提供方/消费者/唯一写 owner；共享修改用既有依赖、写范围/锁与人工边界决策，不复制实现。新增未分配功能回 GO。孩子按[切片标准](module-decomposition.md#切片标准)判定 kind、anchor_ui、依赖形状与 CASE 上限。
+3. **GO / global-plan**：核验完整 registry 的四维分配与引用仍有效，结合 feature-inventory、需求/CASE owners 与边界裁决接受全局覆盖；planning_context.dimension_allocations 父子可读，assigned_module 含本模块及父级分析引用。
 
-   全量检查保留于本节点；运行派发只遍历当前模块、其实际依赖链与父级分配，不让无关模块的四维证据损坏阻塞当前工作。invalidate 后若认领分配本身失效，返回 GO 分配审查；仅旧任务/实现证据失效则保留历史后重新 plan。见 [恢复协议](progress-recovery.md)。
-4. **子 MO + Spec-Designer / plan → freeze**：认领子模块并读取其实现、四维分析与上下文 → 划分 tasks.scope → 每个任务生成 tasks[].dimension_analysis，明确四维边界映射与指引；发现上游遗漏经 `realloc-request` 请父级重拆，不能把适用项改 N/A。stage-plan.dimension_analysis_ref 等于认领引用，或叶子据它写出的细化版：分配所写的一切原样保留，只可新增或填上留空字段、追加证据与条件断言，不增删条目/条件/维度（资源条目可细分：新条目以 detail_of 指明所细分的条目并以其编号为前缀，需求、用例、父条目不出其范围；分配到目录的 consumer 由叶子收窄为其下文件，接口契约同此：清单另存、符号不变）；界面证据、参数表、复制清单与资源精确策略写在细化版里，按登记分析的规则判定；不在存量仓库里的事实由持有切片据固定版本源码取证并引用出处，读不清登 issue。dimension_trace 覆盖全部 item，关联 TASK/PATH/ASSERT；每个 task 有维度归属、全部分配 CASE 有行为测试路径，构建不能代替行为断言。允许跨维度任务，不为四维造空任务。design/spec/tasks 保留 item ID；MO 冻结时审阅文本与机器索引的语义一致。
-5. **Implementer/Fixer / submit → MO accept**：按冻结任务 scope 交付，编码设计由 design.md/tasks.md 规定；task_trace 的文件必须位于对应 task.scope.write_paths，模块范围内也不得跨任务改。implementation.dimension_evidence 按 item 列 task_ids、summary、evidence_refs；Resource 另交真实 target_resource_ref、consumer_refs（逐消费者文件 hash，可为未修改的复用文件；blocked 条目免）。已接受的维度证据及资源/消费者引用在后续测试、DoD 和状态读取继续核验；复用文件即使不在本模块改动列表，证据失效也不能沿用 Green。
-6. **Test-Runner → MO DoD → 父汇总 → Auditor**：测试用已冻结的路径/断言，不从实现临时降低标准。DoD 检查四维追溯的完整实现与正式测试证据；父 MO 汇总全体子 item 覆盖及遗留。Auditor 等全体 MO 收尾后全量审阅宿主目标与代码，实际复测覆盖遗留/受影响范围，读其四维依据定位遗漏、接线或资源缺陷。
+   全量检查留在本节点；运行派发只遍历当前模块、其依赖链与父级分配，无关模块的四维证据损坏不阻塞当前工作。invalidate 后认领分配失效则回 GO 分配审查，仅旧任务/实现证据失效则保留历史后重新 plan，见[恢复协议](progress-recovery.md)。
+4. **子 MO + Spec-Designer / plan → freeze**：认领子模块，读其实现、四维分析与上下文 → 划 tasks.scope → 每个任务生成 tasks[].dimension_analysis，明确四维边界映射与指引；上游遗漏经 `realloc-request` 请父级重拆，不把适用项改 N/A。stage-plan.dimension_analysis_ref 等于认领引用，或叶子据它写出的细化版：分配所写原样保留，只可新增或填上留空字段、追加证据与条件断言，不增删条目/条件/维度（资源条目可细分：新条目以 detail_of 指明所细分的条目并以其编号为前缀，需求、用例、父条目不出其范围；分配到目录的 consumer 收窄为其下文件，契约同此：清单另存、符号不变）；界面证据、参数表、复制清单与资源精确策略写在细化版里；不在存量仓库里的事实据固定版本源码取证并引用出处，读不清登 issue。dimension_trace 覆盖全部 item，关联 TASK/PATH/ASSERT；每个 task 有维度归属，全部分配 CASE 有行为测试路径，构建不代替行为断言；允许跨维度任务，不为四维造空任务。design/spec/tasks 保留 item ID；MO 冻结时审阅文本与机器索引语义一致。
+5. **Implementer/Fixer / submit → MO accept**：按冻结任务 scope 交付，编码设计由 design.md/tasks.md 规定；task_trace 的文件位于对应 task.scope.write_paths，不跨任务改。dimension_evidence 按 item 列 task_ids、summary、evidence_refs；Resource 另交真实 target_resource_ref、consumer_refs（逐消费者文件 hash，可为未修改的复用文件；blocked 条目免）。已接受的证据在后续测试、DoD 与状态读取继续核验；复用文件证据失效也不沿用 Green。
+6. **Test-Runner → MO DoD → 父汇总 → Auditor**：测试用已冻结的路径/断言，不从实现降标准。DoD 检查四维追溯的完整实现与正式测试证据；父 MO 汇总子 item 覆盖与遗留。Auditor 等全体收尾后全量审阅宿主目标与代码，复测遗留/受影响范围，按四维依据定位遗漏、接线或资源缺陷。
 
 叶子唯一的 test-fixture 定义即其验证 fixture，未写指针时由 Ledger 补全；Logic/Adhesive 的 target_binding 未定记欠项放行，Resource 目标侧字段仍须冻结前定。
 
@@ -62,9 +62,7 @@ Resource 指应用资源；原 Dependencies / Resources 中的文件锁、设备
 
 ## 6. 简例：搜索子功能
 
-GO 先从功能清单划定“搜索”模块 scope，再在 UI 记录搜索框/结果与错误态，Logic 记录过滤/分页/重试，Adhesive 记录路由/DI/repository 接线，Resource 记录文案/图标/主题。父 MO 认领后先拆成“提交查询”“结果分页”等子模块，再分别分析四维实现要求，公共 SearchRepository 只有一个实现 owner，其余声明消费者依赖。
-
-若另一个子功能只是无界面的查询参数解析器，UI 可 N/A，Logic 记录解析/失败语义，Adhesive 按是否负责接入决定，Resource 按实际使用决定。每个 N/A 均需源码证据；其 Logic item 仍映射到实现任务、参数化 CASE/PATH/ASSERT，不能因为无 UI 而漏测。
+GO 从功能清单划定"搜索"模块 scope：UI 记搜索框/结果与错误态，Logic 记过滤/分页/重试，Adhesive 记路由/DI/repository 接线，Resource 记文案/图标/主题。父 MO 拆成"提交查询""结果分页"等子模块再逐个分析，公共 SearchRepository 只有一个实现 owner，其余声明消费者依赖。无界面的查询参数解析器 UI 可 N/A（需源码证据），其 Logic item 仍映射到实现任务与参数化 CASE/PATH/ASSERT，不因无 UI 而漏测。
 
 ## 7. 任务级四维分析契约
 

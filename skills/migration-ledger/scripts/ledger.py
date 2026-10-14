@@ -13,6 +13,7 @@ sys.dont_write_bytecode = True
 
 import workflow
 import api_contract
+import data_contract
 import audit_closure
 import audit_code_review
 import decomposition
@@ -498,6 +499,7 @@ def freeze_gates(s, m, p):
     import resource_fidelity
     gates += [('resources', lambda: resource_fidelity.freeze_gate(s, m, first)),
               ('api', lambda: api_contract.freeze(s, m, p)),
+              ('data', lambda: data_contract.freeze(s, m)),
               ('ui', lambda: ui_fidelity.freeze_gate(s, m, first)),
               ('knowledge', lambda: knowledge_gate.freeze_gate(s, m))]
     if not p.get('decision_id') and p.get('review_ref'):
