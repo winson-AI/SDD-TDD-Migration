@@ -145,9 +145,8 @@ def validate(config):
             require(isinstance(platforms, list) and platforms and len(set(platforms)) == len(platforms)
                     and set(platforms) <= {'android', 'harmony'}, 'test_adapter.device.platforms lists android and/or harmony')
         else:
-            from user_paths import GAP_CHARS  # the statement becomes each leaf's declared gap
-            require(isinstance(device['unavailable'], str) and device['unavailable'].strip() and len(device['unavailable'].strip()) <= GAP_CHARS,
-                    f'test_adapter.device.unavailable gives the reason no device is available, in at most {GAP_CHARS} characters')
+            require(isinstance(device['unavailable'], str) and device['unavailable'].strip(),  # the statement becomes each leaf's declared gap
+                    'test_adapter.device.unavailable gives the reason no device is available')
     require('{{' not in json.dumps(config), 'unfilled project placeholders')
     return config
 

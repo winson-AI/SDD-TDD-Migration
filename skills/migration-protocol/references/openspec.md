@@ -13,7 +13,7 @@
 
 测试设计另以 test-design 工件绑定冻结，为 TDD 提供 CASE/PATH/ASSERT；status/checklist 属运行与治理视图。
 
-体量上限（Ledger 在 plan 拒绝）：proposal 4 KB、每份 spec 12 KB、design 16 KB、tasks 8 KB、test-design 8 KB，五者合计 60 KB；upstream-test-plan 20 KB、fixture-contract 20 KB、全部 mapping 为 new 的 reuse-plan 2 KB。引用不复述：legacy 以 `path#symbol` 或 `path:line` 引用，不抄源码，每份文档代码块合计不超过 2 KB；分配包与分析已有的 scope.out、item 映射只引用；design.md 不设 Decisions 节，决定只记 decision_envelope 与 decision 记录。
+运行产物不设体量上限：以任务完成为准，Ledger 不因大小拒绝或记欠项，体量棘轮只约束工作流包自身的协议、卡片与模板。引用不复述：legacy 以 `path#symbol` 或 `path:line` 引用，不抄源码；分配包与分析已有的 scope.out、item 映射只引用；design.md 不设 Decisions 节，决定只记 decision_envelope 与 decision 记录。
 
 不另外维护重复 `spec.md`、`plan.md` 状态源。spec 部分可含多能力 delta 文件；tasks 即可执行计划；status 记录阶段、循环、next_action；追溯及测试报告存不可变 artifacts，由 Ledger 索引。
 

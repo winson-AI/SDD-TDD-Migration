@@ -9,33 +9,6 @@ def acceptance(paths):
             for path in paths]
 
 
-# Authored documents are read by every role that follows: each states its decisions and cites the source by
-# path#symbol or path:line instead of restating it. Sizes are bytes of the file a plan names.
-DOCUMENT_BYTES = {'proposal': 4_000, 'spec': 12_000, 'design': 16_000, 'tasks': 8_000, 'test-design': 8_000}
-DEFINITIONS_BYTES = 60_000       # the documents above, together
-TEST_PLAN_BYTES = 20_000         # the upstream test plan a SPEC brings (test_design_ref)
-FIXTURE_CONTRACT_BYTES = 20_000
-REUSE_PLAN_BYTES = 2_000         # a reuse plan whose every mapping is new has nothing to map
-
-
-def document_sizes(plan):
-    def within(ref, label, cap):
-        size = check_ref(ref).stat().st_size
-        require(size <= cap, f'{label} over {cap // 1000} KB ({size} bytes): state the decision and cite the source by path#symbol or path:line')
-        return size
-    total = sum(within(d, d['kind'], DOCUMENT_BYTES[d['kind']]) for d in plan['definitions'] if d['kind'] in DOCUMENT_BYTES)
-    require(total <= DEFINITIONS_BYTES, f'definitions over {DEFINITIONS_BYTES // 1000} KB ({total} bytes): state the decision and cite the source by path#symbol or path:line')
-    if plan.get('test_design_ref'):
-        within(plan['test_design_ref'], 'upstream test plan', TEST_PLAN_BYTES)
-    fixture = ((plan.get('source_closure') or {}).get('verification') or {}).get('fixture_contract_ref')
-    if fixture:
-        within(fixture, 'fixture contract', FIXTURE_CONTRACT_BYTES)
-    if plan.get('reuse_plan_ref'):
-        review = read_json(check_ref(plan['reuse_plan_ref']))
-        if all(row.get('decision') == 'new' for row in review.get('mappings') or []):
-            within(plan['reuse_plan_ref'], 'reuse plan', REUSE_PLAN_BYTES)
-
-
 def acceptance_hash(m):
     paths = m['plan']['paths']
     return digest(acceptance(paths))
@@ -97,15 +70,10 @@ def needs_human(m):
     return None if preserves_acceptance(m) else 'acceptance changed'
 
 
-REVIEW_BYTES = 8_000  # what a review says fits in this: a verdict, the blocking defects, the issues it recorded, the failing gates
-
-
 def technical_review(m, ref, actor=None, decided=False):
     """`decided`: a person has approved this plan's decision boundary, so the review speaks for its text only."""
     review = read_json(check_ref(ref))
     require(review.get('plan_hash') == m['plan_hash'], 'MO plan review stale')
-    require(sum(Path(r['path']).stat().st_size for r in review.get('evidence_refs') or [] if isinstance(r, dict) and r.get('path')) <= REVIEW_BYTES,
-            'review over %d KB: a verdict, the blocking defects, the issues recorded and the gates still failing - no narrative' % (REVIEW_BYTES // 1000))
     require(not boundary(review), 'semantic/authorization changes require exact human decision')
     require(review.get('reviewer_instance_id') and review['reviewer_instance_id'] not in
             m.get('spec_authors', []) + m.get('design_authors', []), 'MO review must be independent of plan authors')

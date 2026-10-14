@@ -25,7 +25,7 @@ ROTATE_BUDGET = 100_000
 TEMPLATE_BUDGET = 20_000
 TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 498500  # consolidated ceiling, lowered after the fewer-words round; reduce again after the next
+PROTOCOL_BUDGET = 498300  # consolidated ceiling, lowered when the run-artifact size gates left; reduce again after the next
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -586,7 +586,6 @@ def templates(s, m, step):
 # A rejected request points at the section that states the failed gate; advisory, first match wins.
 GATES = [
     (r'\bissues? |issue[_-]|blocking issue|gap the Ledger recorded|standing rule', 'local-runtime.md', '操作矩阵'),  # first: an issue's text may name any topic
-    (r'(proposal|spec|design|tasks|test-design|definitions|upstream test plan|fixture contract|reuse plan) over \d+ KB', 'openspec.md', '六件套映射'),
     (r'build unit busy', 'build-automation.md', '总则'),
     (r'the plan settles (?!an API)', 'dimension-slicing.md', '4. 控制节点与交接'),
     (r'trace routes|invalid finding action', 'local-runtime.md', '操作矩阵'),

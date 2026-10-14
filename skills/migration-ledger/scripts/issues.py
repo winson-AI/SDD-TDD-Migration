@@ -11,7 +11,6 @@ import hashlib
 OPS = {'issue', 'issue-resolve'}
 KINDS = ('defect', 'fact', 'gap', 'need', 'decision', 'standing')
 LEDGER = {'role': 'ledger', 'instance_id': 'ledger'}
-SUMMARY_CHARS = 400  # an issue is stated in one line; its detail is in evidence_refs
 STEP_CHARS = 200     # what a step view shows of each line
 STEP_ROWS = 10       # how many open issues a step lists: the blocking ones first, then the newest
 
@@ -30,7 +29,6 @@ def handle(s, req, actor, sequence=None):
             require(isinstance(iid, str) and iid.strip() and iid not in issues and iid not in judged, 'issue_id must be new')
             require(e.get('kind') in KINDS, 'issue kind is one of ' + ', '.join(KINDS))
             require(isinstance(e.get('summary'), str) and e['summary'].strip(), 'issue summary required')
-            require(len(e['summary'].strip()) <= SUMMARY_CHARS, f'an issue summary is at most {SUMMARY_CHARS} characters; the detail goes in evidence_refs')
             require(isinstance(targets, list) and targets and set(targets) <= set(s['modules']) | set(s.get('module_groups', {})),
                     'issue applies_to names the registered modules it concerns')
             require(not (e.get('blocks') and e['kind'] in ('standing', 'fact')), 'a standing rule is followed and a fact is recorded, not settled; it cannot block')
