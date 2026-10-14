@@ -23,7 +23,7 @@ assignment → 摘要绑定当前输入 → 职责内工件 → 请求 → ACK �
 确认角色身份/assignment、Ledger sequence、输入 hash、权限范围；拒绝占位符或伪造证据；失败和受阻均记录可恢复动作。
 
 ## 6. 资产
-阅读卡 templates 实例化到本实例 staging，不覆盖包模板。
+阅读卡只列本步模板名；写某工件前 `reading.py show --template <名>` 取单份，实例化到本实例 staging，不覆盖包模板。
 
 ## 7. 业务边界与阶段验收
 

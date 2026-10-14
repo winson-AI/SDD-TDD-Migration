@@ -730,7 +730,7 @@ def unlink(text, ref):
 
 
 FOOTER = ('<!-- 取用 -->\n本卡之外的规则不整份读取：`reading.py show --ref <文件> --section <小节>` 读单节，'
-          '上文“（文件 § 小节）”即可直接作为参数。\n')
+          '上文“（文件 § 小节）”即可直接作为参数。本步模板只列名：写该工件前 `reading.py show --template <名>` 取单份，不预读全部。\n')
 
 
 def render(rows, output_dir, extra=(), skill=None):
@@ -762,6 +762,15 @@ def show(ref, heading=None):
     return section(str(path.relative_to(PACKAGE)), heading)
 
 
+def show_template(name):
+    """One template, for the role about to write that artifact; a card names its step's templates and carries none."""
+    folder = (PACKAGE / 'template').resolve()
+    path = (folder / name).resolve()
+    if not path.is_relative_to(folder) or not path.is_file():
+        raise KeyError(f'not a package template: {name}')
+    return path.read_text()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -771,13 +780,15 @@ def main():
     target = r.add_mutually_exclusive_group(required=True)
     target.add_argument('--module')
     target.add_argument('--global', dest='is_global', action='store_true')
-    sh = sub.add_parser('show', help='print one section of a package Markdown file')
-    sh.add_argument('--ref', required=True)
+    sh = sub.add_parser('show', help='print one section of a package Markdown file, or one template by name')
+    what = sh.add_mutually_exclusive_group(required=True)
+    what.add_argument('--ref')
+    what.add_argument('--template')
     sh.add_argument('--section')
     args = parser.parse_args()
     try:
         if args.command == 'show':
-            sys.stdout.write(show(args.ref, args.section))
+            sys.stdout.write(show_template(args.template) if args.template else show(args.ref, args.section))
             return 0
         from ledger import status
         st = status(args.root)
