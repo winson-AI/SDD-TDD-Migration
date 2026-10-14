@@ -31,7 +31,7 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 scenario_trace 写时每行给 scenario_id 与 task_ids，assertions 由 Ledger 按设计断言的 scenario_ids 补全（写了须与之相同）；每个场景至少被一条行为断言验证、每条行为断言至少验证一个场景、全部任务有归属，允许多对多，build/static 不充当行为断言。
 
-1. 六件套与测试路径（SPEC 带 Requirement-ID/Scenario-ID）完整且预期明确即可冻结；测试设计不运行目标代码。
+1. 六件套与测试路径（SPEC 带 Requirement-ID/Scenario-ID）完整且预期明确即可冻结：起步门禁只有范围/写锁/任务/PATH/四维追溯/六件套，UI 模型与 UI 树、基线、保真场景、API/数据义务是欠项（DoD 前结清），无设备的 run 不要求 UI 树与基线；测试设计不运行目标代码。
 2. Spec-Designer 把明确的问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复绑定 question_id、spec_revision、内容摘要，既有答复可复用，绑定内容已变则重新裁决。
 3. 冻结 manifest 列出 proposal、全部 delta specs、design、tasks 定义、test design 与已准备测试资产的实际 path+sha256；checklist 是包内评审清单，与全局上下文一样不进 manifest，由 Ledger 绑定。保留不可变副本，生成 freeze_id/spec_revision。
 4. `status`、tasks 勾选、checklist 证据等运行字段不入语义冻结 hash；冻结的原始定义始终在不可变 artifacts。动态视图可按已固化映射重定位文档链接与更新勾选，不改需求、设计和断言语义；验证比较定义快照，不以可变文件整体 hash 误判失效。

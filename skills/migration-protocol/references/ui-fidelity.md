@@ -12,7 +12,7 @@ UI scope 使用可校验载体：
 
 ### 稳定截图目标与瞬态行为
 
-GO/父 MO 在范围分配时保留全部源状态；子 MO 的 Spec-Designer 在冻结前区分两类验证义务，并在已有 SPEC/test-design 中逐状态记录源码依据、验证方式和 PATH/ASSERT：
+GO/父 MO 分配时保留全部源状态；Spec-Designer 冻结前区分两类验证义务，在 SPEC/test-design 中逐状态记录源码依据、验证方式和 PATH/ASSERT：
 
 | 状态 | 实现与验证 | 截图要求 |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ GO/父 MO 在范围分配时保留全部源状态；子 MO 的 Spec-Designer 在
 
 ## UI 证据绑定
 
-`ui-component-spec` 语义模型携带 `ui_evidence`，随冻结经 [semantics.py](../../migration-ledger/scripts/semantics.py) 结构校验；UI 证据与采集器产物（参数表、UI 树与索引）以引用进入计划、不内联，重提只改引用：
+`ui-component-spec` 模型携带 `ui_evidence`，随冻结经 [semantics.py](../../migration-ledger/scripts/semantics.py) 结构校验；证据与采集器产物（参数表、UI 树与索引）以引用进入计划，重提只改引用：
 
 `ui_evidence` 字段：`capture_manifest_ref`、`source_index_ref`、`runtime_index_ref`（source-only 不提供）、`ui_tree_ref`（合并 source+runtime 的 UI 树）、`coverage`（page:state:coverage）、`legacy_executable`（冻结前判定存量能否预览）、`visual_mode`（runtime ⟺ 可预览，须与树的 runtimeIndex 一致）、`baseline_refs`（存量截图，source-only 省略）与可选 `resource_scope`；同一模型可带 `interactions`、`image_checks` 与 `image_check_waivers`。示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
@@ -34,11 +34,11 @@ runtime 证据必须有原始 capture_manifest_ref；runtime index 的 manifestS
 
 ## 强制开关
 
-prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-ledger/scripts/ui_fidelity.py) 仅对 applicable UI 强制冻结门禁，无 UI/有证据的 N/A 不新增空任务：每个 applicable UI item 必须携带绑定 `ui_evidence` 的 `ui-component-spec` 模型（`semantics.ui_fidelity_gaps` 列缺口）；必须已判定存量可执行性；资源闭包不得缩减，[复制清单与参数表](resource-transfer.md#总则)与证据重算一致；`source_closure.ui_renderers` 必填；有基线的目标必须有 visual 路径，树上每处静态图片有图像检查或豁免。
+prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-ledger/scripts/ui_fidelity.py) 只约束 applicable UI，无 UI/有证据的 N/A 不新增空任务：每个 applicable UI item 的 `ui-component-spec` 模型与 `ui_evidence` 是冻结前欠项（`semantics.ui_fidelity_gaps` 列缺口，DoD 前结清；无设备的 run 不要求），有证据的条目已判定存量可执行性；资源闭包不得缩减，[复制清单与参数表](resource-transfer.md#总则)与证据重算一致；`source_closure.ui_renderers` 必填；有基线的目标必须有 visual 路径，树上每处静态图片有图像检查或豁免。
 
 ## 基线前移：截图指导实现，而非事后比对
 
-基线**前移到规划/实现阶段**作为输入，冻结前必须判定存量可执行性（[ui_fidelity.baseline_gate](../../migration-ledger/scripts/ui_fidelity.py)）：
+基线**前移到规划/实现阶段**作为输入，有 UI 证据的条目冻结前判定存量可执行性（[ui_fidelity.baseline_gate](../../migration-ledger/scripts/ui_fidelity.py)）：
 
 | 判定 | `ui_evidence` | 作用 |
 |---|---|---|
