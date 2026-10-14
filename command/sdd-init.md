@@ -18,7 +18,7 @@ description: /sdd-init [input.json绝对路径] [--mode single-module --module-n
 目标角色 [Global-Orchestrator](../Agents/global-orchestrator.md)；[切片规约](../skills/migration-global/references/slicing.md#总则)、[父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md#总则)、[模块隔离与全量收尾](../skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾)。
 
 ## 4. 接入要点
-- 功能清单默认取测试用例汇总；没有汇总时 GO 先理解存量源码抽取完整清单再生成需求/CASE；有汇总也对照源码查漏，歧义先人工介入。可选 module_slicing 人工导入按引用与摘要验证。
+- 功能清单与用例来源按[切片规约](../skills/migration-global/references/slicing.md#用例来源与切片抓手)；可选 module_slicing 人工导入按引用与摘要验证。
 - 上下文就绪、四维分析为必选门禁：global-discovery 随 register、decomposition 随 decompose、global-planning 随 global-plan 提交；GO 生成每个根模块的 dimension_analysis_ref，用户不手写。见[阶段协议](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点)、[四维协议](../skills/migration-protocol/references/dimension-slicing.md#总则)。
 - 可选 reuse_sources 由宿主保存，TARGET 自动纳入；GO 提取能力目录交父 MO，见[二方库协议](../skills/migration-protocol/references/reuse-dependencies.md#总则)。可选 build 命令缺省时 GO 搜索构建脚本并评估 Gradle assemble，见[双环节协议](../skills/migration-protocol/references/build-automation.md#总则)。
 - 运行位置：prepare 按 run_id 派生 `.sdd-runs/<run_id>`，宿主用返回的 run_root 调用 Ledger，入口为 status.openspec_hub；同 run 恢复不重置预算、不重新 init，新迁移分配新 run_id。见[留存布局](../skills/migration-protocol/references/storage-layout.md#总则)。

@@ -149,14 +149,19 @@ class FlowTests(unittest.TestCase):
                 'case_owners': {'C1': list(state['modules']) + (['GLOBAL'] if state['global_paths'] else [])}}
         if state.get('context_readiness_required'):
             evidence = self.ref('feature-discovery.md', 'Reviewed legacy entry and complete R1 behavior in fixture')
+            cut = {mid: m['functional_paths'] for mid, m in state['modules'].items() if m.get('functional_paths')}  # leaves cut from the feature tree hold their node
+            rest = [mid for mid in state['modules'] if mid not in cut]
+            features = [{'feature_id': 'F-' + mid, 'name': 'subfunction-' + mid, 'functional_path': cut[mid][0], 'trigger': 'invoke', 'observable_result': 'result',
+                         'requirement_ids': ['R1'], 'case_ids': list(state['modules'][mid]['case_ids']), 'evidence_refs': [evidence]} for mid in sorted(cut)]
+            if rest:
+                features.append({'feature_id': 'F1', 'name': 'fixture behavior', 'functional_path': 'Feature/Result',
+                    'trigger': 'invoke', 'observable_result': 'result', 'requirement_ids': ['R1'], 'case_ids': ['C1'], 'evidence_refs': [evidence]})
             inventory = {'schema_version': 1, 'legacy_root': state['legacy_root'], 'entry_mode': state['entry_mode'],
-                'single_module_id': state.get('single_module_id'), 'source_mode': 'legacy-source', 'test_summary_ref': None,
-                'features': [{'feature_id': 'F1', 'name': 'fixture behavior', 'functional_path': 'Feature/Result',
-                    'trigger': 'invoke', 'observable_result': 'result', 'requirement_ids': ['R1'], 'case_ids': ['C1'], 'evidence_refs': [evidence]}],
-                'source_units': [{'unit_id': 'U1', 'kind': 'legacy-entry', 'locator': state['legacy_root'], 'feature_ids': ['F1'], 'evidence_refs': [evidence]}],
+                'single_module_id': state.get('single_module_id'), 'source_mode': 'legacy-source', 'test_summary_ref': None, 'features': features,
+                'source_units': [{'unit_id': 'U1', 'kind': 'legacy-entry', 'locator': state['legacy_root'], 'feature_ids': [f['feature_id'] for f in features], 'evidence_refs': [evidence]}],
                 'coverage': {'status': 'complete', 'unclassified': [], 'unresolved_questions': []}, 'questions': []}
             plan['feature_inventory_ref'] = self.ref(f'feature-inventory-{self.n}.json', inventory)
-            plan['feature_owners'] = {'F1': list(state['modules'])}
+            plan['feature_owners'] = {**{'F-' + mid: [mid] for mid in cut}, **({'F1': rest} if rest else {})}
         plan.update(extra)
         self.call('global-plan', {'plan_ref': self.ref(f'global-plan-{self.n}.json', plan), 'review_ref': self.ref('coverage.md', 'all covered')},
                   role='global-orchestrator', module=None)

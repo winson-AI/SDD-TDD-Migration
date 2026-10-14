@@ -48,7 +48,7 @@ class DecompositionTests(unittest.TestCase):
         state = self.state()
         held = state['modules'].get(parent) or state.get('module_groups', {}).get(parent) or {'case_ids': ['C1']}
         accepted = behavior_contract.accepts(held)  # the first slice accepts what the parent accepts; the others support it
-        return {'parent_module_id': parent, 'rationale': 'independent functional behaviors and coverage',
+        plan = {'parent_module_id': parent, 'rationale': 'independent functional behaviors and coverage',
                 'case_acceptance': {cid: ids[0] for cid in accepted}, 'children': [
                     {'module_id': mid, 'name': 'subfunction-' + mid, 'case_ids': ['C1'],
                      'write_paths': [str(self.target / ('m1' if mid == 'M001' else 'm2' if mid == 'M002' else 'm1/nested'))],
@@ -56,6 +56,14 @@ class DecompositionTests(unittest.TestCase):
                      **({'kind': 'scaffold'} if any(mid in deps for deps in (dependencies or {}).values()) or mid in (ids[1:] if accepted else ids) else {}),  # what others build on, and a slice accepting no case, is the scaffold
                      'scope': {'in': ['subfunction-' + mid], 'out': ['Orders'], 'requirement_ids': ['R1']},
                      'context_refs': [self.ref('context-'+mid+'.md', 'Subfunction '+mid+' entry and reuse ownership')]} for mid in ids]}
+        if state.get('context_readiness_required'):  # a split under readiness cuts the feature tree: one node per feature leaf
+            leaves = [c for c in plan['children'] if c.get('kind') != 'scaffold']
+            for c in leaves:
+                c['functional_paths'] = ['Feature/' + c['module_id']]
+            plan['feature_inventory_ref'] = self.ref('inventory-%s-%d.json' % (parent, self.n), {'test_summary_ref': None, 'source_units': [], 'features': [
+                {'feature_id': 'F-' + c['module_id'], 'name': c['name'], 'functional_path': 'Feature/' + c['module_id'], 'trigger': 'invoke',
+                 'observable_result': 'result', 'requirement_ids': ['R1'], 'case_ids': list(c['case_ids']), 'evidence_refs': []} for c in leaves]})
+        return plan
 
     def split(self, plan=None, parent='M010'):
         self.call('decompose', {'plan_ref': self.ref('split-'+parent+'.json', plan or self.proposal(parent))}, module=parent)

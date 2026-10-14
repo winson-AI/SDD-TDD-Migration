@@ -1,11 +1,18 @@
 {
   "parent_module_id": "M001",
   "rationale": "{{behavior-and-test-based-subfunction-boundaries}}",
+  "feature_inventory_ref": {
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{feature-inventory}}",
+    "sha256": "{{sha256}}"
+  },
   "children": [
     {
       "module_id": "M002",
       "name": "{{subfunction-name}}",
       "kind": "feature",
+      "functional_paths": [
+        "{{feature-tree-node; scaffold children omit it}}"
+      ],
       "anchor_ui": "{{page-or-screen-this-leaf-accepts; scaffold children omit it}}",
       "case_ids": [
         "CASE-GLOBAL-001"

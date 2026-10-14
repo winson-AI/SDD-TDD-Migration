@@ -9,10 +9,10 @@ import dimensions
 from pathlib import Path
 import re
 
-from contracts import Rejected, check_ref, digest, nonempty, read_json, require
+from contracts import Rejected, check_ref, digest, keyed, nonempty, read_json, require
 
 OPERATIONS = {'decompose', 'decompose-accept', 'module-summary', 'realloc-request', 'redecompose', 'redecompose-accept'}
-ALLOCATION_KEYS = ('name', 'scope', 'case_ids', 'write_paths', 'context_refs', 'dimension_analysis_ref', 'behavior_review', 'kind', 'anchor_ui')
+ALLOCATION_KEYS = ('name', 'scope', 'case_ids', 'write_paths', 'context_refs', 'dimension_analysis_ref', 'behavior_review', 'kind', 'anchor_ui', 'functional_paths')
 KINDS = ('feature', 'scaffold')  # a feature leaf anchors on a UI surface; a scaffold is the shell the features plug into
 LEAF_MIN_CASES = 3   # fewer is a screen or a branch of a flow, not a leaf: it merges into the flow it belongs to
 LEAF_CASES = 20      # more is a wide flow: recorded as a fact, the split is the orchestrator's call
@@ -145,6 +145,8 @@ def assigned_module(s, module):
         result['dimension_analysis_ref'] = module['dimension_analysis_ref']
     if parent and parent.get('dimension_analysis_ref'):
         result['parent_context']['dimension_analysis_ref'] = parent['dimension_analysis_ref']
+    if module.get('functional_paths'):
+        result['functional_paths'] = list(module['functional_paths'])
     return result
 
 
@@ -498,6 +500,59 @@ def standard(s, parent, children, plan, record=True):
                 require('UI' in dims and anchored, 'a feature leaf anchors on a UI surface: declare anchor_ui (the flow\'s screens) and UI items, or mark the child scaffold')
             if len(parent_dims) >= 2:
                 require(len(dims) >= 2, 'a leaf is not a single layer: it carries the Logic, Adhesive and Resource items behind its UI, or is a scaffold')
+    bound(s, parent, children, plan, record)
+
+
+def node_features(features, paths):
+    """The features at or below the feature-tree nodes `paths` name: a node is a functional_path, its subtree the paths under it."""
+    return {fid for fid, f in features.items()
+            if any(f.get('functional_path') == p or str(f.get('functional_path') or '').startswith(p + '/') for p in paths)}
+
+
+def bound(s, parent, children, plan, record=True):
+    """The slices and the cases come from one inventory: a functional leaf is one or more nodes of the feature tree the split
+    cuts (plan.feature_inventory_ref), holds the features at or below its nodes and exactly their cases; leaves do not share
+    a feature and together hold every feature of the parent; a scaffold holds none. Over a supplied test summary a leaf
+    anchors on at least one feature the supplied cases cover, and what it holds beyond them is recorded as a fact."""
+    import issues
+    ref = plan.get('feature_inventory_ref')
+    if not ref:
+        require(not s.get('context_readiness_required') or any(registered(s, c) for c in children),
+                'a split names the feature inventory it cuts: plan.feature_inventory_ref')
+        return
+    inventory = read_json(check_ref(ref))
+    features = keyed(inventory.get('features'), 'feature_id')
+    parent_cases = set(parent.get('case_ids') or [])
+    mine = {fid: f for fid, f in features.items() if parent_cases.intersection(f.get('case_ids') or [])}
+    for fid, f in mine.items():
+        require(set(f['case_ids']) <= parent_cases, 'feature %s reaches outside the parent: a feature belongs to one root' % fid)
+    supplied = {fid for u in inventory.get('source_units') or [] if u.get('kind') == 'test-case-group' for fid in u.get('feature_ids') or []} \
+        if inventory.get('test_summary_ref') else None
+    held = {}
+    for child in children:
+        paths = child.get('functional_paths')
+        if child.get('kind') == 'scaffold':
+            require(not paths, 'a scaffold holds no feature-tree node: it is the shell the flows plug into')
+            continue
+        require(isinstance(paths, list) and paths and all(isinstance(p, str) and p.strip() for p in paths),
+                'a feature leaf names its feature-tree nodes: functional_paths')
+        found = node_features(mine, paths)
+        require(found, '%s names no feature of the parent: functional_paths are nodes of the feature tree under it' % child['module_id'])
+        for fid in sorted(found):
+            require(fid not in held, 'feature %s is held by %s and %s: leaves do not overlap' % (fid, held.get(fid), child['module_id']))
+            held[fid] = child['module_id']
+        require(set(child.get('case_ids') or []) == {cid for fid in found for cid in mine[fid]['case_ids']},
+                "%s accepts exactly the cases of the features it holds: its case_ids are not its nodes' cases" % child['module_id'])
+        if supplied is not None:
+            require(found & supplied, '%s holds only features derived from source: merge them into the flow of the supplied cases they extend, '
+                    'or take them to boundary review' % child['module_id'])
+            derived = sorted(found - supplied)
+            if record and derived:
+                issues.record(s, 'SLICE-%s-derived' % child['module_id'], 'fact', '%s holds %d features found in source beyond the supplied cases: %s'
+                              % (child['module_id'], len(derived), ', '.join(derived)), [parent['module_id']], issues.LEDGER,
+                              resolved={parent['module_id']: {'by': issues.LEDGER, 'recorded': True}})
+    unheld = sorted(set(mine) - set(held))
+    require(not unheld, 'features without a leaf: %s' % ', '.join(unheld))
 
 
 def slicing_signals(s):
