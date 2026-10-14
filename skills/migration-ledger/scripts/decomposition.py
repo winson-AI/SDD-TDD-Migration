@@ -14,6 +14,9 @@ OPERATIONS = {'decompose', 'decompose-accept', 'module-summary', 'realloc-reques
 ALLOCATION_KEYS = ('name', 'scope', 'case_ids', 'write_paths', 'context_refs', 'dimension_analysis_ref', 'behavior_review', 'kind', 'anchor_ui')
 KINDS = ('feature', 'scaffold')  # a feature leaf anchors on a UI surface; a scaffold is the shell the features plug into
 LEAF_CASES = 20  # more cases than this is a surface to split
+SKELETON_TASKS = 3  # the tasks that make a scaffold's shell: what its features are released on before the rest of it is written
+SKELETON_PATHS = ('build', 'unit', 'static')
+TASK_FILES = 40  # more files than this in one version of a task is a task to split
 
 TERMINAL = {'completed', 'waiting-auditor', 'waiting-dependency', 'waiting-human', 'automation-deferred', 'waiting-upstream'}
 
@@ -186,6 +189,31 @@ def check_tasks(module, plan):
     require(requirements == allowed, 'tasks must cover assigned submodule requirements')
     require({p.get('case_id') for p in plan.get('paths', [])} <= set(module['case_ids']),
             'test cases outside assigned submodule scope')
+
+
+def check_skeleton(module, plan):
+    """A scaffold names the tasks that make its shell - the module shell and wiring, the interface facade with its fakes, the
+    shared resource table - and its features are released once those are accepted and built. A scaffold of a few tasks is
+    its own shell. A feature declares none."""
+    declared = plan.get('skeleton_task_ids')
+    if module.get('kind') != 'scaffold':
+        require(not declared, 'only a scaffold declares skeleton tasks')
+        return
+    tasks = {t['task_id']: t for t in plan.get('tasks', [])}
+    if not declared:
+        require(len(tasks) <= SKELETON_TASKS, 'a scaffold of more than %d tasks declares skeleton_task_ids: the shell its features are released on' % SKELETON_TASKS)
+        return
+    require(isinstance(declared, list) and 0 < len(declared) <= SKELETON_TASKS and set(declared) <= set(tasks),
+            'skeleton_task_ids names at most %d tasks of the plan' % SKELETON_TASKS)
+    kinds = {p['path_id']: p.get('kind', 'automation') for p in plan.get('paths', [])}
+    for tid in declared:
+        require(all(kinds.get(pid) in SKELETON_PATHS for pid in tasks[tid].get('path_ids', [])),
+                'a skeleton task is verified by build, unit and static paths only: ' + tid)
+
+
+def skeleton(m):
+    """The tasks a scaffold releases its features on, when it named them."""
+    return set((m.get('plan') or {}).get('skeleton_task_ids') or [])
 
 
 def leaves(s, mid):
@@ -430,9 +458,23 @@ def slicing_signals(s):
         cross = sum(1 for it in (s.get('issues') or {}).values() if mid in (it.get('applies_to') or []) and len(it.get('applies_to') or []) > 1)
         crs = len(m.get('change_request_history') or []) + (1 if m.get('change_request') else 0)
         chain = depth(mid)
-        flags = [name for name, hit in (('cross-module-issues', cross > 3), ('change-request-cascade', crs > 1), ('chain-depth', chain > 2)) if hit]
-        out[mid] = {'cross_module_issues': cross, 'change_requests': crs, 'chain_depth': chain, 'flags': flags}
+        large = sorted(tid for tid, files in (m.get('task_files') or {}).items() if len(files) > TASK_FILES)
+        flags = [name for name, hit in (('cross-module-issues', cross > 3), ('change-request-cascade', crs > 1), ('chain-depth', chain > 2),
+                                        ('large-tasks', bool(large))) if hit]
+        out[mid] = {'cross_module_issues': cross, 'change_requests': crs, 'chain_depth': chain, 'large_tasks': large, 'flags': flags}
     return out
+
+
+def task_size_facts(s, mid, trace, sequence=None):
+    """Record, once per task, that a version of it touched more than TASK_FILES files: a fact for the trace and the audit,
+    settled as it is recorded - the first version goes on, the split is the MO's call."""
+    import issues
+    for row in trace:
+        files = row.get('files') or []
+        if len(files) > TASK_FILES:
+            issues.record(s, 'SIZE-%s-%s' % (mid, row['task_id']), 'fact',
+                          'task %s touched %d files in one version (over %d): a smaller task is easier to verify and to adjust' % (row['task_id'], len(files), TASK_FILES),
+                          [mid], issues.LEDGER, resolved={mid: {'by': issues.LEDGER, 'recorded': True}}, sequence=sequence)
 
 
 def built_on(s, providers):

@@ -10,6 +10,12 @@ import project_context
 import run_storage
 
 
+
+def dumps(value):
+    """Projected JSON with its keys sorted: a replay may build a dict in another order, and the text must not change for it."""
+    return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True)
+
+
 def write(path, text):
     path = run_storage.checked_path(path)
     if path.is_file() and path.read_text() == text:
@@ -68,9 +74,9 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
                       'design_input_ref': m.get('design_input_ref'), 'accepted_test_design': m.get('accepted_test_design')}
             heading = '# Replanning required' if m.get('planning_history') else '# Planning status — no frozen SPEC'
             emit(change / 'status.md', heading + '\n\n```json\n' +
-                  json.dumps(status, ensure_ascii=False, indent=2) + '\n```\n')
-            emit(previous, json.dumps({**status, 'run_root': str(root), 'module_id': mid, 'files': ['status.md'],
-                  'historical_plan_ref': (m.get('planning_history') or [{}])[-1].get('plan_ref')}, ensure_ascii=False, indent=2) + '\n')
+                  dumps(status) + '\n```\n')
+            emit(previous, dumps({**status, 'run_root': str(root), 'module_id': mid, 'files': ['status.md'],
+                  'historical_plan_ref': (m.get('planning_history') or [{}])[-1].get('plan_ref')}) + '\n')
         return
     change = run_storage.change_root(root, state, mid, claim=claim)
     manifest = {'sequence': sequence, 'run_root': str(root), 'module_id': mid, 'freeze_id': m['freeze_id'],
@@ -109,14 +115,14 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
     status['accepted_test_design'] = m.get('accepted_test_design')
     status.update(sequence=sequence, next_step=state.get('projection_steps', {}).get(mid),
                   audit_resolution=state.get('audit_resolutions', {}).get(mid))
-    emit(change / 'status.md', '# Ledger status (generated)\n\n```json\n' + json.dumps(status, ensure_ascii=False, indent=2) + '\n```\n')
+    emit(change / 'status.md', '# Ledger status (generated)\n\n```json\n' + dumps(status) + '\n```\n')
     emit(change / 'memory.md', '# Repair memory (generated)\n\nOnly verified entries may inform a new repair; recheck applicability and current SPEC.\n\n```json\n' +
-          json.dumps(m.get('fix_memory', []), ensure_ascii=False, indent=2) + '\n```\n')
+          dumps(m.get('fix_memory', [])) + '\n```\n')
     manifest['files'] += ['status.md', 'memory.md']
     if m.get('scenario_index'):
         emit(change / 'scenarios.md', '# Scenario trace (derived from frozen OpenSpec)\n\n'
              'Read-only index; revise the SPEC and plan through normal change control.\n\n```json\n' +
-             json.dumps({'scenario_index': m['scenario_index'], 'scenario_trace': m['plan']['scenario_trace']}, ensure_ascii=False, indent=2) + '\n```\n')
+             dumps({'scenario_index': m['scenario_index'], 'scenario_trace': m['plan']['scenario_trace']}) + '\n```\n')
         manifest['files'].append('scenarios.md')
     if m['plan'].get('reuse_plan_ref'):
         ref = m['plan']['reuse_plan_ref']
@@ -130,9 +136,9 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
         emit(change / 'dimensions.md', '# Dimension coverage (Ledger projection)\n\n' +
               'Analysis order: UI -> Logic -> Adhesive -> Resource. N/A requires source evidence.\n\n```json\n' +
               definition(root, ref) + '\n```\n\n## Task / PATH / ASSERT trace\n\n```json\n' +
-              json.dumps(m['plan']['dimension_trace'], ensure_ascii=False, indent=2) + '\n```\n\n## Task scope and dimension analysis\n\n```json\n' +
-              json.dumps([{k: task[k] for k in ('task_id', 'scope', 'dimension_analysis')}
-                          for task in m['plan']['tasks']], ensure_ascii=False, indent=2) + '\n```\n')
+              dumps(m['plan']['dimension_trace']) + '\n```\n\n## Task scope and dimension analysis\n\n```json\n' +
+              dumps([{k: task[k] for k in ('task_id', 'scope', 'dimension_analysis')}
+                          for task in m['plan']['tasks']]) + '\n```\n')
         manifest['dimension_analysis_ref'] = ref
         manifest['files'].append('dimensions.md')
         # Read the immutable archived analysis (not the possibly-removed staging path).
@@ -142,14 +148,14 @@ def module_view(root, state, sequence, mid, m, targets, context_warnings, emit=N
             emit(change / 'semantics.md', '# Semantic extraction (Ledger projection)\n\n' +
                   'Machine-readable UI/Logic/Resource models frozen with the SPEC. Each records result '
                   '(model_ref), source (origin/locator) and target implementation_location.\n\n```json\n' +
-                  json.dumps(sem_rows, ensure_ascii=False, indent=2) + '\n```\n')
+                  dumps(sem_rows) + '\n```\n')
             manifest['files'].append('semantics.md')
     previous = change / 'manifest.json'
     if claim and previous.exists():
         for obsolete in set(json.loads(previous.read_text()).get('files', [])) - set(manifest['files']):
             candidate = run_storage.checked_path(change / obsolete, change)
             candidate.unlink(missing_ok=True)
-    emit(previous, json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+    emit(previous, dumps(manifest) + '\n')
 
 
 def _fix_note(memory):
@@ -270,24 +276,24 @@ def materialize(root, state, sequence):
         if coverage['applicable']:
             index['coverage'][mid] = coverage
     if index['models'] or index['coverage']:
-        attempt(errors, 'semantic-index', lambda: write(root / 'ledger/semantic-index.json', json.dumps(index, ensure_ascii=False, indent=2) + '\n'))
+        attempt(errors, 'semantic-index', lambda: write(root / 'ledger/semantic-index.json', dumps(index) + '\n'))
     memories = [{'module_id': mid, **entry} for mid, m in state['modules'].items() for entry in m.get('fix_memory', [])]
-    attempt(errors, 'repair-memory', lambda: write(root / 'ledger' / 'repair-memory.json', json.dumps({'sequence': sequence, 'entries': memories}, ensure_ascii=False, indent=2) + '\n'))
+    attempt(errors, 'repair-memory', lambda: write(root / 'ledger' / 'repair-memory.json', dumps({'sequence': sequence, 'entries': memories}) + '\n'))
     lessons = build_lessons(state, sequence, root)
-    attempt(errors, 'lessons-json', lambda: write(root / 'ledger/lessons.json', json.dumps(lessons, ensure_ascii=False, indent=2) + '\n'))
+    attempt(errors, 'lessons-json', lambda: write(root / 'ledger/lessons.json', dumps(lessons) + '\n'))
 
     if state.get('audit_batch'):
         b = state['audit_batch']
-        attempt(errors, 'audit-batch', lambda: write(root / 'ledger/audit-batch.json', json.dumps(b, ensure_ascii=False, indent=2) + '\n'))
+        attempt(errors, 'audit-batch', lambda: write(root / 'ledger/audit-batch.json', dumps(b) + '\n'))
         if b.get('human_report'):
-            report = json.dumps(b['human_report'], ensure_ascii=False, indent=2)
+            report = dumps(b['human_report'])
             attempt(errors, 'audit-report-json', lambda: write(root / 'audit-reports' / (b['batch_id'] + '.json'), report + '\n'))
             attempt(errors, 'audit-report-markdown', lambda: write(root / 'audit-reports' / (b['batch_id'] + '.md'), '# Audit failure — human review required\n\n```json\n' + report + '\n```\n'))
 
     # GO reads this complete case inventory when reporting the run outcome.
     import migration_report
     report = migration_report.build(root, state, sequence)
-    attempt(errors, 'migration-report-json', lambda: write(root / 'reports/migration-report.json', json.dumps(report, ensure_ascii=False, indent=2) + '\n'))
+    attempt(errors, 'migration-report-json', lambda: write(root / 'reports/migration-report.json', dumps(report) + '\n'))
     attempt(errors, 'migration-report-markdown', lambda: write(root / 'reports/migration-report.md', migration_report.render(report)))
     from workflow_hub import materialize as hub
     attempt(errors, 'workflow-hub', lambda: hub(root, state, sequence))

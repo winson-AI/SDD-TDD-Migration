@@ -2,7 +2,7 @@
 
 ## 总则
 
-Test-Runner 在 Coding 接受后先编译构建，随后在同一派发内运行逻辑单测，再做静态规格闭合审查（逐需求核对生产符号与假实现清单，见 [静态规格闭合](testing.md#静态规格闭合)），然后执行自动化测试。任务分批编写时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且依赖本模块（implemented）的切片已有代码，此前为 awaiting-assembly。构建命令相同的模块同时只一个在写。构建命令优先用户指定，否则全目标搜索脚本并默认评估 Gradle assemble。构建/真实用例错误记录三态与根因，修复仍由 Fixer。仅自动化环境不可启动时，保留当前构建 Green，逐用例记录 Yellow/未执行，经 automation-unavailable 进入 automation-deferred；独立任务及依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复。全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。不允许跳过构建或吞掉已观察到的 Red。
+Test-Runner 在 Coding 接受后先编译构建，随后同一派发内运行逻辑单测，再做静态规格闭合审查（逐需求核对生产符号与假实现清单，见 [静态规格闭合](testing.md#静态规格闭合)），然后执行自动化测试。任务分批编写时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且依赖本模块（implemented）的切片已有代码，此前为 awaiting-assembly。构建命令相同的模块同时只一个在写。构建命令优先用户指定，否则全目标搜索脚本并默认评估 Gradle assemble。构建/真实用例错误记三态与根因，修复仍由 Fixer。仅自动化环境不可启动时，保留当前构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred；独立任务及依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复。全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。不允许跳过构建或吞掉已观察到的 Red。
 
 ## 1. 职责与全局规则
 

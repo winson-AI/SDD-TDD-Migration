@@ -596,7 +596,7 @@ GATES = [
     (r'superseded plan|pins only its own target files', 'module-decomposition.md', '验证边界'),
     (r'task scope (in|out):', 'dimension-slicing.md', '7. 任务级四维分析契约'),
     (r'review over \d+ KB', 'local-runtime.md', '操作矩阵'),
-    (r'scaffold leaves|anchors on a UI surface|single layer|at most \d+ cases|at most \d+ tasks|plan over \d+ KB|unknown child kind', 'module-decomposition.md', '切片标准'),
+    (r'scaffold leaves|anchors on a UI surface|single layer|at most \d+ cases|at most \d+ tasks|plan over \d+ KB|unknown child kind|skeleton', 'module-decomposition.md', '切片标准'),
     (r'runtime expression|runtime/layout|layout keywords|structural mapping|parameter mapping', 'resource-transfer.md', '动态参数与布局结构'),
     (r'hash mismatch|absolute evidence path|missing file', 'runtime.md', '请求与事件'),   # first: the file named in the message may sit in a path of any other topic
     (r'unknown reference id', 'context-readiness.md', '3. 报告与传递'),
@@ -625,7 +625,7 @@ GATES = [
     (r'image[ _-]?(check|parity|source)|picture|deviation|render-reference', 'ui-fidelity.md', PICTURES),
     (r'watchdog|notice', 'watchdog.md', '总则'),
     (r'journal|workflow hub|hub routing|workflow\.md|event artifact|archive entry|projection', 'storage-layout.md', 'OpenSpec 投影完整性收尾门禁'),
-    (r'scratch', 'storage-layout.md', '总则'),
+    (r'scratch|package rule file is not evidence', 'storage-layout.md', '总则'),
     (r'retirement|run impact|run revision|run review|root revision|root update|contract IDs|replacement IDs', 'progress-recovery.md', '同 Run 上游修订'),
     (r'code review|code findings|goal review|governance|recovery resolutions', 'audit-code-review.md', 'Ledger 接口'),
     (r'finding|repair owner|leftover|owner (not|must|prerequisites)|unresolved (human|verification)|block reason|retry contract', 'audit-scope.md', '问题处理'),

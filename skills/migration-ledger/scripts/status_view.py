@@ -82,7 +82,7 @@ def _standing(st, module_id):
     return {**scoped, **({'other_modules': others} if others else {})}
 
 
-def _step(st, module_id):
+def _step(st, module_id, since=None):
     """The state one role needs to act on the current step of a module (or on the global step)."""
     if module_id is None:
         step, revision = st['global_next_step'], st['revision']
@@ -101,7 +101,12 @@ def _step(st, module_id):
            # The envelope of the request this step asks for.
            'request': {'schema_version': 1, 'run_id': st['run_id'], 'module_id': module_id, 'expected_revision': revision,
                        'operation': operation}}
-    out['open_issues'], out['standing_rules'] = [[issues.brief(row) for row in rows] for rows in issues.of_module(st, module_id)]
+    open_rows, standing = issues.of_module(st, module_id)
+    out['open_issues'], out['open_issue_count'] = issues.listed(open_rows)
+    out['standing_rules'] = issues.standing_view(standing, since)
+    if module_id is not None and st.get('api_registry'):  # the calls registered to this leaf after its allocation
+        out['api_registry'] = [{'api_id': aid, 'item_id': row['item_id'], 'sequence': row.get('sequence')}
+                               for aid, row in st['api_registry'].items() if row['owner'] == module_id]
     if gate:  # one object says what the preflight report of this stage must contain and which reports exist
         required = dict(st['context_requirements'].get(module_id or 'GLOBAL', {}).get(gate['stage'], {}))
         required.pop('required_input_refs', None)  # the Ledger derives them; the step carries their count and digest
@@ -153,7 +158,7 @@ def select(st, view='full', module_id=None, since=None):
             and st['projection'].get('status') == 'current'):
         return {'view': view, 'unchanged': True, 'last_sequence': since, 'workflow_progress': _attention(st['workflow_progress'])}
     if view == 'step':
-        return _step(st, module_id)
+        return _step(st, module_id, since)
     cards = {}
     out = _cursor(st, cards)
     out['view'] = view

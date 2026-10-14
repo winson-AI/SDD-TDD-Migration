@@ -12,6 +12,7 @@ import sys
 sys.dont_write_bytecode = True
 
 import workflow
+import api_contract
 import audit_closure
 import audit_code_review
 import decomposition
@@ -381,11 +382,23 @@ def replan_module(m, reason, evidence_ref, release_blocker=False):
         m['phase'] = phase
 
 
+def provider_written(p):
+    """A provider is there for the leaves that need its code once every task of it is accepted - or, for a scaffold that
+    named its skeleton, once the skeleton tasks are accepted and built Green; the rest of it lands while they work."""
+    tasks = {t['task_id'] for t in (p.get('plan') or {}).get('tasks', [])}
+    accepted = set(p.get('accepted_task_ids', []))
+    if not p.get('code_baseline') or not tasks:
+        return False
+    if accepted == tasks:
+        return True
+    skeleton = decomposition.skeleton(p)
+    return bool(skeleton) and skeleton <= accepted and tv.build_ready(p)
+
+
 def dependencies_ready(s, m):
     providers = ((m.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs', [])
     stages = {row['module_id']: row['required_stage'] for row in providers}
-    require(all((bool(s['modules'][d].get('code_baseline')) and not s['modules'][d].get('change_request') and set(s['modules'][d].get('accepted_task_ids', [])) ==
-                {t['task_id'] for t in (s['modules'][d].get('plan') or {}).get('tasks', [])})
+    require(all(provider_written(s['modules'][d])
                 if stages.get(d) == 'implemented' and m.get('phase') not in ('testing', 'dod', 'completed')
                 else tv.available(s['modules'][d]) for d in m['dependencies']), 'dependencies not complete')
     for d in m['dependencies']:
@@ -483,7 +496,6 @@ def freeze_gates(s, m, p):
                                                       or p.get('review_ref') == m.get('plan_review_ref'), 'TASK independence requires accepted MO plan review')))
     first = not allocation_frozen(m)
     import resource_fidelity
-    import api_contract
     gates += [('resources', lambda: resource_fidelity.freeze_gate(s, m, first)),
               ('api', lambda: api_contract.freeze(s, m, p)),
               ('ui', lambda: ui_fidelity.freeze_gate(s, m, first)),
@@ -668,8 +680,10 @@ def providers(s, m):
     for dependency in m.get('dependencies', []):
         for mid in decomposition.leaves(s, dependency) if dependency in s['modules'] or dependency in s.get('module_groups', {}) else []:
             p, stage = s['modules'][mid], stages.get(dependency, 'verified')
-            written = bool(p.get('code_baseline')) and not p.get('change_request') and set(p.get('accepted_task_ids', [])) == {t['task_id'] for t in (p.get('plan') or {}).get('tasks', [])}  # a reopened contract is not there yet
-            rows.append({'module_id': mid, 'required_stage': stage, 'phase': p['phase'], 'plan_ref': p.get('plan_ref'),
+            # A provider revising its SPEC keeps the code it accepted: a dependent goes on against that code, and what the
+            # revision supersedes reaches it as a gap when the revision freezes.
+            written = provider_written(p)
+            rows.append({'module_id': mid, 'required_stage': stage, 'phase': p['phase'], 'plan_ref': p.get('plan_ref'), 'revising': bool(p.get('change_request')),
                          'code_baseline': p.get('code_baseline'), 'ready': written if stage == 'implemented' else tv.available(p)})
     return rows
 
@@ -870,7 +884,6 @@ def _next_step(s, m):
         elif not decision and not eligible and not m.get('plan_review_ref'):
             step.update(operation='plan-review', ready=True, reason='MO-technical-review', payload={})
         elif not decision:
-            import api_contract
             if api_contract.undecided(s, api_contract.adaptations(m)):
                 # One decision names every adaptation the run still has open, so no other leaf asks again.
                 wanted = api_contract.undecided(s, api_contract.registered(s))
@@ -1323,9 +1336,12 @@ def settle_preflight(m, actor, receipt):
 
 def mutate(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
-    if op in issues.OPS:  # a record: no gate stands before it and it moves no revision
+    if op in issues.OPS or op in api_contract.REGISTER_OPS:  # a record: no gate stands before it and it moves no revision
         require(req.get('module_id') is None, 'operation has incorrect global/module scope')
-        return issues.handle(s, req, principal)
+        if op in api_contract.REGISTER_OPS:
+            role(principal, 'global-orchestrator', 'module-orchestrator', 'spec-designer')
+            return api_contract.register(s, req, principal, sequence=len(events) + 1)
+        return issues.handle(s, req, principal, sequence=len(events) + 1)
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')
     global_ops = {'register', 'decision', 'audit-code-review', 'audit-assign', 'audit', 'audit-revoke', 'audit-route', 'audit-unavailable'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS | source_changes.OPS | run_changes.OPS | audit_execution.OPS | {'retrospect'}
@@ -1429,7 +1445,6 @@ def mutate(s, req, principal, events, root=None):
                     and isinstance(children, dict) and children and set(children) <= set(parent.get('children', [])),
                     'batch envelope decision must hash its document and cover only this parent\'s children')
         if p.get('kind') == 'api-adaptation':
-            import api_contract
             api_contract.decision(s, p)
         s['decisions'][p['decision_id']] = decided = {**p, 'consumed': False}
         decided.pop('boundary_sha256', None)  # the Ledger states what was approved, not the request
@@ -1464,6 +1479,7 @@ def mutate(s, req, principal, events, root=None):
         if m.get('scope'):
             decomposition.check_scopes(s, m)
             decomposition.check_tasks(m, plan)
+        decomposition.check_skeleton(m, plan)
         if resubmitted:
             verify_plan(plan, m)
             plan_hash = m['plan_hash']
@@ -1635,6 +1651,7 @@ def mutate(s, req, principal, events, root=None):
             m['build_artifacts'] = []
             m['accepted_task_ids'] = sorted(set(m.get('accepted_task_ids', [])) | {t['task_id'] for t in result['task_trace']})
             m.setdefault('task_files', {}).update({t['task_id']: t['files'] for t in result['task_trace']})
+            decomposition.task_size_facts(s, mid, result['task_trace'], sequence=len(events) + 1)
             if result.get('dimension_evidence'):
                 m['dimension_evidence'] = copy.deepcopy(result['dimension_evidence'])
             if assignment['role'] == 'fixer':
@@ -1650,7 +1667,10 @@ def mutate(s, req, principal, events, root=None):
                 m['task_revalidation'] = {'mode': 'full', 'reason': 'retained-task-updated', 'retained_task_ids': [], 'retained_path_ids': []}
             task_revalidation.carry(m, prior_results)
             m.pop('automation_retry_ready', None)
-            invalidate_dependents(s, mid)
+            # A scaffold that released its features on its skeleton lands the rest of itself beside them: they verify again
+            # when all of it is there, not at every task.
+            if complete_tasks or not decomposition.skeleton(m):
+                invalidate_dependents(s, mid)
         else:
             previous_fingerprint = failure_fingerprint(m['results'])
             if tv.split(m):
@@ -1977,6 +1997,21 @@ DEPENDENCY_STORES = ('.gradle', '.m2', 'node_modules', '.cargo', '.pub-cache', '
 SCRATCH = 'scratch'  # a role's drafts, probe scripts and logs under its staging: the Ledger neither reads nor archives them
 
 
+KNOWLEDGE = reading.PACKAGE / 'skills/migration-ledger/scripts/lean_tools/knowledge'  # the bundled catalogs and cookbooks: inputs, not rules
+
+
+def package_rule(path):
+    """A file of the workflow package that states or implements its rules - protocol text, role and skill files, scripts -
+    is not evidence of a run: its hash moves with the package and a card names the rule by its section. The package's
+    knowledge assets, such as a catalog, are inputs a run may cite."""
+    import fnmatch
+    p = Path(path)
+    if not p.is_absolute() or not p.resolve().is_relative_to(reading.PACKAGE) or p.resolve().is_relative_to(KNOWLEDGE):
+        return False
+    rel = str(p.resolve().relative_to(reading.PACKAGE))
+    return p.suffix == '.py' or any(fnmatch.fnmatch(rel, pattern) for pattern in reading.PROTOCOL_GLOBS)
+
+
 def scratch(root, path):
     p, run = Path(path).resolve(), Path(root).resolve()
     return p.is_relative_to(run) and SCRATCH in p.relative_to(run).parts
@@ -2065,6 +2100,7 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
             require(not Path(value['path']).resolve().is_relative_to((Path(root) / 'ledger').resolve()),
                     'a ledger projection is not evidence: cite the artifact it was projected from')
             require(not scratch(root, value['path']), 'a scratch file is not evidence: cite the artifact it informed')
+            require(not package_rule(value['path']), 'a package rule file is not evidence: the card names the rule by its section')
             historical = None
             imported = prior_run_artifact(root, value, nested, prior_runs)
             try:
@@ -2223,7 +2259,7 @@ def _judge(root, req, principal):
         else:
             require(s and req.get('run_id') == s['run_id'], 'run mismatch')
             scope = (s['modules'].get(req.get('module_id')) or s.get('module_groups', {}).get(req.get('module_id'))) if req.get('module_id') else s
-            require(scope is not None and (req['operation'] in issues.OPS or req.get('expected_revision') == scope['revision']), 'stale revision')
+            require(scope is not None and (req['operation'] in issues.OPS | api_contract.REGISTER_OPS or req.get('expected_revision') == scope['revision']), 'stale revision')
             leaf = s['modules'].get(req.get('module_id'))
             held = leaf and leaf.get('plan_hash')
             with carrying(bool(leaf)) as gaps:  # a leaf goes on with what its plan owes; an allocation is refused for it

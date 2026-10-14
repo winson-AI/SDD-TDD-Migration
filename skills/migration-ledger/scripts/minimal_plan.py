@@ -24,7 +24,8 @@ def complete(s, m, plan):
     if not ref or not isinstance(plan, dict):
         return plan  # no four-dimension specification: nothing follows from it
     own = plan.get('dimension_analysis_ref', ref)
-    if own != ref and not dimensions.refines(ref, own):
+    import api_contract
+    if own != ref and not dimensions.refines(ref, own, api_contract.added(s, m['module_id']) if isinstance(s, dict) else ()):
         return plan  # a plan bound to another analysis: the gates refuse it
     ref = own  # the leaf's refinement of its allocation says everything the allocation says
     try:
@@ -41,6 +42,14 @@ def complete(s, m, plan):
         if isinstance(boundary, dict) and isinstance(own, dict):
             # An author states what the allocation left to the leaf - its fixture; the rest is the allocation's.
             own.update({key: copy.deepcopy(value) for key, value in boundary.items() if own.get(key) is None})
+            fixtures = [d for d in plan.get('definitions') or [] if isinstance(d, dict) and d.get('kind') == 'test-fixture' and d.get('path')]
+            if own.get('fixture_contract_ref') is None and len(fixtures) == 1:
+                # The one fixture the plan brings is the one its behavior paths are verified against: the pointer is derived.
+                import behavior_contract
+                own['fixture_contract_ref'] = {key: fixtures[0][key] for key in ('path', 'sha256')}
+                for path in plan.get('paths') or []:
+                    if isinstance(path, dict) and path.get('kind', 'automation') in behavior_contract.BEHAVIOR_KINDS and path.get('fixture_contract_ref') is None:
+                        path['fixture_contract_ref'] = copy.deepcopy(own['fixture_contract_ref'])
         for key, value in {**copy.deepcopy(m.get('behavior_review') or {}), 'execution_chain': locators}.items():
             closure.setdefault(key, value)
         closure.setdefault('entry', locators[0])

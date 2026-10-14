@@ -7,6 +7,7 @@ MAPPINGS = ('request_mapping', 'response_mapping', 'error_mapping', 'state_mappi
 METHODS = ('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS')
 # How a call is addressed. A remote procedure or a client library has no method and URL: it is called by an operation name.
 ROUTES = {'http': ('method', 'url'), 'rpc': ('operation',), 'sdk': ('operation',)}
+REGISTER_OPS = {'api-register'}
 
 
 def route(row, side):
@@ -53,16 +54,7 @@ def load(analysis, items):
     require(inventory.get('schema_version') == 1 and inventory.get('module_id') == analysis['module_id'], 'API inventory scope/schema mismatch')
     calls = keyed(nonempty(inventory.get('calls'), 'recorded API calls'), 'api_id')
     for source in calls.values():
-        route(source, 'source')
-        require(source.get('source_symbol'), 'API source production symbol required')
-        check_ref(source.get('source_ref'))
-        reviewed = (analysis.get('api_review') or {}).get('discovery_refs')
-        if reviewed is not None:
-            require(any(all(ref[k] == source['source_ref'][k] for k in ('path', 'sha256')) for ref in reviewed),
-                    'recorded API source missing from reviewed discovery scope')
-        for facet in FACETS:
-            require(isinstance(source.get(facet), list) and all(isinstance(field, str) and field for field in source[facet]) and
-                    len(set(source[facet])) == len(source[facet]), 'API source facet must list explicit unique obligations')
+        call_row(source, (analysis.get('api_review') or {}).get('discovery_refs'))
     for field in ('contracts', 'exclusions'):
         require(isinstance(inventory.get(field), list), 'API ' + field + ' must be an explicit list')
     contracts = keyed(inventory['contracts'], 'api_id') if inventory['contracts'] else {}
@@ -97,6 +89,53 @@ def load(analysis, items):
             require(row.get('alternative') and row.get('reason'), 'API adaptation needs approved alternative and rationale')
         row = dict(row); row['item_id'] = owners[aid]; contracts[aid] = row
     return calls, contracts
+
+
+def call_row(source, reviewed=None):
+    """A recorded call: its route, its production symbol and source, and explicit unique obligations per facet."""
+    route(source, 'source')
+    require(source.get('source_symbol'), 'API source production symbol required')
+    check_ref(source.get('source_ref'))
+    if reviewed is not None:
+        require(any(all(ref[k] == source['source_ref'][k] for k in ('path', 'sha256')) for ref in reviewed),
+                'recorded API source missing from reviewed discovery scope')
+    for facet in FACETS:
+        require(isinstance(source.get(facet), list) and all(isinstance(field, str) and field for field in source[facet]) and
+                len(set(source[facet])) == len(source[facet]), 'API source facet must list explicit unique obligations')
+
+
+def added(s, module_id):
+    """The calls registered to a leaf after its allocation: its inventory carries them beyond the allocation's rows."""
+    return {aid for aid, row in (s.get('api_registry') or {}).items() if row['owner'] == module_id}
+
+
+def register(s, req, actor, sequence=None):
+    """A call found inside a leaf's own scope after its allocation is registered to that leaf, with the Logic or Adhesive
+    item that owns it: the leaf's next plan carries it, and nothing above is re-split for it. Who owns what stays the
+    split's: a call that belongs to another leaf goes through reallocation."""
+    p = req.get('payload', {})
+    mid, aid, iid = p.get('module_id'), p.get('api_id'), p.get('item_id')
+    require(mid in s['modules'], 'api-register names a registered leaf as owner')
+    registry = s.setdefault('api_registry', {})
+    require(isinstance(aid, str) and aid.strip() and aid not in registry, 'api_id must be new to the run')
+    import dimensions
+    ref = dimensions.of_leaf(s['modules'][mid])
+    require(ref, 'api-register needs the leaf dimension analysis')
+    analysis, items = dimensions.load(ref, mid)
+    calls, contracts = read(analysis, items)
+    require(aid not in calls and aid not in contracts, 'api_id must be new to the run')
+    require(iid in items and items[iid].get('dimension') in ('Logic', 'Adhesive'), 'API needs one Logic/Adhesive owner')
+    call, contract = p.get('call'), p.get('contract')
+    require(isinstance(call, dict) and call.get('api_id') == aid and isinstance(contract, dict) and contract.get('api_id') == aid,
+            'api-register carries the call and the contract of its api_id')
+    call_row(call)
+    require(contract.get('fidelity') in ('exact', 'approved-adaptation'), 'API fidelity must be explicit')
+    if contract['fidelity'] != 'exact':
+        require(contract.get('alternative') and contract.get('reason'), 'API adaptation needs approved alternative and rationale')
+    for evidence in nonempty(p.get('evidence_refs'), 'api-register evidence'):
+        check_ref(evidence)
+    registry[aid] = {'owner': mid, 'item_id': iid, 'call': call, 'contract': contract, 'evidence_refs': list(p['evidence_refs']),
+                     'raised_by': actor, 'sequence': sequence}
 
 
 def obligations(aid, source):
@@ -160,7 +199,7 @@ def decision(s, payload):
     require(payload['subject_sha256'] == digest(named), 'api-adaptation decision must hash the adaptations it names')
 
 
-def narrowed(allocated_ref, refined_ref, where):
+def narrowed(allocated_ref, refined_ref, where, added=()):
     """Who makes a call. An allocation is written before its leaf reads the source and may name only the directory
     whose code will make a call; the leaf names the file in it, under the same symbol. Its inventory is otherwise the
     allocation's."""
@@ -168,6 +207,9 @@ def narrowed(allocated_ref, refined_ref, where):
         return
     old, new = read_json(check_ref(allocated_ref)), read_json(check_ref(refined_ref))
     rows = lambda inventory: inventory.get('contracts') or [] if isinstance(inventory, dict) else None
+    if added and isinstance(new, dict):  # what was registered to the leaf is judged with its inventory; the allocation's rows are compared here
+        new = {**new, **{key: [row for row in new.get(key) or [] if not (isinstance(row, dict) and row.get('api_id') in added)]
+                         for key in ('calls', 'contracts')}}
     target = lambda row: row['target'] if isinstance(row, dict) and isinstance(row.get('target'), dict) else {}
     require(isinstance(rows(new), list) and len(rows(new)) == len(rows(old)), 'refined analysis changes ' + where)
     # What the allocation left open - a contract's target side, its fixture - is the leaf's to state.
