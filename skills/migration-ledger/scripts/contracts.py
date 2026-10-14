@@ -101,6 +101,14 @@ def file_ref(path):
     return {'path': str(p), 'sha256': sha.hexdigest()}
 
 
+def refs_in(directory):
+    """{relative path: reference} of every file under `directory`, scratch/ left out: what a plan cites, in one call."""
+    base = Path(directory).resolve()
+    require(base.is_dir(), f'not a directory: {base}')
+    return {str(p.relative_to(base)): file_ref(p) for p in sorted(base.rglob('*'))
+            if p.is_file() and 'scratch' not in p.relative_to(base).parts}
+
+
 def cited(value, nested=False):
     """Whether an object is a reference to a file: it carries a path and a digest. Inside a document that is itself
     evidence, an object whose path is not absolute is a record the document keeps about a file - a tool listing what it
@@ -478,10 +486,13 @@ def main():
                        ('baseline', 'code_files and code_baseline of the given code files')):
         sub.add_parser(name, help=text).add_argument('paths', nargs='+')
     sub.add_parser('digest', help='canonical digest of one JSON document').add_argument('path')
+    sub.add_parser('refs', help='the reference of every file under a directory, by relative path').add_argument('directory')
     args = parser.parse_args()
     try:
         if args.command == 'digest':
             out = {'sha256': digest(read_json(args.path))}
+        elif args.command == 'refs':
+            out = refs_in(args.directory)
         else:
             refs = [file_ref(path) for path in args.paths]
             out = refs if args.command == 'ref' else {'code_files': refs, 'code_baseline': baseline(refs)}

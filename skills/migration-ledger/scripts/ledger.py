@@ -44,7 +44,7 @@ import audit_execution
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
-from contracts import (Rejected, baseline, carrying, check_ref, cited, digest, file_ref, keyed, nonempty,
+from contracts import (SKELETON_MARK, Rejected, baseline, carrying, check_ref, cited, digest, file_ref, keyed, nonempty,
                        intact, owed, read_json, require, validate_plan, validate_result, verify_plan)
 
 HISTORICAL_TOOL_ROOTS = (Path(__file__).resolve().parent,
@@ -1464,7 +1464,11 @@ def mutate(s, req, principal, events, root=None):
         require(not m.get('decomposition_required') and not m.get('decomposition_submission'), 'finish MO decomposition before leaf SPEC planning')
         require(m['phase'] in ('context', 'specifying', 'clarifying', 'change-review'), 'plan not editable in this phase')
         held = m.get('plan_ref') == p['plan_ref']
-        plan = design_stage.materialize(s, m, read_json(check_ref(p['plan_ref'])), judge=not held)
+        submitted = read_json(check_ref(p['plan_ref']))
+        for ref in (p['plan_ref'], *(submitted.get(key) for key in ('test_design_ref', 'reuse_plan_ref') if isinstance(submitted, dict))):
+            if isinstance(ref, dict) and ref.get('path'):  # a skeleton is filled before it is a plan
+                require(SKELETON_MARK not in check_ref(ref).read_text(errors='replace'), 'unfilled skeleton field left in ' + Path(ref['path']).name)
+        plan = design_stage.materialize(s, m, submitted, judge=not held)
         import minimal_plan
         dimensions.refinement(s, m, plan)  # an analysis the leaf refined from its allocation is judged like a registered one
         plan = minimal_plan.complete(s, m, plan)  # what follows from the leaf's accepted four-dimension specification

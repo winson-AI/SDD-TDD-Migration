@@ -1,8 +1,11 @@
-"""Skeletons of a leaf's OpenSpec documents, written from the allocation the Ledger accepted.
+"""Skeletons of a leaf's plan set, written from the allocation the Ledger accepted: the four OpenSpec documents, the
+stage plan, the upstream test plan with its design note and, where the run reuses, the reuse plan with its alignment note.
 
-A Spec-Designer starts from the leaf's four-dimension specification, not from an empty template: scope, requirements,
-cases and every allocated item with its source, target and acceptance are in place, and each part only its author can
-write is marked. A plan whose definitions still hold a mark is refused, so a skeleton is never frozen as a specification.
+A Spec-Designer starts from the leaf's four-dimension specification, not from an empty template and not from a script of
+its own: scope, requirements, cases, every allocated item, one task per feature the leaf holds, one behaviour path per
+case, a unit path per Logic item, the build and static paths and the trace from items to tasks and paths are in place;
+each part only its author can write is marked. A plan, or a file it cites, that still holds a mark is refused, so a
+skeleton is never frozen as a specification. After editing, `contracts.py refs <directory>` gives every file's reference.
 
   spec_skeleton.py --root <run_root> --module <id> --out <absolute directory in the role's staging>
 """
@@ -11,7 +14,7 @@ import json
 import sys
 from pathlib import Path
 
-from contracts import SKELETON_MARK, Rejected, file_ref, require
+from contracts import SKELETON_MARK, Rejected, check_ref, file_ref, read_json, require
 
 
 def todo(what):
@@ -66,6 +69,93 @@ def documents(s, m):
     return {'proposal.md': proposal, 'spec.md': spec, 'design.md': design, 'tasks.md': tasks}
 
 
+def plans(s, m, out, documents):
+    """{file name: JSON or text} for the leaf's plan set, citing the documents already written under `out`: the stage plan
+    (definitions, tasks, trace, test and reuse plan references), the upstream test plan with its design note and, when the
+    run reuses, the reuse plan with its alignment note. The Ledger completes the rest of a plan from the analysis."""
+    import dimensions
+    import design_stage
+    import decomposition
+    mid = m['module_id']
+    analysis, items = dimensions.load(m['dimension_analysis_ref'], mid)
+    cases = list(m.get('case_ids') or [])
+    scope = m.get('scope') or {}
+    requirements = list(scope.get('requirement_ids') or sorted({rid for item in items.values() for rid in item['requirement_ids']}))
+    holders = {cid: [iid for iid, item in items.items() if cid in item['case_ids']] for cid in cases}
+    requirement_of = lambda cid: next((rid for iid in holders[cid] for rid in items[iid]['requirement_ids']), requirements[0] if requirements else todo('REQ-ID'))
+    # one task per feature the leaf holds; the cases no feature holds, or every case when there is no inventory, make one more
+    features = []
+    allocation = decomposition.assigned_module(s, m)
+    if allocation.get('feature_inventory_ref'):
+        try:
+            held = set(allocation.get('feature_ids') or [])
+            features = [f for f in read_json(check_ref(allocation['feature_inventory_ref'])).get('features') or []
+                        if (f.get('feature_id') in held if held else set(f.get('case_ids') or []) & set(cases))]
+        except (Rejected, OSError, KeyError, TypeError):
+            features = []
+    groups = [(f.get('name') or f['feature_id'], [c for c in cases if c in set(f.get('case_ids') or [])]) for f in features]
+    groups = [g for g in groups if g[1]]
+    rest = [c for c in cases if not any(c in g[1] for g in groups)]
+    if rest or not groups:
+        groups.append((todo('任务名称：按行为切，每个任务有自己可跑的 PATH'), rest or cases))
+    path_of = {cid: f'PATH-{mid}-{n:03d}' for n, cid in enumerate(cases, 1)}
+    logic = [iid for iid, item in items.items() if item['dimension'] == 'Logic']
+    unit_of = {iid: f'UNIT-{mid}-{n:03d}' for n, iid in enumerate(logic, 1)}
+    build, static = f'BUILD-{mid}-001', (f'STATIC-{mid}-001' if s.get('spec_closure_required') else None)
+    first = cases[0] if cases else None
+
+    def path(pid, kind, cid, name, expected=None, **extra):
+        return {'path_id': pid, 'kind': kind, 'name': name, 'case_id': cid, 'requirement_id': requirement_of(cid) if cid else requirements[0],
+                'required': True, 'preconditions': [todo('源码定义的前置状态')], 'steps': [todo('源码定义的动作')], 'parameters': {},
+                'dependency_refs': [], 'priority': 'P0', 'scope': 'module',
+                'expected_assertions': [{'assertion_id': 'ASSERT-' + pid, 'expected': todo('上游预期') if expected is None else expected, 'scenario_ids': []}],
+                'preparation': {'status': 'existing', 'reason': todo('已批准的测试方式'), 'evidence_refs': [], 'asset_ids': []}, **extra}
+    paths = [path(build, 'build', first, todo('构建命令名'), expected=0,
+                  command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': todo('选择依据引用')})]
+    if static:
+        paths.append(path(static, 'static', first, '静态规格闭合审查', expected=True))
+    paths += [path(unit_of[iid], 'unit', (items[iid]['case_ids'] or [first])[0], todo(f'{iid} 的单测名')) for iid in logic]
+    paths += [path(path_of[cid], 'automation', cid, todo(f'{cid} 的上游用例路径名')) for cid in cases]
+    tasks = []
+    for n, (name, held) in enumerate(groups, 1):
+        reqs = sorted({rid for cid in held for iid in holders[cid] for rid in items[iid]['requirement_ids']}) or requirements
+        units = [unit_of[iid] for iid in logic if set(items[iid]['case_ids']) & set(held)]
+        tasks.append({'task_id': f'TASK-{mid}-{n:03d}', 'scope': {'in': [name], 'out': list(scope.get('out') or []), 'write_paths': list(m.get('write_paths') or [])},
+                      'requirement_ids': reqs, 'path_ids': [build] + ([static] if static else []) + units + [path_of[cid] for cid in held]})
+    trace = []
+    for iid, item in items.items():
+        owned = [t['task_id'] for t in tasks if set(item['case_ids']) & {c for c in cases if path_of[c] in t['path_ids']}] or [tasks[0]['task_id']]
+        pids = [path_of[cid] for cid in item['case_ids'] if cid in path_of] + ([unit_of[iid]] if iid in unit_of else [])
+        trace.append({'item_id': iid, 'task_ids': owned, 'path_ids': pids, 'assertions': [{'path_id': pid, 'assertion_id': 'ASSERT-' + pid} for pid in pids]})
+    test_note = (f"# {mid} 测试计划\n\n上游用例：{'、'.join(cases)}\n\n" + ''.join(f"- {p['path_id']}（{p['kind']}）：{p['name']}；CASE {p['case_id']}\n" for p in paths)
+                 + f"\n{todo('每条路径的前置、步骤、断言与准备方式')}\n")
+    upstream = {'schema_version': 1, 'kind': 'upstream-test-plan', 'module_id': mid, 'subject_sha256': design_stage.subject(s, m),
+                'case_refs': design_stage.upstream_refs(s), 'design_ref': None, 'paths': paths, 'test_assets': []}
+    plan = {'schema_version': 1, 'module_id': mid,
+            'definitions': [{'kind': kind, **documents[kind + '.md']} for kind in ('proposal', 'spec', 'design', 'tasks')],
+            'test_design_ref': None, 'tasks': tasks, 'dimension_trace': trace}
+    out_files = {'test-plan.md': test_note, 'upstream-test-plan.json': upstream, 'stage-plan.json': plan}
+    if m.get('parent_module_id') or s.get('reuse_required'):
+        catalog = None
+        for ref in m.get('context_refs') or []:
+            try:
+                if isinstance(read_json(check_ref(ref)), dict) and 'capabilities' in read_json(check_ref(ref)):
+                    catalog = ref
+            except (Rejected, OSError, ValueError, TypeError):
+                continue
+        mappings = [{'mapping_id': f'REUSE-{mid}-{n:03d}', 'requirement_ids': [rid], 'capability_id': todo('能力 ID；new 时为 null'),
+                     'decision': todo('reuse / adapt / reference / new'), 'rationale': todo('语义匹配与选择理由'), 'behavior_delta': todo('匹配点、缺口与适配'),
+                     'binding_plan': todo('生产入口、DI、适配器与消费者'), 'task_ids': [t['task_id'] for t in tasks if rid in t['requirement_ids']] or [tasks[0]['task_id']],
+                     'path_ids': [path_of[cid] for cid in cases if requirement_of(cid) == rid] or [path_of[first]] if first else [],
+                     'verification': todo('业务契约、边界、错误与真实提供方断言'),
+                     'fidelity': {'legacy_root': s.get('legacy_root'), 'legacy_source_refs': [], 'alignment_ref': None, 'scenarios': []},
+                     'integration': {'mode': todo('existing-target / package / source-module / reference-only'), 'locator': todo('目标模块、API 或包坐标'), 'version': todo('解析版本')}}
+                    for n, rid in enumerate(requirements, 1)]
+        out_files['reuse-fidelity.md'] = f"# {mid} 复用与存量功能保真对齐\n\n{todo('逐行为对齐：场景、源码定位、前置/输入、存量预期、提供方语义、差异与 PATH/ASSERT')}\n"
+        out_files['reuse-plan.json'] = {'schema_version': 1, 'module_id': mid, 'catalog_ref': catalog or todo('能力目录引用'), 'mappings': mappings}
+    return out_files
+
+
 def write(root, module_id, out):
     import ledger
     s, _ = ledger.read_events(root)
@@ -81,8 +171,28 @@ def write(root, module_id, out):
     for name, text in texts.items():
         (out / name).write_text(text)
         files[name] = file_ref(out / name)
-    return {'module_id': module_id, 'files': files, 'unfilled': sum(text.count(SKELETON_MARK) for text in texts.values()),
-            'next_action': 'write every marked part; a plan whose definitions still hold a mark is refused'}
+    rest = plans(s, m, out, files)
+    require(not any((out / name).exists() for name in rest), 'refusing to overwrite plan files in ' + str(out))
+    for name in ('test-plan.md', 'reuse-fidelity.md'):  # the notes first: the JSON files cite them
+        if name in rest:
+            (out / name).write_text(rest[name]); files[name] = file_ref(out / name)
+    rest['upstream-test-plan.json']['design_ref'] = files['test-plan.md']
+    if 'reuse-plan.json' in rest:
+        for row in rest['reuse-plan.json']['mappings']:
+            row['fidelity']['alignment_ref'] = files['reuse-fidelity.md']
+    (out / 'upstream-test-plan.json').write_text(json.dumps(rest['upstream-test-plan.json'], ensure_ascii=False, indent=2) + '\n')
+    files['upstream-test-plan.json'] = file_ref(out / 'upstream-test-plan.json')
+    rest['stage-plan.json']['test_design_ref'] = files['upstream-test-plan.json']
+    if 'reuse-plan.json' in rest:
+        (out / 'reuse-plan.json').write_text(json.dumps(rest['reuse-plan.json'], ensure_ascii=False, indent=2) + '\n')
+        files['reuse-plan.json'] = file_ref(out / 'reuse-plan.json')
+        rest['stage-plan.json']['reuse_plan_ref'] = files['reuse-plan.json']
+    (out / 'stage-plan.json').write_text(json.dumps(rest['stage-plan.json'], ensure_ascii=False, indent=2) + '\n')
+    files['stage-plan.json'] = file_ref(out / 'stage-plan.json')
+    unfilled = sum((out / name).read_text().count(SKELETON_MARK) for name in files)
+    return {'module_id': module_id, 'files': files, 'unfilled': unfilled,
+            'next_action': 'write every marked part, then `contracts.py refs ' + str(out) + '` for the references the plan cites; '
+                           'a plan, or a file it cites, that still holds a mark is refused'}
 
 
 def main(argv=None):
