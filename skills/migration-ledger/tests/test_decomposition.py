@@ -37,8 +37,11 @@ class DecompositionTests(unittest.TestCase):
         self.call('init', {**{k: original[k] for k in ('dimension_slicing_required', 'split_testing_required', 'context_readiness_required', 'target_root', 'legacy_root', 'case_ids',
                     'requirement_ids', 'global_spec', 'new_architecture', 'global_paths')},
                     'entry_mode': mode, 'single_module_id': 'M010' if mode == 'single-module' else None}, role='host')
+        inventory = {'test_summary_ref': None, 'source_units': [], 'features': [{'feature_id': 'F-ROOT', 'name': 'Search', 'functional_path': 'Search/Root',
+                     'trigger': 'invoke', 'observable_result': 'result', 'requirement_ids': ['R1'], 'case_ids': ['C1'], 'evidence_refs': []}]}
         self.call('register', {'module_id': 'M010', 'name': 'Search', 'case_ids': ['C1'],
                     'write_paths': [str(self.target)], 'dependencies': [], 'decomposition_required': True,
+                    **({'feature_inventory_ref': self.ref('root-inventory.json', inventory)} if original.get('context_readiness_required') else {}),
                     'scope': {'in': ['Search'], 'out': ['Orders'], 'requirement_ids': ['R1']},
                     'context_refs': [self.ref('search-context.md', 'Search entry, reuse contracts, architecture and testing list')]},
                     role='global-orchestrator', module=None)
@@ -56,7 +59,7 @@ class DecompositionTests(unittest.TestCase):
                      **({'kind': 'scaffold'} if any(mid in deps for deps in (dependencies or {}).values()) or mid in (ids[1:] if accepted else ids) else {}),  # what others build on, and a slice accepting no case, is the scaffold
                      'scope': {'in': ['subfunction-' + mid], 'out': ['Orders'], 'requirement_ids': ['R1']},
                      'context_refs': [self.ref('context-'+mid+'.md', 'Subfunction '+mid+' entry and reuse ownership')]} for mid in ids]}
-        if state.get('context_readiness_required'):  # a split under readiness cuts the feature tree: one node per feature leaf
+        if state.get('context_readiness_required') or held.get('feature_inventory_ref'):  # a split of a root with an inventory cuts the tree: one node per feature leaf
             leaves = [c for c in plan['children'] if c.get('kind') != 'scaffold']
             for c in leaves:
                 c['functional_paths'] = ['Feature/' + c['module_id']]

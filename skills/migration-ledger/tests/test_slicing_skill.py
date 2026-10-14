@@ -144,7 +144,8 @@ class NextRunTests(unittest.TestCase):
         analysis = d.analysis()
         d.root_ref = f.ref('root-dimensions.json', analysis)
         parent = {'module_id': 'M010', 'case_ids': ['C1'], 'write_paths': [str(f.target)], 'scope': analysis['scope'],
-                  'context_refs': [f.ref('root-context.md', 'Parent scope')], 'dimension_analysis_ref': d.root_ref, 'decomposition_required': True}
+                  'context_refs': [f.ref('root-context.md', 'Parent scope')], 'dimension_analysis_ref': d.root_ref, 'decomposition_required': True,
+                  'feature_inventory_ref': f.ref('root-inventory.json', {'test_summary_ref': None, 'source_units': [], 'features': [{'feature_id': 'F-ROOT', 'name': 'Search', 'functional_path': 'Search/Root', 'trigger': 'invoke', 'observable_result': 'result', 'requirement_ids': ['R1'], 'case_ids': ['C1'], 'evidence_refs': []}]})}
         parent['behavior_review'] = behavior_review(f, parent)
         f.call('register', parent, role='global-orchestrator', module=None)
         return f, d, pc.verify_snapshot(prepared['project_context_ref'])['source_refs']['slicing_skill_ref']

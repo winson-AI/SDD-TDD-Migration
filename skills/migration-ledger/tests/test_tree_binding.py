@@ -75,6 +75,17 @@ class TreeBindingTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'a scaffold holds no feature-tree node'):
             self.judge([phone, rest, leaf('M004', ['C1'], 'Login/Phone', kind='scaffold')], ref)
 
+    def test_a_split_cuts_the_inventory_its_root_was_registered_with(self):
+        self.parent['feature_inventory_ref'] = self.inventory()
+        phone, rest = leaf('M002', CASES[:4], 'Login/Phone'), leaf('M003', CASES[4:], 'Login/Code', 'Login/Intro')
+        self.judge([phone, rest], None)  # the plan names no inventory: the root's binds
+        self.judge([phone, rest], None, s={**self.s, 'context_readiness_required': True})
+        with self.assertRaisesRegex(Rejected, 'accepts exactly the cases of the features it holds'):
+            self.judge([leaf('M002', CASES[:3], 'Login/Phone'), leaf('M003', CASES[3:], 'Login/Code', 'Login/Intro')], None)
+        root = {**self.parent, 'scope': {'in': ['login'], 'out': [], 'requirement_ids': ['R1']}, 'context_refs': []}
+        packed = decomposition.assigned_module({'modules': {}, 'module_groups': {'M001': root}}, {'module_id': 'M002', 'parent_module_id': 'M001', 'case_ids': CASES[:4]})
+        self.assertEqual(packed['feature_inventory_ref'], self.parent['feature_inventory_ref'])  # the planner sees it before the global plan
+
     def test_a_fresh_split_under_readiness_names_its_inventory(self):
         s = {**self.s, 'context_readiness_required': True}
         with self.assertRaisesRegex(Rejected, 'names the feature inventory it cuts'):
@@ -96,6 +107,21 @@ class TreeBindingTests(unittest.TestCase):
         self.assertNotIn('SLICE-M002-derived', self.s['issues'])
         s = {'modules': {}, 'module_groups': {}, 'dimension_slicing_required': False}
         self.judge([phone, leaf('M003', CASES[4:], 'Login/Code', 'Login/Intro')], ref, record=False, s=s)
+        self.assertNotIn('issues', s)
+
+    def test_the_shape_of_an_accepted_tree_is_a_fact_not_a_gate(self):
+        def flat(n, nodes):
+            return {'F%d' % i: feature('F%d' % i, 'Root/%s/F%d' % (nodes[i % len(nodes)], i), ['C%d' % i]) for i in range(n)}
+        s = {'modules': {'M001': {'module_id': 'M001'}}, 'module_groups': {}}
+        workflow.tree_shape(s, flat(4, ['A']))
+        self.assertNotIn('issues', s)  # too small to be a shape
+        workflow.tree_shape(s, flat(6, ['A', 'B', 'C']))  # three nodes of two single-case features each
+        self.assertEqual(sorted(s['issues']), ['SLICE-tree-fine', 'SLICE-tree-flat'])
+        self.assertEqual((s['issues']['SLICE-tree-fine']['kind'], s['issues']['SLICE-tree-fine']['applies_to'], s['issues']['SLICE-tree-fine']['resolved']['M001']['recorded']), ('fact', ['M001'], True))
+        self.assertIn('3 of 3 second-level nodes hold fewer than 3 cases', s['issues']['SLICE-tree-fine']['summary'])
+        self.assertIn('each of 6 features holds exactly one case', s['issues']['SLICE-tree-flat']['summary'])
+        s = {'modules': {'M001': {'module_id': 'M001'}}, 'module_groups': {}}
+        workflow.tree_shape(s, {f['feature_id']: f for f in tree()})  # Phone 4 cases, Code 4, Intro 2: one of three nodes is small
         self.assertNotIn('issues', s)
 
     def test_the_global_plan_names_the_leaf_a_feature_tree_node_gave_as_its_only_owner(self):

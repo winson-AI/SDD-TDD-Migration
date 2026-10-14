@@ -172,6 +172,31 @@ def feature_inventory(s, plan):
         require(question.get('question_id') in issues and question.get('question') and
                 issues[question['question_id']].get('question') == question['question'],
                 'feature doubt requires human boundary review; do not omit questions')
+    tree_shape(s, features)
+
+
+TREE_FACTS = 5  # a tree of fewer features is a fixture or a stub, not a shape to judge
+
+
+def tree_shape(s, features):
+    """Facts, never gates, about the shape of an accepted feature tree: a fine tree (most second-level nodes hold fewer
+    than 3 cases - a leaf is a sub-flow, so the nodes must be grouped) and a flat one (every feature holds exactly one
+    case - a feature is a behaviour with branches, a case one check of it). They feed the audit's slicing experience."""
+    if len(features) < TREE_FACTS:
+        return
+    import issues
+    nodes = {}
+    for item in features.values():
+        nodes.setdefault('/'.join(str(item.get('functional_path') or '').split('/')[:2]), set()).update(item.get('case_ids') or [])
+    roots = sorted(mid for mid, m in {**s.get('module_groups', {}), **s['modules']}.items() if not m.get('parent_module_id'))
+    resolved = {mid: {'by': issues.LEDGER, 'recorded': True} for mid in roots}
+    fine = [node for node, cases in nodes.items() if len(cases) < 3]
+    if len(nodes) > 1 and len(fine) * 2 > len(nodes):
+        issues.record(s, 'SLICE-tree-fine', 'fact', 'the feature tree is fine-grained: %d of %d second-level nodes hold fewer than 3 cases; a leaf is a sub-flow, group them'
+                      % (len(fine), len(nodes)), roots, issues.LEDGER, resolved=resolved)
+    if all(len(item.get('case_ids') or []) == 1 for item in features.values()):
+        issues.record(s, 'SLICE-tree-flat', 'fact', 'the feature tree is flat: each of %d features holds exactly one case; a feature is a behaviour with branches, a case one check of it'
+                      % len(features), roots, issues.LEDGER, resolved=resolved)
 
 
 def boundary_review(s, plan, decision_id):

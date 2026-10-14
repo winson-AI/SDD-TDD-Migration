@@ -51,6 +51,9 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 作者自检与会话 | 实现/修复结果缺 authoring_diagnostics、诊断无日志或版本敏感 API 无固定源码引用均拒收；本地修复游标指向原 Implementer 会话 |
 | 静态规格闭合 | build 全绿后同一派发继续 static，再到 automation；passed 场景须给出另一目标文件中的调用位置（reached_from）；审查需覆盖全部冻结需求、引用目标文件中真实存在的符号、逐项判定假实现清单；反模式 present 为 Red 并进入修复；prepared run 必须冻结 static PATH |
 | 文本压缩 | 角色执行步骤、两张操作矩阵、模板索引与四个最大引用文件的长段落改写，规则不变；棘轮 500,500 → 498,500 |
+| 一种版本学说 | 已接受的工件沿用接受时的规则，重新提交按当前规则全判：取消 restated_shape / restated_task_scope 豁免；原样复述且分配未变的孩子不再判，分配任一字段变动即全判 |
+| 根自带清单 | readiness 开启且 decomposition_required 的根在 register 时必须带 feature_inventory_ref；分配包在 global-plan 之前暴露它；拆分计划不写引用则取根的 |
+| 树形事实 | 清单接受时记 SLICE-tree-fine（二级节点过半少于 3 条 CASE）与 SLICE-tree-flat（每功能一条用例）；少于 5 个功能不记；事实不阻塞 |
 | 切片与用例同源 | decompose 计划带 feature_inventory_ref，功能叶声明 functional_paths；Ledger 推导叶子的功能并要求功能叶不重叠、并集覆盖父的全部功能、case_ids 精确等于这些功能的 CASE 并集，脚手架不声明节点；readiness 开启的首次拆分必须带清单；global-plan 的 feature_owners 等于推导出的唯一 owner，叶子与最终清单不一致拒绝并提示 redecompose |
 | 用户用例锚定 | 清单带 test_summary_ref 时功能叶至少含一个 test-case-group 覆盖的功能，只由源码派生功能组成的叶拒绝；叶内派生功能记事实 SLICE-<module>-derived，复判不记 |
 | 用例来源规则单处 | slicing.md「用例来源与切片抓手」是唯一表述，其余入口为指针；切片标准改为列表并写明每叶自带四维分析与六件套；角色专题表每行一句义务 + 协议链接 |
