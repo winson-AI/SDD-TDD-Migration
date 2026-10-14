@@ -52,7 +52,7 @@ def mechanical(root, s, mid, assignment):
     m = scope(s, mid)
     actor = {'role': assignment['role'], 'instance_id': assignment['instance_id']}
     try:
-        verify_inputs(s, mid, stage, deep=True)
+        verify_inputs(s, mid, stage, deep=True, run_root=root)
         refs = input_refs(s, mid, stage)
         proof = {'frozen-spec': m['plan_ref'], 'reuse-mapping': (m.get('plan') or {}).get('reuse_plan_ref'),
                  'source-closure': dimensions.of_leaf(m),
@@ -66,7 +66,7 @@ def mechanical(root, s, mid, assignment):
                   'subject_sha256': subject(s, mid, stage), 'checks': checks, 'verdict': 'ready'}
         import project_context
         ref = project_context.archive(Path(root) / 'artifacts/preflight', project_context.encoded(report), '.json')
-        submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor)
+        submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor, run_root=root)
         return ref
     except (Rejected, OSError, KeyError, TypeError):
         return None
@@ -303,23 +303,51 @@ def inputs(s, mid, stage, refs=None):
     return {'inputs_sha256': digest(sorted((ref['path'], ref['sha256']) for ref in refs)), 'input_count': len(refs)}
 
 
-def verify_inputs(s, mid, stage, deep=False, refs=None):
+def verify_inputs(s, mid, stage, deep=False, refs=None, run_root=None):
     """No ready report stands on drifted evidence: everything it stands on is as referenced and, with `deep`, so is
-    what its JSON cites. Nested live target code may legitimately drift; everything else may not."""
-    seen, root = set(), s.get('target_root')
+    what its JSON cites. Nested target code may drift; nested historical tool references require a verified
+    committed archive of this run. Without a trusted caller-supplied run_root, all non-target inputs stay live."""
+    seen, root, accepted, prior_runs = set(), s.get('target_root'), None, {}
+    def archive_index():
+        nonlocal accepted
+        if accepted is None:
+            import ledger
+            import run_storage
+            committed, events = ledger.read_events(run_root)
+            require(committed and all(committed.get(key) == s.get(key) for key in
+                    ('run_id', 'target_root', 'legacy_root', 'project_context_ref')),
+                    'archive context run mismatch')
+            run_storage.for_state(Path(run_root).absolute(), s)
+            accepted = ledger.artifact_index(events)
+        return accepted
     def walk(value, nested):
         if isinstance(value, dict):
             if cited(value, nested):
                 if (value['path'], value['sha256']) in seen:
+                    if not nested:
+                        check_ref(value)  # Earlier nested history never exempts a current input.
                     return
                 seen.add((value['path'], value['sha256']))
+                if nested and run_root is not None:
+                    import ledger
+                    imported = ledger.prior_run_artifact(Path(run_root).absolute(), value, True, prior_runs)
+                    if imported:
+                        archive_index()  # Only the trusted current run may consume historical reports.
+                        return
                 try:
                     path = check_ref(value)
                 except Rejected:
-                    if nested and root and Path(value['path']).resolve().is_relative_to(Path(root).resolve()):
+                    historical = None
+                    if nested and run_root is not None:
+                        import ledger
+                        historical = ledger.historical_tool_ref(run_root, value, archive_index(), nested=True)
+                    if historical:
+                        path = historical[0]
+                    elif nested and root and Path(value['path']).resolve().is_relative_to(Path(root).resolve()):
                         return
-                    raise
-                if deep and path.suffix == '.json':
+                    else:
+                        raise
+                if deep and Path(value['path']).suffix == '.json':
                     try:
                         document = read_json(path)
                     except Rejected:
@@ -336,7 +364,7 @@ def verify_inputs(s, mid, stage, deep=False, refs=None):
     walk(standing_refs(s, mid, stage) if refs is None else refs, False)
 
 
-def submit(s, req, actor):
+def submit(s, req, actor, run_root=None):
     p, mid = req['payload'], req.get('module_id')
     report = read_json(check_ref(p.get('report_ref')))
     stage = report.get('stage')
@@ -372,7 +400,7 @@ def submit(s, req, actor):
             'context verdict disagrees with checks')
     required = input_refs(s, mid, stage) if report['verdict'] == 'ready' else None
     if required is not None:
-        verify_inputs(s, mid, stage, deep=True)
+        verify_inputs(s, mid, stage, deep=True, run_root=run_root)
     if report['verdict'] == 'ready' and stage in ('building', 'testing', 'audit-testing', 'audit-execution'):
         execution = report.get('execution', {})
         argv = execution.get('argv')
@@ -457,7 +485,7 @@ def owed(s, mid, step):
     return None if assignment.get('context_ref') else requirement('assign', assignment)
 
 
-def gate(s, req, actor):
+def gate(s, req, actor, run_root=None):
     """Existing owner action accepts the read-only preflight; no extra human approval."""
     if not enabled(s):
         return
@@ -478,7 +506,7 @@ def gate(s, req, actor):
     draft = p.get('plan_ref') if op in ('global-plan', 'decompose', 'plan', 'audit-plan') else obj.get('plan_ref') if op == 'freeze' else None
     if op in ('source-review', 'run-review', 'audit-code-review'): draft = p.get('report_ref')
     if op in SELF_REPORTED and obj.get('context_receipts', {}).get(stage + ':' + instance, {}).get('report_ref') != ref:
-        submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor)
+        submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor, run_root=run_root)
     validate(s, mid, stage, ref, instance, draft)
     obj.setdefault('context_acceptances', {})[op] = {'report_ref': copy.deepcopy(ref), 'accepted_by': copy.deepcopy(actor)}
 

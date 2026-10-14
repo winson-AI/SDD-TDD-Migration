@@ -1322,7 +1322,7 @@ def mutate(s, req, principal, events, root=None):
         raise Rejected('audit snapshot locked; close or revoke audit before mutation')
     if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
-    context_readiness.gate(s, req, principal)
+    context_readiness.gate(s, req, principal, run_root=root)
     hint = req.get('hint')
     if hint is not None:
         require(isinstance(hint, dict) and isinstance(hint.get('session_id'), str) and hint['session_id']
@@ -1343,7 +1343,7 @@ def mutate(s, req, principal, events, root=None):
     elif mid in s['modules']:
         record_actor(s, m, principal, op)
     if op == 'context-submit':
-        receipt = context_readiness.submit(s, req, principal)
+        receipt = context_readiness.submit(s, req, principal, run_root=root)
         if mid in s['modules']:
             settle_preflight(m, principal, receipt)
     elif op == 'audit-code-review':
@@ -1959,7 +1959,51 @@ def new_snapshots(root, payload, target_root, index):
             if item.get('status') or (item.get('source_path'), item.get('sha256')) not in index]
 
 
-def preserve_refs(root, value, seen=None, nested=False, target_root=None, accepted=None):
+def historical_tool_ref(root, value, accepted, nested=False):
+    """Resolve only a nested controller/protocol reference from a verified committed event index.
+
+    The caller obtains `accepted` with artifact_index(read_events(root)[1]); raw state is not archive proof.
+    Current inputs and redirected source paths never use this historical exception.
+    """
+    source = Path(value['path'])
+    if not nested or source.resolve() != source or not any(source.is_relative_to(p) for p in HISTORICAL_TOOL_ROOTS):
+        return None
+    historical = (accepted or {}).get((value['path'], value['sha256']))
+    if not historical:
+        return None
+    entry, source_event = historical
+    path = run_storage.checked_path(Path(root) / 'artifacts' / value['sha256'], Path(root) / 'artifacts')
+    require(entry.get('path') == str(path), 'event artifact location differs from managed archive')
+    return check_ref({'path': str(path), 'sha256': value['sha256']}), source_event
+
+
+def prior_run_artifact(root, value, nested, prior_runs):
+    """A cited report from a sibling run is historical evidence, not that run's live dependency graph.
+
+    Only a verified event's managed archive authorizes this boundary. Direct inputs still use live bytes.
+    """
+    if not nested or root.parent.name != '.sdd-runs':
+        return None
+    source = Path(value['path'])
+    if source.resolve() != source or not source.is_relative_to(root.parent):
+        return None
+    parts = source.relative_to(root.parent).parts
+    if len(parts) < 3 or parts[0] == root.name:
+        return None
+    previous = root.parent / parts[0]
+    if previous not in prior_runs:
+        state, events = read_events(previous)
+        prior_runs[previous] = artifact_index(events) if state else {}
+    record = prior_runs[previous].get((str(source), value['sha256']))
+    if not record:
+        return None
+    entry, event = record
+    archive = run_storage.checked_path(previous / 'artifacts' / value['sha256'], previous / 'artifacts')
+    require(entry.get('path') == str(archive), 'prior run artifact location differs from managed archive')
+    return check_ref({'path': str(archive), 'sha256': value['sha256']}), previous.name, event
+
+
+def preserve_refs(root, value, seen=None, nested=False, target_root=None, accepted=None, prior_runs=None):
     """Archive evidence bytes before commit; keep live refs for stale-code detection.
 
     Nested historical controller/protocol refs may read an exact archive from a prior committed event;
@@ -1972,25 +2016,24 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
     (legacy sources, staging/context artifacts) remain strictly validated.
     """
     seen = set() if seen is None else seen
+    prior_runs = {} if prior_runs is None else prior_runs
     saved = []
     if isinstance(value, dict):
         if cited(value, nested):
             key = (value['path'], value['sha256'])
             if key in seen:
+                if not nested:
+                    check_ref(value)  # A nested archive cannot authorize the same reference as a current input.
                 return []
             seen.add(key)
             historical = None
+            imported = prior_run_artifact(root, value, nested, prior_runs)
             try:
-                path = check_ref(value)
+                path = imported[0] if imported else check_ref(value)
             except ValueError:
-                tool_history = nested and any(Path(value['path']).resolve().is_relative_to(p)
-                                              for p in HISTORICAL_TOOL_ROOTS)
-                historical = (accepted or {}).get(key) if tool_history else None
+                historical = historical_tool_ref(root, value, accepted, nested)
                 if historical:
-                    entry, source_event = historical
-                    path = run_storage.checked_path(root / 'artifacts' / value['sha256'], root / 'artifacts')
-                    require(entry['path'] == str(path), 'event artifact location differs from managed archive')
-                    check_ref({'path': str(path), 'sha256': value['sha256']})
+                    path, source_event = historical
                 else:
                     live_target = nested and target_root and isinstance(value.get('path'), str) and \
                         Path(value['path']).resolve().is_relative_to(Path(target_root).resolve())
@@ -2008,21 +2051,23 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
                     f.flush(); os.fsync(f.fileno())
             require(file_ref(blob)['sha256'] == value['sha256'], 'archived artifact corrupt')
             saved.append({'source_path': value['path'], **file_ref(blob),
+                          **({'status': 'accepted-prior-run-artifact', 'accepted_run_id': imported[1],
+                              'accepted_event': imported[2]} if imported else {}),
                           **({'status': 'historical-snapshot', 'accepted_event': source_event} if historical else {})})
-            if Path(value['path']).suffix == '.json':
+            if Path(value['path']).suffix == '.json' and not imported:
                 try:
                     nested_value = read_json(path)
                 except Rejected:
                     raise  # a document that cites an id its refs table lacks is wrong, not merely not JSON
                 except ValueError:
                     nested_value = None
-                saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root, accepted=accepted))
+                saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root, accepted=accepted, prior_runs=prior_runs))
         else:
             for item in value.values():
-                saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted))
+                saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted, prior_runs))
     elif isinstance(value, list):
         for item in value:
-            saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted))
+            saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted, prior_runs))
     return saved
 
 

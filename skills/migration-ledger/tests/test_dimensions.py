@@ -375,6 +375,68 @@ class DimensionTests(unittest.TestCase):
             verify_plan(p)
 
 
+class ResourceRefinementTests(unittest.TestCase):
+    setUp = DimensionTests.setUp
+    analysis = DimensionTests.analysis
+
+    @staticmethod
+    def resource(analysis):
+        return next(row for row in analysis['dimensions'] if row['dimension'] == 'Resource')
+
+    def test_null_consumer_can_be_set_to_leaf_files(self):
+        allocated = self.analysis('M001', ('Resource',))
+        item = self.resource(allocated)['items'][0]
+        item['consumer'] = None
+        for consumer in ('target/icon.kt#draw', ['target/icon.kt#draw', 'target/header.kt']):
+            refined = copy.deepcopy(allocated)
+            self.resource(refined)['items'][0]['consumer'] = consumer
+            with self.subTest(consumer=consumer):
+                dimensions.keeps(allocated, refined)
+        self.resource(refined)['items'][0]['case_ids'] = ['other-case']
+        with self.assertRaisesRegex(Rejected, 'case_ids'):
+            dimensions.keeps(allocated, refined)
+
+    def test_nonnull_consumer_still_narrows_to_allocated_directory(self):
+        allocated = {'source_resource': 'legacy/icon.svg', 'consumer': 'target/icons'}
+        dimensions.keeps(allocated, {**allocated, 'consumer': ['target/icons/draw.kt#Icon']})
+        for consumer in ([], ['target/elsewhere/draw.kt'], None):
+            with self.subTest(consumer=consumer), self.assertRaises(Rejected):
+                dimensions.keeps(allocated, {**allocated, 'consumer': consumer})
+
+    def test_resource_details_supplement_condition_review_without_losing_pairs(self):
+        allocated = self.analysis('M001', ('Resource',))
+        row = self.resource(allocated)
+        item = row['items'][0]
+        item['fidelity_conditions'] = [{'condition_id': 'theme', 'condition': 'source theme',
+            'reason': 'source-backed theme', 'status': 'applicable', 'evidence_refs': item['evidence_refs']}]
+        pair = {'item_id': item['item_id'], 'condition_id': 'theme'}
+        row['condition_review'] = {facet: {'reason': 'source-backed facet', 'evidence_refs': item['evidence_refs'],
+            'condition_refs': [pair.copy()]} for facet in dimensions.CONDITION_FACETS['Resource']}
+        refined = copy.deepcopy(allocated)
+        own = self.resource(refined)
+        detail = copy.deepcopy(item)
+        detail.update(item_id=item['item_id'] + '.icon', detail_of=item['item_id'])
+        own['items'].append(detail)
+        facet = next(iter(own['condition_review']))
+        refs = own['condition_review'][facet]['condition_refs']
+        refs.append({'item_id': detail['item_id'], 'condition_id': 'theme'})
+        dimensions.coverage_review(refined, required=True)
+        dimensions.keeps(allocated, refined)
+        bad = copy.deepcopy(refined)
+        self.resource(bad)['condition_review'][facet]['condition_refs'].pop(0)
+        with self.assertRaisesRegex(Rejected, 'condition_refs'):
+            dimensions.keeps(allocated, bad)
+        bad = copy.deepcopy(refined)
+        self.resource(bad)['condition_review'][facet]['condition_refs'].append(
+            {'item_id': detail['item_id'], 'condition_id': 'unknown'})
+        with self.assertRaisesRegex(Rejected, 'unknown/non-applicable'):
+            dimensions.coverage_review(bad, required=True)
+        bad = copy.deepcopy(refined)
+        self.resource(bad)['items'][-1]['case_ids'] = ['outside-case']
+        with self.assertRaisesRegex(Rejected, 'stays inside'):
+            dimensions.keeps(allocated, bad)
+
+
 if __name__ == '__main__':
     unittest.main()
 

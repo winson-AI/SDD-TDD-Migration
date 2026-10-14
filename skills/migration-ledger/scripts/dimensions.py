@@ -285,12 +285,12 @@ def partition(s, parent, plan):
 
 
 IDENTIFIED = ('item_id', 'condition_id', 'dimension', 'api_id')
-GROWS = ('evidence_refs', 'assertions')
+GROWS = ('evidence_refs', 'assertions', 'condition_refs')
 
 
 def keeps(allocated, refined, where='analysis', key=None):
     """Refuse a refinement that changes or drops something its allocation states. An object may gain fields, a field the
-    allocation left null may be filled, evidence and the assertions bound to a condition may gain entries; items,
+    allocation left null may be filled, evidence, condition review refs and bound assertions may gain entries; items,
     conditions and dimensions are matched by their identifiers and none is added, dropped or reordered."""
     if allocated is None:
         return
@@ -300,7 +300,7 @@ def keeps(allocated, refined, where='analysis', key=None):
             require(name in refined, 'refined analysis drops ' + where + '.' + name)
             if name == 'items' and allocated.get('dimension') == 'Resource':
                 detailed(value, refined[name], where + '.' + name)
-            elif name == 'consumer' and 'source_resource' in allocated:
+            elif name == 'consumer' and 'source_resource' in allocated and value is not None:
                 narrowed(value, refined[name], where + '.' + name)
             elif name == 'api_inventory_ref' and value:
                 import api_contract

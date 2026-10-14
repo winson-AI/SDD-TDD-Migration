@@ -154,6 +154,11 @@ def source_facts(source, source_id):
         root = xml_root(source)
         entries = [e for e in root if e.get('name') == name and
                    (e.get('type') if e.tag == 'item' else 'array' if e.tag in ('string-array', 'integer-array') else e.tag) == namespace]
+        if namespace == 'attr':
+            # Root attrs can define TYPE_ANY; only styleable attrs may be bare references.
+            entries += [e for e in root.findall('declare-styleable/attr')
+                       if e.get('name') == name and ((e.get('format') or '').strip() or
+                           any(c.tag in ('enum', 'flag') and c.get('name') and c.get('value') for c in e))]
         require(len(entries) == 1, 'resource source must contain exactly one matching values entry')
         entry = entries[0]
         fact['kind'] = namespace

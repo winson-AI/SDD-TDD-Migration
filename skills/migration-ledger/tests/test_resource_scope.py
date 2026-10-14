@@ -3,6 +3,7 @@ import copy
 from pathlib import Path
 import sys
 from types import SimpleNamespace
+import tempfile
 import unittest
 
 sys.dont_write_bytecode = True
@@ -281,6 +282,91 @@ class ResourceScopeTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'different source baselines'):
             ui_fidelity.freeze_gate({**self.f.state, 'legacy_root': str(self.n.android)}, module)
         verify_plan(module['plan'], module)  # once accepted, a plan is refused for drift only; this is rule debt
+
+
+class AttributeDefinitionTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.base = Path(tmp.name)
+
+    def attribute(self, xml, qualifier='base'):
+        sdk = self.base / 'sdk'
+        sdk.mkdir(exist_ok=True)
+        metadata = sdk / 'source.properties'
+        metadata.write_text('AndroidVersion.ApiLevel=1\n')
+        source = sdk / 'data/res' / ('values' + ('-' + qualifier if qualifier != 'base' else '')) / 'attrs.xml'
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text('<resources>' + xml + '</resources>')
+        return {'source_resource': '@android:attr/control_state', 'source_resource_ref': file_ref(source),
+                'resource_kind': 'attr', 'resource_strategy': 'design_token_exact', 'qualifier': qualifier,
+                'platform_resource': {'api_level': 1, 'sdk_metadata_ref': file_ref(metadata)}}
+
+    def test_nested_boolean_definition_ignores_bare_references(self):
+        item = self.attribute('<declare-styleable name="Control">'
+            '<attr name="control_state" format="boolean"/></declare-styleable>'
+            '<declare-styleable name="View"><attr name="control_state"/></declare-styleable>')
+        for prefix in ('@', '?'):
+            with self.subTest(prefix=prefix):
+                item['source_resource'] = prefix + 'android:attr/control_state'
+                facts = rf.validate_facts(item)
+                self.assertEqual(facts['kind'], 'attr')
+                self.assertEqual(facts['source_ref'], item['source_resource_ref'])
+                self.assertEqual(facts['platform_resource'], item['platform_resource'])
+
+    def test_root_definition_and_enum_flag_definitions_ignore_references(self):
+        definitions = ('<attr name="control_state" format="reference|color"/>',
+            '<declare-styleable name="Control"><attr name="control_state">'
+            '<enum name="off" value="0"/><enum name="on" value="1"/></attr></declare-styleable>',
+            '<declare-styleable name="Control"><attr name="control_state">'
+            '<flag name="first" value="1"/><flag name="second" value="2"/></attr></declare-styleable>')
+        for definition in definitions:
+            with self.subTest(definition=definition):
+                item = self.attribute(definition + '<declare-styleable name="View">'
+                    '<attr name="control_state"/></declare-styleable>')
+                self.assertEqual(rf.validate_facts(item)['kind'], 'attr')
+
+    def test_root_no_format_attribute_remains_a_definition(self):
+        item = self.attribute('<attr name="control_state"/><declare-styleable name="View">'
+            '<attr name="control_state"/></declare-styleable>')
+        self.assertEqual(rf.validate_facts(item)['kind'], 'attr')
+
+    def test_styleable_bare_or_empty_format_attributes_are_not_definitions(self):
+        for attribute in ('<attr name="control_state"/>', '<attr name="control_state" format=""/>',
+                          '<attr name="control_state" format=" "/>'):
+            with self.subTest(attribute=attribute), self.assertRaisesRegex(Rejected, 'exactly one matching values entry'):
+                rf.validate_facts(self.attribute('<declare-styleable name="View">' + attribute + '</declare-styleable>'))
+
+    def test_duplicate_true_definitions_are_rejected(self):
+        typed = '<attr name="control_state" format="boolean"/>'
+        nested = '<declare-styleable name="Control">' + typed + '</declare-styleable>'
+        for xml in (typed + nested, '<attr name="control_state"/>' + nested,
+                    nested + '<declare-styleable name="Other">' + typed + '</declare-styleable>',
+                    typed + '<declare-styleable name="Other"><attr name="control_state">'
+                    '<flag name="enabled" value="1"/></attr></declare-styleable>'):
+            with self.subTest(xml=xml), self.assertRaisesRegex(Rejected, 'exactly one matching values entry'):
+                rf.validate_facts(self.attribute(xml))
+
+    def test_typed_attribute_under_an_unrelated_parent_is_not_a_definition(self):
+        typed = '<attr name="control_state" format="boolean"/>'
+        for parent in ('string', 'style', 'group'):
+            with self.subTest(parent=parent), self.assertRaisesRegex(Rejected, 'exactly one matching values entry'):
+                rf.validate_facts(self.attribute('<' + parent + ' name="outer">' + typed + '</' + parent + '>'))
+
+    def test_namespace_qualifier_and_hash_checks_are_preserved(self):
+        item = self.attribute('<declare-styleable name="Control">'
+            '<attr name="control_state" format="boolean"/></declare-styleable>', qualifier='night')
+        self.assertEqual(rf.validate_facts(item)['qualifier'], 'night')
+        with self.assertRaisesRegex(Rejected, 'resource qualifier differs'):
+            rf.validate_facts({**item, 'qualifier': 'base'})
+        source = Path(item['source_resource_ref']['path'])
+        source.write_text('<resources><string name="control_state">Title</string></resources>')
+        with self.assertRaisesRegex(Rejected, 'hash mismatch'):
+            rf.validate_facts(item)
+        item['source_resource_ref'] = file_ref(source)
+        with self.assertRaisesRegex(Rejected, 'exactly one matching values entry'):
+            rf.validate_facts(item)
+        self.assertEqual(rf.source_facts(source, '@string/control_state')['kind'], 'string')
 
 
 if __name__ == '__main__':

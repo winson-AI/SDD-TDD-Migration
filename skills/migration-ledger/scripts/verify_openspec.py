@@ -127,6 +127,8 @@ class AcceptanceEvidence:
                 continue
             path = self.check(ref)
             self.walked.add(key)
+            if nested and self.index.get(key, {}).get('status') == 'accepted-prior-run-artifact':
+                continue  # Imported experience preserves a committed report, not the old run's live graph.
             if Path(ref['path']).suffix == '.json':
                 try:
                     document = json.loads(path.read_text())
