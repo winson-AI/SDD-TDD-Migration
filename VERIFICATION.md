@@ -60,6 +60,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 模板按名取用 | 卡片只列本步模板名并在脚注说明按名取用；`reading.py show --template <名>` 打印单份包模板并拒绝越界路径与不存在的名字 |
 | issue 卫生 | fact 记录即对每个目标结清、不能 blocks、不挡 complete；step 视图最多列 10 条 open issue（blocking 优先、最新优先）并给总数；standing 规则在 `--since` 之后无新增时只给数量与摘要 |
 | 提供方修订不挡依赖方 | 提供方打开 CR 后，依赖方的规划与派发仍以其已接受代码为准（providers 行带 revising）；修订冻结后被替代的引用按既有规则记 gap 并失效复测 |
+| 薄脚手架 | 脚手架计划多于 3 个 TASK 须声明 ≤3 个 skeleton_task_ids，骨架 TASK 的 PATH 只许 build/unit/static，功能叶不得声明；骨架被接受且 build Green 即视为提供方就位（providers / dependencies_ready），其余 TASK 落地不逐次失效依赖方，全部落地时失效一次 |
 | 统一全量审计 | 独立同伴运行时仅保留本模块问题；全部模块本轮收尾后启动宿主审计，不允许提前派发局部审计 |
 | 轻量叶子与批量信封 | lean_leaf 登记需 scope/context/不可再拆审阅；本地轮由 Fixer 自诊断（`fixer_self_diagnosis` 对全部模块开启），未开启的普通模块拒绝；批量信封绑定文件 hash 与父的孩子，条目完全匹配且 MO 附 review_ref 才冻结 |
 | 原子规划与历史 | MO 原子结论经 decompose/GO accept 保留节点；缺预检、行为/验证边界或扩大范围均拒绝；无关根待拆时叶子可完成实现/验证，依赖待拆仍阻塞；兄弟拆分保留冻结/活动执行和独立测试设计；reopen 留不可执行 history、重新冻结唯一 SPEC，禁止提前 coding/testing/fixer 或宿主审计 |

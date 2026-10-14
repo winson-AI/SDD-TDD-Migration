@@ -596,7 +596,7 @@ GATES = [
     (r'superseded plan|pins only its own target files', 'module-decomposition.md', '验证边界'),
     (r'task scope (in|out):', 'dimension-slicing.md', '7. 任务级四维分析契约'),
     (r'review over \d+ KB', 'local-runtime.md', '操作矩阵'),
-    (r'scaffold leaves|anchors on a UI surface|single layer|at most \d+ cases|at most \d+ tasks|plan over \d+ KB|unknown child kind', 'module-decomposition.md', '切片标准'),
+    (r'scaffold leaves|anchors on a UI surface|single layer|at most \d+ cases|at most \d+ tasks|plan over \d+ KB|unknown child kind|skeleton', 'module-decomposition.md', '切片标准'),
     (r'runtime expression|runtime/layout|layout keywords|structural mapping|parameter mapping', 'resource-transfer.md', '动态参数与布局结构'),
     (r'hash mismatch|absolute evidence path|missing file', 'runtime.md', '请求与事件'),   # first: the file named in the message may sit in a path of any other topic
     (r'unknown reference id', 'context-readiness.md', '3. 报告与传递'),

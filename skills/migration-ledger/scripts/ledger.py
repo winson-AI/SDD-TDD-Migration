@@ -381,11 +381,23 @@ def replan_module(m, reason, evidence_ref, release_blocker=False):
         m['phase'] = phase
 
 
+def provider_written(p):
+    """A provider is there for the leaves that need its code once every task of it is accepted - or, for a scaffold that
+    named its skeleton, once the skeleton tasks are accepted and built Green; the rest of it lands while they work."""
+    tasks = {t['task_id'] for t in (p.get('plan') or {}).get('tasks', [])}
+    accepted = set(p.get('accepted_task_ids', []))
+    if not p.get('code_baseline') or not tasks:
+        return False
+    if accepted == tasks:
+        return True
+    skeleton = decomposition.skeleton(p)
+    return bool(skeleton) and skeleton <= accepted and tv.build_ready(p)
+
+
 def dependencies_ready(s, m):
     providers = ((m.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs', [])
     stages = {row['module_id']: row['required_stage'] for row in providers}
-    require(all((bool(s['modules'][d].get('code_baseline')) and set(s['modules'][d].get('accepted_task_ids', [])) ==
-                {t['task_id'] for t in (s['modules'][d].get('plan') or {}).get('tasks', [])})
+    require(all(provider_written(s['modules'][d])
                 if stages.get(d) == 'implemented' and m.get('phase') not in ('testing', 'dod', 'completed')
                 else tv.available(s['modules'][d]) for d in m['dependencies']), 'dependencies not complete')
     for d in m['dependencies']:
@@ -670,7 +682,7 @@ def providers(s, m):
             p, stage = s['modules'][mid], stages.get(dependency, 'verified')
             # A provider revising its SPEC keeps the code it accepted: a dependent goes on against that code, and what the
             # revision supersedes reaches it as a gap when the revision freezes.
-            written = bool(p.get('code_baseline')) and set(p.get('accepted_task_ids', [])) == {t['task_id'] for t in (p.get('plan') or {}).get('tasks', [])}  # a reopened contract is not there yet
+            written = provider_written(p)
             rows.append({'module_id': mid, 'required_stage': stage, 'phase': p['phase'], 'plan_ref': p.get('plan_ref'), 'revising': bool(p.get('change_request')),
                          'code_baseline': p.get('code_baseline'), 'ready': written if stage == 'implemented' else tv.available(p)})
     return rows
@@ -1466,6 +1478,7 @@ def mutate(s, req, principal, events, root=None):
         if m.get('scope'):
             decomposition.check_scopes(s, m)
             decomposition.check_tasks(m, plan)
+        decomposition.check_skeleton(m, plan)
         if resubmitted:
             verify_plan(plan, m)
             plan_hash = m['plan_hash']
@@ -1652,7 +1665,10 @@ def mutate(s, req, principal, events, root=None):
                 m['task_revalidation'] = {'mode': 'full', 'reason': 'retained-task-updated', 'retained_task_ids': [], 'retained_path_ids': []}
             task_revalidation.carry(m, prior_results)
             m.pop('automation_retry_ready', None)
-            invalidate_dependents(s, mid)
+            # A scaffold that released its features on its skeleton lands the rest of itself beside them: they verify again
+            # when all of it is there, not at every task.
+            if complete_tasks or not decomposition.skeleton(m):
+                invalidate_dependents(s, mid)
         else:
             previous_fingerprint = failure_fingerprint(m['results'])
             if tv.split(m):
