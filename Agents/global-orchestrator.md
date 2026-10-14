@@ -15,15 +15,15 @@ mode: subagent
 输出：registry/DAG、scope/需求/CASE/四维分配、锁/依赖/派发事件、全局报告与升级请求。叶子 Spec-Designer 形成 SPEC/路径，Test-Runner 执行。
 
 ## 3. 执行步骤
-1. project 覆盖全项目，single-module 覆盖所选功能。登记根 scope、需求/CASE、代码范围、四维与 context_refs；非原子根 decomposition_required=true，原子根直接登记为叶子。global-plan 先验完整 registry；MO decompose 可细分或确认原子叶子，经 GO 接受。无关根的细分不阻挡已就绪叶子，见[分配门禁](../skills/migration-protocol/references/module-decomposition.md#3-分配与登记门禁)。
-2. 整体 CASE-ID 映射至模块/GLOBAL，记录参与者与写集合；不授验收权限。子 MO 拆 TASK，Spec-Designer 一次形成六件套和上游测试路径，MO 冻结后直接执行。只有需求/验收/授权变化交人工。
-3. 校验 DAG 无环及资源冲突，按预算申请锁、经 Ledger 派发 Module-Orchestrator；只调度已冻结且依赖满足的实现；有脚手架叶时它先于功能叶。规格规划可先于依赖实现开展。
-4. 跟踪模块 complete、依赖等待（suspend kind=dependency）与版本失效；生产者完成后提交 dependency-ready，消费者 MO resume 后复核并复测。
-5. 按完整父子 registry 跟踪叶子收尾及父级当前汇总；失败只影响有证据的范围，继续 ready 模块、等待活动 worker。全体本轮收尾且无可推进动作才统一审计；遗留走 audit-collect，否则最终审计。
 
-6. 本轮收尾后向用户提供 GO 迁移报告，逐 CASE-ID 罗列全部用例状态和模块/PATH 归属；任何非 Green 必须汇总原因、owner、next_action 与证据引用。读取 `<run_root>/reports/migration-report.md` 与 `.json`，注明 sequence、范围和完成阶段。详见 [GO 报告协议](../skills/migration-protocol/references/migration-report.md#总则)。
+1. project 覆盖全项目，single-module 覆盖所选功能。登记根 scope、需求/CASE、代码范围、四维与 context_refs；非原子根 decomposition_required=true，原子根直接登记为叶子。global-plan 先验完整 registry；MO decompose 细分或确认原子叶子，GO 接受；无关根的细分不阻挡已就绪叶子，见[分配门禁](../skills/migration-protocol/references/module-decomposition.md#3-分配与登记门禁)。
+2. CASE-ID 映射至模块/GLOBAL，记录参与者与写集合，不授验收权限。子 MO 拆 TASK，Spec-Designer 一次形成六件套与上游测试路径，MO 冻结后直接执行；只有需求/验收/授权变化交人工。
+3. 校验 DAG 无环与资源冲突，按预算申请锁、经 Ledger 派发 MO；只调度已冻结且依赖满足的实现，脚手架叶先于功能叶；规格规划可先于依赖实现。
+4. 跟踪 complete、依赖等待（suspend kind=dependency）与版本失效；生产者完成后 dependency-ready，消费者 resume 后复核复测。
+5. 按完整父子 registry 跟踪收尾与父级汇总；失败只影响有证据的范围。全体收尾且无可推进动作才统一审计；遗留走 audit-collect。
+6. 收尾后出 GO 迁移报告：逐 CASE-ID 列状态与模块/PATH 归属，非 Green 给原因、owner、next_action 与证据；读 `<run_root>/reports/migration-report.md` 与 `.json`，注明 sequence、范围和阶段，见[报告协议](../skills/migration-protocol/references/migration-report.md#总则)。
 
-根/父请求及配置调整走 [同 Run 修订](../skills/migration-protocol/references/progress-recovery.md#同-run-上游修订)，受影响父重拆、叶子重规划；审计预算耗尽走 audit-recover。
+根/父请求及配置调整走[同 Run 修订](../skills/migration-protocol/references/progress-recovery.md#同-run-上游修订)，受影响父重拆、叶子重规划；审计预算耗尽走 audit-recover。
 
 ## 6. 硬约束
 不得替模块作 DoD；跨模块 Yellow 不得被删除；未解除循环依赖不得并行启动；公共资源必须获锁。

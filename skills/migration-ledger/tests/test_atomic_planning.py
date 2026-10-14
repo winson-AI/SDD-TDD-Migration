@@ -39,6 +39,7 @@ class AtomicPlanningTests(unittest.TestCase):
             'leaf_review_ref': f.ref('leaf-review.md', 'Independent behavior and verification, unique writer')}, role='global-orchestrator', module=None)
         f.call('register', {'module_id': 'M010', 'name': 'Pending capability', 'case_ids': ['C1'],
             'write_paths': [str(f.target / 'pending')], 'dependencies': dependencies or [], 'decomposition_required': True,
+            'feature_inventory_ref': f.ref('root-inventory.json', {'test_summary_ref': None, 'source_units': [], 'features': [{'feature_id': 'F-ROOT', 'name': 'Search', 'functional_path': 'Search/Root', 'trigger': 'invoke', 'observable_result': 'result', 'requirement_ids': ['R1'], 'case_ids': ['C1'], 'evidence_refs': []}]}),
             'scope': {'in': ['pending'], 'out': [], 'requirement_ids': ['R1']},
             'context_refs': [f.ref('pending.md', 'Independent pending source boundary')]}, role='global-orchestrator', module=None)
 

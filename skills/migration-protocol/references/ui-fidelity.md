@@ -51,14 +51,14 @@ prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-le
 
 Test-Runner 在 build Green 后分两层（第一层：功能用例路径走通；第二层 visual：对齐存量基线，逐视觉对齐路径中的节点 assert），都是普通测试路径，走既有三态与 Next-STEP：
 
-- `visual` 路径必须绑定 `node_ids`（稳定 `node:` id）与 `baseline_ref`（[test_validation.plan_check](../../migration-ledger/scripts/test_validation.py)）；还须显式 coverage，等于对应 UI item 的 page/state/coverage，baseline_ref 属于该目标 baseline_refs，node_ids 仅引用该目标真实树节点。每个 runtime 目标至少一条对应 visual PATH，不能跨状态充数。
-- 阶段顺序由 `tv.next_scope` 强制：**第二层需第一层 Green**（功能没走通时比对渲染无意义）；DoD 要求**全部三层路径 Green**（`tv.all_green`）。
-- 视觉不对齐 = **Red + 节点级 root_cause** → 走 ④三态 / ⑤`diagnose` → 一轮 Fixer，**复用既有修复预算**（不另设轮次）。
-- 声明的手势（`interaction:<id>`）必须由某条 automation 或 visual 路径承载设备证据（`interaction_id`），静态路由不可替代。
-- `source-only` 无第二层（无基线可比）：行为用 automation 验证，按显式缺视觉证据收尾，不允许"没基线就免检"中间表征；runtime 目标原有视觉义务仍保留。
-- 仅自动化环境缺失时，`automation-unavailable` 同时挂起 automation 与 visual 两层，沿用既有 Yellow 缺测收尾。
+- `visual` 路径须绑定 `node_ids`（稳定 `node:` id）与 `baseline_ref`（[test_validation.plan_check](../../migration-ledger/scripts/test_validation.py)），并显式 coverage = 对应 UI item 的 page/state/coverage；baseline_ref 属于该目标 baseline_refs，node_ids 只引用该目标真实树节点。每个 runtime 目标至少一条 visual PATH，不跨状态充数。
+- 阶段顺序由 `tv.next_scope` 强制：**第二层需第一层 Green**；DoD 要求**全部三层路径 Green**（`tv.all_green`）。
+- 视觉不对齐 = **Red + 节点级 root_cause** → ④三态 / ⑤`diagnose` → 一轮 Fixer，**复用既有修复预算**。
+- 声明的手势（`interaction:<id>`）须由某条 automation 或 visual 路径承载设备证据（`interaction_id`），静态路由不可替代。
+- `source-only` 无第二层：行为用 automation 验证，按显式缺视觉证据收尾，不允许"没基线就免检"；runtime 目标的视觉义务仍保留。
+- 仅自动化环境缺失时，`automation-unavailable` 同时挂起 automation 与 visual，沿既有 Yellow 缺测收尾。
 
-正式视觉 Green 要求 `record.visual_alignment` 与本次回执的 `captured.visual_alignment` 一致：冻结 PATH 的 coverage/node_ids/baseline_ref、当前 code_baseline、属于本轮已接受 build_artifacts 且 hash 可校验的 hap_ref。声明 interaction_id 时，execute_test 从冻结 dimension model 取 frozen_interaction（id/action/from/expected，可选 spec_ref）写入 query（GLOBAL 自有 PATH 冻结自己的）；proof.required_interaction 须与之一致，interaction_checks 须有同 ID、PASSED、同 action、observed 满足冻结 expected、同 hap_sha256/代码基线且证据真实的唯一记录，不得改声明更容易的动作或目的页面。adapter 与正式门禁分别核对。Red/Yellow 可保留不完整证据及原因，不得为缺设备伪造哈希或通过；未完成自动化按 Yellow/未执行收尾，其他模块与可用构建下游继续。execute_test 经 lean_visual_adapter 接入原始比较结果，见 [接入协议](domain-tools.md#总则)。
+正式视觉 Green 要求 `record.visual_alignment` 与回执的 `captured.visual_alignment` 一致：冻结 PATH 的 coverage/node_ids/baseline_ref、当前 code_baseline、属于本轮已接受 build_artifacts 且 hash 可校验的 hap_ref。声明 interaction_id 时，execute_test 从冻结 dimension model 取 frozen_interaction（id/action/from/expected，可选 spec_ref）写入 query（GLOBAL 自有 PATH 冻结自己的）；proof.required_interaction 须一致，interaction_checks 须有同 ID、PASSED、同 action、observed 满足冻结 expected、同 hap_sha256/代码基线且证据真实的唯一记录，不得改成更容易的动作或页面。adapter 与正式门禁分别核对。Red/Yellow 可留不完整证据与原因，不得为缺设备伪造哈希或通过；未完成自动化按 Yellow/未执行收尾，其他模块与可用构建下游继续。execute_test 经 lean_visual_adapter 接入原始比较结果，见[接入协议](domain-tools.md#总则)。
 
 automation 手势使用 [interaction-evidence.json](../../../template/interaction-evidence.json) 的条件扩展：正式 Green 同样核对冻结完整动作、起点、预期、当前 HAP/代码及实际观测，record 与原始 report 的 interaction_evidence 必须一致。不要求截图基线，不从 expected 合成 observed。默认 Harmony 未产出该结构化证据时，已执行断言保留并规范化为 Yellow（interaction-evidence-unavailable），可以正式提交；真实 Red 不被覆盖。能力缺失沿现有预检/Yellow 收尾，不新增全局阻塞。
 
@@ -67,8 +67,8 @@ automation 手势使用 [interaction-evidence.json](../../../template/interactio
 未解决失败全部是 visual PATH 时，诊断必须给出 1–2 条 `visual_issues`（area、problem、severity=low|medium|high|critical、evidence_ref），多于两条被拒绝：有限的修复轮次只处理最影响还原度的问题。
 
 - 优先：页面/状态不符或固定区域缺失多余 → 顶/底/居中锚点错位 → 遮罩与层级 → 主要区域偏移 → 文本裁切/换行/字号 → 媒体裁切与比例 → 有明确影响的颜色/透明度。
-- 忽略：状态栏时间电量、压缩与抗锯齿噪声、轻微等比缩放、槽位正确时的远程图片内容差异、微小图标偏移。
-- 修复面：Fixer 只改布局与修饰、排版/颜色/形状/可见性、已迁移资源的消费者、图片裁切与呈现、比较所需的确定性状态准备；不得为贴近截图或通过图像检查伪造数据、重绘资源或换用别的图标。需要改行为、数据契约、导航或规格时走 CR，资源映射本身的错误交资源 owner。
+- 忽略：状态栏时间电量、压缩与抗锯齿噪声、轻微等比缩放、槽位正确时的远程图片内容、微小图标偏移。
+- 修复面：Fixer 只改布局与修饰、排版/颜色/形状/可见性、已迁移资源的消费者、图片裁切与呈现、比较所需的确定性状态准备；不得为贴近截图或过检伪造数据、重绘资源或换图标。改行为、数据契约、导航或规格走 CR，资源映射本身的错误交资源 owner。
 
 ## capture / 构建产物契约
 
@@ -89,13 +89,13 @@ adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migrat
 
 **没有 `approximate` 策略**：禁止 Material 图标替代、手绘近似、语义近似、自动栅格化、位图兜底。逃生口仅 `manual_exact`（须 `adaptation_evidence_ref`；图片另受[图片与图标对齐](#图片与图标对齐)闸门约束）与 `blocked`（须 `blocked_reason`，`completion_gate` 拒绝仍带 blocked 资源的模块完成）。`.9.png` 的 stretch/content 区域**永不** `byte_copy`；`sp` 尺寸被间距消费时必须 `scales_with_font`。
 
-**② 闭包不得缩减** —— UI 树声明的每个呈现引用（含 `dynamicRules` 的运行时覆盖）与代码里的[使用点](resource-transfer.md#使用点与闭包)都要被覆盖，否则拒绝冻结；参数表携带的取值（文案、尺寸、颜色）连同变体即算覆盖。item 逐 `source_resource + qualifier` 给出真实源文件的 path/sha256、策略、目标与消费者，kind、qualifier、.9.png、sp 单位与源文件一致且 SHA 与 collector 相同；裸 `covered_resource_ids` 不计覆盖，别名与附加资源各带源事实。night、语言等变体各有 item，不属于当前切片的在 `ui_evidence.resource_scope.exclusions` 逐项给 source_resource/qualifier/path、reason 与 evidence_refs，不能排除配置范围中启用的 qualifier。索引缺 hash 或过期时重新抽取；`res/color*` 状态选择器按 selector 处理。转换与配置映射见 [资源接入](domain-tools.md#资源执行与事实绑定)。
+**② 闭包不得缩减** —— UI 树声明的每个呈现引用（含 `dynamicRules` 的运行时覆盖）与代码里的[使用点](resource-transfer.md#使用点与闭包)都要被覆盖，否则拒绝冻结；参数表携带的取值（文案、尺寸、颜色）连同变体即算覆盖。item 逐 `source_resource + qualifier` 给真实源文件的 path/sha256、策略、目标与消费者，kind、qualifier、.9.png、sp 单位与源文件一致且 SHA 与 collector 相同；裸 `covered_resource_ids` 不计覆盖，别名与附加资源各带源事实。night、语言等变体各有 item，不属当前切片的在 `ui_evidence.resource_scope.exclusions` 逐项给 source_resource/qualifier/path、reason 与 evidence_refs，不能排除配置中启用的 qualifier。索引缺 hash 或过期时重新抽取；`res/color*` 状态选择器按 selector 处理。转换与配置映射见[资源接入](domain-tools.md#资源执行与事实绑定)。
 
 **③ 节点 ID、数组与平台资源** —— `R.id` 是节点定位事实，不按资源文件查找；`@array` 以 array 精确迁移，不丢元素结构。平台引用（`@android:` / `?android:`）须声明 platform_resource.api_level 与指向真实 SDK source.properties 的 sdk_metadata_ref，source_resource_ref 位于同 SDK 的 data/res 并含匹配定义；缺定义可显式 blocked，不伪造。示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
 **④ UI 树白盒（按原生采集器真实契约）** —— Ledger 校验 `ui_tree_ref` 内容：`schemaVersion:1`、`scope`、合并溯源 `generatedFrom`（runtime 两字段同有或同无）、`screens[]`（递归 source-backed `root` 与 `attachments[]`，重复行只记一次）、完整映射源布局的 `layoutClosure`，以及显式的 `criticalLayoutContracts`/`unresolved`（冲突不得丢弃）。节点字段、attachment kind 与 binding/event/dynamic rule 必填项见模板 `ui_tree_contract`，各记录都带 sourcePath 与 line 或 selector；runtimeObservations 只记实际运行观察，source-only 树不得携带，visual_mode 须与 runtimeIndex 是否存在一致。
 
-**⑤ 源闭包证据面** —— UI 适用时 `source_closure` 必填 `ui_renderers`（点名真正改变可见状态的 Activity/Fragment/Adapter/ViewHolder/自定义 View，只有 layout 不算）、`ui_topology`（布局/对话框/菜单/标签/浮层及初始可见性）、`states`（实际存在的 loading/content/empty/error/disabled/transient/refresh/retry/pagination）、`navigation`（目标身份/参数/返回/范围外副作用）、`platform_lifecycle`（权限/存储/网络/回调/后台/取消/宿主窗口）；散文控件清单不算闭包。**listener 只证事件绑定，不证 UI 层级；类型声明只证 API 形状，不证生产调用路径**；基础工作在被用户可见行为消费前不算已交付切片。
+**⑤ 源闭包证据面** —— UI 适用时 `source_closure` 必填 `ui_renderers`（真正改变可见状态的 Activity/Fragment/Adapter/ViewHolder/自定义 View，只有 layout 不算）、`ui_topology`（布局/对话框/菜单/标签/浮层及初始可见性）、`states`（实际存在的 loading/content/empty/error/disabled/transient/refresh/retry/pagination）、`navigation`（目标身份/参数/返回/范围外副作用）、`platform_lifecycle`（权限/存储/网络/回调/后台/取消/宿主窗口）；散文控件清单不算闭包。**listener 只证事件绑定，类型声明只证 API 形状，都不证生产调用路径**；基础工作在被用户可见行为消费前不算已交付切片。
 
 **⑥ 消费者接线纪律（anti-guess，协议）** —— 改任何源声明的 dimension/margin/padding/typography/color 前，须经 UI 树 + 资源映射追溯消费者：存在精确映射而消费者硬编码/猜测 → 必须改为接线映射值；映射缺失/错误 → 路由 Resource owner。**只有所有源值与运行时覆盖都接线后**，截图证据才可用于证明残余跨平台文本布局校正。Resource 的 `consumer` 支持单值或列表；实现证据以 `consumer_refs` 逐文件覆盖冻结消费者（同文件多个符号只需一个 hash）。出现引用只证明用到了它，接线语义仍由角色审阅及正式测试验证。
 
@@ -113,4 +113,4 @@ adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migrat
 
 ## 最终报告的保真披露
 
-GO migration-report 增加 visual_coverage 与 fidelity_limitations：逐模块/目标列 runtime 已验证、未验证、source-only、显式无 UI 或证据未知；只有当前基线已执行且 Green 的视觉路径可列 verified，source-only 业务 CASE 可 Green 但须说明未验证视觉保真；capture-fixture 另列"样本未证明在线服务/provider 等价"。`picture_fidelity` 逐项列非精确复制的图片：verified（图像检查所在 PATH 已执行且 Green）、not-verified、approved-deviation、reviewed（绘制代码/手工加载映射，仅评审）、blocked、unknown，未验证者同入 fidelity_limitations；另给 copied（按路径复制的文件数）、checks（各模块已检查与已豁免的使用点数）和 parameters（各模块[参数填充率](resource-transfer.md#参数填充)）。这些是证据覆盖说明，不新增阻塞门、不重染业务 CASE、不扩展 Auditor 复测范围；缺测 Yellow 仍按原控制流收尾。
+GO migration-report 增加 visual_coverage 与 fidelity_limitations：逐模块/目标列 runtime 已验证、未验证、source-only、显式无 UI 或证据未知；只有当前基线已执行且 Green 的视觉路径可列 verified，source-only 业务 CASE 可 Green 但须说明未验证视觉保真；capture-fixture 另列"样本未证明在线服务/provider 等价"。`picture_fidelity` 逐项列非精确复制的图片：verified（图像检查所在 PATH 已执行且 Green）、not-verified、approved-deviation、reviewed（绘制代码/手工映射，仅评审）、blocked、unknown，未验证者同入 fidelity_limitations；另给 copied（按路径复制的文件数）、checks（各模块已检查/已豁免使用点数）和 parameters（[参数填充率](resource-transfer.md#参数填充)）。这些是证据覆盖说明，不新增阻塞门、不重染业务 CASE、不扩大 Auditor 复测范围；缺测 Yellow 仍按原控制流收尾。

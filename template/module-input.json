@@ -26,6 +26,10 @@
     }
   ],
   "decomposition_required": true,
+  "feature_inventory_ref": {
+    "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{feature-inventory}}",
+    "sha256": "{{sha256}}"
+  },
   "dimension_analysis_ref": {
     "path": "{{absolute-run-root}}/staging/{{agent}}/{{request-id}}/{{dimension-analysis-path}}",
     "sha256": "{{sha256}}"

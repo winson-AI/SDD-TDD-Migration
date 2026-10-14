@@ -30,6 +30,17 @@ class FlowSliceTests(unittest.TestCase):
         self.judge(child('M001', 1), parent={'module_id': 'M010', 'case_ids': ['C0', 'C1']})  # a parent of two cases cannot give three
         self.judge(child('M001', 1, kind='scaffold'), child('M002', 5, deps=['M001']))  # a scaffold holds what it serves
 
+    def test_a_re_split_is_judged_again_in_full(self):
+        # one version doctrine: what the Ledger holds unchanged is not judged again; a child restated with anything of its
+        # allocation moved (here the provider stage inside behavior_review) answers to every current rule
+        held = {'M007': child('M007', 3, deps=['M003']), 'M008': child('M008', 3),
+                'M009': {**child('M009', 3, deps=['M007', 'M008']), 'behavior_review': {'verification': {'provider_inputs': {'M007': 'verified'}}}}}
+        self.s['modules'] = {mid: dict(m) for mid, m in held.items()}
+        self.judge(*held.values())  # restated verbatim: nothing to judge
+        moved = {**held['M009'], 'behavior_review': {'verification': {'provider_inputs': {'M007': 'implemented'}}}}
+        with self.assertRaisesRegex(Rejected, 'a leaf depends only on scaffold leaves'):
+            self.judge(held['M007'], held['M008'], moved)
+
     def test_a_wide_leaf_and_a_parent_of_many_features_are_facts_not_refusals(self):
         self.judge(child('M001', 25))
         fact = self.s['issues']['SLICE-M001-wide']

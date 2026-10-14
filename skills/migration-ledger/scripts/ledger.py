@@ -1415,6 +1415,10 @@ def mutate(s, req, principal, events, root=None):
         require(set(p['case_ids']) <= set(s['case_ids']), 'unknown global case')
         require(all(Path(x).resolve().is_relative_to(Path(s['target_root'])) for x in p['write_paths']), 'write scope outside target')
         require(not p.get('parent_module_id'), 'register GO root modules; children require decompose-accept')
+        if p.get('feature_inventory_ref'):
+            check_ref(p['feature_inventory_ref'])
+        require(p.get('feature_inventory_ref') or not (s.get('context_readiness_required') and p.get('decomposition_required')),
+                'a root that will be split names the feature inventory it was cut from: feature_inventory_ref')
         if p.get('decomposition_required'):
             decomposition.check_scope(p)
             require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in root scope')

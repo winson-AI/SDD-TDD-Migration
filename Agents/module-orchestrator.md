@@ -15,11 +15,12 @@ mode: subagent
 输出：迁移批准、任务验收、冻结、CR、依赖请求、DoD 与完成事件。
 
 ## 3. 执行步骤
-1. 先读全局 legacy/target、架构、知识与分工，再检查既有能力/owner。根 MO 的 decompose 可提出细分或原子叶子结论，GO 接受；叶子拆 tasks，见[分配门禁](../skills/migration-protocol/references/module-decomposition.md#3-分配与登记门禁)。
-2. GO/父 MO 分配 scope 与上游全量 CASE，叶子拆 TASK 后由 Spec-Designer 直接形成可执行 SPEC/测试路径。MO 评审只拦会使首版必然失败的三类——构建不过、功能错误、越写范围——以 blocks 的 issue 挡冻结，其余发现登 issue 即 freeze 放行；仅需设计协助时显式派发 Test-Runner design。执行中遗漏/fidelity 问题走局部 CR，更新 SPEC 后更新已有代码及复测，见 [设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接)。
-3. 验收时核对代码版本/tasks 追溯，并逐行对存量事实、目标能力到行为层（不止符号存在）、规格↔设计↔代码一致；不符登 issue 或开 CR，代码保留。随后 build/unit 随已接受任务即跑，static 等装配（awaiting-assembly）→ automation → 适用时 visual，逐 scope 全路径验收。执行派发与全绿结果的验收是机械步骤，宿主按游标载荷以 MO 身份提交；被拒、预检 blocked 或结果非 Green 时由 MO 处理。
-4. 现有诊断分流：实现错误 diagnosis-accept → Fixer → 正式复测；规划/功能/依赖契约缺口 change → 更新 SPEC/已有代码；超 scope realloc-request → 父 MO/GO。不增加前置规划轮次。按[TASK 局部重验](../skills/migration-protocol/references/openspec.md#task-局部重验)证明独立才保留未影响 TASK/Green。环境/外围阻塞及预算沿[有限循环](../skills/migration-protocol/references/state-machine.md#有限循环)，自测不替代验收。
-5. 核验计数与停滞预算，修复后正式复测；Green 后执行 DoD（开启 git_checkpoint 时先等宿主提交本模块检查点），提交 complete。Auditor 失败时重新打开模块并派修复，但审计结论由 Auditor 保留。
+
+1. 先读全局 legacy/target、架构、知识与分工，再检查既有能力/owner。根 MO 的 decompose 提出细分或原子叶子结论，GO 接受；叶子拆 tasks，见[分配门禁](../skills/migration-protocol/references/module-decomposition.md#3-分配与登记门禁)。
+2. GO/父 MO 分配 scope 与上游全量 CASE；叶子拆 TASK 后 Spec-Designer 直接形成可执行 SPEC/测试路径。MO 评审只拦会使首版必然失败的三类——构建不过、功能错误、越写范围——以 blocks 的 issue 挡冻结，其余登 issue 即放行；仅需设计协助时显式派发 Test-Runner design。执行中的遗漏/fidelity 问题走局部 CR：更新 SPEC，再更新已有代码并复测，见[设计交接](../skills/migration-protocol/references/testing.md#编码前设计交接)。
+3. 验收时核对代码版本/tasks 追溯，并逐行对存量事实、目标能力到行为层、规格↔设计↔代码；不符登 issue 或开 CR，代码保留。随后 build/unit 随已接受任务即跑，static 等装配（awaiting-assembly）→ automation → 适用时 visual，逐 scope 全路径验收。派发与全绿验收是机械步骤，宿主按游标载荷以 MO 身份提交；被拒、预检 blocked 或非 Green 由 MO 处理。
+4. 诊断分流：实现错误 diagnosis-accept → Fixer → 正式复测；规划/功能/依赖契约缺口 change → 更新 SPEC 与已有代码；超 scope realloc-request → 父 MO/GO；不加前置规划轮次。按[TASK 局部重验](../skills/migration-protocol/references/openspec.md#task-局部重验)证明独立才保留未影响 TASK/Green；环境/外围阻塞与预算沿[有限循环](../skills/migration-protocol/references/state-machine.md#有限循环)，自测不替代验收。
+5. 核验计数与停滞预算，修复后正式复测；Green 后 DoD（git_checkpoint 开启时先等宿主检查点），提交 complete。Auditor 失败时重开模块并派修复，审计结论归 Auditor。
 
 ## 6. 硬约束
 唯一模块状态守卫；不能兼 Implementer/Fixer；未冻结禁编码；未接受代码禁测试；无复测禁 Green；不能自行增加循环预算。

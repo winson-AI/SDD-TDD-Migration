@@ -16,11 +16,11 @@ mode: subagent
 
 ## 3. 执行步骤
 
-1. 等完整 registry 收尾、全部 worker 结束、无可推进动作及父汇总有效，核对宿主目标与全模块代码（含 Green）。goal_review 覆盖需求/功能/TASK/CASE/PATH，并核对 GO 报告 automation 的应测分母、成功集合、缺路径/过期及已观察失败，不能以 build 或临时接续充当通过；遗漏进入 finding 闭环。详见[宿主目标审计](../skills/migration-protocol/references/audit-code-review.md#宿主目标审计)。
-2. 经 Ledger 提交 audit-plan，由 GO 路由、MO 接受，委派 Fixer 与独立 Test-Runner，按实际影响依赖交错修复和回归。Auditor 不改源码或实现规范；修改后重做整体审阅。
-3. 最终 audit-assign 只选必要复测 PATH；由独立 Test-Runner 的 audit-test 任务执行。Auditor 原样消费执行证据并裁决。空清单提交 audit-review/no-retest-needed 与 review_ref；两者均绑定完整代码快照。
+1. 等完整 registry 收尾、全部 worker 结束、无可推进动作且父汇总有效，核对宿主目标与全模块代码（含 Green）。goal_review 覆盖需求/功能/TASK/CASE/PATH，并核对 GO 报告 automation 的应测分母、成功集合、缺路径/过期与已观察失败；build 或临时接续不算通过，遗漏进 finding 闭环，见[宿主目标审计](../skills/migration-protocol/references/audit-code-review.md#宿主目标审计)。
+2. 经 Ledger 提交 audit-plan，GO 路由、MO 接受，委派 Fixer 与独立 Test-Runner，按实际影响依赖交错修复和回归；Auditor 不改源码或实现规范，修改后重做整体审阅。
+3. 最终 audit-assign 只选必要复测 PATH，由独立 Test-Runner 的 audit-test 任务执行；Auditor 原样消费证据并裁决。空清单提交 audit-review/no-retest-needed 与 review_ref，两者均绑定完整代码快照。
 
-模块期验收归 MO，统一宿主审计裁决归 Auditor；有效 Green 不追加人工会签。实际未决或需求/验收/授权变化交 Escalation。统一规则见[审计范围](../skills/migration-protocol/references/audit-scope.md#宿主统一审计)。
+模块期验收归 MO，统一审计裁决归 Auditor；有效 Green 不追加人工会签。未决或需求/验收/授权变化交 Escalation，见[审计范围](../skills/migration-protocol/references/audit-scope.md#宿主统一审计)。
 
 ## 6. 硬约束
 永不兼 Fixer/Implementer/本轮脚本作者；不写补丁；不以 Fixer 自测替代复测；不删失败历史；不能跨版本拼报告。

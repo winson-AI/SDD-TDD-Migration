@@ -33,20 +33,20 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 | operation | args 要点 | 当前实际能力 |
 | --- | --- | --- |
-| `analyze-ui` | entry/source_files/layouts，选填 capture_ref、targets、manifests、image_sinks、layout_helpers | 从固定 legacy_root 收集源索引（含使用点、图片来源与参数，见 [搬运](resource-transfer.md#使用点与闭包)）；entry 写 `文件#类名` 或 `文件#类名.方法名` 只采该段（索引记行段），多屏同文件时分别采；有合法 Capture 时选运行时索引。据此生成 UI 树再 validate-ui；不自动证明源闭包完整 |
+| `analyze-ui` | entry/source_files/layouts，选填 capture_ref、targets、manifests、image_sinks、layout_helpers | 从 legacy_root 收集源索引（使用点、图片来源与参数，见[搬运](resource-transfer.md#使用点与闭包)）；entry 写 `文件#类名` 或 `文件#类名.方法名` 只采该段，多屏同文件分别采；有合法 Capture 时选运行时索引；据此生成 UI 树再 validate-ui，不自动证明源闭包完整 |
 | `validate-ui` | ui_tree_ref/source_index_ref/runtime_index_ref，选填 resource_scope | 校验树与原始索引一致；source-only 不伪造 runtime_index_ref；resource_scope 仅说明有证据的范围外变体 |
-| `resource-scan` | 选填 source_index_ref/ui_tree_ref/extra_refs | 只读查找当前闭包资源，输出候选文件及 hash，保留 base/night/语言等源变体；给出树与索引时另附按记录预填的 skeletons；不写目标、不作精确性裁决 |
-| `resource-plan` | dimension_analysis_ref | 派生模块的参数表与复制清单（项目声明了约定时），并列出待登记的资源、未声明的使用点、待映射的 token 与待定值的 expression；MO 可用 |
+| `resource-scan` | 选填 source_index_ref/ui_tree_ref/extra_refs | 只读查找当前闭包资源，输出候选文件与 hash，保留 base/night/语言等源变体；给树与索引时附预填 skeletons；不写目标、不裁决精确性 |
+| `resource-plan` | dimension_analysis_ref | 派生模块的参数表与复制清单（项目声明了约定时），列出待登记资源、未声明使用点、待映射 token 与待定值 expression；MO 可用 |
 | `resource-sync` | task_id，需 assignment | 在该任务写范围内按冻结清单复制文件、按参数表写出参数文件；不覆盖内容不同的已有文件；Fixer 可用 |
 | `screen-checks` | dimension_analysis_ref | 为尚无检查的图片使用点派生 image 检查并渲染参考，附文本检查建议，渲染不了的列入 unrendered；MO 可用 |
-| `render-reference` | source_index_ref/source_resource/qualifier | 把索引内的存量资源文件离线渲染为参考栅格（reference.png/json），绑定文件 SHA；Spec-Designer/Test-Runner/Auditor 可用，随声明它的 image_checks 冻结 |
-| `resource-convert` | task_id/resource_item_id + source/destination/source_id/target_ref/consumer，选填 resolve_ref/consumer_tint | 在冻结任务范围内执行 exact_vector_xml、byte_copy 或单项 value_xml_exact；参数必须与冻结资源映射一致，其余策略仍由 Implementer/Fixer 按 SPEC 实现 |
-| `visual-install` / `visual-capture` / `compare-only` / `semantic-inspect` / `image-parity` | 当前 PATH/assignment、冻结 visual_execution、构建/装机/比较引用 | 受限设备安装、捕获、确定性评分、语义比较与图像检查测量，详见 [视觉执行](visual-execution.md#2-执行节点)；只产出证据（score 不等于 ALIGNED），不写 Ledger、不自动修 UI、不生成手势执行事实 |
-| `import-evidence` | kind/source_ref；UI 另给 target/ui_tree_ref/source_index_ref/runtime_index_ref，选填 resource_scope | 转换 ui/alignment/validation/foundation/resource 原始结果；资源导入另绑定 approved_spec_hash。导入结果不提升角色权限、不自动验收 |
-| `knowledge-query` | mode 为 topics/topic/foundation/external；topic 用 topic_id；foundation/external 用 query，可选 full(bool) | 查询 bundled 索引、主题、Foundation 或 Harmony 外部能力候选，保留 index/catalog/record/topic/cookbook 引用与 hash；不加载完整的外部技能 |
+| `render-reference` | source_index_ref/source_resource/qualifier | 把索引内的存量资源离线渲染为参考栅格（reference.png/json），绑定文件 SHA；Spec-Designer/Test-Runner/Auditor 可用，随声明它的 image_checks 冻结 |
+| `resource-convert` | task_id/resource_item_id + source/destination/source_id/target_ref/consumer，选填 resolve_ref/consumer_tint | 在冻结任务范围内执行 exact_vector_xml、byte_copy 或单项 value_xml_exact；参数须与冻结资源映射一致，其余策略由 Implementer/Fixer 按 SPEC 实现 |
+| `visual-install` / `visual-capture` / `compare-only` / `semantic-inspect` / `image-parity` | 当前 PATH/assignment、冻结 visual_execution、构建/装机/比较引用 | 受限设备安装、捕获、确定性评分、语义比较与图像检查，见[视觉执行](visual-execution.md#2-执行节点)；只产出证据（score 不是 ALIGNED），不写 Ledger、不修 UI、不生成手势事实 |
+| `import-evidence` | kind/source_ref；UI 另给 target/ui_tree_ref/source_index_ref/runtime_index_ref，选填 resource_scope | 转换 ui/alignment/validation/foundation/resource 原始结果；资源导入另绑定 approved_spec_hash；不提升权限、不自动验收 |
+| `knowledge-query` | mode 为 topics/topic/foundation/external；topic 用 topic_id；foundation/external 用 query，可选 full(bool) | 查询 bundled 索引、主题、Foundation 或 Harmony 外部能力候选，保留 index/catalog/record/topic/cookbook 引用与 hash；不加载完整外部技能 |
 | `knowledge-diagnose` | error_ref（path/sha256） | 读取真实日志片段，按原工具 pattern 匹配候选原因和 cookbook；不作根因裁决 |
-| `foundation-resolve` | requirements（非空字符串数组）；或 requirements=[] 且 no_new_dependencies=true | 在 bundled catalog 内解析目标敏感依赖及版本；不修改目标、不联网解依赖。result.json 可作 plan.dependency_resolution_ref |
-| `foundation-verify` | resolution_ref、catalog_ref（均 path/sha256） | resolution 必须在本 run；catalog 必须是快照 target_root 内的实际 TOML，核对坐标版本并留证；不代替 build |
+| `foundation-resolve` | requirements（非空字符串数组）；或 requirements=[] 且 no_new_dependencies=true | 在 bundled catalog 内解析目标敏感依赖与版本；不改目标、不联网；result.json 可作 plan.dependency_resolution_ref |
+| `foundation-verify` | resolution_ref、catalog_ref（均 path/sha256） | resolution 须在本 run；catalog 须是快照 target_root 内的实际 TOML，核对坐标版本并留证；不代替 build |
 
 ### 知识操作权限与例子
 
