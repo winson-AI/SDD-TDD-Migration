@@ -485,7 +485,7 @@ def standard(s, parent, children, plan, record=True):
             continue
         cases = len(child['case_ids'])
         require(cases <= LEAF_MAX_CASES, 'a leaf holds at most %d cases: split it by sub-flow' % LEAF_MAX_CASES)
-        require(cases >= LEAF_MIN_CASES or len(parent['case_ids']) < LEAF_MIN_CASES,
+        require(cases >= LEAF_MIN_CASES or len(parent.get('case_ids') or []) < LEAF_MIN_CASES,  # a parent with fewer cannot give three
                 'a leaf holds at least %d cases: merge it into the flow it belongs to; a screen is a task' % LEAF_MIN_CASES)
         if record and cases > LEAF_CASES:
             issues.record(s, 'SLICE-%s-wide' % child['module_id'], 'fact', '%s holds %d cases (over %d): consider a split by sub-flow' % (child['module_id'], cases, LEAF_CASES),

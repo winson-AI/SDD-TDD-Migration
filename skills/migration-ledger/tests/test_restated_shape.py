@@ -66,8 +66,11 @@ class RestatedShapeTests(unittest.TestCase):
         scaffold = {'module_id': 'M002', 'dependencies': [], 'case_ids': ['C2'], 'kind': 'scaffold'}
         feature = {'module_id': 'M011', 'dependencies': ['M002'], 'case_ids': ['C11'], 'kind': 'feature'}
         decomposition.standard(s, PARENT, [scaffold, feature], {})  # feature on scaffold only: fine
-        big = {'module_id': 'M012', 'dependencies': ['M002'], 'case_ids': ['C%d' % i for i in range(21)], 'kind': 'feature'}
-        with self.assertRaisesRegex(Rejected, 'at most 20 cases'):
+        wide = {'module_id': 'M012', 'dependencies': ['M002'], 'case_ids': ['C%d' % i for i in range(21)], 'kind': 'feature'}
+        decomposition.standard(s, PARENT, [scaffold, wide], {})  # over twenty: a fact for the audit, not a refusal
+        self.assertIn('SLICE-M012-wide', s['issues'])
+        big = {'module_id': 'M013', 'dependencies': ['M002'], 'case_ids': ['C%d' % i for i in range(31)], 'kind': 'feature'}
+        with self.assertRaisesRegex(Rejected, 'at most 30 cases'):
             decomposition.standard(s, PARENT, [scaffold, big], {})
 
 

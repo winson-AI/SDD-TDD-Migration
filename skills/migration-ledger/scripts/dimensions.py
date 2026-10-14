@@ -448,6 +448,19 @@ def validate_plan(plan, module):
 
 
 
+def restated_task_scope(module, task):
+    """Whether a task restates the scope of the task the Ledger already accepted for this module (same task_id, same
+    scope.in and scope.out). A CR rebind of a frozen leaf replans on refreshed refs but restates the accepted task
+    scope verbatim; that prose keeps the contract it was accepted under, so a prose limit added since is rule debt
+    (reported), not a gate - exactly the version doctrine the freeze binding applies via intact(). A new task or a
+    re-cut scope is judged in full."""
+    prior = next((t for t in (module.get('plan') or {}).get('tasks', []) if t.get('task_id') == task.get('task_id')), None)
+    if prior is None:
+        return False
+    held, scope = prior.get('scope', {}), task.get('scope', {})
+    return held.get('in') == scope.get('in') and held.get('out') == scope.get('out')
+
+
 def task_analyses(plan, module, items, traces):
     """Partition task scope first; dimension analysis then defines implementation."""
     for task in plan['tasks']:
@@ -456,8 +469,9 @@ def task_analyses(plan, module, items, traces):
         require(isinstance(scope.get('out'), list), 'task exclusions required')
         require(set(module['scope']['out']) <= set(scope['out']), 'task must retain module exclusions')
         own = [line for line in scope['out'] if line not in module['scope']['out']]
+        restated = restated_task_scope(module, task)
         for label, lines in (('in', scope['in']), ('out', own)):
-            require(len(lines) <= SCOPE_ITEMS and all(isinstance(line, str) and len(line) <= SCOPE_CHARS for line in lines),
+            require(restated or (len(lines) <= SCOPE_ITEMS and all(isinstance(line, str) and len(line) <= SCOPE_CHARS for line in lines)),
                     f'task scope {label}: at most {SCOPE_ITEMS} own lines of at most {SCOPE_CHARS} characters each; design.md and tasks.md hold the detail')
         writes = nonempty(scope.get('write_paths'), 'task write scope')
         require(all(Path(p).is_absolute() and any(Path(p).resolve().is_relative_to(Path(m).resolve())
