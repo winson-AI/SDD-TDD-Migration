@@ -1,5 +1,6 @@
 """What a leaf needs to start, and what is only observed: an Implementer is assigned tasks and their paths follow; tasks
 cut by layer are a fact; a claim that the supplied cases are complete needs supplied cases."""
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -44,6 +45,31 @@ class StartGateTests(unittest.TestCase):
             project_context.validate({'module_slicing': {'functional_use_cases_complete': True}})
         project_context.validate({'module_slicing': {'functional_use_cases_complete': True}, 'test_cases_path': '/cases/login.md'})
         project_context.validate({'module_slicing': {'functional_use_cases_complete': False}})
+
+
+    def test_the_first_version_of_a_leaf_is_timed_and_its_refusals_counted(self):
+        import tempfile
+        import workflow_cost
+        def event(op, mid, stamp, **sets):
+            return {'operation': op, 'module_id': mid, 'timestamp': '2026-01-01T%s+00:00' % stamp, 'patch': {'set': {'modules': {'M001': sets}} if sets else {}}}
+        events = [event('register', None, '00:00:00', case_ids=['C1']), event('plan', 'M001', '00:30:00'), event('freeze', 'M001', '01:00:00'),
+                  event('assign', 'M001', '01:06:00', assignments={'T': {'role': 'test-runner'}}),
+                  event('assign', 'M001', '01:12:00', assignments={'I': {'role': 'implementer'}}),
+                  event('accept', 'M001', '03:00:00', quality='green-passed')]
+        self.assertEqual(workflow_cost.timings(events, 'M001'),
+                         {'minutes_to_plan': 30.0, 'minutes_to_freeze': 60.0, 'minutes_to_first_dispatch': 72.0, 'minutes_to_first_green': 180.0})
+        self.assertEqual(workflow_cost.timings(events[:2], 'M001')['minutes_to_freeze'], None)
+        self.assertEqual(workflow_cost.timings(events, 'M002'), {})
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / 'reports/rejections'; folder.mkdir(parents=True)
+            for name, row in (('a', {'module_id': 'M001', 'attempts': '2'}), ('b', {'module_id': 'M001'}), ('c', {'module_id': None})):
+                (folder / (name + '.json')).write_text(json.dumps(row))
+            self.assertEqual(workflow_cost.rejections(tmp), {'M001': 3, 'GLOBAL': 1})
+            s = {'modules': {'M001': {'case_ids': ['C1']}}, 'decisions': {}}
+            row = workflow_cost.build(s, events, root=tmp)['modules']['M001']
+            self.assertEqual((row['rejections'], row['minutes_to_first_dispatch']), (3, 72.0))
+        self.assertNotIn('rejections', workflow_cost.build({'modules': {}, 'decisions': {}}, [])['modules'])
+
 
 
 if __name__ == '__main__':
