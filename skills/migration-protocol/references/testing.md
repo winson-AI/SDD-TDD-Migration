@@ -10,13 +10,13 @@ Main 是项目提供的主验证入口，不是固定 `main.py`。输入 `test_a
 
 prepare 的 test_design_required=true 表示必需的测试输入与覆盖，不强制额外 Test-Runner design 轮次。TDD 的预期来自上游用例与源行为，automation 收集实际错误后推动实现修复；首次即 Green 不伪造 Red。
 
-默认 stage-plan.test_design_ref 引用 [upstream-test-plan.json](../../../template/upstream-test-plan.json)：subject_sha256、case_refs 分别取游标 input_subject_sha256、upstream_case_refs，绑定当前分配及权威用例（项目 test_cases_path，未单独提供时取 global_spec）。paths 精确覆盖本模块全部 CASE，每条含需求、预期 ASSERT 与适用 Scenario；不得填 actual/passed/quality 或执行结果。design_ref 和 test_assets 沿用下述资产契约。Ledger 补全 PATH/test-design/资产定义；TASK.scope、需求和 SPEC 定义由 plan 明确提供。MO 检查原始用例与预期的语义一致性，hash 不证明语义；无未决且完整可执行即冻结，无需等待实现后才能发现的问题。
+默认 stage-plan.test_design_ref 引用 [upstream-test-plan.json](../../../template/upstream-test-plan.json)：subject_sha256、case_refs 取游标的 input_subject_sha256、upstream_case_refs，绑定当前分配与权威用例（项目 test_cases_path，未提供时取 global_spec）。paths 精确覆盖本模块全部 CASE，每条含需求、预期 ASSERT 与适用 Scenario，不填 actual/passed/quality。design_ref 与 test_assets 沿用资产契约；Ledger 补全 PATH/test-design/资产定义，TASK.scope、需求与 SPEC 定义由 plan 提供。MO 检查原始用例与预期的语义一致性，hash 不证明语义；无未决且完整可执行即冻结。
 
 设计只读规格与用例，不运行目标代码；没有独立的测试设计派发。
 
 执行反馈分流、同 Run CR 及独立 TASK 保留统一按[变更控制](openspec.md#变更控制)；不强制重做独立 design，当前计划仍绑定上游用例，历史设计只供追溯。
 
-新 prepare 固化 planning_coverage_required。每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids；已有执行器可复用，prepared 须对应资产，deferred 另记 owner/next_action，解决后才能冻结。测试准备不执行目标代码。叶子验收的用户可见 CASE（适用 UI item 承载）须有设备或视觉 PATH：visual，或绑定 android/harmony 平台、交互的 automation；确无可能的写 plan.device_gaps[{case_id,reason,evidence_refs}]（reason 不超过 400 字符，细节走 evidence_refs）：build 可 Green，该 CASE 的 automation 与模块、本轮记 Yellow，以 completed-with-unverified-tests 收尾。环境缺失不是缺口，走缺测出口。登记 UI 分配前 run 须对 `test_adapter.device` 定论（`{platforms}` 或 `{unavailable: 原因}`，同搬运约定经 run 修订写入）；unavailable 时未达设备路径的用户可见 CASE 由 Ledger 按该原因记缺口。
+新 prepare 固化 planning_coverage_required。每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids；已有执行器可复用，prepared 须对应资产，deferred 另记 owner/next_action，解决后才能冻结；测试准备不执行目标代码。叶子验收的用户可见 CASE（适用 UI item 承载）须有设备或视觉 PATH：visual，或绑定 android/harmony 平台、交互的 automation；确无可能的写 plan.device_gaps[{case_id,reason,evidence_refs}]（reason ≤400 字符）：build 可 Green，该 CASE 的 automation 与模块、本轮记 Yellow，以 completed-with-unverified-tests 收尾；环境缺失不是缺口，走缺测出口。登记 UI 分配前 run 须对 `test_adapter.device` 定论（`{platforms}` 或 `{unavailable: 原因}`，经 run 修订写入）；unavailable 时未达设备路径的用户可见 CASE 由 Ledger 按该原因记缺口。
 
 test_assets 交 script/fixture/adapter 的 asset_id/ref/path_ids，script 再映射 assertions；文件位于 design_ref 同级 staging 内，冻结 definitions 绑定 hash。模块、修复后复测及 GLOBAL 复测共用 PATH 资产解析，query/receipt 的 test_asset_binding 保留来源模块、freeze_id、test_design_ref。GLOBAL 自有路径显式绑定本 GLOBAL 的 test_design_ref/设计作者，不借用模块资产；作者不能兼 Auditor/审计 Test-Runner。
 

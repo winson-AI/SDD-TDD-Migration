@@ -38,7 +38,7 @@ GO 完成切片与 registry 登记后，每个 MO 独立推进自己的状态机
 
 ## 调用约定
 
-Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `description`，技能使用 `name/description`；宿主可按实际注册格式转换，不能把 `mode` 误当作所有产品原生字段。命令解析请求后由宿主提交 Ledger；编排角色提交 assign（审计为 audit-assign / audit-test-assign），Ledger 接受后，宿主调用实际提供的任务工具（`task`，或读取定义后 spawn_agent 启动隔离实例）。不能假设能嵌套 slash command，也不能只写一段工具调用文本便宣布已派发。Ledger 的 transport ACK 是唯一允许的传输回执，不携带绕过事件的业务决策。迁移运行时允许并行无冲突模块，数量受输入和宿主限制；本说明不要求在编辑本工作流包时启动迁移 Agent。
+Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `description`，技能用 `name/description`；宿主可按实际注册格式转换，不把 `mode` 当作所有产品的原生字段。命令解析请求后由宿主提交 Ledger；编排角色提交 assign（审计为 audit-assign / audit-test-assign），Ledger 接受后宿主用实际提供的任务工具（`task`，或读取定义后 spawn_agent 启动隔离实例）派发；不能假设可嵌套 slash command，也不能只写一段工具调用文本便宣布已派发。Ledger 的 transport ACK 是唯一传输回执，不携带绕过事件的业务决策。迁移运行允许并行无冲突模块，数量受输入与宿主限制；编辑本工作流包不要求启动迁移 Agent。
 
 ## 专题索引
 

@@ -2,7 +2,7 @@
 
 ## 总则
 
-所有角色遵守本协议。资产固定在 workspace_root 下的 .sdd-migration、.sdd-runs、openspec 三个并列目录；读取 prepare 返回的 run_root/storage_layout 和 status.openspec_hub，不按 cwd 猜目录，不在目标仓另建一份 SPEC。一般生成工件放当前 run staging；Harmony 辅助产物放 runs/harmony/sandbox，正式自动化放 runs/harmony/automation，构建放 runs/build；临时目录归当前 runner，结束清理或留存 cleanup 原因；工作流状态变更仍经 Ledger。草稿、探针脚本与日志放本实例 staging/<agent>/<request>/scratch/，Ledger 不读、不归档、拒绝作为证据；staging 其余产出应被某事件引用，收尾报告给出未引用占比。包内规则与脚本文件不是证据，按卡片小节引用。
+所有角色遵守本协议。资产固定在 workspace_root 下并列的 .sdd-migration、.sdd-runs、openspec；读 prepare 返回的 run_root/storage_layout 与 status.openspec_hub，不按 cwd 猜目录，不在目标仓另建 SPEC。一般生成工件放当前 run staging，Harmony 辅助产物放 runs/harmony/sandbox，正式自动化放 runs/harmony/automation，构建放 runs/build；临时目录归当前 runner，结束清理或留存 cleanup 原因；状态变更仍经 Ledger。草稿、探针脚本与日志放本实例 staging/<agent>/<request>/scratch/，Ledger 不读、不归档、拒绝作证据；staging 其余产出应被某事件引用，收尾报告给出未引用占比。包内规则与脚本文件不是证据，按卡片小节引用。
 
 ## 唯一项目根与三类资产
 
@@ -146,7 +146,7 @@ Gradle 启动参数与 init.d 机制参考 [官方 init script 文档](https://d
 
 本 run 的 Harmony 环境由 Test-Runner 用 sandbox.py prepare 初始化；配置源优先显式输入、长期项目参考、包内 default。共享 environment 加锁幂等、私密权限，不跟随参考源更新；同任务配置变化经 run-review/revise-run 批准后使用 environment-<context摘要> 新目录，旧版本留存；不重建 Run。子模块仅复用配置，各 attempt 独立写结果；不将凭证目录整体归档为 Ledger 工件。
 
-初始化先在 environment/preparation.json 原子保存整套配置内容及摘要，再写成员文件，最后提交 manifest.json（status=ready）。所有调用方经过 prepare 验证后才获得配置路径；中途失败保留 preparing，重试读取同一准备内容，即使参考源后来更改/删除也不混用版本。已写成员必须与准备内容一致；提交后的每次复用校验全部摘要，以及 config.native.yaml 当时是否不存在。提交后删除 preparation.json；若在提交与删除之间中断，下次校验完成后清理。准备文件含 .env 的可恢复内容，属于私密凭证资产：目录 700、文件 600，不加入 Ledger/artifacts 或 Git。失败原因保留在调用方原有错误/Yellow 回执中。
+初始化先在 environment/preparation.json 原子保存整套配置内容及摘要，再写成员文件，最后提交 manifest.json（status=ready）；调用方经 prepare 验证后才获得配置路径；中途失败保留 preparing，重试读同一准备内容，参考源后来更改/删除也不混用版本。已写成员须与准备内容一致，提交后每次复用校验全部摘要及 config.native.yaml 当时不存在；提交后删除 preparation.json，提交与删除之间中断则下次校验后清理。准备文件含 .env 的可恢复内容，属私密凭证：目录 700、文件 600，不入 Ledger/artifacts 或 Git。失败原因留在调用方原有错误/Yellow 回执。
 
 无 manifest 的环境不推断历史版本一致性，也不补入当前参考文件；无可靠准备记录时交 Host 核验，在原 Run 内按受控版本修订恢复。完成清单或成员被修改时拒绝静默覆盖，按原环境异常出口处理相关测试；独立任务继续。
 

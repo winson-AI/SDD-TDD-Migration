@@ -42,7 +42,7 @@ viewport 捕获要求实际前台 App、冻结目标选择器以及截图前后�
 
 Test-Runner 将原始截图、score、semantic 与交互证据组装为现有 alignment 结构，再通过 `execute_test.py → lean_visual_adapter.py → tests submit/accept` 走正式复核。脚本不从分数自动推导 ALIGNED；冻结手势仍需实际 action/observation 证据。本入口不自动执行未声明手势，也不代替功能自动化 Main。
 
-semantic 原文件的所有 issues，以及 `comparability < 0.4` 或 `comparable=false`，都必须在对应 comparison 的 `semantic_dispositions` 中逐项裁决，才可声明 Green。0.4 表示不同路线/状态，只标记待解释矛盾，不是自动通过阈值。每项包含原 semantic_ref（path/hash）、原 finding（issue 含 index 和完整内容；comparability/comparable 含原值）、`resolved|dismissed`、非空 reason 和实际 evidence_refs，至少一份佐证不同于原 semantic。无问题时不制造裁决。正式门禁重新读取原件；漏项、重复、旧 hash 或只有结论没有证据均拒绝。字段示例见 [visual-alignment.json](../../../template/visual-alignment.json)。裁决由当前测试/审计职责内的 Agent 作出，工具不替 Agent 判断是否真的修复。
+semantic 原文件的所有 issues，以及 `comparability < 0.4` 或 `comparable=false`，都须在对应 comparison 的 `semantic_dispositions` 中逐项裁决才可声明 Green；0.4 表示不同路线/状态，只标记待解释矛盾，不是通过阈值。每项含原 semantic_ref（path/hash）、原 finding（issue 含 index 与完整内容；comparability/comparable 含原值）、`resolved|dismissed`、非空 reason 和实际 evidence_refs（至少一份不同于原 semantic）；无问题不制造裁决。正式门禁重读原件，漏项、重复、旧 hash 或只有结论没证据均拒绝；示例见 [visual-alignment.json](../../../template/visual-alignment.json)。裁决由当前测试/审计职责内的 Agent 作出，工具不替 Agent 判断是否修复。
 
 ## 3. 失败、留存与恢复
 
