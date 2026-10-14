@@ -166,7 +166,7 @@ class ReadingCardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             analysis = Path(tmp) / 'dimensions.json'
             analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable'}]}))
-            s = {'reuse_required': True, 'dependency_resolution_required': True, 'fixer_self_diagnosis': True}
+            s = {'reuse_required': True, 'dependency_resolution_required': True, 'fixer_self_diagnosis': True, 'test_adapter': {'device': {'platforms': ['android']}}}
             m = {'audit_batch_id': 'B1',
                  'plan': {'dimension_analysis_ref': file_ref(analysis), 'telemetry': {'status': 'applicable'}}}
             operations = set(reading.AUDIT_OPS) | set(reading.MO_OPS) | {

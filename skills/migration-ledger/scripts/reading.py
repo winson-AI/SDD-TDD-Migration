@@ -279,7 +279,8 @@ def execution_selection(m, step):
 def topic_facts(s, m, step):
     """Facts from this assignment, or its selected audit scope; no elective rule disables a gate."""
     from contracts import check_ref, read_json
-    facts = dict.fromkeys(('ui', 'resources', 'pictures', 'copy', 'parameters', 'api', 'data'), False)
+    facts = dict.fromkeys(('ui', 'resources', 'pictures', 'copy', 'parameters', 'api', 'data', 'picture_items'), False)
+    facts['visual'] = bool(((s.get('test_adapter') or {}).get('device') or {}).get('platforms'))  # a device to show a screen on
     selected = step.get('module_ids') or (s.get('audit_assignment') or {}).get('module_ids')
     modules = [m] if m else [obj for mid, obj in s.get('modules', {}).items() if not selected or mid in selected]
     for obj in modules:
@@ -308,7 +309,8 @@ def topic_facts(s, m, step):
                 facts['api'] |= bool(item.get('api_ids') or item.get('api_binding'))
                 facts['data'] |= bool(item.get('data_ids'))
                 model = item.get('semantic_model') or {}
-                facts['pictures'] |= bool(model.get('image_checks') or item.get('source_resource') or item.get('source_signal'))
+                facts['picture_items'] |= bool(model.get('image_checks') or item.get('source_resource') or item.get('source_signal'))
+                facts['pictures'] |= facts['picture_items']
         # Planners need discovery before choosing a resource strategy; executors consume only frozen facts.
         if step.get('role') in PLANNING_ROLES or step.get('worker_role') == 'spec-designer':
             facts['pictures'] |= facts['ui']
@@ -318,7 +320,11 @@ def topic_facts(s, m, step):
         selection = execution_selection(m, step)
         if selection is not None and path['path_id'] not in selection[1]: continue
         facts['ui'] |= path.get('kind') == 'visual' or bool(path.get('interaction_id'))
+        facts['visual'] |= path.get('kind') == 'visual'
         facts['pictures'] |= bool(path.get('image_check_ids'))
+    # What the UI-fidelity rules bind: a screen a device can show, a picture to carry, or a resource to copy. A UI dimension
+    # in a run without a device, a visual path or a picture is coded from source and tested in-process: those rules do not apply.
+    facts['fidelity'] = facts['visual'] or facts['resources'] or facts['picture_items']
     return facts
 
 
@@ -358,7 +364,8 @@ def entries(role, test_scope=None, ui=False, reuse=False, operation=None, teleme
         chosen = UI.get(role, [])
         if facts is not None:
             chosen = [(path, heading) for path, heading in chosen
-                      if not (path.endswith('resource-transfer.md') and not facts.get('resources'))
+                      if not (path.endswith('ui-fidelity.md') and not facts.get('fidelity'))
+                      and not (path.endswith('resource-transfer.md') and not facts.get('resources'))
                       and not (heading == COPY and not facts.get('copy'))
                       and not (heading in ('参数表', FILL) and not facts.get('parameters'))
                       and not (heading == PICTURES and not facts.get('pictures'))]

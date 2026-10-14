@@ -30,9 +30,16 @@ class ProgressiveReadingTests(unittest.TestCase):
     def test_global_auditor_and_runner_activate_only_the_applicable_topics(self):
         analysis = {'dimensions': [{'dimension': 'UI', 'status': 'applicable', 'items': []}]}
         m = {'dimension_analysis_ref': self.ref(analysis)}
-        s = {'modules': {'M001': m}}
+        s = {'modules': {'M001': m}, 'test_adapter': {'device': {'platforms': ['android']}}}
         auditor = reading.card(s, None, {'role': 'auditor', 'operation': 'audit-code-review'})
         self.assertTrue(any(row['ref'].endswith('ui-fidelity.md') for row in auditor))
+        for role, op in (('spec-designer', 'plan'), ('implementer', 'assign'), ('auditor', 'audit-code-review')):
+            unscreened = reading.card({'modules': {'M001': m}, 'test_adapter': {'device': {'unavailable': 'no device'}}}, m if role != 'auditor' else None, {'role': role, 'operation': op})
+            self.assertFalse(any(row['ref'].endswith('ui-fidelity.md') for row in unscreened), role)  # no device, no visual path, no picture: coded from source
+        shown = {**m, 'plan': {'paths': [{'path_id': 'V1', 'kind': 'visual'}]}}
+        self.assertTrue(any(row['ref'].endswith('ui-fidelity.md') for row in reading.card({'modules': {'M001': shown}}, shown, {'role': 'implementer', 'operation': 'assign'})))
+        pictured = {'dimension_analysis_ref': self.ref({'dimensions': [{'dimension': 'UI', 'status': 'applicable', 'items': [{'item_id': 'U1', 'source_resource': 'icon.svg'}]}]})}
+        self.assertTrue(any(row['ref'].endswith('ui-fidelity.md') for row in reading.card({'modules': {'M001': pictured}}, pictured, {'role': 'spec-designer', 'operation': 'plan'})))
         self.assertFalse(any(row['ref'].endswith('resource-transfer.md') for row in auditor))
         build = reading.card(s, None, {'role': 'test-runner', 'operation': 'audit-test-assign', 'test_scope': 'build'})
         self.assertFalse(any(row['ref'].endswith('ui-fidelity.md') for row in build))

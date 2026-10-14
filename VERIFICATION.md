@@ -30,7 +30,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 本轮合并协议文字：GO、父 MO、子 MO 三层职责只在 module-decomposition.md 陈述一次，dimension-slicing.md 与 slicing.md 改为指引；UI 证据与采集器产物以引用进入计划、不内联，重提只改引用；协议上限随本轮压缩下调。
 
-协议体积为 483302 / 483500 字节，最大单文件 27538 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 44287 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 483411 / 483500 字节，最大单文件 27538 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 44287 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 
@@ -56,6 +56,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 任务按层信号 | plan 接受时过半行为 PATH（automation）绑定过半 TASK 则记事实 SLICE-<module>-tasks-by-layer（一次）；build/unit/static 共享不计；不阻塞 |
 | 完整性标志一致 | module_slicing.functional_use_cases_complete=true 而无 test_cases_path 时 prepare 校验与 init 均拒绝 |
 | 角色文件无专题表 | Agents/*.md 不再带专题义务表，卡片按触发直接携带协议小节；section() 不再按专题过滤行 |
+| 卡片按运行事实取 UI 保真节 | ui-fidelity 的小节只在有设备平台、视觉 PATH、图片条目或 Resource 维度时进卡；无设备且无图片的 UI 模块从源码编码、进程内测试，卡片不带这些节；最大卡片 42131 → 35228 字节 |
 | 产物体量不是门禁 | 运行产物（六件套、上游测试计划、fixture 契约、reuse-plan、评审证据、issue 摘要、任务 scope、设备缺口原因）不设大小上限，Ledger 不因大小拒绝或记欠项；体量棘轮只约束工作流包自身的协议、卡片与模板；step 视图仍只显示 issue 摘要前 200 字符 |
 | 数据契约 | 四维 data_review 适用时 data_inventory_ref 绑定清单：实体逐字段的 sources / fetch_conditions / derived_fields / invalidation 义务，contracts 的目标 repository#symbol 与四个映射逐义务覆盖，fidelity exact / approved-adaptation（适配须信封 alternative），existing_target 须 refactor/adapt 决定；plan 时 data_obligations 覆盖全部义务且 PATH 为 unit/automation 并绑定 fixture；freeze 时目标与 fixture 已定、repository 在写范围或目标已有；实现提交 repository 文件与符号证据 |
 | 一种版本学说 | 已接受的工件沿用接受时的规则，重新提交按当前规则全判：取消 restated_shape / restated_task_scope 豁免；原样复述且分配未变的孩子不再判，分配任一字段变动即全判 |
