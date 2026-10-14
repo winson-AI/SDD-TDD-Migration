@@ -1997,6 +1997,21 @@ DEPENDENCY_STORES = ('.gradle', '.m2', 'node_modules', '.cargo', '.pub-cache', '
 SCRATCH = 'scratch'  # a role's drafts, probe scripts and logs under its staging: the Ledger neither reads nor archives them
 
 
+KNOWLEDGE = reading.PACKAGE / 'skills/migration-ledger/scripts/lean_tools/knowledge'  # the bundled catalogs and cookbooks: inputs, not rules
+
+
+def package_rule(path):
+    """A file of the workflow package that states or implements its rules - protocol text, role and skill files, scripts -
+    is not evidence of a run: its hash moves with the package and a card names the rule by its section. The package's
+    knowledge assets, such as a catalog, are inputs a run may cite."""
+    import fnmatch
+    p = Path(path)
+    if not p.is_absolute() or not p.resolve().is_relative_to(reading.PACKAGE) or p.resolve().is_relative_to(KNOWLEDGE):
+        return False
+    rel = str(p.resolve().relative_to(reading.PACKAGE))
+    return p.suffix == '.py' or any(fnmatch.fnmatch(rel, pattern) for pattern in reading.PROTOCOL_GLOBS)
+
+
 def scratch(root, path):
     p, run = Path(path).resolve(), Path(root).resolve()
     return p.is_relative_to(run) and SCRATCH in p.relative_to(run).parts
@@ -2085,8 +2100,7 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
             require(not Path(value['path']).resolve().is_relative_to((Path(root) / 'ledger').resolve()),
                     'a ledger projection is not evidence: cite the artifact it was projected from')
             require(not scratch(root, value['path']), 'a scratch file is not evidence: cite the artifact it informed')
-            require(not Path(value['path']).resolve().is_relative_to(reading.PACKAGE),
-                    'a package file is not evidence: the card names the rule by its section')
+            require(not package_rule(value['path']), 'a package rule file is not evidence: the card names the rule by its section')
             historical = None
             imported = prior_run_artifact(root, value, nested, prior_runs)
             try:

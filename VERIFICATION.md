@@ -63,7 +63,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 薄脚手架 | 脚手架计划多于 3 个 TASK 须声明 ≤3 个 skeleton_task_ids，骨架 TASK 的 PATH 只许 build/unit/static，功能叶不得声明；骨架被接受且 build Green 即视为提供方就位（providers / dependencies_ready），其余 TASK 落地不逐次失效依赖方，全部落地时失效一次 |
 | 调用登记不重切 | `api-register` 把分配后发现的调用登记给叶子与其 Logic/Adhesive 条目（run 内新 id、call/contract 形状、证据、角色与全局作用域校验，不推进修订号）；该叶 refinement 的清单可多出已登记行（narrowed、partition 放行，item api_ids / discovery_refs 可增），其他新增仍拒；step 视图列出本叶登记 |
 | 可推导指针 | 计划只带一个 test-fixture 定义且 verification 未写 fixture 时，Ledger 补全指针并绑到行为 PATH；Logic/Adhesive 的 target_binding 未定在 plan/freeze 判定里记为欠项而非拒绝，Resource 目标侧字段仍拒 |
-| 包文件不是证据 | evidence_refs 指向工作流包内文件被拒并指向 storage-layout 总则；规则以卡片小节引用 |
+| 包文件不是证据 | evidence_refs 指向包内协议/角色/技能/命令 Markdown 或脚本被拒并指向 storage-layout 总则；包内知识资产（如 catalog）仍可引用；相对路径仍先报须为绝对路径 |
 | 任务体量信号 | 实现结果里一个 TASK 超过 40 个文件时 Ledger 记一条已结清的 fact，游标 slicing_signals 加 large-tasks 标志；不挡接受与完成 |
 | 投影文本确定 | 投影里的 JSON 一律按键排序写出，状态重放的键序变化不再使 change-content / status 投影被判失真 |
 | 统一全量审计 | 独立同伴运行时仅保留本模块问题；全部模块本轮收尾后启动宿主审计，不允许提前派发局部审计 |
