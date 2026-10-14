@@ -109,7 +109,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
 | retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
 | api-register | GO / MO / Spec-Designer，全局 | module_id（owner 叶）、api_id（run 内新）、item_id（该叶 Logic/Adhesive 条目）、call、contract、evidence_refs；该叶下次 plan 的清单可多出已登记行，不重切、不推进修订号；owner/consumer 变化走 realloc/redecompose |
-| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary（≤400 字符，细节走 evidence_refs）、applies_to（模块）、可选 evidence_refs、blocks，或 `issues[]` 批量；消去：issue_id、module_id、evidence_ref，或 `resolutions[]` 批量，全部成立才记。plan、plan-review、submit、accept 可带 `resolves[]` 以本工件结清。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余时候给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete。step 视图每模块最多列 10 条（blocking、最新优先）并给总数，每条显示前 200 字符。叶子计划欠的保真完整性由 Ledger 记为 gap 并放行，不再欠的新计划自动消去 |
+| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary（≤400 字符，细节走 evidence_refs）、applies_to（模块）、可选 evidence_refs、blocks，或 `issues[]` 批量；消去：issue_id、module_id、evidence_ref，或 `resolutions[]` 批量，全部成立才记。plan、plan-review、submit、accept 可带 `resolves[]` 以本工件结清。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余时候给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete。step 视图每模块最多列 10 条（blocking、最新优先）并给总数，每条 200 字符。叶子计划欠的保真完整性由 Ledger 记为 gap 并放行，不再欠的新计划自动消去 |
 
 ## 阶段结果
 
@@ -162,7 +162,7 @@ decision 为全局操作，不增加模块 revision，因此记录批准后 reco
 
 recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时，保留 blocked、当前等待阶段及 resume_phase，继续展示原阻塞和恢复动作。human/tooling 仍须绑定该 blocked 摘要的单独 resume 决定；dependency 仍须依赖就绪和 GO 的 dependency-ready。预算批准不能同时充当解除阻塞的批准。无阻塞时保持原恢复行为：有 diagnosis 回到 diagnosing，否则回到 testing；不改变其他模块状态或测试颜色。
 
-本地用 fix_rounds_used（累计）+ recovery_cycle + 可增的 fix_budget；no_progress 按未解决 PATH 的 ID、三态与根因 category/summary/owner 的稳定摘要计数，相同问题才累加，根因变则重新观察；比较的是结构化声明，语义真实性由诊断者与 MO 审核。审计预算耗尽后 GO 提交 audit-recover(module_ids=[GLOBAL], additional_rounds, decision_id)，绑定当前次数与预算摘要，只增获批预算，次数、失败与 blocker 不清零，不替代复测。独立 yellow retry/超时升级由宿主策略执行，本地重复验证另受 no-progress 守卫限制。
+本地用 fix_rounds_used（累计）+ recovery_cycle + 可增的 fix_budget；no_progress 按未解决 PATH 的 ID、三态与根因 category/summary/owner 的稳定摘要计数，相同问题才累加，根因变则重新观察；比较的是结构化声明，语义真实性由诊断者与 MO 审核。审计预算耗尽后 GO 提交 audit-recover(module_ids=[GLOBAL], additional_rounds, decision_id)，绑定当前次数与预算摘要，只增获批预算，次数、失败与 blocker 不清零，不替代复测。独立 yellow retry/超时升级由宿主策略执行，本地重复验证另受 no-progress 守卫限制；实现派发超宿主墙钟预算时交 MO 拆分或续派，不停进程。
 
 本地锁不使用自动租约超时重授：活动 assignment 一直占用模块资源，直到 accept 或带真实停止证据的 revoke。此方式避免仅因时钟到期就允许两个 worker 写同一路径。宿主仍必须在每次真实写操作执行 ACL/fencing。
 

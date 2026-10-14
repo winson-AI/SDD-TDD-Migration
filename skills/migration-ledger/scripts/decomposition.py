@@ -16,6 +16,7 @@ KINDS = ('feature', 'scaffold')  # a feature leaf anchors on a UI surface; a sca
 LEAF_CASES = 20  # more cases than this is a surface to split
 SKELETON_TASKS = 3  # the tasks that make a scaffold's shell: what its features are released on before the rest of it is written
 SKELETON_PATHS = ('build', 'unit', 'static')
+TASK_FILES = 40  # more files than this in one version of a task is a task to split
 
 TERMINAL = {'completed', 'waiting-auditor', 'waiting-dependency', 'waiting-human', 'automation-deferred', 'waiting-upstream'}
 
@@ -457,9 +458,23 @@ def slicing_signals(s):
         cross = sum(1 for it in (s.get('issues') or {}).values() if mid in (it.get('applies_to') or []) and len(it.get('applies_to') or []) > 1)
         crs = len(m.get('change_request_history') or []) + (1 if m.get('change_request') else 0)
         chain = depth(mid)
-        flags = [name for name, hit in (('cross-module-issues', cross > 3), ('change-request-cascade', crs > 1), ('chain-depth', chain > 2)) if hit]
-        out[mid] = {'cross_module_issues': cross, 'change_requests': crs, 'chain_depth': chain, 'flags': flags}
+        large = sorted(tid for tid, files in (m.get('task_files') or {}).items() if len(files) > TASK_FILES)
+        flags = [name for name, hit in (('cross-module-issues', cross > 3), ('change-request-cascade', crs > 1), ('chain-depth', chain > 2),
+                                        ('large-tasks', bool(large))) if hit]
+        out[mid] = {'cross_module_issues': cross, 'change_requests': crs, 'chain_depth': chain, 'large_tasks': large, 'flags': flags}
     return out
+
+
+def task_size_facts(s, mid, trace, sequence=None):
+    """Record, once per task, that a version of it touched more than TASK_FILES files: a fact for the trace and the audit,
+    settled as it is recorded - the first version goes on, the split is the MO's call."""
+    import issues
+    for row in trace:
+        files = row.get('files') or []
+        if len(files) > TASK_FILES:
+            issues.record(s, 'SIZE-%s-%s' % (mid, row['task_id']), 'fact',
+                          'task %s touched %d files in one version (over %d): a smaller task is easier to verify and to adjust' % (row['task_id'], len(files), TASK_FILES),
+                          [mid], issues.LEDGER, resolved={mid: {'by': issues.LEDGER, 'recorded': True}}, sequence=sequence)
 
 
 def built_on(s, providers):

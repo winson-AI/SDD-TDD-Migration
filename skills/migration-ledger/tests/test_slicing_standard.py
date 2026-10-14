@@ -95,7 +95,7 @@ class SignalTests(unittest.TestCase):
              'issues': {'I1': {'applies_to': ['M003', 'M001']}, 'I2': {'applies_to': ['M003', 'M002']}, 'I3': {'applies_to': ['M003', 'M001']},
                         'I4': {'applies_to': ['M003', 'M004']}, 'I5': {'applies_to': ['M003']}}}
         signals = decomposition.slicing_signals(s)
-        self.assertEqual(signals['M003'], {'cross_module_issues': 4, 'change_requests': 0, 'chain_depth': 3, 'flags': ['cross-module-issues', 'chain-depth']})
+        self.assertEqual(signals['M003'], {'cross_module_issues': 4, 'change_requests': 0, 'chain_depth': 3, 'large_tasks': [], 'flags': ['cross-module-issues', 'chain-depth']})
         self.assertEqual(signals['M002']['flags'], ['change-request-cascade'])
         self.assertEqual(signals['M001']['flags'], [])
         self.assertEqual(reading.read_hint('a leaf depends only on scaffold leaves; features do not depend on each other'),

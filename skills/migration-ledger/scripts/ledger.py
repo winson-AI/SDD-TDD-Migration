@@ -1651,6 +1651,7 @@ def mutate(s, req, principal, events, root=None):
             m['build_artifacts'] = []
             m['accepted_task_ids'] = sorted(set(m.get('accepted_task_ids', [])) | {t['task_id'] for t in result['task_trace']})
             m.setdefault('task_files', {}).update({t['task_id']: t['files'] for t in result['task_trace']})
+            decomposition.task_size_facts(s, mid, result['task_trace'], sequence=len(events) + 1)
             if result.get('dimension_evidence'):
                 m['dimension_evidence'] = copy.deepcopy(result['dimension_evidence'])
             if assignment['role'] == 'fixer':
