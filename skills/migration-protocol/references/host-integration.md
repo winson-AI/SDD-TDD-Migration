@@ -4,7 +4,7 @@
 
 ## 总则
 
-宿主要真实走完控制流，须遵守本契约：每步提交真实 Ledger 事件，各角色由宿主实际派发并执行。推进前按动作选择 `/sdd-verify` 范围：全局基础用 global，模块推进用 module（本模块、祖先和实际依赖），全量投影用 projection，最终交付用 final。只阻断核验失败的相关范围，不把无关模块错误扩散到全部 MO。核验仅证明记录与投影一致；真实派发、构建/设备执行和行为通过须各自的执行证据，不能由 hash 链证明。
+宿主要真实走完控制流：每步提交真实 Ledger 事件，各角色由宿主实际派发并执行。推进前按动作选 `/sdd-verify` 范围：全局基础 global，模块推进 module（本模块、祖先和实际依赖），全量投影 projection，最终交付 final；只阻断核验失败的相关范围，不把无关模块错误扩散到全部 MO。核验只证明记录与投影一致；真实派发、构建/设备执行和行为通过须各自的执行证据，不能由 hash 链证明。
 
 ## 1. 宿主必须提供、控制器不代劳的三件事
 
@@ -56,7 +56,7 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 
 宿主交接优先读取 `openspec/runs/<run_id>/workflow.json` 的 routing/模块索引、相关 module state 与工件引用。派发前刷新 Ledger status 校验 sequence/revision；不复制完整 Ledger、兄弟模块日志或整套领域 skill。Agent 仍能经当前快照、六件套、父级分配和实际依赖引用访问全局源码、架构与知识。快照引用失效或 routing_refresh_required 时按既有恢复动作更新，不创建第二份调度状态。
 
-按 [领域工具受限接入](domain-tools.md) 将白名单操作映射到现有角色，不创建第二套编排游标或冻结权威。Spec-Designer 分析 UI；Implementer/Fixer 在 assignment 与写范围内精确转换资源；Test-Runner/Auditor 在当前 assignment 下取证和比较，构建仍走正式执行器。[设备与模型工具](visual-execution.md) 需要冻结的 run 环境配置、实际设备锁证明及当前 PATH 构建/基线，工具本身不验收；模型请求有总时限，缺条件沿原 Yellow 通道。Host 传认证 host-context，保留原始结果引用、转换证据和正式 Ledger payload；所有新增输出落本 run 受管目录。
+按 [领域工具受限接入](domain-tools.md) 把白名单操作映射到现有角色，不另建编排游标或冻结权威：Spec-Designer 分析 UI；Implementer/Fixer 在 assignment 与写范围内转换资源；Test-Runner/Auditor 在当前 assignment 下取证比较，构建仍走正式执行器。[设备与模型工具](visual-execution.md) 需冻结的 run 环境配置、实际设备锁证明及当前 PATH 构建/基线，工具本身不验收；模型请求有总时限，缺条件走原 Yellow 通道。Host 传认证 host-context，保留原始结果引用、转换证据与正式 Ledger payload；新增输出落本 run 受管目录。
 
 prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（每个拆分模块一条 static PATH，位于 build 与 automation 之间），仅 applicable UI 触发对应门禁；无 UI 不制造空视觉任务。仅自动化不可用继续按 Yellow/未执行收尾，独立任务与可用构建下游不受阻。
 
@@ -66,7 +66,7 @@ prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（�
 
 1. 先读[四条红线](../../../AGENTS.md#四条红线)、[调用约定](../../../AGENTS.md#调用约定)和[轮询与派发](#提示采纳回报)，解析参数为绝对路径及规范 ID；协议其余部分按小节取（`reading.py show`），不整份加载。
 2. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影；宿主自己的运行记录放 staging/host，不登 issue。
-3. 宿主把已授权身份绑定到 host-context，不能让请求内自报 role 获得权限；控制器不自动启动 Agent，不替宿主写目标代码；宿主用实际可用的任务工具启动目标角色，只传 package_root、run_root、module_id 与阅读卡路径，Ledger 按协议串行服务，定义文件不会自动安装或注册不存在的工具。payload 与命令用法见[操作矩阵](local-runtime.md#操作矩阵)。无冲突模块的 MO 审核（plan-review、freeze、decompose-accept）由宿主并行派发独立实例，不等一个模块审完再派下一个；并行数受输入与宿主限制。
+3. 宿主把已授权身份绑定到 host-context，请求内自报 role 不获权限；控制器不自动启动 Agent、不替宿主写目标代码；宿主用实际可用的任务工具启动角色，只传 package_root、run_root、module_id 与阅读卡路径，Ledger 串行服务，定义文件不会自动安装或注册不存在的工具；payload 与用法见[操作矩阵](local-runtime.md#操作矩阵)。无冲突模块的 MO 审核（plan-review、freeze、decompose-accept）由宿主并行派发独立实例，不串行等待，并行数受输入与宿主限制。
 4. 结束时输出已提交事件/当前状态/产物路径和下一动作。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
 
 参数：run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃逸。JSON 中占位符、未决必填值、零必需用例不能作为有效运行输入。status 可读取尚未完成的输入状态。

@@ -63,7 +63,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；children 覆盖父 scope。根修订后游标 affected_children 列出须重写的孩子，其余原样复述即沿用 |
 | redecompose-accept | Global / 父 module_id | review_ref；复核重组方案；未变孩子保留进度并恢复请求前阶段，边界保持的冻结孩子转 CR，其余被改的孩子重新规划（保留 blocker/失败/预算）；只依赖它们的叶子不重规划，已有代码的等 provider 后复验；下线模块转入 superseded_modules 供 Auditor 治理 |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
-| decision | host | decision_id、decision=approved、module_id、subject_sha256（取游标步骤的 approval_subject_sha256）、human_source_ref；保存真实人类决定引用；决定与常设裁定另以 issue（kind=decision/standing）寄给适用模块。`kind=batch-envelope` 时 module_id 为父模块，envelope_ref 指向 [批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子；`kind=api-adaptation` 时 module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
+| decision | host | decision_id、decision=approved、module_id、subject_sha256（取游标步骤的 approval_subject_sha256）、human_source_ref，保存真实人类决定引用；决定与常设裁定另以 issue（kind=decision/standing）寄给适用模块。`kind=batch-envelope`：module_id 为父模块，envelope_ref 指向[批量信封](../../../template/batch-envelope.json)，subject_sha256 等于其文件 hash，children 只能是该父的孩子；`kind=api-adaptation`：module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
 | global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；无关根可待拆，执行仍验当前叶子与依赖。registry 变化后重审 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
 | audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human/trace（根因在 SPEC 或切片划分，owner 为须修订的叶子或父模块） |
@@ -108,7 +108,7 @@ hash 算法：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 J
 | run-review / revise-run | GO / Host，全局 | 影响评审/预检 → 具体 decision → 上下文调整事务；见 [同 Run 上游修订](progress-recovery.md#同-run-上游修订) |
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
 | retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
-| api-register | GO / MO / Spec-Designer，全局 | module_id（owner 叶）、api_id（run 内新）、item_id（该叶的 Logic/Adhesive 条目）、call、contract、evidence_refs；登记后该叶下次 plan 的清单可多出这些行，不重切、不推进修订号；owner 或 consumer 变化仍走 realloc / redecompose |
+| api-register | GO / MO / Spec-Designer，全局 | module_id（owner 叶）、api_id（run 内新）、item_id（该叶 Logic/Adhesive 条目）、call、contract、evidence_refs；该叶下次 plan 的清单可多出已登记行，不重切、不推进修订号；owner/consumer 变化走 realloc/redecompose |
 | issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing）、summary（≤400 字符，细节走 evidence_refs）、applies_to（模块）、可选 evidence_refs、blocks，或 `issues[]` 批量；消去：issue_id、module_id、evidence_ref，或 `resolutions[]` 批量，全部成立才记。plan、plan-review、submit、accept 可带 `resolves[]` 以本工件结清。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余时候给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete。step 视图每模块最多列 10 条（blocking、最新优先）并给总数，每条显示前 200 字符。叶子计划欠的保真完整性由 Ledger 记为 gap 并放行，不再欠的新计划自动消去 |
 
 ## 阶段结果

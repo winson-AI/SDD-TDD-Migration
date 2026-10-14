@@ -156,7 +156,9 @@ def settled(analysis):
     for row in analysis.get('dimensions', []):
         for item in row.get('items') or [] if row.get('status') == 'applicable' else []:
             missing = [field for field in TARGET_SIDE.get(row['dimension'], TARGET_SIDE[None]) if not item.get(field)]
-            require(not missing, '%s: the plan settles %s before freeze; its allocation left that to the leaf'
+            # Where a resource lands drives its copy plan: it is settled before code. Where a Logic or Adhesive item lands is
+            # owed: the code is held to the binding it makes.
+            (require if row['dimension'] == 'Resource' else owed)(not missing, '%s: the plan settles %s before freeze; its allocation left that to the leaf'
                     % (item.get('item_id', '?'), ', '.join(missing)))
 
 
