@@ -25,7 +25,7 @@ ROTATE_BUDGET = 100_000
 TEMPLATE_BUDGET = 20_000
 TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 535_200  # consolidated ceiling, lowered after the compression round; reduce again after the next
+PROTOCOL_BUDGET = 531500  # consolidated ceiling, lowered after the flow-slicing round; reduce again after the next
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -597,7 +597,7 @@ GATES = [
     (r'takes evidence from', 'module-decomposition.md', '切片标准'),
     (r'task scope (in|out):', 'dimension-slicing.md', '7. 任务级四维分析契约'),
     (r'review over \d+ KB', 'local-runtime.md', '操作矩阵'),
-    (r'scaffold leaves|anchors on a UI surface|single layer|at most \d+ cases|at most \d+ tasks|plan over \d+ KB|unknown child kind|skeleton', 'module-decomposition.md', '切片标准'),
+    (r'scaffold leaves|anchors on a UI surface|single layer|at (most|least) \d+ cases|at most \d+ tasks|plan over \d+ KB|unknown child kind|skeleton|sub-flow', 'module-decomposition.md', '切片标准'),
     (r'runtime expression|runtime/layout|layout keywords|structural mapping|parameter mapping', 'resource-transfer.md', '动态参数与布局结构'),
     (r'hash mismatch|absolute evidence path|missing file', 'runtime.md', '请求与事件'),   # first: the file named in the message may sit in a path of any other topic
     (r'unknown reference id', 'context-readiness.md', '3. 报告与传递'),
