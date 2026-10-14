@@ -2084,6 +2084,8 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
             require(not Path(value['path']).resolve().is_relative_to((Path(root) / 'ledger').resolve()),
                     'a ledger projection is not evidence: cite the artifact it was projected from')
             require(not scratch(root, value['path']), 'a scratch file is not evidence: cite the artifact it informed')
+            require(not Path(value['path']).resolve().is_relative_to(reading.PACKAGE),
+                    'a package file is not evidence: the card names the rule by its section')
             historical = None
             imported = prior_run_artifact(root, value, nested, prior_runs)
             try:
