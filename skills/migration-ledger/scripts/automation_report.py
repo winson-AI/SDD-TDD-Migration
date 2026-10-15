@@ -2,7 +2,8 @@
 from collections import Counter
 
 
-def summarize(rows, case_ids, device_gaps=()):
+def summarize(rows, case_ids, device_gaps=(), within=None):
+    """`within`: the cases the module as a whole misses; a task is short of a case only when its module is."""
     paths = [r for r in rows if r.get('path_id') and r['kind'] in ('automation', 'test')]
     # TASK membership is many-to-many; a shared PATH counts once in the host total.
     paths = list({(r['module_id'], r['path_id']): r for r in paths}.values())
@@ -12,6 +13,8 @@ def summarize(rows, case_ids, device_gaps=()):
     covered = {(r['module_id'], r['case_id']) for r in paths}
     gaps = sorted({(r['module_id'], r['case_id']) for r in rows} - covered)
     missing = sorted((set(case_ids) - {r['case_id'] for r in paths}) | {cid for _, cid in gaps})
+    if within is not None:
+        missing = sorted(set(missing) & set(within)); gaps = [(mid, cid) for mid, cid in gaps if cid in within]
     counts = Counter(r['quality'] for r in paths)
     successful = [r for r in paths if r['quality'] == 'green-passed' and not r['stale']]
     reused = [r for r in successful if r.get('validation_reuse')]
@@ -60,10 +63,10 @@ def build(state, rows):
     for mid, module in state['modules'].items():
         selected = [r for r in rows if r['module_id'] == mid]
         result['modules'][mid] = summarize(selected, set(module['case_ids']) & set(state['case_ids']), gaps[mid])
-        for task in (module.get('plan') or {}).get('tasks', []):
+        for task in (module.get('plan') or {}).get('tasks', []):  # a sibling task's path covers the case for every task
             result['tasks'][mid + '/' + task['task_id']] = summarize(
                 [r for r in selected if task['task_id'] in r['task_ids']], set(task.get('case_ids', [])) & set(state['case_ids']),
-                gaps[mid].intersection(task.get('case_ids', [])))
+                gaps[mid].intersection(task.get('case_ids', [])), within=result['modules'][mid]['missing_case_paths'])
     return result
 
 

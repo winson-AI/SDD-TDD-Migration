@@ -181,6 +181,16 @@ class MigrationReportTests(unittest.TestCase):
         self.assertEqual(len(path['task_ids']), 2)
         self.assertEqual(summary['success_coverage'], 1)
 
+    def test_a_task_holding_only_unit_paths_is_not_short_of_the_cases_its_siblings_cover(self):
+        f = self.fixture(); f.test_green_flow_and_independent_global_audit()
+        state = f.state(); plan = state['modules']['M001']['plan']
+        plan['paths'].append({'path_id': 'U1', 'kind': 'unit', 'name': 'logic', 'case_id': 'C1', 'expected_assertions': []})
+        plan['tasks'].append({**plan['tasks'][0], 'task_id': 'T-UNIT', 'path_ids': ['U1']})
+        summary = migration_report.build(f.root, state, state['last_sequence'])['automation']
+        self.assertEqual(summary['modules']['M001']['missing_case_paths'], [])
+        self.assertEqual((summary['tasks']['M001/T-UNIT']['required_paths'], summary['tasks']['M001/T-UNIT']['missing_case_paths'],
+                          summary['tasks']['M001/T-UNIT']['coverage_gaps']), (0, [], []))
+
     def test_historical_report_without_statistics_remains_readable(self):
         f = self.fixture(); report = self.report(f)
         report.pop('automation')

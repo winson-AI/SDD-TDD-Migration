@@ -44,7 +44,7 @@ import audit_execution
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
-from contracts import (SKELETON_MARK, Rejected, baseline, carrying, check_ref, cited, digest, file_ref, keyed, nonempty,
+from contracts import (Rejected, baseline, carrying, check_ref, cited, digest, file_ref, keyed, marked, nonempty,
                        intact, owed, read_json, require, validate_plan, validate_result, verify_plan)
 
 HISTORICAL_TOOL_ROOTS = (Path(__file__).resolve().parent,
@@ -1104,6 +1104,10 @@ def with_card(s, m, step):
     step['must_read'] = [] if waiting or step.get('mechanical') and not step.get('worker_role') else reading.card(s, m, step)
     step['card_sha256'] = reading.digest_card(step['must_read'])
     step['templates'] = reading.templates(s, m, step)
+    if step.get('operation') == 'assign' and step.get('worker_role') == 'test-runner' and m:
+        step['report_skeleton'] = 'report_skeleton.py --root <run_root> --module ' + m['module_id'] + ' --assignment <assignment_id> --out <staging directory>'
+    if step.get('operation') == 'audit-code-review':
+        step['report_skeleton'] = 'report_skeleton.py --root <run_root> --global --out <staging directory>'
     enhancement = reading.reasoning_sections(m)
     if enhancement: step['reasoning_activation'] = [{'ref': ref, 'section': heading} for ref, heading in enhancement]
     if s.get('project_context_ref') and (m or (step.get('role') == 'global-orchestrator' and step.get('operation') in
@@ -1160,6 +1164,8 @@ def next_step(s, m):
         elif step['worker_role'] == 'test-runner' and scope != 'build' and m.get('task_revalidation', {}).get('mode') == 'partial':
             paths = [p for p in paths if not tv.path_green(m, p['path_id'])]
         step['payload'].update(task_ids=[t['task_id'] for t in selected], path_ids=[p['path_id'] for p in paths])
+        if step['worker_role'] in ('implementer', 'fixer'):
+            step['submission'] = control_policy.submission(m, step['payload']['task_ids'])  # what the result is judged on, said before the work
         if step['worker_role'] == 'fixer':
             step['payload']['finding_ids'] = list(unresolved(m)) + [r['finding_id'] for r in (m.get('diagnosis') or {}).get('findings', [])]
         receipts = (step.get('context_gate') or {}).get('ready_receipts')
@@ -1194,6 +1200,13 @@ def new_module(p):
             'fix_rounds_used': 0, 'total_fix_rounds': 0, 'recovery_cycle': 0,
             'no_progress_rounds': 0, 'blocked': None, 'authors': [], 'local_fix_used': 0, 'fix_memory': [],
             'dependencies': p.get('dependencies', [])}
+
+
+def unfilled(*refs):
+    """A skeleton the Ledger wrote is filled before it is a plan, a report or an inventory."""
+    for ref in refs:
+        if isinstance(ref, dict) and ref.get('path'):
+            require(not marked(ref), 'unfilled skeleton field left in ' + Path(ref['path']).name)
 
 
 def audit_scope(s):
@@ -1381,10 +1394,12 @@ def mutate(s, req, principal, events, root=None):
     elif mid in s['modules']:
         record_actor(s, m, principal, op)
     if op == 'context-submit':
+        unfilled(p.get('report_ref'))
         receipt = context_readiness.submit(s, req, principal, run_root=root)
         if mid in s['modules']:
             settle_preflight(m, principal, receipt)
     elif op == 'audit-code-review':
+        unfilled(p.get('report_ref'), read_json(check_ref(p.get('report_ref'))).get('change_inventory_ref'))
         audit_code_review.accept(s, p, principal)
     elif op in run_changes.OPS:
         run_changes.handle(root, s, req, principal)
@@ -1465,9 +1480,7 @@ def mutate(s, req, principal, events, root=None):
         require(m['phase'] in ('context', 'specifying', 'clarifying', 'change-review'), 'plan not editable in this phase')
         held = m.get('plan_ref') == p['plan_ref']
         submitted = read_json(check_ref(p['plan_ref']))
-        for ref in (p['plan_ref'], *(submitted.get(key) for key in ('test_design_ref', 'reuse_plan_ref') if isinstance(submitted, dict))):
-            if isinstance(ref, dict) and ref.get('path'):  # a skeleton is filled before it is a plan
-                require(SKELETON_MARK not in check_ref(ref).read_text(errors='replace'), 'unfilled skeleton field left in ' + Path(ref['path']).name)
+        unfilled(p['plan_ref'], *(submitted.get(key) for key in ('test_design_ref', 'reuse_plan_ref') if isinstance(submitted, dict)))
         plan = design_stage.materialize(s, m, submitted, judge=not held)
         import minimal_plan
         dimensions.refinement(s, m, plan)  # an analysis the leaf refined from its allocation is judged like a registered one

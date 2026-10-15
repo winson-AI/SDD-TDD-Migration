@@ -108,9 +108,11 @@ def validate(receipt):
         check_ref(ref)
     state = read_json(capture['state_ref']['path'])
     require(isinstance(state, dict), 'invalid execution capture state')
+    batch = receipt.get('batch') or {}  # one run of several unit PATHs: the capture names the run, the receipt its PATH
+    expected = {**receipt, **({'path_id': ','.join(batch['path_ids']), 'test_run_id': batch['test_run_id']} if batch else {})}
     for key in ('run_id', 'module_id', 'assignment_id', 'actor_instance_id', 'test_run_id', 'path_id',
                 'freeze_id', 'code_baseline', 'exit_code'):
-        require(state.get(key) == receipt.get(key), 'execution capture identity mismatch: ' + key)
+        require(state.get(key) == expected.get(key), 'execution capture identity mismatch: ' + key)
     require(state.get('finished_at') and state.get('status') != 'running', 'execution capture not finalized')
     if receipt.get('exit_code') == 0:
         require(state.get('status') == 'finished' and state.get('output_complete') is True,

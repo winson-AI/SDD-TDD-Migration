@@ -175,10 +175,12 @@ def coverage_from_analysis(analysis):
             'missing': sorted(set(applicable) - set(with_model))}
 
 
-def implementation(items, traces=None):
-    """After coding: the implementation location must exist AND the implementer must record
-    conformance binding the frozen model, so downstream provably consumed the design output."""
+def implementation(items, traces=None, code_files=None):
+    """After coding: the frozen implementation_location exists. Conformance to the model is derived when the file at
+    that location is one the implementation delivered (`code_files`); a model with UI evidence still needs the
+    implementer to say which baseline or representation guided it."""
     traces = traces or {}
+    delivered = {str(Path(r['path']).resolve()) for r in code_files or []}
     for iid, item in items.items():
         model = item.get('semantic_model')
         if not model:
@@ -186,6 +188,8 @@ def implementation(items, traces=None):
         path = Path(model['implementation_location']['target_path'])
         require(path.exists(), 'semantic implementation_location does not exist: ' + str(path))
         conformance = (traces.get(iid) or {}).get('semantic_conformance')
+        if conformance is None and str(path.resolve()) in delivered and not (model.get('kind') == 'ui-component-spec' and model.get('ui_evidence')):
+            continue
         require(conformance and conformance.get('model_ref') == model['model_ref'],
                 'implementation must record semantic_conformance binding the frozen model for ' + iid)
         for ref in nonempty(conformance.get('evidence_refs'), 'semantic conformance evidence for ' + iid):

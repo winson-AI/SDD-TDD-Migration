@@ -56,14 +56,14 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | audit-retest | MO | 顶层 module_id 指发现模块或受影响中间模块；只等待本模块的上游修复/复测完成，执行完整模块路径 |
 | audit-verdict | Auditor | review_ref；双方验证齐全、同基线、DoD 完成才裁决通过；过期证据报告待人工 |
 | audit-defer | MO | root_cause + evidence_ref；记录根因、结果和恢复点，进入 waiting-auditor；可修复错误先按当前版本本地收敛，依赖/外围问题留证交接 |
-| audit-code-review | Auditor | report_ref；Ledger 预检（context_ref 可选）；全部 MO 收尾后、audit-collect 前提交，字段与治理闭环见[代码治理](audit-code-review.md#ledger-接口) |
+| audit-code-review | Auditor | report_ref；Ledger 预检（context_ref 可选）；步骤带 `report_skeleton` 命令，报告或清单留标记即拒；全部 MO 收尾后、audit-collect 前提交，字段与治理闭环见[代码治理](audit-code-review.md#ledger-接口) |
 | plan | Spec-Designer | plan_ref；Ledger 预检（context_ref 可选）；先 `preview`；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围、spec 与 checklist 由 Ledger 从已接受设计和包内清单补全；不抄写全局上下文与分配包 |
 | plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断，证据：裁决、阻塞缺陷、登记的 issue、未过门禁（步骤视图的 review_gates 列出未过的冻结门禁）；编码前重规划留 reason_ref 历史，已派实现走 CR |
 | audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id、全部所选 path_ids、自身 context_ref；结果以 result_ref 提交，Auditor 原样消费 |
 | freeze | MO | 清晰规划用 review_ref；所需人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
-| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id，可选 session_id/card_sha256；implementer 只选 task_ids，path_ids 缺省取其并集；合法阶段且无活动 worker，返回 fencing_token。worker 派发后 context-submit（implementer 由 Ledger 代登记）；已有当前 ready 报告直接绑定，blocked 拒绝；`mechanical=true` 时宿主按步骤 payload 直接提交 |
-| context-submit | 执行者 | report_ref；登记预检报告，同 stage/实例的最新报告生效。worker 有同阶段的活动派发时：ready 绑定并授权开工（Fixer 此时计一轮），blocked 退回派发 |
+| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id，可选 session_id/card_sha256；implementer 只选 task_ids，path_ids 缺省取其并集；合法阶段且无活动 worker，返回 fencing_token。worker 派发后 context-submit（implementer 由 Ledger 代登记）；已有当前 ready 报告直接绑定，blocked 拒绝；`mechanical=true` 时宿主按步骤 payload 直接提交；implementer/fixer 步骤的 `submission` 列出结果必备证据，test-runner 步骤带 `report_skeleton` 命令 |
+| context-submit | 执行者 | report_ref；登记预检报告（骨架留标记即拒），同 stage/实例的最新报告生效。worker 有同阶段的活动派发时：ready 绑定并授权开工（Fixer 此时计一轮），blocked 退回派发 |
 | submit | worker | assignment_id、fencing_token、result_ref；执行派发须已绑定 ready 预检；不推进阶段 |
 | accept | MO | assignment_id；重验工件和版本后关闭。`mechanical=true` 时宿主直接提交 |
 | diagnose | Diagnostician（轻量叶子本地轮为 Fixer） | diagnosis_ref、owner、root_cause；仅保存绑定当前冻结、代码和未解决结果的 diagnosis_submission，不改变 phase；模块必须无活动 worker |
@@ -77,7 +77,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | invalidate | MO/host | reason；旧 worker 必须先 revoke；重新进入 specifying，并使消费者及全局审计失效 |
 | checkpoint | host | receipt_ref（git_checkpoint.py 回执）；仅 git_checkpoint 开启且模块在 DoD 时，逐文件 blob 必须等于当前已接受代码，见 [模块 Git 检查点](engineering-disciplines.md#模块-git-检查点可选默认关闭) |
 | complete | MO | dod_ref；开启 git_checkpoint 时须已有当前 code_baseline 的检查点；当前模块全路径 Green、版本有效、依赖完成才可接受 |
-| audit-assign | Global | assignment_id、instance_id；全部模块完成后固定快照；审计实例不能是任意实现/修复/测试作者实例 |
+| audit-assign | Global | assignment_id、instance_id；全部模块完成后固定快照；无待复测路径时 Ledger 代写 audit-verdict 预检；审计实例不能是任意实现/修复/测试作者实例 |
 | audit-route | Global | path_id、非空唯一 module_ids、reason_ref；给尚无负责模块的全局审计问题分配责任，不修改模块阶段 |
 | repair-accept | MO | 非空唯一 path_ids；接受分配给本模块的审计问题，在依赖就绪且无 worker/blocker 时从 completed/testing 重开 testing；保留原失败供诊断分流 |
 | audit-revoke | host | assignment_id、stopped_worker_ref；停止活动审计，保留已用次数，才能分配下一轮 |
@@ -123,7 +123,7 @@ tests 另需 paths，见 [stage-result.json](../../../template/stage-result.json
 宿主先审核并配置 [test-adapter.json](../../../template/test-adapter.json) 的 argv，再运行：
 
 ```text
-python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-M001-001 --adapter <adapter.json> --cwd <target> --output <run>/runs/harmony/automation/<new-attempt>
+python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-M001-001（同命令 unit PATH 可为 a,b 列表） --adapter <adapter.json> --cwd <target> --output <run>/runs/harmony/automation/<new-attempt>
 ```
 
 适配器接收 `--query-file <json> --result-file <json>`，写 `{"assertions":[{"assertion_id":"A1","expected":2,"actual":2,"passed":true}]}`。具体测试逻辑来自真实项目，本包只负责调用与采集。

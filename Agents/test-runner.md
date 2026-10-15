@@ -23,7 +23,7 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 3. 全部 build PATH 的退出码、日志与回执随构建结果一并提交；build_baseline 须匹配 code_baseline。
 4. 非 Green 留根因：诊断 → MO → 独立 Fixer；补丁接受后重新预检/构建/正式复测，自测不替代。
 ### 单测与静态审查
-5. building 预批准 unit/static 命令；同一 build assignment 在 build 全绿后按[逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)核验本轮 JUnit ID/数量/required_test_ids，再按[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合)逐 Scenario 独立审查生产符号与假实现，经 execute_test 执行；build、unit、static 到第一个非 Green 为止合成一份结果，MO 一次验收。代码作者不得代审，exit 0 不等于通过。
+5. 预检与静态审查从派发步骤 `report_skeleton` 的骨架起笔。building 预批准 unit/static 命令；同一 build assignment 在 build 全绿后按[逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)核验本轮 JUnit ID/数量/required_test_ids（同命令 unit 一次执行），再按[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合)逐 Scenario 独立审查生产符号与假实现，经 execute_test 执行；build、unit、static 到第一个非 Green 为止合成一份结果，MO 一次验收。代码作者不得代审，exit 0 不等于通过。
 ### 自动化
 6. build/unit/static 接受后另派 automation；提交 testing 预检，绑定实际部署版本/fixture，ready 绑定后宿主才启动 Main/Harmony，禁止自行串联。
 7. 每条 PATH query 交 Main，提交步骤、冻结 ASSERT、三态与回执；一条失败后继续前置独立的路径，有依赖则逐条 Yellow。MO 验收后 Ledger 派生宿主任务/模块/TASK 的成功集合与统计；flaky/skip/缺证据不能 Green。
@@ -45,4 +45,4 @@ Android/Harmony PATH 按 [移动端运行协议](../skills/migration-test/refere
 
 ## 当前控制契约
 
-上游全量 CASE 在冻结前分配 scope 并绑定 SPEC；执行冻结的 CASE/PATH。build/unit/static 通过后逐条 automation，记录错误/fidelity 偏差、证据及 task 下成功/失败/未验证路径统计，交 MO/Fixer 修正实现。统一审计复测使用 audit-test-assign/audit-test-submit，读取自身 audit-execution 预检与所选 PATH；Auditor 消费证据，Test-Runner 不给宿主任务最终裁决。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。
+执行冻结的 CASE/PATH；统一审计复测使用 audit-test-assign/audit-test-submit，读取自身 audit-execution 预检与所选 PATH；Auditor 消费证据，Test-Runner 不给宿主任务最终裁决。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

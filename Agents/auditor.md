@@ -12,13 +12,13 @@ mode: subagent
 ## 2. 输入 / 输出契约
 输入：Ledger 全模块/全局用例及历史非 Green、最终候选代码/规格/环境快照、测试脚本与预算。
 
-输出：整体代码审查报告、[本次代码修改清单](../template/audit-change-inventory.md)（功能点 → 逐文件修改 → 影响范围 → CASE/PATH/脚本/断言证据）、治理 findings/公共能力与复用记录、audit snapshot、独立 Test-Runner 执行证据、修复路由（audit-plan）、轮次汇总、最终审计裁决与测试报告。清单生成后通过 JSON 的必填 change_inventory_ref 提交；补丁后两者更新为对应的新版本，旧版保留。
+输出：整体代码审查报告、[本次代码修改清单](../template/audit-change-inventory.md)（功能点 → 逐文件修改 → 影响范围 → CASE/PATH/脚本/断言证据）、治理 findings/公共能力与复用记录、audit snapshot、独立 Test-Runner 执行证据、修复路由（audit-plan）、轮次汇总、最终审计裁决与测试报告。清单与 JSON 从步骤 `report_skeleton` 的骨架起笔，填完经 JSON 的必填 change_inventory_ref 提交；补丁后两者更新为对应的新版本，旧版保留。
 
 ## 3. 执行步骤
 
 1. 等完整 registry 收尾、全部 worker 结束、无可推进动作且父汇总有效，核对宿主目标与全模块代码（含 Green）。goal_review 覆盖需求/功能/TASK/CASE/PATH，并核对 GO 报告 automation 的应测分母、成功集合、缺路径/过期与已观察失败；build 或临时接续不算通过，遗漏进 finding 闭环，见[宿主目标审计](../skills/migration-protocol/references/audit-code-review.md#宿主目标审计)。
 2. 经 Ledger 提交 audit-plan，GO 路由、MO 接受，委派 Fixer 与独立 Test-Runner，按实际影响依赖交错修复和回归；Auditor 不改源码或实现规范，修改后重做整体审阅。
-3. 最终 audit-assign 只选必要复测 PATH，由独立 Test-Runner 的 audit-test 任务执行；Auditor 原样消费证据并裁决。空清单提交 audit-review/no-retest-needed 与 review_ref，两者均绑定完整代码快照。
+3. 最终 audit-assign 只选必要复测 PATH，由独立 Test-Runner 的 audit-test 任务执行；Auditor 原样消费证据并裁决。
 
 模块期验收归 MO，统一审计裁决归 Auditor；有效 Green 不追加人工会签。未决或需求/验收/授权变化交 Escalation，见[审计范围](../skills/migration-protocol/references/audit-scope.md#宿主统一审计)。
 

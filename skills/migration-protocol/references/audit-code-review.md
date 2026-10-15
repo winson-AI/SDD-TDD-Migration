@@ -44,7 +44,7 @@ Auditor **负责发现、委派、复核和唯一审计验收**。它不写源�
 ## Ledger 接口
 
 1. `status.global_next_step.operation=audit-code-review` 出现在全部 MO 收尾后；`snapshot` 是报告必须原样绑定的快照。先提交本实例 `stage=audit-code-review` 的 context receipt，`draft_ref` 指向待审报告。
-2. Auditor 先按[代码修改清单模板](../../../template/audit-change-inventory.md)生成本版清单，再由 [audit-code-review.json](../../../template/audit-code-review.json) 的必填 `change_inventory_ref={path,sha256}` 引用，最后提交 `audit-code-review`，payload 为 `{report_ref, context_ref}`。报告覆盖全部执行叶子、六项检查、diff、SPEC/code/context 与实际审计者身份；无需自动化环境。
+2. 步骤 `report_skeleton` 由 Ledger 写出本版清单（[模板](../../../template/audit-change-inventory.md)的结构，模块、CHG、追溯、测试映射已填）与 [audit-code-review.json](../../../template/audit-code-review.json)（snapshot、goal_review 的 TASK/PATH、各检查引用清单已填）；Auditor 填标记处的判断，经必填 `change_inventory_ref={path,sha256}` 引用清单后提交 `audit-code-review`，payload 为 `{report_ref, context_ref}`；留标记即拒。报告覆盖全部执行叶子、六项检查、diff 与实际审计者身份；全绿且无发现时各检查引用清单即可，不另写证据文件。
 3. `CR-*` findings 是**代码治理发现**，不修改测试三态、不伪造失败断言；记 source_module_id、category、analysis_ref、root_cause、affected_module_ids，影响集合须有接口/调用/依赖证据，含公共提供方的实际消费者。
 4. 有治理发现时 `audit-collect` **优先仅收集治理批次**，无治理发现才收集剩余 Red/Yellow；复用 `audit-plan → audit-route-batch → audit-work → Fixer → Testing/audit-retest → audit-verdict`。治理路线只能 fix 或 human，不能以旧 Green 或纯 verify 关闭冗余。
 5. 路由明确唯一公共能力 owner、改动与回归。Fixer 按冻结 TASK/写权限做行为等价修正；新增任务、provider 接口/职责或授权变化走 CR/上游审核，真实未决交 Human，release 后重规划/重冻；活动批次不偷改 SPEC、写集合或 provider hash，见[复用协议](reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
@@ -56,17 +56,11 @@ Auditor **负责发现、委派、复核和唯一审计验收**。它不写源�
 
 ### 必交输出：本次代码修改清单
 
-Auditor 在自己的 staging 中生成版本化的 `audit-change-inventory-<revision>.md`，包含本轮起点至当前候选的全量修改，而非最后一次 commit 或只有 Red/Yellow 的模块。它与 JSON 报告绑定相同 run、Ledger sequence 和候选快照；后续治理/修复后更新清单版本，保留旧版。
-
-- **模块与功能**：根模块/父 MO、子模块/owner、功能 ID/名称、scope、REQ/TASK、四维及业务行为变化；直接复用而无修改的功能、未实现功能也列明。
-- **逐文件修改**：稳定 CHG-ID、add/modify/delete/rename、前后绝对路径、符号/行段、原因、前后摘要、固化 diff/源码快照。覆盖源文件、测试、依赖/构建、配置和资源；起点已有工作区修改单列归属，不能当成本轮成果。
-- **影响范围**：直接入口/接口/状态/平台、provider owner/版本、真实消费者/下游及影响依据，说明复用/适配、冗余清理和公共能力沉淀的实际接线。
-- **测试对应**：功能/CHG → 所属模块+CASE-ID/Name → PATH-ID/Name/query → ASSERT，另列测试脚本/配置/数据的文件路径及证据；区分测试场景标识与文件系统路径。状态、executed/stale、基线、test_run/retest_of、根因来自 Ledger。
-- **核对与缺口**：全量 diff 的文件、功能、任务、用例双向映射，去重统计和待决 CR/owner/下一步。没有 CASE/PATH、脚本或执行结果时如实列缺口，不为表格完整编造记录。
+版本化的清单含本轮起点至当前候选的全量修改，而非最后一次 commit 或只有 Red/Yellow 的模块；与 JSON 报告绑定相同 run、Ledger sequence 和候选快照，治理/修复后出新版，旧版保留。Ledger 已填模块/功能/REQ/TASK、CHG-ID 与修改后路径、复用映射、CASE/PATH/ASSERT 与 Ledger 记录的状态；Auditor 写修改类型、修改前路径、符号/行段、原因与前后摘要、固化 diff/快照、影响范围与接线依据、回归选择、起点已有工作区修改的归属、双向映射结论与缺口；没有脚本或执行结果时如实列缺口，不为表格完整编造记录。
 
 清单引用归档证据，删除/重命名保留前后快照链接；目标 live 路径仅作定位，不能当永久证据。清单不反向引用尚未生成的本版 JSON，避免循环 hash 依赖。内容/链接发生变化须新版本及新 `change_inventory_ref`，JSON 与清单一起重新提交。
 
-Ledger 校验清单必填、工件存在及 hash，并将引用投影到 GO 的 migration-report JSON/Markdown；语义完整性仍由 Auditor 审查。旧审查未含该字段时，status 提示补交新版 audit-code-review；不会自动生成清单或改变测试结果。
+Ledger 校验清单必填、工件存在及 hash，并将引用投影到 GO 的 migration-report；语义完整性仍由 Auditor 审查，骨架不改变测试结果。
 
 “完整复测”明确为 **Red/Yellow + 本次重构/复用/公共能力变化影响到的全部用例**；采用受影响模块完整回归，必要下游包含原 Green。无关有效 Green 保留，不做全项目无差别重跑。纯缺测不能伪装成代码错误。
 
