@@ -13,7 +13,7 @@ from pathlib import Path
 import sys
 sys.dont_write_bytecode = True
 
-from contracts import check_ref, digest, file_ref, keyed, nonempty, read_json, require
+from contracts import check_ref, digest, file_ref, keyed, marked, nonempty, read_json, require
 
 ANTI_PATTERNS = ('preview-only-wiring', 'dead-handler', 'fixed-result', 'placeholder-icon', 'unapproved-stub', 'swallowed-error')
 
@@ -30,6 +30,7 @@ def report(query, review_ref, target_root):
     require(query.get('kind') == 'static', 'static PATH required')
     expected = query.get('expected_assertions', [])
     require(len(expected) == 1 and expected[0].get('expected') is True, 'static PATH asserts one boolean closure')
+    require(not marked(review_ref), 'unfilled skeleton field left in the static review')
     data = read_json(check_ref(review_ref))
     for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
         require(data.get(key) == query.get(key), 'review context mismatch: ' + key)

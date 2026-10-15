@@ -54,6 +54,16 @@ def owed(condition, message):
 SKELETON_MARK = '[[待写'  # opens a part of a generated skeleton only its author can write; no frozen definition holds one
 
 
+def marked(ref):
+    """Whether a file the Ledger handed out as a skeleton still holds a mark, however its JSON escapes the text."""
+    text = check_ref(ref).read_text(errors='replace')
+    try:
+        text = json.dumps(json.loads(text), ensure_ascii=False)
+    except ValueError:
+        pass
+    return SKELETON_MARK in text
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
                                      separators=(',', ':')).encode()).hexdigest()

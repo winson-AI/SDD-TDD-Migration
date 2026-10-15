@@ -78,7 +78,7 @@ unit 冻结 argv/cwd/timeout/selection_ref。unit_report 固定 format=junit、r
 
 解析 testcase/计数，保存具体 ID、执行/失败/跳过数量与报告 hash，绑定 run/module/PATH/assignment/test_run/freeze/code_baseline，接受时重核原报告。exit=0、实际执行非零、全部必需 ID 通过、无跳过/证据缺口才 Green。零执行、漏测、缺失/损坏/过期报告为 Yellow；断言失败或非环境中断的命令失败为 code Red，走既有诊断/Fixer。只收本 attempt 的新报告，旧 mtime/越界链接无效；任意可写 XML 的真实性仍依赖可信宿主执行。
 
-prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据。unit 无需设备，可证明逻辑 Scenario，但不替代 CASE 的 automation；环境缺失保留已通过 unit。枚举与唯一性类断言（键只定义一次、无多余键）挂扫描类进程内路径，不挂 unit。
+冻结同一命令的 unit PATH 由 execute_test 以 `--path-id a,b` 一次执行，JUnit 按各自 required_test_ids 拆成逐 PATH 回执。prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据。unit 无需设备，可证明逻辑 Scenario，但不替代 CASE 的 automation；环境缺失保留已通过 unit。枚举与唯一性类断言（键只定义一次、无多余键）挂扫描类进程内路径，不挂 unit。
 
 ## 日志与按需追溯
 
@@ -99,9 +99,9 @@ query 还支持 --task-id/--assertion-id/--test-id，默认最多5条，仅失�
 
 顺序为 build → unit → static → automation → visual。prepared run 固定 spec_closure_required=true，每模块恰好一个 static PATH：断言为唯一 expected=true，复用已有 case_id，不替代业务覆盖；审查范围由 Ledger 派生（全部任务需求与冻结场景），PATH 不列。
 
-独立 Test-Runner 只读 SPEC、当前代码/测试，将审查写入 staging：
+独立 Test-Runner 只读 SPEC、当前代码/测试，从 Ledger 骨架（build 派发步骤的 `report_skeleton`：冻结场景逐行、反模式逐项、上下文已填）填写审查；留标记即拒：
 
-- scenarios[]：按 scenario_id + requirement_id 逐场景记录；execute_test 注入 Ledger 派生的 scenario_index 与场景清单。每行 status=passed|failed、summary、production_symbols（目标绝对路径+真实符号）、evidence_refs。passed 必须给 reached_from：另一个目标文件中的调用/DI/导航/清单引用；有 unit PATH 还须 test_refs 指向真实测试符号。未接入生产不能 passed。
+- scenarios[]：每行 status=passed|failed、summary、production_symbols（目标绝对路径+真实符号）、evidence_refs。passed 必须给 reached_from：另一个目标文件中的调用/DI/导航/清单引用；有 unit PATH 还须 test_refs 指向真实测试符号。未接入生产不能 passed。
 - anti_patterns：preview-only-wiring、dead-handler、fixed-result、placeholder-icon、unapproved-stub、swallowed-error（错误显示为空态/成功）逐项 absent|present、note、evidence_refs。批准的 capture-fixture 边界可 absent，须引用批准依据。
 
 building 预检的 execution.commands 一并批准 build/unit/static 命令和 review 路径；同一 build assignment 依次执行 build、unit、static，到第一个非 Green 为止，一次提交和验收；结果须覆盖已到达环节的全部待测 PATH，同一代码上已 Green 的环节重试时不重跑。非 Green 即诊断/Fixer 后重跑。`execute_test.py` 调用 [spec_closure.py](../../migration-ledger/scripts/spec_closure.py)（--review、--target-root），核对上下文、场景覆盖、符号和清单；failed 场景/present 反模式为 Red。脚本不判断业务语义，Test-Runner 审阅、Auditor 抽查。static 全绿前禁止 automation/automation-unavailable；缺设备仍执行 unit/static。

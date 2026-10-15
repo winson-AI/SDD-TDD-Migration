@@ -505,7 +505,7 @@ def implementation(plan, result):
     traces = keyed(result.get('dimension_evidence'), 'item_id')
     require(set(traces) == set(items), 'implementation dimension evidence incomplete')
     import semantics
-    semantics.implementation(items, traces)
+    semantics.implementation(items, traces, result.get('code_files'))
     planned = {t['item_id']: t for t in plan['dimension_trace']}
     tasks = {t['task_id']: t for t in plan['tasks']}
     for trace in result.get('task_trace', []):

@@ -33,7 +33,7 @@ applicable UI 模型绑定 `ui_evidence`（UI 树、coverage 与基线）。实�
 
 校验点在 [dimensions.load](../../migration-ledger/scripts/dimensions.py) 单一钩子,覆盖 GO allocation / 父 MO partition / 子 MO plan / freeze verify 全路径。
 
-**下游必用(保证理解使用)**:实现接受时 [semantics.implementation](../../migration-ledger/scripts/semantics.py) 校验 `implementation_location` 文件真实存在,且该 item 的 `dimension_evidence` 必须带 `semantic_conformance`——其 `model_ref` 回指冻结模型、`evidence_refs` 提供实现落点证据。Implementer 不能无视冻结模型自行实现:缺 conformance 则实现被拒。
+**下游必用(保证理解使用)**:实现接受时 [semantics.implementation](../../migration-ledger/scripts/semantics.py) 校验 `implementation_location` 文件真实存在；该文件在本次交付的 code_files 中即视为 conformance，否则 `dimension_evidence` 须带 `semantic_conformance`（`model_ref` 回指冻结模型、`evidence_refs` 提供落点证据）。带 ui_evidence 的 UI 模型仍须作者写 `baseline_conformance`。
 
 ## 冻结与投影（保证下游理解使用）
 

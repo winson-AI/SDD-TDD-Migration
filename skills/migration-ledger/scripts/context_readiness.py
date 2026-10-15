@@ -509,6 +509,9 @@ def gate(s, req, actor, root=None):
     if not ref and op in SELF_REPORTED and root is not None:
         ref = mechanical_report(root, s, mid, stage, {'role': actor['role'], 'instance_id': actor['instance_id']}, draft,
                                 next(verify_refs_in(p), None))  # the Ledger's own preflight of what the actor submits
+    if not ref and op == 'audit-assign' and stage == 'audit-verdict' and root is not None:
+        # Nothing to re-execute: the Auditor's preflight asks only what the Ledger holds, so the Ledger writes it.
+        ref = mechanical_report(root, s, None, stage, {'role': 'auditor', 'instance_id': p.get('instance_id')})
     require(ref, 'context readiness receipt required for ' + op)
     instance = p.get('instance_id') if op in ('assign', 'audit-assign', 'audit-test-assign') else None
     if op in ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'run-review', 'audit-code-review'):
@@ -575,7 +578,7 @@ def annotate(s, mid, step):
                     return step
                 except (Rejected, OSError, ValueError):
                     pass
-        if step.get('operation') in SELF_REPORTED:
+        if step.get('operation') in SELF_REPORTED or step.get('operation') == 'audit-assign' and stage == 'audit-verdict':
             step['context_gate'].update(with_operation=True, mechanical=True)  # the Ledger preflights what the actor submits; a report of its own may ride as context_ref
             return step
         if step.get('operation') == 'assign':

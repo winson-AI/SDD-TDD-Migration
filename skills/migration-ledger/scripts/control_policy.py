@@ -1,7 +1,7 @@
 """Planning acceptance and explicit execution contracts on the Ledger bus."""
 import copy
 from pathlib import Path
-from contracts import check_ref, digest, keyed, nonempty, read_json, require
+from contracts import Rejected, check_ref, digest, keyed, nonempty, read_json, require
 
 def acceptance(paths):
     """Execution commands and labels are planning details; assertions and coverage remain frozen."""
@@ -146,6 +146,27 @@ def execution_contract(m, p):
             'accepted_task_files': copy.deepcopy(m.get('task_files', {})),
             'permissions': 'test-only' if p['role'] == 'test-runner' else 'code',
             'evidence_required': 'execution-receipts' if p['role'] == 'test-runner' else 'task-trace-and-production-binding'}
+
+
+def submission(m, task_ids):
+    """What the Ledger asks of the implementation a dispatch returns, listed before the work: the selected TASKs'
+    trace, the full code manifest, production binding, diagnostics, one trace per selected reuse mapping and, when
+    the plan completes, evidence per four-dimension item (UI items with a baseline name what guided them)."""
+    plan = m['plan']
+    out = {'task_trace': sorted(task_ids), 'code_files': 'complete manifest', 'production_binding_evidence': 'ref',
+           'authoring_diagnostics': 'host diagnostics of the changed files', 'complete': set(task_ids) | set(m.get('accepted_task_ids', [])) >= {t['task_id'] for t in plan['tasks']}}
+    try:
+        if plan.get('reuse_plan_ref'):
+            out['reuse_trace'] = sorted(r['mapping_id'] for r in read_json(check_ref(plan['reuse_plan_ref']))['mappings'] if r['decision'] != 'new')
+        if plan.get('dimension_analysis_ref'):
+            import dimensions
+            _, items = dimensions.load(plan['dimension_analysis_ref'], m['module_id'])
+            out['dimension_evidence'] = {'items': sorted(items),
+                'ui_guided': sorted(iid for iid, item in items.items() if (item.get('semantic_model') or {}).get('ui_evidence')),
+                'resources': sorted(iid for iid, item in items.items() if item['dimension'] == 'Resource' and item.get('resource_strategy') != 'blocked')}
+    except (Rejected, OSError, KeyError, TypeError):
+        pass  # a reference that no longer resolves is the submit's rejection, not the step's
+    return out
 
 
 def result_scope(module, assignment):

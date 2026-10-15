@@ -97,8 +97,14 @@ def selfcheck(argv, cwd, output):
 
 
 def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=300):
+    """One approved execution. `path_id` names one PATH, or several unit PATHs that froze the same command: those run
+    once, and each gets its own receipt and JUnit attribution out of the one run (a list of receipt references)."""
     root = Path(root).resolve()
     s = status(root)
+    pids = [path_id] if isinstance(path_id, str) else list(path_id)
+    require(pids and len(set(pids)) == len(pids), 'path_id required, each once')
+    batch = len(pids) > 1
+    path_id = pids[0]
     if module_id == 'GLOBAL':
         require(all(tv.available(m) for m in s['modules'].values()), 'audit modules no longer ready')
         m = audit_scope(s)
@@ -107,18 +113,28 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
         require(not a.get('closed', True) and a.get('assignment_id') == assignment_id and a.get('snapshot') ==
                 {k:v['code_baseline'] for k,v in s['modules'].items()}, 'audit assignment required')
         require(a.get('scope_policy') == 'non-green-only', 'legacy full audit assignment; revoke and reassign')
-        require(path_id in a.get('path_ids', []), 'path outside collected audit scope')
+        require(all(pid in a.get('path_ids', []) for pid in pids), 'path outside collected audit scope')
     else:
         m = s['modules'][module_id]
         a = m['assignments'][assignment_id]
         require(not a['closed'] and (a['role'] == 'test-runner' and m['phase'] == 'testing'), 'test assignment required')
         require(a.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
     if a.get('execution_contract'):
-        require(path_id in a['execution_contract']['path_ids'], 'execution outside assigned PATHs')
-    context_readiness.check_execution(s, a, argv, cwd, path_id)
+        require(all(pid in a['execution_contract']['path_ids'] for pid in pids), 'execution outside assigned PATHs')
+    planned = {p['path_id']: p for p in m['plan']['paths']}
+    paths = [planned[pid] for pid in pids]
+    path = paths[0]
+    if batch:
+        require(all(p.get('kind') == 'unit' and p.get('unit_report') for p in paths), 'a batch runs unit PATHs with JUnit reports')
+        require(all((p['command']['argv'], str(Path(p['command']['cwd']).resolve())) ==
+                    (path['command']['argv'], str(Path(path['command']['cwd']).resolve())) for p in paths),
+                'a batch runs PATHs that froze the same command')
+    for pid in pids:
+        context_readiness.check_execution(s, a, argv, cwd, pid)
     require(baseline(m['code_files']) == m['code_baseline'], 'code changed before execution')
-    path = next(p for p in m['plan']['paths'] if p['path_id'] == path_id)
-    test_binding = prepared_tests.binding(m, path)
+    bindings = {pid: prepared_tests.binding(m, p) for pid, p in zip(pids, paths)}
+    require(not batch or not any(bindings.values()), 'a batch carries no prepared test assets')
+    test_binding = bindings[path_id]
     prepared = (test_binding or {}).get('assets', [])
     is_build = path.get('kind') in ('build', 'unit')  # both execute a frozen, host-bound command
     if tv.split(m) and module_id != 'GLOBAL':
@@ -133,7 +149,7 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
         require(kind in tv.PRE or tv.static_ready(m), 'static spec review must pass before automation')
     if is_build:
         require(argv == path['command']['argv'] and str(Path(cwd).resolve()) == str(Path(path['command']['cwd']).resolve()), 'build command differs from frozen plan')
-        timeout = path['command']['timeout_seconds']
+        timeout = max(p['command']['timeout_seconds'] for p in paths)
     out = run_storage.test_output(root, s, output)
     if run_storage.for_state(root, s) or root.parent.name == '.sdd-runs':
         run_storage.checked_path(out, Path(root) / ('runs/build' if is_build else 'runs/harmony/automation'))
@@ -149,7 +165,9 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     init = redirected(execution_env) if not is_build or runner_storage.gradle_command(argv) else None
     if path.get('unit_report'):
         execution_env['SDD_UNIT_REPORTS_REQUIRED'] = '1'
-    test_run_id = str(uuid.uuid4())
+    test_run_id = str(uuid.uuid4())  # the run; in a batch every PATH keeps its own id under it
+    run_ids = {pid: str(uuid.uuid4()) if batch else test_run_id for pid in pids}
+    named = lambda stem, pid: stem + ('.' + pid if batch else '') + '.json'
     query = {**path, 'run_id': s['run_id'], 'module_id': module_id,
              'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'execution_contract_version': 2}
     if path.get('kind', 'automation') == 'automation' and path.get('platform') in ('android', 'harmony'):
@@ -157,7 +175,11 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     if prepared: query['frozen_test_assets'] = prepared
     if test_binding: query['test_asset_binding'] = test_binding
     if path.get('unit_report'):
-        query.update(assignment_id=assignment_id, test_run_id=test_run_id)
+        query.update(assignment_id=assignment_id, test_run_id=run_ids[path_id])
+    queries = {path_id: query, **{pid: {**p, 'run_id': s['run_id'], 'module_id': module_id, 'freeze_id': m['freeze_id'],
+                                        'code_baseline': m['code_baseline'], 'execution_contract_version': 2,
+                                        'assignment_id': assignment_id, 'test_run_id': run_ids[pid]}
+                                  for pid, p in zip(pids[1:], paths[1:])}}
     if path.get('kind') == 'static':
         query['unit_tests_present'] = bool(tv.paths(m, 'unit'))
         query['scenario_requirement_ids'] = sorted({r for t in m['plan']['tasks'] for r in t['requirement_ids']})
@@ -176,12 +198,14 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
             query['run_root'] = str(root)
             query['execution_assignment'] = {'assignment_id': a['assignment_id'],
                                              'fencing_token': a.get('fencing_token')}
-    atomic(out / 'query.json', query)
+    for pid in pids:
+        atomic(out / named('query', pid), queries[pid])
+    execution_env['SDD_TEST_QUERY_FILE'] = str(out / named('query', path_id))
     started = datetime.now(timezone.utc).isoformat()
     termination, proc, aborted = None, None, None
     capture = Capture(out, {
         'run_id': s['run_id'], 'module_id': module_id, 'assignment_id': assignment_id,
-        'actor_instance_id': a['instance_id'], 'test_run_id': test_run_id, 'path_id': path_id,
+        'actor_instance_id': a['instance_id'], 'test_run_id': test_run_id, 'path_id': ','.join(pids),
         'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline']})
     note = ''
     try:
@@ -244,7 +268,8 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
         atomic(out / 'cleanup.json', {'scratch': scratch, 'nested': nested})
     if path.get('unit_report'):
         import unit_reports
-        atomic(out / 'result.json', unit_reports.collect(query, out, started, exit_code))
+        for pid in pids:
+            atomic(out / named('result', pid), unit_reports.collect(queries[pid], out, started, exit_code))
     elif is_build:
         quality = 'green-passed' if exit_code == 0 else 'yellow-blocked' if aborted or exit_code in (124, 127) else 'red-bug'
         atomic(out / 'result.json', {'producer': 'build-executor',
@@ -257,25 +282,29 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
                 'summary': ('Unit tests' if path.get('kind') == 'unit' else 'Build') + ' exit ' + str(exit_code) + '; inspect captured compiler/tool log',
                 'confidence': 'observed', 'owner': module_id, 'next_action': 'diagnose',
                 'evidence_refs': [file_ref(out / 'execution.log')]}})
-    receipt = {'schema_version': 1, 'producer': 'host-executor', 'execution_contract_version': 2, 'run_id': s['run_id'],
-               'module_id': module_id, 'path_id': path_id, 'test_run_id': test_run_id,
-               'assignment_id': assignment_id, 'actor_instance_id': a['instance_id'],
-               'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
-               'argv': command, 'cwd': str(Path(cwd).resolve()), 'started_at': started,
-               'requested_argv': argv, 'storage_command_version': 1,
-               'finished_at': datetime.now(timezone.utc).isoformat(), 'exit_code': exit_code,
-               'capture': capture.references(),
-               'cleanup_ref': file_ref(out / 'cleanup.json'),
-               'storage_policy_ref': file_ref(init) if init else None,
-               'log_ref': file_ref(out / 'execution.log'), 'query_ref': file_ref(out / 'query.json'),
-               'result_ref': file_ref(out / 'result.json') if (out / 'result.json').is_file() else None}
+    finished = datetime.now(timezone.utc).isoformat()
+    shared = {'schema_version': 1, 'producer': 'host-executor', 'execution_contract_version': 2, 'run_id': s['run_id'],
+              'module_id': module_id, 'assignment_id': assignment_id, 'actor_instance_id': a['instance_id'],
+              'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
+              'argv': command, 'cwd': str(Path(cwd).resolve()), 'started_at': started,
+              'requested_argv': argv, 'storage_command_version': 1, 'finished_at': finished, 'exit_code': exit_code,
+              'capture': capture.references(), 'cleanup_ref': file_ref(out / 'cleanup.json'),
+              'storage_policy_ref': file_ref(init) if init else None, 'log_ref': file_ref(out / 'execution.log'),
+              **({'batch': {'path_ids': pids, 'test_run_id': test_run_id}} if batch else {})}
+    receipts = []
+    for pid in reversed(pids):  # the first PATH's receipt is finished below with what only a single run records
+        receipt = {**shared, 'path_id': pid, 'test_run_id': run_ids[pid], 'query_ref': file_ref(out / named('query', pid)),
+                   'result_ref': file_ref(out / named('result', pid)) if (out / named('result', pid)).is_file() else None}
+        if termination:
+            receipt['termination'] = termination
+        if pid != path_id:
+            atomic(out / named('receipt', pid), receipt)
+            receipts.insert(0, file_ref(out / named('receipt', pid)))
     if test_binding:
         usage_file = run_storage.checked_path(out / 'test-assets-used.json', out)
         receipt.update(test_asset_binding=test_binding,
             test_asset_usage=prepared_tests.usage(test_binding, argv, usage_file),
             test_asset_usage_ref=file_ref(usage_file) if usage_file.is_file() else None)
-    if termination:
-        receipt['termination'] = termination
     if not is_build:
         for observations in (out / 'harmony/observations.json', out / 'observations.json'):
             if observations.is_file():
@@ -287,11 +316,12 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
             if artifact.is_file():
                 run_storage.checked_path(artifact, out)
                 receipt[key] = file_ref(artifact)
-    atomic(out / 'receipt.json', receipt)
+    atomic(out / named('receipt', path_id), receipt)
+    receipts.insert(0, file_ref(out / named('receipt', path_id)))
     if aborted is not None:
         raise aborted
     # Result acceptance rechecks the baseline and active assignment after the subprocess.
-    return file_ref(out / 'receipt.json')
+    return receipts if batch else receipts[0]
 
 
 def main():
@@ -307,7 +337,7 @@ def main():
             return 1
     parser = argparse.ArgumentParser(description=__doc__)
     for arg in ('root', 'module', 'assignment', 'path-id', 'adapter', 'cwd', 'output'):
-        parser.add_argument('--' + arg, required=True)
+        parser.add_argument('--' + arg, required=True, help='several unit PATHs of one frozen command: a,b,c' if arg == 'path-id' else None)
     parser.add_argument('--timeout', type=int)
     args = parser.parse_args()
     def terminated(signum, frame):
@@ -318,7 +348,8 @@ def main():
         require(canonical.parent.name == '.sdd-runs', 'CLI execution requires .sdd-runs/<run_id>; import old evidence into a new run')
         run_storage.layout(canonical.parent.parent, canonical.name)
         adapter = read_json(args.adapter)
-        print(json.dumps(execute(args.root, args.module, args.assignment, args.path_id,
+        pids = [pid for pid in args.path_id.split(',') if pid]
+        print(json.dumps(execute(args.root, args.module, args.assignment, pids if len(pids) > 1 else args.path_id,
                                  adapter['argv'], args.cwd, args.output, args.timeout or adapter.get('timeout', 300))))
         return 0
     except (ValueError, OSError, KeyError, StopIteration) as exc:

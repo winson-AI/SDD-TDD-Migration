@@ -47,6 +47,36 @@ class StartGateTests(unittest.TestCase):
         project_context.validate({'module_slicing': {'functional_use_cases_complete': False}})
 
 
+    def test_an_implementer_is_told_what_its_submission_is_judged_on(self):
+        f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        f.prepare()
+        step = next(x for x in f.state()['next_steps'] if x.get('operation') == 'assign' and x.get('worker_role') == 'implementer')
+        self.assertEqual(step['submission']['task_trace'], ['T1']); self.assertTrue(step['submission']['complete'])
+        self.assertNotIn('reuse_trace', step['submission'])  # no reuse plan: nothing to trace
+
+    def test_an_audit_with_nothing_to_rerun_is_preflighted_by_the_ledger(self):
+        import test_context_readiness
+        f = test_context_readiness.ContextReadinessTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        original = f.state(); f.root = f.base / 'no-global'
+        f.call('init', {**{k: original[k] for k in ('target_root', 'legacy_root', 'case_ids', 'requirement_ids', 'global_spec', 'new_architecture')},
+                        'dimension_slicing_required': False, 'split_testing_required': False, 'global_paths': [], 'max_fix_rounds': 1}, role='host')
+        f.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'dependencies': [], 'write_paths': [str(f.target / 'm1')]}, role='global-orchestrator', module=None)
+        f.completed(); test_ledger.code_review(f)
+        step = f.state()['global_next_step']
+        self.assertEqual((step['operation'], step['context_gate']['stage'], step['context_gate'].get('mechanical')), ('audit-assign', 'audit-verdict', True))
+        f.raw('audit-assign', {'assignment_id': 'A1', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
+        s = f.state()
+        receipt = s['context_receipts']['audit-verdict:auditor']
+        self.assertTrue(json.loads(Path(receipt['report_ref']['path']).read_text())['mechanical'])
+        self.assertEqual(s['audit_assignment']['path_ids'], [])
+        scope = ledger.audit_scope(s)
+        report = {'schema_version': 1, 'kind': 'audit-review', 'run_id': 'demo', 'module_id': 'GLOBAL', 'assignment_id': 'A1',
+                  'actor_instance_id': 'auditor', 'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],
+                  'snapshot': s['audit_assignment']['snapshot'], 'paths': [], 'execution_status': 'no-retest-needed',
+                  'review_ref': f.ref('review.md', 'accepted evidence reviewed')}
+        f.call('audit', {'report_ref': f.ref('audit.json', report)}, role='auditor', module=None)
+        self.assertEqual(f.state()['audit']['execution_status'], 'no-retest-needed')
+
     def test_the_first_version_of_a_leaf_is_timed_and_its_refusals_counted(self):
         import tempfile
         import workflow_cost

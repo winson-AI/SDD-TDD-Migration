@@ -87,8 +87,9 @@ class SemanticsTests(unittest.TestCase):
         good = {'i1': {'semantic_conformance': {'model_ref': item['semantic_model']['model_ref'], 'evidence_refs': [ev]}}}
         self.bad_impl(items, 'does not exist', good)          # location missing
         (self.base / 'Out.kt').write_text('done')
-        self.bad_impl(items, 'semantic_conformance', None)    # exists but implementer recorded no conformance
+        self.bad_impl(items, 'semantic_conformance', None)    # exists, but not among the delivered files: the author states conformance
         semantics.implementation(items, good)                 # exists + conformance -> ok
+        semantics.implementation(items, None, [{'path': str(self.base / 'Out.kt'), 'sha256': 'x'}])  # delivered at the frozen location: derived
 
     def test_ui_evidence_boundary(self):
         tree = self.ref('ui-tree.json', {'schemaVersion': 1, 'scope': 'migrate-login', 'generatedFrom': {'sourceIndex': 'ui-source-index.json', 'sourceIndexSha256': 'a'*0 + 'aa', 'runtimeIndex': 'runtime-ui-index.json', 'runtimeIndexSha256': 'bb'}, 'screens': [{'id': 'screen:login', 'root': {'id': 'node:root', 'presentation': {'resourceRefs': []}}}], 'layoutClosure': [], 'criticalLayoutContracts': [], 'unresolved': []})

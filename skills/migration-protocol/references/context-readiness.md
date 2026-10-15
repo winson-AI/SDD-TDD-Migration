@@ -18,8 +18,8 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 | --- | --- | --- | --- |
 | register、global-plan、source-review、run-review、decompose、plan、audit-plan、audit-verdict、audit-code-review | 自报阶段 / 提交该操作的角色 | 由 Ledger 机械预检：本阶段必读输入齐备且未漂移、subject 当前；角色不写报告，自带的报告可随操作作 context_ref | 操作被接受即登记 acceptance；freeze/decompose-accept 复用原提案接受的引用；输入漂移则该操作被拒 |
 | Coding 派发时 | coding / Ledger 代 Implementer | 冻结 SPEC/tasks、完整生产链路、目标可行性、共享接口、复用接线、工具/读写授权的输入齐备且未漂移 | Ledger 登记并绑定 assign，Implementer 直接开工，发现缺项仍可自报 blocked 退回；锁、依赖、版本门禁在派发时执行 |
-| 构建派发后、执行前 | building / Test Runner | 已接受代码、冻结构建命令、目标/JDK/SDK/Gradle 环境、工具与权限，不要求自动化设备 | ready 报告绑定 assign(test_scope=build) 后执行 |
-| Main 派发后、执行前 | testing / Test Runner | 需求与 PATH、已接受代码、真实提供方、适配器、环境/数据/账号条件、工具与权限 | ready 报告绑定 assign 后执行；执行器再核对批准 argv/cwd/环境证据 |
+| 构建派发后、执行前 | building / Test Runner | Ledger 骨架已核对代码、冻结 SPEC 与命令；worker 填目标/JDK/SDK/Gradle 环境、工具与权限，不要求自动化设备 | ready 报告绑定 assign(test_scope=build) 后执行 |
+| Main 派发后、执行前 | testing / Test Runner | Ledger 骨架已核对 PATH、已接受代码；worker 填真实提供方、适配器、环境/数据/账号条件、工具与权限 | ready 报告绑定 assign 后执行；执行器再核对批准 argv/cwd/环境证据 |
 | 首轮或审计 Fixer 派发后、修复前 | fixing / Fixer | 冻结契约、TASK、接口、复用映射、失败 PATH/assert、当前诊断、历史尝试/预算、最小修复范围 | ready 报告绑定 assign 后修复并计一轮，缺上下文不消耗修复轮次；必须确认已读诊断报告（diagnosis_ref 为必读输入）。fixing 预检绑定诊断内容本身，MO 接受诊断前后均可提交；diagnosis-accept 可带 assign 一步派发 |
 | 遗留路径独立复核前 | audit-testing / Auditor | 当前汇总、SPEC/PATH、代码与真实提供方、完整环境、独立性 | Auditor 自核就绪，GO audit-assign 绑定该实例；测试验收仍唯一归 Auditor |
 
@@ -27,7 +27,7 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 
 ## 3. 报告与传递
 
-只有 worker 阶段（building、testing、fixing、audit-testing/audit-execution）由执行者写报告；模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256 与必需检查项取自步骤视图（`status --view step`）的 `context`；checks 的键必须与其 required_checks 完全一致。同一文件被多次引用时，在报告顶层 `refs` 写一次，`evidence_refs` 写其 id。
+只有 worker 阶段（building、testing、fixing、audit-testing/audit-execution）由执行者写报告，building/testing 从派发步骤 `report_skeleton` 写出的骨架起笔；模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256 与必需检查项取自步骤视图（`status --view step`）的 `context`；checks 的键必须与其 required_checks 完全一致。同一文件被多次引用时，在报告顶层 `refs` 写一次，`evidence_refs` 写其 id。
 
 报告包含：
 
@@ -82,7 +82,7 @@ global-discovery/global-planning/decomposition/planning 必需检查 feature-inv
 
 同一 assignment 需运行多个构建命令或最终审计混合路径时，可在 execution.commands 按 path_id 保存各自 argv/cwd；环境证据仍由 environment_ref 绑定。execute_test 逐路径校验该命令，build 另核对冻结 command。
 
-收尾 audit-assign 的阶段由 Ledger 实际选集决定：有路径用 audit-testing；无待验证路径用 audit-verdict，仅核验已接受证据与独立性，不要求设备/自动化环境。空 global_paths 不影响此选择。见 [审计范围协议](audit-scope.md)。
+收尾 audit-assign 的阶段由 Ledger 实际选集决定：有路径用 audit-testing；无待验证路径用 audit-verdict，由 Ledger 机械预检（audit-assign 不带 context_ref），不要求设备/自动化环境。空 global_paths 不影响此选择。见 [审计范围协议](audit-scope.md)。
 
 ## Auditor 代码审查预检
 

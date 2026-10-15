@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1450 | 全量通过，零失败/错误/跳过；本轮只改协议文字，未增测试 |
+| migration-ledger/tests | 1528 | 全量通过，零失败/错误/跳过；本轮新增执行侧骨架、同命令 unit 批量执行、提交证据先列、审计机械预检与 TASK 缺口口径的测试 |
 | migration-test/tests | 70 | 全量通过；本轮未改适配器 |
 | runtime/harmony/tests | 128 | 全量通过；本轮未改运行内核 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮合并协议文字：GO、父 MO、子 MO 三层职责只在 module-decomposition.md 陈述一次，dimension-slicing.md 与 slicing.md 改为指引；UI 证据与采集器产物以引用进入计划、不内联，重提只改引用；协议上限随本轮压缩下调。
+本轮：执行侧报告（Test-Runner 预检与静态审查、Auditor 清单与代码审查）由 Ledger 写骨架，留标记即拒；冻结同一命令的 unit PATH 一次执行、逐 PATH 归因；实现派发先列提交必备证据，落点文件在交付内即视为 conformance；无待复测的审计由 Ledger 预检；报告的 TASK 行按模块缺口计缺路径。协议文字净减，上限不变。
 
-协议体积为 483495 / 483500 字节，最大单文件 27538 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 44287 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.3%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 483436 / 483500 字节，最大单文件 27538 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 35391 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 
@@ -140,6 +140,11 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 构建与自动化 | 构建 → 自动化拆分；自动化不可用走 automation-deferred Yellow，不阻塞独立任务 |
 | OpenSpec 投影 | global/module/projection/final 分范围核验；模块隔离、内容失真、失效后重新规划 |
 | 报告 | 全部 CASE 状态、非 Green 根因与证据进入 migration-report |
+| 执行侧骨架 | report_skeleton.py 为 Test-Runner 写 building/testing 预检（Ledger 核对的检查项已填、冻结命令已复制、环境/提供方/权限留标记）与静态审查（冻结场景逐行、反模式逐项），为 Auditor 写代码修改清单（模块/功能/CHG/测试映射已填）与 audit-code-review.json（snapshot、goal_review 的 TASK/PATH、各检查引用清单）；派发与审查步骤带命令；context-submit、audit-code-review 与静态 PATH 的审查留标记即拒，标记按解析后的 JSON 判定 | test_report_skeleton |
+| 同命令 unit 一次执行 | execute_test 的 path_id 可为冻结同一命令的多个 unit PATH：一次运行、一份日志与捕获，每个 PATH 自己的 query/result/receipt 与 JUnit 归因，回执记 batch；混入非 unit、不同命令或重复 PATH 被拒 | test_batched_units |
+| 提交证据先列、conformance 派生 | implementer/fixer 派发步骤的 submission 列出结果必备证据（任务追溯、完整 manifest、绑定、诊断、逐映射 reuse_trace、四维证据）；semantic_conformance 在冻结落点文件属于本次交付时由 Ledger 派生，带 ui_evidence 的 UI 模型仍须作者写 baseline_conformance | test_start_gates、test_semantics |
+| 无待复测的审计由 Ledger 预检 | audit_scope 为空时 audit-assign 不带 context_ref：Ledger 以 Auditor 名义写 audit-verdict 机械预检并登记；步骤标 mechanical；no-retest-needed 的 audit-review 照常裁决 | test_start_gates |
+| TASK 行按模块缺口计缺路径 | automation 统计里 TASK 行的缺路径 CASE 只计模块整体缺的 CASE，只绑 unit PATH 的任务不再把兄弟任务覆盖的 CASE 记为缺口 | test_migration_report |
 
 ## 包级核查
 
