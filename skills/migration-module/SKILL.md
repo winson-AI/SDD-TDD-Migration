@@ -27,4 +27,4 @@ description: 模块状态机门禁、DoD、子任务验收与循环控制，用�
 ## 6. 配套资产
 使用 [主要模板](../../template/status.md)。
 
-角色义务、调度/审计规则与专题入口以 [Agent 定义](../../Agents/module-orchestrator.md#专题义务) 和 [状态机](../migration-protocol/references/state-machine.md#module-orchestrator-唯一模块守卫) 为准。
+角色硬约束、调度/审计规则以 [Agent 定义](../../Agents/module-orchestrator.md#6-硬约束) 和 [状态机](../migration-protocol/references/state-machine.md#module-orchestrator-唯一模块守卫) 为准。

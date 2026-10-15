@@ -34,24 +34,6 @@ freeze/DoD 不混用；路径完整；CR 已处理；无遗留 Red/Yellow；回�
 
 本模块 CASE/PATH 由本 MO 验收，Green/DoD 即提交。父 MO 等全部后代完成/有据挂起再绑定当前子模块快照 module-summary，不代验收或改质量；跨模块/不确定边界交人工。
 
-## 专题义务
-
-本表列父/子 MO 验收点。
-
-| 专题 | 父 MO | 子 MO | 协议 |
-| --- | --- | --- | --- |
-| 上下文就绪 | decompose 由 Ledger 预检 | plan/freeze 由 Ledger 预检；worker ready 报告授权开工，blocked 退回不耗轮次 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
-| 功能完备 | 孩子功能并集完整，叶子是功能树节点 | 按 feature_ids 追溯到需求/TASK/PATH；未知、遗漏、重复交人工 | [切片规约](../skills/migration-global/references/slicing.md#总则) |
-| 四维 | 先划子模块，再生成子四维分析与 partition review | 先划 tasks.scope，再逐任务分析并与 tasks/PATH 一起冻结；N/A 要源证据 | [四维](../skills/migration-protocol/references/dimension-slicing.md#4-控制节点与交接) |
-| 复用与 provider | 统一公共适配与唯一 owner，变更上溯 GO | 冻结 reuse_plan 与生产绑定；provider 改动走 CR，not-implemented 要证据 | [复用](../skills/migration-protocol/references/reuse-dependencies.md#总则)、[来源变更](../skills/migration-protocol/references/source-changes.md#总则) |
-| 测试分流 | — | build/unit → static → automation → visual 依次接受；仅环境缺失接受 automation-unavailable | [构建与自动化](../skills/migration-protocol/references/build-automation.md#4-自动化环境缺失直接记-yellow-并继续) |
-| 轻量叶子与批量冻结 | 汇总批量信封一次批准 | 逐叶核对条目后冻结；合并诊断/修复仍需 diagnosis-accept | [父子 MO](../skills/migration-protocol/references/module-decomposition.md#父级批量冻结信封)、[工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#模块-git-检查点可选默认关闭) |
-| 代码治理 | 配合 Auditor 核对冗余与公共能力 owner | 接受治理 finding，修后先 Build 再 Automation 回归；新增任务走 CR | [代码治理](../skills/migration-protocol/references/audit-code-review.md#顺序与职责) |
-| 埋点 | 分配事件与公共接入职责，允许孩子 N/A | 区分 applicable / not-applicable 任务 | [埋点](../skills/migration-protocol/references/telemetry.md#总则) |
-| 知识 | 本模块范围内 query/resolve | 开关开启时要求绑定 plan.dependency_resolution_ref | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |
-
-父 MO 名称固定为 `parent-mo-<module_id>`，宿主读取父步骤 agent_name；子 MO 不加前缀。见 [父子 MO 协议](../skills/migration-protocol/references/module-decomposition.md#父-mo-统一命名)。
-
 ## 当前控制契约
 
 plan-review 只判 blocking，其余登 issue 后冻结；编码前 planning-reopen，编码后 CR；只有需求/验收/授权变化交人工。每次执行分配选择 TASK/PATH，Fixer 另选 FINDING；DoD 累积全部任务与验证。详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

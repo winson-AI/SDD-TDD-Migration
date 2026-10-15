@@ -80,8 +80,9 @@ def validate_fidelity(row, plan, legacy_root=None):
     for ref in nonempty(fidelity.get('legacy_source_refs'), 'reuse fidelity legacy source evidence'):
         require(check_ref(ref).resolve().is_relative_to(Path(root).resolve()), 'fidelity baseline outside legacy source')
     check_ref(fidelity.get('alignment_ref'))
-    scenarios = keyed(fidelity.get('scenarios'), 'scenario_id')
-    require(bool(scenarios), 'reuse fidelity scenarios required')
+    rows = fidelity.get('scenarios') or []
+    scenarios = keyed(rows, 'scenario_id') if rows else {}
+    owed(bool(scenarios), 'reuse fidelity scenarios required')  # settled before DoD, not before the first version
     paths = {p['path_id']: p for p in plan['paths']}
     covered = set()
     for scenario in scenarios.values():

@@ -36,19 +36,3 @@ mode: subagent
 审计：全体模块收尾后先 audit-code-review，再统一处理遗留问题与宿主目标审计。路由 finding、审计撤销/释放及活动批次限制见 [审计范围](../skills/migration-protocol/references/audit-scope.md#总则)；宿主真实停止 worker 后才能撤销。
 
 项目上下文：只读 prepare 固化的快照，init 绑定 project_context_ref；见 [项目上下文](../skills/migration-protocol/references/project-context.md#总则)。
-
-## 专题义务
-
-本表只列 GO 的规划产物与门禁。
-
-| 专题 | GO 义务 | 协议 |
-| --- | --- | --- |
-| 上下文就绪 | 登记前 global-discovery，global-plan 前 global-planning；收尾由 Ledger 选集定 audit-testing 或 audit-verdict | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
-| 功能完备 | 产出 feature-inventory 覆盖全部入口/子功能/变体；CASE 已分配不代表完备，疑问经 Escalation 交人工 | [用例来源与切片抓手](../skills/migration-global/references/slicing.md#用例来源与切片抓手) |
-| 四维 | 划 scope 后逐根模块 UI → Logic → Adhesive → Resource，生成 dimension_analysis_ref；不写目标侧名字与用法 | [四维](../skills/migration-protocol/references/dimension-slicing.md#总则) |
-| 复用与来源 | 切片前评估来源语义，生成有证据的能力目录与唯一 provider owner；同 Run 追加来源逐模块评审 | [复用](../skills/migration-protocol/references/reuse-dependencies.md#总则)、[来源变更](../skills/migration-protocol/references/source-changes.md#总则) |
-| 构建 | 发现目标构建脚本，用户 build 配置优先，按模块 scope 交下游冻结；automation-deferred 不传播 Yellow | [构建与自动化](../skills/migration-protocol/references/build-automation.md#2-构建命令的来源与固化) |
-| 轻量叶子 | 直接登记或接受 MO 原子结论；SPEC/测试设计齐备再冻结 | [父子 MO](../skills/migration-protocol/references/module-decomposition.md#3-分配与登记门禁) |
-| 代码治理与报告 | 核验公共能力 owner、影响与锁；报告列全部 CASE、治理发现、未实现与限制 | [代码治理](../skills/migration-protocol/references/audit-code-review.md#顺序与职责)、[报告](../skills/migration-protocol/references/migration-report.md#总则) |
-| 埋点 | 形成事件 → 功能 → 模块归属；无埋点记有据 N/A，不生成空 MO | [埋点](../skills/migration-protocol/references/telemetry.md#总则) |
-| 知识 | knowledge-query 选主题，需要时 foundation-resolve；开关来自 prepare 快照 | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |

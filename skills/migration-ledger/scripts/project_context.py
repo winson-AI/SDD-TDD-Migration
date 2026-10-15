@@ -10,6 +10,7 @@ import re
 import sys
 sys.dont_write_bytecode = True
 
+import package_version
 import reuse
 import context_links
 import run_storage
@@ -115,6 +116,8 @@ def validate(config):
         require(type(defaults.get('quality_gates', {}).get(gate, False)) is bool, gate + ' must be a boolean')
     for key in ('test_adapter', 'runtime', 'module_slicing', 'build'):
         if key in config: require(isinstance(config[key], dict), key + ' must be an object')
+    require(not (config.get('module_slicing') or {}).get('functional_use_cases_complete') or config.get('test_cases_path'),
+            'functional_use_cases_complete=true claims the supplied cases are complete: it needs test_cases_path')
     routing = (config.get('runtime') or {}).get('model_routing')
     if routing is not None:
         import model_routing
@@ -284,7 +287,7 @@ def prepared_input(ref):
     return {**{k: copy.deepcopy(config[k]) for k in ('workspace_root', 'package_root', 'legacy_root', 'target_root', 'test_adapter',
                 'human_owner', 'escalation_timeout_hours', 'module_slicing', 'reuse_sources', 'target_resources') if k in config},
             'dimension_slicing_required': True, 'context_readiness_required': True, 'split_testing_required': True, 'ui_fidelity_required': True, 'spec_closure_required': True, 'unit_tests_required': True, 'build': config.get('build', {}), 'reuse_required': True, 'schema_version': 1, 'run_id': snapshot['run_id'], 'entry_mode': snapshot['entry_mode'],
-            'module_name': snapshot['module_name'], 'single_module_id': None, 'project_context_ref': ref, 'project_sources': sources,
+            'module_name': snapshot['module_name'], 'single_module_id': None, 'project_context_ref': ref, 'project_sources': sources, 'package_sha': snapshot.get('package_sha'),
             'behavior_contract_required': snapshot.get('behavior_contract_required', False),
             'test_design_required': snapshot.get('test_design_required', False),
             'planning_coverage_required': snapshot.get('planning_coverage_required', False),
@@ -472,7 +475,7 @@ def _prepare(root, run_root, request, actor, storage):
         if build.get('environment_ref'):
             sources['build_environment'] = copy_ref(files, file_ref(build['environment_ref']))
             build['environment_ref'] = sources['build_environment']['path']
-        snapshot = {'schema_version': 1, 'planning_coverage_required': True, 'host_handoff_required': True, 'behavior_contract_required': True, 'test_design_required': True, 'project_id': record['project_id'], 'project_revision': record['revision'],
+        snapshot = {'schema_version': 1, 'package_sha': package_version.sha(effective.get('package_root')), 'planning_coverage_required': True, 'host_handoff_required': True, 'behavior_contract_required': True, 'test_design_required': True, 'project_id': record['project_id'], 'project_revision': record['revision'],
                     'dependency_resolution_required': effective.get('defaults', {}).get('quality_gates', {}).get('dependency_resolution_required', False),
                     'project_revision_hash': digest(record), 'project_config': freeze_refs(files, record['config']), 'effective_config': effective,
                     'run_id': request['run_id'], 'run_root': str(run_root), 'entry_mode': mode, 'module_name': name,

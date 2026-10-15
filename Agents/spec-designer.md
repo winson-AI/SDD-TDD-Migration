@@ -29,18 +29,3 @@ OpenSpec 六件套、澄清与变更影响分析。
 六件套齐全；所有验收可验证；tasks 有范围与完成证据；已批准的决策可追溯到冻结内容。
 
 冻结前核对源码闭环、目标可行性与唯一 owner，证据以 path/hash 引用；修订按 [决策边界](../skills/migration-protocol/references/openspec.md#决策边界与执行基线) 发布新 freeze。
-
-## 专题义务
-
-本表只列本角色的规划产物与禁止项。测试预期未知交人工，不从目标实现推导通过标准。
-
-| 专题 | 本角色义务 | 协议 |
-| --- | --- | --- |
-| 上下文就绪 | planning 报告随 plan 提交并绑定同一 plan_ref，MO freeze 再验 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
-| 测试路径 | 冻结 build/unit 命令、static 及 automation PATH，Scenario 索引全覆盖；缺设备不删路径 | [逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)、[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合) |
-| 复用与 fidelity | 按源行为核验等价/差异；reuse_plan_ref 逐需求覆盖 capability/decision/task/PATH/fidelity | [复用](../skills/migration-protocol/references/reuse-dependencies.md#5-需求映射与-openspec)、[来源变更](../skills/migration-protocol/references/source-changes.md#4-子-mo规划编码与验证) |
-| 四维 | 先划 tasks.scope，再逐任务 UI → Logic → Adhesive → Resource 写入 design/spec/tasks，生成 dimension_trace | [四维](../skills/migration-protocol/references/dimension-slicing.md#7-任务级四维分析契约) |
-| UI 与资源 | 源分析形成 UI 树/状态/资源闭包；用 resource-plan/screen-checks 派生检查，只手写有证据的例外 | [搬运](../skills/migration-protocol/references/resource-transfer.md#总则)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md#ui-证据绑定)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则)、[状态测试表](../template/ui-state-test-design.md) |
-| 埋点 | 已审核的源事件/参数/触发/接线写入 SPEC；无埋点记 N/A、events=[] | [埋点](../skills/migration-protocol/references/telemetry.md#总则) |
-| 知识与依赖 | knowledge-query 按触发；Foundation 需求 foundation-resolve，开关开启时绑定 dependency_resolution_ref | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |
-| 边界内修订 | within-envelope 影响审查绑定 from_freeze_id + to_plan_hash | [OpenSpec](../skills/migration-protocol/references/openspec.md#变更控制) |

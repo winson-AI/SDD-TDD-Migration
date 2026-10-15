@@ -294,7 +294,7 @@ def build(root, s, sequence, ref_check=check_ref):
             'visual_coverage': visual, 'fidelity_limitations': limitations,
             'fidelity_conditions': pictures.pop('conditions'), 'picture_fidelity': pictures,
             'human_report': copy.deepcopy(batch.get('human_report')),
-            'workflow_cost': workflow_cost.build(s, events, ref_check), 'staging_usage': workflow_cost.staging_usage(root, events),
+            'workflow_cost': workflow_cost.build(s, events, ref_check, root), 'staging_usage': workflow_cost.staging_usage(root, events),
             'modules': {mid: {'phase': m.get('phase'), 'quality': m.get('effective_quality', m.get('quality')),
                               'parent_module_id': m.get('parent_module_id'), 'dependencies': m.get('dependencies', [])}
                         for mid, m in s.get('modules', {}).items()},
@@ -434,6 +434,11 @@ def render(report):
                  *[f"| {cell(mid)} | {r['cases']} | {r['tasks']} | {r['plan_documents']} / {r['plan_bytes']} | "
                    f"{r.get('cited_documents', 0)} / {r.get('cited_bytes', 0)} |"
                    for mid, r in cost['modules'].items() if 'plan_documents' in r]]
+    if any('minutes_to_plan' in r for r in cost['modules'].values()):
+        text += ['', '首版耗时（自登记起的分钟数；被拒请求为该模块收到的拒绝数）：', '',
+                 '| 模块 | 首次 plan | 冻结 | 首次派发 | 首次 Green | 被拒请求 |', '| --- | --- | --- | --- | --- | --- |',
+                 *[f"| {cell(mid)} | {cell(r.get('minutes_to_plan'))} | {cell(r.get('minutes_to_freeze'))} | {cell(r.get('minutes_to_first_dispatch'))} | "
+                   f"{cell(r.get('minutes_to_first_green'))} | {r.get('rejections', 0)} |" for mid, r in cost['modules'].items() if 'minutes_to_plan' in r]]
     if cost.get('human_touches'):
         text += ['', f"人工介入（按用途）：{cell(cost['human_by_purpose'])}", '',
                  '| 决定 | 模块 | 用途 | 原因 |', '| --- | --- | --- | --- |',

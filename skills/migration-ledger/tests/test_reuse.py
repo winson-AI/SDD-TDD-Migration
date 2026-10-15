@@ -156,6 +156,14 @@ class ReuseTests(unittest.TestCase):
             with self.subTest(decision=decision), self.assertRaisesRegex(Rejected, 'fidelity'):
                 self.call('plan', {'plan_ref': self.ref('missing-fidelity.json', plan)}, role='spec-designer')
 
+    def test_fidelity_scenarios_are_owed_until_dod_not_before_the_first_version(self):
+        plan, review, _, _ = self.selected_plan()
+        review['mappings'][0]['fidelity']['scenarios'] = []
+        self.save_review(plan, review)
+        self.call('plan', {'plan_ref': self.ref('unscenarioed.json', plan)}, role='spec-designer')
+        owed = [i for i in self.state().get('issues', {}).values() if i['kind'] == 'gap' and 'reuse fidelity scenarios required' in i['summary']]
+        self.assertEqual([i['applies_to'] for i in owed], [['M001']])
+
     def test_fidelity_cannot_substitute_provider_for_legacy_baseline(self):
         for variant in ('wrong-root', 'provider-as-source', 'no-source'):
             plan, review, _, provider = self.selected_plan()
@@ -168,11 +176,10 @@ class ReuseTests(unittest.TestCase):
                 self.call('plan', {'plan_ref': self.ref('bad-baseline.json', plan)}, role='spec-designer')
 
     def test_fidelity_requires_reproducible_frozen_path_assertions(self):
-        for variant in ('missing-path', 'wrong-path', 'wrong-assertion', 'no-assertion', 'no-strategy', 'no-report'):
+        for variant in ('wrong-path', 'wrong-assertion', 'no-assertion', 'no-strategy', 'no-report'):  # no scenario at all is owed, not refused
             plan, review, _, _ = self.selected_plan()
             fidelity = review['mappings'][0]['fidelity']
             scenario = fidelity['scenarios'][0]
-            if variant == 'missing-path': fidelity['scenarios'] = []
             if variant == 'wrong-path': scenario['path_id'] = 'OTHER'
             if variant == 'wrong-assertion': scenario['assertion_ids'] = ['OTHER']
             if variant == 'no-assertion': scenario['assertion_ids'] = []

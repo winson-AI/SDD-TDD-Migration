@@ -2,7 +2,7 @@
 
 ## 总则
 
-默认优先恢复同角色原 session；缺失时按 checkpoint 冷恢复，不要求永久保留一个已失效的宿主会话。角色只在当前阶段需要时创建，9+1 职责不变。所有恢复/修复请求仍经过 Ledger，不能恢复为角色私聊。请求只用[操作矩阵](local-runtime.md#操作矩阵)列出的 operation，未知 operation 拒绝。
+run 固定 prepare 时的包版本 package_sha：宿主用该提交的 worktree 跑完整个 run，Ledger 拒绝其他版本的请求；新规则只对新 run 生效。默认优先恢复同角色原 session；缺失时按 checkpoint 冷恢复，不要求永久保留一个已失效的宿主会话。角色只在当前阶段需要时创建，9+1 职责不变。所有恢复/修复请求仍经过 Ledger，不能恢复为角色私聊。请求只用[操作矩阵](local-runtime.md#操作矩阵)列出的 operation，未知 operation 拒绝。
 
 ## 路径与加载
 
@@ -52,7 +52,7 @@ assign（审计为 audit-assign / audit-test-assign）被接受后，宿主用�
 
 ## 渐进加载
 
-常驻红线、权限、assignment、版本/提交门禁；实现必读冻结规范与验收。卡片按 TASK/PATH 取事实，规划/最终审计保留完整范围。新事实/read_hint 按需追加单节；未加载不关闭门禁。
+常驻红线、权限、assignment、版本/提交门禁；实现必读冻结规范与验收。卡片按 TASK/PATH 取事实，规划/最终审计保留完整范围；UI 保真小节只在有设备、视觉 PATH、图片或资源时进卡。新事实/read_hint 按需追加单节；未加载不关闭门禁。
 
 未确认根因/重复失败才加载增强小节。lesson_candidates 最多 5 条，同分优先失败经验；模块按范围/四维/根因检索，GO 切片及上游修订按当前目标/功能检索。核适用后读正文；规划历史默认最近 5 条和总数，完整记录沿 history_refs 读取。
 

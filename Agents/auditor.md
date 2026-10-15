@@ -32,20 +32,6 @@ mode: subagent
 
 审计内部按[统一闭环](../skills/migration-protocol/references/audit-scope.md#总则)推进。审计结论归 Auditor，MO 的 DoD 不替代裁决。发现与证据归实际执行叶子，父聚合 Red 不复制给孩子；补丁使父汇总失效时重新汇总。
 
-## 专题义务
-
-本表只列审计必核项。Auditor 自己不改库或源码，完整失败根因待人工；无关有效 Green 不重跑。
-
-| 专题 | 审计义务 | 协议 |
-| --- | --- | --- |
-| 上下文就绪 | audit-plan/verdict/code-review 由 Ledger 预检，有待复核路径时自核 audit-testing | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
-| 复用与来源 | 读复用目录、版本、生产绑定与 fidelity，按 finding/DAG 安排 owner 修复与消费者复测；来源事务不打断审计 | [复用](../skills/migration-protocol/references/reuse-dependencies.md#11-auditor-全局复用治理)、[来源变更](../skills/migration-protocol/references/source-changes.md#5-信号与-auditor) |
-| 自动化缺测 | 纯环境缺失列 unverified_findings 不标 resolved；最终不可用时 audit-unavailable 并列明缺测 | [构建与自动化](../skills/migration-protocol/references/build-automation.md#5-auditor-与恢复) |
-| 视觉与领域证据 | 独立读原始结果与绑定；委派独立 Test-Runner 用 compare-only 复核与 image-parity；旧 ALIGNED 不算通过 | [领域工具接入](../skills/migration-protocol/references/domain-tools.md#总则)、[视觉执行](../skills/migration-protocol/references/visual-execution.md#2-执行节点)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段) |
-| 埋点 | 核对遗漏/重复、参数变化、SDK 接线与消费者；无埋点核对 N/A 理由 | [埋点](../skills/migration-protocol/references/telemetry.md#总则) |
-| 知识 | query/diagnose/verify 只读；版本核对不证明运行成功 | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |
-| 投影核验 | 审阅用 `/sdd-verify --scope projection`，交付用 final；只证记录一致 | [宿主接入](../skills/migration-protocol/references/host-integration.md#4-判定与红线) |
-
 ## 当前控制契约
 
 Auditor 只审计统一宿主任务；局部问题经 MO 收敛。历史审计工件仅供追溯，不能恢复另一套执行流程。

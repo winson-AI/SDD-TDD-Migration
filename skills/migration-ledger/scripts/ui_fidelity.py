@@ -46,10 +46,19 @@ def _declared_refs(analysis):
     return sorted(set(refs))
 
 
+def screenless(s):
+    """The run has said no device will show a screen: no UI tree or baseline is owed, the UI is coded from source."""
+    import project_context
+    device = project_context.device_verification(s)
+    return isinstance(device, dict) and bool(device.get('unavailable'))
+
+
 def allocation_gate(s, analysis):
-    """What a leaf's allocation owes its UI before the leaf can be frozen: evidence for every screen and an unreduced closure."""
+    """What a leaf's allocation owes its UI: evidence for every screen (owed, settled before DoD; none in a screenless run)
+    and an unreduced resource closure (refused at freeze)."""
     gaps = semantics.ui_fidelity_gaps(analysis)
-    require(not gaps, 'ui_fidelity_required: UI items lack capture-bound ui_evidence before freeze: ' + ', '.join(gaps))
+    if not screenless(s):
+        owed(not gaps, 'ui_fidelity_required: UI items lack capture-bound ui_evidence before freeze: ' + ', '.join(gaps))
     declared_refs = _declared_refs(analysis)
     uncovered = resource_fidelity.closure_gaps(analysis, declared_refs)
     require(not uncovered, 'ui_fidelity_required: resource closure reduced; uncovered presentation refs: ' + ', '.join(uncovered))
@@ -274,6 +283,8 @@ def baseline_gate(s, m, allocation=True):
             continue
         for item in row.get('items', []):
             evidence = ((item.get('semantic_model') or {}).get('ui_evidence')) or {}
+            if not evidence:
+                continue  # the evidence itself is owed by allocation_gate; executability is judged once it is there
             executable = evidence.get('legacy_executable')
             require(isinstance(executable, bool),
                     'legacy executability must be decided before freeze for ' + item['item_id'])
@@ -320,8 +331,10 @@ def visual_plan_gate(analysis, visual):
         if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
             continue
         for item in row.get('items', []):
-            model = item['semantic_model']
-            evidence = model['ui_evidence']
+            model = item.get('semantic_model') or {}
+            evidence = model.get('ui_evidence')
+            if not evidence:
+                continue  # owed by allocation_gate; a visual path needs a target this item does not give yet
             tree = ue.validate_native_evidence(evidence)
             index = read_json(check_ref(evidence['source_index_ref'])) if evidence.get('source_index_ref') else None
             for cid in ue.validate_image_checks(model, tree, index):

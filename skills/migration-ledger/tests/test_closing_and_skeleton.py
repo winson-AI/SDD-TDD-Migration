@@ -66,7 +66,7 @@ class SkeletonTests(unittest.TestCase):
         f = self.f
         self.assertIn('spec_skeleton.py', next(step for step in f.state()['next_steps'] if step.get('module_id') == 'M001')['spec_skeleton'])
         result = spec_skeleton.write(f.root, 'M001', self.out)
-        self.assertEqual(sorted(result['files']), ['design.md', 'proposal.md', 'spec.md', 'tasks.md'])
+        self.assertLessEqual({'design.md', 'proposal.md', 'spec.md', 'tasks.md', 'stage-plan.json', 'upstream-test-plan.json', 'test-plan.md'}, set(result['files']))  # the plan set rides along
         self.assertGreater(result['unfilled'], 0)
         m = f.state()['modules']['M001']
         text = {name: check_ref(ref).read_text() for name, ref in result['files'].items()}

@@ -28,19 +28,6 @@ mode: subagent
 
 实施补充：依据 source_closure 与 target_feasibility 闭合真实生产路径（入口、DI、消费方、外部结果），接口声明、样例实现或资源文件存在不能代替接线；提交带全部 TASK→文件追溯与 production_binding_evidence 的 stage-result。
 
-## 专题义务
-
-本表只列本角色的必交证据与禁止项。
-
-| 专题 | 本角色义务 | 协议 |
-| --- | --- | --- |
-| 上下文就绪 | Ledger 已登记 coding 预检，接派发直接开工；材料缺失提交 blocked 退回 | [上下文就绪](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点) |
-| 复用与 provider | 按 reuse_plan_ref 完成依赖/DI/适配，冗余实现重构为真实依赖；不以 stub/TODO 交付，改路线走 CR；每个映射提交 reuse_trace | 复用 [§6](../skills/migration-protocol/references/reuse-dependencies.md#6-coding测试与失败处理)、[§8](../skills/migration-protocol/references/reuse-dependencies.md#8-复用不可行--coding确实无法实现--未实现提醒)、[§9](../skills/migration-protocol/references/reuse-dependencies.md#9-目标已有实现与二方库冗余直接重构复用)、[§10](../skills/migration-protocol/references/reuse-dependencies.md#10-显式-provider-归属与合法版本变更) |
-| 四维 | 按 task.scope / dimension_analysis 实现，提交 dimension_evidence | [四维](../skills/migration-protocol/references/dimension-slicing.md#7-任务级四维分析契约) |
-| UI 与资源 | resource-sync 复制清单并写参数文件，代码按 accessor 取用；清单外用 resource-convert；提交 baseline_conformance，无法精确转换记 blocked | [搬运](../skills/migration-protocol/references/resource-transfer.md#文件资源按路径复制)、[领域工具接入](../skills/migration-protocol/references/domain-tools.md#资源执行与事实绑定)、[UI 保真](../skills/migration-protocol/references/ui-fidelity.md#基线前移截图指导实现而非事后比对) |
-| 埋点 | 有冻结职责才实现并提交生产绑定证据；无职责不加 SDK | [埋点](../skills/migration-protocol/references/telemetry.md#总则) |
-| 知识 | query/diagnose 只给候选；接线后 foundation-verify；不自行改冻结依赖 | [工程纪律](../skills/migration-protocol/references/engineering-disciplines.md#1-foundation--迁移知识执行与冻结) |
-
 ## 当前控制契约
 
 按 assignment.execution_contract 指定的 TASK 执行；提交本批 task_trace 与完整累积代码 manifest；不得修改未分配任务文件。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

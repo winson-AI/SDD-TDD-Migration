@@ -27,4 +27,4 @@ CASE 覆盖归属与验收角色分开：模块阶段唯一验收 owner 为对�
 ## 6. 配套资产
 使用 [主要模板](../../template/global-input.json)。
 
-角色义务、调度/审计规则与专题入口以 [Agent 定义](../../Agents/global-orchestrator.md#专题义务) 和 [状态机](../migration-protocol/references/state-machine.md#模块隔离与全量收尾) 为准。
+角色硬约束、调度/审计规则以 [Agent 定义](../../Agents/global-orchestrator.md#6-硬约束) 和 [状态机](../migration-protocol/references/state-machine.md#模块隔离与全量收尾) 为准。

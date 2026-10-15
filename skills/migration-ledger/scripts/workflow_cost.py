@@ -89,12 +89,52 @@ def human_touches(s, events=()):
     return rows
 
 
+def timings(events, mid):
+    """Minutes from the event that registered `mid` to its first plan, its freeze, its first Implementer dispatch and its
+    first green quality; None for a step that has not happened. What the first version cost in wall time."""
+    from datetime import datetime
+    stamps = {}
+    for e in events:
+        sets = ((e.get('patch') or {}).get('set') or {}).get('modules') or {}
+        if 'born' not in stamps and mid in sets:
+            stamps['born'] = e['timestamp']
+        if e.get('module_id') != mid:
+            continue
+        op = e.get('operation')
+        if op in ('plan', 'freeze') and op not in stamps:
+            stamps[op] = e['timestamp']
+        if op == 'assign' and 'dispatch' not in stamps and any(a.get('role') == 'implementer' for a in (sets.get(mid) or {}).get('assignments', {}).values()):
+            stamps['dispatch'] = e['timestamp']
+        if 'green' not in stamps and (sets.get(mid) or {}).get('quality') == 'green-passed':
+            stamps['green'] = e['timestamp']
+    if 'born' not in stamps:
+        return {}
+    born = datetime.fromisoformat(stamps['born'])
+    minutes = lambda key: round((datetime.fromisoformat(stamps[key]) - born).total_seconds() / 60, 1) if key in stamps else None
+    return {'minutes_to_plan': minutes('plan'), 'minutes_to_freeze': minutes('freeze'),
+            'minutes_to_first_dispatch': minutes('dispatch'), 'minutes_to_first_green': minutes('green')}
+
+
+def rejections(root):
+    """{module_id: refused requests} from the rejection diagnostics the run keeps; 'GLOBAL' for requests without a module."""
+    out = Counter()
+    folder = Path(root) / 'reports/rejections' if root else None
+    for p in (folder.glob('*.json') if folder and folder.is_dir() else ()):
+        try:
+            row = json.loads(p.read_text())
+        except (OSError, ValueError):
+            continue
+        out[row.get('module_id') or 'GLOBAL'] += int(row.get('attempts') or 1) if str(row.get('attempts') or '1').isdigit() else 1
+    return dict(out)
+
+
 def digest_ref(ref):
     return (ref or {}).get('path'), (ref or {}).get('sha256')
 
 
-def build(s, events, resolve=None):
+def build(s, events, resolve=None, root=None):
     per_module = {mid: Counter() for mid in s['modules']}
+    refused = rejections(root)
     global_ops = Counter()
     for e in events:
         mid, op = e.get('module_id'), e.get('operation')
@@ -124,7 +164,8 @@ def build(s, events, resolve=None):
                      'local_fix_used': m.get('local_fix_used', 0),
                      'card_dispatches': m.get('card_load', {}).get('dispatches', 0),
                      'card_bytes_full': m.get('card_load', {}).get('full', 0),
-                     'card_bytes_delivered': m.get('card_load', {}).get('delivered', 0)}
+                     'card_bytes_delivered': m.get('card_load', {}).get('delivered', 0),
+                     'rejections': refused.get(mid, 0), **timings(events, mid)}
     totals = {k: sum(r[k] for r in rows.values()) for k in
               ('events', 'dispatches', 'context_receipts', 'acceptances', 'human_decisions', 'fix_rounds',
                'card_dispatches', 'card_bytes_full', 'card_bytes_delivered')}

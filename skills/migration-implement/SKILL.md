@@ -25,4 +25,4 @@ description: 冻结任务驱动的 legacy 迁移、新架构实现和双向追�
 ## 6. 配套资产
 使用 [主要模板](../../template/implementation.md)。
 
-角色义务、必交证据与专题入口以 [Agent 定义](../../Agents/implementer.md#专题义务) 为准。
+角色硬约束以 [Agent 定义](../../Agents/implementer.md#6-硬约束) 为准；专题规则由阅读卡按触发携带。

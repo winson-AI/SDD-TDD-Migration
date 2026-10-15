@@ -44,7 +44,7 @@ import audit_execution
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
-from contracts import (Rejected, baseline, carrying, check_ref, cited, digest, file_ref, keyed, nonempty,
+from contracts import (SKELETON_MARK, Rejected, baseline, carrying, check_ref, cited, digest, file_ref, keyed, nonempty,
                        intact, owed, read_json, require, validate_plan, validate_result, verify_plan)
 
 HISTORICAL_TOOL_ROOTS = (Path(__file__).resolve().parent,
@@ -1464,7 +1464,11 @@ def mutate(s, req, principal, events, root=None):
         require(not m.get('decomposition_required') and not m.get('decomposition_submission'), 'finish MO decomposition before leaf SPEC planning')
         require(m['phase'] in ('context', 'specifying', 'clarifying', 'change-review'), 'plan not editable in this phase')
         held = m.get('plan_ref') == p['plan_ref']
-        plan = design_stage.materialize(s, m, read_json(check_ref(p['plan_ref'])), judge=not held)
+        submitted = read_json(check_ref(p['plan_ref']))
+        for ref in (p['plan_ref'], *(submitted.get(key) for key in ('test_design_ref', 'reuse_plan_ref') if isinstance(submitted, dict))):
+            if isinstance(ref, dict) and ref.get('path'):  # a skeleton is filled before it is a plan
+                require(SKELETON_MARK not in check_ref(ref).read_text(errors='replace'), 'unfilled skeleton field left in ' + Path(ref['path']).name)
+        plan = design_stage.materialize(s, m, submitted, judge=not held)
         import minimal_plan
         dimensions.refinement(s, m, plan)  # an analysis the leaf refined from its allocation is judged like a registered one
         plan = minimal_plan.complete(s, m, plan)  # what follows from the leaf's accepted four-dimension specification
@@ -1493,6 +1497,7 @@ def mutate(s, req, principal, events, root=None):
         else:
             plan_hash = validate_plan(plan, m)
             m['plan_submissions'] = m.get('plan_submissions', 0) + 1  # distinct plans accepted for this freeze
+            decomposition.task_shape_facts(s, mid, plan, sequence=len(events) + 1)
             if s.get('split_testing_required') or any(path.get('kind') == 'build' for path in plan['paths']):
                 tv.plan_check(plan, s['target_root'], static_required=s.get('spec_closure_required', False),
                               unit_required=s.get('unit_tests_required', False))
@@ -2189,6 +2194,11 @@ def _judge(root, req, principal):
         s, events = read_events(root)
         if s and s.get('project_context_ref'):
             run_storage.for_state(root, s)
+        if s and s.get('package_sha'):  # the run keeps the package it was prepared with; a rule written since binds the next run
+            import package_version
+            current = package_version.sha(reading.PACKAGE)
+            require(current in (None, s['package_sha']), 'this run is pinned to package %s: run it from a worktree at that commit (git worktree add <dir> %s), not from %s'
+                    % (s['package_sha'][:12], s['package_sha'], (current or 'an unknown checkout')[:12]))
         require(req.get('schema_version') == 1 and req.get('request_id'), 'version/request id required')
         request_hash = digest({'request': req, 'principal': principal})
         for e in events:
@@ -2239,6 +2249,9 @@ def _judge(root, req, principal):
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
             resources = project_context.target_resources(p.get('target_resources', {}), p['target_root'])
             require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
+            require(p.get('package_sha') is None or (isinstance(p['package_sha'], str) and re.fullmatch(r'[0-9a-f]{40}', p['package_sha'])), 'package_sha is a git commit')
+            require(not (p.get('module_slicing') or {}).get('functional_use_cases_complete') or (p.get('project_sources') or {}).get('test_cases_path'),
+                    'functional_use_cases_complete=true claims the supplied cases are complete: it needs test_cases_path')
             s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'spec_closure_required': p.get('spec_closure_required', False), 'unit_tests_required': p.get('unit_tests_required', False), 'git_checkpoint': p.get('git_checkpoint', False), 'fixer_self_diagnosis': p.get('fixer_self_diagnosis', False), 'write_scope_check': p.get('write_scope_check', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
                  'target_resources': resources,
                  'behavior_contract_required': p.get('behavior_contract_required', False),
@@ -2254,7 +2267,7 @@ def _judge(root, req, principal):
                  'modules': {}, 'decisions': {}, 'audit': {}, 'global_paths': p.get('global_paths', []), 'quality': 'yellow-blocked',
                  'max_parallel_modules': p.get('max_parallel_modules', 5), 'max_audit_rounds': p.get('max_audit_rounds', 3),
                  'max_fix_rounds': p.get('max_fix_rounds', 3), 'max_no_progress_rounds': p.get('max_no_progress_rounds', 2),
-                 'max_yellow_retries': p.get('max_yellow_retries', 2)}
+                 'max_yellow_retries': p.get('max_yellow_retries', 2), 'package_sha': p.get('package_sha')}
             workflow.global_paths_check(s['global_paths'], s['case_ids'])
             require(all(type(s[k]) is int and s[k] > 0 for k in ('max_fix_rounds', 'max_no_progress_rounds', 'max_parallel_modules', 'max_audit_rounds', 'max_yellow_retries')), 'invalid budgets')
             require('local_fix_rounds' not in p, 'use the shared max_fix_rounds budget')

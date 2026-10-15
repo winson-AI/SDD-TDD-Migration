@@ -17,7 +17,7 @@
 
 Adhesive 维暂不纳入语义模型，沿用现有 item 结构。字段示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
-applicable UI 模型必须绑定 `ui_evidence`（存量抽取的 UI 树、`page:state:coverage`、visual_mode 与实际基线）。实现阶段提交 `baseline_conformance` 说明消费了哪份冻结基线/源树；正式 `visual_alignment` 属于后续 Test-Runner 的 visual PATH 结果，不能要求 Implementer 自己宣告对齐通过。UI 模型的 `image_checks` 冻结屏幕节点必须显示的存量图片、文本与节点（[图片与图标对齐](ui-fidelity.md#图片与图标对齐)）。证据的原始产物与目标闭包见 [UI 保真控制道](ui-fidelity.md)。
+applicable UI 模型绑定 `ui_evidence`（UI 树、coverage 与基线）。实现阶段提交 `baseline_conformance` 说明消费了哪份冻结基线/源树；正式 `visual_alignment` 属于后续 Test-Runner 的 visual PATH 结果，不能要求 Implementer 自己宣告对齐通过。UI 模型的 `image_checks` 冻结屏幕节点必须显示的存量图片、文本与节点（[图片与图标对齐](ui-fidelity.md#图片与图标对齐)）。证据的原始产物与目标闭包见 [UI 保真控制道](ui-fidelity.md)。
 
 ## item 上的记录（结果 / 来源 / 位置）
 
@@ -25,7 +25,7 @@ applicable UI 模型必须绑定 `ui_evidence`（存量抽取的 UI 树、`page:
 
 ## 核验（结构门禁，presence-triggered）
 
-通用语义模型采用 presence-triggered 校验；applicable UI item 不能省略模型与 UI 证据。Logic/Resource 模型可逐项补齐，资源精确策略/闭包仍受独立门禁约束。带 model 时校验:
+通用语义模型采用 presence-triggered 校验；applicable UI item 的模型与 UI 证据是冻结前欠项，无设备的 run 不要求；资源精确策略/闭包仍受独立门禁约束。带 model 时校验:
 
 - `kind` 必须匹配所在维度;对应 schema 必需键齐全(statechart 要 `states`/`initial`∈states、design-tokens 要至少一个 `$value`、icu 要 `key→message` 字符串、json-logic `cond` 为对象)。
 - `source.origin` 合法;`target_strategy == new` **禁止** `origin == legacy`(无参考,基于目标项目创建);legacy/target origin 必须带 `locator`;`evidence_refs` 可归档。

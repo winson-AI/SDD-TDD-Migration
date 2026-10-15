@@ -119,6 +119,8 @@ def execution_contract(m, p):
     paths = {row['path_id']: row for row in m['plan']['paths']}
     selected = nonempty(p.get('task_ids'), 'assignment task_ids')
     require(len(set(selected)) == len(selected) and set(selected) <= set(tasks), 'assignment unknown/duplicate TASK')
+    if p['role'] == 'implementer' and not p.get('path_ids'):  # an Implementer selects TASKs; their paths follow
+        p['path_ids'] = sorted({pid for tid in selected for pid in tasks[tid].get('path_ids') or []})
     selected_paths = nonempty(p.get('path_ids'), 'assignment path_ids')
     require(len(set(selected_paths)) == len(selected_paths) and set(selected_paths) <= set(paths) | set(m.get('repair_findings', {})),
             'assignment unknown/duplicate PATH')

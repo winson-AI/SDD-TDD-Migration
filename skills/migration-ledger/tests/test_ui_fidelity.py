@@ -66,6 +66,19 @@ class UiFidelityTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'lack capture-bound ui_evidence'):
             self.freeze(True, ui_evidence=False)
 
+    def test_missing_ui_evidence_is_owed_not_refused_and_not_at_all_without_a_device(self):
+        from unittest import mock
+        from contracts import carrying
+        unseen = self.module(self.analysis_ref(ui_evidence=False)); unseen['plan']['paths'] = []  # no visual path yet either
+        with carrying() as gaps:
+            ui_fidelity.freeze_gate({'ui_fidelity_required': True}, unseen)  # collected as what the leaf owes: the plan goes on
+        self.assertTrue(any('lack capture-bound ui_evidence' in gap for gap in gaps))
+        with mock.patch('project_context.device_verification', return_value={'unavailable': 'no device for this task'}):
+            ui_fidelity.freeze_gate({'ui_fidelity_required': True}, unseen)  # a screenless run: nothing to show, nothing owed
+        with mock.patch('project_context.device_verification', return_value={'platforms': ['android']}):
+            with self.assertRaisesRegex(Rejected, 'lack capture-bound ui_evidence'):
+                self.freeze(True, ui_evidence=False)
+
     def test_required_passes_with_ui_evidence(self):
         module, _ = self.strict_module()
         self.strict_freeze(module)
