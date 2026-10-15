@@ -77,7 +77,7 @@ def automation_flow():
     d.arrow([(1540, 840), (1570, 840), (1570, 2170), (1350, 2170)], 'orange', dashed=True, end=False)
     d.arrow([(780, 2170), (780, 2230)])
     d.box(460, 2230, 640, 130, '父汇总 → GO 全量收尾门禁',
-          ['全部叶子本轮结束，全部父汇总当前有效', '无 worker / ready 动作，才统一启动 Auditor'], 'orange', True)
+          ['叶子完成即跑其 global path（波次集成），绑定 owner 基线', '无 worker / ready 动作，才统一启动 Auditor'], 'orange', True)
     d.arrow([(780, 2360), (780, 2410)])
     d.box(460, 2410, 640, 150, 'Auditor · 独立闭环',
           ['审阅全宿主目标 / 代码；遗留按审计 fix / verify / human 路由', '裁决失败：结构化根因待人工；缺环境保留未验证', '只复核遗留 / 受影响路径；空清单只审阅'], controller=True)

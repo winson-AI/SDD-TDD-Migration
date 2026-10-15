@@ -16,11 +16,11 @@
 <rect x="340" y="195" width="920" height="115" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="800.0" y="231.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">入口：GO 全量收尾门禁已满足</text>
 <text x="800.0" y="265.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全部子 MO 本轮结束 + 所有父汇总有效 + 无活动 worker / 可推进动作</text>
-<text x="800.0" y="294.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">审阅全部模块（含 Green）及宿主目标；先治理再遗留复核；global_paths 可为空</text>
+<text x="800.0" y="294.5" font-size="19.42" fill="#4b5563" text-anchor="middle" font-weight="400">审阅全部模块（含 Green）及宿主目标；波次集成已跑的 global path 只在 owner 代码变动时重跑</text>
 <path d="M800,310 L800,370" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="500" y="370" width="600" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="402.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">整体代码审查 → 分批收集</text>
-<text x="800.0" y="436.0" font-size="18.40" fill="#4b5563" text-anchor="middle" font-weight="400">audit-code-review（骨架起笔）：目标/改动/冗余/复用/公共能力</text>
+<text x="800.0" y="436.0" font-size="17.67" fill="#4b5563" text-anchor="middle" font-weight="400">audit-code-review（骨架起笔，预列 debt）：目标/改动/冗余/复用</text>
 <text x="800.0" y="465.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">audit-collect：先治理 CR-*，再剩余 Red / Yellow</text>
 <text x="800.0" y="494.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">绑定 SPEC / PATH / provider 与消费者证据</text>
 <path d="M800,505 L800,565" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>

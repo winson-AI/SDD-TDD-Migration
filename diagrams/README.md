@@ -7,10 +7,10 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 | 图 | 关注点 | SVG |
 | --- | --- | --- |
 | 01 · 三层编排总览 | GO/父 MO 按功能树切 scope/全量 CASE；叶子是子业务流；子 MO 拆 TASK；并行执行与统一宿主审计 | [总览](workflow.svg) |
-| 02 · 子 MO 执行与反馈调整 | TASK/四维 → SPEC 从骨架起笔、起步门禁冻结 → Implementer/Testing；Fixer/CR/上溯三分流；独立性证明与默认全模块重验 | [子 MO](module-execution.svg) |
-| 03 · 统一 Auditor 宿主审计 | 全宿主目标/代码治理（清单与审查从骨架起笔）、遗留路由、影响模块完整回归、独立 Test-Runner 与 Auditor 裁决；空清单由 Ledger 预检 | [Auditor](auditor-closure.svg) |
+| 02 · 子 MO 执行与反馈调整 | TASK/四维 → SPEC 从骨架起笔、起步门禁冻结 → Implementer（任务先单测，自查红→绿留证）/Testing；Fixer/CR（只改测试写法归 MO）/上溯三分流；独立性证明与默认全模块重验 | [子 MO](module-execution.svg) |
+| 03 · 统一 Auditor 宿主审计 | 全宿主目标/代码治理（清单与审查从骨架起笔，预列 debt）、遗留路由、影响模块完整回归、独立 Test-Runner 与 Auditor 裁决；波次集成已跑的路径只在 owner 代码变动时重跑；空清单由 Ledger 预检 | [Auditor](auditor-closure.svg) |
 | 04 · 二方库语义与复用 | 来源评审 → 语义抽取 → 四类复用决策 → API 与数据契约 → 冻结 → Coding → 真实依赖验证；提供方证据变化后的恢复 | [二方库](reuse-dependencies.svg) |
-| 05 · Automation 外层闭环 | 冻结用例、派发后预检（骨架起笔）、逐 PATH 证据、三类反馈及成功/复用统计；缺测旁路 | [自动化](automation-flow.svg) |
+| 05 · Automation 外层闭环 | 冻结用例、派发后预检（骨架起笔）、逐 PATH 证据、三类反馈及成功/复用统计；缺测旁路；global path 在持有叶子完成时即执行（波次集成） | [自动化](automation-flow.svg) |
 | 06 · Android/Harmony 单 PATH 内核 | Planner / Executor / Verify、录制回放、媒体断言、观察落盘与三态汇总 | [内核](automation-engine.svg) |
 
 自动化输入输出的字段、JSON 示例、调用方法和当前实现边界见 [自动化测试说明](automation-input-output.md)。
@@ -32,6 +32,8 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 - 清晰且可执行的规划由 MO 审核冻结，独立 design 按需；Green 不需新增人工会签。真实未决或需求/验收/授权变化、适用的人工恢复与交付授权才交 Human。SPEC 修改、依赖恢复或人工批准均不能直接将测试改成 Green。
 - 上下文预检已进入 GO 发现/覆盖规划、父拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发及 Auditor 分析/裁决/最终测试。规划与审计者的报告由原节点验收；worker 接到派发后提交 `context-submit`，ready 报告授权开工、blocked 报告退回派发；coding 与无待复测的审计由 Ledger 机械预检，building/testing 从 Ledger 骨架起笔；缺项或过期阻止相关阶段，不消耗修复预算、不提前收尾。
 - run 固定 prepare 时的包提交；运行产物不设体量上限，棘轮只约束包自身；automation 统计里 TASK 行的缺路径只计模块整体缺的 CASE。
+- 正式目标代码测试在代码被接受之后派发；作者对任务的 unit PATH 自查两次（实现前失败、实现后通过），两份记录是该任务的 red 证据，报告按任务计数、不设门禁；已知技术债登 kind=debt 的 issue，审计骨架预列。
+- 波次集成：持有某条 global path 用例的叶子全部完成、别的叶子还在做时，GO 派独立 Test-Runner 执行它；结果绑定各 owner 的代码基线，统一审计只重跑 owner 代码变动的路径，Red 路由给 owner 叶子修复。
 
 ## 依据与再生成
 

@@ -161,7 +161,7 @@
 <rect x="460" y="2230" width="640" height="130" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <rect x="465" y="2235" width="630" height="120" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
 <text x="780.0" y="2274.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父汇总 → GO 全量收尾门禁</text>
-<text x="780.0" y="2308.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全部叶子本轮结束，全部父汇总当前有效</text>
+<text x="780.0" y="2308.0" font-size="21.16" fill="#4b5563" text-anchor="middle" font-weight="400">叶子完成即跑其 global path（波次集成），绑定 owner 基线</text>
 <text x="780.0" y="2337.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无 worker / ready 动作，才统一启动 Auditor</text>
 <path d="M780,2360 L780,2410" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="2410" width="640" height="150" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>

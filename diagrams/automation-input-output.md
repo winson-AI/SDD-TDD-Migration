@@ -298,7 +298,7 @@ Harmony 中 **阻断优先于 Red**：同次运行已有失败断言但又有缺
 1. 收集实际 Red/其他 Yellow，读取相应 SPEC/PATH/代码与根因证据，独立复现或明确记不可执行。
 2. 按责任和依赖使用审计 fix/verify/human 路由；需新任务/契约或范围调整时恢复相应 CR/上游规划。补丁后重建、对审计实际影响模块完整回归，Auditor 独立裁决；失败按预算/根因恢复或留证待人工。
 3. 纯自动化环境缺测不塞入源码 Fixer 队列；环境可用时仍要真实验证这些路径。
-4. 独立审计绑定全部模块代码快照，但只执行 Red/Yellow 遗留和有依据的受影响回归；不会把所有模块路径加入清单。global_paths 可为空，零待测路径只做 audit-review。
+4. 独立审计绑定全部模块代码快照，但只执行 Red/Yellow 遗留和有依据的受影响回归；不会把所有模块路径加入清单。global_paths 可为空，零待测路径只做 audit-review；持有某条 global path 用例的叶子全部完成时它已在波次边界执行（`integration-assign` / `integration-submit`），结果绑定 owner 代码基线，owner 未变则审计不重跑。
 5. 最终仅缺环境且其他问题已收尾，可 `audit-unavailable` 输出 `completed-with-unverified-tests`，质量保持 Yellow。该审计缺测记录仅包含当前选中的待验证路径，已有模块构建 Green 单独保留，不能声称构建证据被抹掉。
 
 ### 5.1 CR 后的局部验证与统计

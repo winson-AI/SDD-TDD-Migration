@@ -36,7 +36,7 @@
 <rect x="550" y="810" width="500" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="839.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Implementer · 按 TASK 执行</text>
 <text x="800.0" y="873.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 代写预检；步骤先列提交必备证据</text>
-<text x="800.0" y="902.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按冻结 SPEC / 资源参数表生成或更新代码</text>
+<text x="800.0" y="902.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">任务先单测：自查红→绿两份记录为 red 证据</text>
 <text x="800.0" y="931.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">代码 / 追溯提交 → MO 接受</text>
 <path d="M800,940 L800,1010" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="1010" width="500" height="180" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -57,7 +57,7 @@
 <text x="285.0" y="1260.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO · DoD / 模块完成</text>
 <text x="285.0" y="1294.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全部必需路径有效 Green</text>
 <text x="285.0" y="1323.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">TASK 追溯 / checklist 完整</text>
-<text x="285.0" y="1352.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">保留当前证据和修复 memory</text>
+<text x="285.0" y="1352.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已知债务登 debt issue，审计预列</text>
 <text x="285.0" y="1381.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不触发提前 Auditor</text>
 <path d="M70,1310 L50,1310 L50,2180 L300,2180 L300,2240" fill="none" stroke="#059669" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-green)"/>
 <path d="M955,1310 L1110,1310" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
@@ -86,7 +86,7 @@
 <rect x="550" y="1480" width="500" height="180" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="800.0" y="1520.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">规划缺口 → CR</text>
 <text x="800.0" y="1554.0" font-size="20.46" fill="#4b5563" text-anchor="middle" font-weight="400">scope 内功能 / 依赖契约 / fidelity 规划遗漏</text>
-<text x="800.0" y="1583.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Spec-Designer 修订 SPEC；MO 审核重冻</text>
+<text x="800.0" y="1583.0" font-size="20.21" fill="#4b5563" text-anchor="middle" font-weight="400">Spec-Designer 修订；只改测试写法 MO 即可重冻</text>
 <text x="800.0" y="1612.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Implementer 更新已经 coding 的代码</text>
 <text x="800.0" y="1641.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">保留原预期；语义 / 授权变化交 Human</text>
 <path d="M1050,1570 L1080,1570 L1080,1440 Q1095,1430 1080,1420 L1080,1320 Q1095,1310 1080,1300 L1080,675 L1050,675" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
@@ -146,7 +146,7 @@
 <rect x="1110" y="190" width="410" height="130" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1315.0" y="219.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">冻结与执行门禁</text>
 <text x="1315.0" y="253.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">SPEC 未冻结不生成代码</text>
-<text x="1315.0" y="282.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">代码未生成不执行目标测试</text>
+<text x="1315.0" y="282.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">代码未接受不派正式测试；自查无结果</text>
 <text x="1315.0" y="311.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">预检 / 锁 / 依赖 / 预算按步骤检查</text>
 <rect x="1110" y="420" width="410" height="200" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="1315.0" y="455.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">SDD / TDD 控制原则</text>
@@ -154,7 +154,7 @@
 <text x="1315.0" y="518.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">冻结前分配全量 CASE 与预期</text>
 <text x="1315.0" y="547.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">automation 逐路径收集错误证据</text>
 <text x="1315.0" y="576.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Fixer 自测不能代替正式验证</text>
-<text x="1315.0" y="605.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">首次 Green 不伪造 RED</text>
+<text x="1315.0" y="605.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">红→绿由作者自查留证，按任务计数</text>
 <path d="M65,2420 L113,2420" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <text x="125" y="2427" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">流程推进</text>
 <path d="M345,2420 L393,2420" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
