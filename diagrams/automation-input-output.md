@@ -1,6 +1,6 @@
 # 自动化测试：输入、输出与完整控制流
 
-核对日期：2026-10-08。范围为本包当前协议、模板、宿主执行脚本和内置 Android/Harmony test 内核；这是现状说明，不更改运行协议。以下 JSON 是格式示例，占位摘要、路径和执行结果均不是实际测试证据。
+核对日期：2026-10-15。范围为本包当前协议、模板、宿主执行脚本和内置 Android/Harmony test 内核；这是现状说明，不更改运行协议。以下 JSON 是格式示例，占位摘要、路径和执行结果均不是实际测试证据。
 
 ## 1. 自动化在整个迁移流程中的位置
 
@@ -22,11 +22,11 @@
 | 项目配置 | legacy/target、架构/需求、`test_cases_path`、`test_adapter`、知识、复用来源；JSON + 文件路径 | 用户输入，宿主持久化并 prepare 固化 | GO / 父子 MO |
 | 功能与 CASE | 模块功能、REQ/CASE、SPEC 草稿、模块 Testing list | GO 分配，父 MO 按 scope 拆分 | 子 MO / Spec-Designer / Test-Runner |
 | 测试设计 | `stage-plan.paths[]`：稳定 ID、Name、前置、步骤、参数、ASSERT、依赖；`kind=automation` | Spec-Designer 随 SPEC 组织；Test-Runner design 按需协助，MO 审核冻结 | 执行模式 Test-Runner |
-| 执行授权 | Ledger assignment、`test_scope=automation`、`freeze_id`、`code_baseline`、执行实例；ready 上下文报告 | 实际执行实例预检，MO/审计节点接受 | 宿主 `execute_test.py` |
+| 执行授权 | Ledger assignment、`test_scope=automation`、`freeze_id`、`code_baseline`、执行实例；ready 上下文报告（从 Ledger 骨架起笔） | 实际执行实例预检，MO/审计节点接受 | 宿主 `execute_test.py` |
 | 单路径 query | **完整冻结 PATH** + run/module/freeze/code 身份，JSON 文件 | `execute_test.py` 从 Ledger 组装 | 项目 Main / Harmony adapter |
 | 引擎配置 | adapter argv/timeout；Harmony device、模型、服务地址、可选录制/知识引用 | 宿主配置，经上下文预检 | adapter / 内核 |
 
-没有提供测试汇总时，工作流先从存量源码提取完整功能列表并补测试草案；不能把缺 CASE 当作免测。设计期依据审核后的行为基线和规格确定期望，执行期不能反过来读取目标实现推导“正确答案”。复用二方库的场景仍须保留源码行为对齐和 fidelity PATH/ASSERT。
+没有提供测试汇总时，工作流先深读存量源码建功能树、再按功能派生 CASE，切片与用例同源；有汇总时用例范围界定叶子。不能把缺 CASE 当作免测。设计期依据审核后的行为基线和规格确定期望，执行期不能反过来读取目标实现推导“正确答案”。复用二方库的场景仍须保留源码行为对齐和 fidelity PATH/ASSERT。
 
 ### 2.1 用户配置与 CLI adapter 是两种 JSON
 
@@ -121,9 +121,9 @@ Harmony 配置的独立输入见 [harmony-config.json](../template/harmony-confi
 
 ### 3.1 外层逐 PATH 执行
 
-1. MO 经 Ledger 派发 automation assignment；Test-Runner 接到派发后提交 `stage=testing` 上下文报告，检查 frozen-spec、test-paths、accepted-code、provider-binding、test-environment、permissions-tools。
+1. MO 经 Ledger 派发 automation assignment；Test-Runner 接到派发后提交 `stage=testing` 上下文报告，检查 frozen-spec、test-paths、accepted-code、provider-binding、test-environment、permissions-tools。报告从派发步骤 `report_skeleton` 写出的骨架起笔：Ledger 已核对代码与路径，Test-Runner 填提供方、环境与权限；留标记即拒。
 2. ready 报告绑定后，宿主才调用 `execute_test.py`；blocked 报告退回派发或走适用缺测分支。脚本再次核对阶段、scope、代码、命令与环境引用。
-3. 创建新的执行目录，写 `query.json`；调用 `argv + [--query-file, query, --result-file, result]`。
+3. 创建新的执行目录，写 `query.json`；调用 `argv + [--query-file, query, --result-file, result]`。build 派发中冻结同一命令的 unit PATH 可 `--path-id a,b` 一次执行：一个进程、一份日志，每个 PATH 自己的 `query.<pid>.json / result.<pid>.json / receipt.<pid>.json` 与 JUnit 归因。
 4. Main 执行实际测试；宿主收集 stdout/stderr、时间、退出码。每条 PATH 独立子进程；超时杀掉整个进程组。
 5. 宿主保存回执；全部本次 scope 路径执行/记账后组装 tests stage。Harmony 使用 `harmony_stage.py`，其他 adapter 按通用 tests 契约组装。
 6. submit/accept 两次校验后才成为正式 Ledger 结果。生成文件、退出码 0 或 Agent 文字“通过”都不能独立完成验收。
@@ -175,7 +175,7 @@ python3 /work/SDD-TDD-Migration/skills/migration-ledger/scripts/execute_test.py 
 <run_root>/...                         # Ledger 事件与状态投影，接受后更新
 ```
 
-异常/强制超时可能只有部分工件；缺文件不能补造。标准结构化结果在执行目录的 `result.json`，不是一份固定存在的 `harmony/report.json`。审计最终报告和模块测试记录独立保留。
+同命令 unit 批量执行时，三份文件按 PATH 命名（`*.<path_id>.json`），日志、捕获与 cleanup 共用，回执多一个 `batch={path_ids,test_run_id}`。异常/强制超时可能只有部分工件；缺文件不能补造。标准结构化结果在执行目录的 `result.json`，不是一份固定存在的 `harmony/report.json`。审计最终报告和模块测试记录独立保留。
 
 ### 4.2 Main 结构化结果：一条 PATH
 
@@ -215,7 +215,8 @@ schema_version, producer="host-executor",
 run_id, module_id, path_id, test_run_id,
 assignment_id, actor_instance_id, freeze_id, code_baseline,
 argv, cwd, started_at, finished_at, exit_code,
-log_ref={path,sha256}, query_ref={path,sha256}, result_ref={path,sha256}|null
+log_ref={path,sha256}, query_ref={path,sha256}, result_ref={path,sha256}|null,
+batch={path_ids,test_run_id}  # 仅同命令 unit 批量执行
 ```
 
 `test_run_id` 每次新生成；即使没有 result，超时/启动失败仍留日志和回执，退出码通常为 124/127。摘要绑定证据内容，但信任仍依赖宿主保护回执和身份目录。
@@ -306,7 +307,7 @@ Harmony 中 **阻断优先于 Red**：同次运行已有失败断言但又有缺
 
 保留的 Green 不创建新执行：原 receipt/test_run_id/code_baseline 不变，Ledger 另记 `validation_reuse` 的证明、计划摘要和当前有效基线。测试执行者不能提交此标记；代码或输入变化使证明失效。统一 Auditor 仍审阅整个宿主任务，审计回归范围遵守图 03/审计协议，不由模块局部证明直接缩减。
 
-[automation_report.py](../skills/migration-ledger/scripts/automation_report.py) 按宿主/模块/TASK 派生应测 PATH、已尝试、完整执行、部分执行、有效成功、Red/Yellow 和缺路径 CASE，以及带证据的成功集合。参数/平台实例独立编号，重试不增加分母；`reused_passed_paths` 单列，排除在 `current_executed_paths` 之外。`validation_complete` 不等于全 Green，仍需核对成功/失败和覆盖缺口。
+[automation_report.py](../skills/migration-ledger/scripts/automation_report.py) 按宿主/模块/TASK 派生应测 PATH、已尝试、完整执行、部分执行、有效成功、Red/Yellow 和缺路径 CASE，以及带证据的成功集合。参数/平台实例独立编号，重试不增加分母；`reused_passed_paths` 单列，排除在 `current_executed_paths` 之外。`validation_complete` 不等于全 Green，仍需核对成功/失败和覆盖缺口；TASK 行的缺路径只计模块整体缺的 CASE。
 
 ## 6. 当前能力边界与阅读注意
 
@@ -325,6 +326,7 @@ Harmony 中 **阻断优先于 Red**：同次运行已有失败断言但又有缺
 | 用例候选生成 | [harmony_design.py](../skills/migration-test/scripts/harmony_design.py) |
 | 单路径执行与回执 | [execute_test.py](../skills/migration-ledger/scripts/execute_test.py) |
 | ready 与命令校验 | [context_readiness.py](../skills/migration-ledger/scripts/context_readiness.py) |
+| 执行侧报告骨架 | [report_skeleton.py](../skills/migration-ledger/scripts/report_skeleton.py) |
 | adapter / 断言归一化 | [harmony_adapter.py](../skills/migration-test/scripts/harmony_adapter.py)、[harmony_contract.py](../skills/migration-test/scripts/harmony_contract.py) |
 | 原生规划 / 回放 / 验证 | [main.py](../skills/migration-test/runtime/harmony/main.py)、[decision.py](../skills/migration-test/runtime/harmony/AutoTest/layered_agent_cli/decision.py)、[tool_player.py](../skills/migration-test/runtime/harmony/AutoTest/memory/tool_player.py)、[Verify](../skills/migration-test/runtime/harmony/AutoTest/verify_agent/agent.py) |
 | 阶段组装 / 接受 | [harmony_stage.py](../skills/migration-test/scripts/harmony_stage.py)、[contracts.py](../skills/migration-ledger/scripts/contracts.py)、[ledger.py](../skills/migration-ledger/scripts/ledger.py) |

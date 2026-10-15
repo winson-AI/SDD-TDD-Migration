@@ -27,13 +27,13 @@
 <path d="M780,320 L780,375" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="375" width="640" height="115" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="780.0" y="411.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Coding 接受 → build / unit / static Green</text>
-<text x="780.0" y="445.5" font-size="19.98" fill="#4b5563" text-anchor="middle" font-weight="400">非 Green 按根因分流；新代码必须重新 build / unit / static</text>
+<text x="780.0" y="445.5" font-size="19.70" fill="#4b5563" text-anchor="middle" font-weight="400">同命令 unit 一次执行；新代码必须重新 build / unit / static</text>
 <text x="780.0" y="474.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">构建通过不代表任何业务 CASE 已通过</text>
 <path d="M780,490 L780,550" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="550" width="640" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="465" y="555" width="630" height="130" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="780.0" y="584.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO 派发 → Test-Runner testing 预检</text>
-<text x="780.0" y="618.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">冻结规格 / 路径 / 代码 / 提供方 / 环境 / 权限</text>
+<text x="780.0" y="618.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 骨架已核代码 / 路径；填提供方 / 环境 / 权限</text>
 <text x="780.0" y="647.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">提交 context-submit；绑定实际 argv / cwd / 环境</text>
 <text x="780.0" y="676.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">宿主负责实际启动、角色身份和资源锁</text>
 <path d="M780,690 L780,735" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>

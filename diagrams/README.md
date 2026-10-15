@@ -2,15 +2,15 @@
 
 图集与当前控制器及角色契约一致：GO/父 MO 切 scope/全量 CASE，子 MO 拆 TASK，SPEC 明确后冻结执行；执行反馈按实现错误、规划缺口、范围不足分流。同一 Run 仅执行当前冻结 SPEC，规划调整保留 history。先看总览，再展开模块执行、统一 Auditor、复用或自动化；SVG 入库，可放大，PNG 仅在本地生成。
 
-Test-Runner 按顺序执行：build → unit → static（同一派发）→ 功能自动化 → 基线视觉对齐（存量可预览时；逐节点对齐，不对齐即 Red + 节点级根因走既有诊断/修复）。存量基线在冻结前判定并前移为 SPEC/coding 的输入。仅自动化环境缺失时保留 Yellow/未执行，其他可执行任务继续，本轮可以带缺测清单收尾；这不等于功能验收通过。详细门禁见 [构建与自动化协议](../skills/migration-protocol/references/build-automation.md)。
+Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令的 unit PATH 一次执行、逐 PATH 归因；按顺序执行：build → unit → static（同一派发）→ 功能自动化 → 基线视觉对齐（存量可预览时；逐节点对齐，不对齐即 Red + 节点级根因走既有诊断/修复）。存量基线在冻结前判定并前移为 SPEC/coding 的输入。仅自动化环境缺失时保留 Yellow/未执行，其他可执行任务继续，本轮可以带缺测清单收尾；这不等于功能验收通过。详细门禁见 [构建与自动化协议](../skills/migration-protocol/references/build-automation.md)。
 
 | 图 | 关注点 | SVG |
 | --- | --- | --- |
-| 01 · 三层编排总览 | GO/父 MO 切 scope/全量 CASE；原子能力作叶子；子 MO 拆 TASK；并行执行与统一宿主审计 | [总览](workflow.svg) |
-| 02 · 子 MO 执行与反馈调整 | TASK/四维 → SPEC 冻结 → Implementer/Testing；Fixer/CR/上溯三分流；独立性证明与默认全模块重验 | [子 MO](module-execution.svg) |
-| 03 · 统一 Auditor 宿主审计 | 全宿主目标/代码治理、遗留路由、影响模块完整回归、独立 Test-Runner 与 Auditor 裁决 | [Auditor](auditor-closure.svg) |
-| 04 · 二方库语义与复用 | 来源评审 → 语义抽取 → 四类复用决策 → 冻结 → Coding → 真实依赖验证；提供方证据变化后的恢复 | [二方库](reuse-dependencies.svg) |
-| 05 · Automation 外层闭环 | 冻结用例、派发后预检、逐 PATH 证据、三类反馈及成功/复用统计；缺测旁路 | [自动化](automation-flow.svg) |
+| 01 · 三层编排总览 | GO/父 MO 按功能树切 scope/全量 CASE；叶子是子业务流；子 MO 拆 TASK；并行执行与统一宿主审计 | [总览](workflow.svg) |
+| 02 · 子 MO 执行与反馈调整 | TASK/四维 → SPEC 从骨架起笔、起步门禁冻结 → Implementer/Testing；Fixer/CR/上溯三分流；独立性证明与默认全模块重验 | [子 MO](module-execution.svg) |
+| 03 · 统一 Auditor 宿主审计 | 全宿主目标/代码治理（清单与审查从骨架起笔）、遗留路由、影响模块完整回归、独立 Test-Runner 与 Auditor 裁决；空清单由 Ledger 预检 | [Auditor](auditor-closure.svg) |
+| 04 · 二方库语义与复用 | 来源评审 → 语义抽取 → 四类复用决策 → API 与数据契约 → 冻结 → Coding → 真实依赖验证；提供方证据变化后的恢复 | [二方库](reuse-dependencies.svg) |
+| 05 · Automation 外层闭环 | 冻结用例、派发后预检（骨架起笔）、逐 PATH 证据、三类反馈及成功/复用统计；缺测旁路 | [自动化](automation-flow.svg) |
 | 06 · Android/Harmony 单 PATH 内核 | Planner / Executor / Verify、录制回放、媒体断言、观察落盘与三态汇总 | [内核](automation-engine.svg) |
 
 自动化输入输出的字段、JSON 示例、调用方法和当前实现边界见 [自动化测试说明](automation-input-output.md)。
@@ -18,7 +18,7 @@ Test-Runner 按顺序执行：build → unit → static（同一派发）→ 功
 ## 阅读约定
 
 - 总览以 project 的多个父模块举例；single-module 只保留选定根模块及其父 MO，原子能力可直接作叶子，其余子功能由独立子 MO 执行。
-- 功能列表默认从测试用例汇总抽取；没有汇总则先理解存量源码、完整列出功能，再生成需求/测试草案。两种方式都要对照源码查漏，任何疑问立即人工介入；功能清单与逐模块归属通过 global-plan 门禁。
+- 用户给了测试用例时，用例分组是功能树的节点、用例范围界定叶子；没给时先深读存量源码建完整功能树，再按功能派生 CASE，切片与用例来自同一份清单。叶子是功能树上的子业务流（页面是 TASK，3–30 条 CASE），自带四维分析与实现 SPEC；两种方式都要对照源码查漏，任何疑问立即人工介入；功能清单与逐模块归属通过 global-plan 门禁。
 - GO 在目标已有能力与指定外部来源中提取语义目录，结合模块需求形成复用与缺口任务；父/子 MO 逐层细化，验证真实接线与行为等价。
 - 先评审来源与接入可行性，再选择 reuse / adapt / reference / new，并将映射与 SPEC 一起冻结。声明来源不可用是阻塞，不能视作“已评审但无匹配”而直接新实现。
 - 选中提供方或接入证据变化时，相关计划与旧测试证据失效；受影响消费者经影响分析、CR/重规划、重新冻结和正式复测恢复，无关模块继续。外部源码默认只读，无修改授权的问题走人工路由。
@@ -30,7 +30,8 @@ Test-Runner 按顺序执行：build → unit → static（同一派发）→ 功
 - 本轮收尾允许基于自身证据明确挂起，但不能将排队、写锁等待或 worker 退出视为已收尾。全部子 MO 收尾、父汇总有效、无在途 worker 与可推进动作后，GO 才统一启动 Auditor。
 - 图 03 是统一宿主审计：全部模块（含 Green）先做代码治理；实际复测按遗留/影响范围选择，清单为空只做独立证据审阅，不启动测试；依赖图决定具体修复与验证顺序，不能把图中的角色列表理解为强制先后顺序。
 - 清晰且可执行的规划由 MO 审核冻结，独立 design 按需；Green 不需新增人工会签。真实未决或需求/验收/授权变化、适用的人工恢复与交付授权才交 Human。SPEC 修改、依赖恢复或人工批准均不能直接将测试改成 Green。
-- 上下文预检已进入 GO 发现/覆盖规划、父拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发及 Auditor 分析/裁决/最终测试。规划与审计者的报告由原节点验收；worker 接到派发后提交 `context-submit`，ready 报告授权开工、blocked 报告退回派发；缺项或过期阻止相关阶段，不消耗修复预算、不提前收尾。
+- 上下文预检已进入 GO 发现/覆盖规划、父拆分、子 SPEC 冻结、Coding/Testing/Fixer 派发及 Auditor 分析/裁决/最终测试。规划与审计者的报告由原节点验收；worker 接到派发后提交 `context-submit`，ready 报告授权开工、blocked 报告退回派发；coding 与无待复测的审计由 Ledger 机械预检，building/testing 从 Ledger 骨架起笔；缺项或过期阻止相关阶段，不消耗修复预算、不提前收尾。
+- run 固定 prepare 时的包提交；运行产物不设体量上限，棘轮只约束包自身；automation 统计里 TASK 行的缺路径只计模块整体缺的 CASE。
 
 ## 依据与再生成
 

@@ -40,7 +40,7 @@
 <rect x="400" y="880" width="800" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="921.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO / Spec Designer · 逐需求决策</text>
 <text x="800.0" y="955.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">requirement → capability / decision → task → PATH</text>
-<text x="800.0" y="984.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">接线、差异、版本及验证进入 design/tasks 与 reuse-plan.json</text>
+<text x="800.0" y="984.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">接线 / 差异 / 版本进 reuse-plan；API 与数据契约对齐取数 / 计算</text>
 <path d="M800,1005 L800,1060" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M225,1060 L1365,1060" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M225,1060 L225,1120" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>

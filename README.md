@@ -8,7 +8,7 @@
 
 1. 读取 [AGENTS.md](AGENTS.md)，按角色索引渐进加载。
 2. 首次提供项目资料，宿主根据 [project-context.json](template/project-context.json) 保存到固定 `<workspace_root>/.sdd-migration/project-context.json`（首次未指定 workspace_root 时取配置目录父级）；后续按该目录读取，用户明确更新时增量保存。无需每次重填运行输入。
-3. 在支持此包的宿主中执行 `/sdd-init`，先固定项目配置和本次请求快照，再由 Global 生成 [运行输入](template/global-input.json)、宿主业务契约、需求/用例输入、账本和模块规划；`/sdd-plan <run-id> <module-id>` 组织叶子 TASK、六件套与上游用例路径，由 MO 审核冻结；真实未决或需求/验收/授权变化才交人工。旧 input.json 也可导入。
+3. 在支持此包的宿主中执行 `/sdd-init`，先固定项目配置和本次请求快照，再由 Global 生成 [运行输入](template/global-input.json)、宿主业务契约、需求/用例输入、账本和模块规划；`/sdd-plan <run-id> <module-id>` 从 Ledger 写出的六件套与计划集骨架起笔，组织叶子 TASK、四维追溯与上游用例路径，由 MO 审核冻结；真实未决或需求/验收/授权变化才交人工。旧 input.json 也可导入。
 4. `/sdd-run <run-id>` 调度已冻结且依赖就绪的模块，单模块也可用 `/sdd-module <run-id> <module-id>`。模块内自动推进到完成、挂起或预算耗尽。
 5. 用 `/sdd-status <run-id>` 冷读状态；用 `/sdd-resume <run-id> [module-id] [decision.json绝对路径]` 恢复；用 `/sdd-audit <run-id>` 执行独立遗留复核与收尾审阅。
 6. 全局审计通过后，`/sdd-archive <run-id> <decision.json绝对路径>` 验证人类交付授权并同步、归档 OpenSpec。授权必须绑定具体交付内容摘要。
@@ -33,7 +33,7 @@
 | `template/` | 全局输入、模块输入、六件套及诊断、测试、Ledger 请求、人工决策等运行工件模板 |
 | `diagrams/` | 三层编排、子 MO/Auditor、复用与自动化图及生成源文件 |
 
-运行期资产集中在固定 `workspace_root`，其下 `.sdd-migration`（长期配置）、`.sdd-runs/<run_id>`（运行证据）、`openspec`（规格与状态中枢）顶层并列；包目录自身不存迁移状态。Harmony 执行统一在 `.sdd-runs/<run_id>/runs/harmony/`（automation/sandbox），构建资产在 runs/build；临时文件归 runner，结束清理，失败留存原因。项目模型参考配置/凭证在 `.sdd-migration/harmony/`；Test-Runner 首次准备时复制到本轮 `runs/harmony/sandbox/environment/`，各模块共享本轮副本。入口为 `openspec/runs/<run_id>/workflow.md`。见 [完整留存布局与二次启动](skills/migration-protocol/references/storage-layout.md)。模块 ID 永久稳定，如 `M001`；OpenSpec change 名如 `migration-demo-m001`。新增模块只追加编号，不因排序改变历史 ID。顶层 `openspec` 是 prepare→init→apply 真实跑通后的投影，不能手写；最终交付用只读门禁 `verify_openspec.py --root <run> --scope final` 核验投影与正式收尾报告；缺事件证据时恢复其有效来源，不由核验结果推断真实派发或功能通过，细则见 [投影完整性收尾门禁](skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。
+运行期资产集中在固定 `workspace_root`，其下 `.sdd-migration`（长期配置）、`.sdd-runs/<run_id>`（运行证据）、`openspec`（规格与状态中枢）顶层并列；包目录自身不存迁移状态。run 固定 prepare 时的包提交（`package_sha`）：宿主用该提交的 worktree 跑完整个 run，新规则只对新 run 生效。Harmony 执行统一在 `.sdd-runs/<run_id>/runs/harmony/`（automation/sandbox），构建资产在 runs/build；临时文件归 runner，结束清理，失败留存原因。项目模型参考配置/凭证在 `.sdd-migration/harmony/`；Test-Runner 首次准备时复制到本轮 `runs/harmony/sandbox/environment/`，各模块共享本轮副本。入口为 `openspec/runs/<run_id>/workflow.md`。见 [完整留存布局与二次启动](skills/migration-protocol/references/storage-layout.md)。模块 ID 永久稳定，如 `M001`；OpenSpec change 名如 `migration-demo-m001`。新增模块只追加编号，不因排序改变历史 ID。顶层 `openspec` 是 prepare→init→apply 真实跑通后的投影，不能手写；最终交付用只读门禁 `verify_openspec.py --root <run> --scope final` 核验投影与正式收尾报告；缺事件证据时恢复其有效来源，不由核验结果推断真实派发或功能通过，细则见 [投影完整性收尾门禁](skills/migration-protocol/references/storage-layout.md#openspec-投影完整性收尾门禁)。
 
 ## 对现有 guidance 的适配
 
@@ -58,10 +58,12 @@
 
 GO/父 MO 负责模块与子模块的 scope 切片，并在冻结前分配上游全量 CASE；原子能力可直接作为叶子。子 MO 在叶子范围内拆 TASK、组织四维分析，Spec-Designer 编制 proposal/spec/design/tasks 与 CASE/PATH/ASSERT；MO 决策经 Ledger 投影为 status，包内 checklist 由 Ledger 绑定并投影，组成 OpenSpec 六件套。SPEC 是 Implementer 的执行规范，四维分析描述业务、功能与代码边界，两者承担不同职责。规划完整可执行即可由 MO 审核冻结，不增加预演全部缺陷的规划轮次；Test-Runner 的独立 design 仅按需协助。
 
+叶子是功能树上的子业务流（页面是 TASK 不是叶，3–30 条 CASE，功能叶之间不重叠、并集覆盖父的功能），自带四维分析与实现 SPEC；用户给了用例则用例范围界定叶子，没给则先读源码建功能树再派生用例，切片与用例同源。冻结只核起步门禁（范围、写锁、任务、PATH、四维追溯、六件套），保真欠项记 gap、DoD 前结清；六件套与计划集、执行侧报告（Test-Runner 预检与静态审查、Auditor 清单与代码审查）由 Ledger 写骨架，留标记的提交被拒。
+
 ```text
 GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻结
-  → Implementer → MO 接受代码
-  → Test-Runner：build → unit → static（同一派发）
+  → Implementer（Ledger 代写预检，步骤先列提交必备证据）→ MO 接受代码
+  → Test-Runner：build → unit（同命令一次执行）→ static（同一派发；预检与静态审查从骨架起笔）
   → automation：逐 PATH / ASSERT → visual（适用时）
   ├─ 全部必需路径有效 Green → MO 验收 DoD → 模块收尾
   └─ 非 Green → 现有诊断 / MO 归因分流 → 更新后正式复测
@@ -81,7 +83,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 修订默认全模块重验。MO 可在 CR 的 plan-review 提交 [TASK 独立性证明](template/task-independence.json)：核对定义、写范围、读依赖、共享 PATH、未变需求及文件追溯后，只重开受影响 TASK，保留未影响 TASK 和有效成功证据。无证明或共享影响则全模块重验；过期或漏报变更的证明拒收。**新代码始终重跑 build/unit/static**，automation/visual 重跑受影响及非 Green 路径；原回执、test_run_id 和执行基线保留，另记 `validation_reuse`，不能标为本次新执行。详见 [TASK 局部重验](skills/migration-protocol/references/openspec.md#task-局部重验)。
 
-Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试、完整执行、有效成功、Red/Yellow 和缺路径 CASE；参数/平台实例分别计 PATH，重试不增加分母。`reused_passed_paths` 单列，排除在 `current_executed_paths` 之外；成功集合附原始执行身份与证据。缺路径、缺测或失效证据不能据现有成功集合宣称全量通过。
+Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试、完整执行、有效成功、Red/Yellow 和缺路径 CASE；参数/平台实例分别计 PATH，重试不增加分母。`reused_passed_paths` 单列，排除在 `current_executed_paths` 之外；成功集合附原始执行身份与证据；TASK 行的缺路径只计模块整体缺的 CASE。缺路径、缺测或失效证据不能据现有成功集合宣称全量通过。
 
 同一宿主迁移任务始终沿用一个 Run，保留失败、规划 history 和累计预算；执行仅绑定当前冻结 SPEC。只有新宿主任务新建 Run，抽象且已验证的经验可跨 Run 复用。各 MO 独立推进；某个失败只影响自身及有证据的依赖范围。统一 Auditor 审阅全部模块与宿主目标、治理代码并独立裁决；实际复测覆盖遗留和受影响路径，空清单只做独立审阅。TASK 局部证明不削弱 Auditor 的权限，Fixer 自测也不能代替正式测试或独立审计。
 
@@ -92,14 +94,16 @@ Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试�
 | 专题 | 一句话 | 协议 |
 | --- | --- | --- |
 | 二方库与已有能力 | 复用必须逐行为对齐存量功能；能力目录显式 provider owner | [复用](skills/migration-protocol/references/reuse-dependencies.md)、[来源变更](skills/migration-protocol/references/source-changes.md) |
+| 数据与 API 复用 | 复用的数据在取数与计算处对齐：数据契约（来源 / 取数条件 / 派生字段 / 失效）随维度 → TASK → PATH；API 契约与适配同理，目标已有实现直接重构复用 | [数据契约](skills/migration-protocol/references/resource-transfer.md#数据契约)、[复用](skills/migration-protocol/references/reuse-dependencies.md#9-目标已有实现与二方库冗余直接重构复用) |
+| 包版本与产物体量 | run 固定 prepare 时的包提交，新规则只约束新 run；运行产物不设体量上限，棘轮只约束包自身的协议、卡片与模板 | [运行时](skills/migration-protocol/references/runtime.md#总则)、[OpenSpec](skills/migration-protocol/references/openspec.md) |
 | OpenSpec 边界 | 标准基线/增量结构；status/checklist/Ledger 是本包扩展，Ledger 投影不可手改 | [OpenSpec](skills/migration-protocol/references/openspec.md) |
-| 本地控制器与游标 | 单写事件事务、`status` 游标与阅读卡、恢复与显式追加预算 | [本地运行](skills/migration-protocol/references/local-runtime.md)、[宿主接入](skills/migration-protocol/references/host-integration.md) |
+| 本地控制器与游标 | 单写事件事务、`status` 游标与阅读卡、Ledger 起稿的计划集与执行侧报告骨架、恢复与显式追加预算 | [本地运行](skills/migration-protocol/references/local-runtime.md)、[宿主接入](skills/migration-protocol/references/host-integration.md) |
 | 并行 MO 与统一收尾 | 各 MO 独立推进；全量收尾后统一审计 | [状态机](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾) |
 | Auditor | 先整体代码治理，再复核遗留；修复后验证，失败待人工 | [审计范围](skills/migration-protocol/references/audit-scope.md)、[代码治理](skills/migration-protocol/references/audit-code-review.md) |
 | Android/Harmony 自动测试 | MobileAgenticOperator test 模式，逐 PATH/ASSERT 证据接入 Ledger | [移动端运行](skills/migration-test/references/harmony-runtime.md) |
-| 切片与功能清单 | 默认由 Agent 决定粒度；清单完整可追溯，疑问交人工；一条 CASE 一个验收切片，成链须写理由；往次切分经验生成技能，供后续 Run 的 GO/MO 加载 | [切片规约](skills/migration-global/references/slicing.md) |
+| 切片与功能清单 | 叶子是功能树上的子业务流（页面是 TASK，3–30 条 CASE），自带四维分析与实现 SPEC；无用例先读源码建树再派生用例，有用例以用例范围为抓手；清单完整可追溯，疑问交人工；一条 CASE 一个验收切片；往次切分经验生成技能，供后续 Run 的 GO/MO 加载 | [切片规约](skills/migration-global/references/slicing.md) |
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照 | [项目上下文](skills/migration-protocol/references/project-context.md) |
-| 上下文就绪 | 规划与审计者随操作登记预检；worker 派发后预检，ready 才开工；worker 只读执行所需 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
+| 上下文就绪 | 规划与审计者随操作登记预检，coding 与无待复测的审计由 Ledger 机械预检；worker 的 building/testing 从 Ledger 骨架起笔，ready 才开工；worker 只读执行所需 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
 | 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 资源与参数搬运 | 文件资源按清单原样复制、按 accessor 引用；布局、图层与代码里的取值记成参数表，生成到目标后按键取用；Spec 只写例外，验收比对字节与引用；登记 UI/Resource 分配前对约定定论（声明，或写明目标不接收的原因） | [搬运](skills/migration-protocol/references/resource-transfer.md#总则) |
 | 图片与图标对齐 | 图片来源逐条记录并入资源闭包；树上每处静态图片都上屏核对或带证据豁免：存量资源离线渲染为参考，目标屏幕节点与之比较（另有文本与节点检查），结论由 Ledger 重算；手工替换的图片须测量或获批偏差 | [图片与图标对齐](skills/migration-protocol/references/ui-fidelity.md#图片与图标对齐) |
@@ -134,6 +138,11 @@ Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-15 | 起步与执行侧骨架。run 固定 prepare 时的包提交（package_sha），新规则只约束新 run；Implementer 按 TASK 派发，path_ids 随任务；冻结只核起步门禁（范围/写锁/任务/PATH/四维追溯/六件套），保真欠项记 gap、DoD 前结清；Ledger 写叶子的计划集骨架（六件套、stage-plan、上游测试计划、复用计划）与执行侧报告骨架（Test-Runner 预检与静态审查、Auditor 清单与代码审查），留标记的提交被拒；coding 与无待复测的审计由 Ledger 机械预检；卡片只在设备/视觉/图片/资源适用时带 UI 保真节，角色文件去掉专题表；冻结同一命令的 unit PATH 一次执行、逐 PATH 归因；实现派发先列提交必备证据，冻结落点文件在交付内即视为 conformance；报告列首版耗时与被拒次数，TASK 行按模块缺口计缺路径，任务按层切记为事实。数据契约：复用的数据在取数与计算处对齐（来源/取数条件/派生字段/失效随维度→TASK→PATH）。运行产物不设体量上限，棘轮只约束包。 |
+| 2026-10-14 | 切片标准与同源用例。叶子是功能树上的子业务流：页面是 TASK 不是叶，3–30 条 CASE，功能叶之间不重叠、并集覆盖父的功能，PATH 不取兄弟叶的证据；无用例时先读源码建功能树再派生用例，有用例时用例范围界定叶子；根登记时带功能清单，清单接受时记树形事实。一种版本学说：重新提交按当前规则全判，已接受工件只因漂移被拒。脚手架两阶段（骨架 TASK 接受且构建 Green 即放功能叶）；事实记录不欠任何人，步骤只列十条问题，常规规则随卡一次；provider 修订 SPEC 不再卡住需要其代码的叶子，依赖方按 provider 已接受代码规划；Ledger 能派生的指针自行填写；单版本改动过多的任务成为游标与审计可见的信号；包文件不作证据；独立模块评审并行派发；卡片按步列模板、按名取用；草稿与日志留在 scratch/；协议、运行指南、模板索引与命令文件去重压缩。 |
+| 2026-10-13 | 叶子是一个界面及其背后各层，外壳是脚手架，只在目标缺外壳时设脚手架；不验收用例的切片是脚手架，切片成链不再要理由；测试设计归 Spec-Designer，取消编码前 design 派发；评审一次看全部失败门禁，叶子只固定自己的代码；一次请求记录或结清多个问题，计划/评审/结果回答的问题随之结清；run 未写入的输入引用不抄录，Ledger 为自报操作代写预检；provider 恢复后全部任务已接受的依赖方直接回到测试。 |
+| 2026-10-11 | 首版先通过：评审默认通过并记录问题，计划一次判完；预览点名缺失的 run，Implementer 逐任务声明测试与代码的次序；绘制参数进入采集，被取代的 provider 计划记为 gap，恢复卡只说变化；根为每个孩子加的排除项随分配到达，不计入孩子边界；评审中的计划显示重提绑定什么；协议每条共享规则只说一次。 |
+| 2026-10-10 | 叶子点名发起调用的文件并在冻结时核对；问题记录并随身携带，任务写完即测；切片按波次推进，审计回溯，保留已建成果；宿主可为每次执行预热冷 Gradle 主目录；修订只花它改动的代价，人决定边界一次。 |
 | 2026-10-10 | 叶子补齐自己的资源闭包。参数表携带的取值（文案、尺寸、颜色等 values 条目）连同其语言等变体即算被资源闭包覆盖：它们由参数表物化到目标并按键取用，参数表在冻结时重算比对，不再要求逐条资源条目；图片仍由复制清单或条目覆盖。叶子的细化版可以把分配的一个资源条目细分为逐文件、逐绘制的条目：新条目以 detail_of 指明所细分的分配条目、编号以它为前缀，需求、用例与父条目不出其范围，分配的条目原样保留；其余维度仍不增删条目。细分条目按登记条目的规则判定，计划须像其他条目一样为它建立追溯。 |
 | 2026-10-10 | 切片用自己的用例验证自己的条目。拆分时子条目挂本子模块持有的用例即可，不必取自所引父条目的用例；子条目的需求仍不得超出父条目。这样“验收用例的切片只持有它验收的用例”才能成立：资源、接线这类父条目在上层只挂了横切用例时，各行为切片用自己的行为用例承载它们，横切用例只归一个切片。父条目的用例若由引用它的孩子持有，仍须挂在该孩子引用它的子条目上。 |
 | 2026-10-10 | 界面采集按类限定范围。analyze-ui 的入口写成 `文件#类名` 时，只采集该类（含其内部声明）源码段内的资源引用、使用点、参数与呈现变更，行号保持原文件行号，源索引记录所取的类与行段；同一文件可同时指定多个类，未指定类的入口仍采集整个文件；文件里没有声明该类时记为未解析且不采集。一个源文件含多屏时，各叶子只为自己那一屏写 UI 树，校验规则不变。类也可以用限定名（包名.类名）定位文件。工具产出的索引可以作为证据引用：被引用的 JSON 里路径不是绝对路径的“路径 + 摘要”对象是该文档对文件的记录，不当作本 run 的证据引用，既不核对也不归档；请求自身的引用与文档内的绝对路径引用照旧核对。 |

@@ -20,7 +20,7 @@
 <path d="M800,310 L800,370" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="500" y="370" width="600" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="402.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">整体代码审查 → 分批收集</text>
-<text x="800.0" y="436.0" font-size="18.08" fill="#4b5563" text-anchor="middle" font-weight="400">audit-code-review：目标覆盖 / 改动 / 冗余 / 复用 / 公共能力</text>
+<text x="800.0" y="436.0" font-size="18.40" fill="#4b5563" text-anchor="middle" font-weight="400">audit-code-review（骨架起笔）：目标/改动/冗余/复用/公共能力</text>
 <text x="800.0" y="465.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">audit-collect：先治理 CR-*，再剩余 Red / Yellow</text>
 <text x="800.0" y="494.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">绑定 SPEC / PATH / provider 与消费者证据</text>
 <path d="M800,505 L800,565" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
@@ -101,7 +101,7 @@
 <path d="M400,1735 L400,1795" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="90" y="1795" width="620" height="155" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
 <text x="400.0" y="1837.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">独立审阅收尾 → 全局报告</text>
-<text x="400.0" y="1871.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">遗留需 audit-testing；空清单只审阅证据</text>
+<text x="400.0" y="1871.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">遗留需 audit-testing；空清单 Ledger 代预检、只审阅</text>
 <text x="400.0" y="1900.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全通过 → 全局 Green → 按授权交付</text>
 <text x="400.0" y="1929.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅缺自动化环境 → Yellow / 未执行报告收尾</text>
 <path d="M1200,1735 L1200,1795" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>

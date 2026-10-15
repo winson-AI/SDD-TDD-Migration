@@ -18,30 +18,30 @@
 <text x="800.0" y="219.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · TASK 划分</text>
 <text x="800.0" y="253.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">继承 GO / 父 MO 的 scope / 全量 CASE</text>
 <text x="800.0" y="282.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">职责、排除、允许写范围和依赖</text>
-<text x="800.0" y="311.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">原子能力作叶子，不继续拆 MO</text>
+<text x="800.0" y="311.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">叶子 = 子业务流，自带四维与 SPEC</text>
 <path d="M800,320 L800,400" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="400" width="500" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="434.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">四维 → SPEC / 测试路径</text>
 <text x="800.0" y="468.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">UI → Logic → Adhesive → Resource</text>
 <text x="800.0" y="497.5" font-size="18.42" fill="#4b5563" text-anchor="middle" font-weight="400">Spec-Designer：实施规范 + CASE / PATH / ASSERT</text>
-<text x="800.0" y="526.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实现指导 / fidelity；独立 design 按需</text>
+<text x="800.0" y="526.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">从 Ledger 骨架起笔；独立 design 按需</text>
 <path d="M800,540 L800,610" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="610" width="500" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="555" y="615" width="490" height="120" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="800.0" y="639.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO 审核冻结</text>
-<text x="800.0" y="673.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">规划完整可执行即冻结，不预演全部缺陷</text>
+<text x="800.0" y="673.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">起步门禁即冻结；保真欠项 DoD 前结清</text>
 <text x="800.0" y="702.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">SPEC 是 Implementer 的规范</text>
 <text x="800.0" y="731.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">真实未决 / 需求验收授权变化交 Human</text>
 <path d="M800,740 L800,810" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="810" width="500" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="839.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Implementer · 按 TASK 执行</text>
-<text x="800.0" y="873.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">派发后预检 ready 才开工</text>
+<text x="800.0" y="873.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 代写预检；步骤先列提交必备证据</text>
 <text x="800.0" y="902.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按冻结 SPEC / 资源参数表生成或更新代码</text>
 <text x="800.0" y="931.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">代码 / 追溯提交 → MO 接受</text>
 <path d="M800,940 L800,1010" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="1010" width="500" height="180" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="1050.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Test-Runner · 正式验证</text>
-<text x="800.0" y="1084.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">build → unit → static（同一派发）</text>
+<text x="800.0" y="1084.0" font-size="20.09" fill="#4b5563" text-anchor="middle" font-weight="400">build → unit（同命令一次）→ static，同一派发</text>
 <text x="800.0" y="1113.0" font-size="20.22" fill="#4b5563" text-anchor="middle" font-weight="400">全部通过后另派 automation，逐 PATH / ASSERT</text>
 <text x="800.0" y="1142.0" font-size="21.95" fill="#4b5563" text-anchor="middle" font-weight="400">适用时另派 visual；原始回执 / 媒体 / 根因</text>
 <text x="800.0" y="1171.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">执行证据经 Ledger → MO 验收</text>
@@ -109,7 +109,7 @@
 <text x="285.0" y="1800.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">证据与路径统计</text>
 <text x="285.0" y="1834.5" font-size="18.82" fill="#4b5563" text-anchor="middle" font-weight="400">保留原 receipt / test_run_id / 执行基线</text>
 <text x="285.0" y="1863.5" font-size="20.78" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 另记 validation_reuse 有效性</text>
-<text x="285.0" y="1892.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">宿主 / 模块 / TASK 统计成功及缺测</text>
+<text x="285.0" y="1892.5" font-size="18.08" fill="#4b5563" text-anchor="middle" font-weight="400">宿主 / 模块 / TASK 统计；TASK 缺口按模块计</text>
 <text x="285.0" y="1921.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">复用成功单列，不计本次新执行</text>
 <text x="285.0" y="1950.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Red / Yellow 不凭证明转 Green</text>
 <rect x="1110" y="1750" width="410" height="230" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
@@ -128,13 +128,14 @@
 <rect x="70" y="190" width="430" height="160" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="285.0" y="234.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">一任务 · 一 Run</text>
 <text x="285.0" y="268.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">执行唯一当前冻结 SPEC</text>
-<text x="285.0" y="297.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">规划修订只留不可执行 history</text>
+<text x="285.0" y="297.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">run 固定包版本；修订只留 history</text>
 <text x="285.0" y="326.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">失败、经验与累计预算持续保留</text>
 <rect x="70" y="420" width="430" height="160" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
-<text x="285.0" y="464.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">OpenSpec 六件套</text>
-<text x="285.0" y="498.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">proposal / spec / design</text>
-<text x="285.0" y="527.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">tasks / status / checklist</text>
-<text x="285.0" y="556.5" font-size="19.62" fill="#4b5563" text-anchor="middle" font-weight="400">status / checklist 由 Ledger 绑定投影</text>
+<text x="285.0" y="450.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">OpenSpec 六件套</text>
+<text x="285.0" y="484.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">proposal / spec / design</text>
+<text x="285.0" y="513.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">tasks / status / checklist</text>
+<text x="285.0" y="542.0" font-size="21.75" fill="#4b5563" text-anchor="middle" font-weight="400">status / checklist 由 Ledger 投影</text>
+<text x="285.0" y="571.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">骨架起稿；产物不限体量</text>
 <rect x="70" y="760" width="430" height="210" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="285.0" y="800.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">资源与 fidelity 输入</text>
 <text x="285.0" y="834.5" font-size="21.92" fill="#4b5563" text-anchor="middle" font-weight="400">API / URL / image / icon 来源追溯</text>

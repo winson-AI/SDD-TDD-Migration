@@ -21,10 +21,10 @@ def automation_flow():
     d.arrow([(400, 255), (460, 255)])
     d.arrow([(780, 320), (780, 375)])
     d.box(460, 375, 640, 115, 'Coding 接受 → build / unit / static Green',
-          ['非 Green 按根因分流；新代码必须重新 build / unit / static', '构建通过不代表任何业务 CASE 已通过'])
+          ['同命令 unit 一次执行；新代码必须重新 build / unit / static', '构建通过不代表任何业务 CASE 已通过'])
     d.arrow([(780, 490), (780, 550)])
     d.box(460, 550, 640, 140, 'MO 派发 → Test-Runner testing 预检',
-          ['冻结规格 / 路径 / 代码 / 提供方 / 环境 / 权限', '提交 context-submit；绑定实际 argv / cwd / 环境', '宿主负责实际启动、角色身份和资源锁'], controller=True)
+          ['Ledger 骨架已核代码 / 路径；填提供方 / 环境 / 权限', '提交 context-submit；绑定实际 argv / cwd / 环境', '宿主负责实际启动、角色身份和资源锁'], controller=True)
     d.arrow([(780, 690), (780, 735)])
     d.diamond(780, 800, 330, 130, '预检结果', '是否具备执行条件')
     d.arrow([(615, 800), (400, 800)], 'orange'); d.label(505, 780, '其他缺项', 'orange')

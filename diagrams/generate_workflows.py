@@ -87,19 +87,19 @@ def overview():
     d.arrow([(610,330),(610,425)])
     d.band(60,365,1100,230,'GO  ·  全局规划','全局管理迁移、DAG、锁与依赖')
     d.box(100,425,1020,165,'GO · 功能覆盖 → 划 scope / 分配全量 CASE',[
-        '默认从测试用例汇总抽取；无汇总则先理解存量源码；查漏，有疑问即人工',
+        '有用例：用例范围界定叶子；无用例：读源码建功能树再派生用例',
         'TARGET + 指定二方库：reuse-catalog / 功能语义 / 行为差异 / 接入可行性',
         '先分配 scope / CASE；四维形式化业务、功能与代码边界',
-        'project / single-module 同一主线；原子能力可直接作为执行叶子'],controller=True)
+        'project / single-module 同一主线；叶子 = 功能树上的子业务流'],controller=True)
     # Fan out through a shared branch; two parents show project multiplicity.
     d.arrow([(610,590),(610,690)],end=False)
     d.arrow([(340,690),(880,690)],end=False)
     for x in (340,880): d.arrow([(x,690),(x,700)])
     d.band(60,635,1100,265,'父 MO  ·  认领与拆分','每个父 MO 持续看护自己认领的整个模块')
     d.box(100,700,480,170,'父 MO · 根模块 A',[
-        '认领模块 / 实现 / 四维上下文', '切子 scope / CASE；原子则作叶子', '按范围组织四维边界与依赖', '明确实现指导 / owner / 完整性'],controller=True)
+        '认领模块 / 实现 / 四维上下文', '按子业务流切叶（3–30 CASE）；页面是 TASK', '按范围组织四维边界与依赖', '明确实现指导 / owner / 完整性'],controller=True)
     d.box(640,700,480,170,'父 MO · 其他根模块 × N',[
-        'project 按根模块分别建立父 MO', '子 scope / CASE；原子不继续拆分', '继承实现 / 复用 / 四维上下文', 'single-module 仅保留选定根模块'],controller=True)
+        'project 按根模块分别建立父 MO', '子 scope / CASE；功能叶不重叠、覆盖父', '继承实现 / 复用 / 四维上下文', 'single-module 仅保留选定根模块'],controller=True)
     # Anchor branch endpoints to the cards (container crossings remain open).
     for x in (340,880):
         d.arrow([(x,870),(x,940),(610,940)],end=False)
@@ -136,9 +136,9 @@ def overview():
     d.box(1210,190,330,280,'全局读取视野',[
         'GO / 父 MO / 子 MO', '均可读全局存量与目标代码', '架构 / 知识 / 分工 / 复用来源', '', '局部 context pack 聚焦任务', '不截断全局只读上下文'], 'gray')
     d.box(1210,540,330,270,'范围逐层细化',[
-        'GO → 根模块 scope', '父 MO → 子模块 scope', '子 MO → tasks', '', '可执行即冻结；design 按需', '真实未决 / 语义授权变化交人工'], 'orange')
+        'GO → 根模块 scope', '父 MO → 子模块 scope', '子 MO → tasks', '', '起步门禁即冻结；design 按需', '真实未决 / 语义授权变化交人工'], 'orange')
     d.box(1210,880,330,280,'Ledger · 唯一总线',[
-        '分配包 / 事件 / 状态 / 证据', 'planning_context：全局视野', 'module_inputs：认领范围', 'context-submit：派发后预检', '就绪才开工，阻塞退回派发前', '父聚合颜色不回写子模块'], 'green')
+        '分配包 / 事件 / 状态 / 证据', 'planning_context：全局视野', 'module_inputs：认领范围', '预检：Ledger 代写或骨架起笔', '就绪才开工，阻塞退回派发前', '父聚合颜色不回写子模块'], 'green')
     d.box(1210,1230,330,230,'宿主执行层',[
         '实际派发执行角色并绑定身份', '实现 / 测试 / 修复执行角色', '同 Run：Fixer / CR / 父 MO / GO', '历史留痕，仅执行当前 SPEC', '遵守 DAG / 写锁 / 累计预算'], 'gray')
     d.box(1210,1530,330,280,'收尾 ≠ 全部通过',[
@@ -156,25 +156,25 @@ def module_execution():
     d.box(550,190,500,130,'子 MO · TASK 划分',[
         '继承 GO / 父 MO 的 scope / 全量 CASE',
         '职责、排除、允许写范围和依赖',
-        '原子能力作叶子，不继续拆 MO'],controller=True)
+        '叶子 = 子业务流，自带四维与 SPEC'],controller=True)
     d.arrow([(800,320),(800,400)])
     d.box(550,400,500,140,'四维 → SPEC / 测试路径',[
         'UI → Logic → Adhesive → Resource',
         'Spec-Designer：实施规范 + CASE / PATH / ASSERT',
-        '实现指导 / fidelity；独立 design 按需'])
+        '从 Ledger 骨架起笔；独立 design 按需'])
     d.arrow([(800,540),(800,610)])
     d.box(550,610,500,130,'MO 审核冻结',[
-        '规划完整可执行即冻结，不预演全部缺陷',
+        '起步门禁即冻结；保真欠项 DoD 前结清',
         'SPEC 是 Implementer 的规范',
         '真实未决 / 需求验收授权变化交 Human'],controller=True)
     d.arrow([(800,740),(800,810)])
     d.box(550,810,500,130,'Implementer · 按 TASK 执行',[
-        '派发后预检 ready 才开工',
+        'Ledger 代写预检；步骤先列提交必备证据',
         '按冻结 SPEC / 资源参数表生成或更新代码',
         '代码 / 追溯提交 → MO 接受'])
     d.arrow([(800,940),(800,1010)])
     d.box(550,1010,500,180,'Test-Runner · 正式验证',[
-        'build → unit → static（同一派发）',
+        'build → unit（同命令一次）→ static，同一派发',
         '全部通过后另派 automation，逐 PATH / ASSERT',
         '适用时另派 visual；原始回执 / 媒体 / 根因',
         '执行证据经 Ledger → MO 验收'])
@@ -227,7 +227,7 @@ def module_execution():
     d.box(70,1750,430,230,'证据与路径统计',[
         '保留原 receipt / test_run_id / 执行基线',
         'Ledger 另记 validation_reuse 有效性',
-        '宿主 / 模块 / TASK 统计成功及缺测',
+        '宿主 / 模块 / TASK 统计；TASK 缺口按模块计',
         '复用成功单列，不计本次新执行',
         'Red / Yellow 不凭证明转 Green'], 'gray')
     d.box(1110,1750,410,230,'阻塞与明确收尾',[
@@ -243,12 +243,13 @@ def module_execution():
         '审阅全部模块与宿主目标；局部独立性证明不免除 Auditor 权限'])
     d.box(70,190,430,160,'一任务 · 一 Run',[
         '执行唯一当前冻结 SPEC',
-        '规划修订只留不可执行 history',
+        'run 固定包版本；修订只留 history',
         '失败、经验与累计预算持续保留'], 'gray')
     d.box(70,420,430,160,'OpenSpec 六件套',[
         'proposal / spec / design',
         'tasks / status / checklist',
-        'status / checklist 由 Ledger 绑定投影'], 'gray')
+        'status / checklist 由 Ledger 投影',
+        '骨架起稿；产物不限体量'], 'gray')
     d.box(70,760,430,210,'资源与 fidelity 输入',[
         'API / URL / image / icon 来源追溯',
         '文件资源按清单复制并核对引用',
@@ -276,7 +277,7 @@ def auditor_closure():
         '审阅全部模块（含 Green）及宿主目标；先治理再遗留复核；global_paths 可为空'], 'orange')
     d.arrow([(800,310),(800,370)])
     d.box(500,370,600,135,'整体代码审查 → 分批收集',[
-        'audit-code-review：目标覆盖 / 改动 / 冗余 / 复用 / 公共能力','audit-collect：先治理 CR-*，再剩余 Red / Yellow','绑定 SPEC / PATH / provider 与消费者证据'])
+        'audit-code-review（骨架起笔）：目标/改动/冗余/复用/公共能力','audit-collect：先治理 CR-*，再剩余 Red / Yellow','绑定 SPEC / PATH / provider 与消费者证据'])
     d.arrow([(800,505),(800,565)])
     d.box(500,565,600,135,'根因分析 → 路由审核',[
         '治理用 fix / human；遗留可 fix / verify / human','GO 审核提供方 owner、消费者及依赖图','需新 TASK / 契约 / scope：恢复 CR / 上游规划'],controller=True)
@@ -319,7 +320,7 @@ def auditor_closure():
         'awaiting-human：保留各次断言、证据与问题归属','审核决定绑定当前报告摘要；不自动追加修复'], 'orange')
     d.arrow([(400,1735),(400,1795)])
     d.box(90,1795,620,155,'独立审阅收尾 → 全局报告',[
-        '遗留需 audit-testing；空清单只审阅证据','全通过 → 全局 Green → 按授权交付','仅缺自动化环境 → Yellow / 未执行报告收尾'], 'green')
+        '遗留需 audit-testing；空清单 Ledger 代预检、只审阅','全通过 → 全局 Green → 按授权交付','仅缺自动化环境 → Yellow / 未执行报告收尾'], 'green')
     d.arrow([(1200,1735),(1200,1795)],'purple')
     d.box(890,1795,620,155,'人工批准 → GO 释放批次 → 受控恢复',[
         'audit-release 后按原因 resume / recover / CR','需要时重新 plan / freeze；恢复不会直接 Green','再次满足全量收尾门禁，才可创建新审计批次'], 'purple')
@@ -349,7 +350,7 @@ def reuse_flow():
     d.arrow([(800,820),(800,880)])
     d.box(400,880,800,125,'子 MO / Spec Designer · 逐需求决策',[
         'requirement → capability / decision → task → PATH',
-        '接线、差异、版本及验证进入 design/tasks 与 reuse-plan.json'])
+        '接线 / 差异 / 版本进 reuse-plan；API 与数据契约对齐取数 / 计算'])
     d.arrow([(800,1005),(800,1060)],end=False)
     d.arrow([(225,1060),(1365,1060)],end=False)
     for x,title,body in [

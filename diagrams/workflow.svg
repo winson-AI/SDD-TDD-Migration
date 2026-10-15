@@ -24,10 +24,10 @@
 <rect x="100" y="425" width="1020" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="105" y="430" width="1010" height="155" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="610.0" y="457.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">GO · 功能覆盖 → 划 scope / 分配全量 CASE</text>
-<text x="610.0" y="491.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">默认从测试用例汇总抽取；无汇总则先理解存量源码；查漏，有疑问即人工</text>
+<text x="610.0" y="491.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">有用例：用例范围界定叶子；无用例：读源码建功能树再派生用例</text>
 <text x="610.0" y="520.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">TARGET + 指定二方库：reuse-catalog / 功能语义 / 行为差异 / 接入可行性</text>
 <text x="610.0" y="549.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先分配 scope / CASE；四维形式化业务、功能与代码边界</text>
-<text x="610.0" y="578.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">project / single-module 同一主线；原子能力可直接作为执行叶子</text>
+<text x="610.0" y="578.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">project / single-module 同一主线；叶子 = 功能树上的子业务流</text>
 <path d="M610,590 L610,690" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M340,690 L880,690" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M340,690 L340,700" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
@@ -39,14 +39,14 @@
 <rect x="105" y="705" width="470" height="160" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="340.0" y="735.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父 MO · 根模块 A</text>
 <text x="340.0" y="769.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">认领模块 / 实现 / 四维上下文</text>
-<text x="340.0" y="798.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">切子 scope / CASE；原子则作叶子</text>
+<text x="340.0" y="798.0" font-size="21.45" fill="#4b5563" text-anchor="middle" font-weight="400">按子业务流切叶（3–30 CASE）；页面是 TASK</text>
 <text x="340.0" y="827.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按范围组织四维边界与依赖</text>
 <text x="340.0" y="856.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">明确实现指导 / owner / 完整性</text>
 <rect x="640" y="700" width="480" height="170" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="645" y="705" width="470" height="160" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="880.0" y="735.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父 MO · 其他根模块 × N</text>
 <text x="880.0" y="769.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">project 按根模块分别建立父 MO</text>
-<text x="880.0" y="798.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子 scope / CASE；原子不继续拆分</text>
+<text x="880.0" y="798.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子 scope / CASE；功能叶不重叠、覆盖父</text>
 <text x="880.0" y="827.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">继承实现 / 复用 / 四维上下文</text>
 <text x="880.0" y="856.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">single-module 仅保留选定根模块</text>
 <path d="M340,870 L340,940 L610,940" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
@@ -140,14 +140,14 @@
 <text x="1375.0" y="659.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">父 MO → 子模块 scope</text>
 <text x="1375.0" y="688.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子 MO → tasks</text>
 <text x="1375.0" y="717.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400"></text>
-<text x="1375.0" y="746.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">可执行即冻结；design 按需</text>
+<text x="1375.0" y="746.0" font-size="21.44" fill="#4b5563" text-anchor="middle" font-weight="400">起步门禁即冻结；design 按需</text>
 <text x="1375.0" y="775.0" font-size="20.39" fill="#4b5563" text-anchor="middle" font-weight="400">真实未决 / 语义授权变化交人工</text>
 <rect x="1210" y="880" width="330" height="280" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
 <text x="1375.0" y="941.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Ledger · 唯一总线</text>
 <text x="1375.0" y="975.0" font-size="21.23" fill="#4b5563" text-anchor="middle" font-weight="400">分配包 / 事件 / 状态 / 证据</text>
 <text x="1375.0" y="1004.0" font-size="21.25" fill="#4b5563" text-anchor="middle" font-weight="400">planning_context：全局视野</text>
 <text x="1375.0" y="1033.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">module_inputs：认领范围</text>
-<text x="1375.0" y="1062.0" font-size="21.46" fill="#4b5563" text-anchor="middle" font-weight="400">context-submit：派发后预检</text>
+<text x="1375.0" y="1062.0" font-size="21.44" fill="#4b5563" text-anchor="middle" font-weight="400">预检：Ledger 代写或骨架起笔</text>
 <text x="1375.0" y="1091.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">就绪才开工，阻塞退回派发前</text>
 <text x="1375.0" y="1120.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">父聚合颜色不回写子模块</text>
 <rect x="1210" y="1230" width="330" height="230" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
