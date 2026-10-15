@@ -13,6 +13,7 @@ import resource_copy
 import resource_fidelity
 import ui_fidelity
 import user_paths
+import integration
 import workflow_cost
 
 
@@ -190,7 +191,8 @@ def build(root, s, sequence, ref_check=check_ref):
             (execution_scope_stale or last_execution.get('code_baseline') != current_baseline))
         stale = (m.get('stale') or m.get('effective_quality') == 'yellow-blocked' or
                  not tv.task_revalidation.valid(m, record)) if m else (
-                 invalid or record.get('stale') or record.get('code_baseline') != global_baseline)
+                 invalid or record.get('stale') or not (record.get('code_baseline') == global_baseline or
+                 (bool(record.get('owner_baselines')) and record['owner_baselines'] == integration.owner_baselines(s, path or {}))))
         # Environment omissions have no executed baseline to expire.
         stale = bool(stale and record.get('executed'))
         q = record.get('quality', 'yellow-blocked')
@@ -435,10 +437,12 @@ def render(report):
                    f"{r.get('cited_documents', 0)} / {r.get('cited_bytes', 0)} |"
                    for mid, r in cost['modules'].items() if 'plan_documents' in r]]
     if any('minutes_to_plan' in r for r in cost['modules'].values()):
-        text += ['', '首版耗时（自登记起的分钟数；被拒请求为该模块收到的拒绝数）：', '',
-                 '| 模块 | 首次 plan | 冻结 | 首次派发 | 首次 Green | 被拒请求 |', '| --- | --- | --- | --- | --- | --- |',
+        text += ['', '首版耗时（自登记起的分钟数；规划占比 = 冻结 / 首次 Green；被拒请求为该模块收到的拒绝数；测试先行为任务数：有 red 证据 / 无 / 不适用）：', '',
+                 '| 模块 | 首次 plan | 冻结 | 首次派发 | 首次 Green | 规划占比 | 被拒请求 | 测试先行 |', '| --- | --- | --- | --- | --- | --- | --- | --- |',
                  *[f"| {cell(mid)} | {cell(r.get('minutes_to_plan'))} | {cell(r.get('minutes_to_freeze'))} | {cell(r.get('minutes_to_first_dispatch'))} | "
-                   f"{cell(r.get('minutes_to_first_green'))} | {r.get('rejections', 0)} |" for mid, r in cost['modules'].items() if 'minutes_to_plan' in r]]
+                   f"{cell(r.get('minutes_to_first_green'))} | {cell(r.get('planning_share'))} | {r.get('rejections', 0)} | "
+                   f"{(r.get('tdd') or {}).get('observed', 0)} / {(r.get('tdd') or {}).get('not_observed', 0)} / {(r.get('tdd') or {}).get('not_applicable', 0)} |"
+                   for mid, r in cost['modules'].items() if 'minutes_to_plan' in r]]
     if cost.get('human_touches'):
         text += ['', f"人工介入（按用途）：{cell(cost['human_by_purpose'])}", '',
                  '| 决定 | 模块 | 用途 | 原因 |', '| --- | --- | --- | --- |',

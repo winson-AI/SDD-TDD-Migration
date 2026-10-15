@@ -30,7 +30,7 @@
 1. Auditor 与 Fixer 使用不同 agent_instance_id；同一次审计中审计者也不得是 Implementer 或测试脚本作者。能力不足则阻塞独立审计。
 2. Fixer 不改需求、验收标准或冻结 tasks，只提 CR；Spec-Designer 提修订、Module-Orchestrator 审核，语义变化需要 Human 决策。
 3. 所有跨层信息只走 Ledger。角色的产出写入自己的 staging 空间（Harmony 辅助产物使用 runs/harmony/sandbox 的专属待提交目录），再提交事件；上游已提交工件经 Ledger 引用才可被下游读取。不得私聊、直接修改别人的状态或利用 Agent 返回文本绕过总线。
-4. SPEC 未冻结不生成代码；代码未生成不执行任何目标代码测试；非 Green 未复测不算通过。锁释放、依赖恢复、人工回答均不能直接把测试改 Green。
+4. SPEC 未冻结不生成代码；代码未被接受不派发正式目标代码测试，作者自查不产生任何结果、不能代替正式测试；非 Green 未复测不算通过。锁释放、依赖恢复、人工回答均不能直接把测试改 Green。
 
 ## 并行模块隔离与 Auditor 全量收尾
 

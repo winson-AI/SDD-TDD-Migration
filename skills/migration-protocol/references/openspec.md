@@ -43,7 +43,7 @@ scenario_trace 写时每行给 scenario_id 与 task_ids，assertions 由 Ledger 
 
 SDD 先规划后执行、边执行边调整；完整可执行即冻结，不预演所有实现问题。现有 diagnose 的 repair_route 为 fixer/spec/upstream：code 默认 Fixer；spec、planning-gap、function-gap、dependency-gap、fidelity-gap 走 change；scope/scope-insufficient 走 realloc-request。依赖契约缺失区别于已有提供方暂不可用，后者沿原等待/恢复。MO 按游标审核提交；分类不能把规划缺口改称 fixer。CR 由 Spec-Designer 修订、MO 重冻、Implementer 更新已有代码；超 scope 才父 MO/GO。保留旧 PATH/ASSERT，可补原预期覆盖，同 Run 留 history。
 
-修改冻结定义须重冻；原决定仅在仍有效且有影响分析时沿用，不能假写新 hash 批准。默认全模块重验；有独立性证据才保留未影响 TASK 与既有 Green。
+修改冻结定义须重冻；原决定仅在仍有效且有影响分析时沿用，不能假写新 hash 批准。只改测试怎么做（步骤、参数、前置、措辞）而每条 PATH 的身份与每条断言的 expected/matcher/verification/after_step 不变的 CR，由 MO 审核即可冻结，Ledger 记事实；期望值变化才要人工决定。默认全模块重验；有独立性证据才保留未影响 TASK 与既有 Green。
 
 ## TASK 局部重验
 

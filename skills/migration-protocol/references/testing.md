@@ -78,7 +78,7 @@ unit 冻结 argv/cwd/timeout/selection_ref。unit_report 固定 format=junit、r
 
 解析 testcase/计数，保存具体 ID、执行/失败/跳过数量与报告 hash，绑定 run/module/PATH/assignment/test_run/freeze/code_baseline，接受时重核原报告。exit=0、实际执行非零、全部必需 ID 通过、无跳过/证据缺口才 Green。零执行、漏测、缺失/损坏/过期报告为 Yellow；断言失败或非环境中断的命令失败为 code Red，走既有诊断/Fixer。只收本 attempt 的新报告，旧 mtime/越界链接无效；任意可写 XML 的真实性仍依赖可信宿主执行。
 
-冻结同一命令的 unit PATH 由 execute_test 以 `--path-id a,b` 一次执行，JUnit 按各自 required_test_ids 拆成逐 PATH 回执。prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据。unit 无需设备，可证明逻辑 Scenario，但不替代 CASE 的 automation；环境缺失保留已通过 unit。枚举与唯一性类断言（键只定义一次、无多余键）挂扫描类进程内路径，不挂 unit。
+冻结同一命令的 unit PATH 由 execute_test 以 `--path-id a,b` 一次执行，JUnit 按各自 required_test_ids 拆成逐 PATH 回执。作者的 `selfcheck --path-id` 记下每个 required 测试的状态，实现前后两份记录是任务的 red 证据，只进报告不设门禁。prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据。unit 无需设备，可证明逻辑 Scenario，但不替代 CASE 的 automation；环境缺失保留已通过 unit。枚举与唯一性类断言（键只定义一次、无多余键）挂扫描类进程内路径，不挂 unit。
 
 ## 日志与按需追溯
 
@@ -127,9 +127,9 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 ## 二方库验证与根因
 
-基于冻结需求和 reuse-plan 中的行为差异设计真实提供方接线/版本/配置、边界/异常及适配路径；完整模块和全局用例仍须覆盖。mock/编译通过不替代必要集成测试。结果缺真实证据为 Yellow，实际断言错误为 Red；根因带 source/capability/mapping/version 和影响消费者。所选提供方变化使旧证据失效，Auditor 按 finding 依赖图重测，详见 [复用协议](reuse-dependencies.md)。
+基于冻结需求和 reuse-plan 的行为差异设计真实提供方接线/版本/配置、边界/异常及适配路径；mock/编译通过不替代集成测试。缺真实证据为 Yellow，断言错误为 Red，根因带 source/capability/mapping/version 和影响消费者；所选提供方变化使旧证据失效，详见 [复用协议](reuse-dependencies.md)。
 
-对 reuse/adapt/reference，design 从已审核的存量行为基线与需求建立 fidelity.scenarios 的复现断言；execute 用同场景前置/输入/状态验证真实目标链路，记录实际输出及副作用。每个 scenario 关联冻结 PATH/ASSERT 与 Main 回执，不能用库的当前返回值重写 expected。未确定基线先澄清，未执行不能 Green；对齐报告不是测试通过证据。MO/Auditor 验收沿用同一条完整证据链。
+对 reuse/adapt/reference，fidelity.scenarios 从已审核的存量行为基线建立复现断言，execute 用同场景前置/输入/状态验证真实目标链路；每个 scenario 关联冻结 PATH/ASSERT 与 Main 回执，不能用库的当前返回值重写 expected；对齐报告不是测试通过证据。
 
 ## 测试启动前的上下文门禁
 

@@ -430,7 +430,7 @@ def submit(s, req, actor, run_root=None):
 
 
 def requirement(op, p, s=None):
-    if op == 'audit-test-assign': return 'audit-execution'
+    if op in ('audit-test-assign', 'integration-assign'): return 'audit-execution'
     if op == 'audit-assign' and s is not None:
         from ledger import audit_scope
         return 'audit-testing' if audit_scope(s)['plan']['paths'] else 'audit-verdict'
@@ -513,7 +513,7 @@ def gate(s, req, actor, root=None):
         # Nothing to re-execute: the Auditor's preflight asks only what the Ledger holds, so the Ledger writes it.
         ref = mechanical_report(root, s, None, stage, {'role': 'auditor', 'instance_id': p.get('instance_id')})
     require(ref, 'context readiness receipt required for ' + op)
-    instance = p.get('instance_id') if op in ('assign', 'audit-assign', 'audit-test-assign') else None
+    instance = p.get('instance_id') if op in ('assign', 'audit-assign', 'audit-test-assign', 'integration-assign') else None
     if op in ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'run-review', 'audit-code-review'):
         instance = actor['instance_id']
     if op in SELF_REPORTED and obj.get('context_receipts', {}).get(stage + ':' + instance, {}).get('report_ref') != ref:

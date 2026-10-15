@@ -14,12 +14,39 @@ def acceptance_hash(m):
     return digest(acceptance(paths))
 
 
+# What a path verifies and what each assertion expects; the rest of their text is how the test is exercised.
+IDENTITY = ('path_id', 'case_id', 'requirement_id', 'requirement_ids', 'kind', 'platform', 'required', 'coverage', 'node_ids',
+            'image_check_ids', 'interaction_id', 'unit_report', 'baseline_ref')
+CORE = ('expected', 'matcher', 'verification', 'after_step')
+
+
 def acceptance_digests(paths):
     """Per-path and per-assertion digests of the frozen acceptance: enough to verify that a revision keeps every expectation,
     without carrying the paths' text in the state."""
     return {path['path_id']: {'shape': digest({k: v for k, v in path.items() if k != 'expected_assertions'}),
-                              'assertions': {a['assertion_id']: digest(a) for a in path['expected_assertions']}}
+                              'identity': digest({k: path.get(k) for k in IDENTITY}),
+                              'assertions': {a['assertion_id']: digest(a) for a in path['expected_assertions']},
+                              'core': {a['assertion_id']: digest({k: a.get(k) for k in CORE}) for a in path['expected_assertions']}}
             for path in acceptance(paths)}
+
+
+def tests_revised(m):
+    """The frozen paths whose exercise changed while what they verify did not: identity kept, every frozen assertion's
+    expected / matcher / verification / after_step kept, nothing removed. Empty when the acceptance holds or really moved."""
+    if preserves_acceptance(m):
+        return []
+    old = m.get('approved_acceptance_digests') or {}
+    current = acceptance_digests(m['plan']['paths'])
+    changed = []
+    for pid, frozen in old.items():
+        new = current.get(pid)
+        if new is None or 'identity' not in frozen or new['identity'] != frozen['identity']:
+            return []
+        if any(new['core'].get(aid) != d for aid, d in frozen.get('core', {}).items()):
+            return []
+        if new['shape'] != frozen['shape'] or any(new['assertions'].get(aid) != d for aid, d in frozen['assertions'].items()):
+            changed.append(pid)
+    return changed if old else []
 
 
 def preserves_acceptance(m):
@@ -67,7 +94,7 @@ def needs_human(m):
         return None
     if m.get('approved_envelope') and m['approved_envelope'] != digest(m['plan']['decision_envelope']):
         return 'decision boundary changed'
-    return None if preserves_acceptance(m) else 'acceptance changed'
+    return None if preserves_acceptance(m) or tests_revised(m) else 'acceptance changed'
 
 
 def technical_review(m, ref, actor=None, decided=False):

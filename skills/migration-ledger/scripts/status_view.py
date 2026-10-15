@@ -125,11 +125,13 @@ def _step(st, module_id, since=None):
         submission = (m.get('submissions') or {}).get(step.get('assignment_id'))
         if submission:
             out['submission'] = submission
-    if module_id is None and operation in ('audit', 'audit-assign', 'audit-test-assign', 'audit-test-submit'):
+    if module_id is None and operation in ('audit', 'audit-assign', 'audit-test-assign', 'audit-test-submit', 'integration-assign', 'integration-submit'):
+        import integration
         import ledger
-        assignment = st.get('audit_test_assignment') if operation == 'audit-test-submit' else st.get('audit_assignment')
+        wave = operation.startswith('integration-')
+        assignment = st.get('integration_assignment') if wave else st.get('audit_test_assignment') if operation == 'audit-test-submit' else st.get('audit_assignment')
         if assignment: out['assignment'] = {k: assignment[k] for k in ASSIGNMENT_KEYS if assignment.get(k) is not None}
-        scope = ledger.audit_scope(st)
+        scope = integration.scope(st) if wave else ledger.audit_scope(st)
         out['audit_input'] = {'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],
             'paths': scope['plan']['paths'], 'code_files': scope['code_files'], 'results': scope['results']}
     if operation in reading.PLANNING_OPERATIONS:

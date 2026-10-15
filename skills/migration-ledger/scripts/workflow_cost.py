@@ -7,6 +7,7 @@ decisions bound to the module or to its parent's batch envelope.
 from collections import Counter
 import json
 from pathlib import Path
+import red_evidence
 
 
 def staging_usage(root, events):
@@ -165,7 +166,9 @@ def build(s, events, resolve=None, root=None):
                      'card_dispatches': m.get('card_load', {}).get('dispatches', 0),
                      'card_bytes_full': m.get('card_load', {}).get('full', 0),
                      'card_bytes_delivered': m.get('card_load', {}).get('delivered', 0),
-                     'rejections': refused.get(mid, 0), **timings(events, mid)}
+                     'rejections': refused.get(mid, 0), **timings(events, mid), 'tdd': red_evidence.counts(m)}
+        rows[mid]['planning_share'] = (round(rows[mid]['minutes_to_freeze'] / rows[mid]['minutes_to_first_green'], 2)
+                                       if rows[mid].get('minutes_to_first_green') and rows[mid].get('minutes_to_freeze') is not None else None)
     totals = {k: sum(r[k] for r in rows.values()) for k in
               ('events', 'dispatches', 'context_receipts', 'acceptances', 'human_decisions', 'fix_rounds',
                'card_dispatches', 'card_bytes_full', 'card_bytes_delivered')}

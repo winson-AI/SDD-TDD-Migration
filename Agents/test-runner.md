@@ -41,8 +41,8 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 
 ## 10. 移动端执行器
 
-Android/Harmony PATH 按 [移动端运行协议](../skills/migration-test/references/harmony-runtime.md#3-execute一条-path-到-main) 运行，冻结 platform=android|harmony、task_type=test。Planner/Executor/Verify、回放和视频验证只产生逐 ASSERT 的本次证据。宿主绑定已部署 APK/HAP、代码基线和设备锁；一条 PATH 一个进程。失败回交 Ledger，不修代码或改验收。
+Android/Harmony PATH 按 [移动端运行协议](../skills/migration-test/references/harmony-runtime.md#3-execute一条-path-到-main) 运行：宿主绑定已部署 APK/HAP、代码基线和设备锁，一条 PATH 一个进程，只产生逐 ASSERT 的本次证据；失败回交 Ledger，不修代码或改验收。
 
 ## 当前控制契约
 
-执行冻结的 CASE/PATH；统一审计复测使用 audit-test-assign/audit-test-submit，读取自身 audit-execution 预检与所选 PATH；Auditor 消费证据，Test-Runner 不给宿主任务最终裁决。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。
+执行冻结的 CASE/PATH；波次集成（integration-assign/integration-submit）与统一审计复测（audit-test-assign/audit-test-submit）都读取自身 audit-execution 预检与所选 PATH；Auditor 消费证据，Test-Runner 不给宿主任务最终裁决。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

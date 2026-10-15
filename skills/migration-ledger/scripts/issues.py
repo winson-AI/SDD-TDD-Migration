@@ -9,7 +9,7 @@ from contracts import check_ref, digest, require
 import hashlib
 
 OPS = {'issue', 'issue-resolve'}
-KINDS = ('defect', 'fact', 'gap', 'need', 'decision', 'standing')
+KINDS = ('defect', 'fact', 'gap', 'need', 'decision', 'standing', 'debt')  # a debt is a fact about the code: kept for the audit, owed to nobody
 LEDGER = {'role': 'ledger', 'instance_id': 'ledger'}
 STEP_CHARS = 200     # what a step view shows of each line
 STEP_ROWS = 10       # how many open issues a step lists: the blocking ones first, then the newest
@@ -31,14 +31,14 @@ def handle(s, req, actor, sequence=None):
             require(isinstance(e.get('summary'), str) and e['summary'].strip(), 'issue summary required')
             require(isinstance(targets, list) and targets and set(targets) <= set(s['modules']) | set(s.get('module_groups', {})),
                     'issue applies_to names the registered modules it concerns')
-            require(not (e.get('blocks') and e['kind'] in ('standing', 'fact')), 'a standing rule is followed and a fact is recorded, not settled; it cannot block')
+            require(not (e.get('blocks') and e['kind'] in ('standing', 'fact', 'debt')), 'a standing rule is followed and a fact or debt is recorded, not settled; it cannot block')
             for ref in e.get('evidence_refs') or []:
                 check_ref(ref)
             judged[iid] = {'kind': e['kind'], 'summary': e['summary'].strip(), 'applies_to': sorted(set(targets)),
                            'blocks': bool(e.get('blocks')), 'evidence_refs': list(e.get('evidence_refs') or []),
                            'raised_by': actor, 'sequence': sequence,
                            # a fact is kept for the trace and owed to nobody: it is settled as it is recorded
-                           'resolved': {t: {'by': actor, 'recorded': True} for t in targets} if e['kind'] == 'fact' else {}}
+                           'resolved': {t: {'by': actor, 'recorded': True} for t in targets} if e['kind'] in ('fact', 'debt') else {}}
         issues.update(judged)
         return
     entries = p['resolutions'] if isinstance(p.get('resolutions'), list) else [p]
