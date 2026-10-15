@@ -63,17 +63,22 @@ class ReportSkeletonTests(unittest.TestCase):
         f.prepare(); f.implement('M001', 'I1'); f.verify_module('M001', 'T1'); f.complete('M001')
         step = f.state()['global_next_step']
         self.assertEqual(step['operation'], 'audit-code-review'); self.assertIn('--global', step['report_skeleton'])
+        f.call('issue', {'issue_id': 'DEBT-1', 'kind': 'debt', 'summary': 'temporary adapter duplicates the shared mapper', 'applies_to': ['M001']},
+               role='implementer', module=None)
+        with self.assertRaisesRegex(Rejected, 'cannot block'):
+            f.call('issue', {'issue_id': 'DEBT-2', 'kind': 'debt', 'summary': 'x', 'applies_to': ['M001'], 'blocks': True}, role='implementer', module=None)
         out = f.root / 'staging/auditor/review'
         result = report_skeleton.write(f.root, out)
         files = result['files']
         self.assertEqual(set(files), {'audit-change-inventory.md', 'audit-code-review.json'})
         text = check_ref(files['audit-change-inventory.md']).read_text()
+        self.assertIn('temporary adapter duplicates the shared mapper', text); self.assertIn('issue DEBT-1', text)
         s = f.state(); code = s['modules']['M001']['code_files'][0]
         self.assertIn('| CHG-001 | M001 / T1 |', text); self.assertIn(code['path'], text); self.assertIn('| M001 / C1 | P1 /', text)
         review = json.loads(check_ref(files['audit-code-review.json']).read_text())
         self.assertEqual(review['snapshot'], audit_code_review.snapshot(s))
         self.assertEqual(review['change_inventory_ref'], files['audit-change-inventory.md'])
-        self.assertEqual([m['module_id'] for m in review['modules']], ['M001'])
+        self.assertEqual([m['module_id'] for m in review['modules']], ['M001']); self.assertEqual(review['debts'], ['DEBT-1'])
         self.assertEqual(review['goal_review']['requirements'][0]['tasks'], [{'module_id': 'M001', 'task_id': 'T1'}])
         self.assertEqual(review['goal_review']['requirements'][0]['path_ids'], ['P1'])  # GP1 names no requirement
         self.assertEqual(review['modules'][0]['checks']['changes']['evidence_refs'], [files['audit-change-inventory.md']])

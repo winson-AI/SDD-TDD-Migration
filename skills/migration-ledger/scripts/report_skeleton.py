@@ -154,8 +154,15 @@ def inventory(s, sequence):
                                             sum(1 for m in s['modules'].values() for r in m.get('results', {}).values() if r.get('quality') == 'green-passed' and not r.get('stale'))),
               '- diff → CHG → 功能/REQ/TASK → CASE/PATH/ASSERT 双向追溯：' + todo('结论与缺口'),
               '', '## 8. 治理发现及后续动作', '', '| CR-ID / 缺口 | 功能 / CHG / CASE / PATH | 根因与证据 | owner / 影响范围 | 下一步 | Ledger 记录 |', '| --- | --- | --- | --- | --- | --- |',
+              *[('| %s | %s | %s | %s | %s | issue %s |' % (todo('CR-ID 或“不立案”'), cell(issue['applies_to']), issue['summary'], todo('owner / 影响范围'), todo('下一步'), iid))
+                for iid, issue in debts(s)],
               '| ' + todo('稳定 CR-ID，或“无”') + ' | | | | | |', '']
     return '\n'.join(lines)
+
+
+def debts(s):
+    """The debts the implementers recorded (issue kind debt): the audit starts its governance from them."""
+    return sorted((iid, issue) for iid, issue in s.get('issues', {}).items() if issue.get('kind') == 'debt')
 
 
 def latest_implementation(m):
@@ -184,7 +191,7 @@ def code_review(s, inventory_ref):
             'modules': [{'module_id': mid, 'diff_refs': [todo('{path, sha256} of the before/after evidence')],
                          'checks': {name: {'conclusion': todo('satisfied|finding|not-applicable'), 'reason': todo('what was compared'),
                                            'evidence_refs': [inventory_ref]} for name in audit_code_review.CHECKS}} for mid in s['modules']],
-            'findings': [], 'recovery_resolutions': [],
+            'findings': [], 'recovery_resolutions': [], 'debts': [iid for iid, _ in debts(s)],
             'goal_review': {'global_spec_ref': s['global_spec'], 'origin_spec_ref': origin, 'feature_ids': features,
                             'requirements': [{'requirement_id': rid, 'conclusion': todo('satisfied|finding|blocked'), 'reason': todo('original goal against the delivered code and its verification'),
                                               'tasks': tasks(rid), 'path_ids': paths(rid), 'evidence_refs': [inventory_ref]} for rid in s['requirement_ids']],

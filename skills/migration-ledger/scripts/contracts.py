@@ -330,6 +330,8 @@ def validate_result(result, module, assignment, run_root=None):
             allowed = (task.get('scope') or {}).get('write_paths', module['write_paths'])
             require(all(any(Path(path).resolve().is_relative_to(Path(p).resolve()) for p in allowed) for path in row.get('files', [])),
                     'implementation file outside assigned TASK scope')
+            import red_evidence
+            red_evidence.check(module, task, row)  # optional: two self-check notes, failing before the code and passing after
         code_paths = {r['path'] for r in result['code_files']}
         require(code_paths == {str(Path(p).resolve()) for files in owners.values() for p in files}, 'unowned code or missing task file')
         require(result.get('production_binding_evidence'), 'production binding evidence required')

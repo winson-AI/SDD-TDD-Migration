@@ -156,7 +156,7 @@ def op_sections(role, operation):
     """Sections that depend on the operation inside a family."""
     if operation in ('plan-review', 'planning-reopen'):
         return sections('state-machine.md', '控制主线') + sections('openspec.md', '冻结算法', '变更控制')
-    if operation in ('audit-test-assign', 'audit-test-submit'):
+    if operation in ('audit-test-assign', 'audit-test-submit', 'integration-assign', 'integration-submit'):
         return sections('audit-code-review.md', '宿主目标审计') + sections('audit-scope.md', '收尾的实际执行契约')
     if operation in ('run-review', 'revise-run', 'realloc-request', 'redecompose', 'redecompose-accept'):
         return sections('progress-recovery.md', '同 Run 上游修订') + sections('module-decomposition.md', '3. 分配与登记门禁')
@@ -625,6 +625,9 @@ GATES = [
     (r'global coverage review|planning requires current|allocation|decomposition|decompose|child |children|submodule|parent |root ',
      'module-decomposition.md', '3. 分配与登记门禁'),
     (r'dependenc|worker still active|module blocked|suspend|resume|not suspended|parallel budget', 'state-machine.md', 'Module-Orchestrator 唯一模块守卫'),
+    (r'red evidence|self-check note|first run must fail|second run must pass|a batch (runs|carries)|a note of a PATH', 'testing.md', '逻辑单测'),
+    (r'integration (Test-Runner|assignment|selection|task)|no global path is due', 'audit-scope.md', '收尾的实际执行契约'),
+    (r'tests-revised|fact or debt', 'openspec.md', '变更控制'),
     (r'path|assertion|test_run|retest|receipt|quality|executed', 'testing.md', '断言与结果'),
     (r'task|TASK|SPEC|plan |six-piece|definition|closure|feasibility', 'openspec.md', '冻结算法'),
     (r'freeze|approv|decision', 'state-machine.md', 'Freeze / DoD 分开'),

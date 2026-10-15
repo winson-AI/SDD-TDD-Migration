@@ -41,6 +41,7 @@ import issues
 import task_revalidation
 import user_paths
 import audit_execution
+import integration
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
@@ -1209,51 +1210,64 @@ def unfilled(*refs):
             require(not marked(ref), 'unfilled skeleton field left in ' + Path(ref['path']).name)
 
 
+def global_baseline(s):
+    refs = [ref for m in s['modules'].values() for ref in m['code_files']]
+    return baseline(refs) if refs else None  # no code yet: nothing to be green on
+
+
 def audit_scope(s):
     """Select unresolved paths, never expand an audit into a full project replay.
 
     Optional GLOBAL-only cases not yet executed (or invalidated by code changes)
-    are unverified, rather than implicitly Green. Module Green evidence is reused.
+    are unverified, rather than implicitly Green. Module Green evidence is reused; a global path
+    verified at the wave boundary stands while its owners' code is what it ran on.
     """
+    results = s.get('audit_results', {})
+    code_baseline = global_baseline(s)
+    return scope_of(s, [path for path in s.get('global_paths', [])
+                        if not integration.current(s, path, results.get(path['path_id']), code_baseline)], leftovers=True)
+
+
+def scope_of(s, global_paths, leftovers):
+    """The execution scope of GLOBAL work: the given global paths and, for an audit, every module path that is not green."""
     path_test_sources = {}
     refs = [ref for m in s['modules'].values() for ref in m['code_files']]
     code_baseline = baseline(refs)
     results = dict(s.get('audit_results', {}))
     selected, frozen_interactions, path_build_artifacts, path_dimension_analysis_refs = [], {}, {}, {}
-    for path in s.get('global_paths', []):
-        previous = results.get(path['path_id'])
-        if not previous or previous.get('stale') or previous['quality'] != 'green-passed' or previous.get('code_baseline') != code_baseline:
-            selected.append(path)
-            if path.get('test_design_ref'):
-                path_test_sources[path['path_id']] = {'module_id': 'GLOBAL', 'freeze_id': digest(path),
-                    'test_design_ref': path['test_design_ref'], 'contract_version': 1}
-            # A GLOBAL visual path explicitly names its frozen integration build owner/path.
-            binding = path.get('build_binding') or {}
-            owner = s['modules'].get(binding.get('module_id'), {})
-            build = owner.get('results', {}).get(binding.get('path_id'), {})
-            if (any(p.get('path_id') == binding.get('path_id') and p.get('kind') == 'build'
-                    for p in (owner.get('plan') or {}).get('paths', []))
-                    and build.get('quality') == 'green-passed' and build.get('code_baseline') == owner.get('code_baseline')
-                    and not owner.get('stale')):
-                path_build_artifacts[path['path_id']] = [r for r in build.get('build_artifacts', []) if r in owner.get('build_artifacts', [])]
-            if path.get('kind') in ('automation', 'visual') and path.get('interaction_id'):
-                from ui_evidence import interaction_contract
-                item = interaction_contract(path.get('frozen_interaction'))
-                require(item['id'] == path['interaction_id'], 'GLOBAL frozen interaction ID mismatch')
-                frozen_interactions[path['path_id']] = item
-    for m in s['modules'].values():
-        for path in m['plan']['paths']:
-            previous = m['results'].get(path['path_id'])
-            if previous and (previous.get('stale') or previous['quality'] != 'green-passed'):
-                selected.append(path)
-                if prepared_tests.source(m): path_test_sources[path['path_id']] = prepared_tests.source(m)
-                path_build_artifacts[path['path_id']] = list(m.get('build_artifacts', []))
-                if m['plan'].get('dimension_analysis_ref'):
-                    path_dimension_analysis_refs[path['path_id']] = m['plan']['dimension_analysis_ref']
-                results[path['path_id']] = previous
-                interaction = ui_fidelity.frozen_interaction(m, path)
-                if interaction is not None:
-                    frozen_interactions[path['path_id']] = interaction
+    for path in global_paths:
+        selected.append(path)
+        if path.get('test_design_ref'):
+            path_test_sources[path['path_id']] = {'module_id': 'GLOBAL', 'freeze_id': digest(path),
+                'test_design_ref': path['test_design_ref'], 'contract_version': 1}
+        # A GLOBAL visual path explicitly names its frozen integration build owner/path.
+        binding = path.get('build_binding') or {}
+        owner = s['modules'].get(binding.get('module_id'), {})
+        build = owner.get('results', {}).get(binding.get('path_id'), {})
+        if (any(p.get('path_id') == binding.get('path_id') and p.get('kind') == 'build'
+                for p in (owner.get('plan') or {}).get('paths', []))
+                and build.get('quality') == 'green-passed' and build.get('code_baseline') == owner.get('code_baseline')
+                and not owner.get('stale')):
+            path_build_artifacts[path['path_id']] = [r for r in build.get('build_artifacts', []) if r in owner.get('build_artifacts', [])]
+        if path.get('kind') in ('automation', 'visual') and path.get('interaction_id'):
+            from ui_evidence import interaction_contract
+            item = interaction_contract(path.get('frozen_interaction'))
+            require(item['id'] == path['interaction_id'], 'GLOBAL frozen interaction ID mismatch')
+            frozen_interactions[path['path_id']] = item
+    if leftovers:
+        for m in s['modules'].values():
+            for path in (m.get('plan') or {}).get('paths', []):
+                previous = m['results'].get(path['path_id'])
+                if previous and (previous.get('stale') or previous['quality'] != 'green-passed'):
+                    selected.append(path)
+                    if prepared_tests.source(m): path_test_sources[path['path_id']] = prepared_tests.source(m)
+                    path_build_artifacts[path['path_id']] = list(m.get('build_artifacts', []))
+                    if m['plan'].get('dimension_analysis_ref'):
+                        path_dimension_analysis_refs[path['path_id']] = m['plan']['dimension_analysis_ref']
+                    results[path['path_id']] = previous
+                    interaction = ui_fidelity.frozen_interaction(m, path)
+                    if interaction is not None:
+                        frozen_interactions[path['path_id']] = interaction
     return {'path_test_sources': path_test_sources, 'frozen_interactions': frozen_interactions, 'path_build_artifacts': path_build_artifacts,
             'path_dimension_analysis_refs': path_dimension_analysis_refs,
             'freeze_id': digest({k:v['freeze_id'] for k,v in s['modules'].items()}),
@@ -1359,7 +1373,7 @@ def mutate(s, req, principal, events, root=None):
         return issues.handle(s, req, principal, sequence=len(events) + 1)
     audit_before = copy.deepcopy(s['modules']) if audit_closure.active(s) or op in audit_closure.OPS else {}
     mid = req.get('module_id')
-    global_ops = {'register', 'decision', 'audit-code-review', 'audit-assign', 'audit', 'audit-revoke', 'audit-route', 'audit-unavailable'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS | source_changes.OPS | run_changes.OPS | audit_execution.OPS | {'retrospect'}
+    global_ops = {'register', 'decision', 'audit-code-review', 'audit-assign', 'audit', 'audit-revoke', 'audit-route', 'audit-unavailable'} | workflow.GLOBAL_OPERATIONS | audit_closure.GLOBAL_OPS | source_changes.OPS | run_changes.OPS | audit_execution.OPS | integration.OPS | {'retrospect'}
     if op in ('context-submit', 'session') and mid is None:
         global_ops.add(op)
     require((mid is None) == (op in global_ops), 'operation has incorrect global/module scope')
@@ -1562,6 +1576,11 @@ def mutate(s, req, principal, events, root=None):
         idle(m)
         control_policy.technical_review(m, p.get('review_ref'), principal, bool(approval(s, m, m['plan_hash']) or covering(s, m)))
         m['plan_review_ref'] = p['review_ref']
+        revised = control_policy.tests_revised(m)
+        if revised:  # how the frozen paths are exercised changed, not what they verify: the MO's review suffices, the fact stays
+            issues.record(s, 'SPEC-%s-tests-revised-%s' % (mid, m['plan_hash'][:8]), 'fact',
+                          '%s revised how %s are exercised; what they verify is unchanged, reviewed by the MO without a decision' % (mid, ', '.join(revised)),
+                          [mid], issues.LEDGER, sequence=len(events) + 1, resolved={mid: {'by': issues.LEDGER, 'recorded': True}})
         issues.cite(s, mid, p.get('resolves'), p['review_ref'], principal)  # what the review settles is settled with it
         m['review_gates'] = [{'gate': g['gate'], 'reason': g['reason']} for g in failing_gates(s, m)[0]]
     elif op == 'planning-reopen':
@@ -1675,6 +1694,9 @@ def mutate(s, req, principal, events, root=None):
             m['build_artifacts'] = []
             m['accepted_task_ids'] = sorted(set(m.get('accepted_task_ids', [])) | {t['task_id'] for t in result['task_trace']})
             m.setdefault('task_files', {}).update({t['task_id']: t['files'] for t in result['task_trace']})
+            import red_evidence
+            tasks_by_id = {t['task_id']: t for t in m['plan']['tasks']}
+            m.setdefault('task_red', {}).update({t['task_id']: red_evidence.status(m, tasks_by_id[t['task_id']], t) for t in result['task_trace']})
             decomposition.task_size_facts(s, mid, result['task_trace'], sequence=len(events) + 1)
             if result.get('dimension_evidence'):
                 m['dimension_evidence'] = copy.deepcopy(result['dimension_evidence'])
@@ -1877,6 +1899,8 @@ def mutate(s, req, principal, events, root=None):
         m['phase'] = 'completed'
     elif op in audit_execution.OPS:
         audit_execution.handle(s, req, principal, audit_scope(s))
+    elif op in integration.OPS:
+        integration.handle(s, req, principal, len(events) + 1)
     elif op == 'audit-assign':
         role(principal, 'global-orchestrator')
         workflow.planning_guard(s)
@@ -2372,6 +2396,14 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
                        'ready': bool(s['modules']) and not splitting,
                        'reason': 'module-decomposition-required' if splitting else 'coverage-review-required',
                        'continue_modules': rounds['ready_modules']}
+    elif integration.task(s):
+        item = integration.task(s)
+        global_next = {'operation': 'integration-submit', 'role': 'test-runner', 'ready': True, 'assignment_id': item['assignment_id'],
+                       'path_ids': item['path_ids'], 'reason': 'integration-running', 'continue_modules': rounds['ready_modules']}
+    elif integration.work_remaining(s) and integration.due(s):
+        # A wave boundary: every leaf holding these cases has completed; the final audit then re-runs only what moved.
+        global_next = {'operation': 'integration-assign', 'role': 'global-orchestrator', 'ready': True, 'reason': 'wave-complete',
+                       'path_ids': [x['path_id'] for x in integration.due(s)], 'continue_modules': rounds['ready_modules']}
     elif rounds['all_settled'] and not audit_code_review.current(s, ref_check):
         global_next = {'operation': 'audit-code-review', 'role': 'auditor', 'ready': True,
                        'reason': 'review-whole-change-before-defects', 'snapshot': audit_code_review.snapshot(s)}

@@ -33,6 +33,7 @@ work_modules 包含发现模块、根因 owner 与受影响下游，按模块基
 - `scope_policy: non-green-only`。
 - `path_ids`：当前模块结果为 Red/Yellow 的 PATH；已由问题闭环复核通过的不再加入。
 - 若用户另外声明了运行级 global_paths，仅加入其中非 Green、从未验证或代码基线已失效的路径。未验证不能隐式算 Green；已有效 Green 的额外路径同样不重复执行。没有额外运行级用例时无需补造它们。
+- 波次集成：持有某条 global path 用例的叶子全部完成时，游标给 GO `integration-assign`（独立 Test-Runner，audit-execution 预检，`integration-submit` 提交 kind=tests）；结果进 audit_results 并绑定各 owner 的 code_baseline，owner 代码未变则审计不重跑；Red 入 audit_repairs，owner MO repair-accept 后修复，同一代码上不重跑。
 - 有效构建 Green 不因自动化缺测被重跑或覆盖。对原 automation-deferred 模块补验时合并 PATH 结果，保留原构建证据。
 
 | 清单 | 上下文门禁 | 动作与报告 |
@@ -53,22 +54,13 @@ work_modules 包含发现模块、根因 owner 与受影响下游，按模块基
 
 ## 默认收尾：修复后验证，失败待人工
 
-本节描述统一宿主审计的 finding 批次（audit-collect），待所有模块本轮收尾后启动。角色及 Used Skills 由宿主实际启动/恢复，本控制器提供状态与门禁，不自带 Agent 调度服务。
+本节描述统一宿主审计的 finding 批次（audit-collect），待所有模块本轮收尾后启动。
 
 ### 1. 所有模块执行阶段结束后统一启动
 
-`audit-collect` 同时要求：
+`audit-collect` 要求全部模块处于 completed、waiting-auditor、waiting-dependency 或 waiting-human，没有活动 worker，也没有 ready 的下一动作（含 dependency-ready、resume、人工批准后的恢复）。未完成阶段不能当作遗留收走；需人工澄清的模块由 MO 明确 suspend，不能因"当前没人运行"就启动审计；尚不能运行的下游模块记依赖阻塞挂起，依赖/外围阻塞或预算耗尽后 audit-defer 留证退出。suspend(kind=dependency) 必须有已登记且未满足的依赖，human/tooling 挂起须有本模块的真实原因；模块隔离规则见 AGENTS.md。
 
-- 全部模块处于 completed、waiting-auditor、waiting-dependency 或 waiting-human。
-- 没有活动 worker，也没有 ready 的下一动作；包括 dependency-ready、resume、已有人工批准后的恢复。
-- 未完成的 context/specifying/clarifying/frozen/testing/dod 等阶段不能被当作遗留直接收走。正常模块继续推进；需人工澄清的模块由 MO 明确 suspend，不能仅因“当前没人运行”就启动审计。
-- 尚不能运行的下游模块可记录依赖阻塞并挂起；这表示本轮明确受阻，不表示测试通过。依赖/外围阻塞或适用预算耗尽后 audit-defer 留证退出。
-
-模块失败只影响自身记录和有证据的依赖影响范围；全局 quality=Red 不得反向改写其他 MO，也不能触发取消其他并行 worker。宿主逐个收集 MO 结果、继续 ready 模块、等待运行中的 MO，不能使用首个失败即取消整组的策略。suspend(kind=dependency) 必须存在已登记且尚未满足的依赖，Ledger 保存 dependency_module_ids；无关同伴失败不能充当依赖。human/tooling 挂起须有本模块的真实阻塞原因，不能用它们规避全量等待。
-
-status.module_rounds 返回 registered_modules、settled_modules、unfinished_modules、active_modules、ready_modules、blockers 和 all_settled；这些字段表示调度进度，与质量结论分离。存在遗留但其他模块尚未结束时，global_next_step.operation=null、ready=false、reason=await-all-module-rounds，并分别通过 continue_modules / wait_for_modules 指明继续与等待对象；next_steps 保留每个 MO 的下一动作。all_settled 不是审计授权，提交仍校验 global-plan、版本、预算和独立身份。
-
-Global 等上述条件全部满足才统一启动 Auditor。`status.global_next_step.module_barrier` 列出未收尾原因；直接调用 audit-collect 也会重新验证，不能绕过状态建议。全部模块已 Green 时直接进入 audit-assign；若无额外待验证路径，则 audit-review 记录 no-retest-needed，无需空收尾批次和测试环境。
+status.module_rounds 给出 registered/settled/unfinished/active/ready_modules、blockers 与 all_settled，表示调度进度而非质量；有遗留而其他模块未结束时 global_next_step 为 null/await-all-module-rounds，continue_modules / wait_for_modules 指明继续与等待对象。all_settled 不是审计授权，`module_barrier` 列出未收尾原因，直接调用 audit-collect 同样重新验证。全部模块 Green 时直接 audit-assign；无待验证路径则 audit-review 记 no-retest-needed。
 
 ### 2. 收集、根因分析与 finding 路由
 

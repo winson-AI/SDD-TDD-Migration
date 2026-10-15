@@ -84,16 +84,46 @@ def redirected(env):
     return init
 
 
-def selfcheck(argv, cwd, output):
+def selfcheck(argv, cwd, output, root=None, module_id=None, path_id=None):
     """A build or test run a role makes for itself, under the storage policy of an official execution: nothing it
-    builds lands in the tree it builds. It leaves no receipt and is no result."""
+    builds lands in the tree it builds. It leaves a note (selfcheck.json: command, exit code, times, log; for a frozen
+    unit PATH the state of each required test) and no receipt: a note is no result, but two notes of one PATH, failing
+    before a task's code and passing after it, are that task's red evidence."""
     out = Path(output).resolve()
     require(argv and Path(cwd).is_dir(), 'argv/cwd required')
     require(not out.exists() and not out.is_relative_to(Path(cwd).resolve()), 'self-check output must be a new directory outside the tree it builds')
+    path, m = None, None
+    if path_id:
+        require(root and module_id, 'a note of a PATH needs the run root and the module')
+        m = status(Path(root).resolve())['modules'][module_id]
+        path = next((p for p in m['plan']['paths'] if p['path_id'] == path_id), None)
+        require(path and path.get('kind') == 'unit' and path.get('unit_report'), 'a self-check note names a frozen unit PATH')
     out.mkdir(parents=True)
     env = runner_storage.environment(out)
     redirected(env)
-    return subprocess.run(runner_storage.build_command(argv, out), cwd=cwd, env=env).returncode
+    if path:
+        env['SDD_UNIT_REPORTS_REQUIRED'] = '1'
+    started = datetime.now(timezone.utc).isoformat()
+    with (out / 'selfcheck.log').open('wb') as log:
+        code = subprocess.run(runner_storage.build_command(argv, out, unit_report=bool(path)), cwd=cwd, env=env,
+                              stdout=log, stderr=subprocess.STDOUT).returncode
+    note = {'schema_version': 1, 'producer': 'author-selfcheck', 'argv': list(argv), 'cwd': str(Path(cwd).resolve()),
+            'exit_code': code, 'started_at': started, 'finished_at': datetime.now(timezone.utc).isoformat(),
+            'log_ref': file_ref(out / 'selfcheck.log')}
+    if path:
+        import unit_reports
+        import xml.etree.ElementTree as ET
+        seen = {}
+        for pattern in path['unit_report']['patterns']:
+            for report in sorted(out.glob(pattern)):
+                try:
+                    seen.update({row['test_id']: row['status'] for row in unit_reports.parse(report)})
+                except (ValueError, ET.ParseError):
+                    pass
+        note.update(module_id=module_id, path_id=path_id, freeze_id=m['freeze_id'],
+                    required={tid: seen.get(tid, 'missing') for tid in path['unit_report']['required_test_ids']})
+    atomic(out / 'selfcheck.json', note)
+    return code
 
 
 def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=300):
@@ -105,7 +135,12 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     require(pids and len(set(pids)) == len(pids), 'path_id required, each once')
     batch = len(pids) > 1
     path_id = pids[0]
-    if module_id == 'GLOBAL':
+    import integration
+    if module_id == 'GLOBAL' and (integration.task(s) or {}).get('assignment_id') == assignment_id:
+        a = integration.task(s)
+        m = integration.scope(s)
+        require(all(pid in a['path_ids'] for pid in pids), 'path outside the integration assignment')
+    elif module_id == 'GLOBAL':
         require(all(tv.available(m) for m in s['modules'].values()), 'audit modules no longer ready')
         m = audit_scope(s)
         a = s.get('audit_test_assignment', {})
@@ -328,10 +363,12 @@ def main():
     if sys.argv[1:2] == ['selfcheck']:  # execute_test.py selfcheck --cwd <tree> --output <new dir> -- <command...>
         parser = argparse.ArgumentParser(prog='execute_test.py selfcheck', description=selfcheck.__doc__)
         parser.add_argument('--cwd', required=True); parser.add_argument('--output', required=True)
+        for arg in ('root', 'module', 'path-id'):
+            parser.add_argument('--' + arg, help='together: note the state of the frozen unit PATH\'s required tests')
         parser.add_argument('command', nargs=argparse.REMAINDER)
         args = parser.parse_args(sys.argv[2:])
         try:
-            return selfcheck([arg for arg in args.command if arg != '--'], args.cwd, args.output)
+            return selfcheck([arg for arg in args.command if arg != '--'], args.cwd, args.output, args.root, args.module, args.path_id)
         except (ValueError, OSError) as exc:
             print(str(exc), file=sys.stderr)
             return 1

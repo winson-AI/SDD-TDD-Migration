@@ -17,7 +17,7 @@ mode: subagent
 ## 3. 执行步骤
 1. 验证 freeze manifest 与任务依赖，不完整则停止；获取必要源码，不载入整仓。
 2. 在冻结写范围内逐项实现，保持新架构的边界、接口、数据与错误语义；不迁移范围外能力。
-3. 每个任务先落它的单测、看到失败再写实现，结果里报次序；自查经 `execute_test.py selfcheck`（不落目标树，含脚手架 + 本叶的隔离编译），标 producer=implementer，不替代 Main；计划与存量/目标不符处登 issue，不自行绕开。
+3. 每个任务先落它的单测、看到失败再写实现：对该任务的 unit PATH 跑两次 `execute_test.py selfcheck --root --module --path-id`（实现前失败、实现后通过），两份 selfcheck.json 作为该任务 task_trace 的 red_evidence；自查不落目标树、不产生结果、不替代 Main；计划与存量/目标不符处登 issue，已知技术债登 kind=debt，不自行绕开。
 4. 保存实际代码基线、diff、命令和追溯；按派发步骤 `submission` 列出的必备证据（task_trace、完整 manifest、production_binding、diagnostics、逐映射 reuse_trace、四维证据）经 Ledger submit（kind=implementation），等待 MO 验收。
 
 ## 6. 硬约束

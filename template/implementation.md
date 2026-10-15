@@ -47,7 +47,7 @@ reference-only 说明借鉴了哪些业务语义及目标实现差异，不宣�
 
 ## 四维实现证据（Implementer / Fixer）
 
-先核对每个冻结 task.scope 与 task.dimension_analysis，按 implementation 指导实现；task_trace 文件不得超出对应任务写范围；每条可选 `test_order`（tests-first / code-first）申报该任务单测与实现的先后，不强制，审计可见。正式 implementation JSON 的 dimension_evidence 对冻结的每个 item 提交 item_id、task_ids、summary、evidence_refs；Resource 另附 target_resource_ref 与 consumer_refs（文件 hash 数组），逐文件对应规划中 consumer 字符串/数组的文件部分（符号用 # 分隔；同文件多个符号共用文件引用）。旧单值 consumer_ref 继续兼容，但不能代替其他消费者。复用文件可不在改动集合中，但必须存在并有真实生产消费者。详见 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)。
+先核对每个冻结 task.scope 与 task.dimension_analysis，按 implementation 指导实现；task_trace 文件不得超出对应任务写范围；每条可选 `test_order`（tests-first / code-first）申报该任务单测与实现的先后，可选 `red_evidence={before_ref, after_ref}` 引用同一 unit PATH 的两份自查记录（前者至少一个 required 测试未通过，后者全部通过）；都不强制，报告按任务计数。正式 implementation JSON 的 dimension_evidence 对冻结的每个 item 提交 item_id、task_ids、summary、evidence_refs；Resource 另附 target_resource_ref 与 consumer_refs（文件 hash 数组），逐文件对应规划中 consumer 字符串/数组的文件部分（符号用 # 分隔；同文件多个符号共用文件引用）。旧单值 consumer_ref 继续兼容，但不能代替其他消费者。复用文件可不在改动集合中，但必须存在并有真实生产消费者。详见 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)。
 
 ```json
 {

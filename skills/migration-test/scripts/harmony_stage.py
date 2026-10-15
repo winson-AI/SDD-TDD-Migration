@@ -15,8 +15,10 @@ from test_completion import interpret
 
 def build(root, module_id, assignment_id, receipts):
     s = status(root)
-    m = audit_scope(s) if module_id == 'GLOBAL' else s['modules'][module_id]
-    a = s['audit_assignment'] if module_id == 'GLOBAL' else m['assignments'][assignment_id]
+    import integration
+    wave = module_id == 'GLOBAL' and (integration.task(s) or {}).get('assignment_id') == assignment_id
+    m = integration.scope(s) if wave else audit_scope(s) if module_id == 'GLOBAL' else s['modules'][module_id]
+    a = integration.task(s) if wave else s['audit_assignment'] if module_id == 'GLOBAL' else m['assignments'][assignment_id]
     require(not a['closed'] and a['assignment_id'] == assignment_id, 'active assignment required')
     import test_validation as tv
     staged = module_id != 'GLOBAL' and tv.split(m)

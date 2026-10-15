@@ -180,6 +180,20 @@ class IterativeRepairTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'acceptance changed'):
             f.call('plan-review', {'review_ref': t.review()})
 
+    def test_revising_how_a_path_is_exercised_needs_the_mo_only(self):
+        t = self.t; f = self.f; t.freeze(); f.implementation()
+        f.call('change', {'request_ref': f.ref('cr.md', 'Steps clarified'), 'impact_ref': f.ref('impact.md', 'Same expectations')})
+        p = copy.deepcopy(f.state()['modules']['M001']['plan'])
+        p['paths'][0]['preconditions'] = ['fixture signed in']; p['paths'][0]['expected_assertions'][0]['description'] = 'result is two'
+        f.call('plan', {'plan_ref': f.ref('exercised-plan.json', p)}, role='spec-designer')
+        f.call('plan-review', {'review_ref': t.review()})  # no decision: what the path verifies did not move
+        fact = next(v for k, v in f.state()['issues'].items() if k.startswith('SPEC-M001-tests-revised-'))
+        self.assertEqual((fact['kind'], fact['resolved']['M001']['recorded']), ('fact', True)); self.assertIn('P1', fact['summary'])
+        p['paths'][0]['expected_assertions'][0]['matcher'] = 'contains'
+        f.call('plan', {'plan_ref': f.ref('matcher-plan.json', p)}, role='spec-designer')
+        with self.assertRaisesRegex(Rejected, 'acceptance changed'):
+            f.call('plan-review', {'review_ref': t.review()})
+
     def test_additional_assertion_for_original_expectation_can_be_reviewed_by_mo(self):
         t = self.t; f = self.f; t.freeze(); f.implementation()
         f.call('change', {'request_ref': f.ref('cr.md', 'Add fidelity check from original source'),

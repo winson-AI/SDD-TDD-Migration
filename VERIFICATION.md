@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1528 | 全量通过，零失败/错误/跳过；本轮新增执行侧骨架、同命令 unit 批量执行、提交证据先列、审计机械预检与 TASK 缺口口径的测试 |
+| migration-ledger/tests | 1535 | 全量通过，零失败/错误/跳过；本轮新增 red 证据、技术债 issue、只改测试写法的 CR、波次集成的测试 |
 | migration-test/tests | 70 | 全量通过；本轮未改适配器 |
 | runtime/harmony/tests | 128 | 全量通过；本轮未改运行内核 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮：执行侧报告（Test-Runner 预检与静态审查、Auditor 清单与代码审查）由 Ledger 写骨架，留标记即拒；冻结同一命令的 unit PATH 一次执行、逐 PATH 归因；实现派发先列提交必备证据，落点文件在交付内即视为 conformance；无待复测的审计由 Ledger 预检；报告的 TASK 行按模块缺口计缺路径。协议文字净减，上限不变。
+本轮：红线 4 改为分层表述（正式测试在代码接受之后，作者自查不产生结果），作者自查记录成为任务的 red 证据并按任务计数；报告加规划占比；issue 增 debt 类型供审计骨架预列；只改测试写法的 CR 由 MO 审核；global path 在持有叶子全部完成时即执行（波次集成），审计只重跑 owner 代码变动的路径。协议文字净减，上限不变。
 
-协议体积为 483436 / 483500 字节，最大单文件 27538 / 32000 字节。504 个全专题触发的阅读组合中最大卡片 35391 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.4%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 483489 / 483500 字节，最大单文件 27538 / 32000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中最大卡片 50389 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.5%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 
@@ -145,6 +145,11 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 提交证据先列、conformance 派生 | implementer/fixer 派发步骤的 submission 列出结果必备证据（任务追溯、完整 manifest、绑定、诊断、逐映射 reuse_trace、四维证据）；semantic_conformance 在冻结落点文件属于本次交付时由 Ledger 派生，带 ui_evidence 的 UI 模型仍须作者写 baseline_conformance | test_start_gates、test_semantics |
 | 无待复测的审计由 Ledger 预检 | audit_scope 为空时 audit-assign 不带 context_ref：Ledger 以 Auditor 名义写 audit-verdict 机械预检并登记；步骤标 mechanical；no-retest-needed 的 audit-review 照常裁决 | test_start_gates |
 | TASK 行按模块缺口计缺路径 | automation 统计里 TASK 行的缺路径 CASE 只计模块整体缺的 CASE，只绑 unit PATH 的任务不再把兄弟任务覆盖的 CASE 记为缺口 | test_migration_report |
+| 红线 4 分层与 red 证据 | 正式目标代码测试在代码被接受之后派发；作者自查不产生结果、不能代替正式测试。`selfcheck --root --module --path-id` 写 selfcheck.json（命令、退出码、时间、日志，逐 required 测试状态）；task_trace 可带 red_evidence={before_ref, after_ref}：同一 unit PATH 的两份自查记录，前者至少一个 required 未通过、后者全部通过且先后有序，Ledger 核验并记 task_red（observed / not-observed / not-applicable），不设门禁 | test_tdd_evidence |
+| 规划占比与测试先行计数 | workflow_cost 每叶给 planning_share = 冻结分钟 / 首次 Green 分钟，tdd 计数按任务；报告首版耗时表增列 | test_tdd_evidence |
+| 技术债 issue | issue kind=debt：与 fact 一样记录即结清、不能 blocks；审计骨架的清单第 8 节预列各 debt，审查 JSON 带 debts 清单 | test_report_skeleton |
+| 只改测试写法的 CR 归 MO | approved_acceptance_digests 另记每条 PATH 的 identity 与每条断言的 expected/matcher/verification/after_step 摘要；CR 只改步骤、参数、前置、措辞而身份与期望不变时 needs_human 为空，plan-review 记 SPEC-<mid>-tests-revised 事实；期望、matcher 或身份变化仍要人工决定 | test_iterative_spec |
+| 波次集成 | 持有某条 global path 用例的叶子全部完成且该路径无当前 Green 时，全局游标给 integration-assign（wave-complete）；独立 Test-Runner 以 GLOBAL 执行、integration-submit 提交，结果进 audit_results 并绑定各 owner 的 code_baseline，audit_scope 对 owner 代码未变的 Green 不重跑；Red 入 audit_repairs 由 owner MO repair-accept，同一代码上不重跑；证据漂移时不派发 | test_integration_wave |
 
 ## 包级核查
 
