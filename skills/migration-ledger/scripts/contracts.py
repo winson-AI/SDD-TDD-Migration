@@ -332,6 +332,8 @@ def validate_result(result, module, assignment, run_root=None):
                     'implementation file outside assigned TASK scope')
             import red_evidence
             red_evidence.check(module, task, row)  # optional: two self-check notes, failing before the code and passing after
+        import prepared_tests
+        prepared_tests.sources_delivered(module, set(traces), result['code_files'])
         code_paths = {r['path'] for r in result['code_files']}
         require(code_paths == {str(Path(p).resolve()) for files in owners.values() for p in files}, 'unowned code or missing task file')
         require(result.get('production_binding_evidence'), 'production binding evidence required')

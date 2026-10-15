@@ -17,6 +17,10 @@ def upstream_refs(s):
     return [ref or s['global_spec']]
 
 
+def definition_kind(kind):
+    return kind if kind == 'test-source' else 'test-' + kind
+
+
 def check_assets(s, result):
     assets = test_assets(result)
     owned = []
@@ -62,7 +66,12 @@ def upstream_plan(s, m, plan, judge=True):
     coverage(s, m, result, plan['tasks'])
     if s.get('behavior_contract_required'):
         import behavior_contract
-        behavior_contract.check_design(spec_scenarios(m, [d for d in plan['definitions'] if d['kind'] == 'spec']), result['paths'])
+        index = spec_scenarios(m, [d for d in plan['definitions'] if d['kind'] == 'spec'])
+        behavior_contract.check_design(index, result['paths'])
+        known = {row['scenario_id'] for row in index}
+        for asset in prepared_tests.assets(result):
+            if asset['kind'] == 'test-source':
+                require({row['scenario_id'] for row in asset['scenarios']} <= known, 'test source maps a scenario the SPEC does not define')
     return result
 
 
@@ -118,7 +127,7 @@ def materialize(s, m, plan, judge=True):
     if 'test-design' not in kinds:
         definitions.append({**result['design_ref'], 'kind': 'test-design'})
     for asset in test_assets(result):
-        definition = {**asset['ref'], 'kind': 'test-' + asset['kind']}
+        definition = {**asset['ref'], 'kind': definition_kind(asset['kind'])}
         if definition not in definitions: definitions.append(definition)
     plan['definitions'] = definitions
     return plan
@@ -132,6 +141,6 @@ def plan_check(s, m, plan, author=None, judge=True):
     defs = [r for r in plan['definitions'] if r['kind'] == 'test-design']
     require(len(defs) == 1 and {k: defs[0][k] for k in ('path', 'sha256')} == result['design_ref'],
             'plan test-design definition differs from accepted design')
-    require([r for r in plan['definitions'] if r['kind'] in ('test-script', 'test-fixture', 'test-adapter')] ==
-            [{**row['ref'], 'kind': 'test-' + row['kind']} for row in test_assets(result)],
+    require([r for r in plan['definitions'] if r['kind'] in ('test-script', 'test-fixture', 'test-adapter', 'test-source')] ==
+            [{**row['ref'], 'kind': definition_kind(row['kind'])} for row in test_assets(result)],
             'plan test assets differ from accepted design')

@@ -191,6 +191,13 @@ def submission(m, task_ids):
             out['dimension_evidence'] = {'items': sorted(items),
                 'ui_guided': sorted(iid for iid, item in items.items() if (item.get('semantic_model') or {}).get('ui_evidence')),
                 'resources': sorted(iid for iid, item in items.items() if item['dimension'] == 'Resource' and item.get('resource_strategy') != 'blocked')}
+        import prepared_tests
+        design = prepared_tests.source(m)
+        if design:
+            held = {pid for t in plan['tasks'] if t['task_id'] in task_ids for pid in t.get('path_ids', [])}
+            out['frozen_tests'] = [{'target_path': a['target_path'], 'sha256': a['ref']['sha256']}
+                                   for a in prepared_tests.assets(read_json(check_ref(design['test_design_ref'])))
+                                   if a['kind'] == 'test-source' and held & set(a['path_ids'])]
     except (Rejected, OSError, KeyError, TypeError):
         pass  # a reference that no longer resolves is the submit's rejection, not the step's
     return out

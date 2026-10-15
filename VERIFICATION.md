@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1535 | 全量通过，零失败/错误/跳过；本轮新增 red 证据、技术债 issue、只改测试写法的 CR、波次集成的测试 |
+| migration-ledger/tests | 1539 | 全量通过，零失败/错误/跳过；本轮新增冻结测试源与测试源骨架的测试 |
 | migration-test/tests | 70 | 全量通过；本轮未改适配器 |
 | runtime/harmony/tests | 128 | 全量通过；本轮未改运行内核 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮：红线 4 改为分层表述（正式测试在代码接受之后，作者自查不产生结果），作者自查记录成为任务的 red 证据并按任务计数；报告加规划占比；issue 增 debt 类型供审计骨架预列；只改测试写法的 CR 由 MO 审核；global path 在持有叶子全部完成时即执行（波次集成），审计只重跑 owner 代码变动的路径。协议文字净减，上限不变。
+本轮：测试源成为冻结资产（T1–T4）：Logic 条目的单测从 SPEC 写出、随计划冻结、原样交付、执行前核对；骨架由 Ledger 起稿。上一轮：红线 4 改为分层表述（正式测试在代码接受之后，作者自查不产生结果），作者自查记录成为任务的 red 证据并按任务计数；报告加规划占比；issue 增 debt 类型供审计骨架预列；只改测试写法的 CR 由 MO 审核；global path 在持有叶子全部完成时即执行（波次集成），审计只重跑 owner 代码变动的路径。协议文字净减，上限不变。
 
-协议体积为 483489 / 483500 字节，最大单文件 27538 / 32000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中最大卡片 50389 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.5%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 483488 / 483500 字节，最大单文件 27538 / 32000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中最大卡片 50670 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.6%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 
@@ -149,6 +149,8 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 规划占比与测试先行计数 | workflow_cost 每叶给 planning_share = 冻结分钟 / 首次 Green 分钟，tdd 计数按任务；报告首版耗时表增列 | test_tdd_evidence |
 | 技术债 issue | issue kind=debt：与 fact 一样记录即结清、不能 blocks；审计骨架的清单第 8 节预列各 debt，审查 JSON 带 debts 清单 | test_report_skeleton |
 | 只改测试写法的 CR 归 MO | approved_acceptance_digests 另记每条 PATH 的 identity 与每条断言的 expected/matcher/verification/after_step 摘要；CR 只改步骤、参数、前置、措辞而身份与期望不变时 needs_human 为空，plan-review 记 SPEC-<mid>-tests-revised 事实；期望、matcher 或身份变化仍要人工决定 | test_iterative_spec |
+| 冻结测试源 | test_assets 增 kind=test-source：从 SPEC 写出的测试源文件随计划冻结，记 target_path、required_test_ids（文件须定义 class 与方法）、scenarios（逐测试对应 Scenario-ID，行为契约开启时须在 SPEC 内）、symbols（须出现在文件中）；绑定的 unit PATH 只要求它定义的测试；留标记即拒。实现提交时，持有其 PATH 的任务必须把文件原样交付到 target_path（hash 相等），否则拒绝；派发步骤的 submission 列出 frozen_tests；execute_test 执行前核对文件 hash 并写回执 frozen_test_sources，同命令批量执行逐 PATH 带绑定；Green 不要求 test-source 的消费上报 | test_frozen_tests |
+| 测试源骨架 | spec_skeleton 为每个 Logic 条目写 test-sources/<Class>.kt（目标有 Kotlin 源时；否则 .txt），每个 CASE 一个 @Test 方法，Given/When/Then 留标记；unit PATH 预填 unit_report（required_test_ids）、expected=true、command 占位与 prepared 准备，test_assets 预填 test-source 条目 | test_frozen_tests |
 | 波次集成 | 持有某条 global path 用例的叶子全部完成且该路径无当前 Green 时，全局游标给 integration-assign（wave-complete）；独立 Test-Runner 以 GLOBAL 执行、integration-submit 提交，结果进 audit_results 并绑定各 owner 的 code_baseline，audit_scope 对 owner 代码未变的 Green 不重跑；Red 入 audit_repairs 由 owner MO repair-accept，同一代码上不重跑；证据漂移时不派发 | test_integration_wave |
 
 ## 包级核查

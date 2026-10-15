@@ -11,6 +11,7 @@ skeleton is never frozen as a specification. After editing, `contracts.py refs <
 """
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -114,7 +115,23 @@ def plans(s, m, out, documents):
                   command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': todo('选择依据引用')})]
     if static:
         paths.append(path(static, 'static', first, '静态规格闭合审查', expected=True))
-    paths += [path(unit_of[iid], 'unit', (items[iid]['case_ids'] or [first])[0], todo(f'{iid} 的单测名')) for iid in logic]
+    sources, test_assets = {}, []
+    for iid in logic:  # one frozen test source per Logic item: written from the SPEC, delivered verbatim, required by its unit PATH
+        pid = unit_of[iid]
+        cls = ''.join(part.capitalize() for part in re.split(r'[^A-Za-z0-9]+', iid) if part) + 'Test'
+        held = items[iid]['case_ids'] or ([first] if first else [])
+        methods = [('case_' + re.sub(r'[^A-Za-z0-9]+', '_', cid).strip('_').lower(), cid) for cid in held] or [('scenario_001', None)]
+        ids = [f'{cls}#{name}' for name, _ in methods]
+        name = f'test-sources/{cls}.' + language(s)
+        sources[name] = test_source(cls, pid, iid, methods)
+        test_assets.append({'asset_id': 'TEST-' + pid, 'kind': 'test-source', 'ref': name, 'path_ids': [pid],
+                            'target_path': todo('目标测试源集中的绝对路径'), 'required_test_ids': ids,
+                            'scenarios': [{'scenario_id': todo('Scenario-ID'), 'test_id': tid} for tid in ids],
+                            'symbols': [todo('测试调用的生产符号')]})
+        paths.append(path(pid, 'unit', held[0] if held else first, todo(f'{iid} 的单测名'), expected=True,
+                          command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': todo('选择依据引用')},
+                          unit_report={'format': 'junit', 'patterns': [todo('runner 相对的 JUnit 报告 glob')], 'required_test_ids': ids},
+                          preparation={'status': 'prepared', 'reason': '从 SPEC 写出并随计划冻结的测试源', 'evidence_refs': [], 'asset_ids': ['TEST-' + pid]}))
     paths += [path(path_of[cid], 'automation', cid, todo(f'{cid} 的上游用例路径名')) for cid in cases]
     tasks = []
     for n, (name, held) in enumerate(groups, 1):
@@ -130,11 +147,11 @@ def plans(s, m, out, documents):
     test_note = (f"# {mid} 测试计划\n\n上游用例：{'、'.join(cases)}\n\n" + ''.join(f"- {p['path_id']}（{p['kind']}）：{p['name']}；CASE {p['case_id']}\n" for p in paths)
                  + f"\n{todo('每条路径的前置、步骤、断言与准备方式')}\n")
     upstream = {'schema_version': 1, 'kind': 'upstream-test-plan', 'module_id': mid, 'subject_sha256': design_stage.subject(s, m),
-                'case_refs': design_stage.upstream_refs(s), 'design_ref': None, 'paths': paths, 'test_assets': []}
+                'case_refs': design_stage.upstream_refs(s), 'design_ref': None, 'paths': paths, 'test_assets': test_assets}
     plan = {'schema_version': 1, 'module_id': mid,
             'definitions': [{'kind': kind, **documents[kind + '.md']} for kind in ('proposal', 'spec', 'design', 'tasks')],
             'test_design_ref': None, 'tasks': tasks, 'dimension_trace': trace}
-    out_files = {'test-plan.md': test_note, 'upstream-test-plan.json': upstream, 'stage-plan.json': plan}
+    out_files = {'test-plan.md': test_note, 'upstream-test-plan.json': upstream, 'stage-plan.json': plan, **sources}
     if m.get('parent_module_id') or s.get('reuse_required'):
         catalog = None
         for ref in m.get('context_refs') or []:
@@ -156,6 +173,21 @@ def plans(s, m, out, documents):
     return out_files
 
 
+def language(s):
+    """The test language the skeleton is written in: Kotlin when the target holds Kotlin sources, else a neutral text."""
+    target = Path(s.get('target_root') or '')
+    return 'kt' if target.is_dir() and next(target.rglob('*.kt'), None) else 'txt'
+
+
+def test_source(cls, pid, iid, methods):
+    """A test class from the SPEC: one test per case the Logic item holds, Given / When / Then left to the author."""
+    body = ''.join(f"    // CASE {cid or todo('CASE')}\n    @Test\n    fun {name}() {{\n        // Given {todo('前置状态（Scenario-ID）')}\n"
+                   f"        // When {todo('调用冻结的生产符号')}\n        // Then {todo('断言上游预期')}\n        TODO(\"{todo('实现断言后删除')}\")\n    }}\n\n"
+                   for name, cid in methods)
+    return (f"import kotlin.test.Test\n\n// {pid} · {iid}：从 SPEC 写出、随计划冻结；Implementer 原样落到 target_path，不改动\n"
+            f"class {cls} {{\n{body}}}\n")
+
+
 def write(root, module_id, out):
     import ledger
     s, _ = ledger.read_events(root)
@@ -173,9 +205,12 @@ def write(root, module_id, out):
         files[name] = file_ref(out / name)
     rest = plans(s, m, out, files)
     require(not any((out / name).exists() for name in rest), 'refusing to overwrite plan files in ' + str(out))
-    for name in ('test-plan.md', 'reuse-fidelity.md'):  # the notes first: the JSON files cite them
+    for name in ('test-plan.md', 'reuse-fidelity.md', *[n for n in rest if n.startswith('test-sources/')]):  # the notes and sources first: the JSON files cite them
         if name in rest:
+            (out / name).parent.mkdir(parents=True, exist_ok=True)
             (out / name).write_text(rest[name]); files[name] = file_ref(out / name)
+    for asset in rest['upstream-test-plan.json']['test_assets']:
+        asset['ref'] = files[asset['ref']]
     rest['upstream-test-plan.json']['design_ref'] = files['test-plan.md']
     if 'reuse-plan.json' in rest:
         for row in rest['reuse-plan.json']['mappings']:

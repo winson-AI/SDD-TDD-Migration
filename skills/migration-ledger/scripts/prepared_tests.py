@@ -1,6 +1,9 @@
 """Frozen test inputs shared by module execution and whole-task audit retests."""
 from pathlib import Path
-from contracts import Rejected, check_ref, keyed, nonempty, read_json, require
+import re
+from contracts import Rejected, check_ref, digest, keyed, marked, nonempty, read_json, require
+
+KINDS = ('script', 'fixture', 'adapter', 'test-source')
 
 
 def assets(result):
@@ -10,11 +13,13 @@ def assets(result):
     paths = keyed(result.get('paths'), 'path_id')
     directory = check_ref(result['design_ref']).parent
     for asset in indexed.values():
-        require(asset.get('kind') in ('script', 'fixture', 'adapter'), 'unknown test asset kind')
+        require(asset.get('kind') in KINDS, 'unknown test asset kind')
         require(check_ref(asset.get('ref')).is_relative_to(directory), 'test asset outside designer staging directory')
         pids = set(nonempty(asset.get('path_ids'), 'test asset PATHs'))
         require(pids <= set(paths), 'test asset references unknown PATH')
         require(not {'actual', 'passed', 'executed', 'quality'}.intersection(asset), 'prepared test asset cannot claim execution')
+        if asset['kind'] == 'test-source':
+            test_source(asset, {pid: paths[pid] for pid in pids})
         if asset['kind'] == 'script':
             pairs = nonempty(asset.get('assertions'), 'test script assertion mapping')
             require({p.get('path_id') for p in pairs} == pids, 'test script must map each declared PATH')
@@ -22,6 +27,49 @@ def assets(result):
                 require(pair.get('assertion_id') in {a['assertion_id'] for a in paths[pair['path_id']]['expected_assertions']},
                         'test script references unknown assertion')
     return list(indexed.values())
+
+
+def test_source(asset, paths):
+    """A test written from the SPEC before the code and frozen with it: it defines every required test it names, maps
+    each to a scenario, declares the production symbols it calls, lands verbatim at target_path, and the unit PATHs it
+    binds require only tests it defines."""
+    require(isinstance(asset.get('target_path'), str) and Path(asset['target_path']).is_absolute(), 'test source needs an absolute target_path in the module write scope')
+    ids = nonempty(asset.get('required_test_ids'), 'test source required_test_ids')
+    require(all(isinstance(i, str) and i.count('#') == 1 and all(i.split('#')) for i in ids) and len(set(ids)) == len(ids),
+            'required_test_ids must be unique classname#name values')
+    require(not marked(asset['ref']), 'unfilled skeleton field left in ' + Path(asset['ref']['path']).name)
+    text = check_ref(asset['ref']).read_text(errors='replace')
+    for tid in ids:
+        cls, name = tid.split('#')
+        require(re.search(r'\bclass\s+' + re.escape(cls.rsplit('.', 1)[-1]) + r'\b', text) and re.search(r'\b' + re.escape(name) + r'\s*\(', text),
+                'test source does not define ' + tid)
+    rows = asset.get('scenarios')
+    require(isinstance(rows, list) and rows and all(isinstance(r, dict) and r.get('scenario_id') and r.get('test_id') in ids for r in rows),
+            'test source maps each scenario to one of its required tests')
+    for symbol in asset.get('symbols') or []:
+        require(isinstance(symbol, str) and symbol and symbol in text, 'declared production symbol not used in the test source: ' + str(symbol))
+    for pid, path in paths.items():
+        policy = path.get('unit_report') or {}
+        require(policy.get('required_test_ids') and set(policy['required_test_ids']) <= set(ids),
+                'a test source binds a PATH whose unit_report requires only tests it defines: ' + pid)
+
+
+def sources_delivered(module, task_ids, code_files):
+    """The task that holds a frozen test source's PATH delivers the file verbatim at target_path."""
+    design = source(module)
+    if not design:
+        return
+    delivered = {str(Path(r['path']).resolve()): r['sha256'] for r in code_files}
+    tasks = {t['task_id']: set(t.get('path_ids', [])) for t in module['plan']['tasks']}
+    for asset in assets(read_json(check_ref(design['test_design_ref']))):
+        if asset['kind'] == 'test-source' and any(set(asset['path_ids']) & tasks.get(tid, set()) for tid in task_ids):
+            require(delivered.get(str(Path(asset['target_path']).resolve())) == asset['ref']['sha256'],
+                    'frozen test source missing or changed at ' + asset['target_path'] + '; a test is revised by a change request, not by the implementer')
+
+
+def frozen_sources(binding):
+    """{path, sha256} of the frozen test sources a PATH binds, as the freeze holds them."""
+    return [{'path': a['target_path'], 'sha256': a['ref']['sha256']} for a in (binding or {}).get('assets', []) if a['kind'] == 'test-source']
 
 
 def preparation(result, required=False, freezing=False):
@@ -90,8 +138,9 @@ def validate_receipt(module, path, receipt, quality):
     require(receipt.get('test_asset_usage') == observed, 'test asset usage changed')
     if quality == 'green-passed':
         require(not observed.get('error'), 'Green requires valid test asset usage evidence')
-        require({a['asset_id'] for a in expected['assets']} <= set(observed['entrypoint_ids'] + observed['reported_ids']),
+        require({a['asset_id'] for a in expected['assets'] if a['kind'] != 'test-source'} <= set(observed['entrypoint_ids'] + observed['reported_ids']),
                 'Green requires evidence of frozen test asset consumption')
+    require(receipt.get('frozen_test_sources', []) == frozen_sources(expected), 'frozen test sources differ from the freeze')
 
 
 def global_authors(state):
