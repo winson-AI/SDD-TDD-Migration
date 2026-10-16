@@ -288,15 +288,15 @@ def baseline_gate(s, m, allocation=True):
             executable = evidence.get('legacy_executable')
             require(isinstance(executable, bool),
                     'legacy executability must be decided before freeze for ' + item['item_id'])
+            import reference_media
             if executable:
-                require(evidence.get('visual_mode') == 'runtime',
-                        'a previewable legacy screen must carry runtime baseline evidence: ' + item['item_id'])
+                require(evidence.get('visual_mode') == 'runtime' or evidence.get('visual_mode') == 'user-reference' and reference_media.expectation(s, item),
+                        'a previewable legacy screen must carry runtime baseline evidence, or align to the user target expectation: ' + item['item_id'])
                 for ref in nonempty(evidence.get('baseline_refs'), 'baseline screenshots for ' + item['item_id']):
                     check_ref(ref)
             else:
                 require(evidence.get('visual_mode') in ('source-only', 'user-reference'),
                         'a non-previewable legacy screen falls back to source-only, or to the user reference screenshots: ' + item['item_id'])
-            import reference_media
             reference_media.evidence_gate(s, item, evidence)
     covered = {node for path in visual for node in path.get('node_ids', [])}
     for target in runtime_targets(analysis):

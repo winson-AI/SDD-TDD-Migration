@@ -555,7 +555,7 @@ def templates(s, m, step):
 GATES = [
     (r'\bissues? |issue[_-]|blocking issue|gap the Ledger recorded|standing rule', 'local-runtime.md', '操作矩阵'),  # first: an issue's text may name any topic
     (r'build unit busy', 'build-automation.md', '总则'),
-    (r'reference media|reference screenshot|the user showed|user-reference', 'project-context.md', '用户参考媒体'),
+    (r'reference media|reference screenshot|the user showed|user-reference|target expectation', 'project-context.md', '用户参考媒体'),
     (r'the plan settles (?!an API)', 'dimension-slicing.md', '4. 控制节点与交接'),
     (r'trace routes|invalid finding action', 'local-runtime.md', '操作矩阵'),
     (r'self-check output', 'build-automation.md', '构建资产位置'),

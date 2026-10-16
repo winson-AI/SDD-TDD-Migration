@@ -6,8 +6,8 @@ UI 实现需有存量源树、明确 page/state/coverage 和实际可得的运�
 
 UI scope 使用可校验载体：
 
-- **capture 目标** `page_id:state_id:coverage`（coverage ∈ `viewport|scroll`），显式列出本切片需视觉验证且可稳定复现的界面态。
-- **稳定 id**：原生树保留自己的 screen/node id；SDD 的 `node:<原生节点id>` 引用它。binding/event 是带源码锚点的对象，不能以字符串 ID 代替记录；资源和交互引用随冻结模型互引。
+- **capture 目标** `page_id:state_id:coverage`（coverage ∈ `viewport|scroll`）：本切片需视觉验证且可稳定复现的界面态。
+- **稳定 id**：原生树保留自己的 screen/node id，SDD 以 `node:<原生节点id>` 引用；binding/event 是带源码锚点的对象，资源和交互引用随冻结模型互引。
 - **显式 exclusions**：范围外界面态/手势/资源逐条声明。
 
 ### 稳定截图目标与瞬态行为
@@ -20,7 +20,7 @@ GO/父 MO 分配时保留全部源状态；Spec-Designer 冻结前区分两类�
 | loading/skeleton/动画过渡等瞬态状态 | 保留源码行为、UI 树动态规则、SPEC 场景和聚焦的状态转换测试 | 不为抢拍而添加 visual PATH，不添加假延时 |
 | 明确要求且可稳定复现的 loading 等产品状态 | 记录稳定复现条件与用户需求依据，按稳定目标处理 | 正常执行冻结视觉路径，不能事后降为瞬态免测 |
 
-分类以实际行为与需求为准，不按状态名字猜测。测试可用受控时钟或可控响应验证瞬态转换，不能改生产时序凑截图。无瞬态状态时无需空记录；source-only 的稳定状态沿已有保真限制披露。缺瞬态截图不产生额外 Yellow，也不降低稳定目标的视觉结论；缺其行为测试仍是原 CASE/PATH 的覆盖缺口。父 MO 汇总及 Auditor 沿用冻结分类，不删行为义务、不临时扩大截图清单。样式见 [UI 状态测试表](../../../template/ui-state-test-design.md)。
+分类以实际行为与需求为准，不按状态名猜测；测试可用受控时钟或响应验证瞬态转换，不改生产时序凑截图。无瞬态状态时无需空记录。缺瞬态截图不产生额外 Yellow，也不降低稳定目标的视觉结论；缺其行为测试仍是原 CASE/PATH 的覆盖缺口。父 MO 与 Auditor 沿用冻结分类，不删行为义务、不扩大截图清单。样式见 [UI 状态测试表](../../../template/ui-state-test-design.md)。
 
 ## UI 证据绑定
 
@@ -44,7 +44,7 @@ prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-le
 |---|---|---|
 | **存量可预览** | `legacy_executable: true` + `visual_mode: runtime` + `baseline_refs`（存量截图） | 截图**指导 SPEC 生成与 Implementer coding**；后续作视觉对齐基线 |
 | **存量不可预览** | `legacy_executable: false` + `visual_mode: source-only` | 回退保留 UI 源码，但**仍强制走四维 UI 中间表征层**（`ui-component-spec` + `ui_tree`）指导 coding；无基线，不伪造视觉通过 |
-| **用户参考** | `legacy_executable: false` + `visual_mode: user-reference` + `baseline_refs`（[用户参考媒体](project-context.md#用户参考媒体)中该 CASE 的截图） | 用户截图指导 SPEC 与 coding，并作视觉对齐基线 |
+| **用户参考** | `visual_mode: user-reference` + `baseline_refs`（[用户参考媒体](project-context.md#用户参考媒体)中该 CASE 的截图；legacy-baseline 限存量不可预览） | 用户截图指导 SPEC 与 coding，并作视觉对齐基线 |
 
 未判定可执行性 → 不能冻结。实现接受时 conformance 用 `baseline_conformance` 引用指导 coding 的基线或中间表征（runtime/user-reference→`baseline_refs`；source-only→`ui_tree_ref`）。
 
@@ -55,11 +55,11 @@ Test-Runner 在 build Green 后分两层（第一层：功能用例路径走通�
 - `visual` 路径须绑定 `node_ids`（稳定 `node:` id）与 `baseline_ref`（[test_validation.plan_check](../../migration-ledger/scripts/test_validation.py)），并显式 coverage = 对应 UI item 的 page/state/coverage；baseline_ref 属于该目标 baseline_refs，node_ids 只引用该目标真实树节点。每个 runtime/user-reference 目标至少一条 visual PATH，不跨状态充数。
 - 阶段顺序由 `tv.next_scope` 强制：**第二层需第一层 Green**；DoD 要求**全部三层路径 Green**（`tv.all_green`）。
 - 视觉不对齐 = **Red + 节点级 root_cause** → ④三态 / ⑤`diagnose` → 一轮 Fixer，**复用既有修复预算**。
-- 声明的手势（`interaction:<id>`）须由某条 automation 或 visual 路径承载设备证据（`interaction_id`），静态路由不可替代。
-- `source-only` 无第二层：行为用 automation 验证，按显式缺视觉证据收尾，不允许"没基线就免检"；runtime 目标的视觉义务仍保留。
+- 声明的手势（`interaction:<id>`）须由 automation 或 visual 路径承载设备证据（`interaction_id`），静态路由不可替代。
+- `source-only` 无第二层：行为用 automation 验证，按显式缺视觉证据收尾，不允许"没基线就免检"。
 - 仅自动化环境缺失时，`automation-unavailable` 同时挂起 automation 与 visual，沿既有 Yellow 缺测收尾。
 
-正式视觉 Green 要求 `record.visual_alignment` 与回执的 `captured.visual_alignment` 一致：冻结 PATH 的 coverage/node_ids/baseline_ref、当前 code_baseline、本轮已接受且 hash 可校验的 hap_ref。声明 interaction_id 时，execute_test 从冻结 dimension model 取 frozen_interaction 写入 query；proof.required_interaction 须一致，interaction_checks 须有同 ID、PASSED、同 action、observed 满足冻结 expected、同 hap_sha256/代码基线的唯一记录，不得改成更容易的动作或页面。Red/Yellow 可留不完整证据与原因，不得为缺设备伪造哈希或通过；未完成自动化按 Yellow 收尾，其他模块继续。execute_test 经 lean_visual_adapter 接入原始比较结果，见[接入协议](domain-tools.md#总则)。
+正式视觉 Green 要求 `record.visual_alignment` 与回执的 `captured.visual_alignment` 一致：冻结 PATH 的 coverage/node_ids/baseline_ref、当前 code_baseline、本轮已接受且 hash 可校验的 hap_ref。声明 interaction_id 时，execute_test 从冻结 dimension model 取 frozen_interaction 写入 query；proof.required_interaction 须一致，interaction_checks 须有同 ID、PASSED、同 action、observed 满足冻结 expected、同 hap_sha256/代码基线的唯一记录，不得改成更容易的动作或页面。Red/Yellow 可留不完整证据与原因，不得为缺设备伪造哈希或通过；未完成自动化按 Yellow 收尾。execute_test 经 lean_visual_adapter 接入原始比较结果，见[接入协议](domain-tools.md#总则)。
 
 automation 手势使用 [interaction-evidence.json](../../../template/interaction-evidence.json)：正式 Green 同样核对冻结动作、起点、预期、当前 HAP/代码及实际观测，record 与原始 report 的 interaction_evidence 一致；不要求截图基线，不从 expected 合成 observed。Harmony 未产出该结构化证据时，已执行断言保留并规范化为 Yellow（interaction-evidence-unavailable）；真实 Red 不被覆盖，能力缺失不新增全局阻塞。
 
@@ -69,7 +69,7 @@ automation 手势使用 [interaction-evidence.json](../../../template/interactio
 
 - 优先：页面/状态不符或固定区域缺失多余 → 顶/底/居中锚点错位 → 遮罩与层级 → 主要区域偏移 → 文本裁切/换行/字号 → 媒体裁切与比例 → 有明确影响的颜色/透明度。
 - 忽略：状态栏时间电量、压缩与抗锯齿噪声、轻微等比缩放、槽位正确时的远程图片内容、微小图标偏移。
-- 修复面：Fixer 只改布局与修饰、排版/颜色/形状/可见性、已迁移资源的消费者、图片裁切与呈现、比较所需的确定性状态准备；不得为贴近截图或过检伪造数据、重绘资源或换图标。改行为、数据契约、导航或规格走 CR，资源映射本身的错误交资源 owner。
+- 修复面：Fixer 只改布局与修饰、排版/颜色/形状/可见性、已迁移资源的消费者、图片裁切与呈现、比较所需的状态准备；不得为贴近截图伪造数据、重绘资源或换图标。改行为、数据契约、导航或规格走 CR，资源映射错误交资源 owner。
 
 ## capture / 构建产物契约
 
@@ -77,7 +77,7 @@ Green 还须带 `alignment_root` 与从原始 alignment 推导的 `comparison_ev
 
 adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migration-ledger/scripts/visual_evidence.py)：从所属叶子冻结模型重取完整 capture 记录及 baseline_refs，核对每屏、顺序和元数据；候选 snapshot 的 capture_execution_ref 与安装/捕获回执见 [视觉执行](visual-execution.md#2-执行节点)。
 
-可选 GLOBAL visual PATH 在规划时声明 `build_binding: {module_id, path_id}`，指向负责项目集成构建的冻结 build PATH；实际 Green 只接受该 PATH 在当前模块基线的已接受构建产物。GO/MO 审查该构建命令是否覆盖此全局用例依赖；缺少绑定不会借用全局产物池，也不要求重跑已有 Green。
+可选 GLOBAL visual PATH 在规划时声明 `build_binding: {module_id, path_id}` 指向冻结的集成 build PATH；Green 只接受该 PATH 在当前模块基线的已接受构建产物。GO/MO 审查该构建命令覆盖此全局用例依赖；缺绑定不借用全局产物池，也不重跑已有 Green。
 
 - **capture manifest** [ui_evidence.validate_capture](../../migration-ledger/scripts/ui_evidence.py):`COMPLETE` 必须有真实 screenshot/view_xml/meta 三元组 + 非空 captures + `observed_variant` + 记录 backend;`scroll` 只有 `scroll-complete` 才算达成(截断的 scroll-partial **永不**推进);`SOURCE_ONLY` 不得携带臆造 captures;缺 coverage 的旧记录不得升级为 viewport。
 - **validation → 三态 + HAP** [lean_adapter.validation_summary](../../migration-ledger/scripts/lean_adapter.py):外部验证结果的 compile/test/package 检查映射为三态(任一 failed → Red);`package` 通过必须记录产物,且 artifact 的 sha256 与当前文件**仍需匹配**(HAP 不能被换掉)。

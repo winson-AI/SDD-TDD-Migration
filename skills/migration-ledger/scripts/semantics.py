@@ -98,8 +98,8 @@ def _ui_evidence(model):
     executable = evidence.get('legacy_executable')
     if executable is not None:
         require(isinstance(executable, bool), 'ui_evidence.legacy_executable must be boolean')
-        require(executable == (evidence['visual_mode'] == 'runtime'),
-                'legacy_executable must agree with visual_mode (previewable legacy <-> runtime baseline)')
+        require(executable == (evidence['visual_mode'] == 'runtime') or evidence['visual_mode'] == 'user-reference',
+                'legacy_executable must agree with visual_mode (previewable legacy <-> runtime baseline)')  # a user reference may replace either
     for ref in evidence.get('baseline_refs') or []:
         check_ref(ref)
 

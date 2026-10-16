@@ -201,5 +201,45 @@ class RunTests(unittest.TestCase):
         self.assertIn('## 用户参考媒体', migration_report.render(report))
 
 
+class ExpectationTests(unittest.TestCase):
+    """What the user says the target should look like replaces the legacy baseline of the screens it covers."""
+    def setUp(self):
+        self.g = g = GateTests(); g.setUp(); self.addCleanup(g.doCleanups)
+        self.design = g.ref('design.png', 'what the target login should look like')
+        rows = [{'media_id': 'MEDIA-login', 'kind': 'screenshot', 'role': 'legacy-baseline', 'screen': 'login', 'case_ids': ['C1'], 'ref': g.shot},
+                {'media_id': 'MEDIA-design', 'kind': 'screenshot', 'role': 'target-expectation', 'screen': 'login', 'case_ids': ['C1'], 'ref': self.design}]
+        g.s['project_context_ref'] = g.ref('snapshot-expectation.json', {'source_refs': {'reference_media': rows}})
+
+    def test_the_expectation_is_the_baseline_shapes_the_design_and_is_disclosed(self):
+        g = self.g
+        self.assertEqual(reference_media.configured([{'media_id': 'D', 'kind': 'screenshot', 'path': self.design['path'], 'role': 'target-expectation', 'case_ids': ['C1']}])[0]['role'],
+                         'target-expectation')
+        expected = g.evidence(legacy_executable=True, baseline_refs=[self.design])
+        g.baseline_gate(expected, [g.visual(baseline_ref=self.design)])  # previewable or not, the screen is aligned to the expectation
+        with self.assertRaisesRegex(Rejected, 'gave a target expectation for this screen'):
+            g.baseline_gate(g.evidence(legacy_executable=True, visual_mode='runtime', baseline_refs=[g.other]), [g.visual(baseline_ref=g.other)])
+        with self.assertRaisesRegex(Rejected, 'target expectation screenshots of the cases'):
+            g.baseline_gate(g.evidence(), [g.visual()])  # the legacy screenshot is input now, not the baseline
+        analysis = g.ref('analysis-expected.json', g.analysis(expected))
+
+        def plan(*paths, design='the login follows MEDIA-design', **over):
+            return {'dimension_analysis_ref': analysis, 'paths': list(paths), 'definitions': [{**g.ref(f'design-{len(design)}.md', design), 'kind': 'design'}], **over}
+        m = {'module_id': 'M001', 'case_ids': ['C1']}
+        with self.assertRaisesRegex(Rejected, 'MEDIA-design shapes the design'), carrying():
+            reference_media.freeze(g.s, {**m, 'plan': plan(g.visual(baseline_ref=self.design), design='no mention of it')})
+        with carrying() as gaps:
+            reference_media.freeze(g.s, {**m, 'plan': plan(g.visual(baseline_ref=self.design))})
+        self.assertEqual(gaps, [])  # the legacy screenshot of a replaced screen is not owed a citation
+        with carrying() as gaps:
+            reference_media.freeze(g.s, {**m, 'plan': plan({'path_id': 'P1', 'kind': 'automation', 'case_id': 'C1'})})
+        self.assertEqual([gap.split(':')[0] for gap in gaps], ['the user showed C1 in MEDIA-design'])
+        g.s['modules'] = {'M001': {**m, 'plan': plan(g.visual(baseline_ref=self.design))}}
+        self.assertEqual([(r['media_id'], r['status'], r['overrides']) for r in reference_media.report(g.s)],
+                         [('MEDIA-login', 'uncited', []), ('MEDIA-design', 'cited', ['MEDIA-login'])])
+        disclosure, = reference_media.disclosures(g.s)
+        self.assertEqual((disclosure['module_id'], disclosure['kind'], disclosure['case_ids'], disclosure['evidence_refs']), ('M001', 'target-expectation', ['C1'], [self.design]))
+        self.assertIn('MEDIA-design', disclosure['reason']); self.assertIn('MEDIA-login', disclosure['reason'])
+
+
 if __name__ == '__main__':
     unittest.main()

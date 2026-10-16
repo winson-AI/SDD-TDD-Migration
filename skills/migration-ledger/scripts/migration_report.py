@@ -143,6 +143,7 @@ def fidelity(s, rows, ref_check):
     limitations += [{**c, 'kind': 'fidelity-condition', 'reason': c['condition'] + ': current assertions not verified'}
                     for c in conditions if c['status'] == 'not-verified']
     limitations += device_gaps
+    limitations += reference_media.disclosures(s)  # screens aligned to what the user said the target should look like
     for mid, m in sorted(s['modules'].items()):  # whatever the run was asked when its plans were accepted, say what no screen has shown
         plan = m.get('plan') or {}
         try:
@@ -426,9 +427,9 @@ def render(report):
                  *[f"| {cell(r['key'])} | {r['state']} | {cell(r['modules'])} | {cell(r['entry_points'])} | {r['symbols']} | {'是' if r['tests'] else '否'} |"
                    for r in report['target_profile']]]
     if report.get('reference_media'):
-        text += ['', '## 用户参考媒体', '', '用户提供的存量截图/录屏，按其标注的 CASE 下发到持有叶子：截图作 user-reference 视觉基线，录屏作功能 PATH 的交互预期；uncited 为没有 PATH 引用的媒体。', '',
+        text += ['', '## 用户参考媒体', '', '用户提供的截图/录屏，按其标注的 CASE 下发到持有叶子：截图作 user-reference 视觉基线（target-expectation 取代其后列出的存量基线），录屏作功能 PATH 的交互预期；uncited 为没有 PATH 引用的媒体。', '',
                  '| 媒体 | 类型 | 角色 | 界面 | CASE | 持有叶子 | 引用它的 PATH | 状态 |', '| --- | --- | --- | --- | --- | --- | --- | --- |',
-                 *[f"| {cell(r['media_id'])} | {r['kind']} | {r['role']} | {cell(r['screen'] or '—')} | {cell(r['case_ids'])} | {cell(r['modules'])} | {cell(r['cited_by'] or '—')} | {r['status']} |"
+                 *[f"| {cell(r['media_id'])} | {r['kind']} | {r['role']}{' → ' + cell(r['overrides']) if r.get('overrides') else ''} | {cell(r['screen'] or '—')} | {cell(r['case_ids'])} | {cell(r['modules'])} | {cell(r['cited_by'] or '—')} | {r['status']} |"
                    for r in report['reference_media']]]
     if report.get('rule_debt'):
         text += ['', '## 规则欠账', '', '以下工件按接受时的规则已被接受，运行不再重判；按当前规则重判会被拒绝。交统一 Auditor 评估，不是门禁。', '',

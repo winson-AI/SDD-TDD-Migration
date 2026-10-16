@@ -49,7 +49,8 @@ def documents(s, m):
     media = reference_media.of_module(s, m)  # what the user showed: screenshots are the baseline, recordings the expected interaction
     media_text = ('## User Reference Media\n' + ''.join(
         f"- `{row['media_id']}`（{row['kind']}；CASE {'、'.join(row['case_ids'])}）：{row.get('note') or row.get('screen') or ''}；"
-        + ('视觉基线 → UI 项 `ui_evidence.baseline_refs`（user-reference）与 visual PATH `baseline_ref`' if row['kind'] == 'screenshot'
+        + ('目标预期（取代存量基线）→ UI 项 `ui_evidence.baseline_refs`（user-reference）与 visual PATH `baseline_ref`；本 design 引用它' if row['role'] == 'target-expectation'
+           else '视觉基线 → UI 项 `ui_evidence.baseline_refs`（user-reference）与 visual PATH `baseline_ref`' if row['kind'] == 'screenshot'
            else '交互预期 → PATH 步骤与 `reference_media_ids`') + '\n' for row in media) + '\n') if media else ''
     design = (f"# {mid} Design\n\n## Context\n{todo('全局规范、架构、legacy 基线与相关模块接口')}\n\n"
               f"## Goals / Non-Goals\n范围内：\n{listed(scope.get('in') or [])}\n范围外：沿用分配包 scope.out（{len(scope.get('out') or [])} 条），不复写。\n\n"

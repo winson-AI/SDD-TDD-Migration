@@ -44,7 +44,7 @@
 - `null` 表示用户明确要求删除该字段；缺失字段保持原值。不得把“未提供”翻译为 null 删除旧配置。
 - 普通明确更新直接写入，不增加一次确认；“仅本次”进入 run-request.overrides，不持久化。
 - 项目 ID 不可改；模块名、run_id、SPEC、生成的测试列表和运行状态不能写入项目配置。
-- 同 request_id+内容+宿主身份重试返回原 revision；同 ID 内容不同拒绝；过期 revision 拒绝并重读。并发通过锁和 revision 控制。
+- 同 request_id+内容+宿主身份重试返回原 revision；同 ID 内容不同或过期 revision 拒绝；并发由锁和 revision 控制。
 - 缺少部分共享配置时允许先保存；prepare 要求可用的 legacy/target 目录与架构文档，测试适配器与宿主能力由后续门禁检查，缺少时如实阻塞。
 - 写历史工件后原子替换当前文件即提交；中断留下的未引用工件不算更新，history 仅遍历已提交链；禁止手工改当前文件绕过版本记录。
 
@@ -78,7 +78,7 @@
 
 prepare 同一请求重试从 `.sdd-migration/runs/<run_id>.json` 找回原位置并返回原快照，即使项目配置已经更新。相同 run_id 指向另一目录会被拒绝；新任务必须使用新 run_id。相同 run_root 的新请求不能覆盖旧快照；初始化过的旧运行也不能后补快照伪造启动依据。prepare 的返回只代表上下文已固化，init ACK 才代表运行进入 Ledger。
 
-项目 defaults 更新影响后续新任务；当前任务采用新架构、知识、构建/测试/运行配置时，经 [同 Run 上游修订](progress-recovery.md#同-run-上游修订) 发布 context/revisions，保留初始快照。只读来源追加继续走 source-review/reconfigure-sources；不重跑 prepare 覆盖旧上下文。
+项目 defaults 更新影响后续新任务；当前任务采用新架构、知识或构建/测试配置时，经 [同 Run 上游修订](progress-recovery.md#同-run-上游修订) 发布 context/revisions，保留初始快照；只读来源追加走 source-review/reconfigure-sources，不重跑 prepare。
 
 快照固定配置和引用文档；业务源码、执行器与设备环境仍由 code baseline/测试执行回执验证，不声称复制了整个工程。
 
@@ -92,7 +92,7 @@ prepare 递归固化 Markdown 本地文件链接（文档、代码、图片）�
 
 ## CLI
 
-以下是实际 Python 命令；`/sdd-context`、`/sdd-init` 仍是宿主需接入的命令定义。配置目录参数指向 `.sdd-migration` 本身；prepare 根据请求 run_id 派生 `.sdd-runs/<run_id>`，返回 run_root/storage_layout，宿主使用返回值调用 Ledger。请求 JSON 由宿主根据真实用户输入整理。
+以下是实际 Python 命令；`/sdd-context`、`/sdd-init` 是宿主需接入的命令定义。配置目录参数指向 `.sdd-migration`；prepare 按 run_id 派生 `.sdd-runs/<run_id>`，返回 run_root/storage_layout 供宿主调用 Ledger；请求 JSON 由宿主按真实用户输入整理。
 
 ```bash
 python3 <package>/skills/migration-ledger/scripts/project_context.py <init|update|prepare> \
@@ -106,11 +106,11 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 ## 父子共同规划视野与知识资料
 
-可选 knowledge_paths 是知识文档绝对路径数组，整体替换；prepare 复制每份并绑定摘要到 source_refs.knowledge_paths，旧运行读原快照。父子 MO 经 planning_context 读取，角色可用 knowledge-query 的 project 模式查；都没有的知识登 knowledge-need，由人以 kind=knowledge 决定补充并带来源。全局代码目录只读用于理解和复用检查；目标源码不是全文快照，代码变化仍受 baseline/锁/冻结约束。缺必要知识或未声明公共能力 owner 时先记录问题，不凭局部信息重复实现。
+可选 knowledge_paths 是知识文档绝对路径数组，整体替换；prepare 复制每份并绑定摘要到 source_refs.knowledge_paths，旧运行读原快照。父子 MO 经 planning_context 读取，角色可用 knowledge-query 的 project 模式查；都没有的知识登 knowledge-need，由人以 kind=knowledge 决定补充并带来源。全局代码目录只读用于理解和复用检查，目标源码变化仍受 baseline/锁/冻结约束；缺必要知识或未声明公共能力 owner 时先记录问题，不凭局部信息重复实现。
 
 ## 用户参考媒体
 
-可选 reference_media 数组（元素见 [reference-media.json](../../../template/reference-media.json)），整体替换；prepare 复制并绑定 hash 到 source_refs.reference_media。持有其 CASE 的叶子在分配包 `reference_media` 读到它们，其就绪报告以它们为证据。截图是存量不可预览界面的基线：UI 项以 `visual_mode: user-reference` + `baseline_refs` 引用该 CASE 的截图，不得退回 source-only；visual PATH 的 `baseline_ref` 指向它。录屏是功能 PATH 的交互预期，以 `reference_media_ids` 引用。用户展示过的用户可见 CASE 没有 PATH 引用对应媒体即记欠项（已声明设备缺口除外）；报告按媒体列持有叶子、引用 PATH 与状态。
+可选 reference_media 数组（元素见 [reference-media.json](../../../template/reference-media.json)），整体替换；prepare 复制并绑定 hash 到 source_refs.reference_media。持有其 CASE 的叶子在分配包 `reference_media` 读到它们并以之为就绪证据。截图是存量不可预览界面的基线：UI 项以 `visual_mode: user-reference` + `baseline_refs` 引用该 CASE 的截图，不得退回 source-only；visual PATH 的 `baseline_ref` 指向它。录屏是功能 PATH 的交互预期，以 `reference_media_ids` 引用。用户展示过的用户可见 CASE 没有 PATH 引用对应媒体即记欠项（已声明设备缺口除外）；报告按媒体列持有叶子、引用 PATH 与状态。role=target-expectation（设计稿、目标截图）在其覆盖的界面取代存量基线作视觉对齐目标，行为仍以存量为准：UI 项以 user-reference 引用它（存量可预览亦然），design 须引用其 media_id；与存量的差异由报告保真限制（target-expectation）披露，不交人；对照它的视觉 Red 走 Fixer，与冻结 SPEC 冲突走 runtime-spec-variant-conflict 交人。
 
 ## 二方库/其他项目模块来源
 

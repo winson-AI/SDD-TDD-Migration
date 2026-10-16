@@ -28,7 +28,7 @@ python3 <package_root>/skills/migration-ledger/scripts/lean_worker.py \
 
 带 `image_check_ids` 的 PATH：visual-install → visual-capture → `image-parity` → adapter 的 `--image-parity`；图片、文本与节点检查出自同一次 capture。无 `baseline_ref` 时 visual-capture 不需要 reference_manifest_ref；带基线的 PATH 同时承载检查时较弱的结果决定三态。报告须属于当前 assignment、代码基线、HAP 与所选 capture。
 
-叶子 PATH 的所有比较原图来自同 coverage 的冻结 UI evidence（baseline_refs/capture_manifest_ref），支持滚动目标的第二屏及后续截图；不能借含首屏的任意 manifest 添加其他基线。user-reference PATH 的 reference manifest 由 Test-Runner 以用户截图构造 android-reference 记录，截图集合须恰为 baseline_refs。Auditor 读原叶子 SPEC 的证据集合，不按构建归属猜 UI 归属。GLOBAL 自有 PATH 用 visual_evidence 显式冻结 coverage、visual_mode、capture_manifest_ref 与完整 baseline_refs（build_binding 不能代替）。缺完整原始证据时保留局部 Yellow，adapter 不能提升为 Green。
+叶子 PATH 的所有比较原图来自同 coverage 的冻结 UI evidence（baseline_refs/capture_manifest_ref），支持滚动目标的第二屏及后续截图；不能借含首屏的任意 manifest 添加其他基线。user-reference PATH 的 reference manifest 由 Test-Runner 以用户截图构造 android-reference 记录，截图集合须恰为 baseline_refs。Auditor 读原叶子 SPEC 的证据集合，不按构建归属猜 UI 归属。GLOBAL 自有 PATH 用 visual_evidence 显式冻结 coverage、visual_mode、capture_manifest_ref 与完整 baseline_refs；缺完整原始证据时保留局部 Yellow，adapter 不能提升为 Green。
 
 visual-capture 自动将 capture_execution_ref 写入候选 snapshot，关联 [捕获执行回执](../../../template/visual-capture-execution.json)。adapter 与正式验收重读当前 run 内的安装回执、执行日志、截图/树和元数据，推导 capture_evidence，检查 HAP/代码及完整原图集合。外部捕获器可由实际运行器提供同契约 sidecar；需要成功安装命令及实际 capture 命令与图片输出的关联，不能仅自填“当前版本”。已有 meta 中的构建/代码字段必须一致。缺 sidecar 保留 Yellow，不改写原始截图或旧证据。carried 只重验实际引用的历史轮次，并严格检查本轮当前构建。
 
