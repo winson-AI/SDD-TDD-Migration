@@ -256,6 +256,150 @@ class AndroidDevice:
                 'remote_cleanup_ref': save(self.out / 'remote-cleanup.json', cleanup)}
 
 
+def dom_to_xml(node):
+    """A DOM snapshot as the view tree the selectors, signatures and indices already read: one <node> per element."""
+    def element(item):
+        x1, y1, x2, y2 = [int(v) for v in (item.get('bounds') or [0, 0, 0, 0])]
+        el = ET.Element('node', {'class': ' '.join(part for part in (item.get('tag') or '', item.get('cls') or '') if part),
+                                 'resource-id': item.get('id') or '', 'text': item.get('text') or '', 'content-desc': item.get('aria') or '',
+                                 'bounds': f'[{x1},{y1}][{x2},{y2}]', 'package': '', 'scrollable': 'true' if item.get('scrollable') else 'false'})
+        for child in item.get('children') or []:
+            el.append(element(child))
+        return el
+    root = ET.Element('hierarchy', {'rotation': '0'})
+    root.append(element(node))
+    return ET.tostring(root, encoding='unicode')
+
+
+DOM_WALK = """() => { const walk = (el) => { const r = el.getBoundingClientRect(); const style = getComputedStyle(el);
+  return { tag: el.tagName.toLowerCase(), id: el.id || '', cls: typeof el.className === 'string' ? el.className : '',
+    text: el.childElementCount === 0 ? (el.innerText || '').trim().slice(0, 200) : '', aria: el.getAttribute('aria-label') || '',
+    bounds: [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)],
+    scrollable: el.scrollHeight > el.clientHeight + 1 && ['auto', 'scroll'].includes(style.overflowY),
+    children: Array.from(el.children).map(walk) }; }; return walk(document.body); }"""
+
+
+def open_browser(out):
+    """A headless Chromium page through Playwright; the host installs the browser, the worker only drives it."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise DeviceFailure('environment-unavailable', 'Playwright is required for browser capture') from exc
+
+    class PlaywrightPage:
+        def __init__(self):
+            self.playwright = sync_playwright().start()
+            self.browser = self.playwright.chromium.launch()
+            self.page = self.browser.new_page()
+            self.version = 'chromium ' + self.browser.version
+
+        def goto(self, url): self.page.goto(url, wait_until='load')
+        def click(self, selector): self.page.click(selector, timeout=10000)
+        def back(self): self.page.go_back(wait_until='load')
+        def title(self): return self.page.title()
+        def dom(self): return self.page.evaluate(DOM_WALK)
+        def screenshot(self, path): self.page.screenshot(path=str(path))
+
+        def close(self):
+            self.browser.close(); self.playwright.stop()
+    return PlaywrightPage()
+
+
+class BrowserDevice:
+    """The legacy web application in a browser: the url is the device, the DOM is the view tree, the page is the screen."""
+    def __init__(self, url, out, page=None):
+        self.url, self.out, self.logs = url, out, []
+        self.device = urlparse(url).netloc or url
+        self.page = page or open_browser(out)
+        self.version = getattr(self.page, 'version', None) or 'playwright'
+        self.tool = 'playwright'
+
+    def act(self, name, *args):
+        self.logs.append({'action': name, 'args': [str(a) for a in args]})
+        try:
+            return getattr(self.page, name)(*args)
+        except Exception as exc:  # the browser's own error: an environment fact, not a verdict
+            self.logs[-1]['error'] = type(exc).__name__
+            raise DeviceFailure('device-execution-error', f'browser {name} failed; see command log') from exc
+
+    def foreground(self):
+        return self.device, str(self.act('title') or '')
+
+    def layout(self, label):
+        xml = dom_to_xml(self.act('dom'))
+        local = run_storage.checked_path(self.out / 'temp' / f'layout-{label}.xml', self.out)
+        local.parent.mkdir(parents=True, exist_ok=True)
+        local.write_text(xml, encoding='utf-8')
+        return xml
+
+    def screenshot(self, label):
+        local = run_storage.checked_path(self.out / f'screenshot-{label}.png', self.out)
+        self.act('screenshot', local)
+        if not local.is_file() or not local.stat().st_size:
+            raise DeviceFailure('capture-incomplete', 'browser screenshot is missing or empty')
+        image_valid(local, ('PNG',))
+        return local
+
+    def finish(self):
+        try:
+            self.page.close()
+        except Exception:
+            pass
+        return {'command_log_ref': save(self.out / 'commands.json', self.logs)}
+
+
+def web_actions(device, actions):
+    require(isinstance(actions, list) and len(actions) <= 30, 'at most 30 frozen navigation actions')
+    for action in actions:
+        require(isinstance(action, dict), 'action must be an object')
+        kind = action.get('action')
+        if kind == 'back':
+            device.act('back')
+        elif kind == 'click':
+            selector = action.get('selector')
+            require(isinstance(selector, str) and 0 < len(selector) <= 200, 'click names a CSS selector')
+            device.act('click', selector)
+        else:
+            require(False, 'unsupported navigation action; no arbitrary script execution')
+
+
+def capture_web_target(device, stated, target, spec, out):
+    """One legacy web screen as a legacy-reference record of platform web: navigated from the url by frozen clicks, matched by
+    selectors on the DOM tree, captured with a stable tree around the screenshot. Viewport targets only."""
+    label = re.sub(r'[^A-Za-z0-9_.-]+', '-', target['page_id'] + '-' + target['state_id'])
+    if target['coverage'] != 'viewport':
+        return blocked('browser capture supports viewport targets only', 'capture-incomplete')
+    device.act('goto', stated['url'])
+    web_actions(device, spec.get('actions', []))
+    host, title = device.foreground()
+    xml = device.layout(f'{label}-0')
+    if not target_matches(xml, spec.get('target_match'), ''):
+        save(out / f'target-mismatch-{label}.json', {'url': stated['url'], 'title': title, 'view_xml': xml})
+        return blocked('frozen target selectors not observed', 'target-precondition')
+    image_path = device.screenshot(f'{label}-0')
+    view = out / f'view-{label}-0.xml'
+    run_storage.atomic_bytes(view, xml.encode())
+    after_xml = device.layout(f'{label}-0-after')
+    if after_xml != xml:
+        after_view = out / f'view-{label}-0-after.xml'
+        run_storage.atomic_bytes(after_view, after_xml.encode())
+        return blocked('page changed while screenshot was taken; retain both trees and recapture a new attempt', 'capture-incomplete',
+                       screenshot_ref=file_ref(image_path), before_view_ref=file_ref(view), after_view_ref=file_ref(after_view))
+    signature = mobile_snapshot.view_signature(xml, stated['url'])
+    captures = [{'index': 0, 'screenshot': str(image_path), 'view_tree': str(view), 'view_signature': signature}]
+    coverage = {'requested': 'viewport', 'achieved': 'viewport', 'capture_count': 1, 'termination': 'viewport'}
+    backend = {'name': 'playwright', 'implementation': device.tool, 'version': device.version, 'device': host}
+    meta = {'platform': 'web', 'device': host, 'app_id': stated['url'], 'foreground': title, 'page_name': title or host, 'image_mime': 'image/png',
+            'screenshot': image_path.name, 'view_signature': signature, 'device_backend': backend, 'coverage': coverage, 'captures': captures,
+            'target_match': spec['target_match'], 'legacy_preview': stated['kind']}
+    meta_ref = save(out / f'meta-{label}.json', meta)
+    snapshot = {**captures[0], 'meta': meta_ref['path'], 'device_backend': backend, 'coverage': coverage, 'captures': captures}
+    return {'status': 'COMPLETE', 'record': {'mode': 'targeted', 'phase': 'legacy-reference', 'platform': 'web',
+            'page_id': target['page_id'], 'state_id': target['state_id'], 'observed_variant': target['state_id'], 'round': None,
+            'status': 'COMPLETE', 'coverage': coverage, 'timestamp': datetime.now(timezone.utc).isoformat(), 'snapshot': snapshot,
+            'target_match': {'kind': 'frozen-exact-selectors', 'matched': True}}}
+
+
 def android_actions(device, actions):
     require(isinstance(actions, list) and len(actions) <= 30, 'at most 30 frozen navigation actions')
     for action in actions:
@@ -409,8 +553,8 @@ def legacy_capture(args, *, root, out, state, task, actor):
     import project_context
     require(actor.get('role') in ('spec-designer', 'test-runner'), 'legacy capture outside role')
     stated = project_context.legacy_preview(state)
-    require(stated and stated['kind'] in ADB_KINDS,
-            'legacy_preview must state an adb-visible provider (android-device, android-emulator or vm) before the legacy is captured')
+    require(stated and stated['kind'] in (*ADB_KINDS, 'browser'),
+            'legacy_preview must state an adb-visible provider (android-device, android-emulator or vm) or a browser url before the legacy is captured')
     root, out = Path(root).resolve(), Path(out).resolve()
     runner_storage.harmony_output(root, out, 'sandbox')
     targets = args.get('targets')
@@ -421,25 +565,28 @@ def legacy_capture(args, *, root, out, state, task, actor):
     except RuntimeError as exc:
         require(False, 'legacy-capture target: ' + str(exc))
     require(len({(p['page_id'], p['state_id']) for p in parsed}) == len(parsed), 'one record per page:state')
-    device_lock(actor, {'device_id': stated['device']['serial']}, task)
-    app = token(stated['app_id'], 'app_id')
-    device = AndroidDevice(stated['device']['serial'], args.get('tool', 'adb'), out)
-    result, install_ref, records, blocked_targets = None, None, [], []
+    web = stated['kind'] == 'browser'
+    device_lock(actor, {'device_id': stated['url'] if web else stated['device']['serial']}, task)
+    app = stated['url'] if web else token(stated['app_id'], 'app_id')
+    result, install_ref, records, blocked_targets, device = None, None, [], [], None
     try:
-        device.version = (device.call('version').strip().splitlines() or [''])[0]
-        if not device.version:
-            raise DeviceFailure('environment-unavailable', 'adb version could not be observed')
-        if device.call('get-state').strip() != 'device':
-            raise DeviceFailure('environment-unavailable', 'the stated device is not connected (adb get-state)')
-        install_ref = install_legacy(device, stated, app, out)
+        device = BrowserDevice(stated['url'], out) if web else AndroidDevice(stated['device']['serial'], args.get('tool', 'adb'), out)
+        if not web:
+            device.version = (device.call('version').strip().splitlines() or [''])[0]
+            if not device.version:
+                raise DeviceFailure('environment-unavailable', 'adb version could not be observed')
+            if device.call('get-state').strip() != 'device':
+                raise DeviceFailure('environment-unavailable', 'the stated device is not connected (adb get-state)')
+            install_ref = install_legacy(device, stated, app, out)
         for target, spec in zip(parsed, targets):
-            outcome = capture_legacy_target(device, stated, app, target, spec, out)
+            outcome = (capture_web_target(device, stated, target, spec, out) if web
+                       else capture_legacy_target(device, stated, app, target, spec, out))
             if outcome.get('status') == 'COMPLETE':
                 records.append(outcome['record'])
             else:
                 blocked_targets.append({'coverage': spec['coverage'], **outcome['root_cause']})
         manifest_ref = save(out / 'manifest.json', {'schema_version': 2, 'capture_id': 'legacy-' + digest(str(out))[:12],
-                                                     'legacy_preview': {k: stated.get(k) for k in ('kind', 'app_id', 'device', 'artifact_sha256')},
+                                                     'legacy_preview': {k: stated.get(k) for k in ('kind', 'app_id', 'device', 'artifact_sha256', 'url')},
                                                      'install_ref': install_ref, 'targets': records})
         if records:
             try:
@@ -456,7 +603,7 @@ def legacy_capture(args, *, root, out, state, task, actor):
     except DeviceFailure as exc:
         result = blocked(str(exc), exc.kind, install_ref=install_ref)
     finally:
-        result = (result or {}) | device.finish()
+        result = (result or {}) | (device.finish() if device is not None else {})
     return result
 
 

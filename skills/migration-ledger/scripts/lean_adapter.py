@@ -14,7 +14,7 @@ sys.dont_write_bytecode = True
 import ui_evidence as ue
 import semantics
 from contracts import check_ref, file_ref, nonempty, read_json, require, Rejected
-from lean_tools import finalize_alignment, resource_tool
+from lean_tools import finalize_alignment, resource_tool, validate_manifest
 import knowledge_gate
 from types import SimpleNamespace
 
@@ -219,7 +219,7 @@ def validation_summary(validation_result, *, target_root=None, result_ref=None):
                 for t in visual.get('targets', []) if isinstance(t, dict)})[0])
             for target in nonempty(visual.get('targets'), 'source-only targets'):
                 require(isinstance(target, dict) and target.get('page_id') and target.get('state_id'), 'source-only target invalid')
-                require(any(r.get('phase') == 'android-reference' and r.get('platform') == 'android'
+                require(any(validate_manifest.is_reference(r)
                             and r.get('page_id') == target['page_id'] and r.get('state_id') == target['state_id']
                             and r.get('status') == 'SOURCE_ONLY' and r.get('snapshot') is None
                             for r in manifest.get('targets', [])), 'partial verdict has no matching SOURCE_ONLY capture')
@@ -285,7 +285,7 @@ def capture_evidence(manifest_ref, selected=None):
                     ref = normalize_ref(record[field], path.parent)
                     refs[ref['path']] = ref
                     if field == 'screenshot': shots[ref['path']] = ref
-        if target.get('phase') == 'android-reference' and target.get('platform') == 'android' and target.get('status') == 'COMPLETE':
+        if validate_manifest.is_reference(target) and target.get('status') == 'COMPLETE':
             key = (target['page_id'], target['state_id'])
             require(key not in references, 'ambiguous Android reference capture')
             references[key] = list(shots.values())
@@ -378,7 +378,7 @@ def comparison_evidence(result, target_root, coverage):
         import visual_evidence
         reference = phase == 'android-reference'  # the legacy; a candidate is the target build on either platform
         matches = [t for t in targets if t.get('page_id') == page and t.get('state_id') == state and t.get('status') == 'COMPLETE'
-                   and (t.get('phase') == 'android-reference' and t.get('platform') == 'android' if reference else visual_evidence.is_candidate(t))
+                   and (validate_manifest.is_reference(t) if reference else visual_evidence.is_candidate(t))
                    and (reference or t.get('round') == r.get('capture_round', r['round']))]
         require(len(matches) == 1 and matches[0].get('observed_variant') == state,
                 'comparison capture must identify one matching observed target/round')

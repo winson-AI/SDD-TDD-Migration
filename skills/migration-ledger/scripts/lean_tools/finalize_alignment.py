@@ -400,8 +400,8 @@ def validate(root: Path, result: dict) -> dict:
                     entry
                     for entry in targets
                     if isinstance(entry, dict)
-                    and entry.get("phase") == "android-reference"
-                    and entry.get("platform") == "android"
+                    and (entry.get("phase") == "android-reference" and entry.get("platform") == "android"
+                         or entry.get("phase") == "legacy-reference" and entry.get("platform") in ("android", "harmony", "web"))
                     and entry.get("page_id") == page_id
                     and entry.get("state_id") == state_id
                     and entry.get("status") == "COMPLETE"

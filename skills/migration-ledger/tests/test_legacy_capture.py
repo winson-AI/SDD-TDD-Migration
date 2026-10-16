@@ -22,7 +22,8 @@ APP = 'com.example.legacy'
 NODE = '<node index="{i}" class="{cls}" package="' + APP + '" resource-id="{rid}" text="{text}" content-desc="" bounds="{bounds}" scrollable="{scroll}"/>'
 
 
-class LegacyCaptureTests(unittest.TestCase):
+class CaptureFixture(unittest.TestCase):
+    """The fake adb, the crafted statement and the capture call shared by the Android and browser cases."""
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
         self.base = Path(self.temp.name).resolve()
@@ -84,6 +85,7 @@ class LegacyCaptureTests(unittest.TestCase):
     def login(self, **over):
         return {'coverage': 'login:base:viewport', 'target_match': [{'resource-id': APP + ':id/title', 'text': 'Login'}], **over}
 
+class LegacyCaptureTests(CaptureFixture):
     def test_the_legacy_screens_become_android_reference_records_the_pipeline_reads(self):
         result = self.capture([self.login()])
         self.assertEqual((result['status'], result['captured'], result['blocked']), ('CAPTURED', ['login:base:viewport'], []))
@@ -145,6 +147,61 @@ class LegacyCaptureTests(unittest.TestCase):
         request = {'module_id': 'M001', 'assignment_id': 'A1', 'fencing_token': 'fence-1'}
         module, task = lean_worker.assignment(state, request, self.actor, planned=False)
         self.assertEqual(task['assignment_id'], 'A1')
+
+
+class FakePage:
+    """What the worker asks of a browser page; the DOM it returns is the tree the selectors read."""
+    version = 'chromium 130'
+
+    def __init__(self, png):
+        self.calls, self.title_text, self.text, self.png = [], 'Login', 'Sign in', png
+
+    def goto(self, url): self.calls.append(('goto', url))
+    def click(self, selector): self.calls.append(('click', selector))
+    def back(self): self.calls.append(('back',))
+    def title(self): return self.title_text
+    def close(self): self.calls.append(('close',))
+    def screenshot(self, path): Path(path).write_bytes(self.png)
+
+    def dom(self):
+        return {'tag': 'body', 'id': '', 'cls': '', 'text': '', 'aria': '', 'bounds': [0, 0, 1280, 800], 'scrollable': False, 'children': [
+            {'tag': 'h1', 'id': 'title', 'cls': 'hero', 'text': self.text, 'aria': '', 'bounds': [0, 0, 1280, 80], 'scrollable': False, 'children': []},
+            {'tag': 'div', 'id': 'list', 'cls': '', 'text': '', 'aria': 'items', 'bounds': [0, 80, 1280, 800], 'scrollable': True, 'children': []}]}
+
+
+class BrowserCaptureTests(CaptureFixture):
+    """A legacy web application: the url is the device, the DOM is the tree, the record is legacy-reference on platform web."""
+    def setUp(self):
+        super().setUp()
+        self.page = FakePage(self.png(1))
+        self.web = {'kind': 'browser', 'url': 'https://legacy.example.test/login'}
+        self.actor['device_lock']['device_id'] = self.web['url']
+        self.open = patch.object(worker, 'open_browser', lambda out: self.page); self.open.start(); self.addCleanup(self.open.stop)
+
+    def test_a_web_screen_becomes_a_legacy_reference_record_the_pipeline_reads(self):
+        from lean_tools import validate_manifest as vm
+        self.assertTrue(vm.is_reference({'phase': 'legacy-reference', 'platform': 'web'}) and vm.is_reference({'phase': 'android-reference', 'platform': 'android'}))
+        self.assertFalse(vm.is_reference({'phase': 'legacy-reference', 'platform': 'ios'}) or vm.is_reference({'phase': 'android-reference', 'platform': 'web'}))
+        target = {'coverage': 'login:base:viewport', 'actions': [{'action': 'click', 'selector': 'a.login'}], 'target_match': [{'resource-id': 'title', 'text': 'Sign in'}]}
+        result = self.capture([target], stated=self.web)
+        self.assertEqual((result['status'], result['captured'], result['install_ref']), ('CAPTURED', ['login:base:viewport'], None))
+        record = ui_evidence.capture_target(result['manifest_ref'], 'login:base:viewport')
+        self.assertEqual((record['phase'], record['platform'], record['snapshot']['device_backend']['name'], record['snapshot']['device_backend']['device']),
+                         ('legacy-reference', 'web', 'playwright', 'legacy.example.test'))
+        self.assertEqual(validate_manifest.validate_manifest(read_json(result['manifest_ref']['path']))['mode'], 'runtime')
+        selected = select_runtime_ui.select(Path(result['manifest_ref']['path']), ['login:base:viewport'])
+        self.assertTrue(any(n['resource-id'] == 'title' and n['class'] == 'h1 hero' for n in selected['captures'][0]['viewports'][0]['nodes']))
+        self.assertEqual(self.page.calls[:2], [('goto', self.web['url']), ('click', 'a.login')]); self.assertIn(('close',), self.page.calls)
+        self.assertEqual(read_json(result['manifest_ref']['path'])['legacy_preview']['url'], self.web['url'])
+
+    def test_what_a_browser_cannot_show_is_named(self):
+        self.page.text = 'Welcome back'
+        result = self.capture([{'coverage': 'login:base:viewport', 'target_match': [{'resource-id': 'title', 'text': 'Sign in'}]}], stated=self.web)
+        self.assertEqual((result['status'], result['blocked'][0]['reason']), ('BLOCKED', 'frozen target selectors not observed'))
+        result = self.capture([{'coverage': 'list:base:scroll', 'target_match': [{'resource-id': 'list'}], 'scroll_region': {'resource-id': 'list'}, 'scroll_end_match': [{'text': 'End'}]}], stated=self.web)
+        self.assertEqual(result['blocked'][0]['reason'], 'browser capture supports viewport targets only')
+        with self.assertRaisesRegex(Rejected, 'unsupported navigation action'):
+            self.capture([{'coverage': 'login:base:viewport', 'actions': [{'action': 'tap', 'x': 1, 'y': 1}], 'target_match': [{'resource-id': 'title'}]}], stated=self.web)
 
 
 if __name__ == '__main__':
