@@ -7,10 +7,10 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 | 图 | 关注点 | SVG |
 | --- | --- | --- |
 | 01 · 三层编排总览 | GO/父 MO 按功能树切 scope/全量 CASE；叶子是子业务流；子 MO 拆 TASK；并行执行与统一宿主审计 | [总览](workflow.svg) |
-| 02 · 子 MO 执行与反馈调整 | TASK/四维 → SPEC 从骨架起笔、起步门禁冻结 → Implementer（任务先单测，自查红→绿留证）/Testing；Fixer/CR（只改测试写法归 MO）/上溯三分流；独立性证明与默认全模块重验 | [子 MO](module-execution.svg) |
+| 02 · 子 MO 执行与反馈调整 | TASK/四维 → SPEC 与测试源从骨架起笔、起步门禁冻结 → Implementer（冻结测试原样交付，自查红→绿留证）/Testing；Fixer/CR（只改测试写法归 MO）/上溯三分流；独立性证明与默认全模块重验 | [子 MO](module-execution.svg) |
 | 03 · 统一 Auditor 宿主审计 | 全宿主目标/代码治理（清单与审查从骨架起笔，预列 debt）、遗留路由、影响模块完整回归、独立 Test-Runner 与 Auditor 裁决；波次集成已跑的路径只在 owner 代码变动时重跑；空清单由 Ledger 预检 | [Auditor](auditor-closure.svg) |
 | 04 · 二方库语义与复用 | 来源评审 → 语义抽取 → 四类复用决策 → API 与数据契约 → 冻结 → Coding → 真实依赖验证；提供方证据变化后的恢复 | [二方库](reuse-dependencies.svg) |
-| 05 · Automation 外层闭环 | 冻结用例、派发后预检（骨架起笔）、逐 PATH 证据、三类反馈及成功/复用统计；缺测旁路；global path 在持有叶子完成时即执行（波次集成） | [自动化](automation-flow.svg) |
+| 05 · Automation 外层闭环 | 冻结用例与测试源、派发后预检（骨架起笔）、进程内 JUnit 或设备 / 脚本逐 PATH 证据、三类反馈及成功/复用统计；缺测旁路；global path 在持有叶子完成时即执行（波次集成） | [自动化](automation-flow.svg) |
 | 06 · Android/Harmony 单 PATH 内核 | Planner / Executor / Verify、录制回放、媒体断言、观察落盘与三态汇总 | [内核](automation-engine.svg) |
 
 自动化输入输出的字段、JSON 示例、调用方法和当前实现边界见 [自动化测试说明](automation-input-output.md)。
@@ -34,6 +34,7 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 - run 固定 prepare 时的包提交；运行产物不设体量上限，棘轮只约束包自身；automation 统计里 TASK 行的缺路径只计模块整体缺的 CASE。
 - 正式目标代码测试在代码被接受之后派发；作者对任务的 unit PATH 自查两次（实现前失败、实现后通过），两份记录是该任务的 red 证据，报告按任务计数、不设门禁；已知技术债登 kind=debt 的 issue，审计骨架预列。
 - 波次集成：持有某条 global path 用例的叶子全部完成、别的叶子还在做时，GO 派独立 Test-Runner 执行它；结果绑定各 owner 的代码基线，统一审计只重跑 owner 代码变动的路径，Red 路由给 owner 叶子修复。
+- 测试代码是冻结资产：Logic 条目的单测与无设备 CASE 的进程内功能测试（<Case>FlowTest，按冻结命令跑 JUnit、逐断言归因）由 Ledger 起稿骨架、Spec-Designer 从 SPEC 写出、随计划冻结；Implementer 原样交付，改测试走 CR。有设备且绑定 UI 树的 CASE 起稿设备脚本（选择器取节点 id），报告分列脚本驱动的设备路径及其 flaky。
 
 ## 依据与再生成
 

@@ -21,7 +21,7 @@
 | --- | --- | --- | --- |
 | 项目配置 | legacy/target、架构/需求、`test_cases_path`、`test_adapter`、知识、复用来源；JSON + 文件路径 | 用户输入，宿主持久化并 prepare 固化 | GO / 父子 MO |
 | 功能与 CASE | 模块功能、REQ/CASE、SPEC 草稿、模块 Testing list | GO 分配，父 MO 按 scope 拆分 | 子 MO / Spec-Designer / Test-Runner |
-| 测试设计 | `stage-plan.paths[]`：稳定 ID、Name、前置、步骤、参数、ASSERT、依赖；`kind=automation` | Spec-Designer 随 SPEC 组织；Test-Runner design 按需协助，MO 审核冻结 | 执行模式 Test-Runner |
+| 测试设计 | `stage-plan.paths[]`：稳定 ID、Name、前置、步骤、参数、ASSERT、依赖；`kind=automation`；进程内路径另带 command + unit_report，断言以 test_id 指具名测试；测试源与设备脚本是随计划冻结的 test_assets | Spec-Designer 从 Ledger 骨架写出并随 SPEC 组织，MO 审核冻结 | 执行模式 Test-Runner |
 | 执行授权 | Ledger assignment、`test_scope=automation`、`freeze_id`、`code_baseline`、执行实例；ready 上下文报告（从 Ledger 骨架起笔） | 实际执行实例预检，MO/审计节点接受 | 宿主 `execute_test.py` |
 | 单路径 query | **完整冻结 PATH** + run/module/freeze/code 身份，JSON 文件 | `execute_test.py` 从 Ledger 组装 | 项目 Main / Harmony adapter |
 | 引擎配置 | adapter argv/timeout；Harmony device、模型、服务地址、可选录制/知识引用 | 宿主配置，经上下文预检 | adapter / 内核 |
@@ -123,7 +123,7 @@ Harmony 配置的独立输入见 [harmony-config.json](../template/harmony-confi
 
 1. MO 经 Ledger 派发 automation assignment；Test-Runner 接到派发后提交 `stage=testing` 上下文报告，检查 frozen-spec、test-paths、accepted-code、provider-binding、test-environment、permissions-tools。报告从派发步骤 `report_skeleton` 写出的骨架起笔：Ledger 已核对代码与路径，Test-Runner 填提供方、环境与权限；留标记即拒。
 2. ready 报告绑定后，宿主才调用 `execute_test.py`；blocked 报告退回派发或走适用缺测分支。脚本再次核对阶段、scope、代码、命令与环境引用。
-3. 创建新的执行目录，写 `query.json`；调用 `argv + [--query-file, query, --result-file, result]`。build 派发中冻结同一命令的 unit PATH 可 `--path-id a,b` 一次执行：一个进程、一份日志，每个 PATH 自己的 `query.<pid>.json / result.<pid>.json / receipt.<pid>.json` 与 JUnit 归因。
+3. 创建新的执行目录，写 `query.json`；设备路径调用 `argv + [--query-file, query, --result-file, result]`（argv 可以是冻结脚本），进程内功能路径执行冻结命令并按 JUnit 逐断言归因。build 派发中冻结同一命令的 unit PATH 可 `--path-id a,b` 一次执行：一个进程、一份日志，每个 PATH 自己的 `query.<pid>.json / result.<pid>.json / receipt.<pid>.json` 与 JUnit 归因。
 4. Main 执行实际测试；宿主收集 stdout/stderr、时间、退出码。每条 PATH 独立子进程；超时杀掉整个进程组。
 5. 宿主保存回执；全部本次 scope 路径执行/记账后组装 tests stage。Harmony 使用 `harmony_stage.py`，其他 adapter 按通用 tests 契约组装。
 6. submit/accept 两次校验后才成为正式 Ledger 结果。生成文件、退出码 0 或 Agent 文字“通过”都不能独立完成验收。

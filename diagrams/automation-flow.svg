@@ -16,7 +16,7 @@
 <path d="M478,190 H1100 L1082,320 H460 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="780.0" y="234.0" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">测试输入 → 冻结 PATH</text>
 <text x="780.0" y="268.0" font-size="17.68" fill="#4b5563" text-anchor="middle" font-weight="400">GO / 父 MO 分配全量 CASE；SPEC → PATH / 参数 / 步骤 / ASSERT</text>
-<text x="780.0" y="297.0" font-size="19.35" fill="#4b5563" text-anchor="middle" font-weight="400">Spec-Designer 组织路径；design 按需；冻结后不自行放宽预期</text>
+<text x="780.0" y="297.0" font-size="18.81" fill="#4b5563" text-anchor="middle" font-weight="400">测试源随计划冻结：进程内 FlowTest / 设备脚本；不自行放宽预期</text>
 <rect x="60" y="190" width="340" height="210" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="230.0" y="245.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">项目上下文</text>
 <text x="230.0" y="279.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">存量 / 目标 / 架构 / 测试</text>
@@ -65,7 +65,7 @@
 <rect x="460" y="940" width="640" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="780.0" y="981.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">ready 绑定 → 宿主 execute_test</text>
 <text x="780.0" y="1015.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">scope=automation；重验代码 / 环境 / 命令</text>
-<text x="780.0" y="1044.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">每条 PATH 新目录 + 新进程；写完整 query.json</text>
+<text x="780.0" y="1044.5" font-size="19.17" fill="#4b5563" text-anchor="middle" font-weight="400">进程内 PATH 跑冻结命令 + JUnit；设备 PATH 调 Main 或冻结脚本</text>
 <path d="M780,1065 L780,1120" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="1120" width="640" height="145" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="465" y="1125" width="630" height="135" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>

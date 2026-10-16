@@ -15,7 +15,7 @@ def automation_flow():
     d = Diagram('automation-flow', 2850, '05', 'Automation · 输入、执行与验收闭环',
                 '构建是前置门禁；每条 PATH 独立执行；环境缺测不传播失败，完整 Green 才能验收通过')
     artifact(d, 460, 190, 640, 130, '测试输入 → 冻结 PATH',
-             ['GO / 父 MO 分配全量 CASE；SPEC → PATH / 参数 / 步骤 / ASSERT', 'Spec-Designer 组织路径；design 按需；冻结后不自行放宽预期'])
+             ['GO / 父 MO 分配全量 CASE；SPEC → PATH / 参数 / 步骤 / ASSERT', '测试源随计划冻结：进程内 FlowTest / 设备脚本；不自行放宽预期'])
     d.box(60, 190, 340, 210, '项目上下文',
           ['存量 / 目标 / 架构 / 测试', '二方库行为对齐与 fidelity', 'adapter + 环境 / fixture', '项目配置 → 本轮快照'], 'gray')
     d.arrow([(400, 255), (460, 255)])
@@ -35,7 +35,7 @@ def automation_flow():
           ['automation-unavailable', '→ automation-deferred', '逐 PATH：Yellow / 未执行', '保留 build Green，不耗修复轮次', '不能掩盖已观察到的 Red'], 'orange', True)
     d.arrow([(780, 865), (780, 940)]); d.label(780, 910, 'ready')
     d.box(460, 940, 640, 125, 'ready 绑定 → 宿主 execute_test',
-          ['scope=automation；重验代码 / 环境 / 命令', '每条 PATH 新目录 + 新进程；写完整 query.json'])
+          ['scope=automation；重验代码 / 环境 / 命令', '进程内 PATH 跑冻结命令 + JUnit；设备 PATH 调 Main 或冻结脚本'])
     d.arrow([(780, 1065), (780, 1120)])
     d.box(460, 1120, 640, 145, '逐 PATH 调用项目 Main',
           ['argv + --query-file … --result-file …', 'Android / Harmony test：Planner / Executor / Verify（图 06）', '冻结 platform 与已部署 APK / HAP 绑定（不含 iOS）'], controller=True)

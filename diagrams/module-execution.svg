@@ -24,7 +24,7 @@
 <text x="800.0" y="434.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">四维 → SPEC / 测试路径</text>
 <text x="800.0" y="468.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">UI → Logic → Adhesive → Resource</text>
 <text x="800.0" y="497.5" font-size="18.42" fill="#4b5563" text-anchor="middle" font-weight="400">Spec-Designer：实施规范 + CASE / PATH / ASSERT</text>
-<text x="800.0" y="526.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">从 Ledger 骨架起笔；独立 design 按需</text>
+<text x="800.0" y="526.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">骨架起笔，含冻结测试源；design 按需</text>
 <path d="M800,540 L800,610" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="610" width="500" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="555" y="615" width="490" height="120" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
@@ -37,12 +37,12 @@
 <text x="800.0" y="839.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Implementer · 按 TASK 执行</text>
 <text x="800.0" y="873.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 代写预检；步骤先列提交必备证据</text>
 <text x="800.0" y="902.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">任务先单测：自查红→绿两份记录为 red 证据</text>
-<text x="800.0" y="931.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">代码 / 追溯提交 → MO 接受</text>
+<text x="800.0" y="931.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">冻结测试原样交付；代码 / 追溯 → MO 接受</text>
 <path d="M800,940 L800,1010" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="1010" width="500" height="180" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="1050.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Test-Runner · 正式验证</text>
 <text x="800.0" y="1084.0" font-size="20.09" fill="#4b5563" text-anchor="middle" font-weight="400">build → unit（同命令一次）→ static，同一派发</text>
-<text x="800.0" y="1113.0" font-size="20.22" fill="#4b5563" text-anchor="middle" font-weight="400">全部通过后另派 automation，逐 PATH / ASSERT</text>
+<text x="800.0" y="1113.0" font-size="19.38" fill="#4b5563" text-anchor="middle" font-weight="400">另派 automation：进程内 JUnit / 设备，逐 PATH</text>
 <text x="800.0" y="1142.0" font-size="21.95" fill="#4b5563" text-anchor="middle" font-weight="400">适用时另派 visual；原始回执 / 媒体 / 根因</text>
 <text x="800.0" y="1171.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">执行证据经 Ledger → MO 验收</text>
 <path d="M800,1190 L800,1245" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>

@@ -138,7 +138,7 @@
 <text x="1375.0" y="596.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">范围逐层细化</text>
 <text x="1375.0" y="630.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GO → 根模块 scope</text>
 <text x="1375.0" y="659.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">父 MO → 子模块 scope</text>
-<text x="1375.0" y="688.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子 MO → tasks</text>
+<text x="1375.0" y="688.0" font-size="21.46" fill="#4b5563" text-anchor="middle" font-weight="400">子 MO → tasks + 冻结测试源</text>
 <text x="1375.0" y="717.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400"></text>
 <text x="1375.0" y="746.0" font-size="21.44" fill="#4b5563" text-anchor="middle" font-weight="400">起步门禁即冻结；design 按需</text>
 <text x="1375.0" y="775.0" font-size="20.39" fill="#4b5563" text-anchor="middle" font-weight="400">真实未决 / 语义授权变化交人工</text>

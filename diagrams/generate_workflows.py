@@ -136,7 +136,7 @@ def overview():
     d.box(1210,190,330,280,'全局读取视野',[
         'GO / 父 MO / 子 MO', '均可读全局存量与目标代码', '架构 / 知识 / 分工 / 复用来源', '', '局部 context pack 聚焦任务', '不截断全局只读上下文'], 'gray')
     d.box(1210,540,330,270,'范围逐层细化',[
-        'GO → 根模块 scope', '父 MO → 子模块 scope', '子 MO → tasks', '', '起步门禁即冻结；design 按需', '真实未决 / 语义授权变化交人工'], 'orange')
+        'GO → 根模块 scope', '父 MO → 子模块 scope', '子 MO → tasks + 冻结测试源', '', '起步门禁即冻结；design 按需', '真实未决 / 语义授权变化交人工'], 'orange')
     d.box(1210,880,330,280,'Ledger · 唯一总线',[
         '分配包 / 事件 / 状态 / 证据', 'planning_context：全局视野', 'wave-complete：派波次集成', '预检：Ledger 代写或骨架起笔', '就绪才开工，阻塞退回派发前', '父聚合颜色不回写子模块'], 'green')
     d.box(1210,1230,330,230,'宿主执行层',[
@@ -161,7 +161,7 @@ def module_execution():
     d.box(550,400,500,140,'四维 → SPEC / 测试路径',[
         'UI → Logic → Adhesive → Resource',
         'Spec-Designer：实施规范 + CASE / PATH / ASSERT',
-        '从 Ledger 骨架起笔；独立 design 按需'])
+        '骨架起笔，含冻结测试源；design 按需'])
     d.arrow([(800,540),(800,610)])
     d.box(550,610,500,130,'MO 审核冻结',[
         '起步门禁即冻结；保真欠项 DoD 前结清',
@@ -171,11 +171,11 @@ def module_execution():
     d.box(550,810,500,130,'Implementer · 按 TASK 执行',[
         'Ledger 代写预检；步骤先列提交必备证据',
         '任务先单测：自查红→绿两份记录为 red 证据',
-        '代码 / 追溯提交 → MO 接受'])
+        '冻结测试原样交付；代码 / 追溯 → MO 接受'])
     d.arrow([(800,940),(800,1010)])
     d.box(550,1010,500,180,'Test-Runner · 正式验证',[
         'build → unit（同命令一次）→ static，同一派发',
-        '全部通过后另派 automation，逐 PATH / ASSERT',
+        '另派 automation：进程内 JUnit / 设备，逐 PATH',
         '适用时另派 visual；原始回执 / 媒体 / 根因',
         '执行证据经 Ledger → MO 验收'])
     d.arrow([(800,1190),(800,1245)])
