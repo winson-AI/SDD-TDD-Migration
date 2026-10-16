@@ -160,7 +160,7 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     paths = [planned[pid] for pid in pids]
     path = paths[0]
     if batch:
-        require(all(p.get('kind') == 'unit' and p.get('unit_report') for p in paths), 'a batch runs unit PATHs with JUnit reports')
+        require(all(p.get('kind') in ('unit', 'automation') and p.get('unit_report') for p in paths), 'a batch runs unit or in-process functional PATHs with JUnit reports')
         require(all((p['command']['argv'], str(Path(p['command']['cwd']).resolve())) ==
                     (path['command']['argv'], str(Path(path['command']['cwd']).resolve())) for p in paths),
                 'a batch runs PATHs that froze the same command')
@@ -176,7 +176,7 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     for row in {r['path']: r for rows in sources.values() for r in rows}.values():  # what the freeze wrote lands in the target verbatim
         require(Path(row['path']).is_file() and file_ref(Path(row['path']))['sha256'] == row['sha256'],
                 'frozen test source missing or changed at ' + row['path'])
-    is_build = path.get('kind') in ('build', 'unit')  # both execute a frozen, host-bound command
+    is_build = path.get('kind') in ('build', 'unit') or bool(path.get('kind') == 'automation' and path.get('unit_report'))  # a frozen, host-bound command
     if tv.split(m) and module_id != 'GLOBAL':
         kind = path.get('kind') or 'automation'
         if a.get('role') == 'test-runner':

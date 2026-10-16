@@ -41,7 +41,7 @@ def interpret(receipt, planned):
     known = isinstance(report, dict) and report.get('producer') in ('harmony-adapter', 'build-executor', 'lean-visual-adapter', 'spec-closure-check')
     step_issues = []
     if known and report['producer'] == 'build-executor':
-        require(planned.get('kind') in ('build', 'unit'), 'build report cannot replace automation')
+        require(planned.get('kind') in ('build', 'unit') or planned.get('unit_report'), 'build report cannot replace automation')
         if planned.get('unit_report'):
             import unit_reports
             unit_reports.validate(receipt, planned, report)

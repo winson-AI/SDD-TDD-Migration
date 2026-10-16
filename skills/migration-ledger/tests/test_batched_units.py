@@ -70,7 +70,7 @@ class BatchedUnitTests(unittest.TestCase):
 
     def test_a_batch_is_unit_paths_of_one_frozen_command(self):
         self.compiled()
-        with self.assertRaisesRegex(Rejected, 'unit PATHs with JUnit reports'):
+        with self.assertRaisesRegex(Rejected, 'functional PATHs with JUnit reports'):
             self.run_batch(('U1', 'B1'))
         with self.assertRaisesRegex(Rejected, 'each once'):
             self.run_batch(('U1', 'U1'))

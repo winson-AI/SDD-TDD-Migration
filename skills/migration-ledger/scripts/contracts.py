@@ -430,7 +430,7 @@ def validate_result(result, module, assignment, run_root=None):
             require(captured.get('producer') != 'harmony-adapter' and planned[pid].get('platform') not in ('android', 'harmony'),
                     'current mobile completion requires host normalization')
         require(record.get('executed') is True, 'execution evidence required')
-        if planned[pid].get('kind') in ('build', 'unit'):
+        if planned[pid].get('kind') in ('build', 'unit') or planned[pid].get('unit_report'):
             expected_argv = planned[pid]['command']['argv']
             if receipt.get('storage_command_version') == 1:
                 from runner_storage import build_command

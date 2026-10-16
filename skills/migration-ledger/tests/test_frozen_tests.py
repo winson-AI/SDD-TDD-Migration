@@ -95,15 +95,14 @@ class FrozenTestTests(unittest.TestCase):
         t = test_source_changes.SourceChangeTests(); t.setUp(); self.addCleanup(t.doCleanups)
         out = t.f.root / 'staging/spec-designer/frozen-skeleton'
         files = spec_skeleton.write(t.f.root, 'M001', out)['files']
-        sources = [name for name in files if name.startswith('test-sources/')]
-        self.assertEqual(len(sources), 1)
         upstream = json.loads(check_ref(files['upstream-test-plan.json']).read_text())
-        asset = upstream['test_assets'][0]
-        self.assertEqual((asset['kind'], asset['ref'], asset['path_ids']), ('test-source', files[sources[0]], ['UNIT-M001-001']))
+        asset = next(a for a in upstream['test_assets'] if a['path_ids'] == ['UNIT-M001-001'])
+        source = next(name for name in files if name.startswith('test-sources/') and files[name] == asset['ref'])
+        self.assertEqual(asset['kind'], 'test-source')
         unit = next(p for p in upstream['paths'] if p['path_id'] == 'UNIT-M001-001')
         self.assertEqual((unit['unit_report']['required_test_ids'], unit['preparation']['status'], unit['expected_assertions'][0]['expected']),
                          (asset['required_test_ids'], 'prepared', True))
-        text = check_ref(files[sources[0]]).read_text()
+        text = check_ref(files[source]).read_text()
         for tid in asset['required_test_ids']:
             self.assertIn('fun ' + tid.split('#')[1] + '(', text); self.assertIn('class ' + tid.split('#')[0], text)
 

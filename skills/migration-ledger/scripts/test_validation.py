@@ -3,7 +3,7 @@ import copy
 from pathlib import Path
 import task_revalidation
 
-from contracts import require, check_ref, nonempty, verify_plan, baseline
+from contracts import Rejected, require, check_ref, nonempty, verify_plan, baseline, read_json
 
 OPS = {'automation-unavailable', 'automation-resume', 'audit-unavailable'}
 
@@ -200,9 +200,10 @@ def plan_check(plan, target, static_required=False, unit_required=False):
         require(path.get('baseline_ref') is not None or ids, 'a visual path without a baseline must carry image_check_ids')
         if path.get('baseline_ref') is not None:
             check_ref(path['baseline_ref'])
-    for path in builds + units:
+    functional = [p for p in plan['paths'] if p.get('kind') == 'automation' and p.get('unit_report')]  # in-process: a frozen command, JUnit per assertion
+    for path in builds + units + functional:
         if path.get('unit_report'):
-            require(path['kind'] == 'unit', 'unit_report only belongs to unit PATH')
+            require(path['kind'] in ('unit', 'automation'), 'unit_report belongs to a unit PATH or an in-process functional PATH')
             import unit_reports
             unit_reports.plan_check(path)
         command = path.get('command', {})
@@ -212,9 +213,7 @@ def plan_check(plan, target, static_required=False, unit_required=False):
         cwd = command.get('cwd', '')
         require(Path(cwd).is_absolute() and Path(cwd).resolve().is_relative_to(Path(target).resolve()), 'build cwd outside target')
         require(type(command.get('timeout_seconds')) is int and command['timeout_seconds'] > 0, 'build timeout required')
-        require(len(path['expected_assertions']) == 1 and
-                (path['expected_assertions'][0]['expected'] is True if path.get('unit_report') else
-                 path['expected_assertions'][0]['expected'] == 0),
+        require(path.get('unit_report') or len(path['expected_assertions']) == 1 and path['expected_assertions'][0]['expected'] == 0,
                 'build assertion must expect exit code zero')
         check_ref(command.get('selection_ref'))
 
@@ -318,6 +317,20 @@ def interaction_result(module, path, record, captured):
     require(checks[0].get('code_baseline') == module['code_baseline'], 'interaction observation has stale code')
     require(checks[0].get('from') == frozen['from'], 'interaction did not start at the frozen page/state')
     ue.match_interaction_observation(checks[0], frozen)
+
+
+def scripted(rows):
+    """Mark each accepted row whose host receipt names a frozen script as the entrypoint: a device path driven by a
+    frozen script rather than the agentic engine. Read from the receipt, never from the worker's prose."""
+    out = []
+    for row in rows:
+        receipt = row.get('execution_receipt')
+        try:
+            usage = read_json(check_ref(receipt)).get('test_asset_usage') or {} if receipt else {}
+        except (Rejected, OSError, ValueError, TypeError):
+            usage = {}
+        out.append({**{k: v for k, v in row.items() if k != 'scripted'}, 'scripted': bool(usage.get('entrypoint_ids'))})
+    return out
 
 
 def blocked_report(s, mid, ref, stage, instance=None):

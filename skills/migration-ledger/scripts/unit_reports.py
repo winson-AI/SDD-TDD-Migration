@@ -23,7 +23,12 @@ def plan_check(path):
     require(all(isinstance(i, str) and i.count('#') == 1 and all(i.split('#')) for i in ids)
             and len(set(ids)) == len(ids), 'required_test_ids must be unique classname#name values')
     assertions = path.get('expected_assertions', [])
-    require(len(assertions) == 1 and assertions[0].get('expected') is True, 'reported unit PATH asserts one boolean clean execution')
+    if path.get('kind') == 'automation':  # an in-process functional PATH: every frozen assertion is one named test that must pass
+        named = [a.get('test_id') for a in assertions]
+        require(assertions and all(a.get('expected') is True for a in assertions) and set(named) == set(ids) and len(set(named)) == len(named),
+                'functional PATH assertions each name one required test (test_id) and expect it to pass')
+    else:
+        require(len(assertions) == 1 and assertions[0].get('expected') is True, 'reported unit PATH asserts one boolean clean execution')
 
 
 def parse(path):
@@ -93,10 +98,16 @@ def collect(query, directory, started_at, exit_code):
         'summary': f'Unit exit {exit_code}; executed={counts["executed"]}, failed={counts["failed"]}, skipped={counts["skipped"]}'
                    + ('; ' + '; '.join(issues) if issues else ''),
         'evidence_refs': [file_ref(directory / 'execution.log'), *refs]}
-    return {'producer': 'build-executor', 'unit_execution': summary, 'quality': quality, 'root_cause': cause,
-            'assertions': [{'assertion_id': query['expected_assertions'][0]['assertion_id'], 'expected': True,
-                            'actual': True if quality == 'green-passed' else False if quality == 'red-bug' else None,
-                            'passed': quality == 'green-passed'}]}
+    if query.get('kind') == 'automation':  # one assertion per named test: its own pass / fail / not observed
+        status = {r['test_id']: r['status'] for r in rows}
+        assertions = [{'assertion_id': a['assertion_id'], 'expected': True,
+                       'actual': status.get(a['test_id']) == 'passed' if status.get(a['test_id']) in ('passed', 'failed') else None,
+                       'passed': status.get(a['test_id']) == 'passed'} for a in query['expected_assertions']]
+    else:
+        assertions = [{'assertion_id': query['expected_assertions'][0]['assertion_id'], 'expected': True,
+                       'actual': True if quality == 'green-passed' else False if quality == 'red-bug' else None,
+                       'passed': quality == 'green-passed'}]
+    return {'producer': 'build-executor', 'unit_execution': summary, 'quality': quality, 'root_cause': cause, 'assertions': assertions}
 
 
 def validate(receipt, planned, report):

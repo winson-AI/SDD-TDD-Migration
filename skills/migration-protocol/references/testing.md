@@ -10,15 +10,15 @@ Main 是项目提供的主验证入口，不是固定 `main.py`；`test_adapter`
 
 prepare 的 test_design_required=true 表示必需的测试输入与覆盖，不强制额外 Test-Runner design 轮次。TDD 的预期来自上游用例与源行为，automation 收集实际错误后推动实现修复；首次即 Green 不伪造 Red。
 
-默认 stage-plan.test_design_ref 引用 [upstream-test-plan.json](../../../template/upstream-test-plan.json)：subject_sha256、case_refs 取游标的 input_subject_sha256、upstream_case_refs，绑定当前分配与权威用例（项目 test_cases_path，未提供时取 global_spec）。paths 精确覆盖本模块全部 CASE，每条含需求、预期 ASSERT 与适用 Scenario，不填 actual/passed/quality。design_ref 与 test_assets 沿用资产契约；Ledger 补全 PATH/test-design/资产定义，TASK.scope、需求与 SPEC 定义由 plan 提供。MO 检查原始用例与预期的语义一致性，hash 不证明语义；无未决且完整可执行即冻结。
+默认 stage-plan.test_design_ref 引用 [upstream-test-plan.json](../../../template/upstream-test-plan.json)：subject_sha256、case_refs 取游标的 input_subject_sha256、upstream_case_refs，绑定当前分配与权威用例（项目 test_cases_path，未提供时取 global_spec）。paths 精确覆盖本模块全部 CASE，每条含需求、预期 ASSERT 与适用 Scenario，不填 actual/passed/quality。design_ref 与 test_assets 沿用资产契约；Ledger 补全 PATH/test-design/资产定义，TASK.scope、需求与 SPEC 定义由 plan 提供。MO 检查用例与预期的语义一致性（hash 不证明语义），无未决且可执行即冻结。
 
 设计只读规格与用例，不运行目标代码，没有独立派发。
 
-执行反馈分流、同 Run CR 及独立 TASK 保留统一按[变更控制](openspec.md#变更控制)；不强制重做独立 design，当前计划仍绑定上游用例，历史设计只供追溯。
+执行反馈分流、同 Run CR 及独立 TASK 保留按[变更控制](openspec.md#变更控制)；不重做独立 design，计划仍绑定上游用例，历史设计只供追溯。
 
 新 prepare 固化 planning_coverage_required。每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids；已有执行器可复用，prepared 须对应资产，deferred 另记 owner/next_action，解决后才能冻结；测试准备不执行目标代码。叶子验收的用户可见 CASE（适用 UI item 承载）须有设备或视觉 PATH：visual，或绑定 android/harmony 平台、交互的 automation；确无可能的写 plan.device_gaps[{case_id,reason,evidence_refs}]：build 可 Green，该 CASE 的 automation 与模块、本轮记 Yellow，以 completed-with-unverified-tests 收尾；环境缺失不是缺口，走缺测出口。登记 UI 分配前 run 须对 `test_adapter.device` 定论（`{platforms}` 或 `{unavailable: 原因}`，经 run 修订写入）；unavailable 时未达设备路径的用户可见 CASE 由 Ledger 按该原因记缺口。
 
-test_assets 交 script/fixture/adapter/test-source 的 asset_id/ref/path_ids，script 再映射 assertions；文件位于 design_ref 同级 staging 内，冻结 definitions 绑定 hash。test-source 是从 SPEC 写出、随计划冻结的测试源文件：记 target_path、required_test_ids（文件须定义）、scenarios（逐测试对应 SPEC 的 Scenario-ID）与 symbols；绑定的 unit PATH 只要求它定义的测试；Implementer 原样落到 target_path，hash 不等即拒，改测试走 CR；execute_test 执行前核对文件并写回执 frozen_test_sources。模块、修复后复测及 GLOBAL 复测共用 PATH 资产解析，query/receipt 的 test_asset_binding 保留来源模块、freeze_id、test_design_ref。GLOBAL 自有路径显式绑定本 GLOBAL 的 test_design_ref/设计作者，不借用模块资产；作者不能兼 Auditor/审计 Test-Runner。
+test_assets 交 script/fixture/adapter/test-source 的 asset_id/ref/path_ids，script 再映射 assertions；文件位于 design_ref 同级 staging 内，冻结 definitions 绑定 hash。骨架为无设备或非界面的 CASE 起稿进程内功能测试，为有设备且绑定 UI 树的 CASE 起稿 script 资产（选择器取节点 id，作者写操作与断言，预检批准入口）；报告分列脚本驱动的设备路径及其 flaky。test-source 是从 SPEC 写出、随计划冻结的测试源文件：记 target_path、required_test_ids（文件须定义）、scenarios（逐测试对应 SPEC 的 Scenario-ID）与 symbols；绑定的 unit PATH 只要求它定义的测试；Implementer 原样落到 target_path，hash 不等即拒，改测试走 CR；execute_test 执行前核对文件并写回执 frozen_test_sources。模块、修复后复测及 GLOBAL 复测共用 PATH 资产解析，query/receipt 的 test_asset_binding 保留来源模块、freeze_id、test_design_ref。GLOBAL 自有路径显式绑定本 GLOBAL 的 test_design_ref/设计作者，不借用模块资产；作者不能兼 Auditor/审计 Test-Runner。
 
 执行器从 SDD_TEST_QUERY_FILE 读 query（非 build/unit 同时带 --query-file），资产位于 frozen_test_assets；script/adapter 作为 argv 参数由 Host 记 entrypoint_ids，其他消费由执行器向 SDD_TEST_ASSET_USAGE_FILE 写 [{asset_id,ref}]。Green 须覆盖所选资产（test-source 以文件 hash 与 JUnit 必需 ID 为证），哈希/来源不能变；提供不等于消费，上报不证明断言语义。
 
@@ -78,7 +78,7 @@ unit 冻结 argv/cwd/timeout/selection_ref。unit_report 固定 format=junit、r
 
 解析 testcase/计数，保存具体 ID、执行/失败/跳过数量与报告 hash，绑定 run/module/PATH/assignment/test_run/freeze/code_baseline，接受时重核原报告。exit=0、实际执行非零、全部必需 ID 通过、无跳过/证据缺口才 Green。零执行、漏测、缺失/损坏/过期报告为 Yellow；断言失败或非环境中断的命令失败为 code Red，走既有诊断/Fixer。只收本 attempt 的新报告，旧 mtime/越界链接无效；任意可写 XML 的真实性仍依赖可信宿主执行。
 
-冻结同一命令的 unit PATH 由 execute_test 以 `--path-id a,b` 一次执行，JUnit 按各自 required_test_ids 拆成逐 PATH 回执。作者的 `selfcheck --path-id` 记下每个 required 测试的状态，实现前后两份记录是任务的 red 证据，只进报告不设门禁。prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据。unit 无需设备，可证明逻辑 Scenario，但不替代 CASE 的 automation；环境缺失保留已通过 unit。枚举与唯一性类断言（键只定义一次、无多余键）挂扫描类进程内路径，不挂 unit。
+冻结同一命令的 unit PATH 由 execute_test 以 `--path-id a,b` 一次执行，JUnit 按各自 required_test_ids 拆成逐 PATH 回执。作者的 `selfcheck --path-id` 记下每个 required 测试的状态，实现前后两份记录是任务的 red 证据，只进报告不设门禁。进程内功能测试：kind=automation 的 PATH 带 command 与 unit_report 时按冻结命令执行、JUnit 归因，每条断言 expected=true 并以 test_id 指一个 required 测试，逐断言给 pass/fail；它在 automation 派发里跑，不算设备路径。prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据。unit 无需设备，可证明逻辑 Scenario，但不替代 CASE 的 automation；环境缺失保留已通过 unit。枚举与唯一性类断言（键只定义一次、无多余键）挂扫描类进程内路径，不挂 unit。
 
 ## 日志与按需追溯
 
@@ -99,7 +99,7 @@ query 还支持 --task-id/--assertion-id/--test-id，默认最多5条，仅失�
 
 顺序为 build → unit → static → automation → visual。prepared run 固定 spec_closure_required=true，每模块恰好一个 static PATH：断言为唯一 expected=true，复用已有 case_id，不替代业务覆盖；审查范围由 Ledger 派生（全部任务需求与冻结场景），PATH 不列。
 
-独立 Test-Runner 只读 SPEC、当前代码/测试，从 Ledger 骨架（build 派发步骤的 `report_skeleton`：冻结场景逐行、反模式逐项、上下文已填）填写审查；留标记即拒：
+独立 Test-Runner 只读 SPEC 与当前代码/测试，从 Ledger 骨架（`report_skeleton`：冻结场景逐行、反模式逐项、上下文已填）填写审查，留标记即拒：
 
 - scenarios[]：每行 status=passed|failed、summary、production_symbols（目标绝对路径+真实符号）、evidence_refs。passed 必须给 reached_from：另一个目标文件中的调用/DI/导航/清单引用；有 unit PATH 还须 test_refs 指向真实测试符号。未接入生产不能 passed。
 - anti_patterns：preview-only-wiring、dead-handler、fixed-result、placeholder-icon、unapproved-stub、swallowed-error（错误显示为空态/成功）逐项 absent|present、note、evidence_refs。批准的 capture-fixture 边界可 absent，须引用批准依据。
@@ -112,11 +112,9 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 ## Harmony Main
 
-已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核。输入为完整冻结 PATH；输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留原时间线、工具录制、压缩记忆、布局、视频时间映射。UI 谓词 expected=true 的语义须在 design 冻结，不能从旧 scalar equality 静默转换。
+已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核：输入完整冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频时间映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow，不以自然语言判断通过。harmony_stage 把 host receipts 汇成 tests stage，Ledger 双重校验媒体 hash 与捕获三态；超时终止整个进程组并保存已有输出。
 
-执行期间每次观察落盘；回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow。缺设备/模型/媒体或不明确结论为 Yellow，不用最终自然语言判断通过。harmony_stage 将 host receipts 汇成现有 tests stage，Ledger 双重校验媒体 hash 与捕获三态。host 超时终止整个进程组并保存已有 stdout/stderr，避免子工具继续操作设备。
-
-默认 Harmony 当前不会自动生成上述结构化 interaction_evidence。对有 frozen_interaction 的 automation，报告仅有 Green 断言而缺这份证据时，test_completion 保留实际断言、媒体和原报告，记录 executed=true 的 Yellow tooling / interaction-evidence-unavailable；正式 submit/accept 使用同一解释，不会先报 Green 再无法收尾。已观察到的 Red 保持 Red；绝不从 expected 或自然语言结论合成 observed。Test-Runner 在预检中说明能力缺口，使用具备此能力的已配置 adapter，或沿原环境不可用/缺测路径交给 MO/Auditor 收尾；无手势路径不增加此要求。
+Harmony 不自动生成结构化 interaction_evidence：有 frozen_interaction 的 automation 只有 Green 断言而缺这份证据时，test_completion 保留断言与媒体，记 executed=true 的 Yellow tooling / interaction-evidence-unavailable，submit/accept 同一解释；已观察到的 Red 保持 Red，不从 expected 或自然语言合成 observed。Test-Runner 在预检中说明能力缺口，换具备能力的 adapter 或走缺测出口。
 
 ## 分阶段唯一验收 owner
 
@@ -139,4 +137,4 @@ Test Runner 接到 build 派发后提交 building、接到 automation 派发后�
 
 ## 埋点上报断言
 
-遵守 [埋点协议](telemetry.md)：测试预期从已审核的源行为冻结，事件存在才生成/关联业务 PATH/ASSERT；无埋点不增加测试或 skip。明确 emitted/sdk-dispatched/server-received 验收层级，验证正确事件/参数/次数及适用的禁止触发/边界情况，项目 adapter 留原始观测/回执。部分路径缺证据单独 Yellow，其余可执行路径继续；不得用图片、空实现或被 mock 的核心逻辑充当上报验收。
+遵守 [埋点协议](telemetry.md)：测试预期从已审核的源行为冻结，事件存在才生成/关联业务 PATH/ASSERT；无埋点不增加测试或 skip。验收层级 emitted/sdk-dispatched/server-received 明确，验证事件/参数/次数及禁止触发/边界，adapter 留原始观测/回执。缺证据的路径单独 Yellow，其余继续；图片、空实现或被 mock 的核心逻辑不算上报验收。
