@@ -4,10 +4,10 @@
 
 ## 1. 准备与冻结
 
-1. Host/Test-Runner 按项目参考配置（可保存在 `.sdd-migration/harmony/visual.json`）或 [配置模板](../../../template/visual-execution.json)，在本轮 `runs/harmony/sandbox/environment/visual.json` 生成执行配置。该文件与 sandbox prepare 已管理的 config.json 分开；不在执行期间改写已有环境 manifest。只复制本次用户选定的设备/backend/模型配置，不假定本机默认设备或个人 HOME 下配置可用。
-2. Spec/Test design 将 `visual_execution` 放到对应 automation/visual PATH：environment_ref 的真实 path/hash、app_id、必要导航 actions、可验证的目标选择器。配置引用随路径冻结并持续验证，变更沿原计划/CR/重新冻结机制。无视觉执行需求时不增加此字段或全局门禁。
-3. 设备执行使用显式 HDC backend。模型使用显式启用的 external 配置，API key 仅从指定的进程环境变量读取；配置与请求只保存变量名。Host 可从本 run 的私密环境加载变量，不把 `.env` 或明文 key 当证据归档。
-4. 实际执行前 Host 持有设备独占锁，并在认证 host-context 中注入 device_lock 的 device_id、assignment_id、fencing_token、held。模型输出或 Agent 自填锁字段不构成真实锁；工具不是设备锁服务或 OS 沙箱。
+1. Host/Test-Runner 按项目参考配置（可存 `.sdd-migration/harmony/visual.json`）或 [配置模板](../../../template/visual-execution.json)，在本轮 `runs/harmony/sandbox/environment/visual.json` 生成执行配置；与 sandbox 的 config.json 分开，执行期间不改写。只复制本次选定的设备/backend/模型配置，不假定本机默认设备或 HOME 配置可用。
+2. Spec/Test design 把 `visual_execution` 放到对应 automation/visual PATH：environment_ref 的真实 path/hash、app_id、导航 actions、目标选择器；随路径冻结并持续验证，变更走 CR/重新冻结。无视觉执行需求时不加此字段。
+3. 设备执行用显式 HDC backend；模型用显式启用的 external 配置，API key 只从指定环境变量读取，配置与请求只存变量名，不把 `.env` 或明文 key 归档。
+4. 执行前 Host 持有设备独占锁，在认证 host-context 注入 device_lock（device_id、assignment_id、fencing_token、held）；Agent 自填的锁字段不算锁，工具不是锁服务或沙箱。
 
 ## 2. 执行节点
 

@@ -41,7 +41,7 @@ GO 可先做粗粒度目录，父/子 MO 补充本模块相关语义证据并更
 
 ## 4. 语义抽取必须回答什么
 
-[reuse-catalog.json](../../../template/reuse-catalog.json) 每个 capability 有稳定 ID、来源、实际版本/API 证据及：**业务意图**（完成什么用户行为、可观察结果，沿真实入口→状态/数据→输出定位，不只 API 摘要）；**输入/输出**（模型、单位、空值、默认值、分页/排序、同步/异步）；**前置条件与状态**（认证、权限、初始化、缓存/持久化、状态所有权、线程与生命周期）；**副作用与失败**（网络/存储副作用、异常、超时、取消、重试、幂等，无副作用也写明）；**接入约束**（公开入口、版本、平台/框架/API 或 ABI、传递依赖、DI、生产绑定及与目标架构的兼容性）。报告引用真实源码、API 文档、manifest/锁文件与调用链；抽取是 Agent 的语义分析，控制器只检验结构、范围与引用。冻结前不执行目标业务测试，可读源码/API、配置与已有证据判断可行性，Coding 后再运行 Main 验证。
+[reuse-catalog.json](../../../template/reuse-catalog.json) 每个 capability 有稳定 ID、来源、实际版本/API 证据及：**业务意图**（用户行为与可观察结果，沿真实入口→状态/数据→输出定位，不只 API 摘要）；**输入/输出**（模型、单位、空值、默认值、分页/排序、同步/异步）；**前置条件与状态**（认证、权限、初始化、缓存/持久化、状态所有权、线程与生命周期）；**副作用与失败**（网络/存储副作用、异常、超时、取消、重试、幂等，无副作用也写明）；**接入约束**（公开入口、版本、平台/框架/API 或 ABI、传递依赖、DI、生产绑定及与目标架构的兼容性）。报告引用真实源码、API 文档、manifest/锁文件与调用链；抽取是 Agent 的语义分析，控制器只检验结构、范围与引用；冻结前不执行目标业务测试，以源码/API、配置与已有证据判断可行性，Coding 后再运行 Main 验证。
 
 ## 5. 需求映射与 OpenSpec
 
@@ -54,7 +54,7 @@ GO 可先做粗粒度目录，父/子 MO 补充本模块相关语义证据并更
 | reference | 不能直接接入，但业务语义有价值 | integration.mode=reference-only；提炼规则在目标架构内实现，不宣称运行时库依赖 |
 | new | 无合适能力，或采用候选会违背需求/架构 | capability_id=null；解释搜索/拒绝理由与剩余实现范围 |
 
-每条映射含 rationale、behavior_delta、binding_plan、verification、task_ids、path_ids，后三种不能通过弱化验收消除差异；实际使用时记 integration.mode（existing-target/package/source-module/reference-only）、locator、版本、配置、传递依赖与兼容证据。源码引用不等于复制授权，新增依赖仍守项目规则与边界决策。OpenSpec 分工：proposal 写复用策略与缺口，spec 保持用户可观察行为，design 写提供方与适配边界，tasks 落接线/适配/剩余实现，checklist 核映射覆盖、版本、生产绑定与测试，status 引用当前冻结 plan 与依赖问题；`stage-plan.reuse_plan_ref` 把目录与映射纳入 plan 摘要、人工冻结与后续 CR，change/reuse.md 只供规划阅读。prepare 要求复用规划（reuse_required=true），显式外部来源与子 MO 计划同样要求；无可复用能力时提交空 capabilities + 有证据的来源评审 + new 映射，不编造库。
+每条映射含 rationale、behavior_delta、binding_plan、verification、task_ids、path_ids，后三种不能通过弱化验收消除差异；实际使用时记 integration.mode（existing-target/package/source-module/reference-only）、locator、版本、配置、传递依赖与兼容证据。源码引用不等于复制授权，新增依赖仍守项目规则与边界决策。OpenSpec 分工：proposal 写复用策略与缺口，spec 保持用户可观察行为，design 写提供方与适配边界，tasks 落接线/适配/剩余实现，checklist 核映射覆盖、版本、生产绑定与测试，status 引用当前冻结 plan；`stage-plan.reuse_plan_ref` 把目录与映射纳入 plan 摘要与后续 CR，change/reuse.md 只供规划阅读。prepare 要求复用规划（reuse_required=true），显式外部来源与子 MO 计划同样要求；无可复用能力时提交空 capabilities、有证据的来源评审与 new 映射，不编造库。
 
 ## 6. Coding、测试与失败处理
 
@@ -86,7 +86,7 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 
 `reuse-plan.mappings[].fidelity` 含：`legacy_root`（等于本轮 Ledger 的存量根）；`legacy_source_refs`（该目录内真实入口/调用链的 path/sha256，不以提供方源码冒充基线）；`alignment_ref`（按 [reuse-fidelity.md](../../../template/reuse-fidelity.md) 的逐行为对齐报告：正常/边界/失败、默认值、输入输出、状态/生命周期、副作用逐项核对，不适用有理由）；`scenarios`（稳定 scenario_id、legacy_behavior、reuse_behavior、reproduction_strategy 及已冻结的 path_id/assertion_ids，覆盖该映射全部 path_ids；经 mapping 的 requirement_ids/task_ids 与 PATH 的 case_id 关联需求和用例，不另建验收状态机）。
 
-报告区分**源码分析得出的基线**与**已有真实运行证据**：规划只读分析，不为对齐在代码生成前运行目标测试；存量运行轨迹可辅助固化场景，没有就记未执行/限制，不伪造。源码与需求足以确定行为即可冻结；预期无法确定、基线缺失或有疑问先补材料/人工澄清；正式复现仍须执行 Main。复现是满足冻结的业务可观察契约，不是内部实现相同；数据/平台差异的转换与允许偏差须有依据，不用"相似"代替断言；Test Runner 从已审核的存量契约与需求设计预期，不从目标实现或提供方返回值倒推。记录链固定为：**存量源码引用 → alignment_ref → mapping/scenario → REQ/CASE/TASK/PATH/ASSERT → 冻结版本 → reuse_trace → Main 结果/回执 → MO 或 Auditor 裁决**；规划报告不可变，结果沿测试记录保留 test_run_id、freeze_id、code_baseline、环境、日志、expected/actual 与 execution_receipt，共享记录经 Ledger，不建第二份可手改的通过状态。
+报告区分**源码分析得出的基线**与**已有真实运行证据**：规划只读分析，代码生成前不运行目标测试；存量运行轨迹可辅助固化场景，没有就记未执行，不伪造。源码与需求足以确定行为即可冻结，预期不定或基线缺失先补材料/人工澄清；正式复现仍须执行 Main。复现是满足冻结的业务可观察契约，不是内部实现相同；数据/平台差异的转换与允许偏差须有依据，不用"相似"代替断言；Test Runner 从已审核的存量契约与需求设计预期，不从目标实现或提供方返回值倒推。记录链固定为：**存量源码引用 → alignment_ref → mapping/scenario → REQ/CASE/TASK/PATH/ASSERT → 冻结版本 → reuse_trace → Main 结果/回执 → MO 或 Auditor 裁决**；规划报告不可变，结果沿测试记录保留 test_run_id、freeze_id、code_baseline、环境、日志、expected/actual 与 execution_receipt，经 Ledger 共享，不建第二份可手改的通过状态。
 
 ### 7.3 失败、变化与实现边界
 
@@ -150,7 +150,7 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 
 ### 记录与完成准则
 
-对齐报告记"目标冗余文件/符号 → 库 source/capability/version → 消费者 → 保留差异/适配 → 清理范围 → TASK/PATH/ASSERT"，沿用 reuse-plan 的 rationale、behavior_delta、binding_plan、verification 与 fidelity.alignment_ref，不另设状态机或第二套验收。可直接替代选 `reuse`，有真实行为/模型/生命周期差异选 `adapt`，适配层只实现必要差异；完成 = 所有受影响生产调用转到真实库/适配入口且重复实现已清理，必要兼容 façade 可保留并说明理由，不能只加依赖仍走旧实现或两套并行；清理前核对全局调用者与唯一 owner，持久化、数据格式与公共契约保持冻结语义；已授权范围内直接执行，路线变化先走 CR/重新冻结，未决行为或授权变化交人工；已有测试只补回归，不删失败断言、不以库自测代替目标验证，缺自动化仍 Yellow；库不兼容时记证据按第 8 节继续，不为消除表面重复削弱需求，也不以未评估的"不适合"重复造轮子。冗余、适配必要性与调用链是否穷尽由 Agent 审查，脚本只校验版本、范围、映射与证据。
+对齐报告记"目标冗余文件/符号 → 库 source/capability/version → 消费者 → 保留差异/适配 → 清理范围 → TASK/PATH/ASSERT"，沿用 reuse-plan 的 rationale、behavior_delta、binding_plan、verification 与 fidelity.alignment_ref，不另设验收。可直接替代选 `reuse`，有真实行为/模型/生命周期差异选 `adapt`，适配层只实现必要差异；完成 = 受影响生产调用全部转到真实库/适配入口且重复实现已清理，必要兼容 façade 可保留并说明理由，不能只加依赖仍走旧实现或两套并行；清理前核对全局调用者与唯一 owner，持久化、数据格式与公共契约保持冻结语义；授权范围内直接执行，路线变化走 CR/重新冻结，未决或授权变化交人工；已有测试只补回归，不删失败断言、不以库自测代替目标验证；库不兼容时记证据按第 8 节继续，不为消除表面重复削弱需求，也不以未评估的"不适合"造轮子。冗余、适配必要性与调用链穷尽由 Agent 审查，脚本只校验版本、范围、映射与证据。
 
 ## 10. 显式 provider 归属与合法版本变更
 

@@ -98,10 +98,18 @@ def _ui_evidence(model):
     executable = evidence.get('legacy_executable')
     if executable is not None:
         require(isinstance(executable, bool), 'ui_evidence.legacy_executable must be boolean')
-        require(executable == (evidence['visual_mode'] == 'runtime') or evidence['visual_mode'] == 'user-reference',
-                'legacy_executable must agree with visual_mode (previewable legacy <-> runtime baseline)')  # a user reference may replace either
+        require(executable == (evidence['visual_mode'] == 'runtime') or evidence['visual_mode'] == 'user-reference'
+                or (executable and evidence['visual_mode'] == 'source-only' and bool(evidence.get('capture_gap'))),
+                'legacy_executable must agree with visual_mode (previewable legacy <-> runtime baseline)')  # a user reference or a declared capture gap may replace either
     for ref in evidence.get('baseline_refs') or []:
         check_ref(ref)
+    gap = evidence.get('capture_gap')
+    if gap is not None:
+        require(isinstance(gap, dict) and isinstance(gap.get('reason'), str) and gap['reason'].strip()
+                and isinstance(gap.get('evidence_refs'), list) and gap['evidence_refs'],
+                'ui_evidence.capture_gap states the reason the running legacy screen was not captured, with evidence_refs')
+        for ref in gap['evidence_refs']:
+            check_ref(ref)
 
 
 def validate_item(item):

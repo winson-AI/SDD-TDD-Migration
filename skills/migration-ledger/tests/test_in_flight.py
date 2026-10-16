@@ -110,9 +110,10 @@ class VisibleToARunInFlightTests(unittest.TestCase):
     def test_what_nobody_settled_is_rule_debt_of_the_run(self):
         self.assertEqual(self.run_rows(self.f.state()), [])  # no UI or resource work: nothing to settle
         state = self.with_ui_leaf()
-        self.assertEqual(self.run_rows(state), ['target_resources.copy is not settled', 'test_adapter.device is not settled'])
+        self.assertEqual(self.run_rows(state), ['legacy_preview is not settled', 'target_resources.copy is not settled', 'test_adapter.device is not settled'])
         state['target_resources'] = copy.deepcopy(DECLINED)
-        with mock.patch.object(pc, 'device_verification', return_value=NO_DEVICE):
+        with mock.patch.object(pc, 'device_verification', return_value=NO_DEVICE), \
+             mock.patch.object(pc, 'legacy_preview', return_value={'kind': 'none', 'reason': 'no legacy build'}):
             self.assertEqual(self.run_rows(state), [])
 
     def test_a_held_plan_without_a_device_path_is_rule_debt_and_a_limitation_of_the_report(self):

@@ -34,7 +34,7 @@ runtime 证据须有原始 capture_manifest_ref，runtime index 的 manifestSha 
 
 ## 强制开关
 
-prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-ledger/scripts/ui_fidelity.py) 只约束 applicable UI，无 UI/有证据的 N/A 不新增空任务：每个 applicable UI item 的 `ui-component-spec` 模型与 `ui_evidence` 是冻结前欠项（`semantics.ui_fidelity_gaps` 列缺口，DoD 前结清；无设备的 run 不要求），有证据的条目已判定存量可执行性；资源闭包不得缩减，[复制清单与参数表](resource-transfer.md#总则)与证据重算一致；`source_closure.ui_renderers` 必填；有基线的目标必须有 visual 路径，树上每处静态图片有图像检查或豁免。
+prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-ledger/scripts/ui_fidelity.py) 只约束 applicable UI：每个 item 的 `ui-component-spec` 模型与 `ui_evidence` 是冻结前欠项（`semantics.ui_fidelity_gaps` 列缺口，DoD 前结清；无设备的 run 不要求）；资源闭包不得缩减，[复制清单与参数表](resource-transfer.md#总则)与证据重算一致；`source_closure.ui_renderers` 必填；有基线的目标须有 visual 路径，每处静态图片有图像检查或豁免。
 
 ## 基线前移：截图指导实现，而非事后比对
 
@@ -42,9 +42,9 @@ prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-le
 
 | 判定 | `ui_evidence` | 作用 |
 |---|---|---|
-| **存量可预览** | `legacy_executable: true` + `visual_mode: runtime` + `baseline_refs`（存量截图） | 截图**指导 SPEC 生成与 Implementer coding**；后续作视觉对齐基线 |
-| **存量不可预览** | `legacy_executable: false` + `visual_mode: source-only` | 回退保留 UI 源码，但**仍强制走四维 UI 中间表征层**（`ui-component-spec` + `ui_tree`）指导 coding；无基线，不伪造视觉通过 |
-| **用户参考** | `visual_mode: user-reference` + `baseline_refs`（[用户参考媒体](project-context.md#用户参考媒体)中该 CASE 的截图；legacy-baseline 限存量不可预览） | 用户截图指导 SPEC 与 coding，并作视觉对齐基线 |
+| **存量可预览** | `visual_mode: runtime` + `baseline_refs`（存量截图）；`legacy_executable` 随 [存量预览](project-context.md#存量预览) 声明，未捕获的界面以 `capture_gap` 披露 | 截图**指导 SPEC 生成与 Implementer coding**；后续作视觉对齐基线 |
+| **存量不可预览** | `visual_mode: source-only`（legacy_preview=none） | 回退保留 UI 源码，但**仍强制走四维 UI 中间表征层**（`ui-component-spec` + `ui_tree`）指导 coding；无基线，不伪造视觉通过 |
+| **用户参考** | `visual_mode: user-reference` + `baseline_refs`（[用户参考媒体](project-context.md#用户参考媒体)中该 CASE 的截图） | 用户截图指导 SPEC 与 coding，并作视觉对齐基线 |
 
 未判定可执行性 → 不能冻结。实现接受时 conformance 用 `baseline_conformance` 引用指导 coding 的基线或中间表征（runtime/user-reference→`baseline_refs`；source-only→`ui_tree_ref`）。
 

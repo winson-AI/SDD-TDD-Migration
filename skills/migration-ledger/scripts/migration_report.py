@@ -14,6 +14,7 @@ import resource_fidelity
 import ui_fidelity
 import user_paths
 import integration
+import project_context
 import reference_media
 import target_profile
 import workflow_cost
@@ -91,11 +92,15 @@ def fidelity(s, rows, ref_check):
                 verified = (evidence.get('visual_mode') in ('runtime', 'user-reference') and bool(paths) and
                             all(r['quality'] == 'green-passed' and r['executed'] and not r['stale'] for r in paths))
                 status = 'verified' if verified else 'not-verified' if evidence else 'unknown'
+                mode, gap = evidence.get('visual_mode'), evidence.get('capture_gap') or {}
+                origin = ('legacy-capture' if mode == 'runtime' else 'user-reference' if mode == 'user-reference' else
+                          'capture-gap' if gap else 'source-only' if mode == 'source-only' else None)
                 reason = ('声明的视觉路径已在当前基线通过' if verified else
-                          '仅有 source-only 源码分析，未验证运行时视觉保真' if evidence.get('visual_mode') == 'source-only' else
+                          '存量可运行但该界面未捕获：' + str(gap.get('reason')) if gap else
+                          '仅有 source-only 源码分析，未验证运行时视觉保真' if mode == 'source-only' else
                           '缺少当前基线已执行并通过的视觉路径' if evidence else '未声明可核验的 UI 证据模式')
                 entry = {'module_id': mid, 'item_id': item.get('item_id'), 'coverage': coverage,
-                         'visual_mode': evidence.get('visual_mode'), 'status': status, 'reason': reason,
+                         'visual_mode': mode, 'origin': origin, 'status': status, 'reason': reason,
                          'path_ids': [r['path_id'] for r in paths],
                          'evidence_refs': refs([analysis_ref, evidence, [r['evidence_refs'] for r in paths]])}
                 visual.append(entry)
@@ -296,7 +301,7 @@ def build(root, s, sequence, ref_check=check_ref):
             'automation': automation_report.build(s, rows),
             'contract_retirements': run_changes.retirements(s),
             'unimplemented': gaps, 'code_governance': governance, 'open_issues': issues.of_module(s)[0],
-            'visual_coverage': visual, 'fidelity_limitations': limitations,
+            'visual_coverage': visual, 'fidelity_limitations': limitations, 'legacy_preview': project_context.legacy_preview(s),
             'fidelity_conditions': pictures.pop('conditions'), 'picture_fidelity': pictures,
             'human_report': copy.deepcopy(batch.get('human_report')),
             'workflow_cost': workflow_cost.build(s, events, ref_check, root), 'staging_usage': workflow_cost.staging_usage(root, events),
@@ -364,12 +369,15 @@ def render(report):
         for row in report['contract_retirements']:
             text.append(f"- {cell(row['kind'])} {cell(row['id'])} → {cell(row['replacement_ids'])}：{cell(row['reason'])}；"
                         f"decision={cell(row['decision_id'])}；修订={cell(row['revision_ref']['path'])}")
+    preview = report.get('legacy_preview')
     text += ['', '## 视觉覆盖与保真限制', '',
              '以下为证据覆盖披露，独立于业务 CASE 三态；completed 不代表未测维度已经验证。', '',
-             '| 模块 / 项 | 覆盖 | 视觉模式 | 验证状态 | 原因 |', '| --- | --- | --- | --- | --- |']
+             *(['存量预览：' + (f"{preview['kind']}（{cell(preview.get('app_id') or preview.get('url'))}）" if preview['kind'] != 'none'
+                else f"不可运行（{cell(preview.get('reason'))}）"), ''] if preview else []),
+             '| 模块 / 项 | 覆盖 | 视觉模式 | 基线来源 | 验证状态 | 原因 |', '| --- | --- | --- | --- | --- | --- |']
     for v in report.get('visual_coverage', []):
         text.append('| ' + ' | '.join(cell(x) for x in (f"{v['module_id']} / {v.get('item_id', '—')}",
-                    v.get('coverage'), v.get('visual_mode'), v['status'], v['reason'])) + ' |')
+                    v.get('coverage'), v.get('visual_mode'), v.get('origin') or '—', v['status'], v['reason'])) + ' |')
     for condition in report.get('fidelity_conditions', []):
         text.append(f"- {cell(condition['module_id'])}/{cell(condition['item_id'])} · {cell(condition['condition'])}: {cell(condition['status'])} · {cell(condition['reason'])}")
     for limit in report.get('fidelity_limitations', []):
