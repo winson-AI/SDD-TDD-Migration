@@ -26,6 +26,7 @@ import visual_evidence
 from lean_tools import mobile_snapshot, semantic_visual_inspect, validate_manifest
 
 OPERATIONS = {'visual-install', 'visual-capture', 'semantic-inspect'}
+ADB_KINDS = ('android-device', 'android-emulator', 'vm')  # legacy_preview kinds an adb serial reaches
 
 
 def save(path, value):
@@ -185,6 +186,256 @@ class Device:
                 cleanup.append({'path': remote, 'status': 'retained-on-device', 'reason': str(exc)})
         return {'command_log_ref': save(self.out / 'commands.json', self.logs),
                 'remote_cleanup_ref': save(self.out / 'remote-cleanup.json', cleanup)}
+
+
+class AndroidDevice:
+    """Fixed adb argv for the legacy application: install, launch, dump, screenshot; no arbitrary shell."""
+    def __init__(self, serial, tool, out):
+        require(isinstance(tool, str) and Path(tool).name == 'adb', 'configured executable must be adb')
+        self.tool, self.device, self.out = tool, token(serial, 'serial'), out
+        self.logs, self.remote_files, self.version = [], [], None
+        self.nonce = digest(str(out))[:20]
+
+    def call(self, *args, timeout=30):
+        argv = [self.tool, '-s', self.device, *map(str, args)]
+        attempts = 2 if tuple(map(str, args[:2])) == ('shell', 'dumpsys') else 1  # read-only queries retry once; actions never repeat
+        for attempt in range(attempts):
+            try:
+                result = subprocess.run(argv, cwd=self.out, env=runner_storage.environment(self.out),
+                                        capture_output=True, text=True, errors='replace', timeout=timeout)
+                break
+            except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+                self.logs.append({'argv': argv, 'error': type(exc).__name__, 'attempt': attempt + 1})
+                if isinstance(exc, FileNotFoundError) or attempt + 1 == attempts:
+                    raise DeviceFailure('environment-unavailable', type(exc).__name__) from exc
+        self.logs.append({'argv': argv, 'exit_code': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
+        if result.returncode:
+            raise DeviceFailure('device-execution-error', f'command {args[0]} exited {result.returncode}; see command log')
+        return result.stdout
+
+    def foreground(self):
+        """(package, activity) of the focused window, from dumpsys."""
+        output = self.call('shell', 'dumpsys', 'window')
+        match = re.search(r'mCurrentFocus=Window\{[^}]*?\s([A-Za-z0-9_.]+)/([A-Za-z0-9_.$]+)\}', output)
+        return (match.group(1), match.group(2)) if match else (None, None)
+
+    def layout(self, label):
+        remote = f'/sdcard/sdd-{self.nonce}-{label}.xml'
+        self.remote_files.append(remote)
+        self.call('shell', 'uiautomator', 'dump', remote)
+        local = run_storage.checked_path(self.out / 'temp' / f'layout-{label}.xml', self.out)
+        local.parent.mkdir(parents=True, exist_ok=True)
+        self.call('pull', remote, local)
+        xml = local.read_text(encoding='utf-8', errors='replace')
+        try:
+            ET.fromstring(xml)
+        except ET.ParseError as exc:
+            raise DeviceFailure('device-execution-error', 'uiautomator dump is not parseable XML') from exc
+        return xml
+
+    def screenshot(self, label):
+        remote = f'/sdcard/sdd-{self.nonce}-{label}.png'
+        self.remote_files.append(remote)
+        self.call('shell', 'screencap', '-p', remote)
+        local = run_storage.checked_path(self.out / f'screenshot-{label}.png', self.out)
+        self.call('pull', remote, local)
+        if not local.is_file() or not local.stat().st_size:
+            raise DeviceFailure('capture-incomplete', 'device screenshot is missing or empty')
+        image_valid(local, ('PNG',))
+        return local
+
+    def finish(self):
+        cleanup = []
+        for remote in dict.fromkeys(self.remote_files):
+            try:
+                self.call('shell', 'rm', remote)
+                cleanup.append({'path': remote, 'status': 'removed'})
+            except DeviceFailure as exc:
+                cleanup.append({'path': remote, 'status': 'retained-on-device', 'reason': str(exc)})
+        return {'command_log_ref': save(self.out / 'commands.json', self.logs),
+                'remote_cleanup_ref': save(self.out / 'remote-cleanup.json', cleanup)}
+
+
+def android_actions(device, actions):
+    require(isinstance(actions, list) and len(actions) <= 30, 'at most 30 frozen navigation actions')
+    for action in actions:
+        require(isinstance(action, dict), 'action must be an object')
+        kind = action.get('action')
+        if kind == 'back':
+            device.call('shell', 'input', 'keyevent', 'KEYCODE_BACK')
+        elif kind in ('tap', 'swipe'):
+            keys = ('x', 'y') if kind == 'tap' else ('x1', 'y1', 'x2', 'y2', 'velocity')
+            values = [action.get(k) for k in keys]
+            require(all(isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 40000 for v in values),
+                    'frozen action coordinates/velocity must be bounded integers')
+            device.call('shell', 'input', 'tap' if kind == 'tap' else 'swipe', *values)
+        else:
+            require(False, 'unsupported navigation action; no arbitrary shell, text, or script execution')
+
+
+def install_legacy(device, stated, app, out):
+    """The package the run was prepared with (or the one its build command produces) goes on the device; the install is evidence."""
+    build_log = None
+    if stated.get('build'):
+        build = stated['build']
+        try:
+            run = subprocess.run(build['argv'], cwd=build['cwd'], env=runner_storage.environment(out), capture_output=True,
+                                 text=True, errors='replace', timeout=build['timeout_seconds'])
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+            raise DeviceFailure('environment-unavailable', 'legacy build ' + type(exc).__name__) from exc
+        build_log = save(out / 'build.json', {'argv': build['argv'], 'cwd': build['cwd'], 'exit_code': run.returncode,
+                                              'stdout': run.stdout[-20000:], 'stderr': run.stderr[-20000:]})
+        if run.returncode:
+            raise DeviceFailure('environment-unavailable', 'legacy build failed; see build log')
+        artifact = Path(build['output'])
+        if not artifact.is_file():
+            raise DeviceFailure('environment-unavailable', 'legacy build produced no package at its stated output')
+    else:
+        artifact = Path(stated['artifact'])
+        if not artifact.is_file() or file_ref(artifact)['sha256'] != stated.get('artifact_sha256'):
+            raise DeviceFailure('artifact-identity-unverified', 'the legacy package differs from the one the run was prepared with')
+    device.call('install', '-r', artifact, timeout=240)
+    installed = device.call('shell', 'pm', 'path', app)
+    if 'package:' not in installed:
+        raise DeviceFailure('artifact-identity-unverified', 'the legacy package is not installed under its app_id')
+    return save(out / 'install.json', {'producer': 'lean-visual-worker', 'operation': 'legacy-install', 'status': 'INSTALLED',
+                                       'artifact_ref': file_ref(artifact), 'app_id': app, 'device_id': device.device,
+                                       'installed': installed, 'build_log_ref': build_log,
+                                       'acceptance': 'installation-is-evidence-not-a-baseline'})
+
+
+def capture_legacy_target(device, stated, app, target, spec, out):
+    """One legacy screen as an android-reference record: launched, navigated by frozen actions, matched, captured stable."""
+    label = re.sub(r'[^A-Za-z0-9_.-]+', '-', target['page_id'] + '-' + target['state_id'])
+    launch = stated.get('launch')
+    if launch:
+        require(re.fullmatch(r'[A-Za-z0-9_.$]+', launch), 'legacy_preview.launch must be an activity name')
+        device.call('shell', 'am', 'start', '-n', app + '/' + launch)
+    else:
+        device.call('shell', 'monkey', '-p', app, '-c', 'android.intent.category.LAUNCHER', '1')
+    android_actions(device, spec.get('actions', []))
+    package, activity = device.foreground()
+    if package != app:
+        return blocked('requested app is not the observed foreground app before capture', 'target-precondition')
+    xml = device.layout(f'{label}-0')
+    if not target_matches(xml, spec.get('target_match'), app):
+        save(out / f'target-mismatch-{label}.json', {'foreground': f'{package}/{activity}', 'view_xml': xml})
+        return blocked('frozen target selectors not observed', 'target-precondition')
+    region, region_bounds = scoped_scroll_region(xml, spec.get('scroll_region'), app)
+    end_match = spec.get('scroll_end_match')
+    if end_match:
+        target_matches(xml, end_match, app)
+    max_scrolls = spec.get('max_scrolls', 8)
+    require(isinstance(max_scrolls, int) and not isinstance(max_scrolls, bool) and 0 <= max_scrolls <= 20, 'max_scrolls must be 0..20')
+    scroll = target['coverage'] == 'scroll'
+    termination = ('viewport' if not scroll else 'missing-frozen-scroll-region-or-endpoint' if not region_bounds or not end_match else 'scroll-limit')
+    captures, current_xml = [], xml
+    for index in range(1 + (max_scrolls if termination == 'scroll-limit' else 0)):
+        if index:
+            x1, y1, x2, y2 = region_bounds
+            device.call('shell', 'input', 'swipe', (x1 + x2) // 2, y1 + (y2 - y1) * 3 // 4, (x1 + x2) // 2, y1 + (y2 - y1) // 4, 1000)
+            current_xml = device.layout(f'{label}-{index}')
+        package, activity = device.foreground()
+        if package != app:
+            return blocked('requested app is not the observed foreground app during capture', 'target-precondition')
+        image_path = device.screenshot(f'{label}-{index}')
+        view = out / f'view-{label}-{index}.xml'
+        run_storage.atomic_bytes(view, current_xml.encode())
+        signature = mobile_snapshot.view_signature(current_xml, f'{package}/{activity}')
+        after_xml = device.layout(f'{label}-{index}-after')
+        if after_xml != current_xml:
+            after_view = out / f'view-{label}-{index}-after.xml'
+            run_storage.atomic_bytes(after_view, after_xml.encode())
+            return blocked('page/state changed while screenshot was taken; retain both trees and recapture a new attempt',
+                           'capture-incomplete', screenshot_ref=file_ref(image_path), before_view_ref=file_ref(view), after_view_ref=file_ref(after_view))
+        record = {'index': index, 'screenshot': str(image_path), 'view_tree': str(view), 'view_signature': signature}
+        region, region_bounds = scoped_scroll_region(current_xml, spec.get('scroll_region'), app)
+        if scroll and region_bounds and end_match and target_matches(ET.tostring(region, encoding='unicode'), end_match, app):
+            captures.append(record); termination = 'frozen-scroll-end-observed'
+            break
+        if index and signature == captures[-1]['view_signature'] and file_ref(image_path)['sha256'] == file_ref(captures[-1]['screenshot'])['sha256']:
+            termination = 'observed-repeat-not-proof-of-end'
+            break
+        captures.append(record)
+        if index and not region_bounds:
+            termination = 'frozen-scroll-region-lost'
+            break
+    complete = not scroll or termination == 'frozen-scroll-end-observed'
+    coverage = {'requested': target['coverage'], 'achieved': 'viewport' if not scroll else 'scroll-complete' if complete else 'scroll-partial',
+                'capture_count': len(captures), 'termination': termination}
+    backend = {'name': 'adb', 'implementation': device.tool, 'version': device.version, 'device': device.device}
+    meta = {'platform': 'android', 'device': device.device, 'app_id': app, 'foreground': f'{package}/{activity}', 'page_name': activity,
+            'image_mime': 'image/png', 'screenshot': Path(captures[0]['screenshot']).name, 'view_signature': captures[0]['view_signature'],
+            'device_backend': backend, 'coverage': coverage, 'captures': captures, 'target_match': spec['target_match'],
+            'legacy_preview': stated['kind'], 'artifact_sha256': stated.get('artifact_sha256')}
+    if scroll:
+        meta.update(scroll_region=spec.get('scroll_region'), scroll_end_match=end_match, scroll_contract='frozen-source-backed-start-region-end')
+    meta_ref = save(out / f'meta-{label}.json', meta)
+    snapshot = {**captures[0], 'meta': meta_ref['path'], 'device_backend': backend, 'coverage': coverage, 'captures': captures}
+    if not complete:
+        return blocked('bounded scroll observations do not prove full scroll coverage', 'capture-incomplete', meta_ref=meta_ref)
+    return {'status': 'COMPLETE', 'record': {'mode': 'targeted', 'phase': 'android-reference', 'platform': 'android',
+            'page_id': target['page_id'], 'state_id': target['state_id'], 'observed_variant': target['state_id'], 'round': None,
+            'status': 'COMPLETE', 'coverage': coverage, 'timestamp': datetime.now(timezone.utc).isoformat(), 'snapshot': snapshot,
+            'target_match': {'kind': 'frozen-exact-selectors', 'matched': True}}}
+
+
+def legacy_capture(args, *, root, out, state, task, actor):
+    """The legacy application's screens as android-reference records: installed from the package the run was prepared with,
+    walked by frozen actions on the stated device, captured stable. The manifest is what analyze-ui and the SPEC's runtime
+    evidence stand on; a screen that could not be captured is named with its reason, never invented."""
+    import project_context
+    require(actor.get('role') in ('spec-designer', 'test-runner'), 'legacy capture outside role')
+    stated = project_context.legacy_preview(state)
+    require(stated and stated['kind'] in ADB_KINDS,
+            'legacy_preview must state an adb-visible provider (android-device, android-emulator or vm) before the legacy is captured')
+    root, out = Path(root).resolve(), Path(out).resolve()
+    runner_storage.harmony_output(root, out, 'sandbox')
+    targets = args.get('targets')
+    require(isinstance(targets, list) and 1 <= len(targets) <= 20 and all(isinstance(t, dict) and isinstance(t.get('coverage'), str) for t in targets),
+            'legacy-capture takes 1..20 targets, each naming its page:state:coverage')
+    try:
+        parsed = [validate_manifest.parse_target(t['coverage']) for t in targets]
+    except RuntimeError as exc:
+        require(False, 'legacy-capture target: ' + str(exc))
+    require(len({(p['page_id'], p['state_id']) for p in parsed}) == len(parsed), 'one record per page:state')
+    device_lock(actor, {'device_id': stated['device']['serial']}, task)
+    app = token(stated['app_id'], 'app_id')
+    device = AndroidDevice(stated['device']['serial'], args.get('tool', 'adb'), out)
+    result, install_ref, records, blocked_targets = None, None, [], []
+    try:
+        device.version = (device.call('version').strip().splitlines() or [''])[0]
+        if not device.version:
+            raise DeviceFailure('environment-unavailable', 'adb version could not be observed')
+        if device.call('get-state').strip() != 'device':
+            raise DeviceFailure('environment-unavailable', 'the stated device is not connected (adb get-state)')
+        install_ref = install_legacy(device, stated, app, out)
+        for target, spec in zip(parsed, targets):
+            outcome = capture_legacy_target(device, stated, app, target, spec, out)
+            if outcome.get('status') == 'COMPLETE':
+                records.append(outcome['record'])
+            else:
+                blocked_targets.append({'coverage': spec['coverage'], **outcome['root_cause']})
+        manifest_ref = save(out / 'manifest.json', {'schema_version': 2, 'capture_id': 'legacy-' + digest(str(out))[:12],
+                                                     'legacy_preview': {k: stated.get(k) for k in ('kind', 'app_id', 'device', 'artifact_sha256')},
+                                                     'install_ref': install_ref, 'targets': records})
+        if records:
+            try:
+                validate_manifest.validate_manifest(read_json(manifest_ref['path']))
+            except RuntimeError as exc:
+                raise DeviceFailure('capture-incomplete', 'captured records do not validate: ' + str(exc)) from exc
+        result = {'producer': 'lean-visual-worker', 'operation': 'legacy-capture',
+                  'status': 'CAPTURED' if not blocked_targets else 'PARTIAL' if records else 'BLOCKED',
+                  'manifest_ref': manifest_ref, 'install_ref': install_ref,
+                  'captured': [f"{r['page_id']}:{r['state_id']}:{r['coverage']['requested']}" for r in records], 'blocked': blocked_targets,
+                  'device_id': device.device, 'app_id': app, 'legacy_preview': stated['kind'],
+                  'assignment_id': task['assignment_id'], 'fencing_token': task.get('fencing_token'),
+                  'acceptance': 'a-capture-is-the-baseline-of-what-it-shows-not-a-visual-verdict'}
+    except DeviceFailure as exc:
+        result = blocked(str(exc), exc.kind, install_ref=install_ref)
+    finally:
+        result = (result or {}) | device.finish()
+    return result
 
 
 def path_context(args, module, task):

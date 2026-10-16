@@ -1,0 +1,16 @@
+{
+  "_note": "Run via lean_worker under a current Spec-Designer or Test-Runner assignment; the Host attests the device lock for legacy_preview.device.serial. Output goes to runs/harmony/sandbox/<actor>/<request>; the manifest's android-reference records feed analyze-ui (capture_ref) and the UI items' runtime evidence.",
+  "operation": "legacy-capture",
+  "request_id": "{{new-capture-attempt-id}}",
+  "module_id": "M001",
+  "assignment_id": "{{active-assignment-id}}",
+  "fencing_token": "{{current-fencing-token}}",
+  "args": {
+    "tool": "adb",
+    "targets": [
+      {"coverage": "login:base:viewport", "actions": [], "target_match": [{"resource-id": "{{stable-visible-node-id}}", "text": "{{expected-visible-label}}"}]},
+      {"coverage": "list:base:scroll", "actions": [{"action": "tap", "x": 540, "y": 1800}], "target_match": [{"resource-id": "{{list-id}}"}],
+       "scroll_region": {"resource-id": "{{unique-scroll-container}}"}, "scroll_end_match": [{"text": "{{source-backed-final-item}}"}], "max_scrolls": 8}
+    ]
+  }
+}

@@ -42,9 +42,9 @@ prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-le
 
 | 判定 | `ui_evidence` | 作用 |
 |---|---|---|
-| **存量可预览** | `visual_mode: runtime` + `baseline_refs`（存量截图）；`legacy_executable` 随 [存量预览](project-context.md#存量预览) 声明，未捕获的界面以 `capture_gap` 披露 | 截图**指导 SPEC 生成与 Implementer coding**；后续作视觉对齐基线 |
+| **存量可预览** | `visual_mode: runtime` + `baseline_refs`（存量截图）；`legacy_executable` 随 [存量预览](project-context.md#存量预览) 声明，未捕获界面以 `capture_gap` 披露 | 截图**指导 SPEC 生成与 Implementer coding**；后续作视觉对齐基线 |
 | **存量不可预览** | `visual_mode: source-only`（legacy_preview=none） | 回退保留 UI 源码，但**仍强制走四维 UI 中间表征层**（`ui-component-spec` + `ui_tree`）指导 coding；无基线，不伪造视觉通过 |
-| **用户参考** | `visual_mode: user-reference` + `baseline_refs`（[用户参考媒体](project-context.md#用户参考媒体)中该 CASE 的截图） | 用户截图指导 SPEC 与 coding，并作视觉对齐基线 |
+| **用户参考** | `visual_mode: user-reference` + `baseline_refs`（[用户参考媒体](project-context.md#用户参考媒体)中该 CASE 的截图） | 用户截图指导 SPEC 与 coding，并作对齐基线 |
 
 未判定可执行性 → 不能冻结。实现接受时 conformance 用 `baseline_conformance` 引用指导 coding 的基线或中间表征（runtime/user-reference→`baseline_refs`；source-only→`ui_tree_ref`）。
 

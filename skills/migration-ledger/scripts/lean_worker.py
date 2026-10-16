@@ -43,6 +43,7 @@ ROLES = {
     'visual-install': {'test-runner', 'auditor'},
     'visual-capture': {'test-runner', 'auditor'},
     'semantic-inspect': {'test-runner', 'auditor'},
+    'legacy-capture': {'spec-designer', 'test-runner'},
     'import-evidence': {'spec-designer', 'implementer', 'fixer', 'test-runner', 'auditor'},
     'knowledge-query': {'global-orchestrator', 'module-orchestrator', 'spec-designer', 'implementer',
                         'fixer', 'diagnostician', 'test-runner', 'auditor', 'escalation'},
@@ -71,7 +72,7 @@ def save(path, value):
     return file_ref(path)
 
 
-def assignment(state, request, actor):
+def assignment(state, request, actor, planned=True):
     mid = request.get('module_id')
     if mid == 'GLOBAL':
         module = ledger.audit_scope(state)
@@ -97,6 +98,8 @@ def assignment(state, request, actor):
     if mid != 'GLOBAL':
         require(task.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
     require(task.get('fencing_token') == request.get('fencing_token'), 'stale fencing token')
+    if not planned:  # a capture of the legacy precedes the plan: the assignment is enough
+        return module, task
     require(task.get('freeze_id') == module.get('freeze_id') or mid == 'GLOBAL',
             'assignment freeze changed')
     verify_plan(module['plan'], module)
@@ -135,7 +138,10 @@ def run(root, request, actor):
                     require(test_validation.build_ready(module), 'build must pass before installation')
                 else:
                     require(test_validation.functional_ready(module), 'functional layer must pass before visual comparison')
-    area = 'runs/harmony/sandbox' if operation in ('compare-only', 'image-parity') + visual_operations else 'staging'
+    if operation == 'legacy-capture':
+        require(state, 'Ledger initialization required before execution')
+        module, task = assignment(state, request, actor, planned=False)
+    area = 'runs/harmony/sandbox' if operation in ('compare-only', 'image-parity', 'legacy-capture') + visual_operations else 'staging'
     out = run_storage.checked_path(root / area / aid / rid, root / area)
     require(not out.exists(), 'worker output must be a new attempt; preserve prior evidence')
     out.mkdir(parents=True)
@@ -293,6 +299,9 @@ def run(root, request, actor):
                 import lean_visual_worker
                 result = lean_visual_worker.run(operation, args, root=root, out=out, module=module,
                                                 task=task, actor=actor, config=config)
+            elif operation == 'legacy-capture':
+                import lean_visual_worker
+                result = lean_visual_worker.legacy_capture(args, root=root, out=out, state=state, task=task, actor=actor)
             elif operation.startswith(('knowledge-', 'foundation-')):
                 result = lean_knowledge.run(operation, args, config, root)
             else:
