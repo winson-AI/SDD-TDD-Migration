@@ -102,7 +102,9 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 | Auditor | 先整体代码治理，再复核遗留；修复后验证，失败待人工 | [审计范围](skills/migration-protocol/references/audit-scope.md)、[代码治理](skills/migration-protocol/references/audit-code-review.md) |
 | Android/Harmony 自动测试 | MobileAgenticOperator test 模式，逐 PATH/ASSERT 证据接入 Ledger | [移动端运行](skills/migration-test/references/harmony-runtime.md) |
 | 切片与功能清单 | 叶子是功能树上的子业务流（页面是 TASK，3–30 条 CASE），自带四维分析与实现 SPEC；无用例先读源码建树再派生用例，有用例以用例范围为抓手；清单完整可追溯，疑问交人工；一条 CASE 一个验收切片；往次切分经验生成技能，供后续 Run 的 GO/MO 加载 | [切片规约](skills/migration-global/references/slicing.md) |
-| 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照 | [项目上下文](skills/migration-protocol/references/project-context.md) |
+| 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照；知识文档可查，缺的知识登 knowledge-need 交人补充 | [项目上下文](skills/migration-protocol/references/project-context.md) |
+| 目标画像 | GO 逐功能记目标状态（absent/shell-only/partial/existing）；脚手架只在缺外壳处，持有代码的叶子欠复用说明 | [父子拆分](skills/migration-protocol/references/module-decomposition.md) |
+| 用户参考媒体 | 存量截图/录屏与目标预期随项目上下文固化、下发到持有叶子：截图是 user-reference 视觉基线，录屏是交互预期，目标预期取代存量基线；未引用即欠项 | [项目上下文](skills/migration-protocol/references/project-context.md#用户参考媒体)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 上下文就绪 | 规划与审计者随操作登记预检，coding 与无待复测的审计由 Ledger 机械预检；worker 的 building/testing 从 Ledger 骨架起笔，ready 才开工；worker 只读执行所需 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
 | 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 资源与参数搬运 | 文件资源按清单原样复制、按 accessor 引用；布局、图层与代码里的取值记成参数表，生成到目标后按键取用；Spec 只写例外，验收比对字节与引用；登记 UI/Resource 分配前对约定定论（声明，或写明目标不接收的原因） | [搬运](skills/migration-protocol/references/resource-transfer.md#总则) |
@@ -118,7 +120,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 单模块只是同一入口的两个参数：`entry_mode=single-module` 与 `module_name`（如“用户登录”）。沿用当前项目输入，用户无需提供模块描述、scope、模块代码路径、SPEC 或 Testing list；由 GO 识别业务范围并分配上游 CASE，MO 按需细分，叶子组织实施规范和测试路径。[single-module-input.json](template/single-module-input.json) 仅展示这两个参数，不是独立运行资料包。
 
-完整流程：选择项目或根功能 → **GO/父 MO 划 scope/CASE 并审查 registry 覆盖** → **子 MO 拆 tasks、四维、形成可执行 SPEC 和测试路径** → **MO 审核冻结** → **Implementer、Test-Runner build/automation、Fixer/复测** → **父节点汇总，统一宿主 Auditor**。独立 design 按需协助；执行中发现遗漏/fidelity 偏差，在同 Run 更新受影响 SPEC 和已有代码，只越 scope 才上溯。历史只留痕，每叶子执行唯一当前 SPEC。父子 MO 都读全局代码、架构、知识与分工，见[父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
+完整流程：选择项目或根功能（可附存量截图/录屏与目标预期） → **GO/父 MO 划 scope/CASE 并审查 registry 覆盖** → **子 MO 拆 tasks、四维、形成可执行 SPEC 和测试路径** → **MO 审核冻结** → **Implementer、Test-Runner build/automation、Fixer/复测** → **父节点汇总，统一宿主 Auditor**。独立 design 按需协助；执行中发现遗漏/fidelity 偏差，在同 Run 更新受影响 SPEC 和已有代码，只越 scope 才上溯。历史只留痕，每叶子执行唯一当前 SPEC。父子 MO 都读全局代码、架构、知识与分工，见[父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
 
 宿主接入命令后，可按以下阶段执行（路径和 run-id 为示例，冻结须绑定当前规划审核及适用的人工决定）：
 
@@ -138,6 +140,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-16 | 项目理解：目标画像（GO 逐功能记目标状态，脚手架只在缺外壳处，持有代码的叶子冻结时欠复用说明，报告列迁移前状态）；项目知识文档可查（knowledge-query project 模式），knowledge-need 交人以 kind=knowledge 决定补充并成为本 run 的知识文档；用户参考媒体（存量截图/录屏）随项目上下文固化并下发到持有叶子：截图作 user-reference 视觉基线（存量不可预览也有基线）、录屏作功能 PATH 的交互预期、骨架为每张截图起稿 visual PATH、未被 PATH 引用即欠项；target-expectation 取代存量基线、design 须引用、报告披露 |
 | 2026-10-16 | 进程内功能测试代码化：automation PATH 带冻结命令与 unit_report 时按 JUnit 执行，每条断言指一个具名测试、逐断言给结果；骨架为无设备或非界面的 CASE 起稿 <Case>FlowTest，为有设备且绑定 UI 树的 CASE 起稿设备脚本（选择器取节点 id）作为 script 资产；报告分列脚本驱动的设备路径及其 flaky，作为推广前的对照。 |
 | 2026-10-16 | 测试代码成为冻结资产：Logic 条目的单测源从 SPEC 写出（Ledger 按条目起稿骨架，每个 CASE 一个测试方法），作为 test-source 资产随计划冻结，记 target_path、required_test_ids、scenarios 与 symbols；Implementer 原样交付到 target_path，hash 不等即拒，改测试走 CR；execute_test 执行前核对文件并写回执；红→绿由作者自查对冻结测试留证。 |
 | 2026-10-15 | 红线 4 分层：正式目标代码测试在代码被接受之后派发，作者自查不产生结果、不能代替正式测试；作者对任务的 unit PATH 自查两次（实现前失败、实现后通过），两份记录是该任务的 red 证据，报告按任务统计有证据 / 无 / 不适用，不设门禁；报告加规划占比（冻结 / 首次 Green）。issue 增 debt 类型，审计骨架预列。只改测试写法（步骤、参数、前置、措辞）而 PATH 身份与断言期望不变的 CR 由 MO 审核即可，Ledger 记事实。波次集成：global path 在持有其用例的叶子全部完成时即由独立 Test-Runner 执行，结果绑定 owner 代码基线，审计只重跑 owner 代码变动的路径，Red 路由给 owner 叶子。 |

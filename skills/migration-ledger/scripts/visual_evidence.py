@@ -21,13 +21,15 @@ def reference(value, base):
 
 
 def source_record(evidence, coverage):
-    require(isinstance(evidence, dict) and evidence.get('visual_mode') == 'runtime'
+    require(isinstance(evidence, dict) and evidence.get('visual_mode') in ('runtime', 'user-reference')
             and evidence.get('coverage') == coverage,
             'complete frozen visual evidence required; do not infer an owner from build binding')
     baselines = evidence.get('baseline_refs')
     require(isinstance(baselines, list) and baselines, 'frozen baseline screenshot set required')
     for ref in baselines:
         check_ref(ref)
+    if evidence['visual_mode'] == 'user-reference':
+        return None  # the user's screenshots are the whole record: the legacy was never captured
     record = ui_evidence.capture_target(evidence.get('capture_manifest_ref'), coverage)
     require(record.get('status') == 'COMPLETE', 'frozen source capture must be complete')
     recorded = [file_ref(c['screenshot'])['sha256'] for c in record['snapshot']['captures']]
@@ -47,7 +49,7 @@ def frozen_evidence(module, path):
                    if dimension.get('dimension') == 'UI' and dimension.get('status') == 'applicable'
                    for item in dimension.get('items', [])
                    for evidence in [(item.get('semantic_model') or {}).get('ui_evidence') or {}]
-                   if evidence.get('coverage') == path.get('coverage') and evidence.get('visual_mode') == 'runtime'
+                   if evidence.get('coverage') == path.get('coverage') and evidence.get('visual_mode') in ('runtime', 'user-reference')
                    and path.get('baseline_ref') in evidence.get('baseline_refs', [])]
         if not matches:
             return None
@@ -67,6 +69,10 @@ def frozen_evidence(module, path):
 def match_source(manifest_ref, evidence, coverage):
     original = source_record(evidence, coverage)
     current = ui_evidence.capture_target(manifest_ref, coverage)
+    if original is None:  # a user reference: the reference record shows exactly the user's screenshots of this coverage
+        require(current.get('status') == 'COMPLETE' and {file_ref(c['screenshot'])['sha256'] for c in current['snapshot']['captures']}
+                == {ref['sha256'] for ref in evidence['baseline_refs']}, 'reference record must be exactly the user reference screenshots of this coverage')
+        return current
     require(current == original, 'reference manifest changed this coverage original frozen Android record')
     return current
 

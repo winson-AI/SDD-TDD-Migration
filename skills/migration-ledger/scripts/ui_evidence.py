@@ -248,7 +248,7 @@ def validate_native_evidence(evidence):
     require(len(coverage.split(':')) == 3 and coverage.split(':')[2] in CAPTURE_COVERAGE,
             'UI evidence needs page:state:coverage')
     runtime = evidence.get('visual_mode') == 'runtime'
-    require(evidence.get('visual_mode') in ('runtime', 'source-only'), 'UI evidence mode required')
+    require(evidence.get('visual_mode') in ('runtime', 'source-only', 'user-reference'), 'UI evidence mode required')
     tree = validate_tree_ref(evidence.get('ui_tree_ref'),
                              source_index_ref=evidence.get('source_index_ref'),
                              runtime_index_ref=evidence.get('runtime_index_ref'), target=coverage,
@@ -260,7 +260,11 @@ def validate_native_evidence(evidence):
         record = capture_target(capture_ref, coverage)
         require((record['status'] == 'COMPLETE') == runtime, 'capture and tree modes differ')
     if not runtime:
-        require(not evidence.get('baseline_refs'), 'source-only cannot claim runtime baseline screenshots')
+        if evidence.get('visual_mode') == 'user-reference':  # the user's screenshots stand where the legacy cannot be captured
+            for ref in nonempty(evidence.get('baseline_refs'), 'user reference screenshots'):
+                check_ref(ref)
+        else:
+            require(not evidence.get('baseline_refs'), 'source-only cannot claim runtime baseline screenshots')
         return tree
     from lean_tools import select_runtime_ui
     index = read_json(check_ref(evidence.get('runtime_index_ref')))

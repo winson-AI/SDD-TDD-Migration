@@ -43,16 +43,16 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 | `resource-convert` | task_id/resource_item_id + source/destination/source_id/target_ref/consumer，选填 resolve_ref/consumer_tint | 在冻结任务范围内执行 exact_vector_xml、byte_copy 或单项 value_xml_exact；参数须与冻结资源映射一致，其余策略由 Implementer/Fixer 按 SPEC 实现 |
 | `visual-install` / `visual-capture` / `compare-only` / `semantic-inspect` / `image-parity` | 当前 PATH/assignment、冻结 visual_execution、构建/装机/比较引用 | 受限设备安装、捕获、确定性评分、语义比较与图像检查，见[视觉执行](visual-execution.md#2-执行节点)；只产出证据（score 不是 ALIGNED），不写 Ledger、不修 UI、不生成手势事实 |
 | `import-evidence` | kind/source_ref；UI 另给 target/ui_tree_ref/source_index_ref/runtime_index_ref，选填 resource_scope | 转换 ui/alignment/validation/foundation/resource 原始结果；资源导入另绑定 approved_spec_hash；不提升权限、不自动验收 |
-| `knowledge-query` | mode 为 topics/topic/foundation/external；topic 用 topic_id；foundation/external 用 query，可选 full(bool) | 查询 bundled 索引、主题、Foundation 或 Harmony 外部能力候选，保留 index/catalog/record/topic/cookbook 引用与 hash；不加载完整外部技能 |
+| `knowledge-query` | mode 为 topics/topic/foundation/external/project；topic 用 topic_id；其余用 query，可选 full(bool) | 查询 bundled 索引、主题、Foundation、Harmony 外部能力候选，或 project：本 run 固化的 knowledge_paths 文档与人工知识答复，按行命中并保留引用与 hash；不加载完整外部技能 |
 | `knowledge-diagnose` | error_ref（path/sha256） | 读取真实日志片段，按原工具 pattern 匹配候选原因和 cookbook；不作根因裁决 |
 | `foundation-resolve` | requirements（非空字符串数组）；或 requirements=[] 且 no_new_dependencies=true | 在 bundled catalog 内解析目标敏感依赖与版本；不改目标、不联网；result.json 可作 plan.dependency_resolution_ref |
 | `foundation-verify` | resolution_ref、catalog_ref（均 path/sha256） | resolution 须在本 run；catalog 须是快照 target_root 内的实际 TOML，核对坐标版本并留证；不代替 build |
 
 ### 知识操作权限与例子
 
-四个知识操作需要合法宿主 principal 与有效运行快照，均只读、不要求 assignment；规划和失败分析阶段也可调用。knowledge-query 对 GO/MO/Spec-Designer/Implementer/Fixer/Diagnostician/Test-Runner/Auditor/Escalation 开放；knowledge-diagnose 对 Implementer/Diagnostician/Fixer/Test-Runner/Auditor 开放；foundation-resolve 只给 GO/MO/Spec-Designer；foundation-verify 给 Implementer/Fixer/Test-Runner/Auditor。Ledger 角色不承担领域读取。
+知识操作只读、需合法宿主 principal 与有效运行快照、不要求 assignment。knowledge-query 对 Ledger 以外的角色开放；knowledge-diagnose 给 Implementer/Diagnostician/Fixer/Test-Runner/Auditor；foundation-resolve 只给 GO/MO/Spec-Designer；foundation-verify 给 Implementer/Fixer/Test-Runner/Auditor。
 
-请求使用同一个 lean_worker CLI，各操作的 args 示例见 [knowledge-request.json](../../../template/knowledge-request.json)；名称与坐标由当前目录查询结果确定，不能照抄成项目事实；查询到的知识引用保留 hash，由角色随原上下文、plan、实现或测试提交。Foundation 配置唯一入口、默认关闭及不适用处理见 [工程纪律](engineering-disciplines.md)。
+请求走同一个 lean_worker CLI，args 示例见 [knowledge-request.json](../../../template/knowledge-request.json)；名称与坐标以当前目录查询结果为准，不能照抄成项目事实；知识引用保留 hash，随上下文、plan、实现或测试提交。Foundation 配置唯一入口、默认关闭及不适用处理见 [工程纪律](engineering-disciplines.md)。
 
 知识结果附 `sdd_adaptation_ref`，将上游平台决策/实现/验证概念映射到本轮四维分析、冻结 SPEC、task_trace/dimension_evidence 及正式 PATH/ASSERT。`external` 查询只返回目录快照候选，所列历史版本/verified 标记不代表当前目标已验证；无匹配也不能据此判定无法实现。上游独立 probe 未接入，结果明确 `probe_support:not-supported`，由当前角色在已有任务和测试路径中设计并验证所选方案；不安装包、不运行目录里的命令、不创建 `.a2c` 或独立状态文件。
 

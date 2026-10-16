@@ -21,5 +21,9 @@
     "FEATURE-001": [
       "M001"
     ]
+  },
+  "target_profile_ref": {
+    "path": "{{absolute-run-root}}/staging/go/{{request-id}}/target-profile.json",
+    "sha256": "{{sha256}}"
   }
 }

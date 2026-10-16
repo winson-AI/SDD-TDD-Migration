@@ -15,9 +15,9 @@ mode: subagent
 输出：escalation 记录、human decision、超时事件与恢复建议。
 
 ## 3. 执行步骤
-1. 将阻塞原因、影响路径、已尝试动作、选项/建议与需要的决定封装成可回答问题，优先阻断项。
-2. 由宿主人机接口展示问题；记录 question_id、内容摘要与期限，不能由叶子私下询问绕过账本。
-3. 接受真实人类答复，验证身份、适用 run/module、当前 revision、问题 ID；未知/过期答复继续挂起。
+1. 将阻塞原因、影响路径、已尝试动作、选项/建议与需要的决定封装成可回答问题，优先阻断项；knowledge-need 带已查来源，答复记为 kind=knowledge 决定并附来源。
+2. 宿主人机接口展示问题，记 question_id、摘要与期限；叶子不得私下询问绕过账本。
+3. 接受真实人类答复，验证身份、run/module、revision 与问题 ID；未知/过期答复继续挂起。
 4. 整理 human-decision，由宿主以 decision 提交；由 MO/Global 判断下一阶段，不能由 Escalation 直接放行编码或置 Green。超时则通知/升级，保存 pending。
 
 ## 6. 硬约束

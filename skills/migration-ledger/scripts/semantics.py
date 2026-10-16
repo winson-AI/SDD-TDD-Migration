@@ -90,7 +90,7 @@ def _ui_evidence(model):
         return
     require(isinstance(evidence, dict), 'ui_evidence must be an object')
     require(COVERAGE.match(evidence.get('coverage', '')), 'ui_evidence.coverage must be page:state:(viewport|scroll)')
-    require(evidence.get('visual_mode') in ('runtime', 'source-only'), 'ui_evidence.visual_mode required (runtime/source-only)')
+    require(evidence.get('visual_mode') in ('runtime', 'source-only', 'user-reference'), 'ui_evidence.visual_mode required (runtime/source-only/user-reference)')
     import ui_evidence as ue
     tree = ue.validate_tree(read_json(check_ref(evidence.get('ui_tree_ref'))))
     require(ue.merged_runtime(tree) == (evidence['visual_mode'] == 'runtime'),
@@ -98,8 +98,8 @@ def _ui_evidence(model):
     executable = evidence.get('legacy_executable')
     if executable is not None:
         require(isinstance(executable, bool), 'ui_evidence.legacy_executable must be boolean')
-        require(executable == (evidence['visual_mode'] == 'runtime'),
-                'legacy_executable must agree with visual_mode (previewable legacy <-> runtime baseline)')
+        require(executable == (evidence['visual_mode'] == 'runtime') or evidence['visual_mode'] == 'user-reference',
+                'legacy_executable must agree with visual_mode (previewable legacy <-> runtime baseline)')  # a user reference may replace either
     for ref in evidence.get('baseline_refs') or []:
         check_ref(ref)
 
@@ -200,9 +200,10 @@ def implementation(items, traces=None, code_files=None):
             evidence = model['ui_evidence']
             guided = conformance.get('baseline_conformance')
             require(guided, 'UI implementation must record the baseline/representation it was guided by for ' + iid)
-            if evidence['visual_mode'] == 'runtime':
+            if evidence['visual_mode'] in ('runtime', 'user-reference'):
                 require(guided.get('baseline_refs') == evidence.get('baseline_refs'),
-                        'UI implementation must cite the captured legacy baseline it was coded against for ' + iid)
+                        'UI implementation must cite the ' + ('captured legacy' if evidence['visual_mode'] == 'runtime' else 'user reference')
+                        + ' baseline it was coded against for ' + iid)
             else:
                 require(guided.get('ui_tree_ref') == evidence['ui_tree_ref'],
                         'source-only UI implementation must cite the intermediate representation for ' + iid)

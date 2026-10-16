@@ -42,6 +42,9 @@ import task_revalidation
 import user_paths
 import audit_execution
 import integration
+import knowledge
+import target_profile
+import reference_media
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
@@ -501,6 +504,8 @@ def freeze_gates(s, m, p):
     gates += [('resources', lambda: resource_fidelity.freeze_gate(s, m, first)),
               ('api', lambda: api_contract.freeze(s, m, p)),
               ('data', lambda: data_contract.freeze(s, m)),
+              ('target', lambda: target_profile.freeze(s, m)),
+              ('media', lambda: reference_media.freeze(s, m)),
               ('ui', lambda: ui_fidelity.freeze_gate(s, m, first)),
               ('knowledge', lambda: knowledge_gate.freeze_gate(s, m))]
     if not p.get('decision_id') and p.get('review_ref'):
@@ -1109,6 +1114,10 @@ def with_card(s, m, step):
         step['report_skeleton'] = 'report_skeleton.py --root <run_root> --module ' + m['module_id'] + ' --assignment <assignment_id> --out <staging directory>'
     if step.get('operation') == 'audit-code-review':
         step['report_skeleton'] = 'report_skeleton.py --root <run_root> --global --out <staging directory>'
+    if m and not m.get('decomposition_required'):
+        answered = knowledge.of_module(s, m)  # what people answered to this leaf's knowledge needs: read with the step, bound to nothing
+        if answered:
+            step['knowledge_decisions'] = answered
     enhancement = reading.reasoning_sections(m)
     if enhancement: step['reasoning_activation'] = [{'ref': ref, 'section': heading} for ref, heading in enhancement]
     if s.get('project_context_ref') and (m or (step.get('role') == 'global-orchestrator' and step.get('operation') in
@@ -1450,6 +1459,7 @@ def mutate(s, req, principal, events, root=None):
             check_ref(p['feature_inventory_ref'])
         require(p.get('feature_inventory_ref') or not (s.get('context_readiness_required') and p.get('decomposition_required')),
                 'a root that will be split names the feature inventory it was cut from: feature_inventory_ref')
+        target_profile.check(s, p)  # a root may bring the target's state per feature with it
         if p.get('decomposition_required'):
             decomposition.check_scope(p)
             require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in root scope')
@@ -1481,7 +1491,8 @@ def mutate(s, req, principal, events, root=None):
                     'batch envelope decision must hash its document and cover only this parent\'s children')
         if p.get('kind') == 'api-adaptation':
             api_contract.decision(s, p)
-        s['decisions'][p['decision_id']] = decided = {**p, 'consumed': False}
+        knowledge_ref = knowledge.decision(s, p, root, principal) if p.get('kind') == 'knowledge' else None
+        s['decisions'][p['decision_id']] = decided = {**p, 'consumed': False, **({'knowledge_ref': knowledge_ref} if knowledge_ref else {})}
         decided.pop('boundary_sha256', None)  # the Ledger states what was approved, not the request
         subject = s['modules'].get(p.get('module_id')) or {}
         if not p.get('kind') and subject.get('plan') and subject.get('plan_hash') == p['subject_sha256']:
@@ -1532,6 +1543,7 @@ def mutate(s, req, principal, events, root=None):
                 reuse.validate_plan(plan, m, reuse.sources(s), s['modules'], s['legacy_root'])
             if s.get('planning_coverage_required'):
                 user_paths.plan_gate(m, plan)
+            reference_media.plan_gate(s, m, plan)  # what a PATH cites of the user's media exists and shows its case
         occupied = {path['path_id'] for path in s['global_paths']}
         occupied.update(path['path_id'] for other in s['modules'].values() if other['module_id'] != mid
                         and other.get('plan') for path in other['plan']['paths'])

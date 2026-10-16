@@ -63,6 +63,7 @@ def collect(s):
         # What a new registration or a new plan is asked today: how the target takes resources, where a user-visible
         # case is verified, and a device or visual path for each such case.
         import project_context
+        import reference_media
         import user_paths
         applicable = set()
         for m in {**s.get('module_groups', {}), **s['modules']}.values():
@@ -76,4 +77,5 @@ def collect(s):
         for mid, m in s['modules'].items():
             if m.get('plan'):
                 judge(mid, 'plan', lambda: user_paths.plan_gate(m, m['plan']))
+                judge(mid, 'plan', lambda: reference_media.plan_gate(s, m, m['plan']))
     return rows

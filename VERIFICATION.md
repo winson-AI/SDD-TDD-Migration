@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1545 | 全量通过，零失败/错误/跳过；本轮新增进程内功能测试、骨架形态选择与脚本驱动计数的测试 |
+| migration-ledger/tests | 1558 | 全量通过，零失败/错误/跳过；本轮新增目标画像、知识需要与补充决定、参考媒体与目标预期的测试 |
 | migration-test/tests | 70 | 全量通过；本轮未改适配器 |
 | runtime/harmony/tests | 128 | 全量通过；本轮未改运行内核 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮：进程内功能测试代码化与设备脚本试点（T5–T6）：automation PATH 可按冻结命令跑 JUnit、逐断言归因；骨架按设备与界面选形态；报告分列脚本驱动的设备路径。上一轮：测试源成为冻结资产（T1–T4）：Logic 条目的单测从 SPEC 写出、随计划冻结、原样交付、执行前核对；骨架由 Ledger 起稿。上一轮：红线 4 改为分层表述（正式测试在代码接受之后，作者自查不产生结果），作者自查记录成为任务的 red 证据并按任务计数；报告加规划占比；issue 增 debt 类型供审计骨架预列；只改测试写法的 CR 由 MO 审核；global path 在持有叶子全部完成时即执行（波次集成），审计只重跑 owner 代码变动的路径。协议文字净减，上限不变。
+本轮：项目理解（U3、U4、U1、U2）：目标画像逐功能记 absent/shell-only/partial/existing，脚手架只在缺外壳处、持有代码的叶子欠复用说明；项目知识文档可按 project 模式检索，knowledge-need 由人以 kind=knowledge 决定补充并写成本 run 文档；用户参考媒体随项目上下文固化并下发到持有叶子，截图作 user-reference 基线、录屏作交互预期、未被 PATH 引用即欠项；target-expectation 取代存量基线、design 须引用、报告披露。上一轮：进程内功能测试代码化与设备脚本试点（T5–T6）：automation PATH 可按冻结命令跑 JUnit、逐断言归因；骨架按设备与界面选形态；报告分列脚本驱动的设备路径。上一轮：测试源成为冻结资产（T1–T4）：Logic 条目的单测从 SPEC 写出、随计划冻结、原样交付、执行前核对；骨架由 Ledger 起稿。
 
-协议体积为 483472 / 483500 字节，最大单文件 27538 / 32000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中最大卡片 51148 / 60000 字节，最大模板组合 50359 / 56200 字节；拒绝消息带小节指引的比例 83.6%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 483488 / 483500 字节，最大单文件 27538 / 32000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中最大卡片 51106 / 60000 字节，最大模板组合 50912 / 56200 字节；拒绝消息带小节指引的比例 83.3%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 
@@ -154,6 +154,10 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 进程内功能测试 | kind=automation 的 PATH 带 command 与 unit_report 时按冻结命令执行、JUnit 归因：每条断言 expected=true 并以 test_id 指一个 required 测试（plan_check 核对一一对应），结果逐断言给 pass/fail/未观察，红由失败的具名测试决定；在 automation 派发里跑，不是设备路径；同命令可批量 | test_functional_paths |
 | 骨架按场景选测试形态 | 无设备或非界面的 CASE：进程内功能测试（platform=jvm、unit_report、命令占位、test-source 资产 <Case>FlowTest#flow）；有设备且 UI 项绑定 UI 树的 CASE：设备 automation PATH 加 script 资产骨架（Kotlin 或 ArkTS/Hypium，选择器取 UI 树节点 id，断言映射 ASSERT），无树则留给引擎 | test_functional_paths |
 | 脚本驱动的设备路径计数 | 接受测试结果时从宿主回执的 test_asset_usage.entrypoint_ids 记 scripted；automation 统计分列脚本驱动的设备路径数及其中 flaky 数，作为 T6 试点的对照 | test_functional_paths |
+| 目标画像 | global-plan 绑定 target-profile.json：逐功能 state（absent/shell-only/partial/existing）、入口、符号、构建单元、已有测试与证据，缺功能或无证据被拒；脚手架子叶只在 absent/shell-only 处允许；state 为 partial/existing 的叶子冻结时无 TARGET 映射或 existing_target 契约即记欠项；分配包带本叶画像，报告列迁移前状态 |
+| 知识需要与补充决定 | knowledge-query 的 project 模式检索 knowledge_paths 文档并返回可引用 ref；issue kind=knowledge-need 只能由 kind=knowledge 决定或项目知识文档结清；决定须答案与来源，Ledger 写成 artifacts/knowledge/<decision_id>.md 并随游标步骤下发 |
+| 用户参考媒体 | project context 的 reference_media（media_id/kind/path/role/screen/case_ids/note）经校验后由 prepare 复制并绑定 hash；持有其 CASE 的叶子在分配包读到并以之为就绪证据；visual_mode=user-reference 以用户截图为基线，用户展示过的界面不得 source-only，错引非该 CASE 截图被拒；visual PATH 的 baseline_ref 可为用户截图，冻结证据与 reference manifest 按其截图集合核对；reference_media_ids 只能引用本 CASE 的媒体；冻结时用户展示过的用户可见 CASE 无 PATH 引用即欠项（已声明设备缺口除外）；骨架为每张截图起稿 visual PATH、把录屏挂到功能 PATH；报告列媒体覆盖 |
+| 目标预期 | role=target-expectation 覆盖的界面以其为基线（存量可预览时亦然；runtime 或存量截图作基线被拒），其 CASE 的存量截图不再欠引用；design 定义须引用其 media_id；报告媒体表列出被取代的存量截图，保真限制披露该界面按目标预期对齐 |
 | 波次集成 | 持有某条 global path 用例的叶子全部完成且该路径无当前 Green 时，全局游标给 integration-assign（wave-complete）；独立 Test-Runner 以 GLOBAL 执行、integration-submit 提交，结果进 audit_results 并绑定各 owner 的 code_baseline，audit_scope 对 owner 代码未变的 Green 不重跑；Red 入 audit_repairs 由 owner MO repair-accept，同一代码上不重跑；证据漂移时不派发 | test_integration_wave |
 
 ## 包级核查

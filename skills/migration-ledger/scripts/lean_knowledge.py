@@ -39,9 +39,15 @@ def run(operation, args, config, root):
               'sdd_adaptation_ref': knowledge_ref(adaptation)}
     if operation == 'knowledge-query':
         mode = args.get('mode')
-        require(mode in ('topics', 'topic', 'foundation', 'external'),
-                'knowledge mode must be topics, topic, foundation or external')
-        if mode == 'topics':
+        require(mode in ('topics', 'topic', 'foundation', 'external', 'project'),
+                'knowledge mode must be topics, topic, foundation, external or project')
+        if mode == 'project':  # the project's own documents and the answers people gave this run
+            import knowledge
+            from ledger import status
+            state = status(Path(root).resolve())
+            matches = knowledge.search(state, text(args.get('query'), 'query'))  # project documents are cited in the matches, not as bundle refs
+            result = {'matches': matches, 'answers': knowledge.answers(state), 'status': 'hits' if matches else 'no-match'}
+        elif mode == 'topics':
             result = {'topics': query_knowledge._entries(index)}
         elif mode == 'topic':
             topic = query_knowledge._topic(index, text(args.get('topic_id'), 'topic_id'))

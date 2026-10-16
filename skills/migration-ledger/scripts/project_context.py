@@ -20,7 +20,7 @@ from contracts import require, digest, file_ref, check_ref, read_json
 FIELDS = {'package_root', 'legacy_root', 'target_root', 'architecture_path', 'requirements_path',
           'test_cases_path', 'project_rules_path', 'test_adapter', 'runtime', 'human_owner',
           'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources', 'build', 'workspace_root', 'watchdog',
-          'target_resources', 'experience_root'}
+          'target_resources', 'experience_root', 'reference_media'}
 DOCUMENTS = ('architecture_path', 'requirements_path', 'test_cases_path', 'project_rules_path')
 BUDGETS = {'max_parallel_modules': 5, 'max_fix_rounds': 3, 'max_audit_rounds': 3, 'max_no_progress_rounds': 2,
            'max_yellow_retries': 2}
@@ -92,6 +92,9 @@ def validate(config):
             'knowledge_paths must be absolute file paths')
     if 'knowledge_paths' in config:
         config['knowledge_paths'] = list(dict.fromkeys(str(Path(p).resolve()) for p in knowledge))
+    if 'reference_media' in config:
+        import reference_media
+        config['reference_media'] = reference_media.configured(config['reference_media'])
     for key in ('package_root', 'legacy_root', 'target_root', 'workspace_root', 'experience_root') + DOCUMENTS:
         if key in config:
             require(isinstance(config[key], str) and Path(config[key]).is_absolute(), key + ' must be absolute')
@@ -373,7 +376,7 @@ def preflight(record, request):
         require(key in effective and Path(effective[key]).is_dir(), 'missing directory: ' + key)
     require(effective.get('architecture_path'), 'architecture_path required before prepare')
     reuse.normalize_sources(effective.get('reuse_sources', []), effective['target_root'], existing=True)
-    for path in [effective[k] for k in DOCUMENTS if effective.get(k)] + effective.get('knowledge_paths', []):
+    for path in [effective[k] for k in DOCUMENTS if effective.get(k)] + effective.get('knowledge_paths', []) + [row['path'] for row in effective.get('reference_media', [])]:
         file_ref(path)
     for key in ('build', 'test_adapter'):
         if effective.get(key, {}).get('environment_ref'): file_ref(effective[key]['environment_ref'])
@@ -467,6 +470,12 @@ def _prepare(root, run_root, request, actor, storage):
         effective = freeze_refs(files, effective)
         for key, source in sources.items():
             effective[key] = [ref['path'] for ref in source] if isinstance(source, list) else source['path']
+        if effective.get('reference_media'):  # what the user showed of the legacy: copied and hash-bound like the documents, kept with what it shows
+            sources['reference_media'] = []
+            for row in effective['reference_media']:
+                frozen = copy_ref(files, file_ref(row['path']))
+                sources['reference_media'].append({**{k: v for k, v in row.items() if k != 'path'}, 'source_path': row['path'], 'ref': frozen})
+                row['path'] = frozen['path']
         adapter = effective.get('test_adapter', {})
         if adapter.get('environment_ref'):
             sources['test_environment'] = copy_ref(files, file_ref(adapter['environment_ref']))

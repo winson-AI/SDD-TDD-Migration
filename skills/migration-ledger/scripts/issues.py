@@ -9,7 +9,7 @@ from contracts import check_ref, digest, require
 import hashlib
 
 OPS = {'issue', 'issue-resolve'}
-KINDS = ('defect', 'fact', 'gap', 'need', 'decision', 'standing', 'debt')  # a debt is a fact about the code: kept for the audit, owed to nobody
+KINDS = ('defect', 'fact', 'gap', 'need', 'decision', 'standing', 'debt', 'knowledge-need')  # a debt is a fact about the code, owed to nobody; a knowledge-need is answered by a person
 LEDGER = {'role': 'ledger', 'instance_id': 'ledger'}
 STEP_CHARS = 200     # what a step view shows of each line
 STEP_ROWS = 10       # how many open issues a step lists: the blocking ones first, then the newest
@@ -52,6 +52,8 @@ def handle(s, req, actor, sequence=None):
         require(mid in issue['applies_to'] and mid not in issue['resolved'] and (iid, mid) not in [(a, b) for a, b, _ in pending],
                 'issue is not open for this module')
         check_ref(ref)
+        import knowledge
+        require(knowledge.settles(s, issue, ref), 'a knowledge need is settled by a knowledge decision (kind=knowledge) or one of the project\'s knowledge documents')
         pending.append((iid, mid, ref))
     for iid, mid, ref in pending:
         issues[iid]['resolved'][mid] = {'evidence_ref': ref, 'by': actor}

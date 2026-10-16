@@ -9,6 +9,10 @@
   },
   "_args_examples": [
     {
+      "mode": "project",
+      "query": "retry policy"
+    },
+    {
       "mode": "topics"
     },
     {
