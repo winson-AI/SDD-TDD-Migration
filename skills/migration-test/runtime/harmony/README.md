@@ -1,6 +1,6 @@
 # Android/Harmony：独立 uv 自动化测试环境
 
-两端保留 `runtime/harmony`、`harmony_adapter.py`、`runs/harmony` 的兼容命名。冻结 PATH 填 `kind=automation`、`platform=android|harmony`、`task_type=test`；同 CASE 两端分别建 PATH，不能互相替代验收。
+两端保留 `runtime/harmony`、`harmony_adapter.py`、`runs/harmony` 的兼容命名。冻结 PATH 填 `kind=automation`、`platform=android|harmony`、`task_type=test`；同 CASE 两端分别建 PATH，不能互相替代验收。`task_type=snapshot|recording` 是媒体任务：按冻结步骤走到终点，snapshot 保存连续两帧一致的终帧与布局，recording 保留整段 final.mp4；不调用 verify、不判通过，走不到终点记 needs-review。引擎把结果写成报告目录下的 `media_outcome.json`，adapter 据此产出媒体回执（status=reached|needs-review|blocked、snapshot_ref/layout_ref/recording_ref），只供存量预览捕获与录屏取证，不是 PATH 结果。test PATH 的 query 带 `record_video: true` 时强制录屏并把 final.mp4 列入 `media_refs`。
 
 共享配置可补充以下字段（models 沿用已有配置）：
 

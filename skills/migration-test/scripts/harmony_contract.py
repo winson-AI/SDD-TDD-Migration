@@ -33,9 +33,24 @@ def write(path, value):
         temporary.unlink(missing_ok=True)
 
 
+MEDIA_TASKS = ('snapshot', 'recording')
+
+
 def validate_query(q):
-    if q.get('platform', 'harmony') not in ('android', 'harmony') or q.get('task_type', 'test') != 'test':
-        raise ValueError('android/harmony platform and task_type=test required')
+    task_type = q.get('task_type', 'test')
+    if q.get('platform', 'harmony') not in ('android', 'harmony') or task_type not in ('test', *MEDIA_TASKS):
+        raise ValueError('android/harmony platform and task_type test, snapshot or recording required')
+    if task_type in MEDIA_TASKS:  # a media task walks frozen steps and keeps what it saw; it verifies nothing
+        for key in ('run_id', 'module_id', 'name'):
+            if not q.get(key):
+                raise ValueError(f'missing media query {key}')
+        if not (q.get('path_id') or q.get('capture_id')):
+            raise ValueError('a media task names the path_id or capture_id it serves')
+        if q.get('expected_assertions'):
+            raise ValueError('media tasks carry no assertions; a test PATH verifies')
+        if not q.get('steps') or any(not isinstance(s, str) and (not isinstance(s, dict) or not s.get('instruction')) for s in q['steps']):
+            raise ValueError('media tasks require frozen steps (text or an instruction object)')
+        return
     for key in ('run_id', 'module_id', 'path_id', 'name', 'freeze_id', 'code_baseline'):
         if not q.get(key):
             raise ValueError(f'missing frozen query {key}')

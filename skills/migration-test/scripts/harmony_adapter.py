@@ -32,8 +32,9 @@ def execution_config(raw, query=None, platform=None, device=None):
         raise ValueError('supported platform required: android or harmony')
     if q.get('platform') and q['platform'] != selected:
         raise ValueError('execution platform differs from frozen PATH')
-    if any(value != 'test' for value in (q.get('task_type', 'test'), raw.get('task_type', 'test'))):
-        raise ValueError('task_type=test required for automation')
+    task_type = q.get('task_type', 'test')
+    if task_type not in ('test', 'snapshot', 'recording') or raw.get('task_type', 'test') not in ('test', task_type):
+        raise ValueError('task_type test, snapshot or recording required for automation')
     serial = device or raw.get('devices', {}).get(selected)
     if not serial and selected == raw.get('platform', 'harmony'):
         serial = raw.get('device')
@@ -42,7 +43,7 @@ def execution_config(raw, query=None, platform=None, device=None):
         raise ValueError('explicit device serial required for ' + selected)
     if selected == 'android' and raw.get('models', {}).get('execute_provider') not in ('general', 'glm'):
         raise ValueError('Android requires general or glm executor; no provider fallback')
-    return {**raw, 'platform': selected, 'task_type': 'test', 'device': serial}
+    return {**raw, 'platform': selected, 'task_type': task_type, 'device': serial}
 
 
 def resolve_env(value):
@@ -175,7 +176,10 @@ async def run_engine(q, config, out, sink):
         module.APP_PACKAGES[app['name']] = app['package']
     from AutoTest.logger import configure_logger
     cfg = configure(config['models'])
-    if any(a['verification'] == 'video_assert' for a in q['expected_assertions']) and not cfg.verify_video_enable:
+    if config['task_type'] == 'recording' or q.get('record_video'):  # keep the walk on film: the deliverable, or evidence beside the verdict
+        cfg.verify_video_enable = True
+        cfg.keep_raw_video = True
+    if any(a['verification'] == 'video_assert' for a in q.get('expected_assertions', [])) and not cfg.verify_video_enable:
         raise ValueError('frozen video assertion requires verify_video_enable')
     configure_logger(log_file=str(out / 'engine.log'))
     spec = importlib.util.spec_from_file_location('sdd_harmony_main', ENGINE / 'main.py')
@@ -184,7 +188,7 @@ async def run_engine(q, config, out, sink):
     native.VerifyAgent = observing_verifier(native.VerifyAgent, sink)
     task = task_text(q)
     if config['platform'] == 'android' and not q.get('platform'):
-        task = '平台：android；任务类型：test\n' + task
+        task = '平台：android；任务类型：' + config['task_type'] + '\n' + task
     from AutoTest.layered_agent_cli.agent_registry import agent_registry
     knowledge = config.get('knowledge_ref')
     if knowledge:
@@ -195,7 +199,7 @@ async def run_engine(q, config, out, sink):
         task += '\n知识库：\n（仅辅助执行，不得修改冻结步骤或断言）\n' + knowledge_text
     # Fresh process/workdir per path isolates global registries and default memory writes.
     args = SimpleNamespace(task=task, task_name=q['path_id'] + ' ' + q['name'],
-                           platform=config['platform'], task_type='test',
+                           platform=config['platform'], task_type=config['task_type'],
                            report_dir=str(out / 'reports'), device=config['device'],
                            ip=config.get('ip','127.0.0.1'), port=config.get('port',8710),
                            memory_dir=str(out / 'memory'))
@@ -219,6 +223,39 @@ async def run_engine(q, config, out, sink):
     finally:
         deadline.close()
         if steps: steps.restore()
+
+
+def media_report(q, out, error=None):
+    """A snapshot or recording task's receipt: what the engine walked to and the media it kept; never a test verdict."""
+    reports = out / 'reports'
+    outcomes = sorted(reports.rglob('media_outcome.json')) if reports.exists() else []
+    report = {'producer': 'harmony-adapter', 'task_type': q.get('task_type'), 'status': 'blocked', 'reason': error,
+              'snapshot_ref': None, 'layout_ref': None, 'recording_ref': None, 'outcome_ref': None}
+    if len(outcomes) != 1:
+        report['reason'] = error or ('engine produced no media outcome' if not outcomes else 'ambiguous media outcomes')
+        return report
+    outcome = json.loads(outcomes[0].read_text())
+    report['outcome_ref'] = ref(outcomes[0])
+    for key in ('snapshot', 'layout', 'recording'):
+        path = outcome.get(key + '_path')
+        if path and Path(path).is_file() and Path(path).resolve().is_relative_to(out.resolve()):
+            report[key + '_ref'] = ref(Path(path))
+    wanted = report['snapshot_ref'] if q.get('task_type') == 'snapshot' else report['recording_ref']
+    if error:
+        report['reason'] = error
+    elif not outcome.get('reached'):
+        report.update(status='needs-review', reason=outcome.get('reason') or 'the path was not walked to its end')
+    elif not wanted:
+        report['reason'] = 'the engine reached the end without the media it was asked for'
+    else:
+        report.update(status='reached', reason=None)
+    return report
+
+
+def recording_refs(out):
+    """The screen recording a test PATH kept when asked (record_video): evidence beside the verdict, not part of it."""
+    reports = out / 'reports'
+    return [{'kind': 'recording', 'ref': ref(path)} for path in sorted(reports.rglob('final.mp4'))] if reports.exists() else []
 
 
 def main():
@@ -261,7 +298,7 @@ def main():
         config = json.loads(config_path.read_text())
         config = execution_config(config, q, a.platform, a.device)
         environment.update({'config_ref':ref(config_path), 'device':config.get('device'),
-                            'platform':config['platform'], 'task_type':'test',
+                            'platform':config['platform'], 'task_type':config['task_type'],
                             'ip':config.get('ip','127.0.0.1'), 'port':config.get('port',8710),
                             'recording_ref':config.get('recording_ref'), 'knowledge_ref':config.get('knowledge_ref')})
         environment['configuration'] = public_config(config)
@@ -284,15 +321,21 @@ def main():
         if isinstance(exc, ValueError) and ('required' in str(exc) or 'missing' in str(exc) or 'device busy' in str(exc)):
             detail = str(exc)
         sink.error = f'{type(exc).__name__}: {detail}'
-    report = sink.report()
-    report.update(mobile_contract_version=2, platform=environment.get('platform'), task_type='test')
+    task_type = q.get('task_type', 'test')
+    if task_type == 'test':
+        report = sink.report()
+        if q.get('record_video'):
+            report['media_refs'] = recording_refs(out)
+    else:
+        report = media_report(q, out, sink.error)
+    report.update(mobile_contract_version=2, platform=environment.get('platform'), task_type=task_type)
     write(out / 'environment.json', environment)
     report['environment_hash'] = digest(environment)
     report['environment_ref'] = ref(out / 'environment.json')
     report['artifacts'] = [ref(f) for f in sorted(out.rglob('*')) if f.is_file()]
     report['engine_snapshot_ref'] = ref(ENGINE / 'UPSTREAM.json')
     write(result_path, report)
-    return 0 if report['quality'] == 'green-passed' else (1 if report['quality'] == 'red-bug' else 2)
+    return 0 if report.get('quality') == 'green-passed' or report.get('status') == 'reached' else (1 if report.get('quality') == 'red-bug' else 2)
 
 
 if __name__ == '__main__':

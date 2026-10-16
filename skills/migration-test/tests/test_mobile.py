@@ -29,9 +29,10 @@ class MobileContractTests(unittest.TestCase):
             execution_config(raw, {'platform': 'android'}, platform='harmony')
         for bad in ('ios', 'snapshot'):
             with self.assertRaises(ValueError): execution_config(raw, platform=bad)
-        for mode in ('snapshot', 'recording'):
-            with self.assertRaises(ValueError): execution_config(raw, {'task_type': mode})
-            with self.assertRaises(ValueError): validate_query({**query(), 'task_type': mode})
+        for mode in ('snapshot', 'recording'):  # media tasks: accepted, and never with a test's assertions
+            self.assertEqual(execution_config(raw, {'task_type': mode})['task_type'], mode)
+            with self.assertRaisesRegex(ValueError, 'carry no assertions'): validate_query({**query(), 'task_type': mode})
+        with self.assertRaises(ValueError): execution_config(raw, {'task_type': 'preview'})
         with self.assertRaisesRegex(ValueError, 'no provider fallback'):
             execution_config({**raw, 'models': {'execute_provider': 'hypium_mcp_agent'}}, platform='android')
         with patch.dict(os.environ, {}, clear=True), self.assertRaisesRegex(ValueError, 'serial required'):
@@ -132,9 +133,13 @@ class MobileNativeTests(unittest.TestCase):
         with patch.object(native, 'HDCDevice') as hdc:
             native.create_device(args, None, SimpleNamespace(execute_provider='general'))
             hdc.assert_called_once_with('H', 'localhost', 8710, report_generator=None, config=unittest.mock.ANY)
-        for platform, mode in [('ios', 'test'), ('android', 'snapshot')]:
+        for platform, mode in [('ios', 'test'), ('android', 'preview')]:
             args.platform, args.task_type = platform, mode
             with self.assertRaises(ValueError): native.create_device(args, None, SimpleNamespace(execute_provider='general'))
+        args.platform, args.task_type = 'android', 'snapshot'
+        with patch('AutoTest.devices.adb_device.AdbDevice') as adb:
+            native.create_device(args, None, SimpleNamespace(execute_provider='general'))  # a media task on Android
+            adb.assert_called_once()
 
     def test_android_screenshot_failure_cannot_create_fake_observation(self):
         from AutoTest.devices.adb import screenshot

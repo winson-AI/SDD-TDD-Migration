@@ -38,8 +38,8 @@ from AutoTest.layered_agent_cli.planner_agent import create_planner_agent
 def create_device(args, report_generator, config):
     """MobileAgenticOperator device dispatch, restricted to the two SDD targets."""
     platform = getattr(args, 'platform', 'harmony')
-    if getattr(args, 'task_type', 'test') != 'test':
-        raise ValueError('SDD automation requires task_type=test')
+    if getattr(args, 'task_type', 'test') not in ('test', 'snapshot', 'recording'):
+        raise ValueError('SDD automation task_type must be test, snapshot or recording')
     if not args.device:
         raise ValueError('explicit device serial required')
     if platform == 'android':
@@ -60,8 +60,14 @@ async def decision_cli(args, config):
     # Initialize Report Generator
     report_generator = ReportGenerator(args.task, args.task_name, output_dir=args.report_dir)
 
-    # Create hdc Device directly
-    hdc_device = create_device(args, report_generator, config)
+    device_config = config
+    if getattr(args, 'task_type', 'test') == 'recording':
+        # The deliverable is device.teardown()'s own final.mp4 pull: force recording on and keep the file.
+        import copy
+        device_config = copy.copy(config)
+        device_config.verify_video_enable = True
+        device_config.keep_raw_video = True
+    hdc_device = create_device(args, report_generator, device_config)
 
     # init 验证工具
     verify_agent = VerifyAgent(report_generator, config, hdc_device)
@@ -284,7 +290,8 @@ def parse_task_file(file_path, knowledge_path):
 async def main():
     parser = argparse.ArgumentParser(description="AutoGLM Layered Agent CLI")
     parser.add_argument('--platform', choices=['android', 'harmony'], default='harmony')
-    parser.add_argument('--task-type', choices=['test'], default='test')
+    parser.add_argument('--task-type', choices=['test', 'snapshot', 'recording'], default='test',
+                        help='test judges pass/fail; snapshot keeps a stable final frame; recording keeps the whole walk on film')
     parser.add_argument("--device", default=None, help="Device serial number (e.g., emulator-5554)")
     parser.add_argument("--ip", default="127.0.0.1", help="Device ip")
     parser.add_argument("--port", default=8710, help="Device port")
