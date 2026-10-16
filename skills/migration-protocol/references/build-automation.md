@@ -2,7 +2,7 @@
 
 ## 总则
 
-Test-Runner 在 Coding 接受后先构建，同一派发内跑逻辑单测，再做静态规格闭合审查（逐需求核对生产符号与假实现，见[静态规格闭合](testing.md#静态规格闭合)），然后自动化。任务分批时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且需要本模块代码的切片已有代码，此前为 awaiting-assembly。构建命令相同的模块同时只一个在写；命令优先用户指定，否则搜索构建脚本并默认评估 Gradle assemble。构建/用例错误记三态与根因，修复仍由 Fixer。仅自动化环境不可启动时保留构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred，独立任务与依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复；全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，但不称功能/fidelity 验证通过。不跳过构建、不吞已观察到的 Red。
+Test-Runner 在 Coding 接受后先构建，同一派发内跑逻辑单测，再做静态规格闭合审查（逐需求核对生产符号与假实现，见[静态规格闭合](testing.md#静态规格闭合)），然后自动化。任务分批时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且需要本模块代码的切片已有代码，此前为 awaiting-assembly。构建命令相同的模块同时只一个在写；命令优先用户指定，否则搜索构建脚本并默认评估 Gradle assemble。构建/用例错误记三态与根因，修复由 Fixer。仅自动化环境不可启动时保留构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred，独立任务与依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复；全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，不称功能/fidelity 验证通过；不跳过构建、不吞已观察到的 Red。
 
 ## 1. 职责与全局规则
 
@@ -124,7 +124,7 @@ Harmony Main adapter 不隐式安装 App；宿主可继续提供已安装包与�
 
 ## 构建资产位置
 
-冻结 build PATH 时审核构建输出位置，遵守[留存文件系统](storage-layout.md)：正式输出为 runs/build/<新 attempt>；执行器绑定临时目录与工具缓存，在该次 Gradle home 放 init.d 把各工程 buildDirectory 与项目缓存定向到 runner，脚本内调用的构建同样继承。自查用 `execute_test.py selfcheck --cwd <树> --output <新目录> -- <命令>`，同一定向，不留回执、不算结果。宿主可设 `SDD_GRADLE_CACHE_SEED`（一个 Gradle user home）供各次执行链接 wrapper 与依赖缓存；冻结参数保留，实际命令只扩展缓存目录参数。APK、构建报告、测试脚本不留在目标源码旁；硬编码输出先调整冻结任务/构建配置，工程不支持则如实记录，其他模块照常。安装步骤读本轮实际 APK 路径。
+冻结 build PATH 时审核构建输出位置，遵守[留存文件系统](storage-layout.md)：正式输出为 runs/build/<新 attempt>；执行器绑定临时目录与工具缓存，在该次 Gradle home 放 init.d 把各工程 buildDirectory 与项目缓存定向到 runner，脚本内的构建同样继承。自查用 `execute_test.py selfcheck --cwd <树> --output <新目录> -- <命令>`，同一定向，不留回执、不算结果。宿主可设 `SDD_GRADLE_CACHE_SEED`（一个 Gradle user home）供各次执行链接 wrapper 与依赖缓存；冻结参数保留，实际命令只加缓存目录参数。APK、构建报告、测试脚本不留在目标源码旁；硬编码输出先调整冻结任务/构建配置，工程不支持则如实记录。安装步骤读本轮实际 APK 路径。
 
 ## 构建和自动化异常回执
 

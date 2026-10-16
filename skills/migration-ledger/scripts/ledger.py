@@ -1118,6 +1118,10 @@ def with_card(s, m, step):
         answered = knowledge.of_module(s, m)  # what people answered to this leaf's knowledge needs: read with the step, bound to nothing
         if answered:
             step['knowledge_decisions'] = answered
+        if step.get('operation') == 'diagnose' or step.get('worker_role') == 'fixer':  # what the failed paths kept on film: read with the diagnosis
+            kept = {pid: record['media_refs'] for pid, record in unresolved(m).items() if record.get('media_refs')}
+            if kept:
+                step['media_evidence'] = kept
     enhancement = reading.reasoning_sections(m)
     if enhancement: step['reasoning_activation'] = [{'ref': ref, 'section': heading} for ref, heading in enhancement]
     if s.get('project_context_ref') and (m or (step.get('role') == 'global-orchestrator' and step.get('operation') in

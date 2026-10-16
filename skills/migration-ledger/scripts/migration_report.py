@@ -1,5 +1,6 @@
 """GO case-level report projected from Ledger facts; never changes acceptance."""
 import copy
+from pathlib import Path
 from collections import Counter
 from html import escape
 
@@ -101,6 +102,7 @@ def fidelity(s, rows, ref_check):
                           '缺少当前基线已执行并通过的视觉路径' if evidence else '未声明可核验的 UI 证据模式')
                 entry = {'module_id': mid, 'item_id': item.get('item_id'), 'coverage': coverage,
                          'visual_mode': mode, 'origin': origin, 'status': status, 'reason': reason,
+                         'media_refs': [media for r in paths for media in r.get('media_refs', [])],
                          'path_ids': [r['path_id'] for r in paths],
                          'evidence_refs': refs([analysis_ref, evidence, [r['evidence_refs'] for r in paths]])}
                 visual.append(entry)
@@ -241,6 +243,7 @@ def build(root, s, sequence, ref_check=check_ref):
                      'code_baseline': record.get('code_baseline', (m or {}).get('code_baseline')),
                      'validation_reuse': record.get('validation_reuse'),
                      'assertions': copy.deepcopy(record.get('assertions', [])), 'root_causes': causes,
+                     'media_refs': copy.deepcopy(record.get('media_refs') or []),
                      'evidence_refs': refs(related), 'spec_ref': m.get('plan_ref') if m else s.get('global_spec'),
                      'ledger_evidence': {'path': str(root / 'ledger/events.jsonl'), 'sequence': sequence,
                                          'module_id': mid, 'path_id': pid, 'case_id': cid}})
@@ -340,6 +343,11 @@ def mermaid_diagram(report):
     return '\n'.join(lines)
 
 
+def media_cell(media):
+    """What a path kept on film or in a frame, by kind and file name."""
+    return '；'.join(f"{m['kind']} {Path(m['ref']['path']).name}" for m in media or []) or '—'
+
+
 def render(report):
     def cell(value):
         return escape(str(value if value is not None else '—')).replace('|', '&#124;').replace('\n', '<br>')
@@ -374,10 +382,10 @@ def render(report):
              '以下为证据覆盖披露，独立于业务 CASE 三态；completed 不代表未测维度已经验证。', '',
              *(['存量预览：' + (f"{preview['kind']}（{cell(preview.get('app_id') or preview.get('url'))}）" if preview['kind'] != 'none'
                 else f"不可运行（{cell(preview.get('reason'))}）"), ''] if preview else []),
-             '| 模块 / 项 | 覆盖 | 视觉模式 | 基线来源 | 验证状态 | 原因 |', '| --- | --- | --- | --- | --- | --- |']
+             '| 模块 / 项 | 覆盖 | 视觉模式 | 基线来源 | 目标媒体 | 验证状态 | 原因 |', '| --- | --- | --- | --- | --- | --- | --- |']
     for v in report.get('visual_coverage', []):
         text.append('| ' + ' | '.join(cell(x) for x in (f"{v['module_id']} / {v.get('item_id', '—')}",
-                    v.get('coverage'), v.get('visual_mode'), v.get('origin') or '—', v['status'], v['reason'])) + ' |')
+                    v.get('coverage'), v.get('visual_mode'), v.get('origin') or '—', media_cell(v.get('media_refs')), v['status'], v['reason'])) + ' |')
     for condition in report.get('fidelity_conditions', []):
         text.append(f"- {cell(condition['module_id'])}/{cell(condition['item_id'])} · {cell(condition['condition'])}: {cell(condition['status'])} · {cell(condition['reason'])}")
     for limit in report.get('fidelity_limitations', []):
@@ -469,10 +477,10 @@ def render(report):
                  '| 决定 | 模块 | 用途 | 原因 |', '| --- | --- | --- | --- |',
                  *[f"| {cell(row['decision_id'])} | {cell(row['module_id'] or '全局')} | {cell(row['used_for'])} | {cell(row['reason'] or '—')} |"
                    for row in cost['human_touches']]]
-    text += ['', '## 路径明细', '', '| CASE-ID | 模块 / 父 MO | PATH / Name | 类型 | 状态 | 曾执行 / 本次执行 / stale | test_run |', '| --- | --- | --- | --- | --- | --- | --- |']
+    text += ['', '## 路径明细', '', '| CASE-ID | 模块 / 父 MO | PATH / Name | 类型 | 状态 | 曾执行 / 本次执行 / stale | test_run | 媒体 |', '| --- | --- | --- | --- | --- | --- | --- | --- |']
     for r in report['paths']:
         text.append('| ' + ' | '.join(cell(v) for v in (r['case_id'], f"{r['module_id']} / {r['parent_mo_name'] or '—'}", f"{r['path_id'] or '—'} / {r['name']}",
-                    r['kind'], r['quality'], f"{r['executed']} / {r['attempt_executed']} / {r['stale']}", r['test_run_id'])) + ' |')
+                    r['kind'], r['quality'], f"{r['executed']} / {r['attempt_executed']} / {r['stale']}", r['test_run_id'], media_cell(r.get('media_refs')))) + ' |')
     text += ['', '## 非 Green 原因与证据', '']
     if not report['non_green']: text.append('无非 Green 用例；是否完成迁移仍以报告阶段、DoD 和 Auditor 裁决为准。')
     for r in report['non_green']:
@@ -484,6 +492,8 @@ def render(report):
             text.append(f"- 最近真实执行：{cell(previous['test_run_id'])}；原状态={cell(previous['quality'])}；断言={cell(previous.get('assertions', []))}；证据失效={r['last_execution_stale']}。本次尝试未执行，旧观测不构成本次通过。")
         for ref in r['evidence_refs']:
             text.append(f"- 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}")
+        for media in r.get('media_refs') or []:
+            text.append(f"- 媒体（{media['kind']}）：[{cell(media['ref']['path'])}](<{media['ref']['path']}>) · sha256={media['ref']['sha256']}")
         ev = r['ledger_evidence']
         text += [f"- Ledger 状态依据：[events.jsonl](<{ev['path']}>) · sequence={ev['sequence']} · module={cell(r['module_id'])} · PATH={cell(r['path_id'])}", '']
     if report['human_report']:
