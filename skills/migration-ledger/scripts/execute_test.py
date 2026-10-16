@@ -168,9 +168,14 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
         context_readiness.check_execution(s, a, argv, cwd, pid)
     require(baseline(m['code_files']) == m['code_baseline'], 'code changed before execution')
     bindings = {pid: prepared_tests.binding(m, p) for pid, p in zip(pids, paths)}
-    require(not batch or not any(bindings.values()), 'a batch carries no prepared test assets')
+    require(not batch or all(a['kind'] == 'test-source' for b in bindings.values() for a in (b or {}).get('assets', [])),
+            'a batch carries no prepared test assets other than frozen test sources')
     test_binding = bindings[path_id]
     prepared = (test_binding or {}).get('assets', [])
+    sources = {pid: prepared_tests.frozen_sources(b) for pid, b in bindings.items()}
+    for row in {r['path']: r for rows in sources.values() for r in rows}.values():  # what the freeze wrote lands in the target verbatim
+        require(Path(row['path']).is_file() and file_ref(Path(row['path']))['sha256'] == row['sha256'],
+                'frozen test source missing or changed at ' + row['path'])
     is_build = path.get('kind') in ('build', 'unit')  # both execute a frozen, host-bound command
     if tv.split(m) and module_id != 'GLOBAL':
         kind = path.get('kind') or 'automation'
@@ -213,7 +218,8 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
         query.update(assignment_id=assignment_id, test_run_id=run_ids[path_id])
     queries = {path_id: query, **{pid: {**p, 'run_id': s['run_id'], 'module_id': module_id, 'freeze_id': m['freeze_id'],
                                         'code_baseline': m['code_baseline'], 'execution_contract_version': 2,
-                                        'assignment_id': assignment_id, 'test_run_id': run_ids[pid]}
+                                        'assignment_id': assignment_id, 'test_run_id': run_ids[pid],
+                                        **({'frozen_test_assets': bindings[pid]['assets'], 'test_asset_binding': bindings[pid]} if bindings[pid] else {})}
                                   for pid, p in zip(pids[1:], paths[1:])}}
     if path.get('kind') == 'static':
         query['unit_tests_present'] = bool(tv.paths(m, 'unit'))
@@ -329,9 +335,14 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
     receipts = []
     for pid in reversed(pids):  # the first PATH's receipt is finished below with what only a single run records
         receipt = {**shared, 'path_id': pid, 'test_run_id': run_ids[pid], 'query_ref': file_ref(out / named('query', pid)),
-                   'result_ref': file_ref(out / named('result', pid)) if (out / named('result', pid)).is_file() else None}
+                   'result_ref': file_ref(out / named('result', pid)) if (out / named('result', pid)).is_file() else None,
+                   'frozen_test_sources': sources[pid]}
         if termination:
             receipt['termination'] = termination
+        if pid != path_id and bindings[pid]:
+            usage_file = run_storage.checked_path(out / 'test-assets-used.json', out)
+            receipt.update(test_asset_binding=bindings[pid], test_asset_usage=prepared_tests.usage(bindings[pid], argv, usage_file),
+                           test_asset_usage_ref=file_ref(usage_file) if usage_file.is_file() else None)
         if pid != path_id:
             atomic(out / named('receipt', pid), receipt)
             receipts.insert(0, file_ref(out / named('receipt', pid)))

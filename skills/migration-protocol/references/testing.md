@@ -2,9 +2,9 @@
 
 ## 执行模式
 
-execute 模式分 build（含 unit、static）和 automation，按 [双环节协议](build-automation.md) 执行。代码已生成并经 MO 接受后，把已批准路径落实为技术栈真实脚本/选择器/数据参数。若发现新验收语义，发 CR，不自行补成新标准。设计与执行可由不同实例担任，仍属于同一角色。Auditor 不能是该轮脚本作者。
+execute 模式分 build（含 unit、static）和 automation，按 [双环节协议](build-automation.md) 执行：代码经 MO 接受后，把已批准路径落实为真实脚本/选择器/数据参数；新验收语义发 CR，不自行补成标准。设计与执行可由同一角色的不同实例担任；Auditor 不能是该轮脚本作者。
 
-Main 是项目提供的主验证入口，不是固定 `main.py`。输入 `test_adapter` 指定 executable/args/cwd、query 传输和结构化结果路径；未配置或不可用 → Yellow tooling。模板不包含假测试或自动通过的适配器。
+Main 是项目提供的主验证入口，不是固定 `main.py`；`test_adapter` 指定 executable/args/cwd、query 传输和结构化结果路径，未配置或不可用 → Yellow tooling；模板不含假测试或自动通过的适配器。
 
 ## 编码前设计交接
 
@@ -12,17 +12,17 @@ prepare 的 test_design_required=true 表示必需的测试输入与覆盖，不
 
 默认 stage-plan.test_design_ref 引用 [upstream-test-plan.json](../../../template/upstream-test-plan.json)：subject_sha256、case_refs 取游标的 input_subject_sha256、upstream_case_refs，绑定当前分配与权威用例（项目 test_cases_path，未提供时取 global_spec）。paths 精确覆盖本模块全部 CASE，每条含需求、预期 ASSERT 与适用 Scenario，不填 actual/passed/quality。design_ref 与 test_assets 沿用资产契约；Ledger 补全 PATH/test-design/资产定义，TASK.scope、需求与 SPEC 定义由 plan 提供。MO 检查原始用例与预期的语义一致性，hash 不证明语义；无未决且完整可执行即冻结。
 
-设计只读规格与用例，不运行目标代码；没有独立的测试设计派发。
+设计只读规格与用例，不运行目标代码，没有独立派发。
 
 执行反馈分流、同 Run CR 及独立 TASK 保留统一按[变更控制](openspec.md#变更控制)；不强制重做独立 design，当前计划仍绑定上游用例，历史设计只供追溯。
 
 新 prepare 固化 planning_coverage_required。每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids；已有执行器可复用，prepared 须对应资产，deferred 另记 owner/next_action，解决后才能冻结；测试准备不执行目标代码。叶子验收的用户可见 CASE（适用 UI item 承载）须有设备或视觉 PATH：visual，或绑定 android/harmony 平台、交互的 automation；确无可能的写 plan.device_gaps[{case_id,reason,evidence_refs}]：build 可 Green，该 CASE 的 automation 与模块、本轮记 Yellow，以 completed-with-unverified-tests 收尾；环境缺失不是缺口，走缺测出口。登记 UI 分配前 run 须对 `test_adapter.device` 定论（`{platforms}` 或 `{unavailable: 原因}`，经 run 修订写入）；unavailable 时未达设备路径的用户可见 CASE 由 Ledger 按该原因记缺口。
 
-test_assets 交 script/fixture/adapter 的 asset_id/ref/path_ids，script 再映射 assertions；文件位于 design_ref 同级 staging 内，冻结 definitions 绑定 hash。模块、修复后复测及 GLOBAL 复测共用 PATH 资产解析，query/receipt 的 test_asset_binding 保留来源模块、freeze_id、test_design_ref。GLOBAL 自有路径显式绑定本 GLOBAL 的 test_design_ref/设计作者，不借用模块资产；作者不能兼 Auditor/审计 Test-Runner。
+test_assets 交 script/fixture/adapter/test-source 的 asset_id/ref/path_ids，script 再映射 assertions；文件位于 design_ref 同级 staging 内，冻结 definitions 绑定 hash。test-source 是从 SPEC 写出、随计划冻结的测试源文件：记 target_path、required_test_ids（文件须定义）、scenarios（逐测试对应 SPEC 的 Scenario-ID）与 symbols；绑定的 unit PATH 只要求它定义的测试；Implementer 原样落到 target_path，hash 不等即拒，改测试走 CR；execute_test 执行前核对文件并写回执 frozen_test_sources。模块、修复后复测及 GLOBAL 复测共用 PATH 资产解析，query/receipt 的 test_asset_binding 保留来源模块、freeze_id、test_design_ref。GLOBAL 自有路径显式绑定本 GLOBAL 的 test_design_ref/设计作者，不借用模块资产；作者不能兼 Auditor/审计 Test-Runner。
 
-所有执行器可从 SDD_TEST_QUERY_FILE 读 query（非 build/unit 同时带 --query-file）；资产位于 frozen_test_assets。script/adapter 直接作为 argv 参数由 Host 记录 entrypoint_ids；其他消费由执行器向 SDD_TEST_ASSET_USAGE_FILE 写 [{asset_id,ref}]，回执保存 reported_ids 和文件引用。新冻结有资产时，Green 须覆盖所有所选资产，哈希/来源不能变；提供资产不等于消费，执行器上报也不自动证明断言语义。缺证据允许记录真实失败/阻塞。
+执行器从 SDD_TEST_QUERY_FILE 读 query（非 build/unit 同时带 --query-file），资产位于 frozen_test_assets；script/adapter 作为 argv 参数由 Host 记 entrypoint_ids，其他消费由执行器向 SDD_TEST_ASSET_USAGE_FILE 写 [{asset_id,ref}]。Green 须覆盖所选资产（test-source 以文件 hash 与 JUnit 必需 ID 为证），哈希/来源不能变；提供不等于消费，上报不证明断言语义。
 
-显式 design 设计者与 MO/Spec/实现/修复/Auditor 独立；直接测试计划及脚本作者同样不能兼 Auditor。Host 落实派发及 staging 隔离。设计不替代 building/testing 预检及冻结/代码门禁。
+测试计划及脚本作者不能兼 Auditor；设计不替代 building/testing 预检及冻结/代码门禁。
 
 ## query
 
@@ -82,7 +82,7 @@ unit 冻结 argv/cwd/timeout/selection_ref。unit_report 固定 format=junit、r
 
 ## 日志与按需追溯
 
-execute_test 在同一 runner 持续写 stdout.log/stderr.log（原始字节）、execution.log（带采集时间/stream）、output-events.jsonl（序号/字节位置），execution-state.json 绑定本 attempt 身份、输出量及完整性。子进程自身缓冲可能延迟输出；采集顺序不表示跨 stream 的严格因果。超时/取消标记不完整；硬终止可能仅留下 running/不完整，须宿主核查，不自动修复或重跑。receipt.capture 固化引用，提交时沿 Ledger 归档；原有三态/终止验收不变。
+execute_test 在 runner 持续写 stdout.log/stderr.log（原始字节）、execution.log（带采集时间/stream）、output-events.jsonl（序号/字节位置），execution-state.json 绑定本 attempt 身份、输出量及完整性；采集顺序不表示跨 stream 的因果。超时/取消标记不完整，硬终止可能只留下 running，须宿主核查，不自动重跑。receipt.capture 固化引用，提交时归档。
 
 恢复/诊断先读当前模块状态和 trace 摘要，完整日志、历史轮次、媒体按需读取，不自动装入下次上下文。以下 trace.py 位于 skills/migration-ledger/scripts；命令只读、不刷新投影或拿业务锁：
 
@@ -108,7 +108,7 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 ## 运行时变体与冻结 SPEC 冲突
 
-截图、运行时树或设备观察显示的页面变体（如 live 页签）与冻结 SPEC/源码默认（如 trending）不一致时，这是用户的范围决定，不是代码缺陷：Test-Runner 记 Yellow，root_cause 为 `category=human`、`reason_code=runtime-spec-variant-conflict`、`confidence=confirmed`，引用冲突证据。外部验证/对齐结果中的同类 issue 由适配器自动规范化为同一根因。MO 游标直接给出 `suspend(kind=human)`，交 Escalation 取得用户选择后再按决定重新规划或继续；不派 Fixer，也不默认任选一种变体。
+截图、运行时树或设备观察到的页面变体与冻结 SPEC/源码默认不一致时，这是用户的范围决定，不是代码缺陷：Test-Runner 记 Yellow，root_cause 为 `category=human`、`reason_code=runtime-spec-variant-conflict`、`confidence=confirmed`，引用冲突证据（外部对齐结果的同类 issue 由适配器规范化为同一根因）。MO 游标给 `suspend(kind=human)`，交 Escalation 取得用户选择后再规划或继续；不派 Fixer，不默认任选变体。
 
 ## Harmony Main
 
@@ -122,8 +122,8 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 - 模块阶段：对应 Module-Orchestrator 唯一验收本模块 CASE/PATH。Test-Runner 提交真实结果，MO 核验完整 Green、当前基线、证据与 DoD 后直接提交验收记录。
 - 全局审计阶段：本次独立 Auditor 唯一验收审计范围 CASE/PATH；正式复测完整 Green 且覆盖、基线门禁满足后直接提交 audit-verdict/audit。MO 仍接收 worker 结果并守护修复模块 DoD，但不能批准或替代审计结论。
-- 无需为 Green 验收额外请求人类或 Global 会签；SPEC 冻结、业务边界、语义变更及最终交付授权保留原有门禁。
-- `case_owners` 表示覆盖范围，`owner_module_ids` 表示修复责任；均不表示验收人。验收事件的宿主身份、模块/审计 assignment、CASE/PATH、基线和证据共同确定唯一验收范围。不同阶段分别保留历史，不覆盖此前失败或把模块 Green 当审计通过。
+- Green 验收不需人类或 Global 会签；SPEC 冻结、业务边界、语义变更及交付授权保留原有门禁。
+- `case_owners` 是覆盖范围，`owner_module_ids` 是修复责任，都不是验收人；验收范围由宿主身份、assignment、CASE/PATH、基线和证据共同确定，各阶段历史分别保留，模块 Green 不等于审计通过。
 
 ## 二方库验证与根因
 
