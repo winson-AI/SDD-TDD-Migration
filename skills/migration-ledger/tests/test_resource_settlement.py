@@ -69,7 +69,10 @@ class SettledBeforeRegistrationTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, r'test_adapter\.device is not settled'):  # nor where a user-visible case is verified
             dimensions.allocation(state, self.module('Logic', 'UI'))
         with mock.patch.object(pc, 'device_verification', return_value={'platforms': ['android']}):
-            dimensions.allocation(state, self.module('Logic', 'UI'))
+            with self.assertRaisesRegex(Rejected, r'legacy_preview is not settled'):  # nor how the legacy's screens are shown
+                dimensions.allocation(state, self.module('Logic', 'UI'))
+            with mock.patch.object(pc, 'legacy_preview', return_value={'kind': 'none', 'reason': 'the legacy needs a hardware token'}):
+                dimensions.allocation(state, self.module('Logic', 'UI'))
 
     def test_an_analysis_the_ledger_already_holds_is_not_asked_again(self):
         state, module = self.f.state(), self.module('Logic', 'UI')
@@ -80,7 +83,8 @@ class SettledBeforeRegistrationTests(unittest.TestCase):
         f, t = self.f, self.t
         report = t.report({'target_resources': {'declined': {'copy': 'the target bundles no files',
                                                              'parameters': 'values are typed in the design system'}},
-                           'test_adapter': {'device': {'unavailable': 'this task has no device farm'}}}, affected=())
+                           'test_adapter': {'device': {'unavailable': 'this task has no device farm'}},
+                           'legacy_preview': {'kind': 'none', 'reason': 'the legacy needs a hardware token'}}, affected=())
         ref = f.ref('settle-resources.json', report)
         receipt = f.ref('settle-context.json', f.report('global-planning', module=None, draft=ref))
         f.raw('run-review', {'report_ref': ref, 'context_ref': receipt}, role='global-orchestrator', module=None)
@@ -90,6 +94,7 @@ class SettledBeforeRegistrationTests(unittest.TestCase):
         state = f.state()
         self.assertEqual(sorted(state['target_resources']['declined']), ['copy', 'parameters'])
         self.assertEqual(pc.device_verification(state), {'unavailable': 'this task has no device farm'})
+        self.assertEqual(pc.legacy_preview(state)['kind'], 'none')
         dimensions.allocation(state, self.module('Logic', 'UI'))
 
 
