@@ -138,6 +138,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-16 | 进程内功能测试代码化：automation PATH 带冻结命令与 unit_report 时按 JUnit 执行，每条断言指一个具名测试、逐断言给结果；骨架为无设备或非界面的 CASE 起稿 <Case>FlowTest，为有设备且绑定 UI 树的 CASE 起稿设备脚本（选择器取节点 id）作为 script 资产；报告分列脚本驱动的设备路径及其 flaky，作为推广前的对照。 |
 | 2026-10-16 | 测试代码成为冻结资产：Logic 条目的单测源从 SPEC 写出（Ledger 按条目起稿骨架，每个 CASE 一个测试方法），作为 test-source 资产随计划冻结，记 target_path、required_test_ids、scenarios 与 symbols；Implementer 原样交付到 target_path，hash 不等即拒，改测试走 CR；execute_test 执行前核对文件并写回执；红→绿由作者自查对冻结测试留证。 |
 | 2026-10-15 | 红线 4 分层：正式目标代码测试在代码被接受之后派发，作者自查不产生结果、不能代替正式测试；作者对任务的 unit PATH 自查两次（实现前失败、实现后通过），两份记录是该任务的 red 证据，报告按任务统计有证据 / 无 / 不适用，不设门禁；报告加规划占比（冻结 / 首次 Green）。issue 增 debt 类型，审计骨架预列。只改测试写法（步骤、参数、前置、措辞）而 PATH 身份与断言期望不变的 CR 由 MO 审核即可，Ledger 记事实。波次集成：global path 在持有其用例的叶子全部完成时即由独立 Test-Runner 执行，结果绑定 owner 代码基线，审计只重跑 owner 代码变动的路径，Red 路由给 owner 叶子。 |
 | 2026-10-15 | 起步与执行侧骨架。run 固定 prepare 时的包提交（package_sha），新规则只约束新 run；Implementer 按 TASK 派发，path_ids 随任务；冻结只核起步门禁（范围/写锁/任务/PATH/四维追溯/六件套），保真欠项记 gap、DoD 前结清；Ledger 写叶子的计划集骨架（六件套、stage-plan、上游测试计划、复用计划）与执行侧报告骨架（Test-Runner 预检与静态审查、Auditor 清单与代码审查），留标记的提交被拒；coding 与无待复测的审计由 Ledger 机械预检；卡片只在设备/视觉/图片/资源适用时带 UI 保真节，角色文件去掉专题表；冻结同一命令的 unit PATH 一次执行、逐 PATH 归因；实现派发先列提交必备证据，冻结落点文件在交付内即视为 conformance；报告列首版耗时与被拒次数，TASK 行按模块缺口计缺路径，任务按层切记为事实。数据契约：复用的数据在取数与计算处对齐（来源/取数条件/派生字段/失效随维度→TASK→PATH）。运行产物不设体量上限，棘轮只约束包。 |

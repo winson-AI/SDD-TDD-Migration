@@ -225,8 +225,8 @@ class StatisticsTests(unittest.TestCase):
         self.assertEqual(summary['tasks']['M001/T1']['device_gap_cases'], ['C1'])
         self.assertEqual(summary['tasks']['M001/T2']['device_gap_cases'], [])
         text = '\n'.join(automation_report.render(summary, str))
-        self.assertIn('| 范围 | 设备路径 | 进程内路径 | 视觉路径 | 设备缺口 CASE |', text)
-        self.assertIn("| 宿主任务 | 0 / 0 | 1 / 1 | 0 / 0 | ['C1'] |", text)
+        self.assertIn('| 范围 | 设备路径 | 其中脚本驱动 / flaky | 进程内路径 | 视觉路径 | 设备缺口 CASE |', text)
+        self.assertIn("| 宿主任务 | 0 / 0 | 0 / 0 | 1 / 1 | 0 / 0 | ['C1'] |", text)
         _, limitations, _ = migration_report.fidelity(state, [], lambda ref: Path(ref['path']))
         gap, = [row for row in limitations if row['kind'] == 'device-path-gap']
         self.assertEqual((gap['module_id'], gap['case_ids'], gap['evidence_refs']), ('M001', ['C1'], [proof]))

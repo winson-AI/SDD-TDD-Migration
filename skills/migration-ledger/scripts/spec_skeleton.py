@@ -132,7 +132,36 @@ def plans(s, m, out, documents):
                           command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': todo('选择依据引用')},
                           unit_report={'format': 'junit', 'patterns': [todo('runner 相对的 JUnit 报告 glob')], 'required_test_ids': ids},
                           preparation={'status': 'prepared', 'reason': '从 SPEC 写出并随计划冻结的测试源', 'evidence_refs': [], 'asset_ids': ['TEST-' + pid]}))
-    paths += [path(path_of[cid], 'automation', cid, todo(f'{cid} 的上游用例路径名')) for cid in cases]
+    import project_context
+    device = project_context.device_verification(s) or (s.get('test_adapter') or {}).get('device')
+    platforms = list((device or {}).get('platforms') or []) if isinstance(device, dict) else []
+    ui_items = [iid for iid, item in items.items() if item['dimension'] == 'UI']
+    for cid in cases:
+        pid = path_of[cid]
+        seen = [iid for iid in ui_items if cid in items[iid]['case_ids']]
+        if platforms and seen:  # a user-visible case on a declared device: the engine drives it, or a script the plan freezes
+            nodes = screen_nodes(items, seen)
+            paths.append(path(pid, 'automation', cid, todo(f'{cid} 的上游用例路径名'), platform=platforms[0],
+                              **({'preparation': {'status': 'prepared', 'reason': 'UI 树节点 id 稳定，脚本随计划冻结', 'evidence_refs': [], 'asset_ids': ['SCRIPT-' + pid]}} if nodes else {})))
+            if nodes:
+                cls = case_class(cid, 'UiTest')
+                name = f'test-sources/{cls}.' + language(s, ui=True)
+                sources[name] = ui_script(language(s, ui=True), cls, pid, cid, nodes)
+                test_assets.append({'asset_id': 'SCRIPT-' + pid, 'kind': 'script', 'ref': name, 'path_ids': [pid],
+                                    'assertions': [{'path_id': pid, 'assertion_id': 'ASSERT-' + pid}]})
+            continue
+        cls = case_class(cid, 'FlowTest')  # in-process: the flow as a frozen test, one named test per assertion
+        tid = f'{cls}#flow'
+        name = f'test-sources/{cls}.' + language(s)
+        sources[name] = test_source(cls, pid, cid, [('flow', cid)])
+        test_assets.append({'asset_id': 'TEST-' + pid, 'kind': 'test-source', 'ref': name, 'path_ids': [pid],
+                            'target_path': todo('目标测试源集中的绝对路径'), 'required_test_ids': [tid],
+                            'scenarios': [{'scenario_id': todo('Scenario-ID'), 'test_id': tid}], 'symbols': [todo('测试调用的冻结门面符号')]})
+        paths.append(path(pid, 'automation', cid, todo(f'{cid} 的上游用例路径名'), expected=True, platform='jvm',
+                          command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': todo('选择依据引用')},
+                          unit_report={'format': 'junit', 'patterns': [todo('runner 相对的 JUnit 报告 glob')], 'required_test_ids': [tid]},
+                          preparation={'status': 'prepared', 'reason': '从 SPEC 写出并随计划冻结的功能测试', 'evidence_refs': [], 'asset_ids': ['TEST-' + pid]}))
+        paths[-1]['expected_assertions'][0]['test_id'] = tid
     tasks = []
     for n, (name, held) in enumerate(groups, 1):
         reqs = sorted({rid for cid in held for iid in holders[cid] for rid in items[iid]['requirement_ids']}) or requirements
@@ -173,10 +202,49 @@ def plans(s, m, out, documents):
     return out_files
 
 
-def language(s):
-    """The test language the skeleton is written in: Kotlin when the target holds Kotlin sources, else a neutral text."""
+def language(s, ui=False):
+    """The test language the skeleton is written in: Kotlin when the target holds Kotlin sources, ArkTS (Hypium) for a UI
+    script when it holds .ets sources, else a neutral text."""
     target = Path(s.get('target_root') or '')
-    return 'kt' if target.is_dir() and next(target.rglob('*.kt'), None) else 'txt'
+    if not target.is_dir():
+        return 'txt'
+    if ui and next(target.rglob('*.ets'), None):
+        return 'ets'
+    return 'kt' if next(target.rglob('*.kt'), None) else 'txt'
+
+
+def case_class(cid, suffix):
+    return ''.join(part.capitalize() for part in re.split(r'[^A-Za-z0-9]+', cid) if part) + suffix
+
+
+def screen_nodes(items, iids):
+    """The stable node ids of the UI trees the given UI items hold; empty when no tree is bound."""
+    import ui_evidence
+    found = []
+    for iid in iids:
+        ref = ((items[iid].get('semantic_model') or {}).get('ui_evidence') or {}).get('ui_tree_ref')
+        if not ref:
+            continue
+        try:
+            found += [n['id'] for n in ui_evidence.tree_nodes(read_json(check_ref(ref))) if isinstance(n.get('id'), str) and n['id'].startswith('node:')]
+        except (Rejected, OSError, ValueError, TypeError, KeyError):
+            continue
+    return sorted(set(found))
+
+
+def ui_script(lang, cls, pid, cid, nodes):
+    """A device UI test from the frozen steps: selectors are the UI tree's node ids; the author writes the actions and
+    the assertion, the image checks stay with the PATH."""
+    ids = ', '.join(nodes)
+    if lang == 'ets':
+        return (f"import {{ describe, it, expect }} from '@ohos/hypium';\nimport {{ Driver, ON }} from '@ohos.UiTest';\n\n"
+                f"// {pid} · CASE {cid}：选择器取 UI 树节点 id：{ids}\nexport default function {cls}() {{\n  describe('{cls}', () => {{\n"
+                f"    it('ASSERT-{pid}', 0, async () => {{\n      const driver = Driver.create();\n      // Given {todo('前置状态')}\n"
+                f"      // When {todo('按冻结步骤操作，选择器 ON.id(<node id 去掉 node: 前缀>)')}\n      // Then {todo('断言上游预期')}\n"
+                f"      expect(false).assertTrue(); // {todo('实现断言后删除')}\n    }});\n  }});\n}}\n")
+    return (f"import kotlin.test.Test\n\n// {pid} · CASE {cid}：选择器取 UI 树节点 id：{ids}\nclass {cls} {{\n    @Test\n    fun assert_{pid.replace('-', '_').lower()}() {{\n"
+            f"        // Given {todo('前置状态')}\n        // When {todo('按冻结步骤操作，onNodeWithTag(<node id>)')}\n        // Then {todo('断言上游预期')}\n"
+            f"        TODO(\"{todo('实现断言后删除')}\")\n    }}\n}}\n")
 
 
 def test_source(cls, pid, iid, methods):

@@ -1719,6 +1719,7 @@ def mutate(s, req, principal, events, root=None):
                 invalidate_dependents(s, mid)
         else:
             previous_fingerprint = failure_fingerprint(m['results'])
+            result['paths'] = tv.scripted(result['paths'])  # which device paths a frozen script drove: the pilot the report counts
             if tv.split(m):
                 m['results'].update({x['path_id']: {**x, 'code_baseline': m['code_baseline'], 'stale': False} for x in result['paths']})
                 kinds = {x['path_id']: x.get('kind') for x in m['plan']['paths']}

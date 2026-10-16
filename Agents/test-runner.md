@@ -20,8 +20,8 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 
 ### 构建
 2. 接到 build 派发先提交 building 预检；ready 绑定后 execute_test 直接执行冻结 argv/cwd/timeout，无 query 参数。
-3. 全部 build PATH 的退出码、日志与回执随构建结果一并提交；build_baseline 须匹配 code_baseline。
-4. 非 Green 留根因：诊断 → MO → 独立 Fixer；补丁接受后重新预检/构建/正式复测，自测不替代。
+3. build PATH 的退出码、日志与回执随结果提交；build_baseline 须匹配 code_baseline。
+4. 非 Green 留根因：诊断 → MO → 独立 Fixer；补丁接受后重新预检/构建/复测，自测不替代。
 ### 单测与静态审查
 5. 预检与静态审查从派发步骤 `report_skeleton` 的骨架起笔。building 预批准 unit/static 命令；同一 build assignment 在 build 全绿后按[逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)核验本轮 JUnit ID/数量/required_test_ids（同命令 unit 一次执行），再按[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合)逐 Scenario 独立审查生产符号与假实现，经 execute_test 执行；build、unit、static 到第一个非 Green 为止合成一份结果，MO 一次验收。代码作者不得代审，exit 0 不等于通过。
 ### 自动化
@@ -31,7 +31,7 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 9. 仅自动化环境不可用：提交 test-environment=blocked，MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务；其他真实错误沿诊断/Fixer/审计规则；build 与 automation 共用模块修复预算。
 
 ## 5. 阻塞与异常
-缺输入/权限/工具记录 reason_code/root_cause/next_action；automation-unavailable 与诊断/Fixer 分流按上文，依赖/外围或本地失败交 Auditor，人类问题交 Escalation。Global 管理跨模块依赖，无关 MO 继续，最终 Auditor 不提前启动。Ledger 提交失败须报 transport failure、保持 staged 并停机，不能称已记录。
+缺输入/权限/工具记 reason_code/root_cause/next_action；automation-unavailable 与诊断/Fixer 分流按上文，依赖/外围失败交 Auditor，人类问题交 Escalation；无关 MO 继续，Auditor 不提前启动。Ledger 提交失败报 transport failure、保持 staged 并停机，不能称已记录。
 
 ## 6. 硬约束
 设计不读实现推验收；不伪造 Main；未生成代码不执行；非 Green 必须附原因；脚本不能 mock 核心逻辑；不以 exit 0 替代断言。
