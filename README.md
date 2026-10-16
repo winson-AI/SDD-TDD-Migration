@@ -104,9 +104,10 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 | 切片与功能清单 | 叶子是功能树上的子业务流（页面是 TASK，3–30 条 CASE），自带四维分析与实现 SPEC；无用例先读源码建树再派生用例，有用例以用例范围为抓手；清单完整可追溯，疑问交人工；一条 CASE 一个验收切片；往次切分经验生成技能，供后续 Run 的 GO/MO 加载 | [切片规约](skills/migration-global/references/slicing.md) |
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照；知识文档可查，缺的知识登 knowledge-need 交人补充 | [项目上下文](skills/migration-protocol/references/project-context.md) |
 | 目标画像 | GO 逐功能记目标状态（absent/shell-only/partial/existing）；脚手架只在缺外壳处，持有代码的叶子欠复用说明 | [父子拆分](skills/migration-protocol/references/module-decomposition.md) |
-| 用户参考媒体 | 存量截图/录屏与目标预期随项目上下文固化、下发到持有叶子：截图是 user-reference 视觉基线，录屏是交互预期，目标预期取代存量基线；未引用即欠项 | [项目上下文](skills/migration-protocol/references/project-context.md#用户参考媒体)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
+| 用户参考媒体 | 存量截图/录屏与目标预期随项目上下文固化、下发到持有叶子：截图是 user-reference 视觉基线，录屏是交互预期，目标预期取代存量基线；未引用即欠项 |
+| 存量预览与捕获 | 项目声明存量怎样跑（设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑）；legacy-capture 在包内装机、走冻结动作把界面写成参考记录；Android 目标也装 APK 进入视觉对齐；测试结果带截图 / 录屏证据 | [项目上下文](skills/migration-protocol/references/project-context.md#存量预览)、[视觉执行](skills/migration-protocol/references/visual-execution.md) | [项目上下文](skills/migration-protocol/references/project-context.md#用户参考媒体)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 上下文就绪 | 规划与审计者随操作登记预检，coding 与无待复测的审计由 Ledger 机械预检；worker 的 building/testing 从 Ledger 骨架起笔，ready 才开工；worker 只读执行所需 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
-| 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
+| 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow；PATH 可声明 record_video，录屏随结果入 Ledger | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 资源与参数搬运 | 文件资源按清单原样复制、按 accessor 引用；布局、图层与代码里的取值记成参数表，生成到目标后按键取用；Spec 只写例外，验收比对字节与引用；登记 UI/Resource 分配前对约定定论（声明，或写明目标不接收的原因） | [搬运](skills/migration-protocol/references/resource-transfer.md#总则) |
 | 图片与图标对齐 | 图片来源逐条记录并入资源闭包；树上每处静态图片都上屏核对或带证据豁免：存量资源离线渲染为参考，目标屏幕节点与之比较（另有文本与节点检查），结论由 Ledger 重算；手工替换的图片须测量或获批偏差 | [图片与图标对齐](skills/migration-protocol/references/ui-fidelity.md#图片与图标对齐) |
 | 四维切片与语义模型 | UI → Logic → Adhesive → Resource 逐层映射到 TASK/PATH/ASSERT | [四维](skills/migration-protocol/references/dimension-slicing.md)、[语义抽取](skills/migration-protocol/references/semantic-extraction.md) |
@@ -140,6 +141,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-17 | 存量预览与媒体取证：项目上下文声明存量 App 怎样跑（设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑），可执行性随声明、未捕获的界面写 capture_gap；包内 legacy-capture 装机、走冻结动作、把存量界面写成参考记录（adb 或 Playwright），参考与候选记录的判定各归一函数；内置运行时移植 snapshot/recording 任务类型并产出媒体回执；测试结果带截图 / 录屏引用，报告逐 PATH 列出，diagnose/Fixer 带非 Green 路径的媒体；Android 目标装 APK 并进入视觉对齐 |
 | 2026-10-16 | 项目理解：目标画像（GO 逐功能记目标状态，脚手架只在缺外壳处，持有代码的叶子冻结时欠复用说明，报告列迁移前状态）；项目知识文档可查（knowledge-query project 模式），knowledge-need 交人以 kind=knowledge 决定补充并成为本 run 的知识文档；用户参考媒体（存量截图/录屏）随项目上下文固化并下发到持有叶子：截图作 user-reference 视觉基线（存量不可预览也有基线）、录屏作功能 PATH 的交互预期、骨架为每张截图起稿 visual PATH、未被 PATH 引用即欠项；target-expectation 取代存量基线、design 须引用、报告披露 |
 | 2026-10-16 | 进程内功能测试代码化：automation PATH 带冻结命令与 unit_report 时按 JUnit 执行，每条断言指一个具名测试、逐断言给结果；骨架为无设备或非界面的 CASE 起稿 <Case>FlowTest，为有设备且绑定 UI 树的 CASE 起稿设备脚本（选择器取节点 id）作为 script 资产；报告分列脚本驱动的设备路径及其 flaky，作为推广前的对照。 |
 | 2026-10-16 | 测试代码成为冻结资产：Logic 条目的单测源从 SPEC 写出（Ledger 按条目起稿骨架，每个 CASE 一个测试方法），作为 test-source 资产随计划冻结，记 target_path、required_test_ids、scenarios 与 symbols；Implementer 原样交付到 target_path，hash 不等即拒，改测试走 CR；execute_test 执行前核对文件并写回执；红→绿由作者自查对冻结测试留证。 |

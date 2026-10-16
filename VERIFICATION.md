@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1558 | 全量通过，零失败/错误/跳过；本轮新增目标画像、知识需要与补充决定、参考媒体与目标预期的测试 |
-| migration-test/tests | 70 | 全量通过；本轮未改适配器 |
-| runtime/harmony/tests | 128 | 全量通过；本轮未改运行内核 |
+| migration-ledger/tests | 1574 | 全量通过，零失败/错误/跳过；本轮新增存量预览、legacy-capture（adb 与浏览器）、媒体证据与 Android 目标捕获的测试 |
+| migration-test/tests | 73 | 全量通过；本轮新增 snapshot/recording 媒体任务与回执的测试 |
+| runtime/harmony/tests | 128 | 全量通过；本轮移植 snapshot/recording 任务类型，原有回放/录制测试不变 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮：项目理解（U3、U4、U1、U2）：目标画像逐功能记 absent/shell-only/partial/existing，脚手架只在缺外壳处、持有代码的叶子欠复用说明；项目知识文档可按 project 模式检索，knowledge-need 由人以 kind=knowledge 决定补充并写成本 run 文档；用户参考媒体随项目上下文固化并下发到持有叶子，截图作 user-reference 基线、录屏作交互预期、未被 PATH 引用即欠项；target-expectation 取代存量基线、design 须引用、报告披露。上一轮：进程内功能测试代码化与设备脚本试点（T5–T6）：automation PATH 可按冻结命令跑 JUnit、逐断言归因；骨架按设备与界面选形态；报告分列脚本驱动的设备路径。上一轮：测试源成为冻结资产（T1–T4）：Logic 条目的单测从 SPEC 写出、随计划冻结、原样交付、执行前核对；骨架由 Ledger 起稿。
+本轮：存量预览与媒体取证（D1–D6）：项目上下文声明存量怎样跑（android-device/android-emulator/vm/browser/none），可执行性随声明、未捕获的界面写 capture_gap；运行时移植上游的 snapshot/recording 任务类型并产出媒体回执；legacy-capture 在包内装机、按冻结动作走到界面、写 android-reference/legacy-reference 记录（adb 或 Playwright）；测试结果带 media_refs，报告逐 PATH 列媒体、diagnose/Fixer 带非 Green 路径的媒体；Android 目标走 adb 装 APK 并写 android-candidate；候选与参考谓词各归一函数。上一轮：项目理解（U3、U4、U1、U2）：目标画像逐功能记 absent/shell-only/partial/existing，脚手架只在缺外壳处、持有代码的叶子欠复用说明；项目知识文档可按 project 模式检索，knowledge-need 由人以 kind=knowledge 决定补充并写成本 run 文档；用户参考媒体随项目上下文固化并下发到持有叶子，截图作 user-reference 基线、录屏作交互预期、未被 PATH 引用即欠项；target-expectation 取代存量基线、design 须引用、报告披露。上一轮：进程内功能测试代码化与设备脚本试点（T5–T6）：automation PATH 可按冻结命令跑 JUnit、逐断言归因；骨架按设备与界面选形态；报告分列脚本驱动的设备路径。
 
-协议体积为 483488 / 483500 字节，最大单文件 27538 / 32000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中最大卡片 51106 / 60000 字节，最大模板组合 50912 / 56200 字节；拒绝消息带小节指引的比例 83.3%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 483476 / 483500 字节，最大单文件 27381 / 32000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中最大卡片 50996 / 60000 字节，最大模板组合 50912 / 56200 字节；拒绝消息带小节指引的比例 83.3%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 
@@ -154,6 +154,11 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 进程内功能测试 | kind=automation 的 PATH 带 command 与 unit_report 时按冻结命令执行、JUnit 归因：每条断言 expected=true 并以 test_id 指一个 required 测试（plan_check 核对一一对应），结果逐断言给 pass/fail/未观察，红由失败的具名测试决定；在 automation 派发里跑，不是设备路径；同命令可批量 | test_functional_paths |
 | 骨架按场景选测试形态 | 无设备或非界面的 CASE：进程内功能测试（platform=jvm、unit_report、命令占位、test-source 资产 <Case>FlowTest#flow）；有设备且 UI 项绑定 UI 树的 CASE：设备 automation PATH 加 script 资产骨架（Kotlin 或 ArkTS/Hypium，选择器取 UI 树节点 id，断言映射 ASSERT），无树则留给引擎 | test_functional_paths |
 | 脚本驱动的设备路径计数 | 接受测试结果时从宿主回执的 test_asset_usage.entrypoint_ids 记 scripted；automation 统计分列脚本驱动的设备路径数及其中 flaky 数，作为 T6 试点的对照 | test_functional_paths |
+| 存量预览 | project context 的 legacy_preview（android-device/android-emulator/vm：device.serial、app_id、artifact 或 build、launch；browser：url；none：reason）经校验后由 prepare 记 artifact 哈希；UI 登记前须声明，否则是运行的规则欠账；legacy_executable 随声明（矛盾被拒、缺省补齐），存量可跑的界面须 runtime 捕获或用户截图，否则写 ui_evidence.capture_gap（reason、evidence_refs），报告逐界面写基线来源并把 capture_gap 列为保真限制 |
+| 媒体任务与回执 | 内置运行时接受 task_type=snapshot|recording：不要求 verify，snapshot 保存连续两帧一致的终帧与布局，recording 保留 final.mp4，走不到终点标 needs-review；结果写成报告目录的 media_outcome.json；adapter 的媒体查询须有步骤、不带断言、命名 path_id 或 capture_id，回执 status=reached|needs-review|blocked 带 snapshot/layout/recording 引用，不是测试结论；test PATH 带 record_video 时强制录屏并把 final.mp4 列入 media_refs |
+| 存量捕获 | legacy-capture 对 Spec-Designer/Test-Runner 开放、绑定 assignment 而不要求计划、须宿主锁住声明的设备：adb 后端按声明装机（artifact 哈希或 build 命令）、启动、走冻结 tap/swipe/back、核对前台与选择器、截图前后树稳定、有界滚动，写 android-reference 记录；浏览器后端用 Playwright 打开 url、走冻结 click、DOM 转成同形视图树，写 legacy-reference/web 记录（仅 viewport）；捕不到的目标带原因（PARTIAL/BLOCKED），manifest 经 validate_manifest、capture_target、select_runtime_ui 原样读取 |
+| 媒体证据 | 结果行的 media_refs（screenshot|recording，hash 绑定、须在执行输出内）由宿主完成解释从 adapter 回执复制；报告路径明细与非 Green 原因列媒体，视觉覆盖表列目标媒体；diagnose 步骤与 Fixer 派发带非 Green 路径的媒体；record_video 只允许在 automation/visual PATH 上 |
+| Android 目标捕获 | 视觉 worker 的 adb 后端：visual-install 装 APK 并用设备自算的哈希核对已装包与接受产物一致，visual-capture 启动 activity、走冻结动作、复用 Android 观测写 android-candidate 记录；候选谓词 is_candidate 覆盖 harmony/android 两种候选，参考谓词 is_reference 覆盖 android-reference 与 legacy-reference（android/harmony/web）；APK 可作构建产物 |
 | 目标画像 | global-plan 绑定 target-profile.json：逐功能 state（absent/shell-only/partial/existing）、入口、符号、构建单元、已有测试与证据，缺功能或无证据被拒；脚手架子叶只在 absent/shell-only 处允许；state 为 partial/existing 的叶子冻结时无 TARGET 映射或 existing_target 契约即记欠项；分配包带本叶画像，报告列迁移前状态 |
 | 知识需要与补充决定 | knowledge-query 的 project 模式检索 knowledge_paths 文档并返回可引用 ref；issue kind=knowledge-need 只能由 kind=knowledge 决定或项目知识文档结清；决定须答案与来源，Ledger 写成 artifacts/knowledge/<decision_id>.md 并随游标步骤下发 |
 | 用户参考媒体 | project context 的 reference_media（media_id/kind/path/role/screen/case_ids/note）经校验后由 prepare 复制并绑定 hash；持有其 CASE 的叶子在分配包读到并以之为就绪证据；visual_mode=user-reference 以用户截图为基线，用户展示过的界面不得 source-only，错引非该 CASE 截图被拒；visual PATH 的 baseline_ref 可为用户截图，冻结证据与 reference manifest 按其截图集合核对；reference_media_ids 只能引用本 CASE 的媒体；冻结时用户展示过的用户可见 CASE 无 PATH 引用即欠项（已声明设备缺口除外）；骨架为每张截图起稿 visual PATH、把录屏挂到功能 PATH；报告列媒体覆盖 |
