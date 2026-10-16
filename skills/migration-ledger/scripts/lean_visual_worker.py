@@ -273,47 +273,21 @@ def android_actions(device, actions):
             require(False, 'unsupported navigation action; no arbitrary shell, text, or script execution')
 
 
-def install_legacy(device, stated, app, out):
-    """The package the run was prepared with (or the one its build command produces) goes on the device; the install is evidence."""
-    build_log = None
-    if stated.get('build'):
-        build = stated['build']
-        try:
-            run = subprocess.run(build['argv'], cwd=build['cwd'], env=runner_storage.environment(out), capture_output=True,
-                                 text=True, errors='replace', timeout=build['timeout_seconds'])
-        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-            raise DeviceFailure('environment-unavailable', 'legacy build ' + type(exc).__name__) from exc
-        build_log = save(out / 'build.json', {'argv': build['argv'], 'cwd': build['cwd'], 'exit_code': run.returncode,
-                                              'stdout': run.stdout[-20000:], 'stderr': run.stderr[-20000:]})
-        if run.returncode:
-            raise DeviceFailure('environment-unavailable', 'legacy build failed; see build log')
-        artifact = Path(build['output'])
-        if not artifact.is_file():
-            raise DeviceFailure('environment-unavailable', 'legacy build produced no package at its stated output')
-    else:
-        artifact = Path(stated['artifact'])
-        if not artifact.is_file() or file_ref(artifact)['sha256'] != stated.get('artifact_sha256'):
-            raise DeviceFailure('artifact-identity-unverified', 'the legacy package differs from the one the run was prepared with')
-    device.call('install', '-r', artifact, timeout=240)
+def android_identity(device, app, expected_sha256):
+    """The installed package is the accepted APK byte for byte: adb reports its path, the device hashes it."""
     installed = device.call('shell', 'pm', 'path', app)
-    if 'package:' not in installed:
-        raise DeviceFailure('artifact-identity-unverified', 'the legacy package is not installed under its app_id')
-    return save(out / 'install.json', {'producer': 'lean-visual-worker', 'operation': 'legacy-install', 'status': 'INSTALLED',
-                                       'artifact_ref': file_ref(artifact), 'app_id': app, 'device_id': device.device,
-                                       'installed': installed, 'build_log_ref': build_log,
-                                       'acceptance': 'installation-is-evidence-not-a-baseline'})
+    match = re.search(r'package:(\S+)', installed)
+    if not match:
+        raise DeviceFailure('artifact-identity-unverified', 'the candidate package is not installed under its app_id')
+    digest_line = device.call('shell', 'sha256sum', match.group(1)).strip().split()
+    if not digest_line or digest_line[0].lower() != expected_sha256:
+        raise DeviceFailure('artifact-identity-unverified', 'installed package bytes differ from the accepted APK')
+    return {'package': app, 'sha256': expected_sha256, 'device_path': match.group(1), 'installed': installed}
 
 
-def capture_legacy_target(device, stated, app, target, spec, out):
-    """One legacy screen as an android-reference record: launched, navigated by frozen actions, matched, captured stable."""
-    label = re.sub(r'[^A-Za-z0-9_.-]+', '-', target['page_id'] + '-' + target['state_id'])
-    launch = stated.get('launch')
-    if launch:
-        require(re.fullmatch(r'[A-Za-z0-9_.$]+', launch), 'legacy_preview.launch must be an activity name')
-        device.call('shell', 'am', 'start', '-n', app + '/' + launch)
-    else:
-        device.call('shell', 'monkey', '-p', app, '-c', 'android.intent.category.LAUNCHER', '1')
-    android_actions(device, spec.get('actions', []))
+def observe_android(device, app, target, spec, out, label):
+    """The frozen target on the Android screen: foreground checked, selectors matched, each screen captured with a stable
+    tree around the screenshot, a scroll bounded by its frozen region and end. Returns the observation or a blocked result."""
     package, activity = device.foreground()
     if package != app:
         return blocked('requested app is not the observed foreground app before capture', 'target-precondition')
@@ -366,13 +340,61 @@ def capture_legacy_target(device, stated, app, target, spec, out):
     backend = {'name': 'adb', 'implementation': device.tool, 'version': device.version, 'device': device.device}
     meta = {'platform': 'android', 'device': device.device, 'app_id': app, 'foreground': f'{package}/{activity}', 'page_name': activity,
             'image_mime': 'image/png', 'screenshot': Path(captures[0]['screenshot']).name, 'view_signature': captures[0]['view_signature'],
-            'device_backend': backend, 'coverage': coverage, 'captures': captures, 'target_match': spec['target_match'],
-            'legacy_preview': stated['kind'], 'artifact_sha256': stated.get('artifact_sha256')}
+            'device_backend': backend, 'coverage': coverage, 'captures': captures, 'target_match': spec['target_match']}
     if scroll:
         meta.update(scroll_region=spec.get('scroll_region'), scroll_end_match=end_match, scroll_contract='frozen-source-backed-start-region-end')
+    return {'captures': captures, 'coverage': coverage, 'complete': complete, 'backend': backend, 'meta': meta}
+
+
+def install_legacy(device, stated, app, out):
+    """The package the run was prepared with (or the one its build command produces) goes on the device; the install is evidence."""
+    build_log = None
+    if stated.get('build'):
+        build = stated['build']
+        try:
+            run = subprocess.run(build['argv'], cwd=build['cwd'], env=runner_storage.environment(out), capture_output=True,
+                                 text=True, errors='replace', timeout=build['timeout_seconds'])
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+            raise DeviceFailure('environment-unavailable', 'legacy build ' + type(exc).__name__) from exc
+        build_log = save(out / 'build.json', {'argv': build['argv'], 'cwd': build['cwd'], 'exit_code': run.returncode,
+                                              'stdout': run.stdout[-20000:], 'stderr': run.stderr[-20000:]})
+        if run.returncode:
+            raise DeviceFailure('environment-unavailable', 'legacy build failed; see build log')
+        artifact = Path(build['output'])
+        if not artifact.is_file():
+            raise DeviceFailure('environment-unavailable', 'legacy build produced no package at its stated output')
+    else:
+        artifact = Path(stated['artifact'])
+        if not artifact.is_file() or file_ref(artifact)['sha256'] != stated.get('artifact_sha256'):
+            raise DeviceFailure('artifact-identity-unverified', 'the legacy package differs from the one the run was prepared with')
+    device.call('install', '-r', artifact, timeout=240)
+    installed = device.call('shell', 'pm', 'path', app)
+    if 'package:' not in installed:
+        raise DeviceFailure('artifact-identity-unverified', 'the legacy package is not installed under its app_id')
+    return save(out / 'install.json', {'producer': 'lean-visual-worker', 'operation': 'legacy-install', 'status': 'INSTALLED',
+                                       'artifact_ref': file_ref(artifact), 'app_id': app, 'device_id': device.device,
+                                       'installed': installed, 'build_log_ref': build_log,
+                                       'acceptance': 'installation-is-evidence-not-a-baseline'})
+
+
+def capture_legacy_target(device, stated, app, target, spec, out):
+    """One legacy screen as an android-reference record: launched, navigated by frozen actions, matched, captured stable."""
+    label = re.sub(r'[^A-Za-z0-9_.-]+', '-', target['page_id'] + '-' + target['state_id'])
+    launch = stated.get('launch')
+    if launch:
+        require(re.fullmatch(r'[A-Za-z0-9_.$]+', launch), 'legacy_preview.launch must be an activity name')
+        device.call('shell', 'am', 'start', '-n', app + '/' + launch)
+    else:
+        device.call('shell', 'monkey', '-p', app, '-c', 'android.intent.category.LAUNCHER', '1')
+    android_actions(device, spec.get('actions', []))
+    observed = observe_android(device, app, target, spec, out, label)
+    if 'captures' not in observed:
+        return observed
+    meta = {**observed['meta'], 'legacy_preview': stated['kind'], 'artifact_sha256': stated.get('artifact_sha256')}
     meta_ref = save(out / f'meta-{label}.json', meta)
-    snapshot = {**captures[0], 'meta': meta_ref['path'], 'device_backend': backend, 'coverage': coverage, 'captures': captures}
-    if not complete:
+    captures, coverage = observed['captures'], observed['coverage']
+    snapshot = {**captures[0], 'meta': meta_ref['path'], 'device_backend': observed['backend'], 'coverage': coverage, 'captures': captures}
+    if not observed['complete']:
         return blocked('bounded scroll observations do not prove full scroll coverage', 'capture-incomplete', meta_ref=meta_ref)
     return {'status': 'COMPLETE', 'record': {'mode': 'targeted', 'phase': 'android-reference', 'platform': 'android',
             'page_id': target['page_id'], 'state_id': target['state_id'], 'observed_variant': target['state_id'], 'round': None,
@@ -449,10 +471,11 @@ def path_context(args, module, task):
     return path
 
 
-def accepted_artifact(args, module, path):
+def accepted_artifact(args, module, path, backend='hdc'):
     ref = args.get('artifact_ref')
     artifact = check_ref(ref)
-    require(artifact.suffix.lower() == '.hap', 'visual installation requires one accepted HAP artifact')
+    suffix = '.apk' if backend == 'adb' else '.hap'
+    require(artifact.suffix.lower() == suffix, 'visual installation requires one accepted ' + suffix[1:].upper() + ' artifact')
     artifacts = (module.get('path_build_artifacts', {}).get(path['path_id'], [])
                  if 'path_build_artifacts' in module else module.get('build_artifacts', []))
     require(ref in artifacts, 'artifact must belong to this PATH current accepted build')
@@ -550,7 +573,9 @@ def scoped_scroll_region(xml, selector, app):
     return matches[0], mobile_snapshot.bounds_box(matches[0].get('bounds', ''))
 
 
-def capture(device, contract, args, path, module, task, out, root):
+def candidate_context(device, contract, args, path, module, task, out, root):
+    """What every candidate capture stands on: the frozen reference manifest and baseline, the current install receipt and a
+    new round. Returns (target, manifest, install, round_id) or a blocked result."""
     target = validate_manifest.parse_target(path['coverage'])
     if path.get('baseline_ref') is None:
         # Image checks only: the target is captured on its own, and nodes are compared with rendered legacy pictures.
@@ -563,7 +588,7 @@ def capture(device, contract, args, path, module, task, out, root):
                            'source-evidence-unavailable')
         manifest = read_json(check_ref(args.get('reference_manifest_ref')))
         validate_manifest.validate_manifest(manifest, [target])
-        # A later attempt may append Harmony rounds. Its Android target is an exact copy of
+        # A later attempt may append candidate rounds. Its Android reference is an exact copy of
         # the original frozen record, including every viewport, never just the first screenshot.
         reference = visual_evidence.match_source(args['reference_manifest_ref'], evidence, path['coverage'])
         require(reference['status'] == 'COMPLETE', 'source-only cannot authorize a visual candidate capture')
@@ -577,9 +602,53 @@ def capture(device, contract, args, path, module, task, out, root):
     round_id = args.get('round')
     require(isinstance(round_id, int) and not isinstance(round_id, bool) and round_id > 0,
             'positive explicit capture round required')
-    require(not any(row.get('platform') == 'harmony' and row.get('page_id') == target['page_id']
+    require(not any(visual_evidence.is_candidate(row) and row.get('page_id') == target['page_id']
                     and row.get('state_id') == target['state_id'] and row.get('round') == round_id
                     for row in manifest['targets']), 'preserve previous capture round; select a new round')
+    return target, manifest, install, round_id
+
+
+def capture_android(device, contract, args, path, module, task, out, root):
+    """The candidate APK's screen as an android-candidate record, captured like the legacy reference but bound to the
+    accepted build, the install receipt and the round."""
+    context = candidate_context(device, contract, args, path, module, task, out, root)
+    if isinstance(context, dict):
+        return context
+    target, manifest, install, round_id = context
+    app = token(contract.get('app_id'), 'app_id')
+    identity = android_identity(device, app, args['artifact_ref']['sha256'])
+    activity = contract.get('ability')
+    require(isinstance(activity, str) and re.fullmatch(r'[A-Za-z0-9_.$]+', activity), 'an Android candidate names its launch activity as ability')
+    device.call('shell', 'am', 'start', '-n', app + '/' + activity)
+    android_actions(device, contract.get('actions', []))
+    observed = observe_android(device, app, target, contract, out, 'candidate')
+    if 'captures' not in observed:
+        return observed
+    captures, coverage = observed['captures'], observed['coverage']
+    meta = {**observed['meta'], 'install_ref': args['install_ref'], 'artifact_ref': args['artifact_ref'], 'artifact_identity': identity,
+            'code_baseline': module['code_baseline'], 'assignment_id': task['assignment_id'], 'fencing_token': task.get('fencing_token')}
+    meta_ref = save(out / 'meta.json', meta)
+    snapshot = {**captures[0], 'meta': meta_ref['path'], 'device_backend': observed['backend'], 'coverage': coverage, 'captures': captures}
+    result_manifest = copy.deepcopy(manifest)
+    result_manifest['targets'].append({'mode': 'targeted', 'phase': 'android-candidate', 'platform': 'android',
+            'page_id': target['page_id'], 'state_id': target['state_id'], 'observed_variant': target['state_id'],
+            'round': round_id, 'status': 'COMPLETE' if observed['complete'] else 'BLOCKED', 'coverage': coverage,
+            'timestamp': datetime.now(timezone.utc).isoformat(), 'snapshot': snapshot,
+            'target_match': {'kind': 'frozen-exact-selectors', 'matched': True}})
+    manifest_ref = save(out / 'manifest.json', result_manifest)
+    if not observed['complete']:
+        return blocked('bounded scroll observations do not prove full scroll coverage; use the full runtime adapter',
+                       'capture-incomplete', manifest_ref=manifest_ref)
+    validate_manifest.validate_snapshot(snapshot, target['coverage'], path['coverage'])
+    return {'status': 'CAPTURED', 'manifest_ref': manifest_ref, 'meta_ref': meta_ref,
+            'artifact_ref': args['artifact_ref'], 'acceptance': 'capture-is-evidence-not-a-visual-verdict'}
+
+
+def capture(device, contract, args, path, module, task, out, root):
+    context = candidate_context(device, contract, args, path, module, task, out, root)
+    if isinstance(context, dict):
+        return context
+    target, manifest, install, round_id = context
     app = token(contract.get('app_id'), 'app_id')
     if not installed_identity(device.call('shell', 'bm', 'dump', '-n', app), install.get('artifact_identity') or {}):
         return blocked('installed app identity no longer matches the accepted HAP', 'artifact-identity-unverified')
@@ -756,8 +825,8 @@ def parity(args, out, module, task, run_id):
     round_id = args.get('round')
     require(isinstance(round_id, int) and not isinstance(round_id, bool) and round_id > 0, 'positive explicit capture round required')
     page, state, _ = path['coverage'].split(':')
-    records = [r for r in read_json(manifest_path).get('targets', []) if r.get('phase') == 'harmony-candidate'
-               and r.get('platform') == 'harmony' and r.get('page_id') == page and r.get('state_id') == state
+    records = [r for r in read_json(manifest_path).get('targets', []) if visual_evidence.is_candidate(r)
+               and r.get('page_id') == page and r.get('state_id') == state
                and r.get('round') == round_id and r.get('status') == 'COMPLETE']
     require(len(records) == 1, 'one completed candidate capture is required for the selected round')
     snapshot = records[0]['snapshot']
@@ -810,14 +879,27 @@ def run(operation, args, *, root, out, module, task, actor, config):
     if not isinstance(device_settings, dict) or not device_settings.get('device_id'):
         return blocked('explicit run visual_capture backend and device_id required')
     device_lock(actor, device_settings, task)
-    artifact = accepted_artifact(args, module, path)
+    backend = device_settings.get('backend')
+    require(backend in ('hdc', 'adb'), 'visual capture requires explicitly configured hdc or adb backend')
+    artifact = accepted_artifact(args, module, path, backend)
     app = token(contract.get('app_id'), 'app_id')
-    device = Device(device_settings, out)
+    device = Device(device_settings, out) if backend == 'hdc' else AndroidDevice(device_settings.get('device_id'), device_settings.get('tool', 'adb'), out)
     try:
-        device.version = device.call('-v').strip()
+        lines = (device.call('-v') if backend == 'hdc' else device.call('version')).strip().splitlines()
+        device.version = lines[0] if lines else ''
         if not device.version:
-            raise DeviceFailure('environment-unavailable', 'HDC version could not be observed')
-        if operation == 'visual-install':
+            raise DeviceFailure('environment-unavailable', backend.upper() + ' version could not be observed')
+        if operation == 'visual-install' and backend == 'adb':  # the candidate APK: installed, then hashed on the device against the accepted bytes
+            device.call('install', '-r', artifact, timeout=240)
+            identity = android_identity(device, app, args['artifact_ref']['sha256'])
+            installed = identity['installed']
+            result = {'producer': 'lean-visual-worker', 'operation': operation, 'status': 'INSTALLED',
+                      'artifact_ref': args['artifact_ref'], 'code_baseline': module['code_baseline'],
+                      'device_id': device.device, 'app_id': app, 'assignment_id': task['assignment_id'],
+                      'fencing_token': task.get('fencing_token'), 'installed_metadata': installed,
+                      'artifact_identity': identity,
+                      'acceptance': 'installation-is-evidence-not-a-test-verdict'}
+        elif operation == 'visual-install':
             identity = hap_identity(artifact)
             if identity['bundleName'] != app:
                 raise DeviceFailure('artifact-identity-unverified', 'accepted HAP bundleName differs from frozen app_id')
@@ -832,7 +914,7 @@ def run(operation, args, *, root, out, module, task, actor, config):
                       'artifact_identity': identity,
                       'acceptance': 'installation-is-evidence-not-a-test-verdict'}
         else:
-            result = capture(device, contract, args, path, module, task, out, root)
+            result = (capture_android if backend == 'adb' else capture)(device, contract, args, path, module, task, out, root)
     except DeviceFailure as exc:
         result = blocked(str(exc), exc.kind)
     finally:

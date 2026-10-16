@@ -290,8 +290,8 @@ def validate(root: Path, result: dict) -> dict:
         if not isinstance(hap, dict):
             raise AlignmentError(f"{label}.hap must be an object")
         hap_path = resolve_file(root, hap.get("path"), f"{label}.hap.path")
-        if hap_path.suffix.lower() not in {".hap", ".hsp"}:
-            raise AlignmentError(f"{label}.hap must point to HAP/HSP")
+        if hap_path.suffix.lower() not in {".hap", ".hsp", ".apk"}:
+            raise AlignmentError(f"{label}.hap must point to HAP/HSP/APK")
         if hap.get("sha256") != sha256(hap_path):
             raise AlignmentError(f"{label}.hap.sha256 does not match")
         latest_hap_sha256 = str(hap["sha256"])
@@ -377,8 +377,8 @@ def validate(root: Path, result: dict) -> dict:
                     entry
                     for entry in targets
                     if isinstance(entry, dict)
-                    and entry.get("phase") == "harmony-candidate"
-                    and entry.get("platform") == "harmony"
+                    and entry.get("phase") in ("harmony-candidate", "android-candidate")
+                    and entry.get("platform") == str(entry.get("phase")).split("-")[0]
                     and entry.get("page_id") == page_id
                     and entry.get("state_id") == state_id
                     and entry.get("round") == capture_round
@@ -388,7 +388,7 @@ def validate(root: Path, result: dict) -> dict:
             )
             if candidate is None:
                 raise AlignmentError(
-                    f"{comparison_label} has no matching COMPLETE Harmony manifest entry"
+                    f"{comparison_label} has no matching COMPLETE candidate manifest entry"
                 )
             if candidate.get("observed_variant") != state_id:
                 raise AlignmentError(

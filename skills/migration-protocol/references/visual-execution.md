@@ -4,14 +4,14 @@
 
 ## 1. 准备与冻结
 
-1. Host/Test-Runner 按项目参考配置（可存 `.sdd-migration/harmony/visual.json`）或 [配置模板](../../../template/visual-execution.json)，在本轮 `runs/harmony/sandbox/environment/visual.json` 生成执行配置；与 sandbox 的 config.json 分开，执行期间不改写。只复制本次选定的设备/backend/模型配置，不假定本机默认设备或 HOME 配置可用。
-2. Spec/Test design 把 `visual_execution` 放到对应 automation/visual PATH：environment_ref 的真实 path/hash、app_id、导航 actions、目标选择器；随路径冻结并持续验证，变更走 CR/重新冻结。无视觉执行需求时不加此字段。
-3. 设备执行用显式 HDC backend；模型用显式启用的 external 配置，API key 只从指定环境变量读取，配置与请求只存变量名，不把 `.env` 或明文 key 归档。
+1. Host/Test-Runner 按项目参考配置（可存 `.sdd-migration/harmony/visual.json`）或 [配置模板](../../../template/visual-execution.json)，在本轮 `runs/harmony/sandbox/environment/visual.json` 生成执行配置；与 sandbox 的 config.json 分开，执行期间不改写。只复制本次选定的设备/backend/模型配置，不假定本机默认设备。
+2. Spec/Test design 把 `visual_execution` 放到对应 automation/visual PATH：environment_ref 的真实 path/hash、app_id、导航 actions、目标选择器；随路径冻结并持续验证，变更走 CR/重新冻结。无视觉需求时不加此字段。
+3. 设备执行用显式 HDC 或 adb backend（Android 目标装 APK，`ability` 填 activity，装机后在设备上核对包哈希）；模型用显式启用的 external 配置，API key 只从指定环境变量读取，配置与请求只存变量名，不归档 `.env` 或明文 key。
 4. 执行前 Host 持有设备独占锁，在认证 host-context 注入 device_lock（device_id、assignment_id、fencing_token、held）；Agent 自填的锁字段不算锁，工具不是锁服务或沙箱。
 
 ## 2. 执行节点
 
-所有操作通过 [lean_worker.py](../../migration-ledger/scripts/lean_worker.py)；请求样式见 [visual-request.json](../../../template/visual-request.json)。每次使用新 request_id：
+操作都经 [lean_worker.py](../../migration-ledger/scripts/lean_worker.py)，请求样式见 [visual-request.json](../../../template/visual-request.json)，每次新 request_id：
 
 ```sh
 python3 <package_root>/skills/migration-ledger/scripts/lean_worker.py \
@@ -20,12 +20,12 @@ python3 <package_root>/skills/migration-ledger/scripts/lean_worker.py \
 
 | operation | 所需状态与输入 | 输出意义 |
 | --- | --- | --- |
-| visual-install | 当前 build 已接受 Green；automation 或 visual assignment；path_id、该 PATH 已接受构建中的 artifact_ref | 校验包身份、实际安装并记录装机元数据和命令；INSTALLED 不是测试通过 |
-| visual-capture | 当前功能 Green 后的 visual assignment；冻结目标、artifact_ref、同 assignment/fence 的 install_ref、reference_manifest_ref、正整数 round | 真实截图/XML/meta/manifest，绑定构建、设备、状态及捕获轮次；CAPTURED 不是视觉对齐通过 |
+| visual-install | 当前 build 已接受 Green；automation 或 visual assignment；path_id、该 PATH 已接受构建的 artifact_ref | 校验包身份、实际安装并记录装机元数据和命令；INSTALLED 不是测试通过 |
+| visual-capture | 当前功能 Green 后的 visual assignment；冻结目标、artifact_ref、同 assignment/fence 的 install_ref、reference_manifest_ref、正整数 round | 真实截图/XML/meta/manifest，绑定构建、设备、状态与轮次；CAPTURED 不是视觉对齐通过 |
 | compare-only | visual assignment；实际 reference_ref/candidate_ref | 确定性 score；不能直接给 ALIGNED |
-| semantic-inspect | visual assignment；冻结配置、reference_ref/candidate_ref/score_ref | 有总时限的模型比较，保留图片对和 score hash；INSPECTED 不是最终裁决 |
-| image-parity | visual assignment；path_id、已完成候选 capture 的 manifest_ref 与 round；PATH 携带冻结的 image_checks | 逐检查在目标 view tree 定位节点、裁剪并与参考栅格比较，写 image-parity.json；MEASURED 是测量不是裁决，Ledger 验收时重算 |
-| legacy-capture | Spec-Designer/Test-Runner 的当前 assignment；[存量预览](project-context.md#存量预览)为 adb 设备且宿主锁住该 serial；targets（page:state:coverage、actions、target_match、滚动契约），见 [legacy-capture-request.json](../../../template/legacy-capture-request.json) | 按声明装机（artifact 哈希或 build）、启动、走冻结动作、核对前台与选择器，截图前后树稳定才写 android-reference 记录；manifest 供 analyze-ui 与 runtime 证据，CAPTURED/PARTIAL 不是对齐通过，捕不到的带原因 |
+| semantic-inspect | visual assignment；冻结配置、reference_ref/candidate_ref/score_ref | 有总时限的模型比较，保留图片对与 score hash；INSPECTED 不是裁决 |
+| image-parity | visual assignment；path_id、已完成候选 capture 的 manifest_ref 与 round；PATH 携带冻结的 image_checks | 逐检查在目标 view tree 定位节点、裁剪并与参考栅格比较，写 image-parity.json；MEASURED 是测量不是裁决，验收时重算 |
+| legacy-capture | Spec-Designer/Test-Runner 当前 assignment；[存量预览](project-context.md#存量预览)为 adb 设备且宿主锁住该 serial；targets（page:state:coverage、actions、target_match、滚动契约），见 [legacy-capture-request.json](../../../template/legacy-capture-request.json) | 按声明装机（artifact 哈希或 build）、启动、走冻结动作、核对前台与选择器，截图前后树稳定才写 android-reference 记录；manifest 供 analyze-ui 与 runtime 证据，CAPTURED/PARTIAL 不是对齐通过，捕不到的带原因 |
 
 带 `image_check_ids` 的 PATH：visual-install → visual-capture → `image-parity` → adapter 的 `--image-parity`；图片、文本与节点检查出自同一次 capture。无 `baseline_ref` 时 visual-capture 不需要 reference_manifest_ref；带基线的 PATH 同时承载检查时较弱的结果决定三态。报告须属于当前 assignment、代码基线、HAP 与所选 capture。
 
