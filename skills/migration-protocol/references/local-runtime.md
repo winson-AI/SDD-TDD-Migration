@@ -41,13 +41,13 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | --- | --- | --- |
 | init | host | prepare 返回、GO 补齐的 input.json 原样作为载荷：target_root、legacy_root、非空唯一 case_ids 与 requirement_ids、global_spec/new_architecture 文件引用、package_sha；可选 global_paths；预算缺省 3/2/3/3；用例完整声明须有 test_cases_path |
 | register | Global | module_id、case_ids、write_paths、dependencies；待拆分的根带 feature_inventory_ref；按拓扑顺序登记，依赖必须已存在，从而拒绝环/未知模块。原子根功能直接登记为叶子（不设 decomposition_required） |
-| decompose | MO / 根 module_id | plan_ref（细分方案：功能叶带 functional_paths，清单引用缺省取根的；或 atomic-leaf 结论）；Ledger 预检（context_ref 可选）；Ledger 绑定当前上下文与分配，见[分配门禁](module-decomposition.md#3-分配与登记门禁) |
+| decompose | MO / 根 module_id | plan_ref（功能叶带 functional_paths，清单引用缺省取根的，或 atomic-leaf 结论）；Ledger 预检并绑定当前上下文与分配，见[分配门禁](module-decomposition.md#3-分配与登记门禁) |
 | decompose-accept | Global / 根 module_id | review_ref；细分则登记孩子、父移入 module_groups；原子结论保留节点进入未冻结叶子规划 |
 | realloc-request | MO / 子或根 module_id | reason、evidence_refs；切片/边界冲突向上提单，保存恢复阶段后进入 waiting-upstream；无父或父级上溯交 GO run-review |
 | redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；children 覆盖父 scope。根修订后游标 affected_children 列出须重写的孩子，其余原样复述即沿用 |
 | redecompose-accept | Global / 父 module_id | review_ref；未变孩子保留进度并恢复请求前阶段，边界保持的冻结孩子转 CR，被改的孩子重新规划（保留 blocker/失败/预算）；只依赖它们的叶子不重规划，已有代码的等 provider 后复验；下线模块入 superseded_modules 供 Auditor 治理 |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
-| decision | host | decision_id、decision=approved、module_id、subject_sha256（游标步骤的 approval_subject_sha256）、human_source_ref；决定与常设裁定另以 issue（kind=decision/standing）寄给适用模块。`kind=batch-envelope`：module_id 为父，envelope_ref 指向[批量信封](../../../template/batch-envelope.json)，subject_sha256 为其文件 hash，children 只能是该父的孩子；`kind=api-adaptation`：module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
+| decision | host | decision_id、decision=approved、module_id、subject_sha256（游标步骤的 approval_subject_sha256）、human_source_ref；决定与常设裁定另以 issue（kind=decision/standing）寄给适用模块。`kind=knowledge`：question_id 为 knowledge-need 的 issue_id，subject_sha256 为问题记录摘要，answers[]、sources[] 必填；Ledger 写 artifacts/knowledge/<decision_id>.md、消去该问题，步骤以 knowledge_decisions 下发。`kind=batch-envelope`：module_id 为父，envelope_ref 指向[批量信封](../../../template/batch-envelope.json)，subject_sha256 为其文件 hash，children 只能是该父的孩子；`kind=api-adaptation`：module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
 | global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；可带 target_profile_ref（目标画像）；无关根可待拆，执行仍验当前叶子与依赖。registry 变化后重审 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
 | audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human/trace（根因在 SPEC 或切片划分，owner 为须修订的叶子或父模块） |
@@ -56,15 +56,15 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | audit-retest | MO | 顶层 module_id 指发现模块或受影响中间模块；只等待本模块的上游修复/复测完成，执行完整模块路径 |
 | audit-verdict | Auditor | review_ref；双方验证齐全、同基线、DoD 完成才裁决通过；过期证据报告待人工 |
 | audit-defer | MO | root_cause + evidence_ref；记录根因、结果和恢复点，进入 waiting-auditor；可修复错误先按当前版本本地收敛，依赖/外围问题留证交接 |
-| audit-code-review | Auditor | report_ref；Ledger 预检（context_ref 可选）；步骤带 `report_skeleton` 命令，报告或清单留标记即拒；全部 MO 收尾后、audit-collect 前提交，字段与治理闭环见[代码治理](audit-code-review.md#ledger-接口) |
-| plan | Spec-Designer | plan_ref；Ledger 预检（context_ref 可选）；先 `preview`；[stage-plan](../../../template/stage-plan.json)；test_design_ref、PATH、任务范围、spec 与 checklist 由 Ledger 从已接受设计和包内清单补全；不抄写全局上下文与分配包 |
-| plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断，证据：裁决、阻塞缺陷、登记的 issue、未过门禁（步骤视图的 review_gates 列出未过的冻结门禁）；编码前重规划留 reason_ref 历史，已派实现走 CR |
+| audit-code-review | Auditor | report_ref；Ledger 预检；步骤带 `report_skeleton`，留标记即拒；全部 MO 收尾后、audit-collect 前提交，见[代码治理](audit-code-review.md#ledger-接口) |
+| plan | Spec-Designer | plan_ref；Ledger 预检；先 `preview`；[stage-plan](../../../template/stage-plan.json)（Ledger 补全 test_design_ref、PATH、任务范围、spec 与 checklist）；不抄写全局上下文与分配包 |
+| plan-review / planning-reopen | MO | review_ref 绑定 plan_hash、独立 MO 与边界判断，证据含裁决、阻塞缺陷、issue、未过门禁（review_gates）；编码前重规划留 reason_ref，已派实现走 CR |
 | audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id、全部所选 path_ids、自身 context_ref；结果以 result_ref 提交，Auditor 原样消费 |
 | integration-assign / integration-submit | GO / Test-Runner | 游标 wave-complete 时同上，path_ids 恰为到期的 global path；结果进 audit_results，Red 入 audit_repairs |
-| freeze | MO | 清晰规划用 review_ref；所需人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封 decision_id 另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
+| freeze | MO | 清晰规划用 review_ref；人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
-| assign | MO | assignment_id、role=implementer/fixer/test-runner、instance_id，可选 session_id/card_sha256；implementer 只选 task_ids，path_ids 缺省取其并集；合法阶段且无活动 worker，返回 fencing_token。worker 派发后 context-submit（implementer 由 Ledger 代登记）；已有当前 ready 报告直接绑定，blocked 拒绝；`mechanical=true` 时宿主按步骤 payload 直接提交；implementer/fixer 步骤的 `submission` 列出结果必备证据，test-runner 步骤带 `report_skeleton` 命令 |
-| context-submit | 执行者 | report_ref；登记预检报告（骨架留标记即拒），同 stage/实例的最新报告生效。worker 有同阶段的活动派发时：ready 绑定并授权开工（Fixer 此时计一轮），blocked 退回派发 |
+| assign | MO | assignment_id、role、instance_id，可选 session_id/card_sha256；implementer 只选 task_ids（path_ids 取其并集）；合法阶段且无活动 worker，返回 fencing_token。worker 派发后 context-submit（implementer 由 Ledger 代登记），当前 ready 报告直接绑定，blocked 拒绝；`mechanical=true` 时宿主按步骤 payload 提交；步骤带 `submission`（implementer/fixer）或 `report_skeleton`（test-runner） |
+| context-submit | 执行者 | report_ref；登记预检报告（留标记即拒），同 stage/实例的最新生效；worker 有同阶段活动派发时 ready 绑定并开工（Fixer 计一轮），blocked 退回 |
 | submit | worker | assignment_id、fencing_token、result_ref；执行派发须已绑定 ready 预检；不推进阶段 |
 | accept | MO | assignment_id；重验工件和版本后关闭。`mechanical=true` 时宿主直接提交 |
 | diagnose | Diagnostician（轻量叶子本地轮为 Fixer） | diagnosis_ref、owner、root_cause；仅保存绑定当前冻结、代码和未解决结果的 diagnosis_submission，不改变 phase；模块必须无活动 worker |
@@ -94,7 +94,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
 | retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
 | api-register | GO / MO / Spec-Designer，全局 | module_id（owner 叶）、api_id（run 内新）、item_id（该叶 Logic/Adhesive 条目）、call、contract、evidence_refs；该叶下次 plan 的清单可多出已登记行，不重切、不推进修订号；owner/consumer 变化走 realloc/redecompose |
-| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing/debt；debt 是作者记下的技术债，与 fact 一样记录即结清，审计骨架第 8 节预列）、summary、applies_to，可选 evidence_refs、blocks，或 issues[] 批量；消去：issue_id、module_id、evidence_ref，或 resolutions[] 批量，全部成立才记；plan/plan-review/submit/accept 可带 resolves[]。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete；step 视图每模块最多 10 条（blocking、最新优先），每条 200 字符。Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
+| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing/debt/knowledge-need；debt 与 fact 一样记录即结清，审计骨架预列；knowledge-need 是源码、目标与知识库都没有的知识，只能由 kind=knowledge 的决定或知识文档消去，blocks 时挡冻结）、summary、applies_to，可选 evidence_refs、blocks，或 issues[] 批量；消去：issue_id、module_id、evidence_ref，或 resolutions[] 批量，全部成立才记；plan/plan-review/submit/accept 可带 resolves[]。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete；step 视图每模块最多 10 条（blocking、最新优先），每条 200 字符。Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
 
 ## 阶段结果
 

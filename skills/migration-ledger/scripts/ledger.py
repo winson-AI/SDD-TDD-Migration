@@ -42,6 +42,7 @@ import task_revalidation
 import user_paths
 import audit_execution
 import integration
+import knowledge
 import target_profile
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
@@ -1111,6 +1112,10 @@ def with_card(s, m, step):
         step['report_skeleton'] = 'report_skeleton.py --root <run_root> --module ' + m['module_id'] + ' --assignment <assignment_id> --out <staging directory>'
     if step.get('operation') == 'audit-code-review':
         step['report_skeleton'] = 'report_skeleton.py --root <run_root> --global --out <staging directory>'
+    if m and not m.get('decomposition_required'):
+        answered = knowledge.of_module(s, m)  # what people answered to this leaf's knowledge needs: read with the step, bound to nothing
+        if answered:
+            step['knowledge_decisions'] = answered
     enhancement = reading.reasoning_sections(m)
     if enhancement: step['reasoning_activation'] = [{'ref': ref, 'section': heading} for ref, heading in enhancement]
     if s.get('project_context_ref') and (m or (step.get('role') == 'global-orchestrator' and step.get('operation') in
@@ -1484,7 +1489,8 @@ def mutate(s, req, principal, events, root=None):
                     'batch envelope decision must hash its document and cover only this parent\'s children')
         if p.get('kind') == 'api-adaptation':
             api_contract.decision(s, p)
-        s['decisions'][p['decision_id']] = decided = {**p, 'consumed': False}
+        knowledge_ref = knowledge.decision(s, p, root, principal) if p.get('kind') == 'knowledge' else None
+        s['decisions'][p['decision_id']] = decided = {**p, 'consumed': False, **({'knowledge_ref': knowledge_ref} if knowledge_ref else {})}
         decided.pop('boundary_sha256', None)  # the Ledger states what was approved, not the request
         subject = s['modules'].get(p.get('module_id')) or {}
         if not p.get('kind') and subject.get('plan') and subject.get('plan_hash') == p['subject_sha256']:

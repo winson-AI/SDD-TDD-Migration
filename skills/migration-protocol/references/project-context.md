@@ -106,7 +106,7 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 ## 父子共同规划视野与知识资料
 
-可选 knowledge_paths 是知识文档绝对路径数组，首次保存、增量更新/删除沿用配置版本协议；数组整体替换。prepare 把每份知识文档复制并绑定摘要到 source_refs.knowledge_paths，旧运行继续读取原快照。父 MO 与子 MO 经 planning_context 读取它们，见[全局可见](module-decomposition.md#2-全局可见按分配范围执行)。全局代码目录用于只读理解和复用检查；目标源码不是全文复制快照，实际代码变化仍受 baseline/锁/冻结约束。缺失必要知识或未声明公共能力 owner 时先记录问题，不能凭局部信息重复实现。
+可选 knowledge_paths 是知识文档绝对路径数组，首次保存、增量更新/删除沿用配置版本协议；数组整体替换。prepare 把每份知识文档复制并绑定摘要到 source_refs.knowledge_paths，旧运行继续读取原快照。父 MO 与子 MO 经 planning_context 读取它们，角色可用 knowledge-query 的 project 模式查；都没有的知识登 knowledge-need，由人以 kind=knowledge 决定补充并带来源。全局代码目录用于只读理解和复用检查；目标源码不是全文复制快照，实际代码变化仍受 baseline/锁/冻结约束。缺失必要知识或未声明公共能力 owner 时先记录问题，不能凭局部信息重复实现。
 
 ## 二方库/其他项目模块来源
 
