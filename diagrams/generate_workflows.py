@@ -82,13 +82,13 @@ class Diagram:
 def overview():
     d=Diagram('workflow',2320,'01','三层编排 · 迁移总览','scope / 全量 CASE → TASK / 四维 → SPEC 冻结 → 任务执行与反馈调整 → 统一宿主 Auditor')
     d.box(100,190,1020,140,'用户输入 → 项目上下文固化',[
-        '规范 / 新架构 / 存量与目标代码 / 知识 / 测试用例 / 可选外部复用来源',
+        '规范 / 新架构 / 存量与目标代码 / 知识 / 测试用例 / 复用来源 / 参考截图与录屏',
         '宿主 init / update 配置；prepare 固化本轮快照'], 'gray')
     d.arrow([(610,330),(610,425)])
     d.band(60,365,1100,230,'GO  ·  全局规划','全局管理迁移、DAG、锁与依赖')
     d.box(100,425,1020,165,'GO · 功能覆盖 → 划 scope / 分配全量 CASE',[
         '有用例：用例范围界定叶子；无用例：读源码建功能树再派生用例',
-        'TARGET + 指定二方库：reuse-catalog / 功能语义 / 行为差异 / 接入可行性',
+        'TARGET 画像（无 / 壳 / 部分 / 已有）+ 二方库：reuse-catalog / 语义 / 接入可行性',
         '先分配 scope / CASE；四维形式化业务、功能与代码边界',
         'project / single-module 同一主线；叶子 = 功能树上的子业务流'],controller=True)
     # Fan out through a shared branch; two parents show project multiplicity.
@@ -134,7 +134,7 @@ def overview():
         '全通过才 Green；仅缺自动化环境：Yellow / 未执行报告，本轮可结束'], 'green')
     # Shared planes: explanatory cards, deliberately not direct agent channels.
     d.box(1210,190,330,280,'全局读取视野',[
-        'GO / 父 MO / 子 MO', '均可读全局存量与目标代码', '架构 / 知识 / 分工 / 复用来源', '', '局部 context pack 聚焦任务', '不截断全局只读上下文'], 'gray')
+        'GO / 父 MO / 子 MO', '均可读全局存量与目标代码', '架构 / 知识文档 / 分工 / 复用来源', '缺的知识登 knowledge-need，人补充', '局部 context pack 聚焦任务', '不截断全局只读上下文'], 'gray')
     d.box(1210,540,330,270,'范围逐层细化',[
         'GO → 根模块 scope', '父 MO → 子模块 scope', '子 MO → tasks + 冻结测试源', '', '起步门禁即冻结；design 按需', '真实未决 / 语义授权变化交人工'], 'orange')
     d.box(1210,880,330,280,'Ledger · 唯一总线',[
@@ -161,11 +161,11 @@ def module_execution():
     d.box(550,400,500,140,'四维 → SPEC / 测试路径',[
         'UI → Logic → Adhesive → Resource',
         'Spec-Designer：实施规范 + CASE / PATH / ASSERT',
-        '骨架起笔，含冻结测试源；design 按需'])
+        '骨架起笔：冻结测试源 / 用户截图 visual PATH'])
     d.arrow([(800,540),(800,610)])
     d.box(550,610,500,130,'MO 审核冻结',[
         '起步门禁即冻结；保真欠项 DoD 前结清',
-        'SPEC 是 Implementer 的规范',
+        '目标已有代码：复用或说明；SPEC 是实现规范',
         '真实未决 / 需求验收授权变化交 Human'],controller=True)
     d.arrow([(800,740),(800,810)])
     d.box(550,810,500,130,'Implementer · 按 TASK 执行',[
@@ -254,7 +254,7 @@ def module_execution():
         'API / URL / image / icon 来源追溯',
         '文件资源按清单复制并核对引用',
         'XML / 图层 / 代码取值按参数表复用',
-        '存量基线 / 中间表征指导实现',
+        '存量基线 / 用户截图或目标预期 / 中间表征',
         '真实证据验证，不以 build 替代'], 'gray')
     d.box(1110,190,410,130,'冻结与执行门禁',[
         'SPEC 未冻结不生成代码',
@@ -333,7 +333,7 @@ def reuse_flow():
     d=Diagram('reuse-dependencies',2270,'04','二方库 · 从功能语义到真实复用','复用能力辅助需求实现；业务要求控制验收，已有库的行为不能替代用户需求')
     d.box(70,205,700,135,'TARGET · 目标项目已有能力',[
         '业务模块 / 公共服务 / 已接入二方库及封装',
-        '自动纳入评估，优先检查生产实现，避免重复迁移'])
+        '目标画像逐功能记无 / 壳 / 部分 / 已有；优先复用生产实现，避免重复迁移'])
     d.box(830,205,700,135,'用户指定 · 其他项目模块',[
         'reuse_sources：root / module_paths / 用途',
         '配置保存 → prepare 固化；源码只读，接入方式另行核验'])

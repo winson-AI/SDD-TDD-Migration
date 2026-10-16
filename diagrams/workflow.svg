@@ -15,7 +15,7 @@
 <text x="60" y="145" font-size="21.00" fill="#6b7280" text-anchor="start" font-weight="400">scope / 全量 CASE → TASK / 四维 → SPEC 冻结 → 任务执行与反馈调整 → 统一宿主 Auditor</text>
 <rect x="100" y="190" width="1020" height="140" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="610.0" y="239.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">用户输入 → 项目上下文固化</text>
-<text x="610.0" y="273.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">规范 / 新架构 / 存量与目标代码 / 知识 / 测试用例 / 可选外部复用来源</text>
+<text x="610.0" y="273.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">规范 / 新架构 / 存量与目标代码 / 知识 / 测试用例 / 复用来源 / 参考截图与录屏</text>
 <text x="610.0" y="302.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">宿主 init / update 配置；prepare 固化本轮快照</text>
 <path d="M610,330 L610,425" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="60" y="365" width="1100" height="230" rx="20" fill="none" stroke="#d1d5db" stroke-width="1.4"/>
@@ -25,7 +25,7 @@
 <rect x="105" y="430" width="1010" height="155" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="610.0" y="457.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">GO · 功能覆盖 → 划 scope / 分配全量 CASE</text>
 <text x="610.0" y="491.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">有用例：用例范围界定叶子；无用例：读源码建功能树再派生用例</text>
-<text x="610.0" y="520.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">TARGET + 指定二方库：reuse-catalog / 功能语义 / 行为差异 / 接入可行性</text>
+<text x="610.0" y="520.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">TARGET 画像（无 / 壳 / 部分 / 已有）+ 二方库：reuse-catalog / 语义 / 接入可行性</text>
 <text x="610.0" y="549.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先分配 scope / CASE；四维形式化业务、功能与代码边界</text>
 <text x="610.0" y="578.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">project / single-module 同一主线；叶子 = 功能树上的子业务流</text>
 <path d="M610,590 L610,690" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
@@ -130,8 +130,8 @@
 <text x="1375.0" y="251.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">全局读取视野</text>
 <text x="1375.0" y="285.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GO / 父 MO / 子 MO</text>
 <text x="1375.0" y="314.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">均可读全局存量与目标代码</text>
-<text x="1375.0" y="343.0" font-size="19.83" fill="#4b5563" text-anchor="middle" font-weight="400">架构 / 知识 / 分工 / 复用来源</text>
-<text x="1375.0" y="372.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400"></text>
+<text x="1375.0" y="343.0" font-size="17.51" fill="#4b5563" text-anchor="middle" font-weight="400">架构 / 知识文档 / 分工 / 复用来源</text>
+<text x="1375.0" y="372.0" font-size="17.09" fill="#4b5563" text-anchor="middle" font-weight="400">缺的知识登 knowledge-need，人补充</text>
 <text x="1375.0" y="401.0" font-size="21.46" fill="#4b5563" text-anchor="middle" font-weight="400">局部 context pack 聚焦任务</text>
 <text x="1375.0" y="430.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不截断全局只读上下文</text>
 <rect x="1210" y="540" width="330" height="270" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>

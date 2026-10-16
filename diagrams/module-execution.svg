@@ -24,13 +24,13 @@
 <text x="800.0" y="434.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">四维 → SPEC / 测试路径</text>
 <text x="800.0" y="468.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">UI → Logic → Adhesive → Resource</text>
 <text x="800.0" y="497.5" font-size="18.42" fill="#4b5563" text-anchor="middle" font-weight="400">Spec-Designer：实施规范 + CASE / PATH / ASSERT</text>
-<text x="800.0" y="526.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">骨架起笔，含冻结测试源；design 按需</text>
+<text x="800.0" y="526.5" font-size="20.84" fill="#4b5563" text-anchor="middle" font-weight="400">骨架起笔：冻结测试源 / 用户截图 visual PATH</text>
 <path d="M800,540 L800,610" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="610" width="500" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="555" y="615" width="490" height="120" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="800.0" y="639.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO 审核冻结</text>
 <text x="800.0" y="673.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">起步门禁即冻结；保真欠项 DoD 前结清</text>
-<text x="800.0" y="702.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">SPEC 是 Implementer 的规范</text>
+<text x="800.0" y="702.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">目标已有代码：复用或说明；SPEC 是实现规范</text>
 <text x="800.0" y="731.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">真实未决 / 需求验收授权变化交 Human</text>
 <path d="M800,740 L800,810" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="810" width="500" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -141,7 +141,7 @@
 <text x="285.0" y="834.5" font-size="21.92" fill="#4b5563" text-anchor="middle" font-weight="400">API / URL / image / icon 来源追溯</text>
 <text x="285.0" y="863.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">文件资源按清单复制并核对引用</text>
 <text x="285.0" y="892.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">XML / 图层 / 代码取值按参数表复用</text>
-<text x="285.0" y="921.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">存量基线 / 中间表征指导实现</text>
+<text x="285.0" y="921.5" font-size="19.59" fill="#4b5563" text-anchor="middle" font-weight="400">存量基线 / 用户截图或目标预期 / 中间表征</text>
 <text x="285.0" y="950.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">真实证据验证，不以 build 替代</text>
 <rect x="1110" y="190" width="410" height="130" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1315.0" y="219.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">冻结与执行门禁</text>

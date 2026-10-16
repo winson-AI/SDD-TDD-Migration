@@ -16,7 +16,7 @@
 <rect x="70" y="205" width="700" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="420.0" y="251.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">TARGET · 目标项目已有能力</text>
 <text x="420.0" y="285.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">业务模块 / 公共服务 / 已接入二方库及封装</text>
-<text x="420.0" y="314.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">自动纳入评估，优先检查生产实现，避免重复迁移</text>
+<text x="420.0" y="314.5" font-size="19.07" fill="#4b5563" text-anchor="middle" font-weight="400">目标画像逐功能记无 / 壳 / 部分 / 已有；优先复用生产实现，避免重复迁移</text>
 <rect x="830" y="205" width="700" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="1180.0" y="251.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">用户指定 · 其他项目模块</text>
 <text x="1180.0" y="285.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">reuse_sources：root / module_paths / 用途</text>

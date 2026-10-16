@@ -17,7 +17,7 @@ def automation_flow():
     artifact(d, 460, 190, 640, 130, '测试输入 → 冻结 PATH',
              ['GO / 父 MO 分配全量 CASE；SPEC → PATH / 参数 / 步骤 / ASSERT', '测试源随计划冻结：进程内 FlowTest / 设备脚本；不自行放宽预期'])
     d.box(60, 190, 340, 210, '项目上下文',
-          ['存量 / 目标 / 架构 / 测试', '二方库行为对齐与 fidelity', 'adapter + 环境 / fixture', '项目配置 → 本轮快照'], 'gray')
+          ['存量 / 目标 / 架构 / 测试 / 媒体', '二方库行为对齐与 fidelity', 'adapter + 环境 / fixture', '项目配置 → 本轮快照'], 'gray')
     d.arrow([(400, 255), (460, 255)])
     d.arrow([(780, 320), (780, 375)])
     d.box(460, 375, 640, 115, 'Coding 接受 → build / unit / static Green',

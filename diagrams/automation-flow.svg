@@ -19,7 +19,7 @@
 <text x="780.0" y="297.0" font-size="18.81" fill="#4b5563" text-anchor="middle" font-weight="400">测试源随计划冻结：进程内 FlowTest / 设备脚本；不自行放宽预期</text>
 <rect x="60" y="190" width="340" height="210" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="230.0" y="245.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">项目上下文</text>
-<text x="230.0" y="279.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">存量 / 目标 / 架构 / 测试</text>
+<text x="230.0" y="279.0" font-size="18.41" fill="#4b5563" text-anchor="middle" font-weight="400">存量 / 目标 / 架构 / 测试 / 媒体</text>
 <text x="230.0" y="308.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">二方库行为对齐与 fidelity</text>
 <text x="230.0" y="337.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">adapter + 环境 / fixture</text>
 <text x="230.0" y="366.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">项目配置 → 本轮快照</text>
