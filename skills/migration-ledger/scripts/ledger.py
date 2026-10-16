@@ -44,6 +44,7 @@ import audit_execution
 import integration
 import knowledge
 import target_profile
+import reference_media
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
@@ -504,6 +505,7 @@ def freeze_gates(s, m, p):
               ('api', lambda: api_contract.freeze(s, m, p)),
               ('data', lambda: data_contract.freeze(s, m)),
               ('target', lambda: target_profile.freeze(s, m)),
+              ('media', lambda: reference_media.freeze(s, m)),
               ('ui', lambda: ui_fidelity.freeze_gate(s, m, first)),
               ('knowledge', lambda: knowledge_gate.freeze_gate(s, m))]
     if not p.get('decision_id') and p.get('review_ref'):
@@ -1541,6 +1543,7 @@ def mutate(s, req, principal, events, root=None):
                 reuse.validate_plan(plan, m, reuse.sources(s), s['modules'], s['legacy_root'])
             if s.get('planning_coverage_required'):
                 user_paths.plan_gate(m, plan)
+            reference_media.plan_gate(s, m, plan)  # what a PATH cites of the user's media exists and shows its case
         occupied = {path['path_id'] for path in s['global_paths']}
         occupied.update(path['path_id'] for other in s['modules'].values() if other['module_id'] != mid
                         and other.get('plan') for path in other['plan']['paths'])

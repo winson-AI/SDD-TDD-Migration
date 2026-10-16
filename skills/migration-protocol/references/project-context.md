@@ -45,8 +45,8 @@
 - 普通明确更新直接写入，不增加一次确认；“仅本次”进入 run-request.overrides，不持久化。
 - 项目 ID 不可改；模块名、run_id、SPEC、生成的测试列表和运行状态不能写入项目配置。
 - 同 request_id+内容+宿主身份重试返回原 revision；同 ID 内容不同拒绝；过期 revision 拒绝并重读。并发通过锁和 revision 控制。
-- 缺少部分共享配置时允许先保存已有输入；prepare 会要求可用的 legacy/target 目录与架构文档。测试适配器和宿主能力在后续对应门禁检查，缺少时如实阻塞，不能假测试。
-- 写历史工件后原子替换当前文件；当前文件的替换是提交点。中断留下未引用工件不算更新；history 仅遍历已提交链。禁止手工修改当前文件绕过版本与来源记录。
+- 缺少部分共享配置时允许先保存；prepare 要求可用的 legacy/target 目录与架构文档，测试适配器与宿主能力由后续门禁检查，缺少时如实阻塞。
+- 写历史工件后原子替换当前文件即提交；中断留下的未引用工件不算更新，history 仅遍历已提交链；禁止手工改当前文件绕过版本记录。
 
 请求例子（路径与摘要须替换，下面表示把目标工程改为新路径）：
 
@@ -63,7 +63,7 @@
 
 默认值存放在 config.defaults：entry_mode 固定 project，另有 budgets 与 quality_gates（字段见模板）。test_adapter 与 input 中的结构一致，runtime 只放 model_routing。配置只引用宿主环境或凭证名称，不在模板中放凭证值。
 
-质量门开关都在 `defaults.quality_gates`，均 bool 默认 false：`git_checkpoint`（模块 Git 检查点）、`write_scope_check`（写范围核验）、`fixer_self_diagnosis`（本地轮 Fixer 自诊断，开启后不再为本地轮启动独立 Diagnostician）、`dependency_resolution_required`（Foundation 冻结，例如 `{"defaults":{"quality_gates":{"dependency_resolution_required":true}}}`）；模块累计修复预算为 `defaults.budgets.max_fix_rounds`（默认 3，各类失败共用）。prepare 把这些值固化到快照与派生 Global input，init 按快照继承，不能在 prepared init 中降级或另加顶层字段覆盖；Global input 顶层的 dependency_resolution_required 是运行协议字段，不是第二个配置入口。开启 Foundation 冻结后，本切片无新增依赖或非适用目标也须保留明确 not-required 解析证据，见 [知识执行与冻结](engineering-disciplines.md)。
+质量门开关都在 `defaults.quality_gates`，均 bool 默认 false：`git_checkpoint`（模块 Git 检查点）、`write_scope_check`（写范围核验）、`fixer_self_diagnosis`（本地轮 Fixer 自诊断，开启后不再为本地轮启动独立 Diagnostician）、`dependency_resolution_required`（Foundation 冻结，例如 `{"defaults":{"quality_gates":{"dependency_resolution_required":true}}}`）；模块累计修复预算为 `defaults.budgets.max_fix_rounds`（默认 3，各类失败共用）。prepare 把这些值固化到快照与 Global input，init 按快照继承，不得在 prepared init 中降级或覆盖。开启 Foundation 冻结后，无新增依赖的切片也须保留 not-required 解析证据，见 [知识执行与冻结](engineering-disciplines.md)。
 
 ## 运行时固化
 
@@ -80,15 +80,15 @@ prepare 同一请求重试从 `.sdd-migration/runs/<run_id>.json` 找回原位�
 
 项目 defaults 更新影响后续新任务；当前任务采用新架构、知识、构建/测试/运行配置时，经 [同 Run 上游修订](progress-recovery.md#同-run-上游修订) 发布 context/revisions，保留初始快照。只读来源追加继续走 source-review/reconfigure-sources；不重跑 prepare 覆盖旧上下文。
 
-快照固定配置和引用文档；业务源码、执行器二进制及设备环境仍由已有 code baseline/测试执行回执验证，不声称复制了整个工程或设备环境。
+快照固定配置和引用文档；业务源码、执行器与设备环境仍由 code baseline/测试执行回执验证，不声称复制了整个工程。
 
 ### context/files 的跨文件链接
 
 prepare 递归固化 Markdown 本地文件链接（文档、代码、图片）。原始字节存 `<sha256>.*`；重定位 Markdown 生成版本化阅读副本，`source_refs` 指向可读版，`link_manifest_ref` 记录原始与可读版本映射。
 
-支持相对/绝对/file://、行内/引用链接与 HTML href/src；保留标题/锚点。代码块与远程 URL 不改写。链接代码作知识基线，不代 live baseline。
+支持相对/绝对/file://、行内/引用链接与 HTML href/src，保留锚点；代码块与远程 URL 不改写；链接代码作知识基线，不代 live baseline。
 
-循环引用经 bundle 地址重写，各文件实际 sha256 以 manifest 为准。缺失或越界（256文件/32MiB）记 `document_link_warnings`；未固化链接保留原绝对路径。快照不原地修改。原始 artifacts 继续用于审计；跨文件阅读使用 source_refs 与生成的 OpenSpec 视图。
+循环引用经 bundle 地址重写，sha256 以 manifest 为准；缺失或越界（256文件/32MiB）记 `document_link_warnings`，未固化链接保留原绝对路径；快照不原地修改，原始 artifacts 用于审计，跨文件阅读用 source_refs。
 
 ## CLI
 
@@ -106,7 +106,11 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 ## 父子共同规划视野与知识资料
 
-可选 knowledge_paths 是知识文档绝对路径数组，首次保存、增量更新/删除沿用配置版本协议；数组整体替换。prepare 把每份知识文档复制并绑定摘要到 source_refs.knowledge_paths，旧运行继续读取原快照。父 MO 与子 MO 经 planning_context 读取它们，角色可用 knowledge-query 的 project 模式查；都没有的知识登 knowledge-need，由人以 kind=knowledge 决定补充并带来源。全局代码目录用于只读理解和复用检查；目标源码不是全文复制快照，实际代码变化仍受 baseline/锁/冻结约束。缺失必要知识或未声明公共能力 owner 时先记录问题，不能凭局部信息重复实现。
+可选 knowledge_paths 是知识文档绝对路径数组，整体替换；prepare 复制每份并绑定摘要到 source_refs.knowledge_paths，旧运行读原快照。父子 MO 经 planning_context 读取，角色可用 knowledge-query 的 project 模式查；都没有的知识登 knowledge-need，由人以 kind=knowledge 决定补充并带来源。全局代码目录只读用于理解和复用检查；目标源码不是全文快照，代码变化仍受 baseline/锁/冻结约束。缺必要知识或未声明公共能力 owner 时先记录问题，不凭局部信息重复实现。
+
+## 用户参考媒体
+
+可选 reference_media 数组（元素见 [reference-media.json](../../../template/reference-media.json)），整体替换；prepare 复制并绑定 hash 到 source_refs.reference_media。持有其 CASE 的叶子在分配包 `reference_media` 读到它们，其就绪报告以它们为证据。截图是存量不可预览界面的基线：UI 项以 `visual_mode: user-reference` + `baseline_refs` 引用该 CASE 的截图，不得退回 source-only；visual PATH 的 `baseline_ref` 指向它。录屏是功能 PATH 的交互预期，以 `reference_media_ids` 引用。用户展示过的用户可见 CASE 没有 PATH 引用对应媒体即记欠项（已声明设备缺口除外）；报告按媒体列持有叶子、引用 PATH 与状态。
 
 ## 二方库/其他项目模块来源
 

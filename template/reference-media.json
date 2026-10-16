@@ -1,0 +1,9 @@
+{
+  "media_id": "MEDIA-LOGIN-HOME",
+  "kind": "screenshot",
+  "path": "{{absolute-screenshot-or-video-path}}",
+  "role": "legacy-baseline",
+  "screen": "{{legacy page and state the user showed}}",
+  "case_ids": ["{{case-id-it-shows}}"],
+  "note": "{{what to align or expect}}"
+}

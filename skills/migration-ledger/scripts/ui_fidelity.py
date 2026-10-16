@@ -99,7 +99,7 @@ def runtime_targets(analysis):
             continue
         for item in row.get('items', []):
             evidence = (item.get('semantic_model') or {}).get('ui_evidence')
-            if evidence and evidence.get('visual_mode') == 'runtime':
+            if evidence and evidence.get('visual_mode') in ('runtime', 'user-reference'):
                 targets.append(evidence['coverage'])
     return sorted(set(targets))
 
@@ -294,8 +294,10 @@ def baseline_gate(s, m, allocation=True):
                 for ref in nonempty(evidence.get('baseline_refs'), 'baseline screenshots for ' + item['item_id']):
                     check_ref(ref)
             else:
-                require(evidence.get('visual_mode') == 'source-only',
-                        'a non-previewable legacy screen falls back to source-only: ' + item['item_id'])
+                require(evidence.get('visual_mode') in ('source-only', 'user-reference'),
+                        'a non-previewable legacy screen falls back to source-only, or to the user reference screenshots: ' + item['item_id'])
+            import reference_media
+            reference_media.evidence_gate(s, item, evidence)
     covered = {node for path in visual for node in path.get('node_ids', [])}
     for target in runtime_targets(analysis):
         require(visual, 'baseline target ' + target + ' needs a visual test path aligning its nodes')
@@ -349,11 +351,11 @@ def visual_plan_gate(analysis, visual):
                 require(interaction['id'] not in interactions or interactions[interaction['id']] == interaction,
                         'conflicting declared interaction: ' + interaction['id'])
                 interactions[interaction['id']] = interaction
-            if evidence['visual_mode'] != 'runtime':
+            if evidence['visual_mode'] not in ('runtime', 'user-reference'):
                 continue
             coverage = evidence['coverage']
             page, state, _ = coverage.split(':')
-            nodes = ue.target_node_ids(tree, page, state)
+            nodes = ue.target_node_ids(tree, page, state) if evidence['visual_mode'] == 'runtime' else ue.node_ids(tree)  # a user reference aligns the source tree
             require(nodes, 'runtime UI target has no observed tree nodes: ' + coverage)
             target = targets.setdefault(coverage, {'nodes': set(), 'baselines': []})
             target['nodes'].update(nodes)

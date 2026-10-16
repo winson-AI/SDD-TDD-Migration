@@ -26,11 +26,11 @@ GO/父 MO 分配时保留全部源状态；Spec-Designer 冻结前区分两类�
 
 `ui-component-spec` 模型携带 `ui_evidence`，随冻结经 [semantics.py](../../migration-ledger/scripts/semantics.py) 结构校验；证据与采集器产物（参数表、UI 树与索引）以引用进入计划，重提只改引用：
 
-`ui_evidence` 字段：`capture_manifest_ref`、`source_index_ref`、`runtime_index_ref`（source-only 不提供）、`ui_tree_ref`（合并 source+runtime 的 UI 树）、`coverage`（page:state:coverage）、`legacy_executable`（冻结前判定存量能否预览）、`visual_mode`（runtime ⟺ 可预览，须与树的 runtimeIndex 一致）、`baseline_refs`（存量截图，source-only 省略）与可选 `resource_scope`；同一模型可带 `interactions`、`image_checks` 与 `image_check_waivers`。示例见 [semantic-model.json](../../../template/semantic-model.json)。
+`ui_evidence` 字段：`capture_manifest_ref`、`source_index_ref`、`runtime_index_ref`（source-only 不提供）、`ui_tree_ref`（合并 source+runtime 的 UI 树）、`coverage`（page:state:coverage）、`legacy_executable`（冻结前判定存量能否预览）、`visual_mode`（runtime ⟺ 可预览，须与树的 runtimeIndex 一致；user-reference 见下表）、`baseline_refs`（存量截图，source-only 省略）与可选 `resource_scope`；同一模型可带 `interactions`、`image_checks` 与 `image_check_waivers`。示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
-`ui_tree_ref` 与 `baseline_refs` 归档进 artifacts、hash 冻结；`coverage` 必须匹配 `page:state:(viewport|scroll)`。Spec-Designer 通过受限 analyze-ui/validate-ui 使用 collect/select/validate_ui_tree，保留源/运行时索引与原始 manifest 引用；截图来自宿主授权的 Android capture。树结构通过不等于源闭包语义完整，MO 仍核对实际 renderer、分支和范围。
+`ui_tree_ref` 与 `baseline_refs` 归档进 artifacts、hash 冻结。Spec-Designer 经受限 analyze-ui/validate-ui 产出树与索引，保留原始 manifest 引用；截图来自宿主授权的 Android capture。树通过不等于源闭包完整，MO 仍核对 renderer、分支和范围。
 
-runtime 证据必须有原始 capture_manifest_ref；runtime index 的 manifestSha 绑定它。当前 page/state/coverage 必须唯一匹配 Android COMPLETE 记录，按原生 selector 重算后的 capture 与 runtime index 一致，baseline_refs 恰好是该 capture 的截图集合。共享 manifest/index 的其他目标可以独立处理，其缺失文件不阻塞当前目标。source-only 仍经过同一原生 source/tree 严格校验；纯源码模式可省略 manifest，若提供则当前目标必须是 SOURCE_ONLY，不能带 runtime index、观察或 baseline 伪造运行成功。
+runtime 证据须有原始 capture_manifest_ref，runtime index 的 manifestSha 绑定它；page/state/coverage 唯一匹配 Android COMPLETE 记录，重算 capture 与 index 一致，baseline_refs 恰为该 capture 的截图集合；共享 manifest/index 的其他目标独立处理。source-only 经同一原生 source/tree 校验，manifest 可省略，提供则该目标须为 SOURCE_ONLY，不得带 runtime index、观察或 baseline。
 
 ## 强制开关
 
@@ -44,23 +44,24 @@ prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-le
 |---|---|---|
 | **存量可预览** | `legacy_executable: true` + `visual_mode: runtime` + `baseline_refs`（存量截图） | 截图**指导 SPEC 生成与 Implementer coding**；后续作视觉对齐基线 |
 | **存量不可预览** | `legacy_executable: false` + `visual_mode: source-only` | 回退保留 UI 源码，但**仍强制走四维 UI 中间表征层**（`ui-component-spec` + `ui_tree`）指导 coding；无基线，不伪造视觉通过 |
+| **用户参考** | `legacy_executable: false` + `visual_mode: user-reference` + `baseline_refs`（[用户参考媒体](project-context.md#用户参考媒体)中该 CASE 的截图） | 用户截图指导 SPEC 与 coding，并作视觉对齐基线 |
 
-未判定可执行性 → 不能冻结。实现接受时，conformance 必须用 `baseline_conformance` 引用**指导 coding 的那份基线或中间表征**（runtime→`baseline_refs`；source-only→`ui_tree_ref`），确保实现确实被证据引导。
+未判定可执行性 → 不能冻结。实现接受时 conformance 用 `baseline_conformance` 引用指导 coding 的基线或中间表征（runtime/user-reference→`baseline_refs`；source-only→`ui_tree_ref`）。
 
 ## 视觉对齐 = automation 第二层（不是独立阶段）
 
 Test-Runner 在 build Green 后分两层（第一层：功能用例路径走通；第二层 visual：对齐存量基线，逐视觉对齐路径中的节点 assert），都是普通测试路径，走既有三态与 Next-STEP：
 
-- `visual` 路径须绑定 `node_ids`（稳定 `node:` id）与 `baseline_ref`（[test_validation.plan_check](../../migration-ledger/scripts/test_validation.py)），并显式 coverage = 对应 UI item 的 page/state/coverage；baseline_ref 属于该目标 baseline_refs，node_ids 只引用该目标真实树节点。每个 runtime 目标至少一条 visual PATH，不跨状态充数。
+- `visual` 路径须绑定 `node_ids`（稳定 `node:` id）与 `baseline_ref`（[test_validation.plan_check](../../migration-ledger/scripts/test_validation.py)），并显式 coverage = 对应 UI item 的 page/state/coverage；baseline_ref 属于该目标 baseline_refs，node_ids 只引用该目标真实树节点。每个 runtime/user-reference 目标至少一条 visual PATH，不跨状态充数。
 - 阶段顺序由 `tv.next_scope` 强制：**第二层需第一层 Green**；DoD 要求**全部三层路径 Green**（`tv.all_green`）。
 - 视觉不对齐 = **Red + 节点级 root_cause** → ④三态 / ⑤`diagnose` → 一轮 Fixer，**复用既有修复预算**。
 - 声明的手势（`interaction:<id>`）须由某条 automation 或 visual 路径承载设备证据（`interaction_id`），静态路由不可替代。
 - `source-only` 无第二层：行为用 automation 验证，按显式缺视觉证据收尾，不允许"没基线就免检"；runtime 目标的视觉义务仍保留。
 - 仅自动化环境缺失时，`automation-unavailable` 同时挂起 automation 与 visual，沿既有 Yellow 缺测收尾。
 
-正式视觉 Green 要求 `record.visual_alignment` 与回执的 `captured.visual_alignment` 一致：冻结 PATH 的 coverage/node_ids/baseline_ref、当前 code_baseline、属于本轮已接受 build_artifacts 且 hash 可校验的 hap_ref。声明 interaction_id 时，execute_test 从冻结 dimension model 取 frozen_interaction（id/action/from/expected，可选 spec_ref）写入 query（GLOBAL 自有 PATH 冻结自己的）；proof.required_interaction 须一致，interaction_checks 须有同 ID、PASSED、同 action、observed 满足冻结 expected、同 hap_sha256/代码基线且证据真实的唯一记录，不得改成更容易的动作或页面。adapter 与正式门禁分别核对。Red/Yellow 可留不完整证据与原因，不得为缺设备伪造哈希或通过；未完成自动化按 Yellow/未执行收尾，其他模块与可用构建下游继续。execute_test 经 lean_visual_adapter 接入原始比较结果，见[接入协议](domain-tools.md#总则)。
+正式视觉 Green 要求 `record.visual_alignment` 与回执的 `captured.visual_alignment` 一致：冻结 PATH 的 coverage/node_ids/baseline_ref、当前 code_baseline、本轮已接受且 hash 可校验的 hap_ref。声明 interaction_id 时，execute_test 从冻结 dimension model 取 frozen_interaction 写入 query；proof.required_interaction 须一致，interaction_checks 须有同 ID、PASSED、同 action、observed 满足冻结 expected、同 hap_sha256/代码基线的唯一记录，不得改成更容易的动作或页面。Red/Yellow 可留不完整证据与原因，不得为缺设备伪造哈希或通过；未完成自动化按 Yellow 收尾，其他模块继续。execute_test 经 lean_visual_adapter 接入原始比较结果，见[接入协议](domain-tools.md#总则)。
 
-automation 手势使用 [interaction-evidence.json](../../../template/interaction-evidence.json) 的条件扩展：正式 Green 同样核对冻结完整动作、起点、预期、当前 HAP/代码及实际观测，record 与原始 report 的 interaction_evidence 必须一致。不要求截图基线，不从 expected 合成 observed。默认 Harmony 未产出该结构化证据时，已执行断言保留并规范化为 Yellow（interaction-evidence-unavailable），可以正式提交；真实 Red 不被覆盖。能力缺失沿现有预检/Yellow 收尾，不新增全局阻塞。
+automation 手势使用 [interaction-evidence.json](../../../template/interaction-evidence.json)：正式 Green 同样核对冻结动作、起点、预期、当前 HAP/代码及实际观测，record 与原始 report 的 interaction_evidence 一致；不要求截图基线，不从 expected 合成 observed。Harmony 未产出该结构化证据时，已执行断言保留并规范化为 Yellow（interaction-evidence-unavailable）；真实 Red 不被覆盖，能力缺失不新增全局阻塞。
 
 ### 视觉修复聚焦
 
@@ -72,9 +73,9 @@ automation 手势使用 [interaction-evidence.json](../../../template/interactio
 
 ## capture / 构建产物契约
 
-Green 还须带 `alignment_root` 与从原始 alignment 推导的 `comparison_evidence`。逐 round/page/state/reference_capture_index/candidate_capture_index 选取 manifest 中的截图，核对 score 的 reference/candidate 摘要；semantic 必须绑定该 score_sha256 或同一图片对，同时提供两者时全部核验。正式门禁重读 evidence_ref 推导相同结果，不能自填“已经关联”。ALIGNED_CARRIED 保留原 ALIGNED 的完整对齐证据，并用 regression_score 绑定 carried_from_round 与当前 capture_round 的 Harmony 截图（regression_capture_index 默认 0）；仍须明确 ALIGNED 裁决，分数本身不自动通过。
+Green 还须带 `alignment_root` 与从原始 alignment 推导的 `comparison_evidence`：逐 round/page/state/capture index 选取 manifest 中的截图，核对 score 的 reference/candidate 摘要，semantic 绑定该 score_sha256 或同一图片对；正式门禁重读 evidence_ref 推导相同结果。ALIGNED_CARRIED 保留原 ALIGNED 的完整证据，并用 regression_score 绑定 carried_from_round 与当前 capture_round 的截图（regression_capture_index 默认 0）；仍须明确 ALIGNED 裁决。
 
-adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migration-ledger/scripts/visual_evidence.py)：从所属叶子冻结模型重取完整 Android capture 记录及 baseline_refs，核对每屏、顺序和原始元数据，不能只保持首屏相同后替换其他屏；候选 snapshot 的 capture_execution_ref 与安装/捕获回执见 [视觉执行](visual-execution.md#2-执行节点)。
+adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migration-ledger/scripts/visual_evidence.py)：从所属叶子冻结模型重取完整 capture 记录及 baseline_refs，核对每屏、顺序和元数据；候选 snapshot 的 capture_execution_ref 与安装/捕获回执见 [视觉执行](visual-execution.md#2-执行节点)。
 
 可选 GLOBAL visual PATH 在规划时声明 `build_binding: {module_id, path_id}`，指向负责项目集成构建的冻结 build PATH；实际 Green 只接受该 PATH 在当前模块基线的已接受构建产物。GO/MO 审查该构建命令是否覆盖此全局用例依赖；缺少绑定不会借用全局产物池，也不要求重跑已有 Green。
 

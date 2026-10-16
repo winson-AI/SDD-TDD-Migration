@@ -28,7 +28,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 | --- | --- |
 | `legacy_root` / `target_root` | 全局存量/目标代码：生产入口、公共能力、已迁移实现 |
 | `global_spec` / `new_architecture` | 全局业务、架构与接口约束 |
-| `project_context_ref` / `project_sources` | 本轮固定的规范、用例、规则及 `knowledge_paths` 知识资料 |
+| `project_context_ref` / `project_sources` | 本轮固定的规范、用例、规则、`knowledge_paths` 知识资料及 `reference_media` 用户参考媒体 |
 | `modules` | 当前执行节点的父级、scope、context_refs、CASE、写范围、依赖 |
 | `parents` | 父子关系及汇总责任 |
 

@@ -197,7 +197,7 @@ def global_refs(s):
     if s.get('project_context_ref'):
         refs.append(s['project_context_ref'])
         for key, source in read_json(check_ref(s['project_context_ref'])).get('source_refs', {}).items():
-            if key != 'slicing_skill_ref':  # read where slicing is decided, not by every stage: see standing_refs
+            if key not in ('slicing_skill_ref', 'reference_media'):  # read where slicing is decided and by the leaf whose cases the media show: see standing_refs
                 refs.extend(source if isinstance(source, list) else [source])
     return refs
 
@@ -268,6 +268,8 @@ def standing_refs(s, mid, stage, read=CURRENT):
         refs += m.get('context_refs', [])
         if m.get('dimension_analysis_ref'):
             refs.append(m['dimension_analysis_ref'])
+        import reference_media
+        refs += [row['ref'] for row in reference_media.of_module(s, m)]  # what the user showed of this leaf's cases
         parent = (pinned['assigned_modules'][mid] if pinned else decomposition.assigned_module(s, m)).get('parent_context')
         if parent:
             refs += parent['context_refs']

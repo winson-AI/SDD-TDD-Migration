@@ -147,6 +147,10 @@ def assigned_module(s, module):
     profile = target_profile.of_module(s, module)
     if profile:
         result['target_profile'] = profile  # what the target already holds for this leaf's features
+    import reference_media
+    media = reference_media.of_module(s, module)
+    if media:
+        result['reference_media'] = media  # what the user showed of this leaf's cases
     if module.get('dimension_analysis_ref'):
         result['dimension_analysis_ref'] = module['dimension_analysis_ref']
     if parent and parent.get('dimension_analysis_ref'):

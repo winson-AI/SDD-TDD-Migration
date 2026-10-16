@@ -45,10 +45,16 @@ def documents(s, m):
             dimensions_text += (f"- `{item['item_id']}`：{item['behavior']}；验收：{item['acceptance']}；CASE：{'、'.join(item['case_ids'])}\n"
                                 f"  - {todo('实现要点与接线')}\n")
         dimensions_text += '\n'
+    import reference_media
+    media = reference_media.of_module(s, m)  # what the user showed: screenshots are the baseline, recordings the expected interaction
+    media_text = ('## User Reference Media\n' + ''.join(
+        f"- `{row['media_id']}`（{row['kind']}；CASE {'、'.join(row['case_ids'])}）：{row.get('note') or row.get('screen') or ''}；"
+        + ('视觉基线 → UI 项 `ui_evidence.baseline_refs`（user-reference）与 visual PATH `baseline_ref`' if row['kind'] == 'screenshot'
+           else '交互预期 → PATH 步骤与 `reference_media_ids`') + '\n' for row in media) + '\n') if media else ''
     design = (f"# {mid} Design\n\n## Context\n{todo('全局规范、架构、legacy 基线与相关模块接口')}\n\n"
               f"## Goals / Non-Goals\n范围内：\n{listed(scope.get('in') or [])}\n范围外：沿用分配包 scope.out（{len(scope.get('out') or [])} 条），不复写。\n\n"
               f"## Legacy → Target Mapping\n源定位、行为、目标绑定与策略见 dimension_analysis_ref（{len(items)} 个 item），引用为 `path#symbol`/`path:line`，不抄源码。\n\n"
-              f"## UI → Logic → Adhesive → Resource\n{dimensions_text}"
+              f"{media_text}## UI → Logic → Adhesive → Resource\n{dimensions_text}"
               f"## Test Design\n{todo('正常、边界、异常路径与允许 Mock 的外部边界')}\n\n"
               f"## Risks / Rollback\n{todo('风险、回滚条件与操作')}\n")
     spec, number = '## ADDED Requirements\n', 0
@@ -162,16 +168,28 @@ def plans(s, m, out, documents):
                           unit_report={'format': 'junit', 'patterns': [todo('runner 相对的 JUnit 报告 glob')], 'required_test_ids': [tid]},
                           preparation={'status': 'prepared', 'reason': '从 SPEC 写出并随计划冻结的功能测试', 'evidence_refs': [], 'asset_ids': ['TEST-' + pid]}))
         paths[-1]['expected_assertions'][0]['test_id'] = tid
+    import reference_media
+    for cid in cases:  # what the user showed of the case: a recording guides its functional PATH, each screenshot gets a visual PATH
+        shown = reference_media.bound(s, [cid])
+        clips = [row['media_id'] for row in shown if row['kind'] == 'video']
+        if clips:
+            next(p for p in paths if p['path_id'] == path_of[cid])['reference_media_ids'] = clips
+        for row in [r for r in shown if r['kind'] == 'screenshot']:
+            pid = f"VISUAL-{mid}-{sum(p['kind'] == 'visual' for p in paths) + 1:03d}"
+            paths.append(path(pid, 'visual', cid, f"{cid} 对齐用户截图 {row['media_id']}", expected=True, coverage=todo('page:state:viewport'),
+                              node_ids=[todo('node:<稳定节点 id>')], baseline_ref=row['ref'], reference_media_ids=[row['media_id']]))
     tasks = []
     for n, (name, held) in enumerate(groups, 1):
         reqs = sorted({rid for cid in held for iid in holders[cid] for rid in items[iid]['requirement_ids']}) or requirements
         units = [unit_of[iid] for iid in logic if set(items[iid]['case_ids']) & set(held)]
         tasks.append({'task_id': f'TASK-{mid}-{n:03d}', 'scope': {'in': [name], 'out': list(scope.get('out') or []), 'write_paths': list(m.get('write_paths') or [])},
-                      'requirement_ids': reqs, 'path_ids': [build] + ([static] if static else []) + units + [path_of[cid] for cid in held]})
+                      'requirement_ids': reqs, 'path_ids': [build] + ([static] if static else []) + units + [path_of[cid] for cid in held]
+                                   + [p['path_id'] for p in paths if p['kind'] == 'visual' and p['case_id'] in held]})
     trace = []
     for iid, item in items.items():
         owned = [t['task_id'] for t in tasks if set(item['case_ids']) & {c for c in cases if path_of[c] in t['path_ids']}] or [tasks[0]['task_id']]
-        pids = [path_of[cid] for cid in item['case_ids'] if cid in path_of] + ([unit_of[iid]] if iid in unit_of else [])
+        pids = ([path_of[cid] for cid in item['case_ids'] if cid in path_of] + ([unit_of[iid]] if iid in unit_of else [])
+                + [p['path_id'] for p in paths if p['kind'] == 'visual' and p['case_id'] in item['case_ids'] and item['dimension'] == 'UI'])
         trace.append({'item_id': iid, 'task_ids': owned, 'path_ids': pids, 'assertions': [{'path_id': pid, 'assertion_id': 'ASSERT-' + pid} for pid in pids]})
     test_note = (f"# {mid} 测试计划\n\n上游用例：{'、'.join(cases)}\n\n" + ''.join(f"- {p['path_id']}（{p['kind']}）：{p['name']}；CASE {p['case_id']}\n" for p in paths)
                  + f"\n{todo('每条路径的前置、步骤、断言与准备方式')}\n")
