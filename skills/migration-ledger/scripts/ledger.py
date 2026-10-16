@@ -42,6 +42,7 @@ import task_revalidation
 import user_paths
 import audit_execution
 import integration
+import target_profile
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
@@ -501,6 +502,7 @@ def freeze_gates(s, m, p):
     gates += [('resources', lambda: resource_fidelity.freeze_gate(s, m, first)),
               ('api', lambda: api_contract.freeze(s, m, p)),
               ('data', lambda: data_contract.freeze(s, m)),
+              ('target', lambda: target_profile.freeze(s, m)),
               ('ui', lambda: ui_fidelity.freeze_gate(s, m, first)),
               ('knowledge', lambda: knowledge_gate.freeze_gate(s, m))]
     if not p.get('decision_id') and p.get('review_ref'):
@@ -1450,6 +1452,7 @@ def mutate(s, req, principal, events, root=None):
             check_ref(p['feature_inventory_ref'])
         require(p.get('feature_inventory_ref') or not (s.get('context_readiness_required') and p.get('decomposition_required')),
                 'a root that will be split names the feature inventory it was cut from: feature_inventory_ref')
+        target_profile.check(s, p)  # a root may bring the target's state per feature with it
         if p.get('decomposition_required'):
             decomposition.check_scope(p)
             require(set(p['scope']['requirement_ids']) <= set(s['requirement_ids']), 'unknown global requirement in root scope')

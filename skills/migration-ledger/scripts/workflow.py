@@ -386,6 +386,8 @@ def handle(s, req, actor, run_root=None):
         import behavior_contract
         behavior_contract.global_review(s)
         source_review = (s.get('global_plan') or {}).get('source_review_ref')
+        import target_profile
+        target_profile.check(s, plan)  # the target's state per feature, bound with the plan that allocates the features
         s['global_plan'] = {**p, 'content': plan, 'registry_hash': digest(registry(s))}
         if source_review: s['global_plan']['source_review_ref'] = source_review
     elif op == 'audit-defer':

@@ -27,16 +27,16 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 
 ## 3. 报告与传递
 
-只有 worker 阶段（building、testing、fixing、audit-testing/audit-execution）由执行者写报告，building/testing 从派发步骤 `report_skeleton` 写出的骨架起笔；模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256 与必需检查项取自步骤视图（`status --view step`）的 `context`；checks 的键必须与其 required_checks 完全一致。同一文件被多次引用时，在报告顶层 `refs` 写一次，`evidence_refs` 写其 id。
+只有 worker 阶段（building、testing、fixing、audit-testing/audit-execution）由执行者写报告，building/testing 从派发步骤 `report_skeleton` 写出的骨架起笔；模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256 与检查项取自步骤视图的 `context`，checks 的键与 required_checks 一致；同一文件多次引用时在顶层 `refs` 写一次，`evidence_refs` 写其 id。
 
 报告包含：
 
 - `schema_version/run_id/module_id/stage/producer`：实际身份与作用域；全局 module_id=null。
 - `subject_sha256`：复制 `context.subject_sha256`；绑定分配、冻结、代码、依赖或审计批次，不绑定无关兄弟的进度，也不因其后新增的经验过期。
-- 必读输入由 Ledger 从状态派生（步骤视图给出 `input_count` 与 `inputs_sha256`），报告不列：ready 报告绑定该摘要，任一输入变化或漂移即过期须重报；读过什么由 checks 的具体摘要与证据说明。worker 只读所需：Test-Runner 为冻结计划与测试资产；Implementer/Fixer 另含本叶子四维分析、架构/项目规则/知识，Fixer 再含诊断。存量/目标源码树内的文件按条目 source_locator 取用、不整份读；规划与拆分也不列为必读，但仍不得漂移。
+- 必读输入由 Ledger 从状态派生（步骤视图给出 `input_count` 与 `inputs_sha256`），报告不列：ready 报告绑定该摘要，任一输入变化即过期须重报。worker 只读所需：Test-Runner 为冻结计划与测试资产，Implementer/Fixer 另含本叶子四维分析、架构/项目规则/知识，Fixer 再含诊断；源码树文件按条目 source_locator 取用、不整份读，不列为必读但不得漂移。
 - `checks`：每项 `status=ready|blocked`、具体理解摘要；ready 必须给 evidence_refs，blocked 必须给 missing/owner/next_action。
-- `verdict`：任一检查 blocked 则必须 blocked；无可复用库、无历史修复或无依赖可在 ready 中记录“不适用的事实与依据”，不编造材料。
-- `execution`：building/testing/audit-testing 的 ready 报告必填 argv、绝对 cwd、environment_ref；说明工具版本、构建、设备/服务、fixtures/账号可用性、seed、重置/清理方法。秘密值不入报告。
+- `verdict`：任一检查 blocked 即 blocked；无可复用库/历史修复/依赖时在 ready 中记“不适用及依据”，不编造。
+- `execution`：building/testing/audit-testing 的 ready 报告必填 argv、绝对 cwd、environment_ref（工具版本、设备/服务、fixtures/账号、seed、重置方法）；秘密值不入报告。
 
 先在自身 staging 写报告，再按本地 CLI 提交：
 
@@ -78,7 +78,7 @@ blocked 报告保留缺失项，不自动把 MO 标记收尾。例外分流：�
 
 ## 功能清单来源与完备性
 
-global-discovery/global-planning/decomposition/planning 必需检查 feature-inventory；global-plan 接受最终清单与叶子归属后，planning_context 和 module_inputs 提供 feature_inventory_ref/feature_ids 作为后续预检必读输入。疑问不是 ready，按[切片规约](../../migration-global/references/slicing.md#用例来源与切片抓手)交人工。
+source-target 检查落为目标画像（逐功能状态与证据）：拆分据此设脚手架，目标已有代码而未复用/适配的叶子记欠项。global-discovery/global-planning/decomposition/planning 必需检查 feature-inventory；global-plan 接受最终清单与叶子归属后，planning_context 和 module_inputs 提供 feature_inventory_ref/feature_ids 作为后续预检必读输入。疑问不是 ready，按[切片规约](../../migration-global/references/slicing.md#用例来源与切片抓手)交人工。
 
 同一 assignment 需运行多个构建命令或最终审计混合路径时，可在 execution.commands 按 path_id 保存各自 argv/cwd；环境证据仍由 environment_ref 绑定。execute_test 逐路径校验该命令，build 另核对冻结 command。
 

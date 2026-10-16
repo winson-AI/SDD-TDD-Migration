@@ -118,7 +118,7 @@ Harmony 不自动生成结构化 interaction_evidence：有 frozen_interaction �
 
 ## 分阶段唯一验收 owner
 
-- 模块阶段：对应 Module-Orchestrator 唯一验收本模块 CASE/PATH。Test-Runner 提交真实结果，MO 核验完整 Green、当前基线、证据与 DoD 后直接提交验收记录。
+- 模块阶段：MO 唯一验收本模块 CASE/PATH：Test-Runner 提交真实结果，MO 核验完整 Green、当前基线、证据与 DoD 后提交验收记录。
 - 全局审计阶段：本次独立 Auditor 唯一验收审计范围 CASE/PATH；正式复测完整 Green 且覆盖、基线门禁满足后直接提交 audit-verdict/audit。MO 仍接收 worker 结果并守护修复模块 DoD，但不能批准或替代审计结论。
 - Green 验收不需人类或 Global 会签；SPEC 冻结、业务边界、语义变更及交付授权保留原有门禁。
 - `case_owners` 是覆盖范围，`owner_module_ids` 是修复责任，都不是验收人；验收范围由宿主身份、assignment、CASE/PATH、基线和证据共同确定，各阶段历史分别保留，模块 Green 不等于审计通过。

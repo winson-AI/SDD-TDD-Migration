@@ -143,6 +143,10 @@ def assigned_module(s, module):
         result['feature_ids'] = sorted(fid for fid, owners in plan['feature_owners'].items() if owned.intersection(owners))
     elif module.get('feature_inventory_ref') or (parent or {}).get('feature_inventory_ref'):  # before the global plan: the root's
         result['feature_inventory_ref'] = copy.deepcopy(module.get('feature_inventory_ref') or parent['feature_inventory_ref'])
+    import target_profile
+    profile = target_profile.of_module(s, module)
+    if profile:
+        result['target_profile'] = profile  # what the target already holds for this leaf's features
     if module.get('dimension_analysis_ref'):
         result['dimension_analysis_ref'] = module['dimension_analysis_ref']
     if parent and parent.get('dimension_analysis_ref'):
@@ -472,6 +476,9 @@ def standard(s, parent, children, plan, record=True):
         require(child.get('kind') in (None, *KINDS), 'unknown child kind: feature or scaffold')
         require(set(child.get('dependencies', [])) & ids <= scaffolds, 'a leaf depends only on scaffold leaves; features do not depend on each other')
         if child.get('kind') == 'scaffold':
+            import target_profile
+            require(target_profile.shell_missing(s, parent) is not False,
+                    'a scaffold is set only where the target profile says the shell is missing (absent or shell-only)')
             continue
         cases = len(child['case_ids'])
         require(cases <= LEAF_MAX_CASES, 'a leaf holds at most %d cases: split it by sub-flow' % LEAF_MAX_CASES)

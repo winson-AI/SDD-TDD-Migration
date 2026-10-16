@@ -14,6 +14,7 @@ import resource_fidelity
 import ui_fidelity
 import user_paths
 import integration
+import target_profile
 import workflow_cost
 
 
@@ -283,7 +284,7 @@ def build(root, s, sequence, ref_check=check_ref):
     import rule_debt
     import run_changes
     return {'schema_version': 1, 'run_id': s['run_id'], 'sequence': sequence, 'report_stage': stage, 'rule_debt': rule_debt.collect(s),
-            'slicing': behavior_contract.slices(s),
+            'slicing': behavior_contract.slices(s), 'target_profile': target_profile.report(s),
             'quality': quality([s.get('quality', 'yellow-blocked'), *[c['quality'] for c in cases]]),
             'entry_mode': s.get('entry_mode', 'project'), 'single_module_id': s.get('single_module_id'),
             'legacy_root': s['legacy_root'], 'target_root': s['target_root'],
@@ -418,6 +419,11 @@ def render(report):
                  *['| ' + ' | '.join(cell(value) for value in (row['parent_module_id'], row['slices'], row['supporting'] or '—',
                    row['shared_cases'] or '—', row['chain_depth'], row['waiting'], row.get('layered_cases') or '—',
                    row.get('single_layer') or '—')) + ' |' for row in report['slicing']]]
+    if report.get('target_profile'):
+        text += ['', '## 目标画像', '', '迁移开始时目标项目对每个功能的状态（GO 在全局发现记录）：absent 无、shell-only 只有外壳、partial 部分实现、existing 已有实现。', '',
+                 '| 功能 | 状态 | 持有叶子 | 入口 | 已有符号数 | 已有测试 |', '| --- | --- | --- | --- | --- | --- |',
+                 *[f"| {cell(r['key'])} | {r['state']} | {cell(r['modules'])} | {cell(r['entry_points'])} | {r['symbols']} | {'是' if r['tests'] else '否'} |"
+                   for r in report['target_profile']]]
     if report.get('rule_debt'):
         text += ['', '## 规则欠账', '', '以下工件按接受时的规则已被接受，运行不再重判；按当前规则重判会被拒绝。交统一 Auditor 评估，不是门禁。', '',
                  '| 模块 | 工件 | 当前规则的拒绝原因 |', '| --- | --- | --- |',
