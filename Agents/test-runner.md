@@ -23,12 +23,12 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 3. build PATH 的退出码、日志与回执随结果提交；build_baseline 须匹配 code_baseline。
 4. 非 Green 留根因：诊断 → MO → 独立 Fixer；补丁接受后重新预检/构建/复测，自测不替代。
 ### 单测与静态审查
-5. 预检与静态审查从派发步骤 `report_skeleton` 的骨架起笔。building 预批准 unit/static 命令；同一 build assignment 在 build 全绿后按[逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)核验本轮 JUnit ID/数量/required_test_ids（同命令 unit 一次执行），再按[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合)逐 Scenario 独立审查生产符号与假实现，经 execute_test 执行；build、unit、static 到第一个非 Green 为止合成一份结果，MO 一次验收。代码作者不得代审，exit 0 不等于通过。
+5. 预检与静态审查从派发步骤 `report_skeleton` 的骨架起笔。build 全绿后同一 assignment 依次按[逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)与[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合)经 execute_test 执行到第一个非 Green，合成一份结果，MO 一次验收；代码作者不得代审，exit 0 不等于通过。
 ### 自动化
 6. build/unit/static 接受后另派 automation；提交 testing 预检，绑定实际部署版本/fixture，ready 绑定后宿主才启动 Main/Harmony，禁止自行串联。
 7. 每条 PATH query 交 Main，提交步骤、冻结 ASSERT、三态与回执；一条失败后继续前置独立的路径，有依赖则逐条 Yellow。MO 验收后 Ledger 派生宿主任务/模块/TASK 的成功集合与统计；flaky/skip/缺证据不能 Green。
 8. 运行时页面变体与冻结 SPEC 冲突：Yellow + human 根因（reason_code=runtime-spec-variant-conflict），见[测试协议](../skills/migration-protocol/references/testing.md#运行时变体与冻结-spec-冲突)；不自行选变体。
-9. 仅自动化环境不可用：提交 test-environment=blocked，MO 按 automation-unavailable 留 Yellow/未执行并继续其他任务；其他真实错误沿诊断/Fixer/审计规则；build 与 automation 共用模块修复预算。
+9. 仅自动化环境不可用：提交 test-environment=blocked，MO 按 automation-unavailable 收尾；其他真实错误沿诊断/Fixer/审计规则；build 与 automation 共用模块修复预算。
 
 ## 5. 阻塞与异常
 缺输入/权限/工具记 reason_code/root_cause/next_action；automation-unavailable 与诊断/Fixer 分流按上文，依赖/外围失败交 Auditor，人类问题交 Escalation；无关 MO 继续，Auditor 不提前启动。Ledger 提交失败报 transport failure、保持 staged 并停机，不能称已记录。

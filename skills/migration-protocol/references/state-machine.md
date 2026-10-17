@@ -84,8 +84,6 @@ snapshot 固定代码、SPEC、上下文与验证定义。必要复测由独立 
 
 根功能 context → MO decompose → GO decompose-accept → 父节点 coordinating + 独立子模块 context。GO 分配根模块 scope/context；父 MO 认领后只在其范围内拆子模块并分配 scope/context；子 MO 认领后拆 tasks，不再创建 MO，沿本页原状态机执行。父 MO 不编码、不重复验收子 CASE；所有子 MO 逐个结束后，父 MO 按当前子模块快照 module-summary。Auditor 门禁同时检查所有叶子和父汇总，见 [父子 MO 协议](module-decomposition.md)。
 
-二方库复用评估在冻结前完成，实际提供方测试在 Coding 接受后执行。新的子 plan/prepare 运行要求 reuse_plan_ref，所选 provider/API 或接入证据变更被 current 校验识别为 stale；按 invalidate/CR 重新规划冻结，不直接恢复 Green。根因确认是提供方/外围问题则沿 audit-defer 进入统一收尾。详见 [二方库协议](reuse-dependencies.md)。
-
 ## 上下文门禁嵌入原状态机
 
 各阶段的预检报告经 Ledger 留证，原 plan/freeze/audit 操作或派发本身接受报告；该事件不改变业务 phase、不消费修复预算、不直接赋予 Green。缺失经既有 suspend/audit-defer/audit-block 记录后才可作为明确收尾；无关兄弟继续。详见 [上下文就绪协议](context-readiness.md)。
@@ -100,7 +98,7 @@ snapshot 固定代码、SPEC、上下文与验证定义。必要复测由独立 
 
 ## 埋点适用性不产生新状态
 
-按 [埋点协议](telemetry.md)，无埋点模块/任务的 not-applicable 只记录范围判断，不转换为 waiting/Yellow/skip，不消耗修复预算，不增加全局等待条件。有埋点时沿已有 SPEC冻结→Coding→Build→业务Testing→三态/Fixer→Auditor；真实未知或失败仅影响本模块及实际依赖，其他 MO 继续。
+按[埋点协议](telemetry.md#1-适用性与非阻塞原则)，not-applicable 只记录范围判断，不转换为 waiting/Yellow/skip，不消耗预算或增加等待；有埋点沿原状态机。
 
 ## 控制流闭环细则
 

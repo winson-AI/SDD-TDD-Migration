@@ -58,7 +58,7 @@ work_modules 包含发现模块、根因 owner 与受影响下游，按模块基
 
 ### 1. 所有模块执行阶段结束后统一启动
 
-`audit-collect` 要求全部模块处于 completed、waiting-auditor、waiting-dependency 或 waiting-human，没有活动 worker，也没有 ready 的下一动作（含 dependency-ready、resume、人工批准后的恢复）。未完成阶段不能当作遗留收走；需人工澄清的模块由 MO 明确 suspend，不能因"当前没人运行"就启动审计；尚不能运行的下游模块记依赖阻塞挂起，依赖/外围阻塞或预算耗尽后 audit-defer 留证退出。suspend(kind=dependency) 必须有已登记且未满足的依赖，human/tooling 挂起须有本模块的真实原因；模块隔离规则见 AGENTS.md。
+`audit-collect` 的启动条件见[模块隔离与全量收尾](state-machine.md#模块隔离与全量收尾)：全部模块 completed 或有本模块证据的挂起，没有活动 worker 和 ready 的下一动作（含 dependency-ready、resume、人工批准后的恢复）。需人工澄清的模块由 MO 明确 suspend，不能因"当前没人运行"就启动审计；依赖/外围阻塞或预算耗尽后 audit-defer 留证退出。
 
 status.module_rounds 给出 registered/settled/unfinished/active/ready_modules、blockers 与 all_settled，表示调度进度而非质量；有遗留而其他模块未结束时 global_next_step 为 null/await-all-module-rounds，continue_modules / wait_for_modules 指明继续与等待对象。all_settled 不是审计授权，`module_barrier` 列出未收尾原因，直接调用 audit-collect 同样重新验证。全部模块 Green 时直接 audit-assign；无待验证路径则 audit-review 记 no-retest-needed。
 

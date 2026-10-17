@@ -46,17 +46,13 @@ OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；�
 
 拒绝请求仍返回非零退出码；在日志可读、诊断可写时持久化 `reports/rejected-operation.json`，不提交业务事件、不改变质量。作用域 revision 前进后，旧拒绝不再作为当前阻塞提示。诊断是可重建/可替换的提示，不是第二条业务总线。
 
-若真实 worker 已退出但 assignment 仍活动，宿主保存退出日志并走 revoke，再根据恢复点续作或记录有证据的挂起；仍运行时先核实/停止，禁止超时后直接重授锁。父 MO/GO 不得为满足 Auditor 收尾门禁批量挂起无关模块。
+若真实 worker 已退出但 assignment 仍活动，宿主保存退出日志并走 revoke，再根据恢复点续作或记录有证据的挂起；仍运行时先核实/停止，禁止超时后直接重授锁。
 
-上述信号在 status 被调用时生成，不会自行推进工作流。可选 [watchdog](watchdog.md#总则) 独立只读监听、留存诊断并通知；不调用 status、派发 Agent 或提交恢复操作。宿主停止或必须的人工决定未到时仍不能自行推进，门禁/权限/预算不会因为超时被绕过。
+上述信号在 status 被调用时生成，不会自行推进工作流。可选 [watchdog](watchdog.md#总则) 只观察和通知。
 
 ## 4. 自动化缺测出口
 
-当前代码已接受且 build Green，仅自动化环境无法启动时：Test-Runner 提交仅 `test-environment=blocked` 的 testing 报告 → MO `automation-unavailable` → `automation-deferred`。逐 PATH Yellow/未执行、有缺测证据；独立模块和可消费当前构建代码的真实下游继续。若已派发，先保存启动失败证据并结束/revoke worker。
-
-等待全部模块本轮结束、父汇总有效后，Auditor 继续审查对应 SPEC/CASE/PATH 和缺测证据；其他 Red/Yellow 仍按修复/复核闭环处理。最终仍仅缺环境时，独立 Auditor 的 blocked audit-testing 报告 → `audit-unavailable` → `completed-with-unverified-tests`。本轮结束但质量 Yellow；不因该缺测强制等待人工，也不声称功能验证通过。
-
-环境恢复后重新预检和正式复测，不能把“环境恢复”直接写成 Green。具体守卫见 [构建与自动化协议](build-automation.md)。
+当前代码已接受且 build Green，仅自动化环境无法启动时：Test-Runner 提交仅 `test-environment=blocked` 的 testing 报告 → MO `automation-unavailable` → `automation-deferred`，逐 PATH Yellow/未执行；独立模块和可消费当前构建代码的下游继续。全部模块本轮结束后 Auditor 仍审查缺测证据，最终仅缺环境时 blocked audit-testing 报告 → `audit-unavailable` → `completed-with-unverified-tests`：本轮结束但质量 Yellow，不等待人工，也不声称功能验证通过；环境恢复后重新预检和正式复测。守卫见[构建与自动化协议](build-automation.md#4-自动化环境缺失直接记-yellow-并继续)。
 
 
 ## 授权改码、投影恢复与文件锁等待
@@ -83,7 +79,7 @@ status 先尝试写 workflow-attention.md，再将包含末端写入错误的进
 
 ## 并行拒绝与审计撤销顺序
 
-拒绝计数按 module/global、revision、operation、reason 的 fingerprint 独立保存在 reports/rejections/<fingerprint>.json。reports/rejected-operation.json 只保留最新导航兼容。并行交错拒绝不会互相清零；status 聚合所有当前作用域计数，revision 更新后撤下旧提示但保留历史文件。
+拒绝计数按 module/global、revision、operation、reason 的 fingerprint 保存在 reports/rejections/<fingerprint>.json，rejected-operation.json 只保留最新一条；revision 更新后撤下旧提示但保留历史文件。
 
 活动全局审计期间不推荐模块 invalidate 等被审计锁禁止的操作；快照失效时全局优先提示 Host audit-revoke 并立即通知。Host 实际确认审计 worker 已停止、提供 stopped_worker_ref 后才可撤销；其后模块重新获得 invalidate/规划入口。watchdog 只转达该提示，不执行停止、撤销或重新规划。
 

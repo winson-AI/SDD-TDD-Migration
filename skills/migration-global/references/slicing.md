@@ -70,11 +70,11 @@ GO 逐项核对：所有用例分组、CASE、需求有功能归属；范围内�
 
 ## 覆盖与验收的区别
 
-`requirement_owners`、`case_owners` 表示需求责任/测试覆盖范围，可有多个模块和 `GLOBAL`（集成覆盖范围标识，不是 Global-Orchestrator 的验收权限），不表示多个验收人。模块阶段以 `(module_id, CASE/PATH, freeze_id, code_baseline)` 为验收范围，唯一 owner 是该模块的 MO；审计阶段以 `(audit assignment/batch, CASE/PATH, snapshot)` 为范围，唯一 owner 是对应 Auditor。Test-Runner 执行并提交证据，Ledger 持久化；范围内测试完整 Green、证据有效并满足 DoD 后 owner 直接验收，无额外人工批准或会签。审计修复期间 MO 仍执行本模块 worker 接收与 DoD 守卫，不替代审计结论；模块 Green 不豁免最终审计。
+`requirement_owners`、`case_owners` 表示需求责任/测试覆盖范围，可有多个模块和 `GLOBAL`（集成覆盖范围标识，不是 Global-Orchestrator 的验收权限），不表示多个验收人；验收 owner 见[分阶段唯一验收 owner](../../migration-protocol/references/testing.md#分阶段唯一验收-owner)。
 
 ## 切片前的二方库语义分析
 
-先将整体需求与 TARGET/用户指定外部模块的业务能力对齐，建立 reuse-catalog（功能相同不等于 API 同名），据可复用能力与语义缺口分配模块 scope、共享适配 owner 与消费者，不按技术包切业务模块；父 MO 细化需求映射，子 MO 把复用/适配/参考/新实现落为 tasks 与 PATH。复用提供方若也在迁移则登记真实模块依赖，稳定库用版本/接线约束，不虚构待执行 MO。详见[二方库协议](../../migration-protocol/references/reuse-dependencies.md)。
+先按[二方库协议](../../migration-protocol/references/reuse-dependencies.md#3-按三层编排提取与细化)建立 reuse-catalog，据可复用能力与语义缺口分配模块 scope、共享适配 owner 与消费者，不按技术包切业务模块。
 
 ## 功能切片后的四维深读
 
@@ -82,4 +82,4 @@ GO 逐项核对：所有用例分组、CASE、需求有功能归属；范围内�
 
 ## 埋点事件的功能归属
 
-对照源码检查页面曝光/点击、业务成功失败、生命周期、后台事件及公共 SDK/包装/拦截/配置接线；用例未列埋点仍核查范围内遗漏，把存在的事件与可观察副作用纳入功能清单与模块分配。公共提供方唯一 owner，业务模块各自保留触发/消费职责，不机械创建埋点模块；确认无埋点记检查依据与 N/A，不增加功能或阻塞，不确定时只澄清相关范围。遵守[埋点协议](../../migration-protocol/references/telemetry.md)。
+按[埋点协议](../../migration-protocol/references/telemetry.md#2-控制流节点)的 GO 节点对照源码检查事件并纳入功能清单与模块分配；用例未列埋点仍核查范围内遗漏，确认无埋点记检查依据与 N/A。

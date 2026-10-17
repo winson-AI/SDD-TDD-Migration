@@ -2,7 +2,7 @@
 
 ## 执行模式
 
-execute 模式分 build（含 unit、static）和 automation，按 [双环节协议](build-automation.md) 执行：代码经 MO 接受后，把已批准路径落实为真实脚本/选择器/数据参数；新验收语义发 CR，不自行补成标准。设计与执行可由同一角色的不同实例担任；Auditor 不能是该轮脚本作者。
+execute 模式分 build（含 unit、static）和 automation，按 [双环节协议](build-automation.md) 执行：代码经 MO 接受后，把已批准路径落实为真实脚本/选择器/数据参数；新验收语义发 CR，不自行补成标准。
 
 Main 是项目提供的主验证入口，不是固定 `main.py`；`test_adapter` 指定 executable/args/cwd、query 传输和结构化结果路径，未配置或不可用 → Yellow tooling；模板不含假测试或自动通过的适配器。
 
@@ -20,8 +20,6 @@ prepare 的 test_design_required=true 表示必需的测试输入与覆盖，不
 
 test_assets 交 script/fixture/adapter/test-source 的 asset_id/ref/path_ids，script 再映射 assertions；文件位于 design_ref 同级 staging 内，冻结 definitions 绑定 hash。骨架为无设备或非界面的 CASE 起稿进程内功能测试，为有设备且绑定 UI 树的 CASE 起稿 script 资产（选择器取节点 id，作者写操作与断言）；报告分列脚本驱动的设备路径及其 flaky。test-source 是从 SPEC 写出、随计划冻结的测试源：记 target_path、required_test_ids（文件须定义）、scenarios（逐测试对应 SPEC 的 Scenario-ID）与 symbols；绑定的 unit PATH 只要求它定义的测试；Implementer 原样落到 target_path，hash 不等即拒，改测试走 CR；execute_test 执行前核对并写回执 frozen_test_sources。模块、修复后复测及 GLOBAL 复测共用 PATH 资产解析，query/receipt 的 test_asset_binding 保留来源模块、freeze_id、test_design_ref；GLOBAL 自有路径绑定本 GLOBAL 的 test_design_ref/设计作者，不借模块资产，作者不能兼 Auditor/审计 Test-Runner。
 
-执行器从 SDD_TEST_QUERY_FILE 读 query（非 build/unit 同时带 --query-file），资产位于 frozen_test_assets；script/adapter 作为 argv 参数由 Host 记 entrypoint_ids，其他消费由执行器向 SDD_TEST_ASSET_USAGE_FILE 写 [{asset_id,ref}]。Green 须覆盖所选资产（test-source 以文件 hash 与 JUnit 必需 ID 为证），哈希/来源不能变；提供不等于消费，上报不证明断言语义。
-
 测试计划及脚本作者不能兼 Auditor；设计不替代 building/testing 预检及冻结/代码门禁。
 
 ## query
@@ -30,7 +28,7 @@ test_assets 交 script/fixture/adapter/test-source 的 asset_id/ref/path_ids，s
 
 query 文件必须包含该路径完整的前置、步骤、参数和预期断言；模板的 query 是索引头，执行时从同一条 path 记录组装完整内容并记录 hash，不能仅传 Name 猜测行为。
 
-automation/visual PATH 若声明 interaction_id，execute_test 从所属模块冻结模型提取完整 frozen_interaction（id/action/from/expected），不能由运行器另写较弱的期望。source-only UI 允许把手势放入 automation，不要求没有的视觉基线；runtime UI 仍保留已有 visual 义务。automation 的条件结果扩展见 [interaction-evidence.json](../../../template/interaction-evidence.json)：绑定当前代码、已接受 HAP、真实动作/起点/观测及证据。GLOBAL 自有手势 PATH 显式冻结 frozen_interaction，并用既有 build_binding 指定产物所属 build PATH。
+automation/visual PATH 若声明 interaction_id，execute_test 从所属模块冻结模型提取完整 frozen_interaction（id/action/from/expected），不能由运行器另写较弱的期望。source-only UI 允许把手势放入 automation，不要求没有的视觉基线；runtime UI 仍保留已有 visual 义务。automation 的条件结果扩展见 [interaction-evidence.json](../../../template/interaction-evidence.json)。GLOBAL 自有手势 PATH 显式冻结 frozen_interaction，并用既有 build_binding 指定产物所属 build PATH。
 
 GLOBAL 手势的完整契约、ID 匹配与 build_binding 在 init 落盘前检查，输入不完整时先修正初始化请求，避免到审计才发现无法执行。
 
@@ -50,7 +48,7 @@ root_cause 字段在 Red/Yellow 必填：category、summary、confidence、evide
 
 ## 修复、复测与覆盖
 
-Fixer 自回归记录 `producer=fixer`，是补丁证据，不能替代 Test-Runner 正式验证或 Auditor 的独立裁决。`retest_of` 必须指向旧 test_run_id/path_id，绑定新代码版本。依赖解除或人工确认都只改变可执行条件，不生成 pass。
+Fixer 自回归记录 `producer=fixer`，是补丁证据，不能替代 Test-Runner 正式验证或 Auditor 的独立裁决。`retest_of` 必须指向旧 test_run_id/path_id，绑定新代码版本。
 
 每次代码/测试/依赖变化，所有受影响结果 stale；若没有可靠影响映射，重跑模块全路径。Auditor 最终所有结果绑定同一冻结代码树；修复导致旧 Green 受影响也须重跑。不能通过缩减覆盖分母消灭非 Green。
 
@@ -64,13 +62,13 @@ Fixer 自回归记录 `producer=fixer`，是补丁证据，不能替代 Test-Run
 
 执行回执来源可信依赖宿主保护其上下文和证据目录。本地检查不能独立证明一份任意可写 JSON 来自可信执行；宿主不得让业务 worker 伪造 host-context 或执行回执。全局 Auditor 同样需实际执行回执，不能只提交文字“已复测”。
 
-新拆分运行每次结果覆盖 assignment.test_scope 对应的全部冻结路径，Ledger 合并构建和自动化两部分；DoD 仍检查完整集合，未执行项明确 Yellow。超时/缺报告可提交 executed=false 的 Yellow 并附诊断证据；不能将残缺报告提升为 Green。旧非 Green 与 stale 路径需新的 test_run_id 和 retest_of。
+每次结果覆盖 assignment.test_scope 的全部冻结路径，未执行项明确 Yellow；超时/缺报告可提交 executed=false 的 Yellow 并附诊断证据，不能将残缺报告提升为 Green。
+
+执行器从 SDD_TEST_QUERY_FILE 读 query（非 build/unit 同时带 --query-file），资产位于 frozen_test_assets；script/adapter 作为 argv 参数由 Host 记 entrypoint_ids，其他消费由执行器向 SDD_TEST_ASSET_USAGE_FILE 写 [{asset_id,ref}]。Green 须覆盖所选资产（test-source 以文件 hash 与 JUnit 必需 ID 为证），哈希/来源不能变；提供不等于消费，上报不证明断言语义。
 
 adapter 的 `skipped` / `xfail` 限制必须原样保留。原始报告声称 Green 但任一限制为真时，test_completion 将其规范化为 Yellow（`incomplete-test-execution`），保留真实断言和原报告/执行日志；已观察到的 Red 不降级。正式验收同样拒绝带限制的 Green，不能通过省略规范化版本或只看进程退出码绕过。
 
 `global_paths` 是显式全局测试路径，可以为空或只覆盖已登记 CASE 的子集；它不代表全部模块用例。GO 的 global-plan 仍必须为所有 requirement/case 完整声明 owner，Auditor 沿既有非 Green 与变更影响范围选择复核路径。
-
-模块修复按[有限循环](state-machine.md#有限循环)执行；在预算内局部收敛，阻塞/超限留证待统一宿主审计。独立 Test-Runner 提交正式复测证据，Auditor 审阅并裁决；MO 执行模块恢复/修复门禁，最终审计不能跳过。
 
 ## 逻辑单测
 
@@ -114,7 +112,7 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核：输入冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow。harmony_stage 把 host receipts 汇成 tests stage，Ledger 复验媒体 hash 与三态；超时终止进程组并保存已有输出。automation/visual PATH 可声明 `record_video: true`：回执的 final.mp4 以 `media_refs`（hash 绑定、在执行输出内）随结果入 Ledger，报告逐 PATH 列出，diagnose/Fixer 步骤带非 Green 路径的媒体，不改三态。
 
-Harmony 不自动生成结构化 interaction_evidence：有 frozen_interaction 的 automation 只有 Green 断言而缺这份证据时，test_completion 保留断言与媒体，记 executed=true 的 Yellow tooling / interaction-evidence-unavailable；已观察到的 Red 保持 Red，不从 expected 或自然语言合成 observed。Test-Runner 在预检说明能力缺口，换 adapter 或走缺测出口。
+Harmony 不自动生成结构化 interaction_evidence：缺这份证据时的规范化见[视觉对齐](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)；Test-Runner 在预检说明能力缺口，换 adapter 或走缺测出口。
 
 ## 分阶段唯一验收 owner
 
@@ -131,10 +129,8 @@ Harmony 不自动生成结构化 interaction_evidence：有 frozen_interaction �
 
 ## 测试启动前的上下文门禁
 
-Test Runner 接到 build 派发后提交 building、接到 automation 派发后提交 testing 报告，ready 报告绑定派发后才执行；Auditor 最终验证在 audit-assign 前提交 audit-testing 报告。报告包括已接受代码、冻结 PATH/assert、提供方、工具/环境/数据与 execution.argv/cwd/environment_ref。execute_test 只接受已绑定 ready 报告的派发，并再核对命令和环境引用；不匹配须重新预检和派发，不能换命令绕过。缺条件不生成假测试结果。见 [上下文就绪协议](context-readiness.md)。
-
-仅自动化环境缺失走[缺测出口](progress-recovery.md#4-自动化缺测出口)，不冒充 Green。
+Test Runner 接到 build 派发后提交 building、接到 automation 派发后提交 testing 报告，Auditor 最终验证在 audit-assign 前提交 audit-testing 报告；ready 报告绑定派发后才执行，execute_test 只接受已绑定 ready 报告的派发并再核对命令和环境引用，不匹配须重新预检和派发，不能换命令绕过；缺条件不生成假测试结果。报告内容见[上下文就绪协议](context-readiness.md)；仅自动化环境缺失走[缺测出口](progress-recovery.md#4-自动化缺测出口)，不冒充 Green。
 
 ## 埋点上报断言
 
-遵守 [埋点协议](telemetry.md)：测试预期从已审核的源行为冻结，事件存在才生成/关联业务 PATH/ASSERT；无埋点不增加测试或 skip。验收层级 emitted/sdk-dispatched/server-received 明确，验证事件/参数/次数及禁止触发/边界，adapter 留原始观测/回执。缺证据的路径单独 Yellow，其余继续；图片、空实现或被 mock 的核心逻辑不算上报验收。
+遵守[埋点协议](telemetry.md#5-验收层级与环境缺口)：事件存在才生成/关联业务 PATH/ASSERT，无埋点不增加测试或 skip；adapter 留原始观测/回执，缺证据的路径单独 Yellow，其余继续。

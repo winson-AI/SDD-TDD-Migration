@@ -6,7 +6,7 @@ run 固定 prepare 时的包版本 package_sha：宿主用该提交的 worktree 
 
 ## 路径与加载
 
-`workspace_root` 为本项目唯一迁移资产根；`.sdd-migration`、`.sdd-runs`、`openspec` 在其下并列。`package_root` 为工作流包，legacy/target 为业务代码仓，均不是默认资产根。各目录的用途、二次启动和兼容规则见[留存文件系统](storage-layout.md#从开始到完成的目录)。
+资产根、目录用途与二次启动见[留存文件系统](storage-layout.md#总则)；`package_root` 与 legacy/target 不是资产根。
 
 新 prepare 自动派生 `run_root = workspace_root/.sdd-runs/run_id`，显式 `--run-root` 只能与之相同。项目索引绑定一个 run_id 的唯一位置，不保存模块状态。新测试执行器拒绝把结果写到本轮 `runs/` 外。生成的 SPEC、诊断、修复、审查清单先写自身 staging；Harmony 测试设计/适配器/汇总写 runs/harmony/sandbox；随后提交 Ledger；输入源码/架构可在外部只读，需留存的文档与证据由快照固化。Host 须限制实际 Agent/子进程写权限。
 

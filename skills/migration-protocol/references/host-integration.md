@@ -16,7 +16,7 @@
 
 ## 2. 逐阶段接入清单
 
-每行:命令 → 必须提交的 Ledger op → 宿主必须做的真实工作 → 如何自证。所有 op 语义见 [本地运行指南](local-runtime.md#操作矩阵) 操作矩阵。
+所有 op 语义见[操作矩阵](local-runtime.md#操作矩阵)。
 
 | 命令 | 必须提交的 Ledger op(顺序) | 宿主真实工作 | 自证 |
 | --- | --- | --- | --- |
@@ -29,23 +29,21 @@
 
 ## 3. 接入自检(部署一次,证明编排器真接了 Ledger)
 
-在一次性 throwaway workspace 上执行,确认产生的是**真实事件**而非手写文件:
+在一次性 throwaway workspace 上执行最小管道,确认控制器被真实调用、投影落顶层,产生的是**真实事件**而非手写文件:
 
 ```sh
-# 1. 最小管道:确认控制器被真实调用、投影落顶层
 python3 <pkg>/skills/migration-ledger/scripts/project_context.py prepare --root <ws>/.sdd-migration --request <req.json> --host-context <host.json>
 python3 <pkg>/skills/migration-ledger/scripts/ledger.py init   --root <ws>/.sdd-runs/<run> --request <init.json> --host-context <host.json>
 python3 <pkg>/skills/migration-ledger/scripts/ledger.py status --view full --root <ws>/.sdd-runs/<run>   # 断言 openspec_binding.location==top-level
 python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sdd-runs/<run> --scope global  # 仅断言公共记录/布局一致
 ```
 
-- **管道自证**:上面四步后,`ledger/events.jsonl` 必须存在且逐条增长;若你的编排器"跑完"却没有 events.jsonl,或只有 `module-registry.json`/散文报告,就是**没接 Ledger**,必须修接线。
+- **管道自证**:上面四步后 `ledger/events.jsonl` 必须存在且逐条增长;编排器"跑完"却只有 registry 或散文报告,就是**没接 Ledger**。
 - **派发自证**:让编排器真实执行一次 `/sdd-plan <run> <mid>`,检查新出现的 `plan` 事件 `actor` 是被派发的 spec-designer 实例、`plan_ref` 指向该 Agent 产出的工件——而不是编排器自己写的。同理 implement 阶段检查 `code_files` 确由 Implementer 写入 `target_root`。
 - **接线参照**:[simulate_storage.py](../../migration-ledger/tests/simulate_storage.py) 调用真实 prepare/Ledger/执行器，可作为接线对照与冒烟骨架；其中审批、角色和业务输入是测试夹具，不证明用户授权、真实 Agent 派发或移动设备验证。
 
 ## 4. 判定与红线
 
-- 全局调度前用 `--scope global`；逐模块规划/派发用 `--scope module --module-id <id>`；全量视图巡检用 `--scope projection`；GO 最终交付/归档前用 `--scope final`。默认 projection；不能用全量失败停止无关模块。按返回的 failures.scope/module_id/recovery_action 修复相关范围，公共事件链/快照损坏才影响整轮。
 - `status.openspec_binding.location==in-run-fallback` 表示未绑定预备布局,OpenSpec 落在 run 内——按未接入处理。
 - 控制器校验结构、绑定、摘要和已有执行回执，不能仅从自报字段证明语义正确或独立执行；宿主身份/权限约束、实际执行回执与独立 Auditor 审查共同承担这一责任。不得把 `verified=true` 或工具 exit 0 当作功能通过。
 - `observed_invalidations` 非空说明目标代码被 out-of-band 修改,须 revoke→invalidate 重走,不得无视继续。
@@ -58,18 +56,16 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 
 按 [领域工具受限接入](domain-tools.md) 把白名单操作映射到现有角色，不另建游标或冻结权威：Spec-Designer 捕获与分析 UI；Implementer/Fixer 在 assignment 与写范围内转换资源；Test-Runner/Auditor 在当前 assignment 下取证比较，构建走正式执行器。宿主还要配置 `legacy_preview`（设备 serial / 模拟器 / 虚拟机 + APK 或构建命令、浏览器 url、或 none 与原因），保证 adb 或 Playwright 可用；legacy-capture 与 Android 目标的 visual-* 需 host-context 带 device_lock（serial 或 url）。[设备与模型工具](visual-execution.md) 需冻结的 run 环境配置、设备锁证明及当前 PATH 构建/基线，工具本身不验收；模型请求有总时限，缺条件走 Yellow。Host 传认证 host-context，保留原始结果引用与转换证据；新增输出落本 run 受管目录。
 
-prepared run 固定 `ui_fidelity_required=true`、`spec_closure_required=true`（每个拆分模块一条 static PATH，在 build 与 automation 之间），仅 applicable UI 触发门禁；仅自动化不可用按 Yellow/未执行收尾，独立任务与可用构建下游不受阻。
-
 ## 命令通用约定
 
 适用于全部 `/sdd-*` 命令，命令文件只写各自的差异。
 
 1. 先读[四条红线](../../../AGENTS.md#四条红线)、[调用约定](../../../AGENTS.md#调用约定)和[轮询与派发](#提示采纳回报)，解析参数为绝对路径及规范 ID；协议其余部分按小节取（`reading.py show`），不整份加载。
 2. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影；宿主自己的运行记录放 staging/host，不登 issue。
-3. 宿主把已授权身份绑定到 host-context，请求内自报 role 不获权限；控制器不自动启动 Agent、不替宿主写目标代码；宿主用实际可用的任务工具启动角色，只传 package_root、run_root、module_id 与阅读卡路径，Ledger 串行服务，定义文件不会自动安装或注册不存在的工具；payload 与用法见[操作矩阵](local-runtime.md#操作矩阵)。无冲突模块的 MO 审核（plan-review、freeze、decompose-accept）由宿主并行派发独立实例，不串行等待，并行数受输入与宿主限制。
+3. 宿主把已授权身份绑定到 host-context，请求内自报 role 不获权限；派发按[宿主派发](runtime.md#宿主派发)，定义文件不会自动安装或注册不存在的工具；payload 与用法见[操作矩阵](local-runtime.md#操作矩阵)。无冲突模块的 MO 审核（plan-review、freeze、decompose-accept）由宿主并行派发独立实例，并行数受输入与宿主限制。
 4. 结束时输出已提交事件/当前状态/产物路径和下一动作。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
 
-参数：run-id/change-name 为 kebab-case，module-id 为 `M[0-9]{3,}`；禁止路径逃逸。JSON 中占位符、未决必填值、零必需用例不能作为有效运行输入。status 可读取尚未完成的输入状态。
+参数：ID 格式与路径规则见[运行协议](runtime.md#路径与加载)；JSON 中占位符、未决必填值、零必需用例不能作为有效运行输入。status 可读取尚未完成的输入状态。
 
 硬约束：命令只解析、门控、提交/查询和派发；无业务代码、无状态双写；叶子不能私传结果；无有效批准不推断已冻结；所有门禁由对应守卫/权限校验再次验证。
 
@@ -87,7 +83,7 @@ prepared run 固定 `ui_fidelity_required=true`、`spec_closure_required=true`�
 
 **轮询。** status --view cursor --since <sequence> 未变返回 unchanged/进度，变化返回游标、模块/信号摘要及卡大小。--view step [--module <id>] 给本步信封/预检/分配/assignment，规划加 planning_context；--view module 不带 plan/场景正文，full 仅供脚本。
 
-**取卡。** reading.py render --root <run> (--module <id>|--global) 写 reports/reading/<card_sha256>.md，派发传路径；步骤带 slicing_skill 时技能随卡写入；human_required=false 的步骤不征求人工。卡外 reading.py show --ref <文件> --section <小节>，模板 --template <名>；操作矩阵支持 操作矩阵@<operation>。卡片只给本步要用的：模板限本步所写工件（分析已登记的叶子不带分析/语义模型模板，文档由骨架起稿）；执行角色仅在冻结计划取用 provider 时带复用小节；Test-Runner 构建与自动化两次派发共读一份角色文本，后者只追加本阶段小节；等待依赖的步骤不带卡。
+**取卡。** 按 AGENTS 读取顺序 render/show 取卡与单节（模板 --template <名>；操作矩阵支持 操作矩阵@<operation>）；步骤带 slicing_skill 时技能随卡写入；human_required=false 的步骤不征求人工。卡片只给本步要用的：模板限本步所写工件（分析已登记的叶子不带分析/语义模型模板，文档由骨架起稿）；执行角色仅在冻结计划取用 provider 时带复用小节；Test-Runner 构建与自动化两次派发共读一份角色文本，后者只追加本阶段小节；等待依赖的步骤不带卡。
 
 **回报。** 步骤的 card_new 是上一执行实例续用原上下文时只需读的小节（红线始终在内）；宿主不回报也按执行实例计。hint{session_id,card_sha256,context_inputs} 可另报实际交付，恢复/轮换见[渐进加载](runtime.md#渐进加载)。拒绝响应及 rejected-operation.json 带 read_hint。
 

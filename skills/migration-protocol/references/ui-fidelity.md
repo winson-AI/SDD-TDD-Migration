@@ -28,13 +28,13 @@ GO/父 MO 分配时保留全部源状态；Spec-Designer 冻结前区分两类�
 
 `ui_evidence` 字段：`capture_manifest_ref`、`source_index_ref`、`runtime_index_ref`（source-only 无）、`ui_tree_ref`（合并 source+runtime 的树）、`coverage`（page:state:coverage）、`legacy_executable`（冻结前判定存量能否预览）、`visual_mode`（runtime ⟺ 可预览，须与树的 runtimeIndex 一致；user-reference 见下表）、`baseline_refs`（存量截图，source-only 省略）与可选 `resource_scope`；同一模型可带 `interactions`、`image_checks` 与 `image_check_waivers`。示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
-`ui_tree_ref` 与 `baseline_refs` 归档进 artifacts、hash 冻结。Spec-Designer 经受限 analyze-ui/validate-ui 产出树与索引，保留原始 manifest 引用；截图来自宿主授权的 Android capture。树通过不等于源闭包完整，MO 仍核对 renderer、分支和范围。
+`ui_tree_ref` 与 `baseline_refs` 归档进 artifacts、hash 冻结。Spec-Designer 经受限 analyze-ui/validate-ui 产出树与索引，保留原始 manifest 引用；截图来自宿主授权的存量捕获。树通过不等于源闭包完整，MO 仍核对 renderer、分支和范围。
 
 runtime 证据须有原始 capture_manifest_ref，runtime index 的 manifestSha 绑定它；page/state/coverage 唯一匹配存量 COMPLETE 参考记录，重算 capture 与 index 一致，baseline_refs 恰为该 capture 的截图集合；共享 manifest/index 的其他目标独立处理。source-only 经同一 source/tree 校验，manifest 可省略，提供则该目标须为 SOURCE_ONLY，不得带 runtime index 或 baseline。
 
 ## 强制开关
 
-prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-ledger/scripts/ui_fidelity.py) 只约束 applicable UI：每个 item 的 `ui-component-spec` 模型与 `ui_evidence` 是冻结前欠项（`semantics.ui_fidelity_gaps` 列缺口，DoD 前结清；无设备的 run 不要求）；资源闭包不得缩减，[复制清单与参数表](resource-transfer.md#总则)与证据重算一致；`source_closure.ui_renderers` 必填；有基线的目标须有 visual 路径，每处静态图片有图像检查或豁免。
+prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-ledger/scripts/ui_fidelity.py) 只约束 applicable UI：每个 item 的 `ui-component-spec` 模型与 `ui_evidence` 是冻结前欠项（`semantics.ui_fidelity_gaps` 列缺口，DoD 前结清；无设备的 run 不要求）；闭包、渲染器、visual 路径与图片检查的门禁见下文各节。
 
 ## 基线前移：截图指导实现，而非事后比对
 
