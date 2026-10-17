@@ -83,13 +83,17 @@ class GateTests(unittest.TestCase):
     def test_a_screen_the_user_showed_is_aligned_to_the_screenshot_and_not_left_source_only(self):
         self.baseline_gate(self.evidence(), [self.visual()])
         self.baseline_gate(self.evidence(visual_mode='source-only', baseline_refs=None), [], cases=('C2',))  # only a recording shows C2
-        with self.assertRaisesRegex(Rejected, 'the user showed this screen'):
+        with carrying() as gaps:  # completeness is owed, the first version goes on
             self.baseline_gate(self.evidence(visual_mode='source-only', baseline_refs=None), [])
-        with self.assertRaisesRegex(Rejected, 'reference screenshots of the cases'):
+        self.assertTrue(any('the user showed this screen' in gap for gap in gaps))
+        with self.assertRaisesRegex(Rejected, 'reference screenshots of the cases'):  # consistency stays refused
             self.baseline_gate(self.evidence(baseline_refs=[self.other]), [self.visual(baseline_ref=self.other)])
-        with self.assertRaisesRegex(Rejected, 'the user showed C3: cite its reference screenshot'):
-            self.baseline_gate(self.evidence(), [self.visual()], cases=('C1', 'C3'))  # the item shows C3 too: its screenshot is cited as well
-        self.baseline_gate(self.evidence(baseline_refs=[self.shot, self.third]), [self.visual()], cases=('C1', 'C3'))
+        with carrying() as gaps:
+            self.baseline_gate(self.evidence(), [self.visual()], cases=('C1', 'C3'))  # the item shows C3 too: its screenshot is owed
+        self.assertTrue(any('the user showed C3: cite its reference screenshot' in gap for gap in gaps))
+        with carrying() as gaps:
+            self.baseline_gate(self.evidence(baseline_refs=[self.shot, self.third]), [self.visual()], cases=('C1', 'C3'))
+        self.assertEqual(gaps, [])
         with self.assertRaisesRegex(Rejected, 'needs a visual test path'):
             self.baseline_gate(self.evidence(), [])
         with self.assertRaisesRegex(Rejected, 'falls back to source-only'):
@@ -216,8 +220,9 @@ class ExpectationTests(unittest.TestCase):
                          'target-expectation')
         expected = g.evidence(legacy_executable=True, baseline_refs=[self.design])
         g.baseline_gate(expected, [g.visual(baseline_ref=self.design)])  # previewable or not, the screen is aligned to the expectation
-        with self.assertRaisesRegex(Rejected, 'gave a target expectation for this screen'):
+        with carrying() as gaps:  # owed: the run says so and goes on
             g.baseline_gate(g.evidence(legacy_executable=True, visual_mode='runtime', baseline_refs=[g.other]), [g.visual(baseline_ref=g.other)])
+        self.assertTrue(any('gave a target expectation for this screen' in gap for gap in gaps))
         with self.assertRaisesRegex(Rejected, 'target expectation screenshots of the cases'):
             g.baseline_gate(g.evidence(), [g.visual()])  # the legacy screenshot is input now, not the baseline
         analysis = g.ref('analysis-expected.json', g.analysis(expected))
@@ -225,8 +230,9 @@ class ExpectationTests(unittest.TestCase):
         def plan(*paths, design='the login follows MEDIA-design', **over):
             return {'dimension_analysis_ref': analysis, 'paths': list(paths), 'definitions': [{**g.ref(f'design-{len(design)}.md', design), 'kind': 'design'}], **over}
         m = {'module_id': 'M001', 'case_ids': ['C1']}
-        with self.assertRaisesRegex(Rejected, 'MEDIA-design shapes the design'), carrying():
+        with carrying() as gaps:
             reference_media.freeze(g.s, {**m, 'plan': plan(g.visual(baseline_ref=self.design), design='no mention of it')})
+        self.assertTrue(any('MEDIA-design shapes the design' in gap for gap in gaps))
         with carrying() as gaps:
             reference_media.freeze(g.s, {**m, 'plan': plan(g.visual(baseline_ref=self.design))})
         self.assertEqual(gaps, [])  # the legacy screenshot of a replaced screen is not owed a citation

@@ -342,10 +342,10 @@ def baseline_gate(s, m, allocation=True):
             require(isinstance(executable, bool),
                     'legacy executability must be decided before freeze for ' + item['item_id'])
             mode = evidence.get('visual_mode')
-            if executable and stated is not None and mode == 'source-only':  # the legacy runs on the stated provider: an uncaptured screen says why
+            if executable and stated is not None and mode == 'source-only':  # the legacy runs: an uncaptured screen is owed its capture or its reason
                 gap = evidence.get('capture_gap') or {}
-                require(isinstance(gap.get('reason'), str) and gap['reason'].strip() and gap.get('evidence_refs'),
-                        'the legacy runs on ' + stated['kind'] + ': capture the screen (runtime), cite the user screenshots, or declare capture_gap with its reason and evidence for ' + item['item_id'])
+                owed(isinstance(gap.get('reason'), str) and gap['reason'].strip() and gap.get('evidence_refs'),
+                     'the legacy runs on ' + stated['kind'] + ': capture the screen (runtime), cite the user screenshots, or declare capture_gap with its reason and evidence for ' + item['item_id'])
             elif executable:
                 require(mode == 'runtime' or mode == 'user-reference' and (stated is not None or reference_media.expectation(s, item)),
                         'a previewable legacy screen must carry runtime baseline evidence, or align to the user target expectation: ' + item['item_id'])

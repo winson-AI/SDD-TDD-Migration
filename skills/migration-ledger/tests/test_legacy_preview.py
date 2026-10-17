@@ -89,9 +89,13 @@ class BaselineTests(unittest.TestCase):
         shown = self.state({**EMULATOR, 'artifact': str(self.base / 'legacy.apk')},
                            media=[{'media_id': 'MEDIA-login', 'kind': 'screenshot', 'role': 'legacy-baseline', 'screen': 'login', 'case_ids': ['C1'], 'ref': self.shot}])
         self.gate(shown, {'visual_mode': 'user-reference', 'baseline_refs': [self.shot]}, [visual])  # the user's screenshot of a running legacy is a baseline too
-        with self.assertRaisesRegex(Rejected, 'legacy runs on android-emulator: capture the screen'):
+        from contracts import carrying
+        with carrying() as gaps:  # owed, not refused: the first version goes on and the gap is reported
             self.gate(emulator, {'visual_mode': 'source-only'})
-        self.gate(emulator, {'visual_mode': 'source-only', 'capture_gap': {'reason': 'the screen needs a paired device', 'evidence_refs': [self.proof]}})
+        self.assertTrue(any('legacy runs on android-emulator: capture the screen' in gap for gap in gaps))
+        with carrying() as gaps:
+            self.gate(emulator, {'visual_mode': 'source-only', 'capture_gap': {'reason': 'the screen needs a paired device', 'evidence_refs': [self.proof]}})
+        self.assertEqual(gaps, [])
         with self.assertRaisesRegex(Rejected, 'contradicts the run statement'):
             self.gate(emulator, {'visual_mode': 'source-only', 'legacy_executable': False})
 
