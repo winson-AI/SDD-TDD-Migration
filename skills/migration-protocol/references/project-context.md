@@ -112,16 +112,20 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 可选 reference_media 数组（元素见 [reference-media.json](../../../template/reference-media.json)），整体替换；prepare 复制并绑定 hash 到 source_refs.reference_media。持有其 CASE 的叶子在分配包 `reference_media` 读到它们并以之为就绪证据。截图是存量不可预览界面的基线：UI 项以 `visual_mode: user-reference` + `baseline_refs` 引用该 CASE 的截图，不得退回 source-only；visual PATH 的 `baseline_ref` 指向它。录屏是功能 PATH 的交互预期，以 `reference_media_ids` 引用。用户展示过的用户可见 CASE 没有 PATH 引用对应媒体即记欠项（已声明设备缺口除外）；报告按媒体列持有叶子、引用 PATH 与状态。role=target-expectation（设计稿、目标截图）在其覆盖的界面取代存量基线作视觉对齐目标，行为仍以存量为准：UI 项以 user-reference 引用它（存量可预览亦然），design 须引用其 media_id；与存量的差异由报告保真限制（target-expectation）披露，不交人；对照它的视觉 Red 走 Fixer，与冻结 SPEC 冲突走 runtime-spec-variant-conflict 交人。
 
+## 存量预览
+
+legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch）、browser（url）或 none（reason）；UI 登记前须声明，prepare 记 artifact 哈希。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
+
 ## 二方库/其他项目模块来源
 
 新增可选 reuse_sources 数组，元素使用 [reuse-source.json](../../../template/reuse-source.json)：source_id、绝对 root、范围内 module_paths、description。目标项目 TARGET 自动作为来源；外部输入仍只读。init/update 保存并按数组替换规则更新，prepare 检查目录/模块可访问并将来源配置固化，旧运行不跟随新配置。prepared_input 输出 reuse_required=true；bind_run 从快照恢复来源，显式不匹配输入被拒绝。源码不全文快照，语义抽取及选中 provider/version 的内容证据另由 Agent 经 Ledger 记录；详见 [复用协议](reuse-dependencies.md)。
 
 ## 独立构建配置
 
-可选 build 保存 argv/cwd/timeout_seconds/environment_ref，用户更新直接按原协议更新，prepare 固化命令与环境文档。没有指定命令时 GO 全目标搜索脚本、默认评估 Gradle assemble。新输入 split_testing_required=true，不能通过缺自动化环境关闭编译门禁。详见 [构建与自动化协议](build-automation.md)。
+可选 build 保存 argv/cwd/timeout_seconds/environment_ref，按原协议更新，prepare 固化命令与环境文档；未指定命令时 GO 搜索构建脚本、默认评估 Gradle assemble。split_testing_required=true，缺自动化环境不能关闭编译门禁。详见 [构建与自动化协议](build-automation.md)。
 
 ## 跨运行经验沉淀与复用
 
 跨 run 的分析/切分经验只经经验库抽象复用，不手工拷入新 Run：
-1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察（切分/边界调整、重规划、修复模式、阻塞与解除依据、一次冻结改交计划或同因被拒三次）；失败为 pending 可重试。配置 `experience_root`（绝对目录）则多工作区共用一库，块名 `<project_id>/<run_id>`。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 Ledger retrospect 或 run-review 的 lessons_ref 提交。每次采集重生成切分技能 `skills/migration-slicing-experience/SKILL.md`（多 run 印证的教训在前，附往次切分形态与未抽象观察，内容变才升版）。run 内定论的 target_resources 与 test_adapter.device 随采集入库，项目配置未声明时下一 Run 的 prepare 取用。
-2. **规划指导**：prepare 仅固化完整抽象经验，原始观察留存供复盘，不臆造根因。本 Run 的不可变 history_refs 纳入通用及关联叶子经验，预检绑定版本。prepare 一并固化切分技能：GO/MO 的登记、全局规划、拆分与接受、上溯和上游修订步骤以游标 slicing_skill 给出，宿主按技能加载，他处不读。收尾的全局游标在有未抽象观察或切分信号（成链、过半等待、界面逻辑分属、一次冻结改交达三次）且尚无复盘时给出 retrospective_due，宿主让统一 Auditor 按 retrospective.json 抽象并提交 retrospect。
+1. **经验沉淀**：收尾审计/父汇总 ACK 从事件采集观察（切分/边界调整、重规划、修复模式、阻塞与解除依据、一次冻结改交计划或同因被拒三次），失败为 pending 可重试；配置 `experience_root`（绝对目录）则多工作区共用一库，块名 `<project_id>/<run_id>`。缺适用条件、根因、策略、结果或下次检查项的观察待 `/sdd-retrospect` 抽象，经 retrospect 或 run-review 的 lessons_ref 提交。每次采集重生成切分技能 `skills/migration-slicing-experience/SKILL.md`（多 run 印证的教训在前，内容变才升版）。run 内定论的 target_resources 与 test_adapter.device 随采集入库，下一 Run 的 prepare 在项目配置未声明时取用。
+2. **规划指导**：prepare 只固化完整抽象经验，原始观察留存供复盘，不臆造根因；本 Run 的不可变 history_refs 纳入通用及关联叶子经验，预检绑定版本。prepare 一并固化切分技能：登记、全局规划、拆分与接受、上溯和上游修订步骤以游标 slicing_skill 给出，宿主按技能加载。收尾的全局游标在有未抽象观察或切分信号（成链、过半等待、界面逻辑分属、一次冻结改交达三次）且尚无复盘时给出 retrospective_due，由统一 Auditor 按 retrospective.json 抽象并提交 retrospect。

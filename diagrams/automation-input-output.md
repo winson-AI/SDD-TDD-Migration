@@ -19,7 +19,7 @@
 
 | 层次 | 输入与样式 | 生成/确认者 | 消费者 |
 | --- | --- | --- | --- |
-| 项目配置 | legacy/target、架构/需求、`test_cases_path`、`test_adapter`、知识、复用来源、参考媒体（存量截图 / 录屏与目标预期，按 CASE 绑定）；JSON + 文件路径 | 用户输入，宿主持久化并 prepare 固化 | GO / 父子 MO |
+| 项目配置 | legacy/target、架构/需求、`test_cases_path`、`test_adapter`、知识、复用来源、参考媒体（存量截图 / 录屏与目标预期，按 CASE 绑定）、存量预览（legacy_preview：设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑）；JSON + 文件路径 | 用户输入，宿主持久化并 prepare 固化 | GO / 父子 MO |
 | 功能与 CASE | 模块功能、REQ/CASE、SPEC 草稿、模块 Testing list | GO 分配，父 MO 按 scope 拆分 | 子 MO / Spec-Designer / Test-Runner |
 | 测试设计 | `stage-plan.paths[]`：稳定 ID、Name、前置、步骤、参数、ASSERT、依赖；`kind=automation`；进程内路径另带 command + unit_report，断言以 test_id 指具名测试；测试源与设备脚本是随计划冻结的 test_assets | Spec-Designer 从 Ledger 骨架写出并随 SPEC 组织，MO 审核冻结 | 执行模式 Test-Runner |
 | 执行授权 | Ledger assignment、`test_scope=automation`、`freeze_id`、`code_baseline`、执行实例；ready 上下文报告（从 Ledger 骨架起笔） | 实际执行实例预检，MO/审计节点接受 | 宿主 `execute_test.py` |
@@ -148,6 +148,7 @@ python3 /work/SDD-TDD-Migration/skills/migration-ledger/scripts/execute_test.py 
 3. 无录制走 Planner；有显式有效录制走 ToolPlayer。回放复用坐标/XPath/动作，但 Verify 仍操作本轮媒体；失败可在剩余预算内触发 Planner 重规划。
 4. Planner 单步调用 Executor、技能/工具或 Verify。Executor 观察页面、操作设备并反馈；压缩上下文、XPath 缓存、工具录制及可选反思支持后续决策。
 5. Verify wrapper 用 ASSERT ID 找回冻结描述与匹配规则，再由内核选择媒体/步骤进行验证。保留单图、双图、跨步骤、参考图、视频能力。
+6. `task_type=snapshot|recording` 是媒体任务：走到终点留稳定终帧或 final.mp4，不调用 Verify、不判定，走不到终点记 needs-review；adapter 以 `media_outcome.json` 产出媒体回执，只供存量捕获与录屏取证。test PATH 带 `record_video` 时强制录屏并把 final.mp4 列入 `media_refs`。
 6. 每次观察立刻写 observations；记录 ASSERT ID、顺序、工具、布尔结果、理由、媒体路径和摘要。
 7. `ObservationSink.report()` 汇总全部观察，生成三态、断言列表、root_cause；附环境快照、媒体/报告/录制引用。最终自然语言文本只作为报告内容。
 

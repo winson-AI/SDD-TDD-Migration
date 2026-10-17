@@ -189,6 +189,8 @@ def plan_check(plan, target, static_required=False, unit_required=False):
     require({p.get('case_id') for p in plan['paths']} ==
             {p.get('case_id') for p in plan['paths'] if p['kind'] == 'automation'},
             'every module case needs an automation path; build/visual cannot cover a business case')
+    require(all(p.get('record_video') in (None, False) or p['record_video'] is True and p['kind'] in ('automation', 'visual') for p in plan['paths']),
+            'record_video is a flag of an automation or visual PATH: the run keeps the walk on film beside the verdict')
     for path in [p for p in plan['paths'] if p.get('kind') == 'visual']:
         # Visual alignment compares named UI-tree nodes against the captured legacy baseline.
         nodes = nonempty(path.get('node_ids'), 'visual path node_ids')

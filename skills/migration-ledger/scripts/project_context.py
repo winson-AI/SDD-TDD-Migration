@@ -20,7 +20,7 @@ from contracts import require, digest, file_ref, check_ref, read_json
 FIELDS = {'package_root', 'legacy_root', 'target_root', 'architecture_path', 'requirements_path',
           'test_cases_path', 'project_rules_path', 'test_adapter', 'runtime', 'human_owner',
           'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources', 'build', 'workspace_root', 'watchdog',
-          'target_resources', 'experience_root', 'reference_media'}
+          'target_resources', 'experience_root', 'reference_media', 'legacy_preview'}
 DOCUMENTS = ('architecture_path', 'requirements_path', 'test_cases_path', 'project_rules_path')
 BUDGETS = {'max_parallel_modules': 5, 'max_fix_rounds': 3, 'max_audit_rounds': 3, 'max_no_progress_rounds': 2,
            'max_yellow_retries': 2}
@@ -95,6 +95,8 @@ def validate(config):
     if 'reference_media' in config:
         import reference_media
         config['reference_media'] = reference_media.configured(config['reference_media'])
+    if config.get('legacy_preview') is not None:
+        config['legacy_preview'] = legacy_preview_config(config['legacy_preview'])
     for key in ('package_root', 'legacy_root', 'target_root', 'workspace_root', 'experience_root') + DOCUMENTS:
         if key in config:
             require(isinstance(config[key], str) and Path(config[key]).is_absolute(), key + ' must be absolute')
@@ -170,6 +172,60 @@ def target_resources(value, target_root=None):
             'target_resources.declined gives the reason for each part the target does not take, and names no part it states')
     result = {key: rules[key](value[key], target_root) for key in rules if key in value}
     return {**result, 'declined': dict(declined)} if declined else result
+
+
+PREVIEW_KINDS = ('android-device', 'android-emulator', 'vm', 'browser', 'none')
+
+
+def legacy_preview_config(value):
+    """How the legacy application is run so its screens can be captured, or why it cannot be: stated once per project."""
+    require(isinstance(value, dict) and value.get('kind') in PREVIEW_KINDS, 'legacy_preview.kind is one of ' + ', '.join(PREVIEW_KINDS))
+    kind = value['kind']
+    text = lambda holder, key: isinstance(holder.get(key), str) and bool(holder[key].strip())
+    if kind == 'none':
+        require(set(value) <= {'kind', 'reason', 'note'} and text(value, 'reason'), 'legacy_preview none states the reason the legacy cannot be run')
+        return dict(value)
+    if kind == 'browser':
+        require(set(value) <= {'kind', 'url', 'note'} and text(value, 'url') and value['url'].startswith(('http://', 'https://', 'file://')),
+                'legacy_preview browser names the url the legacy is served at')
+        return dict(value)
+    require(set(value) <= {'kind', 'app_id', 'device', 'artifact', 'artifact_sha256', 'build', 'launch', 'note'},
+            'legacy_preview takes app_id, device, artifact or build, launch and note')
+    require(text(value, 'app_id'), 'legacy_preview.app_id names the legacy application package')
+    device = value.get('device')
+    require(isinstance(device, dict) and set(device) <= {'serial', 'avd', 'address'} and text(device, 'serial'),
+            'legacy_preview.device names the serial adb sees (avd and address are notes)')
+    require(('artifact' in value) != ('build' in value), 'legacy_preview takes exactly one of artifact (a built package) or build (the command that builds it)')
+    out = dict(value)
+    if 'artifact' in value:
+        require(isinstance(value['artifact'], str) and Path(value['artifact']).is_absolute(), 'legacy_preview.artifact must be an absolute path')
+        out['artifact'] = str(Path(value['artifact']).resolve())
+    else:
+        build = value['build']
+        require(isinstance(build, dict) and set(build) <= {'argv', 'cwd', 'timeout_seconds', 'output'}
+                and isinstance(build.get('argv'), list) and build['argv'] and all(isinstance(a, str) and a for a in build['argv'])
+                and Path(build['argv'][0]).is_absolute() and isinstance(build.get('cwd'), str) and Path(build['cwd']).is_absolute()
+                and type(build.get('timeout_seconds')) is int and build['timeout_seconds'] > 0
+                and isinstance(build.get('output'), str) and Path(build['output']).is_absolute(),
+                'legacy_preview.build takes absolute argv, cwd, timeout_seconds and the absolute output package it produces')
+    require('launch' not in value or text(value, 'launch'), 'legacy_preview.launch names the launch activity')
+    return out
+
+
+def legacy_preview(s):
+    """What the run states about running the legacy application: a provider (android-device/android-emulator/vm/browser),
+    none with its reason, or None while nobody has said."""
+    ref = s.get('project_context_ref')
+    if not ref:
+        return None
+    return (read_json(check_ref(ref)).get('effective_config') or {}).get('legacy_preview')
+
+
+def preview_settled(s, applicable):
+    """Before UI work is registered the run knows whether its legacy screens can be captured: each UI leaf then plans
+    against that fact instead of judging executability per item."""
+    require('UI' not in applicable or legacy_preview(s) is not None,
+            'legacy_preview is not settled: state how the legacy application is run for its screens (android-device, android-emulator, vm or browser), or why it cannot be (none)')
 
 
 def device_verification(s):
@@ -378,6 +434,11 @@ def preflight(record, request):
     reuse.normalize_sources(effective.get('reuse_sources', []), effective['target_root'], existing=True)
     for path in [effective[k] for k in DOCUMENTS if effective.get(k)] + effective.get('knowledge_paths', []) + [row['path'] for row in effective.get('reference_media', [])]:
         file_ref(path)
+    preview = effective.get('legacy_preview') or {}
+    if preview.get('artifact'):
+        file_ref(preview['artifact'])
+    if preview.get('build'):
+        require(Path(preview['build']['cwd']).is_dir(), 'legacy_preview.build.cwd must exist')
     for key in ('build', 'test_adapter'):
         if effective.get(key, {}).get('environment_ref'): file_ref(effective[key]['environment_ref'])
     def verify(value):
@@ -448,6 +509,9 @@ def _prepare(root, run_root, request, actor, storage):
             effective['test_adapter'] = {**(effective.get('test_adapter') or {}), 'device': copy.deepcopy(carried['device'])}
         require(effective.get('architecture_path'), 'architecture_path required before prepare')
         reuse.normalize_sources(effective.get('reuse_sources', []), effective['target_root'], existing=True)
+        preview = effective.get('legacy_preview') or {}
+        if preview.get('artifact'):  # the package the legacy screens are captured from: its hash is the run's, checked when it is installed
+            preview['artifact_sha256'] = file_ref(preview['artifact'])['sha256']
         owner, ownership = check_owner(root, run_root, request, storage, record)
         if not owner.exists():
             atomic(owner, encoded(ownership))

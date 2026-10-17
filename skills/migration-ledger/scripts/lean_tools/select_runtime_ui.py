@@ -36,6 +36,17 @@ def require_file(value: object, label: str) -> Path:
     return path
 
 
+REFERENCE_PLATFORMS = ("android", "harmony", "web")
+
+
+def is_reference(record: object) -> bool:
+    """The legacy reference capture: the historical android-reference/android record, or legacy-reference on any legacy platform."""
+    if not isinstance(record, dict):
+        return False
+    phase, platform = record.get("phase"), record.get("platform")
+    return (phase == "android-reference" and platform == "android") or (phase == "legacy-reference" and platform in REFERENCE_PLATFORMS)
+
+
 def node_facts(path: Path) -> list[dict]:
     try:
         root = ET.fromstring(path.read_text(encoding="utf-8", errors="replace"))
@@ -214,10 +225,8 @@ def select(manifest_path: Path, identities: list[str]) -> dict:
             (
                 item
                 for item in targets
-                if isinstance(item, dict)
+                if is_reference(item)
                 and item.get("mode") == "targeted"
-                and item.get("phase") == "android-reference"
-                and item.get("platform") == "android"
                 and item.get("page_id") == page_id
                 and item.get("state_id") == state_id
                 and item.get("status") == "COMPLETE"
@@ -226,7 +235,7 @@ def select(manifest_path: Path, identities: list[str]) -> dict:
         )
         if match is None:
             raise RuntimeUiError(
-                f"no COMPLETE Android reference for page={page_id} state={state_id}"
+                f"no COMPLETE legacy reference for page={page_id} state={state_id}"
             )
         snapshot = match.get("snapshot")
         if not isinstance(snapshot, dict):

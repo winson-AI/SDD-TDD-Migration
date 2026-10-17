@@ -41,7 +41,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 | `screen-checks` | dimension_analysis_ref | 为尚无检查的图片使用点派生 image 检查并渲染参考，附文本检查建议，渲染不了的列入 unrendered；MO 可用 |
 | `render-reference` | source_index_ref/source_resource/qualifier | 把索引内的存量资源离线渲染为参考栅格（reference.png/json），绑定文件 SHA；Spec-Designer/Test-Runner/Auditor 可用，随声明它的 image_checks 冻结 |
 | `resource-convert` | task_id/resource_item_id + source/destination/source_id/target_ref/consumer，选填 resolve_ref/consumer_tint | 在冻结任务范围内执行 exact_vector_xml、byte_copy 或单项 value_xml_exact；参数须与冻结资源映射一致，其余策略由 Implementer/Fixer 按 SPEC 实现 |
-| `visual-install` / `visual-capture` / `compare-only` / `semantic-inspect` / `image-parity` | 当前 PATH/assignment、冻结 visual_execution、构建/装机/比较引用 | 受限设备安装、捕获、确定性评分、语义比较与图像检查，见[视觉执行](visual-execution.md#2-执行节点)；只产出证据（score 不是 ALIGNED），不写 Ledger、不修 UI、不生成手势事实 |
+| `visual-install` / `visual-capture` / `compare-only` / `semantic-inspect` / `image-parity` / `legacy-capture` | 当前 PATH/assignment、冻结 visual_execution、构建/装机/比较引用；legacy-capture 用存量预览声明 | 受限设备安装、捕获、确定性评分、语义比较、图像检查与存量捕获，见[视觉执行](visual-execution.md#2-执行节点)；只产出证据（score 不是 ALIGNED），不写 Ledger、不修 UI、不生成手势事实 |
 | `import-evidence` | kind/source_ref；UI 另给 target/ui_tree_ref/source_index_ref/runtime_index_ref，选填 resource_scope | 转换 ui/alignment/validation/foundation/resource 原始结果；资源导入另绑定 approved_spec_hash；不提升权限、不自动验收 |
 | `knowledge-query` | mode 为 topics/topic/foundation/external/project；topic 用 topic_id；其余用 query，可选 full(bool) | 查询 bundled 索引、主题、Foundation、Harmony 外部能力候选，或 project：本 run 固化的 knowledge_paths 文档与人工知识答复，按行命中并保留引用与 hash；不加载完整外部技能 |
 | `knowledge-diagnose` | error_ref（path/sha256） | 读取真实日志片段，按原工具 pattern 匹配候选原因和 cookbook；不作根因裁决 |

@@ -285,17 +285,29 @@ def baseline_gate(s, m, allocation=True):
             evidence = ((item.get('semantic_model') or {}).get('ui_evidence')) or {}
             if not evidence:
                 continue  # the evidence itself is owed by allocation_gate; executability is judged once it is there
+            import project_context
+            import reference_media
+            stated = project_context.legacy_preview(s)
             executable = evidence.get('legacy_executable')
+            if stated is not None:  # the run states whether the legacy application runs: executability is that fact, not a judgment per item
+                runs = stated['kind'] != 'none'
+                require(executable is None or executable == runs,
+                        'legacy_executable contradicts the run statement legacy_preview=' + stated['kind'] + ' for ' + item['item_id'])
+                executable = runs
             require(isinstance(executable, bool),
                     'legacy executability must be decided before freeze for ' + item['item_id'])
-            import reference_media
-            if executable:
-                require(evidence.get('visual_mode') == 'runtime' or evidence.get('visual_mode') == 'user-reference' and reference_media.expectation(s, item),
+            mode = evidence.get('visual_mode')
+            if executable and stated is not None and mode == 'source-only':  # the legacy runs on the stated provider: an uncaptured screen says why
+                gap = evidence.get('capture_gap') or {}
+                require(isinstance(gap.get('reason'), str) and gap['reason'].strip() and gap.get('evidence_refs'),
+                        'the legacy runs on ' + stated['kind'] + ': capture the screen (runtime), cite the user screenshots, or declare capture_gap with its reason and evidence for ' + item['item_id'])
+            elif executable:
+                require(mode == 'runtime' or mode == 'user-reference' and (stated is not None or reference_media.expectation(s, item)),
                         'a previewable legacy screen must carry runtime baseline evidence, or align to the user target expectation: ' + item['item_id'])
                 for ref in nonempty(evidence.get('baseline_refs'), 'baseline screenshots for ' + item['item_id']):
                     check_ref(ref)
             else:
-                require(evidence.get('visual_mode') in ('source-only', 'user-reference'),
+                require(mode in ('source-only', 'user-reference'),
                         'a non-previewable legacy screen falls back to source-only, or to the user reference screenshots: ' + item['item_id'])
             reference_media.evidence_gate(s, item, evidence)
     covered = {node for path in visual for node in path.get('node_ids', [])}

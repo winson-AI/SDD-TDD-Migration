@@ -41,6 +41,17 @@ def parse_target(value: str) -> dict[str, str]:
     return {"page_id": page_id, "state_id": state_id, "coverage": coverage}
 
 
+REFERENCE_PLATFORMS = ("android", "harmony", "web")
+
+
+def is_reference(record: object) -> bool:
+    """The legacy reference capture: the historical android-reference/android record, or legacy-reference on any legacy platform."""
+    if not isinstance(record, dict):
+        return False
+    phase, platform = record.get("phase"), record.get("platform")
+    return (phase == "android-reference" and platform == "android") or (phase == "legacy-reference" and platform in REFERENCE_PLATFORMS)
+
+
 def coverage_satisfies(coverage: dict[str, Any], requested: str) -> bool:
     achieved = coverage.get("achieved")
     if requested == "viewport":
@@ -99,9 +110,7 @@ def find_record(records: list[Any], requested: dict[str, str]) -> dict[str, Any]
         (
             record
             for record in records
-            if isinstance(record, dict)
-            and record.get("phase") == "android-reference"
-            and record.get("platform") == "android"
+            if is_reference(record)
             and record.get("page_id") == requested["page_id"]
             and record.get("state_id") == requested["state_id"]
         ),
@@ -130,9 +139,7 @@ def validate_manifest(
             ),
         }
         for record in records
-        if isinstance(record, dict)
-        and record.get("phase") == "android-reference"
-        and record.get("platform") == "android"
+        if is_reference(record)
         and record.get("status") in {"COMPLETE", "SOURCE_ONLY"}
     ]
     if not requested_targets:

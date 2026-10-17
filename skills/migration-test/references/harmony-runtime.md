@@ -24,7 +24,7 @@ Test-Runner 的 Android/Harmony UI/端到端 Main；构建/单测仍用项目 ad
 
 [harmony_design.py](../scripts/harmony_design.py) 在工作流内接受 `--root <run_root> --input <MD或XMind绝对路径> --module M001 --output <run_root>/runs/harmony/sandbox/test-designer/<新请求>`；独立导入可从同样结构的输出路径推导 run_root；XMind 另需 `--config <配置JSON> --app-name <被测应用>`，只运行转换模型，不连设备。输出保留输入摘要/原文、Markdown、XMind 树及 draft-not-executable 候选，不复用过期同名转换或补造验收；设计者补齐 CASE/REQ、参数实例 PATH 与断言时序，审核时对齐全局 ID，冻结后稳定。
 
-使用 [harmony-test-path.json](../../../template/harmony-test-path.json)，冻结 kind=automation、platform=android|harmony、task_type=test；同 CASE 两端分别编号 PATH，旧 PATH 沿用配置平台，缺省 Harmony。每个 assertion：`assertion_id`（唯一稳定）、`expected: true`（下方具体可观测谓词成立，不是"返回 true"）、`description`（来自 SPEC 的非空期望）、`matcher: exact | semantic`（执行器不自动放宽文案匹配）、`verification: one_image_assert | multi_image_assert | cross_step_image_assert | refer_image_assert | video_assert | auto`、`after_step`（在第几个冻结步骤后立即验证，不拖到末尾）。expected=true 须有冻结业务含义，数值/字符串用项目脚本或经 CR 转为谓词；after_step 由步骤回执绑定，业务语义仍须真实模型/设备验证。
+使用 [harmony-test-path.json](../../../template/harmony-test-path.json)，冻结 kind=automation、platform=android|harmony、task_type=test（snapshot/recording 为媒体任务，见 [运行时 README](../runtime/harmony/README.md)）；同 CASE 两端分别编号 PATH，旧 PATH 沿用配置平台。每个 assertion：`assertion_id`（唯一稳定）、`expected: true`（具体谓词成立，不是"返回 true"）、`description`（来自 SPEC 的非空期望）、`matcher: exact | semantic`（不自动放宽）、`verification: one_image_assert | multi_image_assert | cross_step_image_assert | refer_image_assert | video_assert | auto`、`after_step`（第几个冻结步骤后立即验证）。expected=true 须有冻结业务含义，数值/字符串经项目脚本或 CR 转为谓词；after_step 由步骤回执绑定，语义仍须真实设备验证。
 
 ## 2. 宿主配置
 

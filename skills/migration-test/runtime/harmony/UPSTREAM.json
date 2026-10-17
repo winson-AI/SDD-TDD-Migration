@@ -278,15 +278,19 @@
     {
       "path": "AutoTest/layered_agent_cli/decision.py",
       "source_sha256": "545588821426b3b204bb83fb3de328c758008003aba7f0669a9acea97d9c0f72",
-      "vendored_sha256": "00221c1f8a7ec699252cc1e3dc6edfd35578ecd66a3c80c42a20bf857461073e",
+      "vendored_sha256": "d4f9ecab6d7f38a59941e0301578746840f0f895391fc9cae76e223e1fb8b35e",
       "local_changes": [
-        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS.",
+        "Port MobileAgenticOperator 0.3.0 snapshot/recording task types: no verify, stable final frame, kept final.mp4; the outcome is a managed media_outcome.json the SDD adapter reads."
       ]
     },
     {
       "path": "AutoTest/layered_agent_cli/decision_hooks.py",
       "source_sha256": "21c43df62be7483ad5591930e57967d15eaa58e0a9f206c2e0bd6188131a9a70",
-      "vendored_sha256": "21c43df62be7483ad5591930e57967d15eaa58e0a9f206c2e0bd6188131a9a70"
+      "vendored_sha256": "2179caba7ef561209d6523a9b1e7f6e310555694f46a89bcc2e07c46cd1e41b7",
+      "local_changes": [
+        "Port MobileAgenticOperator 0.3.0 snapshot/recording task types: no verify, stable final frame, kept final.mp4; the outcome is a managed media_outcome.json the SDD adapter reads."
+      ]
     },
     {
       "path": "AutoTest/layered_agent_cli/mcp_tools.py",
@@ -450,9 +454,10 @@
     {
       "path": "AutoTest/utils/utils.py",
       "source_sha256": "e574361c6545ace382c431531e051aa82544be10422a80ceb6b91254121dc3d4",
-      "vendored_sha256": "684e79aa81d310221edee84a44bb4e7639f504b8ea745616f323f30a7ed06833",
+      "vendored_sha256": "9920ae8586f590d8a9ff46cec691fdabf045d668d0a0c6e638fa3f8232bcd943",
       "local_changes": [
-        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS.",
+        "Port MobileAgenticOperator 0.3.0 snapshot/recording task types: no verify, stable final frame, kept final.mp4; the outcome is a managed media_outcome.json the SDD adapter reads."
       ]
     },
     {
@@ -515,11 +520,12 @@
     {
       "path": "main.py",
       "source_sha256": "5a2451b6df3f308b780818b79be5e084dd28a3290cafd46e373664118e39835e",
-      "vendored_sha256": "ab199a39b59ebd0b1ba95f3d56301860e792f1869bd946fdb98cf588f6b2aba8",
+      "vendored_sha256": "c289747794be1f4eea76cda8271bc6eac8a3748bee58c4ab75b4352d00aea25b",
       "local_changes": [
         "Route new runtime output into the owning Harmony run; retain historical inputs as read-only sources.",
         "Copy native reference configuration and credentials into the shared run sandbox before execution.",
-        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS.",
+        "Port MobileAgenticOperator 0.3.0 snapshot/recording task types: no verify, stable final frame, kept final.mp4; the outcome is a managed media_outcome.json the SDD adapter reads."
       ]
     },
     {
@@ -625,7 +631,7 @@
     "historical reports/screenshots/memory/knowledge",
     "local environments and lockfile with developer absolute paths",
     "obsolete 0.5.21 wheel (Git LFS pointer)",
-    "MobileAgenticOperator iOS drivers, iOS package maps, facebook-wda, snapshot/recording task modes"
+    "MobileAgenticOperator iOS drivers, iOS package maps, facebook-wda"
   ],
   "local_additions": [
     "AutoTest/storage.py"
@@ -638,7 +644,11 @@
       "android",
       "harmony"
     ],
-    "task_type": "test",
+    "task_type": [
+      "test",
+      "snapshot",
+      "recording"
+    ],
     "strategy": "Add Android drivers; port shared platform dispatch and explicit test branch onto the existing SDD evidence/storage fork. Other shared test/verify engines are retained.",
     "source_files": [
       {

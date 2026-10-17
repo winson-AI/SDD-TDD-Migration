@@ -20,6 +20,14 @@ def reference(value, base):
     return ref
 
 
+CANDIDATE_PHASES = {'harmony': 'harmony-candidate', 'android': 'android-candidate'}
+
+
+def is_candidate(record):
+    """A capture of the candidate build on either target platform; the reference is always the legacy (android-reference)."""
+    return isinstance(record, dict) and record.get('phase') == CANDIDATE_PHASES.get(record.get('platform'))
+
+
 def source_record(evidence, coverage):
     require(isinstance(evidence, dict) and evidence.get('visual_mode') in ('runtime', 'user-reference')
             and evidence.get('coverage') == coverage,
@@ -180,7 +188,7 @@ def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, 
     manifest_ref = report.get('manifest_ref')
     manifest = read_json(check_ref(manifest_ref))
     page, state, _ = path['coverage'].split(':')
-    candidates = [r for r in manifest.get('targets', []) if r.get('phase') == 'harmony-candidate' and r.get('platform') == 'harmony'
+    candidates = [r for r in manifest.get('targets', []) if is_candidate(r)
                   and r.get('page_id') == page and r.get('state_id') == state and r.get('round') == report.get('capture_round')
                   and r.get('status') == 'COMPLETE']
     require(len(candidates) == 1, 'one executed candidate capture required for the reported round')
@@ -243,8 +251,8 @@ def validate_alignment(result, target_root, coverage, *, frozen_evidence, code_b
         match_source(manifest_ref, frozen_evidence, coverage)
         manifest = read_json(check_ref(manifest_ref))
         capture_round = row.get('capture_round', round_id)
-        candidates = [r for r in manifest['targets'] if r.get('phase') == 'harmony-candidate'
-                      and r.get('platform') == 'harmony' and r.get('page_id') == page and r.get('state_id') == state
+        candidates = [r for r in manifest['targets'] if is_candidate(r)
+                      and r.get('page_id') == page and r.get('state_id') == state
                       and r.get('round') == capture_round and r.get('status') == 'COMPLETE']
         require(len(candidates) == 1, 'one executed candidate capture required per selected round')
         hap_ref = reference(row['hap'], target_root)

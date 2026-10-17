@@ -74,6 +74,7 @@ def collect(s):
                 pass
         judge('RUN', 'project-context', lambda: project_context.transfer_settled(s, applicable))
         judge('RUN', 'project-context', lambda: project_context.device_settled(s, applicable))
+        judge('RUN', 'project-context', lambda: project_context.preview_settled(s, applicable))
         for mid, m in s['modules'].items():
             if m.get('plan'):
                 judge(mid, 'plan', lambda: user_paths.plan_gate(m, m['plan']))

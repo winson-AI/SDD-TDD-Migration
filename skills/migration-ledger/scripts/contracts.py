@@ -299,6 +299,19 @@ def authoring_diagnostics(d):
         check_ref(item['source_ref'])
 
 
+MEDIA_KINDS = ('screenshot', 'recording')
+
+
+def media_evidence(value, within=None):
+    """Media a test kept beside its verdict: hash-bound files of known kinds inside the execution output; evidence, never a quality."""
+    require(isinstance(value, list) and all(isinstance(m, dict) and m.get('kind') in MEDIA_KINDS and isinstance(m.get('ref'), dict) for m in value),
+            'media_refs are {kind: screenshot|recording, ref} rows')
+    for m in value:
+        path = check_ref(m['ref'])
+        require(within is None or path.resolve().is_relative_to(Path(within).resolve()), 'media evidence outside the execution output')
+    return [{'kind': m['kind'], 'ref': {'path': m['ref']['path'], 'sha256': m['ref']['sha256']}} for m in value]
+
+
 def validate_result(result, module, assignment, run_root=None):
     require(result.get('schema_version') == 1, 'unsupported result schema')
     for field in ('run_id', 'module_id', 'assignment_id'):
@@ -392,6 +405,8 @@ def validate_result(result, module, assignment, run_root=None):
             require(record.get('retest_of') == previous['test_run_id'], 'missing non-Green/stale retest chain')
             require(record.get('test_run_id') != previous['test_run_id'], 'retest must be a new run')
         require(record.get('test_run_id'), 'test_run_id required')
+        if record.get('media_refs') is not None:  # what the run kept on film or in a frame: beside the verdict, inside the run
+            media_evidence(record['media_refs'], Path(run_root) / 'runs' if run_root else None)
         if quality != 'green-passed':
             cause = record.get('root_cause', {})
             require(all(cause.get(k) for k in ('category', 'summary', 'confidence', 'owner', 'next_action')), 'root cause/owner required')

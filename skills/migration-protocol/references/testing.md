@@ -18,7 +18,7 @@ prepare 的 test_design_required=true 表示必需的测试输入与覆盖，不
 
 新 prepare 固化 planning_coverage_required。每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids；已有执行器可复用，prepared 须对应资产，deferred 另记 owner/next_action，解决后才能冻结；测试准备不执行目标代码。叶子验收的用户可见 CASE（适用 UI item 承载）须有设备或视觉 PATH：visual，或绑定 android/harmony 平台、交互的 automation；确无可能的写 plan.device_gaps[{case_id,reason,evidence_refs}]：build 可 Green，该 CASE 的 automation 与模块、本轮记 Yellow，以 completed-with-unverified-tests 收尾；环境缺失不是缺口，走缺测出口。登记 UI 分配前 run 须对 `test_adapter.device` 定论（`{platforms}` 或 `{unavailable: 原因}`，经 run 修订写入）；unavailable 时未达设备路径的用户可见 CASE 由 Ledger 按该原因记缺口。
 
-test_assets 交 script/fixture/adapter/test-source 的 asset_id/ref/path_ids，script 再映射 assertions；文件位于 design_ref 同级 staging 内，冻结 definitions 绑定 hash。骨架为无设备或非界面的 CASE 起稿进程内功能测试，为有设备且绑定 UI 树的 CASE 起稿 script 资产（选择器取节点 id，作者写操作与断言，预检批准入口）；报告分列脚本驱动的设备路径及其 flaky。test-source 是从 SPEC 写出、随计划冻结的测试源文件：记 target_path、required_test_ids（文件须定义）、scenarios（逐测试对应 SPEC 的 Scenario-ID）与 symbols；绑定的 unit PATH 只要求它定义的测试；Implementer 原样落到 target_path，hash 不等即拒，改测试走 CR；execute_test 执行前核对文件并写回执 frozen_test_sources。模块、修复后复测及 GLOBAL 复测共用 PATH 资产解析，query/receipt 的 test_asset_binding 保留来源模块、freeze_id、test_design_ref。GLOBAL 自有路径显式绑定本 GLOBAL 的 test_design_ref/设计作者，不借用模块资产；作者不能兼 Auditor/审计 Test-Runner。
+test_assets 交 script/fixture/adapter/test-source 的 asset_id/ref/path_ids，script 再映射 assertions；文件位于 design_ref 同级 staging 内，冻结 definitions 绑定 hash。骨架为无设备或非界面的 CASE 起稿进程内功能测试，为有设备且绑定 UI 树的 CASE 起稿 script 资产（选择器取节点 id，作者写操作与断言）；报告分列脚本驱动的设备路径及其 flaky。test-source 是从 SPEC 写出、随计划冻结的测试源：记 target_path、required_test_ids（文件须定义）、scenarios（逐测试对应 SPEC 的 Scenario-ID）与 symbols；绑定的 unit PATH 只要求它定义的测试；Implementer 原样落到 target_path，hash 不等即拒，改测试走 CR；execute_test 执行前核对并写回执 frozen_test_sources。模块、修复后复测及 GLOBAL 复测共用 PATH 资产解析，query/receipt 的 test_asset_binding 保留来源模块、freeze_id、test_design_ref；GLOBAL 自有路径绑定本 GLOBAL 的 test_design_ref/设计作者，不借模块资产，作者不能兼 Auditor/审计 Test-Runner。
 
 执行器从 SDD_TEST_QUERY_FILE 读 query（非 build/unit 同时带 --query-file），资产位于 frozen_test_assets；script/adapter 作为 argv 参数由 Host 记 entrypoint_ids，其他消费由执行器向 SDD_TEST_ASSET_USAGE_FILE 写 [{asset_id,ref}]。Green 须覆盖所选资产（test-source 以文件 hash 与 JUnit 必需 ID 为证），哈希/来源不能变；提供不等于消费，上报不证明断言语义。
 
@@ -78,13 +78,13 @@ unit 冻结 argv/cwd/timeout/selection_ref。unit_report 固定 format=junit、r
 
 解析 testcase/计数，保存具体 ID、执行/失败/跳过数量与报告 hash，绑定 run/module/PATH/assignment/test_run/freeze/code_baseline，接受时重核原报告。exit=0、实际执行非零、全部必需 ID 通过、无跳过/证据缺口才 Green。零执行、漏测、缺失/损坏/过期报告为 Yellow；断言失败或非环境中断的命令失败为 code Red，走既有诊断/Fixer。只收本 attempt 的新报告，旧 mtime/越界链接无效；任意可写 XML 的真实性仍依赖可信宿主执行。
 
-冻结同一命令的 unit PATH 由 execute_test 以 `--path-id a,b` 一次执行，JUnit 按各自 required_test_ids 拆成逐 PATH 回执。作者的 `selfcheck --path-id` 记下每个 required 测试的状态，实现前后两份记录是任务的 red 证据，只进报告不设门禁。进程内功能测试：kind=automation 的 PATH 带 command 与 unit_report 时按冻结命令执行、JUnit 归因，每条断言 expected=true 并以 test_id 指一个 required 测试，逐断言给 pass/fail；它在 automation 派发里跑，不算设备路径。prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据。unit 无需设备，可证明逻辑 Scenario，但不替代 CASE 的 automation；环境缺失保留已通过 unit。枚举与唯一性类断言（键只定义一次、无多余键）挂扫描类进程内路径，不挂 unit。
+冻结同一命令的 unit PATH 由 execute_test 以 `--path-id a,b` 一次执行，JUnit 按各自 required_test_ids 拆成逐 PATH 回执。作者的 `selfcheck --path-id` 记每个 required 测试的状态，实现前后两份记录是任务的 red 证据，只进报告不设门禁。进程内功能测试：kind=automation 的 PATH 带 command 与 unit_report 时按冻结命令执行、JUnit 归因，每条断言 expected=true 并以 test_id 指一个 required 测试，逐断言 pass/fail；在 automation 派发里跑，不算设备路径。prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据。unit 无需设备，证明逻辑 Scenario，不替代 CASE 的 automation；环境缺失保留已通过 unit。枚举与唯一性断言（键只定义一次、无多余键）挂扫描类进程内路径，不挂 unit。
 
 ## 日志与按需追溯
 
 execute_test 在 runner 持续写 stdout.log/stderr.log（原始字节）、execution.log（带采集时间/stream）、output-events.jsonl（序号/字节位置），execution-state.json 绑定本 attempt 身份、输出量及完整性；采集顺序不表示跨 stream 的因果。超时/取消标记不完整，硬终止可能只留下 running，须宿主核查，不自动重跑。receipt.capture 固化引用，提交时归档。
 
-恢复/诊断先读当前模块状态和 trace 摘要，完整日志、历史轮次、媒体按需读取，不自动装入下次上下文。以下 trace.py 位于 skills/migration-ledger/scripts；命令只读、不刷新投影或拿业务锁：
+恢复/诊断先读当前模块状态和 trace 摘要，完整日志、历史轮次、媒体按需读取，不自动装入下次上下文。trace.py 位于 skills/migration-ledger/scripts，只读、不刷新投影或拿锁：
 
 ```sh
 python3 <package>/skills/migration-ledger/scripts/trace.py query --root <run> --module M001 --scenario-id SCN-M001-query
@@ -93,7 +93,7 @@ python3 <package>/skills/migration-ledger/scripts/trace.py evidence --root <run>
 python3 <package>/skills/migration-ledger/scripts/trace.py live --root <run> --module M001 --attempt <本run/runner> --stream stderr --offset 0 --bytes 1024
 ```
 
-query 还支持 --task-id/--assertion-id/--test-id，默认最多5条，仅失败附1024字节日志尾；列表/长字段截断，按 next_offset 翻页。读取事件索引对应的归档，当前源码改变不破坏旧证据；缺损显示 evidence_issues，历史 Green 不表示当前有效。evidence 仅读取已提交文本证据，每次最多4096字节，媒体保留引用。live 仅供 Host 观察，accepted=false，不能作为跨 Agent 验收输入。<run> 为 .sdd-runs/<run_id>；输出到 stdout，不产生新状态库。
+query 还支持 --task-id/--assertion-id/--test-id，默认最多5条，仅失败附1024字节日志尾，长字段截断、按 next_offset 翻页；读事件索引对应的归档，源码改变不破坏旧证据，缺损显示 evidence_issues，历史 Green 不表示当前有效。evidence 只读已提交文本证据，每次最多4096字节，媒体保留引用；live 仅供 Host 观察（accepted=false），不作跨 Agent 验收输入。<run> 为 .sdd-runs/<run_id>，输出到 stdout，不产生新状态库。
 
 ## 静态规格闭合
 
@@ -112,9 +112,9 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 ## Harmony Main
 
-已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核：输入完整冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频时间映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow，不以自然语言判断通过。harmony_stage 把 host receipts 汇成 tests stage，Ledger 双重校验媒体 hash 与捕获三态；超时终止整个进程组并保存已有输出。
+已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核：输入冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow。harmony_stage 把 host receipts 汇成 tests stage，Ledger 复验媒体 hash 与三态；超时终止进程组并保存已有输出。automation/visual PATH 可声明 `record_video: true`：回执的 final.mp4 以 `media_refs`（hash 绑定、须在执行输出内）随结果入 Ledger，报告逐 PATH 列出，diagnose/Fixer 步骤带非 Green 路径的媒体；只是证据，不改三态。
 
-Harmony 不自动生成结构化 interaction_evidence：有 frozen_interaction 的 automation 只有 Green 断言而缺这份证据时，test_completion 保留断言与媒体，记 executed=true 的 Yellow tooling / interaction-evidence-unavailable，submit/accept 同一解释；已观察到的 Red 保持 Red，不从 expected 或自然语言合成 observed。Test-Runner 在预检中说明能力缺口，换具备能力的 adapter 或走缺测出口。
+Harmony 不自动生成结构化 interaction_evidence：有 frozen_interaction 的 automation 只有 Green 断言而缺这份证据时，test_completion 保留断言与媒体，记 executed=true 的 Yellow tooling / interaction-evidence-unavailable；已观察到的 Red 保持 Red，不从 expected 或自然语言合成 observed。Test-Runner 在预检说明能力缺口，换 adapter 或走缺测出口。
 
 ## 分阶段唯一验收 owner
 

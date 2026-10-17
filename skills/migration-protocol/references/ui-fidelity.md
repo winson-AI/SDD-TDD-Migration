@@ -26,15 +26,15 @@ GO/父 MO 分配时保留全部源状态；Spec-Designer 冻结前区分两类�
 
 `ui-component-spec` 模型携带 `ui_evidence`，随冻结经 [semantics.py](../../migration-ledger/scripts/semantics.py) 结构校验；证据与采集器产物（参数表、UI 树与索引）以引用进入计划，重提只改引用：
 
-`ui_evidence` 字段：`capture_manifest_ref`、`source_index_ref`、`runtime_index_ref`（source-only 不提供）、`ui_tree_ref`（合并 source+runtime 的 UI 树）、`coverage`（page:state:coverage）、`legacy_executable`（冻结前判定存量能否预览）、`visual_mode`（runtime ⟺ 可预览，须与树的 runtimeIndex 一致；user-reference 见下表）、`baseline_refs`（存量截图，source-only 省略）与可选 `resource_scope`；同一模型可带 `interactions`、`image_checks` 与 `image_check_waivers`。示例见 [semantic-model.json](../../../template/semantic-model.json)。
+`ui_evidence` 字段：`capture_manifest_ref`、`source_index_ref`、`runtime_index_ref`（source-only 无）、`ui_tree_ref`（合并 source+runtime 的树）、`coverage`（page:state:coverage）、`legacy_executable`（冻结前判定存量能否预览）、`visual_mode`（runtime ⟺ 可预览，须与树的 runtimeIndex 一致；user-reference 见下表）、`baseline_refs`（存量截图，source-only 省略）与可选 `resource_scope`；同一模型可带 `interactions`、`image_checks` 与 `image_check_waivers`。示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
 `ui_tree_ref` 与 `baseline_refs` 归档进 artifacts、hash 冻结。Spec-Designer 经受限 analyze-ui/validate-ui 产出树与索引，保留原始 manifest 引用；截图来自宿主授权的 Android capture。树通过不等于源闭包完整，MO 仍核对 renderer、分支和范围。
 
-runtime 证据须有原始 capture_manifest_ref，runtime index 的 manifestSha 绑定它；page/state/coverage 唯一匹配 Android COMPLETE 记录，重算 capture 与 index 一致，baseline_refs 恰为该 capture 的截图集合；共享 manifest/index 的其他目标独立处理。source-only 经同一原生 source/tree 校验，manifest 可省略，提供则该目标须为 SOURCE_ONLY，不得带 runtime index、观察或 baseline。
+runtime 证据须有原始 capture_manifest_ref，runtime index 的 manifestSha 绑定它；page/state/coverage 唯一匹配存量 COMPLETE 参考记录，重算 capture 与 index 一致，baseline_refs 恰为该 capture 的截图集合；共享 manifest/index 的其他目标独立处理。source-only 经同一 source/tree 校验，manifest 可省略，提供则该目标须为 SOURCE_ONLY，不得带 runtime index 或 baseline。
 
 ## 强制开关
 
-prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-ledger/scripts/ui_fidelity.py) 只约束 applicable UI，无 UI/有证据的 N/A 不新增空任务：每个 applicable UI item 的 `ui-component-spec` 模型与 `ui_evidence` 是冻结前欠项（`semantics.ui_fidelity_gaps` 列缺口，DoD 前结清；无设备的 run 不要求），有证据的条目已判定存量可执行性；资源闭包不得缩减，[复制清单与参数表](resource-transfer.md#总则)与证据重算一致；`source_closure.ui_renderers` 必填；有基线的目标必须有 visual 路径，树上每处静态图片有图像检查或豁免。
+prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-ledger/scripts/ui_fidelity.py) 只约束 applicable UI：每个 item 的 `ui-component-spec` 模型与 `ui_evidence` 是冻结前欠项（`semantics.ui_fidelity_gaps` 列缺口，DoD 前结清；无设备的 run 不要求）；资源闭包不得缩减，[复制清单与参数表](resource-transfer.md#总则)与证据重算一致；`source_closure.ui_renderers` 必填；有基线的目标须有 visual 路径，每处静态图片有图像检查或豁免。
 
 ## 基线前移：截图指导实现，而非事后比对
 
@@ -42,11 +42,11 @@ prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-le
 
 | 判定 | `ui_evidence` | 作用 |
 |---|---|---|
-| **存量可预览** | `legacy_executable: true` + `visual_mode: runtime` + `baseline_refs`（存量截图） | 截图**指导 SPEC 生成与 Implementer coding**；后续作视觉对齐基线 |
-| **存量不可预览** | `legacy_executable: false` + `visual_mode: source-only` | 回退保留 UI 源码，但**仍强制走四维 UI 中间表征层**（`ui-component-spec` + `ui_tree`）指导 coding；无基线，不伪造视觉通过 |
-| **用户参考** | `visual_mode: user-reference` + `baseline_refs`（[用户参考媒体](project-context.md#用户参考媒体)中该 CASE 的截图；legacy-baseline 限存量不可预览） | 用户截图指导 SPEC 与 coding，并作视觉对齐基线 |
+| **存量可预览** | `visual_mode: runtime` + `baseline_refs`（存量截图）；`legacy_executable` 随 [存量预览](project-context.md#存量预览) 声明，未捕获界面以 `capture_gap` 披露 | 截图**指导 SPEC 生成与 Implementer coding**；后续作视觉对齐基线 |
+| **存量不可预览** | `visual_mode: source-only`（legacy_preview=none） | 回退保留 UI 源码，但**仍强制走四维 UI 中间表征层**（`ui-component-spec` + `ui_tree`）指导 coding；无基线，不伪造视觉通过 |
+| **用户参考** | `visual_mode: user-reference` + `baseline_refs`（[用户参考媒体](project-context.md#用户参考媒体)中该 CASE 的截图） | 用户截图指导 SPEC 与 coding，并作对齐基线 |
 
-未判定可执行性 → 不能冻结。实现接受时 conformance 用 `baseline_conformance` 引用指导 coding 的基线或中间表征（runtime/user-reference→`baseline_refs`；source-only→`ui_tree_ref`）。
+实现接受时 conformance 用 `baseline_conformance` 引用指导 coding 的基线或中间表征（runtime/user-reference→`baseline_refs`；source-only→`ui_tree_ref`）。
 
 ## 视觉对齐 = automation 第二层（不是独立阶段）
 

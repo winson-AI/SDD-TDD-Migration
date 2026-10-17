@@ -97,6 +97,9 @@ def interpret(receipt, planned):
     if valid:
         row = copy.deepcopy({k: report[k] for k in ('quality', 'assertions', 'root_cause', 'flaky', 'skipped', 'xfail', 'visual_alignment', 'interaction_evidence', 'build_artifacts', 'unit_execution', 'step_trace_ref') if k in report})
         row.update(executed=True, host_completion_version=1)
+        if report.get('media_refs') is not None:  # the recording or frame the adapter kept: hash-bound, inside its own output
+            from contracts import media_evidence
+            row['media_refs'] = media_evidence(report['media_refs'], Path(check_ref(receipt['result_ref'])).parent)
         if report['producer'] == 'harmony-adapter':
             complete = (not abnormal and not step_issues and all(a.get('actual') is not None for a in assertions)
                         and isinstance(observations, list) and all(not e.get('error') for e in observations))

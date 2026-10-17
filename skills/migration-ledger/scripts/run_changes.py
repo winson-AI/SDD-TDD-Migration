@@ -10,7 +10,7 @@ import workflow
 import control_policy
 
 OPS = {'run-review', 'revise-run'}
-CONFIG_KEYS = {'architecture_path', 'knowledge_paths', 'project_rules_path', 'build', 'test_adapter', 'runtime', 'target_resources'}
+CONFIG_KEYS = {'architecture_path', 'knowledge_paths', 'project_rules_path', 'build', 'test_adapter', 'legacy_preview', 'runtime', 'target_resources'}
 ROOT_KEYS = set(decomposition.ALLOCATION_KEYS) | {'module_id', 'dependencies'}
 CONTRACT_KEYS = {'requirement_ids', 'case_ids', 'global_paths'}
 RETIREMENT_KEYS = {'requirement': 'requirement_ids', 'case': 'case_ids', 'global-path': 'global_paths'}

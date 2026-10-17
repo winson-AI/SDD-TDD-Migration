@@ -220,8 +220,7 @@ def capture_target(capture_ref, coverage):
     manifest = read_json(check_ref(capture_ref))
     try:
         target = validate_manifest.parse_target(coverage)
-        records = [record for record in manifest.get('targets', []) if isinstance(record, dict)
-                   and record.get('phase') == 'android-reference' and record.get('platform') == 'android'
+        records = [record for record in manifest.get('targets', []) if validate_manifest.is_reference(record)
                    and record.get('page_id') == target['page_id'] and record.get('state_id') == target['state_id']]
         require(len(records) == 1, 'capture target must be unique')
         validate_manifest.validate_manifest(manifest, [target])

@@ -23,6 +23,7 @@ class DecisionHooks(RunHooks):
             report_generator: ReporterAbs = None,
             tool_recorder: ToolRecorder = None,
             task: str = "",
+            require_verify: bool = True,
     ):
         """
         Initialize DecisionHooks.
@@ -48,6 +49,7 @@ class DecisionHooks(RunHooks):
         self.device = device
         self._last_tool_name = None
         self._last_tool_args = None
+        self._require_verify = require_verify  # snapshot/recording walk a path and judge nothing
         self._verify_called = False
         self._premature_conclusion_count = 0
 
@@ -221,7 +223,7 @@ class DecisionHooks(RunHooks):
         # 检测任务结项但未调用verify工具的情况
         # 如果模型输出"任务结果: 通过/不通过"且从未调用过verify工具，
         # 则注入一个summary工具调用，强制循环继续并提示模型先验证
-        if not self._verify_called and self._premature_conclusion_count < 2:
+        if self._require_verify and not self._verify_called and self._premature_conclusion_count < 2:
             has_tool_calls = any(
                 isinstance(item, ResponseFunctionToolCall) for item in response.output
             )

@@ -1,8 +1,9 @@
+import asyncio
 import json
 import os
 import functools
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from ..logger import logger
 
@@ -69,6 +70,42 @@ def retry_on_exception(max_retries=3, delay=1, backoff=2, exceptions=(Exception,
         return wrapper
 
     return decorator
+
+
+async def capture_stable_snapshot(
+        device,
+        report_generator,
+        interval: float = 1.0,
+        max_attempts: int = 8,
+) -> Optional[str]:
+    """Poll screenshots until two consecutive captures are pixel-identical, then
+    save that frame as the task's final snapshot artifact.
+
+    Used by the "snapshot" task type to avoid capturing a mid-animation or
+    still-loading frame as the deliverable. If the screen never settles within
+    max_attempts, the last captured frame is saved anyway (best effort) so
+    there's still something for manual review.
+
+    Returns:
+        The saved snapshot file path, or None if no screenshot could be captured.
+    """
+    previous = None
+    for attempt in range(max_attempts):
+        shot = device.get_screenshot(save_to_report=False)
+        if previous is not None and shot.base64_data == previous.base64_data:
+            logger.info(f"[capture_stable_snapshot] Screen stable after {attempt} check(s)")
+            return report_generator.save_screenshot(
+                shot.base64_data, layout_data=shot.layout_data, prefix="final_snapshot"
+            )
+        previous = shot
+        await asyncio.sleep(interval)
+
+    logger.warning(f"[capture_stable_snapshot] Screen never stabilized within {max_attempts} attempts, saving last frame")
+    if previous is not None:
+        return report_generator.save_screenshot(
+            previous.base64_data, layout_data=previous.layout_data, prefix="final_snapshot"
+        )
+    return None
 
 
 def filter_images_from_message(message: Dict[str, Any]) -> Dict[str, Any]:

@@ -1,0 +1,8 @@
+{
+  "kind": "android-emulator",
+  "app_id": "com.example.legacy",
+  "device": {"serial": "emulator-5554", "avd": "{{avd-name-the-host-boots}}"},
+  "artifact": "{{absolute-prebuilt-apk-path}}",
+  "launch": "{{launch-activity-or-omit}}",
+  "note": "artifact 可换成 build {argv, cwd, timeout_seconds, output}；kind=android-device|vm 同形；kind=browser 只带 url；kind=none 只带 reason"
+}

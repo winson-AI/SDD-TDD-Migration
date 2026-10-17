@@ -14,7 +14,7 @@ sys.dont_write_bytecode = True
 import ui_evidence as ue
 import semantics
 from contracts import check_ref, file_ref, nonempty, read_json, require, Rejected
-from lean_tools import finalize_alignment, resource_tool
+from lean_tools import finalize_alignment, resource_tool, validate_manifest
 import knowledge_gate
 from types import SimpleNamespace
 
@@ -200,15 +200,15 @@ def validation_summary(validation_result, *, target_root=None, result_ref=None):
             require(all(c.get('status') == 'passed' for c in checks), 'success contradicts incomplete/failed checks')
             require(all(isinstance(c, dict) and c.get('status') == 'passed' and c.get('scenario') and c.get('evidence')
                         for c in nonempty(validation_result.get('spec_checks'), 'spec checks')), 'spec review incomplete')
-            nonempty(validation_result.get('artifacts'), 'current HAP/HSP artifacts')
+            nonempty(validation_result.get('artifacts'), 'current HAP/HSP/APK artifacts')
         if verdict == 'NEEDS_IMPLEMENTATION_FIX':
             require(all(isinstance(issue, dict) and issue.get('owner') in ('lean', 'resource')
                         for issue in nonempty(validation_result.get('issues'), 'actionable implementation issues')),
                     'implementation issues require lean/resource owner')
         validation_result = copy.deepcopy(validation_result)
         validation_result['artifacts'] = [normalize_ref(r, target_root) for r in validation_result.get('artifacts', [])]
-        require(all(Path(r['path']).suffix.lower() in ('.hap', '.hsp') for r in validation_result['artifacts']),
-                'native build artifact must be HAP/HSP')
+        require(all(Path(r['path']).suffix.lower() in ('.hap', '.hsp', '.apk') for r in validation_result['artifacts']),
+                'native build artifact must be HAP/HSP/APK')
         if verdict == 'RUNNABLE_PARTIAL':
             visual = validation_result.get('visual_evidence') or {}
             require(visual.get('mode') == 'source-only' and validation_result.get('issues'),
@@ -219,7 +219,7 @@ def validation_summary(validation_result, *, target_root=None, result_ref=None):
                 for t in visual.get('targets', []) if isinstance(t, dict)})[0])
             for target in nonempty(visual.get('targets'), 'source-only targets'):
                 require(isinstance(target, dict) and target.get('page_id') and target.get('state_id'), 'source-only target invalid')
-                require(any(r.get('phase') == 'android-reference' and r.get('platform') == 'android'
+                require(any(validate_manifest.is_reference(r)
                             and r.get('page_id') == target['page_id'] and r.get('state_id') == target['state_id']
                             and r.get('status') == 'SOURCE_ONLY' and r.get('snapshot') is None
                             for r in manifest.get('targets', [])), 'partial verdict has no matching SOURCE_ONLY capture')
@@ -285,7 +285,7 @@ def capture_evidence(manifest_ref, selected=None):
                     ref = normalize_ref(record[field], path.parent)
                     refs[ref['path']] = ref
                     if field == 'screenshot': shots[ref['path']] = ref
-        if target.get('phase') == 'android-reference' and target.get('platform') == 'android' and target.get('status') == 'COMPLETE':
+        if validate_manifest.is_reference(target) and target.get('status') == 'COMPLETE':
             key = (target['page_id'], target['state_id'])
             require(key not in references, 'ambiguous Android reference capture')
             references[key] = list(shots.values())
@@ -375,10 +375,11 @@ def comparison_evidence(result, target_root, coverage):
     def shot(r, phase, index):
         manifest = normalize_ref(r['capture_manifest'], target_root)
         targets = read_json(check_ref(manifest))['targets']
-        matches = [t for t in targets if t.get('page_id') == page and t.get('state_id') == state
-                   and t.get('phase') == phase and t.get('status') == 'COMPLETE'
-                   and t.get('platform') == ('android' if phase == 'android-reference' else 'harmony')
-                   and (phase == 'android-reference' or t.get('round') == r.get('capture_round', r['round']))]
+        import visual_evidence
+        reference = phase == 'android-reference'  # the legacy; a candidate is the target build on either platform
+        matches = [t for t in targets if t.get('page_id') == page and t.get('state_id') == state and t.get('status') == 'COMPLETE'
+                   and (validate_manifest.is_reference(t) if reference else visual_evidence.is_candidate(t))
+                   and (reference or t.get('round') == r.get('capture_round', r['round']))]
         require(len(matches) == 1 and matches[0].get('observed_variant') == state,
                 'comparison capture must identify one matching observed target/round')
         captures = [c for c in matches[0].get('snapshot', {}).get('captures', []) if c.get('index') == index]
