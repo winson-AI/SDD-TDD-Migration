@@ -83,7 +83,7 @@ def overview():
     d=Diagram('workflow',2320,'01','三层编排 · 迁移总览','scope / 全量 CASE → TASK / 四维 → SPEC 冻结 → 任务执行与反馈调整 → 统一宿主 Auditor')
     d.box(100,190,1020,140,'用户输入 → 项目上下文固化',[
         '规范 / 新架构 / 存量与目标代码 / 知识 / 测试用例 / 复用来源 / 参考截图与录屏',
-        '宿主 init / update 配置；prepare 固化本轮快照'], 'gray')
+        '宿主 init / update 配置（含存量怎样跑）；prepare 固化本轮快照'], 'gray')
     d.arrow([(610,330),(610,425)])
     d.band(60,365,1100,230,'GO  ·  全局规划','全局管理迁移、DAG、锁与依赖')
     d.box(100,425,1020,165,'GO · 功能覆盖 → 划 scope / 分配全量 CASE',[
@@ -175,7 +175,7 @@ def module_execution():
     d.arrow([(800,940),(800,1010)])
     d.box(550,1010,500,180,'Test-Runner · 正式验证',[
         'build → unit（同命令一次）→ static，同一派发',
-        '另派 automation：进程内 JUnit / 设备，逐 PATH',
+        '另派 automation：JUnit / 设备（可录屏），逐 PATH',
         '适用时另派 visual；原始回执 / 媒体 / 根因',
         '执行证据经 Ledger → MO 验收'])
     d.arrow([(800,1190),(800,1245)])
@@ -190,7 +190,7 @@ def module_execution():
     d.arrow([(955,1310),(1110,1310)],'orange');d.label(1030,1290,'非 Green','orange')
     d.box(1110,1220,410,180,'现有诊断 → MO 分流',[
         '按根因在派修复前选控制分支',
-        'Diagnostician 只读；轻量叶子沿自诊断',
+        'Diagnostician 只读，带失败路径的媒体',
         '未决 / 环境 / 预算沿既有恢复',
         '不增加前置规划轮次'], 'orange',True)
     # One classified diagnosis feeds three distinct control branches.
@@ -254,7 +254,7 @@ def module_execution():
         'API / URL / image / icon 来源追溯',
         '文件资源按清单复制并核对引用',
         'XML / 图层 / 代码取值按参数表复用',
-        '存量基线 / 用户截图或目标预期 / 中间表征',
+        '存量捕获基线 / 用户截图或预期 / 中间表征',
         '真实证据验证，不以 build 替代'], 'gray')
     d.box(1110,190,410,130,'冻结与执行门禁',[
         'SPEC 未冻结不生成代码',

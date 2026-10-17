@@ -17,7 +17,7 @@ def automation_flow():
     artifact(d, 460, 190, 640, 130, '测试输入 → 冻结 PATH',
              ['GO / 父 MO 分配全量 CASE；SPEC → PATH / 参数 / 步骤 / ASSERT', '测试源随计划冻结：进程内 FlowTest / 设备脚本；不自行放宽预期'])
     d.box(60, 190, 340, 210, '项目上下文',
-          ['存量 / 目标 / 架构 / 测试 / 媒体', '二方库行为对齐与 fidelity', 'adapter + 环境 / fixture', '项目配置 → 本轮快照'], 'gray')
+          ['存量与运行方式 / 目标 / 架构 / 媒体', '二方库行为对齐与 fidelity', 'adapter + 环境 / fixture', '项目配置 → 本轮快照'], 'gray')
     d.arrow([(400, 255), (460, 255)])
     d.arrow([(780, 320), (780, 375)])
     d.box(460, 375, 640, 115, 'Coding 接受 → build / unit / static Green',
@@ -38,7 +38,7 @@ def automation_flow():
           ['scope=automation；重验代码 / 环境 / 命令', '进程内 PATH 跑冻结命令 + JUnit；设备 PATH 调 Main 或冻结脚本'])
     d.arrow([(780, 1065), (780, 1120)])
     d.box(460, 1120, 640, 145, '逐 PATH 调用项目 Main',
-          ['argv + --query-file … --result-file …', 'Android / Harmony test：Planner / Executor / Verify（图 06）', '冻结 platform 与已部署 APK / HAP 绑定（不含 iOS）'], controller=True)
+          ['argv + --query-file … --result-file …', 'Android / Harmony test：Planner / Executor / Verify（图 06）', '冻结 platform 与已部署 APK / HAP 绑定；record_video 留录屏'], controller=True)
     d.box(60, 1080, 340, 190, '两层执行结果',
           ['包装器 exit 0：已写回执', '不等于 CASE 通过', '超时 124 / 启动失败 127', '以 receipt / assertions 为准'], 'orange')
     d.arrow([(780, 1265), (780, 1320)])
@@ -95,7 +95,7 @@ def automation_engine():
              ['冻结步骤 / 参数 / ASSERT / after_step / 当前代码身份', '设备 / 三类模型 / 预算 / 可选 knowledge_ref 与 recording_ref'])
     d.arrow([(800, 320), (800, 375)])
     d.box(440, 375, 720, 125, 'adapter 校验与隔离',
-          ['校验字段 / hash / 平台 → 设备互斥锁 → 本次独立目录', 'platform=android|harmony、task_type=test；注册 Verify wrapper'])
+          ['校验字段 / hash / 平台 → 设备互斥锁 → 本次独立目录', 'platform=android|harmony；test 注册 Verify，媒体任务只留媒体'])
     d.arrow([(800, 500), (800, 555)])
     d.box(440, 555, 720, 110, 'task_text：步骤与冻结断言交错',
           ['每条 verify 使用单个 [ASSERT:id]；知识只辅助执行'])
@@ -131,7 +131,7 @@ def automation_engine():
           ['Yellow 优先：缺断言 / 媒体 / 异常 / 歧义 / flaky', '无阻断但有有效 false → Red；完整 true → Green', '保留失败观察；同 ASSERT 混合 pass/fail 不挑最好一次', 'final_output 文本不能生成通过结论'], controller=True)
     d.arrow([(800, 1845), (800, 1900)])
     artifact(d, 440, 1900, 720, 145, 'result.json → 宿主 receipt → tests stage',
-             ['quality / assertions / root_cause / flaky / 上下文身份', '观察 / 环境 / 全部工件 / 源快照引用', '交 Ledger 校验，MO 或 Auditor 按阶段验收'])
+             ['quality / assertions / root_cause / media_refs / 上下文身份', '观察 / 环境 / 全部工件 / 源快照引用', '交 Ledger 校验，MO 或 Auditor 按阶段验收'])
     d.text(800, 2110, '时序和 exact 仍含模型判断；宿主需提供真实 App 安装与环境证据，文件摘要不能代替真机验证。', 21, '#4b5563')
     for i, (key, label) in enumerate([('blue', '执行 / 证据'), ('orange', '条件判断'), ('purple', '恢复 / 继续')]):
         x = 65 + i*280

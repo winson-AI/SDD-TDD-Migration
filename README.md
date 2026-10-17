@@ -100,7 +100,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 | 本地控制器与游标 | 单写事件事务、`status` 游标与阅读卡、Ledger 起稿的计划集与执行侧报告骨架、恢复与显式追加预算 | [本地运行](skills/migration-protocol/references/local-runtime.md)、[宿主接入](skills/migration-protocol/references/host-integration.md) |
 | 并行 MO 与统一收尾 | 各 MO 独立推进；全量收尾后统一审计 | [状态机](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾) |
 | Auditor | 先整体代码治理，再复核遗留；修复后验证，失败待人工 | [审计范围](skills/migration-protocol/references/audit-scope.md)、[代码治理](skills/migration-protocol/references/audit-code-review.md) |
-| Android/Harmony 自动测试 | MobileAgenticOperator test 模式，逐 PATH/ASSERT 证据接入 Ledger | [移动端运行](skills/migration-test/references/harmony-runtime.md) |
+| Android/Harmony 自动测试 | MobileAgenticOperator test 模式，逐 PATH/ASSERT 证据接入 Ledger；snapshot / recording 媒体任务供存量捕获与录屏取证，PATH 可录屏 | [移动端运行](skills/migration-test/references/harmony-runtime.md) |
 | 切片与功能清单 | 叶子是功能树上的子业务流（页面是 TASK，3–30 条 CASE），自带四维分析与实现 SPEC；无用例先读源码建树再派生用例，有用例以用例范围为抓手；清单完整可追溯，疑问交人工；一条 CASE 一个验收切片；往次切分经验生成技能，供后续 Run 的 GO/MO 加载 | [切片规约](skills/migration-global/references/slicing.md) |
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照；知识文档可查，缺的知识登 knowledge-need 交人补充 | [项目上下文](skills/migration-protocol/references/project-context.md) |
 | 目标画像 | GO 逐功能记目标状态（absent/shell-only/partial/existing）；脚手架只在缺外壳处，持有代码的叶子欠复用说明 | [父子拆分](skills/migration-protocol/references/module-decomposition.md) |
@@ -121,7 +121,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 单模块只是同一入口的两个参数：`entry_mode=single-module` 与 `module_name`（如“用户登录”）。沿用当前项目输入，用户无需提供模块描述、scope、模块代码路径、SPEC 或 Testing list；由 GO 识别业务范围并分配上游 CASE，MO 按需细分，叶子组织实施规范和测试路径。[single-module-input.json](template/single-module-input.json) 仅展示这两个参数，不是独立运行资料包。
 
-完整流程：选择项目或根功能（可附存量截图/录屏与目标预期） → **GO/父 MO 划 scope/CASE 并审查 registry 覆盖** → **子 MO 拆 tasks、四维、形成可执行 SPEC 和测试路径** → **MO 审核冻结** → **Implementer、Test-Runner build/automation、Fixer/复测** → **父节点汇总，统一宿主 Auditor**。独立 design 按需协助；执行中发现遗漏/fidelity 偏差，在同 Run 更新受影响 SPEC 和已有代码，只越 scope 才上溯。历史只留痕，每叶子执行唯一当前 SPEC。父子 MO 都读全局代码、架构、知识与分工，见[父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
+完整流程：选择项目或根功能（声明存量怎样跑，可附存量截图/录屏与目标预期） → **GO/父 MO 划 scope/CASE 并审查 registry 覆盖** → **子 MO 拆 tasks、四维、形成可执行 SPEC 和测试路径** → **MO 审核冻结** → **Implementer、Test-Runner build/automation、Fixer/复测** → **父节点汇总，统一宿主 Auditor**。独立 design 按需协助；执行中发现遗漏/fidelity 偏差，在同 Run 更新受影响 SPEC 和已有代码，只越 scope 才上溯。历史只留痕，每叶子执行唯一当前 SPEC。父子 MO 都读全局代码、架构、知识与分工，见[父子 MO 协议](skills/migration-protocol/references/module-decomposition.md)。
 
 宿主接入命令后，可按以下阶段执行（路径和 run-id 为示例，冻结须绑定当前规划审核及适用的人工决定）：
 

@@ -21,7 +21,7 @@
 <rect x="440" y="375" width="720" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="416.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">adapter 校验与隔离</text>
 <text x="800.0" y="450.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">校验字段 / hash / 平台 → 设备互斥锁 → 本次独立目录</text>
-<text x="800.0" y="479.5" font-size="20.17" fill="#4b5563" text-anchor="middle" font-weight="400">platform=android|harmony、task_type=test；注册 Verify wrapper</text>
+<text x="800.0" y="479.5" font-size="21.22" fill="#4b5563" text-anchor="middle" font-weight="400">platform=android|harmony；test 注册 Verify，媒体任务只留媒体</text>
 <path d="M800,500 L800,555" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="440" y="555" width="720" height="110" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="603.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">task_text：步骤与冻结断言交错</text>
@@ -100,7 +100,7 @@
 <path d="M800,1845 L800,1900" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M458,1900 H1160 L1142,2045 H440 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="800.0" y="1937.0" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">result.json → 宿主 receipt → tests stage</text>
-<text x="800.0" y="1971.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">quality / assertions / root_cause / flaky / 上下文身份</text>
+<text x="800.0" y="1971.0" font-size="20.04" fill="#4b5563" text-anchor="middle" font-weight="400">quality / assertions / root_cause / media_refs / 上下文身份</text>
 <text x="800.0" y="2000.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">观察 / 环境 / 全部工件 / 源快照引用</text>
 <text x="800.0" y="2029.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">交 Ledger 校验，MO 或 Auditor 按阶段验收</text>
 <text x="800" y="2110" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">时序和 exact 仍含模型判断；宿主需提供真实 App 安装与环境证据，文件摘要不能代替真机验证。</text>
