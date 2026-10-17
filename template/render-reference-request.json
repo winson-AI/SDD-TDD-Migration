@@ -1,0 +1,11 @@
+{
+  "_note": "Run via lean_worker as Spec-Designer, Test-Runner or Auditor: renders one legacy picture resource from the frozen source index as the reference an image check compares against.",
+  "operation": "render-reference",
+  "request_id": "{{new-render-attempt-id}}",
+  "module_id": "M001",
+  "args": {
+    "source_index_ref": {"path": "{{run_root}}/staging/spec-designer/{{analysis-attempt}}/ui-source-index.json", "sha256": "{{index-hash}}"},
+    "source_resource": "{{@drawable/name-or-indexed-resource-id}}",
+    "qualifier": "base"
+  }
+}

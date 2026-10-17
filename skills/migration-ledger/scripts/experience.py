@@ -150,6 +150,12 @@ def settled(state):
         device = None
     if device:
         facts['device'] = device
+    try:
+        preview = project_context.legacy_preview(state)
+    except (ValueError, OSError, KeyError, TypeError):
+        preview = None
+    if preview:
+        facts['legacy_preview'] = preview
     return facts
 
 

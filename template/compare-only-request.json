@@ -1,0 +1,12 @@
+{
+  "_note": "Run via lean_worker under a current visual assignment: a deterministic score of two screenshots; a score is evidence, never ALIGNED.",
+  "operation": "compare-only",
+  "request_id": "{{new-comparison-attempt-id}}",
+  "module_id": "M001",
+  "assignment_id": "{{active-assignment-id}}",
+  "fencing_token": "{{current-fencing-token}}",
+  "args": {
+    "reference_ref": {"path": "{{run_root}}/context/files/{{baseline-hash}}.png", "sha256": "{{baseline-hash}}"},
+    "candidate_ref": {"path": "{{run_root}}/runs/harmony/sandbox/{{actor_id}}/{{capture-attempt}}/screenshot-0.jpeg", "sha256": "{{candidate-hash}}"}
+  }
+}

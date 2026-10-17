@@ -112,7 +112,7 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 ## Harmony Main
 
-已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核：输入冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow。harmony_stage 把 host receipts 汇成 tests stage，Ledger 复验媒体 hash 与三态；超时终止进程组并保存已有输出。automation/visual PATH 可声明 `record_video: true`：回执的 final.mp4 以 `media_refs`（hash 绑定、须在执行输出内）随结果入 Ledger，报告逐 PATH 列出，diagnose/Fixer 步骤带非 Green 路径的媒体；只是证据，不改三态。
+已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核：输入冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow。harmony_stage 把 host receipts 汇成 tests stage，Ledger 复验媒体 hash 与三态；超时终止进程组并保存已有输出。automation/visual PATH 可声明 `record_video: true`：回执的 final.mp4 以 `media_refs`（hash 绑定、在执行输出内）随结果入 Ledger，报告逐 PATH 列出，diagnose/Fixer 步骤带非 Green 路径的媒体，不改三态。
 
 Harmony 不自动生成结构化 interaction_evidence：有 frozen_interaction 的 automation 只有 Green 断言而缺这份证据时，test_completion 保留断言与媒体，记 executed=true 的 Yellow tooling / interaction-evidence-unavailable；已观察到的 Red 保持 Red，不从 expected 或自然语言合成 observed。Test-Runner 在预检说明能力缺口，换 adapter 或走缺测出口。
 

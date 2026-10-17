@@ -1,0 +1,14 @@
+{
+  "_note": "Run via lean_worker: turns a native artifact into the evidence shape the Ledger reads, keeping the original as source_ref. kind ui needs ui_tree_ref and target (page:state:coverage); alignment takes the declared interactions; resource takes approved_spec_hash; validation and foundation take the source alone.",
+  "operation": "import-evidence",
+  "request_id": "{{new-import-attempt-id}}",
+  "module_id": "M001",
+  "args": {
+    "kind": "ui",
+    "source_ref": {"path": "{{run_root}}/runs/harmony/sandbox/{{actor_id}}/{{capture-attempt}}/manifest.json", "sha256": "{{manifest-hash}}"},
+    "ui_tree_ref": {"path": "{{run_root}}/staging/spec-designer/{{analysis-attempt}}/ui-tree.json", "sha256": "{{tree-hash}}"},
+    "target": "login:base:viewport",
+    "source_index_ref": {"path": "{{run_root}}/staging/spec-designer/{{analysis-attempt}}/ui-source-index.json", "sha256": "{{index-hash}}"},
+    "runtime_index_ref": {"path": "{{run_root}}/staging/spec-designer/{{analysis-attempt}}/runtime-ui-index.json", "sha256": "{{runtime-index-hash}}"}
+  }
+}

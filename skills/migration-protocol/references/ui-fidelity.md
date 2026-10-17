@@ -12,13 +12,13 @@ UI scope 使用可校验载体：
 
 ### 稳定截图目标与瞬态行为
 
-GO/父 MO 分配时保留全部源状态；Spec-Designer 冻结前区分两类验证义务，在 SPEC/test-design 中逐状态记录源码依据、验证方式和 PATH/ASSERT：
+GO/父 MO 分配时保留全部源状态；Spec-Designer 冻结前区分两类验证义务，逐状态记录源码依据、验证方式和 PATH/ASSERT：
 
 | 状态 | 实现与验证 | 截图要求 |
 | --- | --- | --- |
-| 可重复到达的 tab/dialog/content/empty/error 等稳定状态 | 保留状态分支与行为路径；存量可预览时冻结 runtime 基线 | 按声明的 page/state/coverage 验证 |
-| loading/skeleton/动画过渡等瞬态状态 | 保留源码行为、UI 树动态规则、SPEC 场景和聚焦的状态转换测试 | 不为抢拍而添加 visual PATH，不添加假延时 |
-| 明确要求且可稳定复现的 loading 等产品状态 | 记录稳定复现条件与用户需求依据，按稳定目标处理 | 正常执行冻结视觉路径，不能事后降为瞬态免测 |
+| 可重复到达的 tab/dialog/content/empty/error 等稳定状态 | 保留状态分支与行为路径；存量可跑时冻结 runtime 基线 | 按声明的 page/state/coverage 验证 |
+| loading/skeleton/动画等瞬态 | 保留源码行为、UI 树动态规则、SPEC 场景与状态转换测试 | 不为抢拍加 visual PATH，不加假延时 |
+| 明确要求且可稳定复现的 loading 等产品状态 | 记录复现条件与需求依据，按稳定目标处理 | 执行冻结视觉路径，不得事后降为瞬态免测 |
 
 分类以实际行为与需求为准，不按状态名猜测；测试可用受控时钟或响应验证瞬态转换，不改生产时序凑截图。无瞬态状态时无需空记录。缺瞬态截图不产生额外 Yellow，也不降低稳定目标的视觉结论；缺其行为测试仍是原 CASE/PATH 的覆盖缺口。父 MO 与 Auditor 沿用冻结分类，不删行为义务、不扩大截图清单。样式见 [UI 状态测试表](../../../template/ui-state-test-design.md)。
 

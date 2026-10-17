@@ -2,7 +2,7 @@
 
 ## 总则
 
-所有角色遵守本协议。资产固定在 workspace_root 下并列的 .sdd-migration、.sdd-runs、openspec；读 prepare 返回的 run_root/storage_layout 与 status.openspec_hub，不按 cwd 猜目录，不在目标仓另建 SPEC。一般生成工件放当前 run staging，Harmony 辅助产物放 runs/harmony/sandbox，正式自动化放 runs/harmony/automation，构建放 runs/build；临时目录归当前 runner，结束清理或留 cleanup 原因；状态变更经 Ledger。草稿、探针脚本与日志放本实例 staging/<agent>/<request>/scratch/，Ledger 不读、不归档、拒绝作证据；staging 其余产出应被事件引用，收尾报告给未引用占比。包内规则与脚本文件不是证据，按卡片小节引用。
+所有角色遵守本协议。资产固定在 workspace_root 下并列的 .sdd-migration、.sdd-runs、openspec；读 prepare 返回的 run_root/storage_layout 与 status.openspec_hub，不按 cwd 猜目录，不在目标仓另建 SPEC。生成工件放当前 run staging，Harmony 辅助产物放 runs/harmony/sandbox，正式自动化放 runs/harmony/automation，构建放 runs/build；临时目录归当前 runner，结束清理或留 cleanup 原因；状态变更经 Ledger。草稿、探针脚本与日志放 staging/<agent>/<request>/scratch/，Ledger 不读、不归档、不作证据；staging 其余产出应被事件引用，收尾报告给未引用占比。包内规则与脚本不是证据，按卡片小节引用。
 
 ## 唯一项目根与三类资产
 

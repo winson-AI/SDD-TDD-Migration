@@ -124,4 +124,4 @@ snapshot 固定代码、SPEC、上下文与验证定义。必要复测由独立 
 修正从当前层向子 MO、父 MO、GO 逐级追溯，最低有权层裁决后向下更新实际影响闭包。保留的子契约须仍满足父边界；父规划调整不等于全体孩子重做。新宿主任务才新 Run。
 
 
-规划始终只有一份当前候选和一份当前有效执行基线。Implementer 执行前的草稿、分析、拆分和澄清调整存为 planning_history（history-only、不可执行），无计划版本编号或版本选择；重新规划须撤销当前冻结及旧设计授权，审核后重新冻结。plan_hash、freeze_id、事件 sequence/revision 和设计 generation 仅用于内容校验、并发及拒收过期交接；schema_version 等字段只校验工件格式，不选择执行流程。历史记录不能直接恢复冻结、派发实现或证明通过。
+规划只有一份当前候选和一份当前有效执行基线。Implementer 执行前的草稿、分析、拆分和澄清调整存为 planning_history（history-only、不可执行），无版本编号或版本选择；重新规划须撤销当前冻结及旧设计授权，审核后重新冻结。plan_hash、freeze_id、事件 sequence/revision 和设计 generation 只用于内容校验、并发及拒收过期交接；schema_version 只校验工件格式。历史记录不能直接恢复冻结、派发实现或证明通过。

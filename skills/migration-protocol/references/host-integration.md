@@ -8,9 +8,9 @@
 
 ## 1. 宿主必须提供、控制器不代劳的三件事
 
-1. **身份认证与 host-context 注入**:每次 `apply`/`init` 传入认证过的 `{"role":..,"instance_id":..}`;绝不能让请求体自报 role 获得权限,也不能让 worker 自选 host-context。
-2. **真实派发 Agent**:控制器只记录 assign 并在 `status.next_steps` 给出游标;宿主必须用自己的 task/spawn 工具,按 [Agents/*.md](../../../Agents/) 定义启动隔离实例,并把结果经 Ledger 回传。控制器不 spawn、不嵌套 slash command。
-3. **真实工作落地**:Implementer/Fixer 真写 `target_root` 源码;Test-Runner 经 [execute_test.py](../../migration-ledger/scripts/execute_test.py) 调项目真实构建/测试命令;Auditor 独立实例真实重跑。`code_files`/断言都由宿主真实产生,不能自填冒充。
+1. **身份认证与 host-context 注入**:每次 `apply`/`init` 传入认证过的 `{"role":..,"instance_id":..}`;不能让请求体自报 role，也不能让 worker 自选 host-context。
+2. **真实派发 Agent**:控制器只记录 assign 并在 `status.next_steps` 给出游标；宿主用自己的 task/spawn 工具按 [Agents/*.md](../../../Agents/) 启动隔离实例，结果经 Ledger 回传；控制器不 spawn、不嵌套 slash command。
+3. **真实工作落地**:Implementer/Fixer 真写 `target_root` 源码;Test-Runner 经 [execute_test.py](../../migration-ledger/scripts/execute_test.py) 调项目真实构建/测试命令;Auditor 独立实例真实重跑。`code_files`/断言由宿主真实产生，不能自填。
 
 这三件事无法从控制器内部强制(CLI 非安全边界);它们是本契约要求宿主自证的核心。
 
@@ -56,9 +56,9 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 
 宿主交接优先读取 `openspec/runs/<run_id>/workflow.json` 的 routing/模块索引、相关 module state 与工件引用。派发前刷新 Ledger status 校验 sequence/revision；不复制完整 Ledger、兄弟模块日志或整套领域 skill。Agent 仍能经当前快照、六件套、父级分配和实际依赖引用访问全局源码、架构与知识。快照引用失效或 routing_refresh_required 时按既有恢复动作更新，不创建第二份调度状态。
 
-按 [领域工具受限接入](domain-tools.md) 把白名单操作映射到现有角色，不另建编排游标或冻结权威：Spec-Designer 分析 UI；Implementer/Fixer 在 assignment 与写范围内转换资源；Test-Runner/Auditor 在当前 assignment 下取证比较，构建仍走正式执行器。[设备与模型工具](visual-execution.md) 需冻结的 run 环境配置、实际设备锁证明及当前 PATH 构建/基线，工具本身不验收；模型请求有总时限，缺条件走原 Yellow 通道。Host 传认证 host-context，保留原始结果引用、转换证据与正式 Ledger payload；新增输出落本 run 受管目录。
+按 [领域工具受限接入](domain-tools.md) 把白名单操作映射到现有角色，不另建游标或冻结权威：Spec-Designer 捕获与分析 UI；Implementer/Fixer 在 assignment 与写范围内转换资源；Test-Runner/Auditor 在当前 assignment 下取证比较，构建走正式执行器。宿主还要配置 `legacy_preview`（设备 serial / 模拟器 / 虚拟机 + APK 或构建命令、浏览器 url、或 none 与原因），保证 adb 或 Playwright 可用；legacy-capture 与 Android 目标的 visual-* 需 host-context 带 device_lock（serial 或 url）。[设备与模型工具](visual-execution.md) 需冻结的 run 环境配置、设备锁证明及当前 PATH 构建/基线，工具本身不验收；模型请求有总时限，缺条件走 Yellow。Host 传认证 host-context，保留原始结果引用与转换证据；新增输出落本 run 受管目录。
 
-prepared run 的 `ui_fidelity_required=true`、`spec_closure_required=true`（每个拆分模块一条 static PATH，位于 build 与 automation 之间），仅 applicable UI 触发对应门禁；无 UI 不制造空视觉任务。仅自动化不可用继续按 Yellow/未执行收尾，独立任务与可用构建下游不受阻。
+prepared run 固定 `ui_fidelity_required=true`、`spec_closure_required=true`（每个拆分模块一条 static PATH，在 build 与 automation 之间），仅 applicable UI 触发门禁；仅自动化不可用按 Yellow/未执行收尾，独立任务与可用构建下游不受阻。
 
 ## 命令通用约定
 

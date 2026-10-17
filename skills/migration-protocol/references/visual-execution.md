@@ -55,4 +55,4 @@ semantic 原文件的所有 issues 及 `comparability < 0.4` 或 `comparable=fal
 
 ## 4. 存量捕获
 
-存量可跑（[存量预览](project-context.md#存量预览)≠none）时，Spec-Designer 在 analyze-ui 前用 `legacy-capture` 捕获本叶 UI 项的 page:state:coverage；步骤给出 `capture_due`（尚无 runtime 证据的条目与最近一次捕获的 manifest），请求见 [legacy-capture-request.json](../../../template/legacy-capture-request.json)。adb 后端按声明装机（artifact 哈希或 build）、启动、走冻结 tap/swipe/back、核对前台与选择器，截图前后树稳定才写参考记录；browser 后端用 Playwright 打开 url、走冻结 click、DOM 转树，记 legacy-reference/web（仅 viewport）。捕不到的目标带原因（PARTIAL/BLOCKED），写入 `capture_gap`；manifest 作 analyze-ui 的 capture_ref 与 UI 项的 runtime 证据，CAPTURED 不是对齐通过。
+存量可跑时，Spec-Designer 在 analyze-ui 前用 `legacy-capture` 捕获本叶 UI 项的 page:state:coverage；步骤给出 `capture_due`（尚无 runtime 证据的条目与最近一次捕获的 manifest），请求见 [legacy-capture-request.json](../../../template/legacy-capture-request.json)。adb 后端按声明装机、启动、走冻结 tap/swipe/back、核对前台与选择器，截图前后树稳定才写参考记录；browser 后端用 Playwright 打开 url、走冻结 click、DOM 转树，记 legacy-reference/web（仅 viewport）。捕不到的目标带原因（PARTIAL/BLOCKED），写入 `capture_gap`；manifest 作 analyze-ui 的 capture_ref 与 runtime 证据，CAPTURED 不是对齐通过。

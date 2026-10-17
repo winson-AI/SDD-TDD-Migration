@@ -151,5 +151,40 @@ class CaptureDueTests(BaselineTests):
         self.assertEqual(step['capture_due']['items'], [{'item_id': 'U1'}])
 
 
+class CarriedStatementTests(unittest.TestCase):
+    """What a run settled about the legacy is carried to the project's next run unless that run says otherwise."""
+    def test_experience_carries_the_statement_and_prepare_takes_it_when_the_config_is_silent(self):
+        import experience
+        t = test_project_context.ProjectContextTests(); t.setUp(); self.addCleanup(t.doCleanups)
+        none = {'kind': 'none', 'reason': 'the legacy needs a hardware token'}
+        pc.update(t.root, t.request('preview', 1, {'legacy_preview': none}), t.actor)
+        result = t.prepare(); t.start(t.init_payload(result))
+        self.assertEqual(experience.settled(ledger.status(t.run))['legacy_preview'], none)
+        pc.update(t.root, t.request('forget', 2, {'legacy_preview': None}), t.actor)
+        apk = t.base / 'carried.apk'; apk.write_bytes(b'apk')
+        carried = {**EMULATOR, 'artifact': str(apk), 'artifact_sha256': 'stale'}
+        with mock.patch.object(experience, 'conventions', return_value={'legacy_preview': carried}):
+            second = pc.prepare(t.root, t.base / '.sdd-runs/r2', t.run_request('r2'), t.actor)
+        stated = pc.verify_snapshot(second['project_context_ref'])['effective_config']['legacy_preview']
+        self.assertEqual((stated['kind'], stated['artifact_sha256']), ('android-emulator', file_ref(apk)['sha256']))  # re-hashed for this run
+        apk.unlink()
+        with mock.patch.object(experience, 'conventions', return_value={'legacy_preview': carried}):
+            third = pc.prepare(t.root, t.base / '.sdd-runs/r3', t.run_request('r3'), t.actor)
+        self.assertIsNone(pc.verify_snapshot(third['project_context_ref'])['effective_config'].get('legacy_preview'))  # the package is gone: nothing is assumed
+
+    def test_the_sandbox_doctor_names_the_capture_tools_without_blocking_on_them(self):
+        import importlib.util, sys
+        root = Path(__file__).resolve().parents[2] / 'migration-test/runtime/harmony'
+        spec = importlib.util.spec_from_file_location('sandbox_doctor_probe', root / 'sandbox.py'); module = importlib.util.module_from_spec(spec)
+        sys.path.insert(0, str(root)); sys.path.insert(0, str(root.parent.parent / 'scripts'))
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / 'config.json'; config.write_text('{}')
+            report = module.doctor(str(config))
+        probes = {c['name']: c['status'] for c in report['checks'] if c['name'] in ('adb-on-path', 'playwright')}
+        self.assertEqual(set(probes), {'adb-on-path', 'playwright'})
+        self.assertTrue(all(status in ('ready', 'optional-absent') for status in probes.values()))
+
+
 if __name__ == '__main__':
     unittest.main()

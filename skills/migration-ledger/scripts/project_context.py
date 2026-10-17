@@ -507,6 +507,13 @@ def _prepare(root, run_root, request, actor, storage):
                 pass  # settled for another target tree: this run settles its own
         if carried.get('device') and 'device' not in (effective.get('test_adapter') or {}):
             effective['test_adapter'] = {**(effective.get('test_adapter') or {}), 'device': copy.deepcopy(carried['device'])}
+        if carried.get('legacy_preview') and not effective.get('legacy_preview'):  # how the legacy ran last time, unless this run says otherwise
+            try:
+                preview = legacy_preview_config({k: v for k, v in carried['legacy_preview'].items() if k != 'artifact_sha256'})
+                if preview.get('artifact') is None or Path(preview['artifact']).is_file():
+                    effective['legacy_preview'] = preview
+            except ValueError:
+                pass  # settled for another layout: this run states its own
         require(effective.get('architecture_path'), 'architecture_path required before prepare')
         reuse.normalize_sources(effective.get('reuse_sources', []), effective['target_root'], existing=True)
         preview = effective.get('legacy_preview') or {}
