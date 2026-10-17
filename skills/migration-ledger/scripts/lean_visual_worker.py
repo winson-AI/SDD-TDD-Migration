@@ -367,6 +367,8 @@ def capture_web_target(device, stated, target, spec, out):
     """One legacy web screen as a legacy-reference record of platform web: navigated from the url by frozen clicks, matched by
     selectors on the DOM tree, captured with a stable tree around the screenshot. Viewport targets only."""
     label = re.sub(r'[^A-Za-z0-9_.-]+', '-', target['page_id'] + '-' + target['state_id'])
+    if spec.get('navigation') is not None:
+        return blocked('agent navigation needs an adb device statement; a browser walks frozen clicks')
     if target['coverage'] != 'viewport':
         return blocked('browser capture supports viewport targets only', 'capture-incomplete')
     device.act('goto', stated['url'])
@@ -521,8 +523,44 @@ def install_legacy(device, stated, app, out):
                                        'acceptance': 'installation-is-evidence-not-a-baseline'})
 
 
-def capture_legacy_target(device, stated, app, target, spec, out):
-    """One legacy screen as an android-reference record: launched, navigated by frozen actions, matched, captured stable."""
+def agent_navigate(stated, device, app, target, spec, out, run_id, module_id, label):
+    """The navigator the run states (the adapter's snapshot task) walks the frozen step texts to the screen; the worker still
+    matches the frozen selectors and captures afterwards. A walk that did not reach the screen is a capture_gap suggestion."""
+    navigation = spec['navigation']
+    require(isinstance(navigation, dict) and navigation.get('mode') == 'agent' and isinstance(navigation.get('steps'), list)
+            and 1 <= len(navigation['steps']) <= 30 and all(isinstance(s, str) and s.strip() for s in navigation['steps']),
+            'navigation takes mode agent and 1..30 frozen step texts')
+    navigator = stated.get('navigator')
+    if not navigator:
+        return blocked('legacy_preview.navigator is not configured: agent navigation needs the adapter that walks a snapshot task')
+    folder = out / f'navigation-{label}'; folder.mkdir(parents=True, exist_ok=True)
+    query = {'run_id': run_id, 'module_id': module_id, 'capture_id': spec['coverage'], 'name': 'legacy ' + target['page_id'] + ':' + target['state_id'],
+             'platform': 'android', 'task_type': 'snapshot', 'steps': navigation['steps'],
+             'preconditions': ['the legacy application ' + app + ' is installed and launched on ' + device.device],
+             'parameters': {'device_id': device.device, 'app_id': app}}
+    query_ref = save(folder / 'query.json', query); result_path = folder / 'result.json'
+    argv = [*navigator['argv'], '--query-file', query_ref['path'], '--result-file', str(result_path)]
+    try:
+        run = subprocess.run(argv, cwd=navigator['cwd'], env=runner_storage.environment(out), capture_output=True,
+                             text=True, errors='replace', timeout=navigator['timeout_seconds'])
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        raise DeviceFailure('environment-unavailable', 'legacy navigator ' + type(exc).__name__) from exc
+    save(folder / 'navigator.json', {'argv': argv, 'exit_code': run.returncode, 'stdout': run.stdout[-20000:], 'stderr': run.stderr[-20000:]})
+    try:
+        report = read_json(result_path)
+    except (OSError, ValueError) as exc:
+        raise DeviceFailure('environment-unavailable', 'legacy navigator wrote no readable result') from exc
+    status = report.get('status') if report.get('task_type') == 'snapshot' else None
+    receipt = {'mode': 'agent', 'steps': navigation['steps'], 'status': status, 'reason': report.get('reason'),
+               'query_ref': query_ref, 'result_ref': file_ref(result_path)}
+    if status != 'reached':
+        reason = 'agent navigation ' + (status or 'unreadable') + (': ' + str(report['reason']) if report.get('reason') else '')
+        return blocked(reason, 'navigation-unverified', navigation=receipt, capture_gap={'reason': reason, 'evidence_refs': [receipt['result_ref']]})
+    return {'status': 'REACHED', 'navigation': receipt}
+
+
+def capture_legacy_target(device, stated, app, target, spec, out, run_id=None, module_id=None):
+    """One legacy screen as an android-reference record: launched, navigated by frozen actions or the stated navigator, matched, captured stable."""
     label = re.sub(r'[^A-Za-z0-9_.-]+', '-', target['page_id'] + '-' + target['state_id'])
     launch = stated.get('launch')
     if launch:
@@ -530,11 +568,17 @@ def capture_legacy_target(device, stated, app, target, spec, out):
         device.call('shell', 'am', 'start', '-n', app + '/' + launch)
     else:
         device.call('shell', 'monkey', '-p', app, '-c', 'android.intent.category.LAUNCHER', '1')
+    navigation = None
+    if spec.get('navigation') is not None:
+        outcome = agent_navigate(stated, device, app, target, spec, out, run_id, module_id, label)
+        if outcome['status'] != 'REACHED':
+            return outcome
+        navigation = outcome['navigation']
     android_actions(device, spec.get('actions', []))
     observed = observe_android(device, app, target, spec, out, label)
     if 'captures' not in observed:
         return observed
-    meta = {**observed['meta'], 'legacy_preview': stated['kind'], 'artifact_sha256': stated.get('artifact_sha256')}
+    meta = {**observed['meta'], 'legacy_preview': stated['kind'], 'artifact_sha256': stated.get('artifact_sha256'), **({'navigation': navigation} if navigation else {})}
     meta_ref = save(out / f'meta-{label}.json', meta)
     captures, coverage = observed['captures'], observed['coverage']
     snapshot = {**captures[0], 'meta': meta_ref['path'], 'device_backend': observed['backend'], 'coverage': coverage, 'captures': captures}
@@ -546,7 +590,7 @@ def capture_legacy_target(device, stated, app, target, spec, out):
             'target_match': {'kind': 'frozen-exact-selectors', 'matched': True}}}
 
 
-def legacy_capture(args, *, root, out, state, task, actor):
+def legacy_capture(args, *, root, out, state, task, actor, module_id=None):
     """The legacy application's screens as android-reference records: installed from the package the run was prepared with,
     walked by frozen actions on the stated device, captured stable. The manifest is what analyze-ui and the SPEC's runtime
     evidence stand on; a screen that could not be captured is named with its reason, never invented."""
@@ -557,6 +601,7 @@ def legacy_capture(args, *, root, out, state, task, actor):
             'legacy_preview must state an adb-visible provider (android-device, android-emulator or vm) or a browser url before the legacy is captured')
     root, out = Path(root).resolve(), Path(out).resolve()
     runner_storage.harmony_output(root, out, 'sandbox')
+    run_id = state.get('run_id') or root.name
     targets = args.get('targets')
     require(isinstance(targets, list) and 1 <= len(targets) <= 20 and all(isinstance(t, dict) and isinstance(t.get('coverage'), str) for t in targets),
             'legacy-capture takes 1..20 targets, each naming its page:state:coverage')
@@ -580,11 +625,12 @@ def legacy_capture(args, *, root, out, state, task, actor):
             install_ref = install_legacy(device, stated, app, out)
         for target, spec in zip(parsed, targets):
             outcome = (capture_web_target(device, stated, target, spec, out) if web
-                       else capture_legacy_target(device, stated, app, target, spec, out))
+                       else capture_legacy_target(device, stated, app, target, spec, out, run_id, module_id))
             if outcome.get('status') == 'COMPLETE':
                 records.append(outcome['record'])
             else:
-                blocked_targets.append({'coverage': spec['coverage'], **outcome['root_cause']})
+                blocked_targets.append({'coverage': spec['coverage'], **outcome['root_cause'],
+                                        **({'capture_gap': outcome['capture_gap']} if outcome.get('capture_gap') else {})})
         manifest_ref = save(out / 'manifest.json', {'schema_version': 2, 'capture_id': 'legacy-' + digest(str(out))[:12],
                                                      'legacy_preview': {k: stated.get(k) for k in ('kind', 'app_id', 'device', 'artifact_sha256', 'url')},
                                                      'install_ref': install_ref, 'targets': records})

@@ -54,7 +54,7 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 
 宿主交接优先读取 `openspec/runs/<run_id>/workflow.json` 的 routing/模块索引、相关 module state 与工件引用。派发前刷新 Ledger status 校验 sequence/revision；不复制完整 Ledger、兄弟模块日志或整套领域 skill。Agent 仍能经当前快照、六件套、父级分配和实际依赖引用访问全局源码、架构与知识。快照引用失效或 routing_refresh_required 时按既有恢复动作更新，不创建第二份调度状态。
 
-按 [领域工具受限接入](domain-tools.md) 把白名单操作映射到现有角色，不另建游标或冻结权威：Spec-Designer 捕获与分析 UI；Implementer/Fixer 在 assignment 与写范围内转换资源；Test-Runner/Auditor 在当前 assignment 下取证比较，构建走正式执行器。宿主还要配置 `legacy_preview`（设备 serial / 模拟器 / 虚拟机 + APK 或构建命令、浏览器 url、或 none 与原因），保证 adb 或 Playwright 可用；legacy-capture 与 Android 目标的 visual-* 需 host-context 带 device_lock（serial 或 url）。[设备与模型工具](visual-execution.md) 需冻结的 run 环境配置、设备锁证明及当前 PATH 构建/基线，工具本身不验收；模型请求有总时限，缺条件走 Yellow。Host 传认证 host-context，保留原始结果引用与转换证据；新增输出落本 run 受管目录。
+按 [领域工具受限接入](domain-tools.md) 把白名单操作映射到现有角色，不另建游标或冻结权威：Spec-Designer 捕获与分析 UI；Implementer/Fixer 在 assignment 与写范围内转换资源；Test-Runner/Auditor 在当前 assignment 下取证比较，构建走正式执行器。宿主还要配置 `legacy_preview`（设备 serial / 模拟器 / 虚拟机 + APK 或构建命令、浏览器 url、或 none 与原因），保证 adb 或 Playwright 可用，agent 导航另配 navigator；legacy-capture 与 Android 目标的 visual-* 需 host-context 带 device_lock（serial 或 url）。[设备与模型工具](visual-execution.md) 需冻结的 run 环境配置、设备锁证明及当前 PATH 构建/基线，工具本身不验收；模型请求有总时限，缺条件走 Yellow。Host 传认证 host-context，保留原始结果引用与转换证据；新增输出落本 run 受管目录。
 
 ## 命令通用约定
 

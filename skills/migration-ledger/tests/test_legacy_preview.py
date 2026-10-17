@@ -52,6 +52,15 @@ class StatementTests(unittest.TestCase):
         pc.preview_settled({}, {'Logic'})
 
 
+class NavigatorStatementTests(unittest.TestCase):
+    def test_a_navigator_is_the_absolute_adapter_command_that_walks_a_snapshot_task(self):
+        good = {**EMULATOR, 'artifact': '/opt/legacy/legacy.apk', 'navigator': {'argv': ['/usr/bin/python3', '/opt/adapter/main.py'], 'cwd': '/opt/adapter', 'timeout_seconds': 600}}
+        self.assertEqual(pc.legacy_preview_config(good)['navigator'], good['navigator'])
+        for bad in ({'argv': ['main.py'], 'cwd': '/opt/adapter', 'timeout_seconds': 600}, {'argv': ['/usr/bin/python3'], 'cwd': '/opt/adapter'}, 'adapter'):
+            with self.assertRaisesRegex(Rejected, 'navigator takes the absolute argv'):
+                pc.legacy_preview_config({**good, 'navigator': bad})
+
+
 class BaselineTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)

@@ -301,7 +301,7 @@ def run(root, request, actor):
                                                 task=task, actor=actor, config=config)
             elif operation == 'legacy-capture':
                 import lean_visual_worker
-                result = lean_visual_worker.legacy_capture(args, root=root, out=out, state=state, task=task, actor=actor)
+                result = lean_visual_worker.legacy_capture(args, root=root, out=out, state=state, task=task, actor=actor, module_id=request.get('module_id'))
             elif operation.startswith(('knowledge-', 'foundation-')):
                 result = lean_knowledge.run(operation, args, config, root)
             else:
