@@ -30,7 +30,7 @@ GO/父 MO 分配时保留全部源状态；Spec-Designer 冻结前区分两类�
 
 `ui_tree_ref` 与 `baseline_refs` 归档进 artifacts、hash 冻结。Spec-Designer 经受限 analyze-ui/validate-ui 产出树与索引，保留原始 manifest 引用；截图来自宿主授权的存量捕获。树通过不等于源闭包完整，MO 仍核对 renderer、分支和范围。
 
-runtime 证据须有原始 capture_manifest_ref，runtime index 的 manifestSha 绑定它；page/state/coverage 唯一匹配存量 COMPLETE 参考记录，重算 capture 与 index 一致，baseline_refs 恰为该 capture 的截图集合；共享 manifest/index 的其他目标独立处理。source-only 经同一 source/tree 校验，manifest 可省略，提供则该目标须为 SOURCE_ONLY，不得带 runtime index 或 baseline。
+runtime 证据须有原始 capture_manifest_ref，runtime index 的 manifestSha 绑定它；page/state/coverage 唯一匹配存量 COMPLETE 参考记录，重算 capture 与 index 一致，baseline_refs 恰为该 capture 的截图集合；共享 manifest/index 的其他目标独立处理。source-only 经同一 source/tree 校验，manifest 可省略，提供则该目标须为 SOURCE_ONLY，不得带 runtime index 或 baseline。web 存量的树 `generatedFrom.platform=web`，只绑定运行时索引，省略 `source_index_ref`。
 
 ## 强制开关
 

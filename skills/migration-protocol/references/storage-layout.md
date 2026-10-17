@@ -110,7 +110,7 @@ Python 路径校验不构成操作系统权限沙箱；实际 Agent、Gradle、�
 - 正常结束/异常返回清除本执行的 temp，保留 cleanup.json；termination.host_stop_required=true 时外层与 Harmony temp 都不删，记 retained-in-run/process-stop-unconfirmed，交 Host 停止或隔离后清理（[异常回执](build-automation.md#构建和自动化异常回执)）；清理失败留原因，不另建系统临时文件；强制中断的残留在该 run 内，恢复时先确认 worker 已停止，不清理仍活跃的兄弟 attempt。
 - 设备互斥用本机 loopback 端口租约，不建系统临时锁文件；按 device/ip/port 稳定映射，进程退出自动释放；端口冲突或不允许绑定时返回不可执行信号，绝不绕过互斥或称测试通过；租约不收发网络数据。
 - 默认 Gradle 的 GRADLE_USER_HOME、project cache、buildDirectory 指向构建 attempt，init.d 策略留证；启动只追加确定的 project-cache-dir/gradle-user-home 参数，回执保留 requested_argv 与实际 argv，验收重算校验；工程自行覆盖 buildDirectory 到外部会失败并走诊断/Fixer。环境变量与路径校验不是 OS 沙箱，不承诺任意命令都无法越界。
-- 设备端 /data/local/tmp 录屏与相册 fixture 是设备 I/O，不是宿主资产：正常结束清理录屏临时副本并拉回本轮 reports；断连/强杀后的设备清理在下次使用前核验。不把系统文件或用户相册当作可批量迁移/清除的宿主资产。
+- 设备端 /data/local/tmp 录屏与相册 fixture 是设备 I/O，不是宿主资产：正常结束清理录屏临时副本并拉回本轮 reports；断连/强杀后的设备清理在下次使用前核验。
 
 ## 原位置与治理映射
 

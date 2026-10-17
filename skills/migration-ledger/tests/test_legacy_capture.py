@@ -159,6 +159,7 @@ class FakePage:
     def goto(self, url): self.calls.append(('goto', url))
     def click(self, selector): self.calls.append(('click', selector))
     def back(self): self.calls.append(('back',))
+    def wheel(self, x, y, dy): self.calls.append(('wheel',))
     def title(self): return self.title_text
     def close(self): self.calls.append(('close',))
     def screenshot(self, path): Path(path).write_bytes(self.png)
@@ -198,8 +199,8 @@ class BrowserCaptureTests(CaptureFixture):
         self.page.text = 'Welcome back'
         result = self.capture([{'coverage': 'login:base:viewport', 'target_match': [{'resource-id': 'title', 'text': 'Sign in'}]}], stated=self.web)
         self.assertEqual((result['status'], result['blocked'][0]['reason']), ('BLOCKED', 'frozen target selectors not observed'))
-        result = self.capture([{'coverage': 'list:base:scroll', 'target_match': [{'resource-id': 'list'}], 'scroll_region': {'resource-id': 'list'}, 'scroll_end_match': [{'text': 'End'}]}], stated=self.web)
-        self.assertEqual(result['blocked'][0]['reason'], 'browser capture supports viewport targets only')
+        result = self.capture([{'coverage': 'list:base:scroll', 'target_match': [{'resource-id': 'list'}], 'scroll_region': {'resource-id': 'list'}, 'scroll_end_match': [{'text': 'End'}], 'max_scrolls': 2}], stated=self.web)
+        self.assertEqual((result['blocked'][0]['kind'], ('wheel',) in self.page.calls), ('capture-incomplete', True))  # a bounded scroll that never showed the frozen end
         with self.assertRaisesRegex(Rejected, 'unsupported navigation action'):
             self.capture([{'coverage': 'login:base:viewport', 'actions': [{'action': 'tap', 'x': 1, 'y': 1}], 'target_match': [{'resource-id': 'title'}]}], stated=self.web)
 

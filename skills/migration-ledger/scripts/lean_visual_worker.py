@@ -190,6 +190,8 @@ class Device:
 
 class AndroidDevice:
     """Fixed adb argv for the legacy application: install, launch, dump, screenshot; no arbitrary shell."""
+    platform, backend = 'android', 'adb'
+
     def __init__(self, serial, tool, out):
         require(isinstance(tool, str) and Path(tool).name == 'adb', 'configured executable must be adb')
         self.tool, self.device, self.out = tool, token(serial, 'serial'), out
@@ -233,6 +235,11 @@ class AndroidDevice:
             raise DeviceFailure('device-execution-error', 'uiautomator dump is not parseable XML') from exc
         return xml
 
+    def scroll(self, bounds):
+        """One bounded swipe up inside the frozen scroll region."""
+        x1, y1, x2, y2 = bounds
+        self.call('shell', 'input', 'swipe', (x1 + x2) // 2, y1 + (y2 - y1) * 3 // 4, (x1 + x2) // 2, y1 + (y2 - y1) // 4, 1000)
+
     def screenshot(self, label):
         remote = f'/sdcard/sdd-{self.nonce}-{label}.png'
         self.remote_files.append(remote)
@@ -262,7 +269,8 @@ def dom_to_xml(node):
         x1, y1, x2, y2 = [int(v) for v in (item.get('bounds') or [0, 0, 0, 0])]
         el = ET.Element('node', {'class': ' '.join(part for part in (item.get('tag') or '', item.get('cls') or '') if part),
                                  'resource-id': item.get('id') or '', 'text': item.get('text') or '', 'content-desc': item.get('aria') or '',
-                                 'bounds': f'[{x1},{y1}][{x2},{y2}]', 'package': '', 'scrollable': 'true' if item.get('scrollable') else 'false'})
+                                 'bounds': f'[{x1},{y1}][{x2},{y2}]', 'package': '', 'scrollable': 'true' if item.get('scrollable') else 'false',
+                                 'image-src': item.get('src') or ''})
         for child in item.get('children') or []:
             el.append(element(child))
         return el
@@ -273,7 +281,7 @@ def dom_to_xml(node):
 
 DOM_WALK = """() => { const walk = (el) => { const r = el.getBoundingClientRect(); const style = getComputedStyle(el);
   return { tag: el.tagName.toLowerCase(), id: el.id || '', cls: typeof el.className === 'string' ? el.className : '',
-    text: el.childElementCount === 0 ? (el.innerText || '').trim().slice(0, 200) : '', aria: el.getAttribute('aria-label') || '',
+    text: el.childElementCount === 0 ? (el.innerText || '').trim().slice(0, 200) : '', aria: el.getAttribute('aria-label') || '', src: el.getAttribute('src') || '',
     bounds: [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)],
     scrollable: el.scrollHeight > el.clientHeight + 1 && ['auto', 'scroll'].includes(style.overflowY),
     children: Array.from(el.children).map(walk) }; }; return walk(document.body); }"""
@@ -300,6 +308,9 @@ def open_browser(out):
         def dom(self): return self.page.evaluate(DOM_WALK)
         def screenshot(self, path): self.page.screenshot(path=str(path))
 
+        def wheel(self, x, y, dy):
+            self.page.mouse.move(x, y); self.page.mouse.wheel(0, dy)
+
         def close(self):
             self.browser.close(); self.playwright.stop()
     return PlaywrightPage()
@@ -307,6 +318,8 @@ def open_browser(out):
 
 class BrowserDevice:
     """The legacy web application in a browser: the url is the device, the DOM is the view tree, the page is the screen."""
+    platform, backend = 'web', 'playwright'
+
     def __init__(self, url, out, page=None):
         self.url, self.out, self.logs = url, out, []
         self.device = urlparse(url).netloc or url
@@ -324,6 +337,11 @@ class BrowserDevice:
 
     def foreground(self):
         return self.device, str(self.act('title') or '')
+
+    def scroll(self, bounds):
+        """One wheel turn of half the frozen region's height, at its centre."""
+        x1, y1, x2, y2 = bounds
+        self.act('wheel', (x1 + x2) // 2, (y1 + y2) // 2, max(1, (y2 - y1) // 2))
 
     def layout(self, label):
         xml = dom_to_xml(self.act('dom'))
@@ -369,33 +387,17 @@ def capture_web_target(device, stated, target, spec, out):
     label = re.sub(r'[^A-Za-z0-9_.-]+', '-', target['page_id'] + '-' + target['state_id'])
     if spec.get('navigation') is not None:
         return blocked('agent navigation needs an adb device statement; a browser walks frozen clicks')
-    if target['coverage'] != 'viewport':
-        return blocked('browser capture supports viewport targets only', 'capture-incomplete')
     device.act('goto', stated['url'])
     web_actions(device, spec.get('actions', []))
-    host, title = device.foreground()
-    xml = device.layout(f'{label}-0')
-    if not target_matches(xml, spec.get('target_match'), ''):
-        save(out / f'target-mismatch-{label}.json', {'url': stated['url'], 'title': title, 'view_xml': xml})
-        return blocked('frozen target selectors not observed', 'target-precondition')
-    image_path = device.screenshot(f'{label}-0')
-    view = out / f'view-{label}-0.xml'
-    run_storage.atomic_bytes(view, xml.encode())
-    after_xml = device.layout(f'{label}-0-after')
-    if after_xml != xml:
-        after_view = out / f'view-{label}-0-after.xml'
-        run_storage.atomic_bytes(after_view, after_xml.encode())
-        return blocked('page changed while screenshot was taken; retain both trees and recapture a new attempt', 'capture-incomplete',
-                       screenshot_ref=file_ref(image_path), before_view_ref=file_ref(view), after_view_ref=file_ref(after_view))
-    signature = mobile_snapshot.view_signature(xml, stated['url'])
-    captures = [{'index': 0, 'screenshot': str(image_path), 'view_tree': str(view), 'view_signature': signature}]
-    coverage = {'requested': 'viewport', 'achieved': 'viewport', 'capture_count': 1, 'termination': 'viewport'}
-    backend = {'name': 'playwright', 'implementation': device.tool, 'version': device.version, 'device': host}
-    meta = {'platform': 'web', 'device': host, 'app_id': stated['url'], 'foreground': title, 'page_name': title or host, 'image_mime': 'image/png',
-            'screenshot': image_path.name, 'view_signature': signature, 'device_backend': backend, 'coverage': coverage, 'captures': captures,
-            'target_match': spec['target_match'], 'legacy_preview': stated['kind']}
+    observed = observe_screen(device, device.device, target, spec, out, label)  # the host is the app; the title is the page
+    if 'captures' not in observed:
+        return observed
+    meta = {**observed['meta'], 'app_id': stated['url'], 'legacy_preview': stated['kind']}
     meta_ref = save(out / f'meta-{label}.json', meta)
-    snapshot = {**captures[0], 'meta': meta_ref['path'], 'device_backend': backend, 'coverage': coverage, 'captures': captures}
+    captures, coverage = observed['captures'], observed['coverage']
+    snapshot = {**captures[0], 'meta': meta_ref['path'], 'device_backend': observed['backend'], 'coverage': coverage, 'captures': captures}
+    if not observed['complete']:
+        return blocked('bounded scroll observations do not prove full scroll coverage', 'capture-incomplete', meta_ref=meta_ref)
     return {'status': 'COMPLETE', 'record': {'mode': 'targeted', 'phase': 'legacy-reference', 'platform': 'web',
             'page_id': target['page_id'], 'state_id': target['state_id'], 'observed_variant': target['state_id'], 'round': None,
             'status': 'COMPLETE', 'coverage': coverage, 'timestamp': datetime.now(timezone.utc).isoformat(), 'snapshot': snapshot,
@@ -431,9 +433,9 @@ def android_identity(device, app, expected_sha256):
     return {'package': app, 'sha256': expected_sha256, 'device_path': match.group(1), 'installed': installed}
 
 
-def observe_android(device, app, target, spec, out, label):
-    """The frozen target on the Android screen: foreground checked, selectors matched, each screen captured with a stable
-    tree around the screenshot, a scroll bounded by its frozen region and end. Returns the observation or a blocked result."""
+def observe_screen(device, app, target, spec, out, label):
+    """The frozen target on the screen of an adb device or a browser: foreground checked, selectors matched, each screen captured
+    with a stable tree around the screenshot, a scroll bounded by its frozen region and end. Returns the observation or a blocked result."""
     package, activity = device.foreground()
     if package != app:
         return blocked('requested app is not the observed foreground app before capture', 'target-precondition')
@@ -452,8 +454,7 @@ def observe_android(device, app, target, spec, out, label):
     captures, current_xml = [], xml
     for index in range(1 + (max_scrolls if termination == 'scroll-limit' else 0)):
         if index:
-            x1, y1, x2, y2 = region_bounds
-            device.call('shell', 'input', 'swipe', (x1 + x2) // 2, y1 + (y2 - y1) * 3 // 4, (x1 + x2) // 2, y1 + (y2 - y1) // 4, 1000)
+            device.scroll(region_bounds)
             current_xml = device.layout(f'{label}-{index}')
         package, activity = device.foreground()
         if package != app:
@@ -483,8 +484,8 @@ def observe_android(device, app, target, spec, out, label):
     complete = not scroll or termination == 'frozen-scroll-end-observed'
     coverage = {'requested': target['coverage'], 'achieved': 'viewport' if not scroll else 'scroll-complete' if complete else 'scroll-partial',
                 'capture_count': len(captures), 'termination': termination}
-    backend = {'name': 'adb', 'implementation': device.tool, 'version': device.version, 'device': device.device}
-    meta = {'platform': 'android', 'device': device.device, 'app_id': app, 'foreground': f'{package}/{activity}', 'page_name': activity,
+    backend = {'name': device.backend, 'implementation': device.tool, 'version': device.version, 'device': device.device}
+    meta = {'platform': device.platform, 'device': device.device, 'app_id': app, 'foreground': f'{package}/{activity}', 'page_name': activity,
             'image_mime': 'image/png', 'screenshot': Path(captures[0]['screenshot']).name, 'view_signature': captures[0]['view_signature'],
             'device_backend': backend, 'coverage': coverage, 'captures': captures, 'target_match': spec['target_match']}
     if scroll:
@@ -575,7 +576,7 @@ def capture_legacy_target(device, stated, app, target, spec, out, run_id=None, m
             return outcome
         navigation = outcome['navigation']
     android_actions(device, spec.get('actions', []))
-    observed = observe_android(device, app, target, spec, out, label)
+    observed = observe_screen(device, app, target, spec, out, label)
     if 'captures' not in observed:
         return observed
     meta = {**observed['meta'], 'legacy_preview': stated['kind'], 'artifact_sha256': stated.get('artifact_sha256'), **({'navigation': navigation} if navigation else {})}
@@ -814,7 +815,7 @@ def capture_android(device, contract, args, path, module, task, out, root):
     require(isinstance(activity, str) and re.fullmatch(r'[A-Za-z0-9_.$]+', activity), 'an Android candidate names its launch activity as ability')
     device.call('shell', 'am', 'start', '-n', app + '/' + activity)
     android_actions(device, contract.get('actions', []))
-    observed = observe_android(device, app, target, contract, out, 'candidate')
+    observed = observe_screen(device, app, target, contract, out, 'candidate')
     if 'captures' not in observed:
         return observed
     captures, coverage = observed['captures'], observed['coverage']

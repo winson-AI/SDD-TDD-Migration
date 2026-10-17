@@ -39,7 +39,7 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 ```
 
 - **管道自证**:上面四步后 `ledger/events.jsonl` 必须存在且逐条增长;编排器"跑完"却只有 registry 或散文报告,就是**没接 Ledger**。
-- **派发自证**:让编排器真实执行一次 `/sdd-plan <run> <mid>`,检查新出现的 `plan` 事件 `actor` 是被派发的 spec-designer 实例、`plan_ref` 指向该 Agent 产出的工件——而不是编排器自己写的。同理 implement 阶段检查 `code_files` 确由 Implementer 写入 `target_root`。
+- **派发自证**:让编排器真实执行一次 `/sdd-plan <run> <mid>`,检查新出现的 `plan` 事件 `actor` 是被派发的 spec-designer 实例、`plan_ref` 指向该 Agent 产出的工件。同理 implement 阶段检查 `code_files` 确由 Implementer 写入 `target_root`。
 - **接线参照**:[simulate_storage.py](../../migration-ledger/tests/simulate_storage.py) 调用真实 prepare/Ledger/执行器，可作为接线对照与冒烟骨架；其中审批、角色和业务输入是测试夹具，不证明用户授权、真实 Agent 派发或移动设备验证。
 
 ## 4. 判定与红线

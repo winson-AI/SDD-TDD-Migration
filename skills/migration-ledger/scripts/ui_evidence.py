@@ -86,13 +86,22 @@ def merged_runtime(tree):
     return bool((tree.get('generatedFrom') or {}).get('runtimeIndex'))
 
 
+def web_tree(tree):
+    """A tree derived from a legacy web application's browser captures: it has a runtime index and no source index."""
+    return isinstance(tree, dict) and (tree.get('generatedFrom') or {}).get('platform') == 'web'
+
+
 def _legacy_tree(tree):
     require(isinstance(tree, dict) and tree.get('schemaVersion') == 1, 'ui tree schemaVersion 1 required')
     require(isinstance(tree.get('scope'), str) and tree['scope'], 'ui tree needs its change scope')
     origin = tree.get('generatedFrom')
     require(isinstance(origin, dict), 'ui tree needs generatedFrom provenance')
-    for key in ('sourceIndex', 'sourceIndexSha256'):
-        require(isinstance(origin.get(key), str) and origin[key], 'generatedFrom needs ' + key)
+    if web_tree(tree):
+        require(origin.get('sourceIndex') is None and origin.get('sourceIndexSha256') is None and origin.get('runtimeIndex') and origin.get('runtimeIndexSha256'),
+                'a web UI tree is derived from its runtime index alone: no source index, a runtime index and its hash')
+    else:
+        for key in ('sourceIndex', 'sourceIndexSha256'):
+            require(isinstance(origin.get(key), str) and origin[key], 'generatedFrom needs ' + key)
     require(bool(origin.get('runtimeIndex')) == bool(origin.get('runtimeIndexSha256')),
             'runtimeIndex and runtimeIndexSha256 must both be present or both be null')
     runtime = merged_runtime(tree)
@@ -174,6 +183,8 @@ def validate_tree_ref(ref, source_index_ref=None, runtime_index_ref=None, target
     """Recheck the original collector/tree contract, not a reduced copy of its rules."""
     path = check_ref(ref)
     tree = validate_tree(read_json(path))
+    if web_tree(tree):
+        return validate_web_tree_ref(tree, source_index_ref, runtime_index_ref)
     require(native_tree(tree), 'UI evidence requires the native source-backed UI tree contract')
     require(source_index_ref, 'UI evidence requires source_index_ref')
     source = check_ref(source_index_ref)
@@ -211,6 +222,28 @@ def validate_tree_ref(ref, source_index_ref=None, runtime_index_ref=None, target
             for viewport in capture.get('viewports', []):
                 for key in ('screenshot', 'viewTree'):
                     check_ref(viewport.get(key))
+    return tree
+
+
+def validate_web_tree_ref(tree, source_index_ref, runtime_index_ref):
+    """A web tree stands on its runtime index: the index it names, every observation a capture the index holds, every element id
+    a node the DOM of that capture showed; the captured files are still there. Image sources are recorded, never obligations."""
+    require(not source_index_ref, 'a web UI tree takes no source index')
+    require(runtime_index_ref, 'a web UI tree requires runtime_index_ref')
+    index = read_json(check_ref(runtime_index_ref))
+    require(tree['generatedFrom'].get('runtimeIndexSha256') == runtime_index_ref['sha256'], 'web UI tree was derived from another runtime index')
+    captures = {(c.get('pageId'), c.get('stateId')): c for c in index.get('captures', []) if isinstance(c, dict)}
+    for capture in captures.values():
+        for key in ('screenshot', 'viewTree', 'meta'):
+            check_ref(capture.get(key))
+    for node in tree_nodes(tree):
+        for observation in node.get('runtimeObservations', []):
+            capture = captures.get((observation.get('pageId'), observation.get('stateId')))
+            require(capture is not None, node['id'] + ' observes a page:state the runtime index does not hold')
+            rid = node['id'][len('node:'):]
+            require('/' in rid or any(fact.get('resource-id') == rid for fact in capture.get('nodes', [])),
+                    node['id'] + ' is not an element id the DOM of ' + observation['pageId'] + ':' + observation['stateId'] + ' showed')
+    require(not tree['unresolved'], 'UI tree has unresolved source conflicts')
     return tree
 
 

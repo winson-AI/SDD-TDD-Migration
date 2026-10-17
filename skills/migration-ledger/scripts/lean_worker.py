@@ -7,6 +7,7 @@ It is not an OS sandbox: host ACLs and process fencing remain mandatory for real
 import argparse
 from datetime import datetime, timezone
 import json
+import xml.etree.ElementTree as ET
 from pathlib import Path
 import re
 import sys
@@ -70,6 +71,21 @@ def layout_helpers(value):
 def save(path, value):
     run_storage.atomic_bytes(path, (json.dumps(value, ensure_ascii=False, indent=2) + '\n').encode())
     return file_ref(path)
+
+
+def web_analysis(args, scope, out):
+    """A legacy web application has no Android source to index: its browser captures are the runtime index, and the UI tree is
+    derived from the DOM those captures kept."""
+    from lean_tools import web_ui_tree
+    capture = check_ref(args.get('capture_ref'))
+    require((read_json(capture).get('legacy_preview') or {}).get('kind') == 'browser', 'a web analysis reads a browser legacy capture')
+    runtime = select_runtime_ui.select(capture, args.get('targets', []))
+    runtime_ref = save(out / 'runtime-ui-index.json', runtime)
+    try:
+        tree = web_ui_tree.build(runtime, runtime_ref, args.get('scope') or scope)
+    except (RuntimeError, OSError, KeyError, ET.ParseError) as exc:
+        require(False, 'web UI tree: ' + str(exc))
+    return {'runtime_index_ref': runtime_ref, 'ui_tree_ref': save(out / 'ui-tree.json', tree)}
 
 
 def assignment(state, request, actor, planned=True):
@@ -153,7 +169,9 @@ def run(root, request, actor):
                'tools_ref': file_ref(Path(__file__).parent / 'lean_tools/UPSTREAM.json')}
     try:
         with runner_storage.scope(out):
-            if operation == 'analyze-ui':
+            if operation == 'analyze-ui' and args.get('platform') == 'web':
+                result = web_analysis(args, request.get('module_id') or rid, out)
+            elif operation == 'analyze-ui':
                 require(args.get('entry') or args.get('source_files') or args.get('layouts'), 'source entry required')
                 result = collect_ui_sources.collect(SimpleNamespace(android_root=config['legacy_root'],
                     scope=args.get('scope') or request.get('module_id') or rid, entry=args.get('entry', []),
