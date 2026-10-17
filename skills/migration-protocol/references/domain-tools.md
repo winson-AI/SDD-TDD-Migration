@@ -10,7 +10,7 @@ applicable UI 必须有模型/源树/目标覆盖，不是可选附录。领域�
 
 | SDD 角色 | 领域操作 | 产出与边界 |
 | --- | --- | --- |
-| Spec-Designer | `analyze-ui`、`validate-ui`、`resource-plan`、`screen-checks`、`render-reference`、知识查询与 Foundation 解析 | 源索引、运行时索引、合并 UI 树、范围与资源闭包进入规划；只生成分析工件，不改目标源码或资源 |
+| Spec-Designer | `legacy-capture`、`analyze-ui`、`validate-ui`、`resource-plan`、`screen-checks`、`render-reference`、知识查询与 Foundation 解析 | 源索引、运行时索引、合并 UI 树、范围与资源闭包进入规划；只生成分析工件，不改目标源码或资源 |
 | Implementer | `resource-sync`、`resource-convert`，消费已冻结 UI/资源证据 | 在当前 assignment 与写范围内完成精确资源转换及真实消费者接线；不改 SPEC/tasks/验收，不作正式通过判断 |
 | Test-Runner | 正式构建走 `execute_test.py`；视觉使用 `compare-only`、`image-parity` | 读取当前代码/基线生成比较评分；结合独立设备交互、语义比较和正式执行回执提交三态，不修源码、资源、构建配置或 SPEC |
 | Fixer | 经 Ledger 授权的实现/资源修复，可用 `resource-convert` | 沿原修复预算和写范围提交补丁；行为或验收变更先提 CR；自测不能代替正式复测 |

@@ -281,6 +281,12 @@ def topic_facts(s, m, step):
     from contracts import check_ref, read_json
     facts = dict.fromkeys(('ui', 'resources', 'pictures', 'copy', 'parameters', 'api', 'data', 'picture_items'), False)
     facts['visual'] = bool(((s.get('test_adapter') or {}).get('device') or {}).get('platforms'))  # a device to show a screen on
+    try:
+        import project_context
+        stated = project_context.legacy_preview(s)
+    except (ValueError, OSError, KeyError, TypeError):
+        stated = None
+    facts['legacy'] = bool(stated) and stated.get('kind') != 'none'  # the legacy runs: its screens are captured, not inferred
     selected = step.get('module_ids') or (s.get('audit_assignment') or {}).get('module_ids')
     modules = [m] if m else [obj for mid, obj in s.get('modules', {}).items() if not selected or mid in selected]
     for obj in modules:
@@ -370,6 +376,8 @@ def entries(role, test_scope=None, ui=False, reuse=False, operation=None, teleme
                       and not (heading in ('参数表', FILL) and not facts.get('parameters'))
                       and not (heading == PICTURES and not facts.get('pictures'))]
         items += chosen
+        if facts and facts.get('legacy') and role in ('spec-designer', 'module-orchestrator'):
+            items += sections('project-context.md', '存量预览') + sections('visual-execution.md', '4. 存量捕获')
     if facts and facts.get('api'):
         items += sections('resource-transfer.md', 'API 与 URL 契约')
     if facts and facts.get('parameters'):

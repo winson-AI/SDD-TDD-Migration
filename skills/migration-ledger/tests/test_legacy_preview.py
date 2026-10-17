@@ -113,5 +113,39 @@ class BaselineTests(unittest.TestCase):
         self.assertIn('| capture-gap |', text)
 
 
+class CaptureDueTests(BaselineTests):
+    """Where the legacy runs, the planner is told what to capture and reads how; nothing is due where it cannot run."""
+    def test_the_step_lists_uncaptured_items_and_the_latest_capture(self):
+        import reading
+        emulator = self.state({**EMULATOR, 'artifact': str(self.base / 'legacy.apk')})
+        analysis = {'dimensions': [{'dimension': 'UI', 'status': 'applicable', 'items': [
+            {'item_id': 'U-login', 'case_ids': ['C1'], 'semantic_model': {'kind': 'ui-component-spec', 'ui_evidence': {'coverage': 'login:base:viewport', 'visual_mode': 'runtime', 'baseline_refs': [self.shot]}}},
+            {'item_id': 'U-list', 'case_ids': ['C2'], 'semantic_model': {'kind': 'ui-component-spec', 'ui_evidence': {'coverage': 'list:base:viewport', 'visual_mode': 'source-only'}}},
+            {'item_id': 'U-settings', 'case_ids': ['C3']},
+            {'item_id': 'U-gap', 'case_ids': ['C4'], 'semantic_model': {'kind': 'ui-component-spec', 'ui_evidence': {'coverage': 'gap:base:viewport', 'visual_mode': 'source-only', 'capture_gap': {'reason': 'paired device', 'evidence_refs': [self.proof]}}}}]}]}
+        m = {'module_id': 'M001', 'dimension_analysis_ref': self.ref('allocation.json', analysis)}
+        due = ui_fidelity.capture_due(emulator, m)
+        self.assertEqual((due['legacy_preview'], [i['item_id'] for i in due['items']], due['last_capture']), ('android-emulator', ['U-list', 'U-settings'], None))
+        run_root = self.base / '.sdd-runs/run-1'; emulator['run_root'] = str(run_root)
+        out = run_root / 'runs/harmony/sandbox/spec-1/cap-1'; out.mkdir(parents=True)
+        manifest = self.ref('.sdd-runs/run-1/runs/harmony/sandbox/spec-1/cap-1/manifest.json', {'schema_version': 2, 'targets': []})
+        result = self.ref('.sdd-runs/run-1/runs/harmony/sandbox/spec-1/cap-1/result.json', {'status': 'PARTIAL', 'manifest_ref': manifest, 'captured': ['list:base:viewport'], 'blocked': []})
+        self.ref('.sdd-runs/run-1/runs/harmony/sandbox/spec-1/cap-1/receipt.json', {'operation': 'legacy-capture', 'module_id': 'M001', 'status': 'produced', 'result_ref': result, 'finished_at': '2026-01-01T00:00:00+00:00'})
+        self.assertEqual(ui_fidelity.capture_due(emulator, m)['last_capture']['manifest_ref'], manifest)
+        self.assertIsNone(ui_fidelity.capture_due(self.state({'kind': 'none', 'reason': 'no build'}), m))
+        card = {(row['ref'].split('/')[-1], row['section']) for row in reading.card(emulator, m, {'role': 'spec-designer', 'operation': 'plan'})}
+        self.assertLessEqual({('project-context.md', '存量预览'), ('visual-execution.md', '4. 存量捕获')}, card)
+        quiet = {(row['ref'].split('/')[-1], row['section']) for row in reading.card(self.state({'kind': 'none', 'reason': 'no build'}), m, {'role': 'spec-designer', 'operation': 'plan'})}
+        self.assertNotIn(('visual-execution.md', '4. 存量捕获'), quiet)
+
+    def test_the_plan_step_carries_what_is_due(self):
+        import test_ledger
+        f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        f.global_plan()
+        with mock.patch.object(ui_fidelity, 'capture_due', return_value={'legacy_preview': 'vm', 'items': [{'item_id': 'U1'}], 'last_capture': None}):
+            step = next(x for x in f.state()['next_steps'] if x['operation'] == 'plan')
+        self.assertEqual(step['capture_due']['items'], [{'item_id': 'U1'}])
+
+
 if __name__ == '__main__':
     unittest.main()

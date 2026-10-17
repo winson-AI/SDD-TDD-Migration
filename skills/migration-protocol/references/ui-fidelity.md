@@ -53,13 +53,13 @@ prepare 固定 `ui_fidelity_required=true`。[ui_fidelity.py](../../migration-le
 Test-Runner 在 build Green 后分两层（第一层：功能用例路径走通；第二层 visual：对齐存量基线，逐视觉对齐路径中的节点 assert），都是普通测试路径，走既有三态与 Next-STEP：
 
 - `visual` 路径须绑定 `node_ids`（稳定 `node:` id）与 `baseline_ref`（[test_validation.plan_check](../../migration-ledger/scripts/test_validation.py)），并显式 coverage = 对应 UI item 的 page/state/coverage；baseline_ref 属于该目标 baseline_refs，node_ids 只引用该目标真实树节点。每个 runtime/user-reference 目标至少一条 visual PATH，不跨状态充数。
-- 阶段顺序由 `tv.next_scope` 强制：**第二层需第一层 Green**；DoD 要求**全部三层路径 Green**（`tv.all_green`）。
-- 视觉不对齐 = **Red + 节点级 root_cause** → ④三态 / ⑤`diagnose` → 一轮 Fixer，**复用既有修复预算**。
+- 阶段顺序由 `tv.next_scope` 强制：第二层需第一层 Green；DoD 要求全部路径 Green（`tv.all_green`）。
+- 视觉不对齐 = **Red + 节点级 root_cause** → 三态 / `diagnose` → 一轮 Fixer，复用既有修复预算。
 - 声明的手势（`interaction:<id>`）须由 automation 或 visual 路径承载设备证据（`interaction_id`），静态路由不可替代。
 - `source-only` 无第二层：行为用 automation 验证，按显式缺视觉证据收尾，不允许"没基线就免检"。
 - 仅自动化环境缺失时，`automation-unavailable` 同时挂起 automation 与 visual，沿既有 Yellow 缺测收尾。
 
-正式视觉 Green 要求 `record.visual_alignment` 与回执的 `captured.visual_alignment` 一致：冻结 PATH 的 coverage/node_ids/baseline_ref、当前 code_baseline、本轮已接受且 hash 可校验的 hap_ref。声明 interaction_id 时，execute_test 从冻结 dimension model 取 frozen_interaction 写入 query；proof.required_interaction 须一致，interaction_checks 须有同 ID、PASSED、同 action、observed 满足冻结 expected、同 hap_sha256/代码基线的唯一记录，不得改成更容易的动作或页面。Red/Yellow 可留不完整证据与原因，不得为缺设备伪造哈希或通过；未完成自动化按 Yellow 收尾。execute_test 经 lean_visual_adapter 接入原始比较结果，见[接入协议](domain-tools.md#总则)。
+正式视觉 Green 要求 `record.visual_alignment` 与回执一致：冻结 PATH 的 coverage/node_ids/baseline_ref、当前 code_baseline、本轮已接受且可校验的 hap_ref；声明 interaction_id 时 query 带冻结 frozen_interaction，interaction_checks 须有同 ID、PASSED、同 action、observed 满足 expected、同 hap/代码基线的唯一记录。Red/Yellow 可留不完整证据与原因，不得伪造；未完成自动化按 Yellow 收尾。比较结果经 lean_visual_adapter 接入，见[接入协议](domain-tools.md#总则)。
 
 automation 手势使用 [interaction-evidence.json](../../../template/interaction-evidence.json)：正式 Green 同样核对冻结动作、起点、预期、当前 HAP/代码及实际观测，record 与原始 report 的 interaction_evidence 一致；不要求截图基线，不从 expected 合成 observed。Harmony 未产出该结构化证据时，已执行断言保留并规范化为 Yellow（interaction-evidence-unavailable）；真实 Red 不被覆盖，能力缺失不新增全局阻塞。
 
@@ -75,7 +75,7 @@ automation 手势使用 [interaction-evidence.json](../../../template/interactio
 
 Green 还须带 `alignment_root` 与从原始 alignment 推导的 `comparison_evidence`：逐 round/page/state/capture index 选取 manifest 中的截图，核对 score 的 reference/candidate 摘要，semantic 绑定该 score_sha256 或同一图片对；正式门禁重读 evidence_ref 推导相同结果。ALIGNED_CARRIED 保留原 ALIGNED 的完整证据，并用 regression_score 绑定 carried_from_round 与当前 capture_round 的截图（regression_capture_index 默认 0）；仍须明确 ALIGNED 裁决。
 
-adapter 与正式 submit/accept/Auditor 共用 [visual_evidence.py](../../migration-ledger/scripts/visual_evidence.py)：从所属叶子冻结模型重取完整 capture 记录及 baseline_refs，核对每屏、顺序和元数据；候选 snapshot 的 capture_execution_ref 与安装/捕获回执见 [视觉执行](visual-execution.md#2-执行节点)。
+adapter 与正式验收共用 [visual_evidence.py](../../migration-ledger/scripts/visual_evidence.py)，重取完整 capture 记录及 baseline_refs 核对每屏；候选 snapshot 的 capture_execution_ref 见 [视觉执行](visual-execution.md#2-执行节点)。
 
 可选 GLOBAL visual PATH 在规划时声明 `build_binding: {module_id, path_id}` 指向冻结的集成 build PATH；Green 只接受该 PATH 在当前模块基线的已接受构建产物。GO/MO 审查该构建命令覆盖此全局用例依赖；缺绑定不借用全局产物池，也不重跑已有 Green。
 

@@ -5,7 +5,7 @@
 ## 1. 准备与冻结
 
 1. Host/Test-Runner 按项目参考配置（可存 `.sdd-migration/harmony/visual.json`）或 [配置模板](../../../template/visual-execution.json)，在本轮 `runs/harmony/sandbox/environment/visual.json` 生成执行配置；与 sandbox 的 config.json 分开，执行期间不改写。只复制本次选定的设备/backend/模型配置，不假定本机默认设备。
-2. Spec/Test design 把 `visual_execution` 放到对应 automation/visual PATH：environment_ref 的真实 path/hash、app_id、导航 actions、目标选择器；随路径冻结并持续验证，变更走 CR/重新冻结。无视觉需求时不加此字段。
+2. Spec/Test design 把 `visual_execution` 放到对应 automation/visual PATH：environment_ref 的真实 path/hash、app_id、导航 actions、目标选择器；随路径冻结，变更走 CR/重新冻结。无视觉需求时不加此字段。
 3. 设备执行用显式 HDC 或 adb backend（Android 目标装 APK，`ability` 填 activity，装机后在设备上核对包哈希）；模型用显式启用的 external 配置，API key 只从指定环境变量读取，配置与请求只存变量名，不归档 `.env` 或明文 key。
 4. 执行前 Host 持有设备独占锁并在认证 host-context 注入 device_lock（device_id、assignment_id、fencing_token、held）；Agent 自填的锁字段不算锁。
 
@@ -25,13 +25,13 @@ python3 <package_root>/skills/migration-ledger/scripts/lean_worker.py \
 | compare-only | visual assignment；实际 reference_ref/candidate_ref | 确定性 score；不能直接给 ALIGNED |
 | semantic-inspect | visual assignment；冻结配置、reference_ref/candidate_ref/score_ref | 有总时限的模型比较，保留图片对与 score hash；INSPECTED 不是裁决 |
 | image-parity | visual assignment；path_id、已完成候选 capture 的 manifest_ref 与 round；PATH 携带冻结的 image_checks | 逐检查在目标 view tree 定位节点、裁剪并与参考栅格比较，写 image-parity.json；MEASURED 是测量不是裁决，验收时重算 |
-| legacy-capture | Spec-Designer/Test-Runner 当前 assignment；[存量预览](project-context.md#存量预览)为 adb 设备且宿主锁住该 serial；targets（page:state:coverage、actions、target_match、滚动契约），见 [legacy-capture-request.json](../../../template/legacy-capture-request.json) | 按声明装机（artifact 哈希或 build）、启动、走冻结动作、核对前台与选择器，截图前后树稳定才写参考记录；browser：Playwright 打开 url、点击冻结选择器、DOM 转树，记 legacy-reference/web（仅 viewport）；manifest 供 analyze-ui 与 runtime 证据，CAPTURED/PARTIAL 不是对齐通过，捕不到的带原因 |
+| legacy-capture | Spec-Designer/Test-Runner 当前 assignment；存量预览为 adb 设备或 browser，宿主锁住该设备 | 见 [存量捕获](#4-存量捕获) |
 
 带 `image_check_ids` 的 PATH：visual-install → visual-capture → `image-parity` → adapter 的 `--image-parity`；图片、文本与节点检查出自同一次 capture。无 `baseline_ref` 时 visual-capture 不需要 reference_manifest_ref；带基线的 PATH 同时承载检查时较弱的结果决定三态。报告须属于当前 assignment、代码基线、HAP 与所选 capture。
 
 叶子 PATH 的比较原图都来自同 coverage 的冻结 UI evidence（baseline_refs/capture_manifest_ref），含滚动目标的后续截图；不能借含首屏的任意 manifest 添加基线。user-reference PATH 的 reference manifest 由 Test-Runner 以用户截图构造 android-reference 记录，截图集合恰为 baseline_refs。Auditor 读原叶子 SPEC 的证据集合，不按构建归属猜 UI 归属。GLOBAL 自有 PATH 用 visual_evidence 显式冻结 coverage、visual_mode、capture_manifest_ref 与完整 baseline_refs；缺完整原始证据保留局部 Yellow，adapter 不能提升为 Green。
 
-visual-capture 把 capture_execution_ref 写入候选 snapshot（[捕获执行回执](../../../template/visual-capture-execution.json)）。adapter 与正式验收重读本 run 的安装回执、执行日志、截图/树和元数据推导 capture_evidence，检查 HAP/代码及完整原图集合；外部捕获器须提供同契约 sidecar，关联成功安装命令、实际 capture 命令与图片输出，不能自填“当前版本”，meta 的构建/代码字段须一致；缺 sidecar 保留 Yellow，不改写原始证据。carried 只重验实际引用的历史轮次，并检查本轮当前构建。
+visual-capture 把 capture_execution_ref 写入候选 snapshot（[捕获执行回执](../../../template/visual-capture-execution.json)）；adapter 与正式验收重读本 run 的安装回执、执行日志、截图/树和元数据推导 capture_evidence，检查 HAP/代码及完整原图集合。外部捕获器须提供同契约 sidecar（成功安装命令、实际 capture 命令与图片输出，meta 的构建/代码字段一致），缺 sidecar 保留 Yellow；carried 只重验实际引用的历史轮次。
 
 安装可在功能自动化前执行；换 assignment 后须有当前授权的装机证据。最终 Auditor 只处理选取的审计 PATH，设备工具校验当前审计快照与 PATH 所属构建产物。
 
@@ -52,3 +52,7 @@ semantic 原文件的所有 issues 及 `comparability < 0.4` 或 `comparable=fal
 工具 BLOCKED/quality_candidate 只是待提交证据，不能直接改 Ledger。缺少工具、设备、模型或观测条件时，Test-Runner 留原因/日志，MO 按实际情况使用既有 Yellow/未执行与 automation-unavailable 通道。已经观察到的失败断言不能覆盖成缺环境；设备错误或页面不符也不自动断言为实现缺陷，先走现有根因判断。Auditor 可继续代码审查及缺测收尾；其他模块与可用构建依赖继续。
 
 工具执行取消后由宿主核实停止，按已有 revoke/audit-revoke 处理，不重启或释放业务锁。配置/hash/assignment/权限不匹配属于受控拒绝，返回原因供相关 owner 修订，不转换为测试 Green。真实设备与模型能力须在项目环境验证，本包的隔离测试仅证明控制与证据契约。
+
+## 4. 存量捕获
+
+存量可跑（[存量预览](project-context.md#存量预览)≠none）时，Spec-Designer 在 analyze-ui 前用 `legacy-capture` 捕获本叶 UI 项的 page:state:coverage；步骤给出 `capture_due`（尚无 runtime 证据的条目与最近一次捕获的 manifest），请求见 [legacy-capture-request.json](../../../template/legacy-capture-request.json)。adb 后端按声明装机（artifact 哈希或 build）、启动、走冻结 tap/swipe/back、核对前台与选择器，截图前后树稳定才写参考记录；browser 后端用 Playwright 打开 url、走冻结 click、DOM 转树，记 legacy-reference/web（仅 viewport）。捕不到的目标带原因（PARTIAL/BLOCKED），写入 `capture_gap`；manifest 作 analyze-ui 的 capture_ref 与 UI 项的 runtime 证据，CAPTURED 不是对齐通过。
