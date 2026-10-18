@@ -82,6 +82,23 @@ def merge(config, patch):
     return result
 
 
+KNOWLEDGE_LIMIT = 500
+
+
+def knowledge_files(paths):
+    """The documents the project's knowledge_paths name: a file as itself, a folder (a wiki export) as every Markdown file under it."""
+    out = []
+    for raw in paths:
+        path = Path(raw)
+        if path.is_dir():
+            found = sorted(p for p in path.rglob('*.md') if p.is_file() and not any(part.startswith('.') for part in p.relative_to(path).parts))
+            require(len(found) <= KNOWLEDGE_LIMIT, f'knowledge folder {raw} holds more than {KNOWLEDGE_LIMIT} Markdown files; name its subfolders')
+            out.extend(str(p) for p in found)
+        else:
+            out.append(str(path))
+    return list(dict.fromkeys(out))
+
+
 def validate(config):
     require(isinstance(config, dict) and set(config) <= FIELDS, 'unknown project configuration field')
     if 'watchdog' in config:
@@ -89,7 +106,7 @@ def validate(config):
         config['watchdog'] = policy(config['watchdog'])
     knowledge = config.get('knowledge_paths', [])
     require(isinstance(knowledge, list) and all(isinstance(p, str) and Path(p).is_absolute() for p in knowledge),
-            'knowledge_paths must be absolute file paths')
+            'knowledge_paths must be absolute paths: Markdown documents or folders of them')
     if 'knowledge_paths' in config:
         config['knowledge_paths'] = list(dict.fromkeys(str(Path(p).resolve()) for p in knowledge))
     if 'reference_media' in config:
@@ -438,7 +455,7 @@ def preflight(record, request):
         require(key in effective and Path(effective[key]).is_dir(), 'missing directory: ' + key)
     require(effective.get('architecture_path'), 'architecture_path required before prepare')
     reuse.normalize_sources(effective.get('reuse_sources', []), effective['target_root'], existing=True)
-    for path in [effective[k] for k in DOCUMENTS if effective.get(k)] + effective.get('knowledge_paths', []) + [row['path'] for row in effective.get('reference_media', [])]:
+    for path in [effective[k] for k in DOCUMENTS if effective.get(k)] + knowledge_files(effective.get('knowledge_paths', [])) + [row['path'] for row in effective.get('reference_media', [])]:
         file_ref(path)
     preview = effective.get('legacy_preview') or {}
     if preview.get('artifact'):
@@ -531,7 +548,16 @@ def _prepare(root, run_root, request, actor, storage):
         files = run_root / 'context/files'
         sources = {key: copy_ref(files, file_ref(effective[key])) for key in DOCUMENTS if effective.get(key)}
         if 'knowledge_paths' in effective:
-            sources['knowledge_paths'] = [copy_ref(files, file_ref(path)) for path in effective['knowledge_paths']]
+            sources['knowledge_paths'] = [copy_ref(files, file_ref(path)) for path in knowledge_files(effective['knowledge_paths'])]
+        answered = []
+        for row in carried.get('knowledge') or []:  # what people answered in earlier runs stays known: the copy the store kept, unchanged
+            try:
+                answered.append({**row, 'ref': copy_ref(files, file_ref(check_ref(row['ref'])))})
+            except (ValueError, OSError, KeyError, TypeError):
+                continue  # the answer's document is gone or changed: nothing is assumed
+        if answered:
+            held = {ref['sha256'] for ref in sources.get('knowledge_paths') or []}
+            sources['knowledge_paths'] = (sources.get('knowledge_paths') or []) + [row['ref'] for row in answered if row['ref']['sha256'] not in held]
         exp_path = experience.store(root) / 'lessons.json'
         if exp_path.is_file():
             from experience import planning_view
@@ -547,6 +573,8 @@ def _prepare(root, run_root, request, actor, storage):
         effective = freeze_refs(files, effective)
         for key, source in sources.items():
             effective[key] = [ref['path'] for ref in source] if isinstance(source, list) else source['path']
+        if answered:
+            sources['carried_knowledge'] = answered  # after the path projection: these rows are decisions with their copied document, not documents
         if effective.get('reference_media'):  # what the user showed of the legacy: copied and hash-bound like the documents, kept with what it shows
             sources['reference_media'] = []
             for row in effective['reference_media']:

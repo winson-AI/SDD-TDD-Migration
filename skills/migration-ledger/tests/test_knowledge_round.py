@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import decomposition
@@ -14,7 +15,7 @@ import project_context as pc
 import test_control_policy
 import test_ledger
 import test_project_context
-from contracts import Rejected, check_ref, digest
+from contracts import Rejected, check_ref, digest, file_ref
 
 
 class KnowledgeNeedTests(unittest.TestCase):
@@ -58,6 +59,39 @@ class KnowledgeNeedTests(unittest.TestCase):
 
 
 class ProjectKnowledgeTests(unittest.TestCase):
+    def test_a_knowledge_folder_is_every_markdown_file_under_it(self):
+        pj = test_project_context.ProjectContextTests(); pj.setUp(); self.addCleanup(pj.doCleanups)
+        wiki = pj.base / 'wiki'; (wiki / 'payments').mkdir(parents=True); (wiki / '.drafts').mkdir()
+        (wiki / 'payments/retry.md').write_text('Retry policy: the gateway retries once.\n'); (wiki / 'glossary.md').write_text('Timeouts are 3 s.\n')
+        (wiki / '.drafts/secret.md').write_text('not a wiki page\n'); (wiki / 'payments/diagram.png').write_bytes(b'png')
+        with self.assertRaisesRegex(Rejected, 'absolute paths'):
+            pc.update(pj.root, pj.request('bad', 1, {'knowledge_paths': ['wiki']}), pj.actor)
+        pc.update(pj.root, pj.request('knowledge', 1, {'knowledge_paths': [str(wiki)]}), pj.actor)
+        prepared = pj.prepare(); pj.start(pj.init_payload(prepared))
+        state = ledger.status(pj.run)
+        self.assertEqual(len(knowledge.documents(state)), 2)
+        self.assertEqual(sorted(h['hits'][0]['text'] for h in knowledge.search(state, 'retr')), ['Retry policy: the gateway retries once.'])
+        self.assertEqual(knowledge.search(state, 'secret'), [])
+
+    def test_an_answer_is_carried_to_the_next_run_through_the_experience_store(self):
+        import experience
+        pj = test_project_context.ProjectContextTests(); pj.setUp(); self.addCleanup(pj.doCleanups)
+        answer = pj.base / 'K1.md'; answer.write_text('# K1 · KN-1\n\n## 答复\n\n- the SDK retries once after 3 s\n')
+        issue = {'kind': 'knowledge-need', 'summary': 'retry policy of the payment SDK', 'applies_to': ['M001']}
+        state = {'decisions': {'K1': {'kind': 'knowledge', 'question_id': 'KN-1', 'knowledge_ref': file_ref(answer)}}, 'issues': {'KN-1': issue}}
+        settled = experience.settled(state)['knowledge']
+        self.assertEqual([(r['decision_id'], r['issue_id'], r['summary']) for r in settled], [('K1', 'KN-1', 'retry policy of the payment SDK')])
+        stale = {**settled[0], 'ref': {**settled[0]['ref'], 'sha256': 'f' * 64}}
+        with mock.patch.object(experience, 'conventions', return_value={'knowledge': settled + [stale]}):
+            prepared = pj.prepare()
+        snapshot = pc.verify_snapshot(prepared['project_context_ref'])
+        self.assertEqual([r['decision_id'] for r in snapshot['source_refs']['carried_knowledge']], ['K1'])  # the changed one is not assumed
+        pj.start(pj.init_payload(prepared))
+        s = ledger.status(pj.run)
+        self.assertEqual([Path(d['path']).parent.name for d in knowledge.documents(s)], ['files'])  # the run's own copy
+        self.assertEqual(knowledge.search(s, 'retries once')[0]['count'], 1)
+        self.assertTrue(knowledge.settles(s, issue, knowledge.documents(s)[0]))
+
     def test_the_projects_documents_and_answers_are_searchable_by_line(self):
         pj = test_project_context.ProjectContextTests(); pj.setUp(); self.addCleanup(pj.doCleanups)
         doc = pj.base / 'wiki-payments.md'; doc.write_text('# Payments\n\nRetry policy: the gateway retries once.\nTimeouts are 3 s.\n')
