@@ -1,0 +1,10 @@
+{
+  "_note": "Run via lean_worker by GO, MO or Spec-Designer, no assignment needed: a read-only scan of target_root for the features being migrated. The result lists modules (folders with a build file), entry points (manifest activities, module abilities) and declared symbols whose name or path mentions a keyword, each with its file hash; cite them as evidence_refs/symbols of a target-profile row. Candidates only: absent / shell-only / partial / existing is the orchestrator's judgement.",
+  "operation": "target-scan",
+  "request_id": "{{new-scan-attempt-id}}",
+  "module_id": null,
+  "args": {
+    "keywords": ["{{feature-or-screen-name}}", "{{domain-term}}"],
+    "roots": ["{{optional-folder-relative-to-target_root}}"]
+  }
+}
