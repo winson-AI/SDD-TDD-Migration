@@ -27,9 +27,9 @@ python3 <package>/skills/migration-ledger/scripts/ledger.py preview --root <run>
 python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run> --scope module --module-id <module-id>
 ```
 
-`verify_openspec.py` 只读核验指定范围：global 公共基础，module 当前模块、祖先与实际依赖，projection（默认）全量视图，final 另要求正式收尾报告；planning 阶段 projection 可通过。核验不证明真实派发、命令执行或功能 Green；失败按 scope/module_id/recovery_action 恢复相关范围，无关 MO 继续，见 [留存布局](storage-layout.md#openspec-投影完整性收尾门禁)。
+`verify_openspec.py` 的范围、恢复与边界见[留存布局](storage-layout.md#openspec-投影完整性收尾门禁)。
 
-正式 CLI 只用 prepare 固化的 `.sdd-runs/<run_id>`（init 绑定 project_context_ref）；旧根目录用 `ledger.py history --root <旧根>` 只读重放；已接受的工件沿用接受时的规则，新提交的按当前规则（[冻结算法](openspec.md#冻结算法) 第 7 条）。`init/resume/recover` 是同名 operation 的入口校验，仍走同一事务；成功返回 event_id/sequence/duplicate，拒绝返回 exit 1 和原因，CLI exit 0 仅说明请求已接受。宿主 context 最小为 `{"role":"module-orchestrator","instance_id":"mo-M001"}`，由宿主认证后注入，不从业务请求推导；请求形状见 [ledger-request.json](../../../template/ledger-request.json)。相同 request_id + 完整请求 + 身份重复提交返回原 ACK，内容变化拒绝。module_id 非空校验模块 revision，否则校验全局 revision；**decision/register/global-plan/audit-collect/audit-plan/audit-route-batch/audit-verdict/audit-release/audit-assign/audit/audit-revoke/audit-route 的请求顶层 module_id 必须为 null**，适用模块写在 payload。每次有效模块操作增加模块 revision，跨模块失效增加相关消费者 revision。
+正式 CLI 只用 prepare 固化的 `.sdd-runs/<run_id>`（init 绑定 project_context_ref）；旧根目录用 `ledger.py history --root <旧根>` 只读重放；已接受的工件沿用接受时的规则，新提交的按当前规则（[冻结算法](openspec.md#冻结算法) 第 7 条）。`init/resume/recover` 是同名 operation 的入口校验，走同一事务；成功返回 event_id/sequence/duplicate，拒绝返回 exit 1 和原因。宿主 context 最小为 `{"role":"module-orchestrator","instance_id":"mo-M001"}`，由宿主认证后注入；请求形状见 [ledger-request.json](../../../template/ledger-request.json)。module_id 非空校验模块 revision，否则校验全局 revision；**decision/register/global-plan/audit-collect/audit-plan/audit-route-batch/audit-verdict/audit-release/audit-assign/audit/audit-revoke/audit-route 的请求顶层 module_id 必须为 null**，适用模块写在 payload。每次有效模块操作增加模块 revision，跨模块失效增加相关消费者 revision。
 
 hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的 SHA256；`contracts.file_ref(path)` 返回真实绝对路径与文件字节 SHA256。命令行 `contracts.py ref <文件>...`、`contracts.py baseline <代码文件>...`（输出 code_files 与 code_baseline）、`contracts.py digest <json 文件>`；不用系统 `shasum` 冒充 canonical digest。
 
@@ -94,7 +94,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
 | retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
 | api-register | GO / MO / Spec-Designer，全局 | module_id（owner 叶）、api_id（run 内新）、item_id（该叶 Logic/Adhesive 条目）、call、contract、evidence_refs；该叶下次 plan 的清单可多出已登记行，不重切、不推进修订号；owner/consumer 变化走 realloc/redecompose |
-| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing/debt/knowledge-need；debt 与 fact 一样记录即结清，审计骨架预列；knowledge-need 是源码、目标与知识库都没有的知识，只能由 kind=knowledge 的决定或知识文档消去，blocks 时挡冻结）、summary、applies_to，可选 evidence_refs、blocks，或 issues[] 批量；消去：issue_id、module_id、evidence_ref，或 resolutions[] 批量，全部成立才记；plan/plan-review/submit/accept 可带 resolves[]。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete；step 视图每模块最多 10 条（blocking、最新优先），每条 200 字符。Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
+| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing/debt/knowledge-need；debt 记录即结清、审计骨架预列；knowledge-need 是源码、目标与知识库都没有的知识，只能由 kind=knowledge 决定或知识文档消去，blocks 时挡冻结）、summary、applies_to，可选 evidence_refs、blocks，或 issues[] 批量；消去：issue_id、module_id、evidence_ref，或 resolutions[] 批量，全部成立才记；plan/plan-review/submit/accept 可带 resolves[]。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete；step 视图每模块最多 10 条（blocking、最新优先）、每条 200 字符；Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
 
 ## 阶段结果
 
@@ -117,7 +117,7 @@ implementation 另需：
 
 code_baseline = `contracts.baseline(code_files)`，源码文件必须仍存在且摘要匹配；目标写范围以 realpath 检查，任务必须完整映射代码文件。code_files 是 worker 自填的结果清单，不能单独证明没有越界写入；开启 `write_scope_check` 后由[写范围核验](engineering-disciplines.md#写范围核验可选默认关闭)比对实际改动。
 
-tests 另需 paths，见 [stage-result.json](../../../template/stage-result.json)。每个冻结 PATH 都要有结果；Green 需实际回执、断言集合一致、预期值不变，且 JSON equality 成立。Red 需真实失败；Yellow 需 root_cause.category/summary/confidence/owner/next_action。失败不等于已确认根因。
+tests 另需 paths，见 [stage-result.json](../../../template/stage-result.json)；三态与回执要求见[断言与结果](testing.md#断言与结果)。
 
 ## 实际测试适配器
 
@@ -129,9 +129,9 @@ python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> -
 
 适配器接收 `--query-file <json> --result-file <json>`，写 `{"assertions":[{"assertion_id":"A1","expected":2,"actual":2,"passed":true}]}`。具体测试逻辑来自真实项目，本包只负责调用与采集。
 
-每条执行使用新目录，不覆盖历史。`receipt.json` 包含 test_run_id、代码/SPEC/路径绑定、实际 argv/cwd、时间、退出码及 result/log/query refs。执行结束不直接推进 Ledger：Test-Runner 整理完整 paths 后 submit，MO 再 accept。缺报告、超时、适配器异常保留日志并报告 Yellow；不拼造 Green。不得把同基线 flaky 结果择优记绿；稳定性判断由 Test-Runner/Auditor 承担，本地字段 `flaky=true` 会拒绝 Green。
+每条执行使用新目录，不覆盖历史。`receipt.json` 包含 test_run_id、代码/SPEC/路径绑定、实际 argv/cwd、时间、退出码及 result/log/query refs。执行结束不直接推进 Ledger：Test-Runner 整理完整 paths 后 submit，MO 再 accept。缺报告、超时、适配器异常保留日志并报告 Yellow；同基线 flaky 结果不得择优记绿（`flaky=true` 拒绝 Green）。
 
-全局审计由 Global audit-assign 后，使用 `--module GLOBAL --assignment <audit-id>` 仅对 audit_assignment.path_ids 分别执行。报告 kind=tests、module_id=GLOBAL，freeze_id/code_baseline 来自 `ledger.audit_scope(state)`，另带 `snapshot={module_id: code_baseline}`。非 Green 报告生成 audit_repairs：模块 PATH 自动对应所属模块；全局 PATH 由 Global audit-route 分配一个或多个责任模块，MO repair-accept 后重开。Auditor 不改源码。
+全局审计由 Global audit-assign 后，使用 `--module GLOBAL --assignment <audit-id>` 仅对 audit_assignment.path_ids 分别执行。报告 kind=tests、module_id=GLOBAL，freeze_id/code_baseline 来自 `ledger.audit_scope(state)`，另带 `snapshot={module_id: code_baseline}`。非 Green 报告生成 audit_repairs，路由与重开见[收尾的实际执行契约](audit-scope.md#收尾的实际执行契约)；Auditor 不改源码。
 
 ## 恢复与预算
 
@@ -145,11 +145,7 @@ digest({module_id, revision, recovery_cycle, additional_rounds})
 
 decision 为全局操作，不增加模块 revision，因此记录批准后 recover 可验证同一模块修订号。普通 resume 的 subject 为整个 blocked 对象摘要（游标的 approval_subject_sha256）。恢复会话以 session 记录；冷恢复 checkpoint 包含 Ledger sequence、模块 revision、冻结引用、当前代码和 next_action，不依赖聊天摘要。
 
-recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时，保留 blocked、当前等待阶段及 resume_phase，继续展示原阻塞和恢复动作。human/tooling 仍须绑定该 blocked 摘要的单独 resume 决定；dependency 仍须依赖就绪和 GO 的 dependency-ready。预算批准不能同时充当解除阻塞的批准。无阻塞时保持原恢复行为：有 diagnosis 回到 diagnosing，否则回到 testing；不改变其他模块状态或测试颜色。
-
-本地用 fix_rounds_used（累计）+ recovery_cycle + 可增的 fix_budget；no_progress 按未解决 PATH 的 ID、三态与根因 category/summary/owner 的稳定摘要计数，相同问题才累加，根因变则重新观察；比较的是结构化声明，语义真实性由诊断者与 MO 审核。审计预算耗尽后 GO 提交 audit-recover(module_ids=[GLOBAL], additional_rounds, decision_id)，绑定当前次数与预算摘要，只增获批预算，次数、失败与 blocker 不清零，不替代复测。独立 yellow retry/超时升级由宿主策略执行，本地重复验证另受 no-progress 守卫限制；实现派发超宿主墙钟预算时交 MO 拆分或续派，不停进程。
-
-本地锁不使用自动租约超时重授：活动 assignment 一直占用模块资源，直到 accept 或带真实停止证据的 revoke。此方式避免仅因时钟到期就允许两个 worker 写同一路径。宿主仍必须在每次真实写操作执行 ACL/fencing。
+本地用 fix_rounds_used（累计）+ recovery_cycle + 可增的 fix_budget；停滞指纹见[有限循环](state-machine.md#有限循环)，预算与阻塞的关系见[进度恢复](progress-recovery.md#2-invalidate-后必须有明确出口)。审计预算耗尽后 GO 提交 audit-recover(module_ids=[GLOBAL], additional_rounds, decision_id)，绑定当前次数与预算摘要，只增获批预算，次数、失败与 blocker 不清零，不替代复测。独立 yellow retry/超时升级由宿主策略执行；实现派发超宿主墙钟预算时交 MO 拆分或续派，不停进程。锁占用与释放见[并行、锁与依赖](runtime.md#并行锁与依赖)。
 
 ## 编排游标
 
@@ -162,7 +158,7 @@ recover 只授权增加预算；已有 human、tooling 或 dependency 阻塞时�
 - 禁止重复 suspend 覆盖原恢复点；completed 不能经 suspend 偷偷重新打开。需要重开时使用 invalidate/CR 的正式路径。
 - submit 与 accept 均核验角色对应的当前 phase、blocked 和生产者实际基线，防止依赖失效后旧 worker 推进消费者。
 - revoke 只作用于仍活动的任务，已关闭旧任务不能把新任务阶段倒退；依赖挂起时撤销 worker 保留原 blocker。
-- 活动审计不能被另一轮覆盖；audit 成功接收后关闭 assignment；中断必须 host audit-revoke 提交实际停止证据。assignment_id 不复用，撤销不返还已用轮次。
+- 活动审计不能被另一轮覆盖，中断须 host audit-revoke；assignment_id 不复用，撤销不返还已用轮次。
 
 ## 功能切片输入与边界批准
 
@@ -172,4 +168,4 @@ global-plan 必须带 `boundary_review: {"issues": []}`。无边界问题时 Glo
 
 新 global-plan 请求缺少 boundary_review 会被拒绝。空 issues 代表已检查无问题，语义真实性由角色负责。运行中发现新边界问题，受影响模块先 suspend/CR；审计中走 human 路由与原有人工释放门禁，不靠覆盖全局规划绕过活动审计锁。
 
-`case_owners`/`requirement_owners` 是覆盖/责任映射，允许多模块；不是多人验收。模块 `complete` 仅 MO 可提交，审计 `audit-verdict`/`audit` 仅对应 Auditor 可提交；Green 且原有证据、DoD、覆盖门禁满足后直接记录，不新增人工批准。审计期间 MO complete 表示修复模块的执行/DoD 完成，审计验收仍由 Auditor 独立提交。
+`case_owners`/`requirement_owners` 是覆盖/责任映射，允许多模块；验收 owner 见[分阶段唯一验收 owner](testing.md#分阶段唯一验收-owner)。

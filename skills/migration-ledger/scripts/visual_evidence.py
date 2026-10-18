@@ -150,9 +150,9 @@ def capture_execution(record, manifest_ref, hap_ref, code_baseline, run_root, co
     rows = command_log(receipt.get('command_log_ref'), run_root)
     # Native HDC logs expose each downloaded image. External runners may retain a
     # structured capture command result naming the same observations and installed build.
-    downloads = {str(row['argv'][-1]) for row in rows if row.get('exit_code') == 0
-                 and isinstance(row.get('argv'), list) and 'recv' in row['argv']}
-    native = (any(row.get('exit_code') == 0 and 'snapshot_display' in row.get('argv', []) for row in rows)
+    downloads = {str(row['argv'][-1]) for row in rows if row.get('exit_code') == 0  # hdc recv or adb pull brought the file down
+                 and isinstance(row.get('argv'), list) and ('recv' in row['argv'] or 'pull' in row['argv'])}
+    native = (any(row.get('exit_code') == 0 and ('snapshot_display' in row.get('argv', []) or 'screencap' in row.get('argv', [])) for row in rows)
               and all(item['screenshot_ref']['path'] in downloads for item in actual))
     external = any(row.get('exit_code') == 0 and row.get('operation') == 'capture'
                    and row.get('artifact_ref') == hap_ref and row.get('code_baseline') == receipt['code_baseline']

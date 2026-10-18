@@ -76,10 +76,10 @@ class CaptureFixture(unittest.TestCase):
         elif command[:3] == ['shell', 'input', 'swipe']: self.swipes += 1
         return SimpleNamespace(returncode=0, stdout=stdout, stderr='')
 
-    def capture(self, targets, stated=None, **extra):
+    def capture(self, targets, stated=None, module_id='M001', **extra):
         out = self.sandbox / 'spec-1' / f'attempt-{len(list(self.sandbox.glob("spec-1/*")))}'; out.mkdir(parents=True)
         with patch.object(worker.subprocess, 'run', side_effect=self.fake):
-            return worker.legacy_capture({'targets': targets, **extra}, root=self.root, out=out,
+            return worker.legacy_capture({'targets': targets, **extra}, root=self.root, out=out, module_id=module_id,
                                          state=self.state(self.stated if stated is None else stated), task=self.task, actor=self.actor)
 
     def login(self, **over):
@@ -159,6 +159,7 @@ class FakePage:
     def goto(self, url): self.calls.append(('goto', url))
     def click(self, selector): self.calls.append(('click', selector))
     def back(self): self.calls.append(('back',))
+    def wheel(self, x, y, dy): self.calls.append(('wheel',))
     def title(self): return self.title_text
     def close(self): self.calls.append(('close',))
     def screenshot(self, path): Path(path).write_bytes(self.png)
@@ -198,10 +199,58 @@ class BrowserCaptureTests(CaptureFixture):
         self.page.text = 'Welcome back'
         result = self.capture([{'coverage': 'login:base:viewport', 'target_match': [{'resource-id': 'title', 'text': 'Sign in'}]}], stated=self.web)
         self.assertEqual((result['status'], result['blocked'][0]['reason']), ('BLOCKED', 'frozen target selectors not observed'))
-        result = self.capture([{'coverage': 'list:base:scroll', 'target_match': [{'resource-id': 'list'}], 'scroll_region': {'resource-id': 'list'}, 'scroll_end_match': [{'text': 'End'}]}], stated=self.web)
-        self.assertEqual(result['blocked'][0]['reason'], 'browser capture supports viewport targets only')
+        result = self.capture([{'coverage': 'list:base:scroll', 'target_match': [{'resource-id': 'list'}], 'scroll_region': {'resource-id': 'list'}, 'scroll_end_match': [{'text': 'End'}], 'max_scrolls': 2}], stated=self.web)
+        self.assertEqual((result['blocked'][0]['kind'], ('wheel',) in self.page.calls), ('capture-incomplete', True))  # a bounded scroll that never showed the frozen end
         with self.assertRaisesRegex(Rejected, 'unsupported navigation action'):
             self.capture([{'coverage': 'login:base:viewport', 'actions': [{'action': 'tap', 'x': 1, 'y': 1}], 'target_match': [{'resource-id': 'title'}]}], stated=self.web)
+
+
+class AgentNavigationTests(CaptureFixture):
+    """A screen whose way in is not a deterministic action list: the stated navigator walks frozen step texts as a snapshot
+    task, the worker still matches the frozen selectors; what the navigator did not reach is a capture_gap suggestion."""
+    def setUp(self):
+        super().setUp()
+        self.navigator = {'argv': [sys.executable, str(self.base / 'navigator.py')], 'cwd': str(self.base), 'timeout_seconds': 30}
+        self.stated = {**self.stated, 'navigator': self.navigator}
+        self.navigation_status, self.queries = 'reached', []
+
+    def fake(self, argv, **kwargs):
+        if '--query-file' in argv:  # the navigator: an adapter walking a snapshot task
+            self.assertEqual((argv[:2], kwargs.get('cwd'), kwargs.get('timeout')), (self.navigator['argv'], self.navigator['cwd'], 30))
+            self.queries.append(read_json(argv[argv.index('--query-file') + 1]))
+            reached = self.navigation_status == 'reached'
+            Path(argv[argv.index('--result-file') + 1]).write_text(json.dumps({'producer': 'harmony-adapter', 'task_type': 'snapshot', 'status': self.navigation_status,
+                                                                            'reason': None if reached else 'the path was not walked to its end'}))
+            return SimpleNamespace(returncode=0 if reached else 2, stdout='', stderr='')
+        return super().fake(argv, **kwargs)
+
+    def target(self):
+        return self.login(navigation={'mode': 'agent', 'steps': ['open the drawer', 'tap Settings']})
+
+    def test_the_navigator_walks_the_frozen_steps_and_the_worker_still_captures_by_selector(self):
+        result = self.capture([self.target()])
+        self.assertEqual((result['status'], result['captured']), ('CAPTURED', ['login:base:viewport']))
+        self.assertEqual([(q['task_type'], q['steps'], q['capture_id'], q['module_id'], q['parameters']['device_id']) for q in self.queries],
+                         [('snapshot', ['open the drawer', 'tap Settings'], 'login:base:viewport', 'M001', 'emulator-5554')])
+        record = ui_evidence.capture_target(result['manifest_ref'], 'login:base:viewport')
+        navigation = read_json(record['snapshot']['meta'])['navigation']
+        self.assertEqual((navigation['mode'], navigation['status'], Path(navigation['result_ref']['path']).name), ('agent', 'reached', 'result.json'))
+        self.assertTrue(any(c[3:6] == ['shell', 'uiautomator', 'dump'] for c in self.commands))  # the selectors were still matched after the walk
+
+    def test_what_the_navigator_did_not_reach_is_a_capture_gap_suggestion_not_a_record(self):
+        self.navigation_status = 'needs-review'
+        row = self.capture([self.target()])['blocked'][0]
+        self.assertEqual((row['kind'], Path(row['capture_gap']['evidence_refs'][0]['path']).name), ('navigation-unverified', 'result.json'))
+        self.assertIn('needs-review', row['capture_gap']['reason'])
+        self.stated.pop('navigator')
+        self.assertTrue(self.capture([self.target()])['blocked'][0]['reason'].startswith('legacy_preview.navigator is not configured'))
+        with self.assertRaisesRegex(Rejected, 'mode agent and 1..30'):
+            self.capture([self.login(navigation={'mode': 'script', 'steps': []})])
+        web = {'kind': 'browser', 'url': 'https://legacy.example.test/login'}
+        self.actor['device_lock']['device_id'] = web['url']
+        with patch.object(worker, 'open_browser', lambda out: FakePage(self.png(1))):
+            result = self.capture([{'coverage': 'login:base:viewport', 'target_match': [{'resource-id': 'title'}], 'navigation': {'mode': 'agent', 'steps': ['x']}}], stated=web)
+        self.assertIn('adb device statement', result['blocked'][0]['reason'])
 
 
 if __name__ == '__main__':

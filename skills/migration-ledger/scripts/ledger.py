@@ -1118,6 +1118,10 @@ def with_card(s, m, step):
         answered = knowledge.of_module(s, m)  # what people answered to this leaf's knowledge needs: read with the step, bound to nothing
         if answered:
             step['knowledge_decisions'] = answered
+        if step.get('role') == 'spec-designer' or step.get('worker_role') == 'spec-designer':
+            due = ui_fidelity.capture_due(s, m)  # the legacy runs: what this leaf still has to capture before it plans
+            if due:
+                step['capture_due'] = due
         if step.get('operation') == 'diagnose' or step.get('worker_role') == 'fixer':  # what the failed paths kept on film: read with the diagnosis
             kept = {pid: record['media_refs'] for pid, record in unresolved(m).items() if record.get('media_refs')}
             if kept:

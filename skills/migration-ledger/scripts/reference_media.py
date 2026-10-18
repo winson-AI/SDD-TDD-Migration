@@ -84,9 +84,9 @@ def evidence_gate(s, item, evidence):
     pictures = expected or shots(media, 'legacy-baseline')
     mode = evidence.get('visual_mode')
     what = 'target expectation screenshot' if expected else 'reference screenshot'
-    if expected:
-        require(mode == MODE, 'the user gave a target expectation for this screen: align to it (visual_mode user-reference citing '
-                + ', '.join(sorted(row['media_id'] for row in expected.values())) + ') in ' + item['item_id'])
+    if expected:  # completeness: the first version may go on, the gap is owed and reported
+        owed(mode == MODE, 'the user gave a target expectation for this screen: align to it (visual_mode user-reference citing '
+             + ', '.join(sorted(row['media_id'] for row in expected.values())) + ') in ' + item['item_id'])
     if mode == MODE:
         cited = []
         for ref in nonempty(evidence.get('baseline_refs'), 'user reference screenshots for ' + item['item_id']):
@@ -95,9 +95,9 @@ def evidence_gate(s, item, evidence):
             cited.append(pictures[ref['sha256']])
         shown = set(item.get('case_ids') or []).intersection(cid for row in pictures.values() for cid in row['case_ids'])
         for cid in sorted(shown):
-            require(any(cid in row['case_ids'] for row in cited), 'the user showed ' + cid + ': cite its ' + what + ' in ' + item['item_id'])
+            owed(any(cid in row['case_ids'] for row in cited), 'the user showed ' + cid + ': cite its ' + what + ' in ' + item['item_id'])
     elif mode == 'source-only':
-        require(not pictures, 'the user showed this screen: cite the reference screenshots (visual_mode user-reference) instead of source-only for ' + item['item_id'])
+        owed(not pictures, 'the user showed this screen: cite the reference screenshots (visual_mode user-reference) instead of source-only for ' + item['item_id'])
 
 
 def plan_gate(s, m, plan):
@@ -133,7 +133,7 @@ def freeze(s, m):
         shown = sorted(visible.intersection(row['case_ids']) - (replaced if row['role'] == 'legacy-baseline' and row['kind'] == 'screenshot' else set()))
         if shown and row['role'] == 'target-expectation':  # what the target should look like shapes the design before it is a baseline
             text = ''.join(check_ref(d).read_text() for d in designs) if text is None else text
-            require(row['media_id'] in text, 'the target expectation ' + row['media_id'] + ' shapes the design: cite it in the design definition')
+            owed(row['media_id'] in text, 'the target expectation ' + row['media_id'] + ' shapes the design: cite it in the design definition')
         owed(not shown or any(cites(path, row) for path in plan.get('paths', [])),
              f"the user showed {', '.join(shown)} in {row['media_id']}: a PATH cites it (a visual baseline_ref or reference_media_ids), or the case is a declared device gap")
 

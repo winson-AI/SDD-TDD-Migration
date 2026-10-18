@@ -6,7 +6,7 @@ Test-Runner 在 Coding 接受后先构建，同一派发内跑逻辑单测，再
 
 ## 1. 职责与全局规则
 
-Test-Runner 一个角色承担构建验证、功能用例自动化和（存量可预览时）基线视觉对齐，顺序由 `test_validation.next_scope` 强制：build → automation → visual，visual 需当前 automation Green；DoD 要求全部适用冻结路径 Green，无 runtime UI 不加空 visual 路径。视觉对齐用普通测试路径与单独 scope/assignment（绑定 `node_ids` + `baseline_ref`），不另设修复循环，不对齐即 Red + 节点级根因走诊断→Fixer→复测，见 [UI 保真控制道](ui-fidelity.md)。可由不同实例执行，身份、assignment 与证据各自绑定；Test-Runner 只执行、定三态和报告，修复由 Diagnostician → MO → Fixer，Auditor 独立。
+Test-Runner 一个角色承担构建验证、功能用例自动化和（存量可预览时）基线视觉对齐，顺序由 `test_validation.next_scope` 强制：build → automation → visual；visual 的路径绑定、修复与缺测规则见 [UI 保真控制道](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)。可由不同实例执行，身份、assignment 与证据各自绑定；Test-Runner 只执行、定三态和报告，修复由 Diagnostician → MO → Fixer，Auditor 独立。
 
 固定流程：
 
@@ -42,8 +42,7 @@ Coding 接受 → Test-Runner building 预检 → 编译构建
 }
 ```
 
-- 没有指定命令时，GO/Test-Runner 在整个目标项目搜索 Gradle wrapper、配置与构建脚本，阅读实际任务和模块/variant，不执行搜索到的所有脚本。
-- [discover_build.py](../../migration-test/scripts/discover_build.py) 只读搜索候选：项目根 wrapper 优先，其次唯一嵌套 wrapper，否则本机 Gradle；默认候选 `assemble`，避免会顺带跑自动化测试的 `build/check`，使设备/自动化环境缺失不影响编译阶段。
+- 没有指定命令时 [discover_build.py](../../migration-test/scripts/discover_build.py) 只读搜索候选：项目根 wrapper 优先，其次唯一嵌套 wrapper，否则本机 Gradle；默认候选 `assemble`，避免顺带跑自动化测试的 `build/check`；GO/Test-Runner 阅读实际任务和模块/variant，不执行搜索到的脚本。
 - 多个构建根或目标有歧义时由 Agent 结合模块 scope 选择并留依据，无法判断再问用户。缺 Gradle、SDK/JDK、必要脚本记构建环境 Yellow；不伪造命令、不换成 `echo success`。
 - 每个 build PATH 的 `command` 固定绝对 argv、目标内 cwd、timeout_seconds、selection_ref（搜索候选、选中理由、目标/variant、工具版本与模块范围）；building 预检另给实际环境证据；源码生成前不构建。
 - 共享构建目录/设备锁由宿主落实，锁等待不污染其他模块的测试质量；构建只产生授权输出，不授予 Test-Runner 改业务源码的权限。
@@ -61,7 +60,6 @@ MO 派发 test-runner 时明确 `test_scope=build|automation|visual`，顺序同
 - 每次结果提交覆盖 assignment scope 下全部 PATH；build、automation、visual 分别提交/接受，Ledger 合并并保留每条路径结果。
 - visual 用正式 `execute_test.py` adapter 回执；`compare-only` 的 score 不算正式通过。逐目标绑定、HAP 与手势要求见[UI 保真](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)。
 - [harmony_stage.py](../../migration-test/scripts/harmony_stage.py) 组装构建与 Harmony 自动化回执并按 assignment scope 校验覆盖；其他自动化框架用通用 tests stage 契约。
-- 首轮修复与审计修复沿既有预算；Fixer 自测不是正式复测，缺自动化验证时修复 memory 标 unverified。
 
 ## 4. 自动化环境缺失：直接记 Yellow 并继续
 
@@ -69,9 +67,9 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 接受后对尚未验证的 automation/visual PATH 记录 `quality=yellow-blocked`、`executed=false`、`reason_code=automation-not-run`、结构化根因、版本关联及旧结果的 retest_of；保留当前基线已有 Green。模块进入 `automation-deferred`，不耗 Fixer 轮次，不需要人工批准，不反复尝试启动不可用环境。游标会提示该操作，不停留在无动作的 blocked 预检。
 
-若此前在同一代码基线上已经真实执行，缺测行的 `last_execution` 保留最近一次已接受的真实执行（原状态、断言、execution_receipt、test_run_id），不递归保存多层缺测记录。此次 `executed=false/assertions=[]` 仍表示本次未执行。GO 报告分别输出 `executed`（曾执行）、`attempt_executed`（本次执行）、`last_execution` 与 `last_execution_stale`，列出原执行证据和当前环境原因；历史观测不能代替本次复核。较旧基线的完整记录仍在 Ledger 历史中。
+同一代码基线上此前真实执行过的，缺测行的 `last_execution` 保留最近一次已接受的真实执行（状态、断言、execution_receipt、test_run_id），不递归嵌套；本次仍是 `executed=false/assertions=[]`。GO 报告分别输出 `executed`（曾执行）、`attempt_executed`（本次执行）、`last_execution` 与 `last_execution_stale`；历史观测不能代替本次复核。
 
-若已启动后才发现无法运行，先保存启动日志/原始回执，结束或 revoke 活动 assignment，再提交上述报告，引用已有失败证据。已经观察到真实断言失败时，不能以环境缺失覆盖成“未执行”。该检查同时覆盖“先断言失败、后环境中断”而整体归为 Yellow 的结果：保留失败断言与环境原因，继续原诊断/审计路径；不能仅检查 Red 颜色。缺失观测的 actual=null 不等于已观察到业务失败。缺测转换保留当前代码基线已有 Green 路径，只为尚未验证的路径记录未执行。
+若已启动后才发现无法运行，先保存启动日志/原始回执，结束或 revoke 活动 assignment，再提交上述报告，引用已有失败证据。已经观察到真实断言失败时，不能以环境缺失覆盖成“未执行”。该检查同时覆盖“先断言失败、后环境中断”而整体归为 Yellow 的结果：保留失败断言与环境原因，继续原诊断/审计路径；不能仅检查 Red 颜色。缺失观测的 actual=null 不等于已观察到业务失败。
 
 下游仍需真实代码和依赖接口可用。仅自动化缺测的上游可作为代码依赖继续编译/实现/验证，质量 Yellow 不向消费者传播；消费者自己缺环境则独立记录。上游代码或 SPEC 变更仍使相关下游失效，不能利用缺测绕过版本/边界校验。
 
@@ -79,11 +77,9 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 ## 5. Auditor 与恢复
 
-纯自动化环境缺测不进入 Fixer 缺陷队列，最终 Auditor 仍读取全部模块结果和缺测 PATH。实际 Red/其他 Yellow 按原 audit-collect 闭环处理，不能被环境例外吞掉。
-
 审计修复或复核期间再次缺自动化环境，MO 同样提交 automation-unavailable；该分支记录到批次 automation_deferred，其他分支继续。Auditor 裁决保留 unverified_findings，不能写入 resolved_findings；仅因缺测不进入 awaiting-human，批次可完成为 completed-with-unverified-tests。
 
-最终独立自动化环境也不可用时，Auditor 提交当前 blocked audit-testing 报告，并执行 **audit-unavailable**。门禁仍要求全量收尾、独立实例、无其他待处理缺陷/审计批次。Ledger 保存未执行路径清单与 Yellow 最终报告，global_next_step.reason=completed-with-unverified-tests，停止空转；已有模块构建证据保留，但不得称独立审计通过。环境可用则 audit-assign/audit 仅复核尚未验证的路径，保留有效构建 Green；清单为空只做独立 audit-review。
+最终独立自动化环境也不可用时，Auditor 提交 blocked audit-testing 报告并执行 **audit-unavailable**：门禁仍要求全量收尾、独立实例、无其他待处理缺陷/审计批次；Ledger 保存未执行路径清单与 Yellow 最终报告，global_next_step.reason=completed-with-unverified-tests，不得称独立审计通过。环境可用则 audit-assign/audit 只复核尚未验证的路径；清单为空只做独立 audit-review。
 
 环境恢复时，新 testing ready 报告 → MO **automation-resume** → 新 assignment → Main 逐路径复测；不额外请求人工恢复批准。旧 Yellow 和缺测证据保留，新结果链接 retest_of。代码/构建已变化则先走正常重建，不直接恢复自动测试。所有完整路径真实 Green 后才完成 DoD；全局 Green 仍需最终独立审计。同一份代码最多恢复 `max_yellow_retries` 次（默认 2）；环境反复失效用尽后游标不再建议恢复，模块保留缺测 Yellow 收尾；计数按代码基线，代码变化后重新计数。
 
@@ -102,16 +98,16 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 | 节点 | Ledger 状态 / 游标 | 宿主及角色动作 |
 | --- | --- | --- |
 | Coding/Fixer 代码已接受 | `phase=testing`，`stale=true`，`build_baseline=null`；下一 scope 为 build | 实际 Test-Runner 提交 building 报告；MO assign build，宿主启动 |
-| 构建进程已退出，但结果未接受 | 当前 assignment 仍未关闭；不能开启 automation | 保存 receipt，同一 assignment 继续 unit、static 到第一个非 Green 为止（building 预检已预批准命令），汇总已到达的全部 PATH 一次 submit；MO 一次 accept |
+| 构建进程已退出，但结果未接受 | 当前 assignment 仍未关闭；不能开启 automation | 保存 receipt，同一 assignment 继续 unit、static 到第一个非 Green（见[静态规格闭合](testing.md#静态规格闭合)），一次 submit / accept |
 | build 非 Green 已接受 | 留在 testing；游标 diagnose 或 audit-defer | Diagnostician → MO diagnosis-accept → fixing 预检 → Fixer；依赖/外围或已用完适用预算则留证待统一 Auditor |
 | Fixer 补丁已接受 | 新 code_baseline；旧结果 stale，旧构建失效 | 再次 build 派发（派发内 building 预检）；不得直接沿用旧 Green 或启动 automation |
 | build、unit、static 全部 Green 已接受 | `build_baseline=code_baseline`；仍在 testing；下一 scope 为 automation | 派发 automation，Test-Runner 在派发内提交 testing 报告，核对设备/安装包/fixture/模型/工具 |
 | automation 结果接受且完整 Green，存在 visual PATH | 仍在 testing；下一 scope 为 visual | MO 另派 visual assignment；Test-Runner 只读比较并留正式回执 |
 | 全部适用的 build/automation/visual 路径有效 Green | `phase=dod` | MO 完成 DoD；父汇总，全量收尾后统一 Auditor |
 
-宿主每次事件 ACK 后重新查询状态，不缓存旧 assignment、scope 或 context_ref。切换 scope 时按当前游标重新提交该阶段报告，不能沿用旧 assignment。
+切换 scope 时按当前游标重新提交该阶段报告，不沿用旧 assignment、scope 或 context_ref。
 
-构建使用 `execute_test.py` 直接运行冻结 argv；automation 使用同一宿主包装器传递完整 query 到 Main。模块派发和实际执行均检查 build_ready；结果 submit/accept 再检查覆盖、版本和证据。构建 CLI 外层退出码 0 仅表示已写回执，应读取 receipt/result 并等待接受，不能凭这一个退出码转阶段。
+模块派发和实际执行均检查 build_ready；结果 submit/accept 再检查覆盖、版本和证据。构建 CLI 外层退出码 0 仅表示已写回执，读取 receipt/result 并等待接受，不能凭它转阶段。
 
 ### 本地一轮的预算单位
 
@@ -119,7 +115,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 ### 构建产物与设备安装
 
-Harmony Main adapter 不隐式安装 App；宿主可继续提供已安装包与当前构建/代码基线的关联证据，也可由当前 Test-Runner 的 automation/visual assignment 使用受限 visual-install，校验当前 HAP 身份并实际装机留证。工具输入、锁、配置及 Capture/语义比较见 [视觉执行](visual-execution.md)。uv sandbox 只准备 Python 执行环境，不替代部署；安装/设备等仅自动化环境条件缺失时沿缺测分流，不得把旧安装包上的测试当作当前代码通过。
+Harmony Main adapter 不隐式安装 App：宿主提供已安装包与当前构建/代码基线的关联证据，或由当前 automation/visual assignment 用 visual-install 实际装机留证（[视觉执行](visual-execution.md)）；uv sandbox 只准备 Python 环境；安装/设备缺失沿缺测分流，旧安装包上的测试不算当前代码通过。
 
 
 ## 构建资产位置
@@ -142,5 +138,3 @@ Automation 正式执行器在进程退出后保留原始 result.json 和已落�
 - 报告未完成但有有效部分观测：逐冻结 ASSERT 恢复有证据的观测，缺项仍未知；整体 Yellow，混合 pass/fail 保留失败与 flaky，不推断 Green。
 - JSON 截断、编码/内容格式错误：保留原件与回执，生成包含解析原因的 Yellow。没有有效观测才 executed=false；正常 submit/accept 后关闭 assignment，不一直 await-result。
 - 引用 hash、身份、冻结 query 或媒体证据不匹配仍拒绝；验收重算结果，禁止删掉失败、篡改根因或提升为 Green。原始报告、观测和 hash 不被重写。
-
-具有失败观测的 Yellow 仍不能 automation-unavailable；只有没有已观察失败的环境缺测可按原规则收尾。

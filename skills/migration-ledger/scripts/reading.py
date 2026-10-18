@@ -25,7 +25,7 @@ ROTATE_BUDGET = 100_000
 TEMPLATE_BUDGET = 20_000
 TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 483500  # consolidated ceiling, lowered when the role topic tables left; reduce again after the next
+PROTOCOL_BUDGET = 468000  # consolidated ceiling, lowered when duplicated test, storage and closure prose became single statements
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -247,12 +247,17 @@ def section(path, heading=None, modes=None):
         return _mode_blocks(text, set(modes)) if modes is not None else text
     name, _, keys = heading.partition('@')
     lines = text.splitlines(keepends=True)
+    fenced, prose = False, []  # a `# comment` inside a code fence is not a heading
     for i, line in enumerate(lines):
-        match = re.match(r'(#+)\s+(.*?)\s*$', line)
+        if line.startswith('```'):
+            fenced = not fenced
+        prose.append(not fenced)
+    for i, line in enumerate(lines):
+        match = re.match(r'(#+)\s+(.*?)\s*$', line) if prose[i] else None
         if match and match.group(2) == name:
             level = len(match.group(1))
             end = next((j for j in range(i + 1, len(lines))
-                        if re.match(r'#{1,%d}\s' % level, lines[j])), len(lines))
+                        if prose[j] and re.match(r'#{1,%d}\s' % level, lines[j])), len(lines))
             block = ''.join(lines[i:end])
             return _rows(block, set(keys.split(','))) if keys else block
     raise KeyError(f'{path}#{heading}')
@@ -281,6 +286,12 @@ def topic_facts(s, m, step):
     from contracts import check_ref, read_json
     facts = dict.fromkeys(('ui', 'resources', 'pictures', 'copy', 'parameters', 'api', 'data', 'picture_items'), False)
     facts['visual'] = bool(((s.get('test_adapter') or {}).get('device') or {}).get('platforms'))  # a device to show a screen on
+    try:
+        import project_context
+        stated = project_context.legacy_preview(s)
+    except (ValueError, OSError, KeyError, TypeError):
+        stated = None
+    facts['legacy'] = bool(stated) and stated.get('kind') != 'none'  # the legacy runs: its screens are captured, not inferred
     selected = step.get('module_ids') or (s.get('audit_assignment') or {}).get('module_ids')
     modules = [m] if m else [obj for mid, obj in s.get('modules', {}).items() if not selected or mid in selected]
     for obj in modules:
@@ -370,6 +381,8 @@ def entries(role, test_scope=None, ui=False, reuse=False, operation=None, teleme
                       and not (heading in ('参数表', FILL) and not facts.get('parameters'))
                       and not (heading == PICTURES and not facts.get('pictures'))]
         items += chosen
+        if facts and facts.get('legacy') and role in ('spec-designer', 'module-orchestrator'):
+            items += sections('project-context.md', '存量预览') + sections('visual-execution.md', '4. 存量捕获')
     if facts and facts.get('api'):
         items += sections('resource-transfer.md', 'API 与 URL 契约')
     if facts and facts.get('parameters'):
@@ -561,7 +574,8 @@ GATES = [
     (r'trace routes|invalid finding action', 'local-runtime.md', '操作矩阵'),
     (r'self-check output', 'build-automation.md', '构建资产位置'),
     (r'host handoff|cold recovery|rotation checkpoint|global hint|session restoration', 'host-integration.md', '会话交接'),
-    (r'test asset|test PATH preparation|test preparation', 'testing.md', '编码前设计交接'),
+    (r'test asset', 'testing.md', '本地执行与严格结果验收'),
+    (r'test PATH preparation|test preparation', 'testing.md', '编码前设计交接'),
     (r'condition review|condition refs', 'resource-transfer.md', '动态参数与布局结构'),
     (r'pinned to package', 'runtime.md', '总则'),
     (r'API |api_inventory|api_obligations', 'resource-transfer.md', 'API 与 URL 契约'),

@@ -52,6 +52,15 @@ class StatementTests(unittest.TestCase):
         pc.preview_settled({}, {'Logic'})
 
 
+class NavigatorStatementTests(unittest.TestCase):
+    def test_a_navigator_is_the_absolute_adapter_command_that_walks_a_snapshot_task(self):
+        good = {**EMULATOR, 'artifact': '/opt/legacy/legacy.apk', 'navigator': {'argv': ['/usr/bin/python3', '/opt/adapter/main.py'], 'cwd': '/opt/adapter', 'timeout_seconds': 600}}
+        self.assertEqual(pc.legacy_preview_config(good)['navigator'], good['navigator'])
+        for bad in ({'argv': ['main.py'], 'cwd': '/opt/adapter', 'timeout_seconds': 600}, {'argv': ['/usr/bin/python3'], 'cwd': '/opt/adapter'}, 'adapter'):
+            with self.assertRaisesRegex(Rejected, 'navigator takes the absolute argv'):
+                pc.legacy_preview_config({**good, 'navigator': bad})
+
+
 class BaselineTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
@@ -89,9 +98,13 @@ class BaselineTests(unittest.TestCase):
         shown = self.state({**EMULATOR, 'artifact': str(self.base / 'legacy.apk')},
                            media=[{'media_id': 'MEDIA-login', 'kind': 'screenshot', 'role': 'legacy-baseline', 'screen': 'login', 'case_ids': ['C1'], 'ref': self.shot}])
         self.gate(shown, {'visual_mode': 'user-reference', 'baseline_refs': [self.shot]}, [visual])  # the user's screenshot of a running legacy is a baseline too
-        with self.assertRaisesRegex(Rejected, 'legacy runs on android-emulator: capture the screen'):
+        from contracts import carrying
+        with carrying() as gaps:  # owed, not refused: the first version goes on and the gap is reported
             self.gate(emulator, {'visual_mode': 'source-only'})
-        self.gate(emulator, {'visual_mode': 'source-only', 'capture_gap': {'reason': 'the screen needs a paired device', 'evidence_refs': [self.proof]}})
+        self.assertTrue(any('legacy runs on android-emulator: capture the screen' in gap for gap in gaps))
+        with carrying() as gaps:
+            self.gate(emulator, {'visual_mode': 'source-only', 'capture_gap': {'reason': 'the screen needs a paired device', 'evidence_refs': [self.proof]}})
+        self.assertEqual(gaps, [])
         with self.assertRaisesRegex(Rejected, 'contradicts the run statement'):
             self.gate(emulator, {'visual_mode': 'source-only', 'legacy_executable': False})
 
@@ -111,6 +124,75 @@ class BaselineTests(unittest.TestCase):
                                         'single_module_id': None, 'legacy_root': '/l', 'target_root': '/t'})
         self.assertIn('存量预览：不可运行（the legacy needs a hardware token）', text)
         self.assertIn('| capture-gap |', text)
+
+
+class CaptureDueTests(BaselineTests):
+    """Where the legacy runs, the planner is told what to capture and reads how; nothing is due where it cannot run."""
+    def test_the_step_lists_uncaptured_items_and_the_latest_capture(self):
+        import reading
+        emulator = self.state({**EMULATOR, 'artifact': str(self.base / 'legacy.apk')})
+        analysis = {'dimensions': [{'dimension': 'UI', 'status': 'applicable', 'items': [
+            {'item_id': 'U-login', 'case_ids': ['C1'], 'semantic_model': {'kind': 'ui-component-spec', 'ui_evidence': {'coverage': 'login:base:viewport', 'visual_mode': 'runtime', 'baseline_refs': [self.shot]}}},
+            {'item_id': 'U-list', 'case_ids': ['C2'], 'semantic_model': {'kind': 'ui-component-spec', 'ui_evidence': {'coverage': 'list:base:viewport', 'visual_mode': 'source-only'}}},
+            {'item_id': 'U-settings', 'case_ids': ['C3']},
+            {'item_id': 'U-gap', 'case_ids': ['C4'], 'semantic_model': {'kind': 'ui-component-spec', 'ui_evidence': {'coverage': 'gap:base:viewport', 'visual_mode': 'source-only', 'capture_gap': {'reason': 'paired device', 'evidence_refs': [self.proof]}}}}]}]}
+        m = {'module_id': 'M001', 'dimension_analysis_ref': self.ref('allocation.json', analysis)}
+        due = ui_fidelity.capture_due(emulator, m)
+        self.assertEqual((due['legacy_preview'], [i['item_id'] for i in due['items']], due['last_capture']), ('android-emulator', ['U-list', 'U-settings'], None))
+        run_root = self.base / '.sdd-runs/run-1'; emulator['run_root'] = str(run_root)
+        out = run_root / 'runs/harmony/sandbox/spec-1/cap-1'; out.mkdir(parents=True)
+        manifest = self.ref('.sdd-runs/run-1/runs/harmony/sandbox/spec-1/cap-1/manifest.json', {'schema_version': 2, 'targets': []})
+        result = self.ref('.sdd-runs/run-1/runs/harmony/sandbox/spec-1/cap-1/result.json', {'status': 'PARTIAL', 'manifest_ref': manifest, 'captured': ['list:base:viewport'], 'blocked': []})
+        self.ref('.sdd-runs/run-1/runs/harmony/sandbox/spec-1/cap-1/receipt.json', {'operation': 'legacy-capture', 'module_id': 'M001', 'status': 'produced', 'result_ref': result, 'finished_at': '2026-01-01T00:00:00+00:00'})
+        self.assertEqual(ui_fidelity.capture_due(emulator, m)['last_capture']['manifest_ref'], manifest)
+        self.assertIsNone(ui_fidelity.capture_due(self.state({'kind': 'none', 'reason': 'no build'}), m))
+        card = {(row['ref'].split('/')[-1], row['section']) for row in reading.card(emulator, m, {'role': 'spec-designer', 'operation': 'plan'})}
+        self.assertLessEqual({('project-context.md', '存量预览'), ('visual-execution.md', '4. 存量捕获')}, card)
+        quiet = {(row['ref'].split('/')[-1], row['section']) for row in reading.card(self.state({'kind': 'none', 'reason': 'no build'}), m, {'role': 'spec-designer', 'operation': 'plan'})}
+        self.assertNotIn(('visual-execution.md', '4. 存量捕获'), quiet)
+
+    def test_the_plan_step_carries_what_is_due(self):
+        import test_ledger
+        f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        f.global_plan()
+        with mock.patch.object(ui_fidelity, 'capture_due', return_value={'legacy_preview': 'vm', 'items': [{'item_id': 'U1'}], 'last_capture': None}):
+            step = next(x for x in f.state()['next_steps'] if x['operation'] == 'plan')
+        self.assertEqual(step['capture_due']['items'], [{'item_id': 'U1'}])
+
+
+class CarriedStatementTests(unittest.TestCase):
+    """What a run settled about the legacy is carried to the project's next run unless that run says otherwise."""
+    def test_experience_carries_the_statement_and_prepare_takes_it_when_the_config_is_silent(self):
+        import experience
+        t = test_project_context.ProjectContextTests(); t.setUp(); self.addCleanup(t.doCleanups)
+        none = {'kind': 'none', 'reason': 'the legacy needs a hardware token'}
+        pc.update(t.root, t.request('preview', 1, {'legacy_preview': none}), t.actor)
+        result = t.prepare(); t.start(t.init_payload(result))
+        self.assertEqual(experience.settled(ledger.status(t.run))['legacy_preview'], none)
+        pc.update(t.root, t.request('forget', 2, {'legacy_preview': None}), t.actor)
+        apk = t.base / 'carried.apk'; apk.write_bytes(b'apk')
+        carried = {**EMULATOR, 'artifact': str(apk), 'artifact_sha256': 'stale'}
+        with mock.patch.object(experience, 'conventions', return_value={'legacy_preview': carried}):
+            second = pc.prepare(t.root, t.base / '.sdd-runs/r2', t.run_request('r2'), t.actor)
+        stated = pc.verify_snapshot(second['project_context_ref'])['effective_config']['legacy_preview']
+        self.assertEqual((stated['kind'], stated['artifact_sha256']), ('android-emulator', file_ref(apk)['sha256']))  # re-hashed for this run
+        apk.unlink()
+        with mock.patch.object(experience, 'conventions', return_value={'legacy_preview': carried}):
+            third = pc.prepare(t.root, t.base / '.sdd-runs/r3', t.run_request('r3'), t.actor)
+        self.assertIsNone(pc.verify_snapshot(third['project_context_ref'])['effective_config'].get('legacy_preview'))  # the package is gone: nothing is assumed
+
+    def test_the_sandbox_doctor_names_the_capture_tools_without_blocking_on_them(self):
+        import importlib.util, sys
+        root = Path(__file__).resolve().parents[2] / 'migration-test/runtime/harmony'
+        spec = importlib.util.spec_from_file_location('sandbox_doctor_probe', root / 'sandbox.py'); module = importlib.util.module_from_spec(spec)
+        sys.path.insert(0, str(root)); sys.path.insert(0, str(root.parent.parent / 'scripts'))
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / 'config.json'; config.write_text('{}')
+            report = module.doctor(str(config))
+        probes = {c['name']: c['status'] for c in report['checks'] if c['name'] in ('adb-on-path', 'playwright')}
+        self.assertEqual(set(probes), {'adb-on-path', 'playwright'})
+        self.assertTrue(all(status in ('ready', 'optional-absent') for status in probes.values()))
 
 
 if __name__ == '__main__':

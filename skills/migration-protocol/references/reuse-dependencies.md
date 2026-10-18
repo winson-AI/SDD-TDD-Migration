@@ -14,7 +14,7 @@
 
 复用分析是规划的必经输入；Coding 同时依据**冻结的模块需求/tasks、目标架构、经审核的能力映射**，库的行为不能反过来削减需求或替换验收。两类来源保留区别：**目标项目已有能力**（业务模块、公共服务、已接入二方库及封装）自动纳入 `TARGET` 检索，优先检查已存在的生产实现；**用户指定的其他项目模块/二方库**作为显式外部来源，读取其指定模块提取同样语义——有源码只说明可分析，能否依赖、适配或仅参考须独立核实。二方库指组织内部维护的可复用组件，任意外部源码不自动成为可接入的库；`reuse`/`adapt` 实际使用能力，`reference` 仅借鉴语义，`new` 评估后自行实现；禁止按类名、接口名或目录名相似宣称等价。
 
-目标已实现也必须查冗余：确认重复且库能满足或经适配满足需求时，直接把范围内目标实现重构为库依赖，不因"已有代码"保留或新增重复逻辑（第 9 节）。不能直接复用时继续完成当前功能：选 adapt/reference/new 落入冻结 tasks 后 Coding，不因缺库挂起或等人工；"未实现"只用于替代路线也经核验不可行的情况（第 8 节）。读取来源不授予修改权限：外部来源只读，编码仍限 target 中分配的 scope/write_paths；改提供方、改公共契约或新增跨模块边界走 Ledger 的 CR/依赖/人工决策，不把外部仓库静默纳入本次迁移。
+读取来源不授予修改权限：外部来源只读，编码仍限 target 中分配的 scope/write_paths；改提供方、改公共契约或新增跨模块边界走 Ledger 的 CR/依赖/人工决策，不把外部仓库静默纳入本次迁移。
 
 ## 2. 用户输入、持久化与运行版本
 
@@ -24,7 +24,7 @@
 {"reuse_sources": [{"source_id": "LIB-SEARCH", "root": "/work/SharedCommerce", "module_paths": ["/work/SharedCommerce/search"], "description": "可复用的商品检索、分页和筛选能力"}]}
 ```
 
-`source_id` 唯一且不为保留 ID `TARGET`；路径绝对，module_paths 包含于 root，省略时取整个 root；外部选择范围与 target 分离，可共用 monorepo 根只要显式选择的模块不与 target 相交；完整目录结构不代表获准扩大功能范围。沿用项目上下文 init/update/prepare：数组整体替换，null 删除，更新影响新运行不改旧快照；已登记 source_id/root/module_paths 固定，同 run 只能经[来源追加事务](source-changes.md)追加新 ID。源代码不全文复制；语义报告、目录、映射经 Ledger 版本引用留档，选中的 provider/API/版本解析证据以绝对 path/sha256 固定并在运行时复核，commit 只辅助定位。`planning_context.reuse_sources` 含隐式 TARGET 与声明来源，父/子 MO 均可见；不能访问用户指定来源时明确阻塞请求补全，不写成"已扫描无匹配"；远程坐标/仓库由宿主先取得可读材料，控制器不下载依赖。
+`source_id` 唯一且不为保留 ID `TARGET`；路径绝对，module_paths 包含于 root，省略时取整个 root；外部选择范围与 target 分离，可共用 monorepo 根只要显式选择的模块不与 target 相交。沿用项目上下文 init/update/prepare 的更新语义；已登记 source_id/root/module_paths 固定，同 run 只能经[来源追加事务](source-changes.md)追加新 ID。源代码不全文复制；语义报告、目录、映射经 Ledger 版本引用留档，选中的 provider/API/版本解析证据以绝对 path/sha256 固定并在运行时复核，commit 只辅助定位。`planning_context.reuse_sources` 含隐式 TARGET 与声明来源，父/子 MO 均可见；不能访问用户指定来源时明确阻塞请求补全，不写成"已扫描无匹配"；远程坐标/仓库由宿主先取得可读材料，控制器不下载依赖。
 
 ## 3. 按三层编排提取与细化
 
@@ -37,11 +37,11 @@
 | Test Runner / 子 MO | 按需求设计断言，验证复用接线与完整业务路径 | 真实提供方集成测试、适配差异回归、完整 DoD；编译/导入成功不等于 Green |
 | Auditor | 全部 MO 收尾后聚合依赖与能力映射，检查共享提供方影响，委派 Fixer、Testing 并独立裁决 | 提供方版本/接线变化使消费者旧结果失效，按依赖图复测 owner/source/中间与下游；失败留根因待人工 |
 
-GO 可先做粗粒度目录，父/子 MO 补充本模块相关语义证据并更新目录引用，旧内容留 history；目录不等于冻结批准。不为无关候选全文扫描所有项目，扫描范围、搜索词/调用链与不适用理由写入报告；交接只经 Ledger 引用。目录显式记 provider_owner_module_id 与 ownership_evidence_ref：消费者只依赖明确的本轮 owner 并等其稳定后用实际版本，write_paths 不推断归属，现存稳定库用经评审的 null owner，不虚构永远等不到的模块依赖（第 10 节）。
+GO 可先做粗粒度目录，父/子 MO 补充本模块相关语义证据并更新目录引用，旧内容留 history；目录不等于冻结批准。不为无关候选全文扫描所有项目，扫描范围、搜索词/调用链与不适用理由写入报告；交接只经 Ledger 引用。provider 归属见第 10 节。
 
 ## 4. 语义抽取必须回答什么
 
-[reuse-catalog.json](../../../template/reuse-catalog.json) 每个 capability 有稳定 ID、来源、实际版本/API 证据及：**业务意图**（用户行为与可观察结果，沿真实入口→状态/数据→输出定位，不只 API 摘要）；**输入/输出**（模型、单位、空值、默认值、分页/排序、同步/异步）；**前置条件与状态**（认证、权限、初始化、缓存/持久化、状态所有权、线程与生命周期）；**副作用与失败**（网络/存储副作用、异常、超时、取消、重试、幂等，无副作用也写明）；**接入约束**（公开入口、版本、平台/框架/API 或 ABI、传递依赖、DI、生产绑定及与目标架构的兼容性）。报告引用真实源码、API 文档、manifest/锁文件与调用链；抽取是 Agent 的语义分析，控制器只检验结构、范围与引用；冻结前不执行目标业务测试，以源码/API、配置与已有证据判断可行性，Coding 后再运行 Main 验证。
+[reuse-catalog.json](../../../template/reuse-catalog.json) 每个 capability 有稳定 ID、来源、实际版本/API 证据及：**业务意图**（用户行为与可观察结果，沿真实入口→状态/数据→输出定位，不只 API 摘要）；**输入/输出**（模型、单位、空值、默认值、分页/排序、同步/异步）；**前置条件与状态**（认证、权限、初始化、缓存/持久化、状态所有权、线程与生命周期）；**副作用与失败**（网络/存储副作用、异常、超时、取消、重试、幂等，无副作用也写明）；**接入约束**（公开入口、版本、平台/框架/API 或 ABI、传递依赖、DI、生产绑定及与目标架构的兼容性）。报告引用真实源码、API 文档、manifest/锁文件与调用链；抽取是 Agent 的语义分析，控制器只检验结构、范围与引用。
 
 ## 5. 需求映射与 OpenSpec
 
@@ -69,7 +69,7 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 
 ## 7. 全局保真规范：复用必须复现存量功能
 
-对 TARGET 与外部来源统一执行，`reuse`、`adapt`、`reference` 均不得跳过。以**存量源码对应功能的实际业务行为**为对齐基准，结合明确需求确认应保留的契约；提供方有类似功能、API 可调用、库自测通过都不证明保真。源码中的偶然行为/缺陷与需求冲突时，Spec Designer 把差异交人工决定并经 Ledger/CR 冻结，不自行照搬缺陷或接受库默认行为。
+总则的保真规范对 TARGET 与外部来源统一执行，`reuse`、`adapt`、`reference` 均不得跳过；源码中的偶然行为/缺陷与需求冲突时，Spec Designer 把差异交人工决定并经 Ledger/CR 冻结，不自行照搬缺陷或接受库默认行为。
 
 ### 7.1 落到控制节点
 
@@ -90,7 +90,6 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 
 ### 7.3 失败、变化与实现边界
 
-- 真实行为与冻结基线不符为 Red；缺真实提供方、数据、环境或无法证明为 Yellow，记根因/owner/next_action。可修复先一轮 Fixer 再 Main；已确认依赖/外围原因留待统一 Auditor，无关 MO 继续。
 - 原基线、对齐报告、提供方/版本或接线依据改变，相关旧依据失效，按 invalidate/CR/重新冻结与复测更新，保留旧证据；旧计划缺 fidelity 须补录重冻结，历史 Green 不算满足新增规范。
 - 控制器在 plan 检查存量根、源码范围、引用与 PATH/ASSERT 覆盖，在 verify_plan 检查基线与报告漂移，测试门禁验证每条冻结断言的真实回执与 expected/actual。**结构和 hash 检查不证明语义等价或对齐完备**，分析、场景质量与真实复现仍由角色/宿主负责并由阶段验收 owner 审核。
 
@@ -100,7 +99,7 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 
 1. GO/父 MO/子 MO 先明确功能目标、scope、需求/CASE，读全局与本模块上下文、存量源码闭包、新架构、目标生产实现/资源/接线及分工。
 2. 记录二方库不能直接复用的具体原因，评估适配、借鉴语义后实现、自主实现；至少一条路线可行时，Spec-Designer 把源码行为、目标差异、实现方案与完整测试映射到 tasks，在任务 scope 内做四维分析。`new` 不要求存在可复用 capability，不虚构库依赖或等待不存在的提供方 MO。
-3. 完成澄清/冻结后 MO assign Implementer，宿主真正启动 Coding；已冻结计划改路线走 CR/影响分析与重新冻结，Implementer 不私改 SPEC；已批准范围内的普通实现选择不需新增人工会签，跨范围或业务预期不确定仍交人工。
+3. 冻结后 MO assign Implementer；改路线走 CR 与重新冻结，已批准范围内的普通实现选择不需新增人工会签，跨范围或业务预期不确定仍交人工。
 4. Coding → build → automation → MO 验收完整；自主实现也保留源行为、真实生产接线与完整断言，不用 stub、mock、空返回、TODO 或删 CASE 代替交付。
 
 ### 8.2 核验后才能声明未实现
@@ -117,10 +116,10 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
     "kind": "human",
     "reason_code": "not-implemented",
     "reason": "具体功能在当前约束下未实现：<已证实原因>",
-    "root_cause": {"category": "capability", "summary": "<核验结论>", "evidence_refs": [{"path": "/workspace/migration/.sdd-runs/run-demo/staging/module-orchestrator/gap-review/verification.md", "sha256": "<actual>"}]},
+    "root_cause": {"category": "capability", "summary": "<核验结论>", "evidence_refs": [{"path": "<staging>/gap-review/verification.md", "sha256": "<actual>"}]},
     "owner": "module-orchestrator",
     "next_action": "<需要人工补充的能力、材料或架构/范围决策>",
-    "implementation_gap_ref": {"path": "/workspace/migration/.sdd-runs/run-demo/staging/module-orchestrator/gap-review/implementation-gap.json", "sha256": "<actual>"}
+    "implementation_gap_ref": {"path": "<staging>/gap-review/implementation-gap.json", "sha256": "<actual>"}
   }
 }
 ```
@@ -139,14 +138,7 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 
 适用于目标已迁移、已有功能实现或已有测试的场景：GO/MO 实际读目标代码及二方库源码/API、版本与调用链，比较功能语义、状态/副作用、失败行为与架构约束；类名相同不足以判冗余，二方库有真实可用能力时也不因目标代码已存在而拒绝复用。同一数据在目标已有另一套取数或计算时按[数据契约](resource-transfer.md#数据契约)决定重构或适配，不并存。
 
-| 控制节点 | 必须执行的动作 |
-| --- | --- |
-| GO 评估/切片 | 把目标重复实现与二方库 capability 对齐，记冗余位置、真实消费者、复用/适配可行性；功能与 CASE 完整，规划共享重构 owner 与受影响依赖 |
-| 父 MO 划子模块 | 在 scope 内安排唯一 owner 负责公共适配与去重，消费者共享同一提供方，不让多个子 MO 各留一份 |
-| 子 MO / Spec Designer 规划冻结 | 选 reuse 或 adapt，把依赖接入、调用迁移、去重清理与回归覆盖拆进 tasks；四维分析覆盖受影响 UI/Logic/Adhesive/Resource，不只换接口声明 |
-| Implementer / Fixer Coding | 按冻结任务重构目标：接入实际库版本，切换 DI/路由/消费者，保留必要差异适配，删除被替代且无消费者的冗余实现与配置/资源；提交 task_trace、reuse_trace 与生产绑定证据 |
-| Test-Runner / MO 验收 | 先 build 再业务测试：验证真实提供方调用、存量行为保真与受影响消费者，核验重复实现已移除或剩余确为必要适配；原测试随新接线调整入口，保留业务断言 |
-| Auditor | 按遗留/受影响范围检查重构与共享依赖影响，问题委派 Fixer、独立复核，不凭"换成二方库"判 Green |
+控制节点：GO 评估/切片时把目标重复实现与二方库 capability 对齐，记冗余位置、真实消费者与复用/适配可行性，规划共享重构 owner 与受影响依赖；父 MO 在 scope 内安排唯一 owner 负责公共适配与去重，消费者共享同一提供方；子 MO / Spec Designer 选 reuse 或 adapt，把依赖接入、调用迁移、去重清理与回归覆盖拆进 tasks，四维分析覆盖受影响 UI/Logic/Adhesive/Resource；Implementer / Fixer 按冻结任务接入实际库版本、切换 DI/路由/消费者、保留必要差异适配、删除被替代且无消费者的冗余实现与配置/资源，提交 task_trace、reuse_trace 与生产绑定证据；Test-Runner / MO 先 build 再业务测试，验证真实提供方调用、存量行为保真与受影响消费者，核验重复实现已移除或剩余确为必要适配，原测试随新接线调整入口、保留业务断言；Auditor 按受影响范围检查重构与共享依赖影响，问题委派 Fixer、独立复核，不凭"换成二方库"判 Green。
 
 ### 记录与完成准则
 
@@ -154,7 +146,7 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 
 ## 10. 显式 provider 归属与合法版本变更
 
-reuse-catalog 用 schema_version=2，每个 capability 必填 provider_owner_module_id（null 或叶子 Mxxx）与 ownership_evidence_ref，缺失不等于 null：null 是经 GO/MO 评审的现有稳定基线，非空是本轮交付/变更的唯一叶子 owner；外部来源只能 null；指定 owner 须存在、不是父节点，provider_refs 位于其写权限内，消费者登记该 owner 依赖；依赖环、无效 owner、冲突的活动 owner 被拒。归属不改 write_paths 锁、不授外部修改权限；GO 定全局归属与依赖，父 MO 把共享实现交唯一子 MO 并收窄写集合，子 MO 冻结具体调用/适配 tasks；运行期继续校验选中 provider、接入证据、归属证据与 fidelity，null 不免除 hash 漂移检查。
+reuse-catalog 用 schema_version=2，每个 capability 必填 provider_owner_module_id（null 或叶子 Mxxx）与 ownership_evidence_ref，缺失不等于 null：null 是经 GO/MO 评审的现有稳定基线，非空是本轮交付/变更的唯一叶子 owner；外部来源只能 null；指定 owner 须存在、不是父节点，provider_refs 位于其写权限内，消费者登记该 owner 依赖；依赖环、无效 owner、冲突的活动 owner 被拒。运行期继续校验选中 provider、接入证据、归属证据与 fidelity，null 不免除 hash 漂移检查。
 
 ### 稳定提供方与修改目标分别建模
 
@@ -179,4 +171,4 @@ reuse-catalog 用 schema_version=2，每个 capability 必填 provider_owner_mod
 
 ## 12. 埋点 SDK / 二方库
 
-有埋点职责时把目标 SDK/封装作为 capability，逐事件对齐名称、参数、时机、实际缓存/重试/生命周期语义与真实接线，不因 API 同名认定保真；共享提供方唯一 owner，业务触发各归消费模块；不适用记 N/A，不添加 SDK 或依赖。验收层级与异常分流见[埋点协议](telemetry.md)。
+有埋点职责时把目标 SDK/封装作为 capability，按[埋点协议](telemetry.md#3-事件对齐与二方库复用)逐事件对齐与接线；不适用记 N/A，不添加 SDK 或依赖。

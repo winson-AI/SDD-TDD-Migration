@@ -20,12 +20,57 @@ import dimensions
 import resource_fidelity
 import semantics
 import ui_evidence as ue
+from pathlib import Path
 from contracts import check_ref, file_ref, intact, nonempty, owed, read_json, require
 
 
 def _analysis(m):
     ref = (m.get('plan') or {}).get('dimension_analysis_ref')
     return dimensions.load(ref, m['module_id'])[0] if ref else None
+
+
+def capture_due(s, m):
+    """When the legacy runs: the UI items of this leaf whose evidence is not a runtime capture yet, and the latest capture of
+    the leaf the planner hands to analyze-ui as capture_ref. None when nothing is due."""
+    import project_context
+    try:
+        stated = project_context.legacy_preview(s)
+    except (ValueError, OSError, KeyError, TypeError):
+        return None
+    ref = (m.get('plan') or {}).get('dimension_analysis_ref') or m.get('dimension_analysis_ref')
+    if not stated or stated.get('kind') == 'none' or not ref:
+        return None
+    try:
+        analysis = read_json(check_ref(ref))
+    except (ValueError, OSError, KeyError, TypeError):
+        return None
+    items = [{'item_id': item.get('item_id'), 'coverage': evidence.get('coverage'), 'visual_mode': evidence.get('visual_mode')}
+             for row in analysis.get('dimensions', []) if row.get('dimension') == 'UI' and row.get('status') == 'applicable'
+             for item in row.get('items', []) for evidence in [((item.get('semantic_model') or {}).get('ui_evidence')) or {}]
+             if evidence.get('visual_mode') != 'runtime' and not evidence.get('capture_gap')]
+    if not items:
+        return None
+    return {'legacy_preview': stated['kind'], 'items': items, 'last_capture': latest_capture(s, m['module_id'])}
+
+
+def latest_capture(s, module_id):
+    """The newest legacy-capture of this leaf in the run's sandbox: its manifest and what it captured or could not."""
+    root = s.get('run_root')
+    if not root:
+        return None
+    found = []
+    for receipt_path in Path(root).glob('runs/harmony/sandbox/*/*/receipt.json'):
+        try:
+            receipt = read_json(receipt_path)
+            if receipt.get('operation') != 'legacy-capture' or receipt.get('module_id') != module_id or receipt.get('status') != 'produced':
+                continue
+            result = read_json(check_ref(receipt['result_ref']))
+        except (ValueError, OSError, KeyError, TypeError):
+            continue
+        if result.get('manifest_ref'):
+            found.append((receipt.get('finished_at') or '', {'request_ref': receipt.get('request_ref'), 'status': result.get('status'),
+                          'manifest_ref': result['manifest_ref'], 'captured': result.get('captured', []), 'blocked': result.get('blocked', [])}))
+    return max(found, key=lambda pair: pair[0])[1] if found else None
 
 
 def _declared_refs(analysis):
@@ -297,10 +342,10 @@ def baseline_gate(s, m, allocation=True):
             require(isinstance(executable, bool),
                     'legacy executability must be decided before freeze for ' + item['item_id'])
             mode = evidence.get('visual_mode')
-            if executable and stated is not None and mode == 'source-only':  # the legacy runs on the stated provider: an uncaptured screen says why
+            if executable and stated is not None and mode == 'source-only':  # the legacy runs: an uncaptured screen is owed its capture or its reason
                 gap = evidence.get('capture_gap') or {}
-                require(isinstance(gap.get('reason'), str) and gap['reason'].strip() and gap.get('evidence_refs'),
-                        'the legacy runs on ' + stated['kind'] + ': capture the screen (runtime), cite the user screenshots, or declare capture_gap with its reason and evidence for ' + item['item_id'])
+                owed(isinstance(gap.get('reason'), str) and gap['reason'].strip() and gap.get('evidence_refs'),
+                     'the legacy runs on ' + stated['kind'] + ': capture the screen (runtime), cite the user screenshots, or declare capture_gap with its reason and evidence for ' + item['item_id'])
             elif executable:
                 require(mode == 'runtime' or mode == 'user-reference' and (stated is not None or reference_media.expectation(s, item)),
                         'a previewable legacy screen must carry runtime baseline evidence, or align to the user target expectation: ' + item['item_id'])

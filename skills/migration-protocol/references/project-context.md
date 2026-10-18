@@ -114,7 +114,7 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 ## 存量预览
 
-legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch）、browser（url）或 none（reason）；UI 登记前须声明，prepare 记 artifact 哈希。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
+legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch 与 navigator）、browser（url）或 none（reason）；UI 登记前须声明，prepare 记包哈希。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
 
 ## 二方库/其他项目模块来源
 

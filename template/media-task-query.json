@@ -1,0 +1,12 @@
+{
+  "_note": "A media task of the Harmony/Android adapter: it walks the frozen steps and keeps media, verifies nothing and is never a PATH result. task_type snapshot keeps the stable final frame and its layout; recording keeps the whole walk as final.mp4. The receipt says reached, needs-review or blocked.",
+  "run_id": "{{run-id}}",
+  "module_id": "M001",
+  "capture_id": "{{capture-or-path-id}}",
+  "name": "{{what the walk reaches}}",
+  "platform": "android",
+  "task_type": "snapshot",
+  "steps": ["{{frozen step 1}}", "{{frozen step 2}}"],
+  "preconditions": ["{{installed legacy build}}"],
+  "parameters": {}
+}

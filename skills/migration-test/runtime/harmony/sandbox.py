@@ -2,6 +2,7 @@
 """uv entry point; dependency isolation only, not an OS permission sandbox."""
 import argparse
 import importlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -32,6 +33,9 @@ def doctor(config_path, device=None, platform=None):
         except Exception as exc:
             # Exceptions from libraries can contain configuration; don't echo them.
             checks.append({'name': module, 'status': 'blocked', 'reason': type(exc).__name__})
+    for name, present in (('adb-on-path', bool(shutil.which('adb'))), ('playwright', importlib.util.find_spec('playwright') is not None)):
+        checks.append({'name': name, 'status': 'ready' if present else 'optional-absent',
+                       'note': 'legacy-capture needs adb for a device statement and Playwright for a browser statement'})
     try:
         from harmony_adapter import configure, execution_config
         config = execution_config(json.loads(Path(config_path).read_text()), platform=platform, device=device)
@@ -48,7 +52,7 @@ def doctor(config_path, device=None, platform=None):
             checks.append({'name': 'uiautomator2', 'status': 'ready'})
     except Exception as exc:
         checks.append({'name': 'configuration', 'status': 'blocked', 'reason': type(exc).__name__})
-    ready = all(c['status'] == 'ready' for c in checks)
+    ready = all(c['status'] in ('ready', 'optional-absent') for c in checks)
     return {'status': 'ready-for-live-preflight' if ready else 'yellow-blocked',
             'checks': checks, 'automated_tests_executed': False,
             'note': 'Offline only; host must check device connectivity, model access, fixtures and installed app baseline.'}

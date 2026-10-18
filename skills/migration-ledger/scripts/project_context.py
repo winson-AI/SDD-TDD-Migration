@@ -189,8 +189,8 @@ def legacy_preview_config(value):
         require(set(value) <= {'kind', 'url', 'note'} and text(value, 'url') and value['url'].startswith(('http://', 'https://', 'file://')),
                 'legacy_preview browser names the url the legacy is served at')
         return dict(value)
-    require(set(value) <= {'kind', 'app_id', 'device', 'artifact', 'artifact_sha256', 'build', 'launch', 'note'},
-            'legacy_preview takes app_id, device, artifact or build, launch and note')
+    require(set(value) <= {'kind', 'app_id', 'device', 'artifact', 'artifact_sha256', 'build', 'launch', 'navigator', 'note'},
+            'legacy_preview takes app_id, device, artifact or build, launch, navigator and note')
     require(text(value, 'app_id'), 'legacy_preview.app_id names the legacy application package')
     device = value.get('device')
     require(isinstance(device, dict) and set(device) <= {'serial', 'avd', 'address'} and text(device, 'serial'),
@@ -209,6 +209,12 @@ def legacy_preview_config(value):
                 and isinstance(build.get('output'), str) and Path(build['output']).is_absolute(),
                 'legacy_preview.build takes absolute argv, cwd, timeout_seconds and the absolute output package it produces')
     require('launch' not in value or text(value, 'launch'), 'legacy_preview.launch names the launch activity')
+    navigator = value.get('navigator')  # the adapter that walks a snapshot task when a screen's way in is not a deterministic action list
+    require(navigator is None or isinstance(navigator, dict) and set(navigator) <= {'argv', 'cwd', 'timeout_seconds'}
+            and isinstance(navigator.get('argv'), list) and navigator['argv'] and all(isinstance(a, str) and a for a in navigator['argv'])
+            and Path(navigator['argv'][0]).is_absolute() and isinstance(navigator.get('cwd'), str) and Path(navigator['cwd']).is_absolute()
+            and type(navigator.get('timeout_seconds')) is int and navigator['timeout_seconds'] > 0,
+            'legacy_preview.navigator takes the absolute argv, cwd and timeout_seconds of the adapter that walks a snapshot task')
     return out
 
 
@@ -507,6 +513,13 @@ def _prepare(root, run_root, request, actor, storage):
                 pass  # settled for another target tree: this run settles its own
         if carried.get('device') and 'device' not in (effective.get('test_adapter') or {}):
             effective['test_adapter'] = {**(effective.get('test_adapter') or {}), 'device': copy.deepcopy(carried['device'])}
+        if carried.get('legacy_preview') and not effective.get('legacy_preview'):  # how the legacy ran last time, unless this run says otherwise
+            try:
+                preview = legacy_preview_config({k: v for k, v in carried['legacy_preview'].items() if k != 'artifact_sha256'})
+                if preview.get('artifact') is None or Path(preview['artifact']).is_file():
+                    effective['legacy_preview'] = preview
+            except ValueError:
+                pass  # settled for another layout: this run states its own
         require(effective.get('architecture_path'), 'architecture_path required before prepare')
         reuse.normalize_sources(effective.get('reuse_sources', []), effective['target_root'], existing=True)
         preview = effective.get('legacy_preview') or {}

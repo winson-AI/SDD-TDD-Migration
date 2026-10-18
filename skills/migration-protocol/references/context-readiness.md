@@ -44,7 +44,7 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 {
   "operation": "context-submit",
   "module_id": "M001",
-  "payload": {"report_ref": {"path": "/workspace/migration/.sdd-runs/run-demo/staging/context.json", "sha256": "<actual-sha256>"}}
+  "payload": {"report_ref": {"path": "<staging>/context.json", "sha256": "<actual-sha256>"}}
 }
 ```
 

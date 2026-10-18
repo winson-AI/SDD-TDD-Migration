@@ -10,7 +10,7 @@ applicable UI 必须有模型/源树/目标覆盖，不是可选附录。领域�
 
 | SDD 角色 | 领域操作 | 产出与边界 |
 | --- | --- | --- |
-| Spec-Designer | `analyze-ui`、`validate-ui`、`resource-plan`、`screen-checks`、`render-reference`、知识查询与 Foundation 解析 | 源索引、运行时索引、合并 UI 树、范围与资源闭包进入规划；只生成分析工件，不改目标源码或资源 |
+| Spec-Designer | `legacy-capture`、`analyze-ui`、`validate-ui`、`resource-plan`、`screen-checks`、`render-reference`、知识查询与 Foundation 解析 | 源索引、运行时索引、合并 UI 树、范围与资源闭包进入规划；只生成分析工件，不改目标源码或资源 |
 | Implementer | `resource-sync`、`resource-convert`，消费已冻结 UI/资源证据 | 在当前 assignment 与写范围内完成精确资源转换及真实消费者接线；不改 SPEC/tasks/验收，不作正式通过判断 |
 | Test-Runner | 正式构建走 `execute_test.py`；视觉使用 `compare-only`、`image-parity` | 读取当前代码/基线生成比较评分；结合独立设备交互、语义比较和正式执行回执提交三态，不修源码、资源、构建配置或 SPEC |
 | Fixer | 经 Ledger 授权的实现/资源修复，可用 `resource-convert` | 沿原修复预算和写范围提交补丁；行为或验收变更先提 CR；自测不能代替正式复测 |
@@ -33,7 +33,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 | operation | args 要点 | 当前实际能力 |
 | --- | --- | --- |
-| `analyze-ui` | entry/source_files/layouts，选填 capture_ref、targets、manifests、image_sinks、layout_helpers | 从 legacy_root 收集源索引（使用点、图片来源与参数，见[搬运](resource-transfer.md#使用点与闭包)）；entry 写 `文件#类名` 或 `文件#类名.方法名` 只采该段，多屏同文件分别采；有合法 Capture 时选运行时索引；据此生成 UI 树再 validate-ui，不自动证明源闭包完整 |
+| `analyze-ui` | entry/source_files/layouts，选填 capture_ref、targets、manifests、image_sinks、layout_helpers；platform=web 只读 capture_ref/targets | 从 legacy_root 收集源索引（使用点、图片来源与参数，见[搬运](resource-transfer.md#使用点与闭包)）；entry 写 `文件#类名` 或 `文件#类名.方法名` 只采该段，多屏同文件分别采；有合法 Capture 时选运行时索引；据此生成 UI 树再 validate-ui，不自动证明源闭包完整 |
 | `validate-ui` | ui_tree_ref/source_index_ref/runtime_index_ref，选填 resource_scope | 校验树与原始索引一致；source-only 不伪造 runtime_index_ref；resource_scope 仅说明有证据的范围外变体 |
 | `resource-scan` | 选填 source_index_ref/ui_tree_ref/extra_refs | 只读查找当前闭包资源，输出候选文件与 hash，保留 base/night/语言等源变体；给树与索引时附预填 skeletons；不写目标、不裁决精确性 |
 | `resource-plan` | dimension_analysis_ref | 派生模块的参数表与复制清单（项目声明了约定时），列出待登记资源、未声明使用点、待映射 token 与待定值 expression；MO 可用 |
@@ -54,26 +54,15 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 请求走同一个 lean_worker CLI，args 示例见 [knowledge-request.json](../../../template/knowledge-request.json)；名称与坐标以当前目录查询结果为准，不能照抄成项目事实；知识引用保留 hash，随上下文、plan、实现或测试提交。Foundation 配置唯一入口、默认关闭及不适用处理见 [工程纪律](engineering-disciplines.md)。
 
-知识结果附 `sdd_adaptation_ref`，将上游平台决策/实现/验证概念映射到本轮四维分析、冻结 SPEC、task_trace/dimension_evidence 及正式 PATH/ASSERT。`external` 查询只返回目录快照候选，所列历史版本/verified 标记不代表当前目标已验证；无匹配也不能据此判定无法实现。上游独立 probe 未接入，结果明确 `probe_support:not-supported`，由当前角色在已有任务和测试路径中设计并验证所选方案；不安装包、不运行目录里的命令、不创建 `.a2c` 或独立状态文件。
-
-正式 visual PATH 使用已有 execute_test 的 adapter/host receipt 通道，不能把直接 compare-only 或 [视觉执行工具](visual-execution.md) 的 receipt 当作正式测试回执。
+知识结果附 `sdd_adaptation_ref`；`external` 查询只返回目录快照候选，无匹配也不能据此判定无法实现；上游 probe 未接入（`probe_support:not-supported`），其余见[知识执行与冻结](engineering-disciplines.md#1-foundation--迁移知识执行与冻结)。
 
 入口及查询/诊断/resolve 使用 Python 3.10+；`foundation-verify` 单项需要 Python 3.11+ 的 tomllib，缺少时明确拒绝并保留原因。`compare-only`、`image-parity`、`render-reference`、`screen-checks` 还需要 Pillow（矢量 drawable 的渲染另需 `rsvg-convert`），可使用本 run 已准备好的 Harmony sandbox 环境。缺少时保留原因（compare-only 为 `comparison-unavailable`），由 Test-Runner 按现有 Yellow/未执行通道处理，不自动安装依赖或阻止其他模块。
 
-使用 [visual-test-adapter.json](../../../template/visual-test-adapter.json) 实例化 adapter JSON，其 argv 指向 [lean_visual_adapter.py](../../migration-ledger/scripts/lean_visual_adapter.py)、当前原始 alignment 文件与 target_root。有冻结手势才在 argv 添加 `--interaction <id>`（可重复）；带 `image_check_ids` 的 PATH 添加 `--image-parity <报告>`，无 `baseline_ref` 时可省略 `--alignment`。宿主取得 visual assignment 后执行：
-
-```sh
-python3 <package>/skills/migration-ledger/scripts/execute_test.py \
-  --root <run_root> --module M001 --assignment <assignment-id> \
-  --path-id VISUAL-M001-001 --adapter <adapter.json> --cwd <target_root> \
-  --output <run_root>/runs/harmony/automation/<new-attempt>
-```
-
-execute_test 自动传 query/result 文件并保存正式回执，adapter 只重验与转换独立比较产物，不捕获截图、修复代码或发明视觉 verdict。当前 adapter 仅支持冻结 `expected: true` 的布尔视觉对齐断言；其他断言类型用项目已有适配器。手势与当前 HAP 的正式核对见 [视觉对齐](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)。
+使用 [visual-test-adapter.json](../../../template/visual-test-adapter.json) 实例化 adapter JSON，其 argv 指向 [lean_visual_adapter.py](../../migration-ledger/scripts/lean_visual_adapter.py)、当前原始 alignment 文件与 target_root。有冻结手势才在 argv 添加 `--interaction <id>`（可重复）；带 `image_check_ids` 的 PATH 添加 `--image-parity <报告>`，无 `baseline_ref` 时可省略 `--alignment`。宿主取得 visual assignment 后按[实际测试适配器](local-runtime.md#实际测试适配器)执行 execute_test，它自动传 query/result 文件并保存正式回执，adapter 只重验与转换独立比较产物，不捕获截图、修复代码或发明视觉 verdict。当前 adapter 仅支持冻结 `expected: true` 的布尔视觉对齐断言；其他断言类型用项目已有适配器。手势与当前 HAP 的正式核对见 [视觉对齐](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)。
 
 每次调用保留三层：原始输入/输出引用及实际 hash（Capture manifest、源索引、UI 树、资源映射、比较结果与日志；外部来源只读，不改写旧 hash）；[lean_adapter.py](../../migration-ledger/scripts/lean_adapter.py) 转换出的 SDD 证据（保留对原始结果的引用，结构转换不代表命令执行、语义一致、视觉通过或真实派发）；角色经 `submit`/`accept` 或审计事件提交的正式 payload（绑定 freeze/assignment、TASK/PATH/ASSERT、当前代码与构建产物），角色返回文本和 worker 成功退出都不能替代这些事件。
 
-工具产物写入本 run 的 `staging/<actor>/<request_id>`，截图与视觉辅助产物写入 `runs/harmony/sandbox/<actor>/<request_id>`，新请求用新目录；不写回技能包、输入旁、目标仓 `.a2c` 或任意 cwd，详见 [留存布局](storage-layout.md)。
+工具产物写入本 run 的 `staging/<actor>/<request_id>`，截图与视觉辅助产物写入 `runs/harmony/sandbox/<actor>/<request_id>`，新请求用新目录（[留存布局](storage-layout.md#总则)）。
 
 ## 产物转换
 
