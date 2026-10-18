@@ -138,6 +138,28 @@ class GateTests(unittest.TestCase):
                          [('MEDIA-login', ['M001'], ['M001:PV'], 'cited'), ('MEDIA-flow', ['M001', 'M002'], ['M001:P1'], 'cited'),
                           ('MEDIA-third', [], [], 'uncited')])
 
+    def test_the_planner_is_told_which_media_its_plan_does_not_cite_yet(self):
+        import reading
+        auto = {'path_id': 'P1', 'kind': 'automation', 'case_id': 'C1'}
+        m = {'module_id': 'M001', 'case_ids': ['C1']}
+        due = reference_media.due(self.s, m)
+        self.assertEqual(([r['media_id'] for r in due['uncited']], due['cited']), (['MEDIA-login', 'MEDIA-flow'], []))
+        due = reference_media.due(self.s, {**m, 'plan': {'paths': [{**auto, 'reference_media_ids': ['MEDIA-flow']}]}})
+        self.assertEqual(([r['media_id'] for r in due['uncited']], due['cited']), (['MEDIA-login'], ['MEDIA-flow']))
+        self.assertIsNone(reference_media.due(self.s, {**m, 'plan': {'paths': [{**auto, 'reference_media_ids': ['MEDIA-flow']}, self.visual()]}}))
+        self.assertIsNone(reference_media.due(self.s, {'module_id': 'M009', 'case_ids': ['C9']}))
+        card = lambda module: {(row['ref'].split('/')[-1], row['section']) for row in reading.card(self.s, module, {'role': 'spec-designer', 'operation': 'plan'})}
+        self.assertIn(('project-context.md', '用户参考媒体'), card(m))
+        self.assertNotIn(('project-context.md', '用户参考媒体'), card({'module_id': 'M009', 'case_ids': ['C9']}))
+
+    def test_the_plan_step_carries_the_uncited_media(self):
+        import test_ledger
+        f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        f.global_plan()
+        with mock.patch.object(reference_media, 'due', return_value={'uncited': [{'media_id': 'MEDIA-x'}], 'cited': []}):
+            step = next(x for x in f.state()['next_steps'] if x['operation'] == 'plan')
+        self.assertEqual(step['media_due']['uncited'], [{'media_id': 'MEDIA-x'}])
+
     def manifest(self, shot):
         view = self.base / 'view.xml'
         view.write_text('<hierarchy><node class="android.widget.TextView" resource-id="app:id/title" text="Login" bounds="[0,0][100,40]" enabled="true" /></hierarchy>')

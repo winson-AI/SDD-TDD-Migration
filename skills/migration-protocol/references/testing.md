@@ -30,7 +30,7 @@ query 文件必须包含该路径完整的前置、步骤、参数和预期断�
 
 automation/visual PATH 若声明 interaction_id，execute_test 从所属模块冻结模型提取完整 frozen_interaction（id/action/from/expected），不能由运行器另写较弱的期望。source-only UI 允许把手势放入 automation，不要求没有的视觉基线；runtime UI 仍保留已有 visual 义务。automation 的条件结果扩展见 [interaction-evidence.json](../../../template/interaction-evidence.json)。GLOBAL 自有手势 PATH 显式冻结 frozen_interaction，并用既有 build_binding 指定产物所属 build PATH。
 
-GLOBAL 手势的完整契约、ID 匹配与 build_binding 在 init 落盘前检查，输入不完整时先修正初始化请求，避免到审计才发现无法执行。
+GLOBAL 手势的完整契约、ID 匹配与 build_binding 在 init 落盘前检查，输入不完整时先修正初始化请求。
 
 将 [test-paths.json](../../../template/test-paths.json) 的单路径 JSON 写入临时 query 文件，按已确认适配器契约用 argv 传入：`<executable> <args...> --query-file <absolute-query.json> --result-file <absolute-result.json>`。这里只定义默认适配协议；实际框架需提供翻译脚本，不能把自然语言 name 直接当 shell 命令。无 shell 拼接，不执行 query 内嵌指令。保存实际 argv、cwd、工具版本、环境变量名称（秘密值脱敏）、seed、fixtures、依赖版本。
 
@@ -110,7 +110,7 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 ## Harmony Main
 
-已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核：输入冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow。harmony_stage 把 host receipts 汇成 tests stage，Ledger 复验媒体 hash 与三态；超时终止进程组并保存已有输出。automation/visual PATH 可声明 `record_video: true`：回执的 final.mp4 以 `media_refs`（hash 绑定、在执行输出内）随结果入 Ledger，报告逐 PATH 列出，diagnose/Fixer 步骤带非 Green 路径的媒体，不改三态。
+已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核：输入冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow。harmony_stage 把 host receipts 汇成 tests stage，Ledger 复验媒体 hash 与三态；超时终止进程组并保存已有输出。automation/visual PATH 可声明 `record_video: true`：回执的 final.mp4 以 `media_refs`（hash 绑定、在执行输出内）随结果入 Ledger，报告逐 PATH 列出，diagnose/Fixer 步骤并列非 Green 路径的用户预期媒体与实际媒体，不改三态。
 
 Harmony 不自动生成结构化 interaction_evidence：缺这份证据时的规范化见[视觉对齐](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)；Test-Runner 在预检说明能力缺口，换 adapter 或走缺测出口。
 

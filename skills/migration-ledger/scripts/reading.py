@@ -292,6 +292,11 @@ def topic_facts(s, m, step):
     except (ValueError, OSError, KeyError, TypeError):
         stated = None
     facts['legacy'] = bool(stated) and stated.get('kind') != 'none'  # the legacy runs: its screens are captured, not inferred
+    try:
+        import reference_media
+        facts['media'] = bool(m) and bool(reference_media.of_module(s, m))  # the user showed screens of this leaf's cases
+    except (ValueError, OSError, KeyError, TypeError):
+        facts['media'] = False
     selected = step.get('module_ids') or (s.get('audit_assignment') or {}).get('module_ids')
     modules = [m] if m else [obj for mid, obj in s.get('modules', {}).items() if not selected or mid in selected]
     for obj in modules:
@@ -383,6 +388,8 @@ def entries(role, test_scope=None, ui=False, reuse=False, operation=None, teleme
         items += chosen
         if facts and facts.get('legacy') and role in ('spec-designer', 'module-orchestrator'):
             items += sections('project-context.md', '存量预览') + sections('visual-execution.md', '4. 存量捕获')
+    if facts and facts.get('media') and role in ('spec-designer', 'module-orchestrator'):
+        items += sections('project-context.md', '用户参考媒体')
     if facts and facts.get('api'):
         items += sections('resource-transfer.md', 'API 与 URL 契约')
     if facts and facts.get('parameters'):

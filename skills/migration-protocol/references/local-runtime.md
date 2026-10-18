@@ -10,8 +10,6 @@
 
 宿主负责：认证调用者、限制其可用 role/module/operation、保护 `--host-context` 与证据目录、真正停止旧进程、限制实际源码写范围、审核测试 argv、启动/恢复 Agent、执行可选 OpenSpec CLI 验证及最终基线同步/归档。**任意本机进程都能修改所有文件时，CLI 不是安全隔离边界。** 不得给 worker 自选 host-context 的能力；本地 receipt 检查也不是对任意伪造文件的密码学认证。
 
-没有宿主适配器时可运行这里的隔离测试与手工受控调用，但不能声称已具备无人值守迁移服务。
-
 ## 命令
 
 以下路径中的 `<package>`、`<run>`、`<request>`、`<principal>` 均需换成绝对路径。

@@ -33,9 +33,7 @@ python3 <package_root>/skills/migration-ledger/scripts/lean_worker.py \
 
 visual-capture 把 capture_execution_ref 写入候选 snapshot（[捕获执行回执](../../../template/visual-capture-execution.json)）；adapter 与正式验收重读本 run 的安装回执、执行日志、截图/树和元数据推导 capture_evidence，检查 HAP/代码及完整原图集合。外部捕获器须提供同契约 sidecar（成功安装命令、实际 capture 命令与图片输出，meta 的构建/代码字段一致），缺 sidecar 保留 Yellow；carried 只重验实际引用的历史轮次。
 
-安装可在功能自动化前执行；换 assignment 后须有当前授权的装机证据。最终 Auditor 只处理选取的审计 PATH，设备工具校验当前审计快照与 PATH 所属构建产物。
-
-`execute_test` 把当前 assignment_id/fencing_token 写入 visual query 的 `execution_assignment`；最新 capture_execution 须属于该授权，正式 submit/accept/Auditor 以 Ledger 的 assignment 再核验。HAP 与代码未变，新审计任务也须重新捕获，重读旧截图只是审阅；ALIGNED_CARRIED 引用的历史轮次可保留旧授权。
+安装可在功能自动化前执行；换 assignment 后须有当前授权的装机证据。`execute_test` 把当前 assignment_id/fencing_token 写入 visual query 的 `execution_assignment`，最新 capture_execution 须属于该授权，正式 submit/accept/Auditor 以 Ledger 的 assignment 再核验；HAP 与代码未变，新审计任务也须重新捕获（重读旧截图只是审阅），ALIGNED_CARRIED 引用的历史轮次可保留旧授权。最终 Auditor 只处理选取的审计 PATH，设备工具校验当前审计快照与 PATH 所属构建产物。
 
 viewport 捕获要求实际前台 App、冻结目标选择器与截图前后稳定的树。scroll 还需有源码依据的终点选择器 `scroll_end_match` 与唯一 `scroll_region`，连续保存每屏并有界滚动，实际观察到终点才算 scroll-complete；多滚动区域拆 PATH 或用既有完整 adapter。无可信区域、未到终点、状态变化、截断或重复画面都不证明完整覆盖，保留 partial/Yellow，缺 scrollable 节点不等于无须滚动。模糊导航/未支持 backend 用正式运行器或如实留缺口。
 
@@ -49,7 +47,7 @@ semantic 原文件的所有 issues 及 `comparability < 0.4` 或 `comparable=fal
 
 每个请求的 request/result/receipt、设备命令、装机结果、截图/树/meta/manifest、比较结果放 `runs/harmony/sandbox/<actor>/<request_id>/`；正式测试回执与报告仍在 `runs/harmony/automation/<attempt>/`。配置归同 run 的 sandbox/environment；正常临时文件清理，无法清理时保留原因。设备临时截图/树仅删除本次生成的文件，失败留清理记录。
 
-工具 BLOCKED/quality_candidate 只是待提交证据，不能直接改 Ledger。缺少工具、设备、模型或观测条件时，Test-Runner 留原因/日志，MO 按实际情况使用既有 Yellow/未执行与 automation-unavailable 通道。已经观察到的失败断言不能覆盖成缺环境；设备错误或页面不符也不自动断言为实现缺陷，先走现有根因判断。Auditor 可继续代码审查及缺测收尾；其他模块与可用构建依赖继续。
+工具 BLOCKED/quality_candidate 只是待提交证据，不能直接改 Ledger。缺少工具、设备、模型或观测条件时，Test-Runner 留原因/日志，MO 按实际情况使用既有 Yellow/未执行与 automation-unavailable 通道。已经观察到的失败断言不能覆盖成缺环境；设备错误或页面不符也不自动断言为实现缺陷，先走现有根因判断。
 
 工具执行取消后由宿主核实停止，按已有 revoke/audit-revoke 处理，不重启或释放业务锁。配置/hash/assignment/权限不匹配属于受控拒绝，返回原因供相关 owner 修订，不转换为测试 Green。真实设备与模型能力须在项目环境验证，本包的隔离测试仅证明控制与证据契约。
 
