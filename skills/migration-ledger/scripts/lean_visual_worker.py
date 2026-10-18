@@ -279,12 +279,20 @@ def dom_to_xml(node):
     return ET.tostring(root, encoding='unicode')
 
 
-DOM_WALK = """() => { const walk = (el) => { const r = el.getBoundingClientRect(); const style = getComputedStyle(el);
-  return { tag: el.tagName.toLowerCase(), id: el.id || '', cls: typeof el.className === 'string' ? el.className : '',
-    text: el.childElementCount === 0 ? (el.innerText || '').trim().slice(0, 200) : '', aria: el.getAttribute('aria-label') || '', src: el.getAttribute('src') || '',
-    bounds: [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)],
-    scrollable: el.scrollHeight > el.clientHeight + 1 && ['auto', 'scroll'].includes(style.overflowY),
-    children: Array.from(el.children).map(walk) }; }; return walk(document.body); }"""
+DOM_WALK = """() => { const vw = window.innerWidth, vh = window.innerHeight;
+  const inter = (a, b) => ({l: Math.max(a.l, b.l), t: Math.max(a.t, b.t), r: Math.min(a.r, b.r), b: Math.min(a.b, b.b)});
+  const clips = ['auto', 'scroll', 'hidden', 'clip'];
+  const walk = (el, clip) => { const r = el.getBoundingClientRect(); const style = getComputedStyle(el);
+    const own = {l: r.left, t: r.top, r: r.right, b: r.bottom}; const box = inter(own, clip);
+    const shown = box.r > box.l && box.b > box.t && style.visibility !== 'hidden' && style.display !== 'none';
+    const childClip = clips.includes(style.overflowY) || clips.includes(style.overflowX) ? inter(clip, own) : clip;
+    const children = Array.from(el.children).map((c) => walk(c, childClip)).filter(Boolean);
+    if (!shown && children.length === 0) return null;  // like a native dump: what is clipped away is not on the screen
+    return { tag: el.tagName.toLowerCase(), id: el.id || '', cls: typeof el.className === 'string' ? el.className : '',
+      text: el.childElementCount === 0 ? (el.innerText || '').trim().slice(0, 200) : '', aria: el.getAttribute('aria-label') || '', src: el.getAttribute('src') || '',
+      bounds: [Math.round(Math.max(box.l, box.r > box.l ? box.l : 0)), Math.round(box.t), Math.round(Math.max(box.r, box.l)), Math.round(Math.max(box.b, box.t))],
+      scrollable: el.scrollHeight > el.clientHeight + 1 && ['auto', 'scroll'].includes(style.overflowY), children }; };
+  return walk(document.body, {l: 0, t: 0, r: vw, b: vh}); }"""
 
 
 def open_browser(out):
@@ -310,6 +318,13 @@ def open_browser(out):
 
         def wheel(self, x, y, dy):
             self.page.mouse.move(x, y); self.page.mouse.wheel(0, dy)
+            before = None  # the wheel returns before the scroll ends: wait until two DOM reads agree
+            for _ in range(20):
+                self.page.wait_for_timeout(100)
+                after = self.page.evaluate(DOM_WALK)
+                if after == before:
+                    break
+                before = after
 
         def close(self):
             self.browser.close(); self.playwright.stop()
