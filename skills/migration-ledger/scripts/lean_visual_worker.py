@@ -282,20 +282,29 @@ def dom_to_xml(node):
 DOM_WALK = """() => { const vw = window.innerWidth, vh = window.innerHeight;
   const inter = (a, b) => ({l: Math.max(a.l, b.l), t: Math.max(a.t, b.t), r: Math.min(a.r, b.r), b: Math.min(a.b, b.b)});
   const clips = ['auto', 'scroll', 'hidden', 'clip'];
-  const walk = (el, clip) => { const r = el.getBoundingClientRect(); const style = getComputedStyle(el);
-    const own = {l: r.left, t: r.top, r: r.right, b: r.bottom}; const box = inter(own, clip);
+  const scroller = document.scrollingElement || document.documentElement;
+  const pageScrolls = scroller.scrollHeight > vh + 1;  // the page itself scrolls: its body is the scroll region
+  const walk = (el, clip, dx, dy) => { const r = el.getBoundingClientRect(); const style = getComputedStyle(el);
+    const own = {l: r.left + dx, t: r.top + dy, r: r.right + dx, b: r.bottom + dy}; const box = inter(own, clip);
     const shown = box.r > box.l && box.b > box.t && style.visibility !== 'hidden' && style.display !== 'none';
     const childClip = clips.includes(style.overflowY) || clips.includes(style.overflowX) ? inter(clip, own) : clip;
-    const children = Array.from(el.children).map((c) => walk(c, childClip)).filter(Boolean);
+    let kids = [];
+    if (el.tagName === 'IFRAME') { let doc = null; try { doc = el.contentDocument; } catch (e) { doc = null; }  // a same-origin frame is part of the screen
+      if (doc && doc.body) kids = [walk(doc.body, inter(clip, own), own.l, own.t)]; }
+    else { const shadow = el.shadowRoot ? Array.from(el.shadowRoot.children) : [];  // a component's shadow tree is on the screen too
+      kids = shadow.concat(Array.from(el.children)).map((c) => walk(c, childClip, dx, dy)); }
+    const children = kids.filter(Boolean);
     if (!shown && children.length === 0) return null;  // like a native dump: what is clipped away is not on the screen
-    return { tag: el.tagName.toLowerCase(), id: el.id || '', cls: typeof el.className === 'string' ? el.className : '',
-      text: el.childElementCount === 0 ? (el.innerText || '').trim().slice(0, 200) : '', aria: el.getAttribute('aria-label') || '', src: el.getAttribute('src') || '',
-      bounds: [Math.round(Math.max(box.l, box.r > box.l ? box.l : 0)), Math.round(box.t), Math.round(Math.max(box.r, box.l)), Math.round(Math.max(box.b, box.t))],
-      scrollable: el.scrollHeight > el.clientHeight + 1 && ['auto', 'scroll'].includes(style.overflowY), children }; };
-  return walk(document.body, {l: 0, t: 0, r: vw, b: vh}); }"""
+    const field = ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
+    const text = field ? (el.value || el.placeholder || '') : (el.childElementCount === 0 && !el.shadowRoot ? (el.innerText || el.textContent || '').trim().slice(0, 200) : '');
+    const scrollable = (el.scrollHeight > el.clientHeight + 1 && ['auto', 'scroll'].includes(style.overflowY)) || (pageScrolls && dx === 0 && dy === 0 && (el === document.body || el === scroller));
+    return { tag: el.tagName.toLowerCase(), id: el.id || '', cls: typeof el.className === 'string' ? el.className : '', text,
+      aria: el.getAttribute('aria-label') || el.getAttribute('alt') || '', src: el.getAttribute('src') || '',
+      bounds: [Math.round(box.l), Math.round(box.t), Math.round(Math.max(box.r, box.l)), Math.round(Math.max(box.b, box.t))], scrollable, children }; };
+  return walk(document.body, {l: 0, t: 0, r: vw, b: vh}, 0, 0); }"""
 
 
-def open_browser(out):
+def open_browser(out, viewport=None):
     """A headless Chromium page through Playwright; the host installs the browser, the worker only drives it."""
     try:
         from playwright.sync_api import sync_playwright
@@ -306,25 +315,36 @@ def open_browser(out):
         def __init__(self):
             self.playwright = sync_playwright().start()
             self.browser = self.playwright.chromium.launch()
-            self.page = self.browser.new_page()
+            self.page = self.browser.new_page(**({'viewport': dict(viewport)} if viewport else {}))
             self.version = 'chromium ' + self.browser.version
 
-        def goto(self, url): self.page.goto(url, wait_until='load')
-        def click(self, selector): self.page.click(selector, timeout=10000)
-        def back(self): self.page.go_back(wait_until='load')
+        def goto(self, url): self.page.goto(url, wait_until='load'); self.settle(True)
+        def click(self, selector): self.page.click(selector, timeout=10000); self.settle(True)
+        def back(self): self.page.go_back(wait_until='load'); self.settle(True)
+
+        def settle(self, network=False):
+            """A navigation, a click or a wheel returns before the page is done: wait for the network to go quiet and for three
+            DOM reads in a row to agree, bounded, so the tree read next is the screen that stays."""
+            if network:
+                try:
+                    self.page.wait_for_load_state('networkidle', timeout=2000)
+                except Exception:
+                    pass
+            last, same = None, 0
+            for _ in range(50):
+                current = self.page.evaluate(DOM_WALK)
+                same = same + 1 if current == last else 0
+                if same >= 2:
+                    return
+                last = current; self.page.wait_for_timeout(100)
         def title(self): return self.page.title()
         def dom(self): return self.page.evaluate(DOM_WALK)
         def screenshot(self, path): self.page.screenshot(path=str(path))
 
         def wheel(self, x, y, dy):
-            self.page.mouse.move(x, y); self.page.mouse.wheel(0, dy)
-            before = None  # the wheel returns before the scroll ends: wait until two DOM reads agree
-            for _ in range(20):
-                self.page.wait_for_timeout(100)
-                after = self.page.evaluate(DOM_WALK)
-                if after == before:
-                    break
-                before = after
+            self.page.mouse.move(x, y); self.page.mouse.wheel(0, dy); self.settle()
+
+        def wait(self, ms): self.page.wait_for_timeout(ms)
 
         def close(self):
             self.browser.close(); self.playwright.stop()
@@ -334,11 +354,12 @@ def open_browser(out):
 class BrowserDevice:
     """The legacy web application in a browser: the url is the device, the DOM is the view tree, the page is the screen."""
     platform, backend = 'web', 'playwright'
+    match_retries = 10  # a view rendered by script after a click: the frozen selectors are read again, read-only, for a bounded while
 
-    def __init__(self, url, out, page=None):
+    def __init__(self, url, out, page=None, viewport=None):
         self.url, self.out, self.logs = url, out, []
         self.device = urlparse(url).netloc or url
-        self.page = page or open_browser(out)
+        self.page = page or open_browser(out, viewport)
         self.version = getattr(self.page, 'version', None) or 'playwright'
         self.tool = 'playwright'
 
@@ -352,6 +373,9 @@ class BrowserDevice:
 
     def foreground(self):
         return self.device, str(self.act('title') or '')
+
+    def wait(self, ms):
+        self.act('wait', ms)
 
     def scroll(self, bounds):
         """One wheel turn of half the frozen region's height, at its centre."""
@@ -455,6 +479,10 @@ def observe_screen(device, app, target, spec, out, label):
     if package != app:
         return blocked('requested app is not the observed foreground app before capture', 'target-precondition')
     xml = device.layout(f'{label}-0')
+    for _ in range(getattr(device, 'match_retries', 0)):  # read-only: a screen still rendering is read again, an action is never repeated
+        if target_matches(xml, spec.get('target_match'), app):
+            break
+        device.wait(300); xml = device.layout(f'{label}-0')
     if not target_matches(xml, spec.get('target_match'), app):
         save(out / f'target-mismatch-{label}.json', {'foreground': f'{package}/{activity}', 'view_xml': xml})
         return blocked('frozen target selectors not observed', 'target-precondition')
@@ -631,7 +659,7 @@ def legacy_capture(args, *, root, out, state, task, actor, module_id=None):
     app = stated['url'] if web else token(stated['app_id'], 'app_id')
     result, install_ref, records, blocked_targets, device = None, None, [], [], None
     try:
-        device = BrowserDevice(stated['url'], out) if web else AndroidDevice(stated['device']['serial'], args.get('tool', 'adb'), out)
+        device = BrowserDevice(stated['url'], out, viewport=stated.get('viewport')) if web else AndroidDevice(stated['device']['serial'], args.get('tool', 'adb'), out)
         if not web:
             device.version = (device.call('version').strip().splitlines() or [''])[0]
             if not device.version:

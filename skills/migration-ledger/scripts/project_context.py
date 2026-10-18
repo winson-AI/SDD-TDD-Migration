@@ -186,8 +186,12 @@ def legacy_preview_config(value):
         require(set(value) <= {'kind', 'reason', 'note'} and text(value, 'reason'), 'legacy_preview none states the reason the legacy cannot be run')
         return dict(value)
     if kind == 'browser':
-        require(set(value) <= {'kind', 'url', 'note'} and text(value, 'url') and value['url'].startswith(('http://', 'https://', 'file://')),
+        require(set(value) <= {'kind', 'url', 'viewport', 'note'} and text(value, 'url') and value['url'].startswith(('http://', 'https://', 'file://')),
                 'legacy_preview browser names the url the legacy is served at')
+        viewport = value.get('viewport')
+        require(viewport is None or isinstance(viewport, dict) and set(viewport) == {'width', 'height'}
+                and all(type(viewport[k]) is int and 100 <= viewport[k] <= 5000 for k in ('width', 'height')),
+                'legacy_preview.viewport is {width, height} in pixels, the window the legacy is captured in')
         return dict(value)
     require(set(value) <= {'kind', 'app_id', 'device', 'artifact', 'artifact_sha256', 'build', 'launch', 'navigator', 'note'},
             'legacy_preview takes app_id, device, artifact or build, launch, navigator and note')
