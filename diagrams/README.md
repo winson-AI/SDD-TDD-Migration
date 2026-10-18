@@ -7,7 +7,7 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 | 图 | 关注点 | SVG |
 | --- | --- | --- |
 | 01 · 三层编排总览 | 用户输入含参考截图 / 录屏；GO 先记目标画像（无 / 壳 / 部分 / 已有），再按功能树切 scope/全量 CASE；叶子是子业务流；子 MO 拆 TASK；并行执行与统一宿主审计 | [总览](workflow.svg) |
-| 02 · 子 MO 执行与反馈调整 | TASK/四维 → SPEC、测试源与用户截图的 visual PATH 从骨架起笔、起步门禁冻结（目标已有代码须复用或说明）→ Implementer（冻结测试原样交付，自查红→绿留证）/Testing；Fixer/CR（只改测试写法归 MO）/上溯三分流；独立性证明与默认全模块重验 | [子 MO](module-execution.svg) |
+| 02 · 子 MO 执行与反馈调整 | TASK/四维 → 存量可跑先按 capture_due 捕获 → SPEC、测试源与用户截图的 visual PATH 从骨架起笔、起步门禁冻结（目标已有代码须复用或说明，未捕获 / 未引用是欠项）→ Implementer（冻结测试原样交付，自查红→绿留证）/Testing；Fixer/CR（只改测试写法归 MO）/上溯三分流；独立性证明与默认全模块重验 | [子 MO](module-execution.svg) |
 | 03 · 统一 Auditor 宿主审计 | 全宿主目标/代码治理（清单与审查从骨架起笔，预列 debt）、遗留路由、影响模块完整回归、独立 Test-Runner 与 Auditor 裁决；波次集成已跑的路径只在 owner 代码变动时重跑；空清单由 Ledger 预检 | [Auditor](auditor-closure.svg) |
 | 04 · 二方库语义与复用 | 来源评审 → 语义抽取 → 四类复用决策 → API 与数据契约 → 冻结 → Coding → 真实依赖验证；提供方证据变化后的恢复 | [二方库](reuse-dependencies.svg) |
 | 05 · Automation 外层闭环 | 冻结用例与测试源、派发后预检（骨架起笔）、进程内 JUnit 或设备 / 脚本逐 PATH 证据、三类反馈及成功/复用统计；缺测旁路；global path 在持有叶子完成时即执行（波次集成）；PATH 可录屏，媒体随结果入 Ledger | [自动化](automation-flow.svg) |
@@ -35,7 +35,7 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 - 正式目标代码测试在代码被接受之后派发；作者对任务的 unit PATH 自查两次（实现前失败、实现后通过），两份记录是该任务的 red 证据，报告按任务计数、不设门禁；已知技术债登 kind=debt 的 issue，审计骨架预列。
 - 波次集成：持有某条 global path 用例的叶子全部完成、别的叶子还在做时，GO 派独立 Test-Runner 执行它；结果绑定各 owner 的代码基线，统一审计只重跑 owner 代码变动的路径，Red 路由给 owner 叶子修复。
 - 项目理解：GO 在全局发现记目标画像（absent / shell-only / partial / existing），脚手架只在缺外壳处，持有代码的叶子冻结时欠复用说明；项目知识文档可按 project 模式检索，缺的专业 / 接口知识登 knowledge-need，由人以 kind=knowledge 决定补充并写成本 run 文档；用户给的存量截图 / 录屏随项目上下文固化、按 CASE 下发到持有叶子：截图作 user-reference 视觉基线（存量不可预览也有基线）、录屏作功能 PATH 的交互预期、未被 PATH 引用即欠项；目标预期（target-expectation）取代存量基线，design 须引用，报告披露。
-- 存量预览与媒体取证：项目声明存量怎样跑（设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑），可执行性随声明，存量可跑却未捕获的界面写 capture_gap；legacy-capture 在包内装机、走冻结动作把界面写成参考记录（adb 或 Playwright），Android 目标装 APK 走同一视觉对齐；内置运行时的 snapshot / recording 只留媒体不判定；测试结果带截图 / 录屏引用，报告逐 PATH 列出，diagnose/Fixer 带非 Green 路径的媒体。
+- 存量预览与媒体取证：项目声明存量怎样跑（设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑），可执行性随声明，存量可跑却未捕获的界面写 capture_gap；legacy-capture 在包内装机、走冻结动作把界面写成参考记录（adb 或 Playwright，走不成确定性动作的界面由声明的 navigator 以 snapshot 任务走到后再按选择器捕获），浏览器按同一滚动契约捕获、web 存量的 UI 树从 DOM 派生且无源索引，Android 目标装 APK 走同一视觉对齐；规划步骤带 capture_due，未捕获的界面是首版携带的欠项；内置运行时的 snapshot / recording 只留媒体不判定；测试结果带截图 / 录屏引用，报告逐 PATH 列出，diagnose/Fixer 带非 Green 路径的媒体。
 - 测试代码是冻结资产：Logic 条目的单测与无设备 CASE 的进程内功能测试（<Case>FlowTest，按冻结命令跑 JUnit、逐断言归因）由 Ledger 起稿骨架、Spec-Designer 从 SPEC 写出、随计划冻结；Implementer 原样交付，改测试走 CR。有设备且绑定 UI 树的 CASE 起稿设备脚本（选择器取节点 id），报告分列脚本驱动的设备路径及其 flaky。
 
 ## 依据与再生成
