@@ -22,7 +22,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1595 | 全量通过，零失败/错误/跳过；本轮新增媒体到期、预期并列、知识目录与沉淀、目标扫描与浏览器视口声明的测试 |
+| migration-ledger/tests | 1596 | 全量通过，零失败/错误/跳过；本轮新增 Harmony 候选经共用观察器捕获的测试 |
 | migration-test/tests | 73 | 全量通过；本轮无改动 |
 | runtime/harmony/tests | 128 | 全量通过；本轮无改动 |
 
@@ -166,7 +166,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 目标扫描 | `target-scan`（GO/MO/Spec-Designer，无需 assignment）只读列出目标工程含构建文件的模块（含是否有测试目录）、manifest activity / 模块 ability 入口、名称或路径命中关键词的声明符号（path#symbol、行号、文件 hash、是否测试代码），跳过构建输出与运行资产目录，有界并标 truncated；roots 限定子目录，结果只是候选 |
 | 存量捕获到期与首版先跑 | Spec-Designer 的 plan 步骤带 capture_due（尚无 runtime 证据的 UI 项与最近一次捕获的 manifest），卡片在存量可跑时带存量预览与存量捕获小节，领域工具表给 legacy-capture；未捕获的界面、未引用的用户截图/预期、未引用预期的 design 是 owed 欠项，声明矛盾、错引他人截图、媒体种类错误仍拒绝 |
 | agent 导航的存量捕获 | legacy_preview 可带 navigator（adapter 的绝对命令）；目标的 navigation {mode: agent, steps} 交 navigator 以 snapshot 任务走到界面（query 绑定设备与 app），到达后仍按冻结选择器与稳定树捕获并在 meta 记导航回执；needs-review/blocked 记 navigation-unverified 并附引用回执的 capture_gap 建议；浏览器声明拒绝 agent 导航，缺 navigator 是环境缺口 |
-| web 证据链 | 浏览器与 adb 设备共用一个观察器：按冻结 scroll_region 滚到 scroll_end_match，截图前后树稳定；analyze-ui platform=web 只读浏览器捕获，产出运行时索引与 DOM 派生的 UI 树（generatedFrom.platform=web、无源索引、每个 capture 一个 screen、节点 id 取元素 id 否则取路径、runtimeObservations 定位、imageSources 只记录）；web 树校验只绑运行时索引，拒绝带源索引、指向他索引或命名 DOM 未显示元素的树；冻结证据、adapter 与语义门禁接受 web 树；DOM 树只含屏上可见元素（被 overflow 裁掉的不算，含 shadow DOM 与同源 iframe，表单字段的文本取 value/placeholder），整页滚动的区域是 `class=body`；goto/click/滚轮后等网络静默与连续三次 DOM 读取一致，选择器未命中时只读重读最多 10 次（3 秒），动作不重复；声明可带 viewport；`tests/smoke_browser_capture.py` 以本地 HTTP 服务的站点用真实 Chromium 跑通七个用例（内层滚动、整页滚动、点击后脚本渲染、滚动加载、shadow DOM + iframe、表单字段、手机视口；需带 Playwright 与 Pillow 的 Python，不入 pytest） |
+| web 证据链 | hdc、adb 与浏览器共用一个观察器（前台核对、选择器、滚动契约、稳定树、候选记录；hdc 仍区分应用退出→Red 与被遮挡→Yellow）：按冻结 scroll_region 滚到 scroll_end_match，截图前后树稳定；analyze-ui platform=web 只读浏览器捕获，产出运行时索引与 DOM 派生的 UI 树（generatedFrom.platform=web、无源索引、每个 capture 一个 screen、节点 id 取元素 id 否则取路径、runtimeObservations 定位、imageSources 只记录）；web 树校验只绑运行时索引，拒绝带源索引、指向他索引或命名 DOM 未显示元素的树；冻结证据、adapter 与语义门禁接受 web 树；DOM 树只含屏上可见元素（被 overflow 裁掉的不算，含 shadow DOM 与同源 iframe，表单字段的文本取 value/placeholder），整页滚动的区域是 `class=body`；goto/click/滚轮后等网络静默与连续三次 DOM 读取一致，选择器未命中时只读重读最多 10 次（3 秒），动作不重复；声明可带 viewport；`tests/smoke_browser_capture.py` 以本地 HTTP 服务的站点用真实 Chromium 跑通七个用例（内层滚动、整页滚动、点击后脚本渲染、滚动加载、shadow DOM + iframe、表单字段、手机视口；需带 Playwright 与 Pillow 的 Python，不入 pytest） |
 | 黄金路径 | Android→Harmony、Android→Android、web→Android 三条通道以假 adb/假页面端到端走通：存量捕获、候选装机与捕获、ALIGNED 结果、comparison_evidence、validate_alignment 的 capture 证明与 visual_results 裁决；adb 候选的 pull 与 screencap 计为原生捕获命令证据 |
 | 宿主职责与探针 | 宿主接入列 legacy_preview 配置、adb/Playwright 可用、navigator 与 device_lock 的职责；sandbox doctor 探测 adb-on-path 与 playwright（缺省为 optional-absent，不阻塞）；经验库携带 legacy_preview，配置沉默时下次 prepare 取用；media-task-query、compare-only、render-reference、import-evidence 各有请求模板 |
 | 用户参考媒体 | project context 的 reference_media（media_id/kind/path/role/screen/case_ids/note）经校验后由 prepare 复制并绑定 hash；持有其 CASE 的叶子在分配包读到并以之为就绪证据；visual_mode=user-reference 以用户截图为基线，用户展示过的界面不得 source-only，错引非该 CASE 截图被拒；visual PATH 的 baseline_ref 可为用户截图，冻结证据与 reference manifest 按其截图集合核对；reference_media_ids 只能引用本 CASE 的媒体；冻结时用户展示过的用户可见 CASE 无 PATH 引用即欠项（已声明设备缺口除外）；骨架为每张截图起稿 visual PATH、把录屏挂到功能 PATH；报告列媒体覆盖 |

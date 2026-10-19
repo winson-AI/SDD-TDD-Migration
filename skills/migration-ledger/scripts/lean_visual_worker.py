@@ -119,6 +119,8 @@ def installed_identity(output, expected):
 
 class Device:
     """Fixed HDC argv; remote file deletion is limited to this attempt's generated files."""
+    platform, backend, image_mime = 'harmony', 'hdc', 'image/jpeg'
+
     def __init__(self, settings, out):
         require(settings.get('backend') == 'hdc', 'visual capture requires explicitly configured hdc backend')
         self.tool = settings.get('tool', 'hdc')
@@ -128,6 +130,7 @@ class Device:
         self.logs = []
         self.remote_files = []
         self.version = None
+        self.page_name, self.last_dump = '', ''
 
     def call(self, *args, timeout=30):
         argv = [self.tool, '-t', self.device, *map(str, args)]
@@ -148,28 +151,42 @@ class Device:
             raise DeviceFailure('device-execution-error', f'command {args[0]} exited {result.returncode}; see command log')
         return result.stdout
 
-    def layout(self, index):
+    def foreground(self):
+        """(bundle, page) in front, from aa dump; the dump is kept to tell an app that exited from one sent to the background."""
+        self.last_dump = self.call('shell', 'aa', 'dump', '-l')
+        return foreground_app(self.last_dump), self.page_name
+
+    def running(self, app):
+        return app_running(self.last_dump, app)
+
+    def layout(self, label):
         output = self.call('shell', 'uitest', 'dumpLayout')
         match = re.search(r'saved to:\s*(/data/local/tmp/[A-Za-z0-9_.-]+\.json)', output)
         if not match:
             raise DeviceFailure('device-execution-error', 'cannot parse managed dumpLayout path')
         remote = match.group(1)
         self.remote_files.append(remote)
-        local = run_storage.checked_path(self.out / 'temp' / f'layout-{index}.json', self.out)
+        local = run_storage.checked_path(self.out / 'temp' / f'layout-{label}.json', self.out)
         local.parent.mkdir(parents=True, exist_ok=True)
         self.call('file', 'recv', remote, local)
         raw = read_json(local)
         node = mobile_snapshot.harmony_node(raw)
         if node is None:
             raise DeviceFailure('target-precondition', 'layout contains no application nodes')
-        return ET.tostring(node, encoding='unicode'), mobile_snapshot.harmony_page_name(raw)
+        self.page_name = mobile_snapshot.harmony_page_name(raw)
+        return ET.tostring(node, encoding='unicode')
 
-    def screenshot(self, index):
+    def scroll(self, bounds):
+        """One bounded swipe up inside the frozen scroll region."""
+        x1, y1, x2, y2 = bounds
+        self.call('shell', 'uitest', 'uiInput', 'swipe', (x1 + x2) // 2, y1 + (y2 - y1) * 3 // 4, (x1 + x2) // 2, y1 + (y2 - y1) // 4, 1000)
+
+    def screenshot(self, label):
         nonce = digest(str(self.out))[:20]
-        remote = f'/data/local/tmp/sdd-{nonce}-{index}.jpeg'
+        remote = f'/data/local/tmp/sdd-{nonce}-{label}.jpeg'
         self.remote_files.append(remote)
         self.call('shell', 'snapshot_display', '-f', remote)
-        local = run_storage.checked_path(self.out / f'screenshot-{index}.jpeg', self.out)
+        local = run_storage.checked_path(self.out / f'screenshot-{label}.jpeg', self.out)
         self.call('file', 'recv', remote, local)
         if not local.is_file() or not local.stat().st_size:
             raise DeviceFailure('capture-incomplete', 'device screenshot is missing or empty')
@@ -190,7 +207,7 @@ class Device:
 
 class AndroidDevice:
     """Fixed adb argv for the legacy application: install, launch, dump, screenshot; no arbitrary shell."""
-    platform, backend = 'android', 'adb'
+    platform, backend, image_mime = 'android', 'adb', 'image/png'
 
     def __init__(self, serial, tool, out):
         require(isinstance(tool, str) and Path(tool).name == 'adb', 'configured executable must be adb')
@@ -353,7 +370,7 @@ def open_browser(out, viewport=None):
 
 class BrowserDevice:
     """The legacy web application in a browser: the url is the device, the DOM is the view tree, the page is the screen."""
-    platform, backend = 'web', 'playwright'
+    platform, backend, image_mime = 'web', 'playwright', 'image/png'
     match_retries = 10  # a view rendered by script after a click: the frozen selectors are read again, read-only, for a bounded while
 
     def __init__(self, url, out, page=None, viewport=None):
@@ -477,7 +494,7 @@ def observe_screen(device, app, target, spec, out, label):
     with a stable tree around the screenshot, a scroll bounded by its frozen region and end. Returns the observation or a blocked result."""
     package, activity = device.foreground()
     if package != app:
-        return blocked('requested app is not the observed foreground app before capture', 'target-precondition')
+        return not_in_front(device, app, 'before capture')
     xml = device.layout(f'{label}-0')
     for _ in range(getattr(device, 'match_retries', 0)):  # read-only: a screen still rendering is read again, an action is never repeated
         if target_matches(xml, spec.get('target_match'), app):
@@ -501,7 +518,7 @@ def observe_screen(device, app, target, spec, out, label):
             current_xml = device.layout(f'{label}-{index}')
         package, activity = device.foreground()
         if package != app:
-            return blocked('requested app is not the observed foreground app during capture', 'target-precondition')
+            return not_in_front(device, app, 'during capture')
         image_path = device.screenshot(f'{label}-{index}')
         view = out / f'view-{label}-{index}.xml'
         run_storage.atomic_bytes(view, current_xml.encode())
@@ -529,7 +546,7 @@ def observe_screen(device, app, target, spec, out, label):
                 'capture_count': len(captures), 'termination': termination}
     backend = {'name': device.backend, 'implementation': device.tool, 'version': device.version, 'device': device.device}
     meta = {'platform': device.platform, 'device': device.device, 'app_id': app, 'foreground': f'{package}/{activity}', 'page_name': activity,
-            'image_mime': 'image/png', 'screenshot': Path(captures[0]['screenshot']).name, 'view_signature': captures[0]['view_signature'],
+            'image_mime': getattr(device, 'image_mime', 'image/png'), 'screenshot': Path(captures[0]['screenshot']).name, 'view_signature': captures[0]['view_signature'],
             'device_backend': backend, 'coverage': coverage, 'captures': captures, 'target_match': spec['target_match']}
     if scroll:
         meta.update(scroll_region=spec.get('scroll_region'), scroll_end_match=end_match, scroll_contract='frozen-source-backed-start-region-end')
@@ -779,11 +796,12 @@ def app_running(output, app):
     return any(re.search(r'app name \[' + re.escape(app) + r']', line) for line in output.splitlines())
 
 
-def off_foreground(output, app, when):
-    """Launched but gone from the running list means the candidate exited or crashed."""
-    if app_running(output, app):
-        return blocked('requested app is not the observed foreground app ' + when, 'target-precondition')
-    return failed('app exited after launch ' + when, 'app-runtime-failure')
+def not_in_front(device, app, when):
+    """The frozen app is not in front: gone from the running list it is a defect of the candidate (Red evidence); still
+    running behind something it is a precondition gap. A device that cannot tell reports the gap."""
+    if hasattr(device, 'running') and not device.running(app):
+        return failed('app exited after launch ' + when, 'app-runtime-failure')
+    return blocked('requested app is not the observed foreground app ' + when, 'target-precondition')
 
 
 def foreground_app(output):
@@ -861,27 +879,12 @@ def capture_android(device, contract, args, path, module, task, out, root):
     observed = observe_screen(device, app, target, contract, out, 'candidate')
     if 'captures' not in observed:
         return observed
-    captures, coverage = observed['captures'], observed['coverage']
-    meta = {**observed['meta'], 'install_ref': args['install_ref'], 'artifact_ref': args['artifact_ref'], 'artifact_identity': identity,
-            'code_baseline': module['code_baseline'], 'assignment_id': task['assignment_id'], 'fencing_token': task.get('fencing_token')}
-    meta_ref = save(out / 'meta.json', meta)
-    snapshot = {**captures[0], 'meta': meta_ref['path'], 'device_backend': observed['backend'], 'coverage': coverage, 'captures': captures}
-    result_manifest = copy.deepcopy(manifest)
-    result_manifest['targets'].append({'mode': 'targeted', 'phase': 'android-candidate', 'platform': 'android',
-            'page_id': target['page_id'], 'state_id': target['state_id'], 'observed_variant': target['state_id'],
-            'round': round_id, 'status': 'COMPLETE' if observed['complete'] else 'BLOCKED', 'coverage': coverage,
-            'timestamp': datetime.now(timezone.utc).isoformat(), 'snapshot': snapshot,
-            'target_match': {'kind': 'frozen-exact-selectors', 'matched': True}})
-    manifest_ref = save(out / 'manifest.json', result_manifest)
-    if not observed['complete']:
-        return blocked('bounded scroll observations do not prove full scroll coverage; use the full runtime adapter',
-                       'capture-incomplete', manifest_ref=manifest_ref)
-    validate_manifest.validate_snapshot(snapshot, target['coverage'], path['coverage'])
-    return {'status': 'CAPTURED', 'manifest_ref': manifest_ref, 'meta_ref': meta_ref,
-            'artifact_ref': args['artifact_ref'], 'acceptance': 'capture-is-evidence-not-a-visual-verdict'}
+    return candidate_record(observed, 'android-candidate', 'android', target, manifest, round_id, args, module, task, out, path, artifact_identity=identity)
 
 
 def capture(device, contract, args, path, module, task, out, root):
+    """The candidate HAP's screen as a harmony-candidate record: its identity checked against the accepted install, launched
+    by ability, walked by frozen actions, observed like every other screen."""
     context = candidate_context(device, contract, args, path, module, task, out, root)
     if isinstance(context, dict):
         return context
@@ -892,95 +895,28 @@ def capture(device, contract, args, path, module, task, out, root):
     ability = token(contract.get('ability', 'EntryAbility'), 'ability')
     device.call('shell', 'aa', 'start', '-b', app, '-a', ability)
     frozen_actions(device, contract.get('actions', []))
-    foreground = device.call('shell', 'aa', 'dump', '-l')
-    if foreground_app(foreground) != app:
-        return off_foreground(foreground, app, 'before capture')
-    xml, page = device.layout(0)
-    # A matching exact selector plus app ownership is required; caller supplied state labels alone
-    # never produce COMPLETE. Current app dump is retained as evidence, not inferred from a launch.
-    if not target_matches(xml, contract.get('target_match'), app):
-        save(out / 'target-mismatch.json', {'foreground': foreground, 'view_xml': xml})
-        return blocked('frozen target selectors not observed', 'target-precondition')
-    region, region_bounds = scoped_scroll_region(xml, contract.get('scroll_region'), app)
-    end_match = contract.get('scroll_end_match')
-    if end_match:
-        target_matches(xml, end_match, app)  # Validate before any scroll action.
-    max_scrolls = contract.get('max_scrolls', 8)
-    require(isinstance(max_scrolls, int) and not isinstance(max_scrolls, bool) and 0 <= max_scrolls <= 20,
-            'max_scrolls must be 0..20')
-    captures = []
-    current_xml, page_name = xml, page
-    termination = ('viewport' if target['coverage'] == 'viewport' else
-                   'missing-frozen-scroll-region-or-endpoint' if not region_bounds or not end_match else 'scroll-limit')
-    limit = 0 if termination != 'scroll-limit' else max_scrolls
-    for index in range(limit + 1):
-        if index:
-            x1, y1, x2, y2 = region_bounds
-            device.call('shell', 'uitest', 'uiInput', 'swipe', (x1 + x2) // 2,
-                        y1 + (y2 - y1) * 3 // 4, (x1 + x2) // 2, y1 + (y2 - y1) // 4, 1000)
-            current_xml, _ = device.layout(index)
-        foreground = device.call('shell', 'aa', 'dump', '-l')
-        if foreground_app(foreground) != app:
-            return off_foreground(foreground, app, 'during capture')
-        image_path = device.screenshot(index)
-        foreground = device.call('shell', 'aa', 'dump', '-l')
-        if foreground_app(foreground) != app:
-            return off_foreground(foreground, app, 'during screenshot')
-        view = out / f'view-{index}.xml'
-        run_storage.atomic_bytes(view, current_xml.encode())
-        signature = mobile_snapshot.view_signature(current_xml, foreground)
-        after_xml, _ = device.layout(f'{index}-after')
-        after_view = out / f'view-{index}-after.xml'
-        run_storage.atomic_bytes(after_view, after_xml.encode())
-        if after_xml != current_xml:
-            return blocked('page/state changed while screenshot was taken; retain both trees and recapture a new attempt',
-                           'capture-incomplete', screenshot_ref=file_ref(image_path),
-                           before_view_ref=file_ref(view), after_view_ref=file_ref(after_view))
-        record = {'index': index, 'screenshot': str(image_path), 'view_tree': str(view),
-                  'view_signature': signature}
-        region, region_bounds = scoped_scroll_region(current_xml, contract.get('scroll_region'), app)
-        endpoint_observed = bool(region_bounds and end_match and
-                                 target_matches(ET.tostring(region, encoding='unicode'), end_match, app))
-        if target['coverage'] == 'scroll' and endpoint_observed:
-            captures.append(record)
-            termination = 'frozen-scroll-end-observed'
-            break
-        if index and signature == captures[-1]['view_signature'] and \
-                file_ref(image_path)['sha256'] == file_ref(captures[-1]['screenshot'])['sha256']:
-            termination = 'observed-repeat-not-proof-of-end'
-            break
-        captures.append(record)
-        if index and not region_bounds:
-            termination = 'frozen-scroll-region-lost'
-            break
-    # Completeness is relative to the reviewed source-backed region/start/end contract.
-    # A repeated first region or no exposed scroll attribute is never proof of the end.
-    complete = target['coverage'] == 'viewport' or termination == 'frozen-scroll-end-observed'
-    coverage = {'requested': target['coverage'], 'achieved': 'viewport' if target['coverage'] == 'viewport'
-                else 'scroll-complete' if complete else 'scroll-partial', 'capture_count': len(captures),
-                'termination': termination}
-    backend = {'name': 'hdc', 'implementation': device.tool, 'version': device.version, 'device': device.device}
-    meta = {'platform': 'harmony', 'device': device.device, 'app_id': app, 'foreground': foreground,
-            'page_name': page_name, 'image_mime': 'image/jpeg', 'screenshot': Path(captures[0]['screenshot']).name,
-            'view_signature': captures[0]['view_signature'], 'device_backend': backend, 'coverage': coverage,
-            'captures': captures, 'install_ref': args['install_ref'], 'artifact_ref': args['artifact_ref'],
-            'code_baseline': module['code_baseline'], 'assignment_id': task['assignment_id'],
-            'fencing_token': task.get('fencing_token'),
-            'target_match': contract['target_match']}
-    if target['coverage'] == 'scroll':
-        meta.update(scroll_region=contract.get('scroll_region'), scroll_end_match=end_match,
-                    scroll_contract='frozen-source-backed-start-region-end')
+    observed = observe_screen(device, app, target, contract, out, 'candidate')
+    if 'captures' not in observed:
+        return observed
+    return candidate_record(observed, 'harmony-candidate', 'harmony', target, manifest, round_id, args, module, task, out, path)
+
+
+def candidate_record(observed, phase, platform, target, manifest, round_id, args, module, task, out, path, **extra):
+    """A candidate observation bound to the accepted build, the install receipt and the round, appended to the reference
+    manifest as the record the adapter and the acceptance read; a partial scroll is kept but never advances."""
+    captures, coverage = observed['captures'], observed['coverage']
+    meta = {**observed['meta'], 'install_ref': args['install_ref'], 'artifact_ref': args['artifact_ref'], **extra,
+            'code_baseline': module['code_baseline'], 'assignment_id': task['assignment_id'], 'fencing_token': task.get('fencing_token')}
     meta_ref = save(out / 'meta.json', meta)
-    snapshot = {**captures[0], 'meta': meta_ref['path'], 'device_backend': backend,
-                'coverage': coverage, 'captures': captures}
+    snapshot = {**captures[0], 'meta': meta_ref['path'], 'device_backend': observed['backend'], 'coverage': coverage, 'captures': captures}
     result_manifest = copy.deepcopy(manifest)
-    result_manifest['targets'].append({'mode': 'targeted', 'phase': 'harmony-candidate', 'platform': 'harmony',
+    result_manifest['targets'].append({'mode': 'targeted', 'phase': phase, 'platform': platform,
             'page_id': target['page_id'], 'state_id': target['state_id'], 'observed_variant': target['state_id'],
-            'round': round_id, 'status': 'COMPLETE' if complete else 'BLOCKED', 'coverage': coverage,
+            'round': round_id, 'status': 'COMPLETE' if observed['complete'] else 'BLOCKED', 'coverage': coverage,
             'timestamp': datetime.now(timezone.utc).isoformat(), 'snapshot': snapshot,
             'target_match': {'kind': 'frozen-exact-selectors', 'matched': True}})
     manifest_ref = save(out / 'manifest.json', result_manifest)
-    if not complete:
+    if not observed['complete']:
         return blocked('bounded scroll observations do not prove full scroll coverage; use the full runtime adapter',
                        'capture-incomplete', manifest_ref=manifest_ref)
     validate_manifest.validate_snapshot(snapshot, target['coverage'], path['coverage'])
