@@ -100,7 +100,7 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <init|updat
 python3 <package>/skills/migration-ledger/scripts/project_context.py <show|history> --root <工作目录>/.sdd-migration
 ```
 
-`target_resources`（目标资源目录、引用写法与参数文件模板）随项目配置保存并固化进每次运行，字段见 [target-resources.json](../../../template/target-resources.json) 与 [搬运](resource-transfer.md#总则)。
+`target_resources`（copy 与 parameters 各须声明或 declined）随项目配置保存并固化进每次运行，字段见 [target-resources.json](../../../template/target-resources.json) 与 [搬运](resource-transfer.md#总则)。
 
 [run-request.json](../../../template/run-request.json) 中的元数据、项目标识、来源引用由宿主生成；用户的单模块选择仍只有 `single-module + 功能模块名`。
 
@@ -114,7 +114,7 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 ## 存量预览
 
-legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch 与 navigator；没有真机时 device 带 avd 或 boot.argv，serial 不应答即启动模拟器并等开机）、browser（url，可选 viewport）或 none（reason）；UI 登记前须声明，prepare 记包哈希；init/update/prepare 返回 `open_statements`（含目标验证设备），status 以 preview-statement-required 提示到声明为止。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
+legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch 与 navigator；没有真机时 device 带 avd 或 boot.argv，serial 不应答即启动模拟器并等开机）、browser（url，可选 viewport）或 none（reason）；UI 登记前须声明，prepare 记包哈希；init/update/prepare 返回 `open_statements`（含目标验证设备与 target_resources），status 以 statement-required 提示到声明为止。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
 
 ## 二方库/其他项目模块来源
 

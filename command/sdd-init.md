@@ -11,7 +11,7 @@ description: /sdd-init [input.json绝对路径] [--mode single-module --module-n
 
 ## 2. 编排步骤
 1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
-2. 读取/初始化项目配置（明确更新走 project_context.py update，临时条件进 overrides）；宿主生成 run-request 与 run_id，prepare 固化项目版本并返回 Global 的分析输入；返回的 `open_statements`（存量怎样跑、目标在哪验证）先问用户再继续；相同请求幂等恢复，不覆盖已有 run 快照。
+2. 读取/初始化项目配置（明确更新走 project_context.py update，临时条件进 overrides）；宿主生成 run-request 与 run_id，prepare 固化项目版本并返回 Global 的分析输入；返回的 `open_statements`（存量怎样跑、目标在哪验证、资源怎样进目标）先问用户再继续；相同请求幂等恢复，不覆盖已有 run 快照。
 3. Global 只用 prepare 固化的上下文：project 切片、single-module 按名称定位根功能，生成业务规范、需求/CASE 与审计路径；宿主校验 input.json（禁止占位符、未决必填值、零必需用例）并原样提交 init；ACK 后 GO 按拓扑序 register 根功能（原子根直接为叶，其余 decomposition_required），global-plan 验收覆盖；MO decompose 细分或确认原子叶，GO 接受后推进。仅冻结且依赖就绪的叶子可编码。
 
 ## 3. 契约与规格

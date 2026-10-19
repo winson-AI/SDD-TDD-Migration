@@ -16,6 +16,7 @@ import test_project_context
 from contracts import Rejected, check_ref, file_ref
 
 EMULATOR = {'kind': 'android-emulator', 'app_id': 'com.example.legacy', 'device': {'serial': 'emulator-5554', 'avd': 'Pixel_6'}}
+DECLINED = {'declined': {'copy': 'the target bundles no files', 'parameters': 'values are typed in the design system'}}
 
 
 class StatementTests(unittest.TestCase):
@@ -53,18 +54,26 @@ class StatementTests(unittest.TestCase):
 
 
 class IntakeTests(unittest.TestCase):
-    def test_the_person_is_asked_what_nobody_infers_until_both_statements_are_made(self):
-        self.assertEqual([q['field'] for q in pc.intake({})], ['legacy_preview', 'test_adapter.device'])
+    def test_the_person_is_asked_what_nobody_infers_until_all_three_statements_are_made(self):
+        self.assertEqual([q['field'] for q in pc.intake({})], ['legacy_preview', 'test_adapter.device', 'target_resources'])
+        half = {'declined': {'copy': 'the target bundles no files'}}  # one part stated or declined leaves the statement open
+        self.assertIn('target_resources', [q['field'] for q in pc.intake({'target_resources': half})])
+        self.assertNotIn('target_resources', [q['field'] for q in pc.intake({'target_resources': DECLINED})])
         t = test_project_context.ProjectContextTests(); t.setUp(); self.addCleanup(t.doCleanups)
         result = pc.update(t.root, t.request('device', 1, {'test_adapter': {'device': {'platforms': ['android']}}}), t.actor)
-        self.assertEqual([q['field'] for q in result['open_statements']], ['legacy_preview'])
+        self.assertEqual([q['field'] for q in result['open_statements']], ['legacy_preview', 'target_resources'])
         prepared = t.prepare()
-        self.assertEqual([q['field'] for q in prepared['open_statements']], ['legacy_preview'])
+        self.assertEqual([q['field'] for q in prepared['open_statements']], ['legacy_preview', 'target_resources'])
         t.start(t.init_payload(prepared))
-        signals = [s for s in ledger.status(t.run)['workflow_progress']['signals'] if s['reason'] == 'preview-statement-required']
-        self.assertEqual([(s['owner'], s['severity'], s['evidence']['field']) for s in signals], [('host', 'human', 'legacy_preview')])
+        signals = [s for s in ledger.status(t.run)['workflow_progress']['signals'] if s['reason'] == 'statement-required']
+        self.assertEqual([(s['owner'], s['severity'], s['evidence']['field']) for s in signals],
+                         [('host', 'human', 'legacy_preview'), ('host', 'human', 'target_resources')])
         self.assertIn('存量应用怎样跑', signals[0]['next_action'])
+        self.assertIn('怎样进目标', signals[1]['next_action'])
+        self.assertEqual(signals[1]['evidence']['options'], ['copy', 'parameters', 'declined'])
         result = pc.update(t.root, t.request('preview', 2, {'legacy_preview': {'kind': 'none', 'reason': 'no build'}}), t.actor)
+        self.assertEqual([q['field'] for q in result['open_statements']], ['target_resources'])
+        result = pc.update(t.root, t.request('resources', 3, {'target_resources': DECLINED}), t.actor)
         self.assertEqual(result['open_statements'], [])
         second = pc.prepare(t.root, t.base / '.sdd-runs/r2', t.run_request('r2'), t.actor)
         self.assertEqual(second['open_statements'], [])
