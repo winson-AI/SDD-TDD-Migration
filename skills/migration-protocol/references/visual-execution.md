@@ -4,7 +4,7 @@
 
 ## 1. 准备与冻结
 
-1. Host/Test-Runner 按项目参考配置（可存 `.sdd-migration/harmony/visual.json`）或 [配置模板](../../../template/visual-execution.json)，在本轮 `runs/harmony/sandbox/environment/visual.json` 生成执行配置；与 sandbox 的 config.json 分开，执行期间不改写。只复制本次选定的设备/backend/模型配置，不假定本机默认设备。
+1. Host/Test-Runner 按项目参考配置（可存 `.sdd-migration/harmony/visual.json`）或 [配置模板](../../../template/visual-execution.json)，在本轮 `runs/harmony/sandbox/environment/visual.json` 生成执行配置；与 sandbox 的 config.json 分开，执行期间不改写。
 2. Spec/Test design 把 `visual_execution` 放到对应 automation/visual PATH：environment_ref 的真实 path/hash、app_id、导航 actions、目标选择器；随路径冻结，变更走 CR/重新冻结。无视觉需求时不加此字段。
 3. 设备执行用显式 HDC 或 adb backend（Android 目标装 APK，`ability` 填 activity，装机后在设备上核对包哈希）；模型用显式启用的 external 配置，API key 只从指定环境变量读取，配置与请求只存变量名，不归档 `.env` 或明文 key。
 4. 执行前 Host 持有设备独占锁并在认证 host-context 注入 device_lock（device_id、assignment_id、fencing_token、held）；Agent 自填的锁字段不算锁。

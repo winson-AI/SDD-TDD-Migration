@@ -12,7 +12,7 @@
 
 ## 1. 作用与边界
 
-复用分析是规划的必经输入；Coding 同时依据**冻结的模块需求/tasks、目标架构、经审核的能力映射**，库的行为不能反过来削减需求或替换验收。两类来源保留区别：**目标项目已有能力**（业务模块、公共服务、已接入二方库及封装）自动纳入 `TARGET` 检索，优先检查已存在的生产实现；**用户指定的其他项目模块/二方库**作为显式外部来源，读取其指定模块提取同样语义——有源码只说明可分析，能否依赖、适配或仅参考须独立核实。二方库指组织内部维护的可复用组件，任意外部源码不自动成为可接入的库；`reuse`/`adapt` 实际使用能力，`reference` 仅借鉴语义，`new` 评估后自行实现；禁止按类名、接口名或目录名相似宣称等价。
+复用分析是规划的必经输入；Coding 同时依据**冻结的模块需求/tasks、目标架构、经审核的能力映射**，库的行为不能反过来削减需求或替换验收。两类来源保留区别：**目标项目已有能力**（业务模块、公共服务、已接入二方库及封装）自动纳入 `TARGET` 检索，优先检查已存在的生产实现；**用户指定的其他项目模块/二方库**作为显式外部来源，读取其指定模块提取同样语义——有源码只说明可分析，能否依赖、适配或仅参考须独立核实。二方库指组织内部维护的可复用组件，任意外部源码不自动成为可接入的库；`reuse`/`adapt` 实际使用能力，`reference` 仅借鉴语义，`new` 评估后自行实现。
 
 读取来源不授予修改权限：外部来源只读，编码仍限 target 中分配的 scope/write_paths；改提供方、改公共契约或新增跨模块边界走 Ledger 的 CR/依赖/人工决策，不把外部仓库静默纳入本次迁移。
 
@@ -24,7 +24,7 @@
 {"reuse_sources": [{"source_id": "LIB-SEARCH", "root": "/work/SharedCommerce", "module_paths": ["/work/SharedCommerce/search"], "description": "可复用的商品检索、分页和筛选能力"}]}
 ```
 
-`source_id` 唯一且不为保留 ID `TARGET`；路径绝对，module_paths 包含于 root，省略时取整个 root；外部选择范围与 target 分离，可共用 monorepo 根只要显式选择的模块不与 target 相交。沿用项目上下文 init/update/prepare 的更新语义；已登记 source_id/root/module_paths 固定，同 run 只能经[来源追加事务](source-changes.md)追加新 ID。源代码不全文复制；语义报告、目录、映射经 Ledger 版本引用留档，选中的 provider/API/版本解析证据以绝对 path/sha256 固定并在运行时复核，commit 只辅助定位。`planning_context.reuse_sources` 含隐式 TARGET 与声明来源，父/子 MO 均可见；不能访问用户指定来源时明确阻塞请求补全，不写成"已扫描无匹配"；远程坐标/仓库由宿主先取得可读材料，控制器不下载依赖。
+`source_id` 唯一且不为保留 ID `TARGET`；路径绝对，module_paths 包含于 root，省略时取整个 root；外部选择范围与 target 分离，可共用 monorepo 根只要显式选择的模块不与 target 相交。沿用项目上下文 init/update/prepare 的更新语义；已登记 source_id/root/module_paths 固定，同 run 只能经[来源追加事务](source-changes.md)追加新 ID。源代码不全文复制；语义报告、目录、映射经 Ledger 版本引用留档，选中的 provider/API/版本解析证据以绝对 path/sha256 固定并在运行时复核。`planning_context.reuse_sources` 含隐式 TARGET 与声明来源，父/子 MO 均可见；不能访问用户指定来源时明确阻塞请求补全，不写成"已扫描无匹配"；远程坐标/仓库由宿主先取得可读材料，控制器不下载依赖。
 
 ## 3. 按三层编排提取与细化
 

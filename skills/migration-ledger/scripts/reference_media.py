@@ -70,9 +70,26 @@ def expectation(s, item):
 
 
 def cites(path, row):
-    """Whether a PATH cites this medium: as its visual baseline (same bytes) or by id."""
+    """Whether a PATH cites this medium: as its visual baseline (same bytes), by id, or as the reference of one of its assertions."""
     ref = path.get('baseline_ref')
-    return row['media_id'] in (path.get('reference_media_ids') or []) or (isinstance(ref, dict) and ref.get('sha256') == row['ref']['sha256'])
+    return (row['media_id'] in (path.get('reference_media_ids') or []) or (isinstance(ref, dict) and ref.get('sha256') == row['ref']['sha256'])
+            or row['media_id'] in {a.get('reference_media_id') for a in path.get('expected_assertions') or []})
+
+
+def assertion_refs(s, path):
+    """{assertion_id: ref} of the user screenshots the PATH's assertions compare against, as the executor hands them to the engine."""
+    by_id = {row['media_id']: row for row in rows(s)}
+    return {a['assertion_id']: by_id[a['reference_media_id']]['ref'] for a in path.get('expected_assertions') or []
+            if a.get('reference_media_id') in by_id}
+
+
+def expected(media, path):
+    """What the user showed that this PATH cites, with the recording segments it marked: read beside what the run kept."""
+    marks = path.get('media_marks') or []
+    return [{'media_id': row['media_id'], 'kind': row['kind'], 'role': row['role'], 'ref': row['ref'],
+             **({'marks': [{k: mark[k] for k in ('start_ms', 'end_ms', 'note') if k in mark} for mark in marks if mark.get('media_id') == row['media_id']]}
+                if any(mark.get('media_id') == row['media_id'] for mark in marks) else {})}
+            for row in media if cites(path, row)]
 
 
 def due(s, m):
@@ -128,6 +145,21 @@ def plan_gate(s, m, plan):
         ref = path.get('baseline_ref')
         if path.get('kind') == 'visual' and isinstance(ref, dict) and ref.get('sha256') in pictures:
             require(path.get('case_id') in pictures[ref['sha256']]['case_ids'], 'the reference screenshot cited by ' + path['path_id'] + ' does not show its case')
+        for a in path.get('expected_assertions') or []:  # a user screenshot as the reference an assertion compares against
+            mid = a.get('reference_media_id')
+            if mid is None:
+                continue
+            require(mid in by_id and by_id[mid]['kind'] == 'screenshot', f"reference_media_id of {path['path_id']}/{a.get('assertion_id')} names a run screenshot")
+            require(path.get('case_id') in by_id[mid]['case_ids'], f"reference media {mid} does not show case {path.get('case_id')} of {path['path_id']}/{a.get('assertion_id')}")
+            require(a.get('verification') in (None, 'auto', 'refer_image_assert'), f"an assertion with a reference screenshot verifies by refer_image_assert: {path['path_id']}/{a.get('assertion_id')}")
+        marks = path.get('media_marks')
+        if marks is not None:  # a segment of a cited recording the PATH points at: start and end in ms
+            require(isinstance(marks, list) and marks, 'media_marks is a non-empty list: ' + path['path_id'])
+            for mark in marks:
+                require(isinstance(mark, dict) and set(mark) <= {'media_id', 'start_ms', 'end_ms', 'note'} and mark.get('media_id') in (ids or [])
+                        and by_id[mark['media_id']]['kind'] == 'video' and type(mark.get('start_ms')) is int and type(mark.get('end_ms')) is int
+                        and 0 <= mark['start_ms'] < mark['end_ms'] and isinstance(mark.get('note', ''), str),
+                        'a media mark names a recording in reference_media_ids with start_ms < end_ms: ' + path['path_id'])
 
 
 def freeze(s, m):

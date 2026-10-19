@@ -104,7 +104,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 | 切片与功能清单 | 叶子是功能树上的子业务流（页面是 TASK，3–30 条 CASE），自带四维分析与实现 SPEC；无用例先读源码建树再派生用例，有用例以用例范围为抓手；清单完整可追溯，疑问交人工；一条 CASE 一个验收切片；往次切分经验生成技能，供后续 Run 的 GO/MO 加载 | [切片规约](skills/migration-global/references/slicing.md) |
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照；知识文档可查，缺的知识登 knowledge-need 交人补充 | [项目上下文](skills/migration-protocol/references/project-context.md) |
 | 目标画像 | GO 逐功能记目标状态（absent/shell-only/partial/existing）；脚手架只在缺外壳处，持有代码的叶子欠复用说明 | [父子拆分](skills/migration-protocol/references/module-decomposition.md) |
-| 用户参考媒体 | 存量截图/录屏与目标预期随项目上下文固化、下发到持有叶子：截图是 user-reference 视觉基线，录屏是交互预期，目标预期取代存量基线；规划步骤列尚未引用的媒体，未引用即欠项；诊断/修复并列预期与实际媒体 |
+| 用户参考媒体 | 存量截图/录屏与目标预期随项目上下文固化、下发到持有叶子：截图是 user-reference 视觉基线，录屏是交互预期，目标预期取代存量基线；规划步骤列尚未引用的媒体，未引用即欠项；截图可作断言参考图，录屏可标时间段；诊断/修复并列预期与实际媒体 |
 | 存量预览与捕获 | 项目声明存量怎样跑（设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑）；legacy-capture 在包内装机、走冻结动作把界面写成参考记录，走不成确定性动作的界面由声明的 navigator 走到后再按选择器捕获；浏览器按同一滚动契约捕获，web 存量的 UI 树从 DOM 派生；规划步骤带 capture_due，未捕获的界面是首版携带的欠项；Android 目标也装 APK 进入视觉对齐；测试结果带截图 / 录屏证据 | [项目上下文](skills/migration-protocol/references/project-context.md#存量预览)、[视觉执行](skills/migration-protocol/references/visual-execution.md) | [项目上下文](skills/migration-protocol/references/project-context.md#用户参考媒体)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 上下文就绪 | 规划与审计者随操作登记预检，coding 与无待复测的审计由 Ledger 机械预检；worker 的 building/testing 从 Ledger 骨架起笔，ready 才开工；worker 只读执行所需 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
 | 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow；PATH 可声明 record_video，录屏随结果入 Ledger | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
@@ -141,6 +141,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-19 | 预览需求确认与媒体兜底：init/update/prepare 返回待问用户的 open_statements（存量怎样跑、目标在哪验证），status 持续提示到声明为止；断言可引用用户截图作参考图进入功能 automation 的 Verify；PATH 可标注录屏时间段供诊断并列 |
 | 2026-10-18 | 媒体、知识与目标现状：规划步骤带 media_due、持有媒体的叶子卡片带用户参考媒体小节；诊断/修复并列预期媒体与实际媒体；knowledge_paths 接受 wiki 目录，人工知识答复随经验库沉淀并在下次 run 自动并入；只读 target-scan 给目标画像候选证据 |
 | 2026-10-18 | 存量捕获闭环：规划步骤带 capture_due、卡片带捕获小节；首版先跑——未捕获的界面与未引用的截图/预期是欠项不是门禁；宿主职责、doctor 探针、经验携带 legacy_preview 与每个操作的请求模板；三条存量→目标黄金路径端到端测试；协议去重压缩（棘轮 468,000），section 读取忽略代码块注释；agent 导航的存量捕获（navigator 走 snapshot 任务，未到达附 capture_gap 建议）；web 证据链（浏览器滚动、DOM 派生 UI 树、无源索引的 web 树校验） |
 | 2026-10-17 | 存量预览与媒体取证：项目上下文声明存量 App 怎样跑（设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑），可执行性随声明、未捕获的界面写 capture_gap；包内 legacy-capture 装机、走冻结动作、把存量界面写成参考记录（adb 或 Playwright），参考与候选记录的判定各归一函数；内置运行时移植 snapshot/recording 任务类型并产出媒体回执；测试结果带截图 / 录屏引用，报告逐 PATH 列出，diagnose/Fixer 带非 Green 路径的媒体；Android 目标装 APK 并进入视觉对齐 |

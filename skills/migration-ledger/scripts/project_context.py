@@ -239,6 +239,31 @@ def legacy_preview_config(value):
     return out
 
 
+INTAKE = (
+    ('legacy_preview', '存量预览', '存量应用怎样跑给我们看？android-device / android-emulator / vm（设备 serial、app_id、APK 路径或构建命令、启动 activity）、browser（url，可选 viewport）、或 none（说明不能跑的原因）', list(PREVIEW_KINDS)),
+    ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证？platforms（android / harmony）或 unavailable（原因）', ['android', 'harmony', 'unavailable']),
+)
+
+
+def intake(config):
+    """The statements a migration task needs from the person and nobody else can supply: how the legacy is shown and where the
+    target is driven. Each open one is a question the host asks verbatim; the answer is an ordinary configuration update."""
+    stated = {'legacy_preview': config.get('legacy_preview') is not None,
+              'test_adapter.device': (config.get('test_adapter') or {}).get('device') is not None}
+    return [{'field': field, 'label': label, 'ask': ask, 'options': options} for field, label, ask, options in INTAKE if not stated[field]]
+
+
+def open_statements(s):
+    """The questions still open for a started run, read from its frozen context."""
+    ref = s.get('project_context_ref')
+    if not ref:
+        return []
+    try:
+        return intake(read_json(check_ref(ref)).get('effective_config') or {})
+    except (ValueError, OSError, KeyError, TypeError):
+        return []
+
+
 def legacy_preview(s):
     """What the run states about running the legacy application: a provider (android-device/android-emulator/vm/browser),
     none with its reason, or None while nobody has said."""
@@ -335,7 +360,7 @@ def update(root, request, actor, initialize=False):
         archive(root / 'history', data, '.json')
         atomic(root / 'project-context.json', data)
         return {'project_id': record['project_id'], 'revision': record['revision'], 'duplicate': False,
-                'context_path': str(root / 'project-context.json')}
+                'context_path': str(root / 'project-context.json'), 'open_statements': intake(config)}
 
 
 def verify_snapshot(ref):
@@ -514,7 +539,7 @@ def _prepare(root, run_root, request, actor, storage):
             require(snap['run_id'] == request['run_id'], 'context belongs to a different run id')
             require(snap['run_root'] == str(run_root), 'context belongs to a different run root')
             require(snap['request_hash'] == fingerprint, 'run context already frozen; same-task changes require run-review/revise-run')
-            return {'project_context_ref': ref, 'input': prepared_input(ref), 'duplicate': True}
+            return {'project_context_ref': ref, 'input': prepared_input(ref), 'duplicate': True, 'open_statements': intake(verify_snapshot(ref)['effective_config'])}
         require(not (run_root / 'ledger/events.jsonl').exists(), 'cannot attach context after run initialization')
         record = current(root)
         require(request.get('project_id') == record['project_id'], 'wrong project context')
@@ -606,7 +631,7 @@ def _prepare(root, run_root, request, actor, storage):
         archive(files, data, '.snapshot')
         atomic(path, data)
         ref = file_ref(path)
-        return {'project_context_ref': ref, 'input': prepared_input(ref), 'duplicate': False}
+        return {'project_context_ref': ref, 'input': prepared_input(ref), 'duplicate': False, 'open_statements': intake(effective)}
 
 
 def bind_run(ref, run_root, run_id, payload):

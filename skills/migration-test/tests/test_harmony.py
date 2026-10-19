@@ -93,6 +93,32 @@ class ContractTests(unittest.TestCase):
             self.assertIn('显示完整结果',calls[0]);self.assertNotIn('ignore original',calls[0])
             self.assertEqual(self.sink.report()['quality'],'green-passed')
 
+    def test_a_user_screenshot_is_the_reference_frame_of_the_assertion_that_names_it(self):
+        import hashlib
+        import harmony_contract
+        picture = self.base / 'legacy-login.png'; picture.write_bytes(b'the user screenshot')
+        a = self.sink.query['expected_assertions'][0]
+        a.update(verification='refer_image_assert', reference_media_ref={'path': str(picture), 'sha256': hashlib.sha256(picture.read_bytes()).hexdigest()})
+        harmony_contract.validate_query(self.sink.query)  # no reference_step: the user's screenshot is the reference
+        with self.assertRaisesRegex(ValueError, 'verifies by refer_image_assert'):
+            harmony_contract.validate_query({**self.sink.query, 'expected_assertions': [{**a, 'verification': 'one_image_assert'}]})
+        with self.assertRaisesRegex(ValueError, 'reference_step or reference_media_ref'):
+            harmony_contract.validate_query({**self.sink.query, 'expected_assertions': [{k: v for k, v in a.items() if k != 'reference_media_ref'}]})
+        seen, frame = {}, str(self.media)
+        class Native:
+            def _get_image_path(self, index): return frame if index >= 0 else ''
+            def _get_current_verify_step_index(self): return 3
+            def _verify(self, description):
+                selected = self._select_tool_and_steps(description)
+                seen.update(selected, reference=self._get_image_path(selected['refer_step_index']))
+                return True, '结论: 通过', selected['tool'], [seen['reference'], frame]
+        verifier = observing_verifier(Native, self.sink)()
+        self.assertTrue(verifier.verify('[ASSERT:A1] compare with the legacy login')[0])
+        self.assertEqual((seen['tool'], seen['refer_step_index'], seen['reference'], self.sink.report()['quality']), ('refer_image_assert', -1, str(picture), 'green-passed'))
+        picture.write_bytes(b'changed after freeze'); self.sink.observations = []
+        self.assertFalse(verifier.verify('[ASSERT:A1] compare with the legacy login')[0])
+        self.assertEqual(self.sink.report()['quality'], 'yellow-blocked')
+
     def test_native_verification_exception_is_yellow(self):
         class Native:
             def _verify(self,description):raise RuntimeError('unavailable')

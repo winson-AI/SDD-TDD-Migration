@@ -244,8 +244,7 @@ def build(root, s, sequence, ref_check=check_ref):
                      'validation_reuse': record.get('validation_reuse'),
                      'assertions': copy.deepcopy(record.get('assertions', [])), 'root_causes': causes,
                      'media_refs': copy.deepcopy(record.get('media_refs') or []),
-                     'expected_media': [{'media_id': row['media_id'], 'kind': row['kind'], 'role': row['role'], 'ref': row['ref']}
-                                        for row in (reference_media.of_module(s, m) if m and path else []) if reference_media.cites(path, row)],
+                     'expected_media': reference_media.expected(reference_media.of_module(s, m), path) if m and path else [],
                      'evidence_refs': refs(related), 'spec_ref': m.get('plan_ref') if m else s.get('global_spec'),
                      'ledger_evidence': {'path': str(root / 'ledger/events.jsonl'), 'sequence': sequence,
                                          'module_id': mid, 'path_id': pid, 'case_id': cid}})
@@ -497,7 +496,8 @@ def render(report):
         for ref in r['evidence_refs']:
             text.append(f"- 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}")
         for media in r.get('expected_media') or []:
-            text.append(f"- 预期媒体（{media['kind']} {cell(media['media_id'])}）：[{cell(media['ref']['path'])}](<{media['ref']['path']}>) · sha256={media['ref']['sha256']}")
+            marks = ''.join(f" {m['start_ms'] / 1000:.1f}–{m['end_ms'] / 1000:.1f}s" + (f"（{cell(m['note'])}）" if m.get('note') else '') for m in media.get('marks') or [])
+            text.append(f"- 预期媒体（{media['kind']} {cell(media['media_id'])}{marks}）：[{cell(media['ref']['path'])}](<{media['ref']['path']}>) · sha256={media['ref']['sha256']}")
         for media in r.get('media_refs') or []:
             text.append(f"- 媒体（{media['kind']}）：[{cell(media['ref']['path'])}](<{media['ref']['path']}>) · sha256={media['ref']['sha256']}")
         ev = r['ledger_evidence']

@@ -1128,8 +1128,7 @@ def with_card(s, m, step):
         if step.get('operation') == 'diagnose' or step.get('worker_role') == 'fixer':  # what the failed paths kept on film, beside what the user showed of them
             shown, paths, kept = reference_media.of_module(s, m), {p['path_id']: p for p in (m.get('plan') or {}).get('paths', [])}, {}
             for pid, record in unresolved(m).items():
-                expected = [{'media_id': row['media_id'], 'kind': row['kind'], 'role': row['role'], 'ref': row['ref']}
-                            for row in shown if pid in paths and reference_media.cites(paths[pid], row)]
+                expected = reference_media.expected(shown, paths[pid]) if pid in paths else []
                 if record.get('media_refs') or expected:
                     kept[pid] = {'observed': record.get('media_refs') or [], 'expected': expected}
             if kept:

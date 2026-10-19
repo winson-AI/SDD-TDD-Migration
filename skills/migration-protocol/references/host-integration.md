@@ -45,7 +45,7 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 ## 4. 判定与红线
 
 - `status.openspec_binding.location==in-run-fallback` 表示未绑定预备布局,OpenSpec 落在 run 内——按未接入处理。
-- 控制器校验结构、绑定、摘要和已有执行回执，不能仅从自报字段证明语义正确或独立执行；宿主身份/权限约束、实际执行回执与独立 Auditor 审查共同承担这一责任。不得把 `verified=true` 或工具 exit 0 当作功能通过。
+- 控制器校验结构、绑定、摘要和已有执行回执，不能仅从自报字段证明语义正确或独立执行。不得把 `verified=true` 或工具 exit 0 当作功能通过。
 - `observed_invalidations` 非空说明目标代码被 out-of-band 修改,须 revoke→invalidate 重走,不得无视继续。
 
 完整存储不变量与门禁细节见 [留存布局](storage-layout.md#openspec-投影完整性收尾门禁);操作矩阵见 [本地运行指南](local-runtime.md#操作矩阵);阶段守卫见 [状态机](state-machine.md)。
@@ -63,7 +63,7 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 1. 先读[四条红线](../../../AGENTS.md#四条红线)、[调用约定](../../../AGENTS.md#调用约定)和[轮询与派发](#提示采纳回报)，解析参数为绝对路径及规范 ID；协议其余部分按小节取（`reading.py show`），不整份加载。
 2. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影；宿主自己的运行记录放 staging/host，不登 issue。
 3. 宿主把已授权身份绑定到 host-context，请求内自报 role 不获权限；派发按[宿主派发](runtime.md#宿主派发)，定义文件不会自动安装或注册不存在的工具；payload 与用法见[操作矩阵](local-runtime.md#操作矩阵)。无冲突模块的 MO 审核（plan-review、freeze、decompose-accept）由宿主并行派发独立实例，并行数受输入与宿主限制。
-4. 结束时输出已提交事件/当前状态/产物路径和下一动作。角色内部按授权预算运行；命令不嵌套执行其他 slash command。
+4. 结束时输出已提交事件/当前状态/产物路径和下一动作。角色内部按授权预算运行。
 
 参数：ID 格式与路径规则见[运行协议](runtime.md#路径与加载)；JSON 中占位符、未决必填值、零必需用例不能作为有效运行输入。status 可读取尚未完成的输入状态。
 

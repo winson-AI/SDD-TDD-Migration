@@ -52,6 +52,24 @@ class StatementTests(unittest.TestCase):
         pc.preview_settled({}, {'Logic'})
 
 
+class IntakeTests(unittest.TestCase):
+    def test_the_person_is_asked_what_nobody_infers_until_both_statements_are_made(self):
+        self.assertEqual([q['field'] for q in pc.intake({})], ['legacy_preview', 'test_adapter.device'])
+        t = test_project_context.ProjectContextTests(); t.setUp(); self.addCleanup(t.doCleanups)
+        result = pc.update(t.root, t.request('device', 1, {'test_adapter': {'device': {'platforms': ['android']}}}), t.actor)
+        self.assertEqual([q['field'] for q in result['open_statements']], ['legacy_preview'])
+        prepared = t.prepare()
+        self.assertEqual([q['field'] for q in prepared['open_statements']], ['legacy_preview'])
+        t.start(t.init_payload(prepared))
+        signals = [s for s in ledger.status(t.run)['workflow_progress']['signals'] if s['reason'] == 'preview-statement-required']
+        self.assertEqual([(s['owner'], s['severity'], s['evidence']['field']) for s in signals], [('host', 'human', 'legacy_preview')])
+        self.assertIn('存量应用怎样跑', signals[0]['next_action'])
+        result = pc.update(t.root, t.request('preview', 2, {'legacy_preview': {'kind': 'none', 'reason': 'no build'}}), t.actor)
+        self.assertEqual(result['open_statements'], [])
+        second = pc.prepare(t.root, t.base / '.sdd-runs/r2', t.run_request('r2'), t.actor)
+        self.assertEqual(second['open_statements'], [])
+
+
 class NavigatorStatementTests(unittest.TestCase):
     def test_a_navigator_is_the_absolute_adapter_command_that_walks_a_snapshot_task(self):
         good = {**EMULATOR, 'artifact': '/opt/legacy/legacy.apk', 'navigator': {'argv': ['/usr/bin/python3', '/opt/adapter/main.py'], 'cwd': '/opt/adapter', 'timeout_seconds': 600}}

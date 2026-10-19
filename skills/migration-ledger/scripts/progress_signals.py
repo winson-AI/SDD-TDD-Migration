@@ -56,6 +56,10 @@ def build(root, state, events, steps, global_step, at=None):
                             'owner': blocker['owner'], 'next_action': blocker['next_action'], 'severity': 'human',
                             'evidence': {'sequence': len(events), 'review_ref': blocker['implementation_gap_ref'],
                                          'review': blocker['implementation_gap']}})
+    import project_context
+    for question in project_context.open_statements(state):  # how the legacy is shown and where the target is driven: the person says, nobody infers
+        signals.append({'module_id': None, 'reason': 'preview-statement-required', 'label': question['label'], 'owner': 'host',
+                        'next_action': question['ask'], 'severity': 'human', 'evidence': {'field': question['field'], 'options': question['options']}})
     if global_step.get('reason') == 'audit-snapshot-stale':
         signals.append({'module_id': None, 'reason': 'audit-snapshot-stale', 'owner': 'host',
                         'next_action': 'confirm auditor stopped; audit-revoke before module invalidation', 'severity': 'human',
