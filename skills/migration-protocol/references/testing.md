@@ -91,7 +91,7 @@ python3 <package>/skills/migration-ledger/scripts/trace.py evidence --root <run>
 python3 <package>/skills/migration-ledger/scripts/trace.py live --root <run> --module M001 --attempt <本run/runner> --stream stderr --offset 0 --bytes 1024
 ```
 
-query 还支持 --task-id/--assertion-id/--test-id，默认最多5条，仅失败附1024字节日志尾，长字段截断、按 next_offset 翻页；读事件索引对应的归档，源码改变不破坏旧证据，缺损显示 evidence_issues，历史 Green 不表示当前有效。evidence 只读已提交文本证据，每次最多4096字节，媒体保留引用；live 仅供 Host 观察（accepted=false），不作跨 Agent 验收输入。<run> 为 .sdd-runs/<run_id>，输出到 stdout，不产生新状态库。
+query 还支持 --task-id/--assertion-id/--test-id，默认最多5条，仅失败附1024字节日志尾，长字段截断、按 next_offset 翻页；读事件索引对应的归档，源码改变不破坏旧证据，缺损显示 evidence_issues，历史 Green 不表示当前有效。evidence 只读已提交文本证据，每次最多4096字节，媒体保留引用；live 仅供 Host 观察（accepted=false），不作跨 Agent 验收输入。
 
 ## 静态规格闭合
 
@@ -110,7 +110,7 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 ## Harmony Main
 
-已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核：输入冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow。harmony_stage 把 host receipts 汇成 tests stage，Ledger 复验媒体 hash 与三态；超时终止进程组并保存已有输出。automation/visual PATH 可声明 `record_video: true`：回执的 final.mp4 以 `media_refs`（hash 绑定、在执行输出内）随结果入 Ledger，报告逐 PATH 列出，diagnose/Fixer 步骤并列非 Green 路径的用户预期媒体与实际媒体，不改三态。
+已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核：输入冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow。harmony_stage 把 host receipts 汇成 tests stage，Ledger 复验媒体 hash 与三态；超时终止进程组并保存已有输出。断言可带 `reference_media_id` 以用户截图作参考图（verification=refer_image_assert，不需 reference_step），adapter 核对 hash 后交引擎的参考图验证；PATH 可用 `media_marks` 标注所引录屏的时间段，诊断与报告并列。automation/visual PATH 可声明 `record_video: true`：回执的 final.mp4 以 `media_refs`（hash 绑定、在执行输出内）随结果入 Ledger，报告逐 PATH 列出，diagnose/Fixer 步骤并列非 Green 路径的用户预期媒体与实际媒体，不改三态。
 
 Harmony 不自动生成结构化 interaction_evidence：缺这份证据时的规范化见[视觉对齐](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)；Test-Runner 在预检说明能力缺口，换 adapter 或走缺测出口。
 

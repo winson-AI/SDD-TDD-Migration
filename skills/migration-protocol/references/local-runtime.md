@@ -29,7 +29,7 @@ python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run
 
 正式 CLI 只用 prepare 固化的 `.sdd-runs/<run_id>`（init 绑定 project_context_ref）；旧根目录用 `ledger.py history --root <旧根>` 只读重放；已接受的工件沿用接受时的规则，新提交的按当前规则（[冻结算法](openspec.md#冻结算法) 第 7 条）。`init/resume/recover` 是同名 operation 的入口校验，走同一事务；成功返回 event_id/sequence/duplicate，拒绝返回 exit 1 和原因。宿主 context 最小为 `{"role":"module-orchestrator","instance_id":"mo-M001"}`，由宿主认证后注入；请求形状见 [ledger-request.json](../../../template/ledger-request.json)。module_id 非空校验模块 revision，否则校验全局 revision；**decision/register/global-plan/audit-collect/audit-plan/audit-route-batch/audit-verdict/audit-release/audit-assign/audit/audit-revoke/audit-route 的请求顶层 module_id 必须为 null**，适用模块写在 payload。每次有效模块操作增加模块 revision，跨模块失效增加相关消费者 revision。
 
-hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的 SHA256；`contracts.file_ref(path)` 返回真实绝对路径与文件字节 SHA256。命令行 `contracts.py ref <文件>...`、`contracts.py baseline <代码文件>...`（输出 code_files 与 code_baseline）、`contracts.py digest <json 文件>`；不用系统 `shasum` 冒充 canonical digest。
+hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的 SHA256；`contracts.file_ref(path)` 返回真实绝对路径与文件字节 SHA256。命令行 `contracts.py ref <文件>...`、`contracts.py baseline <代码文件>...`（输出 code_files 与 code_baseline）、`contracts.py digest <json 文件>`。
 
 ## 操作矩阵
 
@@ -92,7 +92,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
 | retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
 | api-register | GO / MO / Spec-Designer，全局 | module_id（owner 叶）、api_id（run 内新）、item_id（该叶 Logic/Adhesive 条目）、call、contract、evidence_refs；该叶下次 plan 的清单可多出已登记行，不重切、不推进修订号；owner/consumer 变化走 realloc/redecompose |
-| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind（defect/fact/gap/need/decision/standing/debt/knowledge-need；debt 记录即结清、审计骨架预列；knowledge-need 是源码、目标与知识库都没有的知识，只能由 kind=knowledge 决定或知识文档消去，blocks 时挡冻结）、summary、applies_to，可选 evidence_refs、blocks，或 issues[] 批量；消去：issue_id、module_id、evidence_ref，或 resolutions[] 批量，全部成立才记；plan/plan-review/submit/accept 可带 resolves[]。不推进修订号。fact 记录即结清、不挡 complete；standing 不消去，新增后随 step 交付一次，其余给数量与摘要；blocks 挡该模块 freeze，其余未消去项挡 complete；step 视图每模块最多 10 条（blocking、最新优先）、每条 200 字符；Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
+| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind、summary、applies_to，可选 evidence_refs、blocks，或 issues[] 批量；消去：issue_id、module_id、evidence_ref，或 resolutions[] 批量，全部成立才记；plan/plan-review/submit/accept 可带 resolves[]；不推进修订号。kind：defect/gap/need/decision 须消去（blocks 挡该模块 freeze，其余未消去项挡 complete）；fact 与 debt 记录即结清（debt 审计骨架预列）；standing 不消去，新增后随 step 交付一次，其余给数量与摘要；knowledge-need 是源码、目标与知识库都没有的知识，只能由 kind=knowledge 决定或知识文档消去。step 视图每模块最多 10 条（blocking、最新优先）、每条 200 字符；Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
 
 ## 阶段结果
 

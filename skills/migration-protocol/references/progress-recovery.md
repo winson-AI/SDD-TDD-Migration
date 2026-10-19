@@ -21,7 +21,7 @@ MO 接受 `invalidate` 后：
 1. 将旧 plan/ref/hash、freeze、代码基线、测试结果及四维实现证据保存到 `planning_history`；事件和 `artifacts` 快照保留。
 2. 清除当前 plan/freeze/代码及构建基线、任务完成记录和旧上下文接受记录，进入 `specifying`。旧结果保留但 stale，不能参与新验收；修复预算不重置。
 3. 已认领分配仍有效 → 下一步 `plan`，Spec-Designer 重新提交计划，按正常澄清/批准/冻结门禁推进。
-4. 分配证据无效 → allocation-review-required，经下述同 Run 回溯修订；或 GO 恢复原证据。历史/旧代码保留，禁私改 hash。
+4. 分配证据无效 → allocation-review-required，经下述同 Run 回溯修订；或 GO 恢复原证据。
 
 OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；旧定义仍可从历史事件及快照恢复。不删除用户自有文件，不自动接受新 SPEC，不复用过期 Green。
 
@@ -48,7 +48,7 @@ OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；�
 
 若真实 worker 已退出但 assignment 仍活动，宿主保存退出日志并走 revoke，再根据恢复点续作或记录有证据的挂起；仍运行时先核实/停止，禁止超时后直接重授锁。
 
-上述信号在 status 被调用时生成，不会自行推进工作流。可选 [watchdog](watchdog.md#总则) 只观察和通知。
+上述信号在 status 被调用时生成，不会自行推进工作流。
 
 ## 4. 自动化缺测出口
 

@@ -110,11 +110,11 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 ## 用户参考媒体
 
-可选 reference_media 数组（元素见 [reference-media.json](../../../template/reference-media.json)），整体替换；prepare 复制并绑定 hash 到 source_refs.reference_media。持有其 CASE 的叶子在分配包 `reference_media` 读到它们并以之为就绪证据。截图是存量不可预览界面的基线：UI 项以 `visual_mode: user-reference` + `baseline_refs` 引用该 CASE 的截图，不得退回 source-only；visual PATH 的 `baseline_ref` 指向它。录屏是功能 PATH 的交互预期，以 `reference_media_ids` 引用。用户展示过的用户可见 CASE 没有 PATH 引用对应媒体即记欠项（已声明设备缺口除外）；规划步骤带 `media_due`（本叶尚未被引用的媒体），持有媒体的叶子卡片带本节；诊断/修复步骤并列预期媒体与实际媒体；报告按媒体列持有叶子、引用 PATH 与状态。role=target-expectation（设计稿、目标截图）在其覆盖的界面取代存量基线作视觉对齐目标，行为仍以存量为准：UI 项以 user-reference 引用它（存量可预览亦然），design 须引用其 media_id；与存量的差异由报告保真限制（target-expectation）披露，不交人；对照它的视觉 Red 走 Fixer，与冻结 SPEC 冲突走 runtime-spec-variant-conflict 交人。
+可选 reference_media 数组（元素见 [reference-media.json](../../../template/reference-media.json)），整体替换；prepare 复制并绑定 hash 到 source_refs.reference_media。持有其 CASE 的叶子在分配包 `reference_media` 读到它们并以之为就绪证据。截图是存量不可预览界面的基线：UI 项以 `visual_mode: user-reference` + `baseline_refs` 引用该 CASE 的截图，不得退回 source-only；visual PATH 的 `baseline_ref` 指向它。录屏是功能 PATH 的交互预期，以 `reference_media_ids` 引用，`media_marks` 可标注时间段；截图还可作断言的 `reference_media_id` 参考图。用户展示过的用户可见 CASE 没有 PATH 引用对应媒体即记欠项（已声明设备缺口除外）；规划步骤带 `media_due`（本叶尚未被引用的媒体），持有媒体的叶子卡片带本节；诊断/修复步骤并列预期媒体与实际媒体；报告按媒体列持有叶子、引用 PATH 与状态。role=target-expectation（设计稿、目标截图）在其覆盖的界面取代存量基线作视觉对齐目标，行为仍以存量为准：UI 项以 user-reference 引用它（存量可预览亦然），design 须引用其 media_id；与存量的差异由报告保真限制（target-expectation）披露，不交人；对照它的视觉 Red 走 Fixer，与冻结 SPEC 冲突走 runtime-spec-variant-conflict 交人。
 
 ## 存量预览
 
-legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch 与 navigator）、browser（url，可选 viewport）或 none（reason）；UI 登记前须声明，prepare 记包哈希。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
+legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch 与 navigator）、browser（url，可选 viewport）或 none（reason）；UI 登记前须声明，prepare 记包哈希；init/update/prepare 返回 `open_statements`（含目标验证设备），status 以 preview-statement-required 提示到声明为止。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
 
 ## 二方库/其他项目模块来源
 

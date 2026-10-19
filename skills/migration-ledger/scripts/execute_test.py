@@ -232,6 +232,11 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
         interaction = ui_fidelity.frozen_interaction(m, path)
         if interaction:
             query['frozen_interaction'] = interaction
+        import reference_media
+        pictures = reference_media.assertion_refs(s, path)  # the user's screenshot an assertion compares against, by hash
+        if pictures:
+            query['expected_assertions'] = [{**a, 'reference_media_ref': pictures[a['assertion_id']]} if a.get('assertion_id') in pictures else a
+                                            for a in query.get('expected_assertions') or []]
         if path.get('kind') == 'visual':
             import visual_evidence
             query['frozen_visual_evidence'] = visual_evidence.frozen_evidence(m, path)

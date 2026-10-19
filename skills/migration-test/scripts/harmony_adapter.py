@@ -140,10 +140,19 @@ def observing_verifier(base, sink):
             finally:
                 if hasattr(sink, 'deadline'): sink.deadline.arm(self.config.task_timeout, 'path')
 
+        def _get_image_path(self, step_index):
+            if step_index == -1 and getattr(self, '_reference_image', None):  # the user's screenshot stands where a step frame would
+                return self._reference_image
+            return super()._get_image_path(step_index)
+
         def _select_tool_and_steps(self, description):
             ids = re.findall(r'\[ASSERT:([A-Za-z0-9_.-]+)\]', description)
             a = next(a for a in sink.query['expected_assertions'] if a['assertion_id'] == ids[0])
             selected = super()._select_tool_and_steps(description) if a['verification'] == 'auto' else {'tool': a['verification']}
+            picture = a.get('reference_media_ref')
+            if picture:  # the frozen reference is the user's screenshot: its bytes are checked, then it is the reference frame
+                if ref(picture['path']) != picture: raise ValueError('reference screenshot digest changed')
+                self._reference_image = picture['path']
             if hasattr(sink, 'step_trace'):
                 row = sink.step_trace['steps'][a['after_step'] - 1]
                 reference = sink.step_trace['steps'][a.get('reference_step', a['after_step']) - 1]
@@ -157,6 +166,8 @@ def observing_verifier(base, sink):
                 selected.update(current_step_index=current, prev_step_index=max(0, current - 1),
                                 start_step_index=max(0, current - 1), end_step_index=current,
                                 refer_step_index=0, cross_step_index=0, cross_step_scene_name='initial')
+            if picture:
+                selected.update(tool='refer_image_assert', refer_step_index=-1)
             return selected
     return Verified
 

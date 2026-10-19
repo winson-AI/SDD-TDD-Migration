@@ -77,8 +77,16 @@ def validate_query(q):
         reference = a.get('reference_step')
         if reference is not None and (type(reference) is not int or not 1 <= reference <= step):
             raise ValueError('reference_step must be an already executed frozen step')
-        if a['verification'] in ('cross_step_image_assert', 'refer_image_assert') and reference is None:
-            raise ValueError('explicit reference_step required for reference verification')
+        picture = a.get('reference_media_ref')  # the user's screenshot of this screen, hash-bound by the Ledger
+        if picture is not None and not (isinstance(picture, dict) and isinstance(picture.get('path'), str) and picture['path']
+                                        and isinstance(picture.get('sha256'), str) and re.fullmatch(r'[0-9a-f]{64}', picture['sha256'])):
+            raise ValueError('reference_media_ref is a {path, sha256} reference to the user screenshot')
+        if picture is not None and a['verification'] not in ('refer_image_assert', 'auto'):
+            raise ValueError('an assertion with a reference screenshot verifies by refer_image_assert')
+        if a['verification'] == 'cross_step_image_assert' and reference is None:
+            raise ValueError('explicit reference_step required for cross-step verification')
+        if a['verification'] == 'refer_image_assert' and reference is None and picture is None:
+            raise ValueError('explicit reference_step or reference_media_ref required for reference verification')
     return q
 
 

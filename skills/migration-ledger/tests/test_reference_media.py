@@ -160,6 +160,29 @@ class GateTests(unittest.TestCase):
             step = next(x for x in f.state()['next_steps'] if x['operation'] == 'plan')
         self.assertEqual(step['media_due']['uncited'], [{'media_id': 'MEDIA-x'}])
 
+    def test_an_assertion_may_compare_against_the_users_screenshot_and_a_path_may_mark_a_recording(self):
+        analysis = self.ref('analysis.json', self.analysis(self.evidence()))
+        m = {'module_id': 'M001', 'case_ids': ['C1']}
+        auto = lambda **over: {'path_id': 'P1', 'kind': 'automation', 'case_id': 'C1', 'expected_assertions': [{'assertion_id': 'A1', 'expected': True, 'verification': 'refer_image_assert', 'reference_media_id': 'MEDIA-login'}], **over}
+        plan = lambda path: {'dimension_analysis_ref': analysis, 'paths': [path]}
+        reference_media.plan_gate(self.s, m, plan(auto()))
+        self.assertTrue(reference_media.cites(auto(), {'media_id': 'MEDIA-login', 'ref': self.shot}))
+        self.assertEqual(reference_media.assertion_refs(self.s, auto()), {'A1': self.shot})
+        with carrying() as gaps:
+            reference_media.freeze(self.s, {**m, 'plan': plan(auto(reference_media_ids=['MEDIA-flow']))})
+        self.assertEqual(gaps, [])  # the screenshot is cited by the assertion, the recording by id
+        for bad, message in (({'reference_media_id': 'MEDIA-flow'}, 'names a run screenshot'), ({'reference_media_id': 'MEDIA-third'}, 'does not show case C1'),
+                             ({'reference_media_id': 'MEDIA-login', 'verification': 'one_image_assert'}, 'verifies by refer_image_assert')):
+            with self.subTest(message=message), self.assertRaisesRegex(Rejected, message):
+                reference_media.plan_gate(self.s, m, plan(auto(expected_assertions=[{'assertion_id': 'A1', 'expected': True, 'verification': 'refer_image_assert', **bad}])))
+        marked = auto(reference_media_ids=['MEDIA-flow'], media_marks=[{'media_id': 'MEDIA-flow', 'start_ms': 12000, 'end_ms': 18000, 'note': 'the dialog'}])
+        reference_media.plan_gate(self.s, m, plan(marked))
+        rows = reference_media.expected(reference_media.of_module(self.s, m), marked)
+        self.assertEqual([(r['media_id'], r.get('marks')) for r in rows], [('MEDIA-login', None), ('MEDIA-flow', [{'start_ms': 12000, 'end_ms': 18000, 'note': 'the dialog'}])])
+        for bad in ([{'media_id': 'MEDIA-login', 'start_ms': 0, 'end_ms': 1}], [{'media_id': 'MEDIA-flow', 'start_ms': 5, 'end_ms': 5}], [{'media_id': 'MEDIA-flow', 'start_ms': 0, 'end_ms': 1, 'extra': 1}]):
+            with self.assertRaisesRegex(Rejected, 'media mark'):
+                reference_media.plan_gate(self.s, m, plan(auto(reference_media_ids=['MEDIA-flow'], media_marks=bad)))
+
     def manifest(self, shot):
         view = self.base / 'view.xml'
         view.write_text('<hierarchy><node class="android.widget.TextView" resource-id="app:id/title" text="Login" bounds="[0,0][100,40]" enabled="true" /></hierarchy>')
