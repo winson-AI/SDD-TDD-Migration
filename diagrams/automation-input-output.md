@@ -19,7 +19,7 @@
 
 | 层次 | 输入与样式 | 生成/确认者 | 消费者 |
 | --- | --- | --- | --- |
-| 项目配置 | legacy/target、架构/需求、`test_cases_path`、`test_adapter`、知识（文件或 wiki 目录，往次答复自动并入）、复用来源、参考媒体（存量截图 / 录屏与目标预期，按 CASE 绑定）、存量预览（legacy_preview：设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑，可带 navigator 供 agent 导航的捕获）；JSON + 文件路径 | 用户输入，宿主持久化并 prepare 固化 | GO / 父子 MO |
+| 项目配置 | legacy/target、架构/需求、`test_cases_path`、`test_adapter`（含目标验证设备 device：platforms android / harmony / web，或 unavailable）、知识（文件或 wiki 目录，往次答复自动并入）、复用来源、参考媒体（存量截图 / 录屏与目标预期，按 CASE 绑定）、存量预览（legacy_preview：设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑，可带 navigator 供 agent 导航的捕获）；JSON + 文件路径 | 用户输入，宿主持久化并 prepare 固化 | GO / 父子 MO |
 | 功能与 CASE | 模块功能、REQ/CASE、SPEC 草稿、模块 Testing list | GO 分配，父 MO 按 scope 拆分 | 子 MO / Spec-Designer / Test-Runner |
 | 测试设计 | `stage-plan.paths[]`：稳定 ID、Name、前置、步骤、参数、ASSERT、依赖；`kind=automation`；进程内路径另带 command + unit_report，断言以 test_id 指具名测试；测试源与设备脚本是随计划冻结的 test_assets | Spec-Designer 从 Ledger 骨架写出并随 SPEC 组织，MO 审核冻结 | 执行模式 Test-Runner |
 | 执行授权 | Ledger assignment、`test_scope=automation`、`freeze_id`、`code_baseline`、执行实例；ready 上下文报告（从 Ledger 骨架起笔） | 实际执行实例预检，MO/审计节点接受 | 宿主 `execute_test.py` |
