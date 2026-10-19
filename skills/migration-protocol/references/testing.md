@@ -60,7 +60,7 @@ Fixer 自回归记录 `producer=fixer`，是补丁证据，不能替代 Test-Run
 
 阶段结果采用 [stage-result 模板](../../../template/stage-result.json)，在 submit 和 MO accept 两处重复校验。Green 要求 frozen PATH 与 assertion ID 集合完全匹配、原始结果与声明一致、真实 receipt 完整且当前基线匹配；本地 assertion 比较只支持 JSON equality。复杂匹配应由适配器输出一个可核验的规范化观测值（如计算后的状态或误差），并在 SPEC 固定该观测语义，不能临时改变期望。
 
-执行回执来源可信依赖宿主保护其上下文和证据目录。本地检查不能独立证明一份任意可写 JSON 来自可信执行；宿主不得让业务 worker 伪造 host-context 或执行回执。全局 Auditor 同样需实际执行回执，不能只提交文字“已复测”。
+执行回执来源可信依赖宿主保护其上下文和证据目录；宿主不得让业务 worker 伪造 host-context 或执行回执。全局 Auditor 同样需实际执行回执，不能只提交文字“已复测”。
 
 每次结果覆盖 assignment.test_scope 的全部冻结路径，未执行项明确 Yellow；超时/缺报告可提交 executed=false 的 Yellow 并附诊断证据，不能将残缺报告提升为 Green。
 

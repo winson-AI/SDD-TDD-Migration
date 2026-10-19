@@ -214,8 +214,14 @@ def legacy_preview_config(value):
             'legacy_preview takes app_id, device, artifact or build, launch, navigator and note')
     require(text(value, 'app_id'), 'legacy_preview.app_id names the legacy application package')
     device = value.get('device')
-    require(isinstance(device, dict) and set(device) <= {'serial', 'avd', 'address'} and text(device, 'serial'),
-            'legacy_preview.device names the serial adb sees (avd and address are notes)')
+    require(isinstance(device, dict) and set(device) <= {'serial', 'avd', 'address', 'boot'} and text(device, 'serial'),
+            'legacy_preview.device names the serial adb sees (avd and address are notes; boot is the emulator command)')
+    boot = device.get('boot')  # no real device: how the emulator is started when the serial does not answer
+    require(boot is None or isinstance(boot, dict) and set(boot) <= {'argv', 'cwd', 'timeout_seconds'}
+            and isinstance(boot.get('argv'), list) and boot['argv'] and all(isinstance(a, str) and a for a in boot['argv']) and Path(boot['argv'][0]).is_absolute()
+            and (boot.get('cwd') is None or isinstance(boot['cwd'], str) and Path(boot['cwd']).is_absolute())
+            and (boot.get('timeout_seconds') is None or type(boot['timeout_seconds']) is int and boot['timeout_seconds'] > 0),
+            'legacy_preview.device.boot takes the absolute argv that boots the emulator, an optional absolute cwd and timeout_seconds')
     require(('artifact' in value) != ('build' in value), 'legacy_preview takes exactly one of artifact (a built package) or build (the command that builds it)')
     out = dict(value)
     if 'artifact' in value:
@@ -240,8 +246,8 @@ def legacy_preview_config(value):
 
 
 INTAKE = (
-    ('legacy_preview', '存量预览', '存量应用怎样跑给我们看？android-device / android-emulator / vm（设备 serial、app_id、APK 路径或构建命令、启动 activity）、browser（url，可选 viewport）、或 none（说明不能跑的原因）', list(PREVIEW_KINDS)),
-    ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证？platforms（android / harmony / web，web 是浏览器里预览的目标）或 unavailable（原因）', ['android', 'harmony', 'web', 'unavailable']),
+    ('legacy_preview', '存量预览', '存量应用怎样跑给我们看？android-device / android-emulator / vm（设备 serial、app_id、APK 路径或构建命令、启动 activity；没有真机时给模拟器的 avd 名或启动命令 boot.argv，未连接时由我们启动）、browser（url，可选 viewport）、或 none（说明不能跑的原因）', list(PREVIEW_KINDS)),
+    ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证？platforms（android / harmony / web，web 是浏览器里预览的目标；没有真机时在运行环境 visual_capture 里给模拟器 serial 与 avd 或 boot.argv，未连接时由我们启动）或 unavailable（原因）', ['android', 'harmony', 'web', 'unavailable']),
 )
 
 

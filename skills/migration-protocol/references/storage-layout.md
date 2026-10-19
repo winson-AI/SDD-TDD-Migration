@@ -36,7 +36,7 @@
     └── changes/<run_id>-<module_id小写>/  # 六件套与 status/checklist/memory；reuse.md、dimensions.md、scenarios.md 按计划产生；manifest.json 记冻结版本与清单
 ```
 
-目录树是全部支持的留存类别，不无条件创建；没有修复、来源追加、Harmony 执行或人工问题就不伪造对应记录，未执行的测试保留 Yellow，不能用空目录当通过证据。
+目录树是全部支持的留存类别，不无条件创建；没有修复、来源追加、Harmony 执行或人工问题就不伪造对应记录，不能用空目录当通过证据。
 
 Watchdog 的留存与边界见[旁路监听协议](watchdog.md#留存与权限边界)；工作流不等待其文件或进程。
 

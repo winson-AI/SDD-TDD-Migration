@@ -71,6 +71,26 @@ class AndroidTargetTests(unittest.TestCase):
         again, _ = self.run_tool('visual-capture', install_ref=install_ref, round=2, reference_manifest_ref=file_ref(self.t.manifest))
         self.assertEqual((again['status'], again['root_cause']['reason']), ('BLOCKED', 'frozen target selectors not observed'))
 
+    def test_the_target_emulator_is_booted_before_the_install_when_it_does_not_answer(self):
+        import json
+        env = self.t.write('runs/harmony/sandbox/environment/visual-adb-boot.json', {
+            'visual_capture': {'backend': 'adb', 'tool': 'adb', 'device_id': 'device-1', 'avd': 'pixel_7', 'boot': {'argv': [sys.executable, '-c', 'pass'], 'timeout_seconds': 30}},
+            'visual_model': {'mode': 'external', 'enabled': False, 'name': 'vision-test', 'base_url': 'https://model.example/v1', 'api_key_env': 'SDD_TEST_VISION_KEY'}})
+        self.t.path['visual_execution']['environment_ref'] = file_ref(env)
+        self.booted, launches = False, []
+        def fake(argv, **kwargs):
+            command = argv[3:]
+            if command == ['get-state']: return SimpleNamespace(returncode=0 if self.booted else 1, stdout='device' if self.booted else '', stderr='')
+            if command[:3] == ['shell', 'getprop', 'sys.boot_completed']: return SimpleNamespace(returncode=0, stdout='1' if self.booted else '', stderr='')
+            return self.fake(argv, **kwargs)
+        def launch(argv, **kwargs):
+            launches.append(argv); self.booted = True
+            return SimpleNamespace(pid=7, returncode=None, poll=lambda: None)
+        out = self.t.sandbox / 'test-1' / 'adb-boot'; out.mkdir(parents=True)
+        with patch.object(worker.subprocess, 'run', side_effect=fake), patch.object(worker.subprocess, 'Popen', side_effect=launch), patch.object(worker.time, 'sleep', lambda s: None):
+            install = worker.run('visual-install', dict(self.t.args), root=self.t.root, out=out, module=self.t.module, task=self.t.task, actor=self.t.actor, config={})
+        self.assertEqual((install['status'], launches, Path(install['boot_ref']['path']).name), ('INSTALLED', [[sys.executable, '-c', 'pass']], 'boot.json'))
+
     def test_the_installed_bytes_must_be_the_accepted_apk_and_a_hap_is_refused_on_adb(self):
         self.installed_sha = 'f' * 64
         install, _ = self.run_tool('visual-install')

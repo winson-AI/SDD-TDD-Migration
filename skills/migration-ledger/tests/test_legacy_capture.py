@@ -267,5 +267,62 @@ class AgentNavigationTests(CaptureFixture):
         self.assertIn('adb device statement', result['blocked'][0]['reason'])
 
 
+class EmulatorBootTests(CaptureFixture):
+    """No real device: the stated emulator is booted by the worker, waited for, recorded, and left running."""
+    def setUp(self):
+        super().setUp()
+        self.booted, self.launches, self.exit_code = False, [], None
+        self.sleep = patch.object(worker.time, 'sleep', lambda s: None); self.sleep.start(); self.addCleanup(self.sleep.stop)
+        self.popen = patch.object(worker.subprocess, 'Popen', side_effect=self.launch); self.popen.start(); self.addCleanup(self.popen.stop)
+
+    def launch(self, argv, **kwargs):
+        self.launches.append((argv, kwargs.get('cwd'), kwargs.get('start_new_session')))
+        self.booted = self.exit_code is None
+        return SimpleNamespace(pid=4242, returncode=self.exit_code, poll=lambda: self.exit_code)
+
+    def fake(self, argv, **kwargs):
+        command = argv[3:]
+        if command == ['get-state']:
+            self.commands.append(argv)
+            return SimpleNamespace(returncode=0, stdout='device', stderr='') if self.booted else SimpleNamespace(returncode=1, stdout='', stderr='error: device offline')
+        if command[:3] == ['shell', 'getprop', 'sys.boot_completed']:
+            self.commands.append(argv)
+            return SimpleNamespace(returncode=0, stdout='1' if self.booted else '', stderr='')
+        return super().fake(argv, **kwargs)
+
+    def test_the_stated_emulator_is_booted_when_the_serial_does_not_answer(self):
+        boot = {'argv': [sys.executable, '-c', 'pass'], 'cwd': str(self.base), 'timeout_seconds': 60}
+        result = self.capture([self.login()], stated={**self.stated, 'device': {'serial': 'emulator-5554', 'boot': boot}})
+        self.assertEqual((result['status'], Path(result['boot_ref']['path']).name, self.launches), ('CAPTURED', 'boot.json', [(boot['argv'], str(self.base), True)]))
+        self.assertEqual(read_json(result['boot_ref']['path'])['pid'], 4242)
+        self.booted = True; self.launches.clear()
+        self.assertIsNone(self.capture([self.login()], stated={**self.stated, 'device': {'serial': 'emulator-5554', 'boot': boot}})['boot_ref'])  # already up: nothing started
+        self.assertEqual(self.launches, [])
+
+    def test_an_avd_boots_through_the_sdk_emulator_and_nothing_is_assumed_without_one(self):
+        sdk = self.base / 'sdk'; (sdk / 'emulator').mkdir(parents=True); (sdk / 'emulator/emulator').write_text('#!/bin/sh\n')
+        with patch.dict(worker.os.environ, {'ANDROID_SDK_ROOT': str(sdk)}):
+            result = self.capture([self.login()], stated={**self.stated, 'device': {'serial': 'emulator-5554', 'avd': 'pixel_7'}})
+        self.assertEqual((result['status'], self.launches[0][0]), ('CAPTURED', [str(sdk / 'emulator/emulator'), '-avd', 'pixel_7']))
+        self.booted = False
+        with patch.dict(worker.os.environ, {'ANDROID_SDK_ROOT': '', 'ANDROID_HOME': ''}), patch.object(worker.shutil, 'which', lambda name: None):
+            result = self.capture([self.login()], stated={**self.stated, 'device': {'serial': 'emulator-5554', 'avd': 'pixel_7'}})
+        self.assertEqual((result['status'], result['root_cause']['kind']), ('BLOCKED', 'environment-unavailable'))
+        self.assertIn('state the emulator to boot', result['root_cause']['reason'])
+        result = self.capture([self.login()], stated={**self.stated, 'device': {'serial': 'emulator-5554'}})
+        self.assertIn('not connected', result['root_cause']['reason'])
+
+    def test_an_emulator_that_dies_or_never_boots_is_an_environment_gap_with_its_log(self):
+        boot = {'argv': [sys.executable, '-c', 'pass'], 'timeout_seconds': 9}
+        self.exit_code = 3
+        result = self.capture([self.login()], stated={**self.stated, 'device': {'serial': 'emulator-5554', 'boot': boot}})
+        self.assertIn('exited with 3', result['root_cause']['reason'])
+        self.exit_code = None
+        with patch.object(self, 'launch', side_effect=lambda argv, **kw: SimpleNamespace(pid=1, returncode=None, poll=lambda: None)):
+            self.popen.stop(); again = patch.object(worker.subprocess, 'Popen', side_effect=self.launch); again.start(); self.addCleanup(again.stop)
+            result = self.capture([self.login()], stated={**self.stated, 'device': {'serial': 'emulator-5554', 'boot': boot}})
+        self.assertIn('did not boot within 9 s', result['root_cause']['reason'])
+
+
 if __name__ == '__main__':
     unittest.main()

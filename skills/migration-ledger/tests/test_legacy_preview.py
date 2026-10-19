@@ -79,6 +79,16 @@ class NavigatorStatementTests(unittest.TestCase):
                 pc.legacy_preview_config({**good, 'navigator': bad})
 
 
+class EmulatorStatementTests(unittest.TestCase):
+    def test_the_device_statement_may_say_how_its_emulator_is_booted(self):
+        boot = {'argv': ['/opt/sdk/emulator/emulator', '-avd', 'pixel_7'], 'timeout_seconds': 300}
+        good = {**EMULATOR, 'artifact': '/opt/legacy/legacy.apk', 'device': {'serial': 'emulator-5554', 'avd': 'pixel_7', 'boot': boot}}
+        self.assertEqual(pc.legacy_preview_config(good)['device']['boot'], boot)
+        for bad in ({'argv': ['emulator', '-avd', 'x']}, {'argv': []}, {'argv': ['/opt/e'], 'timeout_seconds': 0}, 'emulator'):
+            with self.assertRaisesRegex(Rejected, 'device.boot takes'):
+                pc.legacy_preview_config({**good, 'device': {'serial': 'emulator-5554', 'boot': bad}})
+
+
 class BaselineTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)

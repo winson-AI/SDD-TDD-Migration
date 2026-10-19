@@ -125,7 +125,7 @@ tests 另需 paths，见 [stage-result.json](../../../template/stage-result.json
 python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-M001-001（同命令 unit PATH 可为 a,b 列表） --adapter <adapter.json> --cwd <target> --output <run>/runs/harmony/automation/<new-attempt>
 ```
 
-适配器接收 `--query-file <json> --result-file <json>`，写 `{"assertions":[{"assertion_id":"A1","expected":2,"actual":2,"passed":true}]}`。具体测试逻辑来自真实项目，本包只负责调用与采集。
+适配器接收 `--query-file <json> --result-file <json>`，写 `{"assertions":[{"assertion_id":"A1","expected":2,"actual":2,"passed":true}]}`。
 
 每条执行使用新目录，不覆盖历史。`receipt.json` 包含 test_run_id、代码/SPEC/路径绑定、实际 argv/cwd、时间、退出码及 result/log/query refs。执行结束不直接推进 Ledger：Test-Runner 整理完整 paths 后 submit，MO 再 accept。缺报告、超时、适配器异常保留日志并报告 Yellow；同基线 flaky 结果不得择优记绿（`flaky=true` 拒绝 Green）。
 

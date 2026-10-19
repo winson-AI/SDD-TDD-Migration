@@ -11,7 +11,9 @@ import math
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
+import time
 from urllib.parse import urlparse
 import xml.etree.ElementTree as ET
 import zipfile
@@ -27,6 +29,7 @@ from lean_tools import mobile_snapshot, semantic_visual_inspect, validate_manife
 
 OPERATIONS = {'visual-install', 'visual-capture', 'semantic-inspect'}
 ADB_KINDS = ('android-device', 'android-emulator', 'vm')  # legacy_preview kinds an adb serial reaches
+BOOT_POLL_SECONDS = 3
 
 
 def save(path, value):
@@ -151,6 +154,15 @@ class Device:
             raise DeviceFailure('device-execution-error', f'command {args[0]} exited {result.returncode}; see command log')
         return result.stdout
 
+    def connected(self):
+        try:
+            return self.device in self.call('list', 'targets')
+        except DeviceFailure:
+            return False
+
+    def booted(self):
+        return True  # hdc lists a target once it answers
+
     def foreground(self):
         """(bundle, page) in front, from aa dump; the dump is kept to tell an app that exited from one sent to the background."""
         self.last_dump = self.call('shell', 'aa', 'dump', '-l')
@@ -231,6 +243,18 @@ class AndroidDevice:
         if result.returncode:
             raise DeviceFailure('device-execution-error', f'command {args[0]} exited {result.returncode}; see command log')
         return result.stdout
+
+    def connected(self):
+        try:
+            return self.call('get-state').strip() == 'device'
+        except DeviceFailure:
+            return False
+
+    def booted(self):
+        try:
+            return self.call('shell', 'getprop', 'sys.boot_completed').strip() == '1'
+        except DeviceFailure:
+            return False
 
     def foreground(self):
         """(package, activity) of the focused window, from dumpsys."""
@@ -557,6 +581,51 @@ def observe_screen(device, app, target, spec, out, label):
     return {'captures': captures, 'coverage': coverage, 'complete': complete, 'backend': backend, 'meta': meta}
 
 
+def boot_command(boot, avd):
+    """What boots the stated emulator: the host's own command, or the SDK's emulator for a named AVD (Android Studio's)."""
+    if boot:
+        require(isinstance(boot, dict) and set(boot) <= {'argv', 'cwd', 'timeout_seconds'} and isinstance(boot.get('argv'), list) and boot['argv']
+                and all(isinstance(a, str) and a for a in boot['argv']) and Path(boot['argv'][0]).is_absolute()
+                and (boot.get('cwd') is None or isinstance(boot['cwd'], str) and Path(boot['cwd']).is_absolute())
+                and (boot.get('timeout_seconds') is None or type(boot['timeout_seconds']) is int and boot['timeout_seconds'] > 0),
+                'boot takes an absolute argv, an optional absolute cwd and timeout_seconds')
+        return list(boot['argv']), boot.get('cwd'), boot.get('timeout_seconds') or 300
+    if avd:
+        for root in (os.environ.get('ANDROID_SDK_ROOT'), os.environ.get('ANDROID_HOME')):
+            binary = Path(root) / 'emulator' / 'emulator' if root else None
+            if binary and binary.is_file():
+                return [str(binary), '-avd', avd], None, 300
+        found = shutil.which('emulator')
+        if found:
+            return [found, '-avd', avd], None, 300
+    return None, None, 300
+
+
+def ensure_device(device, boot, avd, out):
+    """The stated device answers, or the stated emulator is booted and waited for. The worker starts it, records how, and
+    leaves it running for the captures that follow; stopping it is the host's, at the end of the run."""
+    if device.connected():
+        return None
+    argv, cwd, timeout = boot_command(boot, avd)
+    if not argv:
+        raise DeviceFailure('environment-unavailable', 'the stated device is not connected: connect it, or state the emulator to boot '
+                            '(device.avd with the SDK emulator on ANDROID_SDK_ROOT / ANDROID_HOME / PATH, or boot.argv)')
+    log = run_storage.checked_path(out / 'emulator.log', out)
+    try:
+        with log.open('ab') as stream:
+            process = subprocess.Popen(argv, cwd=cwd, env=runner_storage.environment(out), stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
+    except OSError as exc:
+        raise DeviceFailure('environment-unavailable', 'the emulator could not be started: ' + type(exc).__name__) from exc
+    for poll in range(max(1, timeout // BOOT_POLL_SECONDS)):
+        if device.connected() and device.booted():
+            return save(out / 'boot.json', {'argv': argv, 'cwd': cwd, 'pid': process.pid, 'device_id': device.device, 'waited_seconds': poll * BOOT_POLL_SECONDS,
+                                            'acceptance': 'the-worker-booted-the-emulator-and-leaves-it-running'})
+        if process.poll() is not None:
+            raise DeviceFailure('environment-unavailable', f'the emulator exited with {process.returncode} before the device came up; see emulator.log')
+        time.sleep(BOOT_POLL_SECONDS)
+    raise DeviceFailure('environment-unavailable', f'the emulator did not boot within {timeout} s; see emulator.log')
+
+
 def install_legacy(device, stated, app, out):
     """The package the run was prepared with (or the one its build command produces) goes on the device; the install is evidence."""
     build_log = None
@@ -678,15 +747,14 @@ def legacy_capture(args, *, root, out, state, task, actor, module_id=None):
     web = stated['kind'] == 'browser'
     device_lock(actor, {'device_id': stated['url'] if web else stated['device']['serial']}, task)
     app = stated['url'] if web else token(stated['app_id'], 'app_id')
-    result, install_ref, records, blocked_targets, device = None, None, [], [], None
+    result, install_ref, boot_ref, records, blocked_targets, device = None, None, None, [], [], None
     try:
         device = BrowserDevice(stated['url'], out, viewport=stated.get('viewport')) if web else AndroidDevice(stated['device']['serial'], args.get('tool', 'adb'), out)
         if not web:
             device.version = (device.call('version').strip().splitlines() or [''])[0]
             if not device.version:
                 raise DeviceFailure('environment-unavailable', 'adb version could not be observed')
-            if device.call('get-state').strip() != 'device':
-                raise DeviceFailure('environment-unavailable', 'the stated device is not connected (adb get-state)')
+            boot_ref = ensure_device(device, stated['device'].get('boot'), stated['device'].get('avd'), out)  # no real device: the stated emulator is booted
             install_ref = install_legacy(device, stated, app, out)
         for target, spec in zip(parsed, targets):
             outcome = (capture_web_target(device, stated, target, spec, out) if web
@@ -706,7 +774,7 @@ def legacy_capture(args, *, root, out, state, task, actor, module_id=None):
                 raise DeviceFailure('capture-incomplete', 'captured records do not validate: ' + str(exc)) from exc
         result = {'producer': 'lean-visual-worker', 'operation': 'legacy-capture',
                   'status': 'CAPTURED' if not blocked_targets else 'PARTIAL' if records else 'BLOCKED',
-                  'manifest_ref': manifest_ref, 'install_ref': install_ref,
+                  'manifest_ref': manifest_ref, 'install_ref': install_ref, 'boot_ref': boot_ref,
                   'captured': [f"{r['page_id']}:{r['state_id']}:{r['coverage']['requested']}" for r in records], 'blocked': blocked_targets,
                   'device_id': device.device, 'app_id': app, 'legacy_preview': stated['kind'],
                   'assignment_id': task['assignment_id'], 'fencing_token': task.get('fencing_token'),
@@ -1098,11 +1166,14 @@ def run(operation, args, *, root, out, module, task, actor, config):
     else:
         device = Device(device_settings, out) if backend == 'hdc' else AndroidDevice(device_settings.get('device_id'), device_settings.get('tool', 'adb'), out)
     try:
+        boot_ref = None
         if backend != 'browser':
             lines = (device.call('-v') if backend == 'hdc' else device.call('version')).strip().splitlines()
             device.version = lines[0] if lines else ''
             if not device.version:
                 raise DeviceFailure('environment-unavailable', backend.upper() + ' version could not be observed')
+            if device_settings.get('boot') or device_settings.get('avd'):  # no real device: the run states the emulator and it is booted first
+                boot_ref = ensure_device(device, device_settings.get('boot'), device_settings.get('avd'), out)
         if operation == 'visual-install' and backend == 'browser':  # the deployed page declares the accepted build; nothing is installed by the worker
             identity = web_identity(device, contract, artifact, args['artifact_ref']['sha256'])
             result = {'producer': 'lean-visual-worker', 'operation': operation, 'status': 'INSTALLED',
@@ -1119,7 +1190,7 @@ def run(operation, args, *, root, out, module, task, actor, config):
                       'artifact_ref': args['artifact_ref'], 'code_baseline': module['code_baseline'],
                       'device_id': device.device, 'app_id': app, 'assignment_id': task['assignment_id'],
                       'fencing_token': task.get('fencing_token'), 'installed_metadata': installed,
-                      'artifact_identity': identity,
+                      'artifact_identity': identity, 'boot_ref': boot_ref,
                       'acceptance': 'installation-is-evidence-not-a-test-verdict'}
         elif operation == 'visual-install':
             identity = hap_identity(artifact)
@@ -1133,7 +1204,7 @@ def run(operation, args, *, root, out, module, task, actor, config):
                       'artifact_ref': args['artifact_ref'], 'code_baseline': module['code_baseline'],
                       'device_id': device.device, 'app_id': app, 'assignment_id': task['assignment_id'],
                       'fencing_token': task.get('fencing_token'), 'installed_metadata': installed,
-                      'artifact_identity': identity,
+                      'artifact_identity': identity, 'boot_ref': boot_ref,
                       'acceptance': 'installation-is-evidence-not-a-test-verdict'}
         else:
             result = {'adb': capture_android, 'browser': capture_web}.get(backend, capture)(device, contract, args, path, module, task, out, root)
