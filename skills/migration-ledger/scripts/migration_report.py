@@ -244,6 +244,8 @@ def build(root, s, sequence, ref_check=check_ref):
                      'validation_reuse': record.get('validation_reuse'),
                      'assertions': copy.deepcopy(record.get('assertions', [])), 'root_causes': causes,
                      'media_refs': copy.deepcopy(record.get('media_refs') or []),
+                     'expected_media': [{'media_id': row['media_id'], 'kind': row['kind'], 'role': row['role'], 'ref': row['ref']}
+                                        for row in (reference_media.of_module(s, m) if m and path else []) if reference_media.cites(path, row)],
                      'evidence_refs': refs(related), 'spec_ref': m.get('plan_ref') if m else s.get('global_spec'),
                      'ledger_evidence': {'path': str(root / 'ledger/events.jsonl'), 'sequence': sequence,
                                          'module_id': mid, 'path_id': pid, 'case_id': cid}})
@@ -343,7 +345,9 @@ def mermaid_diagram(report):
     return '\n'.join(lines)
 
 
-def media_cell(media):
+def media_cell(media, expected=None):
+    if expected:  # what the user showed beside what the run kept
+        return '预期 ' + '；'.join(f"{m['kind']} {m['media_id']}" for m in expected) + ' / 观察 ' + ('；'.join(f"{m['kind']} {Path(m['ref']['path']).name}" for m in media or []) or '—')
     """What a path kept on film or in a frame, by kind and file name."""
     return '；'.join(f"{m['kind']} {Path(m['ref']['path']).name}" for m in media or []) or '—'
 
@@ -480,7 +484,7 @@ def render(report):
     text += ['', '## 路径明细', '', '| CASE-ID | 模块 / 父 MO | PATH / Name | 类型 | 状态 | 曾执行 / 本次执行 / stale | test_run | 媒体 |', '| --- | --- | --- | --- | --- | --- | --- | --- |']
     for r in report['paths']:
         text.append('| ' + ' | '.join(cell(v) for v in (r['case_id'], f"{r['module_id']} / {r['parent_mo_name'] or '—'}", f"{r['path_id'] or '—'} / {r['name']}",
-                    r['kind'], r['quality'], f"{r['executed']} / {r['attempt_executed']} / {r['stale']}", r['test_run_id'], media_cell(r.get('media_refs')))) + ' |')
+                    r['kind'], r['quality'], f"{r['executed']} / {r['attempt_executed']} / {r['stale']}", r['test_run_id'], media_cell(r.get('media_refs'), r.get('expected_media')))) + ' |')
     text += ['', '## 非 Green 原因与证据', '']
     if not report['non_green']: text.append('无非 Green 用例；是否完成迁移仍以报告阶段、DoD 和 Auditor 裁决为准。')
     for r in report['non_green']:
@@ -492,6 +496,8 @@ def render(report):
             text.append(f"- 最近真实执行：{cell(previous['test_run_id'])}；原状态={cell(previous['quality'])}；断言={cell(previous.get('assertions', []))}；证据失效={r['last_execution_stale']}。本次尝试未执行，旧观测不构成本次通过。")
         for ref in r['evidence_refs']:
             text.append(f"- 证据：[{cell(ref['path'])}](<{ref['path']}>) · sha256={ref['sha256']}")
+        for media in r.get('expected_media') or []:
+            text.append(f"- 预期媒体（{media['kind']} {cell(media['media_id'])}）：[{cell(media['ref']['path'])}](<{media['ref']['path']}>) · sha256={media['ref']['sha256']}")
         for media in r.get('media_refs') or []:
             text.append(f"- 媒体（{media['kind']}）：[{cell(media['ref']['path'])}](<{media['ref']['path']}>) · sha256={media['ref']['sha256']}")
         ev = r['ledger_evidence']

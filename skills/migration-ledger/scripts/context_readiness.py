@@ -197,7 +197,7 @@ def global_refs(s):
     if s.get('project_context_ref'):
         refs.append(s['project_context_ref'])
         for key, source in read_json(check_ref(s['project_context_ref'])).get('source_refs', {}).items():
-            if key not in ('slicing_skill_ref', 'reference_media'):  # read where slicing is decided and by the leaf whose cases the media show: see standing_refs
+            if key not in ('slicing_skill_ref', 'reference_media', 'carried_knowledge'):  # slicing and media are read where they apply (standing_refs); carried answers are already among knowledge_paths
                 refs.extend(source if isinstance(source, list) else [source])
     return refs
 

@@ -12,7 +12,7 @@
 - `.sdd-runs/<run_id>`：一次迁移的唯一运行根，由 prepare 自动派生；模块用 module_id、每次测试用新 attempt 子目录继续隔离。
 - `openspec`：规格、状态机与工作流中枢。`runs/<run_id>/workflow.md` 导航本轮 GO/父子 MO/审计状态；`changes/<run_id>-<module_id小写>` 保存叶子六件套。两者都按 run_id 隔离。
 
-`package_root` 的脚本、模板和 uv 依赖环境是工具安装资产；legacy/target/reuse_sources 是代码输入或目标。原始业务文档可在外部，只读输入经 context/files 固化。构建缓存/APK/测试素材也是运行资产（[构建资产位置](build-automation.md#构建资产位置)）。工具安装依赖、工作流包自身文档/绘图/回归夹具不属于迁移运行资产。
+`package_root` 的脚本、模板和 uv 依赖环境是工具安装资产；legacy/target/reuse_sources 是代码输入或目标。原始业务文档可在外部，只读输入经 context/files 固化。构建缓存/APK/测试素材也是运行资产（[构建资产位置](build-automation.md#构建资产位置)）。
 
 ## 从开始到完成的目录
 

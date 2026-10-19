@@ -75,6 +75,19 @@ def cites(path, row):
     return row['media_id'] in (path.get('reference_media_ids') or []) or (isinstance(ref, dict) and ref.get('sha256') == row['ref']['sha256'])
 
 
+def due(s, m):
+    """What the user showed of this leaf's cases that no PATH of its current plan cites yet, handed to the planner with its
+    step; None when the leaf holds no media or every medium is cited."""
+    media = of_module(s, m)
+    if not media:
+        return None
+    paths = (m.get('plan') or {}).get('paths', [])
+    cited = {row['media_id'] for row in media if any(cites(path, row) for path in paths)}
+    uncited = [{'media_id': row['media_id'], 'kind': row['kind'], 'role': row['role'], 'screen': row.get('screen') or '', 'case_ids': list(row['case_ids']), 'ref': row['ref']}
+               for row in media if row['media_id'] not in cited]
+    return {'uncited': uncited, 'cited': sorted(cited)} if uncited else None
+
+
 def evidence_gate(s, item, evidence):
     """A UI item against the media of its cases. A target expectation replaces the legacy baseline: the item aligns to it.
     Otherwise user-reference cites the user's legacy screenshots of those cases and every case shown gets one; a screen

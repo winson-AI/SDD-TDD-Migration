@@ -27,7 +27,7 @@ import resource_copy
 import resource_fidelity
 import ui_parameters
 import reference_render
-from lean_tools import collect_ui_sources, resource_tool, select_runtime_ui, ui_visual_score
+from lean_tools import collect_ui_sources, resource_tool, select_runtime_ui, target_scan, ui_visual_score
 
 ROLES = {
     'analyze-ui': {'global-orchestrator', 'module-orchestrator', 'spec-designer'},
@@ -38,6 +38,7 @@ ROLES = {
     'resource-sync': {'implementer', 'fixer'},
     'resource-scan': {'global-orchestrator', 'module-orchestrator', 'spec-designer', 'implementer',
                       'fixer', 'test-runner', 'auditor'},
+    'target-scan': {'global-orchestrator', 'module-orchestrator', 'spec-designer'},
     'compare-only': {'test-runner', 'auditor'},
     'render-reference': {'spec-designer', 'test-runner', 'auditor'},
     'image-parity': {'test-runner', 'auditor'},
@@ -322,6 +323,14 @@ def run(root, request, actor):
                 result = lean_visual_worker.legacy_capture(args, root=root, out=out, state=state, task=task, actor=actor, module_id=request.get('module_id'))
             elif operation.startswith(('knowledge-', 'foundation-')):
                 result = lean_knowledge.run(operation, args, config, root)
+            elif operation == 'target-scan':  # read-only candidates for the target profile: what the target already holds of a feature
+                keywords = args.get('keywords')
+                require(isinstance(keywords, list) and 1 <= len(keywords) <= 20 and all(isinstance(k, str) and k.strip() for k in keywords), 'target-scan takes 1..20 keyword strings')
+                roots = args.get('roots') or []
+                require(isinstance(roots, list) and all(isinstance(r, str) and r and not Path(r).is_absolute() for r in roots), 'target-scan roots are folders relative to target_root')
+                for r in roots:
+                    require(run_storage.checked_path(Path(config['target_root']) / r, config['target_root']).is_dir(), 'target-scan root is not a folder of the target: ' + r)
+                result = target_scan.scan(config['target_root'], [k.strip() for k in keywords], roots)
             else:
                 kind = args.get('kind')
                 original = args.get('source_ref'); data = read_json(check_ref(original))

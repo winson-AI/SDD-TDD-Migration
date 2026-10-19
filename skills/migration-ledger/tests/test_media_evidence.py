@@ -2,6 +2,7 @@
 from pathlib import Path
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import migration_report
@@ -37,6 +38,14 @@ class MediaEvidenceTests(unittest.TestCase):
         self.assertEqual([m['kind'] for m in state['modules']['M001']['results']['P1']['media_refs']], ['recording', 'screenshot'])
         step = state['next_steps'][0]
         self.assertEqual((step['operation'], sorted(step['media_evidence'])), ('diagnose', ['P1']))
+        self.assertEqual(([m['kind'] for m in step['media_evidence']['P1']['observed']], step['media_evidence']['P1']['expected']), (['recording', 'screenshot'], []))
+        import reference_media
+        shown = {'media_id': 'MEDIA-flow', 'kind': 'video', 'role': 'legacy-baseline', 'screen': 'login', 'case_ids': ['C1'], 'ref': self.media('flow.mp4')['ref']}
+        with mock.patch.object(reference_media, 'of_module', return_value=[shown]), mock.patch.object(reference_media, 'cites', return_value=True):
+            expected = f.state()['next_steps'][0]['media_evidence']['P1']['expected']
+            report_text = migration_report.render(migration_report.build(f.root, f.state(), state['last_sequence']))
+        self.assertEqual([(m['media_id'], m['kind']) for m in expected], [('MEDIA-flow', 'video')])
+        self.assertIn('预期 video MEDIA-flow / 观察 recording final.mp4', report_text); self.assertIn('- 预期媒体（video MEDIA-flow）', report_text)
         report = migration_report.build(f.root, state, state['last_sequence'])
         row, = [r for r in report['paths'] if r['path_id'] == 'P1']
         self.assertEqual([m['kind'] for m in row['media_refs']], ['recording', 'screenshot'])

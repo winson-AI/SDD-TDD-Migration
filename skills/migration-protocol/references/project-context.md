@@ -106,11 +106,11 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 ## 父子共同规划视野与知识资料
 
-可选 knowledge_paths 是知识文档绝对路径数组，整体替换；prepare 复制每份并绑定摘要到 source_refs.knowledge_paths，旧运行读原快照。父子 MO 经 planning_context 读取，角色可用 knowledge-query 的 project 模式查；都没有的知识登 knowledge-need，由人以 kind=knowledge 决定补充并带来源。全局代码目录只读用于理解和复用检查，目标源码变化仍受 baseline/锁/冻结约束；缺必要知识或未声明公共能力 owner 时先记录问题，不凭局部信息重复实现。
+可选 knowledge_paths 是知识文档或其目录（wiki 导出，递归取 Markdown）的绝对路径数组，整体替换；prepare 复制每份并绑定摘要到 source_refs.knowledge_paths，旧运行读原快照；往次 run 的人工知识答复随经验库沉淀，下次 prepare 自动并入。父子 MO 经 planning_context 读取，角色可用 knowledge-query 的 project 模式查；都没有的知识登 knowledge-need，由人以 kind=knowledge 决定补充并带来源。全局代码目录只读用于理解和复用检查，目标源码变化仍受 baseline/锁/冻结约束；缺必要知识或未声明公共能力 owner 时先记录问题，不凭局部信息重复实现。
 
 ## 用户参考媒体
 
-可选 reference_media 数组（元素见 [reference-media.json](../../../template/reference-media.json)），整体替换；prepare 复制并绑定 hash 到 source_refs.reference_media。持有其 CASE 的叶子在分配包 `reference_media` 读到它们并以之为就绪证据。截图是存量不可预览界面的基线：UI 项以 `visual_mode: user-reference` + `baseline_refs` 引用该 CASE 的截图，不得退回 source-only；visual PATH 的 `baseline_ref` 指向它。录屏是功能 PATH 的交互预期，以 `reference_media_ids` 引用。用户展示过的用户可见 CASE 没有 PATH 引用对应媒体即记欠项（已声明设备缺口除外）；报告按媒体列持有叶子、引用 PATH 与状态。role=target-expectation（设计稿、目标截图）在其覆盖的界面取代存量基线作视觉对齐目标，行为仍以存量为准：UI 项以 user-reference 引用它（存量可预览亦然），design 须引用其 media_id；与存量的差异由报告保真限制（target-expectation）披露，不交人；对照它的视觉 Red 走 Fixer，与冻结 SPEC 冲突走 runtime-spec-variant-conflict 交人。
+可选 reference_media 数组（元素见 [reference-media.json](../../../template/reference-media.json)），整体替换；prepare 复制并绑定 hash 到 source_refs.reference_media。持有其 CASE 的叶子在分配包 `reference_media` 读到它们并以之为就绪证据。截图是存量不可预览界面的基线：UI 项以 `visual_mode: user-reference` + `baseline_refs` 引用该 CASE 的截图，不得退回 source-only；visual PATH 的 `baseline_ref` 指向它。录屏是功能 PATH 的交互预期，以 `reference_media_ids` 引用。用户展示过的用户可见 CASE 没有 PATH 引用对应媒体即记欠项（已声明设备缺口除外）；规划步骤带 `media_due`（本叶尚未被引用的媒体），持有媒体的叶子卡片带本节；诊断/修复步骤并列预期媒体与实际媒体；报告按媒体列持有叶子、引用 PATH 与状态。role=target-expectation（设计稿、目标截图）在其覆盖的界面取代存量基线作视觉对齐目标，行为仍以存量为准：UI 项以 user-reference 引用它（存量可预览亦然），design 须引用其 media_id；与存量的差异由报告保真限制（target-expectation）披露，不交人；对照它的视觉 Red 走 Fixer，与冻结 SPEC 冲突走 runtime-spec-variant-conflict 交人。
 
 ## 存量预览
 

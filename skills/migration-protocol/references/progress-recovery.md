@@ -44,7 +44,7 @@ OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；�
 | `operation-rejected` | 各作用域当前 revision 下被拒操作及原因分别计数；相同操作/原因累计拒绝 3 次升级人工信号，其他模块的拒绝不清零，禁止原样重试空转 |
 | `not-implemented` / `label=未实现` | MO 核验替代实现均不可行后接受的具体功能缺口；立即展示范围、核验证据及所需人工决策。无可复用库本身不构成该信号，详见 [复用协议第 8 节](reuse-dependencies.md#8-复用不可行--coding确实无法实现--未实现提醒) |
 
-拒绝请求仍返回非零退出码；在日志可读、诊断可写时持久化 `reports/rejected-operation.json`，不提交业务事件、不改变质量。诊断是可重建/可替换的提示，不是第二条业务总线。
+拒绝请求返回非零退出码并在可写时持久化 `reports/rejected-operation.json`，不提交业务事件、不改变质量；诊断是可重建的提示，不是第二条业务总线。
 
 若真实 worker 已退出但 assignment 仍活动，宿主保存退出日志并走 revoke，再根据恢复点续作或记录有证据的挂起；仍运行时先核实/停止，禁止超时后直接重授锁。
 

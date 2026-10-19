@@ -156,6 +156,11 @@ def settled(state):
         preview = None
     if preview:
         facts['legacy_preview'] = preview
+    import knowledge
+    answered = [{'decision_id': row['decision_id'], 'issue_id': row['issue_id'], 'summary': ((state.get('issues') or {}).get(row['issue_id']) or {}).get('summary'), 'ref': row['ref']}
+                for row in knowledge.answers(state)]  # what people told this run stays known to the next
+    if answered:
+        facts['knowledge'] = answered
     return facts
 
 
@@ -340,6 +345,19 @@ def harvest(root, run_root):
         data['runs'][rid] = {'sequence': sequence, 'run_quality': state.get('quality'), 'harvested_at': stamp,
                              'entries': lessons['entries'], 'slicing': slicing_facts(state)}
         facts = settled(state)
+        kept = []
+        for row in facts.get('knowledge') or []:  # the answer outlives the run: the store keeps its own copy, named by its hash
+            copy_path = directory / 'knowledge' / (row['ref']['sha256'] + '.md')
+            try:
+                if not copy_path.exists():
+                    copy_path.parent.mkdir(parents=True, exist_ok=True); atomic(copy_path, Path(row['ref']['path']).read_bytes())
+            except OSError:
+                continue
+            kept.append({**row, 'ref': {'path': str(copy_path), 'sha256': row['ref']['sha256']}})
+        if kept:
+            facts['knowledge'] = kept
+        else:
+            facts.pop('knowledge', None)
         if facts:  # the project's next run starts from what this one settled, unless its own configuration says otherwise
             data.setdefault('conventions', {})[shared(root)[1] or state.get('project_id') or ''] = {**facts, 'run_id': rid}
         skill = write_skill(directory, data)  # the store's slicing skill follows every run that adds to it
