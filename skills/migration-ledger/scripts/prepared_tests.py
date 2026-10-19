@@ -1,7 +1,7 @@
 """Frozen test inputs shared by module execution and whole-task audit retests."""
 from pathlib import Path
 import re
-from contracts import Rejected, check_ref, digest, keyed, marked, nonempty, read_json, require
+from contracts import Rejected, check_ref, digest, keyed, marked, nonempty, owed, read_json, require
 
 KINDS = ('script', 'fixture', 'adapter', 'test-source')
 
@@ -82,10 +82,10 @@ def preparation(result, required=False, freezing=False):
         for ref in nonempty(review.get('evidence_refs'), 'test preparation evidence'): check_ref(ref)
         ids = {a['asset_id'] for a in prepared if path['path_id'] in a['path_ids']}
         require(set(review.get('asset_ids', [])) == ids, 'test preparation asset coverage mismatch')
-        require(review['status'] != 'prepared' or ids, 'prepared PATH needs test assets')
+        owed(review['status'] != 'prepared' or ids, 'prepared PATH needs test assets')
         if review['status'] == 'deferred':
             require(review.get('owner') and review.get('next_action'), 'deferred preparation needs owner/next_action')
-            require(not freezing, 'resolve deferred test preparation before freeze')
+            owed(not freezing, 'resolve deferred test preparation before freeze')
 
 
 def source(module):

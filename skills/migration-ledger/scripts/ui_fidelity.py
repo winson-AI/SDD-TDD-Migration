@@ -106,7 +106,7 @@ def allocation_gate(s, analysis):
         owed(not gaps, 'ui_fidelity_required: UI items lack capture-bound ui_evidence before freeze: ' + ', '.join(gaps))
     declared_refs = _declared_refs(analysis)
     uncovered = resource_fidelity.closure_gaps(analysis, declared_refs)
-    require(not uncovered, 'ui_fidelity_required: resource closure reduced; uncovered presentation refs: ' + ', '.join(uncovered))
+    owed(not uncovered, 'ui_fidelity_required: resource closure reduced; uncovered presentation refs: ' + ', '.join(uncovered))
     resource_fidelity.require_exact_closure(analysis, declared_refs, s.get('legacy_root'))
 
 
@@ -123,14 +123,14 @@ def freeze_gate(s, m, allocation=True):
     if any(row.get('dimension') == 'UI' and row.get('status') == 'applicable' for row in analysis.get('dimensions', [])):
         closure = ((m.get('plan') or {}).get('source_closure') or {})
         renderers = closure.get('ui_renderers')
-        require(isinstance(renderers, list) and renderers,
-                'ui_fidelity_required: source_closure.ui_renderers must name the renderers that mutate visible state')
+        owed(isinstance(renderers, list) and renderers,
+             'ui_fidelity_required: source_closure.ui_renderers must name the renderers that mutate visible state')
         # A prose widget list is not a closure. Topology, the presentation states that actually exist,
         # navigation identity/back behaviour and the platform/lifecycle surface each need evidence.
         # Resources are covered more strictly by the unreduced-closure check above.
         for facet in ('ui_topology', 'states', 'navigation', 'platform_lifecycle'):
-            require(closure.get(facet),
-                    'ui_fidelity_required: source_closure.' + facet + ' required for UI scope')
+            owed(closure.get(facet),
+                 'ui_fidelity_required: source_closure.' + facet + ' required for UI scope')
     baseline_gate(s, m, allocation)
     import parameter_file
     parameter_file.gate(s, m.get('plan') or {}, analysis)
@@ -357,14 +357,14 @@ def baseline_gate(s, m, allocation=True):
             reference_media.evidence_gate(s, item, evidence)
     covered = {node for path in visual for node in path.get('node_ids', [])}
     for target in runtime_targets(analysis):
-        require(visual, 'baseline target ' + target + ' needs a visual test path aligning its nodes')
+        owed(visual, 'baseline target ' + target + ' needs a visual test path aligning its nodes')
     require(not runtime_targets(analysis) or covered,
             'visual paths must name the UI-tree nodes they align')
     declared = declared_interactions(analysis)
     interaction_paths = [path for path in plan.get('paths', []) if path.get('kind') in ('automation', 'visual')]
     proven = {path.get('interaction_id') for path in interaction_paths}
     missing = sorted(set(declared) - proven)
-    require(not missing, 'declared interactions need an automation/visual path carrying device proof: ' + ', '.join(missing))
+    owed(not missing, 'declared interactions need an automation/visual path carrying device proof: ' + ', '.join(missing))
     for path in plan.get('paths', []):
         if not path.get('interaction_id'):
             continue
@@ -401,7 +401,7 @@ def visual_plan_gate(analysis, visual):
             if index is not None:
                 # What a screen shows of a legacy picture is measured there; a copy in the right folder proves nothing about the screen.
                 uncovered = sorted(check_coverage(model, tree, index)['open'])
-                require(not uncovered, 'pictures shown by ' + evidence['coverage'] + ' need an image check or a waiver with evidence: '
+                owed(not uncovered, 'pictures shown by ' + evidence['coverage'] + ' need an image check or a waiver with evidence: '
                         + ', '.join(node + ' ' + ref for node, ref in uncovered[:10]) + (' and ' + str(len(uncovered) - 10) + ' more' if len(uncovered) > 10 else ''))
             screens.setdefault(evidence['coverage'], set()).update(ue.node_ids(tree))
             for interaction in model.get('interactions', []):
@@ -447,7 +447,7 @@ def visual_plan_gate(analysis, visual):
         if path.get('baseline_ref') is not None:
             covered.add(coverage)
     missing = sorted(set(targets) - covered)
-    require(not missing, 'runtime UI targets lack visual paths: ' + ', '.join(missing))
+    owed(not missing, 'runtime UI targets lack visual paths: ' + ', '.join(missing))
 
 
 def completion_gate(s, m):

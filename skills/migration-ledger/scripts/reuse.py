@@ -43,9 +43,11 @@ def catalog(ref, expected_sources):
     require(data.get('schema_version') == 2 and data.get('sources') == expected_sources, 'reuse catalogue source set mismatch')
     by_source = {s['source_id']: s for s in expected_sources}
     reviews = keyed(data.get('source_reviews'), 'source_id')
-    require(set(reviews) == set(by_source), 'every reuse source must be reviewed')
+    require(set(reviews) <= set(by_source), 'reuse source review names a source the run does not have')
+    owed(set(by_source) <= set(reviews), 'every reuse source must be reviewed')
     for sid, review in reviews.items():
-        require(review.get('status') == 'reviewed' and review.get('conclusion'), 'reuse source review incomplete; resolve before freeze')
+        if not (review.get('status') == 'reviewed' and review.get('conclusion')):
+            owed(False, 'reuse source review incomplete; resolve before freeze'); continue
         paths = nonempty(review.get('scanned_paths'), 'reuse scanned paths')
         require(all(Path(p).is_absolute() and in_source(p, by_source[sid]) for p in paths), 'reuse scan outside declared modules')
         for evidence in nonempty(review.get('evidence_refs'), 'reuse review evidence'):

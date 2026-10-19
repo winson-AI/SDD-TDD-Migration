@@ -77,7 +77,7 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 | --- | --- |
 | GO 发现/规划 | 按功能清单定位存量入口、调用链、可观察结果与必要状态，把候选库与该功能对齐；不要求用户另填保真材料 |
 | 父 MO 拆分 | 子 scope/context_refs 带存量基线与候选差异，明确共享适配 owner、消费者与跨模块复现路径，不因复用删功能 |
-| 子 MO / Spec Designer planning → freeze | 每个选中映射填 fidelity，逐场景写原行为、库行为与复现方案；差异落 tasks，预期落 SPEC，Test Runner 把基线与验收转成 PATH/ASSERT；未决行为交人工，有差异但方案明确即可冻结，不要求规划期已通过运行测试 |
+| 子 MO / Spec Designer planning → freeze | 每个选中映射填 fidelity，逐场景写原行为、库行为与复现方案；差异落 tasks，预期落 SPEC，Test Runner 把基线与验收转成 PATH/ASSERT；未决行为交人工，有差异但方案明确即可冻结，不要求规划期已通过运行测试；来源未审阅记欠项 |
 | Coding / Fixer | 按冻结方案接线/适配，reuse_trace 留实际版本与绑定证据，不用库行为替换冻结预期；修复记忆引用 mapping/scenario、源行为、偏差、策略与复测 |
 | Testing → MO 验收 | code accepted 后用对应前置、输入/状态与真实提供方运行 Main，保存 expected/actual、断言与回执，验证结果、状态与副作用；全部必需路径与保真断言 Green 才验收 |
 | 全量收尾 → Auditor | 读相关 SPEC、冻结对齐记录、PATH 与失败证据，沿共享库/适配器影响范围委派 Fixer 与 Testing，独立复核；失败输出根因待人工，不以历史对齐结论代替复测 |

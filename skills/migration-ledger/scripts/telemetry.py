@@ -1,5 +1,5 @@
 """Optional scoped telemetry contract; absence never introduces a global gate."""
-from contracts import check_ref, keyed, nonempty, require
+from contracts import check_ref, keyed, nonempty, owed, require
 
 
 def validate(plan):
@@ -16,7 +16,8 @@ def validate(plan):
     tasks = {t['task_id']: t for t in plan['tasks']}
     paths = {p['path_id']: p for p in plan['paths']}
     task_reviews = keyed(data.get('tasks'), 'task_id')
-    require(set(task_reviews) == set(tasks), 'telemetry review must cover scoped tasks')
+    require(set(task_reviews) <= set(tasks), 'telemetry review names a task outside the plan')
+    owed(set(tasks) <= set(task_reviews), 'telemetry review must cover scoped tasks')
     if data['status'] == 'not-applicable':
         require(not rows, 'N/A telemetry cannot declare events')
     else:
@@ -38,8 +39,8 @@ def validate(plan):
             require(path and path.get('kind') != 'build', 'telemetry requires a business path, not build')
             aids = nonempty(test.get('assertion_ids'), 'telemetry assertions')
             require(set(aids) <= {a['assertion_id'] for a in path['expected_assertions']}, 'unknown telemetry assertion')
-            require(any(pid in tasks[tid]['path_ids'] for tid in tids), 'telemetry path not traced by event tasks')
-        require(all(set(checks).intersection(tasks[tid]['path_ids']) for tid in tids), 'telemetry task lacks event verification trace')
+            owed(any(pid in tasks[tid]['path_ids'] for tid in tids), 'telemetry path not traced by event tasks')
+        owed(all(set(checks).intersection(tasks[tid]['path_ids']) for tid in tids), 'telemetry task lacks event verification trace')
     for tid, row in task_reviews.items():
         require(row.get('status') in ('applicable', 'not-applicable') and row.get('reason'), 'telemetry task applicability required')
         ids = row.get('event_ids')

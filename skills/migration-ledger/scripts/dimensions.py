@@ -145,7 +145,7 @@ def coverage_review(data, required=False):
             pairs = {(r.get('item_id'), r.get('condition_id')) for r in refs}
             require(pairs <= applicable, 'condition review references unknown/non-applicable condition')
             covered.update(pairs)
-        require(covered == applicable, 'condition review omits applicable conditions')
+        owed(covered == applicable, 'condition review omits applicable conditions')
 
 
 TARGET_SIDE = {None: ('target_binding',), 'Resource': ('target_binding', 'target_resource', 'consumer', 'conversion')}
@@ -423,16 +423,16 @@ def validate_plan(plan, module):
         pids = set(nonempty(trace.get('path_ids'), 'dimension paths'))
         require(tids <= set(tasks) and pids <= set(paths), 'dimension trace references unknown task/path')
         require(pids <= {p for tid in tids for p in tasks[tid]['path_ids']}, 'dimension path not covered by mapped task')
-        require(set(items[iid]['requirement_ids']) <= {r for tid in tids for r in tasks[tid].get('global_requirement_ids', tasks[tid]['requirement_ids'])},
-                'dimension task requirement trace incomplete')
-        require(set(items[iid]['case_ids']) <= {paths[pid]['case_id'] for pid in pids if paths[pid].get('kind') != 'build'},
-                'dimension behavior requires case paths; build alone is not fidelity')
+        owed(set(items[iid]['requirement_ids']) <= {r for tid in tids for r in tasks[tid].get('global_requirement_ids', tasks[tid]['requirement_ids'])},
+             'dimension task requirement trace incomplete')
+        owed(set(items[iid]['case_ids']) <= {paths[pid]['case_id'] for pid in pids if paths[pid].get('kind') != 'build'},
+             'dimension behavior requires case paths; build alone is not fidelity')
         pairs = nonempty(trace.get('assertions'), 'dimension assertion trace')
-        require({a.get('path_id') for a in pairs} == pids, 'dimension paths need assertion trace')
+        owed({a.get('path_id') for a in pairs} == pids, 'dimension paths need assertion trace')
         for pair in pairs:
             require(pair.get('assertion_id') in {a['assertion_id'] for a in paths[pair['path_id']]['expected_assertions']},
                     'unknown dimension assertion')
-    require({tid for trace in traces.values() for tid in trace['task_ids']} == set(tasks), 'task missing dimension ownership')
+    owed({tid for trace in traces.values() for tid in trace['task_ids']} == set(tasks), 'task missing dimension ownership')
     task_analyses(plan, module, items, traces)
     for iid, item in items.items():
         if iid not in traces:

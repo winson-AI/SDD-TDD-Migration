@@ -3,7 +3,7 @@ import copy
 from pathlib import Path
 import task_revalidation
 
-from contracts import Rejected, require, check_ref, nonempty, verify_plan, baseline, read_json
+from contracts import Rejected, baseline, check_ref, nonempty, owed, read_json, require, verify_plan
 
 OPS = {'automation-unavailable', 'automation-resume', 'audit-unavailable'}
 
@@ -175,10 +175,11 @@ def plan_check(plan, target, static_required=False, unit_required=False):
         for iid in logic:
             trace = traces.get(iid, {})
             reason = trace.get('unit_test_na')
-            require(unit_ids.intersection(trace.get('path_ids', [])) or (isinstance(reason, str) and reason.strip()),
-                    'unit_tests_required: Logic item needs a unit PATH or unit_test_na reason: ' + iid)
+            owed(unit_ids.intersection(trace.get('path_ids', [])) or (isinstance(reason, str) and reason.strip()),
+                 'unit_tests_required: Logic item needs a unit PATH or unit_test_na reason: ' + iid)
     statics = [p for p in plan['paths'] if p['kind'] == 'static']
-    require(not static_required or len(statics) == 1, 'spec_closure_required: plan one static spec-closure PATH')
+    owed(not static_required or statics, 'spec_closure_required: plan one static spec-closure PATH')
+    require(len(statics) <= 1, 'spec closure takes one static PATH, not several')
     requirements = sorted({r for t in plan.get('tasks', []) for r in t.get('requirement_ids', [])})
     for path in statics:
         listed = path.get('scenario_requirement_ids')  # derived: the review always covers every module requirement
