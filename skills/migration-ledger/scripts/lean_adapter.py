@@ -207,8 +207,8 @@ def validation_summary(validation_result, *, target_root=None, result_ref=None):
                     'implementation issues require lean/resource owner')
         validation_result = copy.deepcopy(validation_result)
         validation_result['artifacts'] = [normalize_ref(r, target_root) for r in validation_result.get('artifacts', [])]
-        require(all(Path(r['path']).suffix.lower() in ('.hap', '.hsp', '.apk') for r in validation_result['artifacts']),
-                'native build artifact must be HAP/HSP/APK')
+        require(all(Path(r['path']).suffix.lower() in ('.hap', '.hsp', '.apk', '.zip', '.tgz', '.tar', '.gz') for r in validation_result['artifacts']),
+                'build artifact must be HAP/HSP/APK or a web bundle')
         if verdict == 'RUNNABLE_PARTIAL':
             visual = validation_result.get('visual_evidence') or {}
             require(visual.get('mode') == 'source-only' and validation_result.get('issues'),

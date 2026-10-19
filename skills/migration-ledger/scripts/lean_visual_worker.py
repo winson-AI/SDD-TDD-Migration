@@ -363,6 +363,10 @@ def open_browser(out, viewport=None):
 
         def wait(self, ms): self.page.wait_for_timeout(ms)
 
+        def identity(self):
+            """The build the served page declares: <meta name="sdd-build" content="<artifact sha256>">, written by the deploy step."""
+            return self.page.evaluate("() => { const m = document.querySelector('meta[name=\"sdd-build\"]'); return m ? (m.getAttribute('content') || '') : ''; }")
+
         def close(self):
             self.browser.close(); self.playwright.stop()
     return PlaywrightPage()
@@ -381,11 +385,11 @@ class BrowserDevice:
         self.tool = 'playwright'
 
     def act(self, name, *args):
-        self.logs.append({'action': name, 'args': [str(a) for a in args]})
+        self.logs.append({'action': name, 'argv': ['browser', name, *[str(a) for a in args]], 'exit_code': 0})
         try:
             return getattr(self.page, name)(*args)
         except Exception as exc:  # the browser's own error: an environment fact, not a verdict
-            self.logs[-1]['error'] = type(exc).__name__
+            self.logs[-1].update(exit_code=1, error=type(exc).__name__)
             raise DeviceFailure('device-execution-error', f'browser {name} failed; see command log') from exc
 
     def foreground(self):
@@ -728,8 +732,9 @@ def path_context(args, module, task):
 def accepted_artifact(args, module, path, backend='hdc'):
     ref = args.get('artifact_ref')
     artifact = check_ref(ref)
-    suffix = '.apk' if backend == 'adb' else '.hap'
-    require(artifact.suffix.lower() == suffix, 'visual installation requires one accepted ' + suffix[1:].upper() + ' artifact')
+    if backend != 'browser':  # a web build's deliverable is whatever file the build PATH accepted; the served page names its hash
+        suffix = '.apk' if backend == 'adb' else '.hap'
+        require(artifact.suffix.lower() == suffix, 'visual installation requires one accepted ' + suffix[1:].upper() + ' artifact')
     artifacts = (module.get('path_build_artifacts', {}).get(path['path_id'], [])
                  if 'path_build_artifacts' in module else module.get('build_artifacts', []))
     require(ref in artifacts, 'artifact must belong to this PATH current accepted build')
@@ -880,6 +885,36 @@ def capture_android(device, contract, args, path, module, task, out, root):
     if 'captures' not in observed:
         return observed
     return candidate_record(observed, 'android-candidate', 'android', target, manifest, round_id, args, module, task, out, path, artifact_identity=identity)
+
+
+def web_identity(device, contract, artifact, sha256):
+    """The served target page is reachable and declares the accepted build: its <meta name="sdd-build"> equals the artifact hash.
+    Deployment is the host's or the build PATH's; the worker only reads what the page says it is."""
+    url = contract.get('url')
+    require(isinstance(url, str) and url.startswith(('http://', 'https://')) and urlparse(url).netloc == device.device,
+            'a web target names the url served at its app_id host')
+    device.act('goto', url)
+    declared = str(device.act('identity') or '')
+    device.logs.append({'action': 'install', 'argv': ['browser', 'install', url, str(artifact)], 'exit_code': 0 if declared == sha256 else 1, 'identity': declared})
+    if declared != sha256:
+        raise DeviceFailure('artifact-identity-unverified', 'the served page does not declare the accepted build (meta sdd-build differs from the artifact hash)')
+    host, title = device.foreground()
+    return {'kind': 'meta[name=sdd-build]', 'sha256': declared, 'url': url, 'title': title}
+
+
+def capture_web(device, contract, args, path, module, task, out, root):
+    """The deployed web target's screen as a web-candidate record: the page re-declares the accepted build, is walked by frozen
+    clicks and observed like every other screen."""
+    context = candidate_context(device, contract, args, path, module, task, out, root)
+    if isinstance(context, dict):
+        return context
+    target, manifest, install, round_id = context
+    identity = web_identity(device, contract, check_ref(args['artifact_ref']), args['artifact_ref']['sha256'])
+    web_actions(device, contract.get('actions', []))
+    observed = observe_screen(device, device.device, target, contract, out, 'candidate')
+    if 'captures' not in observed:
+        return observed
+    return candidate_record(observed, 'web-candidate', 'web', target, manifest, round_id, args, module, task, out, path, artifact_identity=identity)
 
 
 def capture(device, contract, args, path, module, task, out, root):
@@ -1053,16 +1088,30 @@ def run(operation, args, *, root, out, module, task, actor, config):
         return blocked('explicit run visual_capture backend and device_id required')
     device_lock(actor, device_settings, task)
     backend = device_settings.get('backend')
-    require(backend in ('hdc', 'adb'), 'visual capture requires explicitly configured hdc or adb backend')
+    require(backend in ('hdc', 'adb', 'browser'), 'visual capture requires explicitly configured hdc, adb or browser backend')
     artifact = accepted_artifact(args, module, path, backend)
     app = token(contract.get('app_id'), 'app_id')
-    device = Device(device_settings, out) if backend == 'hdc' else AndroidDevice(device_settings.get('device_id'), device_settings.get('tool', 'adb'), out)
+    if backend == 'browser':  # a web target: the host that serves it is the device, the page is the screen
+        url = device_settings.get('url')
+        require(isinstance(url, str) and url.startswith(('http://', 'https://')) and urlparse(url).netloc == app, 'visual_capture.url names the served web target at app_id')
+        device = BrowserDevice(url, out, viewport=device_settings.get('viewport'))
+    else:
+        device = Device(device_settings, out) if backend == 'hdc' else AndroidDevice(device_settings.get('device_id'), device_settings.get('tool', 'adb'), out)
     try:
-        lines = (device.call('-v') if backend == 'hdc' else device.call('version')).strip().splitlines()
-        device.version = lines[0] if lines else ''
-        if not device.version:
-            raise DeviceFailure('environment-unavailable', backend.upper() + ' version could not be observed')
-        if operation == 'visual-install' and backend == 'adb':  # the candidate APK: installed, then hashed on the device against the accepted bytes
+        if backend != 'browser':
+            lines = (device.call('-v') if backend == 'hdc' else device.call('version')).strip().splitlines()
+            device.version = lines[0] if lines else ''
+            if not device.version:
+                raise DeviceFailure('environment-unavailable', backend.upper() + ' version could not be observed')
+        if operation == 'visual-install' and backend == 'browser':  # the deployed page declares the accepted build; nothing is installed by the worker
+            identity = web_identity(device, contract, artifact, args['artifact_ref']['sha256'])
+            result = {'producer': 'lean-visual-worker', 'operation': operation, 'status': 'INSTALLED',
+                      'artifact_ref': args['artifact_ref'], 'code_baseline': module['code_baseline'],
+                      'device_id': device.device, 'app_id': app, 'assignment_id': task['assignment_id'],
+                      'fencing_token': task.get('fencing_token'), 'installed_metadata': {'url': identity['url'], 'title': identity['title']},
+                      'artifact_identity': identity,
+                      'acceptance': 'installation-is-evidence-not-a-test-verdict'}
+        elif operation == 'visual-install' and backend == 'adb':  # the candidate APK: installed, then hashed on the device against the accepted bytes
             device.call('install', '-r', artifact, timeout=240)
             identity = android_identity(device, app, args['artifact_ref']['sha256'])
             installed = identity['installed']
@@ -1087,7 +1136,7 @@ def run(operation, args, *, root, out, module, task, actor, config):
                       'artifact_identity': identity,
                       'acceptance': 'installation-is-evidence-not-a-test-verdict'}
         else:
-            result = (capture_android if backend == 'adb' else capture)(device, contract, args, path, module, task, out, root)
+            result = {'adb': capture_android, 'browser': capture_web}.get(backend, capture)(device, contract, args, path, module, task, out, root)
     except DeviceFailure as exc:
         result = blocked(str(exc), exc.kind)
     finally:

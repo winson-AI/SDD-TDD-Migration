@@ -4,7 +4,7 @@
 
 ## 能力边界与宿主责任
 
-本地实现使用 Python 3.10+ 标准库，在 macOS/Linux 上用 `fcntl.flock` 串行提交；不支持 Windows 原生文件锁。单进程或多个 CLI 进程都通过同一个 run root 的锁写日志。模块工作可并行，只有事务提交串行。
+本地实现使用 Python 3.10+ 标准库，在 macOS/Linux 上用 `fcntl.flock` 串行提交；不支持 Windows 原生文件锁。模块工作可并行，只有事务提交串行。
 
 脚本负责：合法阶段、结果/版本/路径校验、请求幂等、revision CAS、活动 assignment 资源冲突、证据快照、日志 hash 链、冷读投影、恢复预算和独立审计身份冲突检查。
 

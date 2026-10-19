@@ -1,7 +1,7 @@
 """A case the user sees is verified where the user sees it: on a device or on the rendered screen."""
 from contracts import check_ref, keyed, nonempty, read_json, require
 
-DEVICE_PLATFORMS = ('android', 'harmony')
+DEVICE_PLATFORMS = ('android', 'harmony', 'web')  # a browser shows the screen as a device does
 
 
 def on_device(path):
