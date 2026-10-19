@@ -36,7 +36,7 @@ class GoldenPathTests(unittest.TestCase):
         page = test_legacy_capture.FakePage(legacy.png(1))
         web = {'kind': 'browser', 'url': 'https://legacy.example.test/login'}
         legacy.actor['device_lock']['device_id'] = web['url']
-        with patch.object(worker, 'open_browser', lambda out: page):
+        with patch.object(worker, 'open_browser', lambda out, viewport=None: page):
             result = legacy.capture([{'coverage': COVERAGE, 'target_match': [{'resource-id': 'title', 'text': 'Sign in'}]}], stated=web)
         self.assertEqual(result['status'], 'CAPTURED')
         return result['manifest_ref']

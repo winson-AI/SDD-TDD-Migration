@@ -160,6 +160,8 @@ class FakePage:
     def click(self, selector): self.calls.append(('click', selector))
     def back(self): self.calls.append(('back',))
     def wheel(self, x, y, dy): self.calls.append(('wheel',))
+    def settle(self, network=False): self.calls.append(('settle',))
+    def wait(self, ms): self.calls.append(('wait', ms))
     def title(self): return self.title_text
     def close(self): self.calls.append(('close',))
     def screenshot(self, path): Path(path).write_bytes(self.png)
@@ -177,7 +179,18 @@ class BrowserCaptureTests(CaptureFixture):
         self.page = FakePage(self.png(1))
         self.web = {'kind': 'browser', 'url': 'https://legacy.example.test/login'}
         self.actor['device_lock']['device_id'] = self.web['url']
-        self.open = patch.object(worker, 'open_browser', lambda out: self.page); self.open.start(); self.addCleanup(self.open.stop)
+        self.viewports = []
+        self.open = patch.object(worker, 'open_browser', lambda out, viewport=None: (self.viewports.append(viewport), self.page)[1]); self.open.start(); self.addCleanup(self.open.stop)
+
+    def test_the_statement_may_name_the_window_the_legacy_is_captured_in(self):
+        import project_context as pc
+        phone = {**self.web, 'viewport': {'width': 390, 'height': 844}}
+        self.assertEqual(pc.legacy_preview_config(phone)['viewport'], {'width': 390, 'height': 844})
+        for bad in ({'width': 390}, {'width': 390, 'height': 10}, {'width': '390', 'height': 844}):
+            with self.assertRaisesRegex(Rejected, 'viewport is'):
+                pc.legacy_preview_config({**self.web, 'viewport': bad})
+        result = self.capture([{'coverage': 'login:base:viewport', 'target_match': [{'resource-id': 'title', 'text': 'Sign in'}]}], stated=phone)
+        self.assertEqual((result['status'], self.viewports), ('CAPTURED', [{'width': 390, 'height': 844}]))
 
     def test_a_web_screen_becomes_a_legacy_reference_record_the_pipeline_reads(self):
         from lean_tools import validate_manifest as vm
@@ -193,6 +206,7 @@ class BrowserCaptureTests(CaptureFixture):
         selected = select_runtime_ui.select(Path(result['manifest_ref']['path']), ['login:base:viewport'])
         self.assertTrue(any(n['resource-id'] == 'title' and n['class'] == 'h1 hero' for n in selected['captures'][0]['viewports'][0]['nodes']))
         self.assertEqual(self.page.calls[:2], [('goto', self.web['url']), ('click', 'a.login')]); self.assertIn(('close',), self.page.calls)
+        self.assertEqual(self.viewports, [None])
         self.assertEqual(read_json(result['manifest_ref']['path'])['legacy_preview']['url'], self.web['url'])
 
     def test_what_a_browser_cannot_show_is_named(self):
@@ -248,7 +262,7 @@ class AgentNavigationTests(CaptureFixture):
             self.capture([self.login(navigation={'mode': 'script', 'steps': []})])
         web = {'kind': 'browser', 'url': 'https://legacy.example.test/login'}
         self.actor['device_lock']['device_id'] = web['url']
-        with patch.object(worker, 'open_browser', lambda out: FakePage(self.png(1))):
+        with patch.object(worker, 'open_browser', lambda out, viewport=None: FakePage(self.png(1))):
             result = self.capture([{'coverage': 'login:base:viewport', 'target_match': [{'resource-id': 'title'}], 'navigation': {'mode': 'agent', 'steps': ['x']}}], stated=web)
         self.assertIn('adb device statement', result['blocked'][0]['reason'])
 

@@ -77,7 +77,7 @@ Green 还须带 `alignment_root` 与从原始 alignment 推导的 `comparison_ev
 
 adapter 与正式验收共用 [visual_evidence.py](../../migration-ledger/scripts/visual_evidence.py)，重取完整 capture 记录及 baseline_refs 核对每屏；候选 snapshot 的 capture_execution_ref 见 [视觉执行](visual-execution.md#2-执行节点)。
 
-可选 GLOBAL visual PATH 在规划时声明 `build_binding: {module_id, path_id}` 指向冻结的集成 build PATH；Green 只接受该 PATH 在当前模块基线的已接受构建产物。GO/MO 审查该构建命令覆盖此全局用例依赖；缺绑定不借用全局产物池，也不重跑已有 Green。
+可选 GLOBAL visual PATH 在规划时声明 `build_binding: {module_id, path_id}` 指向冻结的集成 build PATH；Green 只接受该 PATH 在当前模块基线的已接受构建产物。GO/MO 审查该构建命令覆盖此全局用例依赖；缺绑定不借用全局产物池。
 
 - **capture manifest** [ui_evidence.validate_capture](../../migration-ledger/scripts/ui_evidence.py):`COMPLETE` 必须有真实 screenshot/view_xml/meta 三元组 + 非空 captures + `observed_variant` + 记录 backend;`scroll` 只有 `scroll-complete` 才算达成(截断的 scroll-partial **永不**推进);`SOURCE_ONLY` 不得携带臆造 captures;缺 coverage 的旧记录不得升级为 viewport。
 - **validation → 三态 + HAP** [lean_adapter.validation_summary](../../migration-ledger/scripts/lean_adapter.py):外部验证结果的 compile/test/package 检查映射为三态(任一 failed → Red);`package` 通过必须记录产物,且 artifact 的 sha256 与当前文件**仍需匹配**(HAP 不能被换掉)。

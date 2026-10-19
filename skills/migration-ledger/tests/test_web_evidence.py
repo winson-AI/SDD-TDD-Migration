@@ -47,7 +47,7 @@ class WebEvidenceTests(test_legacy_capture.CaptureFixture):
         self.page = ScrollingPage(self.png(1))
         self.web = {'kind': 'browser', 'url': 'https://legacy.example.test/list'}
         self.actor['device_lock']['device_id'] = self.web['url']
-        self.open = patch.object(worker, 'open_browser', lambda out: self.page); self.open.start(); self.addCleanup(self.open.stop)
+        self.open = patch.object(worker, 'open_browser', lambda out, viewport=None: self.page); self.open.start(); self.addCleanup(self.open.stop)
         self.targets = [{'coverage': 'login:base:viewport', 'target_match': [{'resource-id': 'title', 'text': 'Sign in'}]},
                         {'coverage': 'list:base:scroll', 'target_match': [{'resource-id': 'list'}], 'scroll_region': {'resource-id': 'list'},
                          'scroll_end_match': [{'text': 'End'}], 'max_scrolls': 5}]
