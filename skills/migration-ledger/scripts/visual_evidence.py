@@ -20,7 +20,7 @@ def reference(value, base):
     return ref
 
 
-CANDIDATE_PHASES = {'harmony': 'harmony-candidate', 'android': 'android-candidate'}
+CANDIDATE_PHASES = {'harmony': 'harmony-candidate', 'android': 'android-candidate', 'web': 'web-candidate'}
 
 
 def is_candidate(record):
@@ -158,7 +158,9 @@ def capture_execution(record, manifest_ref, hap_ref, code_baseline, run_root, co
                    and row.get('artifact_ref') == hap_ref and row.get('code_baseline') == receipt['code_baseline']
                    and row.get('install_ref') == receipt['install_ref'] and row.get('observations') == actual
                    for row in rows)
-    require(native or external, 'capture command evidence must bind the observed screenshots and installed build')
+    web = (any(row.get('action') == 'goto' and row.get('exit_code') == 0 for row in rows)  # a browser's log: the page opened, each screenshot an action naming its file
+           and all(any(row.get('action') == 'screenshot' and row.get('exit_code') == 0 and item['screenshot_ref']['path'] in row['argv'] for row in rows) for item in actual))
+    require(native or external or web, 'capture command evidence must bind the observed screenshots and installed build')
     meta_ref = reference(snapshot['meta'], Path(manifest_ref['path']).parent)
     meta = read_json(check_ref(meta_ref))
     # Native metadata may lack bindings; its managed sidecar supplies them. If native

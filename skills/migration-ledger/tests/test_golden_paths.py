@@ -1,4 +1,4 @@
-"""Three legacy-to-target lanes walked end to end with fakes: the legacy captured in the run, its record the frozen reference,
+"""Four legacy-to-target lanes walked end to end with fakes: the legacy captured in the run, its record the frozen reference,
 the candidate captured on its own platform, and the comparison, the alignment proof and the visual verdict reading both."""
 import hashlib
 import json
@@ -93,6 +93,12 @@ class GoldenPathTests(unittest.TestCase):
         a = test_android_target_capture.AndroidTargetTests(); a.setUp(); self.addCleanup(a.doCleanups)
         t, m2, evidence = self.candidate(a, self.legacy_android())
         self.align(t, m2, evidence, ('android-candidate', 'android'))
+
+    def test_web_legacy_to_web_target(self):
+        import test_web_target_capture
+        w = test_web_target_capture.WebTargetTests(); w.setUp(); self.addCleanup(w.doCleanups)
+        t, m2, evidence = self.candidate(w, self.legacy_web())
+        self.align(t, m2, evidence, ('web-candidate', 'web'))
 
     def test_web_legacy_to_android_target(self):
         a = test_android_target_capture.AndroidTargetTests(); a.setUp(); self.addCleanup(a.doCleanups)

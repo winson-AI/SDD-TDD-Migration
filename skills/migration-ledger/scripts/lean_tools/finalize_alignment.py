@@ -290,8 +290,8 @@ def validate(root: Path, result: dict) -> dict:
         if not isinstance(hap, dict):
             raise AlignmentError(f"{label}.hap must be an object")
         hap_path = resolve_file(root, hap.get("path"), f"{label}.hap.path")
-        if hap_path.suffix.lower() not in {".hap", ".hsp", ".apk"}:
-            raise AlignmentError(f"{label}.hap must point to HAP/HSP/APK")
+        if hap_path.suffix.lower() not in {".hap", ".hsp", ".apk", ".zip", ".tgz", ".tar", ".gz"}:  # a web target's build is a bundle
+            raise AlignmentError(f"{label}.hap must point to HAP/HSP/APK or a web bundle")
         if hap.get("sha256") != sha256(hap_path):
             raise AlignmentError(f"{label}.hap.sha256 does not match")
         latest_hap_sha256 = str(hap["sha256"])
@@ -377,7 +377,7 @@ def validate(root: Path, result: dict) -> dict:
                     entry
                     for entry in targets
                     if isinstance(entry, dict)
-                    and entry.get("phase") in ("harmony-candidate", "android-candidate")
+                    and entry.get("phase") in ("harmony-candidate", "android-candidate", "web-candidate")
                     and entry.get("platform") == str(entry.get("phase")).split("-")[0]
                     and entry.get("page_id") == page_id
                     and entry.get("state_id") == state_id

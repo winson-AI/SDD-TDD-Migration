@@ -168,7 +168,7 @@ def validate(config):
         if 'platforms' in device:
             platforms = device['platforms']
             require(isinstance(platforms, list) and platforms and len(set(platforms)) == len(platforms)
-                    and set(platforms) <= {'android', 'harmony'}, 'test_adapter.device.platforms lists android and/or harmony')
+                    and set(platforms) <= {'android', 'harmony', 'web'}, 'test_adapter.device.platforms lists android, harmony and/or web')
         else:
             require(isinstance(device['unavailable'], str) and device['unavailable'].strip(),  # the statement becomes each leaf's declared gap
                     'test_adapter.device.unavailable gives the reason no device is available')
@@ -241,7 +241,7 @@ def legacy_preview_config(value):
 
 INTAKE = (
     ('legacy_preview', '存量预览', '存量应用怎样跑给我们看？android-device / android-emulator / vm（设备 serial、app_id、APK 路径或构建命令、启动 activity）、browser（url，可选 viewport）、或 none（说明不能跑的原因）', list(PREVIEW_KINDS)),
-    ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证？platforms（android / harmony）或 unavailable（原因）', ['android', 'harmony', 'unavailable']),
+    ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证？platforms（android / harmony / web，web 是浏览器里预览的目标）或 unavailable（原因）', ['android', 'harmony', 'web', 'unavailable']),
 )
 
 
