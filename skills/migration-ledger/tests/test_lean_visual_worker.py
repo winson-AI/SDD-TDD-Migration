@@ -282,7 +282,17 @@ class VisualExecutionTests(unittest.TestCase):
         self.corrupt_image = True
         result, _ = self.capture()
         self.assertEqual(result['root_cause']['kind'], 'capture-incomplete')
-        self.assertTrue((self.current_out / 'screenshot-0.jpeg').exists())
+        self.assertTrue((self.current_out / 'screenshot-candidate-0.jpeg').exists())
+
+    def test_the_harmony_candidate_is_observed_like_every_other_screen(self):
+        result, _ = self.capture()
+        row = read_json(result['manifest_ref']['path'])['targets'][-1]
+        meta = read_json(row['snapshot']['meta'])
+        self.assertEqual((row['phase'], row['platform'], row['snapshot']['device_backend']['name'], meta['platform'], meta['image_mime'], meta['foreground']),
+                         ('harmony-candidate', 'harmony', 'hdc', 'harmony', 'image/jpeg', 'com.example.app/' + meta['page_name']))
+        self.assertTrue((self.current_out / 'view-candidate-0.xml').exists() and Path(row['snapshot']['screenshot']).name == 'screenshot-candidate-0.jpeg')
+        self.assertEqual(sorted(k for k in meta if k in ('install_ref', 'artifact_ref', 'code_baseline', 'assignment_id', 'fencing_token')),
+                         ['artifact_ref', 'assignment_id', 'code_baseline', 'fencing_token', 'install_ref'])
 
     def test_same_bundle_different_page_during_screenshot_is_incomplete(self):
         self.after_layout_change = True
