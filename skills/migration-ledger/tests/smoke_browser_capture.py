@@ -2,13 +2,16 @@
 page that scrolls as a whole, a single-page view rendered after a click, a list that loads more while it is scrolled, a
 component behind a shadow root beside a same-origin frame, form fields matched by their placeholder, and a phone viewport.
 Each case is captured through the worker in a real headless Chromium, then analysed into the runtime index and the
-DOM-derived tree and frozen as UI evidence. Not collected by pytest: it needs a Python with Playwright (and an installed
-Chromium) and Pillow, which the package does not vendor. Exit code 0 means every case walked end to end.
+DOM-derived tree and frozen as UI evidence. A last case, web-target, serves the login screen again as the deployed target
+that declares the accepted build in its page, and captures it as a web-candidate against the legacy reference. Not
+collected by pytest: it needs a Python with Playwright (and an installed Chromium) and Pillow, which the package does not
+vendor. Exit code 0 means every case walked end to end.
 
     <python-with-playwright> skills/migration-ledger/tests/smoke_browser_capture.py [--keep] [--only <case>]
 """
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import hashlib
 import json
 import shutil
 import sys
@@ -25,11 +28,16 @@ import lean_visual_worker as worker
 import lean_worker
 import semantics
 import ui_evidence
+from lean_tools import validate_manifest
 
 STYLE = ('body{margin:0;font-family:sans-serif}h1,h2{margin:0;height:80px;line-height:80px;padding-left:24px}'
          'ul{margin:0;padding:0;list-style:none}li{height:40px;line-height:40px;padding-left:24px;border-bottom:1px solid #eee}'
          'ul.inner{height:600px;overflow-y:auto}form{padding:24px}input{display:block;margin:8px 0}')
 HEAD = '<!doctype html><html><head><meta charset="utf-8"><title>%s</title><style>' + STYLE + '</style></head><body>'
+LOGIN = ('<h1 id="title">Sign in</h1><img id="logo" src="logo.png" alt="logo" aria-label="logo" width="120" height="20">'
+         '<form id="form"><input id="user" placeholder="user name"><button id="submit" type="button">Sign in</button></form>'
+         '<a class="login" id="to-list" href="list.html">Continue</a></body></html>')
+TARGET_BUNDLE = b'the accepted web build'  # what the build PATH accepted; the served target page declares its hash
 
 
 def rows(n, start=0, end=False):
@@ -37,9 +45,8 @@ def rows(n, start=0, end=False):
 
 
 def write_site(folder):
-    (folder / 'index.html').write_text(HEAD % 'Legacy Login' + '<h1 id="title">Sign in</h1><img id="logo" src="logo.png" alt="logo" aria-label="logo" width="120" height="20">'
-                                       '<form id="form"><input id="user" placeholder="user name"><button id="submit" type="button">Sign in</button></form>'
-                                       '<a class="login" id="to-list" href="list.html">Continue</a></body></html>')
+    (folder / 'index.html').write_text(HEAD % 'Legacy Login' + LOGIN)
+    (folder / 'target.html').write_text((HEAD % 'Target Login').replace('<title>', '<meta name="sdd-build" content="' + hashlib.sha256(TARGET_BUNDLE).hexdigest() + '"><title>') + LOGIN)
     (folder / 'list.html').write_text(HEAD % 'Legacy List' + '<h1 id="heading">Items</h1><ul id="list" class="inner" aria-label="items">' + rows(60, end=True) + '</ul></body></html>')
     (folder / 'page.html').write_text(HEAD % 'Legacy Feed' + '<h1 id="heading">Feed</h1><ul id="feed">' + rows(80, end=True) + '</ul></body></html>')
     (folder / 'spa.html').write_text(HEAD % 'Legacy Orders' + '<h1 id="heading">Orders app</h1><button id="load" type="button">Load orders</button><div id="view"></div>'
@@ -121,6 +128,64 @@ def run_case(name, origin, base):
         row['seconds'] = round(time.time() - started, 1)
 
 
+def run_target_case(origin, base):
+    """The web target lane end to end: the legacy login screen is the reference, the deployed target page declares the
+    accepted build, and the worker captures it as a web-candidate bound to that build, its install receipt and a round."""
+    name, coverage, host = 'web-target', 'login:base:viewport', origin.split('//', 1)[1]
+    targets = [{'coverage': coverage, 'target_match': [{'resource-id': 'title', 'text': 'Sign in'}]}]
+    root = base / name / '.sdd-runs/run-1'; (root / 'context').mkdir(parents=True)
+    statement = root / 'context/legacy-preview.json'; statement.write_text(json.dumps({'effective_config': {'legacy_preview': {'kind': 'browser', 'url': origin + '/index.html'}}, 'source_refs': {}}))
+    state = {'run_id': 'run-1', 'project_context_ref': file_ref(statement), 'modules': {}}
+    out = root / 'runs/harmony/sandbox/spec-1/attempt-1'; out.mkdir(parents=True)
+    started = time.time()
+    row = {'case': name}
+    try:
+        legacy = worker.legacy_capture({'targets': targets}, root=root, out=out, state=state,
+                                       task={'role': 'spec-designer', 'assignment_id': 'A1', 'fencing_token': 'fence-1'},
+                                       actor={'role': 'spec-designer', 'instance_id': 'spec-1', 'device_lock': {'held': True, 'device_id': origin + '/index.html', 'assignment_id': 'A1', 'fencing_token': 'fence-1'}}, module_id='M001')
+        row['legacy'] = legacy['status']
+        if legacy['status'] != 'CAPTURED':
+            row['blocked'] = legacy.get('blocked') or (legacy.get('root_cause') or {}).get('reason'); return row, False
+        reference = ui_evidence.capture_target(legacy['manifest_ref'], coverage)
+        baseline = file_ref(reference['snapshot']['captures'][0]['screenshot'])
+        env = root / 'runs/harmony/sandbox/environment/visual-web.json'; env.parent.mkdir(parents=True)
+        env.write_text(json.dumps({'visual_capture': {'backend': 'browser', 'url': origin + '/', 'device_id': host},
+                                   'visual_model': {'mode': 'external', 'enabled': False, 'name': 'vision-smoke', 'base_url': 'https://model.example/v1', 'api_key_env': 'SDD_SMOKE_VISION_KEY'}}))
+        bundle = root / 'runs/build/build-1/dist.zip'; bundle.parent.mkdir(parents=True); bundle.write_bytes(TARGET_BUNDLE)
+        path = {'path_id': 'V1', 'kind': 'visual', 'coverage': coverage, 'baseline_ref': baseline,
+                'visual_execution': {'environment_ref': file_ref(env), 'app_id': host, 'url': origin + '/target.html', 'target_match': targets[0]['target_match'], 'actions': []}}
+        evidence = {'visual_mode': 'runtime', 'coverage': coverage, 'capture_manifest_ref': legacy['manifest_ref'], 'baseline_refs': [baseline]}
+        analysis = root / 'context/dimensions.json'
+        analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable', 'items': [{'semantic_model': {'ui_evidence': evidence}}]}]}))
+        module = {'module_id': 'M001', 'code_baseline': 'code-1', 'plan': {'paths': [path], 'dimension_analysis_ref': file_ref(analysis)}, 'build_artifacts': [file_ref(bundle)]}
+        task = {'role': 'test-runner', 'assignment_id': 'T1', 'fencing_token': 'fence-2', 'test_scope': 'visual'}
+        actor = {'role': 'test-runner', 'instance_id': 'test-1', 'device_lock': {'held': True, 'device_id': host, 'assignment_id': 'T1', 'fencing_token': 'fence-2'}}
+        args = {'path_id': 'V1', 'artifact_ref': file_ref(bundle)}
+        def run_tool(operation, step, **extra):
+            folder = root / 'runs/harmony/sandbox/test-1' / step; folder.mkdir(parents=True)
+            result = worker.run(operation, {**args, **extra}, root=root, out=folder, module=module, task=task, actor=actor, config={})
+            return result, worker.save(folder / 'result.json', result)
+        install, install_ref = run_tool('visual-install', 'install')
+        row['install'] = install['status']
+        if install['status'] != 'INSTALLED':
+            row['blocked'] = (install.get('root_cause') or {}).get('reason'); return row, False
+        row['identity'] = install['artifact_identity']['kind']
+        result, _ = run_tool('visual-capture', 'capture', install_ref=install_ref, round=1, reference_manifest_ref=legacy['manifest_ref'])
+        row['status'] = result['status']
+        if result['status'] != 'CAPTURED':
+            row['blocked'] = (result.get('root_cause') or {}).get('reason'); return row, False
+        record = read_json(result['manifest_ref']['path'])['targets'][-1]
+        validate_manifest.validate_snapshot(record['snapshot'], 'viewport', 'candidate')
+        execution = read_json(result['capture_execution_ref']['path'])
+        row['candidate'] = (record['phase'], record['platform'], record['round'], len(execution['observations']))
+        return row, record['phase'] == 'web-candidate' and bool(execution['observations']) and read_json(record['snapshot']['meta'])['artifact_identity']['sha256'] == hashlib.sha256(TARGET_BUNDLE).hexdigest()
+    except Exception as exc:  # the smoke reports, it does not hide
+        row['error'] = type(exc).__name__ + ': ' + str(exc)[:200]
+        return row, False
+    finally:
+        row['seconds'] = round(time.time() - started, 1)
+
+
 def main():
     keep = '--keep' in sys.argv
     only = sys.argv[sys.argv.index('--only') + 1] if '--only' in sys.argv else None
@@ -135,6 +200,10 @@ def main():
             if only and name != only:
                 continue
             row, ok = run_case(name, origin, base)
+            passed = passed and ok
+            print(('PASS ' if ok else 'FAIL ') + json.dumps(row, ensure_ascii=False))
+        if not only or only == 'web-target':
+            row, ok = run_target_case(origin, base)
             passed = passed and ok
             print(('PASS ' if ok else 'FAIL ') + json.dumps(row, ensure_ascii=False))
         server.shutdown()
