@@ -658,12 +658,45 @@ GATES = [
     (r'fix round|budget|no.progress|local fix', 'state-machine.md', '有限循环'),
     (r'source', 'source-changes.md', '总则'),
     (r'fencing|revision|request id|principal|role denied|stale', 'runtime.md', '请求与事件'),
+    # the rows below name the section of what the generic rows above do not reach
+    (r'reference_media|media_marks|media mark|media_refs|media evidence', 'project-context.md', '用户参考媒体'),
+    (r'run root|\.sdd-runs|storage layout|storage belongs|project store|managed archive|archive context|archived artifact|context archive|context history|context link|registered at a different root|output outside selected run|runs/ directory|runs/harmony/', 'storage-layout.md', '启动与二次启动'),
+    (r'events\.jsonl|committed Ledger events|run not initialized|not initialized or wrong run|run_id differs|^run mismatch|host context required|--run-id|argv/cwd required|command/operation mismatch', 'runtime.md', '请求与事件'),
+    (r'context_inputs|context input kind', 'runtime.md', '渐进加载'),
+    (r'stop/isolation|stop unconfirmed|executor aborted|stop/revoke|revoke worker|worker identity|Test-Runner identity|review identity|session id required|advance needs|mechanical preflight|merged dispatch|api-register|api_id|module (not|already) registered|unknown module|^no modules|selected module', 'local-runtime.md', '操作矩阵'),
+    (r'hint needs', 'host-integration.md', '提示采纳回报'),
+    (r'build (argv|command|cwd|timeout|artifact)|build must pass|build report|invalid build timeout|absolute output directory', 'build-automation.md', '2. 构建命令的来源与固化'),
+    (r'deferral|defer completed|may be deferred|deferred automation', 'build-automation.md', '4. 自动化环境缺失：直接记 Yellow 并继续'),
+    (r'execution (evidence|observation|output|contract)|execution-state|completion (acceptance|query|interpretation)|host normalization|host execution', 'testing.md', '本地执行与严格结果验收'),
+    (r'mobile|Harmony (classification|context|query|output)', 'testing.md', 'Harmony Main'),
+    (r'review (every|must cover|owner/scope|context|code changed)|goal conclusion', 'audit-code-review.md', 'Ledger 接口'),
+    (r'anti-pattern|production_symbols|production binding', 'testing.md', '静态规格闭合'),
+    (r'CR and impact|before CR|DoD review|accepted diagnosis|planning reopen|planning rollback|route directly to Fixer|module blocker|module work before repair|repair not pending|release (a )?blocker|invalidation reason|invalid blocker|structured blocker', 'state-machine.md', '控制流闭环细则'),
+    (r'modules (incomplete|not operationally)', 'state-machine.md', '模块隔离与全量收尾'),
+    (r'project patch|invalid defaults|entry mode|invalid run id|architecture required|not a directory|legacy/target overlap|frozen architecture|run/config|prepared run requires|must be boolean|stall timeout|lock timeout|timezone|package_sha|adapter (args|timeout)|context document|attach context', 'project-context.md', '初始化和增量更新'),
+    (r'model_routing|model tier|default_tier|override tier|low-cost model|strong-only|model id|policy selectors', 'model-routing.md', '总则'),
+    (r'interaction', 'ui-fidelity.md', '视觉对齐 = automation 第二层（不是独立阶段）'),
+    (r'COMPLETE (needs|snapshot)|generatedFrom|native (node|runtime)|runtime (observation|UI target)|vector drawable', 'ui-fidelity.md', 'UI 证据绑定'),
+    (r'knowledge|Foundation|resolution|resolved requirements|not-required result', 'engineering-disciplines.md', '1. Foundation / 迁移知识执行与冻结'),
+    (r'implementation gap|not-implemented|viable alternative|assess adaptation', 'reuse-dependencies.md', '8.2 核验后才能声明未实现'),
+    (r'scaffold|target profile', 'module-decomposition.md', '切片标准'),
+    (r'lesson|experience', 'project-context.md', '跨运行经验沉淀与复用'),
+    (r'test_assets|deferred preparation|test context|test scope', 'testing.md', '编码前设计交接'),
+    (r'red_evidence|failing run precedes', 'testing.md', '逻辑单测'),
+    (r'hub identity|global inputs mismatch|host state identity', 'storage-layout.md', 'OpenSpec 投影完整性收尾门禁'),
+    (r'unknown stream|--attempt|offset must|trace needs|preview needs', 'testing.md', '日志与按需追溯'),
+    (r'boundary_review|global (requirement|case)|requirement ownership|owner mapping|removed requirement|retired contract|single-module', 'context-readiness.md', '功能清单来源与完备性'),
+    (r'refined analysis|allocated scope|scope exclusions|fidelity_conditions|runtime mapping needs', 'dimension-slicing.md', '4. 控制节点与交接'),
+    (r'code (outside|changed|not generated)|committed blob|acceptance (changed|evidence)|active submission', 'local-runtime.md', '阶段结果'),
+    (r'repair (memory|route|module)|recovery resolution|affected modules|duplicate owner', 'audit-scope.md', '问题处理'),
+    (r'realloc-request|revise existing roots', 'progress-recovery.md', '同 Run 上游修订'),
+    (r'unresolved planning questions|human check', 'openspec.md', '冻结算法'),
 ]
 
 
 # The share of the Ledger's rejection messages that name the section stating their rule. A rejection is where a rule
 # that is not on the card gets loaded; raise this when hints are added, never lower it.
-HINT_COVERAGE = 0.80
+HINT_COVERAGE = 0.90
 
 
 def read_hint(reason):
