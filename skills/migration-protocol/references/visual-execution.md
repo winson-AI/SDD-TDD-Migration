@@ -7,7 +7,7 @@
 1. Host/Test-Runner 按项目参考配置（可存 `.sdd-migration/harmony/visual.json`）或 [配置模板](../../../template/visual-execution.json)，在本轮 `runs/harmony/sandbox/environment/visual.json` 生成执行配置；与 sandbox 的 config.json 分开，执行期间不改写。
 2. Spec/Test design 把 `visual_execution` 放到对应 automation/visual PATH：environment_ref 的真实 path/hash、app_id、导航 actions、目标选择器；随路径冻结，变更走 CR/重新冻结。无视觉需求时不加此字段。
 3. 设备执行用显式 HDC、adb 或 browser backend（Android 目标装 APK，`ability` 填 activity，装机后在设备上核对包哈希；web 目标不装机：宿主部署已接受构建并在页面 `<meta name=sdd-build>` 声明其哈希，visual-install 与每次捕获重读核对，url 的主机即 app_id）；模型用显式启用的 external 配置，API key 只从指定环境变量读取，配置与请求只存变量名，不归档 `.env` 或明文 key。
-4. 执行前 Host 持有设备独占锁并在认证 host-context 注入 device_lock（device_id、assignment_id、fencing_token、held）；Agent 自填的锁字段不算锁。
+4. 执行前 Host 持有设备独占锁并在认证 host-context 注入 device_lock（device_id、assignment_id、fencing_token、held）；Agent 自填的锁字段不算锁。没有真机时 `visual_capture` 带 avd 或 boot.argv：设备不应答即启动模拟器、等 boot 完成后再装机捕获，启动留在 boot.json，模拟器留给后续捕获，宿主在 run 结束时关闭。
 
 ## 2. 执行节点
 

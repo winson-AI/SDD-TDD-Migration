@@ -124,7 +124,7 @@ Harmony Main adapter 不隐式安装 App：宿主提供已安装包与当前构�
 
 ## 构建和自动化异常回执
 
-可捕获的执行器中断（KeyboardInterrupt/SystemExit）与启动后的运行异常先停止本 attempt、限时回收并保存 execution.log、cleanup.json、receipt.json，再向宿主重新抛出；CLI 的 SIGTERM 转 SystemExit(143)、SIGINT 转 KeyboardInterrupt，不改宿主的信号处理器。回执 termination.executor_aborted=true 并保留异常类型与退出码（中断 130/143，运行异常 125），不能作为完成结果接受；Host 核验停止/隔离并留证后走 revoke/audit-revoke。用户取消不自动重启或派 Fixer，不影响无关模块；退出未确认时保留 temp；SIGKILL/断电等由 Host 据运行记录核验恢复。
+可捕获的执行器中断（KeyboardInterrupt/SystemExit）与启动后的运行异常先停止本 attempt、限时回收并保存 execution.log、cleanup.json、receipt.json，再向宿主重新抛出；CLI 的 SIGTERM 转 SystemExit(143)、SIGINT 转 KeyboardInterrupt，不改宿主的信号处理器。回执 termination.executor_aborted=true 并保留异常类型与退出码（中断 130/143，运行异常 125），不能作为完成结果接受；Host 核验停止/隔离并留证后走 revoke/audit-revoke。用户取消不自动重启或派 Fixer；退出未确认时保留 temp；SIGKILL/断电等由 Host 据运行记录核验恢复。
 
 执行超时后，Host executor 向本 attempt 的进程组发送 SIGKILL；输出回收另限 2 秒，不能因脱离进程组的子进程持有 stdout/stderr 再无限等待。回执 termination 分别记录信号结果、direct_process_exited、output_drained、descendants_status 和 host_stop_required；仅发送信号或得到管道 EOF 不代表所有外部子进程已停止。
 

@@ -33,9 +33,10 @@ def doctor(config_path, device=None, platform=None):
         except Exception as exc:
             # Exceptions from libraries can contain configuration; don't echo them.
             checks.append({'name': module, 'status': 'blocked', 'reason': type(exc).__name__})
-    for name, present in (('adb-on-path', bool(shutil.which('adb'))), ('playwright', importlib.util.find_spec('playwright') is not None)):
+    emulator = bool(shutil.which('emulator')) or any(os.path.isfile(os.path.join(os.environ.get(k) or '/nonexistent', 'emulator', 'emulator')) for k in ('ANDROID_SDK_ROOT', 'ANDROID_HOME'))
+    for name, present in (('adb-on-path', bool(shutil.which('adb'))), ('android-emulator', emulator), ('playwright', importlib.util.find_spec('playwright') is not None)):
         checks.append({'name': name, 'status': 'ready' if present else 'optional-absent',
-                       'note': 'legacy-capture needs adb for a device statement and Playwright for a browser statement'})
+                       'note': 'legacy-capture needs adb for a device statement, the SDK emulator (or boot.argv) when no real device is connected, and Playwright for a browser statement'})
     try:
         from harmony_adapter import configure, execution_config
         config = execution_config(json.loads(Path(config_path).read_text()), platform=platform, device=device)
