@@ -59,9 +59,9 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 入口用 Python 3.10+，`foundation-verify` 需 3.11+ 的 tomllib；`compare-only`、`image-parity`、`render-reference`、`screen-checks` 需 Pillow（矢量渲染另需 `rsvg-convert`），可用本 run 的 Harmony sandbox 环境；缺少时保留原因（compare-only 为 `comparison-unavailable`）走 Yellow/未执行通道，不自动安装依赖。
 
-使用 [visual-test-adapter.json](../../../template/visual-test-adapter.json) 实例化 adapter JSON，其 argv 指向 [lean_visual_adapter.py](../../migration-ledger/scripts/lean_visual_adapter.py)、当前原始 alignment 文件与 target_root。有冻结手势才在 argv 添加 `--interaction <id>`（可重复）；带 `image_check_ids` 的 PATH 添加 `--image-parity <报告>`，无 `baseline_ref` 时可省略 `--alignment`。宿主取得 visual assignment 后按[实际测试适配器](local-runtime.md#实际测试适配器)执行 execute_test，它自动传 query/result 文件并保存正式回执，adapter 只重验与转换独立比较产物，不捕获截图、修复代码或发明视觉 verdict。当前 adapter 仅支持冻结 `expected: true` 的布尔视觉对齐断言；其他断言类型用项目已有适配器。手势与当前 HAP 的正式核对见 [视觉对齐](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)。
+visual PATH 的 adapter 按 [visual-test-adapter.json](../../../template/visual-test-adapter.json) 实例化：argv 指向 [lean_visual_adapter.py](../../migration-ledger/scripts/lean_visual_adapter.py)、当前原始 alignment 文件与 target_root，有冻结手势才加 `--interaction <id>`（可重复），带 `image_check_ids` 的 PATH 加 `--image-parity <报告>`，无 `baseline_ref` 时可省略 `--alignment`；经[实际测试适配器](local-runtime.md#实际测试适配器)的 execute_test 运行，只重验与转换独立比较产物，只支持冻结 `expected: true` 的布尔对齐断言；手势与当前 HAP 的正式核对见[视觉对齐](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)。
 
-每次调用保留三层：原始输入/输出引用及实际 hash（Capture manifest、源索引、UI 树、资源映射、比较结果与日志；外部来源只读，不改写旧 hash）；[lean_adapter.py](../../migration-ledger/scripts/lean_adapter.py) 转换出的 SDD 证据（保留对原始结果的引用，结构转换不代表命令执行、语义一致、视觉通过或真实派发）；角色经 `submit`/`accept` 或审计事件提交的正式 payload（绑定 freeze/assignment、TASK/PATH/ASSERT、当前代码与构建产物），角色返回文本和 worker 成功退出都不能替代这些事件。
+每次调用保留三层：原始输入/输出引用及实际 hash（外部来源只读，不改写旧 hash）；[lean_adapter.py](../../migration-ledger/scripts/lean_adapter.py) 转换出的 SDD 证据（保留对原始结果的引用，转换不代表执行、语义一致、视觉通过或真实派发）；角色经 `submit`/`accept` 或审计事件提交的正式 payload（绑定 freeze/assignment、TASK/PATH/ASSERT、当前代码与构建产物），返回文本和 worker 成功退出都不能替代这些事件。
 
 工具产物写入本 run 的 `staging/<actor>/<request_id>`，截图与视觉辅助产物写入 `runs/harmony/sandbox/<actor>/<request_id>`，新请求用新目录（[留存布局](storage-layout.md#总则)）。
 

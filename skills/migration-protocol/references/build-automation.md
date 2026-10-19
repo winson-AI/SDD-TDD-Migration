@@ -67,13 +67,11 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 接受后对尚未验证的 automation/visual PATH 记录 `quality=yellow-blocked`、`executed=false`、`reason_code=automation-not-run`、结构化根因、版本关联及旧结果的 retest_of；保留当前基线已有 Green。模块进入 `automation-deferred`，不耗 Fixer 轮次，不需要人工批准，不反复尝试启动不可用环境。
 
-同一代码基线上此前真实执行过的，缺测行的 `last_execution` 保留最近一次已接受的真实执行（状态、断言、execution_receipt、test_run_id），不递归嵌套；本次仍是 `executed=false/assertions=[]`。GO 报告分别输出 `executed`（曾执行）、`attempt_executed`（本次执行）、`last_execution` 与 `last_execution_stale`；历史观测不能代替本次复核。
+同一代码基线上此前真实执行过的，缺测行的 `last_execution` 保留最近一次已接受的真实执行（状态、断言、execution_receipt、test_run_id）；本次仍是 `executed=false/assertions=[]`。GO 报告分别输出 `executed`（曾执行）、`attempt_executed`（本次执行）、`last_execution` 与 `last_execution_stale`；历史观测不能代替本次复核。
 
-若已启动后才发现无法运行，先保存启动日志/原始回执，结束或 revoke 活动 assignment，再提交上述报告，引用已有失败证据。已经观察到真实断言失败时，不能以环境缺失覆盖成“未执行”。该检查同时覆盖“先断言失败、后环境中断”而整体归为 Yellow 的结果：保留失败断言与环境原因，继续原诊断/审计路径；不能仅检查 Red 颜色。缺失观测的 actual=null 不等于已观察到业务失败。
+已启动后才发现无法运行，先保存启动日志/原始回执，结束或 revoke 活动 assignment，再提交上述报告。已观察到真实断言失败时不能以环境缺失覆盖成"未执行"，"先断言失败、后环境中断"的 Yellow 保留失败断言与环境原因，继续原诊断/审计路径；缺失观测的 actual=null 不等于已观察到业务失败。
 
-下游仍需真实代码和依赖接口可用。仅自动化缺测的上游可作为代码依赖继续编译/实现/验证，质量 Yellow 不向消费者传播；消费者自己缺环境则独立记录。上游代码或 SPEC 变更仍使相关下游失效，不能利用缺测绕过版本/边界校验。
-
-父 MO 可汇总 automation-deferred 子节点；不得因一个子模块缺环境提前结束其他 MO。
+仅自动化缺测的上游可作为代码依赖继续编译/实现/验证，质量 Yellow 不向消费者传播，消费者自己缺环境则独立记录；上游代码或 SPEC 变更仍使相关下游失效。父 MO 可汇总 automation-deferred 子节点，不得因一个子模块缺环境提前结束其他 MO。
 
 ## 5. Auditor 与恢复
 
@@ -113,9 +111,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 `local_fix_used` 是模块级计数，build、automation 与 visual 共用；每次补丁接受后都需完整正式回归，全部通过才将修复 memory 标为可复用。按总预算局部收敛，见[有限循环](state-machine.md#有限循环)。宿主不能重置计数。
 
-### 构建产物与设备安装
-
-Harmony Main adapter 不隐式安装 App：宿主提供已安装包与当前构建/代码基线的关联证据，或由当前 automation/visual assignment 用 visual-install 实际装机留证（[视觉执行](visual-execution.md)）；uv sandbox 只准备 Python 环境；安装/设备缺失沿缺测分流，旧安装包上的测试不算当前代码通过。
+Harmony Main 不隐式安装 App：装机证据来自 visual-install（[视觉执行](visual-execution.md#2-执行节点)）或宿主提供的已安装包与当前构建/代码基线的关联证据；旧安装包上的测试不算当前代码通过。
 
 
 ## 构建资产位置
@@ -132,9 +128,4 @@ Harmony Main adapter 不隐式安装 App：宿主提供已安装包与当前构�
 
 Auditor 批次中的构建 Red/Yellow 同样属于验证失败：接受构建结果时直接记录 build-verification-failed、结果引用及编译/超时根因，关联分支等待人工审核，独立审计分支继续。批次内禁止 audit-defer；构建 Green 只开放 Automation，不写入自动化通过证明。纯自动化环境缺失仍走原缺测出口，不能用于跳过失败构建。
 
-Automation 正式执行器在进程退出后保留原始 result.json 和已落盘 observations.json，并将部分观测摘要引用绑定到 receipt.partial_observations_ref。汇总与 Ledger 验收共同使用 host_completion_version=1 的确定性判定：
-
-- 合法失败报告随后超时/异常退出：保留失败断言、原根因及退出原因；不能覆盖为“未执行”。
-- 报告未完成但有有效部分观测：逐冻结 ASSERT 恢复有证据的观测，缺项仍未知；整体 Yellow，混合 pass/fail 保留失败与 flaky，不推断 Green。
-- JSON 截断、编码/内容格式错误：保留原件与回执，生成包含解析原因的 Yellow。没有有效观测才 executed=false；正常 submit/accept 后关闭 assignment，不一直 await-result。
-- 引用 hash、身份、冻结 query 或媒体证据不匹配仍拒绝；验收重算结果，禁止删掉失败、篡改根因或提升为 Green。原始报告、观测和 hash 不被重写。
+Automation 执行器在进程退出后保留原始 result.json 与已落盘 observations.json（receipt.partial_observations_ref）；汇总与验收共用 host_completion_version=1 的确定性判定：失败报告随后超时/异常仍保留失败断言与根因，不改写为"未执行"；报告未完成但有有效部分观测时逐冻结 ASSERT 恢复有证据的观测，整体 Yellow，混合 pass/fail 保留失败与 flaky；JSON 截断或格式错误保留原件，生成带解析原因的 Yellow；没有有效观测才 executed=false，submit/accept 后关闭 assignment。引用 hash、身份、冻结 query 或媒体证据不匹配仍拒绝；原始报告、观测和 hash 不被重写。

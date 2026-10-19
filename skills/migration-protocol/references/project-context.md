@@ -45,21 +45,8 @@
 - 普通明确更新直接写入，不增加一次确认；“仅本次”进入 run-request.overrides，不持久化。
 - 项目 ID 不可改；模块名、run_id、SPEC、生成的测试列表和运行状态不能写入项目配置。
 - 同 request_id+内容+宿主身份重试返回原 revision；同 ID 内容不同或过期 revision 拒绝；并发由锁和 revision 控制。
-- 缺少部分共享配置时允许先保存；prepare 要求可用的 legacy/target 目录与架构文档，测试适配器与宿主能力由后续门禁检查，缺少时如实阻塞。
-- 写历史工件后原子替换当前文件即提交；中断留下的未引用工件不算更新，history 仅遍历已提交链；禁止手工改当前文件绕过版本记录。
-
-请求例子（路径与摘要须替换，下面表示把目标工程改为新路径）：
-
-```json
-{
-  "schema_version": 1,
-  "project_id": "shop-migration",
-  "request_id": "change-target-002",
-  "expected_revision": 1,
-  "patch": {"target_root": "/workspace/new-target"},
-  "source_ref": {"path": "/workspace/migration/.sdd-migration/inputs/update-002.md", "sha256": "<实际摘要>"}
-}
-```
+- 缺少部分共享配置时允许先保存；prepare 要求可用的 legacy/target 目录与架构文档，其余由后续门禁检查，缺少时如实阻塞。
+- 写历史工件后原子替换当前文件即提交；未引用工件不算更新，history 仅遍历已提交链；禁止手工改当前文件绕过版本记录。
 
 默认值存放在 config.defaults：entry_mode 固定 project，另有 budgets 与 quality_gates（字段见模板）。test_adapter 与 input 中的结构一致，runtime 只放 model_routing。配置只引用宿主环境或凭证名称，不在模板中放凭证值。
 

@@ -86,7 +86,7 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 
 `reuse-plan.mappings[].fidelity` 含：`legacy_root`（等于本轮 Ledger 的存量根）；`legacy_source_refs`（该目录内真实入口/调用链的 path/sha256，不以提供方源码冒充基线）；`alignment_ref`（按 [reuse-fidelity.md](../../../template/reuse-fidelity.md) 的逐行为对齐报告：正常/边界/失败、默认值、输入输出、状态/生命周期、副作用逐项核对，不适用有理由）；`scenarios`（稳定 scenario_id、legacy_behavior、reuse_behavior、reproduction_strategy 及已冻结的 path_id/assertion_ids，覆盖该映射全部 path_ids；经 mapping 的 requirement_ids/task_ids 与 PATH 的 case_id 关联需求和用例，不另建验收状态机）。
 
-报告区分**源码分析得出的基线**与**已有真实运行证据**：规划只读分析，代码生成前不运行目标测试；存量运行轨迹可辅助固化场景，没有就记未执行，不伪造。源码与需求足以确定行为即可冻结，预期不定或基线缺失先补材料/人工澄清；正式复现仍须执行 Main。复现是满足冻结的业务可观察契约，不是内部实现相同；数据/平台差异的转换与允许偏差须有依据，不用"相似"代替断言；Test Runner 从已审核的存量契约与需求设计预期，不从目标实现或提供方返回值倒推。记录链固定为：**存量源码引用 → alignment_ref → mapping/scenario → REQ/CASE/TASK/PATH/ASSERT → 冻结版本 → reuse_trace → Main 结果/回执 → MO 或 Auditor 裁决**；规划报告不可变，结果沿测试记录保留 test_run_id、freeze_id、code_baseline、环境、日志、expected/actual 与 execution_receipt，经 Ledger 共享，不建第二份可手改的通过状态。
+报告区分**源码分析得出的基线**与**已有真实运行证据**：规划只读分析，存量运行轨迹可辅助固化场景，没有就记未执行，不伪造；源码与需求足以确定行为即可冻结，预期不定或基线缺失先补材料/人工澄清，正式复现仍须执行 Main。复现是满足冻结的业务可观察契约，不是内部实现相同；数据/平台差异的转换与允许偏差须有依据，不用"相似"代替断言；预期从已审核的存量契约与需求设计，不从目标实现或提供方返回值倒推。记录链固定为：**存量源码引用 → alignment_ref → mapping/scenario → REQ/CASE/TASK/PATH/ASSERT → 冻结版本 → reuse_trace → Main 结果/回执 → MO 或 Auditor 裁决**；规划报告不可变，结果沿测试记录保留 test_run_id、freeze_id、code_baseline、环境、日志、expected/actual 与 execution_receipt，经 Ledger 共享，不建第二份可手改的通过状态。
 
 ### 7.3 失败、变化与实现边界
 
@@ -98,8 +98,8 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 ### 8.1 默认继续实现
 
 1. GO/父 MO/子 MO 先明确功能目标、scope、需求/CASE，读全局与本模块上下文、存量源码闭包、新架构、目标生产实现/资源/接线及分工。
-2. 记录二方库不能直接复用的具体原因，评估适配、借鉴语义后实现、自主实现；至少一条路线可行时，Spec-Designer 把源码行为、目标差异、实现方案与完整测试映射到 tasks，在任务 scope 内做四维分析。`new` 不要求存在可复用 capability，不虚构库依赖或等待不存在的提供方 MO。
-3. 冻结后 MO assign Implementer；改路线走 CR 与重新冻结，已批准范围内的普通实现选择不需新增人工会签，跨范围或业务预期不确定仍交人工。
+2. 记录二方库不能直接复用的具体原因，评估适配、借鉴语义后实现、自主实现；至少一条可行时 Spec-Designer 把源码行为、目标差异、实现方案与完整测试映射到 tasks 并做四维分析。`new` 不要求存在可复用 capability，不虚构库依赖或等待不存在的提供方 MO。
+3. 冻结后 MO assign Implementer；改路线走 CR 与重新冻结，已批准范围内的普通实现选择不需人工会签，跨范围或业务预期不确定仍交人工。
 4. Coding → build → automation → MO 验收完整；自主实现也保留源行为、真实生产接线与完整断言，不用 stub、mock、空返回、TODO 或删 CASE 代替交付。
 
 ### 8.2 核验后才能声明未实现
@@ -128,11 +128,9 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 
 ### 8.3 可见信号与恢复
 
-- `status.workflow_progress.signals` 输出 `reason=not-implemented`、`label=未实现`、人工提醒、owner、next_action 与完整核验证据；宿主向用户展示具体功能及 REQ/CASE/TASK。
-- GO 报告加 `unimplemented` 清单与"未实现：需要人工决策"入口，对应路径标 `implementation_status=not-implemented`；这是实现缺口标记，质量仍用原 Green/Red/Yellow，历史测试不改写。
+- `status.workflow_progress.signals` 输出 `reason=not-implemented`、`label=未实现`、owner、next_action 与完整核验证据，宿主向用户展示具体功能及 REQ/CASE/TASK；GO 报告加 `unimplemented` 清单，对应路径标 `implementation_status=not-implemented`，质量仍用原三态，历史测试不改写。
 - 模块进入 waiting-human，旧证据失效，未执行仍 Yellow，真实失败保留；独立模块继续，全量收尾后 Auditor 读该缺口与对应 SPEC/路径审查；不用 dependency/tooling 文本隐藏已核实的未实现。
-- 人工补充条件后按 resume/invalidate/CR/重新冻结恢复再 Coding 与正式测试；提醒随阻塞解除撤下，旧报告与事件永久保留，解除阻塞不代表已实现或 Green。
-- 仅 automation 环境缺失用 automation-unavailable，它表示缺测试证据，不适用"未实现"入口。
+- 人工补充条件后按 resume/invalidate/CR/重新冻结恢复再 Coding 与正式测试；提醒随阻塞解除撤下，旧报告与事件永久保留，解除阻塞不代表已实现或 Green。仅 automation 环境缺失用 automation-unavailable（缺测试证据），不适用"未实现"入口。
 
 ## 9. 目标已有实现与二方库冗余：直接重构复用
 

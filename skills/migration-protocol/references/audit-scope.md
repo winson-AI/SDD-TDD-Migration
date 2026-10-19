@@ -58,9 +58,7 @@ work_modules 包含发现模块、根因 owner 与受影响下游，按模块基
 
 ### 1. 所有模块执行阶段结束后统一启动
 
-`audit-collect` 的启动条件见[模块隔离与全量收尾](state-machine.md#模块隔离与全量收尾)：全部模块 completed 或有本模块证据的挂起，没有活动 worker 和 ready 的下一动作（含 dependency-ready、resume、人工批准后的恢复）。需人工澄清的模块由 MO 明确 suspend，不能因"当前没人运行"就启动审计；依赖/外围阻塞或预算耗尽后 audit-defer 留证退出。
-
-status.module_rounds 给出 registered/settled/unfinished/active/ready_modules、blockers 与 all_settled，表示调度进度而非质量；有遗留而其他模块未结束时 global_next_step 为 null/await-all-module-rounds，continue_modules / wait_for_modules 指明继续与等待对象。all_settled 不是审计授权，`module_barrier` 列出未收尾原因，直接调用 audit-collect 同样重新验证。全部模块 Green 时直接 audit-assign；无待验证路径则 audit-review 记 no-retest-needed。
+`audit-collect` 的启动条件见[模块隔离与全量收尾](state-machine.md#模块隔离与全量收尾)；需人工澄清的模块由 MO 明确 suspend，不能因"当前没人运行"就启动审计；依赖/外围阻塞或预算耗尽后 audit-defer 留证退出。status.module_rounds 给出 registered/settled/unfinished/active/ready_modules、blockers 与 all_settled（调度进度，不是质量）；有遗留时 global_next_step 为 null/await-all-module-rounds，continue_modules / wait_for_modules 指明继续与等待对象；all_settled 不是审计授权，`module_barrier` 列出未收尾原因。全部模块 Green 时直接 audit-assign；无待验证路径则 audit-review 记 no-retest-needed。
 
 ### 2. 收集、根因分析与 finding 路由
 
@@ -90,9 +88,7 @@ A 修复 → A 全路径 Testing/DoD → B 全路径复测/DoD
 
 ### 4. 失败隔离与审计报告
 
-不能继续的失败、worker 中断、预算不足或证据失效经 test acceptance/audit-block 记 human_issues，仅挂起关联分支。可重试时，retry_stops 只列实际影响范围的在途旧 worker；Host 留停止证据后 revoke，再放行 owner，拒收旧输出。无关 worker 继续；状态不能代替真实停止。
-
-剩余可执行分支验证完毕后，Auditor audit-verdict 汇总 resolved_findings、human_issues、owner_tests/source_tests。全部成功则 verified；存在人工问题则 awaiting-human，并生成 `<run_root>/audit-reports/<batch-id>.json/.md`。若没有其他可推进分支，失败时即可进入 awaiting-human。报告保留 SPEC、路径、根因、各次结果和证据；后续信息更新报告时，也更新审批绑定的摘要。
+不能继续的失败、worker 中断、预算不足或证据失效经 test acceptance/audit-block 记 human_issues，仅挂起关联分支；retry_stops 只列实际影响范围的在途旧 worker，Host 留停止证据后 revoke 再放行 owner，拒收旧输出；无关 worker 继续。剩余分支验证完毕后 Auditor audit-verdict 汇总 resolved_findings、human_issues、owner_tests/source_tests：全部成功 verified，有人工问题 awaiting-human（没有其他可推进分支时失败即进入），生成 `<run_root>/audit-reports/<batch-id>.json/.md`，保留 SPEC、路径、根因、各次结果和证据；报告更新时也更新审批绑定的摘要。
 
 ### 5. 人工审核后恢复
 
@@ -100,8 +96,6 @@ A 修复 → A 全路径 Testing/DoD → B 全路径复测/DoD
 2. Global `audit-release {decision_id}` 结束失败/部分完成批次；记录 audit_batch_history，清理批次授权，保留失败、memory、累计预算与原报告。
 3. 回到正常带守卫的操作：预算不足用 recover（另有预算决定）；SPEC/代码上下文失效用 invalidate 后重新 plan/freeze；人工阻塞用 resume（绑定当前 blocker）；需求变化用正式 CR 与冻结。release 不自动批准新验收或追加预算，也不把测试改 Green。
 4. release 会记录 recovery_contexts；未处理的人工作业保持相同上下文/blocker 时禁止直接重新收集，单纯改 session/revision 不算恢复。所有模块再次完成本轮或明确挂起后，才能建立新 batch_id 收集；不能在旧活动批次直接循环 audit-collect。
-
-运行中会话恢复允许 session/checkpoint 记录，实际创建/恢复 subagent 和加载 Used Skills 均由宿主执行。协议不要求永久保留失效的 session。
 
 | 新操作 | 角色/范围 | 输入与约束 |
 | --- | --- | --- |

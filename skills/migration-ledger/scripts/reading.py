@@ -25,7 +25,7 @@ ROTATE_BUDGET = 100_000
 TEMPLATE_BUDGET = 20_000
 TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 468000  # consolidated ceiling, lowered when duplicated test, storage and closure prose became single statements
+PROTOCOL_BUDGET = 465500  # consolidated ceiling, lowered when duplicated fidelity, freeze, design-handoff, execution and closure prose became single statements
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
