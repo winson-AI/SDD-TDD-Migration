@@ -27,8 +27,7 @@ python3 <package_root>/skills/migration-ledger/scripts/lean_worker.py \
 | image-parity | visual assignment；path_id、已完成候选 capture 的 manifest_ref 与 round；PATH 携带冻结的 image_checks | 逐检查在目标 view tree 定位节点、裁剪并与参考栅格比较，写 image-parity.json；MEASURED 是测量不是裁决，验收时重算 |
 | legacy-capture | Spec-Designer/Test-Runner 当前 assignment；存量预览为 adb 设备或 browser，宿主锁住该设备 | 见 [存量捕获](#4-存量捕获) |
 
-带 `image_check_ids` 的 PATH：visual-install → visual-capture → `image-parity` → adapter 的 `--image-parity`；图片、文本与节点检查出自同一次 capture。无 `baseline_ref` 时 visual-capture 不需要 reference_manifest_ref；带基线的 PATH 同时承载检查时较弱的结果决定三态。
-叶子 PATH 的比较原图都来自同 coverage 的冻结 UI evidence（baseline_refs/capture_manifest_ref），含滚动目标的后续截图；不能借含首屏的任意 manifest 添加基线。user-reference PATH 的 reference manifest 由 Test-Runner 以用户截图构造 android-reference 记录，截图集合恰为 baseline_refs。Auditor 读原叶子 SPEC 的证据集合，不按构建归属猜 UI 归属。GLOBAL 自有 PATH 用 visual_evidence 显式冻结 coverage、visual_mode、capture_manifest_ref 与完整 baseline_refs；缺完整原始证据保留局部 Yellow，adapter 不能提升为 Green。
+带 `image_check_ids` 的 PATH 依次 visual-install → visual-capture → `image-parity` → adapter 的 `--image-parity`，检查出自同一次 capture；无 `baseline_ref` 时 visual-capture 不需要 reference_manifest_ref，带基线的 PATH 同时承载检查时较弱的结果决定三态。叶子 PATH 的比较原图都来自同 coverage 的冻结 UI evidence（baseline_refs/capture_manifest_ref），含滚动目标的后续截图；不能借含首屏的任意 manifest 添加基线。user-reference PATH 的 reference manifest 由 Test-Runner 以用户截图构造 android-reference 记录，截图集合恰为 baseline_refs。Auditor 读原叶子 SPEC 的证据集合，不按构建归属猜 UI 归属。GLOBAL 自有 PATH 用 visual_evidence 显式冻结 coverage、visual_mode、capture_manifest_ref 与完整 baseline_refs；缺完整原始证据保留局部 Yellow，adapter 不能提升为 Green。
 
 visual-capture 把 capture_execution_ref 写入候选 snapshot（[捕获执行回执](../../../template/visual-capture-execution.json)）；adapter 与正式验收重读本 run 的安装回执、执行日志、截图/树和元数据推导 capture_evidence，检查 HAP/代码及完整原图集合。外部捕获器须提供同契约 sidecar（成功安装命令、实际 capture 命令与图片输出，meta 的构建/代码字段一致），缺 sidecar 保留 Yellow；carried 只重验实际引用的历史轮次。
 
@@ -36,9 +35,7 @@ visual-capture 把 capture_execution_ref 写入候选 snapshot（[捕获执行�
 
 viewport 捕获要求实际前台 App、冻结目标选择器与截图前后稳定的树。scroll 还需有源码依据的终点选择器 `scroll_end_match` 与唯一 `scroll_region`，连续保存每屏并有界滚动，实际观察到终点才算 scroll-complete；多滚动区域拆 PATH 或用既有完整 adapter。无可信区域、未到终点、状态变化、截断或重复画面都不证明完整覆盖，保留 partial/Yellow，缺 scrollable 节点不等于无须滚动。模糊导航/未支持 backend 用正式运行器或如实留缺口。
 
-失败归类：候选 App 启动后从运行列表消失是代码缺陷，worker 返回 `FAILED` / `app-runtime-failure`，Test-Runner 记 Red 进诊断；App 仍在运行但不在前台是 `target-precondition` 的 Yellow。只读查询遇瞬时超时重试一次，动作不重复；树里找不到控件只是取证不充分。
-
-Test-Runner 把原始截图、score、semantic 与交互证据组装成 alignment 结构，经 `execute_test.py → lean_visual_adapter.py → tests submit/accept` 正式复核；脚本不从分数推导 ALIGNED，冻结手势仍需实际 action/observation 证据，本入口不执行未声明手势，不代替功能自动化 Main。
+失败归类：候选 App 启动后从运行列表消失是代码缺陷（`FAILED` / `app-runtime-failure`，Red 进诊断）；仍在运行但不在前台是 `target-precondition` 的 Yellow。只读查询遇瞬时超时重试一次，动作不重复；树里找不到控件只是取证不充分。alignment 结构经 `execute_test.py → lean_visual_adapter.py → submit/accept` 正式复核，脚本不从分数推导 ALIGNED，冻结手势仍需实际 action/observation 证据，本入口不代替功能自动化 Main。
 
 semantic 原文件的所有 issues 及 `comparability < 0.4` 或 `comparable=false` 都须在对应 comparison 的 `semantic_dispositions` 逐项裁决才可声明 Green；0.4 只标记待解释矛盾，不是通过阈值。每项含原 semantic_ref（path/hash）、原 finding（issue 含 index 与完整内容）、`resolved|dismissed`、非空 reason 和至少一份不同于原 semantic 的 evidence_refs；无问题不制造裁决。正式门禁重读原件，漏项、重复、旧 hash 或只有结论没证据均拒绝；示例见 [visual-alignment.json](../../../template/visual-alignment.json)。裁决由当前测试/审计 Agent 作出，工具不替 Agent 判断。
 

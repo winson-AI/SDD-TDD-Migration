@@ -59,9 +59,7 @@ Test-Runner 在 build Green 后分两层（第一层：功能用例路径走通�
 - `source-only` 无第二层：行为用 automation 验证，按显式缺视觉证据收尾，不允许"没基线就免检"。
 - 仅自动化环境缺失时，`automation-unavailable` 同时挂起 automation 与 visual，沿既有 Yellow 缺测收尾。
 
-正式视觉 Green 要求 `record.visual_alignment` 与回执一致：冻结 PATH 的 coverage/node_ids/baseline_ref、当前 code_baseline、本轮已接受且可校验的 hap_ref；声明 interaction_id 时 query 带冻结 frozen_interaction，interaction_checks 须有同 ID、PASSED、同 action、observed 满足 expected、同 hap/代码基线的唯一记录。Red/Yellow 可留不完整证据与原因，不得伪造；未完成自动化按 Yellow 收尾。比较结果经 lean_visual_adapter 接入，见[接入协议](domain-tools.md#总则)。
-
-automation 手势使用 [interaction-evidence.json](../../../template/interaction-evidence.json)：正式 Green 同样核对冻结动作、起点、预期、当前 HAP/代码及实际观测，record 与原始 report 的 interaction_evidence 一致；不要求截图基线，不从 expected 合成 observed。Harmony 未产出该结构化证据时，已执行断言保留并规范化为 Yellow（interaction-evidence-unavailable）；真实 Red 不被覆盖，能力缺失不新增全局阻塞。
+正式视觉 Green 要求 `record.visual_alignment` 与回执一致：冻结 PATH 的 coverage/node_ids/baseline_ref、当前 code_baseline、本轮已接受且可校验的 hap_ref；声明 interaction_id 时 query 带冻结 frozen_interaction，interaction_checks 须有同 ID、PASSED、同 action、observed 满足 expected、同基线的唯一记录。Red/Yellow 可留不完整证据与原因，不得伪造。automation 手势用 [interaction-evidence.json](../../../template/interaction-evidence.json)，正式 Green 同样核对冻结动作、起点、预期、当前基线及实际观测，不从 expected 合成 observed；Harmony 未产出该结构化证据时已执行断言保留并规范化为 Yellow（interaction-evidence-unavailable），真实 Red 不被覆盖。
 
 ### 视觉修复聚焦
 
@@ -84,33 +82,31 @@ adapter 与正式验收共用 [visual_evidence.py](../../migration-ledger/script
 
 ## 精确性纪律
 
-没有走[复制清单与参数表](resource-transfer.md#总则)的资源逐项登记，规则如下。
+没有走[复制清单与参数表](resource-transfer.md#总则)的资源逐项登记：
 
-**① 精确策略与反近似** —— UI 呈现闭包内的 Resource item 必须写 `resource_kind` 与 `resource_strategy`，不能靠省略字段避开校验。源类型决定策略：vector → `exact_vector_xml`（保留 viewport/path/group/clip/stroke/fill/alpha/mirroring；**不是** ImageVector）；bitmap/font/raw → `byte_copy`；string/plurals/array → `value_xml_exact`（保留文本、占位符、转义、quantity/数组结构、限定符；显示值以存量平台解析结果为准，由持有该资源的切片提供唯一取值入口，消费方不各自还原转义）；color/dimen/已证 attr → `design_token_exact`；selector/layer-list/shape/有状态绘制 → `compose_semantic_exact`。
+**① 精确策略，无近似** —— UI 呈现闭包内的 Resource item 必写 `resource_kind` 与 `resource_strategy`，按源类型定：vector → `exact_vector_xml`（保留 viewport/path/group/clip/stroke/fill/alpha/mirroring，不是 ImageVector）；bitmap/font/raw → `byte_copy`；string/plurals/array → `value_xml_exact`（保留文本、占位符、转义、quantity/数组结构与限定符，显示值以存量平台解析结果为准，由持有该资源的切片给唯一取值入口）；color/dimen/已证 attr → `design_token_exact`；selector/layer-list/shape/有状态绘制 → `compose_semantic_exact`。没有 `approximate`：不得用 Material 图标、手绘、语义近似、自动栅格化或位图兜底；逃生口只有 `manual_exact`（须 `adaptation_evidence_ref`，图片另受[图片与图标对齐](#图片与图标对齐)约束）与 `blocked`（须 `blocked_reason`，带 blocked 资源的模块不能完成）。`.9.png` 永不 `byte_copy`；被间距消费的 `sp` 尺寸须 `scales_with_font`。
 
-**没有 `approximate` 策略**：禁止 Material 图标替代、手绘近似、语义近似、自动栅格化、位图兜底。逃生口仅 `manual_exact`（须 `adaptation_evidence_ref`；图片另受[图片与图标对齐](#图片与图标对齐)闸门约束）与 `blocked`（须 `blocked_reason`，`completion_gate` 拒绝仍带 blocked 资源的模块完成）。`.9.png` 的 stretch/content 区域**永不** `byte_copy`；`sp` 尺寸被间距消费时必须 `scales_with_font`。
+**② 闭包不缩减** —— UI 树声明的每个呈现引用（含 `dynamicRules` 的运行时覆盖）与代码[使用点](resource-transfer.md#使用点与闭包)都要被覆盖，参数表携带的取值连同变体即算覆盖。item 逐 `source_resource + qualifier` 给真实源文件的 path/sha256、策略、目标与消费者，kind、qualifier、.9.png、sp 单位与源文件一致、SHA 与 collector 相同；裸 `covered_resource_ids` 不算，别名与附加资源各带源事实。night、语言等变体各有 item，不属当前切片的在 `ui_evidence.resource_scope.exclusions` 逐项给 source_resource/qualifier/path、reason 与 evidence_refs，不能排除配置中启用的 qualifier。索引缺 hash 或过期时重新抽取；`res/color*` 状态选择器按 selector 处理。转换与配置映射见[资源接入](domain-tools.md#资源执行与事实绑定)。
 
-**② 闭包不得缩减** —— UI 树声明的每个呈现引用（含 `dynamicRules` 的运行时覆盖）与代码里的[使用点](resource-transfer.md#使用点与闭包)都要被覆盖，否则拒绝冻结；参数表携带的取值（文案、尺寸、颜色）连同变体即算覆盖。item 逐 `source_resource + qualifier` 给真实源文件的 path/sha256、策略、目标与消费者，kind、qualifier、.9.png、sp 单位与源文件一致且 SHA 与 collector 相同；裸 `covered_resource_ids` 不计覆盖，别名与附加资源各带源事实。night、语言等变体各有 item，不属当前切片的在 `ui_evidence.resource_scope.exclusions` 逐项给 source_resource/qualifier/path、reason 与 evidence_refs，不能排除配置中启用的 qualifier。索引缺 hash 或过期时重新抽取；`res/color*` 状态选择器按 selector 处理。转换与配置映射见[资源接入](domain-tools.md#资源执行与事实绑定)。
+**③ 节点 ID、数组与平台资源** —— `R.id` 是节点定位事实；`@array` 按 array 精确迁移。平台引用（`@android:` / `?android:`）须声明 platform_resource.api_level 与指向真实 SDK source.properties 的 sdk_metadata_ref，source_resource_ref 在同 SDK 的 data/res 并含匹配定义；缺定义可显式 blocked，不伪造。示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
-**③ 节点 ID、数组与平台资源** —— `R.id` 是节点定位事实，不按资源文件查找；`@array` 以 array 精确迁移，不丢元素结构。平台引用（`@android:` / `?android:`）须声明 platform_resource.api_level 与指向真实 SDK source.properties 的 sdk_metadata_ref，source_resource_ref 位于同 SDK 的 data/res 并含匹配定义；缺定义可显式 blocked，不伪造。示例见 [semantic-model.json](../../../template/semantic-model.json)。
+**④ UI 树白盒** —— Ledger 按模板 `ui_tree_contract` 校验 `ui_tree_ref`：schemaVersion/scope/generatedFrom（runtime 两字段同有或同无）/screens（递归 source-backed root 与 attachments，重复行只记一次）/完整映射源布局的 layoutClosure/显式 criticalLayoutContracts 与 unresolved（冲突不得丢弃）；各记录带 sourcePath 与 line 或 selector；runtimeObservations 只记实际观察，source-only 树不得携带，visual_mode 与 runtimeIndex 有无一致。
 
-**④ UI 树白盒（按原生采集器真实契约）** —— Ledger 校验 `ui_tree_ref` 内容：`schemaVersion:1`、`scope`、合并溯源 `generatedFrom`（runtime 两字段同有或同无）、`screens[]`（递归 source-backed `root` 与 `attachments[]`，重复行只记一次）、完整映射源布局的 `layoutClosure`，以及显式的 `criticalLayoutContracts`/`unresolved`（冲突不得丢弃）。节点字段、attachment kind 与 binding/event/dynamic rule 必填项见模板 `ui_tree_contract`，各记录都带 sourcePath 与 line 或 selector；runtimeObservations 只记实际运行观察，source-only 树不得携带，visual_mode 须与 runtimeIndex 是否存在一致。
+**⑤ 源闭包证据面** —— UI 适用时 `source_closure` 必填 `ui_renderers`（真正改变可见状态的渲染者，只有 layout 不算）、`ui_topology`（布局/对话框/菜单/标签/浮层及初始可见性）、`states`（实际存在的加载/内容/空/错误/禁用/瞬态/刷新/重试/分页）、`navigation`（目标身份/参数/返回/范围外副作用）、`platform_lifecycle`（权限/存储/网络/回调/后台/取消/宿主窗口）；散文控件清单不算。listener 只证事件绑定，类型声明只证 API 形状，都不证生产调用路径；基础工作在被用户可见行为消费前不算已交付。
 
-**⑤ 源闭包证据面** —— UI 适用时 `source_closure` 必填 `ui_renderers`（真正改变可见状态的 Activity/Fragment/Adapter/ViewHolder/自定义 View，只有 layout 不算）、`ui_topology`（布局/对话框/菜单/标签/浮层及初始可见性）、`states`（实际存在的 loading/content/empty/error/disabled/transient/refresh/retry/pagination）、`navigation`（目标身份/参数/返回/范围外副作用）、`platform_lifecycle`（权限/存储/网络/回调/后台/取消/宿主窗口）；散文控件清单不算闭包。**listener 只证事件绑定，类型声明只证 API 形状，都不证生产调用路径**；基础工作在被用户可见行为消费前不算已交付切片。
-
-**⑥ 消费者接线纪律（anti-guess，协议）** —— 改任何源声明的 dimension/margin/padding/typography/color 前，须经 UI 树 + 资源映射追溯消费者：存在精确映射而消费者硬编码/猜测 → 必须改为接线映射值；映射缺失/错误 → 路由 Resource owner。**只有所有源值与运行时覆盖都接线后**，截图证据才可用于证明残余跨平台文本布局校正。Resource 的 `consumer` 支持单值或列表；实现证据以 `consumer_refs` 逐文件覆盖冻结消费者（同文件多个符号只需一个 hash）。出现引用只证明用到了它，接线语义仍由角色审阅及正式测试验证。
+**⑥ 消费者接线** —— 改任何源声明的 dimension/margin/padding/typography/color 前先经 UI 树 + 资源映射追溯消费者：有精确映射而消费者硬编码 → 改为接线映射值；映射缺失/错误 → 路由 Resource owner。所有源值与运行时覆盖都接线后，截图证据才可证明残余的跨平台文本布局校正。Resource 的 `consumer` 可单值或列表，实现证据以 `consumer_refs` 逐文件覆盖冻结消费者（同文件多符号一个 hash）；出现引用只证用到，接线语义由角色审阅及正式测试验证。
 
 ## 图片与图标对齐
 
-图片的记录、闭包与复制见 [搬运](resource-transfer.md#使用点与闭包)；本节是目标屏幕上的核对。
+图片的记录、闭包与复制见[搬运](resource-transfer.md#使用点与闭包)；本节是目标屏幕上的核对。
 
-**① 检查。** `ui-component-spec` 的 `image_checks[]` 冻结对屏幕节点的要求，各带 `id`、`node_id`、`target.selector`（目标 view tree 节点的精确 class/resource-id/text/content-desc）与可选 `capture_index`，`kind` 取：`image`（默认，节点显示这张存量图片：`source_resource`+`qualifier`、`reference.render_ref` 为 `render-reference` 离线渲染并绑定源文件 SHA 的参考、可选 `tolerance`）、`text`（节点文本等于存量字符串：`@string` 的 source_resource、qualifier 与索引中的 `expect.text`）、`node`（节点存在）。
+**① 检查。** `ui-component-spec` 的 `image_checks[]` 冻结对屏幕节点的要求：`id`、`node_id`、`target.selector`（目标 view tree 节点的精确 class/resource-id/text/content-desc）、可选 `capture_index`，`kind` 取 `image`（默认：节点显示这张存量图片，`source_resource`+`qualifier`，`reference.render_ref` 为 `render-reference` 离线渲染并绑定源文件 SHA 的参考，可选 `tolerance`）、`text`（节点文本等于存量字符串：`@string` 的 source_resource、qualifier 与索引中的 `expect.text`）或 `node`（节点存在）。
 
-**② 每处图片都上屏核对。** 树上节点声明的每张静态图片（位图/矢量，不含 `.9.png`、动画与 XML 图层）必须有同节点同资源的 image 检查，或在 `image_check_waivers` 以 reason 与 evidence_refs 豁免（可限定 node_id / source_resource）。`screen-checks` 为模块派生全部缺少的检查并渲染参考，节点以自身 id（去掉 `node:`）作 `resource-id` 定位，目标只需给这些节点同名 key；另给出文本检查建议，由 Spec 按状态取用。
+**② 每张图都上屏核对。** 树上节点声明的每张静态图片（位图/矢量，不含 `.9.png`、动画与 XML 图层）须有同节点同资源的 image 检查，或在 `image_check_waivers` 以 reason 与 evidence_refs 豁免（可限定 node_id / source_resource）。`screen-checks` 为模块派生缺少的检查并渲染参考，节点以自身 id（去掉 `node:`）作 `resource-id` 定位，目标只需给这些节点同名 key；另给文本检查建议，由 Spec 按状态取用。
 
-**③ 执行。** visual PATH 以 `image_check_ids` 承载检查，已声明的都要被承载：Test-Runner 抓取目标屏幕并运行 `image-parity`，Ledger 用哈希绑定的同一批输入重算。图标比形状（IoU ≥ 0.72、宽高比偏差 ≤ 0.20，可选颜色），铺满画面的图片比内容（相似度 ≥ 0.80）；MATCH → Green，MISMATCH（含文本不同、找不到节点）→ Red 并给节点级根因，无法比较 → Yellow。不依赖存量可运行：无 `baseline_ref` 的 PATH 只抓目标，coverage 须是冻结的 UI 目标，node_ids 属于其树并含每个检查的节点；runtime 目标仍须另有基线 PATH，带基线的 PATH 承载检查时节点须是基线观察到的。
+**③ 执行。** visual PATH 以 `image_check_ids` 承载检查，已声明的都要被承载：Test-Runner 抓取目标屏幕并运行 `image-parity`，Ledger 用哈希绑定的同一批输入重算。图标比形状（IoU ≥ 0.72、宽高比偏差 ≤ 0.20，可选颜色），铺满画面的图片比内容（相似度 ≥ 0.80）；MATCH → Green，MISMATCH（含文本不同、找不到节点）→ Red 并给节点级根因，无法比较 → Yellow。无 `baseline_ref` 的 PATH 只抓目标，coverage 须是冻结的 UI 目标，node_ids 属于其树并含每个检查的节点；runtime 目标仍须另有基线 PATH，带基线的 PATH 承载检查时节点须是基线观察到的。
 
-**④ 非精确图形闸门。** 静态位图/矢量（bitmap、vector，或 raw/assets 中的静态图）用 `manual_exact` 代替精确复制时，item 恰有其一：`image_check`（已声明、被 visual PATH 承载、属于同一 source_resource+qualifier）或 `deviation` `{alternative, kind: redraw|degrade|absent, reason, evidence_refs?}`。`alternative` 必须是计划 `decision_envelope.allowed_alternatives` 的一项，由人类随计划 hash 批准。动画与 `.9.png` 无法离线测量，手工替换只能带 `deviation`；绘制代码按代码移植，保留经评审的 `manual_exact`；三者均不可挂 `image_check`。
+**④ 非精确图形闸门。** 静态位图/矢量（含 raw/assets 中的静态图）用 `manual_exact` 代替精确复制时，item 恰有其一：`image_check`（已声明、被 visual PATH 承载、属于同一 source_resource+qualifier）或 `deviation` `{alternative, kind: redraw|degrade|absent, reason, evidence_refs?}`，`alternative` 须是计划 `decision_envelope.allowed_alternatives` 的一项，由人随计划 hash 批准。动画与 `.9.png` 无法离线测量，手工替换只能带 `deviation`；绘制代码按代码移植，保留经评审的 `manual_exact`；三者均不可挂 `image_check`。
 
 ## 最终报告的保真披露
 

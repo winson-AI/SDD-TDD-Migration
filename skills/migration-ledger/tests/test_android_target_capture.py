@@ -31,6 +31,7 @@ class AndroidTargetTests(unittest.TestCase):
         t.path['visual_execution'].update(environment_ref=file_ref(env), ability='.MainActivity')
         t.module['build_artifacts'] = [file_ref(self.apk)]; t.args['artifact_ref'] = file_ref(self.apk)
         self.commands, self.focus, self.text, self.installed_sha = [], APP + '/' + APP + '.MainActivity', 'Home', self.sha
+        sleep = patch.object(worker.time, 'sleep', lambda s: None); sleep.start(); self.addCleanup(sleep.stop)
 
     def fake(self, argv, **kwargs):
         self.commands.append(argv); self.assertEqual(argv[1:3], ['-s', 'device-1'])

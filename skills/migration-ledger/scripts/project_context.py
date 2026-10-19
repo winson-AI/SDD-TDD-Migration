@@ -248,14 +248,18 @@ def legacy_preview_config(value):
 INTAKE = (
     ('legacy_preview', '存量预览', '存量应用怎样跑给我们看？android-device / android-emulator / vm（设备 serial、app_id、APK 路径或构建命令、启动 activity；没有真机时给模拟器的 avd 名或启动命令 boot.argv，未连接时由我们启动）、browser（url，可选 viewport）、或 none（说明不能跑的原因）', list(PREVIEW_KINDS)),
     ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证？platforms（android / harmony / web，web 是浏览器里预览的目标；没有真机时在运行环境 visual_capture 里给模拟器 serial 与 avd 或 boot.argv，未连接时由我们启动）或 unavailable（原因）', ['android', 'harmony', 'web', 'unavailable']),
+    ('target_resources', '目标资源约定', '存量的图片等文件与尺寸 / 颜色 / 文案等参数怎样进目标？target_resources.copy（目标目录、路径与 accessor 模板、可原样加载的格式、密度顺序）与 target_resources.parameters（每模块参数文件、行模板与 accessor）；目标不接收的部分写进 declined 并给原因。字段见 template/target-resources.json', ['copy', 'parameters', 'declined']),
 )
 
 
 def intake(config):
-    """The statements a migration task needs from the person and nobody else can supply: how the legacy is shown and where the
-    target is driven. Each open one is a question the host asks verbatim; the answer is an ordinary configuration update."""
+    """The statements a migration task needs from the person and nobody else can supply: how the legacy is shown, where the
+    target is driven and how its resources reach the target. Each open one is a question the host asks verbatim; the answer
+    is an ordinary configuration update."""
+    resources = config.get('target_resources') or {}
     stated = {'legacy_preview': config.get('legacy_preview') is not None,
-              'test_adapter.device': (config.get('test_adapter') or {}).get('device') is not None}
+              'test_adapter.device': (config.get('test_adapter') or {}).get('device') is not None,
+              'target_resources': all(part in resources or part in resources.get('declined', {}) for part in ('copy', 'parameters'))}
     return [{'field': field, 'label': label, 'ask': ask, 'options': options} for field, label, ask, options in INTAKE if not stated[field]]
 
 

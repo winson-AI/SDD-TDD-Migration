@@ -35,6 +35,8 @@ class CaptureFixture(unittest.TestCase):
         self.actor = {'role': 'spec-designer', 'instance_id': 'spec-1',
                       'device_lock': {'held': True, 'device_id': 'emulator-5554', 'assignment_id': 'A1', 'fencing_token': 'fence-1'}}
         self.commands, self.focus, self.swipes, self.shots, self.end_after = [], APP + '/' + APP + '.LoginActivity', 0, 0, None
+        self.dumps, self.front_after = 0, 0  # the launcher keeps the focus for the first front_after window dumps
+        sleep = patch.object(worker.time, 'sleep', lambda s: None); sleep.start(); self.addCleanup(sleep.stop)
 
     def state(self, stated):
         path = self.root / 'context' / f'snapshot-{len(list((self.root / "context").glob("*")) if (self.root / "context").exists() else [])}.json'
@@ -67,7 +69,9 @@ class CaptureFixture(unittest.TestCase):
         elif command == ['get-state']: stdout = 'device'
         elif command[:2] == ['install', '-r']: stdout = 'Success'
         elif command[:3] == ['shell', 'pm', 'path']: stdout = 'package:/data/app/' + APP + '/base.apk'
-        elif command[:3] == ['shell', 'dumpsys', 'window']: stdout = '  mCurrentFocus=Window{1a2b u0 ' + self.focus + '}\n'
+        elif command[:3] == ['shell', 'dumpsys', 'window']:
+            self.dumps += 1
+            stdout = '  mCurrentFocus=Window{1a2b u0 ' + (self.focus if self.dumps > self.front_after else 'com.android.launcher3/.Launcher') + '}\n'
         elif command[:3] == ['shell', 'uiautomator', 'dump']: stdout = 'UI hierchary dumped to: ' + command[3]
         elif command[:1] == ['pull']:
             dest = Path(command[2]); dest.parent.mkdir(parents=True, exist_ok=True)
@@ -95,11 +99,20 @@ class LegacyCaptureTests(CaptureFixture):
         self.assertEqual((record['phase'], record['platform'], record['status'], record['snapshot']['device_backend']['name']),
                          ('android-reference', 'android', 'COMPLETE', 'adb'))
         self.assertTrue(select_runtime_ui.select(Path(result['manifest_ref']['path']), ['login:base:viewport']))
-        self.assertTrue(any(c[3:6] == ['install', '-r', str(self.apk)] for c in self.commands))
+        self.assertTrue(any(c[3:7] == ['install', '-r', '-t', str(self.apk)] for c in self.commands))
         self.assertTrue(any(c[3:8] == ['shell', 'am', 'start', '-n', APP + '/.LoginActivity'] for c in self.commands))
         self.assertTrue(any(c[3:5] == ['shell', 'rm'] for c in self.commands))
         self.assertEqual(read_json(result['install_ref']['path'])['status'], 'INSTALLED')
         self.assertEqual(manifest['legacy_preview']['kind'], 'android-emulator')
+
+    def test_an_activity_still_starting_is_read_again_before_it_is_judged_not_in_front(self):
+        self.front_after = 3
+        result = self.capture([self.login()])
+        self.assertEqual((result['status'], result['captured']), ('CAPTURED', ['login:base:viewport']))
+        self.assertEqual(sum(1 for c in self.commands if c[3:8] == ['shell', 'am', 'start', '-n', APP + '/.LoginActivity']), 1)
+        self.front_after = 99
+        result = self.capture([self.login()])
+        self.assertEqual((result['status'], result['blocked'][0]['reason']), ('BLOCKED', 'requested app is not the observed foreground app before capture'))
 
     def test_a_scroll_target_is_complete_only_when_the_frozen_end_is_observed(self):
         self.end_after = 2

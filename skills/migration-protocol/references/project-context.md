@@ -45,21 +45,8 @@
 - 普通明确更新直接写入，不增加一次确认；“仅本次”进入 run-request.overrides，不持久化。
 - 项目 ID 不可改；模块名、run_id、SPEC、生成的测试列表和运行状态不能写入项目配置。
 - 同 request_id+内容+宿主身份重试返回原 revision；同 ID 内容不同或过期 revision 拒绝；并发由锁和 revision 控制。
-- 缺少部分共享配置时允许先保存；prepare 要求可用的 legacy/target 目录与架构文档，测试适配器与宿主能力由后续门禁检查，缺少时如实阻塞。
-- 写历史工件后原子替换当前文件即提交；中断留下的未引用工件不算更新，history 仅遍历已提交链；禁止手工改当前文件绕过版本记录。
-
-请求例子（路径与摘要须替换，下面表示把目标工程改为新路径）：
-
-```json
-{
-  "schema_version": 1,
-  "project_id": "shop-migration",
-  "request_id": "change-target-002",
-  "expected_revision": 1,
-  "patch": {"target_root": "/workspace/new-target"},
-  "source_ref": {"path": "/workspace/migration/.sdd-migration/inputs/update-002.md", "sha256": "<实际摘要>"}
-}
-```
+- 缺少部分共享配置时允许先保存；prepare 要求可用的 legacy/target 目录与架构文档，其余由后续门禁检查，缺少时如实阻塞。
+- 写历史工件后原子替换当前文件即提交；未引用工件不算更新，history 仅遍历已提交链；禁止手工改当前文件绕过版本记录。
 
 默认值存放在 config.defaults：entry_mode 固定 project，另有 budgets 与 quality_gates（字段见模板）。test_adapter 与 input 中的结构一致，runtime 只放 model_routing。配置只引用宿主环境或凭证名称，不在模板中放凭证值。
 
@@ -100,7 +87,7 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <init|updat
 python3 <package>/skills/migration-ledger/scripts/project_context.py <show|history> --root <工作目录>/.sdd-migration
 ```
 
-`target_resources`（目标资源目录、引用写法与参数文件模板）随项目配置保存并固化进每次运行，字段见 [target-resources.json](../../../template/target-resources.json) 与 [搬运](resource-transfer.md#总则)。
+`target_resources`（copy 与 parameters 各须声明或 declined）随项目配置保存并固化进每次运行，字段见 [target-resources.json](../../../template/target-resources.json) 与 [搬运](resource-transfer.md#总则)。
 
 [run-request.json](../../../template/run-request.json) 中的元数据、项目标识、来源引用由宿主生成；用户的单模块选择仍只有 `single-module + 功能模块名`。
 
@@ -114,7 +101,7 @@ python3 <package>/skills/migration-ledger/scripts/project_context.py <show|histo
 
 ## 存量预览
 
-legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch 与 navigator；没有真机时 device 带 avd 或 boot.argv，serial 不应答即启动模拟器并等开机）、browser（url，可选 viewport）或 none（reason）；UI 登记前须声明，prepare 记包哈希；init/update/prepare 返回 `open_statements`（含目标验证设备），status 以 preview-statement-required 提示到声明为止。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
+legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch 与 navigator；没有真机时 device 带 avd 或 boot.argv，serial 不应答即启动模拟器并等开机）、browser（url，可选 viewport）或 none（reason）；UI 登记前须声明，prepare 记包哈希；init/update/prepare 返回 `open_statements`（含目标验证设备与 target_resources），status 以 statement-required 提示到声明为止。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
 
 ## 二方库/其他项目模块来源
 

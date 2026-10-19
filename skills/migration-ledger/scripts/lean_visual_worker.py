@@ -220,6 +220,7 @@ class Device:
 class AndroidDevice:
     """Fixed adb argv for the legacy application: install, launch, dump, screenshot; no arbitrary shell."""
     platform, backend, image_mime = 'android', 'adb', 'image/png'
+    match_retries = 10  # an activity still starting, a screen still drawing: read again, read-only, for a bounded while
 
     def __init__(self, serial, tool, out):
         require(isinstance(tool, str) and Path(tool).name == 'adb', 'configured executable must be adb')
@@ -280,6 +281,9 @@ class AndroidDevice:
         """One bounded swipe up inside the frozen scroll region."""
         x1, y1, x2, y2 = bounds
         self.call('shell', 'input', 'swipe', (x1 + x2) // 2, y1 + (y2 - y1) * 3 // 4, (x1 + x2) // 2, y1 + (y2 - y1) // 4, 1000)
+
+    def wait(self, ms):
+        time.sleep(ms / 1000)
 
     def screenshot(self, label):
         remote = f'/sdcard/sdd-{self.nonce}-{label}.png'
@@ -521,6 +525,10 @@ def observe_screen(device, app, target, spec, out, label):
     """The frozen target on the screen of an adb device or a browser: foreground checked, selectors matched, each screen captured
     with a stable tree around the screenshot, a scroll bounded by its frozen region and end. Returns the observation or a blocked result."""
     package, activity = device.foreground()
+    for _ in range(getattr(device, 'match_retries', 0)):  # read-only: an app still coming to the front is read again, never relaunched
+        if package == app:
+            break
+        device.wait(300); package, activity = device.foreground()
     if package != app:
         return not_in_front(device, app, 'before capture')
     xml = device.layout(f'{label}-0')
@@ -647,7 +655,7 @@ def install_legacy(device, stated, app, out):
         artifact = Path(stated['artifact'])
         if not artifact.is_file() or file_ref(artifact)['sha256'] != stated.get('artifact_sha256'):
             raise DeviceFailure('artifact-identity-unverified', 'the legacy package differs from the one the run was prepared with')
-    device.call('install', '-r', artifact, timeout=240)
+    device.call('install', '-r', '-t', artifact, timeout=240)  # -t: a package built by the IDE's Run is test-only and is still the legacy
     installed = device.call('shell', 'pm', 'path', app)
     if 'package:' not in installed:
         raise DeviceFailure('artifact-identity-unverified', 'the legacy package is not installed under its app_id')
@@ -780,7 +788,7 @@ def legacy_capture(args, *, root, out, state, task, actor, module_id=None):
                   'assignment_id': task['assignment_id'], 'fencing_token': task.get('fencing_token'),
                   'acceptance': 'a-capture-is-the-baseline-of-what-it-shows-not-a-visual-verdict'}
     except DeviceFailure as exc:
-        result = blocked(str(exc), exc.kind, install_ref=install_ref)
+        result = blocked(str(exc), exc.kind, install_ref=install_ref, boot_ref=boot_ref)
     finally:
         result = (result or {}) | (device.finish() if device is not None else {})
     return result
@@ -1183,7 +1191,7 @@ def run(operation, args, *, root, out, module, task, actor, config):
                       'artifact_identity': identity,
                       'acceptance': 'installation-is-evidence-not-a-test-verdict'}
         elif operation == 'visual-install' and backend == 'adb':  # the candidate APK: installed, then hashed on the device against the accepted bytes
-            device.call('install', '-r', artifact, timeout=240)
+            device.call('install', '-r', '-t', artifact, timeout=240)
             identity = android_identity(device, app, args['artifact_ref']['sha256'])
             installed = identity['installed']
             result = {'producer': 'lean-visual-worker', 'operation': operation, 'status': 'INSTALLED',

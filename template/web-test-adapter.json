@@ -1,0 +1,5 @@
+{
+  "argv": ["{{absolute-python-with-playwright}}", "{{package_root}}/skills/migration-test/scripts/web_main.py", "--root", "{{absolute-run-root}}", "--config", "{{absolute-run-root}}/runs/harmony/sandbox/environment/web.json"],
+  "timeout": 600,
+  "_note": "web.json: {\"browser\": \"chromium\", \"headless\": true, \"viewport\": {\"width\": 1280, \"height\": 800}, \"record_video\": false, \"timeout_ms\": 10000}. The Python must have playwright with a browser installed (python -m playwright install chromium) and Pillow for refer_image_assert; execute_test adds --query-file/--result-file. This note is not part of the adapter."
+}
