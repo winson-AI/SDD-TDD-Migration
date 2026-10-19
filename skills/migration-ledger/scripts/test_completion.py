@@ -1,6 +1,7 @@
 """Deterministic host-receipt interpretation, shared by staging and acceptance."""
 import copy
 import json
+from pathlib import Path
 
 from contracts import check_ref, digest, keyed, read_json, require
 
@@ -25,6 +26,37 @@ def mobile_binding(planned, query, report):
             and environment.get('device'), 'mobile execution environment mismatch')
 
 
+def web_steps(query, trace, observations, check):
+    """What the web Main must show for each frozen step: the step walked in order under its own hash, a screen before and after
+    it, and every assertion observed after its step with the screen it was judged on."""
+    steps = query.get('steps')
+    if not isinstance(steps, list) or not steps:
+        return ['missing frozen steps']
+    if not isinstance(trace, dict) or trace.get('query_sha256') != digest(query):
+        return ['step trace belongs to a different query']
+    rows = trace.get('steps', [])
+    if not isinstance(rows, list) or len(rows) != len(steps):
+        return ['step trace does not cover the frozen path']
+    issues = []
+    for number, (step, row) in enumerate(zip(steps, rows), 1):
+        if not isinstance(row, dict) or row.get('step_number') != number or row.get('step_sha256') != digest(step):
+            issues.append(f'step {number}: frozen identity mismatch'); continue
+        if row.get('status') != 'executed':
+            issues.append(f'step {number}: {row.get("status") or "missing status"}'); continue
+        for name in ('before_ref', 'after_ref'):
+            if not row.get(name): issues.append(f'step {number}: missing {name}')
+            else: check(row[name])
+        if not row.get('started_at') or not row.get('finished_at'):
+            issues.append(f'step {number}: missing timestamps')
+    for a in query.get('expected_assertions', []):
+        seen = [e for e in observations if isinstance(e, dict) and e.get('assertion_ids') == [a.get('assertion_id')]]
+        for e in seen:
+            for ref in e.get('evidence_refs', []): check(ref)
+        if not any(e.get('after_step') == a.get('after_step') and not e.get('error') and e.get('evidence_refs') for e in seen):
+            issues.append(f'{a.get("assertion_id")}: not observed after its frozen step')
+    return issues
+
+
 def interpret(receipt, planned):
     check_ref(receipt['log_ref'])
     query = read_json(check_ref(receipt['query_ref']))
@@ -38,7 +70,8 @@ def interpret(receipt, planned):
     report, error = load_content(receipt['result_ref']) if receipt.get('result_ref') else (None, 'missing result')
     evidence = [receipt['log_ref'], receipt['query_ref']]
     if receipt.get('result_ref'): evidence.append(receipt['result_ref'])
-    known = isinstance(report, dict) and report.get('producer') in ('harmony-adapter', 'build-executor', 'lean-visual-adapter', 'spec-closure-check')
+    known = isinstance(report, dict) and report.get('producer') in ('harmony-adapter', 'build-executor', 'lean-visual-adapter', 'spec-closure-check', 'web-main')
+    generic = isinstance(report, dict) and not known  # a project adapter: its assertions are read as the documented contract, nothing else is trusted
     step_issues = []
     if known and report['producer'] == 'build-executor':
         require(planned.get('kind') in ('build', 'unit') or planned.get('unit_report'), 'build report cannot replace automation')
@@ -75,13 +108,33 @@ def interpret(receipt, planned):
         for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
             require(report.get(key) == receipt.get(key), 'visual report context mismatch')
         require(report.get('query_sha256') == digest(query), 'visual query mismatch')
+    if known and report['producer'] == 'web-main':  # the built-in web Main: its report is bound to the query, the page and every step it walked
+        require(planned.get('platform') == 'web' and query.get('platform') == 'web', 'web PATH platform changed')
+        for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
+            require(report.get(key) == receipt.get(key), 'web report context mismatch')
+        require(report.get('query_sha256') == digest(query), 'web query mismatch')
+        environment = read_json(check_ref(report.get('environment_ref')))
+        require(environment.get('platform') == 'web' and environment.get('browser'), 'web execution environment mismatch')
+        observations, observation_error = load_content(report['observations_ref']) if report.get('observations_ref') else (None, 'missing observations')
+        trace, trace_error = load_content(report['step_trace_ref']) if report.get('step_trace_ref') else (None, 'missing step trace')
+        if report.get('step_trace_ref'): evidence.append(report['step_trace_ref'])
+        if observation_error or trace_error or not isinstance(observations, list):
+            step_issues = [observation_error or trace_error or 'invalid observations format']
+        else:
+            step_issues = web_steps(query, trace, observations, check_ref)
     if known and report['producer'] == 'spec-closure-check':
         require(planned.get('kind') == 'static', 'spec closure report cannot replace other tests')
         require(planned.get('scenario_ids') in (None, query.get('scenario_ids')), 'static scenario selection changed')
         for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
             require(report.get(key) == receipt.get(key), 'spec closure report context mismatch')
         require(report.get('query_sha256') == digest(query), 'spec closure query mismatch')
-    assertions = report.get('assertions') if known else None
+    assertions = report.get('assertions') if known or generic else None
+    if generic and isinstance(assertions, list) and 'quality' not in report:  # the documented minimum: assertions alone, the verdict follows from them
+        results = [a.get('passed') for a in assertions if isinstance(a, dict)]
+        report = {**report, 'quality': 'green-passed' if results and all(r is True for r in results) else 'red-bug'}
+        if report['quality'] == 'red-bug':
+            report.setdefault('root_cause', {'category': 'code', 'summary': 'failed frozen assertions: ' + ', '.join(str(a.get('assertion_id')) for a in assertions if isinstance(a, dict) and a.get('passed') is not True),
+                                             'confidence': 'observed', 'owner': receipt['module_id'], 'next_action': 'diagnose', 'evidence_refs': list(evidence)})
     valid = (isinstance(assertions, list) and len(assertions) == len(expected)
              and all(isinstance(a, dict) and isinstance(a.get('assertion_id'), str) and a['assertion_id'] in expected for a in assertions)
              and len({a['assertion_id'] for a in assertions}) == len(expected)
@@ -100,7 +153,7 @@ def interpret(receipt, planned):
         if report.get('media_refs') is not None:  # the recording or frame the adapter kept: hash-bound, inside its own output
             from contracts import media_evidence
             row['media_refs'] = media_evidence(report['media_refs'], Path(check_ref(receipt['result_ref'])).parent)
-        if report['producer'] == 'harmony-adapter':
+        if report.get('producer') in ('harmony-adapter', 'web-main'):
             complete = (not abnormal and not step_issues and all(a.get('actual') is not None for a in assertions)
                         and isinstance(observations, list) and all(not e.get('error') for e in observations))
             row['execution_status'] = 'completed' if complete else 'incomplete'
@@ -116,7 +169,7 @@ def interpret(receipt, planned):
                 'confidence': 'observed', 'owner': receipt['module_id'],
                 'next_action': 'request same-Run PATH planning/CR review' if needs_plan else 'retest frozen PATH with step evidence',
                 'evidence_refs': evidence, 'observed_root_cause': previous}
-        if report['producer'] in ('harmony-adapter', 'lean-visual-adapter') and (abnormal or receipt['exit_code'] != 0 and row['quality'] == 'green-passed'):
+        if report.get('producer') in ('harmony-adapter', 'lean-visual-adapter', 'web-main') and (abnormal or receipt['exit_code'] != 0 and row['quality'] == 'green-passed'):
             previous = row.get('root_cause')
             row['quality'] = 'red-bug' if row['quality'] == 'red-bug' else 'yellow-blocked'
             row['root_cause'] = {'category': previous['category'] if previous else 'tooling', 'summary':

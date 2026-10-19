@@ -109,6 +109,22 @@ class FunctionalSkeletonTests(unittest.TestCase):
                          ('android', [script['asset_id']], [screen['path_id']], [{'path_id': screen['path_id'], 'assertion_id': 'ASSERT-' + screen['path_id']}]))
         self.assertIn('node:root', rest[script['ref']])
 
+    def test_a_case_a_browser_shows_gets_frozen_steps_for_the_built_in_web_main(self):
+        u = test_ui_fidelity.UiFidelityTests(); u.setUp(); self.addCleanup(u.doCleanups)
+        f = u.f; s = copy.deepcopy(f.state()); m = s['modules']['M001']
+        m['dimension_analysis_ref'] = u.analysis_ref(ui_evidence=True)
+        s['test_adapter'] = {'device': {'platforms': ['web']}}
+        out = f.root / 'staging/spec-designer/web'; out.mkdir(parents=True)
+        documents = {kind + '.md': f.ref(f'doc-{kind}.md', kind) for kind in ('proposal', 'spec', 'design', 'tasks')}
+        upstream = spec_skeleton.plans(s, m, out, documents)['upstream-test-plan.json']
+        screen = next(p for p in upstream['paths'] if p['kind'] == 'automation')
+        self.assertEqual((screen['platform'], screen['task_type'], [step['action'] for step in screen['steps']], screen['preparation']['status']),
+                         ('web', 'test', ['goto', 'click'], 'existing'))
+        assertion = screen['expected_assertions'][0]
+        self.assertEqual((assertion['verification'], assertion['matcher'], assertion['after_step'], assertion['predicate']['kind']), ('dom', 'exact', 2, 'text'))
+        self.assertIn('node:root', screen['steps'][1]['selector'])
+        self.assertEqual([a for a in upstream['test_assets'] if a['kind'] == 'script'], [])
+
 
 class ScriptedDeviceReportTests(unittest.TestCase):
     def test_the_report_counts_device_paths_a_frozen_script_drove(self):

@@ -148,6 +148,15 @@ def plans(s, m, out, documents):
         seen = [iid for iid in ui_items if cid in items[iid]['case_ids']]
         if platforms and seen:  # a user-visible case on a declared device: the engine drives it, or a script the plan freezes
             nodes = screen_nodes(items, seen)
+            if platforms[0] == 'web':  # the built-in web Main drives the page: frozen steps and DOM predicates, no script to write
+                hint = f'（UI 树节点 id：{", ".join(nodes)}）' if nodes else ''
+                paths.append(path(pid, 'automation', cid, todo(f'{cid} 的上游用例路径名'), platform='web', task_type='test',
+                                  steps=[{'action': 'goto', 'url': todo('目标页面的绝对 URL')}, {'action': 'click', 'selector': todo('冻结动作的 CSS 选择器' + hint)}],
+                                  expected_assertions=[{'assertion_id': 'ASSERT-' + pid, 'expected': True, 'description': todo('上游预期'), 'matcher': 'exact',
+                                                        'verification': 'dom', 'after_step': 2, 'scenario_ids': [],
+                                                        'predicate': {'kind': 'text', 'selector': todo('CSS 选择器'), 'equals': todo('页面显示的文本')}}],
+                                  preparation={'status': 'existing', 'reason': '包内 web Main 按冻结步骤驱动页面', 'evidence_refs': [], 'asset_ids': []}))
+                continue
             paths.append(path(pid, 'automation', cid, todo(f'{cid} 的上游用例路径名'), platform=platforms[0],
                               **({'preparation': {'status': 'prepared', 'reason': 'UI 树节点 id 稳定，脚本随计划冻结', 'evidence_refs': [], 'asset_ids': ['SCRIPT-' + pid]}} if nodes else {})))
             if nodes:

@@ -108,6 +108,10 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 Harmony 不自动生成结构化 interaction_evidence：缺这份证据时的规范化见[视觉对齐](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)；Test-Runner 在预检说明能力缺口，换 adapter 或走缺测出口。
 
+## web Main
+
+已内置 web Main（`skills/migration-test/scripts/web_main.py`，adapter 见 [web-test-adapter.json](../../../template/web-test-adapter.json)）：PATH 填 `platform=web`、`task_type=test`，steps 是确定性动作对象（goto/click/fill/press/wait，首步 goto），断言 `verification=dom` 带 predicate（text/value/visible/count/url/title 的 equals/contains/matches）或 `refer_image_assert` 带用户截图（Ledger 绑定 reference_media_ref，视觉分 ≥ tolerance，默认 80），形状见 [web-test-path.json](../../../template/web-test-path.json)。Main 用 Playwright 真实浏览器走步骤，每步前后截图，谓词在其 after_step 后判定，观察逐条落盘；回执 producer=web-main，带 query_sha256、environment_ref（platform=web、browser）、step-trace（每步 hash、状态、前后截图）、observations 与 media_refs（截图，`record_video: true` 时含录像）；Ledger 核对上下文、query hash、每步证据与每条断言在其步骤后的观察，缺一为 Yellow；无法执行的步骤停止路径记 Yellow，谓词不成立记 Red。没有 producer 的项目适配器仍按 `{"assertions":[...]}` 验收，三态由断言推出。
+
 ## 分阶段唯一验收 owner
 
 - 模块阶段：MO 唯一验收本模块 CASE/PATH：Test-Runner 提交真实结果，MO 核验完整 Green、当前基线、证据与 DoD 后提交验收记录。
