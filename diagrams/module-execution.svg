@@ -24,7 +24,7 @@
 <text x="800.0" y="432.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">四维 → SPEC / 测试路径</text>
 <text x="800.0" y="466.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">UI → Logic → Adhesive → Resource</text>
 <text x="800.0" y="495.5" font-size="18.42" fill="#4b5563" text-anchor="middle" font-weight="400">Spec-Designer：实施规范 + CASE / PATH / ASSERT</text>
-<text x="800.0" y="524.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">存量可跑：先按 capture_due 捕获界面</text>
+<text x="800.0" y="524.5" font-size="19.49" fill="#4b5563" text-anchor="middle" font-weight="400">先按 capture_due 捕获、media_due 引用用户媒体</text>
 <text x="800.0" y="553.5" font-size="20.84" fill="#4b5563" text-anchor="middle" font-weight="400">骨架起笔：冻结测试源 / 用户截图 visual PATH</text>
 <path d="M800,565 L800,610" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="610" width="500" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -68,7 +68,7 @@
 <rect x="1115" y="1225" width="400" height="170" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
 <text x="1315.0" y="1260.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">现有诊断 → MO 分流</text>
 <text x="1315.0" y="1294.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按根因在派修复前选控制分支</text>
-<text x="1315.0" y="1323.0" font-size="20.02" fill="#4b5563" text-anchor="middle" font-weight="400">Diagnostician 只读，带失败路径的媒体</text>
+<text x="1315.0" y="1323.0" font-size="19.02" fill="#4b5563" text-anchor="middle" font-weight="400">Diagnostician 只读，并列预期与实际媒体</text>
 <text x="1315.0" y="1352.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">未决 / 环境 / 预算沿既有恢复</text>
 <text x="1315.0" y="1381.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不增加前置规划轮次</text>
 <path d="M1315,1400 L1315,1430 L285,1430" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round"/>

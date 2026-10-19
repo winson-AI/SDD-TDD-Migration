@@ -82,13 +82,13 @@ class Diagram:
 def overview():
     d=Diagram('workflow',2320,'01','三层编排 · 迁移总览','scope / 全量 CASE → TASK / 四维 → SPEC 冻结 → 任务执行与反馈调整 → 统一宿主 Auditor')
     d.box(100,190,1020,140,'用户输入 → 项目上下文固化',[
-        '规范 / 新架构 / 存量与目标代码 / 知识 / 测试用例 / 复用来源 / 参考截图与录屏',
+        '规范 / 新架构 / 存量与目标代码 / 知识（文件或 wiki 目录）/ 测试用例 / 复用来源 / 参考截图与录屏',
         '宿主 init / update 配置（含存量怎样跑）；prepare 固化本轮快照'], 'gray')
     d.arrow([(610,330),(610,425)])
     d.band(60,365,1100,230,'GO  ·  全局规划','全局管理迁移、DAG、锁与依赖')
     d.box(100,425,1020,165,'GO · 功能覆盖 → 划 scope / 分配全量 CASE',[
         '有用例：用例范围界定叶子；无用例：读源码建功能树再派生用例',
-        'TARGET 画像（无 / 壳 / 部分 / 已有）+ 二方库：reuse-catalog / 语义 / 接入可行性',
+        'TARGET 画像（无 / 壳 / 部分 / 已有，target-scan 给候选）+ 二方库：reuse-catalog / 语义',
         '先分配 scope / CASE；四维形式化业务、功能与代码边界',
         'project / single-module 同一主线；叶子 = 功能树上的子业务流'],controller=True)
     # Fan out through a shared branch; two parents show project multiplicity.
@@ -161,7 +161,7 @@ def module_execution():
     d.box(550,400,500,165,'四维 → SPEC / 测试路径',[
         'UI → Logic → Adhesive → Resource',
         'Spec-Designer：实施规范 + CASE / PATH / ASSERT',
-        '存量可跑：先按 capture_due 捕获界面',
+        '先按 capture_due 捕获、media_due 引用用户媒体',
         '骨架起笔：冻结测试源 / 用户截图 visual PATH'])
     d.arrow([(800,565),(800,610)])
     d.box(550,610,500,130,'MO 审核冻结',[
@@ -191,7 +191,7 @@ def module_execution():
     d.arrow([(955,1310),(1110,1310)],'orange');d.label(1030,1290,'非 Green','orange')
     d.box(1110,1220,410,180,'现有诊断 → MO 分流',[
         '按根因在派修复前选控制分支',
-        'Diagnostician 只读，带失败路径的媒体',
+        'Diagnostician 只读，并列预期与实际媒体',
         '未决 / 环境 / 预算沿既有恢复',
         '不增加前置规划轮次'], 'orange',True)
     # One classified diagnosis feeds three distinct control branches.

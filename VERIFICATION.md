@@ -22,7 +22,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1594 | 全量通过，零失败/错误/跳过；本轮新增媒体到期、预期并列、知识目录与沉淀、目标扫描的测试 |
+| migration-ledger/tests | 1595 | 全量通过，零失败/错误/跳过；本轮新增媒体到期、预期并列、知识目录与沉淀、目标扫描与浏览器视口声明的测试 |
 | migration-test/tests | 73 | 全量通过；本轮无改动 |
 | runtime/harmony/tests | 128 | 全量通过；本轮无改动 |
 
@@ -30,7 +30,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 本轮：媒体、知识与目标现状（J1–J4）：Spec-Designer 的 plan 步骤带 media_due（本叶尚未被 PATH 引用的用户媒体），持有媒体的叶子卡片带用户参考媒体小节；diagnose/Fixer 步骤与报告并列失败 PATH 的预期媒体（用户截图/录屏）与实际媒体；knowledge_paths 接受目录（递归 Markdown），人工 kind=knowledge 的答复经经验库沉淀并在下次 prepare 自动并入知识文档；只读 target-scan 列出目标工程的模块、入口与命中关键词的声明符号及 hash，作目标画像候选证据。上一轮：存量捕获闭环（E1–E7）：Spec-Designer 的 plan 步骤带 capture_due、卡片带存量预览与存量捕获小节；未捕获的界面、未引用的用户截图/预期与未引用预期的 design 是首版携带的欠项（owed），一致性矛盾仍拒绝；宿主职责、sandbox doctor 的 adb/Playwright 探针、经验库携带 legacy_preview、每个 worker 操作的请求模板；三条存量→目标黄金路径（Android→Harmony、Android→Android、web→Android）以假设备端到端走通，adb 候选的 pull/screencap 计为原生捕获证据；重复的测试/构建/存储/收尾/复用/埋点表述各留一处权威并加指引，section 读取忽略代码块内注释，棘轮 483,500 → 468,000；navigation.mode=agent 的目标由声明的 navigator（adapter snapshot 任务）走到界面后仍按冻结选择器捕获，未到达记 navigation-unverified 并附 capture_gap 建议；浏览器按同一滚动契约滚到冻结终点，analyze-ui platform=web 从运行时索引派生 DOM 树（无源索引，节点 id 取元素 id，图片来源只记录），web 树只绑定运行时索引并通过冻结证据、adapter 与语义门禁。上一轮：存量预览与媒体取证（D1–D6）：项目上下文声明存量怎样跑（android-device/android-emulator/vm/browser/none），可执行性随声明、未捕获的界面写 capture_gap；运行时移植上游的 snapshot/recording 任务类型并产出媒体回执；legacy-capture 在包内装机、按冻结动作走到界面、写 android-reference/legacy-reference 记录（adb 或 Playwright）；测试结果带 media_refs，报告逐 PATH 列媒体、diagnose/Fixer 带非 Green 路径的媒体；Android 目标走 adb 装 APK 并写 android-candidate；候选与参考谓词各归一函数。上一轮：项目理解（U3、U4、U1、U2）：目标画像逐功能记 absent/shell-only/partial/existing，脚手架只在缺外壳处、持有代码的叶子欠复用说明；项目知识文档可按 project 模式检索，knowledge-need 由人以 kind=knowledge 决定补充并写成本 run 文档；用户参考媒体随项目上下文固化并下发到持有叶子，截图作 user-reference 基线、录屏作交互预期、未被 PATH 引用即欠项；target-expectation 取代存量基线、design 须引用、报告披露。
 
-协议体积为 467835 / 468000 字节，最大单文件 25280 / 32000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中最大卡片 50574 / 60000 字节，最大模板组合 50912 / 56200 字节；拒绝消息带小节指引的比例 83.3%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 467914 / 468000 字节，最大单文件 25280 / 32000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中最大卡片 50574 / 60000 字节，最大模板组合 50912 / 56200 字节；拒绝消息带小节指引的比例 83.3%（棘轮 80%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 
