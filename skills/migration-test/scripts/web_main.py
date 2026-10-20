@@ -202,12 +202,13 @@ def execute(query, config, out, open_page=PlaywrightPage):
     return run.report(video)
 
 
-def main():
+def main(argv=None, open_page=PlaywrightPage):
+    """The adapter entry; a test passes its own page factory, the host gets a browser."""
     parser = argparse.ArgumentParser(description=__doc__)
     for key in ('query-file', 'result-file'): parser.add_argument('--' + key, required=True)
     parser.add_argument('--config', help='JSON: browser, headless, viewport {width, height}, record_video, timeout_ms')
     parser.add_argument('--root', help='Run root; otherwise inferred from the canonical result path')
-    a = parser.parse_args()
+    a = parser.parse_args(argv)
     if os.getpgrp() != os.getpid(): os.setsid()  # this invocation owns its browser processes
     query_bytes = Path(a.query_file).read_bytes()
     q = json.loads(query_bytes)
@@ -233,7 +234,7 @@ def main():
     try:
         validate_query(q)
         with scope(out):
-            report = execute(q, config, out)
+            report = execute(q, config, out, open_page)
     except ValueError as exc:  # a query the Main cannot run: no step was taken, the reason is the receipt
         run = Run(q, out) if isinstance(q.get('steps'), list) and q.get('expected_assertions') else None
         report = {'producer': PRODUCER, 'platform': 'web', 'task_type': 'test', **{k: q.get(k) for k in CONTEXT}, 'query_sha256': digest(q),
