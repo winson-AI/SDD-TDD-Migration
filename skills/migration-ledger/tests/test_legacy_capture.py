@@ -389,6 +389,18 @@ class HarmonyLegacyTests(CaptureFixture):
         result = self.capture([self.login()])
         self.assertEqual((result['status'], result['root_cause']['kind']), ('BLOCKED', 'artifact-identity-unverified'))
 
+    def test_the_harmony_legacy_gets_its_ui_tree_from_the_runtime_index_like_a_web_legacy(self):
+        import lean_worker
+        result = self.capture([{'coverage': 'login:base:viewport', 'target_match': [{'text': 'Login'}]}], tool='/opt/sdk/hdc')
+        out = self.sandbox / 'spec-1' / 'analysis'; out.mkdir(parents=True)
+        analysis = lean_worker.web_analysis({'platform': 'harmony', 'capture_ref': result['manifest_ref'], 'targets': ['login:base:viewport']}, 'M001', out, 'harmony')
+        tree = read_json(analysis['ui_tree_ref']['path'])
+        self.assertEqual((tree['generatedFrom']['platform'], tree['generatedFrom']['sourceIndex'], [s['id'] for s in tree['screens']]), ('harmony', None, ['screen:login.base']))
+        self.assertEqual(tree['screens'][0]['root']['id'], 'node:title')  # the component key is the stable node id
+        ui_evidence.validate_tree_ref(analysis['ui_tree_ref'], runtime_index_ref=analysis['runtime_index_ref'])
+        with self.assertRaisesRegex(Rejected, 'a web analysis reads a browser legacy capture'):
+            lean_worker.web_analysis({'platform': 'web', 'capture_ref': result['manifest_ref'], 'targets': ['login:base:viewport']}, 'M001', out / 'web', 'web')
+
     def test_the_statement_names_the_hdc_target_and_the_ability(self):
         import project_context as pc
         good = pc.legacy_preview_config(dict(self.stated))

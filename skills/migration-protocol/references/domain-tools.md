@@ -25,7 +25,7 @@ applicable UI 必须有模型/源树/目标覆盖，不是可选附录。领域�
 受限入口为 [lean_worker.py](../../migration-ledger/scripts/lean_worker.py)。宿主传认证过的 host-context、module_id 和执行阶段 assignment；请求只选择白名单操作及工具参数，不接受任意 shell 或任意 skill。
 
 ```sh
-python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
+lean_worker.py \
   --root <run_root> --request <staged-request.json> --host-context <host.json>
 ```
 
@@ -33,7 +33,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 | operation | args 要点 | 当前实际能力 |
 | --- | --- | --- |
-| `analyze-ui` | entry/source_files/layouts，选填 capture_ref、targets、manifests、image_sinks、layout_helpers；platform=web 只读 capture_ref/targets | 从 legacy_root 收集源索引（使用点、图片来源与参数，见[搬运](resource-transfer.md#使用点与闭包)）；entry 写 `文件#类名[.方法名]` 只采该段；有合法 Capture 时选运行时索引；据此生成 UI 树再 validate-ui，不自动证明源闭包完整 |
+| `analyze-ui` | entry/source_files/layouts，选填 capture_ref、targets、manifests、image_sinks、layout_helpers；platform=web|harmony 只读 capture_ref/targets | 从 legacy_root 收集源索引（使用点、图片来源与参数，见[搬运](resource-transfer.md#使用点与闭包)）；entry 写 `文件#类名[.方法名]` 只采该段；有合法 Capture 时选运行时索引；据此生成 UI 树再 validate-ui，不自动证明源闭包完整 |
 | `validate-ui` | ui_tree_ref/source_index_ref/runtime_index_ref，选填 resource_scope | 校验树与原始索引一致；source-only 不伪造 runtime_index_ref；resource_scope 仅说明有证据的范围外变体 |
 | `target-scan` | keywords，选填 roots | 只读列出目标工程含构建文件的模块、manifest / 模块入口与名称或路径命中关键词的声明符号及文件 hash，作目标画像候选证据，不判状态；无需 assignment |
 | `resource-scan` | 选填 source_index_ref/ui_tree_ref/extra_refs | 只读列出当前闭包资源的候选文件与 hash（含 base/night/语言变体），给树与索引时附预填 skeletons；不写目标、不裁决精确性 |
