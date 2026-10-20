@@ -671,7 +671,7 @@ GATES = [
     (r'deferral|defer completed|may be deferred|deferred automation', 'build-automation.md', '4. 自动化环境缺失：直接记 Yellow 并继续'),
     (r'execution (evidence|observation|output|contract)|execution-state|completion (acceptance|query|interpretation)|host normalization|host execution', 'testing.md', '本地执行与严格结果验收'),
     (r'mobile|Harmony (classification|context|query|output)', 'testing.md', 'Harmony Main'),
-    (r'web (PATH platform|report context|query|execution environment)', 'testing.md', 'web Main'),
+    (r'web (PATH platform|PATH |report context|query|execution environment)', 'testing.md', 'web Main'),
     (r'review (every|must cover|owner/scope|context|code changed)|goal conclusion', 'audit-code-review.md', 'Ledger 接口'),
     (r'anti-pattern|production_symbols|production binding', 'testing.md', '静态规格闭合'),
     (r'CR and impact|before CR|DoD review|accepted diagnosis|planning reopen|planning rollback|route directly to Fixer|module blocker|module work before repair|repair not pending|release (a )?blocker|invalidation reason|invalid blocker|structured blocker', 'state-machine.md', '控制流闭环细则'),

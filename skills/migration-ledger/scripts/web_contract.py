@@ -1,5 +1,6 @@
 """The frozen query a web PATH runs in the built-in web Main: deterministic steps on a served page, and after a step
-the predicates the DOM must satisfy, or the screen the user showed. Nothing here is inferred from the implementation."""
+the predicates the DOM must satisfy, or the screen the user showed. The Ledger judges the same shape when the plan is
+submitted (`validate_path`), the Main again when it runs (`validate_query`); nothing is inferred from the implementation."""
 import re
 
 ACTIONS = {'goto': ('url',), 'click': ('selector',), 'fill': ('selector', 'text'), 'press': ('key',), 'wait': ('ms',)}
@@ -55,6 +56,13 @@ def validate_query(q):
         _fail('web platform and task_type test required')
     for key in ('run_id', 'module_id', 'path_id', 'name', 'freeze_id', 'code_baseline'):
         if not q.get(key): _fail(f'missing frozen query {key}')
+    return validate_path(q)
+
+
+def validate_path(q):
+    """The steps and assertions of a web PATH, as the plan freezes them and the Main runs them."""
+    if q.get('task_type', 'test') != 'test':
+        _fail('a web PATH is task_type test')
     steps, assertions = q.get('steps'), q.get('expected_assertions', [])
     if not isinstance(steps, list) or not steps or not assertions:
         _fail('steps and nonempty assertions required')
