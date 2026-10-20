@@ -24,8 +24,10 @@ class ReadingCardTests(unittest.TestCase):
                 with self.subTest(role=role, scope=scope, ui=ui, reuse=reuse, op=op, telemetry=tel, lean=lean):
                     self.assertTrue(set(reading.CORE) <= set(rows))
                     self.assertIn((reading.ROLE[role][0], None), rows)
-                    total = sum(len(reading.section(path, heading).encode()) for path, heading in rows)
-                    self.assertLessEqual(total, reading.READ_BUDGET)
+                    resident = set(reading.entries(role, scope, False, False, op, False, lean, rows=[op] if op else []))
+                    size = lambda chosen: sum(len(reading.section(path, heading).encode()) for path, heading in chosen)
+                    self.assertLessEqual(size(resident), reading.READ_BUDGET)
+                    self.assertLessEqual(size([row for row in rows if row not in resident]), reading.TOPIC_BUDGET)
 
     def test_cards_follow_the_operation_and_the_triggers(self):
         def has(rows, path, heading=None):
@@ -51,7 +53,7 @@ class ReadingCardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:  # a leaf with UI items and a previewed target plans visual PATHs from the written environment
             analysis = Path(tmp) / 'dimensions.json'; analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable'}]}))
             m = {'plan': {'dimension_analysis_ref': file_ref(analysis)}}
-            prep = lambda s: {r['section'] for r in reading.card(s, m, {'role': 'spec-designer', 'operation': 'plan'}) if r['ref'].endswith('visual-execution.md')}
+            prep = lambda s: {r['section'] for r in reading.on_demand(s, m, {'role': 'spec-designer', 'operation': 'plan'}) if r['ref'].endswith('visual-execution.md')}
             self.assertEqual((prep(previewed), prep({})), ({'1. 准备与冻结'}, set()))
         self.assertFalse([r for row in (reading.card(previewed, None, s) for s in ({'role': 'auditor', 'operation': 'audit'}, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'visual'}))
                           for r in row if r['section'] is None and not r['ref'].startswith('Agents/')])
@@ -169,7 +171,7 @@ class ReadingCardTests(unittest.TestCase):
         android = {'test_adapter': {'device': {'platforms': ['android'], 'android': {'serial': 'emulator-5554'}}}}
         automation = {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'automation'}
         plan = {'role': 'spec-designer', 'operation': 'plan'}
-        main = lambda s, step: {r['section'] for r in reading.card(s, None, step) if r['ref'].endswith('testing.md') and r['section'] in ('web Main', 'Harmony Main')}
+        main = lambda s, step: {r['section'] for r in reading.on_demand(s, None, step) if r['ref'].endswith('testing.md') and r['section'] in ('web Main', 'Harmony Main')}
         self.assertEqual((main(web, automation), main(android, automation), main({}, automation)), ({'web Main'}, {'Harmony Main'}, set()))
         self.assertEqual((main(web, plan), main(android, plan), main(web, {**automation, 'test_scope': 'build'})), ({'web Main'}, {'Harmony Main'}, set()))
         names = lambda s, step: {n.split('/')[-1] for n in reading.templates(s, None, step)}
@@ -184,6 +186,30 @@ class ReadingCardTests(unittest.TestCase):
         for path in sorted((reading.PACKAGE / 'template').glob('*.json')):
             with self.subTest(template=path.name):
                 json.loads(path.read_text())
+
+    def test_topic_sections_are_listed_on_demand_and_rendered_as_pointers(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            analysis = Path(tmp) / 'dimensions.json'
+            analysis.write_text(json.dumps({'api_inventory_ref': {'path': 'bound'}, 'dimensions': [{'dimension': 'UI', 'status': 'applicable', 'items': [{'source_resource': 'image'}]}]}))
+            m = {'dimension_analysis_ref': file_ref(analysis), 'plan': {'dimension_analysis_ref': file_ref(analysis), 'telemetry': {'status': 'applicable'}}}
+            s = {'reuse_required': True, 'test_adapter': {'device': {'platforms': ['web'], 'web': {'url': 'http://h/'}}}}
+            step = {'role': 'spec-designer', 'operation': 'plan'}
+            resident, topics = reading.card(s, m, step), reading.on_demand(s, m, step)
+            files = lambda rows: {r['ref'].split('/')[-1] for r in rows}
+            topic_files = {'ui-fidelity.md', 'resource-transfer.md', 'reuse-dependencies.md', 'telemetry.md'}
+            self.assertFalse(files(resident) & topic_files); self.assertLessEqual(topic_files, files(topics))
+            self.assertIn((reading.P + 'testing.md', 'web Main'), {(r['ref'], r['section']) for r in topics})
+            self.assertTrue(all(r['purpose'] and r['section'] for r in topics))
+            self.assertFalse({reading.key(r) for r in resident} & {reading.key(r) for r in topics})
+            self.assertEqual(reading.on_demand({}, None, {'role': 'escalation', 'operation': 'decision'}), [])
+            hint = reading.read_hint('UI image source closure requires one item for src:remote-image:ab12 (remote-image)')
+            self.assertIn((hint['ref'], hint['section']), {(r['ref'], r['section']) for r in topics})  # a rejection points at a listed section
+            rendered = reading.render(resident, tmp, ['template/x.json'], None, topics)
+            body = Path(rendered['path']).read_text()
+            self.assertIn('<!-- 按需小节', body); self.assertIn('§ web Main', body); self.assertNotIn('## web Main', body)
+            self.assertEqual(rendered['card_sha256'], reading.digest_card(resident))  # the card's name is its resident text
+            self.assertLessEqual(sum(r['bytes'] for r in topics), reading.TOPIC_BUDGET)
 
     def test_a_rendered_card_has_no_link_into_a_whole_protocol_file(self):
         text = reading.unlink('见 [状态机](state-machine.md)、[有限循环](state-machine.md#有限循环)、[模板](../../../template/fix-note.json)、'
@@ -218,7 +244,7 @@ class ReadingCardTests(unittest.TestCase):
                       for role in reading.ROLE for scope in (None, *reading.TEST_SCOPE)]
             whole = set()
             for step in steps:
-                for row in reading.card(s, m, step):
+                for row in reading.card(s, m, step) + reading.on_demand(s, m, step):
                     base = (reading.PACKAGE / row['ref']).parent
                     for label, target in re.findall(r'\[([^\]]+)\]\(([^)\s]+)\)', reading.text_of(row)):
                         path, _, anchor = target.partition('#')
@@ -231,7 +257,7 @@ class ReadingCardTests(unittest.TestCase):
                         if not (anchor and reading._heading_of(rel, anchor)):
                             whole.add((row['ref'], row['section'], label, rel))
             self.assertEqual(sorted(whole, key=str), [])
-            self.assertTrue(any(row['ref'].endswith('ui-fidelity.md') for row in reading.card(s, m, {'role': 'spec-designer', 'operation': 'plan'})))
+            self.assertTrue(any(row['ref'].endswith('ui-fidelity.md') for row in reading.on_demand(s, m, {'role': 'spec-designer', 'operation': 'plan'})))
 
     def test_an_agent_definition_has_only_sections_with_rules_of_its_own(self):
         for path in sorted((reading.PACKAGE / 'Agents').glob('*.md')):

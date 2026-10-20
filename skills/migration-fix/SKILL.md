@@ -25,4 +25,4 @@ description: 最小修复、回归证据与不改变验收的变更建议，用�
 ## 6. 配套资产
 使用 [主要模板](../../template/change-request.md)。
 
-角色硬约束以 [Agent 定义](../../Agents/fixer.md#6-硬约束) 为准；专题规则由阅读卡按触发携带。
+角色硬约束以 [Agent 定义](../../Agents/fixer.md#6-硬约束) 为准；专题规则由阅读卡按触发列出、按需读取。

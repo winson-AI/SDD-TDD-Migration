@@ -5,7 +5,7 @@
 ## 读取顺序
 
 1. 当前用户任务与宿主系统约束 → 本文件 → [共享协议](skills/migration-protocol/SKILL.md)。项目规则可细化技术规范，不能削弱本次用户四条红线。
-2. 定位下表的角色文件。状态按步骤取：`ledger.py status --view step --module <id>` 给出本步、预检要求、分配包与当前 assignment，不为此读取 full 视图。派发时先读游标步骤的阅读卡（`reading.py render` 按 `card_sha256` 写成单个文件；含四条红线与本步模板，按操作与 UI/复用等触发取小节，单卡不超过 60KB）。恢复原会话时只读新增小节（`render --resumed`）。卡外规则按专题索引或拒绝响应的 `read_hint` 用 `reading.py show --ref <文件> --section <标题>` 读单节，不整份加载协议；卡片不缩减任何门禁。
+2. 定位下表的角色文件。状态按步骤取：`ledger.py status --view step --module <id>` 给出本步、预检要求、分配包与当前 assignment，不为此读取 full 视图。派发时先读游标步骤的阅读卡（`reading.py render` 按 `card_sha256` 写成单个文件）：常驻四条红线、角色与本步规则、本步模板名；UI / 资源 / 复用 / 埋点 / 平台 Main 等专题规则按触发列为按需小节，写到对应工件时用 `reading.py show --ref <文件> --section <标题>` 读单节，专题索引与拒绝响应的 `read_hint` 同样读单节，不整份加载协议；按需不免除门禁。恢复原会话只读新增小节（`render --resumed`）。
 3. 父 MO 和子 MO 规划前均先读取全局代码入口（legacy_root/target_root）、架构规范、知识资料及当前父子分工/依赖，再按 scope 聚焦必需源码。局部 context pack 不能遮蔽全局只读上下文；检查目标已有能力与兄弟 owner 后再规划，避免重复/交叉工作。Test-Runner 在设计模式只读规格与测试输入，在执行模式可以读已批准的测试脚本及执行配置；不以实现推导验收标准。
 4. 运行期输入统一为绝对路径：`package_root`、`run_root`、`change_root`、legacy/target path 均从可信输入解析，禁止路径逃逸。源码仓有 `.codegraph/` 时先用 CodeGraph；无索引则不主动建索引。
 5. 交接仅传 Ledger 已提交的 assignment/event 引用及工件路径/摘要。新 Agent 重读这些工件，不依赖原会话记忆。
@@ -42,7 +42,7 @@ Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `descript
 
 ## 专题索引
 
-专题规则不常驻：按触发条件读取对应小节，阅读卡会随派发带上适用的部分；每节均为该专题的唯一权威表述。
+专题规则不常驻：阅读卡按触发列出适用小节的名字与用途，角色写到对应工件时读取；每节均为该专题的唯一权威表述。
 
 | 专题 | 触发 | 权威小节 |
 | --- | --- | --- |

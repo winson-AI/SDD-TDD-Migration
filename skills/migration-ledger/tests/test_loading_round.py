@@ -65,7 +65,7 @@ class ExecutorReuseTests(unittest.TestCase):
         self.assertTrue(reading.reuse_applies(s, self.module('new', 'adapt'), 'implementer'))
         self.assertTrue(reading.reuse_applies(s, self.module('new'), 'spec-designer'))          # a planner still weighs reuse
         self.assertTrue(reading.reuse_applies(s, self.module('new', frozen=False), 'implementer'))  # not decided until frozen
-        refs = lambda m: {row['ref'].split('/')[-1] for row in reading.card(s, m, dispatch('implementer'))}
+        refs = lambda m: {row['ref'].split('/')[-1] for row in reading.on_demand(s, m, dispatch('implementer'))}
         self.assertNotIn('reuse-dependencies.md', refs(self.module('new')))
         self.assertIn('reuse-dependencies.md', refs(self.module('reuse')))
 

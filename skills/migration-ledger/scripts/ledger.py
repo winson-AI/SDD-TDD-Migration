@@ -1112,6 +1112,7 @@ def with_card(s, m, step):
     waiting = not step.get('ready') and step.get('reason') == 'dependency-incomplete'  # nothing to do until the provider is done
     step['must_read'] = [] if waiting or step.get('mechanical') and not step.get('worker_role') else reading.card(s, m, step)
     step['card_sha256'] = reading.digest_card(step['must_read'])
+    step['read_when_writing'] = reading.on_demand(s, m, step) if step['must_read'] else []  # topic rules: named here, read when written to
     step['templates'] = reading.templates(s, m, step)
     if step.get('operation') == 'assign' and step.get('worker_role') == 'test-runner' and m:
         step['report_skeleton'] = 'report_skeleton.py --root <run_root> --module ' + m['module_id'] + ' --assignment <assignment_id> --out <staging directory>'
@@ -2589,7 +2590,8 @@ def advance(root, principal, module_id, workers=None):
     out = {'applied': applied, 'next_step': {k: step[k] for k in ('operation', 'role', 'ready', 'reason', 'assignment_id')
                                              if step.get(k) is not None}}
     if step.get('must_read'):
-        out['card'] = reading.render(step['must_read'], Path(st['run_root']) / 'reports/reading', step.get('templates', ()))['path']
+        out['card'] = reading.render(step['must_read'], Path(st['run_root']) / 'reports/reading', step.get('templates', ()),
+                                     on_demand=step.get('read_when_writing', ()))['path']
     return out
 
 

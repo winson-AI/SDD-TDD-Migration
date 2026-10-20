@@ -52,10 +52,10 @@ assign（审计为 audit-assign / audit-test-assign）被接受后，宿主用�
 
 ## 渐进加载
 
-常驻红线、权限、assignment、版本/提交门禁；实现必读冻结规范与验收。卡片按 TASK/PATH 取事实，规划/最终审计保留完整范围；UI 保真小节只在有设备、视觉 PATH、图片或资源时进卡。新事实/read_hint 按需追加单节；未加载不关闭门禁。
+常驻红线、权限、assignment、版本/提交门禁；实现必读冻结规范与验收。卡片按 TASK/PATH 取事实，规划/最终审计保留完整范围；专题小节只在触发成立时列入卡的按需清单，写到对应工件时读取。新事实/read_hint 按需追加单节；未加载不关闭门禁。
 
-未确认根因/重复失败才加载增强小节。lesson_candidates 最多 5 条，同分优先失败经验；模块按范围/四维/根因检索，GO 切片及上游修订按当前目标/功能检索。核适用后读正文；规划历史默认最近 5 条和总数，完整记录沿 history_refs 读取。
+未确认根因/重复失败才加载增强小节。lesson_candidates 最多 5 条，同分优先失败经验，模块按范围/四维/根因检索，GO 切片及上游修订按当前目标/功能检索，核适用后读正文；规划历史默认最近 5 条和总数，完整记录沿 history_refs 读取。
 
-hint.context_inputs=[{kind,ref}] 报实际交付的 spec/source/log/history/tool/fixture，核 hash 去重计 input_bytes；context_load/session_rotate 只统计已报材料，不授权读取。日志/工具输出先存工件，按需交付。
+hint.context_inputs=[{kind,ref}] 报实际交付的材料，核 hash 去重计 input_bytes；context_load/session_rotate 只统计已报材料，不授权读取；日志/工具输出先存工件，按需交付。
 
 render --resumed 不清除旧上下文；Host 按[会话交接](host-integration.md#会话交接)创建同 Run 独立会话并恢复。轮换不改任务、冻结、质量或预算。

@@ -16,12 +16,13 @@ import sys
 sys.dont_write_bytecode = True
 
 PACKAGE = Path(__file__).resolve().parents[3]
-READ_BUDGET = 51_200  # UTF-8 bytes per dispatch card
-# One dispatch, card and templates together, for a registered leaf with a plan, every fact trigger on and both platform
-# families declared (test_progressive_fidelity enumerates it); lower it when a step hands less, never raise it.
+READ_BUDGET = 29_100  # UTF-8 bytes per dispatch card: the resident text (red lines, shared rules, the role, the step and its operation)
+TOPIC_BUDGET = 25_900  # the topic sections one step lists on demand (UI, resources, reuse, telemetry, the declared platforms' Mains, the legacy, the user's media)
+# One dispatch: resident card, on-demand topic sections and templates together, for a registered leaf with a plan, every fact
+# trigger on and both platform families declared (test_progressive_fidelity enumerates it); lower it when a step hands less, never raise it.
 STEP_BUDGET = 82_200
 # A step with no UI, reuse, telemetry or lean-leaf scope stays under this; lower it when cards shrink, never raise it.
-TYPICAL_BUDGET = 29_500
+TYPICAL_BUDGET = 29_100
 # A session holding this much protocol text is better restarted from its checkpoint than fed more; advisory.
 ROTATE_BUDGET = 100_000
 # Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
@@ -459,32 +460,36 @@ def reuse_applies(s, m, role):
         return True  # unreadable: keep the sections, the gates report the plan
 
 
-def card(s, m, step):
+def _chosen(s, m, step, topics):
+    """The sections of a step: without `topics` the resident card (red lines, shared rules, the role, the step and its
+    operation), with them everything the step's facts call for."""
     role = step.get('worker_role') or step.get('role')
     if role not in ROLE:
-        return []
-    plan = (m or {}).get('plan') or {}
+        return [], role
     operation = step.get('operation')
     facts = topic_facts(s, m, step)
-    ui, reuse = facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'), reuse_applies(s, m, role)
-    telemetry = telemetry_scope(role, m)
+    ui = topics and facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build')
+    reuse, telemetry = topics and reuse_applies(s, m, role), topics and telemetry_scope(role, m)
     lean = bool(m) and bool(s.get('fixer_self_diagnosis'))
     # A coder's preflight is written by the Ledger at dispatch: its card carries nothing about reporting one.
     self_checked = bool(s.get('context_readiness_required')) and role == 'implementer' and bool(step.get('worker_role'))
     rows = ([operation] if operation else []) + ((['submit'] if self_checked else ['context-submit', 'submit']) if step.get('worker_role') else [])
-    chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry,
-                     lean=lean and role in ('fixer', 'implementer'), rows=rows, facts=facts, readiness=bool(s.get('context_readiness_required')))
+    chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry, lean=lean and role in ('fixer', 'implementer'),
+                     rows=rows, facts=facts if topics else None, readiness=bool(s.get('context_readiness_required')))
     chosen += reasoning_sections(m)
     if role == 'spec-designer':
         chosen += sections('testing.md', '编码前设计交接')
     if (role == 'module-orchestrator' and (m or {}).get('change_request') and operation in ('plan-review', 'freeze')
             or role == 'auditor' and any(x.get('task_revalidation', {}).get('mode') == 'partial' for x in s.get('modules', {}).values())):
         chosen += sections('openspec.md', 'TASK 局部重验')
-    if role == 'spec-designer' or role == 'test-runner' and step.get('test_scope') == 'automation':
+    if topics and (role == 'spec-designer' or role == 'test-runner' and step.get('test_scope') == 'automation'):
         chosen += platform_sections(s)
     if self_checked:
         chosen = [item for item in chosen if item != (P + 'context-readiness.md', '2. 精确插入节点')]
-    chosen = list(dict.fromkeys(chosen))  # a section reaches a card once, whichever rule asked for it
+    return list(dict.fromkeys(chosen)), role  # a section reaches a step once, whichever rule asked for it
+
+
+def _card_rows(chosen, role, step):
     out = []
     for path, heading in chosen:
         modes = TEST_MODES.get(step.get('test_scope')) if path.startswith('Agents/') and role == 'test-runner' else None
@@ -492,6 +497,40 @@ def card(s, m, step):
         out.append({'ref': path, 'section': heading, 'bytes': len(text.encode()),
                     'sha256': hashlib.sha256(text.encode()).hexdigest(), **({'modes': list(modes)} if modes is not None else {})})
     return out
+
+
+def card(s, m, step):
+    """The resident text of a dispatch: red lines, shared rules, the role's definition and skill rules, the step's and the
+    operation's sections. Topic rules are not here: `on_demand` lists them with their purpose."""
+    chosen, role = _chosen(s, m, step, topics=False)
+    return _card_rows(chosen, role, step)
+
+
+# What calls for reading a topic section: the specific rows first, then the file as a whole.
+PURPOSES = (
+    (('testing.md', 'web Main'), '写 web PATH 时'), (('testing.md', 'Harmony Main'), '写 android / harmony PATH 时'),
+    (('visual-execution.md', '1. 准备与冻结'), '写 visual PATH 的 visual_execution 时'), (('visual-execution.md', '4. 存量捕获'), '发 legacy-capture 请求时'),
+    (('project-context.md', '存量预览'), '发 legacy-capture 请求时'), (('project-context.md', '用户参考媒体'), '引用用户截图 / 录屏时'),
+    (('resource-transfer.md', 'API 与 URL 契约'), '写 api-inventory 与 API item 时'), (('resource-transfer.md', '动态参数与布局结构'), '写 parameter_fill 的 runtime / structural 时'),
+    (('ui-fidelity.md', None), '写 UI item、资源策略与图片检查时'), (('resource-transfer.md', None), '写 Resource item、复制清单与参数表例外时'),
+    (('domain-tools.md', None), '调用 analyze-ui / resource-plan / resource-sync 时'), (('reuse-dependencies.md', None), '写 reuse-plan 映射与复用接线时'),
+    (('telemetry.md', None), '判定埋点适用性、写埋点契约时'),
+)
+
+
+def purpose(ref, heading):
+    name = ref.split('/')[-1]
+    return next((text for (file, h), text in PURPOSES if file == name and h in (None, heading)), '写到该专题的工件时')
+
+
+def on_demand(s, m, step):
+    """The topic sections a step's facts call for (UI, resources, reuse, telemetry, the Mains of the declared platforms, the
+    legacy, the user's media): named on the card with their purpose and size, read with `reading.py show` when the role
+    writes that part. A rejection about one of their gates points at the same section."""
+    resident, role = _chosen(s, m, step, topics=False)
+    full, _ = _chosen(s, m, step, topics=True)
+    held = set(resident)
+    return [{**row, 'purpose': purpose(row['ref'], row['section'])} for row in _card_rows([x for x in full if x not in held], role, step)]
 
 
 def text_of(row):
@@ -791,14 +830,18 @@ FOOTER = ('<!-- 取用 -->\n本卡之外的规则不整份读取：`reading.py s
           '上文“（文件 § 小节）”即可直接作为参数。本步模板只列名：写该工件前 `reading.py show --template <名>` 取单份，不预读全部。\n')
 
 
-def render(rows, output_dir, extra=(), skill=None):
+def render(rows, output_dir, extra=(), skill=None, on_demand=()):
     """Write the card as one file named by its digest; a dispatch then hands the role a single path. A skill the step
-    names travels in the same file, so loading the card loads it."""
+    names travels in the same file, so loading the card loads it; the topic sections the step lists on demand are named
+    with their purpose, not copied."""
     body = ''.join(f'<!-- {row["ref"]}{"#" + row["section"] if row["section"] else ""} -->\n'
                    f'{unlink(text_of(row), row["ref"]).rstrip()}\n\n' for row in rows)
     if skill:
         from contracts import check_ref
         body += f'<!-- 技能 {skill["name"]} -->\n{check_ref(skill["ref"]).read_text().rstrip()}\n\n'
+    if on_demand:
+        body += ('<!-- 按需小节：写到对应工件时读，门禁照常，拒绝提示指向同一小节 -->\n'
+                 + ''.join(f'- {row["purpose"]}：{row["ref"]} § {row["section"]}（{row["bytes"]} 字节）\n' for row in on_demand) + '\n')
     if extra:
         body += '<!-- 本步模板 -->\n' + ''.join(f'- {name}\n' for name in extra) + '\n'
     body += FOOTER
@@ -861,7 +904,7 @@ def main():
                 print(json.dumps({'path': None, 'card_sha256': step['card_sha256'], 'bytes': 0, 'sections': 0}))
                 return 0
         print(json.dumps(render(rows, Path(st['run_root']) / 'reports/reading', step.get('templates', ()),
-                                None if args.resumed else step.get('slicing_skill')), ensure_ascii=False))
+                                None if args.resumed else step.get('slicing_skill'), step.get('read_when_writing', ())), ensure_ascii=False))
         return 0
     except (KeyError, ValueError, OSError) as exc:
         print(json.dumps({'status': 'rejected', 'reason': str(exc)}, ensure_ascii=False), file=sys.stderr)

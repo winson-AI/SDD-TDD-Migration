@@ -148,7 +148,7 @@ class GateTests(unittest.TestCase):
         self.assertEqual(([r['media_id'] for r in due['uncited']], due['cited']), (['MEDIA-login'], ['MEDIA-flow']))
         self.assertIsNone(reference_media.due(self.s, {**m, 'plan': {'paths': [{**auto, 'reference_media_ids': ['MEDIA-flow']}, self.visual()]}}))
         self.assertIsNone(reference_media.due(self.s, {'module_id': 'M009', 'case_ids': ['C9']}))
-        card = lambda module: {(row['ref'].split('/')[-1], row['section']) for row in reading.card(self.s, module, {'role': 'spec-designer', 'operation': 'plan'})}
+        card = lambda module: {(row['ref'].split('/')[-1], row['section']) for row in reading.on_demand(self.s, module, {'role': 'spec-designer', 'operation': 'plan'})}
         self.assertIn(('project-context.md', '用户参考媒体'), card(m))
         self.assertNotIn(('project-context.md', '用户参考媒体'), card({'module_id': 'M009', 'case_ids': ['C9']}))
 

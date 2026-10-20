@@ -31,15 +31,15 @@ class ProgressiveReadingTests(unittest.TestCase):
         analysis = {'dimensions': [{'dimension': 'UI', 'status': 'applicable', 'items': []}]}
         m = {'dimension_analysis_ref': self.ref(analysis)}
         s = {'modules': {'M001': m}, 'test_adapter': {'device': {'platforms': ['android']}}}
-        auditor = reading.card(s, None, {'role': 'auditor', 'operation': 'audit-code-review'})
+        auditor = reading.on_demand(s, None, {'role': 'auditor', 'operation': 'audit-code-review'})  # the UI topic is listed, read when reviewing UI
         self.assertTrue(any(row['ref'].endswith('ui-fidelity.md') for row in auditor))
         for role, op in (('spec-designer', 'plan'), ('implementer', 'assign'), ('auditor', 'audit-code-review')):
             unscreened = reading.card({'modules': {'M001': m}, 'test_adapter': {'device': {'unavailable': 'no device'}}}, m if role != 'auditor' else None, {'role': role, 'operation': op})
             self.assertFalse(any(row['ref'].endswith('ui-fidelity.md') for row in unscreened), role)  # no device, no visual path, no picture: coded from source
         shown = {**m, 'plan': {'paths': [{'path_id': 'V1', 'kind': 'visual'}]}}
-        self.assertTrue(any(row['ref'].endswith('ui-fidelity.md') for row in reading.card({'modules': {'M001': shown}}, shown, {'role': 'implementer', 'operation': 'assign'})))
+        self.assertTrue(any(row['ref'].endswith('ui-fidelity.md') for row in reading.on_demand({'modules': {'M001': shown}}, shown, {'role': 'implementer', 'operation': 'assign'})))
         pictured = {'dimension_analysis_ref': self.ref({'dimensions': [{'dimension': 'UI', 'status': 'applicable', 'items': [{'item_id': 'U1', 'source_resource': 'icon.svg'}]}]})}
-        self.assertTrue(any(row['ref'].endswith('ui-fidelity.md') for row in reading.card({'modules': {'M001': pictured}}, pictured, {'role': 'spec-designer', 'operation': 'plan'})))
+        self.assertTrue(any(row['ref'].endswith('ui-fidelity.md') for row in reading.on_demand({'modules': {'M001': pictured}}, pictured, {'role': 'spec-designer', 'operation': 'plan'})))
         self.assertFalse(any(row['ref'].endswith('resource-transfer.md') for row in auditor))
         build = reading.card(s, None, {'role': 'test-runner', 'operation': 'audit-test-assign', 'test_scope': 'build'})
         self.assertFalse(any(row['ref'].endswith('ui-fidelity.md') for row in build))
@@ -49,7 +49,7 @@ class ProgressiveReadingTests(unittest.TestCase):
     def test_api_topic_is_loaded_without_ui_and_incremental_card_tracks_content_changes(self):
         m = {'dimension_analysis_ref': self.ref({'api_inventory_ref': {'path': 'bound-by-dispatch-gate'}, 'dimensions': []})}
         rows = reading.card({}, m, {'role': 'implementer', 'operation': 'assign'})
-        self.assertIn((reading.P + 'resource-transfer.md', 'API 与 URL 契约'), [(r['ref'], r['section']) for r in rows])
+        self.assertIn((reading.P + 'resource-transfer.md', 'API 与 URL 契约'), [(r['ref'], r['section']) for r in reading.on_demand({}, m, {'role': 'implementer', 'operation': 'assign'})])
         held = reading.delivered(rows)
         self.assertEqual([row['ref'] for row in reading.fresh(rows, held)], ['AGENTS.md'])  # the red lines are on every card
         changed = copy.deepcopy(rows); changed[-1]['sha256'] = 'new-content'
@@ -69,6 +69,7 @@ class ProgressiveReadingTests(unittest.TestCase):
             step = {'role': role, 'operation': op, 'test_scope': scope, 'mode': mode}
             with self.subTest(step=step):
                 self.assertLessEqual(sum(row['bytes'] for row in reading.card(s, m, step)), reading.READ_BUDGET)
+                self.assertLessEqual(sum(row['bytes'] for row in reading.on_demand(s, m, step)), reading.TOPIC_BUDGET)
                 self.assertLessEqual(sum((reading.PACKAGE / n).stat().st_size for n in reading.templates(s, m, step)),
                                      reading.TRIGGERED_TEMPLATE_BUDGET)
 
@@ -85,13 +86,13 @@ class ProgressiveReadingTests(unittest.TestCase):
         for role, op, scope, mode in itertools.product(reading.ROLE, (None, 'plan', 'assign', 'freeze', 'decompose', 'register', 'source-review'),
                                                        (None, 'build', 'automation', 'visual'), (None, 'design')):
             step = {'role': role, 'operation': op, 'test_scope': scope, 'mode': mode}
-            card = sum(row['bytes'] for row in reading.card(s, m, step))
+            card = sum(row['bytes'] for row in reading.card(s, m, step)); topics = sum(row['bytes'] for row in reading.on_demand(s, m, step))
             templates = sum((reading.PACKAGE / n).stat().st_size for n in reading.templates(s, m, step))
             with self.subTest(step=step):
-                self.assertLessEqual(card, reading.READ_BUDGET)
+                self.assertLessEqual(card, reading.READ_BUDGET); self.assertLessEqual(topics, reading.TOPIC_BUDGET)
                 self.assertLessEqual(templates, reading.TRIGGERED_TEMPLATE_BUDGET)
-                self.assertLessEqual(card + templates, reading.STEP_BUDGET)
-            worst = max(worst, card + templates)
+                self.assertLessEqual(card + topics + templates, reading.STEP_BUDGET)
+            worst = max(worst, card + topics + templates)
         self.assertGreater(worst, reading.TYPICAL_BUDGET)  # the budget measures a loaded step, not an empty one
 
 

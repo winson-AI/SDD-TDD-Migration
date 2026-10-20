@@ -40,6 +40,9 @@ def _slim(step, cards):
     fresh = step.pop('must_read_new', None)
     if fresh is not None:
         step['card_new'] = reading.summary(fresh)
+    topics = step.get('read_when_writing')
+    if topics:  # named with their purpose; the text is read when the role writes that part
+        step['read_when_writing'] = [{k: row[k] for k in ('ref', 'section', 'bytes', 'purpose')} for row in topics]
     return step
 
 
