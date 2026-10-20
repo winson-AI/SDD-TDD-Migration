@@ -23,7 +23,7 @@ TYPICAL_BUDGET = 29_800
 ROTATE_BUDGET = 100_000
 # Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
 TEMPLATE_BUDGET = 16_100
-TRIGGERED_TEMPLATE_BUDGET = 39_600  # the most templates any step carries once every trigger holds
+TRIGGERED_TEMPLATE_BUDGET = 39_900  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
 PROTOCOL_BUDGET = 462500  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
 FILE_BUDGET = 32_000
@@ -110,7 +110,7 @@ OPS = {
     + sections('project-context.md', '总则')
     + sections('dimension-slicing.md', '总则') + [('skills/migration-global/references/slicing.md', '总则')],
     ('global-orchestrator', 'source'): sections('source-changes.md', '总则', '1. GO：评估来源、归属与影响范围', '5. 信号与 Auditor'),
-    ('auditor', 'code-review'): [(P + 'audit-code-review.md', None)] + sections('audit-scope.md', '总则', '入口与范围', '代码治理前置'),
+    ('auditor', 'code-review'): sections('audit-code-review.md', '顺序与职责', '审查内容', 'Ledger 接口') + sections('audit-scope.md', '总则', '入口与范围', '代码治理前置'),
 }
 TEST_SCOPE = {
     'build': sections('build-automation.md', '总则', '3. 冻结路径与分阶段证据')
@@ -118,7 +118,7 @@ TEST_SCOPE = {
     'automation': sections('build-automation.md', '总则') + sections('testing.md', '断言与结果', '本地执行与严格结果验收')
     + sections('build-automation.md', '4. 自动化环境缺失：直接记 Yellow 并继续'),
     'visual': sections('build-automation.md', '总则') + sections('ui-fidelity.md', '视觉对齐 = automation 第二层（不是独立阶段）')
-    + [(P + 'visual-execution.md', None)],
+    + sections('visual-execution.md', '2. 执行节点', '3. 失败、留存与恢复'),
 }
 # Triggered by facts the Ledger already holds: UI applicability, a reuse plan, telemetry, the lean local-repair path.
 PICTURES = '图片与图标对齐'
@@ -158,8 +158,8 @@ def family(role, operation):
 
 
 def audit_sections(operation):
-    if operation not in AUDIT_OPS:
-        return [(P + 'audit-scope.md', None)]
+    if operation not in AUDIT_OPS:  # a generic audit dispatch: the entry, the closure contract and problem handling
+        return sections('audit-scope.md', '总则', *FINAL)
     return sections('audit-scope.md', '总则', *AUDIT_OPS[operation])
 
 
@@ -399,6 +399,8 @@ def entries(role, test_scope=None, ui=False, reuse=False, operation=None, teleme
         items += chosen
         if facts and facts.get('legacy') and role in ('spec-designer', 'module-orchestrator'):
             items += sections('project-context.md', '存量预览') + sections('visual-execution.md', '4. 存量捕获')
+        if facts and facts.get('visual') and role == 'spec-designer':
+            items += sections('visual-execution.md', '1. 准备与冻结')  # the target is previewed: visual PATHs start from the written environment
     if facts and facts.get('media') and role in ('spec-designer', 'module-orchestrator'):
         items += sections('project-context.md', '用户参考媒体')
     if facts and facts.get('api'):

@@ -34,12 +34,27 @@ class ReadingCardTests(unittest.TestCase):
             return reading.entries(*args, **kwargs)
         audit, review, decomposition = (reading.P + n for n in ('audit-scope.md', 'audit-code-review.md', 'module-decomposition.md'))
         code_review = refs('auditor', operation='audit-code-review')
-        self.assertIn((review, None), code_review)
+        self.assertIn((review, '审查内容'), code_review); self.assertNotIn((review, '复测与报告'), code_review)
         self.assertFalse(has(code_review, audit, reading.D2))
         plan = refs('auditor', operation='audit-plan')
         self.assertTrue(has(plan, audit, reading.D2))
         self.assertFalse(has(plan, audit, reading.D5))
-        self.assertNotIn((review, None), plan)
+        self.assertNotIn((review, '审查内容'), plan)
+        generic = refs('auditor')  # a card carries sections, never a whole file
+        self.assertIn((audit, '收尾的实际执行契约'), generic); self.assertNotIn((audit, None), generic)
+        self.assertNotIn((audit, '默认收尾：修复后验证，失败待人工'), generic)
+        visual = refs('test-runner', 'visual')
+        self.assertIn((reading.P + 'visual-execution.md', '2. 执行节点'), visual); self.assertNotIn((reading.P + 'visual-execution.md', None), visual)
+        self.assertNotIn((reading.P + 'visual-execution.md', '1. 准备与冻结'), visual)
+        previewed = {'test_adapter': {'device': {'platforms': ['android'], 'android': {'serial': 's'}}}}
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:  # a leaf with UI items and a previewed target plans visual PATHs from the written environment
+            analysis = Path(tmp) / 'dimensions.json'; analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable'}]}))
+            m = {'plan': {'dimension_analysis_ref': file_ref(analysis)}}
+            prep = lambda s: {r['section'] for r in reading.card(s, m, {'role': 'spec-designer', 'operation': 'plan'}) if r['ref'].endswith('visual-execution.md')}
+            self.assertEqual((prep(previewed), prep({})), ({'1. 准备与冻结'}, set()))
+        self.assertFalse([r for row in (reading.card(previewed, None, s) for s in ({'role': 'auditor', 'operation': 'audit'}, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'visual'}))
+                          for r in row if r['section'] is None and not r['ref'].startswith('Agents/')])
         go_plan, go_collect = refs('global-orchestrator', operation='register'), refs('global-orchestrator', operation='audit-collect')
         self.assertTrue(has(go_plan, decomposition, '3. 分配与登记门禁'))
         self.assertFalse(has(go_plan, decomposition, '父 MO 统一命名'))
