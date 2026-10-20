@@ -154,7 +154,8 @@ def plan(analysis, items, plan):
             if not declared:
                 continue
             path = paths[pair['path_id']]
-            require(path.get('kind', 'automation') in ('unit', 'automation'), 'API fidelity requires actual behavior tests')
+            if path.get('kind', 'automation') not in ('unit', 'automation'):  # a build or static path proves no behaviour: the obligation stays owed
+                owed(False, 'API fidelity requires actual behavior tests'); continue
             require(contract.get('fixture_contract_ref') is None or path.get('fixture_contract_ref') == contract['fixture_contract_ref'],
                     'API tests must bind the frozen fixture contract')
             covered.update(declared)

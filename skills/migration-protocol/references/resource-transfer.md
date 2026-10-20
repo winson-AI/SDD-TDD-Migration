@@ -42,7 +42,7 @@ collector 记录范围内代码每处资源引用的使用点（行号、所在�
 
 项目在 `target_resources.parameters` 声明每模块一个的参数文件、各类型的行模板与 accessor（字段见同一模板）；声明后，有 UI 的模块必须引用参数表。
 
-Spec 在 UI parameter_fill 写例外及动态/结构映射（见[四维模板](../../../template/dimension-analysis.json)）：not_applicable 附原因，deviations 给取值和批准的 alternative，tokens 给值/已有 accessor；settled、runtime、structural 见下节。其余 value 按源记录取用；冻结拒绝未处理的 expression/token。
+Spec 在 UI parameter_fill 写例外及动态/结构映射（见[四维模板](../../../template/dimension-analysis.json)）：not_applicable 附原因，deviations 给取值和批准的 alternative，tokens 给值/已有 accessor；settled、runtime、structural 见下节；未决表达式与未映射 token 记欠项。其余 value 按源记录取用；冻结拒绝未处理的 expression/token。
 
 `resource-sync` 按参数表、例外与模板写出文件，字节由三者决定；验收重新生成并比对，且提交的代码须按键出现每个参数（生成文件自身不算）。生成文件不得手改，取值有误走 CR 修订例外。填充率 = 按记录取用与已映射 ÷ 需要决定的参数，随收尾报告披露。
 

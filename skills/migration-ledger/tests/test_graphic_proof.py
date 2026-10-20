@@ -86,8 +86,12 @@ class GraphicProofTests(unittest.TestCase):
         item = self.item(image_check='back-icon')
         self.prove(item, declared=[self.check()], carried=['back-icon'])
         self.prove(item, declared=[self.check(qualifier='base')], carried=['back-icon'])
-        self.refuses('declared by a UI model and carried by a visual path', item)
-        self.refuses('declared by a UI model and carried by a visual path', item, declared=[self.check()])
+        self.refuses('must be declared by a UI model', item)  # an undeclared check is a dangling reference: refused
+        self.refuses('must be carried by a visual path', item, declared=[self.check()])  # a declared check nobody carries is owed
+        from contracts import carrying
+        with carrying() as gaps:
+            self.prove(item, declared=[self.check()])
+        self.assertEqual([gap.split(': ', 1)[1] for gap in gaps], ['image_check back-icon must be carried by a visual path'])
         self.refuses('check of this resource and qualifier', item, declared=[self.check(resource='@drawable/ic_next')], carried=['back-icon'])
         self.refuses('check of this resource and qualifier', item, declared=[self.check(qualifier='xhdpi')], carried=['back-icon'])
 

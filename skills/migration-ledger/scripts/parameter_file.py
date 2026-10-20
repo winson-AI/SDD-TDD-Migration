@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import re
 
-from contracts import check_ref, named, read_json, require
+from contracts import check_ref, named, owed, read_json, require
 import ui_parameters
 
 TYPES = ('dimension', 'number', 'color', 'string')
@@ -165,20 +165,20 @@ def gate(s, plan, analysis):
         require(Path(binding['consumer'].split('#', 1)[0]).resolve().is_relative_to(Path(s['target_root']).resolve()), 'parameter consumer outside target')
         for pair in binding['assertions']:
             path = paths.get(pair.get('path_id'), {})
-            require(path.get('kind', 'automation') in ('unit', 'automation', 'visual') and
-                    pair.get('assertion_id') in {a['assertion_id'] for a in path.get('expected_assertions', [])},
-                    'parameter mapping needs a frozen behavioral assertion; build/static alone is not fidelity')
+            owed(path.get('kind', 'automation') in ('unit', 'automation', 'visual') and
+                 pair.get('assertion_id') in {a['assertion_id'] for a in path.get('expected_assertions', [])},
+                 'parameter mapping needs a frozen behavioral assertion; build/static alone is not fidelity')
     for row in declarations(analysis).get('settled', []):
         require(row.get('constant_reason') and row.get('constant_evidence_refs'), 'runtime expression cannot become a constant without source proof')
         for ref in row['constant_evidence_refs']: check_ref(ref)
     structural_gaps = [pid for pid, row in decided.items() if row['status'] == 'structural' and 'binding' not in row]
     require(not structural_gaps, 'layout keywords need structural mapping: ' + ', '.join(structural_gaps[:8]))
     open_ids = sorted(pid for pid, row in decided.items() if row['status'] == 'unsettled')
-    require(not open_ids, 'expressions the Spec must settle or mark not applicable: ' + ', '.join(open_ids[:8])
-            + (' and ' + str(len(open_ids) - 8) + ' more' if len(open_ids) > 8 else ''))
+    owed(not open_ids, 'expressions the Spec must settle or mark not applicable: ' + ', '.join(open_ids[:8])
+         + (' and ' + str(len(open_ids) - 8) + ' more' if len(open_ids) > 8 else ''))
     unmapped = sorted({row['token'] for row in decided.values() if row['status'] == 'unmapped'})
-    require(not unmapped, 'tokens the Spec must map or mark not applicable: ' + ', '.join(unmapped[:8])
-            + (' and ' + str(len(unmapped) - 8) + ' more' if len(unmapped) > 8 else ''))
+    owed(not unmapped, 'tokens the Spec must map or mark not applicable: ' + ', '.join(unmapped[:8])
+         + (' and ' + str(len(unmapped) - 8) + ' more' if len(unmapped) > 8 else ''))
     require(rules or not entries(document['parameters'], decided), 'writing parameters needs the project to state target_resources.parameters')
 
 

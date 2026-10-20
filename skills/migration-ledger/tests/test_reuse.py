@@ -74,15 +74,25 @@ class ReuseTests(unittest.TestCase):
         self.assertIn('reuse_plan_ref', self.state()['modules']['M001']['plan'])
 
     def test_missing_semantics_unreviewed_sources_and_unknown_capabilities_rejected(self):
-        for variant in ('missing-semantics', 'unavailable', 'unknown-capability', 'wrong-source-set'):
+        for variant in ('missing-semantics', 'unknown-capability', 'wrong-source-set'):
             plan, review, cat, _ = self.selected_plan()
             if variant == 'missing-semantics': del cat['capabilities'][0]['semantics']['errors']
-            if variant == 'unavailable': cat['source_reviews'][0]['status'] = 'unavailable'
             if variant == 'unknown-capability': review['mappings'][0]['capability_id'] = 'MISSING'
             if variant == 'wrong-source-set': cat['sources'][0]['root'] = str(self.base)
             review['catalog_ref'] = self.ref('bad-catalog.json', cat); self.save_review(plan, review)
             with self.subTest(variant=variant), self.assertRaises(Rejected):
                 self.call('plan', {'plan_ref': self.ref('bad-plan.json', plan)}, role='spec-designer')
+
+    def test_an_unreviewed_source_is_owed_by_the_leaf_not_refused(self):
+        plan, review, cat, _ = self.selected_plan()
+        cat['source_reviews'][0]['status'] = 'unavailable'
+        review['catalog_ref'] = self.ref('pending-catalog.json', cat); self.save_review(plan, review)
+        self.global_plan()
+        self.call('plan', {'plan_ref': self.ref('pending-plan.json', plan)}, role='spec-designer')  # the first version goes on
+        owed = [row for row in self.state()['issues'].values() if row['summary'].startswith('reuse source review incomplete')]
+        self.assertEqual((len(owed), owed[0]['kind'], owed[0]['applies_to'], owed[0]['blocks']), (1, 'gap', ['M001'], False))
+        with self.assertRaisesRegex(Rejected, 'reuse source review incomplete'):  # outside a leaf's request the same check refuses
+            reuse.catalog(review['catalog_ref'], reuse.sources(self.state()))
 
     def test_mapping_must_cover_requirements_and_point_to_existing_tasks_and_paths(self):
         for field, value in (('requirement_ids', ['OTHER']), ('task_ids', ['OTHER']), ('path_ids', ['OTHER']),

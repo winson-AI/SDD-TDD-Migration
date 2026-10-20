@@ -433,7 +433,8 @@ def require_graphic_proof(items, plan, declared, carried):
                     label + ': an animation or nine-patch replaced by hand cannot be measured, so it needs an approved deviation')
         if check:
             found = declared.get(check)
-            require(found and check in carried, label + ': image_check ' + str(check) + ' must be declared by a UI model and carried by a visual path')
+            require(found, label + ': image_check ' + str(check) + ' must be declared by a UI model')
+            owed(check in carried, label + ': image_check ' + str(check) + ' must be carried by a visual path')
             family = lambda value: 'base' if value in (None, '', 'default') else value
             require(found[0]['source_resource'] == item.get('source_resource') and family(found[0]['qualifier']) == family(item.get('qualifier')),
                     label + ': image_check must be the check of this resource and qualifier')
@@ -785,6 +786,8 @@ def require_indexed_closure(analysis, legacy_root=None):
                 copy = copied.get((source_id, variant))
                 if source_id in by_sheet and not matches and not copy:
                     continue  # the sheet carries this value and its variants
+                if not matches and not copy:  # a reference without its item is owed; two items for one reference contradict each other
+                    owed(False, 'UI resource closure requires one item for ' + label); continue
                 require(len(matches) + bool(copy) == 1, 'UI resource closure requires one item for ' + label)
                 qualifier = copy['qualifier'] if copy else matches[0].get('qualifier', 'base')
                 require(qualifier in renditions, 'resource item names a rendition the source index does not hold: ' + source_id + ' / ' + qualifier)
@@ -797,6 +800,8 @@ def require_indexed_closure(analysis, legacy_root=None):
             item_ids = {item['item_id'] for item in items}
             for signal_id, signal in sorted(needed['signals'].items()):
                 matches = [item for item in items if item.get('source_signal') == signal_id]
+                if not matches:
+                    owed(False, 'UI image source closure requires one item for ' + signal_id + ' (' + signal['kind'] + ')'); continue
                 require(len(matches) == 1, 'UI image source closure requires one item for ' + signal_id + ' (' + signal['kind'] + ')')
                 validate_signal_item(matches[0], signal, item_ids, api_contracts)
 
@@ -810,8 +815,8 @@ def require_exact_closure(analysis, declared_refs, legacy_root=None):
         for item in row.get('items', []):
             if not covered_ids(item).intersection(declared):
                 continue
-            require(item.get('resource_strategy'),
-                    'UI resource closure requires resource_strategy: ' + item['item_id'])
+            if not item.get('resource_strategy'):
+                owed(False, 'UI resource closure requires resource_strategy: ' + item['item_id']); continue
             validate_item(item)
             validate_facts(item, legacy_root, check_configuration=True)
     require_indexed_closure(analysis, legacy_root)

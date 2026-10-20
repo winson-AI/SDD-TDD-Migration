@@ -331,7 +331,8 @@ def validate_plan(plan, module):
     require({r['requirement_id'] for r in index} == {r for t in tasks.values() for r in t['requirement_ids']},
             'SPEC scenario requirements must match task requirements')
     traces = keyed(plan.get('scenario_trace'), 'scenario_id')
-    require(set(traces) == set(scenarios), 'scenario_trace must cover every frozen Scenario exactly once')
+    require(set(traces) <= set(scenarios), 'scenario_trace names a scenario the SPEC does not define: ' + ', '.join(sorted(set(traces) - set(scenarios))))
+    owed(set(scenarios) <= set(traces), 'scenario_trace must cover every frozen Scenario exactly once')
     found = tagged(plan)
     require(set(found) <= set(scenarios), 'assertions name scenarios the SPEC does not define: ' + ', '.join(sorted(set(found) - set(scenarios))))
     covered_tasks, covered_assertions = set(), set()
@@ -345,7 +346,7 @@ def validate_plan(plan, module):
         listed = trace.get('assertions')
         require(listed is None or sorted((a.get('path_id'), a.get('assertion_id')) for a in listed) == derived,
                 'scenario_trace assertions of ' + sid + ' differ from the assertions that name it; omit them')
-        require(derived, 'no assertion names scenario ' + sid + ' (scenario_ids on the designed assertions)')
+        owed(derived, 'no assertion names scenario ' + sid + ' (scenario_ids on the designed assertions)')
         for pid, aid in derived:
             require(pid in linked_paths and pid in paths, 'scenario assertion outside task paths')
             path = paths[pid]
@@ -353,14 +354,15 @@ def validate_plan(plan, module):
             require(rid == path.get('requirement_id') or rid in path.get('requirement_ids', []), 'scenario path/requirement mismatch')
             require(path['case_id'] in module['case_ids'], 'scenario case outside module')
             covered_assertions.add((pid, aid))
-    require(covered_tasks == set(tasks), 'every task must contribute to a scenario, including supporting tasks')
+    owed(covered_tasks == set(tasks), 'every task must contribute to a scenario, including supporting tasks')
     required = {(p['path_id'], a['assertion_id']) for p in paths.values()
                 if p.get('kind', 'automation') in BEHAVIOR_KINDS for a in p['expected_assertions']}
-    require(required <= covered_assertions, 'behavior assertions name no scenario (scenario_ids): '
-            + ', '.join(p + '/' + a for p, a in sorted(required - covered_assertions)[:8]))
+    owed(required <= covered_assertions, 'behavior assertions name no scenario (scenario_ids): '
+         + ', '.join(p + '/' + a for p, a in sorted(required - covered_assertions)[:8]))
     statics = [p for p in paths.values() if p.get('kind') == 'static']
-    require(len(statics) == 1, 'scenario contract requires one static review PATH')
-    require(statics[0].get('scenario_ids') in (None, sorted(scenarios)), 'static PATH covers every frozen scenario; omit scenario_ids')
+    owed(statics, 'scenario contract requires one static review PATH')
+    require(len(statics) <= 1, 'scenario contract takes one static review PATH, not several')
+    require(not statics or statics[0].get('scenario_ids') in (None, sorted(scenarios)), 'static PATH covers every frozen scenario; omit scenario_ids')
     import unit_reports
     for path in paths.values():
         if path.get('kind') == 'unit':
