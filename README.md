@@ -141,7 +141,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 | 日期 | 主要变化 |
 | --- | --- |
-| 2026-10-20 | 按需加载：卡与模板按声明的平台取（web Main / Harmony Main 与各自的 PATH、adapter 模板），整文件入卡改为按节（审计范围、代码审查、视觉执行），模板瘦身（语义模型 17 KB → 6 KB、四维分析 8 KB → 5.6 KB、提交模板 4 KB → 2.3 KB，工具产物与骨架已写的报告不再下发），角色与技能文本去重；每步「卡 + 模板」计量并设棘轮（最坏 87.8 KB，无触发步骤 29.8 + 16.1 KB）；目标 app_id / launch 随设备声明，visual PATH 预填完整；协议压缩至 460,500 |
+| 2026-10-20 | 按需加载：卡与模板按声明的平台取（web Main / Harmony Main 与各自的 PATH、adapter 模板），整文件入卡改为按节（审计范围、代码审查、视觉执行），模板瘦身（语义模型 17 KB → 6 KB、四维分析 8 KB → 5.6 KB、提交模板 4 KB → 2.3 KB，工具产物与骨架已写的报告不再下发），角色与技能文本去重，Spec-Designer 常驻小节与规划模板再压一遍；每步「卡 + 模板」计量并设棘轮（最坏 82.2 KB，无触发步骤 29.5 KB + 13.5 KB）；目标 app_id / launch 随设备声明，visual PATH 预填完整；协议压缩至 458,800 |
 | 2026-10-20 | web Main 补齐表单动作（select/check/uncheck/hover/scroll_to）与谓词（attribute/checked/enabled、count 的 at_least），重读中变化的观察记 unstable，适配器 attempts>1 时整条路径重跑、同断言混合结果记 flaky Yellow；鸿蒙存量的 UI 树与 web 一样从运行时索引派生；骨架为用户截图的 visual PATH 预填 visual_execution，`test_adapter.harmony_reference` 由 init 备好 Harmony sandbox；图与 README 同步三条声明与两个内置 Main；协议压缩至 462,500 |
 | 2026-10-20 | 适配器随 PATH 平台自动选取，Test-Runner 预检由 Ledger 预填同一命令；目标预览随设备声明（serial/avd 或 url/viewport）由 init 写成运行环境文件；web PATH 在 plan 时按 web Main 的形状校验，web Main 走通 Ledger 黄金路径到 DoD，谓词有界重读、按 PATH 标志录像；欠项按族计数；鸿蒙存量可预览（hdc 装 HAP、启 ability，无真机时 boot.argv）；doctor 探测适配器；协议压缩至 464,000 |
 | 2026-10-20 | 完备性欠账、一致性拒绝：十一族共 36 处冻结期完备性门禁改为叶子的欠项（首版继续，DoD 前结清），同时守一致性的门禁拆开后矛盾仍拒绝 |

@@ -16,19 +16,19 @@ import sys
 sys.dont_write_bytecode = True
 
 PACKAGE = Path(__file__).resolve().parents[3]
-READ_BUDGET = 53_000  # UTF-8 bytes per dispatch card
+READ_BUDGET = 51_200  # UTF-8 bytes per dispatch card
 # One dispatch, card and templates together, for a registered leaf with a plan, every fact trigger on and both platform
 # families declared (test_progressive_fidelity enumerates it); lower it when a step hands less, never raise it.
-STEP_BUDGET = 87_800
+STEP_BUDGET = 82_200
 # A step with no UI, reuse, telemetry or lean-leaf scope stays under this; lower it when cards shrink, never raise it.
-TYPICAL_BUDGET = 29_800
+TYPICAL_BUDGET = 29_500
 # A session holding this much protocol text is better restarted from its checkpoint than fed more; advisory.
 ROTATE_BUDGET = 100_000
 # Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
-TEMPLATE_BUDGET = 16_100
-TRIGGERED_TEMPLATE_BUDGET = 38_800  # the most templates any step carries once every trigger holds
+TEMPLATE_BUDGET = 13_500
+TRIGGERED_TEMPLATE_BUDGET = 34_700  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 460500  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
+PROTOCOL_BUDGET = 458800  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
