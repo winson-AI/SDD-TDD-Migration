@@ -57,10 +57,18 @@ class PlaywrightPage:
     def press(self, key): self.page.keyboard.press(key); self.settle()
     def wait(self, ms): self.page.wait_for_timeout(ms)
     def screenshot(self, path): self.page.screenshot(path=str(path))
+    def select(self, selector, value): self.page.select_option(selector, value); self.settle()
+    def check(self, selector): self.page.check(selector)
+    def uncheck(self, selector): self.page.uncheck(selector)
+    def hover(self, selector): self.page.hover(selector); self.settle()
+    def scroll_to(self, selector): self.page.locator(selector).first.scroll_into_view_if_needed()
     def text(self, selector): found = self.page.locator(selector); return found.first.inner_text() if found.count() else None
     def value(self, selector): found = self.page.locator(selector); return found.first.input_value() if found.count() else None
     def visible(self, selector): found = self.page.locator(selector); return bool(found.count()) and found.first.is_visible()
     def count(self, selector): return self.page.locator(selector).count()
+    def attribute(self, selector, name): found = self.page.locator(selector); return found.first.get_attribute(name) if found.count() else None
+    def checked(self, selector): found = self.page.locator(selector); return bool(found.count()) and found.first.is_checked()
+    def enabled(self, selector): found = self.page.locator(selector); return bool(found.count()) and found.first.is_enabled()
     def url(self): return self.page.url
     def title(self): return self.page.title()
 
@@ -78,6 +86,8 @@ def act(page, step):
     elif action == 'click': page.click(step['selector'])
     elif action == 'fill': page.fill(step['selector'], step['text'])
     elif action == 'press': page.press(step['key'])
+    elif action == 'select': page.select(step['selector'], step['value'])
+    elif action in ('check', 'uncheck', 'hover', 'scroll_to'): getattr(page, action)(step['selector'])
     else: page.wait(step['ms'])
 
 
@@ -86,8 +96,11 @@ def judge(page, predicate):
     kind = predicate['kind']
     actual = {'text': lambda: page.text(predicate['selector']), 'value': lambda: page.value(predicate['selector']),
               'visible': lambda: page.visible(predicate['selector']), 'count': lambda: page.count(predicate['selector']),
+              'checked': lambda: page.checked(predicate['selector']), 'enabled': lambda: page.enabled(predicate['selector']),
+              'attribute': lambda: page.attribute(predicate['selector'], predicate['name']),
               'url': page.url, 'title': page.title}[kind]()
-    if kind == 'visible': return actual is True, actual
+    if kind in ('visible', 'checked', 'enabled'): return actual is True, actual
+    if 'at_least' in predicate: return isinstance(actual, int) and actual >= predicate['at_least'], actual
     if 'equals' in predicate:
         shown = actual.strip() if isinstance(actual, str) else actual
         return shown == predicate['equals'], actual
@@ -109,8 +122,9 @@ def visual_score(reference, candidate):
 
 class Run:
     """One frozen path on one page: every step and every observation is flushed as it happens, so a stop keeps what was seen."""
-    def __init__(self, query, out):
+    def __init__(self, query, out, environment=None):
         self.q, self.out, self.observations, self.error = query, out, [], None
+        self.environment = environment or out / 'environment.json'
         self.trace = {'schema_version': 1, 'query_sha256': digest(query), 'steps': [
             {'step_number': i, 'step_sha256': digest(step), 'status': 'not-executed'} for i, step in enumerate(query['steps'], 1)]}
         self.media = []
@@ -126,20 +140,21 @@ class Run:
         self.media.append(path)
         return ref(path)
 
-    def observe(self, a, number, step, evidence, result, actual, reason, error=None):
+    def observe(self, a, number, step, evidence, result, actual, reason, error=None, unstable=False):
         self.observations.append({'sequence': len(self.observations) + 1, 'assertion_ids': [a['assertion_id']], 'description': a['description'],
                                   'result': result, 'actual': actual, 'reason': reason, 'tool': a['verification'], 'evidence_refs': [evidence],
-                                  'error': error, 'after_step': number, 'step_sha256': digest(step), 'recorded_at': now()})
+                                  'error': error, 'after_step': number, 'step_sha256': digest(step), 'recorded_at': now(), 'unstable': unstable})
         self.flush()
 
     def verify(self, a, number, step, after):
         try:
             if a['verification'] == 'dom':
                 passed, actual = judge(self.page, a['predicate'])
-                for _ in range(PREDICATE_RETRIES):  # read-only: a page still rendering is read again for a bounded while, never acted on
-                    if passed: break
-                    self.page.wait(300); passed, actual = judge(self.page, a['predicate'])
-                self.observe(a, number, step, after, passed, actual, 'predicate ' + a['predicate']['kind'] + (' held' if passed else ' did not hold'))
+                retries = 0
+                while not passed and retries < PREDICATE_RETRIES:  # read-only: a page still rendering is read again for a bounded while, never acted on
+                    retries += 1; self.page.wait(300); passed, actual = judge(self.page, a['predicate'])
+                self.observe(a, number, step, after, passed, actual, 'predicate ' + a['predicate']['kind'] + (f' held after {retries} re-reads' if passed and retries else ' held' if passed else ' did not hold'),
+                             unstable=passed and retries > 0)
             else:
                 picture = a['reference_media_ref']  # the user's screenshot lives in the run's context, outside this output
                 if hashlib.sha256(Path(picture['path']).read_bytes()).hexdigest() != picture['sha256']:
@@ -175,14 +190,14 @@ class Run:
             actual = seen[-1]['result'] if seen else None
             if actual is None: unknown.append(a['assertion_id'])
             rows.append({'assertion_id': a['assertion_id'], 'expected': True, 'actual': actual, 'passed': actual is True,
-                         **({'observed': seen[-1]['actual']} if seen else {})})
+                         **({'observed': seen[-1]['actual'], 'unstable': seen[-1].get('unstable', False)} if seen else {})})
         failed = [r['assertion_id'] for r in rows if r['actual'] is False]
         quality = 'yellow-blocked' if self.error or unknown else 'red-bug' if failed else 'green-passed'
         media = [{'kind': 'screenshot', 'ref': ref(p)} for p in self.media] + ([{'kind': 'recording', 'ref': ref(video)}] if video and video.is_file() else [])
         report = {'producer': PRODUCER, 'platform': 'web', 'task_type': 'test', 'step_contract_version': 1, **{k: self.q[k] for k in CONTEXT},
                   'query_sha256': digest(self.q), 'quality': quality, 'assertions': rows, 'flaky': False,
                   'observations_ref': ref(self.out / 'observations.json'), 'step_trace_ref': ref(self.out / 'step-trace.json'),
-                  'environment_ref': ref(self.out / 'environment.json'), 'media_refs': media, 'artifacts': []}
+                  'environment_ref': ref(self.environment), 'media_refs': media, 'artifacts': [], 'unstable': [r['assertion_id'] for r in rows if r.get('unstable')]}
         if quality != 'green-passed':
             problem = self.error or (f'failed frozen assertions: {", ".join(failed)}' if failed else 'assertions without an observation: ' + ', '.join(unknown))
             report['root_cause'] = {'category': 'code' if quality == 'red-bug' else 'tooling', 'summary': problem, 'confidence': 'observed',
@@ -191,9 +206,8 @@ class Run:
         return report
 
 
-def execute(query, config, out, open_page=PlaywrightPage):
-    """The path in a page the factory opens; returns the report. Tests inject a page, the host gets a browser."""
-    run, page, video = Run(query, out), None, None
+def attempt(query, config, out, open_page, environment):
+    run, page, video = Run(query, out, environment), None, None
     try:
         page = open_page(config, out)
         run.walk(page)
@@ -204,6 +218,33 @@ def execute(query, config, out, open_page=PlaywrightPage):
             try: video = page.close()
             except Exception: video = None
     return run.report(video)
+
+
+def execute(query, config, out, open_page=PlaywrightPage):
+    """The path in a page the factory opens; returns the report. Tests inject a page, the host gets a browser. `attempts` in the
+    configuration (1..5) walks the path that many times on fresh pages: an assertion that does not come out the same every
+    time is flaky, and the path is Yellow for it, as the Harmony Main grades it."""
+    attempts = config.get('attempts', 1)
+    if type(attempts) is not int or not 1 <= attempts <= 5:
+        raise ValueError('attempts is an integer in 1..5')
+    environment = out / 'environment.json'
+    if attempts == 1:
+        return attempt(query, config, out, open_page, environment)
+    reports = []
+    for n in range(1, attempts + 1):
+        folder = out / f'attempt-{n}'; folder.mkdir(parents=True, exist_ok=True)
+        reports.append(attempt(query, config, folder, open_page, environment))
+    report = dict(reports[-1])
+    by_id = {a['assertion_id']: {r['assertions'][i]['actual'] for r in reports if i < len(r['assertions'])} for i, a in enumerate(query['expected_assertions'])}
+    flaky = sorted(aid for aid, values in by_id.items() if len(values) > 1)
+    write(out / 'attempts.json', {'attempts': attempts, 'results': [{'quality': r['quality'], 'assertions': r['assertions']} for r in reports], 'flaky': flaky})
+    report.update(attempts_ref=ref(out / 'attempts.json'), flaky=bool(flaky))
+    if flaky:
+        report['quality'] = 'yellow-blocked'
+        report['root_cause'] = {'category': 'flaky', 'summary': 'assertions that did not come out the same in every attempt: ' + ', '.join(flaky),
+                                'confidence': 'observed', 'owner': query['module_id'], 'next_action': 'diagnose the instability before any verdict',
+                                'evidence_refs': [report['attempts_ref'], report['observations_ref'], report['step_trace_ref']]}
+    return report
 
 
 def main(argv=None, open_page=PlaywrightPage):

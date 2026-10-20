@@ -3,9 +3,12 @@ the predicates the DOM must satisfy, or the screen the user showed. The Ledger j
 submitted (`validate_path`), the Main again when it runs (`validate_query`); nothing is inferred from the implementation."""
 import re
 
-ACTIONS = {'goto': ('url',), 'click': ('selector',), 'fill': ('selector', 'text'), 'press': ('key',), 'wait': ('ms',)}
-PREDICATES = {'text': True, 'value': True, 'visible': True, 'count': True, 'url': False, 'title': False}  # needs a selector
-COMPARISONS = ('equals', 'contains', 'matches')
+ACTIONS = {'goto': ('url',), 'click': ('selector',), 'fill': ('selector', 'text'), 'press': ('key',), 'wait': ('ms',),
+           'select': ('selector', 'value'), 'check': ('selector',), 'uncheck': ('selector',), 'hover': ('selector',), 'scroll_to': ('selector',)}
+PREDICATES = {'text': True, 'value': True, 'visible': True, 'count': True, 'url': False, 'title': False,
+              'attribute': True, 'checked': True, 'enabled': True}  # True: the predicate names a selector
+BARE = ('visible', 'checked', 'enabled')  # true or false of the element, no comparison
+COMPARISONS = ('equals', 'contains', 'matches', 'at_least')
 DEFAULT_TOLERANCE = 80  # the visual score (0..100) a candidate screen must reach against the user's screenshot
 
 
@@ -36,14 +39,18 @@ def validate_predicate(aid, predicate):
     if PREDICATES[predicate['kind']] and not (isinstance(predicate.get('selector'), str) and predicate['selector'].strip()):
         _fail(f'{aid}: a {predicate["kind"]} predicate names its selector')
     given = [c for c in COMPARISONS if c in predicate]
-    if predicate['kind'] == 'visible':
-        if given or set(predicate) - {'kind', 'selector'}: _fail(f'{aid}: a visible predicate takes only its selector')
+    if predicate['kind'] in BARE:
+        if given or set(predicate) - {'kind', 'selector'}: _fail(f'{aid}: a {predicate["kind"]} predicate takes only its selector')
         return
+    if predicate['kind'] == 'attribute' and not (isinstance(predicate.get('name'), str) and predicate['name'].strip()):
+        _fail(f'{aid}: an attribute predicate names the attribute')
     if len(given) != 1:
-        _fail(f'{aid}: one of ' + ', '.join(COMPARISONS) + ' states the expected ' + predicate['kind'])
+        _fail(f'{aid}: one of ' + ', '.join(COMPARISONS[:3]) + ' states the expected ' + predicate['kind'])
     value = predicate[given[0]]
     if predicate['kind'] == 'count':
-        if given[0] != 'equals' or type(value) is not int or value < 0: _fail(f'{aid}: count equals a non-negative integer')
+        if given[0] not in ('equals', 'at_least') or type(value) is not int or value < 0: _fail(f'{aid}: count equals or at_least a non-negative integer')
+    elif given[0] == 'at_least':
+        _fail(f'{aid}: at_least is a count comparison')
     elif not isinstance(value, str):
         _fail(f'{aid}: {given[0]} takes a string')
     if given[0] == 'matches':

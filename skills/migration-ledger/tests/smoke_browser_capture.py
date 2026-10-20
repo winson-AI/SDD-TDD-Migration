@@ -35,7 +35,8 @@ STYLE = ('body{margin:0;font-family:sans-serif}h1,h2{margin:0;height:80px;line-h
          'ul.inner{height:600px;overflow-y:auto}form{padding:24px}input{display:block;margin:8px 0}')
 HEAD = '<!doctype html><html><head><meta charset="utf-8"><title>%s</title><style>' + STYLE + '</style></head><body>'
 LOGIN = ('<h1 id="title">Sign in</h1><img id="logo" src="logo.png" alt="logo" aria-label="logo" width="120" height="20">'
-         '<form id="form"><input id="user" placeholder="user name"><button id="submit" type="button">Sign in</button></form>'
+         '<form id="form"><input id="user" placeholder="user name"><select id="role"><option value="user">User</option><option value="admin" selected>Admin</option></select>'
+         '<label><input type="checkbox" id="agree">Agree</label><button id="submit" type="button">Sign in</button></form>'
          '<a class="login" id="to-list" href="list.html">Continue</a></body></html>')
 TARGET_BUNDLE = b'the accepted web build'  # what the build PATH accepted; the served target page declares its hash
 

@@ -53,6 +53,14 @@ class FakePage:
     def count(self, selector): return 1 if selector in self.texts else 0
     def url(self): return 'http://127.0.0.1:1/list.html'
     def title(self): return 'Legacy List'
+    def select(self, selector, value): self.act('select', selector, value); self.texts[selector] = value
+    def check(self, selector): self.act('check', selector); self.texts[selector + ':checked'] = True
+    def uncheck(self, selector): self.act('uncheck', selector); self.texts[selector + ':checked'] = False
+    def hover(self, selector): self.act('hover', selector)
+    def scroll_to(self, selector): self.act('scroll_to', selector)
+    def attribute(self, selector, name): return self.texts.get(selector + '@' + name)
+    def checked(self, selector): return self.texts.get(selector + ':checked') is True
+    def enabled(self, selector): return selector in self.texts and not self.texts.get(selector + ':disabled')
     def close(self): self.calls.append(('close',)); return None
 
 
@@ -89,7 +97,7 @@ class RunTests(unittest.TestCase):
         report, page = self.run_path(FakePage({'#heading': 'Items', '#user': 'ann'}))
         self.assertEqual(report['quality'], 'green-passed')
         self.assertEqual([c[0] for c in page.calls], ['goto', 'fill', 'click', 'close'])
-        self.assertEqual(report['assertions'], [{'assertion_id': 'A1', 'expected': True, 'actual': True, 'passed': True, 'observed': 'Items'}])
+        self.assertEqual(report['assertions'], [{'assertion_id': 'A1', 'expected': True, 'actual': True, 'passed': True, 'observed': 'Items', 'unstable': False}])
         trace = json.loads((self.out / 'step-trace.json').read_text())
         self.assertEqual((trace['query_sha256'], [s['status'] for s in trace['steps']]), (digest(query()), ['executed'] * 3))
         self.assertTrue(all(Path(s['before_ref']['path']).is_file() and Path(s['after_ref']['path']).is_file() for s in trace['steps']))
@@ -127,6 +135,36 @@ class RunTests(unittest.TestCase):
         argv = ['--query-file', str(self.out.parent / 'q.json'), '--result-file', str(self.out.parent / 'r' / 'result.json'), '--root', str(self.base / '.sdd-runs/contract')]
         web_main.main(argv, open_page=lambda config, out: seen.update(config) or FakePage({'#heading': 'Items'}))
         self.assertTrue(seen['record_video'])
+
+    def test_forms_are_driven_and_judged_by_their_own_actions_and_predicates(self):
+        a = query()['expected_assertions'][0]
+        steps = query()['steps'] + [{'action': 'select', 'selector': '#role', 'value': 'admin'}, {'action': 'check', 'selector': '#agree'},
+                                    {'action': 'hover', 'selector': 'a.login'}, {'action': 'scroll_to', 'selector': '#footer'}, {'action': 'uncheck', 'selector': '#news'}]
+        predicates = [('P1', {'kind': 'value', 'selector': '#role', 'equals': 'admin'}), ('P2', {'kind': 'checked', 'selector': '#agree'}),
+                      ('P3', {'kind': 'checked', 'selector': '#news'}), ('P4', {'kind': 'attribute', 'selector': 'a.login', 'name': 'href', 'contains': 'list'}),
+                      ('P5', {'kind': 'enabled', 'selector': '#submit'}), ('P6', {'kind': 'count', 'selector': 'li', 'at_least': 1})]
+        q = query(steps=steps, expected_assertions=[{**a, 'assertion_id': aid, 'after_step': 8, 'predicate': p} for aid, p in predicates])
+        page = FakePage({'#heading': 'Items', '#submit': 'Sign in', 'a.login@href': 'list.html', 'li': 'x'})
+        report, _ = self.run_path(page, q)
+        self.assertEqual([c[0] for c in page.calls][3:8], ['select', 'check', 'hover', 'scroll_to', 'uncheck'])
+        self.assertEqual({r['assertion_id']: r['actual'] for r in report['assertions']}, {'P1': True, 'P2': True, 'P3': False, 'P4': True, 'P5': True, 'P6': True})
+        for bad in ({'kind': 'attribute', 'selector': 'a', 'equals': 'x'}, {'kind': 'checked', 'selector': 'a', 'equals': 'x'}, {'kind': 'text', 'selector': 'a', 'at_least': 1},
+                    {'kind': 'count', 'selector': 'li', 'at_least': -1}):
+            with self.assertRaises(ValueError, msg=str(bad)): validate_query(query(expected_assertions=[{**a, 'predicate': bad}]))
+        with self.assertRaises(ValueError): validate_query(query(steps=query()['steps'] + [{'action': 'select', 'selector': '#role'}]))
+
+    def test_repeated_attempts_expose_a_flaky_assertion_and_a_stable_one_stays_green(self):
+        pages = iter([FakePage({'#heading': 'Items'}), FakePage({'#heading': 'Orders'}), FakePage({'#heading': 'Items'})])
+        report = web_main.execute(query(), {'attempts': 3}, self.out, open_page=lambda config, out: next(pages))
+        self.assertEqual((report['quality'], report['flaky'], report['root_cause']['category']), ('yellow-blocked', True, 'flaky'))
+        self.assertIn('A1', report['root_cause']['summary'])
+        attempts = json.loads(Path(report['attempts_ref']['path']).read_text())
+        self.assertEqual(([r['quality'] for r in attempts['results']], attempts['flaky']), (['green-passed', 'red-bug', 'green-passed'], ['A1']))
+        self.assertTrue(all((self.out / f'attempt-{n}' / 'step-trace.json').is_file() for n in (1, 2, 3)))
+        stable = self.out / 'stable'; stable.mkdir(); (stable / 'environment.json').write_text('{}')
+        report = web_main.execute(query(), {'attempts': 2}, stable, open_page=lambda config, out: FakePage({'#heading': 'Items'}))
+        self.assertEqual((report['quality'], report['flaky']), ('green-passed', False))
+        with self.assertRaises(ValueError): web_main.execute(query(), {'attempts': 9}, self.out)
 
     def test_a_step_that_cannot_be_performed_stops_the_path_as_yellow(self):
         page = FakePage({'#heading': 'Items'}); page.fail = 'click'

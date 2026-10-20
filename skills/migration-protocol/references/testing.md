@@ -20,13 +20,13 @@ test_assets 交 script/fixture/adapter/test-source 的 asset_id/ref/path_ids，s
 
 一个可重复执行的路径带稳定 `path_id`、可读 `name`、case_id、requirement_id、preconditions、steps、parameters、expected_assertions、dependency_refs、priority、scope。推荐 `PATH-M001-001`，名称变化不改 ID；参数化每个实例具有唯一 ID/parameter_hash，各算一次覆盖。
 
-query 文件必须包含该路径完整的前置、步骤、参数和预期断言；模板的 query 是索引头，执行时从同一条 path 记录组装完整内容并记录 hash，不能仅传 Name 猜测行为。
+query 文件含该路径完整的前置、步骤、参数和预期断言：模板的 query 是索引头，执行时从同一条 path 记录组装并记 hash，不能只传 name 猜测行为。
 
 automation/visual PATH 若声明 interaction_id，execute_test 从所属模块冻结模型提取完整 frozen_interaction（id/action/from/expected），不能由运行器另写较弱的期望。source-only UI 允许把手势放入 automation，不要求没有的视觉基线；runtime UI 仍保留已有 visual 义务。automation 的条件结果扩展见 [interaction-evidence.json](../../../template/interaction-evidence.json)。GLOBAL 自有手势 PATH 显式冻结 frozen_interaction，并用既有 build_binding 指定产物所属 build PATH。
 
 GLOBAL 手势的完整契约、ID 匹配与 build_binding 在 init 落盘前检查，输入不完整时先修正初始化请求。
 
-将 [test-paths.json](../../../template/test-paths.json) 的单路径 JSON 写入临时 query 文件，按已确认适配器契约用 argv 传入：`<executable> <args...> --query-file <absolute-query.json> --result-file <absolute-result.json>`。这里只定义默认适配协议；实际框架需提供翻译脚本，不能把自然语言 name 直接当 shell 命令。无 shell 拼接，不执行 query 内嵌指令。保存实际 argv、cwd、工具版本、环境变量名称（秘密值脱敏）、seed、fixtures、依赖版本。
+[test-paths.json](../../../template/test-paths.json) 的单路径 JSON 写入临时 query 文件，以 `<argv...> --query-file <绝对路径> --result-file <绝对路径>` 传给适配器；适配器是翻译脚本，不把自然语言 name 当 shell 命令，无 shell 拼接，不执行 query 内嵌指令。保存实际 argv、cwd、工具版本、环境变量名（秘密值脱敏）、seed、fixtures、依赖版本。
 
 ## 断言与结果
 
@@ -79,10 +79,10 @@ execute_test 在 runner 持续写 stdout.log/stderr.log（原始字节）、exec
 恢复/诊断先读当前模块状态和 trace 摘要，完整日志、历史轮次、媒体按需读取，不自动装入下次上下文。trace.py 位于 skills/migration-ledger/scripts，只读、不刷新投影或拿锁：
 
 ```sh
-python3 <package>/skills/migration-ledger/scripts/trace.py query --root <run> --module M001 --scenario-id SCN-M001-query
-python3 <package>/skills/migration-ledger/scripts/trace.py query --root <run> --module M001 --path-id U1 --history --offset 0 --limit 5
-python3 <package>/skills/migration-ledger/scripts/trace.py evidence --root <run> --sha256 <已提交引用hash> --offset 0 --bytes 1024
-python3 <package>/skills/migration-ledger/scripts/trace.py live --root <run> --module M001 --attempt <本run/runner> --stream stderr --offset 0 --bytes 1024
+trace.py query --root <run> --module M001 --scenario-id SCN-M001-query
+trace.py query --root <run> --module M001 --path-id U1 --history --offset 0 --limit 5
+trace.py evidence --root <run> --sha256 <已提交引用hash> --offset 0 --bytes 1024
+trace.py live --root <run> --module M001 --attempt <本run/runner> --stream stderr --offset 0 --bytes 1024
 ```
 
 query 还支持 --task-id/--assertion-id/--test-id，默认最多5条，仅失败附1024字节日志尾，长字段截断、按 next_offset 翻页；读事件索引对应的归档，源码改变不破坏旧证据，缺损显示 evidence_issues，历史 Green 不表示当前有效。evidence 只读已提交文本证据，每次最多4096字节，媒体保留引用；live 仅供 Host 观察（accepted=false），不作跨 Agent 验收输入。
@@ -96,7 +96,7 @@ query 还支持 --task-id/--assertion-id/--test-id，默认最多5条，仅失�
 - scenarios[]：每行 status=passed|failed、summary、production_symbols（目标绝对路径+真实符号）、evidence_refs。passed 必须给 reached_from：另一个目标文件中的调用/DI/导航/清单引用；有 unit PATH 还须 test_refs 指向真实测试符号。未接入生产不能 passed。
 - anti_patterns：preview-only-wiring、dead-handler、fixed-result、placeholder-icon、unapproved-stub、swallowed-error（错误显示为空态/成功）逐项 absent|present、note、evidence_refs。批准的 capture-fixture 边界可 absent，须引用批准依据。
 
-building 预检的 execution.commands 一并批准 build/unit/static 命令和 review 路径；同一 build assignment 依次执行 build、unit、static，到第一个非 Green 为止，一次提交和验收；结果须覆盖已到达环节的全部待测 PATH，同一代码上已 Green 的环节重试时不重跑。非 Green 即诊断/Fixer 后重跑。`execute_test.py` 调用 [spec_closure.py](../../migration-ledger/scripts/spec_closure.py)（--review、--target-root），核对上下文、场景覆盖、符号和清单；failed 场景/present 反模式为 Red。脚本不判断业务语义，Test-Runner 审阅、Auditor 抽查。static 全绿前禁止 automation/automation-unavailable；缺设备仍执行 unit/static。
+building 预检的 execution.commands 一并批准 build/unit/static 命令和 review 路径；同一 build assignment 依次执行 build、unit、static，到第一个非 Green 为止，一次提交和验收；结果覆盖已到达环节的全部待测 PATH，同一代码上已 Green 的环节不重跑，非 Green 即诊断/Fixer 后重跑。`execute_test.py` 调用 [spec_closure.py](../../migration-ledger/scripts/spec_closure.py)（--review、--target-root），核对上下文、场景覆盖、符号和清单；failed 场景/present 反模式为 Red。脚本不判断业务语义，Test-Runner 审阅、Auditor 抽查。static 全绿前禁止 automation/automation-unavailable；缺设备仍执行 unit/static。
 
 ## 运行时变体与冻结 SPEC 冲突
 
@@ -110,7 +110,7 @@ Harmony 不自动生成结构化 interaction_evidence：缺这份证据时的规
 
 ## web Main
 
-已内置 web Main（`skills/migration-test/scripts/web_main.py`，adapter 见 [web-test-adapter.json](../../../template/web-test-adapter.json)）：PATH 填 `platform=web`、`task_type=test`，steps 是确定性动作对象（goto/click/fill/press/wait，首步 goto），断言 `verification=dom` 带 predicate（text/value/visible/count/url/title 的 equals/contains/matches）或 `refer_image_assert` 带用户截图（Ledger 绑定 reference_media_ref，视觉分 ≥ tolerance），形状见 [web-test-path.json](../../../template/web-test-path.json)，plan 时按此形状拒绝。Main 用 Playwright 走步骤，每步前后截图，谓词在其步骤后判定并逐条落盘；回执 producer=web-main，带 query_sha256、environment_ref（platform=web、browser）、step-trace（每步 hash、状态、前后截图）、observations 与 media_refs（截图，`record_video: true` 时含录像）；Ledger 核对上下文、query hash、每步证据与每条断言在其步骤后的观察，缺一为 Yellow；无法执行的步骤停止路径记 Yellow，谓词不成立记 Red。无 producer 的项目适配器按 `{"assertions":[...]}` 验收，三态由断言推出。
+已内置 web Main（`skills/migration-test/scripts/web_main.py`，adapter 见 [web-test-adapter.json](../../../template/web-test-adapter.json)）：PATH 填 `platform=web`、`task_type=test`，steps 是确定性动作对象（goto/click/fill/press/wait/select/check/uncheck/hover/scroll_to，首步 goto），断言 `verification=dom` 带 predicate（text/value/visible/count/url/title/attribute 的 equals/contains/matches，count 另有 at_least，checked/enabled 不带比较）或 `refer_image_assert` 带用户截图（Ledger 绑定 reference_media_ref，视觉分 ≥ tolerance），形状见 [web-test-path.json](../../../template/web-test-path.json)，plan 时按此形状拒绝。Main 用 Playwright 走步骤，每步前后截图，谓词在其步骤后有界重读再判定、逐条落盘（重读中变化记 unstable）；adapter 的 `attempts`（1–5）>1 时整条路径重跑，同断言 pass/fail 混合即 flaky Yellow，attempts.json 留每次结果；回执 producer=web-main，带 query_sha256、environment_ref（platform=web、browser）、step-trace（每步 hash、状态、前后截图）、observations 与 media_refs（截图，`record_video: true` 时含录像）；Ledger 核对上下文、query hash、每步证据与每条断言在其步骤后的观察，缺一为 Yellow；无法执行的步骤停止路径记 Yellow，谓词不成立记 Red。无 producer 的项目适配器按 `{"assertions":[...]}` 验收，三态由断言推出。
 
 ## 分阶段唯一验收 owner
 
