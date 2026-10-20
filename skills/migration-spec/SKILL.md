@@ -25,4 +25,4 @@ description: OpenSpec 六件套、plan 澄清冻结和 CR 影响分析，用于 
 ## 6. 配套资产
 使用 [主要模板](../../template/stage-plan.json)。
 
-角色硬约束以 [Agent 定义](../../Agents/spec-designer.md#6-硬约束) 为准；专题规则由阅读卡按触发携带。
+角色硬约束以 [Agent 定义](../../Agents/spec-designer.md#6-硬约束) 为准；专题规则由阅读卡按触发列出、按需读取。

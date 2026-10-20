@@ -183,9 +183,9 @@ class CaptureDueTests(BaselineTests):
         self.ref('.sdd-runs/run-1/runs/harmony/sandbox/spec-1/cap-1/receipt.json', {'operation': 'legacy-capture', 'module_id': 'M001', 'status': 'produced', 'result_ref': result, 'finished_at': '2026-01-01T00:00:00+00:00'})
         self.assertEqual(ui_fidelity.capture_due(emulator, m)['last_capture']['manifest_ref'], manifest)
         self.assertIsNone(ui_fidelity.capture_due(self.state({'kind': 'none', 'reason': 'no build'}), m))
-        card = {(row['ref'].split('/')[-1], row['section']) for row in reading.card(emulator, m, {'role': 'spec-designer', 'operation': 'plan'})}
+        card = {(row['ref'].split('/')[-1], row['section']) for row in reading.on_demand(emulator, m, {'role': 'spec-designer', 'operation': 'plan'})}
         self.assertLessEqual({('project-context.md', '存量预览'), ('visual-execution.md', '4. 存量捕获')}, card)
-        quiet = {(row['ref'].split('/')[-1], row['section']) for row in reading.card(self.state({'kind': 'none', 'reason': 'no build'}), m, {'role': 'spec-designer', 'operation': 'plan'})}
+        quiet = {(row['ref'].split('/')[-1], row['section']) for row in reading.on_demand(self.state({'kind': 'none', 'reason': 'no build'}), m, {'role': 'spec-designer', 'operation': 'plan'})}
         self.assertNotIn(('visual-execution.md', '4. 存量捕获'), quiet)
 
     def test_the_plan_step_carries_what_is_due(self):

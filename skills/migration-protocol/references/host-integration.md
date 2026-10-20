@@ -83,7 +83,7 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 
 **轮询。** status --view cursor --since <sequence> 未变返回 unchanged/进度，变化返回游标、模块/信号摘要及卡大小。--view step [--module <id>] 给本步信封/预检/分配/assignment，规划加 planning_context；--view module 不带 plan/场景正文，full 仅供脚本。
 
-**取卡。** 按 AGENTS 读取顺序 render/show 取卡与单节（--template <名>、操作矩阵@<operation>）；步骤带 slicing_skill 时技能随卡写入；human_required=false 的步骤不征求人工。卡片只给本步要用的：模板限本步所写工件（分析已登记的叶子不带分析/语义模型模板，文档由骨架起稿）；执行角色仅在冻结计划取用 provider 时带复用小节；Test-Runner 构建与自动化两次派发共读一份角色文本，后者只追加本阶段小节；等待依赖的步骤不带卡。
+**取卡。** 按 AGENTS 读取顺序 render/show 取卡与单节（--template <名>、操作矩阵@<operation>）；步骤带 slicing_skill 时技能随卡写入；human_required=false 的步骤不征求人工。卡片只给本步要用的：模板限本步所写工件；专题小节按触发列入 read_when_writing（执行角色仅在冻结计划取用 provider 时列复用）；Test-Runner 构建与自动化共读一份角色文本，后者只追加本阶段小节；等待依赖的步骤不带卡。
 
 **回报。** 步骤的 card_new 是上一执行实例续用原上下文时只需读的小节（红线始终在内）；宿主不回报也按执行实例计。hint{session_id,card_sha256,context_inputs} 可另报实际交付，恢复/轮换见[渐进加载](runtime.md#渐进加载)。拒绝响应及 rejected-operation.json 带 read_hint。
 
