@@ -7,6 +7,7 @@ a review says a plan is certain to fail. A standing rule is followed, not settle
 from contracts import check_ref, digest, require
 
 import hashlib
+import re
 
 OPS = {'issue', 'issue-resolve'}
 KINDS = ('defect', 'fact', 'gap', 'need', 'decision', 'standing', 'debt', 'knowledge-need')  # a debt is a fact about the code, owed to nobody; a knowledge-need is answered by a person
@@ -78,6 +79,38 @@ def record(s, iid, kind, summary, applies_to, raised_by, evidence_refs=(), **ext
     """An issue the Ledger records itself, once: what an audit sends back to be revised."""
     s.setdefault('issues', {}).setdefault(iid, {'kind': kind, 'summary': summary, 'applies_to': sorted(set(applies_to)), 'blocks': False,
                                                 'evidence_refs': list(evidence_refs), 'raised_by': raised_by, 'resolved': {}, **extra})
+
+
+FAMILIES = (  # the gaps the Ledger owes, by the rule family that raised them: a step and a report count them before listing them
+    (r'UI resource closure|UI image source closure|resource closure reduced|carried by a visual path|non-exact graphic|UI tree omits file resources', '资源闭包'),
+    (r'source_closure\.', '源闭包'),
+    (r'needs a visual test path|declared interactions need|runtime UI targets lack|need an image check or a waiver|declared image checks need|the legacy runs on|UI items lack capture-bound', 'UI 目标与证据'),
+    (r'scenario_trace|names scenario|contribute to a scenario|static review PATH|behavior assertions name no scenario|SPEC scenarios no design assertion', '场景追溯'),
+    (r'dimension (task requirement|behavior requires|paths need)|task missing dimension ownership|condition review omits|SPEC dimension trace|missing dimension item IDs', '四维追溯'),
+    (r'^API |API behavior', 'API 契约'), (r'^data |data behavior', '数据契约'), (r'the target already holds', '目标画像'),
+    (r'reuse (source|decisions|fidelity)|fidelity (must cover|scenarios required)', '复用'),
+    (r'prepared PATH needs|deferred test preparation', '测试准备'),
+    (r'parameter mapping|expressions the Spec|tokens the Spec', '参数表'),
+    (r'telemetry', '埋点'), (r'unit_tests_required|spec_closure_required', '测试路径'),
+    (r'the user (gave|showed)|the target expectation', '用户媒体'),
+    (r'superseded plan|a leaf plans at most|plan over', '计划'), (r'native UI validation', 'UI 树'),
+)
+
+
+def family(kind, summary):
+    """The family an open issue is counted under: a gap by the rule that owes it, any other issue by its kind."""
+    if kind != 'gap':
+        return kind
+    return next((label for pattern, label in FAMILIES if re.search(pattern, summary)), '其他')
+
+
+def families(rows):
+    """How many open issues each family holds, most first."""
+    counts = {}
+    for row in rows:
+        name = family(row['kind'], row['summary'])
+        counts[name] = counts.get(name, 0) + 1
+    return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
 
 
 def of_module(s, mid=None):

@@ -574,6 +574,9 @@ def preview(root, module_id, plan_ref=None, principal=None):
         out['human'] = control_policy.needs_human(m)
     seen = set()
     out['owed'] = [row for row in out['owed'] if not (row['reason'] in seen or seen.add(row['reason']))]
+    out['owed_by_family'] = {}
+    for row in out['owed']:
+        out['owed_by_family'].setdefault(issues.family('gap', row['reason']), []).append(row['reason'])
     return out
 
 
