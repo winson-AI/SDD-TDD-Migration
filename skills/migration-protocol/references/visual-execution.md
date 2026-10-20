@@ -5,7 +5,7 @@
 ## 1. 准备与冻结
 
 1. init 从 `test_adapter.device` 的平台预览写出 `runs/harmony/sandbox/environment/target-preview-<平台>.json`（visual_capture；visual_model 默认关闭，宿主要语义比较时补）与 web Main 的 `web.json`，step 视图以 target_preview 给出引用；未声明时宿主按[配置模板](../../../template/visual-execution.json)自己写。与 sandbox 的 config.json 分开，执行期间不改写。
-2. 骨架为用户截图的 visual PATH 预填 `visual_execution`（environment_ref 取 init 写出的平台环境），Spec/Test design 补 app_id、导航 actions、目标选择器，automation PATH 需要时同样填写；随路径冻结，变更走 CR/重新冻结。无视觉需求时不加此字段。
+2. 骨架为用户截图的 visual PATH 预填 `visual_execution`（environment_ref 取 init 写出的平台环境，app_id 与 ability / url 取 `test_adapter.device` 的声明），Spec/Test design 补导航 actions 与目标选择器，automation PATH 需要时同样填写；随路径冻结，变更走 CR/重新冻结。无视觉需求时不加此字段。
 3. 设备执行用显式 HDC、adb 或 browser backend（Android 目标装 APK，`ability` 填 activity，装机后在设备上核对包哈希；web 目标不装机：宿主部署已接受构建并在页面 `<meta name=sdd-build>` 声明其哈希，visual-install 与每次捕获重读核对，url 的主机即 app_id）；模型用显式启用的 external 配置，API key 只从指定环境变量读取，配置与请求只存变量名，不归档 `.env` 或明文 key。
 4. 执行前 Host 持有设备独占锁并在认证 host-context 注入 device_lock（device_id、assignment_id、fencing_token、held）；Agent 自填的锁字段不算锁。没有真机时 `visual_capture` 带 avd 或 boot.argv：设备不应答即启动模拟器并等开机，启动留 boot.json，模拟器留给后续捕获，宿主在 run 结束时关闭。
 
