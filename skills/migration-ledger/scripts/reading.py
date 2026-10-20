@@ -36,6 +36,17 @@ def sections(name, *headings):
     return [(P + name, heading) for heading in headings]
 
 
+def platform_keys(s):
+    """The declared target platforms as the two families their rules and templates come in: web, and device (android, harmony)."""
+    platforms = set((((s or {}).get('test_adapter') or {}).get('device') or {}).get('platforms') or [])
+    return [key for key, members in (('web', {'web'}), ('device', {'android', 'harmony'})) if platforms & members]
+
+
+def platform_sections(s):
+    """The Main of each declared platform: the shape of its PATHs for the planner, how it runs them for the executor."""
+    return [row for key in platform_keys(s) for row in sections('testing.md', {'web': 'web Main', 'device': 'Harmony Main'}[key])]
+
+
 # Every card carries the red lines and the rules of the shared protocol (not its notes on where it sits, assets
 # or topics, which the card itself answers). The other general sections ride only where they apply.
 SHARED = 'skills/migration-protocol/SKILL.md'
@@ -464,6 +475,8 @@ def card(s, m, step):
     if (role == 'module-orchestrator' and (m or {}).get('change_request') and operation in ('plan-review', 'freeze')
             or role == 'auditor' and any(x.get('task_revalidation', {}).get('mode') == 'partial' for x in s.get('modules', {}).values())):
         chosen += sections('openspec.md', 'TASK 局部重验')
+    if role == 'spec-designer' or role == 'test-runner' and step.get('test_scope') == 'automation':
+        chosen += platform_sections(s)
     if self_checked:
         chosen = [item for item in chosen if item != (P + 'context-readiness.md', '2. 精确插入节点')]
     chosen = list(dict.fromkeys(chosen))  # a section reaches a card once, whichever rule asked for it
@@ -514,9 +527,12 @@ MO_TEMPLATES = {'freeze': ['checklist.md', 'plan-review.json', 'change-impact.js
                 'decompose': ['module-decomposition.json', 'dimension-analysis.json', 'batch-envelope.json'],
                 'module-summary': ['status.md'], 'suspend': ['implementation-gap.json', 'status.md'],
                 'assign': ['execution-assignment.json'], 'accept': ['status.md'], 'diagnosis-accept': ['status.md']}
-SCOPE_TEMPLATES = {'build': ['test-adapter.json'], 'automation': ['test-adapter.json', 'harmony-test-adapter.json', 'harmony-config.json', 'interaction-evidence.json'],
+SCOPE_TEMPLATES = {'build': ['test-adapter.json'], 'automation': ['test-adapter.json', 'interaction-evidence.json'],
                    'visual': ['visual-test-path.json', 'visual-alignment.json', 'visual-capture-execution.json', 'visual-test-adapter.json',
                               'visual-execution.json', 'visual-request.json']}
+# What a declared platform adds: the shape of its PATHs for the planner, its adapter and environment for the executor.
+PLATFORM_TEMPLATES = {'web': {'spec-designer': ['web-test-path.json'], 'test-runner': ['web-test-adapter.json']},
+                      'device': {'spec-designer': ['harmony-test-path.json'], 'test-runner': ['harmony-test-adapter.json', 'harmony-config.json']}}
 TRIGGER_TEMPLATES = {
     'reuse': {'global-orchestrator': ['reuse-catalog.json', 'reuse-source.json'], 'spec-designer': ['reuse-plan.json', 'reuse-fidelity.md']},
     'telemetry': {'global-orchestrator': ['telemetry-analysis.md'], 'module-orchestrator': ['telemetry-analysis.md'],
@@ -545,6 +561,9 @@ def templates(s, m, step):
             names.append('task-independence.json')
     if role == 'test-runner':
         names += SCOPE_TEMPLATES.get(step.get('test_scope'), [])
+    if role == 'spec-designer' or role == 'test-runner' and step.get('test_scope') == 'automation':
+        for key in platform_keys(s):
+            names += PLATFORM_TEMPLATES[key].get(role, [])
     reuse = reuse_applies(s, m, role)
     facts = topic_facts(s, m, step)
     active = {'reuse': reuse, 'telemetry': telemetry_scope(role, m), 'ui': facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'),

@@ -104,7 +104,7 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 ## Harmony Main
 
-已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md) 与执行内核：输入冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow。harmony_stage 把 host receipts 汇成 tests stage，Ledger 复验媒体 hash 与三态；超时终止进程组并保存已有输出。断言的 `reference_media_id`（用户截图作参考图，verification=refer_image_assert，不需 reference_step）由 adapter 核对 hash 后交引擎验证；`record_video: true` 的 PATH 以 `media_refs`（hash 绑定、在执行输出内）带回 final.mp4，报告逐 PATH 列出，diagnose/Fixer 并列用户预期媒体与实际媒体，不改三态；`media_marks` 见[用户参考媒体](project-context.md#用户参考媒体)。
+已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md#3-execute一条-path-到-main) 与执行内核：输入冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow。harmony_stage 把 host receipts 汇成 tests stage，Ledger 复验媒体 hash 与三态；超时终止进程组并保存已有输出。断言的 `reference_media_id`（用户截图作参考图，verification=refer_image_assert，不需 reference_step）由 adapter 核对 hash 后交引擎验证；`record_video: true` 的 PATH 以 `media_refs`（hash 绑定、在执行输出内）带回 final.mp4，报告逐 PATH 列出，diagnose/Fixer 并列用户预期媒体与实际媒体，不改三态；`media_marks` 见[用户参考媒体](project-context.md#用户参考媒体)。
 
 Harmony 不自动生成结构化 interaction_evidence：缺这份证据时的规范化见[视觉对齐](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)；Test-Runner 在预检说明能力缺口，换 adapter 或走缺测出口。
 

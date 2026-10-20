@@ -134,8 +134,9 @@ class ReadingCardTests(unittest.TestCase):
         for table in reading.TEMPLATES.values():
             for group in table.values(): names |= set(group)
         for group in reading.SCOPE_TEMPLATES.values(): names |= set(group)
-        for by_role in reading.TRIGGER_TEMPLATES.values():
-            for group in by_role.values(): names |= set(group)
+        for table in (reading.TRIGGER_TEMPLATES, reading.PLATFORM_TEMPLATES):
+            for by_role in table.values():
+                for group in by_role.values(): names |= set(group)
         self.assertEqual([n for n in sorted(names) if not (reading.PACKAGE / 'template' / n).is_file()], [])
         visual = reading.templates({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'visual'})
         self.assertIn('template/visual-alignment.json', visual)
@@ -145,6 +146,22 @@ class ReadingCardTests(unittest.TestCase):
         f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
         f.prepare()
         self.assertIn('template/implementation.md', f.state()['next_steps'][0]['templates'])
+
+    def test_platform_rules_and_templates_follow_the_declared_platforms(self):
+        web = {'test_adapter': {'device': {'platforms': ['web'], 'web': {'url': 'http://127.0.0.1:1/'}}}}
+        android = {'test_adapter': {'device': {'platforms': ['android'], 'android': {'serial': 'emulator-5554'}}}}
+        automation = {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'automation'}
+        plan = {'role': 'spec-designer', 'operation': 'plan'}
+        main = lambda s, step: {r['section'] for r in reading.card(s, None, step) if r['ref'].endswith('testing.md') and r['section'] in ('web Main', 'Harmony Main')}
+        self.assertEqual((main(web, automation), main(android, automation), main({}, automation)), ({'web Main'}, {'Harmony Main'}, set()))
+        self.assertEqual((main(web, plan), main(android, plan), main(web, {**automation, 'test_scope': 'build'})), ({'web Main'}, {'Harmony Main'}, set()))
+        names = lambda s, step: {n.split('/')[-1] for n in reading.templates(s, None, step)}
+        self.assertTrue({'web-test-adapter.json', 'test-adapter.json', 'interaction-evidence.json'} <= names(web, automation))
+        self.assertFalse({'harmony-test-adapter.json', 'harmony-config.json'} & names(web, automation))
+        self.assertTrue({'harmony-test-adapter.json', 'harmony-config.json'} <= names(android, automation))
+        self.assertFalse({'web-test-adapter.json', 'harmony-test-adapter.json'} & names({}, automation) | {'web-test-adapter.json'} & names(android, automation))
+        self.assertIn('web-test-path.json', names(web, plan)); self.assertIn('harmony-test-path.json', names(android, plan))
+        self.assertNotIn('harmony-test-path.json', names(web, plan))
 
     def test_a_rendered_card_has_no_link_into_a_whole_protocol_file(self):
         text = reading.unlink('见 [状态机](state-machine.md)、[有限循环](state-machine.md#有限循环)、[模板](../../../template/fix-note.json)、'
