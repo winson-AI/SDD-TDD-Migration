@@ -161,6 +161,15 @@ def validate(config):
         require(isinstance(adapter['args'], list) and all(isinstance(a, str) for a in adapter['args']), 'adapter args must be a string array')
     if 'timeout_seconds' in adapter:
         require(type(adapter['timeout_seconds']) is int and adapter['timeout_seconds'] > 0, 'invalid adapter timeout')
+    adapters = adapter.get('adapters')  # which adapter runs the device PATHs of each platform; {run_root} in an argv is the run when it executes
+    if adapters is not None:
+        require(isinstance(adapters, dict) and set(adapters) <= {'android', 'harmony', 'web'}, 'test_adapter.adapters maps android, harmony and/or web to the adapter that runs their PATHs')
+        for platform, row in adapters.items():
+            require(isinstance(row, dict) and set(row) <= {'argv', 'cwd', 'timeout_seconds'} and isinstance(row.get('argv'), list) and row['argv']
+                    and all(isinstance(x, str) and x for x in row['argv']) and Path(row['argv'][0]).is_absolute()
+                    and (row.get('cwd') is None or isinstance(row['cwd'], str) and Path(row['cwd']).is_absolute())
+                    and (row.get('timeout_seconds') is None or type(row['timeout_seconds']) is int and row['timeout_seconds'] > 0),
+                    'test_adapter.adapters.' + str(platform) + ' takes an absolute argv, an optional absolute cwd and timeout_seconds')
     device = adapter.get('device')
     if device is not None:
         require(isinstance(device, dict) and set(device) in ({'platforms'}, {'unavailable'}),

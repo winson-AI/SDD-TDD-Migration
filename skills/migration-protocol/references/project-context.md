@@ -48,7 +48,7 @@
 - 缺少部分共享配置时允许先保存；prepare 要求可用的 legacy/target 目录与架构文档，其余由后续门禁检查，缺少时如实阻塞。
 - 写历史工件后原子替换当前文件即提交；未引用工件不算更新，history 仅遍历已提交链；禁止手工改当前文件绕过版本记录。
 
-默认值存放在 config.defaults：entry_mode 固定 project，另有 budgets 与 quality_gates（字段见模板）。test_adapter 与 input 中的结构一致，runtime 只放 model_routing。配置只引用宿主环境或凭证名称，不在模板中放凭证值。
+默认值存放在 config.defaults：entry_mode 固定 project，另有 budgets 与 quality_gates（字段见模板）。test_adapter 与 input 中的结构一致（`adapters` 按平台给 argv），runtime 只放 model_routing。配置只引用宿主环境或凭证名称，不在模板中放凭证值。
 
 质量门开关都在 `defaults.quality_gates`，均 bool 默认 false：`git_checkpoint`（模块 Git 检查点）、`write_scope_check`（写范围核验）、`fixer_self_diagnosis`（本地轮 Fixer 自诊断，开启后不再为本地轮启动独立 Diagnostician）、`dependency_resolution_required`（Foundation 冻结，例如 `{"defaults":{"quality_gates":{"dependency_resolution_required":true}}}`）；模块累计修复预算为 `defaults.budgets.max_fix_rounds`（默认 3，各类失败共用）。prepare 把这些值固化到快照与 Global input，init 按快照继承，不得在 prepared init 中降级或覆盖。开启 Foundation 冻结后，无新增依赖的切片也须保留 not-required 解析证据，见 [知识执行与冻结](engineering-disciplines.md)。
 

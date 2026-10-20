@@ -115,10 +115,10 @@ tests 另需 paths，见 [stage-result.json](../../../template/stage-result.json
 
 ## 实际测试适配器
 
-宿主先审核并配置 [test-adapter.json](../../../template/test-adapter.json) 的 argv，再运行：
+适配器按 PATH 选：build/unit/进程内功能 PATH 跑冻结的 command；设备 PATH 跑项目 `test_adapter.adapters[platform]`（argv 见 [test-adapter.json](../../../template/test-adapter.json)，`{run_root}` 为本 run），没有时用 `test_adapter.executable/args`；`--adapter <json>` 显式覆盖，`--cwd` 缺省为目标工程：
 
 ```text
-python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-M001-001（同命令 unit PATH 可为 a,b 列表） --adapter <adapter.json> --cwd <target> --output <run>/runs/harmony/automation/<new-attempt>
+python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-M001-001（同命令 unit PATH 可为 a,b 列表） --output <run>/runs/harmony/automation/<new-attempt>
 ```
 
 适配器接收 `--query-file <json> --result-file <json>`，写 `{"assertions":[{"assertion_id":"A1","expected":2,"actual":2,"passed":true}]}`。

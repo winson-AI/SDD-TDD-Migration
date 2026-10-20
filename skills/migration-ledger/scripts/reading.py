@@ -665,6 +665,8 @@ GATES = [
     (r'context_inputs|context input kind', 'runtime.md', '渐进加载'),
     (r'stop/isolation|stop unconfirmed|executor aborted|stop/revoke|revoke worker|worker identity|Test-Runner identity|review identity|session id required|advance needs|mechanical preflight|merged dispatch|api-register|api_id|module (not|already) registered|unknown module|^no modules|selected module', 'local-runtime.md', '操作矩阵'),
     (r'hint needs', 'host-integration.md', '提示采纳回报'),
+    (r'no adapter runs platform', 'local-runtime.md', '实际测试适配器'),
+    (r'test_adapter\.adapters', 'project-context.md', '初始化和增量更新'),
     (r'build (argv|command|cwd|timeout|artifact)|build must pass|build report|invalid build timeout|absolute output directory', 'build-automation.md', '2. 构建命令的来源与固化'),
     (r'deferral|defer completed|may be deferred|deferred automation', 'build-automation.md', '4. 自动化环境缺失：直接记 Yellow 并继续'),
     (r'execution (evidence|observation|output|contract)|execution-state|completion (acceptance|query|interpretation)|host normalization|host execution', 'testing.md', '本地执行与严格结果验收'),

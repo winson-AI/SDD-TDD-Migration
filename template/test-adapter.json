@@ -1,5 +1,6 @@
 {
   "argv": [
     "{{absolute-project-adapter-executable}}"
-  ]
+  ],
+  "_note": "An explicit override for execute_test --adapter. Normally nothing is passed: build, unit and in-process functional PATHs run their frozen command, and a device PATH runs the adapter the project context states for its platform in test_adapter.adapters ({android|harmony|web: {argv, cwd?, timeout_seconds?}}, {run_root} in an argv is the run; see project-context.json), else test_adapter.executable/args. This note is not part of the adapter."
 }
