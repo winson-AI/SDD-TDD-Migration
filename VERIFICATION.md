@@ -22,7 +22,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1647 | 全量通过，零失败/错误/跳过；本轮新增平台卡与模板、按节入卡、每步加载预算、目标应用预填与模板可解析的测试 |
+| migration-ledger/tests | 1646 | 全量通过，零失败/错误/跳过；本轮新增平台卡与模板、按节入卡、每步加载预算、目标应用预填与模板可解析的测试 |
 | migration-test/tests | 83 | 全量通过；本轮无改动 |
 | runtime/harmony/tests | 128 | 全量通过；本轮无改动 |
 
