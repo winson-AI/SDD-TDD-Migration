@@ -345,6 +345,8 @@ def handle(root, s, req, actor):
         for key in ('build', 'test_adapter', 'runtime', 'target_resources'):
             if key in report['context_patch']:
                 s[key] = copy.deepcopy(config.get(key, {}))
+        if 'test_adapter' in report['context_patch']:
+            s['target_preview'] = project_context.target_preview_files(root, (s['test_adapter'] or {}).get('device'))
     if report.get('global_spec_ref'):
         s['global_spec'] = report['global_spec_ref']
     s.update(contract(s, report))

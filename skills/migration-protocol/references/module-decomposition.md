@@ -59,7 +59,7 @@ MO 确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`
 3. 内部依赖引用本次孩子；外部依赖限父节点已批准依赖，图无环。孩子只认领实际消费的依赖，不继承父依赖并集；父 provider 细化时，consumer_dependencies 明确消费者实际等待的孩子，并提交 consumer_verifications。
 4. 有 blocker、活动 worker、已冻结或已生成代码的父节点不能直接拆分；不能通过删除/拆分规避失败历史。
 5. global-plan 可先验完整根/叶子 registry 的需求、CASE、功能、归属与依赖；待拆根保留覆盖责任但不能编码，已就绪叶子只检查自身、祖先及实际依赖。接受拆分后 GO 重验当前 registry（需求 owner 与 scope 一致），保留未变的 SPEC/测试设计/执行上下文，影响闭包重规划；原子确认未改 registry，不重复全局覆盖审查。
-6. 子 plan 绑定的分配必须仍是当前分配；每个 task 的 global_requirement_ids（无别名时使用 requirement_ids）限定在该子模块内，并覆盖其全部获分配需求；测试路径不得加入未分配 CASE。原有需求→task→PATH 追溯继续有效。
+6. 子 plan 绑定的分配须仍是当前分配；每个 task 的 global_requirement_ids（无别名时 requirement_ids）限定在该子模块内并覆盖其全部获分配需求；测试路径不得加入未分配 CASE；原有需求→task→PATH 追溯继续有效。
 7. 拆分与认领不等于 SPEC 冻结批准。子 MO 组织六件套、测试设计和澄清，按[控制主线](state-machine.md#控制主线)审核冻结后才授权编码。
 
 ## 4. 独立执行、父看护与统一审计

@@ -12,7 +12,7 @@
       "android": {"argv": ["{{absolute-python-with-harmony-dependencies}}", "{{package_root}}/skills/migration-test/runtime/harmony/sandbox.py", "test", "--root", "{run_root}", "--config", "{run_root}/runs/harmony/sandbox/environment/config.json", "--env-file", "{run_root}/runs/harmony/sandbox/environment/.env"], "timeout_seconds": 1860},
       "web": {"argv": ["{{absolute-python-with-playwright}}", "{{package_root}}/skills/migration-test/scripts/web_main.py", "--root", "{run_root}", "--config", "{run_root}/runs/harmony/sandbox/environment/web.json"], "timeout_seconds": 600}
     },
-    "device": {"platforms": ["android", "web"]}
+    "device": {"platforms": ["android", "web"], "android": {"serial": "emulator-5554", "avd": "{{avd-name}}"}, "web": {"url": "{{absolute-url-of-the-served-target}}", "viewport": {"width": 1280, "height": 800}, "record_video": false}}
   },
   "runtime": {
     "model_routing": {

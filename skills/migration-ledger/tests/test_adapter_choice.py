@@ -56,3 +56,24 @@ class AdapterChoiceTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PreflightCommandTests(unittest.TestCase):
+    def test_the_test_runner_preflight_carries_the_adapter_command_the_executor_will_resolve(self):
+        import copy
+        import report_skeleton
+        import test_spec_closure
+        from contracts import SKELETON_MARK
+        t = test_spec_closure.SpecClosureTests(); t.setUp(); self.addCleanup(t.doCleanups)
+        t.built(); f = t.f
+        s = copy.deepcopy(f.state()); s['test_adapter'] = {'adapters': {'web': WEB}}
+        path = next(p for p in s['modules']['M001']['plan']['paths'] if p['path_id'] == 'P1')
+        path.pop('command', None); path.pop('unit_report', None); path.update(platform='web', task_type='test')
+        assignment = {'instance_id': 'runner', 'test_scope': 'automation', 'execution_contract': {'path_ids': ['P1']}}
+        pre = report_skeleton.preflight(f.root, s, 'M001', assignment)
+        self.assertEqual(pre['execution']['commands']['P1'], {'argv': [WEB['argv'][0], WEB['argv'][1], '--root', str(f.root)], 'cwd': s['target_root']})
+        self.assertEqual(pre['execution']['argv'], pre['execution']['commands']['P1']['argv'])
+        path['platform'] = 'harmony'  # no adapter is stated for it: the runner writes the command, the skeleton says so
+        pre = report_skeleton.preflight(f.root, s, 'M001', assignment)
+        self.assertIn(SKELETON_MARK, pre['execution']['commands']['P1']['argv'][0])
+        self.assertIn('test_adapter.adapters.harmony', pre['execution']['commands']['P1']['argv'][0])

@@ -71,7 +71,7 @@ Auditor 读取对应 SPEC/tasks/CASE/PATH、断言及日志，提交 [audit-clos
 - `verify`：有证据说明依赖/环境已恢复、无需代码补丁，直接重新执行完整模块测试；不能伪造通过或绕过尚未解决的 human blocker。
 - `human`：需澄清验收、无已冻结可修代码或不可控外围条件。该分支记录原因，其他独立分支继续。
 
-旧单 owner 写法仅在该 source 恰好一个 finding 时转换；多个 finding 必须显式按 ID 路由，避免隐含遗漏。Global 审核路由；声明依赖加 source→owner 形成执行前置图，出现环拒绝该计划，修正后重新提交。
+旧单 owner 写法仅在该 source 恰好一个 finding 时转换，多个 finding 须按 ID 路由；Global 审核路由，声明依赖加 source→owner 成前置图，有环拒绝。
 
 ### 3. 按问题依赖交错修复和回归
 

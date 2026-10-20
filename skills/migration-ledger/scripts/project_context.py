@@ -172,14 +172,18 @@ def validate(config):
                     'test_adapter.adapters.' + str(platform) + ' takes an absolute argv, an optional absolute cwd and timeout_seconds')
     device = adapter.get('device')
     if device is not None:
-        require(isinstance(device, dict) and set(device) in ({'platforms'}, {'unavailable'}),
+        require(isinstance(device, dict) and ('platforms' in device) != ('unavailable' in device),
                 'test_adapter.device states the platforms the target is driven on, or why none is available')
         if 'platforms' in device:
             platforms = device['platforms']
             require(isinstance(platforms, list) and platforms and len(set(platforms)) == len(platforms)
                     and set(platforms) <= {'android', 'harmony', 'web'}, 'test_adapter.device.platforms lists android, harmony and/or web')
+            require(set(device) <= {'platforms', *platforms}, 'test_adapter.device describes only the platforms it lists')
+            for platform in platforms:
+                if device.get(platform) is not None:
+                    target_preview(platform, device[platform])
         else:
-            require(isinstance(device['unavailable'], str) and device['unavailable'].strip(),  # the statement becomes each leaf's declared gap
+            require(set(device) == {'unavailable'} and isinstance(device['unavailable'], str) and device['unavailable'].strip(),  # the statement becomes each leaf's declared gap
                     'test_adapter.device.unavailable gives the reason no device is available')
     require('{{' not in json.dumps(config), 'unfilled project placeholders')
     return config
@@ -201,6 +205,62 @@ def target_resources(value, target_root=None):
 
 
 PREVIEW_KINDS = ('android-device', 'android-emulator', 'vm', 'harmony-device', 'browser', 'none')
+
+
+def boot_shape(boot, label):
+    """How an emulator is started when the stated device does not answer: an absolute argv, optional absolute cwd and timeout."""
+    require(boot is None or isinstance(boot, dict) and set(boot) <= {'argv', 'cwd', 'timeout_seconds'}
+            and isinstance(boot.get('argv'), list) and boot['argv'] and all(isinstance(a, str) and a for a in boot['argv']) and Path(boot['argv'][0]).is_absolute()
+            and (boot.get('cwd') is None or isinstance(boot['cwd'], str) and Path(boot['cwd']).is_absolute())
+            and (boot.get('timeout_seconds') is None or type(boot['timeout_seconds']) is int and boot['timeout_seconds'] > 0),
+            label + ' takes the absolute argv that boots the emulator, an optional absolute cwd and timeout_seconds')
+
+
+def target_preview(platform, value):
+    """Where the target of one platform is previewed: the adb/hdc serial (and how its emulator boots), or the served url."""
+    text = lambda key: isinstance(value.get(key), str) and bool(value[key].strip())
+    label = 'test_adapter.device.' + platform
+    if platform == 'web':
+        require(isinstance(value, dict) and set(value) <= {'url', 'viewport', 'browser', 'headless', 'record_video'} and text('url')
+                and value['url'].startswith(('http://', 'https://')), label + ' names the url the target is served at (viewport, browser, headless, record_video optional)')
+        viewport = value.get('viewport')
+        require(viewport is None or isinstance(viewport, dict) and set(viewport) == {'width', 'height'}
+                and all(type(viewport[k]) is int and 100 <= viewport[k] <= 5000 for k in ('width', 'height')), label + '.viewport is {width, height} in pixels')
+        require(value.get('browser') in (None, 'chromium', 'firefox', 'webkit'), label + '.browser is chromium, firefox or webkit')
+        require(all(value.get(k) in (None, True, False) for k in ('headless', 'record_video')), label + '.headless and record_video are booleans')
+        return
+    tool = 'adb' if platform == 'android' else 'hdc'
+    require(isinstance(value, dict) and set(value) <= {'serial', 'avd', 'boot', 'tool'} and text('serial'),
+            label + ' names the serial ' + tool + ' sees (avd, boot and tool optional)')
+    require(value.get('tool') is None or isinstance(value['tool'], str) and Path(value['tool']).is_absolute() and Path(value['tool']).name == tool, label + '.tool is the absolute ' + tool)
+    boot_shape(value.get('boot'), label + '.boot')
+
+
+def target_preview_files(root, device):
+    """The run's environment files written from the device statement: one visual_capture per previewed platform (visual_model
+    off until the host enables one) and the web Main configuration. Returns their references, empty when nothing is stated."""
+    import run_storage
+    from urllib.parse import urlparse
+    out = {}
+    if not isinstance(device, dict) or 'platforms' not in device:
+        return out
+    folder = run_storage.checked_path(Path(root) / 'runs/harmony/sandbox/environment', root)
+    for platform in device['platforms']:
+        preview = device.get(platform)
+        if preview is None:
+            continue
+        folder.mkdir(parents=True, exist_ok=True)
+        if platform == 'web':
+            capture = {'backend': 'browser', 'url': preview['url'], 'device_id': urlparse(preview['url']).netloc, **({'viewport': preview['viewport']} if preview.get('viewport') else {})}
+            main = {'browser': preview.get('browser', 'chromium'), 'headless': preview.get('headless', True), 'viewport': preview.get('viewport'), 'record_video': bool(preview.get('record_video'))}
+            path = folder / 'web.json'; path.write_text(json.dumps(main, ensure_ascii=False, indent=2) + '\n'); out['web_main_config'] = file_ref(path)
+        else:
+            capture = {'backend': 'adb' if platform == 'android' else 'hdc', 'tool': preview.get('tool') or ('adb' if platform == 'android' else 'hdc'), 'device_id': preview['serial'],
+                       **{k: preview[k] for k in ('avd', 'boot') if preview.get(k)}}
+        path = folder / f'target-preview-{platform}.json'
+        path.write_text(json.dumps({'visual_capture': capture, 'visual_model': {'mode': 'external', 'enabled': False}}, ensure_ascii=False, indent=2) + '\n')
+        out.setdefault('environments', {})[platform] = file_ref(path)
+    return out
 
 
 def legacy_preview_config(value):
@@ -225,12 +285,7 @@ def legacy_preview_config(value):
     device = value.get('device')
     require(isinstance(device, dict) and set(device) <= {'serial', 'avd', 'address', 'boot'} and text(device, 'serial'),
             'legacy_preview.device names the serial adb or hdc sees (avd and address are notes; boot is the emulator command)')
-    boot = device.get('boot')  # no real device: how the emulator is started when the serial does not answer
-    require(boot is None or isinstance(boot, dict) and set(boot) <= {'argv', 'cwd', 'timeout_seconds'}
-            and isinstance(boot.get('argv'), list) and boot['argv'] and all(isinstance(a, str) and a for a in boot['argv']) and Path(boot['argv'][0]).is_absolute()
-            and (boot.get('cwd') is None or isinstance(boot['cwd'], str) and Path(boot['cwd']).is_absolute())
-            and (boot.get('timeout_seconds') is None or type(boot['timeout_seconds']) is int and boot['timeout_seconds'] > 0),
-            'legacy_preview.device.boot takes the absolute argv that boots the emulator, an optional absolute cwd and timeout_seconds')
+    boot_shape(device.get('boot'), 'legacy_preview.device.boot')  # no real device: how the emulator is started when the serial does not answer
     require(('artifact' in value) != ('build' in value), 'legacy_preview takes exactly one of artifact (a built package) or build (the command that builds it)')
     out = dict(value)
     if 'artifact' in value:
@@ -255,8 +310,8 @@ def legacy_preview_config(value):
 
 
 INTAKE = (
-    ('legacy_preview', '存量预览', '存量应用怎样跑给我们看？android-device / android-emulator / vm（设备 serial、app_id、APK 路径或构建命令、启动 activity；没有真机时给模拟器的 avd 名或启动命令 boot.argv，未连接时由我们启动）、harmony-device（hdc 看到的 serial、bundleName、HAP 路径或构建命令、ability）、browser（url，可选 viewport）、或 none（说明不能跑的原因）', list(PREVIEW_KINDS)),
-    ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证？platforms（android / harmony / web，web 是浏览器里预览的目标；没有真机时在运行环境 visual_capture 里给模拟器 serial 与 avd 或 boot.argv，未连接时由我们启动）或 unavailable（原因）', ['android', 'harmony', 'web', 'unavailable']),
+    ('legacy_preview', '存量预览', '存量应用怎样跑给我们看？android-device / android-emulator / vm（设备 serial、app_id、APK 路径或构建命令、启动 activity；没有真机时给模拟器的 avd 名或启动命令 boot.argv，未连接时由我们启动）、harmony-device（hdc 看到的 serial、bundleName、HAP 路径或构建命令、ability；没有真机时给 boot.argv）、browser（url，可选 viewport）、或 none（说明不能跑的原因）', list(PREVIEW_KINDS)),
+    ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证、怎样预览？platforms（android / harmony / web）并按平台给预览：android {serial，没有真机时 avd 或 boot.argv}、harmony {serial，没有真机时 boot.argv（鸿蒙没有标准命令行模拟器）}、web {url 目标页面地址，可选 viewport / headless / record_video}；或 unavailable（原因）。运行环境文件由我们按此写出', ['android', 'harmony', 'web', 'unavailable']),
     ('target_resources', '目标资源约定', '存量的图片等文件与尺寸 / 颜色 / 文案等参数怎样进目标？target_resources.copy（目标目录、路径与 accessor 模板、可原样加载的格式、密度顺序）与 target_resources.parameters（每模块参数文件、行模板与 accessor）；目标不接收的部分写进 declined 并给原因。字段见 template/target-resources.json', ['copy', 'parameters', 'declined']),
 )
 

@@ -30,9 +30,16 @@ def preflight(root, s, mid, assignment):
     stage = 'building' if assignment.get('test_scope') == 'build' else 'testing'
     paths = [p for p in m['plan']['paths'] if p['path_id'] in assignment['execution_contract']['path_ids']]
     commands = {p['path_id']: {'argv': list(p['command']['argv']), 'cwd': p['command']['cwd']} for p in paths if p.get('command')}
+    import execute_test
     for p in paths:
         if p.get('kind') == 'static':
             commands[p['path_id']] = {'argv': [todo('absolute spec_closure.py command: --review <static-review.json> --target-root <target>')], 'cwd': todo('target root')}
+        elif p['path_id'] not in commands and p.get('kind') in ('automation', 'visual'):  # the adapter the run resolves for this platform, so the preflight and the executor agree
+            try:
+                chosen = execute_test.adapter_for(s, p, root)
+                commands[p['path_id']] = {'argv': chosen['argv'], 'cwd': chosen['cwd']}
+            except Rejected:
+                commands[p['path_id']] = {'argv': [todo('absolute adapter command: state test_adapter.adapters.' + str(p.get('platform')) + ' in the project context, or write it here')], 'cwd': todo('target root')}
     try:
         cr.verify_inputs(s, mid, stage, deep=True, run_root=root)
         held = 'checked by the Ledger: the %d inputs of this stage exist and match their hashes; ' % len(cr.input_refs(s, mid, stage))
@@ -46,7 +53,7 @@ def preflight(root, s, mid, assignment):
     facts = {'frozen-spec': ledger('freeze ' + str(m.get('freeze_id'))[:12]),
              'accepted-code': ledger('%d code files at baseline %s' % (len(m.get('code_files', [])), str(m.get('code_baseline'))[:12])),
              'test-paths': ledger('%d PATHs in this dispatch: %s' % (len(paths), ', '.join(p['path_id'] for p in paths))),
-             'build-command': ledger('frozen argv/cwd of %d PATHs copied into execution.commands' % len(commands)),
+             'build-command': ledger('frozen or adapter argv/cwd of %d PATHs copied into execution.commands' % len(commands)),
              'build-environment': own('toolchain, SDK and caches this host runs the frozen commands with; probed, not assumed'),
              'test-environment': own('device/emulator, adapter and data the automation PATHs need'),
              'provider-binding': own('the real providers and fixtures the frozen PATHs bind'),

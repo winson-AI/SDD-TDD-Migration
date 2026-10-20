@@ -21,6 +21,7 @@ from harmony_contract import digest, ref, write
 from web_contract import DEFAULT_TOLERANCE, validate_query
 
 PRODUCER = 'web-main'
+PREDICATE_RETRIES = 10  # a predicate that does not hold yet is read again every 300 ms, for 3 s at most
 CONTEXT = ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline')
 COMPARE_WIDTH = 640
 
@@ -135,6 +136,9 @@ class Run:
         try:
             if a['verification'] == 'dom':
                 passed, actual = judge(self.page, a['predicate'])
+                for _ in range(PREDICATE_RETRIES):  # read-only: a page still rendering is read again for a bounded while, never acted on
+                    if passed: break
+                    self.page.wait(300); passed, actual = judge(self.page, a['predicate'])
                 self.observe(a, number, step, after, passed, actual, 'predicate ' + a['predicate']['kind'] + (' held' if passed else ' did not hold'))
             else:
                 picture = a['reference_media_ref']  # the user's screenshot lives in the run's context, outside this output
@@ -224,6 +228,7 @@ def main(argv=None, open_page=PlaywrightPage):
     else:
         with snapshot.open('xb') as stream: stream.write(query_bytes)
     config = json.loads(Path(a.config).read_text()) if a.config else {}
+    config['record_video'] = bool(config.get('record_video') or q.get('record_video'))  # the frozen PATH asks for the film, or the run does
     environment = {'python': sys.version, 'platform': 'web', 'task_type': 'test', 'runner_root': str(out), 'query_ref': ref(snapshot),
                    'browser': config.get('browser', 'chromium'), 'headless': config.get('headless', True), 'viewport': config.get('viewport'),
                    'record_video': bool(config.get('record_video')), 'packages': {}}

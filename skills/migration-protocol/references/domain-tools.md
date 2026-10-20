@@ -36,7 +36,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 | `analyze-ui` | entry/source_files/layouts，选填 capture_ref、targets、manifests、image_sinks、layout_helpers；platform=web 只读 capture_ref/targets | 从 legacy_root 收集源索引（使用点、图片来源与参数，见[搬运](resource-transfer.md#使用点与闭包)）；entry 写 `文件#类名[.方法名]` 只采该段；有合法 Capture 时选运行时索引；据此生成 UI 树再 validate-ui，不自动证明源闭包完整 |
 | `validate-ui` | ui_tree_ref/source_index_ref/runtime_index_ref，选填 resource_scope | 校验树与原始索引一致；source-only 不伪造 runtime_index_ref；resource_scope 仅说明有证据的范围外变体 |
 | `target-scan` | keywords，选填 roots | 只读列出目标工程含构建文件的模块、manifest / 模块入口与名称或路径命中关键词的声明符号及文件 hash，作目标画像候选证据，不判状态；无需 assignment |
-| `resource-scan` | 选填 source_index_ref/ui_tree_ref/extra_refs | 只读查找当前闭包资源，输出候选文件与 hash，保留 base/night/语言等源变体；给树与索引时附预填 skeletons；不写目标、不裁决精确性 |
+| `resource-scan` | 选填 source_index_ref/ui_tree_ref/extra_refs | 只读列出当前闭包资源的候选文件与 hash（含 base/night/语言变体），给树与索引时附预填 skeletons；不写目标、不裁决精确性 |
 | `resource-plan` | dimension_analysis_ref | 派生模块的参数表与复制清单（项目声明了约定时），列出待登记资源、未声明使用点、待映射 token 与待定值 expression；MO 可用 |
 | `resource-sync` | task_id，需 assignment | 在该任务写范围内按冻结清单复制文件、按参数表写出参数文件；不覆盖内容不同的已有文件；Fixer 可用 |
 | `screen-checks` | dimension_analysis_ref | 为尚无检查的图片使用点派生 image 检查并渲染参考，附文本检查建议，渲染不了的列入 unrendered；MO 可用 |
@@ -55,7 +55,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 args 示例见 [knowledge-request.json](../../../template/knowledge-request.json)；名称与坐标以当前目录查询结果为准，知识引用保留 hash 随上下文、plan、实现或测试提交；结果附 `sdd_adaptation_ref`，`external` 只返回目录快照候选（无匹配不等于无法实现，probe 未接入）。Foundation 配置、默认关闭与不适用处理见[知识执行与冻结](engineering-disciplines.md#1-foundation--迁移知识执行与冻结)。
 
-入口用 Python 3.10+，`foundation-verify` 需 3.11+ 的 tomllib；`compare-only`、`image-parity`、`render-reference`、`screen-checks` 需 Pillow（矢量渲染另需 `rsvg-convert`），可用本 run 的 Harmony sandbox 环境；缺少时保留原因（compare-only 为 `comparison-unavailable`）走 Yellow/未执行通道，不自动安装依赖。
+入口用 Python 3.10+（`foundation-verify` 需 3.11+）；`compare-only`、`image-parity`、`render-reference`、`screen-checks` 需 Pillow（矢量渲染另需 `rsvg-convert`），可用本 run 的 Harmony sandbox 环境；缺少时保留原因（compare-only 为 `comparison-unavailable`）走 Yellow/未执行，不自动安装依赖。
 
 visual PATH 的 adapter 按 [visual-test-adapter.json](../../../template/visual-test-adapter.json) 实例化：argv 指向 [lean_visual_adapter.py](../../migration-ledger/scripts/lean_visual_adapter.py)、当前原始 alignment 文件与 target_root，有冻结手势才加 `--interaction <id>`（可重复），带 `image_check_ids` 的 PATH 加 `--image-parity <报告>`，无 `baseline_ref` 时可省略 `--alignment`；经[实际测试适配器](local-runtime.md#实际测试适配器)的 execute_test 运行，只重验与转换独立比较产物，只支持冻结 `expected: true` 的布尔对齐断言；手势与当前 HAP 的正式核对见[视觉对齐](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)。
 

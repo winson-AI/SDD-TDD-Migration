@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import uuid
 
@@ -22,7 +23,7 @@ def load_environment(path):
     load(path)
 
 
-def doctor(config_path, device=None, platform=None):
+def doctor(config_path, device=None, platform=None, adapters=None):
     """Offline check only: never contact a model or operate a device."""
     checks = []
     for module in ('openai', 'agents', 'hypium', 'hypium_mcp', 'cv2', 'PIL',
@@ -37,6 +38,17 @@ def doctor(config_path, device=None, platform=None):
     for name, present in (('adb-on-path', bool(shutil.which('adb'))), ('android-emulator', emulator), ('playwright', importlib.util.find_spec('playwright') is not None)):
         checks.append({'name': name, 'status': 'ready' if present else 'optional-absent',
                        'note': 'legacy-capture needs adb for a device statement, the SDK emulator (or boot.argv) when no real device is connected, and Playwright for a browser statement'})
+    for name, row in (adapters or {}).items():  # the adapter the project states for each platform: its interpreter exists, the web one has Playwright
+        argv = row.get('argv') if isinstance(row, dict) else None
+        binary = Path(argv[0]) if isinstance(argv, list) and argv and isinstance(argv[0], str) else None
+        present = bool(binary and binary.is_absolute() and binary.is_file())
+        checks.append({'name': 'adapter-' + str(name), 'status': 'ready' if present else 'blocked', 'argv0': str(binary) if binary else None})
+        if name == 'web' and present:
+            try:
+                probe = subprocess.run([str(binary), '-c', 'import playwright'], capture_output=True, text=True, timeout=60)
+                checks.append({'name': 'adapter-web-playwright', 'status': 'ready' if probe.returncode == 0 else 'blocked', 'note': 'the web Main needs Playwright in the adapter python'})
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                checks.append({'name': 'adapter-web-playwright', 'status': 'blocked', 'reason': type(exc).__name__})
     try:
         from harmony_adapter import configure, execution_config
         config = execution_config(json.loads(Path(config_path).read_text()), platform=platform, device=device)
@@ -67,6 +79,8 @@ def main():
         c.add_argument('--config', help='Reference configuration copied into the shared run sandbox')
         c.add_argument('--env-file', help='Reference credentials copied privately into the shared run sandbox')
         c.add_argument('--root', help='Run root; required for doctor, otherwise inferred from canonical output')
+        if name == 'doctor':
+            c.add_argument('--adapters', help='JSON: the project test_adapter.adapters (or a project context holding it) to probe')
         if name != 'design':
             c.add_argument('--device')
             c.add_argument('--platform', choices=('android', 'harmony'))
@@ -103,6 +117,10 @@ def main():
     if a.command == 'prepare':
         print(json.dumps({'run_root': str(run_root), 'config': config, 'env_file': env_file}))
         return 0
+    adapters = None
+    if a.command == 'doctor' and a.adapters:
+        stated = json.loads(Path(a.adapters).read_text())
+        adapters = (stated.get('test_adapter') or {}).get('adapters') or stated.get('adapters') or stated
     if a.command == 'adapter':
         if a.timeout <= 0: p.error('--timeout must be positive')
         argv = [sys.executable, str(Path(__file__).resolve()), 'test', '--config', config,
@@ -121,7 +139,7 @@ def main():
     if a.command == 'doctor':
         output.mkdir(parents=True, exist_ok=False)
         with scope(output):
-            result = doctor(config, a.device, a.platform)
+            result = doctor(config, a.device, a.platform, adapters)
         (output / 'doctor.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result['status'] == 'ready-for-live-preflight' else 2

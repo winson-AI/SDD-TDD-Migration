@@ -50,3 +50,22 @@ class OwedFamilyTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FamilyCoverageTests(unittest.TestCase):
+    def test_every_gap_the_scripts_owe_belongs_to_a_named_family(self):
+        import ast, glob
+        scripts = Path(__file__).resolve().parents[1] / 'scripts'
+        def text(node):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str): return node.value
+            if isinstance(node, ast.BinOp): return text(node.left) + (text(node.right) if isinstance(node.op, ast.Add) else '')
+            if isinstance(node, ast.JoinedStr): return ''.join(text(v) for v in node.values if not isinstance(v, ast.FormattedValue))
+            return ''
+        unnamed = []
+        for file in sorted(glob.glob(str(scripts / '*.py'))):
+            for node in ast.walk(ast.parse(Path(file).read_text())):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'owed' and len(node.args) >= 2:
+                    message = text(node.args[1])
+                    if message and issues.family('gap', message) == '其他':
+                        unnamed.append((Path(file).name, node.lineno, message[:60]))
+        self.assertEqual(unnamed, [], 'an owed gap without a family: add its rule to issues.FAMILIES')

@@ -44,9 +44,9 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | redecompose-accept | Global / 父 module_id | review_ref；未变孩子保留进度并恢复原阶段，边界保持的冻结孩子转 CR，被改的孩子重新规划（保留 blocker/失败/预算）；只依赖它们的叶子不重规划，已有代码的等 provider 后复验；下线模块入 superseded_modules |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
 | decision | host | decision_id、decision=approved、module_id、subject_sha256（游标的 approval_subject_sha256）、human_source_ref；决定与常设裁定另以 issue（kind=decision/standing）寄给适用模块。`kind=knowledge`：question_id 为 knowledge-need 的 issue_id，answers[]、sources[] 必填，Ledger 写 artifacts/knowledge/<decision_id>.md 并消去该问题；`kind=batch-envelope`：module_id 为父，envelope_ref 指向[批量信封](../../../template/batch-envelope.json)，children 只能是该父的孩子；`kind=api-adaptation`：module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
-| global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；可带 target_profile_ref（目标画像）；无关根可待拆，执行仍验当前叶子与依赖。registry 变化后重审 |
+| global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；可带 target_profile_ref（目标画像）；无关根可待拆，registry 变化后重审 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
-| audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human/trace（根因在 SPEC 或切片划分，owner 为须修订的叶子或父模块） |
+| audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human/trace |
 | audit-route-batch | Global | review_ref；审核 finding 责任映射及依赖图；human 分支挂起，独立分支继续；trace 记为各 owner 的问题，owner 以 change/realloc-request/redecompose 自下而上修订，代码保留，消去后重新收集 |
 | audit-work | MO | 顶层 module_id 指负责模块；接受被冻结的修复任务，一轮 Fixer 授权；前置不可满足则报告待人工 |
 | audit-retest | MO | 顶层 module_id 指发现模块或受影响中间模块；只等待本模块的上游修复/复测完成，执行完整模块路径 |
