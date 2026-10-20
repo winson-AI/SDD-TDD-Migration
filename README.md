@@ -105,9 +105,9 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照；知识文档可查，缺的知识登 knowledge-need 交人补充 | [项目上下文](skills/migration-protocol/references/project-context.md) |
 | 目标画像 | GO 逐功能记目标状态（absent/shell-only/partial/existing）；脚手架只在缺外壳处，持有代码的叶子欠复用说明 | [父子拆分](skills/migration-protocol/references/module-decomposition.md) |
 | 用户参考媒体 | 存量截图/录屏与目标预期随项目上下文固化、下发到持有叶子：截图是 user-reference 视觉基线，录屏是交互预期，目标预期取代存量基线；规划步骤列尚未引用的媒体，未引用即欠项；截图可作断言参考图，录屏可标时间段；诊断/修复并列预期与实际媒体 |
-| 存量预览与捕获 | 项目声明存量怎样跑（设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑；没有真机时由我们启动声明的模拟器）；legacy-capture 在包内装机、走冻结动作把界面写成参考记录，走不成确定性动作的界面由声明的 navigator 走到后再按选择器捕获；浏览器按同一滚动契约捕获，web 存量的 UI 树从 DOM 派生；规划步骤带 capture_due，未捕获的界面是首版携带的欠项；Android 目标装 APK、web 目标以页面声明的构建哈希进入同一视觉对齐；测试结果带截图 / 录屏证据 | [项目上下文](skills/migration-protocol/references/project-context.md#存量预览)、[视觉执行](skills/migration-protocol/references/visual-execution.md) | [项目上下文](skills/migration-protocol/references/project-context.md#用户参考媒体)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
+| 存量预览与捕获 | 项目声明存量怎样跑（Android 设备 / 模拟器 / 虚拟机、鸿蒙设备、浏览器 / 不能跑；没有真机时由我们启动声明的模拟器）；legacy-capture 在包内装机、走冻结动作把界面写成参考记录，走不成确定性动作的界面由声明的 navigator 走到后再按选择器捕获；浏览器按同一滚动契约捕获，web 存量的 UI 树从 DOM 派生；规划步骤带 capture_due，未捕获的界面是首版携带的欠项；Android 目标装 APK、web 目标以页面声明的构建哈希进入同一视觉对齐；测试结果带截图 / 录屏证据 | [项目上下文](skills/migration-protocol/references/project-context.md#存量预览)、[视觉执行](skills/migration-protocol/references/visual-execution.md) | [项目上下文](skills/migration-protocol/references/project-context.md#用户参考媒体)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 上下文就绪 | 规划与审计者随操作登记预检，coding 与无待复测的审计由 Ledger 机械预检；worker 的 building/testing 从 Ledger 骨架起笔，ready 才开工；worker 只读执行所需 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
-| 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow；PATH 可声明 record_video，录屏随结果入 Ledger；Android/Harmony 走内置 Harmony Main，web 走内置 web Main（冻结的确定性步骤与 DOM 谓词或用户截图，真实浏览器执行、每步截图），项目适配器只需写断言 | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
+| 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow；PATH 可声明 record_video，录屏随结果入 Ledger；Android/Harmony 走内置 Harmony Main，web 走内置 web Main（冻结的确定性步骤与 DOM 谓词或用户截图，plan 时按形状校验，真实浏览器执行、每步截图），适配器按 PATH 平台自动选取，项目适配器只需写断言 | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 资源与参数搬运 | 文件资源按清单原样复制、按 accessor 引用；布局、图层与代码里的取值记成参数表，生成到目标后按键取用；Spec 只写例外，验收比对字节与引用；登记 UI/Resource 分配前对约定定论（声明，或写明目标不接收的原因） | [搬运](skills/migration-protocol/references/resource-transfer.md#总则) |
 | 图片与图标对齐 | 图片来源逐条记录并入资源闭包；树上每处静态图片都上屏核对或带证据豁免：存量资源离线渲染为参考，目标屏幕节点与之比较（另有文本与节点检查），结论由 Ledger 重算；手工替换的图片须测量或获批偏差 | [图片与图标对齐](skills/migration-protocol/references/ui-fidelity.md#图片与图标对齐) |
 | 四维切片与语义模型 | UI → Logic → Adhesive → Resource 逐层映射到 TASK/PATH/ASSERT | [四维](skills/migration-protocol/references/dimension-slicing.md)、[语义抽取](skills/migration-protocol/references/semantic-extraction.md) |
@@ -141,6 +141,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-20 | 适配器随 PATH 平台自动选取；web PATH 在 plan 时按 web Main 的形状校验，web Main 走通 Ledger 黄金路径到 DoD；欠项按族计数；鸿蒙存量可预览（hdc 装 HAP、启 ability）；协议压缩至 464,000 |
 | 2026-10-20 | 完备性欠账、一致性拒绝：十一族共 36 处冻结期完备性门禁改为叶子的欠项（首版继续，DoD 前结清），同时守一致性的门禁拆开后矛盾仍拒绝 |
 | 2026-10-20 | 内置 web Main 与实跑收口：web PATH 以冻结的确定性步骤和 DOM 谓词/用户截图在真实浏览器里验收，回执绑定每步证据；项目适配器只写断言即可被验收；intake 第三问（目标资源约定）；拒绝提示覆盖 99%；浏览器、模拟器与 web Main 三份实跑冒烟，实跑暴露的装机与前台时序缺口已修；协议压缩至 465,500 |
 | 2026-10-19 | 没有真机时启动模拟器：存量与目标声明可带 avd 或启动命令，设备不应答时 worker 启动 Android Studio 的 SDK 模拟器（或声明的命令）并等开机，启动留证、模拟器留给后续捕获 |
