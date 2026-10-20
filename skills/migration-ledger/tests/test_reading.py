@@ -211,6 +211,16 @@ class ReadingCardTests(unittest.TestCase):
             self.assertEqual(rendered['card_sha256'], reading.digest_card(resident))  # the card's name is its resident text
             self.assertLessEqual(sum(r['bytes'] for r in topics), reading.TOPIC_BUDGET)
 
+    def test_a_dispatched_role_needs_nothing_but_its_card(self):
+        """The card holds what the entry files would have told a worker: the red lines and the shared rules. The entry file is
+        the host's, and it stays small."""
+        agents = (reading.PACKAGE / 'AGENTS.md').read_text()
+        self.assertLessEqual(len(agents.encode()), reading.ENTRY_BUDGET)
+        self.assertNotIn('## 专题索引', agents); self.assertNotIn('## 调用约定', agents)
+        for role in reading.ROLE:
+            keys = {(r['ref'], r['section']) for r in reading.card({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': role})}
+            self.assertLessEqual(set(reading.CORE), keys, role)
+
     def test_a_rendered_card_has_no_link_into_a_whole_protocol_file(self):
         text = reading.unlink('见 [状态机](state-machine.md)、[有限循环](state-machine.md#有限循环)、[模板](../../../template/fix-note.json)、'
                               '[清单](../../../template/checklist.md) 和 [官网](https://example.invalid/x)。', reading.P + 'testing.md')
@@ -298,9 +308,11 @@ class ReadingCardTests(unittest.TestCase):
             reading.section(reading.P + 'local-runtime.md', '没有这一节@x')
 
     def test_every_moved_topic_rule_is_reachable_from_some_card(self):
-        """The topic index in AGENTS.md points at each 总则 section; some card must deliver it when its trigger holds."""
-        index = (reading.PACKAGE / 'AGENTS.md').read_text()
-        wanted = set(re.findall(r'\]\(([^)#]+\.md)#总则\)', index))
+        """The topic index points at each 总则 section; some card must deliver it when its trigger holds."""
+        host = reading.PACKAGE / reading.P / 'host-integration.md'
+        index = reading.section(reading.P + 'host-integration.md', '专题索引')
+        wanted = {str((host.parent / link).resolve().relative_to(reading.PACKAGE)) for link in re.findall(r'\]\(([^)#]+\.md)#总则\)', index)}
+        self.assertGreaterEqual(len(wanted), 15)
         reachable = set()
         for role in reading.ROLE:
             for scope in (list(reading.TEST_SCOPE) if role == 'test-runner' else [None]):

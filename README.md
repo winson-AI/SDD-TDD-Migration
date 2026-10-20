@@ -6,7 +6,7 @@
 
 可选旁路 [Watchdog](skills/migration-protocol/references/watchdog.md) 提供 `check/watch` 状态监听与通知、`ack` 交付确认；未确认通知可重放，Host 按 notice_id 去重展示。支持真实本机进程检查及宿主 API 状态导出；未接入时显示 unknown。不会自动启动、派发 Agent、提交恢复操作或影响迁移门禁。
 
-1. 读取 [AGENTS.md](AGENTS.md)，按角色索引渐进加载。
+1. 宿主读取 [AGENTS.md](AGENTS.md)；被派发的角色只读它的阅读卡，专题小节按需取。
 2. 首次提供项目资料，宿主根据 [project-context.json](template/project-context.json) 保存到固定 `<workspace_root>/.sdd-migration/project-context.json`（首次未指定 workspace_root 时取配置目录父级）；后续按该目录读取，用户明确更新时增量保存。无需每次重填运行输入。
 3. 在支持此包的宿主中执行 `/sdd-init`，先固定项目配置和本次请求快照，再由 Global 生成 [运行输入](template/global-input.json)、宿主业务契约、需求/用例输入、账本和模块规划；`/sdd-plan <run-id> <module-id>` 从 Ledger 写出的六件套与计划集骨架起笔，组织叶子 TASK、四维追溯与上游用例路径，由 MO 审核冻结；真实未决或需求/验收/授权变化才交人工。旧 input.json 也可导入。
 4. `/sdd-run <run-id>` 调度已冻结且依赖就绪的模块，单模块也可用 `/sdd-module <run-id> <module-id>`。模块内自动推进到完成、挂起或预算耗尽。
@@ -89,7 +89,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 ## 专题速览
 
-各专题的权威规则只在对应协议中陈述一次（`AGENTS.md` 的专题索引列出触发条件），这里只给方向：
+各专题的权威规则只在对应协议中陈述一次（[宿主接入](skills/migration-protocol/references/host-integration.md#专题索引)的专题索引列出触发条件），这里只给方向：
 
 | 专题 | 一句话 | 协议 |
 | --- | --- | --- |
@@ -141,6 +141,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-20 | 被派发的角色只读阅读卡：卡已含红线与共享规则，AGENTS.md 只作宿主入口（8.7 KB → 4.0 KB，调用约定与专题索引移入宿主接入，设入口棘轮）；每步计量改为「常驻卡 + 按需小节」（最坏 51.2 KB），模板写到才取、单列计量；协议 457,300 |
 | 2026-10-20 | 专题规则按需读取：阅读卡常驻红线、角色与本步规则，UI / 资源 / 复用 / 埋点 / 平台 Main 等专题小节按触发列为按需清单（名字、用途、大小），写到对应工件时用 reading.py show 读单节，拒绝提示指向同一小节；常驻卡最坏 29.1 KB（此前 51.2 KB），按需小节最坏 25.9 KB，一步全部可取 82.2 KB；步骤视图与卡文件带 read_when_writing 清单 |
 | 2026-10-20 | 按需加载：卡与模板按声明的平台取（web Main / Harmony Main 与各自的 PATH、adapter 模板），整文件入卡改为按节（审计范围、代码审查、视觉执行），模板瘦身（语义模型 17 KB → 6 KB、四维分析 8 KB → 5.6 KB、提交模板 4 KB → 2.3 KB，工具产物与骨架已写的报告不再下发），角色与技能文本去重，Spec-Designer 常驻小节与规划模板再压一遍；每步「卡 + 模板」计量并设棘轮（最坏 82.2 KB，无触发步骤 29.5 KB + 13.5 KB）；目标 app_id / launch 随设备声明，visual PATH 预填完整；协议压缩至 458,800 |
 | 2026-10-20 | web Main 补齐表单动作（select/check/uncheck/hover/scroll_to）与谓词（attribute/checked/enabled、count 的 at_least），重读中变化的观察记 unstable，适配器 attempts>1 时整条路径重跑、同断言混合结果记 flaky Yellow；鸿蒙存量的 UI 树与 web 一样从运行时索引派生；骨架为用户截图的 visual PATH 预填 visual_execution，`test_adapter.harmony_reference` 由 init 备好 Harmony sandbox；图与 README 同步三条声明与两个内置 Main；协议压缩至 462,500 |

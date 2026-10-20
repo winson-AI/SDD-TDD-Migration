@@ -91,8 +91,8 @@ class ProgressiveReadingTests(unittest.TestCase):
             with self.subTest(step=step):
                 self.assertLessEqual(card, reading.READ_BUDGET); self.assertLessEqual(topics, reading.TOPIC_BUDGET)
                 self.assertLessEqual(templates, reading.TRIGGERED_TEMPLATE_BUDGET)
-                self.assertLessEqual(card + topics + templates, reading.STEP_BUDGET)
-            worst = max(worst, card + topics + templates)
+                self.assertLessEqual(card + topics, reading.STEP_BUDGET)  # templates are fetched one by one when written
+            worst = max(worst, card + topics)
         self.assertGreater(worst, reading.TYPICAL_BUDGET)  # the budget measures a loaded step, not an empty one
 
 
