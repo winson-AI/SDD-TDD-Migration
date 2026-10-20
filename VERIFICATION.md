@@ -22,7 +22,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1647 | 全量通过，零失败/错误/跳过；本轮新增专题小节按需清单、常驻卡与按需小节分开计量的测试 |
+| migration-ledger/tests | 1648 | 全量通过，零失败/错误/跳过；本轮新增 worker 只读卡与入口棘轮的测试 |
 | migration-test/tests | 83 | 全量通过；本轮无改动 |
 | runtime/harmony/tests | 128 | 全量通过；本轮无改动 |
 
