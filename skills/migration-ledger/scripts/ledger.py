@@ -889,17 +889,20 @@ def _next_step(s, m):
         step['resubmit'] = {'input_subject_sha256': design_stage.subject(s, m), 'upstream_case_refs': design_stage.upstream_refs(s), 'upstream_case_ids': m['case_ids']}
         if context_readiness.enabled(s):
             step['resubmit']['planning_subject_sha256'] = context_readiness.subject(s, m['module_id'], 'planning')
+        if step['ready']:
+            # The review, decision or impact it applies is already recorded and freeze re-checks every gate: no model turn.
+            step['mechanical'] = True
         if human:
             # Code exists and the plan moved what was approved: the review alone would be refused, so say who decides.
-            step.update(ready=False, reason='human-decision-required', approval_kind='plan', detail=human, payload={})
+            step.update(ready=False, reason='human-decision-required', approval_kind='plan', detail=human, payload={}, mechanical=False)
         elif not decision and not eligible and not m.get('plan_review_ref'):
-            step.update(operation='plan-review', ready=True, reason='MO-technical-review', payload={})
+            step.update(operation='plan-review', ready=True, reason='MO-technical-review', payload={}, mechanical=False)
         elif not decision:
             if api_contract.undecided(s, api_contract.adaptations(m)):
                 # One decision names every adaptation the run still has open, so no other leaf asks again.
                 wanted = api_contract.undecided(s, api_contract.registered(s))
                 step.update(ready=False, reason='human-decision-required', approval_kind='api-adaptation', adaptations=wanted,
-                            approval_subject_sha256=digest(wanted))
+                            approval_subject_sha256=digest(wanted), mechanical=False)
     elif m['phase'] in ('frozen', 'testing', 'diagnosing'):
         bad = unresolved(m)
         if m['phase'] == 'testing' and bad and not m.get('automation_retry_ready'):
@@ -952,11 +955,14 @@ def _next_step(s, m):
         step.update(operation='checkpoint', role='host', ready=True, reason='commit-module-paths-on-run-branch',
                     branch=git_checkpoint.branch(s['run_id']))
     elif m['phase'] == 'dod':
-        step.update(operation='complete', role='module-orchestrator', ready=True)
+        # Every fact a DoD states is checked by the guard; when it admits the module, the Ledger writes the record and
+        # the host submits it without a model turn.
+        step.update(operation='complete', role='module-orchestrator', ready=True, mechanical=True)
         try:
             complete_guard(s, m)
-        except (Rejected, OSError):
-            step.update(ready=False, reason='DoD-or-baseline-incomplete')
+            ui_fidelity.completion_gate(s, m)
+        except (Rejected, OSError) as exc:
+            step.update(ready=False, reason='DoD-or-baseline-incomplete', detail=str(exc), mechanical=False)
     elif m['phase'] == 'completed':
         step.update(reason='module-complete')
         owed = [row['issue_id'] for row in issues.of_module(s, m['module_id'])[0]]
@@ -1013,8 +1019,8 @@ def deliver(m, rows, session_id):
         held[section] = seen if digest in seen else [*seen, digest]
 
 
-READ_BY_ITS_ACTOR = ('plan', 'plan-review', 'freeze', 'change', 'planning-reopen', 'decompose', 'redecompose', 'realloc-request',
-                     'diagnosis-accept', 'complete', 'suspend', 'resume', 'recover', 'invalidate')
+READ_BY_ITS_ACTOR = ('plan', 'plan-review', 'change', 'planning-reopen', 'decompose', 'redecompose', 'realloc-request',
+                     'diagnosis-accept', 'suspend', 'resume', 'recover', 'invalidate')
 
 
 def record_actor(s, m, principal, op):
@@ -2564,10 +2570,34 @@ def _status(root, view='full', module_id=None, since=None):
         return status_view.select(full, view, module_id, since)
 
 
+def closure_record(root, s, module_id, kind, sequence):
+    """What a mechanical completion or parent summary binds: the facts its guard checked, written by the Ledger under
+    reports/<kind>/ so the event references a file with a hash like any other."""
+    import run_storage
+    root = Path(root).resolve()
+    if kind == 'dod':
+        m = s['modules'][module_id]
+        body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
+                'paths': {pid: {k: r.get(k) for k in ('quality', 'test_run_id')} for pid, r in sorted(m['results'].items())},
+                'tasks': sorted(m.get('accepted_task_ids', [])), 'issues': 'settled', 'checks': ['all paths Green', 'every TASK accepted',
+                'owed issues settled', 'dependencies complete', 'UI fidelity completion gate']}
+    else:
+        group = s['module_groups'][module_id]
+        body = {'subject_sha256': decomposition.summary_subject(s, group),
+                'leaves': {mid: {k: s['modules'][mid].get(k) for k in ('phase', 'quality', 'effective_quality', 'code_baseline')}
+                           for mid in decomposition.leaves(s, module_id)}}
+    path = run_storage.checked_path(Path(root) / 'reports' / kind / f'{module_id}-{sequence}.json', root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({'schema_version': 1, 'kind': kind, 'module_id': module_id, 'written_by': 'ledger', **body},
+                               ensure_ascii=False, indent=2, sort_keys=True) + '\n')
+    return file_ref(path)
+
+
 def advance(root, principal, module_id, workers=None):
-    """Submit, as the module orchestrator, every step of one module the cursor marks mechanical: accepting a Green
-    test result and dispatching a worker. Each goes through apply with all of its guards. It stops at the first step
-    that needs a model or a person and renders that step's card for the dispatch."""
+    """Submit, as the module orchestrator, every step of one module (or parent) the cursor marks mechanical: accepting a
+    Green test result, dispatching a worker, freezing on a recorded review or decision, completing a module the DoD guard
+    admits and summarizing a parent whose children settled. Each goes through apply with all of its guards. It stops at
+    the first step that needs a model or a person and renders that step's card for the dispatch."""
     applied = []
     while True:
         st = status(root)
@@ -2578,6 +2608,13 @@ def advance(root, principal, module_id, workers=None):
         sequence = st['last_sequence'] + 1
         if step['operation'] == 'accept':
             payload = {'assignment_id': step['assignment_id']}
+        elif step['operation'] == 'freeze':
+            payload = dict(step['payload'])
+        elif step['operation'] in ('complete', 'module-summary'):
+            s = read_events(root)[0]
+            kind = 'dod' if step['operation'] == 'complete' else 'parent-summary'
+            ref = closure_record(root, s, module_id, kind, sequence)
+            payload = {'dod_ref': ref} if kind == 'dod' else {**step['payload'], 'summary_ref': ref}
         else:
             role = step['worker_role']
             payload = {**step['payload'], 'assignment_id': f'{role}-{module_id}-{sequence}'}

@@ -31,14 +31,13 @@ class AdvanceTests(unittest.TestCase):
         out = ledger.advance(self.f.root, self.MO, 'M001', {'implementer': 'coder-7'})
         self.assertEqual(out['applied'][0]['instance_id'], 'coder-7')
 
-    def test_accepts_a_green_result_and_stops_where_judgement_is_needed(self):
+    def test_accepts_a_green_result_and_completes_what_the_dod_guard_admits(self):
         f = self.f; f.implementation()
         a, result = f.make_test_result()
         f.submit(result, a)
         out = ledger.advance(f.root, self.MO, 'M001')
-        self.assertEqual([x['operation'] for x in out['applied']], ['accept'])
-        self.assertEqual(out['next_step']['operation'], 'complete')  # the DoD is still the orchestrator's decision
-        self.assertEqual(f.state()['modules']['M001']['phase'], 'dod')
+        self.assertEqual([x['operation'] for x in out['applied']], ['accept', 'complete'])  # the guard checks every fact a DoD states
+        self.assertEqual(f.state()['modules']['M001']['phase'], 'completed')
 
     def test_only_the_module_orchestrator_may_advance(self):
         with self.assertRaisesRegex(Rejected, 'role denied'):

@@ -77,10 +77,10 @@ class CardTests(unittest.TestCase):
         m = f.state()['modules']['M001']
         self.assertIn('implementer', m['delivered_cards'])
         self.assertEqual(m['actors']['implementer'], 'implementer')
-        # The plan and the freeze were read by the instances that submitted them. The dispatch itself may be submitted by
-        # the host as the module orchestrator without a model turn, so it records a card for the worker only.
-        self.assertEqual(set(m['delivered_cards']), {'spec-designer', 'module-orchestrator', 'implementer'})
-        self.assertEqual(m['card_load']['dispatches'], 3)
+        # The plan was read by the instance that submitted it. A freeze on a recorded decision and the dispatch may be
+        # submitted by the host as the module orchestrator without a model turn, so they record a card for the worker only.
+        self.assertEqual(set(m['delivered_cards']), {'spec-designer', 'implementer'})
+        self.assertEqual(m['card_load']['dispatches'], 2)
 
 
 class WorkerInputTests(unittest.TestCase):

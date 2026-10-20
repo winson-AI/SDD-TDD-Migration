@@ -333,7 +333,8 @@ def group_step(s, group, ref_check=check_ref):
     if summary_current(s, group, ref_check):
         step['reason'] = 'parent-summary-current'
     else:
-        step.update(operation='module-summary', ready=True, reason='all-children-settled',
+        # The summary binds the children's recorded facts: the Ledger writes it and the host submits it without a model turn.
+        step.update(operation='module-summary', ready=True, reason='all-children-settled', mechanical=True,
                     payload={'subject_sha256': summary_subject(s, group)})
     return step
 
