@@ -42,7 +42,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | realloc-request | MO / 子或根 module_id | reason、evidence_refs；切片/边界冲突向上提单，保存恢复阶段后进入 waiting-upstream；无父或父级上溯交 GO run-review |
 | redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；children 覆盖父 scope。根修订后游标 affected_children 列出须重写的孩子，其余原样复述即沿用 |
 | redecompose-accept | Global / 父 module_id | review_ref；未变孩子保留进度并恢复原阶段，边界保持的冻结孩子转 CR，被改的孩子重新规划（保留 blocker/失败/预算）；只依赖它们的叶子不重规划，已有代码的等 provider 后复验；下线模块入 superseded_modules |
-| module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
+| module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后由 advance 机械提交 Ledger 写的汇总 |
 | decision | host | decision_id、decision=approved、module_id、subject_sha256（游标的 approval_subject_sha256）、human_source_ref；决定与常设裁定另以 issue（kind=decision/standing）寄给适用模块。`kind=knowledge`：question_id 为 knowledge-need 的 issue_id，answers[]、sources[] 必填，Ledger 写 artifacts/knowledge/<decision_id>.md 并消去该问题；`kind=batch-envelope`：module_id 为父，envelope_ref 指向[批量信封](../../../template/batch-envelope.json)，children 只能是该父的孩子；`kind=api-adaptation`：module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
 | global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；可带 target_profile_ref（目标画像）；无关根可待拆，registry 变化后重审 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
@@ -73,7 +73,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | revoke | host | assignment_id、stopped_worker_ref；实际停止/隔离后才释放活动占用；旧 token 不再被接受 |
 | invalidate | MO/host | reason；旧 worker 必须先 revoke；重新进入 specifying，并使消费者及全局审计失效 |
 | checkpoint | host | receipt_ref（git_checkpoint.py 回执）；仅 git_checkpoint 开启且模块在 DoD 时，逐文件 blob 必须等于当前已接受代码，见 [模块 Git 检查点](engineering-disciplines.md#模块-git-检查点可选默认关闭) |
-| complete | MO | dod_ref；开启 git_checkpoint 时须已有当前 code_baseline 的检查点；当前模块全路径 Green、版本有效、依赖完成才可接受 |
+| complete | MO | dod_ref；开启 git_checkpoint 时须已有当前 code_baseline 的检查点；全路径 Green、任务全接受、欠项结清、依赖完成即由 advance 机械提交 Ledger 写的 DoD 记录 |
 | audit-assign | Global | assignment_id、instance_id；全部模块完成后固定快照；无待复测路径时 Ledger 代写 audit-verdict 预检；审计实例不能是任意实现/修复/测试作者实例 |
 | audit-route | Global | path_id、非空唯一 module_ids、reason_ref；给尚无负责模块的全局审计问题分配责任，不修改模块阶段 |
 | repair-accept | MO | 非空唯一 path_ids；接受分配给本模块的审计问题，在依赖就绪且无 worker/blocker 时从 completed/testing 重开 testing；保留原失败供诊断分流 |

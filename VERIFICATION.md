@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1648 | 全量通过，零失败/错误/跳过；本轮新增 worker 只读卡与入口棘轮的测试 |
+| migration-ledger/tests | 1651 | 全量通过，零失败/错误/跳过；本轮新增机械冻结、机械 DoD 与机械父汇总的测试 |
 | migration-test/tests | 83 | 全量通过；本轮无改动 |
 | runtime/harmony/tests | 128 | 全量通过；本轮无改动 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮：被派发的角色只读阅读卡（读取顺序分为 worker 与宿主两条入口；卡含红线与共享规则，每个角色的派发卡都含 CORE），AGENTS.md 只留读取顺序、角色索引与红线，调用约定与专题索引移入 host-integration.md，模块隔离段指向 state-machine 原节，AGENTS.md 8723 → 3991 字节并设 ENTRY_BUDGET 4,000；STEP_BUDGET 改为一步可让角色读到的文本（常驻卡 + 按需小节），模板写到才取，由 TEMPLATE / TRIGGERED_TEMPLATE 棘轮单列。上一轮：专题规则按需读取（常驻卡与按需小节分开，READ / TOPIC / STEP 三个棘轮）。
+本轮：无需判断的步骤不占模型轮次。游标把评审或决定已记录后的 freeze、complete 守卫（全路径 Green、任务全接受、欠项结清、依赖完成、UI 保真完成门禁）通过的 complete、全部后代收尾后的父 module-summary 标为 mechanical；`ledger.py advance` 以 MO 身份提交，complete 与 module-summary 绑定 Ledger 写在 reports/dod、reports/parent-summary 的记录（核对过的事实与哈希）；守卫不过、需人工决定或 API 适配决定时仍停下并写明原因；机械步骤不带卡，也不再记作读卡。全绿叶子每次实现-测试中 MO 的模型调用由 4 次降到 2 次（只剩 plan-review 与实现验收）。上一轮：被派发的角色只读阅读卡、AGENTS.md 只作宿主入口，每步计量为常驻卡 + 按需小节。
 
-协议体积为 457259 / 457300 字节，最大单文件 24613 / 32000 字节，入口 AGENTS.md 3991 / 4000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中常驻卡最大 25942 / 29100 字节、按需小节最大 20356 / 25900 字节；全触发且双平台声明时常驻卡最大 29027、按需小节最大 25849，一步可读（常驻 + 按需）最坏 51175 / 51200 字节，模板组合最大 34697 / 34700 字节（写到才逐份取）；无触发步骤卡 ≤ 29100、模板 ≤ 13500；拒绝消息带小节指引的比例 99.1%（棘轮 90%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 457282 / 457300 字节，最大单文件 24613 / 32000 字节，入口 AGENTS.md 3991 / 4000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中常驻卡最大 25942 / 29100 字节、按需小节最大 20356 / 25900 字节；全触发且双平台声明时常驻卡最大 29027、按需小节最大 25849，一步可读（常驻 + 按需）最坏 51175 / 51200 字节，模板组合最大 34697 / 34700 字节（写到才逐份取）；无触发步骤卡 ≤ 29100、模板 ≤ 13500；拒绝消息带小节指引的比例 99.1%（棘轮 90%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 
@@ -190,6 +190,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | 规划常驻文本再压 | Spec-Designer 每卡必带的 openspec（六件套映射、基线与 Delta、变更控制、决策边界、冻结算法）、编码前设计交接、UI 证据绑定、精确性纪律、图片与图标对齐、使用点与闭包、API 契约、复用总则与需求映射、任务级四维契约各去掉重复从句；规划模板只留字段（reuse-fidelity、telemetry-analysis、stage-plan、reuse-plan、api-inventory、knowledge-request、telemetry-contract、domain-worker-request），web PATH 模板注明表单动作与谓词 | test_reading, test_progressive_fidelity |
 | 专题小节按需 | `reading.card` 只返回常驻行，`reading.on_demand` 返回同一步骤事实触发的专题行（含 purpose），两者无交集；with_card 把后者写进步骤的 read_when_writing，status step 视图保留 ref/小节/大小/用途，render 把它们列为「按需小节」而不复制正文，卡名仍是常驻正文的摘要；UI 门禁的拒绝提示指向的小节在该步的按需清单内；无专题事实的步骤清单为空 | test_reading, test_progressive_fidelity, test_loading_round, test_legacy_preview, test_reference_media |
 | worker 只读卡 | 每个角色的派发卡都含 CORE（四条红线与共享规则），AGENTS.md 不含专题索引与调用约定且 ≤ ENTRY_BUDGET；专题索引在 host-integration.md，其中每个「总则」小节都能被某张卡在触发成立时给出 | test_reading |
+| 机械收尾 | 记录了决定（或评审）的 freeze 被标为 mechanical 且不带卡，advance 依次提交 freeze 与实现派发；实现验收仍需 MO；Green 结果被接受后 advance 接着提交 complete，绑定 Ledger 写的 DoD 记录（PATH 三态、已接受任务）；尚无评审或决定时 advance 什么也不提交；子模块全部完成后父 module-summary 被标为 mechanical，advance 提交 Ledger 写的汇总记录（各叶子阶段与质量） | test_mechanical_closure, test_advance |
 | 实跑冒烟 | 浏览器冒烟加 web-target：存量页捕获为参考，目标页声明构建哈希，visual-install 读 `<meta name=sdd-build>`，候选记录为 web-candidate；`smoke_device_capture.py` 在主机 AVD 上实跑两条通道（serial 不应答即启动模拟器、装机、存量捕获、运行时索引、候选装机的设备哈希核对与候选捕获），所有项目值走参数；`smoke_web_main.py` 以真实 Chromium 跑 web Main：六步（含 select/check/hover）、七条 DOM 谓词（text/url/value/checked/attribute/count≥）、录像、attempts=2 重跑无 flaky，第二轮以首轮末屏作用户截图参考，两轮均被 Ledger 验收为 Green |
 | 用户参考媒体 | project context 的 reference_media（media_id/kind/path/role/screen/case_ids/note）经校验后由 prepare 复制并绑定 hash；持有其 CASE 的叶子在分配包读到并以之为就绪证据；visual_mode=user-reference 以用户截图为基线，用户展示过的界面不得 source-only，错引非该 CASE 截图被拒；visual PATH 的 baseline_ref 可为用户截图，冻结证据与 reference manifest 按其截图集合核对；reference_media_ids 只能引用本 CASE 的媒体；冻结时用户展示过的用户可见 CASE 无 PATH 引用即欠项（已声明设备缺口除外）；骨架为每张截图起稿 visual PATH、把录屏挂到功能 PATH；报告列媒体覆盖 |
 | 目标预期 | role=target-expectation 覆盖的界面以其为基线（存量可预览时亦然；runtime 或存量截图作基线被拒），其 CASE 的存量截图不再欠引用；design 定义须引用其 media_id；报告媒体表列出被取代的存量截图，保真限制披露该界面按目标预期对齐 |
