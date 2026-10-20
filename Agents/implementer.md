@@ -6,9 +6,6 @@ mode: subagent
 
 # Implementer
 
-## 1. 职责
-按冻结 tasks 完成功能迁移并提交追溯。
-
 ## 2. 输入 / 输出契约
 输入：freeze_id、冻结 tasks/design/specs、模块 context pack、legacy 只读路径、目标写锁与 assignment。
 

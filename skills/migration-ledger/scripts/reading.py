@@ -16,16 +16,19 @@ import sys
 sys.dont_write_bytecode = True
 
 PACKAGE = Path(__file__).resolve().parents[3]
-READ_BUDGET = 60_000  # UTF-8 bytes per dispatch card
+READ_BUDGET = 51_200  # UTF-8 bytes per dispatch card
+# One dispatch, card and templates together, for a registered leaf with a plan, every fact trigger on and both platform
+# families declared (test_progressive_fidelity enumerates it); lower it when a step hands less, never raise it.
+STEP_BUDGET = 82_200
 # A step with no UI, reuse, telemetry or lean-leaf scope stays under this; lower it when cards shrink, never raise it.
-TYPICAL_BUDGET = 34_000
+TYPICAL_BUDGET = 29_500
 # A session holding this much protocol text is better restarted from its checkpoint than fed more; advisory.
 ROTATE_BUDGET = 100_000
 # Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
-TEMPLATE_BUDGET = 20_000
-TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
+TEMPLATE_BUDGET = 13_500
+TRIGGERED_TEMPLATE_BUDGET = 34_700  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 462500  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
+PROTOCOL_BUDGET = 458800  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -34,6 +37,17 @@ P = 'skills/migration-protocol/references/'
 
 def sections(name, *headings):
     return [(P + name, heading) for heading in headings]
+
+
+def platform_keys(s):
+    """The declared target platforms as the two families their rules and templates come in: web, and device (android, harmony)."""
+    platforms = set((((s or {}).get('test_adapter') or {}).get('device') or {}).get('platforms') or [])
+    return [key for key, members in (('web', {'web'}), ('device', {'android', 'harmony'})) if platforms & members]
+
+
+def platform_sections(s):
+    """The Main of each declared platform: the shape of its PATHs for the planner, how it runs them for the executor."""
+    return [row for key in platform_keys(s) for row in sections('testing.md', {'web': 'web Main', 'device': 'Harmony Main'}[key])]
 
 
 # Every card carries the red lines and the rules of the shared protocol (not its notes on where it sits, assets
@@ -80,13 +94,12 @@ MO_OPS = {
 STEP = {
     'spec-designer': sections('openspec.md', '六件套映射', '基线与 Delta', '冻结算法', '变更控制', '决策边界与执行基线', '四维完整性索引')
     + sections('dimension-slicing.md', '总则', '7. 任务级四维分析契约') + sections('semantic-extraction.md', '总则')
-    + sections('testing.md', '编码前设计交接', '逻辑单测', '静态规格闭合'),
+    + sections('testing.md', '编码前设计交接', '逻辑单测'),
     'implementer': sections('local-runtime.md', '阶段结果') + sections('context-readiness.md', '2. 精确插入节点')
     + sections('dimension-slicing.md', '7. 任务级四维分析契约'),
     'fixer': sections('local-runtime.md', '阶段结果') + sections('state-machine.md', '有限循环')
     + sections('build-automation.md', '本地一轮的预算单位') + sections('context-readiness.md', '2. 精确插入节点'),
-    'diagnostician': sections('state-machine.md', '有限循环') + sections('testing.md', '断言与结果')
-    + sections('engineering-disciplines.md', '1. Foundation / 迁移知识执行与冻结'),
+    'diagnostician': sections('state-machine.md', '有限循环') + sections('testing.md', '断言与结果'),
     'module-orchestrator': sections('state-machine.md', 'Module-Orchestrator 唯一模块守卫', '有限循环'),
     'global-orchestrator': sections('state-machine.md', '模块隔离与全量收尾'),
     'auditor': [],
@@ -99,7 +112,7 @@ OPS = {
     + sections('project-context.md', '总则')
     + sections('dimension-slicing.md', '总则') + [('skills/migration-global/references/slicing.md', '总则')],
     ('global-orchestrator', 'source'): sections('source-changes.md', '总则', '1. GO：评估来源、归属与影响范围', '5. 信号与 Auditor'),
-    ('auditor', 'code-review'): [(P + 'audit-code-review.md', None)] + sections('audit-scope.md', '总则', '入口与范围', '代码治理前置'),
+    ('auditor', 'code-review'): sections('audit-code-review.md', '顺序与职责', '审查内容', 'Ledger 接口') + sections('audit-scope.md', '总则', '入口与范围', '代码治理前置'),
 }
 TEST_SCOPE = {
     'build': sections('build-automation.md', '总则', '3. 冻结路径与分阶段证据')
@@ -107,7 +120,7 @@ TEST_SCOPE = {
     'automation': sections('build-automation.md', '总则') + sections('testing.md', '断言与结果', '本地执行与严格结果验收')
     + sections('build-automation.md', '4. 自动化环境缺失：直接记 Yellow 并继续'),
     'visual': sections('build-automation.md', '总则') + sections('ui-fidelity.md', '视觉对齐 = automation 第二层（不是独立阶段）')
-    + [(P + 'visual-execution.md', None)],
+    + sections('visual-execution.md', '2. 执行节点', '3. 失败、留存与恢复'),
 }
 # Triggered by facts the Ledger already holds: UI applicability, a reuse plan, telemetry, the lean local-repair path.
 PICTURES = '图片与图标对齐'
@@ -147,8 +160,8 @@ def family(role, operation):
 
 
 def audit_sections(operation):
-    if operation not in AUDIT_OPS:
-        return [(P + 'audit-scope.md', None)]
+    if operation not in AUDIT_OPS:  # a generic audit dispatch: the entry, the closure contract and problem handling
+        return sections('audit-scope.md', '总则', *FINAL)
     return sections('audit-scope.md', '总则', *AUDIT_OPS[operation])
 
 
@@ -192,9 +205,10 @@ def op_sections(role, operation):
 
 
 def skill_sections(path, test_scope=None):
-    """The execution rules of a role skill; the pointer and interface boilerplate every skill repeats is not part of a card."""
+    """The execution rules of a role skill; the pointer, interface and asset boilerplate every skill repeats is not part of a
+    card: a step names the templates it instantiates itself."""
     names = re.findall(r'(?m)^## (.*)$', (PACKAGE / path).read_text())
-    keep = [n for n in names if n not in ('1. 定位', '4. 接口契约')
+    keep = [n for n in names if n not in ('1. 定位', '4. 接口契约', '6. 配套资产')
             and (not n.startswith('7. Android/Harmony') or test_scope in ('automation', 'visual'))]
     return [(path, n) for n in keep]
 
@@ -367,7 +381,7 @@ def entries(role, test_scope=None, ui=False, reuse=False, operation=None, teleme
         items += sections('runtime.md', '显式执行任务')
     if operation == 'session':
         items += sections('host-integration.md', '会话交接')
-    if operation in ('freeze', 'plan'):
+    if operation in ('freeze', 'plan') and role in CONTROLLER_ROLES:
         items += sections('state-machine.md', '控制主线')
     if operation in ('decompose', 'decompose-accept', 'global-plan'):
         items += sections('module-decomposition.md', '验证边界')
@@ -388,6 +402,8 @@ def entries(role, test_scope=None, ui=False, reuse=False, operation=None, teleme
         items += chosen
         if facts and facts.get('legacy') and role in ('spec-designer', 'module-orchestrator'):
             items += sections('project-context.md', '存量预览') + sections('visual-execution.md', '4. 存量捕获')
+        if facts and facts.get('visual') and role == 'spec-designer':
+            items += sections('visual-execution.md', '1. 准备与冻结')  # the target is previewed: visual PATHs start from the written environment
     if facts and facts.get('media') and role in ('spec-designer', 'module-orchestrator'):
         items += sections('project-context.md', '用户参考媒体')
     if facts and facts.get('api'):
@@ -464,6 +480,8 @@ def card(s, m, step):
     if (role == 'module-orchestrator' and (m or {}).get('change_request') and operation in ('plan-review', 'freeze')
             or role == 'auditor' and any(x.get('task_revalidation', {}).get('mode') == 'partial' for x in s.get('modules', {}).values())):
         chosen += sections('openspec.md', 'TASK 局部重验')
+    if role == 'spec-designer' or role == 'test-runner' and step.get('test_scope') == 'automation':
+        chosen += platform_sections(s)
     if self_checked:
         chosen = [item for item in chosen if item != (P + 'context-readiness.md', '2. 精确插入节点')]
     chosen = list(dict.fromkeys(chosen))  # a section reaches a card once, whichever rule asked for it
@@ -499,12 +517,12 @@ TEMPLATES = {
                             'audit': ['migration-report.md'], 'source': ['source-impact.json']},
     'module-orchestrator': {'base': ['status.md'], 'audit': ['status.md']},
     'spec-designer': {'base': ['stage-plan.json', 'proposal.md', 'spec.md', 'design.md', 'tasks.md',
-                               'upstream-test-plan.json', 'change-impact.json', 'context-readiness.json']},
+                               'upstream-test-plan.json', 'change-impact.json']},
     'implementer': {'base': ['implementation.md', 'context-readiness.json']},
     'fixer': {'base': ['implementation.md', 'fix-note.json', 'change-request.md', 'context-readiness.json']},
     'diagnostician': {'base': ['diagnosis.md']},
     'escalation': {'base': ['escalation.md', 'human-decision.json']},
-    'auditor': {'code-review': ['audit-code-review.json', 'audit-change-inventory.md'],
+    'auditor': {'code-review': [],  # the Ledger writes both report skeletons at the step
                 'audit': ['audit-closure-plan.json', 'audit-report.md', 'audit-review.json', 'test-result.json']},
     'test-runner': {'base': ['stage-result.json', 'test-result.json', 'context-readiness.json']},
 }
@@ -514,9 +532,11 @@ MO_TEMPLATES = {'freeze': ['checklist.md', 'plan-review.json', 'change-impact.js
                 'decompose': ['module-decomposition.json', 'dimension-analysis.json', 'batch-envelope.json'],
                 'module-summary': ['status.md'], 'suspend': ['implementation-gap.json', 'status.md'],
                 'assign': ['execution-assignment.json'], 'accept': ['status.md'], 'diagnosis-accept': ['status.md']}
-SCOPE_TEMPLATES = {'build': ['test-adapter.json'], 'automation': ['test-adapter.json', 'harmony-test-adapter.json', 'harmony-config.json', 'interaction-evidence.json'],
-                   'visual': ['visual-test-path.json', 'visual-alignment.json', 'visual-capture-execution.json', 'visual-test-adapter.json',
-                              'visual-execution.json', 'visual-request.json']}
+SCOPE_TEMPLATES = {'build': ['test-adapter.json'], 'automation': ['test-adapter.json', 'interaction-evidence.json'],
+                   'visual': ['visual-test-path.json', 'visual-capture-execution.json', 'visual-test-adapter.json', 'visual-execution.json', 'visual-request.json']}
+# What a declared platform adds: the shape of its PATHs for the planner, its adapter and environment for the executor.
+PLATFORM_TEMPLATES = {'web': {'spec-designer': ['web-test-path.json'], 'test-runner': ['web-test-adapter.json']},
+                      'device': {'spec-designer': ['harmony-test-path.json'], 'test-runner': ['harmony-test-adapter.json', 'harmony-config.json']}}
 TRIGGER_TEMPLATES = {
     'reuse': {'global-orchestrator': ['reuse-catalog.json', 'reuse-source.json'], 'spec-designer': ['reuse-plan.json', 'reuse-fidelity.md']},
     'telemetry': {'global-orchestrator': ['telemetry-analysis.md'], 'module-orchestrator': ['telemetry-analysis.md'],
@@ -545,6 +565,9 @@ def templates(s, m, step):
             names.append('task-independence.json')
     if role == 'test-runner':
         names += SCOPE_TEMPLATES.get(step.get('test_scope'), [])
+    if role == 'spec-designer' or role == 'test-runner' and step.get('test_scope') == 'automation':
+        for key in platform_keys(s):
+            names += PLATFORM_TEMPLATES[key].get(role, [])
     reuse = reuse_applies(s, m, role)
     facts = topic_facts(s, m, step)
     active = {'reuse': reuse, 'telemetry': telemetry_scope(role, m), 'ui': facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'),

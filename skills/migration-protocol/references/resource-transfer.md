@@ -6,7 +6,7 @@
 
 ## 使用点与闭包
 
-collector 记录范围内代码每处资源引用的使用点（行号、所在类/方法、接收它的调用）、资源文件头事实 `facts`（格式、像素或 viewport、alpha、是否动画）、嵌套 drawable、menu/navigation/xml/manifest 图标、主题属性取值、assets，以及没有资源文件的图片来源 `imageSources`（id `src:<kind>:<hash>`：`remote-image` 含 URL 或 API 字段与加载器占位/变换、`dynamic-resource`、`data-binding`、`code-drawn`）。`analyze-ui` 可带 `manifests`、`image_sinks`（项目自有加载入口）与 `layout_helpers`（项目自有布局参数构造方法，逐元数声明各实参含义；同元数重载按字面量分辨权重与 gravity，未声明的元数整条记 `layout_params` 表达式）；像图片加载却未被解释的调用列在 `imageSinkCandidates`。
+collector 记录范围内每处资源引用的使用点（行号、类/方法、接收它的调用）、文件头事实 `facts`（格式、像素或 viewport、alpha、是否动画）、嵌套 drawable、menu/navigation/xml/manifest 图标、主题属性取值、assets，以及无资源文件的图片来源 `imageSources`（`src:<kind>:<hash>`：`remote-image` 含 URL 或 API 字段与加载器占位/变换、`dynamic-resource`、`data-binding`、`code-drawn`）；`analyze-ui` 可带 `manifests`、`image_sinks`（项目自有加载入口）与 `layout_helpers`（项目自有布局参数构造方法，逐元数声明实参含义，未声明的元数整条记 `layout_params` 表达式），像图片加载却未被解释的调用列在 `imageSinkCandidates`。
 
 - **用到即入账**：代码用到的文件资源（drawable/mipmap/raw/font），不论传给哪个方法，都要由 UI 树某节点声明，或在 `resource_scope.usage_exclusions` 以 `symbol`（类或方法）和/或 `ref` 加 reason、evidence_refs 排除；加载器的占位图随其图片来源入账。
 - **闭包**：树触达的每个资源（含嵌套与主题取值）有一个 Resource item 或复制清单的一行；每条 `imageSources` 有一个 `source_signal` item 或 `signal_exclusions`。`remote-image` 可用 `source_equivalent`（`target_source` 取同一来源，`loader_mapping` 把占位图指到 item id 或 `{absent: 原因}`，变换逐条 `{legacy, target}`），其余信号用 `manual_exact`/`blocked`。
@@ -56,7 +56,7 @@ planning_coverage_required 下，仅 applicable UI/Resource 维度需 condition_
 
 ## API 与 URL 契约
 
-业务 API 属 Logic/Adhesive。四维 api_review 记录适用性与 reason/evidence_refs，适用须 api_inventory_ref 绑定[清单](../../../template/api-inventory.json)：calls 记源符号/hash、路由（`transport`：http 记 method/URL，rpc/sdk 记 `operation`）、请求/响应、错误及副作用；contracts 记消费者（冻结前须是本模块写或目标已有的文件）、fixture 与映射，item 用 api_ids 唯一认领；范围外调用须 exclusions 证据。planning_coverage_required 下 api_review.discovery_refs 必填（含不适用判定），绑定检索范围并含已登记调用的 source_ref。GO/父 MO/Auditor 核对调用入口及排除依据，门禁不自动发现全部 API。分配后在本叶范围内发现的调用以 `api-register` 登记到本叶及其 owner item，下次 plan 的清单带上即可，不回根修订。
+业务 API 属 Logic/Adhesive：api_review 记适用性与 reason/evidence_refs（planning_coverage_required 下 discovery_refs 必填，含不适用判定与已登记调用的 source_ref），适用须 api_inventory_ref 绑定[清单](../../../template/api-inventory.json)：calls 记源符号/hash、路由（`transport`：http 记 method/URL，rpc/sdk 记 `operation`）、请求/响应、错误及副作用，contracts 记消费者（冻结前须是本模块写或目标已有的文件）、fixture 与映射，item 用 api_ids 唯一认领，范围外调用须 exclusions 证据；门禁不自动发现全部 API，GO/父 MO/Auditor 核对入口与排除依据；分配后在本叶发现的调用以 `api-register` 登记到本叶及其 owner item，下次 plan 带上即可。
 
 imageSources/Resource 的 API 图片 item 写 api_binding（api_id/response_field）；字段匹配 model field/JSON key，target_source 等于 API response_mapping。非 API 模型来源须 image_source_review(kind=non-api)、reason/evidence_refs。URL 字面值不变，加载器占位/变换另映射；仍须接线与正式图片断言。
 

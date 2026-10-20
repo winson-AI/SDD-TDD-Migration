@@ -34,12 +34,27 @@ class ReadingCardTests(unittest.TestCase):
             return reading.entries(*args, **kwargs)
         audit, review, decomposition = (reading.P + n for n in ('audit-scope.md', 'audit-code-review.md', 'module-decomposition.md'))
         code_review = refs('auditor', operation='audit-code-review')
-        self.assertIn((review, None), code_review)
+        self.assertIn((review, '审查内容'), code_review); self.assertNotIn((review, '复测与报告'), code_review)
         self.assertFalse(has(code_review, audit, reading.D2))
         plan = refs('auditor', operation='audit-plan')
         self.assertTrue(has(plan, audit, reading.D2))
         self.assertFalse(has(plan, audit, reading.D5))
-        self.assertNotIn((review, None), plan)
+        self.assertNotIn((review, '审查内容'), plan)
+        generic = refs('auditor')  # a card carries sections, never a whole file
+        self.assertIn((audit, '收尾的实际执行契约'), generic); self.assertNotIn((audit, None), generic)
+        self.assertNotIn((audit, '默认收尾：修复后验证，失败待人工'), generic)
+        visual = refs('test-runner', 'visual')
+        self.assertIn((reading.P + 'visual-execution.md', '2. 执行节点'), visual); self.assertNotIn((reading.P + 'visual-execution.md', None), visual)
+        self.assertNotIn((reading.P + 'visual-execution.md', '1. 准备与冻结'), visual)
+        previewed = {'test_adapter': {'device': {'platforms': ['android'], 'android': {'serial': 's'}}}}
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:  # a leaf with UI items and a previewed target plans visual PATHs from the written environment
+            analysis = Path(tmp) / 'dimensions.json'; analysis.write_text(json.dumps({'dimensions': [{'dimension': 'UI', 'status': 'applicable'}]}))
+            m = {'plan': {'dimension_analysis_ref': file_ref(analysis)}}
+            prep = lambda s: {r['section'] for r in reading.card(s, m, {'role': 'spec-designer', 'operation': 'plan'}) if r['ref'].endswith('visual-execution.md')}
+            self.assertEqual((prep(previewed), prep({})), ({'1. 准备与冻结'}, set()))
+        self.assertFalse([r for row in (reading.card(previewed, None, s) for s in ({'role': 'auditor', 'operation': 'audit'}, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'visual'}))
+                          for r in row if r['section'] is None and not r['ref'].startswith('Agents/')])
         go_plan, go_collect = refs('global-orchestrator', operation='register'), refs('global-orchestrator', operation='audit-collect')
         self.assertTrue(has(go_plan, decomposition, '3. 分配与登记门禁'))
         self.assertFalse(has(go_plan, decomposition, '父 MO 统一命名'))
@@ -134,17 +149,41 @@ class ReadingCardTests(unittest.TestCase):
         for table in reading.TEMPLATES.values():
             for group in table.values(): names |= set(group)
         for group in reading.SCOPE_TEMPLATES.values(): names |= set(group)
-        for by_role in reading.TRIGGER_TEMPLATES.values():
-            for group in by_role.values(): names |= set(group)
+        for table in (reading.TRIGGER_TEMPLATES, reading.PLATFORM_TEMPLATES):
+            for by_role in table.values():
+                for group in by_role.values(): names |= set(group)
         self.assertEqual([n for n in sorted(names) if not (reading.PACKAGE / 'template' / n).is_file()], [])
         visual = reading.templates({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'visual'})
-        self.assertIn('template/visual-alignment.json', visual)
-        self.assertNotIn('template/visual-alignment.json',
+        self.assertIn('template/visual-test-path.json', visual)
+        self.assertNotIn('template/visual-alignment.json', visual)  # a tool writes the alignment record; nobody authors it
+        self.assertNotIn('template/visual-test-path.json',
                          reading.templates({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'build'}))
+        self.assertEqual(reading.templates({}, None, {'role': 'auditor', 'operation': 'audit-code-review'}), [])  # both reports start from the Ledger's skeleton
         self.assertIn('template/reuse-plan.json', reading.templates({'reuse_required': True}, None, {'role': 'spec-designer', 'operation': 'plan'}))
         f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
         f.prepare()
         self.assertIn('template/implementation.md', f.state()['next_steps'][0]['templates'])
+
+    def test_platform_rules_and_templates_follow_the_declared_platforms(self):
+        web = {'test_adapter': {'device': {'platforms': ['web'], 'web': {'url': 'http://127.0.0.1:1/'}}}}
+        android = {'test_adapter': {'device': {'platforms': ['android'], 'android': {'serial': 'emulator-5554'}}}}
+        automation = {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'automation'}
+        plan = {'role': 'spec-designer', 'operation': 'plan'}
+        main = lambda s, step: {r['section'] for r in reading.card(s, None, step) if r['ref'].endswith('testing.md') and r['section'] in ('web Main', 'Harmony Main')}
+        self.assertEqual((main(web, automation), main(android, automation), main({}, automation)), ({'web Main'}, {'Harmony Main'}, set()))
+        self.assertEqual((main(web, plan), main(android, plan), main(web, {**automation, 'test_scope': 'build'})), ({'web Main'}, {'Harmony Main'}, set()))
+        names = lambda s, step: {n.split('/')[-1] for n in reading.templates(s, None, step)}
+        self.assertTrue({'web-test-adapter.json', 'test-adapter.json', 'interaction-evidence.json'} <= names(web, automation))
+        self.assertFalse({'harmony-test-adapter.json', 'harmony-config.json'} & names(web, automation))
+        self.assertTrue({'harmony-test-adapter.json', 'harmony-config.json'} <= names(android, automation))
+        self.assertFalse({'web-test-adapter.json', 'harmony-test-adapter.json'} & names({}, automation) | {'web-test-adapter.json'} & names(android, automation))
+        self.assertIn('web-test-path.json', names(web, plan)); self.assertIn('harmony-test-path.json', names(android, plan))
+        self.assertNotIn('harmony-test-path.json', names(web, plan))
+
+    def test_every_json_template_parses_and_every_handed_template_exists(self):
+        for path in sorted((reading.PACKAGE / 'template').glob('*.json')):
+            with self.subTest(template=path.name):
+                json.loads(path.read_text())
 
     def test_a_rendered_card_has_no_link_into_a_whole_protocol_file(self):
         text = reading.unlink('见 [状态机](state-machine.md)、[有限循环](state-machine.md#有限循环)、[模板](../../../template/fix-note.json)、'

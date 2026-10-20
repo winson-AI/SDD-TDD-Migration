@@ -9,7 +9,7 @@ description: SDD-TDD-Migration 的测试设计、构建与自动化执行；支�
 服务 Test-Runner；[职责协议](../migration-protocol/references/testing.md)。
 
 ## 2. 核心规约
-设计/执行模式分离；每条参数化路径有 ID/Name/query 和非空预期断言；Main 按 PATH 平台选适配器（内置 Harmony/web Main 或项目执行器）。
+设计/执行模式分离；每条参数化路径有 ID/Name/query 和非空预期断言；Main 按 PATH 平台选适配器（内置 Harmony/web Main 或项目执行器）；无项目执行器时按 Yellow 处理，不能生成假测试结果。
 
 设计 UI 测试时使用 [状态测试表](../../template/ui-state-test-design.md)：稳定视觉目标与瞬态行为分别验证。loading/skeleton 保留状态转换测试，未声明为可稳定复现的视觉目标时不要求抢拍，不通过假延时改变生产行为。该分类写入已有 test-design，随 SPEC 冻结。
 
@@ -27,7 +27,7 @@ description: SDD-TDD-Migration 的测试设计、构建与自动化执行；支�
 用例路径全覆盖；assert 完整；结果版本匹配；未知/环境失败 Yellow；失败根因可追溯。
 
 ## 6. 配套资产
-使用 [主要模板](../../template/test-paths.json)。无项目执行器时按 Yellow 处理，不能生成假测试结果。
+使用 [主要模板](../../template/test-paths.json)。
 
 ## 7. Android/Harmony 自动化测试
 

@@ -73,6 +73,28 @@ class ProgressiveReadingTests(unittest.TestCase):
                                      reading.TRIGGERED_TEMPLATE_BUDGET)
 
 
+    def test_the_worst_dispatch_fits_the_step_budget(self):
+        """A registered leaf with a plan, every fact trigger on, both platform families declared: card + templates stay in the budget."""
+        ref = self.ref({'api_inventory_ref': {'path': 'bound'}, 'dimensions': [
+            {'dimension': 'UI', 'status': 'applicable', 'parameter_sheet_ref': {'path': 'bound'}, 'items': [{'source_resource': 'image'}]},
+            {'dimension': 'Resource', 'status': 'applicable', 'copy_plan_ref': {'path': 'bound'}, 'items': []}]})
+        m = {'dimension_analysis_ref': ref, 'plan': {'dimension_analysis_ref': ref, 'telemetry': {'status': 'applicable'}}}
+        s = {'reuse_required': True, 'dependency_resolution_required': True,
+             'test_adapter': {'device': {'platforms': ['android', 'web'], 'android': {'serial': 'x'}, 'web': {'url': 'http://h/'}}}}
+        worst = 0
+        for role, op, scope, mode in itertools.product(reading.ROLE, (None, 'plan', 'assign', 'freeze', 'decompose', 'register', 'source-review'),
+                                                       (None, 'build', 'automation', 'visual'), (None, 'design')):
+            step = {'role': role, 'operation': op, 'test_scope': scope, 'mode': mode}
+            card = sum(row['bytes'] for row in reading.card(s, m, step))
+            templates = sum((reading.PACKAGE / n).stat().st_size for n in reading.templates(s, m, step))
+            with self.subTest(step=step):
+                self.assertLessEqual(card, reading.READ_BUDGET)
+                self.assertLessEqual(templates, reading.TRIGGERED_TEMPLATE_BUDGET)
+                self.assertLessEqual(card + templates, reading.STEP_BUDGET)
+            worst = max(worst, card + templates)
+        self.assertGreater(worst, reading.TYPICAL_BUDGET)  # the budget measures a loaded step, not an empty one
+
+
 class ApiContractTests(unittest.TestCase):
     def setUp(self):
         self.d = d = test_dimensions.DimensionTests(); d.setUp(); self.addCleanup(d.doCleanups)

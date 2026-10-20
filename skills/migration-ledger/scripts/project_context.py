@@ -235,8 +235,10 @@ def target_preview(platform, value):
         require(all(value.get(k) in (None, True, False) for k in ('headless', 'record_video')), label + '.headless and record_video are booleans')
         return
     tool = 'adb' if platform == 'android' else 'hdc'
-    require(isinstance(value, dict) and set(value) <= {'serial', 'avd', 'boot', 'tool'} and text('serial'),
-            label + ' names the serial ' + tool + ' sees (avd, boot and tool optional)')
+    require(isinstance(value, dict) and set(value) <= {'serial', 'avd', 'boot', 'tool', 'app_id', 'launch'} and text('serial'),
+            label + ' names the serial ' + tool + ' sees (avd, boot, tool, app_id and launch optional)')
+    require(all(value.get(k) is None or text(k) for k in ('app_id', 'launch')),
+            label + '.app_id and launch name the target application and its launch activity / ability, so a visual PATH starts prefilled')
     require(value.get('tool') is None or isinstance(value['tool'], str) and Path(value['tool']).is_absolute() and Path(value['tool']).name == tool, label + '.tool is the absolute ' + tool)
     boot_shape(value.get('boot'), label + '.boot')
 
@@ -330,7 +332,7 @@ def legacy_preview_config(value):
 
 INTAKE = (
     ('legacy_preview', '存量预览', '存量应用怎样跑给我们看？android-device / android-emulator / vm（设备 serial、app_id、APK 路径或构建命令、启动 activity；没有真机时给模拟器的 avd 名或启动命令 boot.argv，未连接时由我们启动）、harmony-device（hdc 看到的 serial、bundleName、HAP 路径或构建命令、ability；没有真机时给 boot.argv）、browser（url，可选 viewport）、或 none（说明不能跑的原因）', list(PREVIEW_KINDS)),
-    ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证、怎样预览？platforms（android / harmony / web）并按平台给预览：android {serial，没有真机时 avd 或 boot.argv}、harmony {serial，没有真机时 boot.argv（鸿蒙没有标准命令行模拟器）}、web {url 目标页面地址，可选 viewport / headless / record_video}；或 unavailable（原因）。运行环境文件由我们按此写出', ['android', 'harmony', 'web', 'unavailable']),
+    ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证、怎样预览？platforms（android / harmony / web）并按平台给预览：android {serial，没有真机时 avd 或 boot.argv}、harmony {serial，没有真机时 boot.argv（鸿蒙没有标准命令行模拟器）}，两者可带目标 app_id 与 launch（包名 / bundleName 与启动 activity / ability，视觉路径据此预填）、web {url 目标页面地址，可选 viewport / headless / record_video}；或 unavailable（原因）。运行环境文件由我们按此写出', ['android', 'harmony', 'web', 'unavailable']),
     ('target_resources', '目标资源约定', '存量的图片等文件与尺寸 / 颜色 / 文案等参数怎样进目标？target_resources.copy（目标目录、路径与 accessor 模板、可原样加载的格式、密度顺序）与 target_resources.parameters（每模块参数文件、行模板与 accessor）；目标不接收的部分写进 declined 并给原因。字段见 template/target-resources.json', ['copy', 'parameters', 'declined']),
 )
 

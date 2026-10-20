@@ -11,7 +11,7 @@ description: 功能切片、架构差异解析、DAG 与全局三态调度，用
 服务 Global-Orchestrator；[职责协议](../migration-protocol/references/runtime.md)。
 
 ## 2. 核心规约
-入口默认 project，覆盖完整项目；single-module 按 module_name 选择根功能。GO 划分 scope、context_refs、代码范围与需求/CASE，先验全局覆盖。GO/MO 判断原子性，按需细分或保留当前节点进入叶子 tasks/SPEC；细分接受后重验 registry。叶子规划完备再冻结、实现、独立验收，实际父节点汇总，全体收尾后统一 Auditor。用户无需另交模块资料包。见[切片规约](references/slicing.md#总则)与[父子 MO 协议](../migration-protocol/references/module-decomposition.md#总则)，阅读卡按步骤取节。
+GO 划分 scope、context_refs、代码范围与需求/CASE，先验全局覆盖；GO/MO 判断原子性，细分接受后重验 registry；用户无需另交模块资料包。见[切片规约](references/slicing.md#总则)与[父子 MO 协议](../migration-protocol/references/module-decomposition.md#总则)。
 
 ## 3. 标准模式
 推荐：按无环依赖和锁可用性派发 ready 模块；消费 Ledger 完成事件唤醒精确订阅者；blocked 不占用工作线程。

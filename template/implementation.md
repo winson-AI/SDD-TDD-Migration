@@ -13,49 +13,32 @@
 | --- | --- | --- | --- | --- | --- |
 | {{task}} | {{req}} | {{case/path}} | {{file}} | {{change}} | {{ref}} |
 
-## Self Verification
-{{代码生成后实际执行的静态检查/单测命令、cwd、版本、退出码、结果引用；未执行写原因，不能宣称通过}}
+每条可带 `test_order`（tests-first / code-first）与 `red_evidence={before_ref, after_ref}`（同一 unit PATH 的两份自查记录）。
 
-- authoring_diagnostics.status: {{passed | unavailable}}
-- passed：tool {{改动文件诊断工具}}，log_ref {{诊断输出绝对路径/sha256，须显示无错误}}
-- unavailable：reason {{宿主未提供诊断的原因}}；version_sensitive_apis {{每个新引入版本敏感 API 的 api + 固定版本依赖源码 source_ref；没有则 []}}
+## Self Verification
+{{实际执行的静态检查/单测命令、cwd、版本、退出码、结果引用；未执行写原因}}
+
+- authoring_diagnostics.status: {{passed | unavailable}}；passed 给 tool 与 log_ref（无错误），unavailable 给 reason 与 version_sensitive_apis（api + 固定版本依赖源码 source_ref，没有则 []）
 
 ## Impact / Rollback
 {{受影响接口、路径、消费者、数据兼容性、回滚方式与未解决问题}}
 
 ## Delivery
-{{提交到 Ledger 的事件；无 commit 时必须记录可重建 tree+patch，不伪造 commit，不自动 commit 用户无关改动}}
+{{提交到 Ledger 的事件；无 commit 时记录可重建的 tree + patch}}
 
-## Fixer memory（仅修复提交必填）
-
+## Fixer memory（仅修复提交）
 - fix_note_ref: {{fix-note.json 的绝对路径与 sha256}}
-- 内容包括根因、修复策略、适用条件、风险；Ledger 绑定本次补丁与正式回归证据后决定是否 verified。
 
-## 二方库 / 已有能力的实际使用
-
-- reuse_plan_ref: {{冻结的需求—能力—任务—PATH 映射}}
-- 每个 reuse/adapt/reference 映射提交 reuse_trace；new 映射继续使用 Task Trace。
-- 正式 implementation JSON 中每条 reuse_trace 含 mapping_id、resolved_version、files（属于对应 task_trace）和 binding_evidence_ref（绝对 path/sha256）。Implementer 与 Fixer 都需要提交。
-
+## reuse_trace（每个 reuse / adapt / reference 映射一行；new 映射走 Task Trace）
 | 映射 ID | 来源 / 能力 / 实际版本 | 接入文件 / DI / 调用入口 | 适配差异 | 真实提供方绑定证据 |
 | --- | --- | --- | --- | --- |
 | {{mapping}} | {{source/capability/version}} | {{files-and-binding}} | {{delta}} | {{evidence-ref}} |
 
-reference-only 说明借鉴了哪些业务语义及目标实现差异，不宣称已建立运行时依赖。provider_refs 用于核验依据版本，不授予修改来源项目的权限。
+正式 JSON 中每条 reuse_trace 含 mapping_id、resolved_version、files 与 binding_evidence_ref；冗余重构另附切换的调用、删除的重复与保留理由（reuse-dependencies.md 第 9 节）。
 
-目标实现存在冗余时，补充实际重构证据：已切换的生产调用/DI → 二方库入口，已删除/替换的重复文件或符号，必要适配/兼容入口的保留理由，受影响消费者及回归 PATH。仅添加依赖或保留两套重复生产逻辑不算完成；无冗余时引用检查依据。
-
-## 四维实现证据（Implementer / Fixer）
-
-先核对每个冻结 task.scope 与 task.dimension_analysis，按 implementation 指导实现；task_trace 文件不得超出对应任务写范围；每条可选 `test_order`（tests-first / code-first）申报该任务单测与实现的先后，可选 `red_evidence={before_ref, after_ref}` 引用同一 unit PATH 的两份自查记录（前者至少一个 required 测试未通过，后者全部通过）；都不强制，报告按任务计数。正式 implementation JSON 的 dimension_evidence 对冻结的每个 item 提交 item_id、task_ids、summary、evidence_refs；Resource 另附 target_resource_ref 与 consumer_refs（文件 hash 数组），逐文件对应规划中 consumer 字符串/数组的文件部分（符号用 # 分隔；同文件多个符号共用文件引用）。旧单值 consumer_ref 继续兼容，但不能代替其他消费者。复用文件可不在改动集合中，但必须存在并有真实生产消费者。详见 [四维协议](../skills/migration-protocol/references/dimension-slicing.md)。
-
+## dimension_evidence（冻结的每个 item）
 ```json
-{
-  "dimension_evidence": [{
-    "item_id": "DIM-M001-LOGIC-001",
-    "task_ids": ["TASK-M001-001"],
-    "summary": "{{actual-behavior-and-production-binding}}",
-    "evidence_refs": [{"path": "{{absolute-evidence-file}}", "sha256": "{{sha256}}"}]
-  }]
-}
+{"dimension_evidence": [{"item_id": "DIM-M001-LOGIC-001", "task_ids": ["TASK-M001-001"], "summary": "{{actual-behavior-and-production-binding}}",
+                         "evidence_refs": [{"path": "{{absolute-evidence-file}}", "sha256": "{{sha256}}"}]}]}
 ```
+Resource item 另附 target_resource_ref 与 consumer_refs（逐消费者文件 hash）；规则见 dimension-slicing.md 第 4 节。

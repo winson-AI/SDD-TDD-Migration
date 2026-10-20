@@ -4,9 +4,9 @@
 
 复用评估贯穿 GO 切片、父 MO 分工、子 MO tasks 和 Coding/Testing：先读 TARGET 及用户指定 reuse_sources 的功能语义目录，再结合需求决定直接使用、适配、仅参考或新实现；不按同名 API 认定等价、不重复实现已有能力、不为迁就库削弱需求。目录/映射经 Ledger 传递、版本冻结、实际接线与完整测试验证；外部来源只读，跨模块/不确定边界交人工。
 
-**全局 fidelity 规范**：每次选择目标已有能力或外部二方库，都与存量源码对应功能逐行为对齐，写明复用/适配如何复现原功能，记录源码基线、差异、PATH/ASSERT 与正式复现证据；语义参考同样适用。接口可用、库测试通过或对齐报告完成都不代表迁移功能通过：规划记录随 SPEC 冻结，编码后 Main 验证，MO/Auditor 按阶段唯一验收；行为不一致为 Red，依据或执行条件不足为 Yellow。需求与存量行为冲突须人工决定并留痕。
+**全局 fidelity 规范**：每次选择目标已有能力或二方库，都与存量对应功能逐行为对齐，写明复用/适配如何复现原功能，记录源码基线、差异、PATH/ASSERT 与正式复现证据（语义参考同样适用）；接口可用、库测试通过或对齐报告完成都不代表迁移功能通过，规划随 SPEC 冻结、编码后 Main 验证、MO/Auditor 按阶段唯一验收，行为不一致为 Red，依据或执行条件不足为 Yellow；需求与存量行为冲突须人工决定并留痕。
 
-二方库不能直接复用时，按功能目标、上下文、存量源码与目标现状选 adapt/reference/new，冻结任务后继续 Coding；只有替代实现也经核验不可行，MO 才以 suspend(reason_code=not-implemented) 留证并向用户展示"未实现"，独立模块继续（第 8 节）。目标已有实现时同样读复用/依赖二方库并查业务冗余：确认重复且复用/适配可行，就在分配范围内重构目标实现、切换真实依赖并清理冗余，不重复造轮子、不只加依赖而保留旧逻辑（第 9 节）。
+二方库不能直接复用时选 adapt/reference/new 冻结任务后继续 Coding，只有替代实现也核验不可行，MO 才以 suspend(reason_code=not-implemented) 留证并展示"未实现"，独立模块继续（第 8 节）；目标已有实现时同样查业务冗余，确认重复且复用/适配可行就在分配范围内重构、切换真实依赖并清理冗余，不重复造轮子、不只加依赖保留旧逻辑（第 9 节）。
 
 能力目录写明 provider owner：null 为经评审的既有稳定能力，非空为本轮唯一叶子 owner；write_paths 只控制权限/互斥，不推断业务归属。GO 规划归属，父 MO 分配共享改动并收窄写集合，子 MO 冻结复用与适配任务；改提供方本体走旧基线→授权 owner 变更→新版本→消费者重新冻结/复测，不以 adapt 绕过 hash。
 
@@ -54,7 +54,7 @@ GO 可先做粗粒度目录，父/子 MO 补充本模块相关语义证据并更
 | reference | 不能直接接入，但业务语义有价值 | integration.mode=reference-only；提炼规则在目标架构内实现，不宣称运行时库依赖 |
 | new | 无合适能力，或采用候选会违背需求/架构 | capability_id=null；解释搜索/拒绝理由与剩余实现范围 |
 
-每条映射含 rationale、behavior_delta、binding_plan、verification、task_ids、path_ids，后三种不能通过弱化验收消除差异；实际使用时记 integration.mode（existing-target/package/source-module/reference-only）、locator、版本、配置、传递依赖与兼容证据。源码引用不等于复制授权，新增依赖仍守项目规则与边界决策。OpenSpec 分工：proposal 写复用策略与缺口，spec 保持用户可观察行为，design 写提供方与适配边界，tasks 落接线/适配/剩余实现，checklist 核映射覆盖、版本、生产绑定与测试，status 引用当前冻结 plan；`stage-plan.reuse_plan_ref` 把目录与映射纳入 plan 摘要与后续 CR，change/reuse.md 只供规划阅读。prepare 要求复用规划（reuse_required=true），显式外部来源与子 MO 计划同样要求；无可复用能力时提交空 capabilities、有证据的来源评审与 new 映射，不编造库。
+每条映射含 rationale、behavior_delta、binding_plan、verification、task_ids、path_ids，后三种不能以弱化验收消除差异；实际使用记 integration.mode（existing-target/package/source-module/reference-only）、locator、版本、配置、传递依赖与兼容证据，源码引用不等于复制授权。proposal 写复用策略与缺口，spec 保持用户可观察行为，design 写提供方与适配边界，tasks 落接线/适配/剩余实现，checklist 核映射覆盖、版本、生产绑定与测试；`stage-plan.reuse_plan_ref` 把目录与映射纳入 plan 摘要与后续 CR。reuse_required=true 时无可复用能力也提交空 capabilities、有证据的来源评审与 new 映射，不编造库。
 
 ## 6. Coding、测试与失败处理
 

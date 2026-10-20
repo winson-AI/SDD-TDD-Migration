@@ -20,8 +20,8 @@ class NativeUITemplateTests(unittest.TestCase):
         self.fixture = self.native.native_ui()
 
     def instantiate(self):
-        template = Path(__file__).resolve().parents[3] / 'template' / 'semantic-model.json'
-        tree = read_json(template)['ui_tree_contract']
+        template = Path(__file__).resolve().parents[3] / 'template' / 'ui-tree-contract.json'
+        tree = read_json(template); tree.pop('_note')
         index = read_json(self.fixture['source'])
         main = 'app/src/main/res/layout/settings.xml'
         row = 'app/src/main/res/layout/row_setting.xml'

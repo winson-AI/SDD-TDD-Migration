@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1643 | 全量通过，零失败/错误/跳过；本轮新增鸿蒙运行时 UI 树、视觉预填与 sandbox 准备的测试 |
-| migration-test/tests | 83 | 全量通过；本轮新增表单动作/谓词与多次尝试 flaky 的测试 |
+| migration-ledger/tests | 1646 | 全量通过，零失败/错误/跳过；本轮新增平台卡与模板、按节入卡、每步加载预算、目标应用预填与模板可解析的测试 |
+| migration-test/tests | 83 | 全量通过；本轮无改动 |
 | runtime/harmony/tests | 128 | 全量通过；本轮无改动 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮：web Main 的表单动作与谓词（select/check/uncheck/hover/scroll_to；attribute/checked/enabled，count 的 at_least；plan 时与运行时同一契约）、重读中变化的观察记 unstable、适配器 `attempts`（1–5）>1 时整条路径重跑并把同断言 pass/fail 混合记为 flaky Yellow（attempts.json 留每次结果）；鸿蒙存量的 UI 树与 web 一样由 analyze-ui（platform=harmony）从运行时索引派生、无源索引；骨架为用户截图的 visual PATH 预填 visual_execution（environment_ref 取 init 写出的平台环境文件）；`test_adapter.harmony_reference` 让 init 用 harmony_environment 把参考 config/.env 复制成本 run 的 Harmony sandbox，状态与 step 视图给出引用；图 01/05 与 diagrams README 改为三条声明、适配器随平台与两个内置 Main；协议：命令示例只写脚本名、角色/技能文件与多处小节的重复表述各只说一次，棘轮 464,000 → 462,500。上一轮：适配器随 PATH、web PATH 的规划期形状与 Ledger 黄金路径、欠项按族、鸿蒙存量预览、协议压缩至 464,000。
+本轮：按需加载与补缺。卡与模板按声明的平台取（web → testing.md#web Main 与 web PATH / adapter 模板；android/harmony → Harmony Main 与 harmony 模板；未声明都不带）；卡上不再有整文件条目：Auditor 通用派发读审计入口、收尾契约与问题处理，代码审查读顺序、内容与 Ledger 接口，visual Test-Runner 读执行节点与失败恢复（后端与锁规则移入执行节点），声明了目标预览的 Spec-Designer 读准备与冻结；模板瘦身（semantic-model 每类一例、UI 树契约独立成 ui-tree-contract.json 不随卡下发，dimension-analysis 与 implementation 只留形状与字段，visual 范围不下发工具产物，code-review 不下发骨架已写的报告）；角色与技能文本去重（配套资产节不入卡、重复的职责行删除、Diagnostician 不带 Foundation 节、控制主线只给编排角色、静态规格闭合只给 Test-Runner）；每步「卡 + 模板」计量进 reading.STEP_BUDGET 并与 READ / TEMPLATE 棘轮一起下调；`test_adapter.device` 可带目标 app_id 与 launch，骨架据此把 visual_execution 预填完整（web 由 url 预填）；每个 JSON 模板可解析；第二遍把 Spec-Designer 常驻小节与规划模板再压一遍。上一轮：web Main 表单动作与 flaky 尝试、鸿蒙运行时 UI 树、视觉预填与 sandbox 准备、协议压缩至 462,500。
 
-协议体积为 462181 / 462500 字节，最大单文件 24970 / 32000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中最大卡片 49370 / 60000 字节，最大模板组合 50912 / 56200 字节；拒绝消息带小节指引的比例 99.1%（棘轮 90%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 458718 / 458800 字节，最大单文件 24613 / 32000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中最大卡片 43386 / 51200 字节，全触发卡片最大 51176、模板组合最大 34697 / 34700 字节；已登记叶子有计划、全部事实触发且双平台声明的最坏一步（卡 + 模板）82115 / 82200 字节，无触发步骤卡 ≤ 29500、模板 ≤ 13500；拒绝消息带小节指引的比例 99.1%（棘轮 90%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 
@@ -181,6 +181,13 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | web Main 多次尝试 | adapter 配置 `attempts`（1–5）>1 时 `web_main.execute` 把整条路径重跑 n 次（attempt-<n>/ 各有 step-trace 与观察），同一断言 pass/fail 混合记 flaky：报告 quality=yellow-blocked、root_cause.category=flaky、attempts.json 列每次三态与 flaky 断言；全部一致则以首次结果为准、flaky=false；attempts 超界被拒 | test_web_main |
 | 鸿蒙运行时 UI 树 | analyze-ui 的 platform=harmony 与 web 同路：读 kind=harmony-device 的捕获 manifest 为运行时索引，`web_ui_tree.build(platform)` 以 XML 根为屏幕根、节点 id 取组件 key，generatedFrom.platform=harmony 且无源索引；ui_evidence 把 web/harmony 树都按运行时树校验；web 分析读到鸿蒙捕获被拒 | test_legacy_capture |
 | 视觉骨架与 sandbox 准备 | `spec_skeleton.visual_prefill`：有用户截图的 visual PATH 预填 visual_execution（environment_ref 取 init 写出的平台环境文件，app_id/target_match 与 url 或 ability 留标记，actions 空），平台未声明预览时不加；`test_adapter.harmony_reference {config, env_file}`（绝对路径）由 init 经 harmony_environment.prepare_environment 复制到 runs/harmony/sandbox/environment，状态与 step 视图的 target_preview.harmony_sandbox 给出 config_ref 与 env_file | test_target_preview |
+| 目标应用随预览声明 | `test_adapter.device.<android|harmony>` 可带 app_id 与 launch（字符串，非法被拒），骨架把 visual_execution 的 app_id 与 ability 预填为声明值，web 由 url 预填 app_id（主机）与 url，未声明仍留标记；intake 问句、项目配置模板与捕获 / 领域工具请求模板同步 | test_target_preview |
+| 卡与模板按平台 | 声明 web 的 run，Spec-Designer 与 automation Test-Runner 的卡带 testing.md#web Main、模板带 web-test-path / web-test-adapter；声明 android/harmony 带 Harmony Main 与 harmony-test-path / harmony-test-adapter / harmony-config；未声明都不带，build 范围不带 | test_reading |
+| 模板瘦身 | semantic-model.json 17.2 KB → 5.9 KB（每类一例；UI 树契约独立为 ui-tree-contract.json 5.0 KB，不随卡下发），dimension-analysis.json 8.2 KB → 5.6 KB，implementation.md 4.1 KB → 2.3 KB；visual 范围不再下发工具产物 visual-alignment.json，audit-code-review 不再下发骨架已写的清单与报告；每个 JSON 模板可解析；TEMPLATE_BUDGET 20,000 → 13,500、TRIGGERED_TEMPLATE_BUDGET 56,200 → 34,700 | test_reading, test_native_ui_template |
+| 按节入卡 | Auditor 通用派发读 audit-scope 的总则 + 入口与范围 + 收尾契约 + 问题处理（不再整文件 11.2 KB），audit-code-review 读顺序与职责 + 审查内容 + Ledger 接口（不再整文件 10.4 KB），visual Test-Runner 读执行节点 + 失败恢复（后端与锁规则移入执行节点），声明了目标预览的 Spec-Designer 读准备与冻结；卡上没有整文件条目 | test_reading |
+| 角色文本去重 | 技能的配套资产节留在文件、不入卡（Auditor / Test-Runner 其中的规则并入核心规约），与 description 重复的职责行删除，GO 核心规约只留步骤未说的，Diagnostician 不再带 Foundation 节；控制主线只给编排角色，静态规格闭合只给 Test-Runner，Spec-Designer 不下发预检模板 | test_reading |
+| 每步加载计量 | reading.STEP_BUDGET：已登记叶子有计划、全部事实触发、双平台声明下逐角色/操作/范围/模式枚举的卡 + 模板最大值 ≤ 82,200；READ_BUDGET 60,000 → 51,200，TYPICAL_BUDGET 34,000 → 29,500 | test_progressive_fidelity |
+| 规划常驻文本再压 | Spec-Designer 每卡必带的 openspec（六件套映射、基线与 Delta、变更控制、决策边界、冻结算法）、编码前设计交接、UI 证据绑定、精确性纪律、图片与图标对齐、使用点与闭包、API 契约、复用总则与需求映射、任务级四维契约各去掉重复从句；规划模板只留字段（reuse-fidelity、telemetry-analysis、stage-plan、reuse-plan、api-inventory、knowledge-request、telemetry-contract、domain-worker-request），web PATH 模板注明表单动作与谓词 | test_reading, test_progressive_fidelity |
 | 实跑冒烟 | 浏览器冒烟加 web-target：存量页捕获为参考，目标页声明构建哈希，visual-install 读 `<meta name=sdd-build>`，候选记录为 web-candidate；`smoke_device_capture.py` 在主机 AVD 上实跑两条通道（serial 不应答即启动模拟器、装机、存量捕获、运行时索引、候选装机的设备哈希核对与候选捕获），所有项目值走参数；`smoke_web_main.py` 以真实 Chromium 跑 web Main：六步（含 select/check/hover）、七条 DOM 谓词（text/url/value/checked/attribute/count≥）、录像、attempts=2 重跑无 flaky，第二轮以首轮末屏作用户截图参考，两轮均被 Ledger 验收为 Green |
 | 用户参考媒体 | project context 的 reference_media（media_id/kind/path/role/screen/case_ids/note）经校验后由 prepare 复制并绑定 hash；持有其 CASE 的叶子在分配包读到并以之为就绪证据；visual_mode=user-reference 以用户截图为基线，用户展示过的界面不得 source-only，错引非该 CASE 截图被拒；visual PATH 的 baseline_ref 可为用户截图，冻结证据与 reference manifest 按其截图集合核对；reference_media_ids 只能引用本 CASE 的媒体；冻结时用户展示过的用户可见 CASE 无 PATH 引用即欠项（已声明设备缺口除外）；骨架为每张截图起稿 visual PATH、把录屏挂到功能 PATH；报告列媒体覆盖 |
 | 目标预期 | role=target-expectation 覆盖的界面以其为基线（存量可预览时亦然；runtime 或存量截图作基线被拒），其 CASE 的存量截图不再欠引用；design 定义须引用其 media_id；报告媒体表列出被取代的存量截图，保真限制披露该界面按目标预期对齐 |

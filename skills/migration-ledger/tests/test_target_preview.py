@@ -19,8 +19,10 @@ DEVICE = {'platforms': ['android', 'web'], 'android': {'serial': 'emulator-5554'
 class TargetPreviewTests(unittest.TestCase):
     def test_the_statement_names_each_platforms_preview_and_nothing_else(self):
         self.assertEqual(pc.validate({'test_adapter': {'device': DEVICE}})['test_adapter']['device'], DEVICE)
-        pc.validate({'test_adapter': {'device': {'platforms': ['harmony'], 'harmony': {'serial': 'hdc-1', 'tool': '/opt/sdk/hdc', 'boot': {'argv': ['/opt/emu'], 'timeout_seconds': 60}}}}})
+        pc.validate({'test_adapter': {'device': {'platforms': ['harmony'], 'harmony': {'serial': 'hdc-1', 'tool': '/opt/sdk/hdc', 'boot': {'argv': ['/opt/emu'], 'timeout_seconds': 60},
+                                                                                       'app_id': 'com.example.target', 'launch': 'EntryAbility'}}}})
         for bad, message in (({**DEVICE, 'harmony': {'serial': 'x'}}, 'describes only the platforms it lists'),
+                             ({**DEVICE, 'android': {'serial': 'a', 'app_id': 7}}, 'app_id and launch name the target application'),
                              ({**DEVICE, 'web': {'viewport': {'width': 1, 'height': 1}}}, 'names the url the target is served at'),
                              ({**DEVICE, 'web': {'url': 'ftp://x'}}, 'names the url'),
                              ({**DEVICE, 'web': {'url': 'http://x/', 'browser': 'ie'}}, 'browser is chromium, firefox or webkit'),
@@ -63,6 +65,11 @@ class EnvironmentFromStatementsTests(unittest.TestCase):
         self.assertIn('ability', spec_skeleton.visual_prefill({'target_preview': {'environments': {'android': environment}}}, 'android')['visual_execution'])
         self.assertEqual(spec_skeleton.visual_prefill(s, 'android'), {})
         self.assertEqual(spec_skeleton.visual_prefill({}, None), {})
+        stated = {'test_adapter': {'device': {'platforms': ['android', 'web'], 'android': {'serial': 's', 'app_id': 'com.example.target', 'launch': '.MainActivity'},
+                                              'web': {'url': 'http://127.0.0.1:1/index.html'}}}, 'target_preview': {'environments': {'android': environment, 'web': environment}}}
+        android = spec_skeleton.visual_prefill(stated, 'android')['visual_execution']; web = spec_skeleton.visual_prefill(stated, 'web')['visual_execution']
+        self.assertEqual((android['app_id'], android['ability'], web['app_id'], web['url']), ('com.example.target', '.MainActivity', '127.0.0.1:1', 'http://127.0.0.1:1/index.html'))
+        self.assertTrue(SKELETON_MARK in str(android['target_match']) and SKELETON_MARK not in android['app_id'] + android['ability'] + web['app_id'] + web['url'])
 
     def test_the_harmony_sandbox_is_prepared_from_the_stated_reference_at_init(self):
         import shutil

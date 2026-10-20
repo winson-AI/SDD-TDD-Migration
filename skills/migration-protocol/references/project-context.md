@@ -101,7 +101,7 @@ project_context.py <show|history> --root <工作目录>/.sdd-migration
 
 ## 存量预览
 
-legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch 与 navigator；harmony-device 同形，serial 为 hdc 目标、launch 为 ability，没有真机时给 boot.argv（鸿蒙无标准命令行模拟器）；没有真机时 device 带 avd 或 boot.argv，serial 不应答即启动模拟器并等开机）、browser（url，可选 viewport）或 none（reason）；UI 登记前须声明，prepare 记包哈希；init/update/prepare 返回 `open_statements`（含目标验证设备与 target_resources），status 以 statement-required 提示到声明为止。`test_adapter.device` 按平台给目标预览（serial 与 avd/boot，或 url 与 viewport），init 据此写出运行环境文件。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
+legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch 与 navigator；harmony-device 同形，serial 为 hdc 目标、launch 为 ability，没有真机时给 boot.argv（鸿蒙无标准命令行模拟器）；没有真机时 device 带 avd 或 boot.argv，serial 不应答即启动模拟器并等开机）、browser（url，可选 viewport）或 none（reason）；UI 登记前须声明，prepare 记包哈希；init/update/prepare 返回 `open_statements`（含目标验证设备与 target_resources），status 以 statement-required 提示到声明为止。`test_adapter.device` 按平台给目标预览（serial 与 avd/boot，可带目标 app_id 与 launch；或 url 与 viewport），init 据此写出运行环境文件，骨架据此预填 visual PATH 的应用与入口。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
 
 ## 二方库/其他项目模块来源
 

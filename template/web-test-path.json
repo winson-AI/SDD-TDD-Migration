@@ -7,31 +7,50 @@
   "kind": "automation",
   "platform": "web",
   "task_type": "test",
-  "preconditions": ["{{served-target-page-state}}"],
+  "preconditions": [
+    "{{served-target-page-state}}"
+  ],
   "steps": [
-    {"action": "goto", "url": "{{absolute-url-of-the-served-target-page}}"},
-    {"action": "fill", "selector": "{{css-selector}}", "text": "{{typed-text}}"},
-    {"action": "click", "selector": "{{css-selector}}"}
+    {
+      "action": "goto",
+      "url": "{{absolute-url-of-the-served-target-page}}"
+    },
+    {
+      "action": "fill",
+      "selector": "{{css-selector}}",
+      "text": "{{typed-text}}"
+    },
+    {
+      "action": "click",
+      "selector": "{{css-selector}}"
+    }
   ],
   "parameters": {},
   "dependency_refs": [],
-  "expected_assertions": [{
-    "assertion_id": "ASSERT-M001-001",
-    "expected": true,
-    "description": "{{specific-observable-predicate-from-SPEC}}",
-    "matcher": "exact",
-    "verification": "dom",
-    "after_step": 3,
-    "predicate": {"kind": "text", "selector": "{{css-selector}}", "equals": "{{text-the-page-shows}}"}
-  }, {
-    "assertion_id": "ASSERT-M001-002",
-    "expected": true,
-    "description": "{{the-screen-the-user-showed}}",
-    "matcher": "exact",
-    "verification": "refer_image_assert",
-    "reference_media_id": "{{reference-media-id-of-the-user-screenshot}}",
-    "tolerance": 80,
-    "after_step": 3
-  }],
-  "_note": "steps are goto {url} / click {selector} / fill {selector, text} / press {key} / wait {ms}; the first is goto. A dom predicate is text|value|visible|count|url|title with equals, contains or matches (count: equals an integer; visible takes no comparison). refer_image_assert compares the screen after the step with the user screenshot the Ledger binds as reference_media_ref; tolerance is the visual score 0..100 (default 80). This note is not part of the PATH."
+  "expected_assertions": [
+    {
+      "assertion_id": "ASSERT-M001-001",
+      "expected": true,
+      "description": "{{specific-observable-predicate-from-SPEC}}",
+      "matcher": "exact",
+      "verification": "dom",
+      "after_step": 3,
+      "predicate": {
+        "kind": "text",
+        "selector": "{{css-selector}}",
+        "equals": "{{text-the-page-shows}}"
+      }
+    },
+    {
+      "assertion_id": "ASSERT-M001-002",
+      "expected": true,
+      "description": "{{the-screen-the-user-showed}}",
+      "matcher": "exact",
+      "verification": "refer_image_assert",
+      "reference_media_id": "{{reference-media-id-of-the-user-screenshot}}",
+      "tolerance": 80,
+      "after_step": 3
+    }
+  ],
+  "_note": "steps: goto {url} (first) / click / fill {selector, text} / press {key} / wait {ms} / select {selector, value} / check / uncheck / hover / scroll_to {selector}. A dom predicate is text|value|visible|count|url|title|attribute (name) with equals, contains or matches; count also takes at_least; checked and enabled take no comparison. refer_image_assert compares the screen after the step with the user screenshot (reference_media_ref); tolerance is the visual score 0..100. This note is not part of the PATH."
 }

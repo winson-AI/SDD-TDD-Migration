@@ -232,17 +232,20 @@ def plans(s, m, out, documents):
 
 
 def visual_prefill(s, platform):
-    """The visual_execution a visual PATH starts from: the environment init wrote for the device platform, with the rest left to
-    the author; nothing when the run stated no preview for it."""
+    """The visual_execution a visual PATH starts from: the environment init wrote for the platform and the application the
+    device statement names; the navigation and the target selector stay with the author; nothing when no preview is stated."""
     environment = ((s.get('target_preview') or {}).get('environments') or {}).get(platform)
     if not environment:
         return {}
-    contract = {'environment_ref': environment, 'app_id': todo('应用 id：Android 包名 / Harmony bundleName，web 为页面主机'),
-                'target_match': [todo('目标节点选择器 {class/resource-id/text}')], 'actions': []}
+    stated = ((s.get('test_adapter') or {}).get('device') or {}).get(platform) or {}
+    contract = {'environment_ref': environment, 'target_match': [todo('目标节点选择器 {class/resource-id/text}')], 'actions': []}
     if platform == 'web':
-        contract['url'] = todo('目标页面 URL')
+        from urllib.parse import urlparse
+        contract['app_id'] = urlparse(stated['url']).netloc if stated.get('url') else todo('页面主机')
+        contract['url'] = stated.get('url') or todo('目标页面 URL')
     else:
-        contract['ability'] = todo('启动 activity / ability')
+        contract['app_id'] = stated.get('app_id') or todo('应用 id：Android 包名 / Harmony bundleName，可在 test_adapter.device 声明')
+        contract['ability'] = stated.get('launch') or todo('启动 activity / ability，可在 test_adapter.device 声明')
     return {'visual_execution': contract}
 
 

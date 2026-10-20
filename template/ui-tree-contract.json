@@ -1,0 +1,185 @@
+{
+ "_note": "Native source-backed tree example for a screen, its title and one adapter row. Instantiate source anchors and collected XML facts without changing the native object/list shapes. Expand every reachable XML selector and attachment; this example does not declare another application's source closure. For source-only evidence omit runtimeIndex/runtimeIndexSha256 and runtimeObservations. Retain original indexes/capture manifest; structural validation does not prove semantic completeness.",
+ "schemaVersion": 1,
+ "scope": "{{change-id}}",
+ "generatedFrom": {
+  "sourceIndex": "{{source-index-path}}",
+  "sourceIndexSha256": "{{source-index-sha256}}",
+  "runtimeIndex": "{{runtime-index-path}}",
+  "runtimeIndexSha256": "{{runtime-index-sha256}}"
+ },
+ "screens": [
+  {
+   "id": "settings",
+   "name": "Settings",
+   "kind": "fragment",
+   "root": {
+    "id": "settings.root",
+    "name": "Settings root",
+    "nodeKind": "container",
+    "viewClass": "LinearLayout",
+    "analysisStatus": "expanded",
+    "source": {
+     "path": "{{screen-layout-path}}",
+     "selector": "{{screen-root-selector}}",
+     "origin": "xml",
+     "line": null
+    },
+    "initialVisibility": "visible",
+    "layout": {
+     "kind": "vertical",
+     "scrollable": false,
+     "rawAttrs": {
+      "android:layout_width": "match_parent",
+      "android:layout_height": "match_parent"
+     },
+     "resolvedAttrs": {}
+    },
+    "presentation": {
+     "purpose": "Container for settings content",
+     "appearance": "{{source-backed-root-appearance}}",
+     "resourceRefs": []
+    },
+    "bindings": [
+     {
+      "target": "{{binding-target}}",
+      "source": "{{binding-source}}",
+      "sourcePath": "{{renderer-source-path}}",
+      "selector": "{{binding-source-selector}}"
+     }
+    ],
+    "events": [
+     {
+      "trigger": "{{event-trigger}}",
+      "handler": "{{event-handler}}",
+      "sourcePath": "{{renderer-source-path}}",
+      "selector": "{{event-source-selector}}"
+     }
+    ],
+    "dynamicRules": [
+     {
+      "when": "{{dynamic-condition}}",
+      "property": "{{dynamic-property}}",
+      "result": "{{dynamic-result}}",
+      "sourcePath": "{{renderer-source-path}}",
+      "selector": "{{dynamic-source-selector}}"
+     }
+    ],
+    "capabilities": {
+     "scroll": false
+    },
+    "runtimeObservations": [
+     {
+      "pageId": "settings",
+      "stateId": "base",
+      "viewSignature": "{{runtime-view-signature}}"
+     }
+    ],
+    "children": [
+     {
+      "id": "settings.root.1",
+      "name": "Settings title",
+      "nodeKind": "view",
+      "viewClass": "TextView",
+      "analysisStatus": "leaf",
+      "source": {
+       "path": "{{screen-layout-path}}",
+       "selector": "{{title-selector}}",
+       "origin": "xml",
+       "line": null
+      },
+      "initialVisibility": "visible",
+      "layout": {
+       "kind": "leaf",
+       "scrollable": false,
+       "rawAttrs": {
+        "android:layout_width": "match_parent",
+        "android:layout_height": "wrap_content",
+        "android:text": "@string/settings_title"
+       },
+       "resolvedAttrs": {}
+      },
+      "presentation": {
+       "purpose": "Settings title",
+       "appearance": "Text from the source string resource",
+       "resourceRefs": [
+        "@string/settings_title"
+       ]
+      },
+      "bindings": [],
+      "events": [],
+      "dynamicRules": [],
+      "capabilities": {},
+      "children": []
+     }
+    ]
+   },
+   "attachments": [
+    {
+     "id": "settings.row",
+     "kind": "list_item",
+     "anchorNodeId": "settings.root",
+     "root": {
+      "id": "settings.row",
+      "name": "Settings adapter row",
+      "nodeKind": "view",
+      "viewClass": "TextView",
+      "analysisStatus": "leaf",
+      "source": {
+       "path": "{{row-layout-path}}",
+       "selector": "{{row-root-selector}}",
+       "origin": "xml",
+       "line": null
+      },
+      "initialVisibility": "visible",
+      "layout": {
+       "kind": "leaf",
+       "scrollable": false,
+       "rawAttrs": {
+        "android:layout_width": "match_parent",
+        "android:layout_height": "wrap_content",
+        "android:text": "@string/settings_title"
+       },
+       "resolvedAttrs": {}
+      },
+      "presentation": {
+       "purpose": "Repeated settings row",
+       "appearance": "Text from the source string resource",
+       "resourceRefs": [
+        "@string/settings_title"
+       ]
+      },
+      "bindings": [],
+      "events": [],
+      "dynamicRules": [],
+      "capabilities": {},
+      "children": []
+     }
+    }
+   ]
+  }
+ ],
+ "layoutClosure": [
+  {
+   "path": "{{screen-layout-path}}",
+   "role": "screen",
+   "nodeIds": [
+    "settings.root",
+    "settings.root.1"
+   ],
+   "status": "mapped",
+   "reason": "Screen root and every child selector are represented"
+  },
+  {
+   "path": "{{row-layout-path}}",
+   "role": "list_item",
+   "nodeIds": [
+    "settings.row"
+   ],
+   "status": "mapped",
+   "reason": "Reachable adapter layout represented as an attachment"
+  }
+ ],
+ "criticalLayoutContracts": [],
+ "unresolved": []
+}
