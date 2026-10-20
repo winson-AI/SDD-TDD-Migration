@@ -38,7 +38,7 @@ run-id/change-name/capability 使用 kebab-case，module_id 匹配 `M[0-9]{3,}`�
 
 ## 宿主派发
 
-assign（审计为 audit-assign / audit-test-assign）被接受后，宿主用真实可用的 task/spawn 工具启动该实例，只传 package_root、run_root、module_id 与阅读卡路径；叶子完成只交 Ledger 引用。宿主缺少调度、身份或持久化能力时如实报告不可用，不模拟执行成功。目标 OpenSpec 正式文件物化、原生身份认证、源码写隔离、自动派发及归档由宿主实现，不能通过直接修改投影旁路控制器。
+assign（审计为 audit-assign / audit-test-assign）被接受后，宿主用真实可用的 task/spawn 工具启动该实例，只传 package_root、run_root、module_id 与阅读卡路径（卡已含红线与共享规则，角色不另读 AGENTS.md 或共享协议全文）；叶子完成只交 Ledger 引用。宿主缺少调度、身份或持久化能力时如实报告不可用，不模拟执行成功。目标 OpenSpec 正式文件物化、原生身份认证、源码写隔离、自动派发及归档由宿主实现，不能通过直接修改投影旁路控制器。
 
 ## 项目配置与运行快照
 

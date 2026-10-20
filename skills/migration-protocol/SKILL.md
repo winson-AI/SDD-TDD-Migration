@@ -47,4 +47,4 @@ GO/MO 切分垂域，四维表示边界，叶子 SPEC 约束 Implementer；MO �
 
 ## 8. 专题规则
 
-见 AGENTS.md 专题索引，按当前事实取单节。来源变化不清除失败、重置预算或批准代码。
+见[专题索引](references/host-integration.md#专题索引)，按当前事实取单节。来源变化不清除失败、重置预算或批准代码。

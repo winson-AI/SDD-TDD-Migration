@@ -6,7 +6,7 @@
 
 可选旁路 [Watchdog](skills/migration-protocol/references/watchdog.md) 提供 `check/watch` 状态监听与通知、`ack` 交付确认；未确认通知可重放，Host 按 notice_id 去重展示。支持真实本机进程检查及宿主 API 状态导出；未接入时显示 unknown。不会自动启动、派发 Agent、提交恢复操作或影响迁移门禁。
 
-1. 读取 [AGENTS.md](AGENTS.md)，按角色索引渐进加载。
+1. 宿主读取 [AGENTS.md](AGENTS.md)；被派发的角色只读它的阅读卡，专题小节按需取。
 2. 首次提供项目资料，宿主根据 [project-context.json](template/project-context.json) 保存到固定 `<workspace_root>/.sdd-migration/project-context.json`（首次未指定 workspace_root 时取配置目录父级）；后续按该目录读取，用户明确更新时增量保存。无需每次重填运行输入。
 3. 在支持此包的宿主中执行 `/sdd-init`，先固定项目配置和本次请求快照，再由 Global 生成 [运行输入](template/global-input.json)、宿主业务契约、需求/用例输入、账本和模块规划；`/sdd-plan <run-id> <module-id>` 从 Ledger 写出的六件套与计划集骨架起笔，组织叶子 TASK、四维追溯与上游用例路径，由 MO 审核冻结；真实未决或需求/验收/授权变化才交人工。旧 input.json 也可导入。
 4. `/sdd-run <run-id>` 调度已冻结且依赖就绪的模块，单模块也可用 `/sdd-module <run-id> <module-id>`。模块内自动推进到完成、挂起或预算耗尽。
@@ -89,7 +89,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 ## 专题速览
 
-各专题的权威规则只在对应协议中陈述一次（`AGENTS.md` 的专题索引列出触发条件），这里只给方向：
+各专题的权威规则只在对应协议中陈述一次（[宿主接入](skills/migration-protocol/references/host-integration.md#专题索引)的专题索引列出触发条件），这里只给方向：
 
 | 专题 | 一句话 | 协议 |
 | --- | --- | --- |

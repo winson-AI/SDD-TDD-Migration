@@ -56,11 +56,37 @@ python3 <pkg>/skills/migration-ledger/scripts/verify_openspec.py --root <ws>/.sd
 
 按 [领域工具受限接入](domain-tools.md) 把白名单操作映射到现有角色，不另建游标或冻结权威：Spec-Designer 捕获与分析 UI；Implementer/Fixer 在 assignment 与写范围内转换资源；Test-Runner/Auditor 在当前 assignment 下取证比较，构建走正式执行器。宿主还要配置 `legacy_preview`（设备 serial / 模拟器 / 虚拟机 + APK 或构建命令、浏览器 url、或 none 与原因），保证 adb 或 Playwright 可用，agent 导航另配 navigator；legacy-capture 与 Android / web 目标的 visual-* 需 host-context 带 device_lock（serial 或 url）；web 目标由宿主部署并在页面声明构建哈希。[设备与模型工具](visual-execution.md) 需冻结的 run 环境配置、设备锁证明及当前 PATH 构建/基线，工具本身不验收；模型请求有总时限，缺条件走 Yellow。Host 传认证 host-context，保留原始结果引用与转换证据；新增输出落本 run 受管目录。
 
+## 调用约定
+
+Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `description`，技能用 `name/description`；宿主可按实际注册格式转换，不把 `mode` 当作所有产品的原生字段。命令解析请求后由宿主提交 Ledger；编排角色提交 assign（审计为 audit-assign / audit-test-assign），Ledger 接受后宿主用实际提供的任务工具（`task`，或读取定义后 spawn_agent 启动隔离实例）派发；不嵌套 slash command，不能只写一段工具调用文本便宣布已派发。Ledger 的 transport ACK 是唯一传输回执，不携带业务决策。迁移运行允许并行无冲突模块，数量受输入与宿主限制。
+
+## 专题索引
+
+宿主与编排角色定位专题用；被派发的角色从阅读卡的按需清单取小节。每节均为该专题的唯一权威表述。
+
+| 专题 | 触发 | 权威小节 |
+| --- | --- | --- |
+| 本地控制器、恢复 | 运行控制器；恢复会话 | [runtime.md#总则](runtime.md#总则)、[local-runtime.md#操作矩阵](local-runtime.md#操作矩阵) |
+| 项目上下文 | prepare / 更新项目配置 | [project-context.md#总则](project-context.md#总则) |
+| 父子 MO、轻量叶子、批量冻结 | GO 切片、父 MO 拆分、子 MO 规划 | [module-decomposition.md#总则](module-decomposition.md#总则) |
+| 二方库、目标已有能力、fidelity、provider 归属 | 范围含复用或目标已有实现 | [reuse-dependencies.md#总则](reuse-dependencies.md#总则) |
+| 同 run 追加来源 | 新增只读来源 | [source-changes.md#总则](source-changes.md#总则) |
+| 阶段上下文就绪 | 每次派发前 | [context-readiness.md#总则](context-readiness.md#总则) |
+| 功能清单完备性 | GO 切片 | [slicing.md#总则](../../migration-global/references/slicing.md#总则) |
+| 构建 / 单测 / 静态 / 自动化缺测 | Test-Runner 派发 | [build-automation.md#总则](build-automation.md#总则) |
+| Auditor 范围与代码治理 | 审计各环节 | [audit-scope.md#总则](audit-scope.md#总则)、[audit-code-review.md#顺序与职责](audit-code-review.md#顺序与职责) |
+| 父 MO 命名、收尾报告 | GO 收尾 | [migration-report.md#总则](migration-report.md#总则) |
+| 四维切片、语义模型、领域工具、资源与参数搬运 | 规划与实现 | [dimension-slicing.md#总则](dimension-slicing.md#总则)、[semantic-extraction.md#总则](semantic-extraction.md#总则)、[domain-tools.md#总则](domain-tools.md#总则)、[resource-transfer.md#总则](resource-transfer.md#总则) |
+| 阻塞感知、watchdog | 门禁拒绝、worker 超时 | [progress-recovery.md#总则](progress-recovery.md#总则)、[watchdog.md#总则](watchdog.md#总则) |
+| 埋点 | 认领范围含埋点事件 | [telemetry.md#总则](telemetry.md#总则) |
+| 资产根与留存 | 任何读写工件 | [storage-layout.md#总则](storage-layout.md#总则) |
+| 宿主接入、核验范围、模型档位 | 宿主编排 | [host-integration.md#总则](host-integration.md#总则)、[model-routing.md#总则](model-routing.md#总则) |
+
 ## 命令通用约定
 
 适用于全部 `/sdd-*` 命令，命令文件只写各自的差异。
 
-1. 先读[四条红线](../../../AGENTS.md#四条红线)、[调用约定](../../../AGENTS.md#调用约定)和[轮询与派发](#提示采纳回报)，解析参数为绝对路径及规范 ID；协议其余部分按小节取（`reading.py show`），不整份加载。
+1. 先读[四条红线](../../../AGENTS.md#四条红线)、[调用约定](#调用约定)和[轮询与派发](#提示采纳回报)，解析参数为绝对路径及规范 ID；协议其余部分按小节取（`reading.py show`），不整份加载。
 2. 检查现有工件与版本；同请求幂等恢复，不删除、不静默覆盖。普通命令不直接写业务工件或投影；宿主自己的运行记录放 staging/host，不登 issue。
 3. 宿主把已授权身份绑定到 host-context，请求内自报 role 不获权限；派发按[宿主派发](runtime.md#宿主派发)，定义文件不会自动安装或注册不存在的工具；payload 与用法见[操作矩阵](local-runtime.md#操作矩阵)。无冲突模块的 MO 审核（plan-review、freeze、decompose-accept）由宿主并行派发独立实例，并行数受输入与宿主限制。
 4. 结束时输出已提交事件/当前状态/产物路径和下一动作。角色内部按授权预算运行。

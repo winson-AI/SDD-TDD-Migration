@@ -31,6 +31,7 @@ TRIGGERED_TEMPLATE_BUDGET = 34_700  # the most templates any step carries once e
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
 PROTOCOL_BUDGET = 458800  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
 FILE_BUDGET = 32_000
+ENTRY_BUDGET = 4_000  # AGENTS.md, the host's entry; a dispatched role reads its card instead
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
 P = 'skills/migration-protocol/references/'
