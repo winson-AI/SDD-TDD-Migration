@@ -17,7 +17,7 @@ def automation_flow():
     artifact(d, 460, 190, 640, 130, '测试输入 → 冻结 PATH',
              ['GO / 父 MO 分配全量 CASE；SPEC → PATH / 参数 / 步骤 / ASSERT', '测试源随计划冻结：进程内 FlowTest / 设备脚本；不自行放宽预期'])
     d.box(60, 190, 340, 210, '项目上下文',
-          ['存量与运行方式 / 目标 / 架构 / 媒体', '二方库行为对齐与 fidelity', 'adapter + 环境 / fixture', '项目配置 → 本轮快照'], 'gray')
+          ['存量与运行方式 / 目标 / 架构 / 媒体', '二方库行为对齐与 fidelity', '三条声明 → 适配器 / 环境文件', '项目配置 → 本轮快照'], 'gray')
     d.arrow([(400, 255), (460, 255)])
     d.arrow([(780, 320), (780, 375)])
     d.box(460, 375, 640, 115, 'Coding 接受 → build / unit / static Green',
@@ -35,10 +35,10 @@ def automation_flow():
           ['automation-unavailable', '→ automation-deferred', '逐 PATH：Yellow / 未执行', '保留 build Green，不耗修复轮次', '不能掩盖已观察到的 Red'], 'orange', True)
     d.arrow([(780, 865), (780, 940)]); d.label(780, 910, 'ready')
     d.box(460, 940, 640, 125, 'ready 绑定 → 宿主 execute_test',
-          ['scope=automation；重验代码 / 环境 / 命令', '进程内 PATH 跑冻结命令 + JUnit；设备 PATH 调 Main 或冻结脚本'])
+          ['scope=automation；重验代码 / 环境 / 命令', '进程内 PATH 跑冻结命令 + JUnit；设备 / 浏览器 PATH 调 Main'])
     d.arrow([(780, 1065), (780, 1120)])
-    d.box(460, 1120, 640, 145, '逐 PATH 调用项目 Main',
-          ['argv + --query-file … --result-file …', 'Android / Harmony test：Planner / Executor / Verify（图 06）', '冻结 platform 与已部署 APK / HAP 绑定；record_video 留录屏'], controller=True)
+    d.box(460, 1120, 640, 145, '逐 PATH 调用 Main（适配器随平台）',
+          ['argv + --query-file … --result-file …', 'Android / Harmony → Harmony Main（图 06）；web → web Main', '冻结 platform 绑定 APK / HAP / 页面哈希；record_video 留录屏'], controller=True)
     d.box(60, 1080, 340, 190, '两层执行结果',
           ['包装器 exit 0：已写回执', '不等于 CASE 通过', '超时 124 / 启动失败 127', '以 receipt / assertions 为准'], 'orange')
     d.arrow([(780, 1265), (780, 1320)])
