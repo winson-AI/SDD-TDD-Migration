@@ -18,9 +18,10 @@ sys.dont_write_bytecode = True
 PACKAGE = Path(__file__).resolve().parents[3]
 READ_BUDGET = 29_100  # UTF-8 bytes per dispatch card: the resident text (red lines, shared rules, the role, the step and its operation)
 TOPIC_BUDGET = 25_900  # the topic sections one step lists on demand (UI, resources, reuse, telemetry, the declared platforms' Mains, the legacy, the user's media)
-# One dispatch: resident card, on-demand topic sections and templates together, for a registered leaf with a plan, every fact
-# trigger on and both platform families declared (test_progressive_fidelity enumerates it); lower it when a step hands less, never raise it.
-STEP_BUDGET = 82_200
+# What one step can make a role read: the resident card and every on-demand topic section it lists, for a registered leaf with a
+# plan, every fact trigger on and both platform families declared (test_progressive_fidelity enumerates it). Templates are named
+# on the card and fetched one by one when written, so they are ratcheted on their own; lower it when a step hands less, never raise it.
+STEP_BUDGET = 51_200
 # A step with no UI, reuse, telemetry or lean-leaf scope stays under this; lower it when cards shrink, never raise it.
 TYPICAL_BUDGET = 29_100
 # A session holding this much protocol text is better restarted from its checkpoint than fed more; advisory.
@@ -29,7 +30,7 @@ ROTATE_BUDGET = 100_000
 TEMPLATE_BUDGET = 13_500
 TRIGGERED_TEMPLATE_BUDGET = 34_700  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 458800  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
+PROTOCOL_BUDGET = 457300  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
 FILE_BUDGET = 32_000
 ENTRY_BUDGET = 4_000  # AGENTS.md, the host's entry; a dispatched role reads its card instead
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
