@@ -96,8 +96,7 @@ STEP = {
     + sections('dimension-slicing.md', '7. 任务级四维分析契约'),
     'fixer': sections('local-runtime.md', '阶段结果') + sections('state-machine.md', '有限循环')
     + sections('build-automation.md', '本地一轮的预算单位') + sections('context-readiness.md', '2. 精确插入节点'),
-    'diagnostician': sections('state-machine.md', '有限循环') + sections('testing.md', '断言与结果')
-    + sections('engineering-disciplines.md', '1. Foundation / 迁移知识执行与冻结'),
+    'diagnostician': sections('state-machine.md', '有限循环') + sections('testing.md', '断言与结果'),
     'module-orchestrator': sections('state-machine.md', 'Module-Orchestrator 唯一模块守卫', '有限循环'),
     'global-orchestrator': sections('state-machine.md', '模块隔离与全量收尾'),
     'auditor': [],
@@ -203,9 +202,10 @@ def op_sections(role, operation):
 
 
 def skill_sections(path, test_scope=None):
-    """The execution rules of a role skill; the pointer and interface boilerplate every skill repeats is not part of a card."""
+    """The execution rules of a role skill; the pointer, interface and asset boilerplate every skill repeats is not part of a
+    card: a step names the templates it instantiates itself."""
     names = re.findall(r'(?m)^## (.*)$', (PACKAGE / path).read_text())
-    keep = [n for n in names if n not in ('1. 定位', '4. 接口契约')
+    keep = [n for n in names if n not in ('1. 定位', '4. 接口契约', '6. 配套资产')
             and (not n.startswith('7. Android/Harmony') or test_scope in ('automation', 'visual'))]
     return [(path, n) for n in keep]
 

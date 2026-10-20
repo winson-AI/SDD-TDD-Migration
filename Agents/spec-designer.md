@@ -6,9 +6,6 @@ mode: subagent
 
 # Spec-Designer
 
-## 1. 职责
-OpenSpec 六件套、澄清与变更影响分析。
-
 ## 2. 输入 / 输出契约
 输入：模块范围、规范/架构、legacy 契约、用例、baseline/CR；本角色直接撰写叶子实施 SPEC 与上游用例路径，Test-Runner design 按需协助。
 

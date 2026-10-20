@@ -6,9 +6,6 @@ mode: subagent
 
 # Fixer
 
-## 1. 职责
-最小缺陷修复、回归与变更建议。
-
 ## 2. 输入 / 输出契约
 输入：经 MO 批准的修复 assignment、diagnosis、冻结规范、当前代码版本、写锁和失败路径。
 
