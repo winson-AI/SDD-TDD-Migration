@@ -29,6 +29,7 @@ from lean_tools import mobile_snapshot, semantic_visual_inspect, validate_manife
 
 OPERATIONS = {'visual-install', 'visual-capture', 'semantic-inspect'}
 ADB_KINDS = ('android-device', 'android-emulator', 'vm')  # legacy_preview kinds an adb serial reaches
+HDC_KINDS = ('harmony-device',)  # legacy_preview kinds an hdc target reaches
 BOOT_POLL_SECONDS = 3
 
 
@@ -655,13 +656,23 @@ def install_legacy(device, stated, app, out):
         artifact = Path(stated['artifact'])
         if not artifact.is_file() or file_ref(artifact)['sha256'] != stated.get('artifact_sha256'):
             raise DeviceFailure('artifact-identity-unverified', 'the legacy package differs from the one the run was prepared with')
-    device.call('install', '-r', '-t', artifact, timeout=240)  # -t: a package built by the IDE's Run is test-only and is still the legacy
-    installed = device.call('shell', 'pm', 'path', app)
-    if 'package:' not in installed:
-        raise DeviceFailure('artifact-identity-unverified', 'the legacy package is not installed under its app_id')
+    identity = None
+    if device.backend == 'hdc':  # a legacy HAP: its bundle is the stated app, and the installed bundle and version are the HAP's
+        identity = hap_identity(artifact)
+        if identity['bundleName'] != app:
+            raise DeviceFailure('artifact-identity-unverified', 'the legacy HAP bundleName differs from legacy_preview.app_id')
+        device.call('install', '-r', artifact, timeout=240)
+        installed = device.call('shell', 'bm', 'dump', '-n', app)
+        if not installed_identity(installed, identity):
+            raise DeviceFailure('artifact-identity-unverified', 'the legacy package is not installed under its app_id')
+    else:
+        device.call('install', '-r', '-t', artifact, timeout=240)  # -t: a package built by the IDE's Run is test-only and is still the legacy
+        installed = device.call('shell', 'pm', 'path', app)
+        if 'package:' not in installed:
+            raise DeviceFailure('artifact-identity-unverified', 'the legacy package is not installed under its app_id')
     return save(out / 'install.json', {'producer': 'lean-visual-worker', 'operation': 'legacy-install', 'status': 'INSTALLED',
                                        'artifact_ref': file_ref(artifact), 'app_id': app, 'device_id': device.device,
-                                       'installed': installed, 'build_log_ref': build_log,
+                                       'installed': installed, 'build_log_ref': build_log, 'artifact_identity': identity,
                                        'acceptance': 'installation-is-evidence-not-a-baseline'})
 
 
@@ -677,7 +688,7 @@ def agent_navigate(stated, device, app, target, spec, out, run_id, module_id, la
         return blocked('legacy_preview.navigator is not configured: agent navigation needs the adapter that walks a snapshot task')
     folder = out / f'navigation-{label}'; folder.mkdir(parents=True, exist_ok=True)
     query = {'run_id': run_id, 'module_id': module_id, 'capture_id': spec['coverage'], 'name': 'legacy ' + target['page_id'] + ':' + target['state_id'],
-             'platform': 'android', 'task_type': 'snapshot', 'steps': navigation['steps'],
+             'platform': device.platform, 'task_type': 'snapshot', 'steps': navigation['steps'],
              'preconditions': ['the legacy application ' + app + ' is installed and launched on ' + device.device],
              'parameters': {'device_id': device.device, 'app_id': app}}
     query_ref = save(folder / 'query.json', query); result_path = folder / 'result.json'
@@ -705,8 +716,10 @@ def capture_legacy_target(device, stated, app, target, spec, out, run_id=None, m
     """One legacy screen as an android-reference record: launched, navigated by frozen actions or the stated navigator, matched, captured stable."""
     label = re.sub(r'[^A-Za-z0-9_.-]+', '-', target['page_id'] + '-' + target['state_id'])
     launch = stated.get('launch')
-    if launch:
-        require(re.fullmatch(r'[A-Za-z0-9_.$]+', launch), 'legacy_preview.launch must be an activity name')
+    require(not launch or re.fullmatch(r'[A-Za-z0-9_.$]+', launch), 'legacy_preview.launch must be an activity or ability name')
+    if device.backend == 'hdc':
+        device.call('shell', 'aa', 'start', '-b', app, '-a', launch or 'EntryAbility')
+    elif launch:
         device.call('shell', 'am', 'start', '-n', app + '/' + launch)
     else:
         device.call('shell', 'monkey', '-p', app, '-c', 'android.intent.category.LAUNCHER', '1')
@@ -716,7 +729,7 @@ def capture_legacy_target(device, stated, app, target, spec, out, run_id=None, m
         if outcome['status'] != 'REACHED':
             return outcome
         navigation = outcome['navigation']
-    android_actions(device, spec.get('actions', []))
+    (frozen_actions if device.backend == 'hdc' else android_actions)(device, spec.get('actions', []))
     observed = observe_screen(device, app, target, spec, out, label)
     if 'captures' not in observed:
         return observed
@@ -726,7 +739,8 @@ def capture_legacy_target(device, stated, app, target, spec, out, run_id=None, m
     snapshot = {**captures[0], 'meta': meta_ref['path'], 'device_backend': observed['backend'], 'coverage': coverage, 'captures': captures}
     if not observed['complete']:
         return blocked('bounded scroll observations do not prove full scroll coverage', 'capture-incomplete', meta_ref=meta_ref)
-    return {'status': 'COMPLETE', 'record': {'mode': 'targeted', 'phase': 'android-reference', 'platform': 'android',
+    phase, platform = ('legacy-reference', 'harmony') if device.backend == 'hdc' else ('android-reference', 'android')
+    return {'status': 'COMPLETE', 'record': {'mode': 'targeted', 'phase': phase, 'platform': platform,
             'page_id': target['page_id'], 'state_id': target['state_id'], 'observed_variant': target['state_id'], 'round': None,
             'status': 'COMPLETE', 'coverage': coverage, 'timestamp': datetime.now(timezone.utc).isoformat(), 'snapshot': snapshot,
             'target_match': {'kind': 'frozen-exact-selectors', 'matched': True}}}
@@ -739,8 +753,8 @@ def legacy_capture(args, *, root, out, state, task, actor, module_id=None):
     import project_context
     require(actor.get('role') in ('spec-designer', 'test-runner'), 'legacy capture outside role')
     stated = project_context.legacy_preview(state)
-    require(stated and stated['kind'] in (*ADB_KINDS, 'browser'),
-            'legacy_preview must state an adb-visible provider (android-device, android-emulator or vm) or a browser url before the legacy is captured')
+    require(stated and stated['kind'] in (*ADB_KINDS, *HDC_KINDS, 'browser'),
+            'legacy_preview must state an adb-visible provider (android-device, android-emulator or vm), an hdc-visible harmony-device or a browser url before the legacy is captured')
     root, out = Path(root).resolve(), Path(out).resolve()
     runner_storage.harmony_output(root, out, 'sandbox')
     run_id = state.get('run_id') or root.name
@@ -752,16 +766,18 @@ def legacy_capture(args, *, root, out, state, task, actor, module_id=None):
     except RuntimeError as exc:
         require(False, 'legacy-capture target: ' + str(exc))
     require(len({(p['page_id'], p['state_id']) for p in parsed}) == len(parsed), 'one record per page:state')
-    web = stated['kind'] == 'browser'
+    web, hdc = stated['kind'] == 'browser', stated['kind'] in HDC_KINDS
     device_lock(actor, {'device_id': stated['url'] if web else stated['device']['serial']}, task)
     app = stated['url'] if web else token(stated['app_id'], 'app_id')
     result, install_ref, boot_ref, records, blocked_targets, device = None, None, None, [], [], None
     try:
-        device = BrowserDevice(stated['url'], out, viewport=stated.get('viewport')) if web else AndroidDevice(stated['device']['serial'], args.get('tool', 'adb'), out)
+        device = (BrowserDevice(stated['url'], out, viewport=stated.get('viewport')) if web
+                  else Device({'backend': 'hdc', 'tool': args.get('tool', 'hdc'), 'device_id': stated['device']['serial']}, out) if hdc
+                  else AndroidDevice(stated['device']['serial'], args.get('tool', 'adb'), out))
         if not web:
-            device.version = (device.call('version').strip().splitlines() or [''])[0]
+            device.version = (device.call('-v' if hdc else 'version').strip().splitlines() or [''])[0]
             if not device.version:
-                raise DeviceFailure('environment-unavailable', 'adb version could not be observed')
+                raise DeviceFailure('environment-unavailable', device.backend + ' version could not be observed')
             boot_ref = ensure_device(device, stated['device'].get('boot'), stated['device'].get('avd'), out)  # no real device: the stated emulator is booted
             install_ref = install_legacy(device, stated, app, out)
         for target, spec in zip(parsed, targets):

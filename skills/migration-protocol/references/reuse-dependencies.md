@@ -91,7 +91,7 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 ### 7.3 失败、变化与实现边界
 
 - 原基线、对齐报告、提供方/版本或接线依据改变，相关旧依据失效，按 invalidate/CR/重新冻结与复测更新，保留旧证据；旧计划缺 fidelity 须补录重冻结，历史 Green 不算满足新增规范。
-- 控制器在 plan 检查存量根、源码范围、引用与 PATH/ASSERT 覆盖，在 verify_plan 检查基线与报告漂移，测试门禁验证每条冻结断言的真实回执与 expected/actual。**结构和 hash 检查不证明语义等价或对齐完备**，分析、场景质量与真实复现仍由角色/宿主负责并由阶段验收 owner 审核。
+- 控制器在 plan 检查存量根、源码范围、引用与 PATH/ASSERT 覆盖，在 verify_plan 检查基线与报告漂移，测试门禁验证每条冻结断言的真实回执与 expected/actual。**结构和 hash 检查不证明语义等价或对齐完备**，分析、场景质量与真实复现由角色负责、阶段验收 owner 审核。
 
 ## 8. 复用不可行 → Coding；确实无法实现 → “未实现”提醒
 

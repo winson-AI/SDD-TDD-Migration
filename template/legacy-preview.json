@@ -5,5 +5,5 @@
   "artifact": "{{absolute-prebuilt-apk-path}}",
   "launch": "{{launch-activity-or-omit}}",
   "navigator": {"argv": ["{{absolute-python}}", "{{absolute-adapter-script}}"], "cwd": "{{absolute-adapter-cwd}}", "timeout_seconds": 600},
-  "note": "artifact 可换成 build {argv, cwd, timeout_seconds, output}；navigator 可选，是 legacy-capture 里 navigation.mode=agent 的目标所用的 adapter（走 snapshot 任务）；没有真机时 device.boot 可省：有 avd 则用 ANDROID_SDK_ROOT/ANDROID_HOME/PATH 上的 SDK emulator，未连接时由 worker 启动并等开机；kind=android-device|vm 同形；kind=browser 只带 url；kind=none 只带 reason"
+  "note": "artifact 可换成 build {argv, cwd, timeout_seconds, output}；kind=harmony-device 同形：device.serial 是 hdc 看到的目标，app_id 是 bundleName，artifact 是 HAP，launch 是 ability（缺省 EntryAbility）；navigator 可选，是 legacy-capture 里 navigation.mode=agent 的目标所用的 adapter（走 snapshot 任务）；没有真机时 device.boot 可省：有 avd 则用 ANDROID_SDK_ROOT/ANDROID_HOME/PATH 上的 SDK emulator，未连接时由 worker 启动并等开机；kind=android-device|vm 同形；kind=browser 只带 url；kind=none 只带 reason"
 }

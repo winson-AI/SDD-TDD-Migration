@@ -54,7 +54,7 @@ work_modules 包含发现模块、根因 owner 与受影响下游，按模块基
 
 ## 默认收尾：修复后验证，失败待人工
 
-本节描述统一宿主审计的 finding 批次（audit-collect），待所有模块本轮收尾后启动。
+本节是统一审计的 finding 批次（audit-collect）。
 
 ### 1. 所有模块执行阶段结束后统一启动
 

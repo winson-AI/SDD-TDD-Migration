@@ -339,3 +339,59 @@ class EmulatorBootTests(CaptureFixture):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class HarmonyLegacyTests(CaptureFixture):
+    """A Harmony legacy on an hdc target: the HAP is installed and checked by bundle and version, the ability started, the
+    screen observed by the shared observer and written as a legacy-reference record of platform harmony."""
+    def setUp(self):
+        super().setUp()
+        import test_lean_visual_worker
+        self.hap = self.base / 'legacy.hap'; self.hap.write_bytes(test_lean_visual_worker.VisualExecutionTests.hap(None, APP, 1))
+        self.stated = {'kind': 'harmony-device', 'app_id': APP, 'device': {'serial': 'hdc-1'}, 'artifact': str(self.hap),
+                       'artifact_sha256': file_ref(self.hap)['sha256'], 'launch': 'EntryAbility'}
+        self.actor['device_lock']['device_id'] = 'hdc-1'
+        self.bundle, self.text = APP, 'Login'
+
+    def fake(self, argv, **kwargs):
+        self.commands.append(argv)
+        self.assertEqual(argv[1:3], ['-t', 'hdc-1'])
+        command, stdout = argv[3:], ''
+        if command == ['-v']: stdout = 'Ver: 3.1.0 test-device-tool'
+        elif command == ['list', 'targets']: stdout = 'hdc-1\n'
+        elif command[:3] == ['shell', 'bm', 'dump']: stdout = json.dumps({'bundleName': self.bundle, 'versionCode': 1})
+        elif command[:3] == ['shell', 'aa', 'dump']: stdout = f'app name [{APP}] foreground'
+        elif command[:3] == ['shell', 'uitest', 'dumpLayout']: stdout = 'saved to: /data/local/tmp/layout.json'
+        elif command[:2] == ['file', 'recv']:
+            dest = Path(command[-1]); dest.parent.mkdir(parents=True, exist_ok=True)
+            if dest.suffix == '.json':
+                dest.write_text(json.dumps({'attributes': {'type': 'Column', 'text': self.text, 'key': 'title', 'bundleName': APP, 'bounds': '[0,0][100,200]', 'scrollable': False}, 'children': []}))
+            else:
+                out = io.BytesIO(); Image.new('RGB', (20, 20), (10, 20, 30)).save(out, format='JPEG'); dest.write_bytes(out.getvalue())
+        return SimpleNamespace(returncode=0, stdout=stdout, stderr='')
+
+    def test_a_harmony_legacy_screen_becomes_a_legacy_reference_record_of_platform_harmony(self):
+        result = self.capture([{'coverage': 'login:base:viewport', 'target_match': [{'text': 'Login'}]}], tool='/opt/sdk/hdc')
+        self.assertEqual((result['status'], result['captured'], result['blocked']), ('CAPTURED', ['login:base:viewport'], []))
+        record = ui_evidence.capture_target(result['manifest_ref'], 'login:base:viewport')
+        self.assertEqual((record['phase'], record['platform'], record['snapshot']['device_backend']['name']), ('legacy-reference', 'harmony', 'hdc'))
+        self.assertEqual(validate_manifest.validate_manifest(read_json(result['manifest_ref']['path']))['mode'], 'runtime')
+        self.assertTrue(select_runtime_ui.select(Path(result['manifest_ref']['path']), ['login:base:viewport']))
+        self.assertTrue(any(c[3:6] == ['install', '-r', str(self.hap)] for c in self.commands))
+        self.assertTrue(any(c[3:9] == ['shell', 'aa', 'start', '-b', APP, '-a'] and c[9] == 'EntryAbility' for c in self.commands))
+        self.assertEqual(read_json(result['install_ref']['path'])['artifact_identity']['bundleName'], APP)
+
+    def test_a_hap_of_another_bundle_or_an_installed_mismatch_is_not_the_legacy(self):
+        self.stated['app_id'] = 'com.example.other'
+        result = self.capture([self.login()])
+        self.assertEqual((result['status'], result['root_cause']['kind']), ('BLOCKED', 'artifact-identity-unverified'))
+        self.stated['app_id'] = APP; self.bundle = 'com.example.stale'
+        result = self.capture([self.login()])
+        self.assertEqual((result['status'], result['root_cause']['kind']), ('BLOCKED', 'artifact-identity-unverified'))
+
+    def test_the_statement_names_the_hdc_target_and_the_ability(self):
+        import project_context as pc
+        good = pc.legacy_preview_config(dict(self.stated))
+        self.assertEqual((good['kind'], good['launch']), ('harmony-device', 'EntryAbility'))
+        with self.assertRaisesRegex(Rejected, 'legacy_preview.kind is one of'):
+            pc.legacy_preview_config({**self.stated, 'kind': 'harmony-emulator'})
