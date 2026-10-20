@@ -91,7 +91,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 ## 7. 宿主如何推进 build → unit → static → automation → visual
 
-责任分工：Test-Runner 执行并取证；MO 接受结果和请求派发；Ledger 决定合法下一步；宿主真正启动进程/Agent。`next_steps` 返回动作不代表命令已经执行，也不是 Test-Runner 私自串联第二阶段的授权。
+责任分工：Test-Runner 执行并取证，MO 接受结果和请求派发，Ledger 决定合法下一步，宿主真正启动进程/Agent；`next_steps` 返回动作不代表命令已执行，也不是 Test-Runner 私自串联第二阶段的授权。
 
 | 节点 | Ledger 状态 / 游标 | 宿主及角色动作 |
 | --- | --- | --- |
@@ -113,7 +113,6 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 Harmony Main 不隐式安装 App：装机证据来自 visual-install（[视觉执行](visual-execution.md#2-执行节点)）或宿主提供的已安装包与当前构建/代码基线的关联证据；旧安装包上的测试不算当前代码通过。
 
-
 ## 构建资产位置
 
 冻结 build PATH 时审核构建输出位置，遵守[留存文件系统](storage-layout.md)：正式输出为 runs/build/<新 attempt>；执行器绑定临时目录与工具缓存，在该次 Gradle home 放 init.d 把各工程 buildDirectory 与项目缓存定向到 runner，脚本内的构建同样继承。自查用 `execute_test.py selfcheck --cwd <树> --output <新目录> -- <命令>`，同一定向，不留回执、不算结果。宿主可设 `SDD_GRADLE_CACHE_SEED`（一个 Gradle user home）供各次执行链接 wrapper 与依赖缓存；冻结参数保留，实际命令只加缓存目录参数。APK、构建报告、测试脚本不留在目标源码旁；硬编码输出先调整冻结任务/构建配置，工程不支持则如实记录。安装步骤读本轮实际 APK 路径。
@@ -124,7 +123,7 @@ Harmony Main 不隐式安装 App：装机证据来自 visual-install（[视觉�
 
 执行超时后，Host executor 向本 attempt 的进程组发送 SIGKILL；输出回收另限 2 秒，不能因脱离进程组的子进程持有 stdout/stderr 再无限等待。回执 termination 分别记录信号结果、direct_process_exited、output_drained、descendants_status 和 host_stop_required；仅发送信号或得到管道 EOF 不代表所有外部子进程已停止。
 
-回收超时、直接进程未确认退出或信号失败时，保存已捕获日志、exit_code=124 与诊断回执，host_stop_required=true；当前 attempt 与嵌套 Harmony temp 保留，cleanup.json 记 process-stop-unconfirmed。Host 先核验/停止或隔离进程，保留回执与 stopped_worker_ref，再按 revoke（全局审计用 audit-revoke）恢复；该回执不能经 submit/accept 关闭 assignment，也不算普通自动化缺测。保持已有失败观测，不自动重授资源锁或删除仍在使用的临时目录，无关模块继续；确认后由 Host 清理该 attempt，后续测试用新 attempt。正常回收的超时仍按下述三态提交。
+回收超时、直接进程未确认退出或信号失败时保存已捕获日志、exit_code=124 与诊断回执，host_stop_required=true，当前 attempt 与嵌套 Harmony temp 保留，cleanup.json 记 process-stop-unconfirmed；Host 先核验/停止或隔离进程、保留回执与 stopped_worker_ref，再按 revoke（全局审计用 audit-revoke）恢复，该回执不能经 submit/accept 关闭 assignment，也不算普通自动化缺测；已有失败观测保留，不自动重授资源锁或删仍在用的临时目录，无关模块继续，确认后 Host 清理该 attempt，后续测试用新 attempt。正常回收的超时仍按下述三态提交。
 
 Auditor 批次中的构建 Red/Yellow 同样属于验证失败：接受构建结果时直接记录 build-verification-failed、结果引用及编译/超时根因，关联分支等待人工审核，独立审计分支继续。批次内禁止 audit-defer；构建 Green 只开放 Automation，不写入自动化通过证明。纯自动化环境缺失仍走原缺测出口，不能用于跳过失败构建。
 

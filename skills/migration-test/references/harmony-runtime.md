@@ -28,9 +28,9 @@ Test-Runner 的 Android/Harmony UI/端到端 Main；构建/单测仍用项目 ad
 
 ## 2. 宿主配置
 
-推荐先用[独立 uv sandbox](../runtime/harmony/README.md)：`uv sync --locked` 安装本目录 `.venv`，`sandbox.py` 提供离线 doctor、用例导入、单 PATH 调试与宿主 adapter 生成；公开默认 LLM 配置复用 MobileAgenticOperator，`.env` 只留本地，角色密钥优先于公共密钥。独立调试不代替 host receipt 与 Ledger 验收。使用 [harmony-config.json](../../../template/harmony-config.json) 与 [harmony-test-adapter.json](../../../template/harmony-test-adapter.json)，替换占位符后由宿主审核并提交为受控输入。
+推荐先用[独立 uv sandbox](../runtime/harmony/README.md)：`uv sync --locked` 安装本目录 `.venv`，`sandbox.py` 提供离线 doctor、用例导入、单 PATH 调试与宿主 adapter 生成；默认 LLM 配置复用 MobileAgenticOperator，`.env` 只留本地，角色密钥优先于公共密钥；独立调试不代替 host receipt 与 Ledger 验收。[harmony-config.json](../../../template/harmony-config.json) 与 [harmony-test-adapter.json](../../../template/harmony-test-adapter.json) 替换占位符后由宿主审核并提交为受控输入。
 
-- Python 至少 3.10；SDK、Hypium/HDC、图像/视频依赖见 [requirements.txt](../runtime/harmony/requirements.txt)（wheel 已保留，安装时 cwd 为其所在目录）；机器专属的 Hypium 开发包路径未迁移，由宿主提供运行环境。
+- Python ≥ 3.10；SDK、Hypium/HDC、图像/视频依赖见 [requirements.txt](../runtime/harmony/requirements.txt)（wheel 已保留，安装时 cwd 为其所在目录）；机器专属的 Hypium 开发包路径由宿主提供。
 - `models` 用原 `AppConfig` 字段，密钥用 `{"env":"变量名"}` 或 `{"env":["角色变量","公共变量"]}` 按顺序回退，运行时解析不写入模板；支持多 Planner 模型、执行器选择、Verify、压缩、反思与 special_test 配置；sandbox 加载指定 `.env` 且不覆盖进程同名变量。XMind 导入只读取转换所需模型配置。
 - Android 需 ADB/uiautomator2（general/glm），Harmony 需 HDC/Hypium（四种原执行器）；拒绝不兼容 provider，不静默切换。设备优先级 `--device` → `devices[platform]` → 同平台 `device` → `ANDROID_DEVICE/HARMONY_DEVICE`；`--platform` 须与冻结 PATH 一致，未传时取 PATH 再取配置；GO 锁与 adapter 本机端口租约共同隔离，同一 Android serial 不因 Harmony ip/port 不同而解除互斥。
 - `video_assert` 必须开视频，默认模板开启且 adapter 保留原始视频。任务预算原引擎默认 1800 秒，host adapter 模板 1860 秒；内部导航重规划不增加代码修复轮次。
@@ -98,7 +98,7 @@ Harmony 内核只跑 automation PATH；build PATH 由 Test-Runner 经通用 exec
 
 ## 本轮共享环境准备
 
-Test-Runner 首次设计转换或 automation 预检前执行 `sandbox.py prepare --root <run_root>`：参考/default 复制到 `runs/harmony/sandbox/environment/config.json` 与 `.env`，所有子模块共享这一份配置，各执行仍独立 attempt；显式 --config/--env-file 只是首次复制来源，既有配置不随来源更新；生成 adapter 绑定本轮配置与 root，凭证不入 Ledger；缺环境仍 Yellow/未执行且不影响独立任务。示例见 [sandbox README](../runtime/harmony/README.md#4-本轮共享配置与离线检查)。
+Test-Runner 首次设计转换或 automation 预检前执行 `sandbox.py prepare --root <run_root>`：参考/default 复制到 `runs/harmony/sandbox/environment/config.json` 与 `.env`（声明了 `test_adapter.harmony_reference` 的 run 由 init 完成这一复制），所有子模块共享这一份配置，各执行仍独立 attempt；显式 --config/--env-file 只是首次复制来源，既有配置不随来源更新；生成 adapter 绑定本轮配置与 root，凭证不入 Ledger；缺环境仍 Yellow/未执行且不影响独立任务。示例见 [sandbox README](../runtime/harmony/README.md#4-本轮共享配置与离线检查)。
 
 ## 异常完成与部分证据
 

@@ -12,16 +12,13 @@ watchdog 仅观察和通知；不派发/恢复 Agent、不写 Ledger、不改门
 
 ```sh
 # 单次检查；stdout 为 JSON，含 host/workers/findings/notifications
-python3 <package_root>/skills/migration-ledger/scripts/watchdog.py check \
-  --root <workspace_root>/.sdd-runs/<run_id>
+watchdog.py check --root <workspace_root>/.sdd-runs/<run_id>
 
 # 持续检查；未确认交付的通知会以相同 notice_id 重放
-python3 <package_root>/skills/migration-ledger/scripts/watchdog.py watch \
-  --root <workspace_root>/.sdd-runs/<run_id>
+watchdog.py watch --root <workspace_root>/.sdd-runs/<run_id>
 
 # Host 展示/可靠接收通知后确认，可重复传入 --notice-id
-python3 <package_root>/skills/migration-ledger/scripts/watchdog.py ack \
-  --root <workspace_root>/.sdd-runs/<run_id> --notice-id notice-<实际通知ID中的数字>
+watchdog.py ack --root <workspace_root>/.sdd-runs/<run_id> --notice-id notice-<实际通知ID中的数字>
 ```
 
 Host 按 notice_id 去重展示或可靠存入通知收件箱后 ack，同 notice 整体确认；读取 stdout 不等于交付，ack 不等于解决。程序不发邮件/聊天、不执行通知 hook、不安装服务。覆盖宿主失联需独立监督进程。

@@ -51,5 +51,35 @@ class TargetPreviewTests(unittest.TestCase):
         self.assertEqual(pc.target_preview_files(t.run, {'platforms': ['android']}), {})  # platforms without a preview leave the host to write
 
 
+class EnvironmentFromStatementsTests(unittest.TestCase):
+    def test_a_visual_path_skeleton_starts_from_the_environment_init_wrote(self):
+        import spec_skeleton
+        from contracts import SKELETON_MARK
+        environment = {'path': '/run/runs/harmony/sandbox/environment/target-preview-web.json', 'sha256': 'a' * 64}
+        s = {'target_preview': {'environments': {'web': environment}}}
+        contract = spec_skeleton.visual_prefill(s, 'web')['visual_execution']
+        self.assertEqual((contract['environment_ref'], contract['actions']), (environment, []))
+        self.assertTrue(all(SKELETON_MARK in str(contract[k]) for k in ('app_id', 'url', 'target_match')))
+        self.assertIn('ability', spec_skeleton.visual_prefill({'target_preview': {'environments': {'android': environment}}}, 'android')['visual_execution'])
+        self.assertEqual(spec_skeleton.visual_prefill(s, 'android'), {})
+        self.assertEqual(spec_skeleton.visual_prefill({}, None), {})
+
+    def test_the_harmony_sandbox_is_prepared_from_the_stated_reference_at_init(self):
+        import shutil
+        t = test_project_context.ProjectContextTests(); t.setUp(); self.addCleanup(t.doCleanups)
+        runtime = Path(__file__).resolve().parents[2] / 'migration-test/runtime/harmony'
+        config = t.base / 'reference-config.json'; shutil.copyfile(runtime / 'config.default.json', config)
+        env = t.base / 'reference.env'; shutil.copyfile(runtime / '.env.example', env)
+        pc.update(t.root, t.request('sandbox', 1, {'test_adapter': {'harmony_reference': {'config': str(config), 'env_file': str(env)}}}), t.actor)
+        with self.assertRaisesRegex(Rejected, 'harmony_reference takes the absolute config'):
+            pc.validate({'test_adapter': {'harmony_reference': {'config': 'relative.json'}}})
+        t.start(t.init_payload(t.prepare()))
+        state = ledger.read_events(t.run)[0]
+        prepared = Path(state['harmony_sandbox']['config_ref']['path'])
+        self.assertEqual((prepared, prepared.read_bytes() == config.read_bytes()), (t.run / 'runs/harmony/sandbox/environment/config.json', True))
+        self.assertEqual(Path(state['harmony_sandbox']['env_file']).read_bytes(), env.read_bytes())
+        self.assertIn('harmony_sandbox', ledger.status(t.run, 'step', None)['target_preview'])
+
+
 if __name__ == '__main__':
     unittest.main()

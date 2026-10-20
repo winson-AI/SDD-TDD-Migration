@@ -117,9 +117,8 @@ snapshot 固定代码、SPEC、上下文与验证定义。必要复测由独立 
 
 `global_spec` 是宿主目标/业务契约，GO 不生成下游实现 SPEC。分析和分配先从上到下接受当前规划；叶子 plan、四维和测试设计完整、问题已解，MO 以 `plan-review` 提交 [审核工件](../../../template/plan-review.json)，随后 `freeze {review_ref}`。未决问题绑定当前内容摘要、证据和可选方案交 Escalation；需求/验收/授权变化绑定真实 Human 决定。技术 hash 变化本身不触发人工批准。
 
-编码前 MO 可 planning-reopen 保留历史并重做受影响规划/测试设计。已授权实现默认走 CR；宿主 revoke 停止 worker 且 allow_planning_reopen 核实派发前 Git HEAD/本任务写范围无差异、无代码提交后，才可回规划。reopen 再次重核快照，缺证据仍走 CR。编码后由 Spec-Designer 提修订、MO 审核重冻；Fixer 只修代码或提 CR。历史保留，跨 Run 只复用有适用条件及证据的抽象经验。
+编码前 MO 可 planning-reopen 保留历史并重做受影响规划/测试设计；已授权实现默认走 CR，宿主 revoke 停止 worker 且 allow_planning_reopen 核实派发前 Git HEAD/本任务写范围无差异、无代码提交后才可回规划，reopen 重核快照，缺证据仍走 CR。编码后由 Spec-Designer 提修订、MO 审核重冻，Fixer 只修代码或提 CR；历史保留，跨 Run 只复用有适用条件及证据的抽象经验。
 
 修正从当前层向子 MO、父 MO、GO 逐级追溯，最低有权层裁决后向下更新实际影响闭包。保留的子契约须仍满足父边界；父规划调整不等于全体孩子重做。
 
-
-规划只有一份当前候选和一份当前有效执行基线。Implementer 执行前的草稿、分析、拆分和澄清调整存为 planning_history（history-only、不可执行），无版本编号或版本选择；重新规划须撤销当前冻结及旧设计授权，审核后重新冻结。plan_hash、freeze_id、事件 sequence/revision 和设计 generation 只用于内容校验、并发及拒收过期交接；schema_version 只校验工件格式。历史记录不能直接恢复冻结、派发实现或证明通过。
+规划只有一份当前候选和一份有效执行基线：Implementer 执行前的草稿、分析、拆分和澄清存为 planning_history（history-only、不可执行，无版本选择），重新规划须撤销当前冻结及旧设计授权、审核后重冻。plan_hash、freeze_id、事件 sequence/revision 和设计 generation 只用于内容校验、并发及拒收过期交接，schema_version 只校验工件格式；历史记录不能直接恢复冻结、派发实现或证明通过。

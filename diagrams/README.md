@@ -2,11 +2,11 @@
 
 图集与当前控制器及角色契约一致：GO/父 MO 切 scope/全量 CASE，子 MO 拆 TASK，SPEC 明确后冻结执行；执行反馈按实现错误、规划缺口、范围不足分流。同一 Run 仅执行当前冻结 SPEC，规划调整保留 history。先看总览，再展开模块执行、统一 Auditor、复用或自动化；SVG 入库，可放大，PNG 仅在本地生成。
 
-Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令的 unit PATH 一次执行、逐 PATH 归因；按顺序执行：build → unit → static（同一派发）→ 功能自动化 → 基线视觉对齐（存量在声明的设备 / 浏览器上被包内捕获、或用户给了截图 / 目标预期时；逐节点对齐，不对齐即 Red + 节点级根因走既有诊断/修复）。存量基线来源随 legacy_preview 声明，冻结前前移为 SPEC/coding 的输入。仅自动化环境缺失时保留 Yellow/未执行，其他可执行任务继续，本轮可以带缺测清单收尾；这不等于功能验收通过。详细门禁见 [构建与自动化协议](../skills/migration-protocol/references/build-automation.md)。
+Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令的 unit PATH 一次执行、逐 PATH 归因；按顺序执行：build → unit → static（同一派发）→ 功能自动化（设备 PATH 由内置 Harmony Main、web PATH 由内置 web Main 执行，适配器随 PATH 平台选取，预检命令由 Ledger 预填）→ 基线视觉对齐（存量在声明的设备 / 浏览器上被包内捕获、或用户给了截图 / 目标预期时；逐节点对齐，不对齐即 Red + 节点级根因走既有诊断/修复）。存量基线来源随 legacy_preview 声明，冻结前前移为 SPEC/coding 的输入。仅自动化环境缺失时保留 Yellow/未执行，其他可执行任务继续，本轮可以带缺测清单收尾；这不等于功能验收通过。详细门禁见 [构建与自动化协议](../skills/migration-protocol/references/build-automation.md)。
 
 | 图 | 关注点 | SVG |
 | --- | --- | --- |
-| 01 · 三层编排总览 | 用户输入含参考截图 / 录屏；GO 先记目标画像（无 / 壳 / 部分 / 已有，target-scan 给候选），再按功能树切 scope/全量 CASE；叶子是子业务流；子 MO 拆 TASK；并行执行与统一宿主审计 | [总览](workflow.svg) |
+| 01 · 三层编排总览 | 用户输入含参考截图 / 录屏与三条声明（存量怎样跑、目标在哪预览、资源怎样进目标）；GO 先记目标画像（无 / 壳 / 部分 / 已有，target-scan 给候选），再按功能树切 scope/全量 CASE；叶子是子业务流；子 MO 拆 TASK；并行执行与统一宿主审计 | [总览](workflow.svg) |
 | 02 · 子 MO 执行与反馈调整 | TASK/四维 → 存量可跑先按 capture_due 捕获、按 media_due 引用用户媒体 → SPEC、测试源与用户截图的 visual PATH 从骨架起笔、起步门禁冻结（目标已有代码须复用或说明，未捕获 / 未引用是欠项）→ Implementer（冻结测试原样交付，自查红→绿留证）/Testing；Fixer/CR（只改测试写法归 MO）/上溯三分流；独立性证明与默认全模块重验 | [子 MO](module-execution.svg) |
 | 03 · 统一 Auditor 宿主审计 | 全宿主目标/代码治理（清单与审查从骨架起笔，预列 debt）、遗留路由、影响模块完整回归、独立 Test-Runner 与 Auditor 裁决；波次集成已跑的路径只在 owner 代码变动时重跑；空清单由 Ledger 预检 | [Auditor](auditor-closure.svg) |
 | 04 · 二方库语义与复用 | 来源评审 → 语义抽取 → 四类复用决策 → API 与数据契约 → 冻结 → Coding → 真实依赖验证；提供方证据变化后的恢复 | [二方库](reuse-dependencies.svg) |
@@ -35,7 +35,7 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 - 正式目标代码测试在代码被接受之后派发；作者对任务的 unit PATH 自查两次（实现前失败、实现后通过），两份记录是该任务的 red 证据，报告按任务计数、不设门禁；已知技术债登 kind=debt 的 issue，审计骨架预列。
 - 波次集成：持有某条 global path 用例的叶子全部完成、别的叶子还在做时，GO 派独立 Test-Runner 执行它；结果绑定各 owner 的代码基线，统一审计只重跑 owner 代码变动的路径，Red 路由给 owner 叶子修复。
 - 项目理解：GO 在全局发现记目标画像（absent / shell-only / partial / existing，只读 target-scan 给候选证据），脚手架只在缺外壳处，持有代码的叶子冻结时欠复用说明；项目知识文档（文件或 wiki 目录）可按 project 模式检索，缺的专业 / 接口知识登 knowledge-need，由人以 kind=knowledge 决定补充并写成本 run 文档，答复随经验库沉淀到下次 run；用户给的存量截图 / 录屏随项目上下文固化、按 CASE 下发到持有叶子：截图作 user-reference 视觉基线（存量不可预览也有基线）、录屏作功能 PATH 的交互预期、规划步骤列尚未引用的媒体（media_due）、未被 PATH 引用即欠项，诊断/修复并列预期与实际媒体；目标预期（target-expectation）取代存量基线，design 须引用，报告披露。
-- 存量预览与媒体取证：项目声明存量怎样跑（设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑），可执行性随声明，存量可跑却未捕获的界面写 capture_gap；legacy-capture 在包内装机、走冻结动作把界面写成参考记录（adb 或 Playwright，走不成确定性动作的界面由声明的 navigator 以 snapshot 任务走到后再按选择器捕获），浏览器按同一滚动契约捕获（整页滚动以 body 为区域，shadow DOM 与同源 iframe 并入树，点击/滚动后等页面稳定，声明可带 viewport）、web 存量的 UI 树从 DOM 派生且无源索引，Android 目标装 APK 走同一视觉对齐；hdc / adb / 浏览器共用一个屏幕观察器（前台核对、选择器、滚动契约、稳定树），Harmony 候选也经它捕获；目标在浏览器里预览时不装机，宿主部署已接受构建并让页面声明其哈希，候选记为 web-candidate 进入同一对齐链路；存量怎样跑、目标在哪验证是只有用户能给的声明，init / update / prepare 返回待问的 open_statements，status 持续提示到声明为止；规划步骤带 capture_due，未捕获的界面是首版携带的欠项；内置运行时的 snapshot / recording 只留媒体不判定；测试结果带截图 / 录屏引用，报告逐 PATH 列出，diagnose/Fixer 带非 Green 路径的媒体。
+- 存量预览与媒体取证：项目声明存量怎样跑（设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑），可执行性随声明，存量可跑却未捕获的界面写 capture_gap；legacy-capture 在包内装机、走冻结动作把界面写成参考记录（adb 或 Playwright，走不成确定性动作的界面由声明的 navigator 以 snapshot 任务走到后再按选择器捕获），浏览器按同一滚动契约捕获（整页滚动以 body 为区域，shadow DOM 与同源 iframe 并入树，点击/滚动后等页面稳定，声明可带 viewport）、web / 鸿蒙存量的 UI 树从运行时索引派生且无源索引，Android 目标装 APK 走同一视觉对齐；hdc / adb / 浏览器共用一个屏幕观察器（前台核对、选择器、滚动契约、稳定树），Harmony 候选也经它捕获；目标在浏览器里预览时不装机，宿主部署已接受构建并让页面声明其哈希，候选记为 web-candidate 进入同一对齐链路；存量怎样跑、目标在哪验证是只有用户能给的声明，init / update / prepare 返回待问的 open_statements，status 持续提示到声明为止；规划步骤带 capture_due，未捕获的界面是首版携带的欠项；内置运行时的 snapshot / recording 只留媒体不判定；测试结果带截图 / 录屏引用，报告逐 PATH 列出，diagnose/Fixer 带非 Green 路径的媒体。
 - 测试代码是冻结资产：Logic 条目的单测与无设备 CASE 的进程内功能测试（<Case>FlowTest，按冻结命令跑 JUnit、逐断言归因）由 Ledger 起稿骨架、Spec-Designer 从 SPEC 写出、随计划冻结；Implementer 原样交付，改测试走 CR。有设备且绑定 UI 树的 CASE 起稿设备脚本（选择器取节点 id），报告分列脚本驱动的设备路径及其 flaky。
 
 ## 依据与再生成

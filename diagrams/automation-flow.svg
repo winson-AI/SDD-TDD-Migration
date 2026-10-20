@@ -21,7 +21,7 @@
 <text x="230.0" y="245.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">项目上下文</text>
 <text x="230.0" y="279.0" font-size="17.10" fill="#4b5563" text-anchor="middle" font-weight="400">存量与运行方式 / 目标 / 架构 / 媒体</text>
 <text x="230.0" y="308.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">二方库行为对齐与 fidelity</text>
-<text x="230.0" y="337.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">adapter + 环境 / fixture</text>
+<text x="230.0" y="337.0" font-size="21.50" fill="#4b5563" text-anchor="middle" font-weight="400">三条声明 → 适配器 / 环境文件</text>
 <text x="230.0" y="366.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">项目配置 → 本轮快照</text>
 <path d="M400,255 L460,255" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M780,320 L780,375" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
@@ -65,14 +65,14 @@
 <rect x="460" y="940" width="640" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="780.0" y="981.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">ready 绑定 → 宿主 execute_test</text>
 <text x="780.0" y="1015.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">scope=automation；重验代码 / 环境 / 命令</text>
-<text x="780.0" y="1044.5" font-size="19.17" fill="#4b5563" text-anchor="middle" font-weight="400">进程内 PATH 跑冻结命令 + JUnit；设备 PATH 调 Main 或冻结脚本</text>
+<text x="780.0" y="1044.5" font-size="19.70" fill="#4b5563" text-anchor="middle" font-weight="400">进程内 PATH 跑冻结命令 + JUnit；设备 / 浏览器 PATH 调 Main</text>
 <path d="M780,1065 L780,1120" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="1120" width="640" height="145" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="465" y="1125" width="630" height="135" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
-<text x="780.0" y="1157.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">逐 PATH 调用项目 Main</text>
+<text x="780.0" y="1157.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">逐 PATH 调用 Main（适配器随平台）</text>
 <text x="780.0" y="1191.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">argv + --query-file … --result-file …</text>
-<text x="780.0" y="1220.0" font-size="18.13" fill="#4b5563" text-anchor="middle" font-weight="400">Android / Harmony test：Planner / Executor / Verify（图 06）</text>
-<text x="780.0" y="1249.0" font-size="19.44" fill="#4b5563" text-anchor="middle" font-weight="400">冻结 platform 与已部署 APK / HAP 绑定；record_video 留录屏</text>
+<text x="780.0" y="1220.0" font-size="19.10" fill="#4b5563" text-anchor="middle" font-weight="400">Android / Harmony → Harmony Main（图 06）；web → web Main</text>
+<text x="780.0" y="1249.0" font-size="18.76" fill="#4b5563" text-anchor="middle" font-weight="400">冻结 platform 绑定 APK / HAP / 页面哈希；record_video 留录屏</text>
 <rect x="60" y="1080" width="340" height="190" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="230.0" y="1125.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">两层执行结果</text>
 <text x="230.0" y="1159.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">包装器 exit 0：已写回执</text>

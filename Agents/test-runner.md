@@ -45,4 +45,4 @@ Android/Harmony PATH 按 [移动端运行协议](../skills/migration-test/refere
 
 ## 当前控制契约
 
-执行冻结的 CASE/PATH；波次集成（integration-assign/integration-submit）与统一审计复测（audit-test-assign/audit-test-submit）都读取自身 audit-execution 预检与所选 PATH；Auditor 消费证据，Test-Runner 不给宿主任务最终裁决。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。
+执行冻结的 CASE/PATH；波次集成（integration-assign/-submit）与统一审计复测（audit-test-assign/-submit）都读自身 audit-execution 预检与所选 PATH；Auditor 消费证据，Test-Runner 不给宿主任务最终裁决，见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

@@ -136,7 +136,7 @@ Implementer/Fixer 对每个 reuse/adapt/reference 映射提交 `reuse_trace`（m
 
 适用于目标已迁移、已有功能实现或已有测试的场景：GO/MO 实际读目标代码及二方库源码/API、版本与调用链，比较功能语义、状态/副作用、失败行为与架构约束；类名相同不足以判冗余，二方库有真实可用能力时也不因目标代码已存在而拒绝复用。同一数据在目标已有另一套取数或计算时按[数据契约](resource-transfer.md#数据契约)决定重构或适配，不并存。
 
-控制节点：GO 评估/切片时把目标重复实现与二方库 capability 对齐，记冗余位置、真实消费者与复用/适配可行性，规划共享重构 owner 与受影响依赖；父 MO 在 scope 内安排唯一 owner 负责公共适配与去重，消费者共享同一提供方；子 MO / Spec Designer 选 reuse 或 adapt，把依赖接入、调用迁移、去重清理与回归覆盖拆进 tasks，四维分析覆盖受影响 UI/Logic/Adhesive/Resource；Implementer / Fixer 按冻结任务接入实际库版本、切换 DI/路由/消费者、保留必要差异适配、删除被替代且无消费者的冗余实现与配置/资源，提交 task_trace、reuse_trace 与生产绑定证据；Test-Runner / MO 先 build 再业务测试，验证真实提供方调用、存量行为保真与受影响消费者，核验重复实现已移除或剩余确为必要适配，原测试随新接线调整入口、保留业务断言；Auditor 按受影响范围检查重构与共享依赖影响，问题委派 Fixer、独立复核，不凭"换成二方库"判 Green。
+控制节点：GO 评估/切片时把目标重复实现与二方库 capability 对齐，记冗余位置、真实消费者与复用/适配可行性，规划共享重构 owner 与受影响依赖；父 MO 在 scope 内安排唯一 owner 负责公共适配与去重，消费者共享同一提供方；子 MO / Spec Designer 选 reuse 或 adapt，把依赖接入、调用迁移、去重清理与回归覆盖拆进 tasks，四维覆盖受影响 UI/Logic/Adhesive/Resource；Implementer / Fixer 按冻结任务接入实际库版本、切换 DI/路由/消费者、保留必要差异适配、删除被替代且无消费者的冗余实现与配置/资源，提交 task_trace、reuse_trace 与生产绑定证据；Test-Runner / MO 先 build 再业务测试，验证真实提供方调用、存量保真与受影响消费者，核验重复实现已移除或剩余确为必要适配，原测试随新接线调整入口、保留业务断言；Auditor 按受影响范围检查重构与共享依赖影响，问题委派 Fixer、独立复核，不凭"换成二方库"判 Green。
 
 ### 记录与完成准则
 
@@ -155,8 +155,8 @@ reuse-catalog 用 schema_version=2，每个 capability 必填 provider_owner_mod
 沿用 CR、invalidate、冻结、代码验收与依赖恢复，按序执行，不加隐藏写通道：
 
 1. 父 MO/GO 给变更与影响报告，确认唯一 owner、消费者闭包、写集合与公共契约；需求/验收/授权变化交人工；记旧版本与不可变旧证据。
-2. 修改前停止相关活动 worker 并经 Host revoke；相关消费者 invalidate，保留旧测试/失败并重新规划；无关模块继续，不把解除依赖当 Green。
-3. owner 对既有冻结计划提 CR/影响分析或 invalidate 后重规划并获批准；被修改文件是明确实现目标，不再同时声明为不变 provider，仍用的稳定依赖保持真实映射与 hash 校验。
+2. 修改前停止相关活动 worker 并经 Host revoke，相关消费者 invalidate、保留旧测试/失败并重规划；无关模块继续，不把解除依赖当 Green。
+3. owner 对既有冻结计划提 CR/影响分析或 invalidate 后重规划并获批准；被修改文件是实现目标，不再同时声明为不变 provider，仍用的稳定依赖保持真实映射与 hash 校验。
 4. owner Coding → Build → Automation → MO 验收，保存新 code baseline；缺自动化沿用 Yellow/可用构建规则，不称 fidelity 通过。
 5. 用 owner 已接受的真实文件/hash/version 生成新目录，消费者重新映射/六件套并冻结，再正式构建与回归；不在旧冻结 plan 静默换 ref；waiting-dependency 按 dependency-ready/resume 恢复，需重规划则进入 specifying。
 6. 非 Green 复测保留 retest_of；父 MO 重汇总，Auditor 全量收尾后复核；失败仍守预算、Fixer 与人工升级规则。

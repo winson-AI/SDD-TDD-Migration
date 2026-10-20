@@ -187,7 +187,8 @@ def plans(s, m, out, documents):
         for row in [r for r in shown if r['kind'] == 'screenshot']:
             pid = f"VISUAL-{mid}-{sum(p['kind'] == 'visual' for p in paths) + 1:03d}"
             paths.append(path(pid, 'visual', cid, f"{cid} 对齐用户截图 {row['media_id']}", expected=True, coverage=todo('page:state:viewport'),
-                              node_ids=[todo('node:<稳定节点 id>')], baseline_ref=row['ref'], reference_media_ids=[row['media_id']]))
+                              node_ids=[todo('node:<稳定节点 id>')], baseline_ref=row['ref'], reference_media_ids=[row['media_id']],
+                              **visual_prefill(s, platforms[0] if platforms else None)))
     tasks = []
     for n, (name, held) in enumerate(groups, 1):
         reqs = sorted({rid for cid in held for iid in holders[cid] for rid in items[iid]['requirement_ids']}) or requirements
@@ -228,6 +229,21 @@ def plans(s, m, out, documents):
         out_files['reuse-fidelity.md'] = f"# {mid} 复用与存量功能保真对齐\n\n{todo('逐行为对齐：场景、源码定位、前置/输入、存量预期、提供方语义、差异与 PATH/ASSERT')}\n"
         out_files['reuse-plan.json'] = {'schema_version': 1, 'module_id': mid, 'catalog_ref': catalog or todo('能力目录引用'), 'mappings': mappings}
     return out_files
+
+
+def visual_prefill(s, platform):
+    """The visual_execution a visual PATH starts from: the environment init wrote for the device platform, with the rest left to
+    the author; nothing when the run stated no preview for it."""
+    environment = ((s.get('target_preview') or {}).get('environments') or {}).get(platform)
+    if not environment:
+        return {}
+    contract = {'environment_ref': environment, 'app_id': todo('应用 id：Android 包名 / Harmony bundleName，web 为页面主机'),
+                'target_match': [todo('目标节点选择器 {class/resource-id/text}')], 'actions': []}
+    if platform == 'web':
+        contract['url'] = todo('目标页面 URL')
+    else:
+        contract['ability'] = todo('启动 activity / ability')
+    return {'visual_execution': contract}
 
 
 def language(s, ui=False):

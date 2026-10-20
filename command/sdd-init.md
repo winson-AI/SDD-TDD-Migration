@@ -7,7 +7,7 @@ description: /sdd-init [input.json绝对路径] [--mode single-module --module-n
 ## 1. 用法
 `/sdd-init [input.json绝对路径] [--mode single-module --module-name "功能模块名"]`
 
-默认 project，按项目范围切片；两个可选参数等价于高层输入的 entry_mode/module_name，命令参数优先，也可用自然语言指定（"single-module，模块名为用户登录"）。名称按字符串解析，不作 shell 命令。配置目录为已定位项目的 `<workspace_root>/.sdd-migration`，后续 CLI 显式传入；仅首次初始化未指定 --root 时取当前目录并固化其父级为 workspace_root。单模块只需这两个参数，不要求用户填 scope、代码路径或 SPEC/用例文件。详见[项目上下文协议](../skills/migration-protocol/references/project-context.md#初始化和增量更新)。
+默认 project，按项目范围切片；两个可选参数等价于高层输入的 entry_mode/module_name，命令参数优先，也可用自然语言指定（"single-module，模块名为用户登录"），名称按字符串解析、不作 shell 命令。配置目录为 `<workspace_root>/.sdd-migration`，后续 CLI 显式传入，仅首次初始化未指定 --root 时取当前目录并固化其父级为 workspace_root；单模块只需这两个参数，不要求填 scope、代码路径或 SPEC/用例文件。详见[项目上下文协议](../skills/migration-protocol/references/project-context.md#初始化和增量更新)。
 
 ## 2. 编排步骤
 1. 先按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)。

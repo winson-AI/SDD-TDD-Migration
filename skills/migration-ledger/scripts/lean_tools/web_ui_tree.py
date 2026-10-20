@@ -29,21 +29,22 @@ def _node(element: ET.Element, page_id: str, state_id: str, path: str, seen: set
             'dynamicRules': [], 'capabilities': [], 'runtimeObservations': [observation], 'children': children}
 
 
-def build(index: dict, index_ref: dict, scope: str) -> dict:
-    """One screen per captured page:state, built from the first viewport's DOM tree of that capture."""
+def build(index: dict, index_ref: dict, scope: str, platform: str = 'web') -> dict:
+    """One screen per captured page:state, built from the first viewport's view tree of that capture: the document body of a
+    web page, the application node of a Harmony layout."""
     screens, images = [], []
     for capture in index.get('captures', []):
         page_id, state_id = capture['pageId'], capture['stateId']
         view = (capture.get('viewports') or [{}])[0].get('viewTree') or capture.get('viewTree')
         root = ET.fromstring(Path(view['path']).read_text(encoding='utf-8', errors='replace'))
-        body = next(iter(root), None)
+        body = root if platform == 'harmony' else next(iter(root), None)
         if body is None:
             raise RuntimeError(f'{page_id}:{state_id} view tree has no element')
         screens.append({'id': f'screen:{page_id}.{state_id}', 'root': _node(body, page_id, state_id, 'body', set(), images), 'attachments': {}})
     if not screens:
-        raise RuntimeError('a web UI tree needs at least one captured page:state')
+        raise RuntimeError('a runtime-derived UI tree needs at least one captured page:state')
     return {'schemaVersion': 1, 'scope': scope,
-            'generatedFrom': {'platform': 'web', 'sourceIndex': None, 'sourceIndexSha256': None,
+            'generatedFrom': {'platform': platform, 'sourceIndex': None, 'sourceIndexSha256': None,
                               'runtimeIndex': index_ref['path'], 'runtimeIndexSha256': index_ref['sha256'],
                               'manifest': index.get('manifest'), 'manifestSha256': index.get('manifestSha256')},
             'screens': screens, 'layoutClosure': [], 'criticalLayoutContracts': [], 'unresolved': [], 'imageSources': images}

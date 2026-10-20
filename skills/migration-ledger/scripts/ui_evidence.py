@@ -86,9 +86,12 @@ def merged_runtime(tree):
     return bool((tree.get('generatedFrom') or {}).get('runtimeIndex'))
 
 
+RUNTIME_TREE_PLATFORMS = ('web', 'harmony')  # legacies without an Android source: the tree is derived from their captures
+
+
 def web_tree(tree):
-    """A tree derived from a legacy web application's browser captures: it has a runtime index and no source index."""
-    return isinstance(tree, dict) and (tree.get('generatedFrom') or {}).get('platform') == 'web'
+    """A tree derived from a legacy's captures (web or Harmony): it has a runtime index and no source index."""
+    return isinstance(tree, dict) and (tree.get('generatedFrom') or {}).get('platform') in RUNTIME_TREE_PLATFORMS
 
 
 def _legacy_tree(tree):
@@ -98,7 +101,7 @@ def _legacy_tree(tree):
     require(isinstance(origin, dict), 'ui tree needs generatedFrom provenance')
     if web_tree(tree):
         require(origin.get('sourceIndex') is None and origin.get('sourceIndexSha256') is None and origin.get('runtimeIndex') and origin.get('runtimeIndexSha256'),
-                'a web UI tree is derived from its runtime index alone: no source index, a runtime index and its hash')
+                'a web or harmony UI tree is derived from its runtime index alone: no source index, a runtime index and its hash')
     else:
         for key in ('sourceIndex', 'sourceIndexSha256'):
             require(isinstance(origin.get(key), str) and origin[key], 'generatedFrom needs ' + key)

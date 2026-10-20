@@ -36,4 +36,4 @@ diagnose 只提交；MO 按游标接受实现诊断、提交 CR 或上溯 scope�
 
 ## 受限错误知识查询
 
-编译/链接/打包/设备/运行时有稳定错误时，使用 knowledge-diagnose，并传包含原始片段的 error_ref（路径和实际 hash）；按返回引用读取 cookbook/topic。patterns 命中不是已证根因，无命中不编造建议；仍需当前代码/环境证据形成 diagnosis。可用 knowledge-query 补充当前范围知识，不执行修复或 foundation-resolve。见 [受限接入](../skills/migration-protocol/references/domain-tools.md#知识操作权限与例子)。
+编译/链接/打包/设备/运行时有稳定错误时用 knowledge-diagnose，传含原始片段的 error_ref（路径与实际 hash），按返回引用读 cookbook/topic；patterns 命中不是已证根因，无命中不编造建议，仍需当前代码/环境证据形成 diagnosis；可用 knowledge-query 补充当前范围知识，不执行修复或 foundation-resolve。见 [受限接入](../skills/migration-protocol/references/domain-tools.md#知识操作权限与例子)。

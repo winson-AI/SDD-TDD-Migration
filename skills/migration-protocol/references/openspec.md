@@ -27,7 +27,7 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 ## 冻结算法
 
-行为契约由运行状态开启（plan 的 `behavior_contract_required=true` 由 Ledger 写入）。有已登记四维分析的叶子按最小集规划：作者只写六件套、tasks（范围/路径/需求）、测试计划引用与 dimension_trace，从 Ledger 写出的骨架起步（`spec_skeleton.py --root <run> --module <id> --out <staging 目录>` 给六件套与三份计划 JSON 的桩，`[[待写]]` 处由作者填；编辑后 `contracts.py refs <目录>` 取引用；留有 `[[待写` 的计划或引用文件拒绝）；dimension_analysis_ref、source_closure、target_feasibility、decision_envelope、各任务四维与 scenario_trace 由 Ledger 据分析与分配的审阅补全并冻结，作者另写的照常判定。SPEC 每个需求/场景各写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`；Ledger 接受 plan 时派生 scenario_index，plan 不携带（`behavior_contract.py --plan <staged-plan.json>` 可预览）；改 SPEC 即改 plan 摘要，须重新审核冻结。scenario_trace 每行给 scenario_id 与 task_ids，assertions 由 Ledger 按设计断言的 scenario_ids 补全；每个场景至少被一条行为断言验证、每条行为断言至少验证一个场景、全部任务有归属（缺者记欠项），允许多对多，build/static 不充当行为断言。
+行为契约由运行状态开启（plan 的 `behavior_contract_required=true` 由 Ledger 写入）。有已登记四维分析的叶子按最小集规划：作者只写六件套、tasks（范围/路径/需求）、测试计划引用与 dimension_trace，从 Ledger 写出的骨架起步（`spec_skeleton.py --root <run> --module <id> --out <staging 目录>` 给六件套与三份计划 JSON 的桩，`[[待写]]` 由作者填，`contracts.py refs <目录>` 取引用，留有 `[[待写` 的计划或引用文件拒绝）；dimension_analysis_ref、source_closure、target_feasibility、decision_envelope、各任务四维与 scenario_trace 由 Ledger 据分析与分配的审阅补全并冻结，作者另写的照常判定。SPEC 每个需求/场景各写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`；Ledger 接受 plan 时派生 scenario_index，plan 不携带（`behavior_contract.py --plan <staged-plan.json>` 可预览）；改 SPEC 即改 plan 摘要，须重新审核冻结。scenario_trace 每行给 scenario_id 与 task_ids，assertions 由 Ledger 按设计断言的 scenario_ids 补全；每个场景至少被一条行为断言验证、每条行为断言至少验证一个场景、全部任务有归属（缺者记欠项），允许多对多，build/static 不充当行为断言。
 
 1. 六件套与测试路径（带 Requirement-ID/Scenario-ID）完整且预期明确即可冻结：起步门禁只有范围/写锁/任务/PATH/四维追溯/六件套；UI 模型与 UI 树、基线、保真场景、API/数据行为测试、闭包与追溯、参数表决定、测试资产与来源审阅、单测与静态 PATH 是欠项（DoD 前结清），无设备的 run 不要求 UI 树与基线；测试设计不运行目标代码。
 2. Spec-Designer 把问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复绑定 question_id、spec_revision 与内容摘要，可复用，绑定内容变了重新裁决。
@@ -76,7 +76,6 @@ change_root 为 `<workspace_root>/openspec/changes/<run-id>-<module-id小写>`�
 生成视图同时更新跳转：六件套内部引用指向对应的实际生成位置（特别是 specs/<capability>/spec.md）；架构、知识及其中的框架/代码链接，按本轮 context 的 source_paths/link_manifest_ref 指向固化后的文件位置。锚点与标题保留，不能把链接留在旧目录或换成最新工作文件。原始定义及 hash 不修改，重建只使用既有快照。未收录目标记录在 change/manifest.json 的 link_warnings，不能默认当作有效知识链。context/files 的关联文件固化见 [项目上下文协议](project-context.md#contextfiles-的跨文件链接)。
 
 invalidate 后旧 plan 进入 planning_history，当前 plan/freeze 清空；Ledger 撤下 manifest 管理的旧定义视图并生成重新规划 status，保留事件及 artifacts 历史快照。旧计划不能继续阻塞新计划提交，也不能冒充当前冻结定义；新计划仍须正常审核/冻结。分配依据失效交 GO，具体出口见 [恢复协议](progress-recovery.md)。
-
 
 ## 二方库语义与需求映射
 

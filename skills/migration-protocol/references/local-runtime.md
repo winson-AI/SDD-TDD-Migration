@@ -20,7 +20,7 @@ $L init|apply|resume|recover --root <run> --request <request.json> --host-contex
 $L status --root <run> [--view cursor|step|module|full] [--module <id>] [--since <sequence>]
 $L advance --root <run> --module <module-id> --host-context <mo-principal.json> [--worker <role>=<instance>]
 $L preview --root <run> --module <module-id> [--plan <stage-plan.json>]
-python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run> --scope module --module-id <module-id>
+verify_openspec.py --root <run> --scope module --module-id <module-id>
 ```
 
 `verify_openspec.py` 的范围、恢复与边界见[留存布局](storage-layout.md#openspec-投影完整性收尾门禁)。
@@ -94,8 +94,6 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 
 所有结果必需 schema_version=1、kind、run_id、module_id、assignment_id、actor_instance_id、freeze_id、code_baseline。
 
-
-
 implementation 另需：
 
 ```json
@@ -118,7 +116,7 @@ tests 另需 paths，见 [stage-result.json](../../../template/stage-result.json
 适配器按 PATH 选：build/unit/进程内功能 PATH 跑冻结的 command；设备 PATH 跑项目 `test_adapter.adapters[platform]`（argv 见 [test-adapter.json](../../../template/test-adapter.json)，`{run_root}` 为本 run），没有时用 `test_adapter.executable/args`；`--adapter <json>` 显式覆盖，`--cwd` 缺省为目标工程：
 
 ```text
-python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-M001-001（同命令 unit PATH 可为 a,b 列表） --output <run>/runs/harmony/automation/<new-attempt>
+execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-M001-001（同命令 unit PATH 可为 a,b 列表） --output <run>/runs/harmony/automation/<new-attempt>
 ```
 
 适配器接收 `--query-file <json> --result-file <json>`，写 `{"assertions":[{"assertion_id":"A1","expected":2,"actual":2,"passed":true}]}`。

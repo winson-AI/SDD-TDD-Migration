@@ -48,7 +48,7 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 }
 ```
 
-仍需完整 request 信封及宿主绑定 principal。worker 的报告与它的活动派发同阶段时由 Ledger 直接绑定，无需再引用；没有派发时报告只留证，下次派发同一实例时自动绑定其当前 ready 报告。自报阶段的 context_ref 可选，缺省由 Ledger 预检。Ledger 保存 `context_receipts` 与 `context_acceptances`，不存在另一份可手改的权威状态。
+仍需完整 request 信封及宿主绑定 principal。worker 的报告与其活动派发同阶段时由 Ledger 直接绑定；没有派发时只留证，下次派发同一实例时自动绑定其当前 ready 报告。自报阶段的 context_ref 可选，缺省由 Ledger 预检；Ledger 只保存 `context_receipts` 与 `context_acceptances`，没有另一份可手改的权威状态。
 
 ## 4. 检查内容必须具体
 

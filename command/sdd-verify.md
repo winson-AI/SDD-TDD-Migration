@@ -23,7 +23,7 @@ description: /sdd-verify <run-id> [--scope global|module|projection|final] [--mo
 2. 执行并读取 `verified`、`scope`、`module_id`、`checked_modules`、`sequence`、`failures`、`next_actions`、`limitations`：
 
    ```sh
-   python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run> --scope module --module-id M001
+   verify_openspec.py --root <run> --scope module --module-id M001
    ```
 
 3. 未通过按 `failures[].scope/module_id/recovery_action` 处理相应范围；无关模块的投影错误不阻止当前 MO，不把一次失败写成"整轮绕过 Ledger"或重建 run。核验器不修复、不搬迁历史、不改状态。

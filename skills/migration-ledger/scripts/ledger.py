@@ -2323,6 +2323,7 @@ def _judge(root, req, principal):
             s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})),
                  'test_adapter': copy.deepcopy(p.get('test_adapter') or {}),
                  'target_preview': project_context.target_preview_files(root, (p.get('test_adapter') or {}).get('device')) if root is not None else {},
+                 'harmony_sandbox': project_context.harmony_sandbox(root, (p.get('test_adapter') or {}).get('harmony_reference')) if root is not None else None,
                  'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'spec_closure_required': p.get('spec_closure_required', False), 'unit_tests_required': p.get('unit_tests_required', False), 'git_checkpoint': p.get('git_checkpoint', False), 'fixer_self_diagnosis': p.get('fixer_self_diagnosis', False), 'write_scope_check': p.get('write_scope_check', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
                  'target_resources': resources,
                  'behavior_contract_required': p.get('behavior_contract_required', False),
