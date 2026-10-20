@@ -139,9 +139,11 @@ class ReadingCardTests(unittest.TestCase):
                 for group in by_role.values(): names |= set(group)
         self.assertEqual([n for n in sorted(names) if not (reading.PACKAGE / 'template' / n).is_file()], [])
         visual = reading.templates({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'visual'})
-        self.assertIn('template/visual-alignment.json', visual)
-        self.assertNotIn('template/visual-alignment.json',
+        self.assertIn('template/visual-test-path.json', visual)
+        self.assertNotIn('template/visual-alignment.json', visual)  # a tool writes the alignment record; nobody authors it
+        self.assertNotIn('template/visual-test-path.json',
                          reading.templates({}, None, {'role': 'module-orchestrator', 'operation': 'assign', 'worker_role': 'test-runner', 'test_scope': 'build'}))
+        self.assertEqual(reading.templates({}, None, {'role': 'auditor', 'operation': 'audit-code-review'}), [])  # both reports start from the Ledger's skeleton
         self.assertIn('template/reuse-plan.json', reading.templates({'reuse_required': True}, None, {'role': 'spec-designer', 'operation': 'plan'}))
         f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
         f.prepare()
@@ -162,6 +164,11 @@ class ReadingCardTests(unittest.TestCase):
         self.assertFalse({'web-test-adapter.json', 'harmony-test-adapter.json'} & names({}, automation) | {'web-test-adapter.json'} & names(android, automation))
         self.assertIn('web-test-path.json', names(web, plan)); self.assertIn('harmony-test-path.json', names(android, plan))
         self.assertNotIn('harmony-test-path.json', names(web, plan))
+
+    def test_every_json_template_parses_and_every_handed_template_exists(self):
+        for path in sorted((reading.PACKAGE / 'template').glob('*.json')):
+            with self.subTest(template=path.name):
+                json.loads(path.read_text())
 
     def test_a_rendered_card_has_no_link_into_a_whole_protocol_file(self):
         text = reading.unlink('见 [状态机](state-machine.md)、[有限循环](state-machine.md#有限循环)、[模板](../../../template/fix-note.json)、'

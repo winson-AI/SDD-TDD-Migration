@@ -90,7 +90,7 @@ adapter 与正式验收共用 [visual_evidence.py](../../migration-ledger/script
 
 **③ 节点 ID、数组与平台资源** —— `R.id` 是节点定位事实；`@array` 按 array 精确迁移。平台引用（`@android:` / `?android:`）须声明 platform_resource.api_level 与指向真实 SDK source.properties 的 sdk_metadata_ref，source_resource_ref 在同 SDK 的 data/res 并含匹配定义；缺定义可显式 blocked，不伪造。示例见 [semantic-model.json](../../../template/semantic-model.json)。
 
-**④ UI 树白盒** —— Ledger 按模板 `ui_tree_contract` 校验 `ui_tree_ref`：schemaVersion/scope/generatedFrom（runtime 两字段同有或同无）/screens（递归 source-backed root 与 attachments，重复行只记一次）/完整映射源布局的 layoutClosure/显式 criticalLayoutContracts 与 unresolved（冲突不得丢弃）；各记录带 sourcePath 与 line 或 selector；runtimeObservations 只记实际观察，source-only 树不得携带，visual_mode 与 runtimeIndex 有无一致。
+**④ UI 树白盒** —— Ledger 按 [ui-tree-contract.json](../../../template/ui-tree-contract.json) 校验 `ui_tree_ref`：schemaVersion/scope/generatedFrom（runtime 两字段同有或同无）/screens（递归 source-backed root 与 attachments，重复行只记一次）/完整映射源布局的 layoutClosure/显式 criticalLayoutContracts 与 unresolved（冲突不得丢弃）；各记录带 sourcePath 与 line 或 selector；runtimeObservations 只记实际观察，source-only 树不得携带，visual_mode 与 runtimeIndex 有无一致。
 
 **⑤ 源闭包证据面** —— UI 适用时 `source_closure` 各面缺者记欠项：`ui_renderers`（真正改变可见状态的渲染者，只有 layout 不算）、`ui_topology`（布局/对话框/菜单/标签/浮层及初始可见性）、`states`（实际存在的加载/内容/空/错误/禁用/瞬态/刷新/重试/分页）、`navigation`（目标身份/参数/返回/范围外副作用）、`platform_lifecycle`（权限/存储/网络/回调/后台/取消/宿主窗口）；散文控件清单不算。listener 只证事件绑定，类型声明只证 API 形状，都不证生产调用路径；基础工作在被用户可见行为消费前不算已交付。
 

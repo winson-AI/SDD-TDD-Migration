@@ -18,12 +18,12 @@ sys.dont_write_bytecode = True
 PACKAGE = Path(__file__).resolve().parents[3]
 READ_BUDGET = 60_000  # UTF-8 bytes per dispatch card
 # A step with no UI, reuse, telemetry or lean-leaf scope stays under this; lower it when cards shrink, never raise it.
-TYPICAL_BUDGET = 34_000
+TYPICAL_BUDGET = 29_800
 # A session holding this much protocol text is better restarted from its checkpoint than fed more; advisory.
 ROTATE_BUDGET = 100_000
 # Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
-TEMPLATE_BUDGET = 20_000
-TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
+TEMPLATE_BUDGET = 16_100
+TRIGGERED_TEMPLATE_BUDGET = 39_600  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
 PROTOCOL_BUDGET = 462500  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
 FILE_BUDGET = 32_000
@@ -517,7 +517,7 @@ TEMPLATES = {
     'fixer': {'base': ['implementation.md', 'fix-note.json', 'change-request.md', 'context-readiness.json']},
     'diagnostician': {'base': ['diagnosis.md']},
     'escalation': {'base': ['escalation.md', 'human-decision.json']},
-    'auditor': {'code-review': ['audit-code-review.json', 'audit-change-inventory.md'],
+    'auditor': {'code-review': [],  # the Ledger writes both report skeletons at the step
                 'audit': ['audit-closure-plan.json', 'audit-report.md', 'audit-review.json', 'test-result.json']},
     'test-runner': {'base': ['stage-result.json', 'test-result.json', 'context-readiness.json']},
 }
@@ -528,8 +528,7 @@ MO_TEMPLATES = {'freeze': ['checklist.md', 'plan-review.json', 'change-impact.js
                 'module-summary': ['status.md'], 'suspend': ['implementation-gap.json', 'status.md'],
                 'assign': ['execution-assignment.json'], 'accept': ['status.md'], 'diagnosis-accept': ['status.md']}
 SCOPE_TEMPLATES = {'build': ['test-adapter.json'], 'automation': ['test-adapter.json', 'interaction-evidence.json'],
-                   'visual': ['visual-test-path.json', 'visual-alignment.json', 'visual-capture-execution.json', 'visual-test-adapter.json',
-                              'visual-execution.json', 'visual-request.json']}
+                   'visual': ['visual-test-path.json', 'visual-capture-execution.json', 'visual-test-adapter.json', 'visual-execution.json', 'visual-request.json']}
 # What a declared platform adds: the shape of its PATHs for the planner, its adapter and environment for the executor.
 PLATFORM_TEMPLATES = {'web': {'spec-designer': ['web-test-path.json'], 'test-runner': ['web-test-adapter.json']},
                       'device': {'spec-designer': ['harmony-test-path.json'], 'test-runner': ['harmony-test-adapter.json', 'harmony-config.json']}}
