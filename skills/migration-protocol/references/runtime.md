@@ -8,9 +8,9 @@ run 固定 prepare 时的包版本 package_sha：宿主用该提交的 worktree 
 
 资产根、目录用途与二次启动见[留存文件系统](storage-layout.md#总则)；`package_root` 与 legacy/target 不是资产根。
 
-新 prepare 自动派生 `run_root = workspace_root/.sdd-runs/run_id`，显式 `--run-root` 只能与之相同。项目索引绑定一个 run_id 的唯一位置，不保存模块状态。新测试执行器拒绝把结果写到本轮 `runs/` 外。生成的 SPEC、诊断、修复、审查清单先写自身 staging；Harmony 测试设计/适配器/汇总写 runs/harmony/sandbox；随后提交 Ledger；输入源码/架构可在外部只读，需留存的文档与证据由快照固化。Host 须限制实际 Agent/子进程写权限。
+prepare 派生 `run_root = workspace_root/.sdd-runs/run_id`，显式 `--run-root` 只能与之相同；项目索引绑定一个 run_id 的唯一位置，不保存模块状态；测试执行器拒绝把结果写到本轮 `runs/` 外。生成的 SPEC、诊断、修复、审查清单先写自身 staging，Harmony 测试设计/适配器/汇总写 runs/harmony/sandbox，再提交 Ledger；输入源码/架构可在外部只读，需留存的文档与证据由快照固化；Host 须限制实际 Agent/子进程写权限。
 
-OpenSpec 是规格及状态机的统一阅读入口，状态变更仍经 Ledger；不能编辑 status/workflow 文件替代事件。`assignments` 等信息当前嵌入 Ledger 投影；若宿主另导出 assignment 文件，放本轮 staging 并通过已提交引用交接，不假定脚本自动生成独立文件。顶层已有 `openspec/specs` 的基线发布/归档须单独授权，不由本轮投影覆盖。
+OpenSpec 是规格及状态机的统一阅读入口，状态变更仍经 Ledger，不能编辑 status/workflow 文件替代事件；`assignments` 嵌入 Ledger 投影，宿主另导出的 assignment 文件放本轮 staging 并经已提交引用交接；顶层已有 `openspec/specs` 的基线发布/归档须单独授权，不由本轮投影覆盖。
 
 run-id/change-name/capability 使用 kebab-case，module_id 匹配 `M[0-9]{3,}`。resolve/realpath 后确认目标写路径在 assignment allowlist 内；拒绝 `..`、符号链接越界和 legacy/target 重叠（除非输入明确批准原地迁移并提供隔离方案）。Legacy 源码默认只读。每次输出记录内容 sha256；引用文件以 path+sha256 固定，不以修改时间为版本。
 

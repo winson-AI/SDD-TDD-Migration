@@ -60,8 +60,8 @@ OpenSpec 中枢展示 Ledger 当前 sequence、全局及父/子状态、global_n
 只读 [verify_openspec.py](../../migration-ledger/scripts/verify_openspec.py) 按 scope 核验：global 检查公共事件链、prepare 快照和顶层布局归属；module 检查指定模块、祖先与实际依赖的当前规范/投影；projection 比较整个 run 的生成视图与 Ledger 内容；final 在 projection 之上要求正式 report_stage 为 completed 或 completed-with-unverified-tests。默认 projection 可在仅规划阶段通过，不表示已实现。manifest 的引擎标记和摘要用于一致性检查，不是宿主真实执行的认证签名。
 
 ```sh
-python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <workspace_root>/.sdd-runs/<run_id> --scope module --module-id M001
-python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <workspace_root>/.sdd-runs/<run_id> --scope final
+verify_openspec.py --root <workspace_root>/.sdd-runs/<run_id> --scope module --module-id M001
+verify_openspec.py --root <workspace_root>/.sdd-runs/<run_id> --scope final
 ```
 
 `verified=false` 表示所选范围存在具体核验失败，读取 failures 的 check/scope/module_id/recovery_action 和 next_actions。仅相关模块错误不得停止无关 MO；公共事件链/快照损坏才影响整轮。生成视图缺失按投影恢复协议重建，冻结源损坏恢复有效证据或正常失效/重规划，不一律重建 run。门禁只读，不改状态、不补写投影、不搬迁历史；它无法单独证明真实 Agent 派发、命令执行或全部功能 Green。最终 Yellow 缺测仍在正式报告保留。
@@ -73,15 +73,15 @@ python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <wor
 请求内含 project_id、run_id、request_id、source_ref；之后使用返回的 run_root，不自选运行目录：
 
 ```sh
-python3 <package>/skills/migration-ledger/scripts/project_context.py prepare --root <workspace_root>/.sdd-migration --request <request.json> --host-context <host.json>
-python3 <package>/skills/migration-ledger/scripts/ledger.py status --view full --root <workspace_root>/.sdd-runs/<run_id>
+project_context.py prepare --root <workspace_root>/.sdd-migration --request <request.json> --host-context <host.json>
+ledger.py status --view full --root <workspace_root>/.sdd-runs/<run_id>
 ```
 
 prepare 核验目录、文档及摘要；缺输入不创建 run/OpenSpec。固化前 Host 写 preparations=preparing；失败写 failed、原因/重试入口，中断保留 preparing。同 run_id 重试验证归属，成功登记索引并写 prepared，保留失败历史；不替代 Ledger，不自动删除或改业务状态，完成的同请求不重写。
 
-工作流测试辅助命令显式传 --root：Harmony design/adapter/doctor/历史报告与阶段汇总写入本轮 runs/harmony/sandbox；正式自动化写 runs/harmony/automation/<新 attempt>。独立模式使用同样的 `.sdd-runs/<run_id>/runs/harmony` 路径，可由显式输出推导根目录，不要求已有 Ledger；doctor 必须指定 --root。独立执行不自动得到冻结、assignment 或验收资格。
+测试辅助命令显式传 --root：Harmony design/adapter/doctor/历史报告与阶段汇总写本轮 runs/harmony/sandbox，正式自动化写 runs/harmony/automation/<新 attempt>；独立模式用同样的 `.sdd-runs/<run_id>/runs/harmony` 路径，可由显式输出推导根目录，不要求已有 Ledger，doctor 必须指定 --root；独立执行不自动得到冻结、assignment 或验收资格。
 
-Ledger 在查询、变更和拒绝诊断写入前核对快照绑定的 run_root/run_id；索引或准备记录缺失时同样核对 project_id/run_id/run_root 与请求及实际恢复目录一致再登记索引。复制或移动已有 run 目录不能直接作为新 run 继续写入，仍绑定原路径的快照被拒绝；恢复回到原登记位置，新迁移使用新 run_id。受管文件写入统一使用路径检查和随机临时文件，拒绝符号链接重定向；事件追加与工件保存也检查实际路径。
+Ledger 在查询、变更和拒绝诊断写入前核对快照绑定的 run_root/run_id，索引或准备记录缺失时核对 project_id/run_id/run_root 与请求及实际恢复目录一致再登记索引。复制或移动的 run 目录不能作为新 run 继续写入（仍绑定原路径的快照被拒），恢复回到原登记位置，新迁移用新 run_id。受管文件写入统一走路径检查和随机临时文件，拒绝符号链接重定向，事件追加与工件保存也检查实际路径。
 
 | 场景 | 文件变化 | 状态处理 |
 | --- | --- | --- |

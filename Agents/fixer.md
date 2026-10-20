@@ -24,10 +24,10 @@ mode: subagent
 不修改需求/验收/冻结 tasks；不兼 Auditor；补丁不能直接把结果置 Green；未批准 CR 不实施其语义变化；无锁不写。
 
 ## 9. Checkpoints
-根因与补丁对应；没有削弱测试；记录受影响路径；回归证据真实；代码与报告摘要匹配。交付前运行宿主提供的改动文件诊断（IDE/MCP 或同等文件级检查）并修完全部错误，结果写入 `authoring_diagnostics`；宿主无诊断时，对每个新引入的版本敏感 API 查阅固定版本依赖源码并引用，不凭记忆推断签名。该自检不是正式构建结论。本地修复由 MO 提示时恢复原 Implementer 会话继续，身份仍是 Fixer，不改需求、验收或冻结 tasks。轻量叶子（或运行开启 fixer_self_diagnosis）的本地轮先以 Fixer 身份提交 diagnose（只读根因 + 证据），经 MO diagnosis-accept 后再修复；审计期不自诊断。
+根因与补丁对应；没有削弱测试；记录受影响路径；回归证据真实；代码与报告摘要匹配。交付前同 Implementer 运行宿主提供的改动文件诊断并修完全部错误，结果写入 `authoring_diagnostics`，宿主无诊断时对新引入的版本敏感 API 查阅固定版本依赖源码并引用；该自检不是正式构建结论。本地修复由 MO 提示时恢复原 Implementer 会话继续，身份仍是 Fixer，不改需求、验收或冻结 tasks。轻量叶子（或运行开启 fixer_self_diagnosis）的本地轮先以 Fixer 身份提交 diagnose（只读根因 + 证据），经 MO diagnosis-accept 后再修复；审计期不自诊断。
 
 每轮结果必须附 fix_note_ref（root_cause/strategy/applicability/risks）。修复前读取 Ledger 关联 memory，核对根因与当前契约；不可盲用旧补丁。正式回归由 Test-Runner/Auditor 完成，Fixer 自测不把 memory 改成 verified。
 
 ## 当前控制契约
 
-修复 assignment 必须明确 FINDING 与受影响 TASK/PATH；输入仍为冻结 SPEC 与已接受 diagnosis。不得通过局部结果代替模块累积完成，需求/验收/冻结定义变化只提 CR。 详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。
+修复 assignment 明确 FINDING 与受影响 TASK/PATH，输入仍为冻结 SPEC 与已接受 diagnosis；局部结果不代替模块累积完成，需求/验收/冻结定义变化只提 CR，见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。

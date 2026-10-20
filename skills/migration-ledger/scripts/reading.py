@@ -25,7 +25,7 @@ ROTATE_BUDGET = 100_000
 TEMPLATE_BUDGET = 20_000
 TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 464000  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
+PROTOCOL_BUDGET = 462500  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -666,7 +666,7 @@ GATES = [
     (r'stop/isolation|stop unconfirmed|executor aborted|stop/revoke|revoke worker|worker identity|Test-Runner identity|review identity|session id required|advance needs|mechanical preflight|merged dispatch|api-register|api_id|module (not|already) registered|unknown module|^no modules|selected module', 'local-runtime.md', '操作矩阵'),
     (r'hint needs', 'host-integration.md', '提示采纳回报'),
     (r'no adapter runs platform', 'local-runtime.md', '实际测试适配器'),
-    (r'test_adapter\.adapters', 'project-context.md', '初始化和增量更新'),
+    (r'test_adapter\.(adapters|harmony_reference)', 'project-context.md', '初始化和增量更新'),
     (r'build (argv|command|cwd|timeout|artifact)|build must pass|build report|invalid build timeout|absolute output directory', 'build-automation.md', '2. 构建命令的来源与固化'),
     (r'deferral|defer completed|may be deferred|deferred automation', 'build-automation.md', '4. 自动化环境缺失：直接记 Yellow 并继续'),
     (r'execution (evidence|observation|output|contract)|execution-state|completion (acceptance|query|interpretation)|host normalization|host execution', 'testing.md', '本地执行与严格结果验收'),

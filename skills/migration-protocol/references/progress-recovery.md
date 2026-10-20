@@ -54,7 +54,6 @@ OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；�
 
 当前代码已接受且 build Green，仅自动化环境无法启动时：Test-Runner 提交仅 `test-environment=blocked` 的 testing 报告 → MO `automation-unavailable` → `automation-deferred`，逐 PATH Yellow/未执行；独立模块和可消费当前构建代码的下游继续。全部模块本轮结束后 Auditor 仍审查缺测证据，最终仅缺环境时 blocked audit-testing 报告 → `audit-unavailable` → `completed-with-unverified-tests`：本轮结束但质量 Yellow，不等待人工，也不声称功能验证通过；环境恢复后重新预检和正式复测。守卫见[构建与自动化协议](build-automation.md#4-自动化环境缺失直接记-yellow-并继续)。
 
-
 ## 授权改码、投影恢复与文件锁等待
 
 ### 授权 worker 的工作副本
@@ -65,17 +64,17 @@ status 仍校验冻结 SPEC、复用依据及不可变证据。有效且未挂�
 
 Ledger apply 的成功回执含 `committed: true`、event_id、sequence 和 `projection`。后者包含本次投影 sequence、`status: current|pending`、errors（stage/module_id/reason/next_action）。`pending` 表示事实事件已持久化，不能把同一业务操作当作未提交后换 request_id 重做；原 request_id 重试仍返回原事件，并尝试重建当前投影。
 
-status 从事件恢复状态，单模块 OpenSpec 或报告写入失败返回 projection.errors，并通过 workflow_progress 的 projection-pending 信号通知 Host；有效的无关动作继续。投影更新失败时磁盘文件可能落后，须以返回的 Ledger sequence/状态及有效工件引用为准。即使进度报告自身不能写入，命令返回仍带诊断。日志完整性损坏、run 身份/快照校验失败仍保护性停止，不纳入可忽略的投影故障。
+status 从事件恢复状态，单模块 OpenSpec 或报告写入失败返回 projection.errors 并以 workflow_progress 的 projection-pending 信号通知 Host，无关动作继续；投影失败时磁盘文件可能落后，以返回的 Ledger sequence/状态及有效工件引用为准，进度报告写不进时命令返回仍带诊断。日志完整性损坏、run 身份/快照校验失败仍保护性停止，不算可忽略的投影故障。
 
-status 先尝试写 workflow-attention.md，再将包含末端写入错误的进度保存到 ledger/progress.json，供旁路监听读取。progress 写入失败时仅补写一次，并带入首次失败的诊断；再次失败就返回全部错误，不递归重试、不追加业务事件。两个诊断出口均不可写时，旧磁盘投影可能仍存在，Host 必须展示本次返回的 projection.errors，不能只依赖 watchdog。补写成功仍保留本次故障，下一次正常 status 完整重建后才撤下信号。
+status 先写 workflow-attention.md，再把含末端写入错误的进度存到 ledger/progress.json 供旁路监听；progress 写入失败只补写一次并带首次失败的诊断，再失败就返回全部错误，不递归重试、不追加业务事件。两个诊断出口都不可写时旧磁盘投影可能仍在，Host 必须展示本次返回的 projection.errors，不能只靠 watchdog；补写成功仍保留本次故障，下一次正常 status 完整重建后才撤信号。
 
 对于 JSON 损坏的 OpenSpec manifest，只有本 run 的 projection-owners 记录已验证时才自动恢复：先将原字节保存到 `run_root/reports/projection-recovery/<module_id>/<sha256>.manifest`，再按 Ledger 重建。损坏内容不能用作删除清单；有效但属于其他 owner 的 manifest、符号链接或无法验证归属的文件保留原状并提示处理。恢复不改业务事件或质量。
 
 ### 有时限的锁获取
 
-`.ledger.lock`、`.context.lock` 和 Harmony `.prepare.lock` 统一使用非阻塞重试；默认最多等待 10 秒。Host 可通过 `SDD_LOCK_TIMEOUT_SECONDS` 设置正的有限秒数（允许小数）。该值仅控制获取锁的等待，不限制已持锁事务执行时间。
+`.ledger.lock`、`.context.lock` 和 Harmony `.prepare.lock` 统一非阻塞重试，默认最多等 10 秒，Host 可用 `SDD_LOCK_TIMEOUT_SECONDS` 设正的有限秒数（允许小数）；只控制获取锁的等待，不限制已持锁事务的执行时间。
 
-超时抛出 LockTimeout；Ledger/项目上下文 CLI 返回 `status: lock-timeout`、lock_path、timeout_seconds、owner=host 和 next_action。Host 保存命令回执到对应 run staging，检查持锁进程，再重试；不会自动偷锁、撤销 assignment、重置预算或改测试结果。超时后的拒绝处理不再次争用同一把锁。旁路 watchdog 不获取业务锁，也不会代替 Host 执行恢复。
+超时抛 LockTimeout，Ledger/项目上下文 CLI 返回 `status: lock-timeout`、lock_path、timeout_seconds、owner=host 和 next_action；Host 把命令回执存到对应 run staging、检查持锁进程再重试，不自动偷锁、撤销 assignment、重置预算或改测试结果；超时后的拒绝处理不再争用同一把锁，旁路 watchdog 不获取业务锁、不代替 Host 恢复。
 
 ## 并行拒绝与审计撤销顺序
 
@@ -91,10 +90,10 @@ Run 对应一次宿主任务；阻塞、纠错、环境/预算/会话变化均�
 
 问题先上溯到能解决的最低层：编码前叶子 planning-reopen，编码后叶子契约走 CR；父内切片走 realloc-request → redecompose → GO 接受；父范围不足或原子根无父时，同一 realloc-request 交 GO。父 MO 可从父 ID 提交请求，不能私改根范围。
 
-冻结前的问题闭环归 GO/MO：留原因/证据 → bottom-up 定位责任 → 修正 → 受影响范围 top-down 重规划 → 校验 → 当前 SPEC 冻结。调整、旧分配和旧草稿均为不可执行 history；每叶子只有一套有效六件套，摘要/freeze_id 仅绑定工件。规划验证检查边界、覆盖、依赖与 TASK/CASE/PATH 一致性，不执行目标代码测试。统一宿主审计内修复走 audit-work。
+冻结前的问题闭环归 GO/MO：留原因/证据 → bottom-up 定位责任 → 修正 → 受影响范围 top-down 重规划 → 校验 → 当前 SPEC 冻结。旧调整、分配与草稿是不可执行 history，每叶子只有一套有效六件套。规划验证检查边界、覆盖、依赖与 TASK/CASE/PATH 一致性，不执行目标代码测试。统一宿主审计内修复走 audit-work。
 
 GO `run-review(report_ref, context_ref)` 使用 [run-revision.json](../../../template/run-revision.json)：原因、context_patch、完整 root_updates、逐叶子影响证据、可选 blocker 摘要与 lessons_ref；支持架构/知识/规则、构建/测试/运行/资源修订，global_spec_ref 更新业务规范。contract_patch 更新当前需求/CASE/GLOBAL 路径并绑定新业务规范；移出项写 retirements=[{kind:requirement|case|global-path,id,replacement_ids,reason,evidence_refs}]，replacement_ids=[] 为停用，否则指向同类有效 ID；semantic_change=true 须精确 Human 决定。旧 ID 不复用，原契约/失败/批准留历史，受影响 owner 重规划；身份、源码根、预算与质量门禁不变。新增根走 register，父内增删走 redecompose。
 
-Host 以当前 subject_sha256 提交 `revise-run`。boundary_review 明确无未决问题、无语义/授权变化时无需 decision；改宿主业务语义、需求/验收或授权仍需真实精确决定。仅等待受影响 worker，审计按原退出协议；无关进度不使批准过期。事务保留锁/CAS/幂等、历史/失败/预算；context/revisions 保存新快照。逐叶子审阅实际影响：根分析改了某叶子引用的父项或契约（只换证据引用不算），该叶子须 replan/revise，其余 unchanged、子分析原样沿用并继续；新增父项须有叶子承接。父只重写这些叶子，无叶子受影响则不重拆。消费者保留计划，已有代码的等 provider 后复验，仅证据变化不清 global-plan；根、业务规范或架构变化均清 global-plan 待 GO 重验。未变冻结模块绑定 execution_context_ref，保留预检/派发/Green；受影响模块按 action 修订或重规划后实现/复测。变化 GLOBAL 路径保留旧结果但标失效、链接复测。blocker 仅具体摘要批准可解除。
+Host 以当前 subject_sha256 提交 `revise-run`：boundary_review 明确无未决问题、无语义/授权变化时无需 decision，改宿主业务语义、需求/验收或授权仍需真实精确决定；只等受影响 worker，审计按原退出协议，无关进度不使批准过期；事务保留锁/CAS/幂等与历史/失败/预算，context/revisions 存新快照。逐叶子审阅实际影响：根分析改了某叶子引用的父项或契约（只换证据引用不算）则该叶子 replan/revise，其余 unchanged、子分析原样沿用；新增父项须有叶子承接，父只重写这些叶子，无叶子受影响不重拆。消费者保留计划，已有代码的等 provider 后复验；仅证据变化不清 global-plan，根、业务规范或架构变化清 global-plan 待 GO 重验。未变冻结模块绑定 execution_context_ref，保留预检/派发/Green；受影响模块按 action 修订或重规划后实现/复测；变化的 GLOBAL 路径旧结果标失效、链接复测；blocker 仅具体摘要批准可解除。
 
 status.run_change_next_step 给出协调动作；根请求进入全局游标。重新规划步骤提供 history_refs 与 planning_history 摘要，阶段预检要求读取 Ledger 提交的经验工件；经验只指导本轮分析，不授予批准或测试通过。
