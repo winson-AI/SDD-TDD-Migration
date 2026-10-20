@@ -104,7 +104,7 @@ def _step(st, module_id, since=None):
     open_rows, standing = issues.of_module(st, module_id)
     out['open_issues'], out['open_issue_count'] = issues.listed(open_rows)
     out['open_issue_families'] = issues.families(open_rows)  # every open issue counted, even past the rows the step lists
-    out['target_preview'] = st.get('target_preview') or {}  # the environment files init wrote from the device statement
+    out['target_preview'] = {**(st.get('target_preview') or {}), **({'harmony_sandbox': st['harmony_sandbox']} if st.get('harmony_sandbox') else {})}  # what init wrote from the statements
     out['standing_rules'] = issues.standing_view(standing, since)
     if module_id is not None and st.get('api_registry'):  # the calls registered to this leaf after its allocation
         out['api_registry'] = [{'api_id': aid, 'item_id': row['item_id'], 'sequence': row.get('sequence')}

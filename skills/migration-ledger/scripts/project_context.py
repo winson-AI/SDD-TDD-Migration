@@ -161,6 +161,11 @@ def validate(config):
         require(isinstance(adapter['args'], list) and all(isinstance(a, str) for a in adapter['args']), 'adapter args must be a string array')
     if 'timeout_seconds' in adapter:
         require(type(adapter['timeout_seconds']) is int and adapter['timeout_seconds'] > 0, 'invalid adapter timeout')
+    reference = adapter.get('harmony_reference')  # the sandbox configuration and credentials init prepares into the run
+    if reference is not None:
+        require(isinstance(reference, dict) and set(reference) <= {'config', 'env_file'} and isinstance(reference.get('config'), str) and Path(reference['config']).is_absolute()
+                and (reference.get('env_file') is None or isinstance(reference['env_file'], str) and Path(reference['env_file']).is_absolute()),
+                'test_adapter.harmony_reference takes the absolute config (and env_file) the Harmony sandbox is prepared from')
     adapters = adapter.get('adapters')  # which adapter runs the device PATHs of each platform; {run_root} in an argv is the run when it executes
     if adapters is not None:
         require(isinstance(adapters, dict) and set(adapters) <= {'android', 'harmony', 'web'}, 'test_adapter.adapters maps android, harmony and/or web to the adapter that runs their PATHs')
@@ -234,6 +239,20 @@ def target_preview(platform, value):
             label + ' names the serial ' + tool + ' sees (avd, boot and tool optional)')
     require(value.get('tool') is None or isinstance(value['tool'], str) and Path(value['tool']).is_absolute() and Path(value['tool']).name == tool, label + '.tool is the absolute ' + tool)
     boot_shape(value.get('boot'), label + '.boot')
+
+
+def harmony_sandbox(root, reference):
+    """The Harmony sandbox of the run prepared from the stated reference files, so the adapter argv that names
+    runs/harmony/sandbox/environment/config.json finds it; None when nothing is stated."""
+    if not reference:
+        return None
+    import sys
+    scripts = str(Path(__file__).resolve().parents[2] / 'migration-test/scripts')
+    if scripts not in sys.path:
+        sys.path.append(scripts)
+    import harmony_environment
+    config, env_file = harmony_environment.prepare_environment(root, reference['config'], reference.get('env_file'))
+    return {'config_ref': file_ref(config), 'env_file': str(env_file)}  # the credentials file is named, never hashed into the state
 
 
 def target_preview_files(root, device):

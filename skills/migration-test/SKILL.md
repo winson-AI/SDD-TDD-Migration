@@ -9,11 +9,11 @@ description: SDD-TDD-Migration 的测试设计、构建与自动化执行；支�
 服务 Test-Runner；[职责协议](../migration-protocol/references/testing.md)。
 
 ## 2. 核心规约
-设计/执行模式分离；每条参数化路径有 ID/Name/query 和非空预期断言；Main 采用项目真实执行器。
+设计/执行模式分离；每条参数化路径有 ID/Name/query 和非空预期断言；Main 按 PATH 平台选适配器（内置 Harmony/web Main 或项目执行器）。
 
 设计 UI 测试时使用 [状态测试表](../../template/ui-state-test-design.md)：稳定视觉目标与瞬态行为分别验证。loading/skeleton 保留状态转换测试，未声明为可稳定复现的视觉目标时不要求抢拍，不通过假延时改变生产行为。该分类写入已有 test-design，随 SPEC 冻结。
 
-需要当前 HAP 装机、视觉捕获或模型语义比较时按 [受限视觉执行](../migration-protocol/references/visual-execution.md#2-执行节点)。在现有测试 assignment 下使用 visual-install/visual-capture/semantic-inspect/image-parity，读取冻结配置、保存原始证据；正式结果仍通过 execute_test/adapter 提交，不在工具中修代码或直接验收。
+需要装机、视觉捕获或模型语义比较时按 [受限视觉执行](../migration-protocol/references/visual-execution.md#2-执行节点)：在现有测试 assignment 下用 visual-install/visual-capture/semantic-inspect/image-parity，读冻结配置、存原始证据，正式结果仍经 execute_test/adapter 提交，不在工具中修代码或直接验收。
 
 ## 3. 标准模式
 测试设计由 Spec-Designer 随计划提交（upstream-test-plan），见 [编码前设计交接](../migration-protocol/references/testing.md#编码前设计交接)。code accepted 后依次 build → unit（本轮 JUnit）→ static（逐 Scenario）→ automation → 适用时 visual。错误交 Fixer；仅 automation 环境缺失记 Yellow/未执行，其他任务继续。
@@ -31,7 +31,7 @@ description: SDD-TDD-Migration 的测试设计、构建与自动化执行；支�
 
 ## 7. Android/Harmony 自动化测试
 
-两端 UI/端到端 PATH 按 [移动端运行协议](references/harmony-runtime.md#3-execute一条-path-到-main)。使用 MobileAgenticOperator 的 test 流程：Planner → Executor → Verify；保留验证、回放、重规划和报告。冻结 platform=android|harmony、task_type=test；不支持 iOS 或以 snapshot/recording 验收。
+两端 UI/端到端 PATH 按 [移动端运行协议](references/harmony-runtime.md#3-execute一条-path-到-main)，走 MobileAgenticOperator 的 test 流程（Planner → Executor → Verify，保留验证、回放、重规划和报告）；冻结 platform=android|harmony、task_type=test，不支持 iOS 或以 snapshot/recording 验收。
 
 - 用例导入：用 [harmony_design.py](scripts/harmony_design.py) 导入 MD/XMind，审核完整用例并补齐冻结 ASSERT 描述、类型、匹配规则与 after_step。
 - execute：通过 host execute_test 调用 [harmony_adapter.py](scripts/harmony_adapter.py)，再用 [harmony_stage.py](scripts/harmony_stage.py) 组装全路径结果，按 Ledger submit/accept。
@@ -40,4 +40,4 @@ description: SDD-TDD-Migration 的测试设计、构建与自动化执行；支�
 
 角色硬约束以 [Test-Runner 定义](../../Agents/test-runner.md#6-硬约束) 为准；复用 fidelity、视觉、手势、埋点、运行环境等专题规则由阅读卡按触发携带。
 
-输出位置：构建 `.sdd-runs/<run_id>/runs/build/<new-attempt>`，自动化 `runs/harmony/automation/<new-attempt>`，Harmony 设计/适配/汇总 `runs/harmony/sandbox/<request>`；本 run 共享环境 `runs/harmony/sandbox/environment` 由 `sandbox.py prepare --root <run_root>` 生成。见 [留存布局](../migration-protocol/references/storage-layout.md#总则)。
+输出位置见 [留存布局](../migration-protocol/references/storage-layout.md#总则)：构建 `runs/build/<new-attempt>`，自动化 `runs/harmony/automation/<new-attempt>`，Harmony 设计/适配/汇总 `runs/harmony/sandbox/<request>`；共享环境 `runs/harmony/sandbox/environment` 由 init 按 `test_adapter.harmony_reference` 或 `sandbox.py prepare --root <run_root>` 生成。
