@@ -216,3 +216,13 @@ class SandboxTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DoctorAdapterTests(unittest.TestCase):
+    def test_the_doctor_probes_the_adapter_each_platform_states(self):
+        spec = importlib.util.spec_from_file_location('sandbox', ENGINE / 'sandbox.py'); sandbox = importlib.util.module_from_spec(spec); spec.loader.exec_module(sandbox)
+        report = sandbox.doctor(str(ENGINE / 'config.default.json'), adapters={'web': {'argv': [sys.executable, '/opt/pkg/web_main.py']}, 'android': {'argv': ['/nonexistent/python', 'x']}, 'harmony': 'not a row'})
+        rows = {c['name']: c['status'] for c in report['checks'] if c['name'].startswith('adapter-')}
+        self.assertEqual(rows['adapter-web'], 'ready'); self.assertEqual(rows['adapter-android'], 'blocked'); self.assertEqual(rows['adapter-harmony'], 'blocked')
+        self.assertIn(rows['adapter-web-playwright'], ('ready', 'blocked'))  # whether this interpreter has Playwright is a fact of the host
+        self.assertEqual(report['status'], 'yellow-blocked')

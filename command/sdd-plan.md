@@ -8,7 +8,7 @@ description: /sdd-plan <run-id> <module-id> — 生成六件套并完成 plan �
 `/sdd-plan <run-id> <module-id>`
 
 ## 2. 编排步骤
-1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
+1. 先按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)。
 2. 前置门控：run/module 已注册，处于 context/specifying/clarifying/change-review 或等待澄清，持有当前 assignment；先 `verify_openspec.py --scope module --module-id <module-id>`，按 recovery_action 局部恢复，见[核验范围](sdd-verify.md)。
 3. MO 先读全局代码、架构、知识与分工；按原子性细分或叶子规划（原子结论同样经 decompose → GO decompose-accept）；叶子拆 TASK 后由 Spec-Designer 直接写 SPEC 与上游用例路径，MO plan-review/freeze；只有真实未决或需求/验收/授权变化交 Escalation，待答保存 waiting-human。
 

@@ -15,13 +15,11 @@
 以下路径中的 `<package>`、`<run>`、`<request>`、`<principal>` 均需换成绝对路径。
 
 ```text
-python3 <package>/skills/migration-ledger/scripts/ledger.py init --root <run> --request <request.json> --host-context <principal.json>
-python3 <package>/skills/migration-ledger/scripts/ledger.py apply --root <run> --request <request.json> --host-context <principal.json>
-python3 <package>/skills/migration-ledger/scripts/ledger.py status --root <run> [--view cursor|step|module|full] [--module <id>] [--since <sequence>]
-python3 <package>/skills/migration-ledger/scripts/ledger.py resume --root <run> --request <request.json> --host-context <principal.json>
-python3 <package>/skills/migration-ledger/scripts/ledger.py recover --root <run> --request <request.json> --host-context <principal.json>
-python3 <package>/skills/migration-ledger/scripts/ledger.py advance --root <run> --module <module-id> --host-context <mo-principal.json> [--worker <role>=<instance>]
-python3 <package>/skills/migration-ledger/scripts/ledger.py preview --root <run> --module <module-id> [--plan <stage-plan.json>]
+L=python3 <package>/skills/migration-ledger/scripts/ledger.py
+$L init|apply|resume|recover --root <run> --request <request.json> --host-context <principal.json>
+$L status --root <run> [--view cursor|step|module|full] [--module <id>] [--since <sequence>]
+$L advance --root <run> --module <module-id> --host-context <mo-principal.json> [--worker <role>=<instance>]
+$L preview --root <run> --module <module-id> [--plan <stage-plan.json>]
 python3 <package>/skills/migration-ledger/scripts/verify_openspec.py --root <run> --scope module --module-id <module-id>
 ```
 
@@ -43,13 +41,13 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | decompose-accept | Global / 根 module_id | review_ref；细分则登记孩子、父移入 module_groups；原子结论保留节点进入未冻结叶子规划 |
 | realloc-request | MO / 子或根 module_id | reason、evidence_refs；切片/边界冲突向上提单，保存恢复阶段后进入 waiting-upstream；无父或父级上溯交 GO run-review |
 | redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；children 覆盖父 scope。根修订后游标 affected_children 列出须重写的孩子，其余原样复述即沿用 |
-| redecompose-accept | Global / 父 module_id | review_ref；未变孩子保留进度并恢复请求前阶段，边界保持的冻结孩子转 CR，被改的孩子重新规划（保留 blocker/失败/预算）；只依赖它们的叶子不重规划，已有代码的等 provider 后复验；下线模块入 superseded_modules 供 Auditor 治理 |
+| redecompose-accept | Global / 父 module_id | review_ref；未变孩子保留进度并恢复原阶段，边界保持的冻结孩子转 CR，被改的孩子重新规划（保留 blocker/失败/预算）；只依赖它们的叶子不重规划，已有代码的等 provider 后复验；下线模块入 superseded_modules |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后绑定当前版本汇总 |
-| decision | host | decision_id、decision=approved、module_id、subject_sha256（游标步骤的 approval_subject_sha256）、human_source_ref；决定与常设裁定另以 issue（kind=decision/standing）寄给适用模块。`kind=knowledge`：question_id 为 knowledge-need 的 issue_id，answers[]、sources[] 必填，Ledger 写 artifacts/knowledge/<decision_id>.md 并消去该问题；`kind=batch-envelope`：module_id 为父，envelope_ref 指向[批量信封](../../../template/batch-envelope.json)，children 只能是该父的孩子；`kind=api-adaptation`：module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
-| global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；可带 target_profile_ref（目标画像）；无关根可待拆，执行仍验当前叶子与依赖。registry 变化后重审 |
+| decision | host | decision_id、decision=approved、module_id、subject_sha256（游标的 approval_subject_sha256）、human_source_ref；决定与常设裁定另以 issue（kind=decision/standing）寄给适用模块。`kind=knowledge`：question_id 为 knowledge-need 的 issue_id，answers[]、sources[] 必填，Ledger 写 artifacts/knowledge/<decision_id>.md 并消去该问题；`kind=batch-envelope`：module_id 为父，envelope_ref 指向[批量信封](../../../template/batch-envelope.json)，children 只能是该父的孩子；`kind=api-adaptation`：module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
+| global-plan | Global | plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；可带 target_profile_ref（目标画像）；无关根可待拆，registry 变化后重审 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
-| audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human/trace（根因在 SPEC 或切片划分，owner 为须修订的叶子或父模块） |
-| audit-route-batch | Global | review_ref；审核 finding 责任映射及依赖图；human 分支挂起，独立分支继续；trace 记为各 owner 的问题，无 human 路由时放开批次：owner 以 change/realloc-request/redecompose 自下而上修订，代码保留，消去后重新收集 |
+| audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human/trace |
+| audit-route-batch | Global | review_ref；审核 finding 责任映射及依赖图；human 分支挂起，独立分支继续；trace 记为各 owner 的问题，owner 以 change/realloc-request/redecompose 自下而上修订，代码保留，消去后重新收集 |
 | audit-work | MO | 顶层 module_id 指负责模块；接受被冻结的修复任务，一轮 Fixer 授权；前置不可满足则报告待人工 |
 | audit-retest | MO | 顶层 module_id 指发现模块或受影响中间模块；只等待本模块的上游修复/复测完成，执行完整模块路径 |
 | audit-verdict | Auditor | review_ref；双方验证齐全、同基线、DoD 完成才裁决通过；过期证据报告待人工 |
@@ -61,7 +59,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | integration-assign / integration-submit | GO / Test-Runner | 游标 wave-complete 时同上，path_ids 恰为到期的 global path；结果进 audit_results，Red 入 audit_repairs |
 | freeze | MO | 清晰规划用 review_ref；人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
-| assign | MO | assignment_id、role、instance_id，可选 session_id/card_sha256；implementer 只选 task_ids（path_ids 取其并集）；合法阶段且无活动 worker，返回 fencing_token。worker 派发后 context-submit（implementer 由 Ledger 代登记），当前 ready 报告直接绑定，blocked 拒绝；`mechanical=true` 时宿主按步骤 payload 提交；步骤带 `submission`（implementer/fixer）或 `report_skeleton`（test-runner） |
+| assign | MO | assignment_id、role、instance_id，可选 session_id/card_sha256；implementer 只选 task_ids（path_ids 取其并集）；合法阶段且无活动 worker，返回 fencing_token。派发后 context-submit（implementer 由 Ledger 代登记），ready 报告直接绑定，blocked 拒绝；`mechanical=true` 时宿主按步骤 payload 提交；步骤带 `submission`（implementer/fixer）或 `report_skeleton`（test-runner） |
 | context-submit | 执行者 | report_ref；登记预检报告（留标记即拒），同 stage/实例的最新生效；worker 有同阶段活动派发时 ready 绑定并开工（Fixer 计一轮），blocked 退回 |
 | submit | worker | assignment_id、fencing_token、result_ref；执行派发须已绑定 ready 预检；不推进阶段 |
 | accept | MO | assignment_id；重验工件和版本后关闭。`mechanical=true` 时宿主直接提交 |
@@ -82,9 +80,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | audit-revoke | host | assignment_id、stopped_worker_ref；停止活动审计，保留已用次数，才能分配下一轮 |
 | audit | Auditor | report_ref；按 tests 提交 assignment.path_ids 的复核结果；空清单按 audit-review 提交独立审阅；均带 snapshot |
 
-`init` 的需求、CASE 与 global_paths 由 GO 写入 input；控制器不替模型拆分需求。global_paths 为可选项，缺失或 [] 都不阻止 Auditor。不同模块及全局 PATH ID 必须全局唯一。audit-assign 从遗留状态生成 path_ids，排除有效 Green；空清单只做独立审阅，详见 [审计范围协议](audit-scope.md#总则)。
-
-本地角色身份校验不自动完成业务审核：source_closure 是否真实完整、测试语义是否正确、envelope 是否被违反、DoD 内容是否成立均需对应独立角色审查。脚本校验的是工件与守卫条件，不能替代人工/Agent 的实际审核过程。
+`init` 的需求、CASE 与 global_paths 由 GO 写入 input；global_paths 可选（缺失或 [] 不阻止 Auditor）；模块与全局 PATH ID 全局唯一；audit-assign 从遗留状态生成 path_ids、排除有效 Green，空清单只做独立审阅（[审计范围](audit-scope.md#总则)）。脚本校验工件与守卫条件，不替代独立角色对 source_closure、测试语义、envelope 与 DoD 内容的审核。
 
 | 操作 | 角色 / scope | 输入与门禁 |
 | --- | --- | --- |
@@ -92,7 +88,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
 | retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
 | api-register | GO / MO / Spec-Designer，全局 | module_id（owner 叶）、api_id（run 内新）、item_id（该叶 Logic/Adhesive 条目）、call、contract、evidence_refs；该叶下次 plan 的清单可多出已登记行，不重切、不推进修订号；owner/consumer 变化走 realloc/redecompose |
-| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind、summary、applies_to，可选 evidence_refs、blocks（或 issues[] 批量）；消去：issue_id、module_id、evidence_ref（或 resolutions[] 批量，全部成立才记）；plan/plan-review/submit/accept 可带 resolves[]；不推进修订号。kind：defect/gap/need/decision 须消去（blocks 挡 freeze，其余挡 complete）；fact 与 debt 记录即结清；standing 不消去，新增后随 step 交付一次；knowledge-need 只能由 kind=knowledge 决定或知识文档消去。step 视图每模块最多 10 条、每条 200 字符；Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
+| issue / issue-resolve | 任意角色，全局 | 登记：issue_id、kind、summary、applies_to，可选 evidence_refs、blocks（或批量）；消去：issue_id、module_id、evidence_ref（或批量，全部成立才记）；plan/plan-review/submit/accept 可带 resolves[]；不推进修订号。kind：defect/gap/need/decision 须消去（blocks 挡 freeze，其余挡 complete）；fact 与 debt 记录即结清；standing 不消去，新增后随 step 交付一次；knowledge-need 只能由 kind=knowledge 决定或知识文档消去。step 视图每模块最多 10 条、每条 200 字符，另按族计数；Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
 
 ## 阶段结果
 
@@ -119,10 +115,10 @@ tests 另需 paths，见 [stage-result.json](../../../template/stage-result.json
 
 ## 实际测试适配器
 
-宿主先审核并配置 [test-adapter.json](../../../template/test-adapter.json) 的 argv，再运行：
+适配器按 PATH 选：build/unit/进程内功能 PATH 跑冻结的 command；设备 PATH 跑项目 `test_adapter.adapters[platform]`（argv 见 [test-adapter.json](../../../template/test-adapter.json)，`{run_root}` 为本 run），没有时用 `test_adapter.executable/args`；`--adapter <json>` 显式覆盖，`--cwd` 缺省为目标工程：
 
 ```text
-python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-M001-001（同命令 unit PATH 可为 a,b 列表） --adapter <adapter.json> --cwd <target> --output <run>/runs/harmony/automation/<new-attempt>
+python3 <package>/skills/migration-ledger/scripts/execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-M001-001（同命令 unit PATH 可为 a,b 列表） --output <run>/runs/harmony/automation/<new-attempt>
 ```
 
 适配器接收 `--query-file <json> --result-file <json>`，写 `{"assertions":[{"assertion_id":"A1","expected":2,"actual":2,"passed":true}]}`。

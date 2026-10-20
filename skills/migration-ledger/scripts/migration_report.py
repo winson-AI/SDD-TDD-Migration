@@ -304,7 +304,7 @@ def build(root, s, sequence, ref_check=check_ref):
             'cases': cases, 'paths': rows, 'non_green': [r for r in rows if r['quality'] != 'green-passed'],
             'automation': automation_report.build(s, rows),
             'contract_retirements': run_changes.retirements(s),
-            'unimplemented': gaps, 'code_governance': governance, 'open_issues': issues.of_module(s)[0],
+            'unimplemented': gaps, 'code_governance': governance, 'open_issues': issues.of_module(s)[0], 'open_issue_families': issues.families(issues.of_module(s)[0]),
             'visual_coverage': visual, 'fidelity_limitations': limitations, 'legacy_preview': project_context.legacy_preview(s),
             'fidelity_conditions': pictures.pop('conditions'), 'picture_fidelity': pictures,
             'human_report': copy.deepcopy(batch.get('human_report')),
@@ -367,7 +367,8 @@ def render(report):
     for c in report['cases']:
         text.append('| ' + ' | '.join(cell(v) for v in (c['case_id'], ', '.join(c['module_ids']), c['quality'], c['path_count'], c['executed_count'])) + ' |')
     if report.get('open_issues'):
-        text += ['', '## 未消去的登记问题', '', '| 问题 | 种类 | 待落实的模块 | 摘要 |', '| --- | --- | --- | --- |']
+        text += ['', '## 未消去的登记问题', '', '按族：' + '、'.join(f'{name} {n}' for name, n in report.get('open_issue_families', {}).items()), '',
+                 '| 问题 | 种类 | 待落实的模块 | 摘要 |', '| --- | --- | --- | --- | --- |']
         text += ['| ' + ' | '.join(cell(v) for v in (row['issue_id'], row['kind'] + ('（挡冻结）' if row['blocks'] else ''),
                                                     ', '.join(row['open_for']), row['summary'])) + ' |' for row in report['open_issues']]
     import automation_report

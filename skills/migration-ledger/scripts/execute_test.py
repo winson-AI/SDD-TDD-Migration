@@ -126,9 +126,27 @@ def selfcheck(argv, cwd, output, root=None, module_id=None, path_id=None):
     return code
 
 
-def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=300):
+def adapter_for(s, path, root):
+    """What runs a PATH when the host names nothing: build, unit and in-process functional PATHs have their frozen command;
+    a device PATH runs the adapter the project states for its platform (test_adapter.adapters), else the project's one
+    adapter. `{run_root}` in a stated argv is this run."""
+    if path.get('command'):
+        return {'argv': list(path['command']['argv']), 'cwd': path['command']['cwd'], 'timeout': path['command'].get('timeout_seconds') or 300}
+    adapter = s.get('test_adapter') or {}
+    platform = path.get('platform')
+    row = (adapter.get('adapters') or {}).get(platform)
+    if row is None and adapter.get('executable'):
+        row = {'argv': [adapter['executable'], *adapter.get('args', [])], 'cwd': adapter.get('cwd'), 'timeout_seconds': adapter.get('timeout_seconds')}
+    require(row, 'no adapter runs platform ' + str(platform) + ' PATHs: state test_adapter.adapters.' + str(platform) + ' in the project context, or pass --adapter')
+    return {'argv': [a.replace('{run_root}', str(root)) for a in row['argv']], 'cwd': (row.get('cwd') or s['target_root']).replace('{run_root}', str(root)),
+            'timeout': row.get('timeout_seconds') or 300}
+
+
+def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output=None, timeout=None):
     """One approved execution. `path_id` names one PATH, or several unit PATHs that froze the same command: those run
-    once, and each gets its own receipt and JUnit attribution out of the one run (a list of receipt references)."""
+    once, and each gets its own receipt and JUnit attribution out of the one run (a list of receipt references).
+    With no `argv` the command is resolved from the frozen PATH or the project's adapters (`adapter_for`)."""
+    require(output, 'output required')
     root = Path(root).resolve()
     s = status(root)
     pids = [path_id] if isinstance(path_id, str) else list(path_id)
@@ -164,6 +182,10 @@ def execute(root, module_id, assignment_id, path_id, argv, cwd, output, timeout=
         require(all((p['command']['argv'], str(Path(p['command']['cwd']).resolve())) ==
                     (path['command']['argv'], str(Path(path['command']['cwd']).resolve())) for p in paths),
                 'a batch runs PATHs that froze the same command')
+    if argv is None:  # the host named no command: the frozen one, or the run's adapter for the PATH's platform
+        chosen = adapter_for(s, path, root)
+        argv, cwd, timeout = chosen['argv'], cwd or chosen['cwd'], timeout or chosen['timeout']
+    timeout = timeout or 300
     for pid in pids:
         context_readiness.check_execution(s, a, argv, cwd, pid)
     require(baseline(m['code_files']) == m['code_baseline'], 'code changed before execution')
@@ -389,8 +411,10 @@ def main():
             print(str(exc), file=sys.stderr)
             return 1
     parser = argparse.ArgumentParser(description=__doc__)
-    for arg in ('root', 'module', 'assignment', 'path-id', 'adapter', 'cwd', 'output'):
+    for arg in ('root', 'module', 'assignment', 'path-id', 'output'):
         parser.add_argument('--' + arg, required=True, help='several unit PATHs of one frozen command: a,b,c' if arg == 'path-id' else None)
+    parser.add_argument('--adapter', help='explicit {argv, timeout}; otherwise the frozen command or the project adapter of the PATH platform runs')
+    parser.add_argument('--cwd', help='working directory; otherwise the frozen command cwd or the target project')
     parser.add_argument('--timeout', type=int)
     args = parser.parse_args()
     def terminated(signum, frame):
@@ -400,10 +424,10 @@ def main():
         canonical = Path(args.root).resolve()
         require(canonical.parent.name == '.sdd-runs', 'CLI execution requires .sdd-runs/<run_id>; import old evidence into a new run')
         run_storage.layout(canonical.parent.parent, canonical.name)
-        adapter = read_json(args.adapter)
+        adapter = read_json(args.adapter) if args.adapter else None
         pids = [pid for pid in args.path_id.split(',') if pid]
         print(json.dumps(execute(args.root, args.module, args.assignment, pids if len(pids) > 1 else args.path_id,
-                                 adapter['argv'], args.cwd, args.output, args.timeout or adapter.get('timeout', 300))))
+                                 adapter['argv'] if adapter else None, args.cwd, args.output, args.timeout or (adapter or {}).get('timeout'))))
         return 0
     except (ValueError, OSError, KeyError, StopIteration) as exc:
         print(str(exc), file=sys.stderr)

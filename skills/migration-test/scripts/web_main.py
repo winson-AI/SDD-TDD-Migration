@@ -21,6 +21,7 @@ from harmony_contract import digest, ref, write
 from web_contract import DEFAULT_TOLERANCE, validate_query
 
 PRODUCER = 'web-main'
+PREDICATE_RETRIES = 10  # a predicate that does not hold yet is read again every 300 ms, for 3 s at most
 CONTEXT = ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline')
 COMPARE_WIDTH = 640
 
@@ -135,6 +136,9 @@ class Run:
         try:
             if a['verification'] == 'dom':
                 passed, actual = judge(self.page, a['predicate'])
+                for _ in range(PREDICATE_RETRIES):  # read-only: a page still rendering is read again for a bounded while, never acted on
+                    if passed: break
+                    self.page.wait(300); passed, actual = judge(self.page, a['predicate'])
                 self.observe(a, number, step, after, passed, actual, 'predicate ' + a['predicate']['kind'] + (' held' if passed else ' did not hold'))
             else:
                 picture = a['reference_media_ref']  # the user's screenshot lives in the run's context, outside this output
@@ -202,12 +206,13 @@ def execute(query, config, out, open_page=PlaywrightPage):
     return run.report(video)
 
 
-def main():
+def main(argv=None, open_page=PlaywrightPage):
+    """The adapter entry; a test passes its own page factory, the host gets a browser."""
     parser = argparse.ArgumentParser(description=__doc__)
     for key in ('query-file', 'result-file'): parser.add_argument('--' + key, required=True)
     parser.add_argument('--config', help='JSON: browser, headless, viewport {width, height}, record_video, timeout_ms')
     parser.add_argument('--root', help='Run root; otherwise inferred from the canonical result path')
-    a = parser.parse_args()
+    a = parser.parse_args(argv)
     if os.getpgrp() != os.getpid(): os.setsid()  # this invocation owns its browser processes
     query_bytes = Path(a.query_file).read_bytes()
     q = json.loads(query_bytes)
@@ -223,6 +228,7 @@ def main():
     else:
         with snapshot.open('xb') as stream: stream.write(query_bytes)
     config = json.loads(Path(a.config).read_text()) if a.config else {}
+    config['record_video'] = bool(config.get('record_video') or q.get('record_video'))  # the frozen PATH asks for the film, or the run does
     environment = {'python': sys.version, 'platform': 'web', 'task_type': 'test', 'runner_root': str(out), 'query_ref': ref(snapshot),
                    'browser': config.get('browser', 'chromium'), 'headless': config.get('headless', True), 'viewport': config.get('viewport'),
                    'record_video': bool(config.get('record_video')), 'packages': {}}
@@ -233,7 +239,7 @@ def main():
     try:
         validate_query(q)
         with scope(out):
-            report = execute(q, config, out)
+            report = execute(q, config, out, open_page)
     except ValueError as exc:  # a query the Main cannot run: no step was taken, the reason is the receipt
         run = Run(q, out) if isinstance(q.get('steps'), list) and q.get('expected_assertions') else None
         report = {'producer': PRODUCER, 'platform': 'web', 'task_type': 'test', **{k: q.get(k) for k in CONTEXT}, 'query_sha256': digest(q),

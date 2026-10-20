@@ -574,6 +574,9 @@ def preview(root, module_id, plan_ref=None, principal=None):
         out['human'] = control_policy.needs_human(m)
     seen = set()
     out['owed'] = [row for row in out['owed'] if not (row['reason'] in seen or seen.add(row['reason']))]
+    out['owed_by_family'] = {}
+    for row in out['owed']:
+        out['owed_by_family'].setdefault(issues.family('gap', row['reason']), []).append(row['reason'])
     return out
 
 
@@ -2317,7 +2320,10 @@ def _judge(root, req, principal):
             require(p.get('package_sha') is None or (isinstance(p['package_sha'], str) and re.fullmatch(r'[0-9a-f]{40}', p['package_sha'])), 'package_sha is a git commit')
             require(not (p.get('module_slicing') or {}).get('functional_use_cases_complete') or (p.get('project_sources') or {}).get('test_cases_path'),
                     'functional_use_cases_complete=true claims the supplied cases are complete: it needs test_cases_path')
-            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})), 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'spec_closure_required': p.get('spec_closure_required', False), 'unit_tests_required': p.get('unit_tests_required', False), 'git_checkpoint': p.get('git_checkpoint', False), 'fixer_self_diagnosis': p.get('fixer_self_diagnosis', False), 'write_scope_check': p.get('write_scope_check', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
+            s = {'worker_stall_timeout_seconds': p.get('worker_stall_timeout_seconds', 900), 'dimension_slicing_required': p.get('dimension_slicing_required', True), 'build': copy.deepcopy(p.get('build', {})),
+                 'test_adapter': copy.deepcopy(p.get('test_adapter') or {}),
+                 'target_preview': project_context.target_preview_files(root, (p.get('test_adapter') or {}).get('device')) if root is not None else {},
+                 'split_testing_required': p.get('split_testing_required', True), 'context_readiness_required': p.get('context_readiness_required', True), 'ui_fidelity_required': p.get('ui_fidelity_required', False), 'spec_closure_required': p.get('spec_closure_required', False), 'unit_tests_required': p.get('unit_tests_required', False), 'git_checkpoint': p.get('git_checkpoint', False), 'fixer_self_diagnosis': p.get('fixer_self_diagnosis', False), 'write_scope_check': p.get('write_scope_check', False), 'dependency_resolution_required': p.get('dependency_resolution_required', False),
                  'target_resources': resources,
                  'behavior_contract_required': p.get('behavior_contract_required', False),
                  'test_design_required': p.get('test_design_required', False),

@@ -25,7 +25,7 @@ ROTATE_BUDGET = 100_000
 TEMPLATE_BUDGET = 20_000
 TRIGGERED_TEMPLATE_BUDGET = 56_200  # the most templates any step carries once every trigger holds
 # Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 465500  # consolidated ceiling, lowered when duplicated fidelity, freeze, design-handoff, execution and closure prose became single statements
+PROTOCOL_BUDGET = 464000  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
 FILE_BUDGET = 32_000
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -665,11 +665,13 @@ GATES = [
     (r'context_inputs|context input kind', 'runtime.md', '渐进加载'),
     (r'stop/isolation|stop unconfirmed|executor aborted|stop/revoke|revoke worker|worker identity|Test-Runner identity|review identity|session id required|advance needs|mechanical preflight|merged dispatch|api-register|api_id|module (not|already) registered|unknown module|^no modules|selected module', 'local-runtime.md', '操作矩阵'),
     (r'hint needs', 'host-integration.md', '提示采纳回报'),
+    (r'no adapter runs platform', 'local-runtime.md', '实际测试适配器'),
+    (r'test_adapter\.adapters', 'project-context.md', '初始化和增量更新'),
     (r'build (argv|command|cwd|timeout|artifact)|build must pass|build report|invalid build timeout|absolute output directory', 'build-automation.md', '2. 构建命令的来源与固化'),
     (r'deferral|defer completed|may be deferred|deferred automation', 'build-automation.md', '4. 自动化环境缺失：直接记 Yellow 并继续'),
     (r'execution (evidence|observation|output|contract)|execution-state|completion (acceptance|query|interpretation)|host normalization|host execution', 'testing.md', '本地执行与严格结果验收'),
     (r'mobile|Harmony (classification|context|query|output)', 'testing.md', 'Harmony Main'),
-    (r'web (PATH platform|report context|query|execution environment)', 'testing.md', 'web Main'),
+    (r'web (PATH platform|PATH |report context|query|execution environment)', 'testing.md', 'web Main'),
     (r'review (every|must cover|owner/scope|context|code changed)|goal conclusion', 'audit-code-review.md', 'Ledger 接口'),
     (r'anti-pattern|production_symbols|production binding', 'testing.md', '静态规格闭合'),
     (r'CR and impact|before CR|DoD review|accepted diagnosis|planning reopen|planning rollback|route directly to Fixer|module blocker|module work before repair|repair not pending|release (a )?blocker|invalidation reason|invalid blocker|structured blocker', 'state-machine.md', '控制流闭环细则'),

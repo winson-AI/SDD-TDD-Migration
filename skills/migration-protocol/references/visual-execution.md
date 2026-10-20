@@ -4,10 +4,10 @@
 
 ## 1. 准备与冻结
 
-1. Host/Test-Runner 按项目参考配置（可存 `.sdd-migration/harmony/visual.json`）或 [配置模板](../../../template/visual-execution.json)，在本轮 `runs/harmony/sandbox/environment/visual.json` 生成执行配置；与 sandbox 的 config.json 分开，执行期间不改写。
+1. init 从 `test_adapter.device` 的平台预览写出 `runs/harmony/sandbox/environment/target-preview-<平台>.json`（visual_capture；visual_model 默认关闭，宿主要语义比较时补）与 web Main 的 `web.json`，step 视图以 target_preview 给出引用；未声明时宿主按[配置模板](../../../template/visual-execution.json)自己写。与 sandbox 的 config.json 分开，执行期间不改写。
 2. Spec/Test design 把 `visual_execution` 放到对应 automation/visual PATH：environment_ref 的真实 path/hash、app_id、导航 actions、目标选择器；随路径冻结，变更走 CR/重新冻结。无视觉需求时不加此字段。
 3. 设备执行用显式 HDC、adb 或 browser backend（Android 目标装 APK，`ability` 填 activity，装机后在设备上核对包哈希；web 目标不装机：宿主部署已接受构建并在页面 `<meta name=sdd-build>` 声明其哈希，visual-install 与每次捕获重读核对，url 的主机即 app_id）；模型用显式启用的 external 配置，API key 只从指定环境变量读取，配置与请求只存变量名，不归档 `.env` 或明文 key。
-4. 执行前 Host 持有设备独占锁并在认证 host-context 注入 device_lock（device_id、assignment_id、fencing_token、held）；Agent 自填的锁字段不算锁。没有真机时 `visual_capture` 带 avd 或 boot.argv：设备不应答即启动模拟器、等 boot 完成后再装机捕获，启动留在 boot.json，模拟器留给后续捕获，宿主在 run 结束时关闭。
+4. 执行前 Host 持有设备独占锁并在认证 host-context 注入 device_lock（device_id、assignment_id、fencing_token、held）；Agent 自填的锁字段不算锁。没有真机时 `visual_capture` 带 avd 或 boot.argv：设备不应答即启动模拟器并等开机，启动留 boot.json，模拟器留给后续捕获，宿主在 run 结束时关闭。
 
 ## 2. 执行节点
 
@@ -37,7 +37,7 @@ viewport 捕获要求实际前台 App、冻结目标选择器与截图前后稳�
 
 失败归类：候选 App 启动后从运行列表消失是代码缺陷（`FAILED` / `app-runtime-failure`，Red 进诊断）；仍在运行但不在前台是 `target-precondition` 的 Yellow。只读查询遇瞬时超时重试一次，动作不重复；树里找不到控件只是取证不充分。alignment 结构经 `execute_test.py → lean_visual_adapter.py → submit/accept` 正式复核，脚本不从分数推导 ALIGNED，冻结手势仍需实际 action/observation 证据，本入口不代替功能自动化 Main。
 
-semantic 原文件的所有 issues 及 `comparability < 0.4` 或 `comparable=false` 都须在对应 comparison 的 `semantic_dispositions` 逐项裁决才可声明 Green；0.4 只标记待解释矛盾，不是通过阈值。每项含原 semantic_ref（path/hash）、原 finding（issue 含 index 与完整内容）、`resolved|dismissed`、非空 reason 和至少一份不同于原 semantic 的 evidence_refs；无问题不制造裁决。正式门禁重读原件，漏项、重复、旧 hash 或只有结论没证据均拒绝；示例见 [visual-alignment.json](../../../template/visual-alignment.json)。裁决由当前测试/审计 Agent 作出，工具不替 Agent 判断。
+semantic 原文件的所有 issues 及 `comparability < 0.4` 或 `comparable=false` 都须在对应 comparison 的 `semantic_dispositions` 逐项裁决才可声明 Green（0.4 只标记待解释矛盾）：每项含原 semantic_ref（path/hash）、原 finding（index 与完整内容）、`resolved|dismissed`、非空 reason 和至少一份不同于原 semantic 的 evidence_refs，无问题不制造裁决；门禁重读原件，漏项、重复、旧 hash 或只有结论没证据均拒绝（示例 [visual-alignment.json](../../../template/visual-alignment.json)）；裁决由当前测试/审计 Agent 作出。
 
 ## 3. 失败、留存与恢复
 
@@ -49,4 +49,4 @@ semantic 原文件的所有 issues 及 `comparability < 0.4` 或 `comparable=fal
 
 ## 4. 存量捕获
 
-存量可跑时，Spec-Designer 在 analyze-ui 前用 `legacy-capture` 捕获本叶 UI 项的 page:state:coverage；步骤给出 `capture_due`（尚无 runtime 证据的条目与最近一次捕获的 manifest），请求见 [legacy-capture-request.json](../../../template/legacy-capture-request.json)。adb 后端按声明装机、启动、走冻结 tap/swipe/back、核对前台与选择器，截图前后树稳定才写参考记录；动作写不成确定性步骤的目标带 `navigation: {mode: agent, steps}`，由声明的 `legacy_preview.navigator`（adapter 的 snapshot 任务）走到界面，到达后仍按冻结选择器捕获，未到达记 `navigation-unverified` 并附 capture_gap 建议；browser 后端用 Playwright 打开 url（声明可带 viewport）、走冻结 click、DOM 转树（只含屏上可见元素，含 shadow DOM 与同源 iframe；整页滚动的区域是 `class=body`）并按同一滚动契约滚到冻结终点，点击与滚动后等 DOM 稳定，记 legacy-reference/web；其 UI 树由 analyze-ui（platform=web）从运行时索引派生，无源索引，节点 id 取元素 id，图片来源只记录。捕不到的目标带原因（PARTIAL/BLOCKED），写入 `capture_gap`；manifest 作 analyze-ui 的 capture_ref 与 runtime 证据，CAPTURED 不是对齐通过。
+存量可跑时，Spec-Designer 在 analyze-ui 前用 `legacy-capture` 捕获本叶 UI 项的 page:state:coverage；步骤给出 `capture_due`（尚无 runtime 证据的条目与最近一次捕获的 manifest），请求见 [legacy-capture-request.json](../../../template/legacy-capture-request.json)。adb/hdc 后端按声明装机（HAP 核对 bundleName/versionCode）、启动、走冻结动作、核对前台与选择器，截图前后树稳定才写参考记录（hdc 记 legacy-reference/harmony）；动作写不成确定性步骤的目标带 `navigation: {mode: agent, steps}`，由声明的 `legacy_preview.navigator`（adapter 的 snapshot 任务）走到界面，到达后仍按冻结选择器捕获，未到达记 `navigation-unverified` 并附 capture_gap 建议；browser 后端用 Playwright 打开 url（可带 viewport）、走冻结 click、把屏上可见 DOM（含 shadow DOM 与同源 iframe；整页滚动区域是 `class=body`）转树并按同一滚动契约滚到终点，动作后等 DOM 稳定，记 legacy-reference/web；其 UI 树由 analyze-ui（platform=web）从运行时索引派生，节点 id 取元素 id。捕不到的目标带原因（PARTIAL/BLOCKED），写入 `capture_gap`；manifest 作 analyze-ui 的 capture_ref 与 runtime 证据，CAPTURED 不是对齐通过。

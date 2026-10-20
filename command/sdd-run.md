@@ -8,7 +8,7 @@ description: /sdd-run <run-id> — 并行推进就绪模块
 `/sdd-run <run-id>`
 
 ## 2. 编排步骤
-1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
+1. 先按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)。
 2. 前置门控：run 已初始化、存在可调度工作、宿主能提供隔离实例与单写 Ledger、max_parallel_modules 合法。先 `verify_openspec.py --scope global` 核验公共基础，再对派发目标用 `--scope module --module-id <id>`；局部失败只处理关联范围，见[核验范围](sdd-verify.md)。
 3. 按 `status` 游标派发：就绪模块在依赖与写集合约束内并行，仅已冻结模块可编码；逐 module_id 消费事件，单个失败不取消其他 MO；父节点的 decompose/decompose-accept/module-summary 同样出现在 next_steps，须同时检查 module_groups 与 module_rounds。全部模块完成或各自明确挂起、无活动 worker 与可推进动作后，才请求独立审计；暂时没有 ready 动作不代表运行中的 MO 已结束。
 

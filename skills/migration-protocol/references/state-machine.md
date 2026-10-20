@@ -46,9 +46,9 @@
 | dod | completed | 所有 DoD 检查与证据齐全，MO 提 complete，Ledger 接受 |
 | completed | testing / specifying | 审计问题经 MO repair-accept 进入 testing；代码/证据失效经 invalidate 进入 specifying；不保留旧 Green |
 
-模块执行为 Coding → 接受代码 → Test-Runner build/unit/static → automation/visual → DoD。按总预算局部收敛。Fixer 自测不替代正式复测；规划期不执行目标测试。
+模块执行为 Coding → 接受代码 → build/unit/static → automation/visual → DoD，按总预算局部收敛。
 
-`resume_phase` 只能由原暂停点及新基线验证计算，不能接受外部随意指定。Ledger 只持久化合法且带 MO 批准的模块迁移；Global 的唤醒事件不等于模块迁移批准。
+`resume_phase` 只由原暂停点及新基线验证计算；Ledger 只持久化合法且带 MO 批准的模块迁移，Global 的唤醒事件不等于批准。
 
 ## Freeze / DoD 分开
 

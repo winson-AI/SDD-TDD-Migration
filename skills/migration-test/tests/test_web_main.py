@@ -29,9 +29,10 @@ def png(color):
 
 
 class FakePage:
-    """What a page shows, as the Main reads it; `fail` names the action that cannot be performed."""
-    def __init__(self, texts, pixels=None):
-        self.calls, self.texts, self.pixels, self.fail = [], texts, pixels or png((255, 255, 255)), None
+    """What a page shows, as the Main reads it; `fail` names the action that cannot be performed; `late` is what the page
+    shows only after a few reads."""
+    def __init__(self, texts, pixels=None, late=None, config=None):
+        self.calls, self.texts, self.pixels, self.fail, self.late, self.reads, self.config = [], texts, pixels or png((255, 255, 255)), None, late or {}, 0, config
 
     def act(self, *call):
         self.calls.append(call)
@@ -43,7 +44,10 @@ class FakePage:
     def press(self, key): self.act('press', key)
     def wait(self, ms): self.act('wait', ms)
     def screenshot(self, path): Path(path).write_bytes(self.pixels)
-    def text(self, selector): return self.texts.get(selector)
+    def text(self, selector):
+        self.reads += 1
+        if self.reads >= 3: self.texts.update(self.late)
+        return self.texts.get(selector)
     def value(self, selector): return self.texts.get(selector)
     def visible(self, selector): return selector in self.texts
     def count(self, selector): return 1 if selector in self.texts else 0
@@ -107,6 +111,22 @@ class RunTests(unittest.TestCase):
         report, _ = self.run_path(FakePage({'#heading': 'Items', '#user': 'ann'}), q)
         self.assertEqual({r['assertion_id']: r['actual'] for r in report['assertions']}, {'P1': True, 'P2': True, 'P3': True, 'P4': True, 'P5': True, 'P6': False})
         self.assertEqual(report['quality'], 'red-bug')
+
+    def test_a_predicate_that_holds_only_after_the_page_settles_is_read_again_and_the_path_film_follows_the_frozen_flag(self):
+        page = FakePage({'#heading': 'Loading'}, late={'#heading': 'Items'})
+        report, _ = self.run_path(page)
+        self.assertEqual((report['quality'], report['assertions'][0]['observed']), ('green-passed', 'Items'))
+        self.assertGreaterEqual(page.calls.count(('wait', 300)), 1)
+        report, page = self.run_path(FakePage({'#heading': 'Orders'}))
+        self.assertEqual((report['quality'], page.calls.count(('wait', 300))), ('red-bug', web_main.PREDICATE_RETRIES))
+        seen = {}
+        web_main.execute(query(record_video=True), {}, self.out, open_page=lambda config, out: seen.update(config) or FakePage({'#heading': 'Items'}))
+        self.assertNotIn('record_video', seen)  # execute takes the configuration as given; main() merges the frozen flag into it
+        import io as _io, contextlib
+        q = query(record_video=True); (self.out.parent / 'q.json').write_text(json.dumps(q))
+        argv = ['--query-file', str(self.out.parent / 'q.json'), '--result-file', str(self.out.parent / 'r' / 'result.json'), '--root', str(self.base / '.sdd-runs/contract')]
+        web_main.main(argv, open_page=lambda config, out: seen.update(config) or FakePage({'#heading': 'Items'}))
+        self.assertTrue(seen['record_video'])
 
     def test_a_step_that_cannot_be_performed_stops_the_path_as_yellow(self):
         page = FakePage({'#heading': 'Items'}); page.fail = 'click'

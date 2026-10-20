@@ -10,7 +10,7 @@ description: /sdd-init [input.json绝对路径] [--mode single-module --module-n
 默认 project，按项目范围切片；两个可选参数等价于高层输入的 entry_mode/module_name，命令参数优先，也可用自然语言指定（"single-module，模块名为用户登录"）。名称按字符串解析，不作 shell 命令。配置目录为已定位项目的 `<workspace_root>/.sdd-migration`，后续 CLI 显式传入；仅首次初始化未指定 --root 时取当前目录并固化其父级为 workspace_root。单模块只需这两个参数，不要求用户填 scope、代码路径或 SPEC/用例文件。详见[项目上下文协议](../skills/migration-protocol/references/project-context.md#初始化和增量更新)。
 
 ## 2. 编排步骤
-1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
+1. 先按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)。
 2. 读取/初始化项目配置（明确更新走 project_context.py update，临时条件进 overrides）；宿主生成 run-request 与 run_id，prepare 固化项目版本并返回 Global 的分析输入；返回的 `open_statements`（存量怎样跑、目标在哪验证、资源怎样进目标）先问用户再继续；相同请求幂等恢复，不覆盖已有 run 快照。
 3. Global 只用 prepare 固化的上下文：project 切片、single-module 按名称定位根功能，生成业务规范、需求/CASE 与审计路径；宿主校验 input.json（禁止占位符、未决必填值、零必需用例）并原样提交 init；ACK 后 GO 按拓扑序 register 根功能（原子根直接为叶，其余 decomposition_required），global-plan 验收覆盖；MO decompose 细分或确认原子叶，GO 接受后推进。仅冻结且依赖就绪的叶子可编码。
 
