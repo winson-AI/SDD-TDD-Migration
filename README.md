@@ -102,7 +102,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 | Auditor | 先整体代码治理，再复核遗留；修复后验证，失败待人工 | [审计范围](skills/migration-protocol/references/audit-scope.md)、[代码治理](skills/migration-protocol/references/audit-code-review.md) |
 | Android/Harmony 自动测试 | MobileAgenticOperator test 模式，逐 PATH/ASSERT 证据接入 Ledger；snapshot / recording 媒体任务供存量捕获与录屏取证，PATH 可录屏 | [移动端运行](skills/migration-test/references/harmony-runtime.md) |
 | 切片与功能清单 | 叶子是功能树上的子业务流（页面是 TASK，3–30 条 CASE），自带四维分析与实现 SPEC；无用例先读源码建树再派生用例，有用例以用例范围为抓手；清单完整可追溯，疑问交人工；一条 CASE 一个验收切片；往次切分经验生成技能，供后续 Run 的 GO/MO 加载 | [切片规约](skills/migration-global/references/slicing.md) |
-| 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照；三条只有人能给的声明（存量怎样跑、目标在哪些设备上怎样预览、资源怎样进目标）问到为止，目标预览由 init 写成运行环境文件，`harmony_reference` 让 init 备好 Harmony sandbox；知识文档可查，缺的知识登 knowledge-need 交人补充 | [项目上下文](skills/migration-protocol/references/project-context.md) |
+| 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照；三条只有人能给的声明（存量怎样跑、目标在哪些设备上怎样预览、资源怎样进目标）问到为止，目标预览（可带目标 app_id / launch）由 init 写成运行环境文件并预填 visual PATH，`harmony_reference` 让 init 备好 Harmony sandbox；知识文档可查，缺的知识登 knowledge-need 交人补充 | [项目上下文](skills/migration-protocol/references/project-context.md) |
 | 目标画像 | GO 逐功能记目标状态（absent/shell-only/partial/existing）；脚手架只在缺外壳处，持有代码的叶子欠复用说明 | [父子拆分](skills/migration-protocol/references/module-decomposition.md) |
 | 用户参考媒体 | 存量截图/录屏与目标预期随项目上下文固化、下发到持有叶子：截图是 user-reference 视觉基线，录屏是交互预期，目标预期取代存量基线；规划步骤列尚未引用的媒体，未引用即欠项；截图可作断言参考图，录屏可标时间段；诊断/修复并列预期与实际媒体 |
 | 存量预览与捕获 | 项目声明存量怎样跑（Android 设备 / 模拟器 / 虚拟机、鸿蒙设备、浏览器 / 不能跑；没有真机时由我们启动声明的模拟器）；legacy-capture 在包内装机、走冻结动作把界面写成参考记录，走不成确定性动作的界面由声明的 navigator 走到后再按选择器捕获；浏览器按同一滚动契约捕获，web / 鸿蒙存量的 UI 树从运行时索引派生；规划步骤带 capture_due，未捕获的界面是首版携带的欠项；Android 目标装 APK、web 目标以页面声明的构建哈希进入同一视觉对齐；测试结果带截图 / 录屏证据 | [项目上下文](skills/migration-protocol/references/project-context.md#存量预览)、[视觉执行](skills/migration-protocol/references/visual-execution.md) | [项目上下文](skills/migration-protocol/references/project-context.md#用户参考媒体)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
@@ -141,6 +141,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-20 | 按需加载：卡与模板按声明的平台取（web Main / Harmony Main 与各自的 PATH、adapter 模板），整文件入卡改为按节（审计范围、代码审查、视觉执行），模板瘦身（语义模型 17 KB → 6 KB、四维分析 8 KB → 5.6 KB、提交模板 4 KB → 2.3 KB，工具产物与骨架已写的报告不再下发），角色与技能文本去重；每步「卡 + 模板」计量并设棘轮（最坏 87.8 KB，无触发步骤 29.8 + 16.1 KB）；目标 app_id / launch 随设备声明，visual PATH 预填完整；协议压缩至 460,500 |
 | 2026-10-20 | web Main 补齐表单动作（select/check/uncheck/hover/scroll_to）与谓词（attribute/checked/enabled、count 的 at_least），重读中变化的观察记 unstable，适配器 attempts>1 时整条路径重跑、同断言混合结果记 flaky Yellow；鸿蒙存量的 UI 树与 web 一样从运行时索引派生；骨架为用户截图的 visual PATH 预填 visual_execution，`test_adapter.harmony_reference` 由 init 备好 Harmony sandbox；图与 README 同步三条声明与两个内置 Main；协议压缩至 462,500 |
 | 2026-10-20 | 适配器随 PATH 平台自动选取，Test-Runner 预检由 Ledger 预填同一命令；目标预览随设备声明（serial/avd 或 url/viewport）由 init 写成运行环境文件；web PATH 在 plan 时按 web Main 的形状校验，web Main 走通 Ledger 黄金路径到 DoD，谓词有界重读、按 PATH 标志录像；欠项按族计数；鸿蒙存量可预览（hdc 装 HAP、启 ability，无真机时 boot.argv）；doctor 探测适配器；协议压缩至 464,000 |
 | 2026-10-20 | 完备性欠账、一致性拒绝：十一族共 36 处冻结期完备性门禁改为叶子的欠项（首版继续，DoD 前结清），同时守一致性的门禁拆开后矛盾仍拒绝 |
