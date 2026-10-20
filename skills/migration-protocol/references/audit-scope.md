@@ -32,7 +32,7 @@ work_modules 包含发现模块、根因 owner 与受影响下游，按模块基
 
 - `scope_policy: non-green-only`。
 - `path_ids`：当前模块结果为 Red/Yellow 的 PATH；已由问题闭环复核通过的不再加入。
-- 若用户另外声明了运行级 global_paths，仅加入其中非 Green、从未验证或代码基线已失效的路径。未验证不能隐式算 Green；已有效 Green 的额外路径同样不重复执行。没有额外运行级用例时无需补造它们。
+- 运行级 global_paths 只加入其中非 Green、从未验证或代码基线已失效的路径；未验证不隐式算 Green，有效 Green 不重复执行，没有就不补造。
 - 波次集成：持有某条 global path 用例的叶子全部完成时，游标给 GO `integration-assign`（独立 Test-Runner，audit-execution 预检，`integration-submit` 提交 kind=tests）；结果进 audit_results 并绑定各 owner 的 code_baseline，owner 代码未变则审计不重跑；Red 入 audit_repairs，owner MO repair-accept 后修复，同一代码上不重跑。
 - 有效构建 Green 不因自动化缺测被重跑或覆盖。对原 automation-deferred 模块补验时合并 PATH 结果，保留原构建证据。
 
@@ -42,7 +42,7 @@ work_modules 包含发现模块、根因 owner 与受影响下游，按模块基
 | 空 | audit-verdict | 核验已接受模块/问题闭环证据；`kind=audit-review`、`paths=[]`、`execution_status=no-retest-needed`、`review_ref` 和 snapshot；不启动测试、不要求自动化环境 |
 | 非空、仅自动化环境不可用 | blocked audit-testing | `audit-unavailable` 记录选中路径 Yellow/未执行并收尾，保留已有 Green；不宣称功能通过 |
 
-空清单仍需独立 Auditor 审阅，不能自动生成通过结论。`audit-review` 不能关闭尚有待复核路径的 assignment；正常 `tests` 报告不能用空 paths 冒充测试。模板见 [audit-review.json](../../../template/audit-review.json)。审计结果的 quality 表示证据裁决，execution_status 区分是否实际执行；不要把 no-retest-needed 写成“全部独立复测通过”。
+空清单仍需独立 Auditor 审阅；`audit-review` 不能关闭尚有待复核路径的 assignment，`tests` 报告不能用空 paths 冒充测试（模板 [audit-review.json](../../../template/audit-review.json)）。quality 是证据裁决，execution_status 区分是否实际执行，no-retest-needed 不是"全部独立复测通过"。
 
 ## 活动审计的游标恢复
 

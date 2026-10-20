@@ -8,7 +8,7 @@ description: /sdd-module <run-id> <module-id> — 推进单模块实现与自测
 `/sdd-module <run-id> <module-id>`
 
 ## 2. 编排步骤
-1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
+1. 先按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)。
 2. 前置门控：模块已冻结、依赖满足或可记 dependency Yellow、目标 baseline 与锁可验证；先 `verify_openspec.py --scope module --module-id <module-id>`，失败按 recovery_action 处理相关范围，见[核验范围](sdd-verify.md)。
 3. 按游标推进 Coding → 代码接受 → build 派发（building 预检）→ 构建接受 → automation 派发（testing 预检）；可修复 Red/Yellow 在累计预算内诊断并派 Fixer，补丁接受后先重建再自动化；全部路径 Green 后检查 DoD；确认依赖/外围阻塞或预算耗尽则记根因等待统一审计，人工阻塞保存 checkpoint 退出。
 

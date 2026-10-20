@@ -8,7 +8,7 @@ description: /sdd-status <run-id> — 冷读全局与模块状态
 `/sdd-status <run-id>`
 
 ## 2. 编排步骤
-1. 按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)读取入口、解析参数并检查现有工件。
+1. 先按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)。
 2. 前置门控：事实日志可读；投影缺失/过期只由 Ledger 重建。
 3. 只读汇总：各模块 phase/execution_status/quality、Red/Yellow 路径与根因、依赖、预算与 next_action；不触发测试、修复或推进，不伪造事件回执。
 

@@ -33,7 +33,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 | operation | args 要点 | 当前实际能力 |
 | --- | --- | --- |
-| `analyze-ui` | entry/source_files/layouts，选填 capture_ref、targets、manifests、image_sinks、layout_helpers；platform=web 只读 capture_ref/targets | 从 legacy_root 收集源索引（使用点、图片来源与参数，见[搬运](resource-transfer.md#使用点与闭包)）；entry 写 `文件#类名` 或 `文件#类名.方法名` 只采该段，多屏同文件分别采；有合法 Capture 时选运行时索引；据此生成 UI 树再 validate-ui，不自动证明源闭包完整 |
+| `analyze-ui` | entry/source_files/layouts，选填 capture_ref、targets、manifests、image_sinks、layout_helpers；platform=web 只读 capture_ref/targets | 从 legacy_root 收集源索引（使用点、图片来源与参数，见[搬运](resource-transfer.md#使用点与闭包)）；entry 写 `文件#类名[.方法名]` 只采该段；有合法 Capture 时选运行时索引；据此生成 UI 树再 validate-ui，不自动证明源闭包完整 |
 | `validate-ui` | ui_tree_ref/source_index_ref/runtime_index_ref，选填 resource_scope | 校验树与原始索引一致；source-only 不伪造 runtime_index_ref；resource_scope 仅说明有证据的范围外变体 |
 | `target-scan` | keywords，选填 roots | 只读列出目标工程含构建文件的模块、manifest / 模块入口与名称或路径命中关键词的声明符号及文件 hash，作目标画像候选证据，不判状态；无需 assignment |
 | `resource-scan` | 选填 source_index_ref/ui_tree_ref/extra_refs | 只读查找当前闭包资源，输出候选文件与 hash，保留 base/night/语言等源变体；给树与索引时附预填 skeletons；不写目标、不裁决精确性 |
@@ -53,9 +53,7 @@ python3 <package>/skills/migration-ledger/scripts/lean_worker.py \
 
 知识操作只读、需合法宿主 principal 与有效运行快照、不要求 assignment。knowledge-query 对 Ledger 以外的角色开放；knowledge-diagnose 给 Implementer/Diagnostician/Fixer/Test-Runner/Auditor；foundation-resolve 只给 GO/MO/Spec-Designer；foundation-verify 给 Implementer/Fixer/Test-Runner/Auditor。
 
-请求走同一个 lean_worker CLI，args 示例见 [knowledge-request.json](../../../template/knowledge-request.json)；名称与坐标以当前目录查询结果为准，不能照抄成项目事实；知识引用保留 hash，随上下文、plan、实现或测试提交。Foundation 配置唯一入口、默认关闭及不适用处理见 [工程纪律](engineering-disciplines.md)。
-
-知识结果附 `sdd_adaptation_ref`；`external` 查询只返回目录快照候选，无匹配也不能据此判定无法实现；上游 probe 未接入（`probe_support:not-supported`），其余见[知识执行与冻结](engineering-disciplines.md#1-foundation--迁移知识执行与冻结)。
+args 示例见 [knowledge-request.json](../../../template/knowledge-request.json)；名称与坐标以当前目录查询结果为准，知识引用保留 hash 随上下文、plan、实现或测试提交；结果附 `sdd_adaptation_ref`，`external` 只返回目录快照候选（无匹配不等于无法实现，probe 未接入）。Foundation 配置、默认关闭与不适用处理见[知识执行与冻结](engineering-disciplines.md#1-foundation--迁移知识执行与冻结)。
 
 入口用 Python 3.10+，`foundation-verify` 需 3.11+ 的 tomllib；`compare-only`、`image-parity`、`render-reference`、`screen-checks` 需 Pillow（矢量渲染另需 `rsvg-convert`），可用本 run 的 Harmony sandbox 环境；缺少时保留原因（compare-only 为 `comparison-unavailable`）走 Yellow/未执行通道，不自动安装依赖。
 

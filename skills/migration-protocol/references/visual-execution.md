@@ -37,7 +37,7 @@ viewport 捕获要求实际前台 App、冻结目标选择器与截图前后稳�
 
 失败归类：候选 App 启动后从运行列表消失是代码缺陷（`FAILED` / `app-runtime-failure`，Red 进诊断）；仍在运行但不在前台是 `target-precondition` 的 Yellow。只读查询遇瞬时超时重试一次，动作不重复；树里找不到控件只是取证不充分。alignment 结构经 `execute_test.py → lean_visual_adapter.py → submit/accept` 正式复核，脚本不从分数推导 ALIGNED，冻结手势仍需实际 action/observation 证据，本入口不代替功能自动化 Main。
 
-semantic 原文件的所有 issues 及 `comparability < 0.4` 或 `comparable=false` 都须在对应 comparison 的 `semantic_dispositions` 逐项裁决才可声明 Green；0.4 只标记待解释矛盾，不是通过阈值。每项含原 semantic_ref（path/hash）、原 finding（issue 含 index 与完整内容）、`resolved|dismissed`、非空 reason 和至少一份不同于原 semantic 的 evidence_refs；无问题不制造裁决。正式门禁重读原件，漏项、重复、旧 hash 或只有结论没证据均拒绝；示例见 [visual-alignment.json](../../../template/visual-alignment.json)。裁决由当前测试/审计 Agent 作出，工具不替 Agent 判断。
+semantic 原文件的所有 issues 及 `comparability < 0.4` 或 `comparable=false` 都须在对应 comparison 的 `semantic_dispositions` 逐项裁决才可声明 Green（0.4 只标记待解释矛盾）：每项含原 semantic_ref（path/hash）、原 finding（index 与完整内容）、`resolved|dismissed`、非空 reason 和至少一份不同于原 semantic 的 evidence_refs，无问题不制造裁决；门禁重读原件，漏项、重复、旧 hash 或只有结论没证据均拒绝（示例 [visual-alignment.json](../../../template/visual-alignment.json)）；裁决由当前测试/审计 Agent 作出。
 
 ## 3. 失败、留存与恢复
 
