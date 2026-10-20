@@ -293,8 +293,9 @@ class WorkflowTests(unittest.TestCase):
         self.implementation()
         m = self.state()['modules']['M001']
         self.assertIn('S-MO', m['delivered_cards'])
-        # The plan, the freeze and the dispatch were recorded for the instances that acted; the accept was reported.
-        self.assertEqual(m['card_load']['dispatches'], 4)
+        # The plan and the dispatch were recorded for the instances that acted (a freeze on a recorded decision takes no
+        # model turn); the accept was reported.
+        self.assertEqual(m['card_load']['dispatches'], 3)
         self.assertEqual(m['card_load']['full'], m['card_load']['delivered'])
         a, r = self.make_test_result()
         self.submit(r, a)
@@ -307,7 +308,7 @@ class WorkflowTests(unittest.TestCase):
                                          'expected_revision': self.state()['modules']['M001']['revision'], 'operation': 'accept',
                                          'payload': {}, 'hint': {'session_id': 'S-MO'}})
         cost = self.state()['workflow_cost']
-        self.assertEqual(cost['modules']['M001']['card_dispatches'], 5)
+        self.assertEqual(cost['modules']['M001']['card_dispatches'], 4)
         self.assertEqual(cost['totals']['card_bytes_delivered'], cost['totals']['card_bytes_full'])
 
     def test_assign_accepts_the_request_level_hint_too(self):
