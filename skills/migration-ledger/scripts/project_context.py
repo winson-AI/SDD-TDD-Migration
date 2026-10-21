@@ -331,7 +331,7 @@ def legacy_preview_config(value):
 
 
 INTAKE = (
-    ('legacy_preview', '存量预览', '存量应用怎样跑给我们看？android-device / android-emulator / vm（设备 serial、app_id、APK 路径或构建命令、启动 activity；没有真机时给模拟器的 avd 名或启动命令 boot.argv，未连接时由我们启动）、harmony-device（hdc 看到的 serial、bundleName、HAP 路径或构建命令、ability；没有真机时给 boot.argv）、browser（url，可选 viewport）、或 none（说明不能跑的原因）', list(PREVIEW_KINDS)),
+    ('legacy_preview', '存量预览', '存量应用怎样跑给我们看？android-device / android-emulator / vm（设备 serial、app_id、APK 路径或构建命令、启动 activity；没有真机时给模拟器的 avd 名或启动命令 boot.argv，未连接时由我们启动）、harmony-device（hdc 看到的 serial、bundleName、HAP 路径或构建命令、ability；没有真机时给 boot.argv）、browser（url，可选 viewport）、或 none（说明不能跑的原因；没有账号时登录前的界面——引导、登录页——通常仍能跑，能跑就不选 none）', list(PREVIEW_KINDS)),
     ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证、怎样预览？platforms（android / harmony / web）并按平台给预览：android {serial，没有真机时 avd 或 boot.argv}、harmony {serial，没有真机时 boot.argv（鸿蒙没有标准命令行模拟器）}，两者可带目标 app_id 与 launch（包名 / bundleName 与启动 activity / ability，视觉路径据此预填）、web {url 目标页面地址，可选 viewport / headless / record_video}；或 unavailable（原因）。运行环境文件由我们按此写出', ['android', 'harmony', 'web', 'unavailable']),
     ('target_resources', '目标资源约定', '存量的图片等文件与尺寸 / 颜色 / 文案等参数怎样进目标？target_resources.copy（目标目录、路径与 accessor 模板、可原样加载的格式、密度顺序）与 target_resources.parameters（每模块参数文件、行模板与 accessor）；目标不接收的部分写进 declined 并给原因。字段见 template/target-resources.json', ['copy', 'parameters', 'declined']),
 )
@@ -720,13 +720,23 @@ def _prepare(root, run_root, request, actor, storage):
                     'request_hash': fingerprint, 'source_refs': sources, 'source_paths': source_paths,
                     'request_source_ref': copy_ref(files, request.get('source_ref')),
                     'config_source_ref': copy_ref(files, record['source_ref']),
-                    'created_at': datetime.now(timezone.utc).isoformat()}
+                    'created_at': datetime.now(timezone.utc).isoformat(), 'legacy_commit': git_head(effective['legacy_root'])}
         snapshot.update(storage_layout=storage, storage_owner_ref=file_ref(owner))
         data = encoded(snapshot)
         archive(files, data, '.snapshot')
         atomic(path, data)
         ref = file_ref(path)
         return {'project_context_ref': ref, 'input': prepared_input(ref), 'duplicate': False, 'open_statements': intake(effective)}
+
+
+def git_head(root):
+    """The commit a Git checkout stands on, or None: the legacy as the run was prepared."""
+    import subprocess
+    try:
+        out = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout.strip() if out.returncode == 0 and re.fullmatch(r'[0-9a-f]{40}', out.stdout.strip()) else None
 
 
 def bind_run(ref, run_root, run_id, payload):

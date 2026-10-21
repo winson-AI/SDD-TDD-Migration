@@ -3,6 +3,7 @@
 import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -14,7 +15,7 @@ from contracts import digest, read_json, require
 import run_storage
 
 DEFAULTS = {'enabled': True, 'mode': 'observe-only', 'interval_seconds': 60,
-            'host_stale_seconds': 180, 'worker_stall_seconds': 900, 'check_timeout_seconds': 10}
+            'host_stale_seconds': 180, 'worker_stall_seconds': 900, 'check_timeout_seconds': 10, 'ledger_idle_seconds': 1800}
 
 
 def policy(value=None):
@@ -167,11 +168,39 @@ def inspect(root):
                 if signal.get('reason') == 'no-runnable-action-and-no-worker' and any(w['status'] == 'running' for w in workers):
                     continue  # Host may be running GO/parent/preflight outside assignment records.
                 if signal.get('severity') == 'human': add(signal['reason'], signal.get('module_id') or 'GLOBAL', signal)
+    quiet = age(events[-1].get('timestamp'), at) if events else None
+    waiting_for_person = any(signal.get('severity') == 'human' for signal in progress.get('signals', []))
+    if not paused and not terminal and not waiting_for_person and quiet is not None and quiet >= config['ledger_idle_seconds']:
+        moved, newest = staging_activity(root, at)
+        if moved is not None and moved < config['ledger_idle_seconds']:  # discovery or a split is written, nothing submitted yet
+            add('ledger-quiet-staging-moving', detail={'ledger_idle_seconds': quiet, 'staging_changed_seconds_ago': moved, 'newest': newest})
+        else:
+            add('host-idle', detail={'ledger_idle_seconds': quiet, 'staging_changed_seconds_ago': moved, 'newest': newest})
     if paused: findings = []
     return {'run_id': root.name, 'observed_at': at, 'sequence': len(events), 'host': host, 'workers': workers,
             'state': control if paused else ('completed-with-pending-diagnostics' if findings else 'completed') if terminal else 'observing',
             'ready_actions': progress.get('runnable_actions', []) if current else [],
             'findings': findings, 'mode': 'observe-only'}
+
+
+def staging_activity(root, at, limit=20000):
+    """(seconds since the newest file under staging changed, its path relative to the run), or (None, None)."""
+    newest, stamp, seen, pending = None, None, 0, [root / 'staging']
+    while pending and seen < limit:
+        try:
+            entries = list(os.scandir(pending.pop()))
+        except OSError:
+            continue
+        for entry in entries:
+            seen += 1
+            if entry.is_dir(follow_symlinks=False):
+                pending.append(entry.path)
+            elif entry.is_file(follow_symlinks=False) and (stamp is None or entry.stat().st_mtime > stamp):
+                newest, stamp = entry.path, entry.stat().st_mtime
+    if stamp is None:
+        return None, None
+    moved = age(datetime.fromtimestamp(stamp, timezone.utc).isoformat(), at)
+    return moved, str(Path(newest).relative_to(root))
 
 
 def notices(root):

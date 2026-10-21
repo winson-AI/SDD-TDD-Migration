@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1651 | 全量通过，零失败/错误/跳过；本轮新增机械冻结、机械 DoD 与机械父汇总的测试 |
+| migration-ledger/tests | 1666 | 全量通过，零失败/错误/跳过；本轮新增手续放行、Ledger 代填事实、构建范围、冻结测试源、一次报全、小根与横切用例、并行规划与空闲信号、存量冻结输入与内置 Main 的测试 |
 | migration-test/tests | 83 | 全量通过；本轮无改动 |
 | runtime/harmony/tests | 128 | 全量通过；本轮无改动 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮：无需判断的步骤不占模型轮次。游标把评审或决定已记录后的 freeze、complete 守卫（全路径 Green、任务全接受、欠项结清、依赖完成、UI 保真完成门禁）通过的 complete、全部后代收尾后的父 module-summary 标为 mechanical；`ledger.py advance` 以 MO 身份提交，complete 与 module-summary 绑定 Ledger 写在 reports/dod、reports/parent-summary 的记录（核对过的事实与哈希）；守卫不过、需人工决定或 API 适配决定时仍停下并写明原因；机械步骤不带卡，也不再记作读卡。全绿叶子每次实现-测试中 MO 的模型调用由 4 次降到 2 次（只剩 plan-review 与实现验收）。上一轮：被派发的角色只读阅读卡、AGENTS.md 只作宿主入口，每步计量为常驻卡 + 按需小节。
+本轮：减少拒绝与往返。手续问题（hint 不全、提交者预检、issue 地址、stale revision）不再拒绝请求；分配范围、父/模块排除项、用例摘要、叶子功能行由 Ledger 代填，GO 重确认覆盖不再重开功能未变的叶子；被拒请求在副本上判完，`further` 列出同一请求其余问题，`preview --request` 可预判任意请求；构建/单测跑聚合任务而无路径验证原生平台记欠项，target-baseline 根因走审计延期，Gradle 缓存默认以宿主 ~/.gradle 预热；冻结拒恒真断言与表达式体 @Test，测试源可落在写范围外、缺 kotlin-test 记欠项，指向冻结测试源的诊断走 change；用例少于 6 的待拆根只给 atomic-leaf，无节点的横切功能随列全其用例的叶子；依赖方与提供方并行规划，watchdog 报 ledger-quiet-staging-moving / host-idle；prepare 记存量提交，run 内存量变化按该提交判定并发信号，intake 追问登录前界面，声明平台无适配器时用内置 Main。上一轮：无需判断的步骤（记录后的 freeze、守卫通过的 complete、父 module-summary）由 `ledger.py advance` 机械提交。
 
-协议体积为 457282 / 457300 字节，最大单文件 24613 / 32000 字节，入口 AGENTS.md 3991 / 4000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中常驻卡最大 25942 / 29100 字节、按需小节最大 20356 / 25900 字节；全触发且双平台声明时常驻卡最大 29027、按需小节最大 25849，一步可读（常驻 + 按需）最坏 51175 / 51200 字节，模板组合最大 34697 / 34700 字节（写到才逐份取）；无触发步骤卡 ≤ 29100、模板 ≤ 13500；拒绝消息带小节指引的比例 99.1%（棘轮 90%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议体积为 457298 / 457300 字节，最大单文件 24613 / 32000 字节，入口 AGENTS.md 3991 / 4000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中常驻卡最大 25933 / 29100 字节、按需小节最大 20356 / 25900 字节；全触发且双平台声明时常驻卡最大 28977、按需小节最大 25775，一步可读（常驻 + 按需）最坏 51118 / 51200 字节，模板组合最大 34697 / 34700 字节（写到才逐份取）；无触发步骤卡 ≤ 29100、模板 ≤ 13500；拒绝消息带小节指引的比例 99.0%（棘轮 90%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 

@@ -25,13 +25,17 @@ def handle(s, req, actor, sequence=None):
         entries = p['issues'] if isinstance(p.get('issues'), list) else [p]
         require(entries, 'an issue request records at least one issue')
         judged = {}
+        registered = set(s['modules']) | set(s.get('module_groups', {}))
         for e in entries:
             iid, targets = e.get('issue_id'), e.get('applies_to')
+            if targets is None:  # unaddressed: the module the request was sent for, else every module the run holds
+                targets = [req['module_id']] if req.get('module_id') else sorted(registered)
             require(isinstance(iid, str) and iid.strip() and iid not in issues and iid not in judged, 'issue_id must be new')
             require(e.get('kind') in KINDS, 'issue kind is one of ' + ', '.join(KINDS))
             require(isinstance(e.get('summary'), str) and e['summary'].strip(), 'issue summary required')
-            require(isinstance(targets, list) and targets and set(targets) <= set(s['modules']) | set(s.get('module_groups', {})),
+            require(isinstance(targets, list) and (targets or not registered and e.get('applies_to') is None) and set(targets) <= registered,
                     'issue applies_to names the registered modules it concerns')
+            require(targets or not e.get('blocks'), 'an issue recorded before any module is registered cannot block')
             require(not (e.get('blocks') and e['kind'] in ('standing', 'fact', 'debt')), 'a standing rule is followed and a fact or debt is recorded, not settled; it cannot block')
             for ref in e.get('evidence_refs') or []:
                 check_ref(ref)
@@ -46,7 +50,7 @@ def handle(s, req, actor, sequence=None):
     require(entries, 'an issue-resolve request settles at least one issue')
     pending = []
     for e in entries:
-        iid, mid, ref = e.get('issue_id'), e.get('module_id', p.get('module_id')), e.get('evidence_ref', p.get('evidence_ref'))
+        iid, mid, ref = e.get('issue_id'), e.get('module_id', p.get('module_id', req.get('module_id'))), e.get('evidence_ref', p.get('evidence_ref'))
         issue = issues.get(iid)
         require(issue and issue['kind'] != 'standing', 'issue-resolve names a recorded issue that is not a standing rule')
         require(issue['raised_by'] != LEDGER, 'a gap the Ledger recorded is settled by a plan that no longer owes it')
@@ -89,9 +93,9 @@ FAMILIES = (  # the gaps the Ledger owes, by the rule family that raised them: a
     (r'dimension (task requirement|behavior requires|paths need)|task missing dimension ownership|condition review omits|SPEC dimension trace|missing dimension item IDs', '四维追溯'),
     (r'^API |API behavior', 'API 契约'), (r'^data |data behavior', '数据契约'), (r'the target already holds', '目标画像'),
     (r'reuse (source|decisions|fidelity)|fidelity (must cover|scenarios required)', '复用'),
-    (r'prepared PATH needs|deferred test preparation', '测试准备'),
+    (r'prepared PATH needs|deferred test preparation|test dependency:', '测试准备'),
     (r'parameter mapping|expressions the Spec|tokens the Spec', '参数表'),
-    (r'telemetry', '埋点'), (r'unit_tests_required|spec_closure_required', '测试路径'),
+    (r'telemetry', '埋点'), (r'unit_tests_required|spec_closure_required|build scope:', '测试路径'),
     (r'the user (gave|showed)|the target expectation', '用户媒体'),
     (r'superseded plan|a leaf plans at most|plan over', '计划'), (r'native UI validation', 'UI 树'),
 )

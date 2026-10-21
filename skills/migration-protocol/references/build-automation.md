@@ -97,7 +97,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 | --- | --- | --- |
 | Coding/Fixer 代码已接受 | `phase=testing`，`stale=true`，`build_baseline=null`；下一 scope 为 build | 实际 Test-Runner 提交 building 报告；MO assign build，宿主启动 |
 | 构建进程已退出，但结果未接受 | 当前 assignment 仍未关闭；不能开启 automation | 保存 receipt，同一 assignment 继续 unit、static 到第一个非 Green（见[静态规格闭合](testing.md#静态规格闭合)），一次 submit / accept |
-| build 非 Green 已接受 | 留在 testing；游标 diagnose 或 audit-defer | Diagnostician → MO diagnosis-accept → fixing 预检 → Fixer；依赖/外围或已用完适用预算则留证待统一 Auditor |
+| build 非 Green 已接受 | 留在 testing；游标 diagnose 或 audit-defer | Diagnostician → MO diagnosis-accept → fixing 预检 → Fixer；依赖/环境/目标工程自身缺陷（target-baseline）或预算用完则留证待 Auditor，不等人不回 GO |
 | Fixer 补丁已接受 | 新 code_baseline；旧结果 stale，旧构建失效 | 再次 build 派发（派发内 building 预检）；不得直接沿用旧 Green 或启动 automation |
 | build、unit、static 全部 Green 已接受 | `build_baseline=code_baseline`；仍在 testing；下一 scope 为 automation | 派发 automation，Test-Runner 在派发内提交 testing 报告，核对设备/安装包/fixture/模型/工具 |
 | automation 结果接受且完整 Green，存在 visual PATH | 仍在 testing；下一 scope 为 visual | MO 另派 visual assignment；Test-Runner 只读比较并留正式回执 |
@@ -115,16 +115,16 @@ Harmony Main 不隐式安装 App：装机证据来自 visual-install（[视觉�
 
 ## 构建资产位置
 
-冻结 build PATH 时审核构建输出位置，遵守[留存文件系统](storage-layout.md)：正式输出为 runs/build/<新 attempt>；执行器绑定临时目录与工具缓存，在该次 Gradle home 放 init.d 把各工程 buildDirectory 与项目缓存定向到 runner，脚本内的构建同样继承。自查用 `execute_test.py selfcheck --cwd <树> --output <新目录> -- <命令>`，同一定向，不留回执、不算结果。宿主可设 `SDD_GRADLE_CACHE_SEED`（一个 Gradle user home）供各次执行链接 wrapper 与依赖缓存；冻结参数保留，实际命令只加缓存目录参数。APK、构建报告、测试脚本不留在目标源码旁；硬编码输出先调整冻结任务/构建配置，工程不支持则如实记录。安装步骤读本轮实际 APK 路径。
+冻结 build PATH 时审核构建输出位置，遵守[留存文件系统](storage-layout.md)：正式输出为 runs/build/<新 attempt>；执行器绑定临时目录与工具缓存，在该次 Gradle home 放 init.d 把各工程 buildDirectory 与项目缓存定向到 runner，脚本内的构建同样继承。自查用 `execute_test.py selfcheck --cwd <树> --output <新目录> -- <命令>`，同一定向，不留回执、不算结果。各次执行默认以宿主 `~/.gradle` 链接 wrapper 与依赖缓存（`SDD_GRADLE_CACHE_SEED` 改指或置空关闭）。build/unit 只跑 PATH 所验平台的任务，无 PATH 验原生目标时用 allTests 等汇总任务记欠项。APK、构建报告、测试脚本不留在目标源码旁；硬编码输出先调整冻结任务/构建配置，工程不支持则如实记录。安装步骤读本轮实际 APK 路径。
 
 ## 构建和自动化异常回执
 
-可捕获的执行器中断（KeyboardInterrupt/SystemExit）与启动后的运行异常先停止本 attempt、限时回收并保存 execution.log、cleanup.json、receipt.json，再向宿主重新抛出；CLI 的 SIGTERM 转 SystemExit(143)、SIGINT 转 KeyboardInterrupt，不改宿主的信号处理器。回执 termination.executor_aborted=true 并保留异常类型与退出码（中断 130/143，运行异常 125），不能作为完成结果接受；Host 核验停止/隔离并留证后走 revoke/audit-revoke。用户取消不自动重启或派 Fixer；退出未确认时保留 temp；SIGKILL/断电等由 Host 据运行记录核验恢复。
+可捕获的执行器中断与启动后的运行异常先停止本 attempt、限时回收并保存 execution.log、cleanup.json、receipt.json，再向宿主重新抛出（SIGTERM 转 SystemExit(143)、SIGINT 转 KeyboardInterrupt，不改宿主信号处理器）。回执 termination.executor_aborted=true 并保留异常类型与退出码（中断 130/143，运行异常 125），不能作为完成结果接受；Host 核验停止/隔离并留证后走 revoke/audit-revoke。用户取消不自动重启或派 Fixer；退出未确认时保留 temp；SIGKILL/断电等由 Host 据运行记录核验恢复。
 
-执行超时后，Host executor 向本 attempt 的进程组发送 SIGKILL；输出回收另限 2 秒，不能因脱离进程组的子进程持有 stdout/stderr 再无限等待。回执 termination 分别记录信号结果、direct_process_exited、output_drained、descendants_status 和 host_stop_required；仅发送信号或得到管道 EOF 不代表所有外部子进程已停止。
+执行超时后 Host executor 向本 attempt 的进程组发送 SIGKILL，输出回收另限 2 秒，不因脱离进程组的子进程持有 stdout/stderr 无限等待。回执 termination 记录信号结果、direct_process_exited、output_drained、descendants_status 和 host_stop_required；发出信号或管道 EOF 不代表外部子进程已停止。
 
-回收超时、直接进程未确认退出或信号失败时保存已捕获日志、exit_code=124 与诊断回执，host_stop_required=true，当前 attempt 与嵌套 Harmony temp 保留，cleanup.json 记 process-stop-unconfirmed；Host 先核验/停止或隔离进程、保留回执与 stopped_worker_ref，再按 revoke（全局审计用 audit-revoke）恢复，该回执不能经 submit/accept 关闭 assignment，也不算普通自动化缺测；已有失败观测保留，不自动重授资源锁或删仍在用的临时目录，无关模块继续，确认后 Host 清理该 attempt，后续测试用新 attempt。正常回收的超时仍按下述三态提交。
+回收超时、直接进程未确认退出或信号失败时保存已捕获日志、exit_code=124 与诊断回执，host_stop_required=true，attempt 与嵌套 Harmony temp 保留，cleanup.json 记 process-stop-unconfirmed；Host 核验/停止或隔离进程、保留回执与 stopped_worker_ref 后按 revoke（审计用 audit-revoke）恢复，该回执不能经 submit/accept 关闭 assignment，也不算普通自动化缺测；已有失败观测保留，不自动重授资源锁或删仍在用的临时目录，无关模块继续，确认后 Host 清理该 attempt，后续测试用新 attempt。正常回收的超时仍按下述三态提交。
 
-Auditor 批次中的构建 Red/Yellow 同样属于验证失败：接受构建结果时直接记录 build-verification-failed、结果引用及编译/超时根因，关联分支等待人工审核，独立审计分支继续。批次内禁止 audit-defer；构建 Green 只开放 Automation，不写入自动化通过证明。纯自动化环境缺失仍走原缺测出口，不能用于跳过失败构建。
+Auditor 批次中的构建 Red/Yellow 也是验证失败：接受时记录 build-verification-failed、结果引用及编译/超时根因，关联分支待人工审核，独立分支继续。批次内禁止 audit-defer；构建 Green 只开放 Automation，不写入自动化通过证明。纯自动化环境缺失仍走原缺测出口，不能用于跳过失败构建。
 
 Automation 执行器在进程退出后保留原始 result.json 与已落盘 observations.json（receipt.partial_observations_ref）；汇总与验收共用 host_completion_version=1 的确定性判定：失败报告随后超时/异常仍保留失败断言与根因，不改写为"未执行"；报告未完成但有有效部分观测时逐冻结 ASSERT 恢复有证据的观测，整体 Yellow，混合 pass/fail 保留失败与 flaky；JSON 截断或格式错误保留原件，生成带解析原因的 Yellow；没有有效观测才 executed=false，submit/accept 后关闭 assignment。引用 hash、身份、冻结 query 或媒体证据不匹配仍拒绝；原始报告、观测和 hash 不被重写。

@@ -159,6 +159,24 @@ def can_defer(m):
                    for r in m['results'].values())
 
 
+AGGREGATE_TASKS = ('allTests', 'build', 'check', 'assemble', 'test')  # Gradle tasks that run every target of a multiplatform module
+NATIVE_PLATFORMS = ('ios', 'harmony', 'macos', 'linux', 'js', 'wasm')
+
+
+def verified_platforms(plan):
+    """The platforms the plan's behaviour PATHs run on; a PATH without one runs in-process on the JVM."""
+    return {str(p.get('platform') or 'jvm').lower() for p in plan['paths'] if p.get('kind') in ('automation', 'visual')}
+
+
+def aggregate_task(path, plan):
+    """The aggregate Gradle task a build/unit command runs when no PATH verifies a native target, else None: such a
+    command builds and links targets nothing tests, and a failure there is the target project's, not the leaf's."""
+    argv = ((path.get('command') or {}).get('argv') or []) if isinstance(path.get('command'), dict) else []
+    if not argv or 'gradle' not in Path(str(argv[0])).name or any(p.startswith(NATIVE_PLATFORMS) for p in verified_platforms(plan)):
+        return None
+    return next((a for a in argv[1:] if a.rsplit(':', 1)[-1] in AGGREGATE_TASKS), None)
+
+
 def plan_check(plan, target, static_required=False, unit_required=False):
     builds = [p for p in plan['paths'] if p.get('kind') == 'build']
     require(builds and len(builds) < len(plan['paths']), 'split testing requires build and automation paths')
@@ -179,6 +197,10 @@ def plan_check(plan, target, static_required=False, unit_required=False):
                  'unit_tests_required: Logic item needs a unit PATH or unit_test_na reason: ' + iid)
     statics = [p for p in plan['paths'] if p['kind'] == 'static']
     owed(not static_required or statics, 'spec_closure_required: plan one static spec-closure PATH')
+    for path in [p for p in plan['paths'] if p['kind'] in ('build', 'unit')]:
+        owed(not aggregate_task(path, plan), 'build scope: ' + str(path.get('path_id')) + ' runs every target (' + str(aggregate_task(path, plan))
+             + ') while the PATHs verify ' + ', '.join(sorted(verified_platforms(plan)) or ['jvm'])
+             + '; run the task of those platforms (e.g. :<module>:testDebugUnitTest or :<module>:jvmTest)')
     require(len(statics) <= 1, 'spec closure takes one static PATH, not several')
     requirements = sorted({r for t in plan.get('tasks', []) for r in t.get('requirement_ids', [])})
     for path in statics:

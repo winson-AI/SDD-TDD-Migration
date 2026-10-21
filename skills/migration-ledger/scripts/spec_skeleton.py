@@ -94,7 +94,9 @@ def plans(s, m, out, documents):
     # one task per feature the leaf holds; the cases no feature holds, or every case when there is no inventory, make one more
     features = []
     allocation = decomposition.assigned_module(s, m)
-    if allocation.get('feature_inventory_ref'):
+    if isinstance(allocation.get('features'), dict) and 'unreadable' not in allocation['features']:
+        features = list(allocation['features'].values())
+    elif allocation.get('feature_inventory_ref'):
         try:
             held = set(allocation.get('feature_ids') or [])
             features = [f for f in read_json(check_ref(allocation['feature_inventory_ref'])).get('features') or []

@@ -54,6 +54,8 @@ class AtomicPlanningTests(unittest.TestCase):
         f = self.f; f.root_scope()
         before = f.state()['modules']['M010']
         self.assertIn('atomic-leaf', f.state()['next_steps'][0]['planning_outcomes'])
+        if len(before['case_ids']) < 6:  # fewer cases than two leaves of three: the step offers only the confirmation
+            self.assertEqual(f.state()['next_steps'][0]['planning_outcomes'], ['atomic-leaf'])
         f.global_plan(); self.submit_atomic(); self.accept_atomic()
         s = f.state(); m = s['modules']['M010']
         self.assertEqual(set(s['modules']), {'M010'})

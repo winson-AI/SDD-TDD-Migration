@@ -92,7 +92,18 @@ def standing(s, mid, context=None):
                             for key in ('modules', 'parents', 'dimension_allocations') if key in context}}
     if 'feature_owners' in context:
         scoped['feature_owners'] = {fid: owners for fid, owners in context['feature_owners'].items() if keep.intersection(owners)}
+    if 'feature_inventory_ref' in context:  # the leaf stands on the rows of its own features, not on the inventory file
+        scoped['features'] = feature_rows(scoped.pop('feature_inventory_ref'), scoped.get('feature_owners', {}))
     return scoped
+
+
+def feature_rows(inventory_ref, owners):
+    """The rows of an inventory for the given features, by id: what a leaf holds of the global feature list."""
+    try:
+        rows = read_json(check_ref(inventory_ref)).get('features') or []
+    except (Rejected, OSError, ValueError, TypeError, KeyError):
+        return {'unreadable': inventory_ref}
+    return {row['feature_id']: row for row in rows if row.get('feature_id') in owners}
 
 
 # The only parts of the planning context a reviewed source append changes for a module that keeps its frozen plan.
@@ -138,9 +149,12 @@ def assigned_module(s, module):
         result['dimension_slicing_required'] = True
     plan = (s.get('global_plan') or {}).get('content', {})
     if plan.get('feature_inventory_ref'):
-        result['feature_inventory_ref'] = copy.deepcopy(plan['feature_inventory_ref'])
         owned = set(leaves(s, module['module_id'])) if module['module_id'] in s.get('module_groups', {}) else {module['module_id']}
         result['feature_ids'] = sorted(fid for fid, owners in plan['feature_owners'].items() if owned.intersection(owners))
+        if module['module_id'] in s.get('module_groups', {}) or module.get('decomposition_required'):
+            result['feature_inventory_ref'] = copy.deepcopy(plan['feature_inventory_ref'])  # a split reads the whole list
+        else:  # a leaf holds its own features: a rewritten inventory that leaves them as they were does not move its allocation
+            result['features'] = feature_rows(plan['feature_inventory_ref'], {fid: True for fid in result['feature_ids']})
     elif module.get('feature_inventory_ref') or (parent or {}).get('feature_inventory_ref'):  # before the global plan: the root's
         result['feature_inventory_ref'] = copy.deepcopy(module.get('feature_inventory_ref') or parent['feature_inventory_ref'])
     import target_profile
@@ -396,7 +410,8 @@ def validate(s, parent, plan, redecompose=False):
                 'child requirements outside parent scope')
         # A child the Ledger already holds keeps the exclusions it restated when it was accepted; the parent's current
         # ones reach its planner with the parent's allocation.
-        require(registered(s, child) or set(parent['scope']['out']) <= set(child['scope']['out']), 'child must retain parent exclusions')
+        if not registered(s, child):  # the parent's exclusions hold for every child: the Ledger carries the ones a child does not restate
+            child['scope']['out'] = list(child['scope'].get('out', [])) + [line for line in parent['scope']['out'] if line not in child['scope'].get('out', [])]
         require(set(child['case_ids']) <= set(parent['case_ids']), 'child cases outside selected function')
         require(all(any(Path(path).resolve().is_relative_to(Path(scope).resolve())
                         for scope in parent['write_paths']) for path in child['write_paths']), 'child write scope outside parent')
@@ -541,7 +556,7 @@ def bound(s, parent, children, plan, record=True):
         for fid in sorted(found):
             require(fid not in held, 'feature %s is held by %s and %s: leaves do not overlap' % (fid, held.get(fid), child['module_id']))
             held[fid] = child['module_id']
-        require(set(child.get('case_ids') or []) == {cid for fid in found for cid in mine[fid]['case_ids']},
+        require({cid for fid in found for cid in mine[fid]['case_ids']} <= set(child.get('case_ids') or []),
                 "%s accepts exactly the cases of the features it holds: its case_ids are not its nodes' cases" % child['module_id'])
         if supplied is not None:
             require(found & supplied, '%s holds only features derived from source: merge them into the flow of the supplied cases they extend, '
@@ -551,8 +566,31 @@ def bound(s, parent, children, plan, record=True):
                 issues.record(s, 'SLICE-%s-derived' % child['module_id'], 'fact', '%s holds %d features found in source beyond the supplied cases: %s'
                               % (child['module_id'], len(derived), ', '.join(derived)), [parent['module_id']], issues.LEDGER,
                               resolved={parent['module_id']: {'by': issues.LEDGER, 'recorded': True}})
-    unheld = sorted(set(mine) - set(held))
-    require(not unheld, 'features without a leaf: %s' % ', '.join(unheld))
+    carried = carriers(mine, held, children)
+    for child in children:
+        if child.get('kind') == 'scaffold':
+            continue
+        own = {cid for fid, mid in held.items() if mid == child['module_id'] for cid in mine[fid]['case_ids']}
+        rides = {cid for fid in carried.get(child['module_id'], ()) for cid in mine[fid]['case_ids']}
+        require(set(child.get('case_ids') or []) <= own | rides,
+                "%s accepts exactly the cases of the features it holds: its case_ids are not its nodes' cases" % child['module_id'])
+        if record and carried.get(child['module_id']):
+            issues.record(s, 'SLICE-%s-carried' % child['module_id'], 'fact', '%s carries %s: no node of their own, their cases are on its flow'
+                          % (child['module_id'], ', '.join(sorted(carried[child['module_id']]))), [parent['module_id']], issues.LEDGER,
+                          resolved={parent['module_id']: {'by': issues.LEDGER, 'recorded': True}})
+
+
+def carriers(features, held, leaves, strict=True):
+    """{leaf: features it carries}: a feature no leaf names - a failure, cancel or retry outcome with no node of its own -
+    rides with the one leaf that lists all its cases; one that no leaf, or more than one, lists stays without a leaf."""
+    carried = {}
+    for fid in sorted(set(features) - set(held)):
+        holders = [leaf['module_id'] for leaf in leaves if leaf.get('kind') != 'scaffold'
+                   and set(features[fid].get('case_ids') or []) <= set(leaf.get('case_ids') or [])]
+        require(len(holders) == 1 or not strict, 'features without a leaf: %s; list its cases on the leaf of the flow it belongs to' % fid)
+        if len(holders) == 1:
+            carried.setdefault(holders[0], set()).add(fid)
+    return carried
 
 
 def task_shape_facts(s, mid, plan, sequence=None):

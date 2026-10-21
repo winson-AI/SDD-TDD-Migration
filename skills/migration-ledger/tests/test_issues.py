@@ -104,8 +104,15 @@ class IssueTests(unittest.TestCase):
         self.settle()
         with self.assertRaisesRegex(Rejected, 'not open for this module'):
             self.settle()
-        with self.assertRaisesRegex(Rejected, 'incorrect global/module scope'):
-            self.f.call('issue', {'issue_id': 'I9', 'kind': 'fact', 'summary': 's', 'applies_to': ['M001']})  # addressed in the payload, not by the request
+        # sent for a module, an issue is addressed to it, and settled for it the same way
+        self.f.call('issue', {'issue_id': 'I9', 'kind': 'gap', 'summary': 's'}, role='spec-designer')
+        self.assertEqual(self.f.state()['issues']['I9']['applies_to'], ['M001'])
+        self.f.call('issue-resolve', {'issue_id': 'I9', 'evidence_ref': self.f.ref('i9.md', 'settled')}, role='spec-designer')
+        self.assertIn('M001', self.f.state()['issues']['I9']['resolved'])
+        with self.assertRaisesRegex(Rejected, 'module is not registered'):
+            self.f.call('issue', {'issue_id': 'I10', 'kind': 'fact', 'summary': 's'}, request={
+                'schema_version': 1, 'request_id': 'i10', 'run_id': 'demo', 'module_id': 'M999', 'expected_revision': 0,
+                'operation': 'issue', 'payload': {'issue_id': 'I10', 'kind': 'fact', 'summary': 's'}})
 
 
 class CompletionTests(unittest.TestCase):

@@ -8,7 +8,7 @@ import reading
 import run_storage
 
 
-def record_rejection(root, req, actor, reason):
+def record_rejection(root, req, actor, reason, further=()):
     """Keep the latest rejected action visible outside the accepted event journal."""
     root = Path(root).resolve()
     if not root.is_dir():
@@ -38,11 +38,24 @@ def record_rejection(root, req, actor, reason):
                           'attempts': previous.get('attempts', 0) + 1 if previous.get('fingerprint') == fingerprint else 1,
                           'recorded_at': datetime.now(timezone.utc).isoformat(),
                           'read_hint': reading.read_hint(reason),
+                          'further': [{'reason': r, 'read_hint': reading.read_hint(r)} for r in further],  # the same request's other problems
                           'next_action': 'read-current-status; resolve gate or record evidenced suspension; do not retry unchanged request'}
             atomic(scoped, record)
             atomic(path, record)  # Compatibility/latest navigation, not the counter store.
     except (OSError, ValueError, KeyError, TypeError):
         pass  # The original failure is returned even if diagnostic persistence fails.
+
+
+def legacy_moved(root, state):
+    """{prepared, now} when the legacy checkout stands on another commit than the run was prepared on, else None."""
+    import project_context
+    try:
+        snapshot = json.loads((Path(root) / 'context/snapshot.json').read_text())
+    except (OSError, ValueError):
+        return None
+    prepared = snapshot.get('legacy_commit')
+    now = project_context.git_head(snapshot.get('effective_config', {}).get('legacy_root', '')) if prepared else None
+    return {'prepared': prepared, 'now': now} if prepared and now and now != prepared else None
 
 
 def build(root, state, events, steps, global_step, at=None):
@@ -60,6 +73,11 @@ def build(root, state, events, steps, global_step, at=None):
     for question in project_context.open_statements(state):  # how the legacy is shown, where the target is driven, how resources reach it: the person says
         signals.append({'module_id': None, 'reason': 'statement-required', 'label': question['label'], 'owner': 'host',
                         'next_action': question['ask'], 'severity': 'human', 'evidence': {'field': question['field'], 'options': question['options']}})
+    prepared = legacy_moved(root, state)
+    if prepared:
+        signals.append({'module_id': None, 'reason': 'legacy-changed-since-prepare', 'owner': 'global-orchestrator', 'severity': 'action',
+                        'next_action': 'the run reads the legacy as prepared; to plan against the change the GO submits run-review',
+                        'evidence': prepared})
     if global_step.get('reason') == 'audit-snapshot-stale':
         signals.append({'module_id': None, 'reason': 'audit-snapshot-stale', 'owner': 'host',
                         'next_action': 'confirm auditor stopped; audit-revoke before module invalidation', 'severity': 'human',

@@ -116,11 +116,11 @@ class ContextReadinessTests(unittest.TestCase):
         report = self.report('planning', draft=plan_ref)
         events = len(ledger.read_events(self.root)[1])
         stranger = self.ref('stranger.json', {**report, 'producer': {'role': 'spec-designer', 'instance_id': 'someone-else'}})
-        with self.assertRaisesRegex(Rejected, 'identity mismatch'):
-            self.raw('plan', {'plan_ref': plan_ref, 'context_ref': stranger}, role='spec-designer')
-        self.raw('plan', {'plan_ref': plan_ref, 'context_ref': self.ref('own-report.json', report)}, role='spec-designer')
+        # a report written for another instance is set aside: the Ledger preflights the operation itself
+        self.raw('plan', {'plan_ref': plan_ref, 'context_ref': stranger}, role='spec-designer')
         self.assertEqual(len(ledger.read_events(self.root)[1]), events + 1)  # report and plan in one event
-        self.assertIn('planning:spec-designer', self.state()['modules']['M001']['context_receipts'])
+        receipt = self.state()['modules']['M001']['context_receipts']['planning:spec-designer']
+        self.assertNotEqual(receipt['report_ref'], stranger)
         self.approve(digest(plan), 'D-own'); self.raw('freeze', {'decision_id': 'D-own'})
         step = self.state()['next_steps'][0]
         self.assertEqual((step['operation'], step['ready'], step['reason']), ('assign', True, None))  # dispatch does not wait for a report
@@ -414,7 +414,7 @@ class ContextReadinessTests(unittest.TestCase):
         self.accept_feature_draft(plan, inventory)
         assigned = self.state()['module_inputs']['M001']
         self.assertEqual(assigned['feature_ids'], ['F1'])
-        self.assertEqual(assigned['feature_inventory_ref'], plan['feature_inventory_ref'])
+        self.assertEqual(list(assigned['features']), ['F1'])  # a leaf holds the rows of its own features, not the inventory file
         inventory['source_mode'] = 'legacy-source'
         with self.assertRaisesRegex(Rejected, 'default to supplied'):
             self.accept_feature_draft(plan, inventory)

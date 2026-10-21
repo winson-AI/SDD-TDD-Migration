@@ -21,9 +21,9 @@ watchdog.py watch --root <workspace_root>/.sdd-runs/<run_id>
 watchdog.py ack --root <workspace_root>/.sdd-runs/<run_id> --notice-id notice-<实际通知ID中的数字>
 ```
 
-Host 按 notice_id 去重展示或可靠存入通知收件箱后 ack，同 notice 整体确认；读取 stdout 不等于交付，ack 不等于解决。程序不发邮件/聊天、不执行通知 hook、不安装服务。覆盖宿主失联需独立监督进程。
+Host 按 notice_id 去重展示或可靠存入通知收件箱后 ack，同 notice 整体确认；读取 stdout 不等于交付，ack 不等于解决。程序不发消息、不执行 hook、不装服务。覆盖宿主失联需独立监督进程。
 
-每 run 一个实例，仅锁 runs/watchdog/.watchdog.lock；ack 使用独立 .ack.lock，忙时重试，不获取业务锁。有效终态无投影异常或 Host stopped 时，watch 输出未交付通知后结束，check 可重放。paused 保持观察、不催执行，仍重放历史待确认通知。
+每 run 一个实例，仅锁 runs/watchdog/.watchdog.lock；ack 用独立锁，不获取业务锁。有效终态无投影异常或 Host stopped 时，watch 输出未交付通知后结束，check 可重放。paused 保持观察、不催执行，仍重放历史待确认通知。
 
 ## 配置冻结
 
@@ -37,6 +37,7 @@ Host 按 notice_id 去重展示或可靠存入通知收件箱后 ack，同 notic
 | host_stale_seconds | 180 | 宿主导出/心跳过期及持续 ready 提醒阈值 |
 | worker_stall_seconds | 900 | 宿主报告的业务进展过期提醒；不判死亡 |
 | check_timeout_seconds | 10 | 每轮只读子进程检查时限 |
+| ledger_idle_seconds | 1800 | 无人待答且 Ledger 久无事件:staging 在变为 ledger-quiet-staging-moving，否则 host-idle |
 
 禁用 watchdog 不停 run。已有 run 无此配置也能使用默认策略，无需修改旧快照或旧 hash。
 
@@ -53,7 +54,7 @@ worker 匹配 module_id/assignment_id/instance_id，全局审计 module_id=null�
 
 heartbeat_at 为宿主心跳，last_progress_at 为业务进展；检查时间、日志或投影刷新不能替代。缺进展接口为 progress=unknown。
 
-worker 可选 execution_state_path 指向本 run/attempt 的 execution-state.json；匹配 run/module/assignment/instance 后附 execution_output。输出字节和 last_output_at 仅是 I/O 观察，不证明存活或业务进展。真实宿主报告 exited 且输出未完整时通知 execution-output-incomplete；路径/身份/读取错误仅通知 execution-output-unreadable。
+worker 可选 execution_state_path 指向本 run/attempt 的 execution-state.json；匹配 run/module/assignment/instance 后附 execution_output。输出字节和 last_output_at 仅是 I/O 观察，不证明存活或业务进展。宿主报告 exited 且输出不完整时通知 execution-output-incomplete；路径/身份/读取错误通知 execution-output-unreadable。
 
 ## 检查与通知
 
@@ -69,7 +70,7 @@ worker 可选 execution_state_path 指向本 run/attempt 的 execution-state.jso
 
 告警按 run/scope/code 去重，开启/关闭产生 notice；持续问题不重复生成。未 ack 的 pending_notices 每次重放且 notify_user=true；确认后静默，再次开启产生新 ID。
 
-先原子保存 notice/active 检查点，再写 state/latest，最后 stdout；写失败/输出丢失可从 notice 恢复。ack 绑定本 run notice 摘要、幂等且保留历史；旧版 notice 亦需确认。Host 负责去重展示，不保证 stdout 恰好一次交付。
+notice 先于 state/latest 与 stdout 落盘，写失败或输出丢失可从 notice 恢复。ack 绑定本 run notice 摘要、幂等且保留历史；旧版 notice 亦需确认。
 
 closed 仅表示监测条件消失，不是业务通过。写诊断失败向 stderr 返回 observer-error，Host 展示故障，迁移继续。
 

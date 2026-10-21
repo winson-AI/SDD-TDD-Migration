@@ -213,7 +213,9 @@ class HostHandoffTests(unittest.TestCase):
         req = {'schema_version': 1, 'request_id': 'unacknowledged', 'run_id': 'demo', 'module_id': None,
             'expected_revision': s['revision'], 'operation': 'global-plan', 'payload': {},
             'hint': {'session_id': 'new', 'card_sha256': ''}}
-        with self.assertRaisesRegex(Rejected, 'host session handoff'): f.call('global-plan', request=req, role='global-orchestrator', module=None)
+        # a new hint does not replace the session a handoff still owes: it is set aside and the operation is judged on its own
+        with self.assertRaisesRegex(Rejected, 'absolute evidence path'): f.call('global-plan', request=req, role='global-orchestrator', module=None)
+        self.assertEqual(f.state()['context_sessions']['global-orchestrator'], 'old')
         payload, receipt = self.payload(None)
         payload['host_receipt_ref'] = f.ref('global-restore.json', receipt)
         f.call('session', payload, role='host', module=None)

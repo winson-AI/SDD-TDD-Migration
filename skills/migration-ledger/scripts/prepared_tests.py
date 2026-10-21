@@ -4,6 +4,9 @@ import re
 from contracts import Rejected, check_ref, digest, keyed, marked, nonempty, owed, read_json, require
 
 KINDS = ('script', 'fixture', 'adapter', 'test-source')
+CONSTANT_ASSERT = re.compile(r'\b(?:require|check|assert|assertTrue|assertFalse)\s*\(\s*(?:true|false)\s*[,)]'
+                             r'|\bassertEquals\s*\(\s*([^,()]+?)\s*,\s*\1\s*\)')
+VALUED_TEST = re.compile(r'@Test\b\s*(?:@[\w.]+(?:\([^)]*\))?\s*)*fun\s+(`[^`]+`|\w+)\s*\(\s*\)\s*=(?!\s*runTest\b)')
 
 
 def assets(result):
@@ -48,6 +51,11 @@ def test_source(asset, paths):
             'test source maps each scenario to one of its required tests')
     for symbol in asset.get('symbols') or []:
         require(isinstance(symbol, str) and symbol and symbol in text, 'declared production symbol not used in the test source: ' + str(symbol))
+    constant = CONSTANT_ASSERT.search(text)
+    require(not constant, 'test source asserts a constant and cannot fail on the code: ' + (constant.group(0) if constant else ''))
+    valued = VALUED_TEST.search(text) if asset['target_path'].endswith('.kt') else None
+    require(not valued, 'a @Test with an expression body returns that value and only Unit tests run: give '
+            + (valued.group(1) if valued else '') + ' a block body or : Unit')
     for pid, path in paths.items():
         policy = path.get('unit_report') or {}
         require(policy.get('required_test_ids') and set(policy['required_test_ids']) <= set(ids),
@@ -65,6 +73,16 @@ def sources_delivered(module, task_ids, code_files):
         if asset['kind'] == 'test-source' and any(set(asset['path_ids']) & tasks.get(tid, set()) for tid in task_ids):
             require(delivered.get(str(Path(asset['target_path']).resolve())) == asset['ref']['sha256'],
                     'frozen test source missing or changed at ' + asset['target_path'] + '; a test is revised by a change request, not by the implementer')
+
+
+def frozen_paths(module, task_ids=None):
+    """Target paths of the frozen test sources the given TASKs' PATHs bind (all TASKs by default). The bytes are frozen,
+    so the task writes them even outside the allocated write paths, e.g. in the test source set beside the code."""
+    if not (module.get('plan') or {}).get('tasks') or not (source(module) or module.get('path_test_sources')):
+        return []
+    paths = {p['path_id']: p for p in module['plan']['paths']}
+    pids = {pid for t in module['plan']['tasks'] if task_ids is None or t['task_id'] in task_ids for pid in t.get('path_ids') or []}
+    return sorted({row['path'] for pid in pids if pid in paths for row in frozen_sources(binding(module, paths[pid]))})
 
 
 def frozen_sources(binding):
@@ -86,6 +104,13 @@ def preparation(result, required=False, freezing=False):
         if review['status'] == 'deferred':
             require(review.get('owner') and review.get('next_action'), 'deferred preparation needs owner/next_action')
             owed(not freezing, 'resolve deferred test preparation before freeze')
+    for asset in prepared:
+        if asset['kind'] == 'test-source' and 'kotlin.test' in check_ref(asset['ref']).read_text(errors='replace'):
+            build = next((d / name for d in Path(asset['target_path']).parents for name in ('build.gradle.kts', 'build.gradle')
+                          if (d / name).is_file()), None)
+            owed(build is None or re.search(r'kotlin\(\s*"test|kotlin-test|kotlin\.test', build.read_text(errors='replace')),
+                 f'test dependency: {build} declares no kotlin-test while {Path(asset["target_path"]).name} imports kotlin.test; '
+                 'the task that delivers the test adds it in that build file')
 
 
 def source(module):

@@ -48,7 +48,7 @@ import reference_media
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
-from contracts import (Rejected, baseline, carrying, check_ref, cited, digest, file_ref, keyed, marked, nonempty,
+from contracts import (Rejected, baseline, carrying, surveying, legacy_as_prepared, check_ref, cited, digest, file_ref, keyed, marked, nonempty,
                        intact, owed, read_json, require, validate_plan, validate_result, verify_plan)
 
 HISTORICAL_TOOL_ROOTS = (Path(__file__).resolve().parent,
@@ -835,8 +835,10 @@ def _next_step(s, m):
     elif m.get('decomposition_submission'):
         step.update(operation='decompose-accept', role='global-orchestrator', ready=True)
     elif m.get('decomposition_required') and m['phase'] in ('context', 'specifying', 'clarifying'):
+        # fewer cases than two leaves of the minimum make one leaf: the step offers only its confirmation
+        small = len(m.get('case_ids') or []) < 2 * decomposition.LEAF_MIN_CASES
         step.update(operation='decompose', role='module-orchestrator', ready=True,
-                    planning_outcomes=['split', 'atomic-leaf'])
+                    planning_outcomes=['atomic-leaf'] if small else ['split', 'atomic-leaf'])
     elif m['phase'] in ('completed', 'testing') and any(m['module_id'] in r.get('module_ids', []) and m['module_id'] not in r.get('accepted_by', [])
              for r in pending_repairs(s).values()):
         step.update(operation='repair-accept', role='module-orchestrator', ready=True,
@@ -853,9 +855,9 @@ def _next_step(s, m):
                     upstream_case_refs=design_stage.upstream_refs(s), upstream_case_ids=m['case_ids'])
         waiting = [row['module_id'] for row in providers(s, m) if not row['ready']]
         if waiting:
-            # Planned against what its providers are, once they are: the step is offered then. A plan submitted
-            # earlier is still judged - this orders the work, it refuses nothing.
-            step.update(ready=False, reason='provider-first-version-pending', waiting_for=waiting)
+            # Planned while its providers are: against their plans where they have them. Only the dispatch of its
+            # code waits for their first version (dependencies_ready).
+            step.update(waiting_for=waiting, note='provider-first-version-pending: plan now, code after the provider')
         try:
             workflow.runtime_allocations(s, m['module_id'], planning=True)
         except (Rejected, OSError) as exc:
@@ -1400,7 +1402,9 @@ def settle_preflight(m, actor, receipt):
 def mutate(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
     if op in issues.OPS or op in api_contract.REGISTER_OPS:  # a record: no gate stands before it and it moves no revision
-        require(req.get('module_id') is None, 'operation has incorrect global/module scope')
+        # An issue may be sent with the module it concerns: that module is its default address.
+        require(req.get('module_id') is None or op in issues.OPS and req['module_id'] in {**s['modules'], **s.get('module_groups', {})},
+                'operation has incorrect global/module scope')
         if op in api_contract.REGISTER_OPS:
             role(principal, 'global-orchestrator', 'module-orchestrator', 'spec-designer')
             return api_contract.register(s, req, principal, sequence=len(events) + 1)
@@ -1423,18 +1427,22 @@ def mutate(s, req, principal, events, root=None):
         raise Rejected('audit closure active; complete verification or obtain human review')
     context_readiness.gate(s, req, principal, root=root)
     hint = req.get('hint')
+    if hint is not None and not (isinstance(hint, dict) and isinstance(hint.get('session_id'), str) and hint['session_id']
+                                 and isinstance(hint.get('card_sha256'), str)):
+        # A hint is advice about what a session held: one without its session and card is set aside, not refused.
+        s['hints_ignored'] = s.get('hints_ignored', 0) + 1
+        hint = None
     if hint is not None:
-        require(isinstance(hint, dict) and isinstance(hint.get('session_id'), str) and hint['session_id']
-                and isinstance(hint.get('card_sha256'), str), 'hint needs session_id and card_sha256')
         record_inputs(s, hint)
         if mid is None:
             step = routing(s)['global_next_step']
             if step.get('card_sha256') == hint['card_sha256']:
                 deliver(s, step['must_read'], hint['session_id'])
             previous_session = s.get('context_sessions', {}).get(principal['role'])
-            require(not s.get('host_handoff_required') or previous_session in (None, hint['session_id']),
-                    'global hint cannot replace session; submit host session handoff first')
-            s.setdefault('context_sessions', {})[principal['role']] = hint['session_id']
+            if not s.get('host_handoff_required') or previous_session in (None, hint['session_id']):
+                s.setdefault('context_sessions', {})[principal['role']] = hint['session_id']
+            else:  # another session claims the role while a handoff is owed: the operation goes on, the session is not replaced
+                s['hints_ignored'] = s.get('hints_ignored', 0) + 1
         if op == 'assign':  # one way to report for every operation; explicit payload fields still win
             p = {'session_id': hint['session_id'], 'card_sha256': hint['card_sha256'], **p}
         elif mid and mid not in s.get('module_groups', {}):
@@ -1793,6 +1801,9 @@ def mutate(s, req, principal, events, root=None):
         idle(m); current(m)
         check_ref(p['diagnosis_ref'])
         require(p.get('owner') and p.get('root_cause'), 'root cause and owner required')
+        cause = p['root_cause'] if isinstance(p['root_cause'], dict) else {}
+        if {str(Path(f).resolve()) for f in cause.get('files') or [] if isinstance(f, str)} & {str(Path(f).resolve()) for f in prepared_tests.frozen_paths(m)}:
+            p['repair_route'] = 'spec'  # the failure is in a frozen test source: a change request revises it, never the Fixer
         control_policy.repair_route(p)
         diagnosis_focus(m, p)
         m['diagnosis_submission'] = {'report': p, 'subject': diagnosis_subject(m)}
@@ -2253,12 +2264,52 @@ def apply(root, req, principal):
         raise
     except (Rejected, OSError, ValueError, KeyError, TypeError) as exc:
         # Diagnostic only; rejected requests never mutate business events/quality.
-        progress_signals.record_rejection(root, req, principal, str(exc))
+        exc.further = further(root, req, principal, str(exc)) if isinstance(exc, Rejected) else []
+        progress_signals.record_rejection(root, req, principal, str(exc), exc.further)
         raise
 
 
+def judged_on_a_copy(root, req, principal, collect):
+    """The request judged on a copy of the run: nothing it does is kept, what it writes lands in a scratch directory."""
+    s, events = read_events(Path(root).resolve())
+    if not s or req.get('operation') == 'init':
+        raise Rejected('nothing to judge the request against')
+    s = copy.deepcopy(s)
+    import tempfile
+    with carrying(collect) as gaps, tempfile.TemporaryDirectory() as scratch:
+        try:
+            mutate(s, copy.deepcopy(req), principal, list(events), Path(scratch).resolve())
+            return None, gaps or []
+        except Exception as exc:  # a copy judged past a failed check may break anywhere: that ends the judging, nothing else
+            return str(exc), gaps or []
+
+
+def further(root, req, principal, first):
+    """The other problems of a rejected request, found by judging it once more on a copy where a failed check is noted
+    and judging goes on: the author fixes them in one round instead of meeting them one refusal at a time."""
+    try:
+        with surveying() as found:
+            s, _ = read_events(Path(root).resolve())
+            judged_on_a_copy(root, req, principal, bool(s and s['modules'].get(req.get('module_id'))))
+    except Exception:  # diagnostic only: the first refusal stands whatever the survey meets
+        return []
+    return [reason for reason in found if reason != first]
+
+
+def preview_request(root, req, principal):
+    """Any request judged as if submitted, read-only: the refusal it would get with the request's other problems, and the
+    gaps a leaf would owe. register, decompose, redecompose and run-review list all at once as a plan does."""
+    s, _ = read_events(Path(root).resolve())
+    leaf = bool(s and s['modules'].get(req.get('module_id')))
+    refused, gaps = judged_on_a_copy(root, req, principal, leaf)
+    hinted = lambda reason: {'reason': str(reason), 'read_hint': reading.read_hint(str(reason))}
+    return {'operation': req.get('operation'), 'module_id': req.get('module_id'), 'refused': hinted(refused) if refused else None,
+            'further': [hinted(r) for r in further(root, req, principal, refused)] if refused else [],
+            'owed': [hinted(gap) for gap in dict.fromkeys(gaps)]}
+
+
 def _apply(root, req, principal):
-    with carrying():  # routing looks at every module's guards; what one of them owes is recorded with its own requests
+    with carrying(), legacy_as_prepared(root):  # routing looks at every module's guards; what one of them owes is recorded with its own requests
         return _judge(root, req, principal)
 
 
@@ -2357,7 +2408,9 @@ def _judge(root, req, principal):
         else:
             require(s and req.get('run_id') == s['run_id'], 'run mismatch')
             scope = (s['modules'].get(req.get('module_id')) or s.get('module_groups', {}).get(req.get('module_id'))) if req.get('module_id') else s
-            require(scope is not None and (req['operation'] in issues.OPS | api_contract.REGISTER_OPS or req.get('expected_revision') == scope['revision']), 'stale revision')
+            require(scope is not None, 'stale revision: the module is not registered')
+            require(req['operation'] in issues.OPS | api_contract.REGISTER_OPS or req.get('expected_revision') == scope['revision'],
+                    f"stale revision: the current revision is {scope['revision']}; read the step again and resubmit with expected_revision={scope['revision']}")
             leaf = s['modules'].get(req.get('module_id'))
             held = leaf and leaf.get('plan_hash')
             with carrying(bool(leaf)) as gaps:  # a leaf goes on with what its plan owes; an allocation is refused for it
@@ -2653,8 +2706,12 @@ def main():
             require(state, 'run not initialized')
             print(json.dumps(state, ensure_ascii=False, separators=(',', ':')))
             return 0
+        if args.command == 'preview' and args.request:
+            require(args.host_context, 'preview of a request needs --host-context (the role that would submit it)')
+            print(json.dumps(preview_request(args.root, read_json(args.request), read_json(args.host_context)), ensure_ascii=False, separators=(',', ':')))
+            return 0
         if args.command == 'preview':
-            require(args.module, 'preview needs --module')
+            require(args.module, 'preview needs --module (a plan) or --request (any request)')
             print(json.dumps(preview(args.root, args.module, file_ref(args.plan) if args.plan else None), ensure_ascii=False, separators=(',', ':')))
             return 0
         root = Path(args.root).resolve()
@@ -2686,6 +2743,7 @@ def main():
     except (Rejected, OSError, ValueError, KeyError, TypeError) as exc:
         diagnostic = Path(args.root).resolve() / 'reports/rejected-operation.json'
         print(json.dumps({'status': 'rejected', 'reason': str(exc), 'read_hint': reading.read_hint(exc),
+                          'further': [{'reason': r, 'read_hint': reading.read_hint(r)} for r in getattr(exc, 'further', [])],
                           'next_action': 'read status.workflow_progress; resolve gate or escalate; do not stop unrelated modules',
                           'diagnostic_path': str(diagnostic) if diagnostic.is_file() else None}, ensure_ascii=False), file=sys.stderr)
         return 1

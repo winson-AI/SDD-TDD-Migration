@@ -75,6 +75,15 @@ class TreeBindingTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'a scaffold holds no feature-tree node'):
             self.judge([phone, rest, leaf('M004', ['C1'], 'Login/Phone', kind='scaffold')], ref)
 
+    def test_a_feature_without_a_node_rides_with_the_leaf_that_lists_its_cases(self):
+        ref = self.inventory()
+        phone, code = leaf('M002', CASES[:4], 'Login/Phone'), leaf('M003', CASES[4:], 'Login/Code')  # F-INTRO has no node of its own
+        self.judge([phone, code], ref)
+        self.assertEqual(self.s['issues']['SLICE-M003-carried']['kind'], 'fact')
+        self.assertIn('F-INTRO', self.s['issues']['SLICE-M003-carried']['summary'])
+        with self.assertRaisesRegex(Rejected, 'features without a leaf: F-INTRO'):  # its cases split over two leaves: no one carrier
+            self.judge([leaf('M002', CASES[:4] + ['C9'], 'Login/Phone'), leaf('M003', CASES[4:8] + ['C10'], 'Login/Code')], ref)
+
     def test_a_split_cuts_the_inventory_its_root_was_registered_with(self):
         self.parent['feature_inventory_ref'] = self.inventory()
         phone, rest = leaf('M002', CASES[:4], 'Login/Phone'), leaf('M003', CASES[4:], 'Login/Code', 'Login/Intro')

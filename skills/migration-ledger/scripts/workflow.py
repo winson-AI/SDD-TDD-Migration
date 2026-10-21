@@ -6,7 +6,7 @@ import dimensions
 
 from contracts import check_ref, digest, intact, keyed, nonempty, read_json, require, baseline, validate_result, verify_plan
 
-EXTERNAL = {'dependency', 'environment', 'tooling', 'external', 'peripheral', 'human'}
+EXTERNAL = {'dependency', 'environment', 'tooling', 'external', 'peripheral', 'human', 'target-baseline'}  # target-baseline: the target project fails on its own, outside the leaf's paths
 OPERATIONS = {'global-plan', 'audit-defer', 'audit-recover'}
 GLOBAL_OPERATIONS = {'global-plan', 'audit-recover'}
 
@@ -108,13 +108,15 @@ def feature_inventory(s, plan):
     if s['entry_mode'] == 'single-module':
         require(inventory.get('single_module_id') == s['single_module_id'], 'feature inventory selected root mismatch')
     summary = inventory.get('test_summary_ref')
-    require(inventory.get('source_mode') == ('test-case-summary' if summary else 'legacy-source'),
-            'feature inventory must default to supplied test summary or fall back to legacy source')
+    supplied = read_json(check_ref(s['project_context_ref'])).get('source_refs', {}).get('test_cases_path') if s.get('project_context_ref') else None
+    if supplied and not summary:  # the supplied case list is a fact the Ledger holds: an inventory that names none binds it
+        summary = supplied
+    else:
+        require(inventory.get('source_mode') == ('test-case-summary' if summary else 'legacy-source'),
+                'feature inventory must default to supplied test summary or fall back to legacy source')
     if summary:
         check_ref(summary)
-    if s.get('project_context_ref'):
-        supplied = read_json(check_ref(s['project_context_ref'])).get('source_refs', {}).get('test_cases_path')
-        require(not supplied or summary == supplied, 'feature inventory must use supplied test case summary')
+    require(not supplied or summary == supplied, 'feature inventory must use supplied test case summary')
     coverage = inventory.get('coverage', {})
     require(coverage.get('status') == 'complete' and coverage.get('unclassified') == []
             and coverage.get('unresolved_questions') == [], 'feature enumeration incomplete; human clarification required')
@@ -153,16 +155,17 @@ def feature_inventory(s, plan):
             require(set(mids) <= set(plan['case_owners'][cid]), 'feature/case owner mismatch')
     require({mid for mids in owners.values() for mid in mids} == set(s['modules']), 'module missing functional list')
     import decomposition
-    held = {}
-    for mid, m in s['modules'].items():  # a leaf cut from the feature tree holds its nodes' features and cases in this inventory too
-        if not m.get('functional_paths'):
-            continue
-        found = decomposition.node_features(features, m['functional_paths'])
-        for fid in sorted(found):
-            require(fid not in held, 'feature %s is held by %s and %s: leaves do not overlap' % (fid, held.get(fid), mid))
-            held[fid] = mid
-        require(set(m['case_ids']) == {cid for fid in found for cid in features[fid]['case_ids']},
-                "%s was cut from an earlier inventory: its cases are not its nodes' cases in this one; redecompose" % mid)
+    held, cut = {}, [{**m, 'module_id': mid} for mid, m in s['modules'].items() if m.get('functional_paths')]
+    for m in cut:  # a leaf cut from the feature tree holds its nodes' features and cases in this inventory too
+        for fid in sorted(decomposition.node_features(features, m['functional_paths'])):
+            require(fid not in held, 'feature %s is held by %s and %s: leaves do not overlap' % (fid, held.get(fid), m['module_id']))
+            held[fid] = m['module_id']
+    carried = decomposition.carriers(features, held, cut, strict=False)
+    for m in cut:
+        own = {cid for fid, mid in held.items() if mid == m['module_id'] for cid in features[fid]['case_ids']}
+        rides = {cid for fid in carried.get(m['module_id'], ()) for cid in features[fid]['case_ids']}
+        require(own <= set(m['case_ids']) <= own | rides,
+                "%s was cut from an earlier inventory: its cases are not its nodes' cases in this one; redecompose" % m['module_id'])
     for fid, mid in held.items():
         require(owners.get(fid) == [mid], 'feature %s is held by %s: feature_owners names that leaf alone' % (fid, mid))
     questions = inventory.get('questions')

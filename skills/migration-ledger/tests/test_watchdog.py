@@ -198,6 +198,30 @@ class WatchdogTests(unittest.TestCase):
         self.assertEqual(watchdog.check(root, config)['state'], 'disabled')
         self.assertFalse((root / 'runs/watchdog').exists())
 
+    def test_a_quiet_ledger_is_named_moving_in_staging_or_idle(self):
+        later = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+        codes = lambda: [f['code'] for f in watchdog.inspect(self.root)['findings']]
+        progress = self.root / 'ledger/progress.json'  # nobody owes the run an answer: the quiet is the host's
+        held = json.loads(progress.read_text())
+        progress.write_text(json.dumps({**held, 'signals': [x for x in held.get('signals', []) if x.get('severity') != 'human']}))
+        with patch.object(watchdog, 'now', return_value=later):
+            self.assertIn('host-idle', codes())  # nothing in staging yet
+        progress.write_text(json.dumps(held))
+        with patch.object(watchdog, 'now', return_value=later):
+            self.assertNotIn('host-idle', codes())  # a person is to answer: the quiet is theirs
+        progress.write_text(json.dumps({**held, 'signals': [x for x in held.get('signals', []) if x.get('severity') != 'human']}))
+        note = self.root / 'staging/global-orchestrator/discovery/notes.md'; note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text('reading the legacy entry points')
+        moving = (datetime.now(timezone.utc) + timedelta(hours=2) - timedelta(minutes=5)).timestamp()
+        __import__('os').utime(note, (moving, moving))
+        with patch.object(watchdog, 'now', return_value=later):
+            self.assertIn('ledger-quiet-staging-moving', codes())
+            old = (datetime.now(timezone.utc) - timedelta(hours=1)).timestamp()
+            for p in (self.root / 'staging').rglob('*'):
+                __import__('os').utime(p, (old, old))
+            self.assertIn('host-idle', codes())
+        self.assertNotIn('host-idle', codes())  # a Ledger event just now: not quiet
+
     def test_persistent_ready_action_only_generates_deduplicated_notification(self):
         observation = watchdog.inspect(self.root)
         observation.update(workers=[], ready_actions=[{'module_id': 'M001', 'operation': 'plan', 'role': 'spec-designer'}])

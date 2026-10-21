@@ -14,7 +14,7 @@ stage-plan.test_design_ref 引用 [upstream-test-plan.json](../../../template/up
 
 prepare 固化 planning_coverage_required：每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids（prepared 须对应资产，deferred 记 owner/next_action，未解决记欠项）。用户可见 CASE 须有设备或视觉 PATH（visual，或绑定 android/harmony/web 的 automation）；确无可能写 plan.device_gaps[{case_id,reason,evidence_refs}]：build 可 Green，该 CASE 的 automation 与模块、本轮记 Yellow，以 completed-with-unverified-tests 收尾；环境缺失不是缺口。登记 UI 分配前 run 须对 `test_adapter.device` 定论（{platforms} 或 {unavailable: 原因}），unavailable 时未达设备路径的用户可见 CASE 由 Ledger 按该原因记缺口。
 
-test_assets 交 script/fixture/adapter/test-source 的 asset_id/ref/path_ids（script 再映射 assertions），文件在 design_ref 同级 staging，冻结 definitions 绑定 hash。骨架为无设备或非界面的 CASE 起稿进程内功能测试，为有设备且绑定 UI 树的 CASE 起稿 script 资产（选择器取节点 id）；报告分列脚本驱动的设备路径及其 flaky。test-source 是从 SPEC 写出、随计划冻结的测试源：target_path、required_test_ids、scenarios（逐测试对应 Scenario-ID）、symbols；绑定的 unit PATH 只要求它定义的测试，Implementer 原样落到 target_path（hash 不等即拒，改测试走 CR），execute_test 执行前核对并写回执 frozen_test_sources。模块、复测与 GLOBAL 复测共用 PATH 资产解析，test_asset_binding 保留来源模块、freeze_id、test_design_ref，GLOBAL 自有路径绑定本 GLOBAL 的设计作者；测试计划及脚本作者不能兼 Auditor，设计不替代预检与冻结/代码门禁。
+test_assets 交 script/fixture/adapter/test-source 的 asset_id/ref/path_ids（script 再映射 assertions），文件在 design_ref 同级 staging，冻结 definitions 绑定 hash。骨架为无设备或非界面的 CASE 起稿进程内功能测试，为有设备且绑定 UI 树的 CASE 起稿 script 资产（选择器取节点 id）；报告分列脚本驱动的设备路径及其 flaky。test-source 是从 SPEC 写出、随计划冻结的测试源：target_path、required_test_ids、scenarios（逐测试对应 Scenario-ID）、symbols；绑定的 unit PATH 只要求它定义的测试，Implementer 原样落到 target_path（可在写范围外；hash 不等即拒，改测试走 CR），执行前核对并写回执 frozen_test_sources。冻结拒恒真断言与表达式体 @Test；用 kotlin.test 而构建文件未声明记欠项。模块、复测与 GLOBAL 复测共用 PATH 资产解析，test_asset_binding 保留来源模块、freeze_id、test_design_ref，GLOBAL 自有路径绑定本 GLOBAL 的设计作者；测试计划及脚本作者不能兼 Auditor。
 
 ## query
 
@@ -96,7 +96,7 @@ query 还支持 --task-id/--assertion-id/--test-id，默认最多5条，仅失�
 - scenarios[]：每行 status=passed|failed、summary、production_symbols（目标绝对路径+真实符号）、evidence_refs。passed 必须给 reached_from：另一个目标文件中的调用/DI/导航/清单引用；有 unit PATH 还须 test_refs 指向真实测试符号。未接入生产不能 passed。
 - anti_patterns：preview-only-wiring、dead-handler、fixed-result、placeholder-icon、unapproved-stub、swallowed-error（错误显示为空态/成功）逐项 absent|present、note、evidence_refs。批准的 capture-fixture 边界可 absent，须引用批准依据。
 
-building 预检的 execution.commands 一并批准 build/unit/static 命令和 review 路径；同一 build assignment 依次执行 build、unit、static，到第一个非 Green 为止，一次提交和验收；结果覆盖已到达环节的全部待测 PATH，同一代码上已 Green 的环节不重跑，非 Green 即诊断/Fixer 后重跑。`execute_test.py` 调用 [spec_closure.py](../../migration-ledger/scripts/spec_closure.py)（--review、--target-root），核对上下文、场景覆盖、符号和清单；failed 场景/present 反模式为 Red。脚本不判断业务语义，Test-Runner 审阅、Auditor 抽查。static 全绿前禁止 automation/automation-unavailable；缺设备仍执行 unit/static。
+building 预检的 execution.commands 一并批准 build/unit/static 命令和 review 路径；同一 build assignment 依次执行 build、unit、static，到第一个非 Green 为止，一次提交和验收；结果覆盖已到达环节的全部待测 PATH，同一代码上已 Green 的环节不重跑，非 Green 即诊断/Fixer 后重跑。`execute_test.py` 调 spec_closure.py 核对上下文、场景覆盖、符号和清单；failed 场景/present 反模式为 Red。脚本不判断业务语义，Test-Runner 审阅、Auditor 抽查。static 全绿前禁止 automation/automation-unavailable；缺设备仍执行 unit/static。
 
 ## 运行时变体与冻结 SPEC 冲突
 
@@ -104,13 +104,13 @@ building 预检的 execution.commands 一并批准 build/unit/static 命令和 r
 
 ## Harmony Main
 
-已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md#3-execute一条-path-到-main) 与执行内核：输入冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow。harmony_stage 把 host receipts 汇成 tests stage，Ledger 复验媒体 hash 与三态；超时终止进程组并保存已有输出。断言的 `reference_media_id`（用户截图作参考图，verification=refer_image_assert，不需 reference_step）由 adapter 核对 hash 后交引擎验证；`record_video: true` 的 PATH 以 `media_refs`（hash 绑定、在执行输出内）带回 final.mp4，报告逐 PATH 列出，diagnose/Fixer 并列用户预期媒体与实际媒体，不改三态；`media_marks` 见[用户参考媒体](project-context.md#用户参考媒体)。
+已内置 [Harmony 适配协议](../../migration-test/references/harmony-runtime.md#3-execute一条-path-到-main) 与执行内核：输入冻结 PATH，输出按 ASSERT ID 绑定原生 Verify 的截图/视频结果，保留时间线、录制、布局与视频映射；UI 谓词 expected=true 的语义在 design 冻结。每次观察落盘，回放仍重新验证；同断言 pass/fail 混合为 flaky Yellow；缺设备/模型/媒体或结论不明为 Yellow。harmony_stage 把 host receipts 汇成 tests stage，Ledger 复验媒体 hash 与三态。断言的 `reference_media_id`（用户截图作参考图，verification=refer_image_assert，不需 reference_step）由 adapter 核对 hash 后交引擎验证；`record_video: true` 的 PATH 以 `media_refs`（hash 绑定、在执行输出内）带回 final.mp4，报告逐 PATH 列出，diagnose/Fixer 并列用户预期媒体与实际媒体，不改三态；`media_marks` 见[用户参考媒体](project-context.md#用户参考媒体)。
 
 Harmony 不自动生成结构化 interaction_evidence：缺这份证据时的规范化见[视觉对齐](ui-fidelity.md#视觉对齐--automation-第二层不是独立阶段)；Test-Runner 在预检说明能力缺口，换 adapter 或走缺测出口。
 
 ## web Main
 
-已内置 web Main（`skills/migration-test/scripts/web_main.py`，adapter 见 [web-test-adapter.json](../../../template/web-test-adapter.json)）：PATH 填 `platform=web`、`task_type=test`，steps 是确定性动作对象（goto/click/fill/press/wait/select/check/uncheck/hover/scroll_to，首步 goto），断言 `verification=dom` 带 predicate（text/value/visible/count/url/title/attribute 的 equals/contains/matches，count 另有 at_least，checked/enabled 不带比较）或 `refer_image_assert` 带用户截图（Ledger 绑定 reference_media_ref，视觉分 ≥ tolerance），形状见 [web-test-path.json](../../../template/web-test-path.json)，plan 时按此形状拒绝。Main 用 Playwright 走步骤，每步前后截图，谓词在其步骤后有界重读再判定、逐条落盘（重读中变化记 unstable）；adapter 的 `attempts`（1–5）>1 时整条路径重跑，同断言 pass/fail 混合即 flaky Yellow，attempts.json 留每次结果；回执 producer=web-main，带 query_sha256、environment_ref（platform=web、browser）、step-trace（每步 hash、状态、前后截图）、observations 与 media_refs（截图，`record_video: true` 时含录像）；Ledger 核对上下文、query hash、每步证据与每条断言在其步骤后的观察，缺一为 Yellow；无法执行的步骤停止路径记 Yellow，谓词不成立记 Red。无 producer 的项目适配器按 `{"assertions":[...]}` 验收，三态由断言推出。
+已内置 web Main（`skills/migration-test/scripts/web_main.py`，adapter 见 [web-test-adapter.json](../../../template/web-test-adapter.json)）：PATH 填 `platform=web`、`task_type=test`，steps 是确定性动作对象（goto/click/fill/press/wait/select/check/uncheck/hover/scroll_to，首步 goto），断言 `verification=dom` 带 predicate（text/value/visible/count/url/title/attribute 的 equals/contains/matches，count 另有 at_least，checked/enabled 不带比较）或 `refer_image_assert` 带用户截图（Ledger 绑定 reference_media_ref，视觉分 ≥ tolerance），形状见 [web-test-path.json](../../../template/web-test-path.json)。Main 用 Playwright 走步骤，每步前后截图，谓词在其步骤后有界重读再判定、逐条落盘（重读中变化记 unstable）；adapter 的 `attempts`（1–5）>1 时整条路径重跑，同断言 pass/fail 混合即 flaky Yellow，attempts.json 留每次结果；回执 producer=web-main，带 query_sha256、environment_ref（platform=web、browser）、step-trace（每步 hash、状态、前后截图）、observations 与 media_refs（截图，`record_video: true` 时含录像）；Ledger 核对上下文、query hash、每步证据与每条断言在其步骤后的观察，缺一为 Yellow；无法执行的步骤停止路径记 Yellow，谓词不成立记 Red。无 producer 的项目适配器按 `{"assertions":[...]}` 验收，三态由断言推出。
 
 ## 分阶段唯一验收 owner
 

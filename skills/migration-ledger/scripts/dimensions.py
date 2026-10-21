@@ -187,7 +187,8 @@ def allocation(s, module):
             project_context.transfer_settled(s, applicable)
             project_context.device_settled(s, applicable)
             project_context.preview_settled(s, applicable)
-    require(module.get('scope') and data.get('scope') == module['scope'],
+    # The allocated scope is the Ledger's: an analysis that leaves it out binds it, one that restates another is refused.
+    require(module.get('scope') and data.get('scope') in (None, module['scope']),
             'dimension analysis must bind the already allocated module scope')
     allowed = set(module.get('scope', {}).get('requirement_ids', s['requirement_ids']))
     require({rid for item in items.values() for rid in item['requirement_ids']} == allowed,
@@ -457,8 +458,10 @@ def task_analyses(plan, module, items, traces):
     for task in plan['tasks']:
         scope = task.get('scope', {})
         nonempty(scope.get('in'), 'task business scope')
-        require(isinstance(scope.get('out'), list), 'task exclusions required')
-        require(set(module['scope']['out']) <= set(scope['out']), 'task must retain module exclusions')
+        require(isinstance(scope.get('out', []), list), 'task exclusions required')
+        # the module's exclusions hold for every task: the Ledger carries the ones a task does not restate
+        scope['out'] = list(scope.get('out', [])) + [line for line in module['scope']['out'] if line not in scope.get('out', [])]
+        task['scope'] = scope
         require(all(isinstance(line, str) and line.strip() for line in scope['in'] + scope['out']), 'task scope lines are statements')
         writes = nonempty(scope.get('write_paths'), 'task write scope')
         require(all(Path(p).is_absolute() and any(Path(p).resolve().is_relative_to(Path(m).resolve())
@@ -499,7 +502,7 @@ def verify(plan):
                     evidence(row['evidence_refs'], 'frozen task dimension evidence')
 
 
-def implementation(plan, result):
+def implementation(plan, result, tests=()):
     if not plan.get('dimension_analysis_ref'):
         return
     _, items = load(plan['dimension_analysis_ref'], plan['module_id'])
@@ -510,7 +513,7 @@ def implementation(plan, result):
     planned = {t['item_id']: t for t in plan['dimension_trace']}
     tasks = {t['task_id']: t for t in plan['tasks']}
     for trace in result.get('task_trace', []):
-        allowed = tasks[trace['task_id']]['scope']['write_paths']
+        allowed = tasks[trace['task_id']]['scope']['write_paths'] + list(tests)  # frozen test sources are written verbatim
         require(all(any(Path(f).resolve().is_relative_to(Path(p).resolve()) for p in allowed)
                     for f in trace.get('files', [])), 'implementation file outside planned task scope')
     for iid, trace in traces.items():

@@ -116,6 +116,8 @@ def verify(s, m, assignment, result, receipt):
             and receipt.get('module_id') == m['module_id'] and receipt.get('assignment_id') == assignment['assignment_id'],
             'write scope receipt context mismatch')
     declared = {str(Path(r['path']).resolve()) for r in result.get('code_files', [])}
+    import prepared_tests
+    tests = {str(Path(p).resolve()) for p in prepared_tests.frozen_paths(m, set((assignment.get('execution_contract') or {}).get('task_ids') or []) or None)}
 
     def inside(path, module):
         return any(Path(path).resolve().is_relative_to(Path(root).resolve()) for root in module['write_paths'])
@@ -125,6 +127,9 @@ def verify(s, m, assignment, result, receipt):
         require(isinstance(path, str) and (blob_id(path) if Path(path).is_file() else None) == blob,
                 'write scope receipt is stale: ' + str(path))
         resolved = str(Path(path).resolve())
+        if resolved in tests:  # a frozen test source the task delivers verbatim
+            require(blob is None or resolved in declared, 'undeclared change of a frozen test source: ' + path)
+            continue
         if inside(path, m):
             if assignment.get('execution_contract'):
                 require(any(Path(path).resolve().is_relative_to(Path(p).resolve()) for p in assignment['execution_contract']['write_paths']), 'write outside assigned TASK scope: ' + path)

@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 
@@ -18,7 +19,34 @@ class Drifted(Rejected):
 
 def require(condition, message):
     if not condition:
-        raise Rejected(message)
+        found = _survey.get()
+        if found is None or len(found) >= SURVEY_LIMIT or time.monotonic() > found.deadline:
+            raise Rejected(message)
+        if message not in found:
+            found.append(message)
+
+
+_survey = contextvars.ContextVar('survey', default=None)  # the further refusals of a request judged once more on a copy
+SURVEY_LIMIT, SURVEY_SECONDS = 20, 5
+
+
+class Survey(list):
+    def __init__(self):
+        super().__init__()
+        self.deadline = time.monotonic() + SURVEY_SECONDS
+
+
+class surveying:
+    """A rejected request is judged once more on a copy where a failed check is noted and judging goes on, so one
+    refusal lists the other problems of the same request instead of one per round trip. The copy is dropped; a check
+    whose failure leaves nothing to judge further ends the survey."""
+    def __enter__(self):
+        self.found = Survey()
+        self.token = _survey.set(self.found)
+        return self.found
+
+    def __exit__(self, *exc):
+        _survey.reset(self.token)
 
 
 _owed = contextvars.ContextVar('owed', default=None)  # the gaps collected while the Ledger judges a leaf's request
@@ -47,8 +75,9 @@ def owed(condition, message):
         return
     gaps = _owed.get()
     if gaps is None:
-        raise Rejected(message)
-    gaps.append(message)
+        require(False, message)
+    else:
+        gaps.append(message)
 
 
 SKELETON_MARK = '[[待写'  # opens a part of a generated skeleton only its author can write; no frozen definition holds one
@@ -133,11 +162,68 @@ def check_ref(ref):
     try:
         actual = file_ref(ref['path'])
     except Rejected as exc:
+        kept = as_prepared(ref)
+        if kept:
+            return kept
         raise Drifted(str(exc)) from None
     # The message names the file and its real digest: a request holding dozens of references is otherwise unfixable.
     if actual != {'path': str(Path(ref['path']).resolve()), 'sha256': ref.get('sha256')}:
+        kept = as_prepared(ref)
+        if kept:
+            return kept
         raise Drifted(f"evidence hash mismatch: {actual['path']} is {actual['sha256']}, the reference says {ref.get('sha256')}; recompute it with contracts.py ref")
     return Path(ref['path'])
+
+
+_legacy = contextvars.ContextVar('legacy', default=None)  # {root, commit, run_root} of the run whose request is judged
+
+
+def as_prepared(ref):
+    """The bytes a legacy reference names, as the run was prepared: the legacy is a frozen input, so a file changed under a
+    running run is read as it was at the prepared commit (or as the run already archived it), not refused. None if the
+    reference is not a legacy file, or neither holds those bytes."""
+    legacy, sha = _legacy.get(), ref.get('sha256')
+    if not legacy or not isinstance(sha, str) or not re.fullmatch(r'[0-9a-f]{64}', sha):
+        return None
+    path = Path(ref['path']).resolve()
+    if not path.is_relative_to(legacy['root']):
+        return None
+    run_root = Path(legacy['run_root'])
+    for kept in (run_root / 'artifacts' / sha, run_root / 'runs/legacy-as-prepared' / sha):
+        if kept.is_file() and hashlib.sha256(kept.read_bytes()).hexdigest() == sha:
+            return kept
+    if not legacy.get('commit'):
+        return None
+    import subprocess
+    try:
+        data = subprocess.run(['git', '-C', str(legacy['root']), 'show', legacy['commit'] + ':./' + str(path.relative_to(legacy['root']))],
+                              capture_output=True, timeout=30).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if hashlib.sha256(data).hexdigest() != sha:
+        return None
+    kept.parent.mkdir(parents=True, exist_ok=True)
+    kept.write_bytes(data)
+    return kept
+
+
+class legacy_as_prepared:
+    """While the Ledger judges a request of a prepared run, legacy references resolve as the run was prepared."""
+    def __init__(self, run_root):
+        self.run_root = Path(run_root)
+
+    def __enter__(self):
+        value = None
+        try:
+            snapshot = json.loads((self.run_root / 'context/snapshot.json').read_text())
+            value = {'root': Path(snapshot['effective_config']['legacy_root']).resolve(), 'commit': snapshot.get('legacy_commit'),
+                     'run_root': str(self.run_root.resolve())}
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+        self.token = _legacy.set(value)
+
+    def __exit__(self, *exc):
+        _legacy.reset(self.token)
 
 
 def intact(check):
@@ -323,7 +409,8 @@ def validate_result(result, module, assignment, run_root=None):
     if kind == 'implementation':
         require(assignment['role'] in ('implementer', 'fixer'), 'implementation owner mismatch')
         require(result.get('code_baseline') == baseline(result.get('code_files')), 'code baseline mismatch')
-        scope = [Path(p).resolve() for p in module['write_paths']]
+        import prepared_tests
+        scope = [Path(p).resolve() for p in module['write_paths'] + prepared_tests.frozen_paths(module)]
         for ref in result['code_files']:
             require(any(Path(ref['path']).resolve().is_relative_to(p) for p in scope), 'code outside module scope')
         traces = keyed(result.get('task_trace'), 'task_id')
@@ -340,12 +427,11 @@ def validate_result(result, module, assignment, run_root=None):
         for tid, row in traces.items():
             require(row.get('test_order') in (None, 'tests-first', 'code-first'), 'task test_order is tests-first or code-first')  # declared, not enforced
             task = next(t for t in module['plan']['tasks'] if t['task_id'] == tid)
-            allowed = (task.get('scope') or {}).get('write_paths', module['write_paths'])
+            allowed = (task.get('scope') or {}).get('write_paths', module['write_paths']) + prepared_tests.frozen_paths(module, {tid})
             require(all(any(Path(path).resolve().is_relative_to(Path(p).resolve()) for p in allowed) for path in row.get('files', [])),
                     'implementation file outside assigned TASK scope')
             import red_evidence
             red_evidence.check(module, task, row)  # optional: two self-check notes, failing before the code and passing after
-        import prepared_tests
         prepared_tests.sources_delivered(module, set(traces), result['code_files'])
         code_paths = {r['path'] for r in result['code_files']}
         require(code_paths == {str(Path(p).resolve()) for files in owners.values() for p in files}, 'unowned code or missing task file')
@@ -358,7 +444,7 @@ def validate_result(result, module, assignment, run_root=None):
         if complete:
             cumulative = {**result, 'task_trace': [{'task_id': tid, 'files': files} for tid, files in owners.items()]}
             reuse.validate_implementation(module['plan'], cumulative)
-            dimensions.implementation(module['plan'], cumulative)
+            dimensions.implementation(module['plan'], cumulative, prepared_tests.frozen_paths(module))
         else:
             require(assignment['role'] == 'implementer', 'Fixer cannot leave TASK coverage incomplete')
         if assignment['role'] == 'fixer':
