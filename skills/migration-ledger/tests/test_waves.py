@@ -55,12 +55,12 @@ class WaveTests(unittest.TestCase):
     def steps(self, f):
         return {step['module_id']: step for step in f.state()['next_steps']}
 
-    def test_the_cursor_offers_a_dependents_planning_once_its_provider_is_there(self):
+    def test_a_dependent_plans_while_its_provider_does(self):
         f = self.split()
         steps = self.steps(f)
         self.assertEqual((steps['M001']['operation'], steps['M001']['ready'], steps['M001']['wave']), ('plan', True, 1))
-        self.assertEqual((steps['M002']['operation'], steps['M002']['ready'], steps['M002']['reason'], steps['M002']['waiting_for'], steps['M002']['wave']),
-                         ('plan', False, 'provider-first-version-pending', ['M001'], 2))
+        self.assertEqual((steps['M002']['operation'], steps['M002']['ready'], steps['M002']['waiting_for'], steps['M002']['wave']),
+                         ('plan', True, ['M001'], 2))  # it plans while its provider does; its code waits for the provider's
         row, = ledger.status(f.root, 'step', 'M002')['providers']
         self.assertEqual((row['module_id'], row['ready'], row['plan_ref']), ('M001', False, None))
         self.assertNotIn('providers', ledger.status(f.root, 'step', 'M001'))

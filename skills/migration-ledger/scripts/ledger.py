@@ -855,9 +855,9 @@ def _next_step(s, m):
                     upstream_case_refs=design_stage.upstream_refs(s), upstream_case_ids=m['case_ids'])
         waiting = [row['module_id'] for row in providers(s, m) if not row['ready']]
         if waiting:
-            # Planned against what its providers are, once they are: the step is offered then. A plan submitted
-            # earlier is still judged - this orders the work, it refuses nothing.
-            step.update(ready=False, reason='provider-first-version-pending', waiting_for=waiting)
+            # Planned while its providers are: against their plans where they have them. Only the dispatch of its
+            # code waits for their first version (dependencies_ready).
+            step.update(waiting_for=waiting, note='provider-first-version-pending: plan now, code after the provider')
         try:
             workflow.runtime_allocations(s, m['module_id'], planning=True)
         except (Rejected, OSError) as exc:
