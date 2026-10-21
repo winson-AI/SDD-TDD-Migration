@@ -15,13 +15,13 @@ def automation_flow():
     d = Diagram('automation-flow', 2850, '05', 'Automation · 输入、执行与验收闭环',
                 '构建是前置门禁；每条 PATH 独立执行；环境缺测不传播失败，完整 Green 才能验收通过')
     artifact(d, 460, 190, 640, 130, '测试输入 → 冻结 PATH',
-             ['GO / 父 MO 分配全量 CASE；SPEC → PATH / 参数 / 步骤 / ASSERT', '测试源随计划冻结：进程内 FlowTest / 设备脚本；不自行放宽预期'])
+             ['GO / 父 MO 分配全量 CASE；SPEC → PATH / 参数 / 步骤 / ASSERT', '测试源随计划冻结（须能失败）：FlowTest / 设备脚本；不自行放宽预期'])
     d.box(60, 190, 340, 210, '项目上下文',
           ['存量与运行方式 / 目标 / 架构 / 媒体', '二方库行为对齐与 fidelity', '三条声明 → 适配器 / 环境文件', '项目配置 → 本轮快照'], 'gray')
     d.arrow([(400, 255), (460, 255)])
     d.arrow([(780, 320), (780, 375)])
     d.box(460, 375, 640, 115, 'Coding 接受 → build / unit / static Green',
-          ['同命令 unit 一次执行；新代码必须重新 build / unit / static', '构建通过不代表任何业务 CASE 已通过'])
+          ['构建只跑 PATH 验证的平台；新代码必须重新 build / unit / static', '构建通过不代表任何业务 CASE 已通过'])
     d.arrow([(780, 490), (780, 550)])
     d.box(460, 550, 640, 140, 'MO 派发 → Test-Runner testing 预检',
           ['Ledger 骨架已核代码 / 路径；填提供方 / 环境 / 权限', '提交 context-submit；绑定实际 argv / cwd / 环境', '宿主负责实际启动、角色身份和资源锁'], controller=True)
@@ -38,7 +38,7 @@ def automation_flow():
           ['scope=automation；重验代码 / 环境 / 命令', '进程内 PATH 跑冻结命令 + JUnit；设备 / 浏览器 PATH 调 Main'])
     d.arrow([(780, 1065), (780, 1120)])
     d.box(460, 1120, 640, 145, '逐 PATH 调用 Main（适配器随平台）',
-          ['argv + --query-file … --result-file …', 'Android / Harmony → Harmony Main（图 06）；web → web Main', '冻结 platform 绑定 APK / HAP / 页面哈希；record_video 留录屏'], controller=True)
+          ['声明了平台未写适配器即用内置 Main；--query-file / --result-file', 'Android / Harmony → Harmony Main（图 06）；web → web Main', '冻结 platform 绑定 APK / HAP / 页面哈希；record_video 留录屏'], controller=True)
     d.box(60, 1080, 340, 190, '两层执行结果',
           ['包装器 exit 0：已写回执', '不等于 CASE 通过', '超时 124 / 启动失败 127', '以 receipt / assertions 为准'], 'orange')
     d.arrow([(780, 1265), (780, 1320)])
@@ -60,11 +60,11 @@ def automation_flow():
     d.box(60, 1870, 340, 170, 'MO · 完整 DoD',
           ['构建 / 单测 / 静态 + 自动化', '当前基线全部 Green', '适用 visual 须另派并通过', '记录模块通过'], 'green', True)
     d.arrow([(945, 1940), (1160, 1940)], 'orange'); d.label(1045, 1920, 'Red / Yellow', 'orange')
-    d.box(1160, 1855, 380, 180, '诊断 → 修复路由',
-          ['实现错误 → Fixer；规划缺口 → CR', '超 scope → 父 MO / GO', '更新 SPEC 时 MO 重冻后再改代码', '预算内正式复测；阻塞按原恢复'], 'purple')
+    d.box(1160, 1845, 380, 240, '诊断 → 修复路由',
+          ['实现错误 → Fixer；规划缺口 → CR', '冻结测试源缺陷也走 CR', '超 scope → 父 MO / GO', '目标基线缺陷 → 审计延期', '更新 SPEC 时 MO 重冻后再改代码', '预算内正式复测；阻塞按原恢复'], 'purple')
     d.box(1160, 1505, 380, 170, '更新代码后返回 B',
           ['入口 B = Coding 接受 / build', '新 code_baseline，旧构建失效', '保留失败与 repair memory', '新 build / unit / static；正式路径复测'], 'purple')
-    d.arrow([(1350, 1855), (1350, 1675)], 'purple'); d.label(1350, 1770, '修复获接受', 'purple')
+    d.arrow([(1350, 1845), (1350, 1675)], 'purple'); d.label(1350, 1770, '修复获接受', 'purple')
     d.label(1045, 360, '入口 B', 'purple')
     d.box(1160, 1020, 380, 190, '环境恢复返回 A',
           ['新 testing ready 报告', 'automation-resume → 新派发', '入口 A = testing 预检', '不额外要求人工恢复批准'], 'purple')
@@ -72,8 +72,8 @@ def automation_flow():
     d.label(1045, 535, '入口 A', 'purple')
     # Join settled paths only, routing outside the central execution column.
     d.arrow([(230, 2040), (230, 2170), (780, 2170)], end=False)
-    d.arrow([(1350, 2035), (1350, 2170), (780, 2170)], 'orange', end=False)
-    d.label(1350, 2100, '遗留已留证', 'orange')
+    d.arrow([(1350, 2085), (1350, 2170), (780, 2170)], 'orange', end=False)
+    d.label(1350, 2130, '遗留已留证', 'orange')
     d.arrow([(1540, 840), (1570, 840), (1570, 2170), (1350, 2170)], 'orange', dashed=True, end=False)
     d.arrow([(780, 2170), (780, 2230)])
     d.box(460, 2230, 640, 130, '父汇总 → GO 全量收尾门禁',

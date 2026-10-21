@@ -16,7 +16,7 @@
 <path d="M478,190 H1100 L1082,320 H460 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="780.0" y="234.0" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">测试输入 → 冻结 PATH</text>
 <text x="780.0" y="268.0" font-size="17.68" fill="#4b5563" text-anchor="middle" font-weight="400">GO / 父 MO 分配全量 CASE；SPEC → PATH / 参数 / 步骤 / ASSERT</text>
-<text x="780.0" y="297.0" font-size="18.81" fill="#4b5563" text-anchor="middle" font-weight="400">测试源随计划冻结：进程内 FlowTest / 设备脚本；不自行放宽预期</text>
+<text x="780.0" y="297.0" font-size="17.43" fill="#4b5563" text-anchor="middle" font-weight="400">测试源随计划冻结（须能失败）：FlowTest / 设备脚本；不自行放宽预期</text>
 <rect x="60" y="190" width="340" height="210" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="230.0" y="245.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">项目上下文</text>
 <text x="230.0" y="279.0" font-size="17.10" fill="#4b5563" text-anchor="middle" font-weight="400">存量与运行方式 / 目标 / 架构 / 媒体</text>
@@ -27,7 +27,7 @@
 <path d="M780,320 L780,375" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="375" width="640" height="115" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="780.0" y="411.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Coding 接受 → build / unit / static Green</text>
-<text x="780.0" y="445.5" font-size="19.70" fill="#4b5563" text-anchor="middle" font-weight="400">同命令 unit 一次执行；新代码必须重新 build / unit / static</text>
+<text x="780.0" y="445.5" font-size="18.51" fill="#4b5563" text-anchor="middle" font-weight="400">构建只跑 PATH 验证的平台；新代码必须重新 build / unit / static</text>
 <text x="780.0" y="474.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">构建通过不代表任何业务 CASE 已通过</text>
 <path d="M780,490 L780,550" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="550" width="640" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -70,7 +70,7 @@
 <rect x="460" y="1120" width="640" height="145" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="465" y="1125" width="630" height="135" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="780.0" y="1157.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">逐 PATH 调用 Main（适配器随平台）</text>
-<text x="780.0" y="1191.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">argv + --query-file … --result-file …</text>
+<text x="780.0" y="1191.0" font-size="18.04" fill="#4b5563" text-anchor="middle" font-weight="400">声明了平台未写适配器即用内置 Main；--query-file / --result-file</text>
 <text x="780.0" y="1220.0" font-size="19.10" fill="#4b5563" text-anchor="middle" font-weight="400">Android / Harmony → Harmony Main（图 06）；web → web Main</text>
 <text x="780.0" y="1249.0" font-size="18.76" fill="#4b5563" text-anchor="middle" font-weight="400">冻结 platform 绑定 APK / HAP / 页面哈希；record_video 留录屏</text>
 <rect x="60" y="1080" width="340" height="190" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
@@ -126,19 +126,21 @@
 <path d="M945,1940 L1160,1940" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
 <rect x="967.6" y="1900" width="154.8" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="1045" y="1920" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">Red / Yellow</text>
-<rect x="1160" y="1855" width="380" height="180" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
-<text x="1350.0" y="1895.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">诊断 → 修复路由</text>
-<text x="1350.0" y="1929.0" font-size="21.33" fill="#4b5563" text-anchor="middle" font-weight="400">实现错误 → Fixer；规划缺口 → CR</text>
-<text x="1350.0" y="1958.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">超 scope → 父 MO / GO</text>
-<text x="1350.0" y="1987.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">更新 SPEC 时 MO 重冻后再改代码</text>
-<text x="1350.0" y="2016.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">预算内正式复测；阻塞按原恢复</text>
+<rect x="1160" y="1845" width="380" height="240" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
+<text x="1350.0" y="1886.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">诊断 → 修复路由</text>
+<text x="1350.0" y="1920.0" font-size="21.33" fill="#4b5563" text-anchor="middle" font-weight="400">实现错误 → Fixer；规划缺口 → CR</text>
+<text x="1350.0" y="1949.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">冻结测试源缺陷也走 CR</text>
+<text x="1350.0" y="1978.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">超 scope → 父 MO / GO</text>
+<text x="1350.0" y="2007.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">目标基线缺陷 → 审计延期</text>
+<text x="1350.0" y="2036.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">更新 SPEC 时 MO 重冻后再改代码</text>
+<text x="1350.0" y="2065.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">预算内正式复测；阻塞按原恢复</text>
 <rect x="1160" y="1505" width="380" height="170" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="1350.0" y="1540.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">更新代码后返回 B</text>
 <text x="1350.0" y="1574.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">入口 B = Coding 接受 / build</text>
 <text x="1350.0" y="1603.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">新 code_baseline，旧构建失效</text>
 <text x="1350.0" y="1632.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">保留失败与 repair memory</text>
 <text x="1350.0" y="1661.0" font-size="17.04" fill="#4b5563" text-anchor="middle" font-weight="400">新 build / unit / static；正式路径复测</text>
-<path d="M1350,1855 L1350,1675" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
+<path d="M1350,1845 L1350,1675" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <rect x="1291.0" y="1750" width="118" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="1350" y="1770" font-size="20.00" fill="#7c3aed" text-anchor="middle" font-weight="400">修复获接受</text>
 <rect x="1004.6" y="340" width="80.8" height="29" rx="4" fill="white" opacity="0.97"/>
@@ -153,9 +155,9 @@
 <rect x="1004.6" y="515" width="80.8" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="1045" y="535" font-size="20.00" fill="#7c3aed" text-anchor="middle" font-weight="400">入口 A</text>
 <path d="M230,2040 L230,2170 L780,2170" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
-<path d="M1350,2035 L1350,2170 L780,2170" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round"/>
-<rect x="1291.0" y="2080" width="118" height="29" rx="4" fill="white" opacity="0.97"/>
-<text x="1350" y="2100" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">遗留已留证</text>
+<path d="M1350,2085 L1350,2170 L780,2170" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round"/>
+<rect x="1291.0" y="2110" width="118" height="29" rx="4" fill="white" opacity="0.97"/>
+<text x="1350" y="2130" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">遗留已留证</text>
 <path d="M1540,840 L1570,840 L1570,2170 L1350,2170" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="7 5"/>
 <path d="M780,2170 L780,2230" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="2230" width="640" height="130" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
