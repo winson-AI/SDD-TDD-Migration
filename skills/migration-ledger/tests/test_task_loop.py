@@ -186,12 +186,17 @@ class RedirectionTests(unittest.TestCase):
             self.assertEqual((seeded / name).resolve(), (seed / name).resolve())
         self.assertFalse((seeded / 'caches/jars-9').exists())  # the rest stays this execution's own
         self.assertFalse(kept.is_symlink())                     # what an execution already has is left alone
-        for value in ({}, {'SDD_GRADLE_CACHE_SEED': str(base / 'no-such-seed')}):
+        for value in ({'SDD_GRADLE_CACHE_SEED': ''}, {'SDD_GRADLE_CACHE_SEED': str(base / 'no-such-seed')}):
             with self.subTest(value=value), mock.patch.dict(os.environ, value):
-                if not value:
-                    os.environ.pop('SDD_GRADLE_CACHE_SEED', None)
-                cold = home(runner_storage.environment(base / ('cold-%d' % len(value))))
-                self.assertFalse((cold / 'wrapper').exists())  # not asked for: every execution starts cold, as before
+                cold = home(runner_storage.environment(base / ('cold-%d' % len(value['SDD_GRADLE_CACHE_SEED']))))
+                self.assertFalse((cold / 'wrapper').exists())  # turned off, or nothing to share: the execution starts cold
+        user_home = base / 'user'
+        for name in ('wrapper/dists', 'caches/modules-2'):
+            (user_home / '.gradle' / name).mkdir(parents=True)
+        with mock.patch.dict(os.environ, {}), mock.patch.object(Path, 'home', return_value=user_home):
+            os.environ.pop('SDD_GRADLE_CACHE_SEED', None)
+            default = home(runner_storage.environment(base / 'default'))
+        self.assertTrue((default / 'caches/modules-2').is_symlink())  # by default the host user's Gradle home seeds it
 
 
 if __name__ == '__main__':

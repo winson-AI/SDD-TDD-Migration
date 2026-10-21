@@ -95,7 +95,7 @@ FAMILIES = (  # the gaps the Ledger owes, by the rule family that raised them: a
     (r'reuse (source|decisions|fidelity)|fidelity (must cover|scenarios required)', '复用'),
     (r'prepared PATH needs|deferred test preparation', '测试准备'),
     (r'parameter mapping|expressions the Spec|tokens the Spec', '参数表'),
-    (r'telemetry', '埋点'), (r'unit_tests_required|spec_closure_required', '测试路径'),
+    (r'telemetry', '埋点'), (r'unit_tests_required|spec_closure_required|build scope:', '测试路径'),
     (r'the user (gave|showed)|the target expectation', '用户媒体'),
     (r'superseded plan|a leaf plans at most|plan over', '计划'), (r'native UI validation', 'UI 树'),
 )

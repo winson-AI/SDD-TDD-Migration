@@ -6,7 +6,7 @@ import dimensions
 
 from contracts import check_ref, digest, intact, keyed, nonempty, read_json, require, baseline, validate_result, verify_plan
 
-EXTERNAL = {'dependency', 'environment', 'tooling', 'external', 'peripheral', 'human'}
+EXTERNAL = {'dependency', 'environment', 'tooling', 'external', 'peripheral', 'human', 'target-baseline'}  # target-baseline: the target project fails on its own, outside the leaf's paths
 OPERATIONS = {'global-plan', 'audit-defer', 'audit-recover'}
 GLOBAL_OPERATIONS = {'global-plan', 'audit-recover'}
 
