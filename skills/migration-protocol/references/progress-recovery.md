@@ -44,7 +44,7 @@ OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；�
 | `operation-rejected` | 各作用域当前 revision 下被拒操作及原因分别计数；相同操作/原因累计拒绝 3 次升级人工信号，其他模块的拒绝不清零，禁止原样重试空转 |
 | `not-implemented` / `label=未实现` | MO 核验替代实现均不可行后接受的具体功能缺口；立即展示范围、核验证据及所需人工决策。无可复用库本身不构成该信号，详见 [复用协议第 8 节](reuse-dependencies.md#8-复用不可行--coding确实无法实现--未实现提醒) |
 
-拒绝请求返回非零退出码并在可写时持久化 `reports/rejected-operation.json`，不提交业务事件、不改变质量；诊断是可重建的提示，不是第二条业务总线。
+拒绝请求返回非零退出码并在可写时持久化 `reports/rejected-operation.json`，不提交业务事件、不改变质量；further 列同一请求的其余问题（副本上判完），一轮改全；任意请求可先 `preview --request` 只读预判。
 
 若真实 worker 已退出但 assignment 仍活动，宿主保存退出日志并走 revoke，再根据恢复点续作或记录有证据的挂起；仍运行时先核实/停止，禁止超时后直接重授锁。
 
@@ -78,7 +78,7 @@ status 先写 workflow-attention.md，再把含末端写入错误的进度存到
 
 ## 并行拒绝与审计撤销顺序
 
-拒绝计数按 module/global、revision、operation、reason 的 fingerprint 保存在 reports/rejections/<fingerprint>.json，rejected-operation.json 只保留最新一条；revision 更新后撤下旧提示但保留历史文件。
+拒绝按 fingerprint（模块、revision、操作、原因）计数存 reports/rejections/，rejected-operation.json 只留最新一条，revision 更新后撤下旧提示。
 
 活动全局审计期间不推荐模块 invalidate 等被审计锁禁止的操作；快照失效时全局优先提示 Host audit-revoke 并立即通知。Host 实际确认审计 worker 已停止、提供 stopped_worker_ref 后才可撤销；其后模块重新获得 invalidate/规划入口。watchdog 只转达该提示，不执行停止、撤销或重新规划。
 

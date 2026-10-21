@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 
@@ -18,7 +19,34 @@ class Drifted(Rejected):
 
 def require(condition, message):
     if not condition:
-        raise Rejected(message)
+        found = _survey.get()
+        if found is None or len(found) >= SURVEY_LIMIT or time.monotonic() > found.deadline:
+            raise Rejected(message)
+        if message not in found:
+            found.append(message)
+
+
+_survey = contextvars.ContextVar('survey', default=None)  # the further refusals of a request judged once more on a copy
+SURVEY_LIMIT, SURVEY_SECONDS = 20, 5
+
+
+class Survey(list):
+    def __init__(self):
+        super().__init__()
+        self.deadline = time.monotonic() + SURVEY_SECONDS
+
+
+class surveying:
+    """A rejected request is judged once more on a copy where a failed check is noted and judging goes on, so one
+    refusal lists the other problems of the same request instead of one per round trip. The copy is dropped; a check
+    whose failure leaves nothing to judge further ends the survey."""
+    def __enter__(self):
+        self.found = Survey()
+        self.token = _survey.set(self.found)
+        return self.found
+
+    def __exit__(self, *exc):
+        _survey.reset(self.token)
 
 
 _owed = contextvars.ContextVar('owed', default=None)  # the gaps collected while the Ledger judges a leaf's request
@@ -47,8 +75,9 @@ def owed(condition, message):
         return
     gaps = _owed.get()
     if gaps is None:
-        raise Rejected(message)
-    gaps.append(message)
+        require(False, message)
+    else:
+        gaps.append(message)
 
 
 SKELETON_MARK = '[[待写'  # opens a part of a generated skeleton only its author can write; no frozen definition holds one

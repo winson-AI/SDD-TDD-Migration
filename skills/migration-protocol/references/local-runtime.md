@@ -20,6 +20,7 @@ $L init|apply|resume|recover --root <run> --request <request.json> --host-contex
 $L status --root <run> [--view cursor|step|module|full] [--module <id>] [--since <sequence>]
 $L advance --root <run> --module <module-id> --host-context <mo-principal.json> [--worker <role>=<instance>]
 $L preview --root <run> --module <module-id> [--plan <stage-plan.json>]
+$L preview --root <run> --request <request.json> --host-context <principal.json>
 verify_openspec.py --root <run> --scope module --module-id <module-id>
 ```
 

@@ -8,7 +8,7 @@ import reading
 import run_storage
 
 
-def record_rejection(root, req, actor, reason):
+def record_rejection(root, req, actor, reason, further=()):
     """Keep the latest rejected action visible outside the accepted event journal."""
     root = Path(root).resolve()
     if not root.is_dir():
@@ -38,6 +38,7 @@ def record_rejection(root, req, actor, reason):
                           'attempts': previous.get('attempts', 0) + 1 if previous.get('fingerprint') == fingerprint else 1,
                           'recorded_at': datetime.now(timezone.utc).isoformat(),
                           'read_hint': reading.read_hint(reason),
+                          'further': [{'reason': r, 'read_hint': reading.read_hint(r)} for r in further],  # the same request's other problems
                           'next_action': 'read-current-status; resolve gate or record evidenced suspension; do not retry unchanged request'}
             atomic(scoped, record)
             atomic(path, record)  # Compatibility/latest navigation, not the counter store.
