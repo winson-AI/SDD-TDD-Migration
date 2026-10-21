@@ -39,7 +39,7 @@ class FeedbackRepairTests(unittest.TestCase):
 
     def test_planning_dependency_function_and_fidelity_gaps_route_to_cr(self):
         self.coded_failure()
-        for category in ('spec', 'planning-gap', 'dependency-gap', 'function-gap', 'fidelity-gap'):
+        for category in ('spec', 'planning-gap', 'dependency-gap', 'function-gap', 'fidelity-gap', 'test-source'):
             with self.subTest(category=category):
                 self.diagnose(category)
                 step = self.f.state()['next_steps'][0]

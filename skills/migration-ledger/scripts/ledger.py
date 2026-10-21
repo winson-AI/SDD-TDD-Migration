@@ -1799,6 +1799,9 @@ def mutate(s, req, principal, events, root=None):
         idle(m); current(m)
         check_ref(p['diagnosis_ref'])
         require(p.get('owner') and p.get('root_cause'), 'root cause and owner required')
+        cause = p['root_cause'] if isinstance(p['root_cause'], dict) else {}
+        if {str(Path(f).resolve()) for f in cause.get('files') or [] if isinstance(f, str)} & {str(Path(f).resolve()) for f in prepared_tests.frozen_paths(m)}:
+            p['repair_route'] = 'spec'  # the failure is in a frozen test source: a change request revises it, never the Fixer
         control_policy.repair_route(p)
         diagnosis_focus(m, p)
         m['diagnosis_submission'] = {'report': p, 'subject': diagnosis_subject(m)}

@@ -122,7 +122,7 @@ def repair_route(report):
     cause = report.get('root_cause', {})
     category = cause.get('category') if isinstance(cause, dict) else cause
     inferred = ('upstream' if category in ('scope', 'scope-insufficient') else
-                'spec' if category in ('spec', 'planning-gap', 'dependency-gap', 'function-gap', 'fidelity-gap') else 'fixer')
+                'spec' if category in ('spec', 'planning-gap', 'dependency-gap', 'function-gap', 'fidelity-gap', 'test-source') else 'fixer')
     route = report.get('repair_route', inferred)
     require(route in ('fixer', 'spec', 'upstream'), 'unknown repair_route')
     require(inferred == 'fixer' or route != 'fixer', 'planning/scope gap cannot route directly to Fixer')
@@ -165,7 +165,9 @@ def execution_contract(m, p):
         require(m.get('diagnosis'), 'Fixer accepted diagnosis required')
     require(set(selected_paths) <= {pid for tid in selected for pid in tasks[tid]['path_ids']} | set(m.get('repair_findings', {})),
             'assignment PATH outside selected TASKs')
-    scope = sorted({path for tid in selected for path in (tasks[tid].get('scope') or {}).get('write_paths', m['write_paths'])})
+    import prepared_tests
+    scope = sorted({path for tid in selected for path in (tasks[tid].get('scope') or {}).get('write_paths', m['write_paths'])}
+                   | (set(prepared_tests.frozen_paths(m, set(selected))) if p['role'] != 'test-runner' else set()))
     return {'plan_hash': m['plan_hash'], 'plan_ref': copy.deepcopy(m['plan_ref']), 'task_ids': selected,
             'path_ids': selected_paths, 'write_paths': [] if p['role'] == 'test-runner' else scope,
             'accepted_task_ids': copy.deepcopy(m.get('accepted_task_ids', [])),

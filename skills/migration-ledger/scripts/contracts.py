@@ -323,7 +323,8 @@ def validate_result(result, module, assignment, run_root=None):
     if kind == 'implementation':
         require(assignment['role'] in ('implementer', 'fixer'), 'implementation owner mismatch')
         require(result.get('code_baseline') == baseline(result.get('code_files')), 'code baseline mismatch')
-        scope = [Path(p).resolve() for p in module['write_paths']]
+        import prepared_tests
+        scope = [Path(p).resolve() for p in module['write_paths'] + prepared_tests.frozen_paths(module)]
         for ref in result['code_files']:
             require(any(Path(ref['path']).resolve().is_relative_to(p) for p in scope), 'code outside module scope')
         traces = keyed(result.get('task_trace'), 'task_id')
@@ -340,12 +341,11 @@ def validate_result(result, module, assignment, run_root=None):
         for tid, row in traces.items():
             require(row.get('test_order') in (None, 'tests-first', 'code-first'), 'task test_order is tests-first or code-first')  # declared, not enforced
             task = next(t for t in module['plan']['tasks'] if t['task_id'] == tid)
-            allowed = (task.get('scope') or {}).get('write_paths', module['write_paths'])
+            allowed = (task.get('scope') or {}).get('write_paths', module['write_paths']) + prepared_tests.frozen_paths(module, {tid})
             require(all(any(Path(path).resolve().is_relative_to(Path(p).resolve()) for p in allowed) for path in row.get('files', [])),
                     'implementation file outside assigned TASK scope')
             import red_evidence
             red_evidence.check(module, task, row)  # optional: two self-check notes, failing before the code and passing after
-        import prepared_tests
         prepared_tests.sources_delivered(module, set(traces), result['code_files'])
         code_paths = {r['path'] for r in result['code_files']}
         require(code_paths == {str(Path(p).resolve()) for files in owners.values() for p in files}, 'unowned code or missing task file')
@@ -358,7 +358,7 @@ def validate_result(result, module, assignment, run_root=None):
         if complete:
             cumulative = {**result, 'task_trace': [{'task_id': tid, 'files': files} for tid, files in owners.items()]}
             reuse.validate_implementation(module['plan'], cumulative)
-            dimensions.implementation(module['plan'], cumulative)
+            dimensions.implementation(module['plan'], cumulative, prepared_tests.frozen_paths(module))
         else:
             require(assignment['role'] == 'implementer', 'Fixer cannot leave TASK coverage incomplete')
         if assignment['role'] == 'fixer':

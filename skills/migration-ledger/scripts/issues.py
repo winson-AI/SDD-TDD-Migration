@@ -93,7 +93,7 @@ FAMILIES = (  # the gaps the Ledger owes, by the rule family that raised them: a
     (r'dimension (task requirement|behavior requires|paths need)|task missing dimension ownership|condition review omits|SPEC dimension trace|missing dimension item IDs', '四维追溯'),
     (r'^API |API behavior', 'API 契约'), (r'^data |data behavior', '数据契约'), (r'the target already holds', '目标画像'),
     (r'reuse (source|decisions|fidelity)|fidelity (must cover|scenarios required)', '复用'),
-    (r'prepared PATH needs|deferred test preparation', '测试准备'),
+    (r'prepared PATH needs|deferred test preparation|test dependency:', '测试准备'),
     (r'parameter mapping|expressions the Spec|tokens the Spec', '参数表'),
     (r'telemetry', '埋点'), (r'unit_tests_required|spec_closure_required|build scope:', '测试路径'),
     (r'the user (gave|showed)|the target expectation', '用户媒体'),

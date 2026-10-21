@@ -6,6 +6,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+import ledger
 import spec_skeleton
 import test_iterative_spec
 import test_source_changes
@@ -45,6 +46,7 @@ class FrozenTestTests(unittest.TestCase):
         source = f.target / 'm1/code.py'; source.parent.mkdir(exist_ok=True); source.write_text('value = 2\n')
         files = [source]
         if test_text is not None:
+            Path(self.target_path).parent.mkdir(parents=True, exist_ok=True)
             Path(self.target_path).write_text(test_text); files.append(Path(self.target_path))
         refs = [file_ref(p) for p in files]
         result = {'schema_version': 1, 'kind': 'implementation', 'run_id': 'demo', 'module_id': 'M001', 'assignment_id': 'I1',
@@ -90,6 +92,42 @@ class FrozenTestTests(unittest.TestCase):
             self.freeze(self.design(symbols=('Nowhere',)))
         with self.assertRaisesRegex(Rejected, 'unfilled skeleton'):
             self.freeze(self.design(text=SOURCE.replace('Search.find("a")', '[[待写：call]]')))
+
+    def test_a_frozen_test_can_fail_on_the_code_and_runs_as_a_test(self):
+        with self.assertRaisesRegex(Rejected, 'asserts a constant'):
+            self.freeze(self.design(text=SOURCE.replace('kotlin.test.assertEquals(2, Search.find("a"))', 'require(true); Search')))
+        with self.assertRaisesRegex(Rejected, 'expression body'):
+            self.freeze(self.design(text=SOURCE.replace('fun query() {', 'fun query() = kotlin.test.assertIs<Int>(Search) ; fun x() {')))
+        self.freeze(self.design(text=SOURCE.replace('fun query() {', 'fun query() = runTest {').replace('}\n}', '}\n}')))
+        self.assertTrue(self.f.state()['modules']['M001']['freeze_id'])
+
+    def test_the_test_lands_beside_the_code_and_its_dependency_is_owed(self):
+        f = self.f; plan = self.design()
+        self.target_path = str(f.target / 'm1-test/SearchTest.kt')  # the test source set, outside the allocated write paths
+        design = read_json(check_ref(plan['test_design_ref'])); design['test_assets'][0]['target_path'] = self.target_path
+        plan['test_design_ref'] = f.ref('upstream-assets-beside.json', design)
+        (f.target / 'build.gradle.kts').write_text('kotlin { sourceSets { commonMain { } } }\n')
+        plan_ref = f.ref('frozen-plan.json', plan)
+        self.assertTrue(any(row['reason'].startswith('test dependency') for row in ledger.preview(f.root, 'M001', plan_ref)['owed']))
+        f.call('plan', {'plan_ref': plan_ref}, role='spec-designer')
+        f.approve(f.state()['modules']['M001']['plan_hash'], 'D-T'); f.call('freeze', {'decision_id': 'D-T'})
+        a = self.implementation(SOURCE)
+        f.call('accept', {'assignment_id': a['assignment_id']})
+        self.assertEqual(f.state()['modules']['M001']['phase'], 'testing')
+
+    def test_a_failure_in_the_frozen_test_is_revised_by_a_change_request(self):
+        f = self.f
+        self.inner.xml = ('<testsuite tests="1" failures="1"><testcase classname="SearchTest" name="query">'
+                          '<failure>wrong value</failure></testcase></testsuite>')
+        self.freeze(self.design()); self.implementation(SOURCE); f.call('accept', {'assignment_id': 'I1'})
+        self.inner.fixture.split.compile()
+        receipt_ref = execute(f.root, 'M001', 'BUILD1', 'U1', self.inner.fixture.unit_argv(), f.target, f.base / 'unit-red')
+        result = stage_result(f.root, 'M001', 'BUILD1', [receipt_ref] + self.inner.fixture.split.receipts)
+        f.submit(result, f.state()['modules']['M001']['assignments']['BUILD1']); f.call('accept', {'assignment_id': 'BUILD1'})
+        f.call('diagnose', {'diagnosis_ref': f.ref('diagnosis.md', 'the test asserts the old value'), 'owner': 'module-orchestrator',
+                           'root_cause': {'category': 'code', 'files': [self.target_path]}}, role='diagnostician')
+        self.assertEqual(f.state()['modules']['M001']['diagnosis_submission']['report']['repair_route'], 'spec')
+        self.assertEqual(f.state()['next_steps'][0]['operation'], 'change')
 
     def test_the_skeleton_writes_a_test_source_per_logic_item(self):
         t = test_source_changes.SourceChangeTests(); t.setUp(); self.addCleanup(t.doCleanups)
