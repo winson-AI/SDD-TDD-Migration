@@ -519,7 +519,16 @@ def gate(s, req, actor, root=None):
     if op in ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'run-review', 'audit-code-review'):
         instance = actor['instance_id']
     if op in SELF_REPORTED and obj.get('context_receipts', {}).get(stage + ':' + instance, {}).get('report_ref') != ref:
-        submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor, run_root=root)
+        try:
+            submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor, run_root=root)
+        except Rejected as exc:
+            # The Ledger can preflight a self-reported operation by itself; a supplied report written for another role
+            # or instance is set aside for that preflight instead of refusing the operation.
+            if root is None or not str(exc).startswith(('context producer role denied', 'context producer identity mismatch')):
+                raise
+            ref = mechanical_report(root, s, mid, stage, {'role': actor['role'], 'instance_id': actor['instance_id']}, draft,
+                                    next(verify_refs_in(p), None))
+            submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor, run_root=root)
     validate(s, mid, stage, ref, instance, draft)
     obj.setdefault('context_acceptances', {})[op] = {'report_ref': copy.deepcopy(ref), 'accepted_by': copy.deepcopy(actor)}
 

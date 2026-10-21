@@ -25,13 +25,17 @@ def handle(s, req, actor, sequence=None):
         entries = p['issues'] if isinstance(p.get('issues'), list) else [p]
         require(entries, 'an issue request records at least one issue')
         judged = {}
+        registered = set(s['modules']) | set(s.get('module_groups', {}))
         for e in entries:
             iid, targets = e.get('issue_id'), e.get('applies_to')
+            if targets is None:  # unaddressed: the module the request was sent for, else every module the run holds
+                targets = [req['module_id']] if req.get('module_id') else sorted(registered)
             require(isinstance(iid, str) and iid.strip() and iid not in issues and iid not in judged, 'issue_id must be new')
             require(e.get('kind') in KINDS, 'issue kind is one of ' + ', '.join(KINDS))
             require(isinstance(e.get('summary'), str) and e['summary'].strip(), 'issue summary required')
-            require(isinstance(targets, list) and targets and set(targets) <= set(s['modules']) | set(s.get('module_groups', {})),
+            require(isinstance(targets, list) and (targets or not registered and e.get('applies_to') is None) and set(targets) <= registered,
                     'issue applies_to names the registered modules it concerns')
+            require(targets or not e.get('blocks'), 'an issue recorded before any module is registered cannot block')
             require(not (e.get('blocks') and e['kind'] in ('standing', 'fact', 'debt')), 'a standing rule is followed and a fact or debt is recorded, not settled; it cannot block')
             for ref in e.get('evidence_refs') or []:
                 check_ref(ref)
@@ -46,7 +50,7 @@ def handle(s, req, actor, sequence=None):
     require(entries, 'an issue-resolve request settles at least one issue')
     pending = []
     for e in entries:
-        iid, mid, ref = e.get('issue_id'), e.get('module_id', p.get('module_id')), e.get('evidence_ref', p.get('evidence_ref'))
+        iid, mid, ref = e.get('issue_id'), e.get('module_id', p.get('module_id', req.get('module_id'))), e.get('evidence_ref', p.get('evidence_ref'))
         issue = issues.get(iid)
         require(issue and issue['kind'] != 'standing', 'issue-resolve names a recorded issue that is not a standing rule')
         require(issue['raised_by'] != LEDGER, 'a gap the Ledger recorded is settled by a plan that no longer owes it')

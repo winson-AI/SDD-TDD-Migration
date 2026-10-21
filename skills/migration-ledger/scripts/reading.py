@@ -728,7 +728,6 @@ GATES = [
     (r'events\.jsonl|committed Ledger events|run not initialized|not initialized or wrong run|run_id differs|^run mismatch|host context required|--run-id|argv/cwd required|command/operation mismatch', 'runtime.md', '请求与事件'),
     (r'context_inputs|context input kind', 'runtime.md', '渐进加载'),
     (r'stop/isolation|stop unconfirmed|executor aborted|stop/revoke|revoke worker|worker identity|Test-Runner identity|review identity|session id required|advance needs|mechanical preflight|merged dispatch|api-register|api_id|module (not|already) registered|unknown module|^no modules|selected module', 'local-runtime.md', '操作矩阵'),
-    (r'hint needs', 'host-integration.md', '提示采纳回报'),
     (r'no adapter runs platform', 'local-runtime.md', '实际测试适配器'),
     (r'test_adapter\.(adapters|harmony_reference)', 'project-context.md', '初始化和增量更新'),
     (r'build (argv|command|cwd|timeout|artifact)|build must pass|build report|invalid build timeout|absolute output directory', 'build-automation.md', '2. 构建命令的来源与固化'),

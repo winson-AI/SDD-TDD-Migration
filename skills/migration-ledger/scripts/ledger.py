@@ -1400,7 +1400,9 @@ def settle_preflight(m, actor, receipt):
 def mutate(s, req, principal, events, root=None):
     op, p = req['operation'], req.get('payload', {})
     if op in issues.OPS or op in api_contract.REGISTER_OPS:  # a record: no gate stands before it and it moves no revision
-        require(req.get('module_id') is None, 'operation has incorrect global/module scope')
+        # An issue may be sent with the module it concerns: that module is its default address.
+        require(req.get('module_id') is None or op in issues.OPS and req['module_id'] in {**s['modules'], **s.get('module_groups', {})},
+                'operation has incorrect global/module scope')
         if op in api_contract.REGISTER_OPS:
             role(principal, 'global-orchestrator', 'module-orchestrator', 'spec-designer')
             return api_contract.register(s, req, principal, sequence=len(events) + 1)
@@ -1423,18 +1425,22 @@ def mutate(s, req, principal, events, root=None):
         raise Rejected('audit closure active; complete verification or obtain human review')
     context_readiness.gate(s, req, principal, root=root)
     hint = req.get('hint')
+    if hint is not None and not (isinstance(hint, dict) and isinstance(hint.get('session_id'), str) and hint['session_id']
+                                 and isinstance(hint.get('card_sha256'), str)):
+        # A hint is advice about what a session held: one without its session and card is set aside, not refused.
+        s['hints_ignored'] = s.get('hints_ignored', 0) + 1
+        hint = None
     if hint is not None:
-        require(isinstance(hint, dict) and isinstance(hint.get('session_id'), str) and hint['session_id']
-                and isinstance(hint.get('card_sha256'), str), 'hint needs session_id and card_sha256')
         record_inputs(s, hint)
         if mid is None:
             step = routing(s)['global_next_step']
             if step.get('card_sha256') == hint['card_sha256']:
                 deliver(s, step['must_read'], hint['session_id'])
             previous_session = s.get('context_sessions', {}).get(principal['role'])
-            require(not s.get('host_handoff_required') or previous_session in (None, hint['session_id']),
-                    'global hint cannot replace session; submit host session handoff first')
-            s.setdefault('context_sessions', {})[principal['role']] = hint['session_id']
+            if not s.get('host_handoff_required') or previous_session in (None, hint['session_id']):
+                s.setdefault('context_sessions', {})[principal['role']] = hint['session_id']
+            else:  # another session claims the role while a handoff is owed: the operation goes on, the session is not replaced
+                s['hints_ignored'] = s.get('hints_ignored', 0) + 1
         if op == 'assign':  # one way to report for every operation; explicit payload fields still win
             p = {'session_id': hint['session_id'], 'card_sha256': hint['card_sha256'], **p}
         elif mid and mid not in s.get('module_groups', {}):
@@ -2357,7 +2363,9 @@ def _judge(root, req, principal):
         else:
             require(s and req.get('run_id') == s['run_id'], 'run mismatch')
             scope = (s['modules'].get(req.get('module_id')) or s.get('module_groups', {}).get(req.get('module_id'))) if req.get('module_id') else s
-            require(scope is not None and (req['operation'] in issues.OPS | api_contract.REGISTER_OPS or req.get('expected_revision') == scope['revision']), 'stale revision')
+            require(scope is not None, 'stale revision: the module is not registered')
+            require(req['operation'] in issues.OPS | api_contract.REGISTER_OPS or req.get('expected_revision') == scope['revision'],
+                    f"stale revision: the current revision is {scope['revision']}; read the step again and resubmit with expected_revision={scope['revision']}")
             leaf = s['modules'].get(req.get('module_id'))
             held = leaf and leaf.get('plan_hash')
             with carrying(bool(leaf)) as gaps:  # a leaf goes on with what its plan owes; an allocation is refused for it

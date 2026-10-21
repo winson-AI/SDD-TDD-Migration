@@ -109,11 +109,11 @@ Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `descript
 
 **轮询。** status --view cursor --since <sequence> 未变返回 unchanged，变化返回游标、信号摘要及卡大小；--view step [--module <id>] 给本步信封/预检/分配/assignment（规划加 planning_context）；--view module 不带 plan 正文，full 仅供脚本。
 
-**取卡。** render/show 取卡与单节（--template <名>、操作矩阵@<operation>），slicing_skill 随卡写入，human_required=false 不征求人工。卡只给本步要用的：模板限本步所写工件，专题小节按触发列入 read_when_writing（执行角色仅在计划取用 provider 时列复用），Test-Runner 构建与自动化共读一份角色文本，等待依赖的步骤不带卡。
+**取卡。** render/show 取卡与单节（--template <名>、操作矩阵@<operation>），slicing_skill 随卡写入，human_required=false 不征求人工。卡只给本步要用的：模板限本步所写工件，专题小节按触发列入 read_when_writing（执行角色仅在计划取用 provider 时列复用），Test-Runner 构建与自动化共读角色文本，等依赖的步骤不带卡。
 
-**回报。** 步骤的 card_new 是上一执行实例续用原上下文时只需读的小节（红线始终在内）；宿主不回报也按执行实例计。hint{session_id,card_sha256,context_inputs} 可另报实际交付，恢复/轮换见[渐进加载](runtime.md#渐进加载)。拒绝响应及 rejected-operation.json 带 read_hint。
+**回报。** card_new 是续用原上下文的执行实例只需读的小节（含红线），宿主不回报也按执行实例计。hint{session_id,card_sha256,context_inputs} 可另报实际交付（不全则忽略，不拒操作），恢复/轮换见[渐进加载](runtime.md#渐进加载)，拒绝响应带 read_hint。
 
-**机械步骤。** mechanical=true 的 accept（测试全绿）、assign（派发）、freeze（评审/决定已记录）、complete（DoD 守卫通过）与父 module-summary 用 `ledger.py advance --root <run> --module <id> --host-context <MO 身份>` 逐步守卫地连续提交（DoD 与汇总记录由 Ledger 写入 reports/），停在模型/人工步骤并写卡。worker 默认 `<role>-<module>`，`--worker <role>=<instance>` 可覆盖，有预检则沿用；先同会话 context-submit，被拒再交 MO。人工决定绑定游标 approval_subject_sha256（冻结/恢复/审计放行与处置）。
+**机械步骤。** mechanical=true 的 accept（测试全绿）、assign（派发）、freeze（评审/决定已记录）、complete（DoD 守卫通过）与父 module-summary 用 `ledger.py advance --root <run> --module <id> --host-context <MO 身份>` 逐步守卫地连续提交（DoD 与汇总记录由 Ledger 写入 reports/），停在模型/人工步骤并写卡。worker 默认 `<role>-<module>`（`--worker <role>=<instance>` 覆盖，有预检则沿用），先同会话 context-submit，被拒交 MO。人工决定绑定游标 approval_subject_sha256。
 
 选择建议记 status.hint_adoption；冷恢复须满足版本/宿主回执守卫。
 

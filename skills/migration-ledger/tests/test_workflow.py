@@ -303,12 +303,15 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual((step['operation'], step['session_id']), ('accept', 'S-MO'))
         self.assertEqual(step['must_read_new'], [])  # the same module-orchestrator card was already delivered
         self.call = plain
-        with self.assertRaisesRegex(Rejected, 'hint needs'):
-            self.call('accept', request={'schema_version': 1, 'request_id': 'bad', 'run_id': 'demo', 'module_id': 'M001',
-                                         'expected_revision': self.state()['modules']['M001']['revision'], 'operation': 'accept',
-                                         'payload': {}, 'hint': {'session_id': 'S-MO'}})
+        # a half-filled hint is advice set aside, not a refusal of the operation it rides on
+        before = self.state()['workflow_cost']['modules']['M001']['card_dispatches']
+        self.call('accept', request={'schema_version': 1, 'request_id': 'half-hint', 'run_id': 'demo', 'module_id': 'M001',
+                                     'expected_revision': self.state()['modules']['M001']['revision'], 'operation': 'accept',
+                                     'payload': {'assignment_id': a['assignment_id']}, 'hint': {'session_id': 'S-MO'}})
+        self.assertEqual(self.state()['hints_ignored'], 1)
+        self.assertEqual(self.state()['workflow_cost']['modules']['M001']['card_dispatches'], before)
         cost = self.state()['workflow_cost']
-        self.assertEqual(cost['modules']['M001']['card_dispatches'], 4)
+        self.assertEqual(cost['modules']['M001']['card_dispatches'], before)
         self.assertEqual(cost['totals']['card_bytes_delivered'], cost['totals']['card_bytes_full'])
 
     def test_assign_accepts_the_request_level_hint_too(self):
