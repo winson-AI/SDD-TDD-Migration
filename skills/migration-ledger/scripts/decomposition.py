@@ -556,7 +556,7 @@ def bound(s, parent, children, plan, record=True):
         for fid in sorted(found):
             require(fid not in held, 'feature %s is held by %s and %s: leaves do not overlap' % (fid, held.get(fid), child['module_id']))
             held[fid] = child['module_id']
-        require(set(child.get('case_ids') or []) == {cid for fid in found for cid in mine[fid]['case_ids']},
+        require({cid for fid in found for cid in mine[fid]['case_ids']} <= set(child.get('case_ids') or []),
                 "%s accepts exactly the cases of the features it holds: its case_ids are not its nodes' cases" % child['module_id'])
         if supplied is not None:
             require(found & supplied, '%s holds only features derived from source: merge them into the flow of the supplied cases they extend, '
@@ -566,8 +566,31 @@ def bound(s, parent, children, plan, record=True):
                 issues.record(s, 'SLICE-%s-derived' % child['module_id'], 'fact', '%s holds %d features found in source beyond the supplied cases: %s'
                               % (child['module_id'], len(derived), ', '.join(derived)), [parent['module_id']], issues.LEDGER,
                               resolved={parent['module_id']: {'by': issues.LEDGER, 'recorded': True}})
-    unheld = sorted(set(mine) - set(held))
-    require(not unheld, 'features without a leaf: %s' % ', '.join(unheld))
+    carried = carriers(mine, held, children)
+    for child in children:
+        if child.get('kind') == 'scaffold':
+            continue
+        own = {cid for fid, mid in held.items() if mid == child['module_id'] for cid in mine[fid]['case_ids']}
+        rides = {cid for fid in carried.get(child['module_id'], ()) for cid in mine[fid]['case_ids']}
+        require(set(child.get('case_ids') or []) <= own | rides,
+                "%s accepts exactly the cases of the features it holds: its case_ids are not its nodes' cases" % child['module_id'])
+        if record and carried.get(child['module_id']):
+            issues.record(s, 'SLICE-%s-carried' % child['module_id'], 'fact', '%s carries %s: no node of their own, their cases are on its flow'
+                          % (child['module_id'], ', '.join(sorted(carried[child['module_id']]))), [parent['module_id']], issues.LEDGER,
+                          resolved={parent['module_id']: {'by': issues.LEDGER, 'recorded': True}})
+
+
+def carriers(features, held, leaves, strict=True):
+    """{leaf: features it carries}: a feature no leaf names - a failure, cancel or retry outcome with no node of its own -
+    rides with the one leaf that lists all its cases; one that no leaf, or more than one, lists stays without a leaf."""
+    carried = {}
+    for fid in sorted(set(features) - set(held)):
+        holders = [leaf['module_id'] for leaf in leaves if leaf.get('kind') != 'scaffold'
+                   and set(features[fid].get('case_ids') or []) <= set(leaf.get('case_ids') or [])]
+        require(len(holders) == 1 or not strict, 'features without a leaf: %s; list its cases on the leaf of the flow it belongs to' % fid)
+        if len(holders) == 1:
+            carried.setdefault(holders[0], set()).add(fid)
+    return carried
 
 
 def task_shape_facts(s, mid, plan, sequence=None):

@@ -155,16 +155,17 @@ def feature_inventory(s, plan):
             require(set(mids) <= set(plan['case_owners'][cid]), 'feature/case owner mismatch')
     require({mid for mids in owners.values() for mid in mids} == set(s['modules']), 'module missing functional list')
     import decomposition
-    held = {}
-    for mid, m in s['modules'].items():  # a leaf cut from the feature tree holds its nodes' features and cases in this inventory too
-        if not m.get('functional_paths'):
-            continue
-        found = decomposition.node_features(features, m['functional_paths'])
-        for fid in sorted(found):
-            require(fid not in held, 'feature %s is held by %s and %s: leaves do not overlap' % (fid, held.get(fid), mid))
-            held[fid] = mid
-        require(set(m['case_ids']) == {cid for fid in found for cid in features[fid]['case_ids']},
-                "%s was cut from an earlier inventory: its cases are not its nodes' cases in this one; redecompose" % mid)
+    held, cut = {}, [{**m, 'module_id': mid} for mid, m in s['modules'].items() if m.get('functional_paths')]
+    for m in cut:  # a leaf cut from the feature tree holds its nodes' features and cases in this inventory too
+        for fid in sorted(decomposition.node_features(features, m['functional_paths'])):
+            require(fid not in held, 'feature %s is held by %s and %s: leaves do not overlap' % (fid, held.get(fid), m['module_id']))
+            held[fid] = m['module_id']
+    carried = decomposition.carriers(features, held, cut, strict=False)
+    for m in cut:
+        own = {cid for fid, mid in held.items() if mid == m['module_id'] for cid in features[fid]['case_ids']}
+        rides = {cid for fid in carried.get(m['module_id'], ()) for cid in features[fid]['case_ids']}
+        require(own <= set(m['case_ids']) <= own | rides,
+                "%s was cut from an earlier inventory: its cases are not its nodes' cases in this one; redecompose" % m['module_id'])
     for fid, mid in held.items():
         require(owners.get(fid) == [mid], 'feature %s is held by %s: feature_owners names that leaf alone' % (fid, mid))
     questions = inventory.get('questions')

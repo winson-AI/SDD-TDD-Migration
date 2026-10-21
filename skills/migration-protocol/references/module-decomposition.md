@@ -48,7 +48,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 原子根功能由 GO `register` 直接登记为叶子（不设 decomposition_required）；其余根功能设 `decomposition_required=true`，提交非空 `scope.in`、显式 `scope.out`、非空 `requirement_ids` 与 `context_refs`。CASE/需求须来自本轮输入，写范围包含于 target_root。导入方案由 GO 补全转为此格式。
 
-MO 确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`、`parent_module_id`、`rationale`、`leaf_review_ref`（职责完整、唯一 writer、依赖可控及独立验证路径）；四维/行为/验证边界门禁仍适用。GO `decompose-accept` 核对当前绑定与证据，保留 ID/scope/CASE/依赖，清待拆分标记，进入未冻结 SPEC 规划；不得夹带 children 或范围变化，已编码节点不能借此绕过 CR，已拆父组调整走 redecompose。
+用例少于两叶下限（6）的根，游标只给 atomic-leaf。MO 确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`、`parent_module_id`、`rationale`、`leaf_review_ref`（职责完整、唯一 writer、依赖可控及独立验证路径）；四维/行为/验证边界门禁仍适用。GO `decompose-accept` 核对当前绑定与证据，保留 ID/scope/CASE/依赖，清待拆分标记，进入未冻结 SPEC 规划；不得夹带 children 或范围变化，已拆父组调整走 redecompose。
 
 各操作的角色与载荷见[操作矩阵](local-runtime.md#操作矩阵)。
 
@@ -99,16 +99,16 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 
 ## 验证边界
 
-behavior_review.verification 必填，字段见[模板](../../../template/module-decomposition.json)；provider_inputs 精确匹配实际 dependencies；required_stage 缺省 implemented（对着提供方已接受的代码规划与实现），写 verified 须给 reason。父级只切范围与语义，contract_ref、fixture_contract_ref 可不写：叶子在提供方到达该阶段后对着其计划与代码规划（步骤视图 providers；此前游标 provider-first-version-pending，不拒绝提前提交），fixture 由叶子计划写明；叶子引用提供方已作废的计划目录记为欠项；叶子只按哈希钉住自己写范围内的 target 文件，别人写的引用其计划或契约。同触发须有不同的独立观察，否则重切；唯一 ID、独立作者或独立颜色不能替代行为独立性。
+behavior_review.verification 必填，字段见[模板](../../../template/module-decomposition.json)；provider_inputs 精确匹配实际 dependencies；required_stage 缺省 implemented（对着提供方已接受的代码规划与实现），写 verified 须给 reason。父级只切范围与语义，contract_ref、fixture_contract_ref 可不写：叶子在提供方到达该阶段后对着其计划与代码规划（此前游标 provider-first-version-pending），fixture 由叶子计划写明；叶子引用提供方已作废的计划目录记为欠项；叶子只按哈希钉住自己写范围内的 target 文件，别人写的引用其计划或契约。同触发须有不同的独立观察，否则重切；唯一 ID、独立作者或独立颜色不能替代行为独立性。
 
-拆分文档写 case_acceptance：父模块验收的每条 CASE 对应唯一验收它的子模块（其 acceptance_case_ids）。一条 CASE 只有一个持有者：验收它的子模块只持有它验收的用例，为别的切片供给能力写进对方的 provider_inputs，各切片都须满足的约束写成各自条目的保真条件；不验收任何 CASE 的切片是脚手架（kind: scaffold），持有它所服务切片的用例。某 CASE 的界面与逻辑分属两个切片（按各切片四维适用 item 判定）时，independence_review（rationale、evidence_refs）说明为何不能按业务行为切。根模块以 acceptance_case_ids 声明（缺省全部），一条 CASE 只由一个根验收。
+拆分文档写 case_acceptance：父模块验收的每条 CASE 对应唯一验收它的子模块（其 acceptance_case_ids）。一条 CASE 只有一个持有者：验收它的子模块只持有它验收的用例，为别的切片供给能力写进对方的 provider_inputs，各切片都须满足的约束写成各自条目的保真条件；不验收任何 CASE 的切片是脚手架（kind: scaffold），持有它所服务切片的用例。某 CASE 的界面与逻辑分属两个切片时，independence_review（rationale、evidence_refs）说明为何不能按业务行为切。根模块以 acceptance_case_ids 声明（缺省全部），一条 CASE 只由一个根验收。
 
 叶子 source_closure 保持分配的 verification；行为 PATH 引用其 fixture_contract_ref。implemented provider 可解除编码准备依赖，正式测试/DoD 仍需 provider 验证完成。消费者负责明确集成 CASE。结构门禁校验归属、引用、完整性，语义独立性由规划审核和最终 Auditor 复核。
 
 ## 切片标准
 
 - **叶子是一条子业务流**：一个用户目标及其经过的页面（对话框与弹层并入所属页面）连同其后的 Logic、Adhesive、Resource 条目，端到端验收自己的 CASE，至少一条用户可见 CASE 带设备或视觉 PATH；页面是 TASK 不是叶，`anchor_ui` 列出入口页与经过的页面；它消费的资源由它搬运与声明，共享资源归脚手架。每叶自带绑定父项的四维分析和自己的六件套、tasks 与 PATH。
-- **叶子是功能树的节点**：待拆分的根登记时带 `feature_inventory_ref`（GO 在 global-discovery 形成的清单），拆分计划不写引用则取根的、写了以计划为准；功能叶声明 `functional_paths`（树上一个或多个节点），持有节点及其以下的功能，`case_ids` 精确等于这些功能的 CASE；功能叶之间不重叠、并集覆盖父的全部功能，脚手架不声明节点；global-plan 的 feature_owners 等于由此推导的唯一 owner。有用户用例时每叶至少锚定一个用户用例覆盖的功能，其余派生功能记事实。
+- **叶子是功能树的节点**：待拆分的根登记时带 `feature_inventory_ref`（GO 在 global-discovery 形成的清单），拆分计划不写引用则取根的、写了以计划为准；功能叶声明 `functional_paths`（树上一个或多个节点），持有节点及其以下的功能，`case_ids` 精确等于这些功能的 CASE；无节点的横切功能（失败/取消/重试）随列全其 CASE 的叶子并记事实；功能叶之间不重叠，脚手架不声明节点；global-plan 的 feature_owners 等于由此推导的唯一 owner。有用户用例时每叶至少锚定一个用户用例覆盖的功能，其余派生功能记事实。
 - **脚手架**（`kind: scaffold`）不是必有的：外壳缺否以目标画像为准（根登记或 global-plan 的 `target_profile_ref`，逐功能 absent/shell-only/partial/existing，证据可取自 `target-scan`），有画像时非缺壳处的脚手架被拒；目标或二方库已提供外壳时功能叶直接复用；只在目标缺外壳时设 1–2 个脚手架叶作为第 0 波，计划以 `skeleton_task_ids` 标出 ≤3 个骨架 TASK（壳与接线、接口门面与假实现、共享资源表，PATH 只有 build/unit/static；多于 3 个必须标出），骨架被接受且构建 Green 即派功能叶，其余 TASK 与功能叶并行，全部落地时依赖方失效复测；宿主前置写入在脚手架写范围内。
 - **功能叶**（缺省 feature）只依赖脚手架叶，功能叶之间不直接依赖（要什么走脚手架接口或 need issue）；写 `anchor_ui`，父级有 UI 时须有 UI 条目，父级多维时不能只有一维；3–30 条 CASE：少于 3 条并入所属流（父本身不足 3 条除外），多于 20 条记事实，多于 30 条按子流再切；一个父 MO 的功能叶 2–6 个，更多记切片信号；计划最多 8 个 TASK（超出记欠项），细粒度放在 TASK。代码只引用脚手架与自身，构建与单测 PATH 在"脚手架 + 本叶"下可跑，PATH 的前置条件与步骤不得引用非提供方兄弟叶的模块或文件。
 - **按入口**：完整项目按导航图每模块一个脚手架、每条子业务流一叶；指定模块补脚手架再按流分叶；指定页面取所在的流为一叶，缺外壳加脚手架叶。

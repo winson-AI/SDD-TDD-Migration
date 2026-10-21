@@ -835,8 +835,10 @@ def _next_step(s, m):
     elif m.get('decomposition_submission'):
         step.update(operation='decompose-accept', role='global-orchestrator', ready=True)
     elif m.get('decomposition_required') and m['phase'] in ('context', 'specifying', 'clarifying'):
+        # fewer cases than two leaves of the minimum make one leaf: the step offers only its confirmation
+        small = len(m.get('case_ids') or []) < 2 * decomposition.LEAF_MIN_CASES
         step.update(operation='decompose', role='module-orchestrator', ready=True,
-                    planning_outcomes=['split', 'atomic-leaf'])
+                    planning_outcomes=['atomic-leaf'] if small else ['split', 'atomic-leaf'])
     elif m['phase'] in ('completed', 'testing') and any(m['module_id'] in r.get('module_ids', []) and m['module_id'] not in r.get('accepted_by', [])
              for r in pending_repairs(s).values()):
         step.update(operation='repair-accept', role='module-orchestrator', ready=True,
