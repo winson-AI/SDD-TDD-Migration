@@ -54,7 +54,7 @@ MO 确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`
 
 使用 [拆分模板](../../../template/module-decomposition.json)。每个孩子提供稳定 ID、功能 name、scope、context_refs、case_ids、绝对 write_paths、dependencies。要求：
 
-1. 子需求/CASE 属于父范围；所有孩子的需求并集、CASE 并集各自完整覆盖父范围。子 scope.out 保留父当前排除项（可新增；已登记的孩子沿用登记时所写，父的现行排除项随 parent_context 到达其规划者），scope.in 描述真实子职责，语义不能扩张。
+1. 子需求/CASE 属于父范围；所有孩子的需求并集、CASE 并集各自完整覆盖父范围。子 scope.out 由 Ledger 补齐父当前排除项（可新增；已登记的孩子沿用登记时所写），scope.in 描述真实子职责，语义不能扩张。
 2. 子写范围包含于父范围；ID 全局唯一。孩子不得设置 decomposition_required 或自行指定 parent_module_id；GO 接受时写入父 ID。
 3. 内部依赖引用本次孩子；外部依赖限父节点已批准依赖，图无环。孩子只认领实际消费的依赖，不继承父依赖并集；父 provider 细化时，consumer_dependencies 明确消费者实际等待的孩子，并提交 consumer_verifications。
 4. 有 blocker、活动 worker、已冻结或已生成代码的父节点不能直接拆分；不能通过删除/拆分规避失败历史。

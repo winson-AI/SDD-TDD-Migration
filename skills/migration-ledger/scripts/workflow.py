@@ -108,13 +108,15 @@ def feature_inventory(s, plan):
     if s['entry_mode'] == 'single-module':
         require(inventory.get('single_module_id') == s['single_module_id'], 'feature inventory selected root mismatch')
     summary = inventory.get('test_summary_ref')
-    require(inventory.get('source_mode') == ('test-case-summary' if summary else 'legacy-source'),
-            'feature inventory must default to supplied test summary or fall back to legacy source')
+    supplied = read_json(check_ref(s['project_context_ref'])).get('source_refs', {}).get('test_cases_path') if s.get('project_context_ref') else None
+    if supplied and not summary:  # the supplied case list is a fact the Ledger holds: an inventory that names none binds it
+        summary = supplied
+    else:
+        require(inventory.get('source_mode') == ('test-case-summary' if summary else 'legacy-source'),
+                'feature inventory must default to supplied test summary or fall back to legacy source')
     if summary:
         check_ref(summary)
-    if s.get('project_context_ref'):
-        supplied = read_json(check_ref(s['project_context_ref'])).get('source_refs', {}).get('test_cases_path')
-        require(not supplied or summary == supplied, 'feature inventory must use supplied test case summary')
+    require(not supplied or summary == supplied, 'feature inventory must use supplied test case summary')
     coverage = inventory.get('coverage', {})
     require(coverage.get('status') == 'complete' and coverage.get('unclassified') == []
             and coverage.get('unresolved_questions') == [], 'feature enumeration incomplete; human clarification required')

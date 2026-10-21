@@ -414,7 +414,7 @@ class ContextReadinessTests(unittest.TestCase):
         self.accept_feature_draft(plan, inventory)
         assigned = self.state()['module_inputs']['M001']
         self.assertEqual(assigned['feature_ids'], ['F1'])
-        self.assertEqual(assigned['feature_inventory_ref'], plan['feature_inventory_ref'])
+        self.assertEqual(list(assigned['features']), ['F1'])  # a leaf holds the rows of its own features, not the inventory file
         inventory['source_mode'] = 'legacy-source'
         with self.assertRaisesRegex(Rejected, 'default to supplied'):
             self.accept_feature_draft(plan, inventory)

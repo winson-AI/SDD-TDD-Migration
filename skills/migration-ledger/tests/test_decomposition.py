@@ -221,7 +221,6 @@ class DecompositionTests(unittest.TestCase):
         self.root_scope()
         for change, error in (
             (lambda p: p['children'][0]['scope'].update(requirement_ids=['OTHER']), 'outside parent scope'),
-            (lambda p: p['children'][0]['scope'].update(out=[]), 'retain parent exclusions'),
             (lambda p: p['children'][0].update(context_refs=[]), 'focused module context'),
             (lambda p: p['children'][0].update(decomposition_required=True), 'child MO decomposes tasks'),
         ):

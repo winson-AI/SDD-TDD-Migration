@@ -48,11 +48,11 @@ GO 从全局 legacy/target、架构、需求、知识与测试输入抽取完整
 
 ### 功能清单完备性门禁
 
-使用 [feature-inventory.json](../../../template/feature-inventory.json)：每个功能有稳定 FEATURE-ID、名称、完整 functional_path、触发条件、可观察结果、需求/CASE 与来源证据；同名不同语义不合并，多条用例不漏行为分支。`global-plan.feature_owners` 给每个功能的执行子模块，父模块功能是孩子的并集；分配包提供 `feature_inventory_ref/feature_ids`，子 MO 经全局需求追溯到 TASK/PATH。
+使用 [feature-inventory.json](../../../template/feature-inventory.json)：每个功能有稳定 FEATURE-ID、名称、完整 functional_path、触发条件、可观察结果、需求/CASE 与来源证据；同名不同语义不合并，多条用例不漏行为分支。`global-plan.feature_owners` 给每个功能的执行子模块，父模块功能是孩子的并集；分配包提供 `feature_ids`（叶子另带自身功能行 `features`，清单改写而自身行不变时分配不变；父带 `feature_inventory_ref`），未写用例摘要即绑定已固化用例文件，子 MO 经全局需求追溯到 TASK/PATH。
 
-GO 逐项核对：所有用例分组、CASE、需求有功能归属；范围内全部生产入口已检查——页面/导航、API/服务、后台任务、事件监听、深链/通知、初始化/配置开关、持久化/恢复及异常/权限/离线/取消路径，不存在的类型说明依据；每个入口/用例分组记为 source_unit 并映射到功能，纯构建/生成文件记 non-functional 并给理由，不借此隐藏未理解的代码；功能树中所有根功能、子功能与变体可追溯到模块，父 MO 拆分后并集完整不重不漏，复用二方库只改实现方式不删需求；project 覆盖整个项目，single-module 完整覆盖选定根功能及子功能，外围依赖留作上下文，不静默扩大范围。
+GO 逐项核对：所有用例分组、CASE、需求有功能归属；范围内全部生产入口已检查——页面/导航、API/服务、后台任务、事件监听、深链/通知、初始化/配置开关、持久化/恢复及异常/权限/离线/取消路径，不存在的类型说明依据；每个入口/用例分组记为 source_unit 映射到功能，纯构建/生成文件记 non-functional 并给理由；功能树中所有根功能、子功能与变体可追溯到模块，父 MO 拆分后并集完整不重不漏，复用二方库只改实现方式不删需求；project 覆盖整个项目，single-module 完整覆盖选定根功能及子功能，外围依赖留作上下文，不静默扩大范围。
 
-`coverage.status=complete` 仅在逐项核查结束、`unclassified=[]`、`unresolved_questions=[]` 时填写；疑问留在 `questions` 并同步到 boundary_review.issues，经真实人工批准绑定整份规划，不得删疑问绕审；未解决时停止受影响规划并提交 Escalation，独立明确的分析继续，不生成代码。GO 在 global-discovery 预检核对功能草案，父 MO decomposition 与子 planning 预检核对各自清单，全部孩子登记后的 global-plan 是正式接受点，缺清单、来源映射、覆盖或 owner 即拒绝；脚本只证结构与追溯完整，源码功能是否穷尽由 Agent 审核。
+`coverage.status=complete` 仅在逐项核查结束、`unclassified=[]`、`unresolved_questions=[]` 时填写；疑问留在 `questions` 并同步到 boundary_review.issues，经真实人工批准绑定整份规划，不得删疑问绕审；未解决时停止受影响规划并提交 Escalation，独立明确的分析继续，不生成代码。GO 在 global-discovery、父 MO 在 decomposition、子在 planning 预检核对各自清单，全部孩子登记后的 global-plan 是正式接受点，缺清单、来源映射、覆盖或 owner 即拒绝；脚本只证结构与追溯，功能是否穷尽由 Agent 审核。
 
 各 Agent 在职责与已批准 scope 内自主工作；新出现的跨模块归属、共享契约责任、scope 重划或不确定的业务预期交人工，Global 汇总落实不代决，Diagnostician/Auditor 可建议，Fixer 不得扩范围。已有人工决策覆盖且内容、责任、契约未变的依赖调度、缺陷路由与复测按既有决策执行；新边界问题暂停受影响动作，独立模块继续，批准后经原 CR/重冻结门禁。`boundary_review.issues=[]` 表示已审查且无需人工决定，不能掩盖未知项。问题格式：
 

@@ -92,7 +92,18 @@ def standing(s, mid, context=None):
                             for key in ('modules', 'parents', 'dimension_allocations') if key in context}}
     if 'feature_owners' in context:
         scoped['feature_owners'] = {fid: owners for fid, owners in context['feature_owners'].items() if keep.intersection(owners)}
+    if 'feature_inventory_ref' in context:  # the leaf stands on the rows of its own features, not on the inventory file
+        scoped['features'] = feature_rows(scoped.pop('feature_inventory_ref'), scoped.get('feature_owners', {}))
     return scoped
+
+
+def feature_rows(inventory_ref, owners):
+    """The rows of an inventory for the given features, by id: what a leaf holds of the global feature list."""
+    try:
+        rows = read_json(check_ref(inventory_ref)).get('features') or []
+    except (Rejected, OSError, ValueError, TypeError, KeyError):
+        return {'unreadable': inventory_ref}
+    return {row['feature_id']: row for row in rows if row.get('feature_id') in owners}
 
 
 # The only parts of the planning context a reviewed source append changes for a module that keeps its frozen plan.
@@ -138,9 +149,12 @@ def assigned_module(s, module):
         result['dimension_slicing_required'] = True
     plan = (s.get('global_plan') or {}).get('content', {})
     if plan.get('feature_inventory_ref'):
-        result['feature_inventory_ref'] = copy.deepcopy(plan['feature_inventory_ref'])
         owned = set(leaves(s, module['module_id'])) if module['module_id'] in s.get('module_groups', {}) else {module['module_id']}
         result['feature_ids'] = sorted(fid for fid, owners in plan['feature_owners'].items() if owned.intersection(owners))
+        if module['module_id'] in s.get('module_groups', {}) or module.get('decomposition_required'):
+            result['feature_inventory_ref'] = copy.deepcopy(plan['feature_inventory_ref'])  # a split reads the whole list
+        else:  # a leaf holds its own features: a rewritten inventory that leaves them as they were does not move its allocation
+            result['features'] = feature_rows(plan['feature_inventory_ref'], {fid: True for fid in result['feature_ids']})
     elif module.get('feature_inventory_ref') or (parent or {}).get('feature_inventory_ref'):  # before the global plan: the root's
         result['feature_inventory_ref'] = copy.deepcopy(module.get('feature_inventory_ref') or parent['feature_inventory_ref'])
     import target_profile
@@ -396,7 +410,8 @@ def validate(s, parent, plan, redecompose=False):
                 'child requirements outside parent scope')
         # A child the Ledger already holds keeps the exclusions it restated when it was accepted; the parent's current
         # ones reach its planner with the parent's allocation.
-        require(registered(s, child) or set(parent['scope']['out']) <= set(child['scope']['out']), 'child must retain parent exclusions')
+        if not registered(s, child):  # the parent's exclusions hold for every child: the Ledger carries the ones a child does not restate
+            child['scope']['out'] = list(child['scope'].get('out', [])) + [line for line in parent['scope']['out'] if line not in child['scope'].get('out', [])]
         require(set(child['case_ids']) <= set(parent['case_ids']), 'child cases outside selected function')
         require(all(any(Path(path).resolve().is_relative_to(Path(scope).resolve())
                         for scope in parent['write_paths']) for path in child['write_paths']), 'child write scope outside parent')
