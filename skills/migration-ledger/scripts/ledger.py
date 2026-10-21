@@ -48,7 +48,7 @@ import reference_media
 import run_storage
 from openspec_projection import materialize, attempt as project_attempt
 
-from contracts import (Rejected, baseline, carrying, surveying, check_ref, cited, digest, file_ref, keyed, marked, nonempty,
+from contracts import (Rejected, baseline, carrying, surveying, legacy_as_prepared, check_ref, cited, digest, file_ref, keyed, marked, nonempty,
                        intact, owed, read_json, require, validate_plan, validate_result, verify_plan)
 
 HISTORICAL_TOOL_ROOTS = (Path(__file__).resolve().parent,
@@ -2309,7 +2309,7 @@ def preview_request(root, req, principal):
 
 
 def _apply(root, req, principal):
-    with carrying():  # routing looks at every module's guards; what one of them owes is recorded with its own requests
+    with carrying(), legacy_as_prepared(root):  # routing looks at every module's guards; what one of them owes is recorded with its own requests
         return _judge(root, req, principal)
 
 

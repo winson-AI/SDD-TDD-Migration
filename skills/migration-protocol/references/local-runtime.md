@@ -26,7 +26,7 @@ verify_openspec.py --root <run> --scope module --module-id <module-id>
 
 `verify_openspec.py` 的范围、恢复与边界见[留存布局](storage-layout.md#openspec-投影完整性收尾门禁)。
 
-正式 CLI 只用 prepare 固化的 `.sdd-runs/<run_id>`（init 绑定 project_context_ref）；旧根目录用 `ledger.py history --root <旧根>` 只读重放；已接受的工件沿用接受时的规则，新提交的按当前规则（[冻结算法](openspec.md#冻结算法) 第 7 条）。`init/resume/recover` 是同名 operation 的入口校验，走同一事务；成功返回 event_id/sequence/duplicate，拒绝返回 exit 1 和原因。宿主 context 最小为 `{"role":"module-orchestrator","instance_id":"mo-M001"}`，由宿主认证后注入；请求形状见 [ledger-request.json](../../../template/ledger-request.json)。module_id 非空校验模块 revision，否则校验全局 revision；**decision/register/global-plan/audit-collect/audit-plan/audit-route-batch/audit-verdict/audit-release/audit-assign/audit/audit-revoke/audit-route 的请求顶层 module_id 必须为 null**，适用模块写在 payload。每次有效模块操作增加模块 revision，跨模块失效增加相关消费者 revision。
+正式 CLI 只用 prepare 固化的 `.sdd-runs/<run_id>`（init 绑定 project_context_ref）；旧根目录用 `ledger.py history --root <旧根>` 只读重放；已接受的工件沿用接受时的规则，新提交的按当前规则（[冻结算法](openspec.md#冻结算法) 第 7 条）。`init/resume/recover` 是同名 operation 的入口校验，走同一事务；成功返回 event_id/sequence/duplicate，拒绝 exit 1。宿主 context 最小为 `{"role":"module-orchestrator","instance_id":"mo-M001"}`，由宿主认证后注入；请求形状见 [ledger-request.json](../../../template/ledger-request.json)。module_id 非空校验模块 revision，否则校验全局 revision；**decision/register/global-plan/audit-collect/audit-plan/audit-route-batch/audit-verdict/audit-release/audit-assign/audit/audit-revoke/audit-route 的请求顶层 module_id 必须为 null**，适用模块写在 payload。每次有效模块操作增加模块 revision，跨模块失效增加相关消费者 revision。
 
 hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的 SHA256；`contracts.file_ref(path)` 返回真实绝对路径与文件字节 SHA256。命令行 `contracts.py ref <文件>...`、`contracts.py baseline <代码文件>...`（输出 code_files 与 code_baseline）、`contracts.py digest <json 文件>`。
 
@@ -114,7 +114,7 @@ tests 另需 paths，见 [stage-result.json](../../../template/stage-result.json
 
 ## 实际测试适配器
 
-适配器按 PATH 选：build/unit/进程内功能 PATH 跑冻结的 command；设备 PATH 跑项目 `test_adapter.adapters[platform]`（argv 见 [test-adapter.json](../../../template/test-adapter.json)，`{run_root}` 为本 run），没有时用 `test_adapter.executable/args`；`--adapter <json>` 显式覆盖，`--cwd` 缺省为目标工程：
+适配器按 PATH 选：build/unit/进程内功能 PATH 跑冻结的 command；设备 PATH 跑项目 `test_adapter.adapters[platform]`（argv 见 [test-adapter.json](../../../template/test-adapter.json)，`{run_root}` 为本 run），没有时用 `test_adapter.executable/args`，再没有而 device.platforms 含该平台则用内置 Main；`--adapter <json>` 显式覆盖，`--cwd` 缺省为目标工程：
 
 ```text
 execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-M001-001（同命令 unit PATH 可为 a,b 列表） --output <run>/runs/harmony/automation/<new-attempt>

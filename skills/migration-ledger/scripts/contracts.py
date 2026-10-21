@@ -162,11 +162,68 @@ def check_ref(ref):
     try:
         actual = file_ref(ref['path'])
     except Rejected as exc:
+        kept = as_prepared(ref)
+        if kept:
+            return kept
         raise Drifted(str(exc)) from None
     # The message names the file and its real digest: a request holding dozens of references is otherwise unfixable.
     if actual != {'path': str(Path(ref['path']).resolve()), 'sha256': ref.get('sha256')}:
+        kept = as_prepared(ref)
+        if kept:
+            return kept
         raise Drifted(f"evidence hash mismatch: {actual['path']} is {actual['sha256']}, the reference says {ref.get('sha256')}; recompute it with contracts.py ref")
     return Path(ref['path'])
+
+
+_legacy = contextvars.ContextVar('legacy', default=None)  # {root, commit, run_root} of the run whose request is judged
+
+
+def as_prepared(ref):
+    """The bytes a legacy reference names, as the run was prepared: the legacy is a frozen input, so a file changed under a
+    running run is read as it was at the prepared commit (or as the run already archived it), not refused. None if the
+    reference is not a legacy file, or neither holds those bytes."""
+    legacy, sha = _legacy.get(), ref.get('sha256')
+    if not legacy or not isinstance(sha, str) or not re.fullmatch(r'[0-9a-f]{64}', sha):
+        return None
+    path = Path(ref['path']).resolve()
+    if not path.is_relative_to(legacy['root']):
+        return None
+    run_root = Path(legacy['run_root'])
+    for kept in (run_root / 'artifacts' / sha, run_root / 'runs/legacy-as-prepared' / sha):
+        if kept.is_file() and hashlib.sha256(kept.read_bytes()).hexdigest() == sha:
+            return kept
+    if not legacy.get('commit'):
+        return None
+    import subprocess
+    try:
+        data = subprocess.run(['git', '-C', str(legacy['root']), 'show', legacy['commit'] + ':./' + str(path.relative_to(legacy['root']))],
+                              capture_output=True, timeout=30).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if hashlib.sha256(data).hexdigest() != sha:
+        return None
+    kept.parent.mkdir(parents=True, exist_ok=True)
+    kept.write_bytes(data)
+    return kept
+
+
+class legacy_as_prepared:
+    """While the Ledger judges a request of a prepared run, legacy references resolve as the run was prepared."""
+    def __init__(self, run_root):
+        self.run_root = Path(run_root)
+
+    def __enter__(self):
+        value = None
+        try:
+            snapshot = json.loads((self.run_root / 'context/snapshot.json').read_text())
+            value = {'root': Path(snapshot['effective_config']['legacy_root']).resolve(), 'commit': snapshot.get('legacy_commit'),
+                     'run_root': str(self.run_root.resolve())}
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+        self.token = _legacy.set(value)
+
+    def __exit__(self, *exc):
+        _legacy.reset(self.token)
 
 
 def intact(check):

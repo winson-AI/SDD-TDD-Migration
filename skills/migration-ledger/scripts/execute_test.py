@@ -126,6 +126,22 @@ def selfcheck(argv, cwd, output, root=None, module_id=None, path_id=None):
     return code
 
 
+def builtin_main(platform, root):
+    """The package's own Main for a device platform the project states without an adapter: the Harmony kernel drives
+    android and harmony, web_main a browser."""
+    package = Path(__file__).resolve().parents[2]
+    env = Path(root) / 'runs/harmony/sandbox/environment'
+    python = package / 'migration-test/runtime/harmony/.venv/bin/python'
+    python = str(python) if python.is_file() else sys.executable
+    if platform == 'web':
+        return {'argv': [python, str(package / 'migration-test/scripts/web_main.py'), '--root', str(root),
+                         *(['--config', str(env / 'web.json')] if (env / 'web.json').is_file() else [])], 'timeout_seconds': 600}
+    files = [arg for name in ('config.json', '.env') if (env / name).is_file()
+             for arg in ('--config' if name == 'config.json' else '--env-file', str(env / name))]
+    return {'argv': [python, str(package / 'migration-test/runtime/harmony/sandbox.py'), 'test', '--root', str(root),
+                     '--platform', platform, *files], 'timeout_seconds': 1860}
+
+
 def adapter_for(s, path, root):
     """What runs a PATH when the host names nothing: build, unit and in-process functional PATHs have their frozen command;
     a device PATH runs the adapter the project states for its platform (test_adapter.adapters), else the project's one
@@ -137,6 +153,8 @@ def adapter_for(s, path, root):
     row = (adapter.get('adapters') or {}).get(platform)
     if row is None and adapter.get('executable'):
         row = {'argv': [adapter['executable'], *adapter.get('args', [])], 'cwd': adapter.get('cwd'), 'timeout_seconds': adapter.get('timeout_seconds')}
+    if row is None and platform in ((adapter.get('device') or {}).get('platforms') or []):
+        row = builtin_main(platform, root)
     require(row, 'no adapter runs platform ' + str(platform) + ' PATHs: state test_adapter.adapters.' + str(platform) + ' in the project context, or pass --adapter')
     return {'argv': [a.replace('{run_root}', str(root)) for a in row['argv']], 'cwd': (row.get('cwd') or s['target_root']).replace('{run_root}', str(root)),
             'timeout': row.get('timeout_seconds') or 300}

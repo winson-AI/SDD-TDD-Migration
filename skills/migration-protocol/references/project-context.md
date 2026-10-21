@@ -50,7 +50,7 @@
 
 默认值存放在 config.defaults：entry_mode 固定 project，另有 budgets 与 quality_gates（字段见模板）。test_adapter 与 input 中的结构一致（`adapters` 按平台给 argv；`harmony_reference` 给 init 准备 Harmony sandbox 的绝对 config/env_file），runtime 只放 model_routing。配置只引用宿主环境或凭证名称，不在模板中放凭证值。
 
-质量门开关都在 `defaults.quality_gates`，均 bool 默认 false：`git_checkpoint`（模块 Git 检查点）、`write_scope_check`（写范围核验）、`fixer_self_diagnosis`（本地轮 Fixer 自诊断，开启后不再为本地轮启动独立 Diagnostician）、`dependency_resolution_required`（Foundation 冻结，例如 `{"defaults":{"quality_gates":{"dependency_resolution_required":true}}}`）；模块累计修复预算为 `defaults.budgets.max_fix_rounds`（默认 3，各类失败共用）。prepare 把这些值固化到快照与 Global input，init 按快照继承，不得在 prepared init 中降级或覆盖。开启 Foundation 冻结后，无新增依赖的切片也须保留 not-required 解析证据，见 [知识执行与冻结](engineering-disciplines.md)。
+质量门开关都在 `defaults.quality_gates`，均 bool 默认 false：`git_checkpoint`（模块 Git 检查点）、`write_scope_check`（写范围核验）、`fixer_self_diagnosis`（本地轮 Fixer 自诊断，开启后不再为本地轮启动独立 Diagnostician）、`dependency_resolution_required`（Foundation 冻结）；模块累计修复预算为 `defaults.budgets.max_fix_rounds`（默认 3，各类失败共用）。prepare 把这些值固化到快照与 Global input，init 按快照继承，不得在 prepared init 中降级或覆盖。开启 Foundation 冻结后，无新增依赖的切片也须保留 not-required 解析证据，见 [知识执行与冻结](engineering-disciplines.md)。
 
 ## 运行时固化
 
@@ -58,7 +58,7 @@
 
 1. 读取最新已提交项目版本；可用 run-request.expected_revision 指定必须匹配的版本。
 2. 合并本次 overrides；读取 entry_mode/module_name，分配 run_id。验证目录、模式与配置。
-3. 在独立 run_root 保存 snapshot.json，固定 project_id、project_revision、原配置摘要、有效配置、本次选择与用户来源；架构/需求/用例/规则和测试环境说明复制到本轮证据目录。JSON 来源按不透明文件保存，不能被误当作需要跟随内嵌路径的 Ledger 请求。
+3. 在独立 run_root 保存 snapshot.json，固定 project_id、project_revision、原配置摘要、有效配置、本次选择、用户来源与存量提交 legacy_commit（存量变了，引用仍按该提交判定，信号 legacy-changed-since-prepare 提示走 run-review）；架构/需求/用例/规则和测试环境说明复制到本轮证据目录。JSON 来源按不透明文件保存。
 4. prepare 返回 project_context_ref 和 `input`；input 就是 Ledger init 的载荷形状，作为 Global 的分析输入，其中 global_spec/需求/CASE/global_paths 待 Global 生成。宿主将 Global 补齐的 input 保存为 `<run_root>/input.json`，原样作为 init 载荷提交；未生成完整非空规范/用例前不得 init。
 5. input 已含 project_context_ref、快照对应的 legacy_root/target_root/new_architecture、entry_mode/module_name 与预算；Global 补齐 global_spec/requirement_ids/case_ids/global_paths。single_module_id 由 Global 生成，标识选定根功能；父 MO 随后拆分子功能，用户仍只输入模块名。
 6. Ledger 校验快照所属 run/root、路径、模式/模块名、架构引用及预算。运行状态保存 project_id/project_revision/project_context_ref；已有快照时不能漏传引用。后续事务和 status 校验冻结证据，禁止换用最新配置。
@@ -101,7 +101,7 @@ project_context.py <show|history> --root <工作目录>/.sdd-migration
 
 ## 存量预览
 
-legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch 与 navigator；harmony-device 同形，serial 为 hdc 目标、launch 为 ability，没有真机时给 boot.argv（鸿蒙无标准命令行模拟器）；没有真机时 device 带 avd 或 boot.argv，serial 不应答即启动模拟器并等开机）、browser（url，可选 viewport）或 none（reason）；UI 登记前须声明，prepare 记包哈希；init/update/prepare 返回 `open_statements`（含目标验证设备与 target_resources），status 以 statement-required 提示到声明为止。`test_adapter.device` 按平台给目标预览（serial 与 avd/boot，可带目标 app_id 与 launch；或 url 与 viewport），init 据此写出运行环境文件，骨架据此预填 visual PATH 的应用与入口。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
+legacy_preview（[legacy-preview.json](../../../template/legacy-preview.json)）声明存量 App 怎样跑：kind=android-device|android-emulator|vm（adb 可见的 device.serial、app_id、artifact 或 build、可选 launch 与 navigator；harmony-device 同形，serial 为 hdc 目标、launch 为 ability，没有真机时给 boot.argv；没有真机时 device 带 avd 或 boot.argv，serial 不应答即启动模拟器并等开机）、browser（url，可选 viewport）或 none（reason）；UI 登记前须声明，prepare 记包哈希；init/update/prepare 返回 `open_statements`（含目标验证设备与 target_resources），status 以 statement-required 提示到声明为止。`test_adapter.device` 按平台给目标预览（serial 与 avd/boot，可带目标 app_id 与 launch；或 url 与 viewport），init 据此写出运行环境文件，骨架据此预填 visual PATH 的应用与入口。声明即可执行性：kind≠none 的界面须有 runtime 捕获（legacy-capture）或用户截图，未捕获者写 `ui_evidence.capture_gap`（reason、evidence_refs）进报告保真限制；none 只能 source-only 或用户截图。报告逐界面写基线来源。
 
 ## 二方库/其他项目模块来源
 

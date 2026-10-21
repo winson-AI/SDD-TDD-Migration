@@ -46,6 +46,18 @@ def record_rejection(root, req, actor, reason, further=()):
         pass  # The original failure is returned even if diagnostic persistence fails.
 
 
+def legacy_moved(root, state):
+    """{prepared, now} when the legacy checkout stands on another commit than the run was prepared on, else None."""
+    import project_context
+    try:
+        snapshot = json.loads((Path(root) / 'context/snapshot.json').read_text())
+    except (OSError, ValueError):
+        return None
+    prepared = snapshot.get('legacy_commit')
+    now = project_context.git_head(snapshot.get('effective_config', {}).get('legacy_root', '')) if prepared else None
+    return {'prepared': prepared, 'now': now} if prepared and now and now != prepared else None
+
+
 def build(root, state, events, steps, global_step, at=None):
     at = at or datetime.now(timezone.utc)
     signals, watches = [], []
@@ -61,6 +73,11 @@ def build(root, state, events, steps, global_step, at=None):
     for question in project_context.open_statements(state):  # how the legacy is shown, where the target is driven, how resources reach it: the person says
         signals.append({'module_id': None, 'reason': 'statement-required', 'label': question['label'], 'owner': 'host',
                         'next_action': question['ask'], 'severity': 'human', 'evidence': {'field': question['field'], 'options': question['options']}})
+    prepared = legacy_moved(root, state)
+    if prepared:
+        signals.append({'module_id': None, 'reason': 'legacy-changed-since-prepare', 'owner': 'global-orchestrator', 'severity': 'action',
+                        'next_action': 'the run reads the legacy as prepared; to plan against the change the GO submits run-review',
+                        'evidence': prepared})
     if global_step.get('reason') == 'audit-snapshot-stale':
         signals.append({'module_id': None, 'reason': 'audit-snapshot-stale', 'owner': 'host',
                         'next_action': 'confirm auditor stopped; audit-revoke before module invalidation', 'severity': 'human',
