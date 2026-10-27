@@ -48,29 +48,29 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 原子根功能由 GO `register` 直接登记为叶子（不设 decomposition_required）；其余根功能设 `decomposition_required=true`，提交非空 `scope.in`、显式 `scope.out`、非空 `requirement_ids` 与 `context_refs`。CASE/需求须来自本轮输入，写范围包含于 target_root。导入方案由 GO 补全转为此格式。
 
-用例少于两叶下限（6）的根，游标只给 atomic-leaf；其余由 `split_draft.py` 从功能清单起草切分（共同前缀下一级节点为叶，超 30 例下切，共享用例合并，不足 3 例并入），MO 改后提交。确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`、`parent_module_id`、`rationale`、`leaf_review_ref`（职责完整、唯一 writer、依赖可控及独立验证路径）；四维/行为/验证边界门禁仍适用。GO `decompose-accept` 核对当前绑定与证据，保留 ID/scope/CASE/依赖，清待拆分标记，进入未冻结 SPEC 规划；不得夹带 children 或范围变化，已拆父组调整走 redecompose。
+用例少于两叶下限（6）的根，游标只给 atomic-leaf；其余由 `split_draft.py` 从功能清单起草切分（共同前缀下一级节点为叶，超 30 例下切，共享用例合并，不足 3 例并入），MO 改后提交。确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`、`parent_module_id`、`rationale`、`leaf_review_ref`（职责完整、唯一 writer、依赖可控及独立验证路径）；四维/行为/验证边界门禁仍适用。与 split_draft 切法一致的拆分由 Ledger 在 decompose 事件内核对并接受，不等 GO；其余由 GO `decompose-accept` 核对当前绑定与证据，保留 ID/scope/CASE/依赖，清待拆分标记，进入未冻结 SPEC 规划；不得夹带 children 或范围变化，已拆父组调整走 redecompose。
 
 各操作的角色与载荷见[操作矩阵](local-runtime.md#操作矩阵)。
 
 使用 [拆分模板](../../../template/module-decomposition.json)。每个孩子提供稳定 ID、功能 name、scope、context_refs、case_ids、绝对 write_paths、dependencies。要求：
 
-1. 子需求/CASE 属于父范围；所有孩子的需求并集、CASE 并集各自完整覆盖父范围。子 scope.out 由 Ledger 补齐父当前排除项（可新增；已登记的孩子沿用登记时所写），scope.in 描述真实子职责，语义不能扩张。
-2. 子写范围包含于父范围；ID 全局唯一。孩子不得设置 decomposition_required 或自行指定 parent_module_id；GO 接受时写入父 ID。
+1. 子需求/CASE 属于父范围；未覆盖的父需求/CASE 记父的 COVER 欠项。子 scope.out 由 Ledger 补齐父当前排除项（可新增；已登记的孩子沿用登记时所写），scope.in 描述真实子职责，语义不能扩张。
+2. 子写范围包含于父范围；ID 全局唯一。孩子不得设置 decomposition_required 或自行指定 parent_module_id；接受时写入父 ID。
 3. 内部依赖引用本次孩子；外部依赖限父节点已批准依赖，图无环。孩子只认领实际消费的依赖，不继承父依赖并集；父 provider 细化时，consumer_dependencies 明确消费者实际等待的孩子，并提交 consumer_verifications。
 4. 有 blocker、活动 worker、已冻结或已生成代码的父节点不能直接拆分；不能通过删除/拆分规避失败历史。
-5. global-plan 可先验完整根/叶子 registry 的需求、CASE、功能、归属与依赖；待拆根保留覆盖责任但不能编码，已就绪叶子只检查自身、祖先及实际依赖。接受拆分后 GO 重验当前 registry（需求 owner 与 scope 一致），保留未变的 SPEC/测试设计/执行上下文，影响闭包重规划；原子确认未改 registry，不重复全局覆盖审查。
+5. global-plan 可先验完整根/叶子 registry 的需求、CASE、功能、归属与依赖；待拆根保留覆盖责任但不能编码，已就绪叶子只检查自身、祖先及实际依赖。接受拆分后，全局覆盖中父的归属由 Ledger 交给孩子、按 global-plan 规则重验后沿用，不过才由 GO 重验；保留未变的 SPEC/测试设计/执行上下文，影响闭包重规划；原子确认未改 registry，不重复全局覆盖审查。
 6. 子 plan 绑定的分配须仍是当前分配；每个 task 的 global_requirement_ids（无别名时 requirement_ids）限定在该子模块内并覆盖其全部获分配需求；测试路径不得加入未分配 CASE；原有需求→task→PATH 追溯继续有效。
-7. 拆分与认领不等于 SPEC 冻结批准。子 MO 组织六件套、测试设计和澄清，按[控制主线](state-machine.md#控制主线)审核冻结后才授权编码。
+7. 拆分与认领不等于 SPEC 冻结批准：叶子按[控制主线](state-machine.md#控制主线)冻结后才编码。
 
 ## 4. 独立执行、父看护与统一审计
 
 每个子 MO 独立 Coding → Testing → 预算内 Fixer → 正式复测 → DoD 或明确挂起；隔离见[模块隔离](state-machine.md#模块隔离与全量收尾)。
 
-父 MO 持续读取子模块 SPEC、tasks、用例覆盖、基线、根因与修复 memory，确认认领范围无遗漏/重复/扩张。等所有孩子完成或明确挂起；module-summary 记录逐子结论、范围覆盖、遗留问题和审计移交，不代验收子 CASE。
+父 MO 持续读取子模块 SPEC、tasks、用例覆盖、基线、根因与修复 memory，确认认领范围无遗漏/重复/扩张。等所有孩子完成或明确挂起；module-summary 由 Ledger 机械记录，不代验收子 CASE。
 
 Ledger 的 subject_sha256 绑定当前拆分引用和孩子 revision；孩子状态/证据变化后，旧父汇总失效，须重新核验。父 Green 要求全部孩子当前 DoD Green 且汇总有效，不替代 Auditor。
 
-status.module_rounds 区分 leaf/parent modules。收集问题子模块，不把父聚合 Red 记成失败 CASE。Auditor 读取对应 SPEC/测试路径并委派修复复测，裁决只归 Auditor。最终审计要求全子模块 Green、遗留清空且父汇总有效。
+status.module_rounds 区分 leaf/parent modules。收集问题子模块，不把父聚合 Red 记成失败 CASE。最终审计要求全子模块 Green、遗留清空且父汇总有效。
 
 ## 6. 二方库作为逐层规划依据
 

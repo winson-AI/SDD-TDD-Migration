@@ -1,5 +1,6 @@
 """Global coverage, bounded local repair, and whole-task audit contracts."""
 import copy
+import json
 import re
 import test_validation as tv
 import dimensions
@@ -332,6 +333,103 @@ def runnable(s, mid):
         return False
 
 
+def coverage_checks(s, p, plan):
+    """What global coverage holds to: the plan the GO submits, and the coverage the Ledger carries over an accepted split."""
+    check_ref(p.get('review_ref'))
+    require(plan.get('global_spec', s['global_spec']) == s['global_spec'] and
+            plan.get('new_architecture', s['new_architecture']) == s['new_architecture'], 'global inputs mismatch')
+    check_ref(s['global_spec']); check_ref(s['new_architecture'])
+    requirements = plan.get('requirement_owners', {})
+    cases = plan.get('case_owners', {})
+    # a case or requirement a split left out is the parent's gap: it has no leaf to own it until a later split covers it
+    left = {cid for g in s.get('module_groups', {}).values() for cid in g['case_ids']} - {cid for m in s['modules'].values() for cid in m['case_ids']}
+    left_reqs = {rid for g in s.get('module_groups', {}).values() for rid in (g.get('scope') or {}).get('requirement_ids', [])} - \
+        {rid for m in s['modules'].values() for rid in (m.get('scope') or {}).get('requirement_ids', [])}
+    require(set(s['requirement_ids']) - left_reqs <= set(requirements) <= set(s['requirement_ids']) and
+            set(s['case_ids']) - left <= set(cases) <= set(s['case_ids']), 'incomplete global requirement/case coverage')
+    valid = set(s['modules']) | {'GLOBAL'}
+    for mapping in (requirements, cases):
+        for owners in mapping.values():
+            nonempty(owners, 'owners')
+            require(len(set(owners)) == len(owners) and set(owners) <= valid, 'unknown/duplicate owner')
+    global_cases = {path['case_id'] for path in s['global_paths']}
+    for rid, owners in requirements.items():
+        if 'GLOBAL' in owners:
+            require(any(path.get('requirement_id') == rid or rid in path.get('requirement_ids', [])
+                        for path in s['global_paths']), 'global requirement lacks test path')
+    for cid, owners in cases.items():
+        require('GLOBAL' not in owners or cid in global_cases, 'global case lacks test path')
+        for owner in set(owners) - {'GLOBAL'}:
+            require(cid in s['modules'][owner]['case_ids'], 'case owner not registered')
+    for module_id, module in s['modules'].items():
+        require(all(module_id in cases[cid] for cid in module['case_ids']), 'module case missing owner mapping')
+        require(any(module_id in owners for owners in requirements.values()), 'module missing requirement ownership')
+        if module.get('scope'):
+            require({rid for rid, owners in requirements.items() if module_id in owners} ==
+                    set(module['scope']['requirement_ids']), 'global ownership must match assigned submodule requirements')
+    for module in {**s.get('module_groups', {}), **s['modules']}.values():
+        dimensions.allocation(s, module)
+    for group in s.get('module_groups', {}).values():
+        check_ref(group['decomposition_ref']); check_ref(group['decomposition_review_ref'])
+    feature_inventory(s, plan)
+    boundary_review(s, plan, p.get('boundary_decision_id'))
+    import behavior_contract
+    behavior_contract.global_review(s)
+    import target_profile
+    target_profile.check(s, plan)  # the target's state per feature, bound with the plan that allocates the features
+
+
+def carry_coverage(s, previous, parent_id, children, run_root):
+    """After an accepted split, the global coverage the GO accepted with the parent's ownership handed to the children that
+    hold each case, requirement and feature, judged by the same checks as a submitted plan; when it does not pass, the GO
+    accepts coverage again as before."""
+    if not previous or run_root is None:
+        return
+    from pathlib import Path
+    import decomposition
+    from contracts import Rejected, file_ref
+    plan = copy.deepcopy(previous['content'])
+    holds = {c['module_id']: c for c in children}
+    def hand(owners, held):
+        return [o for o in owners if o != parent_id] + [mid for mid in holds if held(holds[mid]) and mid not in owners] \
+            if parent_id in owners else owners
+    for key, held in (('case_owners', lambda cid: lambda c: cid in c['case_ids']),
+                      ('requirement_owners', lambda rid: lambda c: rid in (c.get('scope') or {}).get('requirement_ids', []))):
+        for value, owners in list((plan.get(key) or {}).items()):
+            new = hand(owners, held(value))
+            if new:
+                plan[key][value] = new
+            else:
+                del plan[key][value]
+    if plan.get('feature_owners') and plan.get('feature_inventory_ref'):
+        features = keyed(read_json(check_ref(plan['feature_inventory_ref'])).get('features'), 'feature_id')
+        for fid, owners in list(plan['feature_owners'].items()):
+            def held(child, fid=fid):
+                if child.get('functional_paths'):
+                    return fid in decomposition.node_features(features, child['functional_paths'])
+                return set(features[fid].get('case_ids') or []) <= set(child['case_ids'])
+            new = hand(owners, held)
+            if new:
+                plan['feature_owners'][fid] = new
+            else:
+                del plan['feature_owners'][fid]
+    out = Path(run_root) / 'reports/allocations'
+    out.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(plan, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+    plan_path = out / ('global-plan-%s.json' % digest(plan)[:12])
+    plan_path.write_text(text)
+    review_path = out / ('global-plan-%s.md' % digest(plan)[:12])
+    review_path.write_text('Coverage carried over the split of %s: its ownership handed to %s; every global-plan check passed.\n'
+                           % (parent_id, ', '.join(sorted(holds))))
+    p = {**{k: v for k, v in previous.items() if k not in ('content', 'registry_hash')},
+         'plan_ref': file_ref(plan_path), 'review_ref': file_ref(review_path)}
+    try:
+        coverage_checks(s, p, plan)
+    except (Rejected, KeyError, TypeError, ValueError, OSError):
+        return  # the GO accepts coverage again
+    s['global_plan'] = {**p, 'content': plan, 'registry_hash': digest(registry(s)), 'carried_over': parent_id}
+
+
 def handle(s, req, actor, run_root=None):
     op, p = req['operation'], req.get('payload', {})
     mid = req.get('module_id'); m = s['modules'].get(mid)
@@ -356,49 +454,8 @@ def handle(s, req, actor, run_root=None):
         require(not any(g.get('replanning_required') for g in s.get('module_groups', {}).values()), 'finish root redecomposition before global coverage acceptance')
         require(not audit_active(s), 'audit active')
         plan = read_json(check_ref(p.get('plan_ref')))
-        check_ref(p.get('review_ref'))
-        require(plan.get('global_spec', s['global_spec']) == s['global_spec'] and
-                plan.get('new_architecture', s['new_architecture']) == s['new_architecture'], 'global inputs mismatch')
-        check_ref(s['global_spec']); check_ref(s['new_architecture'])
-        requirements = plan.get('requirement_owners', {})
-        cases = plan.get('case_owners', {})
-        # a case or requirement a split left out is the parent's gap: it has no leaf to own it until a later split covers it
-        left = {cid for g in s.get('module_groups', {}).values() for cid in g['case_ids']} - {cid for m in s['modules'].values() for cid in m['case_ids']}
-        left_reqs = {rid for g in s.get('module_groups', {}).values() for rid in (g.get('scope') or {}).get('requirement_ids', [])} - \
-            {rid for m in s['modules'].values() for rid in (m.get('scope') or {}).get('requirement_ids', [])}
-        require(set(s['requirement_ids']) - left_reqs <= set(requirements) <= set(s['requirement_ids']) and
-                set(s['case_ids']) - left <= set(cases) <= set(s['case_ids']), 'incomplete global requirement/case coverage')
-        valid = set(s['modules']) | {'GLOBAL'}
-        for mapping in (requirements, cases):
-            for owners in mapping.values():
-                nonempty(owners, 'owners')
-                require(len(set(owners)) == len(owners) and set(owners) <= valid, 'unknown/duplicate owner')
-        global_cases = {path['case_id'] for path in s['global_paths']}
-        for rid, owners in requirements.items():
-            if 'GLOBAL' in owners:
-                require(any(path.get('requirement_id') == rid or rid in path.get('requirement_ids', [])
-                            for path in s['global_paths']), 'global requirement lacks test path')
-        for cid, owners in cases.items():
-            require('GLOBAL' not in owners or cid in global_cases, 'global case lacks test path')
-            for owner in set(owners) - {'GLOBAL'}:
-                require(cid in s['modules'][owner]['case_ids'], 'case owner not registered')
-        for module_id, module in s['modules'].items():
-            require(all(module_id in cases[cid] for cid in module['case_ids']), 'module case missing owner mapping')
-            require(any(module_id in owners for owners in requirements.values()), 'module missing requirement ownership')
-            if module.get('scope'):
-                require({rid for rid, owners in requirements.items() if module_id in owners} ==
-                        set(module['scope']['requirement_ids']), 'global ownership must match assigned submodule requirements')
-        for module in {**s.get('module_groups', {}), **s['modules']}.values():
-            dimensions.allocation(s, module)
-        for group in s.get('module_groups', {}).values():
-            check_ref(group['decomposition_ref']); check_ref(group['decomposition_review_ref'])
-        feature_inventory(s, plan)
-        boundary_review(s, plan, p.get('boundary_decision_id'))
-        import behavior_contract
-        behavior_contract.global_review(s)
+        coverage_checks(s, p, plan)
         source_review = (s.get('global_plan') or {}).get('source_review_ref')
-        import target_profile
-        target_profile.check(s, plan)  # the target's state per feature, bound with the plan that allocates the features
         s['global_plan'] = {**p, 'content': plan, 'registry_hash': digest(registry(s))}
         if source_review: s['global_plan']['source_review_ref'] = source_review
     elif op == 'audit-defer':

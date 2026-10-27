@@ -953,46 +953,77 @@ def handle(s, req, actor, run_root):
         validate(s, parent, plan)
         parent['decomposition_submission'] = {'plan_ref': completed or p['plan_ref'], 'actor_instance_id': actor['instance_id'],
                                               'binding': context_binding(s, parent)}
+        if run_root is not None and drafted(s, parent, plan):
+            # The Ledger's own cut, every check passed: nothing is left for the GO to judge, so the Ledger accepts it now.
+            out = Path(run_root) / 'reports/allocations'
+            out.mkdir(parents=True, exist_ok=True)
+            record = out / ('%s-accept-%s.md' % (mid, digest(plan)[:12]))
+            record.write_text('%s: the split is the one the Ledger drafted from the feature inventory; every decomposition check '
+                              'passed, so the Ledger accepted it.\n' % mid)
+            from contracts import file_ref
+            accept_split(s, parent, mid, file_ref(record), run_root)
     else:
         role(actor, 'global-orchestrator')
-        submission = parent.get('decomposition_submission')
-        require(submission, 'MO decomposition proposal required')
-        require(submission.get('binding') == context_binding(s, parent), STALE_CONTEXT)
-        check_ref(p.get('review_ref'))
-        plan = read_json(check_ref(submission['plan_ref']))
-        children, graph = validate(s, parent, plan)
-        if plan.get('kind') == 'atomic-leaf':
-            replan_module(parent, 'atomic-leaf-confirmed', submission['plan_ref'])
-            parent['planning_history'][-1]['review_ref'] = p['review_ref']
-            parent.update(decomposition_required=False, leaf_review_ref=plan['leaf_review_ref'])
-            parent.pop('decomposition_submission', None)
-            return
-        parent.setdefault('planning_history', []).append({'kind': 'planning-history', 'executable': False,
-            'reason': 'scope-decomposed', 'plan_ref': submission['plan_ref'], 'review_ref': p['review_ref']})
-        impact = {mid} | {cid for cid, deps in graph.items() if cid in s['modules'] and deps != s['modules'][cid]['dependencies']}
-        while True:
-            expanded = impact | {cid for cid, m in s['modules'].items() if impact.intersection(m['dependencies'])}
-            if expanded == impact: break
-            impact = expanded
-        for cid in impact:
-            idle(s['modules'][cid])
-        continue_unaffected(s, impact, p['review_ref'], run_root)
-        del s['modules'][mid]
-        parent.update(kind='parent-module', phase='coordinating', children=[c['module_id'] for c in children],
-                      decomposition_ref=submission['plan_ref'], decomposition_review_ref=p['review_ref'])
-        parent.pop('decomposition_required', None)
+        accept_split(s, parent, mid, p.get('review_ref'), run_root)
+
+
+def drafted(s, parent, plan):
+    """Whether a submitted split is the Ledger's own cut: the leaves split_draft cuts from the inventory, with the same cases.
+    Whether a root is atomic stays the GO's to judge."""
+    if plan.get('kind') == 'atomic-leaf':
+        return False
+    import split_draft
+    try:
+        draft = split_draft.draft(s, parent['module_id'])
+    except (Rejected, OSError, ValueError, KeyError, TypeError):
+        return False
+    cut = lambda children: sorted(sorted(c.get('case_ids') or []) for c in children)
+    return bool(draft) and cut(draft['children']) == cut(plan.get('children') or [])
+
+
+def accept_split(s, parent, mid, review_ref, run_root):
+    """Register a submitted split: the GO's accept, or the Ledger's own when the split is the one it drafted."""
+    from ledger import idle, new_module, replan_module
+    submission = parent.get('decomposition_submission')
+    require(submission, 'MO decomposition proposal required')
+    require(submission.get('binding') == context_binding(s, parent), STALE_CONTEXT)
+    check_ref(review_ref)
+    plan = read_json(check_ref(submission['plan_ref']))
+    children, graph = validate(s, parent, plan)
+    if plan.get('kind') == 'atomic-leaf':
+        replan_module(parent, 'atomic-leaf-confirmed', submission['plan_ref'])
+        parent['planning_history'][-1]['review_ref'] = review_ref
+        parent.update(decomposition_required=False, leaf_review_ref=plan['leaf_review_ref'])
         parent.pop('decomposition_submission', None)
-        s.setdefault('module_groups', {})[mid] = parent
-        for child in children:
-            child = copy.deepcopy(child)
-            child.update(parent_module_id=mid, dependencies=graph[child['module_id']])
-            s['modules'][child['module_id']] = new_module(child)
-        for leaf_id, module in s['modules'].items():
-            if leaf_id in impact:
-                replan_module(module, 'upstream-dependency-decomposed', submission['plan_ref'])
-                module['revision'] += 1
-            if module['dependencies'] != graph[leaf_id]:
-                module['dependencies'] = graph[leaf_id]
-                module['behavior_review']['verification'] = copy.deepcopy(plan['consumer_verifications'][leaf_id])
-        s['global_plan'] = None
-        s['audit'] = {}
+        return
+    parent.setdefault('planning_history', []).append({'kind': 'planning-history', 'executable': False,
+        'reason': 'scope-decomposed', 'plan_ref': submission['plan_ref'], 'review_ref': review_ref})
+    impact = {mid} | {cid for cid, deps in graph.items() if cid in s['modules'] and deps != s['modules'][cid]['dependencies']}
+    while True:
+        expanded = impact | {cid for cid, m in s['modules'].items() if impact.intersection(m['dependencies'])}
+        if expanded == impact: break
+        impact = expanded
+    for cid in impact:
+        idle(s['modules'][cid])
+    continue_unaffected(s, impact, review_ref, run_root)
+    del s['modules'][mid]
+    parent.update(kind='parent-module', phase='coordinating', children=[c['module_id'] for c in children],
+                  decomposition_ref=submission['plan_ref'], decomposition_review_ref=review_ref)
+    parent.pop('decomposition_required', None)
+    parent.pop('decomposition_submission', None)
+    s.setdefault('module_groups', {})[mid] = parent
+    for child in children:
+        child = copy.deepcopy(child)
+        child.update(parent_module_id=mid, dependencies=graph[child['module_id']])
+        s['modules'][child['module_id']] = new_module(child)
+    for leaf_id, module in s['modules'].items():
+        if leaf_id in impact:
+            replan_module(module, 'upstream-dependency-decomposed', submission['plan_ref'])
+            module['revision'] += 1
+        if module['dependencies'] != graph[leaf_id]:
+            module['dependencies'] = graph[leaf_id]
+            module['behavior_review']['verification'] = copy.deepcopy(plan['consumer_verifications'][leaf_id])
+    previous, s['global_plan'] = s.get('global_plan'), None
+    s['audit'] = {}
+    import workflow
+    workflow.carry_coverage(s, previous, mid, children, run_root)  # the GO's coverage with the parent's share handed to its children
