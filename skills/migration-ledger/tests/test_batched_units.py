@@ -59,6 +59,15 @@ class BatchedUnitTests(unittest.TestCase):
         m = f.state()['modules']['M001']
         self.assertEqual({m['results'][pid]['quality'] for pid in ('U1', 'U2')}, {'green-passed'})
 
+    def test_the_ledger_runs_a_frozen_batch_once_when_it_runs_the_dispatch(self):
+        import ledger
+        f = self.f; self.inner.fixture.split.prepare()
+        applied = ledger.advance(f.root, {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}, 'M001')['applied']
+        self.assertEqual([x['operation'] for x in applied[:3]], ['assign', 'submit', 'accept'])
+        m = f.state()['modules']['M001']
+        self.assertEqual({pid: m['results'][pid]['quality'] for pid in ('B1', 'U1', 'U2')}, dict.fromkeys(('B1', 'U1', 'U2'), 'green-passed'))
+        self.assertEqual(read_json(m['results']['U1']['execution_receipt']['path'])['batch']['path_ids'], ['U1', 'U2'])
+
     def test_a_missing_required_test_is_that_paths_finding_alone(self):
         self.second = 'SearchTest#missing'
         self.compiled(); f = self.f

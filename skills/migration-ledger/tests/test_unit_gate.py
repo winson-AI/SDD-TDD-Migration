@@ -70,6 +70,28 @@ class UnitGateTests(unittest.TestCase):
             f.raw('assign', {'assignment_id': 'AUTO-EARLY', 'role': 'test-runner', 'instance_id': 'test-runner',
                              'test_scope': 'automation', 'context_ref': ref})
 
+    def advance(self):
+        import ledger
+        return ledger.advance(self.f.root, {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}, 'M001')['applied']
+
+    def test_a_dispatch_of_frozen_commands_is_run_by_the_ledger_in_its_workers_name(self):
+        f = self.f; self.split.prepare()
+        applied = self.advance()
+        self.assertEqual([x['operation'] for x in applied[:3]], ['assign', 'submit', 'accept'])
+        m = f.state()['modules']['M001']
+        build = m['assignments'][applied[0]['assignment_id']]
+        self.assertEqual((build['test_scope'], build['closed'], m['submissions'][build['assignment_id']]['green']), ('build', True, True))
+        self.assertEqual({pid: m['results'][pid]['quality'] for pid in ('B1', 'U1')}, {'B1': 'green-passed', 'U1': 'green-passed'})
+        step = f.state()['next_steps'][0]  # the automation PATH needs a device: its dispatch waits for the Test-Runner
+        self.assertEqual((applied[-1].get('test_scope'), step['operation'], step.get('mechanical')), ('automation', 'await-result', None))
+
+    def test_a_definite_red_from_a_frozen_run_goes_on_to_diagnosis(self):
+        f = self.f; self.unit_code = FAILING; self.split.prepare()
+        self.assertEqual([x['operation'] for x in self.advance()], ['assign', 'submit', 'accept'])
+        m = f.state()['modules']['M001']
+        self.assertEqual((m['results']['B1']['quality'], m['results']['U1']['quality']), ('green-passed', 'red-bug'))
+        self.assertEqual(f.state()['next_steps'][0]['operation'], 'diagnose')
+
     def test_unit_green_survives_missing_automation_environment(self):
         f = self.f; self.split.prepare(); self.split.compile(); self.run_unit()
         self.split.defer()
