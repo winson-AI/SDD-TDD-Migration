@@ -21,7 +21,7 @@
 <text x="230.0" y="245.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">项目上下文</text>
 <text x="230.0" y="279.0" font-size="17.10" fill="#4b5563" text-anchor="middle" font-weight="400">存量与运行方式 / 目标 / 架构 / 媒体</text>
 <text x="230.0" y="308.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">二方库行为对齐与 fidelity</text>
-<text x="230.0" y="337.0" font-size="21.50" fill="#4b5563" text-anchor="middle" font-weight="400">三条声明 → 适配器 / 环境文件</text>
+<text x="230.0" y="337.0" font-size="21.50" fill="#4b5563" text-anchor="middle" font-weight="400">开局声明 → 适配器 / 环境文件</text>
 <text x="230.0" y="366.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">项目配置 → 本轮快照</text>
 <path d="M400,255 L460,255" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M780,320 L780,375" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
