@@ -2350,7 +2350,9 @@ def _judge(root, req, principal):
         if s and s.get('package_sha'):  # the run keeps the package it was prepared with; a rule written since binds the next run
             import package_version
             current = package_version.sha(reading.PACKAGE)
-            require(current in (None, s['package_sha']), 'this run is pinned to package %s: run it from a worktree at that commit (git worktree add <dir> %s), not from %s'
+            require(current in (None, s['package_sha']) or run_changes.advancing(s, req, current),
+                    'this run is pinned to package %s: run it from a worktree at that commit (git worktree add <dir> %s), not from %s; '
+                    'or move it to this package by a run revision with package_sha and a decision'
                     % (s['package_sha'][:12], s['package_sha'], (current or 'an unknown checkout')[:12]))
         require(req.get('schema_version') == 1 and req.get('request_id'), 'version/request id required')
         request_hash = digest({'request': req, 'principal': principal})

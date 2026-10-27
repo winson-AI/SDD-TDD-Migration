@@ -2,7 +2,7 @@
 
 ## 总则
 
-run 固定 prepare 时的包版本 package_sha：宿主用该提交的 worktree 跑完整个 run，Ledger 拒绝其他版本的请求；新规则只对新 run 生效。默认优先恢复同角色原 session；缺失时按 checkpoint 冷恢复，不要求永久保留一个已失效的宿主会话。角色只在当前阶段需要时创建，9+1 职责不变。所有恢复/修复请求仍经过 Ledger，不能恢复为角色私聊。请求只用[操作矩阵](local-runtime.md#操作矩阵)列出的 operation，未知 operation 拒绝。
+run 固定 prepare 时的包版本 package_sha：宿主用该提交的 worktree 跑完整个 run，Ledger 拒绝其他版本的请求；要用新规则，GO 从新版本提交带 package_sha 的 run-review，人工决定后 revise-run 改钉（已接受工件仍按原规则），不新开 run。默认优先恢复同角色原 session，缺失时按 checkpoint 冷恢复。角色只在当前阶段需要时创建。恢复/修复请求仍经 Ledger。请求只用[操作矩阵](local-runtime.md#操作矩阵)列出的 operation，未知 operation 拒绝。
 
 ## 路径与加载
 
@@ -24,7 +24,7 @@ run-id/change-name/capability 使用 kebab-case，module_id 匹配 `M[0-9]{3,}`�
 
 校验宿主身份、操作角色/作用域/修订号、活动 assignment 的 fencing token 及工件 hash，再执行守卫。submit 不等于完成。工件先归档 artifacts/<sha256>，可读后才在单写者文件锁内分配序号、追加 events.jsonl 并 fsync；之后原子重建带 last_sequence 的投影，ACK 仅在事件落盘后返回。
 
-事件日志是唯一事实源：首条存初始状态，其后存 set/del 变化；状态存报告/结果引用。工件原路径检测漂移，快照供追溯，已归档文件不重复列出。投影失败用 status/同请求重建，不重复派发；完整事件损坏停止，由 Host 从校验备份恢复或人工处置，禁止自动截断/倒改历史。hash 链检测意外篡改，不能抵御整本重写。observed_invalidations 要求 Host 提交 revoke/invalidate，不把磁盘变化记为完成。无事件文件是孤儿，已提交文件缺失/手改使相关证据失效，须重建。
+事件日志是唯一事实源：首条存初始状态，其后存 set/del 变化；状态存报告/结果引用。工件原路径检测漂移，快照供追溯，已归档文件不重复列出。投影失败用 status/同请求重建，不重复派发；完整事件损坏停止，由 Host 从校验备份恢复或人工处置，禁止自动截断/倒改历史。hash 链只检测意外篡改。observed_invalidations 要求 Host 提交 revoke/invalidate，不把磁盘变化记为完成。无事件文件是孤儿，已提交文件缺失/手改使相关证据失效，须重建。
 
 ## 权限
 
