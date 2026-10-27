@@ -19,15 +19,18 @@ watchdog.py watch --root <workspace_root>/.sdd-runs/<run_id>
 
 # Host 展示/可靠接收通知后确认，可重复传入 --notice-id
 watchdog.py ack --root <workspace_root>/.sdd-runs/<run_id> --notice-id notice-<实际通知ID中的数字>
+
+# 打印定时检查的 crontab 行，由人安装
+watchdog.py schedule --root <workspace_root>/.sdd-runs/<run_id> [--every-minutes 10]
 ```
 
-Host 按 notice_id 去重展示或可靠存入通知收件箱后 ack，同 notice 整体确认；读取 stdout 不等于交付，ack 不等于解决。程序不发消息、不执行 hook、不装服务。覆盖宿主失联需独立监督进程。
+Host 按 notice_id 去重展示或可靠存入通知收件箱后 ack，同 notice 整体确认；读取 stdout 不等于交付，ack 不等于解决。程序不发消息、不执行 hook、不装服务；宿主失联靠 schedule 定时检查发现，新宿主读 `ledger.py handover` 写的 reports/handover.md 接手。
 
-每 run 一个实例，仅锁 runs/watchdog/.watchdog.lock；ack 用独立锁，不获取业务锁。有效终态无投影异常或 Host stopped 时，watch 输出未交付通知后结束，check 可重放。paused 保持观察、不催执行，仍重放历史待确认通知。
+每 run 一个实例，仅锁 runs/watchdog/.watchdog.lock；ack 用独立锁，不获取业务锁。有效终态无投影异常或 Host stopped 时，watch 输出未交付通知后结束，check 可重放。paused 只观察并重放待确认通知。
 
 ## 配置冻结
 
-长期 project-context.json 的可选 watchdog 字段经既有 update/prepare 保存在本轮 context/snapshot.json.effective_config.watchdog；同 run 不追随长期配置更新。未配置时使用默认值：
+可选 watchdog 字段由 prepare 存入本轮快照 effective_config.watchdog；同 run 不随长期配置变。未配置时使用默认值：
 
 | 字段 | 默认 | 含义 |
 | --- | --- | --- |
@@ -66,7 +69,7 @@ worker 可选 execution_state_path 指向本 run/attempt 的 execution-state.jso
 - 查询超时/读取错误：observation-unavailable，保留旧告警，不修日志/偷锁。
 - 暂停/停止、有效交付等待或 completed-with-unverified-tests：不催执行、不改 Green。
 
-终态有 projection-pending 时显示 completed-with-pending-diagnostics 并继续监听，不催业务。ack 只停止重放；Host 按原 status 入口重建，信号消失后通知 closed 并收尾。仍遵守 paused/stopped，不改 Ledger 终态。
+终态有 projection-pending 时显示 completed-with-pending-diagnostics 并继续监听，不催业务。ack 只停止重放；Host 按原 status 入口重建，信号消失后通知 closed 并收尾。不改 Ledger 终态。
 
 告警按 run/scope/code 去重，开启/关闭产生 notice；持续问题不重复生成。未 ack 的 pending_notices 每次重放且 notify_user=true；确认后静默，再次开启产生新 ID。
 
@@ -89,4 +92,4 @@ closed 仅表示监测条件消失，不是业务通过。写诊断失败向 std
     └── notice-<timestamp>.json # 持久通知与 active 检查点；未确认时重放
 ```
 
-无系统临时文件/凭证/第四资产根。OpenSpec 仅链接诊断，不接入质量或门禁；业务 Agent 仍走 Ledger，Host 消费健康通知。同 run 重启继续去重，新 run 隔离。
+无系统临时文件/凭证/第四资产根。同 run 重启继续去重，新 run 隔离。

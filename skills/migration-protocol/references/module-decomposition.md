@@ -4,7 +4,7 @@
 
 project 指完整项目及其功能树；single-module 只选择一个根功能。GO 划模块 scope/上下文，MO 按原子性决定细分或进入叶子 tasks 规划；不为凑层级创建同范围孩子。父子均读全局代码/架构/知识，权限限定于认领 scope；规划绑定 Ledger 的 planning_context 和 module_inputs。实际父节点只管理/汇总，叶子持有 SPEC、代码、测试与验收；父聚合失败不回写兄弟。全部叶子本轮结束且父 MO 汇总有效后，GO 才统一启动 Auditor。
 
-原子根：GO 直接登记为叶子，或 MO 在拆分提案中确认当前根为原子叶子，经 GO 接受后进入 SPEC 规划。原子性不替代测试设计与冻结；运行级 `fixer_self_diagnosis` 打开时本地修复轮可在原 Implementer 会话先诊断后修复，MO 接受诊断，审计期恢复独立 Diagnostician。运行级 `fixer_self_diagnosis` 可用于所有模块（默认关闭）。多个孩子的具体批准可汇总一次提交，见[批量冻结](#父级批量冻结信封)。
+原子根：GO 直接登记为叶子，或 MO 在拆分提案中确认当前根为原子叶子，经 GO 接受后进入 SPEC 规划。原子性不替代测试设计与冻结；运行级 `fixer_self_diagnosis`（默认关闭）打开时本地修复轮由原会话先诊断后修复，审计期恢复独立 Diagnostician。多个孩子的具体批准可汇总一次提交，见[批量冻结](#父级批量冻结信封)。
 
 ## 1. 三层职责
 
@@ -48,7 +48,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 原子根功能由 GO `register` 直接登记为叶子（不设 decomposition_required）；其余根功能设 `decomposition_required=true`，提交非空 `scope.in`、显式 `scope.out`、非空 `requirement_ids` 与 `context_refs`。CASE/需求须来自本轮输入，写范围包含于 target_root。导入方案由 GO 补全转为此格式。
 
-用例少于两叶下限（6）的根，游标只给 atomic-leaf。MO 确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`、`parent_module_id`、`rationale`、`leaf_review_ref`（职责完整、唯一 writer、依赖可控及独立验证路径）；四维/行为/验证边界门禁仍适用。GO `decompose-accept` 核对当前绑定与证据，保留 ID/scope/CASE/依赖，清待拆分标记，进入未冻结 SPEC 规划；不得夹带 children 或范围变化，已拆父组调整走 redecompose。
+用例少于两叶下限（6）的根，游标只给 atomic-leaf；其余由 `split_draft.py` 从功能清单起草切分（共同前缀下一级节点为叶，超 30 例下切，共享用例合并，不足 3 例并入），MO 改后提交。确认原子根时，`decompose.plan_ref` 的文档仅含 `kind: atomic-leaf`、`parent_module_id`、`rationale`、`leaf_review_ref`（职责完整、唯一 writer、依赖可控及独立验证路径）；四维/行为/验证边界门禁仍适用。GO `decompose-accept` 核对当前绑定与证据，保留 ID/scope/CASE/依赖，清待拆分标记，进入未冻结 SPEC 规划；不得夹带 children 或范围变化，已拆父组调整走 redecompose。
 
 各操作的角色与载荷见[操作矩阵](local-runtime.md#操作矩阵)。
 
@@ -95,7 +95,7 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 
 ## 父级批量冻结信封
 
-父 MO 拆分出多个孩子时，可以把各孩子的 decision_envelope（scope、acceptance、allowed_alternatives、forbidden_changes）汇成一份 [批量信封](../../../template/batch-envelope.json)，交人类一次批准。子 plan 的 envelope 与信封条目完全一致时，子 MO 审阅详细 tasks/PATH 后附 review_ref 即可 freeze，不再逐个等待人类；任一孩子超出条目（扩大范围、替换提供方、改变用户可见语义等）仍须自己的人类批准。信封批准不替代 MO 的计划审阅。
+父 MO 拆分出多个孩子时，可以把各孩子的 decision_envelope（scope、acceptance、allowed_alternatives、forbidden_changes）汇成一份 [批量信封](../../../template/batch-envelope.json)，交人类一次批准。子 plan 的 envelope 与信封条目完全一致时，子 MO 审阅详细 tasks/PATH 后附 review_ref 即可 freeze，不再逐个等待人类；任一孩子超出条目仍须自己的人类批准。信封批准不替代 MO 的计划审阅。
 
 ## 验证边界
 

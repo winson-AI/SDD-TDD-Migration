@@ -54,13 +54,19 @@ class StatementTests(unittest.TestCase):
 
 
 class IntakeTests(unittest.TestCase):
-    def test_the_person_is_asked_what_nobody_infers_until_all_three_statements_are_made(self):
-        self.assertEqual([q['field'] for q in pc.intake({})], ['legacy_preview', 'test_adapter.device', 'target_resources'])
+    def test_the_person_is_asked_what_nobody_infers_until_every_statement_is_made(self):
+        self.assertEqual([q['field'] for q in pc.intake({})],
+                         ['legacy_preview', 'test_adapter.device', 'scope_statement', 'dependency_changes', 'target_resources'])
+        self.assertIn('登录前的引导页', next(q for q in pc.intake({}) if q['field'] == 'scope_statement')['ask'])
         half = {'declined': {'copy': 'the target bundles no files'}}  # one part stated or declined leaves the statement open
         self.assertIn('target_resources', [q['field'] for q in pc.intake({'target_resources': half})])
         self.assertNotIn('target_resources', [q['field'] for q in pc.intake({'target_resources': DECLINED})])
         t = test_project_context.ProjectContextTests(); t.setUp(); self.addCleanup(t.doCleanups)
-        result = pc.update(t.root, t.request('device', 1, {'test_adapter': {'device': {'platforms': ['android']}}}), t.actor)
+        with self.assertRaisesRegex(Rejected, 'dependency_changes says whether'):
+            pc.update(t.root, t.request('bad', 1, {'dependency_changes': {'allowed': 'yes'}}), t.actor)
+        result = pc.update(t.root, t.request('device', 1, {'test_adapter': {'device': {'platforms': ['android']}},
+                                                           'scope_statement': {'summary': 'sign-in by phone', 'includes': ['onboarding']},
+                                                           'dependency_changes': {'allowed': True, 'libraries': ['a state machine library']}}), t.actor)
         self.assertEqual([q['field'] for q in result['open_statements']], ['legacy_preview', 'target_resources'])
         prepared = t.prepare()
         self.assertEqual([q['field'] for q in prepared['open_statements']], ['legacy_preview', 'target_resources'])

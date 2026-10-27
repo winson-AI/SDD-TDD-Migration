@@ -167,7 +167,8 @@ def inspect(root):
                     continue
                 if signal.get('reason') == 'no-runnable-action-and-no-worker' and any(w['status'] == 'running' for w in workers):
                     continue  # Host may be running GO/parent/preflight outside assignment records.
-                if signal.get('severity') == 'human': add(signal['reason'], signal.get('module_id') or 'GLOBAL', signal)
+                if signal.get('severity') == 'human' or signal.get('reason') == 'planning-overdue':
+                    add(signal['reason'], signal.get('module_id') or 'GLOBAL', signal)
     quiet = age(events[-1].get('timestamp'), at) if events else None
     waiting_for_person = any(signal.get('severity') == 'human' for signal in progress.get('signals', []))
     if not paused and not terminal and not waiting_for_person and quiet is not None and quiet >= config['ledger_idle_seconds']:
@@ -309,14 +310,26 @@ def check(root, config):
     return result
 
 
+def schedule(root, minutes):
+    """The crontab line that runs one check every `minutes`, so a host that stopped is noticed without a host: its notices
+    land in reports/watchdog and its output in reports/watchdog/scheduled.log."""
+    require(type(minutes) is int and 1 <= minutes <= 59, 'every-minutes is 1..59')
+    log = root / 'reports/watchdog/scheduled.log'
+    return {'cron': f'*/{minutes} * * * * {sys.executable} {Path(__file__).resolve()} check --root {root} >> {log} 2>&1',
+            'install': 'add the line with `crontab -e`; remove it when the run ends', 'log': str(log)}
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('command', choices=('check', 'watch', 'ack', '_inspect'))
+    p.add_argument('command', choices=('check', 'watch', 'ack', 'schedule', '_inspect'))
     p.add_argument('--root', required=True)
     p.add_argument('--notice-id', action='append', default=[])
+    p.add_argument('--every-minutes', type=int, default=10, help='schedule only: how often the scheduled check runs')
     args = p.parse_args()
     try:
         root, config = bound_root(args.root)
+        if args.command == 'schedule':  # printed for the person to install: the observer installs nothing itself
+            print(json.dumps(schedule(root, args.every_minutes), ensure_ascii=False)); return 0
         require(bool(args.notice_id) == (args.command == 'ack'), '--notice-id is required only for ack')
         if args.command == '_inspect': print(json.dumps(inspect(root), ensure_ascii=False)); return 0
         if not config['enabled'] and args.command != 'ack': print(json.dumps({'state': 'disabled', 'mode': 'observe-only'})); return 0

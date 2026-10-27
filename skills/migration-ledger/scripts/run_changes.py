@@ -1,5 +1,6 @@
 """Reviewed root allocations and context revisions within one migration task/Run."""
 import copy
+import re
 from pathlib import Path
 
 from contracts import check_ref, digest, keyed, nonempty, read_json, require, verify_plan
@@ -10,7 +11,8 @@ import workflow
 import control_policy
 
 OPS = {'run-review', 'revise-run'}
-CONFIG_KEYS = {'architecture_path', 'knowledge_paths', 'project_rules_path', 'build', 'test_adapter', 'legacy_preview', 'runtime', 'target_resources'}
+CONFIG_KEYS = {'architecture_path', 'knowledge_paths', 'project_rules_path', 'build', 'test_adapter', 'legacy_preview', 'runtime', 'target_resources',
+               'scope_statement', 'dependency_changes'}
 ROOT_KEYS = set(decomposition.ALLOCATION_KEYS) | {'module_id', 'dependencies'}
 CONTRACT_KEYS = {'requirement_ids', 'case_ids', 'global_paths'}
 RETIREMENT_KEYS = {'requirement': 'requirement_ids', 'case': 'case_ids', 'global-path': 'global_paths'}
@@ -93,7 +95,14 @@ def subject(s, report_ref):
 def validate(s, ref):
     report = read_json(check_ref(ref))
     required = {'schema_version', 'run_id', 'reason', 'context_patch', 'root_updates', 'modules'}
-    require(required <= set(report) <= required | {'global_spec_ref', 'contract_patch', 'retirements', 'lessons_ref', 'boundary_review'}, 'invalid run revision report')
+    require(required <= set(report) <= required | {'global_spec_ref', 'contract_patch', 'retirements', 'lessons_ref', 'boundary_review', 'package_sha'},
+            'invalid run revision report')
+    if report.get('package_sha') is not None:  # the run moves to the package it is reviewed from; what it accepted keeps its rules
+        import package_version
+        import reading
+        require(isinstance(report['package_sha'], str) and re.fullmatch(r'[0-9a-f]{40}', report['package_sha'])
+                and report['package_sha'] != s.get('package_sha') and report['package_sha'] == package_version.sha(reading.PACKAGE),
+                'package_sha moves the run to the package checkout the revision is reviewed from, a commit other than its own')
     require(report['schema_version'] == 1 and report['run_id'] == s['run_id'] and report['reason'], 'run revision identity/reason required')
     proposed_contract = contract(s, report)
     control_policy.boundary(report.get('boundary_review'))
@@ -214,7 +223,7 @@ def validate(s, ref):
                         % (leaf, ', '.join(found[:8])))
             else:
                 require(set(root['scope']['out']) <= set(child['scope']['out']), 'retained child outside revised root boundary')
-    require(patch or spec_ref or changed_roots or any(m.get('realloc_request') for m in current.values()), 'empty run revision')
+    require(patch or spec_ref or changed_roots or report.get('package_sha') or any(m.get('realloc_request') for m in current.values()), 'empty run revision')
     return report, affected, changed_roots
 
 
@@ -367,6 +376,9 @@ def handle(root, s, req, actor):
         'previous_context_ref': previous, 'project_context_ref': new_ref, 'previous_global_spec': previous_spec,
         'global_spec': s['global_spec'], 'previous_contract': previous_contract, 'previous_global_plan': previous_plan,
         'contract': {key: copy.deepcopy(s[key]) for key in CONTRACT_KEYS}, 'affected_modules': sorted(affected), 'changed_roots': sorted(changed_roots)})
+    if report.get('package_sha'):
+        s['run_change_history'][-1].update(previous_package_sha=s.get('package_sha'), package_sha=report['package_sha'])
+        s['package_sha'] = report['package_sha']
     if report.get('lessons_ref'):
         s.setdefault('retrospectives', []).append({'lessons_ref': report['lessons_ref'], 'actor': review['reviewed_by']})
     if decision: decision['consumed'] = True
@@ -374,7 +386,21 @@ def handle(root, s, req, actor):
 
 
 def human_required(s, report):
-    return contract(s, report) != {k: s[k] for k in CONTRACT_KEYS} or control_policy.boundary(report.get('boundary_review'))
+    # the rules a run is held to change only with a person's decision
+    return contract(s, report) != {k: s[k] for k in CONTRACT_KEYS} or control_policy.boundary(report.get('boundary_review')) or bool(report.get('package_sha'))
+
+
+def advancing(s, req, checkout):
+    """Whether the request is a run revision, or its decision, that moves the run to this checkout's package: it is judged
+    from that checkout although the run is pinned to another."""
+    try:
+        if req.get('operation') == 'run-review':
+            return read_json(check_ref(req['payload']['report_ref'])).get('package_sha') == checkout
+        review = s.get('run_change_review') or {}
+        return (req.get('operation') in ('revise-run', 'decision') and review.get('status') == 'reviewed'
+                and read_json(check_ref(review['report_ref'])).get('package_sha') == checkout)
+    except (ValueError, OSError, KeyError, TypeError):
+        return False
 
 
 def next_action(s):

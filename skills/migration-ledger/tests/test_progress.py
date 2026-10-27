@@ -117,6 +117,20 @@ class ProgressTests(unittest.TestCase):
         self.assertEqual(report['state'], 'running'); self.assertFalse(report['notify_user'])
         self.assertEqual(f.state()['next_steps'][0]['operation'], 'plan-review')
 
+    def test_a_first_plan_over_its_budget_is_named_with_the_prototypes_built_meanwhile(self):
+        f=self.f; f.global_plan()
+        step=f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['planning_budget_minutes']), ('plan', 45))
+        state,events=ledger.read_events(f.root); snapshot=f.state()
+        signals=lambda seconds: progress_signals.build(f.root,state,events,snapshot['next_steps'],snapshot['global_next_step'],
+                                                      at=datetime.fromisoformat(events[-1]['timestamp'])+timedelta(seconds=seconds))['signals']
+        self.assertNotIn('planning-overdue',[x['reason'] for x in signals(600)])
+        (f.root/'staging/spec-designer/sd-1/scratch/probe/lib/build/tmp').mkdir(parents=True)  # a prototype built while planning
+        late=next(x for x in signals(2700) if x['reason']=='planning-overdue')
+        self.assertEqual((late['module_id'], late['severity']), ('M001', 'action'))
+        self.assertEqual(late['evidence']['prototype_builds'], ['staging/spec-designer/sd-1/scratch/probe/lib/build'])
+        self.assertIn('spike task', late['next_action'])
+
     def test_overdue_worker_signal_never_cancels_worker_or_other_work(self):
         f=self.f; f.prepare(); f.assign('implementer','I')
         state,events=ledger.read_events(f.root); snapshot=f.state()

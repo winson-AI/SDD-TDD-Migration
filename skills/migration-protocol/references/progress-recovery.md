@@ -38,9 +38,10 @@ OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；�
 | `runnable_actions` | 继续无冲突、独立的 ready 动作；提交时仍须通过真实门禁 |
 | `signals` | 阻塞原因、owner、next_action、sequence 和证据；按模块处理 |
 | `notify_user=true` | 宿主必须向用户展示需决策/介入事项、受影响范围、原因、证据和下一步；不能只写日志后静默退出 |
-| `no-runnable-action-and-no-worker` / `state=stalled` | 当前没有可推进动作且没有活动 worker；立即交 GO 排查并反馈。它是停滞快照，不等于已证明死锁 |
+| `no-runnable-action-and-no-worker` / `state=stalled` | 没有可推进动作也没有活动 worker；立即交 GO 排查；是停滞快照，非死锁 |
 | `worker_watches` | 活动 assignment 最近一次同作用域事件后的无进展时长；宿主核实进程是否仍存活 |
-| `worker-progress-overdue` | 默认 900 秒无同作用域事件，提醒人工/宿主核实；init 可设置正整数 `worker_stall_timeout_seconds`。不是自动取消或释放锁 |
+| `planning-overdue` | 首版计划超 planning_budget_seconds（默认 2700）未交；附 staging 里建的工程 |
+| `worker-progress-overdue` | 默认 900 秒无同作用域事件，提醒人工/宿主核实；init 可设 `worker_stall_timeout_seconds`。不是自动取消或释放锁 |
 | `operation-rejected` | 各作用域当前 revision 下被拒操作及原因分别计数；相同操作/原因累计拒绝 3 次升级人工信号，其他模块的拒绝不清零，禁止原样重试空转 |
 | `not-implemented` / `label=未实现` | MO 核验替代实现均不可行后接受的具体功能缺口；立即展示范围、核验证据及所需人工决策。无可复用库本身不构成该信号，详见 [复用协议第 8 节](reuse-dependencies.md#8-复用不可行--coding确实无法实现--未实现提醒) |
 

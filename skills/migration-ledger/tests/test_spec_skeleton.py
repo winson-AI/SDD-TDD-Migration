@@ -30,6 +30,35 @@ class DocumentCapTests(unittest.TestCase):
                 self.assertNotIn(f'- {line}\n', text[name])
 
 
+    def test_a_first_plan_starts_from_what_the_ledger_knows(self):
+        t = test_source_changes.SourceChangeTests(); t.setUp(); self.addCleanup(t.doCleanups)
+        build = t.f.target / 'm1/build.gradle.kts'; build.parent.mkdir(parents=True, exist_ok=True); build.write_text('plugins {}\n')
+        result = spec_skeleton.write(t.f.root, 'M001', t.f.root / 'staging/spec-designer/first')
+        spec = check_ref(result['files']['spec.md']).read_text()
+        # one scenario per case, named, triggered and observed as the feature inventory says; the precondition is the author's
+        self.assertIn('#### Scenario: C1 subfunction-M001', spec); self.assertIn('- **WHEN** invoke\n- **THEN** result', spec)
+        self.assertIn('### Requirement: subfunction-M001', spec); self.assertEqual(spec.count('[[待写'), 1)
+        upstream = json.loads(check_ref(result['files']['upstream-test-plan.json']).read_text())
+        self.assertEqual({row['scenario_id'] for a in upstream['test_assets'] for row in a['scenarios']}, {'SCN-M001-001'})
+        build_path = next(p for p in upstream['paths'] if p['kind'] == 'build')
+        self.assertEqual((build_path['command']['selection_ref'], build_path['steps']), (file_ref(build), ['执行冻结的构建命令']))
+        self.assertGreater(result['later'], 0)
+        proposal = check_ref(result['files']['proposal.md']).read_text()
+        self.assertNotIn('[[待写', proposal); self.assertIn('[[可后补', proposal)  # why, capabilities and impact may follow
+
+    def test_an_empty_catalogue_makes_every_reuse_row_a_new_implementation(self):
+        t = test_source_changes.SourceChangeTests(); t.setUp(); self.addCleanup(t.doCleanups)
+        result = spec_skeleton.write(t.f.root, 'M001', t.f.root / 'staging/spec-designer/reuse')
+        s = t.f.state(); m = dict(s['modules']['M001'])
+        m['context_refs'] = list(m.get('context_refs') or []) + [t.f.ref('empty-catalog.json', {'schema_version': 2, 'capabilities': []})]
+        rows = spec_skeleton.plans(s, m, None, result['files'])['reuse-plan.json']['mappings']
+        self.assertEqual({(r['decision'], r['capability_id'], 'integration' in r) for r in rows}, {('new', None, False)})
+
+    def test_every_case_has_one_scenario_and_every_requirement_one_at_least(self):
+        items = {'I1': {'requirement_ids': ['R1', 'R2'], 'case_ids': ['C1', 'C2']}, 'I2': {'requirement_ids': ['R3'], 'case_ids': ['C2']}}
+        rows = spec_skeleton.scenarios({'module_id': 'M9'}, items, ['R1', 'R2', 'R3'], [])
+        self.assertEqual(rows, [('R1', 'SCN-M9-001', 'C1'), ('R1', 'SCN-M9-002', 'C2'), ('R2', 'SCN-M9-003', 'C1'), ('R3', 'SCN-M9-004', 'C2')])
+
     def test_the_plan_set_is_written_from_the_allocation_and_filled_before_it_is_a_plan(self):
         t = test_source_changes.SourceChangeTests(); t.setUp(); self.addCleanup(t.doCleanups)
         out = t.f.root / 'staging/spec-designer/skeleton-set'

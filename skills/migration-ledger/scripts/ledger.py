@@ -851,6 +851,7 @@ def _next_step(s, m):
                     recovery_action='realloc-request-or-redecompose-parent')
     elif m['phase'] in ('context', 'specifying', 'change-review'):
         step.update(operation='plan', role='spec-designer', ready=True,
+                    planning_budget_minutes=s.get('planning_budget_seconds', progress_signals.PLANNING_BUDGET) // 60,
                     input_subject_sha256=design_stage.subject(s, m),
                     upstream_case_refs=design_stage.upstream_refs(s), upstream_case_ids=m['case_ids'])
         waiting = [row['module_id'] for row in providers(s, m) if not row['ready']]
@@ -1153,6 +1154,8 @@ def with_card(s, m, step):
         snapshot = project_context.verify_snapshot(s['project_context_ref'])
         if (step.get('role'), step.get('operation')) == ('spec-designer', 'plan') and m and m.get('dimension_analysis_ref') and not m.get('plan'):
             step['spec_skeleton'] = 'spec_skeleton.py --root <run_root> --module ' + m['module_id'] + ' --out <staging directory>'
+        if (step.get('role'), step.get('operation')) == ('module-orchestrator', 'decompose') and 'split' in step.get('planning_outcomes', []):
+            step['split_draft'] = 'split_draft.py --root <run_root> --module ' + m['module_id'] + ' --out <staging directory>'
         skill = snapshot.get('source_refs', {}).get('slicing_skill_ref')
         if skill and (step.get('role'), step.get('operation')) in SLICING_STEPS:
             step['slicing_skill'] = {'name': experience.SKILL, 'ref': copy.deepcopy(skill)}
@@ -1237,6 +1240,28 @@ def new_module(p):
             'fix_rounds_used': 0, 'total_fix_rounds': 0, 'recovery_cycle': 0,
             'no_progress_rounds': 0, 'blocked': None, 'authors': [], 'local_fix_used': 0, 'fix_memory': [],
             'dependencies': p.get('dependencies', [])}
+
+
+def later_parts(plan):
+    """{file name: count} of the parts a submitted plan set leaves to write later: its definitions, its test design and
+    reuse plan, and the notes those cite."""
+    from contracts import later
+    refs = [d for d in (plan.get('definitions') or []) if isinstance(d, dict)] if isinstance(plan, dict) else []
+    for key in ('test_design_ref', 'reuse_plan_ref'):
+        try:
+            doc = read_json(check_ref(plan[key]))
+            refs += [plan[key], doc.get('design_ref')] + [(row.get('fidelity') or {}).get('alignment_ref') for row in doc.get('mappings') or []]
+        except (Rejected, OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+    counts = {}
+    for ref in refs:
+        try:
+            n = later(ref) if isinstance(ref, dict) and ref.get('path') else 0
+        except (Rejected, OSError):
+            n = 0
+        if n:
+            counts[Path(ref['path']).name] = n
+    return counts
 
 
 def unfilled(*refs):
@@ -1539,6 +1564,7 @@ def mutate(s, req, principal, events, root=None):
         held = m.get('plan_ref') == p['plan_ref']
         submitted = read_json(check_ref(p['plan_ref']))
         unfilled(p['plan_ref'], *(submitted.get(key) for key in ('test_design_ref', 'reuse_plan_ref') if isinstance(submitted, dict)))
+        deferred = later_parts(submitted)
         plan = design_stage.materialize(s, m, submitted, judge=not held)
         import minimal_plan
         dimensions.refinement(s, m, plan)  # an analysis the leaf refined from its allocation is judged like a registered one
@@ -1569,6 +1595,9 @@ def mutate(s, req, principal, events, root=None):
             plan_hash = validate_plan(plan, m)
             m['plan_submissions'] = m.get('plan_submissions', 0) + 1  # distinct plans accepted for this freeze
             decomposition.task_shape_facts(s, mid, plan, sequence=len(events) + 1)
+            if deferred:  # a first version may leave its rationale, risks and notes: the leaf goes on and owes them as debt
+                issues.record(s, 'PLAN-%s-later-%s' % (mid, plan_hash[:8]), 'debt', '%s plan leaves %d parts to write later: %s'
+                              % (mid, sum(deferred.values()), ', '.join('%s %d' % row for row in sorted(deferred.items()))), [mid], issues.LEDGER)
             if s.get('split_testing_required') or any(path.get('kind') == 'build' for path in plan['paths']):
                 tv.plan_check(plan, s['target_root'], static_required=s.get('spec_closure_required', False),
                               unit_required=s.get('unit_tests_required', False))
@@ -2323,7 +2352,9 @@ def _judge(root, req, principal):
         if s and s.get('package_sha'):  # the run keeps the package it was prepared with; a rule written since binds the next run
             import package_version
             current = package_version.sha(reading.PACKAGE)
-            require(current in (None, s['package_sha']), 'this run is pinned to package %s: run it from a worktree at that commit (git worktree add <dir> %s), not from %s'
+            require(current in (None, s['package_sha']) or run_changes.advancing(s, req, current),
+                    'this run is pinned to package %s: run it from a worktree at that commit (git worktree add <dir> %s), not from %s; '
+                    'or move it to this package by a run revision with package_sha and a decision'
                     % (s['package_sha'][:12], s['package_sha'], (current or 'an unknown checkout')[:12]))
         require(req.get('schema_version') == 1 and req.get('request_id'), 'version/request id required')
         request_hash = digest({'request': req, 'principal': principal})
@@ -2375,6 +2406,8 @@ def _judge(root, req, principal):
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
             resources = project_context.target_resources(p.get('target_resources', {}), p['target_root'])
             require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
+            require(p.get('planning_budget_seconds') is None or type(p['planning_budget_seconds']) is int and p['planning_budget_seconds'] > 0,
+                    'planning_budget_seconds is a positive number of seconds')
             require(p.get('package_sha') is None or (isinstance(p['package_sha'], str) and re.fullmatch(r'[0-9a-f]{40}', p['package_sha'])), 'package_sha is a git commit')
             require(not (p.get('module_slicing') or {}).get('functional_use_cases_complete') or (p.get('project_sources') or {}).get('test_cases_path'),
                     'functional_use_cases_complete=true claims the supplied cases are complete: it needs test_cases_path')
@@ -2397,7 +2430,8 @@ def _judge(root, req, principal):
                  'modules': {}, 'decisions': {}, 'audit': {}, 'global_paths': p.get('global_paths', []), 'quality': 'yellow-blocked',
                  'max_parallel_modules': p.get('max_parallel_modules', 5), 'max_audit_rounds': p.get('max_audit_rounds', 3),
                  'max_fix_rounds': p.get('max_fix_rounds', 3), 'max_no_progress_rounds': p.get('max_no_progress_rounds', 2),
-                 'max_yellow_retries': p.get('max_yellow_retries', 2), 'package_sha': p.get('package_sha')}
+                 'max_yellow_retries': p.get('max_yellow_retries', 2), 'package_sha': p.get('package_sha'),
+                 **({'planning_budget_seconds': p['planning_budget_seconds']} if p.get('planning_budget_seconds') else {})}
             workflow.global_paths_check(s['global_paths'], s['case_ids'])
             require(all(type(s[k]) is int and s[k] > 0 for k in ('max_fix_rounds', 'max_no_progress_rounds', 'max_parallel_modules', 'max_audit_rounds', 'max_yellow_retries')), 'invalid budgets')
             require('local_fix_rounds' not in p, 'use the shared max_fix_rounds budget')
@@ -2687,7 +2721,7 @@ def advance(root, principal, module_id, workers=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('init', 'apply', 'status', 'resume', 'recover', 'history', 'advance', 'preview'))
+    parser.add_argument('command', choices=('init', 'apply', 'status', 'resume', 'recover', 'history', 'advance', 'preview', 'handover'))
     parser.add_argument('--root', required=True)
     parser.add_argument('--request')
     parser.add_argument('--view', choices=status_view.VIEWS, default='cursor',
@@ -2705,6 +2739,10 @@ def main():
             state, _ = read_events(Path(args.root).resolve())
             require(state, 'run not initialized')
             print(json.dumps(state, ensure_ascii=False, separators=(',', ':')))
+            return 0
+        if args.command == 'handover':  # what a new host session needs to continue a run whose host stopped
+            import handover
+            print(json.dumps(handover.brief(args.root), ensure_ascii=False, separators=(',', ':')))
             return 0
         if args.command == 'preview' and args.request:
             require(args.host_context, 'preview of a request needs --host-context (the role that would submit it)')

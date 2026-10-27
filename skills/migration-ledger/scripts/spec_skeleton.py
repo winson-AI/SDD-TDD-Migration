@@ -4,8 +4,10 @@ stage plan, the upstream test plan with its design note and, where the run reuse
 A Spec-Designer starts from the leaf's four-dimension specification, not from an empty template and not from a script of
 its own: scope, requirements, cases, every allocated item, one task per feature the leaf holds, one behaviour path per
 case, a unit path per Logic item, the build and static paths and the trace from items to tasks and paths are in place;
-each part only its author can write is marked. A plan, or a file it cites, that still holds a mark is refused, so a
-skeleton is never frozen as a specification. After editing, `contracts.py refs <directory>` gives every file's reference.
+what the feature inventory says of a case (its name, trigger and observable result) starts its scenario, one scenario per
+case; each part only its author can write is marked [[待写 and refused while left, each part a first version may leave
+(rationale, risks, impact, wiring notes) is marked [[可后补 and recorded as debt while left. After editing,
+`contracts.py refs <directory>` gives every file's reference.
 
   spec_skeleton.py --root <run_root> --module <id> --out <absolute directory in the role's staging>
 """
@@ -15,11 +17,57 @@ import re
 import sys
 from pathlib import Path
 
-from contracts import SKELETON_MARK, Rejected, check_ref, file_ref, read_json, require
+from contracts import LATER_MARK, SKELETON_MARK, Rejected, check_ref, file_ref, read_json, require
 
 
 def todo(what):
     return f'{SKELETON_MARK}：{what}]]'
+
+
+def later(what):
+    return f'{LATER_MARK}：{what}]]'
+
+
+def held_features(s, m):
+    """The inventory rows of the features the leaf holds, in inventory order; empty when the run has no inventory."""
+    import decomposition
+    cases = set(m.get('case_ids') or [])
+    allocation = decomposition.assigned_module(s, m)
+    if isinstance(allocation.get('features'), dict) and 'unreadable' not in allocation['features']:
+        return list(allocation['features'].values())
+    if allocation.get('feature_inventory_ref'):
+        try:
+            held = set(allocation.get('feature_ids') or [])
+            return [f for f in read_json(check_ref(allocation['feature_inventory_ref'])).get('features') or []
+                    if (f.get('feature_id') in held if held else set(f.get('case_ids') or []) & cases)]
+        except (Rejected, OSError, KeyError, TypeError):
+            return []
+    return []
+
+
+def scenarios(m, items, requirements, features):
+    """[(requirement, scenario id, case)]: every case once, under the first requirement whose items hold it; a requirement
+    whose cases all have a scenario already gets one for its first case, since each requirement states one."""
+    mid, rows, covered = m['module_id'], [], set()
+    for rid in requirements:
+        held = sorted({cid for item in items.values() if rid in item['requirement_ids'] for cid in item['case_ids']})
+        for cid in [c for c in held if c not in covered] or held[:1] or ['']:
+            rows.append((rid, f'SCN-{mid}-{len(rows) + 1:03d}', cid)); covered.add(cid)
+    return rows
+
+
+def feature_of(features, cid):
+    return next((f for f in features if cid and cid in (f.get('case_ids') or [])), None)
+
+
+def task_groups(features, cases):
+    """[(task name, cases)]: one task per feature the leaf holds; the cases no feature holds, or all of them without an inventory, make one more."""
+    groups = [(f.get('name') or f['feature_id'], [c for c in cases if c in set(f.get('case_ids') or [])]) for f in features]
+    groups = [g for g in groups if g[1]]
+    rest = [c for c in cases if not any(c in g[1] for g in groups)]
+    if rest or not groups:
+        groups.append((todo('任务名称：按行为切，每个任务有自己可跑的 PATH'), rest or cases))
+    return groups
 
 
 def documents(s, m):
@@ -32,10 +80,10 @@ def documents(s, m):
     listed = lambda values: ''.join(f'- {value}\n' for value in values) or '- none\n'
     ids = lambda rows: '、'.join(f'`{iid}`' for iid in rows) or '—'
     ref = lambda value: f"{value['path']} · sha256={value['sha256']}" if isinstance(value, dict) and value.get('path') else '—'
-    proposal = (f"# {mid} {(scope.get('in') or [mid])[0]}\n\n## Why\n{todo('业务目标、迁移原因、可观察收益')}\n\n"
+    proposal = (f"# {mid} {(scope.get('in') or [mid])[0]}\n\n## Why\n{later('业务目标、迁移原因、可观察收益')}\n\n"
                 f"## What Changes\n{listed(scope.get('in') or [])}\n不在范围：沿用分配包 scope.out（{len(scope.get('out') or [])} 条），不复写。\n\n"
-                f"## Capabilities\n{todo('新增或修改的 capability；没有则写 none')}\n\n"
-                f"## Impact\n{todo('旧架构到新架构的影响、上下游契约、数据迁移、安全与性能约束')}\n\n"
+                f"## Capabilities\n{later('新增或修改的 capability；没有则写 none')}\n\n"
+                f"## Impact\n{later('旧架构到新架构的影响、上下游契约、数据迁移、安全与性能约束')}\n\n"
                 f"## References\n- run_id: {s.get('run_id')}\n- module_id: {mid}\n- global_spec_ref: {ref(s.get('global_spec'))}\n"
                 f"- dimension_analysis_ref: {ref(m['dimension_analysis_ref'])}\n- cases: {'、'.join(m.get('case_ids', []))}\n")
     dimensions_text = ''
@@ -43,7 +91,7 @@ def documents(s, m):
         dimensions_text += f"### {row['dimension']}（{row.get('status')}：{row.get('reason', '')}）\n"
         for item in row.get('items') or [] if row.get('status') == 'applicable' else []:
             dimensions_text += (f"- `{item['item_id']}`：{item['behavior']}；验收：{item['acceptance']}；CASE：{'、'.join(item['case_ids'])}\n"
-                                f"  - {todo('实现要点与接线')}\n")
+                                f"  - {later('实现要点与接线')}\n")
         dimensions_text += '\n'
     import reference_media
     media = reference_media.of_module(s, m)  # what the user showed: screenshots are the baseline, recordings the expected interaction
@@ -52,28 +100,37 @@ def documents(s, m):
         + ('目标预期（取代存量基线）→ UI 项 `ui_evidence.baseline_refs`（user-reference）与 visual PATH `baseline_ref`；本 design 引用它' if row['role'] == 'target-expectation'
            else '视觉基线 → UI 项 `ui_evidence.baseline_refs`（user-reference）与 visual PATH `baseline_ref`' if row['kind'] == 'screenshot'
            else '交互预期 → PATH 步骤与 `reference_media_ids`') + '\n' for row in media) + '\n') if media else ''
-    design = (f"# {mid} Design\n\n## Context\n{todo('全局规范、架构、legacy 基线与相关模块接口')}\n\n"
+    design = (f"# {mid} Design\n\n## Context\n{later('全局规范、架构、legacy 基线与相关模块接口')}\n\n"
               f"## Goals / Non-Goals\n范围内：\n{listed(scope.get('in') or [])}\n范围外：沿用分配包 scope.out（{len(scope.get('out') or [])} 条），不复写。\n\n"
               f"## Legacy → Target Mapping\n源定位、行为、目标绑定与策略见 dimension_analysis_ref（{len(items)} 个 item），引用为 `path#symbol`/`path:line`，不抄源码。\n\n"
               f"{media_text}## UI → Logic → Adhesive → Resource\n{dimensions_text}"
-              f"## Test Design\n{todo('正常、边界、异常路径与允许 Mock 的外部边界')}\n\n"
-              f"## Risks / Rollback\n{todo('风险、回滚条件与操作')}\n")
-    spec, number = '## ADDED Requirements\n', 0
+              f"## Test Design\n{later('正常、边界、异常路径与允许 Mock 的外部边界')}\n\n"
+              f"## Risks / Rollback\n{later('风险、回滚条件与操作')}\n")
+    features, cases = held_features(s, m), list(m.get('case_ids') or [])
+    spec, rows = '## ADDED Requirements\n', scenarios(m, items, requirements, features)
     for rid in requirements:
         owned = {iid: item for iid, item in items.items() if rid in item['requirement_ids']}
-        spec += (f"\n### Requirement: {todo('需求名称')}\nRequirement-ID: {rid}\n{rid}: The system SHALL {todo('可观察的行为及边界')}.\n"
+        named = [f for f in features if rid in (f.get('requirement_ids') or [])]
+        spec += (f"\n### Requirement: {'、'.join(f.get('name') or f['feature_id'] for f in named) or todo('需求名称')}\nRequirement-ID: {rid}\n"
+                 f"{rid}: The system SHALL {'；'.join(f['observable_result'] for f in named if f.get('observable_result')) or todo('可观察的行为及边界')}.\n"
                  f"Items: {ids(owned)}\n")
-        for cid in sorted({cid for item in owned.values() for cid in item['case_ids']}) or ['']:
-            number += 1
-            spec += (f"\n#### Scenario: {todo('场景名称')}\nScenario-ID: SCN-{mid}-{number:03d}\n" + (f"CASE: {cid}\n" if cid else '') +
-                     f"- **GIVEN** {todo('前置条件')}\n- **WHEN** {todo('触发行为')}\n- **THEN** {todo('可断言结果')}\n")
-    tasks = (f"# {mid} Tasks\n\n## Implementation\n- [ ] TASK-{mid}-001 {todo('可执行任务名称；按需拆成多个 TASK')}\n"
-             f"  - Requirements: {'、'.join(requirements)}\n  - Cases / Paths: {'、'.join(m.get('case_ids', []))} / {todo('PATH-ID')}\n"
-             f"  - Items: {ids(items)}\n  - Write scope: {'、'.join(m.get('write_paths', []))}\n"
-             f"  - Action: {todo('具体改动')}\n  - Done when: {todo('可核验结果')}\n\n"
-             "## Traceability\n| REQ-ID | TASK-ID | CASE-ID | Item |\n| --- | --- | --- | --- |\n" +
-             ''.join(f"| {rid} | TASK-{mid}-001 | {'、'.join(sorted({cid for item in items.values() if rid in item['requirement_ids'] for cid in item['case_ids']}))} | "
-                     f"{ids({iid: item for iid, item in items.items() if rid in item['requirement_ids']})} |\n" for rid in requirements))
+        for _, sid, cid in [row for row in rows if row[0] == rid]:
+            f = feature_of(features, cid)
+            spec += (f"\n#### Scenario: {cid + ' ' + (f.get('name') or '') if f else todo('场景名称')}\nScenario-ID: {sid}\n" + (f"CASE: {cid}\n" if cid else '') +
+                     f"- **GIVEN** {todo('前置条件')}\n- **WHEN** {(f or {}).get('trigger') or todo('触发行为')}\n"
+                     f"- **THEN** {(f or {}).get('observable_result') or todo('可断言结果')}\n")
+    path_of = {cid: f'PATH-{mid}-{n:03d}' for n, cid in enumerate(cases, 1)}
+    groups = task_groups(features, cases)
+    tasks = f"# {mid} Tasks\n\n## Implementation\n" + ''.join(
+        f"- [ ] TASK-{mid}-{n:03d} {name}\n  - Cases / Paths: {'、'.join(held)} / {'、'.join(path_of[c] for c in held)}\n"
+        f"  - Write scope: {'、'.join(m.get('write_paths', []))}\n  - Action: {todo('具体改动')}\n  - Done when: 所列 PATH 全部 Green\n\n"
+        for n, (name, held) in enumerate(groups, 1))
+    task_of = {cid: f'TASK-{mid}-{n:03d}' for n, (_, held) in enumerate(groups, 1) for cid in held}
+    tasks += "## Traceability\n| REQ-ID | TASK-ID | CASE-ID | Item |\n| --- | --- | --- | --- |\n"
+    for rid in requirements:
+        owned = {iid: item for iid, item in items.items() if rid in item['requirement_ids']}
+        held = sorted({cid for item in owned.values() for cid in item['case_ids']})
+        tasks += f"| {rid} | {'、'.join(sorted({task_of[c] for c in held if c in task_of})) or '—'} | {'、'.join(held)} | {ids(owned)} |\n"
     return {'proposal.md': proposal, 'spec.md': spec, 'design.md': design, 'tasks.md': tasks}
 
 
@@ -83,7 +140,6 @@ def plans(s, m, out, documents):
     run reuses, the reuse plan with its alignment note. The Ledger completes the rest of a plan from the analysis."""
     import dimensions
     import design_stage
-    import decomposition
     mid = m['module_id']
     analysis, items = dimensions.load(m['dimension_analysis_ref'], mid)
     cases = list(m.get('case_ids') or [])
@@ -91,23 +147,11 @@ def plans(s, m, out, documents):
     requirements = list(scope.get('requirement_ids') or sorted({rid for item in items.values() for rid in item['requirement_ids']}))
     holders = {cid: [iid for iid, item in items.items() if cid in item['case_ids']] for cid in cases}
     requirement_of = lambda cid: next((rid for iid in holders[cid] for rid in items[iid]['requirement_ids']), requirements[0] if requirements else todo('REQ-ID'))
-    # one task per feature the leaf holds; the cases no feature holds, or every case when there is no inventory, make one more
-    features = []
-    allocation = decomposition.assigned_module(s, m)
-    if isinstance(allocation.get('features'), dict) and 'unreadable' not in allocation['features']:
-        features = list(allocation['features'].values())
-    elif allocation.get('feature_inventory_ref'):
-        try:
-            held = set(allocation.get('feature_ids') or [])
-            features = [f for f in read_json(check_ref(allocation['feature_inventory_ref'])).get('features') or []
-                        if (f.get('feature_id') in held if held else set(f.get('case_ids') or []) & set(cases))]
-        except (Rejected, OSError, KeyError, TypeError):
-            features = []
-    groups = [(f.get('name') or f['feature_id'], [c for c in cases if c in set(f.get('case_ids') or [])]) for f in features]
-    groups = [g for g in groups if g[1]]
-    rest = [c for c in cases if not any(c in g[1] for g in groups)]
-    if rest or not groups:
-        groups.append((todo('任务名称：按行为切，每个任务有自己可跑的 PATH'), rest or cases))
+    features = held_features(s, m)
+    groups = task_groups(features, cases)
+    scenario_of = {}
+    for _, sid, cid in scenarios(m, items, requirements, features):
+        scenario_of.setdefault(cid, sid)
     path_of = {cid: f'PATH-{mid}-{n:03d}' for n, cid in enumerate(cases, 1)}
     logic = [iid for iid, item in items.items() if item['dimension'] == 'Logic']
     unit_of = {iid: f'UNIT-{mid}-{n:03d}' for n, iid in enumerate(logic, 1)}
@@ -115,13 +159,18 @@ def plans(s, m, out, documents):
     first = cases[0] if cases else None
 
     def path(pid, kind, cid, name, expected=None, **extra):
+        # a command PATH runs its frozen command: its precondition and step are known; a device PATH's come from the source
+        run = {'build': ('代码已被接受', '执行冻结的构建命令'), 'static': ('构建与单测 Green', '审查冻结的规格闭合'),
+               'unit': ('代码已被接受', '执行冻结的单测命令')}.get(kind) or (('代码已被接受', '运行冻结的功能测试') if extra.get('platform') == 'jvm' else None)
         return {'path_id': pid, 'kind': kind, 'name': name, 'case_id': cid, 'requirement_id': requirement_of(cid) if cid else requirements[0],
-                'required': True, 'preconditions': [todo('源码定义的前置状态')], 'steps': [todo('源码定义的动作')], 'parameters': {},
-                'dependency_refs': [], 'priority': 'P0', 'scope': 'module',
+                'required': True, 'preconditions': [run[0] if run else todo('源码定义的前置状态')], 'steps': [run[1] if run else todo('源码定义的动作')],
+                'parameters': {}, 'dependency_refs': [], 'priority': 'P0', 'scope': 'module',
                 'expected_assertions': [{'assertion_id': 'ASSERT-' + pid, 'expected': todo('上游预期') if expected is None else expected, 'scenario_ids': []}],
-                'preparation': {'status': 'existing', 'reason': todo('已批准的测试方式'), 'evidence_refs': [], 'asset_ids': []}, **extra}
-    paths = [path(build, 'build', first, todo('构建命令名'), expected=0,
-                  command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': todo('选择依据引用')})]
+                'preparation': {'status': 'existing', 'reason': later('已批准的测试方式'), 'evidence_refs': [], 'asset_ids': []}, **extra}
+    case_name = lambda cid: cid + ' ' + ((feature_of(features, cid) or {}).get('name') or '用例路径')
+    chosen_by = build_file(s, m) or todo('选择依据引用')  # a command is chosen by the build file of the module it builds
+    paths = [path(build, 'build', first, 'build', expected=0,
+                  command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': chosen_by})]
     if static:
         paths.append(path(static, 'static', first, '静态规格闭合审查', expected=True))
     sources, test_assets = {}, []
@@ -135,10 +184,10 @@ def plans(s, m, out, documents):
         sources[name] = test_source(cls, pid, iid, methods)
         test_assets.append({'asset_id': 'TEST-' + pid, 'kind': 'test-source', 'ref': name, 'path_ids': [pid],
                             'target_path': todo('目标测试源集中的绝对路径'), 'required_test_ids': ids,
-                            'scenarios': [{'scenario_id': todo('Scenario-ID'), 'test_id': tid} for tid in ids],
+                            'scenarios': [{'scenario_id': scenario_of.get(cid) or todo('Scenario-ID'), 'test_id': tid} for tid, (_, cid) in zip(ids, methods)],
                             'symbols': [todo('测试调用的生产符号')]})
-        paths.append(path(pid, 'unit', held[0] if held else first, todo(f'{iid} 的单测名'), expected=True,
-                          command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': todo('选择依据引用')},
+        paths.append(path(pid, 'unit', held[0] if held else first, f'{iid} 单测', expected=True,
+                          command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': chosen_by},
                           unit_report={'format': 'junit', 'patterns': [todo('runner 相对的 JUnit 报告 glob')], 'required_test_ids': ids},
                           preparation={'status': 'prepared', 'reason': '从 SPEC 写出并随计划冻结的测试源', 'evidence_refs': [], 'asset_ids': ['TEST-' + pid]}))
     import project_context
@@ -152,14 +201,14 @@ def plans(s, m, out, documents):
             nodes = screen_nodes(items, seen)
             if platforms[0] == 'web':  # the built-in web Main drives the page: frozen steps and DOM predicates, no script to write
                 hint = f'（UI 树节点 id：{", ".join(nodes)}）' if nodes else ''
-                paths.append(path(pid, 'automation', cid, todo(f'{cid} 的上游用例路径名'), platform='web', task_type='test',
+                paths.append(path(pid, 'automation', cid, case_name(cid), platform='web', task_type='test',
                                   steps=[{'action': 'goto', 'url': todo('目标页面的绝对 URL')}, {'action': 'click', 'selector': todo('冻结动作的 CSS 选择器' + hint)}],
                                   expected_assertions=[{'assertion_id': 'ASSERT-' + pid, 'expected': True, 'description': todo('上游预期'), 'matcher': 'exact',
                                                         'verification': 'dom', 'after_step': 2, 'scenario_ids': [],
                                                         'predicate': {'kind': 'text', 'selector': todo('CSS 选择器'), 'equals': todo('页面显示的文本')}}],
                                   preparation={'status': 'existing', 'reason': '包内 web Main 按冻结步骤驱动页面', 'evidence_refs': [], 'asset_ids': []}))
                 continue
-            paths.append(path(pid, 'automation', cid, todo(f'{cid} 的上游用例路径名'), platform=platforms[0],
+            paths.append(path(pid, 'automation', cid, case_name(cid), platform=platforms[0],
                               **({'preparation': {'status': 'prepared', 'reason': 'UI 树节点 id 稳定，脚本随计划冻结', 'evidence_refs': [], 'asset_ids': ['SCRIPT-' + pid]}} if nodes else {})))
             if nodes:
                 cls = case_class(cid, 'UiTest')
@@ -174,9 +223,9 @@ def plans(s, m, out, documents):
         sources[name] = test_source(cls, pid, cid, [('flow', cid)])
         test_assets.append({'asset_id': 'TEST-' + pid, 'kind': 'test-source', 'ref': name, 'path_ids': [pid],
                             'target_path': todo('目标测试源集中的绝对路径'), 'required_test_ids': [tid],
-                            'scenarios': [{'scenario_id': todo('Scenario-ID'), 'test_id': tid}], 'symbols': [todo('测试调用的冻结门面符号')]})
-        paths.append(path(pid, 'automation', cid, todo(f'{cid} 的上游用例路径名'), expected=True, platform='jvm',
-                          command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': todo('选择依据引用')},
+                            'scenarios': [{'scenario_id': scenario_of.get(cid) or todo('Scenario-ID'), 'test_id': tid}], 'symbols': [todo('测试调用的冻结门面符号')]})
+        paths.append(path(pid, 'automation', cid, case_name(cid), expected=True, platform='jvm',
+                          command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': chosen_by},
                           unit_report={'format': 'junit', 'patterns': [todo('runner 相对的 JUnit 报告 glob')], 'required_test_ids': [tid]},
                           preparation={'status': 'prepared', 'reason': '从 SPEC 写出并随计划冻结的功能测试', 'evidence_refs': [], 'asset_ids': ['TEST-' + pid]}))
         paths[-1]['expected_assertions'][0]['test_id'] = tid
@@ -205,7 +254,7 @@ def plans(s, m, out, documents):
                 + [p['path_id'] for p in paths if p['kind'] == 'visual' and p['case_id'] in item['case_ids'] and item['dimension'] == 'UI'])
         trace.append({'item_id': iid, 'task_ids': owned, 'path_ids': pids, 'assertions': [{'path_id': pid, 'assertion_id': 'ASSERT-' + pid} for pid in pids]})
     test_note = (f"# {mid} 测试计划\n\n上游用例：{'、'.join(cases)}\n\n" + ''.join(f"- {p['path_id']}（{p['kind']}）：{p['name']}；CASE {p['case_id']}\n" for p in paths)
-                 + f"\n{todo('每条路径的前置、步骤、断言与准备方式')}\n")
+                 + f"\n{later('每条路径的前置、步骤、断言与准备方式')}\n")
     upstream = {'schema_version': 1, 'kind': 'upstream-test-plan', 'module_id': mid, 'subject_sha256': design_stage.subject(s, m),
                 'case_refs': design_stage.upstream_refs(s), 'design_ref': None, 'paths': paths, 'test_assets': test_assets}
     plan = {'schema_version': 1, 'module_id': mid,
@@ -213,24 +262,41 @@ def plans(s, m, out, documents):
             'test_design_ref': None, 'tasks': tasks, 'dimension_trace': trace}
     out_files = {'test-plan.md': test_note, 'upstream-test-plan.json': upstream, 'stage-plan.json': plan, **sources}
     if m.get('parent_module_id') or s.get('reuse_required'):
-        catalog = None
+        catalog, capabilities = None, None
         for ref in m.get('context_refs') or []:
             try:
-                if isinstance(read_json(check_ref(ref)), dict) and 'capabilities' in read_json(check_ref(ref)):
-                    catalog = ref
+                data = read_json(check_ref(ref))
+                if isinstance(data, dict) and 'capabilities' in data:
+                    catalog, capabilities = ref, data['capabilities']
             except (Rejected, OSError, ValueError, TypeError):
                 continue
-        mappings = [{'mapping_id': f'REUSE-{mid}-{n:03d}', 'requirement_ids': [rid], 'capability_id': todo('能力 ID；new 时为 null'),
-                     'decision': todo('reuse / adapt / reference / new'), 'rationale': todo('语义匹配与选择理由'), 'behavior_delta': todo('匹配点、缺口与适配'),
-                     'binding_plan': todo('生产入口、DI、适配器与消费者'), 'task_ids': [t['task_id'] for t in tasks if rid in t['requirement_ids']] or [tasks[0]['task_id']],
+        none = capabilities == []  # the catalogue holds nothing to reuse: every requirement is a new implementation
+        mappings = [{'mapping_id': f'REUSE-{mid}-{n:03d}', 'requirement_ids': [rid],
+                     'capability_id': None if none else todo('能力 ID；new 时为 null'), 'decision': 'new' if none else todo('reuse / adapt / reference / new'),
+                     'rationale': '能力目录没有可复用的候选' if none else later('语义匹配与选择理由'), 'behavior_delta': later('匹配点、缺口与适配'),
+                     'binding_plan': later('生产入口、DI、适配器与消费者'), 'task_ids': [t['task_id'] for t in tasks if rid in t['requirement_ids']] or [tasks[0]['task_id']],
                      'path_ids': [path_of[cid] for cid in cases if requirement_of(cid) == rid] or [path_of[first]] if first else [],
-                     'verification': todo('业务契约、边界、错误与真实提供方断言'),
+                     'verification': later('业务契约、边界、错误与真实提供方断言'),
                      'fidelity': {'legacy_root': s.get('legacy_root'), 'legacy_source_refs': [], 'alignment_ref': None, 'scenarios': []},
-                     'integration': {'mode': todo('existing-target / package / source-module / reference-only'), 'locator': todo('目标模块、API 或包坐标'), 'version': todo('解析版本')}}
+                     **({} if none else {'integration': {'mode': todo('existing-target / package / source-module / reference-only'),
+                                                         'locator': todo('目标模块、API 或包坐标'), 'version': todo('解析版本')}})}
                     for n, rid in enumerate(requirements, 1)]
-        out_files['reuse-fidelity.md'] = f"# {mid} 复用与存量功能保真对齐\n\n{todo('逐行为对齐：场景、源码定位、前置/输入、存量预期、提供方语义、差异与 PATH/ASSERT')}\n"
+        out_files['reuse-fidelity.md'] = f"# {mid} 复用与存量功能保真对齐\n\n{later('逐行为对齐：场景、源码定位、前置/输入、存量预期、提供方语义、差异与 PATH/ASSERT')}\n"
         out_files['reuse-plan.json'] = {'schema_version': 1, 'module_id': mid, 'catalog_ref': catalog or todo('能力目录引用'), 'mappings': mappings}
     return out_files
+
+
+def build_file(s, m):
+    """The reference of the build file nearest the leaf's first write path, within the target; None when there is none."""
+    target = Path(s.get('target_root') or '/nonexistent').resolve()
+    for start in (m.get('write_paths') or [])[:1]:
+        for folder in [Path(start), *Path(start).parents]:
+            if not folder.resolve().is_relative_to(target):
+                break
+            for name in ('build.gradle.kts', 'build.gradle', 'hvigorfile.ts', 'package.json'):
+                if (folder / name).is_file():
+                    return file_ref(folder / name)
+    return None
 
 
 def visual_prefill(s, platform):
@@ -342,9 +408,10 @@ def write(root, module_id, out):
     (out / 'stage-plan.json').write_text(json.dumps(rest['stage-plan.json'], ensure_ascii=False, indent=2) + '\n')
     files['stage-plan.json'] = file_ref(out / 'stage-plan.json')
     unfilled = sum((out / name).read_text().count(SKELETON_MARK) for name in files)
-    return {'module_id': module_id, 'files': files, 'unfilled': unfilled,
-            'next_action': 'write every marked part, then `contracts.py refs ' + str(out) + '` for the references the plan cites; '
-                           'a plan, or a file it cites, that still holds a mark is refused'}
+    deferred = sum((out / name).read_text().count(LATER_MARK) for name in files)
+    return {'module_id': module_id, 'files': files, 'unfilled': unfilled, 'later': deferred,
+            'next_action': 'write every [[待写 part, then `contracts.py refs ' + str(out) + '` for the references the plan cites; '
+                           'a plan, or a file it cites, that still holds one is refused; a [[可后补 part left is recorded as debt'}
 
 
 def main(argv=None):

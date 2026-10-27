@@ -88,16 +88,21 @@ class SkeletonTests(unittest.TestCase):
         index = behavior_contract.scenario_index({'module_id': 'M001', 'definitions': [{**file_ref(path), 'kind': 'spec'}]})
         self.assertEqual([(row['scenario_id'], row['requirement_id']) for row in index], [('SCN-M001-001', 'R1')])
 
-    def test_a_plan_that_still_holds_a_mark_is_refused(self):
+    def test_a_part_to_write_is_refused_and_a_part_for_later_is_debt(self):
         f, t = self.f, self.t
         result = spec_skeleton.write(f.root, 'M001', self.out)
         plan = t.plan('M001')
         if f.state().get('test_design_required'):
             from test_design_stage import prepare_design
             prepare_design(f, plan, 'M001')
+        spec = [{**result['files']['tasks.md'], 'kind': 'tasks'} if d['kind'] == 'tasks' else d for d in plan['definitions']]
+        with self.assertRaisesRegex(Rejected, 'unfilled skeleton section left in tasks'):  # a [[待写 part is the author's
+            f.call('plan', {'plan_ref': f.ref('plan-with-skeleton.json', {**plan, 'definitions': spec})}, role='spec-designer', module='M001')
+        # the proposal holds only parts a first version may leave: the plan is accepted and owes them as debt
         plan['definitions'] = [{**result['files']['proposal.md'], 'kind': 'proposal'} if d['kind'] == 'proposal' else d for d in plan['definitions']]
-        with self.assertRaisesRegex(Rejected, 'unfilled skeleton section left in proposal'):
-            f.call('plan', {'plan_ref': f.ref('plan-with-skeleton.json', plan)}, role='spec-designer', module='M001')
+        f.call('plan', {'plan_ref': f.ref('plan-with-later-parts.json', plan)}, role='spec-designer', module='M001')
+        debt = [row for iid, row in f.state()['issues'].items() if iid.startswith('PLAN-M001-later-')]
+        self.assertEqual([(row['kind'], 'proposal.md 3' in row['summary']) for row in debt], [('debt', True)])
 
     def test_the_command_prints_what_it_wrote(self):
         self.assertEqual(spec_skeleton.main(['--root', str(self.f.root), '--module', 'M001', '--out', str(self.out)]), 0)

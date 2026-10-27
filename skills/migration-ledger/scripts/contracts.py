@@ -81,6 +81,7 @@ def owed(condition, message):
 
 
 SKELETON_MARK = '[[待写'  # opens a part of a generated skeleton only its author can write; no frozen definition holds one
+LATER_MARK = '[[可后补'  # opens a part a first version may leave: the plan is accepted and the Ledger records it as debt
 
 
 def marked(ref):
@@ -91,6 +92,16 @@ def marked(ref):
     except ValueError:
         pass
     return SKELETON_MARK in text
+
+
+def later(ref):
+    """How many parts a skeleton file still leaves to write later, however its JSON escapes the text."""
+    text = check_ref(ref).read_text(errors='replace')
+    try:
+        text = json.dumps(json.loads(text), ensure_ascii=False)
+    except ValueError:
+        pass
+    return text.count(LATER_MARK)
 
 
 def digest(value):
