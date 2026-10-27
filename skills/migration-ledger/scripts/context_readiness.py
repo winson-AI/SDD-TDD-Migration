@@ -38,11 +38,23 @@ WORKERS = {'implementer': 'coding', 'test-runner': 'testing', 'fixer': 'fixing'}
 
 # The stage whose preflight asks nothing the Ledger cannot check by itself: every input exists and is the bytes its
 # reference names, and the subject is current. A build or a test run also approves commands and an environment, which
-# only the worker that will run them can state; a repair round is spent when the Fixer says it can start.
+# only the worker that will run them can state - unless the freeze fixed the command of every PATH it runs
+# (frozen_execution); a repair round is spent when the Fixer says it can start.
 MECHANICAL = {'implementer': 'coding'}
 
 
-def mechanical_report(root, s, mid, stage, actor, draft=None, fallback=None):
+def frozen_execution(m, assignment):
+    """The commands a test dispatch runs when the freeze fixed every one of them (build, unit and in-process PATHs), as a
+    preflight states them; None when a PATH needs a device, an adapter or a reviewer."""
+    paths = {p['path_id']: p for p in (m.get('plan') or {}).get('paths', [])}
+    pids = (assignment.get('execution_contract') or {}).get('path_ids') or []
+    if assignment.get('role') != 'test-runner' or not pids or not all((paths.get(pid) or {}).get('command') for pid in pids):
+        return None
+    commands = {pid: {'argv': list(paths[pid]['command']['argv']), 'cwd': paths[pid]['command']['cwd']} for pid in pids}
+    return {**commands[pids[0]], 'commands': commands}
+
+
+def mechanical_report(root, s, mid, stage, actor, draft=None, fallback=None, execution=None):
     """Write, register and return the preflight of a stage the Ledger checks by itself: every input of the stage exists
     and is the bytes its reference names, and the subject is current. Rejected when an input is not as referenced."""
     m = scope(s, mid)
@@ -54,12 +66,14 @@ def mechanical_report(root, s, mid, stage, actor, draft=None, fallback=None):
              'source-closure': dimensions.of_leaf(m) if mid else None,
              'failure-diagnosis': (diagnosis_report(m) or {}).get('diagnosis_ref') if mid else None} if mid else {}
     fact = {'frozen-spec': 'freeze ' + str(m.get('freeze_id'))[:12], 'task-trace': str(len((m.get('plan') or {}).get('tasks', []))) + ' tasks traced to their paths',
-            'repair-history': str(len(m.get('fix_memory', []))) + ' earlier repair records', 'permissions-tools': 'write scope ' + ', '.join(m.get('write_paths', []))} if mid else {}
+            'repair-history': str(len(m.get('fix_memory', []))) + ' earlier repair records', 'permissions-tools': 'write scope ' + ', '.join(m.get('write_paths', [])),
+            'build-command': 'the frozen command of every PATH', 'test-paths': 'the frozen command of every PATH'} if mid else {}
     checks = {name: {'status': 'ready', 'evidence_refs': [proof.get(name) or anchor],
                      'summary': 'checked by the Ledger: the %d inputs of this stage exist and match their hashes; %s'
                                 % (len(refs), fact.get(name, 'bound to the current subject'))} for name in CHECKS[stage]}
     report = {'schema_version': 1, 'run_id': s['run_id'], 'module_id': mid, 'stage': stage, 'producer': actor, 'mechanical': True,
-              'subject_sha256': subject(s, mid, stage), 'checks': checks, 'verdict': 'ready', **({'draft_ref': draft} if draft else {})}
+              'subject_sha256': subject(s, mid, stage), 'checks': checks, 'verdict': 'ready', **({'draft_ref': draft} if draft else {}),
+              **({'execution': execution} if execution else {})}
     import project_context
     ref = project_context.archive(Path(root) / 'artifacts/preflight', project_context.encoded(report), '.json')
     submit(s, {'payload': {'report_ref': ref}, 'module_id': mid}, actor, run_root=root)
@@ -69,11 +83,16 @@ def mechanical_report(root, s, mid, stage, actor, draft=None, fallback=None):
 def mechanical(root, s, mid, assignment):
     """Write and register, in the worker's name, the preflight of a dispatch the Ledger can check by itself; None when
     the stage needs the worker's own report or an input is not as referenced (the worker then reports what is missing)."""
-    stage = MECHANICAL.get(assignment.get('role'))
+    stage, execution = MECHANICAL.get(assignment.get('role')), None
+    if assignment.get('role') == 'test-runner' and root is not None:
+        execution = frozen_execution(scope(s, mid), assignment)
+        if execution:  # the environment a frozen command runs in is the one the run's project context states
+            stage, execution['environment_ref'] = requirement('assign', assignment), s.get('project_context_ref') or scope(s, mid)['plan_ref']
     if not stage or root is None:
         return None
     try:
-        return mechanical_report(root, s, mid, stage, {'role': assignment['role'], 'instance_id': assignment['instance_id']})
+        return mechanical_report(root, s, mid, stage, {'role': assignment['role'], 'instance_id': assignment['instance_id']},
+                                 execution=execution)
     except (Rejected, OSError, KeyError, TypeError):
         return None
 

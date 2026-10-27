@@ -40,14 +40,14 @@
 <text x="800.0" y="839.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Implementer · 按 TASK 执行</text>
 <text x="800.0" y="873.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 代写预检；步骤先列提交必备证据</text>
 <text x="800.0" y="902.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">任务先单测：自查红→绿两份记录为 red 证据</text>
-<text x="800.0" y="931.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">冻结测试原样交付（可在写范围外）→ MO 接受</text>
+<text x="800.0" y="931.5" font-size="18.08" fill="#4b5563" text-anchor="middle" font-weight="400">冻结测试原样交付（可在写范围外）；编译通过即机械接受</text>
 <path d="M800,940 L800,1010" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="1010" width="500" height="180" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="1050.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Test-Runner · 正式验证</text>
 <text x="800.0" y="1084.0" font-size="18.10" fill="#4b5563" text-anchor="middle" font-weight="400">build → unit → static 同一派发，只跑 PATH 的平台</text>
 <text x="800.0" y="1113.0" font-size="18.30" fill="#4b5563" text-anchor="middle" font-weight="400">另派 automation：JUnit / 设备（可录屏），逐 PATH</text>
 <text x="800.0" y="1142.0" font-size="21.95" fill="#4b5563" text-anchor="middle" font-weight="400">适用时另派 visual；原始回执 / 媒体 / 根因</text>
-<text x="800.0" y="1171.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">执行证据经 Ledger → MO 验收</text>
+<text x="800.0" y="1171.0" font-size="17.07" fill="#4b5563" text-anchor="middle" font-weight="400">命令全冻结时 advance 代跑；Green / 确定 Red 机械验收</text>
 <path d="M800,1190 L800,1245" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M800,1245.0 L955.0,1310 L800,1375.0 L645.0,1310 Z" fill="#fff7ed" stroke="#ea580c" stroke-width="1.8"/>
 <text x="800" y="1310" font-size="24.00" fill="#111827" text-anchor="middle" font-weight="650">验证结果</text>

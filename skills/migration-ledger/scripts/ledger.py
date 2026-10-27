@@ -829,9 +829,12 @@ def _next_step(s, m):
         step.update(operation='accept' if submitted else 'await-result',
                     role='module-orchestrator' if submitted else active['role'], ready=submitted,
                     reason=None if submitted else 'worker-running')
-        if submitted and m['submissions'][active['assignment_id']].get('green'):
-            # Nothing to judge: accept re-validates the result, so the host may submit it without a model turn.
+        if submitted and any(m['submissions'][active['assignment_id']].get(k) for k in ('green', 'settled')):
+            # Nothing to judge: accept re-validates the result, so the host may submit it without a model turn; a definite
+            # Red goes on to diagnosis.
             step['mechanical'] = True
+        elif not submitted and context_readiness.frozen_execution(m, active) and (active.get('context_ref') or not context_readiness.enabled(s)):
+            step.update(mechanical=True, ready=True, reason='frozen-commands')  # advance runs them and submits the result in the worker's name
     elif m.get('decomposition_submission'):
         step.update(operation='decompose-accept', role='global-orchestrator', ready=True)
     elif m.get('decomposition_required') and m['phase'] in ('context', 'specifying', 'clarifying'):
@@ -990,6 +993,16 @@ def _next_step(s, m):
     if affinity:
         step['session_affinity'] = affinity
     return step
+
+
+def settled_result(result):
+    """Whether accepting a result needs no judgement: code whose author's compile check passed (every Ledger check runs again
+    at accept), or tests whose every PATH is Green or a definite Red (an assertion that failed goes to diagnosis). A Yellow,
+    a blocked run or code its author could not compile is the orchestrator's to judge."""
+    if result.get('kind') == 'implementation':
+        return (result.get('authoring_diagnostics') or {}).get('status') == 'passed'
+    return (result.get('kind') == 'tests' and bool(result.get('paths'))
+            and all(row.get('quality') in ('green-passed', 'red-bug') for row in result['paths']))
 
 
 def all_green_tests(result):
@@ -1746,7 +1759,7 @@ def mutate(s, req, principal, events, root=None):
             write_scope.verify(s, m, assignment, result, read_json(check_ref(p['write_scope_ref'])))
         # The submission is the hash-bound reference plus what the cursor and the report need from it.
         m['submissions'][p['assignment_id']] = {
-            'ref': p['result_ref'], 'kind': result.get('kind'), 'green': all_green_tests(result),
+            'ref': p['result_ref'], 'kind': result.get('kind'), 'green': all_green_tests(result), 'settled': settled_result(result),
             'test_run_ids': [row.get('test_run_id') for row in result.get('paths', [])] if result.get('kind') == 'tests' else []}
     elif op == 'accept':
         require(not s.get('audit_batch', {}).get('retry_stops', {}).get(mid), 'stop affected old worker before accepting stale audit output')
@@ -2680,11 +2693,43 @@ def closure_record(root, s, module_id, kind, sequence):
     return file_ref(path)
 
 
+def frozen_tests(root, s, module_id, assignment_id):
+    """Run a test dispatch whose every command the freeze fixed, in stage order (build, then unit, stopping after a kind
+    that is not all Green), and stage its result where its worker would; returns the submit payload."""
+    scripts = str(Path(__file__).resolve().parents[2] / 'migration-test/scripts')
+    if scripts not in sys.path:
+        sys.path.append(scripts)
+    import harmony_stage
+    from execute_test import execute
+    from test_completion import interpret
+    m = s['modules'][module_id]
+    a, paths = m['assignments'][assignment_id], {p['path_id']: p for p in m['plan']['paths']}
+    contract, pre = a['execution_contract']['path_ids'], a.get('test_scope') == 'build'
+    rows, receipts = {}, []
+    for kind in (tv.PRE if pre else (None,)):
+        due = [p['path_id'] for p in tv.stage_paths(m, rows) if p['kind'] == kind] if pre else contract
+        batches = {}  # unit PATHs that froze one command run once
+        for pid in due:
+            command = paths[pid]['command']
+            batches.setdefault((tuple(command['argv']), command['cwd']) if paths[pid].get('unit_report') else pid, []).append(pid)
+        for pids in batches.values():
+            out = execute(root, module_id, assignment_id, pids if len(pids) > 1 else pids[0], output=Path(root) / 'runs/build' / assignment_id / '-'.join(pids))
+            for ref in out if isinstance(out, list) else [out]:
+                receipts.append(ref)
+                pid = read_json(check_ref(ref))['path_id']
+                rows[pid] = interpret(read_json(check_ref(ref)), paths[pid])
+    out = Path(root) / 'staging' / a['role'] / (assignment_id + '-result.json')
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(harmony_stage.build(root, module_id, assignment_id, receipts), ensure_ascii=False, indent=2) + '\n')
+    return {'assignment_id': assignment_id, 'fencing_token': a['fencing_token'], 'result_ref': file_ref(out)}
+
+
 def advance(root, principal, module_id, workers=None):
     """Submit, as the module orchestrator, every step of one module (or parent) the cursor marks mechanical: accepting a
-    Green test result, dispatching a worker, freezing on a recorded review or decision, completing a module the DoD guard
-    admits and summarizing a parent whose children settled. Each goes through apply with all of its guards. It stops at
-    the first step that needs a model or a person and renders that step's card for the dispatch."""
+    settled result, dispatching a worker, freezing on a recorded review or decision, completing a module the DoD guard
+    admits and summarizing a parent whose children settled; and, in its worker's name, running a test dispatch whose
+    commands the freeze fixed. Each goes through apply with all of its guards. It stops at the first step that needs a
+    model or a person and renders that step's card for the dispatch."""
     applied = []
     while True:
         st = status(root)
@@ -2692,8 +2737,13 @@ def advance(root, principal, module_id, workers=None):
         require(step is not None, 'unknown module for advance: ' + str(module_id))
         if not (step.get('mechanical') and step.get('ready')):
             break
-        sequence = st['last_sequence'] + 1
-        if step['operation'] == 'accept':
+        sequence, actor = st['last_sequence'] + 1, principal
+        if step['operation'] == 'await-result':
+            s = read_events(root)[0]
+            a = s['modules'][module_id]['assignments'][step['assignment_id']]
+            payload, actor = frozen_tests(root, s, module_id, a['assignment_id']), {'role': a['role'], 'instance_id': a['instance_id']}
+            step['operation'] = 'submit'
+        elif step['operation'] == 'accept':
             payload = {'assignment_id': step['assignment_id']}
         elif step['operation'] == 'freeze':
             payload = dict(step['payload'])
@@ -2708,7 +2758,7 @@ def advance(root, principal, module_id, workers=None):
             payload.setdefault('instance_id', (workers or {}).get(role) or f'{role}-{module_id}')
         ack = apply(root, {'schema_version': 1, 'request_id': f'advance-{module_id}-{sequence}', 'run_id': st['run_id'],
                            'module_id': module_id, 'expected_revision': step['expected_revision'],
-                           'operation': step['operation'], 'payload': payload}, principal)
+                           'operation': step['operation'], 'payload': payload}, actor)
         applied.append({'operation': step['operation'], 'event_id': ack['event_id'],
                         **{k: payload[k] for k in ('assignment_id', 'role', 'instance_id', 'test_scope') if k in payload}})
     out = {'applied': applied, 'next_step': {k: step[k] for k in ('operation', 'role', 'ready', 'reason', 'assignment_id')

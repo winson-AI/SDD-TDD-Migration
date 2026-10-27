@@ -19,11 +19,11 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 ## 3. 执行步骤
 
 ### 构建
-2. 接到 build 派发先提交 building 预检；ready 绑定后 execute_test 直接执行冻结 argv/cwd/timeout，无 query 参数。
+2. 所派 PATH 全有冻结命令时由 advance 代跑代交；否则先提交 building 预检，ready 绑定后 execute_test 直接执行冻结 argv/cwd/timeout。
 3. build PATH 的退出码、日志与回执随结果提交；build_baseline 须匹配 code_baseline。
 4. 非 Green 留根因：诊断 → MO → 独立 Fixer；补丁接受后重新预检/构建/复测，自测不替代。
 ### 单测与静态审查
-5. 预检与静态审查从派发步骤 `report_skeleton` 的骨架起笔。build 全绿后同一 assignment 依次按[逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)与[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合)经 execute_test 执行到第一个非 Green，合成一份结果，MO 一次验收；代码作者不得代审，exit 0 不等于通过。
+5. 预检与静态审查从派发步骤 `report_skeleton` 的骨架起笔。build 全绿后同一 assignment 按[逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)与[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合)执行到第一个非 Green，合成一份结果；代码作者不得代审。
 ### 自动化
 6. build/unit/static 接受后另派 automation；提交 testing 预检，绑定实际部署版本/fixture，ready 绑定后宿主才启动 Main/Harmony，禁止自行串联。
 7. 每条 PATH query 交 Main，提交步骤、冻结 ASSERT、三态与回执；一条失败后继续前置独立的路径，有依赖则逐条 Yellow。MO 验收后 Ledger 派生宿主任务/模块/TASK 的成功集合与统计；flaky/skip/缺证据不能 Green。

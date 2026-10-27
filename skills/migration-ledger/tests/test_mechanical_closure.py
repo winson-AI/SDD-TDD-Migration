@@ -43,7 +43,7 @@ class MechanicalClosureTests(unittest.TestCase):
                   'actor_instance_id': a['instance_id'], 'freeze_id': a['freeze_id'], 'code_files': refs, 'code_baseline': tl.baseline(refs),
                   'task_trace': [{'task_id': 'T1', 'files': [str(source)]}], 'production_binding_evidence': f.ref('binding.txt', 'real binding reviewed'),
                   'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': f.ref('diag.log', '0 errors')}})}, role='implementer', instance=a['instance_id'])
-        self.assertFalse(self.step().get('mechanical'))  # accepting code is the MO's judgment
+        self.assertTrue(self.step().get('mechanical'))  # code its author compiled: accept re-runs every check, nothing to judge
         f.call('accept', {'assignment_id': assignment})
         a, result = f.make_test_result()
         f.submit(result, a)
