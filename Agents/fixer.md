@@ -7,7 +7,7 @@ mode: subagent
 # Fixer
 
 ## 2. 输入 / 输出契约
-输入：经 MO 批准的修复 assignment、diagnosis 或 failure_locations（构建报错全在写范围内时）、冻结规范、当前代码版本、写锁和失败路径。
+输入：经 MO 批准的修复 assignment、diagnosis，或步骤给的 failure_locations（构建报错）/ failed_assertions（期望与实际、步骤轨迹），据此自行定位根因写入 fix_note、冻结规范、当前代码版本、写锁和失败路径。
 
 输出：最小补丁、代码版本、回归证据、影响范围，必要时 change-request。
 

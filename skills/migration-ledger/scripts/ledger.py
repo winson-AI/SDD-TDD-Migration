@@ -629,20 +629,36 @@ def review_asked(s, m):
     return reasons or None
 
 
-def located_failures(m):
-    """Every unresolved failure is a command that broke inside the module's write scope at locations grepped from its log:
-    the diagnosis is those locations, written by the Ledger."""
+def failed_assertions(m, pid, row):
+    """The frozen assertions a functional or unit PATH of this module failed, as expected against observed; None for any
+    other failure (a Yellow, a visual alignment, a cause outside the code, a finding the audit routed)."""
+    kinds = {p['path_id']: p.get('kind') or 'automation' for p in (m.get('plan') or {}).get('paths', [])}
+    failed = [{k: a.get(k) for k in ('assertion_id', 'expected', 'actual')} for a in row.get('assertions') or [] if a.get('passed') is False]
+    code = row.get('quality') == 'red-bug' and (row.get('root_cause') or {}).get('category') == 'code'
+    return failed if code and failed and kinds.get(pid) in ('automation', 'unit') else None
+
+
+def located_failures(s, m):
+    """Every unresolved failure says where to look by itself: a command that broke inside the module's write scope at
+    locations grepped from its log, or frozen assertions of the module's own PATHs that failed. The Ledger writes the
+    diagnosis and the Fixer finds the cause in the code; an audit round keeps its independent diagnosis."""
     bad = unresolved(m)
-    return bool(bad) and all((r.get('root_cause') or {}).get('failures_ref') and r['root_cause'].get('category') == 'code'
-                             and r['root_cause'].get('confidence') == 'confirmed' for r in bad.values())
+    located = lambda r: (r.get('root_cause') or {}).get('failures_ref') and r['root_cause'].get('category') == 'code' \
+        and r['root_cause'].get('confidence') == 'confirmed'
+    return bool(bad) and not audit_closure.active(s) and not m.get('audit_fix_grant') \
+        and all(located(r) or failed_assertions(m, pid, r) for pid, r in bad.items())
 
 
 def located_diagnosis(m):
     """The diagnose payload of located failures, without its report reference."""
     files, summaries = set(), []
     for pid, r in sorted(unresolved(m).items()):
-        summaries.append(pid + ': ' + r['root_cause']['summary'])
-        files |= {row['path'] for row in read_json(check_ref(r['root_cause']['failures_ref']))['failures'] if row.get('path')}
+        failed = failed_assertions(m, pid, r)
+        summaries.append(pid + ': ' + (r['root_cause']['summary'] if not failed else 'failed ' + ', '.join(
+            '%s (expected %s, observed %s)' % (a['assertion_id'], json.dumps(a['expected'], ensure_ascii=False), json.dumps(a['actual'], ensure_ascii=False))
+            for a in failed)))
+        if r['root_cause'].get('failures_ref'):
+            files |= {row['path'] for row in read_json(check_ref(r['root_cause']['failures_ref']))['failures'] if row.get('path')}
     return {'owner': m['module_id'], 'root_cause': {'category': 'code', 'confidence': 'confirmed', 'owner': m['module_id'],
             'next_action': 'fix', 'summary': '; '.join(summaries), 'files': sorted(files)}}
 
@@ -968,7 +984,7 @@ def _next_step(s, m):
                 receipt = next((r['execution_receipt'] for r in bad.values() if r.get('execution_receipt')), None)
                 if receipt:  # an external cause or a spent budget is routed by rule
                     step.update(mechanical=True, payload={'root_cause': cause, 'evidence_ref': receipt})
-            elif located_failures(m):
+            elif located_failures(s, m):
                 step.update(operation='diagnose', role='module-orchestrator', ready=True, mechanical=True, reason='located-failures')
             else:
                 step.update(operation='diagnose', role='fixer' if self_diagnosis(s, m) else 'diagnostician', ready=True)
@@ -1205,6 +1221,10 @@ def with_card(s, m, step):
             located = {pid: r['root_cause']['failures_ref'] for pid, r in unresolved(m).items() if (r.get('root_cause') or {}).get('failures_ref')}
             if located:
                 step['failure_locations'] = located  # where each failed command broke, grepped from its log: read these, grep the log only for more
+            failed = {pid: {'assertions': failed_assertions(m, pid, r), **({'step_trace_ref': r['step_trace_ref']} if r.get('step_trace_ref') else {})}
+                      for pid, r in unresolved(m).items() if failed_assertions(m, pid, r)}
+            if failed:
+                step['failed_assertions'] = failed  # expected against observed: the Fixer finds the cause in the code
     enhancement = reading.reasoning_sections(m)
     if enhancement: step['reasoning_activation'] = [{'ref': ref, 'section': heading} for ref, heading in enhancement]
     if s.get('project_context_ref') and (m or (step.get('role') == 'global-orchestrator' and step.get('operation') in
@@ -1885,7 +1905,7 @@ def mutate(s, req, principal, events, root=None):
     elif op == 'diagnose':
         role(principal, 'diagnostician', 'fixer', 'module-orchestrator')
         require(principal['role'] == 'diagnostician' or principal['role'] == 'fixer' and self_diagnosis(s, m)
-                or principal['role'] == 'module-orchestrator' and located_failures(m), 'principal role denied')
+                or principal['role'] == 'module-orchestrator' and located_failures(s, m), 'principal role denied')
         require(m['phase'] == 'testing' and not m.get('blocked') and unresolved(m), 'no unresolved test failure')
         idle(m); current(m)
         check_ref(p['diagnosis_ref'])
@@ -2788,8 +2808,11 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
     elif kind == 'diagnosis':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
-                'findings': {pid: {k: r['root_cause'][k] for k in ('summary', 'failures_ref')} for pid, r in sorted(unresolved(m).items())},
-                'checks': ['every failed PATH broke inside the write scope at locations grepped from its log']}
+                'findings': {pid: {'summary': r['root_cause']['summary'], **({'failures_ref': r['root_cause']['failures_ref']} if r['root_cause'].get('failures_ref') else {}),
+                                   **({'failed_assertions': failed_assertions(m, pid, r)} if failed_assertions(m, pid, r) else {}),
+                                   **({'step_trace_ref': r['step_trace_ref']} if r.get('step_trace_ref') else {})}
+                             for pid, r in sorted(unresolved(m).items())},
+                'checks': ['every failed PATH broke inside the write scope at grepped locations, or failed frozen assertions of this module']}
     elif kind == 'dod':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
