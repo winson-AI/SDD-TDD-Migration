@@ -25,6 +25,6 @@ description: /sdd-run <run-id> — 并行推进就绪模块
 ## 4. 接入要点
 - 角色只拿到 card 与事件/工件引用；提交带 expected_revision 再过门禁，阻塞或预算不足不跳步。
 - 本地先修复一轮，确认依赖/外围或一轮未通过则 audit-defer 退出；正常依赖解除与已批准的 resume 先执行，不因当前没有 worker 就拉起 Auditor。
-- 同 Run 修订消费 status.run_change_next_step（[同 Run 修订](../skills/migration-protocol/references/progress-recovery.md#同-run-上游修订)）；来源追加消费 source_change_next_step，当前 worker 完成后再更新上下文，不取消无关 MO（[来源追加协议](../skills/migration-protocol/references/source-changes.md#2-host上下文调整与明确恢复)）。
+- 同 Run 修订（[同 Run 修订](../skills/migration-protocol/references/progress-recovery.md#同-run-上游修订)）与来源追加（[来源追加协议](../skills/migration-protocol/references/source-changes.md#2-host上下文调整与明确恢复)）也以 drive 行出现；当前 worker 完成后再更新上下文，不取消无关 MO。
 - 预检：worker 派发后在同一会话 context-submit，ready 开工，blocked 退回派发；审计派发未就绪时先启动 Auditor 预检。见[阶段协议](../skills/migration-protocol/references/context-readiness.md#5-缺失失效与恢复)。
 - 父 MO 按父步骤 agent_name 命名（parent-mo-M<编号>）；收尾时 GO 提供全部测试用例状态清单，复用 `<run_root>/reports/migration-report.md/.json`，见[报告协议](../skills/migration-protocol/references/migration-report.md#总则)。
