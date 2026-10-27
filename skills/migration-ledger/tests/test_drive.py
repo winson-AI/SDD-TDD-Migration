@@ -50,6 +50,32 @@ class DriveTests(unittest.TestCase):
         self.assertEqual([line['kind'] for line in lines], ['running', 'tick'])
 
 
+class CursorCoverageTests(unittest.TestCase):
+    def setUp(self):
+        import test_ledger
+        self.f = f = test_ledger.FlowTests(methodName='runTest'); f.setUp(); self.addCleanup(f.doCleanups)
+        f.prepare()
+
+    def test_a_decision_only_a_person_gives_comes_with_what_is_asked(self):
+        f = self.f
+        f.call('suspend', {'kind': 'human', 'reason': 'which retry limit does the old client keep?', 'owner': 'human',
+                           'root_cause': {'category': 'spec', 'summary': 'retry limit unstated', 'confidence': 'confirmed', 'owner': 'human', 'next_action': 'ask'}})
+        person = next(line for line in drive.drive(f.root, MO) if line['kind'] == 'person')
+        self.assertEqual((person['module_id'], person['operation'], person['reason']), ('M001', 'resume', 'human-decision-required'))
+        self.assertTrue(person['approval_subject_sha256'])
+
+    def test_a_refused_request_reaches_the_host_as_a_signal(self):
+        import progress_signals
+        drive.drive(self.f.root, MO)  # the coder is dispatched: nothing moves until it submits
+        progress_signals.record_rejection(self.f.root, {'operation': 'accept', 'module_id': 'M001'}, {'role': 'module-orchestrator', 'instance_id': 'mo'},
+                                          'unit tests must pass before the static review')
+        lines = drive.drive(self.f.root, MO)
+        signal = next(line for line in lines if line['kind'] == 'signal' and line['reason'] == 'operation-rejected')
+        self.assertEqual((signal['module_id'], signal['severity']), ('M001', 'action'))
+        self.assertTrue(any(line['reason'] == 'attention-report' for line in lines if line['kind'] == 'signal'))
+        self.assertLess(max(len(json.dumps(line, ensure_ascii=False)) for line in lines), 600)  # no evidence dumps
+
+
 class SessionReuseTests(unittest.TestCase):
     def test_the_fixer_line_names_the_implementer_session_to_resume_and_its_instance(self):
         import test_ledger

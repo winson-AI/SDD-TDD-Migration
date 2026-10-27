@@ -6,8 +6,9 @@ someone submits something.
     drive.py --root <run> --host-context '<MO principal JSON>' [--worker ROLE=INSTANCE] [--wait SECONDS]
 
 Each output line is JSON: `dispatch` (start this role on this step with this card), `running` (a worker the Ledger
-dispatched: start it with its card unless already started, then wait), `person` (a decision only a person gives), then one
-`tick` line with the journal sequence. A line names the instance and, when one holds this role's context, the session to
+dispatched: start it with its card unless already started, then wait), `host` (an operation the host submits itself with
+the payload given), `person` (a decision only a person gives, with what is asked), `signal` (a stall, an overdue plan, a
+refused request, a run ready for its retrospective: act on next_action), then one `tick` line with the journal sequence. A line names the instance and, when one holds this role's context, the session to
 resume; its card then holds only the sections that session has not read. The host reads these lines, not the status views.
 """
 import argparse
@@ -21,6 +22,7 @@ import ledger
 import reading
 
 POLL_SECONDS = 1
+PERSON = ('human-decision-required', 'run-approval-required', 'source-approval-required')
 
 
 def journal_size(root):
@@ -30,7 +32,9 @@ def journal_size(root):
 
 def row(step, card=None):
     out = {k: step[k] for k in ('module_id', 'role', 'operation', 'assignment_id', 'reason', 'review_asked', 'approval_subject_sha256',
-                                'session_id', 'session_affinity') if step.get(k) is not None}
+                                'approval_kind', 'detail', 'root_ids', 'session_id', 'session_affinity') if step.get(k) is not None}
+    if step.get('report_ref'):
+        out['report'] = step['report_ref']['path']
     if step.get('worker_role'):
         out.update(role=step['worker_role'], dispatched_by=step['role'])
     return {**out, **(card or {})}
@@ -58,17 +62,31 @@ def tick(root, principal, workers=None):
             break
     st = ledger.status(root, 'full')  # read by this script, not by a model
     lines = []
-    for step in st['next_steps'] + [st['global_next_step']]:
+    changes = [x for x in (st.get('run_change_next_step'), st.get('source_change_next_step')) if x]  # same-run revisions, new sources
+    for step in st['next_steps'] + [st['global_next_step']] + changes:
         operation = step.get('operation')
         if not operation or step.get('mechanical') and step.get('ready'):
             continue
-        if step.get('human_required') or step.get('reason') == 'human-decision-required':
+        if step.get('human_required') or step.get('reason') in PERSON:
             lines.append({'kind': 'person', **row(step)})
+        elif step.get('role') == 'host' and step.get('ready'):
+            lines.append({'kind': 'host', **row(step), 'payload': step.get('payload') or {}})
         elif operation == 'await-result' or step.get('reason') == 'audit-running':
             a = (st['modules'].get(step.get('module_id')) or {}).get('assignments', {}).get(step.get('assignment_id')) or {}
             lines.append({'kind': 'running', **row(step, card(root, step, a.get('instance_id')))})
         elif step.get('ready'):
             lines.append({'kind': 'dispatch', **row(step, card(root, step))})
+    progress = st.get('workflow_progress') or {}
+    seen = {x.get('reason') for x in changes}
+    for signal in progress.get('signals', []):
+        if signal.get('reason') not in seen:  # a source change already has its own line
+            lines.append({'kind': 'signal', **{k: signal[k] for k in ('module_id', 'reason', 'owner', 'next_action', 'severity')
+                                               if signal.get(k) is not None}})
+    if st['global_next_step'].get('retrospective_due'):
+        lines.append({'kind': 'signal', 'reason': 'retrospective-due', 'owner': 'global-orchestrator', 'severity': 'action',
+                      'next_action': 'run /sdd-retrospect before the run is closed'})
+    if any(line['kind'] == 'signal' for line in lines):
+        lines.append({'kind': 'signal', 'reason': 'attention-report', 'next_action': 'read only on a human signal', 'report': progress.get('report_path')})
     return lines, st['last_sequence']
 
 
