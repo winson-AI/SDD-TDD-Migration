@@ -44,6 +44,30 @@ class SplitAcceptTests(unittest.TestCase):
         content = f.state()['global_plan']['content']
         self.assertEqual((content['case_owners'], content['requirement_owners']), ({cid: ['M010'] for cid in CASES}, {'R1': ['M010']}))
 
+    def test_from_registration_to_the_leaves_plans_takes_one_go_and_one_mo_turn(self):
+        """The top of a run walked by its cursor: what is left to a model is registering the root and confirming the cut."""
+        self.doCleanups(); self.setUp(covered=False); f = self.f
+        mo = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
+        turns = [('global-orchestrator', 'register')]  # in setUp
+        for _ in range(10):
+            ledger.advance_run(f.root, mo)
+            for step in f.state()['next_steps']:
+                ledger.advance(f.root, mo, step['module_id'])
+            st = f.state()
+            leaves = [s for s in st['next_steps'] if s['module_id'] in st['modules']]
+            if leaves and all(s.get('operation') == 'plan' for s in leaves):
+                break
+            g = st['global_next_step']
+            self.assertFalse(g.get('ready') and g.get('operation') and not g.get('mechanical'), g)  # no GO turn after registering
+            step = next(s for s in st['next_steps'] if s.get('operation') == 'decompose')
+            draft = read_json(Path(split_draft.write(f.root, step['module_id'], f.base / 'staging/module-orchestrator/draft')['draft']['path']))
+            for n, child in enumerate(draft['children']):
+                child['write_paths'] = [str(f.target / ('leaf%d' % n))]
+            f.call('decompose', {'plan_ref': f.ref('walk-split.json', draft)}, module=step['module_id'])
+            turns.append(('module-orchestrator', 'decompose'))
+        self.assertEqual(turns, [('global-orchestrator', 'register'), ('module-orchestrator', 'decompose')])
+        self.assertEqual(len([m for m in f.state()['modules'] if m != 'M010']), 2)
+
     def test_the_drafted_split_is_accepted_and_coverage_carried(self):
         f = self.f
         out = split_draft.write(f.root, 'M010', f.base / 'staging/module-orchestrator/draft')
