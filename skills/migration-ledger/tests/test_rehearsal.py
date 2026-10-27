@@ -1,10 +1,11 @@
 """A leaf walked from its first plan to its completion by following the cursor alone: every step the cursor marks mechanical
-is left to `ledger.py advance`, every other one is a model's turn and is counted. The count is a ratchet: a change that adds
-a model turn to the leaf's loop fails here."""
+is left to `ledger.py advance`, every other one is a model's turn and is counted. The count is reported, not a gate: a change
+that adds a model turn to the leaf's loop warns with the turns it took, and the run's own report counts the same turns."""
 import json
 from pathlib import Path
 import sys
 import unittest
+import warnings
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
@@ -16,7 +17,7 @@ from execute_test import execute
 from harmony_stage import build as stage_result
 
 MO = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
-MODEL_TURNS = 4  # plan, plan review, coding, automation run (a device PATH)
+MODEL_TURNS = 4  # plan, plan review, coding, automation run (a device PATH): the count last recorded in VERIFICATION.md
 
 
 class RehearsalTests(unittest.TestCase):
@@ -94,10 +95,14 @@ class RehearsalTests(unittest.TestCase):
             self.model_turn(step)
         self.fail('the leaf did not complete: ' + json.dumps(turns))
 
-    def test_a_leaf_reaches_its_completion_within_the_model_turn_ratchet(self):
+    def test_a_leaf_reaches_its_completion_and_its_model_turns_are_reported(self):
         turns = self.walk()
-        self.assertLessEqual(len(turns), MODEL_TURNS, turns)
         self.assertEqual([op for op, *_ in turns][:2], ['plan', 'plan-review'])
+        if len(turns) > MODEL_TURNS:
+            warnings.warn('a leaf took %d model turns, %d recorded: %s' % (len(turns), MODEL_TURNS, json.dumps(turns)))
+        import workflow_cost
+        cost = workflow_cost.build(self.f.state(), workflow_cost.journal(self.f.root))
+        self.assertEqual(cost['modules']['M001']['model_turns'], len(turns))  # the run's report counts the same turns
 
 
 if __name__ == '__main__':

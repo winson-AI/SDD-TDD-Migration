@@ -421,6 +421,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(cost['totals']['dispatches'], 3)
         report = (self.root / 'reports/migration-report.md').read_text()
         self.assertIn('## 流程成本', report)
+        self.assertTrue(0 < row['model_turns'] <= row['events'])  # every step of this fixture is submitted by hand
+        self.assertIn('模型轮次', report)
 
     def test_peripheral_cause_skips_local_fix(self):
         self.failed_module('external')
