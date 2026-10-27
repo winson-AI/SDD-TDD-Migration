@@ -43,7 +43,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | decompose-accept | Global / 根 module_id | review_ref；细分则登记孩子、父移入 module_groups；原子结论保留节点进入未冻结叶子规划 |
 | realloc-request | MO / 子或根 module_id | reason、evidence_refs；切片/边界冲突向上提单，保存恢复阶段后进入 waiting-upstream；无父或父级上溯交 GO run-review |
 | redecompose | 父 MO / 父 module_id | plan_ref（重组方案）；children 覆盖父 scope。根修订后游标 affected_children 列出须重写的孩子，其余原样复述即沿用 |
-| redecompose-accept | Global / 父 module_id | review_ref；未变孩子保留进度并恢复原阶段，边界保持的冻结孩子转 CR，被改的孩子重新规划（保留 blocker/失败/预算）；只依赖它们的叶子不重规划，已有代码的等 provider 后复验；下线模块入 superseded_modules |
+| redecompose-accept | Global / 父 module_id | 只影响提出上溯的孩子且不挪用例时机械：Ledger 写记录由 advance 以 GO 名义提交；否则 review_ref；未变孩子保留进度并恢复原阶段，边界保持的冻结孩子转 CR，被改的孩子重新规划（保留 blocker/失败/预算）；只依赖它们的叶子不重规划，已有代码的等 provider 后复验；下线模块入 superseded_modules |
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后由 advance 机械提交 Ledger 写的汇总 |
 | decision | host | decision_id、decision=approved、module_id、subject_sha256（游标的 approval_subject_sha256）、human_source_ref；决定与常设裁定另以 issue（kind=decision/standing）寄给适用模块。`kind=knowledge`：question_id 为 knowledge-need 的 issue_id，answers[]、sources[] 必填，Ledger 写 artifacts/knowledge/<decision_id>.md 并消去该问题；`kind=batch-envelope`：module_id 为父，envelope_ref 指向[批量信封](../../../template/batch-envelope.json)，children 只能是该父的孩子；`kind=api-adaptation`：module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
 | global-plan | Global | 登记已说明唯一 CASE 持有者与需求范围（需预检的 run 根模块带完整功能清单）时机械：Ledger 起草并由 advance_run 提交；否则 plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；可带 target_profile_ref（目标画像）；无关根可待拆，registry 变化后重审 |

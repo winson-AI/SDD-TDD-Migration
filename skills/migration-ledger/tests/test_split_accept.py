@@ -44,6 +44,84 @@ class SplitAcceptTests(unittest.TestCase):
         content = f.state()['global_plan']['content']
         self.assertEqual((content['case_owners'], content['requirement_owners']), ({cid: ['M010'] for cid in CASES}, {'R1': ['M010']}))
 
+    def test_from_registration_to_the_leaves_plans_takes_one_go_and_one_mo_turn(self):
+        """The top of a run walked by its cursor: what is left to a model is registering the root and confirming the cut."""
+        self.doCleanups(); self.setUp(covered=False); f = self.f
+        mo = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
+        turns = [('global-orchestrator', 'register')]  # in setUp
+        for _ in range(10):
+            ledger.advance_run(f.root, mo)
+            for step in f.state()['next_steps']:
+                ledger.advance(f.root, mo, step['module_id'])
+            st = f.state()
+            leaves = [s for s in st['next_steps'] if s['module_id'] in st['modules']]
+            if leaves and all(s.get('operation') == 'plan' for s in leaves):
+                break
+            g = st['global_next_step']
+            self.assertFalse(g.get('ready') and g.get('operation') and not g.get('mechanical'), g)  # no GO turn after registering
+            step = next(s for s in st['next_steps'] if s.get('operation') == 'decompose')
+            draft = read_json(Path(split_draft.write(f.root, step['module_id'], f.base / 'staging/module-orchestrator/draft')['draft']['path']))
+            for n, child in enumerate(draft['children']):
+                child['write_paths'] = [str(f.target / ('leaf%d' % n))]
+            f.call('decompose', {'plan_ref': f.ref('walk-split.json', draft)}, module=step['module_id'])
+            turns.append(('module-orchestrator', 'decompose'))
+        self.assertEqual(turns, [('global-orchestrator', 'register'), ('module-orchestrator', 'decompose')])
+        self.assertEqual(len([m for m in f.state()['modules'] if m != 'M010']), 2)
+
+    def split_into_leaves(self):
+        self.doCleanups(); self.setUp(covered=False); f = self.f
+        self.tick()
+        draft = read_json(Path(split_draft.write(f.root, 'M010', f.base / 'staging/module-orchestrator/draft')['draft']['path']))
+        for n, child in enumerate(draft['children']):
+            child['write_paths'] = [str(f.target / ('leaf%d' % n))]
+        f.call('decompose', {'plan_ref': f.ref('split.json', draft)}, module='M010'); self.tick()
+        return sorted(f.state()['modules'])
+
+    def tick(self):
+        mo = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
+        ledger.advance_run(self.f.root, mo)
+        for step in self.f.state()['next_steps']:
+            ledger.advance(self.f.root, mo, step['module_id'])
+
+    def group_call(self, op, payload, role='module-orchestrator'):
+        f = self.f; s = ledger.read_events(f.root)[0]; f.n += 1
+        return ledger.apply(f.root, {'schema_version': 1, 'request_id': 'g%d' % f.n, 'run_id': 'demo', 'module_id': 'M010',
+                                     'expected_revision': s['module_groups']['M010']['revision'], 'operation': op, 'payload': payload},
+                            {'role': role, 'instance_id': role})
+
+    def resplit(self, change):
+        f = self.f
+        group = ledger.read_events(f.root)[0]['module_groups']['M010']
+        plan = read_json(Path(group['decomposition_ref']['path']))
+        change(plan['children'])
+        self.group_call('redecompose', {'plan_ref': f.ref('resplit.json', plan)})
+
+    def test_a_scope_deviation_is_resolved_for_the_leaf_that_asked_alone(self):
+        asking, other = self.split_into_leaves(); f = self.f
+        before = ledger.read_events(f.root)[0]['modules'][other]
+        f.call('realloc-request', {'reason': asking + ' writes a shared formatter outside its write path',
+                                   'evidence_refs': [f.ref('deviation.md', 'the formatter lives under common/')]}, module=asking)  # the leaf MO's turn
+        self.tick()
+        self.assertEqual(next(s for s in f.state()['next_steps'] if s['module_id'] == 'M010')['operation'], 'redecompose')
+        self.resplit(lambda children: next(c for c in children if c['module_id'] == asking)['write_paths'].append(str(f.target / 'common')))  # the parent MO's turn
+        self.tick()  # a local resplit: accepted without a GO turn
+        s = ledger.read_events(f.root)[0]
+        self.assertNotIn('redecomposition_submission', s['module_groups']['M010'])
+        self.assertIn(str(f.target / 'common'), s['modules'][asking]['write_paths'])
+        self.assertEqual(s['modules'][other]['revision'], before['revision'])  # the other leaf went on untouched
+        self.assertEqual({st['module_id']: st.get('operation') for st in f.state()['next_steps'] if st['module_id'] != 'M010'}, {asking: 'plan', other: 'plan'})
+
+    def test_a_resplit_that_reaches_a_leaf_that_did_not_ask_waits_for_the_go(self):
+        asking, other = self.split_into_leaves(); f = self.f
+        f.call('realloc-request', {'reason': 'the formatter is shared', 'evidence_refs': [f.ref('deviation.md', 'both flows format codes')]}, module=asking)
+        self.tick()
+        def widen_both(children):
+            for c in children:
+                c['write_paths'].append(str(f.target / 'common'))
+        self.resplit(widen_both)
+        step = next(s for s in f.state()['next_steps'] if s['module_id'] == 'M010')
+        self.assertEqual((step['operation'], step.get('mechanical')), ('redecompose-accept', None))
+
     def test_the_drafted_split_is_accepted_and_coverage_carried(self):
         f = self.f
         out = split_draft.write(f.root, 'M010', f.base / 'staging/module-orchestrator/draft')

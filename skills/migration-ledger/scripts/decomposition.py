@@ -296,6 +296,17 @@ def summary_current(s, group, ref_check=check_ref):
         return False
 
 
+def local_resplit(s, group):
+    """A resplit that touches only the leaves that asked for it and moves no case between leaves: the same children, each
+    holding the cases it held. The GO judges a resplit that moves cases or reaches a leaf that did not ask."""
+    submission = group['redecomposition_submission']
+    asked = {mid for mid in group['children'] if (s['modules'].get(mid) or {}).get('realloc_request')}
+    children = read_json(check_ref(submission['plan_ref'])).get('children') or []
+    return (bool(asked) and set(submission.get('affected_modules') or []) <= asked
+            and {c.get('module_id') for c in children} == set(group['children'])
+            and all(sorted(c.get('case_ids') or []) == sorted((s['modules'].get(c['module_id']) or {}).get('case_ids') or []) for c in children))
+
+
 def group_step(s, group, ref_check=check_ref):
     from ledger import current, next_step
     step = {'module_id': group['module_id'], 'phase': group['phase'],
@@ -310,6 +321,8 @@ def group_step(s, group, ref_check=check_ref):
         busy = any(not a.get('closed') for mid in affected for a in s['modules'].get(mid, {}).get('assignments', {}).values())
         step.update(operation='redecompose-accept', role='global-orchestrator', ready=not busy,
                     reason='wait-for-affected-workers' if busy else 'redecomposition-proposal-ready')
+        if not busy and local_resplit(s, group):  # what only the asking leaves see changes, and no case moves: nothing to judge
+            step.update(mechanical=True, reason='local-resplit')
         return step
     if group.get('replanning_required'):
         step.update(operation='redecompose', ready=True, reason='root-allocation-revised',

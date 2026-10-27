@@ -2845,7 +2845,11 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
     reports/<kind>/ so the event references a file with a hash like any other."""
     import run_storage
     root = Path(root).resolve()
-    if kind == 'plan-review':
+    if kind == 'resplit-review':
+        group = s['module_groups'][module_id]
+        body = {'affected_modules': group['redecomposition_submission'].get('affected_modules'), 'plan_ref': group['redecomposition_submission']['plan_ref'],
+                'checks': ['only the leaves that asked are affected', 'every leaf keeps the cases it held']}
+    elif kind == 'plan-review':
         m = s['modules'][module_id]
         body = {'plan_hash': m['plan_hash'], 'reviewer_instance_id': actor['instance_id'], 'semantic_change': False,
                 'authorization_change': False, 'unresolved_questions': [], 'evidence_refs': [m['plan_ref']],
@@ -2934,6 +2938,10 @@ def advance(root, principal, module_id, workers=None):
             payload = dict(step.get('payload') or {})
         elif step['operation'] == 'dependency-ready':
             payload, actor = {}, {'role': 'global-orchestrator', 'instance_id': (workers or {}).get('global-orchestrator') or 'global-orchestrator'}
+        elif step['operation'] == 'redecompose-accept':  # a local resplit: accepted in the GO's name with the Ledger's record
+            s = read_events(root)[0]
+            payload = {'review_ref': closure_record(root, s, module_id, 'resplit-review', sequence)}
+            actor = {'role': 'global-orchestrator', 'instance_id': (workers or {}).get('global-orchestrator') or 'global-orchestrator'}
         elif step['operation'] == 'plan-review':
             s = read_events(root)[0]
             payload = {'review_ref': closure_record(root, s, module_id, 'plan-review', sequence, principal)}
