@@ -24,6 +24,7 @@ MO = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
 # The counts last recorded in VERIFICATION.md: model turns by role, and the most protocol bytes one turn's card handed a model.
 RECORDED = {'turns': {'global-orchestrator': 3, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 4, 'auditor': 2},
             'card_bytes': 20524}
+RECORDED_RED = {'turns': {'global-orchestrator': 3, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 6, 'fixer': 1, 'auditor': 2}, 'card_bytes': 20524}  # the same run whose first version of one leaf fails its automation
 
 
 class RunRehearsalTests(unittest.TestCase):
@@ -34,9 +35,12 @@ class RunRehearsalTests(unittest.TestCase):
         self.setup_turns = [{'role': e['actor']['role'], 'operation': e['operation'], 'module_id': e.get('module_id'), 'card_bytes': 0}
                             for e in workflow_cost.journal(self.f.root) if workflow_cost.model_turn(e)]
 
+    red = ()
+
     def code(self, mid, a):
         f, m = self.f, self.f.state()['modules'][mid]
-        code = Path(m['write_paths'][0]) / 'code.py'; code.parent.mkdir(exist_ok=True); code.write_text('value = 2\n')
+        code = Path(m['write_paths'][0]) / 'code.py'; code.parent.mkdir(exist_ok=True)
+        code.write_text('value = %d\n' % (9 if mid in self.red and a['role'] == 'implementer' else 2))  # a red first version is fixed by the Fixer
         (code.parent / 'entry.py').write_text('from code import value\n'); (code.parent / 'test_code.py').write_text('from code import value\n')
         proof = f.ref('binding-' + a['assignment_id'] + '.md', 'Real scoped implementation')
         return {'schema_version': 1, 'kind': 'implementation', 'run_id': 'demo', 'module_id': mid, 'assignment_id': a['assignment_id'],
@@ -44,7 +48,9 @@ class RunRehearsalTests(unittest.TestCase):
                 'code_baseline': baseline([file_ref(code)]), 'task_trace': [{'task_id': 'T1', 'files': [str(code)]}],
                 'production_binding_evidence': proof,
                 'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': f.ref('diag.log', '0 errors')},
-                'dimension_evidence': [{'item_id': mid + '-Logic', 'task_ids': ['T1'], 'summary': 'Implemented scoped behavior', 'evidence_refs': [proof]}]}
+                'dimension_evidence': [{'item_id': mid + '-Logic', 'task_ids': ['T1'], 'summary': 'Implemented scoped behavior', 'evidence_refs': [proof]}],
+                **({'fix_note_ref': f.ref('fix-note-' + a['assignment_id'] + '.json', {'root_cause': 'value 9 where 2 is expected', 'strategy': 'return 2',
+                                                                                         'applicability': 'this module', 'risks': 'none'})} if a['role'] == 'fixer' else {})}
 
     def commands(self, mid, aid):
         """What a Test-Runner runs for the PATHs that do not run by themselves: the static review and a script adapter."""
@@ -79,10 +85,12 @@ class RunRehearsalTests(unittest.TestCase):
                 'schema_version': 1, 'plan_hash': m['plan_hash'], 'reviewer_instance_id': 'module-orchestrator', 'semantic_change': False,
                 'authorization_change': False, 'unresolved_questions': [], 'reason': 'clear plan',
                 'evidence_refs': [f.ref('review-' + mid + '.md', 'scope and tests checked')]})}, module=mid)
-        elif op == 'await-result' and step['role'] == 'implementer':
+        elif op == 'await-result' and step['role'] in ('implementer', 'fixer'):
             a = f.state()['modules'][mid]['assignments'][step['assignment_id']]
+            if a['role'] == 'fixer' and not a.get('context_ref'):  # the Fixer says it can start: a repair round is spent from here
+                f.record(f.report('fixing', module=mid, instance=a['instance_id']))
             f.call('submit', {'assignment_id': a['assignment_id'], 'fencing_token': a['fencing_token'],
-                              'result_ref': f.ref(a['assignment_id'] + '.json', self.code(mid, a))}, role='implementer', instance=a['instance_id'], module=mid)
+                              'result_ref': f.ref(a['assignment_id'] + '.json', self.code(mid, a))}, role=a['role'], instance=a['instance_id'], module=mid)
         elif op == 'await-result' and step['role'] == 'test-runner':
             m = f.state()['modules'][mid]; a = m['assignments'][step['assignment_id']]
             paths = {p['path_id']: p for p in m['plan']['paths']}
@@ -133,20 +141,27 @@ class RunRehearsalTests(unittest.TestCase):
             self.model_turn(step)
         self.fail('the run did not settle: ' + json.dumps(taken))
 
-    def rehearse(self):
+    def rehearse(self, recorded=None):
+        recorded = recorded or RECORDED
         taken, st = self.walk()
         taken = self.setup_turns + taken
         turns = {}
         for row in taken:
             turns[row['role']] = turns.get(row['role'], 0) + 1
         record = {'turns': turns, 'card_bytes': max(row['card_bytes'] for row in taken)}
-        if sum(turns.values()) > sum(RECORDED['turns'].values()) or record['card_bytes'] > RECORDED['card_bytes']:
-            warnings.warn('the run took %s, recorded %s: %s' % (json.dumps(record), json.dumps(RECORDED), json.dumps(taken)))
+        if sum(turns.values()) > sum(recorded['turns'].values()) or record['card_bytes'] > recorded['card_bytes']:
+            warnings.warn('the run took %s, recorded %s: %s' % (json.dumps(record), json.dumps(recorded), json.dumps(taken)))
         self.assertEqual(st['quality'], 'green-passed')  # the run reached its verdict
         return record, taken
 
     def test_a_run_reaches_its_audit_and_its_model_turns_and_card_bytes_are_reported(self):
         self.rehearse()
+
+    def test_a_run_whose_first_version_fails_is_repaired_and_reaches_its_audit(self):
+        self.red = ('M001',)
+        record, taken = self.rehearse(RECORDED_RED)
+        self.assertIn(('fixer', 'await-result', 'M001'), [(row['role'], row['operation'], row['module_id']) for row in taken])
+        self.assertNotIn('diagnostician', record['turns'])  # a failed assertion of its own goes to the Fixer
 
 
 if __name__ == '__main__':
