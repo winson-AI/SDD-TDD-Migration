@@ -58,20 +58,20 @@ class SpecClosureTests(unittest.TestCase):
             data[key] = value
         return data
 
-    def run_static(self, data, aid='BUILD1'):
+    def run_static(self, data, aid='STATIC1'):
         f = self.f
         self.review_path.write_text(json.dumps(data))
         assignment = f.state()['modules']['M001']['assignments'][aid]
         self.assertEqual((assignment['test_scope'], assignment['closed']), ('build', False))
         receipt = execute(f.root, 'M001', aid, 'S1', self.static_argv(), str(f.target), f.base / (aid + '-static'))
-        result = stage_result(f.root, 'M001', aid, [receipt] + self.split.receipts)  # static row first, then build
+        result = stage_result(f.root, 'M001', aid, [receipt])
         f.submit(result, assignment); f.call('accept', {'assignment_id': aid})
         return result['paths'][0]
 
     def built(self):
-        self.split.prepare(); self.split.compile()
-        step = self.f.state()['next_steps'][0]
-        self.assertEqual((step['operation'], step['assignment_id']), ('await-result', 'BUILD1'))  # no new dispatch
+        self.split.prepare(); self.split.compile()  # the build passed and was accepted: the review is dispatched on its own
+        a = self.f.assign('test-runner', 'STATIC1')
+        self.assertEqual((a['test_scope'], a['execution_contract']['path_ids']), ('build', ['S1']))
 
     def test_static_review_sits_between_build_and_automation(self):
         f = self.f; self.built()

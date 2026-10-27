@@ -61,7 +61,7 @@ class SplitTestingTests(unittest.TestCase):
         receipt = execute(f.root, 'M001', aid, 'B1', command['argv'], command['cwd'], f.base / aid)
         self.receipts = [receipt]  # the build stage is submitted once: later gates append their receipts
         plan = f.state()['modules']['M001']['plan']
-        if any(p.get('kind') in ('unit', 'static') for p in plan['paths']) and \
+        if any(p.get('kind') == 'unit' for p in plan['paths']) and \
                 interpret(read_json(receipt['path']), plan['paths'][1])['quality'] == 'green-passed':
             return None  # the unit/static helper submits build and its own gate together
         result = stage_result(f.root, 'M001', aid, [receipt])
@@ -74,12 +74,14 @@ class SplitTestingTests(unittest.TestCase):
         m = {'plan': {'paths': paths}, 'code_baseline': 'c1', 'build_baseline': None, 'results': {}}
         green, red = {'quality': 'green-passed'}, {'quality': 'red-bug'}
         ids = lambda tests: [p['path_id'] for p in tv.stage_paths(m, tests)]
-        self.assertEqual(ids({'B1': green, 'U1': green, 'S1': green}), ['B1', 'U1', 'S1'])
+        self.assertEqual(ids({'B1': green, 'U1': green, 'S1': green}), ['B1', 'U1'])  # the review waits for the commands to pass
         self.assertEqual(ids({'B1': red}), ['B1'])                       # a failed build stops the stage
         self.assertEqual(ids({'B1': green, 'U1': red}), ['B1', 'U1'])    # static never runs on failing unit tests
         self.assertEqual(ids({'B1': green}), ['B1', 'U1'])               # a Green build may not omit the unit tests
         m.update(build_baseline='c1', results={'B1': {**green, 'code_baseline': 'c1'}, 'U1': {'quality': 'yellow-blocked', 'code_baseline': 'c1'}})
-        self.assertEqual(ids({'U1': green, 'S1': green}), ['U1', 'S1'])  # a retry on the same code keeps the Green build
+        self.assertEqual(ids({'U1': green, 'S1': green}), ['U1'])  # a retry on the same code keeps the Green build
+        m['results']['U1'] = {**green, 'code_baseline': 'c1'}
+        self.assertEqual(ids({'S1': green}), ['S1'])  # the static review is a dispatch of its own
         self.assertEqual(tv.next_scope(m), 'build')
         m['results'].update(U1={**green, 'code_baseline': 'c1'}, S1={**green, 'code_baseline': 'c1'})
         self.assertEqual(tv.next_scope(m), 'automation')

@@ -91,6 +91,17 @@ class BuildFailureTests(unittest.TestCase):
         step = self.f.state()['next_steps'][0]
         self.assertEqual(step['failure_locations'], {'B1': cause['failures_ref']})
 
+    def test_located_failures_are_diagnosed_by_the_ledger_and_go_to_the_fixer(self):
+        import ledger
+        self.fail_build(self.f.target / 'm1/code.py')
+        applied = ledger.advance(self.f.root, {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}, 'M001')['applied']
+        self.assertEqual([(a['operation'], a.get('role')) for a in applied], [('diagnose', None), ('diagnosis-accept', None), ('assign', 'fixer')])
+        m = self.f.state()['modules']['M001']
+        self.assertEqual((m['phase'], m['diagnosis']['root_cause']['files']), ('fixing', [str(self.f.target / 'm1/code.py')]))
+        step = self.f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['role']), ('await-result', 'fixer'))
+        self.assertEqual(step['failure_locations'], {'B1': m['results']['B1']['root_cause']['failures_ref']})  # the Fixer's input
+
     def test_a_build_broken_outside_the_write_scope_is_left_to_diagnosis(self):
         cause = self.fail_build(self.f.base / 'elsewhere/Lib.kt')['root_cause']
         self.assertEqual((cause['category'], cause['confidence'], cause['next_action']), ('build', 'observed', 'diagnose'))

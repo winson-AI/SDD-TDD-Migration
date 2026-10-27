@@ -43,14 +43,37 @@ WORKERS = {'implementer': 'coding', 'test-runner': 'testing', 'fixer': 'fixing'}
 MECHANICAL = {'implementer': 'coding'}
 
 
-def frozen_execution(m, assignment):
-    """The commands a test dispatch runs when the freeze fixed every one of them (build, unit and in-process PATHs), as a
-    preflight states them; None when a PATH needs a device, an adapter or a reviewer."""
+def adapter_stated(s, path):
+    """Whether the run states what drives this functional PATH: an adapter for its platform, the project's one adapter, or a
+    device platform the package's own Main serves."""
+    adapter = s.get('test_adapter') or {}
+    platform = path.get('platform')
+    return bool((adapter.get('adapters') or {}).get(platform) or adapter.get('executable')
+                or platform in ((adapter.get('device') or {}).get('platforms') or []))
+
+
+def runs_by_itself(s, m, assignment):
+    """A test dispatch whose every PATH has a frozen command (build, unit, in-process) or is a functional PATH the run's
+    adapter drives: its input is fixed and its assertions judge it, so nothing in it needs a model. A static review and a
+    visual alignment do."""
     paths = {p['path_id']: p for p in (m.get('plan') or {}).get('paths', [])}
     pids = (assignment.get('execution_contract') or {}).get('path_ids') or []
-    if assignment.get('role') != 'test-runner' or not pids or not all((paths.get(pid) or {}).get('command') for pid in pids):
+    return assignment.get('role') == 'test-runner' and bool(pids) and all(
+        pid in paths and (paths[pid].get('command') or (paths[pid].get('kind') or 'automation') == 'automation'
+                          and adapter_stated(s, paths[pid])) for pid in pids)
+
+
+def frozen_execution(s, m, assignment, root):
+    """The commands such a dispatch runs, as a preflight states them; None when it does not run by itself."""
+    if not runs_by_itself(s, m, assignment):
         return None
-    commands = {pid: {'argv': list(paths[pid]['command']['argv']), 'cwd': paths[pid]['command']['cwd']} for pid in pids}
+    from execute_test import adapter_for
+    pids = assignment['execution_contract']['path_ids']
+    paths = {p['path_id']: p for p in m['plan']['paths']}
+    commands = {}
+    for pid in pids:
+        chosen = adapter_for(s, paths[pid], root)
+        commands[pid] = {'argv': list(chosen['argv']), 'cwd': chosen['cwd']}
     return {**commands[pids[0]], 'commands': commands}
 
 
@@ -85,7 +108,7 @@ def mechanical(root, s, mid, assignment):
     the stage needs the worker's own report or an input is not as referenced (the worker then reports what is missing)."""
     stage, execution = MECHANICAL.get(assignment.get('role')), None
     if assignment.get('role') == 'test-runner' and root is not None:
-        execution = frozen_execution(scope(s, mid), assignment)
+        execution = frozen_execution(s, scope(s, mid), assignment, root)
         if execution:  # the environment a frozen command runs in is the one the run's project context states
             stage, execution['environment_ref'] = requirement('assign', assignment), s.get('project_context_ref') or scope(s, mid)['plan_ref']
     if not stage or root is None:
@@ -603,7 +626,7 @@ def annotate(s, mid, step):
                         require(tv.build_ready(s['modules'][mid]), 'build not ready')
                         require(tv.can_defer(s['modules'][mid]), 'observed failure')
                     step.update(operation='automation-unavailable' if mid else 'audit-unavailable',
-                                role='module-orchestrator' if mid else 'auditor', ready=True,
+                                role='module-orchestrator' if mid else 'auditor', ready=True, mechanical=bool(mid),
                                 payload={'context_ref': ref}, reason='record-automation-not-run-and-continue')
                     return step
                 except (Rejected, OSError, ValueError):

@@ -30,12 +30,11 @@ class ResumePhaseTests(unittest.TestCase):
         test_audit_closure.ClosureTests.implement(f, 'M001', 'I2-M001')
         test_audit_closure.ClosureTests.verify_module(f, 'M001', 'T2-M001')
         f.call('complete', {'dod_ref': f.ref('dod-M001-2.md', 'reviewed')}, module='M001')
-        f.call('dependency-ready', role='global-orchestrator', module='M002')
-        f.call('resume', module='M002')
+        # the provider's completion is a fact the Ledger holds: release, resume and the test dispatch take no model turn
+        applied = ledger.advance(f.root, {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}, 'M002')['applied']
+        self.assertEqual([(a['operation'], a.get('role')) for a in applied][:3], [('dependency-ready', None), ('resume', None), ('assign', 'test-runner')])
         after = f.state()['modules']['M002']
         self.assertEqual((after['phase'], after['code_baseline'], after['accepted_task_ids']), ('testing', before['code_baseline'], ['T1']))  # its code stands; it tests again
-        step = ledger.status(f.root, 'step', 'M002')['step']
-        self.assertEqual((step['operation'], step['worker_role']), ('assign', 'test-runner'))  # a step it can take
 
 
 if __name__ == '__main__':
