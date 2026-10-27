@@ -16,7 +16,7 @@ from execute_test import execute
 from harmony_stage import build as stage_result
 
 MO = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
-MODEL_TURNS = 6  # plan, plan review, coding, implementation accept, build run, automation run
+MODEL_TURNS = 5  # plan, plan review, coding, build run, automation run
 
 
 class RehearsalTests(unittest.TestCase):

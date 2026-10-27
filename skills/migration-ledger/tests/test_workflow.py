@@ -290,7 +290,8 @@ class WorkflowTests(unittest.TestCase):
                    'hint': {'session_id': 'S-MO', 'card_sha256': step['card_sha256']}}
             return plain(op, payload, request=req)
         self.call = call
-        self.implementation()
+        self.submit_code('I1', {'status': 'unavailable', 'reason': 'no compiler on this host', 'version_sensitive_apis': []})
+        self.call('accept', {'assignment_id': 'I1'})  # code its author could not compile is the orchestrator's to judge
         m = self.state()['modules']['M001']
         self.assertIn('S-MO', m['delivered_cards'])
         # The plan and the dispatch were recorded for the instances that acted (a freeze on a recorded decision takes no
@@ -389,25 +390,28 @@ class WorkflowTests(unittest.TestCase):
         f.raw('assign', {**step['payload'], 'assignment_id': 'TEST1'})
         self.assertEqual(f.state()['modules']['M001']['assignments']['TEST1']['instance_id'], 'tester')
 
-    def test_accepting_code_or_a_failing_result_is_not_mechanical(self):
-        self.prepare()
-        a = self.assign('implementer', 'I1')
+    def submit_code(self, aid, diagnostics):
+        a = self.assign('implementer', aid)
         source = self.target / 'm1/code.py'; source.parent.mkdir(exist_ok=True); source.write_text('value = 2\n')
         refs = [file_ref(source)]
         from contracts import baseline
-        self.submit({'schema_version': 1, 'kind': 'implementation', 'run_id': 'demo', 'module_id': 'M001', 'assignment_id': 'I1',
+        self.submit({'schema_version': 1, 'kind': 'implementation', 'run_id': 'demo', 'module_id': 'M001', 'assignment_id': aid,
                      'actor_instance_id': 'implementer', 'freeze_id': a['freeze_id'], 'code_files': refs, 'code_baseline': baseline(refs),
                      'task_trace': [{'task_id': 'T1', 'files': [str(source)]}],
-                     'production_binding_evidence': self.ref('binding.txt', 'real binding reviewed'),
-                     'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': self.ref('diag.log', '0 errors')}}, a)
+                     'production_binding_evidence': self.ref('binding.txt', 'real binding reviewed'), 'authoring_diagnostics': diagnostics}, a)
+        return a
+
+    def test_accepting_a_settled_result_is_mechanical_and_the_rest_is_judged(self):
+        self.prepare()
+        self.submit_code('I0', {'status': 'unavailable', 'reason': 'no compiler on this host', 'version_sensitive_apis': []})
         step = self.state()['next_steps'][0]
-        self.assertEqual(step['operation'], 'accept'); self.assertNotIn('mechanical', step)
-        self.call('accept', {'assignment_id': 'I1'})
+        self.assertEqual(step['operation'], 'accept'); self.assertNotIn('mechanical', step)  # code its author could not compile
+        self.call('accept', {'assignment_id': 'I0'})
         a, result = self.make_test_result(quality='red-bug')
         result['paths'][0]['root_cause'].update(category='code', confidence='confirmed')
         self.submit(result, a)
         step = self.state()['next_steps'][0]
-        self.assertEqual(step['operation'], 'accept'); self.assertNotIn('mechanical', step)
+        self.assertEqual((step['operation'], step.get('mechanical')), ('accept', True))  # a definite Red goes on to diagnosis
 
     def test_workflow_cost_counts_dispatches_receipts_and_repairs(self):
         self.failed_module(); self.diagnose(); self.implementation('fixer', 'F1')

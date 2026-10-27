@@ -829,8 +829,9 @@ def _next_step(s, m):
         step.update(operation='accept' if submitted else 'await-result',
                     role='module-orchestrator' if submitted else active['role'], ready=submitted,
                     reason=None if submitted else 'worker-running')
-        if submitted and m['submissions'][active['assignment_id']].get('green'):
-            # Nothing to judge: accept re-validates the result, so the host may submit it without a model turn.
+        if submitted and any(m['submissions'][active['assignment_id']].get(k) for k in ('green', 'settled')):
+            # Nothing to judge: accept re-validates the result, so the host may submit it without a model turn; a definite
+            # Red goes on to diagnosis.
             step['mechanical'] = True
     elif m.get('decomposition_submission'):
         step.update(operation='decompose-accept', role='global-orchestrator', ready=True)
@@ -990,6 +991,16 @@ def _next_step(s, m):
     if affinity:
         step['session_affinity'] = affinity
     return step
+
+
+def settled_result(result):
+    """Whether accepting a result needs no judgement: code whose author's compile check passed (every Ledger check runs again
+    at accept), or tests whose every PATH is Green or a definite Red (an assertion that failed goes to diagnosis). A Yellow,
+    a blocked run or code its author could not compile is the orchestrator's to judge."""
+    if result.get('kind') == 'implementation':
+        return (result.get('authoring_diagnostics') or {}).get('status') == 'passed'
+    return (result.get('kind') == 'tests' and bool(result.get('paths'))
+            and all(row.get('quality') in ('green-passed', 'red-bug') for row in result['paths']))
 
 
 def all_green_tests(result):
@@ -1746,7 +1757,7 @@ def mutate(s, req, principal, events, root=None):
             write_scope.verify(s, m, assignment, result, read_json(check_ref(p['write_scope_ref'])))
         # The submission is the hash-bound reference plus what the cursor and the report need from it.
         m['submissions'][p['assignment_id']] = {
-            'ref': p['result_ref'], 'kind': result.get('kind'), 'green': all_green_tests(result),
+            'ref': p['result_ref'], 'kind': result.get('kind'), 'green': all_green_tests(result), 'settled': settled_result(result),
             'test_run_ids': [row.get('test_run_id') for row in result.get('paths', [])] if result.get('kind') == 'tests' else []}
     elif op == 'accept':
         require(not s.get('audit_batch', {}).get('retry_stops', {}).get(mid), 'stop affected old worker before accepting stale audit output')

@@ -131,7 +131,7 @@ class StateReferenceTests(unittest.TestCase):
         a, result = f.make_test_result(); f.submit(result, a)
         m = f.state()['modules']['M001']
         submission = m['submissions'][a['assignment_id']]
-        self.assertEqual(set(submission), {'ref', 'kind', 'green', 'test_run_ids'})
+        self.assertEqual(set(submission), {'ref', 'kind', 'green', 'settled', 'test_run_ids'})
         self.assertEqual((submission['kind'], submission['green']), ('tests', True))
         self.assertTrue(m['context_receipts'])
         for receipt in m['context_receipts'].values():
