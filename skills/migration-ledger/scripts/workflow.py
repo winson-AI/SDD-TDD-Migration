@@ -146,7 +146,10 @@ def feature_inventory(s, plan):
         for evidence in nonempty(item.get('evidence_refs'), 'feature/source evidence'):
             check_ref(evidence)
     owners = plan.get('feature_owners', {})
-    require(set(owners) == set(features), 'every feature requires module ownership')
+    held_cases = {cid for m in s['modules'].values() for cid in m['case_ids']}
+    # a feature no leaf holds a case of yet was left out by a split: it is owned once a later split covers it
+    require(set(owners) <= set(features) and all(fid in owners or not set(f['case_ids']) & held_cases for fid, f in features.items()),
+            'every feature requires module ownership')
     for fid, mids in owners.items():
         require(mids and len(set(mids)) == len(mids) and set(mids) <= set(s['modules']), 'feature owners must be execution modules')
         for rid in features[fid]['requirement_ids']:
@@ -359,7 +362,12 @@ def handle(s, req, actor, run_root=None):
         check_ref(s['global_spec']); check_ref(s['new_architecture'])
         requirements = plan.get('requirement_owners', {})
         cases = plan.get('case_owners', {})
-        require(set(requirements) == set(s['requirement_ids']) and set(cases) == set(s['case_ids']), 'incomplete global requirement/case coverage')
+        # a case or requirement a split left out is the parent's gap: it has no leaf to own it until a later split covers it
+        left = {cid for g in s.get('module_groups', {}).values() for cid in g['case_ids']} - {cid for m in s['modules'].values() for cid in m['case_ids']}
+        left_reqs = {rid for g in s.get('module_groups', {}).values() for rid in (g.get('scope') or {}).get('requirement_ids', [])} - \
+            {rid for m in s['modules'].values() for rid in (m.get('scope') or {}).get('requirement_ids', [])}
+        require(set(s['requirement_ids']) - left_reqs <= set(requirements) <= set(s['requirement_ids']) and
+                set(s['case_ids']) - left <= set(cases) <= set(s['case_ids']), 'incomplete global requirement/case coverage')
         valid = set(s['modules']) | {'GLOBAL'}
         for mapping in (requirements, cases):
             for owners in mapping.values():

@@ -324,8 +324,10 @@ def group_step(s, group, ref_check=check_ref):
                     affected_children=realloc_reqs)
         return step
     import issues
-    owed = [row['issue_id'] for row in issues.of_module(s, group['module_id'])[0]]
-    if owed:  # recorded for this parent: its split is revised, or the issue is settled with what answers it
+    # recorded for this parent: its split is revised, or the issue is settled with what answers it; what a first split
+    # left out waits until the children's first version is done
+    owed = [row['issue_id'] for row in issues.of_module(s, group['module_id'])[0] if not row['issue_id'].startswith('COVER-')]
+    if owed:
         step.update(operation='redecompose', ready=True, role='module-orchestrator', reason='open-issues', issue_ids=owed)
         return step
     for mid in leaves(s, group['module_id']):
@@ -344,7 +346,12 @@ def group_step(s, group, ref_check=check_ref):
     for mid in group['children']:
         if mid in s.get('module_groups', {}) and not summary_current(s, s['module_groups'][mid], ref_check):
             return step
-    if summary_current(s, group, ref_check):
+    import issues
+    left = [row for row in issues.of_module(s, group['module_id'])[0] if row['issue_id'].startswith('COVER-')]
+    if left:  # the children's first version is done: what the split left out is covered now, before the summary
+        step.update(operation='redecompose', role='module-orchestrator', ready=True, reason='split-coverage-owed',
+                    coverage=[row['summary'] for row in left])
+    elif summary_current(s, group, ref_check):
         step['reason'] = 'parent-summary-current'
     else:
         # The summary binds the children's recorded facts: the Ledger writes it and the host submits it without a model turn.
@@ -418,8 +425,9 @@ def validate(s, parent, plan, redecompose=False):
         require(set(child.get('dependencies', [])) <= set(ids) | set(parent['dependencies']), 'child dependency outside approved parent boundary')
         cases.update(child['case_ids'])
         requirements.update(child['scope']['requirement_ids'])
-    require(cases == set(parent['case_ids']), 'submodules must cover every parent case')
-    require(requirements == set(parent['scope']['requirement_ids']), 'submodules must cover every parent requirement')
+    # a first split need not cover its parent: what it leaves is the parent's gap, covered before the parent's summary
+    coverage(s, parent['module_id'], 'cases', set(parent['case_ids']) - cases)
+    coverage(s, parent['module_id'], 'requirements', set(parent['scope']['requirement_ids']) - requirements)
     dimensions.partition(s, parent, plan)
     import behavior_contract
     if s.get('behavior_contract_required') or any(c.get('behavior_review') for c in children):
@@ -518,6 +526,22 @@ def standard(s, parent, children, plan, record=True):
     bound(s, parent, children, plan, record)
 
 
+def coverage(s, parent_id, kind, missing):
+    """What a split leaves out of its parent - cases, requirements, four-dimension work or features - is a gap of the parent:
+    the first version of the children goes on, and a later split covers it before the parent's summary."""
+    import issues
+    iid, missing = 'COVER-%s-%s' % (parent_id, kind), sorted(missing)
+    issue = s.get('issues', {}).get(iid)
+    if missing:
+        summary = '%s: the split leaves %s to a later split: %s' % (parent_id, kind, ', '.join(missing[:12]) + (' …' if len(missing) > 12 else ''))
+        if issue:
+            issue.update(summary=summary); issue['resolved'].pop(parent_id, None)
+        else:
+            issues.record(s, iid, 'gap', summary, [parent_id], issues.LEDGER)
+    elif issue and parent_id not in issue['resolved']:
+        issue['resolved'][parent_id] = {'by': issues.LEDGER, 'covered': True}
+
+
 def node_features(features, paths):
     """The features at or below the feature-tree nodes `paths` name: a node is a functional_path, its subtree the paths under it."""
     return {fid for fid, f in features.items()
@@ -566,7 +590,7 @@ def bound(s, parent, children, plan, record=True):
                 issues.record(s, 'SLICE-%s-derived' % child['module_id'], 'fact', '%s holds %d features found in source beyond the supplied cases: %s'
                               % (child['module_id'], len(derived), ', '.join(derived)), [parent['module_id']], issues.LEDGER,
                               resolved={parent['module_id']: {'by': issues.LEDGER, 'recorded': True}})
-    carried = carriers(mine, held, children)
+    carried = carriers(mine, held, children, s=s, parent_id=parent['module_id'])
     for child in children:
         if child.get('kind') == 'scaffold':
             continue
@@ -580,16 +604,19 @@ def bound(s, parent, children, plan, record=True):
                           resolved={parent['module_id']: {'by': issues.LEDGER, 'recorded': True}})
 
 
-def carriers(features, held, leaves, strict=True):
+def carriers(features, held, leaves, strict=True, s=None, parent_id=None):
     """{leaf: features it carries}: a feature no leaf names - a failure, cancel or retry outcome with no node of its own -
     rides with the one leaf that lists all its cases; one that no leaf, or more than one, lists stays without a leaf."""
-    carried = {}
+    carried, unheld = {}, set()
     for fid in sorted(set(features) - set(held)):
         holders = [leaf['module_id'] for leaf in leaves if leaf.get('kind') != 'scaffold'
                    and set(features[fid].get('case_ids') or []) <= set(leaf.get('case_ids') or [])]
-        require(len(holders) == 1 or not strict, 'features without a leaf: %s; list its cases on the leaf of the flow it belongs to' % fid)
         if len(holders) == 1:
             carried.setdefault(holders[0], set()).add(fid)
+        elif strict:
+            unheld.add(fid)
+    if strict and s is not None:
+        coverage(s, parent_id, 'features', unheld)  # a feature no leaf holds yet is covered by a later split
     return carried
 
 

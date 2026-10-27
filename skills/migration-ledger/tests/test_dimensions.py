@@ -278,12 +278,13 @@ class DimensionTests(unittest.TestCase):
 
     def test_parent_applicable_cannot_disappear_or_cross_dimension(self):
         f = self.f
-        self.root(('Logic', 'Resource'))
-        p = self.proposal(('Logic',))
-        with self.assertRaisesRegex(Rejected, 'omit parent'):
-            f.call('decompose', {'plan_ref': f.ref('bad-split.json', p)}, module='M010')
-        p = self.proposal(('Logic', 'Resource'))
-        data = self.analysis('M001', ('Logic', 'Resource'), self.root_ref)
+        self.root(('Logic', 'Adhesive', 'Resource'))
+        p = self.proposal(('Logic', 'Adhesive'))
+        f.call('decompose', {'plan_ref': f.ref('bad-split.json', p)}, module='M010')  # the Resource work is left to a later split
+        gap = f.state()['issues']['COVER-M010-four-dimension work']
+        self.assertEqual((gap['kind'], 'M010-Resource' in gap['summary']), ('gap', True))
+        p = self.proposal(('Logic', 'Adhesive', 'Resource'))
+        data = self.analysis('M001', ('Logic', 'Adhesive', 'Resource'), self.root_ref)
         data['dimensions'][1]['items'][0]['parent_item_ids'] = ['M010-Resource']
         p['children'][0]['dimension_analysis_ref'] = f.ref('wrong-dimension.json', data)
         with self.assertRaisesRegex(Rejected, 'dimension changed'):

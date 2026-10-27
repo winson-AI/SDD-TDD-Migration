@@ -2,7 +2,7 @@
 
 ## 总则
 
-project 指完整项目及其功能树；single-module 只选择一个根功能。GO 划模块 scope/上下文，MO 按原子性决定细分或进入叶子 tasks 规划；不为凑层级创建同范围孩子。父子均读全局代码/架构/知识，权限限定于认领 scope；规划绑定 Ledger 的 planning_context 和 module_inputs。实际父节点只管理/汇总，叶子持有 SPEC、代码、测试与验收；父聚合失败不回写兄弟。全部叶子本轮结束且父 MO 汇总有效后，GO 才统一启动 Auditor。
+project 指完整项目及其功能树；single-module 只选择一个根功能。GO 划模块 scope/上下文，MO 按原子性决定细分或进入叶子 tasks 规划；不为凑层级创建同范围孩子。父子均读全局代码/架构/知识，权限限定于认领 scope。实际父节点只管理/汇总，叶子持有 SPEC、代码、测试与验收；父聚合失败不回写兄弟。全部叶子本轮结束且父 MO 汇总有效后，GO 才统一启动 Auditor。
 
 原子根：GO 直接登记为叶子，或 MO 在拆分提案中确认当前根为原子叶子，经 GO 接受后进入 SPEC 规划。原子性不替代测试设计与冻结；运行级 `fixer_self_diagnosis`（默认关闭）打开时本地修复轮由原会话先诊断后修复，审计期恢复独立 Diagnostician。多个孩子的具体批准可汇总一次提交，见[批量冻结](#父级批量冻结信封)。
 
@@ -38,7 +38,7 @@ project 指完整项目及其功能树；single-module 只选择一个根功能�
 
 局部 context pack 用于聚焦，全局可读不扩大 scope 或写权限；先按目标画像与兄弟分工明确"复用什么、谁实现、谁消费、写哪些文件、不实现哪些行为"。全局需求 ID 可覆盖不同子职责，但须有唯一实现 owner；共享写路径受锁约束，重叠分工必须审核。
 
-`planning_context` 只含职责结构，不含兄弟变化中的 phase/revision；进度、锁和修复 memory 另读 Ledger。拆分/冻结/派发核对绑定摘要与当前上下文及分配，过期拒绝。叶子只绑定自身、上级父模块与所依赖切片：步骤视图只带这部分，其余切片在 `other_modules` 列名称/写范围/依赖，它们改写不使叶子过期；父模块、待拆模块与全局绑定全量。重组保留的孩子由 `allocation_changes` 得知变动，重交 plan 后清除。
+`planning_context` 只含职责结构，不含兄弟变化中的 phase/revision；拆分/冻结/派发核对绑定摘要与当前上下文及分配，过期拒绝。叶子只绑定自身、上级父模块与所依赖切片：步骤视图只带这部分，其余切片在 `other_modules` 列名称/写范围/依赖，它们改写不使叶子过期；父模块、待拆模块与全局绑定全量。重组保留的孩子由 `allocation_changes` 得知变动，重交 plan 后清除。
 
 ## 3. 分配与登记门禁
 
@@ -95,11 +95,11 @@ GO 切片前建立 TARGET/外部来源的功能语义目录，结合需求分配
 
 ## 父级批量冻结信封
 
-父 MO 拆分出多个孩子时，可以把各孩子的 decision_envelope（scope、acceptance、allowed_alternatives、forbidden_changes）汇成一份 [批量信封](../../../template/batch-envelope.json)，交人类一次批准。子 plan 的 envelope 与信封条目完全一致时，子 MO 审阅详细 tasks/PATH 后附 review_ref 即可 freeze，不再逐个等待人类；任一孩子超出条目仍须自己的人类批准。信封批准不替代 MO 的计划审阅。
+父 MO 拆分出多个孩子时，可以把各孩子的 decision_envelope（scope、acceptance、allowed_alternatives、forbidden_changes）汇成一份 [批量信封](../../../template/batch-envelope.json)，交人类一次批准。子 plan 的 envelope 与信封条目完全一致时，子 MO 审阅后附 review_ref 即可 freeze；任一孩子超出条目仍须自己的人类批准。信封批准不替代 MO 的计划审阅。
 
 ## 验证边界
 
-behavior_review.verification 必填，字段见[模板](../../../template/module-decomposition.json)；provider_inputs 精确匹配实际 dependencies；required_stage 缺省 implemented（对着提供方已接受的代码规划与实现），写 verified 须给 reason。父级只切范围与语义，contract_ref、fixture_contract_ref 可不写：叶子与提供方并行规划（有计划即对着其计划，步骤列 waiting_for），代码派发等提供方到达该阶段，fixture 由叶子计划写明；叶子引用提供方已作废的计划目录记为欠项；叶子只按哈希钉住自己写范围内的 target 文件，别人写的引用其计划或契约。同触发须有不同的独立观察，否则重切；唯一 ID、独立作者或独立颜色不能替代行为独立性。
+behavior_review.verification 必填，字段见[模板](../../../template/module-decomposition.json)；provider_inputs 精确匹配实际 dependencies；required_stage 缺省 implemented（对着提供方已接受的代码规划与实现），写 verified 须给 reason。父级只切范围与语义，contract_ref、fixture_contract_ref 可不写：叶子与提供方并行规划（有计划即对着其计划，步骤列 waiting_for），代码派发等提供方到达该阶段，fixture 由叶子计划写明；叶子引用提供方已作废的计划目录记为欠项；叶子只按哈希钉住自己写范围内的 target 文件，别人写的引用其计划或契约。同触发须有不同的独立观察，否则重切。
 
 拆分文档写 case_acceptance：父模块验收的每条 CASE 对应唯一验收它的子模块（其 acceptance_case_ids）。一条 CASE 只有一个持有者：验收它的子模块只持有它验收的用例，为别的切片供给能力写进对方的 provider_inputs，各切片都须满足的约束写成各自条目的保真条件；不验收任何 CASE 的切片是脚手架（kind: scaffold），持有它所服务切片的用例。某 CASE 的界面与逻辑分属两个切片时，independence_review（rationale、evidence_refs）说明为何不能按业务行为切。根模块以 acceptance_case_ids 声明（缺省全部），一条 CASE 只由一个根验收。
 
@@ -108,7 +108,7 @@ behavior_review.verification 必填，字段见[模板](../../../template/module
 ## 切片标准
 
 - **叶子是一条子业务流**：一个用户目标及其经过的页面（对话框与弹层并入所属页面）连同其后的 Logic、Adhesive、Resource 条目，端到端验收自己的 CASE，至少一条用户可见 CASE 带设备或视觉 PATH；页面是 TASK 不是叶，`anchor_ui` 列出入口页与经过的页面；它消费的资源由它搬运与声明，共享资源归脚手架。每叶自带绑定父项的四维分析和自己的六件套、tasks 与 PATH。
-- **叶子是功能树的节点**：待拆分的根登记时带 `feature_inventory_ref`（GO 在 global-discovery 形成的清单），拆分计划不写引用则取根的、写了以计划为准；功能叶声明 `functional_paths`（树上一个或多个节点），持有节点及其以下的功能，`case_ids` 精确等于这些功能的 CASE；无节点的横切功能（失败/取消/重试）随列全其 CASE 的叶子并记事实；功能叶之间不重叠，脚手架不声明节点；global-plan 的 feature_owners 等于由此推导的唯一 owner。有用户用例时每叶至少锚定一个用户用例覆盖的功能，其余派生功能记事实。
+- **叶子是功能树的节点**：待拆分的根登记时带 `feature_inventory_ref`（GO 在 global-discovery 形成的清单），拆分计划不写引用则取根的、写了以计划为准；功能叶声明 `functional_paths`（树上一个或多个节点），持有节点及其以下的功能，`case_ids` 精确等于这些功能的 CASE；无节点的横切功能（失败/取消/重试）随列全其 CASE 的叶子并记事实；功能叶之间不重叠，脚手架不声明节点；首次切分可不全覆盖父（用例、需求、四维工作、功能），未覆盖的记为父的 COVER 欠项，孩子首版照常推进，首版收尾后游标给 redecompose 补齐，补齐前父不汇总；global-plan 的 feature_owners 等于由此推导的唯一 owner。有用户用例时每叶至少锚定一个用户用例覆盖的功能，其余派生功能记事实。
 - **脚手架**（`kind: scaffold`）不是必有的：外壳缺否以目标画像为准（根登记或 global-plan 的 `target_profile_ref`，逐功能 absent/shell-only/partial/existing，证据可取自 `target-scan`），有画像时非缺壳处的脚手架被拒；目标或二方库已提供外壳时功能叶直接复用；只在目标缺外壳时设 1–2 个脚手架叶作为第 0 波，计划以 `skeleton_task_ids` 标出 ≤3 个骨架 TASK（壳与接线、接口门面与假实现、共享资源表，PATH 只有 build/unit/static；多于 3 个必须标出），骨架被接受且构建 Green 即派功能叶，其余 TASK 与功能叶并行，全部落地时依赖方失效复测；宿主前置写入在脚手架写范围内。
 - **功能叶**（缺省 feature）只依赖脚手架叶，功能叶之间不直接依赖（要什么走脚手架接口或 need issue）；写 `anchor_ui`，父级有 UI 时须有 UI 条目，父级多维时不能只有一维；3–30 条 CASE：少于 3 条并入所属流（父本身不足 3 条除外），多于 20 条记事实，多于 30 条按子流再切；一个父 MO 的功能叶 2–6 个，更多记切片信号；计划最多 8 个 TASK（超出记欠项），细粒度放在 TASK。代码只引用脚手架与自身，构建与单测 PATH 在"脚手架 + 本叶"下可跑，PATH 的前置条件与步骤不得引用非提供方兄弟叶的模块或文件。
 - **按入口**：完整项目按导航图每模块一个脚手架、每条子业务流一叶；指定模块补脚手架再按流分叶；指定页面取所在的流为一叶，缺外壳加脚手架叶。

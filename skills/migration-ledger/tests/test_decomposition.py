@@ -275,8 +275,8 @@ class DecompositionTests(unittest.TestCase):
         parent = s['modules']['M010']
         parent['scope']['requirement_ids'].append('R2')
         plan = self.proposal()
-        with self.assertRaisesRegex(Rejected, 'cover every parent requirement'):
-            dc.validate(s, parent, plan)
+        dc.validate(s, parent, plan)  # a first split may leave a requirement out: it is the parent's gap
+        self.assertIn('R2', s['issues']['COVER-M010-requirements']['summary'])
         self.split()
         s = self.state()
         child = s['modules']['M001']
@@ -284,6 +284,19 @@ class DecompositionTests(unittest.TestCase):
         plan = self.plan()
         with self.assertRaisesRegex(Rejected, 'cover assigned submodule requirements'):
             dc.check_tasks(child, plan)
+
+    def test_what_a_split_left_out_is_covered_before_the_parent_summary(self):
+        self.root_scope(); self.split(); self.global_plan()
+        for mid in ('M001', 'M002'):  # the children's first version has settled
+            self.call('suspend', {'kind': 'human', 'reason': mid+' question', 'root_cause': 'unresolved', 'owner': 'human'}, module=mid)
+        s = self.state()
+        self.assertEqual(dc.group_step(s, s['module_groups']['M010'])['operation'], 'module-summary')
+        dc.coverage(s, 'M010', 'cases', {'C9'})  # as a first split that left a case out records it
+        step = dc.group_step(s, s['module_groups']['M010'])
+        self.assertEqual((step['operation'], step['role'], step['reason']), ('redecompose', 'module-orchestrator', 'split-coverage-owed'))
+        self.assertIn('C9', step['coverage'][0])
+        dc.coverage(s, 'M010', 'cases', set())  # a later split that covers it settles the gap
+        self.assertEqual(dc.group_step(s, s['module_groups']['M010'])['operation'], 'module-summary')
 
     def test_parent_summary_is_bound_to_current_children(self):
         self.root_scope(); self.split(); self.global_plan()

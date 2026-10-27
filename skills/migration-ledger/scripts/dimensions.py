@@ -280,15 +280,19 @@ def partition(s, parent, plan):
                                 (earlier or all(ref in condition['evidence_refs'] for ref in original['evidence_refs'])),
                                 'child changed inherited fidelity condition; revise parent first')
                         coverage[pid]['conditions'].add(condition['condition_id'])
-    require(covered == set(expected), 'child dimensions omit parent work (N/A cannot discard inherited work)')
-    require(api_covered == set(parent_apis), 'child API inventory omits parent contracts')
+    # What the children do not take of the parent's work is the parent's gap, covered by a later split before its summary.
+    left = sorted(set(expected) - covered) + sorted('API ' + aid for aid in set(parent_apis) - api_covered)
     for iid, item in expected.items():
-        require({c['condition_id'] for c in item.get('fidelity_conditions', [])} <= coverage[iid]['conditions'],
-                'child dimensions omit parent fidelity conditions')
+        if iid not in covered:
+            continue
+        left += ['%s condition %s' % (iid, c['condition_id']) for c in item.get('fidelity_conditions', [])
+                 if c['condition_id'] not in coverage[iid]['conditions']]
         # A case of the item that a citing child holds stays attached to that child's items; a case another child holds
         # is carried by its holder, which is supplied through its provider's contract.
-        require(set(item['requirement_ids']) <= coverage[iid]['requirements'] and
-                set(item['case_ids']) & coverage[iid]['held'] <= coverage[iid]['cases'], 'child dimensions omit parent item requirements/cases')
+        left += ['%s %s' % (iid, x) for x in sorted(set(item['requirement_ids']) - coverage[iid]['requirements'])
+                 + sorted(set(item['case_ids']) & coverage[iid]['held'] - coverage[iid]['cases'])]
+    import decomposition
+    decomposition.coverage(s, parent['module_id'], 'four-dimension work', left)
 
 
 IDENTIFIED = ('item_id', 'condition_id', 'dimension', 'api_id')
