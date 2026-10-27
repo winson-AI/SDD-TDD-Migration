@@ -22,9 +22,9 @@ from harmony_stage import build as stage_result
 
 MO = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
 # The counts last recorded in VERIFICATION.md: model turns by role, and the most protocol bytes one turn's card handed a model.
-RECORDED = {'turns': {'global-orchestrator': 3, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 4, 'auditor': 2},
-            'card_bytes': 20524}
-RECORDED_RED = {'turns': {'global-orchestrator': 3, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 6, 'fixer': 1, 'auditor': 2}, 'card_bytes': 20524}  # the same run whose first version of one leaf fails its automation
+RECORDED = {'turns': {'global-orchestrator': 3, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 4, 'auditor': 1},
+            'card_bytes': 19640}
+RECORDED_RED = {'turns': {'global-orchestrator': 3, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 6, 'fixer': 1, 'auditor': 1}, 'card_bytes': 19640}  # the same run whose first version of one leaf fails its automation
 
 
 class RunRehearsalTests(unittest.TestCase):
@@ -156,6 +156,8 @@ class RunRehearsalTests(unittest.TestCase):
 
     def test_a_run_reaches_its_audit_and_its_model_turns_and_card_bytes_are_reported(self):
         self.rehearse()
+        verdict = next(e for e in workflow_cost.journal(self.f.root) if e['operation'] == 'audit')
+        self.assertEqual((verdict['actor']['role'], verdict['request_id'][:12]), ('auditor', 'advance-run-'))  # a clean review is the verdict
 
     def test_a_run_whose_first_version_fails_is_repaired_and_reaches_its_audit(self):
         self.red = ('M001',)
