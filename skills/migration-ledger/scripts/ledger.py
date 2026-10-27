@@ -1159,6 +1159,9 @@ def with_card(s, m, step):
                     kept[pid] = {'observed': record.get('media_refs') or [], 'expected': expected}
             if kept:
                 step['media_evidence'] = kept
+            located = {pid: r['root_cause']['failures_ref'] for pid, r in unresolved(m).items() if (r.get('root_cause') or {}).get('failures_ref')}
+            if located:
+                step['failure_locations'] = located  # where each failed command broke, grepped from its log: read these, grep the log only for more
     enhancement = reading.reasoning_sections(m)
     if enhancement: step['reasoning_activation'] = [{'ref': ref, 'section': heading} for ref, heading in enhancement]
     if s.get('project_context_ref') and (m or (step.get('role') == 'global-orchestrator' and step.get('operation') in

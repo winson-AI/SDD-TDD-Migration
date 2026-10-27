@@ -88,7 +88,7 @@ adapter 与正式验收共用 [visual_evidence.py](../../migration-ledger/script
 
 **② 闭包不缩减** —— UI 树声明的每个呈现引用（含 `dynamicRules` 的运行时覆盖）与代码[使用点](resource-transfer.md#使用点与闭包)都要被覆盖（缺项记欠项），参数表携带的取值连同变体即算覆盖。item 逐 `source_resource + qualifier` 给真实源文件的 path/sha256、策略、目标与消费者，kind、qualifier、.9.png、sp 单位与 SHA 同源文件与 collector 一致；裸 `covered_resource_ids` 不算。night、语言等变体各有 item，不属当前切片的在 `ui_evidence.resource_scope.exclusions` 逐项给 source_resource/qualifier/path、reason 与 evidence_refs，不能排除配置中启用的 qualifier；索引缺 hash 或过期时重新抽取，`res/color*` 状态选择器按 selector 处理，转换与配置映射见[资源接入](domain-tools.md#资源执行与事实绑定)。
 
-**③ 节点 ID、数组与平台资源** —— `R.id` 是节点定位事实；`@array` 按 array 精确迁移。平台引用（`@android:` / `?android:`）须声明 platform_resource.api_level 与指向真实 SDK source.properties 的 sdk_metadata_ref，source_resource_ref 在同 SDK 的 data/res 并含匹配定义；缺定义可显式 blocked，不伪造。示例见 [semantic-model.json](../../../template/semantic-model.json)。
+**③ 节点 ID、数组与平台资源** —— `R.id` 是节点定位事实；`@array` 按 array 精确迁移。平台引用（`@android:` / `?android:`）须声明 platform_resource.api_level 与指向真实 SDK source.properties 的 sdk_metadata_ref，source_resource_ref 在同 SDK 的 data/res 并含匹配定义；缺定义可显式 blocked，不伪造。
 
 **④ UI 树白盒** —— Ledger 按 [ui-tree-contract.json](../../../template/ui-tree-contract.json) 校验 `ui_tree_ref`：schemaVersion/scope/generatedFrom（runtime 两字段同有或同无）/screens（递归 source-backed root 与 attachments，重复行只记一次）/完整映射源布局的 layoutClosure/显式 criticalLayoutContracts 与 unresolved（冲突不得丢弃）；各记录带 sourcePath 与 line 或 selector；runtimeObservations 只记实际观察，source-only 树不得携带，visual_mode 与 runtimeIndex 有无一致。
 

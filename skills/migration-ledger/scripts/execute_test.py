@@ -358,16 +358,24 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
             atomic(out / named('result', pid), unit_reports.collect(queries[pid], out, started, exit_code))
     elif is_build:
         quality = 'green-passed' if exit_code == 0 else 'yellow-blocked' if aborted or exit_code in (124, 127) else 'red-bug'
+        cause = None
+        if exit_code != 0:
+            # The status first; on a failure the locations grepped from the log, not the log, are what the repair reads.
+            # Every location inside the module's write scope is a code defect where it broke: confirmed, no diagnosis needed.
+            import failures
+            located, rows = failures.write(out / 'execution.log', out / 'failures.json')
+            ours = quality == 'red-bug' and failures.inside(rows, m.get('write_paths') or [])
+            cause = {'category': 'tooling' if aborted or exit_code in (124, 127) else 'code' if path.get('kind') == 'unit' or ours else 'build',
+                     'summary': ('Unit tests' if path.get('kind') == 'unit' else 'Build') + ' exit ' + str(exit_code) + '; ' + failures.summary(rows),
+                     'confidence': 'confirmed' if ours else 'observed', 'owner': module_id, 'next_action': 'fix' if ours else 'diagnose',
+                     'evidence_refs': [file_ref(out / 'execution.log'), *([file_ref(located)] if located else [])],
+                     **({'failures_ref': file_ref(located)} if located else {})}
         atomic(out / 'result.json', {'producer': 'build-executor',
             'build_artifacts': [file_ref(run_storage.checked_path(f, out)) for f in sorted(out.rglob('*'))
                                 if f.is_file() and f.suffix.lower() in ('.hap', '.hsp', '.apk')], 'quality': quality,
             'assertions': [{'assertion_id': path['expected_assertions'][0]['assertion_id'], 'expected': 0,
                             'actual': exit_code, 'passed': exit_code == 0}],
-            'root_cause': None if exit_code == 0 else {'category': 'tooling' if aborted or exit_code in (124,127)
-                                                        else 'code' if path.get('kind') == 'unit' else 'build',
-                'summary': ('Unit tests' if path.get('kind') == 'unit' else 'Build') + ' exit ' + str(exit_code) + '; inspect captured compiler/tool log',
-                'confidence': 'observed', 'owner': module_id, 'next_action': 'diagnose',
-                'evidence_refs': [file_ref(out / 'execution.log')]}})
+            'root_cause': cause})
     finished = datetime.now(timezone.utc).isoformat()
     shared = {'schema_version': 1, 'producer': 'host-executor', 'execution_contract_version': 2, 'run_id': s['run_id'],
               'module_id': module_id, 'assignment_id': assignment_id, 'actor_instance_id': a['instance_id'],

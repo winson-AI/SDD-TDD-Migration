@@ -2,6 +2,10 @@
 
 本文件回答一个问题:**怎样才算"宿主真实执行了本控制流",而不是手写文件模拟。** 它把散落在各 reference 里的"宿主负责……"整合成逐阶段、可执行、可自证的清单。
 
+## 命令执行
+
+构建、自检、模拟器、预览服务等命令一律经 `skills/migration-ledger/scripts/run_command.py`：`run --log <文件> [--cwd] [--timeout] -- <argv>` 前台执行，长驻的用 `start` 启动后 `wait --log`（跟随日志末尾直到结束标记，不读日志行）。输出只进日志，交回一行 JSON：退出码、日志引用、耗时；失败时另给从日志按固定模式表（Kotlin/Java 编译器、Gradle "What went wrong"、ArkTS/hvigor、tsc、Python traceback、通用 error）grep 出的 `<日志>.failures.json`（文件/行/列/报错原文）、条数与首个定位。先看状态，失败读定位；不够再 `grep --log --pattern` 取命中行（每行截断、默认至多 50 行），不把日志整段读进上下文。正式测试经 execute_test，构建失败的定位写入结果 root_cause.failures_ref，全在写范围内直接作为 Fixer 输入。
+
 ## 总则
 
 宿主要真实走完控制流：每步提交真实 Ledger 事件，各角色由宿主实际派发并执行。推进前按动作选 `/sdd-verify` 范围：全局基础 global，模块推进 module（本模块、祖先和实际依赖），全量投影 projection，最终交付 final；只阻断核验失败的相关范围，不把无关模块错误扩散到全部 MO。核验只证明记录与投影一致；派发、构建/设备执行和行为通过须各自的执行证据，hash 链不能证明。
