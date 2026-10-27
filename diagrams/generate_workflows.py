@@ -177,10 +177,10 @@ def module_execution():
         '冻结测试原样交付（可在写范围外）；编译通过即机械接受'])
     d.arrow([(800,940),(800,1010)])
     d.box(550,1010,500,180,'Test-Runner · 正式验证',[
-        'build → unit → static 同一派发，只跑 PATH 的平台',
-        '另派 automation：JUnit / 设备（可录屏），逐 PATH',
-        '适用时另派 visual；原始回执 / 媒体 / 根因',
-        '命令全冻结时 advance 代跑；Green / 确定 Red 机械验收'])
+        'build → unit 一派发，advance 代跑',
+        '通过后单独派 static 审阅',
+        'automation：有适配器即代跑；visual 另派',
+        '只回退出码与报错定位；结果已定即机械验收'])
     d.arrow([(800,1190),(800,1245)])
     d.diamond(800,1310,310,130,'验证结果','Green / Red / Yellow')
     d.arrow([(645,1310),(500,1310)],'green');d.label(570,1290,'Green','green')
@@ -192,8 +192,8 @@ def module_execution():
     d.arrow([(70,1310),(50,1310),(50,2180),(300,2180),(300,2240)],'green')
     d.arrow([(955,1310),(1110,1310)],'orange');d.label(1030,1290,'非 Green','orange')
     d.box(1110,1220,410,180,'现有诊断 → MO 分流',[
-        '按根因在派修复前选控制分支',
-        'Diagnostician 只读，并列预期与实际媒体',
+        '定位在写范围内：Ledger 诊断，直派 Fixer',
+        '其余 Diagnostician 只读，日志按需 grep',
         '环境 / 目标基线缺陷 → 审计延期',
         '不增加前置规划轮次'], 'orange',True)
     # One classified diagnosis feeds three distinct control branches.
