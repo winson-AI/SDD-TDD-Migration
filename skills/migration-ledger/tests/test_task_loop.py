@@ -27,8 +27,10 @@ class DueTests(unittest.TestCase):
     def test_the_paths_that_can_be_judged_follow_what_is_written(self):
         self.assertEqual(self.due([]), ['B1'])
         self.assertEqual(self.due(['T1']), ['B1', 'U1'])                           # its unit tests, not the other task's
-        self.assertEqual(self.due(['T1', 'T2']), ['B1', 'U1', 'U2', 'S1'])         # the closure looks at the whole module
-        self.assertEqual(self.due(['T1', 'T2'], awaiting_assembly=True), ['B1', 'U1', 'U2'])
+        self.assertEqual(self.due(['T1', 'T2']), ['B1', 'U1', 'U2'])               # the commands run first
+        passed = dict(code_baseline='c1', build_baseline='c1', results={pid: {'quality': 'green-passed', 'code_baseline': 'c1'} for pid in ('B1', 'U1', 'U2')})
+        self.assertEqual(self.due(['T1', 'T2'], **passed), ['S1'])                 # then the closure, alone, looks at the whole module
+        self.assertEqual(self.due(['T1', 'T2'], awaiting_assembly=True, **passed), ['B1', 'U1', 'U2'])
         self.assertNotIn('P1', self.due(['T1', 'T2']))                             # a device path is never a device-free gate
 
     def test_one_result_covers_what_is_due_and_stops_at_the_first_gate_that_fails(self):
@@ -120,17 +122,13 @@ class AwaitingAssemblyTests(unittest.TestCase):
     def test_a_module_whose_callers_are_unwritten_is_built_and_then_waits_for_them(self):
         from unittest import mock
         import test_spec_closure
-        from harmony_stage import build as stage_result
         c = test_spec_closure.SpecClosureTests(); c.setUp(); self.addCleanup(c.doCleanups)
         f = c.f
         with mock.patch.object(tv, 'awaits_assembly', return_value=True):
             c.split.prepare()
             step = f.state()['next_steps'][0]
             self.assertEqual((step['worker_role'], step['test_scope'], step['payload']['path_ids']), ('test-runner', 'build', ['B1']))
-            self.assertIsNone(c.split.compile())  # the build ran; the fixture leaves its result to be submitted
-            assignment = f.state()['modules']['M001']['assignments']['BUILD1']
-            f.submit(stage_result(f.root, 'M001', 'BUILD1', c.split.receipts), assignment)  # the build alone: nothing else is due
-            f.call('accept', {'assignment_id': 'BUILD1'})
+            c.split.compile()  # the build alone: nothing else is due
             module = f.state()['modules']['M001']
             self.assertEqual((module['phase'], module['results']['B1']['quality'], 'S1' in module['results']), ('testing', 'green-passed', False))
             step = f.state()['next_steps'][0]
@@ -138,8 +136,7 @@ class AwaitingAssemblyTests(unittest.TestCase):
         f.approve('0' * 64, 'LATER')  # any later event: the callers are written by now
         step = f.state()['next_steps'][0]
         self.assertEqual((step['operation'], step['worker_role'], step['test_scope'], step['payload']['path_ids']),
-                         ('assign', 'test-runner', 'build', ['B1', 'S1']))
-        self.assertEqual([path['path_id'] for path in tv.stage_paths(f.state()['modules']['M001'], {})], ['S1'])  # the build stays Green: only the closure runs
+                         ('assign', 'test-runner', 'build', ['S1']))  # the build stays Green: only the closure runs, on its own
 
 
 class RedirectionTests(unittest.TestCase):

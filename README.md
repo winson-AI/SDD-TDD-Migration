@@ -52,7 +52,7 @@
 
 ## 验证范围
 
-本包可检查入口引用、frontmatter、JSON 模板与流程契约；真实迁移须在填写技术栈、宿主适配和真实测试命令后验证。推荐的行为验收场景见 [workflow-verification.md](template/workflow-verification.md)。协议总量与单文件大小受 `reading.py` 的 PROTOCOL_BUDGET/FILE_BUDGET 棘轮约束，阅读卡另有 60KB 预算：新增规则写入其专题协议并合并重复表述，不在运行指南中再追加一份。
+本包可检查入口引用、frontmatter、JSON 模板与流程契约；真实迁移须在填写技术栈、宿主适配和真实测试命令后验证。推荐的行为验收场景见 [workflow-verification.md](template/workflow-verification.md)。`reading.py` 约束的是加载进模型的内容，不是协议文件体量：阅读卡（常驻 + 按需一步 ≤ 51,200 字节）、模板、入口 AGENTS.md，以及 `reading.py show` 一次读出的一节（超出时给小节目录）。新增规则写入其专题协议并合并重复表述，不在运行指南中再追加一份。
 
 ## 规划、执行与反馈控制
 
@@ -141,6 +141,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-10-28 | 模型只做需要判断的事：命令经 `run_command.py` 执行，只交回退出码与失败时从日志 grep 出的报错定位（failures.json），日志按需 grep、不整读；构建报错全在写范围内时 Ledger 直接写诊断并派 Fixer，定位就是 Fixer 的输入；确认的代码缺陷转 Fixer、提供方完成后的依赖放行与恢复、审计延期、缺测收尾由 `advance` 提交；声明了适配器或内置 Main 的自动化也由 advance 代跑，静态审查在 build/unit 通过后单独派发；协议文件不再限总量，只限加载进模型的内容（阅读卡、单次 show 一节）；每叶模型轮次只报告、不卡测试（声明适配器的叶子 3 次、未声明 4 次），迁移报告按模块列出 |
 | 2026-10-27 | 叶子少走模型轮次：作者编译通过的实现、每条 PATH 为 Green 或确定 Red 的测试结果由 `ledger.py advance` 机械接受，确定 Red 直接进诊断；所派 PATH 全有冻结命令（build、unit、进程内功能测试）时 Ledger 机械预检、advance 以该 worker 名义按序执行并提交，同命令的 unit 只跑一次；演练测试把每叶模型轮次卡成棘轮（带设备自动化的叶子 6 → 4） |
 | 2026-10-27 | 父层只确认切在哪里，首版先跑：首次切分可不全覆盖父模块（漏掉的记为父的 COVER 欠项，孩子首版收尾后补齐）；孩子的四维分析与行为评审由 Ledger 切出；与 Ledger 起草一致的拆分当场接受，全局覆盖自动沿用；28 处规划期完整性检查改为欠项 |
 | 2026-10-27 | 让 run 动起来、停了能接上：首版骨架每条 CASE 一个场景并从功能清单预填，可后补部分记 debt；首版计划限时并标出规划期原型，拿不准的库写成 spike 任务；定时检查由人安装，`handover` 写接手说明；run revision 可带 package_sha 改钉新规则；intake 增问迁移范围与依赖授权；`split_draft.py` 起草切分 |

@@ -97,17 +97,19 @@ def build_unit_free(m, modules):
 def due(m):
     """The device-free paths that can be judged on the code a module holds now. Its build paths, whatever is accepted;
     a unit path once every task that lists it is accepted, so a task is tested as soon as it is written; the static
-    closure once every task is, and nothing built on the module is still to be written - the callers it looks for
-    exist only then."""
+    closure once every task is, nothing built on the module is still to be written - the callers it looks for exist only
+    then - and the build and unit tests passed on this code: the commands run by themselves, the review is a model's."""
     tasks = (m.get('plan') or {}).get('tasks', [])
     accepted = set(m.get('accepted_task_ids', []))
     whole = accepted >= {t['task_id'] for t in tasks}
 
+    review = bool(paths(m, 'static')) and whole and not m.get('awaiting_assembly') and unit_ready(m)
+
     def judged(path):
+        if path.get('kind') == 'static' or review:  # the review is dispatched alone, on commands that passed on this code
+            return path.get('kind') == 'static' and review
         if path.get('kind') == 'build':
             return True
-        if path.get('kind') == 'static':
-            return whole and not m.get('awaiting_assembly')
         owners = {t['task_id'] for t in tasks if path['path_id'] in t.get('path_ids', [])}
         return whole or bool(owners) and owners <= accepted
     return [p for p in (m.get('plan') or {}).get('paths', []) if p.get('kind') in PRE and judged(p)]

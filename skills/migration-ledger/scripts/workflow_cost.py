@@ -133,6 +133,16 @@ def digest_ref(ref):
     return (ref or {}).get('path'), (ref or {}).get('sha256')
 
 
+# What a role does inside a turn it is already taking, or what nobody takes a turn for.
+NOT_A_TURN = ('context-submit', 'session', 'decision', 'checkpoint', 'revoke')
+
+
+def model_turn(event):
+    """An event a model took a turn for: neither submitted by `ledger.py advance` nor by the host or a person."""
+    return (not str(event.get('request_id', '')).startswith('advance-') and event.get('operation') not in NOT_A_TURN
+            and (event.get('actor') or {}).get('role') not in ('host', 'human'))
+
+
 def build(s, events, resolve=None, root=None):
     per_module = {mid: Counter() for mid in s['modules']}
     refused = rejections(root)
@@ -144,6 +154,7 @@ def build(s, events, resolve=None, root=None):
             per_module[mid]['dispatches'] += op == 'assign'
             per_module[mid]['context_receipts'] += op == 'context-submit'
             per_module[mid]['acceptances'] += op in ('accept', 'diagnosis-accept', 'freeze', 'complete')
+            per_module[mid]['model_turns'] += model_turn(e)
         elif mid is None:
             global_ops[op] += 1
     human = Counter()
@@ -159,7 +170,7 @@ def build(s, events, resolve=None, root=None):
         rows[mid] = {'cases': len(m.get('case_ids', [])), 'tasks': len((m.get('plan') or {}).get('tasks', [])),
                      'plan_documents': volume['authored'][0], 'plan_bytes': volume['authored'][1],
                      'cited_documents': volume['cited'][0], 'cited_bytes': volume['cited'][1],
-                     'events': counts['events'], 'dispatches': counts['dispatches'],
+                     'events': counts['events'], 'model_turns': counts['model_turns'], 'dispatches': counts['dispatches'],
                      'context_receipts': counts['context_receipts'], 'acceptances': counts['acceptances'],
                      'human_decisions': human[mid], 'fix_rounds': m.get('total_fix_rounds', 0),
                      'local_fix_used': m.get('local_fix_used', 0),
@@ -170,7 +181,7 @@ def build(s, events, resolve=None, root=None):
         rows[mid]['planning_share'] = (round(rows[mid]['minutes_to_freeze'] / rows[mid]['minutes_to_first_green'], 2)
                                        if rows[mid].get('minutes_to_first_green') and rows[mid].get('minutes_to_freeze') is not None else None)
     totals = {k: sum(r[k] for r in rows.values()) for k in
-              ('events', 'dispatches', 'context_receipts', 'acceptances', 'human_decisions', 'fix_rounds',
+              ('events', 'model_turns', 'dispatches', 'context_receipts', 'acceptances', 'human_decisions', 'fix_rounds',
                'card_dispatches', 'card_bytes_full', 'card_bytes_delivered')}
     totals['global_events'] = sum(global_ops.values())
     totals['audit_dispatches'] = global_ops['audit-assign']

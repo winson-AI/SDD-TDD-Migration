@@ -321,7 +321,7 @@ class ControlPolicyTests(unittest.TestCase):
                         for kind in ('build', 'unit', 'static', 'automation')}}
         self.assertFalse(tv.build_ready(m)); self.assertFalse(tv.all_green(m))
         tests = {kind: {'quality': 'green-passed'} for kind in ('build', 'unit', 'static')}
-        self.assertEqual([p['path_id'] for p in tv.stage_paths(m, tests)], ['build', 'unit', 'static'])
+        self.assertEqual([p['path_id'] for p in tv.stage_paths(m, tests)], ['build', 'unit'])  # the review waits for them on this code
         for kind in tests: m['results'][kind]['stale'] = False
         self.assertEqual(tv.next_scope(m), 'automation')
         self.assertFalse(tv.functional_ready(m)); self.assertFalse(tv.all_green(m))

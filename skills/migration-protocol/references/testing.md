@@ -36,7 +36,7 @@ GLOBAL 手势的完整契约、ID 匹配与 build_binding 在 init 落盘前检�
 - Red：真实断言失败且指向目标行为缺陷；明确实现导致的构建/静态检查失败也以专用 gate path 记录 Red。保留失败日志与实际值。
 - Yellow：依赖未就绪、缺凭证/设备、超时、适配器坏、解析异常、未知失败、skip、证据缺失、版本过期或 flaky。超时若可证实为规格性能要求违反，可诊断为 Red；不能只凭非零退出码判产品 Bug。
 
-root_cause 字段在 Red/Yellow 必填：category、summary、confidence、evidence_refs、suspected_owner、next_action；确认失败断言不等于已确认根因，后者由 Diagnostician 补充。保留原始报告，分类纠正以新事件引用原结果，不篡改历史。
+root_cause 字段在 Red/Yellow 必填：category、summary、confidence、evidence_refs、suspected_owner、next_action；确认失败断言不等于已确认根因，后者由 Diagnostician 补充。构建或单测命令失败时，执行器从日志 grep 出报错定位写入 failures.json（root_cause.failures_ref，summary 给首个定位与总数）；定位全在模块写范围内即 category=code、confidence=confirmed，作为 Fixer 输入，否则交诊断。保留原始报告，分类纠正以新事件引用原结果，不篡改历史。
 
 同基线同路径出现 pass/fail 混合则 flaky Yellow，不能“重跑到绿”挑最好一次；定位/修复后按冻结策略连续通过（默认 3 次），Auditor 独立验证。历史失败原样保留。涉及环境变化也记录新 environment_hash。
 
@@ -96,7 +96,7 @@ query 还支持 --task-id/--assertion-id/--test-id，默认最多5条，仅失�
 - scenarios[]：每行 status=passed|failed、summary、production_symbols（目标绝对路径+真实符号）、evidence_refs。passed 必须给 reached_from：另一个目标文件中的调用/DI/导航/清单引用；有 unit PATH 还须 test_refs 指向真实测试符号。未接入生产不能 passed。
 - anti_patterns：preview-only-wiring、dead-handler、fixed-result、placeholder-icon、unapproved-stub、swallowed-error（错误显示为空态/成功）逐项 absent|present、note、evidence_refs。批准的 capture-fixture 边界可 absent，须引用批准依据。
 
-building 预检的 execution.commands 一并批准 build/unit/static 命令和 review 路径；同一 build assignment 依次执行 build、unit、static，到第一个非 Green 为止，一次提交和验收；结果覆盖已到达环节的全部待测 PATH，同一代码上已 Green 的环节不重跑，非 Green 即诊断/Fixer 后重跑。`execute_test.py` 调 spec_closure.py 核对上下文、场景覆盖、符号和清单；failed 场景/present 反模式为 Red。脚本不判断业务语义，Test-Runner 审阅、Auditor 抽查。static 全绿前禁止 automation/automation-unavailable；缺设备仍执行 unit/static。
+building 预检的 execution.commands 批准本派发的命令；build 与 unit 同一派发依次执行，到第一个非 Green 为止，一次提交和验收（命令全冻结，由 advance 代跑）；两者在当前代码上通过后 static 单独派发 Test-Runner 审阅；结果覆盖已到达环节的全部待测 PATH，同一代码上已 Green 的环节不重跑，非 Green 即诊断/Fixer 后重跑。`execute_test.py` 调 spec_closure.py 核对上下文、场景覆盖、符号和清单；failed 场景/present 反模式为 Red。脚本不判断业务语义，Test-Runner 审阅、Auditor 抽查。static 全绿前禁止 automation/automation-unavailable；缺设备仍执行 unit/static。
 
 ## 运行时变体与冻结 SPEC 冲突
 

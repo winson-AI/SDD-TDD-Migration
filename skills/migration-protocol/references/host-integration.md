@@ -2,6 +2,10 @@
 
 本文件回答一个问题:**怎样才算"宿主真实执行了本控制流",而不是手写文件模拟。** 它把散落在各 reference 里的"宿主负责……"整合成逐阶段、可执行、可自证的清单。
 
+## 命令执行
+
+构建、自检、模拟器、预览服务等命令一律经 `skills/migration-ledger/scripts/run_command.py`：`run --log <文件> [--cwd] [--timeout] -- <argv>` 前台执行，长驻的用 `start` 启动后 `wait --log`（跟随日志末尾直到结束标记，不读日志行）。输出只进日志，交回一行 JSON：退出码、日志引用、耗时；失败时另给从日志按固定模式表（Kotlin/Java 编译器、Gradle "What went wrong"、ArkTS/hvigor、tsc、Python traceback、通用 error）grep 出的 `<日志>.failures.json`（文件/行/列/报错原文）、条数与首个定位。先看状态，失败读定位；不够再 `grep --log --pattern` 取命中行（每行截断、默认至多 50 行），不把日志整段读进上下文。正式测试经 execute_test，构建失败的定位写入结果 root_cause.failures_ref，全在写范围内直接作为 Fixer 输入。
+
 ## 总则
 
 宿主要真实走完控制流：每步提交真实 Ledger 事件，各角色由宿主实际派发并执行。推进前按动作选 `/sdd-verify` 范围：全局基础 global，模块推进 module（本模块、祖先和实际依赖），全量投影 projection，最终交付 final；只阻断核验失败的相关范围，不把无关模块错误扩散到全部 MO。核验只证明记录与投影一致；派发、构建/设备执行和行为通过须各自的执行证据，hash 链不能证明。
@@ -113,7 +117,7 @@ Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `descript
 
 **回报。** card_new 是续用原上下文的执行实例只需读的小节（含红线），宿主不回报也按执行实例计。hint{session_id,card_sha256,context_inputs} 可另报实际交付（不全则忽略，不拒操作），恢复/轮换见[渐进加载](runtime.md#渐进加载)，拒绝响应带 read_hint。
 
-**机械步骤。** mechanical=true 的 accept（结果已定）、assign（派发）、命令全冻结的测试（以 worker 名义 submit）、freeze（评审/决定已记录）、complete（DoD 守卫通过）与父 module-summary 用 `ledger.py advance --root <run> --module <id> --host-context <MO 身份>` 逐步守卫提交（DoD 与汇总记录由 Ledger 写入 reports/），停在模型/人工步骤并写卡。worker 默认 `<role>-<module>`（`--worker <role>=<instance>` 覆盖，有预检则沿用），先同会话 context-submit，被拒交 MO。人工决定绑定游标 approval_subject_sha256。
+**机械步骤。** mechanical=true 的 accept（结果已定）、assign（派发）、命令全冻结或适配器已声明的测试（以 worker 名义 submit）、报错定位全在写范围内的诊断（Ledger 写出）、确认的代码缺陷转 Fixer（diagnosis-accept）、提供方完成后的 dependency-ready/resume、外部根因或预算用尽的 audit-defer、环境缺失的 automation-unavailable、freeze（评审/决定已记录）、complete（DoD 守卫通过）与父 module-summary 用 `ledger.py advance --root <run> --module <id> --host-context <MO 身份>` 逐步守卫提交（DoD 与汇总记录由 Ledger 写入 reports/），停在模型/人工步骤并写卡。worker 默认 `<role>-<module>`（`--worker <role>=<instance>` 覆盖，有预检则沿用），先同会话 context-submit，被拒交 MO。人工决定绑定游标 approval_subject_sha256。
 
 选择建议记 status.hint_adoption；冷恢复须满足版本/宿主回执守卫。
 

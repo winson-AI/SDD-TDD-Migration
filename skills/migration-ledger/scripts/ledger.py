@@ -618,6 +618,24 @@ def diagnosis_focus(m, p):
                 'each visual issue needs area, problem, severity and evidence_ref')
 
 
+def located_failures(m):
+    """Every unresolved failure is a command that broke inside the module's write scope at locations grepped from its log:
+    the diagnosis is those locations, written by the Ledger."""
+    bad = unresolved(m)
+    return bool(bad) and all((r.get('root_cause') or {}).get('failures_ref') and r['root_cause'].get('category') == 'code'
+                             and r['root_cause'].get('confidence') == 'confirmed' for r in bad.values())
+
+
+def located_diagnosis(m):
+    """The diagnose payload of located failures, without its report reference."""
+    files, summaries = set(), []
+    for pid, r in sorted(unresolved(m).items()):
+        summaries.append(pid + ': ' + r['root_cause']['summary'])
+        files |= {row['path'] for row in read_json(check_ref(r['root_cause']['failures_ref']))['failures'] if row.get('path')}
+    return {'owner': m['module_id'], 'root_cause': {'category': 'code', 'confidence': 'confirmed', 'owner': m['module_id'],
+            'next_action': 'fix', 'summary': '; '.join(summaries), 'files': sorted(files)}}
+
+
 def diagnosis_subject(m):
     return digest({'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'issues': unresolved(m)})
 
@@ -818,7 +836,8 @@ def _next_step(s, m):
             released = m.get('dependency_release') == deps
             step.update(operation='resume' if released else 'dependency-ready',
                         role='module-orchestrator' if released else 'global-orchestrator',
-                        ready=available, reason=None if available else 'dependency-incomplete')
+                        ready=available, reason=None if available else 'dependency-incomplete',
+                        mechanical=available, payload={})  # the providers' completion is a fact the Ledger holds
         else:
             decision = approval(s, m, digest(m['blocked']))
             step.update(operation='resume', role='module-orchestrator', ready=bool(decision),
@@ -833,7 +852,7 @@ def _next_step(s, m):
             # Nothing to judge: accept re-validates the result, so the host may submit it without a model turn; a definite
             # Red goes on to diagnosis.
             step['mechanical'] = True
-        elif not submitted and context_readiness.frozen_execution(m, active) and (active.get('context_ref') or not context_readiness.enabled(s)):
+        elif not submitted and context_readiness.runs_by_itself(s, m, active) and (active.get('context_ref') or not context_readiness.enabled(s)):
             step.update(mechanical=True, ready=True, reason='frozen-commands')  # advance runs them and submits the result in the worker's name
     elif m.get('decomposition_submission'):
         step.update(operation='decompose-accept', role='global-orchestrator', ready=True)
@@ -924,9 +943,17 @@ def _next_step(s, m):
                 step.update(routed or dict(operation='diagnosis-accept', role='module-orchestrator', ready=True,
                             # Optional: once the Fixer preflighted this diagnosis, accept and dispatch in one step.
                             then_assign={'role': 'fixer', 'session_id': suggested_session(s, m, 'fixer')[0]}))
+                cause = draft['report'].get('root_cause')
+                if not routed and isinstance(cause, dict) and cause.get('confidence') == 'confirmed':
+                    step.update(mechanical=True, payload={})  # a confirmed code defect goes to the Fixer: nothing to judge
             elif workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])):
-                step.update(operation='audit-defer', role='module-orchestrator', ready=True,
-                            root_cause=workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])), reason='auditor-handoff')
+                cause = workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds']))
+                step.update(operation='audit-defer', role='module-orchestrator', ready=True, root_cause=cause, reason='auditor-handoff')
+                receipt = next((r['execution_receipt'] for r in bad.values() if r.get('execution_receipt')), None)
+                if receipt:  # an external cause or a spent budget is routed by rule
+                    step.update(mechanical=True, payload={'root_cause': cause, 'evidence_ref': receipt})
+            elif located_failures(m):
+                step.update(operation='diagnose', role='module-orchestrator', ready=True, mechanical=True, reason='located-failures')
             else:
                 step.update(operation='diagnose', role='fixer' if self_diagnosis(s, m) else 'diagnostician', ready=True)
         else:
@@ -1151,7 +1178,7 @@ def with_card(s, m, step):
             media = reference_media.due(s, m)  # what the user showed of this leaf that its plan does not cite yet
             if media:
                 step['media_due'] = media
-        if step.get('operation') == 'diagnose' or step.get('worker_role') == 'fixer':  # what the failed paths kept on film, beside what the user showed of them
+        if step.get('operation') == 'diagnose' or 'fixer' in (step.get('worker_role'), step.get('role')):  # what the failed paths kept on film, beside what the user showed of them
             shown, paths, kept = reference_media.of_module(s, m), {p['path_id']: p for p in (m.get('plan') or {}).get('paths', [])}, {}
             for pid, record in unresolved(m).items():
                 expected = reference_media.expected(shown, paths[pid]) if pid in paths else []
@@ -1159,6 +1186,9 @@ def with_card(s, m, step):
                     kept[pid] = {'observed': record.get('media_refs') or [], 'expected': expected}
             if kept:
                 step['media_evidence'] = kept
+            located = {pid: r['root_cause']['failures_ref'] for pid, r in unresolved(m).items() if (r.get('root_cause') or {}).get('failures_ref')}
+            if located:
+                step['failure_locations'] = located  # where each failed command broke, grepped from its log: read these, grep the log only for more
     enhancement = reading.reasoning_sections(m)
     if enhancement: step['reasoning_activation'] = [{'ref': ref, 'section': heading} for ref, heading in enhancement]
     if s.get('project_context_ref') and (m or (step.get('role') == 'global-orchestrator' and step.get('operation') in
@@ -1837,8 +1867,9 @@ def mutate(s, req, principal, events, root=None):
             audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only,
                                         stage=assignment.get('test_scope') or 'build')
     elif op == 'diagnose':
-        role(principal, 'diagnostician', 'fixer')
-        require(principal['role'] == 'diagnostician' or self_diagnosis(s, m), 'principal role denied')
+        role(principal, 'diagnostician', 'fixer', 'module-orchestrator')
+        require(principal['role'] == 'diagnostician' or principal['role'] == 'fixer' and self_diagnosis(s, m)
+                or principal['role'] == 'module-orchestrator' and located_failures(m), 'principal role denied')
         require(m['phase'] == 'testing' and not m.get('blocked') and unresolved(m), 'no unresolved test failure')
         idle(m); current(m)
         check_ref(p['diagnosis_ref'])
@@ -2675,7 +2706,12 @@ def closure_record(root, s, module_id, kind, sequence):
     reports/<kind>/ so the event references a file with a hash like any other."""
     import run_storage
     root = Path(root).resolve()
-    if kind == 'dod':
+    if kind == 'diagnosis':
+        m = s['modules'][module_id]
+        body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
+                'findings': {pid: {k: r['root_cause'][k] for k in ('summary', 'failures_ref')} for pid, r in sorted(unresolved(m).items())},
+                'checks': ['every failed PATH broke inside the write scope at locations grepped from its log']}
+    elif kind == 'dod':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
                 'paths': {pid: {k: r.get(k) for k in ('quality', 'test_run_id')} for pid, r in sorted(m['results'].items())},
@@ -2694,8 +2730,9 @@ def closure_record(root, s, module_id, kind, sequence):
 
 
 def frozen_tests(root, s, module_id, assignment_id):
-    """Run a test dispatch whose every command the freeze fixed, in stage order (build, then unit, stopping after a kind
-    that is not all Green), and stage its result where its worker would; returns the submit payload."""
+    """Run a test dispatch that runs by itself (frozen commands, or functional PATHs the run's adapter drives): a build
+    dispatch in stage order (build, then unit, stopping after a kind that is not all Green), any other as assigned; stage
+    its result where its worker would and return the submit payload."""
     scripts = str(Path(__file__).resolve().parents[2] / 'migration-test/scripts')
     if scripts not in sys.path:
         sys.path.append(scripts)
@@ -2710,10 +2747,11 @@ def frozen_tests(root, s, module_id, assignment_id):
         due = [p['path_id'] for p in tv.stage_paths(m, rows) if p['kind'] == kind] if pre else contract
         batches = {}  # unit PATHs that froze one command run once
         for pid in due:
-            command = paths[pid]['command']
-            batches.setdefault((tuple(command['argv']), command['cwd']) if paths[pid].get('unit_report') else pid, []).append(pid)
+            command = paths[pid].get('command')  # a device PATH runs the run's adapter, one at a time
+            batches.setdefault((tuple(command['argv']), command['cwd']) if command and paths[pid].get('unit_report') else pid, []).append(pid)
         for pids in batches.values():
-            out = execute(root, module_id, assignment_id, pids if len(pids) > 1 else pids[0], output=Path(root) / 'runs/build' / assignment_id / '-'.join(pids))
+            area = 'runs/build' if paths[pids[0]].get('kind') in ('build', 'unit') or paths[pids[0]].get('unit_report') else 'runs/harmony/automation'
+            out = execute(root, module_id, assignment_id, pids if len(pids) > 1 else pids[0], output=Path(root) / area / assignment_id / '-'.join(pids))
             for ref in out if isinstance(out, list) else [out]:
                 receipts.append(ref)
                 pid = read_json(check_ref(ref))['path_id']
@@ -2745,8 +2783,13 @@ def advance(root, principal, module_id, workers=None):
             step['operation'] = 'submit'
         elif step['operation'] == 'accept':
             payload = {'assignment_id': step['assignment_id']}
-        elif step['operation'] == 'freeze':
-            payload = dict(step['payload'])
+        elif step['operation'] in ('freeze', 'diagnosis-accept', 'audit-defer', 'automation-unavailable', 'resume'):
+            payload = dict(step.get('payload') or {})
+        elif step['operation'] == 'dependency-ready':
+            payload, actor = {}, {'role': 'global-orchestrator', 'instance_id': (workers or {}).get('global-orchestrator') or 'global-orchestrator'}
+        elif step['operation'] == 'diagnose':
+            s = read_events(root)[0]
+            payload = {**located_diagnosis(s['modules'][module_id]), 'diagnosis_ref': closure_record(root, s, module_id, 'diagnosis', sequence)}
         elif step['operation'] in ('complete', 'module-summary'):
             s = read_events(root)[0]
             kind = 'dod' if step['operation'] == 'complete' else 'parent-summary'

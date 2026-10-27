@@ -190,9 +190,10 @@ class SourceChangeTests(unittest.TestCase):
             'anti_patterns': {k: {'status': 'absent', 'note': 'reviewed', 'evidence_refs': [notes]} for k in spec_closure.ANTI_PATTERNS}})
         static_argv = [sys.executable, spec_closure.__file__, '--review', review['path'], '--target-root', str(f.target)]
         unit_argv = next(p for p in m['plan']['paths'] if p['kind'] == 'unit')['command']['argv']
-        for scope, stage, suffixes in (('build', 'building', ('-B', '-U', '-S')), ('automation', 'testing', ('-P',))):
-            aid = scope+'-'+mid+'-'+str(f.n)
-            if scope == 'build':  # build, unit tests and the static review: one assignment, one result
+        # build and unit tests in one assignment, the static review in its own once they passed, then automation
+        for scope, stage, suffixes in (('build', 'building', ('-B', '-U')), ('build', 'building', ('-S',)), ('automation', 'testing', ('-P',))):
+            aid = scope+suffixes[0]+'-'+mid+'-'+str(f.n)
+            if scope == 'build':
                 argvs = {'-B': [sys.executable, '-c', 'pass'], '-U': unit_argv, '-S': static_argv}
             else:
                 script = f.root/'staging/test-runner'/(aid+'.py')
@@ -207,7 +208,7 @@ class SourceChangeTests(unittest.TestCase):
             report = f.report(stage, module=mid)
             report['execution'] = {'argv': argvs[suffixes[0]], 'cwd': str(f.target), 'environment_ref': f.ref('environment.md', 'Python fixture available')}
             if scope == 'build':
-                report['execution']['commands'] = {mid+k: {'argv': v, 'cwd': str(f.target)} for k, v in argvs.items()}
+                report['execution']['commands'] = {mid+k: {'argv': argvs[k], 'cwd': str(f.target)} for k in suffixes}
             f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner', 'test_scope': scope}, module=mid)
             f.record(report)  # the runner reports inside its dispatch; the ready report authorizes the run
             a = f.state()['modules'][mid]['assignments'][aid]

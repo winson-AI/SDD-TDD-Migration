@@ -21,7 +21,7 @@ mode: subagent
 不改 SPEC/验收/tasks 定义；不自审 DoD；不写 legacy；不擅自改共享接口；任务不可执行时提问题，不自行扩展任务。
 
 ## 9. Checkpoints
-所有提交改动可反查 TASK-ID；每个 TASK-ID 有文件与证据；没有无关改动；实际版本可重建。交付前运行宿主提供的改动文件诊断（IDE/MCP 或同等文件级检查）并修完全部错误，结果写入 `authoring_diagnostics`；宿主无诊断时，对每个新引入的版本敏感 API 查阅固定版本依赖源码并引用，不凭记忆推断签名。该自检不是正式构建结论。
+所有提交改动可反查 TASK-ID；每个 TASK-ID 有文件与证据；没有无关改动；实际版本可重建。交付前运行宿主提供的改动文件诊断（IDE/MCP 或同等文件级检查；命令行经 `run_command.py`，按 failures.json 修）并修完全部错误，结果写入 `authoring_diagnostics`；宿主无诊断时，对每个新引入的版本敏感 API 查阅固定版本依赖源码并引用，不凭记忆推断签名。该自检不是正式构建结论。
 
 实施补充：依据 source_closure 与 target_feasibility 闭合真实生产路径（入口、DI、消费方、外部结果），接口声明、样例实现或资源文件存在不能代替接线；提交带全部 TASK→文件追溯与 production_binding_evidence 的 stage-result。
 

@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1689 | 全量通过，零失败/错误/跳过；本轮新增每叶模型轮次的演练棘轮、结果已定时的机械验收、冻结命令派发由 Ledger 执行（全绿、确定 Red、同命令 unit 合跑）的测试 |
+| migration-ledger/tests | 1697 | 全量通过，零失败/错误/跳过；本轮新增命令只交结果与报错定位（grep 模式表、run/start/wait/grep）、写范围内构建失败由 Ledger 诊断并直派 Fixer、依赖放行与恢复机械提交、声明适配器的叶子演练、静态审查单独派发、单次 show 的上限的测试 |
 | migration-test/tests | 83 | 全量通过；本轮无改动 |
 | runtime/harmony/tests | 128 | 全量通过；本轮无改动 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮：叶子少走模型轮次。实现提交时作者的编译自检为 passed、或测试结果每条 PATH 为 Green 或确定 Red 时，accept 标为机械，由 `ledger.py advance` 提交（accept 仍重跑全部检查），确定 Red 直接进诊断；Yellow、被拒、作者未能编译仍由 MO 判断。测试派发的每条 PATH 都有冻结命令时，Ledger 按冻结命令写 building/testing 预检，advance 以该 worker 名义按 build → unit 顺序执行到第一个非 Green 为止、同命令 unit 合跑，写入 staging 后 submit；静态审查、设备与视觉仍由 Test-Runner 执行。演练测试从计划走到 DoD，只按游标、机械步交给 advance，带设备自动化的叶子模型轮次为 4（计划、审计划、编码、自动化），超过即失败。上一轮：父层只确认切在哪里，首版先跑（首次切分覆盖欠项、Ledger 切出子材料、拆分机械接受与覆盖沿用、28 处完整性检查改欠项）。
+本轮：模型只做需要判断的事。命令经 `run_command.py` 执行，输出只进日志，交回退出码、日志引用，失败时另给按固定模式表（Kotlin/Java 编译器、Gradle、ArkTS/hvigor、tsc、Python traceback、通用 error）从日志 grep 出的 failures.json；构建与单测失败的根因即这些定位，全在模块写范围内时为已确认的代码缺陷，Ledger 写诊断、diagnosis-accept 与 Fixer 派发由 advance 提交，Fixer 步骤带 failure_locations。确认的诊断转 Fixer、提供方完成后的 dependency-ready 与 resume、外部根因或预算用尽的 audit-defer、环境缺失的 automation-unavailable 标为机械。PATH 的平台有声明的适配器或内置 Main 时，automation 派发由 Ledger 机械预检、advance 执行并提交；静态审查在 build/unit 于当前代码通过后单独派发。演练不再因轮次失败：超过记录值时给警告，迁移报告按模块列模型轮次；声明适配器的叶子 3 次（计划、审计划、编码），未声明 4 次。上一轮：叶子少走模型轮次。实现提交时作者的编译自检为 passed、或测试结果每条 PATH 为 Green 或确定 Red 时，accept 标为机械，由 `ledger.py advance` 提交（accept 仍重跑全部检查），确定 Red 直接进诊断；Yellow、被拒、作者未能编译仍由 MO 判断。测试派发的每条 PATH 都有冻结命令时，Ledger 按冻结命令写 building/testing 预检，advance 以该 worker 名义按 build → unit 顺序执行到第一个非 Green 为止、同命令 unit 合跑，写入 staging 后 submit；静态审查、设备与视觉仍由 Test-Runner 执行。演练测试从计划走到 DoD，只按游标、机械步交给 advance，带设备自动化的叶子模型轮次为 4（计划、审计划、编码、自动化），超过即失败。上一轮：父层只确认切在哪里，首版先跑（首次切分覆盖欠项、Ledger 切出子材料、拆分机械接受与覆盖沿用、28 处完整性检查改欠项）。
 
-协议体积为 457300 / 457300 字节，最大单文件 24613 / 32000 字节，入口 AGENTS.md 3991 / 4000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中常驻卡最大 26022 / 29100 字节、按需小节最大 20356 / 25900 字节；全触发且双平台声明时常驻卡最大 28780、按需小节最大 25775，一步可读（常驻 + 按需）最坏 51090 / 51200 字节，模板组合最大 32435 / 34700 字节（写到才逐份取）；无触发步骤卡 ≤ 29100、模板 ≤ 13500；拒绝消息带小节指引的比例 98.9%（棘轮 90%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议文件不限总量（当前 459708 字节，最大单文件 24613 字节）；限制的是加载进模型的内容：`reading.py show` 一次至多一节 25900 字节（超出给小节目录），入口 AGENTS.md 3991 / 4000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中常驻卡最大 26172 / 29100 字节、按需小节最大 20283 / 25900 字节；全触发且双平台声明时常驻卡最大 29011、按需小节最大 25702，一步可读（常驻 + 按需）最坏 51167 / 51200 字节，模板组合最大 32435 / 34700 字节（写到才逐份取）；无触发步骤卡 ≤ 29100、模板 ≤ 13500；拒绝消息带小节指引的比例 98.9%（棘轮 90%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 

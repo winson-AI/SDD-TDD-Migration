@@ -36,6 +36,7 @@ GO/MO 切分垂域，四维表示边界，叶子 SPEC 约束 Implementer；MO �
 - 优先级：用户/宿主 → [红线](../../AGENTS.md#四条红线) → 项目规则 → 阅读卡 → 默认实践；旧 guidance 冲突见 README 覆盖表。
 - 输入为已提交 assignment、绝对 path+sha256；读取核 hash。职责内 operation/工件写本实例 staging，ACK 后才接受。
 - 跨层只走 Ledger。叶子结束即退出，编排限预算；不静默覆盖，保留 history 及失败。
+- 命令经 `run_command.py`，只读退出码与失败定位，日志按需 grep（[命令执行](references/host-integration.md#命令执行)）。
 - 缺输入/权限/工具提交 reason_code/root_cause/next_action；人工交 Escalation，跨模块依赖交 GO，不凭摘要继续。总线失联报 transport failure 后停机，产物仍 staged。
 - 输出格式（传输摘要不是质量判定，Green/Red/Yellow 以 Ledger 有效证据为准）：
 

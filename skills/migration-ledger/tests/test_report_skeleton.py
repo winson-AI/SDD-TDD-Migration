@@ -25,14 +25,14 @@ class ReportSkeletonTests(unittest.TestCase):
     def test_the_test_runner_preflight_and_static_review_come_as_skeletons(self):
         t = test_spec_closure.SpecClosureTests(); t.setUp(); self.addCleanup(t.doCleanups)
         t.built(); f = t.f
-        out = f.root / 'staging/test-runner/BUILD1'
-        result = report_skeleton.write(f.root, out, 'M001', 'BUILD1')
+        out = f.root / 'staging/test-runner/STATIC1'
+        result = report_skeleton.write(f.root, out, 'M001', 'STATIC1')
         files = result['files']
         self.assertEqual(set(files), {'preflight-building.json', 'static-review.json'}); self.assertGreater(result['unfilled'], 10)
         pre = json.loads(check_ref(files['preflight-building.json']).read_text())
         s = f.state(); plan = s['modules']['M001']['plan']
         self.assertEqual(pre['subject_sha256'], cr.subject(s, 'M001', 'building'))
-        self.assertEqual(pre['execution']['commands']['B1']['argv'], plan['paths'][1]['command']['argv'])
+        self.assertEqual(set(pre['execution']['commands']), {'S1'})  # the review's own dispatch: the build already passed
         self.assertIn(SKELETON_MARK, pre['execution']['commands']['S1']['argv'][0])
         self.assertEqual(pre['checks']['frozen-spec']['status'], 'ready'); self.assertIn(SKELETON_MARK, pre['checks']['build-environment']['status'])
         with self.assertRaisesRegex(Rejected, 'unfilled skeleton field left in preflight-building.json'):
@@ -41,6 +41,7 @@ class ReportSkeletonTests(unittest.TestCase):
         for name in ('build-environment', 'permissions-tools'):
             pre['checks'][name] = {'status': 'ready', 'summary': 'probed on this host', 'evidence_refs': [proof]}
         pre['execution']['commands']['S1'] = {'argv': t.static_argv(), 'cwd': str(f.target)}
+        pre['execution'].update(argv=t.static_argv(), cwd=str(f.target))  # the review is this dispatch's only command
         pre['execution']['environment_ref'] = f.ref('build-env.md', 'Python build fixture'); pre['verdict'] = 'ready'
         ref = f.ref('preflight-filled.json', pre)
         f.raw('context-submit', {'report_ref': ref}, role='test-runner', instance='test-runner')

@@ -44,10 +44,10 @@
 <path d="M800,940 L800,1010" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="1010" width="500" height="180" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="1050.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Test-Runner · 正式验证</text>
-<text x="800.0" y="1084.0" font-size="18.10" fill="#4b5563" text-anchor="middle" font-weight="400">build → unit → static 同一派发，只跑 PATH 的平台</text>
-<text x="800.0" y="1113.0" font-size="18.30" fill="#4b5563" text-anchor="middle" font-weight="400">另派 automation：JUnit / 设备（可录屏），逐 PATH</text>
-<text x="800.0" y="1142.0" font-size="21.95" fill="#4b5563" text-anchor="middle" font-weight="400">适用时另派 visual；原始回执 / 媒体 / 根因</text>
-<text x="800.0" y="1171.0" font-size="17.07" fill="#4b5563" text-anchor="middle" font-weight="400">命令全冻结时 advance 代跑；Green / 确定 Red 机械验收</text>
+<text x="800.0" y="1084.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">build → unit 一派发，advance 代跑</text>
+<text x="800.0" y="1113.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">通过后单独派 static 审阅</text>
+<text x="800.0" y="1142.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">automation：有适配器即代跑；visual 另派</text>
+<text x="800.0" y="1171.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只回退出码与报错定位；结果已定即机械验收</text>
 <path d="M800,1190 L800,1245" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M800,1245.0 L955.0,1310 L800,1375.0 L645.0,1310 Z" fill="#fff7ed" stroke="#ea580c" stroke-width="1.8"/>
 <text x="800" y="1310" font-size="24.00" fill="#111827" text-anchor="middle" font-weight="650">验证结果</text>
@@ -69,8 +69,8 @@
 <rect x="1110" y="1220" width="410" height="180" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <rect x="1115" y="1225" width="400" height="170" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
 <text x="1315.0" y="1260.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">现有诊断 → MO 分流</text>
-<text x="1315.0" y="1294.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按根因在派修复前选控制分支</text>
-<text x="1315.0" y="1323.0" font-size="19.02" fill="#4b5563" text-anchor="middle" font-weight="400">Diagnostician 只读，并列预期与实际媒体</text>
+<text x="1315.0" y="1294.0" font-size="18.62" fill="#4b5563" text-anchor="middle" font-weight="400">定位在写范围内：Ledger 诊断，直派 Fixer</text>
+<text x="1315.0" y="1323.0" font-size="18.63" fill="#4b5563" text-anchor="middle" font-weight="400">其余 Diagnostician 只读，日志按需 grep</text>
 <text x="1315.0" y="1352.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">环境 / 目标基线缺陷 → 审计延期</text>
 <text x="1315.0" y="1381.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不增加前置规划轮次</text>
 <path d="M1315,1400 L1315,1430 L285,1430" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round"/>
