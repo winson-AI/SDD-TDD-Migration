@@ -29,13 +29,13 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 行为契约由运行状态开启（plan 的 `behavior_contract_required=true` 由 Ledger 写入）。有已登记四维分析的叶子按最小集规划：作者只写六件套、tasks（范围/路径/需求）、测试计划引用与 dimension_trace，从 Ledger 写出的骨架起步（`spec_skeleton.py --root <run> --module <id> --out <staging 目录>` 给六件套与三份计划 JSON 的桩，每条 CASE 一个场景、名称/触发/结果取自功能清单；`[[待写]]` 由作者填，留有即拒；`[[可后补]]`（理由、风险、影响、接线说明）可留，Ledger 记 debt；`contracts.py refs <目录>` 取引用）；dimension_analysis_ref、source_closure、target_feasibility、decision_envelope、各任务四维与 scenario_trace 由 Ledger 据分析与分配的审阅补全并冻结，作者另写的照常判定。SPEC 每个需求/场景各写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`；Ledger 接受 plan 时派生 scenario_index，plan 不携带（`behavior_contract.py --plan <staged-plan.json>` 可预览）；改 SPEC 即改 plan 摘要，须重新审核冻结。scenario_trace 每行给 scenario_id 与 task_ids，assertions 由 Ledger 按设计断言的 scenario_ids 补全；每个场景至少被一条行为断言验证、每条行为断言至少验证一个场景、全部任务有归属（缺者记欠项），允许多对多，build/static 不充当行为断言。
 
-1. 六件套与测试路径（带 Requirement-ID/Scenario-ID）完整且预期明确即可冻结：起步门禁只有范围/写锁/任务/PATH/四维追溯/六件套；UI 模型与 UI 树、基线、保真场景、API/数据行为测试、闭包与追溯、参数表决定、测试资产与来源审阅、单测与静态 PATH 是欠项（DoD 前结清），无设备的 run 不要求 UI 树与基线；测试设计不运行目标代码。
+1. 六件套与测试路径（带 Requirement-ID/Scenario-ID）完整且预期明确即可冻结：起步门禁只有范围/写锁/任务/PATH/四维追溯/六件套；UI 模型与 UI 树、基线、保真场景、API/数据行为测试、闭包与追溯、参数表决定、测试资产与来源审阅、单测与静态 PATH，缺 PATH 的已分配 CASE、契约/资源/排除的理由与证据、行为评审文字也是欠项（DoD 前结清；结构、身份、越界与事实不符仍拒绝），无设备的 run 不要求 UI 树与基线。
 2. Spec-Designer 把问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复绑定 question_id、spec_revision 与内容摘要，可复用，绑定内容变了重新裁决。
 3. 冻结 manifest 列 proposal、全部 delta specs、design、tasks、test design 与已准备测试资产的 path+sha256（checklist 由 Ledger 绑定，不进 manifest），保留不可变副本，生成 freeze_id/spec_revision。
 4. `status`、tasks 勾选、checklist 证据等运行字段不入语义冻结 hash，原始定义在不可变 artifacts，动态视图可重定位链接与更新勾选；验证比较定义快照，不以可变文件整体 hash 误判失效。
 5. MO 独立核验规划与 checklist，以当前内容摘要绑定的 plan-review 冻结；只有未决问题、需求/验收/授权变化需 Human 决定，Spec-Designer 不能自批；已有代码而 decision_envelope 或验收有变时游标 human-decision-required（approval_kind=plan），决定登记后评审才入账。Ledger 记每个决定所批的边界（envelope 与验收 PATH/断言），边界未变、只改措辞的计划凭原 decision_id 加当前 review_ref 冻结。
 6. 每次编码/修复验证当前冻结引用与 assignment 输入一致；缺失/摘要不符停止，不自行补成"已冻结"。
-7. 工件只在被接受时按内容规则判定（四维分析在登记时，独立设计在验收时，计划在提交与冻结时），此后只读取，它或其引用文件漂移才拒收，后增规则只约束新提交；与当前规则的差异（含未定论的搬运约定、设备环境与缺设备路径的已持有计划）列入报告"规则欠账"交 Auditor 评估，不是门禁；仅有进程内路径的用户可见 CASE 列为保真限制。
+7. 工件只在被接受时按内容规则判定（四维分析在登记时，独立设计在验收时，计划在提交与冻结时），此后只读取，它或其引用文件漂移才拒收，后增规则只约束新提交；与当前规则的差异列入报告"规则欠账"交 Auditor 评估，不是门禁；仅有进程内路径的用户可见 CASE 列为保真限制。
 
 ## 变更控制
 

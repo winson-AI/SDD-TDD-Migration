@@ -58,7 +58,7 @@ def load(analysis, items):
     excluded = keyed(inventory['exclusions'], 'data_id') if inventory['exclusions'] else {}
     require(set(contracts).isdisjoint(excluded) and set(contracts) | set(excluded) == set(entities), 'data entity closure incomplete or duplicated')
     for row in excluded.values():
-        require(row.get('reason'), 'data exclusion needs a source scope rationale')
+        owed(row.get('reason'), 'data exclusion needs a source scope rationale')
         for evidence in nonempty(row.get('evidence_refs'), 'data exclusion evidence'): check_ref(evidence)
     owners = {}
     for iid, item in items.items():
@@ -76,15 +76,15 @@ def load(analysis, items):
             require(isinstance(repository, str) and '#' in repository and Path(repository.split('#', 1)[0]).is_absolute()
                     and repository.split('#', 1)[1], 'data target needs absolute repository#symbol')
             for facet, mapping in zip(FACETS, MAPPINGS):
-                require(isinstance(target.get(mapping), dict) and set(target[mapping]) == set(source[facet]) and
-                        all(isinstance(value, str) and value for value in target[mapping].values()), 'data mapping omits a source obligation: ' + mapping)
-        require(row.get('fidelity') in ('exact', 'approved-adaptation'), 'data fidelity must be explicit')
-        if row['fidelity'] != 'exact':
-            require(row.get('alternative') and row.get('reason'), 'data adaptation needs approved alternative and rationale')
+                owed(isinstance(target.get(mapping), dict) and set(target[mapping]) == set(source[facet]) and
+                     all(isinstance(value, str) and value for value in target[mapping].values()), 'data mapping omits a source obligation: ' + mapping)
+        owed(row.get('fidelity') in ('exact', 'approved-adaptation'), 'data fidelity must be explicit')
+        if row.get('fidelity') != 'exact':
+            owed(row.get('alternative') and row.get('reason'), 'data adaptation needs approved alternative and rationale')
         existing = row.get('existing_target')
         if existing is not None:  # the target already fetches or computes this data: one way survives, by decision
-            require(isinstance(existing, dict) and existing.get('symbol') and existing.get('divergence') and existing.get('decision') in DECISIONS
-                    and existing.get('reason'), 'a target that already holds this data needs its symbol, the divergence and a refactor/adapt decision with a reason')
+            owed(isinstance(existing, dict) and existing.get('symbol') and existing.get('divergence') and existing.get('decision') in DECISIONS
+                 and existing.get('reason'), 'a target that already holds this data needs its symbol, the divergence and a refactor/adapt decision with a reason')
         row = dict(row); row['item_id'] = owners[did]; contracts[did] = row
     return entities, contracts
 

@@ -171,11 +171,13 @@ class FidelityConditions(unittest.TestCase):
         doc['dimensions'][1]['items'][0]['fidelity_conditions'] = [condition]
         parent['dimension_analysis_ref'] = t.f.ref('reviewed-root.json', doc); t.root_ref = parent['dimension_analysis_ref']
         proposal = t.proposal()
-        with self.assertRaisesRegex(Rejected, 'omit parent fidelity'): dimensions.partition(s, parent, proposal)
+        dimensions.partition(s, parent, proposal)  # the child leaves the condition to a later split: the parent owes it
+        self.assertIn('condition', s['issues']['COVER-M010-four-dimension work']['summary'])
         child = proposal['children'][0]; child_doc = read_json(check_ref(child['dimension_analysis_ref']))
         child_doc['dimensions'][1]['items'][0]['fidelity_conditions'] = [condition]
         child['dimension_analysis_ref'] = t.f.ref('reviewed-child.json', child_doc)
         dimensions.partition(s, parent, proposal)
+        self.assertIn('M010', s['issues']['COVER-M010-four-dimension work']['resolved'])  # covered now: the gap is settled
 
 
 class RetrievalAndDiscovery(unittest.TestCase):

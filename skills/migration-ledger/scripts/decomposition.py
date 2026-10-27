@@ -324,8 +324,10 @@ def group_step(s, group, ref_check=check_ref):
                     affected_children=realloc_reqs)
         return step
     import issues
-    owed = [row['issue_id'] for row in issues.of_module(s, group['module_id'])[0]]
-    if owed:  # recorded for this parent: its split is revised, or the issue is settled with what answers it
+    # recorded for this parent: its split is revised, or the issue is settled with what answers it; what a first split
+    # left out waits until the children's first version is done
+    owed = [row['issue_id'] for row in issues.of_module(s, group['module_id'])[0] if not row['issue_id'].startswith('COVER-')]
+    if owed:
         step.update(operation='redecompose', ready=True, role='module-orchestrator', reason='open-issues', issue_ids=owed)
         return step
     for mid in leaves(s, group['module_id']):
@@ -344,7 +346,12 @@ def group_step(s, group, ref_check=check_ref):
     for mid in group['children']:
         if mid in s.get('module_groups', {}) and not summary_current(s, s['module_groups'][mid], ref_check):
             return step
-    if summary_current(s, group, ref_check):
+    import issues
+    left = [row for row in issues.of_module(s, group['module_id'])[0] if row['issue_id'].startswith('COVER-')]
+    if left:  # the children's first version is done: what the split left out is covered now, before the summary
+        step.update(operation='redecompose', role='module-orchestrator', ready=True, reason='split-coverage-owed',
+                    coverage=[row['summary'] for row in left])
+    elif summary_current(s, group, ref_check):
         step['reason'] = 'parent-summary-current'
     else:
         # The summary binds the children's recorded facts: the Ledger writes it and the host submits it without a model turn.
@@ -418,8 +425,9 @@ def validate(s, parent, plan, redecompose=False):
         require(set(child.get('dependencies', [])) <= set(ids) | set(parent['dependencies']), 'child dependency outside approved parent boundary')
         cases.update(child['case_ids'])
         requirements.update(child['scope']['requirement_ids'])
-    require(cases == set(parent['case_ids']), 'submodules must cover every parent case')
-    require(requirements == set(parent['scope']['requirement_ids']), 'submodules must cover every parent requirement')
+    # a first split need not cover its parent: what it leaves is the parent's gap, covered before the parent's summary
+    coverage(s, parent['module_id'], 'cases', set(parent['case_ids']) - cases)
+    coverage(s, parent['module_id'], 'requirements', set(parent['scope']['requirement_ids']) - requirements)
     dimensions.partition(s, parent, plan)
     import behavior_contract
     if s.get('behavior_contract_required') or any(c.get('behavior_review') for c in children):
@@ -518,6 +526,22 @@ def standard(s, parent, children, plan, record=True):
     bound(s, parent, children, plan, record)
 
 
+def coverage(s, parent_id, kind, missing):
+    """What a split leaves out of its parent - cases, requirements, four-dimension work or features - is a gap of the parent:
+    the first version of the children goes on, and a later split covers it before the parent's summary."""
+    import issues
+    iid, missing = 'COVER-%s-%s' % (parent_id, kind), sorted(missing)
+    issue = s.get('issues', {}).get(iid)
+    if missing:
+        summary = '%s: the split leaves %s to a later split: %s' % (parent_id, kind, ', '.join(missing[:12]) + (' …' if len(missing) > 12 else ''))
+        if issue:
+            issue.update(summary=summary); issue['resolved'].pop(parent_id, None)
+        else:
+            issues.record(s, iid, 'gap', summary, [parent_id], issues.LEDGER)
+    elif issue and parent_id not in issue['resolved']:
+        issue['resolved'][parent_id] = {'by': issues.LEDGER, 'covered': True}
+
+
 def node_features(features, paths):
     """The features at or below the feature-tree nodes `paths` name: a node is a functional_path, its subtree the paths under it."""
     return {fid for fid, f in features.items()
@@ -566,7 +590,7 @@ def bound(s, parent, children, plan, record=True):
                 issues.record(s, 'SLICE-%s-derived' % child['module_id'], 'fact', '%s holds %d features found in source beyond the supplied cases: %s'
                               % (child['module_id'], len(derived), ', '.join(derived)), [parent['module_id']], issues.LEDGER,
                               resolved={parent['module_id']: {'by': issues.LEDGER, 'recorded': True}})
-    carried = carriers(mine, held, children)
+    carried = carriers(mine, held, children, s=s, parent_id=parent['module_id'])
     for child in children:
         if child.get('kind') == 'scaffold':
             continue
@@ -580,16 +604,19 @@ def bound(s, parent, children, plan, record=True):
                           resolved={parent['module_id']: {'by': issues.LEDGER, 'recorded': True}})
 
 
-def carriers(features, held, leaves, strict=True):
+def carriers(features, held, leaves, strict=True, s=None, parent_id=None):
     """{leaf: features it carries}: a feature no leaf names - a failure, cancel or retry outcome with no node of its own -
     rides with the one leaf that lists all its cases; one that no leaf, or more than one, lists stays without a leaf."""
-    carried = {}
+    carried, unheld = {}, set()
     for fid in sorted(set(features) - set(held)):
         holders = [leaf['module_id'] for leaf in leaves if leaf.get('kind') != 'scaffold'
                    and set(features[fid].get('case_ids') or []) <= set(leaf.get('case_ids') or [])]
-        require(len(holders) == 1 or not strict, 'features without a leaf: %s; list its cases on the leaf of the flow it belongs to' % fid)
         if len(holders) == 1:
             carried.setdefault(holders[0], set()).add(fid)
+        elif strict:
+            unheld.add(fid)
+    if strict and s is not None:
+        coverage(s, parent_id, 'features', unheld)  # a feature no leaf holds yet is covered by a later split
     return carried
 
 
@@ -784,8 +811,10 @@ def handle(s, req, actor, run_root):
         parent = s.get('module_groups', {}).get(mid)
         require(parent, 'redecompose requires a parent module group')
         plan = read_json(check_ref(p.get('plan_ref')))
+        import child_material
+        plan, completed = child_material.complete(s, parent, plan, run_root, 'resplit-%s.json' % parent['module_id'])
         children, graph = validate(s, parent, plan, redecompose=True)
-        parent['redecomposition_submission'] = {'plan_ref': p['plan_ref'], 'actor_instance_id': actor['instance_id'],
+        parent['redecomposition_submission'] = {'plan_ref': completed or p['plan_ref'], 'actor_instance_id': actor['instance_id'],
                                                 'binding': context_binding(s, parent),
                                                 'affected_modules': sorted(redecomposition_impact(s, parent, children, graph))}
         return
@@ -919,49 +948,82 @@ def handle(s, req, actor, run_root):
         from contracts import marked
         require(not marked(p.get('plan_ref')), 'unfilled skeleton field left in ' + Path(p['plan_ref']['path']).name)
         plan = read_json(check_ref(p.get('plan_ref')))
+        import child_material  # what the children did not write is cut by the Ledger from the parent and the inventory
+        plan, completed = child_material.complete(s, parent, plan, run_root, 'split-%s.json' % parent['module_id'])
         validate(s, parent, plan)
-        parent['decomposition_submission'] = {'plan_ref': p['plan_ref'], 'actor_instance_id': actor['instance_id'],
+        parent['decomposition_submission'] = {'plan_ref': completed or p['plan_ref'], 'actor_instance_id': actor['instance_id'],
                                               'binding': context_binding(s, parent)}
+        if run_root is not None and drafted(s, parent, plan):
+            # The Ledger's own cut, every check passed: nothing is left for the GO to judge, so the Ledger accepts it now.
+            out = Path(run_root) / 'reports/allocations'
+            out.mkdir(parents=True, exist_ok=True)
+            record = out / ('%s-accept-%s.md' % (mid, digest(plan)[:12]))
+            record.write_text('%s: the split is the one the Ledger drafted from the feature inventory; every decomposition check '
+                              'passed, so the Ledger accepted it.\n' % mid)
+            from contracts import file_ref
+            accept_split(s, parent, mid, file_ref(record), run_root)
     else:
         role(actor, 'global-orchestrator')
-        submission = parent.get('decomposition_submission')
-        require(submission, 'MO decomposition proposal required')
-        require(submission.get('binding') == context_binding(s, parent), STALE_CONTEXT)
-        check_ref(p.get('review_ref'))
-        plan = read_json(check_ref(submission['plan_ref']))
-        children, graph = validate(s, parent, plan)
-        if plan.get('kind') == 'atomic-leaf':
-            replan_module(parent, 'atomic-leaf-confirmed', submission['plan_ref'])
-            parent['planning_history'][-1]['review_ref'] = p['review_ref']
-            parent.update(decomposition_required=False, leaf_review_ref=plan['leaf_review_ref'])
-            parent.pop('decomposition_submission', None)
-            return
-        parent.setdefault('planning_history', []).append({'kind': 'planning-history', 'executable': False,
-            'reason': 'scope-decomposed', 'plan_ref': submission['plan_ref'], 'review_ref': p['review_ref']})
-        impact = {mid} | {cid for cid, deps in graph.items() if cid in s['modules'] and deps != s['modules'][cid]['dependencies']}
-        while True:
-            expanded = impact | {cid for cid, m in s['modules'].items() if impact.intersection(m['dependencies'])}
-            if expanded == impact: break
-            impact = expanded
-        for cid in impact:
-            idle(s['modules'][cid])
-        continue_unaffected(s, impact, p['review_ref'], run_root)
-        del s['modules'][mid]
-        parent.update(kind='parent-module', phase='coordinating', children=[c['module_id'] for c in children],
-                      decomposition_ref=submission['plan_ref'], decomposition_review_ref=p['review_ref'])
-        parent.pop('decomposition_required', None)
+        accept_split(s, parent, mid, p.get('review_ref'), run_root)
+
+
+def drafted(s, parent, plan):
+    """Whether a submitted split is the Ledger's own cut: the leaves split_draft cuts from the inventory, with the same cases.
+    Whether a root is atomic stays the GO's to judge."""
+    if plan.get('kind') == 'atomic-leaf':
+        return False
+    import split_draft
+    try:
+        draft = split_draft.draft(s, parent['module_id'])
+    except (Rejected, OSError, ValueError, KeyError, TypeError):
+        return False
+    cut = lambda children: sorted(sorted(c.get('case_ids') or []) for c in children)
+    return bool(draft) and cut(draft['children']) == cut(plan.get('children') or [])
+
+
+def accept_split(s, parent, mid, review_ref, run_root):
+    """Register a submitted split: the GO's accept, or the Ledger's own when the split is the one it drafted."""
+    from ledger import idle, new_module, replan_module
+    submission = parent.get('decomposition_submission')
+    require(submission, 'MO decomposition proposal required')
+    require(submission.get('binding') == context_binding(s, parent), STALE_CONTEXT)
+    check_ref(review_ref)
+    plan = read_json(check_ref(submission['plan_ref']))
+    children, graph = validate(s, parent, plan)
+    if plan.get('kind') == 'atomic-leaf':
+        replan_module(parent, 'atomic-leaf-confirmed', submission['plan_ref'])
+        parent['planning_history'][-1]['review_ref'] = review_ref
+        parent.update(decomposition_required=False, leaf_review_ref=plan['leaf_review_ref'])
         parent.pop('decomposition_submission', None)
-        s.setdefault('module_groups', {})[mid] = parent
-        for child in children:
-            child = copy.deepcopy(child)
-            child.update(parent_module_id=mid, dependencies=graph[child['module_id']])
-            s['modules'][child['module_id']] = new_module(child)
-        for leaf_id, module in s['modules'].items():
-            if leaf_id in impact:
-                replan_module(module, 'upstream-dependency-decomposed', submission['plan_ref'])
-                module['revision'] += 1
-            if module['dependencies'] != graph[leaf_id]:
-                module['dependencies'] = graph[leaf_id]
-                module['behavior_review']['verification'] = copy.deepcopy(plan['consumer_verifications'][leaf_id])
-        s['global_plan'] = None
-        s['audit'] = {}
+        return
+    parent.setdefault('planning_history', []).append({'kind': 'planning-history', 'executable': False,
+        'reason': 'scope-decomposed', 'plan_ref': submission['plan_ref'], 'review_ref': review_ref})
+    impact = {mid} | {cid for cid, deps in graph.items() if cid in s['modules'] and deps != s['modules'][cid]['dependencies']}
+    while True:
+        expanded = impact | {cid for cid, m in s['modules'].items() if impact.intersection(m['dependencies'])}
+        if expanded == impact: break
+        impact = expanded
+    for cid in impact:
+        idle(s['modules'][cid])
+    continue_unaffected(s, impact, review_ref, run_root)
+    del s['modules'][mid]
+    parent.update(kind='parent-module', phase='coordinating', children=[c['module_id'] for c in children],
+                  decomposition_ref=submission['plan_ref'], decomposition_review_ref=review_ref)
+    parent.pop('decomposition_required', None)
+    parent.pop('decomposition_submission', None)
+    s.setdefault('module_groups', {})[mid] = parent
+    for child in children:
+        child = copy.deepcopy(child)
+        child.update(parent_module_id=mid, dependencies=graph[child['module_id']])
+        s['modules'][child['module_id']] = new_module(child)
+    for leaf_id, module in s['modules'].items():
+        if leaf_id in impact:
+            replan_module(module, 'upstream-dependency-decomposed', submission['plan_ref'])
+            module['revision'] += 1
+        if module['dependencies'] != graph[leaf_id]:
+            module['dependencies'] = graph[leaf_id]
+            module['behavior_review']['verification'] = copy.deepcopy(plan['consumer_verifications'][leaf_id])
+    previous, s['global_plan'] = s.get('global_plan'), None
+    s['audit'] = {}
+    import workflow
+    workflow.carry_coverage(s, previous, mid, children, run_root)  # the GO's coverage with the parent's share handed to its children

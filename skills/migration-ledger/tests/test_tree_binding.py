@@ -66,8 +66,8 @@ class TreeBindingTests(unittest.TestCase):
             self.judge([leaf('M002', CASES[:3], 'Login/Phone'), leaf('M003', CASES[3:], 'Login/Code', 'Login/Intro')], ref)
         with self.assertRaisesRegex(Rejected, 'feature F-PHONE-SEND is held by M002 and M003: leaves do not overlap'):
             self.judge([phone, leaf('M003', CASES[2:], 'Login/Phone/Send', 'Login/Code', 'Login/Intro')], ref)
-        with self.assertRaisesRegex(Rejected, 'features without a leaf: F-INTRO'):
-            self.judge([phone, leaf('M003', CASES[4:8], 'Login/Code')], ref)
+        self.judge([phone, leaf('M003', CASES[4:8], 'Login/Code')], ref)  # the intro is left to a later split: the parent's gap
+        self.assertIn('F-INTRO', self.s['issues']['COVER-M001-features']['summary'])
         with self.assertRaisesRegex(Rejected, 'names its feature-tree nodes: functional_paths'):
             self.judge([leaf('M002', CASES[:4]), rest], ref)
         with self.assertRaisesRegex(Rejected, 'M002 names no feature of the parent'):
@@ -81,7 +81,7 @@ class TreeBindingTests(unittest.TestCase):
         self.judge([phone, code], ref)
         self.assertEqual(self.s['issues']['SLICE-M003-carried']['kind'], 'fact')
         self.assertIn('F-INTRO', self.s['issues']['SLICE-M003-carried']['summary'])
-        with self.assertRaisesRegex(Rejected, 'features without a leaf: F-INTRO'):  # its cases split over two leaves: no one carrier
+        with self.assertRaisesRegex(Rejected, 'accepts exactly the cases'):  # its cases split over two leaves: no one carrier, no leaf owns them
             self.judge([leaf('M002', CASES[:4] + ['C9'], 'Login/Phone'), leaf('M003', CASES[4:8] + ['C10'], 'Login/Code')], ref)
 
     def test_a_split_cuts_the_inventory_its_root_was_registered_with(self):

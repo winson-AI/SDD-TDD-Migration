@@ -18,7 +18,7 @@ def review(module, value):
     scope = digest(module.get('scope'))
     require(value.get('scope_sha256', scope) == scope, 'behavior review scope mismatch')
     for field in ('entry', 'observable_result', 'production_binding', 'boundary_rationale'):
-        require(isinstance(value.get(field), str) and value[field].strip(), 'behavior review missing ' + field)
+        owed(isinstance(value.get(field), str) and value[field].strip(), 'behavior review missing ' + field)
     for field, expected in (('requirement_ids', module.get('scope', {}).get('requirement_ids', [])),
                             ('case_ids', module.get('case_ids', []))):
         values = nonempty(value.get(field, expected), 'behavior review ' + field)
@@ -69,7 +69,7 @@ def verification(module):
     require(isinstance(value, dict), 'verification boundary required')
     require(value.get('acceptance_owner') == module['module_id'], 'verification acceptance owner mismatch')
     for field in ('independent_observation', 'isolation_strategy', 'integration_responsibility'):
-        require(isinstance(value.get(field), str) and value[field].strip(), 'verification missing ' + field)
+        owed(isinstance(value.get(field), str) and value[field].strip(), 'verification missing ' + field)
     if value.get('fixture_contract_ref') is not None:  # fixed inputs and stand-ins are test design: the leaf states them when its allocation does not
         check_ref(value['fixture_contract_ref'])
     require(set(nonempty(value.get('case_ids'), 'verification cases')) == set(module['case_ids']), 'verification case coverage mismatch')

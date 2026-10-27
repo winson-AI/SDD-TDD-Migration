@@ -61,7 +61,7 @@ def load(analysis, items):
     excluded = keyed(inventory['exclusions'], 'api_id') if inventory['exclusions'] else {}
     require(set(contracts).isdisjoint(excluded) and set(contracts) | set(excluded) == set(calls), 'API call closure incomplete or duplicated')
     for row in excluded.values():
-        require(row.get('reason'), 'API exclusion needs a source scope rationale')
+        owed(row.get('reason'), 'API exclusion needs a source scope rationale')
         for evidence in nonempty(row.get('evidence_refs'), 'API exclusion evidence'): check_ref(evidence)
     owners = {}
     for iid, item in items.items():
@@ -80,13 +80,13 @@ def load(analysis, items):
             require(isinstance(target.get('consumer'), str) and '#' in target['consumer'] and
                     Path(target['consumer'].split('#', 1)[0]).is_absolute() and target['consumer'].split('#', 1)[1], 'API target needs absolute consumer#symbol')
             for facet, mapping in zip(FACETS, MAPPINGS):
-                require(isinstance(target.get(mapping), dict) and set(target[mapping]) == set(source[facet]) and
-                        all(isinstance(value, str) and value for value in target[mapping].values()), 'API mapping omits a source obligation: ' + mapping)
-        require(row.get('fidelity') in ('exact', 'approved-adaptation'), 'API fidelity must be explicit')
-        if row['fidelity'] == 'exact':
+                owed(isinstance(target.get(mapping), dict) and set(target[mapping]) == set(source[facet]) and
+                     all(isinstance(value, str) and value for value in target[mapping].values()), 'API mapping omits a source obligation: ' + mapping)
+        owed(row.get('fidelity') in ('exact', 'approved-adaptation'), 'API fidelity must be explicit')
+        if row.get('fidelity') == 'exact':
             require(target is None or route(source, 'source') == addressed, 'API exact route changed')
-        else:
-            require(row.get('alternative') and row.get('reason'), 'API adaptation needs approved alternative and rationale')
+        elif row.get('fidelity') == 'approved-adaptation':
+            owed(row.get('alternative') and row.get('reason'), 'API adaptation needs approved alternative and rationale')
         row = dict(row); row['item_id'] = owners[aid]; contracts[aid] = row
     return calls, contracts
 
@@ -97,8 +97,8 @@ def call_row(source, reviewed=None):
     require(source.get('source_symbol'), 'API source production symbol required')
     check_ref(source.get('source_ref'))
     if reviewed is not None:
-        require(any(all(ref[k] == source['source_ref'][k] for k in ('path', 'sha256')) for ref in reviewed),
-                'recorded API source missing from reviewed discovery scope')
+        owed(any(all(ref[k] == source['source_ref'][k] for k in ('path', 'sha256')) for ref in reviewed),
+             'recorded API source missing from reviewed discovery scope')
     for facet in FACETS:
         require(isinstance(source.get(facet), list) and all(isinstance(field, str) and field for field in source[facet]) and
                 len(set(source[facet])) == len(source[facet]), 'API source facet must list explicit unique obligations')
@@ -129,9 +129,9 @@ def register(s, req, actor, sequence=None):
     require(isinstance(call, dict) and call.get('api_id') == aid and isinstance(contract, dict) and contract.get('api_id') == aid,
             'api-register carries the call and the contract of its api_id')
     call_row(call)
-    require(contract.get('fidelity') in ('exact', 'approved-adaptation'), 'API fidelity must be explicit')
-    if contract['fidelity'] != 'exact':
-        require(contract.get('alternative') and contract.get('reason'), 'API adaptation needs approved alternative and rationale')
+    owed(contract.get('fidelity') in ('exact', 'approved-adaptation'), 'API fidelity must be explicit')
+    if contract.get('fidelity') != 'exact':
+        owed(contract.get('alternative') and contract.get('reason'), 'API adaptation needs approved alternative and rationale')
     for evidence in nonempty(p.get('evidence_refs'), 'api-register evidence'):
         check_ref(evidence)
     registry[aid] = {'owner': mid, 'item_id': iid, 'call': call, 'contract': contract, 'evidence_refs': list(p['evidence_refs']),

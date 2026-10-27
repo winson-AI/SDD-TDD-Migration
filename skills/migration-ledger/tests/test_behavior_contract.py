@@ -263,7 +263,7 @@ class BehaviorContractTests(unittest.TestCase):
         module['behavior_review'] = {k: v for k, v in review(f, module).items() if k not in COPIES}
         f.call('register', module, role='global-orchestrator', module=None)
         f.global_plan()
-        with self.assertRaisesRegex(Rejected, 'behavior review'):  # the run switches the contract on, for any plan
+        with self.assertRaisesRegex(Rejected, 'behavior review|shared_capabilities'):  # the run switches the contract on, for any plan (missing text is owed; its structure is not)
             f.call('plan', {'plan_ref': f.ref('bare-plan.json', f.plan())}, role='spec-designer')
         plan, _ = contract_plan(f)
         with self.assertRaisesRegex(Rejected, 'cannot opt out'):

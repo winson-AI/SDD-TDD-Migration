@@ -202,7 +202,9 @@ class ItemCaseTests(unittest.TestCase):
         with mock.patch.object(dimensions, 'allocation', side_effect=allocation), mock.patch.object(dimensions, 'check_ref'), \
                 mock.patch.object(dimensions, 'read_json', return_value={}), mock.patch.object(api_contract, 'read', return_value=({}, {})), \
                 mock.patch.object(dimensions, 'load', side_effect=lambda ref, mid: ({'parent_ref': self.PARENT['dimension_analysis_ref']}, None)):
-            dimensions.partition({}, self.PARENT, proposal)
+            s = {}
+            dimensions.partition(s, self.PARENT, proposal)
+            return s.get('issues', {})
 
     def test_a_case_of_the_item_held_by_another_slice_is_carried_by_its_holder(self):
         self.partition(M001={'A-UI': ('P-UI', ['C1'])}, M002={'B-LOGIC': ('P-LOGIC', ['C2'])})  # C2 of the screen item is M002's case
@@ -215,9 +217,9 @@ class ItemCaseTests(unittest.TestCase):
                            M002={'B-UI': ('P-UI', ['C3']), 'B-RES': ('P-RES', ['C3'])})
 
     def test_a_case_a_citing_child_holds_stays_attached_to_what_it_cites(self):
-        with self.assertRaisesRegex(Rejected, 'omit parent item requirements/cases'):
-            self.partition(M001={'A-UI': ('P-UI', ['C1']), 'A-LOGIC': ('P-LOGIC', ['C2'])})  # it holds C2 and cites the screen item without it
-        self.partition(M001={'A-UI': ('P-UI', ['C1', 'C2']), 'A-LOGIC': ('P-LOGIC', ['C2'])})
+        left = self.partition(M001={'A-UI': ('P-UI', ['C1']), 'A-LOGIC': ('P-LOGIC', ['C2'])})  # it holds C2 and cites the screen item without it
+        self.assertIn('P-UI C2', left['COVER-M010-four-dimension work']['summary'])  # left to a later split, owed by the parent
+        self.assertEqual(self.partition(M001={'A-UI': ('P-UI', ['C1', 'C2']), 'A-LOGIC': ('P-LOGIC', ['C2'])}), {})
 
 
 class CarriedChildrenTests(unittest.TestCase):
