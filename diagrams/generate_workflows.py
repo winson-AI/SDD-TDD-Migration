@@ -192,7 +192,7 @@ def module_execution():
     d.arrow([(70,1310),(50,1310),(50,2180),(300,2180),(300,2240)],'green')
     d.arrow([(955,1310),(1110,1310)],'orange');d.label(1030,1290,'非 Green','orange')
     d.box(1110,1220,410,180,'现有诊断 → MO 分流',[
-        '定位在写范围内：Ledger 诊断，直派 Fixer',
+        '报错或断言失败：Ledger 诊断，派 Fixer',
         '其余 Diagnostician 只读，日志按需 grep',
         '环境 / 目标基线缺陷 → 审计延期',
         '不增加前置规划轮次'], 'orange',True)
