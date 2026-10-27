@@ -3,8 +3,8 @@
 The leaves are the nodes one level below what the root's features share; a node with too many cases splits one level
 further, nodes that share a case are one leaf (a case has one holder), and nodes too small to stand alone join the
 smallest other leaf until each holds LEAF_MIN_CASES. Every leaf names its nodes, cases, requirements and the features it
-does; what only the orchestrator can write (dimension analysis, behaviour review, the screens it anchors on, narrower
-write paths) is marked [[待写 and refused while left. A root with fewer cases than two leaves gets no split.
+does; the Ledger cuts each leaf's four-dimension analysis and behaviour review when the split is submitted; what only the
+orchestrator can write (the screens a leaf anchors on) is marked [[待写 and refused while left, and write paths are narrowed by it. A root with fewer cases than two leaves gets no split.
 
   split_draft.py --root <run_root> --module <id> --out <absolute directory in the role's staging>
 """
@@ -78,6 +78,9 @@ def draft(s, mid):
                 if cases & set(f.get('case_ids') or [])}
     require(features, 'the inventory holds no feature of this root')
     taken = {int(k[1:]) for k in (*s['modules'], *s.get('module_groups', {})) if k[1:].isdigit()}
+    ui = False
+    if s.get('dimension_slicing_required') and parent.get('dimension_analysis_ref'):
+        ui = 'UI' in decomposition.applicable(parent['dimension_analysis_ref'], mid)
     scope = parent.get('scope') or {}
     children = []
     for n, (paths, fids) in enumerate(groups(features, cases, decomposition.LEAF_MIN_CASES, decomposition.LEAF_MAX_CASES), 1):
@@ -90,8 +93,7 @@ def draft(s, mid):
                       'requirement_ids': sorted({r for fid in fids for r in features[fid].get('requirement_ids') or []}
                                                 & set(scope.get('requirement_ids') or []))},
             'context_refs': list(parent.get('context_refs') or []),
-            **({'dimension_analysis_ref': todo('本叶四维分析引用'), 'anchor_ui': todo('本叶验收的页面')} if s.get('dimension_slicing_required') else {}),
-            **({'behavior_review': todo('行为评审：入口、可观察结果、生产接线、边界理由、验证')} if s.get('behavior_contract_required') else {})})
+            **({'anchor_ui': todo('本叶验收的页面')} if ui else {})})  # its analysis and behaviour review are cut by the Ledger at decompose
     return {'parent_module_id': mid, 'kind': 'split', 'feature_inventory_ref': ref,
             'rationale': f'按功能树切分：共同前缀下一级节点各为一叶，用例超过 {decomposition.LEAF_MAX_CASES} 条的节点再下切一级，'
                          f'共享用例的节点合为一叶，不足 {decomposition.LEAF_MIN_CASES} 条的并入最小的另一叶；写范围按叶收窄',

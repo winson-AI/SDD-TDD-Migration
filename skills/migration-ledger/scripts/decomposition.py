@@ -811,8 +811,10 @@ def handle(s, req, actor, run_root):
         parent = s.get('module_groups', {}).get(mid)
         require(parent, 'redecompose requires a parent module group')
         plan = read_json(check_ref(p.get('plan_ref')))
+        import child_material
+        plan, completed = child_material.complete(s, parent, plan, run_root, 'resplit-%s.json' % parent['module_id'])
         children, graph = validate(s, parent, plan, redecompose=True)
-        parent['redecomposition_submission'] = {'plan_ref': p['plan_ref'], 'actor_instance_id': actor['instance_id'],
+        parent['redecomposition_submission'] = {'plan_ref': completed or p['plan_ref'], 'actor_instance_id': actor['instance_id'],
                                                 'binding': context_binding(s, parent),
                                                 'affected_modules': sorted(redecomposition_impact(s, parent, children, graph))}
         return
@@ -946,8 +948,10 @@ def handle(s, req, actor, run_root):
         from contracts import marked
         require(not marked(p.get('plan_ref')), 'unfilled skeleton field left in ' + Path(p['plan_ref']['path']).name)
         plan = read_json(check_ref(p.get('plan_ref')))
+        import child_material  # what the children did not write is cut by the Ledger from the parent and the inventory
+        plan, completed = child_material.complete(s, parent, plan, run_root, 'split-%s.json' % parent['module_id'])
         validate(s, parent, plan)
-        parent['decomposition_submission'] = {'plan_ref': p['plan_ref'], 'actor_instance_id': actor['instance_id'],
+        parent['decomposition_submission'] = {'plan_ref': completed or p['plan_ref'], 'actor_instance_id': actor['instance_id'],
                                               'binding': context_binding(s, parent)}
     else:
         role(actor, 'global-orchestrator')
