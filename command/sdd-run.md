@@ -10,13 +10,20 @@ description: /sdd-run <run-id> — 并行推进就绪模块
 ## 2. 编排步骤
 1. 先按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)。
 2. 前置门控：run 已初始化、存在可调度工作、宿主能提供隔离实例与单写 Ledger、max_parallel_modules 合法。先 `verify_openspec.py --scope global` 核验公共基础，再对派发目标用 `--scope module --module-id <id>`；局部失败只处理关联范围，见[核验范围](sdd-verify.md)。
-3. 按 `status` 游标派发：就绪模块在依赖与写集合约束内并行，仅已冻结模块可编码；逐 module_id 消费事件，单个失败不取消其他 MO；父节点的 decompose/decompose-accept/module-summary 同样出现在 next_steps，须同时检查 module_groups 与 module_rounds。全部模块完成或各自明确挂起、无活动 worker 与可推进动作后，才请求独立审计；暂时没有 ready 动作不代表运行中的 MO 已结束。
+3. 循环执行 `drive.py --root <run> --host-context '<MO 身份>' --wait <秒>`（[宿主循环](../skills/migration-protocol/references/host-integration.md#宿主循环)），只读它输出的行，不读状态视图：
+   - `dispatch`：按 role 启动隔离实例，交 card 路径；带 session_id 时接续该会话。
+   - `running`：Ledger 已派的 worker；未启动则按 card 与 instance_id 启动，已启动则等待。
+   - `host`：宿主按 operation 与 payload 自行提交。
+   - `person`：交 Escalation 按 detail 问人，决定绑定 approval_subject_sha256。
+   - `signal`：按 next_action 处理；severity=human 时告知用户。
+   - `tick`：本轮结束，回到循环。
+   机械步骤、并行上限、依赖与审计时机由 Ledger 守卫，宿主不自行判断；单个失败不取消其他模块。
 
 ## 3. 契约与规格
 目标角色 [Global-Orchestrator](../Agents/global-orchestrator.md)；[编排游标](../skills/migration-protocol/references/local-runtime.md#编排游标)、[模块隔离与全量收尾](../skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾)。
 
 ## 4. 接入要点
-- `mechanical=true` 的步骤用 `ledger.py advance` 以 MO 身份一次提交；用 session_id 恢复角色，只传事件与工件引用；提交带 expected_revision 再过门禁，阻塞或预算不足不跳步。
+- 角色只拿到 card 与事件/工件引用；提交带 expected_revision 再过门禁，阻塞或预算不足不跳步。
 - 本地先修复一轮，确认依赖/外围或一轮未通过则 audit-defer 退出；正常依赖解除与已批准的 resume 先执行，不因当前没有 worker 就拉起 Auditor。
 - 同 Run 修订消费 status.run_change_next_step（[同 Run 修订](../skills/migration-protocol/references/progress-recovery.md#同-run-上游修订)）；来源追加消费 source_change_next_step，当前 worker 完成后再更新上下文，不取消无关 MO（[来源追加协议](../skills/migration-protocol/references/source-changes.md#2-host上下文调整与明确恢复)）。
 - 预检：worker 派发后在同一会话 context-submit，ready 开工，blocked 退回派发；审计派发未就绪时先启动 Auditor 预检。见[阶段协议](../skills/migration-protocol/references/context-readiness.md#5-缺失失效与恢复)。
