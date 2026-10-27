@@ -322,6 +322,14 @@ class ReadingCardTests(unittest.TestCase):
         missing = sorted(path for path in wanted if path not in reachable and path not in host_only)
         self.assertEqual(missing, [])
 
+    def test_the_planning_card_leaves_what_the_ledger_fills_to_a_refusal(self):
+        step = {'role': 'spec-designer', 'operation': 'plan'}
+        held = {(row['ref'], row['section']) for row in reading.card({}, {}, step) + reading.on_demand({}, {}, step)}
+        self.assertEqual(held & set(reading.LEDGER_KEPT), set())
+        during_change = {(row['ref'], row['section']) for row in reading.card({}, {'change_request': {'request_ref': 'cr'}}, step)}
+        self.assertIn((reading.P + 'openspec.md', '变更控制'), during_change)  # how a change runs, while one is open
+        self.assertEqual(reading.read_hint('forbidden_changes must be a list')['section'], '决策边界与执行基线')  # a refusal still names it
+
     def test_rejections_point_at_the_section_stating_the_gate(self):
         for _, name, heading in reading.GATES:
             reading.section(reading.P + name, heading)  # every pointer resolves
