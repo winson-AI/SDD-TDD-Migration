@@ -97,15 +97,15 @@ def overview():
     for x in (340,880): d.arrow([(x,690),(x,700)])
     d.band(60,635,1100,265,'父 MO  ·  认领与拆分','每个父 MO 持续看护自己认领的整个模块')
     d.box(100,700,480,170,'父 MO · 根模块 A',[
-        '认领模块 / 实现 / 四维上下文', 'Ledger 起草切分；3–30 CASE，<6 不拆；页面是 TASK', '按范围组织四维边界与依赖', '明确实现指导 / owner / 完整性'],controller=True)
+        '认领模块 / 实现 / 四维上下文', 'Ledger 起草切分；3–30 CASE，<6 不拆；页面是 TASK', '子四维分析与行为评审由 Ledger 切出', '可不全覆盖：漏掉的记欠项，首版后补齐'],controller=True)
     d.box(640,700,480,170,'父 MO · 其他根模块 × N',[
         'project 按根模块分别建立父 MO', '子 scope / CASE；功能叶不重叠，横切功能随主流程叶', '继承实现 / 复用 / 四维上下文', 'single-module 仅保留选定根模块'],controller=True)
     # Anchor branch endpoints to the cards (container crossings remain open).
     for x in (340,880):
         d.arrow([(x,870),(x,940),(610,940)],end=False)
     d.arrow([(610,940),(610,980)])
-    d.box(100,980,1020,110,'GO 审核拆分 → 登记子模块 → 全局覆盖验收',[
-        '核验父子四维覆盖 / N/A 依据 / CASE / 复用 owner / DAG；派发独立子 MO'])
+    d.box(100,980,1020,110,'接受拆分 → 登记子模块 → 全局覆盖',[
+        'Ledger 起草的切法当场接受，覆盖交给孩子并重验沿用；手改的拆分才由 GO 审核'])
     d.arrow([(610,1090),(610,1220)],end=False)
     d.arrow([(215,1220),(1010,1220)],end=False)
     d.band(60,1170,1100,265,'子 MO  ·  任务规划与独立执行','单个失败不取消或污染无关子模块')
@@ -118,7 +118,7 @@ def overview():
         d.arrow([(centers[0],1480),(centers[1],1480)],end=False)
         d.arrow([(sum(centers)/2,1480),(sum(centers)/2,1520)])
         d.box(summaryx,1520,480,115,'对应父 MO 汇总',[
-            '等全部孩子本轮结束，检查完整性','module-summary 绑定当前子状态'])
+            '孩子首版收尾后补齐漏掉的覆盖','module-summary 绑定当前子状态'])
     for x in (340,880): d.arrow([(x,1635),(x,1670),(610,1670)],end=False)
     d.arrow([(610,1670),(610,1710)],'orange')
     d.box(100,1710,1020,140,'GO · 全量收尾门禁',[
@@ -168,7 +168,7 @@ def module_execution():
     d.box(550,610,500,185,'MO 审核冻结',[
         '起步门禁即冻结；评审已记录则机械冻结',
         '测试源须能失败：拒恒真断言 / 表达式体 @Test',
-        '目标已有代码：复用或说明；SPEC 是实现规范',
+        '完整性缺口记欠项，DoD 前结清；已有代码复用或说明',
         '真实未决 / 需求验收授权变化交 Human'],controller=True)
     d.arrow([(800,795),(800,810)])
     d.box(550,810,500,130,'Implementer · 按 TASK 执行',[

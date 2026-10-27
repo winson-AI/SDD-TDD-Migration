@@ -40,8 +40,8 @@
 <text x="340.0" y="735.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父 MO · 根模块 A</text>
 <text x="340.0" y="769.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">认领模块 / 实现 / 四维上下文</text>
 <text x="340.0" y="798.0" font-size="17.52" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 起草切分；3–30 CASE，&lt;6 不拆；页面是 TASK</text>
-<text x="340.0" y="827.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按范围组织四维边界与依赖</text>
-<text x="340.0" y="856.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">明确实现指导 / owner / 完整性</text>
+<text x="340.0" y="827.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子四维分析与行为评审由 Ledger 切出</text>
+<text x="340.0" y="856.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">可不全覆盖：漏掉的记欠项，首版后补齐</text>
 <rect x="640" y="700" width="480" height="170" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="645" y="705" width="470" height="160" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="880.0" y="735.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父 MO · 其他根模块 × N</text>
@@ -53,8 +53,8 @@
 <path d="M880,870 L880,940 L610,940" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M610,940 L610,980" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="100" y="980" width="1020" height="110" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
-<text x="610.0" y="1028.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">GO 审核拆分 → 登记子模块 → 全局覆盖验收</text>
-<text x="610.0" y="1062.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核验父子四维覆盖 / N/A 依据 / CASE / 复用 owner / DAG；派发独立子 MO</text>
+<text x="610.0" y="1028.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">接受拆分 → 登记子模块 → 全局覆盖</text>
+<text x="610.0" y="1062.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 起草的切法当场接受，覆盖交给孩子并重验沿用；手改的拆分才由 GO 审核</text>
 <path d="M610,1090 L610,1220" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M215,1220 L1010,1220" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <rect x="60" y="1170" width="1100" height="265" rx="20" fill="none" stroke="#d1d5db" stroke-width="1.4"/>
@@ -98,7 +98,7 @@
 <path d="M347.5,1480 L347.5,1520" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="100" y="1520" width="480" height="115" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="340.0" y="1556.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">对应父 MO 汇总</text>
-<text x="340.0" y="1590.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">等全部孩子本轮结束，检查完整性</text>
+<text x="340.0" y="1590.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">孩子首版收尾后补齐漏掉的覆盖</text>
 <text x="340.0" y="1619.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">module-summary 绑定当前子状态</text>
 <path d="M745,1405 L745,1480" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M1010,1405 L1010,1480" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
@@ -106,7 +106,7 @@
 <path d="M877.5,1480 L877.5,1520" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="640" y="1520" width="480" height="115" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="880.0" y="1556.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">对应父 MO 汇总</text>
-<text x="880.0" y="1590.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">等全部孩子本轮结束，检查完整性</text>
+<text x="880.0" y="1590.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">孩子首版收尾后补齐漏掉的覆盖</text>
 <text x="880.0" y="1619.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">module-summary 绑定当前子状态</text>
 <path d="M340,1635 L340,1670 L610,1670" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M880,1635 L880,1670 L610,1670" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>

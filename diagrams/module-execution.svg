@@ -33,7 +33,7 @@
 <text x="800.0" y="652.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO 审核冻结</text>
 <text x="800.0" y="686.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">起步门禁即冻结；评审已记录则机械冻结</text>
 <text x="800.0" y="715.5" font-size="21.24" fill="#4b5563" text-anchor="middle" font-weight="400">测试源须能失败：拒恒真断言 / 表达式体 @Test</text>
-<text x="800.0" y="744.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">目标已有代码：复用或说明；SPEC 是实现规范</text>
+<text x="800.0" y="744.5" font-size="19.36" fill="#4b5563" text-anchor="middle" font-weight="400">完整性缺口记欠项，DoD 前结清；已有代码复用或说明</text>
 <text x="800.0" y="773.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">真实未决 / 需求验收授权变化交 Human</text>
 <path d="M800,795 L800,810" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="810" width="500" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
