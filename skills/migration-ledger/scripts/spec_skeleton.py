@@ -168,6 +168,16 @@ def plans(s, m, out, documents):
                 'expected_assertions': [{'assertion_id': 'ASSERT-' + pid, 'expected': todo('上游预期') if expected is None else expected, 'scenario_ids': []}],
                 'preparation': {'status': 'existing', 'reason': later('已批准的测试方式'), 'evidence_refs': [], 'asset_ids': []}, **extra}
     case_name = lambda cid: cid + ' ' + ((feature_of(features, cid) or {}).get('name') or '用例路径')
+    runner = []  # the first in-process PATH holds the test command and report patterns; the others run the same
+    home = test_home(m)
+    lands = lambda name: str(Path(home) / Path(name).name) if home else todo('目标测试源集中的绝对路径')
+
+    def test_command(pid, ids):
+        if runner:
+            return {'command': {'same_as': runner[0]}, 'unit_report': {'same_as': runner[0], 'required_test_ids': ids}}
+        runner.append(pid)
+        return {'command': {'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': chosen_by},
+                'unit_report': {'format': 'junit', 'patterns': [todo('runner 相对的 JUnit 报告 glob')], 'required_test_ids': ids}}
     chosen_by = build_file(s, m) or todo('选择依据引用')  # a command is chosen by the build file of the module it builds
     paths = [path(build, 'build', first, 'build', expected=0,
                   command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': chosen_by})]
@@ -183,12 +193,10 @@ def plans(s, m, out, documents):
         name = f'test-sources/{cls}.' + language(s)
         sources[name] = test_source(cls, pid, iid, methods)
         test_assets.append({'asset_id': 'TEST-' + pid, 'kind': 'test-source', 'ref': name, 'path_ids': [pid],
-                            'target_path': todo('目标测试源集中的绝对路径'), 'required_test_ids': ids,
+                            'target_path': lands(name), 'required_test_ids': ids,
                             'scenarios': [{'scenario_id': scenario_of.get(cid) or todo('Scenario-ID'), 'test_id': tid} for tid, (_, cid) in zip(ids, methods)],
                             'symbols': [todo('测试调用的生产符号')]})
-        paths.append(path(pid, 'unit', held[0] if held else first, f'{iid} 单测', expected=True,
-                          command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': chosen_by},
-                          unit_report={'format': 'junit', 'patterns': [todo('runner 相对的 JUnit 报告 glob')], 'required_test_ids': ids},
+        paths.append(path(pid, 'unit', held[0] if held else first, f'{iid} 单测', expected=True, **test_command(pid, ids),
                           preparation={'status': 'prepared', 'reason': '从 SPEC 写出并随计划冻结的测试源', 'evidence_refs': [], 'asset_ids': ['TEST-' + pid]}))
     import project_context
     device = project_context.device_verification(s) or (s.get('test_adapter') or {}).get('device')
@@ -222,11 +230,9 @@ def plans(s, m, out, documents):
         name = f'test-sources/{cls}.' + language(s)
         sources[name] = test_source(cls, pid, cid, [('flow', cid)])
         test_assets.append({'asset_id': 'TEST-' + pid, 'kind': 'test-source', 'ref': name, 'path_ids': [pid],
-                            'target_path': todo('目标测试源集中的绝对路径'), 'required_test_ids': [tid],
+                            'target_path': lands(name), 'required_test_ids': [tid],
                             'scenarios': [{'scenario_id': scenario_of.get(cid) or todo('Scenario-ID'), 'test_id': tid}], 'symbols': [todo('测试调用的冻结门面符号')]})
-        paths.append(path(pid, 'automation', cid, case_name(cid), expected=True, platform='jvm',
-                          command={'argv': [todo('绝对 argv')], 'cwd': s.get('target_root'), 'timeout_seconds': 600, 'selection_ref': chosen_by},
-                          unit_report={'format': 'junit', 'patterns': [todo('runner 相对的 JUnit 报告 glob')], 'required_test_ids': [tid]},
+        paths.append(path(pid, 'automation', cid, case_name(cid), expected=True, platform='jvm', **test_command(pid, [tid]),
                           preparation={'status': 'prepared', 'reason': '从 SPEC 写出并随计划冻结的功能测试', 'evidence_refs': [], 'asset_ids': ['TEST-' + pid]}))
         paths[-1]['expected_assertions'][0]['test_id'] = tid
     import reference_media
@@ -271,19 +277,46 @@ def plans(s, m, out, documents):
             except (Rejected, OSError, ValueError, TypeError):
                 continue
         none = capabilities == []  # the catalogue holds nothing to reuse: every requirement is a new implementation
-        mappings = [{'mapping_id': f'REUSE-{mid}-{n:03d}', 'requirement_ids': [rid],
+        owned, rows = set(), []  # one decision per task: its requirements no earlier task decided
+        for task in tasks:
+            reqs = [rid for rid in requirements if rid in task['requirement_ids'] and rid not in owned]
+            owned.update(reqs)
+            if reqs:
+                rows.append((task, reqs))
+        rows += [(tasks[0], [rid for rid in requirements if rid not in owned])] if set(requirements) - owned else []
+        mappings = [{'mapping_id': f'REUSE-{mid}-{n:03d}', 'requirement_ids': reqs,
                      'capability_id': None if none else todo('能力 ID；new 时为 null'), 'decision': 'new' if none else todo('reuse / adapt / reference / new'),
                      'rationale': '能力目录没有可复用的候选' if none else later('语义匹配与选择理由'), 'behavior_delta': later('匹配点、缺口与适配'),
-                     'binding_plan': later('生产入口、DI、适配器与消费者'), 'task_ids': [t['task_id'] for t in tasks if rid in t['requirement_ids']] or [tasks[0]['task_id']],
-                     'path_ids': [path_of[cid] for cid in cases if requirement_of(cid) == rid] or [path_of[first]] if first else [],
+                     'binding_plan': later('生产入口、DI、适配器与消费者'), 'task_ids': [task['task_id']],
+                     'path_ids': [pid for pid in task['path_ids'] if pid in path_of.values()] or ([path_of[first]] if first else []),
                      'verification': later('业务契约、边界、错误与真实提供方断言'),
                      'fidelity': {'legacy_root': s.get('legacy_root'), 'legacy_source_refs': [], 'alignment_ref': None, 'scenarios': []},
                      **({} if none else {'integration': {'mode': todo('existing-target / package / source-module / reference-only'),
                                                          'locator': todo('目标模块、API 或包坐标'), 'version': todo('解析版本')}})}
-                    for n, rid in enumerate(requirements, 1)]
+                    for n, (task, reqs) in enumerate(rows, 1)]
         out_files['reuse-fidelity.md'] = f"# {mid} 复用与存量功能保真对齐\n\n{later('逐行为对齐：场景、源码定位、前置/输入、存量预期、提供方语义、差异与 PATH/ASSERT')}\n"
         out_files['reuse-plan.json'] = {'schema_version': 1, 'module_id': mid, 'catalog_ref': catalog or todo('能力目录引用'), 'mappings': mappings}
     return out_files
+
+
+def test_home(m):
+    """Where the leaf's frozen tests land: the first test source set among its write paths (a folder under src/ whose
+    set name ends in Test or is test), else its first main source folder mirrored to the test set (commonMain → commonTest,
+    main → test) when that set exists; None when neither is there."""
+    def test_set(part):
+        return part == 'test' or part.endswith('Test')
+    for path in m.get('write_paths') or []:
+        parts = Path(path).parts
+        if 'src' in parts and parts.index('src') + 1 < len(parts) and test_set(parts[parts.index('src') + 1]):
+            return path
+    for path in m.get('write_paths') or []:
+        parts = list(Path(path).parts)
+        if 'src' in parts and parts.index('src') + 1 < len(parts) and not Path(path).suffix:
+            i = parts.index('src') + 1
+            mirrored = 'test' if parts[i] == 'main' else parts[i][:-4] + 'Test' if parts[i].endswith('Main') else None
+            if mirrored and Path(*parts[:i], mirrored).is_dir():
+                return str(Path(*parts[:i], mirrored, *parts[i + 1:]))
+    return None
 
 
 def build_file(s, m):

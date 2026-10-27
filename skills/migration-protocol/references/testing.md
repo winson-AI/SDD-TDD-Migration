@@ -70,7 +70,7 @@ unit 冻结 argv/cwd/timeout/selection_ref。unit_report 固定 format=junit、r
 
 解析 testcase/计数，保存具体 ID、执行/失败/跳过数量与报告 hash，绑定 run/module/PATH/assignment/test_run/freeze/code_baseline，接受时重核原报告。exit=0、实际执行非零、全部必需 ID 通过、无跳过/证据缺口才 Green。零执行、漏测、缺失/损坏/过期报告为 Yellow；断言失败或非环境中断的命令失败为 code Red，走既有诊断/Fixer。只收本 attempt 的新报告，旧 mtime/越界链接无效；任意可写 XML 的真实性仍依赖可信宿主执行。
 
-冻结同一命令的 unit PATH 由 execute_test 以 `--path-id a,b` 一次执行，JUnit 按各自 required_test_ids 拆成逐 PATH 回执。作者的 `selfcheck --path-id` 记每个 required 测试的状态，实现前后两份记录是任务的 red 证据，只进报告不设门禁。进程内功能测试：kind=automation 的 PATH 带 command 与 unit_report 时按冻结命令执行、JUnit 归因，每条断言 expected=true 并以 test_id 指一个 required 测试，逐断言 pass/fail；在 automation 派发里跑，不算设备路径。prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据（缺者记欠项）。unit 无需设备，证明逻辑 Scenario，不替代 CASE 的 automation；环境缺失保留已通过 unit。枚举与唯一性断言（键只定义一次、无多余键）挂扫描类进程内路径，不挂 unit。
+冻结同一命令的 unit PATH 由 execute_test 以 `--path-id a,b` 一次执行（其余 PATH 的 command/unit_report 可写 `{same_as: <PATH>}`），JUnit 按各自 required_test_ids 拆成逐 PATH 回执。作者的 `selfcheck --path-id` 记 required 测试状态，实现前后两份是任务的 red 证据，不设门禁。进程内功能测试：kind=automation 的 PATH 带 command 与 unit_report 时按冻结命令执行、JUnit 归因，每条断言 expected=true 并以 test_id 指一个 required 测试，逐断言 pass/fail；在 automation 派发里跑，不算设备路径。prepared run 固定 unit_tests_required=true。每个 applicable Logic 项的 dimension_trace 须关联 unit PATH 或 unit_test_na 依据（缺者记欠项）。unit 无需设备，证明逻辑 Scenario，不替代 CASE 的 automation；环境缺失保留已通过 unit。枚举与唯一性断言挂扫描类进程内路径，不挂 unit。
 
 ## 日志与按需追溯
 

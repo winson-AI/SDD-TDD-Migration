@@ -50,10 +50,30 @@ def coverage(s, m, result, tasks):
     check_assets(s, result)
 
 
+def shared_commands(paths):
+    """A PATH whose command, or whose JUnit report, says `same_as` another PATH runs that one's: the tests of one source set
+    have one runner, written once. The completed plan holds the copies; the PATH keeps its own required tests."""
+    paths = copy.deepcopy(paths)
+    by_id = {p.get('path_id'): p for p in paths if isinstance(p, dict)}
+    for path in by_id.values():
+        for key in ('command', 'unit_report'):
+            value = path.get(key)
+            if not (isinstance(value, dict) and 'same_as' in value):
+                continue
+            source = (by_id.get(value['same_as']) or {}).get(key)
+            require(isinstance(source, dict) and 'same_as' not in source,
+                    '%s same_as names a PATH that has its own %s: %s' % (key, key, path.get('path_id')))
+            path[key] = {**copy.deepcopy(source), **({'required_test_ids': value['required_test_ids']} if key == 'unit_report' else {})}
+            if key == 'unit_report':
+                require(value.get('required_test_ids'), 'a unit_report same_as keeps its own required_test_ids: ' + str(path.get('path_id')))
+    return paths
+
+
 def upstream_plan(s, m, plan, judge=True):
     """The test plan a SPEC brings with it. It is judged with the plan that submits it; the plan the Ledger already
     holds is only held to the upstream cases, allocation and context that are current now."""
     result = read_json(check_ref(plan.get('test_design_ref')))
+    result['paths'] = shared_commands(result.get('paths') or [])
     require(result.get('schema_version') == 1 and result.get('kind') == 'upstream-test-plan' and
             result.get('module_id') == m['module_id'], 'upstream test plan module/kind/schema mismatch')
     require(result.get('case_refs') == upstream_refs(s), 'test plan must bind authoritative upstream cases')
