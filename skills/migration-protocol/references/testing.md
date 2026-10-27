@@ -36,7 +36,7 @@ GLOBAL 手势的完整契约、ID 匹配与 build_binding 在 init 落盘前检�
 - Red：真实断言失败且指向目标行为缺陷；明确实现导致的构建/静态检查失败也以专用 gate path 记录 Red。保留失败日志与实际值。
 - Yellow：依赖未就绪、缺凭证/设备、超时、适配器坏、解析异常、未知失败、skip、证据缺失、版本过期或 flaky。超时若可证实为规格性能要求违反，可诊断为 Red；不能只凭非零退出码判产品 Bug。
 
-root_cause 字段在 Red/Yellow 必填：category、summary、confidence、evidence_refs、suspected_owner、next_action；确认失败断言不等于已确认根因，后者由 Diagnostician 补充。构建或单测命令失败时，执行器从日志 grep 出报错定位写入 failures.json（root_cause.failures_ref，summary 给首个定位与总数）；定位全在模块写范围内即 category=code、confidence=confirmed，作为 Fixer 输入，否则交诊断。保留原始报告，分类纠正以新事件引用原结果，不篡改历史。
+root_cause 字段在 Red/Yellow 必填：category、summary、confidence、evidence_refs、suspected_owner、next_action；确认失败断言不等于已确认根因，后者由 Diagnostician 补充。构建或单测命令失败时，执行器从日志 grep 出报错定位写入 failures.json（root_cause.failures_ref，summary 给首个定位与总数）；定位全在模块写范围内即 category=code、confidence=confirmed，作为 Fixer 输入，否则交诊断。本模块功能/单测 PATH 的断言失败同样由 Ledger 写诊断、直派 Fixer 自诊（期望与实际随步骤给出）；审计轮仍由 Diagnostician 独立诊断。保留原始报告，分类纠正以新事件引用原结果，不篡改历史。
 
 同基线同路径出现 pass/fail 混合则 flaky Yellow，不能“重跑到绿”挑最好一次；定位/修复后按冻结策略连续通过（默认 3 次），Auditor 独立验证。历史失败原样保留。涉及环境变化也记录新 environment_hash。
 

@@ -69,7 +69,7 @@
 <rect x="1110" y="1220" width="410" height="180" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <rect x="1115" y="1225" width="400" height="170" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
 <text x="1315.0" y="1260.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">现有诊断 → MO 分流</text>
-<text x="1315.0" y="1294.0" font-size="18.62" fill="#4b5563" text-anchor="middle" font-weight="400">定位在写范围内：Ledger 诊断，直派 Fixer</text>
+<text x="1315.0" y="1294.0" font-size="19.58" fill="#4b5563" text-anchor="middle" font-weight="400">报错或断言失败：Ledger 诊断，派 Fixer</text>
 <text x="1315.0" y="1323.0" font-size="18.63" fill="#4b5563" text-anchor="middle" font-weight="400">其余 Diagnostician 只读，日志按需 grep</text>
 <text x="1315.0" y="1352.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">环境 / 目标基线缺陷 → 审计延期</text>
 <text x="1315.0" y="1381.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不增加前置规划轮次</text>

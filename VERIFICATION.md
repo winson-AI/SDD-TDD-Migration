@@ -22,13 +22,13 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1703 | 全量通过，零失败/错误/跳过；本轮新增全流程演练、无人提问的计划由 Ledger 评审并冻结、作者提问时交 MO、计划卡不带 Ledger 补全的规则、drive.py 的逐行交回与日志等待、Auditor 派发与波次集成机械完成的测试 |
+| migration-ledger/tests | 1705 | 全量通过，零失败/错误/跳过；本轮新增断言失败由 Ledger 诊断并直派 Fixer、Fixer 步骤带期望与实际、审计轮保留独立诊断的测试 |
 | migration-test/tests | 83 | 全量通过；本轮无改动 |
 | runtime/harmony/tests | 128 | 全量通过；本轮无改动 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮：判断只留给需要判断的地方。计划通过全部冻结门禁、无阻塞 issue、尚无代码且作者未在 plan.review_questions 提问时，plan-review 为机械步：Ledger 在 reports/plan-review 写评审记录，advance 提交后冻结；任一条件不满足时步骤带 review_asked 交 MO。Spec-Designer 计划卡不再常驻任务级四维分析契约、决策边界、四维索引与（无 CR 时的）变更控制，被拒时由读取指引指向。`drive.py --root --host-context [--wait]` 对全部模块与全局提交机械步，只输出 dispatch（带卡片路径）、running、person 与 tick 各一行，无可派时按 tail 方式跟随事件日志末尾。audit-assign（派给代码审查中的 Auditor）与适配器或冻结命令驱动的 integration-assign / integration-submit 由 `ledger.advance_run` 以所属角色名义提交；审计结论与审计复测仍归 Auditor 与 Test-Runner。全流程演练（根模块拆为提供方与依赖方两个叶子，走到统一审计结论）记录：GO 3、MO 1、Spec-Designer 2、Implementer 2、Test-Runner 4（静态审查与未声明适配器的自动化各一次/叶）、Auditor 2，共 14 次；单轮最大卡 20524 字节；叶子演练声明适配器 2 次、未声明 3 次。超过记录值只警告。上一轮：模型只做需要判断的事（命令只交结果与 grep 出的报错定位、写范围内构建失败由 Ledger 诊断直派 Fixer、固定流程的诊断接受与依赖放行等机械提交、适配器驱动的自动化代跑、静态审查单独派发、协议文件不限总量只限模型负载）。
+本轮：断言失败直接交 Fixer 自行诊断。模块全部未解失败都是写范围内的构建报错或本模块功能/单测 PATH 的冻结断言失败时，Ledger 写诊断（逐断言的期望与实际、步骤轨迹），diagnose、diagnosis-accept 与 Fixer 派发由 advance 提交，Fixer 步骤带 failed_assertions；视觉对齐、Yellow、代码外根因与审计轮仍由 Diagnostician 独立诊断。上一轮：判断只留给需要判断的地方（无人提问的计划由 Ledger 评审并冻结、计划卡瘦身、drive.py 宿主循环、Auditor 派发与波次集成机械完成、全流程演练共 14 次模型轮次）。
 
 协议文件不限总量（当前 460558 字节，最大单文件 24613 字节）；限制的是加载进模型的内容：`reading.py show` 一次至多一节 25900 字节（超出给小节目录），入口 AGENTS.md 3991 / 4000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中常驻卡最大 26223 / 29100 字节、按需小节最大 20283 / 25900 字节；全触发且双平台声明时常驻卡最大 29045、按需小节最大 25702，一步可读（常驻 + 按需）最坏 46660 / 51200 字节，模板组合最大 32435 / 34700 字节（写到才逐份取）；无触发步骤卡 ≤ 29100、模板 ≤ 13500；拒绝消息带小节指引的比例 98.9%（棘轮 90%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 

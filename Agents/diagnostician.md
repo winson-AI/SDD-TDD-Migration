@@ -15,7 +15,7 @@ mode: subagent
 输出：结构化 diagnosis：症状、假设/证实根因、证据、归属、依赖链、建议修复或 CR。
 
 ## 3. 执行步骤
-1. 报错定位全在写范围内的构建/单测失败由 Ledger 直接写诊断，不派本角色；其余重读失败 query、断言和 failure_locations，确认是同一代码/环境版本；日志只按需 `run_command.py grep` 取命中行，不整读；缺证据标 unknown。
+1. 报错定位全在写范围内的构建失败与本模块 PATH 的断言失败由 Ledger 写诊断、交 Fixer 自行定位，不派本角色（审计轮除外）；其余重读失败 query、断言和 failure_locations，确认是同一代码/环境版本；日志只按需 `run_command.py grep` 取命中行，不整读；缺证据标 unknown。
 2. 只读追踪需求、调用路径、数据和模块依赖，区分代码、环境、依赖、测试缺陷与规格歧义。
 3. 列出可证伪假设、最小复现步骤、根因置信度、负责模块和建议动作；需要执行复现时经 Ledger 请求 Test-Runner。
 4. 提交 diagnose 后退出，所有修改由 Fixer 或 Spec-Designer 执行。

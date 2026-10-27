@@ -87,10 +87,12 @@ class UnitGateTests(unittest.TestCase):
 
     def test_a_definite_red_from_a_frozen_run_goes_on_to_diagnosis(self):
         f = self.f; self.unit_code = FAILING; self.split.prepare()
-        self.assertEqual([x['operation'] for x in self.advance()], ['assign', 'submit', 'accept'])
+        applied = [x['operation'] for x in self.advance()]
+        self.assertEqual(applied[:3], ['assign', 'submit', 'accept'])
         m = f.state()['modules']['M001']
         self.assertEqual((m['results']['B1']['quality'], m['results']['U1']['quality']), ('green-passed', 'red-bug'))
-        self.assertEqual(f.state()['next_steps'][0]['operation'], 'diagnose')
+        self.assertEqual(applied[3:], ['diagnose', 'diagnosis-accept', 'assign'])  # a failed unit assertion goes to the Fixer
+        self.assertIn('U1', f.state()['next_steps'][0]['failed_assertions'])
 
     def test_unit_green_survives_missing_automation_environment(self):
         f = self.f; self.split.prepare(); self.split.compile(); self.run_unit()

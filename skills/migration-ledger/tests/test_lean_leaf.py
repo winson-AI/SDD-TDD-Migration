@@ -25,7 +25,8 @@ class LeanLeafDiagnosisTests(unittest.TestCase):
 
     def test_regular_leaf_keeps_independent_diagnostician(self):
         w = self.w; w.failed_module()
-        self.assertEqual(w.state()['next_steps'][0]['role'], 'diagnostician')
+        step = w.state()['next_steps'][0]  # a failed assertion of its own: the Ledger writes the diagnosis, not the Fixer
+        self.assertEqual((step['operation'], step['role'], step['mechanical']), ('diagnose', 'module-orchestrator', True))
         with self.assertRaisesRegex(Rejected, 'principal role denied'):
             self.diagnose_as('fixer')
 
@@ -40,7 +41,10 @@ class SelfDiagnosisOptionTests(unittest.TestCase):
         w.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'write_paths': [str(w.target / 'm1')]},
                role='global-orchestrator', module=None)
         w.failed_module()
-        self.assertEqual(w.state()['next_steps'][0]['role'], 'fixer')
+        w.call('diagnose', {'diagnosis_ref': w.ref('self-diagnosis.md', 'cause found while repairing'), 'owner': 'M001',
+                            'root_cause': {'category': 'code', 'summary': 'wrong value', 'confidence': 'confirmed', 'owner': 'M001', 'next_action': 'fix'}},
+               role='fixer')  # the option still lets the repairing session diagnose its local round
+        self.assertEqual(w.state()['next_steps'][0]['operation'], 'diagnosis-accept')
         w.root = w.base / 'bad-option-run'
         with self.assertRaisesRegex(Rejected, 'fixer_self_diagnosis must be boolean'):
             w.call('init', {**{k: original[k] for k in ('target_root', 'legacy_root', 'case_ids', 'requirement_ids', 'global_spec',
