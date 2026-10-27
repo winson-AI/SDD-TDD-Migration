@@ -99,5 +99,37 @@ class WaveIntegrationTests(unittest.TestCase):
         self.assertEqual([p['path_id'] for p in ledger.audit_scope(f.state())['plan']['paths']], ['GP1'])  # the audit still sees it until it is green again
 
 
+
+class MechanicalWaveTests(unittest.TestCase):
+    """A wave whose global path the run's stated adapter drives is dispatched and run by the Ledger."""
+    first_wave = WaveIntegrationTests.first_wave
+
+    def setUp(self):
+        f = self.f = test_audit_closure.ClosureTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        original = f.state(); f.root = f.base / 'wave'
+        adapter = f.base / 'run-adapter.py'
+        adapter.write_text("import argparse,json\np=argparse.ArgumentParser();p.add_argument('--query-file');p.add_argument('--result-file');a=p.parse_args()\n"
+                           "json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':True}]},open(a.result_file,'w'))\n")
+        f.call('init', {**{k: original[k] for k in ('target_root', 'legacy_root', 'global_spec', 'new_architecture')},
+                        'dimension_slicing_required': False, 'split_testing_required': False, 'context_readiness_required': False,
+                        'case_ids': ['C1', 'C2'], 'requirement_ids': ['R1'], 'max_fix_rounds': 1,
+                        'test_adapter': {'executable': sys.executable, 'args': [str(adapter)]},
+                        'global_paths': [{'path_id': 'GP1', 'case_id': 'C1', 'expected_assertions': [{'assertion_id': 'A1', 'expected': 2}]}]}, role='host')
+        f.call('register', {'module_id': 'M001', 'case_ids': ['C1'], 'dependencies': [], 'write_paths': [str(f.target / 'm1')]}, role='global-orchestrator', module=None)
+        f.call('register', {'module_id': 'M002', 'case_ids': ['C2'], 'dependencies': ['M001'], 'write_paths': [str(f.target / 'm2')]}, role='global-orchestrator', module=None)
+        f.global_plan(case_owners={'C1': ['M001', 'GLOBAL'], 'C2': ['M002']}, requirement_owners={'R1': ['M001', 'M002']})
+        plan = f.plan()
+        f.call('plan', {'plan_ref': f.ref('plan.json', plan)}, role='spec-designer'); f.approve(digest(plan), 'D1'); f.call('freeze', {'decision_id': 'D1'})
+
+    def test_the_wave_is_dispatched_and_run_by_the_ledger(self):
+        f = self.f
+        self.assertTrue(self.first_wave()['mechanical'])
+        applied = ledger.advance_run(f.root, {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'})
+        self.assertEqual([a['operation'] for a in applied], ['integration-assign', 'integration-submit'])
+        s = f.state()
+        self.assertEqual(s['audit_results']['GP1']['quality'], 'green-passed')
+        self.assertTrue(s['integration_assignment']['closed'])
+
+
 if __name__ == '__main__':
     unittest.main()

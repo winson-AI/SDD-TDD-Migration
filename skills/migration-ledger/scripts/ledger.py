@@ -2632,6 +2632,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     else:
         global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'module-work-remaining'}
     global_next = context_readiness.annotate(s, None, global_next)
+    run_fixed_flow(s, global_next)
     if global_next.get('role'):
         global_next['model_tier'] = model_routing.advise(global_next['role'], global_next.get('operation'))
     if global_next.get('operation'):
@@ -2715,6 +2716,63 @@ def _status(root, view='full', module_id=None, since=None):
                 'providers': {mid: providers(s, m) for mid, m in s['modules'].items() if m['dependencies']},
                 'quality': 'yellow-blocked' if observed and s['quality'] != 'red-bug' else s['quality']}
         return status_view.select(full, view, module_id, since)
+
+
+def global_paths_run_by_themselves(s, path_ids):
+    paths = {p['path_id']: p for p in s.get('global_paths', [])}
+    return bool(path_ids) and all(pid in paths and (paths[pid].get('command') or context_readiness.adapter_stated(s, paths[pid]))
+                                  for pid in path_ids)
+
+
+def run_fixed_flow(s, step):
+    """The run's steps nobody judges: dispatching the Auditor its code review already names, and a wave's global paths
+    that the run's adapter or their frozen commands drive - dispatched and run by `advance_run`."""
+    op, gate = step.get('operation'), step.get('context_gate') or {}
+    if not step.get('ready'):
+        return
+    if op == 'audit-assign' and (not context_readiness.enabled(s) or gate.get('mechanical')):
+        step.update(mechanical=True, payload={**(step.get('payload') or {}), 'instance_id': s['audit_code_review']['auditor_instance_id']})
+    elif op in ('integration-assign', 'integration-submit') and not context_readiness.enabled(s) and global_paths_run_by_themselves(s, step.get('path_ids')):
+        step['mechanical'] = True
+
+
+def advance_run(root, principal, workers=None):
+    """Submit the run's mechanical steps (see run_fixed_flow), each in the name of the role it belongs to."""
+    import integration
+    applied, workers = [], workers or {}
+    while True:
+        st = status(root, 'full')
+        step = st['global_next_step']
+        if not (step.get('mechanical') and step.get('ready')):
+            return applied
+        s, sequence, op = read_events(root)[0], st['last_sequence'] + 1, step['operation']
+        go = {'role': 'global-orchestrator', 'instance_id': workers.get('global-orchestrator') or 'global-orchestrator'}
+        if op == 'audit-assign':
+            payload, actor = {**step['payload'], 'assignment_id': f'audit-{sequence}'}, go
+        elif op == 'integration-assign':
+            payload, actor = {'assignment_id': f'integration-{sequence}', 'path_ids': step['path_ids'],
+                              'instance_id': workers.get('test-runner') or 'integration-test-runner'}, go
+        else:
+            task = integration.task(s)
+            payload, actor = {'result_ref': run_global(root, task)}, {'role': 'test-runner', 'instance_id': task['instance_id']}
+        ack = apply(root, {'schema_version': 1, 'request_id': f'advance-run-{sequence}', 'run_id': st['run_id'], 'module_id': None,
+                           'expected_revision': s['revision'], 'operation': op, 'payload': payload}, actor)
+        applied.append({'operation': op, 'event_id': ack['event_id']})
+
+
+def run_global(root, task):
+    """Run a wave's global paths with the run's adapter and stage the result where its worker would."""
+    scripts = str(Path(__file__).resolve().parents[2] / 'migration-test/scripts')
+    if scripts not in sys.path:
+        sys.path.append(scripts)
+    import harmony_stage
+    from execute_test import execute
+    aid = task['assignment_id']
+    receipts = [execute(root, 'GLOBAL', aid, pid, output=Path(root) / 'runs/harmony/automation' / aid / pid) for pid in task['path_ids']]
+    out = Path(root) / 'staging/test-runner' / (aid + '-result.json')
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(harmony_stage.build(root, 'GLOBAL', aid, receipts), ensure_ascii=False, indent=2) + '\n')
+    return file_ref(out)
 
 
 def closure_record(root, s, module_id, kind, sequence, actor=None):

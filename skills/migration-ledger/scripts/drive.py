@@ -45,6 +45,7 @@ def tick(root, principal, workers=None):
             moved |= bool(out['applied'])
             if out.get('card'):
                 cards[step['module_id']] = out['card']
+        moved |= bool(ledger.advance_run(root, principal, workers))  # the run's own fixed flows
         if not moved:
             break
     st = ledger.status(root, 'full')  # read by this script, not by a model

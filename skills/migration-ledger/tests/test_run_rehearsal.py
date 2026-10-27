@@ -22,7 +22,7 @@ from harmony_stage import build as stage_result
 
 MO = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
 # The counts last recorded in VERIFICATION.md: model turns by role, and the most protocol bytes one turn's card handed a model.
-RECORDED = {'turns': {'global-orchestrator': 4, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 4, 'auditor': 2},
+RECORDED = {'turns': {'global-orchestrator': 3, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 4, 'auditor': 2},
             'card_bytes': 20524}
 
 
@@ -118,11 +118,12 @@ class RunRehearsalTests(unittest.TestCase):
         for _ in range(limit):
             for mid in [s['module_id'] for s in f.state()['next_steps']]:  # leaves and parents
                 ledger.advance(f.root, MO, mid)
+            ledger.advance_run(f.root, MO)  # and the run's own fixed flows
             st = f.state()
             # a ready step, or a dispatched worker's turn
             steps = [s for s in st['next_steps'] if (s.get('ready') or s.get('operation') == 'await-result') and s.get('operation') and not s.get('mechanical')]
             g = st['global_next_step']
-            if g.get('operation') and (g.get('ready') or g.get('reason') == 'audit-running'):  # the audit is the Auditor's running turn
+            if g.get('operation') and not g.get('mechanical') and (g.get('ready') or g.get('reason') == 'audit-running'):  # the audit is the Auditor's running turn
                 steps.append(g)
             if not steps:
                 return taken, st
