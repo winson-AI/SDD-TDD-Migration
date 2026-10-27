@@ -52,7 +52,7 @@
 
 ## 验证范围
 
-本包可检查入口引用、frontmatter、JSON 模板与流程契约；真实迁移须在填写技术栈、宿主适配和真实测试命令后验证。推荐的行为验收场景见 [workflow-verification.md](template/workflow-verification.md)。协议总量与单文件大小受 `reading.py` 的 PROTOCOL_BUDGET/FILE_BUDGET 棘轮约束，阅读卡另有 60KB 预算：新增规则写入其专题协议并合并重复表述，不在运行指南中再追加一份。
+本包可检查入口引用、frontmatter、JSON 模板与流程契约；真实迁移须在填写技术栈、宿主适配和真实测试命令后验证。推荐的行为验收场景见 [workflow-verification.md](template/workflow-verification.md)。`reading.py` 约束的是加载进模型的内容，不是协议文件体量：阅读卡（常驻 + 按需一步 ≤ 51,200 字节）、模板、入口 AGENTS.md，以及 `reading.py show` 一次读出的一节（超出时给小节目录）。新增规则写入其专题协议并合并重复表述，不在运行指南中再追加一份。
 
 ## 规划、执行与反馈控制
 

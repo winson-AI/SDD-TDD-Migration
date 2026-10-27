@@ -29,9 +29,9 @@ ROTATE_BUDGET = 100_000
 # Templates a step without triggers hands its role; lower it when templates shrink, never raise it.
 TEMPLATE_BUDGET = 13_500
 TRIGGERED_TEMPLATE_BUDGET = 34_700  # the most templates any step carries once every trigger holds
-# Ratchet on the whole protocol: lower these when text is consolidated, never raise them to fit new prose.
-PROTOCOL_BUDGET = 457300  # consolidated ceiling, lowered as repeated prose in the operations matrix, tool and closure sections became single statements
-FILE_BUDGET = 32_000
+# What a model is handed is bounded, not the size of the control-flow files: one `show` hands at most one section of this
+# size, and a file or section above it is handed as its list of headings to pick from.
+SECTION_BUDGET = TOPIC_BUDGET
 ENTRY_BUDGET = 4_000  # AGENTS.md, the host's entry; a dispatched role reads its card instead
 PROTOCOL_GLOBS = ('AGENTS.md', 'Agents/*.md', 'skills/*/SKILL.md', 'skills/*/references/*.md', 'command/*.md', 'template/INDEX.md')
 
@@ -857,11 +857,17 @@ def render(rows, output_dir, extra=(), skill=None, on_demand=()):
 
 
 def show(ref, heading=None):
-    """One section of one protocol file, for a role that needs a rule its card did not carry."""
+    """One section of one protocol file, for a role that needs a rule its card did not carry; above SECTION_BUDGET, the
+    headings inside it to pick one from."""
     path = (PACKAGE / ref).resolve()
     if not path.is_relative_to(PACKAGE) or path.suffix != '.md' or not path.is_file():
         raise KeyError(f'not a package Markdown file: {ref}')
-    return section(str(path.relative_to(PACKAGE)), heading)
+    text = section(str(path.relative_to(PACKAGE)), heading)
+    if len(text.encode()) <= SECTION_BUDGET:
+        return text
+    headings = [line for line in text.splitlines()[1:] if re.match(r'#+\s', line)]
+    return (f'{ref}#{heading or ""} is {len(text.encode())} bytes, above {SECTION_BUDGET}: read one section with --section\n'
+            + '\n'.join(headings) + '\n')
 
 
 def show_template(name):

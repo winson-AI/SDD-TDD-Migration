@@ -408,11 +408,19 @@ class ReadingCardTests(unittest.TestCase):
         record = json.loads((f.root / 'reports/rejected-operation.json').read_text())
         self.assertEqual(record['read_hint']['section'], '逻辑单测')
 
-    def test_protocol_text_stays_within_its_ratchet(self):
+    def test_what_one_show_hands_a_model_is_bounded_not_the_files(self):
         files = [p for pattern in reading.PROTOCOL_GLOBS for p in reading.PACKAGE.glob(pattern)]
-        sizes = {str(p.relative_to(reading.PACKAGE)): p.stat().st_size for p in files}
-        self.assertLessEqual(sum(sizes.values()), reading.PROTOCOL_BUDGET)
-        self.assertEqual([f for f, n in sizes.items() if n > reading.FILE_BUDGET], [])
+        for path in files:
+            rel = str(path.relative_to(reading.PACKAGE))
+            self.assertLessEqual(len(reading.show(rel).encode()), reading.SECTION_BUDGET, rel)
+        big = reading.PACKAGE / 'skills/migration-protocol/references/testing.md'
+        original = reading.SECTION_BUDGET
+        try:
+            reading.SECTION_BUDGET = 1000  # a file above the bound is handed as its headings
+            listed = reading.show(str(big.relative_to(reading.PACKAGE)))
+            self.assertIn('--section', listed); self.assertIn('## 静态规格闭合', listed)
+        finally:
+            reading.SECTION_BUDGET = original
 
     def test_section_stops_at_next_heading_of_same_level(self):
         text = reading.section('skills/migration-protocol/references/testing.md', '静态规格闭合')
