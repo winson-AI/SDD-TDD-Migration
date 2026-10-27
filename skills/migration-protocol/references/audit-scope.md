@@ -42,7 +42,7 @@ work_modules 包含发现模块、根因 owner 与受影响下游，按模块基
 | 空 | audit-verdict | 核验已接受模块/问题闭环证据；`kind=audit-review`、`paths=[]`、`execution_status=no-retest-needed`、`review_ref` 和 snapshot；不启动测试、不要求自动化环境 |
 | 非空、仅自动化环境不可用 | blocked audit-testing | `audit-unavailable` 记录选中路径 Yellow/未执行并收尾，保留已有 Green；不宣称功能通过 |
 
-空清单仍需独立 Auditor 审阅；`audit-review` 不能关闭尚有待复核路径的 assignment，`tests` 报告不能用空 paths 冒充测试（模板 [audit-review.json](../../../template/audit-review.json)）。quality 是证据裁决，execution_status 区分是否实际执行，no-retest-needed 不是"全部独立复测通过"。
+空清单仍需独立 Auditor 审阅（该 Auditor 的代码审查无发现、目标全部 satisfied 时即为审阅，结论由 advance_run 以其名义提交）；`audit-review` 不能关闭尚有待复核路径的 assignment，`tests` 报告不能用空 paths 冒充测试（模板 [audit-review.json](../../../template/audit-review.json)）。quality 是证据裁决，execution_status 区分是否实际执行，no-retest-needed 不是"全部独立复测通过"。
 
 ## 活动审计的游标恢复
 

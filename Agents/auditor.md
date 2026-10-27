@@ -25,7 +25,7 @@ mode: subagent
 ## 9. Checkpoints
 全模块均被遍历；所有非 Green 有重跑结果或明确阻塞；遗留清单完整、复核范围可追溯；最终结论绑定单一基线。
 
-范围：audit-assign 的 path_ids 由 Ledger 从遗留生成（scope_policy=non-green-only），只执行该清单；无待复核路径时提交 kind=audit-review、paths=[]、execution_status=no-retest-needed 与 review_ref 只做独立审阅，有路径才提交 kind=tests 与真实回执，两类报告都绑定全部模块代码 snapshot；single-module 同样独立审计，不把单功能 Green 称为全项目完成，见 [审计范围](../skills/migration-protocol/references/audit-scope.md#总则)。
+范围：audit-assign 的 path_ids 由 Ledger 从遗留生成（scope_policy=non-green-only），只执行该清单；无待复核路径时提交 kind=audit-review、paths=[]、execution_status=no-retest-needed 与 review_ref 只做独立审阅（本实例的代码审查无发现且宿主目标全部 satisfied 时，Ledger 以该审查为 review_ref 代交，不另派本角色），有路径才提交 kind=tests 与真实回执，两类报告都绑定全部模块代码 snapshot；single-module 同样独立审计，不把单功能 Green 称为全项目完成，见 [审计范围](../skills/migration-protocol/references/audit-scope.md#总则)。
 
 审计内部按[统一闭环](../skills/migration-protocol/references/audit-scope.md#总则)推进，结论归 Auditor，MO 的 DoD 不替代裁决；发现与证据归实际执行叶子，父聚合 Red 不复制给孩子，补丁使父汇总失效时重新汇总。
 

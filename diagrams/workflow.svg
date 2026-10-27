@@ -54,7 +54,7 @@
 <path d="M610,940 L610,980" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="100" y="980" width="1020" height="110" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="610.0" y="1028.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">接受拆分 → 登记子模块 → 全局覆盖</text>
-<text x="610.0" y="1062.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 起草的切法当场接受，覆盖交给孩子并重验沿用；手改的拆分才由 GO 审核</text>
+<text x="610.0" y="1062.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 起草的切法当场接受、覆盖沿用；登记已说明覆盖时由 Ledger 起草；其余 GO 审核</text>
 <path d="M610,1090 L610,1220" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M215,1220 L1010,1220" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <rect x="60" y="1170" width="1100" height="265" rx="20" fill="none" stroke="#d1d5db" stroke-width="1.4"/>

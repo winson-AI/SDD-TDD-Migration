@@ -333,9 +333,10 @@ def runnable(s, mid):
         return False
 
 
-def coverage_checks(s, p, plan):
+def coverage_checks(s, p, plan, review=True):
     """What global coverage holds to: the plan the GO submits, and the coverage the Ledger carries over an accepted split."""
-    check_ref(p.get('review_ref'))
+    if review:
+        check_ref(p.get('review_ref'))
     require(plan.get('global_spec', s['global_spec']) == s['global_spec'] and
             plan.get('new_architecture', s['new_architecture']) == s['new_architecture'], 'global inputs mismatch')
     check_ref(s['global_spec']); check_ref(s['new_architecture'])
@@ -377,6 +378,33 @@ def coverage_checks(s, p, plan):
     behavior_contract.global_review(s)
     import target_profile
     target_profile.check(s, plan)  # the target's state per feature, bound with the plan that allocates the features
+
+
+def draft_coverage(s):
+    """The global coverage the registrations already state: each case held by the one module registered with it, each
+    requirement by the modules whose scope names it, and the one feature inventory they were registered with. None when
+    that does not pass the global-plan checks: a case held twice, an inventory that is not the complete one, a module
+    without requirements - the GO writes the coverage then."""
+    from contracts import Rejected
+    if not s['modules']:
+        return None
+    cases, requirements = {}, {}
+    for mid, m in sorted(s['modules'].items()):
+        for cid in m['case_ids']:
+            cases.setdefault(cid, []).append(mid)
+        for rid in (m.get('scope') or {}).get('requirement_ids', []):
+            requirements.setdefault(rid, []).append(mid)
+    inventories = {json.dumps(x['feature_inventory_ref'], sort_keys=True)  # bound only where coverage needs the complete one
+                   for x in {**s.get('module_groups', {}), **s['modules']}.values() if x.get('feature_inventory_ref')} if s.get('context_readiness_required') else set()
+    if any(len(owners) > 1 for owners in cases.values()) or len(inventories) > 1:
+        return None
+    plan = {'boundary_review': {'issues': []}, 'case_owners': cases, 'requirement_owners': requirements,
+            **({'feature_inventory_ref': json.loads(inventories.pop())} if inventories else {})}
+    try:
+        coverage_checks(s, {}, plan, review=False)
+    except (Rejected, OSError, KeyError, TypeError, ValueError):
+        return None
+    return plan
 
 
 def carry_coverage(s, previous, parent_id, children, run_root):

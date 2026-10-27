@@ -50,5 +50,30 @@ class DriveTests(unittest.TestCase):
         self.assertEqual([line['kind'] for line in lines], ['running', 'tick'])
 
 
+class SessionReuseTests(unittest.TestCase):
+    def test_the_fixer_line_names_the_implementer_session_to_resume_and_its_instance(self):
+        import test_ledger
+        f = test_ledger.FlowTests(methodName='runTest'); f.setUp(); self.addCleanup(f.doCleanups)
+        f.prepare()
+        f.call('session', {'role': 'implementer', 'session_id': 'S-IMP'})
+        f.implementation()
+        a, result = f.make_test_result(quality='red-bug'); f.submit(result, a)
+        lines = drive.drive(f.root, MO)
+        fixer = next(line for line in lines if line.get('role') == 'fixer')
+        self.assertEqual((fixer['kind'], fixer['session_id'], fixer['session_affinity']), ('running', 'S-IMP', 'implementer'))
+        self.assertEqual(fixer['instance_id'], f.state()['modules']['M001']['assignments'][fixer['assignment_id']]['instance_id'])
+        self.assertTrue(Path(fixer['card']).is_file() and fixer['card_bytes'] > 0)
+
+
+    def test_a_resumed_session_is_handed_only_what_it_has_not_read(self):
+        import reading, tempfile
+        rows = reading.card({}, {}, {'role': 'fixer', 'operation': 'submit'})
+        with tempfile.TemporaryDirectory() as root:
+            whole = drive.card(root, {'must_read': rows})
+            resumed = drive.card(root, {'must_read': rows, 'must_read_new': rows[:2], 'session_id': 'S-IMP'})
+        self.assertEqual(resumed['resumed_from_bytes'], sum(r['bytes'] for r in rows))
+        self.assertLess(resumed['card_bytes'], whole['card_bytes'])
+
+
 if __name__ == '__main__':
     unittest.main()

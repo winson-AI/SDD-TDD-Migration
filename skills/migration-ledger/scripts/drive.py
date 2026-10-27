@@ -5,9 +5,10 @@ someone submits something.
 
     drive.py --root <run> --host-context '<MO principal JSON>' [--worker ROLE=INSTANCE] [--wait SECONDS]
 
-Each output line is JSON: `dispatch` (start this role on this step with this card), `running` (a dispatched worker has not
-submitted yet), `person` (a decision only a person gives), then one `tick` line with the journal sequence. The host reads
-these lines, not the status views.
+Each output line is JSON: `dispatch` (start this role on this step with this card), `running` (a worker the Ledger
+dispatched: start it with its card unless already started, then wait), `person` (a decision only a person gives), then one
+`tick` line with the journal sequence. A line names the instance and, when one holds this role's context, the session to
+resume; its card then holds only the sections that session has not read. The host reads these lines, not the status views.
 """
 import argparse
 import json
@@ -28,23 +29,30 @@ def journal_size(root):
 
 
 def row(step, card=None):
-    out = {k: step[k] for k in ('module_id', 'role', 'operation', 'assignment_id', 'reason', 'review_asked', 'approval_subject_sha256')
-           if step.get(k) is not None}
+    out = {k: step[k] for k in ('module_id', 'role', 'operation', 'assignment_id', 'reason', 'review_asked', 'approval_subject_sha256',
+                                'session_id', 'session_affinity') if step.get(k) is not None}
     if step.get('worker_role'):
         out.update(role=step['worker_role'], dispatched_by=step['role'])
-    return {**out, **({'card': card} if card else {})}
+    return {**out, **(card or {})}
+
+
+def card(root, step, instance=None):
+    """The card a line hands its role: only what the session to resume has not read, else the whole card."""
+    if not step.get('must_read'):
+        return {}
+    resumed = bool(step.get('session_id')) and 'must_read_new' in step
+    rows = step['must_read_new'] if resumed else step['must_read']
+    out = reading.render(rows, Path(root) / 'reports/reading', step.get('templates', ()), on_demand=step.get('read_when_writing', ()))
+    return {'card': out['path'], 'card_bytes': out['bytes'], **({'instance_id': instance} if instance else {}),
+            **({'resumed_from_bytes': sum(r['bytes'] for r in step['must_read'])} if resumed else {})}
 
 
 def tick(root, principal, workers=None):
     """Advance everything mechanical; the steps left, as lines."""
-    cards = {}
     for _ in range(50):  # a module's step may unblock another's: repeat until nothing moves
         moved = False
         for step in ledger.status(root)['next_steps']:
-            out = ledger.advance(root, principal, step['module_id'], workers)
-            moved |= bool(out['applied'])
-            if out.get('card'):
-                cards[step['module_id']] = out['card']
+            moved |= bool(ledger.advance(root, principal, step['module_id'], workers)['applied'])
         moved |= bool(ledger.advance_run(root, principal, workers))  # the run's own fixed flows
         if not moved:
             break
@@ -57,13 +65,10 @@ def tick(root, principal, workers=None):
         if step.get('human_required') or step.get('reason') == 'human-decision-required':
             lines.append({'kind': 'person', **row(step)})
         elif operation == 'await-result' or step.get('reason') == 'audit-running':
-            lines.append({'kind': 'running', **row(step)})
+            a = (st['modules'].get(step.get('module_id')) or {}).get('assignments', {}).get(step.get('assignment_id')) or {}
+            lines.append({'kind': 'running', **row(step, card(root, step, a.get('instance_id')))})
         elif step.get('ready'):
-            card = cards.get(step.get('module_id'))
-            if not card and step.get('must_read'):
-                card = reading.render(step['must_read'], Path(root) / 'reports/reading', step.get('templates', ()),
-                                      on_demand=step.get('read_when_writing', ()))['path']
-            lines.append({'kind': 'dispatch', **row(step, card)})
+            lines.append({'kind': 'dispatch', **row(step, card(root, step))})
     return lines, st['last_sequence']
 
 

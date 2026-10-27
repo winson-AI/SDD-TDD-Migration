@@ -2605,6 +2605,8 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
                        'ready': bool(s['modules']) and not splitting,
                        'reason': 'module-decomposition-required' if splitting else 'coverage-review-required',
                        'continue_modules': rounds['ready_modules']}
+        if global_next['ready'] and workflow.draft_coverage(s):  # the registrations state it: the Ledger writes it
+            global_next.update(mechanical=True, reason='coverage-from-registrations')
     elif integration.task(s):
         item = integration.task(s)
         global_next = {'operation': 'integration-submit', 'role': 'test-runner', 'ready': True, 'assignment_id': item['assignment_id'],
@@ -2653,6 +2655,8 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
         global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'module-work-remaining'}
     global_next = context_readiness.annotate(s, None, global_next)
     run_fixed_flow(s, global_next)
+    if verdict_in_review(s, global_next):
+        global_next.update(ready=True, mechanical=True, reason='verdict-in-code-review')
     if global_next.get('role'):
         global_next['model_tier'] = model_routing.advise(global_next['role'], global_next.get('operation'))
     if global_next.get('operation'):
@@ -2756,6 +2760,17 @@ def run_fixed_flow(s, step):
         step['mechanical'] = True
 
 
+def verdict_in_review(s, step):
+    """The Auditor's code review already is its verdict: nothing is left to retest, it found nothing and judged every
+    requirement of the host goal satisfied. The verdict is then submitted from that review, in the Auditor's name."""
+    audit = s.get('audit_assignment') or {}
+    if step.get('operation') != 'audit' or step.get('reason') != 'audit-running' or audit.get('path_ids'):
+        return False
+    review = read_json(check_ref(s['audit_code_review']['report_ref']))
+    return (audit.get('instance_id') == review.get('auditor_instance_id') and not review.get('findings')
+            and all(row.get('conclusion') == 'satisfied' for row in review['goal_review']['requirements']))
+
+
 def advance_run(root, principal, workers=None):
     """Submit the run's mechanical steps (see run_fixed_flow), each in the name of the role it belongs to."""
     import integration
@@ -2767,8 +2782,13 @@ def advance_run(root, principal, workers=None):
             return applied
         s, sequence, op = read_events(root)[0], st['last_sequence'] + 1, step['operation']
         go = {'role': 'global-orchestrator', 'instance_id': workers.get('global-orchestrator') or 'global-orchestrator'}
-        if op == 'audit-assign':
+        if op == 'global-plan':
+            payload, actor = drafted_coverage(root, s), go
+        elif op == 'audit-assign':
             payload, actor = {**step['payload'], 'assignment_id': f'audit-{sequence}'}, go
+        elif op == 'audit':
+            audit = s['audit_assignment']
+            payload, actor = {'report_ref': verdict_from_review(root, s)}, {'role': 'auditor', 'instance_id': audit['instance_id']}
         elif op == 'integration-assign':
             payload, actor = {'assignment_id': f'integration-{sequence}', 'path_ids': step['path_ids'],
                               'instance_id': workers.get('test-runner') or 'integration-test-runner'}, go
@@ -2778,6 +2798,31 @@ def advance_run(root, principal, workers=None):
         ack = apply(root, {'schema_version': 1, 'request_id': f'advance-run-{sequence}', 'run_id': st['run_id'], 'module_id': None,
                            'expected_revision': s['revision'], 'operation': op, 'payload': payload}, actor)
         applied.append({'operation': op, 'event_id': ack['event_id']})
+
+
+def verdict_from_review(root, s):
+    """The audit-review the Auditor's clean code review amounts to, staged where the Auditor would write it."""
+    audit, scope = s['audit_assignment'], audit_scope(s)
+    report = {'schema_version': 1, 'kind': 'audit-review', 'run_id': s['run_id'], 'module_id': 'GLOBAL', 'assignment_id': audit['assignment_id'],
+              'actor_instance_id': audit['instance_id'], 'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],
+              'snapshot': audit['snapshot'], 'paths': [], 'execution_status': 'no-retest-needed',
+              'review_ref': s['audit_code_review']['report_ref']}
+    out = Path(root) / 'staging/auditor' / (audit['assignment_id'] + '-verdict.json')
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+    return file_ref(out)
+
+
+def drafted_coverage(root, s):
+    """The coverage the registrations state, written under reports/allocations with its review, as a global-plan payload."""
+    plan = workflow.draft_coverage(s)
+    out = Path(root) / 'reports/allocations'
+    out.mkdir(parents=True, exist_ok=True)
+    plan_path, review_path = out / ('global-plan-%s.json' % digest(plan)[:12]), out / ('global-plan-%s.md' % digest(plan)[:12])
+    plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2, sort_keys=True) + '\n')
+    review_path.write_text('Coverage drafted by the Ledger from the registrations: every case held by the one module registered '
+                           'with it, every requirement by the modules whose scope names it; every global-plan check passed.\n')
+    return {'plan_ref': file_ref(plan_path), 'review_ref': file_ref(review_path)}
 
 
 def run_global(root, task):
