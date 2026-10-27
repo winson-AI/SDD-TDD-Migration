@@ -167,7 +167,8 @@ def inspect(root):
                     continue
                 if signal.get('reason') == 'no-runnable-action-and-no-worker' and any(w['status'] == 'running' for w in workers):
                     continue  # Host may be running GO/parent/preflight outside assignment records.
-                if signal.get('severity') == 'human': add(signal['reason'], signal.get('module_id') or 'GLOBAL', signal)
+                if signal.get('severity') == 'human' or signal.get('reason') == 'planning-overdue':
+                    add(signal['reason'], signal.get('module_id') or 'GLOBAL', signal)
     quiet = age(events[-1].get('timestamp'), at) if events else None
     waiting_for_person = any(signal.get('severity') == 'human' for signal in progress.get('signals', []))
     if not paused and not terminal and not waiting_for_person and quiet is not None and quiet >= config['ledger_idle_seconds']:

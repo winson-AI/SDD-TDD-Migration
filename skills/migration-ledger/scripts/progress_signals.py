@@ -58,6 +58,36 @@ def legacy_moved(root, state):
     return {'prepared': prepared, 'now': now} if prepared and now and now != prepared else None
 
 
+PLANNING_BUDGET = 2700  # seconds a leaf's first plan may take before the run is told; a first version, not a finished design
+
+
+def planning_overdue(root, state, events, steps, at):
+    """A leaf whose plan step has waited longer than the planning budget: what to submit, and any build the planner ran
+    in its staging (a prototype built while planning, where a spike task after the freeze belongs)."""
+    budget, rows = state.get('planning_budget_seconds', PLANNING_BUDGET), []
+    for step in steps:
+        if step.get('operation') != 'plan' or step.get('role') != 'spec-designer':
+            continue
+        mid = step.get('module_id')
+        parent = (state['modules'].get(mid) or {}).get('parent_module_id')
+        touched = [e for e in events if e.get('module_id') in (mid, parent)]
+        stamp = (touched[-1] if touched else events[-1])['timestamp'] if events else None
+        elapsed = int((at - datetime.fromisoformat(stamp)).total_seconds()) if stamp else 0
+        if elapsed < budget:
+            continue
+        builds = []
+        staging = Path(root) / 'staging/spec-designer'
+        for found in (staging.glob('*/**/build/tmp') if staging.is_dir() else []):
+            builds.append(str(found.parent.relative_to(Path(root))))
+            if len(builds) == 3:
+                break
+        rows.append({'module_id': mid, 'reason': 'planning-overdue', 'owner': 'spec-designer', 'severity': 'action',
+                     'next_action': 'submit the plan with what is known: open questions become issues, an uncertain library or '
+                                    'toolchain becomes a first spike task verified by build and unit PATHs after the freeze',
+                     'evidence': {'planning_seconds': elapsed, 'budget_seconds': budget, 'since': stamp, 'prototype_builds': builds}})
+    return rows
+
+
 def build(root, state, events, steps, global_step, at=None):
     at = at or datetime.now(timezone.utc)
     signals, watches = [], []
@@ -120,6 +150,7 @@ def build(root, state, events, steps, global_step, at=None):
         if elapsed >= timeout:
             signals.append({**watch, 'reason': 'worker-progress-overdue', 'severity': 'human',
                             'evidence': {'sequence': len(events), 'last_event_at': stamp}})
+    signals += planning_overdue(root, state, events, steps, at)
     latest = Path(root) / 'reports/rejected-operation.json'
     try:
         directory = run_storage.checked_path(Path(root) / 'reports/rejections')

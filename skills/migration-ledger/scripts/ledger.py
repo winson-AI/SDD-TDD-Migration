@@ -851,6 +851,7 @@ def _next_step(s, m):
                     recovery_action='realloc-request-or-redecompose-parent')
     elif m['phase'] in ('context', 'specifying', 'change-review'):
         step.update(operation='plan', role='spec-designer', ready=True,
+                    planning_budget_minutes=s.get('planning_budget_seconds', progress_signals.PLANNING_BUDGET) // 60,
                     input_subject_sha256=design_stage.subject(s, m),
                     upstream_case_refs=design_stage.upstream_refs(s), upstream_case_ids=m['case_ids'])
         waiting = [row['module_id'] for row in providers(s, m) if not row['ready']]
@@ -2401,6 +2402,8 @@ def _judge(root, req, principal):
             require(isinstance(p.get('build', {}), dict), 'build configuration must be an object')
             resources = project_context.target_resources(p.get('target_resources', {}), p['target_root'])
             require(type(p.get('worker_stall_timeout_seconds', 900)) is int and p.get('worker_stall_timeout_seconds', 900) > 0, 'invalid worker stall timeout')
+            require(p.get('planning_budget_seconds') is None or type(p['planning_budget_seconds']) is int and p['planning_budget_seconds'] > 0,
+                    'planning_budget_seconds is a positive number of seconds')
             require(p.get('package_sha') is None or (isinstance(p['package_sha'], str) and re.fullmatch(r'[0-9a-f]{40}', p['package_sha'])), 'package_sha is a git commit')
             require(not (p.get('module_slicing') or {}).get('functional_use_cases_complete') or (p.get('project_sources') or {}).get('test_cases_path'),
                     'functional_use_cases_complete=true claims the supplied cases are complete: it needs test_cases_path')
@@ -2423,7 +2426,8 @@ def _judge(root, req, principal):
                  'modules': {}, 'decisions': {}, 'audit': {}, 'global_paths': p.get('global_paths', []), 'quality': 'yellow-blocked',
                  'max_parallel_modules': p.get('max_parallel_modules', 5), 'max_audit_rounds': p.get('max_audit_rounds', 3),
                  'max_fix_rounds': p.get('max_fix_rounds', 3), 'max_no_progress_rounds': p.get('max_no_progress_rounds', 2),
-                 'max_yellow_retries': p.get('max_yellow_retries', 2), 'package_sha': p.get('package_sha')}
+                 'max_yellow_retries': p.get('max_yellow_retries', 2), 'package_sha': p.get('package_sha'),
+                 **({'planning_budget_seconds': p['planning_budget_seconds']} if p.get('planning_budget_seconds') else {})}
             workflow.global_paths_check(s['global_paths'], s['case_ids'])
             require(all(type(s[k]) is int and s[k] > 0 for k in ('max_fix_rounds', 'max_no_progress_rounds', 'max_parallel_modules', 'max_audit_rounds', 'max_yellow_retries')), 'invalid budgets')
             require('local_fix_rounds' not in p, 'use the shared max_fix_rounds budget')
