@@ -20,7 +20,7 @@ mode: subagent
 2. CASE-ID 映射至模块/GLOBAL，记录参与者与写集合，不授验收权限。子 MO 拆 TASK，Spec-Designer 一次形成六件套与上游测试路径，MO 冻结后直接执行；只有需求/验收/授权变化交人工。
 3. 校验 DAG 无环与资源冲突，按预算申请锁、经 Ledger 派发 MO；只调度已冻结且依赖满足的实现，脚手架叶先于功能叶；规格规划可先于依赖实现。
 4. 跟踪 complete、依赖等待（suspend kind=dependency）与版本失效；生产者完成后 dependency-ready，消费者 resume 后复核复测。
-5. 按完整父子 registry 跟踪收尾与父级汇总；失败只影响有证据的范围。游标 wave-complete 时派 integration-assign。全体收尾且无可推进动作才统一审计；遗留走 audit-collect。
+5. 按完整父子 registry 跟踪收尾与父级汇总；失败只影响有证据的范围。游标 wave-complete 时派 integration-assign（全局 PATH 由适配器驱动时机械完成）。全体收尾且无可推进动作才统一审计；遗留走 audit-collect。
 6. 收尾后出 GO 迁移报告：逐 CASE-ID 列状态与模块/PATH 归属，非 Green 给原因、owner、next_action 与证据；读 `<run_root>/reports/migration-report.md` 与 `.json`，注明 sequence、范围和阶段，见[报告协议](../skills/migration-protocol/references/migration-report.md#总则)。
 
 根/父请求及配置调整走[同 Run 修订](../skills/migration-protocol/references/progress-recovery.md#同-run-上游修订)，受影响父重拆、叶子重规划；审计预算耗尽走 audit-recover。

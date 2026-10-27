@@ -162,6 +162,11 @@ def family(role, operation):
     return 'base'
 
 
+# Rules of a plan the Ledger completes or checks by itself: the task four-dimension analyses, the decision envelope, the
+# dimension index; and how a change request runs, until one is open.
+LEDGER_KEPT = sections('openspec.md', '变更控制', '决策边界与执行基线', '四维完整性索引') + sections('dimension-slicing.md', '总则', '7. 任务级四维分析契约')
+
+
 def audit_sections(operation):
     if operation not in AUDIT_OPS:  # a generic audit dispatch: the entry, the closure contract and problem handling
         return sections('audit-scope.md', '总则', *FINAL)
@@ -481,6 +486,9 @@ def _chosen(s, m, step, topics):
     chosen += reasoning_sections(m)
     if role == 'spec-designer':
         chosen += sections('testing.md', '编码前设计交接')
+        # What the Ledger fills or enforces is not the author's to read up front: a refusal names its section.
+        kept = LEDGER_KEPT if not (m or {}).get('change_request') else [row for row in LEDGER_KEPT if row[1] != '变更控制']
+        chosen = [item for item in chosen if item not in kept]
     if (role == 'module-orchestrator' and (m or {}).get('change_request') and operation in ('plan-review', 'freeze')
             or role == 'auditor' and any(x.get('task_revalidation', {}).get('mode') == 'partial' for x in s.get('modules', {}).values())):
         chosen += sections('openspec.md', 'TASK 局部重验')
@@ -757,6 +765,8 @@ GATES = [
     (r'repair (memory|route|module)|recovery resolution|affected modules|duplicate owner', 'audit-scope.md', '问题处理'),
     (r'realloc-request|revise existing roots', 'progress-recovery.md', '同 Run 上游修订'),
     (r'unresolved planning questions|human check', 'openspec.md', '冻结算法'),
+    (r'decision_envelope|allowed_alternatives|forbidden_changes|envelope', 'openspec.md', '决策边界与执行基线'),
+    (r'task dimension|task four-dimension|dimension_analysis', 'dimension-slicing.md', '7. 任务级四维分析契约'),
 ]
 
 

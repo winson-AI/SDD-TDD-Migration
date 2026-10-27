@@ -618,6 +618,17 @@ def diagnosis_focus(m, p):
                 'each visual issue needs area, problem, severity and evidence_ref')
 
 
+def review_asked(s, m):
+    """Why this plan needs the orchestrator's review, or None: code already exists, a freeze gate fails, a blocking issue is
+    open, or its author asked questions (plan.review_questions)."""
+    questions = (m.get('plan') or {}).get('review_questions') or []
+    blocking = [row['issue_id'] for row in issues.of_module(s, m['module_id'])[0] if row['blocks']]
+    reasons = (['code exists: a changed plan is reviewed'] if control_policy.execution_started(m) else []) + \
+              (['freeze gates fail: ' + ', '.join(g['gate'] for g in m['review_gates'])] if m.get('review_gates') else []) + \
+              (['blocking issues: ' + ', '.join(blocking)] if blocking else []) + [str(q) for q in questions]
+    return reasons or None
+
+
 def located_failures(m):
     """Every unresolved failure is a command that broke inside the module's write scope at locations grepped from its log:
     the diagnosis is those locations, written by the Ledger."""
@@ -922,6 +933,11 @@ def _next_step(s, m):
             step.update(ready=False, reason='human-decision-required', approval_kind='plan', detail=human, payload={}, mechanical=False)
         elif not decision and not eligible and not m.get('plan_review_ref'):
             step.update(operation='plan-review', ready=True, reason='MO-technical-review', payload={}, mechanical=False)
+            asked = review_asked(s, m)
+            if asked:
+                step['review_asked'] = asked
+            else:  # every gate passed and nobody asked: the Ledger records the review, the code and its tests judge the rest
+                step.update(mechanical=True, reason='nothing-to-review')
         elif not decision:
             if api_contract.undecided(s, api_contract.adaptations(m)):
                 # One decision names every adaptation the run still has open, so no other leaf asks again.
@@ -2616,6 +2632,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     else:
         global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'module-work-remaining'}
     global_next = context_readiness.annotate(s, None, global_next)
+    run_fixed_flow(s, global_next)
     if global_next.get('role'):
         global_next['model_tier'] = model_routing.advise(global_next['role'], global_next.get('operation'))
     if global_next.get('operation'):
@@ -2701,12 +2718,74 @@ def _status(root, view='full', module_id=None, since=None):
         return status_view.select(full, view, module_id, since)
 
 
-def closure_record(root, s, module_id, kind, sequence):
+def global_paths_run_by_themselves(s, path_ids):
+    paths = {p['path_id']: p for p in s.get('global_paths', [])}
+    return bool(path_ids) and all(pid in paths and (paths[pid].get('command') or context_readiness.adapter_stated(s, paths[pid]))
+                                  for pid in path_ids)
+
+
+def run_fixed_flow(s, step):
+    """The run's steps nobody judges: dispatching the Auditor its code review already names, and a wave's global paths
+    that the run's adapter or their frozen commands drive - dispatched and run by `advance_run`."""
+    op, gate = step.get('operation'), step.get('context_gate') or {}
+    if not step.get('ready'):
+        return
+    if op == 'audit-assign' and (not context_readiness.enabled(s) or gate.get('mechanical')):
+        step.update(mechanical=True, payload={**(step.get('payload') or {}), 'instance_id': s['audit_code_review']['auditor_instance_id']})
+    elif op in ('integration-assign', 'integration-submit') and not context_readiness.enabled(s) and global_paths_run_by_themselves(s, step.get('path_ids')):
+        step['mechanical'] = True
+
+
+def advance_run(root, principal, workers=None):
+    """Submit the run's mechanical steps (see run_fixed_flow), each in the name of the role it belongs to."""
+    import integration
+    applied, workers = [], workers or {}
+    while True:
+        st = status(root, 'full')
+        step = st['global_next_step']
+        if not (step.get('mechanical') and step.get('ready')):
+            return applied
+        s, sequence, op = read_events(root)[0], st['last_sequence'] + 1, step['operation']
+        go = {'role': 'global-orchestrator', 'instance_id': workers.get('global-orchestrator') or 'global-orchestrator'}
+        if op == 'audit-assign':
+            payload, actor = {**step['payload'], 'assignment_id': f'audit-{sequence}'}, go
+        elif op == 'integration-assign':
+            payload, actor = {'assignment_id': f'integration-{sequence}', 'path_ids': step['path_ids'],
+                              'instance_id': workers.get('test-runner') or 'integration-test-runner'}, go
+        else:
+            task = integration.task(s)
+            payload, actor = {'result_ref': run_global(root, task)}, {'role': 'test-runner', 'instance_id': task['instance_id']}
+        ack = apply(root, {'schema_version': 1, 'request_id': f'advance-run-{sequence}', 'run_id': st['run_id'], 'module_id': None,
+                           'expected_revision': s['revision'], 'operation': op, 'payload': payload}, actor)
+        applied.append({'operation': op, 'event_id': ack['event_id']})
+
+
+def run_global(root, task):
+    """Run a wave's global paths with the run's adapter and stage the result where its worker would."""
+    scripts = str(Path(__file__).resolve().parents[2] / 'migration-test/scripts')
+    if scripts not in sys.path:
+        sys.path.append(scripts)
+    import harmony_stage
+    from execute_test import execute
+    aid = task['assignment_id']
+    receipts = [execute(root, 'GLOBAL', aid, pid, output=Path(root) / 'runs/harmony/automation' / aid / pid) for pid in task['path_ids']]
+    out = Path(root) / 'staging/test-runner' / (aid + '-result.json')
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(harmony_stage.build(root, 'GLOBAL', aid, receipts), ensure_ascii=False, indent=2) + '\n')
+    return file_ref(out)
+
+
+def closure_record(root, s, module_id, kind, sequence, actor=None):
     """What a mechanical completion or parent summary binds: the facts its guard checked, written by the Ledger under
     reports/<kind>/ so the event references a file with a hash like any other."""
     import run_storage
     root = Path(root).resolve()
-    if kind == 'diagnosis':
+    if kind == 'plan-review':
+        m = s['modules'][module_id]
+        body = {'plan_hash': m['plan_hash'], 'reviewer_instance_id': actor['instance_id'], 'semantic_change': False,
+                'authorization_change': False, 'unresolved_questions': [], 'evidence_refs': [m['plan_ref']],
+                'reason': 'every freeze gate passed, no blocking issue is open and the author asked nothing: the code and its tests judge the rest'}
+    elif kind == 'diagnosis':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
                 'findings': {pid: {k: r['root_cause'][k] for k in ('summary', 'failures_ref')} for pid, r in sorted(unresolved(m).items())},
@@ -2787,6 +2866,9 @@ def advance(root, principal, module_id, workers=None):
             payload = dict(step.get('payload') or {})
         elif step['operation'] == 'dependency-ready':
             payload, actor = {}, {'role': 'global-orchestrator', 'instance_id': (workers or {}).get('global-orchestrator') or 'global-orchestrator'}
+        elif step['operation'] == 'plan-review':
+            s = read_events(root)[0]
+            payload = {'review_ref': closure_record(root, s, module_id, 'plan-review', sequence, principal)}
         elif step['operation'] == 'diagnose':
             s = read_events(root)[0]
             payload = {**located_diagnosis(s['modules'][module_id]), 'diagnosis_ref': closure_record(root, s, module_id, 'diagnosis', sequence)}

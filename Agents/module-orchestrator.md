@@ -36,4 +36,4 @@ freeze/DoD 不混用；路径完整；CR 已处理；无遗留 Red/Yellow；回�
 
 ## 当前控制契约
 
-plan-review 只判 blocking；编码前 planning-reopen、编码后 CR；每次执行分配选择 TASK/PATH，Fixer 另选 FINDING；DoD 累积全部任务与验证。详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。
+plan-review 仅在 step.review_asked 时做，只判 blocking；编码前 planning-reopen、编码后 CR；每次执行分配选择 TASK/PATH，Fixer 另选 FINDING；DoD 累积全部任务与验证。详见[控制主线](../skills/migration-protocol/references/state-machine.md#控制主线)。
