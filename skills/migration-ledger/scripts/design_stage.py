@@ -2,7 +2,7 @@
 import copy
 from pathlib import Path
 
-from contracts import Rejected, check_ref, digest, intact, keyed, nonempty, read_json, require
+from contracts import Rejected, check_ref, digest, intact, keyed, nonempty, owed, read_json, require
 import decomposition
 import workflow
 import prepared_tests
@@ -38,7 +38,10 @@ def check_assets(s, result):
 
 def coverage(s, m, result, tasks):
     paths = keyed(result.get('paths'), 'path_id')
-    require({p.get('case_id') for p in paths.values()} == set(m['case_ids']), 'design must cover assigned cases exactly')
+    # a path for a case the leaf does not hold is refused; a held case with no path yet is filled when the cases are verified
+    require({p.get('case_id') for p in paths.values()} <= set(m['case_ids']), 'design must cover assigned cases exactly')
+    owed(set(m['case_ids']) <= {p.get('case_id') for p in paths.values()},
+         'design leaves assigned cases without a PATH: ' + ', '.join(sorted(set(m['case_ids']) - {p.get('case_id') for p in paths.values()})))
     reqs = {r for t in tasks for r in t['requirement_ids']}
     for path in paths.values():
         require(path.get('name') and path.get('requirement_id') in reqs and path.get('required', True) is True,

@@ -248,26 +248,26 @@ def validate_configuration(item, source_qualifier):
     require(isinstance(mapping, dict), 'configuration_mapping must be an object')
     require(mapping.get('source_qualifier') == source_qualifier and mapping.get('target_qualifier') == destination,
             'configuration mapping differs from source or target qualifier')
-    scope = mapping.get('scope')
-    require(isinstance(scope, dict) and scope.get('reason'), 'configuration mapping needs scoped rationale')
-    configs = scope.get('configurations')
-    require(isinstance(configs, list) and configs and all(isinstance(c, str) and c.strip() for c in configs)
-            and len(configs) == len(set(configs)) and source_qualifier in configs,
-            'configuration scope must enumerate the source configuration')
-    refs = mapping.get('evidence_refs')
-    require(isinstance(refs, list) and refs, 'configuration mapping needs scope/condition evidence')
+    # How far a configuration change reaches and why is fidelity a first version may owe; what it names must still be real.
+    scope = mapping.get('scope') if isinstance(mapping.get('scope'), dict) else {}
+    owed(scope.get('reason'), 'configuration mapping needs scoped rationale')
+    configs = scope.get('configurations') if isinstance(scope.get('configurations'), list) else []
+    owed(configs and all(isinstance(c, str) and c.strip() for c in configs) and len(configs) == len(set(configs)) and source_qualifier in configs,
+         'configuration scope must enumerate the source configuration')
+    refs = mapping.get('evidence_refs') if isinstance(mapping.get('evidence_refs'), list) else []
+    owed(refs, 'configuration mapping needs scope/condition evidence')
     for ref in refs:
         check_ref(ref)
     condition = mapping.get('consumer_condition')
-    if source_qualifier != destination and set(configs) != {source_qualifier}:
-        require(condition, 'multi-configuration adaptation requires consumer_condition')
+    if source_qualifier != destination and configs and set(configs) != {source_qualifier}:
+        owed(condition, 'multi-configuration adaptation requires consumer_condition')
     if condition is not None:
         require(isinstance(condition, dict) and isinstance(condition.get('expression'), str)
                 and condition['expression'].strip(), 'consumer_condition needs a routing expression')
-        require(isinstance(condition.get('consumers'), list)
-                and all(isinstance(value, str) for value in condition['consumers'])
-                and set(condition['consumers']) == set(consumers(item)),
-                'consumer_condition must cover every planned consumer')
+        owed(isinstance(condition.get('consumers'), list)
+             and all(isinstance(value, str) for value in condition['consumers'])
+             and set(condition['consumers']) == set(consumers(item)),
+             'consumer_condition must cover every planned consumer')
 
 
 def prepare_exact(source, destination, source_id, strategy):
@@ -466,8 +466,10 @@ def validate_signal_item(item, signal, item_ids, api_contracts=None):
     if item['resource_strategy'] != 'source_equivalent':
         return
     target = item.get('target_source')
-    require(isinstance(target, str) and target.strip(), 'source_equivalent needs target_source: the URL or field the target loads')
-    if signal['source']['kind'] == 'url-literal':
+    owed(isinstance(target, str) and target.strip(), 'source_equivalent needs target_source: the URL or field the target loads')
+    if not (isinstance(target, str) and target.strip()):
+        target = None  # owed: what the target loads is compared once it is written
+    if target is not None and signal['source']['kind'] == 'url-literal':
         require(target == signal['source']['value'], 'target_source must load the same URL the legacy source loads')
     if signal.get('api') and (api_contracts is not None or item.get('api_binding')):
         origin = item.get('image_source_review') or {}
@@ -480,18 +482,19 @@ def validate_signal_item(item, signal, item_ids, api_contracts=None):
             field = binding.get('response_field'); source = signal['api']
             known = {source.get('field')} | {row.get('jsonKey') for row in source.get('candidates', [])}
             require(field in known and field in contract['target']['response_mapping'], 'image API response field differs from recorded source')
-            require(target == contract['target']['response_mapping'][field], 'image target_source differs from API response mapping')
+            require(target is None or target == contract['target']['response_mapping'][field], 'image target_source differs from API response mapping')
     mapping = item.get('loader_mapping')
-    require(isinstance(mapping, dict), 'source_equivalent needs loader_mapping for the loader behaviour it replaces')
+    owed(isinstance(mapping, dict), 'source_equivalent needs loader_mapping for the loader behaviour it replaces')
+    mapping = mapping if isinstance(mapping, dict) else {}
     for key in resource_signals.PLACEHOLDERS:
         if (signal.get('loader') or {}).get(key):
             value = mapping.get(key)
-            require((isinstance(value, str) and value in item_ids) or (isinstance(value, dict) and value.get('absent')),
-                    'loader_mapping.' + key + ' must name the Resource item for the legacy ' + key + ' image, or state why it is absent')
+            owed((isinstance(value, str) and value in item_ids) or (isinstance(value, dict) and value.get('absent')),
+                 'loader_mapping.' + key + ' must name the Resource item for the legacy ' + key + ' image, or state why it is absent')
     for name in (signal.get('loader') or {}).get('transforms', []):
-        require(any(isinstance(row, dict) and row.get('legacy') == name and row.get('target')
-                    for row in mapping.get('transforms', []) if isinstance(mapping.get('transforms'), list)),
-                'loader_mapping.transforms must map the legacy transform ' + name)
+        owed(any(isinstance(row, dict) and row.get('legacy') == name and row.get('target')
+                 for row in mapping.get('transforms', []) if isinstance(mapping.get('transforms'), list)),
+             'loader_mapping.transforms must map the legacy transform ' + name)
 
 
 def signal_exclusions(index, scope):
@@ -504,8 +507,8 @@ def signal_exclusions(index, scope):
                 for field in ('signal_id', 'reason')), 'signal exclusion needs signal_id and reason')
         require(row['signal_id'] in known and row['signal_id'] not in excluded,
                 'signal exclusion must name one recorded image source of this UI scope')
-        refs = row.get('evidence_refs')
-        require(isinstance(refs, list) and refs, 'signal exclusion requires review evidence')
+        refs = row.get('evidence_refs') if isinstance(row.get('evidence_refs'), list) else []
+        owed(refs, 'signal exclusion requires review evidence')
         for ref in refs:
             check_ref(ref)
         excluded[row['signal_id']] = row
@@ -678,14 +681,14 @@ def indexed_resources(index, declared_refs, resource_scope=None):
                 'resource exclusion needs source_resource, qualifier, path and reason')
         key = (exclusion['source_resource'], exclusion['qualifier'], exclusion['path'])
         require(key in candidates and key not in excluded, 'resource exclusion must name one indexed candidate in this UI scope')
-        refs = exclusion.get('evidence_refs')
-        require(isinstance(refs, list) and refs, 'resource exclusion requires review evidence')
+        refs = exclusion.get('evidence_refs') if isinstance(exclusion.get('evidence_refs'), list) else []
+        owed(refs, 'resource exclusion requires review evidence')
         for ref in refs:
             check_ref(ref)
         excluded.add(key)
     active = {key: ref for key, ref in candidates.items() if key not in excluded}
-    require({key[0] for key in active} == {key[0] for key in candidates},
-            'resource scope excludes every source candidate for a declared reference')
+    owed({key[0] for key in active} == {key[0] for key in candidates},
+         'resource scope excludes every source candidate for a declared reference')
     for ref in active.values():
         check_ref(ref)
     return active

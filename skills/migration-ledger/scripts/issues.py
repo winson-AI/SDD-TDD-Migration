@@ -86,14 +86,15 @@ def record(s, iid, kind, summary, applies_to, raised_by, evidence_refs=(), **ext
 
 
 FAMILIES = (  # the gaps the Ledger owes, by the rule family that raised them: a step and a report count them before listing them
-    (r'UI resource closure|UI image source closure|resource closure reduced|carried by a visual path|non-exact graphic|UI tree omits file resources', '资源闭包'),
+    (r'UI resource closure|UI image source closure|resource closure reduced|carried by a visual path|non-exact graphic|UI tree omits file resources|configuration (mapping|scope)|'
+     r'consumer_condition|multi-configuration|source_equivalent|loader_mapping|(signal|resource) exclusion|resource scope excludes', '资源闭包'),
     (r'source_closure\.', '源闭包'),
-    (r'needs a visual test path|declared interactions need|runtime UI targets lack|need an image check or a waiver|declared image checks need|the legacy runs on|UI items lack capture-bound', 'UI 目标与证据'),
-    (r'scenario_trace|names scenario|contribute to a scenario|static review PATH|behavior assertions name no scenario|SPEC scenarios no design assertion', '场景追溯'),
+    (r'needs a visual test path|capture_gap states|declared interactions need|runtime UI targets lack|need an image check or a waiver|declared image checks need|the legacy runs on|UI items lack capture-bound', 'UI 目标与证据'),
+    (r'scenario_trace|names scenario|contribute to a scenario|static review PATH|behavior assertions name no scenario|SPEC scenarios no design assertion|behavior review missing|verification missing', '场景追溯'),
     (r'dimension (task requirement|behavior requires|paths need)|task missing dimension ownership|condition review omits|SPEC dimension trace|missing dimension item IDs', '四维追溯'),
-    (r'^API |API behavior', 'API 契约'), (r'^data |data behavior', '数据契约'), (r'the target already holds', '目标画像'),
+    (r'^API |API behavior|recorded API source', 'API 契约'), (r'^data |data behavior|already holds this data', '数据契约'), (r'the target already holds', '目标画像'),
     (r'reuse (source|decisions|fidelity)|fidelity (must cover|scenarios required)', '复用'),
-    (r'prepared PATH needs|deferred test preparation|test dependency:', '测试准备'),
+    (r'prepared PATH needs|deferred test preparation|test dependency:|design leaves assigned cases', '测试准备'),
     (r'parameter mapping|expressions the Spec|tokens the Spec', '参数表'),
     (r'telemetry', '埋点'), (r'unit_tests_required|spec_closure_required|build scope:', '测试路径'),
     (r'the user (gave|showed)|the target expectation', '用户媒体'),

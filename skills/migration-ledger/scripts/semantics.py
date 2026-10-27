@@ -11,7 +11,7 @@ reference, so it is authored from the target project (origin target/authored).
 from pathlib import Path
 import re
 
-from contracts import check_ref, nonempty, read_json, require
+from contracts import check_ref, nonempty, owed, read_json, require
 
 # UI capture boundary: page_id:state_id:coverage, coverage in {viewport, scroll} (lean-derived).
 COVERAGE = re.compile(r'^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9/_-]*:(viewport|scroll)$')
@@ -105,9 +105,9 @@ def _ui_evidence(model):
         check_ref(ref)
     gap = evidence.get('capture_gap')
     if gap is not None:
-        require(isinstance(gap, dict) and isinstance(gap.get('reason'), str) and gap['reason'].strip()
-                and isinstance(gap.get('evidence_refs'), list) and gap['evidence_refs'],
-                'ui_evidence.capture_gap states the reason the running legacy screen was not captured, with evidence_refs')
+        owed(isinstance(gap, dict) and isinstance(gap.get('reason'), str) and gap['reason'].strip()
+             and isinstance(gap.get('evidence_refs'), list) and gap['evidence_refs'],
+             'ui_evidence.capture_gap states the reason the running legacy screen was not captured, with evidence_refs')
         for ref in gap['evidence_refs']:
             check_ref(ref)
 
