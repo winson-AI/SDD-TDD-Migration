@@ -53,6 +53,34 @@ class DocumentCapTests(unittest.TestCase):
         m['context_refs'] = list(m.get('context_refs') or []) + [t.f.ref('empty-catalog.json', {'schema_version': 2, 'capabilities': []})]
         rows = spec_skeleton.plans(s, m, None, result['files'])['reuse-plan.json']['mappings']
         self.assertEqual({(r['decision'], r['capability_id'], 'integration' in r) for r in rows}, {('new', None, False)})
+        decided = [rid for r in rows for rid in r['requirement_ids']]  # one decision per task, every requirement once
+        self.assertEqual(sorted(decided), sorted(set(decided))); self.assertTrue(all(len(r['task_ids']) == 1 for r in rows))
+
+    def test_the_in_process_tests_share_one_runner_written_once(self):
+        t = test_source_changes.SourceChangeTests(); t.setUp(); self.addCleanup(t.doCleanups)
+        result = spec_skeleton.write(t.f.root, 'M001', t.f.root / 'staging/spec-designer/runner')
+        paths = json.loads(check_ref(result['files']['upstream-test-plan.json']).read_text())['paths']
+        tests = [p for p in paths if p.get('unit_report')]
+        self.assertGreater(len(tests), 1)
+        self.assertIn('argv', tests[0]['command'])
+        self.assertTrue(all(p['command'] == {'same_as': tests[0]['path_id']} for p in tests[1:]))
+        import design_stage
+        resolved = {p['path_id']: p for p in design_stage.shared_commands(paths)}
+        for p in tests[1:]:  # the completed plan holds the runner's command and patterns with the PATH's own tests
+            self.assertEqual(resolved[p['path_id']]['command'], tests[0]['command'])
+            self.assertEqual(resolved[p['path_id']]['unit_report']['patterns'], tests[0]['unit_report']['patterns'])
+            self.assertEqual(resolved[p['path_id']]['unit_report']['required_test_ids'], p['unit_report']['required_test_ids'])
+        with self.assertRaisesRegex(Rejected, 'same_as names a PATH that has its own command'):
+            design_stage.shared_commands([{'path_id': 'A', 'command': {'same_as': 'B'}}, {'path_id': 'B', 'command': {'same_as': 'A'}}])
+
+    def test_a_frozen_test_lands_in_the_test_source_set_of_the_leaf(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            main, test = Path(tmp) / 'app/src/commonMain/kotlin/login', Path(tmp) / 'app/src/commonTest'
+            self.assertEqual(spec_skeleton.test_home({'write_paths': [str(main), str(test / 'kotlin/login')]}), str(test / 'kotlin/login'))
+            self.assertIsNone(spec_skeleton.test_home({'write_paths': [str(main)]}))  # no test set in the target yet: the author says where
+            test.mkdir(parents=True)
+            self.assertEqual(spec_skeleton.test_home({'write_paths': [str(main)]}), str(test / 'kotlin/login'))  # the main folder, mirrored
 
     def test_every_case_has_one_scenario_and_every_requirement_one_at_least(self):
         items = {'I1': {'requirement_ids': ['R1', 'R2'], 'case_ids': ['C1', 'C2']}, 'I2': {'requirement_ids': ['R3'], 'case_ids': ['C2']}}
