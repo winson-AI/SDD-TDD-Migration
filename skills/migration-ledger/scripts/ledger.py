@@ -1239,6 +1239,28 @@ def new_module(p):
             'dependencies': p.get('dependencies', [])}
 
 
+def later_parts(plan):
+    """{file name: count} of the parts a submitted plan set leaves to write later: its definitions, its test design and
+    reuse plan, and the notes those cite."""
+    from contracts import later
+    refs = [d for d in (plan.get('definitions') or []) if isinstance(d, dict)] if isinstance(plan, dict) else []
+    for key in ('test_design_ref', 'reuse_plan_ref'):
+        try:
+            doc = read_json(check_ref(plan[key]))
+            refs += [plan[key], doc.get('design_ref')] + [(row.get('fidelity') or {}).get('alignment_ref') for row in doc.get('mappings') or []]
+        except (Rejected, OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+    counts = {}
+    for ref in refs:
+        try:
+            n = later(ref) if isinstance(ref, dict) and ref.get('path') else 0
+        except (Rejected, OSError):
+            n = 0
+        if n:
+            counts[Path(ref['path']).name] = n
+    return counts
+
+
 def unfilled(*refs):
     """A skeleton the Ledger wrote is filled before it is a plan, a report or an inventory."""
     for ref in refs:
@@ -1539,6 +1561,7 @@ def mutate(s, req, principal, events, root=None):
         held = m.get('plan_ref') == p['plan_ref']
         submitted = read_json(check_ref(p['plan_ref']))
         unfilled(p['plan_ref'], *(submitted.get(key) for key in ('test_design_ref', 'reuse_plan_ref') if isinstance(submitted, dict)))
+        deferred = later_parts(submitted)
         plan = design_stage.materialize(s, m, submitted, judge=not held)
         import minimal_plan
         dimensions.refinement(s, m, plan)  # an analysis the leaf refined from its allocation is judged like a registered one
@@ -1569,6 +1592,9 @@ def mutate(s, req, principal, events, root=None):
             plan_hash = validate_plan(plan, m)
             m['plan_submissions'] = m.get('plan_submissions', 0) + 1  # distinct plans accepted for this freeze
             decomposition.task_shape_facts(s, mid, plan, sequence=len(events) + 1)
+            if deferred:  # a first version may leave its rationale, risks and notes: the leaf goes on and owes them as debt
+                issues.record(s, 'PLAN-%s-later-%s' % (mid, plan_hash[:8]), 'debt', '%s plan leaves %d parts to write later: %s'
+                              % (mid, sum(deferred.values()), ', '.join('%s %d' % row for row in sorted(deferred.items()))), [mid], issues.LEDGER)
             if s.get('split_testing_required') or any(path.get('kind') == 'build' for path in plan['paths']):
                 tv.plan_check(plan, s['target_root'], static_required=s.get('spec_closure_required', False),
                               unit_required=s.get('unit_tests_required', False))
