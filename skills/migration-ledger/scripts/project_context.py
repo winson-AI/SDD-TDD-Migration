@@ -20,7 +20,7 @@ from contracts import require, digest, file_ref, check_ref, read_json
 FIELDS = {'package_root', 'legacy_root', 'target_root', 'architecture_path', 'requirements_path',
           'test_cases_path', 'project_rules_path', 'test_adapter', 'runtime', 'human_owner',
           'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources', 'build', 'workspace_root', 'watchdog',
-          'target_resources', 'experience_root', 'reference_media', 'legacy_preview'}
+          'target_resources', 'experience_root', 'reference_media', 'legacy_preview', 'scope_statement', 'dependency_changes'}
 DOCUMENTS = ('architecture_path', 'requirements_path', 'test_cases_path', 'project_rules_path')
 BUDGETS = {'max_parallel_modules': 5, 'max_fix_rounds': 3, 'max_audit_rounds': 3, 'max_no_progress_rounds': 2,
            'max_yellow_retries': 2}
@@ -125,6 +125,16 @@ def validate(config):
         config['reuse_sources'] = reuse.normalize_sources(config['reuse_sources'], config.get('target_root'))
     if 'target_resources' in config:
         config['target_resources'] = target_resources(config['target_resources'], config.get('target_root'))
+    scope = config.get('scope_statement')
+    require(scope is None or isinstance(scope, dict) and set(scope) <= {'summary', 'includes', 'excludes'} and isinstance(scope.get('summary'), str)
+            and scope['summary'].strip() and all(isinstance(scope.get(k, []), list) and all(isinstance(x, str) and x.strip() for x in scope.get(k, []))
+                                                 for k in ('includes', 'excludes')),
+            'scope_statement states the task in a summary, with the screens or flows it includes and excludes')
+    changes = config.get('dependency_changes')
+    require(changes is None or isinstance(changes, dict) and set(changes) <= {'allowed', 'libraries', 'notes'} and type(changes.get('allowed')) is bool
+            and isinstance(changes.get('libraries', []), list) and all(isinstance(x, str) and x.strip() for x in changes.get('libraries', []))
+            and isinstance(changes.get('notes', ''), str),
+            'dependency_changes says whether the target may upgrade its toolchain or add libraries (allowed), which (libraries) and notes')
     defaults = config.get('defaults', {})
     require(isinstance(defaults, dict) and set(defaults) <= {'entry_mode', 'budgets', 'quality_gates'}, 'invalid defaults')
     require(defaults.get('entry_mode', 'project') == 'project', 'persistent default must remain project')
@@ -333,6 +343,10 @@ def legacy_preview_config(value):
 INTAKE = (
     ('legacy_preview', '存量预览', '存量应用怎样跑给我们看？android-device / android-emulator / vm（设备 serial、app_id、APK 路径或构建命令、启动 activity；没有真机时给模拟器的 avd 名或启动命令 boot.argv，未连接时由我们启动）、harmony-device（hdc 看到的 serial、bundleName、HAP 路径或构建命令、ability；没有真机时给 boot.argv）、browser（url，可选 viewport）、或 none（说明不能跑的原因；没有账号时登录前的界面——引导、登录页——通常仍能跑，能跑就不选 none）', list(PREVIEW_KINDS)),
     ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证、怎样预览？platforms（android / harmony / web）并按平台给预览：android {serial，没有真机时 avd 或 boot.argv}、harmony {serial，没有真机时 boot.argv（鸿蒙没有标准命令行模拟器）}，两者可带目标 app_id 与 launch（包名 / bundleName 与启动 activity / ability，视觉路径据此预填）、web {url 目标页面地址，可选 viewport / headless / record_video}；或 unavailable（原因）。运行环境文件由我们按此写出', ['android', 'harmony', 'web', 'unavailable']),
+    ('scope_statement', '迁移范围', '这次迁移包括什么、不包括什么？summary（一句话范围），includes / excludes（如登录前的引导页、欢迎页、错误与重试是否在内）；给了用例文件时说明它是否覆盖这些入口',
+     ['summary', 'includes', 'excludes']),
+    ('dependency_changes', '依赖与工具链', '目标工程能否为这次迁移升级工具链或新增二方库（如 Kotlin 版本、状态机框架）？allowed（true / false），libraries（允许的名称或坐标），notes',
+     ['allowed', 'libraries', 'notes']),
     ('target_resources', '目标资源约定', '存量的图片等文件与尺寸 / 颜色 / 文案等参数怎样进目标？target_resources.copy（目标目录、路径与 accessor 模板、可原样加载的格式、密度顺序）与 target_resources.parameters（每模块参数文件、行模板与 accessor）；目标不接收的部分写进 declined 并给原因。字段见 template/target-resources.json', ['copy', 'parameters', 'declined']),
 )
 
@@ -344,7 +358,8 @@ def intake(config):
     resources = config.get('target_resources') or {}
     stated = {'legacy_preview': config.get('legacy_preview') is not None,
               'test_adapter.device': (config.get('test_adapter') or {}).get('device') is not None,
-              'target_resources': all(part in resources or part in resources.get('declined', {}) for part in ('copy', 'parameters'))}
+              'target_resources': all(part in resources or part in resources.get('declined', {}) for part in ('copy', 'parameters')),
+              'scope_statement': config.get('scope_statement') is not None, 'dependency_changes': config.get('dependency_changes') is not None}
     return [{'field': field, 'label': label, 'ask': ask, 'options': options} for field, label, ask, options in INTAKE if not stated[field]]
 
 

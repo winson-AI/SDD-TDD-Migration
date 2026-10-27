@@ -43,6 +43,8 @@
   "knowledge_paths": [],
   "reference_media": [],
   "legacy_preview": null,
+  "scope_statement": null,
+  "dependency_changes": null,
   "reuse_sources": [],
   "build": {},
   "target_resources": {},
