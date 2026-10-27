@@ -2717,7 +2717,7 @@ def advance(root, principal, module_id, workers=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('init', 'apply', 'status', 'resume', 'recover', 'history', 'advance', 'preview'))
+    parser.add_argument('command', choices=('init', 'apply', 'status', 'resume', 'recover', 'history', 'advance', 'preview', 'handover'))
     parser.add_argument('--root', required=True)
     parser.add_argument('--request')
     parser.add_argument('--view', choices=status_view.VIEWS, default='cursor',
@@ -2735,6 +2735,10 @@ def main():
             state, _ = read_events(Path(args.root).resolve())
             require(state, 'run not initialized')
             print(json.dumps(state, ensure_ascii=False, separators=(',', ':')))
+            return 0
+        if args.command == 'handover':  # what a new host session needs to continue a run whose host stopped
+            import handover
+            print(json.dumps(handover.brief(args.root), ensure_ascii=False, separators=(',', ':')))
             return 0
         if args.command == 'preview' and args.request:
             require(args.host_context, 'preview of a request needs --host-context (the role that would submit it)')
