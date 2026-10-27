@@ -174,13 +174,13 @@ def module_execution():
     d.box(550,810,500,130,'Implementer · 按 TASK 执行',[
         'Ledger 代写预检；步骤先列提交必备证据',
         '任务先单测：自查红→绿两份记录为 red 证据',
-        '冻结测试原样交付（可在写范围外）→ MO 接受'])
+        '冻结测试原样交付（可在写范围外）；编译通过即机械接受'])
     d.arrow([(800,940),(800,1010)])
     d.box(550,1010,500,180,'Test-Runner · 正式验证',[
         'build → unit → static 同一派发，只跑 PATH 的平台',
         '另派 automation：JUnit / 设备（可录屏），逐 PATH',
         '适用时另派 visual；原始回执 / 媒体 / 根因',
-        '执行证据经 Ledger → MO 验收'])
+        '命令全冻结时 advance 代跑；Green / 确定 Red 机械验收'])
     d.arrow([(800,1190),(800,1245)])
     d.diamond(800,1310,310,130,'验证结果','Green / Red / Yellow')
     d.arrow([(645,1310),(500,1310)],'green');d.label(570,1290,'Green','green')
