@@ -2605,6 +2605,8 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
                        'ready': bool(s['modules']) and not splitting,
                        'reason': 'module-decomposition-required' if splitting else 'coverage-review-required',
                        'continue_modules': rounds['ready_modules']}
+        if global_next['ready'] and workflow.draft_coverage(s):  # the registrations state it: the Ledger writes it
+            global_next.update(mechanical=True, reason='coverage-from-registrations')
     elif integration.task(s):
         item = integration.task(s)
         global_next = {'operation': 'integration-submit', 'role': 'test-runner', 'ready': True, 'assignment_id': item['assignment_id'],
@@ -2767,7 +2769,9 @@ def advance_run(root, principal, workers=None):
             return applied
         s, sequence, op = read_events(root)[0], st['last_sequence'] + 1, step['operation']
         go = {'role': 'global-orchestrator', 'instance_id': workers.get('global-orchestrator') or 'global-orchestrator'}
-        if op == 'audit-assign':
+        if op == 'global-plan':
+            payload, actor = drafted_coverage(root, s), go
+        elif op == 'audit-assign':
             payload, actor = {**step['payload'], 'assignment_id': f'audit-{sequence}'}, go
         elif op == 'integration-assign':
             payload, actor = {'assignment_id': f'integration-{sequence}', 'path_ids': step['path_ids'],
@@ -2778,6 +2782,18 @@ def advance_run(root, principal, workers=None):
         ack = apply(root, {'schema_version': 1, 'request_id': f'advance-run-{sequence}', 'run_id': st['run_id'], 'module_id': None,
                            'expected_revision': s['revision'], 'operation': op, 'payload': payload}, actor)
         applied.append({'operation': op, 'event_id': ack['event_id']})
+
+
+def drafted_coverage(root, s):
+    """The coverage the registrations state, written under reports/allocations with its review, as a global-plan payload."""
+    plan = workflow.draft_coverage(s)
+    out = Path(root) / 'reports/allocations'
+    out.mkdir(parents=True, exist_ok=True)
+    plan_path, review_path = out / ('global-plan-%s.json' % digest(plan)[:12]), out / ('global-plan-%s.md' % digest(plan)[:12])
+    plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2, sort_keys=True) + '\n')
+    review_path.write_text('Coverage drafted by the Ledger from the registrations: every case held by the one module registered '
+                           'with it, every requirement by the modules whose scope names it; every global-plan check passed.\n')
+    return {'plan_ref': file_ref(plan_path), 'review_ref': file_ref(review_path)}
 
 
 def run_global(root, task):

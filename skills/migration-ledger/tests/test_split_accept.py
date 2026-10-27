@@ -6,6 +6,7 @@ import unittest
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+import ledger
 import split_draft
 import test_ledger
 import workflow
@@ -15,9 +16,9 @@ CASES = ['C%d' % n for n in range(1, 7)]
 
 
 class SplitAcceptTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self, covered=True):
         self.f = f = test_ledger.FlowTests(methodName='runTest'); f.setUp(); self.addCleanup(f.doCleanups)
-        original = f.state(); f.root = f.base / 'six-case-run'
+        original = f.state(); f.root = f.base / ('six-case-run' if covered else 'uncovered-run')
         f.call('init', {**{k: original[k] for k in ('dimension_slicing_required', 'split_testing_required', 'context_readiness_required',
                                                      'target_root', 'legacy_root', 'requirement_ids', 'global_spec', 'new_architecture')},
                         'case_ids': CASES, 'global_paths': []}, role='host')
@@ -29,9 +30,19 @@ class SplitAcceptTests(unittest.TestCase):
                             'feature_inventory_ref': f.ref('login-inventory.json', {'features': [
                                 feature('F-PHONE', 'Login/Phone', CASES[:3]), feature('F-CODE', 'Login/Code', CASES[3:])]})},
                role='global-orchestrator', module=None)
-        f.call('global-plan', {'plan_ref': f.ref('coverage.json', {'boundary_review': {'issues': []}, 'requirement_owners': {'R1': ['M010']},
+        if covered:
+            f.call('global-plan', {'plan_ref': f.ref('coverage.json', {'boundary_review': {'issues': []}, 'requirement_owners': {'R1': ['M010']},
                                                                    'case_owners': {cid: ['M010'] for cid in CASES}}),
-                               'review_ref': f.ref('coverage.md', 'all covered')}, role='global-orchestrator', module=None)
+                                   'review_ref': f.ref('coverage.md', 'all covered')}, role='global-orchestrator', module=None)
+
+    def test_coverage_the_registrations_state_is_written_by_the_ledger(self):
+        self.doCleanups(); self.setUp(covered=False); f = self.f
+        step = f.state()['global_next_step']
+        self.assertEqual((step['operation'], step['mechanical'], step['reason']), ('global-plan', True, 'coverage-from-registrations'))
+        applied = ledger.advance_run(f.root, {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'})
+        self.assertEqual([a['operation'] for a in applied], ['global-plan'])
+        content = f.state()['global_plan']['content']
+        self.assertEqual((content['case_owners'], content['requirement_owners']), ({cid: ['M010'] for cid in CASES}, {'R1': ['M010']}))
 
     def test_the_drafted_split_is_accepted_and_coverage_carried(self):
         f = self.f
