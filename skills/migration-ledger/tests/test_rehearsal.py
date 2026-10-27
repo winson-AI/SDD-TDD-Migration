@@ -17,8 +17,8 @@ from execute_test import execute
 from harmony_stage import build as stage_result
 
 MO = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
-# The counts last recorded in VERIFICATION.md: plan, plan review, coding; and the automation run when no adapter is stated.
-MODEL_TURNS = {'adapter stated': 3, 'no adapter': 4}
+# The counts last recorded in VERIFICATION.md: plan, coding; and the automation run when no adapter is stated.
+MODEL_TURNS = {'adapter stated': 2, 'no adapter': 3}
 
 
 class RehearsalTests(unittest.TestCase):
@@ -100,7 +100,7 @@ class RehearsalTests(unittest.TestCase):
     def rehearse(self, case):
         self.start(case == 'adapter stated')
         turns = self.walk()
-        self.assertEqual([op for op, *_ in turns][:2], ['plan', 'plan-review'])
+        self.assertEqual([op for op, *_ in turns][:2], ['plan', 'await-result'])  # nobody asked for a review: frozen by the Ledger
         if len(turns) > MODEL_TURNS[case]:
             warnings.warn('%s: a leaf took %d model turns, %d recorded: %s' % (case, len(turns), MODEL_TURNS[case], json.dumps(turns)))
         import workflow_cost

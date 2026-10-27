@@ -55,12 +55,23 @@ class MechanicalClosureTests(unittest.TestCase):
         record = json.loads(next((Path(f.root) / 'reports/dod').glob('M001-*.json')).read_text())
         self.assertEqual((record['written_by'], record['paths']['P1']['quality'], record['tasks']), ('ledger', 'green-passed', ['T1']))
 
-    def test_a_review_freeze_waits_for_a_person_when_one_must_decide(self):
+    def test_a_plan_nobody_asked_about_is_reviewed_and_frozen_by_the_ledger(self):
         f = self.f
         f.global_plan()
         f.call('plan', {'plan_ref': f.ref('plan.json', f.plan())}, role='spec-designer')
+        self.assertEqual((self.step()['operation'], self.step()['mechanical']), ('plan-review', True))
+        applied = [a['operation'] for a in ledger.advance(f.root, MO, 'M001')['applied']]
+        self.assertEqual(applied[:2], ['plan-review', 'freeze'])
+        review = json.loads(next((Path(f.root) / 'reports/plan-review').glob('M001-*.json')).read_text())
+        self.assertEqual((review['written_by'], review['plan_hash']), ('ledger', f.state()['modules']['M001']['plan_hash']))
+
+    def test_a_plan_whose_author_asks_waits_for_the_orchestrator(self):
+        f = self.f
+        f.global_plan()
+        plan = f.plan(); plan['review_questions'] = ['is the retry limit of the old client a requirement?']
+        f.call('plan', {'plan_ref': f.ref('plan.json', plan)}, role='spec-designer')
         step = self.step()
-        self.assertFalse(step.get('mechanical'))  # nothing recorded yet: a review or a decision comes first
+        self.assertEqual((step['operation'], step.get('mechanical'), step['review_asked']), ('plan-review', False, plan['review_questions']))
         self.assertEqual(ledger.advance(f.root, MO, 'M001')['applied'], [])
 
 

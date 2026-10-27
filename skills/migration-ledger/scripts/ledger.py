@@ -618,6 +618,17 @@ def diagnosis_focus(m, p):
                 'each visual issue needs area, problem, severity and evidence_ref')
 
 
+def review_asked(s, m):
+    """Why this plan needs the orchestrator's review, or None: code already exists, a freeze gate fails, a blocking issue is
+    open, or its author asked questions (plan.review_questions)."""
+    questions = (m.get('plan') or {}).get('review_questions') or []
+    blocking = [row['issue_id'] for row in issues.of_module(s, m['module_id'])[0] if row['blocks']]
+    reasons = (['code exists: a changed plan is reviewed'] if control_policy.execution_started(m) else []) + \
+              (['freeze gates fail: ' + ', '.join(g['gate'] for g in m['review_gates'])] if m.get('review_gates') else []) + \
+              (['blocking issues: ' + ', '.join(blocking)] if blocking else []) + [str(q) for q in questions]
+    return reasons or None
+
+
 def located_failures(m):
     """Every unresolved failure is a command that broke inside the module's write scope at locations grepped from its log:
     the diagnosis is those locations, written by the Ledger."""
@@ -922,6 +933,11 @@ def _next_step(s, m):
             step.update(ready=False, reason='human-decision-required', approval_kind='plan', detail=human, payload={}, mechanical=False)
         elif not decision and not eligible and not m.get('plan_review_ref'):
             step.update(operation='plan-review', ready=True, reason='MO-technical-review', payload={}, mechanical=False)
+            asked = review_asked(s, m)
+            if asked:
+                step['review_asked'] = asked
+            else:  # every gate passed and nobody asked: the Ledger records the review, the code and its tests judge the rest
+                step.update(mechanical=True, reason='nothing-to-review')
         elif not decision:
             if api_contract.undecided(s, api_contract.adaptations(m)):
                 # One decision names every adaptation the run still has open, so no other leaf asks again.
@@ -2701,12 +2717,17 @@ def _status(root, view='full', module_id=None, since=None):
         return status_view.select(full, view, module_id, since)
 
 
-def closure_record(root, s, module_id, kind, sequence):
+def closure_record(root, s, module_id, kind, sequence, actor=None):
     """What a mechanical completion or parent summary binds: the facts its guard checked, written by the Ledger under
     reports/<kind>/ so the event references a file with a hash like any other."""
     import run_storage
     root = Path(root).resolve()
-    if kind == 'diagnosis':
+    if kind == 'plan-review':
+        m = s['modules'][module_id]
+        body = {'plan_hash': m['plan_hash'], 'reviewer_instance_id': actor['instance_id'], 'semantic_change': False,
+                'authorization_change': False, 'unresolved_questions': [], 'evidence_refs': [m['plan_ref']],
+                'reason': 'every freeze gate passed, no blocking issue is open and the author asked nothing: the code and its tests judge the rest'}
+    elif kind == 'diagnosis':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
                 'findings': {pid: {k: r['root_cause'][k] for k in ('summary', 'failures_ref')} for pid, r in sorted(unresolved(m).items())},
@@ -2787,6 +2808,9 @@ def advance(root, principal, module_id, workers=None):
             payload = dict(step.get('payload') or {})
         elif step['operation'] == 'dependency-ready':
             payload, actor = {}, {'role': 'global-orchestrator', 'instance_id': (workers or {}).get('global-orchestrator') or 'global-orchestrator'}
+        elif step['operation'] == 'plan-review':
+            s = read_events(root)[0]
+            payload = {'review_ref': closure_record(root, s, module_id, 'plan-review', sequence, principal)}
         elif step['operation'] == 'diagnose':
             s = read_events(root)[0]
             payload = {**located_diagnosis(s['modules'][module_id]), 'diagnosis_ref': closure_record(root, s, module_id, 'diagnosis', sequence)}

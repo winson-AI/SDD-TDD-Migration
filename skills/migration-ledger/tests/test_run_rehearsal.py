@@ -22,8 +22,8 @@ from harmony_stage import build as stage_result
 
 MO = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
 # The counts last recorded in VERIFICATION.md: model turns by role, and the most protocol bytes one turn's card handed a model.
-RECORDED = {'turns': {'global-orchestrator': 4, 'module-orchestrator': 3, 'spec-designer': 2, 'implementer': 2, 'test-runner': 4, 'auditor': 2},
-            'card_bytes': 24147}
+RECORDED = {'turns': {'global-orchestrator': 4, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 4, 'auditor': 2},
+            'card_bytes': 24177}
 
 
 class RunRehearsalTests(unittest.TestCase):
