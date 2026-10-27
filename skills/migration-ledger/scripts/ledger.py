@@ -1154,6 +1154,8 @@ def with_card(s, m, step):
         snapshot = project_context.verify_snapshot(s['project_context_ref'])
         if (step.get('role'), step.get('operation')) == ('spec-designer', 'plan') and m and m.get('dimension_analysis_ref') and not m.get('plan'):
             step['spec_skeleton'] = 'spec_skeleton.py --root <run_root> --module ' + m['module_id'] + ' --out <staging directory>'
+        if (step.get('role'), step.get('operation')) == ('module-orchestrator', 'decompose') and 'split' in step.get('planning_outcomes', []):
+            step['split_draft'] = 'split_draft.py --root <run_root> --module ' + m['module_id'] + ' --out <staging directory>'
         skill = snapshot.get('source_refs', {}).get('slicing_skill_ref')
         if skill and (step.get('role'), step.get('operation')) in SLICING_STEPS:
             step['slicing_skill'] = {'name': experience.SKILL, 'ref': copy.deepcopy(skill)}

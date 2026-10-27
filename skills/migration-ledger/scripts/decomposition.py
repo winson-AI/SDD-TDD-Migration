@@ -916,6 +916,8 @@ def handle(s, req, actor, run_root):
             'decompose before freezing/coding; resolve parent blocker first')
     if op == 'decompose':
         role(actor, 'module-orchestrator')
+        from contracts import marked
+        require(not marked(p.get('plan_ref')), 'unfilled skeleton field left in ' + Path(p['plan_ref']['path']).name)
         plan = read_json(check_ref(p.get('plan_ref')))
         validate(s, parent, plan)
         parent['decomposition_submission'] = {'plan_ref': p['plan_ref'], 'actor_instance_id': actor['instance_id'],
