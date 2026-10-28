@@ -18,7 +18,8 @@ def build(root, module_id, assignment_id, receipts):
     import integration
     wave = module_id == 'GLOBAL' and (integration.task(s) or {}).get('assignment_id') == assignment_id
     m = integration.scope(s) if wave else audit_scope(s) if module_id == 'GLOBAL' else s['modules'][module_id]
-    a = integration.task(s) if wave else s['audit_assignment'] if module_id == 'GLOBAL' else m['assignments'][assignment_id]
+    retest = module_id == 'GLOBAL' and (s.get('audit_test_assignment') or {}).get('assignment_id') == assignment_id  # the audit's Test-Runner
+    a = integration.task(s) if wave else s['audit_test_assignment'] if retest else s['audit_assignment'] if module_id == 'GLOBAL' else m['assignments'][assignment_id]
     require(not a['closed'] and a['assignment_id'] == assignment_id, 'active assignment required')
     import test_validation as tv
     staged = module_id != 'GLOBAL' and tv.split(m)

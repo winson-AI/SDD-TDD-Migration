@@ -23,7 +23,7 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 | 首轮或审计 Fixer 派发后、修复前 | fixing / Fixer | 冻结契约、TASK、接口、复用映射、失败 PATH/assert、当前诊断、历史尝试/预算、最小修复范围 | ready 报告绑定 assign 后修复并计一轮，缺上下文不消耗修复轮次；必须确认已读诊断报告（diagnosis_ref 为必读输入）。fixing 预检绑定诊断内容本身，MO 接受诊断前后均可提交；diagnosis-accept 可带 assign 一步派发 |
 | 遗留路径独立复核前 | audit-testing / Auditor | 当前汇总、SPEC/PATH、代码与真实提供方、完整环境、独立性 | Auditor 自核就绪，GO audit-assign 绑定该实例；测试验收仍唯一归 Auditor |
 
-审计复测先由独立 Test-Runner 提交 audit-execution ready 预检，再由 GO audit-test-assign；不沿用 Auditor 的预检。审计期间下游 Fixer/Testing 仍分别通过 fixing/testing，不沿用 Auditor 的报告。
+审计复测与波次集成先派发，独立 Test-Runner 在派发内提交 audit-execution ready 预检后才执行与提交；不沿用 Auditor 的预检。审计期间下游 Fixer/Testing 仍分别通过 fixing/testing，不沿用 Auditor 的报告。
 
 ## 3. 报告与传递
 

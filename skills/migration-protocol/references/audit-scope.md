@@ -26,14 +26,14 @@ work_modules 包含发现模块、根因 owner 与受影响下游，按模块基
 
 ## 收尾的实际执行契约
 
-独立 Test-Runner 执行，Auditor 消费原始证据并裁决，见[宿主目标审计](audit-code-review.md#宿主目标审计)。audit-assign 后，GO 提交 audit-test-assign（无预检的 run 由 Ledger 派给非任何作者的 Test-Runner），Test-Runner 经 execute_test 执行并 audit-test-submit；Auditor 报告绑定 test_result_ref，原样引用 PATH 观察。复测全绿且代码审查无发现、目标全部满足时，结论由 Ledger 以 Auditor 名义按审查与观察提交。
+独立 Test-Runner 执行，Auditor 消费原始证据并裁决，见[宿主目标审计](audit-code-review.md#宿主目标审计)。audit-assign 后，Ledger 以 GO 名义 audit-test-assign 给非任何作者的 Test-Runner（先派发，其预检在派发内提交；所选 PATH 都有冻结命令或适配器时 Auditor 与 Test-Runner 的预检由 Ledger 写、执行由 advance_run 代跑），Test-Runner 经 execute_test 执行并 audit-test-submit；Auditor 报告绑定 test_result_ref，原样引用 PATH 观察。复测全绿且代码审查无发现、目标全部满足时，结论由 Ledger 以 Auditor 名义按审查与观察提交。
 
 `audit-assign` 不检查 global_paths 非空。Ledger 的 `audit_scope(state)` 生成本轮执行集合，并固定到 assignment：
 
 - `scope_policy: non-green-only`。
 - `path_ids`：当前模块结果为 Red/Yellow 的 PATH；已由问题闭环复核通过的不再加入。
 - 运行级 global_paths 只加入其中非 Green、从未验证或代码基线已失效的路径；未验证不隐式算 Green，有效 Green 不重复执行，没有就不补造。
-- 波次集成：持有某条 global path 用例的叶子全部完成时，游标给 GO `integration-assign`（独立 Test-Runner，audit-execution 预检，`integration-submit` 提交 kind=tests）；结果进 audit_results 并绑定各 owner 的 code_baseline，owner 代码未变则审计不重跑；Red 入 audit_repairs，owner MO repair-accept 后修复，同一代码上不重跑。
+- 波次集成：持有某条 global path 用例的叶子全部完成时，Ledger 以 GO 名义 `integration-assign` 给独立 Test-Runner（先派发，audit-execution 预检在派发内提交，其他叶子仍在工作也可；`integration-submit` 提交 kind=tests；冻结命令或适配器驱动时预检与执行都由 advance_run 完成）；结果进 audit_results 并绑定各 owner 的 code_baseline，owner 代码未变则审计不重跑；Red 入 audit_repairs，owner MO repair-accept 后修复，同一代码上不重跑。
 - 有效构建 Green 不因自动化缺测被重跑或覆盖。对原 automation-deferred 模块补验时合并 PATH 结果，保留原构建证据。
 
 | 清单 | 上下文门禁 | 动作与报告 |

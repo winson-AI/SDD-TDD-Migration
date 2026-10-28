@@ -95,6 +95,8 @@ def handle(s, req, actor, sequence):
         role(actor, 'test-runner')
         item = task(s)
         require(item and item['instance_id'] == actor['instance_id'], 'integration task inactive/mismatch')
+        require(item.get('context_ref') or not s.get('context_readiness_required'),
+                'preflight required: context-submit a ready report for this assignment before its result')
         value = scope(s)
         require(item['path_ids'] == [x['path_id'] for x in value['plan']['paths']] and value['code_baseline'] == item['code_baseline'],
                 'integration selection or code changed; the task is stale, assign again')

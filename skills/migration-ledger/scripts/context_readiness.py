@@ -43,6 +43,13 @@ WORKERS = {'implementer': 'coding', 'test-runner': 'testing', 'fixer': 'fixing'}
 MECHANICAL = {'implementer': 'coding'}
 
 
+def audit_ready(s):
+    """Whether every PATH an audit retests runs by itself, so the Ledger can preflight the Auditor's dispatch."""
+    from ledger import audit_scope
+    paths = audit_scope(s)['plan']['paths']
+    return bool(paths) and all(path.get('command') or adapter_stated(s, path) for path in paths)
+
+
 def adapter_stated(s, path):
     """Whether the run states what drives this functional PATH: an adapter for its platform, the project's one adapter, or a
     device platform the package's own Main serves."""
@@ -61,6 +68,21 @@ def runs_by_itself(s, m, assignment):
     return assignment.get('role') == 'test-runner' and bool(pids) and all(
         pid in paths and (paths[pid].get('command') or (paths[pid].get('kind') or 'automation') == 'automation'
                           and adapter_stated(s, paths[pid])) for pid in pids)
+
+
+def audit_execution(s, root):
+    """The commands an audit's retest runs, as a preflight states them: every selected PATH's frozen command or the run's
+    adapter for its platform; None when one of them has neither (the Auditor then reports what it plans to run)."""
+    from ledger import audit_scope
+    from execute_test import adapter_for
+    paths = audit_scope(s)['plan']['paths']
+    if not paths or not all(path.get('command') or adapter_stated(s, path) for path in paths):
+        return None
+    try:
+        commands = {path['path_id']: {k: adapter_for(s, path, root)[k] for k in ('argv', 'cwd')} for path in paths}
+    except (Rejected, KeyError, OSError, ValueError, TypeError):
+        return None
+    return {**commands[paths[0]['path_id']], 'commands': commands, 'environment_ref': s.get('project_context_ref') or s['global_spec']}
 
 
 def frozen_execution(s, m, assignment, root):
@@ -431,7 +453,9 @@ def submit(s, req, actor, run_root=None):
     # A blocked report authorizes nothing: one a worker wrote before its subject moved still hands its dispatch back.
     require(report.get('subject_sha256') == subject(s, mid, stage)
             or (report.get('verdict') == 'blocked' and stage in set(WORKERS.values()) | {'building'}), 'context subject stale')
-    if stage.startswith('audit-'):
+    import integration
+    wave = stage == 'audit-execution' and (integration.task(s) or {}).get('instance_id') == actor.get('instance_id')
+    if stage.startswith('audit-') and not wave:  # a wave's integration runs while other leaves still work
         import audit_closure
         if not audit_closure.active(s):
             require(not audit_closure.collection_blockers(s), 'all module rounds must settle before Auditor context review')
@@ -544,7 +568,7 @@ def gate(s, req, actor, root=None):
         return
     obj = scope(s, mid)
     ref = p.get('context_ref')
-    if op == 'assign' and not ref:
+    if op in ('assign', 'integration-assign', 'audit-test-assign') and not ref:
         return  # dispatch first: the worker reports inside its assignment
     if op in ('freeze', 'decompose-accept'):
         ref = obj.get('context_acceptances', {}).get('plan' if op == 'freeze' else 'decompose', {}).get('report_ref')
@@ -553,9 +577,11 @@ def gate(s, req, actor, root=None):
     if not ref and op in SELF_REPORTED and root is not None:
         ref = mechanical_report(root, s, mid, stage, {'role': actor['role'], 'instance_id': actor['instance_id']}, draft,
                                 next(verify_refs_in(p), None))  # the Ledger's own preflight of what the actor submits
-    if not ref and op == 'audit-assign' and stage == 'audit-verdict' and root is not None:
-        # Nothing to re-execute: the Auditor's preflight asks only what the Ledger holds, so the Ledger writes it.
-        ref = mechanical_report(root, s, None, stage, {'role': 'auditor', 'instance_id': p.get('instance_id')})
+    execution = audit_execution(s, root) if op == 'audit-assign' and stage == 'audit-testing' and root is not None else None
+    if not ref and op == 'audit-assign' and root is not None and (stage == 'audit-verdict' or execution):
+        # The Auditor's preflight asks only what the Ledger holds: nothing to re-execute, or a retest of paths whose
+        # commands are frozen or the run's adapter's. The Ledger writes it.
+        ref = mechanical_report(root, s, None, stage, {'role': 'auditor', 'instance_id': p.get('instance_id')}, execution=execution)
     require(ref, 'context readiness receipt required for ' + op)
     instance = p.get('instance_id') if op in ('assign', 'audit-assign', 'audit-test-assign', 'integration-assign') else None
     if op in ('register', 'global-plan', 'decompose', 'plan', 'audit-plan', 'audit-verdict', 'source-review', 'run-review', 'audit-code-review'):
@@ -631,10 +657,10 @@ def annotate(s, mid, step):
                     return step
                 except (Rejected, OSError, ValueError):
                     pass
-        if step.get('operation') in SELF_REPORTED or step.get('operation') == 'audit-assign' and stage == 'audit-verdict':
+        if step.get('operation') in SELF_REPORTED or step.get('operation') == 'audit-assign' and (stage == 'audit-verdict' or audit_ready(s)):
             step['context_gate'].update(with_operation=True, mechanical=True)  # the Ledger preflights what the actor submits; a report of its own may ride as context_ref
             return step
-        if step.get('operation') == 'assign':
+        if step.get('operation') in ('assign', 'integration-assign', 'audit-test-assign'):
             # Dispatch first; only a report that is still blocked on the current subject holds the dispatch back.
             blocked, checks = [], set()
             for receipt in scope(s, mid).get('context_receipts', {}).values():
