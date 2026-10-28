@@ -36,6 +36,7 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 - 波次集成：持有某条 global path 用例的叶子全部完成、别的叶子还在做时，GO 派独立 Test-Runner 执行它；结果绑定各 owner 的代码基线，统一审计只重跑 owner 代码变动的路径，Red 路由给 owner 叶子修复。
 - 项目理解：GO 在全局发现记目标画像（absent / shell-only / partial / existing，只读 target-scan 给候选证据），脚手架只在缺外壳处，持有代码的叶子冻结时欠复用说明；项目知识文档（文件或 wiki 目录）可按 project 模式检索，缺的专业 / 接口知识登 knowledge-need，由人以 kind=knowledge 决定补充并写成本 run 文档，答复随经验库沉淀到下次 run；用户给的存量截图 / 录屏随项目上下文固化、按 CASE 下发到持有叶子：截图作 user-reference 视觉基线（存量不可预览也有基线）、录屏作功能 PATH 的交互预期、规划步骤列尚未引用的媒体（media_due）、未被 PATH 引用即欠项，诊断/修复并列预期与实际媒体；目标预期（target-expectation）取代存量基线，design 须引用，报告披露。
 - 存量预览与媒体取证：项目声明存量怎样跑（设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑），可执行性随声明，存量可跑却未捕获的界面写 capture_gap；legacy-capture 在包内装机、走冻结动作把界面写成参考记录（adb 或 Playwright，走不成确定性动作的界面由声明的 navigator 以 snapshot 任务走到后再按选择器捕获），浏览器按同一滚动契约捕获（整页滚动以 body 为区域，shadow DOM 与同源 iframe 并入树，点击/滚动后等页面稳定，声明可带 viewport）、web / 鸿蒙存量的 UI 树从运行时索引派生且无源索引，Android 目标装 APK 走同一视觉对齐；hdc / adb / 浏览器共用一个屏幕观察器（前台核对、选择器、滚动契约、稳定树），Harmony 候选也经它捕获；目标在浏览器里预览时不装机，宿主部署已接受构建并让页面声明其哈希，候选记为 web-candidate 进入同一对齐链路；存量怎样跑、目标在哪验证是只有用户能给的声明，init / update / prepare 返回待问的 open_statements，status 持续提示到声明为止；规划步骤带 capture_due，未捕获的界面是首版携带的欠项；内置运行时的 snapshot / recording 只留媒体不判定；测试结果带截图 / 录屏引用，报告逐 PATH 列出，diagnose/Fixer 带非 Green 路径的媒体。
+- 静态审查随模型执行的 automation 同一派发（静态在前、非 Green 即停），有适配器时仍单独派发；静态闭合等调用方代码时本模块的自动化先跑。
 - 首版欠项在静态审查前由 Ledger 开修订补齐，静态审查只做一次（代码与 Green 保留）；经验是否复发只算下发之后、已下发模块中的拒绝。
 - 经验按规则计（拒绝消息遮去具体值），同一 run 内兄弟叶子即时看到彼此被拒的规则；包反馈列改进候选，done 行给出路径。
 - 经验闭环：反复被拒的门禁成为下一 run 同一步的经验，复发与否决定排序；包外写 package-feedback；收尾复盘由 Ledger 起骨架派给统一 Auditor，不阻塞交付。

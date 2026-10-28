@@ -45,8 +45,8 @@
 <rect x="550" y="1010" width="500" height="180" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="1050.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Test-Runner · 正式验证</text>
 <text x="800.0" y="1084.0" font-size="18.82" fill="#4b5563" text-anchor="middle" font-weight="400">build → unit 一派发（无人写入时），advance 代跑</text>
-<text x="800.0" y="1113.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">通过后单独派 static 审阅</text>
-<text x="800.0" y="1142.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">automation：有适配器即代跑；visual 另派</text>
+<text x="800.0" y="1113.0" font-size="20.59" fill="#4b5563" text-anchor="middle" font-weight="400">static 随模型跑的 automation 同派，非绿即停</text>
+<text x="800.0" y="1142.0" font-size="18.50" fill="#4b5563" text-anchor="middle" font-weight="400">有适配器 static 单派；等调用方时 automation 先跑</text>
 <text x="800.0" y="1171.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只回退出码与报错定位；结果已定即机械验收</text>
 <path d="M800,1190 L800,1245" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M800,1245.0 L955.0,1310 L800,1375.0 L645.0,1310 Z" fill="#fff7ed" stroke="#ea580c" stroke-width="1.8"/>

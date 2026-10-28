@@ -496,6 +496,9 @@ def _chosen(s, m, step, topics):
     chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry, lean=lean and role in ('fixer', 'implementer'),
                      rows=rows, facts=facts if topics else None, readiness=bool(s.get('context_readiness_required')))
     chosen += reasoning_sections(m)
+    import test_validation
+    if role == 'test-runner' and step.get('test_scope') == 'automation' and m and test_validation.review_first(m):
+        chosen += sections('testing.md', '静态规格闭合')  # the review goes ahead of the functional paths in this dispatch
     if role == 'spec-designer':
         chosen += sections('testing.md', '编码前设计交接')
         # What the Ledger fills or enforces is not the author's to read up front: a refusal names its section.

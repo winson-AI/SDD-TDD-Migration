@@ -477,19 +477,23 @@ def validate_result(result, module, assignment, run_root=None):
     tests = keyed(result.get('paths'), 'path_id')
     planned = {p['path_id']: p for p in module['plan']['paths']}
     import test_validation as tv
+    reviewed = False
     if tv.split(module) and assignment.get('role') == 'test-runner':
         scope = assignment.get('test_scope')
         require(scope in ('build', 'automation', 'visual'), 'test scope required')
-        require(scope == 'build' or tv.static_ready(module), 'build, unit tests and the static review must pass before automation')
+        reviewed = scope == 'automation' and tv.review_first(module)  # the static closure ahead of the functional paths
+        require(scope == 'build' or reviewed or tv.static_ready(module) or scope == 'automation' and tv.ahead_of_review(module),
+                'build, unit tests and the static review must pass before automation')
         require(scope != 'visual' or tv.functional_ready(module), 'functional tests must pass before visual')
-        # One build-stage result carries build -> unit -> static and stops at the first kind that is not Green.
-        planned = {p['path_id']: p for p in (tv.stage_paths(module, tests) if scope == 'build' else tv.paths(module, scope))}
+        # One build-stage result carries build -> unit -> static and stops at the first kind that is not Green; a
+        # functional one that carries the static closure stops there when the review is not Green.
+        planned = {p['path_id']: p for p in (tv.stage_paths(module, tests) if scope == 'build' else tv.scope_paths(module, scope, tests))}
     if assignment.get('execution_contract'):
         import control_policy
         control_policy.result_scope(module, assignment)
         require(set(tests) <= set(assignment['execution_contract']['path_ids']), 'result includes unassigned PATH')
         # Build results may stop at the first failed prerequisite; other scopes exactly cover the dispatch.
-        if assignment.get('test_scope') != 'build':
+        if assignment.get('test_scope') != 'build' and not reviewed:
             require(set(tests) == set(assignment['execution_contract']['path_ids']), 'result must account for assigned PATHs')
         planned = {pid: row for pid, row in planned.items() if pid in assignment['execution_contract']['path_ids']}
     require(set(tests) == set(planned), 'result must account for every required path')

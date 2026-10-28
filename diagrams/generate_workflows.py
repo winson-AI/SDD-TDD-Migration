@@ -178,8 +178,8 @@ def module_execution():
     d.arrow([(800,940),(800,1010)])
     d.box(550,1010,500,180,'Test-Runner · 正式验证',[
         'build → unit 一派发（无人写入时），advance 代跑',
-        '通过后单独派 static 审阅',
-        'automation：有适配器即代跑；visual 另派',
+        'static 随模型跑的 automation 同派，非绿即停',
+        '有适配器 static 单派；等调用方时 automation 先跑',
         '只回退出码与报错定位；结果已定即机械验收'])
     d.arrow([(800,1190),(800,1245)])
     d.diamond(800,1310,310,130,'验证结果','Green / Red / Yellow')

@@ -29,24 +29,25 @@ class ReportSkeletonTests(unittest.TestCase):
         out = f.root / 'staging/test-runner/STATIC1'
         result = report_skeleton.write(f.root, out, 'M001', 'STATIC1')
         files = result['files']
-        self.assertEqual(set(files), {'preflight-building.json', 'static-review.json'}); self.assertGreater(result['unfilled'], 10)
-        pre = json.loads(check_ref(files['preflight-building.json']).read_text())
+        self.assertEqual(set(files), {'preflight-testing.json', 'static-review.json'}); self.assertGreater(result['unfilled'], 10)
+        pre = json.loads(check_ref(files['preflight-testing.json']).read_text())
         s = f.state(); plan = s['modules']['M001']['plan']
-        self.assertEqual(pre['subject_sha256'], cr.subject(s, 'M001', 'building'))
-        self.assertEqual(set(pre['execution']['commands']), {'S1'})  # the review's own dispatch: the build already passed
+        self.assertEqual(pre['subject_sha256'], cr.subject(s, 'M001', 'testing'))
+        self.assertEqual(set(pre['execution']['commands']), {'S1', 'P1'})  # the review goes ahead of the automation in one dispatch
         self.assertIn(SKELETON_MARK, pre['execution']['commands']['S1']['argv'][0])
-        self.assertEqual(pre['checks']['frozen-spec']['status'], 'ready'); self.assertIn(SKELETON_MARK, pre['checks']['build-environment']['status'])
-        with self.assertRaisesRegex(Rejected, 'unfilled skeleton field left in preflight-building.json'):
-            f.raw('context-submit', {'report_ref': files['preflight-building.json']}, role='test-runner', instance='test-runner')
+        self.assertEqual(pre['checks']['frozen-spec']['status'], 'ready'); self.assertIn(SKELETON_MARK, pre['checks']['test-environment']['status'])
+        with self.assertRaisesRegex(Rejected, 'unfilled skeleton field left in preflight-testing.json'):
+            f.raw('context-submit', {'report_ref': files['preflight-testing.json']}, role='test-runner', instance='test-runner')
         proof = f.ref('probe.md', 'JDK and SDK probed on this host')
-        for name in ('build-environment', 'permissions-tools'):
+        for name in ('provider-binding', 'test-environment', 'permissions-tools'):
             pre['checks'][name] = {'status': 'ready', 'summary': 'probed on this host', 'evidence_refs': [proof]}
-        pre['execution']['commands']['S1'] = {'argv': t.static_argv(), 'cwd': str(f.target)}
-        pre['execution'].update(argv=t.static_argv(), cwd=str(f.target))  # the review is this dispatch's only command
-        pre['execution']['environment_ref'] = f.ref('build-env.md', 'Python build fixture'); pre['verdict'] = 'ready'
+        pre['execution']['commands'] = {'S1': {'argv': t.static_argv(), 'cwd': str(f.target)},
+                                        'P1': {'argv': [sys.executable, str(f.base / 'adapter.py')], 'cwd': str(f.target)}}
+        pre['execution'].update(argv=t.static_argv(), cwd=str(f.target))  # the review is this dispatch's first command
+        pre['execution']['environment_ref'] = f.ref('test-env.md', 'Python test fixture'); pre['verdict'] = 'ready'
         ref = f.ref('preflight-filled.json', pre)
         f.raw('context-submit', {'report_ref': ref}, role='test-runner', instance='test-runner')
-        self.assertEqual(f.state()['modules']['M001']['context_receipts']['building:test-runner']['report_ref'], ref)
+        self.assertEqual(f.state()['modules']['M001']['context_receipts']['testing:test-runner']['report_ref'], ref)
         review = json.loads(check_ref(files['static-review.json']).read_text())
         self.assertEqual([row['requirement_id'] for row in review['scenarios']], ['R1'])
         self.assertEqual(set(review['anti_patterns']), set(spec_closure.ANTI_PATTERNS))

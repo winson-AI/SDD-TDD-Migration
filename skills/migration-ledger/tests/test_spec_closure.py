@@ -15,6 +15,11 @@ import spec_closure
 ADAPTER = str(Path(spec_closure.__file__).resolve())
 
 
+def spec_closure_green(receipt, path):
+    from test_completion import interpret
+    return interpret(read_json(Path(receipt['path'])), path)['quality'] == 'green-passed'
+
+
 class SpecClosureTests(unittest.TestCase):
     def setUp(self):
         self.split = test_split_testing.SplitTestingTests()
@@ -33,9 +38,9 @@ class SpecClosureTests(unittest.TestCase):
         old_report = f.report
         def report(stage, *args, **kwargs):
             r = old_report(stage, *args, **kwargs)
-            if stage == 'building':  # the build preflight pre-approves the static command for the same Test-Runner
-                build = {k: r['execution'][k] for k in ('argv', 'cwd')}
-                r['execution']['commands'] = {'B1': build, 'S1': {'argv': self.static_argv(), 'cwd': str(f.target)}}
+            if stage == 'testing':  # the review goes ahead of the automation a model runs: one preflight approves both
+                run = {k: r['execution'][k] for k in ('argv', 'cwd')}
+                r['execution']['commands'] = {'P1': run, 'S1': {'argv': self.static_argv(), 'cwd': str(f.target)}}
             return r
         f.report = report
 
@@ -59,27 +64,31 @@ class SpecClosureTests(unittest.TestCase):
         return data
 
     def run_static(self, data, aid='STATIC1'):
+        """The review first; the functional path after it in the same dispatch only when the review is Green."""
         f = self.f
         self.review_path.write_text(json.dumps(data))
         assignment = f.state()['modules']['M001']['assignments'][aid]
-        self.assertEqual((assignment['test_scope'], assignment['closed']), ('build', False))
-        receipt = execute(f.root, 'M001', aid, 'S1', self.static_argv(), str(f.target), f.base / (aid + '-static'))
-        result = stage_result(f.root, 'M001', aid, [receipt])
+        self.assertEqual((assignment['test_scope'], assignment['closed']), ('automation', False))
+        receipts = [execute(f.root, 'M001', aid, 'S1', self.static_argv(), str(f.target), f.base / (aid + '-static'))]
+        if spec_closure_green(receipts[0], next(p for p in f.state()['modules']['M001']['plan']['paths'] if p['path_id'] == 'S1')):
+            (f.base / 'adapter.py').write_text('import argparse,json\np=argparse.ArgumentParser();p.add_argument("--query-file");p.add_argument("--result-file");a=p.parse_args()\n'
+                                              'json.dump({"assertions":[{"assertion_id":"A1","expected":2,"actual":2,"passed":True}]},open(a.result_file,"w"))\n')
+            receipts.append(execute(f.root, 'M001', aid, 'P1', [sys.executable, str(f.base / 'adapter.py')], str(f.target), f.base / (aid + '-automation')))
+        result = stage_result(f.root, 'M001', aid, receipts)
         f.submit(result, assignment); f.call('accept', {'assignment_id': aid})
         return result['paths'][0]
 
     def built(self):
-        self.split.prepare(); self.split.compile()  # the build passed and was accepted: the review is dispatched on its own
+        self.split.prepare(); self.split.compile()  # the build passed and was accepted: the review goes ahead of the automation
         a = self.f.assign('test-runner', 'STATIC1')
-        self.assertEqual((a['test_scope'], a['execution_contract']['path_ids']), ('build', ['S1']))
+        self.assertEqual((a['test_scope'], a['execution_contract']['path_ids']), ('automation', ['S1', 'P1']))
 
     def test_static_review_sits_between_build_and_automation(self):
         f = self.f; self.built()
-        row = self.run_static(self.review())
+        row = self.run_static(self.review())  # one Test-Runner turn: the review, then the automation it allowed
         self.assertEqual(row['quality'], 'green-passed')
-        self.assertEqual(f.state()['next_steps'][0]['test_scope'], 'automation')
-        a, result = f.make_test_result()
-        f.submit(result, a); f.call('accept', {'assignment_id': a['assignment_id']})
+        self.assertEqual({pid: r['quality'] for pid, r in f.state()['modules']['M001']['results'].items()},
+                         {'B1': 'green-passed', 'S1': 'green-passed', 'P1': 'green-passed'})
         self.assertEqual(f.state()['modules']['M001']['phase'], 'dod')
 
     def test_fake_wiring_or_failed_scenario_is_red_and_enters_repair(self):
@@ -89,6 +98,7 @@ class SpecClosureTests(unittest.TestCase):
         row = self.run_static(data)
         self.assertEqual(row['quality'], 'red-bug')
         self.assertIn('fixed-result', row['root_cause']['summary'])
+        self.assertNotIn('P1', f.state()['modules']['M001']['results'])  # the review stopped the dispatch before the automation
         self.assertEqual(f.state()['next_steps'][0]['operation'], 'diagnose')
 
     def test_swallowed_error_is_a_decided_anti_pattern(self):
@@ -122,7 +132,12 @@ class SpecClosureTests(unittest.TestCase):
                 spec_closure.report(query, ref, str(f.target))
 
     def test_automation_waits_for_static_review(self):
-        f = self.f; self.built()
+        f = self.f
+        self.split.prepare(); self.split.compile()
+        with self.assertRaisesRegex(Rejected, 'the static closure goes ahead of the functional PATHs'):
+            f.call('assign', {'assignment_id': 'BARE', 'role': 'test-runner', 'instance_id': 'test-runner', 'test_scope': 'automation',
+                              'task_ids': ['T1'], 'path_ids': ['P1']})
+        self.assertEqual(f.assign('test-runner', 'STATIC1')['execution_contract']['path_ids'], ['S1', 'P1'])
         ref = f.record(f.report('testing'))
         with self.assertRaisesRegex(Rejected, 'worker still active|build -> unit -> static -> automation -> visual'):
             f.raw('assign', {'assignment_id': 'EARLY', 'role': 'test-runner', 'instance_id': 'test-runner',
