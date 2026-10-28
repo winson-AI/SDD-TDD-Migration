@@ -8,8 +8,10 @@ someone submits something.
 Each output line is JSON: `dispatch` (start this role on this step with this card), `running` (a worker the Ledger
 dispatched: start it with its card unless already started, then wait), `host` (an operation the host submits itself with
 the payload given), `person` (a decision only a person gives, with what is asked), `signal` (a stall, an overdue plan, a
-refused request, a run ready for its retrospective: act on next_action), then one `tick` line with the journal sequence. A line names the instance and, when one holds this role's context, the session to
-resume; its card then holds only the sections that session has not read. The host reads these lines, not the status views.
+refused request, a run ready for its retrospective: act on next_action; printed once, while it stands the tick line counts it
+in signals_held), then one `tick` line with the journal sequence. A line names the instance and, when one holds this role's
+context, the session to resume; its card then holds only the sections that session has not read. The host reads these
+lines, not the status views.
 """
 import argparse
 import json
@@ -90,6 +92,23 @@ def tick(root, principal, workers=None):
     return lines, st['last_sequence']
 
 
+def unseen(root, lines):
+    """The lines with every signal a previous tick already printed left out, and how many were: a standing signal reaches
+    the host once, not every tick. What was printed is kept under reports/; the attention report lists them all."""
+    path = Path(root) / 'reports/drive-signals.json'
+    try:
+        printed = set(json.loads(path.read_text()))
+    except (OSError, ValueError):
+        printed = set()
+    key = lambda line: json.dumps(line, sort_keys=True, ensure_ascii=False)
+    signals = [line for line in lines if line['kind'] == 'signal' and line.get('reason') != 'attention-report']
+    new = [line for line in signals if key(line) not in printed]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(sorted(key(line) for line in signals), ensure_ascii=False))
+    kept = [line for line in lines if line['kind'] != 'signal' or line in new or line.get('reason') == 'attention-report' and new]
+    return kept, len(signals) - len(new)
+
+
 def drive(root, principal, workers=None, wait=None):
     lines, sequence = tick(root, principal, workers)
     if wait and not any(line['kind'] == 'dispatch' for line in lines):
@@ -98,7 +117,8 @@ def drive(root, principal, workers=None, wait=None):
             time.sleep(POLL_SECONDS)
         if journal_size(root) != size:
             lines, sequence = tick(root, principal, workers)
-    return lines + [{'kind': 'tick', 'last_sequence': sequence}]
+    lines, held = unseen(root, lines)
+    return lines + [{'kind': 'tick', 'last_sequence': sequence, **({'signals_held': held} if held else {})}]
 
 
 def main():

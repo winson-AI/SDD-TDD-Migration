@@ -74,6 +74,9 @@ class CursorCoverageTests(unittest.TestCase):
         self.assertEqual((signal['module_id'], signal['severity']), ('M001', 'action'))
         self.assertTrue(any(line['reason'] == 'attention-report' for line in lines if line['kind'] == 'signal'))
         self.assertLess(max(len(json.dumps(line, ensure_ascii=False)) for line in lines), 600)  # no evidence dumps
+        again = drive.drive(self.f.root, MO)  # a standing signal is printed once: later ticks count it
+        self.assertEqual([line['kind'] for line in again if line['kind'] == 'signal'], [])
+        self.assertEqual(again[-1]['signals_held'], len([line for line in lines if line['kind'] == 'signal' and line['reason'] != 'attention-report']))
 
 
 class SessionReuseTests(unittest.TestCase):
