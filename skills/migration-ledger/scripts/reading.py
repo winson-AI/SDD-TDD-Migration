@@ -610,8 +610,10 @@ TRIGGER_TEMPLATES = {
 
 
 def templates(s, m, step):
+    import context_readiness
+    self_reported = step.get('operation') in context_readiness.SELF_REPORTED  # the Ledger writes its preflight
     if step.get('operation') in ('run-review', 'revise-run'):
-        return ['template/run-revision.json', 'template/context-readiness.json']
+        return ['template/run-revision.json'] + ([] if self_reported else ['template/context-readiness.json'])
     if step.get('operation') == 'retrospect':
         return ['template/retrospective.json']
     role = step.get('worker_role') or step.get('role')
@@ -654,6 +656,10 @@ def templates(s, m, step):
             unwritten.add('change-impact.json')
     if s.get('context_readiness_required') and role in ('implementer', 'fixer') and (step.get('worker_role') or step.get('operation') == 'await-result'):
         unwritten.add('context-readiness.json')  # written by the Ledger at dispatch
+    if self_reported:
+        unwritten.add('context-readiness.json')
+    if step.get('operation') == 'register':
+        unwritten.add('global-plan.json')  # coverage is its own step, drafted by the Ledger from the registrations
     return ['template/' + n for n in dict.fromkeys(names) if n not in unwritten]
 
 

@@ -92,6 +92,15 @@ class TemplateTests(unittest.TestCase):
         self.assertIn('context-readiness.json', self.names(None, 'test-runner'))
 
 
+    def test_a_step_whose_preflight_the_ledger_writes_is_not_handed_its_template_nor_registration_the_coverage(self):
+        s = {'context_readiness_required': True}
+        register = [n.split('/')[-1] for n in reading.templates(s, None, {'role': 'global-orchestrator', 'operation': 'register'})]
+        self.assertNotIn('context-readiness.json', register); self.assertNotIn('global-plan.json', register)
+        self.assertIn('feature-inventory.json', register)
+        self.assertEqual(reading.templates(s, None, {'role': 'global-orchestrator', 'operation': 'run-review'}), ['template/run-revision.json'])
+        self.assertIn('template/context-readiness.json', reading.templates(s, None, {'role': 'global-orchestrator', 'operation': 'revise-run'}))
+
+
 class CardTests(unittest.TestCase):
     def test_a_coders_and_a_fixers_card_say_nothing_about_reporting_a_preflight(self):
         s = {'context_readiness_required': True}
