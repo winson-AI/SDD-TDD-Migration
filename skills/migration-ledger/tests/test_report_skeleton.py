@@ -1,5 +1,6 @@
 """The Ledger writes the executing roles' report skeletons; a report that still holds a mark is refused."""
 import json
+import subprocess
 from pathlib import Path
 import sys
 import unittest
@@ -106,3 +107,57 @@ class ReportSkeletonTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class GitChangeTests(unittest.TestCase):
+    """With a target that is a Git checkout, what the inventory's file rows and the review's diffs say is what Git says."""
+    def git(self, root, *args):
+        return subprocess.run(['git', '-C', str(root), '-c', 'user.name=t', '-c', 'user.email=t@t', *args], check=True, capture_output=True, text=True)
+
+    def test_each_file_is_an_add_or_a_modify_with_its_lines_and_diff(self):
+        import tempfile
+        from contracts import file_ref
+        target = Path(tempfile.mkdtemp()).resolve(); self.addCleanup(__import__('shutil').rmtree, target, True)
+        (target / 'kept.kt').write_text('a\nb\nc\n'); self.git(target, 'init', '-q'); self.git(target, 'add', '-A'); self.git(target, 'commit', '-q', '-m', 'start')
+        start = self.git(target, 'rev-parse', 'HEAD').stdout.strip()
+        (target / 'kept.kt').write_text('a\nB\nc\n'); (target / 'new.kt').write_text('x\ny\n')
+        context = target.parent / (target.name + '-context.json'); context.write_text(json.dumps({'target_commit': start}))
+        self.addCleanup(context.unlink)
+        s = {'target_root': str(target), 'project_context_ref': file_ref(context),
+             'modules': {'M001': {'code_files': [file_ref(target / 'kept.kt'), file_ref(target / 'new.kt')]}}}
+        out = Path(tempfile.mkdtemp()); self.addCleanup(__import__('shutil').rmtree, out, True)
+        changes = report_skeleton.git_changes(s, out)
+        kept, new = changes['files'][str(target / 'kept.kt')], changes['files'][str(target / 'new.kt')]
+        self.assertEqual((kept['kind'], kept['before'], kept['lines']), ('modify', 'kept.kt', '2-2'))
+        self.assertEqual(kept['before_sha'], self.git(target, 'rev-parse', start + ':kept.kt').stdout.strip()[:12])
+        self.assertEqual((new['kind'], new['before'], new['before_sha'], new['lines']), ('add', '不适用', '不适用', '1-2'))
+        diff = check_ref(changes['modules']['M001']).read_text()
+        self.assertIn('-b', diff); self.assertIn('+B', diff); self.assertIn('+x', diff)
+        self.assertIsNone(report_skeleton.git_changes({**s, 'project_context_ref': None}, out))  # no start: the Auditor writes these
+
+    def test_a_prepared_run_on_a_git_target_records_its_start_and_its_skeleton_takes_what_git_says(self):
+        import test_context_readiness
+        import test_continuous_run
+        real = test_context_readiness.ContextReadinessTests.setUp
+        def setup(t):
+            real(t)
+            (t.target / '.keep').write_text(''); self.git(t.target, 'init', '-q'); self.git(t.target, 'add', '-A'); self.git(t.target, 'commit', '-q', '-m', 'start')
+        test_context_readiness.ContextReadinessTests.setUp = setup
+        self.addCleanup(setattr, test_context_readiness.ContextReadinessTests, 'setUp', real)
+
+        class Walk(test_continuous_run.ContinuousWalk):
+            def model_turn(self, step):
+                if step.get('operation') == 'audit-code-review':
+                    raise StopIteration
+                super().model_turn(step)
+        w = Walk(methodName='run'); w.setUp(); self.addCleanup(w.doCleanups)
+        with self.assertRaises(StopIteration):
+            w.walk(80)
+        s = w.f.state()
+        self.assertEqual(report_skeleton.target_start(s), self.git(w.f.target, 'rev-parse', 'HEAD').stdout.strip())
+        files = report_skeleton.write(w.f.root, w.f.root / 'staging/auditor/review')['files']
+        text = check_ref(files['audit-change-inventory.md']).read_text()
+        rows = [line for line in text.splitlines() if line.startswith('| CHG-0')]
+        self.assertTrue(rows and all('| add | 不适用 |' in row and 'diffs/' in row for row in rows), rows)
+        review = json.loads(check_ref(files['audit-code-review.json']).read_text())
+        self.assertTrue(all(m['diff_refs'][0]['path'].endswith(m['module_id'] + '.diff') for m in review['modules']))

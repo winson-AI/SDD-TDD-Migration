@@ -88,8 +88,64 @@ def static_review(s, mid, assignment, path):
                                      'evidence_refs': [todo('{path, sha256}')]} for name in spec_closure.ANTI_PATTERNS}}
 
 
-def inventory(s, sequence):
-    """The change inventory: modules, features, files, impact and test mapping as the Ledger holds them."""
+def target_start(s):
+    """The commit the target stood on when the run was prepared, or None (not a Git checkout, or a run prepared before
+    it was recorded)."""
+    try:
+        return read_json(check_ref(s['project_context_ref'])).get('target_commit') if s.get('project_context_ref') else None
+    except (Rejected, OSError, ValueError):
+        return None
+
+
+def git(target, *args):
+    import subprocess
+    return subprocess.run(['git', '-C', str(target), *args], capture_output=True, text=True, timeout=60)
+
+
+def git_changes(s, out):
+    """What Git says each accepted code file changed since the run's start, as the inventory shows it: add or modify,
+    the path and blob before, the lines after, and the diffs written under out/diffs (one per module, one for the run).
+    None when the target is not a Git checkout prepared with its start commit: the Auditor then writes these."""
+    start, target = target_start(s), Path(s['target_root']).resolve()
+    if not start or git(target, 'cat-file', '-e', start + '^{commit}').returncode != 0:
+        return None
+    import re
+    folder = Path(out) / 'diffs'; folder.mkdir(parents=True, exist_ok=True)
+    files, modules, whole = {}, {}, []
+    for mid, m in sorted(s['modules'].items()):
+        texts = []
+        for ref in m.get('code_files', []):
+            path = Path(ref['path']).resolve()
+            if not path.is_relative_to(target):
+                continue
+            rel = str(path.relative_to(target))
+            before = git(target, 'rev-parse', '--verify', '-q', '%s:%s' % (start, rel))
+            existed = before.returncode == 0
+            args = [start, '--', rel] if existed else ['--no-index', '--', '/dev/null', str(path)]
+            diff = git(target, 'diff', *args).stdout
+            hunks = re.findall(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@', git(target, 'diff', '-U0', *args).stdout, re.M)  # the lines themselves
+            files[str(path)] = {'kind': 'modify' if existed else 'add', 'before': rel if existed else '不适用',
+                                'before_sha': before.stdout.strip()[:12] if existed else '不适用',
+                                'lines': ', '.join('%s-%d' % (a, int(a) + max(int(b or 1), 1) - 1) for a, b in hunks) or '无行变化'}
+            texts.append(diff)
+        if texts:
+            (folder / (mid + '.diff')).write_text(''.join(texts))
+            modules[mid] = file_ref(folder / (mid + '.diff'))
+            whole += texts
+    (folder / 'run.diff').write_text(''.join(whole))
+    (folder / 'status.txt').write_text(git(target, 'rev-parse', 'HEAD').stdout + git(target, 'status', '--porcelain').stdout)
+    for row in files.values():
+        row['diff'] = None
+    for mid, m in s['modules'].items():
+        for ref in m.get('code_files', []):
+            if str(Path(ref['path']).resolve()) in files:
+                files[str(Path(ref['path']).resolve())]['diff'] = modules.get(mid)
+    return {'start': start, 'files': files, 'modules': modules, 'run': file_ref(folder / 'run.diff'), 'status': file_ref(folder / 'status.txt')}
+
+
+def inventory(s, sequence, changes=None):
+    """The change inventory: modules, features, files, impact and test mapping as the Ledger holds them; with `changes`
+    (git_changes) also what Git says each file changed."""
     import decomposition
     names = decomposition.parent_mo_names(s)
     plan = (s.get('global_plan') or {}).get('content', {})
@@ -104,9 +160,12 @@ def inventory(s, sequence):
              '- Auditor instance：' + todo('独立审计者 ID'),
              '- 迁移入口与范围：%s；模块 %s' % (s.get('entry_mode', 'project'), cell(sorted(s['modules']))),
              '- 存量项目 / 目标项目：`%s` / `%s`' % (s['legacy_root'], s['target_root']),
-             '- 起点：' + todo('commit/tree 或非 Git 快照；本轮开始时已有的工作区修改及证据'),
-             '- 当前候选：' + todo('commit/tree、暂存/未暂存/未跟踪文件快照'),
-             '- 完整 diff / 文件清单：' + todo('固化证据链接及 sha256'),
+             '- 起点：' + ('commit %s（prepare 时目标所在提交）；本轮开始时已有的工作区修改：%s' % (changes['start'], todo('逐项列出或明确无'))
+                          if changes else todo('commit/tree 或非 Git 快照；本轮开始时已有的工作区修改及证据')),
+             '- 当前候选：' + ('HEAD 与工作区状态 %s（sha256 %s）' % (short(changes['status']['path']), changes['status']['sha256'][:12])
+                             if changes else todo('commit/tree、暂存/未暂存/未跟踪文件快照')),
+             '- 完整 diff / 文件清单：' + ('%s（sha256 %s）' % (short(changes['run']['path']), changes['run']['sha256'][:12])
+                                      if changes else todo('固化证据链接及 sha256')),
              '- 功能清单 / 全局规格：%s / %s' % (plan.get('feature_inventory_ref', {}).get('path', '无'), s['global_spec']['path']),
              '- 完备性：' + todo('complete 或 incomplete；缺项列入第 8 节'), '',
              '## 2. 模块汇总', '', '| 根模块 / 父 MO | 子模块 / owner | 功能点 | CHG-ID | 修改路径数 | 直接 / 下游影响 | 无修改时的依据 |', '| --- | --- | --- | --- | --- | --- | --- |']
@@ -134,9 +193,14 @@ def inventory(s, sequence):
                 todo('SPEC / fidelity 依据')))
         for ref in m.get('code_files', []):
             tids = [tid for tid, files in task_files.items() if same(ref['path']) in {same(f) for f in files}]
+            git_row = ((changes or {}).get('files') or {}).get(same(ref['path']))
+            diff = (git_row or {}).get('diff')
             rows4.append('| %s | %s / %s | %s | %s | `%s` | %s | %s | %s → %s | %s |' % (
-                change_ids[(mid, same(ref['path']))], mid, cell(tids), todo('add|modify|delete|rename'), todo('修改前路径；新增为不适用'),
-                ref['path'], todo('符号 / 行段'), todo('修改内容与原因'), todo('before-sha 或不适用'), ref['sha256'][:12], todo('diff / 快照证据')))
+                change_ids[(mid, same(ref['path']))], mid, cell(tids),
+                git_row['kind'] if git_row else todo('add|modify|delete|rename'), git_row['before'] if git_row else todo('修改前路径；新增为不适用'),
+                ref['path'], ('行 ' + git_row['lines']) if git_row else todo('符号 / 行段'), todo('修改内容与原因'),
+                git_row['before_sha'] if git_row else todo('before-sha 或不适用'), ref['sha256'][:12],
+                ('%s（sha256 %s）' % (short(diff['path']), diff['sha256'][:12])) if diff else todo('diff / 快照证据')))
         for trace in latest_implementation(m).get('reuse_trace', []):
             rows5.append('| %s / %s | %s | %s / %s | %s | %s | %s | %s |' % (
                 cell([change_ids[(mid, same(f))] for f in trace.get('files', []) if (mid, same(f)) in change_ids]), trace.get('capability_id'),
@@ -220,7 +284,7 @@ def latest_implementation(m):
         return {}
 
 
-def code_review(s, inventory_ref):
+def code_review(s, inventory_ref, changes=None):
     """The review report with every derived field in place; conclusions, reasons and diffs are the Auditor's."""
     import audit_code_review
     import run_changes
@@ -234,7 +298,7 @@ def code_review(s, inventory_ref):
     origin = s.get('host_task_contract', {}).get('global_spec') or next(iter(s.get('run_change_history', [])), {}).get('previous_global_spec', s['global_spec'])
     return {'schema_version': 1, 'run_id': s['run_id'], 'auditor_instance_id': todo('independent auditor instance'),
             'snapshot': audit_code_review.snapshot(s), 'change_inventory_ref': inventory_ref,
-            'modules': [{'module_id': mid, 'diff_refs': [todo('{path, sha256} of the before/after evidence')],
+            'modules': [{'module_id': mid, 'diff_refs': [((changes or {}).get('modules') or {}).get(mid) or todo('{path, sha256} of the before/after evidence')],
                          'checks': {name: {'conclusion': todo('satisfied|finding|not-applicable'), 'reason': todo('what was compared'),
                                            'evidence_refs': [inventory_ref]} for name in audit_code_review.CHECKS}}
                         for mid in s['modules'] if mid not in audit_code_review.carried(s)],  # after a repair: what it changed
@@ -266,8 +330,9 @@ def write(root, out, module_id=None, assignment_id=None):
             files['static-review.json'] = dump(out, 'static-review.json', static_review(s, module_id, a, static))
     else:
         require(s.get('modules') and all((x.get('plan') or {}).get('paths') for x in s['modules'].values()), 'every module needs a frozen plan to be inventoried')
-        files['audit-change-inventory.md'] = dump(out, 'audit-change-inventory.md', inventory(s, s.get('last_sequence')))
-        files['audit-code-review.json'] = dump(out, 'audit-code-review.json', code_review(s, files['audit-change-inventory.md']))
+        changes = git_changes(s, out)  # what Git says changed since the run's start, when the target is a checkout
+        files['audit-change-inventory.md'] = dump(out, 'audit-change-inventory.md', inventory(s, s.get('last_sequence'), changes))
+        files['audit-code-review.json'] = dump(out, 'audit-code-review.json', code_review(s, files['audit-change-inventory.md'], changes))
     unfilled = sum((out / name).read_text().count(SKELETON_MARK) for name in files)
     return {'files': files, 'unfilled': unfilled,
             'next_action': 'write every marked part; a report, review or inventory that still holds a mark is refused'}
