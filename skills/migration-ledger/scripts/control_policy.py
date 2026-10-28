@@ -89,22 +89,33 @@ def boundary_hash(m):
 
 
 def additions(m):
-    """The TASKs and PATHs a revision of a coded plan only adds, or None when it changes anything that was frozen: every
-    frozen PATH is as it was, every frozen TASK too except for PATHs added to it, and the decision envelope stands."""
+    """The TASKs and PATHs a revision of a coded plan only adds (an empty list when it adds nothing), or None when it changes
+    anything that was frozen: every frozen PATH is as it was, every frozen TASK too except for PATHs added to it, the
+    decision envelope stands and every frozen definition keeps all its lines."""
+    def content(value):  # a revision writes its files again: a reference is the bytes it names, not where they lie
+        if isinstance(value, dict):
+            return value['sha256'] if set(value) == {'path', 'sha256'} else {k: content(v) for k, v in value.items()}
+        return [content(v) for v in value] if isinstance(value, list) else value
     before = ((m.get('change_request') or {}).get('previous_plan') or {}).get('plan')
-    if not before or not m.get('plan') or before.get('decision_envelope') != m['plan'].get('decision_envelope'):
+    if not before or not m.get('plan') or content(before.get('decision_envelope')) != content(m['plan'].get('decision_envelope')):
         return None
     tasks, paths = keyed(m['plan']['tasks'], 'task_id'), keyed(m['plan']['paths'], 'path_id')
     for old in before['paths']:
-        if paths.get(old['path_id']) != old:
+        if content(paths.get(old['path_id'])) != content(old):
             return None
     for old in before['tasks']:
         new = tasks.get(old['task_id'])
-        if not new or {k: v for k, v in new.items() if k != 'path_ids'} != {k: v for k, v in old.items() if k != 'path_ids'} \
+        if not new or content({k: v for k, v in new.items() if k != 'path_ids'}) != content({k: v for k, v in old.items() if k != 'path_ids'}) \
                 or not set(old['path_ids']) <= set(new['path_ids']):
             return None
+    def kept(old, new):  # every line of the frozen text is still there, in order: the revision only adds to it
+        lines = iter(check_ref(new).read_text().splitlines()) if new else iter(())
+        return all(any(line == other for other in lines) for line in check_ref(old).read_text().splitlines())
+    texts = {d['kind']: d for d in m['plan'].get('definitions') or []}
+    if not all(kept(d, texts.get(d['kind'])) for d in before.get('definitions') or []):
+        return None
     added = sorted(set(tasks) - {x['task_id'] for x in before['tasks']}) + sorted(set(paths) - {x['path_id'] for x in before['paths']})
-    return added or None
+    return added
 
 
 def needs_human(m):

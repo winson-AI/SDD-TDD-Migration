@@ -49,7 +49,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | global-plan | Global | 登记已说明唯一 CASE 持有者与需求范围（需预检的 run 根模块带完整功能清单）时机械：Ledger 起草并由 advance_run 提交；否则 plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；可带 target_profile_ref（目标画像）；无关根可待拆，registry 变化后重审 |
 | audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot；审查当前时机械 |
 | audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human/trace；finding 自带路由时机械 |
-| audit-route-batch | Global | review_ref；审核 finding 责任映射及依赖图；全为 fix/trace 时机械；human 分支挂起，独立分支继续；trace 记为各 owner 的问题，owner 以 change/realloc-request/redecompose 自下而上修订，代码保留，消去后重新收集 |
+| audit-route-batch | Global | review_ref；审核 finding 责任映射及依赖图；全为 fix/trace 时机械；human 分支挂起，独立分支继续；trace 记为各 owner 的问题，owner 以 change/realloc-request/redecompose 自下而上修订（叶子的游标直接给出带 resolves 的 change，根因已确认时机械；范围缺口给 realloc-request），代码保留，消去后重新收集 |
 | audit-work | MO | 顶层 module_id 指负责模块；接受被冻结的修复任务，一轮 Fixer 授权；前置不可满足则报告待人工；机械 |
 | audit-retest | MO | 顶层 module_id 指发现模块或受影响中间模块；只等待本模块的上游修复/复测完成，执行完整模块路径；机械 |
 | audit-verdict | Auditor | review_ref；双方验证齐全、同基线、DoD 完成才裁决通过；过期证据报告待人工；复测全绿且无待人工时机械 |

@@ -16,6 +16,7 @@ description: /sdd-run <run-id> — 并行推进就绪模块
    - `host`：宿主按 operation 与 payload 自行提交。
    - `person`：交 Escalation 按 detail 问人，决定绑定 approval_subject_sha256。
    - `signal`：按 next_action 处理；severity=human 时告知用户。同一信号只印一次，tick 行的 signals_held 是仍成立的旧信号数。
+   - `done`：run 到终点（质量、原因、报告路径）；停止循环，把报告交给用户，green 时请其授权交付，带未验证用例时列出这些用例。
    - `tick`：本轮结束，回到循环。
    机械步骤、并行上限、依赖与审计时机由 Ledger 守卫，宿主不自行判断；单个失败不取消其他模块。
 

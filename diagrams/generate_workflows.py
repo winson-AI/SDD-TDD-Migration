@@ -140,7 +140,7 @@ def overview():
     d.box(1210,880,330,310,'Ledger · 唯一总线',[
         '分配包 / 事件 / 状态 / 证据', 'planning_context：全局视野', 'wave-complete：派波次集成', '预检：Ledger 代写或骨架起笔', '已有事实代填；被拒列全问题', '就绪才开工，阻塞退回派发前', '父聚合颜色不回写子模块'], 'green')
     d.box(1210,1230,330,290,'宿主执行层',[
-        '实际派发执行角色并绑定身份', 'worker 只读本步阅读卡', '同 Run：Fixer / CR / 父 MO / GO', 'drive 推进机械步，信号只报一次', '停了：handover 接手，可改钉包', '历史留痕，仅执行当前 SPEC', '遵守 DAG / 写锁 / 累计预算'], 'gray')
+        '实际派发执行角色并绑定身份', 'worker 只读本步阅读卡', '同 Run：Fixer / CR / 父 MO / GO', 'drive 推进机械步，终点给 done', '停了：handover 接手，可改钉包', '历史留痕，仅执行当前 SPEC', '遵守 DAG / 写锁 / 累计预算'], 'gray')
     d.box(1210,1530,330,280,'收尾 ≠ 全部通过',[
         'Green：真实复测与 DoD 完成', '仅缺自动化环境：Yellow 收尾', '排队、锁等待、worker 退出', '均不能独立算作 MO 收尾', 'host-idle / planning-overdue', '有 ready 动作继续推进', '一个失败不提前拉起 Auditor'], 'orange')
     d.text(1375,1935,'细节阅读',24,weight=650)
@@ -284,7 +284,7 @@ def auditor_closure():
         'audit-code-review（骨架起笔，预列 debt）：目标/改动/冗余/复用','audit-collect（机械）：先治理 CR-*，再剩余 Red / Yellow','绑定 SPEC / PATH / provider 与消费者证据'])
     d.arrow([(800,505),(800,565)])
     d.box(500,565,600,135,'根因分析 → 路由审核',[
-        '治理用 fix / human；遗留可 fix / verify / human','finding 自带路由 / 根因已确认：Ledger 路由并代审','需新 TASK / 契约 / scope：恢复 CR / 上游规划'],controller=True)
+        '治理用 fix / human；遗留可 fix / verify / human','finding 自带路由 / 根因已确认：Ledger 路由并代审','trace：叶子即开 CR（根因已确认则机械），代码保留'],controller=True)
     d.box(90,370,330,200,'复用与公共能力治理',[
         '重复实现 / 接线 / 公共能力',
         '核对已选映射与影响消费者',
