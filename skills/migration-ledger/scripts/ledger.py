@@ -2618,12 +2618,18 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     elif rounds['all_settled'] and not audit_code_review.current(s, ref_check):
         global_next = {'operation': 'audit-code-review', 'role': 'auditor', 'ready': True,
                        'reason': 'review-whole-change-before-defects', 'snapshot': audit_code_review.snapshot(s)}
+        kept = audit_code_review.carried(s)
+        if kept:  # after a repair: what changed is reviewed, the rest is carried from the last review
+            global_next.update(reason='review-what-the-repair-changed', review_modules=sorted(set(s['modules']) - kept))
     elif audit_code_review.pending(s) or audit_closure.leftovers(s):
         blockers = rounds['blockers']
         global_next = {'operation': None if blockers else 'audit-collect', 'role': 'global-orchestrator', 'ready': not blockers,
                        'reason': 'await-all-module-rounds' if blockers else 'collect-all-leftovers',
                        'module_barrier': blockers, 'continue_modules': rounds['ready_modules'],
                        'wait_for_modules': rounds['active_modules']}
+        if not blockers and audit_code_review.current(s, ref_check):  # a batch number and the reviewing Auditor: facts the Ledger holds
+            global_next.update(mechanical=True, payload={'batch_id': 'B%d' % (len(s.get('audit_batch_ids', [])) + 1),
+                                                         'auditor_instance_id': s['audit_code_review']['auditor_instance_id']})
     elif pending_repairs(s):
         unassigned = [pid for pid, item in pending_repairs(s).items() if not item['module_ids']]
         global_next = {'operation': 'audit-route' if unassigned else None, 'role': 'global-orchestrator',
@@ -2758,14 +2764,23 @@ def run_fixed_flow(s, step):
         step.update(mechanical=True, payload={**(step.get('payload') or {}), 'instance_id': s['audit_code_review']['auditor_instance_id']})
     elif op in ('integration-assign', 'integration-submit') and not context_readiness.enabled(s) and global_paths_run_by_themselves(s, step.get('path_ids')):
         step['mechanical'] = True
+    elif op == 'audit-test-assign' and not context_readiness.enabled(s):
+        step['mechanical'] = True  # the paths the audit selected, to a Test-Runner no module's author is
 
 
 def verdict_in_review(s, step):
-    """The Auditor's code review already is its verdict: nothing is left to retest, it found nothing and judged every
-    requirement of the host goal satisfied. The verdict is then submitted from that review, in the Auditor's name."""
+    """The Auditor's code review already is its verdict: nothing is left to retest, or the independent retest passed every
+    path, it found nothing and judged every requirement of the host goal satisfied. The verdict is then submitted from
+    that review and the retest's observations, in the Auditor's name."""
     audit = s.get('audit_assignment') or {}
-    if step.get('operation') != 'audit' or step.get('reason') != 'audit-running' or audit.get('path_ids'):
+    if step.get('operation') != 'audit' or step.get('reason') != 'audit-running':
         return False
+    if audit.get('path_ids'):
+        task = s.get('audit_test_assignment') or {}
+        if not (task.get('audit_assignment_id') == audit['assignment_id'] and task.get('closed') and task.get('result_ref')):
+            return False
+        if any(row['quality'] != 'green-passed' for row in read_json(check_ref(task['result_ref']))['paths']):
+            return False
     review = read_json(check_ref(s['audit_code_review']['report_ref']))
     return (audit.get('instance_id') == review.get('auditor_instance_id') and not review.get('findings')
             and all(row.get('conclusion') == 'satisfied' for row in review['goal_review']['requirements']))
@@ -2789,6 +2804,19 @@ def advance_run(root, principal, workers=None):
         elif op == 'audit':
             audit = s['audit_assignment']
             payload, actor = {'report_ref': verdict_from_review(root, s)}, {'role': 'auditor', 'instance_id': audit['instance_id']}
+        elif op == 'audit-collect':
+            payload, actor = dict(step['payload']), go
+        elif op in ('audit-plan', 'audit-verdict'):
+            batch = s['audit_batch']
+            payload = {'plan_ref': drafted_audit_plan(root, s)} if op == 'audit-plan' else \
+                      {'review_ref': closure_record(root, s, None, 'audit-verdict', sequence)}
+            actor = {'role': 'auditor', 'instance_id': batch['auditor_instance_id']}
+        elif op == 'audit-route-batch':
+            payload, actor = {'review_ref': closure_record(root, s, None, 'route-review', sequence)}, go
+        elif op == 'audit-test-assign':
+            audit = s['audit_assignment']
+            payload, actor = {'assignment_id': '%s-test-%d' % (audit['assignment_id'], sequence), 'instance_id': 'audit-test-runner',
+                              'path_ids': audit['path_ids']}, go
         elif op == 'integration-assign':
             payload, actor = {'assignment_id': f'integration-{sequence}', 'path_ids': step['path_ids'],
                               'instance_id': workers.get('test-runner') or 'integration-test-runner'}, go
@@ -2807,9 +2835,22 @@ def verdict_from_review(root, s):
               'actor_instance_id': audit['instance_id'], 'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],
               'snapshot': audit['snapshot'], 'paths': [], 'execution_status': 'no-retest-needed',
               'review_ref': s['audit_code_review']['report_ref']}
+    if audit['path_ids']:  # the independent retest's observations, as its Test-Runner reported them
+        task = s['audit_test_assignment']
+        report.update(kind='tests', paths=read_json(check_ref(task['result_ref']))['paths'], test_result_ref=task['result_ref'])
+        report.pop('execution_status')
     out = Path(root) / 'staging/auditor' / (audit['assignment_id'] + '-verdict.json')
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+    return file_ref(out)
+
+
+def drafted_audit_plan(root, s):
+    """The routing the findings state by themselves (audit_closure.drafted_routes), staged where the Auditor would write it."""
+    b = s['audit_batch']
+    out = Path(root) / 'staging/auditor' / ('%s-routes.json' % b['batch_id'])
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({'routes': audit_closure.drafted_routes(s, b), 'written_by': 'ledger'}, ensure_ascii=False, indent=2) + '\n')
     return file_ref(out)
 
 
@@ -2862,6 +2903,15 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
                                    **({'step_trace_ref': r['step_trace_ref']} if r.get('step_trace_ref') else {})}
                              for pid, r in sorted(unresolved(m).items())},
                 'checks': ['every failed PATH broke inside the write scope at grepped locations, or failed frozen assertions of this module']}
+    elif kind == 'route-review':
+        b = s['audit_batch']
+        body = {'batch_id': b['batch_id'], 'plan_ref': b['plan_ref'],
+                'routes': {fid: {k: r[k] for k in ('action', 'owner_module_ids')} for fid, r in sorted(b['routes'].items())},
+                'checks': ['every finding is routed once', 'every owner is a known module', 'no route waits for a human']}
+    elif kind == 'audit-verdict':
+        b = s['audit_batch']
+        body = {'batch_id': b['batch_id'], 'tests': {mid: audit_closure.proof(b, mid)['result_ref'] for mid in sorted(audit_closure.pending_modules(b))},
+                'checks': ['every module the batch worked on passed its retest on its current code', 'nothing waits for a human']}
     elif kind == 'dod':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
@@ -2873,7 +2923,7 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
         body = {'subject_sha256': decomposition.summary_subject(s, group),
                 'leaves': {mid: {k: s['modules'][mid].get(k) for k in ('phase', 'quality', 'effective_quality', 'code_baseline')}
                            for mid in decomposition.leaves(s, module_id)}}
-    path = run_storage.checked_path(Path(root) / 'reports' / kind / f'{module_id}-{sequence}.json', root)
+    path = run_storage.checked_path(Path(root) / 'reports' / kind / f'{module_id or "GLOBAL"}-{sequence}.json', root)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({'schema_version': 1, 'kind': kind, 'module_id': module_id, 'written_by': 'ledger', **body},
                                ensure_ascii=False, indent=2, sort_keys=True) + '\n')
@@ -2934,7 +2984,7 @@ def advance(root, principal, module_id, workers=None):
             step['operation'] = 'submit'
         elif step['operation'] == 'accept':
             payload = {'assignment_id': step['assignment_id']}
-        elif step['operation'] in ('freeze', 'diagnosis-accept', 'audit-defer', 'automation-unavailable', 'resume'):
+        elif step['operation'] in ('freeze', 'diagnosis-accept', 'audit-defer', 'automation-unavailable', 'resume', 'audit-work', 'audit-retest'):
             payload = dict(step.get('payload') or {})
         elif step['operation'] == 'dependency-ready':
             payload, actor = {}, {'role': 'global-orchestrator', 'instance_id': (workers or {}).get('global-orchestrator') or 'global-orchestrator'}

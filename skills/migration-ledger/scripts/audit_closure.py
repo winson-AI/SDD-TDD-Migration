@@ -297,6 +297,59 @@ def trace_back(s, b, actor):
             m.pop('audit_batch_id', None); m.pop('audit_test_stage', None); m.pop('audit_fix_grant', None)
 
 
+def drafted_routes(s, b):
+    """The routes the findings state by themselves, or None when one needs the Auditor's analysis. A code finding carries
+    the route its Auditor wrote in the review; a leftover failure routes by its confirmed root cause: a code defect to the
+    module the cause names (fix), a SPEC gap to it (trace). A blocker, a scope gap, a cause outside the code or one a
+    human decides is left to the Auditor."""
+    import control_policy
+    routes = []
+    for fid, f in sorted(b['findings'].items()):
+        if b.get('code_review_ref'):
+            route = f.get('route')
+            if not route or f.get('requires_human'):
+                return None
+            row = {'action': route['action'], 'owner_module_ids': list(route['owner_module_ids']),
+                   'root_cause': f['root_cause'], 'analysis_ref': f['analysis_ref']}
+        else:
+            cause, receipt = (f.get('result') or {}).get('root_cause') or {}, (f.get('result') or {}).get('execution_receipt')
+            if not receipt or cause.get('confidence') != 'confirmed' or cause.get('owner') not in s['modules'] or cause.get('category') in \
+                    ('human', 'environment', 'tooling', 'external', 'peripheral', 'scope', 'scope-insufficient'):
+                return None
+            try:
+                action = {'fixer': 'fix', 'spec': 'trace'}.get(control_policy.repair_route({'root_cause': cause}))
+            except ValueError:
+                return None
+            if not action:
+                return None
+            row = {'action': action, 'owner_module_ids': [cause['owner']], 'root_cause': cause, 'analysis_ref': receipt}
+        row.update(finding_id=fid, source_module_id=f['source_module_id'])
+        if row['action'] == 'fix':
+            row.update(source_context=b['contexts'][f['source_module_id']],
+                       owner_contexts={owner: b['contexts'][owner] for owner in row['owner_module_ids']})
+        routes.append(row)
+    return routes
+
+
+def verdict_clear(s, b):
+    """Every module the batch worked on passed its retest on its current code and nothing waits for a human: the verdict
+    is what the Ledger already checked."""
+    if b.get('human_issues'):
+        return False
+    try:
+        for mid in pending_modules(b):
+            m = s['modules'][mid]
+            if mid in b.get('automation_deferred', {}):
+                return False
+            pr = proof(b, mid); check_ref(pr['result_ref'])
+            if pr['freeze_id'] != m['freeze_id'] or pr['code_baseline'] != baseline(m['code_files']) or \
+                    any(r['quality'] != 'green-passed' for r in pr['paths']):
+                return False
+    except (ValueError, OSError, KeyError, TypeError):
+        return False
+    return True
+
+
 def batch(s):
     require(active(s), 'no active audit closure')
     return s['audit_batch']
@@ -509,9 +562,10 @@ def module_step(s, m):
         retry = b.get('retry_owners', {}).get(mid)
         if retry and any(b.get('retry_stops', {}).get(dep) for dep in retry['affected_module_ids']):
             step['reason'] = 'stop-affected-workers-before-audit-retry'; return step
-        step.update(operation='audit-work', ready=True, reason=None); return step
+        # Who repairs was routed and reviewed; audit-work re-checks every guard: nothing to judge.
+        step.update(operation='audit-work', ready=True, reason=None, mechanical=True, payload={}); return step
     if m.get('audit_batch_id') == b['batch_id'] and m['phase'] in ('diagnosing', 'fixing', 'testing', 'dod'): return None
-    if not completed(s,b,mid): step.update(operation='audit-retest', ready=True, reason=None)
+    if not completed(s,b,mid): step.update(operation='audit-retest', ready=True, reason=None, mechanical=True, payload={})
     return step
 
 
@@ -531,4 +585,10 @@ def global_step(s):
             'reason': None if op else 'human-review-required' if status == 'awaiting-human' else 'await-fixer-and-testing'}
     if status == 'awaiting-human':
         step['approval_subject_sha256'] = digest(b['human_report'])  # what the release approval binds
+    if op == 'audit-plan' and drafted_routes(s, b) is not None:
+        step.update(mechanical=True, reason='routes-in-findings')  # each finding states its route: submitted in the Auditor's name
+    elif op == 'audit-route-batch' and all(r['action'] in ('fix', 'trace') for r in b['routes'].values()):
+        step.update(mechanical=True, reason='owners-routed')  # every owner is known and nothing waits for a human
+    elif op == 'audit-verdict' and verdict_clear(s, b):
+        step.update(mechanical=True, reason='retests-green')
     return step

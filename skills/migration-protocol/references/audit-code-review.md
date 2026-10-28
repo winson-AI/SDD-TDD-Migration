@@ -43,13 +43,13 @@ Auditor **负责发现、委派、复核和唯一审计验收**。它不写源�
 
 ## Ledger 接口
 
-1. `status.global_next_step.operation=audit-code-review` 出现在全部 MO 收尾后；`snapshot` 是报告必须原样绑定的快照。先提交本实例 `stage=audit-code-review` 的 context receipt，`draft_ref` 指向待审报告。
-2. 步骤 `report_skeleton` 由 Ledger 写出本版清单（[模板](../../../template/audit-change-inventory.md)的结构，模块、CHG、追溯、测试映射已填）与 [audit-code-review.json](../../../template/audit-code-review.json)（snapshot、goal_review 的 TASK/PATH、各检查引用清单已填）；Auditor 填标记处的判断，经必填 `change_inventory_ref={path,sha256}` 引用清单后提交 `audit-code-review`，payload 为 `{report_ref, context_ref}`；留标记即拒。报告覆盖全部执行叶子、六项检查、diff 与实际审计者身份；全绿且无发现时各检查引用清单即可，不另写证据文件。
-3. `CR-*` findings 是**代码治理发现**，不修改测试三态、不伪造失败断言；记 source_module_id、category、analysis_ref、root_cause、affected_module_ids，影响集合须有接口/调用/依赖证据，含公共提供方的实际消费者。
-4. 有治理发现时 `audit-collect` **优先仅收集治理批次**，无治理发现才收集剩余 Red/Yellow；复用 `audit-plan → audit-route-batch → audit-work → Fixer → Testing/audit-retest → audit-verdict`。治理路线只能 fix 或 human，不能以旧 Green 或纯 verify 关闭冗余。
+1. `status.global_next_step.operation=audit-code-review` 出现在全部 MO 收尾后；报告原样绑定其 `snapshot`；context receipt 可由 Ledger 代写（`draft_ref` 指向报告）。
+2. 步骤 `report_skeleton` 由 Ledger 写出本版清单（[模板](../../../template/audit-change-inventory.md)的结构，模块、CHG、追溯、测试映射已填）与 [audit-code-review.json](../../../template/audit-code-review.json)（snapshot、goal_review 的 TASK/PATH、各检查引用清单已填）；Auditor 填标记处的判断，经必填 `change_inventory_ref={path,sha256}` 引用清单后提交 `audit-code-review`，payload 为 `{report_ref, context_ref}`；留标记即拒。报告覆盖应审叶子、六项检查、diff 与审计者身份；全绿且无发现时各检查引用清单即可，不另写证据文件。
+3. `CR-*` findings 是**代码治理发现**，不修改测试三态、不伪造失败断言；记 source_module_id、category、analysis_ref、root_cause、affected_module_ids，影响集合须有接口/调用/依赖证据，含公共提供方的实际消费者。能判定谁修时写 `route`（fix/trace、owner_module_ids），Ledger 据此路由。
+4. 有治理发现时 `audit-collect` **优先仅收集治理批次**，无治理发现才收集剩余 Red/Yellow；复用 audit-plan → route-batch → work → Fixer → retest → verdict。治理路线只能 fix/trace/human，不以旧 Green 或 verify 关闭冗余。
 5. 路由明确唯一公共能力 owner、改动与回归。Fixer 按冻结 TASK/写权限做行为等价修正；新增任务、provider 接口/职责或授权变化走 CR/上游审核，真实未决交 Human，release 后重规划/重冻；活动批次不偷改 SPEC、写集合或 provider hash，见[复用协议](reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
-6. work_modules 含来源、合法 owners、显式受影响消费者/下游。Build → 装机 → Automation 完整验证这些模块并留 retest_of，逐依赖推进；已审技术失败按累计预算重试，保留各轮根因/补丁/日志；CR-ID 跨版本稳定，重复 finding 按停滞/预算裁决；无关有效 Green 不重跑。
-7. 修改代码/SPEC/context 使代码审查失效：本批裁决且父汇总刷新后对新版本重新提交审查，旧报告归档，不得删除未解决 finding。人工释放后已经 CR/重新冻结和实现解决的问题，可在新基线审查中填 recovery_resolutions（finding_id、decision_id、reason、evidence_refs），决策须绑定该 finding 所属批次的人工作业报告且已 audit-release，不能只删 findings 冒充解决；复核已整改处、保留不受影响模块的有效审查证据，不凭测试 Green 断言冗余已消除，再收集遗留 Red/Yellow 完成缺陷闭环和最终独立审计。
+6. work_modules 含来源、合法 owners、显式受影响消费者/下游。Build → 装机 → Automation 完整验证这些模块并留 retest_of，逐依赖推进；已审技术失败按累计预算重试，留各轮根因/补丁/日志；CR-ID 跨版本稳定，重复 finding 按停滞/预算裁决；无关有效 Green 不重跑。
+7. 修改代码/SPEC/context 使代码审查失效：本批裁决且父汇总刷新后对新版本重新提交审查，旧报告归档；全局未变时只审有变化的模块（`review_modules`），其余沿用（`carried_modules`），目标审查仍全覆盖；不得删除未解决 finding。人工释放后经 CR/重冻与实现解决的问题，可在新基线审查中填 recovery_resolutions（finding_id、decision_id、reason、evidence_refs），决策须绑定该 finding 所属批次的人工作业报告且已 audit-release；复核已整改处，不凭测试 Green 断言冗余已消除，再收集遗留 Red/Yellow 并终审。
 8. `audit-assign` 与 `audit-unavailable` 都要求当前代码审查和无待处理治理发现。自动化不可用不阻止代码审查；unverified_findings 与 verification_deferral_history 保留未复核事实，不再派 Fixer，刷新代码审查后仍可按 Yellow/未测试收尾；受影响消费者缺测也不能把 finding 标 resolved。
 
 ## 复测与报告

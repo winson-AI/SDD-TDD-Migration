@@ -197,7 +197,8 @@ def code_review(s, inventory_ref):
             'snapshot': audit_code_review.snapshot(s), 'change_inventory_ref': inventory_ref,
             'modules': [{'module_id': mid, 'diff_refs': [todo('{path, sha256} of the before/after evidence')],
                          'checks': {name: {'conclusion': todo('satisfied|finding|not-applicable'), 'reason': todo('what was compared'),
-                                           'evidence_refs': [inventory_ref]} for name in audit_code_review.CHECKS}} for mid in s['modules']],
+                                           'evidence_refs': [inventory_ref]} for name in audit_code_review.CHECKS}}
+                        for mid in s['modules'] if mid not in audit_code_review.carried(s)],  # after a repair: what it changed
             'findings': [], 'recovery_resolutions': [], 'debts': [iid for iid, _ in debts(s)],
             'goal_review': {'global_spec_ref': s['global_spec'], 'origin_spec_ref': origin, 'feature_ids': features,
                             'requirements': [{'requirement_id': rid, 'conclusion': todo('satisfied|finding|blocked'), 'reason': todo('original goal against the delivered code and its verification'),

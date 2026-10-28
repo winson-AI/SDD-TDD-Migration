@@ -16,17 +16,17 @@ Auditor 在所有父/子 MO 的本轮实现、编译构建、自动化测试及�
 
 ## 问题处理
 
-1. GO `audit-collect` 固定当前遗留 finding、来源模块、SPEC/测试路径及基线；纯自动化环境缺测汇入收尾待验证清单，不强制当成代码缺陷。
-2. Auditor 逐 finding 读取 SPEC/tasks/CASE/PATH、断言和根因证据，提交 `audit-plan`。可直接复核的用 `verify`；已有根因需要补丁的用 `fix`；业务边界不明/不可修复的用 `human`。
-3. GO 审核路由，owner MO `audit-work` 委派 Fixer；同 owner 合并 finding。Auditor 不修代码或验收。
+1. `audit-collect` 固定当前遗留 finding、来源模块、SPEC/测试路径及基线（批次号与审查者都是 Ledger 已有事实，机械提交）；纯自动化环境缺测汇入收尾待验证清单，不强制当成代码缺陷。
+2. Auditor 逐 finding 读取 SPEC/tasks/CASE/PATH、断言和根因证据，提交 `audit-plan`。可直接复核的用 `verify`；已有根因需要补丁的用 `fix`；业务边界不明/不可修复的用 `human`。每个 finding 自带路由时 Ledger 以 Auditor 名义起草提交：治理 finding 带审查写的 `route`，遗留失败的根因已确认、指名模块且属代码缺陷（fix）或 SPEC 缺口（trace）。
+3. GO 审核路由，owner MO `audit-work` 委派 Fixer；同 owner 合并 finding。路由全为 fix/trace 且 owner 已知时审核与 audit-work、audit-retest 都由 Ledger 机械提交（守卫照旧复核）。Auditor 不修代码或验收。
 4. 正式复测留新回执、assert、基线与 retest_of。已确认技术根因指向已审核 owner、冻结有效、影响范围空闲且预算足时，回该 owner 的 audit-work；历史进 test_history，实际下游旧证明失效。未知/新 owner、语义或授权变化、预算耗尽交人工/回溯。缺环境保留 Yellow。
-5. Auditor `audit-verdict` 验收，Ledger 记录结果与修复 memory；独立分支继续，失败只影响有依赖关系的分支。父 MO 刷新汇总后，独立审阅收尾。
+5. Auditor `audit-verdict` 验收（批次内各模块复测在当前代码上全绿且无待人工时由 Ledger 机械裁决），Ledger 记录结果与修复 memory；独立分支继续，失败只影响有依赖关系的分支。父 MO 刷新汇总后，独立审阅收尾。
 
 work_modules 包含发现模块、根因 owner 与受影响下游，按模块基线保守完整回归并重建。扩展范围须追溯 finding/owner/依赖边；无关 Green 不追加回归，完整测试定义仅供覆盖核对。
 
 ## 收尾的实际执行契约
 
-独立 Test-Runner 执行，Auditor 消费原始证据并裁决，见[宿主目标审计](audit-code-review.md#宿主目标审计)。audit-assign 后，GO 提交 audit-test-assign，Test-Runner 经 execute_test 执行并 audit-test-submit；Auditor 报告绑定 test_result_ref，原样引用 PATH 观察。
+独立 Test-Runner 执行，Auditor 消费原始证据并裁决，见[宿主目标审计](audit-code-review.md#宿主目标审计)。audit-assign 后，GO 提交 audit-test-assign（无预检的 run 由 Ledger 派给非任何作者的 Test-Runner），Test-Runner 经 execute_test 执行并 audit-test-submit；Auditor 报告绑定 test_result_ref，原样引用 PATH 观察。复测全绿且代码审查无发现、目标全部满足时，结论由 Ledger 以 Auditor 名义按审查与观察提交。
 
 `audit-assign` 不检查 global_paths 非空。Ledger 的 `audit_scope(state)` 生成本轮执行集合，并固定到 assignment：
 
