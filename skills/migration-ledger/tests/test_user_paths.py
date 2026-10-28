@@ -149,6 +149,10 @@ class UnverifiedRunTests(unittest.TestCase):
         step = state['global_next_step']
         self.assertEqual((step['reason'], step['quality'], step['human_required']), ('completed-with-unverified-tests', 'yellow-blocked', False))
         self.assertEqual(step['device_gap_cases'], {'M001': ['C1']})
+        import drive
+        done, = [line for line in drive.drive(f.root, {'role': 'module-orchestrator', 'instance_id': 'mo'}) if line['kind'] == 'done']
+        self.assertEqual((done['quality'], done['reason'], done['device_gap_cases']), ('yellow-blocked', 'completed-with-unverified-tests', {'M001': ['C1']}))
+        self.assertTrue(Path(done['report']).is_file())  # the host stops and gives the user the report and the cases it could not run
 
     def test_the_report_marks_the_case_and_its_automation_yellow_and_leaves_the_build_green(self):
         f = self.f; self.finish(); self.audit()

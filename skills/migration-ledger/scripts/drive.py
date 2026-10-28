@@ -9,7 +9,8 @@ Each output line is JSON: `dispatch` (start this role on this step with this car
 dispatched: start it with its card unless already started, then wait), `host` (an operation the host submits itself with
 the payload given), `person` (a decision only a person gives, with what is asked), `signal` (a stall, an overdue plan, a
 refused request, a run ready for its retrospective: act on next_action; printed once, while it stands the tick line counts it
-in signals_held), then one `tick` line with the journal sequence. A line names the instance and, when one holds this role's
+in signals_held), `done` (the run reached its end: its quality, why it ended and the report; the host stops and tells the
+user, who authorizes delivery), then one `tick` line with the journal sequence. A line names the instance and, when one holds this role's
 context, the session to resume; its card then holds only the sections that session has not read. The host reads these
 lines, not the status views.
 """
@@ -25,6 +26,9 @@ import reading
 
 POLL_SECONDS = 1
 PERSON = ('human-decision-required', 'run-approval-required', 'source-approval-required')
+ENDS = {  # the run's end, by why it ended: nothing is left to dispatch, and what the user is told
+    'await-delivery-authorization': 'the run passed its audit: give the user the report and ask whether to deliver (merge, /sdd-archive)',
+    'completed-with-unverified-tests': 'the run ended with paths it could not run: give the user the report and the unverified cases'}
 
 
 def journal_size(root):
@@ -89,6 +93,11 @@ def tick(root, principal, workers=None):
     if st['global_next_step'].get('retrospective_due'):
         lines.append({'kind': 'signal', 'reason': 'retrospective-due', 'owner': 'global-orchestrator', 'severity': 'action',
                       'next_action': 'run /sdd-retrospect before the run is closed'})
+    end = st['global_next_step']
+    if end.get('reason') in ENDS and not any(line['kind'] in ('dispatch', 'running', 'host', 'person') for line in lines):
+        lines.append({'kind': 'done', 'quality': end.get('quality') or st['quality'], 'reason': end['reason'], 'next_action': ENDS[end['reason']],
+                      'report': st['migration_report']['markdown'],
+                      **({'device_gap_cases': end['device_gap_cases']} if end.get('device_gap_cases') else {})})
     if any(line['kind'] == 'signal' for line in lines):
         lines.append({'kind': 'signal', 'reason': 'attention-report', 'next_action': 'read only on a human signal', 'report': progress.get('report_path')})
     return lines, st['last_sequence']

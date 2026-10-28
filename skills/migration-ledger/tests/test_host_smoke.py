@@ -1,8 +1,8 @@
 """A host that does what /sdd-run says and nothing else: after the root's registration it runs `drive.py` as a command
 each tick, reads only the lines it prints, starts the role a `dispatch` or `running` line names with the card it hands,
-submits a `host` line through `ledger.py apply`, and stops when no line needs a model. The roles stand in for models and
-are scripted in-process, as in the continuous rehearsal; the host side is only these commands. At the end `ledger.py
-status` says the run reached its verdict."""
+submits a `host` line through `ledger.py apply`, and stops on the `done` line. The roles stand in for models and are
+scripted in-process, as in the continuous rehearsal; the host side is only these commands. A tick with nothing to act on
+and no end would leave such a host waiting forever, so it fails the walk."""
 import json
 from pathlib import Path
 import subprocess
@@ -47,13 +47,14 @@ class HostSmokeTests(test_continuous_run.ContinuousWalk):
             self.assertLess(max(len(json.dumps(line, ensure_ascii=False).encode()) for line in lines), LINE_BYTES)
             self.assertFalse([line for line in lines if line['kind'] in ('person', 'refused')], lines)  # nothing here asks a person
             signals += [json.dumps(line, sort_keys=True) for line in lines if line['kind'] == 'signal' and line['reason'] != 'attention-report']
-            work = [line for line in lines if line['kind'] in ('dispatch', 'running', 'host')]
-            if not work:
+            done = [line for line in lines if line['kind'] == 'done']
+            if done:
                 break
-            for line in work:
+            work = [line for line in lines if line['kind'] in ('dispatch', 'running', 'host')]
+            new = [line for line in work if (line['kind'], line.get('module_id'), line['operation'], line.get('assignment_id')) not in started]
+            self.assertTrue(new, 'nothing to act on and no end: ' + json.dumps(lines))  # every worker here answers in its turn
+            for line in new:
                 key = (line['kind'], line.get('module_id'), line['operation'], line.get('assignment_id'))
-                if key in started:  # a worker already started: the host waits for it
-                    continue
                 started.add(key)
                 seen.append((line['role'], line['operation'], line.get('module_id')))
                 if line['kind'] == 'host':
@@ -63,6 +64,8 @@ class HostSmokeTests(test_continuous_run.ContinuousWalk):
                 self.model_turn(line)
         else:
             self.fail('the run did not settle: ' + json.dumps(seen))
+        self.assertEqual((done[0]['quality'], done[0]['reason']), ('green-passed', 'await-delivery-authorization'))  # the user is asked to deliver
+        self.assertTrue(Path(done[0]['report']).is_file())
         cursor = json.loads(self.command('ledger.py', 'status', '--root', str(self.f.root), '--view', 'cursor'))
         self.assertEqual(cursor['quality'], 'green-passed')
         self.assertEqual(len(signals), len(set(signals)))  # a standing signal reached the host once
