@@ -618,6 +618,30 @@ def diagnosis_focus(m, p):
                 'each visual issue needs area, problem, severity and evidence_ref')
 
 
+def traced_revision(s, m, owed):
+    """What the unified audit traced back to this finished leaf is revised by it: its SPEC through a change request whose
+    request and impact are the audit's analysis, or, for a scope gap, its allocation through a request to its parent.
+    The revision names the issues it answers; the code stays. A cause the audit confirmed opens the change without a
+    model turn."""
+    rows = [(iid, s['issues'][iid]) for iid in owed if s['issues'][iid].get('traced_from')]
+    if not rows or m.get('blocked') or any(not a.get('closed') for a in m['assignments'].values()):
+        return None
+    batches = {b['batch_id']: b for b in [*s.get('audit_batch_history', []), s.get('audit_batch') or {}] if b.get('batch_id')}
+    causes = [(batches.get(i['traced_from']['batch_id'], {}).get('routes', {}).get(i['traced_from']['finding_id']) or {}).get('root_cause')
+              for _, i in rows]
+    try:
+        upstream = any(control_policy.repair_route({'root_cause': c}) == 'upstream' for c in causes if c)
+    except ValueError:
+        upstream = False
+    ids, refs = [iid for iid, _ in rows], [i['evidence_refs'][0] for _, i in rows]
+    if upstream:
+        return {'operation': 'realloc-request', 'role': 'module-orchestrator', 'ready': True, 'reason': 'audit-traceback',
+                'payload': {'reason': 'the unified audit traced a scope gap to this leaf', 'evidence_refs': refs, 'resolves': ids}}
+    confirmed = all(isinstance(c, dict) and c.get('confidence') == 'confirmed' for c in causes)
+    return {'operation': 'change', 'role': 'module-orchestrator', 'ready': True, 'reason': 'audit-traceback', 'mechanical': confirmed,
+            'payload': {'request_ref': refs[0], 'impact_ref': refs[0], 'resolves': ids}}
+
+
 def confirmed_change(routed, report):
     """A SPEC gap the diagnosis confirmed opens the change request it states: the request and its impact are the
     diagnosis, and the revised plan is reviewed when it is submitted. A likely cause stays with the orchestrator."""
@@ -633,7 +657,7 @@ def review_asked(s, m):
     (plan.review_questions)."""
     questions = (m.get('plan') or {}).get('review_questions') or []
     blocking = [row['issue_id'] for row in issues.of_module(s, m['module_id'])[0] if row['blocks']]
-    changed = control_policy.execution_started(m) and not control_policy.additions(m)
+    changed = control_policy.execution_started(m) and control_policy.additions(m) is None
     reasons = (['code exists: a changed plan is reviewed'] if changed else []) + \
               (['freeze gates fail: ' + ', '.join(g['gate'] for g in m['review_gates'])] if m.get('review_gates') else []) + \
               (['blocking issues: ' + ', '.join(blocking)] if blocking else []) + [str(q) for q in questions]
@@ -1044,6 +1068,7 @@ def _next_step(s, m):
         owed = [row['issue_id'] for row in issues.of_module(s, m['module_id'])[0]]
         if owed:  # recorded after it was done: its SPEC is revised (change) or its parent is asked (realloc-request); the code stays
             step.update(reason='open-issues', issue_ids=owed, recovery_action='change-or-realloc-request')
+            step.update(traced_revision(s, m, owed) or {})
     else:
         step.update(reason='unrecognized-phase')
     if step['ready']:
@@ -1822,6 +1847,7 @@ def mutate(s, req, principal, events, root=None):
             require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']), 'repair budget exhausted; recover requires decision')
             m['fix_rounds_used'] += 1
             m['total_fix_rounds'] += 1
+        issues.cite(s, mid, p.get('resolves'), p['request_ref'], principal)  # what an audit traced back is answered by this revision
         open_change(s, m, p)
     elif op == 'assign':
         role(principal, 'module-orchestrator')

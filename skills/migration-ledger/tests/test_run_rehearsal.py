@@ -126,9 +126,12 @@ class RunWalk(unittest.TestCase):
     def walk(self, limit=80):
         f, taken = self.f, []
         for _ in range(limit):
-            for mid in [s['module_id'] for s in f.state()['next_steps']]:  # leaves and parents
-                ledger.advance(f.root, MO, mid)
-            ledger.advance_run(f.root, MO)  # and the run's own fixed flows
+            moved = True
+            while moved:  # as a drive tick does: what the run's flows submit may unlock a module's step, and back
+                moved = False
+                for mid in [s['module_id'] for s in f.state()['next_steps']]:  # leaves and parents
+                    moved |= bool(ledger.advance(f.root, MO, mid)['applied'])
+                moved |= bool(ledger.advance_run(f.root, MO))  # and the run's own fixed flows
             st = f.state()
             # a ready step, or a dispatched worker's turn
             steps = [s for s in st['next_steps'] if (s.get('ready') or s.get('operation') == 'await-result') and s.get('operation') and not s.get('mechanical')]

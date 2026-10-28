@@ -50,6 +50,12 @@ def pending(s):
                 # Preserve Yellow separately; unavailable automation must not trigger
                 # another automatic Fixer round or block independent final review.
                 resolved.update(batch.get('unverified_findings', []))
+            if batch.get('released_for') == 'traceback':  # traced back and answered by the revision of every owner it named
+                issues = s.get('issues') or {}
+                resolved.update(fid for fid, route in batch.get('routes', {}).items() if route['action'] == 'trace'
+                                and (issues.get('TRACE-%s-%s' % (batch['batch_id'], fid)) or {}).get('applies_to')
+                                and set(issues['TRACE-%s-%s' % (batch['batch_id'], fid)]['applies_to'])
+                                <= set(issues['TRACE-%s-%s' % (batch['batch_id'], fid)]['resolved']))
     return {f['finding_id']: copy.deepcopy(f) for f in review.get('findings', [])
             if f['finding_id'] not in resolved}
 

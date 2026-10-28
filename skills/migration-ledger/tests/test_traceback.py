@@ -41,7 +41,8 @@ class TraceTests(unittest.TestCase):
         self.assertEqual((issue['kind'], issue['applies_to'], issue['blocks'], issue['summary']),
                          ('defect', ['M001'], False, 'the provider SPEC never stated the shared value'))
         step = next(x for x in state['next_steps'] if x['module_id'] == 'M001')
-        self.assertEqual((step['reason'], step['issue_ids'], step['recovery_action']), ('open-issues', [issue_id], 'change-or-realloc-request'))
+        self.assertEqual((step['operation'], step['reason'], step['issue_ids'], step['mechanical']), ('change', 'audit-traceback', [issue_id], True))
+        self.assertEqual(step['payload']['resolves'], [issue_id])  # the revision answers what was traced back: a confirmed cause opens it by itself
         with self.assertRaisesRegex(Rejected, 'open-issues'):  # the audit collects again once what it sent back is revised
             c.call('audit-collect', {'batch_id': 'B2', 'auditor_instance_id': 'auditor'}, role='global-orchestrator', module=None)
         baseline = state['modules']['M001']['code_baseline']

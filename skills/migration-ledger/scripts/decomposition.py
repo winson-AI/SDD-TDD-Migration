@@ -814,6 +814,8 @@ def handle(s, req, actor, run_root):
         evidence_refs = nonempty(p.get('evidence_refs'), 'realloc-request evidence required')
         for ref in evidence_refs:
             check_ref(ref)
+        import issues
+        issues.cite(s, mid, p.get('resolves'), evidence_refs[0], actor)  # what an audit traced back is answered by this request
         m['realloc_request'] = {'reason': reason, 'evidence_refs': evidence_refs,
                                 'actor_instance_id': actor['instance_id'], 'status': 'pending', 'resume_phase': m['phase']}
         m['phase'] = 'waiting-upstream'
