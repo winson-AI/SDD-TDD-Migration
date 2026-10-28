@@ -109,6 +109,10 @@ if __name__ == '__main__':
     unittest.main()
 
 
+# The marks of the unified code review by leaf count on a Git target, last recorded in VERIFICATION.md.
+RECORDED_MARKS = {2: 40, 10: 144, 30: 404}
+
+
 class GitChangeTests(unittest.TestCase):
     """With a target that is a Git checkout, what the inventory's file rows and the review's diffs say is what Git says."""
     def git(self, root, *args):
@@ -161,3 +165,20 @@ class GitChangeTests(unittest.TestCase):
         self.assertTrue(rows and all('| add | 不适用 |' in row and 'diffs/' in row for row in rows), rows)
         review = json.loads(check_ref(files['audit-code-review.json']).read_text())
         self.assertTrue(all(m['diff_refs'][0]['path'].endswith(m['module_id'] + '.diff') for m in review['modules']))
+        self.report_growth(w.f.root)
+
+    def report_growth(self, root):
+        """The marks the Auditor fills in one turn as leaves are added (copies of a completed leaf): reported, not a gate."""
+        import copy, tempfile, warnings
+        import ledger
+        s = {**ledger.read_events(root)[0], 'run_root': str(root)}
+        leaf, mark, taken = next(iter(s['modules'].values())), report_skeleton.SKELETON_MARK, {}
+        for n in RECORDED_MARKS:
+            state = copy.deepcopy(s)
+            state['modules'].update({'M%03d' % (100 + i): {**copy.deepcopy(leaf), 'module_id': 'M%03d' % (100 + i)} for i in range(n - len(s['modules']))})
+            out = Path(tempfile.mkdtemp()); self.addCleanup(__import__('shutil').rmtree, out, True)
+            changes = report_skeleton.git_changes(state, out)
+            text = report_skeleton.inventory(state, 1, changes) + json.dumps(report_skeleton.code_review(state, {'path': 'inventory', 'sha256': 'x'}, changes), ensure_ascii=False)
+            taken[n] = text.count(mark)
+        if any(taken[n] > RECORDED_MARKS[n] for n in taken):
+            warnings.warn('the unified code review holds %s marks by leaves, %s recorded' % (taken, RECORDED_MARKS))
