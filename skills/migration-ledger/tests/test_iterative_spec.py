@@ -49,7 +49,8 @@ class UpstreamPlanTests(unittest.TestCase):
         f = self.f; doc = self.freeze(self.t.plan('M001'))
         m = f.state()['modules']['M001']
         self.assertEqual(m['phase'], 'frozen'); self.assertEqual(m['assignments'], {})
-        self.assertEqual(m['plan']['paths'], doc['paths'])
+        import design_stage
+        self.assertEqual(m['plan']['paths'], design_stage.path_defaults(doc))  # the design's paths with what they leave out filled
         self.assertIn('spec-designer', m['authors'])
         self.assertEqual(f.state()['decisions'], {})
         self.t.implement_and_test('M001')

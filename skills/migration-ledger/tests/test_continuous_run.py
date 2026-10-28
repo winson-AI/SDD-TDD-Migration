@@ -22,7 +22,7 @@ FEATURES = [{'feature_id': fid, 'name': name, 'functional_path': 'Search/' + nam
             for fid, name, cases in (('F-QUERY', 'Query', ['C1', 'C2', 'C3']), ('F-HISTORY', 'History', ['C4', 'C5', 'C6']))]
 # The counts last recorded in VERIFICATION.md: model turns by role, and the most protocol bytes one turn's card handed a model.
 RECORDED = {'turns': {'global-orchestrator': 1, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 4, 'auditor': 1},
-            'card_bytes': 29515}
+            'card_bytes': 19640}
 
 
 class ContinuousWalk(test_run_rehearsal.RunWalk):
@@ -73,6 +73,16 @@ class ContinuousRunTests(ContinuousWalk):
         self.assertEqual([(row['role'], row['operation']) for row in taken[:3]],
                          [('global-orchestrator', 'register'), ('module-orchestrator', 'decompose'), ('spec-designer', 'plan')])
         self.assertEqual(sorted(self.f.state()['modules']), ['M011', 'M012'])
+
+    def test_confirming_a_drafted_cut_reads_the_rules_of_a_hand_cut_only_on_demand(self):
+        import ledger, reading
+        ledger.advance_run(self.f.root, test_run_rehearsal.MO)
+        step = next(s for s in self.f.state()['next_steps'] if s.get('operation') == 'decompose')
+        resident = {(row['ref'], row['section']) for row in step['must_read']}
+        on_demand = {(row['ref'], row['section']) for row in step['read_when_writing']}
+        self.assertFalse(resident & set(reading.HAND_CUT))
+        self.assertLessEqual(set(reading.HAND_CUT), on_demand)  # named with their purpose, read when the cut departs from the draft
+        self.assertEqual(step['templates'], ['template/module-decomposition.json'] + [x for x in step['templates'] if 'telemetry' in x])
 
 
 if __name__ == '__main__':

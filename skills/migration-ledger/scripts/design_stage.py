@@ -72,11 +72,40 @@ def shared_commands(paths):
     return paths
 
 
+RUNS = {'build': ('代码已被接受', '执行冻结的构建命令'), 'static': ('构建与单测 Green', '审查冻结的规格闭合'),
+        'unit': ('代码已被接受', '执行冻结的单测命令'), 'jvm': ('代码已被接受', '运行冻结的功能测试')}
+
+
+def path_defaults(result):
+    """What a PATH says unless its author writes otherwise, filled so the author does not copy it per case: required, no
+    parameters or dependencies, P0, module scope; a command or in-process PATH's precondition and step; and its preparation:
+    prepared from the frozen test assets that cover it, else existing on its command's selection or on the design note."""
+    assets = [a for a in result.get('test_assets') or [] if isinstance(a, dict)]  # read, not judged: coverage judges them
+    for path in result['paths']:
+        if not isinstance(path, dict):
+            continue
+        for key, value in (('required', True), ('parameters', {}), ('dependency_refs', []), ('priority', 'P0'), ('scope', 'module')):
+            path.setdefault(key, copy.deepcopy(value))
+        run = RUNS.get(path.get('kind')) or (RUNS['jvm'] if path.get('platform') == 'jvm' else None)
+        if run:
+            path.setdefault('preconditions', [run[0]])
+            path.setdefault('steps', [run[1]])
+        if 'preparation' not in path:
+            mine = [a for a in assets if path.get('path_id') in (a.get('path_ids') or [])]
+            selection = (path.get('command') or {}).get('selection_ref')
+            path['preparation'] = {'status': 'prepared', 'reason': '随计划冻结的测试资产', 'asset_ids': [a['asset_id'] for a in mine],
+                                   'evidence_refs': [copy.deepcopy(a['ref']) for a in mine]} if mine else \
+                                  {'status': 'existing', 'reason': '冻结的命令或设计说明所定的测试方式', 'asset_ids': [],
+                                   'evidence_refs': [copy.deepcopy(selection if isinstance(selection, dict) else result.get('design_ref'))]}
+    return result['paths']
+
+
 def upstream_plan(s, m, plan, judge=True):
     """The test plan a SPEC brings with it. It is judged with the plan that submits it; the plan the Ledger already
     holds is only held to the upstream cases, allocation and context that are current now."""
     result = read_json(check_ref(plan.get('test_design_ref')))
     result['paths'] = shared_commands(result.get('paths') or [])
+    path_defaults(result)
     require(result.get('schema_version') == 1 and result.get('kind') == 'upstream-test-plan' and
             result.get('module_id') == m['module_id'], 'upstream test plan module/kind/schema mismatch')
     require(result.get('case_refs') == upstream_refs(s), 'test plan must bind authoritative upstream cases')
@@ -160,7 +189,8 @@ def plan_check(s, m, plan, author=None, judge=True):
     """A plan carries the paths of its design unchanged. `judge` is off for the plan the Ledger already holds."""
     if not s.get('test_design_required') and not plan.get('test_design_ref'): return
     result = upstream_plan(s, m, plan, judge)
-    require(plan['paths'] == result['paths'], 'plan PATH/assertions differ from accepted design')
+    carried = {**result, 'paths': shared_commands(plan['paths'])}  # what the plan leaves out takes the same defaults
+    require(path_defaults(carried) == result['paths'], 'plan PATH/assertions differ from accepted design')
     defs = [r for r in plan['definitions'] if r['kind'] == 'test-design']
     require(len(defs) == 1 and {k: defs[0][k] for k in ('path', 'sha256')} == result['design_ref'],
             'plan test-design definition differs from accepted design')
