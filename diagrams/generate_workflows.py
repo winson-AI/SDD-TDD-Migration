@@ -172,12 +172,12 @@ def module_execution():
         '真实未决 / 需求验收授权变化交 Human'],controller=True)
     d.arrow([(800,795),(800,810)])
     d.box(550,810,500,130,'Implementer · 按 TASK 执行',[
-        'Ledger 代写预检；步骤先列提交必备证据',
+        'Ledger 代写预检；同构建单元的叶子并行写',
         '任务先单测：自查红→绿两份记录为 red 证据',
         '冻结测试原样交付（可在写范围外）；编译通过即机械接受'])
     d.arrow([(800,940),(800,1010)])
     d.box(550,1010,500,180,'Test-Runner · 正式验证',[
-        'build → unit 一派发，advance 代跑',
+        'build → unit 一派发（无人写入时），advance 代跑',
         '通过后单独派 static 审阅',
         'automation：有适配器即代跑；visual 另派',
         '只回退出码与报错定位；结果已定即机械验收'])
@@ -324,7 +324,7 @@ def auditor_closure():
         'awaiting-human：保留各次断言、证据与问题归属','审核决定绑定当前报告摘要；不自动追加修复'], 'orange')
     d.arrow([(400,1735),(400,1795)])
     d.box(90,1795,620,155,'独立审阅收尾 → 全局报告',[
-        '遗留需 audit-testing；空清单 Ledger 代预检、只审阅','全通过 → 全局 Green → 按授权交付','仅缺自动化环境 → Yellow / 未执行报告收尾'], 'green')
+        '复测由 Ledger 派发并代预检；空清单只审阅','全通过 → 全局 Green → 按授权交付','仅缺自动化环境 → Yellow / 未执行报告收尾'], 'green')
     d.arrow([(1200,1735),(1200,1795)],'purple')
     d.box(890,1795,620,155,'人工批准 → GO 释放批次 → 受控恢复',[
         'audit-release 后按原因 resume / recover / CR','需要时重新 plan / freeze；恢复不会直接 Green','再次满足全量收尾门禁，才可创建新审计批次'], 'purple')

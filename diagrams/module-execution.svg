@@ -38,13 +38,13 @@
 <path d="M800,795 L800,810" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="810" width="500" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="839.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Implementer · 按 TASK 执行</text>
-<text x="800.0" y="873.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 代写预检；步骤先列提交必备证据</text>
+<text x="800.0" y="873.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 代写预检；同构建单元的叶子并行写</text>
 <text x="800.0" y="902.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">任务先单测：自查红→绿两份记录为 red 证据</text>
 <text x="800.0" y="931.5" font-size="18.08" fill="#4b5563" text-anchor="middle" font-weight="400">冻结测试原样交付（可在写范围外）；编译通过即机械接受</text>
 <path d="M800,940 L800,1010" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="1010" width="500" height="180" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="1050.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Test-Runner · 正式验证</text>
-<text x="800.0" y="1084.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">build → unit 一派发，advance 代跑</text>
+<text x="800.0" y="1084.0" font-size="18.82" fill="#4b5563" text-anchor="middle" font-weight="400">build → unit 一派发（无人写入时），advance 代跑</text>
 <text x="800.0" y="1113.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">通过后单独派 static 审阅</text>
 <text x="800.0" y="1142.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">automation：有适配器即代跑；visual 另派</text>
 <text x="800.0" y="1171.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只回退出码与报错定位；结果已定即机械验收</text>
