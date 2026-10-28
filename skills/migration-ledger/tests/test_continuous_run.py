@@ -94,6 +94,44 @@ class SevenLeafTests(ContinuousWalk):
             warnings.warn('seven leaves took %d ticks, %d recorded' % (len(ticks), RECORDED_TICKS['seven leaves']))
 
 
+RECORDED_ADAPTER = {'turns': {'global-orchestrator': 1, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 2, 'auditor': 1},
+                    'card_bytes': 19795}  # the same run whose project states the adapter that drives its functional paths
+
+
+class AdapterRunTests(ContinuousWalk):
+    """The project states a test adapter; the run's input does not repeat it."""
+    def setUp(self):
+        def config(f):
+            script = f.base / 'adapter.py'
+            script.write_text('import argparse,json,pathlib,runpy\np=argparse.ArgumentParser();p.add_argument("--query-file");p.add_argument("--result-file");a,_=p.parse_known_args()\n'
+                              f'v=sorted({{runpy.run_path(str(c))["value"] for c in pathlib.Path({str(f.target)!r}).rglob("code.py")}})\n'
+                              'json.dump({"assertions":[{"assertion_id":"A1","expected":2,"actual":v[0] if v else None,"passed":v==[2]}]},open(a.result_file,"w"))\n')
+            return {'test_adapter': {'executable': sys.executable, 'args': [str(script)]}}
+        real = test_source_changes.SourceChangeTests.register_root
+        test_source_changes.SourceChangeTests.register_root = lambda t, features=None, global_paths=(): real(t, features, global_paths, config=config)
+        try:
+            super().setUp()
+        finally:
+            test_source_changes.SourceChangeTests.register_root = real
+
+    def test_the_adapter_the_project_states_runs_the_functional_paths_without_a_model(self):
+        self.assertEqual(self.f.state()['test_adapter']['args'][0].rsplit('/', 1)[-1], 'adapter.py')  # taken from the project, not the input
+        record, taken = self.rehearse(RECORDED_ADAPTER)
+        self.assertEqual(record['turns'], RECORDED_ADAPTER['turns'])  # a Test-Runner turn per leaf: its static review
+        automation = [e for e in workflow_cost.journal(self.f.root) if e['operation'] == 'submit' and e['actor']['role'] == 'test-runner'
+                      and e['request_id'].startswith('advance-')]
+        self.assertTrue(automation)  # run by advance with the stated adapter
+
+    def test_an_input_that_repeats_another_adapter_is_refused(self):
+        import project_context
+        from contracts import Rejected
+        ref = self.f.state()['project_context_ref']
+        stated = project_context.run_adapter({'project_context_ref': ref})
+        self.assertEqual(project_context.run_adapter({'project_context_ref': ref, 'test_adapter': stated}), stated)
+        with self.assertRaisesRegex(Rejected, 'test adapter mismatch'):
+            project_context.run_adapter({'project_context_ref': ref, 'test_adapter': {'executable': sys.executable, 'args': ['other.py']}})
+
+
 class GlobalPathWalk(ContinuousWalk):
     """The same run with a global path frozen as a command over one case: held by the leaf done first, it is a wave's
     integration test; held by the leaf done last, the final audit runs it."""

@@ -755,6 +755,16 @@ def git_head(root):
     return out.stdout.strip() if out.returncode == 0 and re.fullmatch(r'[0-9a-f]{40}', out.stdout.strip()) else None
 
 
+def run_adapter(payload):
+    """The test adapter a run is initialised with: for a prepared run the one its project states, which an input that
+    repeats it must equal; otherwise the input's own."""
+    if not payload.get('project_context_ref'):
+        return copy.deepcopy(payload.get('test_adapter') or {})
+    stated = verify_snapshot(payload['project_context_ref'])['effective_config'].get('test_adapter') or {}
+    require(payload.get('test_adapter') in (None, {}, stated), 'run/config test adapter mismatch: a prepared run uses the adapter its project states')
+    return copy.deepcopy(stated)
+
+
 def bind_run(ref, run_root, run_id, payload):
     snapshot = verify_snapshot(ref)
     require(snapshot['run_id'] == run_id and snapshot['run_root'] == str(Path(run_root).resolve()), 'context belongs to a different run')
