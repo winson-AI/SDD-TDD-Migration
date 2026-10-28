@@ -521,6 +521,7 @@ def implementation(plan, result, tests=()):
         require(all(any(Path(f).resolve().is_relative_to(Path(p).resolve()) for p in allowed)
                     for f in trace.get('files', [])), 'implementation file outside planned task scope')
     for iid, trace in traces.items():
+        require(iid in planned, '%s has no row in the frozen dimension_trace: the plan traces every item to its TASK before it is coded' % iid)
         require(set(trace.get('task_ids', [])) == set(planned[iid]['task_ids']), 'implementation dimension task mismatch')
         require(trace.get('summary'), 'dimension implementation summary required')
         evidence(trace.get('evidence_refs'), 'dimension implementation evidence')

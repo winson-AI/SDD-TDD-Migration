@@ -88,14 +88,18 @@ def boundary_hash(m):
     return digest({'envelope': m['plan']['decision_envelope'], 'acceptance': acceptance(m['plan']['paths'])})
 
 
+def content(value):
+    """A plan value as what it says: a revision writes its files again, so a reference is the bytes it names, not where
+    they lie."""
+    if isinstance(value, dict):
+        return value['sha256'] if set(value) == {'path', 'sha256'} else {k: content(v) for k, v in value.items()}
+    return [content(v) for v in value] if isinstance(value, list) else value
+
+
 def additions(m):
     """The TASKs and PATHs a revision of a coded plan only adds (an empty list when it adds nothing), or None when it changes
     anything that was frozen: every frozen PATH is as it was, every frozen TASK too except for PATHs added to it, the
     decision envelope stands and every frozen definition keeps all its lines."""
-    def content(value):  # a revision writes its files again: a reference is the bytes it names, not where they lie
-        if isinstance(value, dict):
-            return value['sha256'] if set(value) == {'path', 'sha256'} else {k: content(v) for k, v in value.items()}
-        return [content(v) for v in value] if isinstance(value, list) else value
     before = ((m.get('change_request') or {}).get('previous_plan') or {}).get('plan')
     if not before or not m.get('plan') or content(before.get('decision_envelope')) != content(m['plan'].get('decision_envelope')):
         return None
