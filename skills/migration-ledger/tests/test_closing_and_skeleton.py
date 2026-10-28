@@ -43,6 +43,33 @@ class RetrospectiveDueTests(unittest.TestCase):
             'next_check': 'every owned input has a source', 'evidence_refs': [proof]}]})}, role='host', module=None)
         self.assertNotIn('retrospective_due', f.state()['global_next_step'])
 
+    def test_the_unified_auditor_is_dispatched_to_the_retrospective_from_a_skeleton_and_delivery_does_not_wait_for_it(self):
+        import drive
+        import package_feedback
+        import report_skeleton
+        f = self.f
+        f.call('suspend', {'kind': 'human', 'reason': 'need decision', 'root_cause': 'ambiguous input', 'owner': 'human'})
+        f.approve(f.state()['next_steps'][0]['approval_subject_sha256'], 'RESUME')
+        f.call('resume', {'decision_id': 'RESUME'})
+        f.test_green_flow_and_independent_global_audit()
+        step = f.state()['global_next_step']['retrospective_step']
+        self.assertEqual((step['role'], step['instance_id'], step['templates']), ('auditor', 'auditor', ['template/retrospective.json']))
+        lines = drive.tick(f.root, {'role': 'host', 'instance_id': 'host'})[0]
+        self.assertEqual([(l['kind'], l.get('operation')) for l in lines if l['kind'] in ('dispatch', 'done')], [('dispatch', 'retrospect'), ('done', None)])
+        out = Path(f.base) / 'staging-retro'
+        skeleton = report_skeleton.write(f.root, out, retro=True)
+        self.assertGreater(skeleton['unfilled'], 0)  # the observation is there, its abstraction is the Auditor's
+        entry = json.loads((out / 'retrospective.json').read_text())['entries'][0]
+        self.assertTrue(entry['summary'] and entry['evidence_refs'])
+        with self.assertRaisesRegex(Rejected, 'unfilled skeleton'):
+            f.call('retrospect', {'lessons_ref': skeleton['files']['retrospective.json']}, role='auditor', module=None)
+        with self.assertRaisesRegex(Rejected, 'unified Auditor'):
+            f.call('retrospect', {'nothing_to_abstract': 'one human pause'}, role='auditor', module=None, instance='auditor-2')
+        self.assertTrue(package_feedback.retrospective(f.state()).startswith('owed: 1 observations'))  # skipped: a debt in the report
+        f.call('retrospect', {'nothing_to_abstract': 'the pause was a person answering, nothing to plan differently'}, role='auditor', module=None)
+        self.assertNotIn('retrospective_step', f.state()['global_next_step'])
+        self.assertEqual(package_feedback.retrospective(f.state()), 'nothing to abstract: the pause was a person answering, nothing to plan differently')
+
     def test_what_the_slicing_itself_shows_is_a_signal(self):
         state = {'modules': {'M001': {'plan_rounds': [1, 4]}, 'M002': {}}, 'module_groups': {}}
         # the freeze that took four plans is both an observation to abstract and a signal about the slicing

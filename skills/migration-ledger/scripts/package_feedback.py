@@ -47,7 +47,18 @@ def run_row(s, events, run_root):
             'gap_families': gap_families(s),
             'rule_debt': [{k: row[k] for k in ('module_id', 'artifact', 'reason')} for row in rule_debt.collect(s)],
             'model_turns': sum(by_role.values()), 'turns_per_leaf': {role: round(n / leaves, 2) for role, n in sorted(by_role.items())},
-            'max_card_bytes': max([p.stat().st_size for p in cards.glob('*.md')] if cards.is_dir() else [], default=0)}
+            'max_card_bytes': max([p.stat().st_size for p in cards.glob('*.md')] if cards.is_dir() else [], default=0),
+            'retrospective': retrospective(s)}
+
+
+def retrospective(s):
+    """What the run's retrospective came to; one owed and never submitted is a debt of the run, not a block on it."""
+    import experience
+    done = s.get('retrospectives') or []
+    if done:
+        return 'nothing to abstract: ' + done[-1]['nothing_to_abstract'] if done[-1].get('nothing_to_abstract') else 'lessons submitted'
+    due = experience.retrospective_due(s)
+    return 'owed: %d observations, signals %s' % (due['observations'], ', '.join(due['signals']) or 'none') if due else None
 
 
 def report(data):
@@ -67,16 +78,16 @@ def report(data):
 def markdown(out):
     lines = ['# Package feedback', '', 'Counted from each run; a report, not a change to any rule.', '']
     for sha, runs in out['packages'].items():
-        lines += ['## Package %s' % sha[:12], '', '| run | quality | leaves | model turns | turns per leaf by role | max card | refusals | gaps raised / open | rule debt |',
-                  '| --- | --- | --- | --- | --- | --- | --- | --- | --- |']
+        lines += ['## Package %s' % sha[:12], '', '| run | quality | leaves | model turns | turns per leaf by role | max card | refusals | gaps raised / open | rule debt | retrospective |',
+                  '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
         refused, gaps = Counter(), Counter()
         for rid, row in runs.items():
             raised = sum(g['raised'] for g in row['gap_families'].values())
             still = sum(g['open'] for g in row['gap_families'].values())
-            lines.append('| %s | %s | %s | %s | %s | %s | %s | %s / %s | %s |' % (
+            lines.append('| %s | %s | %s | %s | %s | %s | %s | %s / %s | %s | %s |' % (
                 rid, row['run_quality'], (row.get('slicing') or {}).get('leaves', '-'), row['model_turns'],
                 ', '.join('%s %s' % item for item in row['turns_per_leaf'].items()) or '-', row['max_card_bytes'],
-                sum(row['refusals'].values()), raised, still, len(row['rule_debt'])))
+                sum(row['refusals'].values()), raised, still, len(row['rule_debt']), row.get('retrospective') or '-'))
             refused.update(row['refusals'])
             gaps.update({name: g['raised'] for name, g in row['gap_families'].items()})
         lines += ['', 'Refused checks, attempts over these runs:', ''] + (['- %s: %d' % item for item in refused.most_common(10)] or ['- none'])

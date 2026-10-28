@@ -91,11 +91,15 @@ def tick(root, principal, workers=None):
         if signal.get('reason') not in seen:  # a source change already has its own line
             lines.append({'kind': 'signal', **{k: signal[k] for k in ('module_id', 'reason', 'owner', 'next_action', 'severity')
                                                if signal.get(k) is not None}})
-    if st['global_next_step'].get('retrospective_due'):
+    retro = st['global_next_step'].get('retrospective_step')
+    if retro:  # dispatched to the unified Auditor, resuming its session; the run is delivered whether or not it is done
+        lines.append({'kind': 'dispatch', **row(retro, card(root, retro, retro['instance_id'])), 'report_skeleton': retro['report_skeleton'],
+                      'next_action': 'fill the skeleton and submit retrospect(lessons_ref), or retrospect(nothing_to_abstract) with the reason'})
+    elif st['global_next_step'].get('retrospective_due'):
         lines.append({'kind': 'signal', 'reason': 'retrospective-due', 'owner': 'global-orchestrator', 'severity': 'action',
                       'next_action': 'run /sdd-retrospect before the run is closed'})
     end = st['global_next_step']
-    if end.get('reason') in ENDS and not any(line['kind'] in ('dispatch', 'running', 'host', 'person') for line in lines):
+    if end.get('reason') in ENDS and not any(line['kind'] in ('dispatch', 'running', 'host', 'person') and line.get('operation') != 'retrospect' for line in lines):
         lines.append({'kind': 'done', 'quality': end.get('quality') or st['quality'], 'reason': end['reason'], 'next_action': ENDS[end['reason']],
                       'report': st['migration_report']['markdown'],
                       **({'device_gap_cases': end['device_gap_cases']} if end.get('device_gap_cases') else {})})

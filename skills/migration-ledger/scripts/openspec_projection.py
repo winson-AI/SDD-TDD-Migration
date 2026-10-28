@@ -233,7 +233,7 @@ def build_lessons(state, sequence, root=None):
             journal = workflow_cost.journal(root)
         scope = {'module_id': record['module_id']} if record.get('module_id') else {'scope': 'global'}
         add(gate_lesson(record, scope, journal))
-    for retrospective in state.get('retrospectives', []):
+    for retrospective in [r for r in state.get('retrospectives', []) if r.get('lessons_ref')]:  # not those with nothing to abstract
         from experience import validate_lessons
         lessons['entries'].extend(validate_lessons(retrospective['lessons_ref']))
     return lessons

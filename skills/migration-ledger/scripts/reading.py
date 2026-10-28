@@ -189,6 +189,8 @@ def op_sections(role, operation):
         return sections('state-machine.md', '控制主线') + sections('openspec.md', '冻结算法', '变更控制')
     if operation in ('audit-test-assign', 'audit-test-submit', 'integration-assign', 'integration-submit'):
         return sections('audit-code-review.md', '宿主目标审计') + sections('audit-scope.md', '收尾的实际执行契约')
+    if operation == 'retrospect':  # the closing retrospective abstracts observations; it audits nothing
+        return sections('project-context.md', '跨运行经验沉淀与复用')
     if operation in ('run-review', 'revise-run', 'realloc-request', 'redecompose', 'redecompose-accept'):
         return sections('progress-recovery.md', '同 Run 上游修订') + sections('module-decomposition.md', '3. 分配与登记门禁')
     fam = family(role, operation)

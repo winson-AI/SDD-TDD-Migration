@@ -88,7 +88,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | --- | --- | --- |
 | run-review / revise-run | GO / Host，全局 | 影响评审/预检 → 具体 decision → 上下文调整事务；见 [同 Run 上游修订](progress-recovery.md#同-run-上游修订) |
 | audit-recover | GO，全局 | module_ids=[GLOBAL]、additional_rounds、decision_id；增加预算，保留次数/失败 |
-| retrospect | Host，全局 | lessons_ref；提交后采集至项目经验库 |
+| retrospect | Host 或统一 Auditor，全局 | lessons_ref（骨架填完），或 nothing_to_abstract 与理由；提交后采集至项目经验库 |
 | api-register | GO / MO / Spec-Designer，全局 | module_id（owner 叶）、api_id（run 内新）、item_id（该叶 Logic/Adhesive 条目）、call、contract、evidence_refs；该叶下次 plan 的清单可多出已登记行，不重切、不推进修订号；owner/consumer 变化走 realloc/redecompose |
 | issue / issue-resolve | 任意角色，全局或所涉模块 | 登记：issue_id、kind、summary、applies_to（省略取请求模块或全部），可选 evidence_refs、blocks；消去：issue_id、module_id、evidence_ref；均可批量，全部成立才记；plan/plan-review/submit/accept 可带 resolves[]；不推进修订号。kind：defect/gap/need/decision 须消去（blocks 挡 freeze，其余挡 complete）；fact 与 debt 记录即结清；standing 不消去，新增后随 step 交付一次；knowledge-need 只由 kind=knowledge 决定或知识文档消去；step 视图每模块最多 10 条，另按族计数；Ledger 记的保真欠项放行，不再欠的新计划自动消去 |
 

@@ -1403,6 +1403,10 @@ def later_parts(plan):
     return counts
 
 
+def unified_auditor(s):
+    return (s.get('audit_batch') or {}).get('auditor_instance_id') or (s.get('audit_code_review') or {}).get('auditor_instance_id')
+
+
 def unfilled(*refs):
     """A skeleton the Ledger wrote is filled before it is a plan, a report or an inventory."""
     for ref in refs:
@@ -1650,10 +1654,17 @@ def mutate(s, req, principal, events, root=None):
     elif op in run_changes.OPS:
         run_changes.handle(root, s, req, principal)
     elif op == 'retrospect':
-        role(principal, 'host')
-        import experience
-        experience.validate_lessons(p.get('lessons_ref'))
-        s.setdefault('retrospectives', []).append({'lessons_ref': p['lessons_ref'], 'actor': principal})
+        role(principal, 'host', 'auditor')
+        require(principal['role'] == 'host' or principal['instance_id'] == unified_auditor(s), 'the retrospective is the unified Auditor\'s')
+        if p.get('nothing_to_abstract') is not None:  # the Auditor read the observations and found no lesson in them
+            require(isinstance(p['nothing_to_abstract'], str) and p['nothing_to_abstract'].strip() and not p.get('lessons_ref'),
+                    'nothing_to_abstract is the reason, without lessons_ref')
+            s.setdefault('retrospectives', []).append({'nothing_to_abstract': p['nothing_to_abstract'], 'actor': principal})
+        else:
+            import experience
+            unfilled(p.get('lessons_ref'))
+            experience.validate_lessons(p.get('lessons_ref'))
+            s.setdefault('retrospectives', []).append({'lessons_ref': p['lessons_ref'], 'actor': principal})
     elif op in source_changes.OPS:
         source_changes.handle(root, s, req, principal)
     elif op in tv.OPS:
@@ -2768,6 +2779,11 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
         due = experience.retrospective_due(s)  # a finished run that has something to learn from says so before it is closed
         if due:
             global_next['retrospective_due'] = due
+            if unified_auditor(s):  # the Auditor who judged the whole run abstracts it; delivery does not wait for it
+                step = {'operation': 'retrospect', 'role': 'auditor', 'ready': True, 'reason': 'retrospective-due', 'instance_id': unified_auditor(s),
+                        'report_skeleton': 'report_skeleton.py --root <run_root> --retrospective --out <staging directory>'}
+                with_card(s, None, step)
+                global_next['retrospective_step'] = step
     source_step = source_changes.next_action(s)
     for step in (global_next, source_step, revision_step):
         if isinstance(step, dict):
