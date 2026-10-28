@@ -161,6 +161,74 @@ class IterativeRepairTests(unittest.TestCase):
         f.call('accept', {'assignment_id': 'RETEST'})
         self.assertEqual(f.state()['modules']['M001']['phase'], 'dod')
 
+    def test_a_confirmed_spec_gap_is_revised_by_adding_and_the_built_code_updated_with_the_turns_judgment_takes(self):
+        """Automation finds what the plan left out; the diagnosis confirms it, the change it states opens by itself, a
+        revision that only adds a PATH is reviewed and frozen by the Ledger, and the code already written is updated:
+        diagnosis, plan, code and retest are the only model turns after the failure."""
+        import ledger
+        t = self.t; f = self.f; t.freeze(); f.implementation()
+        mo = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
+        settle = lambda: ledger.advance(f.root, mo, 'M001')['applied']
+        dispatched = lambda result, a: f.call('submit', {'assignment_id': a['assignment_id'], 'fencing_token': a['fencing_token'],
+                                                         'result_ref': f.ref('result-%d.json' % f.n, result)}, role=a['role'], instance=a['instance_id'])
+        old = copy.deepcopy(f.state()['modules']['M001'])
+        a, result = f.make_test_result(quality='red-bug')
+        result['paths'][0]['root_cause'] = {'category': 'fidelity-gap', 'summary': 'the legacy result carries a field the plan left out',
+                                            'confidence': 'suspected', 'owner': 'M001', 'next_action': 'diagnose'}
+        f.submit(result, a); settle()
+        turns, step = [], f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['role']), ('diagnose', 'diagnostician'))
+        f.call('diagnose', {'diagnosis_ref': f.ref('diagnosis.md', 'the plan omits a field the legacy result carries'), 'owner': 'M001',
+                            'root_cause': {'category': 'fidelity-gap', 'summary': 'omitted field', 'confidence': 'confirmed', 'owner': 'M001',
+                                           'next_action': 'revise-spec'}}, role='diagnostician'); turns.append('diagnostician')
+        self.assertEqual([x['operation'] for x in settle()], ['change'])  # the request and its impact are the diagnosis
+        p = copy.deepcopy(f.state()['modules']['M001']['plan'])
+        p['paths'].append({**copy.deepcopy(p['paths'][0]), 'path_id': 'P-FIDELITY'}); p['tasks'][0]['path_ids'].append('P-FIDELITY')
+        f.call('plan', {'plan_ref': f.ref('added-plan.json', p)}, role='spec-designer'); turns.append('spec-designer')
+        self.assertEqual([x['operation'] for x in settle()][:3], ['plan-review', 'freeze', 'assign'])  # only added: nothing to review
+        fact = next(v for k, v in f.state()['issues'].items() if k.startswith('SPEC-M001-added-'))
+        self.assertIn('P-FIDELITY', fact['summary'])
+        m = f.state()['modules']['M001']; a = next(x for x in m['assignments'].values() if not x.get('closed'))
+        self.assertEqual((a['role'], a['execution_contract']['accepted_code_files']), ('implementer', old['code_files']))  # updated where it is
+        code = f.target / 'm1/code.py'; code.write_text('value = 2\nfidelity = True\n'); refs = [file_ref(code)]
+        dispatched({'schema_version': 1, 'kind': 'implementation', 'run_id': 'demo', 'module_id': 'M001', 'assignment_id': a['assignment_id'],
+                  'actor_instance_id': a['instance_id'], 'freeze_id': a['freeze_id'], 'code_files': refs, 'code_baseline': baseline(refs),
+                  'task_trace': [{'task_id': 'T1', 'files': [str(code)]}],
+                  'production_binding_evidence': f.ref('updated-binding.md', 'Existing implementation updated'),
+                  'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': f.ref('update.log', '0 errors')}}, a)
+        turns.append('implementer'); settle()
+        m = f.state()['modules']['M001']; a = next(x for x in m['assignments'].values() if not x.get('closed'))
+        self.assertEqual(a['role'], 'test-runner')
+        adapter = f.base / 'retest.py'
+        adapter.write_text('import argparse,json,runpy\np=argparse.ArgumentParser();p.add_argument("--query-file");'
+            'p.add_argument("--result-file");a=p.parse_args();'
+            f'v=runpy.run_path({str(code)!r})["value"];'
+            'json.dump({"assertions":[{"assertion_id":"A1","expected":2,"actual":v,"passed":v==2}]},open(a.result_file,"w"))')
+        rows = []
+        for pid in a['execution_contract']['path_ids']:
+            ref = execute(f.root, 'M001', a['assignment_id'], pid, [sys.executable, str(adapter)], str(f.target), f.base / ('retest-' + pid))
+            receipt = json.loads(check_ref(ref).read_text())
+            rows.append({'path_id': pid, 'quality': 'green-passed', 'executed': True, 'execution_receipt': ref, 'test_run_id': receipt['test_run_id'],
+                         'assertions': json.loads(check_ref(receipt['result_ref']).read_text())['assertions'],
+                         'retest_of': m['results'][pid]['test_run_id'] if pid in m['results'] else None})
+        dispatched({'schema_version': 1, 'kind': 'tests', 'run_id': 'demo', 'module_id': 'M001', 'assignment_id': a['assignment_id'],
+                  'actor_instance_id': a['instance_id'], 'freeze_id': a['freeze_id'], 'code_baseline': a['code_baseline'], 'paths': rows}, a)
+        turns.append('test-runner'); settle()
+        self.assertEqual(f.state()['modules']['M001']['phase'], 'completed')
+        self.assertEqual(f.state()['run_id'], 'demo')  # repaired inside the run
+        self.assertEqual(turns, ['diagnostician', 'spec-designer', 'implementer', 'test-runner'])
+
+    def test_a_revision_that_changes_what_was_frozen_is_reviewed_by_the_orchestrator(self):
+        t = self.t; f = self.f; t.freeze(); f.implementation()
+        f.call('change', {'request_ref': f.ref('cr.md', 'Steps clarified'), 'impact_ref': f.ref('impact.md', 'Same expectations')})
+        p = copy.deepcopy(f.state()['modules']['M001']['plan'])
+        p['paths'][0]['preconditions'] = ['fixture signed in']
+        p['paths'].append({**copy.deepcopy(p['paths'][0]), 'path_id': 'P2'}); p['tasks'][0]['path_ids'].append('P2')
+        f.call('plan', {'plan_ref': f.ref('changed-plan.json', p)}, role='spec-designer')
+        step = f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step.get('mechanical', False), step['review_asked']),
+                         ('plan-review', False, ['code exists: a changed plan is reviewed']))
+
     def test_repair_cannot_remove_failed_path_or_weaken_expected_assertion(self):
         t = self.t; f = self.f; t.freeze(); f.implementation()
         f.call('change', {'request_ref': f.ref('cr.md', 'Repair'), 'impact_ref': f.ref('impact.md', 'Review')})

@@ -618,12 +618,23 @@ def diagnosis_focus(m, p):
                 'each visual issue needs area, problem, severity and evidence_ref')
 
 
+def confirmed_change(routed, report):
+    """A SPEC gap the diagnosis confirmed opens the change request it states: the request and its impact are the
+    diagnosis, and the revised plan is reviewed when it is submitted. A likely cause stays with the orchestrator."""
+    cause = report.get('root_cause')
+    if routed and routed['operation'] == 'change' and isinstance(cause, dict) and cause.get('confidence') == 'confirmed':
+        return {**routed, 'mechanical': True}
+    return routed
+
+
 def review_asked(s, m):
-    """Why this plan needs the orchestrator's review, or None: code already exists, a freeze gate fails, a blocking issue is
-    open, or its author asked questions (plan.review_questions)."""
+    """Why this plan needs the orchestrator's review, or None: code already exists and the revision changes what was frozen
+    (one that only adds TASKs and PATHs is not), a freeze gate fails, a blocking issue is open, or its author asked questions
+    (plan.review_questions)."""
     questions = (m.get('plan') or {}).get('review_questions') or []
     blocking = [row['issue_id'] for row in issues.of_module(s, m['module_id'])[0] if row['blocks']]
-    reasons = (['code exists: a changed plan is reviewed'] if control_policy.execution_started(m) else []) + \
+    changed = control_policy.execution_started(m) and not control_policy.additions(m)
+    reasons = (['code exists: a changed plan is reviewed'] if changed else []) + \
               (['freeze gates fail: ' + ', '.join(g['gate'] for g in m['review_gates'])] if m.get('review_gates') else []) + \
               (['blocking issues: ' + ', '.join(blocking)] if blocking else []) + [str(q) for q in questions]
     return reasons or None
@@ -971,7 +982,7 @@ def _next_step(s, m):
                             payload={'kind': 'human', 'reason': conflict['summary'], 'reason_code': conflict['reason_code'],
                                      'root_cause': conflict, 'owner': 'human'})
             elif draft and draft['subject'] == diagnosis_subject(m):
-                routed = control_policy.repair_step(draft['report'])
+                routed = confirmed_change(control_policy.repair_step(draft['report']), draft['report'])
                 step.update(routed or dict(operation='diagnosis-accept', role='module-orchestrator', ready=True,
                             # Optional: once the Fixer preflighted this diagnosis, accept and dispatch in one step.
                             then_assign={'role': 'fixer', 'session_id': suggested_session(s, m, 'fixer')[0]}))
@@ -989,7 +1000,7 @@ def _next_step(s, m):
             else:
                 step.update(operation='diagnose', role='fixer' if self_diagnosis(s, m) else 'diagnostician', ready=True)
         else:
-            routed = control_policy.repair_step(m['diagnosis']) if m['phase'] == 'diagnosing' else None
+            routed = confirmed_change(control_policy.repair_step(m['diagnosis']), m['diagnosis']) if m['phase'] == 'diagnosing' else None
             if routed:
                 step.update(routed)
                 return step
@@ -1733,6 +1744,11 @@ def mutate(s, req, principal, events, root=None):
         if revised:  # how the frozen paths are exercised changed, not what they verify: the MO's review suffices, the fact stays
             issues.record(s, 'SPEC-%s-tests-revised-%s' % (mid, m['plan_hash'][:8]), 'fact',
                           '%s revised how %s are exercised; what they verify is unchanged, reviewed by the MO without a decision' % (mid, ', '.join(revised)),
+                          [mid], issues.LEDGER, sequence=len(events) + 1, resolved={mid: {'by': issues.LEDGER, 'recorded': True}})
+        added = control_policy.execution_started(m) and control_policy.additions(m)
+        if added:  # what was frozen and built stands; what the revision adds is coded and tested like any task
+            issues.record(s, 'SPEC-%s-added-%s' % (mid, m['plan_hash'][:8]), 'fact',
+                          '%s added %s to its coded plan; nothing frozen changed' % (mid, ', '.join(added)),
                           [mid], issues.LEDGER, sequence=len(events) + 1, resolved={mid: {'by': issues.LEDGER, 'recorded': True}})
         issues.cite(s, mid, p.get('resolves'), p['review_ref'], principal)  # what the review settles is settled with it
         m['review_gates'] = [{'gate': g['gate'], 'reason': g['reason']} for g in failing_gates(s, m)[0]]
@@ -2894,7 +2910,9 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
         m = s['modules'][module_id]
         body = {'plan_hash': m['plan_hash'], 'reviewer_instance_id': actor['instance_id'], 'semantic_change': False,
                 'authorization_change': False, 'unresolved_questions': [], 'evidence_refs': [m['plan_ref']],
-                'reason': 'every freeze gate passed, no blocking issue is open and the author asked nothing: the code and its tests judge the rest'}
+                'reason': 'every freeze gate passed, no blocking issue is open and the author asked nothing: the code and its tests judge the rest'
+                          + ('; the revision only adds %s to the coded plan' % ', '.join(control_policy.additions(m))
+                             if control_policy.execution_started(m) and control_policy.additions(m) else '')}
     elif kind == 'diagnosis':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
@@ -2984,7 +3002,7 @@ def advance(root, principal, module_id, workers=None):
             step['operation'] = 'submit'
         elif step['operation'] == 'accept':
             payload = {'assignment_id': step['assignment_id']}
-        elif step['operation'] in ('freeze', 'diagnosis-accept', 'audit-defer', 'automation-unavailable', 'resume', 'audit-work', 'audit-retest'):
+        elif step['operation'] in ('freeze', 'diagnosis-accept', 'audit-defer', 'automation-unavailable', 'resume', 'audit-work', 'audit-retest', 'change'):
             payload = dict(step.get('payload') or {})
         elif step['operation'] == 'dependency-ready':
             payload, actor = {}, {'role': 'global-orchestrator', 'instance_id': (workers or {}).get('global-orchestrator') or 'global-orchestrator'}
