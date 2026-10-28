@@ -10,7 +10,8 @@ dispatched: start it with its card unless already started, then wait), `host` (a
 the payload given), `person` (a decision only a person gives, with what is asked), `signal` (a stall, an overdue plan, a
 refused request, a run ready for its retrospective: act on next_action; printed once, while it stands the tick line counts it
 in signals_held), `done` (the run reached its end: its quality, why it ended and the report; the host stops and tells the
-user, who authorizes delivery), then one `tick` line with the journal sequence. A line names the instance and, when one holds this role's
+user, who authorizes delivery), then one `tick` line with the journal sequence. Leaves at work at once stay within the
+run's parallel budget: one beyond it gets its line when a slot frees, and the tick counts it in modules_waiting. A line names the instance and, when one holds this role's
 context, the session to resume; its card then holds only the sections that session has not read. The host reads these
 lines, not the status views.
 """
@@ -100,7 +101,38 @@ def tick(root, principal, workers=None):
                       **({'device_gap_cases': end['device_gap_cases']} if end.get('device_gap_cases') else {})})
     if any(line['kind'] == 'signal' for line in lines):
         lines.append({'kind': 'signal', 'reason': 'attention-report', 'next_action': 'read only on a human signal', 'report': progress.get('report_path')})
-    return lines, st['last_sequence']
+    lines, waiting = capped(root, st, lines)
+    return lines, st['last_sequence'], waiting
+
+
+def capped(root, st, lines):
+    """The leaves at work at once stay within the run's parallel budget: a leaf with a worker running, or with a model
+    step handed out that has not moved since, holds a slot; the next leaves get their line when one frees, providers
+    first. What was handed out is kept under reports/, as the printed signals are."""
+    path = Path(root) / 'reports/drive-dispatched.json'
+    try:
+        handed = json.loads(path.read_text())
+    except (OSError, ValueError):
+        handed = {}
+    modules, steps = st['modules'], {s['module_id']: s for s in st['next_steps']}
+    def depth(mid, trail=()):
+        return 1 + max((depth(d, (*trail, mid)) for d in modules[mid].get('dependencies', []) if d in modules and d not in trail), default=0)
+    busy = {mid for mid, m in modules.items() if any(not a.get('closed') for a in m['assignments'].values())}
+    busy |= {mid for mid, (op, revision) in handed.items()
+             if mid in steps and [steps[mid].get('operation'), steps[mid].get('expected_revision')] == [op, revision]}
+    order = sorted((line for line in lines if line['kind'] == 'dispatch' and line.get('module_id') in modules),
+                   key=lambda line: (line['module_id'] not in busy, depth(line['module_id']), list(modules).index(line['module_id'])))
+    held, kept = set(), {}
+    for line in order:
+        mid = line['module_id']
+        if mid in busy or len(busy) < st['max_parallel_modules']:
+            busy.add(mid)
+            kept[mid] = [line['operation'], steps[mid].get('expected_revision')]
+        else:
+            held.add(mid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(kept, sort_keys=True))
+    return [line for line in lines if not (line['kind'] == 'dispatch' and line.get('module_id') in held)], len(held)
 
 
 def unseen(root, lines):
@@ -121,15 +153,16 @@ def unseen(root, lines):
 
 
 def drive(root, principal, workers=None, wait=None):
-    lines, sequence = tick(root, principal, workers)
+    lines, sequence, waiting = tick(root, principal, workers)
     if wait and not any(line['kind'] == 'dispatch' for line in lines):
         size, deadline = journal_size(root), time.monotonic() + wait
         while journal_size(root) == size and time.monotonic() < deadline:  # tail the journal: its end moves when anyone submits
             time.sleep(POLL_SECONDS)
         if journal_size(root) != size:
-            lines, sequence = tick(root, principal, workers)
+            lines, sequence, waiting = tick(root, principal, workers)
     lines, held = unseen(root, lines)
-    return lines + [{'kind': 'tick', 'last_sequence': sequence, **({'signals_held': held} if held else {})}]
+    return lines + [{'kind': 'tick', 'last_sequence': sequence, **({'signals_held': held} if held else {}),
+                     **({'modules_waiting': waiting} if waiting else {})}]
 
 
 def main():

@@ -27,8 +27,10 @@ RECORDED = {'turns': {'global-orchestrator': 1, 'module-orchestrator': 1, 'spec-
 
 class ContinuousWalk(test_run_rehearsal.RunWalk):
     """A run whose root has two features of three cases each, registered and nothing else."""
+    features = FEATURES
+
     def setUp(self):
-        self.t = test_source_changes.SourceChangeTests(methodName='runTest'); self.f = self.t.register_root(FEATURES)
+        self.t = test_source_changes.SourceChangeTests(methodName='runTest'); self.f = self.t.register_root(self.features)
         self.plan_of_one_case, self.t.plan = self.t.plan, self.leaf_plan
         self.setup_turns = [{'role': e['actor']['role'], 'operation': e['operation'], 'module_id': e.get('module_id'), 'card_bytes': 0}
                             for e in workflow_cost.journal(self.f.root) if workflow_cost.model_turn(e)]
@@ -64,6 +66,32 @@ class ContinuousWalk(test_run_rehearsal.RunWalk):
             f.call('decompose', {'plan_ref': f.ref('split.json', draft)}, module=step['module_id'])
         else:
             super().model_turn(step)
+
+
+SEVEN = [{'feature_id': 'F-' + name.upper(), 'name': name, 'functional_path': 'Search/' + name, 'trigger': 'open ' + name,
+          'observable_result': name + ' shown', 'requirement_ids': ['R1'], 'case_ids': ['C%d' % (3 * i + j + 1) for j in range(3)], 'evidence_refs': []}
+         for i, name in enumerate(('Query', 'History', 'Detail', 'Share', 'Filter', 'Export', 'Settings'))]
+RECORDED_TICKS = {'seven leaves': 11}  # the ticks a host that starts every line takes from the root's split to done, last recorded in VERIFICATION.md
+
+
+class SevenLeafTests(ContinuousWalk):
+    """Seven features cut into seven leaves, more than the run's parallel budget of five."""
+    features = SEVEN
+
+    def host_ticks(self, limit=80):
+        return ContinuousRunTests.host_ticks(self, limit)
+
+    def test_no_more_leaves_are_at_work_at_once_than_the_parallel_budget(self):
+        ticks = self.host_ticks()
+        budget = self.f.state()['max_parallel_modules']
+        for tick in ticks:  # planning included, not only the workers the Ledger assigns
+            self.assertLessEqual(len({mid for _, mid in tick if mid}), budget, tick)
+        self.assertEqual(max(len({mid for _, mid in tick if mid}) for tick in ticks), budget)  # and the budget is used
+        self.assertTrue(any(self.waiting))  # the leaves beyond it waited for a slot
+        self.assertEqual(sorted(self.f.state()['modules']), ['M0%d' % (11 + i) for i in range(7)])
+        if len(ticks) > RECORDED_TICKS['seven leaves'] > 0:
+            import warnings
+            warnings.warn('seven leaves took %d ticks, %d recorded' % (len(ticks), RECORDED_TICKS['seven leaves']))
 
 
 class GlobalPathWalk(ContinuousWalk):
@@ -123,10 +151,20 @@ class ContinuousRunTests(ContinuousWalk):
         self.assertEqual(sorted(self.f.state()['modules']), ['M011', 'M012'])
 
     def test_a_host_that_starts_every_line_of_a_tick_codes_the_leaves_together_and_builds_each_while_nobody_writes(self):
+        ticks = self.host_ticks()
+        self.assertIn([('implementer', 'M011'), ('implementer', 'M012')], ticks)  # planned together, coded together
+        for tick in ticks:  # one build unit: a leaf is built only while the other writes nothing
+            roles = {role for role, _ in tick}
+            self.assertFalse({'implementer', 'test-runner'} <= roles and len({mid for _, mid in tick}) > 1, tick)
+
+    def host_ticks(self, limit=60):
+        """A host that starts every model line of a tick: the (role, module) it started, tick by tick, ending with done."""
         import drive
-        ticks = []
-        for _ in range(30):
-            lines = [line for line in drive.drive(self.f.root, test_run_rehearsal.MO) if line['kind'] in ('dispatch', 'running', 'done')]
+        ticks, self.waiting = [], []
+        for _ in range(limit):
+            out = drive.drive(self.f.root, test_run_rehearsal.MO)
+            self.waiting.append(out[-1].get('modules_waiting', 0))
+            lines = [line for line in out if line['kind'] in ('dispatch', 'running', 'done')]
             ticks.append([(line.get('role'), line.get('module_id')) for line in lines])
             if not lines or lines[0]['kind'] == 'done':
                 break
@@ -134,10 +172,7 @@ class ContinuousRunTests(ContinuousWalk):
                 st = self.f.state()
                 self.model_turn(next(s for s in st['next_steps'] if s['module_id'] == line['module_id']) if line.get('module_id') else st['global_next_step'])
         self.assertEqual(ticks[-1], [(None, None)])  # the run ended: done
-        self.assertIn([('implementer', 'M011'), ('implementer', 'M012')], ticks)  # planned together, coded together
-        for tick in ticks:  # one build unit: a leaf is built only while the other writes nothing
-            roles = {role for role, _ in tick}
-            self.assertFalse({'implementer', 'test-runner'} <= roles and len({mid for _, mid in tick}) > 1, tick)
+        return ticks
 
     def test_confirming_a_drafted_cut_reads_the_rules_of_a_hand_cut_only_on_demand(self):
         import ledger, reading
