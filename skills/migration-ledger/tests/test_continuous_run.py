@@ -74,6 +74,23 @@ class ContinuousRunTests(ContinuousWalk):
                          [('global-orchestrator', 'register'), ('module-orchestrator', 'decompose'), ('spec-designer', 'plan')])
         self.assertEqual(sorted(self.f.state()['modules']), ['M011', 'M012'])
 
+    def test_a_host_that_starts_every_line_of_a_tick_codes_the_leaves_together_and_builds_each_while_nobody_writes(self):
+        import drive
+        ticks = []
+        for _ in range(30):
+            lines = [line for line in drive.drive(self.f.root, test_run_rehearsal.MO) if line['kind'] in ('dispatch', 'running', 'done')]
+            ticks.append([(line.get('role'), line.get('module_id')) for line in lines])
+            if not lines or lines[0]['kind'] == 'done':
+                break
+            for line in lines:  # every worker of the tick, as a host with free slots starts them
+                st = self.f.state()
+                self.model_turn(next(s for s in st['next_steps'] if s['module_id'] == line['module_id']) if line.get('module_id') else st['global_next_step'])
+        self.assertEqual(ticks[-1], [(None, None)])  # the run ended: done
+        self.assertIn([('implementer', 'M011'), ('implementer', 'M012')], ticks)  # planned together, coded together
+        for tick in ticks:  # one build unit: a leaf is built only while the other writes nothing
+            roles = {role for role, _ in tick}
+            self.assertFalse({'implementer', 'test-runner'} <= roles and len({mid for _, mid in tick}) > 1, tick)
+
     def test_confirming_a_drafted_cut_reads_the_rules_of_a_hand_cut_only_on_demand(self):
         import ledger, reading
         ledger.advance_run(self.f.root, test_run_rehearsal.MO)

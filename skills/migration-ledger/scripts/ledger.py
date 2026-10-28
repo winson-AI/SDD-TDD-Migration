@@ -745,8 +745,7 @@ def dispatch_guard(s, m, worker):
     for other in s['modules'].values():
         if any(not a.get('closed') for a in other['assignments'].values()):
             require(not any(overlaps(x, y) for x in m['write_paths'] for y in other['write_paths']), 'resource lock conflict')
-    if worker in ('implementer', 'fixer'):
-        tv.build_unit_free(m, s['modules'].values())
+    tv.build_unit_free(m, s['modules'].values(), worker)
     require(m['phase'] == {'implementer': 'frozen', 'fixer': 'diagnosing', 'test-runner': 'testing'}[worker]
             or worker == 'test-runner' and written_untested(m), 'worker phase gate rejected')
     if worker == 'test-runner':

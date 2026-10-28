@@ -84,14 +84,21 @@ def build_units(m):
             for path in (m.get('plan') or {}).get('paths', []) if path.get('kind') == 'build' and path.get('command')}
 
 
-def build_unit_free(m, modules):
-    """Code is written into a build unit by one module at a time: another module's half-written files would be
-    compiled into this one's build, and its failure would be read as this module's."""
+def build_unit_free(m, modules, worker):
+    """Modules write into one build unit at once, each in its own files; the unit is built (or its app built and run) only
+    while nobody writes into it, so a build never compiles another module's half-written files and its failure is this
+    module's. A writer waits for a build of its unit to finish, a build for the writers."""
     mine = build_units(m)
     for other in modules:
-        writing = any(not a.get('closed') and a.get('role') in ('implementer', 'fixer') for a in other.get('assignments', {}).values())
-        require(other is m or not writing or not mine & build_units(other),
-                'build unit busy: %s is being written into the build this module compiles; dispatch after its result' % other['module_id'])
+        if other is m or not mine & build_units(other):
+            continue
+        roles = {a.get('role') for a in other.get('assignments', {}).values() if not a.get('closed')}
+        if worker in ('implementer', 'fixer'):
+            require('test-runner' not in roles,
+                    'build unit busy: %s is building the unit this module writes into; dispatch after its result' % other['module_id'])
+        else:
+            require(not roles & {'implementer', 'fixer'},
+                    'build unit busy: %s is being written into the build this module compiles; dispatch after its result' % other['module_id'])
 
 
 def due(m):
