@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1714 | 全量通过，零失败/错误/跳过；本轮新增 drive 行覆盖修订 / 来源变更 / 待人工所问 / 信号、从登记到叶子规划的游标演练、范围偏差只重做提出叶子与局部重切机械接受、触及其他叶子的重切仍交 GO 的测试 |
+| migration-ledger/tests | 1718 | 全量通过，零失败/错误/跳过；本轮新增从登记到审计结论的连续演练、只以命令运行 drive / ledger 的宿主冒烟、信号只印一次、作者不写准备方式的骨架通过冻结所需的准备核验、确认起草切分的卡片只常驻核心的测试 |
 | migration-test/tests | 83 | 全量通过；本轮无改动 |
 | runtime/harmony/tests | 128 | 全量通过；本轮无改动 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮：宿主照命令就走 drive 循环。`/sdd-run` 与 `/sdd-resume` 改为反复执行 `drive.py --wait` 并按行处理（dispatch / running 启动或接续角色，host 自交 payload，person 交 Escalation，signal 按 next_action），宿主循环在宿主接入中独立成节。drive 行加入 run_change_next_step、source_change_next_step、workflow_progress 的信号（不带证据，只给 next_action 与关注报告路径）与 retrospective_due，待人工行带 detail 与 approval_kind。只影响提出 realloc-request 的叶子且不挪用例的 redecompose 由 advance 以 GO 名义接受（reports/resplit-review）。演练：从根模块登记到两个叶子开始规划只有 GO 登记与 MO 确认切分各一次；一个叶子上溯范围偏差后，父 MO 重切一次，另一叶子 revision 不变、继续规划，提出叶子回到规划。上一轮：照抄的判断交给 Ledger（登记起草全局覆盖、干净代码审查即结论、派发行带会话接续，全流程全绿 13 次、带一轮修复 16 次）。
+本轮：一次 run 从登记连续走到审计结论。连续演练从两个功能各三条用例的根模块登记开始：Ledger 写覆盖并带功能归属、起草切分，MO 确认后由 Ledger 当场接受并补齐各叶子的四维分析（带父排除项）、行为评审与 case_acceptance，两个叶子规划、编码、测试，审计结论取自干净的代码审查；共 11 次模型轮次（GO 1、MO 1、Spec-Designer 2、Implementer 2、Test-Runner 4、Auditor 1），单轮最大卡 19640 字节。宿主冒烟只以子进程执行 `drive.py` 与 `ledger.py`，按行启动角色，同样 10 次角色轮次走到 green-passed；最长一行是给用户的声明问题（不超过 1 KB），同一信号只印一次、tick 行计 signals_held。骨架按每叶用例数 3 / 10 / 30 为 17.4 / 35.9 / 88.6 KB（此前 20.2 / 42.0 / 104.3 KB），PATH 的默认字段与准备方式由 Ledger 在读取上游测试计划时补齐；确认起草切分的 MO 卡 16996 字节（此前 29515），手工切分规则列为按需小节。拼起来的旧演练（提供方与依赖方的手工切分）仍为全绿 13 次、带一轮修复 16 次。上一轮：宿主照命令就走 drive 循环（drive 行覆盖修订、来源变更、待人工所问与信号，只改提出叶子且不挪用例的重切由 Ledger 接受）。
 
-协议文件不限总量（当前 462411 字节，最大单文件 24613 字节）；限制的是加载进模型的内容：`reading.py show` 一次至多一节 25900 字节（超出给小节目录），入口 AGENTS.md 3991 / 4000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中常驻卡最大 26223 / 29100 字节、按需小节最大 20283 / 25900 字节；全触发且双平台声明时常驻卡最大 29045、按需小节最大 25702，一步可读（常驻 + 按需）最坏 46660 / 51200 字节，模板组合最大 32435 / 34700 字节（写到才逐份取）；无触发步骤卡 ≤ 29100、模板 ≤ 13500；拒绝消息带小节指引的比例 98.9%（棘轮 90%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
+协议文件不限总量（当前 462916 字节，最大单文件 24613 字节）；限制的是加载进模型的内容：`reading.py show` 一次至多一节 25900 字节（超出给小节目录），入口 AGENTS.md 3991 / 4000 字节。test_reading 枚举的 1584 个角色/范围/触发组合中常驻卡最大 26223 / 29100 字节、按需小节最大 20283 / 25900 字节；全触发且双平台声明时常驻卡最大 29083、按需小节最大 25702，一步可读（常驻 + 按需）最坏 46815 / 51200 字节，模板组合最大 32186 / 34700 字节（写到才逐份取）；无触发步骤卡 ≤ 29100、模板 ≤ 13500；拒绝消息带小节指引的比例 98.9%（棘轮 90%）；未放宽门禁。源码语法、JSON、引用与 `git diff --check` 通过。
 
 ## 已覆盖
 

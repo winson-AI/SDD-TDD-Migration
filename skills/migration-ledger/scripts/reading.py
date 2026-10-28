@@ -165,6 +165,16 @@ def family(role, operation):
 # Rules of a plan the Ledger completes or checks by itself: the task four-dimension analyses, the decision envelope, the
 # dimension index; and how a change request runs, until one is open.
 LEDGER_KEPT = sections('openspec.md', '变更控制', '决策边界与执行基线', '四维完整性索引') + sections('dimension-slicing.md', '总则', '7. 任务级四维分析契约')
+# Where the Ledger drafts a split and completes each leaf, the orchestrator confirms the cut: the rules of a cut written
+# by hand are read when it departs from the draft, and a refusal names them.
+HAND_CUT = sections('module-decomposition.md', '1. 三层职责', '2. 全局可见，按分配范围执行', '3. 分配与登记门禁', '4. 独立执行、父看护与统一审计',
+                    '6. 二方库作为逐层规划依据', '父 MO 统一命名', '四维父子覆盖', '父级批量冻结信封', '验证边界')
+
+
+def drafted_split(s, m, step):
+    """A decompose step whose split `split_draft.py` drafts from the root's feature inventory."""
+    return ((step.get('role'), step.get('operation')) == ('module-orchestrator', 'decompose') and 'split' in (step.get('planning_outcomes') or [])
+            and bool(s.get('project_context_ref')) and bool((m or {}).get('feature_inventory_ref')))
 
 
 def audit_sections(operation):
@@ -496,6 +506,8 @@ def _chosen(s, m, step, topics):
         chosen += platform_sections(s)
     if self_checked:
         chosen = [item for item in chosen if item != (P + 'context-readiness.md', '2. 精确插入节点')]
+    if not topics and drafted_split(s, m, step):
+        chosen = [item for item in chosen if item not in HAND_CUT]
     return list(dict.fromkeys(chosen)), role  # a section reaches a step once, whichever rule asked for it
 
 
@@ -610,6 +622,8 @@ def templates(s, m, step):
     names = list(table.get(family(role, step.get('operation')), table.get('base', [])))
     if role == 'module-orchestrator' and family(role, step.get('operation')) == 'base':
         names = list(MO_TEMPLATES.get(step.get('operation'), ['status.md']))
+        if drafted_split(s, m, step):  # the draft is the split; the Ledger cuts each leaf's analysis
+            names = ['module-decomposition.json']
         if (m or {}).get('change_request') and step.get('operation') in ('plan-review', 'freeze'):
             names.append('task-independence.json')
     if role == 'test-runner':

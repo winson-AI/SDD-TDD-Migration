@@ -159,14 +159,13 @@ def plans(s, m, out, documents):
     first = cases[0] if cases else None
 
     def path(pid, kind, cid, name, expected=None, **extra):
-        # a command PATH runs its frozen command: its precondition and step are known; a device PATH's come from the source
-        run = {'build': ('代码已被接受', '执行冻结的构建命令'), 'static': ('构建与单测 Green', '审查冻结的规格闭合'),
-               'unit': ('代码已被接受', '执行冻结的单测命令')}.get(kind) or (('代码已被接受', '运行冻结的功能测试') if extra.get('platform') == 'jvm' else None)
+        # what every PATH says by default, a command or in-process PATH's precondition and step, and a preparation the
+        # Ledger derives are filled by the Ledger (design_stage.path_defaults); a device PATH's come from the source
+        known = kind in design_stage.RUNS or extra.get('platform') == 'jvm' or 'steps' in extra
         return {'path_id': pid, 'kind': kind, 'name': name, 'case_id': cid, 'requirement_id': requirement_of(cid) if cid else requirements[0],
-                'required': True, 'preconditions': [run[0] if run else todo('源码定义的前置状态')], 'steps': [run[1] if run else todo('源码定义的动作')],
-                'parameters': {}, 'dependency_refs': [], 'priority': 'P0', 'scope': 'module',
+                **({} if known else {'preconditions': [todo('源码定义的前置状态')], 'steps': [todo('源码定义的动作')]}),
                 'expected_assertions': [{'assertion_id': 'ASSERT-' + pid, 'expected': todo('上游预期') if expected is None else expected, 'scenario_ids': []}],
-                'preparation': {'status': 'existing', 'reason': later('已批准的测试方式'), 'evidence_refs': [], 'asset_ids': []}, **extra}
+                **extra}
     case_name = lambda cid: cid + ' ' + ((feature_of(features, cid) or {}).get('name') or '用例路径')
     runner = []  # the first in-process PATH holds the test command and report patterns; the others run the same
     home = test_home(m)
@@ -196,8 +195,7 @@ def plans(s, m, out, documents):
                             'target_path': lands(name), 'required_test_ids': ids,
                             'scenarios': [{'scenario_id': scenario_of.get(cid) or todo('Scenario-ID'), 'test_id': tid} for tid, (_, cid) in zip(ids, methods)],
                             'symbols': [todo('测试调用的生产符号')]})
-        paths.append(path(pid, 'unit', held[0] if held else first, f'{iid} 单测', expected=True, **test_command(pid, ids),
-                          preparation={'status': 'prepared', 'reason': '从 SPEC 写出并随计划冻结的测试源', 'evidence_refs': [], 'asset_ids': ['TEST-' + pid]}))
+        paths.append(path(pid, 'unit', held[0] if held else first, f'{iid} 单测', expected=True, **test_command(pid, ids)))
     import project_context
     device = project_context.device_verification(s) or (s.get('test_adapter') or {}).get('device')
     platforms = list((device or {}).get('platforms') or []) if isinstance(device, dict) else []
@@ -213,11 +211,9 @@ def plans(s, m, out, documents):
                                   steps=[{'action': 'goto', 'url': todo('目标页面的绝对 URL')}, {'action': 'click', 'selector': todo('冻结动作的 CSS 选择器' + hint)}],
                                   expected_assertions=[{'assertion_id': 'ASSERT-' + pid, 'expected': True, 'description': todo('上游预期'), 'matcher': 'exact',
                                                         'verification': 'dom', 'after_step': 2, 'scenario_ids': [],
-                                                        'predicate': {'kind': 'text', 'selector': todo('CSS 选择器'), 'equals': todo('页面显示的文本')}}],
-                                  preparation={'status': 'existing', 'reason': '包内 web Main 按冻结步骤驱动页面', 'evidence_refs': [], 'asset_ids': []}))
+                                                        'predicate': {'kind': 'text', 'selector': todo('CSS 选择器'), 'equals': todo('页面显示的文本')}}]))
                 continue
-            paths.append(path(pid, 'automation', cid, case_name(cid), platform=platforms[0],
-                              **({'preparation': {'status': 'prepared', 'reason': 'UI 树节点 id 稳定，脚本随计划冻结', 'evidence_refs': [], 'asset_ids': ['SCRIPT-' + pid]}} if nodes else {})))
+            paths.append(path(pid, 'automation', cid, case_name(cid), platform=platforms[0]))
             if nodes:
                 cls = case_class(cid, 'UiTest')
                 name = f'test-sources/{cls}.' + language(s, ui=True)
@@ -232,8 +228,7 @@ def plans(s, m, out, documents):
         test_assets.append({'asset_id': 'TEST-' + pid, 'kind': 'test-source', 'ref': name, 'path_ids': [pid],
                             'target_path': lands(name), 'required_test_ids': [tid],
                             'scenarios': [{'scenario_id': scenario_of.get(cid) or todo('Scenario-ID'), 'test_id': tid}], 'symbols': [todo('测试调用的冻结门面符号')]})
-        paths.append(path(pid, 'automation', cid, case_name(cid), expected=True, platform='jvm', **test_command(pid, [tid]),
-                          preparation={'status': 'prepared', 'reason': '从 SPEC 写出并随计划冻结的功能测试', 'evidence_refs': [], 'asset_ids': ['TEST-' + pid]}))
+        paths.append(path(pid, 'automation', cid, case_name(cid), expected=True, platform='jvm', **test_command(pid, [tid])))
         paths[-1]['expected_assertions'][0]['test_id'] = tid
     import reference_media
     for cid in cases:  # what the user showed of the case: a recording guides its functional PATH, each screenshot gets a visual PATH

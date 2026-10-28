@@ -12,13 +12,13 @@ test_design_required=true 只要求测试输入与覆盖，不另派 Test-Runner
 
 stage-plan.test_design_ref 引用 [upstream-test-plan.json](../../../template/upstream-test-plan.json)：subject_sha256、case_refs 取游标的 input_subject_sha256、upstream_case_refs（权威用例为项目 test_cases_path，缺省 global_spec）；paths 精确覆盖本模块全部 CASE，每条含需求、预期 ASSERT 与适用 Scenario，不填 actual/passed/quality；Ledger 补全 PATH/test-design/资产定义，TASK.scope、需求与 SPEC 由 plan 提供；MO 查用例与预期的语义一致（hash 不证明语义），无未决且可执行即冻结；反馈分流与 CR 按[变更控制](openspec.md#变更控制)。
 
-prepare 固化 planning_coverage_required：每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids（prepared 须对应资产，deferred 记 owner/next_action，未解决记欠项）。用户可见 CASE 须有设备或视觉 PATH（visual，或绑定 android/harmony/web 的 automation）；确无可能写 plan.device_gaps[{case_id,reason,evidence_refs}]：build 可 Green，该 CASE 的 automation 与模块、本轮记 Yellow，以 completed-with-unverified-tests 收尾；环境缺失不是缺口。登记 UI 分配前 run 须对 `test_adapter.device` 定论（{platforms} 或 {unavailable: 原因}），unavailable 时未达设备路径的用户可见 CASE 由 Ledger 按该原因记缺口。
+prepare 固化 planning_coverage_required：每条 PATH.preparation 记 status=existing/prepared/deferred、reason、evidence_refs、asset_ids（prepared 须对应资产，deferred 记 owner/next_action，未解决记欠项）；不写时由 Ledger 补：有冻结测试资产即 prepared（证据为资产），否则 existing（证据为命令的 selection_ref 或设计说明）。用户可见 CASE 须有设备或视觉 PATH（visual，或绑定 android/harmony/web 的 automation）；确无可能写 plan.device_gaps[{case_id,reason,evidence_refs}]：build 可 Green，该 CASE 的 automation 与模块、本轮记 Yellow，以 completed-with-unverified-tests 收尾；环境缺失不是缺口。登记 UI 分配前 run 须对 `test_adapter.device` 定论（{platforms} 或 {unavailable: 原因}），unavailable 时未达设备路径的用户可见 CASE 由 Ledger 按该原因记缺口。
 
 test_assets 交 script/fixture/adapter/test-source 的 asset_id/ref/path_ids（script 再映射 assertions），文件在 design_ref 同级 staging，冻结 definitions 绑定 hash。骨架为无设备或非界面的 CASE 起稿进程内功能测试，为有设备且绑定 UI 树的 CASE 起稿 script 资产（选择器取节点 id）；报告分列脚本驱动的设备路径及其 flaky。test-source 是从 SPEC 写出、随计划冻结的测试源：target_path、required_test_ids、scenarios（逐测试对应 Scenario-ID）、symbols；绑定的 unit PATH 只要求它定义的测试，Implementer 原样落到 target_path（可在写范围外；hash 不等即拒，改测试走 CR），执行前核对并写回执 frozen_test_sources。冻结拒恒真断言与表达式体 @Test；用 kotlin.test 而构建文件未声明记欠项。模块、复测与 GLOBAL 复测共用 PATH 资产解析，test_asset_binding 保留来源模块、freeze_id、test_design_ref，GLOBAL 自有路径绑定本 GLOBAL 的设计作者；测试计划及脚本作者不能兼 Auditor。
 
 ## query
 
-一个可重复执行的路径带稳定 `path_id`、可读 `name`、case_id、requirement_id、preconditions、steps、parameters、expected_assertions、dependency_refs、priority、scope。推荐 `PATH-M001-001`，名称变化不改 ID；参数化每个实例具有唯一 ID/parameter_hash，各算一次覆盖。
+一个可重复执行的路径带稳定 `path_id`、可读 `name`、case_id、requirement_id、preconditions、steps、parameters、expected_assertions、dependency_refs、priority、scope；required、parameters、dependency_refs、priority、scope 与命令和进程内路径的 preconditions/steps 不写时取默认（true、空、空、P0、module 与冻结命令的前置/步骤）。推荐 `PATH-M001-001`，名称变化不改 ID；参数化每个实例具有唯一 ID/parameter_hash，各算一次覆盖。
 
 query 文件含该路径完整的前置、步骤、参数和预期断言：模板的 query 是索引头，执行时从同一条 path 记录组装并记 hash，不能只传 name 猜测行为。
 

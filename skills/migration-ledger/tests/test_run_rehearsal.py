@@ -1,7 +1,8 @@
 """A whole run walked by its cursor: a registered root split into a provider leaf and its dependent, both leaves planned,
 coded and tested, then the unified audit. Every step the cursor marks mechanical is left to `ledger.py advance`; every other
 one is a model's turn, scripted here and counted with the protocol bytes its card hands the model. The counts are reported,
-not a gate: a change that adds turns or bytes warns with the walk."""
+not a gate: a change that adds turns or bytes warns with the walk. The top of this run is the fixture's hand split into a
+provider and its dependent; test_continuous_run walks a run from the root's registration through the cut the Ledger drafts."""
 import json
 from pathlib import Path
 import sys
@@ -27,7 +28,8 @@ RECORDED = {'turns': {'global-orchestrator': 3, 'module-orchestrator': 1, 'spec-
 RECORDED_RED = {'turns': {'global-orchestrator': 3, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 6, 'fixer': 1, 'auditor': 1}, 'card_bytes': 19640}  # the same run whose first version of one leaf fails its automation
 
 
-class RunRehearsalTests(unittest.TestCase):
+class RunWalk(unittest.TestCase):
+    """A run walked by its cursor; what a model does is scripted in `model_turn`."""
     def setUp(self):
         self.t = test_source_changes.SourceChangeTests(methodName='runTest'); self.t.setUp(); self.addCleanup(self.t.doCleanups)
         self.f = self.t.f
@@ -48,7 +50,7 @@ class RunRehearsalTests(unittest.TestCase):
                 'code_baseline': baseline([file_ref(code)]), 'task_trace': [{'task_id': 'T1', 'files': [str(code)]}],
                 'production_binding_evidence': proof,
                 'authoring_diagnostics': {'status': 'passed', 'tool': 'fixture-lint', 'log_ref': f.ref('diag.log', '0 errors')},
-                'dimension_evidence': [{'item_id': mid + '-Logic', 'task_ids': ['T1'], 'summary': 'Implemented scoped behavior', 'evidence_refs': [proof]}],
+                'dimension_evidence': [{'item_id': self.t.logic_item(mid), 'task_ids': ['T1'], 'summary': 'Implemented scoped behavior', 'evidence_refs': [proof]}],
                 **({'fix_note_ref': f.ref('fix-note-' + a['assignment_id'] + '.json', {'root_cause': 'value 9 where 2 is expected', 'strategy': 'return 2',
                                                                                          'applicability': 'this module', 'risks': 'none'})} if a['role'] == 'fixer' else {})}
 
@@ -154,6 +156,8 @@ class RunRehearsalTests(unittest.TestCase):
         self.assertEqual(st['quality'], 'green-passed')  # the run reached its verdict
         return record, taken
 
+
+class RunRehearsalTests(RunWalk):
     def test_a_run_reaches_its_audit_and_its_model_turns_and_card_bytes_are_reported(self):
         self.rehearse()
         verdict = next(e for e in workflow_cost.journal(self.f.root) if e['operation'] == 'audit')

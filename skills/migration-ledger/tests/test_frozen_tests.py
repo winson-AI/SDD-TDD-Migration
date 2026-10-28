@@ -137,9 +137,10 @@ class FrozenTestTests(unittest.TestCase):
         asset = next(a for a in upstream['test_assets'] if a['path_ids'] == ['UNIT-M001-001'])
         source = next(name for name in files if name.startswith('test-sources/') and files[name] == asset['ref'])
         self.assertEqual(asset['kind'], 'test-source')
-        unit = next(p for p in upstream['paths'] if p['path_id'] == 'UNIT-M001-001')
-        self.assertEqual((unit['unit_report']['required_test_ids'], unit['preparation']['status'], unit['expected_assertions'][0]['expected']),
-                         (asset['required_test_ids'], 'prepared', True))
+        import design_stage
+        unit = next(p for p in design_stage.path_defaults(upstream) if p['path_id'] == 'UNIT-M001-001')  # its preparation is the Ledger's
+        self.assertEqual((unit['unit_report']['required_test_ids'], unit['preparation']['status'], unit['preparation']['evidence_refs'], unit['expected_assertions'][0]['expected']),
+                         (asset['required_test_ids'], 'prepared', [asset['ref']], True))
         text = check_ref(files[source]).read_text()
         for tid in asset['required_test_ids']:
             self.assertIn('fun ' + tid.split('#')[1] + '(', text); self.assertIn('class ' + tid.split('#')[0], text)

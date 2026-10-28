@@ -41,10 +41,43 @@ class DocumentCapTests(unittest.TestCase):
         upstream = json.loads(check_ref(result['files']['upstream-test-plan.json']).read_text())
         self.assertEqual({row['scenario_id'] for a in upstream['test_assets'] for row in a['scenarios']}, {'SCN-M001-001'})
         build_path = next(p for p in upstream['paths'] if p['kind'] == 'build')
-        self.assertEqual((build_path['command']['selection_ref'], build_path['steps']), (file_ref(build), ['执行冻结的构建命令']))
+        self.assertEqual((build_path['command']['selection_ref'], 'steps' in build_path, 'preparation' in build_path), (file_ref(build), False, False))
+        import design_stage
+        build_path = next(p for p in design_stage.path_defaults(upstream) if p['kind'] == 'build')  # filled by the Ledger
+        self.assertEqual((build_path['steps'], build_path['preparation']['evidence_refs']), (['执行冻结的构建命令'], [file_ref(build)]))
         self.assertGreater(result['later'], 0)
         proposal = check_ref(result['files']['proposal.md']).read_text()
         self.assertNotIn('[[待写', proposal); self.assertIn('[[可后补', proposal)  # why, capabilities and impact may follow
+
+    def test_the_author_of_a_skeleton_writes_no_preparation_of_its_paths(self):
+        """Filled where only the author can write (command, report glob, where each test source lands, what it calls), the
+        skeleton's test plan passes the preparation the freeze requires: the Ledger derives it from the test assets and commands."""
+        import design_stage, prepared_tests
+        from contracts import SKELETON_MARK
+        t = test_source_changes.SourceChangeTests(); t.setUp(); self.addCleanup(t.doCleanups)
+        files = spec_skeleton.write(t.f.root, 'M001', t.f.root / 'staging/spec-designer/prepared')['files']
+        upstream = json.loads(check_ref(files['upstream-test-plan.json']).read_text())
+        home = Path(t.f.state()['modules']['M001']['write_paths'][0]) / 'test'
+        selection = t.f.ref('build-file.md', 'the module build file')
+        def fill(value, key=None):
+            if isinstance(value, dict):
+                return {k: fill(v, k) for k, v in value.items()}
+            if isinstance(value, list):
+                return [fill(v, key) for v in value]
+            if isinstance(value, str) and value.startswith(SKELETON_MARK):
+                return {'argv': sys.executable, 'selection_ref': selection, 'patterns': 'reports/TEST-*.xml', 'symbols': 'value'}.get(key) or str(home / 'Test.kt')
+            return value
+        upstream['paths'], upstream['test_assets'] = fill(upstream['paths']), fill(upstream['test_assets'])
+        import re
+        for asset in upstream['test_assets']:  # the author writes each test source, then refreshes the references to it
+            source = Path(asset['ref']['path']); source.write_text(re.sub(r'\[\[待写：[^\]]*\]\]', 'value', source.read_text()))
+            asset['ref'] = file_ref(source)
+        self.assertFalse([p for p in upstream['paths'] if 'preparation' in p])
+        upstream['paths'] = design_stage.shared_commands(upstream['paths']); design_stage.path_defaults(upstream)
+        prepared_tests.preparation(upstream, required=True, freezing=True)  # what the freeze requires of every PATH
+        unit = next(p for p in upstream['paths'] if p['kind'] == 'unit')
+        build = next(p for p in upstream['paths'] if p['kind'] == 'build')
+        self.assertEqual((unit['preparation']['status'], build['preparation']['evidence_refs']), ('prepared', [selection]))
 
     def test_an_empty_catalogue_makes_every_reuse_row_a_new_implementation(self):
         t = test_source_changes.SourceChangeTests(); t.setUp(); self.addCleanup(t.doCleanups)

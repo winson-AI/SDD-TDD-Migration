@@ -126,6 +126,8 @@ def complete(s, parent, plan, root, name):
     for child in fresh:
         child.setdefault('scope', {'in': [child.get('name') or child['module_id']], 'out': [],
                                    'requirement_ids': list((parent.get('scope') or {}).get('requirement_ids') or [])})
+        excluded = child['scope'].setdefault('out', [])  # the parent's exclusions, before the analysis and review bind the scope
+        excluded += [line for line in (parent.get('scope') or {}).get('out') or [] if line not in excluded]
         if parent_data is not None and not child.get('dimension_analysis_ref'):
             derived = analysis(parent_data, child, owners, out)
             derived['parent_ref'] = parent_ref
@@ -136,6 +138,12 @@ def complete(s, parent, plan, root, name):
             changed = True
         if s.get('behavior_contract_required') and not child.get('behavior_review'):
             child['behavior_review'] = review(parent, child, features)
+            changed = True
+    if s.get('behavior_contract_required') and 'case_acceptance' not in plan:
+        from behavior_contract import accepts
+        holders = {cid: [c['module_id'] for c in plan.get('children') or [] if cid in (c.get('case_ids') or [])] for cid in accepts(parent)}
+        if all(len(mids) == 1 for mids in holders.values()):  # one holder per case: it is the slice that accepts it
+            plan['case_acceptance'] = {cid: mids[0] for cid, mids in holders.items()}
             changed = True
     if changed and parent_data is not None and not plan.get('dimension_partition_review_ref'):
         plan['dimension_partition_review_ref'] = write(out / f"{parent['module_id']}-partition.md",

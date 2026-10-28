@@ -97,7 +97,7 @@ def overview():
     for x in (340,880): d.arrow([(x,690),(x,700)])
     d.band(60,635,1100,265,'父 MO  ·  认领与拆分','每个父 MO 持续看护自己认领的整个模块')
     d.box(100,700,480,170,'父 MO · 根模块 A',[
-        '认领模块 / 实现 / 四维上下文', 'Ledger 起草切分；3–30 CASE，<6 不拆；页面是 TASK', '子四维分析与行为评审由 Ledger 切出', '可不全覆盖：漏掉的记欠项，首版后补齐'],controller=True)
+        '认领模块 / 实现 / 四维上下文', 'Ledger 起草切分；3–30 CASE，<6 不拆；页面是 TASK', '子四维、行为评审与用例验收由 Ledger 补齐', '可不全覆盖：漏掉的记欠项，首版后补齐'],controller=True)
     d.box(640,700,480,170,'父 MO · 其他根模块 × N',[
         'project 按根模块分别建立父 MO', '子 scope / CASE；功能叶不重叠，横切功能随主流程叶', '继承实现 / 复用 / 四维上下文', 'single-module 仅保留选定根模块'],controller=True)
     # Anchor branch endpoints to the cards (container crossings remain open).
@@ -105,7 +105,7 @@ def overview():
         d.arrow([(x,870),(x,940),(610,940)],end=False)
     d.arrow([(610,940),(610,980)])
     d.box(100,980,1020,110,'接受拆分 → 登记子模块 → 全局覆盖',[
-        'Ledger 起草的切法当场接受、覆盖沿用；登记已说明覆盖时由 Ledger 起草；其余 GO 审核'])
+        'Ledger 起草的切法当场接受、覆盖沿用；登记已说明覆盖（含功能归属）时由 Ledger 起草；其余 GO 审核'])
     d.arrow([(610,1090),(610,1220)],end=False)
     d.arrow([(215,1220),(1010,1220)],end=False)
     d.band(60,1170,1100,265,'子 MO  ·  任务规划与独立执行','单个失败不取消或污染无关子模块')
@@ -140,7 +140,7 @@ def overview():
     d.box(1210,880,330,310,'Ledger · 唯一总线',[
         '分配包 / 事件 / 状态 / 证据', 'planning_context：全局视野', 'wave-complete：派波次集成', '预检：Ledger 代写或骨架起笔', '已有事实代填；被拒列全问题', '就绪才开工，阻塞退回派发前', '父聚合颜色不回写子模块'], 'green')
     d.box(1210,1230,330,290,'宿主执行层',[
-        '实际派发执行角色并绑定身份', 'worker 只读本步阅读卡', '同 Run：Fixer / CR / 父 MO / GO', '机械步骤由 advance 直提', '停了：handover 接手，可改钉包', '历史留痕，仅执行当前 SPEC', '遵守 DAG / 写锁 / 累计预算'], 'gray')
+        '实际派发执行角色并绑定身份', 'worker 只读本步阅读卡', '同 Run：Fixer / CR / 父 MO / GO', 'drive 推进机械步，信号只报一次', '停了：handover 接手，可改钉包', '历史留痕，仅执行当前 SPEC', '遵守 DAG / 写锁 / 累计预算'], 'gray')
     d.box(1210,1530,330,280,'收尾 ≠ 全部通过',[
         'Green：真实复测与 DoD 完成', '仅缺自动化环境：Yellow 收尾', '排队、锁等待、worker 退出', '均不能独立算作 MO 收尾', 'host-idle / planning-overdue', '有 ready 动作继续推进', '一个失败不提前拉起 Auditor'], 'orange')
     d.text(1375,1935,'细节阅读',24,weight=650)
@@ -162,7 +162,7 @@ def module_execution():
         'UI → Logic → Adhesive → Resource',
         'Spec-Designer：实施规范 + CASE / PATH / ASSERT',
         '先按 capture_due 捕获、media_due 引用用户媒体',
-        '骨架预填场景，冻结测试源 / 用户截图 visual PATH',
+        '骨架预填场景与测试源；PATH 准备方式 Ledger 补',
         '首版限时 45 分钟；可后补项记 debt'])
     d.arrow([(800,585),(800,610)])
     d.box(550,610,500,185,'MO 审核冻结',[

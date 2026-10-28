@@ -103,7 +103,8 @@ class FunctionalSkeletonTests(unittest.TestCase):
         documents = {kind + '.md': f.ref(f'doc-{kind}.md', kind) for kind in ('proposal', 'spec', 'design', 'tasks')}
         rest = spec_skeleton.plans(s, m, out, documents)
         upstream = rest['upstream-test-plan.json']
-        screen = next(p for p in upstream['paths'] if p['kind'] == 'automation')
+        import design_stage
+        screen = next(p for p in design_stage.path_defaults(upstream) if p['kind'] == 'automation')  # its preparation is the Ledger's
         script = next(a for a in upstream['test_assets'] if a['kind'] == 'script')
         self.assertEqual((screen['platform'], screen['preparation']['asset_ids'], script['path_ids'], script['assertions']),
                          ('android', [script['asset_id']], [screen['path_id']], [{'path_id': screen['path_id'], 'assertion_id': 'ASSERT-' + screen['path_id']}]))
@@ -117,7 +118,8 @@ class FunctionalSkeletonTests(unittest.TestCase):
         out = f.root / 'staging/spec-designer/web'; out.mkdir(parents=True)
         documents = {kind + '.md': f.ref(f'doc-{kind}.md', kind) for kind in ('proposal', 'spec', 'design', 'tasks')}
         upstream = spec_skeleton.plans(s, m, out, documents)['upstream-test-plan.json']
-        screen = next(p for p in upstream['paths'] if p['kind'] == 'automation')
+        import design_stage
+        screen = next(p for p in design_stage.path_defaults(upstream) if p['kind'] == 'automation')  # its preparation is the Ledger's
         self.assertEqual((screen['platform'], screen['task_type'], [step['action'] for step in screen['steps']], screen['preparation']['status']),
                          ('web', 'test', ['goto', 'click'], 'existing'))
         assertion = screen['expected_assertions'][0]

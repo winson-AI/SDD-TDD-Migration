@@ -29,6 +29,16 @@ import behavior_contract
 
 class SourceChangeTests(unittest.TestCase):
     def setUp(self):
+        f = self.register_root()
+        f.split(self.d.proposal(ids=('M001', 'M002')))
+        f.global_plan()
+        self.library = (f.base/'library').resolve(); self.library.mkdir()
+        self.sources = reuse.normalize_sources([{'source_id': 'LIB', 'root': str(self.library)}], str(f.target), True)
+
+    def register_root(self, features=None):
+        """The run initialised with the cases of the root's features (the fixture's one feature by default) and the root registered."""
+        features = features or [{'feature_id': 'F-ROOT', 'name': 'Search', 'functional_path': 'Search/Root', 'trigger': 'invoke', 'observable_result': 'result', 'requirement_ids': ['R1'], 'case_ids': ['C1'], 'evidence_refs': []}]
+        cases = sorted({c for x in features for c in x['case_ids']})
         self.f = f = test_context_readiness.ContextReadinessTests(); f.setUp(); self.addCleanup(f.doCleanups)
         old = f.state(); f.root = (f.base/'.sdd-runs/demo').resolve()
         actor = {'role': 'host', 'instance_id': 'host'}
@@ -40,28 +50,41 @@ class SourceChangeTests(unittest.TestCase):
         prepared = pc.prepare(self.config_root, f.root, {'schema_version': 1, 'project_id': 'demo', 'request_id': 'prepare',
             'run_id': 'demo', 'source_ref': f.ref('user-run.md', 'Migrate fixture')}, actor)
         self.original_ref = prepared['project_context_ref']
-        f.call('init', {**{k: old[k] for k in ('target_root', 'legacy_root', 'global_spec', 'case_ids', 'requirement_ids')},
+        f.call('init', {**{k: old[k] for k in ('target_root', 'legacy_root', 'global_spec', 'requirement_ids')}, 'case_ids': cases,
             'new_architecture': prepared['input']['new_architecture'], 'project_context_ref': self.original_ref,
             'global_paths': []}, role='host')
         self.d = test_dimensions.DimensionTests(); self.d.f = f
         analysis = self.d.analysis()
+        for row in analysis['dimensions']:
+            for item in row['items']:
+                item['case_ids'] = cases
         self.d.root_ref = f.ref('root-dimensions.json', analysis)
-        parent = {'module_id': 'M010', 'case_ids': ['C1'], 'write_paths': [str(f.target)],
+        evidence = f.ref('feature-discovery.md', 'Reviewed legacy entry and every feature of the root')
+        features = [{**x, 'evidence_refs': x['evidence_refs'] or [evidence]} for x in features]
+        s = f.state()
+        inventory = {'schema_version': 1, 'legacy_root': s['legacy_root'], 'entry_mode': s['entry_mode'], 'single_module_id': s.get('single_module_id'),
+                     'source_mode': 'legacy-source', 'test_summary_ref': None, 'features': features,
+                     'source_units': [{'unit_id': 'U1', 'kind': 'legacy-entry', 'locator': s['legacy_root'], 'feature_ids': [x['feature_id'] for x in features], 'evidence_refs': [evidence]}],
+                     'coverage': {'status': 'complete', 'unclassified': [], 'unresolved_questions': []}, 'questions': []}
+        parent = {'module_id': 'M010', 'case_ids': cases, 'write_paths': [str(f.target)],
             'scope': analysis['scope'], 'context_refs': [f.ref('root-context.md', 'Parent scope')],
             'dimension_analysis_ref': self.d.root_ref, 'decomposition_required': True,
-            'feature_inventory_ref': f.ref('root-inventory.json', {'test_summary_ref': None, 'source_units': [], 'features': [{'feature_id': 'F-ROOT', 'name': 'Search', 'functional_path': 'Search/Root', 'trigger': 'invoke', 'observable_result': 'result', 'requirement_ids': ['R1'], 'case_ids': ['C1'], 'evidence_refs': []}]})}
+            'feature_inventory_ref': f.ref('root-inventory.json', inventory)}
         parent['behavior_review'] = behavior_review(f, parent)
         f.call('register', parent, role='global-orchestrator', module=None)
-        f.split(self.d.proposal(ids=('M001', 'M002')))
-        f.global_plan()
-        self.library = (f.base/'library').resolve(); self.library.mkdir()
-        self.sources = reuse.normalize_sources([{'source_id': 'LIB', 'root': str(self.library)}], str(f.target), True)
+        return f
+
+    def logic_item(self, mid):
+        """The id of the Logic item the module's allocated analysis holds."""
+        import dimensions
+        m = self.f.state()['modules'][mid]
+        return next(iid for iid, item in dimensions.load(m['dimension_analysis_ref'], mid)[1].items() if item['dimension'] == 'Logic')
 
     def plan(self, mid):
         f = self.f
         # Fixture helpers share definition paths; give every frozen plan its own copies.
         p = test_ledger.FlowTests.plan(f)
-        module = f.state()['modules'][mid]; iid = mid+'-Logic'; pid = mid+'-P'; bid = mid+'-B'; sid = mid+'-S'; uid = mid+'-U'
+        module = f.state()['modules'][mid]; iid = self.logic_item(mid); pid = mid+'-P'; bid = mid+'-B'; sid = mid+'-S'; uid = mid+'-U'
         p.update(module_id=mid, dimension_analysis_ref=module['dimension_analysis_ref'])
         p['definitions'] = [{**f.ref(f'defs-{mid}-{f.n}/{r["kind"]}.md', check_ref(r).read_text() + '\n'+iid+'\n'), 'kind': r['kind']}
                             for r in p['definitions']]
@@ -93,7 +116,7 @@ class SourceChangeTests(unittest.TestCase):
         p['behavior_contract_required'] = True
         p['source_closure'].update(behavior_review(f, module))
         for path in p['paths']:
-            if path.get('kind', 'automation') in behavior_contract.BEHAVIOR_KINDS:
+            if path.get('kind', 'automation') in behavior_contract.BEHAVIOR_KINDS and module['behavior_review']['verification'].get('fixture_contract_ref'):
                 path['fixture_contract_ref'] = module['behavior_review']['verification']['fixture_contract_ref']
         for ref in p['definitions']:
             if ref['kind'] == 'spec':

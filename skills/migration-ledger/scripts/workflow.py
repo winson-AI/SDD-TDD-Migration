@@ -398,9 +398,13 @@ def draft_coverage(s):
                    for x in {**s.get('module_groups', {}), **s['modules']}.values() if x.get('feature_inventory_ref')} if s.get('context_readiness_required') else set()
     if any(len(owners) > 1 for owners in cases.values()) or len(inventories) > 1:
         return None
-    plan = {'boundary_review': {'issues': []}, 'case_owners': cases, 'requirement_owners': requirements,
-            **({'feature_inventory_ref': json.loads(inventories.pop())} if inventories else {})}
+    plan = {'boundary_review': {'issues': []}, 'case_owners': cases, 'requirement_owners': requirements}
     try:
+        if inventories:  # each feature is owned by the modules holding its cases
+            plan['feature_inventory_ref'] = json.loads(inventories.pop())
+            features = keyed(read_json(check_ref(plan['feature_inventory_ref'])).get('features'), 'feature_id')
+            plan['feature_owners'] = {fid: sorted({mid for cid in f.get('case_ids') or [] for mid in cases.get(cid, [])})
+                                      for fid, f in features.items() if set(f.get('case_ids') or []) & set(cases)}
         coverage_checks(s, {}, plan, review=False)
     except (Rejected, OSError, KeyError, TypeError, ValueError):
         return None
