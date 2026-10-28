@@ -35,6 +35,7 @@ class RefusedThenLearned(test_continuous_run.ContinuousWalk):
                               'request_id': 'prepare-2', 'run_id': 'demo2', 'source_ref': self.f.ref('user-run-2.md', 'Second task')},
                               {'role': 'host', 'instance_id': 'host'})
         ref = pc.verify_snapshot(prepared['project_context_ref'])['source_refs']['experience_ref']
+        self.store = Path(pc.verify_snapshot(prepared['project_context_ref'])['source_paths']['experience_ref']).parent
         return read_json(check_ref(ref))
 
 
@@ -53,6 +54,23 @@ class ExperienceLoopTests(RefusedThenLearned):
         self.assertIn('preview --request', lesson['strategy'])
         self.assertTrue(all('/experience/' in ref['path'] or '/.sdd-migration/' in ref['path'] for ref in lesson['evidence_refs']))  # kept by the store
         self.assertFalse([r for r in experience.candidates(index, module, step=('submit', 'implementer')) if r['kind'] == 'gate-rejection'])
+
+    def test_the_package_feedback_kept_beside_the_store_counts_what_the_run_holds(self):
+        import workflow_cost
+        self.walk(80)
+        self.next_run()
+        report = json.loads((self.store / 'package-feedback.json').read_text())
+        (sha, runs), = report['packages'].items()
+        (rid, row), = runs.items()
+        run_root = Path(self.f.state()['run_root'])
+        events = workflow_cost.journal(run_root)
+        self.assertEqual(sha, self.f.state().get('package_sha') or 'unpinned')
+        self.assertEqual(row['model_turns'], sum(map(workflow_cost.model_turn, events)))
+        self.assertEqual([(k, n) for k, n in row['refusals'].items() if k.startswith('plan × spec-designer')][0][1], 3)
+        self.assertEqual(row['max_card_bytes'], max(p.stat().st_size for p in (run_root / 'reports/reading').glob('*.md')))
+        self.assertEqual(row['slicing']['leaves'], len(self.f.state()['modules']))
+        self.assertIn(rid, (self.store / 'package-feedback.md').read_text())
+        self.assertNotIn('feedback', json.dumps(self.next_run()['runs']))  # the planners' index does not carry it
 
     def test_a_lesson_whose_rule_left_the_package_is_not_offered(self):
         self.walk(80)

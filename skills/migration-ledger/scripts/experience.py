@@ -3,6 +3,7 @@
 The store `<workspace_root>/.sdd-migration/experience/` is advisory planning input, not state:
   lessons.json      one block per run_id (re-harvest replaces that run's block, never another run's)
   retrospect.jsonl  append-only harvest receipts
+  package-feedback  .json and .md: what the runs tell about the package, by package commit (package_feedback.py)
 
 Lessons are rebuilt from the run's integrity-checked Ledger journal, not from the rebuildable
 `ledger/lessons.json` projection. `project_context.py prepare` freezes the current lessons.json into the
@@ -171,6 +172,11 @@ def conventions(root):
     return (load(root).get('conventions') or {}).get(project_id or '', {})
 
 
+def effect_counts(data):
+    """For each gate lesson, in how many runs it was offered and in how many of them its refusal came back."""
+    return {lesson: {'offered': len(row['runs']), 'recurred': sum(row['runs'].values())} for lesson, row in (data.get('effect') or {}).items()}
+
+
 def planning_view(data, archive_lesson=None):
     """Project observations remain available for retrospective; new tasks read abstract lessons only."""
     from contracts import digest
@@ -183,9 +189,9 @@ def planning_view(data, archive_lesson=None):
                 selected = [{**{key: entry[key] for key in ('kind', 'summary', 'applicability', 'root_cause')},
                              **{key: entry[key] for key in MATCHED if entry.get(key)},  # what a step is matched on
                              'lesson_ref': archive_lesson(entry)} for entry in selected]
-            runs[rid] = {key: value for key, value in block.items() if key != 'entries'}
+            runs[rid] = {key: value for key, value in block.items() if key not in ('entries', 'feedback')}
             runs[rid]['entries'] = selected
-    effect = {lesson: {'offered': len(row['runs']), 'recurred': sum(row['runs'].values())} for lesson, row in (data.get('effect') or {}).items()}
+    effect = effect_counts(data)
     return {'schema_version': 1, 'source_store_sha256': digest(data), 'observations_omitted': omitted,
             'view': 'index' if archive_lesson else 'abstract-lessons', 'runs': runs, **({'effect': effect} if effect else {})}
 
@@ -420,6 +426,8 @@ def keep_evidence(directory, ref):
 
 def harvest(root, run_root):
     from openspec_projection import build_lessons
+    import package_feedback
+    import workflow_cost
     state, sequence = registered_run(root, run_root)
     lessons = build_lessons(state, sequence, run_root)
     rid = key(root, state['run_id'])
@@ -437,7 +445,8 @@ def harvest(root, run_root):
             return {'run_id': rid, 'sequence': sequence, 'entries': len(previous['entries']), 'duplicate': True}
         stamp = datetime.now(timezone.utc).isoformat()
         data['runs'][rid] = {'sequence': sequence, 'run_quality': state.get('quality'), 'harvested_at': stamp,
-                             'entries': lessons['entries'], 'slicing': slicing_facts(state)}
+                             'entries': lessons['entries'], 'slicing': slicing_facts(state),
+                             'feedback': package_feedback.run_row(state, workflow_cost.journal(run_root), run_root)}
         for lesson, recurred in effects(run_root).items():  # what the lessons this run was handed did: run by run, never twice
             data.setdefault('effect', {}).setdefault(lesson, {'runs': {}})['runs'][rid] = recurred
         facts = settled(state)
@@ -457,6 +466,7 @@ def harvest(root, run_root):
         if facts:  # the project's next run starts from what this one settled, unless its own configuration says otherwise
             data.setdefault('conventions', {})[shared(root)[1] or state.get('project_id') or ''] = {**facts, 'run_id': rid}
         skill = write_skill(directory, data)  # the store's slicing skill follows every run that adds to it
+        package_feedback.write(directory, data)  # and so does what the runs tell about the package, outside it
         atomic(directory / 'lessons.json', encoded(data))
         counts = dict(Counter(e['kind'] for e in lessons['entries']))
         missing = planning_view({'runs': {rid: data['runs'][rid]}})['observations_omitted']
