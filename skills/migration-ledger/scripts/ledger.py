@@ -3188,7 +3188,7 @@ def advance(root, principal, module_id, workers=None):
                                              if step.get(k) is not None}}
     if step.get('must_read'):
         out['card'] = reading.render(step['must_read'], Path(st['run_root']) / 'reports/reading', step.get('templates', ()), step.get('slicing_skill'),
-                                     on_demand=step.get('read_when_writing', ()), lessons=step.get('lesson_candidates', ()))['path']
+                                     on_demand=step.get('read_when_writing', ()), lessons=step.get('lesson_candidates', ()), module=step.get('module_id'))['path']
     return out
 
 

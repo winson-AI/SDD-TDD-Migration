@@ -147,11 +147,28 @@ class EffectivenessTests(unittest.TestCase):
         import reading
         back, row_back = self.lesson('back', 'unfilled skeleton field left in plan.json')
         gone, row_gone = self.lesson('gone', 'the plan names no test paths')
-        reading.render([], self.run / 'reports/reading', lessons=[row_back, row_gone])
-        self.assertEqual(len(json.loads((self.run / 'reports/lessons-offered.json').read_text())), 2)
+        reading.render([], self.run / 'reports/reading', lessons=[row_back, row_gone], module='M011')
+        offered = json.loads((self.run / 'reports/lessons-offered.json').read_text())
+        self.assertEqual(sorted(len(row['offers']) for row in offered.values()), [1, 1])  # when M011 was first handed each
         (self.run / 'reports/rejections').mkdir(parents=True)
-        (self.run / 'reports/rejections/r.json').write_text(json.dumps({'operation': 'plan', 'actor_role': 'spec-designer', 'reason': back['root_cause'], 'attempts': 1}))
+        self.refused('r', back, 'M011', '9999')
         self.assertEqual(experience.effects(self.run), {experience.gate_key(back): True, experience.gate_key(gone): False})
+
+    def refused(self, name, lesson, module, when):
+        (self.run / 'reports/rejections' / (name + '.json')).write_text(json.dumps({'operation': 'plan', 'actor_role': 'spec-designer', 'module_id': module,
+                                                                                  'reason': lesson['root_cause'], 'attempts': 1, 'recorded_at': when}))
+
+    def test_a_refusal_before_the_lesson_reached_a_module_or_in_a_module_it_never_reached_is_not_held_against_it(self):
+        import reading
+        back, row = self.lesson('back', 'missing file: /work/r2/plan.json')
+        (self.run / 'reports/rejections').mkdir(parents=True)
+        self.refused('before', back, 'M011', '0000')  # met before any card carried it
+        reading.render([], self.run / 'reports/reading', lessons=[row], module='M011')
+        self.refused('elsewhere', back, 'M012', '9999')  # met later in a leaf whose card never carried it
+        self.assertEqual(experience.effects(self.run), {experience.gate_key(back): False})
+        reading.render([], self.run / 'reports/reading', lessons=[row], module='M011')  # handed again: the first offer stands
+        self.refused('after', back, 'M011', '9999')
+        self.assertEqual(experience.effects(self.run), {experience.gate_key(back): True})
 
     def test_a_lesson_met_again_in_two_runs_goes_last_and_one_that_held_goes_first(self):
         back, row_back = self.lesson('back', 'unfilled skeleton field left in plan.json')

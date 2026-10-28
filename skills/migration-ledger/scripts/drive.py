@@ -56,7 +56,7 @@ def card(root, step, instance=None):
     resumed = bool(step.get('session_id')) and 'must_read_new' in step
     rows = step['must_read_new'] if resumed else step['must_read']
     out = reading.render(rows, Path(root) / 'reports/reading', step.get('templates', ()), None if resumed else step.get('slicing_skill'),
-                         on_demand=step.get('read_when_writing', ()), lessons=step.get('lesson_candidates', ()))
+                         on_demand=step.get('read_when_writing', ()), lessons=step.get('lesson_candidates', ()), module=step.get('module_id'))
     return {'card': out['path'], 'card_bytes': out['bytes'], **({'instance_id': instance} if instance else {}),
             **({'resumed_from_bytes': sum(r['bytes'] for r in step['must_read'])} if resumed else {})}
 
