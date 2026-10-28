@@ -65,6 +65,12 @@ def groups(features, cases, minimum, maximum):
     return done
 
 
+def anchor(screens, cases):
+    """The screens a leaf accepts on: the root's UI items whose cases it holds, else a mark for the orchestrator."""
+    held = sorted({item.get('behavior') or item['item_id'] for item in screens if set(item.get('case_ids') or []) & set(cases)})
+    return held or todo('本叶验收的页面')
+
+
 def draft(s, mid):
     import decomposition
     parent = s['modules'].get(mid)
@@ -78,9 +84,11 @@ def draft(s, mid):
                 if cases & set(f.get('case_ids') or [])}
     require(features, 'the inventory holds no feature of this root')
     taken = {int(k[1:]) for k in (*s['modules'], *s.get('module_groups', {})) if k[1:].isdigit()}
-    ui = False
+    ui, screens = False, []
     if s.get('dimension_slicing_required') and parent.get('dimension_analysis_ref'):
         ui = 'UI' in decomposition.applicable(parent['dimension_analysis_ref'], mid)
+        screens = [item for row in read_json(check_ref(parent['dimension_analysis_ref'])).get('dimensions', [])
+                   if row['dimension'] == 'UI' and row.get('status') == 'applicable' for item in row.get('items') or []]
     scope = parent.get('scope') or {}
     children = []
     for n, (paths, fids) in enumerate(groups(features, cases, decomposition.LEAF_MIN_CASES, decomposition.LEAF_MAX_CASES), 1):
@@ -93,7 +101,7 @@ def draft(s, mid):
                       'requirement_ids': sorted({r for fid in fids for r in features[fid].get('requirement_ids') or []}
                                                 & set(scope.get('requirement_ids') or []))},
             'context_refs': list(parent.get('context_refs') or []),
-            **({'anchor_ui': todo('本叶验收的页面')} if ui else {})})  # its analysis and behaviour review are cut by the Ledger at decompose
+            **({'anchor_ui': anchor(screens, held)} if ui else {})})  # its analysis and behaviour review are cut by the Ledger at decompose
     return {'parent_module_id': mid, 'kind': 'split', 'feature_inventory_ref': ref,
             'rationale': f'按功能树切分：共同前缀下一级节点各为一叶，用例超过 {decomposition.LEAF_MAX_CASES} 条的节点再下切一级，'
                          f'共享用例的节点合为一叶，不足 {decomposition.LEAF_MIN_CASES} 条的并入最小的另一叶；写范围按叶收窄',

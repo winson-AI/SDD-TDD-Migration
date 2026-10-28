@@ -15,6 +15,7 @@ import context_readiness as cr
 import decomposition
 import ledger
 import project_context as pc
+import dimensions
 import reuse
 import spec_closure
 import source_changes
@@ -35,8 +36,9 @@ class SourceChangeTests(unittest.TestCase):
         self.library = (f.base/'library').resolve(); self.library.mkdir()
         self.sources = reuse.normalize_sources([{'source_id': 'LIB', 'root': str(self.library)}], str(f.target), True)
 
-    def register_root(self, features=None, global_paths=()):
-        """The run initialised with the cases of the root's features (the fixture's one feature by default) and the root registered."""
+    def register_root(self, features=None, global_paths=(), kinds=('Logic',), config=None):
+        """The run initialised with the cases of the root's features (the fixture's one feature by default) and the root
+        registered; `kinds` are the root's applicable dimensions, `config` what the project states besides its roots."""
         features = features or [{'feature_id': 'F-ROOT', 'name': 'Search', 'functional_path': 'Search/Root', 'trigger': 'invoke', 'observable_result': 'result', 'requirement_ids': ['R1'], 'case_ids': ['C1'], 'evidence_refs': []}]
         cases = sorted({c for x in features for c in x['case_ids']})
         self.f = f = test_context_readiness.ContextReadinessTests(); f.setUp(); self.addCleanup(f.doCleanups)
@@ -44,7 +46,7 @@ class SourceChangeTests(unittest.TestCase):
         actor = {'role': 'host', 'instance_id': 'host'}
         self.config_root = f.base/'.sdd-migration'
         self.config = {'legacy_root': str(f.legacy), 'target_root': str(f.target),
-                       'architecture_path': old['new_architecture']['path']}
+                       'architecture_path': old['new_architecture']['path'], **(config(f) if callable(config) else config or {})}
         pc.update(self.config_root, {'schema_version': 1, 'project_id': 'demo', 'request_id': 'config',
                   'expected_revision': 0, 'patch': self.config, 'source_ref': f.ref('user-config.md', 'Use these roots')}, actor, True)
         prepared = pc.prepare(self.config_root, f.root, {'schema_version': 1, 'project_id': 'demo', 'request_id': 'prepare',
@@ -54,10 +56,15 @@ class SourceChangeTests(unittest.TestCase):
             'new_architecture': prepared['input']['new_architecture'], 'project_context_ref': self.original_ref,
             'global_paths': list(global_paths)}, role='host')
         self.d = test_dimensions.DimensionTests(); self.d.f = f
-        analysis = self.d.analysis()
+        analysis = self.d.analysis(kinds=kinds)
         for row in analysis['dimensions']:
             for item in row['items']:
                 item['case_ids'] = cases
+                if row['dimension'] == 'Resource':  # where a resource lands and who reads it is the leaf's to settle
+                    item.pop('target_resource', None); item.pop('consumer', None)
+            if row['status'] == 'applicable' and row['dimension'] in dimensions.CONDITION_FACETS:  # a screen's conditions were read
+                row['condition_review'] = {facet: {'reason': 'Reviewed source; no conditional variant', 'evidence_refs': row['evidence_refs'],
+                                                   'condition_refs': []} for facet in dimensions.CONDITION_FACETS[row['dimension']]}
         self.d.root_ref = f.ref('root-dimensions.json', analysis)
         evidence = f.ref('feature-discovery.md', 'Reviewed legacy entry and every feature of the root')
         features = [{**x, 'evidence_refs': x['evidence_refs'] or [evidence]} for x in features]

@@ -70,12 +70,13 @@ def prepare(m, review_ref):
     wanted = {pid for tid in retained for pid in after[tid]['path_ids'] if paths[pid].get('kind') not in ('build', 'unit', 'static')}
     changed_paths = {pid for tid in affected if tid in after for pid in after[tid]['path_ids']
                      if paths[pid].get('kind') not in ('build', 'unit', 'static')}
-    if wanted & changed_paths or any(old_paths.get(pid) != paths[pid] for pid in wanted): return {**full, 'reason': 'shared-or-changed-path'}
+    from control_policy import content  # rewritten files with the same bytes are the same PATH
+    if wanted & changed_paths or any(content(old_paths.get(pid)) != content(paths[pid]) for pid in wanted): return {**full, 'reason': 'shared-or-changed-path'}
     def assets(plan):
         ref = plan.get('test_design_ref')
         rows = read_json(check_ref(ref)).get('test_assets', []) if ref else plan.get('test_assets', [])
         return {pid: [a for a in rows if pid in a.get('path_ids', [])] for pid in wanted}
-    if assets(old) != assets(new): return {**full, 'reason': 'changed-test-assets'}
+    if content(assets(old)) != content(assets(new)): return {**full, 'reason': 'changed-test-assets'}
     # This evidence covers shared SPEC/design edits as well as runtime/resource
     # inputs: the MO must explicitly identify unchanged task semantics.
     require(set(proof.get('unchanged_task_ids', [])) == retained, 'TASK independence unchanged semantics review required')
@@ -89,10 +90,15 @@ def prepare(m, review_ref):
         return blocks
     old_defs = [d for d in old['definitions'] if d['kind'] == 'spec']
     new_defs = [d for d in new['definitions'] if d['kind'] == 'spec']
+    def kept(old, new):  # every line of the old block is still there, in order: the revision only adds to it
+        lines = iter((new or '').splitlines())
+        return all(any(line == other for other in lines) for line in old.splitlines())
     if old_defs != new_defs:
         a, b = requirements(old), requirements(new)
         reqs = {rid for tid in retained for rid in after[tid]['requirement_ids']}
-        if any(rid not in a or a[rid] != b.get(rid) for rid in reqs): return {**full, 'reason': 'shared-spec-impact'}
+        same = (lambda x, y: kept(x, y)) if proof.get('written_by') == 'ledger' else (lambda x, y: x == y)  # the Ledger proves additions only
+        if any(rid not in a or len(a[rid]) != len(b.get(rid) or []) or not all(same(x, y) for x, y in zip(a[rid], b.get(rid) or []))
+               for rid in reqs): return {**full, 'reason': 'shared-spec-impact'}
     protected = {str(Path(p).resolve()) for tid in retained for p in m.get('task_files', {}).get(tid, [])}
     if not protected or any(not m.get('task_files', {}).get(tid) for tid in retained): return full
     code = {r['path']: r for r in m['code_files']}

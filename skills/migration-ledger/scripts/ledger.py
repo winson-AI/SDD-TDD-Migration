@@ -618,6 +618,13 @@ def diagnosis_focus(m, p):
                 'each visual issue needs area, problem, severity and evidence_ref')
 
 
+def owed_gaps(s, m):
+    """The open issues of a module that are gaps its plan owes, recorded by the Ledger, when nothing else is open."""
+    rows = issues.of_module(s, m['module_id'])[0]
+    gaps = [row['issue_id'] for row in rows if row['kind'] == 'gap' and s['issues'][row['issue_id']]['raised_by'] == issues.LEDGER]
+    return gaps if gaps and len(gaps) == len(rows) else []
+
+
 def traced_revision(s, m, owed):
     """What the unified audit traced back to this finished leaf is revised by it: its SPEC through a change request whose
     request and impact are the audit's analysis, or, for a scope gap, its allocation through a request to its parent.
@@ -1062,6 +1069,11 @@ def _next_step(s, m):
             ui_fidelity.completion_gate(s, m)
         except (Rejected, OSError) as exc:
             step.update(ready=False, reason='DoD-or-baseline-incomplete', detail=str(exc), mechanical=False)
+            gaps = owed_gaps(s, m)
+            if gaps and str(exc).startswith('open issues of this module'):
+                # Built and tested, it still owes what its first plan left out: the Ledger opens the revision that fills
+                # it. The code and its Green stay when nothing frozen changes (control_policy.additions).
+                step.update(operation='change', ready=True, mechanical=True, reason='owed-gaps', issue_ids=gaps, detail=None, payload={})
     elif m['phase'] == 'completed':
         step.update(reason='module-complete')
         owed = [row['issue_id'] for row in issues.of_module(s, m['module_id'])[0]]
@@ -1714,6 +1726,8 @@ def mutate(s, req, principal, events, root=None):
         import minimal_plan
         dimensions.refinement(s, m, plan)  # an analysis the leaf refined from its allocation is judged like a registered one
         plan = minimal_plan.complete(s, m, plan)  # what follows from the leaf's accepted four-dimension specification
+        import resource_binding
+        plan = resource_binding.bind(s, m, plan, root)  # the copy plan and parameter sheet its UI evidence and the conventions give
         if s.get('planning_coverage_required'):
             plan = user_paths.settle_gaps(s, m, plan)  # and from the run's statement that no device is available
         require('checklist' not in {d.get('kind') for d in plan.get('definitions') or []},
@@ -2988,6 +3002,18 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
                 'reason': 'every freeze gate passed, no blocking issue is open and the author asked nothing: the code and its tests judge the rest'
                           + ('; the revision only adds %s to the coded plan' % ', '.join(control_policy.additions(m))
                              if control_policy.execution_started(m) and control_policy.additions(m) else '')}
+        if control_policy.execution_started(m) and control_policy.additions(m) == [] and m.get('change_request'):
+            # Nothing frozen moved and nothing was added: every TASK is independent of the revision, which only completes
+            # the plan's text. The proof is a fact; freeze then keeps the code and the Green it still has.
+            proof = run_storage.checked_path(root / 'reports' / 'task-independence' / f'{module_id}-{sequence}.json', root)
+            proof.parent.mkdir(parents=True, exist_ok=True)
+            tasks = [t['task_id'] for t in m['plan']['tasks']]
+            proof.write_text(json.dumps({'schema_version': 1, 'written_by': 'ledger', 'from_freeze_id': m['change_request']['from_freeze_id'],
+                                         'to_plan_hash': m['plan_hash'], 'reviewer_instance_id': actor['instance_id'],
+                                         'affected_task_ids': [], 'unchanged_task_ids': tasks,
+                                         'tasks': [{'task_id': tid, 'depends_on': [], 'input_refs': [], 'evidence_refs': [m['plan_ref']]} for tid in tasks]},
+                                        ensure_ascii=False, indent=2, sort_keys=True) + '\n')
+            body['task_independence_ref'] = file_ref(proof)
     elif kind == 'diagnosis':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
@@ -2996,6 +3022,11 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
                                    **({'step_trace_ref': r['step_trace_ref']} if r.get('step_trace_ref') else {})}
                              for pid, r in sorted(unresolved(m).items())},
                 'checks': ['every failed PATH broke inside the write scope at grepped locations, or failed frozen assertions of this module']}
+    elif kind == 'owed-gaps':
+        m = s['modules'][module_id]
+        body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
+                'gaps': {iid: s['issues'][iid]['summary'] for iid in owed_gaps(s, m)},
+                'request': 'complete the plan with what it owes; tasks and paths that do not change keep their code and Green'}
     elif kind == 'route-review':
         b = s['audit_batch']
         body = {'batch_id': b['batch_id'], 'plan_ref': b['plan_ref'],
@@ -3077,6 +3108,10 @@ def advance(root, principal, module_id, workers=None):
             step['operation'] = 'submit'
         elif step['operation'] == 'accept':
             payload = {'assignment_id': step['assignment_id']}
+        elif step['operation'] == 'change' and step.get('reason') == 'owed-gaps':
+            s = read_events(root)[0]
+            ref = closure_record(root, s, module_id, 'owed-gaps', sequence)
+            payload = {'request_ref': ref, 'impact_ref': ref}
         elif step['operation'] in ('freeze', 'diagnosis-accept', 'audit-defer', 'automation-unavailable', 'resume', 'audit-work', 'audit-retest', 'change'):
             payload = dict(step.get('payload') or {})
         elif step['operation'] == 'dependency-ready':
@@ -3105,6 +3140,11 @@ def advance(root, principal, module_id, workers=None):
                            'operation': step['operation'], 'payload': payload}, actor)
         applied.append({'operation': step['operation'], 'event_id': ack['event_id'],
                         **{k: payload[k] for k in ('assignment_id', 'role', 'instance_id', 'test_scope') if k in payload}})
+        if step['operation'] == 'assign' and payload.get('role') in ('implementer', 'fixer'):
+            import resource_binding  # the frozen plan's copies and parameter file, written in the coder's name before it codes
+            synced = resource_binding.sync(root, read_events(root)[0], module_id, payload['assignment_id'])
+            if synced:
+                applied.append({'operation': 'resource-sync', 'assignment_id': payload['assignment_id'], 'result_ref': synced['result_ref']})
     out = {'applied': applied, 'next_step': {k: step[k] for k in ('operation', 'role', 'ready', 'reason', 'assignment_id')
                                              if step.get(k) is not None}}
     if step.get('must_read'):
