@@ -30,6 +30,7 @@ ABSTRACT_FIELDS = ('summary', 'applicability', 'root_cause', 'strategy', 'result
 
 
 SKILL = 'migration-slicing-experience'
+MATCHED = ('operation', 'actor_role', 'read_hint')  # a gate lesson reaches the step that submits that operation as that role
 SLICING_KINDS = ('slicing-gap', 'boundary-conflict', 'planning-gap')
 SKILL_LESSONS, SKILL_OBSERVATIONS = 30, 10  # what one skill carries; the store keeps everything
 
@@ -180,7 +181,8 @@ def planning_view(data, archive_lesson=None):
         if selected:
             if archive_lesson:
                 selected = [{**{key: entry[key] for key in ('kind', 'summary', 'applicability', 'root_cause')},
-                            'lesson_ref': archive_lesson(entry)} for entry in selected]
+                             **{key: entry[key] for key in MATCHED if entry.get(key)},  # what a step is matched on
+                             'lesson_ref': archive_lesson(entry)} for entry in selected]
             runs[rid] = {key: value for key, value in block.items() if key != 'entries'}
             runs[rid]['entries'] = selected
     return {'schema_version': 1, 'source_store_sha256': digest(data), 'observations_omitted': omitted,
@@ -199,8 +201,31 @@ def global_scope(state):
     return {'scope': {'in': terms}}
 
 
-def candidates(index, module, task_ids=()):
-    """Scope, dimension and cause suggestions; bodies stay unopened and applicability still needs review."""
+def gate_rows(index, step):
+    """The refusals earlier runs met submitting this operation as this role, one row per rule, the runs that met it
+    first; a rule whose section the current package no longer has is gone with it."""
+    import reading
+    op, role = step
+    merged = {}
+    for rid, block in index.get('runs', {}).items():
+        for entry in block.get('entries', []):
+            if entry.get('kind') != 'gate-rejection' or (entry.get('operation'), entry.get('actor_role')) != (op, role) or not entry.get('lesson_ref'):
+                continue
+            hint = entry.get('read_hint') or {}
+            if hint:
+                try:
+                    reading.section(hint['ref'], hint['section'])
+                except (KeyError, OSError, ValueError):
+                    continue  # the package changed: the rule this lesson names is not there any more
+            row = merged.setdefault(entry.get('root_cause'), {'row': {k: entry[k] for k in ('kind', 'summary', 'applicability', 'lesson_ref')}, 'runs': set()})
+            row['runs'].add(rid)
+    rows = sorted(merged.values(), key=lambda m: (-len(m['runs']), m['row']['summary']))
+    return [{**m['row'], 'runs': len(m['runs'])} for m in rows]
+
+
+def candidates(index, module, task_ids=(), step=None):
+    """Scope, dimension and cause suggestions; bodies stay unopened and applicability still needs review. With `step`
+    (operation, role), the refusals earlier runs met there come first."""
     terms = set((module.get('scope') or {}).get('in', []))
     for task in (module.get('plan') or {}).get('tasks', []):
         if not task_ids or task['task_id'] in task_ids:
@@ -234,7 +259,10 @@ def candidates(index, module, task_ids=()):
             score = 4 * sum(term in text for term in terms) + len(keywords & tokens(text))
             if score and entry.get('lesson_ref'):
                 rows.append((score, {key: entry[key] for key in ('kind', 'summary', 'applicability', 'lesson_ref')}))
-    return [row for _, row in sorted(rows, key=lambda pair: (-pair[0], pair[1]['kind'] != 'failed-strategy', pair[1]['summary']))[:5]]
+    gates = gate_rows(index, step) if step else []
+    ranked = [row for _, row in sorted(rows, key=lambda pair: (-pair[0], pair[1]['kind'] != 'failed-strategy', pair[1]['summary']))
+              if row['kind'] != 'gate-rejection']
+    return (gates + ranked)[:5]
 
 
 def run_lessons(s, mid):
@@ -343,6 +371,14 @@ def auto_harvest(run_root, force=False):
     return harvest(project_root, run_root)
 
 
+def keep_evidence(directory, ref):
+    target = directory / 'evidence' / (ref['sha256'] + Path(ref['path']).suffix)
+    if not target.exists():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        atomic(target, Path(ref['path']).read_bytes())
+    return {'path': str(target), 'sha256': ref['sha256']}
+
+
 def harvest(root, run_root):
     from openspec_projection import build_lessons
     state, sequence = registered_run(root, run_root)
@@ -350,6 +386,9 @@ def harvest(root, run_root):
     rid = key(root, state['run_id'])
     directory = store(root)
     directory.mkdir(parents=True, exist_ok=True)
+    for entry in lessons['entries']:  # a refusal record lives in the run: the store keeps its own copy, named by its hash
+        if entry.get('kind') == 'gate-rejection':
+            entry["evidence_refs"] = [keep_evidence(directory, ref) for ref in entry.get('evidence_refs') or []]
     # prepare reads the store under the project lock; a shared store is also written by other projects
     with run_storage.file_lock(Path(root).resolve() / '.context.lock'), run_storage.file_lock(directory / '.experience.lock'):
         data = load(root)

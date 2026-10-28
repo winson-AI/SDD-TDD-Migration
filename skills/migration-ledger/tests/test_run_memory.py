@@ -84,8 +84,10 @@ class WhatStoppedTheRunTests(unittest.TestCase):
         self.assertEqual(kinds(self.lessons(), 'gate-rejection'), [])  # the journal alone does not hold refusals
         found = {entry['operation']: entry for entry in kinds(self.lessons(f.root), 'gate-rejection')}
         self.assertEqual(sorted(found), ['accept', 'global-plan'])  # twice is a retry, three times is a lesson
-        self.assertEqual((found['accept']['module_id'], found['accept']['attempts'], found['accept']['summary']),
+        self.assertEqual((found['accept']['module_id'], found['accept']['attempts'], found['accept']['root_cause']),
                          ('M001', 3, 'unit tests must pass before the static review'))
+        self.assertEqual(found['accept']['summary'], 'accept by host refused 3 times: unit tests must pass before the static review')
+        self.assertTrue(all(found['accept'].get(k) for k in experience.ABSTRACT_FIELDS))  # abstracted by the Ledger, kept for the next run
         self.assertEqual((found['global-plan'].get('module_id'), found['global-plan']['scope']), (None, 'global'))
         f.call('suspend', {'kind': 'human', 'reason': 'need decision', 'root_cause': 'ambiguous input', 'owner': 'human'})
         state = f.state()

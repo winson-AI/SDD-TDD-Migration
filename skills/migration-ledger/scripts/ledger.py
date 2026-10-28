@@ -1234,6 +1234,13 @@ SLICING_STEPS = {('global-orchestrator', op) for op in ('register', 'global-plan
                  ('module-orchestrator', op) for op in ('decompose', 'redecompose', 'realloc-request')}
 
 
+def submitted_as(step):
+    """(operation, role) the reader of this step submits: a dispatched or running worker submits its result."""
+    if step.get('worker_role') or step.get('operation') == 'await-result':
+        return ('submit', step.get('worker_role') or step.get('role'))
+    return (step.get('operation'), step.get('role'))
+
+
 def with_card(s, m, step):
     """A step that asks for an operation names the protocol sections and the templates it needs."""
     # A step the host submits without a model turn is read by nobody; a dispatch still carries its worker's card.
@@ -1287,7 +1294,8 @@ def with_card(s, m, step):
             step['slicing_skill'] = {'name': experience.SKILL, 'ref': copy.deepcopy(skill)}
         ref = snapshot.get('source_refs', {}).get('experience_ref')
         if ref:
-            candidates = experience.candidates(read_json(check_ref(ref)), m if m is not None else experience.global_scope(s), (step.get('payload') or {}).get('task_ids', []))
+            candidates = experience.candidates(read_json(check_ref(ref)), m if m is not None else experience.global_scope(s),
+                                               (step.get('payload') or {}).get('task_ids', []), submitted_as(step))
             if candidates: step['lesson_candidates'] = candidates
     if m and (step.get('worker_role') or step.get('role')) in ('implementer', 'fixer', 'diagnostician'):
         import experience
