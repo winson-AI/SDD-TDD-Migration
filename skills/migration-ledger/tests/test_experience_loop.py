@@ -66,5 +66,42 @@ class ExperienceLoopTests(RefusedThenLearned):
         self.assertFalse([r for r in experience.candidates(stale, module, step=('plan', 'spec-designer')) if r['kind'] == 'gate-rejection'])
 
 
+class EffectivenessTests(unittest.TestCase):
+    """A lesson's place among the offered ones follows what happened after it was offered."""
+    def setUp(self):
+        import tempfile, shutil
+        self.run = Path(tempfile.mkdtemp()); self.addCleanup(shutil.rmtree, self.run, True)
+
+    def lesson(self, name, reason):
+        body = {'kind': 'gate-rejection', 'operation': 'plan', 'actor_role': 'spec-designer', 'root_cause': reason,
+                'summary': 'plan by spec-designer refused 3 times: ' + reason}
+        path = self.run / (name + '.json'); path.write_text(json.dumps(body))
+        from contracts import file_ref
+        return body, {'kind': 'gate-rejection', 'summary': body['summary'], 'applicability': 'plan × spec-designer × x', 'lesson_ref': file_ref(path)}
+
+    def test_a_card_handed_with_lessons_records_them_and_the_harvest_tells_which_refusal_came_back(self):
+        import reading
+        back, row_back = self.lesson('back', 'unfilled skeleton field left in plan.json')
+        gone, row_gone = self.lesson('gone', 'the plan names no test paths')
+        reading.render([], self.run / 'reports/reading', lessons=[row_back, row_gone])
+        self.assertEqual(len(json.loads((self.run / 'reports/lessons-offered.json').read_text())), 2)
+        (self.run / 'reports/rejections').mkdir(parents=True)
+        (self.run / 'reports/rejections/r.json').write_text(json.dumps({'operation': 'plan', 'actor_role': 'spec-designer', 'reason': back['root_cause'], 'attempts': 1}))
+        self.assertEqual(experience.effects(self.run), {experience.gate_key(back): True, experience.gate_key(gone): False})
+
+    def test_a_lesson_met_again_in_two_runs_goes_last_and_one_that_held_goes_first(self):
+        back, row_back = self.lesson('back', 'unfilled skeleton field left in plan.json')
+        held, row_held = self.lesson('held', 'the plan names no test paths')
+        entries = [{**row_back, **{k: back[k] for k in ('operation', 'actor_role', 'root_cause')}},
+                   {**row_held, **{k: held[k] for k in ('operation', 'actor_role', 'root_cause')}}]
+        index = {'runs': {'r1': {'entries': entries}, 'r2': {'entries': entries}},
+                 'effect': {experience.gate_key(back): {'offered': 2, 'recurred': 2}, experience.gate_key(held): {'offered': 2, 'recurred': 0}}}
+        rows = experience.gate_rows(index, ('plan', 'spec-designer'))
+        self.assertEqual([r['summary'] for r in rows], [held['summary'], back['summary']])
+        self.assertEqual(rows[-1]['effect'], {'offered': 2, 'recurred': 2})  # kept and shown, never deleted
+        store = {'runs': {}, 'effect': {experience.gate_key(back): {'runs': {'r1': True, 'r2': True}}}}
+        self.assertEqual(experience.planning_view(store)['effect'][experience.gate_key(back)], {'offered': 2, 'recurred': 2})
+
+
 if __name__ == '__main__':
     unittest.main()

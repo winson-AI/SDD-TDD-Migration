@@ -185,8 +185,9 @@ def planning_view(data, archive_lesson=None):
                              'lesson_ref': archive_lesson(entry)} for entry in selected]
             runs[rid] = {key: value for key, value in block.items() if key != 'entries'}
             runs[rid]['entries'] = selected
+    effect = {lesson: {'offered': len(row['runs']), 'recurred': sum(row['runs'].values())} for lesson, row in (data.get('effect') or {}).items()}
     return {'schema_version': 1, 'source_store_sha256': digest(data), 'observations_omitted': omitted,
-            'view': 'index' if archive_lesson else 'abstract-lessons', 'runs': runs}
+            'view': 'index' if archive_lesson else 'abstract-lessons', 'runs': runs, **({'effect': effect} if effect else {})}
 
 
 def global_scope(state):
@@ -199,6 +200,39 @@ def global_scope(state):
     for module in [*state.get('modules', {}).values(), *state.get('module_groups', {}).values()]:
         terms += (module.get('scope') or {}).get('in', [])
     return {'scope': {'in': terms}}
+
+
+def gate_key(entry):
+    """One rule refused one way: the operation, the role and the reason."""
+    from contracts import digest
+    return digest(['gate-rejection', entry.get('operation'), entry.get('actor_role'), entry.get('root_cause')])
+
+
+def effects(run_root, previous=None):
+    """For each gate lesson this run was offered, whether the refusal it describes happened again in this run: its
+    effectiveness, kept in the store run by run."""
+    root = Path(run_root)
+    try:
+        offered = json.loads((root / 'reports/lessons-offered.json').read_text())
+    except (OSError, ValueError):
+        return {}
+    met = set()
+    for path in (root / 'reports/rejections').glob('*.json') if (root / 'reports/rejections').is_dir() else ():
+        try:
+            record = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        met.add(gate_key({'operation': record.get('operation'), 'actor_role': record.get('actor_role'), 'root_cause': record.get('reason')}))
+    found = {}
+    for row in offered.values():
+        if row.get('kind') != 'gate-rejection':
+            continue
+        try:
+            lesson = json.loads(Path(row['lesson_ref']['path']).read_text())
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        found[gate_key(lesson)] = gate_key(lesson) in met
+    return found
 
 
 def gate_rows(index, step):
@@ -217,10 +251,15 @@ def gate_rows(index, step):
                     reading.section(hint['ref'], hint['section'])
                 except (KeyError, OSError, ValueError):
                     continue  # the package changed: the rule this lesson names is not there any more
-            row = merged.setdefault(entry.get('root_cause'), {'row': {k: entry[k] for k in ('kind', 'summary', 'applicability', 'lesson_ref')}, 'runs': set()})
+            row = merged.setdefault(entry.get('root_cause'), {'row': {k: entry[k] for k in ('kind', 'summary', 'applicability', 'lesson_ref')},
+                                                              'runs': set(), 'effect': (index.get('effect') or {}).get(gate_key(entry)) or {}})
             row['runs'].add(rid)
-    rows = sorted(merged.values(), key=lambda m: (-len(m['runs']), m['row']['summary']))
-    return [{**m['row'], 'runs': len(m['runs'])} for m in rows]
+    def rank(m):  # met again after it was offered in two runs: it did not help, it goes last; offered and not met again: first
+        recurred, offered = m['effect'].get('recurred', 0), m['effect'].get('offered', 0)
+        return (recurred >= 2, -(len(m['runs']) + offered - recurred), m['row']['summary'])
+    rows = sorted(merged.values(), key=rank)
+    return [{**m['row'], 'runs': len(m['runs']), **({'effect': {k: m['effect'][k] for k in ('offered', 'recurred')}} if m['effect'] else {})}
+            for m in rows]
 
 
 def candidates(index, module, task_ids=(), step=None):
@@ -399,6 +438,8 @@ def harvest(root, run_root):
         stamp = datetime.now(timezone.utc).isoformat()
         data['runs'][rid] = {'sequence': sequence, 'run_quality': state.get('quality'), 'harvested_at': stamp,
                              'entries': lessons['entries'], 'slicing': slicing_facts(state)}
+        for lesson, recurred in effects(run_root).items():  # what the lessons this run was handed did: run by run, never twice
+            data.setdefault('effect', {}).setdefault(lesson, {'runs': {}})['runs'][rid] = recurred
         facts = settled(state)
         kept = []
         for row in facts.get('knowledge') or []:  # the answer outlives the run: the store keeps its own copy, named by its hash
