@@ -209,9 +209,9 @@ def module_execution():
     d.label(285,1070,'新 build / unit / static + 正式复测','purple',18)
     d.box(550,1480,500,180,'规划缺口 → CR',[
         'scope 内功能 / 契约 / fidelity 遗漏、测试源缺陷',
-        'Spec-Designer 修订；只改测试写法 MO 即可重冻',
+        '诊断确认即开 CR；只新增 TASK / PATH 由 Ledger 审',
         'Implementer 更新已经 coding 的代码',
-        '保留原预期；语义 / 授权变化交 Human'], 'purple')
+        '改已冻结内容 MO 审；语义 / 授权变化交 Human'], 'purple')
     # Jump over the diagnosis input: crossing is not a shared control junction.
     d.arrow('M1050,1570 L1080,1570 L1080,1440 Q1095,1430 1080,1420 L1080,1320 Q1095,1310 1080,1300 L1080,675 L1050,675','purple')
     d.box(1110,1480,410,180,'范围不足 → 父 MO / GO',[
@@ -247,7 +247,7 @@ def module_execution():
     d.box(70,190,430,160,'一任务 · 一 Run',[
         '执行唯一当前冻结 SPEC',
         'run 固定包版本；修订只留 history',
-        '失败、经验与累计预算持续保留'], 'gray')
+        '失败与预算保留；已验证修复随卡给兄弟叶子'], 'gray')
     d.box(70,420,430,160,'OpenSpec 六件套',[
         'proposal / spec / design',
         'tasks / status / checklist',
@@ -281,10 +281,10 @@ def auditor_closure():
         '审阅全部模块（含 Green）及宿主目标；波次集成已跑的 global path 只在 owner 代码变动时重跑'], 'orange')
     d.arrow([(800,310),(800,370)])
     d.box(500,370,600,135,'整体代码审查 → 分批收集',[
-        'audit-code-review（骨架起笔，预列 debt）：目标/改动/冗余/复用','audit-collect：先治理 CR-*，再剩余 Red / Yellow','绑定 SPEC / PATH / provider 与消费者证据'])
+        'audit-code-review（骨架起笔，预列 debt）：目标/改动/冗余/复用','audit-collect（机械）：先治理 CR-*，再剩余 Red / Yellow','绑定 SPEC / PATH / provider 与消费者证据'])
     d.arrow([(800,505),(800,565)])
     d.box(500,565,600,135,'根因分析 → 路由审核',[
-        '治理用 fix / human；遗留可 fix / verify / human','GO 审核提供方 owner、消费者及依赖图','需新 TASK / 契约 / scope：恢复 CR / 上游规划'],controller=True)
+        '治理用 fix / human；遗留可 fix / verify / human','finding 自带路由 / 根因已确认：Ledger 路由并代审','需新 TASK / 契约 / scope：恢复 CR / 上游规划'],controller=True)
     d.box(90,370,330,200,'复用与公共能力治理',[
         '重复实现 / 接线 / 公共能力',
         '核对已选映射与影响消费者',
@@ -297,7 +297,7 @@ def auditor_closure():
     d.arrow([(1100,630),(1310,630),(1310,1080)],'orange')
     d.label(1310,770,'human','orange')
     d.box(90,820,420,145,'MO 派发 → Fixer 预检',[
-        '接受 audit-work，派发批准的一轮','遵守冻结契约 / 写范围 / 总预算','补丁、回归证据与修复 memory'], 'purple')
+        'audit-work 由 Ledger 接受，派发批准的一轮','遵守冻结契约 / 写范围 / 总预算','补丁、回归证据与修复 memory'], 'purple')
     d.box(590,820,420,145,'验证路径',[
         '前置条件已恢复 / 无需补丁','仍须新 Main 结果','不能沿用旧非 Green 直接通过'])
     d.arrow([(300,965),(300,1155),(590,1155)],'purple')
@@ -313,13 +313,13 @@ def auditor_closure():
     d.arrow([(800,1295),(800,1360)])
     d.label(800,1330,'剩余可执行分支已结束','gray')
     d.box(500,1360,600,145,'Auditor · 核对当前证据 → 裁决',[
-        'audit-verdict：统一审阅 owner / source 新证据','无复测且代码审查无发现：结论取自该审查','Fixer 自测不能代替 Testing 与独立审计'],controller=True)
+        'audit-verdict：统一审阅 owner / source 新证据','复测全绿且无待人工：Ledger 代 Auditor 裁决','Fixer 自测不能代替 Testing 与独立审计'],controller=True)
     d.arrow([(640,1505),(640,1540),(400,1540),(400,1590)])
     d.label(430,1540,'已解决 / 仅自动化缺测','green')
     d.arrow([(960,1505),(960,1540),(1200,1540),(1200,1590)],'orange')
     d.label(1190,1540,'Red / 其他 Yellow','orange')
     d.box(90,1590,620,145,'批次收尾 → 刷新父汇总',[
-        '修复导致父汇总失效时重新核验并提交','保留 Green 或自动化未验证清单；不空等','新基线重新审查，再收集剩余问题'], 'green')
+        '修复导致父汇总失效时重新核验并提交','保留 Green 或自动化未验证清单；不空等','只重审修复改动的模块，再收集剩余问题'], 'green')
     d.box(890,1590,620,145,'根因报告 → 等待人工审核',[
         'awaiting-human：保留各次断言、证据与问题归属','审核决定绑定当前报告摘要；不自动追加修复'], 'orange')
     d.arrow([(400,1735),(400,1795)])
