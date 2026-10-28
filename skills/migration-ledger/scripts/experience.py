@@ -216,20 +216,22 @@ def gate_key(entry):
 
 
 def effects(run_root, previous=None):
-    """For each gate lesson this run was offered, whether the refusal it describes happened again in this run: its
-    effectiveness, kept in the store run by run."""
+    """For each gate lesson this run was offered, whether the refusal it describes happened again in this run after it was
+    offered, in a module it was offered to: its effectiveness, kept in the store run by run. A refusal met before the
+    lesson reached that module is not held against it."""
     root = Path(run_root)
     try:
         offered = json.loads((root / 'reports/lessons-offered.json').read_text())
     except (OSError, ValueError):
         return {}
-    met = set()
+    met = {}  # rule → [(module, when)] of every refusal record
     for path in (root / 'reports/rejections').glob('*.json') if (root / 'reports/rejections').is_dir() else ():
         try:
             record = json.loads(path.read_text())
         except (OSError, ValueError):
             continue
-        met.add(gate_key({'operation': record.get('operation'), 'actor_role': record.get('actor_role'), 'rule': record.get('rule'), 'root_cause': record.get('reason')}))
+        met.setdefault(gate_key({'operation': record.get('operation'), 'actor_role': record.get('actor_role'), 'rule': record.get('rule'),
+                                 'root_cause': record.get('reason')}), []).append((record.get('module_id') or '', str(record.get('recorded_at') or '')))
     found = {}
     for row in offered.values():
         if row.get('kind') != 'gate-rejection':
@@ -238,7 +240,8 @@ def effects(run_root, previous=None):
             lesson = json.loads(Path(row['lesson_ref']['path']).read_text())
         except (OSError, ValueError, KeyError, TypeError):
             continue
-        found[gate_key(lesson)] = gate_key(lesson) in met
+        offers = row.get('offers') or {}
+        found[gate_key(lesson)] = any(module in offers and when >= offers[module] for module, when in met.get(gate_key(lesson), []))
     return found
 
 

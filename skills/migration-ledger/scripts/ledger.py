@@ -1051,6 +1051,13 @@ def _next_step(s, m):
                     # Build and unit tests pass; the static closure is judged once what is built on this module is written.
                     step.update(operation=None, ready=False, reason='awaiting-assembly')
                     return step
+                gaps = owed_gaps(s, m) if step['ready'] and step['test_scope'] == 'build' else []
+                if gaps and all(p['kind'] == 'static' for p in tv.stage_paths(m, {})):
+                    # Built and unit-tested, the plan still owes what its first version left out: the Ledger opens the
+                    # revision before the static closure is judged, so the closure is judged once, on the plan it revises.
+                    step.update(operation='change', worker_role=None, ready=True, mechanical=True, reason='owed-gaps', issue_ids=gaps, payload={})
+                    step.pop('test_scope', None)
+                    return step
             if step['ready']:
                 try:
                     dispatch_guard(s, m, worker)
@@ -3181,7 +3188,7 @@ def advance(root, principal, module_id, workers=None):
                                              if step.get(k) is not None}}
     if step.get('must_read'):
         out['card'] = reading.render(step['must_read'], Path(st['run_root']) / 'reports/reading', step.get('templates', ()), step.get('slicing_skill'),
-                                     on_demand=step.get('read_when_writing', ()), lessons=step.get('lesson_candidates', ()))['path']
+                                     on_demand=step.get('read_when_writing', ()), lessons=step.get('lesson_candidates', ()), module=step.get('module_id'))['path']
     return out
 
 

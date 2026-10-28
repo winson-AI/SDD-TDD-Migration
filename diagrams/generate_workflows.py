@@ -168,7 +168,7 @@ def module_execution():
     d.box(550,610,500,185,'MO 审核冻结',[
         '门禁全过且无人提问：Ledger 记评审即冻结',
         '测试源须能失败：拒恒真断言 / 表达式体 @Test',
-        '缺口记欠项，DoD 前 Ledger 开 CR 补齐，代码保留',
+        '欠项在静态审查前由 Ledger 开 CR 补齐，代码保留',
         '真实未决 / 需求验收授权变化交 Human'],controller=True)
     d.arrow([(800,795),(800,810)])
     d.box(550,810,500,130,'Implementer · 按 TASK 执行',[

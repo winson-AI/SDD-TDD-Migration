@@ -863,14 +863,21 @@ FOOTER = ('<!-- 取用 -->\n本卡之外的规则不整份读取：`reading.py s
           '上文“（文件 § 小节）”即可直接作为参数。本步模板只列名：写该工件前 `reading.py show --template <名>` 取单份，不预读全部。\n')
 
 
-def offered(path, lessons):
-    """Which lessons this run handed a role, by the lesson each names: the harvest compares them with what happened."""
+def offered(path, lessons, module=None):
+    """Which lessons this run handed a role, by the lesson each names, and when each module (or the run) was first handed
+    it: the harvest compares them with what happened afterwards."""
+    from datetime import datetime, timezone
     try:
         seen = json.loads(path.read_text())
     except (OSError, ValueError):
         seen = {}
-    fresh = {row['lesson_ref']['sha256']: {k: row[k] for k in ('kind', 'summary', 'lesson_ref') if k in row}
-             for row in lessons if isinstance(row.get('lesson_ref'), dict) and row['lesson_ref'].get('sha256') not in seen}
+    now, fresh = datetime.now(timezone.utc).isoformat(), {}
+    for row in lessons:
+        sha = (row.get('lesson_ref') or {}).get('sha256') if isinstance(row.get('lesson_ref'), dict) else None
+        if not sha or (module or '') in (seen.get(sha) or {}).get('offers', {}):
+            continue
+        old = seen.get(sha) or {k: row[k] for k in ('kind', 'summary', 'lesson_ref') if k in row}
+        fresh[sha] = {**old, 'offers': {**old.get('offers', {}), module or '': now}}
     if fresh:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -879,7 +886,7 @@ def offered(path, lessons):
             pass  # a card is handed whether or not its record could be kept
 
 
-def render(rows, output_dir, extra=(), skill=None, on_demand=(), lessons=()):
+def render(rows, output_dir, extra=(), skill=None, on_demand=(), lessons=(), module=None):
     """Write the card as one file named by its digest; a dispatch then hands the role a single path. A skill the step
     names travels in the same file, so loading the card loads it; the topic sections the step lists on demand are named
     with their purpose, not copied; the lessons it offers are listed by summary and reference, read when they apply."""
@@ -898,7 +905,7 @@ def render(rows, output_dir, extra=(), skill=None, on_demand=(), lessons=()):
         body += '<!-- 本步模板 -->\n' + ''.join(f'- {name}\n' for name in extra) + '\n'
     body += FOOTER
     if lessons:
-        offered(Path(output_dir).parent / 'lessons-offered.json', lessons)
+        offered(Path(output_dir).parent / 'lessons-offered.json', lessons, module)
     name = digest_card(rows)
     if skill or lessons:  # the same sections with another skill or other lessons are another card
         from contracts import digest

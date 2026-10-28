@@ -75,7 +75,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | revoke | host | assignment_id、stopped_worker_ref；实际停止/隔离后才释放活动占用；旧 token 不再被接受 |
 | invalidate | MO/host | reason；旧 worker 必须先 revoke；重新进入 specifying，并使消费者及全局审计失效 |
 | checkpoint | host | receipt_ref（git_checkpoint.py 回执）；仅 git_checkpoint 开启且模块在 DoD 时，逐文件 blob 必须等于当前已接受代码，见 [模块 Git 检查点](engineering-disciplines.md#模块-git-检查点可选默认关闭) |
-| complete | MO | dod_ref；开启 git_checkpoint 时须已有当前 code_baseline 的检查点；全路径 Green、任务全接受、欠项结清、依赖完成即由 advance 机械提交 Ledger 写的 DoD 记录；只剩 Ledger 记的欠项时由 Ledger 开 change 补齐，修订只补文本（任务、PATH、测试资产不变）时 Ledger 写任务独立证明，代码与 Green 保留，只重跑构建与静态审查 |
+| complete | MO | dod_ref；开启 git_checkpoint 时须已有当前 code_baseline 的检查点；全路径 Green、任务全接受、欠项结清、依赖完成即由 advance 机械提交 Ledger 写的 DoD 记录；构建与单测已过、只剩静态审查（或只剩欠项）而计划仍欠 Ledger 记的欠项时，由 Ledger 先开 change 补齐，静态审查只在修订后的计划上做一次；修订只补文本（任务、PATH、测试资产不变）时 Ledger 写任务独立证明，代码与 Green 保留 |
 | audit-assign | Global | assignment_id、instance_id；全部模块完成后固定快照；无待复测路径时 Ledger 代写 audit-verdict 预检；审计实例不能是任意实现/修复/测试作者实例 |
 | audit-route | Global | path_id、非空唯一 module_ids、reason_ref；给尚无负责模块的全局审计问题分配责任，不修改模块阶段 |
 | repair-accept | MO | 非空唯一 path_ids；接受分配给本模块的审计问题，在依赖就绪且无 worker/blocker 时从 completed/testing 重开 testing；保留原失败供诊断分流 |
