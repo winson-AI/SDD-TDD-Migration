@@ -43,12 +43,14 @@ def row(step, card=None):
 
 
 def card(root, step, instance=None):
-    """The card a line hands its role: only what the session to resume has not read, else the whole card."""
+    """The card a line hands its role: only what the session to resume has not read, else the whole card; the slicing
+    skill and the lessons its step offers travel in it."""
     if not step.get('must_read'):
         return {}
     resumed = bool(step.get('session_id')) and 'must_read_new' in step
     rows = step['must_read_new'] if resumed else step['must_read']
-    out = reading.render(rows, Path(root) / 'reports/reading', step.get('templates', ()), on_demand=step.get('read_when_writing', ()))
+    out = reading.render(rows, Path(root) / 'reports/reading', step.get('templates', ()), None if resumed else step.get('slicing_skill'),
+                         on_demand=step.get('read_when_writing', ()), lessons=step.get('lesson_candidates', ()))
     return {'card': out['path'], 'card_bytes': out['bytes'], **({'instance_id': instance} if instance else {}),
             **({'resumed_from_bytes': sum(r['bytes'] for r in step['must_read'])} if resumed else {})}
 

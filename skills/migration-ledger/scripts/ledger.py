@@ -1253,6 +1253,11 @@ def with_card(s, m, step):
         if ref:
             candidates = experience.candidates(read_json(check_ref(ref)), m if m is not None else experience.global_scope(s), (step.get('payload') or {}).get('task_ids', []))
             if candidates: step['lesson_candidates'] = candidates
+    if m and (step.get('worker_role') or step.get('role')) in ('implementer', 'fixer', 'diagnostician'):
+        import experience
+        found = experience.candidates(experience.run_lessons(s, m['module_id']), m, (step.get('payload') or {}).get('task_ids', []))
+        if found:  # verified in a sibling leaf of this run: ahead of what earlier runs learned
+            step['lesson_candidates'] = (found + [row for row in step.get('lesson_candidates', []) if row not in found])[:5]
     session = step.get('session_id') or (s.get('context_sessions', {}).get(step['role']) if m is None else None)
     if session:
         step['session_id'] = session
@@ -3033,8 +3038,8 @@ def advance(root, principal, module_id, workers=None):
     out = {'applied': applied, 'next_step': {k: step[k] for k in ('operation', 'role', 'ready', 'reason', 'assignment_id')
                                              if step.get(k) is not None}}
     if step.get('must_read'):
-        out['card'] = reading.render(step['must_read'], Path(st['run_root']) / 'reports/reading', step.get('templates', ()),
-                                     on_demand=step.get('read_when_writing', ()))['path']
+        out['card'] = reading.render(step['must_read'], Path(st['run_root']) / 'reports/reading', step.get('templates', ()), step.get('slicing_skill'),
+                                     on_demand=step.get('read_when_writing', ()), lessons=step.get('lesson_candidates', ()))['path']
     return out
 
 

@@ -100,6 +100,22 @@ class AuditRepairTests(unittest.TestCase):
             warnings.warn('the audit repair took %s model turns, %s recorded' % (counted, RECORDED))
         self.assertEqual(counted, RECORDED)
 
+    def test_a_repair_verified_in_one_leaf_is_offered_to_the_next_repair_of_another_in_the_same_run(self):
+        import drive
+        import experience
+        self.walk()
+        s = self.c.state()
+        self.assertEqual(experience.run_lessons(s, 'M001')['runs'][s['run_id']]['entries'], [])  # its own repair it already holds
+        m = s['modules']['M002']  # a later failure of its own sends it a Fixer
+        m['results']['P2'].update(quality='red-bug', root_cause={'category': 'code', 'summary': 'shared value mismatch read by the consumer',
+                                                                 'confidence': 'confirmed', 'owner': 'M002', 'next_action': 'fix'})
+        step = {'module_id': 'M002', 'role': 'module-orchestrator', 'worker_role': 'fixer', 'operation': 'assign', 'ready': True, 'payload': {}}
+        ledger.with_card(s, m, step)
+        lesson = step['lesson_candidates'][0]
+        self.assertEqual((lesson['kind'], lesson['lesson_ref']), ('run-fix', s['modules']['M001']['fix_memory'][0]['fix_note_ref']))
+        card = Path(drive.card(self.c.root, step)['card']).read_text()
+        self.assertIn(lesson['lesson_ref']['path'], card)  # the Fixer the host starts reads it in its card
+
     def test_a_finding_the_findings_do_not_route_by_themselves_is_routed_by_the_auditor(self):
         import copy
         import audit_closure
