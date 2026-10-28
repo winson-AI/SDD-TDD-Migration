@@ -243,14 +243,16 @@ def gate_lesson(record, scope, journal):
     """A refusal met again and again, as a lesson the next run can read: everything in it is a fact the record and the
     journal hold - where it applies (operation, role, the check), why it was refused, the section that states the rule,
     whether the operation went through afterwards, and the record itself."""
+    from progress_signals import rule
     op, role, n, reason = record.get('operation'), record.get('actor_role'), record['attempts'], str(record.get('reason') or '')
+    met = '; '.join(record.get('reasons') or [reason])  # every message the rule was met with in this module
     hint = record.get('read_hint') or {}
     check = hint.get('section') or reason[:80]
     later = any(e.get('operation') == op and e.get('module_id') == record.get('module_id')
                 for e in journal[record.get('sequence') or 0:])
     return {'kind': 'gate-rejection', **scope, 'operation': op, 'actor_role': role, 'attempts': n, 'read_hint': hint or None,
-            'summary': '%s by %s refused %d times: %s' % (op, role, n, reason[:160]),
-            'applicability': '%s × %s × %s' % (op, role, check), 'root_cause': reason,
+            'rule': record.get('rule') or rule(reason), 'summary': '%s by %s refused %d times: %s' % (op, role, n, record.get('rule') or rule(reason)),
+            'applicability': '%s × %s × %s' % (op, role, check), 'root_cause': met[:600],
             'strategy': ('read %s § %s before submitting; ' % (hint['ref'], hint['section']) if hint else '')
                         + 'check the request with `ledger.py preview --request` before submitting it',
             'result': 'accepted after %d refusals' % n if later else 'still refused after %d attempts' % n,

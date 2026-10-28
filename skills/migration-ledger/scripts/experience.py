@@ -31,7 +31,7 @@ ABSTRACT_FIELDS = ('summary', 'applicability', 'root_cause', 'strategy', 'result
 
 
 SKILL = 'migration-slicing-experience'
-MATCHED = ('operation', 'actor_role', 'read_hint')  # a gate lesson reaches the step that submits that operation as that role
+MATCHED = ('operation', 'actor_role', 'read_hint', 'rule')  # a gate lesson reaches the step that submits that operation as that role
 SLICING_KINDS = ('slicing-gap', 'boundary-conflict', 'planning-gap')
 SKILL_LESSONS, SKILL_OBSERVATIONS = 30, 10  # what one skill carries; the store keeps everything
 
@@ -209,9 +209,10 @@ def global_scope(state):
 
 
 def gate_key(entry):
-    """One rule refused one way: the operation, the role and the reason."""
+    """One rule met by one role submitting one operation, whichever ids, paths or runs its messages named."""
     from contracts import digest
-    return digest(['gate-rejection', entry.get('operation'), entry.get('actor_role'), entry.get('root_cause')])
+    from progress_signals import rule
+    return digest(['gate-rejection', entry.get('operation'), entry.get('actor_role'), entry.get('rule') or rule(entry.get('root_cause'))])
 
 
 def effects(run_root, previous=None):
@@ -228,7 +229,7 @@ def effects(run_root, previous=None):
             record = json.loads(path.read_text())
         except (OSError, ValueError):
             continue
-        met.add(gate_key({'operation': record.get('operation'), 'actor_role': record.get('actor_role'), 'root_cause': record.get('reason')}))
+        met.add(gate_key({'operation': record.get('operation'), 'actor_role': record.get('actor_role'), 'rule': record.get('rule'), 'root_cause': record.get('reason')}))
     found = {}
     for row in offered.values():
         if row.get('kind') != 'gate-rejection':
@@ -257,7 +258,7 @@ def gate_rows(index, step):
                     reading.section(hint['ref'], hint['section'])
                 except (KeyError, OSError, ValueError):
                     continue  # the package changed: the rule this lesson names is not there any more
-            row = merged.setdefault(entry.get('root_cause'), {'row': {k: entry[k] for k in ('kind', 'summary', 'applicability', 'lesson_ref')},
+            row = merged.setdefault(gate_key(entry), {'row': {k: entry[k] for k in ('kind', 'summary', 'applicability', 'lesson_ref')},
                                                               'runs': set(), 'effect': (index.get('effect') or {}).get(gate_key(entry)) or {}})
             row['runs'].add(rid)
     def rank(m):  # met again after it was offered in two runs: it did not help, it goes last; offered and not met again: first

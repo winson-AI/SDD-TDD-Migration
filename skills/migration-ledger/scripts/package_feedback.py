@@ -11,7 +11,8 @@ from pathlib import Path
 
 
 def refusals(run_root):
-    """Refused requests by operation × role × the check that refused them, with the attempts each took."""
+    """Refused requests by operation × role × the rule that refused them, with the attempts each took."""
+    from progress_signals import rule
     out = Counter()
     folder = Path(run_root) / 'reports/rejections'
     for path in sorted(folder.glob('*.json')) if folder.is_dir() else ():
@@ -19,8 +20,7 @@ def refusals(run_root):
             record = json.loads(path.read_text())
         except (OSError, ValueError):
             continue
-        check = (record.get('read_hint') or {}).get('section') or str(record.get('reason') or '')[:80]
-        out['%s × %s × %s' % (record.get('operation'), record.get('actor_role'), check)] += record.get('attempts') if type(record.get('attempts')) is int else 1
+        out['%s × %s × %s' % (record.get('operation'), record.get('actor_role'), record.get('rule') or rule(record.get('reason')))] += record.get('attempts') if type(record.get('attempts')) is int else 1
     return dict(out.most_common())
 
 

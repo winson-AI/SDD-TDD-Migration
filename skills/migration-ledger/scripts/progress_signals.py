@@ -2,10 +2,26 @@
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import re
 
 from contracts import digest
 import reading
 import run_storage
+
+
+# The values a refusal names, masked so the same rule reads the same in every module and run.
+VALUES = ((r'(?:/[^\s\'",;:]+)+', '<path>'), (r'\b[\w.-]+\.(?:json|md|txt|py|kts?|java|ets|tsx?|jsx?|xml|png|jpe?g|svg|webp|gradle|yaml|yml|toml)\b', '<file>'),
+          (r'\b[0-9a-f]{8,}\b', '<hash>'), (r'\b[A-Z][A-Z_]{0,11}-?\d+[\w-]*', '<id>'), (r'\b\d+(?:\.\d+)?\b', '<n>'),
+          (r'(<(?:id|file|path|n)>)(?:\s*,\s*<(?:id|file|path|n)>)+', r'\1…'), (r'\s+', ' '))
+
+
+def rule(reason):
+    """What a refusal is about: its message with the ids, paths, file names, hashes and numbers it names masked, so a role
+    refused by one rule for three different cases meets it three times, and the next run's refusal of it is the same one."""
+    text = str(reason or '')
+    for pattern, mask in VALUES:
+        text = re.sub(pattern, mask, text)
+    return text.strip()[:200]
 
 
 def record_rejection(root, req, actor, reason, further=()):
@@ -23,7 +39,7 @@ def record_rejection(root, req, actor, reason, further=()):
             scope = ((state or {}).get('modules', {}).get(mid) or
                      (state or {}).get('module_groups', {}).get(mid)) if mid else state
             revision = (scope or {}).get('revision')
-            fingerprint = digest([mid, req.get('operation'), reason, revision])
+            fingerprint = digest([mid, req.get('operation'), rule(reason), revision])
             path = run_storage.checked_path(root / 'reports/rejected-operation.json')
             scoped = run_storage.checked_path(root / 'reports/rejections' / (fingerprint + '.json'))
             try:
@@ -32,10 +48,13 @@ def record_rejection(root, req, actor, reason, further=()):
                 previous = {}
             if not isinstance(previous, dict):
                 previous = {}
-            record = {'module_id': mid, 'operation': req.get('operation'), 'reason': reason,
+            same = previous.get('fingerprint') == fingerprint
+            seen = (previous.get('reasons') or []) if same else []
+            record = {'module_id': mid, 'operation': req.get('operation'), 'reason': reason, 'rule': rule(reason),
+                          'reasons': (seen if reason in seen else [*seen, reason])[-5:],  # the messages the rule was met with
                           'request_id': req.get('request_id'), 'actor_role': actor.get('role'),
                           'revision': revision, 'sequence': len(events), 'fingerprint': fingerprint,
-                          'attempts': previous.get('attempts', 0) + 1 if previous.get('fingerprint') == fingerprint else 1,
+                          'attempts': previous.get('attempts', 0) + 1 if same else 1,
                           'recorded_at': datetime.now(timezone.utc).isoformat(),
                           'read_hint': reading.read_hint(reason),
                           'further': [{'reason': r, 'read_hint': reading.read_hint(r)} for r in further],  # the same request's other problems

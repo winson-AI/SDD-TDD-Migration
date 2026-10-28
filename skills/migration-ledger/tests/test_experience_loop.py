@@ -17,15 +17,16 @@ from contracts import Rejected, check_ref, read_json
 
 
 class RefusedThenLearned(test_continuous_run.ContinuousWalk):
-    """A run whose first planner submits a plan with a mark left in it three times before the plan it meant."""
+    """A run whose first planner submits a plan with a mark left in it three times, each time from another file, before the
+    plan it meant: one rule met three times."""
     refused = 0
 
     def model_turn(self, step):
         f = self.f
         if step.get('operation') == 'plan' and step.get('module_id') == 'M011' and not self.refused:
-            for _ in range(3):
+            for n in range(3):
                 with self.assertRaises(Rejected):
-                    f.call('plan', {'plan_ref': f.ref('half-plan.json', {'tasks': '[[待写：任务]]'})}, role='spec-designer', module='M011')
+                    f.call('plan', {'plan_ref': f.ref('half-plan-%d.json' % n, {'tasks': '[[待写：任务]]'})}, role='spec-designer', module='M011')
             self.refused = 3
         super().model_turn(step)
 
@@ -51,6 +52,8 @@ class ExperienceLoopTests(RefusedThenLearned):
         lesson = read_json(check_ref(gate['lesson_ref']))
         self.assertTrue(all(lesson.get(k) for k in experience.ABSTRACT_FIELDS))  # nothing left for a person to abstract
         self.assertEqual(lesson['result'], 'accepted after 3 refusals')
+        self.assertEqual(lesson['rule'], 'unfilled skeleton field left in <file>')
+        self.assertEqual(lesson['root_cause'].count('half-plan-'), 3)  # each message it was met with
         self.assertIn('preview --request', lesson['strategy'])
         self.assertTrue(all('/experience/' in ref['path'] or '/.sdd-migration/' in ref['path'] for ref in lesson['evidence_refs']))  # kept by the store
         self.assertFalse([r for r in experience.candidates(index, module, step=('submit', 'implementer')) if r['kind'] == 'gate-rejection'])
@@ -82,6 +85,16 @@ class ExperienceLoopTests(RefusedThenLearned):
                     entry['read_hint'] = {'ref': entry['read_hint']['ref'], 'section': 'a section this package no longer has'}
         module = self.f.state()['modules']['M011']
         self.assertFalse([r for r in experience.candidates(stale, module, step=('plan', 'spec-designer')) if r['kind'] == 'gate-rejection'])
+
+
+class RuleTests(unittest.TestCase):
+    def test_one_rule_reads_the_same_whatever_ids_and_paths_its_message_names(self):
+        from progress_signals import rule
+        self.assertEqual(rule('missing file: /work/runs/r1/staging/plan.json'), rule('missing file: /other/runs/r2/staging/plan.json'))
+        self.assertEqual(rule('unknown reference id C003; the document lists C001, C002'), 'unknown reference id <id>; the document lists <id>…')
+        self.assertNotEqual(rule('missing file: /a/plan.json'), rule('principal role denied'))
+        one = {'operation': 'plan', 'actor_role': 'spec-designer', 'root_cause': 'missing file: /work/r1/plan.json'}
+        self.assertEqual(experience.gate_key(one), experience.gate_key({**one, 'root_cause': 'missing file: /work/r2/plan.json'}))
 
 
 class EffectivenessTests(unittest.TestCase):
