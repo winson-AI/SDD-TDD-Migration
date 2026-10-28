@@ -14,14 +14,14 @@ collector 记录范围内每处资源引用的使用点（行号、类/方法、
 
 ## 文件资源按路径复制
 
-项目在 `target_resources.copy` 声明一次目标目录、路径与 accessor 模板、目标可原样加载的格式和密度取用顺序（字段见 [target-resources.json](../../../template/target-resources.json)）。
+项目在 `target_resources.copy` 声明一次目标目录、路径与 accessor 模板、可原样加载的格式和密度顺序（字段见 [target-resources.json](../../../template/target-resources.json)）。
 
-1. `resource-plan` 从分析里的 UI 证据派生**复制清单**：每个可原样加载的文件资源一行（存量路径与哈希、目标路径、accessor、使用它的节点），并列出清单之外须登记的资源及原因。Resource 维以 `copy_plan_ref` 引用它；资源全在清单内时 `items` 可为空。
-2. 冻结时 Ledger 按证据与约定重算清单，逐行相同才通过；一个资源只由清单或 item 之一覆盖。
-3. Implementer 以 `resource-sync`（给出拥有目标目录的 task_id）一次复制全部行：字节相同则保留，不同则拒绝覆盖。
-4. 验收逐行核对副本哈希等于存量哈希，且提交的代码完整出现每行的 accessor；副本自身不算引用。
+1. `resource-plan` 从分析里的 UI 证据派生**复制清单**：每个可原样加载的文件资源一行（存量路径与哈希、目标路径、accessor、使用节点），另列清单外须登记的资源。Resource 维以 `copy_plan_ref` 引用；资源全在清单内时 `items` 可空。
+2. 计划未写的清单与参数表由 Ledger 派生绑定；冻结时按证据与约定重算，逐行相同才通过；一个资源只由清单或 item 之一覆盖。
+3. 派发 coder 时 advance 以其名义 `resource-sync`（一个任务容下全部目标时，否则 coder 给出拥有目标目录的 task_id 自行执行），复制全部行：同字节保留，不同拒绝覆盖。
+4. 验收逐行核对副本哈希等于存量，提交的代码出现每行 accessor；副本自身不算引用。
 
-约定已声明时可原样加载的文件必须走清单；手工替换存量图片的 item 以 `copy_blocker` 写明不能复制的原因，随报告披露。
+约定已声明时可原样加载的文件走清单；手工替换存量图片的 item 以 `copy_blocker` 写明原因，随报告披露。
 
 清单之外的 item 同样被核对：非 blocked 的 `target_resource` 与 consumer 必须是目标工程内的文件，产出资源的策略须写 `#accessor`；验收时 `byte_copy` 比对哈希，`value_xml_exact` 比对条目，`exact_vector_xml` 比对确定性转换结果，每个 consumer 文件须出现该 accessor。
 

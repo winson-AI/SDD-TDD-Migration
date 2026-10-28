@@ -1726,6 +1726,8 @@ def mutate(s, req, principal, events, root=None):
         import minimal_plan
         dimensions.refinement(s, m, plan)  # an analysis the leaf refined from its allocation is judged like a registered one
         plan = minimal_plan.complete(s, m, plan)  # what follows from the leaf's accepted four-dimension specification
+        import resource_binding
+        plan = resource_binding.bind(s, m, plan, root)  # the copy plan and parameter sheet its UI evidence and the conventions give
         if s.get('planning_coverage_required'):
             plan = user_paths.settle_gaps(s, m, plan)  # and from the run's statement that no device is available
         require('checklist' not in {d.get('kind') for d in plan.get('definitions') or []},
@@ -3138,6 +3140,11 @@ def advance(root, principal, module_id, workers=None):
                            'operation': step['operation'], 'payload': payload}, actor)
         applied.append({'operation': step['operation'], 'event_id': ack['event_id'],
                         **{k: payload[k] for k in ('assignment_id', 'role', 'instance_id', 'test_scope') if k in payload}})
+        if step['operation'] == 'assign' and payload.get('role') in ('implementer', 'fixer'):
+            import resource_binding  # the frozen plan's copies and parameter file, written in the coder's name before it codes
+            synced = resource_binding.sync(root, read_events(root)[0], module_id, payload['assignment_id'])
+            if synced:
+                applied.append({'operation': 'resource-sync', 'assignment_id': payload['assignment_id'], 'result_ref': synced['result_ref']})
     out = {'applied': applied, 'next_step': {k: step[k] for k in ('operation', 'role', 'ready', 'reason', 'assignment_id')
                                              if step.get(k) is not None}}
     if step.get('must_read'):

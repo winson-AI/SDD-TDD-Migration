@@ -318,6 +318,30 @@ class WorkerTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'outside role capability'):
             self.run_worker('resource-plan', worker, dimension_analysis_ref=file_ref(path))
 
+    def test_the_ledger_binds_the_copy_plan_a_plan_does_not_name_and_copies_it_when_a_coder_is_dispatched(self):
+        import resource_binding
+        analysis, path = self.analysis()
+        ref = file_ref(path)
+        s = {**self.state, 'target_resources': pc.target_resources({'copy': {'root': str(self.root), 'path': '{name}{ext}', 'accessor': 'assets/{path}', 'formats': ['png']}}, str(self.f.target))}
+        plan = {'dimension_analysis_ref': ref, 'tasks': [{'task_id': 'T2', 'dimension_analysis': {'parent_ref': ref}}]}
+        bound = resource_binding.bind(s, {'module_id': 'M001'}, plan, self.f.run)
+        derived = read_json(check_ref(bound['dimension_analysis_ref']))
+        self.assertEqual(bound['tasks'][0]['dimension_analysis']['parent_ref'], bound['dimension_analysis_ref'])  # the tasks follow
+        self.assertEqual(read_json(check_ref(derived['dimensions'][1]['copy_plan_ref'])), resource_copy.derive(analysis, s['target_resources']['copy'])[0])
+        resource_copy.freeze_check(s, derived)  # the plan names the copy plan its evidence and the convention give
+        self.assertIs(resource_binding.bind(s, {'module_id': 'M001'}, bound, self.f.run), bound)  # named once
+        task = {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'worker-1', 'fencing_token': 'token-1', 'freeze_id': 'F1', 'closed': False,
+                'execution_contract': {'task_ids': ['T1', 'T2'], 'path_ids': []}}
+        module = {'module_id': 'M001', 'phase': 'implementing', 'freeze_id': 'F1', 'write_paths': [str(self.f.target / 'app')],
+                  'assignments': {'I1': task}, 'plan': {'definitions': [], 'paths': [], 'dimension_analysis_ref': bound['dimension_analysis_ref'],
+                                                         'tasks': [{'task_id': 'T1', 'scope': {'write_paths': [str(self.f.target / 'app/screens')]}},
+                                                                   {'task_id': 'T2', 'scope': {'write_paths': [str(self.root)]}}]}}
+        self.state['modules'] = {'M001': module}
+        with patch.object(lean_worker.ledger, 'read_events', return_value=(self.state, self.events)), patch.object(lean_worker, 'verify_plan', return_value=None):
+            synced = resource_binding.sync(self.f.run, self.state, 'M001', 'I1')  # in the coder's name, into the task that owns the folder
+        self.assertEqual([(r['action'], r['accessor']) for r in read_json(check_ref(synced['result_ref']))['rows']], [('copied', 'assets/ic_back.png')])
+        self.assertEqual((self.root / 'ic_back.png').read_bytes(), PNG + b'back')
+
     def test_a_spec_designer_derives_the_image_checks_of_a_module_with_their_references(self):
         from PIL import Image
         Image.new('RGBA', (72, 72), (0, 0, 0, 255)).save(self.f.legacy / 'app/src/main/res/drawable-xxhdpi/ic_back.png')
