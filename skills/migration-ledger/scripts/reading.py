@@ -189,6 +189,8 @@ def op_sections(role, operation):
         return sections('state-machine.md', '控制主线') + sections('openspec.md', '冻结算法', '变更控制')
     if operation in ('audit-test-assign', 'audit-test-submit', 'integration-assign', 'integration-submit'):
         return sections('audit-code-review.md', '宿主目标审计') + sections('audit-scope.md', '收尾的实际执行契约')
+    if operation == 'retrospect':  # the closing retrospective abstracts observations; it audits nothing
+        return sections('project-context.md', '跨运行经验沉淀与复用')
     if operation in ('run-review', 'revise-run', 'realloc-request', 'redecompose', 'redecompose-accept'):
         return sections('progress-recovery.md', '同 Run 上游修订') + sections('module-decomposition.md', '3. 分配与登记门禁')
     fam = family(role, operation)
@@ -861,6 +863,22 @@ FOOTER = ('<!-- 取用 -->\n本卡之外的规则不整份读取：`reading.py s
           '上文“（文件 § 小节）”即可直接作为参数。本步模板只列名：写该工件前 `reading.py show --template <名>` 取单份，不预读全部。\n')
 
 
+def offered(path, lessons):
+    """Which lessons this run handed a role, by the lesson each names: the harvest compares them with what happened."""
+    try:
+        seen = json.loads(path.read_text())
+    except (OSError, ValueError):
+        seen = {}
+    fresh = {row['lesson_ref']['sha256']: {k: row[k] for k in ('kind', 'summary', 'lesson_ref') if k in row}
+             for row in lessons if isinstance(row.get('lesson_ref'), dict) and row['lesson_ref'].get('sha256') not in seen}
+    if fresh:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({**seen, **fresh}, ensure_ascii=False, indent=2, sort_keys=True))
+        except OSError:
+            pass  # a card is handed whether or not its record could be kept
+
+
 def render(rows, output_dir, extra=(), skill=None, on_demand=(), lessons=()):
     """Write the card as one file named by its digest; a dispatch then hands the role a single path. A skill the step
     names travels in the same file, so loading the card loads it; the topic sections the step lists on demand are named
@@ -879,6 +897,8 @@ def render(rows, output_dir, extra=(), skill=None, on_demand=(), lessons=()):
     if extra:
         body += '<!-- 本步模板 -->\n' + ''.join(f'- {name}\n' for name in extra) + '\n'
     body += FOOTER
+    if lessons:
+        offered(Path(output_dir).parent / 'lessons-offered.json', lessons)
     name = digest_card(rows)
     if skill or lessons:  # the same sections with another skill or other lessons are another card
         from contracts import digest

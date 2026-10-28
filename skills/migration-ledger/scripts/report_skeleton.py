@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Skeletons of the reports an executing role files, written by the Ledger from what it holds.
 
-A Test-Runner's building/testing preflight and static spec review, and the Auditor's change inventory and code
-review: every field the Ledger can state is filled, every judgement only the role can make is a marked part.
+A Test-Runner's building/testing preflight and static spec review, the Auditor's change inventory and code review, and
+the closing retrospective: every field the Ledger can state is filled, every judgement only the role can make is a marked part.
 Nothing written here is a result, a verdict or an accepted report; a report that still holds a mark is refused.
 """
 import argparse
@@ -311,7 +311,25 @@ def code_review(s, inventory_ref, changes=None):
                                                    for r in run_changes.retirements(s)]}}
 
 
-def write(root, out, module_id=None, assignment_id=None):
+def retrospective(root, s):
+    """The closing retrospective: each observation the run left unabstracted, with what the Ledger recorded of it, and
+    each slicing signal; the condition, cause, strategy, result and next check are the Auditor's to write."""
+    import experience
+    from openspec_projection import build_lessons
+    entries = []
+    for entry in build_lessons(s, s.get('last_sequence') or 0, root)['entries']:
+        if all(entry.get(k) for k in experience.ABSTRACT_FIELDS):
+            continue
+        refs = entry.get('evidence_refs') or [ref for ref in [entry.get('evidence_ref')] if ref]
+        entries.append({**{k: v for k, v in entry.items() if k != 'evidence_ref'}, 'evidence_refs': refs or [todo('committed evidence ref')],
+                        **{k: todo(k) for k in experience.ABSTRACT_FIELDS if k != 'evidence_refs' and not entry.get(k)}})
+    for signal in (experience.retrospective_due(s) or {}).get('signals', []):
+        entries.append({'kind': 'slicing-gap', 'signal': signal, 'slicing': experience.slicing_facts(s)['splits'],
+                        'evidence_refs': [todo('committed evidence ref')], **{k: todo(k) for k in experience.ABSTRACT_FIELDS if k != 'evidence_refs'}})
+    return {'schema_version': 1, 'entries': entries}
+
+
+def write(root, out, module_id=None, assignment_id=None, retro=False):
     import ledger
     root = Path(root).resolve()
     s = ledger.status(root)
@@ -319,7 +337,9 @@ def write(root, out, module_id=None, assignment_id=None):
     require(out.is_absolute(), 'absolute output directory required')
     out.mkdir(parents=True, exist_ok=True)
     files = {}
-    if module_id:
+    if retro:
+        files['retrospective.json'] = dump(out, 'retrospective.json', retrospective(root, s))
+    elif module_id:
         m = s['modules'].get(module_id) or {}
         a = (m.get('assignments') or {}).get(assignment_id) or {}
         require(a.get('role') == 'test-runner' and not a.get('closed', True), 'an open Test-Runner assignment is needed')
@@ -342,10 +362,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--root', required=True); parser.add_argument('--out', required=True)
     parser.add_argument('--module'); parser.add_argument('--assignment'); parser.add_argument('--global', dest='whole', action='store_true')
+    parser.add_argument('--retrospective', action='store_true')
     args = parser.parse_args(argv)
     try:
-        require(args.whole != bool(args.module and args.assignment), '--module with --assignment, or --global')
-        print(json.dumps(write(args.root, args.out, args.module, args.assignment), ensure_ascii=False, indent=2))
+        require(args.retrospective or args.whole != bool(args.module and args.assignment), '--module with --assignment, --global or --retrospective')
+        print(json.dumps(write(args.root, args.out, args.module, args.assignment, args.retrospective), ensure_ascii=False, indent=2))
         return 0
     except (Rejected, OSError, KeyError, TypeError) as exc:
         print(json.dumps({'status': 'rejected', 'reason': str(exc)}, ensure_ascii=False), file=sys.stderr)

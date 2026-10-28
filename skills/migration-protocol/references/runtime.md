@@ -54,7 +54,7 @@ assign（审计为 audit-assign / audit-test-assign）被接受后，宿主用�
 
 常驻红线、权限、assignment、版本/提交门禁；实现必读冻结规范与验收。卡片按 TASK/PATH 取事实，规划/最终审计保留完整范围；专题小节触发时列入按需清单，写到对应工件时读。新事实/read_hint 按需追加单节；未加载不关闭门禁。
 
-未确认根因/重复失败才加载增强小节。lesson_candidates 随卡至多 5 条，模块按范围/四维/根因检索（执行角色先列本 run 已验证修复 run-fix），GO 切片及上游修订按目标/功能检索，核适用后读正文；规划历史默认最近 5 条和总数，其余沿 history_refs 读。
+未确认根因/重复失败才加载增强小节。lesson_candidates 随卡至多 5 条，模块按范围/四维/根因检索（同操作×角色门禁经验、run-fix 在前），GO 切片及上游修订按目标/功能检索，核适用后读正文；规划历史默认最近 5 条和总数，其余沿 history_refs 读。
 
 hint.context_inputs=[{kind,ref}] 报实际交付的材料，核 hash 去重计 input_bytes；context_load/session_rotate 只统计已报材料，不授权读取；日志/工具输出先存工件，按需交付。
 

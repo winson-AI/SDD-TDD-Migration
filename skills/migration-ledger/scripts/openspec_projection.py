@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import re
 
-from contracts import require
+from contracts import file_ref, require
 import context_links
 import project_context
 import run_storage
@@ -226,14 +226,35 @@ def build_lessons(state, sequence, root=None):
                      'applicability': note.get('applicability'), 'risks': note.get('risks'),
                      'summary': f"{mem.get('status', 'verified' if mem.get('reusable') else 'unverified')} fix for {category}: {note.get('strategy')}",
                      'evidence_refs': [mem['fix_note_ref']] + ([mem['audit_verdict_ref']] if mem.get('audit_verdict_ref') else [])})
+    journal = None
     for record in refusals(root):
+        if journal is None:
+            import workflow_cost
+            journal = workflow_cost.journal(root)
         scope = {'module_id': record['module_id']} if record.get('module_id') else {'scope': 'global'}
-        add({'kind': 'gate-rejection', **scope, 'operation': record.get('operation'), 'actor_role': record.get('actor_role'),
-             'attempts': record['attempts'], 'summary': record.get('reason'), 'read_hint': record.get('read_hint')})
-    for retrospective in state.get('retrospectives', []):
+        add(gate_lesson(record, scope, journal))
+    for retrospective in [r for r in state.get('retrospectives', []) if r.get('lessons_ref')]:  # not those with nothing to abstract
         from experience import validate_lessons
         lessons['entries'].extend(validate_lessons(retrospective['lessons_ref']))
     return lessons
+
+
+def gate_lesson(record, scope, journal):
+    """A refusal met again and again, as a lesson the next run can read: everything in it is a fact the record and the
+    journal hold - where it applies (operation, role, the check), why it was refused, the section that states the rule,
+    whether the operation went through afterwards, and the record itself."""
+    op, role, n, reason = record.get('operation'), record.get('actor_role'), record['attempts'], str(record.get('reason') or '')
+    hint = record.get('read_hint') or {}
+    check = hint.get('section') or reason[:80]
+    later = any(e.get('operation') == op and e.get('module_id') == record.get('module_id')
+                for e in journal[record.get('sequence') or 0:])
+    return {'kind': 'gate-rejection', **scope, 'operation': op, 'actor_role': role, 'attempts': n, 'read_hint': hint or None,
+            'summary': '%s by %s refused %d times: %s' % (op, role, n, reason[:160]),
+            'applicability': '%s × %s × %s' % (op, role, check), 'root_cause': reason,
+            'strategy': ('read %s § %s before submitting; ' % (hint['ref'], hint['section']) if hint else '')
+                        + 'check the request with `ledger.py preview --request` before submitting it',
+            'result': 'accepted after %d refusals' % n if later else 'still refused after %d attempts' % n,
+            'next_check': check, 'evidence_refs': [record['_ref']]}
 
 
 def refusals(root):
@@ -248,7 +269,7 @@ def refusals(root):
         except (OSError, ValueError):
             continue
         if isinstance(record, dict) and type(record.get('attempts')) is int and record['attempts'] >= CHURN:
-            found.append(record)
+            found.append({**record, '_ref': file_ref(path)})
     return found
 
 
