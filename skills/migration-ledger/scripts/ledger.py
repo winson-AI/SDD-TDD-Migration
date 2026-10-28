@@ -1507,6 +1507,19 @@ def assign_worker(s, m, mid, p, events, root):
         start_work(m, a)
 
 
+def refund_work(m, a):
+    """Undo start_work for a dispatch its Fixer handed back before working."""
+    memory = next((x for x in m.get('fix_memory', []) if x['assignment_id'] == a['assignment_id']), None)
+    if memory:
+        m['fix_memory'].remove(memory)
+        m['fix_rounds_used'] -= 1
+        m['total_fix_rounds'] -= 1
+        if m.get('auditor_fix_used') and memory.get('audit_batch_id'):
+            m['audit_fix_grant'] = memory['audit_batch_id']
+        else:
+            m['local_fix_used'] = m.get('local_fix_used', 1) - 1
+
+
 def start_work(m, a):
     """The work of a dispatch is authorized: a repair round is spent from here, not while its context is missing."""
     if a['role'] != 'fixer':
@@ -1548,6 +1561,8 @@ def settle_preflight(m, actor, receipt):
     else:
         # Nothing was authorized, so there is no worker to stop: the module is back where a blocked preflight
         # before any dispatch leaves it, and the gap is handled the same way.
+        if a.get('preflight') == 'mechanical' and a['role'] == 'fixer':
+            refund_work(m, a)  # the round spent at dispatch is given back: the Fixer could not start
         a.update(closed=True, declined_ref=copy.deepcopy(receipt['report_ref']))
         m['phase'] = 'diagnosing' if a['role'] == 'fixer' else 'frozen' if a['role'] == 'implementer' else 'testing'
 

@@ -40,7 +40,7 @@ WORKERS = {'implementer': 'coding', 'test-runner': 'testing', 'fixer': 'fixing'}
 # reference names, and the subject is current. A build or a test run also approves commands and an environment, which
 # only the worker that will run them can state - unless the freeze fixed the command of every PATH it runs
 # (frozen_execution); a repair round is spent when the Fixer says it can start.
-MECHANICAL = {'implementer': 'coding'}
+MECHANICAL = {'implementer': 'coding', 'fixer': 'fixing'}  # dispatches whose preflight the Ledger writes
 
 
 def audit_ready(s):

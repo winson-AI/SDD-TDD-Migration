@@ -86,22 +86,23 @@ class TemplateTests(unittest.TestCase):
         self.assertLessEqual({'proposal.md', 'spec.md', 'design.md', 'tasks.md', 'change-impact.json'}, revising)  # the documents exist and are edited
         self.assertLessEqual({'proposal.md', 'spec.md', 'design.md', 'tasks.md'}, self.names({}))  # no analysis to start from
 
-    def test_a_coder_is_not_handed_the_preflight_template_and_a_fixer_is(self):
+    def test_a_coder_and_a_fixer_are_not_handed_the_preflight_template_and_a_test_runner_is(self):
         self.assertNotIn('context-readiness.json', self.names(None, 'implementer'))
-        self.assertIn('context-readiness.json', self.names(None, 'fixer'))
+        self.assertNotIn('context-readiness.json', self.names(None, 'fixer'))  # its preflight is written by the Ledger too
         self.assertIn('context-readiness.json', self.names(None, 'test-runner'))
 
 
 class CardTests(unittest.TestCase):
-    def test_a_coders_card_says_nothing_about_reporting_a_preflight(self):
+    def test_a_coders_and_a_fixers_card_say_nothing_about_reporting_a_preflight(self):
         s = {'context_readiness_required': True}
-        keys = lambda role, state: {(row['ref'], row['section']) for row in reading.card(state, None, dispatch(role))}
-        self.assertNotIn((CR, '2. 精确插入节点'), keys('implementer', s))
-        self.assertIn((CR, '2. 精确插入节点'), keys('fixer', s))
+        keys = lambda role, state, step=None: {(row['ref'], row['section']) for row in reading.card(state, None, step or dispatch(role))}
+        for role in ('implementer', 'fixer'):
+            self.assertNotIn((CR, '2. 精确插入节点'), keys(role, s))
+            self.assertNotIn((CR, '2. 精确插入节点'), keys(role, s, {'role': role, 'operation': 'await-result'}))  # the card a running line hands
         self.assertIn((CR, '2. 精确插入节点'), keys('implementer', {}))  # a run without the readiness gate is as before
         matrix = lambda role: next(row['section'] for row in reading.card(s, None, dispatch(role)) if '操作矩阵@' in (row['section'] or ''))
         self.assertNotIn('context-submit', matrix('implementer'))
-        self.assertIn('context-submit', matrix('fixer'))
+        self.assertNotIn('context-submit', matrix('fixer'))
 
     def test_a_step_that_waits_for_its_provider_carries_no_card(self):
         waiting = ledger.with_card({}, None, {'role': 'global-orchestrator', 'operation': 'dependency-ready', 'ready': False,

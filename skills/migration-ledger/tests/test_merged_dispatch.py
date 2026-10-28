@@ -31,8 +31,8 @@ class MergedDiagnosisDispatchTests(unittest.TestCase):
         f = self.f
         f.raw('diagnosis-accept', {'assign': {'assignment_id': 'F1', 'role': 'fixer', 'instance_id': 'fixer', 'task_ids': ['T1'], 'path_ids': ['P1'], 'finding_ids': ['P1']}})
         m = f.state()['modules']['M001']
-        self.assertEqual((m['phase'], m['fix_rounds_used']), ('fixing', 0))  # no round is spent before the Fixer can start
-        f.record(self.fixer_preflight())
+        self.assertEqual((m['phase'], m['fix_rounds_used'], m['assignments']['F1']['preflight']), ('fixing', 1, 'mechanical'))  # the Ledger preflights it
+        f.record(self.fixer_preflight())  # a report of its own replaces that preflight and spends nothing more
         m = f.state()['modules']['M001']
         self.assertEqual((m['fix_rounds_used'], m['fix_memory'][0]['assignment_id']), (1, 'F1'))
 

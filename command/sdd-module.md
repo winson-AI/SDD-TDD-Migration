@@ -18,4 +18,4 @@ description: /sdd-module <run-id> <module-id> — 推进单模块实现与自测
 ## 4. 接入要点
 - 本命令推进已注册模块：父 MO 认领 scope/context 后拆子模块并看护，子 MO 拆 tasks 独立实现。要从一个独立功能启动完整迁移，用 `/sdd-init --mode single-module --module-name "功能模块名"`，再 sdd-plan、本命令或 sdd-run，最后 Auditor 收尾。
 - `execute_test.py` 不传 `--adapter` 时按 PATH 取冻结 command 或 `test_adapter.adapters[platform]`。
-- 预检按阶段提交：Implementer coding，Test-Runner building 与 testing，Fixer fixing；blocked 退回派发不耗修复轮次。Test-Runner 先 test_scope=build 再 automation，自动化环境不可用时提交 automation-unavailable 保存 Yellow 继续，不空等。见[阶段协议](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点)、[双环节协议](../skills/migration-protocol/references/build-automation.md#4-自动化环境缺失直接记-yellow-并继续)。
+- 预检按阶段提交：Implementer coding 与 Fixer fixing 由 Ledger 在派发时写出，Test-Runner building 与 testing（命令全冻结时也由 Ledger 写）；Fixer 自报 blocked 退回派发并退还修复轮次。Test-Runner 先 test_scope=build 再 automation，自动化环境不可用时提交 automation-unavailable 保存 Yellow 继续，不空等。见[阶段协议](../skills/migration-protocol/references/context-readiness.md#2-精确插入节点)、[双环节协议](../skills/migration-protocol/references/build-automation.md#4-自动化环境缺失直接记-yellow-并继续)。
