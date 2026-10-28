@@ -482,7 +482,8 @@ def validate_result(result, module, assignment, run_root=None):
         scope = assignment.get('test_scope')
         require(scope in ('build', 'automation', 'visual'), 'test scope required')
         reviewed = scope == 'automation' and tv.review_first(module)  # the static closure ahead of the functional paths
-        require(scope == 'build' or reviewed or tv.static_ready(module), 'build, unit tests and the static review must pass before automation')
+        require(scope == 'build' or reviewed or tv.static_ready(module) or scope == 'automation' and tv.ahead_of_review(module),
+                'build, unit tests and the static review must pass before automation')
         require(scope != 'visual' or tv.functional_ready(module), 'functional tests must pass before visual')
         # One build-stage result carries build -> unit -> static and stops at the first kind that is not Green; a
         # functional one that carries the static closure stops there when the review is not Green.

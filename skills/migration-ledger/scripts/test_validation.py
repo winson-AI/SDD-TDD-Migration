@@ -67,8 +67,21 @@ def review_due(m):
 def review_first(m):
     """The static closure goes ahead of the functional paths in their dispatch when a model runs those anyway (the
     Ledger marks such a module review_with_automation): one Test-Runner turn reviews, then runs them, and stops at the
-    review when it is not Green."""
-    return bool(m.get('review_with_automation')) and review_due(m) and not static_ready(m)
+    review when it is not Green. Functional paths already Green on this code leave the review to go alone."""
+    return bool(m.get('review_with_automation')) and review_due(m) and not static_ready(m) \
+        and any(not path_green(m, p['path_id']) for p in paths(m, 'automation'))
+
+
+def ahead_of_review(m):
+    """A module whose static closure waits for callers other slices still write runs its functional paths in the
+    meantime: they observe its own behaviour and need none of those callers, so their result reaches its code before
+    the slices built on it are. The closure follows, alone, once the callers exist."""
+    tasks = (m.get('plan') or {}).get('tasks', [])
+    results = m.get('results', {})
+    return bool(m.get('awaiting_assembly')) and bool(paths(m, 'static')) and unit_ready(m) and not static_ready(m) \
+        and set(m.get('accepted_task_ids', [])) >= {t['task_id'] for t in tasks} \
+        and any((results.get(p['path_id']) or {}).get('code_baseline') != m.get('code_baseline') or (results.get(p['path_id']) or {}).get('stale')
+                for p in paths(m, 'automation'))
 
 
 def scope_paths(m, scope, tests=None):
@@ -87,7 +100,7 @@ def next_scope(m):
     if not split(m):
         return None
     if not static_ready(m):
-        return 'automation' if review_first(m) else 'build'
+        return 'automation' if review_first(m) or ahead_of_review(m) else 'build'
     if paths(m, 'visual') and functional_ready(m):
         return 'visual'
     return 'automation'

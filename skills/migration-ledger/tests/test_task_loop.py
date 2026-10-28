@@ -136,8 +136,9 @@ class TaskLoopTests(unittest.TestCase):
 
 
 class AwaitingAssemblyTests(unittest.TestCase):
-    """A provider gets its build result at once; its static closure is neither run nor failed while its callers are unwritten."""
-    def test_a_module_whose_callers_are_unwritten_is_built_and_then_waits_for_them(self):
+    """A provider gets its build result at once and runs its functional paths while its callers are unwritten; its static
+    closure is neither run nor failed until they are."""
+    def test_a_module_whose_callers_are_unwritten_is_built_and_run_and_then_waits_for_them(self):
         from unittest import mock
         import test_spec_closure
         c = test_spec_closure.SpecClosureTests(); c.setUp(); self.addCleanup(c.doCleanups)
@@ -150,11 +151,26 @@ class AwaitingAssemblyTests(unittest.TestCase):
             module = f.state()['modules']['M001']
             self.assertEqual((module['phase'], module['results']['B1']['quality'], 'S1' in module['results']), ('testing', 'green-passed', False))
             step = f.state()['next_steps'][0]
+            self.assertEqual((step['operation'], step['worker_role'], step['test_scope'], step['payload']['path_ids']),
+                             ('assign', 'test-runner', 'automation', ['P1']))  # its behaviour is observed without its callers
+            a, result = f.make_test_result()
+            f.submit(result, a); f.call('accept', {'assignment_id': a['assignment_id']})
+            module = f.state()['modules']['M001']
+            self.assertEqual((module['phase'], module['results']['P1']['quality'], 'S1' in module['results']), ('testing', 'green-passed', False))
+            step = f.state()['next_steps'][0]
             self.assertEqual((step['operation'], step['ready'], step['reason']), (None, False, 'awaiting-assembly'))
         f.approve('0' * 64, 'LATER')  # any later event: the callers are written by now
         step = f.state()['next_steps'][0]
         self.assertEqual((step['operation'], step['worker_role'], step['test_scope'], step['payload']['path_ids']),
-                         ('assign', 'test-runner', 'automation', ['S1', 'P1']))  # the build stays Green: the closure goes ahead of the functional path a model runs
+                         ('assign', 'test-runner', 'build', ['S1']))  # the automation stays Green: the closure runs alone
+
+    def test_without_its_callers_the_closure_goes_ahead_of_the_automation_a_model_runs(self):
+        import test_spec_closure
+        c = test_spec_closure.SpecClosureTests(); c.setUp(); self.addCleanup(c.doCleanups)
+        c.split.prepare(); c.split.compile()
+        step = c.f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['worker_role'], step['test_scope'], step['payload']['path_ids']),
+                         ('assign', 'test-runner', 'automation', ['S1', 'P1']))
 
 
 class RedirectionTests(unittest.TestCase):
