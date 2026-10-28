@@ -31,7 +31,7 @@ ABSTRACT_FIELDS = ('summary', 'applicability', 'root_cause', 'strategy', 'result
 
 
 SKILL = 'migration-slicing-experience'
-MATCHED = ('operation', 'actor_role', 'read_hint')  # a gate lesson reaches the step that submits that operation as that role
+MATCHED = ('operation', 'actor_role', 'read_hint', 'rule')  # a gate lesson reaches the step that submits that operation as that role
 SLICING_KINDS = ('slicing-gap', 'boundary-conflict', 'planning-gap')
 SKILL_LESSONS, SKILL_OBSERVATIONS = 30, 10  # what one skill carries; the store keeps everything
 
@@ -209,9 +209,10 @@ def global_scope(state):
 
 
 def gate_key(entry):
-    """One rule refused one way: the operation, the role and the reason."""
+    """One rule met by one role submitting one operation, whichever ids, paths or runs its messages named."""
     from contracts import digest
-    return digest(['gate-rejection', entry.get('operation'), entry.get('actor_role'), entry.get('root_cause')])
+    from progress_signals import rule
+    return digest(['gate-rejection', entry.get('operation'), entry.get('actor_role'), entry.get('rule') or rule(entry.get('root_cause'))])
 
 
 def effects(run_root, previous=None):
@@ -228,7 +229,7 @@ def effects(run_root, previous=None):
             record = json.loads(path.read_text())
         except (OSError, ValueError):
             continue
-        met.add(gate_key({'operation': record.get('operation'), 'actor_role': record.get('actor_role'), 'root_cause': record.get('reason')}))
+        met.add(gate_key({'operation': record.get('operation'), 'actor_role': record.get('actor_role'), 'rule': record.get('rule'), 'root_cause': record.get('reason')}))
     found = {}
     for row in offered.values():
         if row.get('kind') != 'gate-rejection':
@@ -257,7 +258,7 @@ def gate_rows(index, step):
                     reading.section(hint['ref'], hint['section'])
                 except (KeyError, OSError, ValueError):
                     continue  # the package changed: the rule this lesson names is not there any more
-            row = merged.setdefault(entry.get('root_cause'), {'row': {k: entry[k] for k in ('kind', 'summary', 'applicability', 'lesson_ref')},
+            row = merged.setdefault(gate_key(entry), {'row': {k: entry[k] for k in ('kind', 'summary', 'applicability', 'lesson_ref')},
                                                               'runs': set(), 'effect': (index.get('effect') or {}).get(gate_key(entry)) or {}})
             row['runs'].add(rid)
     def rank(m):  # met again after it was offered in two runs: it did not help, it goes last; offered and not met again: first
@@ -324,6 +325,35 @@ def run_lessons(s, mid):
                 entries.append({'kind': 'run-fix', 'summary': '%s: %s' % (other, note.get('strategy')), 'root_cause': note.get('root_cause'),
                                 'applicability': note.get('applicability'), 'lesson_ref': memory['fix_note_ref']})
     return {'runs': {s['run_id']: {'entries': entries}}}
+
+
+def feedback_path(context_ref):
+    """The package feedback of the run's project, once a harvest has written it."""
+    import project_context
+    snapshot = project_context.verify_snapshot(context_ref)
+    path = store(Path(snapshot['storage_layout']['workspace_root']) / '.sdd-migration') / 'package-feedback.md'
+    return str(path) if path.is_file() else None
+
+
+def run_gates(run_root, mid, step):
+    """The rules other leaves of this run were refused by submitting this operation as this role, one row per rule: the
+    leaf about to take the step reads them now, not after the run is harvested."""
+    from contracts import file_ref
+    from progress_signals import rule
+    folder = Path(run_root) / 'reports/rejections'
+    rows = {}
+    for path in sorted(folder.glob('*.json')) if folder.is_dir() else ():
+        try:
+            record = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if not isinstance(record, dict) or record.get('module_id') in (None, mid) or (record.get('operation'), record.get('actor_role')) != tuple(step):
+            continue
+        key = record.get('rule') or rule(record.get('reason'))
+        hint = record.get('read_hint') or {}
+        rows.setdefault(key, {'kind': 'run-gate', 'summary': '%s: %s' % (record['module_id'], key), 'root_cause': record.get('reason'),
+                              'applicability': ' × '.join([*step, *([hint['section']] if hint.get('section') else [])]), 'lesson_ref': file_ref(path)})
+    return list(rows.values())
 
 
 def shared(root):

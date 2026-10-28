@@ -17,16 +17,18 @@ from contracts import Rejected, check_ref, read_json
 
 
 class RefusedThenLearned(test_continuous_run.ContinuousWalk):
-    """A run whose first planner submits a plan with a mark left in it three times before the plan it meant."""
+    """A run whose first planner submits a plan with a mark left in it three times, each time from another file, before the
+    plan it meant: one rule met three times."""
     refused = 0
 
     def model_turn(self, step):
         f = self.f
         if step.get('operation') == 'plan' and step.get('module_id') == 'M011' and not self.refused:
-            for _ in range(3):
+            for n in range(3):
                 with self.assertRaises(Rejected):
-                    f.call('plan', {'plan_ref': f.ref('half-plan.json', {'tasks': '[[待写：任务]]'})}, role='spec-designer', module='M011')
+                    f.call('plan', {'plan_ref': f.ref('half-plan-%d.json' % n, {'tasks': '[[待写：任务]]'})}, role='spec-designer', module='M011')
             self.refused = 3
+            self.sibling = [s for s in f.state()['next_steps'] if s['module_id'] != 'M011' and s.get('operation') == 'plan']
         super().model_turn(step)
 
     def next_run(self):
@@ -51,9 +53,19 @@ class ExperienceLoopTests(RefusedThenLearned):
         lesson = read_json(check_ref(gate['lesson_ref']))
         self.assertTrue(all(lesson.get(k) for k in experience.ABSTRACT_FIELDS))  # nothing left for a person to abstract
         self.assertEqual(lesson['result'], 'accepted after 3 refusals')
+        self.assertEqual(lesson['rule'], 'unfilled skeleton field left in <file>')
+        self.assertEqual(lesson['root_cause'].count('half-plan-'), 3)  # each message it was met with
         self.assertIn('preview --request', lesson['strategy'])
         self.assertTrue(all('/experience/' in ref['path'] or '/.sdd-migration/' in ref['path'] for ref in lesson['evidence_refs']))  # kept by the store
         self.assertFalse([r for r in experience.candidates(index, module, step=('submit', 'implementer')) if r['kind'] == 'gate-rejection'])
+
+    def test_a_rule_one_leaf_was_refused_by_reaches_the_leaf_planning_beside_it_in_the_same_run(self):
+        self.walk(80)
+        (step,) = self.sibling
+        met = [r for r in step['lesson_candidates'] if r['kind'] == 'run-gate']
+        self.assertEqual([r['summary'] for r in met], ['M011: unfilled skeleton field left in <file>'])  # one row for the rule, not one per file
+        self.assertTrue(met[0]['applicability'].startswith('plan × spec-designer'))
+        self.assertEqual(read_json(check_ref(met[0]['lesson_ref']))['attempts'], 3)
 
     def test_the_package_feedback_kept_beside_the_store_counts_what_the_run_holds(self):
         import workflow_cost
@@ -71,6 +83,13 @@ class ExperienceLoopTests(RefusedThenLearned):
         self.assertEqual(row['slicing']['leaves'], len(self.f.state()['modules']))
         self.assertIn(rid, (self.store / 'package-feedback.md').read_text())
         self.assertNotIn('feedback', json.dumps(self.next_run()['runs']))  # the planners' index does not carry it
+        (candidate,) = report['candidates'][sha]  # the rule met three times, with the section it pointed to
+        self.assertEqual((candidate['kind'], candidate['what'], candidate['most_attempts']),
+                         ('refused-rule', 'plan × spec-designer × unfilled skeleton field left in <file>', 3))
+        self.assertIn(' § ', candidate['read'])
+        import drive
+        done = [l for l in drive.tick(self.f.root, {'role': 'host', 'instance_id': 'host'})[0] if l['kind'] == 'done']
+        self.assertEqual(done[0]['package_feedback'], str(self.store / 'package-feedback.md'))
 
     def test_a_lesson_whose_rule_left_the_package_is_not_offered(self):
         self.walk(80)
@@ -82,6 +101,33 @@ class ExperienceLoopTests(RefusedThenLearned):
                     entry['read_hint'] = {'ref': entry['read_hint']['ref'], 'section': 'a section this package no longer has'}
         module = self.f.state()['modules']['M011']
         self.assertFalse([r for r in experience.candidates(stale, module, step=('plan', 'spec-designer')) if r['kind'] == 'gate-rejection'])
+
+
+class RuleTests(unittest.TestCase):
+    def test_one_rule_reads_the_same_whatever_ids_and_paths_its_message_names(self):
+        from progress_signals import rule
+        self.assertEqual(rule('missing file: /work/runs/r1/staging/plan.json'), rule('missing file: /other/runs/r2/staging/plan.json'))
+        self.assertEqual(rule('unknown reference id C003; the document lists C001, C002'), 'unknown reference id <id>; the document lists <id>…')
+        self.assertNotEqual(rule('missing file: /a/plan.json'), rule('principal role denied'))
+        one = {'operation': 'plan', 'actor_role': 'spec-designer', 'root_cause': 'missing file: /work/r1/plan.json'}
+        self.assertEqual(experience.gate_key(one), experience.gate_key({**one, 'root_cause': 'missing file: /work/r2/plan.json'}))
+
+
+class CandidateTests(unittest.TestCase):
+    def test_a_rule_met_in_two_runs_a_family_every_run_raised_and_a_lesson_that_came_back_twice_are_candidates(self):
+        import package_feedback
+        row = {'package_sha': 'a' * 40, 'run_quality': 'green-passed', 'rule_debt': [], 'model_turns': 9, 'turns_per_leaf': {}, 'max_card_bytes': 1,
+               'refusal_sections': {'plan × spec-designer × missing file: <path>': 'runtime.md § 请求与事件'}}
+        one = {**row, 'refusals': {'plan × spec-designer × missing file: <path>': 1, 'submit × implementer × once': 1}, 'gap_families': {'界面': {'raised': 1, 'open': 0}}}
+        two = {**row, 'refusals': {'plan × spec-designer × missing file: <path>': 2}, 'gap_families': {'界面': {'raised': 2, 'open': 1}, '资源': {'raised': 1, 'open': 0}}}
+        lesson = {'kind': 'gate-rejection', 'operation': 'plan', 'actor_role': 'spec-designer', 'root_cause': 'missing file: /x', 'summary': 'plan refused'}
+        data = {'runs': {'r1': {'feedback': one, 'entries': [lesson]}, 'r2': {'feedback': two, 'entries': []}},
+                'effect': {experience.gate_key(lesson): {'runs': {'r1': True, 'r2': True}}}}
+        out = package_feedback.report(data)
+        self.assertEqual([(c['kind'], c['what'], c['read']) for c in out['candidates']['a' * 40]],
+                         [('refused-rule', 'plan × spec-designer × missing file: <path>', 'runtime.md § 请求与事件'), ('gap-family', '界面', None)])
+        self.assertEqual(out['lessons_that_came_back'], ['plan refused'])
+        self.assertIn('Improvement candidates', package_feedback.markdown(out))
 
 
 class EffectivenessTests(unittest.TestCase):
