@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import run_storage
-from contracts import read_json, require
+from contracts import check_ref, read_json, require
 from project_context import atomic, encoded
 
 KINDS = ('slicing-gap', 'boundary-conflict', 'planning-gap', 'fix-pattern', 'failed-strategy', 'escalation', 'gate-rejection')
@@ -235,6 +235,22 @@ def candidates(index, module, task_ids=()):
             if score and entry.get('lesson_ref'):
                 rows.append((score, {key: entry[key] for key in ('kind', 'summary', 'applicability', 'lesson_ref')}))
     return [row for _, row in sorted(rows, key=lambda pair: (-pair[0], pair[1]['kind'] != 'failed-strategy', pair[1]['summary']))[:5]]
+
+
+def run_lessons(s, mid):
+    """What a repair verified in another leaf of this run, as an index candidates() scores: its fix note names the cause,
+    the strategy and where it applies. The next piece of work reads it now, not after the run is harvested."""
+    entries = []
+    for other, m in sorted(s['modules'].items()):
+        for memory in m.get('fix_memory', []) if other != mid else ():
+            if memory.get('reusable') and memory.get('fix_note_ref'):
+                try:
+                    note = read_json(check_ref(memory['fix_note_ref']))
+                except (ValueError, OSError):
+                    continue
+                entries.append({'kind': 'run-fix', 'summary': '%s: %s' % (other, note.get('strategy')), 'root_cause': note.get('root_cause'),
+                                'applicability': note.get('applicability'), 'lesson_ref': memory['fix_note_ref']})
+    return {'runs': {s['run_id']: {'entries': entries}}}
 
 
 def shared(root):

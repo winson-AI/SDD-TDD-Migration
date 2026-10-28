@@ -618,12 +618,23 @@ def diagnosis_focus(m, p):
                 'each visual issue needs area, problem, severity and evidence_ref')
 
 
+def confirmed_change(routed, report):
+    """A SPEC gap the diagnosis confirmed opens the change request it states: the request and its impact are the
+    diagnosis, and the revised plan is reviewed when it is submitted. A likely cause stays with the orchestrator."""
+    cause = report.get('root_cause')
+    if routed and routed['operation'] == 'change' and isinstance(cause, dict) and cause.get('confidence') == 'confirmed':
+        return {**routed, 'mechanical': True}
+    return routed
+
+
 def review_asked(s, m):
-    """Why this plan needs the orchestrator's review, or None: code already exists, a freeze gate fails, a blocking issue is
-    open, or its author asked questions (plan.review_questions)."""
+    """Why this plan needs the orchestrator's review, or None: code already exists and the revision changes what was frozen
+    (one that only adds TASKs and PATHs is not), a freeze gate fails, a blocking issue is open, or its author asked questions
+    (plan.review_questions)."""
     questions = (m.get('plan') or {}).get('review_questions') or []
     blocking = [row['issue_id'] for row in issues.of_module(s, m['module_id'])[0] if row['blocks']]
-    reasons = (['code exists: a changed plan is reviewed'] if control_policy.execution_started(m) else []) + \
+    changed = control_policy.execution_started(m) and not control_policy.additions(m)
+    reasons = (['code exists: a changed plan is reviewed'] if changed else []) + \
               (['freeze gates fail: ' + ', '.join(g['gate'] for g in m['review_gates'])] if m.get('review_gates') else []) + \
               (['blocking issues: ' + ', '.join(blocking)] if blocking else []) + [str(q) for q in questions]
     return reasons or None
@@ -971,7 +982,7 @@ def _next_step(s, m):
                             payload={'kind': 'human', 'reason': conflict['summary'], 'reason_code': conflict['reason_code'],
                                      'root_cause': conflict, 'owner': 'human'})
             elif draft and draft['subject'] == diagnosis_subject(m):
-                routed = control_policy.repair_step(draft['report'])
+                routed = confirmed_change(control_policy.repair_step(draft['report']), draft['report'])
                 step.update(routed or dict(operation='diagnosis-accept', role='module-orchestrator', ready=True,
                             # Optional: once the Fixer preflighted this diagnosis, accept and dispatch in one step.
                             then_assign={'role': 'fixer', 'session_id': suggested_session(s, m, 'fixer')[0]}))
@@ -989,7 +1000,7 @@ def _next_step(s, m):
             else:
                 step.update(operation='diagnose', role='fixer' if self_diagnosis(s, m) else 'diagnostician', ready=True)
         else:
-            routed = control_policy.repair_step(m['diagnosis']) if m['phase'] == 'diagnosing' else None
+            routed = confirmed_change(control_policy.repair_step(m['diagnosis']), m['diagnosis']) if m['phase'] == 'diagnosing' else None
             if routed:
                 step.update(routed)
                 return step
@@ -1242,6 +1253,11 @@ def with_card(s, m, step):
         if ref:
             candidates = experience.candidates(read_json(check_ref(ref)), m if m is not None else experience.global_scope(s), (step.get('payload') or {}).get('task_ids', []))
             if candidates: step['lesson_candidates'] = candidates
+    if m and (step.get('worker_role') or step.get('role')) in ('implementer', 'fixer', 'diagnostician'):
+        import experience
+        found = experience.candidates(experience.run_lessons(s, m['module_id']), m, (step.get('payload') or {}).get('task_ids', []))
+        if found:  # verified in a sibling leaf of this run: ahead of what earlier runs learned
+            step['lesson_candidates'] = (found + [row for row in step.get('lesson_candidates', []) if row not in found])[:5]
     session = step.get('session_id') or (s.get('context_sessions', {}).get(step['role']) if m is None else None)
     if session:
         step['session_id'] = session
@@ -1733,6 +1749,11 @@ def mutate(s, req, principal, events, root=None):
         if revised:  # how the frozen paths are exercised changed, not what they verify: the MO's review suffices, the fact stays
             issues.record(s, 'SPEC-%s-tests-revised-%s' % (mid, m['plan_hash'][:8]), 'fact',
                           '%s revised how %s are exercised; what they verify is unchanged, reviewed by the MO without a decision' % (mid, ', '.join(revised)),
+                          [mid], issues.LEDGER, sequence=len(events) + 1, resolved={mid: {'by': issues.LEDGER, 'recorded': True}})
+        added = control_policy.execution_started(m) and control_policy.additions(m)
+        if added:  # what was frozen and built stands; what the revision adds is coded and tested like any task
+            issues.record(s, 'SPEC-%s-added-%s' % (mid, m['plan_hash'][:8]), 'fact',
+                          '%s added %s to its coded plan; nothing frozen changed' % (mid, ', '.join(added)),
                           [mid], issues.LEDGER, sequence=len(events) + 1, resolved={mid: {'by': issues.LEDGER, 'recorded': True}})
         issues.cite(s, mid, p.get('resolves'), p['review_ref'], principal)  # what the review settles is settled with it
         m['review_gates'] = [{'gate': g['gate'], 'reason': g['reason']} for g in failing_gates(s, m)[0]]
@@ -2618,12 +2639,18 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     elif rounds['all_settled'] and not audit_code_review.current(s, ref_check):
         global_next = {'operation': 'audit-code-review', 'role': 'auditor', 'ready': True,
                        'reason': 'review-whole-change-before-defects', 'snapshot': audit_code_review.snapshot(s)}
+        kept = audit_code_review.carried(s)
+        if kept:  # after a repair: what changed is reviewed, the rest is carried from the last review
+            global_next.update(reason='review-what-the-repair-changed', review_modules=sorted(set(s['modules']) - kept))
     elif audit_code_review.pending(s) or audit_closure.leftovers(s):
         blockers = rounds['blockers']
         global_next = {'operation': None if blockers else 'audit-collect', 'role': 'global-orchestrator', 'ready': not blockers,
                        'reason': 'await-all-module-rounds' if blockers else 'collect-all-leftovers',
                        'module_barrier': blockers, 'continue_modules': rounds['ready_modules'],
                        'wait_for_modules': rounds['active_modules']}
+        if not blockers and audit_code_review.current(s, ref_check):  # a batch number and the reviewing Auditor: facts the Ledger holds
+            global_next.update(mechanical=True, payload={'batch_id': 'B%d' % (len(s.get('audit_batch_ids', [])) + 1),
+                                                         'auditor_instance_id': s['audit_code_review']['auditor_instance_id']})
     elif pending_repairs(s):
         unassigned = [pid for pid, item in pending_repairs(s).items() if not item['module_ids']]
         global_next = {'operation': 'audit-route' if unassigned else None, 'role': 'global-orchestrator',
@@ -2758,14 +2785,23 @@ def run_fixed_flow(s, step):
         step.update(mechanical=True, payload={**(step.get('payload') or {}), 'instance_id': s['audit_code_review']['auditor_instance_id']})
     elif op in ('integration-assign', 'integration-submit') and not context_readiness.enabled(s) and global_paths_run_by_themselves(s, step.get('path_ids')):
         step['mechanical'] = True
+    elif op == 'audit-test-assign' and not context_readiness.enabled(s):
+        step['mechanical'] = True  # the paths the audit selected, to a Test-Runner no module's author is
 
 
 def verdict_in_review(s, step):
-    """The Auditor's code review already is its verdict: nothing is left to retest, it found nothing and judged every
-    requirement of the host goal satisfied. The verdict is then submitted from that review, in the Auditor's name."""
+    """The Auditor's code review already is its verdict: nothing is left to retest, or the independent retest passed every
+    path, it found nothing and judged every requirement of the host goal satisfied. The verdict is then submitted from
+    that review and the retest's observations, in the Auditor's name."""
     audit = s.get('audit_assignment') or {}
-    if step.get('operation') != 'audit' or step.get('reason') != 'audit-running' or audit.get('path_ids'):
+    if step.get('operation') != 'audit' or step.get('reason') != 'audit-running':
         return False
+    if audit.get('path_ids'):
+        task = s.get('audit_test_assignment') or {}
+        if not (task.get('audit_assignment_id') == audit['assignment_id'] and task.get('closed') and task.get('result_ref')):
+            return False
+        if any(row['quality'] != 'green-passed' for row in read_json(check_ref(task['result_ref']))['paths']):
+            return False
     review = read_json(check_ref(s['audit_code_review']['report_ref']))
     return (audit.get('instance_id') == review.get('auditor_instance_id') and not review.get('findings')
             and all(row.get('conclusion') == 'satisfied' for row in review['goal_review']['requirements']))
@@ -2789,6 +2825,19 @@ def advance_run(root, principal, workers=None):
         elif op == 'audit':
             audit = s['audit_assignment']
             payload, actor = {'report_ref': verdict_from_review(root, s)}, {'role': 'auditor', 'instance_id': audit['instance_id']}
+        elif op == 'audit-collect':
+            payload, actor = dict(step['payload']), go
+        elif op in ('audit-plan', 'audit-verdict'):
+            batch = s['audit_batch']
+            payload = {'plan_ref': drafted_audit_plan(root, s)} if op == 'audit-plan' else \
+                      {'review_ref': closure_record(root, s, None, 'audit-verdict', sequence)}
+            actor = {'role': 'auditor', 'instance_id': batch['auditor_instance_id']}
+        elif op == 'audit-route-batch':
+            payload, actor = {'review_ref': closure_record(root, s, None, 'route-review', sequence)}, go
+        elif op == 'audit-test-assign':
+            audit = s['audit_assignment']
+            payload, actor = {'assignment_id': '%s-test-%d' % (audit['assignment_id'], sequence), 'instance_id': 'audit-test-runner',
+                              'path_ids': audit['path_ids']}, go
         elif op == 'integration-assign':
             payload, actor = {'assignment_id': f'integration-{sequence}', 'path_ids': step['path_ids'],
                               'instance_id': workers.get('test-runner') or 'integration-test-runner'}, go
@@ -2807,9 +2856,22 @@ def verdict_from_review(root, s):
               'actor_instance_id': audit['instance_id'], 'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],
               'snapshot': audit['snapshot'], 'paths': [], 'execution_status': 'no-retest-needed',
               'review_ref': s['audit_code_review']['report_ref']}
+    if audit['path_ids']:  # the independent retest's observations, as its Test-Runner reported them
+        task = s['audit_test_assignment']
+        report.update(kind='tests', paths=read_json(check_ref(task['result_ref']))['paths'], test_result_ref=task['result_ref'])
+        report.pop('execution_status')
     out = Path(root) / 'staging/auditor' / (audit['assignment_id'] + '-verdict.json')
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+    return file_ref(out)
+
+
+def drafted_audit_plan(root, s):
+    """The routing the findings state by themselves (audit_closure.drafted_routes), staged where the Auditor would write it."""
+    b = s['audit_batch']
+    out = Path(root) / 'staging/auditor' / ('%s-routes.json' % b['batch_id'])
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({'routes': audit_closure.drafted_routes(s, b), 'written_by': 'ledger'}, ensure_ascii=False, indent=2) + '\n')
     return file_ref(out)
 
 
@@ -2853,7 +2915,9 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
         m = s['modules'][module_id]
         body = {'plan_hash': m['plan_hash'], 'reviewer_instance_id': actor['instance_id'], 'semantic_change': False,
                 'authorization_change': False, 'unresolved_questions': [], 'evidence_refs': [m['plan_ref']],
-                'reason': 'every freeze gate passed, no blocking issue is open and the author asked nothing: the code and its tests judge the rest'}
+                'reason': 'every freeze gate passed, no blocking issue is open and the author asked nothing: the code and its tests judge the rest'
+                          + ('; the revision only adds %s to the coded plan' % ', '.join(control_policy.additions(m))
+                             if control_policy.execution_started(m) and control_policy.additions(m) else '')}
     elif kind == 'diagnosis':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
@@ -2862,6 +2926,15 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
                                    **({'step_trace_ref': r['step_trace_ref']} if r.get('step_trace_ref') else {})}
                              for pid, r in sorted(unresolved(m).items())},
                 'checks': ['every failed PATH broke inside the write scope at grepped locations, or failed frozen assertions of this module']}
+    elif kind == 'route-review':
+        b = s['audit_batch']
+        body = {'batch_id': b['batch_id'], 'plan_ref': b['plan_ref'],
+                'routes': {fid: {k: r[k] for k in ('action', 'owner_module_ids')} for fid, r in sorted(b['routes'].items())},
+                'checks': ['every finding is routed once', 'every owner is a known module', 'no route waits for a human']}
+    elif kind == 'audit-verdict':
+        b = s['audit_batch']
+        body = {'batch_id': b['batch_id'], 'tests': {mid: audit_closure.proof(b, mid)['result_ref'] for mid in sorted(audit_closure.pending_modules(b))},
+                'checks': ['every module the batch worked on passed its retest on its current code', 'nothing waits for a human']}
     elif kind == 'dod':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
@@ -2873,7 +2946,7 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
         body = {'subject_sha256': decomposition.summary_subject(s, group),
                 'leaves': {mid: {k: s['modules'][mid].get(k) for k in ('phase', 'quality', 'effective_quality', 'code_baseline')}
                            for mid in decomposition.leaves(s, module_id)}}
-    path = run_storage.checked_path(Path(root) / 'reports' / kind / f'{module_id}-{sequence}.json', root)
+    path = run_storage.checked_path(Path(root) / 'reports' / kind / f'{module_id or "GLOBAL"}-{sequence}.json', root)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({'schema_version': 1, 'kind': kind, 'module_id': module_id, 'written_by': 'ledger', **body},
                                ensure_ascii=False, indent=2, sort_keys=True) + '\n')
@@ -2934,7 +3007,7 @@ def advance(root, principal, module_id, workers=None):
             step['operation'] = 'submit'
         elif step['operation'] == 'accept':
             payload = {'assignment_id': step['assignment_id']}
-        elif step['operation'] in ('freeze', 'diagnosis-accept', 'audit-defer', 'automation-unavailable', 'resume'):
+        elif step['operation'] in ('freeze', 'diagnosis-accept', 'audit-defer', 'automation-unavailable', 'resume', 'audit-work', 'audit-retest', 'change'):
             payload = dict(step.get('payload') or {})
         elif step['operation'] == 'dependency-ready':
             payload, actor = {}, {'role': 'global-orchestrator', 'instance_id': (workers or {}).get('global-orchestrator') or 'global-orchestrator'}
@@ -2965,8 +3038,8 @@ def advance(root, principal, module_id, workers=None):
     out = {'applied': applied, 'next_step': {k: step[k] for k in ('operation', 'role', 'ready', 'reason', 'assignment_id')
                                              if step.get(k) is not None}}
     if step.get('must_read'):
-        out['card'] = reading.render(step['must_read'], Path(st['run_root']) / 'reports/reading', step.get('templates', ()),
-                                     on_demand=step.get('read_when_writing', ()))['path']
+        out['card'] = reading.render(step['must_read'], Path(st['run_root']) / 'reports/reading', step.get('templates', ()), step.get('slicing_skill'),
+                                     on_demand=step.get('read_when_writing', ()), lessons=step.get('lesson_candidates', ()))['path']
     return out
 
 

@@ -47,12 +47,12 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | module-summary | 父 MO / 父 module_id | summary_ref、subject_sha256；全部后代收尾后由 advance 机械提交 Ledger 写的汇总 |
 | decision | host | decision_id、decision=approved、module_id、subject_sha256（游标的 approval_subject_sha256）、human_source_ref；决定与常设裁定另以 issue（kind=decision/standing）寄给适用模块。`kind=knowledge`：question_id 为 knowledge-need 的 issue_id，answers[]、sources[] 必填，Ledger 写 artifacts/knowledge/<decision_id>.md 并消去该问题；`kind=batch-envelope`：module_id 为父，envelope_ref 指向[批量信封](../../../template/batch-envelope.json)，children 只能是该父的孩子；`kind=api-adaptation`：module_id=null，adaptations 与 subject_sha256 取自冻结步骤 |
 | global-plan | Global | 登记已说明唯一 CASE 持有者与需求范围（需预检的 run 根模块带完整功能清单）时机械：Ledger 起草并由 advance_run 提交；否则 plan_ref + review_ref；验收完整根/叶子 registry 的需求/用例归属；可带 target_profile_ref（目标画像）；无关根可待拆，registry 变化后重审 |
-| audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot |
-| audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human/trace |
-| audit-route-batch | Global | review_ref；审核 finding 责任映射及依赖图；human 分支挂起，独立分支继续；trace 记为各 owner 的问题，owner 以 change/realloc-request/redecompose 自下而上修订，代码保留，消去后重新收集 |
-| audit-work | MO | 顶层 module_id 指负责模块；接受被冻结的修复任务，一轮 Fixer 授权；前置不可满足则报告待人工 |
-| audit-retest | MO | 顶层 module_id 指发现模块或受影响中间模块；只等待本模块的上游修复/复测完成，执行完整模块路径 |
-| audit-verdict | Auditor | review_ref；双方验证齐全、同基线、DoD 完成才裁决通过；过期证据报告待人工 |
+| audit-collect | Global | batch_id、独立 auditor_instance_id；所有模块本轮完成/明确挂起且没有可推进工作后，收集 finding/PATH、上下文和 round_snapshot；审查当前时机械 |
+| audit-plan | Auditor | plan_ref；每个 finding_id 一个路由，source_module_id、owner_module_ids、source_context/owner_contexts、analysis_ref、root_cause、action=fix/verify/human/trace；finding 自带路由时机械 |
+| audit-route-batch | Global | review_ref；审核 finding 责任映射及依赖图；全为 fix/trace 时机械；human 分支挂起，独立分支继续；trace 记为各 owner 的问题，owner 以 change/realloc-request/redecompose 自下而上修订，代码保留，消去后重新收集 |
+| audit-work | MO | 顶层 module_id 指负责模块；接受被冻结的修复任务，一轮 Fixer 授权；前置不可满足则报告待人工；机械 |
+| audit-retest | MO | 顶层 module_id 指发现模块或受影响中间模块；只等待本模块的上游修复/复测完成，执行完整模块路径；机械 |
+| audit-verdict | Auditor | review_ref；双方验证齐全、同基线、DoD 完成才裁决通过；过期证据报告待人工；复测全绿且无待人工时机械 |
 | audit-defer | MO | root_cause + evidence_ref；记录根因、结果和恢复点，进入 waiting-auditor；可修复错误先按当前版本本地收敛，依赖/外围问题留证交接 |
 | audit-code-review | Auditor | report_ref；Ledger 预检；步骤带 `report_skeleton`，留标记即拒；全部 MO 收尾后、audit-collect 前提交，见[代码治理](audit-code-review.md#ledger-接口) |
 | plan | Spec-Designer | plan_ref；Ledger 预检；先 `preview`；[stage-plan](../../../template/stage-plan.json)（Ledger 补全 test_design_ref、PATH、任务范围、spec 与 checklist）；不抄写全局上下文与分配包 |

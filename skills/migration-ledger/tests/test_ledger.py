@@ -14,7 +14,7 @@ from execute_test import execute
 import audit_code_review
 
 
-def code_review(f, findings=None, recovery_resolutions=None):
+def code_review(f, findings=None, recovery_resolutions=None, modules=None):
     """An explicit independent review fixture; no automatic Ledger gate bypass."""
     s = f.state()
     if findings is None and audit_code_review.current(s):
@@ -27,7 +27,7 @@ def code_review(f, findings=None, recovery_resolutions=None):
               'modules': [{'module_id': mid, 'diff_refs': [proof], 'checks': {
                   c: {'conclusion': 'finding' if any(x['source_module_id'] == mid and x['category'] == c for x in items) else 'satisfied',
                       'reason': 'Inspected small fixture implementation', 'evidence_refs': [proof]} for c in audit_code_review.CHECKS}}
-                  for mid in s['modules']]}
+                  for mid in (modules or s['modules'])]}
     inventory = (s.get('global_plan') or {}).get('content', {}).get('feature_inventory_ref')
     from contracts import read_json, check_ref
     report['goal_review'] = {'global_spec_ref': s['global_spec'], 'origin_spec_ref': s.get('host_task_contract', {}).get('global_spec', s['global_spec']),

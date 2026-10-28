@@ -88,6 +88,25 @@ def boundary_hash(m):
     return digest({'envelope': m['plan']['decision_envelope'], 'acceptance': acceptance(m['plan']['paths'])})
 
 
+def additions(m):
+    """The TASKs and PATHs a revision of a coded plan only adds, or None when it changes anything that was frozen: every
+    frozen PATH is as it was, every frozen TASK too except for PATHs added to it, and the decision envelope stands."""
+    before = ((m.get('change_request') or {}).get('previous_plan') or {}).get('plan')
+    if not before or not m.get('plan') or before.get('decision_envelope') != m['plan'].get('decision_envelope'):
+        return None
+    tasks, paths = keyed(m['plan']['tasks'], 'task_id'), keyed(m['plan']['paths'], 'path_id')
+    for old in before['paths']:
+        if paths.get(old['path_id']) != old:
+            return None
+    for old in before['tasks']:
+        new = tasks.get(old['task_id'])
+        if not new or {k: v for k, v in new.items() if k != 'path_ids'} != {k: v for k, v in old.items() if k != 'path_ids'} \
+                or not set(old['path_ids']) <= set(new['path_ids']):
+            return None
+    added = sorted(set(tasks) - {x['task_id'] for x in before['tasks']}) + sorted(set(paths) - {x['path_id'] for x in before['paths']})
+    return added or None
+
+
 def needs_human(m):
     """Why the MO's own review cannot freeze this plan, or None: code exists and the plan moved what was approved."""
     if not execution_started(m):

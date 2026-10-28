@@ -61,6 +61,19 @@ def deferred(s):
             if b.get('code_review_ref') and b.get('unverified_findings')]
 
 
+def carried(s):
+    """The modules a review may carry from the last one: nothing above them moved and their own SPEC, code and allocation
+    are as that review saw them (a retest adds an author, not a change; independence is checked on every module anyway).
+    A review after a repair reads what the repair changed."""
+    prior = (s.get('audit_code_review') or {}).get('snapshot')
+    now = snapshot(s)
+    if not prior or {k: v for k, v in prior.items() if k != 'modules'} != {k: v for k, v in now.items() if k != 'modules'}:
+        return set()
+    same = lambda a, b: a is not None and {k: v for k, v in a.items() if k != 'authors'} == {k: v for k, v in b.items() if k != 'authors'}
+    kept = {mid for mid, entry in now['modules'].items() if same(prior['modules'].get(mid), entry)}
+    return kept if kept != set(now['modules']) else set()  # nothing changed: the re-review reads everything
+
+
 def require_current(s, auditor=None):
     require(current(s), 'independent audit-code-review required for current SPEC/code/context')
     if auditor:
@@ -79,9 +92,10 @@ def accept(s, p, actor):
     require(report.get('schema_version') == 1 and report.get('run_id') == s['run_id'], 'code review run/schema mismatch')
     require(report.get('auditor_instance_id') == actor['instance_id'], 'code review author mismatch')
     require(report.get('snapshot') == snapshot(s), 'code review snapshot stale')
-    require(report.get('modules'), 'review every execution module, including Green')
-    reviews = keyed(report['modules'], 'module_id')
-    require(set(reviews) == set(s['modules']), 'review every execution module, including Green')
+    kept = carried(s)
+    reviews = keyed(report['modules'], 'module_id') if report.get('modules') else {}
+    require(set(s['modules']) - kept <= set(reviews) <= set(s['modules']),
+            'review every execution module, including Green, that changed since the last code review')
     inventory_ref = report.get('change_inventory_ref')
     require(inventory_ref, 'audit change inventory reference required')
     check_ref(inventory_ref)
@@ -105,6 +119,12 @@ def accept(s, p, actor):
         affected = nonempty(finding.get('affected_module_ids'), 'affected consumers required')
         require(set(affected) <= set(s['modules']) and finding['source_module_id'] in affected, 'invalid affected modules')
         require(finding.get('path_id') is None and not finding.get('result'), 'code findings cannot fabricate test failures')
+        route = finding.get('route')
+        if route is not None:  # who revises, as the review sees it: the audit routes the finding by it
+            require(isinstance(route, dict) and route.get('action') in ('fix', 'trace'), 'code finding route action must be fix or trace')
+            owners = nonempty(route.get('owner_module_ids'), 'code finding route owners required')
+            known = set(s['modules']) | (set(s.get('module_groups', {})) if route['action'] == 'trace' else set())
+            require(len(set(owners)) == len(owners) and set(owners) <= known, 'unknown/duplicate code finding route owner')
         attempts = [b for b in [*s.get('audit_batch_history', []), s.get('audit_batch', {})]
                     if b.get('code_review_ref') and fid in b.get('routes', {}) and
                     set(b['routes'][fid]['owner_module_ids']).intersection(b.get('started_owners', []))]
@@ -139,6 +159,7 @@ def accept(s, p, actor):
     s['audit_code_review'] = {'report_ref': p['report_ref'], 'snapshot': snapshot(s),
         'change_inventory_ref': inventory_ref,
         'auditor_instance_id': actor['instance_id'], 'findings': list(items.values()), 'evidence_refs': refs,
+        **({'carried_modules': sorted(set(s['modules']) - set(reviews))} if set(s['modules']) - set(reviews) else {}),
         'recovery_resolutions': list(resolutions.values())}
 
 

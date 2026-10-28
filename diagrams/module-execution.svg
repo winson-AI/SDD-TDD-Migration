@@ -89,9 +89,9 @@
 <rect x="550" y="1480" width="500" height="180" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="800.0" y="1520.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">规划缺口 → CR</text>
 <text x="800.0" y="1554.0" font-size="18.82" fill="#4b5563" text-anchor="middle" font-weight="400">scope 内功能 / 契约 / fidelity 遗漏、测试源缺陷</text>
-<text x="800.0" y="1583.0" font-size="20.21" fill="#4b5563" text-anchor="middle" font-weight="400">Spec-Designer 修订；只改测试写法 MO 即可重冻</text>
+<text x="800.0" y="1583.0" font-size="18.30" fill="#4b5563" text-anchor="middle" font-weight="400">诊断确认即开 CR；只新增 TASK / PATH 由 Ledger 审</text>
 <text x="800.0" y="1612.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Implementer 更新已经 coding 的代码</text>
-<text x="800.0" y="1641.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">保留原预期；语义 / 授权变化交 Human</text>
+<text x="800.0" y="1641.0" font-size="20.97" fill="#4b5563" text-anchor="middle" font-weight="400">改已冻结内容 MO 审；语义 / 授权变化交 Human</text>
 <path d="M1050,1570 L1080,1570 L1080,1440 Q1095,1430 1080,1420 L1080,1320 Q1095,1310 1080,1300 L1080,675 L1050,675" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <rect x="1110" y="1480" width="410" height="180" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="1315.0" y="1520.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">范围不足 → 父 MO / GO</text>
@@ -132,7 +132,7 @@
 <text x="285.0" y="234.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">一任务 · 一 Run</text>
 <text x="285.0" y="268.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">执行唯一当前冻结 SPEC</text>
 <text x="285.0" y="297.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">run 固定包版本；修订只留 history</text>
-<text x="285.0" y="326.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">失败、经验与累计预算持续保留</text>
+<text x="285.0" y="326.5" font-size="20.00" fill="#4b5563" text-anchor="middle" font-weight="400">失败与预算保留；已验证修复随卡给兄弟叶子</text>
 <rect x="70" y="420" width="430" height="160" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="285.0" y="450.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">OpenSpec 六件套</text>
 <text x="285.0" y="484.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">proposal / spec / design</text>

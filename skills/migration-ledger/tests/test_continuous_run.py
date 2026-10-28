@@ -22,7 +22,7 @@ FEATURES = [{'feature_id': fid, 'name': name, 'functional_path': 'Search/' + nam
             for fid, name, cases in (('F-QUERY', 'Query', ['C1', 'C2', 'C3']), ('F-HISTORY', 'History', ['C4', 'C5', 'C6']))]
 # The counts last recorded in VERIFICATION.md: model turns by role, and the most protocol bytes one turn's card handed a model.
 RECORDED = {'turns': {'global-orchestrator': 1, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 4, 'auditor': 1},
-            'card_bytes': 19640}
+            'card_bytes': 19795}
 
 
 class ContinuousWalk(test_run_rehearsal.RunWalk):

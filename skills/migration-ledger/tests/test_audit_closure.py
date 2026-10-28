@@ -21,7 +21,9 @@ class ClosureTests(unittest.TestCase):
 
     def implement(self, mid, aid, shared=1, fixer=False, value=2):
         actor = 'fixer' if fixer else 'implementer'
-        self.call('assign', {'assignment_id': aid, 'role': actor, 'instance_id': actor}, module=mid)
+        if aid not in self.state()['modules'][mid]['assignments']:  # else dispatched by the Ledger
+            self.call('assign', {'assignment_id': aid, 'role': actor, 'instance_id': actor}, module=mid)
+        actor = self.state()['modules'][mid]['assignments'][aid]['instance_id']
         a = self.state()['modules'][mid]['assignments'][aid]
         path = self.target / ('m1' if mid == 'M001' else 'm2') / 'code.py'
         path.parent.mkdir(exist_ok=True); path.write_text(f'value = {value}\nshared = {shared}\n')
@@ -36,11 +38,12 @@ class ClosureTests(unittest.TestCase):
             result['fix_note_ref'] = self.ref(f'note-{aid}.json', {'root_cause': 'shared value mismatch', 'strategy': 'correct producer value',
                                                                'applicability': 'same shared contract', 'risks': 'retest consumer'})
         self.call('submit', {'assignment_id': aid, 'fencing_token': a['fencing_token'], 'result_ref': self.ref(f'impl-{aid}.json', result)},
-                  role=actor, module=mid)
+                  role='fixer' if fixer else 'implementer', module=mid, instance=actor)
         self.call('accept', {'assignment_id': aid}, module=mid)
 
     def verify_module(self, mid, aid, consume=False):
-        self.call('assign', {'assignment_id': aid, 'role': 'test-runner', 'instance_id': 'test-runner'}, module=mid)
+        if aid not in self.state()['modules'][mid]['assignments']:
+            self.call('assign', {'assignment_id': aid, 'role': 'test-runner', 'instance_id': 'test-runner'}, module=mid)
         m = self.state()['modules'][mid]; a = m['assignments'][aid]; pid = 'P1' if mid == 'M001' else 'P2'
         adapter = self.base / f'adapter-{aid}.py'
         target = self.target / 'm1/code.py' if consume else self.target / ('m1' if mid == 'M001' else 'm2') / 'code.py'
@@ -58,9 +61,9 @@ class ClosureTests(unittest.TestCase):
             record['root_cause'] = {'category': 'dependency', 'summary': 'producer shared value wrong', 'confidence': 'confirmed',
                                     'owner': 'M001', 'next_action': 'fix-producer'}
         result = {'schema_version': 1, 'kind': 'tests', 'run_id': 'demo', 'module_id': mid, 'assignment_id': aid,
-                  'actor_instance_id': 'test-runner', 'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'paths': [record]}
+                  'actor_instance_id': a['instance_id'], 'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'paths': [record]}
         self.call('submit', {'assignment_id': aid, 'fencing_token': a['fencing_token'], 'result_ref': self.ref(f'test-{aid}.json', result)},
-                  role='test-runner', module=mid)
+                  role='test-runner', module=mid, instance=a['instance_id'])
         self.call('accept', {'assignment_id': aid}, module=mid)
         return result
 
