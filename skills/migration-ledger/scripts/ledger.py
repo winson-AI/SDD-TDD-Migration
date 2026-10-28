@@ -1302,6 +1302,12 @@ def with_card(s, m, step):
         found = experience.candidates(experience.run_lessons(s, m['module_id']), m, (step.get('payload') or {}).get('task_ids', []))
         if found:  # verified in a sibling leaf of this run: ahead of what earlier runs learned
             step['lesson_candidates'] = (found + [row for row in step.get('lesson_candidates', []) if row not in found])[:5]
+    if m and s.get('project_context_ref'):
+        import experience
+        met = experience.run_gates(project_context.verify_snapshot(s['project_context_ref'])['run_root'], m['module_id'], submitted_as(step))
+        if met:  # a sibling leaf of this run was refused at the step this one is about to take: after its fixes, before earlier runs
+            rows = step.get('lesson_candidates', [])
+            step['lesson_candidates'] = ([r for r in rows if r['kind'] == 'run-fix'] + met + [r for r in rows if r['kind'] != 'run-fix'])[:5]
     session = step.get('session_id') or (s.get('context_sessions', {}).get(step['role']) if m is None else None)
     if session:
         step['session_id'] = session

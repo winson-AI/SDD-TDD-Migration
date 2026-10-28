@@ -28,6 +28,7 @@ class RefusedThenLearned(test_continuous_run.ContinuousWalk):
                 with self.assertRaises(Rejected):
                     f.call('plan', {'plan_ref': f.ref('half-plan-%d.json' % n, {'tasks': '[[待写：任务]]'})}, role='spec-designer', module='M011')
             self.refused = 3
+            self.sibling = [s for s in f.state()['next_steps'] if s['module_id'] != 'M011' and s.get('operation') == 'plan']
         super().model_turn(step)
 
     def next_run(self):
@@ -57,6 +58,14 @@ class ExperienceLoopTests(RefusedThenLearned):
         self.assertIn('preview --request', lesson['strategy'])
         self.assertTrue(all('/experience/' in ref['path'] or '/.sdd-migration/' in ref['path'] for ref in lesson['evidence_refs']))  # kept by the store
         self.assertFalse([r for r in experience.candidates(index, module, step=('submit', 'implementer')) if r['kind'] == 'gate-rejection'])
+
+    def test_a_rule_one_leaf_was_refused_by_reaches_the_leaf_planning_beside_it_in_the_same_run(self):
+        self.walk(80)
+        (step,) = self.sibling
+        met = [r for r in step['lesson_candidates'] if r['kind'] == 'run-gate']
+        self.assertEqual([r['summary'] for r in met], ['M011: unfilled skeleton field left in <file>'])  # one row for the rule, not one per file
+        self.assertTrue(met[0]['applicability'].startswith('plan × spec-designer'))
+        self.assertEqual(read_json(check_ref(met[0]['lesson_ref']))['attempts'], 3)
 
     def test_the_package_feedback_kept_beside_the_store_counts_what_the_run_holds(self):
         import workflow_cost

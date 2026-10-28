@@ -327,6 +327,27 @@ def run_lessons(s, mid):
     return {'runs': {s['run_id']: {'entries': entries}}}
 
 
+def run_gates(run_root, mid, step):
+    """The rules other leaves of this run were refused by submitting this operation as this role, one row per rule: the
+    leaf about to take the step reads them now, not after the run is harvested."""
+    from contracts import file_ref
+    from progress_signals import rule
+    folder = Path(run_root) / 'reports/rejections'
+    rows = {}
+    for path in sorted(folder.glob('*.json')) if folder.is_dir() else ():
+        try:
+            record = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if not isinstance(record, dict) or record.get('module_id') in (None, mid) or (record.get('operation'), record.get('actor_role')) != tuple(step):
+            continue
+        key = record.get('rule') or rule(record.get('reason'))
+        hint = record.get('read_hint') or {}
+        rows.setdefault(key, {'kind': 'run-gate', 'summary': '%s: %s' % (record['module_id'], key), 'root_cause': record.get('reason'),
+                              'applicability': ' × '.join([*step, *([hint['section']] if hint.get('section') else [])]), 'lesson_ref': file_ref(path)})
+    return list(rows.values())
+
+
 def shared(root):
     """The directory a project names so that several workspaces keep one store (`experience_root`), or None."""
     path = Path(root).resolve() / 'project-context.json'
