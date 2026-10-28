@@ -1,8 +1,8 @@
 """A run whose leaves have screens, walked in a prepared run from the root's registration to its end: the legacy cannot be
 run and the target has no device, so the visible cases end unverified, and each leaf's first plan leaves its screen's
-closure and some item ids out, as a first version may. Built and tested, each leaf is reopened by the Ledger for what its
-plan owes; the revision only adds to the plan, so the code and its Green stay and only the build and static review run
-again. The counts are reported, not a gate."""
+closure and some item ids out, as a first version may. Built and unit-tested, each leaf is reopened by the Ledger for what
+its plan owes before its static review; the revision only adds to the plan, so the code and its Green stay, and the static
+review is judged once, on the revised plan. The counts are reported, not a gate."""
 import json
 from pathlib import Path
 import sys
@@ -18,7 +18,7 @@ import workflow_cost
 from contracts import baseline, check_ref, file_ref, read_json
 
 # The model turns last recorded in VERIFICATION.md for this run, by role.
-RECORDED = {'global-orchestrator': 1, 'module-orchestrator': 1, 'spec-designer': 4, 'implementer': 2, 'test-runner': 6, 'auditor': 1}
+RECORDED = {'global-orchestrator': 1, 'module-orchestrator': 1, 'spec-designer': 4, 'implementer': 2, 'test-runner': 4, 'auditor': 1}
 RECORDED_CARD = 20903  # the most protocol bytes one turn's card handed a model in this run (the reopened plan)
 
 
