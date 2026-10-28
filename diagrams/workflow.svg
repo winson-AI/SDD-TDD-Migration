@@ -40,7 +40,7 @@
 <text x="340.0" y="735.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父 MO · 根模块 A</text>
 <text x="340.0" y="769.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">认领模块 / 实现 / 四维上下文</text>
 <text x="340.0" y="798.0" font-size="17.52" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 起草切分；3–30 CASE，&lt;6 不拆；页面是 TASK</text>
-<text x="340.0" y="827.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">子四维分析与行为评审由 Ledger 切出</text>
+<text x="340.0" y="827.0" font-size="21.89" fill="#4b5563" text-anchor="middle" font-weight="400">子四维、行为评审与用例验收由 Ledger 补齐</text>
 <text x="340.0" y="856.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">可不全覆盖：漏掉的记欠项，首版后补齐</text>
 <rect x="640" y="700" width="480" height="170" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="645" y="705" width="470" height="160" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
@@ -54,7 +54,7 @@
 <path d="M610,940 L610,980" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="100" y="980" width="1020" height="110" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="610.0" y="1028.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">接受拆分 → 登记子模块 → 全局覆盖</text>
-<text x="610.0" y="1062.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 起草的切法当场接受、覆盖沿用；登记已说明覆盖时由 Ledger 起草；其余 GO 审核</text>
+<text x="610.0" y="1062.5" font-size="20.27" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 起草的切法当场接受、覆盖沿用；登记已说明覆盖（含功能归属）时由 Ledger 起草；其余 GO 审核</text>
 <path d="M610,1090 L610,1220" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M215,1220 L1010,1220" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <rect x="60" y="1170" width="1100" height="265" rx="20" fill="none" stroke="#d1d5db" stroke-width="1.4"/>
@@ -156,7 +156,7 @@
 <text x="1375.0" y="1315.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实际派发执行角色并绑定身份</text>
 <text x="1375.0" y="1344.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">worker 只读本步阅读卡</text>
 <text x="1375.0" y="1373.5" font-size="17.39" fill="#4b5563" text-anchor="middle" font-weight="400">同 Run：Fixer / CR / 父 MO / GO</text>
-<text x="1375.0" y="1402.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">机械步骤由 advance 直提</text>
+<text x="1375.0" y="1402.5" font-size="19.46" fill="#4b5563" text-anchor="middle" font-weight="400">drive 推进机械步，信号只报一次</text>
 <text x="1375.0" y="1431.5" font-size="19.83" fill="#4b5563" text-anchor="middle" font-weight="400">停了：handover 接手，可改钉包</text>
 <text x="1375.0" y="1460.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">历史留痕，仅执行当前 SPEC</text>
 <text x="1375.0" y="1489.5" font-size="21.90" fill="#4b5563" text-anchor="middle" font-weight="400">遵守 DAG / 写锁 / 累计预算</text>

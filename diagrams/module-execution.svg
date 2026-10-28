@@ -25,7 +25,7 @@
 <text x="800.0" y="462.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">UI → Logic → Adhesive → Resource</text>
 <text x="800.0" y="491.0" font-size="18.42" fill="#4b5563" text-anchor="middle" font-weight="400">Spec-Designer：实施规范 + CASE / PATH / ASSERT</text>
 <text x="800.0" y="520.0" font-size="19.49" fill="#4b5563" text-anchor="middle" font-weight="400">先按 capture_due 捕获、media_due 引用用户媒体</text>
-<text x="800.0" y="549.0" font-size="19.14" fill="#4b5563" text-anchor="middle" font-weight="400">骨架预填场景，冻结测试源 / 用户截图 visual PATH</text>
+<text x="800.0" y="549.0" font-size="20.08" fill="#4b5563" text-anchor="middle" font-weight="400">骨架预填场景与测试源；PATH 准备方式 Ledger 补</text>
 <text x="800.0" y="578.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">首版限时 45 分钟；可后补项记 debt</text>
 <path d="M800,585 L800,610" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="610" width="500" height="185" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
