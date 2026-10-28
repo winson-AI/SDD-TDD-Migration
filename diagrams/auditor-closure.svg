@@ -29,7 +29,7 @@
 <text x="800.0" y="597.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">根因分析 → 路由审核</text>
 <text x="800.0" y="631.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">治理用 fix / human；遗留可 fix / verify / human</text>
 <text x="800.0" y="660.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">finding 自带路由 / 根因已确认：Ledger 路由并代审</text>
-<text x="800.0" y="689.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">需新 TASK / 契约 / scope：恢复 CR / 上游规划</text>
+<text x="800.0" y="689.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">trace：叶子即开 CR（根因已确认则机械），代码保留</text>
 <rect x="90" y="370" width="330" height="200" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="255.0" y="420.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">复用与公共能力治理</text>
 <text x="255.0" y="454.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">重复实现 / 接线 / 公共能力</text>
