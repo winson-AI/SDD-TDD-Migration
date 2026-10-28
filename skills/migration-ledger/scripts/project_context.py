@@ -735,7 +735,8 @@ def _prepare(root, run_root, request, actor, storage):
                     'request_hash': fingerprint, 'source_refs': sources, 'source_paths': source_paths,
                     'request_source_ref': copy_ref(files, request.get('source_ref')),
                     'config_source_ref': copy_ref(files, record['source_ref']),
-                    'created_at': datetime.now(timezone.utc).isoformat(), 'legacy_commit': git_head(effective['legacy_root'])}
+                    'created_at': datetime.now(timezone.utc).isoformat(), 'legacy_commit': git_head(effective['legacy_root']),
+                    'target_commit': git_head(effective['target_root'])}  # what the run's changes are measured from
         snapshot.update(storage_layout=storage, storage_owner_ref=file_ref(owner))
         data = encoded(snapshot)
         archive(files, data, '.snapshot')
@@ -745,7 +746,7 @@ def _prepare(root, run_root, request, actor, storage):
 
 
 def git_head(root):
-    """The commit a Git checkout stands on, or None: the legacy as the run was prepared."""
+    """The commit a Git checkout stands on, or None: the legacy, or the target, as the run was prepared."""
     import subprocess
     try:
         out = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'], capture_output=True, text=True, timeout=10)

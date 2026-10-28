@@ -22,7 +22,7 @@
 <text x="800.0" y="402.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">整体代码审查 → 分批收集</text>
 <text x="800.0" y="436.0" font-size="17.67" fill="#4b5563" text-anchor="middle" font-weight="400">audit-code-review（骨架起笔，预列 debt）：目标/改动/冗余/复用</text>
 <text x="800.0" y="465.0" font-size="19.21" fill="#4b5563" text-anchor="middle" font-weight="400">audit-collect（机械）：先治理 CR-*，再剩余 Red / Yellow</text>
-<text x="800.0" y="494.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">绑定 SPEC / PATH / provider 与消费者证据</text>
+<text x="800.0" y="494.0" font-size="20.49" fill="#4b5563" text-anchor="middle" font-weight="400">绑定 SPEC / PATH 证据；测试映射与 git 改动 Ledger 填</text>
 <path d="M800,505 L800,565" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="500" y="565" width="600" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="505" y="570" width="590" height="125" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>

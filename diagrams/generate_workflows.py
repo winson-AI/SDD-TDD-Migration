@@ -281,7 +281,7 @@ def auditor_closure():
         '审阅全部模块（含 Green）及宿主目标；波次集成已跑的 global path 只在 owner 代码变动时重跑'], 'orange')
     d.arrow([(800,310),(800,370)])
     d.box(500,370,600,135,'整体代码审查 → 分批收集',[
-        'audit-code-review（骨架起笔，预列 debt）：目标/改动/冗余/复用','audit-collect（机械）：先治理 CR-*，再剩余 Red / Yellow','绑定 SPEC / PATH / provider 与消费者证据'])
+        'audit-code-review（骨架起笔，预列 debt）：目标/改动/冗余/复用','audit-collect（机械）：先治理 CR-*，再剩余 Red / Yellow','绑定 SPEC / PATH 证据；测试映射与 git 改动 Ledger 填'])
     d.arrow([(800,505),(800,565)])
     d.box(500,565,600,135,'根因分析 → 路由审核',[
         '治理用 fix / human；遗留可 fix / verify / human','finding 自带路由 / 根因已确认：Ledger 路由并代审','trace：叶子即开 CR（根因已确认则机械），代码保留'],controller=True)
