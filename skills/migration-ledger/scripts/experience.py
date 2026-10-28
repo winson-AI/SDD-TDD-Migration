@@ -327,6 +327,14 @@ def run_lessons(s, mid):
     return {'runs': {s['run_id']: {'entries': entries}}}
 
 
+def feedback_path(context_ref):
+    """The package feedback of the run's project, once a harvest has written it."""
+    import project_context
+    snapshot = project_context.verify_snapshot(context_ref)
+    path = store(Path(snapshot['storage_layout']['workspace_root']) / '.sdd-migration') / 'package-feedback.md'
+    return str(path) if path.is_file() else None
+
+
 def run_gates(run_root, mid, step):
     """The rules other leaves of this run were refused by submitting this operation as this role, one row per rule: the
     leaf about to take the step reads them now, not after the run is harvested."""

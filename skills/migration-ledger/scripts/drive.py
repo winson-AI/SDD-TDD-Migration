@@ -22,6 +22,7 @@ import sys
 import time
 sys.dont_write_bytecode = True
 
+import experience
 import ledger
 import reading
 
@@ -100,8 +101,10 @@ def tick(root, principal, workers=None):
                       'next_action': 'run /sdd-retrospect before the run is closed'})
     end = st['global_next_step']
     if end.get('reason') in ENDS and not any(line['kind'] in ('dispatch', 'running', 'host', 'person') and line.get('operation') != 'retrospect' for line in lines):
+        feedback = experience.feedback_path(st['project_context_ref']) if st.get('project_context_ref') else None  # what the runs tell about the package
         lines.append({'kind': 'done', 'quality': end.get('quality') or st['quality'], 'reason': end['reason'], 'next_action': ENDS[end['reason']],
                       'report': st['migration_report']['markdown'],
+                      **({'package_feedback': feedback} if feedback else {}),
                       **({'device_gap_cases': end['device_gap_cases']} if end.get('device_gap_cases') else {})})
     if any(line['kind'] == 'signal' for line in lines):
         lines.append({'kind': 'signal', 'reason': 'attention-report', 'next_action': 'read only on a human signal', 'report': progress.get('report_path')})
