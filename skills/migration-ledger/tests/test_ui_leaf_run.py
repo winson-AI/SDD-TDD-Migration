@@ -19,6 +19,7 @@ from contracts import baseline, check_ref, file_ref, read_json
 
 # The model turns last recorded in VERIFICATION.md for this run, by role.
 RECORDED = {'global-orchestrator': 1, 'module-orchestrator': 1, 'spec-designer': 4, 'implementer': 2, 'test-runner': 6, 'auditor': 1}
+RECORDED_CARD = 20903  # the most protocol bytes one turn's card handed a model in this run (the reopened plan)
 
 
 def config(f):
@@ -106,8 +107,9 @@ class UiLeafRunTests(UiLeafWalk):
         turns = {}
         for row in self.setup_turns + taken:
             turns[row['role']] = turns.get(row['role'], 0) + 1
-        if sum(turns.values()) > sum(RECORDED.values()):
-            warnings.warn('the screen run took %s, recorded %s: %s' % (turns, RECORDED, json.dumps(taken)))
+        card = max(row['card_bytes'] for row in taken)
+        if sum(turns.values()) > sum(RECORDED.values()) or card > RECORDED_CARD:
+            warnings.warn('the screen run took %s and a %d-byte card, recorded %s and %d: %s' % (turns, card, RECORDED, RECORDED_CARD, json.dumps(taken)))
         self.assertEqual(turns, RECORDED)
         self.assertEqual(st['global_next_step']['reason'], 'completed-with-unverified-tests')  # no device: its cases are owed a device
         s = self.f.state()
