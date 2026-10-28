@@ -97,6 +97,7 @@ def inventory(s, sequence):
     owners = plan.get('feature_owners', {})
     cell = lambda values: ', '.join(str(v) for v in values) if values else '无'
     same = lambda path: str(Path(path).resolve())
+    short = shortener(s)
     lines = ['# 本次迁移代码修改清单 · %s / review-revision %d（Ledger sequence %s）' % (s['run_id'], len(s.get('audit_code_review_history', [])) + (1 if s.get('audit_code_review') else 0) + 1, sequence), '',
              '> Ledger 写出其持有的事实；Auditor 写标记处的判断。测试状态只读取 Ledger，不因代码审查通过改成 Green。', '',
              '## 1. 范围与基线', '',
@@ -143,12 +144,12 @@ def inventory(s, sequence):
                 todo('生产接线证据'), todo('影响分析依据')))
         for p in (m.get('plan') or {}).get('paths', []):
             r = m.get('results', {}).get(p['path_id'], {})
+            owners_ = [t['task_id'] for t in tasks if p['path_id'] in t.get('path_ids', [])]
             rows6.append('| %s / %s | %s / %s / %s | %s | %s | %s | %s | %s / %s / %s | %s / %s / %s | %s |' % (
-                mid, p.get('case_id'), p['path_id'], p.get('name', ''), p.get('kind', 'automation'),
-                cell([t['task_id'] for t in tasks if p['path_id'] in t.get('path_ids', [])]), todo('脚本 / 配置 / 数据证据路径'),
-                cell([a['assertion_id'] for a in p.get('expected_assertions', [])]), todo('回归选择及依据'),
+                mid, p.get('case_id'), p['path_id'], p.get('name', ''), p.get('kind', 'automation'), cell(owners_), path_sources(p, short),
+                cell([a['assertion_id'] for a in p.get('expected_assertions', [])]), selection(m, p, r, owners_),
                 r.get('quality', '未执行'), r.get('executed', False), r.get('stale', False),
-                r.get('test_run_id', '无'), r.get('retest_of', '无'), str(r.get('code_baseline', '无'))[:12], todo('根因 / 结果证据')))
+                r.get('test_run_id', '无'), r.get('retest_of', '无'), str(r.get('code_baseline', '无'))[:12], result_evidence(r, short)))
     lines += ['', '## 3. 功能点与实现追溯', '', '| 功能点 | 子模块 | REQ / TASK | 行为变化与迁移结果 | 四维条目 | CHG-ID | CASE / PATH | SPEC / fidelity 依据 |', '| --- | --- | --- | --- | --- | --- | --- | --- |', *(rows3 or ['| ' + todo('功能点') + ' | | | | | | | |']),
               '', '## 4. 逐文件代码修改清单', '', '| CHG-ID | owner / TASK | 修改类型 | 修改前路径 | 修改后路径 | 符号 / 行段 | 修改内容与原因 | 前 → 后摘要 | 证据 |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |', *(rows4 or ['| 无 | | | | | | | | |']),
               '', '**本轮已有工作区修改、未纳入迁移的改动及归属不明项**：' + todo('逐路径列出来源/排除理由/证据，或明确无'),
@@ -165,6 +166,44 @@ def inventory(s, sequence):
                 for iid, issue in debts(s)],
               '| ' + todo('稳定 CR-ID，或“无”') + ' | | | | | |', '']
     return '\n'.join(lines)
+
+
+def shortener(s):
+    """A path as the inventory shows it: under the run or the target relative to it, else its name; the receipts keep
+    the whole path."""
+    bases = [Path(x).resolve() for x in (s.get('run_root'), s.get('target_root')) if x]
+    def short(path):
+        path = Path(path)
+        for base in bases:
+            if path.is_absolute() and path.resolve().is_relative_to(base):
+                return str(path.resolve().relative_to(base))
+        return path.name if path.is_absolute() else str(path)
+    return short
+
+
+def path_sources(p, short=str):
+    """What a PATH runs from, as the plan froze it: its command and the evidence its preparation names."""
+    refs = [short(ref['path']) for ref in (p.get('preparation') or {}).get('evidence_refs') or [] if isinstance(ref, dict) and ref.get('path')]
+    text = ' '.join(short(arg) if arg.startswith('/') else arg for arg in p['command']['argv']) if p.get('command') else ''
+    command = ['`%s`' % (text if len(text) <= 80 else text[:79] + '…')] if p.get('command') else ['运行适配器（%s）' % (p.get('platform') or '项目适配器')] if p.get('kind', 'automation') in ('automation', 'visual') else []
+    return '; '.join(command + refs) or '无'
+
+
+def selection(m, p, r, tasks):
+    """Why the PATH is in this run's regression: a required PATH of the accepted TASKs, and on which code it last ran."""
+    why = ('必测' if p.get('required', True) else '可选') + '：TASK ' + (', '.join(tasks) or '无')
+    if not r:
+        return why + '；未运行'
+    return why + ('；在当前代码上运行' if r.get('code_baseline') == m.get('code_baseline') and not r.get('stale') else '；上次运行早于当前代码，待复测')
+
+
+def result_evidence(r, short=str):
+    """The receipt the result rests on, and the cause a result that is not Green records."""
+    if not r:
+        return '无执行回执'
+    receipt = short((r.get('execution_receipt') or {}).get('path')) if (r.get('execution_receipt') or {}).get('path') else '无执行回执'
+    cause = (r.get('root_cause') or {}).get('summary') if r.get('quality') != 'green-passed' else None
+    return receipt + ('；' + cause if cause else '')
 
 
 def debts(s):

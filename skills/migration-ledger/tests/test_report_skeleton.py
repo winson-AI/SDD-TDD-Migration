@@ -76,6 +76,10 @@ class ReportSkeletonTests(unittest.TestCase):
         self.assertIn('temporary adapter duplicates the shared mapper', text); self.assertIn('issue DEBT-1', text)
         s = f.state(); code = s['modules']['M001']['code_files'][0]
         self.assertIn('| CHG-001 | M001 / T1 |', text); self.assertIn(code['path'], text); self.assertIn('| M001 / C1 | P1 /', text)
+        row = next(line for line in text.splitlines() if line.startswith('| M001 / C1 | P1 /'))
+        self.assertNotIn(report_skeleton.SKELETON_MARK, row)  # the test mapping is what the Ledger holds: nothing to write
+        self.assertIn('必测：TASK T1；在当前代码上运行', row)
+        self.assertIn(Path(s['modules']['M001']['results']['P1']['execution_receipt']['path']).name, row)
         review = json.loads(check_ref(files['audit-code-review.json']).read_text())
         self.assertEqual(review['snapshot'], audit_code_review.snapshot(s))
         self.assertEqual(review['change_inventory_ref'], files['audit-change-inventory.md'])
