@@ -14,9 +14,9 @@ import test_ledger
 from contracts import baseline, file_ref
 
 # The turns last recorded in VERIFICATION.md after both leaves are first green: the repair and the audit around it.
-RECORDED = {'trace': {'auditor': 2, 'spec-designer': 1, 'implementer': 1, 'test-runner': 2},
-            'fix': {'auditor': 2, 'fixer': 1, 'test-runner': 2},
-            'spec-gap': {'diagnostician': 1, 'spec-designer': 1, 'implementer': 1, 'test-runner': 2}}  # the leaf's own turns
+RECORDED = {'trace': {'auditor': 2, 'spec-designer': 1, 'implementer': 1, 'test-runner': 1},
+            'fix': {'auditor': 2, 'fixer': 1, 'test-runner': 1},
+            'spec-gap': {'diagnostician': 1, 'spec-designer': 1, 'implementer': 1, 'test-runner': 1}}  # the leaf's own turns
 
 
 class PreparedRepairWalk(test_continuous_run.ContinuousWalk):

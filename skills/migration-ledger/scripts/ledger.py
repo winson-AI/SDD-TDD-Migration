@@ -80,6 +80,12 @@ def refresh(s):
             m['awaiting_assembly'] = True
         else:
             m.pop('awaiting_assembly', None)
+        # A model runs the functional paths when the run states nothing that drives them: the static closure goes with them.
+        functional = tv.paths(m, 'automation') if tv.split(m) else []
+        if functional and not all(p.get('command') or context_readiness.adapter_stated(s, p) for p in functional):
+            m['review_with_automation'] = True
+        else:
+            m.pop('review_with_automation', None)
     s['quality'] = ('red-bug' if any(m['quality'] == 'red-bug' for m in mods) or s.get('audit', {}).get('quality') == 'red-bug' else
                     'green-passed' if mods and all(m['quality'] == 'green-passed' for m in mods)
                     and all(decomposition.summary_current(s, group) for group in s.get('module_groups', {}).values())
@@ -1051,8 +1057,9 @@ def _next_step(s, m):
                     # Build and unit tests pass; the static closure is judged once what is built on this module is written.
                     step.update(operation=None, ready=False, reason='awaiting-assembly')
                     return step
-                gaps = owed_gaps(s, m) if step['ready'] and step['test_scope'] == 'build' else []
-                if gaps and all(p['kind'] == 'static' for p in tv.stage_paths(m, {})):
+                reviewing = tv.review_first(m) or step['test_scope'] == 'build' and all(p['kind'] == 'static' for p in tv.stage_paths(m, {}))
+                gaps = owed_gaps(s, m) if step['ready'] and reviewing else []
+                if gaps:
                     # Built and unit-tested, the plan still owes what its first version left out: the Ledger opens the
                     # revision before the static closure is judged, so the closure is judged once, on the plan it revises.
                     step.update(operation='change', worker_role=None, ready=True, mechanical=True, reason='owed-gaps', issue_ids=gaps, payload={})
@@ -1349,7 +1356,7 @@ def next_step(s, m):
             affected_paths = set(unresolved(m))
             selected = [t for t in selected if affected_paths.intersection(t['path_ids'])]
         scope = step.get('test_scope')
-        paths = tv.due(m) if scope == 'build' else [p for p in m['plan']['paths'] if not scope or p.get('kind', 'automation') == scope]
+        paths = tv.due(m) if scope == 'build' else tv.scope_paths(m, scope) if scope else m['plan']['paths']
         if step['worker_role'] == 'implementer' or step['worker_role'] == 'fixer' and m.get('task_revalidation', {}).get('mode') == 'partial':
             wanted = {pid for t in selected for pid in t['path_ids']}
             paths = [p for p in paths if p['path_id'] in wanted]
@@ -2005,8 +2012,10 @@ def mutate(s, req, principal, events, root=None):
                     m['results'].update({x['path_id']: {**x, 'code_baseline': m['code_baseline'], 'stale': False} for x in result['paths']})
                 else:
                     m['results'] = {x['path_id']: x for x in result['paths']}
-            # Build, unit tests and static review are pre-functional gates: judge only their own paths.
-            build_only = tv.split(m) and assignment.get('test_scope') == 'build'
+            # Build, unit tests and static review are pre-functional gates: judge only their own paths (also a review
+            # that stopped the functional paths it went ahead of).
+            gates = {p['path_id'] for p in m['plan']['paths'] if p.get('kind') in tv.PRE}
+            build_only = tv.split(m) and (assignment.get('test_scope') == 'build' or all(x['path_id'] in gates for x in result['paths']))
             bad = sorted(x['path_id'] for x in result['paths'] if x['quality'] != 'green-passed') if build_only else sorted(k for k,v in m['results'].items() if v['quality'] != 'green-passed')
             if build_only and not bad:
                 m['automation_retry_ready'] = True
@@ -2019,7 +2028,7 @@ def mutate(s, req, principal, events, root=None):
             written = build_only and not bad and m.get('execution_partition_pending')
             m.update(stale=False, phase='dod' if tv.all_green(m) else 'frozen' if written else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
             audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only,
-                                        stage=assignment.get('test_scope') or 'build')
+                                        stage='build' if build_only else assignment.get('test_scope') or 'build')
     elif op == 'diagnose':
         role(principal, 'diagnostician', 'fixer', 'module-orchestrator')
         require(principal['role'] == 'diagnostician' or principal['role'] == 'fixer' and self_diagnosis(s, m)

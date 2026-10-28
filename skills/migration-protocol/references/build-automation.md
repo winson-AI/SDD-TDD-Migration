@@ -2,7 +2,7 @@
 
 ## 总则
 
-Coding 接受后先构建，同一派发内跑逻辑单测（命令全冻结，由 `ledger.py advance` 代跑），两者通过后另派 Test-Runner 做静态规格闭合审查（逐需求核对生产符号与假实现，见[静态规格闭合](testing.md#静态规格闭合)），然后自动化：PATH 的平台有声明的适配器或内置 Main 时同样由 advance 代跑，否则由 Test-Runner 执行。任务分批时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且需要本模块代码的切片已有代码，此前为 awaiting-assembly。构建命令相同的模块可同时各写各的文件，该单元只在无人写入时构建（含设备路径的构建运行），构建中也不开始写入；命令优先用户指定，否则搜索构建脚本并默认评估 Gradle assemble。构建/用例错误记三态与根因，修复由 Fixer。仅自动化环境不可启动时保留构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred，独立任务与依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复；全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，不称功能/fidelity 验证通过；不跳过构建、不吞已观察到的 Red。
+Coding 接受后先构建，同一派发内跑逻辑单测（命令全冻结，由 `ledger.py advance` 代跑），两者通过后派 Test-Runner 做静态规格闭合审查（逐需求核对生产符号与假实现，见[静态规格闭合](testing.md#静态规格闭合)），然后自动化：PATH 的平台有声明的适配器或内置 Main 时同样由 advance 代跑（静态审查单独派发），否则由 Test-Runner 执行，静态审查随这次自动化派发、排在最前，非 Green 即停。任务分批时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且需要本模块代码的切片已有代码，此前为 awaiting-assembly。构建命令相同的模块可同时各写各的文件，该单元只在无人写入时构建（含设备路径的构建运行），构建中也不开始写入；命令优先用户指定，否则搜索构建脚本并默认评估 Gradle assemble。构建/用例错误记三态与根因，修复由 Fixer。仅自动化环境不可启动时保留构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred，独立任务与依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复；全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，不称功能/fidelity 验证通过；不跳过构建、不吞已观察到的 Red。
 
 ## 1. 职责与全局规则
 
@@ -99,6 +99,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 | 构建进程已退出，但结果未接受 | 当前 assignment 仍未关闭；不能开启 automation | 保存 receipt，同一 assignment 继续 unit、static 到第一个非 Green（见[静态规格闭合](testing.md#静态规格闭合)），一次 submit / accept |
 | build 非 Green 已接受 | 留在 testing；游标 diagnose 或 audit-defer | Diagnostician → MO diagnosis-accept → fixing 预检 → Fixer；依赖/环境/目标工程自身缺陷（target-baseline）或预算用完则留证待 Auditor，不等人不回 GO |
 | Fixer 补丁已接受 | 新 code_baseline；旧结果 stale，旧构建失效 | 再次 build 派发（派发内 building 预检）；不得直接沿用旧 Green 或启动 automation |
+| build、unit 已 Green，自动化需模型执行 | 下一 scope 为 automation，派发先列 static PATH | 同一 Test-Runner 先审静态闭合，Green 才跑功能 PATH，一次 submit / accept；static 非 Green 只交 static |
 | build、unit、static 全部 Green 已接受 | `build_baseline=code_baseline`；仍在 testing；下一 scope 为 automation | 派发 automation，Test-Runner 在派发内提交 testing 报告，核对设备/安装包/fixture/模型/工具 |
 | automation 结果接受且完整 Green，存在 visual PATH | 仍在 testing；下一 scope 为 visual | MO 另派 visual assignment；Test-Runner 只读比较并留正式回执 |
 | 全部适用的 build/automation/visual 路径有效 Green | `phase=dod` | MO 完成 DoD；父汇总，全量收尾后统一 Auditor |

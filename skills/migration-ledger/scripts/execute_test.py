@@ -221,12 +221,16 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
         kind = path.get('kind') or 'automation'
         if a.get('role') == 'test-runner':
             # The build assignment runs build, unit and static in turn; their order is judged when the result is submitted.
-            require(kind in tv.PRE if a.get('test_scope') == 'build' else a.get('test_scope') == kind, 'path outside test assignment scope')
+            # A functional dispatch may carry the static closure ahead of its paths; that order too is judged on submit.
+            reviewed = a.get('test_scope') == 'automation' and tv.review_first(m)
+            require(kind in tv.PRE if a.get('test_scope') == 'build' else a.get('test_scope') == kind or reviewed and kind == 'static',
+                    'path outside test assignment scope')
             require(kind != 'visual' or tv.functional_ready(m), 'functional tests must pass before visual')
         else:
+            reviewed = False
             require(kind == 'build' or tv.build_ready(m), 'build must pass before automation')
             require(kind != 'static' or tv.unit_ready(m), 'unit tests must pass before the static review')
-        require(kind in tv.PRE or tv.static_ready(m), 'static spec review must pass before automation')
+        require(kind in tv.PRE or reviewed or tv.static_ready(m), 'static spec review must pass before automation')
     if is_build:
         require(argv == path['command']['argv'] and str(Path(cwd).resolve()) == str(Path(path['command']['cwd']).resolve()), 'build command differs from frozen plan')
         timeout = max(p['command']['timeout_seconds'] for p in paths)

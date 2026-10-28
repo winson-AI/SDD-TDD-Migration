@@ -56,12 +56,38 @@ def functional_ready(m):
 PRE = ('build', 'unit', 'static')  # device-free gates: run in this order under one build assignment, judged together
 
 
+def review_due(m):
+    """The static closure can be judged on the code a module holds now: every task is written, nothing built on the module
+    is still to be written - the callers it looks for exist only then - and the build and unit tests passed on this code."""
+    tasks = (m.get('plan') or {}).get('tasks', [])
+    return bool(paths(m, 'static')) and set(m.get('accepted_task_ids', [])) >= {t['task_id'] for t in tasks} \
+        and not m.get('awaiting_assembly') and unit_ready(m)
+
+
+def review_first(m):
+    """The static closure goes ahead of the functional paths in their dispatch when a model runs those anyway (the
+    Ledger marks such a module review_with_automation): one Test-Runner turn reviews, then runs them, and stops at the
+    review when it is not Green."""
+    return bool(m.get('review_with_automation')) and review_due(m) and not static_ready(m)
+
+
+def scope_paths(m, scope, tests=None):
+    """The paths a functional dispatch carries: the static closure first when it goes with them, and the functional
+    paths after it once its rows (in tests, when given) are all Green."""
+    if scope != 'automation' or not review_first(m):
+        return paths(m, scope)
+    review = paths(m, 'static')
+    if tests is not None and any((tests.get(p['path_id']) or {}).get('quality') != 'green-passed' for p in review):
+        return review
+    return review + paths(m, 'automation')
+
+
 def next_scope(m):
     """Ordered stages; visual only after the functional layer is Green."""
     if not split(m):
         return None
     if not static_ready(m):
-        return 'build'
+        return 'automation' if review_first(m) else 'build'
     if paths(m, 'visual') and functional_ready(m):
         return 'visual'
     return 'automation'
@@ -110,10 +136,10 @@ def due(m):
     accepted = set(m.get('accepted_task_ids', []))
     whole = accepted >= {t['task_id'] for t in tasks}
 
-    review = bool(paths(m, 'static')) and whole and not m.get('awaiting_assembly') and unit_ready(m)
+    review = review_due(m) and not review_first(m)
 
     def judged(path):
-        if path.get('kind') == 'static' or review:  # the review is dispatched alone, on commands that passed on this code
+        if path.get('kind') == 'static' or review:  # a review not carried by the functional dispatch goes alone, on commands that passed on this code
             return path.get('kind') == 'static' and review
         if path.get('kind') == 'build':
             return True

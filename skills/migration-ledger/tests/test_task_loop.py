@@ -33,6 +33,21 @@ class DueTests(unittest.TestCase):
         self.assertEqual(self.due(['T1', 'T2'], awaiting_assembly=True, **passed), ['B1', 'U1', 'U2'])
         self.assertNotIn('P1', self.due(['T1', 'T2']))                             # a device path is never a device-free gate
 
+    def test_the_closure_goes_ahead_of_the_functional_paths_a_model_runs_and_stops_them_when_it_is_not_green(self):
+        green = {'quality': 'green-passed', 'code_baseline': 'c1'}
+        module = {'module_id': 'M001', 'plan': {'paths': self.PATHS, 'tasks': self.TASKS}, 'accepted_task_ids': ['T1', 'T2'],
+                  'code_baseline': 'c1', 'build_baseline': 'c1', 'results': {pid: dict(green) for pid in ('B1', 'U1', 'U2')}}
+        self.assertEqual((tv.next_scope(module), [p['path_id'] for p in tv.due(module)]), ('build', ['S1']))  # driven by the run: alone
+        module['review_with_automation'] = True
+        self.assertEqual(tv.next_scope(module), 'automation')
+        self.assertNotIn('S1', [p['path_id'] for p in tv.due(module)])
+        ids = lambda tests=None: [p['path_id'] for p in tv.scope_paths(module, 'automation', tests)]
+        self.assertEqual(ids(), ['S1', 'P1'])                                       # one dispatch, the review first
+        self.assertEqual(ids({'S1': {'quality': 'red-bug'}}), ['S1'])                # a review that is not Green stops it
+        self.assertEqual(ids({'S1': {'quality': 'green-passed'}, 'P1': {'quality': 'red-bug'}}), ['S1', 'P1'])
+        module['results']['S1'] = dict(green)
+        self.assertEqual((tv.next_scope(module), ids()), ('automation', ['P1']))   # reviewed: the functional paths alone
+
     def test_one_result_covers_what_is_due_and_stops_at_the_first_gate_that_fails(self):
         module = {'module_id': 'M001', 'plan': {'paths': self.PATHS, 'tasks': self.TASKS}, 'accepted_task_ids': ['T1'],
                   'code_baseline': 'c1', 'build_baseline': None, 'results': {}}
@@ -139,7 +154,7 @@ class AwaitingAssemblyTests(unittest.TestCase):
         f.approve('0' * 64, 'LATER')  # any later event: the callers are written by now
         step = f.state()['next_steps'][0]
         self.assertEqual((step['operation'], step['worker_role'], step['test_scope'], step['payload']['path_ids']),
-                         ('assign', 'test-runner', 'build', ['S1']))  # the build stays Green: only the closure runs, on its own
+                         ('assign', 'test-runner', 'automation', ['S1', 'P1']))  # the build stays Green: the closure goes ahead of the functional path a model runs
 
 
 class RedirectionTests(unittest.TestCase):

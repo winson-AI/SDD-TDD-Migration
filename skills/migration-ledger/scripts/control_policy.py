@@ -188,6 +188,10 @@ def execution_contract(m, p):
     if p['role'] == 'test-runner' and p.get('test_scope') == 'build':
         import test_validation as tv
         require(set(selected_paths) == {row['path_id'] for row in tv.due(m)}, 'build assignment must select build/unit/static PATHs due on the accepted TASKs')
+    if p['role'] == 'test-runner' and p.get('test_scope') == 'automation':
+        import test_validation as tv
+        require(not tv.review_first(m) or {row['path_id'] for row in tv.paths(m, 'static')} <= set(selected_paths),
+                'the static closure goes ahead of the functional PATHs a model runs: select it in this dispatch')
     if p['role'] == 'implementer':
         require(not set(selected).intersection(m.get('accepted_task_ids', [])), 'TASK already implemented; use Fixer')
     if p['role'] == 'fixer':

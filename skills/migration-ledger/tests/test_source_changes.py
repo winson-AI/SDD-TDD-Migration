@@ -220,11 +220,11 @@ class SourceChangeTests(unittest.TestCase):
             'anti_patterns': {k: {'status': 'absent', 'note': 'reviewed', 'evidence_refs': [notes]} for k in spec_closure.ANTI_PATTERNS}})
         static_argv = [sys.executable, spec_closure.__file__, '--review', review['path'], '--target-root', str(f.target)]
         unit_argv = next(p for p in m['plan']['paths'] if p['kind'] == 'unit')['command']['argv']
-        # build and unit tests in one assignment, the static review in its own once they passed, then automation
-        for scope, stage, suffixes in (('build', 'building', ('-B', '-U')), ('build', 'building', ('-S',)), ('automation', 'testing', ('-P',))):
+        # build and unit tests in one assignment, then the static review ahead of the automation a model runs
+        for scope, stage, suffixes in (('build', 'building', ('-B', '-U')), ('automation', 'testing', ('-S', '-P'))):
             aid = scope+suffixes[0]+'-'+mid+'-'+str(f.n)
             if scope == 'build':
-                argvs = {'-B': [sys.executable, '-c', 'pass'], '-U': unit_argv, '-S': static_argv}
+                argvs = {'-B': [sys.executable, '-c', 'pass'], '-U': unit_argv}
             else:
                 script = f.root/'staging/test-runner'/(aid+'.py')
                 script.parent.mkdir(parents=True, exist_ok=True)
@@ -234,11 +234,10 @@ class SourceChangeTests(unittest.TestCase):
                     +'"assertions":[{"assertion_id":"A1","expected":2,"actual":v,"passed":passed}]}\n'
                     +'if not passed: r["root_cause"]={"category":"code","summary":"wrong value","confidence":"confirmed","owner":"'+mid+'","next_action":"fix"}\n'
                     +'json.dump(r,open(a.result_file,"w"))\n')
-                argvs = {'-P': [sys.executable, str(script)]}
+                argvs = {'-S': static_argv, '-P': [sys.executable, str(script)]}
             report = f.report(stage, module=mid)
             report['execution'] = {'argv': argvs[suffixes[0]], 'cwd': str(f.target), 'environment_ref': f.ref('environment.md', 'Python fixture available')}
-            if scope == 'build':
-                report['execution']['commands'] = {mid+k: {'argv': argvs[k], 'cwd': str(f.target)} for k in suffixes}
+            report['execution']['commands'] = {mid+k: {'argv': argvs[k], 'cwd': str(f.target)} for k in suffixes}
             f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner', 'test_scope': scope}, module=mid)
             f.record(report)  # the runner reports inside its dispatch; the ready report authorizes the run
             a = f.state()['modules'][mid]['assignments'][aid]
@@ -246,19 +245,20 @@ class SourceChangeTests(unittest.TestCase):
             for k in suffixes:  # a Test-Runner stops at the first gate that is not Green
                 receipts.append(execute(f.root, mid, aid, mid+k, argvs[k], str(f.target),
                                         f.root/('runs/build' if k in ('-B', '-U') else 'runs/harmony/automation')/(aid+k)))
-                if scope == 'build' and interpret(read_json(check_ref(receipts[-1])), planned[mid+k])['quality'] != 'green-passed':
+                if k != '-P' and interpret(read_json(check_ref(receipts[-1])), planned[mid+k])['quality'] != 'green-passed':
                     break
             if scope == 'build':
                 result = stage_result(f.root, mid, aid, receipts)
             else:
-                rr, suffix = receipts[0], suffixes[0]
-                receipt_data = read_json(check_ref(rr)); captured = read_json(check_ref(receipt_data['result_ref']))
-                m = f.state()['modules'][mid]
-                row = {**captured, 'path_id': mid+suffix, 'executed': True, 'execution_receipt': rr,
-                       'test_run_id': receipt_data['test_run_id'], 'retest_of': m['results'].get(mid+suffix, {}).get('test_run_id')}
+                m, rows = f.state()['modules'][mid], []
+                for rr, suffix in zip(receipts, suffixes):
+                    receipt_data = read_json(check_ref(rr))
+                    captured = read_json(check_ref(receipt_data['result_ref'])) if suffix == '-P' else interpret(receipt_data, planned[mid+suffix])
+                    rows.append({**captured, 'path_id': mid+suffix, 'executed': True, 'execution_receipt': rr,
+                                 'test_run_id': receipt_data['test_run_id'], 'retest_of': m['results'].get(mid+suffix, {}).get('test_run_id')})
                 result = {'schema_version': 1, 'kind': 'tests', 'run_id': 'demo', 'module_id': mid,
                     'assignment_id': aid, 'actor_instance_id': 'test-runner', 'freeze_id': m['freeze_id'],
-                    'code_baseline': m['code_baseline'], 'paths': [row]}
+                    'code_baseline': m['code_baseline'], 'paths': rows}
             f.call('submit', {'assignment_id': aid, 'fencing_token': a['fencing_token'], 'result_ref': f.ref(aid+'.json', result)},
                    role='test-runner', module=mid)
             f.call('accept', {'assignment_id': aid}, module=mid)

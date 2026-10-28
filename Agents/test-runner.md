@@ -23,7 +23,7 @@ UI 设计按 [状态测试表](../template/ui-state-test-design.md) 区分稳定
 3. build PATH 的退出码、日志与回执随结果提交；build_baseline 须匹配 code_baseline。
 4. 非 Green 留根因：诊断 → MO → 独立 Fixer；补丁接受后重新预检/构建/复测，自测不替代。
 ### 单测与静态审查
-5. 预检与静态审查从派发步骤 `report_skeleton` 的骨架起笔。[逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)随 build 同一派发；两者通过后[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合)单独派发，只审阅不重跑命令；代码作者不得代审。
+5. 预检与静态审查从派发步骤 `report_skeleton` 的骨架起笔。[逻辑单测](../skills/migration-protocol/references/testing.md#逻辑单测)随 build 同一派发；两者通过后[静态规格闭合](../skills/migration-protocol/references/testing.md#静态规格闭合)只审阅不重跑命令；自动化需你执行时它排在同一派发的最前，非 Green 即停、不跑功能 PATH；代码作者不得代审。
 ### 自动化
 6. build/unit/static 接受后另派 automation（适配器未声明时才由本角色执行）；提交 testing 预检，绑定实际部署版本/fixture，ready 绑定后宿主才启动 Main/Harmony，禁止自行串联。
 7. 每条 PATH query 交 Main，提交步骤、冻结 ASSERT、三态与回执；一条失败后继续前置独立的路径，有依赖则逐条 Yellow。MO 验收后 Ledger 派生宿主任务/模块/TASK 的成功集合与统计；flaky/skip/缺证据不能 Green。

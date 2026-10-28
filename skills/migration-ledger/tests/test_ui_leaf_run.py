@@ -18,7 +18,7 @@ import workflow_cost
 from contracts import baseline, check_ref, file_ref, read_json
 
 # The model turns last recorded in VERIFICATION.md for this run, by role.
-RECORDED = {'global-orchestrator': 1, 'module-orchestrator': 1, 'spec-designer': 4, 'implementer': 2, 'test-runner': 4, 'auditor': 1}
+RECORDED = {'global-orchestrator': 1, 'module-orchestrator': 1, 'spec-designer': 4, 'implementer': 2, 'test-runner': 2, 'auditor': 1}
 RECORDED_CARD = 20903  # the most protocol bytes one turn's card handed a model in this run (the reopened plan)
 
 
