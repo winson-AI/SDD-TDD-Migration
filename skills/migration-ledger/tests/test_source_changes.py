@@ -35,7 +35,7 @@ class SourceChangeTests(unittest.TestCase):
         self.library = (f.base/'library').resolve(); self.library.mkdir()
         self.sources = reuse.normalize_sources([{'source_id': 'LIB', 'root': str(self.library)}], str(f.target), True)
 
-    def register_root(self, features=None):
+    def register_root(self, features=None, global_paths=()):
         """The run initialised with the cases of the root's features (the fixture's one feature by default) and the root registered."""
         features = features or [{'feature_id': 'F-ROOT', 'name': 'Search', 'functional_path': 'Search/Root', 'trigger': 'invoke', 'observable_result': 'result', 'requirement_ids': ['R1'], 'case_ids': ['C1'], 'evidence_refs': []}]
         cases = sorted({c for x in features for c in x['case_ids']})
@@ -52,7 +52,7 @@ class SourceChangeTests(unittest.TestCase):
         self.original_ref = prepared['project_context_ref']
         f.call('init', {**{k: old[k] for k in ('target_root', 'legacy_root', 'global_spec', 'requirement_ids')}, 'case_ids': cases,
             'new_architecture': prepared['input']['new_architecture'], 'project_context_ref': self.original_ref,
-            'global_paths': []}, role='host')
+            'global_paths': list(global_paths)}, role='host')
         self.d = test_dimensions.DimensionTests(); self.d.f = f
         analysis = self.d.analysis()
         for row in analysis['dimensions']:

@@ -324,9 +324,9 @@ class ContextReadinessTests(unittest.TestCase):
         self.call('diagnose', {'diagnosis_ref': self.ref('diag.md', 'assert mismatch'), 'owner': 'M001', 'root_cause': 'code'}, role='diagnostician')
         self.call('diagnosis-accept')
         self.raw('assign', {'assignment_id': 'F0', 'role': 'fixer', 'instance_id': 'fixer'})
-        m = self.state()['modules']['M001']  # dispatched, but a round is only spent once the Fixer can start
-        self.assertEqual((m['phase'], m['local_fix_used'], m['fix_rounds_used'], m.get('fix_memory', [])), ('fixing', 0, 0, []))
-        self.record(self.report('fixing', blocked='failure-diagnosis'))
+        m = self.state()['modules']['M001']  # the Ledger preflights the dispatch: the round is spent from here
+        self.assertEqual((m['phase'], m['local_fix_used'], m['fix_rounds_used'], len(m['fix_memory'])), ('fixing', 1, 1, 1))
+        self.record(self.report('fixing', blocked='failure-diagnosis'))  # handed back before working: the round is given back
         m = self.state()['modules']['M001']
         self.assertEqual((m['phase'], m['local_fix_used'], m['fix_rounds_used'], m['assignments']['F0']['closed']), ('diagnosing', 0, 0, True))
         self.record(self.report('fixing'))  # the Fixer can work now

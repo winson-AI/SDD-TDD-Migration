@@ -488,8 +488,8 @@ def _chosen(s, m, step, topics):
     ui = topics and facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build')
     reuse, telemetry = topics and reuse_applies(s, m, role), topics and telemetry_scope(role, m)
     lean = bool(m) and bool(s.get('fixer_self_diagnosis'))
-    # A coder's preflight is written by the Ledger at dispatch: its card carries nothing about reporting one.
-    self_checked = bool(s.get('context_readiness_required')) and role == 'implementer' and bool(step.get('worker_role'))
+    # A coder's or a fixer's preflight is written by the Ledger at dispatch: its card carries nothing about reporting one.
+    self_checked = bool(s.get('context_readiness_required')) and role in ('implementer', 'fixer') and bool(step.get('worker_role') or operation == 'await-result')
     rows = ([operation] if operation else []) + ((['submit'] if self_checked else ['context-submit', 'submit']) if step.get('worker_role') else [])
     chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry, lean=lean and role in ('fixer', 'implementer'),
                      rows=rows, facts=facts if topics else None, readiness=bool(s.get('context_readiness_required')))
@@ -652,7 +652,7 @@ def templates(s, m, step):
             unwritten |= {'proposal.md', 'spec.md', 'design.md', 'tasks.md'}
         if not (m or {}).get('change_request'):
             unwritten.add('change-impact.json')
-    if s.get('context_readiness_required') and role == 'implementer' and step.get('worker_role'):
+    if s.get('context_readiness_required') and role in ('implementer', 'fixer') and (step.get('worker_role') or step.get('operation') == 'await-result'):
         unwritten.add('context-readiness.json')  # written by the Ledger at dispatch
     return ['template/' + n for n in dict.fromkeys(names) if n not in unwritten]
 

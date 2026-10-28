@@ -19,8 +19,7 @@ def handle(s, req, actor, scope):
         require(p['instance_id'] not in prepared_tests.global_authors(s), 'audit Test-Runner must be independent of GLOBAL script author')
         require(p['instance_id'] not in {i for m in s['modules'].values() for i in m.get('authors', [])}, 'audit Test-Runner must be independent of code and script authors')
         context = p.get('context_ref')
-        if s.get('context_readiness_required'):
-            require(context, 'audit execution context required')
+        if context and s.get('context_readiness_required'):  # else dispatched first: the Test-Runner reports inside it
             import context_readiness
             context_readiness.validate(s, None, 'audit-execution', context, p['instance_id'])
         paths = nonempty(p.get('path_ids'), 'audit test PATHs')
@@ -40,6 +39,8 @@ def handle(s, req, actor, scope):
         task = s.get('audit_test_assignment', {})
         require(not task.get('closed', True) and task['instance_id'] == actor['instance_id'] and
                 task['audit_assignment_id'] == audit['assignment_id'], 'audit test task inactive/mismatch')
+        require(task.get('context_ref') or not s.get('context_readiness_required'),
+                'preflight required: context-submit a ready report for this assignment before its result')
         result = read_json(check_ref(p.get('result_ref')))
         validate_result(result, scope, task)
         require(result['kind'] == 'tests', 'audit test task needs execution evidence')

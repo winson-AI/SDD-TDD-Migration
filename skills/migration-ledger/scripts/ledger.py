@@ -745,8 +745,7 @@ def dispatch_guard(s, m, worker):
     for other in s['modules'].values():
         if any(not a.get('closed') for a in other['assignments'].values()):
             require(not any(overlaps(x, y) for x in m['write_paths'] for y in other['write_paths']), 'resource lock conflict')
-    if worker in ('implementer', 'fixer'):
-        tv.build_unit_free(m, s['modules'].values())
+    tv.build_unit_free(m, s['modules'].values(), worker)
     require(m['phase'] == {'implementer': 'frozen', 'fixer': 'diagnosing', 'test-runner': 'testing'}[worker]
             or worker == 'test-runner' and written_untested(m), 'worker phase gate rejected')
     if worker == 'test-runner':
@@ -1508,6 +1507,19 @@ def assign_worker(s, m, mid, p, events, root):
         start_work(m, a)
 
 
+def refund_work(m, a):
+    """Undo start_work for a dispatch its Fixer handed back before working."""
+    memory = next((x for x in m.get('fix_memory', []) if x['assignment_id'] == a['assignment_id']), None)
+    if memory:
+        m['fix_memory'].remove(memory)
+        m['fix_rounds_used'] -= 1
+        m['total_fix_rounds'] -= 1
+        if m.get('auditor_fix_used') and memory.get('audit_batch_id'):
+            m['audit_fix_grant'] = memory['audit_batch_id']
+        else:
+            m['local_fix_used'] = m.get('local_fix_used', 1) - 1
+
+
 def start_work(m, a):
     """The work of a dispatch is authorized: a repair round is spent from here, not while its context is missing."""
     if a['role'] != 'fixer':
@@ -1521,6 +1533,15 @@ def start_work(m, a):
         m['auditor_fix_used'] = True
     m['fix_rounds_used'] += 1
     m['total_fix_rounds'] += 1
+
+
+def settle_global_preflight(s, actor, receipt):
+    """A run-level Test-Runner's report inside its own dispatch (a wave's integration, the audit's retest): a ready one
+    is bound to the task it was given."""
+    for task in (integration.task(s), s.get('audit_test_assignment')):
+        if task and not task.get('closed', True) and task.get('instance_id') == actor['instance_id'] \
+                and receipt['stage'] == 'audit-execution' and receipt['verdict'] == 'ready' and not task.get('context_ref'):
+            task['context_ref'] = copy.deepcopy(receipt['report_ref'])
 
 
 def settle_preflight(m, actor, receipt):
@@ -1540,6 +1561,8 @@ def settle_preflight(m, actor, receipt):
     else:
         # Nothing was authorized, so there is no worker to stop: the module is back where a blocked preflight
         # before any dispatch leaves it, and the gap is handled the same way.
+        if a.get('preflight') == 'mechanical' and a['role'] == 'fixer':
+            refund_work(m, a)  # the round spent at dispatch is given back: the Fixer could not start
         a.update(closed=True, declined_ref=copy.deepcopy(receipt['report_ref']))
         m['phase'] = 'diagnosing' if a['role'] == 'fixer' else 'frozen' if a['role'] == 'implementer' else 'testing'
 
@@ -1599,6 +1622,8 @@ def mutate(s, req, principal, events, root=None):
         receipt = context_readiness.submit(s, req, principal, run_root=root)
         if mid in s['modules']:
             settle_preflight(m, principal, receipt)
+        elif mid is None:
+            settle_global_preflight(s, principal, receipt)
     elif op == 'audit-code-review':
         unfilled(p.get('report_ref'), read_json(check_ref(p.get('report_ref'))).get('change_inventory_ref'))
         audit_code_review.accept(s, p, principal)
@@ -2802,17 +2827,21 @@ def global_paths_run_by_themselves(s, path_ids):
 
 
 def run_fixed_flow(s, step):
-    """The run's steps nobody judges: dispatching the Auditor its code review already names, and a wave's global paths
-    that the run's adapter or their frozen commands drive - dispatched and run by `advance_run`."""
+    """The run's steps nobody judges: dispatching the Auditor its code review already names, dispatching the global
+    paths due (a wave's, the audit's retest) to an independent Test-Runner, and running those the run's adapter or their
+    frozen commands drive - by `advance_run`."""
     op, gate = step.get('operation'), step.get('context_gate') or {}
+    if op == 'audit-test-submit' and global_paths_run_by_themselves(s, step.get('path_ids')):
+        step.update(ready=True, mechanical=True)  # the audit's retest of global paths that run by themselves
+        return
     if not step.get('ready'):
         return
     if op == 'audit-assign' and (not context_readiness.enabled(s) or gate.get('mechanical')):
         step.update(mechanical=True, payload={**(step.get('payload') or {}), 'instance_id': s['audit_code_review']['auditor_instance_id']})
-    elif op in ('integration-assign', 'integration-submit') and not context_readiness.enabled(s) and global_paths_run_by_themselves(s, step.get('path_ids')):
+    elif op in ('integration-assign', 'audit-test-assign'):
+        step['mechanical'] = True  # the paths due, to a Test-Runner no module's author is: it reports inside its dispatch
+    elif op == 'integration-submit' and global_paths_run_by_themselves(s, step.get('path_ids')):
         step['mechanical'] = True
-    elif op == 'audit-test-assign' and not context_readiness.enabled(s):
-        step['mechanical'] = True  # the paths the audit selected, to a Test-Runner no module's author is
 
 
 def verdict_in_review(s, step):
@@ -2866,10 +2895,14 @@ def advance_run(root, principal, workers=None):
                               'path_ids': audit['path_ids']}, go
         elif op == 'integration-assign':
             payload, actor = {'assignment_id': f'integration-{sequence}', 'path_ids': step['path_ids'],
-                              'instance_id': workers.get('test-runner') or 'integration-test-runner'}, go
+                              'instance_id': 'integration-test-runner'}, go
         else:
-            task = integration.task(s)
-            payload, actor = {'result_ref': run_global(root, task)}, {'role': 'test-runner', 'instance_id': task['instance_id']}
+            task = integration.task(s) if op == 'integration-submit' else s['audit_test_assignment']
+            if context_readiness.enabled(s) and not task.get('context_ref'):  # the preflight of commands that run by themselves
+                op, payload = 'context-submit', {'report_ref': global_preflight(root, s, task)}
+            else:
+                payload = {'result_ref': run_global(root, task)}
+            actor = {'role': 'test-runner', 'instance_id': task['instance_id']}
         ack = apply(root, {'schema_version': 1, 'request_id': f'advance-run-{sequence}', 'run_id': st['run_id'], 'module_id': None,
                            'expected_revision': s['revision'], 'operation': op, 'payload': payload}, actor)
         applied.append({'operation': op, 'event_id': ack['event_id']})
@@ -2911,6 +2944,17 @@ def drafted_coverage(root, s):
     review_path.write_text('Coverage drafted by the Ledger from the registrations: every case held by the one module registered '
                            'with it, every requirement by the modules whose scope names it; every global-plan check passed.\n')
     return {'plan_ref': file_ref(plan_path), 'review_ref': file_ref(review_path)}
+
+
+def global_preflight(root, s, task):
+    """The preflight of global paths that run by themselves (a wave's, or the audit's retest), written in their Test-Runner's name: the commands
+    the frozen paths or the run's adapter state, in the environment the project context states."""
+    from execute_test import adapter_for
+    paths = {p['path_id']: p for p in s.get('global_paths', [])}
+    commands = {pid: {k: adapter_for(s, paths[pid], root)[k] for k in ('argv', 'cwd')} for pid in task['path_ids']}
+    execution = {**commands[task['path_ids'][0]], 'commands': commands, 'environment_ref': s.get('project_context_ref') or s['global_spec']}
+    return context_readiness.mechanical_report(root, s, None, 'audit-execution', {'role': 'test-runner', 'instance_id': task['instance_id']},
+                                               execution=execution)
 
 
 def run_global(root, task):

@@ -56,19 +56,22 @@ class DueTests(unittest.TestCase):
         self.assertFalse(tv.awaits_assembly(provider, [provider, consumer('verified')]))  # that slice waits for this one's verification
         self.assertFalse(tv.awaits_assembly(provider, [provider]))
 
-    def test_one_module_at_a_time_writes_into_a_build_unit(self):
+    def test_modules_write_into_a_build_unit_together_and_build_it_while_nobody_writes(self):
         build = lambda *argv: {'paths': [{'path_id': 'B', 'kind': 'build', 'command': {'argv': list(argv), 'cwd': '/target'}}]}
         mine = {'module_id': 'M001', 'plan': build('gradlew', ':app:assemble'), 'assignments': {}}
 
         def other(plan, role='implementer', closed=False):
             return {'module_id': 'M002', 'plan': plan, 'assignments': {'A': {'role': role, 'closed': closed}}}
         for role in ('implementer', 'fixer'):
+            tv.build_unit_free(mine, [mine, other(build('gradlew', ':app:assemble'), role)], role)  # writers side by side, each in its files
             with self.subTest(role=role), self.assertRaisesRegex(Rejected, 'build unit busy: M002 is being written'):
-                tv.build_unit_free(mine, [mine, other(build('gradlew', ':app:assemble'), role)])
-        tv.build_unit_free(mine, [mine, other(build('gradlew', ':lib:assemble'))])              # another build
-        tv.build_unit_free(mine, [mine, other(build('gradlew', ':app:assemble'), closed=True)])  # its result is in
-        tv.build_unit_free(mine, [mine, other(build('gradlew', ':app:assemble'), 'test-runner')])  # reading, not writing
-        tv.build_unit_free({**mine, 'plan': {'paths': []}}, [other(build('gradlew', ':app:assemble'))])  # nothing compiled together
+                tv.build_unit_free(mine, [mine, other(build('gradlew', ':app:assemble'), role)], 'test-runner')  # no build of half-written files
+            with self.subTest(role=role), self.assertRaisesRegex(Rejected, 'build unit busy: M002 is building'):
+                tv.build_unit_free(mine, [mine, other(build('gradlew', ':app:assemble'), 'test-runner')], role)  # nor writing under a build
+        tv.build_unit_free(mine, [mine, other(build('gradlew', ':lib:assemble'))], 'test-runner')              # another build
+        tv.build_unit_free(mine, [mine, other(build('gradlew', ':app:assemble'), closed=True)], 'test-runner')  # its result is in
+        tv.build_unit_free(mine, [mine, other(build('gradlew', ':app:assemble'), 'test-runner')], 'test-runner')  # builds side by side
+        tv.build_unit_free({**mine, 'plan': {'paths': []}}, [other(build('gradlew', ':app:assemble'))], 'test-runner')  # nothing compiled together
 
 
 class TaskLoopTests(unittest.TestCase):

@@ -76,6 +76,6 @@ Ledger 校验清单必填、工件存在及 hash，并将引用投影到 GO 的 
 
 局部问题由 MO/Diagnostician/Fixer/Test-Runner 在配置预算内收敛；局部问题不派发独立审计，明确挂起与残留统一进入完整 registry 收尾。Auditor 全量审阅宿主目标与代码，复测只覆盖有必要的残留/过期/集成 PATH，保留有效 Green。
 
-整体审计需执行 PATH 时，GO `audit-test-assign` 为独立 Test-Runner 指派全部所选 PATH；其自身 audit-execution 预检先经 Ledger 提交，`audit-test-submit {result_ref}` 校验宿主执行回执。Auditor 最终 report 引用 test_result_ref、review_ref，原样消费测试观察并给出裁决，不直接执行测试或修改观察。测试实例独立于 Auditor、代码及测试脚本作者。撤销活动审计时，尚在运行的测试 worker 必须另附 test_worker_stopped_ref。
+整体审计需执行 PATH 时，GO `audit-test-assign` 为独立 Test-Runner 指派全部所选 PATH；先派发，其自身 audit-execution 预检在派发内提交，`audit-test-submit {result_ref}` 校验宿主执行回执。Auditor 最终 report 引用 test_result_ref、review_ref，原样消费测试观察并给出裁决，不直接执行测试或修改观察。测试实例独立于 Auditor、代码及测试脚本作者。撤销活动审计时，尚在运行的测试 worker 必须另附 test_worker_stopped_ref。
 
 停用/替代存在时，goal_review.retirement_reviews 逐项记录 kind/id、revision_ref、decision_id、conclusion(confirmed/finding/blocked)、reason/evidence_refs；疑点以 finding_id 进入 host-goal 闭环。核对原始目标、精确批准、替代覆盖与原失败，不将停用计作通过。

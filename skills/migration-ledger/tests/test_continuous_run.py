@@ -66,6 +66,54 @@ class ContinuousWalk(test_run_rehearsal.RunWalk):
             super().model_turn(step)
 
 
+class GlobalPathWalk(ContinuousWalk):
+    """The same run with a global path frozen as a command over one case: held by the leaf done first, it is a wave's
+    integration test; held by the leaf done last, the final audit runs it."""
+    case = 'C4'
+
+    def setUp(self):
+        import tempfile
+        self.global_dir = Path(tempfile.mkdtemp()); self.addCleanup(__import__('shutil').rmtree, self.global_dir, True)
+        script = self.global_dir / 'global.py'
+        script.write_text('import argparse,json,pathlib,runpy\np=argparse.ArgumentParser();p.add_argument("--query-file");p.add_argument("--result-file");a=p.parse_args()\n'
+                          'target=pathlib.Path(pathlib.Path(__file__).with_name("target.txt").read_text())\n'
+                          'v=sorted({runpy.run_path(str(c))["value"] for c in target.rglob("code.py")})\n'
+                          'json.dump({"assertions":[{"assertion_id":"A1","expected":2,"actual":v[0] if v else None,"passed":v==[2]}]},open(a.result_file,"w"))\n')
+        self.global_path = {'path_id': 'GP1', 'case_id': self.case, 'expected_assertions': [{'assertion_id': 'A1', 'expected': 2}],
+                            'command': {'argv': [sys.executable, str(script)], 'cwd': str(self.global_dir)}}
+        real = test_source_changes.SourceChangeTests.register_root
+        def register_root(t, features=None, global_paths=()):
+            return real(t, features, [self.global_path])
+        test_source_changes.SourceChangeTests.register_root = register_root
+        self.addCleanup(setattr, test_source_changes.SourceChangeTests, 'register_root', real)
+        super().setUp()
+        (self.global_dir / 'target.txt').write_text(str(self.f.target))
+
+
+class GlobalPathTests(GlobalPathWalk):
+    def test_a_wave_s_global_path_is_dispatched_preflighted_and_run_by_the_ledger_in_a_prepared_run(self):
+        record, taken = self.rehearse(RECORDED)  # the same model turns as without it
+        journal = workflow_cost.journal(self.f.root)
+        ran = [(e['operation'], e['actor']['role']) for e in journal if e['operation'] in ('integration-assign', 'integration-submit')
+               or e['operation'] == 'context-submit' and e['actor']['instance_id'] == 'integration-test-runner']
+        self.assertEqual(ran, [('integration-assign', 'global-orchestrator'), ('context-submit', 'test-runner'), ('integration-submit', 'test-runner')])
+        self.assertEqual(self.f.state()['audit_results']['GP1']['quality'], 'green-passed')
+        self.assertNotIn('global-orchestrator', {row['role'] for row in taken[len(self.setup_turns):]})  # no GO turn at the wave
+
+
+class FinalGlobalPathTests(GlobalPathWalk):
+    case = 'C1'  # held by the leaf done last: no wave boundary before the audit
+
+    def test_a_global_path_left_to_the_final_audit_is_dispatched_preflighted_and_run_by_the_ledger(self):
+        record, taken = self.rehearse(RECORDED)  # the same model turns: the Auditor reviews, the retest and its verdict are facts
+        journal = workflow_cost.journal(self.f.root)
+        self.assertEqual([e['operation'] for e in journal if e['operation'].startswith('integration')], [])
+        ran = [(e['operation'], e['actor']['role']) for e in journal if e['operation'] in ('audit-assign', 'audit-test-assign', 'audit-test-submit', 'audit')]
+        self.assertEqual(ran, [('audit-assign', 'global-orchestrator'), ('audit-test-assign', 'global-orchestrator'),
+                               ('audit-test-submit', 'test-runner'), ('audit', 'auditor')])
+        self.assertEqual(self.f.state()['audit_results']['GP1']['quality'], 'green-passed')
+
+
 class ContinuousRunTests(ContinuousWalk):
     def test_a_run_from_its_registration_reaches_its_verdict(self):
         record, taken = self.rehearse(RECORDED)
@@ -73,6 +121,23 @@ class ContinuousRunTests(ContinuousWalk):
         self.assertEqual([(row['role'], row['operation']) for row in taken[:3]],
                          [('global-orchestrator', 'register'), ('module-orchestrator', 'decompose'), ('spec-designer', 'plan')])
         self.assertEqual(sorted(self.f.state()['modules']), ['M011', 'M012'])
+
+    def test_a_host_that_starts_every_line_of_a_tick_codes_the_leaves_together_and_builds_each_while_nobody_writes(self):
+        import drive
+        ticks = []
+        for _ in range(30):
+            lines = [line for line in drive.drive(self.f.root, test_run_rehearsal.MO) if line['kind'] in ('dispatch', 'running', 'done')]
+            ticks.append([(line.get('role'), line.get('module_id')) for line in lines])
+            if not lines or lines[0]['kind'] == 'done':
+                break
+            for line in lines:  # every worker of the tick, as a host with free slots starts them
+                st = self.f.state()
+                self.model_turn(next(s for s in st['next_steps'] if s['module_id'] == line['module_id']) if line.get('module_id') else st['global_next_step'])
+        self.assertEqual(ticks[-1], [(None, None)])  # the run ended: done
+        self.assertIn([('implementer', 'M011'), ('implementer', 'M012')], ticks)  # planned together, coded together
+        for tick in ticks:  # one build unit: a leaf is built only while the other writes nothing
+            roles = {role for role, _ in tick}
+            self.assertFalse({'implementer', 'test-runner'} <= roles and len({mid for _, mid in tick}) > 1, tick)
 
     def test_confirming_a_drafted_cut_reads_the_rules_of_a_hand_cut_only_on_demand(self):
         import ledger, reading
