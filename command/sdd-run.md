@@ -11,8 +11,9 @@ description: /sdd-run <run-id> — 并行推进就绪模块
 1. 先按[命令通用约定](../skills/migration-protocol/references/host-integration.md#命令通用约定)。
 2. 前置门控：run 已初始化、存在可调度工作、宿主能提供隔离实例与单写 Ledger、max_parallel_modules 合法。先 `verify_openspec.py --scope global` 核验公共基础，再对派发目标用 `--scope module --module-id <id>`；局部失败只处理关联范围，见[核验范围](sdd-verify.md)。
 3. 循环执行 `drive.py --root <run> --host-context '<MO 身份>' --wait <秒>`（[宿主循环](../skills/migration-protocol/references/host-integration.md#宿主循环)），只读它输出的行，不读状态视图：
-   - `dispatch`：按 role 启动隔离实例，交 card 路径；带 session_id 时接续该会话。
-   - `running`：Ledger 已派的 worker；未启动则按 card 与 instance_id 启动，已启动则等待。
+   - `dispatch`：按 role 与 `model_tier` 启动隔离实例，交 card 路径和本行 `detail`（如有）；带 `session_id` 时接续该会话。
+   - `rotate`：在当前作用域无活动 worker 的交接点，按 [会话交接](../skills/migration-protocol/references/host-integration.md#会话交接) 用 `session_rotate.checkpoint` 恢复新会话。`session` 取 checkpoint 的 role 和本行 `expected_revision`，提交后继续下一轮 drive。
+   - `running`：Ledger 已派的 worker；未启动则按 card、model_tier 与 instance_id 启动，已启动则等待。
    - `host`：宿主按 operation 与 payload 自行提交。
    - `person`：交 Escalation 按 detail 问人，决定绑定 approval_subject_sha256。
    - `signal`：按 next_action 处理；severity=human 时告知用户。同一信号只印一次，tick 行的 signals_held 是仍成立的旧信号数。

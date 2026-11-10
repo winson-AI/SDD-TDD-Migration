@@ -25,7 +25,7 @@
 <text x="800.0" y="462.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">UI → Logic → Adhesive → Resource</text>
 <text x="800.0" y="491.0" font-size="18.42" fill="#4b5563" text-anchor="middle" font-weight="400">Spec-Designer：实施规范 + CASE / PATH / ASSERT</text>
 <text x="800.0" y="520.0" font-size="19.49" fill="#4b5563" text-anchor="middle" font-weight="400">先按 capture_due 捕获、media_due 引用用户媒体</text>
-<text x="800.0" y="549.0" font-size="20.08" fill="#4b5563" text-anchor="middle" font-weight="400">骨架预填场景与测试源；PATH 准备方式 Ledger 补</text>
+<text x="800.0" y="549.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">先定 API / URL、图片图标与布局参数策略</text>
 <text x="800.0" y="578.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">首版限时 45 分钟；可后补项记 debt</text>
 <path d="M800,585 L800,610" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="610" width="500" height="185" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -33,8 +33,8 @@
 <text x="800.0" y="652.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO 审核冻结</text>
 <text x="800.0" y="686.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">门禁全过且无人提问：Ledger 记评审即冻结</text>
 <text x="800.0" y="715.5" font-size="21.24" fill="#4b5563" text-anchor="middle" font-weight="400">测试源须能失败：拒恒真断言 / 表达式体 @Test</text>
-<text x="800.0" y="744.5" font-size="19.71" fill="#4b5563" text-anchor="middle" font-weight="400">欠项在静态审查前由 Ledger 开 CR 补齐，代码保留</text>
-<text x="800.0" y="773.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">真实未决 / 需求验收授权变化交 Human</text>
+<text x="800.0" y="744.5" font-size="21.36" fill="#4b5563" text-anchor="middle" font-weight="400">保真义务未定回叶子规划；其余欠项按原流程补齐</text>
+<text x="800.0" y="773.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">基线或取证缺口留证；真实未决交 Human</text>
 <path d="M800,795 L800,810" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="810" width="500" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="839.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Implementer · 按 TASK 执行</text>

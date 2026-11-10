@@ -30,7 +30,7 @@ class DriveTests(unittest.TestCase):
                 break
             line = work[0]
             seen.append((line['kind'], line['operation'], line['role']))
-            self.assertLess(len(json.dumps(line, ensure_ascii=False)), 400)  # what the host reads per step
+            self.assertLess(len(json.dumps(line, ensure_ascii=False, separators=(',', ':'))), 400)  # what the host reads per step
             step = next(s for s in self.f.state()['next_steps'] if s['module_id'] == line['module_id'])
             self.r.model_turn(step)
         self.assertEqual(seen, [('dispatch', 'plan', 'spec-designer'), ('running', 'await-result', 'implementer')])
@@ -93,6 +93,38 @@ class SessionReuseTests(unittest.TestCase):
         self.assertEqual(fixer['instance_id'], f.state()['modules']['M001']['assignments'][fixer['assignment_id']]['instance_id'])
         self.assertTrue(Path(fixer['card']).is_file() and fixer['card_bytes'] > 0)
 
+
+    def test_drive_rotates_before_assigning_and_resumes_the_same_frozen_work(self):
+        import test_ledger
+        f = test_ledger.FlowTests(methodName='runTest'); f.setUp(); self.addCleanup(f.doCleanups)
+        f.prepare()
+        f.call('session', {'role': 'implementer', 'session_id': 'S-OLD'})
+        before = f.state(); step = before['next_steps'][0]
+        f.call('session', request={'schema_version': 1, 'request_id': 'large-input', 'run_id': before['run_id'],
+            'module_id': 'M001', 'expected_revision': before['modules']['M001']['revision'], 'operation': 'session',
+            'payload': {'role': 'implementer', 'session_id': 'S-OLD'},
+            'hint': {'session_id': 'S-OLD', 'card_sha256': step['card_sha256'],
+                     'context_inputs': [{'kind': 'log', 'ref': f.ref('large.log', 'x'*100001)}]}})
+        rotation = drive.drive(f.root, MO)[0]
+        self.assertEqual((rotation['kind'], rotation['role'], rotation['model_tier']), ('rotate', 'implementer', 'strong'))
+        self.assertNotIn('card', rotation)
+        self.assertFalse(f.state()['modules']['M001']['assignments'])
+        checkpoint = rotation['session_rotate']['checkpoint']
+        f.call('session', {'role': checkpoint['role'], 'session_id': 'S-NEW', 'reason': 'context-rotation',
+                           'checkpoint_ref': f.ref('checkpoint.json', checkpoint)})
+        line = drive.drive(f.root, MO)[0]
+        self.assertEqual((line['kind'], line['session_id']), ('running', 'S-NEW'))
+        self.assertNotIn('resumed_from_bytes', line)
+        self.assertEqual(f.state()['modules']['M001']['freeze_id'], before['modules']['M001']['freeze_id'])
+
+    def test_reasoning_rules_are_offered_on_demand_and_never_in_the_resident_card(self):
+        import reading
+        step = {'role': 'diagnostician', 'operation': 'diagnose'}
+        module = {'results': {'P1': {'quality': 'yellow-blocked', 'root_cause': {'confidence': 'suspected'}}}}
+        topics = {(row['ref'], row['section']) for row in reading.on_demand({}, module, step)}
+        resident = {(row['ref'], row['section']) for row in reading.card({}, module, step)}
+        extra = set(reading.reasoning_sections(module))
+        self.assertTrue(extra and extra <= topics and extra.isdisjoint(resident))
 
     def test_a_resumed_session_is_handed_only_what_it_has_not_read(self):
         import reading, tempfile

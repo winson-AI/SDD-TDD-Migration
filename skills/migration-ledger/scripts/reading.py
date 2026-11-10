@@ -378,10 +378,14 @@ def topic_facts(s, m, step):
     return facts
 
 
-def reasoning_sections(m):
+def reasoning_sections(m, step=None):
     """Extra methods activate on observed uncertainty/stagnation, not on role alone."""
-    if not m: return []
-    bad = [row for row in {**m.get('results', {}), **m.get('repair_findings', {})}.values() if row.get('quality') != 'green-passed']
+    if not m:
+        return []
+    if step and (step.get('worker_role') or step.get('role')) not in ('fixer', 'diagnostician') and step.get('operation') != 'recover':
+        return []
+    results = {} if m.get('stale') else m.get('results', {})
+    bad = [row for row in {**results, **m.get('repair_findings', {})}.values() if row.get('quality') != 'green-passed']
     if m.get('no_progress_rounds', 0): return sections('progress-recovery.md', '1. 校验范围') + sections('domain-tools.md', '证据保留与修复闭环')
     if any((row.get('root_cause') or {}).get('confidence') != 'confirmed' for row in bad): return sections('semantic-extraction.md', '层与 schema')
     return []
@@ -495,7 +499,8 @@ def _chosen(s, m, step, topics):
     rows = ([operation] if operation else []) + ((['submit'] if self_checked else ['context-submit', 'submit']) if step.get('worker_role') else [])
     chosen = entries(role, step.get('test_scope'), ui=ui, reuse=reuse, operation=operation, telemetry=telemetry, lean=lean and role in ('fixer', 'implementer'),
                      rows=rows, facts=facts if topics else None, readiness=bool(s.get('context_readiness_required')))
-    chosen += reasoning_sections(m)
+    if topics:
+        chosen += reasoning_sections(m, step)
     import test_validation
     if role == 'test-runner' and step.get('test_scope') == 'automation' and m and test_validation.review_first(m):
         chosen += sections('testing.md', '静态规格闭合')  # the review goes ahead of the functional paths in this dispatch
@@ -535,6 +540,9 @@ def card(s, m, step):
 
 # What calls for reading a topic section: the specific rows first, then the file as a whole.
 PURPOSES = (
+    (('progress-recovery.md', '1. 校验范围'), '推进停滞，核对受影响范围时'),
+    (('domain-tools.md', '证据保留与修复闭环'), '推进停滞，排查修复证据时'),
+    (('semantic-extraction.md', '层与 schema'), '根因未确认，需重新抽取语义证据时'),
     (('testing.md', 'web Main'), '写 web PATH 时'), (('testing.md', 'Harmony Main'), '写 android / harmony PATH 时'),
     (('visual-execution.md', '1. 准备与冻结'), '写 visual PATH 的 visual_execution 时'), (('visual-execution.md', '4. 存量捕获'), '发 legacy-capture 请求时'),
     (('project-context.md', '存量预览'), '发 legacy-capture 请求时'), (('project-context.md', '用户参考媒体'), '引用用户截图 / 录屏时'),

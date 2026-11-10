@@ -142,8 +142,10 @@ def obligations(aid, source):
     return {aid + '/' + facet + ':' + field for facet in FACETS for field in source[facet]} | {aid + '/route'}
 
 
-def plan(analysis, items, plan):
-    calls, contracts = read(analysis, items)
+def plan(analysis, items, plan, *, settle=False):
+    calls, contracts = (load if settle else read)(analysis, items)
+    if not contracts:
+        return
     traces = {row['item_id']: row for row in plan.get('dimension_trace', [])}
     paths = {row['path_id']: row for row in plan['paths']}
     for aid, contract in contracts.items():

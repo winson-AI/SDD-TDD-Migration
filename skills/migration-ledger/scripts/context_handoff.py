@@ -20,15 +20,18 @@ def checkpoint(s, m, role, previous):
             'previous_session_id': previous, **version, 'resume_refs': refs}
 
 
+def workers_closed(s, m):
+    modules = [m] if m is not None else [*s['modules'].values(), *s.get('module_groups', {}).values()]
+    return not any(not a.get('closed') for value in modules for a in value.get('assignments', {}).values())
+
+
 def replace(s, m, p, previous):
     if p.get('reason') in ('session-unavailable', 'context-rotation'):
         require(previous and previous['session_id'] != p['session_id'], 'cold recovery needs a distinct new session')
     if not previous or previous['session_id'] == p['session_id']: return
     require(p.get('reason') in ('session-unavailable', 'context-rotation') and p.get('checkpoint_ref'), 'replacement requires cold recovery record')
     check_ref(p['checkpoint_ref'])
-    modules = [m] if m else [*s['modules'].values(), *s.get('module_groups', {}).values()]
-    require(not any(not a.get('closed') for value in modules for a in value.get('assignments', {}).values()),
-            'revoke old worker before cold recovery')
+    require(workers_closed(s, m), 'revoke old worker before cold recovery')
     if m is None:
         require(not s.get('audit_assignment') or s['audit_assignment'].get('closed'), 'close audit before global cold recovery')
     if p['reason'] == 'context-rotation' or s.get('host_handoff_required') or p.get('host_receipt_ref'):
