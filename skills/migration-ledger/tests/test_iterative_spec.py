@@ -89,6 +89,19 @@ class UpstreamPlanTests(unittest.TestCase):
                 f.call('plan', {'plan_ref': f.ref('bad-plan-'+str(f.n)+'.json', p)}, role='spec-designer', module='M001')
         self.assertIsNone(f.state()['modules']['M001']['freeze_id'])
 
+    def test_a_scenario_without_a_behavior_assertion_blocks_freeze(self):
+        f = self.f; plan = self.t.plan('M001')
+        spec = next(row for row in plan['definitions'] if row['kind'] == 'spec')
+        spec.update(f.ref('extra-scenario.md', check_ref(spec).read_text() +
+                          '\n#### Scenario: empty input\nScenario-ID: SCN-M001-empty\n**THEN** return an empty list\n'))
+        direct_plan(f, plan)
+        f.call('plan', {'plan_ref': f.ref('uncovered-scenario.json', plan)}, role='spec-designer')
+        step = f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['reason']), ('plan', 'scenario-assertions-before-freeze'))
+        with self.assertRaisesRegex(Rejected, 'no design assertion verifies: SCN-M001-empty'):
+            f.call('freeze')
+        self.assertFalse(f.state()['modules']['M001']['assignments'])
+
     def test_direct_test_assets_must_belong_to_the_prepared_run_staging(self):
         f = self.f; p = self.t.plan('M001'); doc = direct_plan(f, p)
         design = f.ref('outside-design/test-plan.md', 'Test plan outside managed staging')

@@ -42,6 +42,7 @@ def summarize(rows, case_ids, device_gaps=(), within=None):
             'coverage_complete': bool(total) and not missing,
             'definition_coverage_complete': bool(total) and not missing,
             'validation_complete': bool(total) and not missing and completed + len(reused) == total and not device_gaps,
+            'all_required_paths_passed': bool(total) and not missing and len(successful) == total and not device_gaps,
             # Where a path runs: on a device, inside a process, or as a comparison of the rendered screen.
             'device_paths': len(device), 'device_passed_paths': passed(device),
             'scripted_device_paths': len(scripted), 'scripted_flaky_paths': sum(bool(r.get('flaky')) for r in scripted),
@@ -77,12 +78,13 @@ def render(summary, cell):
              '仅统计当前任务的 automation PATH 实例；平台/参数实例由冻结 PATH 区分，重试不增加分母。'
              '成功列表只含当前有效且已接受的 Green；缺路径 CASE 单列，不能据已有路径宣称全量覆盖。', '',
              '已尝试不等于完整执行。独立性复用单列，不计新执行；原回执/执行基线及 validation_reuse 见 JSON。历史非 Green 缺完整性字段时记未知。', '',
-             '| 范围 | 应测 | 已尝试 | 完整执行 | 部分执行 | 完整性未知 | 复用成功 | 有效成功 | Red | Yellow | 缺路径 CASE |',
-             '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
+             '| 范围 | 应测 | 已尝试 | 完整执行 | 部分执行 | 完整性未知 | 复用成功 | 有效成功 | 全部通过 | Red | Yellow | 缺路径 CASE |',
+             '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
     for name, row in [('宿主任务', summary), *summary['modules'].items(), *summary['tasks'].items()]:
         lines.append('| ' + ' | '.join(cell(x) for x in (name, row['required_paths'], row['current_executed_paths'],
                      row.get('completed_paths'), row.get('partial_paths'), row.get('completion_unknown_paths'), row.get('reused_passed_paths', 0),
-                     row['passed_paths'], row['red_paths'], row['yellow_paths'], row['missing_case_paths'])) + ' |')
+                     row['passed_paths'], '是' if row.get('all_required_paths_passed') else '否' if row.get('all_required_paths_passed') is False and row['required_paths'] else '—',
+                     row['red_paths'], row['yellow_paths'], row['missing_case_paths'])) + ' |')
     if 'device_paths' in summary:
         lines += ['', '路径在哪里执行（成功 / 应测）。进程内路径只证明代码返回的结果，不证明用户在屏幕上看到的结果；'
                   '设备缺口 CASE 是已声明没有设备或视觉路径的用户可见 CASE，为 Yellow 缺口，不计为完整验证。', '',

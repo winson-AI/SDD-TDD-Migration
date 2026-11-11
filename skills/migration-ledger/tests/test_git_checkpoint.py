@@ -6,6 +6,7 @@ import unittest
 
 import test_ledger
 import git_checkpoint
+import drive
 from contracts import Rejected, file_ref
 
 
@@ -49,7 +50,12 @@ class GitCheckpointTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'git checkpoint'):
             f.call('complete', {'dod_ref': f.ref('dod.md', 'reviewed')})
         receipt = self.checkpoint()
-        f.call('checkpoint', {'receipt_ref': receipt}, role='host')
+        line = next(row for row in drive.drive(f.root, {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'})
+                    if row['kind'] == 'host')
+        self.assertEqual(line['branch'], 'sdd/demo')
+        f.call('checkpoint', role='host', request={'schema_version': 1, 'request_id': 'host-checkpoint',
+               **{key: line[key] for key in ('run_id', 'module_id', 'expected_revision', 'operation')},
+               'payload': {**line['payload'], 'receipt_ref': receipt}})
         committed = git(f.target, 'show', '--name-only', '--format=', 'HEAD').split()
         self.assertEqual(committed, ['m1/code.py'])
         self.assertIn('README.md', git(f.target, 'status', '--porcelain'))  # pre-existing dirt untouched

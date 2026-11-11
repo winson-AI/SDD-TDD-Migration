@@ -77,15 +77,19 @@ def tick(root, principal, workers=None):
     for step in st['next_steps'] + [st['global_next_step']] + changes:
         operation = step.get('operation')
         rotation = step.get('session_rotate') or {}
-        if rotation.get('ready'):
-            scope = st['modules'].get(step.get('module_id')) or st['module_groups'].get(step.get('module_id')) or st
-            lines.append({'kind': 'rotate', **row(step), 'expected_revision': scope['revision'], 'session_rotate': rotation})
+        if rotation.get('ready') or step.get('role') == 'host' and step.get('ready') and not step.get('human_required'):
+            mid = step.get('module_id')
+            scope = st['modules'].get(mid) or st['module_groups'].get(mid) or st
+            request = {'run_id': st['run_id'], 'module_id': mid, 'expected_revision': scope['revision']}
+            if rotation.get('ready'):
+                lines.append({'kind': 'rotate', **row(step), **request, 'session_rotate': rotation})
+            else:
+                lines.append({'kind': 'host', **row(step), **request, 'payload': step.get('payload') or {},
+                              **({'branch': step['branch']} if step.get('branch') else {})})
         elif not operation or step.get('mechanical') and step.get('ready'):
             continue
         elif step.get('human_required') or step.get('reason') in PERSON:
             lines.append({'kind': 'person', **row(step)})
-        elif step.get('role') == 'host' and step.get('ready'):
-            lines.append({'kind': 'host', **row(step), 'payload': step.get('payload') or {}})
         elif operation == 'await-result' or step.get('reason') == 'audit-running':
             a = (st['modules'].get(step.get('module_id')) or {}).get('assignments', {}).get(step.get('assignment_id')) or {}
             lines.append({'kind': 'running', **row(step, card(root, step, a.get('instance_id')))})

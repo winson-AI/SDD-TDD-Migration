@@ -25,7 +25,7 @@ MO = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
 # The counts last recorded in VERIFICATION.md: model turns by role, and the most protocol bytes one turn's card handed a model.
 RECORDED = {'turns': {'global-orchestrator': 3, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 2, 'auditor': 1},
             'card_bytes': 19795}
-RECORDED_RED = {'turns': {'global-orchestrator': 3, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 3, 'fixer': 1, 'auditor': 1}, 'card_bytes': 19795}  # the same run whose first version of one leaf fails its automation
+RECORDED_RED = {'turns': {'global-orchestrator': 3, 'module-orchestrator': 1, 'spec-designer': 2, 'implementer': 2, 'test-runner': 3, 'diagnostician': 1, 'fixer': 1, 'auditor': 1}, 'card_bytes': 19795}  # the same run whose first version of one leaf fails its automation
 
 
 class RunWalk(unittest.TestCase):
@@ -109,6 +109,10 @@ class RunWalk(unittest.TestCase):
             f.call('submit', {'assignment_id': a['assignment_id'], 'fencing_token': a['fencing_token'],
                               'result_ref': f.ref(a['assignment_id'] + '-result.json', stage_result(f.root, mid, a['assignment_id'], receipts))},
                    role='test-runner', instance=a['instance_id'], module=mid)
+        elif op == 'diagnose':
+            ref = f.ref('diagnosis-' + mid + '.md', 'The frozen expected value matches the source, while the production code returns a different value')
+            f.call('diagnose', {'diagnosis_ref': ref, 'owner': mid, 'root_cause': {'category': 'code', 'summary': 'Wrong value',
+                   'confidence': 'confirmed', 'owner': mid, 'next_action': 'fix'}}, role=step['role'], module=mid)
         elif op == 'audit-code-review':
             test_ledger.code_review(f)
         elif op == 'audit':  # the Auditor's verdict on a run with nothing left to retest
@@ -170,7 +174,7 @@ class RunRehearsalTests(RunWalk):
         self.red = ('M001',)
         record, taken = self.rehearse(RECORDED_RED)
         self.assertIn(('fixer', 'await-result', 'M001'), [(row['role'], row['operation'], row['module_id']) for row in taken])
-        self.assertNotIn('diagnostician', record['turns'])  # a failed assertion of its own goes to the Fixer
+        self.assertEqual(record['turns']['diagnostician'], 1)
 
 
 if __name__ == '__main__':

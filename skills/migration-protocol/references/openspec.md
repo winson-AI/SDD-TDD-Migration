@@ -29,7 +29,7 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 行为契约由运行状态开启（plan 的 `behavior_contract_required=true` 由 Ledger 写入）。有已登记四维分析的叶子按最小集规划：作者只写六件套、tasks（范围/路径/需求）、测试计划引用与 dimension_trace，从 Ledger 写出的骨架起步（`spec_skeleton.py --root <run> --module <id> --out <staging 目录>` 给六件套与三份计划 JSON 的桩，每条 CASE 一个场景、名称/触发/结果取自功能清单；`[[待写]]` 由作者填，留有即拒；`[[可后补]]`（理由、风险、影响、接线说明）可留，Ledger 记 debt；`contracts.py refs <目录>` 取引用）；dimension_analysis_ref、source_closure、target_feasibility、decision_envelope、各任务四维与 scenario_trace 由 Ledger 据分析与分配的审阅补全并冻结，作者另写的照常判定。SPEC 每个需求/场景各写独立行 `Requirement-ID: <id>`、`Scenario-ID: <run内唯一id>`；Ledger 接受 plan 时派生 scenario_index，plan 不携带（`behavior_contract.py --plan <staged-plan.json>` 可预览）；改 SPEC 即改 plan 摘要，须重新审核冻结。scenario_trace 每行给 scenario_id 与 task_ids，assertions 由 Ledger 按设计断言的 scenario_ids 补全；每个场景至少被一条行为断言验证、每条行为断言至少验证一个场景、全部任务有归属（缺者记欠项），允许多对多，build/static 不充当行为断言。
 
-1. 范围、写锁、TASK、PATH、四维追溯和六件套完整才冻结。适用时先结清会影响实现的保真义务，包括 API 映射与行为断言、资源复制或替代策略、动态图片来源与加载器、XML 布局参数映射，以及可预览存量的基线或带证据的 capture_gap。剩余完整性欠项按原路径在 DoD 前结清；运行证据在编码后产生。
+1. 首冻核对范围、写锁、TASK、PATH、四维追溯、六件套及各 Scenario 的行为断言。适用时先结清会影响实现的保真义务，包括 API 映射与行为断言、资源复制或替代策略、动态图片来源与加载器、XML 布局参数映射，以及可预览存量的基线或带证据的 capture_gap。剩余完整性欠项按原路径在 DoD 前结清；运行证据在编码后产生。
 2. Spec-Designer 把问题、备选项和推荐值经 Ledger 交 Escalation；Human 的答复绑定 question_id、spec_revision 与内容摘要，可复用，绑定内容变了重新裁决。
 3. 冻结 manifest 列 proposal、全部 delta specs、design、tasks、test design 与已准备测试资产的 path+sha256（checklist 由 Ledger 绑定，不进 manifest），保留不可变副本，生成 freeze_id/spec_revision。
 4. `status`、tasks 勾选、checklist 证据等运行字段不入语义冻结 hash，原始定义在不可变 artifacts，动态视图可重定位链接与更新勾选；验证比较定义快照，不以可变文件整体 hash 误判失效。

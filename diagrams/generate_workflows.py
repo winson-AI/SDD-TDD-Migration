@@ -140,7 +140,7 @@ def overview():
     d.box(1210,880,330,310,'Ledger · 唯一总线',[
         '分配包 / 事件 / 状态 / 证据', 'planning_context：全局视野', 'wave-complete：派波次集成', '预检：Ledger 代写或骨架起笔', '已有事实代填；被拒列全问题', '就绪才开工，阻塞退回派发前', '父聚合颜色不回写子模块'], 'green')
     d.box(1210,1230,330,290,'宿主执行层',[
-        '实际派发执行角色并绑定身份', '按步取卡，专题触发才读', '同 Run：Fixer / CR / 父 MO / GO', 'drive：并行限预算，终点 done', 'drive 安全点轮换超量会话', '历史留痕，仅执行当前 SPEC', '遵守 DAG / 写锁 / 累计预算'], 'gray')
+        '实际派发执行角色并绑定身份', '按步取卡，专题触发才读', '同 Run：Fixer / CR / 父 MO / GO', 'drive：操作带修订号', 'drive 安全点轮换超量会话', '历史留痕，仅执行当前 SPEC', '遵守 DAG / 写锁 / 累计预算'], 'gray')
     d.box(1210,1530,330,280,'收尾 ≠ 全部通过',[
         'Green：真实复测与 DoD 完成', '仅缺自动化环境：Yellow 收尾', '排队、锁等待、worker 退出', '均不能独立算作 MO 收尾', 'host-idle / planning-overdue', '有 ready 动作继续推进', '一个失败不提前拉起 Auditor'], 'orange')
     d.text(1375,1935,'细节阅读',24,weight=650)
@@ -168,7 +168,7 @@ def module_execution():
     d.box(550,610,500,185,'MO 审核冻结',[
         '门禁全过且无人提问：Ledger 记评审即冻结',
         '测试源须能失败：拒恒真断言 / 表达式体 @Test',
-        '保真义务未定回叶子规划；其余欠项按原流程补齐',
+        '缺 Scenario 断言或保真策略时回叶子规划',
         '基线或取证缺口留证；真实未决交 Human'],controller=True)
     d.arrow([(800,795),(800,810)])
     d.box(550,810,500,130,'Implementer · 按 TASK 执行',[
@@ -192,8 +192,8 @@ def module_execution():
     d.arrow([(70,1310),(50,1310),(50,2180),(300,2180),(300,2240)],'green')
     d.arrow([(955,1310),(1110,1310)],'orange');d.label(1030,1290,'非 Green','orange')
     d.box(1110,1220,410,180,'现有诊断 → MO 分流',[
-        '报错或断言失败：Ledger 诊断，派 Fixer',
-        '其余 Diagnostician 只读，日志按需 grep',
+        '自动化只观察到失败时先诊断',
+        '对照预期、实际与存量证据',
         '环境 / 目标基线缺陷 → 审计延期',
         '不增加前置规划轮次'], 'orange',True)
     # One classified diagnosis feeds three distinct control branches.

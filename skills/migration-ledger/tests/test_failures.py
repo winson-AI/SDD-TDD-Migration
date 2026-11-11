@@ -113,10 +113,12 @@ class AssertionFailureTests(unittest.TestCase):
         self.f = f = test_ledger.FlowTests(methodName='runTest'); f.setUp(); self.addCleanup(f.doCleanups)
         f.prepare(); f.implementation()
         a, result = f.make_test_result(quality='red-bug')  # the adapter observed 1 where the frozen assertion expects 2
-        f.submit(result, a)
+        self.assignment, self.result = a, result
 
-    def test_a_failed_assertion_goes_to_the_fixer_with_expected_and_observed(self):
+    def test_a_confirmed_automation_defect_goes_to_the_fixer_with_expected_and_observed(self):
         import ledger
+        self.result['paths'][0]['root_cause']['confidence'] = 'confirmed'
+        self.f.submit(self.result, self.assignment)
         applied = ledger.advance(self.f.root, {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}, 'M001')['applied']
         self.assertEqual([(a['operation'], a.get('role')) for a in applied],
                          [('accept', None), ('diagnose', None), ('diagnosis-accept', None), ('assign', 'fixer')])  # no Diagnostician turn
@@ -125,10 +127,22 @@ class AssertionFailureTests(unittest.TestCase):
         self.assertEqual(step['failed_assertions'], {'P1': {'assertions': [{'assertion_id': 'A1', 'expected': 2, 'actual': 1}]}})
         self.assertIn('A1 (expected 2, observed 1)', self.f.state()['modules']['M001']['diagnosis']['root_cause']['summary'])
 
+    def test_an_observed_automation_failure_requests_diagnosis_without_assigning_a_fixer(self):
+        import ledger
+        self.result['paths'][0]['root_cause']['confidence'] = 'observed'
+        self.f.submit(self.result, self.assignment)
+        mo = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
+        self.assertEqual([row['operation'] for row in ledger.advance(self.f.root, mo, 'M001')['applied']], ['accept'])
+        step = self.f.state()['next_steps'][0]
+        self.assertEqual((step['role'], step['operation']), ('diagnostician', 'diagnose'))
+        self.assertIn('P1', step['failed_assertions'])
+
     def test_an_audit_round_keeps_its_independent_diagnosis(self):
         import ledger
         from unittest import mock
         import audit_closure
+        self.result['paths'][0]['root_cause']['confidence'] = 'confirmed'
+        self.f.submit(self.result, self.assignment)
         self.f.call('accept', {'assignment_id': 'TEST1'})
         with mock.patch.object(audit_closure, 'active', return_value=True):
             self.assertFalse(ledger.located_failures(ledger.read_events(self.f.root)[0], ledger.read_events(self.f.root)[0]['modules']['M001']))

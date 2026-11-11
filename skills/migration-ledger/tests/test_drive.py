@@ -86,7 +86,9 @@ class SessionReuseTests(unittest.TestCase):
         f.prepare()
         f.call('session', {'role': 'implementer', 'session_id': 'S-IMP'})
         f.implementation()
-        a, result = f.make_test_result(quality='red-bug'); f.submit(result, a)
+        a, result = f.make_test_result(quality='red-bug')
+        result['paths'][0]['root_cause']['confidence'] = 'confirmed'
+        f.submit(result, a)
         lines = drive.drive(f.root, MO)
         fixer = next(line for line in lines if line.get('role') == 'fixer')
         self.assertEqual((fixer['kind'], fixer['session_id'], fixer['session_affinity']), ('running', 'S-IMP', 'implementer'))
@@ -108,6 +110,7 @@ class SessionReuseTests(unittest.TestCase):
         rotation = drive.drive(f.root, MO)[0]
         self.assertEqual((rotation['kind'], rotation['role'], rotation['model_tier']), ('rotate', 'implementer', 'strong'))
         self.assertNotIn('card', rotation)
+        self.assertEqual((rotation['run_id'], rotation['module_id']), (before['run_id'], 'M001'))
         self.assertFalse(f.state()['modules']['M001']['assignments'])
         checkpoint = rotation['session_rotate']['checkpoint']
         f.call('session', {'role': checkpoint['role'], 'session_id': 'S-NEW', 'reason': 'context-rotation',
