@@ -50,6 +50,35 @@ class DriveTests(unittest.TestCase):
         self.assertEqual([line['kind'] for line in lines], ['running', 'tick'])
 
 
+class ReadyImplementerTests(unittest.TestCase):
+    def test_independent_implementer_reaches_host_before_existing_frozen_commands(self):
+        from unittest.mock import patch
+        import ledger
+        from test_iterative_spec import UpstreamPlanTests
+        from test_run_rehearsal import RunWalk
+
+        fixture = UpstreamPlanTests(); fixture.setUp(); self.addCleanup(fixture.doCleanups)
+        f = fixture.f
+        plan = fixture.t.plan('M001')
+        next(p for p in plan['paths'] if p['kind'] == 'build')['command']['argv'][-1] = 'pass # independent build unit'
+        fixture.freeze(plan)
+        fixture.t.freeze('M002')
+        f.call('assign', {'role': 'implementer', 'assignment_id': 'I1', 'instance_id': 'coder'}, module='M001')
+        walk = RunWalk(); walk.f = f; walk.t = fixture.t
+        step = next(step for step in f.state()['next_steps'] if step['module_id'] == 'M001')
+        walk.model_turn(step)
+        f.call('accept', {'assignment_id': 'I1'}, module='M001')
+        with patch.object(ledger, 'frozen_tests', wraps=ledger.frozen_tests) as frozen_tests:
+            lines = drive.drive(f.root, MO, wait=1)
+            self.assertTrue(any(line['kind'] == 'running' and line.get('role') == 'implementer'
+                                and line.get('module_id') == 'M002' for line in lines))
+            frozen_tests.assert_not_called()
+            self.assertEqual(f.state()['modules']['M001']['results'], {})
+            drive.drive(f.root, MO)
+            frozen_tests.assert_called()
+            self.assertEqual(f.state()['modules']['M001']['results']['M001-B']['quality'], 'green-passed')
+
+
 class CursorCoverageTests(unittest.TestCase):
     def setUp(self):
         import test_ledger

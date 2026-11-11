@@ -56,7 +56,7 @@ def due(s):
         done = held and all(s['modules'][mid]['phase'] == 'completed' and not s['modules'][mid].get('stale')
                             and not any(not a.get('closed') for a in s['modules'][mid]['assignments'].values()) for mid in held)
         previous = results.get(path['path_id'])
-        routed = previous and previous.get('quality') != 'green-passed' and previous.get('owner_baselines') == owner_baselines(s, path)
+        routed = previous and not previous.get('stale') and previous.get('quality') != 'green-passed' and previous.get('owner_baselines') == owner_baselines(s, path)
         if done and not routed and not current(s, path, previous, baseline):  # a red on this very code is routed, not re-run
             selected.append(path)
     return selected

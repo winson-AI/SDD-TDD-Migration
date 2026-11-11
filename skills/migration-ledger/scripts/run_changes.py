@@ -3,7 +3,7 @@ import copy
 import re
 from pathlib import Path
 
-from contracts import check_ref, digest, keyed, nonempty, read_json, require, verify_plan
+from contracts import Rejected, check_ref, digest, keyed, nonempty, read_json, require, verify_plan
 import decomposition
 import dimensions
 import project_context
@@ -92,6 +92,131 @@ def subject(s, report_ref):
         'audit': {k: v for k, v in s.items() if k.startswith('audit')}, 'report_ref': report_ref})
 
 
+
+def changed_devices(s, report):
+    """The fast path applies only to device input changes within the existing execution contract."""
+    patch = report['context_patch']
+    if (set(patch) != {'test_adapter'} or set(patch['test_adapter'] or {}) != {'device'}
+            or report.get('package_sha') or report.get('contract_patch') or report.get('root_updates')
+            or report.get('global_spec_ref')):
+        return None
+    before = (s.get('test_adapter') or {}).get('device') or {}
+    after = project_context.merge({'device': before}, patch['test_adapter']).get('device') or {}
+    # A change in device availability can add or retire the PATHs themselves.
+    platforms = set(before.get('platforms', []))
+    if not platforms or platforms != set(after.get('platforms', [])):
+        return None
+    return {platform for platform in platforms if before.get(platform) != after.get(platform)}
+
+
+def uses_changed_device(path, platforms):
+    if not platforms or path.get('kind') in ('build', 'unit', 'static'):
+        return False
+    if path.get('platform'):
+        return path['platform'] in platforms
+    # A host-run JUnit PATH has a frozen command and does not use a device adapter.
+    return not (path.get('command') and path.get('unit_report'))
+
+
+def global_reverify_paths(s, report, devices):
+    if devices is None:
+        return {path['path_id'] for path in s['global_paths']} if {'runtime', 'test_adapter'} & report['context_patch'].keys() else set()
+    return {path['path_id'] for path in s['global_paths'] if uses_changed_device(path, devices)}
+
+
+def integration_busy(s, report):
+    from integration import task
+    active = task(s)
+    return bool(active and global_reverify_paths(s, report, changed_devices(s, report)).intersection(active['path_ids']))
+
+
+
+def preview_contract_changed(s, path, device):
+    platform = path.get('platform')
+    preview = s.get('target_preview') or {}
+    ref = (path.get('visual_execution') or {}).get('environment_ref')
+    current_ref = (preview.get('environments') or {}).get(platform)
+    if not ref or not current_ref or current_ref not in (
+            ref, (preview.get('visual_environment_rebindings') or {}).get(ref['path'])):
+        return False
+    before = ((s['test_adapter'] or {}).get('device') or {}).get(platform) or {}
+    after = device.get(platform) or {}
+    return not after or any(before.get(k) != after.get(k) for k in ('app_id', 'launch', 'url'))
+
+
+def revised_preview(root, s, device):
+    before = s.get('target_preview') or {}
+    after = project_context.target_preview_files(root, device, revision=True)
+    rebindings = {}
+    for platform, old_ref in (before.get('environments') or {}).items():
+        new_ref = (after.get('environments') or {}).get(platform)
+        path = {'platform': platform, 'visual_execution': {'environment_ref': old_ref}}
+        if new_ref and not preview_contract_changed(s, path, device):
+            if new_ref != old_ref:
+                rebindings[old_ref['path']] = new_ref
+            rebindings.update({key: new_ref for key, value in (before.get('visual_environment_rebindings') or {}).items()
+                               if value == old_ref})
+    if rebindings:
+        after['visual_environment_rebindings'] = rebindings
+    return after
+
+
+def retain_verification(s, m, devices):
+    """An accepted Green row can stand on the same freeze, accepted code and unchanged execution inputs."""
+    import test_validation as tv
+    from ledger import current, dependencies_ready
+    try:
+        current(m)
+        dependencies_ready(s, {**m, 'phase': 'testing'})
+        for ref in m.get('build_artifacts', []):
+            check_ref(ref)
+    except (Rejected, OSError, ValueError, KeyError, TypeError):
+        return None
+    if tv.split(m) and not tv.build_ready(m):
+        return None
+    retained = set()
+    for path in m['plan']['paths']:
+        pid = path['path_id']
+        if uses_changed_device(path, devices) or not tv.path_green(m, pid):
+            continue
+        row = m['results'][pid]
+        try:
+            receipt = read_json(check_ref(row['execution_receipt']))
+            if (not row.get('executed') or receipt.get('producer') != 'host-executor'
+                    or any(receipt.get(key) != expected for key, expected in (
+                        ('run_id', s['run_id']), ('module_id', m['module_id']), ('path_id', pid),
+                        ('freeze_id', m['freeze_id']), ('code_baseline', m['code_baseline']), ('test_run_id', row['test_run_id'])))):
+                continue
+            for key in ('query_ref', 'result_ref', 'log_ref'):
+                check_ref(receipt[key])
+            retained.add(pid)
+        except (Rejected, OSError, ValueError, KeyError, TypeError):
+            continue
+    if {p['path_id'] for p in tv.paths(m, 'build')} - retained:
+        return None
+    return retained
+
+
+def reverify(s, m, devices, review):
+    retained = retain_verification(s, m, devices) if devices is not None else None
+    if retained is not None and retained == {path['path_id'] for path in m['plan']['paths']}:
+        return  # No accepted result in this leaf needs another attempt.
+    m.setdefault('verification_history', []).append({'review_ref': review, 'results': copy.deepcopy(m['results'])})
+    if retained is None:
+        retained = set()
+        m.update(build_baseline=None, build_artifacts=[])
+        m.pop('device_reverify', None)
+    else:
+        m['device_reverify'] = review
+    if not m.get('blocked'):
+        m['phase'] = 'testing'
+    m['stale'] = True
+    m.pop('automation_retry_ready', None)
+    m.pop('trace_dependency_baseline', None)
+    for pid, result in m['results'].items():
+        if pid not in retained:
+            result['stale'] = True
+
 def validate(s, ref):
     report = read_json(check_ref(ref))
     required = {'schema_version', 'run_id', 'reason', 'context_patch', 'root_updates', 'modules'}
@@ -122,6 +247,9 @@ def validate(s, ref):
                 require(Path(patch[key]).is_file(), 'context document missing')
         for path in patch.get('knowledge_paths') or []:
             require(Path(path).is_file(), 'knowledge document missing')
+    devices = changed_devices(s, report)
+    preview_changed = isinstance(patch.get('test_adapter'), dict) and 'device' in patch['test_adapter']
+    device = ((config.get('test_adapter') or {}).get('device') or {}) if preview_changed else {}
     current = roots(s)
     require(isinstance(report['root_updates'], list), 'root updates must be an array')
     updates = keyed(report['root_updates'], 'module_id') if report['root_updates'] else {}
@@ -143,6 +271,9 @@ def validate(s, ref):
             behavior_contract.review(candidate, candidate.get('behavior_review'))
     proposed = {mid: {**root, **updates.get(mid, {})} for mid, root in current.items()}
     paths = proposed_contract['global_paths']
+    if preview_changed:
+        require(not any(preview_contract_changed(s, path, device) for path in paths),
+                'changed visual application/URL needs revised GLOBAL PATH contract')
     def covered(registry, global_paths):
         requirements = {rid for path in global_paths for rid in path.get('requirement_ids', [path['requirement_id']] if path.get('requirement_id') else [])}
         for mid, m in registry.items():
@@ -174,6 +305,9 @@ def validate(s, ref):
         require(row['action'] in ('replan', 'revise', 'reverify', 'unchanged') and row['reason'], 'run impact action/reason required')
         for evidence in nonempty(row['evidence_refs'], 'run impact evidence'): check_ref(evidence)
         m = s['modules'][mid]
+        if preview_changed and row['action'] in ('unchanged', 'reverify'):
+            require(not any(preview_contract_changed(s, path, device) for path in (m.get('plan') or {}).get('paths', [])),
+                    'changed visual application/URL needs revised leaf SPEC')
         if retired_requirements.intersection((m.get('scope') or {}).get('requirement_ids', [])) or retired_cases.intersection(m['case_ids']):
             require(row['action'] == 'replan', 'retired contract owners must replan')
         if row['action'] != 'unchanged':
@@ -195,6 +329,12 @@ def validate(s, ref):
         else:
             if m.get('plan'): verify_plan(m['plan'])
             require(not row['resume_blocker_sha256'], 'unchanged module cannot release blocker')
+            if devices:
+                running = {pid for a in m['assignments'].values() if not a.get('closed') and a['role'] == 'test-runner'
+                           for pid in (a.get('execution_contract') or {}).get('path_ids', [])}
+                require(not any((path['path_id'] in m['results'] or path['path_id'] in running)
+                                and uses_changed_device(path, devices) for path in (m.get('plan') or {}).get('paths', [])),
+                        'device change needs review of affected leaf verification')
         if row['resume_blocker_sha256']:
             require(m.get('blocked') and row['resume_blocker_sha256'] == digest(m['blocked']), 'run blocker decision stale')
     spec_ref = report.get('global_spec_ref')
@@ -276,6 +416,9 @@ def handle(root, s, req, actor):
             'run impact review stale or missing')
     report, affected, changed_roots = validate(s, review['report_ref'])
     for mid in affected: idle(s['modules'][mid])
+    require(not integration_busy(s, report), 'wait for affected integration execution')
+    devices = changed_devices(s, report)
+    global_reverify = global_reverify_paths(s, report, devices)
     decision = s['decisions'].get(p.get('decision_id'), {})
     needs_human = human_required(s, report)
     if needs_human or decision:
@@ -322,12 +465,8 @@ def handle(root, s, req, actor):
     for mid, m in s['modules'].items():
         if mid in affected:
             if rows[mid]['action'] == 'reverify':
-                m.setdefault('verification_history', []).append({'review_ref': review['report_ref'], 'results': copy.deepcopy(m['results'])})
-                m.update(phase='testing', stale=True, build_baseline=None, build_artifacts=[])
+                reverify(s, m, devices, review['report_ref'])
                 m.pop('execution_context_ref', None)
-                m.pop('automation_retry_ready', None)
-                m.pop('trace_dependency_baseline', None)
-                for result in m['results'].values(): result['stale'] = True
             elif rows[mid]['action'] == 'revise':
                 open_change(s, m, {'request_ref': review['report_ref'], 'impact_ref': review['report_ref'], 'upstream': True})
             else:
@@ -366,11 +505,11 @@ def handle(root, s, req, actor):
         snapshot = project_context.verify_snapshot(new_ref)
         s['new_architecture'] = snapshot['source_refs']['architecture_path']
         config = snapshot['effective_config']
+        if 'test_adapter' in report['context_patch']:
+            s['target_preview'] = revised_preview(root, s, (config.get('test_adapter') or {}).get('device') or {})
         for key in ('build', 'test_adapter', 'runtime', 'target_resources'):
             if key in report['context_patch']:
                 s[key] = copy.deepcopy(config.get(key, {}))
-        if 'test_adapter' in report['context_patch']:
-            s['target_preview'] = project_context.target_preview_files(root, (s['test_adapter'] or {}).get('device'))
     if report.get('global_spec_ref'):
         s['global_spec'] = report['global_spec_ref']
     s.update(contract(s, report))
@@ -379,7 +518,7 @@ def handle(root, s, req, actor):
     old_paths = keyed(previous_contract['global_paths'], 'path_id') if previous_contract['global_paths'] else {}
     for path in s['global_paths']:
         prior = s.get('audit_results', {}).get(path['path_id'])
-        if prior and old_paths.get(path['path_id']) != path:
+        if prior and (old_paths.get(path['path_id']) != path or path['path_id'] in global_reverify):
             prior.update(stale=True, invalidated_by=review['report_ref'])
     if changed_roots or report.get('global_spec_ref') or 'architecture_path' in report['context_patch']:
         s['global_plan'] = None
@@ -428,7 +567,8 @@ def next_action(s):
         decision = next((d for d in s['decisions'].values() if not d.get('consumed') and d.get('module_id') is None
                          and d.get('subject_sha256') == review['subject_sha256']), None)
         needs_human = human_required(s, report)
-        busy = any(not a.get('closed') for mid in affected for a in s['modules'].get(mid, {}).get('assignments', {}).values())
+        busy = integration_busy(s, report) or any(not a.get('closed') for mid in affected
+            for a in s['modules'].get(mid, {}).get('assignments', {}).values())
         import audit_closure
         auditing = workflow.audit_active(s) or audit_closure.active(s)
         return {'operation': 'revise-run' if current else 'run-review', 'role': 'host' if current else 'global-orchestrator',

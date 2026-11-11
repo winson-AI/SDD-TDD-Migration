@@ -63,13 +63,29 @@ def card(root, step, instance=None):
 
 
 def tick(root, principal, workers=None):
-    """Advance everything mechanical; the steps left, as lines."""
-    for _ in range(50):  # a module's step may unblock another's: repeat until nothing moves
-        moved = False
-        for step in ledger.status(root)['next_steps']:
-            moved |= bool(ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True)['applied'])
-        moved |= bool(ledger.advance_run(root, principal, workers))  # the run's own fixed flows
-        if not moved:
+    """Make ready coding assignments visible before executing unrelated frozen commands."""
+    started = False
+    for _ in range(50):
+        steps = ledger.status(root)['next_steps']
+        actions = []
+        for step in steps:
+            if step.get('mechanical') and step.get('ready') and step['operation'] != 'await-result':
+                actions += ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True, defer_commands=True)['applied']
+        actions += ledger.advance_run(root, principal, workers, defer_commands=True)
+        started |= any(a['operation'] == 'assign' and a.get('role') == 'implementer' for a in actions)
+        if actions:
+            continue
+        if started:
+            break
+        for step in steps:
+            if step.get('mechanical') and step.get('ready') and step['operation'] == 'await-result':
+                actions = ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True)['applied']
+                if actions:
+                    break
+        else:
+            actions = ledger.advance_run(root, principal, workers)
+        started |= any(a['operation'] == 'assign' and a.get('role') == 'implementer' for a in actions)
+        if not actions:
             break
     st = ledger.status(root, 'full')  # read by this script, not by a model
     lines = []
@@ -169,9 +185,10 @@ def unseen(root, lines):
 
 
 def drive(root, principal, workers=None, wait=None):
+    before = journal_size(root) if wait else None
     lines, sequence, waiting = tick(root, principal, workers)
-    if wait and not any(line['kind'] in ('dispatch', 'rotate') for line in lines):
-        size, deadline = journal_size(root), time.monotonic() + wait
+    if wait and journal_size(root) == before and not any(line['kind'] in ('dispatch', 'rotate') for line in lines):
+        size, deadline = before, time.monotonic() + wait
         while journal_size(root) == size and time.monotonic() < deadline:  # tail the journal: its end moves when anyone submits
             time.sleep(POLL_SECONDS)
         if journal_size(root) != size:

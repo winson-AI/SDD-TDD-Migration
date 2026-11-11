@@ -321,7 +321,8 @@ def run(root, request, actor):
             elif operation in visual_operations:
                 import lean_visual_worker
                 result = lean_visual_worker.run(operation, args, root=root, out=out, module=module,
-                                                task=task, actor=actor, config=config)
+                                                task=task, actor=actor, config=config,
+                                                rebindings=(state.get('target_preview') or {}).get('visual_environment_rebindings'))
             elif operation == 'legacy-capture':
                 import lean_visual_worker
                 result = lean_visual_worker.legacy_capture(args, root=root, out=out, state=state, task=task, actor=actor, module_id=request.get('module_id'))

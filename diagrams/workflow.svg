@@ -124,7 +124,7 @@
 <path d="M610,2020 L610,2080" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="100" y="2080" width="1020" height="125" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
 <text x="610.0" y="2121.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">独立审阅收尾 → 全局报告</text>
-<text x="610.0" y="2155.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只复核遗留 / owner 代码变动的路径；波次集成已跑的不重跑</text>
+<text x="610.0" y="2155.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只复核遗留、owner 代码或执行输入变更的路径</text>
 <text x="610.0" y="2184.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全通过才 Green；仅缺自动化环境：Yellow / 未执行报告，本轮可结束</text>
 <rect x="1210" y="190" width="330" height="280" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="1375.0" y="251.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">全局读取视野</text>
@@ -152,14 +152,15 @@
 <text x="1375.0" y="1120.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">就绪即开工，按阶段补欠项</text>
 <text x="1375.0" y="1149.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">父聚合颜色不回写子模块</text>
 <rect x="1210" y="1230" width="330" height="290" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
-<text x="1375.0" y="1281.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">宿主执行层</text>
-<text x="1375.0" y="1315.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实际派发执行角色并绑定身份</text>
-<text x="1375.0" y="1344.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按步取卡，专题触发才读</text>
-<text x="1375.0" y="1373.5" font-size="17.39" fill="#4b5563" text-anchor="middle" font-weight="400">同 Run：Fixer / CR / 父 MO / GO</text>
-<text x="1375.0" y="1402.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">drive：操作带修订号</text>
-<text x="1375.0" y="1431.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">drive 安全点轮换超量会话</text>
-<text x="1375.0" y="1460.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">历史留痕，仅执行当前 SPEC</text>
-<text x="1375.0" y="1489.5" font-size="21.90" fill="#4b5563" text-anchor="middle" font-weight="400">遵守 DAG / 写锁 / 累计预算</text>
+<text x="1375.0" y="1267.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">宿主执行层</text>
+<text x="1375.0" y="1301.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实际派发执行角色并绑定身份</text>
+<text x="1375.0" y="1330.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按步取卡，专题触发才读</text>
+<text x="1375.0" y="1359.0" font-size="17.39" fill="#4b5563" text-anchor="middle" font-weight="400">同 Run：Fixer / CR / 父 MO / GO</text>
+<text x="1375.0" y="1388.0" font-size="20.82" fill="#4b5563" text-anchor="middle" font-weight="400">先回传独立 Implementer 派发</text>
+<text x="1375.0" y="1417.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">drive：操作带修订号</text>
+<text x="1375.0" y="1446.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">drive 安全点轮换超量会话</text>
+<text x="1375.0" y="1475.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">历史留痕，仅执行当前 SPEC</text>
+<text x="1375.0" y="1504.0" font-size="21.90" fill="#4b5563" text-anchor="middle" font-weight="400">遵守 DAG / 写锁 / 累计预算</text>
 <rect x="1210" y="1530" width="330" height="280" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1375.0" y="1576.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">收尾 ≠ 全部通过</text>
 <text x="1375.0" y="1610.5" font-size="21.90" fill="#4b5563" text-anchor="middle" font-weight="400">Green：真实复测与 DoD 完成</text>

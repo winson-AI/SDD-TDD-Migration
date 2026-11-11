@@ -170,6 +170,52 @@ class KeptCodeTests(unittest.TestCase):
         self.assertNotIn('trace_dependency_baseline', provider)
         self.assertEqual((consumer['phase'], consumer['stale']), ('waiting-dependency', True))
 
+    def test_provider_revision_cannot_replace_or_release_a_consumers_human_blocker(self):
+        from contracts import digest
+
+        f = test_audit_closure.ClosureTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        f.call('register', {'module_id': 'M002', 'case_ids': ['C1'], 'dependencies': ['M001'],
+                            'write_paths': [str(f.target / 'm2')]}, role='global-orchestrator', module=None)
+        f.prepare(); f.implement('M001', 'I1', shared=2); f.verify_module('M001', 'T1'); f.complete('M001')
+        provider_plan = copy.deepcopy(f.state()['modules']['M001']['plan'])
+        consumer_plan = f.plan()
+        consumer_plan['module_id'] = 'M002'
+        consumer_plan['paths'][0]['path_id'] = 'P2'
+        consumer_plan['tasks'][0]['path_ids'] = ['P2']
+        f.call('plan', {'plan_ref': f.ref('consumer-plan.json', consumer_plan)}, role='spec-designer', module='M002')
+        f.call('decision', {'decision_id': 'D2', 'decision': 'approved', 'module_id': 'M002',
+                            'subject_sha256': digest(consumer_plan), 'human_source_ref': f.ref('d2.md', 'Approve consumer plan')},
+               role='host', module=None)
+        f.call('freeze', {'decision_id': 'D2'}, module='M002')
+        f.implement('M002', 'I2')
+        f.call('suspend', {'kind': 'human', 'reason': 'Decide consumer-only behavior', 'owner': 'human',
+                           'root_cause': {'category': 'spec', 'summary': 'consumer assumption', 'confidence': 'confirmed',
+                                          'owner': 'human', 'next_action': 'ask'}}, module='M002')
+        blocker = copy.deepcopy(f.state()['modules']['M002']['blocked'])
+        ref = f.ref('provider-change.md', 'Update provider implementation guidance')
+        f.call('change', {'request_ref': ref, 'impact_ref': ref}, module='M001')
+        self.assertEqual(f.state()['modules']['M002']['blocked'], blocker)
+        self.assertEqual(f.state()['modules']['M002']['phase'], 'waiting-human')
+        f.call('decision', {'decision_id': 'CONSUMER', 'decision': 'approved', 'module_id': 'M002',
+                            'subject_sha256': digest(blocker), 'human_source_ref': f.ref('consumer.md', 'Decide consumer behavior')},
+               role='host', module=None)
+        with self.assertRaisesRegex(Rejected, 'dependencies not complete'):
+            f.call('resume', {'decision_id': 'CONSUMER'}, module='M002')
+        self.assertFalse(f.state()['decisions']['CONSUMER']['consumed'])
+
+        design = next(d for d in provider_plan['definitions'] if d['kind'] == 'design')
+        design.update(f.ref('provider-design.md', 'Updated implementation guidance'))
+        f.call('plan', {'plan_ref': f.ref('provider-plan.json', provider_plan)}, role='spec-designer', module='M001')
+        f.approve(f.state()['modules']['M001']['plan_hash'], 'D3'); f.call('freeze', {'decision_id': 'D3'}, module='M001')
+        f.implement('M001', 'I3', shared=2); f.verify_module('M001', 'T3'); f.complete('M001')
+        with self.assertRaisesRegex(Rejected, 'current blocker decision'):
+            f.call('resume', {}, module='M002')
+        self.assertEqual(f.state()['modules']['M002']['blocked'], blocker)
+        f.call('resume', {'decision_id': 'CONSUMER'}, module='M002')
+        consumer = f.state()['modules']['M002']
+        self.assertEqual((consumer['phase'], consumer['blocked']), ('testing', None))
+        self.assertNotIn('dependency_revalidation_pending', consumer)
+
     def test_code_written_under_a_plan_that_is_given_up_is_carried_to_the_next_one(self):
         f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
         f.prepare(); f.implementation()

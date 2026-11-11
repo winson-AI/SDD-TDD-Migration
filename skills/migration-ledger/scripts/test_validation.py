@@ -164,7 +164,7 @@ def due(m):
 
 def dispatch_paths(m, scope):
     selected = due(m) if scope == 'build' else scope_paths(m, scope) if scope else m['plan']['paths']
-    if scope != 'build' and m.get('task_revalidation', {}).get('mode') == 'partial':
+    if scope != 'build' and (m.get('device_reverify') or m.get('task_revalidation', {}).get('mode') == 'partial'):
         selected = [p for p in selected if not path_green(m, p['path_id'])]
     pending = set(pending_paths(selected))
     if not pending:

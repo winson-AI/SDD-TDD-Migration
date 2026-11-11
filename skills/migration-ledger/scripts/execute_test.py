@@ -126,7 +126,7 @@ def selfcheck(argv, cwd, output, root=None, module_id=None, path_id=None):
     return code
 
 
-def builtin_main(platform, root):
+def builtin_main(platform, root, device=None, web_config=None):
     """The package's own Main for a device platform the project states without an adapter: the Harmony kernel drives
     android and harmony, web_main a browser."""
     package = Path(__file__).resolve().parents[2]
@@ -134,12 +134,13 @@ def builtin_main(platform, root):
     python = package / 'migration-test/runtime/harmony/.venv/bin/python'
     python = str(python) if python.is_file() else sys.executable
     if platform == 'web':
+        config_path = check_ref(web_config) if web_config else env / 'web.json'
         return {'argv': [python, str(package / 'migration-test/scripts/web_main.py'), '--root', str(root),
-                         *(['--config', str(env / 'web.json')] if (env / 'web.json').is_file() else [])], 'timeout_seconds': 600}
+                         *(['--config', str(config_path)] if config_path.is_file() else [])], 'timeout_seconds': 600}
     files = [arg for name in ('config.json', '.env') if (env / name).is_file()
              for arg in ('--config' if name == 'config.json' else '--env-file', str(env / name))]
     return {'argv': [python, str(package / 'migration-test/runtime/harmony/sandbox.py'), 'test', '--root', str(root),
-                     '--platform', platform, *files], 'timeout_seconds': 1860}
+                     '--platform', platform, *(['--device', device] if device else []), *files], 'timeout_seconds': 1860}
 
 
 def adapter_for(s, path, root):
@@ -154,7 +155,9 @@ def adapter_for(s, path, root):
     if row is None and adapter.get('executable'):
         row = {'argv': [adapter['executable'], *adapter.get('args', [])], 'cwd': adapter.get('cwd'), 'timeout_seconds': adapter.get('timeout_seconds')}
     if row is None and platform in ((adapter.get('device') or {}).get('platforms') or []):
-        row = builtin_main(platform, root)
+        preview = ((adapter.get('device') or {}).get(platform) or {})
+        web_config = (s.get('target_preview') or {}).get('web_main_config')
+        row = builtin_main(platform, root, preview.get('serial'), web_config)
     require(row, 'no adapter runs platform ' + str(platform) + ' PATHs: state test_adapter.adapters.' + str(platform) + ' in the project context, or pass --adapter')
     return {'argv': [a.replace('{run_root}', str(root)) for a in row['argv']], 'cwd': (row.get('cwd') or s['target_root']).replace('{run_root}', str(root)),
             'timeout': row.get('timeout_seconds') or 300}
