@@ -482,6 +482,19 @@ def allocation_frozen(m):
                              for row in [m, *m.get('planning_history', [])])
 
 
+def api_fidelity_at_freeze(plan, mid):
+    ref = plan.get('dimension_analysis_ref')
+    if ref:
+        with carrying(False):
+            api_contract.plan(*dimensions.load(ref, mid), plan, settle=True)
+
+
+def resource_fidelity_at_freeze(s, m, allocation):
+    import resource_fidelity
+    with carrying(False):
+        resource_fidelity.freeze_gate(s, m, allocation)
+
+
 def freeze_gates(s, m, p):
     """The gates of a freeze, named and in the order they are judged. `freeze_guard` stops at the first that fails;
     `preview` runs them all and reports every one."""
@@ -506,13 +519,13 @@ def freeze_gates(s, m, p):
         gates.append(('independence', lambda: require(task_revalidation.prepare(m, p.get('review_ref'))['mode'] != 'partial'
                                                       or p.get('review_ref') == m.get('plan_review_ref'), 'TASK independence requires accepted MO plan review')))
     first = not allocation_frozen(m)
-    import resource_fidelity
-    gates += [('resources', lambda: resource_fidelity.freeze_gate(s, m, first)),
+    gates += [('resource-fidelity', lambda: resource_fidelity_at_freeze(s, m, first)),
+              ('api-fidelity', lambda: api_fidelity_at_freeze(m['plan'], mid)),
               ('api', lambda: api_contract.freeze(s, m, p)),
               ('data', lambda: data_contract.freeze(s, m)),
               ('target', lambda: target_profile.freeze(s, m)),
               ('media', lambda: reference_media.freeze(s, m)),
-              ('ui', lambda: ui_fidelity.freeze_gate(s, m, first)),
+              ('ui-fidelity', lambda: ui_fidelity.freeze_gate(s, m, first, settle=True)),
               ('knowledge', lambda: knowledge_gate.freeze_gate(s, m))]
     if not p.get('decision_id') and p.get('review_ref'):
         gates.append(('review', lambda: (control_policy.technical_review(m, p['review_ref']), task_revalidation.prepare(m, p['review_ref']))))
@@ -883,6 +896,7 @@ def _next_step(s, m):
     if batch_step is not None:
         return batch_step
     active = next((a for a in m['assignments'].values() if not a.get('closed')), None)
+    fidelity_gates = [row for row in m.get('review_gates', []) if row['gate'] in ('api-fidelity', 'resource-fidelity', 'ui-fidelity')]
     step = {'module_id': m['module_id'], 'phase': m['phase'], 'expected_revision': m['revision'],
             'operation': None, 'role': None, 'ready': False, 'reason': None,
             'session_id': None, 'assignment_id': active['assignment_id'] if active else None}
@@ -945,11 +959,13 @@ def _next_step(s, m):
                     reason='await-upstream-reallocation',
                     detail='Submodule requested reallocation from parent MO',
                     recovery_action='realloc-request-or-redecompose-parent')
-    elif m['phase'] in ('context', 'specifying', 'change-review'):
+    elif m['phase'] in ('context', 'specifying', 'change-review') or (m['phase'] == 'clarifying' and fidelity_gates):
         step.update(operation='plan', role='spec-designer', ready=True,
                     planning_budget_minutes=s.get('planning_budget_seconds', progress_signals.PLANNING_BUDGET) // 60,
                     input_subject_sha256=design_stage.subject(s, m),
                     upstream_case_refs=design_stage.upstream_refs(s), upstream_case_ids=m['case_ids'])
+        if fidelity_gates and m['phase'] == 'clarifying':
+            step.update(reason='fidelity-before-freeze', detail='\n'.join(row['reason'] for row in fidelity_gates))
         waiting = [row['module_id'] for row in providers(s, m) if not row['ready']]
         if waiting:
             # Planned while its providers are: against their plans where they have them. Only the dispatch of its
@@ -1293,7 +1309,7 @@ def with_card(s, m, step):
                       for pid, r in unresolved(m).items() if failed_assertions(m, pid, r)}
             if failed:
                 step['failed_assertions'] = failed  # expected against observed: the Fixer finds the cause in the code
-    enhancement = reading.reasoning_sections(m)
+    enhancement = reading.reasoning_sections(m, step)
     if enhancement: step['reasoning_activation'] = [{'ref': ref, 'section': heading} for ref, heading in enhancement]
     if s.get('project_context_ref') and (m or (step.get('role') == 'global-orchestrator' and step.get('operation') in
             ('register', 'global-plan', 'source-review', 'run-review', 'revise-run'))):
@@ -1328,13 +1344,21 @@ def with_card(s, m, step):
         load = context_load(s, session)
         step['context_load'] = load
         if load['reported_bytes'] >= reading.ROTATE_BUDGET:
+            role = step.get('session_affinity') or step.get('worker_role') or step['role']
+            checkpoint = context_handoff.checkpoint(s, m, role, session)
             step['session_rotate'] = {'reason': 'context-load' if load['input_bytes'] else 'reading-load',
                 'delivered_bytes': load['reported_bytes'], 'threshold': reading.ROTATE_BUDGET,
                 'run_id': s['run_id'], 'next_action': 'resume-independent-session-from-checkpoint',
-                'checkpoint': context_handoff.checkpoint(s, m, step.get('worker_role', step['role']), session),
-                'resume_refs': context_handoff.checkpoint(s, m, step.get('worker_role', step['role']), session)['resume_refs'],
+                'checkpoint': checkpoint, 'resume_refs': checkpoint['resume_refs'],
                 'host_receipt_required': s.get('host_handoff_required', False),
                 'read_hint': {'ref': reading.P + 'host-integration.md', 'section': '会话交接'}}
+            test = {'role': step.get('worker_role'), 'execution_contract': step.get('payload')}
+            step['session_rotate']['ready'] = (
+                step.get('ready', False) and not step.get('human_required') and step['role'] != 'host'
+                and not step.get('assignment_id') and context_handoff.workers_closed(s, m)
+                and (m is not None or not s.get('audit_assignment') or s['audit_assignment'].get('closed', False))
+                and (not step.get('mechanical') or step.get('operation') == 'assign'
+                     and not context_readiness.runs_by_itself(s, m, test)))
     return step
 
 
@@ -3135,7 +3159,7 @@ def frozen_tests(root, s, module_id, assignment_id):
     return {'assignment_id': assignment_id, 'fencing_token': a['fencing_token'], 'result_ref': file_ref(out)}
 
 
-def advance(root, principal, module_id, workers=None):
+def advance(root, principal, module_id, workers=None, *, pause_for_rotation=False):
     """Submit, as the module orchestrator, every step of one module (or parent) the cursor marks mechanical: accepting a
     settled result, dispatching a worker, freezing on a recorded review or decision, completing a module the DoD guard
     admits and summarizing a parent whose children settled; and, in its worker's name, running a test dispatch whose
@@ -3146,6 +3170,8 @@ def advance(root, principal, module_id, workers=None):
         st = status(root)
         step = next((x for x in st['next_steps'] if x.get('module_id') == module_id), None)
         require(step is not None, 'unknown module for advance: ' + str(module_id))
+        if pause_for_rotation and (step.get('session_rotate') or {}).get('ready'):
+            break
         if not (step.get('mechanical') and step.get('ready')):
             break
         sequence, actor = st['last_sequence'] + 1, principal

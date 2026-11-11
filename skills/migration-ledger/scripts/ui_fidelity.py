@@ -14,6 +14,7 @@ inexact resource can never be reported as Green. Visual parity itself is a test-
 visual automation layer aligns baseline nodes and reports three-state like any other path.
 """
 import copy
+from contextlib import nullcontext
 import re
 
 import dimensions
@@ -21,7 +22,7 @@ import resource_fidelity
 import semantics
 import ui_evidence as ue
 from pathlib import Path
-from contracts import check_ref, file_ref, intact, nonempty, owed, read_json, require
+from contracts import carrying, check_ref, file_ref, intact, nonempty, owed, read_json, require
 
 
 def _analysis(m):
@@ -98,26 +99,27 @@ def screenless(s):
     return isinstance(device, dict) and bool(device.get('unavailable'))
 
 
-def allocation_gate(s, analysis):
+def allocation_gate(s, analysis, *, settle=False):
     """What a leaf's allocation owes its UI: evidence for every screen (owed, settled before DoD; none in a screenless run)
     and an unreduced resource closure (refused at freeze)."""
     gaps = semantics.ui_fidelity_gaps(analysis)
     if not screenless(s):
         owed(not gaps, 'ui_fidelity_required: UI items lack capture-bound ui_evidence before freeze: ' + ', '.join(gaps))
     declared_refs = _declared_refs(analysis)
-    uncovered = resource_fidelity.closure_gaps(analysis, declared_refs)
-    owed(not uncovered, 'ui_fidelity_required: resource closure reduced; uncovered presentation refs: ' + ', '.join(uncovered))
-    resource_fidelity.require_exact_closure(analysis, declared_refs, s.get('legacy_root'))
+    with carrying(False) if settle else nullcontext():
+        uncovered = resource_fidelity.closure_gaps(analysis, declared_refs)
+        owed(not uncovered, 'ui_fidelity_required: resource closure reduced; uncovered presentation refs: ' + ', '.join(uncovered))
+        resource_fidelity.require_exact_closure(analysis, declared_refs, s.get('legacy_root'))
 
 
-def freeze_gate(s, m, allocation=True):
+def freeze_gate(s, m, allocation=True, *, settle=False):
     if not s.get('ui_fidelity_required'):
         return
     analysis = _analysis(m)
     if analysis is None:
         return
-    if allocation:
-        allocation_gate(s, analysis)
+    if allocation or settle:
+        allocation_gate(s, analysis, settle=settle)
     else:
         intact(lambda: allocation_gate(s, analysis))
     if any(row.get('dimension') == 'UI' and row.get('status') == 'applicable' for row in analysis.get('dimensions', [])):
@@ -131,9 +133,11 @@ def freeze_gate(s, m, allocation=True):
         for facet in ('ui_topology', 'states', 'navigation', 'platform_lifecycle'):
             owed(closure.get(facet),
                  'ui_fidelity_required: source_closure.' + facet + ' required for UI scope')
-    baseline_gate(s, m, allocation)
     import parameter_file
-    parameter_file.gate(s, m.get('plan') or {}, analysis)
+    with carrying(False) if settle else nullcontext():
+        baseline_gate(s, m, allocation or settle, settle_capture=settle)
+    with carrying(False) if settle else nullcontext():
+        parameter_file.gate(s, m.get('plan') or {}, analysis)
 
 
 def runtime_targets(analysis):
@@ -308,7 +312,7 @@ def frozen_interaction(module, path):
     return matches[0]
 
 
-def baseline_gate(s, m, allocation=True):
+def baseline_gate(s, m, allocation=True, *, settle_capture=False):
     """Legacy executability is decided before freeze and drives SPEC/coding inputs.
 
     Previewable legacy screens contribute captured baseline screenshots that guide the SPEC and the
@@ -323,16 +327,18 @@ def baseline_gate(s, m, allocation=True):
         return
     plan = m.get('plan') or {}
     visual = [path for path in plan.get('paths', []) if path.get('kind') == 'visual']
+    import project_context
+    import reference_media
+    stated = project_context.legacy_preview(s) if allocation else None
     for row in analysis.get('dimensions', []) if allocation else []:
         if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
             continue
         for item in row.get('items', []):
             evidence = ((item.get('semantic_model') or {}).get('ui_evidence')) or {}
             if not evidence:
-                continue  # the evidence itself is owed by allocation_gate; executability is judged once it is there
-            import project_context
-            import reference_media
-            stated = project_context.legacy_preview(s)
+                require(not settle_capture or not stated or stated['kind'] == 'none',
+                        'the legacy runs on ' + (stated or {}).get('kind', '') + ': UI items lack capture-bound ui_evidence: ' + item['item_id'])
+                continue  # the evidence itself may be owed where the legacy cannot run
             executable = evidence.get('legacy_executable')
             if stated is not None:  # the run states whether the legacy application runs: executability is that fact, not a judgment per item
                 runs = stated['kind'] != 'none'
@@ -344,8 +350,10 @@ def baseline_gate(s, m, allocation=True):
             mode = evidence.get('visual_mode')
             if executable and stated is not None and mode == 'source-only':  # the legacy runs: an uncaptured screen is owed its capture or its reason
                 gap = evidence.get('capture_gap') or {}
-                owed(isinstance(gap.get('reason'), str) and gap['reason'].strip() and gap.get('evidence_refs'),
+                (require if settle_capture else owed)(isinstance(gap.get('reason'), str) and gap['reason'].strip() and gap.get('evidence_refs'),
                      'the legacy runs on ' + stated['kind'] + ': capture the screen (runtime), cite the user screenshots, or declare capture_gap with its reason and evidence for ' + item['item_id'])
+                for ref in gap.get('evidence_refs') or []:
+                    check_ref(ref)
             elif executable:
                 require(mode == 'runtime' or mode == 'user-reference' and (stated is not None or reference_media.expectation(s, item)),
                         'a previewable legacy screen must carry runtime baseline evidence, or align to the user target expectation: ' + item['item_id'])
@@ -355,6 +363,8 @@ def baseline_gate(s, m, allocation=True):
                 require(mode in ('source-only', 'user-reference'),
                         'a non-previewable legacy screen falls back to source-only, or to the user reference screenshots: ' + item['item_id'])
             reference_media.evidence_gate(s, item, evidence)
+    if settle_capture and not visual and screenless(s):
+        return  # the target's missing device is disclosed by the CASE gap; a source baseline still guides coding
     covered = {node for path in visual for node in path.get('node_ids', [])}
     for target in runtime_targets(analysis):
         owed(visual, 'baseline target ' + target + ' needs a visual test path aligning its nodes')

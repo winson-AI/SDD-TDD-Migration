@@ -124,9 +124,10 @@ class BaselineTests(unittest.TestCase):
         return {'dimensions': [{'dimension': 'UI', 'status': 'applicable', 'items': [
             {'item_id': 'M001-UI', 'case_ids': ['C1'], 'semantic_model': {'kind': 'ui-component-spec', 'ui_evidence': {'coverage': 'login:base:viewport', **evidence}}}]}]}
 
-    def gate(self, s, evidence, paths=()):
+    def gate(self, s, evidence, paths=(), *, settle_capture=False):
         with mock.patch.object(ui_fidelity, '_analysis', lambda m: self.analysis(evidence)):
-            ui_fidelity.baseline_gate(s, {'module_id': 'M001', 'case_ids': ['C1'], 'plan': {'paths': list(paths)}})
+            ui_fidelity.baseline_gate(s, {'module_id': 'M001', 'case_ids': ['C1'], 'plan': {'paths': list(paths)}},
+                                      settle_capture=settle_capture)
 
     def test_executability_is_the_runs_statement_not_a_judgment_per_item(self):
         none = self.state({'kind': 'none', 'reason': 'the legacy needs a hardware token'})
@@ -138,6 +139,8 @@ class BaselineTests(unittest.TestCase):
         emulator = self.state({**EMULATOR, 'artifact': str(self.base / 'legacy.apk')})
         visual = {'path_id': 'PV', 'kind': 'visual', 'case_id': 'C1', 'coverage': 'login:base:viewport', 'node_ids': ['node:root'], 'baseline_ref': self.shot}
         self.gate(emulator, {'visual_mode': 'runtime', 'baseline_refs': [self.shot]}, [visual])
+        with mock.patch.object(pc, 'device_verification', return_value={'unavailable': 'no target device'}):
+            self.gate(emulator, {'visual_mode': 'runtime', 'baseline_refs': [self.shot]}, settle_capture=True)
         shown = self.state({**EMULATOR, 'artifact': str(self.base / 'legacy.apk')},
                            media=[{'media_id': 'MEDIA-login', 'kind': 'screenshot', 'role': 'legacy-baseline', 'screen': 'login', 'case_ids': ['C1'], 'ref': self.shot}])
         self.gate(shown, {'visual_mode': 'user-reference', 'baseline_refs': [self.shot]}, [visual])  # the user's screenshot of a running legacy is a baseline too

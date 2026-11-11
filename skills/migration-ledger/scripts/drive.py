@@ -6,7 +6,8 @@ someone submits something.
     drive.py --root <run> --host-context '<MO principal JSON>' [--worker ROLE=INSTANCE] [--wait SECONDS]
 
 Each output line is JSON: `dispatch` (start this role on this step with this card), `running` (a worker the Ledger
-dispatched: start it with its card unless already started, then wait), `host` (an operation the host submits itself with
+dispatched: start it with its card unless already started, then wait), `rotate` (restore a fresh session before dispatch),
+`host` (an operation the host submits itself with
 the payload given), `person` (a decision only a person gives, with what is asked), `signal` (a stall, an overdue plan, a
 refused request, a run ready for its retrospective: act on next_action; printed once, while it stands the tick line counts it
 in signals_held), `done` (the run reached its end: its quality, why it ended and the report; the host stops and tells the
@@ -40,7 +41,7 @@ def journal_size(root):
 
 def row(step, card=None):
     out = {k: step[k] for k in ('module_id', 'role', 'operation', 'assignment_id', 'reason', 'review_asked', 'approval_subject_sha256',
-                                'approval_kind', 'detail', 'root_ids', 'session_id', 'session_affinity') if step.get(k) is not None}
+                                'approval_kind', 'detail', 'root_ids', 'session_id', 'session_affinity', 'model_tier') if step.get(k) is not None}
     if step.get('report_ref'):
         out['report'] = step['report_ref']['path']
     if step.get('worker_role'):
@@ -66,7 +67,7 @@ def tick(root, principal, workers=None):
     for _ in range(50):  # a module's step may unblock another's: repeat until nothing moves
         moved = False
         for step in ledger.status(root)['next_steps']:
-            moved |= bool(ledger.advance(root, principal, step['module_id'], workers)['applied'])
+            moved |= bool(ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True)['applied'])
         moved |= bool(ledger.advance_run(root, principal, workers))  # the run's own fixed flows
         if not moved:
             break
@@ -75,9 +76,13 @@ def tick(root, principal, workers=None):
     changes = [x for x in (st.get('run_change_next_step'), st.get('source_change_next_step')) if x]  # same-run revisions, new sources
     for step in st['next_steps'] + [st['global_next_step']] + changes:
         operation = step.get('operation')
-        if not operation or step.get('mechanical') and step.get('ready'):
+        rotation = step.get('session_rotate') or {}
+        if rotation.get('ready'):
+            scope = st['modules'].get(step.get('module_id')) or st['module_groups'].get(step.get('module_id')) or st
+            lines.append({'kind': 'rotate', **row(step), 'expected_revision': scope['revision'], 'session_rotate': rotation})
+        elif not operation or step.get('mechanical') and step.get('ready'):
             continue
-        if step.get('human_required') or step.get('reason') in PERSON:
+        elif step.get('human_required') or step.get('reason') in PERSON:
             lines.append({'kind': 'person', **row(step)})
         elif step.get('role') == 'host' and step.get('ready'):
             lines.append({'kind': 'host', **row(step), 'payload': step.get('payload') or {}})
@@ -100,7 +105,7 @@ def tick(root, principal, workers=None):
         lines.append({'kind': 'signal', 'reason': 'retrospective-due', 'owner': 'global-orchestrator', 'severity': 'action',
                       'next_action': 'run /sdd-retrospect before the run is closed'})
     end = st['global_next_step']
-    if end.get('reason') in ENDS and not any(line['kind'] in ('dispatch', 'running', 'host', 'person') and line.get('operation') != 'retrospect' for line in lines):
+    if end.get('reason') in ENDS and not any(line['kind'] in ('dispatch', 'rotate', 'running', 'host', 'person') and line.get('operation') != 'retrospect' for line in lines):
         feedback = experience.feedback_path(st['project_context_ref']) if st.get('project_context_ref') else None  # what the runs tell about the package
         lines.append({'kind': 'done', 'quality': end.get('quality') or st['quality'], 'reason': end['reason'], 'next_action': ENDS[end['reason']],
                       'report': st['migration_report']['markdown'],
@@ -127,7 +132,7 @@ def capped(root, st, lines):
     busy = {mid for mid, m in modules.items() if any(not a.get('closed') for a in m['assignments'].values())}
     busy |= {mid for mid, (op, revision) in handed.items()
              if mid in steps and [steps[mid].get('operation'), steps[mid].get('expected_revision')] == [op, revision]}
-    order = sorted((line for line in lines if line['kind'] == 'dispatch' and line.get('module_id') in modules),
+    order = sorted((line for line in lines if line['kind'] in ('dispatch', 'rotate') and line.get('module_id') in modules),
                    key=lambda line: (line['module_id'] not in busy, depth(line['module_id']), list(modules).index(line['module_id'])))
     held, kept = set(), {}
     for line in order:
@@ -139,7 +144,7 @@ def capped(root, st, lines):
             held.add(mid)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(kept, sort_keys=True))
-    return [line for line in lines if not (line['kind'] == 'dispatch' and line.get('module_id') in held)], len(held)
+    return [line for line in lines if not (line['kind'] in ('dispatch', 'rotate') and line.get('module_id') in held)], len(held)
 
 
 def unseen(root, lines):
@@ -161,7 +166,7 @@ def unseen(root, lines):
 
 def drive(root, principal, workers=None, wait=None):
     lines, sequence, waiting = tick(root, principal, workers)
-    if wait and not any(line['kind'] == 'dispatch' for line in lines):
+    if wait and not any(line['kind'] in ('dispatch', 'rotate') for line in lines):
         size, deadline = journal_size(root), time.monotonic() + wait
         while journal_size(root) == size and time.monotonic() < deadline:  # tail the journal: its end moves when anyone submits
             time.sleep(POLL_SECONDS)
@@ -182,7 +187,7 @@ def main():
     workers = dict(item.split('=', 1) for item in args.worker)
     try:
         for line in drive(args.root, json.loads(args.host_context), workers, args.wait):
-            print(json.dumps(line, ensure_ascii=False))
+            print(json.dumps(line, ensure_ascii=False, separators=(',', ':')))
     except (ValueError, OSError, KeyError) as exc:
         print(json.dumps({'kind': 'refused', 'reason': str(exc)}, ensure_ascii=False))
         return 1

@@ -72,6 +72,10 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 **SDD 先规划后执行、边执行边调整；TDD 从上游全量用例建立冻结前覆盖，在 automation 中收集实现错误和不符合预期的证据，再调整 TASK 实现。** 未生成代码不执行目标测试，首次即 Green 如实记录，不伪造 test-first RED。
 
+**冻结前定清保真义务。** 适用的 API/URL、图片来源与图标、XML 布局参数沿四维条目绑定目标消费者、迁移策略和验收义务。优先原样复制可加载资源，复用解析后的参数值；可预览的存量先捕获基线，确实捕获不到则给出原因与证据。未结清的保真门禁回 Spec-Designer，已结清后直接进入实现。运行证据由 Test-Runner 按冻结 PATH 收集。
+
+**按步加载。** 派发只交当前阅读卡，推理专题在根因未确认或推进停滞时按需取单节。宿主消费 drive 的模型等级；已交付上下文达到阈值时，在安全交接点通过 `rotate` 从同 Run 检查点启动新会话。
+
 | 执行反馈 | 控制分支 | 后续动作 |
 | --- | --- | --- |
 | 实现违反当前 SPEC | `fixer` | MO 在累计预算内派发 Fixer；最小补丁、自验证、MO 接受后正式复测 |
@@ -105,7 +109,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照；三条只有人能给的声明（存量怎样跑、目标在哪些设备上怎样预览、资源怎样进目标）问到为止，目标预览（可带目标 app_id / launch）由 init 写成运行环境文件并预填 visual PATH，`harmony_reference` 让 init 备好 Harmony sandbox；知识文档可查，缺的知识登 knowledge-need 交人补充 | [项目上下文](skills/migration-protocol/references/project-context.md) |
 | 目标画像 | GO 逐功能记目标状态（absent/shell-only/partial/existing）；脚手架只在缺外壳处，持有代码的叶子欠复用说明 | [父子拆分](skills/migration-protocol/references/module-decomposition.md) |
 | 用户参考媒体 | 存量截图/录屏与目标预期随项目上下文固化、下发到持有叶子：截图是 user-reference 视觉基线，录屏是交互预期，目标预期取代存量基线；规划步骤列尚未引用的媒体，未引用即欠项；截图可作断言参考图，录屏可标时间段；诊断/修复并列预期与实际媒体 |
-| 存量预览与捕获 | 项目声明存量怎样跑（Android 设备 / 模拟器 / 虚拟机、鸿蒙设备、浏览器 / 不能跑；没有真机时由我们启动声明的模拟器）；legacy-capture 在包内装机、走冻结动作把界面写成参考记录，走不成确定性动作的界面由声明的 navigator 走到后再按选择器捕获；浏览器按同一滚动契约捕获，web / 鸿蒙存量的 UI 树从运行时索引派生；规划步骤带 capture_due，未捕获的界面是首版携带的欠项；Android 目标装 APK、web 目标以页面声明的构建哈希进入同一视觉对齐；测试结果带截图 / 录屏证据 | [项目上下文](skills/migration-protocol/references/project-context.md#存量预览)、[视觉执行](skills/migration-protocol/references/visual-execution.md) | [项目上下文](skills/migration-protocol/references/project-context.md#用户参考媒体)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
+| 存量预览与捕获 | 项目声明存量怎样跑（Android 设备 / 模拟器 / 虚拟机、鸿蒙设备、浏览器 / 不能跑；没有真机时由我们启动声明的模拟器）；legacy-capture 在包内装机、走冻结动作把界面写成参考记录，走不成确定性动作的界面由声明的 navigator 走到后再按选择器捕获；浏览器按同一滚动契约捕获，web / 鸿蒙存量的 UI 树从运行时索引派生；规划步骤带 capture_due，无法捕获时在冻结前记录原因和证据；Android 目标装 APK、web 目标以页面声明的构建哈希进入同一视觉对齐；测试结果带截图 / 录屏证据 | [项目上下文](skills/migration-protocol/references/project-context.md#存量预览)、[视觉执行](skills/migration-protocol/references/visual-execution.md) | [项目上下文](skills/migration-protocol/references/project-context.md#用户参考媒体)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 上下文就绪 | 规划与审计者随操作登记预检，coding 与无待复测的审计由 Ledger 机械预检；worker 的 building/testing 从 Ledger 骨架起笔，ready 才开工；worker 只读执行所需 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
 | 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow；PATH 可声明 record_video，录屏随结果入 Ledger；Android/Harmony 走内置 Harmony Main，web 走内置 web Main（冻结的确定性步骤与 DOM 谓词或用户截图，plan 时按形状校验，真实浏览器执行、每步截图，表单动作与谓词齐全，谓词有界重读、多次尝试识别 flaky），适配器按 PATH 平台自动选取，项目适配器只需写断言 | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 资源与参数搬运 | 文件资源按清单原样复制、按 accessor 引用；布局、图层与代码里的取值记成参数表，生成到目标后按键取用；Spec 只写例外，验收比对字节与引用；登记 UI/Resource 分配前对约定定论（声明，或写明目标不接收的原因） | [搬运](skills/migration-protocol/references/resource-transfer.md#总则) |
@@ -141,6 +145,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-11-11 | 宿主循环交付模型等级并在安全交接点输出会话轮换，推理专题按需取单节。API/URL 断言、图像资源策略、布局参数和可预览存量基线或证据缺口在首冻前结清；有缺口时返回叶子规划。 |
 | 2026-10-29 | 静态审查随模型执行的自动化同派：run 没有声明驱动某叶子自动化的命令或适配器时，Ledger 把静态闭合与这些功能 PATH 放进同一次 automation 派发，静态在前、非 Green 即停，一次预检、一次提交；此前静态审查单独派发、自动化再派一次，同一份代码两次模型轮次，每次修复后又是两次。声明了适配器的 run 静态审查仍单独派发；漏掉静态 PATH 的 automation 派发被拒。连续演练 11 → 9 次模型轮次（Test-Runner 4 → 2），界面叶子演练 13 → 11，首版失败演练 Test-Runner 6 → 3，各修复演练 Test-Runner 2 → 1。静态闭合等调用方代码（awaiting-assembly）时，本模块的自动化先跑，调用方到位后静态闭合单独派发；此前自动化跟着静态一起等，上游要等依赖方写完代码才知道自身行为是否成立。另更正上一行的轮次：界面叶子演练当时是 15 → 13，不是 16 → 14 |
 | 2026-10-28 | 首版欠项在静态审查前补齐：构建与单测已过、只剩静态审查而计划仍欠 Ledger 记的欠项时，Ledger 先开修订，静态审查只在修订后的计划上做一次；此前首版先做一次静态审查、跑完自动化再被重开，修订后又审一次。修订只补文本，代码与 Green 保留。界面叶子演练 16 → 14 次模型轮次（Test-Runner 6 → 4），没有欠项的 run 不变。经验效果按下发时点算：下发记录按模块记首次下发时间，只有其后、在已下发模块中的同一规则拒绝才算复发，此前下发前的拒绝或从未拿到该经验的叶子的拒绝也会把它排到后面 |
 | 2026-10-28 | 经验按规则计：拒绝消息遮去 ID、路径、文件名、hash 与数字后作为规则，次数、跨 run 合并与是否复发都按规则算；此前约九分之一的拒绝消息带具体值，同一规则换个用例或文件就从头计数、攒不成经验，下一 run 也认不出它复发，效果排序会误把它当成有效。同一 run 内，其他叶子在同一操作 × 角色被拒的规则即时出现在后续卡片上（修复经验之后、跨 run 经验之前）。包反馈列出改进候选：两个 run 以上或一次满三次被拒的规则附所指小节、每个 run 都出现的缺口族、复发两个 run 的经验；done 行给出报告路径，仍只报告、不改规则 |

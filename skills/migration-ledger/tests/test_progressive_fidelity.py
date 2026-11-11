@@ -79,7 +79,8 @@ class ProgressiveReadingTests(unittest.TestCase):
         ref = self.ref({'api_inventory_ref': {'path': 'bound'}, 'dimensions': [
             {'dimension': 'UI', 'status': 'applicable', 'parameter_sheet_ref': {'path': 'bound'}, 'items': [{'source_resource': 'image'}]},
             {'dimension': 'Resource', 'status': 'applicable', 'copy_plan_ref': {'path': 'bound'}, 'items': []}]})
-        m = {'dimension_analysis_ref': ref, 'plan': {'dimension_analysis_ref': ref, 'telemetry': {'status': 'applicable'}}}
+        m = {'dimension_analysis_ref': ref, 'no_progress_rounds': 1,
+             'plan': {'dimension_analysis_ref': ref, 'telemetry': {'status': 'applicable'}}}
         s = {'reuse_required': True, 'dependency_resolution_required': True,
              'test_adapter': {'device': {'platforms': ['android', 'web'], 'android': {'serial': 'x'}, 'web': {'url': 'http://h/'}}}}
         worst = 0
@@ -230,7 +231,7 @@ class ApiContractTests(unittest.TestCase):
         result['dimension_evidence'][0]['consumer_refs'] = []
         with self.assertRaisesRegex(Rejected, 'production consumer'): api_contract.implementation(analysis, self.items, result)
 
-    def test_actual_ledger_plan_owes_api_assertion_coverage_until_a_plan_covers_it(self):
+    def test_actual_ledger_requires_api_assertion_coverage_before_freeze(self):
         d, f = self.d, self.f; original = d.analysis
         def analysis(*args, **kwargs):
             data = original(*args, **kwargs); mid = data['module_id']
@@ -245,6 +246,12 @@ class ApiContractTests(unittest.TestCase):
         f.call('plan', {'plan_ref': f.ref('missing-api-plan.json', plan)}, role='spec-designer')  # accepted: the coverage is owed
         gap, = ledger.status(f.root, 'step', 'M001')['open_issues']
         self.assertEqual((gap['kind'], gap['summary']), ('gap', 'API behavior assertion coverage incomplete: QUERY'))
+        step = f.state()['next_steps'][0]
+        self.assertEqual((step['operation'], step['reason']), ('plan', 'fidelity-before-freeze'))
+        self.assertIn(gap['summary'], step['detail'])
+        with self.assertRaisesRegex(Rejected, 'API behavior assertion coverage incomplete: QUERY'):
+            f.call('freeze', {})
+        self.assertFalse(f.state()['modules']['M001']['assignments'])
         plan['dimension_trace'][0]['assertions'][0]['api_obligations'] = sorted(api_contract.obligations('QUERY', self.source))
         f.call('plan', {'plan_ref': f.ref('complete-api-plan.json', plan)}, role='spec-designer')
         self.assertEqual(ledger.status(f.root, 'step', 'M001')['open_issues'], [])  # the plan that covers it settles the gap
