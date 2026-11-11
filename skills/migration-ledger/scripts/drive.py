@@ -66,7 +66,8 @@ def tick(root, principal, workers=None):
     """Make ready coding assignments visible before executing unrelated frozen commands."""
     started = False
     for _ in range(50):
-        steps = ledger.status(root)['next_steps']
+        st = ledger.status(root)
+        steps = st['next_steps']
         actions = []
         for step in steps:
             if step.get('mechanical') and step.get('ready') and step['operation'] != 'await-result':
@@ -75,7 +76,7 @@ def tick(root, principal, workers=None):
         started |= any(a['operation'] == 'assign' and a.get('role') == 'implementer' for a in actions)
         if actions:
             continue
-        if started:
+        if started or ready_plan_to_deliver(root, st):
             break
         for step in steps:
             if step.get('mechanical') and step.get('ready') and step['operation'] == 'await-result':
@@ -137,10 +138,35 @@ def tick(root, principal, workers=None):
     return lines, st['last_sequence'], waiting
 
 
+def ready_plan_to_deliver(root, st):
+    """Let a newly dispatchable plan start before a long command, once per step revision."""
+    candidates = []
+    for step in st['next_steps']:
+        rotation = (step.get('session_rotate') or {}).get('ready')
+        if rotation or (step.get('operation') and step['ready'] and not step.get('mechanical')
+                        and not step.get('human_required') and step.get('role') != 'host'
+                        and step.get('reason') not in PERSON):
+            candidates.append({'kind': 'rotate' if rotation else 'dispatch',
+                               'operation': step['operation'], 'module_id': step['module_id']})
+    if not any(line['kind'] == 'dispatch' and line['operation'] == 'plan' for line in candidates):
+        return False
+    _, handed, kept, _ = dispatch_budget(root, st, candidates)
+    return any(line['kind'] == 'dispatch' and line['operation'] == 'plan'
+               and (mid := line['module_id']) in kept and kept[mid] != handed.get(mid)
+               for line in candidates)
+
+
 def capped(root, st, lines):
     """The leaves at work at once stay within the run's parallel budget: a leaf with a worker running, or with a model
     step handed out that has not moved since, holds a slot; the next leaves get their line when one frees, providers
     first. What was handed out is kept under reports/, as the printed signals are."""
+    path, _, kept, held = dispatch_budget(root, st, lines)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(kept, sort_keys=True))
+    return [line for line in lines if not (line['kind'] in ('dispatch', 'rotate') and line.get('module_id') in held)], len(held)
+
+
+def dispatch_budget(root, st, lines):
     path = Path(root) / 'reports/drive-dispatched.json'
     try:
         handed = json.loads(path.read_text())
@@ -162,9 +188,7 @@ def capped(root, st, lines):
             kept[mid] = [line['operation'], steps[mid].get('expected_revision')]
         else:
             held.add(mid)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(kept, sort_keys=True))
-    return [line for line in lines if not (line['kind'] in ('dispatch', 'rotate') and line.get('module_id') in held)], len(held)
+    return path, handed, kept, held
 
 
 def unseen(root, lines):

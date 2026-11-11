@@ -79,6 +79,77 @@ class ReadyImplementerTests(unittest.TestCase):
             self.assertEqual(f.state()['modules']['M001']['results']['M001-B']['quality'], 'green-passed')
 
 
+class MechanicalHandoffTests(unittest.TestCase):
+    def setUp(self):
+        import ledger
+        from test_iterative_spec import UpstreamPlanTests
+        from test_run_rehearsal import RunWalk
+
+        self.fixture = fixture = UpstreamPlanTests()
+        fixture.setUp(); self.addCleanup(fixture.doCleanups)
+        self.f = f = fixture.f
+        fixture.freeze(fixture.t.plan('M001'))
+        f.call('assign', {'role': 'implementer', 'assignment_id': 'I1', 'instance_id': 'coder'}, module='M001')
+        walk = RunWalk(); walk.f = f; walk.t = fixture.t
+        walk.model_turn(next(step for step in f.state()['next_steps'] if step['module_id'] == 'M001'))
+        f.call('accept', {'assignment_id': 'I1'}, module='M001')
+        ledger.advance(f.root, MO, 'M001', defer_commands=True)
+        self.assignment = next(a for a in f.state()['modules']['M001']['assignments'].values() if not a['closed'])
+
+    def test_ready_plan_is_delivered_once_before_the_pending_build(self):
+        from unittest.mock import patch
+        import ledger
+
+        with patch.object(ledger, 'frozen_tests', wraps=ledger.frozen_tests) as run:
+            lines = drive.drive(self.f.root, MO)
+            self.assertTrue(any(row['kind'] == 'dispatch' and row['operation'] == 'plan'
+                                and row.get('module_id') == 'M002' for row in lines))
+            run.assert_not_called()
+            drive.drive(self.f.root, MO)
+            run.assert_called_once()
+        self.assertEqual(self.f.state()['modules']['M001']['results']['M001-B']['quality'], 'green-passed')
+
+    def test_finished_build_prefix_is_resumed_without_repeating_a_command(self):
+        from unittest.mock import patch
+        import ledger
+        import execute_test
+        from contracts import check_ref, read_json
+
+        f = self.f; aid = self.assignment['assignment_id']
+        output = f.root / 'runs/build' / aid / 'M001-B'
+        build_ref = execute_test.execute(f.root, 'M001', aid, 'M001-B', output=output)
+        initial = read_json(check_ref(build_ref))['test_run_id']
+        state, _ = ledger.read_events(f.root)
+        with patch.object(execute_test.subprocess, 'Popen', wraps=execute_test.subprocess.Popen) as run:
+            ledger.frozen_tests(f.root, state, 'M001', aid)  # unit runs, then the host stops before submit
+            self.assertEqual(run.call_count, 1)
+            run.reset_mock()
+            ledger.advance(f.root, MO, 'M001')
+            run.assert_not_called()
+        rows = f.state()['modules']['M001']['results']
+        self.assertEqual((rows['M001-B']['test_run_id'], rows['M001-B']['execution_receipt']), (initial, build_ref))
+        self.assertEqual(rows['M001-U']['quality'], 'green-passed')
+
+    def test_wrong_fence_and_incomplete_output_are_never_replayed(self):
+        import ledger
+        import execute_test
+        from contracts import Rejected, check_ref, read_json
+
+        f = self.f; aid = self.assignment['assignment_id']
+        output = f.root / 'runs/build' / aid / 'M001-B'
+        output.mkdir(parents=True)
+        state, _ = ledger.read_events(f.root)
+        with self.assertRaisesRegex(Rejected, 'incomplete execution output'):
+            ledger.frozen_tests(f.root, state, 'M001', aid)
+        output.rmdir()
+        ref = execute_test.execute(f.root, 'M001', aid, 'M001-B', output=output)
+        receipt = read_json(check_ref(ref)); receipt['fencing_token'] -= 1
+        ledger.atomic(Path(ref['path']), receipt)
+        with self.assertRaisesRegex(Rejected, 'fencing token'):
+            ledger.frozen_tests(f.root, state, 'M001', aid)
+        self.assertFalse(f.state()['modules']['M001']['results'])
+
+
 class CursorCoverageTests(unittest.TestCase):
     def setUp(self):
         import test_ledger

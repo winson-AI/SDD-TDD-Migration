@@ -149,7 +149,24 @@ class UpstreamPlanTests(unittest.TestCase):
         self.assertEqual(old['results']['M001-P']['quality'], 'green-passed')
         step = next(row for row in state['next_steps'] if row['module_id'] == 'M001')
         self.assertEqual((step['operation'], step['reason']), ('change', 'owed-gaps'))
+        # A consumer that needs only accepted provider code can keep working while the plan adds the fixture.
+        trial, events = ledger.read_events(f.root)
+        consumer = trial['modules']['M002']
+        consumer.update(dependencies=['M001'], code_baseline='accepted-consumer-code', phase='implementing')
+        original = copy.deepcopy(consumer)
+        request = ledger.closure_record(f.root, trial, 'M001', 'owed-gaps', trial['revision'] + 100)
+        ledger.mutate(trial, {'operation': 'change', 'module_id': 'M001',
+                              'payload': {'request_ref': request, 'impact_ref': request}},
+                      {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}, events, f.root)
+        self.assertEqual(consumer, original)
+        from test_validation import available
+        view = ledger.dependency_provider(trial['modules']['M001'])
+        self.assertTrue(ledger.provider_written(view))
+        self.assertFalse(available(view))
+        ledger.dependency_evidence_current(view)
+
         ledger.advance(f.root, {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}, 'M001')
+        self.assertEqual(f.state()['modules']['M001']['asset_dependency_baseline'], old['code_baseline'])
         p = plan_with_two_paths()
         stage = f.root / 'staging/spec-designer/fixture'
         design = next(d for d in p['definitions'] if d['kind'] == 'test-design')
@@ -176,6 +193,7 @@ class UpstreamPlanTests(unittest.TestCase):
         f.call('freeze', step['payload'])
         state = f.state(); m = state['modules']['M001']
         self.assertEqual((m['code_baseline'], m['accepted_task_ids']), (old['code_baseline'], ['T1']))
+        self.assertEqual(m['asset_dependency_baseline'], old['code_baseline'])
         step = next(row for row in state['next_steps'] if row['module_id'] == 'M001')
         self.assertEqual((step['worker_role'], step['payload']['path_ids']), ('test-runner', ['M001-P2']))
         for pid, previous in old['results'].items():

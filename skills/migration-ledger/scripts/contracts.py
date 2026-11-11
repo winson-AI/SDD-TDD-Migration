@@ -526,6 +526,8 @@ def validate_result(result, module, assignment, run_root=None):
                                 ('code_baseline', module['code_baseline']), ('freeze_id', module['freeze_id']),
                                 ('assignment_id', assignment['assignment_id']), ('actor_instance_id', assignment['instance_id'])):
             require(receipt.get(field) == expected, f'execution receipt {field} mismatch')
+        require(receipt.get('fencing_token', assignment.get('fencing_token')) == assignment.get('fencing_token'),
+                'execution receipt fencing token mismatch')
         require(receipt.get('producer') == 'host-executor' and receipt.get('argv') and
                 receipt.get('started_at') and receipt.get('finished_at'), 'invalid host execution receipt')
         import prepared_tests
