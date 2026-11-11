@@ -112,7 +112,7 @@ def overview():
     for x,title,subtitle in [(100,'子 MO · A1','子 scope A1'),(365,'子 MO · A2','子 scope A2'),(630,'子 MO · B1','子 scope B1'),(895,'子 MO · B…','其他子 scope')]:
         cx=x+115
         d.arrow([(cx,1220),(cx,1240)])
-        d.box(x,1240,230,165,title,['TASK / 四维 → SPEC','MO 审核冻结','实现→测试→反馈调整','DoD / 明确挂起'],controller=True)
+        d.box(x,1240,230,165,title,['TASK / 四维 → SPEC','MO 审核冻结','实现与分阶段验证','DoD / 明确挂起'],controller=True)
     for centers,summaryx in [((215,480),100),((745,1010),640)]:
         for cx in centers: d.arrow([(cx,1405),(cx,1480)],end=False)
         d.arrow([(centers[0],1480),(centers[1],1480)],end=False)
@@ -138,7 +138,7 @@ def overview():
     d.box(1210,540,330,270,'范围逐层细化',[
         'GO → 根模块 scope', '父 MO → 子模块 scope', '子 MO → tasks + 冻结测试源', '依赖方并行规划，代码等提供方首版', '起步门禁即冻结；design 按需', '真实未决 / 语义授权变化交人工'], 'orange')
     d.box(1210,880,330,310,'Ledger · 唯一总线',[
-        '分配包 / 事件 / 状态 / 证据', 'planning_context：全局视野', 'wave-complete：派波次集成', '预检：Ledger 代写或骨架起笔', '已有事实代填；被拒列全问题', '就绪才开工，阻塞退回派发前', '父聚合颜色不回写子模块'], 'green')
+        '分配包 / 事件 / 状态 / 证据', 'planning_context：全局视野', 'wave-complete：派波次集成', '预检：Ledger 代写或骨架起笔', '已有事实代填；被拒列全问题', '就绪即开工，按阶段补欠项', '父聚合颜色不回写子模块'], 'green')
     d.box(1210,1230,330,290,'宿主执行层',[
         '实际派发执行角色并绑定身份', '按步取卡，专题触发才读', '同 Run：Fixer / CR / 父 MO / GO', 'drive：操作带修订号', 'drive 安全点轮换超量会话', '历史留痕，仅执行当前 SPEC', '遵守 DAG / 写锁 / 累计预算'], 'gray')
     d.box(1210,1530,330,280,'收尾 ≠ 全部通过',[
@@ -186,7 +186,7 @@ def module_execution():
     d.arrow([(645,1310),(500,1310)],'green');d.label(570,1290,'Green','green')
     d.box(70,1220,430,180,'MO · DoD / 模块完成',[
         '全部必需路径有效 Green',
-        'TASK 追溯 / checklist 完整',
+        '补齐四维 ID 引用，核对 TASK / checklist',
         '已知债务登 debt issue，审计预列',
         '守卫通过即机械完成，不提前 Auditor'], 'green',True)
     d.arrow([(70,1310),(50,1310),(50,2180),(300,2180),(300,2240)],'green')
@@ -207,15 +207,17 @@ def module_execution():
         'MO 接受后重新正式测试'], 'purple')
     d.arrow('M70,1570 L60,1570 Q50,1555 40,1570 L35,1570 L35,1090 L550,1090','purple')
     d.label(285,1070,'新 build / unit / static + 正式复测','purple',18)
-    d.box(550,1480,500,180,'规划缺口 → CR',[
+    d.box(550,1480,500,205,'规划缺口 → CR',[
         'scope 内功能 / 契约 / fidelity 遗漏、测试源缺陷',
         '诊断确认即开 CR；只新增 TASK / PATH 由 Ledger 审',
-        'Implementer 更新已经 coding 的代码',
+        'planning-reopen 后新计划对比上一份',
+        '通过现有门禁重冻，更新受影响 TASK 代码',
         '改已冻结内容 MO 审；语义 / 授权变化交 Human'], 'purple')
     # Jump over the diagnosis input: crossing is not a shared control junction.
     d.arrow('M1050,1570 L1080,1570 L1080,1440 Q1095,1430 1080,1420 L1080,1320 Q1095,1310 1080,1300 L1080,675 L1050,675','purple')
-    d.box(1110,1480,410,180,'范围不足 → 父 MO / GO',[
+    d.box(1110,1480,410,205,'范围不足 → 父 MO / GO',[
         'realloc-request 上溯负责上游',
+        '待审拒绝重复请求，保留原恢复阶段',
         '只改提出叶子且不挪用例：Ledger 接受重切',
         '重新冻结，更新代码并正式复测',
         '无关 MO 保留当前有效状态'], 'purple')
@@ -270,6 +272,12 @@ def module_execution():
         'automation 逐路径收集错误证据',
         'Fixer 自测不能代替正式验证',
         '红→绿由作者自查留证，按任务计数'], 'gray')
+    d.box(1110,810,410,275,'欠项按所需阶段补齐',[
+        '起步门禁通过即编码、构建、可执行单测',
+        '实质性欠项：静态审查前',
+        '测试资产：对应 PATH 批次派发前',
+        '仅缺 OpenSpec 四维 ID 引用：DoD 前',
+        '到期时可在同一 CR 合并处理'], 'orange')
     d.legend(2420)
     d.save()
 

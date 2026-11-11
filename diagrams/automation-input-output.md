@@ -4,9 +4,9 @@
 
 ## 1. 自动化在整个迁移流程中的位置
 
-**GO/父 MO 分配 scope/全量 CASE → 子 MO 拆 TASK → Spec-Designer 形成 SPEC/PATH 并由 MO 冻结 → Implementer/Coding 接受 → build/unit/static Green → automation 派发与预检 → 逐 PATH 执行 → visual（适用时）→ 反馈分流 / DoD → 全量收尾后统一 Auditor。**
+**GO/父 MO 分配 scope/全量 CASE → 子 MO 拆 TASK → Spec-Designer 形成 SPEC/PATH 并由 MO 冻结 → Implementer/Coding 接受 → build/unit → 核对测试资产 → automation 派发与预检（模型执行时可与 static 同派，static 在前） → 逐 PATH 执行 → visual（适用时）→ 反馈分流 / DoD → 全量收尾后统一 Auditor。**
 
-- 预期路径来自上游用例和 SPEC；Test-Runner 独立 design 按需协助，不新增必经规划轮次。自动化执行必须晚于代码接受和当前代码的 build/unit/static 通过。
+- 预期路径来自上游用例和 SPEC，Test-Runner 的独立 design 按需协助。正式自动化在代码接受且当前 build/unit 通过后执行。通常先完成 static，静态闭合等待调用方代码时，可先执行当前模块的自动化。
 - `Main` 是项目实际验证入口，不是固定文件名。`execute_test.py` 是宿主包装器，内置移动端 adapter 支持 Android/Harmony 的 test 模式（不含 iOS）；其他执行入口需真实项目 adapter。
 - Test-Runner 执行和产出证据；模块 CASE 由 MO 唯一验收，审计 CASE 由 Auditor 唯一验收。实现错误交 Fixer；规划缺口走 CR 更新 SPEC，再由 Implementer 更新已有代码；范围不足上溯父 MO/GO。测试执行器和 Auditor 不修改源码/验收标准。
 - **自动化环境不可用可以结束本轮调度，但仍是 Yellow/未验证。** 它不让其他独立 MO 失败，也不取消可执行下游。
@@ -121,7 +121,7 @@ Harmony 配置的独立输入见 [harmony-config.json](../template/harmony-confi
 
 ### 3.1 外层逐 PATH 执行
 
-1. MO 经 Ledger 派发 automation assignment；Test-Runner 接到派发后提交 `stage=testing` 上下文报告，检查 frozen-spec、test-paths、accepted-code、provider-binding、test-environment、permissions-tools。报告从派发步骤 `report_skeleton` 写出的骨架起笔：Ledger 已核对代码与路径，Test-Runner 填提供方、环境与权限；留标记即拒。
+1. Ledger 在对应批次派发前核对 PATH 测试资产，缺资产时先在同一 Run 修订 SPEC。MO 经 Ledger 派发 automation assignment，Test-Runner 接到派发后提交 `stage=testing` 上下文报告，检查 frozen-spec、test-paths、accepted-code、provider-binding、test-environment、permissions-tools。报告从派发步骤 `report_skeleton` 写出的骨架起笔。Ledger 已核对代码与路径，Test-Runner 填提供方、环境与权限，留标记即拒。
 2. ready 报告绑定后，宿主才调用 `execute_test.py`；blocked 报告退回派发或走适用缺测分支。脚本再次核对阶段、scope、代码、命令与环境引用。
 3. 创建新的执行目录，写 `query.json`；设备路径调用 `argv + [--query-file, query, --result-file, result]`（argv 可以是冻结脚本），进程内功能路径执行冻结命令并按 JUnit 逐断言归因。build 派发中冻结同一命令的 unit PATH 可 `--path-id a,b` 一次执行：一个进程、一份日志，每个 PATH 自己的 `query.<pid>.json / result.<pid>.json / receipt.<pid>.json` 与 JUnit 归因。
 4. Main 执行实际测试；宿主收集 stdout/stderr、时间、退出码。每条 PATH 独立子进程；超时杀掉整个进程组。

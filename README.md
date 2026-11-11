@@ -19,7 +19,7 @@
 
 ## 流程图
 
-主线：GO/父 MO 划分 scope/全量 CASE → 子 MO 拆 TASK → SPEC/路径审核冻结 → Implementer → build/unit/static → automation → 反馈分流与复测 → 统一 Auditor。SDD 先规划后执行、边执行边调整，完整可执行即开工；独立 design 按需。实现错误交 Fixer，规划/功能/依赖契约缺口走 CR 更新 SPEC 和已有代码，超 scope 上溯父 MO/GO。同 Run 保留历史和预算；有 TASK 独立性证明才保留未影响验收与成功路径，否则全模块重验。build/unit/static 始终验证新代码。见[变更控制](skills/migration-protocol/references/openspec.md#变更控制)。
+GO/父 MO 划分 scope 和全量 CASE → 子 MO 拆 TASK → SPEC 与路径审核冻结 → Implementer → build/unit/static → automation → 反馈分流与复测 → 统一 Auditor。叶子满足起步门禁即可开工，欠项在需要它的阶段前补齐。实现错误交 Fixer，范围内的规划缺口在同一 Run 内用 CR 修订，分配范围不足才上溯父 MO/GO。见 [变更控制](skills/migration-protocol/references/openspec.md#变更控制)。
 
 按三层编排阅读 [完整图集](diagrams/README.md)：[总览](diagrams/workflow.svg) → [子 MO 执行与修复](diagrams/module-execution.svg) → [Auditor 跨模块处理](diagrams/auditor-closure.svg)，另见贯穿各阶段的 [二方库语义与复用](diagrams/reuse-dependencies.svg)。SVG 入库，PNG 由源文件在本地再生成。自动化详见 [外层执行闭环](diagrams/automation-flow.svg) 与 [Android/Harmony 单 PATH 内核](diagrams/automation-engine.svg)。
 
@@ -63,7 +63,7 @@ GO/父 MO 负责模块与子模块的 scope 切片，并在冻结前分配上游
 ```text
 GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻结
   → Implementer（Ledger 代写预检，步骤先列提交必备证据）→ MO 接受代码
-  → Test-Runner：build → unit（同命令一次执行）→ static（同一派发；预检与静态审查从骨架起笔）
+  → Test-Runner：build → unit（同命令一次执行）→ static（可与模型执行的 automation 同派）
   → automation：逐 PATH / ASSERT → visual（适用时）
   ├─ 全部必需路径有效 Green → MO 验收 DoD → 模块收尾
   └─ 非 Green → 现有诊断 / MO 归因分流 → 更新后正式复测
@@ -74,7 +74,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 **冻结前定清行为断言和保真义务。** 每个已纳入 SPEC 的 Scenario 需要行为 PATH 上的预期断言。 适用的 API/URL、图片来源与图标、XML 布局参数沿四维条目绑定目标消费者、迁移策略和验收义务。优先原样复制可加载资源，复用解析后的参数值；可预览的存量先捕获基线，确实捕获不到则给出原因与证据。未结清的保真门禁回 Spec-Designer，已结清后直接进入实现。运行证据由 Test-Runner 按冻结 PATH 收集。
 
-**按欠项影响的阶段安排修订。** 已就绪叶子先编码和构建。测试资产缺口在相关 PATH 派发前处理，影响静态闭合的欠项先于审查补齐，OpenSpec 文档中缺四维条目 ID 的问题留到 DoD。重开规划后继续对照上一份计划提交增量，待处理的 `realloc-request` 保留首次请求和恢复阶段。
+**按欠项影响的阶段安排修订。** 已就绪的叶子先编码、构建和跑可执行的单测。某批测试 PATH 缺准备资产时，Ledger 在该批派发前要求修订；其他实质性欠项在静态审查前补齐。仅缺 OpenSpec `spec/design/tasks` 的四维条目 ID 引用时，可以先跑首轮自动化，最迟在 DoD 前补齐。如果已有欠项到期，同一 CR 可一起处理其余欠项。
 
 **按步加载。** 派发只交当前阅读卡，推理专题在根因未确认或推进停滞时按需取单节。宿主消费 drive 的模型等级和提交所需的 Run、作用域及修订号；已交付上下文达到阈值时，在安全交接点通过 `rotate` 从同 Run 检查点启动新会话。
 
@@ -82,12 +82,12 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 | --- | --- | --- |
 | 实现违反当前 SPEC | `fixer` | MO 在累计预算内派发 Fixer；最小补丁、自验证、MO 接受后正式复测 |
 | 当前 scope 内规划遗漏、功能/依赖契约缺口、fidelity 规划不足 | `spec` → CR（`change`） | Spec-Designer 修订 SPEC，MO 审核再冻结，Implementer 更新已经 coding 的代码；只改测试写法而身份与期望不变的 CR 不要人工决定 |
-| 原分配范围不足 | `upstream` → `realloc-request` | 上溯负责的父 MO/GO，修正分配后 top-down 更新受影响规划，再冻结执行 |
+| 原分配范围不足 | `upstream` → `realloc-request` | 上溯负责的父 MO/GO，分配变化后更新受影响规划，再冻结执行；待审期间拒绝重复请求，保留首个请求及原恢复阶段 |
 | 已有提供方暂不可用或环境/外围阻塞 | 既有等待/恢复分支 | 留存根因和证据；自动化环境缺测保持 Yellow/未执行，条件恢复后真实验证 |
 
 只观察到自动化断言失败时，诊断按需核对冻结预期、实际观测和存量依据，再决定修复路径。Fixer 不修改需求、验收或冻结 TASK，只能提出 CR。原预期内的技术补全由 MO 审核；真实未决或需求、验收、授权变化交 Human。源码实现错误造成的 fidelity 偏差仍走 Fixer，规划遗漏造成的偏差才走 CR。
 
-修订默认全模块重验。MO 可在 CR 的 plan-review 提交 [TASK 独立性证明](template/task-independence.json)：核对定义、写范围、读依赖、共享 PATH、未变需求及文件追溯后，只重开受影响 TASK，保留未影响 TASK 和有效成功证据。无证明或共享影响则全模块重验；过期或漏报变更的证明拒收。**新代码始终重跑 build/unit/static**，automation/visual 重跑受影响及非 Green 路径；原回执、test_run_id 和执行基线保留，另记 `validation_reuse`，不能标为本次新执行。详见 [TASK 局部重验](skills/migration-protocol/references/openspec.md#task-局部重验)。
+`planning-reopen` 后的首次新计划仍与上一份计划比较，MO 可依据差异审核。更新后的 SPEC 经现有门禁重冻，受影响的 TASK 再更新代码。修订默认全模块重验；MO 可在 CR 的 plan-review 提交 [TASK 独立性证明](template/task-independence.json)，核对定义、写范围、读依赖、共享 PATH、未变需求及文件追溯后，只重开受影响 TASK，保留未影响 TASK 和有效成功证据。共享影响须全模块重验，过期或漏报变更的证明拒收。**新代码始终重跑 build/unit/static**，局部重验时 automation/visual 重跑受影响及非 Green 路径。原回执、test_run_id 和执行基线保留，另记 `validation_reuse`。详见 [TASK 局部重验](skills/migration-protocol/references/openspec.md#task-局部重验)。
 
 运行级 global path 在持有其用例的叶子全部完成时即由 GO 派独立 Test-Runner 执行（波次边界），结果绑定各 owner 的代码基线，统一审计只重跑 owner 代码变动的路径，Red 路由给 owner 叶子修复。Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试、完整执行、有效成功、Red/Yellow 和缺路径 CASE；参数/平台实例分别计 PATH，重试不增加分母。`reused_passed_paths` 单列，排除在 `current_executed_paths` 之外；成功集合附原始执行身份与证据，报告分别给出完整执行和全部通过；TASK 行的缺路径只计模块整体缺的 CASE。缺路径、缺测或失效证据不能据现有成功集合宣称全量通过。
 
@@ -147,6 +147,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-11-11 | 欠项按所需阶段处理，测试资产在对应 PATH 派发前补齐，纯四维条目 ID 引用缺口可留到 DoD。重开规划后的新计划与上一份对比，待审重分配保留首次请求。 |
 | 2026-11-11 | 自动化断言失败且根因未确认时先诊断，首冻须覆盖 SPEC 的 Scenario 断言。宿主行携带提交修订号，报告分别展示完整执行与全部通过。 |
 | 2026-11-11 | 宿主循环交付模型等级并在安全交接点输出会话轮换，推理专题按需取单节。API/URL 断言、图像资源策略、布局参数和可预览存量基线或证据缺口在首冻前结清；有缺口时返回叶子规划。 |
 | 2026-10-29 | 静态审查随模型执行的自动化同派：run 没有声明驱动某叶子自动化的命令或适配器时，Ledger 把静态闭合与这些功能 PATH 放进同一次 automation 派发，静态在前、非 Green 即停，一次预检、一次提交；此前静态审查单独派发、自动化再派一次，同一份代码两次模型轮次，每次修复后又是两次。声明了适配器的 run 静态审查仍单独派发；漏掉静态 PATH 的 automation 派发被拒。连续演练 11 → 9 次模型轮次（Test-Runner 4 → 2），界面叶子演练 13 → 11，首版失败演练 Test-Runner 6 → 3，各修复演练 Test-Runner 2 → 1。静态闭合等调用方代码（awaiting-assembly）时，本模块的自动化先跑，调用方到位后静态闭合单独派发；此前自动化跟着静态一起等，上游要等依赖方写完代码才知道自身行为是否成立。另更正上一行的轮次：界面叶子演练当时是 15 → 13，不是 16 → 14 |

@@ -59,7 +59,7 @@
 <rect x="75" y="1225" width="420" height="170" rx="10" fill="none" stroke="#059669" stroke-opacity="0.28"/>
 <text x="285.0" y="1260.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO · DoD / 模块完成</text>
 <text x="285.0" y="1294.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全部必需路径有效 Green</text>
-<text x="285.0" y="1323.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">TASK 追溯 / checklist 完整</text>
+<text x="285.0" y="1323.0" font-size="19.07" fill="#4b5563" text-anchor="middle" font-weight="400">补齐四维 ID 引用，核对 TASK / checklist</text>
 <text x="285.0" y="1352.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已知债务登 debt issue，审计预列</text>
 <text x="285.0" y="1381.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">守卫通过即机械完成，不提前 Auditor</text>
 <path d="M70,1310 L50,1310 L50,2180 L300,2180 L300,2240" fill="none" stroke="#059669" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-green)"/>
@@ -86,19 +86,21 @@
 <path d="M70,1570 L60,1570 Q50,1555 40,1570 L35,1570 L35,1090 L550,1090" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <rect x="102.74999999999997" y="1052" width="364.50000000000006" height="27" rx="4" fill="white" opacity="0.97"/>
 <text x="285" y="1070" font-size="18.00" fill="#7c3aed" text-anchor="middle" font-weight="400">新 build / unit / static + 正式复测</text>
-<rect x="550" y="1480" width="500" height="180" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
-<text x="800.0" y="1520.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">规划缺口 → CR</text>
-<text x="800.0" y="1554.0" font-size="18.82" fill="#4b5563" text-anchor="middle" font-weight="400">scope 内功能 / 契约 / fidelity 遗漏、测试源缺陷</text>
-<text x="800.0" y="1583.0" font-size="18.30" fill="#4b5563" text-anchor="middle" font-weight="400">诊断确认即开 CR；只新增 TASK / PATH 由 Ledger 审</text>
-<text x="800.0" y="1612.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Implementer 更新已经 coding 的代码</text>
-<text x="800.0" y="1641.0" font-size="20.97" fill="#4b5563" text-anchor="middle" font-weight="400">改已冻结内容 MO 审；语义 / 授权变化交 Human</text>
+<rect x="550" y="1480" width="500" height="205" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
+<text x="800.0" y="1518.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">规划缺口 → CR</text>
+<text x="800.0" y="1552.0" font-size="18.82" fill="#4b5563" text-anchor="middle" font-weight="400">scope 内功能 / 契约 / fidelity 遗漏、测试源缺陷</text>
+<text x="800.0" y="1581.0" font-size="18.30" fill="#4b5563" text-anchor="middle" font-weight="400">诊断确认即开 CR；只新增 TASK / PATH 由 Ledger 审</text>
+<text x="800.0" y="1610.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">planning-reopen 后新计划对比上一份</text>
+<text x="800.0" y="1639.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">通过现有门禁重冻，更新受影响 TASK 代码</text>
+<text x="800.0" y="1668.0" font-size="20.97" fill="#4b5563" text-anchor="middle" font-weight="400">改已冻结内容 MO 审；语义 / 授权变化交 Human</text>
 <path d="M1050,1570 L1080,1570 L1080,1440 Q1095,1430 1080,1420 L1080,1320 Q1095,1310 1080,1300 L1080,675 L1050,675" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
-<rect x="1110" y="1480" width="410" height="180" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
-<text x="1315.0" y="1520.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">范围不足 → 父 MO / GO</text>
-<text x="1315.0" y="1554.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">realloc-request 上溯负责上游</text>
-<text x="1315.0" y="1583.0" font-size="19.01" fill="#4b5563" text-anchor="middle" font-weight="400">只改提出叶子且不挪用例：Ledger 接受重切</text>
-<text x="1315.0" y="1612.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">重新冻结，更新代码并正式复测</text>
-<text x="1315.0" y="1641.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无关 MO 保留当前有效状态</text>
+<rect x="1110" y="1480" width="410" height="205" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
+<text x="1315.0" y="1518.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">范围不足 → 父 MO / GO</text>
+<text x="1315.0" y="1552.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">realloc-request 上溯负责上游</text>
+<text x="1315.0" y="1581.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">待审拒绝重复请求，保留原恢复阶段</text>
+<text x="1315.0" y="1610.0" font-size="19.01" fill="#4b5563" text-anchor="middle" font-weight="400">只改提出叶子且不挪用例：Ledger 接受重切</text>
+<text x="1315.0" y="1639.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">重新冻结，更新代码并正式复测</text>
+<text x="1315.0" y="1668.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无关 MO 保留当前有效状态</text>
 <path d="M1520,1570 L1570,1570 L1570,350 L1080,350 L1080,255 L1050,255" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <rect x="550" y="1750" width="500" height="260" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="800.0" y="1801.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">CR 重验范围</text>
@@ -159,6 +161,13 @@
 <text x="1315.0" y="577.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">automation 逐路径收集错误证据</text>
 <text x="1315.0" y="606.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Fixer 自测不能代替正式验证</text>
 <text x="1315.0" y="635.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">红→绿由作者自查留证，按任务计数</text>
+<rect x="1110" y="810" width="410" height="275" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
+<text x="1315.0" y="883.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">欠项按所需阶段补齐</text>
+<text x="1315.0" y="917.0" font-size="21.11" fill="#4b5563" text-anchor="middle" font-weight="400">起步门禁通过即编码、构建、可执行单测</text>
+<text x="1315.0" y="946.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实质性欠项：静态审查前</text>
+<text x="1315.0" y="975.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">测试资产：对应 PATH 批次派发前</text>
+<text x="1315.0" y="1004.0" font-size="20.81" fill="#4b5563" text-anchor="middle" font-weight="400">仅缺 OpenSpec 四维 ID 引用：DoD 前</text>
+<text x="1315.0" y="1033.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">到期时可在同一 CR 合并处理</text>
 <path d="M65,2420 L113,2420" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <text x="125" y="2427" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">流程推进</text>
 <path d="M345,2420 L393,2420" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
