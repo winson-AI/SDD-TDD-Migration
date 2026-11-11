@@ -91,10 +91,10 @@ Run 对应一次宿主任务；阻塞、纠错、环境/预算/会话变化均�
 
 问题先上溯到能解决的最低层：编码前叶子 planning-reopen，编码后叶子契约走 CR；父内切片走 realloc-request → redecompose → GO 接受；父范围不足或原子根无父时，同一 realloc-request 交 GO。父 MO 可从父 ID 提交请求，不能私改根范围。
 
-冻结前的问题闭环归 GO/MO：留原因/证据 → bottom-up 定位责任 → 修正 → 受影响范围 top-down 重规划 → 校验 → 当前 SPEC 冻结。旧调整、分配与草稿是不可执行 history，每叶子只有一套有效六件套。规划验证检查边界、覆盖、依赖与 TASK/CASE/PATH 一致性，不执行目标代码测试。统一宿主审计内修复走 audit-work。
+GO/MO 留证定位责任，按影响范围自上而下修订，校验边界、覆盖、依赖与 TASK/CASE/PATH 后冻结。旧计划留 history，目标测试在代码接受后执行。审计修复走 audit-work。
 
 GO `run-review(report_ref, context_ref)` 使用 [run-revision.json](../../../template/run-revision.json)：原因、context_patch、完整 root_updates、逐叶子影响证据、可选 blocker 摘要与 lessons_ref；支持架构/知识/规则、构建/测试/运行/资源修订，global_spec_ref 更新业务规范。contract_patch 更新当前需求/CASE/GLOBAL 路径并绑定新业务规范；移出项写 retirements=[{kind:requirement|case|global-path,id,replacement_ids,reason,evidence_refs}]，replacement_ids=[] 为停用，否则指向同类有效 ID；semantic_change=true 须精确 Human 决定。旧 ID 不复用，原契约/失败/批准留历史，受影响 owner 重规划；身份、源码根、预算与质量门禁不变。新增根走 register，父内增删走 redecompose。
 
 Host 以当前 subject_sha256 提交 `revise-run`：boundary_review 明确无未决问题、无语义/授权变化时无需 decision，改宿主业务语义、需求/验收或授权仍需真实精确决定；只等受影响 worker，审计按原退出协议，无关进度不使批准过期；事务保留锁/CAS/幂等与历史/失败/预算，context/revisions 存新快照。逐叶子审阅实际影响：根分析改了某叶子引用的父项或契约（只换证据引用不算）则该叶子 replan/revise，其余 unchanged、子分析原样沿用；新增父项须有叶子承接，父只重写这些叶子，无叶子受影响不重拆。消费者保留计划，已有代码的等 provider 后复验；仅证据变化不清 global-plan，根、业务规范或架构变化清 global-plan 待 GO 重验。未变冻结模块绑定 execution_context_ref，保留预检/派发/Green；受影响模块按 action 修订或重规划后实现/复测；变化的 GLOBAL 路径旧结果标失效、链接复测；blocker 仅具体摘要批准可解除。
 
-status.run_change_next_step 给出协调动作；根请求进入全局游标。重新规划步骤提供 history_refs 与 planning_history 摘要，阶段预检要求读取 Ledger 提交的经验工件；经验只指导本轮分析，不授予批准或测试通过。
+status.run_change_next_step 给出全局协调动作。revise-run 只结清 root_updates 明列的根请求，接受原分配也是裁决；其他请求继续待审。重新规划步骤提供 history_refs 与 planning_history 摘要，阶段预检要求读取 Ledger 提交的经验工件；经验只指导本轮分析，不授予批准或测试通过。

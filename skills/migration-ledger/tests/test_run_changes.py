@@ -45,10 +45,14 @@ class RootRevisionTests(unittest.TestCase):
         old = f.state()['modules']['M001']['plan_ref']
         f.call('realloc-request', {'reason': 'Parent scope needs correction', 'evidence_refs': [f.ref('root-problem.md', 'Wrong root assumption')]}, module='M010')
         self.assertEqual(f.state()['global_next_step']['operation'], 'run-review')
+        request = f.state()['module_groups']['M010']['realloc_request']
         update = self.update('M010'); update['scope']['in'] = ['Corrected search scope']
         self.apply(self.report([update]))
         s = f.state()
         self.assertEqual(s['run_id'], 'demo')
+        resolution, = s['run_change_history'][-1]['allocation_resolutions']
+        self.assertEqual((resolution['module_id'], resolution['request_sha256'], resolution['outcome']),
+                         ('M010', digest(request), 'adjusted'))
         self.assertEqual(s['modules']['M001']['planning_history'][-1]['plan_ref'], old)
         self.assertIsNone(s['modules']['M001']['freeze_id'])
         step = next(x for x in s['next_steps'] if x['module_id'] == 'M010')
@@ -122,6 +126,17 @@ class RootRevisionTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'decision'):
             f.call('revise-run', {'decision_id': 'MISSING', 'subject_sha256': subject}, role='host', module=None)
         self.assertEqual(ledger.read_events(f.root), before)
+
+    def test_review_can_explicitly_keep_the_requested_root_allocation(self):
+        f = self.f
+        f.call('realloc-request', {'reason': 'Check the existing boundary', 'evidence_refs': [f.ref('request.md', 'Scope evidence')]}, module='M010')
+        report = self.report([self.update('M010')])
+        for row in report['modules']:
+            row['action'] = 'unchanged'
+        self.apply(report)
+        state = f.state()
+        self.assertNotIn('realloc_request', state['module_groups']['M010'])
+        self.assertEqual(state['run_change_history'][-1]['allocation_resolutions'][0]['outcome'], 'maintained')
 
     def test_atomic_dependency_revision_recommends_global_coverage_review(self):
         f = self.f
@@ -282,6 +297,31 @@ class PreparedRunRevisionTests(unittest.TestCase):
         self.assertFalse(s['observed_invalidations'])
         self.assertEqual(s['build']['argv'], ['fixture-build-v2'])
         self.assertIsNone(s['modules']['M001']['freeze_id'])
+
+    def test_unrelated_run_revision_keeps_an_audit_scope_request_open(self):
+        import audit_closure
+
+        f = self.f; state = ledger.read_events(f.root)[0]
+        mid = 'M002'; finding = 'TRACE-B1-F1'
+        go = {'role': 'global-orchestrator', 'instance_id': 'go'}
+        mo = {'role': 'module-orchestrator', 'instance_id': 'mo'}
+        batch = {'batch_id': 'B1', 'status': 'repairing',
+                 'routes': {'F1': {'action': 'trace', 'owner_module_ids': [mid], 'source_module_id': mid,
+                                   'analysis_ref': f.ref('scope-trace.md', 'The leaf is missing an allocated route'),
+                                   'root_cause': {'category': 'scope-insufficient', 'confidence': 'confirmed'}}}}
+        state['audit_batch'] = batch
+        audit_closure.trace_back(state, batch, go)
+        step = ledger.traced_revision(state, state['modules'][mid], [finding])
+        decomposition.handle(state, {'module_id': mid, 'operation': step['operation'], 'payload': step['payload']}, mo, f.root)
+        request = copy.deepcopy(state['modules'][mid]['realloc_request'])
+        report = f.ref('unrelated-timeout.json', self.report({'build': {'timeout_seconds': 20}}, affected=('M001',)))
+        run_changes.handle(f.root, state, {'operation': 'run-review', 'payload': {'report_ref': report}}, go)
+        run_changes.handle(f.root, state, {'operation': 'revise-run', 'payload': {
+            'subject_sha256': state['run_change_review']['subject_sha256']}}, {'role': 'host', 'instance_id': 'host'})
+        self.assertEqual(state['build']['timeout_seconds'], 20)
+        self.assertEqual(state['modules'][mid]['realloc_request'], request)
+        self.assertEqual(state['modules'][mid]['phase'], 'waiting-upstream')
+        self.assertNotIn(mid, state['issues'][finding]['resolved'])
 
     def test_context_revision_rejects_identity_and_quality_gate_changes(self):
         for patch in ({'target_root': str(self.f.target)}, {'defaults': {'quality_gates': {'unit_tests_required': False}}}):

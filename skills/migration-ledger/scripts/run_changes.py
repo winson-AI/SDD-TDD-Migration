@@ -223,7 +223,8 @@ def validate(s, ref):
                         % (leaf, ', '.join(found[:8])))
             else:
                 require(set(root['scope']['out']) <= set(child['scope']['out']), 'retained child outside revised root boundary')
-    require(patch or spec_ref or changed_roots or report.get('package_sha') or any(m.get('realloc_request') for m in current.values()), 'empty run revision')
+    require(patch or spec_ref or changed_roots or report.get('package_sha')
+            or any(current[mid].get('realloc_request') for mid in updates), 'empty run revision')
     return report, affected, changed_roots
 
 
@@ -301,10 +302,19 @@ def handle(root, s, req, actor):
     context_readiness.pin_execution(root, s, affected)
     new_ref = revise_context(root, s, report['context_patch'], review, decision)
     import issues
-    for mid, m in {**s['modules'], **s.get('module_groups', {})}.items():
-        request = m.get('realloc_request') or {}
+    allocation_resolutions = []
+    for update in report['root_updates']:
+        mid = update['module_id']
+        owner = roots(s)[mid]
+        request = owner.pop('realloc_request', None)
+        if not request:
+            continue
         issues.cite(s, mid, [iid for iid in request.get('trace_issues', []) if mid not in s['issues'][iid]['resolved']],
                     review['report_ref'], review['reviewed_by'])
+        if owner['phase'] == 'waiting-upstream':
+            owner.update(phase=request['resume_phase'], revision=owner['revision'] + 1)
+        allocation_resolutions.append({'module_id': mid, 'request_sha256': digest(request),
+            'outcome': 'adjusted' if mid in changed_roots else 'maintained', 'review_ref': review['report_ref']})
     rows = keyed(report['modules'], 'module_id') if report['modules'] else {}  # no leaf yet: nothing to review
     replanned = {mid for mid in affected if rows[mid]['action'] == 'replan'}
     for mid in decomposition.built_on(s, replanned) - affected:
@@ -316,18 +326,19 @@ def handle(root, s, req, actor):
                 m.update(phase='testing', stale=True, build_baseline=None, build_artifacts=[])
                 m.pop('execution_context_ref', None)
                 m.pop('automation_retry_ready', None)
+                m.pop('trace_dependency_baseline', None)
                 for result in m['results'].values(): result['stale'] = True
             elif rows[mid]['action'] == 'revise':
                 open_change(s, m, {'request_ref': review['report_ref'], 'impact_ref': review['report_ref'], 'upstream': True})
             else:
                 replan_module(m, report['reason'], review['report_ref'], bool(rows[mid]['resume_blocker_sha256']))
-            m.pop('realloc_request', None)
             s.get('audit_resolutions', {}).pop(mid, None)
         else:
-            request = m.pop('realloc_request', None)
-            if request and m['phase'] == 'waiting-upstream': m['phase'] = request['resume_phase']
             m['planning_continuation'] = {**continuations[mid], 'context_ref': new_ref}
             m['allocation_continuation'] = {'plan_hash': m.get('plan_hash'), 'review_ref': review['report_ref'], 'context_ref': new_ref}
+        if m.get('realloc_request') and m['phase'] != 'waiting-upstream':
+            m['realloc_request']['resume_phase'] = m['phase']
+            m['phase'] = 'waiting-upstream'
         if mid in affected:
             if rows[mid]['action'] == 'reverify':
                 m['allocation_continuation'] = {'plan_hash': m['plan_hash'], 'review_ref': review['report_ref'], 'context_ref': new_ref}
@@ -345,7 +356,6 @@ def handle(root, s, req, actor):
             m.update(replanning_required=True, replanning_children=reached)
             m.pop('redecomposition_submission', None)
     for group in s.get('module_groups', {}).values():
-        group.pop('realloc_request', None)
         if affected.intersection(decomposition.leaves(s, group['module_id'])):
             group.pop('summary_ref', None); group.pop('summary_subject', None)
             group['revision'] += 1
@@ -377,6 +387,7 @@ def handle(root, s, req, actor):
     s['audit'] = {}
     s['context_acceptances'] = {}
     s.setdefault('run_change_history', []).append({**copy.deepcopy(review), **retirement_history,
+        **({'allocation_resolutions': allocation_resolutions} if allocation_resolutions else {}),
         'kind': 'planning-history', 'executable': False, 'reason': report['reason'],
         'previous_context_ref': previous, 'project_context_ref': new_ref, 'previous_global_spec': previous_spec,
         'global_spec': s['global_spec'], 'previous_contract': previous_contract, 'previous_global_plan': previous_plan,

@@ -131,6 +131,45 @@ class ParentTests(unittest.TestCase):
 
 
 class KeptCodeTests(unittest.TestCase):
+    def test_trace_only_change_leaves_consumer_runnable_until_provider_evidence_drifts(self):
+        import context_readiness
+        import issues
+        from contracts import check_ref, digest
+
+        f = test_audit_closure.ClosureTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        f.call('register', {'module_id': 'M002', 'case_ids': ['C1'], 'dependencies': ['M001'],
+                            'write_paths': [str(f.target / 'm2')]}, role='global-orchestrator', module=None)
+        f.prepare(); f.implement('M001', 'I1', shared=2); f.verify_module('M001', 'T1')
+        plan = f.plan()
+        plan['module_id'] = 'M002'; plan['paths'][0]['path_id'] = 'P2'; plan['tasks'][0]['path_ids'] = ['P2']
+        f.call('plan', {'plan_ref': f.ref('p2.json', plan)}, role='spec-designer', module='M002')
+        f.call('decision', {'decision_id': 'D2', 'decision': 'approved', 'module_id': 'M002',
+                            'subject_sha256': digest(plan), 'human_source_ref': f.ref('d2.md', 'Approve the consumer')},
+               role='host', module=None)
+        f.call('freeze', {'decision_id': 'D2'}, module='M002')
+        f.implement('M002', 'I2')
+        state, events = ledger.read_events(f.root)
+        consumer = state['modules']['M002']
+        provider = state['modules']['M001']
+        previous = copy.deepcopy(consumer)
+        preflight = context_readiness.subject(state, 'M002', 'testing')
+        issues.owe(state, 'M001', ['OpenSpec spec missing dimension item IDs: Logic-1'])
+        ref = f.ref('trace-change.md', 'Append the missing four-dimension ID')
+        ledger.mutate(state, {'module_id': 'M001', 'operation': 'change', 'payload': {'request_ref': ref, 'impact_ref': ref}},
+                      {'role': 'module-orchestrator', 'instance_id': 'mo'}, events, f.root)
+        self.assertEqual(consumer, previous)
+        self.assertEqual(context_readiness.subject(state, 'M002', 'testing'), preflight)
+        self.assertEqual(provider['phase'], 'change-review')
+        self.assertEqual(ledger.dependency_provider(provider)['code_baseline'], provider['code_baseline'])
+        ledger.dispatch_guard(state, consumer, 'test-runner')
+        code = check_ref(provider['code_files'][0])
+        code.write_text('shared = 9\n')
+        with self.assertRaises(Rejected):
+            ledger.dispatch_guard(state, consumer, 'test-runner')
+        ledger.invalidate_dependents(state, 'M001')
+        self.assertNotIn('trace_dependency_baseline', provider)
+        self.assertEqual((consumer['phase'], consumer['stale']), ('waiting-dependency', True))
+
     def test_code_written_under_a_plan_that_is_given_up_is_carried_to_the_next_one(self):
         f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)
         f.prepare(); f.implementation()

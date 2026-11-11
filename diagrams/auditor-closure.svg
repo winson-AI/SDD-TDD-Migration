@@ -30,12 +30,13 @@
 <text x="800.0" y="631.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">治理用 fix / human；遗留按根因分流</text>
 <text x="800.0" y="660.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">finding 自带路由 / 根因已确认：Ledger 路由并代审</text>
 <text x="800.0" y="689.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">trace：保留已写代码，回对应 MO / GO</text>
-<rect x="1140" y="370" width="380" height="195" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
-<text x="1330.0" y="417.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">同 Run · 逐条回溯</text>
-<text x="1330.0" y="451.5" font-size="21.90" fill="#4b5563" text-anchor="middle" font-weight="400">SPEC 缺口 → 叶子 CR → 重冻结案</text>
-<text x="1330.0" y="480.5" font-size="18.44" fill="#4b5563" text-anchor="middle" font-weight="400">范围缺口 → 父 MO / GO → 分配审核结案</text>
-<text x="1330.0" y="509.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同一叶子两类并存时先修订 SPEC</text>
-<text x="1330.0" y="538.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">发现保持开放至相应决定被接受</text>
+<rect x="1140" y="370" width="380" height="220" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
+<text x="1330.0" y="415.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">同 Run · 逐条回溯</text>
+<text x="1330.0" y="449.5" font-size="21.90" fill="#4b5563" text-anchor="middle" font-weight="400">SPEC 缺口 → 叶子 CR → 重冻结案</text>
+<text x="1330.0" y="478.5" font-size="18.44" fill="#4b5563" text-anchor="middle" font-weight="400">范围缺口 → 父 MO / GO → 分配审核结案</text>
+<text x="1330.0" y="507.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同一叶子两类并存时先修订 SPEC</text>
+<text x="1330.0" y="536.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全局修订只处理明确列出的根</text>
+<text x="1330.0" y="565.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无关请求继续待审</text>
 <path d="M1100,595 L1120,595 L1120,475 L1140,475" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <rect x="90" y="370" width="330" height="200" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="255.0" y="420.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">复用与公共能力治理</text>

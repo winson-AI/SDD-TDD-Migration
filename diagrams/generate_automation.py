@@ -23,8 +23,9 @@ def automation_flow():
     d.box(460, 375, 640, 115, 'Coding 接受 → build / unit',
           ['构建只跑 PATH 平台；新代码必须重新 build / unit / static',
            '模型执行的 automation 可与 static 同派；同派时 static 在前'])
-    d.box(1160, 375, 380, 175, '派发前核对本批 PATH 资产',
-          ['unit 缺资产时先跑就绪 build', '自动化先派发资产齐备的 PATH', '待执行 PATH 经同 Run 修订再派发'], 'orange')
+    d.box(1160, 375, 380, 195, '派发前核对本批 PATH 资产',
+          ['unit 缺资产时先跑就绪 build', '自动化先派发资产齐备的 PATH',
+           '仅补执行资产：保留已验收 TASK', '同 Run 重冻后测试待验证 PATH'], 'orange')
     d.arrow([(780, 490), (780, 550)])
     d.arrow([(780, 508), (1160, 508)], 'orange')
     d.label(930, 513, '有 PATH 缺资产', 'orange', 18)
