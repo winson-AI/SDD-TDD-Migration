@@ -122,66 +122,177 @@ def current(m):
     for ref in proof['protected_refs']: check_ref(ref)
 
 
-def reusable_build(s, m, root):
-    """Old build/unit receipts can stand only across a refreeze that adds trace IDs."""
-    from control_policy import additions, content
-    from runner_storage import revalidation_inputs
-    import unit_reports
+def plan_inputs(plan):
+    from control_policy import content
+    generated = {'definitions', 'paths', 'reuse_plan_ref', 'test_design_ref', 'test_asset_contract_version'}
+    reuse = plan.get('reuse_plan_ref')
+    return content({k: v for k, v in plan.items() if k not in generated}), content(read_json(check_ref(reuse)) if reuse else {})
 
-    change = m['change_request']
+
+def test_design(plan):
+    ref = plan.get('test_design_ref')
+    doc = read_json(check_ref(ref)) if ref else {}
+    doc.pop('subject_sha256', None)
+    return doc
+
+
+def documentation_delta(m):
+    """A revision that keeps every frozen input and only adds standalone trace IDs."""
+    from control_policy import additions, content
+
+    change = m.get('change_request') or {}
+    if not change.get('documentation_only'):
+        return False
     old, new = change['previous_plan']['plan'], m['plan']
-    if not change.get('documentation_only') or not m.get('build_baseline') or m['build_baseline'] != m['code_baseline']:
-        return []
     try:
-        if additions(m) != [] or baseline(m['code_files']) != m['code_baseline']:
-            return []
-        references = {'reuse_plan_ref', 'test_design_ref'}
-        plan_inputs = lambda plan: content({k: v for k, v in plan.items() if k not in references | {'definitions'}})
-        if plan_inputs(old) != plan_inputs(new):
-            return []
-        for key in references:
-            before, after = [read_json(check_ref(p[key])) if p.get(key) else {} for p in (old, new)]
-            if key == 'test_design_ref':
-                before.pop('subject_sha256', None)
-                after.pop('subject_sha256', None)
-            if content(before) != content(after):
-                return []
+        if additions(m) != [] or plan_inputs(old) != plan_inputs(new) or content(test_design(old)) != content(test_design(new)):
+            return False
+        if old.get('test_asset_contract_version') != new.get('test_asset_contract_version'):
+            return False
         ids = {row['item_id'] for row in old['dimension_trace']}
         before, after = keyed(old['definitions'], 'kind'), keyed(new['definitions'], 'kind')
         if set(before) != set(after):
-            return []
+            return False
         for kind in before:
             a, b = (check_ref(d).read_text() for d in (before[kind], after[kind]))
-            if a != b:
-                if kind not in ('spec', 'design', 'tasks'):
-                    return []
-                meaningful = lambda text: [line for line in text.splitlines() if set(line.split()) - ids]
-                if meaningful(a) != meaningful(b):
-                    return []
-        if any(file_ref(ref['path']) != ref for ref in m['build_artifacts']):
+            if a == b:
+                continue
+            if kind not in ('spec', 'design', 'tasks'):
+                return False
+            meaningful = lambda text: [line for line in text.splitlines() if set(line.split()) - ids]
+            if meaningful(a) != meaningful(b):
+                return False
+        return True
+    except (Rejected, OSError, ValueError, TypeError, KeyError):
+        return False
+
+
+def added_test_assets(m):
+    """Identify pending PATHs completed solely by adding execution-side test assets."""
+    from control_policy import content
+    from design_stage import definition_kind
+    import prepared_tests
+
+    change = m.get('change_request')
+    if not change:
+        return set()
+    old, new = change['previous_plan']['plan'], m['plan']
+    try:
+        pending = set(prepared_tests.pending_paths(old['paths']))
+        if not pending or plan_inputs(old) != plan_inputs(new):
+            return set()
+        before, after = [keyed(p['paths'], 'path_id') for p in (old, new)]
+        without_preparation = lambda rows: content({pid: {k: v for k, v in p.items() if k != 'preparation'}
+                                                    for pid, p in rows.items()})
+        if without_preparation(before) != without_preparation(after):
+            return set()
+        changed = {pid for pid in before if content(before[pid].get('preparation')) != content(after[pid].get('preparation'))}
+        if not changed or not changed <= pending or changed.intersection(prepared_tests.pending_paths(new['paths'])):
+            return set()
+        old_design, new_design = test_design(old), test_design(new)
+        design_metadata = lambda doc: content({k: v for k, v in doc.items() if k not in ('paths', 'test_assets')})
+        if not old_design or not new_design or design_metadata(old_design) != design_metadata(new_design):
+            return set()
+        previous, current_assets = [{asset['asset_id']: asset for asset in prepared_tests.assets(doc)}
+                                    for doc in (old_design, new_design)]
+        if any(content(asset) != content(current_assets.get(aid)) for aid, asset in previous.items()):
+            return set()
+        added = [asset for aid, asset in current_assets.items() if aid not in previous]
+        if any(asset['kind'] == 'test-source' for asset in added) or {pid for asset in added for pid in asset['path_ids']} != changed:
+            return set()
+        definitions = lambda plan: {(d['kind'], d['sha256']) for d in plan['definitions']}
+        projected = {(definition_kind(asset['kind']), asset['ref']['sha256']) for asset in added}
+        if definitions(new) != definitions(old) | projected:
+            return set()
+        return changed
+    except (Rejected, OSError, ValueError, TypeError, KeyError):
+        return set()
+
+
+def prior_green_receipt(m, path_id):
+    row = m['results'].get(path_id) or {}
+    if row.get('quality') != 'green-passed' or not row.get('executed') or row.get('stale'):
+        return None
+    receipt = read_json(check_ref(row['execution_receipt']))
+    change = m['change_request']
+    if receipt['code_baseline'] != m['code_baseline'] or receipt['test_run_id'] != row['test_run_id'] or receipt['path_id'] != path_id:
+        return None
+    if receipt['freeze_id'] != change['from_freeze_id']:
+        reuse, previous = row.get('validation_reuse', {}), change.get('previous_revalidation') or {}
+        if (reuse.get('plan_hash') != change['previous_plan']['plan_hash'] or reuse.get('source_test_run_id') != row['test_run_id']
+                or reuse.get('valid_for_baseline') != m['code_baseline'] or not previous.get('proof_ref')
+                or reuse.get('proof_ref') != previous['proof_ref']):
+            return None
+        check_ref(previous['proof_ref'])
+    for key in ('result_ref', 'query_ref', 'log_ref'):
+        check_ref(receipt[key])
+    return receipt
+
+
+def command_receipts(s, m, root, paths):
+    from runner_storage import revalidation_inputs
+    import unit_reports
+
+    if not m.get('build_baseline') or m['build_baseline'] != m['code_baseline']:
+        return []
+    try:
+        if baseline(m['code_files']) != m['code_baseline'] or any(file_ref(ref['path']) != ref for ref in m['build_artifacts']):
             return []
         retained = []
-        for path in new['paths']:
-            if path.get('kind') not in ('build', 'unit'):
-                continue
+        for path in paths:
             pid = path['path_id']
-            row = m['results'].get(pid) or {}
-            if row.get('quality') != 'green-passed' or not row.get('executed') or row.get('stale'):
-                return []
-            receipt = read_json(check_ref(row.get('execution_receipt')))
+            receipt = prior_green_receipt(m, pid)
             command = path['command']
-            fingerprint = receipt.get('revalidation_inputs_sha256')
-            if not fingerprint or receipt['freeze_id'] != change['from_freeze_id'] \
-                    or receipt['code_baseline'] != m['code_baseline'] or receipt['test_run_id'] != row['test_run_id'] \
-                    or fingerprint != revalidation_inputs(s, root, command['cwd'], command['argv']):
-                return []
-            report = read_json(check_ref(receipt['result_ref']))
+            fingerprint = (receipt or {}).get('revalidation_inputs_sha256')
+            if not fingerprint or fingerprint != revalidation_inputs(s, root, command['cwd'], command['argv']):
+                continue
             if path.get('unit_report'):
-                unit_reports.validate(receipt, path, report)
+                unit_reports.validate(receipt, path, read_json(check_ref(receipt['result_ref'])))
             retained.append(pid)
         return retained
     except (Rejected, OSError, ValueError, TypeError, KeyError):
         return []  # Unavailable or drifted evidence falls back to the ordinary verification gates.
+
+
+def reusable_build(s, m, root):
+    """Keep build/unit receipts across a refreeze that only adds trace IDs."""
+    if not documentation_delta(m):
+        return []
+    paths = [p for p in m['plan']['paths'] if p.get('kind') in ('build', 'unit')]
+    retained = command_receipts(s, m, root, paths)
+    return retained if len(retained) == len(paths) else []
+
+
+def retain_after_test_assets(s, m, root):
+    changed = added_test_assets(m)
+    if not changed or not m.get('accepted_task_ids') or not m.get('code_baseline'):
+        return None, []
+    try:
+        if baseline(m['code_files']) != m['code_baseline']:
+            return None, []
+    except (Rejected, OSError):
+        return None, []
+    change = m['change_request']
+    paths = m['plan']['paths']
+    unaffected = [p for p in paths if p['path_id'] not in changed]
+    builds = {p['path_id'] for p in paths if p.get('kind') == 'build'}
+    commands = command_receipts(s, m, root, [p for p in unaffected if p.get('kind') in ('build', 'unit')])
+    same_inputs = bool(builds) and builds <= set(commands)
+    keep, static = [], []
+    if same_inputs:
+        for path in unaffected:
+            if path.get('kind') in ('build', 'unit'):
+                continue
+            pid = path['path_id']
+            try:
+                if prior_green_receipt(m, pid):
+                    (static if path.get('kind') == 'static' else keep).append(pid)
+            except (Rejected, OSError, ValueError, KeyError, TypeError):
+                continue
+    return {'mode': 'partial', 'reason': 'test-assets-only', 'proof_ref': m['plan_ref'],
+            'plan_hash': m['plan_hash'], 'from_freeze_id': change['from_freeze_id'],
+            'retained_task_ids': list(m['accepted_task_ids']), 'retained_path_ids': keep,
+            'protected_refs': list(m['code_files'])}, (commands + static if same_inputs else [])
 
 
 def carry(m, previous, retained_build=()):

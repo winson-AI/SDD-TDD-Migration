@@ -129,17 +129,80 @@ class UpstreamPlanTests(unittest.TestCase):
         self.assertEqual((step['operation'], step['reason']), ('change', 'owed-gaps'))
 
     def test_ready_automation_path_runs_before_a_sibling_with_missing_assets(self):
-        p = self.t.plan('M001')
-        ready = next(row for row in p['paths'] if row['path_id'] == 'M001-P')
-        p['paths'].append({**copy.deepcopy(ready), 'path_id': 'M001-P2', 'name': 'Second route through the same case'})
-        p['tasks'][0]['path_ids'].append('M001-P2')
-        self.freeze(p, deferred_path='M001-P2')
+        import ledger
+        import os
+        from unittest.mock import patch
+        import task_revalidation
+        from harmony_stage import build
+
+        f = self.f
+        def plan_with_two_paths():
+            p = self.t.plan('M001')
+            ready = next(row for row in p['paths'] if row['path_id'] == 'M001-P')
+            p['paths'].append({**copy.deepcopy(ready), 'path_id': 'M001-P2', 'name': 'Second route through the same case'})
+            p['tasks'][0]['path_ids'].append('M001-P2')
+            return p
+        self.freeze(plan_with_two_paths(), deferred_path='M001-P2')
         self.t.implement_and_test('M001', partitioned=True)
-        state = self.f.state(); module = state['modules']['M001']
-        self.assertEqual(set(module['results']), {'M001-B', 'M001-U', 'M001-S', 'M001-P'})
-        self.assertEqual(module['results']['M001-P']['quality'], 'green-passed')
+        state = f.state(); old = state['modules']['M001']
+        self.assertEqual(set(old['results']), {'M001-B', 'M001-U', 'M001-S', 'M001-P'})
+        self.assertEqual(old['results']['M001-P']['quality'], 'green-passed')
         step = next(row for row in state['next_steps'] if row['module_id'] == 'M001')
         self.assertEqual((step['operation'], step['reason']), ('change', 'owed-gaps'))
+        ledger.advance(f.root, {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}, 'M001')
+        p = plan_with_two_paths()
+        stage = f.root / 'staging/spec-designer/fixture'
+        design = next(d for d in p['definitions'] if d['kind'] == 'test-design')
+        design.update(f.ref(str(stage / 'test-design.md'), check_ref(design).read_text()))
+        doc = direct_plan(f, p)
+        asset = f.ref(str(stage / 'input.json'), {'expected': 2})
+        doc['test_assets'] = [{'asset_id': 'P2-FIXTURE', 'kind': 'fixture', 'ref': asset, 'path_ids': ['M001-P2']}]
+        next(row for row in doc['paths'] if row['path_id'] == 'M001-P2')['preparation'] = {
+            'status': 'prepared', 'reason': 'Fixture supplied', 'evidence_refs': [asset], 'asset_ids': ['P2-FIXTURE']}
+        p['test_design_ref'] = f.ref('fixture-design.json', doc)
+        f.call('plan', {'plan_ref': f.ref('fixture-plan.json', p)}, role='spec-designer')
+        m = f.state()['modules']['M001']
+        review = {'plan_hash': m['plan_hash'], 'reviewer_instance_id': 'module-orchestrator',
+                  'semantic_change': False, 'authorization_change': False, 'unresolved_questions': [],
+                  'reason': 'Only the execution fixture changed', 'evidence_refs': [asset]}
+        f.call('plan-review', {'review_ref': f.ref('fixture-review.json', review)})
+        revision = f.state()
+        with patch.dict(os.environ, {'SDD_FIXTURE_TOOLCHAIN_REVISION': 'changed'}):
+            proof, receipts = task_revalidation.retain_after_test_assets(revision, revision['modules']['M001'], f.root)
+        self.assertEqual(proof['retained_task_ids'], ['T1'])
+        self.assertFalse(receipts)
+        self.assertFalse(proof['retained_path_ids'])
+        step = next(row for row in f.state()['next_steps'] if row['module_id'] == 'M001')
+        f.call('freeze', step['payload'])
+        state = f.state(); m = state['modules']['M001']
+        self.assertEqual((m['code_baseline'], m['accepted_task_ids']), (old['code_baseline'], ['T1']))
+        step = next(row for row in state['next_steps'] if row['module_id'] == 'M001')
+        self.assertEqual((step['worker_role'], step['payload']['path_ids']), ('test-runner', ['M001-P2']))
+        for pid, previous in old['results'].items():
+            self.assertEqual(m['results'][pid]['execution_receipt'], previous['execution_receipt'])
+            self.assertEqual(m['results'][pid]['validation_reuse']['source_test_run_id'], previous['test_run_id'])
+
+        script = f.ref('test-fixture.py', """import json, os, sys
+from pathlib import Path
+query = json.loads(Path(sys.argv[sys.argv.index('--query-file') + 1]).read_text())
+asset, = query['frozen_test_assets']
+actual = json.loads(Path(asset['ref']['path']).read_text())['expected']
+Path(os.environ['SDD_TEST_ASSET_USAGE_FILE']).write_text(json.dumps([{'asset_id': asset['asset_id'], 'ref': asset['ref']}]))
+Path(sys.argv[sys.argv.index('--result-file') + 1]).write_text(json.dumps({
+    'assertions': [{'assertion_id': 'A1', 'expected': 2, 'actual': actual, 'passed': actual == 2}]}))
+""")
+        argv = [sys.executable, script['path']]
+        f.raw('assign', {**step['payload'], 'assignment_id': 'P2-RUN', 'instance_id': 'test-runner'})
+        report = f.report('testing')
+        report['execution'] = {'argv': argv, 'cwd': str(f.target), 'environment_ref': asset}
+        f.record(report)
+        receipt = execute(f.root, 'M001', 'P2-RUN', 'M001-P2', argv, str(f.target), f.root / 'runs/harmony/automation/p2')
+        a = f.state()['modules']['M001']['assignments']['P2-RUN']
+        result = build(f.root, 'M001', 'P2-RUN', [receipt])
+        f.call('submit', {'assignment_id': 'P2-RUN', 'fencing_token': a['fencing_token'],
+                          'result_ref': f.ref('fixture-test-result.json', result)}, role='test-runner')
+        f.call('accept', {'assignment_id': 'P2-RUN'})
+        self.assertEqual(f.state()['modules']['M001']['phase'], 'dod')
 
     def test_direct_test_assets_must_belong_to_the_prepared_run_staging(self):
         f = self.f; p = self.t.plan('M001'); doc = direct_plan(f, p)

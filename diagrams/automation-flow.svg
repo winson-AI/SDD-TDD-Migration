@@ -29,11 +29,12 @@
 <text x="780.0" y="411.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Coding 接受 → build / unit</text>
 <text x="780.0" y="445.5" font-size="20.36" fill="#4b5563" text-anchor="middle" font-weight="400">构建只跑 PATH 平台；新代码必须重新 build / unit / static</text>
 <text x="780.0" y="474.5" font-size="19.70" fill="#4b5563" text-anchor="middle" font-weight="400">模型执行的 automation 可与 static 同派；同派时 static 在前</text>
-<rect x="1160" y="375" width="380" height="175" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
-<text x="1350.0" y="427.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">派发前核对本批 PATH 资产</text>
-<text x="1350.0" y="461.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">unit 缺资产时先跑就绪 build</text>
-<text x="1350.0" y="490.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">自动化先派发资产齐备的 PATH</text>
-<text x="1350.0" y="519.0" font-size="21.51" fill="#4b5563" text-anchor="middle" font-weight="400">待执行 PATH 经同 Run 修订再派发</text>
+<rect x="1160" y="375" width="380" height="195" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
+<text x="1350.0" y="422.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">派发前核对本批 PATH 资产</text>
+<text x="1350.0" y="456.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">unit 缺资产时先跑就绪 build</text>
+<text x="1350.0" y="485.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">自动化先派发资产齐备的 PATH</text>
+<text x="1350.0" y="514.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅补执行资产：保留已验收 TASK</text>
+<text x="1350.0" y="543.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同 Run 重冻后测试待验证 PATH</text>
 <path d="M780,490 L780,550" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M780,508 L1160,508" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
 <rect x="854.22" y="495" width="151.55999999999997" height="27" rx="4" fill="white" opacity="0.97"/>

@@ -180,6 +180,16 @@ def history(s, mid, read=CURRENT):
     return scope(s, mid).get('planning_lessons_ref') if mid else s.get('lessons_ref')
 
 
+def dependency_subject(provider):
+    from ledger import dependency_provider
+    view = dependency_provider(provider)
+    if view is provider:
+        return {k: provider.get(k) for k in ('freeze_id', 'code_baseline', 'stale', 'phase')}
+    change = provider.get('change_request') or provider['change_request_history'][-1]
+    return {'freeze_id': change['from_freeze_id'], 'code_baseline': view['code_baseline'],
+            'stale': False, 'phase': 'dod'}
+
+
 def subject(s, mid, stage, read=CURRENT):
     """Do not bind sibling progress or receipt revisions into a leaf receipt."""
     require(stage in CHECKS and ((mid is None) == (stage in GLOBAL)), 'context stage/scope mismatch')
@@ -206,8 +216,7 @@ def subject(s, mid, stage, read=CURRENT):
                 # Bind the diagnosis content, accepted or still the submitted draft, so a Fixer may
                 # preflight before MO acceptance and stay valid after it.
                 value['execution']['diagnosis'] = diagnosis_report(m)
-            value['dependencies'] = {d: {k: s['modules'][d].get(k) for k in ('freeze_id', 'code_baseline', 'stale', 'phase')}
-                                     for d in m['dependencies']}
+            value['dependencies'] = {d: dependency_subject(s['modules'][d]) for d in m['dependencies']}
     elif stage.startswith('audit-'):
         value['modules'] = {mid: {k: m.get(k) for k in (
             'plan_ref', 'freeze_id', 'code_baseline', 'results', 'blocked', 'phase', 'stale', 'authors')}

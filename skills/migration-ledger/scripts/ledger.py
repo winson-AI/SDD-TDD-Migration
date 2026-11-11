@@ -266,6 +266,7 @@ def invalidate_dependents(s, mid):
         if parent in visited:
             continue
         visited.add(parent)
+        s['modules'].get(parent, {}).pop('trace_dependency_baseline', None)
         for m in s['modules'].values():
             if parent in m['dependencies'] and m.get('code_baseline'):
                 m['stale'] = True
@@ -360,7 +361,8 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
              code_files=[], code_baseline=None, provider_owners=[])
     for key in ('dimension_evidence', 'effective_quality', 'context_acceptances', 'automation_retry_ready',
                 'dependency_release', 'source_context_continuation', 'allocation_continuation', 'change_request', 'scenario_index', 'plan_binding',
-                'checklist_ref', 'execution_context_ref', 'plan_review_ref', 'task_files', 'execution_partition_pending', 'planning_continuation', 'task_revalidation', 'plan_changes'):
+                'checklist_ref', 'execution_context_ref', 'plan_review_ref', 'task_files', 'execution_partition_pending',
+                'planning_continuation', 'task_revalidation', 'plan_changes', 'trace_dependency_baseline'):
         m.pop(key, None)
 
 
@@ -368,6 +370,14 @@ def open_change(s, m, request):
     """Reopen a frozen leaf's contract and keep what was built on it: the plan is revised and frozen again, and the code
     already written is updated under the next freeze. A request that is already open keeps the plan it started from."""
     current_request = m.get('change_request') or {}
+    trace_only = False
+    if request.get('documentation_only'):
+        try:
+            complete_guard(s, m, allow_trace_gaps=True)
+            ui_fidelity.completion_gate(s, m)
+            trace_only = True
+        except (Rejected, OSError):
+            pass
     m['design_generation'] = m.get('design_generation', 0) + 1
     previous_plan = current_request.get('previous_plan') or {
         key: copy.deepcopy(m.get(key)) for key in ('plan_ref', 'plan_hash', 'plan', 'accepted_test_design')}
@@ -380,7 +390,11 @@ def open_change(s, m, request):
     m.update(phase='change-review', stale=True, change_request={**request, 'from_freeze_id': m['freeze_id'],
         'previous_plan': previous_plan, 'previous_revalidation': previous_revalidation,
         **({'trace_issues': trace_issues} if trace_issues else {})}, diagnosis_submission=None)
-    invalidate_dependents(s, m['module_id'])
+    if trace_only:
+        m['trace_dependency_baseline'] = m['code_baseline']
+        s['audit'] = {}
+    else:
+        invalidate_dependents(s, m['module_id'])
 
 
 def replan_module(m, reason, evidence_ref, release_blocker=False):
@@ -408,14 +422,42 @@ def provider_written(p):
     return bool(skeleton) and skeleton <= accepted and tv.build_ready(p)
 
 
+def dependency_provider(p):
+    """Use the accepted provider evidence while a trace-only revision is in progress."""
+    if (not p.get('trace_dependency_baseline') or p['trace_dependency_baseline'] != p.get('code_baseline')
+            or p.get('blocked') or p.get('realloc_request') or p.get('effective_quality') == 'yellow-blocked'
+            or p['phase'] not in ('change-review', 'clarifying', 'testing', 'dod')):
+        return p
+    view = {**p, 'phase': 'completed', 'stale': False}
+    if change := p.get('change_request'):
+        previous = change['previous_plan']
+        view.update(plan=previous['plan'], plan_ref=previous['plan_ref'], plan_hash=previous['plan_hash'],
+                    freeze_id=change['from_freeze_id'], task_revalidation=change.get('previous_revalidation'))
+    elif history := p.get('change_request_history'):
+        view['build_artifacts'] = history[-1]['prior_execution']['build_artifacts']
+    return view
+
+
+def dependency_evidence_current(provider):
+    current(provider)
+    for ref in provider['code_files'] + provider.get('build_artifacts', []):
+        require(file_ref(ref['path']) == ref, 'provider trace revision execution inputs drifted')
+
+
 def dependencies_ready(s, m):
     providers = ((m.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs', [])
     stages = {row['module_id']: row.get('required_stage') or 'implemented' for row in providers}
-    require(all(provider_written(s['modules'][d])
-                if stages.get(d, 'implemented') == 'implemented' and m.get('phase') not in ('testing', 'dod', 'completed')
-                else tv.available(s['modules'][d]) for d in m['dependencies']), 'dependencies not complete')
     for d in m['dependencies']:
-        current(s['modules'][d])
+        original = s['modules'][d]
+        provider = dependency_provider(original)
+        if stages.get(d, 'implemented') == 'implemented' and m.get('phase') not in ('testing', 'dod', 'completed'):
+            require(provider_written(provider), 'dependencies not complete')
+        else:
+            require(tv.available(provider), 'dependencies not complete')
+        if provider is not original:
+            dependency_evidence_current(provider)
+        else:
+            current(provider)
 
 
 def failure_fingerprint(results):
@@ -743,13 +785,14 @@ def idle(m):
     require(not any(not a.get('closed') for a in m['assignments'].values()), 'worker still active')
 
 
-def complete_guard(s, m):
+def complete_guard(s, m, allow_trace_gaps=False):
     require(m['phase'] == 'dod' and not m['stale'] and m['results'] and
             all(r['quality'] == 'green-passed' for r in m['results'].values()) and
             set(m['results']) == {p['path_id'] for p in m['plan']['paths']}, 'DoD requires all paths Green')
     current(m); dependencies_ready(s, m)
     require((set(m.get('accepted_task_ids', [])) == {t['task_id'] for t in m['plan']['tasks']}), 'DoD requires cumulative TASK completion')
-    issues.settled(s, m['module_id'])
+    if not allow_trace_gaps or not issues.only_owed_stage(s, m['module_id'], 'dod'):
+        issues.settled(s, m['module_id'])
     if s.get('git_checkpoint'):
         require((m.get('git_checkpoint') or {}).get('code_baseline') == m['code_baseline'],
                 'git checkpoint of the current code baseline required before completion')
@@ -773,6 +816,7 @@ def dispatch_guard(s, m, worker):
                 'audit finding blocked or upstream verification incomplete')
     require(not workflow.audit_locks(s, m['module_id']), 'audit snapshot locked; close audit before dispatch')
     require(not m.get('blocked'), 'module blocked')
+    require(not m.get('realloc_request'), 'allocation review still pending')
     idle(m); current(m); dependencies_ready(s, m)
     required = {rid for rid, owners in s['global_plan']['content']['requirement_owners'].items() if m['module_id'] in owners}
     require(required <= {rid for task in m['plan']['tasks'] for rid in task.get('global_requirement_ids', task.get('requirement_ids', []))}, 'module plan misses global requirements')
@@ -809,9 +853,10 @@ def providers(s, m):
             p, stage = s['modules'][mid], stages.get(dependency) or 'implemented'
             # A provider revising its SPEC keeps the code it accepted: a dependent goes on against that code, and what the
             # revision supersedes reaches it as a gap when the revision freezes.
-            written = provider_written(p)
+            evidence = dependency_provider(p)
+            written = provider_written(evidence)
             rows.append({'module_id': mid, 'required_stage': stage, 'phase': p['phase'], 'plan_ref': p.get('plan_ref'), 'revising': bool(p.get('change_request')),
-                         'code_baseline': p.get('code_baseline'), 'ready': written if stage == 'implemented' else tv.available(p)})
+                         'code_baseline': p.get('code_baseline'), 'ready': written if stage == 'implemented' else tv.available(evidence)})
     return rows
 
 
@@ -934,7 +979,7 @@ def _next_step(s, m):
             step.update(operation='revoke', role='host', reason='stop-invalidated-worker')
         elif m['blocked']['kind'] == 'dependency':
             deps = {d: s['modules'][d]['code_baseline'] for d in m['dependencies']}
-            available = all(tv.available(s['modules'][d])
+            available = all(tv.available(dependency_provider(s['modules'][d]))
                             and s['modules'][d].get('effective_quality') != 'yellow-blocked' for d in m['dependencies'])
             released = m.get('dependency_release') == deps
             step.update(operation='resume' if released else 'dependency-ready',
@@ -969,7 +1014,7 @@ def _next_step(s, m):
         step.update(operation='repair-accept', role='module-orchestrator', ready=True,
                     path_ids=[pid for pid, r in pending_repairs(s).items() if m['module_id'] in r.get('module_ids', [])
                               and m['module_id'] not in r.get('accepted_by', [])])
-    elif m['phase'] == 'waiting-upstream':
+    elif m.get('realloc_request') or m['phase'] == 'waiting-upstream':
         step.update(operation=None, role='module-orchestrator', ready=False,
                     reason='await-upstream-reallocation',
                     detail='Submodule requested reallocation from parent MO',
@@ -1956,13 +2001,22 @@ def mutate(s, req, principal, events, root=None):
             m['approved_acceptance'] = control_policy.acceptance_hash(m)
         m['approved_acceptance_digests'] = control_policy.acceptance_digests(m['plan']['paths'])
         if m.get('change_request'):
-            revalidation = task_revalidation.prepare(m, p.get('review_ref'))
+            asset_revalidation, reused_paths = task_revalidation.retain_after_test_assets(s, m, root)
+            revalidation = asset_revalidation or task_revalidation.prepare(m, p.get('review_ref'))
             prior_execution = {key: copy.deepcopy(m.get(key)) for key in
                 ('code_files', 'code_baseline', 'accepted_task_ids', 'task_files', 'results', 'dimension_evidence', 'build_artifacts')}
             retained = set(revalidation['retained_task_ids'])
             # No TASK changed: the code already accepted implements the revised contract, so the leaf goes on to rebuild it.
             rebuilt = bool(retained) and retained == {t['task_id'] for t in m['plan']['tasks']} and bool(m.get('code_baseline'))
-            reused_build = task_revalidation.reusable_build(s, m, root) if rebuilt else []
+            if rebuilt and not asset_revalidation:
+                reused_paths = task_revalidation.reusable_build(s, m, root)
+            reused_build = bool(reused_paths) and all(path['path_id'] in reused_paths for path in tv.paths(m, 'build'))
+            if m.get('trace_dependency_baseline'):
+                try:
+                    require(rebuilt and (reused_build or task_revalidation.documentation_delta(m)), 'trace-only revision changed')
+                    dependency_evidence_current(dependency_provider(m))
+                except (Rejected, OSError):
+                    invalidate_dependents(s, mid)
             closed = m.pop('change_request')
             trace = [iid for iid in closed.get('trace_issues', []) if mid not in s['issues'][iid]['resolved']]
             issues.cite(s, mid, trace, p.get('review_ref') or m['plan_ref'], principal)
@@ -1973,10 +2027,10 @@ def mutate(s, req, principal, events, root=None):
             m.update(accepted_task_ids=sorted(retained), task_files={tid: files for tid, files in m.get('task_files', {}).items() if tid in retained},
                      execution_partition_pending=not rebuilt, build_baseline=m['code_baseline'] if reused_build else None,
                      build_artifacts=prior_execution['build_artifacts'] if reused_build else [], task_revalidation=revalidation)
-            if not rebuilt:
+            if not rebuilt and not asset_revalidation:
                 m.pop('dimension_evidence', None)
             m['results'] = {pid: {**result, 'stale': True} for pid, result in m['results'].items() if pid in {p['path_id'] for p in m['plan']['paths']}}
-            task_revalidation.carry(m, prior_execution['results'], reused_build)
+            task_revalidation.carry(m, prior_execution['results'], reused_paths)
             m.update(freeze_id=m['plan_hash'], phase='testing' if rebuilt else 'frozen', stale=True)
             if reused_build and tv.all_green(m):
                 m.update(phase='dod', stale=False)
@@ -1997,7 +2051,7 @@ def mutate(s, req, principal, events, root=None):
         require(all(control_policy.repair_route({'root_cause': audit_closure.trace_cause(s, s['issues'][iid])}) != 'upstream'
                     for iid in trace), 'scope trace requires upstream allocation review')
         open_change(s, m, {**p, 'trace_issues': trace,
-                           'documentation_only': m['phase'] == 'dod' and issues.documentation_gaps(s, mid)})
+                           'documentation_only': m['phase'] == 'dod' and issues.only_owed_stage(s, mid, 'dod')})
     elif op == 'assign':
         role(principal, 'module-orchestrator')
         require(p.get('mode') in (None, 'execute'), 'unknown assignment mode')
@@ -2088,6 +2142,8 @@ def mutate(s, req, principal, events, root=None):
             gates = {p['path_id'] for p in m['plan']['paths'] if p.get('kind') in tv.PRE}
             build_only = tv.split(m) and (assignment.get('test_scope') == 'build' or all(x['path_id'] in gates for x in result['paths']))
             bad = sorted(x['path_id'] for x in result['paths'] if x['quality'] != 'green-passed') if build_only else sorted(k for k,v in m['results'].items() if v['quality'] != 'green-passed')
+            if bad and m.get('trace_dependency_baseline'):
+                invalidate_dependents(s, mid)
             if build_only and not bad:
                 m['automation_retry_ready'] = True
             m['no_progress_rounds'] = m['no_progress_rounds'] + 1 if bad and failure_fingerprint(m['results']) == previous_fingerprint else 0
@@ -2253,6 +2309,7 @@ def mutate(s, req, principal, events, root=None):
         check_ref(p['dod_ref'])
         require(p.get('checks_passed', True) is True, 'DoD review required')
         m['phase'] = 'completed'
+        m.pop('trace_dependency_baseline', None)
     elif op in audit_execution.OPS:
         audit_execution.handle(s, req, principal, audit_scope(s))
     elif op in integration.OPS:

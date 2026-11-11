@@ -87,11 +87,13 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 只观察到自动化断言失败时，诊断按需核对冻结预期、实际观测和存量依据，再决定修复路径。Fixer 不修改需求、验收或冻结 TASK，只能提出 CR。原预期内的技术补全由 MO 审核；真实未决或需求、验收、授权变化交 Human。源码实现错误造成的 fidelity 偏差仍走 Fixer，规划遗漏造成的偏差才走 CR。
 
-统一审计把回溯发现逐条按根因路由。同一叶子同时收到两类发现时，先在叶子内修订 SPEC，再将范围缺口交父 MO/GO。发现保持开放，叶子重冻时结清对应 SPEC 问题，分配审核被接受时结清对应范围问题。 [审计回溯](skills/migration-protocol/references/audit-scope.md#问题处理)
+统一审计把回溯发现逐条按根因路由。同一叶子同时收到两类发现时，先修订叶子 SPEC，再将范围缺口交父 MO/GO。叶子重冻结清对应 SPEC 问题，分配审核被接受后结清对应范围问题。全局 `revise-run` 只处理报告 `root_updates` 明确列出的根模块，结论可为维持或调整分配；未列出的请求及子叶请求继续待审。 [审计回溯](skills/migration-protocol/references/audit-scope.md#问题处理)
 
 `planning-reopen` 后的首次新计划仍与上一份计划比较，MO 可依据差异审核。更新后的 SPEC 经现有门禁重冻，受影响的 TASK 再更新代码。修订默认全模块重验；MO 可在 CR 的 plan-review 提交 [TASK 独立性证明](template/task-independence.json)，核对定义、写范围、读依赖、共享 PATH、未变需求及文件追溯后，只重开受影响 TASK，保留未影响 TASK 和有效成功证据。共享影响须全模块重验，过期或漏报变更的证明拒收。**新代码始终重跑 build/unit/static**，局部重验时 automation/visual 重跑受影响及非 Green 路径。原回执、test_run_id 和执行基线保留，另记 `validation_reuse`。详见 [TASK 局部重验](skills/migration-protocol/references/openspec.md#task-局部重验)。
 
-仅在补录独立行的四维条目 ID 且所有 TASK 均保留时，Ledger 才尝试复用原 build/unit 回执。复用前核对原证据、代码与目标树、冻结命令、测试资产、宿主环境指纹和构建产物。证据不足、输入漂移或 Gradle 使用外部共享缓存时重跑；适用的 static 按新 SPEC 再审。
+只为待测 PATH 补充 staging 中的执行资产，且生产契约、冻结命令、断言和目标测试源都未变化时，重冻保留已验收 TASK。可核验的原回执继续有效，Test-Runner 执行受影响或证据失效的 PATH。需要写入目标项目的新测试源仍走实现交付与正式复测。
+
+补录独立行的四维条目 ID 时，已通过其他 DoD 门禁的提供方可以维持下游依赖及预检。提供方继续审查新 SPEC，证据漂移、实质变更或验证非 Green 时恢复依赖等待与复测。build/unit 回执复用仍核对目标树、命令、测试资产、宿主环境和产物。证据不足或 Gradle 使用外部共享缓存时，提供方重跑对应验证。
 
 运行级 global path 在持有其用例的叶子全部完成时即由 GO 派独立 Test-Runner 执行（波次边界），结果绑定各 owner 的代码基线，统一审计只重跑 owner 代码变动的路径，Red 路由给 owner 叶子修复。Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试、完整执行、有效成功、Red/Yellow 和缺路径 CASE；参数/平台实例分别计 PATH，重试不增加分母。`reused_passed_paths` 单列，排除在 `current_executed_paths` 之外；成功集合附原始执行身份与证据，报告分别给出完整执行和全部通过；TASK 行的缺路径只计模块整体缺的 CASE。缺路径、缺测或失效证据不能据现有成功集合宣称全量通过。
 
@@ -151,6 +153,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-11-11 | 全局修订按明确列出的根模块处理重分配。只补执行资产的重冻保留已验收实现；纯四维 ID 补录期间，下游沿用仍有效的提供方证据与预检。 |
 | 2026-11-11 | 审计发现按 SPEC 与范围分别回溯，接受重冻或分配审核时结案。unit 缺资产时先跑就绪 build，自动化先派发就绪 PATH。纯四维 ID 补录重冻可复用仍有效的 build/unit 回执。 |
 | 2026-11-11 | 欠项按所需阶段处理，测试资产在对应 PATH 派发前补齐，纯四维条目 ID 引用缺口可留到 DoD。重开规划后的新计划与上一份对比，待审重分配保留首次请求。 |
 | 2026-11-11 | 自动化断言失败且根因未确认时先诊断，首冻须覆盖 SPEC 的 Scenario 断言。宿主行携带提交修订号，报告分别展示完整执行与全部通过。 |

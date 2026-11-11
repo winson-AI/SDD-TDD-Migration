@@ -45,9 +45,9 @@ proposal 说明 Why/What/Capabilities/Impact；design 说明旧→新架构映�
 
 ## TASK 局部重验
 
-MO plan-review 可附 [task-independence.json](../../../template/task-independence.json) 的 task_independence_ref，绑定 from_freeze_id/to_plan_hash、受影响/未变 TASK、全 TASK 读输入哈希/依赖及源行为、运行时和资源隔离证据。Ledger 检查 TASK 定义、写范围、读依赖、共享 PATH、未变需求和文件追溯；共享影响则全模块重验，过期或漏报变更拒收；受影响 TASK 可为空（契约未动）。没有证明即默认验证范围。SPEC/design 的语义独立性仍须 MO 审阅，hash 不证明语义。
+MO plan-review 可附 [task-independence.json](../../../template/task-independence.json) 的 task_independence_ref，绑定 from_freeze_id/to_plan_hash、受影响/未变 TASK、读输入哈希、依赖及源行为、运行时、资源隔离证据。Ledger 核对定义、读写范围、共享 PATH、需求和追溯；共享影响或无证明须全验，过期漏报拒收。契约未动时影响集可为空，语义由 MO 审阅。
 
-局部更新只重开受影响 TASK；build/unit/static 总在新代码上重跑，automation/visual 重跑受影响及非 Green 路径。未影响成功保留原回执、test_run_id/执行基线，另记 validation_reuse 及有效基线；保留回执单列，代码或输入漂移回退重验。仅补录四维 ID 独立行时，原 build/unit 输入与产物可核验才复用，static 审新 SPEC。Red/Yellow 须复测，统一 Auditor 保留审计权。
+新代码重跑 build/unit/static，复测受影响及非 Green 路径。复用保留原回执、test_run_id 和执行基线，另记 validation_reuse。只补 staging 执行资产且契约与目标测试源未变，保留已验收 TASK 和有效回执。纯四维 ID 补录时，下游沿用有效证据；static 审新 SPEC，build/unit 按输入及产物核验决定复用。漂移回退重验，Red/Yellow 须复测，Auditor 保留审计权。
 
 ## 验证、同步与归档
 

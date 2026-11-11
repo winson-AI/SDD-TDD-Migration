@@ -22,13 +22,13 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1759 | 全量通过，覆盖回溯分流、就绪 PATH 派发与重冻回执 |
-| migration-test/tests | 83 | 全量通过，覆盖按派发范围生成测试结果 |
+| migration-ledger/tests | 1762 | 全量通过，另复核最终 55 项定向回归 |
+| migration-test/tests | 83 | 全量通过 |
 | runtime/harmony/tests | 128 | 全量通过 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-混合审计发现分别走叶子 CR 和上游分配，分别在重冻与分配审核被接受后结案。unit 缺资产时 build 仍产出回执，automation 缺资产时就绪 PATH 先执行。双叶演练中，纯四维 ID 补录在首轮自动化之后重冻，每个叶子只派发一次 Implementer。输入一致的叶子保留原 build/unit 回执，模拟宿主环境变化的叶子重跑，两边都重做静态审查。Gradle 外部共享缓存另有回退检查。
+无关的 build 超时修订保留了叶子待审请求与审计发现，显式审核可维持或调整对应根分配。给待测 PATH 补 staging fixture 后，已验收 TASK 和四份有效回执保留，仅执行待测 PATH，随后进入 DoD。模拟环境漂移时，已验收实现仍保留，测试回执进入重验。纯四维 ID 补录期间，下游状态、派发和预检主体保持有效；修改提供方代码后，派发守卫拒绝沿用该证据。
 
 演练使用隔离工程和本地适配器。真实项目的首派耗时及返工成本尚待测量。
 

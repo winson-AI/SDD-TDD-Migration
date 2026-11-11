@@ -125,10 +125,10 @@ def owed_stage(summary):
     return 'static'
 
 
-def documentation_gaps(s, mid):
+def only_owed_stage(s, mid, stage):
     rows = of_module(s, mid)[0]
     return bool(rows) and all(s['issues'][row['issue_id']]['raised_by'] == LEDGER
-                              and owed_stage(row['summary']) == 'dod' for row in rows)
+                              and owed_stage(row['summary']) == stage for row in rows)
 
 
 def families(rows):

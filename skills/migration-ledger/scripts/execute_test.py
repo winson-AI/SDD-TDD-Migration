@@ -293,9 +293,10 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
     for pid in pids:
         atomic(out / named('query', pid), queries[pid])
     execution_env['SDD_TEST_QUERY_FILE'] = str(out / named('query', path_id))
-    from issues import documentation_gaps
+    from issues import only_owed_stage
     revalidation_inputs = runner_storage.revalidation_inputs(s, root, cwd, argv) if (
-        module_id != 'GLOBAL' and path.get('kind') in ('build', 'unit') and documentation_gaps(s, module_id)) else None
+        module_id != 'GLOBAL' and path.get('kind') in ('build', 'unit')
+        and (only_owed_stage(s, module_id, 'dod') or only_owed_stage(s, module_id, 'path'))) else None
     started = datetime.now(timezone.utc).isoformat()
     termination, proc, aborted = None, None, None
     capture = Capture(out, {

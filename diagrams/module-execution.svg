@@ -102,16 +102,17 @@
 <text x="1315.0" y="1639.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">重新冻结，更新代码并正式复测</text>
 <text x="1315.0" y="1668.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无关 MO 保留当前有效状态</text>
 <path d="M1520,1570 L1570,1570 L1570,350 L1080,350 L1080,255 L1050,255" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
-<rect x="550" y="1750" width="500" height="295" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
-<text x="800.0" y="1789.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">CR 重验范围</text>
-<text x="800.0" y="1823.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">默认：全模块重验</text>
-<text x="800.0" y="1852.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">可选 MO TASK 独立性证明，绑定旧冻/新计划</text>
-<text x="800.0" y="1881.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核对写范围、读依赖、共享 PATH 与追溯</text>
-<text x="800.0" y="1910.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">独立才保留未影响 TASK / 有效 Green</text>
-<text x="800.0" y="1939.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">新代码重跑 build / unit / static</text>
-<text x="800.0" y="1968.5" font-size="20.71" fill="#4b5563" text-anchor="middle" font-weight="400">纯四维 ID 补录：证据匹配则复用 build / unit</text>
-<text x="800.0" y="1997.5" font-size="20.59" fill="#4b5563" text-anchor="middle" font-weight="400">static 审新 SPEC；复测受影响及非 Green 路径</text>
-<text x="800.0" y="2026.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">共享影响 / 无证明回退全验；过期漏报拒收</text>
+<rect x="550" y="1750" width="500" height="325" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
+<text x="800.0" y="1790.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">CR 重验范围</text>
+<text x="800.0" y="1824.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">默认：全模块重验</text>
+<text x="800.0" y="1853.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">可选 MO TASK 独立性证明，绑定旧冻/新计划</text>
+<text x="800.0" y="1882.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核对写范围、读依赖、共享 PATH 与追溯</text>
+<text x="800.0" y="1911.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">独立才保留未影响 TASK / 有效 Green</text>
+<text x="800.0" y="1940.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅补执行资产：保留已验收实现</text>
+<text x="800.0" y="1969.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">新代码重跑 build / unit / static</text>
+<text x="800.0" y="1998.0" font-size="20.71" fill="#4b5563" text-anchor="middle" font-weight="400">纯四维 ID 补录：证据匹配则复用 build / unit</text>
+<text x="800.0" y="2027.0" font-size="20.59" fill="#4b5563" text-anchor="middle" font-weight="400">static 审新 SPEC；复测受影响及非 Green 路径</text>
+<text x="800.0" y="2056.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">共享影响 / 无证明回退全验；过期漏报拒收</text>
 <rect x="70" y="1750" width="430" height="230" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="285.0" y="1800.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">证据与路径统计</text>
 <text x="285.0" y="1834.5" font-size="18.82" fill="#4b5563" text-anchor="middle" font-weight="400">保留原 receipt / test_run_id / 执行基线</text>
@@ -170,7 +171,7 @@
 <text x="1315.0" y="960.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">unit 缺资产：先跑就绪 build</text>
 <text x="1315.0" y="989.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">automation 先派资产齐备的 PATH</text>
 <text x="1315.0" y="1018.5" font-size="20.81" fill="#4b5563" text-anchor="middle" font-weight="400">仅缺 OpenSpec 四维 ID 引用：DoD 前</text>
-<text x="1315.0" y="1047.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">到期时可在同一 CR 合并处理</text>
+<text x="1315.0" y="1047.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">纯追溯补录：下游沿用有效证据与预检</text>
 <path d="M65,2420 L113,2420" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <text x="125" y="2427" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">流程推进</text>
 <path d="M345,2420 L393,2420" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
