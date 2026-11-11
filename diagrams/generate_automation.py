@@ -24,10 +24,10 @@ def automation_flow():
           ['构建只跑 PATH 平台；新代码必须重新 build / unit / static',
            '模型执行的 automation 可与 static 同派；同派时 static 在前'])
     d.box(1160, 375, 380, 175, '派发前核对本批 PATH 资产',
-          ['资产延期时可先编码、构建和单测', '本批缺资产 → 同 Run 修订 SPEC', '补齐后再派发该批 PATH'], 'orange')
+          ['unit 缺资产时先跑就绪 build', '自动化先派发资产齐备的 PATH', '待执行 PATH 经同 Run 修订再派发'], 'orange')
     d.arrow([(780, 490), (780, 550)])
     d.arrow([(780, 508), (1160, 508)], 'orange')
-    d.label(930, 513, '本批缺资产', 'orange', 18)
+    d.label(930, 513, '有 PATH 缺资产', 'orange', 18)
     d.box(460, 550, 640, 140, 'MO 派发 → Test-Runner testing 预检',
           ['Ledger 骨架已核代码 / 路径；填提供方 / 环境 / 权限', '提交 context-submit；绑定实际 argv / cwd / 环境', '宿主负责实际启动、角色身份和资源锁'], controller=True)
     d.arrow([(780, 690), (780, 735)])
@@ -50,7 +50,7 @@ def automation_flow():
     artifact(d, 460, 1320, 640, 130, '单路径执行工件',
              ['result.json + 日志 / 媒体 / observations', 'receipt.json：身份 / 时间 / argv / 退出码 / hash'])
     d.box(60, 1340, 340, 235, 'CR 验证范围',
-          ['无证明 / 共享影响：全模块重验', 'MO TASK 独立性证明通过', '保留未影响 TASK / Green', '影响及非 Green 路径重跑', '新构建 / 单测 / 静态总重跑'], 'purple')
+          ['无证明 / 共享影响：全模块重验', 'MO TASK 独立性证明通过', '保留未影响 TASK / Green', '影响及非 Green 路径重跑', '新代码重跑构建 / 单测 / 静态'], 'purple')
     d.box(60, 1640, 340, 170, '成功证据统计',
           ['Ledger 记录 validation_reuse', '原回执 / 执行基线不变', '复用成功单列，不计新执行', '成功集合带 PATH / TASK / 证据'], 'gray')
     d.arrow([(780, 1450), (780, 1505)])

@@ -4,6 +4,8 @@ closure and some item ids out, as a first version may. Built and unit-tested, ea
 its plan owes before its static review; the revision only adds to the plan, so the code and its Green stay, and the static
 review is judged once, on the revised plan. The counts are reported, not a gate."""
 import json
+import os
+from unittest.mock import patch
 from pathlib import Path
 import sys
 import unittest
@@ -128,8 +130,17 @@ class UiLeafRunTests(UiLeafWalk):
 
 
     def test_document_trace_gaps_wait_until_after_the_first_automation_result(self):
+        import task_revalidation
+
         self.closure_in_first_plan = True
-        self.walk(120)
+        reusable_build = task_revalidation.reusable_build
+        def verify_on_host(s, m, root):
+            if m['module_id'] == 'M012':
+                with patch.dict(os.environ, {'SDD_FIXTURE_TOOLCHAIN_REVISION': 'changed'}):
+                    return reusable_build(s, m, root)
+            return reusable_build(s, m, root)
+        with patch.object(task_revalidation, 'reusable_build', verify_on_host):
+            self.walk(120)
         events = list(workflow_cost.journal(self.f.root))
         for mid in ('M011', 'M012'):
             change = next(e for e in events if e.get('module_id') == mid and e['operation'] == 'change')
@@ -140,6 +151,17 @@ class UiLeafRunTests(UiLeafWalk):
             self.assertEqual(module['phase'], 'completed')
             self.assertEqual(module['task_revalidation']['retained_task_ids'], ['T1'])
             self.assertEqual(sum(a['role'] == 'implementer' for a in module['assignments'].values()), 1)
+            previous = module['change_request_history'][-1]['prior_execution']
+            self.assertEqual(module['code_baseline'], previous['code_baseline'])
+            for path in module['plan']['paths']:
+                if path['kind'] not in ('build', 'unit', 'static'):
+                    continue
+                pid = path['path_id']; old = previous['results'][pid]; new = module['results'][pid]
+                if mid == 'M011' and path['kind'] in ('build', 'unit'):
+                    self.assertEqual((new['test_run_id'], new['execution_receipt']), (old['test_run_id'], old['execution_receipt']))
+                    self.assertEqual(new['validation_reuse']['source_test_run_id'], old['test_run_id'])
+                else:
+                    self.assertNotEqual(new['test_run_id'], old['test_run_id'])
 
 
 if __name__ == '__main__':

@@ -222,12 +222,14 @@ def module_execution():
         '重新冻结，更新代码并正式复测',
         '无关 MO 保留当前有效状态'], 'purple')
     d.arrow([(1520,1570),(1570,1570),(1570,350),(1080,350),(1080,255),(1050,255)],'purple')
-    d.box(550,1750,500,260,'CR 重验范围',[
+    d.box(550,1750,500,295,'CR 重验范围',[
         '默认：全模块重验',
         '可选 MO TASK 独立性证明，绑定旧冻/新计划',
         '核对写范围、读依赖、共享 PATH 与追溯',
         '独立才保留未影响 TASK / 有效 Green',
-        '新 build/unit/static；影响及非 Green 路径复测',
+        '新代码重跑 build / unit / static',
+        '纯四维 ID 补录：证据匹配则复用 build / unit',
+        'static 审新 SPEC；复测受影响及非 Green 路径',
         '共享影响 / 无证明回退全验；过期漏报拒收'], 'orange')
     d.box(70,1750,430,230,'证据与路径统计',[
         '保留原 receipt / test_run_id / 执行基线',
@@ -275,7 +277,8 @@ def module_execution():
     d.box(1110,810,410,275,'欠项按所需阶段补齐',[
         '起步门禁通过即编码、构建、可执行单测',
         '实质性欠项：静态审查前',
-        '测试资产：对应 PATH 批次派发前',
+        'unit 缺资产：先跑就绪 build',
+        'automation 先派资产齐备的 PATH',
         '仅缺 OpenSpec 四维 ID 引用：DoD 前',
         '到期时可在同一 CR 合并处理'], 'orange')
     d.legend(2420)
@@ -292,7 +295,13 @@ def auditor_closure():
         'audit-code-review（骨架起笔，预列 debt）：目标/改动/冗余/复用','audit-collect（机械）：先治理 CR-*，再剩余 Red / Yellow','绑定 SPEC / PATH 证据；测试映射与 git 改动 Ledger 填'])
     d.arrow([(800,505),(800,565)])
     d.box(500,565,600,135,'根因分析 → 路由审核',[
-        '治理用 fix / human；遗留可 fix / verify / human','finding 自带路由 / 根因已确认：Ledger 路由并代审','trace：叶子即开 CR（根因已确认则机械），代码保留'],controller=True)
+        '治理用 fix / human；遗留按根因分流','finding 自带路由 / 根因已确认：Ledger 路由并代审','trace：保留已写代码，回对应 MO / GO'],controller=True)
+    d.box(1140,370,380,195,'同 Run · 逐条回溯',[
+        'SPEC 缺口 → 叶子 CR → 重冻结案',
+        '范围缺口 → 父 MO / GO → 分配审核结案',
+        '同一叶子两类并存时先修订 SPEC',
+        '发现保持开放至相应决定被接受'], 'purple')
+    d.arrow([(1100,595),(1120,595),(1120,475),(1140,475)],'purple')
     d.box(90,370,330,200,'复用与公共能力治理',[
         '重复实现 / 接线 / 公共能力',
         '核对已选映射与影响消费者',

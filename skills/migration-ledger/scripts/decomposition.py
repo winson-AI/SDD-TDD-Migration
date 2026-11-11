@@ -815,10 +815,13 @@ def handle(s, req, actor, run_root):
         evidence_refs = nonempty(p.get('evidence_refs'), 'realloc-request evidence required')
         for ref in evidence_refs:
             check_ref(ref)
-        import issues
-        issues.cite(s, mid, p.get('resolves'), evidence_refs[0], actor)  # what an audit traced back is answered by this request
+        import audit_closure, control_policy, issues
+        trace = issues.cite(s, mid, p.get('resolves'), evidence_refs[0], actor, defer_trace=True)
+        require(all(control_policy.repair_route({'root_cause': audit_closure.trace_cause(s, s['issues'][iid])}) == 'upstream'
+                    for iid in trace), 'in-scope trace requires a leaf SPEC change')
         m['realloc_request'] = {'reason': reason, 'evidence_refs': evidence_refs,
-                                'actor_instance_id': actor['instance_id'], 'status': 'pending', 'resume_phase': m['phase']}
+                                'actor_instance_id': actor['instance_id'], 'status': 'pending', 'resume_phase': m['phase'],
+                                **({'trace_issues': trace} if trace else {})}
         m['phase'] = 'waiting-upstream'
         m['revision'] += 1
         return
@@ -846,6 +849,12 @@ def handle(s, req, actor, run_root):
         children, graph = validate(s, parent, plan, redecompose=True)
 
         old_children = set(parent['children'])
+        import issues
+        for cid in sorted(old_children | {mid}):
+            owner = s['modules'].get(cid, parent)
+            request = owner.get('realloc_request') or {}
+            issues.cite(s, cid, [iid for iid in request.get('trace_issues', []) if cid not in s['issues'][iid]['resolved']],
+                        p['review_ref'], actor)
         # Keep why children asked upstream: accept clears each realloc_request, history must not.
         triggers = [{'module_id': cid, **{k: copy.deepcopy(s['modules'][cid]['realloc_request'][k]) for k in ('reason', 'evidence_refs')}}
                     for cid in sorted(old_children) if (s['modules'].get(cid) or {}).get('realloc_request')]

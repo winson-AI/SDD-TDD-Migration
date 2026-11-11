@@ -18,7 +18,7 @@ Auditor 在所有父/子 MO 的本轮实现、编译构建、自动化测试及�
 
 1. `audit-collect` 固定当前遗留 finding、来源模块、SPEC/测试路径及基线（批次号与审查者都是 Ledger 已有事实，机械提交）；纯自动化环境缺测汇入收尾待验证清单，不强制当成代码缺陷。
 2. Auditor 逐 finding 读取 SPEC/tasks/CASE/PATH、断言和根因证据，提交 `audit-plan`。可直接复核的用 `verify`；已有根因需要补丁的用 `fix`；业务边界不明/不可修复的用 `human`。每个 finding 自带路由时 Ledger 以 Auditor 名义起草提交：治理 finding 带审查写的 `route`，遗留失败的根因已确认、指名模块且属代码缺陷（fix）或 SPEC 缺口（trace）。
-3. GO 审核路由，owner MO `audit-work` 委派 Fixer；同 owner 合并 finding。路由全为 fix/trace 且 owner 已知时审核与 audit-work、audit-retest 都由 Ledger 机械提交（守卫照旧复核）。Auditor 不修代码或验收。
+3. GO 审核路由，MO 经 audit-work 委派 Fixer。已确认的同 owner 修复可合并，Ledger 代提交已确定动作。trace 按根因处理，SPEC 缺口先走叶子 CR，范围缺口报父 MO/GO；接受重冻或分配审核后结案。Auditor 不改代码或验收标准。
 4. 正式复测留新回执、assert、基线与 retest_of。已确认技术根因指向已审核 owner、冻结有效、影响范围空闲且预算足时，回该 owner 的 audit-work；历史进 test_history，实际下游旧证明失效。未知/新 owner、语义或授权变化、预算耗尽交人工/回溯。缺环境保留 Yellow。
 5. Auditor `audit-verdict` 验收（批次内各模块复测在当前代码上全绿且无待人工时由 Ledger 机械裁决），Ledger 记录结果与修复 memory；独立分支继续，失败只影响有依赖关系的分支。父 MO 刷新汇总后，独立审阅收尾。
 

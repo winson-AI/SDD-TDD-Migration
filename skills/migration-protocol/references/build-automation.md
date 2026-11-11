@@ -2,7 +2,7 @@
 
 ## 总则
 
-Coding 接受后先构建，同一派发内跑逻辑单测（命令全冻结，由 `ledger.py advance` 代跑），两者通过后派 Test-Runner 做静态规格闭合审查（逐需求核对生产符号与假实现，见[静态规格闭合](testing.md#静态规格闭合)），然后自动化：PATH 的平台有声明的适配器或内置 Main 时同样由 advance 代跑（静态审查单独派发），否则由 Test-Runner 执行，静态审查随这次自动化派发、排在最前，非 Green 即停。任务分批时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且需要本模块代码的切片已有代码，此前为 awaiting-assembly：其间本模块的自动化先跑（只观察本模块行为，不需要调用方），结果早于依赖方代码回到本模块；调用方到位后静态闭合单独派发。构建命令相同的模块可同时各写各的文件，该单元只在无人写入时构建（含设备路径的构建运行），构建中也不开始写入；命令优先用户指定，否则搜索构建脚本并默认评估 Gradle assemble。构建/用例错误记三态与根因，修复由 Fixer。仅自动化环境不可启动时保留构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred，独立任务与依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复；全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，不称功能/fidelity 验证通过；不跳过构建、不吞已观察到的 Red。
+Coding 接受后先构建，同一派发可跑逻辑单测（冻结命令由 advance 代跑）。unit 缺资产时先完成就绪 build，两者通过后派 Test-Runner 做静态规格闭合审查（逐需求核对生产符号与假实现，见[静态规格闭合](testing.md#静态规格闭合)），然后自动化：PATH 的平台有声明的适配器或内置 Main 时同样由 advance 代跑（静态审查单独派发），否则由 Test-Runner 执行，静态审查随这次自动化派发、排在最前，非 Green 即停。任务分批时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且需要本模块代码的切片已有代码，此前为 awaiting-assembly：等待期间先跑本模块的独立自动化；调用方就绪后单派静态闭合。构建命令相同的模块可同时各写各的文件，该单元只在无人写入时构建（含设备路径的构建运行），构建期间暂停写入；命令优先用用户指定项，否则检查 Gradle assemble。构建/用例错误记三态与根因，修复由 Fixer。仅自动化环境不可启动时保留构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred，独立任务与依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复；全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，不称功能/fidelity 验证通过；不跳过构建、不吞已观察到的 Red。
 
 ## 1. 职责与全局规则
 
@@ -53,7 +53,7 @@ Coding 接受 → Test-Runner building 预检 → 编译构建
 
 覆盖门禁同时要求每个已分配 CASE 至少关联一个 automation PATH；不得只给某 CASE 关联 build PATH 来满足整体 CASE 映射。模块边界和 uv 执行方式见 [Harmony sandbox README](../../migration-test/runtime/harmony/README.md#1-测试覆盖与模块边界)。
 
-MO 派发 test-runner 时明确 `test_scope=build|automation|visual`，顺序同上；每次接受新代码，旧构建失效，须重新 build。
+派发绑定 `test_scope=build|automation|visual` 和 PATH。automation 先执行资产齐备的 PATH，未派发仍属应测范围。新代码须重新 build。
 
 - building 预检只检查冻结方案、代码、构建命令、构建环境和权限，不检查设备/UI/自动化账号。
 - `execute_test.py` 对 build PATH 直接执行冻结命令，**不追加 query-file/result-file 参数**；宿主保存 stdout/stderr、退出码和 receipt，生成唯一构建断言（expected=0，actual=真实退出码）。编译错误 Red，环境/工具或未知原因 Yellow（127/124 默认 Yellow），均留根因与日志，由角色核实分类。

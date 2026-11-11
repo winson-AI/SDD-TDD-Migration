@@ -25,7 +25,8 @@ def build(root, module_id, assignment_id, receipts):
     staged = module_id != 'GLOBAL' and tv.split(m)
     pre = staged and a['test_scope'] == 'build'  # one result carries build, unit tests and the static review
     selected = ([p for kind in tv.PRE for p in tv.paths(m, kind)] if pre else tv.scope_paths(m, a['test_scope'])) if staged else m['plan']['paths']
-    paths = {p['path_id']:p for p in selected}
+    assigned = (a.get('execution_contract') or {}).get('path_ids', [p['path_id'] for p in selected])
+    paths = {p['path_id']: p for p in selected if p['path_id'] in assigned}
     rows = {}
     for receipt_ref in receipts:
         r = read_json(check_ref(receipt_ref))
@@ -40,7 +41,8 @@ def build(root, module_id, assignment_id, receipts):
         if previous: row['retest_of'] = previous['test_run_id']
         rows[pid] = row
     # a functional stage that carries the static closure stops there when the review is not Green
-    expected = {p['path_id'] for p in tv.stage_paths(m, rows)} if pre else {p['path_id'] for p in tv.scope_paths(m, a['test_scope'], rows)} if staged else set(paths)
+    expected = {p['path_id'] for p in tv.stage_paths(m, rows, assigned)} if pre else \
+        {p['path_id'] for p in tv.scope_paths(m, a['test_scope'], rows) if p['path_id'] in assigned} if staged else set(paths)
     require(set(rows) == expected, 'provide one host receipt for every frozen path; do not shrink coverage')
     result = {'schema_version':1, 'kind':'tests', 'run_id':s['run_id'], 'module_id':module_id,
               'assignment_id':assignment_id, 'actor_instance_id':a['instance_id'],

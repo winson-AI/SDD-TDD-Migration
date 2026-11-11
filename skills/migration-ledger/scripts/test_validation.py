@@ -2,6 +2,7 @@
 import copy
 from pathlib import Path
 import task_revalidation
+from prepared_tests import pending_paths
 
 from contracts import Rejected, baseline, check_ref, nonempty, owed, read_json, require, verify_plan
 
@@ -161,13 +162,35 @@ def due(m):
     return [p for p in (m.get('plan') or {}).get('paths', []) if p.get('kind') in PRE and judged(p)]
 
 
-def stage_paths(m, tests):
+def dispatch_paths(m, scope):
+    selected = due(m) if scope == 'build' else scope_paths(m, scope) if scope else m['plan']['paths']
+    if scope != 'build' and m.get('task_revalidation', {}).get('mode') == 'partial':
+        selected = [p for p in selected if not path_green(m, p['path_id'])]
+    pending = set(pending_paths(selected))
+    if not pending:
+        return selected
+    if scope == 'build':
+        # A whole prerequisite kind must pass before the next one starts.
+        ready = []
+        for kind in PRE:
+            stage = [p for p in selected if p['kind'] == kind and not path_green(m, p['path_id'])]
+            if any(p['path_id'] in pending for p in stage):
+                break
+            ready.extend(stage)
+        return ready
+    if scope in (None, 'automation') and not any(p['path_id'] in pending and p.get('kind') == 'static' for p in selected):
+        return [p for p in selected if p['path_id'] not in pending and not path_green(m, p['path_id'])]
+    return []
+
+
+def stage_paths(m, tests, selected=None):
     """Paths one build-stage result must cover: every due build, unit and static path not yet Green on the current
     code, in order, stopping after the first kind whose rows are not all Green."""
     results, expected = m.get('results', {}), []
     for kind in PRE:
         ready = kind != 'build' or build_ready(m)
-        pending = [p for p in due(m) if p['kind'] == kind and not (ready and not (results.get(p['path_id']) or {}).get('stale') and (results.get(p['path_id']) or {}).get('quality') == 'green-passed'
+        pending = [p for p in due(m) if p['kind'] == kind and (selected is None or p['path_id'] in selected)
+                   and not (ready and not (results.get(p['path_id']) or {}).get('stale') and (results.get(p['path_id']) or {}).get('quality') == 'green-passed'
                                                     and (results.get(p['path_id']) or {}).get('code_baseline') == m.get('code_baseline'))]
         expected += pending
         if any((tests.get(p['path_id']) or {}).get('quality') != 'green-passed' for p in pending):

@@ -31,13 +31,13 @@
 <text x="780.0" y="474.5" font-size="19.70" fill="#4b5563" text-anchor="middle" font-weight="400">模型执行的 automation 可与 static 同派；同派时 static 在前</text>
 <rect x="1160" y="375" width="380" height="175" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1350.0" y="427.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">派发前核对本批 PATH 资产</text>
-<text x="1350.0" y="461.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">资产延期时可先编码、构建和单测</text>
-<text x="1350.0" y="490.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">本批缺资产 → 同 Run 修订 SPEC</text>
-<text x="1350.0" y="519.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">补齐后再派发该批 PATH</text>
+<text x="1350.0" y="461.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">unit 缺资产时先跑就绪 build</text>
+<text x="1350.0" y="490.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">自动化先派发资产齐备的 PATH</text>
+<text x="1350.0" y="519.0" font-size="21.51" fill="#4b5563" text-anchor="middle" font-weight="400">待执行 PATH 经同 Run 修订再派发</text>
 <path d="M780,490 L780,550" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M780,508 L1160,508" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
-<rect x="876.0" y="495" width="108" height="27" rx="4" fill="white" opacity="0.97"/>
-<text x="930" y="513" font-size="18.00" fill="#ea580c" text-anchor="middle" font-weight="400">本批缺资产</text>
+<rect x="854.22" y="495" width="151.55999999999997" height="27" rx="4" fill="white" opacity="0.97"/>
+<text x="930" y="513" font-size="18.00" fill="#ea580c" text-anchor="middle" font-weight="400">有 PATH 缺资产</text>
 <rect x="460" y="550" width="640" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="465" y="555" width="630" height="130" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="780.0" y="584.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO 派发 → Test-Runner testing 预检</text>
@@ -98,7 +98,7 @@
 <text x="230.0" y="1456.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">MO TASK 独立性证明通过</text>
 <text x="230.0" y="1485.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">保留未影响 TASK / Green</text>
 <text x="230.0" y="1514.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">影响及非 Green 路径重跑</text>
-<text x="230.0" y="1543.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">新构建 / 单测 / 静态总重跑</text>
+<text x="230.0" y="1543.0" font-size="21.50" fill="#4b5563" text-anchor="middle" font-weight="400">新代码重跑构建 / 单测 / 静态</text>
 <rect x="60" y="1640" width="340" height="170" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="230.0" y="1675.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">成功证据统计</text>
 <text x="230.0" y="1709.0" font-size="19.77" fill="#4b5563" text-anchor="middle" font-weight="400">Ledger 记录 validation_reuse</text>
