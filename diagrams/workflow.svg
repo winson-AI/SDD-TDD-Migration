@@ -66,7 +66,7 @@
 <text x="215.0" y="1272.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · A1</text>
 <text x="215.0" y="1306.5" font-size="20.04" fill="#4b5563" text-anchor="middle" font-weight="400">TASK / 四维 → SPEC</text>
 <text x="215.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">MO 审核冻结</text>
-<text x="215.0" y="1364.5" font-size="21.88" fill="#4b5563" text-anchor="middle" font-weight="400">实现→测试→反馈调整</text>
+<text x="215.0" y="1364.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实现与分阶段验证</text>
 <text x="215.0" y="1393.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">DoD / 明确挂起</text>
 <path d="M480,1220 L480,1240" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="365" y="1240" width="230" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -74,7 +74,7 @@
 <text x="480.0" y="1272.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · A2</text>
 <text x="480.0" y="1306.5" font-size="20.04" fill="#4b5563" text-anchor="middle" font-weight="400">TASK / 四维 → SPEC</text>
 <text x="480.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">MO 审核冻结</text>
-<text x="480.0" y="1364.5" font-size="21.88" fill="#4b5563" text-anchor="middle" font-weight="400">实现→测试→反馈调整</text>
+<text x="480.0" y="1364.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实现与分阶段验证</text>
 <text x="480.0" y="1393.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">DoD / 明确挂起</text>
 <path d="M745,1220 L745,1240" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="630" y="1240" width="230" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -82,7 +82,7 @@
 <text x="745.0" y="1272.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · B1</text>
 <text x="745.0" y="1306.5" font-size="20.04" fill="#4b5563" text-anchor="middle" font-weight="400">TASK / 四维 → SPEC</text>
 <text x="745.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">MO 审核冻结</text>
-<text x="745.0" y="1364.5" font-size="21.88" fill="#4b5563" text-anchor="middle" font-weight="400">实现→测试→反馈调整</text>
+<text x="745.0" y="1364.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实现与分阶段验证</text>
 <text x="745.0" y="1393.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">DoD / 明确挂起</text>
 <path d="M1010,1220 L1010,1240" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="895" y="1240" width="230" height="165" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -90,7 +90,7 @@
 <text x="1010.0" y="1272.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">子 MO · B…</text>
 <text x="1010.0" y="1306.5" font-size="20.04" fill="#4b5563" text-anchor="middle" font-weight="400">TASK / 四维 → SPEC</text>
 <text x="1010.0" y="1335.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">MO 审核冻结</text>
-<text x="1010.0" y="1364.5" font-size="21.88" fill="#4b5563" text-anchor="middle" font-weight="400">实现→测试→反馈调整</text>
+<text x="1010.0" y="1364.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实现与分阶段验证</text>
 <text x="1010.0" y="1393.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">DoD / 明确挂起</text>
 <path d="M215,1405 L215,1480" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M480,1405 L480,1480" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
@@ -149,7 +149,7 @@
 <text x="1375.0" y="1033.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">wave-complete：派波次集成</text>
 <text x="1375.0" y="1062.5" font-size="21.44" fill="#4b5563" text-anchor="middle" font-weight="400">预检：Ledger 代写或骨架起笔</text>
 <text x="1375.0" y="1091.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已有事实代填；被拒列全问题</text>
-<text x="1375.0" y="1120.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">就绪才开工，阻塞退回派发前</text>
+<text x="1375.0" y="1120.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">就绪即开工，按阶段补欠项</text>
 <text x="1375.0" y="1149.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">父聚合颜色不回写子模块</text>
 <rect x="1210" y="1230" width="330" height="290" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="1375.0" y="1281.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">宿主执行层</text>

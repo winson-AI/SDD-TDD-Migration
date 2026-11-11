@@ -109,6 +109,16 @@ def family(kind, summary):
     return next((label for pattern, label in FAMILIES if re.search(pattern, summary)), '其他')
 
 
+def owed_stage(summary):
+    """Known non-blocking gaps can wait. Older or unknown gaps still precede static closure."""
+    if any(summary.startswith(f'OpenSpec {kind} missing dimension item IDs: ') for kind in ('spec', 'design', 'tasks')):
+        return 'dod'
+    if summary in ('prepared PATH needs test assets', 'resolve deferred test preparation before freeze',
+                   'resolve deferred test preparation before PATH execution'):
+        return 'path'
+    return 'static'
+
+
 def families(rows):
     """How many open issues each family holds, most first."""
     counts = {}

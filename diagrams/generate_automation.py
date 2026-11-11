@@ -20,9 +20,14 @@ def automation_flow():
           ['存量与运行方式 / 目标 / 架构 / 媒体', '二方库行为对齐与 fidelity', '开局声明 → 适配器 / 环境文件', '项目配置 → 本轮快照'], 'gray')
     d.arrow([(400, 255), (460, 255)])
     d.arrow([(780, 320), (780, 375)])
-    d.box(460, 375, 640, 115, 'Coding 接受 → build / unit / static Green',
-          ['构建只跑 PATH 验证的平台；新代码必须重新 build / unit / static', '构建通过不代表任何业务 CASE 已通过'])
+    d.box(460, 375, 640, 115, 'Coding 接受 → build / unit',
+          ['构建只跑 PATH 平台；新代码必须重新 build / unit / static',
+           '模型执行的 automation 可与 static 同派；同派时 static 在前'])
+    d.box(1160, 375, 380, 175, '派发前核对本批 PATH 资产',
+          ['资产延期时可先编码、构建和单测', '本批缺资产 → 同 Run 修订 SPEC', '补齐后再派发该批 PATH'], 'orange')
     d.arrow([(780, 490), (780, 550)])
+    d.arrow([(780, 508), (1160, 508)], 'orange')
+    d.label(930, 513, '本批缺资产', 'orange', 18)
     d.box(460, 550, 640, 140, 'MO 派发 → Test-Runner testing 预检',
           ['Ledger 骨架已核代码 / 路径；填提供方 / 环境 / 权限', '提交 context-submit；绑定实际 argv / cwd / 环境', '宿主负责实际启动、角色身份和资源锁'], controller=True)
     d.arrow([(780, 690), (780, 735)])
@@ -58,7 +63,7 @@ def automation_flow():
     d.diamond(780, 1940, 330, 130, '正式三态', '以本次证据为准')
     d.arrow([(615, 1940), (400, 1940)], 'green'); d.label(505, 1920, 'Green', 'green')
     d.box(60, 1870, 340, 170, 'MO · 完整 DoD',
-          ['构建 / 单测 / 静态 + 自动化', '当前基线全部 Green', '适用 visual 须另派并通过', '记录模块通过'], 'green', True)
+          ['构建 / 单测 / 静态 + 自动化', '当前基线全部 Green', '适用 visual 须另派并通过', '补齐 OpenSpec 四维 ID 引用'], 'green', True)
     d.arrow([(945, 1940), (1160, 1940)], 'orange'); d.label(1045, 1920, 'Red / Yellow', 'orange')
     d.box(1160, 1845, 380, 240, '诊断 → 修复路由',
           ['实现错误 → Fixer；规划缺口 → CR', '冻结测试源缺陷也走 CR', '超 scope → 父 MO / GO', '目标基线缺陷 → 审计延期', '更新 SPEC 时 MO 重冻后再改代码', '预算内正式复测；阻塞按原恢复'], 'purple')

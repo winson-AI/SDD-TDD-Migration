@@ -32,6 +32,8 @@ def config(f):
 
 
 class UiLeafWalk(test_continuous_run.ContinuousWalk):
+    closure_in_first_plan = False
+
     def setUp(self):
         real = test_source_changes.SourceChangeTests.register_root
         test_source_changes.SourceChangeTests.register_root = lambda t, features=None, global_paths=(): real(
@@ -67,10 +69,11 @@ class UiLeafWalk(test_continuous_run.ContinuousWalk):
             for row in task['dimension_analysis']['dimensions']:
                 if held.get(row['dimension']):
                     row.update(status='applicable', item_ids=held[row['dimension']])
-        if m.get('change_request'):  # reopened for what the first plan owed
+        if self.closure_in_first_plan or m.get('change_request'):
             plan['source_closure'].update(ui_renderers=['ui/' + m['name'] + 'Activity.java'], ui_topology='list with a header image',
                                           states=['loading', 'content', 'empty'], navigation='opened from the search entry; back returns',
                                           platform_lifecycle='no permissions; data through the repository; cancelled on leave')
+        if m.get('change_request'):
             ids = ' '.join(iid for ids in held.values() for iid in ids)
             definitions = []
             for d in plan['definitions']:
@@ -122,6 +125,21 @@ class UiLeafRunTests(UiLeafWalk):
         reopened = [row for row in workflow_cost.journal(self.f.root) if row['operation'] == 'change']
         self.assertEqual({row['actor']['role'] for row in reopened}, {'module-orchestrator'})
         self.assertTrue(all(row['request_id'].startswith('advance-') for row in reopened))  # opened by the Ledger, no model turn
+
+
+    def test_document_trace_gaps_wait_until_after_the_first_automation_result(self):
+        self.closure_in_first_plan = True
+        self.walk(120)
+        events = list(workflow_cost.journal(self.f.root))
+        for mid in ('M011', 'M012'):
+            change = next(e for e in events if e.get('module_id') == mid and e['operation'] == 'change')
+            before = [e for e in events if e.get('module_id') == mid and e['sequence'] < change['sequence']]
+            self.assertTrue(any(e['actor']['role'] == 'test-runner' and e['operation'] == 'submit'
+                                and not e['request_id'].startswith('advance-') for e in before))
+            module = self.f.state()['modules'][mid]
+            self.assertEqual(module['phase'], 'completed')
+            self.assertEqual(module['task_revalidation']['retained_task_ids'], ['T1'])
+            self.assertEqual(sum(a['role'] == 'implementer' for a in module['assignments'].values()), 1)
 
 
 if __name__ == '__main__':

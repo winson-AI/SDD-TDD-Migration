@@ -346,6 +346,9 @@ class DecompositionTests(unittest.TestCase):
         s = self.state()
         self.assertEqual(s['modules']['M002']['phase'], 'waiting-upstream')
         self.assertEqual(s['modules']['M002']['realloc_request']['status'], 'pending')
+        with self.assertRaisesRegex(Rejected, 'realloc-request already pending'):
+            self.call('realloc-request', {'reason': 'Duplicate', 'evidence_refs': [self.ref('again.md', 'same issue')]}, module='M002')
+        self.assertEqual(self.state()['modules']['M002']['realloc_request'], s['modules']['M002']['realloc_request'])
         # Parent MO group step immediately recognizes realloc request
         group_step = dc.group_step(s, s['module_groups']['M010'])
         self.assertEqual(group_step['operation'], 'redecompose')

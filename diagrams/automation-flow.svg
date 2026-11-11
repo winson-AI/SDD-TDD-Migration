@@ -26,10 +26,18 @@
 <path d="M400,255 L460,255" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M780,320 L780,375" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="375" width="640" height="115" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
-<text x="780.0" y="411.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Coding 接受 → build / unit / static Green</text>
-<text x="780.0" y="445.5" font-size="18.51" fill="#4b5563" text-anchor="middle" font-weight="400">构建只跑 PATH 验证的平台；新代码必须重新 build / unit / static</text>
-<text x="780.0" y="474.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">构建通过不代表任何业务 CASE 已通过</text>
+<text x="780.0" y="411.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Coding 接受 → build / unit</text>
+<text x="780.0" y="445.5" font-size="20.36" fill="#4b5563" text-anchor="middle" font-weight="400">构建只跑 PATH 平台；新代码必须重新 build / unit / static</text>
+<text x="780.0" y="474.5" font-size="19.70" fill="#4b5563" text-anchor="middle" font-weight="400">模型执行的 automation 可与 static 同派；同派时 static 在前</text>
+<rect x="1160" y="375" width="380" height="175" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
+<text x="1350.0" y="427.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">派发前核对本批 PATH 资产</text>
+<text x="1350.0" y="461.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">资产延期时可先编码、构建和单测</text>
+<text x="1350.0" y="490.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">本批缺资产 → 同 Run 修订 SPEC</text>
+<text x="1350.0" y="519.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">补齐后再派发该批 PATH</text>
 <path d="M780,490 L780,550" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M780,508 L1160,508" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
+<rect x="876.0" y="495" width="108" height="27" rx="4" fill="white" opacity="0.97"/>
+<text x="930" y="513" font-size="18.00" fill="#ea580c" text-anchor="middle" font-weight="400">本批缺资产</text>
 <rect x="460" y="550" width="640" height="140" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="465" y="555" width="630" height="130" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="780.0" y="584.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO 派发 → Test-Runner testing 预检</text>
@@ -122,7 +130,7 @@
 <text x="230.0" y="1939.0" font-size="21.94" fill="#4b5563" text-anchor="middle" font-weight="400">构建 / 单测 / 静态 + 自动化</text>
 <text x="230.0" y="1968.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">当前基线全部 Green</text>
 <text x="230.0" y="1997.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">适用 visual 须另派并通过</text>
-<text x="230.0" y="2026.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">记录模块通过</text>
+<text x="230.0" y="2026.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">补齐 OpenSpec 四维 ID 引用</text>
 <path d="M945,1940 L1160,1940" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
 <rect x="967.6" y="1900" width="154.8" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="1045" y="1920" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">Red / Yellow</text>

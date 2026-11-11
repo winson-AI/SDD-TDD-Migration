@@ -22,15 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1754 | 全量通过，覆盖失败分流、首冻断言和双叶修订演练 |
+| migration-ledger/tests | 1756 | 全量通过，覆盖分阶段欠项与增量修订 |
 | migration-test/tests | 83 | 全量通过；本轮无改动 |
 | runtime/harmony/tests | 128 | 全量通过；本轮无改动 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮覆盖从自动化证据到修订的完整链路。双叶演练通过 `drive.py` 完成会话轮换，一个叶子的适配器返回根因尚未确认的失败断言，诊断确认保真缺口后触发同 Run 的 SPEC 修订、重冻、更新已有代码及正式复测。演练核对兄弟叶的冻结与原 Green 结果、失败 PATH 的复测引用和 TASK 的全部通过状态。另有回归覆盖无行为断言的 Scenario 阻止首冻、已确认的本模块缺陷直派 Fixer、宿主用输出字段提交 Git checkpoint，以及完整执行的 Red 在报告中仍显示未全部通过。
+本轮验证了欠项在需要它的阶段前处理。双叶演练中，纯 OpenSpec 四维条目 ID 欠项在首轮自动化后触发同 Run 修订，每个叶子只派发一次 Implementer，重冻时保留已接受的 TASK。另有回归覆盖自动化资产延期时先实现、构建和单测，再于该批 PATH 派发前进入 CR，以及重开规划后仍能查看计划差异、重复重分配请求保留原恢复阶段。
 
-会话创建及恢复使用宿主夹具，运行证据来自隔离目录和本地适配器。真实宿主和实际项目的设备视觉保真仍需集成验证。
+演练使用隔离工程和本地适配器。真实项目的首派耗时及返工成本尚待测量。
 
 ## 已覆盖
 
