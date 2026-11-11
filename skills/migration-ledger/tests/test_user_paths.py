@@ -154,23 +154,30 @@ class UnverifiedRunTests(unittest.TestCase):
         self.assertEqual((done['quality'], done['reason'], done['device_gap_cases']), ('yellow-blocked', 'completed-with-unverified-tests', {'M001': ['C1']}))
         self.assertTrue(Path(done['report']).is_file())  # the host stops and gives the user the report and the cases it could not run
 
-    def test_the_report_marks_the_case_and_its_automation_yellow_and_leaves_the_build_green(self):
+    def test_the_report_separates_the_missing_device_obligation_from_frozen_paths(self):
         f = self.f; self.finish(); self.audit()
         state = f.state()
         report = migration_report.build(f.root, state, state['last_sequence'])
         self.assertEqual(report['report_stage'], 'completed-with-unverified-tests')
         case, = [c for c in report['cases'] if c['case_id'] == 'C1']
         self.assertEqual(case['quality'], 'yellow-blocked')
-        gap, = [row for row in report['paths'] if row['path_id'] == 'DEVICE-GAP:C1']
-        self.assertEqual((gap['kind'], gap['quality'], gap['executed'], gap['on_device']), ('automation', 'yellow-blocked', False, True))
+        gap, = report['device_gaps']
+        self.assertEqual((gap['path_id'], gap['kind'], gap['quality'], gap['executed']), (None, 'device-gap', 'yellow-blocked', False))
+        self.assertIn(gap, case['unresolved'])
         self.assertEqual(gap['root_causes'][0]['category'], 'device-path-gap')
         self.assertIn('the screen needs a paired second device', gap['root_causes'][0]['summary'])
-        built = [row for row in report['paths'] if row['module_id'] == 'M001' and row['path_id'] != 'DEVICE-GAP:C1']
+        built = [row for row in report['paths'] if row['module_id'] == 'M001']
+        self.assertEqual(case['path_count'], sum(r['path_id'] is not None for r in report['paths'] if r['case_id'] == 'C1'))
+        self.assertEqual(case['path_count'], 2)  # the leaf's real PATH and the GLOBAL PATH
         self.assertTrue(built and all(row['quality'] == 'green-passed' for row in built))
         module = report['automation']['modules']['M001']
         self.assertEqual((module['yellow_paths'], module['yellow_reasons'], module['device_paths'], module['device_passed_paths']),
-                         (1, {'not-executed': 1}, 1, 0))
+                         (0, {}, 0, 0))
+        self.assertEqual((module['required_paths'], module['passed_paths']), (1, 1))
+        self.assertEqual(module['device_gap_cases'], ['C1'])
+        self.assertFalse(module['definition_coverage_complete'])
         self.assertFalse(module['validation_complete'])
+        self.assertIn('设备/视觉路径缺口', migration_report.render(report))
 
 
 class GapUnderAParentTests(unittest.TestCase):
@@ -217,7 +224,12 @@ class StatisticsTests(unittest.TestCase):
         self.assertTrue(automation_report.summarize(rows, ['C1'])['validation_complete'])
         summary = automation_report.summarize(rows, ['C1'], {'C1'})
         self.assertEqual(summary['device_gap_cases'], ['C1'])
+        self.assertEqual((summary['required_paths'], summary['passed_paths']), (2, 2))
+        self.assertFalse(summary['definition_coverage_complete'])
         self.assertFalse(summary['validation_complete'])
+        missing_only = automation_report.summarize([], ['C1'], {'C1'})
+        self.assertEqual((missing_only['required_paths'], missing_only['device_paths']), (0, 0))
+        self.assertFalse(missing_only['definition_coverage_complete'])
 
     def test_the_report_gives_the_split_per_task_and_names_the_gap_as_a_limitation(self):
         proof = {'path': '/evidence/gap.md', 'sha256': 'a' * 64}

@@ -11,7 +11,7 @@ GO 在本轮成功完成、带自动化缺测结束或需人工处理而停止�
 1. run_id、入口范围、Ledger sequence、当前模块代码基线和 Auditor 结论。
 2. 父 MO 名称表：`parent-mo-<module_id>`，如 parent-mo-M010。
 3. **全部输入 CASE-ID 的状态表**，包括 Green、Red、Yellow，不能只列失败用例或成功模块。一个 CASE 有多个模块/PATH 时，全部参与项共同决定该 CASE 状态；父节点不重复计数。
-4. PATH-ID/Name、模块/父 MO/TASK、类型、平台/参数、executed/stale、test_run_id/retest_of、断言与证据；`automation` 按宿主任务、模块、TASK 列应测/已尝试/完整执行/部分执行/完整性未知/有效成功/Red/Yellow及成功集合。只计 automation，build/unit/static/visual 单列，并分列设备/进程内/视觉路径的成功与应测及设备缺口 CASE；共享 TASK 的 PATH 总计一次，重试不加分母；TASK 行的缺路径只计模块整体缺的 CASE。缺路径 CASE 保留覆盖缺口，旧 Green 失效退出成功集合；Yellow 细分未执行/受阻/过期/flaky，已观察失败断言单列且不重复计数。
+4. PATH-ID/Name、模块/父 MO/TASK、类型、平台/参数、executed/stale、test_run_id/retest_of、断言与证据；`automation` 按宿主任务、模块、TASK 列应测/已尝试/完整执行/部分执行/完整性未知/有效成功/Red/Yellow及成功集合。只计 automation，build/unit/static/visual 单列，并分列设备/进程内/视觉路径的成功与应测。设备缺口写入 device_gaps，作为 CASE 验收义务影响覆盖和完整性；共享 TASK 的 PATH 总计一次，重试不加分母；TASK 行的缺路径只计模块整体缺的 CASE。缺路径 CASE 保留覆盖缺口，旧 Green 失效退出成功集合；Yellow 细分未执行/受阻/过期/flaky，已观察失败断言单列且不重复计数。
 5. 每条非 Green 的原因、根因置信度（若已有）、owner、next_action 和证据引用；原因未知明确待诊断，不能臆测，也不能以一句“环境问题”代替已有错误证据。
 6. 有已接受的实现缺口时，展示 `unimplemented` 清单和“未实现：需要人工决策”：具体目标行为、REQ/CASE/TASK、替代方案核验结论、review_ref、owner 与下一步；对应路径的 `implementation_status=not-implemented` 是实现缺口标记，不新增第四种测试质量。一般复用失败应继续 Coding，自动化缺测仍按缺测展示。入口及恢复见 [复用协议第 8 节](reuse-dependencies.md)。
 
@@ -38,7 +38,7 @@ GO 在本轮成功完成、带自动化缺测结束或需人工处理而停止�
 
 证据优先用已接受 stage-result 引用、execution_receipt、根因引用的日志/环境报告/截图录屏工件（均保留 path/sha256）；每个非 Green 条目另附 events.jsonl 路径、sequence、CASE/module/PATH 作可重放依据；未执行时没有截图/运行回执，须指向真实的环境预检/阻塞记录，仅有状态事实时如实说明缺少诊断证据。
 
-JSON 的 cases/case_counts 按 CASE 聚合，paths/non_green 保留明细与证据，automation 从同一批已接受结果派生，不另设计数账本。成功覆盖率 = 有效成功 / 应测 PATH，分母为零不报 100%，有任何模块/CASE 路径缺口不称全量覆盖；attempt_coverage 与 completion_coverage 分开，definition_coverage_complete 只指路径定义齐全，validation_complete 指全路径完整执行，all_required_paths_passed 指全部应测路径有效 Green 且无覆盖或设备缺口；execution_coverage/current_executed_paths 保留已尝试口径、coverage_complete 保留定义覆盖口径，历史非 Green 无完整性字段记未知。contract_retirements 披露批准、替代及原失败，不算成功；Yellow 中的真实失败不被环境原因遮蔽。报告不启动测试、不改审计复测范围或验收 owner。
+JSON 的 cases/case_counts 按 CASE 聚合，paths 保留路径明细，non_green 汇总失败与缺口证据，automation 从同一批已接受结果派生，不另设计数账本。成功覆盖率 = 有效成功 / 应测 PATH，分母为零不报 100%，有任何模块/CASE 路径缺口不称全量覆盖；attempt_coverage 与 completion_coverage 分开，definition_coverage_complete 只指路径定义齐全，validation_complete 指全路径完整执行，all_required_paths_passed 指全部应测路径有效 Green 且无覆盖或设备缺口；execution_coverage/current_executed_paths 保留已尝试口径、coverage_complete 保留定义覆盖口径，历史非 Green 无完整性字段记未知。contract_retirements 披露批准、替代及原失败，不算成功；Yellow 中的真实失败不被环境原因遮蔽。报告不启动测试、不改审计复测范围或验收 owner。
 
 保真披露（视觉覆盖、图片、复制与参数填充）见 [UI 保真](ui-fidelity.md#最终报告的保真披露)，不改变 CASE 状态。可读格式见 [报告模板](../../../template/migration-report.md)。
 

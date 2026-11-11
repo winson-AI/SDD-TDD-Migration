@@ -172,7 +172,7 @@ def fidelity(s, rows, ref_check):
 
 def build(root, s, sequence, ref_check=check_ref):
     events = workflow_cost.journal(root)
-    rows = []
+    rows, device_gaps = [], []
     gaps = [{'module_id': mid, 'label': '未实现', 'review': copy.deepcopy(m['blocked']['implementation_gap']),
              'review_ref': m['blocked']['implementation_gap_ref'], 'owner': m['blocked']['owner'],
              'next_action': m['blocked']['next_action']}
@@ -254,25 +254,30 @@ def build(root, s, sequence, ref_check=check_ref):
         for p in paths: row(mid, p['case_id'], p, m)
         for cid in m['case_ids']:
             if not any(p['case_id'] == cid and p.get('kind') != 'build' for p in paths): row(mid, cid, m=m)
-        # A declared device gap is the automation path the case is owed and did not get: Yellow, never executed.
         for cid, gap in sorted(user_paths.gaps(m.get('plan')).items()):
-            before = len(rows)
-            row(mid, cid, {'path_id': 'DEVICE-GAP:' + cid, 'case_id': cid, 'kind': 'automation', 'name': '设备/视觉路径缺口'}, m)
-            if len(rows) > before:
-                rows[-1].update(on_device=True, quality='yellow-blocked', evidence_refs=refs([gap.get('evidence_refs')]),
-                                root_causes=[{'category': 'device-path-gap', 'summary': gap.get('reason'), 'owner': mid,
-                                              'next_action': 'provide-device-or-visual-path'}])
+            if cid not in s['case_ids']:
+                continue
+            device_gaps.append({'module_id': mid, 'case_id': cid, 'path_id': None, 'kind': 'device-gap',
+                'task_ids': [t['task_id'] for t in (m.get('plan') or {}).get('tasks', []) if cid in t.get('case_ids', [])],
+                'name': '设备/视觉路径缺口', 'quality': 'yellow-blocked', 'executed': False,
+                'evidence_refs': refs([gap.get('evidence_refs')]),
+                'ledger_evidence': {'path': str(root / 'ledger/events.jsonl'), 'sequence': sequence,
+                                    'module_id': mid, 'path_id': None, 'case_id': cid},
+                'root_causes': [{'category': 'device-path-gap', 'summary': gap.get('reason'), 'owner': mid,
+                                'next_action': 'provide-device-or-visual-path'}]})
     for p in s.get('global_paths', []): row('GLOBAL', p['case_id'], p)
     for cid in s['case_ids']:
         if not any(r['case_id'] == cid for r in rows): row('UNASSIGNED', cid)
     cases = []
     for cid in s['case_ids']:
         case_rows = [r for r in rows if r['case_id'] == cid]
-        cases.append({'case_id': cid, 'quality': quality([r['quality'] for r in case_rows]),
-                      'module_ids': sorted({r['module_id'] for r in case_rows}),
+        case_gaps = [gap for gap in device_gaps if gap['case_id'] == cid]
+        evidence = case_rows + case_gaps
+        cases.append({'case_id': cid, 'quality': quality([r['quality'] for r in evidence]),
+                      'module_ids': sorted({r['module_id'] for r in evidence}),
                       'path_count': sum(r['path_id'] is not None for r in case_rows),
                       'executed_count': sum(bool(r['executed']) for r in case_rows),
-                      'unresolved': [r for r in case_rows if r['quality'] != 'green-passed']})
+                      'unresolved': [r for r in evidence if r['quality'] != 'green-passed']})
     batch = s.get('audit_batch', {})
     settled = (bool(s['modules']) and all(tv.available(m) for m in s['modules'].values()) and
                not any(not a.get('closed') for m in s['modules'].values() for a in m['assignments'].values()) and
@@ -301,7 +306,8 @@ def build(root, s, sequence, ref_check=check_ref):
             'legacy_root': s['legacy_root'], 'target_root': s['target_root'],
             'parent_mo_names': names, 'snapshot': snapshot, 'audit': copy.deepcopy(s.get('audit', {})),
             'case_counts': {q: Counter(c['quality'] for c in cases)[q] for q in ('green-passed', 'red-bug', 'yellow-blocked')},
-            'cases': cases, 'paths': rows, 'non_green': [r for r in rows if r['quality'] != 'green-passed'],
+            'cases': cases, 'paths': rows, 'device_gaps': device_gaps,
+            'non_green': [r for r in rows if r['quality'] != 'green-passed'] + device_gaps,
             'automation': automation_report.build(s, rows),
             'contract_retirements': run_changes.retirements(s),
             'unimplemented': gaps, 'code_governance': governance, 'open_issues': issues.of_module(s)[0], 'open_issue_families': issues.families(issues.of_module(s)[0]),
@@ -489,10 +495,11 @@ def render(report):
     text += ['', '## 非 Green 原因与证据', '']
     if not report['non_green']: text.append('无非 Green 用例；是否完成迁移仍以报告阶段、DoD 和 Auditor 裁决为准。')
     for r in report['non_green']:
-        text += [f"### {cell(r['case_id'])} / {cell(r['module_id'])} / {cell(r['path_id'])}", '']
+        label = r['name'] if r.get('kind') == 'device-gap' else r['path_id']
+        text += [f"### {cell(r['case_id'])} / {cell(r['module_id'])} / {cell(label)}", '']
         for cause in r['root_causes']:
             text.append(f"- {cell(cause.get('category'))}: {cell(cause.get('summary'))}；confidence={cell(cause.get('confidence', '未标注'))}；owner={cell(cause.get('owner'))}；next={cell(cause.get('next_action'))}")
-        if r['last_execution']:
+        if r.get('last_execution'):
             previous = r['last_execution']
             text.append(f"- 最近真实执行：{cell(previous['test_run_id'])}；原状态={cell(previous['quality'])}；断言={cell(previous.get('assertions', []))}；证据失效={r['last_execution_stale']}。本次尝试未执行，旧观测不构成本次通过。")
         for ref in r['evidence_refs']:

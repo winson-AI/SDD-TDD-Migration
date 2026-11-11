@@ -182,6 +182,37 @@ class ReadingCardTests(unittest.TestCase):
         self.assertIn('web-test-path.json', names(web, plan)); self.assertIn('harmony-test-path.json', names(android, plan))
         self.assertNotIn('harmony-test-path.json', names(web, plan))
 
+    def test_platform_topics_follow_selected_paths_and_keep_dispatched_cards_distinct(self):
+        import tempfile
+
+        s = {'test_adapter': {'device': {'platforms': ['web', 'android']}}}
+        paths = [{'path_id': 'W', 'kind': 'automation', 'platform': 'web'},
+                 {'path_id': 'A', 'kind': 'automation', 'platform': 'android'},
+                 {'path_id': 'J', 'kind': 'automation', 'platform': 'android', 'command': {'argv': ['gradle']}}]
+        m = {'plan': {'paths': paths}, 'assignments': {'T': {'execution_contract': {'path_ids': ['W']}}}}
+        step = {'role': 'test-runner', 'operation': 'await-result', 'test_scope': 'automation'}
+        web = {**step, 'assignment_id': 'T', 'payload': {'path_ids': ['A']}}
+        mobile = {**step, 'payload': {'path_ids': ['A']}}
+        java = {**step, 'payload': {'path_ids': ['J']}}
+        sections = lambda step: {r['section'] for r in reading.on_demand(s, m, step)}
+        self.assertIn('web Main', sections(web))
+        self.assertNotIn('Harmony Main', sections(web))
+        self.assertIn('Harmony Main', sections(mobile))
+        self.assertNotIn('web Main', sections(mobile))
+        self.assertFalse({'web Main', 'Harmony Main'} & sections(java))
+        self.assertIn('template/web-test-adapter.json', reading.templates(s, m, web))
+        self.assertNotIn('template/harmony-test-adapter.json', reading.templates(s, m, web))
+        self.assertEqual(reading.platform_keys(s, {'plan': {'paths': paths[:1]}}, {'role': 'spec-designer'}), ['web'])
+        self.assertEqual(reading.platform_keys({**s, 'global_paths': paths}, None,
+                         {'role': 'test-runner', 'operation': 'integration-submit', 'path_ids': ['A']}), ['device'])
+        with tempfile.TemporaryDirectory() as tmp:
+            cards = [reading.render(reading.card(s, m, step), tmp, reading.templates(s, m, step),
+                                    on_demand=reading.on_demand(s, m, step)) for step in (web, mobile)]
+            self.assertEqual(cards[0]['card_sha256'], cards[1]['card_sha256'])
+            self.assertNotEqual(cards[0]['path'], cards[1]['path'])
+            self.assertNotIn('§ Harmony Main', Path(cards[0]['path']).read_text())
+            self.assertNotIn('§ web Main', Path(cards[1]['path']).read_text())
+
     def test_every_json_template_parses_and_every_handed_template_exists(self):
         for path in sorted((reading.PACKAGE / 'template').glob('*.json')):
             with self.subTest(template=path.name):

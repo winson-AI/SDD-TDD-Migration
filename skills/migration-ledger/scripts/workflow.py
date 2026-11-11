@@ -79,9 +79,101 @@ def runtime_allocations(s, module_id, planning=False):
     return visited
 
 
+def coverage_boundary(s):
+    """Inputs a local allocation review cannot replace for the whole run."""
+    return digest({key: s.get(key) for key in (
+        'global_spec', 'new_architecture', 'project_context_ref', 'requirement_ids', 'case_ids',
+        'global_paths', 'reuse_sources', 'package_sha')})
+
+
+def leaf_coverage_scope(s, mid, affected=()):
+    """The frozen leaf, its providers, and the ownership that can affect their execution."""
+    from pathlib import Path
+    import behavior_contract
+    import decomposition
+
+    modules, groups = s['modules'], s.get('module_groups', {})
+    closure, pending = {}, [mid]
+    while pending:
+        leaf = pending.pop()
+        if leaf in closure:
+            continue
+        m = modules.get(leaf)
+        if not m or leaf in affected or not m.get('freeze_id'):
+            return None
+        closure[leaf] = m
+        pending.extend(m['dependencies'])
+    parents = {}
+    for leaf, m in closure.items():
+        child = m
+        while parent_id := child.get('parent_module_id'):
+            parent = groups.get(parent_id)
+            if not parent or child['module_id'] not in parent['children'] or awaits_resplit(s, child):
+                return None
+            child_scope, parent_scope = child['scope'], parent['scope']
+            if (not set(child_scope['requirement_ids']) <= set(parent_scope['requirement_ids'])
+                    or not set(child['case_ids']) <= set(parent['case_ids'])
+                    or not all(any(Path(path).resolve().is_relative_to(Path(root).resolve())
+                                   for root in parent['write_paths']) for path in child['write_paths'])):
+                return None
+            parents[parent_id] = {key: parent.get(key) for key in ('dependencies', 'context_refs', 'parent_module_id')}
+            parents[parent_id]['excluded'] = parent_scope['out']
+            child = parent
+    writes = [Path(path).resolve() for m in closure.values() for path in m['write_paths']]
+    cases = {cid for m in closure.values() for cid in m['case_ids']}
+    owners, shared, root_writes = {}, {}, {}
+    for leaf, m in {**groups, **modules}.items():
+        if leaf not in closure and leaf not in parents:
+            other_writes = [Path(path).resolve() for path in m['write_paths']]
+            overlapping = sorted(str(b) for b in other_writes if any(a.is_relative_to(b) or b.is_relative_to(a) for a in writes))
+            if overlapping:
+                if leaf in modules:
+                    return None
+                root_writes[leaf] = overlapping
+        accepted = cases.intersection(behavior_contract.accepts(m))
+        if accepted:
+            owners[leaf] = sorted(accepted)
+        related = [row for row in (m.get('behavior_review') or {}).get('shared_capabilities') or []
+                   if row.get('owner_module_id') in closure or set(row.get('consumer_module_ids') or []) & closure.keys()
+                   or cases.intersection(row.get('integration_case_ids') or [])]
+        if related:
+            shared[leaf] = related
+    return digest({'leaves': {leaf: {key: m.get(key) for key in (*decomposition.ALLOCATION_KEYS,
+                        'acceptance_case_ids', 'dependencies', 'parent_module_id', 'freeze_id', 'plan_hash')}
+                             for leaf, m in closure.items()}, 'parents': parents, 'owners': owners, 'shared': shared, 'root_writes': root_writes})
+
+
+def local_coverage_before(s, affected, review_ref):
+    """Carry reviewed coverage only for frozen leaves outside the changed dependency closure."""
+    plan = s.get('global_plan')
+    if plan and plan['registry_hash'] == digest(registry(s)):
+        scopes = {mid: scope for mid in s['modules'] if (scope := leaf_coverage_scope(s, mid, affected))}
+        return {'plan': plan, 'boundary': coverage_boundary(s), 'scopes': scopes, 'review_ref': review_ref} if scopes else None
+    previous = s.get('local_coverage')
+    if previous and previous['boundary'] == coverage_boundary(s):
+        scopes = {mid: scope for mid, scope in previous['scopes'].items()
+                  if scope == leaf_coverage_scope(s, mid, affected)}
+        return {**previous, 'scopes': scopes, 'review_ref': review_ref} if scopes else None
+    return None
+
+
+def local_coverage_plan(s, module_id):
+    proof = s.get('local_coverage') or {}
+    if not module_id or module_id not in proof.get('scopes', {}) or proof['boundary'] != coverage_boundary(s):
+        return None
+    if proof['scopes'][module_id] != leaf_coverage_scope(s, module_id):
+        return None
+    check_ref(proof['review_ref'])
+    return proof['plan']
+
+
 def planning_guard(s, module_id=None):
     plan = s.get('global_plan')
-    require(plan and plan['registry_hash'] == digest(registry(s)), 'global coverage review required')
+    if plan:
+        require(plan['registry_hash'] == digest(registry(s)), 'global coverage review required')
+    else:
+        plan = local_coverage_plan(s, module_id)
+        require(plan, 'global coverage review required')
     require(module_id or not any(m.get('decomposition_required') or m.get('decomposition_submission') for m in s['modules'].values()),
             'complete MO decomposition before implementation/audit')
     for ref in (s['global_spec'], s['new_architecture'], plan['plan_ref'], plan['review_ref']):
@@ -96,6 +188,8 @@ def planning_guard(s, module_id=None):
         check_ref(plan['content']['feature_inventory_ref'])
     if plan.get('boundary_decision_id'):
         check_ref(s['decisions'][plan['boundary_decision_id']]['human_source_ref'])
+
+    return plan
 
 
 def feature_inventory(s, plan):
@@ -489,6 +583,7 @@ def handle(s, req, actor, run_root=None):
         coverage_checks(s, p, plan)
         source_review = (s.get('global_plan') or {}).get('source_review_ref')
         s['global_plan'] = {**p, 'content': plan, 'registry_hash': digest(registry(s))}
+        s.pop('local_coverage', None)
         if source_review: s['global_plan']['source_review_ref'] = source_review
     elif op == 'audit-defer':
         role(actor, 'module-orchestrator'); idle(m)

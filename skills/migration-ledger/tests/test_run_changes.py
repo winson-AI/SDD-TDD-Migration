@@ -306,6 +306,50 @@ class PreparedRunRevisionTests(unittest.TestCase):
         f.raw('revise-run', payload, role='host', module=None)
         self.assertTrue(f.state()['decisions']['CONFIG']['consumed'])
 
+    def test_root_revision_keeps_an_independent_frozen_leaf_dispatchable(self):
+        from test_run_rehearsal import MO, RunWalk
+
+        f = self.f; src = self.source
+        src.freeze('M002')
+        before = f.state()
+        parent = before['module_groups']['M010']
+        update = {key: copy.deepcopy(parent[key]) for key in run_changes.ROOT_KEYS if key in parent}
+        update['scope']['in'].append('Clarify only M001 scope')
+        analysis = read_json(check_ref(update['dimension_analysis_ref']))
+        analysis['scope'] = update['scope']
+        update['dimension_analysis_ref'] = f.ref('revised-parent-dimensions.json', analysis)
+        update['behavior_review']['scope_sha256'] = digest(update['scope'])
+        report = self.report({}, affected=('M001',))
+        report['root_updates'] = [update]
+        report['boundary_review']['semantic_change'] = True
+        f.raw('revise-run', self.review(report), role='host', module=None)
+        state, _ = ledger.read_events(f.root)
+        self.assertIsNone(state['global_plan'])
+        self.assertEqual(state['module_groups']['M010']['replanning_children'], ['M001'])
+        self.assertEqual(state['modules']['M002']['freeze_id'], before['modules']['M002']['freeze_id'])
+        with self.assertRaisesRegex(Rejected, 'global coverage'):
+            workflow.planning_guard(state)
+        with self.assertRaisesRegex(Rejected, 'global coverage'):
+            workflow.planning_guard(state, 'M001')
+        for field, value in [('dependencies', ['M001']), ('freeze_id', 'different freeze')]:
+            changed = copy.deepcopy(state)
+            changed['modules']['M002'][field] = value
+            with self.assertRaisesRegex(Rejected, 'global coverage'):
+                workflow.planning_guard(changed, 'M002')
+        changed = copy.deepcopy(state)
+        changed['modules']['M001']['write_paths'] = state['modules']['M002']['write_paths']
+        with self.assertRaisesRegex(Rejected, 'global coverage'):
+            workflow.planning_guard(changed, 'M002')
+
+        ledger.advance(f.root, MO, 'M002', defer_commands=True)
+        step = next(row for row in f.state()['next_steps'] if row['module_id'] == 'M002')
+        self.assertEqual((step['operation'], step['role']), ('await-result', 'implementer'))
+        walk = RunWalk(); walk.f = f; walk.t = src
+        walk.model_turn(step)
+        f.call('accept', {'assignment_id': step['assignment_id']}, module='M002')
+        self.assertEqual(f.state()['modules']['M002']['phase'], 'testing')
+        self.assertIsNone(f.state()['global_plan'])
+
     def test_context_revision_keeps_original_snapshot_and_unaffected_green(self):
         f = self.f; src = self.source
         src.freeze('M001'); src.freeze('M002'); src.implement_and_test('M002')

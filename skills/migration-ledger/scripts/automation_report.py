@@ -32,6 +32,7 @@ def summarize(rows, case_ids, device_gaps=(), within=None):
     identity = lambda r: {k: r[k] for k in ('module_id', 'task_ids', 'case_id', 'path_id', 'platform',
                                           'parameters', 'code_baseline', 'test_run_id', 'evidence_refs', 'stale', 'quality', 'validation_reuse') if k in r}
     total = len(paths)
+    defined = bool(total) and not missing and not device_gaps
     return {'schema_version': 2, 'required_paths': total, 'current_executed_paths': executed,
             'attempted_paths': executed, 'completed_paths': completed, 'partial_paths': partial,
             'completion_unknown_paths': executed - completed - partial,
@@ -39,10 +40,10 @@ def summarize(rows, case_ids, device_gaps=(), within=None):
             'passed_paths': len(successful), 'red_paths': counts['red-bug'],
             'yellow_paths': counts['yellow-blocked'], 'yellow_reasons': dict(yellow),
             'missing_case_paths': missing, 'coverage_gaps': [{'module_id': mid, 'case_id': cid} for mid, cid in gaps],
-            'coverage_complete': bool(total) and not missing,
-            'definition_coverage_complete': bool(total) and not missing,
-            'validation_complete': bool(total) and not missing and completed + len(reused) == total and not device_gaps,
-            'all_required_paths_passed': bool(total) and not missing and len(successful) == total and not device_gaps,
+            'coverage_complete': defined,
+            'definition_coverage_complete': defined,
+            'validation_complete': defined and completed + len(reused) == total,
+            'all_required_paths_passed': defined and len(successful) == total,
             # Where a path runs: on a device, inside a process, or as a comparison of the rendered screen.
             'device_paths': len(device), 'device_passed_paths': passed(device),
             'scripted_device_paths': len(scripted), 'scripted_flaky_paths': sum(bool(r.get('flaky')) for r in scripted),
@@ -59,16 +60,17 @@ def summarize(rows, case_ids, device_gaps=(), within=None):
 
 def build(state, rows):
     import user_paths
-    gaps = {mid: set(user_paths.gaps(module.get('plan'))) for mid, module in state['modules'].items()}
+    active_cases = set(state['case_ids'])
+    gaps = {mid: active_cases.intersection(user_paths.gaps(module.get('plan'))) for mid, module in state['modules'].items()}
     result = summarize(rows, state['case_ids'], set().union(*gaps.values()) if gaps else ())
     result['modules'] = {}
     result['tasks'] = {}
     for mid, module in state['modules'].items():
         selected = [r for r in rows if r['module_id'] == mid]
-        result['modules'][mid] = summarize(selected, set(module['case_ids']) & set(state['case_ids']), gaps[mid])
+        result['modules'][mid] = summarize(selected, active_cases.intersection(module['case_ids']), gaps[mid])
         for task in (module.get('plan') or {}).get('tasks', []):  # a sibling task's path covers the case for every task
             result['tasks'][mid + '/' + task['task_id']] = summarize(
-                [r for r in selected if task['task_id'] in r['task_ids']], set(task.get('case_ids', [])) & set(state['case_ids']),
+                [r for r in selected if task['task_id'] in r['task_ids']], active_cases.intersection(task.get('case_ids', [])),
                 gaps[mid].intersection(task.get('case_ids', [])), within=result['modules'][mid]['missing_case_paths'])
     return result
 
@@ -83,11 +85,11 @@ def render(summary, cell):
     for name, row in [('宿主任务', summary), *summary['modules'].items(), *summary['tasks'].items()]:
         lines.append('| ' + ' | '.join(cell(x) for x in (name, row['required_paths'], row['current_executed_paths'],
                      row.get('completed_paths'), row.get('partial_paths'), row.get('completion_unknown_paths'), row.get('reused_passed_paths', 0),
-                     row['passed_paths'], '是' if row.get('all_required_paths_passed') else '否' if row.get('all_required_paths_passed') is False and row['required_paths'] else '—',
+                     row['passed_paths'], '是' if row.get('all_required_paths_passed') else '否' if row.get('all_required_paths_passed') is False and (row['required_paths'] or row.get('device_gap_cases')) else '—',
                      row['red_paths'], row['yellow_paths'], row['missing_case_paths'])) + ' |')
     if 'device_paths' in summary:
         lines += ['', '路径在哪里执行（成功 / 应测）。进程内路径只证明代码返回的结果，不证明用户在屏幕上看到的结果；'
-                  '设备缺口 CASE 是已声明没有设备或视觉路径的用户可见 CASE，为 Yellow 缺口，不计为完整验证。', '',
+                  '设备缺口 CASE 单列为 Yellow 验收义务，实际 PATH 分母仅含冻结路径。', '',
                   '| 范围 | 设备路径 | 其中脚本驱动 / flaky | 进程内路径 | 视觉路径 | 设备缺口 CASE |', '| --- | --- | --- | --- | --- | --- |']
         for name, row in [('宿主任务', summary), *summary['modules'].items(), *summary['tasks'].items()]:
             lines.append('| ' + ' | '.join(cell(x) for x in (name, f"{row['device_passed_paths']} / {row['device_paths']}",
