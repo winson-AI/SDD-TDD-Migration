@@ -90,6 +90,16 @@ def frozen_sources(binding):
     return [{'path': a['target_path'], 'sha256': a['ref']['sha256']} for a in (binding or {}).get('assets', []) if a['kind'] == 'test-source']
 
 
+def pending_paths(paths):
+    """PATHs that still lack the test inputs their plans say are needed."""
+    pending = []
+    for path in paths:
+        review = path.get('preparation') or {}
+        if review.get('status') == 'deferred' or review.get('status') == 'prepared' and not review.get('asset_ids'):
+            pending.append(path['path_id'])
+    return pending
+
+
 def preparation(result, required=False, freezing=False):
     prepared = assets(result)
     for path in result['paths']:
@@ -103,7 +113,7 @@ def preparation(result, required=False, freezing=False):
         owed(review['status'] != 'prepared' or ids, 'prepared PATH needs test assets')
         if review['status'] == 'deferred':
             require(review.get('owner') and review.get('next_action'), 'deferred preparation needs owner/next_action')
-            owed(not freezing, 'resolve deferred test preparation before freeze')
+            owed(not freezing, 'resolve deferred test preparation before PATH execution')
     for asset in prepared:
         if asset['kind'] == 'test-source' and 'kotlin.test' in check_ref(asset['ref']).read_text(errors='replace'):
             build = next((d / name for d in Path(asset['target_path']).parents for name in ('build.gradle.kts', 'build.gradle')

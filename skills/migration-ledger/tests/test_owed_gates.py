@@ -103,7 +103,7 @@ class OwedGateTests(unittest.TestCase):
         design = test_iterative_spec.direct_plan(f, f.plan())
         design['paths'][0]['preparation'] = {'status': 'deferred', 'reason': 'Fixture absent', 'asset_ids': [], 'evidence_refs': [design['design_ref']],
                                              'owner': 'MO', 'next_action': 'Prepare approved fixture'}
-        self.owed('resolve deferred test preparation before freeze', lambda: prepared_tests.preparation(design, required=True, freezing=True))
+        self.owed('resolve deferred test preparation before PATH execution', lambda: prepared_tests.preparation(design, required=True, freezing=True))
 
     def test_an_unsettled_expression_and_an_unmapped_token_are_owed(self):
         t = self.fixture(test_parameter_file.ParameterFileTests)

@@ -1076,19 +1076,35 @@ def _next_step(s, m):
                          m['fix_rounds_used'] >= m.get('fix_budget', s['max_fix_rounds']))
             step.update(operation='recover' if exhausted else 'assign', role='module-orchestrator',
                         worker_role=worker, ready=not exhausted, reason='budget-exhausted' if exhausted else None)
-            if worker == 'test-runner' and tv.split(m):
-                step['test_scope'] = tv.next_scope(m)
-                step['payload'] = {'test_scope': step['test_scope']}
-                if step['ready'] and step['test_scope'] == 'build' and not tv.stage_paths(m, {}):
-                    # Build and unit tests pass; the static closure is judged once what is built on this module is written.
-                    step.update(operation=None, ready=False, reason='awaiting-assembly')
-                    return step
-                reviewing = tv.review_first(m) or step['test_scope'] == 'build' and all(p['kind'] == 'static' for p in tv.stage_paths(m, {}))
-                gaps = owed_gaps(s, m) if step['ready'] and reviewing else []
-                if gaps:
-                    # Built and unit-tested, the plan still owes what its first version left out: the Ledger opens the
-                    # revision before the static closure is judged, so the closure is judged once, on the plan it revises.
+            if worker == 'test-runner' and step['ready']:
+                paths = m['plan']['paths']
+                reviewing = False
+                if tv.split(m):
+                    scope = tv.next_scope(m)
+                    step.update(test_scope=scope, payload={'test_scope': scope})
+                    if scope == 'build':
+                        due = tv.stage_paths(m, {})
+                        if not due:  # static closure is judged once the callers exist
+                            step.update(operation=None, ready=False, reason='awaiting-assembly')
+                            return step
+                        reviewing = all(path['kind'] == 'static' for path in due)
+                        paths = tv.due(m)
+                    else:
+                        reviewing = tv.review_first(m)
+                        paths = tv.scope_paths(m, scope)
+                        if m.get('task_revalidation', {}).get('mode') == 'partial':
+                            paths = [path for path in paths if not tv.path_green(m, path['path_id'])]
+                pending_paths = prepared_tests.pending_paths(paths)
+                gaps = owed_gaps(s, m) if step['ready'] and (reviewing or pending_paths) else []
+                static_gap = reviewing and any(issues.owed_stage(s['issues'][iid]['summary']) == 'static' for iid in gaps)
+                if gaps and (static_gap or pending_paths):
+                    # Resolve all open plan gaps together once one is needed. Text-only trace gaps can wait until DoD.
                     step.update(operation='change', worker_role=None, ready=True, mechanical=True, reason='owed-gaps', issue_ids=gaps, payload={})
+                    step.pop('test_scope', None)
+                    return step
+                if pending_paths:
+                    step.update(operation='change', worker_role=None, reason='path-preparation-incomplete',
+                                detail=', '.join(pending_paths), payload={})
                     step.pop('test_scope', None)
                     return step
             if step['ready']:
@@ -1557,8 +1573,11 @@ def assign_worker(s, m, mid, p, events, root):
         require(p.get('instance_id') != s['audit_batch']['auditor_instance_id'], 'Auditor cannot implement or author verification')
     dispatch_guard(s, m, p['role'])
     execution_contract = control_policy.execution_contract(m, p)
-    if p['role'] == 'test-runner' and tv.split(m):
-        require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> unit -> static -> automation -> visual; the build assignment carries the first three')
+    if p['role'] == 'test-runner':
+        if tv.split(m):
+            require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> unit -> static -> automation -> visual; the build assignment carries the first three')
+        pending = prepared_tests.pending_paths(path for path in m['plan']['paths'] if path['path_id'] in execution_contract['path_ids'])
+        require(not pending, 'test PATH preparation incomplete: ' + ', '.join(pending))
     if p['instance_id'] not in m['authors']:
         m['authors'].append(p['instance_id'])
     preflight = context_readiness.enabled(s)
@@ -1865,8 +1884,10 @@ def mutate(s, req, principal, events, root=None):
         # The plan stands on the context and allocation current now; its author does not copy them into it.
         m.pop('plan_review_ref', None)
         m.pop('allocation_changes', None)  # planned against the allocation as it is now
-        if m.get('plan') and not resubmitted:
-            m['plan_changes'] = plan_changes(m['plan'], plan)  # the reviewer reads the difference, not two whole plans
+        history = m.get('planning_history') or []
+        previous = m.get('plan') or (history[-1].get('plan') if history else None)
+        if previous and not resubmitted:
+            m['plan_changes'] = plan_changes(previous, plan)  # compare even when reopening invalidated the active plan
         else:
             m.pop('plan_changes', None)
         m.update(plan=plan, plan_ref=p['plan_ref'], plan_hash=plan_hash, phase='clarifying', provider_owners=owners,

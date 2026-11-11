@@ -31,8 +31,12 @@ class UpstreamPlanTests(unittest.TestCase):
         self.t = test_source_changes.SourceChangeTests(); self.t.setUp(); self.addCleanup(self.t.doCleanups)
         self.f = self.t.f
 
-    def freeze(self, p):
+    def freeze(self, p, deferred_path=None):
         f = self.f; doc = direct_plan(f, p)
+        if deferred_path:
+            path = next(row for row in doc['paths'] if row['path_id'] == deferred_path)
+            path['preparation'].update(status='deferred', owner='spec-designer', next_action='Provide the fixture')
+            p['test_design_ref'] = f.ref('deferred-test-plan.json', doc)
         step = next(x for x in f.state()['next_steps'] if x['module_id'] == 'M001')
         self.assertEqual(step['operation'], 'plan')
         f.call('plan', {'plan_ref': f.ref('direct-plan.json', p)}, role='spec-designer', module='M001')
@@ -101,6 +105,16 @@ class UpstreamPlanTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'no design assertion verifies: SCN-M001-empty'):
             f.call('freeze')
         self.assertFalse(f.state()['modules']['M001']['assignments'])
+
+    def test_deferred_automation_preparation_allows_code_and_build_then_requires_a_revision(self):
+        f = self.f; self.freeze(self.t.plan('M001'), deferred_path='M001-P')
+        with self.assertRaisesRegex(Rejected, 'test PATH preparation incomplete: M001-P'):
+            self.t.implement_and_test('M001')
+        state = f.state(); module = state['modules']['M001']
+        self.assertTrue(module['code_baseline'])
+        self.assertTrue(all(module['results'][pid]['quality'] == 'green-passed' for pid in ('M001-B', 'M001-U')))
+        step = next(row for row in state['next_steps'] if row['module_id'] == 'M001')
+        self.assertEqual((step['operation'], step['reason'], step['mechanical']), ('change', 'owed-gaps', True))
 
     def test_direct_test_assets_must_belong_to_the_prepared_run_staging(self):
         f = self.f; p = self.t.plan('M001'); doc = direct_plan(f, p)

@@ -809,6 +809,7 @@ def handle(s, req, actor, run_root):
         role(actor, 'module-orchestrator')
         m = s['modules'].get(mid) or s.get('module_groups', {})[mid]
         idle(m)
+        require(not m.get('realloc_request'), 'realloc-request already pending; resolve the existing allocation request')
         reason = p.get('reason')
         require(isinstance(reason, str) and bool(reason.strip()), 'realloc-request reason required')
         evidence_refs = nonempty(p.get('evidence_refs'), 'realloc-request evidence required')

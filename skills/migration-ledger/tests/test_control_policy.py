@@ -86,6 +86,10 @@ class ControlPolicyTests(unittest.TestCase):
         with self.assertRaises(Rejected):
             f.assign('implementer', 'STALE')
         self.assertEqual(f.state()['run_id'], 'demo')
+        revised = copy.deepcopy(m['planning_history'][-1]['plan'])
+        revised['paths'][0]['name'] = 'Refined path description'
+        f.call('plan', {'plan_ref': f.ref('incremental-plan.json', revised)}, role='spec-designer')
+        self.assertEqual(f.state()['modules']['M001']['plan_changes'], {'paths': {'added': [], 'removed': [], 'changed': ['P1']}})
 
     def test_reopen_cannot_disguise_started_implementation(self):
         self.freeze(); f = self.f
