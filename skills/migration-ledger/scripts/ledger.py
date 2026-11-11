@@ -269,14 +269,12 @@ def invalidate_dependents(s, mid):
         s['modules'].get(parent, {}).pop('trace_dependency_baseline', None)
         for m in s['modules'].values():
             if parent in m['dependencies'] and m.get('code_baseline'):
-                m['stale'] = True
-                resume_phase = resume_after_provider(m)
                 if m['module_id'] not in s.get('audit_queue', {}):
-                    m['phase'] = 'waiting-dependency'
-                    m['blocked'] = {'kind': 'dependency', 'reason': 'dependency-version-changed', 'resume_phase': resume_phase}
+                    await_provider(m)
                 else:
+                    m['stale'] = True
                     s.get('audit_resolutions', {}).pop(m['module_id'], None)
-                m['revision'] += 1
+                    m['revision'] += 1
                 pending.append(m['module_id'])
     s['audit'] = {}
 
@@ -295,9 +293,14 @@ def resume_after_provider(m):
 def await_provider(m):
     """A leaf holding code built on a provider that plans again keeps its plan and code, and verifies again once the
     provider is back. A leaf without code has nothing built on it and is left to move."""
-    resume_phase = resume_after_provider(m)
-    m.update(stale=True, phase='waiting-dependency',
-             blocked={'kind': 'dependency', 'reason': 'dependency-version-changed', 'resume_phase': resume_phase})
+    m['stale'] = True
+    m.pop('dependency_release', None)
+    if m.get('blocked') and m['blocked']['kind'] != 'dependency':
+        m['dependency_revalidation_pending'] = True
+    else:
+        resume_phase = resume_after_provider(m)
+        m.update(phase='waiting-dependency',
+                 blocked={'kind': 'dependency', 'reason': 'dependency-version-changed', 'resume_phase': resume_phase})
     m['revision'] += 1
 
 
@@ -362,7 +365,8 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
     for key in ('dimension_evidence', 'effective_quality', 'context_acceptances', 'automation_retry_ready',
                 'dependency_release', 'source_context_continuation', 'allocation_continuation', 'change_request', 'scenario_index', 'plan_binding',
                 'checklist_ref', 'execution_context_ref', 'plan_review_ref', 'task_files', 'execution_partition_pending',
-                'planning_continuation', 'task_revalidation', 'plan_changes', 'trace_dependency_baseline'):
+                'planning_continuation', 'task_revalidation', 'plan_changes', 'trace_dependency_baseline',
+                'dependency_revalidation_pending', 'device_reverify'):
         m.pop(key, None)
 
 
@@ -667,7 +671,8 @@ def unresolved(m):
         return {}
     results = dict(m['results'])
     results.update(m.get('repair_findings', {}))
-    return {k: v for k, v in results.items() if v['quality'] != 'green-passed'}
+    return {k: v for k, v in results.items() if v['quality'] != 'green-passed'
+            and not (m.get('device_reverify') and v.get('stale'))}
 
 
 def diagnosis_focus(m, p):
@@ -938,6 +943,8 @@ def resume_guard(s, m, p):
         selected = s['decisions'].get(p.get('decision_id'))
         require(decision and selected and selected.get('subject_sha256') == digest(m['blocked'])
                 and selected.get('module_id') == m['module_id'] and not selected.get('consumed'), 'resume needs current blocker decision')
+        if m.get('dependency_revalidation_pending'):
+            dependencies_ready(s, {**m, 'phase': 'testing'})
     if m.get('plan'):
         current(m)
 
@@ -991,6 +998,11 @@ def _next_step(s, m):
             step.update(operation='resume', role='module-orchestrator', ready=bool(decision),
                         decision_id=decision.get('decision_id') if decision else None,
                         reason=None if decision else 'human-decision-required', approval_subject_sha256=digest(m['blocked']))
+            if decision and m.get('dependency_revalidation_pending'):
+                try:
+                    dependencies_ready(s, {**m, 'phase': 'testing'})
+                except (Rejected, OSError):
+                    step.update(ready=False, reason='dependency-incomplete')
     elif active:
         submitted = active['assignment_id'] in m['submissions']
         step.update(operation='accept' if submitted else 'await-result',
@@ -2114,6 +2126,7 @@ def mutate(s, req, principal, events, root=None):
                 m.pop('carried_files', None)  # every task is written under the new plan: nothing is left over from the old one
             if {t['task_id'] for t in result['task_trace']} & set(m.get('task_revalidation', {}).get('retained_task_ids', [])):
                 m['task_revalidation'] = {'mode': 'full', 'reason': 'retained-task-updated', 'retained_task_ids': [], 'retained_path_ids': []}
+            m.pop('device_reverify', None)
             task_revalidation.carry(m, prior_results)
             m.pop('automation_retry_ready', None)
             # A scaffold that released its features on its skeleton lands the rest of itself beside them: they verify again
@@ -2141,7 +2154,8 @@ def mutate(s, req, principal, events, root=None):
             # that stopped the functional paths it went ahead of).
             gates = {p['path_id'] for p in m['plan']['paths'] if p.get('kind') in tv.PRE}
             build_only = tv.split(m) and (assignment.get('test_scope') == 'build' or all(x['path_id'] in gates for x in result['paths']))
-            bad = sorted(x['path_id'] for x in result['paths'] if x['quality'] != 'green-passed') if build_only else sorted(k for k,v in m['results'].items() if v['quality'] != 'green-passed')
+            bad = sorted(x['path_id'] for x in result['paths'] if x['quality'] != 'green-passed') if build_only else sorted(k for k, v in m['results'].items() if v['quality'] != 'green-passed'
+                and not (m.get('device_reverify') and v.get('stale')))
             if bad and m.get('trace_dependency_baseline'):
                 invalidate_dependents(s, mid)
             if build_only and not bad:
@@ -2231,6 +2245,7 @@ def mutate(s, req, principal, events, root=None):
         m.setdefault('blocker_history', []).append(resolved)  # what stopped the module and what released it
         m['phase'] = 'testing' if m['blocked']['resume_phase'] == 'dod' else m['blocked']['resume_phase']
         m['blocked'] = None
+        m.pop('dependency_revalidation_pending', None)
         m['stale'] = True
     elif op == 'recover':
         role(principal, 'module-orchestrator')
@@ -3052,7 +3067,7 @@ def verdict_in_review(s, step):
             and all(row.get('conclusion') == 'satisfied' for row in review['goal_review']['requirements']))
 
 
-def advance_run(root, principal, workers=None):
+def advance_run(root, principal, workers=None, *, defer_commands=False):
     """Submit the run's mechanical steps (see run_fixed_flow), each in the name of the role it belongs to."""
     import integration
     applied, workers = [], workers or {}
@@ -3060,6 +3075,8 @@ def advance_run(root, principal, workers=None):
         st = status(root, 'full')
         step = st['global_next_step']
         if not (step.get('mechanical') and step.get('ready')):
+            return applied
+        if defer_commands and step['operation'] in ('integration-submit', 'audit-test-submit'):
             return applied
         s, sequence, op = read_events(root)[0], st['last_sequence'] + 1, step['operation']
         go = {'role': 'global-orchestrator', 'instance_id': workers.get('global-orchestrator') or 'global-orchestrator'}
@@ -3263,7 +3280,7 @@ def frozen_tests(root, s, module_id, assignment_id):
     return {'assignment_id': assignment_id, 'fencing_token': a['fencing_token'], 'result_ref': file_ref(out)}
 
 
-def advance(root, principal, module_id, workers=None, *, pause_for_rotation=False):
+def advance(root, principal, module_id, workers=None, *, pause_for_rotation=False, defer_commands=False):
     """Submit, as the module orchestrator, every step of one module (or parent) the cursor marks mechanical: accepting a
     settled result, dispatching a worker, freezing on a recorded review or decision, completing a module the DoD guard
     admits and summarizing a parent whose children settled; and, in its worker's name, running a test dispatch whose
@@ -3277,6 +3294,8 @@ def advance(root, principal, module_id, workers=None, *, pause_for_rotation=Fals
         if pause_for_rotation and (step.get('session_rotate') or {}).get('ready'):
             break
         if not (step.get('mechanical') and step.get('ready')):
+            break
+        if defer_commands and step['operation'] == 'await-result':
             break
         sequence, actor = st['last_sequence'] + 1, principal
         if step['operation'] == 'await-result':

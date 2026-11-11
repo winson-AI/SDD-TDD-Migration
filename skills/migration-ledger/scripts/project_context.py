@@ -267,7 +267,7 @@ def harmony_sandbox(root, reference):
     return {'config_ref': file_ref(config), 'env_file': str(env_file)}  # the credentials file is named, never hashed into the state
 
 
-def target_preview_files(root, device):
+def target_preview_files(root, device, *, revision=False):
     """The run's environment files written from the device statement: one visual_capture per previewed platform (visual_model
     off until the host enables one) and the web Main configuration. Returns their references, empty when nothing is stated."""
     import run_storage
@@ -276,6 +276,17 @@ def target_preview_files(root, device):
     if not isinstance(device, dict) or 'platforms' not in device:
         return out
     folder = run_storage.checked_path(Path(root) / 'runs/harmony/sandbox/environment', root)
+    def write(name, value):
+        data = encoded(value)
+        if revision:
+            path = folder / name
+            if path.is_file() and path.read_bytes() == data:
+                return file_ref(path)
+            return archive(folder, data, '-' + name)
+        path = folder / name
+        path.write_bytes(data)
+        return file_ref(path)
+
     for platform in device['platforms']:
         preview = device.get(platform)
         if preview is None:
@@ -284,13 +295,12 @@ def target_preview_files(root, device):
         if platform == 'web':
             capture = {'backend': 'browser', 'url': preview['url'], 'device_id': urlparse(preview['url']).netloc, **({'viewport': preview['viewport']} if preview.get('viewport') else {})}
             main = {'browser': preview.get('browser', 'chromium'), 'headless': preview.get('headless', True), 'viewport': preview.get('viewport'), 'record_video': bool(preview.get('record_video'))}
-            path = folder / 'web.json'; path.write_text(json.dumps(main, ensure_ascii=False, indent=2) + '\n'); out['web_main_config'] = file_ref(path)
+            out['web_main_config'] = write('web.json', main)
         else:
             capture = {'backend': 'adb' if platform == 'android' else 'hdc', 'tool': preview.get('tool') or ('adb' if platform == 'android' else 'hdc'), 'device_id': preview['serial'],
                        **{k: preview[k] for k in ('avd', 'boot') if preview.get(k)}}
-        path = folder / f'target-preview-{platform}.json'
-        path.write_text(json.dumps({'visual_capture': capture, 'visual_model': {'mode': 'external', 'enabled': False}}, ensure_ascii=False, indent=2) + '\n')
-        out.setdefault('environments', {})[platform] = file_ref(path)
+        out.setdefault('environments', {})[platform] = write(f'target-preview-{platform}.json',
+            {'visual_capture': capture, 'visual_model': {'mode': 'external', 'enabled': False}})
     return out
 
 

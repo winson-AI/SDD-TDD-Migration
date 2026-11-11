@@ -833,11 +833,14 @@ def accepted_artifact(args, module, path, backend='hdc'):
     return artifact
 
 
-def configuration(root, path):
+def configuration(root, path, rebindings=None):
     contract = path.get('visual_execution')
     if not isinstance(contract, dict) or not contract.get('environment_ref'):
         return None, None
     source = check_ref(contract['environment_ref'])
+    runtime_ref = (rebindings or {}).get(str(source))
+    if runtime_ref:
+        source = check_ref(runtime_ref)
     run_storage.checked_path(source, root / 'runs/harmony/sandbox/environment')
     settings = read_json(source)
     require(isinstance(settings, dict), 'visual environment must be an object')
@@ -1163,14 +1166,14 @@ def parity(args, out, module, task, run_id):
             'acceptance': 'measurement-is-evidence-not-a-visual-verdict'}
 
 
-def run(operation, args, *, root, out, module, task, actor, config):
+def run(operation, args, *, root, out, module, task, actor, config, rebindings=None):
     require(operation in OPERATIONS and actor.get('role') in ('test-runner', 'auditor'), 'visual capability outside role')
     root, out = Path(root).resolve(), Path(out).resolve()
     runner_storage.harmony_output(root, out, 'sandbox')
     path = path_context(args, module, task)
     if operation != 'visual-install':
         require(path['kind'] == 'visual', 'capture/semantic inspection require a visual PATH')
-    contract, settings = configuration(root, path)
+    contract, settings = configuration(root, path, rebindings)
     if contract is None:
         return blocked('frozen visual_execution.environment_ref missing; prepare run environment and review the PATH configuration')
     if operation == 'semantic-inspect':

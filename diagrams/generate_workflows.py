@@ -130,7 +130,7 @@ def overview():
         '纯自动化缺环境：保留未验证清单，其他可执行任务继续；收尾复盘由 Ledger 起骨架派它，不阻塞交付'])
     d.arrow([(610,2020),(610,2080)])
     d.box(100,2080,1020,125,'独立审阅收尾 → 全局报告',[
-        '只复核遗留 / owner 代码变动的路径；波次集成已跑的不重跑',
+        '只复核遗留、owner 代码或执行输入变更的路径',
         '全通过才 Green；仅缺自动化环境：Yellow / 未执行报告，本轮可结束'], 'green')
     # Shared planes: explanatory cards, deliberately not direct agent channels.
     d.box(1210,190,330,280,'全局读取视野',[
@@ -140,7 +140,7 @@ def overview():
     d.box(1210,880,330,310,'Ledger · 唯一总线',[
         '分配包 / 事件 / 状态 / 证据', 'planning_context：全局视野', 'wave-complete：派波次集成', '预检：Ledger 代写或骨架起笔', '已有事实代填；被拒列全问题', '就绪即开工，按阶段补欠项', '父聚合颜色不回写子模块'], 'green')
     d.box(1210,1230,330,290,'宿主执行层',[
-        '实际派发执行角色并绑定身份', '按步取卡，专题触发才读', '同 Run：Fixer / CR / 父 MO / GO', 'drive：操作带修订号', 'drive 安全点轮换超量会话', '历史留痕，仅执行当前 SPEC', '遵守 DAG / 写锁 / 累计预算'], 'gray')
+        '实际派发执行角色并绑定身份', '按步取卡，专题触发才读', '同 Run：Fixer / CR / 父 MO / GO', '先回传独立 Implementer 派发', 'drive：操作带修订号', 'drive 安全点轮换超量会话', '历史留痕，仅执行当前 SPEC', '遵守 DAG / 写锁 / 累计预算'], 'gray')
     d.box(1210,1530,330,280,'收尾 ≠ 全部通过',[
         'Green：真实复测与 DoD 完成', '仅缺自动化环境：Yellow 收尾', '排队、锁等待、worker 退出', '均不能独立算作 MO 收尾', 'host-idle / planning-overdue', '有 ready 动作继续推进', '一个失败不提前拉起 Auditor'], 'orange')
     d.text(1375,1935,'细节阅读',24,weight=650)
@@ -171,11 +171,12 @@ def module_execution():
         '缺 Scenario 断言或保真策略时回叶子规划',
         '基线或取证缺口留证；真实未决交 Human'],controller=True)
     d.arrow([(800,795),(800,810)])
-    d.box(550,810,500,130,'Implementer · 按 TASK 执行',[
+    d.box(550,810,500,160,'Implementer · 按 TASK 执行',[
         'Ledger 代写预检；同构建单元的叶子并行写',
+        '独立叶子先收到派发，后续轮次代跑验证命令',
         '任务先单测：自查红→绿两份记录为 red 证据',
         '冻结测试原样交付（可在写范围外）；编译通过即机械接受'])
-    d.arrow([(800,940),(800,1010)])
+    d.arrow([(800,970),(800,1010)])
     d.box(550,1010,500,180,'Test-Runner · 正式验证',[
         'build → unit 一派发（无人写入时），advance 代跑',
         'static 随模型跑的 automation 同派，非绿即停',
@@ -189,7 +190,7 @@ def module_execution():
         '补齐四维 ID 引用，核对 TASK / checklist',
         '已知债务登 debt issue，审计预列',
         '守卫通过即机械完成，不提前 Auditor'], 'green',True)
-    d.arrow([(70,1310),(50,1310),(50,2180),(300,2180),(300,2240)],'green')
+    d.arrow([(70,1310),(50,1310),(50,2218),(380,2218),(380,2240)],'green')
     d.arrow([(955,1310),(1110,1310)],'orange');d.label(1030,1290,'非 Green','orange')
     d.box(1110,1220,410,180,'现有诊断 → MO 分流',[
         '自动化只观察到失败时先诊断',
@@ -238,8 +239,15 @@ def module_execution():
         '宿主 / 模块 / TASK 统计；TASK 缺口按模块计',
         '复用成功单列，不计本次新执行',
         'Red / Yellow 不凭证明转 Green'], 'gray')
+    d.box(70,2000,430,200,'设备变更 · 同 Run 复测',[
+        '有效 build / unit / static 回执继续沿用',
+        '复测受影响的叶子与 GLOBAL PATH',
+        '设备归属不明的路径一并复测',
+        '混合变更或构建证据失效 → 常规重验',
+        '应用 / 入口 / URL 变化 → 修订 SPEC'], 'orange')
     d.box(1110,1750,410,230,'阻塞与明确收尾',[
         '已有提供方暂不可用：等待 / 恢复',
+        '原人工阻塞保留；决定与依赖均就绪才恢复',
         '仅自动化环境缺失：Yellow / 未执行',
         '不耗 Fixer 轮次，不掩盖实际失败',
         '受阻 / 预算耗尽：留证明确挂起',
@@ -290,7 +298,7 @@ def auditor_closure():
     d=Diagram('auditor-closure',2110,'03','统一 Auditor · 宿主审计与跨模块处理','独立 Auditor 保留审计验收权；修复由负责模块的 MO 派发 Fixer，正式 Testing 必须复核')
     d.box(340,195,920,115,'入口：GO 全量收尾门禁已满足',[
         '全部子 MO 本轮结束 + 所有父汇总有效 + 无活动 worker / 可推进动作',
-        '审阅全部模块（含 Green）及宿主目标；波次集成已跑的 global path 只在 owner 代码变动时重跑'], 'orange')
+        '审阅全部模块（含 Green）及宿主目标；波次集成随 owner 代码或执行输入变更复测'], 'orange')
     d.arrow([(800,310),(800,370)])
     d.box(500,370,600,135,'整体代码审查 → 分批收集',[
         'audit-code-review（骨架起笔，预列 debt）：目标/改动/冗余/复用','audit-collect（机械）：先治理 CR-*，再剩余 Red / Yellow','绑定 SPEC / PATH 证据；测试映射与 git 改动 Ledger 填'])

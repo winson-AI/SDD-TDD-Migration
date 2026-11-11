@@ -298,6 +298,72 @@ class PreparedRunRevisionTests(unittest.TestCase):
         self.assertEqual(s['build']['argv'], ['fixture-build-v2'])
         self.assertIsNone(s['modules']['M001']['freeze_id'])
 
+    def test_device_only_revision_keeps_current_build_unit_and_static_receipts(self):
+        from test_run_rehearsal import RunWalk
+        from execute_test import adapter_for
+
+        src = test_source_changes.SourceChangeTests(); self.addCleanup(src.doCleanups)
+        device = {'platforms': ['android', 'web'], 'android': {'serial': 'old-device'}, 'web': {'url': 'https://example.test'}}
+        f = src.register_root(config={'test_adapter': {'device': device}})
+        self.f = f
+        f.split(src.d.proposal(ids=('M001', 'M002')))
+        f.global_plan(); src.freeze('M001'); src.freeze('M002'); src.implement_and_test('M002')
+        state = f.state(); old = state['modules']['M002']
+        old_env = state['target_preview']['environments']['android']
+        report = self.report({'test_adapter': {'device': {'android': {'serial': 'new-device'}}}}, affected=('M002',))
+        next(row for row in report['modules'] if row['module_id'] == 'M002')['action'] = 'reverify'
+        f.raw('revise-run', self.review(report), role='host', module=None)
+        state = f.state(); current = state['modules']['M002']
+        self.assertEqual((current['freeze_id'], current['code_baseline'], current['build_baseline']),
+                         (old['freeze_id'], old['code_baseline'], old['build_baseline']))
+        for suffix in ('B', 'U', 'S'):
+            pid = 'M002-' + suffix
+            self.assertEqual(current['results'][pid], old['results'][pid])
+        self.assertTrue(current['results']['M002-P']['stale'])
+        step = next(step for step in state['next_steps'] if step['module_id'] == 'M002')
+        self.assertEqual((step['test_scope'], step['payload']['path_ids']), ('automation', ['M002-P']))
+        self.assertIn('new-device', adapter_for(state, {'platform': 'android'}, f.root)['argv'])
+        self.assertEqual(read_json(check_ref(old_env))['visual_capture']['device_id'], 'old-device')
+        from lean_visual_worker import configuration
+        contract, settings = configuration(f.root, {'visual_execution': {'environment_ref': old_env}},
+                                            state['target_preview']['visual_environment_rebindings'])
+        self.assertEqual(contract['environment_ref'], old_env)
+        self.assertEqual(settings['visual_capture']['device_id'], 'new-device')
+
+        walk = RunWalk(); walk.f = f; walk.t = src
+        f.raw('assign', {**step['payload'], 'assignment_id': 'DEVICE-RETEST', 'instance_id': 'test-runner'}, module='M002')
+        walk.model_turn(next(step for step in f.state()['next_steps'] if step['module_id'] == 'M002'))
+        f.call('accept', {'assignment_id': 'DEVICE-RETEST'}, module='M002')
+        result = f.state()['modules']['M002']['results']['M002-P']
+        self.assertEqual((result['quality'], result['retest_of']), ('green-passed', old['results']['M002-P']['test_run_id']))
+        self.assertEqual(f.state()['modules']['M002']['phase'], 'dod')
+
+    def test_device_change_scopes_global_results_and_active_integration(self):
+        src = test_source_changes.SourceChangeTests(); self.addCleanup(src.doCleanups)
+        device = {'platforms': ['android', 'web'], 'android': {'serial': 'before'}, 'web': {'url': 'https://example.test'}}
+        paths = [{'path_id': 'G-' + platform, 'platform': platform, 'kind': 'automation', 'case_id': 'C1',
+                  'name': platform + ' integration', 'expected_assertions': [{'assertion_id': 'A1', 'expected': True}]}
+                 for platform in ('android', 'web')]
+        f = src.register_root(global_paths=paths, config={'test_adapter': {'device': device}})
+        self.f = f
+        f.split(src.d.proposal(ids=('M001', 'M002'))); f.global_plan()
+        state, _ = ledger.read_events(f.root)
+        state['audit_results'] = {p['path_id']: {'quality': 'green-passed', 'test_run_id': p['path_id']} for p in paths}
+        report = self.report({'test_adapter': {'device': {'android': {'serial': 'after'}}}}, affected=())
+        go = {'role': 'global-orchestrator', 'instance_id': 'go'}
+        host = {'role': 'host', 'instance_id': 'host'}
+        run_changes.handle(f.root, state, {'operation': 'run-review', 'payload': {'report_ref': f.ref('device-impact.json', report)}}, go)
+        request = {'operation': 'revise-run', 'payload': {'subject_sha256': state['run_change_review']['subject_sha256']}}
+        state['integration_assignment'] = {'closed': False, 'path_ids': ['G-android']}
+        self.assertFalse(run_changes.next_action(state)['ready'])
+        with self.assertRaisesRegex(Rejected, 'affected integration'):
+            run_changes.handle(f.root, state, request, host)
+        state['integration_assignment']['path_ids'] = ['G-web']
+        self.assertTrue(run_changes.next_action(state)['ready'])
+        run_changes.handle(f.root, state, request, host)
+        self.assertTrue(state['audit_results']['G-android']['stale'])
+        self.assertEqual(state['audit_results']['G-web'], {'quality': 'green-passed', 'test_run_id': 'G-web'})
+
     def test_unrelated_run_revision_keeps_an_audit_scope_request_open(self):
         import audit_closure
 
