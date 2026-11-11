@@ -276,7 +276,7 @@ def complete(plan):
             row['assertions'] = [{'path_id': pid, 'assertion_id': aid} for pid, aid in found.get(row.get('scenario_id'), [])]
 
 
-def check_design(rows, paths):
+def check_design(rows, paths, *, settled=False):
     """A design answers to the SPEC it is made from: every behavior assertion names the scenarios it verifies and every
     scenario is verified by one, so the Spec-Designer cannot relabel what the independent designer covered."""
     scenarios = {row['scenario_id']: row for row in rows}
@@ -298,7 +298,7 @@ def check_design(rows, paths):
                         'design assertion ' + label + ' names ' + sid + ', a scenario of another requirement')
             named.update(ids)
     missing = sorted(set(scenarios) - named)
-    owed(not missing, 'SPEC scenarios no design assertion verifies: ' + ', '.join(missing[:8]) + (' ...' if len(missing) > 8 else ''))
+    (require if settled else owed)(not missing, 'SPEC scenarios no design assertion verifies: ' + ', '.join(missing[:8]) + (' ...' if len(missing) > 8 else ''))
 
 
 def shared_writers(state):

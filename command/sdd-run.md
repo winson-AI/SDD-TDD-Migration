@@ -14,7 +14,7 @@ description: /sdd-run <run-id> — 并行推进就绪模块
    - `dispatch`：按 role 与 `model_tier` 启动隔离实例，交 card 路径和本行 `detail`（如有）；带 `session_id` 时接续该会话。
    - `rotate`：在当前作用域无活动 worker 的交接点，按 [会话交接](../skills/migration-protocol/references/host-integration.md#会话交接) 用 `session_rotate.checkpoint` 恢复新会话。`session` 取 checkpoint 的 role 和本行 `expected_revision`，提交后继续下一轮 drive。
    - `running`：Ledger 已派的 worker；未启动则按 card、model_tier 与 instance_id 启动，已启动则等待。
-   - `host`：宿主按 operation 与 payload 自行提交。
+   - `host`：宿主用本行的 run_id、module_id、expected_revision、operation 和 payload 提交。
    - `person`：交 Escalation 按 detail 问人，决定绑定 approval_subject_sha256。
    - `signal`：按 next_action 处理；severity=human 时告知用户。同一信号只印一次，tick 行的 signals_held 是仍成立的旧信号数。
    - `done`：run 到终点（质量、原因、报告路径，有包反馈时带 package_feedback 路径）；停止循环，把报告交给用户，green 时请其授权交付，带未验证用例时列出这些用例。

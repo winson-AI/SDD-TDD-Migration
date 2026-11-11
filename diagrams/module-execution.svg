@@ -33,7 +33,7 @@
 <text x="800.0" y="652.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">MO 审核冻结</text>
 <text x="800.0" y="686.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">门禁全过且无人提问：Ledger 记评审即冻结</text>
 <text x="800.0" y="715.5" font-size="21.24" fill="#4b5563" text-anchor="middle" font-weight="400">测试源须能失败：拒恒真断言 / 表达式体 @Test</text>
-<text x="800.0" y="744.5" font-size="21.36" fill="#4b5563" text-anchor="middle" font-weight="400">保真义务未定回叶子规划；其余欠项按原流程补齐</text>
+<text x="800.0" y="744.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">缺 Scenario 断言或保真策略时回叶子规划</text>
 <text x="800.0" y="773.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">基线或取证缺口留证；真实未决交 Human</text>
 <path d="M800,795 L800,810" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="550" y="810" width="500" height="130" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -69,8 +69,8 @@
 <rect x="1110" y="1220" width="410" height="180" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <rect x="1115" y="1225" width="400" height="170" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
 <text x="1315.0" y="1260.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">现有诊断 → MO 分流</text>
-<text x="1315.0" y="1294.0" font-size="19.58" fill="#4b5563" text-anchor="middle" font-weight="400">报错或断言失败：Ledger 诊断，派 Fixer</text>
-<text x="1315.0" y="1323.0" font-size="18.63" fill="#4b5563" text-anchor="middle" font-weight="400">其余 Diagnostician 只读，日志按需 grep</text>
+<text x="1315.0" y="1294.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">自动化只观察到失败时先诊断</text>
+<text x="1315.0" y="1323.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">对照预期、实际与存量证据</text>
 <text x="1315.0" y="1352.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">环境 / 目标基线缺陷 → 审计延期</text>
 <text x="1315.0" y="1381.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不增加前置规划轮次</text>
 <path d="M1315,1400 L1315,1430 L285,1430" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round"/>

@@ -509,9 +509,12 @@ def freeze_gates(s, m, p):
               ('paths', lambda: verify_plan(m['plan'], m)),
               ('binding', lambda: intact(lambda: validate_plan(m['plan'], m))),
               ('digest', lambda: require(digest(m['plan']) == m['plan_hash'], 'plan changed'))]
+    import behavior_contract
+    if (m.get('plan') or {}).get('behavior_contract_required'):
+        gates.append(('scenario-assertions', lambda: behavior_contract.check_design(
+            behavior_contract.index(m['plan']), m['plan']['paths'], settled=True)))
     # What an allocation may leave to its leaf is settled before code is written: the result is held to it.
     if (m.get('behavior_review') or {}).get('verification'):
-        import behavior_contract
         gates.append(('fixture', lambda: behavior_contract.fixture_bound(m['behavior_review']['verification'], m['plan'], settled=True)))
     if dimensions.of_leaf(m):
         gates.append(('settled', lambda: dimensions.settled(read_json(check_ref(dimensions.of_leaf(m))))))
@@ -701,13 +704,18 @@ def failed_assertions(m, pid, row):
 
 def located_failures(s, m):
     """Every unresolved failure says where to look by itself: a command that broke inside the module's write scope at
-    locations grepped from its log, or frozen assertions of the module's own PATHs that failed. The Ledger writes the
-    diagnosis and the Fixer finds the cause in the code; an audit round keeps its independent diagnosis."""
+    locations grepped from its log, a failed unit assertion, or an automation defect already confirmed in this module.
+    An automation observation alone still needs diagnosis, and an audit round keeps its independent diagnosis."""
     bad = unresolved(m)
     located = lambda r: (r.get('root_cause') or {}).get('failures_ref') and r['root_cause'].get('category') == 'code' \
         and r['root_cause'].get('confidence') == 'confirmed'
+    unit_paths = {path['path_id'] for path in (m.get('plan') or {}).get('paths', []) if path.get('kind') == 'unit'}
+    def established(pid, record):
+        cause = record.get('root_cause') or {}
+        return located(record) or (failed_assertions(m, pid, record) and
+                                  (pid in unit_paths or cause.get('confidence') == 'confirmed' and cause.get('owner') == m['module_id']))
     return bool(bad) and not audit_closure.active(s) and not m.get('audit_fix_grant') \
-        and all(located(r) or failed_assertions(m, pid, r) for pid, r in bad.items())
+        and all(established(pid, record) for pid, record in bad.items())
 
 
 def located_diagnosis(m):
@@ -896,7 +904,8 @@ def _next_step(s, m):
     if batch_step is not None:
         return batch_step
     active = next((a for a in m['assignments'].values() if not a.get('closed')), None)
-    fidelity_gates = [row for row in m.get('review_gates', []) if row['gate'] in ('api-fidelity', 'resource-fidelity', 'ui-fidelity')]
+    planning_gates = [row for row in m.get('review_gates', [])
+                      if row['gate'] in ('scenario-assertions', 'api-fidelity', 'resource-fidelity', 'ui-fidelity')]
     step = {'module_id': m['module_id'], 'phase': m['phase'], 'expected_revision': m['revision'],
             'operation': None, 'role': None, 'ready': False, 'reason': None,
             'session_id': None, 'assignment_id': active['assignment_id'] if active else None}
@@ -959,13 +968,14 @@ def _next_step(s, m):
                     reason='await-upstream-reallocation',
                     detail='Submodule requested reallocation from parent MO',
                     recovery_action='realloc-request-or-redecompose-parent')
-    elif m['phase'] in ('context', 'specifying', 'change-review') or (m['phase'] == 'clarifying' and fidelity_gates):
+    elif m['phase'] in ('context', 'specifying', 'change-review') or (m['phase'] == 'clarifying' and planning_gates):
         step.update(operation='plan', role='spec-designer', ready=True,
                     planning_budget_minutes=s.get('planning_budget_seconds', progress_signals.PLANNING_BUDGET) // 60,
                     input_subject_sha256=design_stage.subject(s, m),
                     upstream_case_refs=design_stage.upstream_refs(s), upstream_case_ids=m['case_ids'])
-        if fidelity_gates and m['phase'] == 'clarifying':
-            step.update(reason='fidelity-before-freeze', detail='\n'.join(row['reason'] for row in fidelity_gates))
+        if planning_gates and m['phase'] == 'clarifying':
+            reason = 'scenario-assertions-before-freeze' if any(row['gate'] == 'scenario-assertions' for row in planning_gates) else 'fidelity-before-freeze'
+            step.update(reason=reason, detail='\n'.join(row['reason'] for row in planning_gates))
         waiting = [row['module_id'] for row in providers(s, m) if not row['ready']]
         if waiting:
             # Planned while its providers are: against their plans where they have them. Only the dispatch of its
@@ -1308,7 +1318,7 @@ def with_card(s, m, step):
             failed = {pid: {'assertions': failed_assertions(m, pid, r), **({'step_trace_ref': r['step_trace_ref']} if r.get('step_trace_ref') else {})}
                       for pid, r in unresolved(m).items() if failed_assertions(m, pid, r)}
             if failed:
-                step['failed_assertions'] = failed  # expected against observed: the Fixer finds the cause in the code
+                step['failed_assertions'] = failed  # expected against observed for diagnosis or repair
     enhancement = reading.reasoning_sections(m, step)
     if enhancement: step['reasoning_activation'] = [{'ref': ref, 'section': heading} for ref, heading in enhancement]
     if s.get('project_context_ref') and (m or (step.get('role') == 'global-orchestrator' and step.get('operation') in
@@ -3093,7 +3103,7 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
                                    **({'failed_assertions': failed_assertions(m, pid, r)} if failed_assertions(m, pid, r) else {}),
                                    **({'step_trace_ref': r['step_trace_ref']} if r.get('step_trace_ref') else {})}
                              for pid, r in sorted(unresolved(m).items())},
-                'checks': ['every failed PATH broke inside the write scope at grepped locations, or failed frozen assertions of this module']}
+                'checks': ['each failure has local build evidence, a failed unit assertion, or an already confirmed automation defect']}
     elif kind == 'owed-gaps':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
