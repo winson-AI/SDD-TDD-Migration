@@ -121,7 +121,7 @@ Harmony 配置的独立输入见 [harmony-config.json](../template/harmony-confi
 
 ### 3.1 外层逐 PATH 执行
 
-1. Ledger 在对应批次派发前核对 PATH 测试资产，缺资产时先在同一 Run 修订 SPEC。MO 经 Ledger 派发 automation assignment，Test-Runner 接到派发后提交 `stage=testing` 上下文报告，检查 frozen-spec、test-paths、accepted-code、provider-binding、test-environment、permissions-tools。报告从派发步骤 `report_skeleton` 写出的骨架起笔。Ledger 已核对代码与路径，Test-Runner 填提供方、环境与权限，留标记即拒。
+1. Ledger 先派发资产齐备的 automation PATH，资产缺口在对应 PATH 派发前经同一 Run 修订。MO 经 Ledger 派发 automation assignment，Test-Runner 接到派发后提交 `stage=testing` 上下文报告，检查 frozen-spec、test-paths、accepted-code、provider-binding、test-environment、permissions-tools。报告从派发步骤 `report_skeleton` 写出的骨架起笔。Ledger 已核对代码与路径，Test-Runner 填提供方、环境与权限，留标记即拒。
 2. ready 报告绑定后，宿主才调用 `execute_test.py`；blocked 报告退回派发或走适用缺测分支。脚本再次核对阶段、scope、代码、命令与环境引用。
 3. 创建新的执行目录，写 `query.json`；设备路径调用 `argv + [--query-file, query, --result-file, result]`（argv 可以是冻结脚本），进程内功能路径执行冻结命令并按 JUnit 逐断言归因。build 派发中冻结同一命令的 unit PATH 可 `--path-id a,b` 一次执行：一个进程、一份日志，每个 PATH 自己的 `query.<pid>.json / result.<pid>.json / receipt.<pid>.json` 与 JUnit 归因。
 4. Main 执行实际测试；宿主收集 stdout/stderr、时间、退出码。每条 PATH 独立子进程；超时杀掉整个进程组。

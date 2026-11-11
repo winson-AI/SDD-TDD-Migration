@@ -187,7 +187,8 @@ def execution_contract(m, p):
             'assignment unknown/duplicate PATH')
     if p['role'] == 'test-runner' and p.get('test_scope') == 'build':
         import test_validation as tv
-        require(set(selected_paths) == {row['path_id'] for row in tv.due(m)}, 'build assignment must select build/unit/static PATHs due on the accepted TASKs')
+        require(set(selected_paths) == {row['path_id'] for row in tv.dispatch_paths(m, 'build')},
+                'build assignment must select build/unit/static PATHs due and ready on the accepted TASKs')
     if p['role'] == 'test-runner' and p.get('test_scope') == 'automation':
         import test_validation as tv
         require(not tv.review_first(m) or {row['path_id'] for row in tv.paths(m, 'static')} <= set(selected_paths),

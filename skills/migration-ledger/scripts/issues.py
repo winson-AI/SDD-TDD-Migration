@@ -64,19 +64,25 @@ def handle(s, req, actor, sequence=None):
         issues[iid]['resolved'][mid] = {'evidence_ref': ref, 'by': actor}
 
 
-def cite(s, mid, ids, evidence_ref, actor):
+def cite(s, mid, ids, evidence_ref, actor, defer_trace=False):
     """What an operation settles by naming it: the issues it lists, open for this module, are resolved with the
     operation's own artifact as evidence - no separate resolution, and nothing is resubmitted to bind them."""
     if not ids:
-        return
+        return []
     require(isinstance(ids, list) and ids and all(isinstance(i, str) for i in ids), 'resolves names issue ids')
+    require(len(set(ids)) == len(ids), 'resolves repeats an issue id')
     issues = s.get('issues') or {}
+    deferred = []
     for iid in ids:
         issue = issues.get(iid)
         require(issue and issue['kind'] != 'standing' and issue['raised_by'] != LEDGER,
                 'resolves names a recorded issue that is neither a standing rule nor a gap the Ledger owes: ' + str(iid))
         require(mid in issue['applies_to'] and mid not in issue['resolved'], 'issue is not open for this module: ' + iid)
-        issue['resolved'][mid] = {'evidence_ref': evidence_ref, 'by': actor}
+        if defer_trace and issue.get('traced_from'):
+            deferred.append(iid)
+        else:
+            issue['resolved'][mid] = {'evidence_ref': evidence_ref, 'by': actor}
+    return deferred
 
 
 def record(s, iid, kind, summary, applies_to, raised_by, evidence_refs=(), **extra):
@@ -117,6 +123,12 @@ def owed_stage(summary):
                    'resolve deferred test preparation before PATH execution'):
         return 'path'
     return 'static'
+
+
+def documentation_gaps(s, mid):
+    rows = of_module(s, mid)[0]
+    return bool(rows) and all(s['issues'][row['issue_id']]['raised_by'] == LEDGER
+                              and owed_stage(row['summary']) == 'dod' for row in rows)
 
 
 def families(rows):

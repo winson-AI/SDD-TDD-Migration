@@ -6,12 +6,18 @@ import shutil
 import sys
 import tempfile
 
-from contracts import require
+from contracts import Rejected, check_ref, digest, file_ref, require
 from run_storage import checked_path, layout
 
 
 def gradle_command(argv):
     return any(Path(arg).name in ('gradle', 'gradlew', 'gradle.bat', 'gradlew.bat') for arg in argv[:2])
+
+
+def gradle_seed_sources():
+    seed = os.environ.get('SDD_GRADLE_CACHE_SEED', str(Path.home() / '.gradle'))
+    return {relative: (Path(seed) / relative).resolve() for relative in ('wrapper/dists', 'caches/modules-2')
+            if seed and (Path(seed) / relative).is_dir()}
 
 
 def build_command(argv, directory, unit_report=False):
@@ -26,6 +32,44 @@ def build_command(argv, directory, unit_report=False):
     if unit_report:
         command += ['--rerun-tasks', '--no-build-cache']
     return command
+
+
+def revalidation_inputs(s, root, cwd, argv):
+    """Fingerprint declared host inputs only for a possible documentation-only refreeze."""
+    from write_scope import managed_roots
+
+    target = Path(s['target_root']).resolve()
+    context = s.get('project_context_ref')
+    if not context or not Path(cwd).resolve().is_relative_to(target):
+        return None
+    if gradle_command(argv) and gradle_seed_sources():
+        return None  # Mutable cache files outside the target manifest are not frozen inputs.
+    try:
+        check_ref(context)
+        excluded = set(managed_roots(root))
+        executable = Path(argv[0])
+        if not executable.is_absolute():
+            executable = Path(cwd) / executable if '/' in argv[0] else shutil.which(argv[0])
+        tools = [file_ref(executable)]
+        tools.extend(file_ref(Path(cwd) / arg) for arg in argv[1:] if (Path(cwd) / arg).is_file())
+        files = {}
+        pending = [target]
+        while pending:
+            for path in pending.pop().iterdir():
+                if path.name == '.git' or path in excluded:
+                    continue
+                if path.is_symlink():
+                    return None
+                if path.is_dir():
+                    pending.append(path)
+                elif path.is_file():
+                    files[str(path.relative_to(target))] = file_ref(path)['sha256']
+                else:
+                    return None
+        return digest({'context': context, 'package_sha': s.get('package_sha'), 'host': list(os.uname()),
+                       'environment': dict(os.environ), 'target': files, 'tools': tools})
+    except (OSError, Rejected, TypeError, ValueError):
+        return None
 
 
 def harmony_output(root, output, area=None):
@@ -61,15 +105,11 @@ def environment(directory):
     # SDD_GRADLE_CACHE_SEED names a Gradle user home whose read-mostly subtrees - wrapper distributions and the dependency
     # cache - a runner-local cold cache shares, so a build survives repositories it cannot reach. By default the host user's
     # ~/.gradle seeds it; an empty value turns the seed off. Frozen argv, receipts and integrity guards are untouched.
-    seed = os.environ.get('SDD_GRADLE_CACHE_SEED', str(Path.home() / '.gradle'))
-    if seed and Path(seed).is_dir():
-        gradle_home = cache / 'gradle'
-        for relative in ('wrapper/dists', 'caches/modules-2'):
-            source = (Path(seed) / relative).resolve()
-            destination = gradle_home / relative
-            if source.is_dir() and not destination.exists():
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.symlink_to(source)
+    for relative, source in gradle_seed_sources().items():
+        destination = cache / 'gradle' / relative
+        if not destination.exists():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.symlink_to(source)
     env = dict(os.environ)
     env.update({k: str(temp) for k in ('TMPDIR', 'TMP', 'TEMP')})
     env.update(PYTHONDONTWRITEBYTECODE='1', XDG_CACHE_HOME=str(cache),

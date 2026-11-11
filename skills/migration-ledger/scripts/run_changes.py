@@ -300,6 +300,11 @@ def handle(root, s, req, actor):
     import context_readiness
     context_readiness.pin_execution(root, s, affected)
     new_ref = revise_context(root, s, report['context_patch'], review, decision)
+    import issues
+    for mid, m in {**s['modules'], **s.get('module_groups', {})}.items():
+        request = m.get('realloc_request') or {}
+        issues.cite(s, mid, [iid for iid in request.get('trace_issues', []) if mid not in s['issues'][iid]['resolved']],
+                    review['report_ref'], review['reviewed_by'])
     rows = keyed(report['modules'], 'module_id') if report['modules'] else {}  # no leaf yet: nothing to review
     replanned = {mid for mid in affected if rows[mid]['action'] == 'replan'}
     for mid in decomposition.built_on(s, replanned) - affected:

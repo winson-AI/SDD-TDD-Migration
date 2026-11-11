@@ -46,9 +46,18 @@ class TraceTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'open-issues'):  # the audit collects again once what it sent back is revised
             c.call('audit-collect', {'batch_id': 'B2', 'auditor_instance_id': 'auditor'}, role='global-orchestrator', module=None)
         baseline = state['modules']['M001']['code_baseline']
-        c.call('change', {'request_ref': c.ref('cr.md', 'state the shared value in the SPEC'), 'impact_ref': c.ref('impact.md', 'one task, its path')}, module='M001')
-        module = c.state()['modules']['M001']
+        c.call('change', step['payload'], module='M001')
+        revising = c.state(); module = revising['modules']['M001']
         self.assertEqual((module['phase'], module['code_baseline']), ('change-review', baseline))  # its SPEC is reopened, its code stays
+        self.assertNotIn('M001', revising['issues'][issue_id]['resolved'])
+        p = c.plan()
+        next(d for d in p['definitions'] if d['kind'] == 'design').update(c.ref('updated-design.md', 'The shared value is 2.'))
+        c.call('plan', {'plan_ref': c.ref('revised-provider.json', p)}, role='spec-designer', module='M001')
+        self.assertNotIn('M001', c.state()['issues'][issue_id]['resolved'])
+        revised = c.state()['modules']['M001']
+        c.approve(revised['plan_hash'], 'TRACE-DECISION')
+        c.call('freeze', {'decision_id': 'TRACE-DECISION'}, module='M001')
+        self.assertEqual(c.state()['issues'][issue_id]['resolved']['M001']['evidence_ref'], revised['plan_ref'])
 
     def test_a_finding_that_needs_a_human_keeps_the_batch_for_the_human(self):
         import audit_closure
@@ -71,6 +80,41 @@ class TraceTests(unittest.TestCase):
 
 
 class ParentTests(unittest.TestCase):
+    def test_scope_and_spec_trace_take_distinct_routes_and_only_scope_closes_on_reallocation(self):
+        import audit_closure, decomposition, issues
+
+        f = test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
+        f.root_scope(); proposal = f.proposal(); f.split(proposal); f.global_plan()
+        state = f.state(); mid = 'M002'
+        module = state['modules'][mid]
+        go = {'role': 'global-orchestrator', 'instance_id': 'go'}
+        mo = {'role': 'module-orchestrator', 'instance_id': 'mo'}
+        ref = f.ref('audit-trace.md', 'Scope and SPEC reviewed separately')
+        batch = {'batch_id': 'B1', 'status': 'repairing',
+                 'routes': {fid: {'action': 'trace', 'owner_module_ids': [mid], 'source_module_id': mid,
+                                  'analysis_ref': ref, 'root_cause': {'category': cause, 'confidence': 'confirmed'}}
+                            for fid, cause in [('SCOPE', 'scope-insufficient'), ('SPEC', 'planning-gap')]}}
+        audit_closure.trace_back(state, batch, go)
+        def route():
+            return ledger.traced_revision(state, module, [row['issue_id'] for row in issues.of_module(state, mid)[0]])
+        local = route()
+        self.assertEqual((local['operation'], local['issue_ids']), ('change', ['TRACE-B1-SPEC']))
+        with self.assertRaisesRegex(Rejected, 'in-scope trace requires'):
+            decomposition.handle(state, {'module_id': mid, 'operation': 'realloc-request',
+                'payload': {'reason': 'Both issues', 'evidence_refs': [ref], 'resolves': local['issue_ids']}}, mo, f.root)
+        issues.cite(state, mid, local['issue_ids'], ref, mo)  # simulate the accepted SPEC revision
+        upstream = route()
+        self.assertEqual((upstream['operation'], upstream['issue_ids']), ('realloc-request', ['TRACE-B1-SCOPE']))
+        decomposition.handle(state, {'module_id': mid, 'operation': 'realloc-request', 'payload': upstream['payload']}, mo, f.root)
+        self.assertEqual([row['issue_id'] for row in issues.of_module(state, mid)[0]], upstream['issue_ids'])
+        decomposition.handle(state, {'module_id': 'M010', 'operation': 'redecompose',
+                                      'payload': {'plan_ref': f.ref('same-split.json', proposal)}}, mo, f.root)
+        review = f.ref('allocation-review.md', 'Review confirmed the current allocation addresses the scope concern')
+        decomposition.handle(state, {'module_id': 'M010', 'operation': 'redecompose-accept',
+                                      'payload': {'review_ref': review}}, go, f.root)
+        self.assertEqual(state['issues']['TRACE-B1-SCOPE']['resolved'][mid]['evidence_ref'], review)
+        self.assertEqual(state['issues']['TRACE-B1-SPEC']['resolved'][mid]['evidence_ref'], ref)
+
     def test_an_issue_recorded_for_a_parent_offers_it_a_re_split(self):
         f = test_decomposition.DecompositionTests(); f.setUp(); self.addCleanup(f.doCleanups)
         f.root_scope(); f.split(); f.global_plan()

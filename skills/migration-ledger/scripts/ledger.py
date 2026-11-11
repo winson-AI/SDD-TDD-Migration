@@ -376,8 +376,10 @@ def open_change(s, m, request):
     m.setdefault('approved_acceptance_digests', control_policy.acceptance_digests(m['plan']['paths']))
     m.pop('accepted_test_design', None)
     m.pop('test_design_required', None)
+    trace_issues = sorted(set(current_request.get('trace_issues', []) + request.get('trace_issues', [])))
     m.update(phase='change-review', stale=True, change_request={**request, 'from_freeze_id': m['freeze_id'],
-        'previous_plan': previous_plan, 'previous_revalidation': previous_revalidation}, diagnosis_submission=None)
+        'previous_plan': previous_plan, 'previous_revalidation': previous_revalidation,
+        **({'trace_issues': trace_issues} if trace_issues else {})}, diagnosis_submission=None)
     invalidate_dependents(s, m['module_id'])
 
 
@@ -655,19 +657,20 @@ def traced_revision(s, m, owed):
     rows = [(iid, s['issues'][iid]) for iid in owed if s['issues'][iid].get('traced_from')]
     if not rows or m.get('blocked') or any(not a.get('closed') for a in m['assignments'].values()):
         return None
-    batches = {b['batch_id']: b for b in [*s.get('audit_batch_history', []), s.get('audit_batch') or {}] if b.get('batch_id')}
-    causes = [(batches.get(i['traced_from']['batch_id'], {}).get('routes', {}).get(i['traced_from']['finding_id']) or {}).get('root_cause')
-              for _, i in rows]
-    try:
-        upstream = any(control_policy.repair_route({'root_cause': c}) == 'upstream' for c in causes if c)
-    except ValueError:
-        upstream = False
-    ids, refs = [iid for iid, _ in rows], [i['evidence_refs'][0] for _, i in rows]
-    if upstream:
+    local, upstream = [], []
+    for iid, issue in rows:
+        cause = audit_closure.trace_cause(s, issue)
+        group = upstream if control_policy.repair_route({'root_cause': cause}) == 'upstream' else local
+        group.append((iid, issue['evidence_refs'][0], cause))
+    # An in-scope correction can finish while the current allocation still stands.
+    ids, refs, causes = map(list, zip(*(local or upstream)))
+    if not local:
         return {'operation': 'realloc-request', 'role': 'module-orchestrator', 'ready': True, 'reason': 'audit-traceback',
-                'payload': {'reason': 'the unified audit traced a scope gap to this leaf', 'evidence_refs': refs, 'resolves': ids}}
+                'issue_ids': ids, 'payload': {'reason': 'the unified audit traced a scope gap to this leaf',
+                                               'evidence_refs': refs, 'resolves': ids}}
     confirmed = all(isinstance(c, dict) and c.get('confidence') == 'confirmed' for c in causes)
-    return {'operation': 'change', 'role': 'module-orchestrator', 'ready': True, 'reason': 'audit-traceback', 'mechanical': confirmed,
+    return {'operation': 'change', 'role': 'module-orchestrator', 'ready': True, 'reason': 'audit-traceback',
+            'issue_ids': ids, 'mechanical': confirmed,
             'payload': {'request_ref': refs[0], 'impact_ref': refs[0], 'resolves': ids}}
 
 
@@ -921,6 +924,9 @@ def _next_step(s, m):
                 break
             except (Rejected, OSError, ValueError):
                 pass
+        if not step['ready']:
+            owed = [row['issue_id'] for row in issues.of_module(s, m['module_id'])[0]]
+            step.update(traced_revision(s, m, owed) or {})
     elif m['phase'] == 'waiting-auditor':
         step.update(operation=None, role='module-orchestrator', ready=False, reason='await-host-audit')
     elif m.get('blocked'):
@@ -1094,7 +1100,7 @@ def _next_step(s, m):
                         paths = tv.scope_paths(m, scope)
                         if m.get('task_revalidation', {}).get('mode') == 'partial':
                             paths = [path for path in paths if not tv.path_green(m, path['path_id'])]
-                pending_paths = prepared_tests.pending_paths(paths)
+                pending_paths = prepared_tests.pending_paths(paths) if not tv.dispatch_paths(m, step.get('test_scope')) else []
                 gaps = owed_gaps(s, m) if step['ready'] and (reviewing or pending_paths) else []
                 static_gap = reviewing and any(issues.owed_stage(s['issues'][iid]['summary']) == 'static' for iid in gaps)
                 if gaps and (static_gap or pending_paths):
@@ -1130,6 +1136,9 @@ def _next_step(s, m):
                 # Built and tested, it still owes what its first plan left out: the Ledger opens the revision that fills
                 # it. The code and its Green stay when nothing frozen changes (control_policy.additions).
                 step.update(operation='change', ready=True, mechanical=True, reason='owed-gaps', issue_ids=gaps, detail=None, payload={})
+            elif str(exc).startswith('open issues of this module'):
+                owed = [row['issue_id'] for row in issues.of_module(s, m['module_id'])[0]]
+                step.update(traced_revision(s, m, owed) or {})
     elif m['phase'] == 'completed':
         step.update(reason='module-complete')
         owed = [row['issue_id'] for row in issues.of_module(s, m['module_id'])[0]]
@@ -1406,12 +1415,10 @@ def next_step(s, m):
             affected_paths = set(unresolved(m))
             selected = [t for t in selected if affected_paths.intersection(t['path_ids'])]
         scope = step.get('test_scope')
-        paths = tv.due(m) if scope == 'build' else tv.scope_paths(m, scope) if scope else m['plan']['paths']
+        paths = tv.dispatch_paths(m, scope) if step['worker_role'] == 'test-runner' else m['plan']['paths']
         if step['worker_role'] == 'implementer' or step['worker_role'] == 'fixer' and m.get('task_revalidation', {}).get('mode') == 'partial':
             wanted = {pid for t in selected for pid in t['path_ids']}
             paths = [p for p in paths if p['path_id'] in wanted]
-        elif step['worker_role'] == 'test-runner' and scope != 'build' and m.get('task_revalidation', {}).get('mode') == 'partial':
-            paths = [p for p in paths if not tv.path_green(m, p['path_id'])]
         step['payload'].update(task_ids=[t['task_id'] for t in selected], path_ids=[p['path_id'] for p in paths])
         if step['worker_role'] in ('implementer', 'fixer'):
             step['submission'] = control_policy.submission(m, step['payload']['task_ids'])  # what the result is judged on, said before the work
@@ -1952,21 +1959,27 @@ def mutate(s, req, principal, events, root=None):
             revalidation = task_revalidation.prepare(m, p.get('review_ref'))
             prior_execution = {key: copy.deepcopy(m.get(key)) for key in
                 ('code_files', 'code_baseline', 'accepted_task_ids', 'task_files', 'results', 'dimension_evidence', 'build_artifacts')}
-            closed = m.pop('change_request')
-            # The revalidation above read the previous plan's body; the history names that plan by reference and hash.
-            m.setdefault('change_request_history', []).append({**closed, 'to_freeze_id': m['plan_hash'],
-                'previous_plan': {k: v for k, v in (closed.get('previous_plan') or {}).items() if k != 'plan'},
-                'kind': 'planning-history', 'executable': False, 'prior_execution': prior_execution})
             retained = set(revalidation['retained_task_ids'])
             # No TASK changed: the code already accepted implements the revised contract, so the leaf goes on to rebuild it.
             rebuilt = bool(retained) and retained == {t['task_id'] for t in m['plan']['tasks']} and bool(m.get('code_baseline'))
+            reused_build = task_revalidation.reusable_build(s, m, root) if rebuilt else []
+            closed = m.pop('change_request')
+            trace = [iid for iid in closed.get('trace_issues', []) if mid not in s['issues'][iid]['resolved']]
+            issues.cite(s, mid, trace, p.get('review_ref') or m['plan_ref'], principal)
+            # The revalidation read the previous plan's body; the history keeps its reference and hash.
+            m.setdefault('change_request_history', []).append({**closed, 'to_freeze_id': m['plan_hash'],
+                'previous_plan': {k: v for k, v in (closed.get('previous_plan') or {}).items() if k != 'plan'},
+                'kind': 'planning-history', 'executable': False, 'prior_execution': prior_execution})
             m.update(accepted_task_ids=sorted(retained), task_files={tid: files for tid, files in m.get('task_files', {}).items() if tid in retained},
-                     execution_partition_pending=not rebuilt, build_baseline=None, build_artifacts=[], task_revalidation=revalidation)
+                     execution_partition_pending=not rebuilt, build_baseline=m['code_baseline'] if reused_build else None,
+                     build_artifacts=prior_execution['build_artifacts'] if reused_build else [], task_revalidation=revalidation)
             if not rebuilt:
                 m.pop('dimension_evidence', None)
             m['results'] = {pid: {**result, 'stale': True} for pid, result in m['results'].items() if pid in {p['path_id'] for p in m['plan']['paths']}}
-            task_revalidation.carry(m, prior_execution['results'])
+            task_revalidation.carry(m, prior_execution['results'], reused_build)
             m.update(freeze_id=m['plan_hash'], phase='testing' if rebuilt else 'frozen', stale=True)
+            if reused_build and tv.all_green(m):
+                m.update(phase='dod', stale=False)
         else:
             m.update(freeze_id=m['plan_hash'], phase='frozen', stale=True)
     elif op == 'change':
@@ -1980,8 +1993,11 @@ def mutate(s, req, principal, events, root=None):
             require(m['fix_rounds_used'] < m.get('fix_budget', s['max_fix_rounds']), 'repair budget exhausted; recover requires decision')
             m['fix_rounds_used'] += 1
             m['total_fix_rounds'] += 1
-        issues.cite(s, mid, p.get('resolves'), p['request_ref'], principal)  # what an audit traced back is answered by this revision
-        open_change(s, m, p)
+        trace = issues.cite(s, mid, p.get('resolves'), p['request_ref'], principal, defer_trace=True)
+        require(all(control_policy.repair_route({'root_cause': audit_closure.trace_cause(s, s['issues'][iid])}) != 'upstream'
+                    for iid in trace), 'scope trace requires upstream allocation review')
+        open_change(s, m, {**p, 'trace_issues': trace,
+                           'documentation_only': m['phase'] == 'dod' and issues.documentation_gaps(s, mid)})
     elif op == 'assign':
         role(principal, 'module-orchestrator')
         require(p.get('mode') in (None, 'execute'), 'unknown assignment mode')
@@ -3172,7 +3188,7 @@ def frozen_tests(root, s, module_id, assignment_id):
     contract, pre = a['execution_contract']['path_ids'], a.get('test_scope') == 'build'
     rows, receipts = {}, []
     for kind in (tv.PRE if pre else (None,)):
-        due = [p['path_id'] for p in tv.stage_paths(m, rows) if p['kind'] == kind] if pre else contract
+        due = [p['path_id'] for p in tv.stage_paths(m, rows, contract) if p['kind'] == kind] if pre else contract
         batches = {}  # unit PATHs that froze one command run once
         for pid in due:
             command = paths[pid].get('command')  # a device PATH runs the run's adapter, one at a time

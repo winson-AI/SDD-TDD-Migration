@@ -487,7 +487,8 @@ def validate_result(result, module, assignment, run_root=None):
         require(scope != 'visual' or tv.functional_ready(module), 'functional tests must pass before visual')
         # One build-stage result carries build -> unit -> static and stops at the first kind that is not Green; a
         # functional one that carries the static closure stops there when the review is not Green.
-        planned = {p['path_id']: p for p in (tv.stage_paths(module, tests) if scope == 'build' else tv.scope_paths(module, scope, tests))}
+        selected = (assignment.get('execution_contract') or {}).get('path_ids')
+        planned = {p['path_id']: p for p in (tv.stage_paths(module, tests, selected) if scope == 'build' else tv.scope_paths(module, scope, tests))}
     if assignment.get('execution_contract'):
         import control_policy
         control_policy.result_scope(module, assignment)

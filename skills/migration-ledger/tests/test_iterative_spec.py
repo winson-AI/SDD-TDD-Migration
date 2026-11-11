@@ -108,13 +108,38 @@ class UpstreamPlanTests(unittest.TestCase):
 
     def test_deferred_automation_preparation_allows_code_and_build_then_requires_a_revision(self):
         f = self.f; self.freeze(self.t.plan('M001'), deferred_path='M001-P')
+        self.t.implement_and_test('M001', partitioned=True)
         with self.assertRaisesRegex(Rejected, 'test PATH preparation incomplete: M001-P'):
-            self.t.implement_and_test('M001')
+            f.raw('assign', {'role': 'test-runner', 'assignment_id': 'deferred', 'instance_id': 'test-runner',
+                             'test_scope': 'automation'}, module='M001')
         state = f.state(); module = state['modules']['M001']
         self.assertTrue(module['code_baseline'])
-        self.assertTrue(all(module['results'][pid]['quality'] == 'green-passed' for pid in ('M001-B', 'M001-U')))
+        self.assertEqual(set(module['results']), {'M001-B', 'M001-U', 'M001-S'})
+        self.assertTrue(all(row['quality'] == 'green-passed' for row in module['results'].values()))
         step = next(row for row in state['next_steps'] if row['module_id'] == 'M001')
         self.assertEqual((step['operation'], step['reason'], step['mechanical']), ('change', 'owed-gaps', True))
+
+    def test_deferred_unit_leaves_build_runnable(self):
+        self.freeze(self.t.plan('M001'), deferred_path='M001-U')
+        self.t.implement_and_test('M001', partitioned=True)
+        state = self.f.state(); module = state['modules']['M001']
+        self.assertEqual(set(module['results']), {'M001-B'})
+        self.assertEqual(module['results']['M001-B']['quality'], 'green-passed')
+        step = next(row for row in state['next_steps'] if row['module_id'] == 'M001')
+        self.assertEqual((step['operation'], step['reason']), ('change', 'owed-gaps'))
+
+    def test_ready_automation_path_runs_before_a_sibling_with_missing_assets(self):
+        p = self.t.plan('M001')
+        ready = next(row for row in p['paths'] if row['path_id'] == 'M001-P')
+        p['paths'].append({**copy.deepcopy(ready), 'path_id': 'M001-P2', 'name': 'Second route through the same case'})
+        p['tasks'][0]['path_ids'].append('M001-P2')
+        self.freeze(p, deferred_path='M001-P2')
+        self.t.implement_and_test('M001', partitioned=True)
+        state = self.f.state(); module = state['modules']['M001']
+        self.assertEqual(set(module['results']), {'M001-B', 'M001-U', 'M001-S', 'M001-P'})
+        self.assertEqual(module['results']['M001-P']['quality'], 'green-passed')
+        step = next(row for row in state['next_steps'] if row['module_id'] == 'M001')
+        self.assertEqual((step['operation'], step['reason']), ('change', 'owed-gaps'))
 
     def test_direct_test_assets_must_belong_to_the_prepared_run_staging(self):
         f = self.f; p = self.t.plan('M001'); doc = direct_plan(f, p)

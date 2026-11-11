@@ -12,7 +12,7 @@ import execute_test
 import test_ledger
 import test_feedback_repair
 import test_validation as tv
-from contracts import Rejected
+from contracts import Rejected, file_ref
 
 
 class DueTests(unittest.TestCase):
@@ -207,8 +207,14 @@ class RedirectionTests(unittest.TestCase):
         seed = base / 'seed'
         for name in ('wrapper/dists', 'caches/modules-2', 'caches/jars-9'):
             (seed / name).mkdir(parents=True)
+        tree = base / 'target'; tree.mkdir()
+        gradle = tree / 'gradlew'; gradle.write_text('frozen wrapper')
+        context = base / 'context.json'; context.write_text('{}')
+        state = {'target_root': str(tree), 'project_context_ref': file_ref(context)}
+        inputs = lambda: runner_storage.revalidation_inputs(state, base / 'run', tree, [str(gradle), 'test'])
         home = lambda env: Path(env['GRADLE_USER_HOME'])
         with mock.patch.dict(os.environ, {'SDD_GRADLE_CACHE_SEED': str(seed)}):
+            self.assertIsNone(inputs())  # external mutable cache contents cannot prove unchanged inputs
             seeded = home(runner_storage.environment(base / 'first'))
             kept = base / 'second/cache/gradle/wrapper/dists'; kept.mkdir(parents=True)
             runner_storage.environment(base / 'second')
@@ -219,6 +225,7 @@ class RedirectionTests(unittest.TestCase):
         self.assertFalse(kept.is_symlink())                     # what an execution already has is left alone
         for value in ({'SDD_GRADLE_CACHE_SEED': ''}, {'SDD_GRADLE_CACHE_SEED': str(base / 'no-such-seed')}):
             with self.subTest(value=value), mock.patch.dict(os.environ, value):
+                self.assertTrue(inputs())
                 cold = home(runner_storage.environment(base / ('cold-%d' % len(value['SDD_GRADLE_CACHE_SEED']))))
                 self.assertFalse((cold / 'wrapper').exists())  # turned off, or nothing to share: the execution starts cold
         user_home = base / 'user'

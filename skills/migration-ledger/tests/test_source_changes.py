@@ -189,7 +189,7 @@ class SourceChangeTests(unittest.TestCase):
     def apply(self, payload=None):
         return self.f.raw('reconfigure-sources', payload or self.approve(), role='host', module=None)
 
-    def implement_and_test(self, mid, value=2, role='implementer'):
+    def implement_and_test(self, mid, value=2, role='implementer', partitioned=False):
         f = self.f; aid = 'I-'+mid+'-'+str(f.n)
         actor = 'coder' if role == 'implementer' else 'fixer'
         f.call('assign', {'role': role, 'assignment_id': aid, 'instance_id': actor}, module=mid)
@@ -235,10 +235,17 @@ class SourceChangeTests(unittest.TestCase):
                     +'if not passed: r["root_cause"]={"category":"code","summary":"wrong value","confidence":"confirmed","owner":"'+mid+'","next_action":"fix"}\n'
                     +'json.dump(r,open(a.result_file,"w"))\n')
                 argvs = {'-S': static_argv, '-P': [sys.executable, str(script)]}
+            payload = {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner', 'test_scope': scope}
+            if partitioned:
+                step = next(row for row in f.state()['next_steps'] if row['module_id'] == mid)
+                if step['operation'] != 'assign' or step.get('test_scope') != scope:
+                    return
+                payload.update(path_ids=step['payload']['path_ids'])
+                suffixes = tuple(k for k in suffixes if mid+k in payload['path_ids'])
             report = f.report(stage, module=mid)
             report['execution'] = {'argv': argvs[suffixes[0]], 'cwd': str(f.target), 'environment_ref': f.ref('environment.md', 'Python fixture available')}
             report['execution']['commands'] = {mid+k: {'argv': argvs[k], 'cwd': str(f.target)} for k in suffixes}
-            f.raw('assign', {'role': 'test-runner', 'assignment_id': aid, 'instance_id': 'test-runner', 'test_scope': scope}, module=mid)
+            f.raw('assign', payload, module=mid)
             f.record(report)  # the runner reports inside its dispatch; the ready report authorizes the run
             a = f.state()['modules'][mid]['assignments'][aid]
             receipts, planned = [], {p['path_id']: p for p in f.state()['modules'][mid]['plan']['paths']}
@@ -262,7 +269,7 @@ class SourceChangeTests(unittest.TestCase):
             f.call('submit', {'assignment_id': aid, 'fencing_token': a['fencing_token'], 'result_ref': f.ref(aid+'.json', result)},
                    role='test-runner', module=mid)
             f.call('accept', {'assignment_id': aid}, module=mid)
-        if value == 2:
+        if value == 2 and not partitioned:
             f.call('complete', {'dod_ref': f.ref('dod-'+mid+'.md', 'All paths Green')}, module=mid)
 
     def test_red_evidence_and_unrelated_green_survive_then_real_retest_resolves(self):

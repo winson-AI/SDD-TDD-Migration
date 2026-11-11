@@ -22,13 +22,13 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1756 | 全量通过，覆盖分阶段欠项与增量修订 |
-| migration-test/tests | 83 | 全量通过；本轮无改动 |
-| runtime/harmony/tests | 128 | 全量通过；本轮无改动 |
+| migration-ledger/tests | 1759 | 全量通过，覆盖回溯分流、就绪 PATH 派发与重冻回执 |
+| migration-test/tests | 83 | 全量通过，覆盖按派发范围生成测试结果 |
+| runtime/harmony/tests | 128 | 全量通过 |
 
 三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
 
-本轮验证了欠项在需要它的阶段前处理。双叶演练中，纯 OpenSpec 四维条目 ID 欠项在首轮自动化后触发同 Run 修订，每个叶子只派发一次 Implementer，重冻时保留已接受的 TASK。另有回归覆盖自动化资产延期时先实现、构建和单测，再于该批 PATH 派发前进入 CR，以及重开规划后仍能查看计划差异、重复重分配请求保留原恢复阶段。
+混合审计发现分别走叶子 CR 和上游分配，分别在重冻与分配审核被接受后结案。unit 缺资产时 build 仍产出回执，automation 缺资产时就绪 PATH 先执行。双叶演练中，纯四维 ID 补录在首轮自动化之后重冻，每个叶子只派发一次 Implementer。输入一致的叶子保留原 build/unit 回执，模拟宿主环境变化的叶子重跑，两边都重做静态审查。Gradle 外部共享缓存另有回退检查。
 
 演练使用隔离工程和本地适配器。真实项目的首派耗时及返工成本尚待测量。
 

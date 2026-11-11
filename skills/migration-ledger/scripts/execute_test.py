@@ -293,6 +293,9 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
     for pid in pids:
         atomic(out / named('query', pid), queries[pid])
     execution_env['SDD_TEST_QUERY_FILE'] = str(out / named('query', path_id))
+    from issues import documentation_gaps
+    revalidation_inputs = runner_storage.revalidation_inputs(s, root, cwd, argv) if (
+        module_id != 'GLOBAL' and path.get('kind') in ('build', 'unit') and documentation_gaps(s, module_id)) else None
     started = datetime.now(timezone.utc).isoformat()
     termination, proc, aborted = None, None, None
     capture = Capture(out, {
@@ -390,6 +393,7 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
               'requested_argv': argv, 'storage_command_version': 1, 'finished_at': finished, 'exit_code': exit_code,
               'capture': capture.references(), 'cleanup_ref': file_ref(out / 'cleanup.json'),
               'storage_policy_ref': file_ref(init) if init else None, 'log_ref': file_ref(out / 'execution.log'),
+              **({'revalidation_inputs_sha256': revalidation_inputs} if revalidation_inputs else {}),
               **({'batch': {'path_ids': pids, 'test_run_id': test_run_id}} if batch else {})}
     receipts = []
     for pid in reversed(pids):  # the first PATH's receipt is finished below with what only a single run records

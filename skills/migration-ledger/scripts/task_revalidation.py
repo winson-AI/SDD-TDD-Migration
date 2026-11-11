@@ -7,7 +7,7 @@ import copy
 import json
 import re
 from pathlib import Path
-from contracts import check_ref, keyed, read_json, require
+from contracts import Rejected, baseline, check_ref, file_ref, keyed, read_json, require
 
 
 def overlap(a, b):
@@ -122,10 +122,72 @@ def current(m):
     for ref in proof['protected_refs']: check_ref(ref)
 
 
-def carry(m, previous):
+def reusable_build(s, m, root):
+    """Old build/unit receipts can stand only across a refreeze that adds trace IDs."""
+    from control_policy import additions, content
+    from runner_storage import revalidation_inputs
+    import unit_reports
+
+    change = m['change_request']
+    old, new = change['previous_plan']['plan'], m['plan']
+    if not change.get('documentation_only') or not m.get('build_baseline') or m['build_baseline'] != m['code_baseline']:
+        return []
+    try:
+        if additions(m) != [] or baseline(m['code_files']) != m['code_baseline']:
+            return []
+        references = {'reuse_plan_ref', 'test_design_ref'}
+        plan_inputs = lambda plan: content({k: v for k, v in plan.items() if k not in references | {'definitions'}})
+        if plan_inputs(old) != plan_inputs(new):
+            return []
+        for key in references:
+            before, after = [read_json(check_ref(p[key])) if p.get(key) else {} for p in (old, new)]
+            if key == 'test_design_ref':
+                before.pop('subject_sha256', None)
+                after.pop('subject_sha256', None)
+            if content(before) != content(after):
+                return []
+        ids = {row['item_id'] for row in old['dimension_trace']}
+        before, after = keyed(old['definitions'], 'kind'), keyed(new['definitions'], 'kind')
+        if set(before) != set(after):
+            return []
+        for kind in before:
+            a, b = (check_ref(d).read_text() for d in (before[kind], after[kind]))
+            if a != b:
+                if kind not in ('spec', 'design', 'tasks'):
+                    return []
+                meaningful = lambda text: [line for line in text.splitlines() if set(line.split()) - ids]
+                if meaningful(a) != meaningful(b):
+                    return []
+        if any(file_ref(ref['path']) != ref for ref in m['build_artifacts']):
+            return []
+        retained = []
+        for path in new['paths']:
+            if path.get('kind') not in ('build', 'unit'):
+                continue
+            pid = path['path_id']
+            row = m['results'].get(pid) or {}
+            if row.get('quality') != 'green-passed' or not row.get('executed') or row.get('stale'):
+                return []
+            receipt = read_json(check_ref(row.get('execution_receipt')))
+            command = path['command']
+            fingerprint = receipt.get('revalidation_inputs_sha256')
+            if not fingerprint or receipt['freeze_id'] != change['from_freeze_id'] \
+                    or receipt['code_baseline'] != m['code_baseline'] or receipt['test_run_id'] != row['test_run_id'] \
+                    or fingerprint != revalidation_inputs(s, root, command['cwd'], command['argv']):
+                return []
+            report = read_json(check_ref(receipt['result_ref']))
+            if path.get('unit_report'):
+                unit_reports.validate(receipt, path, report)
+            retained.append(pid)
+        return retained
+    except (Rejected, OSError, ValueError, TypeError, KeyError):
+        return []  # Unavailable or drifted evidence falls back to the ordinary verification gates.
+
+
+def carry(m, previous, retained_build=()):
     """Mark validity separately from the original receipt and execution baseline."""
     proof = m.get('task_revalidation') or {}
-    keep = set(proof.get('retained_path_ids', []))
+    keep = set(proof.get('retained_path_ids', [])) | set(retained_build)
     current(m)
     for pid, row in m['results'].items():
         old = previous.get(pid)

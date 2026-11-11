@@ -8,9 +8,9 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 | --- | --- | --- |
 | 01 · 三层编排总览 | 用户输入含参考截图 / 录屏，init 前一次问完五条声明（存量怎样跑、目标在哪预览、资源怎样进目标、迁移范围、依赖授权），prepare 固化快照与存量提交；GO 先记目标画像（无 / 壳 / 部分 / 已有，target-scan 给候选），再按功能树切 scope/全量 CASE；叶子是子业务流（`split_draft.py` 从功能清单起草切分，不足 6 条 CASE 不拆，横切功能随主流程叶子；子四维分析与行为评审由 Ledger 切出；首次切分可不全覆盖，漏掉的记为父的欠项、孩子首版收尾后补齐）；与 Ledger 起草一致的拆分当场接受，全局覆盖交给孩子并重验沿用，手改的拆分才由 GO 审核；子 MO 拆 TASK，依赖方与提供方并行规划；Ledger 代填已有事实、被拒列全问题；worker 按步取卡与专题，drive 提供操作修订号并在安全点轮换会话，机械步骤由 advance 提交；宿主停了由 handover 接手，run revision 可改钉新版本包；并行执行与统一宿主审计 | [总览](workflow.svg) |
 | 02 · 子 MO 执行与反馈调整 | TASK/四维 → 存量可跑先按 capture_due 捕获、按 media_due 引用用户媒体 → SPEC、测试源与用户截图的 visual PATH 从骨架起笔（每条 CASE 一个预填场景，可后补项记 debt，首版限时 45 分钟，拿不准的库写成 spike 任务）、冻结前核对 Scenario 断言并结清 API/URL、图片/图标和布局参数策略及可预览存量基线或取证缺口，未结清回叶子规划；可延期欠项在相关阶段前结清→ Implementer（冻结测试原样交付、可在写范围外，自查红→绿留证，编译通过即机械接受）/Testing（构建只跑 PATH 平台；命令全冻结或适配器已声明的派发由 advance 代跑，静态审查在 build/unit 后执行，可与模型执行的自动化同派，Green 或确定 Red 机械验收）；命令只交回退出码与报错定位，已定位的代码缺陷和单测断言失败可直派 Fixer，自动化只观察到失败时先诊断；Fixer/CR（测试源缺陷与只改测试写法均走 CR）/上溯三分流，环境与目标基线缺陷审计延期；DoD 守卫通过即机械完成；重开规划时比较上一份计划，重分配待审期间保留首次请求，重冻后按独立性证明局部重验，否则全模块重验 | [子 MO](module-execution.svg) |
-| 03 · 统一 Auditor 宿主审计 | 全宿主目标/代码治理（清单与审查从骨架起笔，预列 debt）、遗留路由、影响模块完整回归、独立 Test-Runner 与 Auditor 裁决；波次集成已跑的路径只在 owner 代码变动时重跑；空清单由 Ledger 预检 | [Auditor](auditor-closure.svg) |
+| 03 · 统一 Auditor 宿主审计 | 全宿主目标/代码治理（清单与审查从骨架起笔，预列 debt）、遗留路由、影响模块完整回归、独立 Test-Runner 与 Auditor 裁决；波次集成已跑的路径只在 owner 代码变动时重跑；同一叶子的 SPEC 与范围问题逐条回溯，接受重冻或分配审核时结案；空清单由 Ledger 预检 | [Auditor](auditor-closure.svg) |
 | 04 · 二方库语义与复用 | 来源评审 → 语义抽取 → 四类复用决策 → API 与数据契约 → 冻结 → Coding → 真实依赖验证；提供方证据变化后的恢复 | [二方库](reuse-dependencies.svg) |
-| 05 · Automation 外层闭环 | 冻结用例与测试源（须能失败）、构建只跑 PATH 平台、该批 PATH 缺测试资产时先在同 Run 修订、派发后预检（骨架起笔）、声明平台未写适配器即用内置 Main、进程内 JUnit 或设备 / 脚本逐 PATH 证据、三类反馈及成功/复用统计；缺测旁路；global path 在持有叶子完成时即执行（波次集成）；PATH 可录屏，媒体随结果入 Ledger | [自动化](automation-flow.svg) |
+| 05 · Automation 外层闭环 | 冻结用例与测试源（须能失败）、构建只跑 PATH 平台、先派资产齐备的 PATH，欠资产的 PATH 在同 Run 修订后派发、派发后预检（骨架起笔）、声明平台未写适配器即用内置 Main、进程内 JUnit 或设备 / 脚本逐 PATH 证据、三类反馈及成功/复用统计；缺测旁路；global path 在持有叶子完成时即执行（波次集成）；PATH 可录屏，媒体随结果入 Ledger | [自动化](automation-flow.svg) |
 | 06 · Android/Harmony 单 PATH 内核 | Planner / Executor / Verify、录制回放、媒体断言、观察落盘与三态汇总；snapshot / recording 媒体任务只留媒体不判定 | [内核](automation-engine.svg) |
 
 自动化输入输出的字段、JSON 示例、调用方法和当前实现边界见 [自动化测试说明](automation-input-output.md)。
@@ -24,7 +24,7 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 - 选中提供方或接入证据变化时，相关计划与旧测试证据失效；受影响消费者经影响分析、CR/重规划、重新冻结和正式复测恢复，无关模块继续。外部源码默认只读，无修改授权的问题走人工路由。
 - GO 分配根模块范围和所需上下文，父 MO 在认领范围内继续分配子范围和上下文，子 MO 基于子范围拆 tasks。上游全量 CASE 在冻结前按 scope 分配，SPEC 明确即可执行；独立 design 按需。automation 发现规划遗漏/fidelity 规划不足时局部更新 SPEC、再冻结并更新已有代码及正式复测。父子均保留全局代码、架构、知识的读取视野。
 - 非 Green 在派修复前按现有诊断分流：实现错误 → Fixer；scope 内规划/功能/依赖契约缺口 → CR → Spec-Designer 修订 → MO 重冻 → Implementer 更新代码；超 scope → 父 MO/GO 修正分配，再 top-down 更新。已有提供方暂不可用沿等待/恢复，不混作契约缺失。
-- CR 默认全模块重验；可选 MO TASK 独立性证明通过才保留未影响 TASK/Green。新代码始终重跑 build/unit/static，automation/visual 重跑受影响及非 Green 路径。保留成功证据记录 validation_reuse，原回执不变、单列统计，不计作本次新执行；独立性证明不免除统一审计。
+- CR 默认全模块重验；可选 MO TASK 独立性证明通过才保留未影响 TASK/Green。新代码始终重跑 build/unit/static，automation/visual 重跑受影响及非 Green 路径。保留成功证据记录 validation_reuse，原回执不变、单列统计，不计作本次新执行；纯四维条目 ID 补录且输入及产物可核验时，可复用 build/unit；static 审查新 SPEC。独立性证明不免除统一审计。
 - 箭头表示经 Ledger 的交接或控制关系，不表示 Agent 私聊。宿主实际启动/恢复实例、绑定模块、加载 Used Skills；分配包不自行产生执行权限。
 - 子 MO 独立运行。父 MO 持续看护范围、覆盖、复用与依赖，并等待全部孩子收尾；一个 Red/Yellow 不结束无关模块。
 - 本轮收尾允许基于自身证据明确挂起，但不能将排队、写锁等待或 worker 退出视为已收尾。全部子 MO 收尾、父汇总有效、无在途 worker 与可推进动作后，GO 才统一启动 Auditor。
@@ -37,7 +37,7 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 - 项目理解：GO 在全局发现记目标画像（absent / shell-only / partial / existing，只读 target-scan 给候选证据），脚手架只在缺外壳处，持有代码的叶子冻结时欠复用说明；项目知识文档（文件或 wiki 目录）可按 project 模式检索，缺的专业 / 接口知识登 knowledge-need，由人以 kind=knowledge 决定补充并写成本 run 文档，答复随经验库沉淀到下次 run；用户给的存量截图 / 录屏随项目上下文固化、按 CASE 下发到持有叶子：截图作 user-reference 视觉基线（存量不可预览也有基线）、录屏作功能 PATH 的交互预期、规划步骤列尚未引用的媒体（media_due）、未被 PATH 引用即欠项，诊断/修复并列预期与实际媒体；目标预期（target-expectation）取代存量基线，design 须引用，报告披露。
 - 存量预览与媒体取证：项目声明存量怎样跑（设备 / 模拟器 / 虚拟机 / 浏览器 / 不能跑），可执行性随声明，存量可跑却未捕获的界面写 capture_gap；legacy-capture 在包内装机、走冻结动作把界面写成参考记录（adb 或 Playwright，走不成确定性动作的界面由声明的 navigator 以 snapshot 任务走到后再按选择器捕获），浏览器按同一滚动契约捕获（整页滚动以 body 为区域，shadow DOM 与同源 iframe 并入树，点击/滚动后等页面稳定，声明可带 viewport）、web / 鸿蒙存量的 UI 树从运行时索引派生且无源索引，Android 目标装 APK 走同一视觉对齐；hdc / adb / 浏览器共用一个屏幕观察器（前台核对、选择器、滚动契约、稳定树），Harmony 候选也经它捕获；目标在浏览器里预览时不装机，宿主部署已接受构建并让页面声明其哈希，候选记为 web-candidate 进入同一对齐链路；存量怎样跑、目标在哪验证是只有用户能给的声明，init / update / prepare 返回待问的 open_statements，status 持续提示到声明为止；规划步骤带 capture_due，无法捕获的界面在冻结前记录缺口与证据；内置运行时的 snapshot / recording 只留媒体不判定；测试结果带截图 / 录屏引用，报告逐 PATH 列出，diagnose/Fixer 带非 Green 路径的媒体。
 - 静态审查随模型执行的 automation 同一派发（静态在前、非 Green 即停），有适配器时仍单独派发；静态闭合等调用方代码时本模块的自动化先跑。
-- 起步门禁通过即开工。实质性欠项在静态审查前处理，测试资产缺口在对应 PATH 批次派发前修订，仅缺 OpenSpec 四维条目 ID 引用时可在首轮自动化后、DoD 前补齐。已有欠项到期时，同一 CR 可合并处理。
+- 起步门禁通过即开工。实质性欠项在静态审查前处理，unit 缺资产时先跑就绪 build，automation 先执行资产齐备的 PATH，仅缺 OpenSpec 四维条目 ID 引用时可在首轮自动化后、DoD 前补齐。已有欠项到期时，同一 CR 可合并处理。
 - 经验按规则计（拒绝消息遮去具体值），同一 run 内兄弟叶子即时看到彼此被拒的规则；包反馈列改进候选，done 行给出路径。
 - 经验闭环：反复被拒的门禁成为下一 run 同一步的经验，复发与否决定排序；包外写 package-feedback；收尾复盘由 Ledger 起骨架派给统一 Auditor，不阻塞交付。
 - prepare 生成的 run 用项目声明的适配器（输入漏写时取快照），声明了适配器的功能路径由 advance 代跑。
@@ -45,7 +45,7 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 - 并行预算管住叶子规划：同时在做的叶子（含规划）不超过 max_parallel_modules，超出的等空位；步骤只附作者要写的模板。
 - 统一代码审查只留判断：测试映射与 Git 改动（类型、修改前、行段、按模块 diff）由 Ledger 填，Auditor 写原因、影响与检查结论。
 - 叶子并行编码，构建在无人写入时：同一构建单元的叶子同时编码，构建与测试只在无人写入该单元时派发；波次集成与审计复测由 Ledger 派发、预检与执行；Fixer 预检由 Ledger 写。
-- 回溯与收尾走得通：审计回溯到叶子的 SPEC 缺口由叶子的游标直接开 CR；run 到终点 drive 给 done 行，宿主停止并请用户授权交付；三种修复在 prepare 生成的配置下演练。
+- 回溯与收尾走得通：审计回溯按根因分别开启叶子 CR 或上溯分配，待相应操作被接受才结案；run 到终点 drive 给 done 行，宿主停止并请用户授权交付；三种修复在 prepare 生成的配置下演练。
 - 修复路径只留判断：审计送回的问题自带路由时，收集、路由、派修复、复测与全绿裁决由 Ledger 提交，复审只看改动模块；诊断确认的 SPEC 缺口自动开 CR，只新增 TASK / PATH 的修订由 Ledger 代审；已验证修复随卡推给兄弟叶子。
 - 一次 run 从登记连续走到审计结论：登记起草的覆盖带功能归属，起草切分经 MO 确认即由 Ledger 接受并补齐叶子的分析、评审与用例验收；宿主只以命令执行 drive.py / ledger.py 就能走完，同一信号只报一次；PATH 默认字段与准备方式由 Ledger 补。
 - 宿主照命令走 drive 循环：/sdd-run、/sdd-resume 反复执行 drive.py 按行处理，drive 行覆盖修订、来源变更、待人工所问与进度信号；范围偏差只重做提出的叶子，只改该叶子且不挪用例的重切由 Ledger 接受。

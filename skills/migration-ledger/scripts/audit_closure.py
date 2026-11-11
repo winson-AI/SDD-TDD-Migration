@@ -46,7 +46,8 @@ def collection_blockers(s, ref_check=check_ref):
         # Recorded for a finished leaf or for a parent: revised before the audit collects again. A leaf still at work
         # is held by its own round.
         blockers.extend({'module_id': mid, 'reason': 'open-issues', 'issue_id': row['issue_id']} for mid in row['open_for']
-                        if mid in s.get('module_groups', {}) or s['modules'][mid]['phase'] == 'completed')
+                        if mid in s.get('module_groups', {}) or s['modules'].get(mid, {}).get('phase') == 'completed'
+                        or row['issue_id'].startswith('TRACE-'))
     for mid, group in s.get('module_groups', {}).items():
         if not decomposition.summary_current(s, group, ref_check):
             step = decomposition.group_step(s, group, ref_check)
@@ -295,6 +296,14 @@ def trace_back(s, b, actor):
     for m in s['modules'].values():
         if m.get('audit_batch_id') == b['batch_id']:
             m.pop('audit_batch_id', None); m.pop('audit_test_stage', None); m.pop('audit_fix_grant', None)
+
+
+def trace_cause(s, issue):
+    trace = issue['traced_from']
+    for batch in [s.get('audit_batch') or {}, *reversed(s.get('audit_batch_history', []))]:
+        if batch.get('batch_id') == trace['batch_id']:
+            return (batch['routes'].get(trace['finding_id']) or {}).get('root_cause') or {}
+    return {}
 
 
 def drafted_routes(s, b):

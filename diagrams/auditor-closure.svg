@@ -27,9 +27,16 @@
 <rect x="500" y="565" width="600" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="505" y="570" width="590" height="125" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="800.0" y="597.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">根因分析 → 路由审核</text>
-<text x="800.0" y="631.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">治理用 fix / human；遗留可 fix / verify / human</text>
+<text x="800.0" y="631.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">治理用 fix / human；遗留按根因分流</text>
 <text x="800.0" y="660.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">finding 自带路由 / 根因已确认：Ledger 路由并代审</text>
-<text x="800.0" y="689.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">trace：叶子即开 CR（根因已确认则机械），代码保留</text>
+<text x="800.0" y="689.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">trace：保留已写代码，回对应 MO / GO</text>
+<rect x="1140" y="370" width="380" height="195" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
+<text x="1330.0" y="417.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">同 Run · 逐条回溯</text>
+<text x="1330.0" y="451.5" font-size="21.90" fill="#4b5563" text-anchor="middle" font-weight="400">SPEC 缺口 → 叶子 CR → 重冻结案</text>
+<text x="1330.0" y="480.5" font-size="18.44" fill="#4b5563" text-anchor="middle" font-weight="400">范围缺口 → 父 MO / GO → 分配审核结案</text>
+<text x="1330.0" y="509.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同一叶子两类并存时先修订 SPEC</text>
+<text x="1330.0" y="538.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">发现保持开放至相应决定被接受</text>
+<path d="M1100,595 L1120,595 L1120,475 L1140,475" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <rect x="90" y="370" width="330" height="200" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="255.0" y="420.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">复用与公共能力治理</text>
 <text x="255.0" y="454.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">重复实现 / 接线 / 公共能力</text>
