@@ -130,7 +130,7 @@ class CoverageTests(unittest.TestCase):
     def setUp(self):
         self.f = test_ledger.FlowTests(); self.f.setUp(); self.addCleanup(self.f.doCleanups)
 
-    def test_preparation_cannot_be_omitted_or_deferred_at_freeze(self):
+    def test_preparation_requires_review_and_reports_deferred_assets(self):
         f = self.f; f.global_plan(); design = test_iterative_spec.direct_plan(f, f.plan())
         for path in design['paths']: path.pop('preparation', None)  # the plan's test design, before anyone says how each path is prepared
         with self.assertRaisesRegex(Rejected, 'preparation review'):
@@ -139,7 +139,7 @@ class CoverageTests(unittest.TestCase):
                   'owner': 'MO', 'next_action': 'Prepare approved fixture'}
         design['paths'][0]['preparation'] = review
         prepared_tests.preparation(design, required=True)
-        with self.assertRaisesRegex(Rejected, 'before freeze'):
+        with self.assertRaisesRegex(Rejected, 'before PATH execution'):
             prepared_tests.preparation(design, required=True, freezing=True)
         review['status'] = 'existing'
         prepared_tests.preparation(design, required=True, freezing=True)
