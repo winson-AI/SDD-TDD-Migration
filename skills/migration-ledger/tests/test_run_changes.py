@@ -282,6 +282,30 @@ class PreparedRunRevisionTests(unittest.TestCase):
             'subject_sha256': subject, 'human_source_ref': f.ref('config-decision.md', 'Approve exact config impacts')}, role='host', module=None)
         return {'decision_id': 'CONFIG', 'subject_sha256': subject}
 
+    def test_approved_execution_review_survives_green_worker_settlement(self):
+        from test_run_rehearsal import MO, RunWalk
+
+        f = self.f; src = self.source
+        src.freeze('M001')
+        f.call('assign', {'role': 'implementer', 'assignment_id': 'I1', 'instance_id': 'coder'})
+        walk = RunWalk(); walk.f = f; walk.t = src
+        walk.model_turn(next(step for step in f.state()['next_steps'] if step['module_id'] == 'M001'))
+        f.call('accept', {'assignment_id': 'I1'})
+        ledger.advance(f.root, MO, 'M001', defer_commands=True)
+        payload = self.review(self.report({'build': {'timeout_seconds': 20}}, affected=('M001',)))
+        self.assertEqual(run_changes.next_action(f.state())['reason'], 'wait-for-affected-workers')
+        ledger.advance(f.root, MO, 'M001')
+        state = f.state()
+        self.assertEqual(run_changes.next_action(state)['reason'], 'run-context-switch-ready')
+        for key, value in [('code_baseline', 'moved code'), ('freeze_id', 'new freeze'), ('blocked', {'kind': 'human'})]:
+            changed = copy.deepcopy(state)
+            changed['modules']['M001'][key] = value
+            self.assertEqual(run_changes.next_action(changed)['reason'], 'run-review-stale')
+        state['modules']['M001']['results']['M001-U']['quality'] = 'red-bug'
+        self.assertEqual(run_changes.next_action(state)['reason'], 'run-review-stale')
+        f.raw('revise-run', payload, role='host', module=None)
+        self.assertTrue(f.state()['decisions']['CONFIG']['consumed'])
+
     def test_context_revision_keeps_original_snapshot_and_unaffected_green(self):
         f = self.f; src = self.source
         src.freeze('M001'); src.freeze('M002'); src.implement_and_test('M002')

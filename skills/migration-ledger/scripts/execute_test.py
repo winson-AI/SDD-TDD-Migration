@@ -163,7 +163,47 @@ def adapter_for(s, path, root):
             'timeout': row.get('timeout_seconds') or 300}
 
 
-def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output=None, timeout=None):
+def completed_receipts(out, paths, assignment, module, argv, cwd, run_id):
+    """Resume a finished command batch from its own directory and current execution contract."""
+    from execution_capture import validate as validate_capture
+    from test_completion import interpret
+
+    pids = [path['path_id'] for path in paths]
+    refs, batch = [], None
+    for path in paths:
+        pid = path['path_id']
+        name = f'receipt.{pid}.json' if len(pids) > 1 else 'receipt.json'
+        receipt_path = run_storage.checked_path(out / name, out)
+        require(receipt_path.is_file(), 'incomplete execution output; verify process stop or isolation before revoking and retrying')
+        ref = file_ref(receipt_path)
+        receipt = read_json(check_ref(ref))
+        expected = {'producer': 'host-executor', 'run_id': run_id, 'module_id': assignment['module_id'],
+                    'assignment_id': assignment['assignment_id'], 'actor_instance_id': assignment['instance_id'],
+                    'freeze_id': module['freeze_id'], 'code_baseline': module['code_baseline'],
+                    'path_id': pid, 'requested_argv': argv, 'cwd': str(Path(cwd).resolve())}
+        require(all(receipt.get(key) == value for key, value in expected.items()), 'execution receipt does not match the current assignment')
+        require(receipt.get('fencing_token', assignment.get('fencing_token')) == assignment.get('fencing_token'),
+                'execution receipt fencing token changed')
+        if len(pids) > 1:
+            batch = batch or receipt.get('batch') or {}
+            require(batch == receipt.get('batch') and batch.get('path_ids') == pids and batch.get('test_run_id'),
+                    'execution receipt batch changed')
+        require(receipt.get('finished_at') and not receipt.get('termination', {}).get('executor_aborted')
+                and not receipt.get('termination', {}).get('host_stop_required'),
+                'execution did not finish safely; verify process stop or isolation before retrying')
+        for key in ('query_ref', 'log_ref', 'cleanup_ref'):
+            run_storage.checked_path(check_ref(receipt.get(key)), out)
+        if receipt.get('result_ref'):
+            run_storage.checked_path(check_ref(receipt['result_ref']), out)
+        for capture_ref in (receipt.get('capture') or {}).values():
+            run_storage.checked_path(check_ref(capture_ref), out)
+        validate_capture(receipt)
+        interpret(receipt, path)
+        refs.append(ref)
+    return refs if len(pids) > 1 else refs[0]
+
+
+def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output=None, timeout=None, *, resume_completed=False):
     """One approved execution. `path_id` names one PATH, or several unit PATHs that froze the same command: those run
     once, and each gets its own receipt and JUnit attribution out of the one run (a list of receipt references).
     With no `argv` the command is resolved from the frozen PATH or the project's adapters (`adapter_for`)."""
@@ -242,6 +282,8 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
     out = run_storage.test_output(root, s, output)
     if run_storage.for_state(root, s) or root.parent.name == '.sdd-runs':
         run_storage.checked_path(out, Path(root) / ('runs/build' if is_build else 'runs/harmony/automation'))
+    if resume_completed and out.exists():
+        return completed_receipts(out, paths, a, m, argv, cwd, s['run_id'])
     require(not out.exists(), 'execution output must be new')
     command = runner_storage.build_command(argv, out, unit_report=bool(path.get('unit_report'))) if is_build else [*argv, '--query-file', str(out / 'query.json'), '--result-file', str(out / 'result.json')]
     require(command and argv and Path(cwd).is_dir(), 'argv/cwd required')
@@ -392,7 +434,7 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
     finished = datetime.now(timezone.utc).isoformat()
     shared = {'schema_version': 1, 'producer': 'host-executor', 'execution_contract_version': 2, 'run_id': s['run_id'],
               'module_id': module_id, 'assignment_id': assignment_id, 'actor_instance_id': a['instance_id'],
-              'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
+              'fencing_token': a.get('fencing_token'), 'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
               'argv': command, 'cwd': str(Path(cwd).resolve()), 'started_at': started,
               'requested_argv': argv, 'storage_command_version': 1, 'finished_at': finished, 'exit_code': exit_code,
               'capture': capture.references(), 'cleanup_ref': file_ref(out / 'cleanup.json'),

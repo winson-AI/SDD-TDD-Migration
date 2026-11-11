@@ -78,14 +78,39 @@ def contract(s, report):
     return proposed
 
 
-def subject(s, report_ref):
+def execution_review_module(m):
+    """Bind the reviewed inputs and failures, allowing successful verification on the same inputs to settle."""
+    if m['phase'] not in ('testing', 'dod', 'completed') or not m.get('code_baseline'):
+        return m
+    view = {key: value for key, value in m.items() if key not in {
+        'revision', 'stale', 'build_baseline', 'build_artifacts', 'automation_retry_ready', 'no_progress_rounds',
+        'card_load', 'delivered_cards', 'session_load'}}
+    view['phase'] = 'verification'
+    view['repair_findings'] = m.get('repair_findings') or {}
+    for key in ('diagnosis', 'diagnosis_submission'):
+        view[key] = m.get(key)
+    view['assignments'] = {aid: a for aid, a in m['assignments'].items() if a['role'] != 'test-runner'}
+    view['submissions'] = {aid: row for aid, row in m['submissions'].items() if row.get('kind') != 'tests' or not row.get('green')}
+    view['results'] = {pid: row for pid, row in m['results'].items() if row.get('quality') != 'green-passed' or row.get('stale')}
+    receipts = view.get('context_receipts', {})
+    view['context_receipts'] = {key: row for key, row in receipts.items() if key.split(':', 1)[0] not in ('building', 'testing')}
+    return view
+
+
+def subject(s, report_ref, *, execution_review=False):
     report = read_json(check_ref(report_ref))
     affected = {row['module_id'] for row in report['modules'] if row['action'] != 'unchanged'}
+    def affected_module(m):
+        if not execution_review:
+            return m
+        import issues
+        return {'scope': execution_review_module(m), 'issues': issues.of_module(s, m['module_id'])}
+
     return digest({'run_id': s['run_id'], 'context_ref': s.get('project_context_ref'),
         'global_spec': s['global_spec'], 'contract': {k: s[k] for k in CONTRACT_KEYS},
         'global_plan': s.get('global_plan'), 'sources': s.get('reuse_sources', []),
         'roots': {mid: {key: m.get(key) for key in ROOT_KEYS | {'realloc_request'}} for mid, m in roots(s).items()},
-        'modules': {mid: m if mid in affected else {key: m.get(key) for key in
+        'modules': {mid: affected_module(m) if mid in affected else {key: m.get(key) for key in
             (*decomposition.ALLOCATION_KEYS, 'dependencies', 'parent_module_id', 'plan_hash', 'freeze_id', 'blocked', 'realloc_request',
              'design_generation', 'design_input_ref', 'accepted_test_design')}
             for mid, m in s['modules'].items()},
@@ -213,6 +238,7 @@ def reverify(s, m, devices, review):
     m['stale'] = True
     m.pop('automation_retry_ready', None)
     m.pop('trace_dependency_baseline', None)
+    m.pop('asset_dependency_baseline', None)
     for pid, result in m['results'].items():
         if pid not in retained:
             result['stale'] = True
@@ -405,14 +431,22 @@ def handle(root, s, req, actor):
     if req['operation'] == 'run-review':
         role(actor, 'global-orchestrator')
         require(set(p) <= {'report_ref', 'context_ref'} and p.get('report_ref'), 'invalid run review payload')
-        validate(s, p['report_ref'])
-        s['run_change_review'] = {'report_ref': p['report_ref'], 'subject_sha256': subject(s, p['report_ref']),
-                                  'reviewed_by': actor, 'status': 'reviewed'}
+        report, affected, _ = validate(s, p['report_ref'])
+        patch = report['context_patch']
+        execution_review = (bool(patch) and set(patch) <= {'build', 'runtime', 'test_adapter'} and not report['root_updates']
+                            and not report.get('contract_patch') and not report.get('global_spec_ref')
+                            and not human_required(s, report))
+        settling = sorted(mid for mid in affected if any(a['role'] == 'test-runner' and not a.get('closed')
+                          for a in s['modules'][mid]['assignments'].values())) if execution_review else []
+        s['run_change_review'] = {'report_ref': p['report_ref'],
+                                  'subject_sha256': subject(s, p['report_ref'], execution_review=execution_review),
+                                  'reviewed_by': actor, 'status': 'reviewed',
+                                  **({'execution_review': True, 'settling_test_modules': settling} if execution_review else {})}
         return
     role(actor, 'host')
     require({'subject_sha256'} <= set(p) <= {'decision_id', 'subject_sha256'}, 'invalid run revision payload')
     review = s.get('run_change_review', {})
-    require(review.get('status') == 'reviewed' and review['subject_sha256'] == p['subject_sha256'] == subject(s, review['report_ref']),
+    require(review.get('status') == 'reviewed' and review['subject_sha256'] == p['subject_sha256'] == subject(s, review['report_ref'], execution_review=review.get('execution_review', False)),
             'run impact review stale or missing')
     report, affected, changed_roots = validate(s, review['report_ref'])
     for mid in affected: idle(s['modules'][mid])
@@ -558,10 +592,16 @@ def advancing(s, req, checkout):
         return False
 
 
+def execution_switch_pending(s, mid):
+    review = s.get('run_change_review') or {}
+    return (review.get('status') == 'reviewed' and mid in review.get('settling_test_modules', [])
+            and review['subject_sha256'] == subject(s, review['report_ref'], execution_review=True))
+
+
 def next_action(s):
     review = s.get('run_change_review')
     if review and review.get('status') == 'reviewed':
-        current = review['subject_sha256'] == subject(s, review['report_ref'])
+        current = review['subject_sha256'] == subject(s, review['report_ref'], execution_review=review.get('execution_review', False))
         report = read_json(check_ref(review['report_ref']))
         affected = {row['module_id'] for row in report['modules'] if row['action'] != 'unchanged'}
         decision = next((d for d in s['decisions'].values() if not d.get('consumed') and d.get('module_id') is None
