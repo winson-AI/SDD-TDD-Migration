@@ -469,6 +469,10 @@ def handle(root, s, req, actor):
             'retired_path_results': {r['id']: copy.deepcopy(s.get('audit_results', {}).get(r['id']))
                 for r in report['retirements'] if r['kind'] == 'global-path'}}
     previous_plan = copy.deepcopy(s.get('global_plan'))
+    local = None
+    if changed_roots and not (report['context_patch'] or report.get('global_spec_ref')
+                              or report.get('contract_patch') or report.get('package_sha')):
+        local = workflow.local_coverage_before(s, affected, review['report_ref'])
     import design_stage
     continuations = {mid: {'subject_sha256': design_stage.subject(s, m),
         'allocation_sha256': digest({key: m.get(key) for key in (*decomposition.ALLOCATION_KEYS, 'dependencies')}),
@@ -556,6 +560,10 @@ def handle(root, s, req, actor):
             prior.update(stale=True, invalidated_by=review['report_ref'])
     if changed_roots or report.get('global_spec_ref') or 'architecture_path' in report['context_patch']:
         s['global_plan'] = None
+        if local:
+            s['local_coverage'] = local
+        else:
+            s.pop('local_coverage', None)
     if s.get('audit'): s.setdefault('audit_history', []).append(copy.deepcopy(s['audit']))
     s['audit'] = {}
     s['context_acceptances'] = {}

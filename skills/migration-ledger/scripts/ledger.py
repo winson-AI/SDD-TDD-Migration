@@ -834,7 +834,7 @@ def pending_repairs(s):
 
 def dispatch_guard(s, m, worker):
     require(m.get('plan') and m.get('freeze_id'), 'SPEC not frozen/prepared')
-    workflow.planning_guard(s, m['module_id'])
+    coverage = workflow.planning_guard(s, m['module_id'])
     if m.get('scope'):
         decomposition.check_module_plan(s, m, m['plan'])
     if audit_closure.active(s):
@@ -849,7 +849,7 @@ def dispatch_guard(s, m, worker):
     if worker == 'test-runner':
         require(not run_changes.execution_switch_pending(s, m['module_id']), 'apply reviewed execution change before new test assignment')
     idle(m); current(m); dependencies_ready(s, m)
-    required = {rid for rid, owners in s['global_plan']['content']['requirement_owners'].items() if m['module_id'] in owners}
+    required = {rid for rid, owners in coverage['content']['requirement_owners'].items() if m['module_id'] in owners}
     require(required <= {rid for task in m['plan']['tasks'] for rid in task.get('global_requirement_ids', task.get('requirement_ids', []))}, 'module plan misses global requirements')
     active = sum(not a.get('closed') for mod in s['modules'].values() for a in mod['assignments'].values())
     require(active < s['max_parallel_modules'], 'parallel budget exhausted')
@@ -1874,6 +1874,7 @@ def mutate(s, req, principal, events, root=None):
                     + '; one root accepts a case and the others hold it as a contribution (acceptance_case_ids)')
         s['modules'][mid] = new_module(p)
         s['global_plan'] = None
+        s.pop('local_coverage', None)
     elif op == 'decision':
         role(principal, 'host')
         require(p.get('decision') == 'approved' and p.get('human_source_ref') and p.get('subject_sha256'), 'actual human approval required')

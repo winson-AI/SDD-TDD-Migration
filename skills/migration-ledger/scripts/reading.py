@@ -42,15 +42,38 @@ def sections(name, *headings):
     return [(P + name, heading) for heading in headings]
 
 
-def platform_keys(s):
-    """The declared target platforms as the two families their rules and templates come in: web, and device (android, harmony)."""
-    platforms = set((((s or {}).get('test_adapter') or {}).get('device') or {}).get('platforms') or [])
+def platform_keys(s, m, step):
+    """Choose Main topics from the current PATHs, using declarations only before a scope is known."""
+    role = step.get('worker_role') or step.get('role')
+    scope = step.get('test_scope')
+    if role not in ('spec-designer', 'test-runner') or role == 'test-runner' and scope not in (None, 'automation'):
+        return []
+    plan = (m or {}).get('plan') or {}
+    paths = plan.get('paths')
+    if role == 'test-runner':
+        aid = step.get('assignment_id')
+        assignment = (m or {}).get('assignments', {}).get(aid) or {}
+        if m is None and aid:
+            assignment = next((a for a in (s.get('integration_assignment'), s.get('audit_test_assignment'))
+                               if a and a.get('assignment_id') == aid), {})
+        selected = next((scope['path_ids'] for scope in (
+            assignment.get('execution_contract') or {}, assignment, step.get('execution_contract') or {},
+            step.get('payload') or {}, step) if 'path_ids' in scope), None)
+        if m is None and selected is not None:
+            paths = [*s.get('global_paths', []),
+                     *(p for leaf in s.get('modules', {}).values() for p in (leaf.get('plan') or {}).get('paths', []))]
+        if selected is not None:
+            paths = [p for p in paths or [] if p['path_id'] in selected]
+    if paths is None or (role == 'spec-designer' and not paths):
+        platforms = set(((s.get('test_adapter') or {}).get('device') or {}).get('platforms') or [])
+    else:
+        platforms = {p.get('platform') for p in paths if (p.get('kind') or 'automation') == 'automation' and not p.get('command')}
     return [key for key, members in (('web', {'web'}), ('device', {'android', 'harmony'})) if platforms & members]
 
 
-def platform_sections(s):
-    """The Main of each declared platform: the shape of its PATHs for the planner, how it runs them for the executor."""
-    return [row for key in platform_keys(s) for row in sections('testing.md', {'web': 'web Main', 'device': 'Harmony Main'}[key])]
+def platform_sections(s, m, step):
+    return [row for key in platform_keys(s, m, step)
+            for row in sections('testing.md', {'web': 'web Main', 'device': 'Harmony Main'}[key])]
 
 
 # Every card carries the red lines and the rules of the shared protocol (not its notes on where it sits, assets
@@ -512,8 +535,8 @@ def _chosen(s, m, step, topics):
     if (role == 'module-orchestrator' and (m or {}).get('change_request') and operation in ('plan-review', 'freeze')
             or role == 'auditor' and any(x.get('task_revalidation', {}).get('mode') == 'partial' for x in s.get('modules', {}).values())):
         chosen += sections('openspec.md', 'TASK 局部重验')
-    if topics and (role == 'spec-designer' or role == 'test-runner' and step.get('test_scope') == 'automation'):
-        chosen += platform_sections(s)
+    if topics:
+        chosen += platform_sections(s, m, step)
     if self_checked:
         chosen = [item for item in chosen if item != (P + 'context-readiness.md', '2. 精确插入节点')]
     if not topics and drafted_split(s, m, step):
@@ -643,9 +666,8 @@ def templates(s, m, step):
             names.append('task-independence.json')
     if role == 'test-runner':
         names += SCOPE_TEMPLATES.get(step.get('test_scope'), [])
-    if role == 'spec-designer' or role == 'test-runner' and step.get('test_scope') == 'automation':
-        for key in platform_keys(s):
-            names += PLATFORM_TEMPLATES[key].get(role, [])
+    for key in platform_keys(s, m, step):
+        names += PLATFORM_TEMPLATES[key].get(role, [])
     reuse = reuse_applies(s, m, role)
     facts = topic_facts(s, m, step)
     active = {'reuse': reuse, 'telemetry': telemetry_scope(role, m), 'ui': facts['ui'] and not (role == 'test-runner' and step.get('test_scope') == 'build'),
@@ -921,7 +943,9 @@ def render(rows, output_dir, extra=(), skill=None, on_demand=(), lessons=(), mod
     if skill or lessons:  # the same sections with another skill or other lessons are another card
         from contracts import digest
         name = digest([name, skill and skill['ref'], [row['lesson_ref'] for row in lessons]])
-    target = Path(output_dir) / f'{name}.md'
+    # Resident sections can match while two assignments have different PATH topics or templates.
+    file_name = hashlib.sha256(body.encode()).hexdigest() if on_demand or extra else name
+    target = Path(output_dir) / f'{file_name}.md'
     if not target.is_file() or target.read_text() != body:
         target.parent.mkdir(parents=True, exist_ok=True)
         tmp = target.with_name(target.name + '.tmp')

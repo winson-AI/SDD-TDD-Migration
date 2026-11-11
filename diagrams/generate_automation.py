@@ -30,7 +30,7 @@ def automation_flow():
     d.arrow([(780, 508), (1160, 508)], 'orange')
     d.label(930, 513, '有 PATH 缺资产', 'orange', 18)
     d.box(460, 550, 640, 140, 'MO 派发 → Test-Runner testing 预检',
-          ['Ledger 骨架已核代码 / 路径；填提供方 / 环境 / 权限', '提交 context-submit；绑定实际 argv / cwd / 环境', '宿主负责实际启动、角色身份和资源锁'], controller=True)
+          ['Ledger 骨架已核代码 / 路径；填提供方 / 环境 / 权限', '提交 context-submit；绑定实际 argv / cwd / 环境', '平台专题随当前 PATH；宿主落实身份与资源锁'], controller=True)
     d.arrow([(780, 690), (780, 735)])
     d.diamond(780, 800, 330, 130, '预检结果', '是否具备执行条件')
     d.arrow([(615, 800), (400, 800)], 'orange'); d.label(505, 780, '其他缺项', 'orange')
@@ -53,7 +53,7 @@ def automation_flow():
     d.box(60, 1340, 340, 235, 'CR 验证范围',
           ['无证明 / 共享影响：全模块重验', 'MO TASK 独立性证明通过', '保留未影响 TASK / Green', '影响及非 Green 路径重跑', '新代码重跑构建 / 单测 / 静态'], 'purple')
     d.box(60, 1640, 340, 170, '成功证据统计',
-          ['Ledger 记录 validation_reuse', '原回执 / 执行基线不变', '复用成功单列，不计新执行', '成功集合带 PATH / TASK / 证据'], 'gray')
+          ['Ledger 记录 validation_reuse', '设备缺口与实际 PATH 分开', '复用成功单列，不计新执行', '成功集合带 PATH / TASK / 证据'], 'gray')
     d.arrow([(780, 1450), (780, 1505)])
     artifact(d, 460, 1505, 640, 125, '汇总 stage-result.json',
              ['本 assignment scope 的所有 PATH 均须记账', '每条：三态 / ASSERT / 根因 / receipt / retest_of'])
@@ -89,7 +89,7 @@ def automation_flow():
           ['审阅全宿主目标 / 代码；遗留按审计 fix / verify / human 路由', '裁决失败：结构化根因待人工；缺环境保留未验证', '只复核遗留 / 受影响路径；空清单只审阅'], controller=True)
     d.arrow([(780, 2560), (780, 2620)])
     artifact(d, 300, 2620, 960, 125, '最终输出：通过 / 问题待决 / 缺测清单',
-             ['全覆盖真实 Green 才通过；纯缺环境可 completed-with-unverified-tests（Yellow）', '按宿主 / 模块 / TASK 统计有效成功与缺测；历次原始证据均保留'])
+             ['全覆盖真实 Green 才通过；纯缺环境可 completed-with-unverified-tests（Yellow）', '按宿主 / 模块 / TASK 统计冻结 PATH 与有效成功，单列设备缺口'])
     d.legend(2800)
     d.save()
 

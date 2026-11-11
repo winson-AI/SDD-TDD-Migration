@@ -101,7 +101,7 @@
 <text x="1315.0" y="1581.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">待审拒绝重复请求，保留原恢复阶段</text>
 <text x="1315.0" y="1610.0" font-size="19.01" fill="#4b5563" text-anchor="middle" font-weight="400">只改提出叶子且不挪用例：Ledger 接受重切</text>
 <text x="1315.0" y="1639.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">重新冻结，更新代码并正式复测</text>
-<text x="1315.0" y="1668.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无关 MO 保留当前有效状态</text>
+<text x="1315.0" y="1668.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">独立叶子凭有效覆盖继续派发</text>
 <path d="M1520,1570 L1570,1570 L1570,350 L1080,350 L1080,255 L1050,255" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <rect x="550" y="1750" width="500" height="335" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="800.0" y="1780.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">CR 重验范围</text>

@@ -209,8 +209,10 @@ class CardFileTests(unittest.TestCase):
         result = json.loads(out.getvalue())
         step = ledger.status(f.root)['next_steps'][0]
         self.assertEqual(result['card_sha256'], step['card_sha256'])
-        self.assertEqual(Path(result['path']).resolve(), (f.root / 'reports/reading' / (step['card_sha256'] + '.md')).resolve())
-        self.assertTrue(Path(result['path']).is_file())
+        card = Path(result['path']).resolve()
+        expected = (reading.hashlib.sha256(card.read_bytes()).hexdigest() if step['templates'] or step['read_when_writing']
+                    else step['card_sha256'])
+        self.assertEqual(card, (f.root / 'reports/reading' / (expected + '.md')).resolve())
 
 
 if __name__ == '__main__':

@@ -868,6 +868,8 @@ def handle(s, req, actor, run_root):
         reset, revised = revision_plan(s, parent, children, graph)
         waiting = built_on(s, reset)
         held = accepted_over(s)
+        import workflow
+        local = workflow.local_coverage_before(s, reset | revised, p['review_ref'])
         for cid in impact & set(s['modules']):
             idle(s['modules'][cid])
         continue_unaffected(s, reset | revised, p['review_ref'], run_root)
@@ -956,6 +958,10 @@ def handle(s, req, actor, run_root):
         })
         if accepted_over(s) != held:  # a revision that only renews evidence leaves the accepted coverage as it was
             s['global_plan'] = None
+            if local:
+                s['local_coverage'] = local
+            else:
+                s.pop('local_coverage', None)
         if s.get('audit'):
             s.setdefault('audit_history', []).append(copy.deepcopy(s['audit']))
         s['audit'] = {}
@@ -1049,6 +1055,7 @@ def accept_split(s, parent, mid, review_ref, run_root):
             module['dependencies'] = graph[leaf_id]
             module['behavior_review']['verification'] = copy.deepcopy(plan['consumer_verifications'][leaf_id])
     previous, s['global_plan'] = s.get('global_plan'), None
+    s.pop('local_coverage', None)
     s['audit'] = {}
     import workflow
     workflow.carry_coverage(s, previous, mid, children, run_root)  # the GO's coverage with the parent's share handed to its children
