@@ -753,7 +753,9 @@ def require_indexed_closure(analysis, legacy_root=None):
     items = [item for row in analysis.get('dimensions', [])
              if row.get('dimension') == 'Resource' and row.get('status') == 'applicable'
              for item in row.get('items', [])]
-    copied = {(row['source_resource'], row['variant']): row for row in resource_copy.rows(analysis)}
+    copied = {}
+    for row in resource_copy.rows(analysis):
+        copied.setdefault((row['source_resource'], row['variant']), []).append(row)
     by_sheet = carried(analysis)
     for row in analysis.get('dimensions', []):
         if row.get('dimension') != 'UI' or row.get('status') != 'applicable':
@@ -786,20 +788,23 @@ def require_indexed_closure(analysis, legacy_root=None):
             for (source_id, variant), renditions in resource_groups(active).items():
                 label = source_id + ' / ' + variant
                 matches = [item for item in items if item.get('source_resource') == source_id and item_variant(item) == variant]
-                copy = copied.get((source_id, variant))
+                copy = [binding for binding in copied.get((source_id, variant), [])
+                        if not binding.get('ui_items') or ui_item['item_id'] in binding['ui_items']]
                 if source_id in by_sheet and not matches and not copy:
                     continue  # the sheet carries this value and its variants
                 if not matches and not copy:  # a reference without its item is owed; two items for one reference contradict each other
                     owed(False, 'UI resource closure requires one item for ' + label); continue
                 require(len(matches) + bool(copy) == 1, 'UI resource closure requires one item for ' + label)
-                qualifier = copy['qualifier'] if copy else matches[0].get('qualifier', 'base')
-                require(qualifier in renditions, 'resource item names a rendition the source index does not hold: ' + source_id + ' / ' + qualifier)
-                planned = (copy['source_ref'] if copy else matches[0].get('source_resource_ref')) or {}
-                # A second file declaring the same resource is another candidate: scope it out or the baselines differ.
-                for source_ref in renditions[qualifier]:
-                    require(Path(planned.get('path', '')).resolve() == Path(source_ref['path'])
-                            and planned.get('sha256') == source_ref['sha256'],
-                            'UI resource facts and Resource item use different source baselines: ' + label)
+                bindings = copy or [{'qualifier': matches[0].get('qualifier', 'base'),
+                                     'source_ref': matches[0].get('source_resource_ref') or {}}]
+                for binding in bindings:
+                    qualifier, planned = binding['qualifier'], binding['source_ref']
+                    require(qualifier in renditions, 'resource item names a rendition the source index does not hold: ' + source_id + ' / ' + qualifier)
+                    # Several files declaring one qualifier must be scoped to the exact baseline.
+                    for source_ref in renditions[qualifier]:
+                        require(Path(planned.get('path', '')).resolve() == Path(source_ref['path'])
+                                and planned.get('sha256') == source_ref['sha256'],
+                                'UI resource facts and Resource item use different source baselines: ' + label)
             item_ids = {item['item_id'] for item in items}
             for signal_id, signal in sorted(needed['signals'].items()):
                 matches = [item for item in items if item.get('source_signal') == signal_id]

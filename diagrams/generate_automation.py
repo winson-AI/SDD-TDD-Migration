@@ -21,7 +21,7 @@ def automation_flow():
     d.arrow([(400, 255), (460, 255)])
     d.arrow([(780, 320), (780, 375)])
     d.box(460, 375, 640, 115, 'Coding 接受 → build / unit',
-          ['构建只跑 PATH 平台；新代码必须重新 build / unit / static',
+          ['分批构建绑定提供方输入；派发与验收用同一守卫',
            '模型执行的 automation 可与 static 同派；同派时 static 在前'])
     d.box(1160, 375, 380, 195, '派发前核对本批 PATH 资产',
           ['unit 缺资产时先跑就绪 build', '自动化先派发资产齐备的 PATH',
@@ -83,10 +83,10 @@ def automation_flow():
     d.arrow([(1540, 840), (1570, 840), (1570, 2170), (1350, 2170)], 'orange', dashed=True, end=False)
     d.arrow([(780, 2170), (780, 2230)])
     d.box(460, 2230, 640, 140, '父汇总 → GO 全量收尾门禁',
-          ['GLOBAL PATH 波次绑定已验收产物或全局快照', '输入失效：宿主停工取证后回收派发', '无 worker / ready 动作，才统一启动 Auditor'], 'orange', True)
+          ['GLOBAL PATH 波次绑定已验收产物或全局快照', '修订等待时有效波次先提交；失效则取证回收', '无 worker / ready 动作，才统一启动 Auditor'], 'orange', True)
     d.arrow([(780, 2370), (780, 2410)])
     d.box(460, 2410, 640, 150, 'Auditor · 独立闭环',
-          ['审阅全宿主目标 / 代码；遗留按审计 fix / verify / human 路由', '裁决失败：结构化根因待人工；缺环境保留未验证', '只复核遗留 / 受影响路径；空清单只审阅'], controller=True)
+          ['审阅全宿主目标 / 代码；遗留按审计 fix / verify / human 路由', '裁决失败：结构化根因待人工；缺环境保留未验证', '按 PATH 失效阶段复测；裁决使用累计回执'], controller=True)
     d.arrow([(780, 2560), (780, 2620)])
     artifact(d, 300, 2620, 960, 125, '最终输出：通过 / 问题待决 / 缺测清单',
              ['全覆盖真实 Green 才通过；纯缺环境可 completed-with-unverified-tests（Yellow）', '按宿主 / 模块 / TASK 统计冻结 PATH 与有效成功，单列设备缺口'])

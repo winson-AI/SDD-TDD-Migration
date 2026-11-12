@@ -38,7 +38,7 @@ lean_worker.py \
 | `target-scan` | keywords，选填 roots | 只读列出目标工程含构建文件的模块、manifest / 模块入口与名称或路径命中关键词的声明符号及文件 hash，作目标画像候选证据，不判状态；无需 assignment |
 | `resource-scan` | 选填 source_index_ref/ui_tree_ref/extra_refs | 只读列出当前闭包资源的候选文件与 hash（含 base/night/语言变体），给树与索引时附预填 skeletons；不写目标、不裁决精确性 |
 | `resource-plan` | dimension_analysis_ref | 派生模块的参数表与复制清单（项目声明了约定时），列出待登记资源、未声明使用点、待映射 token 与待定值 expression；MO 可用 |
-| `resource-sync` | task_id，需 assignment | 在该任务写范围内按冻结清单复制文件、按参数表写出参数文件；不覆盖内容不同的已有文件；Fixer 可用 |
+| `resource-sync` | 需 assignment，可选 task_id | 只同步当前派发内 TASK 拥有的文件及参数。更新同名文件须匹配上一份验收哈希。Fixer 可用 |
 | `screen-checks` | dimension_analysis_ref | 为尚无检查的图片使用点派生 image 检查并渲染参考，附文本检查建议，渲染不了的列入 unrendered；MO 可用 |
 | `render-reference` | source_index_ref/source_resource/qualifier | 把索引内的存量资源离线渲染为参考栅格（reference.png/json），绑定文件 SHA；Spec-Designer/Test-Runner/Auditor 可用，随声明它的 image_checks 冻结 |
 | `resource-convert` | task_id/resource_item_id + source/destination/source_id/target_ref/consumer，选填 resolve_ref/consumer_tint | 在冻结任务范围内执行 exact_vector_xml、byte_copy 或单项 value_xml_exact；参数须与冻结资源映射一致，其余策略由 Implementer/Fixer 按 SPEC 实现 |

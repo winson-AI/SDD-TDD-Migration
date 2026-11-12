@@ -22,7 +22,7 @@ Auditor 在所有父/子 MO 的本轮实现、编译构建、自动化测试及�
 4. 正式复测留新回执、assert、基线与 retest_of。已确认技术根因指向已审核 owner、冻结有效、影响范围空闲且预算足时，回该 owner 的 audit-work；历史进 test_history，实际下游旧证明失效。未知/新 owner、语义或授权变化、预算耗尽交人工/回溯。缺环境保留 Yellow。
 5. Auditor `audit-verdict` 验收（批次内各模块复测在当前代码上全绿且无待人工时由 Ledger 机械裁决），Ledger 记录结果与修复 memory；独立分支继续，失败只影响有依赖关系的分支。父 MO 刷新汇总后，独立审阅收尾。
 
-work_modules 包含发现模块、根因 owner 与受影响下游，按模块基线保守完整回归并重建。扩展范围须追溯 finding/owner/依赖边；无关 Green 不追加回归，完整测试定义仅供覆盖核对。
+work_modules 包含发现模块、根因 owner 与受影响下游。audit-retest 先核对 PATH 的提供方摘要和 finding 指定的路径。过期证据从最早失效阶段重验，缺少输入绑定时保守重验，仍有效的回执直接复用。跨模块影响须追溯 finding、owner 或依赖边。裁决核验当前冻结下的累计 PATH 证据。
 
 ## 收尾的实际执行契约
 
@@ -34,7 +34,7 @@ work_modules 包含发现模块、根因 owner 与受影响下游，按模块基
 - `path_ids`：当前模块结果为 Red/Yellow 的 PATH；已由问题闭环复核通过的不再加入。
 - 运行级 global_paths 只加入其中非 Green、从未验证或代码基线已失效的路径；未验证保留待验证，有效 Green 直接复用。
 - 波次集成在持有 GLOBAL PATH 用例的叶子完成且执行输入就绪时，Ledger 以 GO 名义 `integration-assign` 给独立 Test-Runner。派发内提交 audit-execution 预检，`integration-submit` 提交 kind=tests。带 build binding 的受限 Android/Harmony 视觉路径绑定当前验收产物、冻结 PATH、环境及 owner/提供方闭包。冻结命令和自定义适配器按全局快照处理，可由 advance_run 代跑。持有叶子基线未变时，其他叶子导致全局快照失效的路径留到统一审计复测。结果与执行输入摘要进入 audit_results，输入一致时复用 Green。Red 进入 audit_repairs 交 owner MO。
-- 活动派发的输入变化时，宿主核实进程停止或已隔离，再凭 assignment_id、fencing_token 和 stopped_worker_ref 提交 `integration-revoke`。Ledger 保留旧派发及停工证据，随后重算波次或审计清单。
+- 活动派发的输入变化时，宿主核实进程停止或已隔离，再凭 assignment_id、fencing_token 和 stopped_worker_ref 提交 `integration-revoke`。Ledger 保留旧派发及停工证据，随后重算波次或审计清单。Run 修订等待波次时，仍有效的派发先完成提交。
 - 有效构建 Green 不因自动化缺测被重跑或覆盖。对原 automation-deferred 模块补验时合并 PATH 结果，保留原构建证据。
 
 | 清单 | 上下文门禁 | 动作与报告 |

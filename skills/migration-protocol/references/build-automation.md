@@ -2,7 +2,7 @@
 
 ## 总则
 
-Coding 接受后先构建，同一派发可跑逻辑单测（冻结命令由 advance 代跑）。unit 缺资产时先完成就绪 build，两者通过后派 Test-Runner 做静态规格闭合审查（逐需求核对生产符号与假实现，见[静态规格闭合](testing.md#静态规格闭合)），然后自动化：PATH 的平台有声明的适配器或内置 Main 时同样由 advance 代跑（静态审查单独派发），否则由 Test-Runner 执行，静态审查随这次自动化派发、排在最前，非 Green 即停。任务分批时游标先给已接受任务的构建与单测（不强制）；静态闭合待全部任务写完且需要本模块代码的切片已有代码，此前为 awaiting-assembly：等待期间先跑本模块的独立自动化；调用方就绪后单派静态闭合。构建命令相同的模块可同时各写各的文件，该单元只在无人写入时构建（含会构建的设备路径），构建期间暂停写入。受限 Android/Harmony 视觉派发消费已验收的 APK/HAP，使用 `artifact_only` 与独立编码并行；正式回执用 `lean_visual_adapter.py`，设备锁及写范围照常核对；命令优先用用户指定项，否则检查 Gradle assemble。构建/用例错误记三态与根因，修复由 Fixer。仅自动化环境不可启动时保留构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred，独立任务与依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复；全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，不称功能/fidelity 验证通过；不跳过构建、不吞已观察到的 Red。
+Coding 接受后先构建，同一派发可跑逻辑单测（冻结命令由 advance 代跑）。unit 缺资产时先完成就绪 build，两者通过后派 Test-Runner 做静态规格闭合审查（逐需求核对生产符号与假实现，见[静态规格闭合](testing.md#静态规格闭合)），然后自动化：PATH 的平台有声明的适配器或内置 Main 时同样由 advance 代跑（静态审查单独派发），否则由 Test-Runner 执行，静态审查随这次自动化派发、排在最前，非 Green 即停。任务分批时可先测已接受任务。对仅要求 implemented 的提供方，分批构建在派发、执行、提交和验收沿用同一输入摘要。要求 verified 的边继续等待提供方完成验证。分批构建暂时不可派时，游标可先派已冻结且就绪的剩余 TASK。静态闭合待全部任务写完且需要本模块代码的切片已有代码，此前为 awaiting-assembly：等待期间先跑本模块的独立自动化；调用方就绪后单派静态闭合。构建命令相同的模块可同时各写各的文件，该单元只在无人写入时构建（含会构建的设备路径），构建期间暂停写入。受限 Android/Harmony 视觉派发消费已验收的 APK/HAP，使用 `artifact_only` 与独立编码并行；正式回执用 `lean_visual_adapter.py`，设备锁及写范围照常核对；命令优先用用户指定项，否则检查 Gradle assemble。构建/用例错误记三态与根因，修复由 Fixer。仅自动化环境不可启动时保留构建 Green，逐用例记 Yellow/未执行，经 automation-unavailable 进入 automation-deferred，独立任务与依赖当前构建产物的下游继续，不传播 Yellow、不强制人工恢复；全量收尾后 Auditor 保留缺测清单，本轮可 completed-with-unverified-tests，不称功能/fidelity 验证通过；不跳过构建、不吞已观察到的 Red。
 
 ## 1. 职责与全局规则
 

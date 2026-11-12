@@ -96,6 +96,44 @@ class CopyPlanTests(unittest.TestCase):
         _, authored = self.plan({**self.rules, 'formats': ['webp']})
         self.assertIn({'source_resource': '@drawable/ic_star', 'variant': 'base', 'reason': 'the target does not load vector-xml as it is'}, authored)
 
+    def test_density_inventory_and_qualified_targets(self):
+        collapsed = self.plan()[0]
+        inventory = {row['qualifier']: row for row in collapsed['renditions'] if row['source_resource'] == '@drawable/ic_back'}
+        self.assertEqual({q: row['status'] for q, row in inventory.items()}, {'xhdpi': 'folded', 'xxhdpi': 'copied'})
+        self.assertEqual(inventory['xhdpi']['source_refs'], [file_ref(self.n.android / 'app/src/main/res/drawable-xhdpi/ic_back.webp')])
+        unsupported = self.plan({**self.rules, 'formats': ['png']})[0]['renditions']
+        self.assertEqual({row['status'] for row in unsupported if row['source_resource'] == '@drawable/ic_back'}, {'unsupported'})
+        rules = {**self.rules, 'preserve_density': True, 'path': '{kind}/{density}/{name}{ext}'}
+        plan = self.adopt(self.plan(rules)[0])
+        rows = [row for row in plan['rows'] if row['source_resource'] == '@drawable/ic_back']
+        self.assertEqual([row['qualifier'] for row in rows], ['xhdpi', 'xxhdpi'])
+        self.assertEqual(len({row['target_path'] for row in rows}), 2)
+        self.freeze(target_resources={'copy': resource_copy.convention(rules)})
+
+    def test_sync_selects_owned_outputs_and_only_replaces_the_accepted_bytes(self):
+        import resource_binding
+        self.adopt()
+        rows = resource_copy.rows(self.f.analysis)
+        back = next(row for row in rows if row['source_resource'] == '@drawable/ic_back')
+        target = Path(back['target_path'])
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b'previous accepted bytes')
+        previous = {str(target): file_ref(target)['sha256']}
+        module = {'write_paths': [str(self.n.target)], 'plan': {'tasks': [
+            {'task_id': 'A', 'scope': {'write_paths': [str(target.parent)]}},
+            {'task_id': 'B', 'scope': {'write_paths': [str(self.n.target / 'res/raw')]}}]}}
+        assignment = {'execution_contract': {'task_ids': ['A', 'B'], 'write_paths': [str(self.n.target / 'res')]}}
+        owned = resource_binding.owned_outputs(module, assignment, [row['target_path'] for row in rows], 'A')
+        self.assertIn(str(target), owned)
+        self.assertFalse(any(owner != 'A' or '/raw/' in path for path, owner in owned.items()))
+        allowed = lambda path: str(path) in owned
+        selected = resource_copy.sync(self.f.analysis, allowed, selected=owned, previous=previous)
+        self.assertEqual(next(action for _, path, _, action in selected if path == target), 'updated')
+        target.write_bytes(b'independent local edit')
+        with self.assertRaisesRegex(Rejected, 'refusing to overwrite'):
+            resource_copy.sync(self.f.analysis, allowed, selected=owned, previous=previous)
+        self.assertEqual(target.read_bytes(), b'independent local edit')
+
     def test_the_convention_is_a_root_in_the_target_two_templates_and_the_formats(self):
         resource_copy.convention(self.rules, self.n.target)
         for over, message in (({'root': 'res'}, 'absolute directory'), ({'root': str(self.n.android)}, 'inside target_root'),

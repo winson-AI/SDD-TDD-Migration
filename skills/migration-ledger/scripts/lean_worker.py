@@ -214,6 +214,7 @@ def run(root, request, actor):
                 require(any(destination.is_relative_to(Path(p).resolve()) for p in module['write_paths']), 'resource outside assigned write scope')
                 tasks = [t for t in module['plan'].get('tasks', []) if t['task_id'] == args.get('task_id')]
                 require(len(tasks) == 1, 'resource-convert requires a frozen task_id')
+                require(args['task_id'] in task['execution_contract']['task_ids'], 'resource task outside the assigned TASKs')
                 writes = tasks[0].get('scope', {}).get('write_paths', [])
                 require(any(destination.is_relative_to(Path(p).resolve()) for p in writes), 'resource outside assigned task write scope')
                 analysis = read_json(check_ref(module['plan'].get('dimension_analysis_ref')))
@@ -272,26 +273,38 @@ def run(root, request, actor):
                                          'waive with evidence only what the screen cannot show'}
             elif operation == 'resource-sync':
                 analysis = read_json(check_ref(module['plan'].get('dimension_analysis_ref')))
-                tasks = [t for t in module['plan'].get('tasks', []) if t['task_id'] == args.get('task_id')]
-                require(len(tasks) == 1, 'resource-sync requires a frozen task_id')
-                scopes = [[Path(p).resolve() for p in paths] for paths in (module['write_paths'], tasks[0].get('scope', {}).get('write_paths', []))]
-                allowed = lambda path: all(any(path.resolve().is_relative_to(p) for p in scope) for scope in scopes)
-                copies = resource_copy.sync(analysis, allowed)
-                document = ui_parameters.load(analysis)
-                files, accessors = parameter_file.render(document, parameter_file.declarations(analysis)) if document and document.get('convention') else ({}, [])
-                require(copies or files, 'the frozen plan names neither a copy plan nor parameters to write')
-                rows = []
+                import resource_binding
+                generated, accessors = resource_binding.generated_files(analysis)
+                planned = resource_copy.rows(analysis)
+                targets = [row['target_path'] for row in planned] + list(generated)
+                require(targets, 'the frozen plan names neither a copy plan nor parameters to write')
+                owners = resource_binding.owned_outputs(module, task, targets, args.get('task_id'))
+                require(owners, ('copy target' if planned else 'generated parameter file') + ' outside the assigned write scope')
+                # Resolve every target and compare the entire batch before any file changes.
+                for name in owners:
+                    run_storage.checked_path(Path(name), config['target_root'])
+                allowed = lambda path: str(path) in owners
+                previous = module.get('accepted_resource_hashes') or {}
+                copies = resource_copy.sync(analysis, allowed, selected=owners, previous=previous)
+                files = []
+                for path, text in sorted(generated.items()):
+                    if path in owners:
+                        payload = text.encode('utf-8')
+                        target = Path(path)
+                        action = resource_copy.output_action(target, payload, allowed, previous.get(path))
+                        files.append((target, payload, action))
+                rows, written = [], []
                 for row, target, payload, action in copies:
-                    if action == 'copied':
+                    if action != 'kept':
                         run_storage.atomic_bytes(target, payload)
-                    rows.append({'source_resource': row['source_resource'], 'variant': row['variant'], 'accessor': row['accessor'],
-                                 'action': action, 'target_ref': file_ref(target)})
-                written = []
-                for path, text in sorted(files.items()):
-                    require(allowed(Path(path)), 'generated parameter file outside the assigned write scope: ' + path)
-                    run_storage.atomic_bytes(Path(path), text.encode('utf-8'))
-                    written.append(file_ref(path))
-                result = {'status': 'SYNCED', 'task_id': args['task_id'], 'rows': rows, 'parameter_files': written, 'keys': len(accessors),
+                    rows.append({'source_resource': row['source_resource'], 'variant': row['variant'], 'qualifier': row['qualifier'],
+                                 'accessor': row['accessor'], 'action': action, 'task_id': owners[str(target)], 'target_ref': file_ref(target)})
+                for target, payload, action in files:
+                    if action != 'kept':
+                        run_storage.atomic_bytes(target, payload)
+                    written.append(file_ref(target))
+                result = {'status': 'SYNCED', 'task_id': args.get('task_id'), 'task_ids': sorted(set(owners.values())),
+                          'rows': rows, 'parameter_files': written, 'keys': len(accessors) if files else 0,
                           'acceptance': 'copies-and-generated-files-are-checked-against-the-frozen-plan-when-the-result-is-accepted'}
             elif operation == 'resource-scan':
                 result = resource_tool.scan(SimpleNamespace(android_root=config['legacy_root'],

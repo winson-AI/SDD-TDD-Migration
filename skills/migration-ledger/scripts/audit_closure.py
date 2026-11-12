@@ -220,28 +220,43 @@ def test_accepted(s, m, result, result_ref, build_only=False, stage='build'):
     mid = m['module_id']
     b.setdefault('test_history', []).append({'module_id': mid, 'stage': stage, 'result_ref': result_ref,
         'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'paths': copy.deepcopy(result['paths'])})
-    if build_only:
-        bad = [r for r in result['paths'] if r['quality'] != 'green-passed']
-        if bad:
-            if retry_repair(s, m, bad, result_ref): return
-            stop(s, stage + '-verification-failed', mid,
-                 {'result_ref': result_ref, 'root_causes': [r['root_cause'] for r in bad]})
-        # A successful build is a prerequisite, never proof of automation coverage.
-        return
-    p = {'result_ref': result_ref, 'code_baseline': m['code_baseline'], 'freeze_id': m['freeze_id'], 'paths': copy.deepcopy(result['paths'])}
-    stage = m.get('audit_test_stage')
-    require(stage in ('owner', 'source'), 'audit verification stage missing')
-    b[stage + '_tests'][mid] = p
     bad = [r for r in result['paths'] if r['quality'] != 'green-passed']
-    for memory in m.get('fix_memory', []):
-        if memory.get('audit_batch_id') == b['batch_id'] and memory.get('after_baseline') == m['code_baseline'] and memory.get('status') not in ('failed', 'interrupted'):
-            memory.update(status='failed' if bad else 'awaiting-cross-verification', reusable=False)
-    if stage == 'owner' and mid in b['sources']: b['source_tests'][mid] = p
+    if not build_only:
+        for memory in m.get('fix_memory', []):
+            if memory.get('audit_batch_id') == b['batch_id'] and memory.get('after_baseline') == m['code_baseline'] and memory.get('status') not in ('failed', 'interrupted'):
+                memory.update(status='failed' if bad else 'awaiting-cross-verification', reusable=False)
     if bad:
         if retry_repair(s, m, bad, result_ref): return
-        stop(s, 'verification-failed', mid, {'result_ref': result_ref, 'root_causes': [r['root_cause'] for r in bad]})
-    elif b.get('human_issues'):
-        human_report(s, 'partial-verification-awaits-human')
+        stop(s, stage + '-verification-failed' if build_only else 'verification-failed', mid,
+             {'result_ref': result_ref, 'root_causes': [r['root_cause'] for r in bad]})
+    elif tv.all_green(m):
+        record_proof(b, m, result_ref)
+        if b.get('human_issues'):
+            human_report(s, 'partial-verification-awaits-human')
+
+
+def record_proof(b, m, result_ref=None):
+    mid, stage = m['module_id'], m.get('audit_test_stage')
+    require(stage in ('owner', 'source') and tv.all_green(m), 'audit verification needs all current PATH evidence')
+    rows = [copy.deepcopy(m['results'][p['path_id']]) for p in m['plan']['paths']]
+    p = {'result_ref': result_ref, 'code_baseline': m['code_baseline'], 'freeze_id': m['freeze_id'],
+         'paths': rows, 'cumulative': True}
+    b[stage + '_tests'][mid] = p
+    if stage == 'owner' and mid in b['sources']:
+        b['source_tests'][mid] = p
+
+
+def check_proof(m, p):
+    if p.get('result_ref') or not p.get('cumulative'):
+        check_ref(p['result_ref'])
+    require(p['freeze_id'] == m['freeze_id'] and p['code_baseline'] == baseline(m['code_files']), 'verification stale')
+    require(all(r['quality'] == 'green-passed' for r in p['paths']), 'unresolved verification')
+    if p.get('cumulative'):
+        require(tv.all_green(m) and {row['path_id'] for row in p['paths']} == {path['path_id'] for path in m['plan']['paths']},
+                'audit PATH coverage changed')
+        for row in p['paths']:
+            require(m['results'][row['path_id']] == row, 'audit PATH evidence changed')
+            check_ref(row['execution_receipt'])
 
 
 def retry_repair(s, source, bad, result_ref):
@@ -350,10 +365,7 @@ def verdict_clear(s, b):
             m = s['modules'][mid]
             if mid in b.get('automation_deferred', {}):
                 return False
-            pr = proof(b, mid); check_ref(pr['result_ref'])
-            if pr['freeze_id'] != m['freeze_id'] or pr['code_baseline'] != baseline(m['code_files']) or \
-                    any(r['quality'] != 'green-passed' for r in pr['paths']):
-                return False
+            check_proof(m, proof(b, mid))
     except (ValueError, OSError, KeyError, TypeError):
         return False
     return True
@@ -492,8 +504,22 @@ def handle(s, req, actor):
             require(workflow.runnable(s, mid), 'source prerequisites still unavailable')
         except (ValueError, OSError, KeyError, TypeError) as exc:
             stop(s, str(exc), mid, b['plan_ref']); return
+        from ledger import dependency_closure, invalidate_path_results, revalidate_provider_results
+        if m['dependencies']:
+            revalidate_provider_results(s, m)
+        paths = {path['path_id'] for path in m['plan']['paths']}
+        explicit = {f.get('path_id') for f in b['findings'].values() if f['source_module_id'] == mid} & paths
+        # Auditor-declared effects may cross a boundary missing from the module's dependency graph.
+        providers = set(dependency_closure(s, m['dependencies']))
+        cross_boundary = any(mid in finding.get('affected_module_ids', []) and mid not in route['owner_module_ids']
+                             and set(route['owner_module_ids']) - providers
+                             for fid, route in b['routes'].items() for finding in [b['findings'][fid]])
+        invalidate_path_results(m, paths if cross_boundary else explicit)
         m.update(phase='testing', blocked=None, stale=True, audit_batch_id=b['batch_id'],
                  audit_test_stage='owner' if mid in owners(b) else 'source')
+        if tv.all_green(m):
+            m.update(phase='dod', stale=False)
+            record_proof(b, m)
     elif op == 'audit-verdict':
         workflow.role(actor, 'auditor'); b = batch(s)
         require(actor['instance_id'] == b['auditor_instance_id'] and b['status'] == 'repairing', 'auditor/phase mismatch')
@@ -506,9 +532,7 @@ def handle(s, req, actor):
                 if mid in b.get('automation_deferred', {}):
                     require(tv.deferred(m), 'deferred automation evidence changed')
                     continue
-                pr = proof(b,mid); check_ref(pr['result_ref'])
-                require(pr['freeze_id'] == m['freeze_id'] and pr['code_baseline'] == baseline(m['code_files']), 'verification stale')
-                require(all(r['quality'] == 'green-passed' for r in pr['paths']), 'unresolved verification')
+                check_proof(m, proof(b, mid))
         except (ValueError, OSError, KeyError, TypeError) as exc:
             stop(s, str(exc), evidence=p['review_ref']); return
         b['unverified_findings'] = [fid for fid in b['routes'] if

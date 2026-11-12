@@ -472,13 +472,15 @@ def dependency_evidence_current(provider):
         require(file_ref(ref['path']) == ref, 'provider revision execution inputs drifted')
 
 
-def dependencies_ready(s, m):
+def dependencies_ready(s, m, *, test_scope=None):
     providers = ((m.get('behavior_review') or {}).get('verification') or {}).get('provider_inputs', [])
     stages = {row['module_id']: row.get('required_stage') or 'implemented' for row in providers}
+    verifying = m.get('phase') in ('testing', 'dod', 'completed') or test_scope is not None
+    partial_build = test_scope == 'build' and m.get('execution_partition_pending')
     for d in m['dependencies']:
         original = s['modules'][d]
         provider = dependency_provider(original)
-        if stages.get(d, 'implemented') == 'implemented' and m.get('phase') not in ('testing', 'dod', 'completed'):
+        if stages.get(d, 'implemented') == 'implemented' and (not verifying or partial_build):
             require(provider_written(provider), 'dependencies not complete')
         else:
             require(tv.available(provider), 'dependencies not complete')
@@ -486,7 +488,7 @@ def dependencies_ready(s, m):
             dependency_evidence_current(provider)
         else:
             current(provider)
-            if m.get('phase') in ('testing', 'dod', 'completed'):
+            if verifying:
                 for ref in provider.get('build_artifacts', []):
                     check_ref(ref)
 
@@ -513,16 +515,26 @@ def dependency_validation_inputs(s, m):
 
 def revalidate_provider_results(s, m):
     expected = dependency_validation_inputs(s, m)
-    affected = [pid for pid, row in m['results'].items() if row.get('dependency_inputs') != expected]
+    invalidate_path_results(m, {pid for pid, row in m['results'].items() if row.get('dependency_inputs') != expected})
+
+
+def invalidate_path_results(m, affected):
     if not affected:
         return
     m['dependency_reverify'] = True
     m.pop('automation_retry_ready', None)
     for pid in affected:
-        m['results'][pid]['stale'] = True
+        if pid in m['results']:
+            m['results'][pid]['stale'] = True
     if any(p['path_id'] in affected for p in tv.paths(m, 'build')):
         m['build_baseline'] = None
         m['build_artifacts'] = []
+
+
+def worker_dependencies_ready(s, m, assignment):
+    dependencies_ready(s, m, test_scope=assignment.get('test_scope') if assignment['role'] == 'test-runner' else None)
+    if assignment.get('dependency_inputs'):
+        require(assignment['dependency_inputs'] == dependency_validation_inputs(s, m), 'partial build provider inputs changed')
 
 
 def failure_fingerprint(results):
@@ -886,7 +898,9 @@ def dispatch_guard(s, m, worker, artifact_only=False):
     require(not m.get('realloc_request'), 'allocation review still pending')
     if worker == 'test-runner':
         require(not run_changes.execution_switch_pending(s, m['module_id']), 'apply reviewed execution change before new test assignment')
-    idle(m); current(m); dependencies_ready(s, m)
+    idle(m); current(m)
+    dependencies_ready(s, {**m, 'phase': 'testing'} if worker == 'test-runner' else m,
+                       test_scope=tv.next_scope(m) if worker == 'test-runner' else None)
     required = {rid for rid, owners in coverage['content']['requirement_owners'].items() if m['module_id'] in owners}
     require(required <= {rid for task in m['plan']['tasks'] for rid in task.get('global_requirement_ids', task.get('requirement_ids', []))}, 'module plan misses global requirements')
     active = sum(not a.get('closed') for mod in s['modules'].values() for a in mod['assignments'].values())
@@ -1051,8 +1065,11 @@ def _next_step(s, m):
             step.update(operation='revoke', role='host', reason='stop-invalidated-worker')
         elif m['blocked']['kind'] == 'dependency':
             deps = {d: s['modules'][d]['code_baseline'] for d in m['dependencies']}
-            available = all(tv.available(dependency_provider(s['modules'][d]))
-                            and s['modules'][d].get('effective_quality') != 'yellow-blocked' for d in m['dependencies'])
+            try:
+                dependencies_ready(s, {**m, 'phase': m['blocked']['resume_phase']})
+                available = all(s['modules'][d].get('effective_quality') != 'yellow-blocked' for d in m['dependencies'])
+            except (Rejected, OSError):
+                available = False
             released = m.get('dependency_release') == deps
             step.update(operation='resume' if released else 'dependency-ready',
                         role='module-orchestrator' if released else 'global-orchestrator',
@@ -1068,6 +1085,9 @@ def _next_step(s, m):
                     dependencies_ready(s, {**m, 'phase': 'testing'})
                 except (Rejected, OSError):
                     step.update(ready=False, reason='dependency-incomplete')
+    elif active and active.get('dependency_inputs') and active['dependency_inputs'] != dependency_validation_inputs(s, m):
+        step.update(operation='revoke', role='host', ready=True, reason='partial-build-provider-inputs-changed',
+                    payload={'assignment_id': active['assignment_id']})
     elif active:
         submitted = active['assignment_id'] in m['submissions']
         step.update(operation='accept' if submitted else 'await-result',
@@ -1195,7 +1215,13 @@ def _next_step(s, m):
                 step.update(routed)
                 return step
             # What is written is tested before more is written: the result reaches the next task's author.
-            worker = 'test-runner' if written_untested(m) else {'frozen': 'implementer', 'testing': 'test-runner', 'diagnosing': 'fixer'}[m['phase']]
+            worker = {'frozen': 'implementer', 'testing': 'test-runner', 'diagnosing': 'fixer'}[m['phase']]
+            if written_untested(m):
+                try:
+                    dispatch_guard(s, m, 'test-runner')
+                    worker = 'test-runner'
+                except (Rejected, OSError):
+                    pass  # Give the remaining frozen TASKs a chance while the partial build waits.
             if worker == 'fixer' and workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])):
                 step.update(operation='audit-defer', role='module-orchestrator', ready=True,
                             root_cause=workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])), reason='auditor-handoff')
@@ -1724,6 +1750,8 @@ def assign_worker(s, m, mid, p, events, root):
         'fencing_token': len(events) + 1, **dispatch_record(s, m, p), **(usage or {})}
     if execution_contract:
         a['execution_contract'] = execution_contract
+    if p['role'] == 'test-runner' and p.get('test_scope') == 'build' and m.get('execution_partition_pending') and m['dependencies']:
+        a['dependency_inputs'] = dependency_validation_inputs(s, m)
     if s.get('write_scope_check') and p['role'] == 'implementer':
         a['authoring_snapshot'] = write_scope.authoring_snapshot(s['target_root'], m['write_paths'],
             root)
@@ -2108,6 +2136,14 @@ def mutate(s, req, principal, events, root=None):
                 except (Rejected, OSError):
                     invalidate_dependents(s, mid)
             closed = m.pop('change_request')
+            previous_plan = closed['previous_plan']['plan']
+            if 'accepted_resource_hashes' not in m and m.get('code_baseline') and m.get('accepted_task_ids') and (
+                    set(m['accepted_task_ids']) == {task['task_id'] for task in previous_plan['tasks']}):
+                from resource_binding import output_hashes
+                try:
+                    m['accepted_resource_hashes'] = output_hashes(previous_plan)
+                except (Rejected, OSError):
+                    pass  # A prior manifest whose evidence drifted cannot authorize replacing bytes.
             trace = [iid for iid in closed.get('trace_issues', []) if mid not in s['issues'][iid]['resolved']]
             issues.cite(s, mid, trace, p.get('review_ref') or m['plan_ref'], principal)
             # The revalidation read the previous plan's body; the history keeps its reference and hash.
@@ -2165,7 +2201,7 @@ def mutate(s, req, principal, events, root=None):
         require(assignment.get('context_ref') or not context_readiness.enabled(s),
                 'preflight required: context-submit a ready report for this assignment before its result')
         worker_phase(m, assignment)
-        dependencies_ready(s, m)
+        worker_dependencies_ready(s, m, assignment)
         result = read_json(check_ref(p['result_ref']))
         validate_result(result, m, assignment, run_root=root)
         issues.cite(s, mid, p.get('resolves'), p['result_ref'], principal)  # what the work answers is settled with it
@@ -2185,7 +2221,7 @@ def mutate(s, req, principal, events, root=None):
         issues.cite(s, mid, p.get('resolves'), m['submissions'][aid]['ref'], principal)  # what the accepted work answers is settled with it
         require(assignment.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
         worker_phase(m, assignment)
-        dependencies_ready(s, m)
+        worker_dependencies_ready(s, m, assignment)
         sub = m['submissions'][aid]
         result = read_json(check_ref(sub['ref']))
         kind = validate_result(result, m, assignment, run_root=root)
@@ -2210,6 +2246,8 @@ def mutate(s, req, principal, events, root=None):
             complete_tasks = set(m['accepted_task_ids']) == {t['task_id'] for t in m['plan']['tasks']}
             m.update(code_files=result['code_files'], code_baseline=result['code_baseline'], phase='testing' if complete_tasks else 'frozen', stale=True, build_baseline=None)
             if complete_tasks:
+                from resource_binding import output_hashes
+                m['accepted_resource_hashes'] = output_hashes(m['plan'])
                 m.pop('carried_files', None)  # every task is written under the new plan: nothing is left over from the old one
             if {t['task_id'] for t in result['task_trace']} & set(m.get('task_revalidation', {}).get('retained_task_ids', [])):
                 m['task_revalidation'] = {'mode': 'full', 'reason': 'retained-task-updated', 'retained_task_ids': [], 'retained_path_ids': []}
@@ -2396,7 +2434,8 @@ def mutate(s, req, principal, events, root=None):
             if memory['assignment_id'] == p['assignment_id'] and memory['status'] == 'pending':
                 memory['status'] = 'interrupted'
         if not m.get('blocked'):
-            m['phase'] = 'diagnosing' if a['role'] == 'fixer' else 'frozen' if a['role'] == 'implementer' else 'testing'
+            m['phase'] = ('diagnosing' if a['role'] == 'fixer' else
+                          'frozen' if a['role'] == 'implementer' or m.get('execution_partition_pending') else 'testing')
     elif op == 'invalidate':
         role(principal, 'module-orchestrator', 'host')
         require(p.get('reason'), 'invalidation reason required')
@@ -2967,7 +3006,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
                        'payload': {'assignment_id': wave['assignment_id'], 'fencing_token': wave['fencing_token']},
                        'path_ids': wave['path_ids'], 'reason': 'integration-inputs-stale-stop-worker',
                        'continue_modules': rounds['ready_modules']}
-    elif revision_step:
+    elif revision_step and not (wave and revision_step.get('waiting_integration') and not revision_step.get('ready')):
         global_next = {**revision_step, 'continue_modules': rounds['ready_modules']}
     elif recovery_step:
         global_next = recovery_step
@@ -3330,8 +3369,11 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
                 'checks': ['every finding is routed once', 'every owner is a known module', 'no route waits for a human']}
     elif kind == 'audit-verdict':
         b = s['audit_batch']
-        body = {'batch_id': b['batch_id'], 'tests': {mid: audit_closure.proof(b, mid)['result_ref'] for mid in sorted(audit_closure.pending_modules(b))},
-                'checks': ['every module the batch worked on passed its retest on its current code', 'nothing waits for a human']}
+        proofs = {mid: audit_closure.proof(b, mid) for mid in sorted(audit_closure.pending_modules(b))}
+        body = {'batch_id': b['batch_id'], 'tests': {mid: proof['result_ref'] for mid, proof in proofs.items() if proof.get('result_ref')},
+                'path_receipts': {mid: {row['path_id']: row['execution_receipt'] for row in proof['paths']}
+                                  for mid, proof in proofs.items() if proof.get('cumulative')},
+                'checks': ['every module the batch worked on has current PATH evidence', 'nothing waits for a human']}
     elif kind == 'dod':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
