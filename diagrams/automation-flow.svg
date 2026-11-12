@@ -93,6 +93,13 @@
 <text x="780.0" y="1364.0" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">单路径执行工件</text>
 <text x="780.0" y="1398.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">result.json + 日志 / 媒体 / observations</text>
 <text x="780.0" y="1427.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">receipt.json：身份 / 时间 / argv / 退出码 / hash</text>
+<path d="M1100,1380 L1160,1380" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#arrow-blue)"/>
+<rect x="1160" y="1255" width="380" height="205" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
+<text x="1350.0" y="1307.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">限定配置的视觉 PATH</text>
+<text x="1350.0" y="1341.5" font-size="18.87" fill="#4b5563" text-anchor="middle" font-weight="400">冻结密度 / 夜间 / 宽度 / 语言 / API</text>
+<text x="1350.0" y="1370.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">截图前后记录实际配置</text>
+<text x="1350.0" y="1399.5" font-size="21.88" fill="#4b5563" text-anchor="middle" font-weight="400">按源档位比图片、尺寸、颜色、文本</text>
+<text x="1350.0" y="1428.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">配置缺失或不匹配记为未验证</text>
 <rect x="60" y="1340" width="340" height="235" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="230.0" y="1393.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">CR 验证范围</text>
 <text x="230.0" y="1427.0" font-size="21.07" fill="#4b5563" text-anchor="middle" font-weight="400">无证明 / 共享影响：全模块重验</text>

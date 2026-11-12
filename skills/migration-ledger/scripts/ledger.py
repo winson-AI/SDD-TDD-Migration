@@ -367,7 +367,7 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
                 'dependency_release', 'source_context_continuation', 'allocation_continuation', 'change_request', 'scenario_index', 'plan_binding',
                 'checklist_ref', 'execution_context_ref', 'plan_review_ref', 'task_files', 'execution_partition_pending',
                 'planning_continuation', 'task_revalidation', 'plan_changes', 'trace_dependency_baseline',
-                'dependency_revalidation_pending', 'dependency_reverify', 'device_reverify', 'asset_dependency_baseline'):
+                'dependency_revalidation_pending', 'dependency_reverify', 'device_reverify', 'asset_dependency_baseline', 'retained_build_paths'):
         m.pop(key, None)
 
 
@@ -518,7 +518,7 @@ def revalidate_provider_results(s, m):
     invalidate_path_results(m, {pid for pid, row in m['results'].items() if row.get('dependency_inputs') != expected})
 
 
-def invalidate_path_results(m, affected):
+def invalidate_path_results(m, affected, *, state=None, root=None):
     if not affected:
         return
     m['dependency_reverify'] = True
@@ -526,9 +526,18 @@ def invalidate_path_results(m, affected):
     for pid in affected:
         if pid in m['results']:
             m['results'][pid]['stale'] = True
-    if any(p['path_id'] in affected for p in tv.paths(m, 'build')):
+    builds = {p['path_id'] for p in tv.paths(m, 'build')}
+    if builds & affected:
+        kept = task_revalidation.current_build_paths(state, m, root, builds - affected)
+        if kept:
+            m['retained_build_paths'] = sorted(kept)
+        else:
+            m.pop('retained_build_paths', None)
+        for pid in builds - kept:
+            if pid in m['results']:
+                m['results'][pid]['stale'] = True
         m['build_baseline'] = None
-        m['build_artifacts'] = []
+        m['build_artifacts'] = [ref for pid in sorted(kept) for ref in m['results'][pid].get('build_artifacts', [])]
 
 
 def worker_dependencies_ready(s, m, assignment):
@@ -1908,7 +1917,7 @@ def mutate(s, req, principal, events, root=None):
     elif op in decomposition.OPERATIONS:
         decomposition.handle(s, req, principal, root)
     elif op in audit_closure.OPS:
-        audit_closure.handle(s, req, principal)
+        audit_closure.handle(s, req, principal, root)
     elif op in workflow.OPERATIONS:
         workflow.handle(s, req, principal, run_root=root)
     elif op == 'register':
@@ -2113,6 +2122,7 @@ def mutate(s, req, principal, events, root=None):
             m['approved_acceptance'] = control_policy.acceptance_hash(m)
         m['approved_acceptance_digests'] = control_policy.acceptance_digests(m['plan']['paths'])
         if m.get('change_request'):
+            m.pop('retained_build_paths', None)
             asset_revalidation, reused_paths = task_revalidation.retain_after_test_assets(s, m, root)
             revalidation = asset_revalidation or task_revalidation.prepare(m, p.get('review_ref'))
             prior_execution = {key: copy.deepcopy(m.get(key)) for key in
@@ -2230,6 +2240,7 @@ def mutate(s, req, principal, events, root=None):
             prior_results = copy.deepcopy(m['results'])
             m['results'] = {pid: {**row, 'stale': True} for pid, row in m['results'].items()}
             m['build_artifacts'] = []
+            m.pop('retained_build_paths', None)
             m['accepted_task_ids'] = sorted(set(m.get('accepted_task_ids', [])) | {t['task_id'] for t in result['task_trace']})
             m.setdefault('task_files', {}).update({t['task_id']: t['files'] for t in result['task_trace']})
             import red_evidence
@@ -2271,8 +2282,22 @@ def mutate(s, req, principal, events, root=None):
                 kinds = {x['path_id']: x.get('kind') for x in m['plan']['paths']}
                 builds = [row for row in result['paths'] if kinds.get(row['path_id']) == 'build']
                 if builds:
-                    m['build_artifacts'] = [ref for row in builds if row['quality'] == 'green-passed' for ref in row.get('build_artifacts', [])]
-                    m['build_baseline'] = m['code_baseline'] if all(x['quality'] == 'green-passed' for x in builds) else None
+                    retained = set(m.pop('retained_build_paths', []))
+                    kept = task_revalidation.current_build_paths(s, m, root, retained)
+                    for pid in retained - kept:
+                        m['results'][pid]['stale'] = True
+                    fresh = {row['path_id'] for row in builds if row['quality'] == 'green-passed'}
+                    current_build_ids = kept | fresh
+                    m['build_artifacts'] = [ref for pid in sorted(current_build_ids) for ref in m['results'][pid].get('build_artifacts', [])]
+                    m['build_baseline'] = m['code_baseline'] if len(current_build_ids) == len(tv.paths(m, 'build')) else None
+                    if not m['build_baseline'] and (retained or m.get('dependency_reverify')):
+                        resumable = kept | task_revalidation.current_build_paths(s, m, root, fresh)
+                        if resumable:
+                            m['retained_build_paths'] = sorted(resumable)
+                        if retained - kept:
+                            for row in result['paths']:
+                                if kinds[row['path_id']] != 'build':
+                                    m['results'][row['path_id']]['stale'] = True
                 if assignment.get('test_scope') != 'build' or any(x['quality'] != 'green-passed' for x in result['paths']):
                     m.pop('automation_retry_ready', None)
             if m.get('dependency_reverify') and tv.all_green(m):
@@ -2285,7 +2310,7 @@ def mutate(s, req, principal, events, root=None):
                 and not ((m.get('device_reverify') or m.get('dependency_reverify')) and v.get('stale')))
             if bad and (m.get('trace_dependency_baseline') or m.get('asset_dependency_baseline')):
                 invalidate_dependents(s, mid)
-            if build_only and not bad:
+            if build_only and not bad and tv.build_ready(m):
                 m['automation_retry_ready'] = True
             m['no_progress_rounds'] = m['no_progress_rounds'] + 1 if bad and failure_fingerprint(m['results']) == previous_fingerprint else 0
             for memory in m.get('fix_memory', []):
@@ -2293,7 +2318,7 @@ def mutate(s, req, principal, events, root=None):
                     memory.update(status='verified' if not bad else 'failed', reusable=not bad,
                                   regression_ref=sub['ref'], regression_paths=copy.deepcopy(result['paths']))
             # The tasks written so far pass their build and unit tests: the next task is written.
-            written = build_only and not bad and m.get('execution_partition_pending')
+            written = build_only and not bad and tv.build_ready(m) and m.get('execution_partition_pending')
             m.update(stale=False, phase='dod' if tv.all_green(m) else 'frozen' if written else 'testing', diagnosis_submission=None, diagnosis=None, repair_findings={})
             audit_closure.test_accepted(s, m, result, sub['ref'], build_only=build_only,
                                         stage='build' if build_only else assignment.get('test_scope') or 'build')
@@ -3485,9 +3510,16 @@ def advance(root, principal, module_id, workers=None, *, pause_for_rotation=Fals
                         **{k: payload[k] for k in ('assignment_id', 'role', 'instance_id', 'test_scope', 'artifact_only') if k in payload}})
         if step['operation'] == 'assign' and payload.get('role') in ('implementer', 'fixer'):
             import resource_binding  # the frozen plan's copies and parameter file, written in the coder's name before it codes
-            synced = resource_binding.sync(root, read_events(root)[0], module_id, payload['assignment_id'])
-            if synced:
-                applied.append({'operation': 'resource-sync', 'assignment_id': payload['assignment_id'], 'result_ref': synced['result_ref']})
+            aid = payload['assignment_id']
+            try:
+                synced = resource_binding.sync(root, read_events(root)[0], module_id, aid)
+            except (Rejected, OSError) as exc:
+                receipt = Path(root) / 'staging' / payload['instance_id'] / f'advance-resource-sync-{aid}' / 'receipt.json'
+                applied.append({'operation': 'resource-sync', 'assignment_id': aid, 'module_id': module_id,
+                                'conflict': str(exc), **({'receipt_ref': file_ref(receipt)} if receipt.is_file() else {})})
+            else:
+                if synced:
+                    applied.append({'operation': 'resource-sync', 'assignment_id': aid, 'result_ref': synced['result_ref']})
     out = {'applied': applied, 'next_step': {k: step[k] for k in ('operation', 'role', 'ready', 'reason', 'assignment_id')
                                              if step.get(k) is not None}}
     if step.get('must_read'):

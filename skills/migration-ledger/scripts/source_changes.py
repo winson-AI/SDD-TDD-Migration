@@ -3,6 +3,8 @@ import copy
 from pathlib import Path
 
 from contracts import check_ref, digest, keyed, nonempty, read_json, require, verify_plan
+import context_readiness
+import decomposition
 import project_context
 import reuse
 import workflow
@@ -10,11 +12,16 @@ import workflow
 OPS = {'source-review', 'reconfigure-sources'}
 
 
-def subject(s, report_ref):
-    # Decisions/receipts do not change the subject; progress, allocations and findings do.
+def subject(s, report_ref, affected=None):
+    modules, parents = s['modules'], s.get('module_groups', {})
+    if affected is not None:
+        keys = (*decomposition.ALLOCATION_KEYS, 'dependencies', 'parent_module_id', 'plan_hash',
+                'freeze_id', 'blocked', 'realloc_request')
+        modules = {mid: m if mid in affected else {k: m.get(k) for k in keys} for mid, m in modules.items()}
+        parents = {mid: {k: group.get(k) for k in (*keys, 'children')} for mid, group in parents.items()}
     return digest({'run_id': s['run_id'], 'context': s.get('project_context_ref'),
-                   'sources': s.get('reuse_sources', []), 'modules': s['modules'],
-                   'parents': s.get('module_groups', {}), 'global_plan': s.get('global_plan'),
+                   'sources': s.get('reuse_sources', []), 'modules': modules,
+                   'parents': parents, 'global_plan': s.get('global_plan'),
                    'audit': {k: v for k, v in s.items() if k.startswith('audit')},
                    'report_ref': report_ref})
 
@@ -41,7 +48,7 @@ def validate(s, report_ref):
     affected = set()
     for mid, row in rows.items():
         require(set(row) == {'module_id', 'action', 'reason', 'evidence_refs', 'resume_blocker_sha256'}, 'invalid source impact row')
-        require(row['action'] in ('replan', 'unchanged') and row['reason'], 'source impact action/reason required')
+        require(row['action'] in ('replan', 'reverify', 'unchanged') and row['reason'], 'source impact action/reason required')
         for ref in nonempty(row['evidence_refs'], 'source impact evidence'): check_ref(ref)
         m = s['modules'][mid]
         if row['action'] == 'replan':
@@ -49,11 +56,17 @@ def validate(s, report_ref):
         else:
             require(m.get('freeze_id') and m.get('plan'), 'unfrozen modules must plan against new sources')
             verify_plan(m['plan'])
-            require(not row['resume_blocker_sha256'], 'unchanged module cannot release a blocker')
+            require(not row['resume_blocker_sha256'], 'only replanning modules can release a blocker')
+            if row['action'] == 'reverify':
+                require(m.get('code_baseline'), 'source reverify needs accepted frozen code')
         if row['resume_blocker_sha256']:
             require(m.get('blocked') and row['resume_blocker_sha256'] == digest(m['blocked']), 'source blocker decision stale')
-    for mid, m in s['modules'].items():
-        require(not affected.intersection(m['dependencies']) or mid in affected, 'source impact must include dependent closure')
+    from ledger import dependency_closure
+    consumers = {mid for mid, m in s['modules'].items() if mid not in affected
+                 and affected.intersection(dependency_closure(s, m['dependencies']))}
+    require(consumers == {mid for mid, row in rows.items() if row['action'] == 'reverify'},
+            'source impact must include dependent closure with replan or reverify')
+    affected.update(consumers)
     parents = report['parent_reviews']
     require(isinstance(parents, dict) and set(parents) == set(s.get('module_groups', {})), 'all parent allocations must be reviewed')
     for ref in parents.values(): check_ref(ref)
@@ -61,23 +74,25 @@ def validate(s, report_ref):
 
 
 def handle(root, s, req, actor):
-    from ledger import reset_plan
+    from ledger import await_provider, reset_plan
     p = req['payload']
     if req['operation'] == 'source-review':
         workflow.role(actor, 'global-orchestrator')
         require(set(p) <= {'report_ref', 'context_ref'} and p.get('report_ref'), 'invalid source review payload')
-        validate(s, p['report_ref'])
-        s['source_change_review'] = {'report_ref': p['report_ref'], 'subject_sha256': subject(s, p['report_ref']),
-                                     'reviewed_by': actor, 'status': 'reviewed'}
+        _, affected = validate(s, p['report_ref'])
+        s['source_change_review'] = {'report_ref': p['report_ref'], 'subject_sha256': subject(s, p['report_ref'], affected),
+                                     'reviewed_by': actor, 'status': 'reviewed', 'affected_modules': sorted(affected)}
         return
     workflow.role(actor, 'host')
     require(set(p) == {'decision_id', 'subject_sha256'}, 'source append cannot change other run configuration')
     review = s.get('source_change_review', {})
     require(review.get('status') == 'reviewed', 'GO source review required')
-    require(review['subject_sha256'] == p['subject_sha256'] == subject(s, review['report_ref']), 'source impact review stale')
+    require(review['subject_sha256'] == p['subject_sha256'] == subject(s, review['report_ref'], review.get('affected_modules')),
+            'source impact review stale')
     report, affected = validate(s, review['report_ref'])
-    require(not any(not a.get('closed') for m in s['modules'].values() for a in m['assignments'].values()),
-            'finish or stop/revoke workers before context switch; do not cancel unrelated modules')
+    require(not workers_busy(s, review), 'finish or stop/revoke affected workers before context switch')
+    import integration
+    require(not integration.task(s), 'finish active integration before source context switch')
     decision = s['decisions'].get(p['decision_id'], {})
     require(decision.get('decision') == 'approved' and decision.get('module_id') is None
             and decision.get('subject_sha256') == p['subject_sha256'] and not decision.get('consumed', True),
@@ -93,8 +108,10 @@ def handle(root, s, req, actor):
     project_context.archive(root / 'context/files', data, '.snapshot')
     new_ref = project_context.archive(root / 'context/revisions', data, '.json')
     rows = {row['module_id']: row for row in report['modules']}
+    replanned = {mid for mid in affected if rows[mid]['action'] == 'replan'}
+    context_readiness.pin_execution(root, s, replanned)
     for mid, m in s['modules'].items():
-        if mid in affected:
+        if mid in replanned:
             blocker = copy.deepcopy(m.get('blocked'))
             old_phase = m['phase']
             reset_plan(m, reason='reuse-source-added', evidence_ref=review['report_ref'])
@@ -105,15 +122,15 @@ def handle(root, s, req, actor):
             m.pop('approved_envelope', None); m.pop('approved_acceptance', None)
             s.get('audit_resolutions', {}).pop(mid, None)
             m['revision'] += 1
+            m.pop('context_acceptances', None)
         else:
-            # Only reviewed source/context fields may differ from this frozen plan.
+            # The accepted plan and execution context remain valid across the append.
             m['source_context_continuation'] = {'plan_hash': m['plan_hash'], 'context_ref': new_ref,
                                                 'review_ref': review['report_ref']}
-            m['revision'] += 1
-        m.pop('context_acceptances', None)
+            if mid in affected:
+                await_provider(m)
     for group in s.get('module_groups', {}).values():
-        from decomposition import leaves
-        if affected.intersection(leaves(s, group['module_id'])):
+        if affected.intersection(decomposition.leaves(s, group['module_id'])):
             group.pop('summary_ref', None); group.pop('summary_subject', None)
             group['revision'] += 1
     # Parent acceptance is never synthesized: changed leaf revisions require each
@@ -132,13 +149,19 @@ def handle(root, s, req, actor):
     review.update(status='applied', project_context_ref=new_ref, affected_modules=sorted(affected))
 
 
+def workers_busy(s, review):
+    return any(not a.get('closed') for mid in review.get('affected_modules', s['modules'])
+               for a in (s['modules'].get(mid) or {}).get('assignments', {}).values())
+
+
 def next_action(s):
     review = s.get('source_change_review')
     if not review or review.get('status') != 'reviewed': return None
-    current = review['subject_sha256'] == subject(s, review['report_ref'])
+    current = review['subject_sha256'] == subject(s, review['report_ref'], review.get('affected_modules'))
     decisions = [d for d in s['decisions'].values() if d.get('module_id') is None and not d.get('consumed')
                  and d.get('subject_sha256') == review['subject_sha256']]
-    busy = any(not a.get('closed') for m in s['modules'].values() for a in m['assignments'].values())
+    import integration
+    busy = workers_busy(s, review) or bool(integration.task(s))
     import audit_closure
     auditing = workflow.audit_active(s) or audit_closure.active(s)
     return {'operation': 'reconfigure-sources' if current else 'source-review',

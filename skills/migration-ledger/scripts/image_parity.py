@@ -16,7 +16,7 @@ BOUNDS = re.compile(r'\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]')
 SELECTOR_KEYS = ('class', 'resource-id', 'text', 'content-desc')
 DEFAULTS = {'shape_iou_min': 0.72, 'aspect_delta_max': 0.20, 'color': None, 'color_delta_max': 48, 'content_min': 0.80}
 LIMITS = {'shape_iou_min': (0.5, 1.0), 'aspect_delta_max': (0.0, 1.0), 'color_delta_max': (0, 255), 'content_min': (0.5, 1.0)}
-KINDS = ('image', 'text', 'node')
+KINDS = ('image', 'text', 'node', 'bounds', 'color')
 GRID = 48            # both inks are normalised to this many cells per side before they are overlapped
 CONTENT_GRID = 24    # a picture without a background is compared as this many brightness cells per side
 MAX_SIDE = 256       # larger crops are reduced first; icons are small and a whole screen is not an icon
@@ -198,7 +198,26 @@ def verdict(metrics, tolerance=None):
     return 'MATCH' if ok else 'MISMATCH'
 
 
-def evaluate(check, reference_path, screenshot_path, view_xml):
+def bounds_measurement(check, bounds, view_xml, configuration):
+    expected = check['expect']
+    x1, y1, x2, y2 = bounds
+    pixels = {'width': x2 - x1, 'height': y2 - y1}.get(expected['metric'])
+    if pixels is None:
+        anchors = nodes(view_xml, check['target']['anchor_selector'])
+        if len(anchors) != 1:
+            return None, 'the gap anchor must match one node'
+        anchor = anchors[0][0]
+        pixels = x1 - anchor[2] if expected['metric'] == 'gap-x' else y1 - anchor[3]
+    scale = 1
+    if expected['unit'] == 'dp':
+        density = (configuration or {}).get('density_dpi')
+        if density is None:
+            return None, 'measuring dp requires observed device density'
+        scale = density / 160
+    return {'pixels': pixels, 'expected_pixels': expected['value'] * scale}, None
+
+
+def evaluate(check, reference_path, screenshot_path, view_xml, configuration=None):
     """One frozen check against one capture: the row a report carries and the Ledger recomputes.
 
     The crop is returned beside the row so the caller can keep it as evidence."""
@@ -217,8 +236,15 @@ def evaluate(check, reference_path, screenshot_path, view_xml):
         shown = found[0][1].get('text', '')
         return {**row, 'node': {'bounds': list(found[0][0])}, 'metrics': {'text': shown},
                 'status': 'MATCH' if shown == check['expect']['text'] else 'MISMATCH'}, None
-    Image, _, _ = _pillow()
     bounds = found[0][0]
+    if kind == 'bounds':
+        metrics, reason = bounds_measurement(check, bounds, view_xml, configuration)
+        row['node'] = {'bounds': list(bounds)}
+        if metrics is None:
+            return {**row, 'status': 'INCOMPARABLE', 'reason': reason}, None
+        return {**row, 'metrics': metrics,
+                'status': 'MATCH' if abs(metrics['pixels'] - metrics['expected_pixels']) <= 1 else 'MISMATCH'}, None
+    Image, _, _ = _pillow()
     x1, y1, x2, y2 = bounds
     with Image.open(screenshot_path) as shot:
         shot.load()
@@ -227,6 +253,12 @@ def evaluate(check, reference_path, screenshot_path, view_xml):
             return {**row, 'node': {'bounds': list(bounds)}, 'status': 'INCOMPARABLE', 'reason': 'the node lies outside the screenshot'}, None
         crop = shot.convert('RGB').crop(box)
     row['node'] = {'bounds': list(bounds), 'crop_box': list(box)}
+    if kind == 'color':
+        x, y = check['target'].get('sample', [0.5, 0.5])
+        pixel = (round(x * (crop.width - 1)), round(y * (crop.height - 1)))
+        color = '#FF%02X%02X%02X' % crop.getpixel(pixel)
+        return {**row, 'metrics': {'color': color, 'sample': [box[0] + pixel[0], box[1] + pixel[1]]},
+                'status': 'MATCH' if color == check['expect']['color'] else 'MISMATCH'}, crop
     with Image.open(reference_path) as reference:
         reference.load()
         metrics, reason = measure(reference, crop, tolerance)

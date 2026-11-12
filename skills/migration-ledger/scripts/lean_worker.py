@@ -278,6 +278,7 @@ def run(root, request, actor):
                 planned = resource_copy.rows(analysis)
                 targets = [row['target_path'] for row in planned] + list(generated)
                 require(targets, 'the frozen plan names neither a copy plan nor parameters to write')
+                resource_binding.unique_outputs(targets)
                 owners = resource_binding.owned_outputs(module, task, targets, args.get('task_id'))
                 require(owners, ('copy target' if planned else 'generated parameter file') + ' outside the assigned write scope')
                 # Resolve every target and compare the entire batch before any file changes.

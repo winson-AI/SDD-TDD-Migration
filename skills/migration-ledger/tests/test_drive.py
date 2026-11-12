@@ -51,6 +51,30 @@ class DriveTests(unittest.TestCase):
 
 
 class ReadyImplementerTests(unittest.TestCase):
+    def test_resource_conflict_does_not_drop_sibling_dispatch(self):
+        from unittest.mock import patch
+        from contracts import Rejected
+        import resource_binding
+        from test_iterative_spec import UpstreamPlanTests
+
+        fixture = UpstreamPlanTests()
+        fixture.setUp(); self.addCleanup(fixture.doCleanups)
+        f = fixture.f
+        fixture.freeze(fixture.t.plan('M001'))
+        fixture.t.freeze('M002')
+
+        def sync(root, state, mid, aid):
+            if mid == 'M001':
+                raise Rejected('target file already differs')
+            return None
+
+        with patch.object(resource_binding, 'sync', side_effect=sync):
+            lines = drive.drive(f.root, MO)
+        conflict = next(line for line in lines if line.get('reason') == 'resource-sync-conflict')
+        self.assertEqual(conflict['module_id'], 'M001')
+        self.assertTrue(any(line.get('role') == 'implementer' and line.get('module_id') == 'M002' for line in lines))
+        self.assertEqual(f.state()['modules']['M001']['phase'], 'implementing')
+
     def test_independent_implementer_reaches_host_before_existing_frozen_commands(self):
         from unittest.mock import patch
         import ledger

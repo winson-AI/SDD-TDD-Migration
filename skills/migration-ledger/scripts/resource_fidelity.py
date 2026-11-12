@@ -859,6 +859,10 @@ def allocation_gate(s, analysis):
     import resource_copy
     variants, destinations = set(), {}
     resource_copy.freeze_check(s, analysis)
+    from resource_binding import generated_files, unique_outputs
+    if resource_copy.plan_ref(analysis):
+        generated, _ = generated_files(analysis)
+        unique_outputs([row['target_path'] for row in resource_copy.rows(analysis)] + list(generated))
     for row in analysis['dimensions']:
         if row.get('dimension') == 'Resource' and row.get('status') == 'applicable':
             for item in row.get('items', []):

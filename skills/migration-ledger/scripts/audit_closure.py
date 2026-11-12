@@ -406,7 +406,7 @@ def build_graph(s, b):
     b['work_modules'] = sorted(work)
 
 
-def handle(s, req, actor):
+def handle(s, req, actor, root=None):
     op, p, mid = req['operation'], req.get('payload', {}), req.get('module_id')
     if op == 'audit-collect':
         workflow.role(actor, 'global-orchestrator'); workflow.planning_guard(s)
@@ -514,7 +514,7 @@ def handle(s, req, actor):
         cross_boundary = any(mid in finding.get('affected_module_ids', []) and mid not in route['owner_module_ids']
                              and set(route['owner_module_ids']) - providers
                              for fid, route in b['routes'].items() for finding in [b['findings'][fid]])
-        invalidate_path_results(m, paths if cross_boundary else explicit)
+        invalidate_path_results(m, paths if cross_boundary else explicit, state=s, root=root)
         m.update(phase='testing', blocked=None, stale=True, audit_batch_id=b['batch_id'],
                  audit_test_stage='owner' if mid in owners(b) else 'source')
         if tv.all_green(m):

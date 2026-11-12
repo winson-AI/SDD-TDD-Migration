@@ -12,6 +12,7 @@ import re
 
 from contracts import check_ref, named, owed, read_json, require
 import ui_parameters
+import parameter_records
 
 TYPES = ('dimension', 'number', 'color', 'string')
 LINE_FIELDS = ('key', 'value', 'unit', 'argb', 'quoted', 'id')
@@ -29,8 +30,8 @@ def _template(value, label, allowed):
 
 def convention(value, target_root=None):
     """The project's statement of the file parameters are written to, one line per type, and how code names a key."""
-    require(isinstance(value, dict) and set(value) <= {'file', 'header', 'footer', 'lines', 'accessor', 'locales', 'string_escapes'},
-            'target_resources.parameters takes file, header, footer, lines, accessor, locales and string_escapes')
+    require(isinstance(value, dict) and set(value) <= {'file', 'header', 'footer', 'lines', 'accessor', 'locales', 'configurations', 'string_escapes'},
+            'target_resources.parameters takes file, header, footer, lines, accessor, locales, configurations and string_escapes')
     def inside(path, label):
         require(isinstance(path, str) and Path(path).is_absolute() and MODULE in path,
                 'target_resources.parameters.' + label + ' must be an absolute file path that contains ' + MODULE)
@@ -44,6 +45,12 @@ def convention(value, target_root=None):
     locales = value.get('locales', {})
     require(isinstance(locales, dict) and all(isinstance(name, str) and name for name in locales),
             'target_resources.parameters.locales maps a legacy locale qualifier to the file its texts are written to')
+    configurations = value.get('configurations', {})
+    require(isinstance(configurations, dict) and all(isinstance(name, str) and name not in ('base', 'default')
+            and re.fullmatch(r'[A-Za-z0-9+-]+', name) for name in configurations),
+            'target_resources.parameters.configurations maps full legacy qualifiers to distinct target files')
+    require(not set(configurations).intersection(locales),
+            'declare each qualifier once in parameters.configurations or locales')
     escapes = value.get('string_escapes', {})
     require(isinstance(escapes, dict) and all(isinstance(k, str) and k and isinstance(v, str) for k, v in escapes.items()),
             'target_resources.parameters.string_escapes maps a character to what the target writes for it')
@@ -53,7 +60,9 @@ def convention(value, target_root=None):
             'lines': {kind: _template(template, 'lines.' + kind, LINE_FIELDS) for kind, template in sorted(lines.items())},
             'accessor': _template(value.get('accessor'), 'accessor', ('key', 'module')),
             'locales': {name: inside(path, 'locales.' + name) for name, path in sorted(locales.items())},
-            'string_escapes': dict(sorted(escapes.items()))}
+            'string_escapes': dict(sorted(escapes.items())),
+            **({'configurations': {q: inside(path, 'configurations.' + q) for q, path in sorted(configurations.items())}}
+               if configurations else {})}
 
 
 def _value(value, label):
@@ -156,7 +165,8 @@ def gate(s, plan, analysis):
         return
     ui_parameters.freeze_check(analysis)
     require(document.get('convention') == rules, 'parameter sheet was derived under another target parameter convention')
-    decided = decisions(document['parameters'], declarations(analysis), (plan.get('decision_envelope') or {}).get('allowed_alternatives', []))
+    fill = declarations(analysis)
+    decided = decisions(document['parameters'], fill, (plan.get('decision_envelope') or {}).get('allowed_alternatives', []))
     paths = {p['path_id']: p for p in plan.get('paths', [])}
     for pid, row in decided.items():
         if row['status'] not in ('runtime', 'structural') or 'binding' not in row:
@@ -180,6 +190,8 @@ def gate(s, plan, analysis):
     owed(not unmapped, 'tokens the Spec must map or mark not applicable: ' + ', '.join(unmapped[:8])
          + (' and ' + str(len(unmapped) - 8) + ' more' if len(unmapped) > 8 else ''))
     require(rules or not entries(document['parameters'], decided), 'writing parameters needs the project to state target_resources.parameters')
+    if rules:
+        render(document, fill)
 
 
 def entries(parameters, decided):
@@ -208,6 +220,34 @@ def _line(rules, key, value, pid):
                            argb=text.lstrip('#') if kind == 'color' else '', quoted=quoted)
 
 
+def qualified_values(document, decided):
+    rules = document.get('convention') or {}
+    configured = rules.get('configurations', {})
+    locales = rules.get('locales', {})
+    output = []
+    for p in document['parameters']:
+        if decided[p['id']]['status'] == 'not-applicable':
+            continue
+        for qualifier, raw in sorted(p.get('variants', {}).items()):
+            ref = '@' + p['id'].removeprefix('values:')
+            kind = ref[1:].split('/')[0]
+            if kind == 'string' and isinstance(raw, str) and not raw.startswith(('@', '?')):
+                value = {'type': 'string', 'value': raw}
+            else:
+                value = parameter_records.literal(raw) if isinstance(raw, str) else {}
+            expected = {'string': 'string', 'dimen': 'dimension', 'color': 'color', 'integer': 'number'}.get(kind)
+            typed = value if expected and value.get('type') == expected else None
+            path = configured.get(qualifier) or (locales.get(qualifier) if kind == 'string' else None)
+            if decided[p['id']]['status'] == 'deviation':
+                status = 'approved-deviation'
+            else:
+                status = 'generated' if typed and path and decided[p['id']]['status'] == 'used' else 'unmapped'
+            output.append({'id': p['id'], 'source_resource': ref, 'qualifier': qualifier, 'source_value': raw,
+                           'value': typed, 'target_path': path.replace(MODULE, document.get('module_id') or '') if status == 'generated' else None,
+                           'status': status})
+    return output
+
+
 def render(document, fill):
     """{path: text} of every file the parameters are written to, determined by the sheet, the decisions and the templates."""
     rules, module = document.get('convention'), document.get('module_id') or ''
@@ -217,11 +257,14 @@ def render(document, fill):
     place = lambda text: text.replace(MODULE, module)
     files = {place(rules['file']): place(rules['header']) + ''.join(_line(rules, key, value, pid) + '\n' for key, value, pid in rows)
              + place(rules['footer'])}
-    texts = {p['id']: p for p in document['parameters'] if p['id'].startswith('values:string/')}
-    for locale, path in rules['locales'].items():
-        lines = [_line(rules, key, {'type': 'string', 'value': texts[pid]['variants'][locale]}, pid) + '\n'
-                 for key, value, pid in rows if pid in texts and locale in texts[pid].get('variants', {})]
-        files[place(path)] = place(rules['header']) + ''.join(lines) + place(rules['footer'])
+    variants = qualified_values(document, decided)
+    for qualifier, path in {**rules['locales'], **rules.get('configurations', {})}.items():
+        lines = [_line(rules, ui_parameters.key(row['id']), row['value'], row['id']) + '\n'
+                 for row in variants if row['qualifier'] == qualifier and row['status'] == 'generated']
+        destination = place(path)
+        require(Path(destination).resolve() not in {Path(name).resolve() for name in files},
+                'parameter configurations need distinct target paths')
+        files[destination] = place(rules['header']) + ''.join(lines) + place(rules['footer'])
     return files, [rules['accessor'].format(key=key, module=module) for key, _, _ in rows] + sorted(
         {row['accessor'] for row in decided.values() if row['status'] == 'mapped' and row.get('accessor')})
 
@@ -274,7 +317,8 @@ def summary(analysis, resolve=check_ref):
     for row in decided.values():
         counts[row['status']] = counts.get(row['status'], 0) + 1
     owed = sum(counts.get(name, 0) for name in ('used', 'deviation', 'settled', 'mapped', 'not-applicable', 'unsettled', 'unmapped', 'runtime'))
-    return {'parameters': len(decided), 'counts': dict(sorted(counts.items())),
+    variants = qualified_values(document, decided)
+    return {**({'variants': variants} if variants else {}), 'parameters': len(decided), 'counts': dict(sorted(counts.items())),
             'components': len({p['owner'] for p in document['parameters'] if p['owner'].startswith(('layout:', 'code:'))}),
             'layers': len({p['owner'] for p in document['parameters'] if p['owner'].startswith('layer:')}),
             'runtime_mapped': counts.get('runtime', 0),

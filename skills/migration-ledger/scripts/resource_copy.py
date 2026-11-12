@@ -15,7 +15,7 @@ import resource_facts
 import resource_fidelity
 
 PRODUCER = 'sdd-resource-plan'
-PLACEHOLDERS = ('kind', 'name', 'ext', 'variant', 'density', 'path')
+PLACEHOLDERS = ('kind', 'name', 'ext', 'variant', 'density', 'qualifier', 'path')
 TEXT_LIMIT = 4 * 1024 * 1024
 
 
@@ -47,8 +47,8 @@ def convention(value, target_root=None):
     require(isinstance(density, list) and all(isinstance(name, str) and name for name in density),
             'target_resources.copy.density is an ordered list of densities to prefer')
     preserve = value.get('preserve_density', False)
-    require(type(preserve) is bool and (not preserve or '{density}' in path),
-            'target_resources.copy.preserve_density requires a path template containing {density}')
+    require(type(preserve) is bool and (not preserve or any(field in path for field in ('{density}', '{qualifier}'))),
+            'target_resources.copy.preserve_density requires a path template containing {density} or {qualifier}')
     return {'root': str(root), 'path': path, 'accessor': accessor, 'formats': list(formats), 'density': list(density),
             **({'preserve_density': True} if preserve else {})}
 
@@ -61,7 +61,7 @@ def _names(ref, source, variant, qualifier):
     else:
         kind, name = ref.lstrip('@').split('/', 1)
         ext = '.9.png' if path.name.lower().endswith('.9.png') else path.suffix
-    return {'kind': kind, 'name': name, 'ext': ext, 'variant': variant, 'density': resource_facts.variant(qualifier)[1] or ''}
+    return {'kind': kind, 'name': name, 'ext': ext, 'variant': variant, 'density': resource_facts.variant(qualifier)[1] or '', 'qualifier': qualifier}
 
 
 def _ui_items(analysis):
@@ -137,7 +137,7 @@ def derive(analysis, rules):
     for key, row in rows.items():
         targets.setdefault(row['target_path'], []).append(key)
     clash = sorted(keys for keys in targets.values() if len(keys) > 1)
-    require(not clash, 'several resources map to one target file; add {kind} or {variant} to target_resources.copy.path: '
+    require(not clash, 'several resources map to one target file; add {kind}, {variant} or {qualifier} to target_resources.copy.path: '
             + '; '.join(', '.join(ref + ' / ' + variant for ref, variant, _ in keys) for keys in clash))
     ordered = [{**row, 'used_by': sorted(row['used_by']), 'ui_items': sorted(row['ui_items'])} for _, row in sorted(rows.items())]
     copied = {(ref, variant) for ref, variant, _ in rows}

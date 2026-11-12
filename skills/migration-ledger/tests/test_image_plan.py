@@ -259,7 +259,7 @@ class ImagePlanTests(unittest.TestCase):
         self.assertIsNone(ui_evidence.image_check_reference(text))
         for change, message in (({'expect': {'text': 'Preferences'}}, 'expect.text must be the text the source index holds'),
                                 ({'source_resource': '@drawable/ic_back'}, 'needs a @string source_resource'),
-                                ({'expect': {}}, 'needs a @string source_resource and expect.text'), ({'kind': 'colour'}, 'kind is image, text or node')):
+                                ({'expect': {}}, 'needs a @string source_resource and expect.text'), ({'kind': 'colour'}, 'kind must be image, text, node, bounds or color')):
             with self.subTest(change=change), self.assertRaisesRegex(Rejected, message):
                 ui_evidence.validate_image_checks({'image_checks': [{**text, **change}]}, self.tree(), self.index)
 

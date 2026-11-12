@@ -349,7 +349,8 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
     from issues import only_owed_stage
     revalidation_inputs = runner_storage.revalidation_inputs(s, root, cwd, argv) if (
         module_id != 'GLOBAL' and path.get('kind') in ('build', 'unit')
-        and (only_owed_stage(s, module_id, 'dod') or only_owed_stage(s, module_id, 'path'))) else None
+        and (only_owed_stage(s, module_id, 'dod') or only_owed_stage(s, module_id, 'path')
+             or path.get('kind') == 'build' and len(tv.paths(m, 'build')) > 1)) else None
     started = datetime.now(timezone.utc).isoformat()
     termination, proc, aborted = None, None, None
     capture = Capture(out, {

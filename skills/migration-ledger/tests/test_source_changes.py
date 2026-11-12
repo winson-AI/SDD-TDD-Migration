@@ -380,6 +380,24 @@ class SourceChangeTests(unittest.TestCase):
         f.call('assign', {'role': 'implementer', 'assignment_id': 'PEER', 'instance_id': 'coder'}, module='M002')
         self.assertEqual(f.state()['modules']['M002']['phase'], 'implementing')
 
+    def test_independent_assignment_survives_source_review_and_append(self):
+        import context_readiness
+
+        f = self.f
+        self.freeze('M001')
+        self.freeze('M002')
+        self.review(self.report(affected=('M001',)))
+        f.call('assign', {'role': 'implementer', 'assignment_id': 'PEER', 'instance_id': 'coder'}, module='M002')
+        before = f.state()
+        peer = before['modules']['M002']
+        self.apply(self.approve())
+        after = f.state()
+        self.assertEqual(after['modules']['M002']['assignments']['PEER'], peer['assignments']['PEER'])
+        self.assertEqual(after['modules']['M002']['freeze_id'], peer['freeze_id'])
+        self.assertEqual(context_readiness.subject(after, 'M002', 'coding'),
+                         context_readiness.subject(before, 'M002', 'coding'))
+        self.assertEqual(after['source_change_history'][-1]['affected_modules'], ['M001'])
+
     def test_related_blocker_can_replan_unrelated_blocker_remains(self):
         f = self.f
         for mid in ('M001', 'M002'):

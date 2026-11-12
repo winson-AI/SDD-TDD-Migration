@@ -25,6 +25,7 @@ import image_parity
 import ui_evidence
 import ui_fidelity
 import visual_evidence
+import device_configuration
 from lean_tools import mobile_snapshot, semantic_visual_inspect, validate_manifest
 
 OPERATIONS = {'visual-install', 'visual-capture', 'semantic-inspect'}
@@ -978,10 +979,20 @@ def capture_android(device, contract, args, path, module, task, out, root):
     require(isinstance(activity, str) and re.fullmatch(r'[A-Za-z0-9_.$]+', activity), 'an Android candidate names its launch activity as ability')
     device.call('shell', 'am', 'start', '-n', app + '/' + activity)
     android_actions(device, contract.get('actions', []))
+    expected = path.get('device_configuration') or {}
+    before = device_configuration.parse(device.call(*device_configuration.PROBE)) if expected else {}
+    if not device_configuration.matches(before, expected):
+        return blocked('observed Android configuration differs from the frozen PATH', 'device-configuration-mismatch',
+                       device_configuration=before)
     observed = observe_screen(device, app, target, contract, out, 'candidate')
     if 'captures' not in observed:
         return observed
-    return candidate_record(observed, 'android-candidate', 'android', target, manifest, round_id, args, module, task, out, path, artifact_identity=identity)
+    if expected and before != device_configuration.parse(device.call(*device_configuration.PROBE)):
+        return blocked('Android configuration changed during capture', 'device-configuration-mismatch')
+    result = candidate_record(observed, 'android-candidate', 'android', target, manifest, round_id, args, module, task, out, path, artifact_identity=identity)
+    if before:
+        result['device_configuration'] = before
+    return result
 
 
 def web_identity(device, contract, artifact, sha256):
@@ -1136,6 +1147,9 @@ def parity(args, out, module, task, run_id):
     require(len(records) == 1, 'one completed candidate capture is required for the selected round')
     snapshot = records[0]['snapshot']
     captures = {capture['index']: capture for capture in snapshot['captures']}
+    execution = read_json(check_ref(snapshot['capture_execution_ref']))
+    observed = execution.get('device_configuration') or {}
+    config_matches = device_configuration.matches(observed, path.get('device_configuration') or {})
     rows = []
     for check in checks:
         index = check['target'].get('capture_index', 0)
@@ -1144,7 +1158,13 @@ def parity(args, out, module, task, run_id):
         view = visual_evidence.reference(captures[index].get('view_tree') or captures[index].get('view_xml'), manifest_path.parent)
         png = ui_evidence.image_check_reference(check)
         try:
-            row, crop = image_parity.evaluate(check, check_ref(png) if png else None, Path(shot['path']), Path(view['path']).read_text())
+            if config_matches:
+                row, crop = image_parity.evaluate(check, check_ref(png) if png else None, Path(shot['path']),
+                                                  Path(view['path']).read_text(), observed)
+            else:
+                row = {'id': check['id'], 'node_id': check['node_id'], 'selector': check['target']['selector'],
+                       'status': 'INCOMPARABLE', 'reason': 'observed capture configuration differs from the frozen PATH'}
+                crop = None
         except image_parity.ParityError as exc:
             raise RuntimeError(str(exc)) from exc
         row.update(capture_index=index, screenshot_ref=shot, view_ref=view)
@@ -1157,7 +1177,6 @@ def parity(args, out, module, task, run_id):
             row['crop_ref'] = file_ref(crop_path)
         rows.append(row)
     import PIL
-    execution = read_json(check_ref(snapshot['capture_execution_ref']))
     report = {'schema_version': 1, 'producer': 'sdd-image-parity', 'run_id': run_id, 'module_id': module['module_id'],
               'path_id': path['path_id'], 'assignment_id': task['assignment_id'], 'code_baseline': module['code_baseline'],
               'coverage': path['coverage'], 'manifest_ref': manifest_ref, 'capture_round': round_id,
@@ -1186,6 +1205,8 @@ def run(operation, args, *, root, out, module, task, actor, config, rebindings=N
     device_lock(actor, device_settings, task)
     backend = device_settings.get('backend')
     require(backend in ('hdc', 'adb', 'browser'), 'visual capture requires explicitly configured hdc, adb or browser backend')
+    if operation == 'visual-capture' and path.get('device_configuration') and backend != 'adb':
+        return blocked('this backend needs a managed capture with observed device configuration', 'device-configuration-unavailable')
     artifact = accepted_artifact(args, module, path, backend)
     app = token(contract.get('app_id'), 'app_id')
     if backend == 'browser':  # a web target: the host that serves it is the device, the page is the screen
@@ -1252,6 +1273,8 @@ def run(operation, args, *, root, out, module, task, actor, config, rebindings=N
             'device_id': device.device, 'app_id': app, 'install_ref': args['install_ref'],
             'observations': visual_evidence.observations(record, out),
             'command_log_ref': evidence['command_log_ref']}
+        if result.get('device_configuration'):
+            execution['device_configuration'] = result['device_configuration']
         record['snapshot']['capture_execution_ref'] = save(out / 'capture-execution.json', execution)
         result['manifest_ref'] = save(out / 'manifest.json', manifest)
         result['capture_execution_ref'] = record['snapshot']['capture_execution_ref']

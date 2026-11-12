@@ -209,6 +209,31 @@ class ParameterFileTests(unittest.TestCase):
         self.assertIn('AppFonts.bold', accessors)  # a token mapped to an existing target value is used by that name
         self.assertEqual(self.rendered()[1], files)  # the same inputs give the same bytes
 
+    def test_qualified_xml_literals_write_distinct_files_and_disclose_unmapped_values(self):
+        rules = {**self.rules, 'configurations': {'night': str(self.target / 'night/P{module}.kt'),
+                                                   'sw600dp': str(self.target / 'tablet/P{module}.kt')}}
+        analysis = self.analysis(rules=rules)
+        document = ui_parameters.load(analysis)
+        document['parameters'] += [
+            {'id': 'values:dimen/extra', 'owner': 'values', 'name': 'dimen/extra', 'class': 'value',
+             'type': 'dimension', 'value': 8, 'unit': 'dp', 'variants': {'sw600dp': '16dp', 'night': '@dimen/other'}},
+            {'id': 'values:color/extra', 'owner': 'values', 'name': 'color/extra', 'class': 'value',
+             'type': 'color', 'value': '#FFFFFFFF', 'variants': {'night': '#012345', 'sw720dp': '#000000'}},
+        ]
+        files, keys = parameter_file.render(document, self.fill)
+        self.assertIn('values_dimen_extra', files[str(self.target / 'tablet/PM001.kt')])
+        self.assertIn('16', files[str(self.target / 'tablet/PM001.kt')])
+        self.assertIn('FF012345', files[str(self.target / 'night/PM001.kt')])
+        self.assertNotIn('@dimen/other', files[str(self.target / 'night/PM001.kt')])
+        decided = parameter_file.decisions(document['parameters'], self.fill)
+        statuses = {(v['id'], v['qualifier']): v['status'] for v in parameter_file.qualified_values(document, decided)}
+        self.assertEqual(statuses, {('values:dimen/extra', 'night'): 'unmapped', ('values:dimen/extra', 'sw600dp'): 'generated',
+                                    ('values:color/extra', 'night'): 'generated', ('values:color/extra', 'sw720dp'): 'unmapped',
+                                    ('values:string/home_title', 'zh'): 'generated'})
+        document['convention']['configurations']['night'] = document['convention']['file']
+        with self.assertRaisesRegex(Rejected, 'distinct target paths'):
+            parameter_file.render(document, self.fill)
+
     def test_a_deviation_and_a_string_escape_change_what_is_written(self):
         values = self.root / 'android/app/src/main/res/values/values.xml'
         values.write_text(values.read_text().replace('>Home<', '>Home $1 "now"<'))
@@ -270,7 +295,11 @@ class ParameterFileTests(unittest.TestCase):
         ref = file_ref(self.write('analysis.json', self.analysis(fill)))
         state = {'modules': {'M001': {'plan': {'dimension_analysis_ref': ref, 'paths': []}}}}
         pictures = migration_report.fidelity(state, [], check_ref)[2]
-        self.assertEqual(pictures['parameters']['M001'], summary)
+        report_summary = pictures['parameters']['M001']
+        self.assertEqual({k: v for k, v in report_summary.items() if k != 'variants'},
+                         {k: v for k, v in summary.items() if k != 'variants'})
+        self.assertEqual([(v['qualifier'], v['status'], v['visual_status']) for v in report_summary['variants']],
+                         [('zh', 'generated', 'not-verified')])
         text = migration_report.render({'run_id': 'r1', 'sequence': 1, 'report_stage': 'in-progress', 'quality': 'yellow-blocked', 'entry_mode': 'project',
                                         'single_module_id': None, 'case_counts': {}, 'legacy_root': '/l', 'target_root': '/t', 'parent_mo_names': {},
                                         'cases': [], 'paths': [], 'non_green': [], 'human_report': None, 'picture_fidelity': pictures})

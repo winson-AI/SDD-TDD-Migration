@@ -448,6 +448,14 @@ def visual_plan_gate(analysis, visual):
             require(cid in checks and checks[cid][1] == coverage,
                     'visual path carries image check ' + cid + ' that does not belong to its target')
             require(checks[cid][0]['node_id'] in nodes, 'visual path nodes must include the node of image check ' + cid)
+            import device_configuration
+            check = checks[cid][0]
+            config = path.get('device_configuration') or {}
+            if config or check.get('kind') in ('bounds', 'color'):
+                require(config and device_configuration.applicable(config, check.get('qualifier')),
+                        'visual PATH device_configuration must cover the qualifier of ' + cid)
+            if check.get('kind') == 'bounds' and check['expect']['unit'] == 'dp':
+                require(config.get('density_dpi'), 'bounds in dp require a frozen and observed density_dpi')
         if path.get('interaction_id'):
             interaction = interactions.get(path['interaction_id'])
             require(interaction, 'visual path references an undeclared interaction')

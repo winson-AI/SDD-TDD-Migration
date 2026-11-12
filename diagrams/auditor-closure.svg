@@ -68,9 +68,9 @@
 <rect x="590" y="1080" width="420" height="155" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="1107.5" font-size="25.78" fill="#111827" text-anchor="middle" font-weight="650">构建 / 单测 / 静态 → 路径回归</text>
 <text x="800.0" y="1141.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按 finding 依赖图交错推进</text>
-<text x="800.0" y="1170.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">验证 owner / source / 中间与下游</text>
-<text x="800.0" y="1199.5" font-size="20.08" fill="#4b5563" text-anchor="middle" font-weight="400">从最早失效阶段复测；沿用有效 PATH 回执</text>
-<text x="800.0" y="1228.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">发现模块与负责模块相同时合并证据</text>
+<text x="800.0" y="1170.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只重验失效 build PATH</text>
+<text x="800.0" y="1199.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核对其他 PATH 输入并沿用有效产物</text>
+<text x="800.0" y="1228.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">验证 owner / source 并累计回执</text>
 <path d="M1010,1155 L1120,1155" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
 <rect x="1038.0" y="1116" width="58" height="29" rx="4" fill="white" opacity="0.97"/>
 <text x="1067" y="1136" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">失败</text>
