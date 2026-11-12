@@ -9,6 +9,7 @@ from contracts import check_ref, file_ref, read_json, require
 import runner_storage
 import ui_evidence
 import device_configuration
+import project_context
 
 
 def reference(value, base):
@@ -154,7 +155,7 @@ def capture_execution(record, manifest_ref, hap_ref, code_baseline, run_root, co
     downloads = {str(row['argv'][-1]) for row in rows if row.get('exit_code') == 0  # hdc recv or adb pull brought the file down
                  and isinstance(row.get('argv'), list) and ('recv' in row['argv'] or 'pull' in row['argv'])}
     native = (any(row.get('exit_code') == 0 and ('snapshot_display' in row['argv'] or 'screencap' in row['argv']
-                       or receipt.get('harmony_device_profile') == 'physical' and row['argv'][3:6] == ['shell', 'uitest', 'screenCap']) for row in rows)
+                       or project_context.harmony_profile_kind(receipt.get('harmony_device_profile')) == 'physical' and row['argv'][3:6] == ['shell', 'uitest', 'screenCap']) for row in rows)
               and all(item['screenshot_ref']['path'] in downloads for item in actual))
     external = [row for row in rows if row.get('exit_code') == 0 and row.get('operation') == 'capture'
                    and row.get('artifact_ref') == hap_ref and row.get('code_baseline') == receipt['code_baseline']
@@ -176,7 +177,7 @@ def capture_execution(record, manifest_ref, hap_ref, code_baseline, run_root, co
         raw = [capture.get('harmony_probe') for capture in snapshot['captures']]
         require(all(raw) and raw == receipt['harmony_probe'], 'Harmony resource probe layout references changed')
         marker = None
-        if profile == 'physical':
+        if project_context.harmony_profile_kind(profile) == 'physical':
             from lean_visual_worker import hap_build_id
             marker = hap_build_id(check_ref(hap_ref))
             require(marker == (installed.get('artifact_identity') or {}).get('build_id'), 'physical install build marker differs from accepted HAP')
@@ -185,9 +186,12 @@ def capture_execution(record, manifest_ref, hap_ref, code_baseline, run_root, co
             device_proof.update(physical_device=identity, build_id=marker)
         harmony = harmony_resource_probe.capture_proof(raw, actual, rows, receipt['device_id'], receipt['app_id'],
                                                        receipt['harmony_probe_node'], run_root, physical_build=marker)
-        config = next(iter(harmony.values()))['configuration']
+        observed = next(iter(harmony.values()))
+        config = observed['configuration']
+        if 'system_configuration' in observed:
+            device_proof['system_configuration'] = observed['system_configuration']
         if marker:
-            device_proof['viewport'] = next(iter(harmony.values()))['viewport']
+            device_proof['viewport'] = observed['viewport']
     else:
         config = device_configuration.from_log(rows, receipt.get('device_id'), external)
     require(config == (receipt.get('device_configuration') or {}),
@@ -237,7 +241,7 @@ def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, 
         settings = read_json(check_ref(ref)).get('visual_capture') or {}
         require(settings.get('harmony_device_profile') == profile and settings.get('device_id') == capture.get('device_id'),
                 'capture device differs from its effective managed environment')
-        if profile == 'physical':
+        if project_context.harmony_profile_kind(profile) == 'physical':
             require(settings.get('model') == capture['physical_device']['model'],
                     'physical capture model differs from the provisioned device')
     config = capture.get('device_configuration') or {}
@@ -248,6 +252,11 @@ def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, 
     if path.get('harmony_resource_probe'):
         import harmony_resource_probe
         probe = harmony_resource_probe.contract(path, checks)
+        require(harmony_resource_probe.matches_configuration({'configuration': config,
+                    'system_configuration': capture.get('system_configuration')}, path.get('device_configuration') or {}, probe),
+                'observed Harmony system or window configuration differs from the frozen PATH')
+        if probe.get('configuration_scope'):
+            capture['configuration_scope'] = probe['configuration_scope']
         require(capture.get('platform') == 'harmony' and capture.get('path_id') == path['path_id']
                 and capture.get('harmony_probe_node') == probe['node_id'], 'qualified Harmony capture must prove the frozen PATH and probe')
     require(executed.get('assignment_id') == assignment['assignment_id'] and executed.get('fencing_token') == assignment.get('fencing_token'),
@@ -275,7 +284,8 @@ def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, 
             if probe:
                 observed_probe = harmony_resource_probe.observation(xml, probe['node_id'], executed['app_id'])
                 harmony_resource_probe.with_selection(fresh, check, probe, observed_probe['resources'],
-                                                      require_qualifier=profile == 'physical')
+                    require_qualifier=project_context.harmony_profile_kind(profile) == 'physical'
+                    or bool(probe.get('configuration_scope')), artifact=check_ref(hap_ref))
         except image_parity.ParityError as exc:
             require(False, 'image parity cannot be verified: ' + str(exc))
         require({key: row.get(key) for key in fresh} == fresh, 'image-parity row differs from its recomputation for ' + check['id'])

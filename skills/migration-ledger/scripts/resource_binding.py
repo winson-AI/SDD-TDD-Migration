@@ -147,6 +147,16 @@ def ready_receipt(root, m, a, *, verify_outputs=False):
     return {'receipt_ref': file_ref(receipt_path), 'result_ref': receipt['result_ref']}
 
 
+def notification_path(root):
+    return Path(root).resolve() / 'reports/resource-sync-notification'
+
+
+def notify_ready(root, result):
+    path = notification_path(root)
+    run_storage.atomic_bytes(run_storage.checked_path(path, path.parent), (result['receipt_ref']['sha256'] + '\n').encode())
+    return result
+
+
 def sync(root, s, module_id, assignment_id):
     """Perform one fenced sync attempt. A completed attempt can be resumed without rewriting its files."""
     import lean_worker
@@ -168,10 +178,10 @@ def sync(root, s, module_id, assignment_id):
         except Drifted:
             prior = None
         if prior:
-            return prior
+            return notify_ready(root, prior)
         _, _, previous = attempts(root, a)
         rid = prefix if not previous else prefix + f'-retry-{len(previous)}'
         request = {'request_id': rid, 'operation': 'resource-sync', 'module_id': module_id,
                    'assignment_id': assignment_id, 'fencing_token': a['fencing_token'], 'args': {}}
         result = lean_worker.run(root, request, {'role': a['role'], 'instance_id': a['instance_id']})
-        return {key: result[key] for key in ('receipt_ref', 'result_ref')}
+        return notify_ready(root, {key: result[key] for key in ('receipt_ref', 'result_ref')})

@@ -136,7 +136,7 @@ def validate_visual_profile(path):
     import harmony_resource_probe
     import project_context
     profile = path['harmony_device_profile']
-    require(profile in project_context.HARMONY_DEVICE_PROFILES and path.get('platform') == 'harmony'
+    require(project_context.harmony_profile_kind(profile) and path.get('platform') == 'harmony'
             and path.get('kind') == 'visual', 'device profile requires a Harmony visual PATH')
     config = read_json(check_ref(visual_environment(path))).get('visual_capture') or {}
     require(config.get('backend') == 'hdc' and config.get('harmony_device_profile') == profile,

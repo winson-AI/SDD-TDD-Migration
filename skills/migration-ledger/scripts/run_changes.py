@@ -97,7 +97,7 @@ def execution_review_module(m):
     return view
 
 
-def subject(s, report_ref, *, execution_review=False):
+def subject(s, report_ref, *, execution_review=False, device_path_review=False):
     report = read_json(check_ref(report_ref))
     affected = {row['module_id'] for row in report['modules'] if row['action'] != 'unchanged'}
     def affected_module(m):
@@ -106,14 +106,23 @@ def subject(s, report_ref, *, execution_review=False):
         import issues
         return {'scope': execution_review_module(m), 'issues': issues.of_module(s, m['module_id'])}
 
+    devices = changed_devices(s, report) if device_path_review else None
+    def unaffected_module(m):
+        keys = (*decomposition.ALLOCATION_KEYS, 'dependencies', 'parent_module_id', 'blocked', 'realloc_request')
+        view = {key: m.get(key) for key in keys}
+        if devices is not None:
+            view['affected_paths'] = [path for path in (m.get('plan') or {}).get('paths', [])
+                                      if uses_changed_device(path, devices)]
+        else:
+            view.update({key: m.get(key) for key in ('plan_hash', 'freeze_id', 'design_generation',
+                                                    'design_input_ref', 'accepted_test_design')})
+        return view
+
     return digest({'run_id': s['run_id'], 'context_ref': s.get('project_context_ref'),
         'global_spec': s['global_spec'], 'contract': {k: s[k] for k in CONTRACT_KEYS},
         'global_plan': s.get('global_plan'), 'sources': s.get('reuse_sources', []),
         'roots': {mid: {key: m.get(key) for key in ROOT_KEYS | {'realloc_request'}} for mid, m in roots(s).items()},
-        'modules': {mid: affected_module(m) if mid in affected else {key: m.get(key) for key in
-            (*decomposition.ALLOCATION_KEYS, 'dependencies', 'parent_module_id', 'plan_hash', 'freeze_id', 'blocked', 'realloc_request',
-             'design_generation', 'design_input_ref', 'accepted_test_design')}
-            for mid, m in s['modules'].items()},
+        'modules': {mid: affected_module(m) if mid in affected else unaffected_module(m) for mid, m in s['modules'].items()},
         'audit': {k: v for k, v in s.items() if k.startswith('audit')}, 'report_ref': report_ref})
 
 
@@ -199,10 +208,14 @@ def retain_verification(s, m, devices, root=None):
     try:
         current(m)
         dependencies_ready(s, {**m, 'phase': 'testing'})
-        for ref in m.get('build_artifacts', []):
-            check_ref(ref)
     except (Rejected, OSError, ValueError, KeyError, TypeError):
         return None
+    bad_artifacts = False
+    for ref in m.get('build_artifacts', []):
+        try:
+            check_ref(ref)
+        except (ValueError, OSError, KeyError, TypeError):
+            bad_artifacts = True
     if root is None and tv.split(m) and not tv.build_ready(m):
         return None
     retained = set()
@@ -220,6 +233,15 @@ def retain_verification(s, m, devices, root=None):
                 continue
             for key in ('query_ref', 'result_ref', 'log_ref'):
                 check_ref(receipt[key])
+            if path.get('kind') == 'build':
+                for ref in row.get('build_artifacts', []):
+                    check_ref(ref)
+            elif used := (row.get('visual_alignment') or {}).get('hap_ref'):
+                check_ref(used)
+                if path.get('build_binding') and used not in tv.bound_build_artifacts(s, path):
+                    continue
+            elif bad_artifacts and path.get('kind') in ('visual', 'automation') and not path.get('unit_report'):
+                continue  # Opaque execution may have consumed any of the module's build outputs.
             retained.add(pid)
         except (Rejected, OSError, ValueError, KeyError, TypeError):
             continue
@@ -443,8 +465,34 @@ def revise_context(root, s, patch, review, decision):
     return project_context.archive(root / 'context/revisions', data, '.json')
 
 
+def review_subject(s, review):
+    return subject(s, review['report_ref'], execution_review=review.get('execution_review', False),
+                   device_path_review=review.get('device_path_review', False))
+
+
+def blocks_switch(s, m, assignment, devices):
+    if assignment.get('closed'):
+        return False
+    if (devices is None or m.get('blocked') or not assignment.get('artifact_only')
+            or assignment.get('role') != 'test-runner' or assignment.get('test_scope') != 'visual'):
+        return True
+    from ledger import worker_dependencies_ready
+    import test_validation as tv
+    selected = set((assignment.get('execution_contract') or {}).get('path_ids', []))
+    paths = [path for path in m['plan']['paths'] if path['path_id'] in selected]
+    if not paths or len(paths) != len(selected) or any(uses_changed_device(path, devices) for path in paths):
+        return True
+    try:
+        worker_dependencies_ready(s, m, assignment)
+        kept = retain_verification(s, m, devices)
+        prerequisites = {p['path_id'] for p in m['plan']['paths'] if p.get('kind') in (*tv.PRE, 'automation')}
+        return kept is None or not prerequisites <= kept or not tv.artifact_only_visual(s, m, selected)
+    except (ValueError, OSError, KeyError, TypeError):
+        return True
+
+
 def handle(root, s, req, actor):
-    from ledger import role, idle, open_change, replan_module, await_provider
+    from ledger import role, open_change, replan_module, await_provider
     p = req['payload']
     if req['operation'] == 'run-review':
         role(actor, 'global-orchestrator')
@@ -456,20 +504,24 @@ def handle(root, s, req, actor):
                             and not human_required(s, report))
         settling = sorted(mid for mid in affected if any(a['role'] == 'test-runner' and not a.get('closed')
                           for a in s['modules'][mid]['assignments'].values())) if execution_review else []
-        s['run_change_review'] = {'report_ref': p['report_ref'],
-                                  'subject_sha256': subject(s, p['report_ref'], execution_review=execution_review),
-                                  'reviewed_by': actor, 'status': 'reviewed',
-                                  **({'execution_review': True, 'settling_test_modules': settling} if execution_review else {})}
+        scoped = (execution_review and changed_devices(s, report) is not None
+                  and all(row['action'] in ('unchanged', 'reverify') for row in report['modules']))
+        review = {'report_ref': p['report_ref'], 'reviewed_by': actor, 'status': 'reviewed',
+                  **({'execution_review': True, 'settling_test_modules': settling} if execution_review else {}),
+                  **({'device_path_review': True} if scoped else {})}
+        s['run_change_review'] = {**review, 'subject_sha256': review_subject(s, review)}
         return
     role(actor, 'host')
     require({'subject_sha256'} <= set(p) <= {'decision_id', 'subject_sha256'}, 'invalid run revision payload')
     review = s.get('run_change_review', {})
-    require(review.get('status') == 'reviewed' and review['subject_sha256'] == p['subject_sha256'] == subject(s, review['report_ref'], execution_review=review.get('execution_review', False)),
+    require(review.get('status') == 'reviewed' and review['subject_sha256'] == p['subject_sha256'] == review_subject(s, review),
             'run impact review stale or missing')
     report, affected, changed_roots = validate(s, review['report_ref'])
-    for mid in affected: idle(s['modules'][mid])
-    require(not integration_busy(s, report), 'wait for affected integration execution')
     devices = changed_devices(s, report)
+    scoped_devices = devices if review.get('device_path_review') else None
+    require(not any(blocks_switch(s, s['modules'][mid], a, scoped_devices) for mid in affected
+                    for a in s['modules'][mid]['assignments'].values()), 'active assignment exists; wait for affected worker')
+    require(not integration_busy(s, report), 'wait for affected integration execution')
     global_reverify = global_reverify_paths(s, report, devices)
     decision = s['decisions'].get(p.get('decision_id'), {})
     needs_human = human_required(s, report)
@@ -618,24 +670,43 @@ def advancing(s, req, checkout):
         return False
 
 
-def execution_switch_pending(s, mid):
+def pending_device_paths(s, mid):
     review = s.get('run_change_review') or {}
-    return (review.get('status') == 'reviewed' and mid in review.get('settling_test_modules', [])
-            and review['subject_sha256'] == subject(s, review['report_ref'], execution_review=True))
+    if review.get('status') != 'reviewed' or not review.get('device_path_review'):
+        return set()
+    report = read_json(check_ref(review['report_ref']))
+    if not any(row['module_id'] == mid and row['action'] == 'reverify' for row in report['modules']):
+        return set()
+    devices = changed_devices(s, report)
+    paths = (s['modules'][mid].get('plan') or {}).get('paths', [])
+    impacted = {path['path_id'] for path in paths if uses_changed_device(path, devices)}
+    return impacted if impacted and review['subject_sha256'] == review_subject(s, review) else set()
+
+
+def execution_switch_pending(s, mid, path_ids=()):
+    review = s.get('run_change_review') or {}
+    if review.get('status') != 'reviewed' or not review.get('execution_review'):
+        return False
+    if review.get('device_path_review'):
+        pending = pending_device_paths(s, mid)
+        return bool(pending.intersection(path_ids) if path_ids else pending)
+    return (mid in review.get('settling_test_modules', [])
+            and review['subject_sha256'] == review_subject(s, review))
 
 
 def next_action(s):
     review = s.get('run_change_review')
     if review and review.get('status') == 'reviewed':
-        current = review['subject_sha256'] == subject(s, review['report_ref'], execution_review=review.get('execution_review', False))
+        current = review['subject_sha256'] == review_subject(s, review)
         report = read_json(check_ref(review['report_ref']))
         affected = {row['module_id'] for row in report['modules'] if row['action'] != 'unchanged'}
         decision = next((d for d in s['decisions'].values() if not d.get('consumed') and d.get('module_id') is None
                          and d.get('subject_sha256') == review['subject_sha256']), None)
         needs_human = human_required(s, report)
         waiting_integration = integration_busy(s, report)
-        busy = waiting_integration or any(not a.get('closed') for mid in affected
-            for a in s['modules'].get(mid, {}).get('assignments', {}).values())
+        devices = changed_devices(s, report) if review.get('device_path_review') else None
+        busy = waiting_integration or any(blocks_switch(s, s['modules'][mid], a, devices) for mid in affected
+            for a in s['modules'][mid]['assignments'].values())
         import audit_closure
         auditing = workflow.audit_active(s) or audit_closure.active(s)
         return {'operation': 'revise-run' if current else 'run-review', 'role': 'host' if current else 'global-orchestrator',

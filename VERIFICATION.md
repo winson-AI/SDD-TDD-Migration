@@ -22,13 +22,15 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1797 | 全量通过 |
+| migration-ledger/tests | 1802 | 全量通过 |
 | migration-test/tests | 83 | 全量通过 |
 | runtime/harmony/tests | 128 | 全量通过 |
 
-三套回归用 Harmony sandbox 的 Python 3.12 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败、错误或跳过。回归使用隔离临时目录、本地模拟端口和测试子进程。专项覆盖资源同步排队与原 fence 启动、就绪视觉 PATH 优先、独立草案延续、集中投影，以及真机绑定和失效构建的局部重验。
+三套回归用 Harmony sandbox 的 Python 3.12 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败、错误或跳过。回归使用隔离临时目录、本地模拟端口和测试子进程。专项覆盖 worker 满额时的资源排队、回执唤醒、视觉分批后的补资产 CR、按 PATH 等待设备修订、独立真机配置，以及损坏制品与其消费者的局部重验。
 
-另在隔离的 Harmony API 21 模拟器实跑安装、捕获和保真验收。默认密度 640 DPI 的深色配置及应用窗口自定义 160 DPI 的浅色配置均通过图片、XML 尺寸、颜色和文本检查，故意声明错误图片档位得到 Red。HDC 型号和系统版本回读、指定主显示的截图及 UI 树命令也已实跑。真机 HAP 标识、设备身份与资源选档的验收门禁由回归夹具覆盖，真机设备验收仍待实跑。
+在隔离的 Harmony API 21 模拟器重跑装包，并实采 WindowManager、定向 UI 树和 PNG。前后焦点窗口一致，整窗和 PNG 均为 1320 × 2848，应用内容区从 y=132 开始。用实际采集结果复核了内容区包含关系。先前在同一 API 版本实跑的 640 DPI 深色及窗口覆盖 160 DPI 浅色资源检查记录保留。
+
+新版探针和真机回执用回归夹具验证了截图乱序、错误窗口、系统与窗口配置不符、等值错档、缺选档标识和同版本错误构建的处理。两台真机的配置隔离也由回归验证。实际真机接入和资源验收仍待实跑。
 
 无关的 build 超时修订保留了叶子待审请求与审计发现，显式审核可维持或调整对应根分配。给待测 PATH 补 staging fixture 后，已验收 TASK 和四份有效回执保留，仅执行待测 PATH，随后进入 DoD。模拟环境漂移时，已验收实现仍保留，测试回执进入重验。纯四维 ID 补录期间，下游状态、派发和预检主体保持有效；修改提供方代码后，派发守卫拒绝沿用该证据。
 

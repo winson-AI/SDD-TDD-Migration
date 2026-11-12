@@ -26,6 +26,7 @@ import ui_evidence
 import ui_fidelity
 import visual_evidence
 import device_configuration
+from project_context import harmony_profile_kind
 from lean_tools import mobile_snapshot, semantic_visual_inspect, validate_manifest
 
 OPERATIONS = {'visual-install', 'visual-capture', 'semantic-inspect'}
@@ -149,8 +150,9 @@ class Device:
         self.version = None
         self.page_name, self.last_dump = '', ''
         self.resource_probe = None
-        self.physical = settings.get('harmony_device_profile') == 'physical'
+        self.physical = harmony_profile_kind(settings.get('harmony_device_profile')) == 'physical'
         self.probe_layouts = {}
+        self.probe_windows = {}
 
     def call(self, *args, timeout=30):
         argv = [self.tool, '-t', self.device, *map(str, args)]
@@ -191,7 +193,12 @@ class Device:
     def layout(self, label):
         if self.physical:
             import harmony_resource_probe as probe
-            output = self.call('shell', 'uitest', 'dumpLayout', *probe.MAIN_DISPLAY)
+            try:
+                window = probe.focused_window(self.call(*probe.WINDOWS))
+            except Rejected as exc:
+                raise DeviceFailure('capture-environment', str(exc)) from exc
+            self.probe_windows[label] = window
+            output = self.call(*probe.layout_command(window))
         else:
             output = self.call('shell', 'uitest', 'dumpLayout')
         match = re.search(r'saved to:\s*(/data/local/tmp/[A-Za-z0-9_.-]+\.json)', output)
@@ -600,22 +607,25 @@ def observe_screen(device, app, target, spec, out, label):
             except (Rejected, ValueError, TypeError, KeyError) as exc:
                 return blocked(str(exc), 'device-configuration-unavailable')
             actual = observed['configuration']
-            if (not device_configuration.matches(actual, spec['expected_device_configuration'])
+            if (not harmony_resource_probe.matches_configuration(observed, spec['expected_device_configuration'], probe)
                     or configuration is not None and actual != configuration):
                 return blocked('observed Harmony configuration differs from the frozen PATH or changed during capture',
                                'device-configuration-mismatch', device_configuration=actual)
             configuration = actual
-        image_path = device.screenshot(f'{label}-{index}')
+        capture_label = f'{label}-{index}'
+        image_path = device.screenshot(capture_label)
         if spec.get('physical_build_id'):
             try:
-                harmony_resource_probe.physical_viewport(observed, current_xml, image_path, spec['physical_build_id'])
+                harmony_resource_probe.physical_viewport(observed, current_xml, image_path, spec['physical_build_id'],
+                                                         device.probe_windows[capture_label])
             except (Rejected, OSError, ValueError) as exc:
                 return blocked(str(exc), 'capture-environment')
         view = out / f'view-{label}-{index}.xml'
         run_storage.atomic_bytes(view, current_xml.encode())
         signature = mobile_snapshot.view_signature(current_xml, f'{package}/{activity}')
-        after_xml = device.layout(f'{label}-{index}-after')
-        if after_xml != current_xml:
+        after_xml = device.layout(capture_label + '-after')
+        changed_window = spec.get('physical_build_id') and device.probe_windows[capture_label] != device.probe_windows[capture_label + '-after']
+        if after_xml != current_xml or changed_window:
             after_view = out / f'view-{label}-{index}-after.xml'
             run_storage.atomic_bytes(after_view, after_xml.encode())
             return blocked('page/state changed while screenshot was taken; retain both trees and recapture a new attempt',
@@ -1239,7 +1249,8 @@ def parity(args, out, module, task, run_id):
                 if probe:
                     values = harmony_resource_probe.observation(xml, probe['node_id'], execution['app_id'])
                     harmony_resource_probe.with_selection(row, check, probe, values['resources'],
-                                                          require_qualifier=path.get('harmony_device_profile') == 'physical')
+                        require_qualifier=harmony_profile_kind(path.get('harmony_device_profile')) == 'physical'
+                        or bool(probe.get('configuration_scope')), artifact=check_ref(execution['artifact_ref']))
             else:
                 row = {'id': check['id'], 'node_id': check['node_id'], 'selector': check['target']['selector'],
                        'status': 'INCOMPARABLE', 'reason': 'observed capture configuration differs from the frozen PATH'}
@@ -1300,7 +1311,7 @@ def run(operation, args, *, root, out, module, task, actor, config, rebindings=N
     identity_readback = None
     try:
         boot_ref = None
-        if profile == 'physical':
+        if harmony_profile_kind(profile) == 'physical':
             import harmony_resource_probe as probe
             device.call(*probe.MODEL)
             device.call(*probe.OS_BUILD)
@@ -1337,7 +1348,7 @@ def run(operation, args, *, root, out, module, task, actor, config, rebindings=N
                       'acceptance': 'installation-is-evidence-not-a-test-verdict'}
         elif operation == 'visual-install':
             identity = hap_identity(artifact)
-            if profile == 'physical':
+            if harmony_profile_kind(profile) == 'physical':
                 identity['build_id'] = hap_build_id(artifact)
             if identity['bundleName'] != app:
                 raise DeviceFailure('artifact-identity-unverified', 'accepted HAP bundleName differs from frozen app_id')

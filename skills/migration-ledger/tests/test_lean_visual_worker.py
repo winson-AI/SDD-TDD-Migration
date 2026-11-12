@@ -132,6 +132,8 @@ class VisualExecutionTests(unittest.TestCase):
             if self.app_running and self.foreground != 'com.example.app':
                 rows.insert(0, 'app name [com.example.app] background')
             stdout = '\n'.join(rows)
+        elif command == ['shell', "hidumper -s WindowManagerService -a '-a'"]:
+            stdout = 'App 0 42 7 1 1 0 10 0 [ 0 0 20 20 ] [ 0 0 ] [ 1 1 0.5 0.5 ]\nFocus window: 7'
         elif command[:3] == ['shell', 'uitest', 'dumpLayout']:
             stdout = 'saved to: /data/local/tmp/layout.json'
         elif command[:2] == ['file', 'recv']:
@@ -240,13 +242,13 @@ class VisualExecutionTests(unittest.TestCase):
         self.module['build_artifacts'] = [file_ref(self.artifact)]
         self.args['artifact_ref'] = file_ref(self.artifact)
         self.path.pop('baseline_ref')
-        self.path.update(platform='harmony', harmony_device_profile='physical', image_check_ids=['title'],
+        self.path.update(platform='harmony', harmony_device_profile='physical-phone-a', image_check_ids=['title'],
                          node_ids=['node:title'], device_configuration={'night': True, 'harmony_api_level': 21},
                          expected_assertions=[{'assertion_id': 'V', 'expected': True}],
-                         harmony_resource_probe={'node_id': 'sdd-probe', 'selections': {
-                             'title': {'resource_id': 'title', 'target_qualifier': 'dark'}}})
+                         harmony_resource_probe={'node_id': 'sdd-probe', 'configuration_scope': 'system', 'selections': {
+                             'title': {'resource_id': 'title', 'target_qualifier': 'dark', 'target_branch': 'xml-dark-title'}}})
         config = read_json(self.env)
-        config['visual_capture'].update(harmony_device_profile='physical', model='TestPhone')
+        config['visual_capture'].update(harmony_device_profile='physical-phone-a', model='TestPhone')
         self.write('runs/harmony/sandbox/environment/visual.json', config)
         self.path['visual_execution']['environment_ref'] = file_ref(self.env)
         check = {'id': 'title', 'kind': 'text', 'source_resource': '@string/title', 'qualifier': 'night',
@@ -254,17 +256,21 @@ class VisualExecutionTests(unittest.TestCase):
         self.module['plan']['dimension_analysis_ref'] = file_ref(self.write('context/qualified.json', {'dimensions': [
             {'dimension': 'UI', 'status': 'applicable', 'items': [{'semantic_model': {
                 'ui_evidence': {'coverage': self.path['coverage']}, 'image_checks': [check]}}]}]}))
-        self.window_bounds = '[0,0][20,20]'
-        self.probe = {'schema_version': 2, 'build_id': marker, 'configuration': {
+        self.window_bounds = '[0,2][20,20]'
+        self.probe = {'schema_version': 3, 'build_id': marker, 'configuration': {
             'night': True, 'vp_scale': 1, 'window_width_vp': 20, 'harmony_api_level': 21},
+            'system_configuration': {'night': True},
             'viewport': {'display_id': 0, 'window_id': 7, 'window_bounds_px': [0, 0, 20, 20], 'orientation': 'portrait'},
-            'resources': {'title': {'value': 'Home', 'resolved_qualifier': 'dark'}}}
+            'resources': {'title': {'value': 'Home', 'resolved_qualifier': 'dark', 'identity': 'xml-dark-title'}}}
         test_validation.validate_visual_profile(self.path)
         install_ref = self.installed()
         query = {**self.path, 'run_id': 'run-1', 'module_id': 'M001', 'freeze_id': 'F1', 'code_baseline': 'code-1',
                  'frozen_image_checks': [check], 'run_root': str(self.root), 'execution_assignment': self.task}
-        for qualifier, quality in [('dark', 'green-passed'), ('base', 'red-bug')]:
-            self.probe['resources']['title']['resolved_qualifier'] = qualifier
+        for qualifier, identity, quality in [('dark', 'xml-dark-title', 'green-passed'),
+                                             ('base', 'xml-dark-title', 'red-bug'),
+                                             ('dark', 'xml-light-title', 'red-bug'),
+                                             ('dark', None, 'yellow-blocked')]:
+            self.probe['resources']['title'].update(resolved_qualifier=qualifier, identity=identity)
             capture, _ = self.run_tool('visual-capture', install_ref=install_ref, round=1)
             self.assertEqual(capture['status'], 'CAPTURED', capture)
             parity = worker.parity({'path_id': 'V1', 'manifest_ref': capture['manifest_ref'], 'round': 1},
@@ -275,12 +281,31 @@ class VisualExecutionTests(unittest.TestCase):
             evidence = report['visual_alignment']['image_parity']['capture_evidence']
             self.assertEqual(evidence['physical_device'], {'model': 'TestPhone', 'os_build': 'TestOS.21'})
             self.assertEqual(evidence['viewport']['window_id'], 7)
+            self.assertEqual(evidence['viewport']['content_bounds_px'], [0, 2, 20, 20])
             self.assertEqual(evidence['build_id'], marker)
+            self.assertEqual(evidence['configuration_scope'], 'system')
+            self.assertEqual(evidence['system_configuration'], {'night': True})
+            self.assertTrue(any(cmd[3:] == ['shell', 'uitest', 'dumpLayout', '-d', '0', '-w', '7'] for cmd in self.commands))
+            import harmony_resource_probe as probe
+            log = read_json(evidence['command_log_ref']['path'])
+            screen = next(i for i, row in enumerate(log) if row['argv'][3:6] == ['shell', 'uitest', 'screenCap'])
+            log.insert(0, log.pop(screen))
+            with self.assertRaisesRegex(Rejected, 'must bracket'):
+                probe.capture_proof(evidence['harmony_probe'], evidence['observations'], log, 'device-1',
+                    'com.example.app', 'sdd-probe', str(self.root), physical_build=marker)
             other = self.write('runs/harmony/sandbox/environment/other.json', {
                 'visual_capture': {**config['visual_capture'], 'device_id': 'another-device'}})
             with self.assertRaisesRegex(Rejected, 'effective managed environment'):
                 visual_evidence.validate_image_parity(parity['report_ref'], checks=[check], path=self.path,
                     code_baseline='code-1', run_root=str(self.root), assignment=self.task, environment=file_ref(other))
+        self.probe['system_configuration']['night'] = False
+        capture, _ = self.run_tool('visual-capture', install_ref=install_ref, round=1)
+        self.assertEqual(capture['root_cause']['kind'], 'device-configuration-mismatch')
+        self.probe['system_configuration']['night'] = True
+        self.probe['viewport']['window_id'] = 8
+        capture, _ = self.run_tool('visual-capture', install_ref=install_ref, round=1)
+        self.assertIn('WindowManager', str(capture['root_cause']))
+        self.probe['viewport']['window_id'] = 7
         self.probe['build_id'] = 'b' * 64  # same bundle/version, different running build
         capture, _ = self.run_tool('visual-capture', install_ref=install_ref, round=1)
         self.assertEqual(capture['root_cause']['kind'], 'capture-environment')
@@ -291,6 +316,25 @@ class VisualExecutionTests(unittest.TestCase):
                              for cmd, value in [(probe.MODEL, 'emulator'), (probe.OS_BUILD, 'emulator 6.0')]]
         with self.assertRaisesRegex(Rejected, 'HDC reports an emulator'):
             probe.device_identity(emulator_readback, 'device-1')
+
+    def test_packaged_image_binding_requires_both_selected_member_and_bytes(self):
+        import hashlib
+        import harmony_resource_probe as probe
+
+        entry = 'resources/dark-xldpi/media/picture.png'
+        pixels = self.image('PNG')
+        expected = hashlib.sha256(pixels).hexdigest()
+        with zipfile.ZipFile(self.artifact, 'a') as archive:
+            archive.writestr(entry, pixels)
+            archive.writestr('resources/base/media/picture.png', pixels)
+        mapping = {'resource_id': 'picture', 'target_qualifier': 'dark-xldpi', 'target_entry': entry, 'target_sha256': expected}
+        check = {'id': 'picture'}
+        for identity, status in [(entry, 'match'), ('resources/base/media/picture.png', 'mismatch'), (None, 'missing')]:
+            row = {'status': 'MATCH'}
+            probe.with_selection(row, check, {'selections': {'picture': mapping}},
+                {'picture': {'value': expected, 'resolved_qualifier': 'dark-xldpi', 'identity': identity}}, artifact=self.artifact)
+            self.assertEqual(row['resource_selection']['status'], status)
+            self.assertEqual(row['resource_selection']['packaged_sha256'], expected)
 
     def test_a_path_with_image_checks_only_captures_the_target_alone(self):
         self.path.pop('baseline_ref')

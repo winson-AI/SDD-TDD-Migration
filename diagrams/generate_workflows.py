@@ -242,9 +242,9 @@ def module_execution():
         'Red / Yellow 不凭证明转 Green'], 'gray')
     d.box(70,2000,430,200,'设备变更 · 同 Run 复测',[
         '有效 build / unit / static 回执继续沿用',
-        '按平台 / Harmony 设备配置复测 PATH',
+        '只等受影响 PATH，独立派发继续',
         '设备归属不明的路径一并复测',
-        '逐条核对构建回执，只重跑失效 PATH',
+        '逐条验制品，仅重跑相关消费者',
         '应用 / 入口 / URL 变化 → 修订 SPEC'], 'orange')
     d.box(550,2095,500,125,'机械验证恢复',[
         '同一派发核验已完成的 PATH 回执',
@@ -274,10 +274,10 @@ def module_execution():
         '骨架起稿；产物不限体量'], 'gray')
     d.box(70,760,430,210,'资源与 fidelity 输入',[
         'API / URL / image / icon 来源追溯',
-        '待同步持写锁，空闲时才领 worker 名额',
+        '名额满可先同步，回执唤醒调度',
         '{qualifier} 保留同密度多档',
         '限定 XML 值按配置生成',
-        'Harmony 模拟器 / 真机分别取证'], 'gray')
+        'Harmony 多设备配置分别取证'], 'gray')
     d.box(1110,190,410,130,'冻结与执行门禁',[
         'SPEC 未冻结不生成代码',
         '代码未接受不派正式测试；自查无结果',

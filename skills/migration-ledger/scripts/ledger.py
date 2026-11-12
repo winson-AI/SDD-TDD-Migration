@@ -564,19 +564,28 @@ def independent_visual(s, m, active, changed):
         return False
 
 
+def visual_due(m):
+    return [p for p in tv.scope_paths(m, 'visual') if not tv.path_green(m, p['path_id'])]
+
+
 def visual_batch(s, m):
-    due = [p for p in tv.scope_paths(m, 'visual') if not tv.path_green(m, p['path_id'])]
+    due = visual_due(m)
     bound, ordinary = [], []
     pending = set(prepared_tests.pending_paths(due))
+    switching = run_changes.pending_device_paths(s, m.get('module_id'))
     missing_profiles = set()
     rebindings = (s.get('target_preview') or {}).get('visual_environment_rebindings')
     for path in due:
         pid = path['path_id']
-        if pid in pending:
+        if pid in pending or pid in switching:
             continue
         if profile := path.get('harmony_device_profile'):
-            env = read_json(check_ref(tv.visual_environment(path, rebindings)))
-            if not (env.get('visual_capture') or {}).get('device_id'):
+            try:
+                env = read_json(check_ref(tv.visual_environment(path, rebindings)))
+                if not (env.get('visual_capture') or {}).get('device_id'):
+                    missing_profiles.add(profile)
+                    continue
+            except (ValueError, OSError, TypeError, AttributeError):
                 missing_profiles.add(profile)
                 continue
         if not path.get('build_binding'):
@@ -592,6 +601,9 @@ def visual_batch(s, m):
     if ordinary:
         managed = [pid for pid in ordinary if tv.artifact_only_visual(s, m, [pid])]
         return (managed, True) if managed else (ordinary, False)
+    if pending:
+        return [], False  # the cursor opens the asset CR only after ready siblings are exhausted
+    require(not switching.intersection(p['path_id'] for p in due), 'apply reviewed execution change before new test assignment')
     require(not missing_profiles, 'Harmony device profile unavailable: ' + ', '.join(sorted(missing_profiles)))
     require(not due, 'visual PATH preparation or accepted managed build is pending')
     return [], False
@@ -877,6 +889,12 @@ def owed_gaps(s, m):
     return gaps if gaps and len(gaps) == len(rows) else []
 
 
+def asset_gaps(s, m):
+    return {row['issue_id']: row['summary'] for row in issues.of_module(s, m['module_id'])[0]
+            if row['kind'] == 'gap' and s['issues'][row['issue_id']]['raised_by'] == issues.LEDGER
+            and issues.owed_stage(row['summary']) == 'path'}
+
+
 def traced_revision(s, m, owed):
     """What the unified audit traced back to this finished leaf is revised by it: its SPEC through a change request whose
     request and impact are the audit's analysis, or, for a scope gap, its allocation through a request to its parent.
@@ -1010,7 +1028,7 @@ def dispatch_guard(s, m, worker, artifact_only=False, *, resource_wait=False, pa
     require(not m.get('blocked'), 'module blocked')
     require(not m.get('realloc_request'), 'allocation review still pending')
     if worker == 'test-runner':
-        require(not run_changes.execution_switch_pending(s, m['module_id']), 'apply reviewed execution change before new test assignment')
+        require(not run_changes.execution_switch_pending(s, m['module_id'], path_ids), 'apply reviewed execution change before new test assignment')
     idle(m); current(m)
     if not (artifact_only and bound_visual_inputs(s, m, path_ids)):
         dependencies_ready(s, {**m, 'phase': 'testing'} if worker == 'test-runner' else m,
@@ -1366,9 +1384,20 @@ def _next_step(s, m):
                         paths = tv.scope_paths(m, scope)
                         if m.get('task_revalidation', {}).get('mode') == 'partial':
                             paths = [path for path in paths if not tv.path_green(m, path['path_id'])]
-                pending_paths = prepared_tests.pending_paths(paths) if (not tv.dispatch_paths(m, step.get('test_scope'))
-                    and (step.get('test_scope') != 'visual'
-                         or len(prepared_tests.pending_paths(paths)) == len(paths))) else []
+                if step.get('test_scope') == 'visual':
+                    try:
+                        selected, visual = visual_batch(s, m)
+                    except (Rejected, OSError) as exc:
+                        step.update(ready=False, reason=str(exc))
+                        return step
+                    pending_paths = [] if selected else prepared_tests.pending_paths(visual_due(m))
+                    if pending_paths:
+                        step.update(operation='change', worker_role=None, ready=True, mechanical=True, reason='owed-gaps',
+                                    issue_ids=list(asset_gaps(s, m)), asset_path_ids=pending_paths, payload={})
+                        step.pop('test_scope')
+                        return step
+                else:
+                    pending_paths = prepared_tests.pending_paths(paths) if not tv.dispatch_paths(m, step.get('test_scope')) else []
                 gaps = owed_gaps(s, m) if step['ready'] and (reviewing or pending_paths) else []
                 static_gap = reviewing and any(issues.owed_stage(s['issues'][iid]['summary']) == 'static' for iid in gaps)
                 if gaps and (static_gap or pending_paths):
@@ -1383,12 +1412,22 @@ def _next_step(s, m):
                     return step
             if step['ready']:
                 try:
-                    selected, visual = visual_batch(s, m) if step.get('test_scope') == 'visual' else ([], False)
+                    if step.get('test_scope') != 'visual':
+                        selected = ([path['path_id'] for path in tv.dispatch_paths(m, step.get('test_scope'))]
+                                    if worker == 'test-runner' else [])
+                        visual = False
                     if selected:
-                        step['payload']['path_ids'] = selected
+                        step.setdefault('payload', {})['path_ids'] = selected
                     if visual:
                         step['payload']['artifact_only'] = True
-                    dispatch_guard(s, m, worker, visual, path_ids=selected)
+                    queue_resources = False
+                    if worker in ('implementer', 'fixer') and worker_slots(s) >= s['max_parallel_modules']:
+                        import resource_binding
+                        task_ids = [task['task_id'] for task in assignment_tasks(m, worker)]
+                        queue_resources = resource_binding.needs_sync(m, {'execution_contract': {'task_ids': task_ids}})
+                    dispatch_guard(s, m, worker, visual, resource_wait=queue_resources, path_ids=selected)
+                    if queue_resources:
+                        step.setdefault('payload', {})['resource_sync_deferred'] = True
                 except (Rejected, OSError) as exc:
                     step.update(ready=False, reason=str(exc))
     elif m['phase'] == 'dod' and s.get('git_checkpoint') and \
@@ -1670,6 +1709,14 @@ def with_card(s, m, step):
     return step
 
 
+def assignment_tasks(m, role):
+    selected = [t for t in m['plan']['tasks'] if role != 'implementer' or t['task_id'] not in m.get('accepted_task_ids', [])]
+    if role == 'fixer' and m.get('task_revalidation', {}).get('mode') == 'partial' and not m.get('repair_findings'):
+        affected_paths = set(unresolved(m))
+        return [t for t in selected if affected_paths.intersection(t['path_ids'])]
+    return selected
+
+
 def next_step(s, m):
     step = context_readiness.annotate(s, m['module_id'], _next_step(s, m))
     if m.get('dependencies') or any(m.get('module_id') in other.get('dependencies', []) for other in s['modules'].values()):
@@ -1683,10 +1730,7 @@ def next_step(s, m):
         step['payload'] = {**step.get('payload', {}), 'role': step['worker_role']}
         if step['worker_role'] == 'implementer' and m.get('carried_files'):
             step['carried_files'] = [ref['path'] for ref in m['carried_files']]  # written under an earlier plan: adjust them, do not start over
-        selected = [t for t in m['plan']['tasks'] if step['worker_role'] != 'implementer' or t['task_id'] not in m.get('accepted_task_ids', [])]
-        if step['worker_role'] == 'fixer' and m.get('task_revalidation', {}).get('mode') == 'partial' and not m.get('repair_findings'):
-            affected_paths = set(unresolved(m))
-            selected = [t for t in selected if affected_paths.intersection(t['path_ids'])]
+        selected = assignment_tasks(m, step['worker_role'])
         scope = step.get('test_scope')
         if scope == 'visual' and step['payload'].get('path_ids'):
             paths = [p for p in m['plan']['paths'] if p['path_id'] in step['payload']['path_ids']]
@@ -2324,10 +2368,12 @@ def mutate(s, req, principal, events, root=None):
         request_path = check_ref(p['request_ref'])
         if root and p['request_ref'] == p['impact_ref'] and request_path.parent == Path(root) / 'reports/owed-gaps':
             evidence = read_json(request_path)
-            assets = (isinstance(evidence, dict) and evidence.get('kind') == 'owed-gaps' and evidence.get('written_by') == 'ledger'
-                      and evidence.get('module_id') == mid and evidence.get('freeze_id') == m['freeze_id']
-                      and evidence.get('code_baseline') == m.get('code_baseline')
-                      and evidence.get('gaps') == {iid: s['issues'][iid]['summary'] for iid in owed_gaps(s, m)})
+            if isinstance(evidence, dict) and evidence.get('kind') == 'owed-gaps' and evidence.get('written_by') == 'ledger':
+                path_ids = evidence.get('asset_path_ids')
+                gaps = asset_gaps(s, m) if path_ids else {iid: s['issues'][iid]['summary'] for iid in owed_gaps(s, m)}
+                assets = (evidence.get('module_id') == mid and evidence.get('freeze_id') == m['freeze_id']
+                          and evidence.get('code_baseline') == m.get('code_baseline') and evidence.get('gaps') == gaps
+                          and (not path_ids or path_ids == prepared_tests.pending_paths(visual_due(m))))
         open_change(s, m, {**p, 'trace_issues': trace,
                            'documentation_only': m['phase'] == 'dod' and issues.only_owed_stage(s, mid, 'dod'),
                            **({'pending_test_assets': True} if assets else {})})
@@ -2434,7 +2480,25 @@ def mutate(s, req, principal, events, root=None):
                         row['path_provider_inputs'] = bound
                     else:
                         row['dependency_inputs'] = inputs
+            planned_paths = {p['path_id']: p for p in m['plan']['paths']}
+            replaced_artifacts = set()
+            for pid, row in accepted.items():
+                if planned_paths.get(pid, {}).get('kind') == 'build' and row['quality'] == 'green-passed':
+                    fresh_hashes = {ref['sha256'] for ref in row.get('build_artifacts', [])}
+                    replaced_artifacts.update((ref['path'], ref['sha256'])
+                        for ref in m['results'].get(pid, {}).get('build_artifacts', []) if ref['sha256'] not in fresh_hashes)
             m['results'].update(accepted)
+            if replaced_artifacts:
+                for pid, row in m['results'].items():
+                    path = planned_paths.get(pid, {})
+                    used = (row.get('visual_alignment') or {}).get('hap_ref')
+                    if used:
+                        expired = (used['path'], used['sha256']) in replaced_artifacts
+                    else:
+                        expired = path.get('kind') in ('automation', 'visual') and not path.get('unit_report')
+                    if expired:
+                        row['stale'] = True
+                        m['dependency_reverify'] = True
             if tv.split(m):
                 kinds = {x['path_id']: x.get('kind') for x in m['plan']['paths']}
                 builds = [row for row in result['paths'] if kinds.get(row['path_id']) == 'build']
@@ -3513,7 +3577,7 @@ def run_global(root, task):
     return file_ref(out)
 
 
-def closure_record(root, s, module_id, kind, sequence, actor=None):
+def closure_record(root, s, module_id, kind, sequence, actor=None, *, asset_path_ids=()):
     """What a mechanical completion or parent summary binds: the facts its guard checked, written by the Ledger under
     reports/<kind>/ so the event references a file with a hash like any other."""
     import run_storage
@@ -3552,7 +3616,8 @@ def closure_record(root, s, module_id, kind, sequence, actor=None):
     elif kind == 'owed-gaps':
         m = s['modules'][module_id]
         body = {'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
-                'gaps': {iid: s['issues'][iid]['summary'] for iid in owed_gaps(s, m)},
+                'gaps': asset_gaps(s, m) if asset_path_ids else {iid: s['issues'][iid]['summary'] for iid in owed_gaps(s, m)},
+                **({'asset_path_ids': asset_path_ids} if asset_path_ids else {}),
                 'request': 'complete the plan with what it owes; tasks and paths that do not change keep their code and Green'}
     elif kind == 'route-review':
         b = s['audit_batch']
@@ -3645,7 +3710,7 @@ def advance(root, principal, module_id, workers=None, *, pause_for_rotation=Fals
             payload = {'assignment_id': step['assignment_id']}
         elif step['operation'] == 'change' and step.get('reason') == 'owed-gaps':
             s = read_events(root)[0]
-            ref = closure_record(root, s, module_id, 'owed-gaps', sequence)
+            ref = closure_record(root, s, module_id, 'owed-gaps', sequence, asset_path_ids=step.get('asset_path_ids', ()))
             payload = {'request_ref': ref, 'impact_ref': ref}
         elif step['operation'] in ('freeze', 'diagnosis-accept', 'audit-defer', 'automation-unavailable', 'resume', 'audit-work', 'audit-retest', 'change'):
             payload = dict(step.get('payload') or {})

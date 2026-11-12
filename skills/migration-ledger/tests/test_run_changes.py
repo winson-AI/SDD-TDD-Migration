@@ -406,6 +406,71 @@ class PreparedRunRevisionTests(unittest.TestCase):
         self.assertEqual((result['quality'], result['retest_of']), ('green-passed', old['results']['M002-P']['test_run_id']))
         self.assertEqual(f.state()['modules']['M002']['phase'], 'dod')
 
+    def test_device_review_survives_an_independent_freeze_and_only_holds_affected_paths(self):
+        from unittest.mock import patch
+        import test_validation as tv
+
+        f = self.f
+        state = f.state()
+        state['test_adapter'] = {'device': {'platforms': ['harmony'], 'harmony': {
+            'profiles': {'physical-a': {'serial': 'one', 'model': 'A'}, 'physical-b': {'serial': 'two', 'model': 'B'}}}}}
+        def path(pid, profile):
+            return {'path_id': pid, 'kind': 'visual', 'platform': 'harmony', 'harmony_device_profile': profile}
+        first, second = path('V1', 'physical-a'), path('V2', 'physical-b')
+        mid = 'M001'
+        module = state['modules'][mid]
+        module.update(plan={'paths': [first, second]}, phase='testing', code_baseline='C')
+        report = self.report({'test_adapter': {'device': {'harmony': {'profiles': {'physical-b': {'serial': 'new'}}}}}},
+                             affected=(mid,))
+        next(row for row in report['modules'] if row['module_id'] == mid)['action'] = 'reverify'
+        ref = f.ref('device-path-review.json', report)
+        review = {'report_ref': ref, 'status': 'reviewed', 'execution_review': True, 'device_path_review': True}
+        state['run_change_review'] = review
+        review['subject_sha256'] = run_changes.review_subject(state, review)
+        peer = state['modules']['M002']
+        peer.update(plan={'paths': [path('V3', 'physical-a')]}, freeze_id='peer-freeze', plan_hash='peer-plan')
+        self.assertEqual(review['subject_sha256'], run_changes.review_subject(state, review))
+        self.assertEqual(run_changes.pending_device_paths(state, mid), {'V2'})
+        self.assertFalse(run_changes.execution_switch_pending(state, mid, ['V1']))
+        self.assertTrue(run_changes.execution_switch_pending(state, mid, ['V2']))
+        devices = run_changes.changed_devices(state, report)
+        with patch.object(ledger, 'worker_dependencies_ready'), patch.object(tv, 'artifact_only_visual', return_value=True), \
+                patch.object(run_changes, 'retain_verification', return_value=set()):
+            assignment = {'role': 'test-runner', 'test_scope': 'visual', 'artifact_only': True,
+                          'execution_contract': {'path_ids': ['V1']}}
+            self.assertFalse(run_changes.blocks_switch(state, module, assignment, devices))
+            assignment['execution_contract']['path_ids'] = ['V2']
+            self.assertTrue(run_changes.blocks_switch(state, module, assignment, devices))
+        peer['plan']['paths'].append(path('V4', 'physical-b'))
+        self.assertNotEqual(review['subject_sha256'], run_changes.review_subject(state, review))
+
+    def test_corrupt_hap_only_expires_its_build_and_consumers(self):
+        from unittest.mock import patch
+        import task_revalidation
+
+        f = self.f
+        good = f.ref('good.hap', 'good')
+        bad = f.ref('bad.hap', 'before')
+        build = {pid: {'path_id': pid, 'kind': 'build'} for pid in ('B1', 'B2')}
+        visual = {pid: {'path_id': pid, 'kind': 'visual', 'platform': 'harmony'} for pid in ('V1', 'V2')}
+        module = {'module_id': 'M001', 'code_baseline': 'C', 'freeze_id': 'F', 'phase': 'testing',
+                  'build_artifacts': [good, bad], 'plan': {'paths': [*build.values(), *visual.values()]}, 'results': {}}
+        proof = f.ref('test-input.json', {})
+        for bid, vid, artifact in [('B1', 'V1', good), ('B2', 'V2', bad)]:
+            for pid, fields in [(bid, {'build_artifacts': [artifact]}), (vid, {'visual_alignment': {'hap_ref': artifact}})]:
+                receipt = f.ref(pid + '-device-reverify.json', {'producer': 'host-executor', 'run_id': 'demo',
+                    'module_id': 'M001', 'path_id': pid, 'freeze_id': 'F', 'code_baseline': 'C', 'test_run_id': pid,
+                    'query_ref': proof, 'result_ref': proof, 'log_ref': proof})
+                module['results'][pid] = {'quality': 'green-passed', 'code_baseline': 'C', 'test_run_id': pid,
+                                          'executed': True, 'execution_receipt': receipt, **fields}
+        Path(bad['path']).write_text('drifted')
+        with patch.object(ledger, 'current'), patch.object(ledger, 'dependencies_ready'), \
+                patch.object(task_revalidation, 'current_build_paths', side_effect=lambda _s, _m, _root, ids: ids):
+            run_changes.reverify({'run_id': 'demo'}, module, {'harmony-physical-a'}, proof, root=f.root)
+        self.assertEqual(module['retained_build_paths'], ['B1'])
+        self.assertFalse(module['results']['V1'].get('stale', False))
+        self.assertTrue(module['results']['V2']['stale'])
+
     def test_device_change_scopes_global_results_and_active_integration(self):
         src = test_source_changes.SourceChangeTests(); self.addCleanup(src.doCleanups)
         device = {'platforms': ['android', 'web'], 'android': {'serial': 'before'}, 'web': {'url': 'https://example.test'}}

@@ -58,11 +58,15 @@ Test-Runner 在同一 HAP、设备锁和 fence 下保留 HDC PNG 和前后原始
 
 ### Harmony 模拟器与真机
 
-在 `test_adapter.device.harmony.profiles` 声明独立设备配置。例如 `{"emulator":{"serial":"<HDC emulator>"},"physical":{}}` 会预留真机覆盖。接入指定真机时，以同 Run 的设备 `reverify` 补 `physical.serial` 和 `physical.model`。两个设备不能共享 serial。叶子 SPEC 为每个需要验证的设备与限定配置冻结独立 PATH，设置 `harmony_device_profile` 为 `emulator` 或 `physical`，引用对应的 `target_preview.environments.harmony-emulator` 或 `harmony-physical`。旧的不带 profile 的 PATH 继续使用原 Harmony 环境。既有冻结漏了必需真机配置时，用同 scope 的 CR 补 PATH。设备不可用时记录缺口，同一 CASE 的模拟器和真机分开统计。
+在 `test_adapter.device.harmony.profiles` 声明独立设备配置。例如 `{"emulator":{"serial":"<HDC emulator>"},"physical":{}}` 会预留真机覆盖。接入指定真机时，以同 Run 的设备 `reverify` 补 `physical.serial` 和 `physical.model`。两个设备不能共享 serial。叶子 SPEC 为每个需要验证的设备与限定配置冻结独立 PATH，设置 `harmony_device_profile` 为设备配置名，引用对应的 `target_preview.environments.harmony-<profile>`。保留原有 `emulator` 与 `physical` 名称，也可用 `physical-high-dpi`、`physical-default` 等独立配置。已冻结的配置换绑只影响对应 PATH，其他真机覆盖仍可用。旧的不带 profile 的 PATH 继续使用原 Harmony 环境。既有冻结漏了必需真机配置时，用同 scope 的 CR 补 PATH。设备不可用时记录缺口，同一 CASE 的模拟器和真机分开统计。
 
 真机首轮使用 API 20+ 的主显示（display 0）和单一应用窗口。用同一已验收的签名 HAP 验证浅色和深色。需要区分密度时补实际配置跨档的设备。构建把每次唯一的 由 64 个小写十六进制字符组成的构建标识打包到 `resources/rawfile/sdd-build-id.txt`。正式消费者旁的测试探针读回已安装应用内的标识，使用 `schema_version: 2`，沿用 `configuration` 并带 `build_id`、`viewport: {display_id, window_id, window_bounds_px, orientation}`。每个 `resources[resource_id]` 回报 `{value, resolved_qualifier}`，限定符取正式消费者实际选择的可区分目录或分支。确有获审图片转换时，可冻结 `selections.<check_id>.target_sha256` 校验目标已打包图片的原始字节，PNG 屏幕比对仍以存量渲染参考为准。
 
-Ledger 重读 HDC 型号和系统版本，核对部署的 HAP 引用、应用读回标识、配置、截图及前后 UI 树。真机型号来自宿主配置和设备读回，证据范围限于当前接入的设备。未取得实际选档证据时只能确认值一致，真机档位仍未通过。错误档位或值在正式观测中为 Red，设备、安装标识、窗口或取证能力缺失时保留 Yellow。构建和设备检查只在对应 PATH 执行时加载。
+Ledger 重读 HDC 型号和系统版本，核对部署的 HAP 引用、应用读回标识、配置、截图及前后 UI 树。真机前后用 WindowManager 获取主屏焦点窗口，再以 `dumpLayout -w` 取该窗口的树。回执重核前树采集及下载、PNG 采集及下载、后树采集及下载的顺序和窗口一致性。原生整窗与 UI 树内容边界分别记账，状态栏等内边距可以存在。内容区须落在整窗内，整窗须可直接对应主屏截图坐标。真机型号来自宿主配置和设备读回，证据范围限于当前接入的设备。未取得实际选档证据时只能确认值一致，真机档位仍未通过。错误档位或值在正式观测中为 Red，设备、安装标识、窗口或取证能力缺失时保留 Yellow。构建和设备检查只在对应 PATH 执行时加载。
+
+对需要区分系统选档与窗口覆盖的 PATH，在 `harmony_resource_probe.configuration_scope` 冻结 `system` 或 `window`。新版 `schema_version: 3` 保留 `configuration` 作为正式消费者的有效配置，并用 `system_configuration` 从系统配置来源读取密度、夜间或语言。可在 PATH 探针契约中同时冻结预期系统值。系统覆盖要求参与判定的系统字段和有效字段都符合预期。窗口覆盖可记录两套不同的值。
+
+资源探针从正式消费者的实际选档读回 `identity`。图片可在映射冻结 `target_entry`，Ledger 从已验收 HAP 重新读取该成员的字节哈希，与消费者取到的哈希对照。XML 可冻结 `target_branch`，同时核对分支标识、类型和值。无法区分候选时允许探针返回空的 `resolved_qualifier` 或 `identity`，已冻结的选档要求保持待验证。
 
 ## 动态参数与布局结构
 

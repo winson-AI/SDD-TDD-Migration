@@ -72,6 +72,23 @@ class AuditPathEvidenceTests(unittest.TestCase):
             self.assertNotIn('retained_build_paths', module)
             self.assertEqual([p['path_id'] for p in tv.dispatch_paths(module, 'build')], ['B1', 'B2'])
 
+    def test_visual_asset_cr_is_reachable_after_an_independent_path_passes(self):
+        import ledger
+        import test_validation as tv
+
+        paths = [{'path_id': 'V-ready', 'kind': 'visual'},
+                 {'path_id': 'V-fixture', 'kind': 'visual', 'preparation': {'status': 'deferred'}}]
+        module = {'module_id': 'M001', 'phase': 'testing', 'revision': 2, 'assignments': {}, 'stale': False,
+                  'plan': {'paths': paths}, 'code_baseline': 'C', 'no_progress_rounds': 0,
+                  'results': {'V-ready': {'quality': 'green-passed', 'code_baseline': 'C'}}}
+        state = {'modules': {'M001': module}, 'issues': {}, 'max_no_progress_rounds': 3}
+        with patch.object(tv, 'split', return_value=True), patch.object(tv, 'next_scope', return_value='visual'), \
+                patch.object(tv, 'review_first', return_value=False):
+            step = ledger._next_step(state, module)
+        self.assertEqual((step['operation'], step['mechanical'], step['asset_path_ids']),
+                         ('change', True, ['V-fixture']))
+        self.assertTrue(tv.path_green(module, 'V-ready'))
+
     def test_only_consumers_of_a_bound_provider_build_lose_their_visual_receipt(self):
         import ledger
         import test_validation as tv

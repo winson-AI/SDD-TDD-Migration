@@ -231,7 +231,10 @@ def boot_shape(boot, label):
             label + ' takes the absolute argv that boots the emulator, an optional absolute cwd and timeout_seconds')
 
 
-HARMONY_DEVICE_PROFILES = ('emulator', 'physical')
+def harmony_profile_kind(name):
+    if isinstance(name, str) and (match := re.fullmatch(r'(emulator|physical)(?:-[a-z0-9]+)*', name)):
+        return match[1]
+    return None
 
 
 def device_inputs(device):
@@ -247,7 +250,7 @@ def device_inputs(device):
 
 def path_device(path):
     profile = path.get('harmony_device_profile')
-    return f'harmony-{profile}' if profile in HARMONY_DEVICE_PROFILES else path.get('platform')
+    return f'harmony-{profile}' if harmony_profile_kind(profile) else path.get('platform')
 
 
 def target_preview(platform, value):
@@ -268,16 +271,17 @@ def target_preview(platform, value):
     profiles = value.get('profiles') if platform == 'harmony' and isinstance(value, dict) else None
     if profiles is not None:
         allowed.add('profiles')
-        require(isinstance(profiles, dict) and profiles and set(profiles) <= set(HARMONY_DEVICE_PROFILES),
-                'Harmony profiles are emulator and/or physical')
+        require(isinstance(profiles, dict) and profiles and all(harmony_profile_kind(name) for name in profiles),
+                'Harmony profiles are emulator or physical, optionally with a lowercase name suffix')
         serials = []
         for name, profile in profiles.items():
-            fields = {'serial', 'model'} if name == 'physical' else {'serial', 'boot'}
+            physical = harmony_profile_kind(name) == 'physical'
+            fields = {'serial', 'model'} if physical else {'serial', 'boot'}
             require(isinstance(profile, dict) and set(profile) <= fields, 'invalid Harmony device profile')
             if profile:
                 require(isinstance(profile.get('serial'), str) and profile['serial'].strip(), 'Harmony profile requires HDC serial')
                 serials.append(profile['serial'])
-            if name == 'physical' and profile:
+            if physical and profile:
                 require(isinstance(profile.get('model'), str) and profile['model'].strip(), 'physical profile needs provisioned device model')
             boot_shape(profile.get('boot'), label + '.profiles.' + name + '.boot')
         require(len(serials) == len(set(serials)), 'Harmony emulator and physical profiles must use distinct devices')

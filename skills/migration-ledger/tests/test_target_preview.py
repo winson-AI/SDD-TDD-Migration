@@ -38,12 +38,13 @@ class TargetPreviewTests(unittest.TestCase):
 
         t = test_project_context.ProjectContextTests(); t.setUp(); self.addCleanup(t.doCleanups)
         device = {'platforms': ['harmony'], 'harmony': {
-            'profiles': {'emulator': {'serial': 'emulator-hdc'}, 'physical': {}}, 'app_id': 'com.example.app'}}
+            'profiles': {'emulator': {'serial': 'emulator-hdc'}, 'physical': {},
+                         'physical-high-dpi': {'serial': 'second-phone', 'model': 'Phone B'}}, 'app_id': 'com.example.app'}}
         pc.update(t.root, t.request('device', 1, {'test_adapter': {'device': device}}), t.actor)
         t.start(t.init_payload(t.prepare()))
         state = ledger.read_events(t.run)[0]
         envs = state['target_preview']['environments']
-        self.assertEqual(set(envs), {'harmony-emulator', 'harmony-physical'})
+        self.assertEqual(set(envs), {'harmony-emulator', 'harmony-physical', 'harmony-physical-high-dpi'})
         self.assertIsNone(read_json(check_ref(envs['harmony-physical']))['visual_capture']['device_id'])
         patch = {'harmony': {'profiles': {'physical': {'serial': 'phone-hdc', 'model': 'Phone A'}}}}
         report = {'context_patch': {'test_adapter': {'device': patch}}}
@@ -52,13 +53,14 @@ class TargetPreviewTests(unittest.TestCase):
         revised = run_changes.revised_preview(t.run, state, updated)
         changed = run_changes.changed_devices(state, report)
         self.assertEqual(changed, {'harmony-physical'})
-        for profile, affected in [('emulator', False), ('physical', True)]:
+        for profile, affected in [('emulator', False), ('physical', True), ('physical-high-dpi', False)]:
             key = 'harmony-' + profile
             path = {'platform': 'harmony', 'kind': 'visual', 'harmony_device_profile': profile,
                     'visual_execution': {'environment_ref': envs[key]}}
             self.assertEqual(run_changes.uses_changed_device(path, changed), affected)
             self.assertEqual(tv.visual_environment(path, revised['visual_environment_rebindings']), revised['environments'][key])
         self.assertEqual(revised['environments']['harmony-emulator'], envs['harmony-emulator'])
+        self.assertEqual(revised['environments']['harmony-physical-high-dpi'], envs['harmony-physical-high-dpi'])
         self.assertEqual(read_json(check_ref(revised['environments']['harmony-physical']))['visual_capture']['device_id'], 'phone-hdc')
         with self.assertRaisesRegex(Rejected, 'distinct devices'):
             pc.target_preview('harmony', pc.merge(updated, {'harmony': {'profiles': {

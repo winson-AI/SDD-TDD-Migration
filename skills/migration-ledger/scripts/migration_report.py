@@ -80,16 +80,17 @@ def qualified_proof(rows, mid, resource, alternatives, matching, carriers):
         bound = (actual and device_configuration.distinguishes(actual, resource['qualifier'], alternatives)
                  if platform != 'harmony' else capture.get('platform') == 'harmony' and any(
                      (check.get('resource_selection') or {}).get('status') == 'match'
-                     and (profile != 'physical' or (check.get('resource_selection') or {}).get('resolved_qualifier'))
+                     and (project_context.harmony_profile_kind(profile) != 'physical' or (check.get('resource_selection') or {}).get('resolved_qualifier'))
                      for check in matching_screen)
                  and (not profile or capture.get('harmony_device_profile') == profile)
-                 and (profile != 'physical' or capture.get('physical_device')))
+                 and (project_context.harmony_profile_kind(profile) != 'physical' or capture.get('physical_device')))
         verified = bool(row['quality'] == 'green-passed' and row['attempt_executed'] and not row['stale']
                         and bound and matching_screen)
         by_platform.setdefault(platform, []).append({'path_id': row['path_id'],
             'configuration': row.get('device_configuration') or {}, 'observed_configuration': actual,
             'device_profile': profile, 'observed_device_profile': capture.get('harmony_device_profile'),
             'physical_device': capture.get('physical_device'),
+            **({key: capture[key] for key in ('configuration_scope', 'system_configuration') if key in capture}),
             'resource_selection': [{**check['resource_selection'], 'proof': 'resolved' if
                                     check['resource_selection'].get('resolved_qualifier') else 'value-only'}
                                    for check in checks if check.get('resource_selection')],

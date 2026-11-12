@@ -72,7 +72,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 **SDD 先规划后执行、边执行边调整；TDD 从上游全量用例建立冻结前覆盖，在 automation 中收集实现错误和不符合预期的证据，再调整 TASK 实现。** 未生成代码不执行目标测试，首次即 Green 如实记录，不伪造 test-first RED。
 
-**冻结前定清行为断言和保真义务。** 每个已纳入 SPEC 的 Scenario 需要行为 PATH 上的预期断言。 适用的 API/URL、图片来源与图标、XML 布局参数沿四维条目绑定目标消费者、迁移策略和验收义务。优先原样复制可加载资源，复用解析后的参数值。Ledger 按内容归档派生的复制清单、参数表和四维分析，派发时只同步当前 TASK 拥有的输出。CR 更新同名输出时先核对上一份验收哈希。复制与参数生成落到同一路径时由冻结门禁报冲突，目标文件出现独立修改时保留原字节，冲突与回执关联当前派发。`drive` 先交付独立派发，再由宿主在原 assignment 和 fence 下执行资源同步。等待同步的派发保留写范围锁，不占 worker 名额。回执通过核验且有空位时，Ledger 以 `resource-start` 在原 fence 下启动 coder。复制清单记录完整限定符、源哈希和选用依据。目标支持多档时用 `preserve_density` 和 `{qualifier}` 分别交付可加载档位，报告披露折叠及未测档位。可预览的存量先捕获基线，确实捕获不到则给出原因与证据。未结清的保真门禁回 Spec-Designer，已结清后直接进入实现。运行证据由 Test-Runner 按冻结 PATH 收集。
+**冻结前定清行为断言和保真义务。** 每个已纳入 SPEC 的 Scenario 需要行为 PATH 上的预期断言。 适用的 API/URL、图片来源与图标、XML 布局参数沿四维条目绑定目标消费者、迁移策略和验收义务。优先原样复制可加载资源，复用解析后的参数值。Ledger 按内容归档派生的复制清单、参数表和四维分析，派发时只同步当前 TASK 拥有的输出。CR 更新同名输出时先核对上一份验收哈希。复制与参数生成落到同一路径时由冻结门禁报冲突，目标文件出现独立修改时保留原字节，冲突与回执关联当前派发。`drive` 先交付独立派发，再由宿主在原 assignment 和 fence 下执行资源同步。worker 名额已满时，冻结 TASK 的资源准备仍可登记并取得对应写范围锁。同步完成的回执会唤醒等待中的 `drive`，有空位且证据通过核验后，Ledger 以 `resource-start` 在原 fence 下启动 coder。复制清单记录完整限定符、源哈希和选用依据。目标支持多档时用 `preserve_density` 和 `{qualifier}` 分别交付可加载档位，报告披露折叠及未测档位。可预览的存量先捕获基线，确实捕获不到则给出原因与证据。未结清的保真门禁回 Spec-Designer，已结清后直接进入实现。运行证据由 Test-Runner 按冻结 PATH 收集。
 
 `target_resources.parameters.configurations` 可按完整限定符生成 XML 字面值。需要在设备上验证的档位与值由视觉 PATH 冻结 `device_configuration`，并将源限定符绑定到截图、视图树和本次采集的设备配置。Test-Runner 比对图片、边界尺寸或间距、颜色采样和文本，Ledger 重算后记账。设备配置缺失或不匹配时留缺口。报告按平台、源限定符和 PATH 展示搬运、资源取值与画面。Harmony 的限定 PATH 在同一 HAP 与设备锁内，用 HDC 保存 PNG 及前后视图树，从应用内的探针读取实际配置和资源取值。 [资源与参数搬运](skills/migration-protocol/references/resource-transfer.md)
 
@@ -99,7 +99,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 `planning-reopen` 后的首次新计划仍与上一份计划比较，MO 可依据差异审核。更新后的 SPEC 经现有门禁重冻，受影响的 TASK 再更新代码。修订默认全模块重验；MO 可在 CR 的 plan-review 提交 [TASK 独立性证明](template/task-independence.json)，核对定义、写范围、读依赖、共享 PATH、未变需求及文件追溯后，只重开受影响 TASK，保留未影响 TASK 和有效成功证据。共享影响须全模块重验，过期或漏报变更的证明拒收。**新代码始终重跑 build/unit/static**，局部重验时 automation/visual 重跑受影响及非 Green 路径。原回执、test_run_id 和执行基线保留，另记 `validation_reuse`。详见 [TASK 局部重验](skills/migration-protocol/references/openspec.md#task-局部重验)。
 
-只为待测 PATH 补充 staging 中的执行资产，且生产契约、冻结命令、断言和目标测试源都未变化时，重冻保留已验收 TASK。可核验的原回执继续有效，Test-Runner 执行受影响或证据失效的 PATH。需要写入目标项目的新测试源仍走实现交付与正式复测。
+视觉分批以未通过的 PATH 判定缺口。先跑就绪项，剩余视觉 PATH 缺资产时打开对应补资产 CR。只为待测 PATH 补充 staging 中的执行资产，且生产契约、冻结命令、断言和目标测试源都未变化时，重冻保留已验收 TASK。可核验的原回执继续有效，Test-Runner 执行受影响或证据失效的 PATH。需要写入目标项目的新测试源仍走实现交付与正式复测。
 
 Ledger 为待测 PATH 发起补资产 CR 时，已验收实现和前置证据仍有效的提供方继续供依赖代码的消费者使用。需上游验收的消费者继续等验证，重冻发现生产契约、目标测试源或执行基线变化时按现有规则传播影响。
 
@@ -113,13 +113,13 @@ Ledger 为待测 PATH 发起补资产 CR 时，已验收实现和前置证据仍
 
 提供方恢复后，消费者保留冻结 SPEC、已接受代码和原有人工阻塞。Ledger 对照 PATH 验收时的提供方闭包、冻结、代码和构建产物引用，输入一致时沿用结果，变化或旧回执缺绑定时从最早失效阶段开始复测，原回执保留追溯。
 
-设备变更走同 Run 的 `reverify`。同一冻结、代码基线和可核验回执上的 build、unit、static 及未受影响的 Green 路径可以继续沿用。若缺某条构建回执，则按冻结命令、宿主输入和产物逐条核对其余构建，只补跑失效 PATH。Harmony 视觉可按 `emulator`、`physical` 分别冻结 PATH 和环境，绑定真机只影响对应覆盖项。未配置设备的已冻结 PATH 报为待验证。平台归属不明的设备路径及输入不透明的 Harmony 自动化继续保守复测。执行环境混合变更走常规重验，冻结的应用、入口或 URL 变更由 SPEC 修订处理。
+设备变更走同 Run 的 `reverify`。设备评审生效后，暂停受影响 PATH 的旧环境新派发。同叶子输入可核验且与变更无交集的受管视觉派发可按原 fence 完成。无关叶子冻结时，只要其相关设备义务及分配仍一致，评审继续有效。构建回执和产物按 PATH 校验，失效制品只影响实际消费它的受管测试，输入不透明的设备路径继续保守复测。Harmony 可为 `emulator`、`physical` 或 `physical-high-dpi` 等独立配置冻结 PATH，换绑只影响对应配置。未配置设备的已冻结 PATH 仍为待验证。混合环境变更走常规重验，冻结的应用、入口或 URL 变更由 SPEC 修订处理。
 
 持有 GLOBAL PATH 用例的叶子完成后，GO 可派独立 Test-Runner 做波次集成。受限 Android/Harmony 视觉 PATH 用冻结的 build binding，按 owner、提供方闭包、验收产物与环境绑定执行及复用。自定义或输入范围不明的命令按全局快照验收。仅其他叶子改变全局快照时，统一审计在基线稳定后复测。活动波次的输入失效后，宿主凭停止或隔离证据执行 `integration-revoke`，同 Run 恢复派发。Run 修订等待活动波次时，先完成仍有效的原派发，再应用修订。有效 Green 在统一审计复用，Red 路由给 owner。
 
 审计点名重验某条 build PATH 时，Ledger 核对同一冻结、代码基线、命令、宿主输入与产物哈希，保留证明有效的其他 build PATH。同次判定共享一次目标树扫描。补齐构建后合并产物，才继续下游验证。受管叶子 visual PATH 可绑定提供方的指定 build PATH。在功能门禁通过后，先派发制品和实际提供方闭包已就绪的 PATH。另一个提供方回溯时，与其无关的活动视觉派发可继续提交，MO 再按原规则处理模块依赖和剩余验证。输入不可核验、代码变化或涉及跨边界共享影响时重新构建受影响范围。
 
-Harmony 真机的限定资源 PATH 绑定已接受的签名 HAP、运行中应用的构建标识、HDC 设备型号和系统版本，以及同一主屏窗口的 PNG 和前后 UI 树。资源探针回读正式消费者实际选择的限定符及值。旧版探针和等值候选的回执只报告值一致，真机档位覆盖需可辨识的选择证据。详见 [Harmony 限定资源取证](skills/migration-protocol/references/resource-transfer.md#harmony)。
+Harmony 真机的限定资源 PATH 绑定已接受的签名 HAP、运行中应用的构建标识及设备身份。Ledger 核对 WindowManager 回读的焦点窗口、定向 UI 树和 PNG，验证采集与下载的完整时序。新版资源探针分别报告系统配置和应用窗口有效配置，并回读正式消费者选中的 HAP 资源成员或 XML 分支。按冻结的配置来源与标识判定覆盖。等值且不可区分的候选只确认值一致。详见 [Harmony 限定资源取证](skills/migration-protocol/references/resource-transfer.md#harmony)。
 
 Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试、完整执行、有效成功、Red/Yellow 和缺路径 CASE；参数/平台实例分别计 PATH，重试不增加分母。设备或视觉缺口按 CASE 单列为 Yellow 验收义务。实际 PATH 分母只计已冻结路径，缺口仍影响定义覆盖与完整验证。`reused_passed_paths` 单列，排除在 `current_executed_paths` 之外；成功集合附原始执行身份与证据，报告分别给出完整执行和全部通过；TASK 行的缺路径只计模块整体缺的 CASE。缺路径、缺测或失效证据不能据现有成功集合宣称全量通过。
 
@@ -179,6 +179,7 @@ Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-11-12 | 视觉分批可回到补资产 CR，资源准备在名额满时也能排队并唤醒调度。设备切换和制品失效按 PATH 收窄。Harmony 多真机覆盖独立保留，取证核对系统与窗口配置、原生窗口时序和实际资源标识。 |
 | 2026-11-12 | 待同步派发释放 worker 名额，按就绪 PATH 验证，独立草案保留，调度结束再发布投影。Harmony 模拟器和真机分项记账，真机核对构建、主屏窗口和实际资源档位。 |
 | 2026-11-12 | 独立派发先返回，资源同步在原 fence 下恢复。来源评审保留同输入的 Green 进展，受管 PATH 按实际产物重验。Harmony 用应用探针、原生 PNG 和前后视图树证明限定值与选档，按平台披露证据。 |
 | 2026-11-12 | 资源同步冲突保留原文件并局部报告，审计只重验失效构建 PATH。追加复用来源时缩小评审与等待范围。图片完整档位与 XML 限定值绑定实测配置和视觉回执。 |

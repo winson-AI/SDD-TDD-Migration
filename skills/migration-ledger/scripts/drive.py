@@ -273,14 +273,23 @@ def unseen(root, lines):
     return kept, len(signals) - len(new)
 
 
+def wake_stamp(root):
+    try:
+        notified = resource_binding.notification_path(root).stat()
+        notification = (notified.st_ino, notified.st_mtime_ns)
+    except FileNotFoundError:
+        notification = None
+    return journal_size(root), notification
+
+
 def drive(root, principal, workers=None, wait=None):
-    before = journal_size(root) if wait else None
+    before = wake_stamp(root) if wait else None
     lines, sequence, waiting = tick(root, principal, workers)
-    if wait and journal_size(root) == before and not any(line['kind'] in ('dispatch', 'rotate', 'host') for line in lines):
+    if wait and wake_stamp(root) == before and not any(line['kind'] in ('dispatch', 'rotate', 'host') for line in lines):
         size, deadline = before, time.monotonic() + wait
-        while journal_size(root) == size and time.monotonic() < deadline:  # tail the journal: its end moves when anyone submits
+        while wake_stamp(root) == size and time.monotonic() < deadline:
             time.sleep(POLL_SECONDS)
-        if journal_size(root) != size:
+        if wake_stamp(root) != size:
             lines, sequence, waiting = tick(root, principal, workers)
     lines, held = unseen(root, lines)
     return lines + [{'kind': 'tick', 'last_sequence': sequence, **({'signals_held': held} if held else {}),

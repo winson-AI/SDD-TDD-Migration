@@ -62,6 +62,7 @@ class ReadyImplementerTests(unittest.TestCase):
         f = fixture.f
         fixture.freeze(fixture.t.plan('M001'))
         fixture.t.freeze('M002')
+        f.call('assign', {'role': 'implementer', 'assignment_id': 'sibling', 'instance_id': 'coder'}, module='M002')
 
         replay = ledger.read_events
 
@@ -104,6 +105,23 @@ class ReadyImplementerTests(unittest.TestCase):
                 self.assertTrue(any(line['kind'] == 'running' and line.get('module_id') == 'M001' for line in lines))
                 self.assertFalse(f.state()['modules']['M001']['assignments'][pending['assignment_id']]['resource_wait'])
                 self.assertEqual(sum(e['operation'] == 'resource-start' for e in replay(f.root)[1]), 1)
+
+    def test_resource_receipt_wakes_a_waiter_without_a_journal_event(self):
+        from unittest.mock import patch
+
+        from tempfile import TemporaryDirectory
+        import resource_binding
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        (self.root / 'reports').mkdir()
+        conflict = [{'kind': 'signal', 'reason': 'resource-sync-conflict'}]
+        resumed = [{'kind': 'running', 'module_id': 'M001'}]
+        with patch.object(drive, 'journal_size', return_value=40), \
+                patch.object(drive, 'tick', side_effect=[(conflict, 8, 0), (resumed, 8, 0)]), \
+                patch.object(drive, 'unseen', side_effect=lambda root, lines: (lines, 0)), \
+                patch.object(drive.time, 'sleep', side_effect=lambda _: resource_binding.notify_ready(self.root, {'receipt_ref': {'sha256': 'receipt'}})):
+            self.assertEqual(drive.drive(self.root, MO, wait=10)[0], resumed[0])
 
     def test_independent_implementer_reaches_host_before_existing_frozen_commands(self):
         from unittest.mock import patch
