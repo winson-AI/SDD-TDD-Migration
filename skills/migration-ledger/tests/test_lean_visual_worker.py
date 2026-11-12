@@ -59,10 +59,12 @@ class VisualExecutionTests(unittest.TestCase):
         self.corrupt_image = False
         self.capture_manifest('viewport')
 
-    def hap(self, bundle='com.example.app', version=1):
+    def hap(self, bundle='com.example.app', version=1, build_id=None):
         data = io.BytesIO()
         with zipfile.ZipFile(data, 'w') as archive:
             archive.writestr('module.json', json.dumps({'app': {'bundleName': bundle, 'versionCode': version}}))
+            if build_id:
+                archive.writestr('resources/rawfile/sdd-build-id.txt', build_id)
         return data.getvalue()
 
     def image(self, fmt='JPEG', color=0):
@@ -116,6 +118,10 @@ class VisualExecutionTests(unittest.TestCase):
         stdout = ''
         if command == ['-v']:
             stdout = 'Ver: 3.1.0 test-device-tool'
+        elif command == ['shell', 'param', 'get', 'const.product.model']:
+            stdout = 'TestPhone'
+        elif command == ['shell', 'param', 'get', 'const.product.software.version']:
+            stdout = 'TestOS.21'
         elif command[:3] == ['shell', 'bm', 'dump']:
             stdout = '{"bundleName":"com.example.app","versionCode":1}'
         elif command[:3] == ['shell', 'aa', 'dump']:
@@ -139,7 +145,7 @@ class VisualExecutionTests(unittest.TestCase):
                     children.append({'attributes': {'type': 'Text', 'text': 'End', 'bounds': '[0,180][100,200]'}})
                 text = 'Login' if self.after_layout_change and '-after' in dest.name else 'Home'
                 dest.write_text(json.dumps({'attributes': {'type': 'Column', 'text': text, 'key': 'list',
-                    'bundleName': 'com.example.app', 'bounds': '[0,0][100,200]', 'scrollable': self.scrollable},
+                    'bundleName': 'com.example.app', 'bounds': getattr(self, 'window_bounds', '[0,0][100,200]'), 'scrollable': self.scrollable},
                     'children': children}))
             else:
                 self.index += 1
@@ -223,6 +229,68 @@ class VisualExecutionTests(unittest.TestCase):
         self.probe['configuration']['night'] = False
         result, _ = self.run_tool('visual-capture', install_ref=installed, round=1)
         self.assertEqual(result['root_cause']['kind'], 'device-configuration-mismatch')
+
+    def test_physical_capture_binds_packaged_build_device_window_and_actual_qualifier(self):
+        import lean_visual_adapter
+        import test_validation
+        import visual_evidence
+
+        marker = 'a' * 64
+        self.artifact.write_bytes(self.hap(build_id=marker))
+        self.module['build_artifacts'] = [file_ref(self.artifact)]
+        self.args['artifact_ref'] = file_ref(self.artifact)
+        self.path.pop('baseline_ref')
+        self.path.update(platform='harmony', harmony_device_profile='physical', image_check_ids=['title'],
+                         node_ids=['node:title'], device_configuration={'night': True, 'harmony_api_level': 21},
+                         expected_assertions=[{'assertion_id': 'V', 'expected': True}],
+                         harmony_resource_probe={'node_id': 'sdd-probe', 'selections': {
+                             'title': {'resource_id': 'title', 'target_qualifier': 'dark'}}})
+        config = read_json(self.env)
+        config['visual_capture'].update(harmony_device_profile='physical', model='TestPhone')
+        self.write('runs/harmony/sandbox/environment/visual.json', config)
+        self.path['visual_execution']['environment_ref'] = file_ref(self.env)
+        check = {'id': 'title', 'kind': 'text', 'source_resource': '@string/title', 'qualifier': 'night',
+                 'node_id': 'node:title', 'target': {'selector': {'resource-id': 'list'}}, 'expect': {'text': 'Home'}}
+        self.module['plan']['dimension_analysis_ref'] = file_ref(self.write('context/qualified.json', {'dimensions': [
+            {'dimension': 'UI', 'status': 'applicable', 'items': [{'semantic_model': {
+                'ui_evidence': {'coverage': self.path['coverage']}, 'image_checks': [check]}}]}]}))
+        self.window_bounds = '[0,0][20,20]'
+        self.probe = {'schema_version': 2, 'build_id': marker, 'configuration': {
+            'night': True, 'vp_scale': 1, 'window_width_vp': 20, 'harmony_api_level': 21},
+            'viewport': {'display_id': 0, 'window_id': 7, 'window_bounds_px': [0, 0, 20, 20], 'orientation': 'portrait'},
+            'resources': {'title': {'value': 'Home', 'resolved_qualifier': 'dark'}}}
+        test_validation.validate_visual_profile(self.path)
+        install_ref = self.installed()
+        query = {**self.path, 'run_id': 'run-1', 'module_id': 'M001', 'freeze_id': 'F1', 'code_baseline': 'code-1',
+                 'frozen_image_checks': [check], 'run_root': str(self.root), 'execution_assignment': self.task}
+        for qualifier, quality in [('dark', 'green-passed'), ('base', 'red-bug')]:
+            self.probe['resources']['title']['resolved_qualifier'] = qualifier
+            capture, _ = self.run_tool('visual-capture', install_ref=install_ref, round=1)
+            self.assertEqual(capture['status'], 'CAPTURED', capture)
+            parity = worker.parity({'path_id': 'V1', 'manifest_ref': capture['manifest_ref'], 'round': 1},
+                                   self.current_out, self.module, self.task, 'run-1')
+            report = lean_visual_adapter.report(query, None, self.base, [], parity['report_ref'])
+            self.assertEqual(report['quality'], quality)
+            test_validation.visual_result(self.module, self.path, report, report, run_root=str(self.root), assignment=self.task)
+            evidence = report['visual_alignment']['image_parity']['capture_evidence']
+            self.assertEqual(evidence['physical_device'], {'model': 'TestPhone', 'os_build': 'TestOS.21'})
+            self.assertEqual(evidence['viewport']['window_id'], 7)
+            self.assertEqual(evidence['build_id'], marker)
+            other = self.write('runs/harmony/sandbox/environment/other.json', {
+                'visual_capture': {**config['visual_capture'], 'device_id': 'another-device'}})
+            with self.assertRaisesRegex(Rejected, 'effective managed environment'):
+                visual_evidence.validate_image_parity(parity['report_ref'], checks=[check], path=self.path,
+                    code_baseline='code-1', run_root=str(self.root), assignment=self.task, environment=file_ref(other))
+        self.probe['build_id'] = 'b' * 64  # same bundle/version, different running build
+        capture, _ = self.run_tool('visual-capture', install_ref=install_ref, round=1)
+        self.assertEqual(capture['root_cause']['kind'], 'capture-environment')
+        self.assertIn('build marker', str(capture['root_cause']))
+
+        import harmony_resource_probe as probe
+        emulator_readback = [{'argv': ['hdc', '-t', 'device-1', *cmd], 'exit_code': 0, 'stdout': value}
+                             for cmd, value in [(probe.MODEL, 'emulator'), (probe.OS_BUILD, 'emulator 6.0')]]
+        with self.assertRaisesRegex(Rejected, 'HDC reports an emulator'):
+            probe.device_identity(emulator_readback, 'device-1')
 
     def test_a_path_with_image_checks_only_captures_the_target_alone(self):
         self.path.pop('baseline_ref')

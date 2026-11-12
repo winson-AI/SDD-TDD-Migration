@@ -53,6 +53,7 @@ class DriveTests(unittest.TestCase):
 class ReadyImplementerTests(unittest.TestCase):
     def test_resource_sync_is_delivered_after_independent_dispatch_and_conflicts_are_local(self):
         from unittest.mock import patch
+        import ledger
         import resource_binding
         from test_iterative_spec import UpstreamPlanTests
 
@@ -62,10 +63,20 @@ class ReadyImplementerTests(unittest.TestCase):
         fixture.freeze(fixture.t.plan('M001'))
         fixture.t.freeze('M002')
 
-        with patch.object(resource_binding, 'needs_sync', side_effect=lambda m, a: m['module_id'] == 'M001'), \
-                patch.object(resource_binding, 'sync') as sync:
+        replay = ledger.read_events
+
+        def one_slot(*args, **kwargs):
+            state, events = replay(*args, **kwargs)
+            state['max_parallel_modules'] = 1
+            return state, events
+
+        with patch.object(ledger, 'read_events', side_effect=one_slot), \
+                patch.object(resource_binding, 'needs_sync', side_effect=lambda m, a: m['module_id'] == 'M001'), \
+                patch.object(resource_binding, 'sync') as sync, \
+                patch.object(ledger, 'project_outcome', wraps=ledger.project_outcome) as project:
             lines = drive.drive(f.root, MO)
             sync.assert_not_called()
+            project.assert_called_once()
             pending = next(line for line in lines if line.get('operation') == 'resource-sync')
             self.assertEqual(pending['module_id'], 'M001')
             sibling = next(line for line in lines if line['kind'] == 'running' and line.get('role') == 'implementer'
@@ -81,6 +92,18 @@ class ReadyImplementerTests(unittest.TestCase):
             conflict = next(line for line in lines if line.get('reason') == 'resource-sync-conflict')
             self.assertEqual(conflict['module_id'], 'M001')
             self.assertTrue(any(line['kind'] == 'running' and line.get('module_id') == 'M002' for line in lines))
+            proof = f.ref('mock-resource-sync.json', {'status': 'SYNCED'})
+            with patch.object(resource_binding, 'ready_receipt', return_value={'receipt_ref': proof, 'result_ref': proof}):
+                self.assertFalse(any(line['kind'] == 'running' and line.get('module_id') == 'M001'
+                                     for line in drive.drive(f.root, MO)))
+                sibling_id = sibling['assignment_id']
+                f.call('revoke', {'assignment_id': sibling_id, 'stopped_worker_ref': proof}, role='host', module='M002')
+                f.call('suspend', {'kind': 'tooling', 'reason': 'sibling paused', 'root_cause': 'stopped', 'owner': 'host'},
+                       module='M002')
+                lines = drive.drive(f.root, MO)
+                self.assertTrue(any(line['kind'] == 'running' and line.get('module_id') == 'M001' for line in lines))
+                self.assertFalse(f.state()['modules']['M001']['assignments'][pending['assignment_id']]['resource_wait'])
+                self.assertEqual(sum(e['operation'] == 'resource-start' for e in replay(f.root)[1]), 1)
 
     def test_independent_implementer_reaches_host_before_existing_frozen_commands(self):
         from unittest.mock import patch

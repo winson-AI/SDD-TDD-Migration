@@ -32,6 +32,38 @@ class TargetPreviewTests(unittest.TestCase):
             with self.subTest(message=message), self.assertRaisesRegex(Rejected, message):
                 pc.validate({'test_adapter': {'device': bad}})
 
+    def test_attaching_reserved_harmony_physical_rebinds_only_that_profile(self):
+        import run_changes
+        import test_validation as tv
+
+        t = test_project_context.ProjectContextTests(); t.setUp(); self.addCleanup(t.doCleanups)
+        device = {'platforms': ['harmony'], 'harmony': {
+            'profiles': {'emulator': {'serial': 'emulator-hdc'}, 'physical': {}}, 'app_id': 'com.example.app'}}
+        pc.update(t.root, t.request('device', 1, {'test_adapter': {'device': device}}), t.actor)
+        t.start(t.init_payload(t.prepare()))
+        state = ledger.read_events(t.run)[0]
+        envs = state['target_preview']['environments']
+        self.assertEqual(set(envs), {'harmony-emulator', 'harmony-physical'})
+        self.assertIsNone(read_json(check_ref(envs['harmony-physical']))['visual_capture']['device_id'])
+        patch = {'harmony': {'profiles': {'physical': {'serial': 'phone-hdc', 'model': 'Phone A'}}}}
+        report = {'context_patch': {'test_adapter': {'device': patch}}}
+        updated = pc.merge(device, patch)
+        pc.target_preview('harmony', updated['harmony'])
+        revised = run_changes.revised_preview(t.run, state, updated)
+        changed = run_changes.changed_devices(state, report)
+        self.assertEqual(changed, {'harmony-physical'})
+        for profile, affected in [('emulator', False), ('physical', True)]:
+            key = 'harmony-' + profile
+            path = {'platform': 'harmony', 'kind': 'visual', 'harmony_device_profile': profile,
+                    'visual_execution': {'environment_ref': envs[key]}}
+            self.assertEqual(run_changes.uses_changed_device(path, changed), affected)
+            self.assertEqual(tv.visual_environment(path, revised['visual_environment_rebindings']), revised['environments'][key])
+        self.assertEqual(revised['environments']['harmony-emulator'], envs['harmony-emulator'])
+        self.assertEqual(read_json(check_ref(revised['environments']['harmony-physical']))['visual_capture']['device_id'], 'phone-hdc')
+        with self.assertRaisesRegex(Rejected, 'distinct devices'):
+            pc.target_preview('harmony', pc.merge(updated, {'harmony': {'profiles': {
+                'physical': {'serial': 'emulator-hdc'}}}})['harmony'])
+
     def test_init_writes_the_environment_files_from_the_statement_and_the_views_point_at_them(self):
         t = test_project_context.ProjectContextTests(); t.setUp(); self.addCleanup(t.doCleanups)
         pc.update(t.root, t.request('device', 1, {'test_adapter': {'device': DEVICE}}), t.actor)

@@ -342,6 +342,8 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
             query['frozen_visual_evidence'] = visual_evidence.frozen_evidence(m, path)
             query['frozen_image_checks'] = ui_fidelity.frozen_image_checks(m, path)
             query['run_root'] = str(root)
+            if path.get('harmony_device_profile'):
+                query['effective_visual_environment'] = tv.visual_environment(path, m.get('visual_environment_rebindings'))
             query['execution_assignment'] = {'assignment_id': a['assignment_id'],
                                              'fencing_token': a.get('fencing_token')}
     for pid in pids:

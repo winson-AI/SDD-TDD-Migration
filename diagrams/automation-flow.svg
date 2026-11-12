@@ -32,7 +32,7 @@
 <rect x="1160" y="375" width="380" height="195" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1350.0" y="422.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">派发前核对本批 PATH 资产</text>
 <text x="1350.0" y="456.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">unit 缺资产时先跑就绪 build</text>
-<text x="1350.0" y="485.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">自动化先派发资产齐备的 PATH</text>
+<text x="1350.0" y="485.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">自动化 / 受管视觉先派就绪 PATH</text>
 <text x="1350.0" y="514.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅补执行资产：保留已验收 TASK</text>
 <text x="1350.0" y="543.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同 Run 重冻后测试待验证 PATH</text>
 <path d="M780,490 L780,550" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
@@ -95,11 +95,12 @@
 <text x="780.0" y="1427.0" font-size="21.00" fill="#4b5563" text-anchor="middle" font-weight="400">receipt.json：身份 / 时间 / argv / 退出码 / hash</text>
 <path d="M1100,1380 L1160,1380" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#arrow-blue)"/>
 <rect x="1160" y="1255" width="380" height="205" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
-<text x="1350.0" y="1307.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">限定配置的视觉 PATH</text>
-<text x="1350.0" y="1341.5" font-size="18.87" fill="#4b5563" text-anchor="middle" font-weight="400">冻结密度 / 夜间 / 宽度 / 语言 / API</text>
-<text x="1350.0" y="1370.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Harmony 用 PNG 与前后原始树</text>
-<text x="1350.0" y="1399.5" font-size="21.88" fill="#4b5563" text-anchor="middle" font-weight="400">设备配置、资源取值、屏幕三者核对</text>
-<text x="1350.0" y="1428.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">配置缺失或不匹配记为未验证</text>
+<text x="1350.0" y="1293.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">限定配置的视觉 PATH</text>
+<text x="1350.0" y="1327.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">模拟器与真机分别冻结配置和 PATH</text>
+<text x="1350.0" y="1356.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">真机核对 HAP 标识与 HDC 型号</text>
+<text x="1350.0" y="1385.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同一主屏窗口的 PNG 与前后树</text>
+<text x="1350.0" y="1414.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核对正式消费者实际选档与取值</text>
+<text x="1350.0" y="1443.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">真机缺证记未验证</text>
 <rect x="60" y="1340" width="340" height="235" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="230.0" y="1393.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">CR 验证范围</text>
 <text x="230.0" y="1427.0" font-size="21.07" fill="#4b5563" text-anchor="middle" font-weight="400">无证明 / 共享影响：全模块重验</text>

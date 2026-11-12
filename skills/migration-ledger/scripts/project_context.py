@@ -231,6 +231,25 @@ def boot_shape(boot, label):
             label + ' takes the absolute argv that boots the emulator, an optional absolute cwd and timeout_seconds')
 
 
+HARMONY_DEVICE_PROFILES = ('emulator', 'physical')
+
+
+def device_inputs(device):
+    inputs = {platform: device.get(platform) for platform in device.get('platforms', [])}
+    if 'harmony' in inputs and isinstance(inputs['harmony'], dict):
+        harmony = inputs['harmony']
+        inputs['harmony'] = {k: v for k, v in harmony.items() if k != 'profiles'}
+        inputs.update({f'harmony-{name}': {**profile, 'app_id': harmony.get('app_id'), 'launch': harmony.get('launch'),
+                                           'tool': harmony.get('tool')}
+                       for name, profile in harmony.get('profiles', {}).items()})
+    return inputs
+
+
+def path_device(path):
+    profile = path.get('harmony_device_profile')
+    return f'harmony-{profile}' if profile in HARMONY_DEVICE_PROFILES else path.get('platform')
+
+
 def target_preview(platform, value):
     """Where the target of one platform is previewed: the adb/hdc serial (and how its emulator boots), or the served url."""
     text = lambda key: isinstance(value.get(key), str) and bool(value[key].strip())
@@ -245,7 +264,25 @@ def target_preview(platform, value):
         require(all(value.get(k) in (None, True, False) for k in ('headless', 'record_video')), label + '.headless and record_video are booleans')
         return
     tool = 'adb' if platform == 'android' else 'hdc'
-    require(isinstance(value, dict) and set(value) <= {'serial', 'avd', 'boot', 'tool', 'app_id', 'launch'} and text('serial'),
+    allowed = {'serial', 'avd', 'boot', 'tool', 'app_id', 'launch'}
+    profiles = value.get('profiles') if platform == 'harmony' and isinstance(value, dict) else None
+    if profiles is not None:
+        allowed.add('profiles')
+        require(isinstance(profiles, dict) and profiles and set(profiles) <= set(HARMONY_DEVICE_PROFILES),
+                'Harmony profiles are emulator and/or physical')
+        serials = []
+        for name, profile in profiles.items():
+            fields = {'serial', 'model'} if name == 'physical' else {'serial', 'boot'}
+            require(isinstance(profile, dict) and set(profile) <= fields, 'invalid Harmony device profile')
+            if profile:
+                require(isinstance(profile.get('serial'), str) and profile['serial'].strip(), 'Harmony profile requires HDC serial')
+                serials.append(profile['serial'])
+            if name == 'physical' and profile:
+                require(isinstance(profile.get('model'), str) and profile['model'].strip(), 'physical profile needs provisioned device model')
+            boot_shape(profile.get('boot'), label + '.profiles.' + name + '.boot')
+        require(len(serials) == len(set(serials)), 'Harmony emulator and physical profiles must use distinct devices')
+    require(isinstance(value, dict) and set(value) <= allowed and (text('serial') or profiles and 'serial' not in value
+            and not {'avd', 'boot'}.intersection(value)),
             label + ' names the serial ' + tool + ' sees (avd, boot, tool, app_id and launch optional)')
     require(all(value.get(k) is None or text(k) for k in ('app_id', 'launch')),
             label + '.app_id and launch name the target application and its launch activity / ability, so a visual PATH starts prefilled')
@@ -287,9 +324,8 @@ def target_preview_files(root, device, *, revision=False):
         path.write_bytes(data)
         return file_ref(path)
 
-    for platform in device['platforms']:
-        preview = device.get(platform)
-        if preview is None:
+    for platform, preview in device_inputs(device).items():
+        if preview is None or platform == 'harmony' and not preview.get('serial'):
             continue
         folder.mkdir(parents=True, exist_ok=True)
         if platform == 'web':
@@ -297,8 +333,12 @@ def target_preview_files(root, device, *, revision=False):
             main = {'browser': preview.get('browser', 'chromium'), 'headless': preview.get('headless', True), 'viewport': preview.get('viewport'), 'record_video': bool(preview.get('record_video'))}
             out['web_main_config'] = write('web.json', main)
         else:
-            capture = {'backend': 'adb' if platform == 'android' else 'hdc', 'tool': preview.get('tool') or ('adb' if platform == 'android' else 'hdc'), 'device_id': preview['serial'],
-                       **{k: preview[k] for k in ('avd', 'boot') if preview.get(k)}}
+            capture = {'backend': 'adb' if platform == 'android' else 'hdc',
+                       'tool': preview.get('tool') or ('adb' if platform == 'android' else 'hdc'),
+                       'device_id': preview.get('serial'),
+                       **{k: preview[k] for k in ('avd', 'boot', 'model') if preview.get(k)}}
+            if platform.startswith('harmony-'):
+                capture['harmony_device_profile'] = platform.removeprefix('harmony-')
         out.setdefault('environments', {})[platform] = write(f'target-preview-{platform}.json',
             {'visual_capture': capture, 'visual_model': {'mode': 'external', 'enabled': False}})
     return out

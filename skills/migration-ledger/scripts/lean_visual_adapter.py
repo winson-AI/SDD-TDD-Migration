@@ -79,7 +79,8 @@ def image_part(query, parity_ref):
     proof = None
     if set(statuses) == {'MATCH'} or query.get('harmony_resource_probe'):
         proof = visual_evidence.validate_image_parity(parity_ref, checks=checks, path=query, code_baseline=query['code_baseline'],
-                                                      run_root=query.get('run_root'), assignment=query.get('execution_assignment'))
+                                                      run_root=query.get('run_root'), assignment=query.get('execution_assignment'),
+                                                      environment=query.get('effective_visual_environment'))
     if 'MISMATCH' in statuses:
         quality, category, owner = 'red-bug', 'visual-alignment', 'fixer'
     elif set(statuses) != {'MATCH'}:

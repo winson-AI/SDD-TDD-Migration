@@ -69,25 +69,27 @@ def tick(root, principal, workers=None):
     """Make ready coding assignments visible before executing unrelated frozen commands."""
     started = False
     for _ in range(50):
-        st = ledger.status(root)
+        st = ledger.status(root, publish=False)
         steps = st['next_steps']
         actions = []
         for step in steps:
             if step.get('mechanical') and step.get('ready') and step['operation'] != 'await-result':
-                actions += ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True, defer_commands=True, defer_resources=True)['applied']
-        actions += ledger.advance_run(root, principal, workers, defer_commands=True)
+                actions += ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True, defer_commands=True, defer_resources=True, publish=False)['applied']
+        actions += ledger.advance_run(root, principal, workers, defer_commands=True, publish=False)
         started |= any(a['operation'] == 'assign' and a.get('role') == 'implementer' for a in actions)
         if actions:
             continue
         if started or ready_plan_to_deliver(root, st):
             break
+        if start_ready_resources(root, principal, st):
+            break
         for step in steps:
             if step.get('mechanical') and step.get('ready') and step['operation'] == 'await-result':
-                actions = ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True, defer_resources=True)['applied']
+                actions = ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True, defer_resources=True, publish=False)['applied']
                 if actions:
                     break
         else:
-            actions = ledger.advance_run(root, principal, workers)
+            actions = ledger.advance_run(root, principal, workers, publish=False)
         started |= any(a['operation'] == 'assign' and a.get('role') == 'implementer' for a in actions)
         if not actions:
             break
@@ -106,6 +108,9 @@ def tick(root, principal, workers=None):
             else:
                 lines.append({'kind': 'host', **row(step), **request, 'payload': step.get('payload') or {},
                               **({'branch': step['branch']} if step.get('branch') else {})})
+        elif operation == 'resource-start' and step.get('assignment_id'):
+            module = st['modules'][step['module_id']]
+            resource_pending(root, module, module['assignments'][step['assignment_id']], resource_lines)
         elif not operation or step.get('mechanical') and step.get('ready'):
             continue
         elif step.get('human_required') or step.get('reason') in PERSON:
@@ -113,8 +118,9 @@ def tick(root, principal, workers=None):
         elif operation == 'await-result' or step.get('reason') == 'audit-running':
             a = (st['modules'].get(step.get('module_id')) or {}).get('assignments', {}).get(step.get('assignment_id')) or {}
             module = st['modules'].get(step.get('module_id'))
-            if a.get('resource_sync_deferred') and resource_pending(root, module, a, resource_lines):
-                continue
+            if ('resource_wait' not in a and a.get('resource_sync_deferred')
+                    and resource_binding.needs_sync(module, a) and resource_pending(root, module, a, resource_lines)):
+                continue  # compatibility with assignments already recorded before queued resource dispatch
             details = ({key: a[key] for key in ('artifact_only', 'test_scope', 'fencing_token')} if a.get('artifact_only') else {})
             lines.append({'kind': 'running', **row({**step, **details}, card(root, step, a.get('instance_id')))})
         elif step.get('ready'):
@@ -146,9 +152,38 @@ def tick(root, principal, workers=None):
     return lines, st['last_sequence'], waiting
 
 
+def start_ready_resources(root, principal, st):
+    if ledger.worker_slots(st) >= st['max_parallel_modules']:
+        return False
+    _, handed, _, _ = dispatch_budget(root, st, [])
+    steps = {s['module_id']: s for s in st['next_steps']}
+    planning = {mid for mid, stamp in handed.items() if mid in steps and steps[mid].get('operation') == 'plan'
+                and stamp == ['plan', steps[mid].get('expected_revision')]}
+    if ledger.worker_slots(st) + len(planning) >= st['max_parallel_modules']:
+        return False
+    for module in st['modules'].values():
+        for assignment in module['assignments'].values():
+            if assignment.get('closed') or not assignment.get('resource_wait') or module.get('blocked'):
+                continue
+            try:
+                sync = resource_binding.ready_receipt(root, module, assignment, verify_outputs=True)
+                if not sync:
+                    continue
+                ledger.apply(root, {'schema_version': 1, 'run_id': st['run_id'], 'module_id': module['module_id'],
+                                    'request_id': 'resource-start-%s-%s' % (assignment['fencing_token'], module['revision']),
+                                    'expected_revision': module['revision'], 'operation': 'resource-start',
+                                    'payload': {'assignment_id': assignment['assignment_id'],
+                                                'fencing_token': assignment['fencing_token'], 'sync': sync}},
+                             principal, publish=False)
+            except (ValueError, OSError, KeyError, TypeError):
+                continue  # the final cursor reports conflicts and concurrent changes
+            return True
+    return False
+
+
 def resource_pending(root, module, assignment, lines):
     try:
-        if not resource_binding.needs_sync(module, assignment) or resource_binding.ready_receipt(root, module, assignment):
+        if resource_binding.ready_receipt(root, module, assignment, verify_outputs=True):
             return False
         _, _, previous = resource_binding.attempts(root, assignment)
         receipt = previous[-1] / 'receipt.json' if previous else None
@@ -205,7 +240,7 @@ def dispatch_budget(root, st, lines):
     modules, steps = st['modules'], {s['module_id']: s for s in st['next_steps']}
     def depth(mid, trail=()):
         return 1 + max((depth(d, (*trail, mid)) for d in modules[mid].get('dependencies', []) if d in modules and d not in trail), default=0)
-    busy = {mid for mid, m in modules.items() if any(not a.get('closed') for a in m['assignments'].values())}
+    busy = {mid for mid, m in modules.items() if any(not a.get('closed') and not a.get('resource_wait') for a in m['assignments'].values())}
     busy |= {mid for mid, (op, revision) in handed.items()
              if mid in steps and [steps[mid].get('operation'), steps[mid].get('expected_revision')] == [op, revision]}
     order = sorted((line for line in lines if line['kind'] in ('dispatch', 'rotate') and line.get('module_id') in modules),

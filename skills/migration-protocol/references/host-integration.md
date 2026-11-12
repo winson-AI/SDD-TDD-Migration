@@ -136,4 +136,4 @@ Agent Markdown 使用 `name/description/mode: subagent`，命令只有 `descript
 
 ## 分派资源同步
 
-`drive` 会先返回可启动的独立 worker，再交付需要资源的 `host` 行。遇到 `operation: resource-sync`，宿主运行 `drive.py --root <run> --host-context <MO 身份> --resource-sync <module_id> <assignment_id>`，然后用下一轮 `drive` 取得该 coder 的运行行。命令以当前派发身份和 fence 写入，先核对该派发中拥有资源输出的 TASK。完成回执可重读。冲突保留当前文件并由下一轮 `drive` 给出本地回执，处理落点或修改归属后可在相同派发重试。同一派发的并发尝试互斥。
+`drive` 会先返回可启动的独立 worker，再交付需要资源的 `host` 行。遇到 `operation: resource-sync`，宿主运行 `drive.py --root <run> --host-context <MO 身份> --resource-sync <module_id> <assignment_id>`，随后由 `drive` 在有 worker 名额时提交 `resource-start` 并返回该 coder 的运行行。同步等待期间保留当前 assignment、写范围锁和 fence，其他独立 worker 可用并行名额。命令以当前派发身份和 fence 写入，先核对该派发中拥有资源输出的 TASK。完成回执可重读。冲突保留当前文件并由下一轮 `drive` 给出本地回执，处理落点或修改归属后可在相同派发重试。同一派发的并发尝试互斥。

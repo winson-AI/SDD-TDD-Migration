@@ -22,11 +22,13 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1762 | 全量通过，另复核最终 55 项定向回归 |
+| migration-ledger/tests | 1797 | 全量通过 |
 | migration-test/tests | 83 | 全量通过 |
 | runtime/harmony/tests | 128 | 全量通过 |
 
-三套测试用 Harmony sandbox 的 Python 3.11+ 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败/错误/跳过。测试仅使用隔离临时目录、本地模拟端口和测试子进程。
+三套回归用 Harmony sandbox 的 Python 3.12 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败、错误或跳过。回归使用隔离临时目录、本地模拟端口和测试子进程。专项覆盖资源同步排队与原 fence 启动、就绪视觉 PATH 优先、独立草案延续、集中投影，以及真机绑定和失效构建的局部重验。
+
+另在隔离的 Harmony API 21 模拟器实跑安装、捕获和保真验收。默认密度 640 DPI 的深色配置及应用窗口自定义 160 DPI 的浅色配置均通过图片、XML 尺寸、颜色和文本检查，故意声明错误图片档位得到 Red。HDC 型号和系统版本回读、指定主显示的截图及 UI 树命令也已实跑。真机 HAP 标识、设备身份与资源选档的验收门禁由回归夹具覆盖，真机设备验收仍待实跑。
 
 无关的 build 超时修订保留了叶子待审请求与审计发现，显式审核可维持或调整对应根分配。给待测 PATH 补 staging fixture 后，已验收 TASK 和四份有效回执保留，仅执行待测 PATH，随后进入 DoD。模拟环境漂移时，已验收实现仍保留，测试回执进入重验。纯四维 ID 补录期间，下游状态、派发和预检主体保持有效；修改提供方代码后，派发守卫拒绝沿用该证据。
 

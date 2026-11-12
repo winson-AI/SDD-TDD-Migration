@@ -19,7 +19,8 @@ def subject(s, report_ref, affected=None):
         keys = (*decomposition.ALLOCATION_KEYS, 'dependencies', 'parent_module_id', 'blocked', 'realloc_request')
         modules = {mid: execution_review_module(m) if mid in affected else {
             **{k: m.get(k) for k in keys}, 'reuse_plan_ref': (m.get('plan') or {}).get('reuse_plan_ref'),
-            'frozen': bool(m.get('freeze_id'))} for mid, m in modules.items()}
+            'frozen': bool(m.get('freeze_id')), **({'plan_submitted': True}
+                    if m.get('plan') and not m.get('freeze_id') else {})} for mid, m in modules.items()}
         parents = {mid: {k: group.get(k) for k in (*keys, 'children')} for mid, group in parents.items()}
     audit = {k: v for k, v in s.items() if k.startswith('audit')}
     if affected is not None:
@@ -62,11 +63,15 @@ def validate(s, report_ref):
         if row['action'] == 'replan':
             affected.add(mid)
         else:
-            require(m.get('freeze_id') and m.get('plan'), 'unfrozen modules must plan against new sources')
-            verify_plan(m['plan'])
+            # An independent draft has no accepted plan to reset. Its first submission still reads and
+            # validates the revised catalog. A submitted, unfrozen plan must be reviewed against it.
+            if m.get('plan'):
+                require(m.get('freeze_id'), 'submitted unfrozen plans must plan against new sources')
+                verify_plan(m['plan'])
             require(not row['resume_blocker_sha256'], 'only replanning modules can release a blocker')
             if row['action'] == 'reverify':
-                require(m.get('code_baseline'), 'source reverify needs accepted frozen code')
+                require(m.get('freeze_id') and m.get('plan') and m.get('code_baseline'),
+                        'source reverify needs accepted frozen code')
         if row['resume_blocker_sha256']:
             require(m.get('blocked') and row['resume_blocker_sha256'] == digest(m['blocked']), 'source blocker decision stale')
     from ledger import dependency_closure
@@ -130,7 +135,7 @@ def handle(root, s, req, actor):
             s.get('audit_resolutions', {}).pop(mid, None)
             m['revision'] += 1
             m.pop('context_acceptances', None)
-        else:
+        elif m.get('plan'):
             # The accepted plan and execution context remain valid across the append.
             m['source_context_continuation'] = {'plan_hash': m['plan_hash'], 'context_ref': new_ref,
                                                 'review_ref': review['report_ref']}

@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 import xml.etree.ElementTree as ET
 import zipfile
 
-from contracts import check_ref, digest, file_ref, read_json, require
+from contracts import Rejected, check_ref, digest, file_ref, read_json, require
 import run_storage
 import runner_storage
 import image_parity
@@ -76,6 +76,18 @@ def image_valid(path, formats=('PNG', 'JPEG')):
             image.load()
     except Exception as exc:
         raise DeviceFailure('capture-incomplete', 'screenshot could not be decoded and verified') from exc
+
+
+def hap_build_id(artifact):
+    try:
+        with zipfile.ZipFile(artifact) as archive:
+            name = 'resources/rawfile/sdd-build-id.txt'
+            require(archive.getinfo(name).file_size <= 256, 'HAP build marker exceeds its size limit')
+            marker = archive.read(name).decode().strip()
+            require(re.fullmatch(r'[0-9a-f]{64}', marker), 'HAP needs a unique SHA-256 build marker')
+            return marker
+    except (OSError, ValueError, KeyError, zipfile.BadZipFile) as exc:
+        raise DeviceFailure('artifact-identity-unverified', 'accepted HAP lacks a valid packaged build marker') from exc
 
 
 def hap_identity(artifact):
@@ -137,6 +149,7 @@ class Device:
         self.version = None
         self.page_name, self.last_dump = '', ''
         self.resource_probe = None
+        self.physical = settings.get('harmony_device_profile') == 'physical'
         self.probe_layouts = {}
 
     def call(self, *args, timeout=30):
@@ -176,7 +189,11 @@ class Device:
         return app_running(self.last_dump, app)
 
     def layout(self, label):
-        output = self.call('shell', 'uitest', 'dumpLayout')
+        if self.physical:
+            import harmony_resource_probe as probe
+            output = self.call('shell', 'uitest', 'dumpLayout', *probe.MAIN_DISPLAY)
+        else:
+            output = self.call('shell', 'uitest', 'dumpLayout')
         match = re.search(r'saved to:\s*(/data/local/tmp/[A-Za-z0-9_.-]+\.json)', output)
         if not match:
             raise DeviceFailure('device-execution-error', 'cannot parse managed dumpLayout path')
@@ -212,7 +229,11 @@ class Device:
         suffix = 'png' if self.resource_probe else 'jpeg'
         remote = f'/data/local/tmp/sdd-{nonce}-{label}.{suffix}'
         self.remote_files.append(remote)
-        self.call('shell', 'snapshot_display', '-f', remote, *(['-t', 'png'] if self.resource_probe else []))
+        if self.physical:
+            import harmony_resource_probe as probe
+            self.call('shell', 'uitest', 'screenCap', '-p', remote, *probe.MAIN_DISPLAY)
+        else:
+            self.call('shell', 'snapshot_display', '-f', remote, *(['-t', 'png'] if self.resource_probe else []))
         local = run_storage.checked_path(self.out / f'screenshot-{label}.{suffix}', self.out)
         self.call('file', 'recv', remote, local)
         if not local.is_file() or not local.stat().st_size:
@@ -585,6 +606,11 @@ def observe_screen(device, app, target, spec, out, label):
                                'device-configuration-mismatch', device_configuration=actual)
             configuration = actual
         image_path = device.screenshot(f'{label}-{index}')
+        if spec.get('physical_build_id'):
+            try:
+                harmony_resource_probe.physical_viewport(observed, current_xml, image_path, spec['physical_build_id'])
+            except (Rejected, OSError, ValueError) as exc:
+                return blocked(str(exc), 'capture-environment')
         view = out / f'view-{label}-{index}.xml'
         run_storage.atomic_bytes(view, current_xml.encode())
         signature = mobile_snapshot.view_signature(current_xml, f'{package}/{activity}')
@@ -1075,6 +1101,11 @@ def capture(device, contract, args, path, module, task, out, root):
         device.resource_probe_app = app
         device.image_mime = 'image/png'
         contract = {**contract, 'expected_device_configuration': path['device_configuration']}
+        if device.physical:
+            marker = hap_build_id(check_ref(args['artifact_ref']))
+            if install.get('artifact_identity', {}).get('build_id') != marker:
+                return blocked('physical install receipt lacks the accepted build marker', 'artifact-identity-unverified')
+            contract['physical_build_id'] = marker
     observed = observe_screen(device, app, target, contract, out, 'candidate')
     if 'captures' not in observed:
         return observed
@@ -1207,7 +1238,8 @@ def parity(args, out, module, task, run_id):
                 row, crop = image_parity.evaluate(check, check_ref(png) if png else None, Path(shot['path']), xml, observed)
                 if probe:
                     values = harmony_resource_probe.observation(xml, probe['node_id'], execution['app_id'])
-                    harmony_resource_probe.with_selection(row, check, probe, values['resources'])
+                    harmony_resource_probe.with_selection(row, check, probe, values['resources'],
+                                                          require_qualifier=path.get('harmony_device_profile') == 'physical')
             else:
                 row = {'id': check['id'], 'node_id': check['node_id'], 'selector': check['target']['selector'],
                        'status': 'INCOMPARABLE', 'reason': 'observed capture configuration differs from the frozen PATH'}
@@ -1249,6 +1281,8 @@ def run(operation, args, *, root, out, module, task, actor, config, rebindings=N
     device_settings = settings.get('visual_capture')
     if not isinstance(device_settings, dict) or not device_settings.get('device_id'):
         return blocked('explicit run visual_capture backend and device_id required')
+    profile = path.get('harmony_device_profile')
+    require(device_settings.get('harmony_device_profile') == profile, 'capture environment differs from frozen Harmony profile')
     device_lock(actor, device_settings, task)
     backend = device_settings.get('backend')
     require(backend in ('hdc', 'adb', 'browser'), 'visual capture requires explicitly configured hdc, adb or browser backend')
@@ -1263,8 +1297,19 @@ def run(operation, args, *, root, out, module, task, actor, config, rebindings=N
         device = BrowserDevice(url, out, viewport=device_settings.get('viewport'))
     else:
         device = Device(device_settings, out) if backend == 'hdc' else AndroidDevice(device_settings.get('device_id'), device_settings.get('tool', 'adb'), out)
+    identity_readback = None
     try:
         boot_ref = None
+        if profile == 'physical':
+            import harmony_resource_probe as probe
+            device.call(*probe.MODEL)
+            device.call(*probe.OS_BUILD)
+            try:
+                identity_readback = probe.device_identity(device.logs, device.device)
+            except Rejected as exc:
+                raise DeviceFailure('device-identity-unverified', str(exc)) from exc
+            if identity_readback['model'] != device_settings.get('model'):
+                raise DeviceFailure('device-identity-unverified', 'HDC model differs from the provisioned physical device')
         if backend != 'browser':
             lines = (device.call('-v') if backend == 'hdc' else device.call('version')).strip().splitlines()
             device.version = lines[0] if lines else ''
@@ -1292,6 +1337,8 @@ def run(operation, args, *, root, out, module, task, actor, config, rebindings=N
                       'acceptance': 'installation-is-evidence-not-a-test-verdict'}
         elif operation == 'visual-install':
             identity = hap_identity(artifact)
+            if profile == 'physical':
+                identity['build_id'] = hap_build_id(artifact)
             if identity['bundleName'] != app:
                 raise DeviceFailure('artifact-identity-unverified', 'accepted HAP bundleName differs from frozen app_id')
             device.call('install', '-r', artifact, timeout=240)
@@ -1323,6 +1370,10 @@ def run(operation, args, *, root, out, module, task, actor, config, rebindings=N
             'command_log_ref': evidence['command_log_ref']}
         if result.get('device_configuration'):
             execution['device_configuration'] = result['device_configuration']
+        if profile:
+            execution['harmony_device_profile'] = profile
+        if identity_readback:
+            execution['physical_device'] = identity_readback
         if backend == 'hdc' and path.get('harmony_resource_probe'):
             execution.update(path_id=path['path_id'], harmony_probe_node=path['harmony_resource_probe']['node_id'],
                              harmony_probe=[capture['harmony_probe'] for capture in record['snapshot']['captures']])

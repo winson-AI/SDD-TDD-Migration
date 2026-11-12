@@ -125,6 +125,26 @@ def build_units(m):
             for path in (m.get('plan') or {}).get('paths', []) if path.get('kind') == 'build' and path.get('command')}
 
 
+def visual_environment(path, rebindings=None):
+    ref = (path.get('visual_execution') or {}).get('environment_ref')
+    return (rebindings or {}).get(ref['path'], ref) if ref else None
+
+
+def validate_visual_profile(path):
+    if 'harmony_device_profile' not in path:
+        return
+    import harmony_resource_probe
+    import project_context
+    profile = path['harmony_device_profile']
+    require(profile in project_context.HARMONY_DEVICE_PROFILES and path.get('platform') == 'harmony'
+            and path.get('kind') == 'visual', 'device profile requires a Harmony visual PATH')
+    config = read_json(check_ref(visual_environment(path))).get('visual_capture') or {}
+    require(config.get('backend') == 'hdc' and config.get('harmony_device_profile') == profile,
+            'frozen PATH must reference the environment for its Harmony device profile')
+    require(path.get('image_check_ids'), 'profiled resource evidence requires frozen image or XML checks')
+    harmony_resource_probe.contract(path)
+
+
 def managed_visual_environment(s, path):
     """A frozen native capture without a project boot command can use the artifact-only lane."""
     if path.get('kind') != 'visual' or path.get('command') or path.get('platform') not in ('android', 'harmony'):
@@ -138,11 +158,12 @@ def managed_visual_environment(s, path):
         if source.parent.parts[-4:] != ('runs', 'harmony', 'sandbox', 'environment'):
             return None
         root = source.parents[4]
-        environment = ((s.get('target_preview') or {}).get('visual_environment_rebindings') or {}).get(str(source), environment)
+        environment = visual_environment(path, (s.get('target_preview') or {}).get('visual_environment_rebindings'))
         env = run_storage.checked_path(check_ref(environment), root / 'runs/harmony/sandbox/environment')
         device = read_json(env).get('visual_capture') or {}
         backend = 'adb' if path['platform'] == 'android' else 'hdc'
-        if device.get('backend') == backend and device.get('device_id') and not device.get('boot'):
+        if (device.get('backend') == backend and device.get('device_id') and not device.get('boot')
+                and device.get('harmony_device_profile') == path.get('harmony_device_profile')):
             return root, environment
     except (Rejected, OSError, ValueError, KeyError, TypeError, AttributeError):
         pass
@@ -195,6 +216,8 @@ def bound_build_artifacts(s, path):
 
 def execution_view(s, module):
     paths = (module.get('plan') or {}).get('paths', [])
+    if any(path.get('harmony_device_profile') for path in paths):
+        module = {**module, 'visual_environment_rebindings': (s.get('target_preview') or {}).get('visual_environment_rebindings')}
     if not any(path.get('build_binding') for path in paths):
         return module
     return {**module, 'path_build_artifacts': {path['path_id']:
@@ -429,6 +452,7 @@ def visual_result(module, path, record, captured, run_root=None, assignment=None
     if path.get('kind') != 'visual':
         return
     proof = captured.get('visual_alignment')
+    environment = visual_environment(path, module.get('visual_environment_rebindings')) if path.get('harmony_device_profile') else None
     if record.get('quality') != 'green-passed':
         image = (proof or {}).get('image_parity')
         if path.get('harmony_resource_probe') and image:
@@ -436,7 +460,7 @@ def visual_result(module, path, record, captured, run_root=None, assignment=None
             import visual_evidence
             require(record.get('visual_alignment') == proof, 'visual alignment must match the captured report')
             derived = visual_evidence.validate_image_parity(image['report_ref'], checks=ui_fidelity.frozen_image_checks(module, path),
-                path=path, code_baseline=module['code_baseline'], run_root=run_root, assignment=assignment)
+                path=path, code_baseline=module['code_baseline'], run_root=run_root, assignment=assignment, environment=environment)
             require(image == derived, 'Harmony visual evidence differs from recomputation')
         return
     require(isinstance(proof, dict) and record.get('visual_alignment') == proof,
@@ -460,7 +484,7 @@ def visual_result(module, path, record, captured, run_root=None, assignment=None
                 'a visual Green with image checks must carry its image-parity proof')
         derived = visual_evidence.validate_image_parity(
             (proof.get('image_parity') or {}).get('report_ref'), checks=ui_fidelity.frozen_image_checks(module, path), path=path,
-            code_baseline=module['code_baseline'], run_root=run_root, assignment=assignment)
+            code_baseline=module['code_baseline'], run_root=run_root, assignment=assignment, environment=environment)
         require(proof.get('image_parity') == derived, 'image parity proof differs from the original report')
         require(derived['hap_ref'] == proof['hap_ref'], 'image parity must use the HAP of this proof')
         require(all(row['status'] == 'MATCH' for row in derived['checks']), 'every image check must match for a visual Green')

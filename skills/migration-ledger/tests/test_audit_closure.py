@@ -56,6 +56,17 @@ class AuditPathEvidenceTests(unittest.TestCase):
             self.assertEqual([p['path_id'] for p in tv.dispatch_paths(module, 'build')], ['B2'])
             self.assertEqual([p['path_id'] for p in tv.stage_paths(module, {})], ['B2'])
             self.assertFalse(tv.build_ready(module))
+
+            import run_changes
+            device_revision = copy.deepcopy(module)
+            device_revision['results']['B1']['executed'] = True
+            with patch.object(ledger, 'current'), patch.object(ledger, 'dependencies_ready'):
+                run_changes.reverify(state, device_revision, {'harmony-physical'}, file_ref(context), root=base)
+            self.assertEqual(device_revision['retained_build_paths'], ['B1'])
+            self.assertFalse(device_revision['results']['B1'].get('stale'))
+            self.assertTrue(device_revision['results']['B2']['stale'])
+            self.assertEqual([p['path_id'] for p in tv.dispatch_paths(device_revision, 'build')], ['B2'])
+
             source.write_text('changed code')
             ledger.invalidate_path_results(module, {'B2'}, state=state, root=base)
             self.assertNotIn('retained_build_paths', module)
@@ -71,6 +82,14 @@ class AuditPathEvidenceTests(unittest.TestCase):
         paths = [{'path_id': pid, 'kind': 'visual', 'build_binding': {'module_id': mid, 'path_id': 'B-' + mid}}
                  for pid, mid in [('V1', 'M001'), ('V2', 'M002')]]
         consumer = {'dependencies': ['M001', 'M002'], 'plan': {'paths': paths + [{'path_id': 'old', 'kind': 'unit'}]}}
+        with patch.object(ledger, 'current'), patch.object(ledger, 'dependencies_ready'), \
+                patch.object(tv, 'bound_build_artifacts', side_effect=lambda state, path: [path['build_binding']['path_id']]
+                             if path['path_id'] == 'V2' else []):
+            self.assertEqual(ledger.visual_batch(state, consumer), (['V2'], True))
+            assignment = {'artifact_only': True, 'role': 'test-runner', 'execution_contract': {'path_ids': ['V2']},
+                          'path_provider_inputs': ledger.bound_visual_inputs(state, consumer, ['V2'])}
+            self.assertTrue(ledger.independent_visual(state, consumer, assignment, 'M001'))
+            self.assertFalse(ledger.independent_visual(state, consumer, assignment, 'M002'))
         with patch.object(tv, 'bound_build_artifacts', side_effect=lambda state, path: [path['build_binding']['path_id']]):
             consumer['results'] = {p['path_id']: {'path_provider_inputs': ledger.path_provider_inputs(state, consumer, p)}
                                    for p in paths}

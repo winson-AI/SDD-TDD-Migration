@@ -181,7 +181,7 @@ def module_execution():
         'build → unit 一派发（无人写入时），advance 代跑',
         'static 随模型跑的 automation 同派，非绿即停',
         '分批构建守卫一致；构建待定时先派剩余 TASK',
-        '受限 APK/HAP 视觉可并行编码；设备锁保留'])
+        '受管视觉先派就绪 PATH；设备锁保留'])
     d.arrow([(800,1190),(800,1245)])
     d.diamond(800,1310,310,130,'验证结果','Green / Red / Yellow')
     d.arrow([(645,1310),(500,1310)],'green');d.label(570,1290,'Green','green')
@@ -242,9 +242,9 @@ def module_execution():
         'Red / Yellow 不凭证明转 Green'], 'gray')
     d.box(70,2000,430,200,'设备变更 · 同 Run 复测',[
         '有效 build / unit / static 回执继续沿用',
-        '复测受影响的叶子与 GLOBAL PATH',
+        '按平台 / Harmony 设备配置复测 PATH',
         '设备归属不明的路径一并复测',
-        '混合变更或构建证据失效 → 常规重验',
+        '逐条核对构建回执，只重跑失效 PATH',
         '应用 / 入口 / URL 变化 → 修订 SPEC'], 'orange')
     d.box(550,2095,500,125,'机械验证恢复',[
         '同一派发核验已完成的 PATH 回执',
@@ -274,10 +274,10 @@ def module_execution():
         '骨架起稿；产物不限体量'], 'gray')
     d.box(70,760,430,210,'资源与 fidelity 输入',[
         'API / URL / image / icon 来源追溯',
-        '独立派发先交付，宿主按 TASK 同步',
+        '待同步持写锁，空闲时才领 worker 名额',
         '{qualifier} 保留同密度多档',
         '限定 XML 值按配置生成',
-        'Harmony 用 PNG 和探针绑定档位'], 'gray')
+        'Harmony 模拟器 / 真机分别取证'], 'gray')
     d.box(1110,190,410,130,'冻结与执行门禁',[
         'SPEC 未冻结不生成代码',
         '代码未接受不派正式测试；自查无结果',
@@ -435,7 +435,7 @@ def reuse_flow():
         '仅等待相关派发与集成',
         '重规划叶子更新 SPEC',
         '受影响消费者可仅复测',
-        '同输入 Green 继续入账'], 'gray')
+        '同输入 Green 与独立草案保留'], 'gray')
     d.box(60,440,290,210,'来源评审门禁',[
         '声明来源不可用 → 阻塞',
         '不能当作无候选直接 new',

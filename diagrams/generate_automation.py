@@ -24,7 +24,7 @@ def automation_flow():
           ['分批构建绑定提供方输入；派发与验收用同一守卫',
            '模型执行的 automation 可与 static 同派；同派时 static 在前'])
     d.box(1160, 375, 380, 195, '派发前核对本批 PATH 资产',
-          ['unit 缺资产时先跑就绪 build', '自动化先派发资产齐备的 PATH',
+          ['unit 缺资产时先跑就绪 build', '自动化 / 受管视觉先派就绪 PATH',
            '仅补执行资产：保留已验收 TASK', '同 Run 重冻后测试待验证 PATH'], 'orange')
     d.arrow([(780, 490), (780, 550)])
     d.arrow([(780, 508), (1160, 508)], 'orange')
@@ -52,8 +52,8 @@ def automation_flow():
              ['result.json + 日志 / 媒体 / observations', 'receipt.json：身份 / 时间 / argv / 退出码 / hash'])
     d.arrow([(1100, 1380), (1160, 1380)], 'blue', dashed=True)
     d.box(1160, 1255, 380, 205, '限定配置的视觉 PATH',
-          ['冻结密度 / 夜间 / 宽度 / 语言 / API', 'Harmony 用 PNG 与前后原始树', '设备配置、资源取值、屏幕三者核对',
-           '配置缺失或不匹配记为未验证'], 'gray')
+          ['模拟器与真机分别冻结配置和 PATH', '真机核对 HAP 标识与 HDC 型号', '同一主屏窗口的 PNG 与前后树',
+           '核对正式消费者实际选档与取值', '真机缺证记未验证'], 'gray')
     d.box(60, 1340, 340, 235, 'CR 验证范围',
           ['无证明 / 共享影响：全模块重验', 'MO TASK 独立性证明通过', '保留未影响 TASK / Green', '影响及非 Green 路径重跑', '新代码重跑构建 / 单测 / 静态'], 'purple')
     d.box(60, 1640, 340, 170, '成功证据统计',

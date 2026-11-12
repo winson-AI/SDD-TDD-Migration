@@ -368,6 +368,18 @@ class SourceChangeTests(unittest.TestCase):
         self.freeze('M001')  # Fresh plan and human freeze actually work on the new context.
         f.call('assign', {'role': 'implementer', 'assignment_id': 'I', 'instance_id': 'coder'})
 
+    def test_independent_unsubmitted_draft_keeps_its_cursor_after_source_append(self):
+        self.freeze('M001')
+        before = self.f.state()['modules']['M002']
+        self.assertIsNone(before['plan'])
+        self.review(self.report(affected=('M001',)))
+        self.apply()
+        peer = self.f.state()['modules']['M002']
+        self.assertEqual((peer['phase'], peer['revision'], peer.get('planning_history')),
+                         (before['phase'], before['revision'], before.get('planning_history')))
+        self.assertNotIn('source_context_continuation', peer)
+        self.freeze('M002')
+
     def test_unchanged_frozen_sibling_keeps_plan_and_can_dispatch_with_new_receipt(self):
         f = self.f; self.freeze('M001'); old = self.freeze('M002')
         before = f.state()['modules']['M002']

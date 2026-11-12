@@ -24,7 +24,9 @@ def acceptance_digests(paths):
     """Per-path and per-assertion digests of the frozen acceptance: enough to verify that a revision keeps every expectation,
     without carrying the paths' text in the state."""
     return {path['path_id']: {'shape': digest({k: v for k, v in path.items() if k != 'expected_assertions'}),
-                              'identity': digest({k: path.get(k) for k in IDENTITY}),
+                              'identity': digest({**{k: path.get(k) for k in IDENTITY},
+                                                  **({'harmony_device_profile': path['harmony_device_profile']}
+                                                     if 'harmony_device_profile' in path else {})}),
                               'assertions': {a['assertion_id']: digest(a) for a in path['expected_assertions']},
                               'core': {a['assertion_id']: digest({k: a.get(k) for k in CORE}) for a in path['expected_assertions']}}
             for path in acceptance(paths)}

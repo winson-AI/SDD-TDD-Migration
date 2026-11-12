@@ -156,6 +156,8 @@ def run(root, request, actor):
     if operation in ('resource-convert', 'resource-sync', 'compare-only', 'image-parity') + visual_operations:
         require(state, 'Ledger initialization required before execution')
         module, task = assignment(state, request, actor)
+        require(operation == 'resource-sync' or not task.get('resource_wait'),
+                'resource sync must start the worker before using coding tools')
         if operation in ('resource-convert', 'resource-sync'):
             require(module['phase'] in ('implementing', 'fixing'), 'code generation phase required')
         else:

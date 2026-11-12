@@ -56,6 +56,14 @@ Android 内置采集在截图前后读取同一设备配置。Ledger 复核命�
 
 Test-Runner 在同一 HAP、设备锁和 fence 下保留 HDC PNG 和前后原始视图树。Ledger 从原始树复算选档证据和屏幕断言，Harmony 尺寸用实测逻辑缩放。映射可声明目标目录或应用自己的配置分支。Android `vNN` 和 `swNNNdp` 应绑定 Harmony 实际能力或窗口条件。相同内容指纹只能证明内容一致，资源目录身份须有能区分候选的证据。
 
+### Harmony 模拟器与真机
+
+在 `test_adapter.device.harmony.profiles` 声明独立设备配置。例如 `{"emulator":{"serial":"<HDC emulator>"},"physical":{}}` 会预留真机覆盖。接入指定真机时，以同 Run 的设备 `reverify` 补 `physical.serial` 和 `physical.model`。两个设备不能共享 serial。叶子 SPEC 为每个需要验证的设备与限定配置冻结独立 PATH，设置 `harmony_device_profile` 为 `emulator` 或 `physical`，引用对应的 `target_preview.environments.harmony-emulator` 或 `harmony-physical`。旧的不带 profile 的 PATH 继续使用原 Harmony 环境。既有冻结漏了必需真机配置时，用同 scope 的 CR 补 PATH。设备不可用时记录缺口，同一 CASE 的模拟器和真机分开统计。
+
+真机首轮使用 API 20+ 的主显示（display 0）和单一应用窗口。用同一已验收的签名 HAP 验证浅色和深色。需要区分密度时补实际配置跨档的设备。构建把每次唯一的 由 64 个小写十六进制字符组成的构建标识打包到 `resources/rawfile/sdd-build-id.txt`。正式消费者旁的测试探针读回已安装应用内的标识，使用 `schema_version: 2`，沿用 `configuration` 并带 `build_id`、`viewport: {display_id, window_id, window_bounds_px, orientation}`。每个 `resources[resource_id]` 回报 `{value, resolved_qualifier}`，限定符取正式消费者实际选择的可区分目录或分支。确有获审图片转换时，可冻结 `selections.<check_id>.target_sha256` 校验目标已打包图片的原始字节，PNG 屏幕比对仍以存量渲染参考为准。
+
+Ledger 重读 HDC 型号和系统版本，核对部署的 HAP 引用、应用读回标识、配置、截图及前后 UI 树。真机型号来自宿主配置和设备读回，证据范围限于当前接入的设备。未取得实际选档证据时只能确认值一致，真机档位仍未通过。错误档位或值在正式观测中为 Red，设备、安装标识、窗口或取证能力缺失时保留 Yellow。构建和设备检查只在对应 PATH 执行时加载。
+
 ## 动态参数与布局结构
 
 parameter_fill.runtime/structural 每条记录 id、原 source_expression、consumer（绝对生产文件#accessor）、reason、源 evidence_refs 与冻结 assertions（path_id/assertion_id）；runtime 还记录 inputs。定值须 constant_reason/constant_evidence_refs；布局 keyword 须映射或有证据排除。冻结拒绝缺变量或行为断言，build/static 不证明语义。实现核对提交的消费者/accessor，正式测试验证变量变化、单位/字体缩放、约束、可见性和运行时覆盖。填充率只量化搬运，fidelity_proven 不由它推导。

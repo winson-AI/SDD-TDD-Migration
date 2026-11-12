@@ -131,14 +131,18 @@ def changed_devices(s, report):
     platforms = set(before.get('platforms', []))
     if not platforms or platforms != set(after.get('platforms', [])):
         return None
-    return {platform for platform in platforms if before.get(platform) != after.get(platform)}
+    old, new = project_context.device_inputs(before), project_context.device_inputs(after)
+    if old.keys() != new.keys():
+        return None  # declaring or removing a coverage profile is a planning change
+    return {key for key in old if old[key] != new[key]}
 
 
 def uses_changed_device(path, platforms):
     if not platforms or path.get('kind') in ('build', 'unit', 'static'):
         return False
-    if path.get('platform'):
-        return path['platform'] in platforms
+    if key := project_context.path_device(path):
+        return key in platforms or (key == 'harmony' and path.get('kind') != 'visual'
+                                    and any(p.startswith('harmony-') for p in platforms))
     # A host-run JUnit PATH has a frozen command and does not use a device adapter.
     return not (path.get('command') and path.get('unit_report'))
 
@@ -157,16 +161,16 @@ def integration_busy(s, report):
 
 
 def preview_contract_changed(s, path, device):
-    platform = path.get('platform')
+    platform = project_context.path_device(path)
     preview = s.get('target_preview') or {}
     ref = (path.get('visual_execution') or {}).get('environment_ref')
     current_ref = (preview.get('environments') or {}).get(platform)
     if not ref or not current_ref or current_ref not in (
             ref, (preview.get('visual_environment_rebindings') or {}).get(ref['path'])):
         return False
-    before = ((s['test_adapter'] or {}).get('device') or {}).get(platform) or {}
-    after = device.get(platform) or {}
-    return not after or any(before.get(k) != after.get(k) for k in ('app_id', 'launch', 'url'))
+    before = project_context.device_inputs((s['test_adapter'] or {}).get('device') or {}).get(platform) or {}
+    after = project_context.device_inputs(device).get(platform)
+    return after is None or any(before.get(k) != after.get(k) for k in ('app_id', 'launch', 'url'))
 
 
 def revised_preview(root, s, device):
@@ -176,6 +180,8 @@ def revised_preview(root, s, device):
     for platform, old_ref in (before.get('environments') or {}).items():
         new_ref = (after.get('environments') or {}).get(platform)
         path = {'platform': platform, 'visual_execution': {'environment_ref': old_ref}}
+        if platform.startswith('harmony-'):
+            path.update(platform='harmony', harmony_device_profile=platform.removeprefix('harmony-'))
         if new_ref and not preview_contract_changed(s, path, device):
             if new_ref != old_ref:
                 rebindings[old_ref['path']] = new_ref
@@ -186,7 +192,7 @@ def revised_preview(root, s, device):
     return after
 
 
-def retain_verification(s, m, devices):
+def retain_verification(s, m, devices, root=None):
     """An accepted Green row can stand on the same freeze, accepted code and unchanged execution inputs."""
     import test_validation as tv
     from ledger import current, dependencies_ready
@@ -197,7 +203,7 @@ def retain_verification(s, m, devices):
             check_ref(ref)
     except (Rejected, OSError, ValueError, KeyError, TypeError):
         return None
-    if tv.split(m) and not tv.build_ready(m):
+    if root is None and tv.split(m) and not tv.build_ready(m):
         return None
     retained = set()
     for path in m['plan']['paths']:
@@ -217,13 +223,18 @@ def retain_verification(s, m, devices):
             retained.add(pid)
         except (Rejected, OSError, ValueError, KeyError, TypeError):
             continue
-    if {p['path_id'] for p in tv.paths(m, 'build')} - retained:
+    builds = {p['path_id'] for p in tv.paths(m, 'build')}
+    if builds - retained and root is None:
         return None
+    if builds - retained:
+        from task_revalidation import current_build_paths
+        retained -= builds - current_build_paths(s, m, root, builds & retained)
     return retained
 
 
-def reverify(s, m, devices, review):
-    retained = retain_verification(s, m, devices) if devices is not None else None
+def reverify(s, m, devices, review, root=None):
+    import test_validation as tv
+    retained = retain_verification(s, m, devices, root) if devices is not None else None
     if retained is not None and retained == {path['path_id'] for path in m['plan']['paths']}:
         return  # No accepted result in this leaf needs another attempt.
     m.setdefault('verification_history', []).append({'review_ref': review, 'results': copy.deepcopy(m['results'])})
@@ -234,6 +245,12 @@ def reverify(s, m, devices, review):
         m.pop('device_reverify', None)
     else:
         m['device_reverify'] = review
+        builds = {p['path_id'] for p in tv.paths(m, 'build')}
+        if builds - retained:
+            kept = sorted(builds & retained)
+            m['retained_build_paths'] = kept
+            m['build_baseline'] = None
+            m['build_artifacts'] = [ref for pid in kept for ref in m['results'][pid].get('build_artifacts', [])]
     if not m.get('blocked'):
         m['phase'] = 'testing'
     m['stale'] = True
@@ -504,7 +521,7 @@ def handle(root, s, req, actor):
     for mid, m in s['modules'].items():
         if mid in affected:
             if rows[mid]['action'] == 'reverify':
-                reverify(s, m, devices, review['report_ref'])
+                reverify(s, m, devices, review['report_ref'], root=root)
                 m.pop('execution_context_ref', None)
             elif rows[mid]['action'] == 'revise':
                 open_change(s, m, {'request_ref': review['report_ref'], 'impact_ref': review['report_ref'], 'upstream': True})

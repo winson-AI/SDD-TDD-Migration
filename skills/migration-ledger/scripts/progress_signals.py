@@ -159,6 +159,8 @@ def build(root, state, events, steps, global_step, at=None):
     if audit_test and not audit_test.get('closed'):
         assignments.append((None, audit_test))
     for mid, assignment in assignments:
+        if assignment.get('resource_wait'):
+            continue  # the host is synchronizing resources, so there is no worker liveness to check
         matching = [e for e in events if e.get('module_id') == mid]
         stamp = (matching[-1] if matching else events[-1])['timestamp'] if events else at.isoformat()
         elapsed = max(0, int((at - datetime.fromisoformat(stamp)).total_seconds()))

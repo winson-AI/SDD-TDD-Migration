@@ -76,14 +76,23 @@ def qualified_proof(rows, mid, resource, alternatives, matching, carriers):
         platform = row.get('platform') or capture.get('platform') or 'unattributed'
         checks = [check for check in parity.get('checks', []) if check['id'] in matching]
         matching_screen = [check for check in checks if check['status'] == 'MATCH']
+        profile = row.get('harmony_device_profile')
         bound = (actual and device_configuration.distinguishes(actual, resource['qualifier'], alternatives)
                  if platform != 'harmony' else capture.get('platform') == 'harmony' and any(
-                     (check.get('resource_selection') or {}).get('status') == 'match' for check in matching_screen))
+                     (check.get('resource_selection') or {}).get('status') == 'match'
+                     and (profile != 'physical' or (check.get('resource_selection') or {}).get('resolved_qualifier'))
+                     for check in matching_screen)
+                 and (not profile or capture.get('harmony_device_profile') == profile)
+                 and (profile != 'physical' or capture.get('physical_device')))
         verified = bool(row['quality'] == 'green-passed' and row['attempt_executed'] and not row['stale']
                         and bound and matching_screen)
         by_platform.setdefault(platform, []).append({'path_id': row['path_id'],
             'configuration': row.get('device_configuration') or {}, 'observed_configuration': actual,
-            'resource_selection': [check['resource_selection'] for check in checks if check.get('resource_selection')],
+            'device_profile': profile, 'observed_device_profile': capture.get('harmony_device_profile'),
+            'physical_device': capture.get('physical_device'),
+            'resource_selection': [{**check['resource_selection'], 'proof': 'resolved' if
+                                    check['resource_selection'].get('resolved_qualifier') else 'value-only'}
+                                   for check in checks if check.get('resource_selection')],
             'visual_status': 'verified' if verified else 'not-verified',
             'evidence_refs': refs(row['evidence_refs']) if verified else []})
     return {'path_ids': sorted(path_ids), 'platforms': by_platform,
@@ -256,11 +265,13 @@ def build(root, s, sequence, ref_check=check_ref):
                 record.pop('validation_reuse', None)
         last_execution = copy.deepcopy(record.get('last_execution'))
         current_baseline = m.get('code_baseline') if m else global_baseline
-        execution_scope_stale = invalid if not m else m.get('stale') or m.get('effective_quality') == 'yellow-blocked'
+        scoped_device_reverify = (m and m.get('device_reverify') and m.get('phase') == 'testing'
+                                   and not m.get('blocked') and not m.get('dependency_wait_after_visual'))
+        execution_scope_stale = invalid if not m else (m.get('effective_quality') == 'yellow-blocked'
+                                                        or m.get('stale') and not scoped_device_reverify)
         last_execution_stale = bool(last_execution and
             (execution_scope_stale or last_execution.get('code_baseline') != current_baseline))
-        stale = (m.get('stale') or m.get('effective_quality') == 'yellow-blocked' or
-                 not tv.task_revalidation.valid(m, record)) if m else (
+        stale = (execution_scope_stale or not tv.task_revalidation.valid(m, record)) if m else (
                  (invalid and not (integration.scoped(s, path or {}) and record.get('integration_inputs')))
                  or not integration.same_inputs(s, path or {}, record, global_baseline))
         # Environment omissions have no executed baseline to expire.
@@ -273,6 +284,16 @@ def build(root, s, sequence, ref_check=check_ref):
             causes.append({'category': category, 'summary': '结果基线已失效，须复核' if category == 'evidence-stale' else
                            '尚无已接受的测试结果' if path else '尚无此用例的冻结测试路径',
                            'owner': mid, 'next_action': 'retest-current-baseline' if record else 'continue-module-work'})
+        if not record and path and path.get('harmony_device_profile'):
+            from test_validation import visual_environment
+            rebinding = (s.get('target_preview') or {}).get('visual_environment_rebindings')
+            try:
+                env = read_json(ref_check(visual_environment(path, rebinding)))
+            except (ValueError, OSError, TypeError):
+                env = {}
+            if not (env.get('visual_capture') or {}).get('device_id'):
+                causes.append({'category': 'device-profile-unavailable', 'summary': '冻结的 Harmony 设备配置尚无可用设备',
+                               'owner': 'host', 'next_action': 'bind-device-and-reverify'})
         blocker = (m or {}).get('blocked')
         gap = (blocker or {}).get('implementation_gap', {})
         not_implemented = cid in gap.get('case_ids', [])
@@ -291,6 +312,7 @@ def build(root, s, sequence, ref_check=check_ref):
                      'path_id': pid, 'name': (path or {}).get('name', pid or cid), 'kind': (path or {}).get('kind', 'test'),
                      'task_ids': [t['task_id'] for t in ((m or {}).get('plan') or {}).get('tasks', []) if pid in t.get('path_ids', [])],
                      'platform': (path or {}).get('platform'), 'device_configuration': (path or {}).get('device_configuration'),
+                     **({'harmony_device_profile': path['harmony_device_profile']} if path and path.get('harmony_device_profile') else {}),
                      'parameters': copy.deepcopy((path or {}).get('parameters', {})),
                      'on_device': user_paths.on_device(path or {}),
                      'flaky': bool(record.get('flaky')), 'execution_status': record.get('execution_status'),
@@ -485,8 +507,11 @@ def render(report):
     for mid, item, source in qualified:
         for platform, paths in sorted(item.get('platforms', {}).items()):
             for path in paths:
-                text.append(f"- {cell(mid)} · {cell(source)} / {cell(item['qualifier'])} · {cell(platform)} / {cell(path['path_id'])}"
-                            f" · {cell(item['status'])} · {cell(path['visual_status'])}")
+                device = f"/{cell(path['device_profile'])}" if path.get('device_profile') else ''
+                proof = ', '.join(sorted({entry['proof'] for entry in path.get('resource_selection', [])}))
+                suffix = f" · {cell(proof)}" if proof else ''
+                text.append(f"- {cell(mid)} · {cell(source)} / {cell(item['qualifier'])} · {cell(platform)}{device} / {cell(path['path_id'])}"
+                            f" · {cell(item['status'])} · {cell(path['visual_status'])}{suffix}")
     if pictures['items']:
         text += ['', '以下图片不是对存量资源的精确复制；verified 表示目标屏幕上的节点图像已在容差内与存量渲染参考一致。', '',
                  f"图片统计：{cell(pictures['counts'])}", '', '| 模块 / 项 | 来源 | 类型 / 策略 | 状态 | 说明 |', '| --- | --- | --- | --- | --- |']

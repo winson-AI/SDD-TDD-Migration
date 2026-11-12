@@ -340,7 +340,9 @@ def verify_plan(plan, module=None):
         check_ref(ref)
 
     def paths():
+        import test_validation
         for path in plan['paths']:
+            test_validation.validate_visual_profile(path)
             if path.get('kind') in ('build', 'unit'):
                 check_ref(path['command']['selection_ref'])
             if path.get('visual_execution') is not None:

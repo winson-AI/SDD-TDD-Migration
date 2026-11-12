@@ -197,6 +197,24 @@ class ImageProofTests(unittest.TestCase):
         self.assertEqual(proof['platforms']['android'][0]['visual_status'], 'verified')
         self.assertEqual(proof['platforms']['harmony'][0]['visual_status'], 'not-verified')
 
+    def test_emulator_and_physical_qualifier_coverage_are_independent(self):
+        from migration_report import qualified_proof
+
+        common = {'module_id': 'M001', 'platform': 'harmony', 'quality': 'green-passed',
+                  'attempt_executed': True, 'stale': False, 'evidence_refs': []}
+        emulator = {**common, 'path_id': 'E', 'harmony_device_profile': 'emulator', 'image_parity': {
+            'capture_evidence': {'platform': 'harmony', 'harmony_device_profile': 'emulator'},
+            'checks': [{'id': 'back-arrow', 'status': 'MATCH', 'resource_selection': {'status': 'match'}}]}}
+        phone = {**common, 'path_id': 'P', 'harmony_device_profile': 'physical',
+                 'quality': 'yellow-blocked', 'attempt_executed': False}
+        proof = qualified_proof([emulator, phone], 'M001', {'qualifier': 'night'}, ['night'],
+                                {'back-arrow'}, {'back-arrow': ['E', 'P']})
+        cells = {row['device_profile']: row for row in proof['platforms']['harmony']}
+        self.assertEqual(cells['emulator']['visual_status'], 'verified')
+        self.assertEqual(cells['emulator']['resource_selection'][0]['proof'], 'value-only')
+        self.assertEqual(cells['physical']['visual_status'], 'not-verified')
+        self.assertEqual(proof['visual_status'], 'not-verified')
+
     def test_android_probe_evidence_brackets_the_same_device_capture(self):
         import device_configuration
 
