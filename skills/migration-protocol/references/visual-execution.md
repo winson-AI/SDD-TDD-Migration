@@ -9,6 +9,8 @@
 
 ## 2. 执行节点
 
+`artifact_only` 派发只用当前验收的 APK/HAP 和冻结的原生设备配置。使用本节受限工具取证，经 Ledger 的 Python 或包内 Harmony 环境运行 `lean_visual_adapter.py` 生成正式回执。设备锁、任务 fence 和 PATH 选择照常核对。需要项目自定义启动命令时沿用普通视觉派发。
+
 设备执行用显式 HDC、adb 或 browser backend（Android 目标装 APK，`ability` 填 activity，装机后在设备上核对包哈希；web 目标不装机：宿主部署已接受构建并在页面 `<meta name=sdd-build>` 声明其哈希，visual-install 与每次捕获重读核对，url 的主机即 app_id）；模型用显式启用的 external 配置，API key 只从指定环境变量读取，配置与请求只存变量名，不归档 `.env` 或明文 key。执行前 Host 持有设备独占锁并在认证 host-context 注入 device_lock（device_id、assignment_id、fencing_token、held）；Agent 自填的锁字段不算锁。没有真机时 `visual_capture` 带 avd 或 boot.argv：设备不应答即启动模拟器并等开机，启动留 boot.json，模拟器留给后续捕获，宿主在 run 结束时关闭。
 
 操作都经 [lean_worker.py](../../migration-ledger/scripts/lean_worker.py)，请求样式见 [visual-request.json](../../../template/visual-request.json)，每次新 request_id：

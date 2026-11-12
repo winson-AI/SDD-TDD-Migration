@@ -2,10 +2,10 @@
 the copy plan and the parameter sheet are derived, never authored, and the copies and the generated parameter file are
 the frozen plan's bytes. So the Ledger derives the two when a plan is submitted without them, and `advance` copies the
 files and writes the parameter file in the coder's name when a coder is dispatched; the coder names them in its code."""
-import json
 from pathlib import Path
 
-from contracts import Rejected, check_ref, file_ref, read_json
+from contracts import Rejected, check_ref, read_json
+import project_context
 import run_storage
 
 
@@ -28,16 +28,18 @@ def bind(s, m, plan, root):
         if rules.get('copy') and 'Resource' in rows and not rows['Resource'].get('copy_plan_ref'):
             derived, _ = resource_copy.derive(analysis, rules['copy'])
             if derived['rows']:
-                rows['Resource']['copy_plan_ref'] = save(root, folder / 'copy-plan.json', derived); bound = True
+                rows['Resource']['copy_plan_ref'] = save(root, folder, derived, '.copy-plan.json')
+                bound = True
         if rules.get('parameters') and 'UI' in rows and not rows['UI'].get('parameter_sheet_ref'):
             sheet = ui_parameters.derive(analysis, rules['parameters'])
             if sheet.get('parameters'):
-                rows['UI']['parameter_sheet_ref'] = save(root, folder / 'parameter-sheet.json', sheet); bound = True
+                rows['UI']['parameter_sheet_ref'] = save(root, folder, sheet, '.parameter-sheet.json')
+                bound = True
     except (Rejected, OSError, ValueError, KeyError, TypeError):
         return plan  # evidence the derivation cannot read: the planner's tools say why
     if not bound:
         return plan
-    derived_ref = save(root, folder / ('analysis-%s.json' % ref['sha256'][:12]), analysis)
+    derived_ref = save(root, folder, analysis, '.analysis.json')
     plan['dimension_analysis_ref'] = derived_ref
     for task in plan.get('tasks') or []:
         if (task.get('dimension_analysis') or {}).get('parent_ref') == ref:
@@ -45,11 +47,9 @@ def bind(s, m, plan, root):
     return plan
 
 
-def save(root, path, value):
-    path = run_storage.checked_path(path, root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    run_storage.atomic_bytes(path, (json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + '\n').encode())
-    return file_ref(path)
+def save(root, folder, value, suffix):
+    folder = run_storage.checked_path(folder, root)
+    return project_context.archive(folder, project_context.encoded(value), suffix)
 
 
 def owner(m, assignment):

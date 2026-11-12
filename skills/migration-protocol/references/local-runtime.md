@@ -58,7 +58,8 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | plan | Spec-Designer | plan_ref；Ledger 预检；先 `preview`；[stage-plan](../../../template/stage-plan.json)（Ledger 补全 test_design_ref、PATH、任务范围、spec 与 checklist）；不抄写全局上下文与分配包 |
 | plan-review / planning-reopen | MO | 无人要求时机械：Ledger 写评审记录（reports/plan-review）由 advance 提交；被要求时 review_ref 绑定 plan_hash、独立 MO 与边界判断，证据含裁决、阻塞缺陷、issue、未过门禁（review_gates）；编码前重规划留 reason_ref，已派实现走 CR |
 | audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id、全部所选 path_ids，机械派发；context_ref 可在派发内补交，提交结果前必须有；结果以 result_ref 提交，Auditor 原样消费 |
-| integration-assign / integration-submit | GO / Test-Runner | 游标 wave-complete 时同上，path_ids 恰为到期的 global path；结果进 audit_results，Red 入 audit_repairs |
+| integration-assign / integration-submit | GO / Test-Runner | wave-complete 时派发就绪 GLOBAL PATH；按当前执行输入验收，结果进 audit_results，Red 入 audit_repairs |
+| integration-revoke | Host | 核实旧进程停止或已隔离后提交 assignment_id、fencing_token、stopped_worker_ref；重新计算波次或审计路径 |
 | freeze | MO | 清晰规划用 review_ref；人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
 | change | MO | request_ref + impact_ref；无 blocker 时进入 change-review，记录 from_freeze_id；within-envelope 的 impact JSON 必须绑定该旧 freeze 与新 to_plan_hash，见 change-impact 模板 |
 | assign | MO | assignment_id、role、instance_id，可选 session_id/card_sha256；implementer 只选 task_ids（path_ids 取其并集）；合法阶段且无活动 worker，返回 fencing_token。派发后 context-submit（implementer 由 Ledger 代登记），ready 报告直接绑定，blocked 拒绝；机械时宿主按步骤 payload 提交；步骤带 `submission`（implementer/fixer）或 `report_skeleton`（test-runner） |

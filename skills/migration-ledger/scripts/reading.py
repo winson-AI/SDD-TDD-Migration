@@ -210,7 +210,7 @@ def op_sections(role, operation):
     """Sections that depend on the operation inside a family."""
     if operation in ('plan-review', 'planning-reopen'):
         return sections('state-machine.md', '控制主线') + sections('openspec.md', '冻结算法', '变更控制')
-    if operation in ('audit-test-assign', 'audit-test-submit', 'integration-assign', 'integration-submit'):
+    if operation in ('audit-test-assign', 'audit-test-submit', 'integration-assign', 'integration-submit', 'integration-revoke'):
         return sections('audit-code-review.md', '宿主目标审计') + sections('audit-scope.md', '收尾的实际执行契约')
     if operation == 'retrospect':  # the closing retrospective abstracts observations; it audits nothing
         return sections('project-context.md', '跨运行经验沉淀与复用')

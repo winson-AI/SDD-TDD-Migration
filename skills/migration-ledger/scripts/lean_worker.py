@@ -95,7 +95,11 @@ def web_analysis(args, scope, out, platform='web'):
 
 def assignment(state, request, actor, planned=True):
     mid = request.get('module_id')
-    if mid == 'GLOBAL':
+    from integration import scope as wave_scope, task as wave_task
+    wave = wave_task(state) if mid == 'GLOBAL' else None
+    if wave and wave.get('artifact_only') and wave['assignment_id'] == request.get('assignment_id'):
+        module, task = wave_scope(state), wave
+    elif mid == 'GLOBAL':
         module = ledger.audit_scope(state)
         task = state.get('audit_test_assignment', {})
         require(not state.get('audit_assignment', {}).get('closed', True) and task.get('role') == 'test-runner' and task.get('scope_policy') == 'non-green-only'
@@ -107,7 +111,7 @@ def assignment(state, request, actor, planned=True):
         module['path_dimension_analysis_refs'] = {
             path['path_id']: owner['plan']['dimension_analysis_ref']
             for owner in state['modules'].values()
-            if owner.get('plan', {}).get('dimension_analysis_ref')
+            if (owner.get('plan') or {}).get('dimension_analysis_ref')
             for path in owner['plan']['paths'] if path['path_id'] in selected}
     else:
         require(mid in state.get('modules', {}), 'registered leaf module required')
@@ -152,7 +156,7 @@ def run(root, request, actor):
         else:
             scopes = ('automation', 'visual') if operation == 'visual-install' else ('visual',)
             require(task['role'] == 'auditor' or task.get('test_scope') in scopes, 'visual testing assignment required')
-            if task['role'] == 'test-runner':
+            if task['role'] == 'test-runner' and task.get('mode') != 'integration':
                 import test_validation
                 require(module.get('phase') == 'testing', 'test execution phase required')
                 if operation == 'visual-install':
@@ -162,6 +166,14 @@ def run(root, request, actor):
     if operation == 'legacy-capture':
         require(state, 'Ledger initialization required before execution')
         module, task = assignment(state, request, actor, planned=False)
+        require(not task.get('artifact_only'), 'legacy capture can build; use a separate assignment')
+    if operation in ('visual-install', 'visual-capture') and task.get('artifact_only'):
+        from lean_visual_worker import path_context
+        from test_validation import managed_visual_artifacts
+        path = path_context(args, module, task)
+        refs = module.get('path_build_artifacts', {}).get(path['path_id'], module.get('build_artifacts', []))
+        inputs = managed_visual_artifacts(state, path, refs)
+        require(inputs and args.get('artifact_ref') in inputs['artifacts'], 'visual artifact outside accepted runner output')
     area = 'runs/harmony/sandbox' if operation in ('compare-only', 'image-parity', 'legacy-capture') + visual_operations else 'staging'
     out = run_storage.checked_path(root / area / aid / rid, root / area)
     require(not out.exists(), 'worker output must be a new attempt; preserve prior evidence')

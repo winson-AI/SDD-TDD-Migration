@@ -1,5 +1,4 @@
-"""A global path runs at the wave boundary: as soon as every leaf holding its case has completed; its green stands for
-the audit while its owners' code is unchanged, and its red is routed to the owning leaves."""
+"""Wave scheduling, input-bound reuse, and stale worker recovery."""
 import json
 from pathlib import Path
 import sys
@@ -9,8 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import integration
 import ledger
 import test_audit_closure
-import test_ledger
-from contracts import Rejected, digest
+from contracts import Rejected, check_ref, digest, file_ref
 from execute_test import execute
 
 
@@ -56,7 +54,7 @@ class WaveIntegrationTests(unittest.TestCase):
         f.call('freeze', {'decision_id': 'D2'}, module='M002')
         f.implement('M002', 'I2'); f.verify_module('M002', 'T2'); f.complete('M002')
 
-    def test_a_global_path_runs_when_its_owners_complete_and_its_green_stands_for_the_audit(self):
+    def test_an_opaque_global_path_runs_early_and_retests_when_the_full_baseline_changes(self):
         f = self.f
         with self.assertRaisesRegex(Rejected, 'no global path is due'):
             f.call('integration-assign', {'assignment_id': 'INT0', 'instance_id': 'wave-runner', 'path_ids': ['GP1']}, role='global-orchestrator', module=None)
@@ -74,17 +72,72 @@ class WaveIntegrationTests(unittest.TestCase):
         self.second_wave()
         s = f.state()
         self.assertNotEqual(ledger.global_baseline(s), s['audit_results']['GP1']['code_baseline'])  # the whole code moved, the owner's did not
-        self.assertEqual([p['path_id'] for p in ledger.audit_scope(s)['plan']['paths']], [])
-        test_ledger.code_review(f)
-        f.call('audit-assign', {'assignment_id': 'AUD', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
-        s = f.state(); self.assertEqual(s['audit_assignment']['path_ids'], [])
-        report = {'schema_version': 1, 'kind': 'audit-review', 'run_id': 'demo', 'module_id': 'GLOBAL', 'assignment_id': 'AUD', 'actor_instance_id': 'auditor',
-                  'freeze_id': ledger.audit_scope(s)['freeze_id'], 'code_baseline': ledger.audit_scope(s)['code_baseline'],
-                  'snapshot': s['audit_assignment']['snapshot'], 'paths': [], 'execution_status': 'no-retest-needed', 'review_ref': f.ref('review.md', 'reviewed')}
-        f.call('audit', {'report_ref': f.ref('audit.json', report)}, role='auditor', module=None)
-        self.assertEqual(f.state()['quality'], 'green-passed')
-        rows = {r['path_id']: r for r in __import__('migration_report').build(f.root, f.state(), f.state()['last_sequence'])['paths']}
-        self.assertEqual((rows['GP1']['quality'], rows['GP1']['stale']), ('green-passed', False))
+        self.assertEqual([p['path_id'] for p in ledger.audit_scope(s)['plan']['paths']], ['GP1'])
+        rows = {r['path_id']: r for r in __import__('migration_report').build(f.root, s, s['last_sequence'])['paths']}
+        self.assertTrue(rows['GP1']['stale'])
+
+    def test_stale_wave_requires_matching_host_stop_before_the_audit_can_take_over(self):
+        f = self.f
+        self.first_wave()
+        f.call('integration-assign', {'assignment_id': 'INT1', 'instance_id': 'wave-runner', 'path_ids': ['GP1']},
+               role='global-orchestrator', module=None)
+        report = f.ref('int1.json', self.run_gp1('INT1'))
+        self.second_wave()
+        step = f.state()['global_next_step']
+        self.assertEqual(step['operation'], 'integration-revoke')
+        with self.assertRaisesRegex(Rejected, 'stop or isolate'):
+            f.call('integration-submit', {'result_ref': report}, role='test-runner', instance='wave-runner', module=None)
+        stopped = f.ref('wave-stop.md', 'Host verified the wave process exited.')
+        with self.assertRaisesRegex(Rejected, 'fence mismatch'):
+            f.call('integration-revoke', {**step['payload'], 'fencing_token': -1, 'stopped_worker_ref': stopped}, role='host', module=None)
+        f.call('integration-revoke', {**step['payload'], 'stopped_worker_ref': stopped}, role='host', module=None)
+        self.assertIsNone(integration.task(f.state()))
+        self.assertEqual(f.state()['global_next_step']['operation'], 'audit-code-review')
+        with self.assertRaisesRegex(Rejected, 'inactive'):
+            f.call('integration-submit', {'result_ref': report}, role='test-runner', instance='wave-runner', module=None)
+
+    def test_managed_visual_wave_binds_the_build_while_a_sibling_moves(self):
+        f = self.f
+        self.first_wave()
+        self.second_wave()
+        s = ledger.read_events(f.root)[0]
+        owner, sibling = s['modules']['M001'], s['modules']['M002']
+        env = f.root / 'runs/harmony/sandbox/environment/native.json'
+        env.parent.mkdir(parents=True)
+        env.write_text(json.dumps({'visual_capture': {'backend': 'adb', 'device_id': 'fixture'}}))
+        artifact = f.root / 'runs/build/B1/app.apk'
+        artifact.parent.mkdir(parents=True)
+        artifact.write_bytes(b'accepted apk')
+        build = {'path_id': 'B1', 'kind': 'build', 'command': {'selection_ref': f.ref('command.txt', 'assemble')}}
+        owner['plan']['paths'].append(build)
+        owner['build_artifacts'] = [file_ref(artifact)]
+        owner['results']['B1'] = {'quality': 'green-passed', 'code_baseline': owner['code_baseline'],
+                                  'build_artifacts': owner['build_artifacts']}
+        path = s['global_paths'][0]
+        path.update(kind='visual', platform='android', build_binding={'module_id': 'M001', 'path_id': 'B1'},
+                    visual_execution={'environment_ref': file_ref(env)})
+        sibling['phase'] = 'implementing'
+        sibling_file = check_ref(sibling['code_files'][0])
+        sibling_file.write_bytes(b'unrelated working copy changes')
+        self.assertEqual(integration.due(s), [path])
+        integration.handle(s, {'operation': 'integration-assign', 'payload': {
+            'assignment_id': 'INT1', 'instance_id': 'wave-runner', 'path_ids': ['GP1']}},
+            {'role': 'global-orchestrator', 'instance_id': 'go'}, 99)
+        task = integration.task(s)
+        self.assertEqual(set(task['snapshot']), {'M001'})
+        self.assertTrue(task['artifact_only'])
+        import context_readiness
+        preflight = context_readiness.subject(s, None, 'audit-execution')
+        sibling.update(code_files=[file_ref(sibling_file)], freeze_id='new sibling freeze')
+        sibling['code_baseline'] = ledger.baseline(sibling['code_files'])
+        self.assertFalse(integration.stale(s))
+        self.assertEqual(context_readiness.subject(s, None, 'audit-execution'), preflight)
+        self.assertEqual(integration.scope(s)['path_build_artifacts']['GP1'], [file_ref(artifact)])
+        row = {'quality': 'green-passed', 'integration_inputs': task['inputs']['GP1'], 'code_baseline': task['code_baseline']}
+        self.assertTrue(integration.current(s, path, row, ledger.global_baseline(s)))
+        artifact.write_bytes(b'changed apk')
+        self.assertTrue(integration.stale(s))
+        self.assertFalse(integration.current(s, path, row, ledger.global_baseline(s)))
 
     def test_a_red_integration_result_is_routed_to_the_owning_leaf(self):
         f = self.f; self.first_wave()

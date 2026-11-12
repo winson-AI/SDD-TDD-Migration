@@ -83,6 +83,13 @@ class DueTests(unittest.TestCase):
                 tv.build_unit_free(mine, [mine, other(build('gradlew', ':app:assemble'), role)], 'test-runner')  # no build of half-written files
             with self.subTest(role=role), self.assertRaisesRegex(Rejected, 'build unit busy: M002 is building'):
                 tv.build_unit_free(mine, [mine, other(build('gradlew', ':app:assemble'), 'test-runner')], role)  # nor writing under a build
+        visual = other(mine['plan'], 'test-runner')
+        visual['assignments']['A']['artifact_only'] = True
+        tv.build_unit_free(mine, [visual], 'implementer')
+        tv.build_unit_free(mine, [other(mine['plan'])], 'test-runner', artifact_only=True)
+        with self.assertRaisesRegex(Rejected, 'managed lean_visual_adapter.py'):
+            tv.check_visual_command([sys.executable, '/tmp/opaque-visual-adapter.py'])
+        tv.check_visual_command([sys.executable, str(Path(tv.__file__).with_name('lean_visual_adapter.py'))])
         tv.build_unit_free(mine, [mine, other(build('gradlew', ':lib:assemble'))], 'test-runner')              # another build
         tv.build_unit_free(mine, [mine, other(build('gradlew', ':app:assemble'), closed=True)], 'test-runner')  # its result is in
         tv.build_unit_free(mine, [mine, other(build('gradlew', ':app:assemble'), 'test-runner')], 'test-runner')  # builds side by side

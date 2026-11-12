@@ -367,7 +367,7 @@ def reset_plan(m, reason='invalidated', evidence_ref=None):
                 'dependency_release', 'source_context_continuation', 'allocation_continuation', 'change_request', 'scenario_index', 'plan_binding',
                 'checklist_ref', 'execution_context_ref', 'plan_review_ref', 'task_files', 'execution_partition_pending',
                 'planning_continuation', 'task_revalidation', 'plan_changes', 'trace_dependency_baseline',
-                'dependency_revalidation_pending', 'device_reverify', 'asset_dependency_baseline'):
+                'dependency_revalidation_pending', 'dependency_reverify', 'device_reverify', 'asset_dependency_baseline'):
         m.pop(key, None)
 
 
@@ -486,6 +486,43 @@ def dependencies_ready(s, m):
             dependency_evidence_current(provider)
         else:
             current(provider)
+            if m.get('phase') in ('testing', 'dod', 'completed'):
+                for ref in provider.get('build_artifacts', []):
+                    check_ref(ref)
+
+
+def dependency_closure(s, module_ids):
+    pending = list(module_ids)
+    selected = set()
+    while pending:
+        mid = pending.pop()
+        if mid not in selected:
+            selected.add(mid)
+            pending.extend(s['modules'][mid].get('dependencies', []))
+    return sorted(selected)
+
+
+def dependency_validation_inputs(s, m):
+    """A PATH without its own provider binding is verified against the leaf's full provider closure."""
+    inputs = {}
+    for mid in dependency_closure(s, m['dependencies']):
+        provider = dependency_provider(s['modules'][mid])
+        inputs[mid] = {k: provider.get(k) for k in ('freeze_id', 'code_baseline', 'build_artifacts')}
+    return digest(inputs)
+
+
+def revalidate_provider_results(s, m):
+    expected = dependency_validation_inputs(s, m)
+    affected = [pid for pid, row in m['results'].items() if row.get('dependency_inputs') != expected]
+    if not affected:
+        return
+    m['dependency_reverify'] = True
+    m.pop('automation_retry_ready', None)
+    for pid in affected:
+        m['results'][pid]['stale'] = True
+    if any(p['path_id'] in affected for p in tv.paths(m, 'build')):
+        m['build_baseline'] = None
+        m['build_artifacts'] = []
 
 
 def failure_fingerprint(results):
@@ -696,7 +733,7 @@ def unresolved(m):
     results = dict(m['results'])
     results.update(m.get('repair_findings', {}))
     return {k: v for k, v in results.items() if v['quality'] != 'green-passed'
-            and not (m.get('device_reverify') and v.get('stale'))}
+            and not ((m.get('device_reverify') or m.get('dependency_reverify')) and v.get('stale'))}
 
 
 def diagnosis_focus(m, p):
@@ -818,6 +855,7 @@ def complete_guard(s, m, allow_trace_gaps=False):
     require(m['phase'] == 'dod' and not m['stale'] and m['results'] and
             all(r['quality'] == 'green-passed' for r in m['results'].values()) and
             set(m['results']) == {p['path_id'] for p in m['plan']['paths']}, 'DoD requires all paths Green')
+    require(tv.all_green(m), 'DoD requires current PATH evidence')
     current(m); dependencies_ready(s, m)
     require((set(m.get('accepted_task_ids', [])) == {t['task_id'] for t in m['plan']['tasks']}), 'DoD requires cumulative TASK completion')
     if not allow_trace_gaps or not issues.only_owed_stage(s, m['module_id'], 'dod'):
@@ -832,7 +870,7 @@ def pending_repairs(s):
             if not item.get('module_ids') or set(item['module_ids']) != set(item.get('accepted_by', []))}
 
 
-def dispatch_guard(s, m, worker):
+def dispatch_guard(s, m, worker, artifact_only=False):
     require(m.get('plan') and m.get('freeze_id'), 'SPEC not frozen/prepared')
     coverage = workflow.planning_guard(s, m['module_id'])
     if m.get('scope'):
@@ -857,7 +895,7 @@ def dispatch_guard(s, m, worker):
     for other in s['modules'].values():
         if any(not a.get('closed') for a in other['assignments'].values()):
             require(not any(overlaps(x, y) for x in m['write_paths'] for y in other['write_paths']), 'resource lock conflict')
-    tv.build_unit_free(m, s['modules'].values(), worker)
+    tv.build_unit_free(m, s['modules'].values(), worker, artifact_only)
     require(m['phase'] == {'implementer': 'frozen', 'fixer': 'diagnosing', 'test-runner': 'testing'}[worker]
             or worker == 'test-runner' and written_untested(m), 'worker phase gate rejected')
     if worker == 'test-runner':
@@ -955,14 +993,15 @@ def written_untested(m):
     has never run on this code: it can be run now, without waiting for the rest."""
     results = m.get('results', {})
     return bool(m['phase'] == 'frozen' and m.get('code_baseline') and m.get('execution_partition_pending') and tv.split(m)
-                and any((results.get(path['path_id']) or {}).get('code_baseline') != m['code_baseline'] for path in tv.stage_paths(m, {})))
+                and any(row.get('code_baseline') != m['code_baseline'] or m.get('dependency_reverify') and row.get('stale')
+                        for row in (results.get(path['path_id'], {}) for path in tv.stage_paths(m, {}))))
 
 
 def resume_guard(s, m, p):
     require(m['blocked'] and m['phase'] in ('waiting-dependency', 'waiting-human'), 'module is not suspended')
     require(m['blocked']['resume_phase'] not in ('waiting-dependency', 'waiting-human', 'completed'), 'invalid resume phase')
     if m['blocked']['kind'] == 'dependency':
-        dependencies_ready(s, m)
+        dependencies_ready(s, {**m, 'phase': m['blocked']['resume_phase']})
         require(m.get('dependency_release') == {d: s['modules'][d]['code_baseline'] for d in m['dependencies']}, 'Global dependency release missing/stale')
     else:
         decision = approval(s, m, digest(m['blocked']))
@@ -1198,7 +1237,11 @@ def _next_step(s, m):
                     return step
             if step['ready']:
                 try:
-                    dispatch_guard(s, m, worker)
+                    visual = step.get('test_scope') == 'visual' and tv.artifact_only_visual(
+                        s, m, [p['path_id'] for p in tv.dispatch_paths(m, 'visual')])
+                    if visual:
+                        step['payload']['artifact_only'] = True
+                    dispatch_guard(s, m, worker, visual)
                 except (Rejected, OSError) as exc:
                     step.update(ready=False, reason=str(exc))
     elif m['phase'] == 'dod' and s.get('git_checkpoint') and \
@@ -1584,7 +1627,7 @@ def audit_scope(s):
 
     Optional GLOBAL-only cases not yet executed (or invalidated by code changes)
     are unverified, rather than implicitly Green. Module Green evidence is reused; a global path
-    verified at the wave boundary stands while its owners' code is what it ran on.
+    verified at the wave boundary stands while its bound execution inputs are current.
     """
     results = s.get('audit_results', {})
     code_baseline = global_baseline(s)
@@ -1592,27 +1635,23 @@ def audit_scope(s):
                         if not integration.current(s, path, results.get(path['path_id']), code_baseline)], leftovers=True)
 
 
-def scope_of(s, global_paths, leftovers):
+def scope_of(s, global_paths, leftovers, module_ids=None):
     """The execution scope of GLOBAL work: the given global paths and, for an audit, every module path that is not green."""
     path_test_sources = {}
-    refs = [ref for m in s['modules'].values() for ref in m['code_files']]
+    modules = s['modules'] if module_ids is None else {mid: s['modules'][mid] for mid in module_ids}
+    refs = [ref for m in modules.values() for ref in m['code_files']]
     code_baseline = baseline(refs)
     results = dict(s.get('audit_results', {}))
+    if not leftovers:
+        results = {path['path_id']: results[path['path_id']] for path in global_paths if path['path_id'] in results}
     selected, frozen_interactions, path_build_artifacts, path_dimension_analysis_refs = [], {}, {}, {}
     for path in global_paths:
         selected.append(path)
         if path.get('test_design_ref'):
             path_test_sources[path['path_id']] = {'module_id': 'GLOBAL', 'freeze_id': digest(path),
                 'test_design_ref': path['test_design_ref'], 'contract_version': 1}
-        # A GLOBAL visual path explicitly names its frozen integration build owner/path.
-        binding = path.get('build_binding') or {}
-        owner = s['modules'].get(binding.get('module_id'), {})
-        build = owner.get('results', {}).get(binding.get('path_id'), {})
-        if (any(p.get('path_id') == binding.get('path_id') and p.get('kind') == 'build'
-                for p in (owner.get('plan') or {}).get('paths', []))
-                and build.get('quality') == 'green-passed' and build.get('code_baseline') == owner.get('code_baseline')
-                and not owner.get('stale')):
-            path_build_artifacts[path['path_id']] = [r for r in build.get('build_artifacts', []) if r in owner.get('build_artifacts', [])]
+        if path.get('build_binding'):
+            path_build_artifacts[path['path_id']] = integration.build_artifacts(s, path)
         if path.get('kind') in ('automation', 'visual') and path.get('interaction_id'):
             from ui_evidence import interaction_contract
             item = interaction_contract(path.get('frozen_interaction'))
@@ -1634,9 +1673,9 @@ def scope_of(s, global_paths, leftovers):
                         frozen_interactions[path['path_id']] = interaction
     return {'path_test_sources': path_test_sources, 'frozen_interactions': frozen_interactions, 'path_build_artifacts': path_build_artifacts,
             'path_dimension_analysis_refs': path_dimension_analysis_refs,
-            'freeze_id': digest({k:v['freeze_id'] for k,v in s['modules'].items()}),
+            'freeze_id': digest({k:v['freeze_id'] for k,v in modules.items()}),
             'code_files': refs, 'code_baseline': code_baseline,
-            'build_artifacts': [ref for module in s['modules'].values() for ref in module.get('build_artifacts', [])],
+            'build_artifacts': [ref for module in modules.values() for ref in module.get('build_artifacts', [])],
             'plan': {'definitions': [], 'paths': selected},
             'results': results,
             'stale': any(results.get(p['path_id'], {}).get('quality') == 'green-passed' for p in selected)}
@@ -1661,7 +1700,11 @@ def assign_worker(s, m, mid, p, events, root):
     usage = model_routing.record(p, role=p['role'])
     if audit_closure.active(s):
         require(p.get('instance_id') != s['audit_batch']['auditor_instance_id'], 'Auditor cannot implement or author verification')
-    dispatch_guard(s, m, p['role'])
+    artifact_only = p.get('artifact_only', False)
+    require(type(artifact_only) is bool and (not artifact_only or (
+        p['role'] == 'test-runner' and p.get('test_scope') == 'visual'
+        and tv.artifact_only_visual(s, m, p.get('path_ids')))), 'artifact-only visual assignment needs accepted managed build output')
+    dispatch_guard(s, m, p['role'], artifact_only)
     execution_contract = control_policy.execution_contract(m, p)
     if p['role'] == 'test-runner':
         if tv.split(m):
@@ -1780,6 +1823,8 @@ def mutate(s, req, principal, events, root=None):
         raise Rejected('audit snapshot locked; close or revoke audit before mutation')
     if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
+    if op in ('audit-assign', 'audit-collect'):
+        require(not integration.task(s), 'finish or revoke active integration before final audit')
     context_readiness.gate(s, req, principal, root=root)
     hint = req.get('hint')
     if hint is not None and not (isinstance(hint, dict) and isinstance(hint.get('session_id'), str) and hint['session_id']
@@ -2178,8 +2223,13 @@ def mutate(s, req, principal, events, root=None):
         else:
             previous_fingerprint = failure_fingerprint(m['results'])
             result['paths'] = tv.scripted(result['paths'])  # which device paths a frozen script drove: the pilot the report counts
+            accepted = {x['path_id']: {**x, 'code_baseline': m['code_baseline'], 'stale': False} for x in result['paths']}
+            if m['dependencies']:
+                inputs = dependency_validation_inputs(s, m)
+                for row in accepted.values():
+                    row['dependency_inputs'] = inputs
+            m['results'].update(accepted)
             if tv.split(m):
-                m['results'].update({x['path_id']: {**x, 'code_baseline': m['code_baseline'], 'stale': False} for x in result['paths']})
                 kinds = {x['path_id']: x.get('kind') for x in m['plan']['paths']}
                 builds = [row for row in result['paths'] if kinds.get(row['path_id']) == 'build']
                 if builds:
@@ -2187,17 +2237,14 @@ def mutate(s, req, principal, events, root=None):
                     m['build_baseline'] = m['code_baseline'] if all(x['quality'] == 'green-passed' for x in builds) else None
                 if assignment.get('test_scope') != 'build' or any(x['quality'] != 'green-passed' for x in result['paths']):
                     m.pop('automation_retry_ready', None)
-            else:
-                if assignment.get('execution_contract'):
-                    m['results'].update({x['path_id']: {**x, 'code_baseline': m['code_baseline'], 'stale': False} for x in result['paths']})
-                else:
-                    m['results'] = {x['path_id']: x for x in result['paths']}
+            if m.get('dependency_reverify') and tv.all_green(m):
+                m.pop('dependency_reverify')
             # Build, unit tests and static review are pre-functional gates: judge only their own paths (also a review
             # that stopped the functional paths it went ahead of).
             gates = {p['path_id'] for p in m['plan']['paths'] if p.get('kind') in tv.PRE}
             build_only = tv.split(m) and (assignment.get('test_scope') == 'build' or all(x['path_id'] in gates for x in result['paths']))
             bad = sorted(x['path_id'] for x in result['paths'] if x['quality'] != 'green-passed') if build_only else sorted(k for k, v in m['results'].items() if v['quality'] != 'green-passed'
-                and not (m.get('device_reverify') and v.get('stale')))
+                and not ((m.get('device_reverify') or m.get('dependency_reverify')) and v.get('stale')))
             if bad and (m.get('trace_dependency_baseline') or m.get('asset_dependency_baseline')):
                 invalidate_dependents(s, mid)
             if build_only and not bad:
@@ -2271,8 +2318,8 @@ def mutate(s, req, principal, events, root=None):
         m['phase'] = 'waiting-dependency' if p['kind'] == 'dependency' else 'waiting-human'
     elif op == 'dependency-ready':
         role(principal, 'global-orchestrator')
-        dependencies_ready(s, m)
         require(m['phase'] == 'waiting-dependency', 'consumer not waiting')
+        dependencies_ready(s, {**m, 'phase': m['blocked']['resume_phase']})
         m['dependency_release'] = {d: s['modules'][d]['code_baseline'] for d in m['dependencies']}
     elif op == 'resume':
         role(principal, 'module-orchestrator')
@@ -2287,8 +2334,13 @@ def mutate(s, req, principal, events, root=None):
         m.setdefault('blocker_history', []).append(resolved)  # what stopped the module and what released it
         m['phase'] = 'testing' if m['blocked']['resume_phase'] == 'dod' else m['blocked']['resume_phase']
         m['blocked'] = None
-        m.pop('dependency_revalidation_pending', None)
+        pending = m.pop('dependency_revalidation_pending', False)
+        provider_changed = resolved['kind'] == 'dependency' and resolved.get('reason') == 'dependency-version-changed'
+        if m.get('plan') and m['dependencies'] and (pending or provider_changed):
+            revalidate_provider_results(s, m)
         m['stale'] = True
+        if provider_changed and m['phase'] == 'testing' and tv.all_green(m):
+            m.update(phase='dod', stale=False)
     elif op == 'recover':
         role(principal, 'module-orchestrator')
         require(m['fix_rounds_used'] >= m.get('fix_budget', s['max_fix_rounds']) or
@@ -2371,7 +2423,7 @@ def mutate(s, req, principal, events, root=None):
     elif op in audit_execution.OPS:
         audit_execution.handle(s, req, principal, audit_scope(s))
     elif op in integration.OPS:
-        integration.handle(s, req, principal, len(events) + 1)
+        integration.handle(s, req, principal, len(events) + 1, root)
     elif op == 'audit-assign':
         role(principal, 'global-orchestrator')
         workflow.planning_guard(s)
@@ -2892,6 +2944,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     audit = s.get('audit_assignment', {})
     revision_step = run_changes.next_action(s)
     recovery_step = workflow.audit_recovery_step(s)
+    wave = integration.task(s)
     if audit_closure.active(s):
         global_next = audit_closure.global_step(s)
     elif audit and not audit.get('closed'):
@@ -2909,6 +2962,11 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
                     assignment_id=task['assignment_id'] if same and not task.get('closed', True) else audit['assignment_id'])
             else:
                 global_next.update(ready=True, test_result_ref=task['result_ref'])
+    elif wave and integration.stale(s):
+        global_next = {'operation': 'integration-revoke', 'role': 'host', 'ready': True, 'assignment_id': wave['assignment_id'],
+                       'payload': {'assignment_id': wave['assignment_id'], 'fencing_token': wave['fencing_token']},
+                       'path_ids': wave['path_ids'], 'reason': 'integration-inputs-stale-stop-worker',
+                       'continue_modules': rounds['ready_modules']}
     elif revision_step:
         global_next = {**revision_step, 'continue_modules': rounds['ready_modules']}
     elif recovery_step:
@@ -2922,14 +2980,15 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
                        'continue_modules': rounds['ready_modules']}
         if global_next['ready'] and workflow.draft_coverage(s):  # the registrations state it: the Ledger writes it
             global_next.update(mechanical=True, reason='coverage-from-registrations')
-    elif integration.task(s):
-        item = integration.task(s)
-        global_next = {'operation': 'integration-submit', 'role': 'test-runner', 'ready': True, 'assignment_id': item['assignment_id'],
-                       'path_ids': item['path_ids'], 'reason': 'integration-running', 'continue_modules': rounds['ready_modules']}
-    elif integration.work_remaining(s) and integration.due(s):
-        # A wave boundary: every leaf holding these cases has completed; the final audit then re-runs only what moved.
+    elif wave:
+        global_next = {'operation': 'integration-submit', 'role': 'test-runner', 'ready': True, 'assignment_id': wave['assignment_id'],
+                       'path_ids': wave['path_ids'], 'reason': 'integration-running', 'continue_modules': rounds['ready_modules']}
+        if wave.get('artifact_only'):
+            global_next.update(artifact_only=True, test_scope='visual', instance_id=wave['instance_id'],
+                               fencing_token=wave['fencing_token'])
+    elif integration.work_remaining(s) and (wave_paths := integration.due(s)):
         global_next = {'operation': 'integration-assign', 'role': 'global-orchestrator', 'ready': True, 'reason': 'wave-complete',
-                       'path_ids': [x['path_id'] for x in integration.due(s)], 'continue_modules': rounds['ready_modules']}
+                       'path_ids': [x['path_id'] for x in wave_paths], 'continue_modules': rounds['ready_modules']}
     elif rounds['all_settled'] and not audit_code_review.current(s, ref_check):
         global_next = {'operation': 'audit-code-review', 'role': 'auditor', 'ready': True,
                        'reason': 'review-whole-change-before-defects', 'snapshot': audit_code_review.snapshot(s)}
@@ -3088,7 +3147,7 @@ def run_fixed_flow(s, step):
         step.update(mechanical=True, payload={**(step.get('payload') or {}), 'instance_id': s['audit_code_review']['auditor_instance_id']})
     elif op in ('integration-assign', 'audit-test-assign'):
         step['mechanical'] = True  # the paths due, to a Test-Runner no module's author is: it reports inside its dispatch
-    elif op == 'integration-submit' and global_paths_run_by_themselves(s, step.get('path_ids')):
+    elif op == 'integration-submit' and not step.get('artifact_only') and global_paths_run_by_themselves(s, step.get('path_ids')):
         step['mechanical'] = True
 
 
@@ -3381,7 +3440,7 @@ def advance(root, principal, module_id, workers=None, *, pause_for_rotation=Fals
                            'module_id': module_id, 'expected_revision': step['expected_revision'],
                            'operation': step['operation'], 'payload': payload}, actor)
         applied.append({'operation': step['operation'], 'event_id': ack['event_id'],
-                        **{k: payload[k] for k in ('assignment_id', 'role', 'instance_id', 'test_scope') if k in payload}})
+                        **{k: payload[k] for k in ('assignment_id', 'role', 'instance_id', 'test_scope', 'artifact_only') if k in payload}})
         if step['operation'] == 'assign' and payload.get('role') in ('implementer', 'fixer'):
             import resource_binding  # the frozen plan's copies and parameter file, written in the coder's name before it codes
             synced = resource_binding.sync(root, read_events(root)[0], module_id, payload['assignment_id'])
