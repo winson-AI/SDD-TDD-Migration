@@ -66,7 +66,7 @@ def card(root, step, instance=None):
 
 def tick(root, principal, workers=None):
     """Make ready coding assignments visible before executing unrelated frozen commands."""
-    started = False
+    started, resource_conflicts = False, []
     for _ in range(50):
         st = ledger.status(root)
         steps = st['next_steps']
@@ -75,6 +75,7 @@ def tick(root, principal, workers=None):
             if step.get('mechanical') and step.get('ready') and step['operation'] != 'await-result':
                 actions += ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True, defer_commands=True)['applied']
         actions += ledger.advance_run(root, principal, workers, defer_commands=True)
+        resource_conflicts.extend(a for a in actions if a.get('conflict'))
         started |= any(a['operation'] == 'assign' and a.get('role') == 'implementer' for a in actions)
         if actions:
             continue
@@ -91,7 +92,10 @@ def tick(root, principal, workers=None):
         if not actions:
             break
     st = ledger.status(root, 'full')  # read by this script, not by a model
-    lines = []
+    lines = [{'kind': 'signal', 'reason': 'resource-sync-conflict', 'severity': 'action',
+              'module_id': a['module_id'], 'assignment_id': a['assignment_id'],
+              'next_action': a['conflict'], **({'receipt_ref': a['receipt_ref']} if a.get('receipt_ref') else {})}
+             for a in resource_conflicts]
     changes = [x for x in (st.get('run_change_next_step'), st.get('source_change_next_step')) if x]  # same-run revisions, new sources
     for step in st['next_steps'] + [st['global_next_step']] + changes:
         operation = step.get('operation')

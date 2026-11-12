@@ -7,6 +7,7 @@ from html import escape
 from contracts import check_ref, digest, read_json
 import decomposition as dc
 import dimensions as dimension_rules
+import device_configuration
 import test_validation as tv
 import audit_code_review
 import parameter_file
@@ -63,6 +64,21 @@ def picture(mid, item, analysis_ref, carriers, rows):
             'evidence_refs': refs([analysis_ref, item.get('adaptation_evidence_ref'), deviation.get('evidence_refs'), [r['evidence_refs'] for r in paths]])}
 
 
+def qualified_proof(rows, mid, resource, alternatives, matching, carriers):
+    path_ids = {pid for cid in matching for pid in carriers.get(cid, [])}
+    proof = []
+    for row in rows:
+        if (row['module_id'] != mid or row['path_id'] not in path_ids or row['quality'] != 'green-passed'
+                or not row['attempt_executed'] or row['stale']):
+            continue
+        parity = row.get('image_parity') or {}
+        actual = (parity.get('capture_evidence') or {}).get('device_configuration')
+        if (actual and device_configuration.distinguishes(actual, resource['qualifier'], alternatives)
+                and any(check['id'] in matching and check['status'] == 'MATCH' for check in parity.get('checks', []))):
+            proof.append(row)
+    return sorted(path_ids), proof
+
+
 def fidelity(s, rows, ref_check):
     """Disclose proof boundaries without changing business acceptance or scheduling."""
     device_gaps = [{'module_id': mid, 'item_id': None, 'kind': 'device-path-gap', 'case_ids': [cid],
@@ -114,25 +130,38 @@ def fidelity(s, rows, ref_check):
         try:
             copy_plan = resource_copy.load(analysis, ref_check) or {}
             copied += len(copy_plan.get('rows', []))
-            image_checks = ui_fidelity.declared_image_checks(analysis) if copy_plan.get('renditions') else {}
+            image_checks = ui_fidelity.declared_image_checks(analysis)
             for rendition in copy_plan.get('renditions', []):
+                source, qualifier = rendition['source_resource'], rendition['qualifier']
                 matching = {cid for cid, (check, _) in image_checks.items()
-                            if check.get('kind', 'image') == 'image' and check.get('source_resource') == rendition['source_resource']
-                            and check.get('qualifier') == rendition['qualifier']}
-                path_ids = {pid for cid in matching for pid in carriers.get(cid, [])}
-                proof = [r for r in rows if r['module_id'] == mid and r['path_id'] in path_ids
-                         and r['quality'] == 'green-passed' and r['attempt_executed'] and not r['stale']]
-                renditions.append({**rendition, 'module_id': mid, 'path_ids': sorted(path_ids),
+                            if check.get('kind', 'image') == 'image' and check.get('source_resource') == source
+                            and check.get('qualifier') in (qualifier, 'default' if qualifier == 'base' else qualifier)}
+                alternatives = [item['qualifier'] for item in copy_plan['renditions'] if item['source_resource'] == source]
+                path_ids, proof = qualified_proof(rows, mid, rendition, alternatives, matching, carriers)
+                renditions.append({**rendition, 'module_id': mid, 'path_ids': path_ids,
                                    'visual_status': 'verified' if proof else 'not-verified',
                                    'evidence_refs': refs([rendition['source_refs'], [r['evidence_refs'] for r in proof]])})
-                if rendition['status'] != 'copied':
+                if rendition['status'] != 'copied' or not proof:
                     limitations.append({'module_id': mid, 'item_id': None, 'kind': 'resource-rendition',
-                                        'reason': f"{rendition['source_resource']} / {rendition['qualifier']} · "
-                                                  f"{rendition['status']} · {rendition['reason']} · {renditions[-1]['visual_status']}",
+                                        'reason': f"{source} / {qualifier} · {rendition['status']} · "
+                                                  f"{rendition['reason']} · {renditions[-1]['visual_status']}",
                                         'evidence_refs': renditions[-1]['evidence_refs']})
             filled = parameter_file.summary(analysis, ref_check)
             if filled:
                 parameters[mid] = filled
+                for variant in filled.get('variants', []):
+                    source, qualifier = variant['source_resource'], variant['qualifier']
+                    matching = {cid for cid, (check, _) in image_checks.items()
+                                if check.get('kind') in ('text', 'bounds', 'color')
+                                and check.get('source_resource') == source and check.get('qualifier') == qualifier}
+                    alternatives = [item['qualifier'] for item in filled['variants'] if item['id'] == variant['id']]
+                    path_ids, proof = qualified_proof(rows, mid, variant, alternatives, matching, carriers)
+                    variant.update(path_ids=path_ids, visual_status='verified' if proof else 'not-verified',
+                                   evidence_refs=refs([analysis_ref, [r['evidence_refs'] for r in proof]]))
+                    if variant['status'] != 'generated' or not proof:
+                        limitations.append({'module_id': mid, 'item_id': None, 'kind': 'parameter-configuration',
+                                            'reason': f"XML {source} / {qualifier} · {variant['status']} · {variant['visual_status']}",
+                                            'evidence_refs': variant['evidence_refs']})
             counts = Counter()
             for item in ui.get('items', []) if ui.get('status') == 'applicable' else []:
                 model = item.get('semantic_model') or {}
@@ -263,6 +292,8 @@ def build(root, s, sequence, ref_check=check_ref):
                      'validation_reuse': record.get('validation_reuse'),
                      'assertions': copy.deepcopy(record.get('assertions', [])), 'root_causes': causes,
                      'media_refs': copy.deepcopy(record.get('media_refs') or []),
+                     **({'image_parity': copy.deepcopy(parity)} if
+                        (parity := (record.get('visual_alignment') or {}).get('image_parity')) else {}),
                      'expected_media': reference_media.expected(reference_media.of_module(s, m), path) if m and path else [],
                      'evidence_refs': refs(related), 'spec_ref': m.get('plan_ref') if m else s.get('global_spec'),
                      'ledger_evidence': {'path': str(root / 'ledger/events.jsonl'), 'sequence': sequence,
@@ -435,6 +466,11 @@ def render(report):
             c = row['counts']
             text.append(f"| {cell(mid)} | {row['components']} / {row['layers']} | {row['parameters']} | {c.get('used', 0) + c.get('mapped', 0)} | "
                         f"{c.get('not-applicable', 0)} | {c.get('deviation', 0)} | {cell(row['fill_rate'])} |")
+    for mid, row in sorted((pictures.get('parameters') or {}).items()):
+        for variant in row.get('variants', []):
+            if variant['visual_status'] == 'verified' and variant['status'] == 'generated':
+                text.append(f"- {cell(mid)} XML {cell(variant['source_resource'])} / {cell(variant['qualifier'])} · "
+                            f"{cell(variant['source_value'])} · verified · {cell(', '.join(variant['path_ids']))}")
     if pictures['items']:
         text += ['', '以下图片不是对存量资源的精确复制；verified 表示目标屏幕上的节点图像已在容差内与存量渲染参考一致。', '',
                  f"图片统计：{cell(pictures['counts'])}", '', '| 模块 / 项 | 来源 | 类型 / 策略 | 状态 | 说明 |', '| --- | --- | --- | --- | --- |']

@@ -745,6 +745,7 @@ GATES = [
     (r'static|spec closure|reached_from|production symbol|fake implementation', 'testing.md', '静态规格闭合'),
     (r'readiness|context[-_ ](gate|report|submit)', 'context-readiness.md', '2. 精确插入节点'),
     (r'telemetry', 'telemetry.md', '1. 适用性与非阻塞原则'),
+    (r'device_configuration|capture configuration differs|exact qualified source value', 'resource-transfer.md', '限定配置的设备验证'),
     (r'image[ _-]?(check|parity|source)|picture|deviation|render-reference', 'ui-fidelity.md', PICTURES),
     (r'watchdog|notice', 'watchdog.md', '总则'),
     (r'journal|workflow hub|hub routing|workflow\.md|event artifact|archive entry|projection', 'storage-layout.md', 'OpenSpec 投影完整性收尾门禁'),

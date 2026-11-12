@@ -230,6 +230,7 @@ def reverify(s, m, devices, review):
     if retained is None:
         retained = set()
         m.update(build_baseline=None, build_artifacts=[])
+        m.pop('retained_build_paths', None)
         m.pop('device_reverify', None)
     else:
         m['device_reverify'] = review

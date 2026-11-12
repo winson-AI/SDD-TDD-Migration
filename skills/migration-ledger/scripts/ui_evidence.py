@@ -402,7 +402,7 @@ def validate_image_checks(model, tree=None, index=None):
         require(isinstance(item.get('node_id'), str) and item['node_id'].startswith('node:'), label + ' needs a stable node:<id>')
         require(nodes is None or item['node_id'] in nodes, label + ' names a node the UI tree does not have')
         kind = item.get('kind', 'image')
-        require(kind in image_parity.KINDS, label + ' kind is image, text or node')
+        require(kind in image_parity.KINDS, label + ' kind must be image, text, node, bounds or color')
         if kind != 'node':
             require(all(isinstance(item.get(field), str) and item[field] for field in ('source_resource', 'qualifier')),
                     label + ' needs source_resource and qualifier')
@@ -414,6 +414,25 @@ def validate_image_checks(model, tree=None, index=None):
                 require(any(row.get('ref') == item['source_resource'] and family(row.get('qualifier')) == family(item['qualifier'])
                             and row.get('value') == text for row in index.get('resources', [])),
                         label + ' expect.text must be the text the source index holds for its string and qualifier')
+        if kind in ('bounds', 'color'):
+            import parameter_records
+            expected = item.get('expect')
+            require(isinstance(expected, dict), label + ' requires expect')
+            if kind == 'bounds':
+                require(item['source_resource'].startswith('@dimen/') and expected.get('metric') in ('width', 'height', 'gap-x', 'gap-y')
+                        and type(expected.get('value')) in (int, float) and expected.get('unit') in ('dp', 'px'),
+                        label + ' requires a source dimension and width, height, gap-x or gap-y in dp or px')
+                typed = {'type': 'dimension', 'value': expected['value'], 'unit': expected['unit']}
+            else:
+                require(item['source_resource'].startswith('@color/') and re.fullmatch(r'#FF[0-9A-F]{6}', str(expected.get('color'))),
+                        label + ' requires a source color and opaque #FFRRGGBB')
+                typed = {'type': 'color', 'value': expected['color']}
+            if index is not None:
+                qualifier = 'base' if item['qualifier'] == 'default' else item['qualifier']
+                require(any(row.get('ref') == item['source_resource']
+                            and row.get('qualifier') in (qualifier, 'default' if qualifier == 'base' else qualifier)
+                            and isinstance(row.get('value'), str) and parameter_records.literal(row['value']) == typed
+                            for row in index.get('resources', [])), label + ' expect differs from the exact qualified source value')
         if kind == 'image':
             reference = read_json(check_ref((item.get('reference') or {}).get('render_ref')))
             require(reference.get('producer') == 'sdd-reference-render' and reference.get('source_resource') == item['source_resource']
@@ -426,6 +445,12 @@ def validate_image_checks(model, tree=None, index=None):
         target = item.get('target')
         require(isinstance(target, dict) and image_parity.selector_valid(target.get('selector')),
                 label + ' needs target.selector: exact class, resource-id, text or content-desc of the node in the target view tree')
+        if kind == 'bounds' and item['expect']['metric'].startswith('gap-'):
+            require(image_parity.selector_valid(target.get('anchor_selector')), label + ' gap needs an exact target.anchor_selector')
+        if kind == 'color':
+            sample = target.get('sample', [0.5, 0.5])
+            require(isinstance(sample, list) and len(sample) == 2 and all(type(x) in (int, float) and 0 <= x <= 1 for x in sample),
+                    label + ' sample is [x, y] within the target crop, each from 0 to 1')
         require(type(target.get('capture_index', 0)) is int and target.get('capture_index', 0) >= 0, label + ' capture_index must be a non-negative integer')
         try:
             image_parity.thresholds(item.get('tolerance'))

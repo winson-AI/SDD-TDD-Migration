@@ -254,6 +254,42 @@ def command_receipts(s, m, root, paths):
         return []  # Unavailable or drifted evidence falls back to the ordinary verification gates.
 
 
+def current_build_paths(s, m, root, candidates):
+    """Recheck the same freeze, accepted bytes, frozen command and host inputs for each reusable build."""
+    from runner_storage import revalidation_inputs
+
+    if root is None or not candidates:
+        return set()
+    retained = set()
+    for path in m['plan']['paths']:
+        pid = path['path_id']
+        if pid not in candidates:
+            continue
+        row = m['results'].get(pid) or {}
+        if row.get('stale') or row.get('quality') != 'green-passed' or row.get('code_baseline') != m['code_baseline']:
+            continue
+        try:
+            receipt = read_json(check_ref(row['execution_receipt']))
+            command = path['command']
+            expected = {'producer': 'host-executor', 'run_id': s['run_id'], 'module_id': m['module_id'],
+                        'path_id': pid, 'test_run_id': row['test_run_id'], 'freeze_id': m['freeze_id'],
+                        'code_baseline': m['code_baseline'], 'requested_argv': command['argv'],
+                        'cwd': str(Path(command['cwd']).resolve())}
+            fingerprint = receipt.get('revalidation_inputs_sha256')
+            if not fingerprint or any(receipt.get(k) != v for k, v in expected.items()):
+                continue
+            if fingerprint != revalidation_inputs(s, root, command['cwd'], command['argv']):
+                continue
+            result = read_json(check_ref(receipt['result_ref']))
+            require(result.get('build_artifacts', []) == row.get('build_artifacts', []), 'accepted build artifacts changed')
+            for ref in [receipt['query_ref'], receipt['log_ref'], *row.get('build_artifacts', [])]:
+                check_ref(ref)
+            retained.add(pid)
+        except (Rejected, OSError, ValueError, KeyError, TypeError):
+            continue
+    return retained
+
+
 def reusable_build(s, m, root):
     """Keep build/unit receipts across a refreeze that only adds trace IDs."""
     if not documentation_delta(m):

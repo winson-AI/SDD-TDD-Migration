@@ -61,6 +61,11 @@ def generated_files(analysis):
             if document and document.get('convention') else ({}, []))
 
 
+def unique_outputs(paths):
+    resolved = [Path(path).resolve() for path in paths]
+    require(len(set(resolved)) == len(resolved), 'copied resources and generated parameters need distinct target paths')
+
+
 def output_hashes(plan):
     """The expected bytes of derived outputs after the whole implementation has been accepted."""
     import resource_copy
@@ -68,8 +73,10 @@ def output_hashes(plan):
     if not ref:
         return {}
     analysis = read_json(check_ref(ref))
-    hashes = {row['target_path']: row['source_ref']['sha256'] for row in resource_copy.rows(analysis)}
+    rows = resource_copy.rows(analysis)
     generated, _ = generated_files(analysis)
+    unique_outputs([row['target_path'] for row in rows] + list(generated))
+    hashes = {row['target_path']: row['source_ref']['sha256'] for row in rows}
     hashes.update({path: hashlib.sha256(text.encode('utf-8')).hexdigest() for path, text in generated.items()})
     return hashes
 

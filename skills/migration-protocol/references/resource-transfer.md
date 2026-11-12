@@ -14,18 +14,12 @@ collector 记录范围内每处资源引用的使用点（行号、类/方法、
 
 ## 文件资源按路径复制
 
-项目在 `target_resources.copy` 声明一次目标目录、路径与 accessor 模板、可原样加载的格式和密度顺序（字段见 [target-resources.json](../../../template/target-resources.json)）。
+项目声明目标目录、路径与 accessor 模板、可加载格式和密度顺序。见 [资源约定模板](../../../template/target-resources.json)。
 
-1. `resource-plan` 从分析里的 UI 证据派生**复制清单**：每个选中的可原样加载文件一行（存量路径与哈希、目标路径、accessor、使用节点），另列清单外须登记的资源。Resource 维以 `copy_plan_ref` 引用；资源全在清单内时 `items` 可空。
-2. 计划未写的清单与参数表由 Ledger 派生绑定；冻结时按证据与约定重算，逐行相同才通过；一个资源只由清单或 item 之一覆盖。
-3. 派发 coder 时 advance 以其名义执行 `resource-sync`，按当前 assignment 的 TASK 和写范围挑选复制行及生成文件。可给出 task_id 聚焦单一任务。整批预检后才写入，相同字节直接保留。CR 同名更新只覆盖哈希仍匹配上一份验收记录的文件，检测到独立修改时保留文件并报冲突。
-4. 验收逐行核对副本哈希等于存量，提交的代码出现每行 accessor；副本自身不算引用。
-
-目标按密度选择资源时可声明 `preserve_density: true`，目标路径须含 `{density}`，可加载且唯一的源档位按原字节分别交付。沿用单份交付时记录每个折叠档位。需要验证的档位用现有图像检查绑定源限定符和实际设备 visual PATH，报告按档位披露验证状态。
-
-约定已声明时可原样加载的文件走清单；手工替换存量图片的 item 以 `copy_blocker` 写明原因，随报告披露。
-
-清单之外的 item 同样被核对：非 blocked 的 `target_resource` 与 consumer 必须是目标工程内的文件，产出资源的策略须写 `#accessor`；验收时 `byte_copy` 比对哈希，`value_xml_exact` 比对条目，`exact_vector_xml` 比对确定性转换结果，每个 consumer 文件须出现该 accessor。
+- `resource-plan` 从 UI 证据派生 `copy_plan_ref`，登记存量路径与哈希、目标路径、accessor 和使用节点。清单之外的资源另立 item。Ledger 绑定并在冻结时重算，拒绝复制文件和生成参数共用落点。
+- 派发时 `resource-sync` 按 TASK 写范围预检后同步。相同字节直接保留，CR 只更新仍匹配旧验收哈希的文件。遇独立修改时保留原文件，`drive` 报当前派发与回执。
+- `preserve_density: true` 允许按 `{density}` 或 `{qualifier}` 保留多档。用完整限定符区分同密度多版本，如 `anydpi-v21` 与 `anydpi-v24`。报告披露折叠档位。设备检查见 [限定配置的设备验证](#限定配置的设备验证)。
+- 验收核对存量字节与代码 accessor。清单外图片手工替换要写 `copy_blocker`。非 blocked 项绑定目标文件和 consumer，`byte_copy` 验哈希，`value_xml_exact` 验条目，`exact_vector_xml` 验转换结果。
 
 ## 参数表
 
@@ -46,7 +40,15 @@ collector 记录范围内每处资源引用的使用点（行号、类/方法、
 
 Spec 在 UI parameter_fill 写例外及动态/结构映射（见[四维模板](../../../template/dimension-analysis.json)）：not_applicable 附原因，deviations 给取值和批准的 alternative，tokens 给值/已有 accessor；settled、runtime、structural 见下节；未决表达式与未映射 token 记欠项。其余 value 按源记录取用；冻结拒绝未处理的 expression/token。
 
-`resource-sync` 按参数表、例外与模板写出文件，字节由三者决定；验收重新生成并比对，且提交的代码须按键出现每个参数（生成文件自身不算）。生成文件不得手改，取值有误走 CR 修订例外。填充率 = 按记录取用与已映射 ÷ 需要决定的参数，随收尾报告披露。
+`resource-sync` 按参数表、例外与模板写出文件，字节由三者决定；验收重新生成并比对，且提交的代码须按键出现每个参数（生成文件自身不算）。生成文件不得手改，取值有误走 CR 修订例外。报告披露填充率。多配置值见 [限定配置的设备验证](#限定配置的设备验证)。
+
+`target_resources.parameters.configurations` 将完整 Android 限定符映射到独立的绝对目标文件，文件模板含 `{module}`。例如 `night` 与 `sw600dp-night` 可以分别生成同一键的尺寸、颜色、整数或文案，`locales` 可继续映射纯语言文案。报告保留源字面值与落点，缺映射或尚未解析的别名记为未搬运。
+
+## 限定配置的设备验证
+
+在 visual PATH 的 `device_configuration` 填该路径要观察到的配置，可用 `density_dpi`、`night`、`smallest_width_dp`、`api_level` 和 Android 格式的 `locale`。用 `image_check_ids` 绑定对应的 `source_resource` 与完整 `qualifier`。图片用原档位的渲染参考。XML 值可用文本检查、`bounds`（`expect.metric` 为 `width`、`height`、`gap-x` 或 `gap-y`，并声明 `value` 与 `unit`，间距需 `target.anchor_selector`）、或 `color`（`expect.color` 为不透明 `#FFRRGGBB`，可用 `target.sample` 指定裁剪内的采样坐标）。
+
+Android 内置采集在截图前后从同一设备读取配置。其他平台可由受管适配器在与已安装产物、截图和视图树绑定的捕获命令日志中记录 `device_id` 和实际 `device_configuration`。Ledger 复核命令日志与证据，再按当前冻结检查重算结果。未观测配置、配置不匹配或更具体的存量档位同时适用时，报告不计该档位为已验证。XML 数值、别名、复杂绘制等未建立可重算设备断言的值仍列为未验证。
 
 ## 动态参数与布局结构
 

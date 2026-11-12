@@ -2,6 +2,7 @@ import copy
 import json
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -11,6 +12,51 @@ from execute_test import execute
 
 
 class AuditPathEvidenceTests(unittest.TestCase):
+    def test_targeted_build_retest_retains_only_proven_green_build_inputs(self):
+        import ledger
+        import runner_storage
+        import test_validation as tv
+
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory).resolve()
+            target = base / 'target'
+            target.mkdir()
+            source = target / 'Main.kt'
+            source.write_text('current code')
+            context = base / 'context.json'
+            context.write_text('{}')
+            state = {'run_id': 'demo', 'target_root': str(target), 'project_context_ref': file_ref(context)}
+            command = {'cwd': str(target), 'argv': [sys.executable, '-c', 'pass']}
+            builds = [{'path_id': pid, 'kind': 'build', 'command': command} for pid in ('B1', 'B2')]
+            plan = {'paths': [*builds, {'path_id': 'A', 'kind': 'automation'}], 'tasks': []}
+            module = {'module_id': 'M001', 'freeze_id': 'F1', 'code_baseline': 'baseline', 'plan': plan, 'results': {}}
+            fingerprint = runner_storage.revalidation_inputs(state, base, command['cwd'], command['argv'])
+            self.assertTrue(fingerprint)
+            for path in builds:
+                pid = path['path_id']
+                artifact = base / (pid + '.apk')
+                artifact.write_text(pid)
+                refs = [file_ref(artifact)]
+                result = base / (pid + '-result.json')
+                result.write_text(json.dumps({'build_artifacts': refs}))
+                receipt = base / (pid + '-receipt.json')
+                receipt.write_text(json.dumps({'producer': 'host-executor', 'run_id': 'demo', 'module_id': 'M001',
+                    'path_id': pid, 'test_run_id': pid, 'freeze_id': 'F1', 'code_baseline': 'baseline',
+                    'requested_argv': command['argv'], 'cwd': command['cwd'], 'result_ref': file_ref(result),
+                    'query_ref': file_ref(context), 'log_ref': file_ref(context), 'revalidation_inputs_sha256': fingerprint}))
+                module['results'][pid] = {'quality': 'green-passed', 'code_baseline': 'baseline', 'test_run_id': pid,
+                                          'execution_receipt': file_ref(receipt), 'build_artifacts': refs}
+            ledger.invalidate_path_results(module, {'B2'}, state=state, root=base)
+            self.assertEqual(module['retained_build_paths'], ['B1'])
+            self.assertEqual(module['build_artifacts'], module['results']['B1']['build_artifacts'])
+            self.assertEqual([p['path_id'] for p in tv.dispatch_paths(module, 'build')], ['B2'])
+            self.assertEqual([p['path_id'] for p in tv.stage_paths(module, {})], ['B2'])
+            self.assertFalse(tv.build_ready(module))
+            source.write_text('changed code')
+            ledger.invalidate_path_results(module, {'B2'}, state=state, root=base)
+            self.assertNotIn('retained_build_paths', module)
+            self.assertEqual([p['path_id'] for p in tv.dispatch_paths(module, 'build')], ['B1', 'B2'])
+
     def test_audit_retest_invalidates_provider_inputs_before_selecting_a_stage(self):
         import audit_closure as audit
         import test_validation as tv

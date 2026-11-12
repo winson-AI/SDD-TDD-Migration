@@ -110,6 +110,18 @@ class CopyPlanTests(unittest.TestCase):
         self.assertEqual(len({row['target_path'] for row in rows}), 2)
         self.freeze(target_resources={'copy': resource_copy.convention(rules)})
 
+    def test_full_qualifier_keeps_multiple_api_renditions_of_the_same_density(self):
+        self.c.write('res/drawable-anydpi-v21/ic_star.xml', closure.VECTOR % '')
+        self.c.write('res/drawable-anydpi-v24/ic_star.xml', closure.VECTOR % '')
+        self.s.recollect()
+        rules = {**self.rules, 'preserve_density': True, 'path': '{kind}/{qualifier}/{name}{ext}'}
+        plan, _ = self.plan(resource_copy.convention(rules))
+        rows = [row for row in plan['rows'] if row['source_resource'] == '@drawable/ic_star']
+        self.assertEqual({row['qualifier'] for row in rows}, {'base', 'anydpi-v21', 'anydpi-v24'})
+        self.assertEqual(len({row['target_path'] for row in rows}), 3)
+        with self.assertRaisesRegex(Rejected, 'several resources map to one target'):
+            self.plan({**rules, 'path': '{kind}/{variant}/{density}/{name}{ext}'})
+
     def test_sync_selects_owned_outputs_and_only_replaces_the_accepted_bytes(self):
         import resource_binding
         self.adopt()

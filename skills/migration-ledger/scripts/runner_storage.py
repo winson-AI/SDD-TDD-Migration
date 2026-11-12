@@ -35,7 +35,7 @@ def build_command(argv, directory, unit_report=False):
 
 
 def revalidation_inputs(s, root, cwd, argv):
-    """Fingerprint declared host inputs only for a possible documentation-only refreeze."""
+    """Fingerprint host inputs for possible reuse of an accepted build or unit command."""
     from write_scope import managed_roots
 
     target = Path(s['target_root']).resolve()

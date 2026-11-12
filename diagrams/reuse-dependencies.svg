@@ -100,6 +100,13 @@
 <text x="205.0" y="859.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">复用不缩减验收范围</text>
 <text x="205.0" y="888.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">外部来源默认只读</text>
 <text x="205.0" y="917.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">未决业务边界交人工</text>
+<rect x="1250" y="450" width="290" height="200" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
+<text x="1395.0" y="485.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">同 Run 追加来源</text>
+<text x="1395.0" y="519.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GO 记录每个叶子的影响</text>
+<text x="1395.0" y="548.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅等待受影响的派发</text>
+<text x="1395.0" y="577.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">重规划叶子更新 SPEC</text>
+<text x="1395.0" y="606.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">受影响消费者可仅复测</text>
+<text x="1395.0" y="635.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">独立派发沿用原上下文</text>
 <rect x="60" y="440" width="290" height="210" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="205.0" y="480.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">来源评审门禁</text>
 <text x="205.0" y="514.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">声明来源不可用 → 阻塞</text>

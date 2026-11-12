@@ -222,6 +222,8 @@ def dispatch_paths(m, scope):
     selected = due(m) if scope == 'build' else scope_paths(m, scope) if scope else m['plan']['paths']
     if scope != 'build' and (m.get('device_reverify') or m.get('dependency_reverify') or m.get('task_revalidation', {}).get('mode') == 'partial'):
         selected = [p for p in selected if not path_green(m, p['path_id'])]
+    if scope == 'build' and m.get('retained_build_paths'):
+        selected = [p for p in selected if p['path_id'] not in m['retained_build_paths']]
     pending = set(pending_paths(selected))
     if not pending:
         return selected
@@ -246,7 +248,7 @@ def stage_paths(m, tests, selected=None):
     for kind in PRE:
         ready = kind != 'build' or build_ready(m)
         pending = [p for p in due(m) if p['kind'] == kind and (selected is None or p['path_id'] in selected)
-                   and not (ready and not (results.get(p['path_id']) or {}).get('stale') and (results.get(p['path_id']) or {}).get('quality') == 'green-passed'
+                   and not ((ready or p['path_id'] in m.get('retained_build_paths', [])) and not (results.get(p['path_id']) or {}).get('stale') and (results.get(p['path_id']) or {}).get('quality') == 'green-passed'
                                                     and (results.get(p['path_id']) or {}).get('code_baseline') == m.get('code_baseline'))]
         expected += pending
         if any((tests.get(p['path_id']) or {}).get('quality') != 'green-passed' for p in pending):
@@ -347,6 +349,12 @@ def plan_check(plan, target, static_required=False, unit_required=False):
             web_contract.validate_path(path)
         except ValueError as exc:
             require(False, 'web PATH ' + str(path.get('path_id')) + ': ' + str(exc))
+    import device_configuration
+    for path in plan['paths']:
+        if 'device_configuration' in path:
+            require(path.get('kind') == 'visual' and path.get('image_check_ids'),
+                    'device_configuration requires a visual PATH with image checks')
+            device_configuration.validate(path['device_configuration'])
     for path in [p for p in plan['paths'] if p.get('kind') == 'visual']:
         # Visual alignment compares named UI-tree nodes against the captured legacy baseline.
         nodes = nonempty(path.get('node_ids'), 'visual path node_ids')

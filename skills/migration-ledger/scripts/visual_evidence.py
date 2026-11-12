@@ -8,6 +8,7 @@ from pathlib import Path
 from contracts import check_ref, file_ref, read_json, require
 import runner_storage
 import ui_evidence
+import device_configuration
 
 
 def reference(value, base):
@@ -154,13 +155,16 @@ def capture_execution(record, manifest_ref, hap_ref, code_baseline, run_root, co
                  and isinstance(row.get('argv'), list) and ('recv' in row['argv'] or 'pull' in row['argv'])}
     native = (any(row.get('exit_code') == 0 and ('snapshot_display' in row.get('argv', []) or 'screencap' in row.get('argv', [])) for row in rows)
               and all(item['screenshot_ref']['path'] in downloads for item in actual))
-    external = any(row.get('exit_code') == 0 and row.get('operation') == 'capture'
+    external = [row for row in rows if row.get('exit_code') == 0 and row.get('operation') == 'capture'
                    and row.get('artifact_ref') == hap_ref and row.get('code_baseline') == receipt['code_baseline']
                    and row.get('install_ref') == receipt['install_ref'] and row.get('observations') == actual
-                   for row in rows)
+                   ]
     web = (any(row.get('action') == 'goto' and row.get('exit_code') == 0 for row in rows)  # a browser's log: the page opened, each screenshot an action naming its file
            and all(any(row.get('action') == 'screenshot' and row.get('exit_code') == 0 and item['screenshot_ref']['path'] in row['argv'] for row in rows) for item in actual))
     require(native or external or web, 'capture command evidence must bind the observed screenshots and installed build')
+    config = device_configuration.from_log(rows, receipt.get('device_id'), external)
+    require(config == (receipt.get('device_configuration') or {}),
+            'capture configuration differs from its command evidence')
     meta_ref = reference(snapshot['meta'], Path(manifest_ref['path']).parent)
     meta = read_json(check_ref(meta_ref))
     # Native metadata may lack bindings; its managed sidecar supplies them. If native
@@ -172,7 +176,8 @@ def capture_execution(record, manifest_ref, hap_ref, code_baseline, run_root, co
             'capture_execution_ref': execution_ref, 'install_ref': receipt['install_ref'],
             'install_command_log_ref': installed['command_log_ref'],
             'command_log_ref': receipt['command_log_ref'], 'meta_ref': meta_ref,
-            'artifact_ref': hap_ref, 'code_baseline': receipt['code_baseline'], 'observations': actual}
+            'artifact_ref': hap_ref, 'code_baseline': receipt['code_baseline'], 'observations': actual,
+            **({'device_configuration': config} if config else {})}
 
 
 def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, assignment):
@@ -196,6 +201,9 @@ def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, 
     require(len(candidates) == 1, 'one executed candidate capture required for the reported round')
     hap_ref = report.get('hap_ref')
     capture = capture_execution(candidates[0], manifest_ref, hap_ref, code_baseline, run_root, path['coverage'], report['capture_round'])
+    config = capture.get('device_configuration') or {}
+    require(device_configuration.matches(config, path.get('device_configuration') or {}),
+            'observed capture configuration differs from the frozen PATH')
     executed = read_json(check_ref(capture['capture_execution_ref']))
     require(executed.get('assignment_id') == assignment['assignment_id'] and executed.get('fencing_token') == assignment.get('fencing_token'),
             'the capture must belong to the current test/audit assignment and fence; '
@@ -217,7 +225,7 @@ def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, 
                 'image-parity row differs from the frozen check ' + check['id'])
         try:
             fresh, crop = image_parity.evaluate(check, check_ref(reference) if reference else None, check_ref(row['screenshot_ref']),
-                                                check_ref(row['view_ref']).read_text())
+                                                check_ref(row['view_ref']).read_text(), config)
         except image_parity.ParityError as exc:
             require(False, 'image parity cannot be verified: ' + str(exc))
         require({key: row.get(key) for key in fresh} == fresh, 'image-parity row differs from its recomputation for ' + check['id'])

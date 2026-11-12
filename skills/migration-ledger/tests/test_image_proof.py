@@ -80,7 +80,7 @@ class ImageProofTests(unittest.TestCase):
                           '<node class="Image" resource-id="%s" bounds="[54,74][%d,%d]"/></hierarchy>' % (resource_id, 66 + size, 86 + size))
         return shot, view
 
-    def capture(self, icon, name='first', code=None, assignment=None, round_id=1):
+    def capture(self, icon, name='first', code=None, assignment=None, round_id=1, config=None, logged=None):
         """One executed candidate capture of the target screen, with the managed receipts a real capture leaves."""
         code, assignment = code or self.code, assignment or ASSIGNMENT
         shot, view = self.screen(icon, name)
@@ -102,12 +102,14 @@ class ImageProofTests(unittest.TestCase):
             'fencing_token': assignment['fencing_token'], 'command_log_ref': install_log}))
         commands = file_ref(self.write(prefix + '/capture-commands.json', [{
             'argv': ['autotest', 'observe'], 'exit_code': 0, 'operation': 'capture', 'artifact_ref': self.hap,
-            'code_baseline': code, 'install_ref': install, 'observations': observed}]))
+            'code_baseline': code, 'install_ref': install, 'observations': observed,
+            **({'device_id': 'device-1', 'device_configuration': logged or config} if config else {})}]))
         record['snapshot']['capture_execution_ref'] = file_ref(self.write(prefix + '/capture-execution.json', {
             'schema_version': 1, 'producer': 'sdd-visual-capture', 'status': 'CAPTURED', 'executed': True,
             'coverage': 'home:base:viewport', 'capture_round': round_id, 'artifact_ref': self.hap, 'code_baseline': code,
             'assignment_id': assignment['assignment_id'], 'fencing_token': assignment['fencing_token'], 'device_id': 'device-1',
-            'app_id': 'app', 'install_ref': install, 'observations': observed, 'command_log_ref': commands}))
+            'app_id': 'app', 'install_ref': install, 'observations': observed, 'command_log_ref': commands,
+            **({'device_configuration': config} if config else {})}))
         return file_ref(self.write(f'evidence/{name}/manifest.json', {'schema_version': 2, 'targets': [record]}))
 
     def measure(self, manifest, task=None):
@@ -143,6 +145,61 @@ class ImageProofTests(unittest.TestCase):
         self.assertEqual(report['visual_alignment']['hap_ref'], self.hap)
         self.accept(report)
         self.assertTrue((out / 'crops/back-arrow.png').is_file())
+
+    def test_qualified_picture_and_xml_checks_use_the_observed_configuration(self):
+        config = {'density_dpi': 480, 'night': True, 'smallest_width_dp': 600, 'locale': 'en-rUS', 'api_level': 34}
+        checks = [self.check,
+                  {'id': 'icon-width', 'kind': 'bounds', 'node_id': 'node:home.back', 'source_resource': '@dimen/icon',
+                   'qualifier': 'sw600dp-night', 'target': {'selector': {'resource-id': 'back'}},
+                   'expect': {'metric': 'width', 'value': 24, 'unit': 'dp'}},
+                  {'id': 'title-color', 'kind': 'color', 'node_id': 'node:home.title', 'source_resource': '@color/title',
+                   'qualifier': 'night', 'target': {'selector': {'resource-id': 'title'}},
+                   'expect': {'color': '#FFFAFAFA'}},
+                  {'id': 'title-text', 'kind': 'text', 'node_id': 'node:home.title', 'source_resource': '@string/title',
+                   'qualifier': 'en-rUS', 'target': {'selector': {'resource-id': 'title'}}, 'expect': {'text': 'Settings'}}]
+        self.module['plan']['dimension_analysis_ref'] = self.analysis(checks)
+        self.path.update(image_check_ids=[c['id'] for c in checks], node_ids=['node:home.back', 'node:home.title'],
+                         device_configuration=config)
+        icon = glyph('back', 60, color=(40, 40, 40, 255))
+        query = {**self.query(), 'frozen_image_checks': checks}
+        for name, expected, observed, logged in (
+            ('matching', 'green-passed', config, config),
+            ('wrong-configuration', 'yellow-blocked', {**config, 'night': False}, {**config, 'night': False}),
+            ('forged-configuration', 'rejected', config, {**config, 'night': False}),
+            ('missing-configuration', 'yellow-blocked', None, None),
+        ):
+            with self.subTest(name=name):
+                result, _ = self.measure(self.capture(icon, name=name, config=observed, logged=logged))
+                if expected == 'rejected':
+                    with self.assertRaisesRegex(Rejected, 'capture configuration differs from its command evidence'):
+                        lean_visual_adapter.report(query, None, self.base, [], result['report_ref'])
+                    continue
+                report = lean_visual_adapter.report(query, None, self.base, [], result['report_ref'])
+                self.assertEqual(report['quality'], expected)
+                if expected == 'green-passed':
+                    self.accept(report)
+                    parity = report['visual_alignment']['image_parity']
+                    self.assertEqual(parity['capture_evidence']['device_configuration'], config)
+                    self.assertEqual([row['status'] for row in parity['checks']], ['MATCH'] * 4)
+
+    def test_android_probe_evidence_brackets_the_same_device_capture(self):
+        import device_configuration
+
+        config = 'config: mcc310-en-rUS,fr-rFR-ldltr-sw600dp-w800dp-h600dp-large-land-night-xxhdpi-v34\nabi: arm64-v8a'
+        probe = {'argv': ['/usr/local/bin/adb', '-s', 'device-1', 'shell', 'am', 'get-config'], 'exit_code': 0, 'stdout': config}
+        capture = {'argv': ['adb', '-s', 'device-1', 'shell', 'screencap', '-p', '/data/local/tmp/out.png'], 'exit_code': 0}
+        expected = {'density_dpi': 480, 'smallest_width_dp': 600, 'night': True, 'locale': 'en-rUS', 'api_level': 34}
+        self.assertEqual(device_configuration.from_log([probe, capture, probe], 'device-1', []), expected)
+        self.assertEqual(device_configuration.from_log([capture, probe, probe], 'device-1', []), {})
+        self.assertEqual(device_configuration.from_log([probe, capture, probe], 'device-2', []), {})
+        self.assertEqual(device_configuration.from_log([probe, capture, {**probe, 'stdout': config.replace('night', 'notnight')}],
+                                                       'device-1', []), {})
+        self.assertTrue(device_configuration.distinguishes(expected, 'anydpi-v24', ['anydpi-v21', 'anydpi-v24']))
+        self.assertFalse(device_configuration.distinguishes(expected, 'anydpi-v21', ['anydpi-v21', 'anydpi-v24']))
+        self.assertFalse(device_configuration.distinguishes(expected, 'xhdpi', ['xhdpi', 'xxhdpi']))
+        self.assertFalse(device_configuration.distinguishes(expected, 'xxhdpi', ['xxhdpi', 'night-xxhdpi']))
+        self.assertFalse(device_configuration.distinguishes(expected, 'xxhdpi', ['xxhdpi', 'anydpi-v24']))
+        self.assertFalse(device_configuration.distinguishes(expected, 'night', ['night', 'sw600dp']))
 
     def test_a_wrong_icon_is_red_and_the_cause_names_the_check_and_its_numbers(self):
         result, _ = self.measure(self.capture(glyph('star', 60, color=(40, 40, 40, 255)), name='wrong'))
