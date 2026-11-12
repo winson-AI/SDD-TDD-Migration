@@ -2,10 +2,11 @@
 the copy plan and the parameter sheet are derived, never authored, and the copies and the generated parameter file are
 the frozen plan's bytes. So the Ledger derives the two when a plan is submitted without them, and `advance` copies the
 files and writes the parameter file in the coder's name when a coder is dispatched; the coder names them in its code."""
+import fcntl
 import hashlib
 from pathlib import Path
 
-from contracts import Rejected, check_ref, read_json, require
+from contracts import Drifted, Rejected, check_ref, file_ref, read_json, require
 import project_context
 import run_storage
 
@@ -99,22 +100,78 @@ def owned_outputs(m, assignment, paths, task_id=None):
             and (owners := [tid for tid, roots in task_scopes.items() if inside(Path(name).resolve(), roots)])}
 
 
-def sync(root, s, module_id, assignment_id):
-    """Synchronize all derived outputs owned by this coder's current assignment."""
-    import lean_worker
+def needs_sync(m, a):
     import resource_copy
+    ref = (m.get('plan') or {}).get('dimension_analysis_ref')
+    if not ref:
+        return False
+    analysis = read_json(check_ref(ref))
+    copy_ref = resource_copy.plan_ref(analysis)
+    if not copy_ref and not any(row.get('parameter_sheet_ref') for row in analysis['dimensions']):
+        return False
+    targets = [row['target_path'] for row in resource_copy.rows(analysis)] + list(generated_files(analysis)[0])
+    return bool(owned_outputs(m, a, targets))
+
+
+def attempts(root, a):
+    from lean_worker import identifier
+    instance = identifier(a['instance_id'])
+    aid = identifier(a['assignment_id'])
+    parent = run_storage.checked_path(Path(root) / 'staging' / instance, Path(root) / 'staging')
+    prefix = f'advance-resource-sync-{aid}'
+    paths = [parent / prefix]
+    paths.extend(sorted((p for p in parent.glob(prefix + '-retry-*') if p.name.rsplit('-', 1)[-1].isdigit()),
+                        key=lambda path: int(path.name.rsplit('-', 1)[-1])))
+    return parent, prefix, [path for path in paths if path.is_dir()]
+
+
+def ready_receipt(root, m, a, *, verify_outputs=False):
+    _, _, previous = attempts(root, a)
+    if not previous:
+        return None
+    receipt_path = previous[-1] / 'receipt.json'
+    if not receipt_path.is_file():
+        return None
+    receipt = read_json(receipt_path)
+    if receipt.get('status') != 'produced':
+        return None
+    request = read_json(check_ref(receipt['request_ref']))
+    require(all(request.get(k) == v for k, v in {
+        'operation': 'resource-sync', 'module_id': m['module_id'], 'assignment_id': a['assignment_id'],
+        'fencing_token': a['fencing_token'], 'args': {}}.items()), 'resource-sync receipt does not belong to the active assignment')
+    result = read_json(check_ref(receipt['result_ref']))
+    require(result.get('status') == 'SYNCED', 'resource-sync result is incomplete')
+    if verify_outputs:
+        for ref in [*(row['target_ref'] for row in result['rows']), *result['parameter_files']]:
+            check_ref(ref)
+    return {'receipt_ref': file_ref(receipt_path), 'result_ref': receipt['result_ref']}
+
+
+def sync(root, s, module_id, assignment_id):
+    """Perform one fenced sync attempt. A completed attempt can be resumed without rewriting its files."""
+    import lean_worker
     m = s['modules'][module_id]
     a = m['assignments'][assignment_id]
-    try:
-        ref = m['plan'].get('dimension_analysis_ref')
-        if not ref:
-            return None
-        analysis = read_json(check_ref(ref))
-        targets = [row['target_path'] for row in resource_copy.rows(analysis)] + list(generated_files(analysis)[0])
-        if not owned_outputs(m, a, targets):
-            return None
-    except (Rejected, OSError, ValueError, KeyError, TypeError):
+    require(not a.get('closed') and a['role'] in ('implementer', 'fixer')
+            and a.get('freeze_id') == m.get('freeze_id'), 'resource sync needs an active coding assignment')
+    if not needs_sync(m, a):
         return None
-    request = {'request_id': 'advance-resource-sync-%s' % assignment_id, 'operation': 'resource-sync', 'module_id': module_id,
-               'assignment_id': assignment_id, 'fencing_token': a['fencing_token'], 'args': {}}
-    return lean_worker.run(root, request, {'role': a['role'], 'instance_id': a['instance_id']})
+    parent, prefix, _ = attempts(root, a)
+    parent.mkdir(parents=True, exist_ok=True)
+    with (parent / (prefix + '.lock')).open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise Rejected('resource sync is already running for this assignment') from None
+        try:
+            prior = ready_receipt(root, m, a, verify_outputs=True)
+        except Drifted:
+            prior = None
+        if prior:
+            return prior
+        _, _, previous = attempts(root, a)
+        rid = prefix if not previous else prefix + f'-retry-{len(previous)}'
+        request = {'request_id': rid, 'operation': 'resource-sync', 'module_id': module_id,
+                   'assignment_id': assignment_id, 'fencing_token': a['fencing_token'], 'args': {}}
+        result = lean_worker.run(root, request, {'role': a['role'], 'instance_id': a['instance_id']})
+        return {key: result[key] for key in ('receipt_ref', 'result_ref')}

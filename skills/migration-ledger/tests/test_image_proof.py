@@ -182,6 +182,21 @@ class ImageProofTests(unittest.TestCase):
                     self.assertEqual(parity['capture_evidence']['device_configuration'], config)
                     self.assertEqual([row['status'] for row in parity['checks']], ['MATCH'] * 4)
 
+    def test_android_green_does_not_cover_harmony_resource_path(self):
+        from migration_report import qualified_proof
+
+        android = {'module_id': 'M001', 'platform': 'android', 'path_id': 'A', 'quality': 'green-passed',
+                   'attempt_executed': True, 'stale': False, 'evidence_refs': [],
+                   'image_parity': {'capture_evidence': {'device_configuration': {'density_dpi': 480}},
+                                    'checks': [{'id': 'back-arrow', 'status': 'MATCH'}]}}
+        harmony = {**android, 'platform': 'harmony', 'path_id': 'H', 'quality': 'yellow-blocked',
+                   'attempt_executed': False, 'image_parity': None}
+        proof = qualified_proof([android, harmony], 'M001', {'qualifier': 'xxhdpi'}, ['xxhdpi'],
+                                {'back-arrow'}, {'back-arrow': ['A', 'H']})
+        self.assertEqual(proof['visual_status'], 'not-verified')
+        self.assertEqual(proof['platforms']['android'][0]['visual_status'], 'verified')
+        self.assertEqual(proof['platforms']['harmony'][0]['visual_status'], 'not-verified')
+
     def test_android_probe_evidence_brackets_the_same_device_capture(self):
         import device_configuration
 

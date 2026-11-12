@@ -263,6 +263,16 @@ class NodeEvaluationTests(unittest.TestCase):
         self.assertEqual(ip.verdict(row['metrics'], row['tolerance']), row['status'])
         self.assertEqual(self.evaluate(self.screen(glyph('back', 60, color=(40, 40, 40, 255))))[0], row)  # deterministic
 
+    def test_color_channel_tolerance_only_applies_when_frozen(self):
+        screenshot = self.root / 'color.png'
+        Image.new('RGB', (10, 10), (204, 103, 51)).save(screenshot)
+        view = '<node resource-id="back" bounds="[0,0][10,10]"/>'
+        check = {**self.check, 'kind': 'color', 'expect': {'color': '#FFCC6633'}}
+        self.assertEqual(ip.evaluate(check, None, screenshot, view)[0]['status'], 'MISMATCH')
+        check['target']['channel_tolerance'] = 1
+        row = ip.evaluate(check, None, screenshot, view)[0]
+        self.assertEqual((row['status'], row['metrics']['max_channel_delta']), ('MATCH', 1))
+
     def test_a_wrong_icon_in_the_right_place_is_a_mismatch(self):
         row, _ = self.evaluate(self.screen(glyph('star', 60, color=(40, 40, 40, 255))))
         self.assertEqual(row['status'], 'MISMATCH')

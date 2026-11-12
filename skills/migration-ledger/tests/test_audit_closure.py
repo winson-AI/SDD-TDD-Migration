@@ -46,6 +46,10 @@ class AuditPathEvidenceTests(unittest.TestCase):
                     'query_ref': file_ref(context), 'log_ref': file_ref(context), 'revalidation_inputs_sha256': fingerprint}))
                 module['results'][pid] = {'quality': 'green-passed', 'code_baseline': 'baseline', 'test_run_id': pid,
                                           'execution_receipt': file_ref(receipt), 'build_artifacts': refs}
+            import task_revalidation
+            with patch.object(runner_storage, 'revalidation_snapshot', wraps=runner_storage.revalidation_snapshot) as scan:
+                self.assertEqual(task_revalidation.current_build_paths(state, module, base, {'B1', 'B2'}), {'B1', 'B2'})
+                scan.assert_called_once()
             ledger.invalidate_path_results(module, {'B2'}, state=state, root=base)
             self.assertEqual(module['retained_build_paths'], ['B1'])
             self.assertEqual(module['build_artifacts'], module['results']['B1']['build_artifacts'])
@@ -56,6 +60,26 @@ class AuditPathEvidenceTests(unittest.TestCase):
             ledger.invalidate_path_results(module, {'B2'}, state=state, root=base)
             self.assertNotIn('retained_build_paths', module)
             self.assertEqual([p['path_id'] for p in tv.dispatch_paths(module, 'build')], ['B1', 'B2'])
+
+    def test_only_consumers_of_a_bound_provider_build_lose_their_visual_receipt(self):
+        import ledger
+        import test_validation as tv
+
+        state = {'modules': {
+            'M001': {'freeze_id': 'F1', 'code_baseline': 'first', 'dependencies': [], 'build_artifacts': []},
+            'M002': {'freeze_id': 'F2', 'code_baseline': 'second', 'dependencies': [], 'build_artifacts': []}}}
+        paths = [{'path_id': pid, 'kind': 'visual', 'build_binding': {'module_id': mid, 'path_id': 'B-' + mid}}
+                 for pid, mid in [('V1', 'M001'), ('V2', 'M002')]]
+        consumer = {'dependencies': ['M001', 'M002'], 'plan': {'paths': paths + [{'path_id': 'old', 'kind': 'unit'}]}}
+        with patch.object(tv, 'bound_build_artifacts', side_effect=lambda state, path: [path['build_binding']['path_id']]):
+            consumer['results'] = {p['path_id']: {'path_provider_inputs': ledger.path_provider_inputs(state, consumer, p)}
+                                   for p in paths}
+            consumer['results']['old'] = {'dependency_inputs': ledger.dependency_validation_inputs(state, consumer)}
+            state['modules']['M001']['code_baseline'] = 'changed'
+            ledger.revalidate_provider_results(state, consumer)
+        self.assertTrue(consumer['results']['V1']['stale'])
+        self.assertFalse(consumer['results']['V2'].get('stale'))
+        self.assertTrue(consumer['results']['old']['stale'])
 
     def test_audit_retest_invalidates_provider_inputs_before_selecting_a_stage(self):
         import audit_closure as audit

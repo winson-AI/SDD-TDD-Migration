@@ -451,6 +451,8 @@ def validate_image_checks(model, tree=None, index=None):
             sample = target.get('sample', [0.5, 0.5])
             require(isinstance(sample, list) and len(sample) == 2 and all(type(x) in (int, float) and 0 <= x <= 1 for x in sample),
                     label + ' sample is [x, y] within the target crop, each from 0 to 1')
+            delta = target.get('channel_tolerance', 0)
+            require(type(delta) is int and 0 <= delta <= 8, label + ' channel_tolerance must be an integer from 0 to 8')
         require(type(target.get('capture_index', 0)) is int and target.get('capture_index', 0) >= 0, label + ' capture_index must be a non-negative integer')
         try:
             image_parity.thresholds(item.get('tolerance'))

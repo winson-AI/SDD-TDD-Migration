@@ -211,9 +211,11 @@ def bounds_measurement(check, bounds, view_xml, configuration):
     scale = 1
     if expected['unit'] == 'dp':
         density = (configuration or {}).get('density_dpi')
-        if density is None:
-            return None, 'measuring dp requires observed device density'
-        scale = density / 160
+        scale = (configuration or {}).get('vp_scale')
+        if scale is None:
+            if density is None:
+                return None, 'measuring dp requires observed device density or logical pixel scale'
+            scale = density / 160
     return {'pixels': pixels, 'expected_pixels': expected['value'] * scale}, None
 
 
@@ -256,9 +258,18 @@ def evaluate(check, reference_path, screenshot_path, view_xml, configuration=Non
     if kind == 'color':
         x, y = check['target'].get('sample', [0.5, 0.5])
         pixel = (round(x * (crop.width - 1)), round(y * (crop.height - 1)))
-        color = '#FF%02X%02X%02X' % crop.getpixel(pixel)
-        return {**row, 'metrics': {'color': color, 'sample': [box[0] + pixel[0], box[1] + pixel[1]]},
-                'status': 'MATCH' if color == check['expect']['color'] else 'MISMATCH'}, crop
+        rgb = crop.getpixel(pixel)
+        color = '#FF%02X%02X%02X' % rgb
+        metrics = {'color': color, 'sample': [box[0] + pixel[0], box[1] + pixel[1]]}
+        target = check['target']
+        if 'channel_tolerance' in target:
+            expected = bytes.fromhex(check['expect']['color'][3:])
+            delta = max(abs(got - want) for got, want in zip(rgb, expected))
+            metrics['max_channel_delta'] = delta
+            matched = delta <= target['channel_tolerance']
+        else:
+            matched = color == check['expect']['color']
+        return {**row, 'metrics': metrics, 'status': 'MATCH' if matched else 'MISMATCH'}, crop
     with Image.open(reference_path) as reference:
         reference.load()
         metrics, reason = measure(reference, crop, tolerance)

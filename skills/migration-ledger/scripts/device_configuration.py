@@ -1,4 +1,5 @@
 """Frozen device conditions and the observed configuration of a visual capture."""
+import math
 import re
 from pathlib import Path
 
@@ -8,7 +9,7 @@ DPI = dict(zip(('ldpi', 'mdpi', 'tvdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi'),
                (120, 160, 213, 240, 320, 480, 640)))
 PROBE = ('shell', 'am', 'get-config')
 LOCALE = r'(?:[a-z]{2,3}(?:-r[A-Z]{2})?|b\+[A-Za-z0-9+]+)'
-FIELDS = ('density_dpi', 'night', 'smallest_width_dp', 'api_level', 'locale')
+FIELDS = ('density_dpi', 'night', 'smallest_width_dp', 'api_level', 'locale', 'vp_scale', 'window_width_vp', 'harmony_api_level')
 OTHER = {'car', 'desk', 'land', 'port', 'long', 'round', 'watch', 'vrheadset', 'television', 'widecg', 'highdr'}
 
 
@@ -17,6 +18,7 @@ def validate(value):
     for key, item in value.items():
         valid = (type(item) is bool if key == 'night' else
                  isinstance(item, str) and re.fullmatch(LOCALE, item) if key == 'locale' else
+                 type(item) in (int, float) and math.isfinite(item) and item > 0 if key in ('vp_scale', 'window_width_vp') else
                  type(item) is int and item > 0)
         require(valid, 'invalid visual device_configuration ' + key)
     return value

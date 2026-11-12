@@ -51,9 +51,8 @@ class DriveTests(unittest.TestCase):
 
 
 class ReadyImplementerTests(unittest.TestCase):
-    def test_resource_conflict_does_not_drop_sibling_dispatch(self):
+    def test_resource_sync_is_delivered_after_independent_dispatch_and_conflicts_are_local(self):
         from unittest.mock import patch
-        from contracts import Rejected
         import resource_binding
         from test_iterative_spec import UpstreamPlanTests
 
@@ -63,17 +62,25 @@ class ReadyImplementerTests(unittest.TestCase):
         fixture.freeze(fixture.t.plan('M001'))
         fixture.t.freeze('M002')
 
-        def sync(root, state, mid, aid):
-            if mid == 'M001':
-                raise Rejected('target file already differs')
-            return None
-
-        with patch.object(resource_binding, 'sync', side_effect=sync):
+        with patch.object(resource_binding, 'needs_sync', side_effect=lambda m, a: m['module_id'] == 'M001'), \
+                patch.object(resource_binding, 'sync') as sync:
             lines = drive.drive(f.root, MO)
-        conflict = next(line for line in lines if line.get('reason') == 'resource-sync-conflict')
-        self.assertEqual(conflict['module_id'], 'M001')
-        self.assertTrue(any(line.get('role') == 'implementer' and line.get('module_id') == 'M002' for line in lines))
-        self.assertEqual(f.state()['modules']['M001']['phase'], 'implementing')
+            sync.assert_not_called()
+            pending = next(line for line in lines if line.get('operation') == 'resource-sync')
+            self.assertEqual(pending['module_id'], 'M001')
+            sibling = next(line for line in lines if line['kind'] == 'running' and line.get('role') == 'implementer'
+                           and line.get('module_id') == 'M002')
+            self.assertLess(lines.index(sibling), lines.index(pending))
+            self.assertFalse(any(line['kind'] == 'running' and line.get('module_id') == 'M001' for line in lines))
+            assignment = f.state()['modules']['M001']['assignments'][pending['assignment_id']]
+            parent, prefix, _ = resource_binding.attempts(f.root, assignment)
+            out = parent / prefix
+            out.mkdir(parents=True)
+            (out / 'receipt.json').write_text(json.dumps({'status': 'rejected', 'reason': 'target file already differs'}))
+            lines = drive.drive(f.root, MO)
+            conflict = next(line for line in lines if line.get('reason') == 'resource-sync-conflict')
+            self.assertEqual(conflict['module_id'], 'M001')
+            self.assertTrue(any(line['kind'] == 'running' and line.get('module_id') == 'M002' for line in lines))
 
     def test_independent_implementer_reaches_host_before_existing_frozen_commands(self):
         from unittest.mock import patch

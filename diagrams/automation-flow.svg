@@ -97,8 +97,8 @@
 <rect x="1160" y="1255" width="380" height="205" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="1350.0" y="1307.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">限定配置的视觉 PATH</text>
 <text x="1350.0" y="1341.5" font-size="18.87" fill="#4b5563" text-anchor="middle" font-weight="400">冻结密度 / 夜间 / 宽度 / 语言 / API</text>
-<text x="1350.0" y="1370.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">截图前后记录实际配置</text>
-<text x="1350.0" y="1399.5" font-size="21.88" fill="#4b5563" text-anchor="middle" font-weight="400">按源档位比图片、尺寸、颜色、文本</text>
+<text x="1350.0" y="1370.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Harmony 用 PNG 与前后原始树</text>
+<text x="1350.0" y="1399.5" font-size="21.88" fill="#4b5563" text-anchor="middle" font-weight="400">设备配置、资源取值、屏幕三者核对</text>
 <text x="1350.0" y="1428.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">配置缺失或不匹配记为未验证</text>
 <rect x="60" y="1340" width="340" height="235" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="230.0" y="1393.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">CR 验证范围</text>

@@ -34,24 +34,17 @@ def build_command(argv, directory, unit_report=False):
     return command
 
 
-def revalidation_inputs(s, root, cwd, argv):
-    """Fingerprint host inputs for possible reuse of an accepted build or unit command."""
+def revalidation_snapshot(s, root):
+    """Scan shared target and host inputs once for one receipt comparison."""
     from write_scope import managed_roots
 
     target = Path(s['target_root']).resolve()
     context = s.get('project_context_ref')
-    if not context or not Path(cwd).resolve().is_relative_to(target):
+    if not context:
         return None
-    if gradle_command(argv) and gradle_seed_sources():
-        return None  # Mutable cache files outside the target manifest are not frozen inputs.
     try:
         check_ref(context)
         excluded = set(managed_roots(root))
-        executable = Path(argv[0])
-        if not executable.is_absolute():
-            executable = Path(cwd) / executable if '/' in argv[0] else shutil.which(argv[0])
-        tools = [file_ref(executable)]
-        tools.extend(file_ref(Path(cwd) / arg) for arg in argv[1:] if (Path(cwd) / arg).is_file())
         files = {}
         pending = [target]
         while pending:
@@ -66,8 +59,29 @@ def revalidation_inputs(s, root, cwd, argv):
                     files[str(path.relative_to(target))] = file_ref(path)['sha256']
                 else:
                     return None
-        return digest({'context': context, 'package_sha': s.get('package_sha'), 'host': list(os.uname()),
-                       'environment': dict(os.environ), 'target': files, 'tools': tools})
+        return {'context': context, 'package_sha': s.get('package_sha'), 'host': list(os.uname()),
+                'environment': dict(os.environ), 'target': files}
+    except (OSError, Rejected, TypeError, ValueError):
+        return None
+
+
+def revalidation_inputs(s, root, cwd, argv, *, snapshot=None):
+    """Fingerprint host inputs for possible reuse of an accepted build or unit command."""
+    target = Path(s['target_root']).resolve()
+    if not s.get('project_context_ref') or not Path(cwd).resolve().is_relative_to(target):
+        return None
+    if gradle_command(argv) and gradle_seed_sources():
+        return None  # Mutable cache files outside the target manifest are not frozen inputs.
+    try:
+        shared = snapshot() if snapshot else revalidation_snapshot(s, root)
+        if shared is None:
+            return None
+        executable = Path(argv[0])
+        if not executable.is_absolute():
+            executable = Path(cwd) / executable if '/' in argv[0] else shutil.which(argv[0])
+        tools = [file_ref(executable)]
+        tools.extend(file_ref(Path(cwd) / arg) for arg in argv[1:] if (Path(cwd) / arg).is_file())
+        return digest({**shared, 'tools': tools})
     except (OSError, Rejected, TypeError, ValueError):
         return None
 

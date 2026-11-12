@@ -513,9 +513,30 @@ def dependency_validation_inputs(s, m):
     return digest(inputs)
 
 
-def revalidate_provider_results(s, m):
+def path_provider_inputs(s, m, path):
+    if not path.get('build_binding'):
+        return None
+    artifacts = tv.bound_build_artifacts(s, path)
+    if not artifacts:
+        return None
+    binding = path['build_binding']
+    owner = s['modules'][binding['module_id']]
+    inputs = dependency_validation_inputs(s, owner)
+    return digest({'binding': binding, 'freeze_id': owner['freeze_id'], 'code_baseline': owner['code_baseline'],
+                   'provider_inputs': inputs, 'artifacts': artifacts})
+
+
+def revalidate_provider_results(s, m, root=None):
     expected = dependency_validation_inputs(s, m)
-    invalidate_path_results(m, {pid for pid, row in m['results'].items() if row.get('dependency_inputs') != expected})
+    paths = {p['path_id']: p for p in m['plan']['paths']}
+    affected = set()
+    for pid, row in m['results'].items():
+        if row.get('path_provider_inputs'):
+            if pid not in paths or row['path_provider_inputs'] != path_provider_inputs(s, m, paths[pid]):
+                affected.add(pid)
+        elif row.get('dependency_inputs') != expected:
+            affected.add(pid)
+    invalidate_path_results(m, affected, state=s, root=root)
 
 
 def invalidate_path_results(m, affected, *, state=None, root=None):
@@ -544,6 +565,11 @@ def worker_dependencies_ready(s, m, assignment):
     dependencies_ready(s, m, test_scope=assignment.get('test_scope') if assignment['role'] == 'test-runner' else None)
     if assignment.get('dependency_inputs'):
         require(assignment['dependency_inputs'] == dependency_validation_inputs(s, m), 'partial build provider inputs changed')
+    bindings = assignment.get('path_provider_inputs')
+    if bindings:
+        paths = {path['path_id']: path for path in m['plan']['paths']}
+        for pid, binding in bindings.items():
+            require(pid in paths and binding == path_provider_inputs(s, m, paths[pid]), 'bound PATH provider inputs changed')
 
 
 def failure_fingerprint(results):
@@ -1276,6 +1302,9 @@ def _next_step(s, m):
                         s, m, [p['path_id'] for p in tv.dispatch_paths(m, 'visual')])
                     if visual:
                         step['payload']['artifact_only'] = True
+                    elif step.get('test_scope') == 'visual':
+                        require(not any(p.get('build_binding') for p in tv.dispatch_paths(m, 'visual')),
+                                'bound PATH needs an accepted managed visual build')
                     dispatch_guard(s, m, worker, visual)
                 except (Rejected, OSError) as exc:
                     step.update(ready=False, reason=str(exc))
@@ -1746,6 +1775,11 @@ def assign_worker(s, m, mid, p, events, root):
             require(p.get('test_scope') == tv.next_scope(m), 'test stages run build -> unit -> static -> automation -> visual; the build assignment carries the first three')
         pending = prepared_tests.pending_paths(path for path in m['plan']['paths'] if path['path_id'] in execution_contract['path_ids'])
         require(not pending, 'test PATH preparation incomplete: ' + ', '.join(pending))
+        bound = {path['path_id']: path_provider_inputs(s, m, path)
+                 for path in m['plan']['paths'] if path.get('build_binding') and path['path_id'] in execution_contract['path_ids']}
+        require(not bound or artifact_only and all(bound.values()), 'bound PATH needs an accepted managed visual build')
+    else:
+        bound = {}
     if p['instance_id'] not in m['authors']:
         m['authors'].append(p['instance_id'])
     preflight = context_readiness.enabled(s)
@@ -1759,6 +1793,8 @@ def assign_worker(s, m, mid, p, events, root):
         'fencing_token': len(events) + 1, **dispatch_record(s, m, p), **(usage or {})}
     if execution_contract:
         a['execution_contract'] = execution_contract
+    if bound:
+        a['path_provider_inputs'] = bound
     if p['role'] == 'test-runner' and p.get('test_scope') == 'build' and m.get('execution_partition_pending') and m['dependencies']:
         a['dependency_inputs'] = dependency_validation_inputs(s, m)
     if s.get('write_scope_check') and p['role'] == 'implementer':
@@ -2029,6 +2065,7 @@ def mutate(s, req, principal, events, root=None):
                 reuse.validate_plan(plan, m, reuse.sources(s), s['modules'], s['legacy_root'])
             if s.get('planning_coverage_required'):
                 user_paths.plan_gate(m, plan)
+            tv.check_build_bindings(s, m, plan)
             reference_media.plan_gate(s, m, plan)  # what a PATH cites of the user's media exists and shows its case
         occupied = {path['path_id'] for path in s['global_paths']}
         occupied.update(path['path_id'] for other in s['modules'].values() if other['module_id'] != mid
@@ -2212,8 +2249,12 @@ def mutate(s, req, principal, events, root=None):
                 'preflight required: context-submit a ready report for this assignment before its result')
         worker_phase(m, assignment)
         worker_dependencies_ready(s, m, assignment)
+        if assignment.get('resource_sync_deferred'):
+            import resource_binding
+            if resource_binding.needs_sync(m, assignment):
+                require(resource_binding.ready_receipt(root, m, assignment, verify_outputs=True), 'complete the fenced resource-sync before submission')
         result = read_json(check_ref(p['result_ref']))
-        validate_result(result, m, assignment, run_root=root)
+        validate_result(result, tv.execution_view(s, m), assignment, run_root=root)
         issues.cite(s, mid, p.get('resolves'), p['result_ref'], principal)  # what the work answers is settled with it
         if s.get('write_scope_check') and result.get('kind') == 'implementation':
             require(p.get('write_scope_ref'), 'write_scope_ref required: host write-scope delta receipt')
@@ -2234,7 +2275,7 @@ def mutate(s, req, principal, events, root=None):
         worker_dependencies_ready(s, m, assignment)
         sub = m['submissions'][aid]
         result = read_json(check_ref(sub['ref']))
-        kind = validate_result(result, m, assignment, run_root=root)
+        kind = validate_result(result, tv.execution_view(s, m), assignment, run_root=root)
         assignment['closed'] = True
         if kind == 'implementation':
             prior_results = copy.deepcopy(m['results'])
@@ -2275,8 +2316,11 @@ def mutate(s, req, principal, events, root=None):
             accepted = {x['path_id']: {**x, 'code_baseline': m['code_baseline'], 'stale': False} for x in result['paths']}
             if m['dependencies']:
                 inputs = dependency_validation_inputs(s, m)
-                for row in accepted.values():
-                    row['dependency_inputs'] = inputs
+                for pid, row in accepted.items():
+                    if bound := assignment.get('path_provider_inputs', {}).get(pid):
+                        row['path_provider_inputs'] = bound
+                    else:
+                        row['dependency_inputs'] = inputs
             m['results'].update(accepted)
             if tv.split(m):
                 kinds = {x['path_id']: x.get('kind') for x in m['plan']['paths']}
@@ -2400,7 +2444,7 @@ def mutate(s, req, principal, events, root=None):
         pending = m.pop('dependency_revalidation_pending', False)
         provider_changed = resolved['kind'] == 'dependency' and resolved.get('reason') == 'dependency-version-changed'
         if m.get('plan') and m['dependencies'] and (pending or provider_changed):
-            revalidate_provider_results(s, m)
+            revalidate_provider_results(s, m, root)
         m['stale'] = True
         if provider_changed and m['phase'] == 'testing' and tv.all_green(m):
             m.update(phase='dod', stale=False)
@@ -3451,7 +3495,7 @@ def frozen_tests(root, s, module_id, assignment_id):
     return {'assignment_id': assignment_id, 'fencing_token': a['fencing_token'], 'result_ref': file_ref(out)}
 
 
-def advance(root, principal, module_id, workers=None, *, pause_for_rotation=False, defer_commands=False):
+def advance(root, principal, module_id, workers=None, *, pause_for_rotation=False, defer_commands=False, defer_resources=False):
     """Submit, as the module orchestrator, every step of one module (or parent) the cursor marks mechanical: accepting a
     settled result, dispatching a worker, freezing on a recorded review or decision, completing a module the DoD guard
     admits and summarizing a parent whose children settled; and, in its worker's name, running a test dispatch whose
@@ -3503,12 +3547,14 @@ def advance(root, principal, module_id, workers=None, *, pause_for_rotation=Fals
             role = step['worker_role']
             payload = {**step['payload'], 'assignment_id': f'{role}-{module_id}-{sequence}'}
             payload.setdefault('instance_id', (workers or {}).get(role) or f'{role}-{module_id}')
+            if defer_resources and role in ('implementer', 'fixer'):
+                payload['resource_sync_deferred'] = True
         ack = apply(root, {'schema_version': 1, 'request_id': f'advance-{module_id}-{sequence}', 'run_id': st['run_id'],
                            'module_id': module_id, 'expected_revision': step['expected_revision'],
                            'operation': step['operation'], 'payload': payload}, actor)
         applied.append({'operation': step['operation'], 'event_id': ack['event_id'],
                         **{k: payload[k] for k in ('assignment_id', 'role', 'instance_id', 'test_scope', 'artifact_only') if k in payload}})
-        if step['operation'] == 'assign' and payload.get('role') in ('implementer', 'fixer'):
+        if not defer_resources and step['operation'] == 'assign' and payload.get('role') in ('implementer', 'fixer'):
             import resource_binding  # the frozen plan's copies and parameter file, written in the coder's name before it codes
             aid = payload['assignment_id']
             try:

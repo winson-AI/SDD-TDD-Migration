@@ -132,6 +132,9 @@ class VisualExecutionTests(unittest.TestCase):
             dest = Path(command[-1]); dest.parent.mkdir(parents=True, exist_ok=True)
             if dest.suffix == '.json':
                 children = []
+                if probe := getattr(self, 'probe', None):
+                    children.append({'attributes': {'type': 'Text', 'key': 'sdd-probe', 'text': json.dumps(probe),
+                                                    'bounds': '[0,0][20,20]'}})
                 if self.endpoint_after is not None and self.swipes >= self.endpoint_after:
                     children.append({'attributes': {'type': 'Text', 'text': 'End', 'bounds': '[0,180][100,200]'}})
                 text = 'Login' if self.after_layout_change and '-after' in dest.name else 'Home'
@@ -141,7 +144,7 @@ class VisualExecutionTests(unittest.TestCase):
             else:
                 self.index += 1
                 dest.write_bytes(b'\xff\xd8\xffbroken' if self.corrupt_image else
-                                 self.image(color=self.index if self.dynamic else 0))
+                                 self.image(fmt='PNG' if dest.suffix == '.png' else 'JPEG', color=self.index if self.dynamic else 0))
         elif command[:4] == ['shell', 'uitest', 'uiInput', 'swipe']:
             self.swipes += 1
         return SimpleNamespace(returncode=0, stdout=stdout, stderr='')
@@ -174,6 +177,52 @@ class VisualExecutionTests(unittest.TestCase):
         self.assertTrue(any(command[3:6] == ['install', '-r', str(self.artifact)] for command in self.commands))
         self.assertTrue(any(command[3:5] == ['shell', 'rm'] for command in self.commands))
         self.assertNotIn('quality', result)
+
+    def test_harmony_png_and_raw_layout_bracket_the_selected_resource(self):
+        import lean_visual_adapter
+        import test_validation
+        import visual_evidence
+
+        self.path.pop('baseline_ref')
+        self.path.update(platform='harmony', image_check_ids=['title'], node_ids=['node:title'],
+                         device_configuration={'night': True, 'vp_scale': 2.0}, expected_assertions=[{'assertion_id': 'V', 'expected': True}],
+                         harmony_resource_probe={'node_id': 'sdd-probe', 'selections': {
+                             'title': {'resource_id': 'title', 'target_qualifier': 'dark'}}})
+        check = {'id': 'title', 'kind': 'text', 'source_resource': '@string/title', 'qualifier': 'night',
+                 'node_id': 'node:title', 'target': {'selector': {'resource-id': 'list'}}, 'expect': {'text': 'Home'}}
+        analysis = self.write('context/qualified.json', {'dimensions': [
+            {'dimension': 'UI', 'status': 'applicable', 'items': [{'semantic_model': {'ui_evidence': {'coverage': self.path['coverage']},
+                                                             'image_checks': [check]}}]}]})
+        self.module['plan']['dimension_analysis_ref'] = file_ref(analysis)
+        self.probe = {'schema_version': 1, 'configuration': {'night': True, 'vp_scale': 2.0, 'window_width_vp': 412,
+                                                            'locale': 'zh_Hans_CN'}, 'resources': {'title': 'Home'}}
+        installed = self.installed()
+        for label, value, quality in [('match', 'Home', 'green-passed'), ('wrong selection', 'Fallback', 'red-bug')]:
+            with self.subTest(label=label):
+                self.probe['resources']['title'] = value
+                capture, _ = self.run_tool('visual-capture', install_ref=installed, round=1)
+                self.assertEqual(capture['status'], 'CAPTURED')
+                self.assertEqual(capture['device_configuration']['locale'], 'b+zh+Hans+CN')
+                out = self.current_out
+                measured = worker.parity({'path_id': 'V1', 'manifest_ref': capture['manifest_ref'], 'round': 1},
+                                         out, self.module, self.task, 'run-1')
+                query = {**self.path, 'run_id': 'run-1', 'module_id': 'M001', 'freeze_id': 'F1', 'code_baseline': 'code-1',
+                         'frozen_image_checks': [check], 'run_root': str(self.root), 'execution_assignment': self.task}
+                accepted = lean_visual_adapter.report(query, None, self.base, [], measured['report_ref'])
+                self.assertEqual(accepted['quality'], quality)
+                if quality == 'green-passed':
+                    test_validation.visual_result(self.module, self.path, accepted, accepted,
+                                                  run_root=str(self.root), assignment=self.task)
+                proof = accepted['visual_alignment']['image_parity']
+                self.assertEqual(proof['checks'][0]['resource_selection']['observed'], value)
+                pair = proof['capture_evidence']['harmony_probe'][0]
+                Path(pair['after_ref']['path']).write_text('{}')
+                with self.assertRaises(Rejected):
+                    visual_evidence.validate_image_parity(measured['report_ref'], checks=[check], path=self.path,
+                        code_baseline='code-1', run_root=str(self.root), assignment=self.task)
+        self.probe['configuration']['night'] = False
+        result, _ = self.run_tool('visual-capture', install_ref=installed, round=1)
+        self.assertEqual(result['root_cause']['kind'], 'device-configuration-mismatch')
 
     def test_a_path_with_image_checks_only_captures_the_target_alone(self):
         self.path.pop('baseline_ref')

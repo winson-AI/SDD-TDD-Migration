@@ -162,7 +162,18 @@ def capture_execution(record, manifest_ref, hap_ref, code_baseline, run_root, co
     web = (any(row.get('action') == 'goto' and row.get('exit_code') == 0 for row in rows)  # a browser's log: the page opened, each screenshot an action naming its file
            and all(any(row.get('action') == 'screenshot' and row.get('exit_code') == 0 and item['screenshot_ref']['path'] in row['argv'] for row in rows) for item in actual))
     require(native or external or web, 'capture command evidence must bind the observed screenshots and installed build')
-    config = device_configuration.from_log(rows, receipt.get('device_id'), external)
+    harmony = {}
+    if receipt.get('harmony_probe'):
+        import harmony_resource_probe
+        require(record.get('platform') == 'harmony' and backend.get('name') == 'hdc' and receipt.get('path_id'),
+                'Harmony probe needs a qualified HDC capture of the frozen PATH')
+        raw = [capture.get('harmony_probe') for capture in snapshot['captures']]
+        require(all(raw) and raw == receipt['harmony_probe'], 'Harmony resource probe layout references changed')
+        harmony = harmony_resource_probe.capture_proof(raw, actual, rows, receipt['device_id'], receipt['app_id'],
+                                                       receipt['harmony_probe_node'], run_root)
+        config = next(iter(harmony.values()))['configuration']
+    else:
+        config = device_configuration.from_log(rows, receipt.get('device_id'), external)
     require(config == (receipt.get('device_configuration') or {}),
             'capture configuration differs from its command evidence')
     meta_ref = reference(snapshot['meta'], Path(manifest_ref['path']).parent)
@@ -177,7 +188,9 @@ def capture_execution(record, manifest_ref, hap_ref, code_baseline, run_root, co
             'install_command_log_ref': installed['command_log_ref'],
             'command_log_ref': receipt['command_log_ref'], 'meta_ref': meta_ref,
             'artifact_ref': hap_ref, 'code_baseline': receipt['code_baseline'], 'observations': actual,
-            **({'device_configuration': config} if config else {})}
+            **({'device_configuration': config} if config else {}),
+            **({'platform': 'harmony', 'harmony_probe': receipt['harmony_probe'],
+                'harmony_probe_node': receipt['harmony_probe_node'], 'path_id': receipt['path_id']} if harmony else {})}
 
 
 def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, assignment):
@@ -205,6 +218,12 @@ def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, 
     require(device_configuration.matches(config, path.get('device_configuration') or {}),
             'observed capture configuration differs from the frozen PATH')
     executed = read_json(check_ref(capture['capture_execution_ref']))
+    probe = None
+    if path.get('harmony_resource_probe'):
+        import harmony_resource_probe
+        probe = harmony_resource_probe.contract(path, checks)
+        require(capture.get('platform') == 'harmony' and capture.get('path_id') == path['path_id']
+                and capture.get('harmony_probe_node') == probe['node_id'], 'qualified Harmony capture must prove the frozen PATH and probe')
     require(executed.get('assignment_id') == assignment['assignment_id'] and executed.get('fencing_token') == assignment.get('fencing_token'),
             'the capture must belong to the current test/audit assignment and fence; '
             'reading previous capture evidence is review, not a new test')
@@ -224,8 +243,12 @@ def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, 
                 and row.get('render_ref') == (check['reference']['render_ref'] if reference else None) and row.get('reference_ref') == reference,
                 'image-parity row differs from the frozen check ' + check['id'])
         try:
+            xml = check_ref(row['view_ref']).read_text()
             fresh, crop = image_parity.evaluate(check, check_ref(reference) if reference else None, check_ref(row['screenshot_ref']),
-                                                check_ref(row['view_ref']).read_text(), config)
+                                                xml, config)
+            if probe:
+                observed_probe = harmony_resource_probe.observation(xml, probe['node_id'], executed['app_id'])
+                harmony_resource_probe.with_selection(fresh, check, probe, observed_probe['resources'])
         except image_parity.ParityError as exc:
             require(False, 'image parity cannot be verified: ' + str(exc))
         require({key: row.get(key) for key in fresh} == fresh, 'image-parity row differs from its recomputation for ' + check['id'])
@@ -233,7 +256,8 @@ def validate_image_parity(report_ref, *, checks, path, code_baseline, run_root, 
             from PIL import Image
             with Image.open(check_ref(row.get('crop_ref'))) as kept:
                 require(kept.convert('RGB').tobytes() == crop.tobytes(), 'image-parity crop is not the node region of the screenshot')
-        proven.append({'id': check['id'], 'status': fresh['status']})
+        proven.append({'id': check['id'], 'status': fresh['status'],
+                       **({'resource_selection': fresh['resource_selection']} if 'resource_selection' in fresh else {})})
     return {'report_ref': report_ref, 'hap_ref': hap_ref, 'checks': proven, 'capture_evidence': capture}
 
 

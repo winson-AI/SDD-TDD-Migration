@@ -230,7 +230,10 @@ def prior_green_receipt(m, path_id):
 
 
 def command_receipts(s, m, root, paths):
-    from runner_storage import revalidation_inputs
+    from runner_storage import revalidation_inputs, revalidation_snapshot
+    from functools import cache
+
+    snapshot = cache(lambda: revalidation_snapshot(s, root))
     import unit_reports
 
     if not m.get('build_baseline') or m['build_baseline'] != m['code_baseline']:
@@ -244,7 +247,7 @@ def command_receipts(s, m, root, paths):
             receipt = prior_green_receipt(m, pid)
             command = path['command']
             fingerprint = (receipt or {}).get('revalidation_inputs_sha256')
-            if not fingerprint or fingerprint != revalidation_inputs(s, root, command['cwd'], command['argv']):
+            if not fingerprint or fingerprint != revalidation_inputs(s, root, command['cwd'], command['argv'], snapshot=snapshot):
                 continue
             if path.get('unit_report'):
                 unit_reports.validate(receipt, path, read_json(check_ref(receipt['result_ref'])))
@@ -256,7 +259,10 @@ def command_receipts(s, m, root, paths):
 
 def current_build_paths(s, m, root, candidates):
     """Recheck the same freeze, accepted bytes, frozen command and host inputs for each reusable build."""
-    from runner_storage import revalidation_inputs
+    from runner_storage import revalidation_inputs, revalidation_snapshot
+    from functools import cache
+
+    snapshot = cache(lambda: revalidation_snapshot(s, root))
 
     if root is None or not candidates:
         return set()
@@ -278,7 +284,7 @@ def current_build_paths(s, m, root, candidates):
             fingerprint = receipt.get('revalidation_inputs_sha256')
             if not fingerprint or any(receipt.get(k) != v for k, v in expected.items()):
                 continue
-            if fingerprint != revalidation_inputs(s, root, command['cwd'], command['argv']):
+            if fingerprint != revalidation_inputs(s, root, command['cwd'], command['argv'], snapshot=snapshot):
                 continue
             result = read_json(check_ref(receipt['result_ref']))
             require(result.get('build_artifacts', []) == row.get('build_artifacts', []), 'accepted build artifacts changed')

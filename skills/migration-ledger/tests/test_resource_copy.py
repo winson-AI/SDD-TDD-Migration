@@ -396,6 +396,8 @@ class WorkerTests(unittest.TestCase):
         self.state['modules'] = {'M001': module}
         with patch.object(lean_worker.ledger, 'read_events', return_value=(self.state, self.events)), patch.object(lean_worker, 'verify_plan', return_value=None):
             synced = resource_binding.sync(self.f.run, self.state, 'M001', 'I1')  # in the coder's name, into the task that owns the folder
+            with patch.object(lean_worker, 'run', side_effect=AssertionError('completed sync must be reused')):
+                self.assertEqual(resource_binding.sync(self.f.run, self.state, 'M001', 'I1'), synced)
         self.assertEqual([(r['action'], r['accessor']) for r in read_json(check_ref(synced['result_ref']))['rows']], [('copied', 'assets/ic_back.png')])
         self.assertEqual((self.root / 'ic_back.png').read_bytes(), PNG + b'back')
 

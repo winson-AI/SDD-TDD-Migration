@@ -444,6 +444,9 @@ def visual_plan_gate(analysis, visual):
             require(path.get('baseline_ref') in target['baselines'],
                     'visual path baseline differs from frozen target ' + coverage)
             check_ref(path['baseline_ref'])
+        if path.get('platform') == 'harmony' and path.get('device_configuration'):
+            import harmony_resource_probe
+            harmony_resource_probe.contract(path, [checks[cid][0] for cid in ids if cid in checks])
         for cid in ids:
             require(cid in checks and checks[cid][1] == coverage,
                     'visual path carries image check ' + cid + ' that does not belong to its target')
@@ -451,11 +454,15 @@ def visual_plan_gate(analysis, visual):
             import device_configuration
             check = checks[cid][0]
             config = path.get('device_configuration') or {}
-            if config or check.get('kind') in ('bounds', 'color'):
-                require(config and device_configuration.applicable(config, check.get('qualifier')),
-                        'visual PATH device_configuration must cover the qualifier of ' + cid)
-            if check.get('kind') == 'bounds' and check['expect']['unit'] == 'dp':
-                require(config.get('density_dpi'), 'bounds in dp require a frozen and observed density_dpi')
+            if path.get('platform') == 'harmony' and config:
+                if check.get('kind') == 'bounds' and check['expect']['unit'] == 'dp':
+                    require(config.get('vp_scale'), 'Harmony bounds require a frozen and observed logical pixel scale')
+            else:
+                if config or check.get('kind') in ('bounds', 'color'):
+                    require(config and device_configuration.applicable(config, check.get('qualifier')),
+                            'visual PATH device_configuration must cover the qualifier of ' + cid)
+                if check.get('kind') == 'bounds' and check['expect']['unit'] == 'dp':
+                    require(config.get('density_dpi'), 'bounds in dp require a frozen and observed density_dpi')
         if path.get('interaction_id'):
             interaction = interactions.get(path['interaction_id'])
             require(interaction, 'visual path references an undeclared interaction')
