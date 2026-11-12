@@ -1,5 +1,6 @@
 """Build, unit tests, static spec closure, functional automation and baseline visual alignment are Test-Runner stages."""
 import copy
+import sys
 from pathlib import Path
 import task_revalidation
 from prepared_tests import pending_paths
@@ -124,20 +125,75 @@ def build_units(m):
             for path in (m.get('plan') or {}).get('paths', []) if path.get('kind') == 'build' and path.get('command')}
 
 
-def build_unit_free(m, modules, worker):
-    """Modules write into one build unit at once, each in its own files; the unit is built (or its app built and run) only
-    while nobody writes into it, so a build never compiles another module's half-written files and its failure is this
-    module's. A writer waits for a build of its unit to finish, a build for the writers."""
+def managed_visual_environment(s, path):
+    """A frozen native capture without a project boot command can use the artifact-only lane."""
+    if path.get('kind') != 'visual' or path.get('command') or path.get('platform') not in ('android', 'harmony'):
+        return None
+    environment = (path.get('visual_execution') or {}).get('environment_ref')
+    if not environment:
+        return None
+    import run_storage
+    try:
+        source = check_ref(environment)
+        if source.parent.parts[-4:] != ('runs', 'harmony', 'sandbox', 'environment'):
+            return None
+        root = source.parents[4]
+        environment = ((s.get('target_preview') or {}).get('visual_environment_rebindings') or {}).get(str(source), environment)
+        env = run_storage.checked_path(check_ref(environment), root / 'runs/harmony/sandbox/environment')
+        device = read_json(env).get('visual_capture') or {}
+        backend = 'adb' if path['platform'] == 'android' else 'hdc'
+        if device.get('backend') == backend and device.get('device_id') and not device.get('boot'):
+            return root, environment
+    except (Rejected, OSError, ValueError, KeyError, TypeError, AttributeError):
+        pass
+    return None
+
+
+def managed_visual_artifacts(s, path, refs):
+    """Only accepted runner output qualifies for concurrent coding."""
+    environment = managed_visual_environment(s, path)
+    if not environment:
+        return None
+    import run_storage
+    root, ref = environment
+    suffix = '.apk' if path['platform'] == 'android' else '.hap'
+    directory = root / 'runs/build'
+    artifacts = [r for r in refs if Path(r['path']).suffix.lower() == suffix and Path(r['path']).is_relative_to(directory)]
+    try:
+        for artifact in artifacts:
+            run_storage.checked_path(check_ref(artifact), directory)
+    except (Rejected, OSError):
+        return None
+    return {'environment_ref': ref, 'artifacts': artifacts} if artifacts else None
+
+
+def artifact_only_visual(s, m, pids):
+    if not pids or not functional_ready(m):
+        return False
+    selected = [p for p in paths(m, 'visual') if p['path_id'] in pids]
+    return len(selected) == len(pids) and all(managed_visual_artifacts(s, p, m.get('build_artifacts', [])) for p in selected)
+
+
+def check_visual_command(argv):
+    adapter = Path(__file__).with_name('lean_visual_adapter.py')
+    managed_python = adapter.parents[2] / 'migration-test/runtime/harmony/.venv/bin/python'
+    interpreters = {Path(sys.executable).resolve(), managed_python.resolve()}
+    require(len(argv) >= 2 and Path(argv[0]).is_absolute() and Path(argv[0]).resolve() in interpreters
+            and Path(argv[1]) == adapter, 'artifact-only visual assignment requires the managed lean_visual_adapter.py command')
+
+
+def build_unit_free(m, modules, worker, artifact_only=False):
+    """Code writers may overlap capture of an accepted artifact. Builds and opaque commands still serialize."""
     mine = build_units(m)
     for other in modules:
         if other is m or not mine & build_units(other):
             continue
-        roles = {a.get('role') for a in other.get('assignments', {}).values() if not a.get('closed')}
+        active = [a for a in other.get('assignments', {}).values() if not a.get('closed')]
         if worker in ('implementer', 'fixer'):
-            require('test-runner' not in roles,
+            require(not any(a['role'] == 'test-runner' and not a.get('artifact_only') for a in active),
                     'build unit busy: %s is building the unit this module writes into; dispatch after its result' % other['module_id'])
-        else:
-            require(not roles & {'implementer', 'fixer'},
+        elif not artifact_only:
+            require(not any(a['role'] in ('implementer', 'fixer') for a in active),
                     'build unit busy: %s is being written into the build this module compiles; dispatch after its result' % other['module_id'])
 
 
@@ -164,7 +220,7 @@ def due(m):
 
 def dispatch_paths(m, scope):
     selected = due(m) if scope == 'build' else scope_paths(m, scope) if scope else m['plan']['paths']
-    if scope != 'build' and (m.get('device_reverify') or m.get('task_revalidation', {}).get('mode') == 'partial'):
+    if scope != 'build' and (m.get('device_reverify') or m.get('dependency_reverify') or m.get('task_revalidation', {}).get('mode') == 'partial'):
         selected = [p for p in selected if not path_green(m, p['path_id'])]
     pending = set(pending_paths(selected))
     if not pending:

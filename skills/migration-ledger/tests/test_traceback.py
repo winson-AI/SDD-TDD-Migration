@@ -188,6 +188,7 @@ class KeptCodeTests(unittest.TestCase):
                role='host', module=None)
         f.call('freeze', {'decision_id': 'D2'}, module='M002')
         f.implement('M002', 'I2')
+        accepted = f.verify_module('M002', 'T2', consume=True)['paths'][0]
         f.call('suspend', {'kind': 'human', 'reason': 'Decide consumer-only behavior', 'owner': 'human',
                            'root_cause': {'category': 'spec', 'summary': 'consumer assumption', 'confidence': 'confirmed',
                                           'owner': 'human', 'next_action': 'ask'}}, module='M002')
@@ -215,6 +216,32 @@ class KeptCodeTests(unittest.TestCase):
         consumer = f.state()['modules']['M002']
         self.assertEqual((consumer['phase'], consumer['blocked']), ('testing', None))
         self.assertNotIn('dependency_revalidation_pending', consumer)
+        self.assertTrue(consumer['results']['P2']['stale'])
+        self.assertEqual(consumer['results']['P2']['test_run_id'], accepted['test_run_id'])
+        retested = f.verify_module('M002', 'T4', consume=True)['paths'][0]
+        self.assertEqual(retested['retest_of'], accepted['test_run_id'])
+        self.assertEqual(f.state()['modules']['M002']['phase'], 'dod')
+
+    def test_provider_recovery_restarts_at_the_build_and_keeps_identical_inputs(self):
+        from test_validation import all_green, next_scope
+
+        provider = {'phase': 'completed', 'freeze_id': 'F1', 'code_baseline': 'provider', 'build_artifacts': []}
+        consumer = {'dependencies': ['M001'], 'code_baseline': 'consumer', 'build_baseline': 'consumer',
+                    'build_artifacts': [{'path': '/accepted.apk'}],
+                    'plan': {'paths': [{'path_id': k, 'kind': k} for k in ('build', 'unit', 'static', 'automation', 'visual')]}}
+        s = {'modules': {'M001': provider, 'M002': consumer}}
+        inputs = ledger.dependency_validation_inputs(s, consumer)
+        consumer['results'] = {p['path_id']: {'quality': 'green-passed', 'code_baseline': 'consumer', 'dependency_inputs': inputs}
+                               for p in consumer['plan']['paths']}
+        ledger.revalidate_provider_results(s, consumer)
+        self.assertTrue(all_green(consumer))
+        self.assertEqual(consumer['build_baseline'], 'consumer')
+        provider['code_baseline'] = 'updated'
+        ledger.revalidate_provider_results(s, consumer)
+        self.assertFalse(all_green(consumer))
+        self.assertEqual(next_scope(consumer), 'build')
+        self.assertEqual(consumer['build_artifacts'], [])
+        self.assertTrue(all(row['stale'] for row in consumer['results'].values()))
 
     def test_code_written_under_a_plan_that_is_given_up_is_carried_to_the_next_one(self):
         f = test_ledger.FlowTests(); f.setUp(); self.addCleanup(f.doCleanups)

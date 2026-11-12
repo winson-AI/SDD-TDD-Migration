@@ -81,7 +81,7 @@
 <text x="780.0" y="1157.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">逐 PATH 调用 Main（适配器随平台）</text>
 <text x="780.0" y="1191.0" font-size="18.04" fill="#4b5563" text-anchor="middle" font-weight="400">声明了平台未写适配器即用内置 Main；--query-file / --result-file</text>
 <text x="780.0" y="1220.0" font-size="19.10" fill="#4b5563" text-anchor="middle" font-weight="400">Android / Harmony → Harmony Main（图 06）；web → web Main</text>
-<text x="780.0" y="1249.0" font-size="18.76" fill="#4b5563" text-anchor="middle" font-weight="400">冻结 platform 绑定 APK / HAP / 页面哈希；record_video 留录屏</text>
+<text x="780.0" y="1249.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">受限 APK / HAP 视觉派发可与独立编码并行；设备锁保留</text>
 <rect x="60" y="1080" width="340" height="190" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="230.0" y="1125.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">两层执行结果</text>
 <text x="230.0" y="1159.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">包装器 exit 0：已写回执</text>
@@ -169,12 +169,13 @@
 <text x="1350" y="2130" font-size="20.00" fill="#ea580c" text-anchor="middle" font-weight="400">遗留已留证</text>
 <path d="M1540,840 L1570,840 L1570,2170 L1350,2170" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="7 5"/>
 <path d="M780,2170 L780,2230" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
-<rect x="460" y="2230" width="640" height="130" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
-<rect x="465" y="2235" width="630" height="120" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
-<text x="780.0" y="2274.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父汇总 → GO 全量收尾门禁</text>
-<text x="780.0" y="2308.0" font-size="21.16" fill="#4b5563" text-anchor="middle" font-weight="400">叶子完成即跑其 global path（波次集成），绑定 owner 基线</text>
-<text x="780.0" y="2337.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无 worker / ready 动作，才统一启动 Auditor</text>
-<path d="M780,2360 L780,2410" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="460" y="2230" width="640" height="140" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
+<rect x="465" y="2235" width="630" height="130" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
+<text x="780.0" y="2264.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父汇总 → GO 全量收尾门禁</text>
+<text x="780.0" y="2298.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GLOBAL PATH 波次绑定已验收产物或全局快照</text>
+<text x="780.0" y="2327.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">输入失效：宿主停工取证后回收派发</text>
+<text x="780.0" y="2356.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无 worker / ready 动作，才统一启动 Auditor</text>
+<path d="M780,2370 L780,2410" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="2410" width="640" height="150" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="465" y="2415" width="630" height="140" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="780.0" y="2449.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Auditor · 独立闭环</text>

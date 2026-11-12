@@ -44,7 +44,7 @@ def automation_flow():
           ['scope=automation；重验代码 / 环境 / 命令', '进程内 PATH 跑冻结命令 + JUnit；设备 / 浏览器 PATH 调 Main'])
     d.arrow([(780, 1065), (780, 1120)])
     d.box(460, 1120, 640, 145, '逐 PATH 调用 Main（适配器随平台）',
-          ['声明了平台未写适配器即用内置 Main；--query-file / --result-file', 'Android / Harmony → Harmony Main（图 06）；web → web Main', '冻结 platform 绑定 APK / HAP / 页面哈希；record_video 留录屏'], controller=True)
+          ['声明了平台未写适配器即用内置 Main；--query-file / --result-file', 'Android / Harmony → Harmony Main（图 06）；web → web Main', '受限 APK / HAP 视觉派发可与独立编码并行；设备锁保留'], controller=True)
     d.box(60, 1080, 340, 190, '两层执行结果',
           ['包装器 exit 0：已写回执', '不等于 CASE 通过', '超时 124 / 启动失败 127', '以 receipt / assertions 为准'], 'orange')
     d.arrow([(780, 1265), (780, 1320)])
@@ -82,9 +82,9 @@ def automation_flow():
     d.label(1350, 2130, '遗留已留证', 'orange')
     d.arrow([(1540, 840), (1570, 840), (1570, 2170), (1350, 2170)], 'orange', dashed=True, end=False)
     d.arrow([(780, 2170), (780, 2230)])
-    d.box(460, 2230, 640, 130, '父汇总 → GO 全量收尾门禁',
-          ['叶子完成即跑其 global path（波次集成），绑定 owner 基线', '无 worker / ready 动作，才统一启动 Auditor'], 'orange', True)
-    d.arrow([(780, 2360), (780, 2410)])
+    d.box(460, 2230, 640, 140, '父汇总 → GO 全量收尾门禁',
+          ['GLOBAL PATH 波次绑定已验收产物或全局快照', '输入失效：宿主停工取证后回收派发', '无 worker / ready 动作，才统一启动 Auditor'], 'orange', True)
+    d.arrow([(780, 2370), (780, 2410)])
     d.box(460, 2410, 640, 150, 'Auditor · 独立闭环',
           ['审阅全宿主目标 / 代码；遗留按审计 fix / verify / human 路由', '裁决失败：结构化根因待人工；缺环境保留未验证', '只复核遗留 / 受影响路径；空清单只审阅'], controller=True)
     d.arrow([(780, 2560), (780, 2620)])

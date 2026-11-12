@@ -32,8 +32,9 @@ work_modules 包含发现模块、根因 owner 与受影响下游，按模块基
 
 - `scope_policy: non-green-only`。
 - `path_ids`：当前模块结果为 Red/Yellow 的 PATH；已由问题闭环复核通过的不再加入。
-- 运行级 global_paths 只加入其中非 Green、从未验证或代码基线已失效的路径；未验证不隐式算 Green，有效 Green 不重复执行，没有就不补造。
-- 波次集成：持有某条 global path 用例的叶子全部完成时，Ledger 以 GO 名义 `integration-assign` 给独立 Test-Runner（先派发，audit-execution 预检在派发内提交，其他叶子仍在工作也可；`integration-submit` 提交 kind=tests；冻结命令或适配器驱动时预检与执行都由 advance_run 完成）；结果进 audit_results 并绑定各 owner 的 code_baseline，owner 代码未变则审计不重跑；Red 入 audit_repairs，owner MO repair-accept 后修复，同一代码上不重跑。
+- 运行级 global_paths 只加入其中非 Green、从未验证或代码基线已失效的路径；未验证保留待验证，有效 Green 直接复用。
+- 波次集成在持有 GLOBAL PATH 用例的叶子完成且执行输入就绪时，Ledger 以 GO 名义 `integration-assign` 给独立 Test-Runner。派发内提交 audit-execution 预检，`integration-submit` 提交 kind=tests。带 build binding 的受限 Android/Harmony 视觉路径绑定当前验收产物、冻结 PATH、环境及 owner/提供方闭包。冻结命令和自定义适配器按全局快照处理，可由 advance_run 代跑。持有叶子基线未变时，其他叶子导致全局快照失效的路径留到统一审计复测。结果与执行输入摘要进入 audit_results，输入一致时复用 Green。Red 进入 audit_repairs 交 owner MO。
+- 活动派发的输入变化时，宿主核实进程停止或已隔离，再凭 assignment_id、fencing_token 和 stopped_worker_ref 提交 `integration-revoke`。Ledger 保留旧派发及停工证据，随后重算波次或审计清单。
 - 有效构建 Green 不因自动化缺测被重跑或覆盖。对原 automation-deferred 模块补验时合并 PATH 结果，保留原构建证据。
 
 | 清单 | 上下文门禁 | 动作与报告 |

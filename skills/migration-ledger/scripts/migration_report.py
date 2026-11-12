@@ -192,6 +192,7 @@ def build(root, s, sequence, ref_check=check_ref):
         audited = bool(audit_row and s['audit'].get('snapshot') == snapshot)
         if audited:
             record = {**record, **audit_row}
+            record.pop('integration_inputs', None)
             if record.get('validation_reuse', {}).get('source_test_run_id') != record.get('test_run_id'):
                 record.pop('validation_reuse', None)
         last_execution = copy.deepcopy(record.get('last_execution'))
@@ -201,8 +202,8 @@ def build(root, s, sequence, ref_check=check_ref):
             (execution_scope_stale or last_execution.get('code_baseline') != current_baseline))
         stale = (m.get('stale') or m.get('effective_quality') == 'yellow-blocked' or
                  not tv.task_revalidation.valid(m, record)) if m else (
-                 invalid or record.get('stale') or not (record.get('code_baseline') == global_baseline or
-                 (bool(record.get('owner_baselines')) and record['owner_baselines'] == integration.owner_baselines(s, path or {}))))
+                 (invalid and not (integration.scoped(s, path or {}) and record.get('integration_inputs')))
+                 or not integration.same_inputs(s, path or {}, record, global_baseline))
         # Environment omissions have no executed baseline to expire.
         stale = bool(stale and record.get('executed'))
         q = record.get('quality', 'yellow-blocked')

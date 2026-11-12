@@ -193,6 +193,11 @@ def dependency_subject(provider):
 def subject(s, mid, stage, read=CURRENT):
     """Do not bind sibling progress or receipt revisions into a leaf receipt."""
     require(stage in CHECKS and ((mid is None) == (stage in GLOBAL)), 'context stage/scope mismatch')
+    if stage == 'audit-execution':
+        from integration import task
+        wave = task(s)
+        if wave and wave.get('artifact_only'):
+            return digest({k: wave[k] for k in ('run_id', 'assignment_id', 'fencing_token', 'inputs')})
     pinned = execution_context(s, mid, stage)
     shared = pinned['planning_context'] if pinned else decomposition.planning_context(s)
     if mid:
@@ -330,6 +335,13 @@ def input_refs(s, mid, stage, read=CURRENT):
 def standing_refs(s, mid, stage, read=CURRENT):
     """Everything a ready report of a stage stands on. A worker reads less than this, but no report is accepted or used
     over drifted evidence, whether or not its author had to read that evidence."""
+    if stage == 'audit-execution':
+        from integration import build_artifacts, task
+        wave = task(s)
+        if wave and wave.get('artifact_only'):
+            paths = [p for p in s['global_paths'] if p['path_id'] in wave['path_ids']]
+            refs = [ref for path in paths for ref in verify_refs_in(path)]
+            return refs + [ref for path in paths for ref in build_artifacts(s, path)]
     pinned = execution_context(s, mid, stage)
     refs = list(pinned['global_refs']) if pinned else global_refs(s)
     if stage in HISTORY_STAGES and history(s, mid, read):
@@ -464,6 +476,8 @@ def submit(s, req, actor, run_root=None):
             or (report.get('verdict') == 'blocked' and stage in set(WORKERS.values()) | {'building'}), 'context subject stale')
     import integration
     wave = stage == 'audit-execution' and (integration.task(s) or {}).get('instance_id') == actor.get('instance_id')
+    if wave and (integration.task(s) or {}).get('artifact_only') and report.get('verdict') == 'ready':
+        integration.scope(s)
     if stage.startswith('audit-') and not wave:  # a wave's integration runs while other leaves still work
         import audit_closure
         if not audit_closure.active(s):

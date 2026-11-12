@@ -42,6 +42,8 @@ def journal_size(root):
 def row(step, card=None):
     out = {k: step[k] for k in ('module_id', 'role', 'operation', 'assignment_id', 'reason', 'review_asked', 'approval_subject_sha256',
                                 'approval_kind', 'detail', 'root_ids', 'session_id', 'session_affinity', 'model_tier') if step.get(k) is not None}
+    if step.get('artifact_only'):
+        out.update({key: step[key] for key in ('artifact_only', 'test_scope', 'instance_id', 'fencing_token', 'path_ids') if key in step})
     if step.get('report_ref'):
         out['report'] = step['report_ref']['path']
     if step.get('worker_role'):
@@ -109,7 +111,8 @@ def tick(root, principal, workers=None):
             lines.append({'kind': 'person', **row(step)})
         elif operation == 'await-result' or step.get('reason') == 'audit-running':
             a = (st['modules'].get(step.get('module_id')) or {}).get('assignments', {}).get(step.get('assignment_id')) or {}
-            lines.append({'kind': 'running', **row(step, card(root, step, a.get('instance_id')))})
+            details = ({key: a[key] for key in ('artifact_only', 'test_scope', 'fencing_token')} if a.get('artifact_only') else {})
+            lines.append({'kind': 'running', **row({**step, **details}, card(root, step, a.get('instance_id')))})
         elif step.get('ready'):
             lines.append({'kind': 'dispatch', **row(step, card(root, step))})
     progress = st.get('workflow_progress') or {}

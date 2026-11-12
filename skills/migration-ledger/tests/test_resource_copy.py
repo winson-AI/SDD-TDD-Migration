@@ -330,6 +330,13 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(read_json(check_ref(derived['dimensions'][1]['copy_plan_ref'])), resource_copy.derive(analysis, s['target_resources']['copy'])[0])
         resource_copy.freeze_check(s, derived)  # the plan names the copy plan its evidence and the convention give
         self.assertIs(resource_binding.bind(s, {'module_id': 'M001'}, bound, self.f.run), bound)  # named once
+        same = resource_binding.bind(s, {'module_id': 'M001'}, {'dimension_analysis_ref': ref}, self.f.run)
+        self.assertEqual(same['dimension_analysis_ref'], bound['dimension_analysis_ref'])
+        revised = {**s, 'target_resources': {'copy': {**s['target_resources']['copy'], 'accessor': 'images/{path}'}}}
+        new = resource_binding.bind(revised, {'module_id': 'M001'}, {'dimension_analysis_ref': ref}, self.f.run)
+        self.assertNotEqual(new['dimension_analysis_ref'], bound['dimension_analysis_ref'])
+        resource_copy.freeze_check(revised, read_json(check_ref(new['dimension_analysis_ref'])))
+        resource_copy.freeze_check(s, read_json(check_ref(bound['dimension_analysis_ref'])))
         task = {'assignment_id': 'I1', 'role': 'implementer', 'instance_id': 'worker-1', 'fencing_token': 'token-1', 'freeze_id': 'F1', 'closed': False,
                 'execution_contract': {'task_ids': ['T1', 'T2'], 'path_ids': []}}
         module = {'module_id': 'M001', 'phase': 'implementing', 'freeze_id': 'F1', 'write_paths': [str(self.f.target / 'app')],

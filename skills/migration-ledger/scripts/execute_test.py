@@ -247,6 +247,11 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
         chosen = adapter_for(s, path, root)
         argv, cwd, timeout = chosen['argv'], cwd or chosen['cwd'], timeout or chosen['timeout']
     timeout = timeout or 300
+    if a.get('artifact_only'):
+        tv.check_visual_command(argv)
+        refs = m.get('path_build_artifacts')
+        require(all(tv.managed_visual_artifacts(s, p, refs.get(p['path_id'], []) if refs is not None else m['build_artifacts'])
+                    for p in paths), 'accepted managed visual build or environment drifted')
     for pid in pids:
         context_readiness.check_execution(s, a, argv, cwd, pid)
     require(baseline(m['code_files']) == m['code_baseline'], 'code changed before execution')

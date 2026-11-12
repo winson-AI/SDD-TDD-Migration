@@ -818,6 +818,8 @@ def path_context(args, module, task):
     require(task.get('role') == 'auditor' or task.get('test_scope') == path['kind'], 'PATH outside test assignment scope')
     if 'path_ids' in task:
         require(path['path_id'] in task['path_ids'], 'PATH outside audit assignment selection')
+    if task.get('execution_contract'):
+        require(path['path_id'] in task['execution_contract']['path_ids'], 'PATH outside test assignment selection')
     return path
 
 
