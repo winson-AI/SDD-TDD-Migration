@@ -163,10 +163,10 @@
 <rect x="70" y="760" width="430" height="210" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="285.0" y="800.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">资源与 fidelity 输入</text>
 <text x="285.0" y="834.5" font-size="21.92" fill="#4b5563" text-anchor="middle" font-weight="400">API / URL / image / icon 来源追溯</text>
-<text x="285.0" y="863.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按 TASK 同步，冲突仅报当前派发</text>
+<text x="285.0" y="863.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">独立派发先交付，宿主按 TASK 同步</text>
 <text x="285.0" y="892.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">{qualifier} 保留同密度多档</text>
 <text x="285.0" y="921.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">限定 XML 值按配置生成</text>
-<text x="285.0" y="950.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">设备测量绑定限定值与图片档位</text>
+<text x="285.0" y="950.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Harmony 用 PNG 和探针绑定档位</text>
 <rect x="1110" y="190" width="410" height="130" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1315.0" y="219.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">冻结与执行门禁</text>
 <text x="1315.0" y="253.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">SPEC 未冻结不生成代码</text>

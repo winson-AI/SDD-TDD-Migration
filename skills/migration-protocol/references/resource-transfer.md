@@ -17,7 +17,7 @@ collector 记录范围内每处资源引用的使用点（行号、类/方法、
 项目声明目标目录、路径与 accessor 模板、可加载格式和密度顺序。见 [资源约定模板](../../../template/target-resources.json)。
 
 - `resource-plan` 从 UI 证据派生 `copy_plan_ref`，登记存量路径与哈希、目标路径、accessor 和使用节点。清单之外的资源另立 item。Ledger 绑定并在冻结时重算，拒绝复制文件和生成参数共用落点。
-- 派发时 `resource-sync` 按 TASK 写范围预检后同步。相同字节直接保留，CR 只更新仍匹配旧验收哈希的文件。遇独立修改时保留原文件，`drive` 报当前派发与回执。
+- 宿主按派发的 TASK 范围预检并同步。相同字节直接保留，CR 只更新仍匹配旧验收哈希的文件。遇独立修改时保留原文件，`drive` 报当前派发与回执。
 - `preserve_density: true` 允许按 `{density}` 或 `{qualifier}` 保留多档。用完整限定符区分同密度多版本，如 `anydpi-v21` 与 `anydpi-v24`。报告披露折叠档位。设备检查见 [限定配置的设备验证](#限定配置的设备验证)。
 - 验收核对存量字节与代码 accessor。清单外图片手工替换要写 `copy_blocker`。非 blocked 项绑定目标文件和 consumer，`byte_copy` 验哈希，`value_xml_exact` 验条目，`exact_vector_xml` 验转换结果。
 
@@ -48,7 +48,13 @@ Spec 在 UI parameter_fill 写例外及动态/结构映射（见[四维模板](.
 
 在 visual PATH 的 `device_configuration` 填该路径要观察到的配置，可用 `density_dpi`、`night`、`smallest_width_dp`、`api_level` 和 Android 格式的 `locale`。用 `image_check_ids` 绑定对应的 `source_resource` 与完整 `qualifier`。图片用原档位的渲染参考。XML 值可用文本检查、`bounds`（`expect.metric` 为 `width`、`height`、`gap-x` 或 `gap-y`，并声明 `value` 与 `unit`，间距需 `target.anchor_selector`）、或 `color`（`expect.color` 为不透明 `#FFRRGGBB`，可用 `target.sample` 指定裁剪内的采样坐标）。
 
-Android 内置采集在截图前后从同一设备读取配置。其他平台可由受管适配器在与已安装产物、截图和视图树绑定的捕获命令日志中记录 `device_id` 和实际 `device_configuration`。Ledger 复核命令日志与证据，再按当前冻结检查重算结果。未观测配置、配置不匹配或更具体的存量档位同时适用时，报告不计该档位为已验证。XML 数值、别名、复杂绘制等未建立可重算设备断言的值仍列为未验证。
+Android 内置采集在截图前后读取同一设备配置。Ledger 复核命令日志和测量证据。报告按平台、限定符和 PATH 分别保留证据，配置缺失或不匹配时保留未验证。XML 数值、别名、复杂绘制等须建立可重算断言。
+
+### Harmony
+
+冻结 `platform: harmony`、`device_configuration` 和 `harmony_resource_probe`。探针填 `node_id` 和 `selections`，每个检查 ID 映射到 `{resource_id, target_qualifier}`。把选档策略写在目标实际消费者中。用测试 HAP 内的可访问节点暴露小型 JSON，采集生产取值所用的同一 resolver。节点包含 `schema_version: 1`、`configuration` 和以 `resource_id` 为键的 `resources`。配置采集 `vp_scale`（当前 UIContext 的 `vp2px(1)`）、`window_width_vp`，并按本 PATH 需要采集 `density_dpi`、`night`、`locale` 和 `harmony_api_level`。检查值使用原始图片字节的 SHA-256、`{unit, value}` 尺寸、`#FFRRGGBB` 或字符串。屏幕颜色默认精确，设备出现可测的色彩量化时可冻结 `target.channel_tolerance`。探针返回的原始颜色值仍精确比对。
+
+Test-Runner 在同一 HAP、设备锁和 fence 下保留 HDC PNG 和前后原始视图树。Ledger 从原始树复算选档证据和屏幕断言，Harmony 尺寸用实测逻辑缩放。映射可声明目标目录或应用自己的配置分支。Android `vNN` 和 `swNNNdp` 应绑定 Harmony 实际能力或窗口条件。相同内容指纹只能证明内容一致，资源目录身份须有能区分候选的证据。
 
 ## 动态参数与布局结构
 

@@ -506,7 +506,7 @@ def handle(s, req, actor, root=None):
             stop(s, str(exc), mid, b['plan_ref']); return
         from ledger import dependency_closure, invalidate_path_results, revalidate_provider_results
         if m['dependencies']:
-            revalidate_provider_results(s, m)
+            revalidate_provider_results(s, m, root)
         paths = {path['path_id'] for path in m['plan']['paths']}
         explicit = {f.get('path_id') for f in b['findings'].values() if f['source_module_id'] == mid} & paths
         # Auditor-declared effects may cross a boundary missing from the module's dependency graph.

@@ -130,6 +130,11 @@ def assignment(state, request, actor, planned=True):
     verify_plan(module['plan'], module)
     if actor['role'] in ('test-runner', 'auditor'):
         require(baseline(module['code_files']) == module['code_baseline'], 'current code changed')
+        if mid != 'GLOBAL':
+            import test_validation
+            if task.get('path_provider_inputs'):
+                ledger.worker_dependencies_ready(state, module, task)
+            module = test_validation.execution_view(state, module)
     return module, task
 
 

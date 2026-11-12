@@ -26,6 +26,7 @@ sys.dont_write_bytecode = True
 import experience
 import ledger
 import reading
+import resource_binding
 
 POLL_SECONDS = 1
 PERSON = ('human-decision-required', 'run-approval-required', 'source-approval-required')
@@ -66,16 +67,15 @@ def card(root, step, instance=None):
 
 def tick(root, principal, workers=None):
     """Make ready coding assignments visible before executing unrelated frozen commands."""
-    started, resource_conflicts = False, []
+    started = False
     for _ in range(50):
         st = ledger.status(root)
         steps = st['next_steps']
         actions = []
         for step in steps:
             if step.get('mechanical') and step.get('ready') and step['operation'] != 'await-result':
-                actions += ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True, defer_commands=True)['applied']
+                actions += ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True, defer_commands=True, defer_resources=True)['applied']
         actions += ledger.advance_run(root, principal, workers, defer_commands=True)
-        resource_conflicts.extend(a for a in actions if a.get('conflict'))
         started |= any(a['operation'] == 'assign' and a.get('role') == 'implementer' for a in actions)
         if actions:
             continue
@@ -83,7 +83,7 @@ def tick(root, principal, workers=None):
             break
         for step in steps:
             if step.get('mechanical') and step.get('ready') and step['operation'] == 'await-result':
-                actions = ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True)['applied']
+                actions = ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True, defer_resources=True)['applied']
                 if actions:
                     break
         else:
@@ -92,10 +92,7 @@ def tick(root, principal, workers=None):
         if not actions:
             break
     st = ledger.status(root, 'full')  # read by this script, not by a model
-    lines = [{'kind': 'signal', 'reason': 'resource-sync-conflict', 'severity': 'action',
-              'module_id': a['module_id'], 'assignment_id': a['assignment_id'],
-              'next_action': a['conflict'], **({'receipt_ref': a['receipt_ref']} if a.get('receipt_ref') else {})}
-             for a in resource_conflicts]
+    lines, resource_lines = [], []
     changes = [x for x in (st.get('run_change_next_step'), st.get('source_change_next_step')) if x]  # same-run revisions, new sources
     for step in st['next_steps'] + [st['global_next_step']] + changes:
         operation = step.get('operation')
@@ -115,10 +112,14 @@ def tick(root, principal, workers=None):
             lines.append({'kind': 'person', **row(step)})
         elif operation == 'await-result' or step.get('reason') == 'audit-running':
             a = (st['modules'].get(step.get('module_id')) or {}).get('assignments', {}).get(step.get('assignment_id')) or {}
+            module = st['modules'].get(step.get('module_id'))
+            if a.get('resource_sync_deferred') and resource_pending(root, module, a, resource_lines):
+                continue
             details = ({key: a[key] for key in ('artifact_only', 'test_scope', 'fencing_token')} if a.get('artifact_only') else {})
             lines.append({'kind': 'running', **row({**step, **details}, card(root, step, a.get('instance_id')))})
         elif step.get('ready'):
             lines.append({'kind': 'dispatch', **row(step, card(root, step))})
+    lines.extend(resource_lines)
     progress = st.get('workflow_progress') or {}
     seen = {x.get('reason') for x in changes}
     for signal in progress.get('signals', []):
@@ -143,6 +144,28 @@ def tick(root, principal, workers=None):
         lines.append({'kind': 'signal', 'reason': 'attention-report', 'next_action': 'read only on a human signal', 'report': progress.get('report_path')})
     lines, waiting = capped(root, st, lines)
     return lines, st['last_sequence'], waiting
+
+
+def resource_pending(root, module, assignment, lines):
+    try:
+        if not resource_binding.needs_sync(module, assignment) or resource_binding.ready_receipt(root, module, assignment):
+            return False
+        _, _, previous = resource_binding.attempts(root, assignment)
+        receipt = previous[-1] / 'receipt.json' if previous else None
+        if receipt and receipt.is_file():
+            from contracts import read_json, file_ref
+            failure = read_json(receipt)
+            lines.append({'kind': 'signal', 'reason': 'resource-sync-conflict', 'severity': 'action',
+                          'module_id': module['module_id'], 'assignment_id': assignment['assignment_id'],
+                          'next_action': failure.get('reason') or 'inspect the rejected resource synchronization',
+                          'receipt_ref': file_ref(receipt)})
+        else:
+            lines.append({'kind': 'host', 'operation': 'resource-sync', 'module_id': module['module_id'],
+                          'assignment_id': assignment['assignment_id'], 'task_ids': assignment['execution_contract']['task_ids']})
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        lines.append({'kind': 'signal', 'reason': 'resource-sync-conflict', 'severity': 'action',
+                      'module_id': module['module_id'], 'assignment_id': assignment['assignment_id'], 'next_action': str(exc)})
+    return True
 
 
 def ready_plan_to_deliver(root, st):
@@ -218,7 +241,7 @@ def unseen(root, lines):
 def drive(root, principal, workers=None, wait=None):
     before = journal_size(root) if wait else None
     lines, sequence, waiting = tick(root, principal, workers)
-    if wait and journal_size(root) == before and not any(line['kind'] in ('dispatch', 'rotate') for line in lines):
+    if wait and journal_size(root) == before and not any(line['kind'] in ('dispatch', 'rotate', 'host') for line in lines):
         size, deadline = before, time.monotonic() + wait
         while journal_size(root) == size and time.monotonic() < deadline:  # tail the journal: its end moves when anyone submits
             time.sleep(POLL_SECONDS)
@@ -235,10 +258,18 @@ def main():
     parser.add_argument('--host-context', required=True, help='the module orchestrator principal JSON the host submits as')
     parser.add_argument('--worker', action='append', default=[], metavar='ROLE=INSTANCE')
     parser.add_argument('--wait', type=float, help='seconds to follow the journal when nothing is to dispatch')
+    parser.add_argument('--resource-sync', nargs=2, metavar=('MODULE', 'ASSIGNMENT'), help='run the fenced host resource synchronization')
     args = parser.parse_args()
     workers = dict(item.split('=', 1) for item in args.worker)
     try:
-        for line in drive(args.root, json.loads(args.host_context), workers, args.wait):
+        principal = json.loads(args.host_context)
+        if args.resource_sync:
+            ledger.role(principal, 'module-orchestrator', 'host')
+            state = ledger.read_events(Path(args.root))[0]
+            synced = resource_binding.sync(args.root, state, *args.resource_sync)
+            print(json.dumps({'status': 'synced', **(synced or {})}, ensure_ascii=False))
+            return 0
+        for line in drive(args.root, principal, workers, args.wait):
             print(json.dumps(line, ensure_ascii=False, separators=(',', ':')))
     except (ValueError, OSError, KeyError) as exc:
         print(json.dumps({'kind': 'refused', 'reason': str(exc)}, ensure_ascii=False))

@@ -380,6 +380,38 @@ class SourceChangeTests(unittest.TestCase):
         f.call('assign', {'role': 'implementer', 'assignment_id': 'PEER', 'instance_id': 'coder'}, module='M002')
         self.assertEqual(f.state()['modules']['M002']['phase'], 'implementing')
 
+    def test_source_approval_survives_same_input_green_and_independent_refreeze(self):
+        self.freeze('M001')
+        self.freeze('M002')
+        before = self.f.state()
+        m = before['modules']['M001']
+        m.update(phase='testing', code_baseline='accepted-code')
+        m['assignments']['T'] = {'role': 'test-runner', 'closed': False}
+        ref = self.f.ref('review-subject.md', 'scope')
+        old = source_changes.subject(before, ref, {'M001'})
+        after = copy.deepcopy(before)
+        peer = after['modules']['M002']
+        peer.update(freeze_id='next-independent-freeze', plan_hash='next-independent-plan')
+        tested = after['modules']['M001']
+        tested['assignments']['T']['closed'] = True
+        tested['results']['PATH'] = {'quality': 'green-passed', 'stale': False}
+        after['audit_results'] = {'G': {'quality': 'green-passed', 'integration_inputs': 'same'}}
+        self.assertEqual(source_changes.subject(after, ref, {'M001'}), old)
+        tested['results']['PATH']['quality'] = 'red-bug'
+        self.assertNotEqual(source_changes.subject(after, ref, {'M001'}), old)
+
+    def test_only_an_affected_or_opaque_integration_wave_blocks_source_append(self):
+        import integration
+
+        state = {'global_paths': [{'path_id': 'G'}], 'integration_assignment':
+                 {'closed': False, 'artifact_only': True, 'path_ids': ['G'], 'inputs': {'G': 'managed'}}}
+        with patch.object(integration, 'stale', return_value=False), patch.object(integration, 'scoped', return_value=True), \
+                patch.object(integration, 'module_ids', return_value=['M002']):
+            self.assertFalse(source_changes.integration_busy(state, {'M001'}))
+            self.assertTrue(source_changes.integration_busy(state, {'M002'}))
+            state['integration_assignment']['artifact_only'] = False
+            self.assertTrue(source_changes.integration_busy(state, {'M001'}))
+
     def test_independent_assignment_survives_source_review_and_append(self):
         import context_readiness
 

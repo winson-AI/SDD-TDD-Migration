@@ -66,17 +66,31 @@ def picture(mid, item, analysis_ref, carriers, rows):
 
 def qualified_proof(rows, mid, resource, alternatives, matching, carriers):
     path_ids = {pid for cid in matching for pid in carriers.get(cid, [])}
-    proof = []
+    by_platform = {}
     for row in rows:
-        if (row['module_id'] != mid or row['path_id'] not in path_ids or row['quality'] != 'green-passed'
-                or not row['attempt_executed'] or row['stale']):
+        if row['module_id'] != mid or row['path_id'] not in path_ids:
             continue
         parity = row.get('image_parity') or {}
-        actual = (parity.get('capture_evidence') or {}).get('device_configuration')
-        if (actual and device_configuration.distinguishes(actual, resource['qualifier'], alternatives)
-                and any(check['id'] in matching and check['status'] == 'MATCH' for check in parity.get('checks', []))):
-            proof.append(row)
-    return sorted(path_ids), proof
+        capture = parity.get('capture_evidence') or {}
+        actual = capture.get('device_configuration')
+        platform = row.get('platform') or capture.get('platform') or 'unattributed'
+        checks = [check for check in parity.get('checks', []) if check['id'] in matching]
+        matching_screen = [check for check in checks if check['status'] == 'MATCH']
+        bound = (actual and device_configuration.distinguishes(actual, resource['qualifier'], alternatives)
+                 if platform != 'harmony' else capture.get('platform') == 'harmony' and any(
+                     (check.get('resource_selection') or {}).get('status') == 'match' for check in matching_screen))
+        verified = bool(row['quality'] == 'green-passed' and row['attempt_executed'] and not row['stale']
+                        and bound and matching_screen)
+        by_platform.setdefault(platform, []).append({'path_id': row['path_id'],
+            'configuration': row.get('device_configuration') or {}, 'observed_configuration': actual,
+            'resource_selection': [check['resource_selection'] for check in checks if check.get('resource_selection')],
+            'visual_status': 'verified' if verified else 'not-verified',
+            'evidence_refs': refs(row['evidence_refs']) if verified else []})
+    return {'path_ids': sorted(path_ids), 'platforms': by_platform,
+            'visual_status': 'verified' if by_platform and all(
+                r['visual_status'] == 'verified' for group in by_platform.values() for r in group
+            ) else 'not-verified',
+            'evidence_refs': refs([r['evidence_refs'] for group in by_platform.values() for r in group])}
 
 
 def fidelity(s, rows, ref_check):
@@ -137,11 +151,10 @@ def fidelity(s, rows, ref_check):
                             if check.get('kind', 'image') == 'image' and check.get('source_resource') == source
                             and check.get('qualifier') in (qualifier, 'default' if qualifier == 'base' else qualifier)}
                 alternatives = [item['qualifier'] for item in copy_plan['renditions'] if item['source_resource'] == source]
-                path_ids, proof = qualified_proof(rows, mid, rendition, alternatives, matching, carriers)
-                renditions.append({**rendition, 'module_id': mid, 'path_ids': path_ids,
-                                   'visual_status': 'verified' if proof else 'not-verified',
-                                   'evidence_refs': refs([rendition['source_refs'], [r['evidence_refs'] for r in proof]])})
-                if rendition['status'] != 'copied' or not proof:
+                proof = qualified_proof(rows, mid, rendition, alternatives, matching, carriers)
+                renditions.append({**rendition, **proof, 'module_id': mid,
+                                   'evidence_refs': refs([rendition['source_refs'], proof['evidence_refs']])})
+                if rendition['status'] != 'copied' or proof['visual_status'] != 'verified':
                     limitations.append({'module_id': mid, 'item_id': None, 'kind': 'resource-rendition',
                                         'reason': f"{source} / {qualifier} · {rendition['status']} · "
                                                   f"{rendition['reason']} · {renditions[-1]['visual_status']}",
@@ -155,10 +168,9 @@ def fidelity(s, rows, ref_check):
                                 if check.get('kind') in ('text', 'bounds', 'color')
                                 and check.get('source_resource') == source and check.get('qualifier') == qualifier}
                     alternatives = [item['qualifier'] for item in filled['variants'] if item['id'] == variant['id']]
-                    path_ids, proof = qualified_proof(rows, mid, variant, alternatives, matching, carriers)
-                    variant.update(path_ids=path_ids, visual_status='verified' if proof else 'not-verified',
-                                   evidence_refs=refs([analysis_ref, [r['evidence_refs'] for r in proof]]))
-                    if variant['status'] != 'generated' or not proof:
+                    proof = qualified_proof(rows, mid, variant, alternatives, matching, carriers)
+                    variant.update({**proof, 'evidence_refs': refs([analysis_ref, proof['evidence_refs']])})
+                    if variant['status'] != 'generated' or proof['visual_status'] != 'verified':
                         limitations.append({'module_id': mid, 'item_id': None, 'kind': 'parameter-configuration',
                                             'reason': f"XML {source} / {qualifier} · {variant['status']} · {variant['visual_status']}",
                                             'evidence_refs': variant['evidence_refs']})
@@ -278,7 +290,8 @@ def build(root, s, sequence, ref_check=check_ref):
         rows.append({'case_id': cid, 'module_id': mid, 'parent_mo_name': names.get((m or {}).get('parent_module_id')) or names.get(mid),
                      'path_id': pid, 'name': (path or {}).get('name', pid or cid), 'kind': (path or {}).get('kind', 'test'),
                      'task_ids': [t['task_id'] for t in ((m or {}).get('plan') or {}).get('tasks', []) if pid in t.get('path_ids', [])],
-                     'platform': (path or {}).get('platform'), 'parameters': copy.deepcopy((path or {}).get('parameters', {})),
+                     'platform': (path or {}).get('platform'), 'device_configuration': (path or {}).get('device_configuration'),
+                     'parameters': copy.deepcopy((path or {}).get('parameters', {})),
                      'on_device': user_paths.on_device(path or {}),
                      'flaky': bool(record.get('flaky')), 'execution_status': record.get('execution_status'),
                      'coverage': (path or {}).get('coverage'),
@@ -466,11 +479,14 @@ def render(report):
             c = row['counts']
             text.append(f"| {cell(mid)} | {row['components']} / {row['layers']} | {row['parameters']} | {c.get('used', 0) + c.get('mapped', 0)} | "
                         f"{c.get('not-applicable', 0)} | {c.get('deviation', 0)} | {cell(row['fill_rate'])} |")
-    for mid, row in sorted((pictures.get('parameters') or {}).items()):
-        for variant in row.get('variants', []):
-            if variant['visual_status'] == 'verified' and variant['status'] == 'generated':
-                text.append(f"- {cell(mid)} XML {cell(variant['source_resource'])} / {cell(variant['qualifier'])} · "
-                            f"{cell(variant['source_value'])} · verified · {cell(', '.join(variant['path_ids']))}")
+    qualified = [(row['module_id'], row, row['source_resource']) for row in pictures.get('renditions', [])]
+    qualified += [(mid, variant, variant['source_resource']) for mid, row in sorted((pictures.get('parameters') or {}).items())
+                  for variant in row.get('variants', [])]
+    for mid, item, source in qualified:
+        for platform, paths in sorted(item.get('platforms', {}).items()):
+            for path in paths:
+                text.append(f"- {cell(mid)} · {cell(source)} / {cell(item['qualifier'])} · {cell(platform)} / {cell(path['path_id'])}"
+                            f" · {cell(item['status'])} · {cell(path['visual_status'])}")
     if pictures['items']:
         text += ['', '以下图片不是对存量资源的精确复制；verified 表示目标屏幕上的节点图像已在容差内与存量渲染参考一致。', '',
                  f"图片统计：{cell(pictures['counts'])}", '', '| 模块 / 项 | 来源 | 类型 / 策略 | 状态 | 说明 |', '| --- | --- | --- | --- | --- |']

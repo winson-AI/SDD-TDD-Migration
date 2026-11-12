@@ -15,14 +15,22 @@ OPS = {'source-review', 'reconfigure-sources'}
 def subject(s, report_ref, affected=None):
     modules, parents = s['modules'], s.get('module_groups', {})
     if affected is not None:
-        keys = (*decomposition.ALLOCATION_KEYS, 'dependencies', 'parent_module_id', 'plan_hash',
-                'freeze_id', 'blocked', 'realloc_request')
-        modules = {mid: m if mid in affected else {k: m.get(k) for k in keys} for mid, m in modules.items()}
+        from run_changes import execution_review_module
+        keys = (*decomposition.ALLOCATION_KEYS, 'dependencies', 'parent_module_id', 'blocked', 'realloc_request')
+        modules = {mid: execution_review_module(m) if mid in affected else {
+            **{k: m.get(k) for k in keys}, 'reuse_plan_ref': (m.get('plan') or {}).get('reuse_plan_ref'),
+            'frozen': bool(m.get('freeze_id'))} for mid, m in modules.items()}
         parents = {mid: {k: group.get(k) for k in (*keys, 'children')} for mid, group in parents.items()}
+    audit = {k: v for k, v in s.items() if k.startswith('audit')}
+    if affected is not None:
+        # A successful independent integration result is execution progress, not a change to reviewed source impact.
+        audit['audit_results'] = {pid: row for pid, row in s.get('audit_results', {}).items()
+                                  if not (row.get('integration_inputs') and row.get('quality') == 'green-passed'
+                                          and not row.get('stale'))}
     return digest({'run_id': s['run_id'], 'context': s.get('project_context_ref'),
                    'sources': s.get('reuse_sources', []), 'modules': modules,
                    'parents': parents, 'global_plan': s.get('global_plan'),
-                   'audit': {k: v for k, v in s.items() if k.startswith('audit')},
+                   'audit': audit,
                    'report_ref': report_ref})
 
 
@@ -91,8 +99,7 @@ def handle(root, s, req, actor):
             'source impact review stale')
     report, affected = validate(s, review['report_ref'])
     require(not workers_busy(s, review), 'finish or stop/revoke affected workers before context switch')
-    import integration
-    require(not integration.task(s), 'finish active integration before source context switch')
+    require(not integration_busy(s, affected), 'finish affected integration before source context switch')
     decision = s['decisions'].get(p['decision_id'], {})
     require(decision.get('decision') == 'approved' and decision.get('module_id') is None
             and decision.get('subject_sha256') == p['subject_sha256'] and not decision.get('consumed', True),
@@ -154,14 +161,26 @@ def workers_busy(s, review):
                for a in (s['modules'].get(mid) or {}).get('assignments', {}).values())
 
 
+def integration_busy(s, affected):
+    import integration
+    active = integration.task(s)
+    if not active:
+        return False
+    if not active.get('artifact_only') or not active.get('inputs'):
+        return True
+    selected = [path for path in s['global_paths'] if path['path_id'] in active['path_ids']]
+    return (len(selected) != len(active['path_ids']) or integration.stale(s)
+            or any(not integration.scoped(s, path) or set(integration.module_ids(s, path)).intersection(affected)
+                   for path in selected))
+
+
 def next_action(s):
     review = s.get('source_change_review')
     if not review or review.get('status') != 'reviewed': return None
     current = review['subject_sha256'] == subject(s, review['report_ref'], review.get('affected_modules'))
     decisions = [d for d in s['decisions'].values() if d.get('module_id') is None and not d.get('consumed')
                  and d.get('subject_sha256') == review['subject_sha256']]
-    import integration
-    busy = workers_busy(s, review) or bool(integration.task(s))
+    busy = workers_busy(s, review) or integration_busy(s, set(review.get('affected_modules', s['modules'])))
     import audit_closure
     auditing = workflow.audit_active(s) or audit_closure.active(s)
     return {'operation': 'reconfigure-sources' if current else 'source-review',

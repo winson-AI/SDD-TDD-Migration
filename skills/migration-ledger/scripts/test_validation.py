@@ -167,11 +167,48 @@ def managed_visual_artifacts(s, path, refs):
     return {'environment_ref': ref, 'artifacts': artifacts} if artifacts else None
 
 
+def check_build_bindings(s, module, plan):
+    from ledger import dependency_closure
+    bindings = [path for path in plan['paths'] if 'build_binding' in path]
+    if not bindings:
+        return
+    providers = set(dependency_closure(s, module['dependencies']))
+    for path in bindings:
+        binding = path['build_binding']
+        require(path.get('kind') == 'visual' and path.get('platform') in ('android', 'harmony')
+                and path.get('visual_execution') and isinstance(binding, dict) and set(binding) == {'module_id', 'path_id'}
+                and isinstance(binding.get('module_id'), str) and binding['module_id'] in providers
+                and isinstance(binding.get('path_id'), str) and binding['path_id'],
+                'leaf build_binding requires a managed visual PATH and a declared provider build PATH')
+        provider = s['modules'][binding['module_id']]
+        if provider.get('freeze_id'):
+            require(any(p['path_id'] == binding['path_id'] and p.get('kind') == 'build'
+                        for p in provider['plan']['paths']), 'leaf build_binding does not name a provider build PATH')
+
+
+def bound_build_artifacts(s, path):
+    import integration
+    refs = integration.build_artifacts(s, path)
+    managed = managed_visual_artifacts(s, path, refs)
+    return (managed or {}).get('artifacts', [])
+
+
+def execution_view(s, module):
+    paths = (module.get('plan') or {}).get('paths', [])
+    if not any(path.get('build_binding') for path in paths):
+        return module
+    return {**module, 'path_build_artifacts': {path['path_id']:
+        bound_build_artifacts(s, path) if path.get('build_binding') else module.get('build_artifacts', [])
+        for path in paths}}
+
+
 def artifact_only_visual(s, m, pids):
     if not pids or not functional_ready(m):
         return False
     selected = [p for p in paths(m, 'visual') if p['path_id'] in pids]
-    return len(selected) == len(pids) and all(managed_visual_artifacts(s, p, m.get('build_artifacts', [])) for p in selected)
+    return len(selected) == len(pids) and all(
+        bound_build_artifacts(s, p) if p.get('build_binding') else managed_visual_artifacts(s, p, m.get('build_artifacts', []))
+        for p in selected)
 
 
 def check_visual_command(argv):
@@ -355,6 +392,9 @@ def plan_check(plan, target, static_required=False, unit_required=False):
             require(path.get('kind') == 'visual' and path.get('image_check_ids'),
                     'device_configuration requires a visual PATH with image checks')
             device_configuration.validate(path['device_configuration'])
+        if 'harmony_resource_probe' in path or path.get('platform') == 'harmony' and path.get('device_configuration'):
+            import harmony_resource_probe
+            harmony_resource_probe.contract(path)
     for path in [p for p in plan['paths'] if p.get('kind') == 'visual']:
         # Visual alignment compares named UI-tree nodes against the captured legacy baseline.
         nodes = nonempty(path.get('node_ids'), 'visual path node_ids')
@@ -386,9 +426,19 @@ def plan_check(plan, target, static_required=False, unit_required=False):
 
 def visual_result(module, path, record, captured, run_root=None, assignment=None):
     """A visual Green binds the frozen target and the current HAP/code/gesture evidence."""
-    if path.get('kind') != 'visual' or record.get('quality') != 'green-passed':
+    if path.get('kind') != 'visual':
         return
     proof = captured.get('visual_alignment')
+    if record.get('quality') != 'green-passed':
+        image = (proof or {}).get('image_parity')
+        if path.get('harmony_resource_probe') and image:
+            import ui_fidelity
+            import visual_evidence
+            require(record.get('visual_alignment') == proof, 'visual alignment must match the captured report')
+            derived = visual_evidence.validate_image_parity(image['report_ref'], checks=ui_fidelity.frozen_image_checks(module, path),
+                path=path, code_baseline=module['code_baseline'], run_root=run_root, assignment=assignment)
+            require(image == derived, 'Harmony visual evidence differs from recomputation')
+        return
     require(isinstance(proof, dict) and record.get('visual_alignment') == proof,
             'visual alignment must match the captured report')
     require(proof.get('coverage') == path.get('coverage') and path.get('coverage'),

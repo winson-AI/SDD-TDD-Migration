@@ -76,20 +76,21 @@ def image_part(query, parity_ref):
     rows = {row.get('id'): row for row in report.get('checks', [])}
     require(set(rows) == {c['id'] for c in checks}, 'image-parity report must cover exactly the frozen image checks')
     statuses = [rows[c['id']].get('status') for c in checks]
+    proof = None
+    if set(statuses) == {'MATCH'} or query.get('harmony_resource_probe'):
+        proof = visual_evidence.validate_image_parity(parity_ref, checks=checks, path=query, code_baseline=query['code_baseline'],
+                                                      run_root=query.get('run_root'), assignment=query.get('execution_assignment'))
     if 'MISMATCH' in statuses:
         quality, category, owner = 'red-bug', 'visual-alignment', 'fixer'
     elif set(statuses) != {'MATCH'}:
         quality, category, owner = 'yellow-blocked', 'capture-environment', 'test-runner'
     else:
-        quality = 'green-passed'
-        proof = visual_evidence.validate_image_parity(parity_ref, checks=checks, path=query, code_baseline=query['code_baseline'],
-                                                      run_root=query.get('run_root'), assignment=query.get('execution_assignment'))
-        return quality, None, proof
+        return 'green-passed', None, proof
     measured = lambda row: ', '.join(f'{key}={value}' for key, value in row['metrics'].items()) if row.get('metrics') else row.get('reason')
     shown = '; '.join(f"{c['id']}: {rows[c['id']].get('status')} ({measured(rows[c['id']])})" for c in checks if rows[c['id']].get('status') != 'MATCH')
     cause = {'category': category, 'summary': 'image checks not matched: ' + shown, 'confidence': 'observed', 'owner': owner,
              'next_action': 'diagnose', 'evidence_refs': [parity_ref]}
-    return quality, cause, {'report_ref': parity_ref, 'checks': [{'id': c['id'], 'status': rows[c['id']].get('status')} for c in checks]}
+    return quality, cause, proof or {'report_ref': parity_ref, 'checks': [{'id': c['id'], 'status': rows[c['id']].get('status')} for c in checks]}
 
 
 def report(query, result_ref, target_root, interactions=(), image_parity_ref=None):

@@ -136,6 +136,8 @@ class Device:
         self.remote_files = []
         self.version = None
         self.page_name, self.last_dump = '', ''
+        self.resource_probe = None
+        self.probe_layouts = {}
 
     def call(self, *args, timeout=30):
         argv = [self.tool, '-t', self.device, *map(str, args)]
@@ -180,15 +182,25 @@ class Device:
             raise DeviceFailure('device-execution-error', 'cannot parse managed dumpLayout path')
         remote = match.group(1)
         self.remote_files.append(remote)
-        local = run_storage.checked_path(self.out / 'temp' / f'layout-{label}.json', self.out)
+        directory = 'probe-layouts' if self.resource_probe else 'temp'
+        local = run_storage.checked_path(self.out / directory / f'layout-{label}.json', self.out)
         local.parent.mkdir(parents=True, exist_ok=True)
         self.call('file', 'recv', remote, local)
+        if self.resource_probe:
+            self.probe_layouts[label] = file_ref(local)
         raw = read_json(local)
         node = mobile_snapshot.harmony_node(raw)
         if node is None:
             raise DeviceFailure('target-precondition', 'layout contains no application nodes')
         self.page_name = mobile_snapshot.harmony_page_name(raw)
-        return ET.tostring(node, encoding='unicode')
+        xml = ET.tostring(node, encoding='unicode')
+        if self.resource_probe:
+            import harmony_resource_probe
+            try:
+                return harmony_resource_probe.app_tree(xml, self.resource_probe_app)
+            except Rejected as exc:
+                raise DeviceFailure('device-configuration-unavailable', str(exc)) from exc
+        return xml
 
     def scroll(self, bounds):
         """One bounded swipe up inside the frozen scroll region."""
@@ -197,14 +209,15 @@ class Device:
 
     def screenshot(self, label):
         nonce = digest(str(self.out))[:20]
-        remote = f'/data/local/tmp/sdd-{nonce}-{label}.jpeg'
+        suffix = 'png' if self.resource_probe else 'jpeg'
+        remote = f'/data/local/tmp/sdd-{nonce}-{label}.{suffix}'
         self.remote_files.append(remote)
-        self.call('shell', 'snapshot_display', '-f', remote)
-        local = run_storage.checked_path(self.out / f'screenshot-{label}.jpeg', self.out)
+        self.call('shell', 'snapshot_display', '-f', remote, *(['-t', 'png'] if self.resource_probe else []))
+        local = run_storage.checked_path(self.out / f'screenshot-{label}.{suffix}', self.out)
         self.call('file', 'recv', remote, local)
         if not local.is_file() or not local.stat().st_size:
             raise DeviceFailure('capture-incomplete', 'device screenshot is missing or empty')
-        image_valid(local, ('JPEG',))
+        image_valid(local, ('PNG',) if self.resource_probe else ('JPEG',))
         return local
 
     def finish(self):
@@ -550,6 +563,8 @@ def observe_screen(device, app, target, spec, out, label):
     scroll = target['coverage'] == 'scroll'
     termination = ('viewport' if not scroll else 'missing-frozen-scroll-region-or-endpoint' if not region_bounds or not end_match else 'scroll-limit')
     captures, current_xml = [], xml
+    configuration = None
+    probe = getattr(device, 'resource_probe', None)
     for index in range(1 + (max_scrolls if termination == 'scroll-limit' else 0)):
         if index:
             device.scroll(region_bounds)
@@ -557,6 +572,18 @@ def observe_screen(device, app, target, spec, out, label):
         package, activity = device.foreground()
         if package != app:
             return not_in_front(device, app, 'during capture')
+        if probe:
+            import harmony_resource_probe
+            try:
+                observed = harmony_resource_probe.observation(current_xml, probe['node_id'], app)
+            except (Rejected, ValueError, TypeError, KeyError) as exc:
+                return blocked(str(exc), 'device-configuration-unavailable')
+            actual = observed['configuration']
+            if (not device_configuration.matches(actual, spec['expected_device_configuration'])
+                    or configuration is not None and actual != configuration):
+                return blocked('observed Harmony configuration differs from the frozen PATH or changed during capture',
+                               'device-configuration-mismatch', device_configuration=actual)
+            configuration = actual
         image_path = device.screenshot(f'{label}-{index}')
         view = out / f'view-{label}-{index}.xml'
         run_storage.atomic_bytes(view, current_xml.encode())
@@ -568,6 +595,9 @@ def observe_screen(device, app, target, spec, out, label):
             return blocked('page/state changed while screenshot was taken; retain both trees and recapture a new attempt',
                            'capture-incomplete', screenshot_ref=file_ref(image_path), before_view_ref=file_ref(view), after_view_ref=file_ref(after_view))
         record = {'index': index, 'screenshot': str(image_path), 'view_tree': str(view), 'view_signature': signature}
+        if probe:
+            record['harmony_probe'] = {'index': index, 'before_ref': device.probe_layouts[f'{label}-{index}'],
+                                       'after_ref': device.probe_layouts[f'{label}-{index}-after']}
         region, region_bounds = scoped_scroll_region(current_xml, spec.get('scroll_region'), app)
         if scroll and region_bounds and end_match and target_matches(ET.tostring(region, encoding='unicode'), end_match, app):
             captures.append(record); termination = 'frozen-scroll-end-observed'
@@ -588,7 +618,8 @@ def observe_screen(device, app, target, spec, out, label):
             'device_backend': backend, 'coverage': coverage, 'captures': captures, 'target_match': spec['target_match']}
     if scroll:
         meta.update(scroll_region=spec.get('scroll_region'), scroll_end_match=end_match, scroll_contract='frozen-source-backed-start-region-end')
-    return {'captures': captures, 'coverage': coverage, 'complete': complete, 'backend': backend, 'meta': meta}
+    return {'captures': captures, 'coverage': coverage, 'complete': complete, 'backend': backend, 'meta': meta,
+            **({'device_configuration': configuration} if configuration else {})}
 
 
 def boot_command(boot, avd):
@@ -1038,10 +1069,19 @@ def capture(device, contract, args, path, module, task, out, root):
     ability = token(contract.get('ability', 'EntryAbility'), 'ability')
     device.call('shell', 'aa', 'start', '-b', app, '-a', ability)
     frozen_actions(device, contract.get('actions', []))
+    if path.get('device_configuration'):
+        import harmony_resource_probe
+        device.resource_probe = harmony_resource_probe.contract(path)
+        device.resource_probe_app = app
+        device.image_mime = 'image/png'
+        contract = {**contract, 'expected_device_configuration': path['device_configuration']}
     observed = observe_screen(device, app, target, contract, out, 'candidate')
     if 'captures' not in observed:
         return observed
-    return candidate_record(observed, 'harmony-candidate', 'harmony', target, manifest, round_id, args, module, task, out, path)
+    result = candidate_record(observed, 'harmony-candidate', 'harmony', target, manifest, round_id, args, module, task, out, path)
+    if observed.get('device_configuration'):
+        result['device_configuration'] = observed['device_configuration']
+    return result
 
 
 def candidate_record(observed, phase, platform, target, manifest, round_id, args, module, task, out, path, **extra):
@@ -1150,6 +1190,10 @@ def parity(args, out, module, task, run_id):
     execution = read_json(check_ref(snapshot['capture_execution_ref']))
     observed = execution.get('device_configuration') or {}
     config_matches = device_configuration.matches(observed, path.get('device_configuration') or {})
+    probe = None
+    if path.get('harmony_resource_probe'):
+        import harmony_resource_probe
+        probe = harmony_resource_probe.contract(path, checks)
     rows = []
     for check in checks:
         index = check['target'].get('capture_index', 0)
@@ -1159,8 +1203,11 @@ def parity(args, out, module, task, run_id):
         png = ui_evidence.image_check_reference(check)
         try:
             if config_matches:
-                row, crop = image_parity.evaluate(check, check_ref(png) if png else None, Path(shot['path']),
-                                                  Path(view['path']).read_text(), observed)
+                xml = Path(view['path']).read_text()
+                row, crop = image_parity.evaluate(check, check_ref(png) if png else None, Path(shot['path']), xml, observed)
+                if probe:
+                    values = harmony_resource_probe.observation(xml, probe['node_id'], execution['app_id'])
+                    harmony_resource_probe.with_selection(row, check, probe, values['resources'])
             else:
                 row = {'id': check['id'], 'node_id': check['node_id'], 'selector': check['target']['selector'],
                        'status': 'INCOMPARABLE', 'reason': 'observed capture configuration differs from the frozen PATH'}
@@ -1205,7 +1252,8 @@ def run(operation, args, *, root, out, module, task, actor, config, rebindings=N
     device_lock(actor, device_settings, task)
     backend = device_settings.get('backend')
     require(backend in ('hdc', 'adb', 'browser'), 'visual capture requires explicitly configured hdc, adb or browser backend')
-    if operation == 'visual-capture' and path.get('device_configuration') and backend != 'adb':
+    if operation == 'visual-capture' and path.get('device_configuration') and backend != 'adb' and not (
+            backend == 'hdc' and path.get('harmony_resource_probe')):
         return blocked('this backend needs a managed capture with observed device configuration', 'device-configuration-unavailable')
     artifact = accepted_artifact(args, module, path, backend)
     app = token(contract.get('app_id'), 'app_id')
@@ -1275,6 +1323,9 @@ def run(operation, args, *, root, out, module, task, actor, config, rebindings=N
             'command_log_ref': evidence['command_log_ref']}
         if result.get('device_configuration'):
             execution['device_configuration'] = result['device_configuration']
+        if backend == 'hdc' and path.get('harmony_resource_probe'):
+            execution.update(path_id=path['path_id'], harmony_probe_node=path['harmony_resource_probe']['node_id'],
+                             harmony_probe=[capture['harmony_probe'] for capture in record['snapshot']['captures']])
         record['snapshot']['capture_execution_ref'] = save(out / 'capture-execution.json', execution)
         result['manifest_ref'] = save(out / 'manifest.json', manifest)
         result['capture_execution_ref'] = record['snapshot']['capture_execution_ref']
