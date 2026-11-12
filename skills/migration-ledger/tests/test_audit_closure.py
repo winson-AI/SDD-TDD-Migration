@@ -3,10 +3,48 @@ import json
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 import test_ledger
 from contracts import Rejected, digest, baseline, file_ref
 from execute_test import execute
+
+
+class AuditPathEvidenceTests(unittest.TestCase):
+    def test_audit_retest_invalidates_provider_inputs_before_selecting_a_stage(self):
+        import audit_closure as audit
+        import test_validation as tv
+        from ledger import dependency_validation_inputs
+
+        provider = {'phase': 'completed', 'stale': False, 'dependencies': [], 'freeze_id': 'F1',
+                    'code_baseline': 'provider-old', 'build_artifacts': []}
+        kinds = ('build', 'unit', 'static', 'automation', 'visual')
+        consumer = {'module_id': 'M002', 'phase': 'completed', 'stale': False, 'dependencies': ['M001'],
+                    'assignments': {}, 'freeze_id': 'F2', 'code_baseline': 'code', 'build_baseline': 'code',
+                    'plan': {'paths': [{'path_id': k, 'kind': k} for k in kinds]}}
+        batch = {'batch_id': 'B1', 'status': 'repairing', 'work_modules': ['M002'], 'blocked_modules': [],
+                 'owner_tests': {}, 'source_tests': {}, 'started_owners': [], 'routes': {}, 'findings': {},
+                 'sources': {}, 'dependencies': {'M002': ['M001']}, 'contexts': {'M002': audit.context(consumer)}}
+        state = {'modules': {'M001': provider, 'M002': consumer}, 'audit_batch': batch}
+        before = dependency_validation_inputs(state, consumer)
+        consumer['results'] = {kind: {'path_id': kind, 'quality': 'green-passed', 'code_baseline': 'code',
+                                      'test_run_id': kind, 'dependency_inputs': before} for kind in kinds}
+        original = copy.deepcopy(consumer)
+        operation = {'operation': 'audit-retest', 'module_id': 'M002'}
+        mo = {'role': 'module-orchestrator', 'instance_id': 'mo'}
+        with patch.object(audit, 'current'), patch.object(audit.workflow, 'runnable', return_value=True):
+            audit.handle(state, operation, mo)
+            self.assertEqual(consumer['phase'], 'dod')
+            self.assertEqual(len(batch['source_tests']['M002']['paths']), len(kinds))
+            consumer.clear()
+            consumer.update(original)
+            batch['source_tests'].clear()
+            provider['code_baseline'] = 'provider-new'
+            audit.handle(state, operation, mo)
+        self.assertEqual(tv.next_scope(consumer), 'build')
+        self.assertFalse(tv.all_green(consumer))
+        self.assertTrue(all(row['stale'] for row in consumer['results'].values()))
+        self.assertEqual(consumer['results']['automation']['test_run_id'], 'automation')
 
 
 class ClosureTests(unittest.TestCase):

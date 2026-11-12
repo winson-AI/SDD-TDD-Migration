@@ -70,6 +70,7 @@ def fidelity(s, rows, ref_check):
                     'evidence_refs': refs([gap.get('evidence_refs')])}
                    for mid, m in sorted(s['modules'].items()) for cid, gap in sorted(user_paths.gaps(m.get('plan')).items())]
     visual, limitations, pictures, copied, parameters, checks, conditions = [], [], [], 0, {}, {}, []
+    renditions = []
     for mid, module in s['modules'].items():
         plan = module.get('plan') or {}
         analysis_ref = plan.get('dimension_analysis_ref')
@@ -111,7 +112,24 @@ def fidelity(s, rows, ref_check):
             for cid in path.get('image_check_ids', []) if path.get('kind') == 'visual' else []:
                 carriers.setdefault(cid, []).append(path['path_id'])
         try:
-            copied += len(resource_copy.rows(analysis, ref_check))
+            copy_plan = resource_copy.load(analysis, ref_check) or {}
+            copied += len(copy_plan.get('rows', []))
+            image_checks = ui_fidelity.declared_image_checks(analysis) if copy_plan.get('renditions') else {}
+            for rendition in copy_plan.get('renditions', []):
+                matching = {cid for cid, (check, _) in image_checks.items()
+                            if check.get('kind', 'image') == 'image' and check.get('source_resource') == rendition['source_resource']
+                            and check.get('qualifier') == rendition['qualifier']}
+                path_ids = {pid for cid in matching for pid in carriers.get(cid, [])}
+                proof = [r for r in rows if r['module_id'] == mid and r['path_id'] in path_ids
+                         and r['quality'] == 'green-passed' and r['attempt_executed'] and not r['stale']]
+                renditions.append({**rendition, 'module_id': mid, 'path_ids': sorted(path_ids),
+                                   'visual_status': 'verified' if proof else 'not-verified',
+                                   'evidence_refs': refs([rendition['source_refs'], [r['evidence_refs'] for r in proof]])})
+                if rendition['status'] != 'copied':
+                    limitations.append({'module_id': mid, 'item_id': None, 'kind': 'resource-rendition',
+                                        'reason': f"{rendition['source_resource']} / {rendition['qualifier']} · "
+                                                  f"{rendition['status']} · {rendition['reason']} · {renditions[-1]['visual_status']}",
+                                        'evidence_refs': renditions[-1]['evidence_refs']})
             filled = parameter_file.summary(analysis, ref_check)
             if filled:
                 parameters[mid] = filled
@@ -167,7 +185,7 @@ def fidelity(s, rows, ref_check):
                     for v in pictures if v['status'] not in ('exact', 'verified', 'reviewed')]
     return visual, limitations, {'counts': dict(Counter(v['status'] for v in pictures)), 'copied': copied, 'parameters': parameters, 'checks': checks,
                                  'declined': dict((s.get('target_resources') or {}).get('declined', {})),
-                                 'items': [v for v in pictures if v['status'] != 'exact'], 'conditions': conditions}
+                                 'items': [v for v in pictures if v['status'] != 'exact'], 'conditions': conditions, 'renditions': renditions}
 
 
 def build(root, s, sequence, ref_check=check_ref):

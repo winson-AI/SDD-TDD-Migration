@@ -233,6 +233,9 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
         a = m['assignments'][assignment_id]
         require(not a['closed'] and (a['role'] == 'test-runner' and m['phase'] == 'testing'), 'test assignment required')
         require(a.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
+        if a.get('dependency_inputs'):
+            from ledger import worker_dependencies_ready
+            worker_dependencies_ready(s, m, a)
     if a.get('execution_contract'):
         require(all(pid in a['execution_contract']['path_ids'] for pid in pids), 'execution outside assigned PATHs')
     planned = {p['path_id']: p for p in m['plan']['paths']}

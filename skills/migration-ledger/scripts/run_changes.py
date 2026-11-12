@@ -615,12 +615,14 @@ def next_action(s):
         decision = next((d for d in s['decisions'].values() if not d.get('consumed') and d.get('module_id') is None
                          and d.get('subject_sha256') == review['subject_sha256']), None)
         needs_human = human_required(s, report)
-        busy = integration_busy(s, report) or any(not a.get('closed') for mid in affected
+        waiting_integration = integration_busy(s, report)
+        busy = waiting_integration or any(not a.get('closed') for mid in affected
             for a in s['modules'].get(mid, {}).get('assignments', {}).values())
         import audit_closure
         auditing = workflow.audit_active(s) or audit_closure.active(s)
         return {'operation': 'revise-run' if current else 'run-review', 'role': 'host' if current else 'global-orchestrator',
             'ready': current and (bool(decision) or not needs_human) and not busy and not auditing,
+            **({'waiting_integration': True} if waiting_integration and current else {}),
             'reason': 'run-review-stale' if not current else 'run-approval-required' if needs_human and not decision
                       else 'wait-for-affected-workers' if busy else 'wait-for-audit' if auditing else 'run-context-switch-ready',
             'subject_sha256': review['subject_sha256'], 'report_ref': review['report_ref'],

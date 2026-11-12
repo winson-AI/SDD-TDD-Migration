@@ -6,6 +6,7 @@ the copy plan follows from the two. The plan is derived, never authored, so the 
 freeze and a row cannot be edited; acceptance compares each copy with the legacy bytes and looks for
 its name in the submitted code. A resource the target cannot load as it is stays an authored item.
 """
+import hashlib
 from pathlib import Path
 import re
 
@@ -28,7 +29,7 @@ def _template(value, label, allowed):
 
 def convention(value, target_root=None):
     """The project's statement of where copied files go and how target code names them."""
-    require(isinstance(value, dict) and set(value) <= {'root', 'path', 'accessor', 'formats', 'density'},
+    require(isinstance(value, dict) and set(value) <= {'root', 'path', 'accessor', 'formats', 'density', 'preserve_density'},
             'target_resources.copy takes root, path, accessor, formats and density')
     root = value.get('root')
     require(isinstance(root, str) and Path(root).is_absolute(), 'target_resources.copy.root must be an absolute directory')
@@ -45,7 +46,11 @@ def convention(value, target_root=None):
     density = value.get('density', [])
     require(isinstance(density, list) and all(isinstance(name, str) and name for name in density),
             'target_resources.copy.density is an ordered list of densities to prefer')
-    return {'root': str(root), 'path': path, 'accessor': accessor, 'formats': list(formats), 'density': list(density)}
+    preserve = value.get('preserve_density', False)
+    require(type(preserve) is bool and (not preserve or '{density}' in path),
+            'target_resources.copy.preserve_density requires a path template containing {density}')
+    return {'root': str(root), 'path': path, 'accessor': accessor, 'formats': list(formats), 'density': list(density),
+            **({'preserve_density': True} if preserve else {})}
 
 
 def _names(ref, source, variant, qualifier):
@@ -74,7 +79,7 @@ def derive(analysis, rules):
     `uncovered` lists what the rows leave to authored items, with the reason."""
     import ui_evidence
     rules = convention(rules)
-    rows, uncovered = {}, {}
+    rows, uncovered, inventory = {}, {}, {}
     for item, evidence in _ui_items(analysis):
         index = read_json(check_ref(evidence['source_index_ref']))
         tree = read_json(check_ref(evidence['ui_tree_ref']))
@@ -92,34 +97,54 @@ def derive(analysis, rules):
             kind = 'asset' if ref.startswith('asset:') else ref.lstrip('@').split('/')[0]
             if kind not in resource_fidelity.FILE_KINDS + ('asset',):
                 continue
-            qualifier = resource_fidelity.rendition(renditions, rules['formats'], rules['density'])
-            if qualifier is None or len(renditions[qualifier]) != 1:
+            preferred = resource_fidelity.rendition(renditions, rules['formats'], rules['density'])
+            qualifiers = [preferred] if preferred and len(renditions[preferred]) == 1 else []
+            if rules.get('preserve_density'):
+                qualifiers = sorted(q for q, sources in renditions.items() if len(sources) == 1
+                                    and resource_facts.format_of(sources[0]['path']) in rules['formats'])
+            if not qualifiers:
                 loaded = sorted({resource_facts.format_of(sources[0]['path']) for sources in renditions.values()})
-                uncovered[(ref, variant)] = ('several source files declare it' if qualifier else
+                uncovered[(ref, variant)] = ('several source files declare it' if preferred else
                                              'the target does not load ' + '/'.join(loaded) + ' as it is')
-                continue
-            source = renditions[qualifier][0]
-            names = _names(ref, source, variant, qualifier)
-            relative = rules['path'].format(**names)
-            target = (Path(rules['root']) / relative).resolve()
-            require(target.is_relative_to(Path(rules['root'])), 'copy path leaves target_resources.copy.root: ' + relative)
-            row = rows.setdefault((ref, variant), {
-                'source_resource': ref, 'variant': variant, 'qualifier': qualifier, 'format': resource_facts.format_of(source['path']),
-                'source_ref': dict(source), 'target_path': str(target), 'accessor': rules['accessor'].format(path=relative, **names),
-                'used_by': set(), 'ui_items': set()})
-            require(row['source_ref'] == source, 'UI targets of one module index different files for ' + ref + ' / ' + variant)
-            row['used_by'].update(declared_by.get(ref, ()))
-            row['ui_items'].add(item['item_id'])
+            for qualifier, sources in sorted(renditions.items()):
+                key = (ref, variant, qualifier)
+                if qualifier in qualifiers:
+                    status, reason = 'copied', 'target preserves this density' if rules.get('preserve_density') else 'selected by target rendition preference'
+                elif len(sources) > 1:
+                    status, reason = 'ambiguous', 'several source files declare this rendition'
+                elif resource_facts.format_of(sources[0]['path']) not in rules['formats']:
+                    status, reason = 'unsupported', 'target does not load this format unchanged'
+                else:
+                    status, reason = 'folded', 'target uses the selected rendition for this density'
+                entry = {'source_resource': ref, 'variant': variant, 'qualifier': qualifier,
+                         'source_refs': [dict(source) for source in sources], 'status': status, 'reason': reason}
+                require(inventory.setdefault(key, entry) == entry,
+                        'UI targets of one module index different files for ' + ref + ' / ' + qualifier)
+            for qualifier in qualifiers:
+                source = renditions[qualifier][0]
+                names = _names(ref, source, variant, qualifier)
+                relative = rules['path'].format(**names)
+                target = (Path(rules['root']) / relative).resolve()
+                require(target.is_relative_to(Path(rules['root'])), 'copy path leaves target_resources.copy.root: ' + relative)
+                row = rows.setdefault((ref, variant, qualifier), {
+                    'source_resource': ref, 'variant': variant, 'qualifier': qualifier, 'format': resource_facts.format_of(source['path']),
+                    'source_ref': dict(source), 'target_path': str(target), 'accessor': rules['accessor'].format(path=relative, **names),
+                    'used_by': set(), 'ui_items': set()})
+                require(row['source_ref'] == source, 'UI targets of one module index different files for ' + ref + ' / ' + variant)
+                row['used_by'].update(declared_by.get(ref, ()))
+                row['ui_items'].add(item['item_id'])
     targets = {}
     for key, row in rows.items():
         targets.setdefault(row['target_path'], []).append(key)
     clash = sorted(keys for keys in targets.values() if len(keys) > 1)
     require(not clash, 'several resources map to one target file; add {kind} or {variant} to target_resources.copy.path: '
-            + '; '.join(', '.join(ref + ' / ' + variant for ref, variant in keys) for keys in clash))
+            + '; '.join(', '.join(ref + ' / ' + variant for ref, variant, _ in keys) for keys in clash))
     ordered = [{**row, 'used_by': sorted(row['used_by']), 'ui_items': sorted(row['ui_items'])} for _, row in sorted(rows.items())]
-    return ({'schema_version': 1, 'producer': PRODUCER, 'convention': rules, 'rows': ordered},
+    copied = {(ref, variant) for ref, variant, _ in rows}
+    return ({'schema_version': 1, 'producer': PRODUCER, 'convention': rules, 'rows': ordered,
+             'renditions': [inventory[key] for key in sorted(inventory)]},
             [{'source_resource': ref, 'variant': variant, 'reason': reason} for (ref, variant), reason in sorted(uncovered.items())
-             if (ref, variant) not in rows])
+             if (ref, variant) not in copied])
 
 
 def undeclared(analysis):
@@ -174,6 +199,11 @@ def freeze_check(s, analysis):
     require(plan.get('convention') == expected['convention'], 'copy plan was derived under another target resource convention')
     require(digest(plan['rows']) == digest(expected['rows']),
             'copy plan differs from the one its UI evidence gives; derive it again with resource-plan')
+    if 'renditions' in plan or rules.get('preserve_density'):
+        require(plan.get('renditions') == expected['renditions'], 'copy plan rendition inventory differs from the source index')
+        for rendition in expected['renditions']:
+            for ref in rendition['source_refs']:
+                check_ref(ref)
     for row in plan['rows']:
         check_ref(row['source_ref'])
         if s.get('target_root'):
@@ -213,17 +243,28 @@ def verify(analysis, code_files):
             + (' and ' + str(len(unused) - 12) + ' more' if len(unused) > 12 else ''))
 
 
-def sync(analysis, allowed):
-    """Copy every planned file. `allowed(path)` says whether this assignment may write there; identical files are kept."""
+def output_action(target, payload, allowed, previous_hash=None):
+    """Plan a write against either missing output or the last accepted bytes."""
+    if target.exists():
+        old = target.read_bytes()
+        if old == payload:
+            return 'kept'
+        require(previous_hash and hashlib.sha256(old).hexdigest() == previous_hash,
+                'target file already differs from the legacy resource; refusing to overwrite: ' + str(target))
+        require(allowed(target), 'copy target outside the assigned write scope: ' + str(target))
+        return 'updated'
+    require(allowed(target), 'copy target outside the assigned write scope: ' + str(target))
+    return 'copied'
+
+
+def sync(analysis, allowed, *, selected=None, previous=None):
+    """Preflight the selected rows. With no selection, retain the whole-plan tool contract."""
     done = []
     for row in rows(analysis):
-        source, target = check_ref(row['source_ref']), Path(row['target_path'])
-        payload = source.read_bytes()
-        if target.exists():
-            require(target.read_bytes() == payload, 'target file already differs from the legacy resource; refusing to overwrite: ' + str(target))
-            action = 'kept'
-        else:
-            require(allowed(target), 'copy target outside the assigned write scope: ' + str(target))
-            action = 'copied'
+        target = Path(row['target_path'])
+        if selected is not None and str(target) not in selected:
+            continue
+        payload = check_ref(row['source_ref']).read_bytes()
+        action = output_action(target, payload, allowed, (previous or {}).get(str(target)))
         done.append((row, target, payload, action))
     return done

@@ -180,7 +180,7 @@ def module_execution():
     d.box(550,1010,500,180,'Test-Runner · 正式验证',[
         'build → unit 一派发（无人写入时），advance 代跑',
         'static 随模型跑的 automation 同派，非绿即停',
-        '有适配器 static 单派；等调用方时 automation 先跑',
+        '分批构建守卫一致；构建待定时先派剩余 TASK',
         '受限 APK/HAP 视觉可并行编码；设备锁保留'])
     d.arrow([(800,1190),(800,1245)])
     d.diamond(800,1310,310,130,'验证结果','Green / Red / Yellow')
@@ -274,8 +274,8 @@ def module_execution():
         '骨架起稿；产物不限体量'], 'gray')
     d.box(70,760,430,210,'资源与 fidelity 输入',[
         'API / URL / image / icon 来源追溯',
-        '派生清单和分析按内容归档；派发时代拷',
-        '参数表按内容归档；复用 XML / 图层 / 代码取值',
+        '按 TASK 同步；旧验收哈希匹配才更新',
+        '保留图片密度变体证据；复用 XML 参数值',
         '存量捕获（设备 / 浏览器 / 导航器）或用户截图',
         '真实证据验证，不以 build 替代'], 'gray')
     d.box(1110,190,410,130,'冻结与执行门禁',[
@@ -340,7 +340,7 @@ def auditor_closure():
     d.arrow([(300,965),(300,1155),(590,1155)],'purple')
     d.arrow([(800,965),(800,1080)])
     d.box(590,1080,420,155,'构建 / 单测 / 静态 → 路径回归',[
-        '按 finding 依赖图交错推进','验证 owner / source / 中间与下游','审计影响模块完整回归；无关 Green 保留','发现模块与负责模块相同时合并证据'])
+        '按 finding 依赖图交错推进','验证 owner / source / 中间与下游','从最早失效阶段复测；沿用有效 PATH 回执','发现模块与负责模块相同时合并证据'])
     d.arrow([(1010,1155),(1120,1155)],'orange')
     d.label(1067,1136,'失败','orange')
     d.box(1120,1080,380,155,'记录人工问题',[
@@ -350,7 +350,7 @@ def auditor_closure():
     d.arrow([(800,1295),(800,1360)])
     d.label(800,1330,'剩余可执行分支已结束','gray')
     d.box(500,1360,600,145,'Auditor · 核对当前证据 → 裁决',[
-        'audit-verdict：统一审阅 owner / source 新证据','复测全绿且无待人工：Ledger 代 Auditor 裁决','Fixer 自测不能代替 Testing 与独立审计'],controller=True)
+        'audit-verdict：核对累计 PATH 回执','复测全绿且无待人工：Ledger 代 Auditor 裁决','Fixer 自测不能代替 Testing 与独立审计'],controller=True)
     d.arrow([(640,1505),(640,1540),(400,1540),(400,1590)])
     d.label(430,1540,'已解决 / 仅自动化缺测','green')
     d.arrow([(960,1505),(960,1540),(1200,1540),(1200,1590)],'orange')

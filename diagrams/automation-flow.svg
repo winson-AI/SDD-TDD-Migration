@@ -27,7 +27,7 @@
 <path d="M780,320 L780,375" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="375" width="640" height="115" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="780.0" y="411.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Coding 接受 → build / unit</text>
-<text x="780.0" y="445.5" font-size="20.36" fill="#4b5563" text-anchor="middle" font-weight="400">构建只跑 PATH 平台；新代码必须重新 build / unit / static</text>
+<text x="780.0" y="445.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">分批构建绑定提供方输入；派发与验收用同一守卫</text>
 <text x="780.0" y="474.5" font-size="19.70" fill="#4b5563" text-anchor="middle" font-weight="400">模型执行的 automation 可与 static 同派；同派时 static 在前</text>
 <rect x="1160" y="375" width="380" height="195" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1350.0" y="422.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">派发前核对本批 PATH 资产</text>
@@ -173,7 +173,7 @@
 <rect x="465" y="2235" width="630" height="130" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
 <text x="780.0" y="2264.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父汇总 → GO 全量收尾门禁</text>
 <text x="780.0" y="2298.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GLOBAL PATH 波次绑定已验收产物或全局快照</text>
-<text x="780.0" y="2327.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">输入失效：宿主停工取证后回收派发</text>
+<text x="780.0" y="2327.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">修订等待时有效波次先提交；失效则取证回收</text>
 <text x="780.0" y="2356.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无 worker / ready 动作，才统一启动 Auditor</text>
 <path d="M780,2370 L780,2410" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="2410" width="640" height="150" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -181,7 +181,7 @@
 <text x="780.0" y="2449.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Auditor · 独立闭环</text>
 <text x="780.0" y="2483.5" font-size="19.52" fill="#4b5563" text-anchor="middle" font-weight="400">审阅全宿主目标 / 代码；遗留按审计 fix / verify / human 路由</text>
 <text x="780.0" y="2512.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">裁决失败：结构化根因待人工；缺环境保留未验证</text>
-<text x="780.0" y="2541.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只复核遗留 / 受影响路径；空清单只审阅</text>
+<text x="780.0" y="2541.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按 PATH 失效阶段复测；裁决使用累计回执</text>
 <path d="M780,2560 L780,2620" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M318,2620 H1260 L1242,2745 H300 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="780.0" y="2661.5" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">最终输出：通过 / 问题待决 / 缺测清单</text>

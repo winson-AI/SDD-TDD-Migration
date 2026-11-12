@@ -9,17 +9,19 @@
 collector 记录范围内每处资源引用的使用点（行号、类/方法、接收它的调用）、文件头事实 `facts`（格式、像素或 viewport、alpha、是否动画）、嵌套 drawable、menu/navigation/xml/manifest 图标、主题属性取值、assets，以及无资源文件的图片来源 `imageSources`（`src:<kind>:<hash>`：`remote-image` 含 URL 或 API 字段与加载器占位/变换、`dynamic-resource`、`data-binding`、`code-drawn`）；`analyze-ui` 可带 `manifests`、`image_sinks`（项目自有加载入口）与 `layout_helpers`（项目自有布局参数构造方法，逐元数声明实参含义，未声明的元数整条记 `layout_params` 表达式），像图片加载却未被解释的调用列在 `imageSinkCandidates`。
 
 - **用到即入账**：代码用到的文件资源（drawable/mipmap/raw/font），不论传给哪个方法，都要由 UI 树某节点声明，或在 `resource_scope.usage_exclusions` 以 `symbol`（类或方法）和/或 `ref` 加 reason、evidence_refs 排除；加载器的占位图随其图片来源入账。
-- **闭包**：树触达的每个资源（含嵌套与主题取值）有一个 Resource item 或复制清单的一行；每条 `imageSources` 有一个 `source_signal` item 或 `signal_exclusions`。`remote-image` 可用 `source_equivalent`（`target_source` 取同一来源，`loader_mapping` 把占位图指到 item id 或 `{absent: 原因}`，变换逐条 `{legacy, target}`），其余信号用 `manual_exact`/`blocked`。
-- **同图多档**：drawable 的密度与平台版本（`xxhdpi`、`anydpi-v24`）是同一张图的副本，一个条目指明迁移哪一档。
+- **闭包**：树触达的每个资源（含嵌套与主题取值）由 Resource item 或复制清单覆盖；每条 `imageSources` 有一个 `source_signal` item 或 `signal_exclusions`。`remote-image` 可用 `source_equivalent`（`target_source` 取同一来源，`loader_mapping` 把占位图指到 item id 或 `{absent: 原因}`，变换逐条 `{legacy, target}`），其余信号用 `manual_exact`/`blocked`。
+- **同图多档**：drawable 按配置归组，复制清单的 renditions 记录源限定符、源路径、哈希、选用状态和原因。主题、语言等配置按各自资源组核对。
 
 ## 文件资源按路径复制
 
 项目在 `target_resources.copy` 声明一次目标目录、路径与 accessor 模板、可原样加载的格式和密度顺序（字段见 [target-resources.json](../../../template/target-resources.json)）。
 
-1. `resource-plan` 从分析里的 UI 证据派生**复制清单**：每个可原样加载的文件资源一行（存量路径与哈希、目标路径、accessor、使用节点），另列清单外须登记的资源。Resource 维以 `copy_plan_ref` 引用；资源全在清单内时 `items` 可空。
+1. `resource-plan` 从分析里的 UI 证据派生**复制清单**：每个选中的可原样加载文件一行（存量路径与哈希、目标路径、accessor、使用节点），另列清单外须登记的资源。Resource 维以 `copy_plan_ref` 引用；资源全在清单内时 `items` 可空。
 2. 计划未写的清单与参数表由 Ledger 派生绑定；冻结时按证据与约定重算，逐行相同才通过；一个资源只由清单或 item 之一覆盖。
-3. 派发 coder 时 advance 以其名义 `resource-sync`（一个任务容下全部目标时，否则 coder 给出拥有目标目录的 task_id 自行执行），复制全部行：同字节保留，不同拒绝覆盖。
+3. 派发 coder 时 advance 以其名义执行 `resource-sync`，按当前 assignment 的 TASK 和写范围挑选复制行及生成文件。可给出 task_id 聚焦单一任务。整批预检后才写入，相同字节直接保留。CR 同名更新只覆盖哈希仍匹配上一份验收记录的文件，检测到独立修改时保留文件并报冲突。
 4. 验收逐行核对副本哈希等于存量，提交的代码出现每行 accessor；副本自身不算引用。
+
+目标按密度选择资源时可声明 `preserve_density: true`，目标路径须含 `{density}`，可加载且唯一的源档位按原字节分别交付。沿用单份交付时记录每个折叠档位。需要验证的档位用现有图像检查绑定源限定符和实际设备 visual PATH，报告按档位披露验证状态。
 
 约定已声明时可原样加载的文件走清单；手工替换存量图片的 item 以 `copy_blocker` 写明原因，随报告披露。
 

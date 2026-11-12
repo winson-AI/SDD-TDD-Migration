@@ -422,8 +422,12 @@ class PreparedRunRevisionTests(unittest.TestCase):
         host = {'role': 'host', 'instance_id': 'host'}
         run_changes.handle(f.root, state, {'operation': 'run-review', 'payload': {'report_ref': f.ref('device-impact.json', report)}}, go)
         request = {'operation': 'revise-run', 'payload': {'subject_sha256': state['run_change_review']['subject_sha256']}}
-        state['integration_assignment'] = {'closed': False, 'path_ids': ['G-android']}
+        state['integration_assignment'] = {'closed': False, 'path_ids': ['G-android'], 'assignment_id': 'INT1'}
         self.assertFalse(run_changes.next_action(state)['ready'])
+        from unittest.mock import patch
+        with patch('integration.stale', return_value=False):
+            cursor = ledger.routing(state)['global_next_step']
+        self.assertEqual((cursor['operation'], cursor['assignment_id'], cursor['ready']), ('integration-submit', 'INT1', True))
         with self.assertRaisesRegex(Rejected, 'affected integration'):
             run_changes.handle(f.root, state, request, host)
         state['integration_assignment']['path_ids'] = ['G-web']

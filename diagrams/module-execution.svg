@@ -47,7 +47,7 @@
 <text x="800.0" y="1050.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Test-Runner · 正式验证</text>
 <text x="800.0" y="1084.0" font-size="18.82" fill="#4b5563" text-anchor="middle" font-weight="400">build → unit 一派发（无人写入时），advance 代跑</text>
 <text x="800.0" y="1113.0" font-size="20.59" fill="#4b5563" text-anchor="middle" font-weight="400">static 随模型跑的 automation 同派，非绿即停</text>
-<text x="800.0" y="1142.0" font-size="18.50" fill="#4b5563" text-anchor="middle" font-weight="400">有适配器 static 单派；等调用方时 automation 先跑</text>
+<text x="800.0" y="1142.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">分批构建守卫一致；构建待定时先派剩余 TASK</text>
 <text x="800.0" y="1171.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">受限 APK/HAP 视觉可并行编码；设备锁保留</text>
 <path d="M800,1190 L800,1245" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M800,1245.0 L955.0,1310 L800,1375.0 L645.0,1310 Z" fill="#fff7ed" stroke="#ea580c" stroke-width="1.8"/>
@@ -163,8 +163,8 @@
 <rect x="70" y="760" width="430" height="210" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="285.0" y="800.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">资源与 fidelity 输入</text>
 <text x="285.0" y="834.5" font-size="21.92" fill="#4b5563" text-anchor="middle" font-weight="400">API / URL / image / icon 来源追溯</text>
-<text x="285.0" y="863.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">派生清单和分析按内容归档；派发时代拷</text>
-<text x="285.0" y="892.5" font-size="17.62" fill="#4b5563" text-anchor="middle" font-weight="400">参数表按内容归档；复用 XML / 图层 / 代码取值</text>
+<text x="285.0" y="863.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按 TASK 同步；旧验收哈希匹配才更新</text>
+<text x="285.0" y="892.5" font-size="21.22" fill="#4b5563" text-anchor="middle" font-weight="400">保留图片密度变体证据；复用 XML 参数值</text>
 <text x="285.0" y="921.5" font-size="17.84" fill="#4b5563" text-anchor="middle" font-weight="400">存量捕获（设备 / 浏览器 / 导航器）或用户截图</text>
 <text x="285.0" y="950.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">真实证据验证，不以 build 替代</text>
 <rect x="1110" y="190" width="410" height="130" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>

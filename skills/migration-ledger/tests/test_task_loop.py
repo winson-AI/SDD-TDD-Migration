@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import execute_test
@@ -13,6 +14,25 @@ import test_ledger
 import test_feedback_repair
 import test_validation as tv
 from contracts import Rejected, file_ref
+
+
+class PartialBuildDependencyTests(unittest.TestCase):
+    def test_partial_build_can_finish_against_accepted_provider_before_provider_dod(self):
+        import ledger
+        provider = {'module_id': 'M001', 'phase': 'testing', 'dependencies': [], 'freeze_id': 'F1',
+                    'code_baseline': 'provider', 'plan': {'tasks': [{'task_id': 'T1'}]}, 'accepted_task_ids': ['T1']}
+        consumer = {'phase': 'testing', 'dependencies': ['M001'], 'execution_partition_pending': True,
+                    'behavior_review': {'verification': {'provider_inputs': [
+                        {'module_id': 'M001', 'required_stage': 'implemented'}]}}}
+        state = {'modules': {'M001': provider}}
+        task = {'role': 'test-runner', 'test_scope': 'build', 'dependency_inputs': ledger.dependency_validation_inputs(state, consumer)}
+        with patch.object(ledger, 'current'):
+            ledger.worker_dependencies_ready(state, consumer, task)
+            with self.assertRaisesRegex(Rejected, 'dependencies not complete'):
+                ledger.worker_dependencies_ready(state, {**consumer, 'execution_partition_pending': False}, task)
+            provider['code_baseline'] = 'changed'
+            with self.assertRaisesRegex(Rejected, 'partial build provider inputs changed'):
+                ledger.worker_dependencies_ready(state, consumer, task)
 
 
 class DueTests(unittest.TestCase):
