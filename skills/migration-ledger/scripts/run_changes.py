@@ -125,7 +125,7 @@ def subject(s, report_ref, *, execution_review=False, device_path_review=False):
         from functools import cache
         from ledger import global_baseline
 
-        paths = {p['path_id']: p for p in s['global_paths'] if not uses_changed_device(p, devices)}
+        paths = {p['path_id']: p for p in s['global_paths'] if not integration.affected_by_device(s, p, devices)}
         @cache
         def baseline():
             try:
@@ -183,13 +183,23 @@ def uses_changed_device(path, platforms):
 def global_reverify_paths(s, report, devices):
     if devices is None:
         return {path['path_id'] for path in s['global_paths']} if {'runtime', 'test_adapter'} & report['context_patch'].keys() else set()
-    return {path['path_id'] for path in s['global_paths'] if uses_changed_device(path, devices)}
+    from integration import affected_by_device
+    return {path['path_id'] for path in s['global_paths'] if affected_by_device(s, path, devices)}
 
 
 def integration_busy(s, report):
-    from integration import task
+    from integration import device_inputs, inputs, task
     active = task(s)
-    return bool(active and global_reverify_paths(s, report, changed_devices(s, report)).intersection(active['path_ids']))
+    if not active:
+        return False
+    devices = changed_devices(s, report)
+    if global_reverify_paths(s, report, devices).intersection(active['path_ids']):
+        return True
+    # An in-flight legacy wave must submit against its original full adapter digest.
+    return bool(devices and any(path['path_id'] in active.get('inputs', {})
+        and device_inputs(s, path) is not None
+        and active['inputs'][path['path_id']] == inputs(s, path, active['code_baseline'], legacy=True)
+        for path in s['global_paths']))
 
 
 
@@ -554,6 +564,24 @@ def handle(root, s, req, actor):
                     for a in s['modules'][mid]['assignments'].values()), 'active assignment exists; wait for affected worker')
     require(not integration_busy(s, report), 'wait for affected integration execution')
     global_reverify = global_reverify_paths(s, report, devices)
+    import integration
+    from ledger import global_baseline
+    legacy_globals = {}
+    if devices and s.get('audit_results'):
+        try:
+            before_baseline = global_baseline(s)
+        except (Rejected, OSError):
+            before_baseline = None
+        for path in s['global_paths'] if before_baseline else ():
+            pid = path['path_id']
+            row = s['audit_results'].get(pid, {})
+            if (pid not in global_reverify and row.get('quality') == 'green-passed' and not row.get('stale')
+                    and not integration.scoped(s, path) and integration.device_inputs(s, path) is not None
+                    and row.get('integration_inputs') == integration.inputs(s, path, before_baseline, legacy=True)):
+                try:
+                    legacy_globals[pid] = integration.inputs(s, path, before_baseline)
+                except (Rejected, OSError):
+                    pass
     decision = s['decisions'].get(p.get('decision_id'), {})
     needs_human = human_required(s, report)
     if needs_human or decision:
@@ -643,7 +671,7 @@ def handle(root, s, req, actor):
             group['revision'] += 1
     if new_ref:
         s['project_context_ref'] = new_ref
-        if {'runtime', 'test_adapter'}.intersection(report['context_patch']):
+        if devices is None and {'runtime', 'test_adapter'}.intersection(report['context_patch']):
             s['harmony_environment_revision'] = new_ref['sha256']
         snapshot = project_context.verify_snapshot(new_ref)
         s['new_architecture'] = snapshot['source_refs']['architecture_path']
@@ -659,10 +687,22 @@ def handle(root, s, req, actor):
     for rid in retirement_history.get('retired_path_results', {}):
         s.get('audit_results', {}).pop(rid, None)
     old_paths = keyed(previous_contract['global_paths'], 'path_id') if previous_contract['global_paths'] else {}
+    if legacy_globals:
+        try:
+            after_baseline = global_baseline(s)
+        except (Rejected, OSError):
+            after_baseline = None
     for path in s['global_paths']:
         prior = s.get('audit_results', {}).get(path['path_id'])
         if prior and (old_paths.get(path['path_id']) != path or path['path_id'] in global_reverify):
             prior.update(stale=True, invalidated_by=review['report_ref'])
+        elif prior and path['path_id'] in legacy_globals and after_baseline:
+            scoped_inputs = legacy_globals[path['path_id']]
+            try:
+                if scoped_inputs == integration.inputs(s, path, after_baseline):
+                    prior['device_continuation_inputs'] = scoped_inputs
+            except (Rejected, OSError):
+                pass  # Unavailable inputs remain subject to the ordinary audit checks.
     if changed_roots or report.get('global_spec_ref') or 'architecture_path' in report['context_patch']:
         s['global_plan'] = None
         if local:
@@ -677,7 +717,8 @@ def handle(root, s, req, actor):
         'kind': 'planning-history', 'executable': False, 'reason': report['reason'],
         'previous_context_ref': previous, 'project_context_ref': new_ref, 'previous_global_spec': previous_spec,
         'global_spec': s['global_spec'], 'previous_contract': previous_contract, 'previous_global_plan': previous_plan,
-        'contract': {key: copy.deepcopy(s[key]) for key in CONTRACT_KEYS}, 'affected_modules': sorted(affected), 'changed_roots': sorted(changed_roots)})
+        'contract': {key: copy.deepcopy(s[key]) for key in CONTRACT_KEYS}, 'affected_modules': sorted(affected), 'changed_roots': sorted(changed_roots),
+        **({'device_only': True} if devices is not None else {})})
     if report.get('package_sha'):
         s['run_change_history'][-1].update(previous_package_sha=s.get('package_sha'), package_sha=report['package_sha'])
         s['package_sha'] = report['package_sha']

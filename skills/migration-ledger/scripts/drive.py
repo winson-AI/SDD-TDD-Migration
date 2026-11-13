@@ -79,7 +79,7 @@ def tick(root, principal, workers=None):
         started |= any(a['operation'] == 'assign' and a.get('role') in ('implementer', 'fixer') for a in actions)
         if actions:
             continue
-        if started or ready_plan_to_deliver(root, st):
+        if started or ready_handoff_to_deliver(root, st):
             break
         if start_ready_resources(root, principal, st):
             break
@@ -203,8 +203,8 @@ def resource_pending(root, module, assignment, lines):
     return True
 
 
-def ready_plan_to_deliver(root, st):
-    """Let a newly dispatchable plan start before a long command, once per step revision."""
+def ready_handoff_to_deliver(root, st):
+    """Deliver ready plans and coding session handoffs once per step revision."""
     candidates = []
     for step in st['next_steps']:
         rotation = (step.get('session_rotate') or {}).get('ready')
@@ -213,12 +213,14 @@ def ready_plan_to_deliver(root, st):
                         and step.get('reason') not in PERSON):
             candidates.append({'kind': 'rotate' if rotation else 'dispatch',
                                'operation': step['operation'], 'module_id': step['module_id']})
-    if not any(line['kind'] == 'dispatch' and line['operation'] == 'plan' for line in candidates):
+    priority = {step['module_id'] for step in st['next_steps']
+                if (step.get('session_rotate') or {}).get('ready')
+                and (step.get('worker_role') or step.get('role')) in ('implementer', 'fixer')}
+    priority.update(line['module_id'] for line in candidates if line['kind'] == 'dispatch' and line['operation'] == 'plan')
+    if not priority:
         return False
     _, handed, kept, _ = dispatch_budget(root, st, candidates)
-    return any(line['kind'] == 'dispatch' and line['operation'] == 'plan'
-               and (mid := line['module_id']) in kept and kept[mid] != handed.get(mid)
-               for line in candidates)
+    return any(mid in kept and kept[mid] != handed.get(mid) for mid in priority)
 
 
 def capped(root, st, lines):

@@ -86,6 +86,34 @@ def revalidation_inputs(s, root, cwd, argv, *, snapshot=None):
         return None
 
 
+def device_build_contexts(s):
+    """Find sealed, device-only ancestors with the same project build inputs."""
+    import project_context
+
+    def build_context(ref):
+        snapshot = project_context.verify_snapshot(ref)
+        config = project_context.current_config(snapshot)
+        adapter = config.get('test_adapter') or {}
+        if 'test_adapter' in config:
+            config['test_adapter'] = {key: value for key, value in adapter.items() if key != 'device'}
+        return (snapshot['run_id'], snapshot['run_root'], snapshot.get('source_refs'), config)
+
+    current = s.get('project_context_ref')
+    reviewed = []
+    try:
+        for change in reversed(s.get('run_change_history', [])):
+            if change.get('project_context_ref') != current or not change.get('device_only'):
+                break
+            previous = change['previous_context_ref']
+            if build_context(previous) != build_context(current):
+                break
+            reviewed.append(previous)
+            current = previous
+    except (Rejected, OSError, KeyError, TypeError, ValueError):
+        pass
+    return reviewed
+
+
 def harmony_output(root, output, area=None):
     path = Path(output).absolute()
     roots = [p for p in path.parents if p.parent.name == '.sdd-runs']

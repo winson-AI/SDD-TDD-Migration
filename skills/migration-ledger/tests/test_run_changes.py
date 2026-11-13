@@ -520,6 +520,98 @@ class PreparedRunRevisionTests(unittest.TestCase):
         run_changes.handle(f.root, state, request, host)
         self.assertTrue(state['audit_results']['G-android']['stale'])
         self.assertEqual(state['audit_results']['G-web'], green)
+        self.assertEqual([path['path_id'] for path in ledger.audit_scope(state)['plan']['paths']], ['G-android'])
+
+        # Opaque adapters may read the complete device configuration.
+        state['test_adapter']['adapters'] = {'web': {'argv': ['/fixture/custom-web']}}
+        self.assertEqual(run_changes.global_reverify_paths(state, report, {'android'}), {'G-android', 'G-web'})
+
+    def test_device_switch_rebuilds_only_the_missing_gradle_path_through_acceptance(self):
+        from unittest.mock import patch
+        from test_run_rehearsal import MO, RunWalk
+        import sys
+        import test_validation as tv
+
+        src = test_source_changes.SourceChangeTests(); self.addCleanup(src.doCleanups)
+        device = {'platforms': ['android'], 'android': {'serial': 'before'}}
+        f = src.register_root(config={'test_adapter': {'device': device}})
+        self.f = f
+        f.split(src.d.proposal(ids=('M001', 'M002'))); f.global_plan()
+        executable = f.target / 'gradlew'
+        executable.write_text(f'#!{sys.executable}\n'
+            'import os, sys\nfrom pathlib import Path\n'
+            '(Path(os.environ["SDD_RUNNER_DIR"]) / (sys.argv[1] + ".apk")).write_text(sys.argv[1])\n')
+        executable.chmod(0o755)
+        original = src.plan
+
+        def two_builds(mid):
+            plan = original(mid)
+            build = next(p for p in plan['paths'] if p['kind'] == 'build')
+            build['command']['argv'] = [str(executable), 'one']
+            other = copy.deepcopy(build)
+            other.update(path_id=mid+'-B2', name='Second build')
+            other['command']['argv'] = [str(executable), 'two']
+            plan['paths'].append(other)
+            plan['tasks'][0]['path_ids'].append(other['path_id'])
+            return plan
+
+        with patch.object(src, 'plan', side_effect=two_builds):
+            src.freeze('M001')
+        f.call('assign', {'role': 'implementer', 'assignment_id': 'I', 'instance_id': 'coder'})
+        walk = RunWalk(); walk.f = f; walk.t = src
+        walk.model_turn(next(step for step in f.state()['next_steps'] if step['module_id'] == 'M001'))
+        f.call('accept', {'assignment_id': 'I'})
+        with patch.dict('os.environ', {'SDD_GRADLE_CACHE_SEED': ''}):
+            ledger.advance(f.root, MO, 'M001', defer_commands=True)
+            state, _ = ledger.read_events(f.root)
+            assignment = next(a for a in state['modules']['M001']['assignments'].values() if not a['closed'])
+            submission = ledger.frozen_tests(f.root, state, 'M001', assignment['assignment_id'])
+            f.raw('submit', submission, role='test-runner', instance=assignment['instance_id'])
+            f.call('accept', {'assignment_id': assignment['assignment_id']})
+            old = f.state()['modules']['M001']
+            good, bad = (old['results'][pid] for pid in ('M001-B', 'M001-B2'))
+            Path(bad['build_artifacts'][0]['path']).write_text('lost artifact')
+            report = self.report({'test_adapter': {'device': {'android': {'serial': 'after'}}}}, affected=('M001',))
+            report['modules'][0]['action'] = 'reverify'
+            f.raw('revise-run', self.review(report), role='host', module=None)
+            state = f.state()['modules']['M001']
+            self.assertEqual(state['retained_build_paths'], ['M001-B'])
+            ledger.advance(f.root, MO, 'M001')
+            state = f.state()['modules']['M001']
+            self.assertTrue(tv.build_ready(state))
+            self.assertEqual(state['results']['M001-B']['test_run_id'], good['test_run_id'])
+            self.assertNotEqual(state['results']['M001-B2']['test_run_id'], bad['test_run_id'])
+            import task_revalidation
+            state = f.state()
+            module = state['modules']['M001']
+            with patch.dict('os.environ', {'SDD_BUILD_TOOLCHAIN': 'changed'}):
+                self.assertFalse(task_revalidation.current_build_paths(state, module, f.root, {'M001-B'}))
+
+    def test_device_change_carries_a_legacy_global_receipt_without_rewriting_it(self):
+        import integration
+
+        src = test_source_changes.SourceChangeTests(); self.addCleanup(src.doCleanups)
+        device = {'platforms': ['android', 'web'], 'android': {'serial': 'before'}, 'web': {'url': 'https://example.test'}}
+        web = {'path_id': 'G-web', 'platform': 'web', 'kind': 'automation', 'case_id': 'C1', 'name': 'Web',
+               'expected_assertions': [{'assertion_id': 'A1', 'expected': True}]}
+        f = src.register_root(global_paths=[web], config={'test_adapter': {'device': device}})
+        self.f = f
+        f.split(src.d.proposal(ids=('M001', 'M002'))); f.global_plan()
+        state, _ = ledger.read_events(f.root)
+        state['modules']['M001']['code_files'] = [f.ref('wave-code.py', 'value = 2')]
+        code = ledger.global_baseline(state)
+        old = integration.inputs(state, web, code, legacy=True)
+        row = {'quality': 'green-passed', 'test_run_id': 'WEB-OLD', 'integration_inputs': old}
+        state['audit_results'] = {'G-web': row}
+        report = self.report({'test_adapter': {'device': {'android': {'serial': 'after'}}}}, affected=())
+        go = {'role': 'global-orchestrator', 'instance_id': 'go'}
+        host = {'role': 'host', 'instance_id': 'host'}
+        run_changes.handle(f.root, state, {'operation': 'run-review', 'payload': {'report_ref': f.ref('switch.json', report)}}, go)
+        request = {'operation': 'revise-run', 'payload': {'subject_sha256': state['run_change_review']['subject_sha256']}}
+        run_changes.handle(f.root, state, request, host)
+        self.assertEqual(row['integration_inputs'], old)
+        self.assertEqual(ledger.audit_scope(state)['plan']['paths'], [])
+        self.assertFalse(integration.current(state, web, row, 'different-code'))
 
     def test_unrelated_run_revision_keeps_an_audit_scope_request_open(self):
         import audit_closure

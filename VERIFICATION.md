@@ -22,11 +22,11 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1804 | 全量通过 |
+| migration-ledger/tests | 1807 | 全量通过 |
 | migration-test/tests | 83 | 全量通过 |
 | runtime/harmony/tests | 128 | 全量通过 |
 
-三套回归用 Harmony sandbox 的 Python 3.12 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败、错误或跳过。回归使用隔离临时目录、本地模拟端口和测试子进程。专项覆盖 Fixer 优先派发、Run 级回溯期间独立视觉派发继续、设备切换沿用有效跨冻结回执，以及范围外同输入 GLOBAL Green 入账后保留评审。
+三套回归用 Harmony sandbox 的 Python 3.12 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败、错误或跳过。回归使用隔离临时目录、本地模拟端口和测试子进程。专项覆盖编码会话轮换优先交付、追加来源后保留未提交计划的消费者、设备切换后内置 GLOBAL PATH 的审计复用，以及部分 Gradle 构建补跑后的回执验收。
 
 在隔离的 Harmony API 21 模拟器重跑装包，并实采 WindowManager、定向 UI 树和 PNG。前后焦点窗口一致，整窗和 PNG 均为 1320 × 2848，应用内容区从 y=132 开始。用实际采集结果复核了内容区包含关系。先前在同一 API 版本实跑的 640 DPI 深色及窗口覆盖 160 DPI 浅色资源检查记录保留。
 

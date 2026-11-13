@@ -259,10 +259,11 @@ def command_receipts(s, m, root, paths):
 
 def current_build_paths(s, m, root, candidates):
     """Recheck accepted build receipts, frozen commands and their host inputs."""
-    from runner_storage import revalidation_inputs, revalidation_snapshot
+    from runner_storage import device_build_contexts, gradle_command, revalidation_inputs, revalidation_snapshot
     from functools import cache
 
     snapshot = cache(lambda: revalidation_snapshot(s, root))
+    device_contexts = cache(lambda: device_build_contexts(s))
 
     if root is None or not candidates:
         return set()
@@ -286,8 +287,14 @@ def current_build_paths(s, m, root, candidates):
                 continue
             if receipt.get('freeze_id') != m['freeze_id'] and not carried_receipt(m, row, receipt):
                 continue
-            if fingerprint != revalidation_inputs(s, root, command['cwd'], command['argv'], snapshot=snapshot):
-                continue
+            actual = revalidation_inputs(s, root, command['cwd'], command['argv'], snapshot=snapshot)
+            if fingerprint != actual:
+                # A frozen Gradle build uses the same target tree and host inputs across a device-only revision.
+                # Recreate the old digest with the current bytes, using only verified context ancestors.
+                if not actual or receipt.get('storage_command_version') != 1 or not gradle_command(command['argv']) or not any(
+                        fingerprint == revalidation_inputs(s, root, command['cwd'], command['argv'],
+                            snapshot=lambda: {**snapshot(), 'context': ref}) for ref in device_contexts()):
+                    continue
             result = read_json(check_ref(receipt['result_ref']))
             require(result.get('build_artifacts', []) == row.get('build_artifacts', []), 'accepted build artifacts changed')
             for ref in [receipt['query_ref'], receipt['log_ref'], *row.get('build_artifacts', [])]:

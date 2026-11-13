@@ -127,8 +127,8 @@
 <text x="285.0" y="2035.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">设备变更 · 同 Run 复测</text>
 <text x="285.0" y="2069.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核验跨冻结证明，沿用有效 Green</text>
 <text x="285.0" y="2098.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只等受影响 PATH，独立派发继续</text>
-<text x="285.0" y="2127.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">范围外同输入 GLOBAL Green 保留评审</text>
-<text x="285.0" y="2156.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">逐条验制品；设备归属不明则复测</text>
+<text x="285.0" y="2127.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">内置 GLOBAL 按平台复用 Green</text>
+<text x="285.0" y="2156.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Gradle 部分补跑后复核原回执</text>
 <text x="285.0" y="2185.5" font-size="21.91" fill="#4b5563" text-anchor="middle" font-weight="400">应用 / 入口 / URL 变化 → 修订 SPEC</text>
 <rect x="550" y="2095" width="500" height="125" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="800.0" y="2122.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">机械验证恢复</text>

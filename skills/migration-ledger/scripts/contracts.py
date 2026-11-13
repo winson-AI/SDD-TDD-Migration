@@ -502,6 +502,7 @@ def validate_result(result, module, assignment, run_root=None):
     require(set(tests) == set(planned), 'result must account for every required path')
     for pid, record in tests.items():
         require('validation_reuse' not in record, 'validation_reuse is Ledger-owned; submit real execution receipts')
+        require('device_continuation_inputs' not in record, 'device continuation is Ledger-owned')
         quality = record.get('quality')
         require(quality in ('green-passed', 'red-bug', 'yellow-blocked'), 'invalid quality')
         previous = module['results'].get(pid)

@@ -341,7 +341,7 @@ class SourceChangeTests(unittest.TestCase):
         self.assertTrue(read_json(check_ref(f.state()['context_acceptances']['source-review']['report_ref']))['mechanical'])
 
     def test_dependency_closure_cannot_be_omitted_from_impact(self):
-        self.freeze('M001'); self.freeze('M002')
+        self.freeze('M001'); self.freeze('M002'); self.implement_and_test('M002')
         state = ledger.read_events(self.f.root)[0]
         # Pure validator fixture: existing registered consumer of M001.
         state['modules']['M002']['dependencies'] = ['M001']
@@ -368,17 +368,25 @@ class SourceChangeTests(unittest.TestCase):
         self.freeze('M001')  # Fresh plan and human freeze actually work on the new context.
         f.call('assign', {'role': 'implementer', 'assignment_id': 'I', 'instance_id': 'coder'})
 
-    def test_independent_unsubmitted_draft_keeps_its_cursor_after_source_append(self):
-        self.freeze('M001')
-        before = self.f.state()['modules']['M002']
+    def test_dependent_unsubmitted_draft_keeps_its_cursor_after_source_append(self):
+        f = self.register_root()
+        proposal = self.d.proposal(ids=('M001', 'M002'))
+        consumer = proposal['children'][0]
+        consumer['dependencies'] = ['M002']
+        consumer['behavior_review'] = behavior_review(f, consumer)
+        f.split(proposal); f.global_plan()
+        before = self.f.state()['modules']['M001']
         self.assertIsNone(before['plan'])
-        self.review(self.report(affected=('M001',)))
+        self.review(self.report(affected=('M002',)))
         self.apply()
-        peer = self.f.state()['modules']['M002']
+        peer = self.f.state()['modules']['M001']
         self.assertEqual((peer['phase'], peer['revision'], peer.get('planning_history')),
                          (before['phase'], before['revision'], before.get('planning_history')))
         self.assertNotIn('source_context_continuation', peer)
-        self.freeze('M002')
+        self.assertEqual(peer['dependencies'], ['M002'])
+        self.freeze('M001')
+        with self.assertRaisesRegex(Rejected, 'dependenc'):
+            f.call('assign', {'role': 'implementer', 'assignment_id': 'PEER', 'instance_id': 'coder'}, module='M001')
 
     def test_unchanged_frozen_sibling_keeps_plan_and_can_dispatch_with_new_receipt(self):
         f = self.f; self.freeze('M001'); old = self.freeze('M002')

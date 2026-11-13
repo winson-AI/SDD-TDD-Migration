@@ -40,7 +40,29 @@ def module_ids(s, path):
     return dependency_closure(s, [*owners(s, path), path['build_binding']['module_id']])
 
 
-def inputs(s, path, code_baseline=None):
+def device_inputs(s, path):
+    """The device portion of the inputs used by the built-in GLOBAL automation runner."""
+    from execute_test import builtin_platform
+    from project_context import device_inputs as configured_devices
+
+    if path.get('kind', 'automation') != 'automation' or not (platform := builtin_platform(s, path)):
+        return None
+    device = s['test_adapter']['device']
+    return {key: config for key, config in configured_devices(device).items()
+            if key == platform or platform == 'harmony' and key.startswith('harmony-')}
+
+
+def affected_by_device(s, path, devices):
+    if not devices:
+        return False
+    if scoped(s, path):
+        from project_context import path_device
+        return path_device(path) in devices
+    bound = device_inputs(s, path)
+    return bound is None or bool(devices.intersection(bound))
+
+
+def inputs(s, path, code_baseline=None, *, legacy=False):
     """A managed visual path consumes its named build. Opaque commands may inspect the whole project."""
     if scoped(s, path):
         from context_readiness import verify_refs
@@ -56,9 +78,19 @@ def inputs(s, path, code_baseline=None):
             check_module(m)
         return digest({'path': path, 'build': refs,
                        'modules': {mid: {k: s['modules'][mid].get(k) for k in ('code_baseline', 'freeze_id')} for mid in mids}})
-    return digest({'path': path, 'baseline': code_baseline,
-                   'modules': {mid: {k: m.get(k) for k in ('freeze_id', 'build_artifacts')} for mid, m in s['modules'].items()},
-                   'test_adapter': s.get('test_adapter'), 'environment_revision': s.get('harmony_environment_revision')})
+    common = {'path': path, 'baseline': code_baseline,
+              'modules': {mid: {k: m.get(k) for k in ('freeze_id', 'build_artifacts')} for mid, m in s['modules'].items()}}
+    if not legacy and (device := device_inputs(s, path)) is not None:
+        platform = path['platform']
+        adapter = s['test_adapter']
+        web_config = (s.get('target_preview') or {}).get('web_main_config')
+        if platform == 'web' and web_config:
+            check_ref(web_config)
+        runtime = ({'web_config': web_config} if platform == 'web'
+                   else {'environment_revision': s.get('harmony_environment_revision')})
+        return digest({**common, 'device': device, 'adapter': {k: v for k, v in adapter.items() if k != 'device'},
+                       'runtime': runtime, 'package_sha': s.get('package_sha')})
+    return digest({**common, 'test_adapter': s.get('test_adapter'), 'environment_revision': s.get('harmony_environment_revision')})
 
 
 def same_inputs(s, path, previous, code_baseline, expected=None):
@@ -66,7 +98,10 @@ def same_inputs(s, path, previous, code_baseline, expected=None):
         return False
     if 'integration_inputs' in previous:
         try:
-            return previous['integration_inputs'] == (expected or inputs(s, path, code_baseline))
+            expected = expected or inputs(s, path, code_baseline)
+            return (expected in (previous['integration_inputs'], previous.get('device_continuation_inputs'))
+                    or device_inputs(s, path) is not None
+                    and previous['integration_inputs'] == inputs(s, path, code_baseline, legacy=True))
         except (Rejected, OSError, KeyError):
             return False
     # Older receipts carry the whole baseline. An owner match alone cannot prove what a command read.
@@ -138,7 +173,8 @@ def scope(s, selected=None):
                 and (item['freeze_id'], item['code_baseline']) == (value['freeze_id'], value['code_baseline']),
                 'integration selection or code changed; stop or isolate the worker and revoke the assignment')
         if 'inputs' in item:
-            require(item['inputs'] == {p['path_id']: inputs(s, p, value['code_baseline']) for p in selected},
+            require(all(same_inputs(s, p, {'integration_inputs': item['inputs'].get(p['path_id'])}, value['code_baseline'])
+                        for p in selected),
                     'integration execution inputs changed; stop or isolate the worker and revoke the assignment')
     return value
 

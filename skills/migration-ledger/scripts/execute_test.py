@@ -143,6 +143,16 @@ def builtin_main(platform, root, device=None, web_config=None):
                      '--platform', platform, *(['--device', device] if device else []), *files], 'timeout_seconds': 1860}
 
 
+def builtin_platform(s, path):
+    adapter = s.get('test_adapter') or {}
+    platform = path.get('platform')
+    if (not path.get('command') and not (adapter.get('adapters') or {}).get(platform)
+            and not adapter.get('executable') and platform in ('web', 'android', 'harmony')
+            and platform in ((adapter.get('device') or {}).get('platforms') or ())):
+        return platform
+    return None
+
+
 def adapter_for(s, path, root):
     """What runs a PATH when the host names nothing: build, unit and in-process functional PATHs have their frozen command;
     a device PATH runs the adapter the project states for its platform (test_adapter.adapters), else the project's one
@@ -154,7 +164,7 @@ def adapter_for(s, path, root):
     row = (adapter.get('adapters') or {}).get(platform)
     if row is None and adapter.get('executable'):
         row = {'argv': [adapter['executable'], *adapter.get('args', [])], 'cwd': adapter.get('cwd'), 'timeout_seconds': adapter.get('timeout_seconds')}
-    if row is None and platform in ((adapter.get('device') or {}).get('platforms') or []):
+    if row is None and builtin_platform(s, path):
         preview = ((adapter.get('device') or {}).get(platform) or {})
         web_config = (s.get('target_preview') or {}).get('web_main_config')
         row = builtin_main(platform, root, preview.get('serial'), web_config)

@@ -77,9 +77,13 @@ def validate(s, report_ref):
     from ledger import dependency_closure
     consumers = {mid for mid, m in s['modules'].items() if mid not in affected
                  and affected.intersection(dependency_closure(s, m['dependencies']))}
-    require(consumers == {mid for mid, row in rows.items() if row['action'] == 'reverify'},
+    reverify = {mid for mid in consumers if s['modules'][mid].get('code_baseline')}
+    require(reverify == {mid for mid, row in rows.items() if row['action'] == 'reverify'},
             'source impact must include dependent closure with replan or reverify')
-    affected.update(consumers)
+    require(not any(not a.get('closed') for mid in consumers - reverify
+                    for a in s['modules'][mid]['assignments'].values()),
+            'dependent execution without accepted code must settle or be reviewed for replan')
+    affected.update(reverify)
     parents = report['parent_reviews']
     require(isinstance(parents, dict) and set(parents) == set(s.get('module_groups', {})), 'all parent allocations must be reviewed')
     for ref in parents.values(): check_ref(ref)

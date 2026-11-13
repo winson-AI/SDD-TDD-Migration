@@ -215,6 +215,36 @@ class MechanicalHandoffTests(unittest.TestCase):
             run.assert_called_once()
         self.assertEqual(self.f.state()['modules']['M001']['results']['M001-B']['quality'], 'green-passed')
 
+    def test_ready_coding_rotation_is_delivered_once_before_the_pending_build(self):
+        from unittest.mock import patch
+        import ledger
+
+        f = self.f
+        fixture = self.fixture
+        original = fixture.t.plan
+
+        def separate_plan(mid):
+            plan = original(mid)
+            next(p for p in plan['paths'] if p['kind'] == 'build')['command']['argv'][-1] = 'pass # separate build unit'
+            return plan
+
+        with patch.object(fixture.t, 'plan', side_effect=separate_plan):
+            fixture.t.freeze('M002')
+        f.call('session', {'role': 'implementer', 'session_id': 'S-OLD'}, module='M002')
+        before = f.state()
+        step = next(step for step in before['next_steps'] if step['module_id'] == 'M002')
+        f.call('session', request={'schema_version': 1, 'request_id': 'large-input-m2', 'run_id': before['run_id'],
+            'module_id': 'M002', 'expected_revision': step['expected_revision'], 'operation': 'session',
+            'payload': {'role': 'implementer', 'session_id': 'S-OLD'},
+            'hint': {'session_id': 'S-OLD', 'card_sha256': step['card_sha256'],
+                     'context_inputs': [{'kind': 'log', 'ref': f.ref('large-m2.log', 'x'*100001)}]}})
+        with patch.object(ledger, 'frozen_tests', wraps=ledger.frozen_tests) as run:
+            lines = drive.drive(f.root, MO)
+            self.assertTrue(any(row['kind'] == 'rotate' and row['module_id'] == 'M002' for row in lines))
+            run.assert_not_called()
+            drive.drive(f.root, MO)
+            run.assert_called_once()
+
     def test_finished_build_prefix_is_resumed_without_repeating_a_command(self):
         from unittest.mock import patch
         import ledger
