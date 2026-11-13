@@ -200,6 +200,18 @@ class UpstreamPlanTests(unittest.TestCase):
             self.assertEqual(m['results'][pid]['execution_receipt'], previous['execution_receipt'])
             self.assertEqual(m['results'][pid]['validation_reuse']['source_test_run_id'], previous['test_run_id'])
 
+        import run_changes
+        self.assertNotEqual(m['freeze_id'], old['freeze_id'])
+        self.assertEqual(run_changes.retain_verification(state, m, {'android'}, f.root), set(old['results']) - {'M001-P'})
+        self.assertEqual(task_revalidation.current_build_paths(state, m, f.root, {'M001-B'}), {'M001-B'})
+        switched = copy.deepcopy(m)
+        run_changes.reverify(state, switched, {'android'}, f.ref('device-impact.json', {}), root=f.root)
+        self.assertEqual(switched['results']['M001-U'], m['results']['M001-U'])
+        self.assertTrue(switched['results']['M001-P']['stale'])
+        drifted = copy.deepcopy(m)
+        drifted['results']['M001-U']['validation_reuse']['source_test_run_id'] = 'different-attempt'
+        self.assertNotIn('M001-U', run_changes.retain_verification(state, drifted, {'android'}, f.root))
+
         script = f.ref('test-fixture.py', """import json, os, sys
 from pathlib import Path
 query = json.loads(Path(sys.argv[sys.argv.index('--query-file') + 1]).read_text())

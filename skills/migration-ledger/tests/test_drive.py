@@ -168,6 +168,40 @@ class MechanicalHandoffTests(unittest.TestCase):
         ledger.advance(f.root, MO, 'M001', defer_commands=True)
         self.assignment = next(a for a in f.state()['modules']['M001']['assignments'].values() if not a['closed'])
 
+    def test_ready_fixer_is_returned_before_the_independent_build(self):
+        from unittest.mock import patch
+        import ledger
+
+        f = self.f
+        original_plan = self.fixture.t.plan
+
+        def plan_with_failing_unit(mid):
+            plan = original_plan(mid)
+            next(p for p in plan['paths'] if p['kind'] == 'build')['command']['argv'][-1] = 'pass # separate build unit'
+            next(p for p in plan['paths'] if p['kind'] == 'unit')['command']['argv'][-1] = 'raise SystemExit(1)'
+            return plan
+
+        with patch.object(self.fixture.t, 'plan', side_effect=plan_with_failing_unit):
+            self.fixture.t.freeze('M002')
+        f.call('assign', {'role': 'implementer', 'assignment_id': 'I2', 'instance_id': 'coder2'}, module='M002')
+        from test_run_rehearsal import RunWalk
+        walk = RunWalk(); walk.f = f; walk.t = self.fixture.t
+        walk.model_turn(next(step for step in f.state()['next_steps'] if step['module_id'] == 'M002'))
+        f.call('accept', {'assignment_id': 'I2'}, module='M002')
+        ledger.advance(f.root, MO, 'M002', defer_commands=True)
+        state, _ = ledger.read_events(f.root)
+        assignment = next(a for a in state['modules']['M002']['assignments'].values() if not a['closed'])
+        submission = ledger.frozen_tests(f.root, state, 'M002', assignment['assignment_id'])
+        f.raw('submit', submission, role='test-runner', instance=assignment['instance_id'], module='M002')
+        with patch.object(ledger, 'frozen_tests', wraps=ledger.frozen_tests) as run:
+            lines = drive.drive(f.root, MO)
+            self.assertTrue(any(row['kind'] == 'running' and row.get('role') == 'fixer'
+                                and row.get('module_id') == 'M002' for row in lines))
+            self.assertEqual(f.state()['modules']['M002']['results']['M002-U']['quality'], 'red-bug')
+            run.assert_not_called()
+            drive.drive(f.root, MO)
+            run.assert_called_once()
+
     def test_ready_plan_is_delivered_once_before_the_pending_build(self):
         from unittest.mock import patch
         import ledger

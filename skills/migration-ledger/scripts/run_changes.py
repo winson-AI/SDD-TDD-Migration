@@ -7,6 +7,7 @@ from contracts import Rejected, check_ref, digest, keyed, nonempty, read_json, r
 import decomposition
 import dimensions
 import project_context
+import task_revalidation
 import workflow
 import control_policy
 
@@ -118,12 +119,35 @@ def subject(s, report_ref, *, execution_review=False, device_path_review=False):
                                                     'design_input_ref', 'accepted_test_design')})
         return view
 
+    audit = {k: v for k, v in s.items() if k.startswith('audit')}
+    if devices is not None:
+        import integration
+        from functools import cache
+        from ledger import global_baseline
+
+        paths = {p['path_id']: p for p in s['global_paths'] if not uses_changed_device(p, devices)}
+        @cache
+        def baseline():
+            try:
+                return global_baseline(s)
+            except (Rejected, OSError):
+                return None
+
+        def settled(pid, row):
+            if pid not in paths or not row.get('integration_inputs') or row.get('quality') != 'green-passed' or row.get('stale'):
+                return False
+            path = paths[pid]
+            if integration.scoped(s, path):
+                return integration.current(s, path, row, None)
+            return bool((current := baseline()) and integration.current(s, path, row, current))
+
+        audit['audit_results'] = {pid: row for pid, row in s.get('audit_results', {}).items() if not settled(pid, row)}
     return digest({'run_id': s['run_id'], 'context_ref': s.get('project_context_ref'),
         'global_spec': s['global_spec'], 'contract': {k: s[k] for k in CONTRACT_KEYS},
         'global_plan': s.get('global_plan'), 'sources': s.get('reuse_sources', []),
         'roots': {mid: {key: m.get(key) for key in ROOT_KEYS | {'realloc_request'}} for mid, m in roots(s).items()},
         'modules': {mid: affected_module(m) if mid in affected else unaffected_module(m) for mid, m in s['modules'].items()},
-        'audit': {k: v for k, v in s.items() if k.startswith('audit')}, 'report_ref': report_ref})
+        'audit': audit, 'report_ref': report_ref})
 
 
 
@@ -202,9 +226,9 @@ def revised_preview(root, s, device):
 
 
 def retain_verification(s, m, devices, root=None):
-    """An accepted Green row can stand on the same freeze, accepted code and unchanged execution inputs."""
+    """Keep accepted Green evidence with unchanged inputs and a current or carried receipt."""
     import test_validation as tv
-    from ledger import current, dependencies_ready
+    from ledger import current, dependencies_ready, dependency_validation_inputs, path_provider_inputs
     try:
         current(m)
         dependencies_ready(s, {**m, 'phase': 'testing'})
@@ -229,7 +253,15 @@ def retain_verification(s, m, devices, root=None):
             if (not row.get('executed') or receipt.get('producer') != 'host-executor'
                     or any(receipt.get(key) != expected for key, expected in (
                         ('run_id', s['run_id']), ('module_id', m['module_id']), ('path_id', pid),
-                        ('freeze_id', m['freeze_id']), ('code_baseline', m['code_baseline']), ('test_run_id', row['test_run_id'])))):
+                        ('test_run_id', row['test_run_id'])))):
+                continue
+            if ((receipt.get('freeze_id'), receipt.get('code_baseline')) != (m['freeze_id'], m['code_baseline'])
+                    and not task_revalidation.carried_receipt(m, row, receipt)):
+                continue
+            if row.get('path_provider_inputs'):
+                if row['path_provider_inputs'] != path_provider_inputs(s, m, path):
+                    continue
+            elif row.get('dependency_inputs') and row['dependency_inputs'] != dependency_validation_inputs(s, m):
                 continue
             for key in ('query_ref', 'result_ref', 'log_ref'):
                 check_ref(receipt[key])
@@ -249,8 +281,7 @@ def retain_verification(s, m, devices, root=None):
     if builds - retained and root is None:
         return None
     if builds - retained:
-        from task_revalidation import current_build_paths
-        retained -= builds - current_build_paths(s, m, root, builds & retained)
+        retained -= builds - task_revalidation.current_build_paths(s, m, root, builds & retained)
     return retained
 
 
@@ -492,7 +523,7 @@ def blocks_switch(s, m, assignment, devices):
 
 
 def handle(root, s, req, actor):
-    from ledger import role, open_change, replan_module, await_provider
+    from ledger import role, open_change, replan_module, await_provider, wait_for_providers
     p = req['payload']
     if req['operation'] == 'run-review':
         role(actor, 'global-orchestrator')
@@ -569,7 +600,11 @@ def handle(root, s, req, actor):
     rows = keyed(report['modules'], 'module_id') if report['modules'] else {}  # no leaf yet: nothing to review
     replanned = {mid for mid in affected if rows[mid]['action'] == 'replan'}
     for mid in decomposition.built_on(s, replanned) - affected:
-        await_provider(s['modules'][mid])  # it keeps its plan and code and verifies again once its provider is back
+        m = s['modules'][mid]
+        if report['context_patch'] or report.get('package_sha'):
+            await_provider(m)
+        else:
+            wait_for_providers(s, m, replanned)
     for mid, m in s['modules'].items():
         if mid in affected:
             if rows[mid]['action'] == 'reverify':

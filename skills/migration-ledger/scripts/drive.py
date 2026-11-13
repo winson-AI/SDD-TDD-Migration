@@ -76,7 +76,7 @@ def tick(root, principal, workers=None):
             if step.get('mechanical') and step.get('ready') and step['operation'] != 'await-result':
                 actions += ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True, defer_commands=True, defer_resources=True, publish=False)['applied']
         actions += ledger.advance_run(root, principal, workers, defer_commands=True, publish=False)
-        started |= any(a['operation'] == 'assign' and a.get('role') == 'implementer' for a in actions)
+        started |= any(a['operation'] == 'assign' and a.get('role') in ('implementer', 'fixer') for a in actions)
         if actions:
             continue
         if started or ready_plan_to_deliver(root, st):
@@ -90,7 +90,7 @@ def tick(root, principal, workers=None):
                     break
         else:
             actions = ledger.advance_run(root, principal, workers, publish=False)
-        started |= any(a['operation'] == 'assign' and a.get('role') == 'implementer' for a in actions)
+        started |= any(a['operation'] == 'assign' and a.get('role') in ('implementer', 'fixer') for a in actions)
         if not actions:
             break
     st = ledger.status(root, 'full')  # read by this script, not by a model

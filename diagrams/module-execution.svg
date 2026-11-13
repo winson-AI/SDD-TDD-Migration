@@ -78,12 +78,13 @@
 <path d="M285,1430 L285,1480" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <path d="M800,1430 L800,1480" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <path d="M1315,1430 L1315,1480" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
-<rect x="70" y="1480" width="430" height="180" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
-<text x="285.0" y="1520.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">实现错误 → Fixer</text>
-<text x="285.0" y="1554.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">当前 SPEC 已明确，实现与其不符</text>
-<text x="285.0" y="1583.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">预算内最小补丁 / 自验证 / fix_note</text>
-<text x="285.0" y="1612.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不改冻结 TASK / 需求 / 验收</text>
-<text x="285.0" y="1641.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">MO 接受后重新正式测试</text>
+<rect x="70" y="1480" width="430" height="205" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
+<text x="285.0" y="1518.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">实现错误 → Fixer</text>
+<text x="285.0" y="1552.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">当前 SPEC 已明确，实现与其不符</text>
+<text x="285.0" y="1581.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">就绪 Fixer 先于无关命令交付宿主</text>
+<text x="285.0" y="1610.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">预算内最小补丁 / 自验证 / fix_note</text>
+<text x="285.0" y="1639.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不改冻结 TASK / 需求 / 验收</text>
+<text x="285.0" y="1668.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">MO 接受后正式复测</text>
 <path d="M70,1570 L60,1570 Q50,1555 40,1570 L35,1570 L35,1090 L550,1090" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <rect x="102.74999999999997" y="1052" width="364.50000000000006" height="27" rx="4" fill="white" opacity="0.97"/>
 <text x="285" y="1070" font-size="18.00" fill="#7c3aed" text-anchor="middle" font-weight="400">新 build / unit / static + 正式复测</text>
@@ -124,10 +125,10 @@
 <text x="285.0" y="1950.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Red / Yellow 不凭证明转 Green</text>
 <rect x="70" y="2000" width="430" height="200" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="285.0" y="2035.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">设备变更 · 同 Run 复测</text>
-<text x="285.0" y="2069.5" font-size="18.95" fill="#4b5563" text-anchor="middle" font-weight="400">有效 build / unit / static 回执继续沿用</text>
+<text x="285.0" y="2069.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核验跨冻结证明，沿用有效 Green</text>
 <text x="285.0" y="2098.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只等受影响 PATH，独立派发继续</text>
-<text x="285.0" y="2127.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">设备归属不明的路径一并复测</text>
-<text x="285.0" y="2156.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">逐条验制品，仅重跑相关消费者</text>
+<text x="285.0" y="2127.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">范围外同输入 GLOBAL Green 保留评审</text>
+<text x="285.0" y="2156.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">逐条验制品；设备归属不明则复测</text>
 <text x="285.0" y="2185.5" font-size="21.91" fill="#4b5563" text-anchor="middle" font-weight="400">应用 / 入口 / URL 变化 → 修订 SPEC</text>
 <rect x="550" y="2095" width="500" height="125" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="800.0" y="2122.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">机械验证恢复</text>
@@ -137,10 +138,10 @@
 <rect x="1110" y="1750" width="410" height="250" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1315.0" y="1781.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">阻塞与明确收尾</text>
 <text x="1315.0" y="1815.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已有提供方暂不可用：等待 / 恢复</text>
-<text x="1315.0" y="1844.5" font-size="20.00" fill="#4b5563" text-anchor="middle" font-weight="400">原人工阻塞保留；决定与依赖均就绪才恢复</text>
-<text x="1315.0" y="1873.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">提供方输入变化：从最早失效阶段复测</text>
-<text x="1315.0" y="1902.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅自动化环境缺失：Yellow / 未执行</text>
-<text x="1315.0" y="1931.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">不耗 Fixer 轮次，不掩盖实际失败</text>
+<text x="1315.0" y="1844.5" font-size="21.99" fill="#4b5563" text-anchor="middle" font-weight="400">Run 级回溯：独立视觉先按原派发收尾</text>
+<text x="1315.0" y="1873.5" font-size="21.11" fill="#4b5563" text-anchor="middle" font-weight="400">保留人工阻塞，决定与依赖均就绪才恢复</text>
+<text x="1315.0" y="1902.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">提供方输入变化：从最早失效阶段复测</text>
+<text x="1315.0" y="1931.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅缺自动化环境：Yellow / 未执行</text>
 <text x="1315.0" y="1960.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">受阻 / 预算耗尽：留证明确挂起</text>
 <text x="1315.0" y="1989.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">条件恢复后真实测试，不直接 Green</text>
 <path d="M1520,1310 L1550,1310 L1550,1865 L1520,1865" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#arrow-orange)"/>

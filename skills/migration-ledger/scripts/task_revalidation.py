@@ -258,7 +258,7 @@ def command_receipts(s, m, root, paths):
 
 
 def current_build_paths(s, m, root, candidates):
-    """Recheck the same freeze, accepted bytes, frozen command and host inputs for each reusable build."""
+    """Recheck accepted build receipts, frozen commands and their host inputs."""
     from runner_storage import revalidation_inputs, revalidation_snapshot
     from functools import cache
 
@@ -278,11 +278,13 @@ def current_build_paths(s, m, root, candidates):
             receipt = read_json(check_ref(row['execution_receipt']))
             command = path['command']
             expected = {'producer': 'host-executor', 'run_id': s['run_id'], 'module_id': m['module_id'],
-                        'path_id': pid, 'test_run_id': row['test_run_id'], 'freeze_id': m['freeze_id'],
+                        'path_id': pid, 'test_run_id': row['test_run_id'],
                         'code_baseline': m['code_baseline'], 'requested_argv': command['argv'],
                         'cwd': str(Path(command['cwd']).resolve())}
             fingerprint = receipt.get('revalidation_inputs_sha256')
             if not fingerprint or any(receipt.get(k) != v for k, v in expected.items()):
+                continue
+            if receipt.get('freeze_id') != m['freeze_id'] and not carried_receipt(m, row, receipt):
                 continue
             if fingerprint != revalidation_inputs(s, root, command['cwd'], command['argv'], snapshot=snapshot):
                 continue
@@ -357,3 +359,20 @@ def valid(m, row):
     return bool(proof.get('mode') == 'partial' and row.get('path_id') in proof['retained_path_ids']
                 and reuse.get('proof_ref') == proof['proof_ref'] and reuse.get('plan_hash') == m['plan_hash']
                 and reuse.get('valid_for_baseline') == m['code_baseline'] and row.get('quality') == 'green-passed')
+
+
+def carried_receipt(m, row, receipt):
+    """Match a Ledger-carried result to the accepted receipt at its original freeze."""
+    reuse, proof = row.get('validation_reuse') or {}, m.get('task_revalidation') or {}
+    if not (proof.get('mode') == 'partial' and valid(m, row) and reuse.get('proof_ref') == proof['proof_ref']
+            and reuse.get('plan_hash') == m['plan_hash'] and reuse.get('valid_for_baseline') == m['code_baseline']
+            and reuse.get('source_code_baseline') == row.get('code_baseline') == receipt.get('code_baseline')
+            and reuse.get('source_test_run_id') == row['test_run_id']):
+        return False
+    return any(change.get('from_freeze_id') == receipt['freeze_id']
+               and previous.get('execution_receipt') == row['execution_receipt']
+               and previous.get('code_baseline') == row.get('code_baseline')
+               and previous.get('test_run_id') == row['test_run_id']
+               and previous.get('quality') == 'green-passed' and not previous.get('stale')
+               for change in m.get('change_request_history', [])
+               if (previous := (change.get('prior_execution') or {}).get('results', {}).get(receipt['path_id'])))

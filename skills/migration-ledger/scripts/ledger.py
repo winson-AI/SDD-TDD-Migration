@@ -271,12 +271,7 @@ def invalidate_dependents(s, mid):
         for m in s['modules'].values():
             if parent in m['dependencies'] and m.get('code_baseline'):
                 if m['module_id'] not in s.get('audit_queue', {}):
-                    active = next((a for a in m['assignments'].values() if not a.get('closed')), None)
-                    if independent_visual(s, m, active, mid):
-                        m['dependency_wait_after_visual'] = True
-                        m['stale'] = True
-                    else:
-                        await_provider(m)
+                    wait_for_providers(s, m, {mid})
                 else:
                     m['stale'] = True
                     s.get('audit_resolutions', {}).pop(m['module_id'], None)
@@ -309,6 +304,14 @@ def await_provider(m):
         m.update(phase='waiting-dependency',
                  blocked={'kind': 'dependency', 'reason': 'dependency-version-changed', 'resume_phase': resume_phase})
     m['revision'] += 1
+
+
+def wait_for_providers(s, m, changed):
+    active = next((a for a in m['assignments'].values() if not a.get('closed')), None)
+    if independent_visual(s, m, active, changed):
+        m.update(dependency_wait_after_visual=True, stale=True)
+    else:
+        await_provider(m)
 
 
 def checklist_rubric(root):
@@ -548,7 +551,7 @@ def bound_visual_inputs(s, m, path_ids):
     return inputs
 
 
-def independent_visual(s, m, active, changed):
+def independent_visual(s, m, active, changed=()):
     if not active or not active.get('artifact_only') or m.get('blocked') or workflow.audit_active(s) or audit_closure.active(s):
         return False
     selected = active.get('execution_contract', {}).get('path_ids') or ()
@@ -556,7 +559,7 @@ def independent_visual(s, m, active, changed):
     if not bindings or set(bindings) != set(selected):
         return False
     providers = [p['build_binding']['module_id'] for p in m['plan']['paths'] if p['path_id'] in bindings and p.get('build_binding')]
-    if changed in dependency_closure(s, providers):
+    if set(changed).intersection(dependency_closure(s, providers)):
         return False
     try:
         return bindings == bound_visual_inputs(s, m, selected)
@@ -1216,7 +1219,7 @@ def _next_step(s, m):
                     dependencies_ready(s, {**m, 'phase': 'testing'})
                 except (Rejected, OSError):
                     step.update(ready=False, reason='dependency-incomplete')
-    elif active and m.get('dependency_wait_after_visual') and not independent_visual(s, m, active, None):
+    elif active and m.get('dependency_wait_after_visual') and not independent_visual(s, m, active):
         step.update(operation='revoke', role='host', ready=True, reason='bound-visual-provider-inputs-changed',
                     payload={'assignment_id': active['assignment_id']})
     elif active and active.get('resource_wait'):

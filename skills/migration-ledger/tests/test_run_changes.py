@@ -472,6 +472,8 @@ class PreparedRunRevisionTests(unittest.TestCase):
         self.assertTrue(module['results']['V2']['stale'])
 
     def test_device_change_scopes_global_results_and_active_integration(self):
+        import integration
+
         src = test_source_changes.SourceChangeTests(); self.addCleanup(src.doCleanups)
         device = {'platforms': ['android', 'web'], 'android': {'serial': 'before'}, 'web': {'url': 'https://example.test'}}
         paths = [{'path_id': 'G-' + platform, 'platform': platform, 'kind': 'automation', 'case_id': 'C1',
@@ -481,6 +483,7 @@ class PreparedRunRevisionTests(unittest.TestCase):
         self.f = f
         f.split(src.d.proposal(ids=('M001', 'M002'))); f.global_plan()
         state, _ = ledger.read_events(f.root)
+        state['modules']['M001']['code_files'] = [f.ref('wave-code.py', 'value = 2')]
         state['audit_results'] = {p['path_id']: {'quality': 'green-passed', 'test_run_id': p['path_id']} for p in paths}
         report = self.report({'test_adapter': {'device': {'android': {'serial': 'after'}}}}, affected=())
         go = {'role': 'global-orchestrator', 'instance_id': 'go'}
@@ -497,9 +500,26 @@ class PreparedRunRevisionTests(unittest.TestCase):
             run_changes.handle(f.root, state, request, host)
         state['integration_assignment']['path_ids'] = ['G-web']
         self.assertTrue(run_changes.next_action(state)['ready'])
+        state['integration_assignment']['closed'] = True
+        web = next(path for path in state['global_paths'] if path['path_id'] == 'G-web')
+        green = {'quality': 'green-passed', 'test_run_id': 'WEB-NEW',
+                 'integration_inputs': integration.inputs(state, web, ledger.global_baseline(state))}
+        # A current wave Green can arrive after GO review, even if there was no prior receipt.
+        state['audit_results'].pop('G-web')
+        run_changes.handle(f.root, state, {'operation': 'run-review',
+            'payload': {'report_ref': state['run_change_review']['report_ref']}}, go)
+        request['payload']['subject_sha256'] = state['run_change_review']['subject_sha256']
+        state['audit_results']['G-web'] = {**green, 'integration_inputs': 'drifted'}
+        self.assertEqual(run_changes.next_action(state)['reason'], 'run-review-stale')
+        state['audit_results']['G-web'] = {**green, 'quality': 'red-bug'}
+        self.assertEqual(run_changes.next_action(state)['reason'], 'run-review-stale')
+        state['audit_results']['G-web'] = green
+        with patch.object(ledger, 'global_baseline', side_effect=Rejected('code drifted')):
+            self.assertEqual(run_changes.next_action(state)['reason'], 'run-review-stale')
+        self.assertTrue(run_changes.next_action(state)['ready'])
         run_changes.handle(f.root, state, request, host)
         self.assertTrue(state['audit_results']['G-android']['stale'])
-        self.assertEqual(state['audit_results']['G-web'], {'quality': 'green-passed', 'test_run_id': 'G-web'})
+        self.assertEqual(state['audit_results']['G-web'], green)
 
     def test_unrelated_run_revision_keeps_an_audit_scope_request_open(self):
         import audit_closure
@@ -621,6 +641,43 @@ class PreparedRunRevisionTests(unittest.TestCase):
         self.assertEqual((waiting['phase'], waiting['stale'], waiting['blocked']['reason'], waiting['blocked']['resume_phase'], waiting['revision']),
                          ('waiting-dependency', True, 'dependency-version-changed', 'frozen', revision + 1))
         self.assertTrue(waiting['freeze_id'] and waiting['plan'])  # its plan and freeze stand
+
+    def test_run_replan_preserves_active_visual_with_an_independent_build(self):
+        from unittest.mock import patch
+        import test_validation as tv
+
+        src, f = self.source, self.f
+        src.freeze('M001'); src.freeze('M002'); src.implement_and_test('M002')
+        state = f.state()
+        provider = {**copy.deepcopy(state['modules']['M002']), 'module_id': 'M003', 'dependencies': []}
+        state['modules']['M003'] = provider
+        consumer = state['modules']['M002']
+        consumer['phase'] = 'testing'
+        consumer['dependencies'] = ['M001', 'M003']
+        visual = {'path_id': 'V', 'kind': 'visual', 'build_binding': {'module_id': 'M003', 'path_id': 'B'}}
+        consumer['plan']['paths'].append(visual)
+        report = self.report({}, affected=('M001',))
+        report['modules'].append({**report['modules'][-1], 'module_id': 'M003'})
+        report['global_spec_ref'] = f.ref('provider-spec.md', 'Correct M001 only')
+        report_ref = f.ref('provider-impact.json', report)
+        go = {'role': 'global-orchestrator', 'instance_id': 'go'}
+        host = {'role': 'host', 'instance_id': 'host'}
+        with patch.object(run_changes, 'verify_plan'), patch.object(ledger, 'current'), \
+                patch.object(ledger, 'dependencies_ready'), patch.object(tv, 'bound_build_artifacts', return_value=['B.hap']):
+            consumer['assignments']['VIS'] = {'assignment_id': 'VIS', 'role': 'test-runner', 'artifact_only': True,
+                'execution_contract': {'path_ids': ['V']}, 'path_provider_inputs': ledger.bound_visual_inputs(state, consumer, ['V'])}
+            affected_worker = copy.deepcopy(state)
+            affected_worker['modules']['M003']['dependencies'] = ['M001']
+            for trial in (state, affected_worker):
+                run_changes.handle(f.root, trial, {'operation': 'run-review', 'payload': {'report_ref': report_ref}}, go)
+                subject = trial['run_change_review']['subject_sha256']
+                run_changes.handle(f.root, trial, {'operation': 'revise-run', 'payload': {'subject_sha256': subject}}, host)
+            self.assertTrue(consumer['dependency_wait_after_visual'])
+            self.assertFalse(consumer['blocked'])
+            ledger.worker_dependencies_ready(state, consumer, consumer['assignments']['VIS'])
+            self.assertEqual(ledger._next_step(state, consumer)['operation'], 'await-result')
+            self.assertEqual(affected_worker['modules']['M002']['blocked']['kind'], 'dependency')
+            self.assertEqual(ledger._next_step(affected_worker, affected_worker['modules']['M002'])['operation'], 'revoke')
 
     def test_revision_only_releases_the_exact_reviewed_blocker(self):
         src, f = self.source, self.f

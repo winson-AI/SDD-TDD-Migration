@@ -105,8 +105,8 @@ class AuditPathEvidenceTests(unittest.TestCase):
             self.assertEqual(ledger.visual_batch(state, consumer), (['V2'], True))
             assignment = {'artifact_only': True, 'role': 'test-runner', 'execution_contract': {'path_ids': ['V2']},
                           'path_provider_inputs': ledger.bound_visual_inputs(state, consumer, ['V2'])}
-            self.assertTrue(ledger.independent_visual(state, consumer, assignment, 'M001'))
-            self.assertFalse(ledger.independent_visual(state, consumer, assignment, 'M002'))
+            self.assertTrue(ledger.independent_visual(state, consumer, assignment, {'M001'}))
+            self.assertFalse(ledger.independent_visual(state, consumer, assignment, {'M002'}))
         with patch.object(tv, 'bound_build_artifacts', side_effect=lambda state, path: [path['build_binding']['path_id']]):
             consumer['results'] = {p['path_id']: {'path_provider_inputs': ledger.path_provider_inputs(state, consumer, p)}
                                    for p in paths}
