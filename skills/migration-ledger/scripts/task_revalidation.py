@@ -230,12 +230,9 @@ def prior_green_receipt(m, path_id):
 
 
 def command_receipts(s, m, root, paths):
-    from runner_storage import revalidation_inputs, revalidation_snapshot
-    from functools import cache
-
-    snapshot = cache(lambda: revalidation_snapshot(s, root))
     import unit_reports
 
+    matches = command_fingerprints(s, root)
     if not m.get('build_baseline') or m['build_baseline'] != m['code_baseline']:
         return []
     try:
@@ -245,9 +242,7 @@ def command_receipts(s, m, root, paths):
         for path in paths:
             pid = path['path_id']
             receipt = prior_green_receipt(m, pid)
-            command = path['command']
-            fingerprint = (receipt or {}).get('revalidation_inputs_sha256')
-            if not fingerprint or fingerprint != revalidation_inputs(s, root, command['cwd'], command['argv'], snapshot=snapshot):
+            if not receipt or not matches(path['command'], receipt):
                 continue
             if path.get('unit_report'):
                 unit_reports.validate(receipt, path, read_json(check_ref(receipt['result_ref'])))
@@ -257,16 +252,35 @@ def command_receipts(s, m, root, paths):
         return []  # Unavailable or drifted evidence falls back to the ordinary verification gates.
 
 
-def current_build_paths(s, m, root, candidates):
-    """Recheck accepted build receipts, frozen commands and their host inputs."""
+def command_fingerprints(s, root):
+    """Compare frozen commands against the current inputs and sealed device-only ancestors."""
     from runner_storage import device_build_contexts, gradle_command, revalidation_inputs, revalidation_snapshot
     from functools import cache
 
     snapshot = cache(lambda: revalidation_snapshot(s, root))
     device_contexts = cache(lambda: device_build_contexts(s))
 
+    def matches(command, receipt):
+        fingerprint = receipt.get('revalidation_inputs_sha256')
+        if not fingerprint:
+            return False
+        argv, cwd = command['argv'], command['cwd']
+        actual = revalidation_inputs(s, root, cwd, argv, snapshot=snapshot)
+        if fingerprint == actual:
+            return True
+        if not actual or receipt.get('storage_command_version') != 1 or not gradle_command(argv):
+            return False
+        return any(fingerprint == revalidation_inputs(s, root, cwd, argv,
+                   snapshot=lambda: {**snapshot(), 'context': ref}) for ref in device_contexts())
+
+    return matches
+
+
+def current_build_paths(s, m, root, candidates):
+    """Recheck accepted build receipts, frozen commands and their host inputs."""
     if root is None or not candidates:
         return set()
+    matches = command_fingerprints(s, root)
     retained = set()
     for path in m['plan']['paths']:
         pid = path['path_id']
@@ -282,19 +296,12 @@ def current_build_paths(s, m, root, candidates):
                         'path_id': pid, 'test_run_id': row['test_run_id'],
                         'code_baseline': m['code_baseline'], 'requested_argv': command['argv'],
                         'cwd': str(Path(command['cwd']).resolve())}
-            fingerprint = receipt.get('revalidation_inputs_sha256')
-            if not fingerprint or any(receipt.get(k) != v for k, v in expected.items()):
+            if any(receipt.get(k) != v for k, v in expected.items()):
                 continue
             if receipt.get('freeze_id') != m['freeze_id'] and not carried_receipt(m, row, receipt):
                 continue
-            actual = revalidation_inputs(s, root, command['cwd'], command['argv'], snapshot=snapshot)
-            if fingerprint != actual:
-                # A frozen Gradle build uses the same target tree and host inputs across a device-only revision.
-                # Recreate the old digest with the current bytes, using only verified context ancestors.
-                if not actual or receipt.get('storage_command_version') != 1 or not gradle_command(command['argv']) or not any(
-                        fingerprint == revalidation_inputs(s, root, command['cwd'], command['argv'],
-                            snapshot=lambda: {**snapshot(), 'context': ref}) for ref in device_contexts()):
-                    continue
+            if not matches(command, receipt):
+                continue
             result = read_json(check_ref(receipt['result_ref']))
             require(result.get('build_artifacts', []) == row.get('build_artifacts', []), 'accepted build artifacts changed')
             for ref in [receipt['query_ref'], receipt['log_ref'], *row.get('build_artifacts', [])]:

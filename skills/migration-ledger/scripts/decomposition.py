@@ -317,8 +317,10 @@ def group_step(s, group, ref_check=check_ref):
         step.update(role='global-orchestrator', reason='await-global-reallocation')
         return step
     if group.get('redecomposition_submission'):
-        affected = group['redecomposition_submission'].get('affected_modules', leaves(s, group['module_id']))
-        busy = any(not a.get('closed') for mid in affected for a in s['modules'].get(mid, {}).get('assignments', {}).values())
+        submission = group['redecomposition_submission']
+        affected = set(submission.get('affected_modules', leaves(s, group['module_id'])))
+        changed = set(submission.get('changed_modules', affected))
+        busy = resplit_workers_busy(s, affected | built_on(s, changed), changed)
         step.update(operation='redecompose-accept', role='global-orchestrator', ready=not busy,
                     reason='wait-for-affected-workers' if busy else 'redecomposition-proposal-ready')
         if not busy and local_resplit(s, group):  # what only the asking leaves see changes, and no case moves: nothing to judge
@@ -693,9 +695,8 @@ def built_on(s, providers):
             if cid not in providers and mod.get('code_baseline') and set(providers).intersection(mod['dependencies'])}
 
 
-def redecomposition_impact(s, parent, children, graph):
-    """The leaves a re-split reaches: the children it changes, the leaves whose providers it rebinds, and the leaves
-    holding code built on a changed child. A leaf that only plans next to them is not reached."""
+def redecomposition_changes(s, parent, children, graph):
+    """The allocations and provider edges changed directly by a re-split."""
     old, new = set(parent['children']), {c['module_id']: c for c in children}
     impact = old.symmetric_difference(new)
     import behavior_contract
@@ -704,7 +705,20 @@ def redecomposition_impact(s, parent, children, graph):
         or behavior_contract.accepts(s['modules'][cid]) != behavior_contract.accepts(new[cid])
         or graph[cid] != s['modules'][cid]['dependencies'])
     impact.update(cid for cid, mod in s['modules'].items() if graph.get(cid, mod['dependencies']) != mod['dependencies'])
-    return impact | built_on(s, impact)
+    return impact
+
+
+def redecomposition_impact(s, parent, children, graph):
+    changed = redecomposition_changes(s, parent, children, graph)
+    return changed | built_on(s, changed)
+
+
+def resplit_workers_busy(s, affected, changed):
+    from ledger import independent_visual
+
+    return any(mid in changed or not independent_visual(s, s['modules'][mid], assignment, changed)
+               for mid in affected & s['modules'].keys()
+               for assignment in s['modules'][mid]['assignments'].values() if not assignment.get('closed'))
 
 
 def boundary_kept(old, new, dependencies, inherited=()):
@@ -833,9 +847,11 @@ def handle(s, req, actor, run_root):
         import child_material
         plan, completed = child_material.complete(s, parent, plan, run_root, 'resplit-%s.json' % parent['module_id'])
         children, graph = validate(s, parent, plan, redecompose=True)
+        changed = redecomposition_changes(s, parent, children, graph)
         parent['redecomposition_submission'] = {'plan_ref': completed or p['plan_ref'], 'actor_instance_id': actor['instance_id'],
                                                 'binding': context_binding(s, parent),
-                                                'affected_modules': sorted(redecomposition_impact(s, parent, children, graph))}
+                                                'changed_modules': sorted(changed),
+                                                'affected_modules': sorted(changed | built_on(s, changed))}
         return
     if op == 'redecompose-accept':
         role(actor, 'global-orchestrator')
@@ -864,14 +880,14 @@ def handle(s, req, actor, run_root):
         retired_ids = old_children - new_child_ids
         added_ids = new_child_ids - old_children
         common_ids = old_children & new_child_ids
-        impact = redecomposition_impact(s, parent, children, graph)
+        changed = redecomposition_changes(s, parent, children, graph)
         reset, revised = revision_plan(s, parent, children, graph)
         waiting = built_on(s, reset)
         held = accepted_over(s)
         import workflow
         local = workflow.local_coverage_before(s, reset | revised, p['review_ref'])
-        for cid in impact & set(s['modules']):
-            idle(s['modules'][cid])
+        impact = changed | built_on(s, changed)
+        require(not resplit_workers_busy(s, impact, changed), 'wait for affected workers before redecomposition')
         continue_unaffected(s, reset | revised, p['review_ref'], run_root)
         for cid in common_ids:
             old_mod, new_spec = s['modules'][cid], new_children[cid]
@@ -938,9 +954,9 @@ def handle(s, req, actor, run_root):
         parent.pop('replanning_required', None)
         parent.pop('replanning_children', None)
         parent.pop('realloc_request', None)
-        from ledger import await_provider
+        from ledger import wait_for_providers
         for cid in waiting & set(s['modules']):
-            await_provider(s['modules'][cid])
+            wait_for_providers(s, s['modules'][cid], changed)
         parent.pop('summary_ref', None)
         parent.pop('summary_subject', None)
         parent['revision'] += 1

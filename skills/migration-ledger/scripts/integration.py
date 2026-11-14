@@ -130,6 +130,8 @@ def due(s):
     from ledger import global_baseline
     if audit_closure.active(s) or not (s.get('audit_assignment') or {}).get('closed', True) or task(s):
         return []
+    device_reviews = [change['report_ref'] for change in s.get('run_change_history', []) if change.get('device_only')]
+    leaves_working = work_remaining(s)
     for managed in (True, False):
         selected = []
         baseline = None
@@ -142,9 +144,11 @@ def due(s):
                                    for mid in held):
                 continue
             previous = s.get('audit_results', {}).get(path['path_id'])
-            if not managed and previous and previous.get('owner_baselines') == owner_baselines(s, path):
-                # Let the final audit retest an opaque path after unrelated modules settle.
-                continue
+            device_retest = bool(previous and previous.get('stale') and previous.get('invalidated_by') in device_reviews
+                                 and device_inputs(s, path) is not None)
+            if not device_retest and (not leaves_working or
+                    (not managed and previous and previous.get('owner_baselines') == owner_baselines(s, path))):
+                continue  # Leave ordinary whole-snapshot retests to the final audit.
             try:
                 if not managed and baseline is None:
                     baseline = global_baseline(s)

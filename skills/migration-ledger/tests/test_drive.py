@@ -51,6 +51,37 @@ class DriveTests(unittest.TestCase):
 
 
 class ReadyImplementerTests(unittest.TestCase):
+    def test_resource_start_respects_a_delivered_rotation_until_coding_is_assigned(self):
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        import ledger
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rotation = {'module_id': 'M001', 'operation': 'assign', 'expected_revision': 3, 'ready': True,
+                        'worker_role': 'fixer', 'session_rotate': {'checkpoint': {
+                            'role': 'implementer', 'previous_session_id': 'old'}}}
+            other = {'module_id': 'M002', 'operation': 'resource-start', 'expected_revision': 1}
+            modules = {'M001': {'module_id': 'M001', 'assignments': {}},
+                       'M002': {'module_id': 'M002', 'revision': 1, 'assignments': {
+                           'R': {'assignment_id': 'R', 'fencing_token': 5, 'resource_wait': True}}}}
+            st = {'run_id': 'demo', 'modules': modules, 'next_steps': [rotation, other], 'max_parallel_modules': 1}
+            drive.capped(root, st, [{'kind': 'rotate', 'module_id': 'M001', 'operation': 'assign'}])
+            with patch.object(drive.resource_binding, 'ready_receipt', return_value={'ready': True}), patch.object(ledger, 'apply') as apply:
+                self.assertFalse(drive.start_ready_resources(root, MO, st))
+                _, handed, _, _ = drive.dispatch_budget(root, st, [])
+                can_assign = drive.assignment_budget(handed)
+                self.assertFalse(can_assign(st, {'module_id': 'M002'}))
+                rotation['expected_revision'] += 1
+                modules['M001'].update(sessions={'implementer': {'session_id': 'new', 'reason': 'context-rotation'}},
+                                       session_history=[{'session_id': 'old'}])
+                self.assertTrue(can_assign(st, rotation))
+                self.assertFalse(can_assign(st, {'module_id': 'M002'}))
+                self.assertFalse(drive.start_ready_resources(root, MO, st))
+                apply.assert_not_called()
+                rotation['operation'] = 'await-result'
+                self.assertTrue(drive.start_ready_resources(root, MO, st))
+
     def test_resource_sync_is_delivered_after_independent_dispatch_and_conflicts_are_local(self):
         from unittest.mock import patch
         import ledger

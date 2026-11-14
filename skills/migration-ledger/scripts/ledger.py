@@ -3278,7 +3278,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
         if wave.get('artifact_only'):
             global_next.update(artifact_only=True, test_scope='visual', instance_id=wave['instance_id'],
                                fencing_token=wave['fencing_token'])
-    elif integration.work_remaining(s) and (wave_paths := integration.due(s)):
+    elif (wave_paths := integration.due(s)):
         global_next = {'operation': 'integration-assign', 'role': 'global-orchestrator', 'ready': True, 'reason': 'wave-complete',
                        'path_ids': [x['path_id'] for x in wave_paths], 'continue_modules': rounds['ready_modules']}
     elif rounds['all_settled'] and not audit_code_review.current(s, ref_check):
@@ -3686,7 +3686,8 @@ def frozen_tests(root, s, module_id, assignment_id):
     return {'assignment_id': assignment_id, 'fencing_token': a['fencing_token'], 'result_ref': file_ref(out)}
 
 
-def advance(root, principal, module_id, workers=None, *, pause_for_rotation=False, defer_commands=False, defer_resources=False, publish=True):
+def advance(root, principal, module_id, workers=None, *, pause_for_rotation=False, defer_commands=False, defer_resources=False, publish=True,
+            can_assign=None):
     """Submit, as the module orchestrator, every step of one module (or parent) the cursor marks mechanical: accepting a
     settled result, dispatching a worker, freezing on a recorded review or decision, completing a module the DoD guard
     admits and summarizing a parent whose children settled; and, in its worker's name, running a test dispatch whose
@@ -3702,6 +3703,8 @@ def advance(root, principal, module_id, workers=None, *, pause_for_rotation=Fals
         if not (step.get('mechanical') and step.get('ready')):
             break
         if defer_commands and step['operation'] == 'await-result':
+            break
+        if can_assign and step['operation'] == 'assign' and not can_assign(st, step):
             break
         sequence, actor = st['last_sequence'] + 1, principal
         if step['operation'] == 'await-result':

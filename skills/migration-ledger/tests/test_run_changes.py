@@ -521,6 +521,17 @@ class PreparedRunRevisionTests(unittest.TestCase):
         self.assertTrue(state['audit_results']['G-android']['stale'])
         self.assertEqual(state['audit_results']['G-web'], green)
         self.assertEqual([path['path_id'] for path in ledger.audit_scope(state)['plan']['paths']], ['G-android'])
+        with patch.object(integration, 'owners', return_value=['M001']):
+            state['modules']['M001'].update(phase='completed', stale=False)
+            for result in state['audit_results'].values():
+                result['owner_baselines'] = integration.owner_baselines(state, paths[0])
+            self.assertEqual([path['path_id'] for path in integration.due(state)], ['G-android'])
+            with patch.object(integration, 'work_remaining', return_value=False):
+                self.assertEqual([path['path_id'] for path in integration.due(state)], ['G-android'])
+            android = next(path for path in state['global_paths'] if path['path_id'] == 'G-android')
+            result = state['audit_results']['G-android']
+            result.update(stale=False, integration_inputs=integration.inputs(state, android, ledger.global_baseline(state)))
+            self.assertEqual(integration.due(state), [])
 
         # Opaque adapters may read the complete device configuration.
         state['test_adapter']['adapters'] = {'web': {'argv': ['/fixture/custom-web']}}
@@ -584,8 +595,12 @@ class PreparedRunRevisionTests(unittest.TestCase):
             import task_revalidation
             state = f.state()
             module = state['modules']['M001']
+            module['change_request'] = {'from_freeze_id': module['freeze_id']}
+            builds = [p for p in module['plan']['paths'] if p['kind'] == 'build']
+            self.assertEqual(task_revalidation.command_receipts(state, module, f.root, builds), ['M001-B', 'M001-B2'])
             with patch.dict('os.environ', {'SDD_BUILD_TOOLCHAIN': 'changed'}):
                 self.assertFalse(task_revalidation.current_build_paths(state, module, f.root, {'M001-B'}))
+                self.assertEqual(task_revalidation.command_receipts(state, module, f.root, builds), [])
 
     def test_device_change_carries_a_legacy_global_receipt_without_rewriting_it(self):
         import integration

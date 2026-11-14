@@ -372,6 +372,49 @@ class DependentTests(unittest.TestCase):
         self.assertEqual((after['freeze_id'], after['plan_ref'], after['code_baseline']), (before['freeze_id'], before['plan_ref'], before['code_baseline']))
         self.assertIsNone(f.state()['modules']['M001']['freeze_id'])
 
+    def test_resplit_can_keep_a_consumer_visual_on_an_independent_build(self):
+        from contracts import Rejected
+        import ledger
+
+        t = test_run_changes.RootRevisionTests(); t.setUp(); self.addCleanup(t.doCleanups)
+        f = t.f; f.prepare_leaf('M002')
+        state, _ = ledger.read_events(f.root)
+        consumer = state['modules']['M002']
+        consumer.update(phase='testing', dependencies=['M001'])
+        visual = {'path_id': 'VIS', 'kind': 'visual', 'build_binding': {'module_id': 'M003', 'path_id': 'B3'}}
+        consumer['plan']['paths'].append(visual)
+        provider = {**copy.deepcopy(consumer), 'module_id': 'M003', 'parent_module_id': None,
+                    'dependencies': [], 'assignments': {}}
+        state['modules']['M003'] = provider
+        consumer['dependencies'].append('M003')
+        consumer['assignments']['VISUAL'] = {'assignment_id': 'VISUAL', 'role': 'test-runner', 'artifact_only': True,
+            'execution_contract': {'path_ids': ['VIS']}, 'path_provider_inputs': {'VIS': 'HAP-B3'}}
+        proposal = {'children': [copy.deepcopy(state['modules'][mid]) for mid in ('M001', 'M002')]}
+        proposal['children'][0]['scope']['in'] = ['Corrected M001 boundary']
+        graph = {mid: m['dependencies'] for mid, m in state['modules'].items()}
+        request = {'module_id': 'M010', 'operation': 'redecompose-accept',
+                   'payload': {'review_ref': f.ref('visual-resplit-review.md', 'Review changed provider')}}
+        parent = state['module_groups']['M010']
+        parent['redecomposition_submission'] = {
+            'plan_ref': f.ref('visual-resplit.json', proposal), 'binding': decomposition.context_binding(state, parent),
+            'changed_modules': ['M001'], 'affected_modules': ['M001', 'M002']}
+        actor = {'role': 'global-orchestrator', 'instance_id': 'go'}
+        with mock.patch.object(decomposition, 'validate', return_value=(proposal['children'], graph)), \
+                mock.patch.object(ledger, 'bound_visual_inputs', return_value={'VIS': 'HAP-B3'}):
+            affected = copy.deepcopy(state)
+            affected['modules']['M003']['dependencies'] = ['M001']
+            affected_parent = affected['module_groups']['M010']
+            affected_parent['redecomposition_submission']['binding'] = decomposition.context_binding(affected, affected_parent)
+            self.assertFalse(decomposition.group_step(affected, affected_parent)['ready'])
+            with self.assertRaisesRegex(Rejected, 'affected workers'):
+                decomposition.handle(affected, request, actor, f.root.resolve())
+            self.assertTrue(decomposition.group_step(state, parent)['ready'])
+            decomposition.handle(state, request, actor, f.root.resolve())
+            self.assertFalse(consumer['assignments']['VISUAL'].get('closed'))
+            self.assertTrue(consumer['dependency_wait_after_visual'])
+            self.assertFalse(consumer.get('blocked'))
+            ledger.worker_dependencies_ready(state, consumer, consumer['assignments']['VISUAL'])
+
 
 class LeafBoundConditionTests(unittest.TestCase):
     """Whoever allocates an item records its conditions before any PATH exists; the leaf's plan says which assertions prove them."""
