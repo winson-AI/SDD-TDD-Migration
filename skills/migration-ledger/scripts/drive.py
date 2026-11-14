@@ -287,7 +287,17 @@ def assignment_budget(handed):
         if (step.get('payload') or {}).get('resource_sync_deferred'):
             return True
         busy = occupied_modules(st['modules'], {x['module_id']: x for x in st['next_steps']}, handed)
-        return step['module_id'] in busy or len(busy) < st['max_parallel_modules']
+        mid = step['module_id']
+        if mid in busy or len(busy) < st['max_parallel_modules']:
+            return True
+        # The host reservation limits worker starts. The Ledger can still queue
+        # resource work under the assignment's fence and write locks.
+        if step.get('worker_role') in ('implementer', 'fixer'):
+            try:
+                return resource_binding.needs_sync(st['modules'][mid], {'execution_contract': step['payload']})
+            except (ValueError, OSError):
+                return False
+        return False
     return can_assign if handed else None
 
 

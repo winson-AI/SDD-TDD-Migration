@@ -49,7 +49,7 @@ Auditor **负责发现、委派、复核和唯一审计验收**。它不写源�
 4. 有治理发现时 `audit-collect` **优先仅收集治理批次**，无治理发现才收集剩余 Red/Yellow；复用 audit-plan → route-batch → work → Fixer → retest → verdict。治理路线只能 fix/trace/human，不以旧 Green 或 verify 关闭冗余。
 5. 路由明确唯一公共能力 owner、改动与回归。Fixer 按冻结 TASK/写权限做行为等价修正；新增任务、provider 接口/职责或授权变化走 CR/上游审核，真实未决交 Human，release 后重规划/重冻；活动批次不偷改 SPEC、写集合或 provider hash，见[复用协议](reuse-dependencies.md#10-显式-provider-归属与合法版本变更)。
 6. work_modules 含来源、合法 owners、显式受影响消费者/下游。Build → 装机 → Automation 完整验证这些模块并留 retest_of，逐依赖推进；已审技术失败按累计预算重试，留各轮根因/补丁/日志；CR-ID 跨版本稳定，重复 finding 按停滞/预算裁决；无关有效 Green 不重跑。
-7. 修改代码/SPEC/context 使代码审查失效：本批裁决且父汇总刷新后对新版本重新提交审查，旧报告归档；全局未变时只审有变化的模块（`review_modules`），其余沿用（`carried_modules`），目标审查仍全覆盖；不得删除未解决 finding。人工释放后经 CR/重冻与实现解决的问题，可在新基线审查中填 recovery_resolutions（finding_id、decision_id、reason、evidence_refs），决策须绑定该 finding 所属批次的人工作业报告且已 audit-release；复核已整改处，不凭测试 Green 断言冗余已消除，再收集遗留 Red/Yellow 并终审。
+7. 修改代码/SPEC/context 使代码审查失效：本批裁决且父汇总刷新后对新版本重新提交审查，旧报告归档；全局未变时只审有变化的模块（`review_modules`），其余沿用（`carried_modules`），目标审查仍全覆盖；不得删除未解决 finding。经评审的纯设备更换允许沿用归档证据仍有效的模块评审，状态给出 `carried_review_ref`。Auditor 仍提交绑定当前快照的独立宿主目标复核，并在终审核对最新 PATH 证据。人工释放后经 CR/重冻与实现解决的问题，可在新基线审查中填 recovery_resolutions（finding_id、decision_id、reason、evidence_refs），决策须绑定该 finding 所属批次的人工作业报告且已 audit-release；复核已整改处，不凭测试 Green 断言冗余已消除，再收集遗留 Red/Yellow 并终审。
 8. `audit-assign` 与 `audit-unavailable` 都要求当前代码审查和无待处理治理发现。自动化不可用不阻止代码审查；unverified_findings 与 verification_deferral_history 保留未复核事实，不再派 Fixer，刷新代码审查后仍可按 Yellow/未测试收尾；受影响消费者缺测也不能把 finding 标 resolved。
 
 ## 复测与报告

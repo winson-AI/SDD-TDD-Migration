@@ -124,7 +124,7 @@ def task(s):
     return item if item and not item.get('closed', True) else None
 
 
-def due(s):
+def due(s, *, blocked=None):
     """Prefer a ready managed wave, even when unrelated code is dirty or still being written."""
     import audit_closure
     from ledger import global_baseline
@@ -149,13 +149,16 @@ def due(s):
             if not device_retest and (not leaves_working or
                     (not managed and previous and previous.get('owner_baselines') == owner_baselines(s, path))):
                 continue  # Leave ordinary whole-snapshot retests to the final audit.
-            try:
-                if not managed and baseline is None:
+            if not managed and baseline is None:
+                try:
                     baseline = global_baseline(s)
+                except (Rejected, OSError, KeyError):
+                    return []  # Every unscoped PATH needs the shared baseline.
+            try:
                 expected = inputs(s, path, baseline)
-            except (Rejected, OSError, KeyError):
-                if not managed:
-                    return []
+            except (Rejected, OSError, KeyError) as exc:
+                if blocked is not None:
+                    blocked[path['path_id']] = str(exc)
                 continue
             if not same_inputs(s, path, previous, baseline, expected):
                 selected.append(path)
@@ -198,7 +201,8 @@ def handle(s, req, actor, sequence, root=None):
     if req['operation'] == 'integration-assign':
         role(actor, 'global-orchestrator')
         require(not task(s), 'integration Test-Runner still active')
-        selected = due(s)
+        blocked = {}
+        selected = due(s, blocked=blocked)
         require(selected, 'no global path is due on the current execution inputs')
         require(p.get('instance_id') and p.get('assignment_id'), 'integration Test-Runner identity required')
         authors = {a['instance_id'] for m in s['modules'].values() for a in m['assignments'].values() if a['role'] in ('implementer', 'fixer')}
@@ -215,6 +219,7 @@ def handle(s, req, actor, sequence, root=None):
             'module_id': 'GLOBAL', 'freeze_id': value['freeze_id'], 'code_baseline': value['code_baseline'],
             'snapshot': {mid: s['modules'][mid]['code_baseline'] for mid in mids},
             'inputs': {path['path_id']: inputs(s, path, value['code_baseline']) for path in selected},
+            **({'blocked_paths': blocked} if blocked else {}),
             **({'test_scope': 'visual'} if managed else {}),
             'owner_baselines': {x['path_id']: owner_baselines(s, x) for x in selected},
             'scope_policy': 'non-green-only', 'closed': False, 'fencing_token': sequence}

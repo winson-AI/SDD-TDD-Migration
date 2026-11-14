@@ -288,6 +288,7 @@ def code_review(s, inventory_ref, changes=None):
     """The review report with every derived field in place; conclusions, reasons and diffs are the Auditor's."""
     import audit_code_review
     import run_changes
+    carried = audit_code_review.carried(s)
     plan = (s.get('global_plan') or {}).get('content', {})
     features = [row['feature_id'] for row in read_json(check_ref(plan['feature_inventory_ref']))['features']] if plan.get('feature_inventory_ref') else []
     tasks = lambda rid: [{'module_id': mid, 'task_id': t['task_id']} for mid, m in s['modules'].items()
@@ -301,7 +302,7 @@ def code_review(s, inventory_ref, changes=None):
             'modules': [{'module_id': mid, 'diff_refs': [((changes or {}).get('modules') or {}).get(mid) or todo('{path, sha256} of the before/after evidence')],
                          'checks': {name: {'conclusion': todo('satisfied|finding|not-applicable'), 'reason': todo('what was compared'),
                                            'evidence_refs': [inventory_ref]} for name in audit_code_review.CHECKS}}
-                        for mid in s['modules'] if mid not in audit_code_review.carried(s)],  # after a repair: what it changed
+                        for mid in s['modules'] if mid not in carried],
             'findings': [], 'recovery_resolutions': [], 'debts': [iid for iid, _ in debts(s)],
             'goal_review': {'global_spec_ref': s['global_spec'], 'origin_spec_ref': origin, 'feature_ids': features,
                             'requirements': [{'requirement_id': rid, 'conclusion': todo('satisfied|finding|blocked'), 'reason': todo('original goal against the delivered code and its verification'),

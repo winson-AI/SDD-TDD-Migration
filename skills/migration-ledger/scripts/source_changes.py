@@ -2,7 +2,7 @@
 import copy
 from pathlib import Path
 
-from contracts import check_ref, digest, keyed, nonempty, read_json, require, verify_plan
+from contracts import Rejected, check_ref, digest, keyed, nonempty, read_json, require, verify_plan
 import context_readiness
 import decomposition
 import project_context
@@ -91,7 +91,7 @@ def validate(s, report_ref):
 
 
 def handle(root, s, req, actor):
-    from ledger import await_provider, reset_plan
+    from ledger import reset_plan, wait_for_providers
     p = req['payload']
     if req['operation'] == 'source-review':
         workflow.role(actor, 'global-orchestrator')
@@ -107,7 +107,7 @@ def handle(root, s, req, actor):
     require(review['subject_sha256'] == p['subject_sha256'] == subject(s, review['report_ref'], review.get('affected_modules')),
             'source impact review stale')
     report, affected = validate(s, review['report_ref'])
-    require(not workers_busy(s, review), 'finish or stop/revoke affected workers before context switch')
+    require(not workers_busy(s, review, report), 'finish or stop/revoke affected workers before context switch')
     require(not integration_busy(s, affected), 'finish affected integration before source context switch')
     decision = s['decisions'].get(p['decision_id'], {})
     require(decision.get('decision') == 'approved' and decision.get('module_id') is None
@@ -144,7 +144,7 @@ def handle(root, s, req, actor):
             m['source_context_continuation'] = {'plan_hash': m['plan_hash'], 'context_ref': new_ref,
                                                 'review_ref': review['report_ref']}
             if mid in affected:
-                await_provider(m)
+                wait_for_providers(s, m, replanned)
     for group in s.get('module_groups', {}).values():
         if affected.intersection(decomposition.leaves(s, group['module_id'])):
             group.pop('summary_ref', None); group.pop('summary_subject', None)
@@ -165,9 +165,18 @@ def handle(root, s, req, actor):
     review.update(status='applied', project_context_ref=new_ref, affected_modules=sorted(affected))
 
 
-def workers_busy(s, review):
-    return any(not a.get('closed') for mid in review.get('affected_modules', s['modules'])
-               for a in (s['modules'].get(mid) or {}).get('assignments', {}).values())
+def workers_busy(s, review, report=None):
+    affected = set(review.get('affected_modules', s['modules']))
+    if not any(not a.get('closed') for mid in affected & s['modules'].keys()
+               for a in s['modules'][mid]['assignments'].values()):
+        return False
+    try:
+        report = report if report is not None else read_json(check_ref(review['report_ref']))
+    except (Rejected, OSError):
+        return True
+    # Only reviewed reverify consumers can finish on an independent artifact.
+    changed = affected - {row['module_id'] for row in report['modules'] if row['action'] == 'reverify'}
+    return decomposition.resplit_workers_busy(s, affected, changed)
 
 
 def integration_busy(s, affected):

@@ -31,6 +31,39 @@ class WaveIntegrationTests(unittest.TestCase):
         f.implement('M001', 'I1'); f.verify_module('M001', 'T1'); f.complete('M001')
         return f.state()['global_next_step']
 
+    def test_missing_web_config_does_not_block_the_ready_android_path(self):
+        from unittest.mock import patch
+        import progress_signals
+
+        f = self.f
+        self.first_wave()
+        s = ledger.read_events(f.root)[0]
+        s['test_adapter'] = {'device': {'platforms': ['web', 'android'], 'web': {'url': 'https://example.test'},
+                                       'android': {'serial': 'test'}}}
+        web = {**s['global_paths'][0], 'path_id': 'WEB', 'platform': 'web', 'kind': 'automation'}
+        android = {**web, 'path_id': 'ANDROID', 'platform': 'android'}
+        s['global_paths'] = [web, android]
+        archived = f.ref('archived-web.json', {'headless': True})
+        s['target_preview'] = {'web_main_config': archived}
+        check_ref(archived).unlink()
+        step = ledger.routing(s)['global_next_step']
+        self.assertEqual(step['path_ids'], ['ANDROID'])
+        self.assertEqual(set(step['integration_blocked_paths']), {'WEB'})
+        payload = {'assignment_id': 'INT', 'instance_id': 'wave-runner', 'path_ids': step['path_ids']}
+        integration.handle(s, {'operation': 'integration-assign', 'payload': payload},
+                           {'role': 'global-orchestrator', 'instance_id': 'go'}, 99)
+        self.assertEqual([path['path_id'] for path in integration.scope(s)['plan']['paths']], ['ANDROID'])
+        # The drive loop mechanically assigns the wave before publishing its host signals.
+        running = ledger.routing(s)['global_next_step']
+        self.assertEqual(running['operation'], 'integration-submit')
+        signals = progress_signals.build(f.root, s, [], [], running)['signals']
+        self.assertTrue(any(signal['reason'] == 'integration-path-inputs-unavailable' and signal['evidence']['path_id'] == 'WEB'
+                            for signal in signals))
+        s['integration_assignment']['closed'] = True
+        self.assertIn('WEB', [path['path_id'] for path in ledger.audit_scope(s)['plan']['paths']])
+        with patch.object(ledger, 'global_baseline', side_effect=Rejected('shared code drift')):
+            self.assertEqual(integration.due(s), [])
+
     def run_gp1(self, aid, passing=True):
         f = self.f; scope = integration.scope(f.state())
         adapter = f.base / f'wave-{aid}.py'

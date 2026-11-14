@@ -450,6 +450,42 @@ class SourceChangeTests(unittest.TestCase):
                          context_readiness.subject(before, 'M002', 'coding'))
         self.assertEqual(after['source_change_history'][-1]['affected_modules'], ['M001'])
 
+    def test_source_append_lets_a_consumer_finish_visual_on_an_independent_artifact(self):
+        for mid in ('M001', 'M002'):
+            self.freeze(mid)
+        self.implement_and_test('M002')
+        f = self.f
+        s = ledger.read_events(f.root)[0]
+        consumer = s['modules']['M002']
+        s['modules']['M003'] = {**copy.deepcopy(consumer), 'module_id': 'M003', 'dependencies': [], 'assignments': {}}
+        consumer.update(phase='testing', dependencies=['M001', 'M003'])
+        report = self.report(affected=('M001',))
+        report['modules'][1]['action'] = 'reverify'
+        report['modules'].append({**report['modules'][1], 'module_id': 'M003', 'action': 'unchanged'})
+        consumer['plan']['paths'].append({'path_id': 'V', 'kind': 'visual',
+                                          'build_binding': {'module_id': 'M003', 'path_id': 'B'}})
+        assignment = consumer['assignments']['VIS'] = {'assignment_id': 'VIS', 'role': 'test-runner', 'artifact_only': True,
+            'execution_contract': {'path_ids': ['V']}, 'path_provider_inputs': {'V': 'HAP'}, 'fencing_token': 99}
+        s['global_plan']['registry_hash'] = digest(ledger.workflow.registry(s))
+        go = {'role': 'global-orchestrator', 'instance_id': 'go'}
+        host = {'role': 'host', 'instance_id': 'host'}
+        with patch.object(source_changes, 'verify_plan'), patch.object(ledger, 'bound_visual_inputs', return_value={'V': 'HAP'}):
+            source_changes.handle(f.root, s, {'operation': 'source-review', 'payload': {'report_ref': f.ref('visual-impact.json', report)}}, go)
+            subject = s['source_change_review']['subject_sha256']
+            s['decisions']['VIS'] = {'decision_id': 'VIS', 'decision': 'approved', 'module_id': None, 'consumed': False, 'subject_sha256': subject,
+                                     'human_source_ref': f.ref('approve-visual-append.md', 'Approved')}
+            request = {'operation': 'reconfigure-sources', 'payload': {'decision_id': 'VIS', 'subject_sha256': subject}}
+            s['modules']['M003']['dependencies'] = ['M001']
+            self.assertTrue(source_changes.workers_busy(s, s['source_change_review']))
+            s['modules']['M003']['dependencies'] = []
+            self.assertTrue(source_changes.next_action(s)['ready'])
+            source_changes.handle(f.root, s, request, host)
+            self.assertIs(consumer['assignments']['VIS'], assignment)
+            self.assertTrue(consumer['dependency_wait_after_visual'])
+            self.assertIsNone(consumer['blocked'])
+            self.assertTrue(consumer['execution_context_ref'])
+            ledger.worker_dependencies_ready(s, consumer, assignment)
+
     def test_related_blocker_can_replan_unrelated_blocker_remains(self):
         f = self.f
         for mid in ('M001', 'M002'):

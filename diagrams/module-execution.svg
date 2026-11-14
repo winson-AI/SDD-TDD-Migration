@@ -112,7 +112,7 @@
 <text x="800.0" y="1901.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">独立才保留未影响 TASK / 有效 Green</text>
 <text x="800.0" y="1930.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅补执行资产：保留已验收实现</text>
 <text x="800.0" y="1959.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">有效旧证据继续供代码依赖方使用</text>
-<text x="800.0" y="1988.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">新代码重跑 build / unit / static</text>
+<text x="800.0" y="1988.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">首次 Build / Unit 记录输入指纹</text>
 <text x="800.0" y="2017.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只补测试资产或四维 ID：复核 Gradle 原回执</text>
 <text x="800.0" y="2046.5" font-size="20.59" fill="#4b5563" text-anchor="middle" font-weight="400">static 审新 SPEC；复测受影响及非 Green 路径</text>
 <text x="800.0" y="2075.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">共享影响 / 无证明回退全验；过期漏报拒收</text>
@@ -138,7 +138,7 @@
 <rect x="1110" y="1750" width="410" height="250" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1315.0" y="1781.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">阻塞与明确收尾</text>
 <text x="1315.0" y="1815.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已有提供方暂不可用：等待 / 恢复</text>
-<text x="1315.0" y="1844.5" font-size="19.72" fill="#4b5563" text-anchor="middle" font-weight="400">Run 回溯 / 父 MO 重切：独立视觉先收尾</text>
+<text x="1315.0" y="1844.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">回溯 / 追加来源：独立视觉先收尾</text>
 <text x="1315.0" y="1873.5" font-size="21.11" fill="#4b5563" text-anchor="middle" font-weight="400">保留人工阻塞，决定与依赖均就绪才恢复</text>
 <text x="1315.0" y="1902.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">提供方输入变化：从最早失效阶段复测</text>
 <text x="1315.0" y="1931.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅缺自动化环境：Yellow / 未执行</text>
@@ -164,7 +164,7 @@
 <rect x="70" y="760" width="430" height="210" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="285.0" y="800.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">资源与 fidelity 输入</text>
 <text x="285.0" y="834.5" font-size="21.92" fill="#4b5563" text-anchor="middle" font-weight="400">API / URL / image / icon 来源追溯</text>
-<text x="285.0" y="863.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">名额满可先同步，回执唤醒调度</text>
+<text x="285.0" y="863.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">含规划或轮换占位，仍可同步资源</text>
 <text x="285.0" y="892.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">{qualifier} 保留同密度多档</text>
 <text x="285.0" y="921.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">限定 XML 值按配置生成</text>
 <text x="285.0" y="950.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Harmony 多设备配置分别取证</text>

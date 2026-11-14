@@ -62,6 +62,17 @@ class UpstreamPlanTests(unittest.TestCase):
         self.assertEqual(m['phase'], 'completed')
         self.assertEqual(set(m['results']), {p['path_id'] for p in doc['paths']})
         self.assertTrue(all(r['quality'] == 'green-passed' for r in m['results'].values()))
+        import ledger
+        from task_revalidation import command_receipts
+        state = ledger.read_events(f.root)[0]
+        self.assertFalse(state.get('issues'))
+        commands = [path for path in m['plan']['paths'] if path['kind'] in ('build', 'unit')]
+        self.assertEqual({path['path_id'] for path in commands}, {'M001-B', 'M001-U'})
+        m['change_request'] = {'from_freeze_id': m['freeze_id']}  # Inputs to a later incremental CR.
+        self.assertEqual(command_receipts(state, m, f.root, commands), [path['path_id'] for path in commands])
+        drift = f.target / 'new-build-input.txt'
+        drift.write_text('changed after initial Build and Unit')
+        self.assertEqual(command_receipts(state, m, f.root, commands), [])
 
     def test_direct_spec_repair_reuses_upstream_cases_and_retests_actual_code_failure(self):
         f = self.f; self.freeze(self.t.plan('M001'))

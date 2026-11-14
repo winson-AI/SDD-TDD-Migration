@@ -367,7 +367,10 @@ class PreparedRunRevisionTests(unittest.TestCase):
         self.assertIsNone(s['modules']['M001']['freeze_id'])
 
     def test_device_only_revision_keeps_current_build_unit_and_static_receipts(self):
-        from test_run_rehearsal import RunWalk
+        import audit_code_review
+        import report_skeleton
+        from test_ledger import code_review
+        from test_run_rehearsal import MO, RunWalk
         from execute_test import adapter_for
 
         src = test_source_changes.SourceChangeTests(); self.addCleanup(src.doCleanups)
@@ -376,10 +379,15 @@ class PreparedRunRevisionTests(unittest.TestCase):
         self.f = f
         f.split(src.d.proposal(ids=('M001', 'M002')))
         f.global_plan(); src.freeze('M001'); src.freeze('M002'); src.implement_and_test('M002')
+        src.implement_and_test('M001')
+        ledger.advance(f.root, MO, 'M010')
+        code_review(f)
         state = f.state(); old = state['modules']['M002']
+        previous_review = state['audit_code_review']
         old_env = state['target_preview']['environments']['android']
-        report = self.report({'test_adapter': {'device': {'android': {'serial': 'new-device'}}}}, affected=('M002',))
-        next(row for row in report['modules'] if row['module_id'] == 'M002')['action'] = 'reverify'
+        report = self.report({'test_adapter': {'device': {'android': {'serial': 'new-device'}}}})
+        for row in report['modules']:
+            row['action'] = 'reverify'
         f.raw('revise-run', self.review(report), role='host', module=None)
         state = f.state(); current = state['modules']['M002']
         self.assertEqual((current['freeze_id'], current['code_baseline'], current['build_baseline']),
@@ -405,6 +413,33 @@ class PreparedRunRevisionTests(unittest.TestCase):
         result = f.state()['modules']['M002']['results']['M002-P']
         self.assertEqual((result['quality'], result['retest_of']), ('green-passed', old['results']['M002-P']['test_run_id']))
         self.assertEqual(f.state()['modules']['M002']['phase'], 'dod')
+        step = next(step for step in f.state()['next_steps'] if step['module_id'] == 'M001')
+        f.raw('assign', {**step['payload'], 'assignment_id': 'PEER-RETEST', 'instance_id': 'test-runner'}, module='M001')
+        walk.model_turn(next(step for step in f.state()['next_steps'] if step['module_id'] == 'M001'))
+        f.call('accept', {'assignment_id': 'PEER-RETEST'}, module='M001')
+        for mid in ('M001', 'M002', 'M010'):
+            ledger.advance(f.root, MO, mid)
+        state = f.state()
+        cursor = state['global_next_step']
+        self.assertEqual((cursor['operation'], cursor['reason'], cursor['review_modules']),
+                         ('audit-code-review', 'review-after-device-change', []))
+        self.assertEqual(cursor['carried_review_ref'], previous_review['report_ref'])
+        self.assertFalse(audit_code_review.current(state))  # Auditor must submit the new goal review.
+        self.assertEqual(report_skeleton.code_review(state, previous_review['change_inventory_ref'])['modules'], [])
+        changed = copy.deepcopy(state)
+        changed['modules']['M002']['freeze_id'] = 'changed'
+        self.assertEqual(audit_code_review.carried(changed), {'M001'})
+        changed['global_plan']['registry_hash'] = 'changed'
+        self.assertEqual(audit_code_review.carried(changed), set())
+        code_review(f, modules=[])
+        updated = f.state()
+        self.assertTrue(audit_code_review.current(updated))
+        self.assertEqual(updated['audit_code_review']['carried_modules'], ['M001', 'M002'])
+        self.assertIn(previous_review['report_ref'], updated['audit_code_review']['evidence_refs'])
+        evidence = check_ref(previous_review['report_ref'])
+        evidence.write_text('drifted previous report')
+        self.assertEqual(audit_code_review.carried(state), set())
+        self.assertFalse(audit_code_review.current(updated))
 
     def test_device_review_survives_an_independent_freeze_and_only_holds_affected_paths(self):
         from unittest.mock import patch

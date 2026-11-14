@@ -71,13 +71,26 @@ def carried(s):
     """The modules a review may carry from the last one: nothing above them moved and their own SPEC, code and allocation
     are as that review saw them (a retest adds an author, not a change; independence is checked on every module anyway).
     A review after a repair reads what the repair changed."""
-    prior = (s.get('audit_code_review') or {}).get('snapshot')
+    review = s.get('audit_code_review') or {}
+    prior = review.get('snapshot')
     now = snapshot(s)
-    if not prior or {k: v for k, v in prior.items() if k != 'modules'} != {k: v for k, v in now.items() if k != 'modules'}:
+    excluded = ('modules', 'project_context_sha256')
+    if not prior or {k: v for k, v in prior.items() if k not in excluded} != {k: v for k, v in now.items() if k not in excluded}:
         return set()
+    device_switch = prior['project_context_sha256'] != now['project_context_sha256']
+    if device_switch:
+        from runner_storage import device_build_contexts
+        if (not review.get('change_inventory_ref') or not review.get('evidence_refs')
+                or not any(digest(ref) == prior['project_context_sha256'] for ref in device_build_contexts(s))):
+            return set()
+        try:
+            for ref in [review['report_ref'], review['change_inventory_ref'], *review['evidence_refs']]:
+                check_ref(ref)
+        except (Rejected, OSError):
+            return set()
     same = lambda a, b: a is not None and {k: v for k, v in a.items() if k != 'authors'} == {k: v for k, v in b.items() if k != 'authors'}
     kept = {mid for mid, entry in now['modules'].items() if same(prior['modules'].get(mid), entry)}
-    return kept if kept != set(now['modules']) else set()  # nothing changed: the re-review reads everything
+    return kept if device_switch or kept != set(now['modules']) else set()
 
 
 def require_current(s, auditor=None):
@@ -95,9 +108,10 @@ def accept(s, p, actor):
     require(actor['instance_id'] not in prepared_tests.global_authors(s), 'Auditor must be independent of GLOBAL script author')
     require(all(actor['instance_id'] not in m['authors'] for m in s['modules'].values()), 'Auditor must be independent')
     report = read_json(check_ref(p.get('report_ref')))
+    now = snapshot(s)
     require(report.get('schema_version') == 1 and report.get('run_id') == s['run_id'], 'code review run/schema mismatch')
     require(report.get('auditor_instance_id') == actor['instance_id'], 'code review author mismatch')
-    require(report.get('snapshot') == snapshot(s), 'code review snapshot stale')
+    require(report.get('snapshot') == now, 'code review snapshot stale')
     kept = carried(s)
     reviews = keyed(report['modules'], 'module_id') if report.get('modules') else {}
     require(set(s['modules']) - kept <= set(reviews) <= set(s['modules']),
@@ -115,6 +129,11 @@ def accept(s, p, actor):
             require(item.get('conclusion') in ('satisfied', 'finding', 'not-applicable') and
                     isinstance(item.get('reason'), str) and item['reason'].strip(), 'code review conclusion/reason required')
             refs += nonempty(item.get('evidence_refs'), 'code review evidence required')
+    prior = s.get('audit_code_review')
+    if kept - set(reviews) and prior['snapshot']['project_context_sha256'] != now['project_context_sha256']:
+        for ref in [prior['report_ref'], prior['change_inventory_ref'], *prior['evidence_refs']]:
+            if ref not in refs:
+                refs.append(ref)
     require(isinstance(report.get('findings'), list), 'code findings list required')
     items = keyed(report['findings'], 'finding_id') if report['findings'] else {}
     for fid, finding in items.items():
@@ -162,7 +181,7 @@ def accept(s, p, actor):
             require(baseline(m['code_files']) == m['code_baseline'], 'review code evidence stale')
     if s.get('audit_code_review'):
         s.setdefault('audit_code_review_history', []).append(copy.deepcopy(s['audit_code_review']))
-    s['audit_code_review'] = {'report_ref': p['report_ref'], 'snapshot': snapshot(s),
+    s['audit_code_review'] = {'report_ref': p['report_ref'], 'snapshot': now,
         'change_inventory_ref': inventory_ref,
         'auditor_instance_id': actor['instance_id'], 'findings': list(items.values()), 'evidence_refs': refs,
         **({'carried_modules': sorted(set(s['modules']) - set(reviews))} if set(s['modules']) - set(reviews) else {}),

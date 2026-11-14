@@ -3237,6 +3237,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     revision_step = run_changes.next_action(s)
     recovery_step = workflow.audit_recovery_step(s)
     wave = integration.task(s)
+    wave_blocked = {}
     if audit_closure.active(s):
         global_next = audit_closure.global_step(s)
     elif audit and not audit.get('closed'):
@@ -3275,18 +3276,24 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     elif wave:
         global_next = {'operation': 'integration-submit', 'role': 'test-runner', 'ready': True, 'assignment_id': wave['assignment_id'],
                        'path_ids': wave['path_ids'], 'reason': 'integration-running', 'continue_modules': rounds['ready_modules']}
+        wave_blocked = wave.get('blocked_paths') or {}
         if wave.get('artifact_only'):
             global_next.update(artifact_only=True, test_scope='visual', instance_id=wave['instance_id'],
                                fencing_token=wave['fencing_token'])
-    elif (wave_paths := integration.due(s)):
+    elif (wave_paths := integration.due(s, blocked=wave_blocked)):
         global_next = {'operation': 'integration-assign', 'role': 'global-orchestrator', 'ready': True, 'reason': 'wave-complete',
                        'path_ids': [x['path_id'] for x in wave_paths], 'continue_modules': rounds['ready_modules']}
     elif rounds['all_settled'] and not audit_code_review.current(s, ref_check):
         global_next = {'operation': 'audit-code-review', 'role': 'auditor', 'ready': True,
                        'reason': 'review-whole-change-before-defects', 'snapshot': audit_code_review.snapshot(s)}
         kept = audit_code_review.carried(s)
-        if kept:  # after a repair: what changed is reviewed, the rest is carried from the last review
-            global_next.update(reason='review-what-the-repair-changed', review_modules=sorted(set(s['modules']) - kept))
+        if kept:
+            previous = s['audit_code_review']
+            device_switch = previous['snapshot']['project_context_sha256'] != global_next['snapshot']['project_context_sha256']
+            global_next.update(reason='review-after-device-change' if device_switch else 'review-what-the-repair-changed',
+                               review_modules=sorted(set(s['modules']) - kept))
+            if device_switch:
+                global_next['carried_review_ref'] = previous['report_ref']
     elif audit_code_review.pending(s) or audit_closure.leftovers(s):
         blockers = rounds['blockers']
         global_next = {'operation': None if blockers else 'audit-collect', 'role': 'global-orchestrator', 'ready': not blockers,
@@ -3325,6 +3332,8 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
                                         'instance_id': s['audit_code_review']['auditor_instance_id']})
     else:
         global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'module-work-remaining'}
+    if wave_blocked:
+        global_next['integration_blocked_paths'] = wave_blocked
     global_next = context_readiness.annotate(s, None, global_next)
     run_fixed_flow(s, global_next)
     if verdict_in_review(s, global_next):

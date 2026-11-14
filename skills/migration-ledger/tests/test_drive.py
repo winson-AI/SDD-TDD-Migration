@@ -51,6 +51,38 @@ class DriveTests(unittest.TestCase):
 
 
 class ReadyImplementerTests(unittest.TestCase):
+    def test_delivered_plan_reserves_worker_slot_but_allows_frozen_resource_preparation(self):
+        from unittest.mock import patch
+        import ledger
+        from test_iterative_spec import UpstreamPlanTests
+
+        fixture = UpstreamPlanTests()
+        fixture.setUp(); self.addCleanup(fixture.doCleanups)
+        f = fixture.f
+        fixture.freeze(fixture.t.plan('M001'))
+        replay = ledger.read_events
+
+        def one_slot(*args, **kwargs):
+            state, events = replay(*args, **kwargs)
+            state['max_parallel_modules'] = 1
+            return state, events
+
+        with patch.object(ledger, 'read_events', side_effect=one_slot):
+            before = f.state()
+            plan = next(step for step in before['next_steps'] if step['module_id'] == 'M002')
+            self.assertEqual(plan['operation'], 'plan')
+            drive.capped(f.root, before, [{'kind': 'dispatch', 'module_id': 'M002', 'operation': 'plan'}])
+            self.assertFalse(any(line.get('module_id') == 'M001' for line in drive.drive(f.root, MO)))
+            with patch.object(drive.resource_binding, 'needs_sync', return_value=True):
+                lines = drive.drive(f.root, MO)
+                pending = next(line for line in lines if line.get('operation') == 'resource-sync')
+                self.assertEqual(pending['module_id'], 'M001')
+                a = f.state()['modules']['M001']['assignments'][pending['assignment_id']]
+                self.assertTrue(a['resource_wait'])
+                with patch.object(drive.resource_binding, 'ready_receipt', return_value={'sync': True}):
+                    self.assertFalse(any(line.get('module_id') == 'M001' and line['kind'] == 'running'
+                                         for line in drive.drive(f.root, MO)))
+
     def test_resource_start_respects_a_delivered_rotation_until_coding_is_assigned(self):
         from tempfile import TemporaryDirectory
         from unittest.mock import patch

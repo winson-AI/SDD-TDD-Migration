@@ -131,6 +131,9 @@ def build(root, state, events, steps, global_step, at=None):
         signals.append({'module_id': None, 'reason': 'audit-snapshot-stale', 'owner': 'host',
                         'next_action': 'confirm auditor stopped; audit-revoke before module invalidation', 'severity': 'human',
                         'evidence': {'sequence': len(events), 'step': global_step}})
+    for pid, detail in global_step.get('integration_blocked_paths', {}).items():
+        signals.append({'module_id': None, 'reason': 'integration-path-inputs-unavailable', 'owner': 'host', 'severity': 'action',
+                        'next_action': f'{pid}: {detail}', 'evidence': {'path_id': pid, 'detail': detail}})
     for step in steps + [{'module_id': None, **global_step}]:
         mid, reason = step.get('module_id'), step.get('reason')
         if step.get('ready'):

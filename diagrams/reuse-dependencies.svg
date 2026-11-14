@@ -103,7 +103,7 @@
 <rect x="1250" y="450" width="290" height="200" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="1395.0" y="485.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">同 Run 追加来源</text>
 <text x="1395.0" y="519.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GO 记录每个叶子的影响</text>
-<text x="1395.0" y="548.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅等待相关派发与集成</text>
+<text x="1395.0" y="548.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">独立视觉按原派发收尾</text>
 <text x="1395.0" y="577.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">重规划叶子更新 SPEC</text>
 <text x="1395.0" y="606.5" font-size="21.67" fill="#4b5563" text-anchor="middle" font-weight="400">已有验收代码的消费者复测</text>
 <text x="1395.0" y="635.5" font-size="18.03" fill="#4b5563" text-anchor="middle" font-weight="400">未提交 Plan 的消费者继续规划</text>

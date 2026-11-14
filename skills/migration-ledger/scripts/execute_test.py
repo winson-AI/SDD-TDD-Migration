@@ -359,11 +359,10 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
     for pid in pids:
         atomic(out / named('query', pid), queries[pid])
     execution_env['SDD_TEST_QUERY_FILE'] = str(out / named('query', path_id))
-    from issues import only_owed_stage
+    # Capture eligible commands on their first execution. A later CR can only
+    # reuse what was bound in the original receipt. Batched Unit PATHs share it.
     revalidation_inputs = runner_storage.revalidation_inputs(s, root, cwd, argv) if (
-        module_id != 'GLOBAL' and path.get('kind') in ('build', 'unit')
-        and (only_owed_stage(s, module_id, 'dod') or only_owed_stage(s, module_id, 'path')
-             or path.get('kind') == 'build' and len(tv.paths(m, 'build')) > 1)) else None
+        s.get('project_context_ref') and module_id != 'GLOBAL' and all(p.get('kind') in ('build', 'unit') for p in paths)) else None
     started = datetime.now(timezone.utc).isoformat()
     termination, proc, aborted = None, None, None
     capture = Capture(out, {
