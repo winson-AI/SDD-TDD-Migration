@@ -333,6 +333,7 @@ def call_video_verify_api(
         prompt: str,
         config: Optional[AppConfig] = None,
         system_prompt: Optional[str] = None,
+        *, video_sha256: Optional[str] = None,
 ) -> str:
     """
     直接调用视频验证模型 API。
@@ -357,7 +358,7 @@ def call_video_verify_api(
         raise FileNotFoundError(f"Video file does not exist: {video_file}")
 
     client, model_name = _create_client(config)
-    base64_video = encode_video_base64(video_file)
+    base64_video = encode_video_base64(video_file, sha256=video_sha256)
     mime_type = get_video_mime_type(video_file)
 
     response = client.chat.completions.create(

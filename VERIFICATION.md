@@ -22,19 +22,19 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1847 | 全量通过 |
-| migration-test/tests | 88 | 全量通过 |
+| migration-ledger/tests | 1850 | 全量通过 |
+| migration-test/tests | 91 | 全量通过 |
 | runtime/harmony/tests | 128 | 全量通过 |
 
 三套回归使用已安装 iOS 可选依赖的运行时 Python 3.12。Ledger 使用 pytest-xdist，七叶演练仍为 15 轮，对照历史 11 轮记录保留警告。Migration Test 保留 facebook-wda 1.5.4 的字符串转义警告。
 
 ### 移动端派发与 iOS 取证
 
-Ledger 回归验证宿主独立执行移动端波次与终审派发，同一派发重复启动时沿用已入账结果。缺少真机配置时模拟器仍可派发，填入真机档位后仅其 PATH 待验证。纯设备修订沿用历史 GLOBAL JUnit 原回执与 `test_run_id`。终审跨配置修订保留有效的独立批次，篡改其中一条回执后只补验该 PATH。
+Ledger 回归验证设备等待期间让出并行名额，设备就绪回执绑定原派发与 PATH。叶子先选可用设备的就绪 PATH，保留已入账 Green 并继续独立路径。模拟签名 IPA 及 CoreDevice 回执验证叶子与 GLOBAL 共用代码覆盖、同版本不同安装路径的拒绝，以及同哈希包在新构建路径中继续复用。纯设备修订和终审批次恢复的回归同时通过。
 
-移动端回归验证同设备排队、其他设备可继续，设备不可用时返回当前 PATH 的环境 Yellow。iOS 夹具覆盖真机与模拟器错接、已装旧构建、前台应用与检查点 UI 树、普通截图配有 UDID 时跳过录屏、视频来源错配及断言区间不足。
+移动端回归验证等待时间超过执行预算后仍能在获准启动时开始计时。用真实 sandbox 入口与受控本机设备租约验证了等设备和等宿主确认两个阶段。iOS 回归用实际编码视频核对 AVFoundation UID 能力选择、错配 WDA 画面、模型请求的片段字节、ASSERT 绑定和 PATH 中间的覆盖缺口。模型及物理设备使用夹具。
 
-在一次性 iOS 26.5 模拟器上实跑当前录屏后端，得到 7.28 秒的 MP4，首末帧可解码，视频哈希与回执一致。此冒烟覆盖 simctl 与媒体回执，WDA 身份使用夹具。
+在一次性 iOS 26.5 模拟器上由 simctl 录制实际系统设置切换，得到 6.807 秒、244 个可解码帧。全程区间检查通过，从约 3.001 秒的冻结断言区间裁出 146 帧。此冒烟覆盖 simctl、媒体回执及裁剪，WDA 身份使用夹具。
 
 当前宿主的 CoreDevice 枚举无可用 iOS 真机。签名业务 App 的真机部署、正式业务 PATH 与 AVFoundation 采集仍待在可用设备上实跑。
 

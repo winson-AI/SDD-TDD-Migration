@@ -18,6 +18,7 @@ def get_screenshot(client, width, height):
     # Preserve the native image. The executor uses WDA points, including on Retina devices.
     try:
         image = client.screenshot(format="pillow")
+        captured_at = time.time()
         buffered = BytesIO()
         image.convert("RGB").save(buffered, format="JPEG", quality=95)
         layout = client.source(format="xml")
@@ -25,7 +26,7 @@ def get_screenshot(client, width, height):
             raise ValueError("WDA did not return a UI tree")
     except Exception as exc:
         raise RuntimeError("iOS screenshot or UI tree unavailable") from exc
-    return Screenshot(base64.b64encode(buffered.getvalue()).decode("ascii"), layout, width, height)
+    return Screenshot(base64.b64encode(buffered.getvalue()).decode("ascii"), layout, width, height, captured_at=captured_at)
 
 
 def _device_table(args):
@@ -52,7 +53,7 @@ def physical_installation(device, bundle_id):
     if len(installed) != 1 or not installed[0].get("bundleVersion"):
         raise ValueError("iOS device must have the provisioned App with an observable build version")
     return {"udid": device["hardwareProperties"]["udid"], "bundle_id": bundle_id, "core_device_id": device["identifier"],
-            "build_version": str(installed[0]["bundleVersion"]),
+            "build_version": str(installed[0]["bundleVersion"]), "bundle_url": installed[0].get("url"),
             "os_version": device.get("deviceProperties", {}).get("osVersionNumber")}
 
 
@@ -73,24 +74,35 @@ def _simulator_command(udid, name):
     return ["xcrun", "simctl", "io", matching[0], "recordVideo"]
 
 
-def _physical_command(udid):
-    import imageio_ffmpeg
+def _physical_command(udid, uid=None, *, timed=False):
+    from .recording import ffmpeg
 
-    device = physical_device(udid, capture=True)
+    exe = ffmpeg()
+    use_uid = bool(uid) and '-video_device_id ' in subprocess.run([exe, '-hide_banner', '-h', 'demuxer=avfoundation'],
+                                capture_output=True, text=True, timeout=10, check=True).stdout
+    device = physical_device(udid, capture=not use_uid)
     name = device["deviceProperties"]["name"]
-    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
-    listing = subprocess.run([ffmpeg, "-f", "avfoundation", "-list_devices", "true", "-i", ""],
-                             capture_output=True, text=True, timeout=15).stderr
-    video_devices = listing.partition("AVFoundation video devices:")[2].partition("AVFoundation audio devices:")[0]
-    indices = [index for index, label in re.findall(r"\[(\d+)]\s+([^\r\n]+)", video_devices) if label.strip() == name]
-    if len(indices) != 1:
-        raise ValueError("one matching iOS AVFoundation capture source is required for recording")
-    return ([ffmpeg, "-nostdin", "-f", "avfoundation", "-framerate", "30", "-i", f"{indices[0]}:none",
-             "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p"],
-            {"backend": "avfoundation", "core_device_id": device["identifier"], "capture_index": int(indices[0]), "capture_name": name})
+    facts = {"backend": "avfoundation", "core_device_id": device["identifier"], "capture_name": name}
+    if use_uid:
+        selection = ["-video_device_id", f"uid:{uid}", "-i", ":none"]
+        facts["capture_uid"] = uid
+    else:
+        listing = subprocess.run([exe, "-f", "avfoundation", "-list_devices", "true", "-i", ""],
+                                 capture_output=True, text=True, timeout=15).stderr
+        video_devices = listing.partition("AVFoundation video devices:")[2].partition("AVFoundation audio devices:")[0]
+        indices = [index for index, label in re.findall(r"\[(\d+)]\s+([^\r\n]+)", video_devices) if label.strip() == name]
+        if len(indices) != 1:
+            raise ValueError("one matching iOS AVFoundation capture source is required for recording")
+        selection = ["-i", f"{indices[0]}:none"]
+        facts["capture_index"] = int(indices[0])
+    command = [exe, "-nostdin", "-f", "avfoundation", "-framerate", "30", *selection,
+               "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p"]
+    if timed:
+        command.extend(["-fps_mode", "passthrough"])
+    return command, facts
 
 
-def start_screen_record(udid, info, physical=None):
+def start_screen_record(udid, info, physical=None, *, timed=False, uid=None):
     dest = output_path(temp_directory() / ("ios-recording-" + uuid4().hex + ".mp4"))
     if not udid or type(info.get("isSimulator")) is not bool:
         raise ValueError("a configured iOS UDID and WDA device identity are required for recording")
@@ -101,7 +113,7 @@ def start_screen_record(udid, info, physical=None):
     else:
         if not physical:
             raise ValueError("iOS physical recording requires a deployment-bound WDA device")
-        command, source = _physical_command(udid)
+        command, source = _physical_command(udid, uid, timed=timed)
         if source["core_device_id"] != physical["identifier"]:
             raise ValueError("iOS capture device differs from the deployment")
         progress = dest.with_suffix(".progress")
@@ -125,7 +137,8 @@ def start_screen_record(udid, info, physical=None):
             proc.kill()
             proc.wait(timeout=5)
             raise
-    return proc, dest, progress, {**source, "started_at": started, "udid": udid, "wda_uuid": info["uuid"]}
+    return proc, dest, progress, {**source, "started_at": started, "udid": udid, "wda_uuid": info["uuid"],
+                                  **({"timed": True} if timed else {})}
 
 
 def stop_screen_record(state, path=None):
@@ -145,30 +158,35 @@ def stop_screen_record(state, path=None):
     if (code != 0 and not (stopping and code in (-signal.SIGINT, 255))) or not source.is_file() or not source.stat().st_size:
         raise RuntimeError("iOS recording did not produce video")
     if target:
-        import cv2
-        video = cv2.VideoCapture(str(source))
-        try:
-            frames, fps = video.get(cv2.CAP_PROP_FRAME_COUNT), video.get(cv2.CAP_PROP_FPS)
-            readable, _ = video.read()
-            if not readable or not frames > 0 or not fps > 0:
-                raise RuntimeError("iOS recording is not decodable")
-            if frames > 1:
-                video.set(cv2.CAP_PROP_POS_FRAMES, int(frames) - 1)
-                if not video.read()[0]:
-                    raise RuntimeError("iOS recording is missing its final frame")
-        finally:
-            video.release()
+        if facts.pop("timed", False):
+            from .recording import capture_times
+            facts.update(capture_times(source, facts, stopped_at))
+        else:
+            _legacy_times(source, facts, stopped_at)
         source.replace(output_path(target))
         from contracts import file_ref
         from run_storage import atomic_bytes
-        duration = frames / fps
-        if facts["backend"] == "simctl":
-            # simctl can spend part of the launch interval preparing its encoder.
-            facts["started_at"] = max(facts["started_at"], stopped_at - duration)
-        facts.update(video_ref=file_ref(target), decoded_duration=duration,
-                     ended_at=min(stopped_at, facts["started_at"] + duration))
+        facts["video_ref"] = file_ref(target)
         atomic_bytes(output_path(target.with_suffix(".ios-capture.json")), json.dumps(facts).encode() + b"\n")
     else:
         source.unlink()
     if progress:
         progress.unlink(missing_ok=True)
+
+
+def _legacy_times(source, facts, stopped_at):
+    import cv2
+    video = cv2.VideoCapture(str(source))
+    try:
+        frames, fps = video.get(cv2.CAP_PROP_FRAME_COUNT), video.get(cv2.CAP_PROP_FPS)
+        if not video.read()[0] or not frames > 0 or not fps > 0:
+            raise RuntimeError("iOS recording is not decodable")
+        video.set(cv2.CAP_PROP_POS_FRAMES, int(frames) - 1)
+        if not video.read()[0]:
+            raise RuntimeError("iOS recording is missing its final frame")
+    finally:
+        video.release()
+    duration = frames / fps
+    if facts["backend"] == "simctl":
+        facts["started_at"] = max(facts["started_at"], stopped_at - duration)
+    facts.update(decoded_duration=duration, ended_at=min(stopped_at, facts["started_at"] + duration))

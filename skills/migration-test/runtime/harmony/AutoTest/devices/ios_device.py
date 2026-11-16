@@ -1,5 +1,6 @@
 """MobileAgenticOperator's WebDriverAgent backend for the shared device protocol."""
 import json
+import subprocess
 import time
 from urllib.parse import urlsplit
 
@@ -25,6 +26,7 @@ class IosDevice(DeviceProtocol):
         self._recording = None
         self._teardown_callbacks = []
         self._execution = execution
+        self._capture_uid = None
         self._physical = None
         if not self._client.is_ready():
             raise ValueError("a reachable WebDriverAgent is required on the stated iOS device")
@@ -50,7 +52,10 @@ class IosDevice(DeviceProtocol):
                 else:
                     self._physical = physical_device(receipt["udid"])
                     evidence["installed"] = physical_installation(self._physical, receipt["bundle_id"])
+                    self._capture_uid = receipt.get("avfoundation_uid")
                 evidence["deployment_ref"] = binding["deployment_ref"]
+                if self._capture_uid:
+                    evidence["avfoundation_uid"] = self._capture_uid
             check_device(binding, baseline, evidence)
         if observation:
             atomic_bytes(output_path(observation), json.dumps(evidence).encode() + b"\n")
@@ -163,7 +168,8 @@ class IosDevice(DeviceProtocol):
             raise RuntimeError("iOS screen recording already active")
         if self._url.hostname not in ("localhost", "127.0.0.1", "::1"):
             raise ValueError("a local WDA endpoint and its attached iOS device are required for recording")
-        self._recording = ios.start_screen_record(self._udid, self._info, self._physical)
+        timed = bool(self._execution and self._execution[0].get("recording_contract"))
+        self._recording = ios.start_screen_record(self._udid, self._info, self._physical, timed=timed, uid=self._capture_uid)
 
     def stop_screen_record(self, path=None):
         if self._recording is None:
@@ -182,7 +188,7 @@ class IosDevice(DeviceProtocol):
                 report = self._report_generator
                 final = report.video_dir / "final.mp4" if report and report.video_dir else None
                 self.stop_screen_record(final)
-        except (OSError, RuntimeError, ValueError) as exc:
+        except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
             logger.warning("iOS screen recording unavailable: %s", exc)
         finally:
             for callback in self._teardown_callbacks:

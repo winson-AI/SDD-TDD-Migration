@@ -11,6 +11,7 @@ from pathlib import Path
 import signal
 import subprocess
 import sys
+import time
 sys.dont_write_bytecode = True
 import uuid
 import context_readiness
@@ -21,7 +22,7 @@ import prepared_tests
 import project_context
 from execution_capture import Capture
 
-from contracts import baseline, check_ref, file_ref, read_json, require
+from contracts import Rejected, baseline, check_ref, digest, file_ref, read_json, require
 from ledger import status, atomic, audit_scope
 
 
@@ -164,6 +165,56 @@ def builtin_mobile(s, path):
     return builtin_platform(s, path) in ('android', 'ios', 'harmony')
 
 
+def device_start_gate(root, module_id, assignment, out, query, command, timeout, capture):
+    """The runtime holds the resolved device; the Ledger grants a leaf execution slot."""
+    import ledger
+
+    identity = {'test_run_id': query['test_run_id']}
+    ready = out / 'device-ready.json'
+    next_check = 0
+    prepare_deadline = time.monotonic() + timeout
+
+    def start():
+        nonlocal next_check
+        now = time.monotonic()
+        if now < next_check:
+            return False
+        next_check = now + .4
+        state = ledger.read_events(root)[0]
+        if module_id == 'GLOBAL':
+            key = 'integration_assignment' if assignment.get('mode') == 'integration' else 'audit_test_assignment'
+            current = state.get(key) or {}
+        else:
+            module = state['modules'][module_id]
+            current = module['assignments'][assignment['assignment_id']]
+        require(current.get('assignment_id') == assignment['assignment_id'] and not current.get('closed'),
+                'mobile dispatch closed while waiting for its device')
+        if not ready.is_file():
+            if not (out / 'device-wait.json').is_file() and now >= prepare_deadline:
+                raise subprocess.TimeoutExpired(command, timeout)
+            return False
+        require(read_json(ready) == identity, 'device readiness belongs to another attempt')
+        if current.get('device_wait'):
+            if ledger.worker_slots(state) >= state['max_parallel_modules']:
+                return False
+            aid = current['assignment_id']
+            try:
+                ledger.apply(root, {'schema_version': 1, 'run_id': state['run_id'], 'module_id': module_id,
+                    'expected_revision': module['revision'], 'request_id': 'mobile-start-' + digest([module_id, aid]),
+                    'operation': 'mobile-test-start', 'payload': {'assignment_id': aid,
+                        'fencing_token': current['fencing_token'], 'device_ready_ref': file_ref(ready)}},
+                    {'role': 'test-runner', 'instance_id': current['instance_id']}, publish=False)
+            except Rejected as exc:
+                if str(exc).startswith('stale revision:') or str(exc) == 'parallel budget exhausted':
+                    return False
+                raise
+        capture.state['device_started_at'] = datetime.now(timezone.utc).isoformat()
+        atomic(out / 'device-start.json', identity)
+        return True
+
+    return start
+
+
 def adapter_for(s, path, root):
     """What runs a PATH when the host names nothing: build, unit and in-process functional PATHs have their frozen command;
     a device PATH runs the adapter the project states for its platform (test_adapter.adapters), else the project's one
@@ -281,6 +332,11 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
         refs = m.get('path_build_artifacts')
         require(all(tv.managed_visual_artifacts(s, p, refs.get(p['path_id'], []) if refs is not None else m['build_artifacts'])
                     for p in paths), 'accepted managed visual build or environment drifted')
+    if a.get('deployed_mobile_inputs'):
+        from ios_evidence import artifact_inputs
+        require(all(a['deployed_mobile_inputs'].get(p['path_id']) == artifact_inputs(s, module_id, p) for p in paths)
+                and argv == adapter_for(s, path, root)['argv'],
+                'iOS deployed artifact inputs or managed command changed')
     if a.get('mode') == 'audit-execute':
         from audit_execution import batch_inputs, check_path_inputs
         for planned_path in paths:
@@ -344,11 +400,13 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
              'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'execution_contract_version': 2}
     if path.get('kind', 'automation') == 'automation' and path.get('platform') in ('android', 'ios', 'harmony'):
         query['step_contract_version'] = 1
+    managed_mobile = builtin_mobile(s, path) and str(Path(__file__).resolve().parents[2] / 'migration-test/runtime/harmony/sandbox.py') in argv
+    if managed_mobile:
+        query.update(assignment_id=assignment_id, test_run_id=run_ids[path_id])
     if builtin_platform(s, path) == 'ios':
-        device = project_context.path_device(path)
-        query['ios_execution'] = dict(project_context.device_inputs(s['test_adapter']['device']).get(device) or {})
-        if path.get('ios_device_profile'):
-            query['ios_execution']['profile'] = path['ios_device_profile']
+        from ios_evidence import RECORDING_CONTRACT, execution_binding
+        query['ios_execution'] = execution_binding(s, module_id, path)
+        query['ios_recording_contract'] = RECORDING_CONTRACT
         query.update(assignment_id=assignment_id, test_run_id=run_ids[path_id])
     if prepared: query['frozen_test_assets'] = prepared
     if test_binding: query['test_asset_binding'] = test_binding
@@ -401,6 +459,10 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
         'run_id': s['run_id'], 'module_id': module_id, 'assignment_id': assignment_id,
         'actor_instance_id': a['instance_id'], 'test_run_id': test_run_id, 'path_id': ','.join(pids),
         'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline']})
+    gate = None
+    if managed_mobile:
+        execution_env['SDD_MOBILE_HOST_PID'] = str(os.getpid())
+        gate = device_start_gate(root, module_id, a, out, query, command, timeout, capture)
     note = ''
     try:
         # An agentic adapter can spawn media/tools processes; stop the whole attempt.
@@ -408,7 +470,10 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
                                 stderr=subprocess.PIPE, start_new_session=True, env=execution_env)
         capture.attach(proc)
         try:
-            capture.wait(proc, timeout)
+            if gate:
+                capture.wait(proc, timeout, start=gate)
+            else:
+                capture.wait(proc, timeout)
             exit_code = proc.returncode
             if exit_code < 0 or exit_code == 124:
                 termination = finish_timeout(proc, capture)
@@ -478,9 +543,12 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
                      'confidence': 'confirmed' if ours else 'observed', 'owner': module_id, 'next_action': 'fix' if ours else 'diagnose',
                      'evidence_refs': [file_ref(out / 'execution.log'), *([file_ref(located)] if located else [])],
                      **({'failures_ref': file_ref(located)} if located else {})}
-        atomic(out / 'result.json', {'producer': 'build-executor',
-            'build_artifacts': [file_ref(run_storage.checked_path(f, out)) for f in sorted(out.rglob('*'))
-                                if f.is_file() and f.suffix.lower() in ('.hap', '.hsp', '.apk')], 'quality': quality,
+        build_outputs = [run_storage.checked_path(f, out) for f in sorted(out.rglob('*'))
+                         if f.is_file() and f.suffix.lower() in ('.hap', '.hsp', '.apk', '.ipa')]
+        coverage = [file_ref(run_storage.checked_path(f.with_suffix('.ipa.coverage.json'), out))
+                    for f in build_outputs if f.suffix.lower() == '.ipa' and f.with_suffix('.ipa.coverage.json').is_file()]
+        atomic(out / 'result.json', {'producer': 'build-executor', 'build_artifacts': [file_ref(f) for f in build_outputs],
+            **({'ios_build_coverage_refs': coverage} if quality == 'green-passed' and coverage else {}), 'quality': quality,
             'assertions': [{'assertion_id': path['expected_assertions'][0]['assertion_id'], 'expected': 0,
                             'actual': exit_code, 'passed': exit_code == 0}],
             'root_cause': cause})
@@ -488,7 +556,8 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
     shared = {'schema_version': 1, 'producer': 'host-executor', 'execution_contract_version': 2, 'run_id': s['run_id'],
               'module_id': module_id, 'assignment_id': assignment_id, 'actor_instance_id': a['instance_id'],
               'fencing_token': a.get('fencing_token'), 'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'],
-              'argv': command, 'cwd': str(Path(cwd).resolve()), 'started_at': started,
+              'argv': command, 'cwd': str(Path(cwd).resolve()), 'started_at': capture.state.get('device_started_at', started),
+              **({'queued_at': started} if managed_mobile else {}),
               'requested_argv': argv, 'storage_command_version': 1, 'finished_at': finished, 'exit_code': exit_code,
               'capture': capture.references(), 'cleanup_ref': file_ref(out / 'cleanup.json'),
               'storage_policy_ref': file_ref(init) if init else None, 'log_ref': file_ref(out / 'execution.log'),

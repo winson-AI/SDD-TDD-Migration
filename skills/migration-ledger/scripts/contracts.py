@@ -398,13 +398,13 @@ def authoring_diagnostics(d):
         check_ref(item['source_ref'])
 
 
-MEDIA_KINDS = ('screenshot', 'recording')
+MEDIA_KINDS = ('screenshot', 'recording', 'recording-proof')
 
 
 def media_evidence(value, within=None):
     """Media a test kept beside its verdict: hash-bound files of known kinds inside the execution output; evidence, never a quality."""
     require(isinstance(value, list) and all(isinstance(m, dict) and m.get('kind') in MEDIA_KINDS and isinstance(m.get('ref'), dict) for m in value),
-            'media_refs are {kind: screenshot|recording, ref} rows')
+            'media_refs are {kind: screenshot|recording|recording-proof, ref} rows')
     for m in value:
         path = check_ref(m['ref'])
         require(within is None or path.resolve().is_relative_to(Path(within).resolve()), 'media evidence outside the execution output')
@@ -510,7 +510,8 @@ def validate_result(result, module, assignment, run_root=None):
     require(set(tests) == set(planned), 'result must account for every required path')
     for pid, record in tests.items():
         require('validation_reuse' not in record, 'validation_reuse is Ledger-owned; submit real execution receipts')
-        require(not {'device_continuation_inputs', 'integration_continuation_inputs', 'integration_inputs', 'global_visual_binding'}.intersection(record),
+        require(not {'device_continuation_inputs', 'integration_continuation_inputs', 'integration_inputs',
+                     'global_visual_binding', 'global_ios_binding'}.intersection(record),
                 'integration execution binding is Ledger-owned')
         quality = record.get('quality')
         require(quality in ('green-passed', 'red-bug', 'yellow-blocked'), 'invalid quality')
@@ -557,6 +558,8 @@ def validate_result(result, module, assignment, run_root=None):
             captured = read_json(check_ref(receipt.get('result_ref')))
             require(captured.get('producer') != 'harmony-adapter' and planned[pid].get('platform') not in ('android', 'ios', 'harmony'),
                     'current mobile completion requires host normalization')
+        require(record.get('ios_artifact_ref') == (captured.get('ios_artifact_ref') if normalized else None),
+                'deployed iOS artifact evidence changed')
         require(record.get('executed') is True, 'execution evidence required')
         if planned[pid].get('kind') in ('build', 'unit') or planned[pid].get('unit_report'):
             expected_argv = planned[pid]['command']['argv']
@@ -601,7 +604,9 @@ def validate_result(result, module, assignment, run_root=None):
                 require(captured.get('root_cause') == record.get('root_cause'), 'Harmony root cause changed')
         if planned[pid].get('kind') == 'build':
             require(record.get('build_artifacts', []) == captured.get('build_artifacts', []), 'build artifact evidence changed')
-            for ref in captured.get('build_artifacts', []):
+            require(record.get('ios_build_coverage_refs', []) == (captured.get('ios_build_coverage_refs', []) if normalized else []),
+                    'iOS signed build coverage evidence changed')
+            for ref in captured.get('build_artifacts', []) + record.get('ios_build_coverage_refs', []):
                 artifact = check_ref(ref)
                 require(artifact.is_relative_to(check_ref(receipt['query_ref']).parent), 'build artifact outside this invocation')
         tv.visual_result(module, planned[pid], record, captured, run_root=run_root, assignment=assignment)

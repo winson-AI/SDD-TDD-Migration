@@ -61,6 +61,64 @@ class WaveIntegrationTests(unittest.TestCase):
         self.assertFalse(integration.affected_by_device(state, simulator, {'ios-physical'}))
         self.assertTrue(integration.affected_by_device(state, physical, {'ios-physical'}))
 
+    def test_ios_package_proves_leaf_and_global_inputs_without_unrelated_code(self):
+        import plistlib
+        from unittest.mock import patch
+        from zipfile import ZipFile
+        from ios_evidence import artifact_inputs, check_device
+
+        self.first_wave()
+        f = self.f
+        state = ledger.read_events(f.root)[0]
+        producer = state['modules']['M001']
+        bundle, udid, endpoint = 'com.example.target', 'PHONE', 'http://localhost:8100'
+        artifact = f.base / 'Target.ipa'
+        with ZipFile(artifact, 'w') as ipa:
+            ipa.writestr('Payload/Target.app/Info.plist', plistlib.dumps({'CFBundleIdentifier': bundle, 'CFBundleVersion': '7'}))
+        signed = file_ref(artifact)
+        baselines = {'M001': producer['code_baseline']}
+        coverage = f.ref('Target.ipa.coverage.json', {'artifact_ref': signed, 'module_baselines': baselines})
+        app, installed = '/tmp/fixture/Payload/Target.app', 'file:///private/var/Target.app/'
+        raw = f.ref('devicectl-install.json', {'info': {'arguments': ['devicectl', 'device', 'install', 'app', '--device', 'CORE', app],
+                                                        'outcome': 'success'},
+                                              'result': {'installedApplications': [{'bundleID': bundle, 'installationURL': installed}]}})
+        install = f.ref('installation.json', {'artifact_ref': signed, 'udid': udid, 'core_device_id': 'CORE', 'extracted_app': app,
+                                               'devicectl_ref': raw})
+        deployment = f.ref('deployment.json', {'schema_version': 2, 'udid': udid, 'wda_url': endpoint, 'wda_uuid': 'WDA',
+                                               'build_version': '7', 'bundle_id': bundle, 'artifact_ref': signed,
+                                               'build_coverage_ref': coverage, 'installation_ref': install})
+        producer['build_artifacts'] = [signed]
+        producer['results']['BUILD'] = {'quality': 'green-passed', 'code_baseline': baselines['M001'],
+                                         'build_artifacts': [signed], 'ios_build_coverage_refs': [coverage]}
+        state['test_adapter'] = {'device': {'platforms': ['ios'], 'ios': {'app_id': bundle, 'profiles': {
+            'physical': {'wda_url': endpoint, 'udid': udid, 'deployment_ref': deployment}}}}}
+        path = {**state['global_paths'][0], 'kind': 'automation', 'platform': 'ios', 'ios_device_profile': 'physical'}
+        state['global_paths'] = [path]
+        proof = artifact_inputs(state, 'M001', path)
+        self.assertEqual(artifact_inputs(state, 'GLOBAL', path), proof)
+        self.assertEqual(proof['binding']['module_baselines'], baselines)
+        observed = {'configured_udid': udid, 'is_simulator': False, 'endpoint': endpoint, 'wda_uuid': 'WDA',
+                    'deployment_ref': deployment, 'installed': {'udid': udid, 'bundle_id': bundle, 'core_device_id': 'CORE',
+                                                                 'build_version': '7', 'bundle_url': installed}}
+        self.assertEqual(check_device(proof['binding'], 'global-baseline', observed), signed)
+        observed['installed']['bundle_url'] = 'file:///private/var/OtherInstallation/Target.app'
+        with self.assertRaisesRegex(Rejected, 'installed App instance'):
+            check_device(proof['binding'], 'global-baseline', observed)
+        fingerprint = integration.inputs(state, path, 'before')
+        state['modules']['M002']['code_baseline'] = 'other-code'
+        with patch.object(ledger, 'global_baseline', side_effect=Rejected('unrelated code currently being written')):
+            self.assertEqual(integration.due(state), [path])
+        self.assertEqual(integration.inputs(state, path, 'after'), fingerprint)
+        replacement = f.base / 'Alias.ipa'
+        replacement.write_bytes(artifact.read_bytes())
+        identical = file_ref(replacement)
+        alias_coverage = f.ref('Alias.ipa.coverage.json', {'artifact_ref': identical, 'module_baselines': baselines})
+        producer['build_artifacts'] = [identical]
+        producer['results']['BUILD'].update(build_artifacts=[identical], ios_build_coverage_refs=[alias_coverage])
+        self.assertEqual(integration.inputs(state, path, 'same artifact in a new invocation'), fingerprint)
+        producer['results']['BUILD']['ios_build_coverage_refs'] = []
+        self.assertIsNone(artifact_inputs(state, 'GLOBAL', path))
+
     def test_missing_web_config_does_not_block_the_ready_android_path(self):
         from unittest.mock import patch
         import progress_signals

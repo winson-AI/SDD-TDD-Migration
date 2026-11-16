@@ -148,7 +148,7 @@ python3 /work/SDD-TDD-Migration/skills/migration-ledger/scripts/execute_test.py 
 3. 无录制走 Planner；有显式有效录制走 ToolPlayer。回放复用坐标/XPath/动作，但 Verify 仍操作本轮媒体；失败可在剩余预算内触发 Planner 重规划。
 4. Planner 单步调用 Executor、技能/工具或 Verify。Executor 观察页面、操作设备并反馈；压缩上下文、XPath 缓存、工具录制及可选反思支持后续决策。
 5. Verify wrapper 用 ASSERT ID 找回冻结描述与匹配规则，再由内核选择媒体/步骤进行验证。保留单图、双图、跨步骤、参考图、视频能力。
-6. `task_type=snapshot|recording` 走到终点后保留稳定终帧或录屏，生成 `media_outcome.json` 供捕获与取证。走不到终点记 needs-review。测试 PATH 声明 `record_video` 时将有效录屏列入 `media_refs`。iOS 对 `video_assert`、`record_video` 和录屏任务按需开启采集，保留各片段的设备绑定和可解码区间。 [iOS 接入](../skills/migration-test/runtime/harmony/README.md#ios-接入)
+6. `task_type=snapshot|recording` 走到终点后保留稳定终帧或录屏，生成 `media_outcome.json` 供捕获与取证。走不到终点记 needs-review。iOS 测试录屏在走完 PATH 后裁剪视频断言的冻结区间，核对来源并绑定模型收到的媒体摘要。`record_video` 在 `media_refs` 保存录像和覆盖证明，核对整条 PATH 的连续性。 [iOS 接入](../skills/migration-test/runtime/harmony/README.md#ios-接入)
 6. 每次观察立刻写 observations；记录 ASSERT ID、顺序、工具、布尔结果、理由、媒体路径和摘要。
 7. `ObservationSink.report()` 汇总全部观察，生成三态、断言列表、root_cause；附环境快照、媒体/报告/录制引用。最终自然语言文本只作为报告内容。
 

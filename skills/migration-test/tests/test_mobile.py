@@ -71,6 +71,28 @@ class MobileContractTests(unittest.TestCase):
                     self.assertFalse(result.done())
             self.assertEqual(result.result(timeout=2), 'executed')
 
+    def test_host_timeout_starts_after_device_wait(self):
+        from execution_capture import Capture
+
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp).resolve()
+            ready = directory / 'ready'
+            child = subprocess.Popen([sys.executable, '-c', 'import pathlib,sys,time; time.sleep(1.0); '
+                        'pathlib.Path(sys.argv[1]).touch(); time.sleep(.05)', str(ready)],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            capture = Capture(directory, {})
+            try:
+                capture.attach(child)
+                capture.wait(child, .4, start=ready.is_file)
+                self.assertEqual(child.returncode, 0)
+            finally:
+                if child.poll() is None:
+                    child.kill()
+                    child.wait()
+                capture.close()
+                child.stdout.close()
+                child.stderr.close()
+
     def test_recordings_for_the_same_steps_are_separated_by_platform(self):
         self.assertNotEqual(task_text({**query(), 'platform': 'android'}), task_text({**query(), 'platform': 'harmony'}))
 
@@ -231,6 +253,86 @@ class MobileNativeTests(unittest.TestCase):
             capture.write_text(json.dumps({**facts, **change}))
             with self.assertRaisesRegex(Rejected, reason):
                 check_video([file_ref(capture)], trace, assertion, device, self.out)
+
+    def test_ios_model_receives_the_cropped_frames_and_full_path_coverage_is_independent(self):
+        import base64
+        from PIL import Image
+        from AutoTest.devices.ios.recording import capture_times, ffmpeg, match_wda, timeline
+        from AutoTest.verify_agent import verify_tools
+        from contracts import Rejected, file_ref
+        from harmony_adapter import finish_ios_recording
+        from harmony_contract import write
+        from ios_evidence import check_clip, check_path_recording
+
+        target = self.out / 'reports' / 'final.mp4'
+        target.parent.mkdir()
+        subprocess.run([ffmpeg(), '-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i',
+                        'color=red:s=64x96:r=20:d=1[a];color=blue:s=64x96:r=20:d=1[b];[a][b]concat=n=2:v=1:a=0',
+                        '-c:v', 'libx264', str(target)], check=True, timeout=15)
+        sink = ObservationSink({'record_video': True}, self.out)
+        device = {'configured_udid': 'PHONE', 'wda_uuid': 'WDA', 'is_simulator': False, 'installed': {'core_device_id': 'CORE'}}
+        write(self.out / 'ios-device.json', device)
+        screenshots = {}
+        for color in ('red', 'blue', 'green'):
+            path = self.out / (color + '.png')
+            Image.new('RGB', (64, 96), color).save(path)
+            screenshots[color] = file_ref(path)
+        sink.step_trace = {'query_sha256': 'frozen-path', 'steps': [
+            {'before_device': {'captured_at': 10.5}, 'before_ref': screenshots['red'],
+             'after_device': {'captured_at': 11.35}, 'after_ref': screenshots['blue']},
+            {'before_device': {'captured_at': 11.55}, 'before_ref': screenshots['blue'],
+             'after_device': {'captured_at': 11.80}, 'after_ref': screenshots['blue']}]}
+        capture = target.with_suffix('.ios-capture.json')
+        facts = {'backend': 'avfoundation', 'core_device_id': 'CORE', 'udid': 'PHONE', 'wda_uuid': 'WDA', 'started_at': 10,
+                 'video_ref': file_ref(target)}
+        facts.update(capture_times(target, facts, 12))
+        write(capture, facts)
+        assertion = {'assertion_id': 'A1', 'after_step': 1}
+        event = {'sequence': 1, 'result': None, 'error': 'pending'}
+        sink.deadline = Mock()
+        sink.observations = [event]
+        sink.deferred_video = [(assertion, 'changes from red to blue', event)]
+        response = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='PASS'))])
+        client = Mock()
+        client.chat.completions.create.return_value = response
+        cfg = SimpleNamespace(step_timeout=20, verify_temperature=0, verify_top_p=1, verify_frequency_penalty=0)
+        with scope(self.out), patch.object(verify_tools, '_create_client', return_value=(client, 'fixture')):
+            finish_ios_recording(sink, cfg)
+        self.assertIs(event['result'], True, (event, getattr(sink, 'environment_error', None)))
+        check_clip(event['evidence_refs'], sink.step_trace, assertion, device, self.out)
+        check_path_recording(sink.recording_media, sink.step_trace, device, self.out)
+        data = client.chat.completions.create.call_args.kwargs['messages'][1]['content'][0]['video_url']['url']
+        actual_clip = Path(event['evidence_refs'][0]['path'])
+        self.assertEqual(base64.b64decode(data.split(',', 1)[1]), actual_clip.read_bytes())
+        self.assertLess(len(timeline(actual_clip)), len(timeline(target)))
+        with self.assertRaisesRegex(Rejected, 'does not belong to this assertion'):
+            check_clip(event['evidence_refs'], sink.step_trace, {**assertion, 'assertion_id': 'A2'}, device, self.out)
+        bad_trace = {'steps': [{'before_device': {'captured_at': 10.5}, 'before_ref': screenshots['red'],
+                                 'after_device': {'captured_at': 11.35}, 'after_ref': screenshots['green']}]}
+        with self.assertRaisesRegex(ValueError, 'distinct WDA checkpoints'):
+            match_wda(target, facts, bad_trace, self.out)
+        current = json.loads(capture.read_text())
+        write(capture, {**current, 'gaps': [[11.5, 11.7]]})
+        sink.recording_media[-1]['ref'] = file_ref(capture)
+        with self.assertRaisesRegex(Rejected, 'gap'):
+            check_path_recording(sink.recording_media, sink.step_trace, device, self.out)
+
+    def test_avfoundation_uses_uid_only_when_the_actual_ffmpeg_supports_it(self):
+        from AutoTest.devices.ios import screenshot
+
+        device = {'identifier': 'CORE', 'deviceProperties': {'name': 'Device'}}
+        flags = SimpleNamespace(stdout=' -video_device_id <string>')
+        listing = SimpleNamespace(stderr='AVFoundation video devices:\n [2] Device\nAVFoundation audio devices:\n')
+        with patch.object(screenshot, 'physical_device', return_value=device) as probe, \
+             patch.object(screenshot.subprocess, 'run', side_effect=[flags, SimpleNamespace(stdout=''), listing]):
+            command, selected = screenshot._physical_command('PHONE', 'capture-uid', timed=True)
+            self.assertIn('uid:capture-uid', command)
+            self.assertEqual(selected['capture_uid'], 'capture-uid')
+            probe.assert_called_with('PHONE', capture=False)
+            command, selected = screenshot._physical_command('PHONE', 'capture-uid', timed=True)
+            self.assertEqual(selected['capture_index'], 2)
+            self.assertIn('2:none', command)
+            probe.assert_called_with('PHONE', capture=True)
 
     @unittest.skipUnless(importlib.util.find_spec('wda'), 'optional iOS dependencies required')
     def test_ios_launch_capture_and_assertion_use_wda_points_and_managed_evidence(self):

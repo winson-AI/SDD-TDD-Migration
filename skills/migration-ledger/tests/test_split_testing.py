@@ -4,6 +4,7 @@ import copy
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 import test_context_readiness as context_fixture
 from contracts import Rejected, read_json
@@ -113,6 +114,53 @@ class SplitTestingTests(unittest.TestCase):
         f.call('complete', {'dod_ref': f.ref('dod.md', 'build and all cases passed')})
         self.assertEqual(f.state()['modules']['M001']['quality'], 'green-passed')
         self.assertEqual(set(f.state()['modules']['M001']['results']), {'B1', 'P1'})
+
+    def test_waiting_mobile_dispatch_gets_a_slot_only_with_its_device_receipt(self):
+        import drive
+        import ledger
+
+        f = self.f
+        self.prepare(); self.compile()
+        with patch('execute_test.builtin_mobile', side_effect=lambda state, path: path['path_id'] == 'P1'), \
+             patch('execute_test.adapter_for', return_value={'argv': [sys.executable, '-V'], 'cwd': str(f.target)}), \
+             patch('context_readiness.runs_by_itself', return_value=True):
+            assignment = f.assign('test-runner', 'PHONE')
+            state = f.state()
+            self.assertTrue(state['modules']['M001']['assignments']['PHONE']['device_wait'])
+            self.assertEqual(ledger.worker_slots(state), 0)
+            self.assertEqual(drive.occupied_modules(state['modules'], {}, {}), set())
+            f.ref('query.json', {'assignment_id': 'PHONE', 'run_id': state['run_id'], 'module_id': 'M001',
+                                 'path_id': 'P1', 'test_run_id': 'attempt-1'})
+            ready = f.ref('device-ready.json', {'test_run_id': 'attempt-1'})
+            payload = {'assignment_id': 'PHONE', 'fencing_token': assignment['fencing_token'], 'device_ready_ref': ready}
+            f.raw('mobile-test-start', payload, role='test-runner', instance=assignment['instance_id'])
+            self.assertEqual(ledger.worker_slots(f.state()), 1)
+
+    def test_ready_leaf_batches_keep_green_while_another_device_is_blocked(self):
+        import ledger
+        from device_lease import lock
+
+        f = self.f
+        self.prepare(); self.compile()
+        state = ledger.read_events(f.root)[0]
+        module = state['modules']['M001']
+        base = module['plan']['paths'][0]
+        phone = {**base, 'platform': 'ios', 'ios_device_profile': 'physical'}
+        android = {**base, 'platform': 'android', 'path_id': 'ANDROID'}
+        harmony = {**base, 'platform': 'harmony', 'path_id': 'HARMONY'}
+        module['plan']['paths'] = [phone, android, harmony, module['plan']['paths'][1]]
+        state['test_adapter'] = {'device': {'platforms': ['ios', 'android', 'harmony'], 'android': {'serial': 'leaf-a'},
+                                            'harmony': {'serial': 'leaf-h'}, 'ios': {'profiles': {'physical': {}}}}}
+        with lock('leaf-a', 'android'):
+            self.assertEqual(tv.automation_batch(state, module), [harmony])
+        self.assertEqual(tv.automation_batch(state, module), [android])
+        baseline = module['code_baseline']
+        module['results']['ANDROID'] = {'code_baseline': baseline, 'quality': 'green-passed', 'test_run_id': 'original'}
+        module['results']['P1'] = {'code_baseline': baseline, 'quality': 'yellow-blocked',
+                                   'root_cause': {'reason_code': 'mobile-test-environment'}}
+        module.pop('automation_retry_ready', None)
+        self.assertEqual(tv.automation_batch(state, module), [harmony])
+        self.assertEqual(module['results']['ANDROID']['test_run_id'], 'original')
 
     def test_timed_out_build_cleans_owned_scratch_and_keeps_receipt(self):
         self.build_timeout = 1

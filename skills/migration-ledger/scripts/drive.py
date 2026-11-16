@@ -133,6 +133,7 @@ def tick(root, principal, workers=None):
         elif step.get('mobile_test'):
             lines.append({'kind': 'running', **row(step), 'operation': 'mobile-test',
                           **{key: step[key] for key in ('path_ids', 'instance_id', 'fencing_token') if key in step},
+                          **({'device_wait': True} if step.get('device_wait') else {}),
                           'test_execute': [step.get('module_id') or 'GLOBAL', step['assignment_id']]})
         elif not operation or step.get('mechanical') and step.get('ready'):
             continue
@@ -327,7 +328,7 @@ def dispatch_budget(root, st, lines):
 
 def occupied_modules(modules, steps, handed):
     active = {mid for mid, m in modules.items()
-              if any(not a.get('closed') and not a.get('resource_wait') for a in m['assignments'].values())}
+              if any(not a.get('closed') and not (a.get('resource_wait') or a.get('device_wait')) for a in m['assignments'].values())}
     for mid, stamp in handed.items():
         if mid not in modules or mid not in steps:
             continue
@@ -348,6 +349,9 @@ def occupied_modules(modules, steps, handed):
 def assignment_budget(handed):
     def can_assign(st, step):
         if (step.get('payload') or {}).get('resource_sync_deferred'):
+            return True
+        if step.get('worker_role') == 'test-runner' and ledger.mobile_dispatch(
+                st, st['modules'][step['module_id']], (step.get('payload') or {}).get('path_ids', [])):
             return True
         busy = occupied_modules(st['modules'], {x['module_id']: x for x in st['next_steps']}, handed)
         mid = step['module_id']

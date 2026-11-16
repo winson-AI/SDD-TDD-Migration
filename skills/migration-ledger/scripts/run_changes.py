@@ -135,7 +135,7 @@ def subject(s, report_ref, *, execution_review=False, device_path_review=False, 
                 return None
 
         def settled(pid, row):
-            if (pid not in paths or not (row.get('integration_inputs') or row.get('global_visual_binding'))
+            if (pid not in paths or not (row.get('integration_inputs') or row.get('global_visual_binding') or row.get('global_ios_binding'))
                     or row.get('quality') != 'green-passed' or row.get('stale')):
                 return False
             path = paths[pid]

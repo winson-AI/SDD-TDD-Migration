@@ -261,7 +261,7 @@ def build_unit_free(m, modules, worker, artifact_only=False):
             continue
         active = [a for a in other.get('assignments', {}).values() if not a.get('closed')]
         if worker in ('implementer', 'fixer'):
-            require(not any(a['role'] == 'test-runner' and not a.get('artifact_only') for a in active),
+            require(not any(a['role'] == 'test-runner' and not (a.get('artifact_only') or a.get('deployed_mobile_inputs')) for a in active),
                     'build unit busy: %s is building the unit this module writes into; dispatch after its result' % other['module_id'])
         elif not artifact_only:
             require(not any(a['role'] in ('implementer', 'fixer') for a in active),
@@ -313,6 +313,42 @@ def dispatch_paths(m, scope):
     if scope in (None, 'automation') and not any(p['path_id'] in pending and p.get('kind') == 'static' for p in selected):
         return [p for p in selected if p['path_id'] not in pending and not path_green(m, p['path_id'])]
     return []
+
+
+def mobile_automation(s, m):
+    from execute_test import builtin_mobile
+
+    return (split(m) and next_scope(m) == 'automation' and not review_first(m)
+            and any(builtin_mobile(s, path) for path in paths(m, 'automation')))
+
+
+def automation_batch(s, m):
+    """Select a leaf's next independent batch from current, unverified PATHs."""
+    from device_lease import available
+    from execute_test import builtin_mobile
+    from integration import check_path_inputs, runs_by_itself
+    from run_changes import pending_device_paths
+
+    results = m['results']
+    pending = pending_device_paths(s, m['module_id'])
+    selected = [p for p in dispatch_paths(m, 'automation') if p['path_id'] not in pending
+                and not path_green(m, p['path_id'])
+                and (m.get('automation_retry_ready') or p['path_id'] not in results
+                     or results[p['path_id']].get('stale')
+                     or results[p['path_id']].get('code_baseline') != m.get('code_baseline'))]
+    ready, unavailable = [], []
+    for path in selected:
+        try:
+            check_path_inputs(s, path)
+        except (ValueError, OSError, KeyError):
+            unavailable.append(path)
+        else:
+            ready.append(path)
+    quick = [p for p in ready if not builtin_mobile(s, p) and runs_by_itself(s, p)]
+    mobile = [p for p in ready if builtin_mobile(s, p)]
+    available_mobile = next((p for p in mobile if available(s, p)), None)
+    other = [p for p in ready if p not in mobile]
+    return quick or ([available_mobile] if available_mobile else []) or other or mobile[:1] or unavailable[:1]
 
 
 def stage_paths(m, tests, selected=None):

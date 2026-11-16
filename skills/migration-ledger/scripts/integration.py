@@ -114,6 +114,9 @@ def inputs(s, path, code_baseline=None, *, legacy=False, full_adapter=False, uni
     """A managed visual path consumes its named build. Opaque commands may inspect the whole project."""
     if not legacy:
         check_path_inputs(s, path)
+        from ios_evidence import artifact_inputs
+        if deployed := artifact_inputs(s, 'GLOBAL', path):
+            return digest(deployed)
     if scoped(s, path):
         return digest(managed_inputs(s, path))
     common = {'path': path, 'baseline': code_baseline,
@@ -144,6 +147,9 @@ def same_inputs(s, path, previous, code_baseline, expected=None):
     if previous.get('global_visual_binding'):
         from audit_execution import global_visual_current
         return global_visual_current(s, path, previous)
+    if previous.get('global_ios_binding'):
+        from audit_execution import global_ios_current
+        return global_ios_current(s, path, previous)
     if 'integration_inputs' in previous:
         try:
             expected = expected or inputs(s, path, code_baseline)
@@ -197,6 +203,8 @@ def due(s, *, blocked=None, revision_step=None):
     """Prefer a ready managed wave, even when unrelated code is dirty or still being written."""
     import audit_closure
     from execute_test import builtin_mobile
+    from device_lease import available
+    from ios_evidence import artifact_inputs
     from ledger import global_baseline
     from run_changes import next_action, pending_global_paths
     from test_validation import bound_native_visual, check_managed_visual_artifacts
@@ -225,14 +233,16 @@ def due(s, *, blocked=None, revision_step=None):
             previous = s.get('audit_results', {}).get(pid)
             device_retest = bool(previous and previous.get('stale') and previous.get('invalidated_by') in device_reviews
                                  and device_inputs(s, path) is not None)
-            if not device_retest and (not wave_allowed or
+            deployed = not managed and artifact_inputs(s, 'GLOBAL', path)
+            package_retest = bool(deployed and previous and previous.get('ios_build_reverify'))
+            if not (device_retest or package_retest) and (not wave_allowed or
                     (not managed and previous and previous.get('owner_baselines') == owner_baselines(s, path))):
                 continue  # Leave ordinary whole-snapshot retests to the final audit.
-            if not managed and baseline is None:
+            if not managed and not deployed and baseline is None:
                 try:
                     baseline = global_baseline(s)
                 except (Rejected, OSError, KeyError):
-                    return []  # Every unscoped PATH needs the shared baseline.
+                    continue  # A later deployed or managed PATH may be independent of this baseline.
             try:
                 if managed and not scoped(s, path):
                     # Missing bindings stay local. With a valid boot command, use the full baseline.
@@ -252,17 +262,25 @@ def due(s, *, blocked=None, revision_step=None):
                 return selected
             automatic = [path for path in selected if runs_by_itself(s, path)]
             quick = [path for path in automatic if not builtin_mobile(s, path)]
-            return quick or automatic[:1] or selected
+            ready = [path for path in automatic if available(s, path)]
+            return quick or (ready or automatic)[:1] or selected
     return []
 
 
 def scope(s, selected=None):
     from ledger import scope_of
+    from ios_evidence import artifact_inputs
     item = task(s)
     if selected is None:
         selected = due(s) if not item else [p for p in s['global_paths'] if p['path_id'] in item['path_ids']]
     managed = bool(selected and all(scoped(s, p) for p in selected) and (not item or item.get('artifact_only')))
     mids = sorted({mid for path in selected for mid in module_ids(s, path)}) if managed else None
+    deployed = ({p['path_id']: artifact_inputs(s, 'GLOBAL', p) for p in selected}
+                if len(selected) == 1 and (not item or item.get('deployed_mobile_inputs')) else {})
+    if deployed and all(deployed.values()):
+        mids = sorted({mid for value in deployed.values() for mid in value['binding']['module_baselines']})
+    elif item and item.get('deployed_mobile_inputs'):
+        raise Rejected('integration deployed inputs changed; stop or isolate the worker and revoke the assignment')
     value = scope_of(s, selected, leftovers=False, module_ids=mids)
     if item:
         require(item['path_ids'] == [p['path_id'] for p in selected]
@@ -272,6 +290,8 @@ def scope(s, selected=None):
             require(all(same_inputs(s, p, {'integration_inputs': item['inputs'].get(p['path_id'])}, value['code_baseline'])
                         for p in selected),
                     'integration execution inputs changed; stop or isolate the worker and revoke the assignment')
+    if deployed and all(deployed.values()):
+        value['deployed_mobile_inputs'] = deployed
     return value
 
 
@@ -303,13 +323,17 @@ def handle(s, req, actor, sequence, root=None):
             s.setdefault('integration_history', []).append(copy.deepcopy(s['integration_assignment']))
         value = scope(s, selected)
         managed = all(scoped(s, path) for path in selected)
-        mids = sorted({mid for path in selected for mid in module_ids(s, path)}) if managed else s['modules']
+        deployed = value.get('deployed_mobile_inputs') or {}
+        mids = (sorted({mid for path in selected for mid in module_ids(s, path)}) if managed
+                else sorted({mid for proof in deployed.values() for mid in proof['binding']['module_baselines']}) if deployed
+                else s['modules'])
         s['integration_assignment'] = {**copy.deepcopy(p), 'artifact_only': managed, 'role': 'test-runner', 'mode': 'integration', 'run_id': s['run_id'],
             'module_id': 'GLOBAL', 'freeze_id': value['freeze_id'], 'code_baseline': value['code_baseline'],
             'snapshot': {mid: s['modules'][mid]['code_baseline'] for mid in mids},
             'inputs': {path['path_id']: inputs(s, path, value['code_baseline']) for path in selected},
             **({'blocked_paths': blocked} if blocked else {}),
             **({'test_scope': 'visual'} if managed else {}),
+            **({'deployed_mobile_inputs': deployed} if deployed else {}),
             'owner_baselines': {x['path_id']: owner_baselines(s, x) for x in selected},
             'scope_policy': 'non-green-only', 'closed': False, 'fencing_token': sequence}
     elif req['operation'] == 'integration-revoke':

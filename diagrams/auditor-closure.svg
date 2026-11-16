@@ -110,7 +110,7 @@
 <rect x="90" y="1795" width="620" height="194" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="400.0" y="1827.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">终审 · 独立 Test-Runner 按批执行</text>
 <text x="400.0" y="1861.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同批 PATH 的派发、预检与执行范围一致</text>
-<text x="400.0" y="1890.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">视觉派发核对生效配置与绑定 APK / HAP</text>
+<text x="400.0" y="1890.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核对生效设备配置、实际 APK / HAP / IPA</text>
 <text x="400.0" y="1919.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">冻结命令先跑，移动 PATH 单独派发并入账</text>
 <text x="400.0" y="1948.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">JUnit 同输入合批，纯设备变更沿用有效回执</text>
 <text x="400.0" y="1977.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">沿用有效回执，失效 PATH 单独补验</text>

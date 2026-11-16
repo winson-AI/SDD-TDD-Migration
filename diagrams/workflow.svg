@@ -163,7 +163,7 @@
 <text x="1375.0" y="1417.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同 Run 修订就绪后先交付</text>
 <text x="1375.0" y="1446.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">验证批次入账即回 drive</text>
 <text x="1375.0" y="1475.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编码会话轮换保留派发名额</text>
-<text x="1375.0" y="1504.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已分配独立 Runner 先交付</text>
+<text x="1375.0" y="1504.5" font-size="20.01" fill="#4b5563" text-anchor="middle" font-weight="400">先交付 Runner，等设备让出名额</text>
 <text x="1375.0" y="1533.5" font-size="21.90" fill="#4b5563" text-anchor="middle" font-weight="400">遵守 DAG / 写锁 / 累计预算</text>
 <rect x="1210" y="1570" width="330" height="280" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1375.0" y="1616.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">收尾 ≠ 全部通过</text>

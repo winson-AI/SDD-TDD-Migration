@@ -2,8 +2,7 @@
 """Main adapter. Invoke ONLY through execute_test.py after Ledger authorization."""
 import argparse
 import asyncio
-from contextlib import ExitStack, contextmanager
-from errno import EADDRINUSE
+from contextlib import contextmanager
 import hashlib
 import importlib.util
 import importlib.metadata
@@ -13,11 +12,9 @@ from pathlib import Path
 import re
 import shutil
 import sys
-import socket
 import subprocess
 import time
 from types import SimpleNamespace
-from urllib.parse import urlsplit
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'migration-ledger/scripts'))
@@ -25,6 +22,8 @@ from runner_storage import harmony_output, scope
 from run_storage import checked_path
 from harmony_contract import MOBILE_PLATFORMS, ObservationSink, digest, ref, task_text, validate_query, write
 from project_context import wda_endpoint
+from ios_evidence import RECORDING_CONTRACT
+import device_lease
 
 ENGINE = Path(__file__).resolve().parents[1] / 'runtime/harmony'
 
@@ -102,29 +101,12 @@ def public_config(value):
 
 
 @contextmanager
-def device_lock(device, ip, port, platform='harmony', *, udid=None, wait=False):
-    # A machine-wide lease without a persistent /tmp lock inode. Binding is
-    # atomic and the OS releases it even on SIGKILL; collisions fail closed.
-    keys = [['android', device]] if platform == 'android' else [[device, ip, port]]
-    if platform == 'ios':
-        endpoint = urlsplit(wda_endpoint(device))
-        host = 'loopback' if endpoint.hostname in ('localhost', '127.0.0.1', '::1') else endpoint.hostname
-        keys = [['ios', host, endpoint.port or (443 if endpoint.scheme == 'https' else 80)]]
-        if udid:
-            keys.append(['ios-udid', udid.lower()])
-    ports = {20000 + int(digest(key)[:8], 16) % 30000 for key in keys}
-    with ExitStack() as leases:
-        for number in sorted(ports):
-            lease = leases.enter_context(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
-            while True:
-                try:
-                    lease.bind(('127.0.0.1', number))
-                    break
-                except OSError as exc:
-                    if not wait or exc.errno != EADDRINUSE:
-                        raise DeviceUnavailable('device busy: local device lease unavailable') from exc
-                    time.sleep(0.2)  # An assigned runner waits within its host command timeout.
-        yield
+def device_lock(device, ip, port, platform='harmony', *, udid=None, wait=False, still_waiting=None):
+    try:
+        with device_lease.lock(device, platform, udid, ip, port, wait=wait, still_waiting=still_waiting):
+            yield
+    except device_lease.Busy as exc:
+        raise DeviceUnavailable(str(exc)) from exc
 
 
 def configure(raw):
@@ -155,6 +137,11 @@ def configure(raw):
 
 def observing_verifier(base, sink):
     class Verified(base):
+        def _verify_video(self, description, select_result):
+            if sink.query.get('ios_recording_contract') == RECORDING_CONTRACT:
+                return None, '已记录冻结检查点。录屏结束后核验视频，继续执行余下冻结步骤。', 'video_assert', []
+            return super()._verify_video(description, select_result)
+
         def verify(self, description):
             ids = re.findall(r'\[ASSERT:([A-Za-z0-9_.-]+)\]', description)
             definitions = {a['assertion_id']:a for a in sink.query['expected_assertions']}
@@ -179,6 +166,10 @@ def observing_verifier(base, sink):
                 if hasattr(sink, 'deadline'): sink.deadline.arm(self.config.step_timeout, 'verification')
                 # Retain original selector, timeline lookup, media handling and model calls.
                 result, reason, tool, media = self._verify(frozen)
+                if result is None and tool == 'video_assert' and sink.query.get('ios_recording_contract') == RECORDING_CONTRACT:
+                    event = sink.record(description, None, reason, tool, [], 'iOS video verification pending')
+                    sink.deferred_video.append((a, frozen, event))
+                    return True, reason
                 error = None
                 if not media or type(result) is not bool: error = 'verification unavailable'
                 if re.search(r'调用失败|执行异常|无法解析|没有视频|无法获取|无法加载|Error:|超时|Video verification failed|Video file|end_time must', reason, re.I):
@@ -299,7 +290,7 @@ async def run_engine(q, config, out, sink):
         args.ios_udid = config['ios_udid']
         args.ios_device_observation = out / 'ios-device.json'
         if 'ios_execution' in q:
-            args.ios_execution = (q['ios_execution'], q['code_baseline'])
+            args.ios_execution = ({**q['ios_execution'], 'recording_contract': q.get('ios_recording_contract')}, q['code_baseline'])
     Path(args.memory_dir).mkdir()
     replay = config.get('recording_ref')
     if replay:
@@ -316,7 +307,11 @@ async def run_engine(q, config, out, sink):
     steps = None
     try:
         steps = install(sink, cfg, deadline)
-        return await (native.playback_cli(args, cfg) if replay else native.decision_cli(args, cfg))
+        sink.deferred_video = []
+        result = await (native.playback_cli(args, cfg) if replay else native.decision_cli(args, cfg))
+        if q.get('ios_recording_contract') == RECORDING_CONTRACT and (sink.deferred_video or q.get('record_video')):
+            finish_ios_recording(sink, cfg)
+        return result
     finally:
         deadline.close()
         if steps: steps.restore()
@@ -356,6 +351,55 @@ def recording_refs(out, *, ios=False):
         return [{'kind': 'recording', 'ref': json.loads(path.read_text())['video_ref']}
                 for path in sorted(reports.rglob('*.ios-capture.json'))]
     return [{'kind': 'recording', 'ref': ref(path)} for path in sorted(reports.rglob('final.mp4'))] if reports.exists() else []
+
+
+def finish_ios_recording(sink, cfg):
+    from AutoTest.devices.ios.recording import match_wda, prepare_clip
+    from AutoTest.verify_agent.verify_tools import VIDEO_USER_PROMPT, _parse_verification_result, call_video_verify_api
+    from ios_evidence import check_path_recording, check_recording, local_ref
+
+    out, trace = sink.output, sink.step_trace
+    sink.deadline.arm(cfg.step_timeout, 'iOS recording proof')
+    try:
+        captures = list((out / 'reports').rglob('final.ios-capture.json'))
+        if len(captures) != 1:
+            raise ValueError('iOS PATH did not produce one continuous recording')
+        capture = captures[0]
+        device = json.loads((out / 'ios-device.json').read_text())
+        facts = json.loads(capture.read_text())
+        if facts['backend'] == 'avfoundation' and not facts.get('capture_uid'):
+            facts['wda_matches'] = match_wda(local_ref(facts['video_ref'], out), facts, trace, out)
+            write(capture, facts)
+        capture_ref = ref(capture)
+        check_recording(capture_ref, trace, device, out)
+    except (OSError, KeyError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+        sink.environment_error = str(exc) if isinstance(exc, ValueError) else 'iOS recording or device source proof unavailable'
+        return
+    if sink.query.get('record_video'):
+        sink.recording_media = [{'kind': 'recording', 'ref': facts['video_ref']}, {'kind': 'recording-proof', 'ref': capture_ref}]
+        try:
+            check_path_recording(sink.recording_media, trace, device, out)
+        except (ValueError, KeyError, IndexError):
+            sink.environment_error = 'iOS recording does not cover the full frozen PATH'
+    for a, description, event in sink.deferred_video:
+        sink.deadline.arm(cfg.step_timeout, 'iOS video assertion')
+        destination = capture.parent / f"assertion-{event['sequence']}.mp4"
+        try:
+            proof = prepare_clip(capture_ref, trace, a, device, out, destination)
+            proof_path = destination.with_suffix('.ios-assert-clip.json')
+            write(proof_path, proof)
+            event['evidence_refs'] = [proof['clip_ref'], capture_ref, ref(proof_path)]
+        except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as exc:
+            reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
+            event['error'] = sink.environment_error = 'iOS model clip unavailable: ' + reason
+        else:
+            try:
+                reason = call_video_verify_api(str(destination), VIDEO_USER_PROMPT.format(description=description), cfg,
+                                               video_sha256=proof['clip_ref']['sha256'])
+                event.update(result=_parse_verification_result(reason), reason=reason, error=None)
+            except Exception:
+                event['error'] = 'iOS video model call or verdict unavailable'
+        write(out / 'observations.json', sink.observations)
 
 
 def main():
@@ -410,9 +454,27 @@ def main():
             except importlib.metadata.PackageNotFoundError: environment['packages'][name] = None
         if not config.get('device'): raise ValueError('explicit device serial required')
         write(out / 'environment.json', environment)
+        gate = os.environ.get('SDD_MOBILE_HOST_PID')
+
+        def host_present():
+            if os.getppid() != int(gate):
+                raise DeviceUnavailable('mobile host executor stopped while waiting')
+
+        if gate:
+            write(result_path.parent / 'device-wait.json', {'test_run_id': q['test_run_id']})
         # Native relative media/memory files are contained in the attempt directory.
         with device_lock(config['device'], config.get('ip','127.0.0.1'), config.get('port',8710), config['platform'],
-                         udid=config.get('ios_udid'), wait=q.get('execution_contract_version') == 2):
+                         udid=config.get('ios_udid'), wait=q.get('execution_contract_version') == 2,
+                         still_waiting=host_present if gate else None):
+            if gate:
+                write(result_path.parent / 'device-ready.json', {'test_run_id': q['test_run_id']})
+                approval = result_path.parent / 'device-start.json'
+                while not approval.is_file():
+                    host_present()
+                    time.sleep(0.1)
+                host_present()
+                if json.loads(approval.read_text()) != {'test_run_id': q['test_run_id']}:
+                    raise DeviceUnavailable('device authorization does not match this attempt')
             with scope(out):
                 sink.final_output = asyncio.run(run_engine(q, config, out, sink))
                 if not sink.final_output or str(sink.final_output).startswith('Error:'):
@@ -428,15 +490,18 @@ def main():
         sink.error = f'{type(exc).__name__}: {detail}'
     task_type = q.get('task_type', 'test')
     if task_type == 'test':
-        media = recording_refs(out, ios=q.get('platform') == 'ios') if q.get('record_video') else None
+        if q.get('ios_recording_contract') == RECORDING_CONTRACT and q.get('record_video'):
+            media = getattr(sink, 'recording_media', [])
+        else:
+            media = recording_refs(out, ios=q.get('platform') == 'ios') if q.get('record_video') else None
         if q.get('platform') == 'ios' and q.get('record_video') and not media:
-            sink.environment_error = 'iOS PATH requires a decodable screen recording'
+            sink.environment_error = getattr(sink, 'environment_error', None) or 'iOS PATH requires a decodable screen recording'
         report = sink.report()
         if media is not None:
             report['media_refs'] = media
     else:
         report = media_report(q, out, sink.error)
-    report.update(mobile_contract_version=3 if 'ios_execution' in q else 2,
+    report.update(mobile_contract_version=q.get('ios_recording_contract', 3) if 'ios_execution' in q else 2,
                   platform=environment.get('platform'), task_type=task_type)
     observation = out / 'ios-device.json'
     if environment.get('platform') == 'ios' and observation.is_file():

@@ -41,10 +41,12 @@ class Capture:
             self.selector.register(stream, selectors.EVENT_READ, name)
         self.save()
 
-    def wait(self, proc, timeout):
-        deadline = time.monotonic() + timeout
+    def wait(self, proc, timeout, *, start=None):
+        deadline = time.monotonic() + timeout if start is None else None
         while self.selector.get_map() or proc.poll() is None:
-            remaining = deadline - time.monotonic()
+            if deadline is None and (proc.poll() is not None or start()):
+                deadline = time.monotonic() + timeout
+            remaining = deadline - time.monotonic() if deadline is not None else .1
             if remaining <= 0:
                 raise subprocess.TimeoutExpired(proc.args, timeout)
             for key, _ in self.selector.select(min(.1, remaining)):
@@ -67,7 +69,7 @@ class Capture:
             # Refresh at most once per second; logs themselves are unbuffered.
             if time.monotonic() - getattr(self, '_saved', 0) >= 1:
                 self.save(); self._saved = time.monotonic()
-        proc.wait(timeout=max(.01, deadline - time.monotonic()))
+        proc.wait(timeout=max(.01, deadline - time.monotonic()) if deadline is not None else .01)
 
     def finish(self, status, exit_code, complete, note=''):
         if note:

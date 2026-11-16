@@ -45,15 +45,23 @@ Test-Runner 经 `execute_test.py` 执行，由 `harmony_stage.py` 汇总 PATH �
 
 上游要求同一 CASE 覆盖两种设备时，分别冻结 `ios_device_profile: simulator` 与 `ios_device_profile: physical` 的 PATH，给各自独立的 PATH ID。在 `test_adapter.device.ios.profiles` 下设置 `simulator` 与 `physical`，每个已配置项使用自己的 `wda_url`、`udid` 和适用的 `deployment_ref`。两者可继承 `ios.app_id`。待配置项可填 `{}`。配置变更按受影响档位补验。
 
-真机正式验收由已配对设备所在的 macOS 宿主执行。宿主部署与当前代码基线匹配的签名构建，在指定硬件 UDID 上启动 WDA，记录转发地址与该 WDA 返回的 UUID，再用 `contracts.py ref` 取部署 JSON 的引用作为 `deployment_ref`。部署 JSON 含以下字段。
+真机正式验收由已配对设备所在的 macOS 宿主执行，在指定硬件 UDID 上启动 WDA。签名 Build 命令将 `Target.ipa` 与 `Target.ipa.coverage.json` 写入同一 `SDD_RUNNER_DIR` 输出目录。覆盖清单指定 `artifact_ref`（签名 IPA 的绝对路径与 SHA-256）以及 `module_baselines`（实际编入该包的模块 ID 到已验收代码基线的映射）。Ledger 从通过的 Build 回执读取两份工件，并按当前 PATH 核对 owner 与传递提供方闭包。
 
-- `schema_version: 1`、`udid`、`wda_url` 和 `wda_uuid`。
-- `bundle_id`、`build_version`（该构建的唯一 `CFBundleVersion`）和 `code_baseline`（当前派发接受的源码基线）。
-- `artifact_ref` 为已部署签名包的文件引用，含绝对路径和 SHA-256。
+在有装机授权的宿主上，用运行时 Python 执行以下命令。脚本检查该 IPA 的摘要与解包后的签名，通过 CoreDevice 安装，回读已安装实例，保存原始安装回执并写出 `deployment.json`。
 
-Runner 比对 WDA 实测设备类型和 UUID，并从 CoreDevice 核对硬件 UDID、已装包和构建版本。模拟器配置了部署回执时用 simctl 核对已装包。断言前核对检查点的实际前台 Bundle ID，保留截图与 UI 树。测试系统应用的断言可在 SPEC 显式冻结自己的 `foreground_bundle_id`。设备或部署错配按对应 PATH 的环境缺口处理。
+```bash
+.venv/bin/python ../../scripts/ios_deploy.py \
+  --coverage "$IPA_COVERAGE" --output "$RUN/runs/harmony/sandbox/$DEPLOYMENT_ID" \
+  --udid "$IOS_UDID" --wda-url "$WDA_URL"
+```
 
-声明 `video_assert`、`record_video: true` 或录屏任务时启动本机录屏，需要相应 `udid`。模拟器使用 simctl。真机使用部署绑定的 WDA 及 CoreDevice 硬件 UDID 定位唯一 AVFoundation 采集源。录屏回执保存视频引用和可解码帧的时间范围，视频断言逐条核对冻结检查点区间。截图和快照直接使用 WDA。使用照片或视频 fixture 时由宿主预置。
+用 `contracts.py ref` 取 `deployment.json` 的引用作为实体设备配置的 `deployment_ref`。新版回执（`schema_version: 2`）引用构建覆盖清单、签名 IPA 与原始 CoreDevice 安装记录。同一签名包可供不同叶子与 GLOBAL PATH 验证，先核对各自需要的代码切片及同一已安装实例。版本 1 继续以 `code_baseline` 绑定单次派发基线，另含 `udid`、`wda_url`、`wda_uuid`、`bundle_id`、`build_version` 和 `artifact_ref`。
+
+Runner 比对 WDA 实测设备类型和 UUID，并从 CoreDevice 核对硬件、已装包、构建版本及 v2 安装实例。模拟器配置了部署回执时用 simctl 核对已装包。断言前核对实际前台 Bundle ID 并保留截图和 UI 树。SPEC 可为系统应用断言冻结 `foreground_bundle_id`。设备或部署错配按对应 PATH 的环境缺口处理。
+
+声明 `video_assert`、`record_video: true` 或录屏任务时启动采集，需要相应 `udid`。模拟器使用 simctl。真机经宿主核对采集 UID 后可在装机命令中附 `--avfoundation-uid`。运行时探测到 FFmpeg 支持 UID 时按 UID 选取视频源，否则以唯一 AVFoundation 索引和两个有时间对应且不同的 WDA 屏幕状态共同核验实际来源。
+
+正式 iOS 测试在冻结检查点登记视频断言，待同一连续录屏结束后按可解码帧裁剪并发送模型。回执保存 ASSERT ID、冻结区间、原始录屏与实际提交片段的哈希。`record_video` 另核对首步前到末步后的完整覆盖。无法确认录屏来源、区间或连续性时，该 PATH 返回证据缺口。截图和快照直接使用 WDA。照片或视频 fixture 由宿主预置。
 
 该目录现在是独立 uv 项目：Python 3.12、独立 `.venv`、可提交的 `uv.lock`、默认 LLM 参考配置与 run 级共享 sandbox 配置。不需要借用 MobileAgenticOperator 的虚拟环境或源码路径。
 

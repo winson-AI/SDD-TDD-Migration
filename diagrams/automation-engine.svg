@@ -20,14 +20,14 @@
 <path d="M800,320 L800,375" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="440" y="375" width="720" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="416.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">adapter 校验与隔离</text>
-<text x="800.0" y="450.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核对冻结 PATH 与实际环境，同设备排队，证据存入本次目录</text>
+<text x="800.0" y="450.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同设备排队，等待时让出执行预算和叶子并行名额</text>
 <text x="800.0" y="479.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Android / iOS / Harmony 各走实际设备绑定</text>
 <path d="M1160,438 L1220,438" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="1220" y="365" width="320" height="200" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="1380.0" y="415.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">iOS 取证</text>
 <text x="1380.0" y="449.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">模拟器与真机独立 PATH</text>
-<text x="1380.0" y="478.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">WDA 与设备 UDID 绑定</text>
-<text x="1380.0" y="507.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核对已安装包及构建版本</text>
+<text x="1380.0" y="478.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">IPA 涵盖 owner 及提供方</text>
+<text x="1380.0" y="507.0" font-size="18.48" fill="#4b5563" text-anchor="middle" font-weight="400">WDA / CoreDevice 核对安装实例</text>
 <text x="1380.0" y="536.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">检查点前台应用和 UI 树</text>
 <path d="M800,500 L800,555" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="440" y="555" width="720" height="110" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
@@ -72,9 +72,9 @@
 <path d="M800,1250 L800,1300" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="440" y="1300" width="720" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="1332.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">真实媒体验证</text>
-<text x="800.0" y="1366.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">单图 / 双图 / 跨步骤 / 参考图 / 视频</text>
-<text x="800.0" y="1395.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">iOS 按需录屏，视频绑定采集设备和可解码断言区间</text>
-<text x="800.0" y="1424.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">输出布尔结果、原始理由、实际工具与媒体引用</text>
+<text x="800.0" y="1366.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">单图 / 双图 / 跨步骤 / 参考图，录屏检查实际来源</text>
+<text x="800.0" y="1395.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">iOS 录屏结束后将冻结区间裁剪给模型，片段绑定 ASSERT</text>
+<text x="800.0" y="1424.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">record_video 核对首步前至末步后的连续覆盖</text>
 <path d="M800,1435 L800,1485" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <path d="M458,1485 H1160 L1142,1605 H440 Z" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="800.0" y="1524.0" font-size="25.00" fill="#111827" text-anchor="middle" font-weight="650">ObservationSink · 每次立即落盘</text>

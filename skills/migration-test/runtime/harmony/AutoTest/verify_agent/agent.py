@@ -289,6 +289,45 @@ class VerifyAgent:
             "reason": "关键词匹配，单图验证"
         }
 
+    def _verify_video(self, description, select_result):
+        tool_name = 'video_assert'
+        start_step_index = select_result.get("start_step_index", 0)
+        end_step_index = select_result.get("end_step_index",
+                                           self.report.step_content[
+                                               -1].index if self.report.step_content else 0)
+
+        start_time = None
+        end_time = None
+
+        for step in self.report.step_content:
+            if step.index == start_step_index:
+                start_time = step.timestamp
+            if step.index == end_step_index:
+                end_time = step.timestamp
+
+        if start_time is None or end_time is None:
+            error_msg = f"无法找到视频时间戳，start_step_index: {start_step_index}, end_step_index: {end_step_index}"
+            logger.error(f"[VerifyAgent] {error_msg}")
+            return False, error_msg, tool_name, []
+
+        task_start_timestamp = self.report.step_content[0].timestamp if self.report.step_content else start_time
+
+        video_path = self._get_video_path(task_start_timestamp=task_start_timestamp)
+        if not video_path:
+            error_msg = "没有视频文件"
+            logger.error(f"[VerifyAgent] {error_msg}")
+            return False, error_msg, tool_name, []
+
+        conclusion, summary = video_assert_tool(
+            description=description,
+            start_time=start_time,
+            end_time=end_time,
+            video_path=video_path,
+            task_start_timestamp=task_start_timestamp,
+        )
+        logger.info(f"[VerifyAgent] 验证完成，结论: {conclusion}, 摘要: {summary}")
+        return conclusion, summary, tool_name, [video_path]
+
     def _verify(self, description: str) -> Tuple[bool, str, str, list[str]]:
         logger.info(f"[VerifyAgent] 开始验证: {description}")
 
@@ -298,42 +337,7 @@ class VerifyAgent:
 
         try:
             if tool_name == 'video_assert':
-                start_step_index = select_result.get("start_step_index", 0)
-                end_step_index = select_result.get("end_step_index",
-                                                   self.report.step_content[
-                                                       -1].index if self.report.step_content else 0)
-
-                start_time = None
-                end_time = None
-
-                for step in self.report.step_content:
-                    if step.index == start_step_index:
-                        start_time = step.timestamp
-                    if step.index == end_step_index:
-                        end_time = step.timestamp
-
-                if start_time is None or end_time is None:
-                    error_msg = f"无法找到视频时间戳，start_step_index: {start_step_index}, end_step_index: {end_step_index}"
-                    logger.error(f"[VerifyAgent] {error_msg}")
-                    return False, error_msg, tool_name, []
-
-                task_start_timestamp = self.report.step_content[0].timestamp if self.report.step_content else start_time
-
-                video_path = self._get_video_path(task_start_timestamp=task_start_timestamp)
-                if not video_path:
-                    error_msg = "没有视频文件"
-                    logger.error(f"[VerifyAgent] {error_msg}")
-                    return False, error_msg, tool_name, []
-
-                conclusion, summary = video_assert_tool(
-                    description=description,
-                    start_time=start_time,
-                    end_time=end_time,
-                    video_path=video_path,
-                    task_start_timestamp=task_start_timestamp,
-                )
-                logger.info(f"[VerifyAgent] 验证完成，结论: {conclusion}, 摘要: {summary}")
-                return conclusion, summary, tool_name, [video_path]
+                return self._verify_video(description, select_result)
 
             current_step_index = select_result.get("current_step_index",
                                                    self.report.step_content[

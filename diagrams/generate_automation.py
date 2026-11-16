@@ -42,10 +42,10 @@ def automation_flow():
     d.arrow([(780, 865), (780, 940)]); d.label(780, 910, 'ready')
     d.box(460, 940, 640, 125, 'ready 绑定 → 宿主 execute_test',
           ['核对实际代码、环境和命令，设备缺口仅记对应 PATH',
-           '内置移动 PATH 交独立宿主进程，drive 继续派发'])
+           '移动端独立派发，取到设备和执行名额后开始计时'])
     d.arrow([(780, 1065), (780, 1120)])
     d.box(460, 1120, 640, 145, '逐 PATH 调用 Main（适配器随平台）',
-          ['声明平台后选择内置或项目 Main，传入 query 与 result 文件', 'Android / iOS / Harmony → 移动端 Main（图 06），Web → web Main', '受限 APK / HAP 视觉可与独立编码并行，核对设备锁'], controller=True)
+          ['声明平台后选择内置或项目 Main，传入 query 与 result 文件', 'Android / iOS / Harmony → 移动端 Main（图 06），Web → web Main', '绑定验收制品的 APK / HAP / IPA 验证可与独立编码并行'], controller=True)
     d.box(60, 1080, 340, 190, '两层执行结果',
           ['包装器 exit 0：已写回执', '不等于 CASE 通过', '超时 124 / 启动失败 127', '以 receipt / assertions 为准'], 'orange')
     d.arrow([(780, 1265), (780, 1320)])
@@ -108,11 +108,11 @@ def automation_engine():
              ['冻结步骤 / 参数 / ASSERT / after_step / 当前代码身份', '设备 / 三类模型 / 预算 / 可选 knowledge_ref 与 recording_ref'])
     d.arrow([(800, 320), (800, 375)])
     d.box(440, 375, 720, 125, 'adapter 校验与隔离',
-          ['核对冻结 PATH 与实际环境，同设备排队，证据存入本次目录',
+          ['同设备排队，等待时让出执行预算和叶子并行名额',
            'Android / iOS / Harmony 各走实际设备绑定'])
     d.arrow([(1160, 438), (1220, 438)], 'blue')
     d.box(1220, 365, 320, 200, 'iOS 取证',
-          ['模拟器与真机独立 PATH', 'WDA 与设备 UDID 绑定', '核对已安装包及构建版本', '检查点前台应用和 UI 树'], 'gray')
+          ['模拟器与真机独立 PATH', 'IPA 涵盖 owner 及提供方', 'WDA / CoreDevice 核对安装实例', '检查点前台应用和 UI 树'], 'gray')
     d.arrow([(800, 500), (800, 555)])
     d.box(440, 555, 720, 110, 'task_text：步骤与冻结断言交错',
           ['每条 verify 使用单个 [ASSERT:id]；知识只辅助执行'])
@@ -134,8 +134,9 @@ def automation_engine():
           ['ASSERT ID 找回冻结谓词与 matcher，防止改写期望', '固定 verification 强制保留；auto 才动态选择'])
     d.arrow([(800, 1250), (800, 1300)])
     d.box(440, 1300, 720, 135, '真实媒体验证',
-          ['单图 / 双图 / 跨步骤 / 参考图 / 视频',
-           'iOS 按需录屏，视频绑定采集设备和可解码断言区间', '输出布尔结果、原始理由、实际工具与媒体引用'])
+          ['单图 / 双图 / 跨步骤 / 参考图，录屏检查实际来源',
+           'iOS 录屏结束后将冻结区间裁剪给模型，片段绑定 ASSERT',
+           'record_video 核对首步前至末步后的连续覆盖'])
     d.arrow([(800, 1435), (800, 1485)])
     artifact(d, 440, 1485, 720, 120, 'ObservationSink · 每次立即落盘',
              ['sequence / ASSERT ID / result / reason / tool / error', 'evidence_refs = 实际媒体路径 + SHA256'])

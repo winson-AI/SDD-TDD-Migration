@@ -647,6 +647,25 @@ def invalidate_path_results(m, affected, *, state=None, root=None):
         m['build_artifacts'] = [ref for pid in sorted(kept) for ref in m['results'][pid].get('build_artifacts', [])]
 
 
+def invalidate_ios_consumers(s, producer, retired):
+    if not retired:
+        return
+    for consumer in s['modules'].values():
+        if consumer is producer:
+            continue
+        affected = {pid for pid, row in consumer['results'].items() if (ref := row.get('ios_artifact_ref'))
+                    and (ref['path'], ref['sha256']) in retired}
+        if affected:
+            invalidate_path_results(consumer, affected)
+            if consumer['phase'] in ('completed', 'dod') and not consumer.get('blocked'):
+                consumer['phase'] = 'testing'
+            consumer['revision'] += 1
+    for row in s.get('audit_results', {}).values():
+        if (ref := row.get('ios_artifact_ref')) and (ref['path'], ref['sha256']) in retired:
+            row['stale'] = True
+            row['ios_build_reverify'] = True
+
+
 def worker_dependencies_ready(s, m, assignment):
     bindings = assignment.get('path_provider_inputs')
     path_ids = assignment.get('execution_contract', {}).get('path_ids', ())
@@ -1012,8 +1031,30 @@ def pending_repairs(s):
 
 
 def worker_slots(s):
-    return sum(not a.get('closed') and not a.get('resource_wait')
+    return sum(not a.get('closed') and not (a.get('resource_wait') or a.get('device_wait'))
                for mod in s['modules'].values() for a in mod['assignments'].values())
+
+
+def mobile_dispatch(s, m, path_ids):
+    from execute_test import builtin_mobile
+
+    assignment = {'role': 'test-runner', 'execution_contract': {'path_ids': path_ids}}
+    return context_readiness.runs_by_itself(s, m, assignment) and any(
+        p['path_id'] in path_ids and builtin_mobile(s, p) for p in m['plan']['paths'])
+
+
+def mobile_environment_only(bad):
+    return bool(bad) and all(row['quality'] == 'yellow-blocked'
+                             and (row.get('root_cause') or {}).get('reason_code') == 'mobile-test-environment'
+                             for row in bad.values())
+
+
+def deployed_inputs_current(s, m, assignment):
+    expected = assignment.get('deployed_mobile_inputs')
+    if not expected:
+        return True
+    from ios_evidence import assignment_inputs
+    return expected == assignment_inputs(s, m, assignment['execution_contract']['path_ids'])
 
 
 def dispatch_guard(s, m, worker, artifact_only=False, *, resource_wait=False, path_ids=()):
@@ -1038,16 +1079,22 @@ def dispatch_guard(s, m, worker, artifact_only=False, *, resource_wait=False, pa
                            test_scope=tv.next_scope(m) if worker == 'test-runner' else None)
     required = {rid for rid, owners in coverage['content']['requirement_owners'].items() if m['module_id'] in owners}
     require(required <= {rid for task in m['plan']['tasks'] for rid in task.get('global_requirement_ids', task.get('requirement_ids', []))}, 'module plan misses global requirements')
-    require(resource_wait or worker_slots(s) < s['max_parallel_modules'], 'parallel budget exhausted')
+    device_wait = worker == 'test-runner' and mobile_dispatch(s, m, path_ids)
+    require(resource_wait or device_wait or worker_slots(s) < s['max_parallel_modules'], 'parallel budget exhausted')
     require(m['no_progress_rounds'] < s['max_no_progress_rounds'], 'no-progress budget exhausted')
     for other in s['modules'].values():
         if any(not a.get('closed') for a in other['assignments'].values()):
             require(not any(overlaps(x, y) for x in m['write_paths'] for y in other['write_paths']), 'resource lock conflict')
-    tv.build_unit_free(m, s['modules'].values(), worker, artifact_only)
+    from ios_evidence import assignment_inputs
+    deployed_mobile = worker == 'test-runner' and bool(assignment_inputs(s, m, path_ids))
+    tv.build_unit_free(m, s['modules'].values(), worker, artifact_only or deployed_mobile)
     require(m['phase'] == {'implementer': 'frozen', 'fixer': 'diagnosing', 'test-runner': 'testing'}[worker]
             or worker == 'test-runner' and written_untested(m), 'worker phase gate rejected')
     if worker == 'test-runner':
-        require(not (unresolved(m) and workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds']))) or m.get('automation_retry_ready'), 'unresolved failure awaits Auditor')
+        bad = unresolved(m)
+        continuing = mobile_environment_only(bad) and tv.mobile_automation(s, m) and path_ids and not bad.keys() & set(path_ids)
+        require(not (bad and workflow.defer_reason(m, m.get('fix_budget', s['max_fix_rounds'])))
+                or m.get('automation_retry_ready') or continuing, 'unresolved failure awaits Auditor')
         require(m['code_baseline'], 'code must be accepted before testing')
         # A task is built and unit-tested as soon as it is accepted; what runs the whole module waits for all of them.
         require(tv.split(m) and tv.next_scope(m) == 'build' or set(m.get('accepted_task_ids', [])) == {t['task_id'] for t in m['plan']['tasks']},
@@ -1227,6 +1274,9 @@ def _next_step(s, m):
     elif active and active.get('dependency_inputs') and active['dependency_inputs'] != dependency_validation_inputs(s, m):
         step.update(operation='revoke', role='host', ready=True, reason='partial-build-provider-inputs-changed',
                     payload={'assignment_id': active['assignment_id']})
+    elif active and not deployed_inputs_current(s, m, active):
+        step.update(operation='revoke', role='host', ready=True, reason='bound-ios-package-inputs-changed',
+                    payload={'assignment_id': active['assignment_id']})
     elif active:
         submitted = active['assignment_id'] in m['submissions']
         step.update(operation='accept' if submitted else 'await-result',
@@ -1242,6 +1292,7 @@ def _next_step(s, m):
             assigned = set(active['execution_contract']['path_ids'])
             if any(builtin_mobile(s, p) for p in m['plan']['paths'] if p['path_id'] in assigned):
                 step.update(mobile_test=True, path_ids=active['execution_contract']['path_ids'],
+                            device_wait=active.get('device_wait', False),
                             instance_id=active['instance_id'], fencing_token=active['fencing_token'])
     elif m.get('decomposition_submission'):
         step.update(operation='decompose-accept', role='global-orchestrator', ready=True)
@@ -1327,7 +1378,8 @@ def _next_step(s, m):
                             approval_subject_sha256=digest(wanted), mechanical=False)
     elif m['phase'] in ('frozen', 'testing', 'diagnosing'):
         bad = unresolved(m)
-        if m['phase'] == 'testing' and bad and not m.get('automation_retry_ready'):
+        mobile_batch = tv.automation_batch(s, m) if m['phase'] == 'testing' and tv.mobile_automation(s, m) else None
+        if m['phase'] == 'testing' and bad and not m.get('automation_retry_ready') and not (mobile_batch and mobile_environment_only(bad)):
             draft = m.get('diagnosis_submission')
             categories = {r.get('root_cause', {}).get('category') for r in bad.values()}
             conflict = workflow.variant_conflict(m)
@@ -1405,7 +1457,8 @@ def _next_step(s, m):
                         step.pop('test_scope')
                         return step
                 else:
-                    pending_paths = prepared_tests.pending_paths(paths) if not tv.dispatch_paths(m, step.get('test_scope')) else []
+                    has_ready = mobile_batch if mobile_batch is not None else tv.dispatch_paths(m, step.get('test_scope'))
+                    pending_paths = prepared_tests.pending_paths(paths) if not has_ready else []
                 gaps = owed_gaps(s, m) if step['ready'] and (reviewing or pending_paths) else []
                 static_gap = reviewing and any(issues.owed_stage(s['issues'][iid]['summary']) == 'static' for iid in gaps)
                 if gaps and (static_gap or pending_paths):
@@ -1421,7 +1474,11 @@ def _next_step(s, m):
             if step['ready']:
                 try:
                     if step.get('test_scope') != 'visual':
-                        selected = ([path['path_id'] for path in tv.dispatch_paths(m, step.get('test_scope'))]
+                        due = mobile_batch if mobile_batch is not None else tv.dispatch_paths(m, step.get('test_scope'))
+                        if mobile_batch == []:
+                            step.update(ready=False, reason='apply reviewed execution change before new test assignment')
+                            return step
+                        selected = ([path['path_id'] for path in due]
                                     if worker == 'test-runner' else [])
                         visual = False
                     if selected:
@@ -1909,7 +1966,8 @@ def assign_worker(s, m, mid, p, events, root):
         and tv.artifact_only_visual(s, m, p.get('path_ids')))), 'artifact-only visual assignment needs accepted managed build output')
     require(m.get('plan') and m.get('freeze_id'), 'SPEC not frozen/prepared')
     execution_contract = control_policy.execution_contract(m, p)
-    require('resource_wait' not in p, 'resource wait is owned by the Ledger')
+    require(not {'resource_wait', 'device_wait', 'deployed_mobile_inputs'}.intersection(p),
+            'resource, device and deployment bindings are owned by the Ledger')
     resource_wait = False
     if p.get('resource_sync_deferred'):
         import resource_binding
@@ -1938,6 +1996,11 @@ def assign_worker(s, m, mid, p, events, root):
     a = m['assignments'][p['assignment_id']] = {**p, 'run_id': s['run_id'], 'module_id': mid,
         'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'closed': False,
         'fencing_token': len(events) + 1, **dispatch_record(s, m, p), **(usage or {})}
+    if p['role'] == 'test-runner' and mobile_dispatch(s, m, execution_contract['path_ids']):
+        a['device_wait'] = True
+        from ios_evidence import assignment_inputs
+        if deployed := assignment_inputs(s, m, execution_contract['path_ids']):
+            a['deployed_mobile_inputs'] = deployed
     if execution_contract:
         a['execution_contract'] = execution_contract
     if bound:
@@ -2402,6 +2465,25 @@ def mutate(s, req, principal, events, root=None):
         role(principal, 'module-orchestrator')
         require(p.get('mode') in (None, 'execute'), 'unknown assignment mode')
         assign_worker(s, m, mid, p, events, root)
+    elif op == 'mobile-test-start':
+        role(principal, 'test-runner')
+        a = m['assignments'].get(p.get('assignment_id'), {})
+        require(a.get('device_wait') and not a.get('closed') and a['fencing_token'] == p.get('fencing_token')
+                and a['instance_id'] == principal['instance_id'], 'mobile device start needs its waiting assignment and fence')
+        require(worker_slots(s) < s['max_parallel_modules'], 'parallel budget exhausted')
+        worker_phase(m, a)
+        worker_dependencies_ready(s, m, a)
+        require(deployed_inputs_current(s, m, a), 'iOS deployed artifact inputs changed while waiting')
+        require(not m.get('blocked'), 'waiting mobile assignment is blocked')
+        current(m)
+        ready = check_ref(p['device_ready_ref'])
+        run_storage.test_output(root, s, ready)
+        query = read_json(run_storage.checked_path(ready.with_name('query.json'), ready.parent))
+        require(ready.name == 'device-ready.json' and query['assignment_id'] == a['assignment_id']
+                and query['run_id'] == s['run_id'] and query['module_id'] == mid
+                and query['path_id'] in a['execution_contract']['path_ids']
+                and read_json(ready) == {'test_run_id': query['test_run_id']}, 'mobile device readiness belongs to another attempt')
+        a.update(device_wait=False, device_ready_ref=p['device_ready_ref'])
     elif op == 'resource-start':
         role(principal, 'module-orchestrator', 'host')
         import resource_binding
@@ -2429,6 +2511,7 @@ def mutate(s, req, principal, events, root=None):
                 'preflight required: context-submit a ready report for this assignment before its result')
         worker_phase(m, assignment)
         worker_dependencies_ready(s, m, assignment)
+        require(deployed_inputs_current(s, m, assignment), 'iOS deployed artifact inputs changed before submission')
         if assignment.get('resource_sync_deferred'):
             import resource_binding
             if resource_binding.needs_sync(m, assignment):
@@ -2453,6 +2536,7 @@ def mutate(s, req, principal, events, root=None):
         require(assignment.get('execution_contract'), 'assignment execution contract missing; revoke and reassign')
         worker_phase(m, assignment)
         worker_dependencies_ready(s, m, assignment)
+        require(deployed_inputs_current(s, m, assignment), 'iOS deployed artifact inputs changed before acceptance')
         sub = m['submissions'][aid]
         result = read_json(check_ref(sub['ref']))
         kind = validate_result(result, tv.execution_view(s, m), assignment, run_root=root)
@@ -2492,6 +2576,9 @@ def mutate(s, req, principal, events, root=None):
                 invalidate_dependents(s, mid)
         else:
             previous_fingerprint = failure_fingerprint(m['results'])
+            mobile_batches = assignment.get('test_scope') == 'automation' and tv.mobile_automation(s, m)
+            progressed = mobile_batches and any(row['quality'] == 'green-passed' and not tv.path_green(m, row['path_id'])
+                                                for row in result['paths'])
             result['paths'] = tv.scripted(result['paths'])  # which device paths a frozen script drove: the pilot the report counts
             accepted = {x['path_id']: {**x, 'code_baseline': m['code_baseline'], 'stale': False} for x in result['paths']}
             if m['dependencies']:
@@ -2512,7 +2599,7 @@ def mutate(s, req, principal, events, root=None):
             if replaced_artifacts:
                 for pid, row in m['results'].items():
                     path = planned_paths.get(pid, {})
-                    used = (row.get('visual_alignment') or {}).get('hap_ref')
+                    used = row.get('ios_artifact_ref') or (row.get('visual_alignment') or {}).get('hap_ref')
                     if used:
                         expired = (used['path'], used['sha256']) in replaced_artifacts
                     else:
@@ -2532,6 +2619,7 @@ def mutate(s, req, principal, events, root=None):
                     current_build_ids = kept | fresh
                     m['build_artifacts'] = [ref for pid in sorted(current_build_ids) for ref in m['results'][pid].get('build_artifacts', [])]
                     m['build_baseline'] = m['code_baseline'] if len(current_build_ids) == len(tv.paths(m, 'build')) else None
+                    invalidate_ios_consumers(s, m, replaced_artifacts)
                     if not m['build_baseline'] and (retained or m.get('dependency_reverify') or m.get('device_reverify')):
                         resumable = kept | task_revalidation.current_build_paths(s, m, root, fresh)
                         if resumable:
@@ -2540,7 +2628,9 @@ def mutate(s, req, principal, events, root=None):
                             for row in result['paths']:
                                 if kinds[row['path_id']] != 'build':
                                     m['results'][row['path_id']]['stale'] = True
-                if assignment.get('test_scope') != 'build' or any(x['quality'] != 'green-passed' for x in result['paths']):
+                keep_retry = mobile_batches and all(row['quality'] == 'green-passed' for row in result['paths']) and any(
+                    not tv.path_green(m, path['path_id']) for path in tv.paths(m, 'automation'))
+                if not keep_retry and (assignment.get('test_scope') != 'build' or any(x['quality'] != 'green-passed' for x in result['paths'])):
                     m.pop('automation_retry_ready', None)
             if m.get('dependency_reverify') and tv.all_green(m):
                 m.pop('dependency_reverify')
@@ -2554,7 +2644,8 @@ def mutate(s, req, principal, events, root=None):
                 invalidate_dependents(s, mid)
             if build_only and not bad and tv.build_ready(m):
                 m['automation_retry_ready'] = True
-            m['no_progress_rounds'] = m['no_progress_rounds'] + 1 if bad and failure_fingerprint(m['results']) == previous_fingerprint else 0
+            m['no_progress_rounds'] = (m['no_progress_rounds'] + 1
+                                      if bad and not progressed and failure_fingerprint(m['results']) == previous_fingerprint else 0)
             for memory in m.get('fix_memory', []):
                 if not build_only and memory['status'] == 'awaiting-regression' and memory.get('after_baseline') == m['code_baseline']:
                     memory.update(status='verified' if not bad else 'failed', reusable=not bad,
@@ -2778,9 +2869,9 @@ def mutate(s, req, principal, events, root=None):
         scope = audit_scope(s)
         require(assignment.get('scope_policy') == 'non-green-only', 'legacy full audit assignment; revoke and reassign')
         require(assignment['path_ids'] == [p['path_id'] for p in scope['plan']['paths']], 'audit selection changed')
-        test_refs, visual_bindings = [], {}
+        test_refs, visual_bindings, ios_bindings = [], {}, {}
         if scope['plan']['paths']:
-            test_refs, _ = audit_execution.evidence(s, scope, report, visual_bindings=visual_bindings)
+            test_refs, _ = audit_execution.evidence(s, scope, report, visual_bindings=visual_bindings, ios_bindings=ios_bindings)
             require(report.get('schema_version') == 1 and report.get('kind') == 'tests', 'audit report schema/kind mismatch')
             for field, value in (('run_id', s['run_id']), ('module_id', 'GLOBAL'), ('assignment_id', assignment['assignment_id']),
                 ('actor_instance_id', principal['instance_id']), ('freeze_id', scope['freeze_id']), ('code_baseline', scope['code_baseline'])):
@@ -2799,6 +2890,8 @@ def mutate(s, req, principal, events, root=None):
             pid = row['path_id']
             if binding := visual_bindings.get(pid):
                 results[pid] = {**row, 'code_baseline': binding['code_baseline'], 'global_visual_binding': binding}
+            elif binding := ios_bindings.get(pid):
+                results[pid] = {**row, 'code_baseline': binding['code_baseline'], 'global_ios_binding': binding}
             else:
                 results[pid] = {**row, 'code_baseline': scope['code_baseline']}
         owners = {path['path_id']: mid for mid, mod in s['modules'].items() for path in mod['plan']['paths']}

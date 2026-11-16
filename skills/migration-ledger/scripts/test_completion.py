@@ -37,16 +37,22 @@ def mobile_binding(planned, query, report, output):
                 and isinstance(observed.get('wda_uuid'), str)
                 and observed['wda_uuid'] not in ('', 'unknown'), 'iOS Green requires matching WebDriverAgent device evidence')
         if ios_execution:
-            from ios_evidence import check_checkpoints, check_device, check_video
-            require(report.get('mobile_contract_version') == 3, 'iOS deployment evidence contract required')
-            check_device(query['ios_execution'], query['code_baseline'], observed)
+            from ios_evidence import RECORDING_CONTRACT, check_checkpoints, check_clip, check_device, check_path_recording, check_video
+            version = query.get('ios_recording_contract', 3)
+            require(version in (3, RECORDING_CONTRACT) and report.get('mobile_contract_version') == version,
+                    'iOS deployment evidence contract required')
+            artifact = check_device(query['ios_execution'], query['code_baseline'], observed)
             trace = read_json(check_ref(report.get('step_trace_ref')))
             check_checkpoints(query['ios_execution'], query, trace, output)
             assertions = keyed(query['expected_assertions'], 'assertion_id')
             for item in read_json(check_ref(report.get('observations_ref'))):
                 if item.get('tool') == 'video_assert':
                     assertion = assertions[item['assertion_ids'][0]]
-                    check_video(item['evidence_refs'], trace, assertion, observed, output)
+                    verify = check_clip if version == RECORDING_CONTRACT else check_video
+                    verify(item['evidence_refs'], trace, assertion, observed, output)
+            if version == RECORDING_CONTRACT and query.get('record_video'):
+                check_path_recording(report.get('media_refs') or [], trace, observed, output)
+            return artifact
 
 
 def web_steps(query, trace, observations, check):
@@ -99,13 +105,14 @@ def interpret(receipt, planned):
     generic = isinstance(report, dict) and not known  # a project adapter: its assertions are read as the documented contract, nothing else is trusted
     require(not generic or 'ios_execution' not in query, 'built-in iOS execution requires a mobile evidence report')
     step_issues = []
+    ios_artifact = None
     if known and report['producer'] == 'build-executor':
         require(planned.get('kind') in ('build', 'unit') or planned.get('unit_report'), 'build report cannot replace automation')
         if planned.get('unit_report'):
             import unit_reports
             unit_reports.validate(receipt, planned, report)
     if known and report['producer'] == 'harmony-adapter':
-        mobile_binding(planned, query, report, Path(receipt['result_ref']['path']).parent)
+        ios_artifact = mobile_binding(planned, query, report, Path(receipt['result_ref']['path']).parent)
         for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
             if key in report: require(report[key] == receipt.get(key), 'Harmony context mismatch')
             else: known = False
@@ -176,6 +183,10 @@ def interpret(receipt, planned):
     if valid:
         row = copy.deepcopy({k: report[k] for k in ('quality', 'assertions', 'root_cause', 'flaky', 'skipped', 'xfail', 'visual_alignment', 'interaction_evidence', 'build_artifacts', 'unit_execution', 'step_trace_ref') if k in report})
         row.update(executed=True, host_completion_version=1)
+        if report.get('producer') == 'build-executor' and planned.get('kind') == 'build' and report.get('ios_build_coverage_refs'):
+            row['ios_build_coverage_refs'] = report['ios_build_coverage_refs']
+        if ios_artifact:
+            row['ios_artifact_ref'] = ios_artifact
         if report.get('media_refs') is not None:  # the recording or frame the adapter kept: hash-bound, inside its own output
             from contracts import media_evidence
             row['media_refs'] = media_evidence(report['media_refs'], Path(check_ref(receipt['result_ref'])).parent)

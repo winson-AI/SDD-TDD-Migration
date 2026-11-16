@@ -84,7 +84,7 @@ class Steps:
                         shot = verifier.device.get_screenshot(save_to_report=True, checkpoint=True)
                         layout = verifier.report.layout_dir / Path(shot.screenshot_path).with_suffix('.json').name
                         row[phase + '_device'] = {'foreground_bundle_id': shot.foreground_bundle_id, 'layout_ref': ref(layout),
-                                                  'captured_at': time.time()}
+                                                  'captured_at': getattr(shot, 'captured_at', None) or time.time()}
                     except (ValueError, OSError, RuntimeError):
                         sink.environment_error = 'iOS checkpoint media or foreground unavailable'
                         raise

@@ -82,7 +82,7 @@ GO / 父 MO：scope + CASE → 子 MO：TASK + 四维 → SPEC / PATH 审核冻�
 
 **机械验证分批交回调度。** 每批结果提交后，`drive` 先检查验收游标、就绪派发和修订，再启动下一批命令。执行器与结果整理读 Ledger 状态，投影由调度集中写出。宿主在命令结束与入账之间中断时，同一派发核验现有 PATH 回执后继续，沿用已完成命令的 test_run_id。回执不完整时先核实旧进程已停止或隔离，再按原恢复流程处理。
 
-**内置移动端验证独立执行。** `drive` 通过原 Test-Runner 派发交付内置 Android、iOS 和 Harmony 测试，宿主持 `test_execute` 在独立进程执行并继续调度。GLOBAL 集成和终审先跑就绪的非移动端命令，内置移动端按单 PATH 独立入账。同一设备由执行进程排队。设备配置、连接或部署缺口只记到相关 PATH，条件恢复后补验对应路径。 [宿主接入](skills/migration-protocol/references/host-integration.md#内置移动端验证)
+**内置移动端验证独立执行。** `drive` 通过原 Test-Runner 派发交付内置 Android、iOS 和 Harmony 测试，宿主持 `test_execute` 在独立进程执行并继续调度。等待设备期间让出并行名额，取得设备及执行名额后才开始执行计时。叶子在构建和静态前置门禁通过后按就绪 PATH 分批入账。GLOBAL 集成和终审先跑就绪的非移动端命令，内置移动端逐 PATH 入账。设备配置、连接或部署缺口只记到相关 PATH，恢复后沿用已通过的回执并补验受影响路径。 [宿主接入](skills/migration-protocol/references/host-integration.md#内置移动端验证)
 
 **就绪的同 Run 修订提前交付。** `revise-run` 和 `reconfigure-sources` 达到现有提交门禁后，`drive` 先于待执行的长命令交付当前修订号和评审主体，每个就绪主体提前交付一次。待生效的 `revise-run` 只暂停受影响 GLOBAL PATH 的新波次。最后一个叶子收尾后，已评审的局部修订仍待人工批准时，执行输入就绪的独立 GLOBAL PATH 可以继续派发。设备换绑或仅调整 GLOBAL PATH 的修订在等待期间，范围外波次的同输入 Green 可以入账并保留原评审。范围内变化、失败和失效证据继续进入复核。
 
@@ -135,7 +135,9 @@ Runner 尚未获执行授权时，可按 PATH 交回环境缺口。已获授权�
 
 GLOBAL 的冻结 JUnit 按主机执行输入判定。命令、测试源、代码基线和绑定产物仍可核验时，纯设备切换沿用原回执和 `test_run_id`。
 
-**iOS 按模拟器和真机分别验收。** 上游指定双覆盖的 CASE 可冻结两个有独立身份的 PATH。真机回执核对宿主部署记录、WDA 与硬件 UDID 的绑定、CoreDevice 读出的已安装构建，以及断言检查点的前台应用与 UI 树。设备未就绪时只记录对应覆盖缺口。截图直接走 WDA，录屏按 PATH 显式启动，视频断言核对可解码且覆盖冻结区间的证据。 [iOS 接入](skills/migration-test/runtime/harmony/README.md#ios-接入)
+**iOS 按模拟器和真机分别验收。** 同一签名 IPA 可用构建覆盖清单证明多个叶子及 GLOBAL PATH 所需的 owner 和提供方代码基线。Ledger 核对已验收的包摘要与 CoreDevice 安装实例，Runner 通过 WDA 记录前台应用及 UI 树。证明完备时，使用该 IPA 的测试可与无关编码并行，原部署、实际执行输入及证据仍有效的 PATH 可沿用回执。
+
+iOS 录屏按需启动。真机以可用的 AVFoundation 采集 UID 或两个有时间对应的 WDA 画面核验来源。视频断言在连续录屏结束后裁剪冻结区间，把实际发送给模型的片段摘要与 ASSERT ID 绑定。声明 `record_video` 的 PATH 核对首步前到末步后的连续覆盖，取证缺口记为该 PATH 的 Yellow。 [iOS 接入](skills/migration-test/runtime/harmony/README.md#ios-接入)
 
 Harmony 真机的限定资源 PATH 绑定已接受的签名 HAP、运行中应用的构建标识及设备身份。Ledger 核对 WindowManager 回读的焦点窗口、定向 UI 树和 PNG，验证采集与下载的完整时序。新版资源探针分别报告系统配置和应用窗口有效配置，并回读正式消费者选中的 HAP 资源成员或 XML 分支。按冻结的配置来源与标识判定覆盖。等值且不可区分的候选只确认值一致。详见 [Harmony 限定资源取证](skills/migration-protocol/references/resource-transfer.md#harmony)。
 
@@ -197,6 +199,7 @@ Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-11-16 | 移动端等待设备让出执行名额及预算，叶子按就绪 PATH 分批入账。iOS 签名 IPA 绑定代码切片与已安装实例，按实际制品收窄锁及补验范围，核验录屏来源、模型裁剪片段和全程覆盖。 |
 | 2026-11-16 | 内置移动端测试由独立宿主进程执行，GLOBAL 按 PATH 入账。设备缺口隔离，纯设备切换保留有效 GLOBAL JUnit。iOS 模拟器与真机分别覆盖，真机绑定已部署构建与检查点，录屏按需取证。 |
 | 2026-11-16 | 吸收 MobileAgenticOperator 的 iOS WDA 驱动。Android、iOS 与 Harmony 按冻结 PATH 选择内置 Main，共用逐步断言、媒体证据和 Ledger 回执。 |
 | 2026-11-16 | 资源已就绪的编码派发同轮交付。GLOBAL 波次按执行方式分批，单条配置缺口局部报告，单平台适配器覆盖按实际输入重验。终审挂起前的独立受管视觉 Green 可跨无关叶子更新沿用，实际命令相同的 JUnit PATH 共用执行。 |

@@ -6,6 +6,7 @@ from contracts import Drifted, Rejected, check_ref, check_retest_chain, digest, 
 OPS = {'audit-test-assign', 'audit-test-submit', 'audit-test-revoke'}
 INPUT_VERSION = 2
 GLOBAL_VISUAL_INPUT_VERSION = 3
+DEPLOYED_IOS_INPUT_VERSION = 4
 
 
 def submitted(s):
@@ -71,6 +72,7 @@ def batch_inputs(scope, path):
 def ready_paths(s, scope):
     """Dispatch runnable commands first, then give the remaining ready paths to an independent worker."""
     from execute_test import builtin_mobile
+    from device_lease import available as device_available
     reported = environment_blocks(s)
     waiting = waiting_paths(s, scope, verify=False)
     ready, blocked = partition_paths(s, scope, waiting, reported=reported)
@@ -85,7 +87,8 @@ def ready_paths(s, scope):
         return [], blocked
     quick = [path for path in available if not builtin_mobile(s, path)]
     if not quick:
-        return [available[0]['path_id']], blocked
+        ready_on_device = next((p for p in available if device_available(s, p)), available[0])
+        return [ready_on_device['path_id']], blocked
     available = quick
     inputs = batch_inputs(scope, available[0])
     return [path['path_id'] for path in available if batch_inputs(scope, path) == inputs], blocked
@@ -178,6 +181,15 @@ def input_fingerprint(s, scope, path, root, argv=None, cwd=None, *, version=INPU
             check_frozen(s, path)
             execution = managed_inputs(s, path)
             refs['test_assets'] = binding({'path_test_sources': {pid: global_source(path)}}, path)
+        elif version == DEPLOYED_IOS_INPUT_VERSION:
+            from ios_evidence import artifact_inputs
+            execution = artifact_inputs(s, 'GLOBAL', path)
+            require(execution, 'scoped audit binding requires accepted iOS deployment inputs')
+            managed = adapter_for(s, path, Path(root).resolve())
+            require(argv == managed['argv'] and cwd == Path(managed['cwd']).resolve(), 'iOS signed package needs the managed runner')
+            check_frozen(s, path)
+            refs['test_assets'] = binding(scope, path) if scope is not None else binding(
+                {'path_test_sources': {pid: global_source(path)}}, path)
         else:
             code = scope['code_baseline']
             builds = scope['path_build_artifacts'].get(pid, [])
@@ -209,7 +221,12 @@ def input_fingerprint(s, scope, path, root, argv=None, cwd=None, *, version=INPU
 def receipt_inputs(s, scope, path, task, root, argv, cwd):
     from context_readiness import enabled
     from test_validation import bound_native_visual
+    from ios_evidence import artifact_inputs
 
+    if path in s['global_paths'] and artifact_inputs(s, 'GLOBAL', path):
+        stamp = input_fingerprint(s, scope, path, root, argv, cwd, version=DEPLOYED_IOS_INPUT_VERSION)
+        if stamp:
+            return {'audit_inputs_version': DEPLOYED_IOS_INPUT_VERSION, 'audit_inputs_sha256': stamp}
     if bound_native_visual(path) and path in s['global_paths'] and enabled(s) and task.get('context_ref'):
         stamp = input_fingerprint(s, scope, path, root, argv, cwd, version=GLOBAL_VISUAL_INPUT_VERSION)
         if stamp:
@@ -223,7 +240,7 @@ def receipt_fingerprint(s, scope, path, task, receipt, *, same_assignment=False)
     from test_validation import check_visual_command, managed_visual_environment
 
     version = receipt.get('audit_inputs_version', 1)
-    if version not in (1, INPUT_VERSION, GLOBAL_VISUAL_INPUT_VERSION):
+    if version not in (1, INPUT_VERSION, GLOBAL_VISUAL_INPUT_VERSION, DEPLOYED_IOS_INPUT_VERSION):
         return None
     argv = cwd = None
     if version == GLOBAL_VISUAL_INPUT_VERSION:
@@ -303,6 +320,27 @@ def global_visual_current(s, path, previous):
         return False
 
 
+def global_ios_current(s, path, previous):
+    from ios_evidence import artifact_inputs
+
+    task = previous['global_ios_binding']
+    try:
+        proof = artifact_inputs(s, 'GLOBAL', path)
+        receipt = proof_document(task, previous['execution_receipt'], {})
+        recorded = receipt.get('audit_inputs_sha256')
+        if (bool(proof and recorded) and previous.get('ios_artifact_ref') == proof['artifact_ref']
+                and receipt.get('audit_inputs_version') == DEPLOYED_IOS_INPUT_VERSION
+                and (receipt['run_id'], receipt['module_id'], receipt['path_id'], receipt['test_run_id'])
+                    == (s['run_id'], 'GLOBAL', path['path_id'], previous['test_run_id'])
+                and recorded == receipt_fingerprint(s, None, path, task, receipt)):
+            row = {key: value for key, value in previous.items() if key != 'global_ios_binding'}
+            verify_archived_observation(task, row, {})
+            return True
+        return False
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
 def verify_archived_observation(task, row, archives):
     archive = archived_evidence(task, archives)
     archive.check(task['result_ref'])
@@ -310,8 +348,8 @@ def verify_archived_observation(task, row, archives):
     archive.visit(row)
 
 
-def verify_carried_visual(s, scope, path, task, report, row, receipt, archives):
-    """Keep the original batch identity when the current visual execution inputs still match."""
+def verify_carried_artifact(s, scope, path, task, report, row, receipt, archives):
+    """Keep the original batch identity when the current deployed inputs still match."""
     from prepared_tests import global_authors
 
     runner = task['instance_id']
@@ -323,7 +361,13 @@ def verify_carried_visual(s, scope, path, task, report, row, receipt, archives):
             and (receipt['path_id'], receipt['test_run_id']) == (row['path_id'], row['test_run_id']),
             'carried visual observation differs from its original assignment')
     check_retest_chain(scope, path['path_id'], row)
-    require(capture_matches(s, path, row, task, archives), 'carried visual capture differs from the current device or build')
+    if receipt['audit_inputs_version'] == DEPLOYED_IOS_INPUT_VERSION:
+        from ios_evidence import artifact_inputs
+        proof = artifact_inputs(s, 'GLOBAL', path)
+        require(proof and row.get('ios_artifact_ref') == proof['artifact_ref'],
+                'carried iOS result differs from the current deployed build')
+    else:
+        require(capture_matches(s, path, row, task, archives), 'carried visual capture differs from the current device or build')
     verify_archived_observation(task, row, archives)
 
 
@@ -332,15 +376,17 @@ def verified_batches(s, scope, tasks, archives, *, fingerprint=False):
     from context_readiness import verify_refs
     from prepared_tests import binding
     from test_validation import bound_native_visual
+    from ios_evidence import artifact_inputs
 
     paths = {path['path_id']: path for path in scope['plan']['paths']}
-    visual_paths = {path['path_id'] for path in s.get('global_paths', []) if bound_native_visual(path)} if fingerprint else set()
+    artifact_paths = {path['path_id'] for path in s.get('global_paths', [])
+                      if bound_native_visual(path) or artifact_inputs(s, 'GLOBAL', path)} if fingerprint else set()
     batches = []
     for task in tasks:
         if not task.get('run_root'):
             continue
         same_snapshot = (task['freeze_id'], task['code_baseline']) == (scope['freeze_id'], scope['code_baseline'])
-        if not same_snapshot and not visual_paths.intersection(task['path_ids']):
+        if not same_snapshot and not artifact_paths.intersection(task['path_ids']):
             continue
         try:
             report = proof_document(task, task['result_ref'], archives)
@@ -353,7 +399,7 @@ def verified_batches(s, scope, tasks, archives, *, fingerprint=False):
                 continue
             if fingerprint and (not row.get('executed') or row['quality'] not in ('green-passed', 'red-bug')):
                 continue
-            if not same_snapshot and (pid not in visual_paths or row['quality'] != 'green-passed'):
+            if not same_snapshot and (pid not in artifact_paths or row['quality'] != 'green-passed'):
                 continue
             try:
                 path = paths[pid]
@@ -362,7 +408,7 @@ def verified_batches(s, scope, tasks, archives, *, fingerprint=False):
                 verify_refs(scope.get('path_build_artifacts', {}).get(pid, []) if path.get('build_binding') else [])
                 receipt_ref = row.get('execution_receipt')
                 receipt = proof_document(task, receipt_ref, archives) if receipt_ref else {}
-                if not same_snapshot and receipt.get('audit_inputs_version') != GLOBAL_VISUAL_INPUT_VERSION:
+                if not same_snapshot and receipt.get('audit_inputs_version') not in (GLOBAL_VISUAL_INPUT_VERSION, DEPLOYED_IOS_INPUT_VERSION):
                     continue
                 recorded = receipt.get('audit_inputs_sha256')
                 if fingerprint and not recorded:
@@ -370,7 +416,7 @@ def verified_batches(s, scope, tasks, archives, *, fingerprint=False):
                 if recorded and recorded != receipt_fingerprint(s, scope, path, task, receipt, same_assignment=not fingerprint):
                     continue
                 if not same_snapshot:
-                    verify_carried_visual(s, scope, path, task, report, row, receipt, archives)
+                    verify_carried_artifact(s, scope, path, task, report, row, receipt, archives)
                 else:
                     try:
                         validate_result({**report, 'paths': [row]}, task_scope(scope, {'path_ids': [pid]}), task,
@@ -502,7 +548,7 @@ def handle(s, req, actor, scope, root):
         task.update(closed=True, result_ref=p['result_ref'])
 
 
-def evidence(s, scope=None, report=None, *, visual_bindings=None):
+def evidence(s, scope=None, report=None, *, visual_bindings=None, ios_bindings=None):
     """Gather exact accepted batch observations in their submission order."""
     from ledger import audit_scope
     from test_validation import bound_native_visual
@@ -517,6 +563,11 @@ def evidence(s, scope=None, report=None, *, visual_bindings=None):
         refs.append(task['result_ref'])
         rows.extend(rows_in_scope)
         for row in rows_in_scope:
+            if ios_bindings is not None and row['quality'] == 'green-passed' and row.get('ios_artifact_ref'):
+                planned = next((path for path in s['global_paths'] if path['path_id'] == row['path_id']), None)
+                original = {key: task[key] for key in ('run_root', 'context_ref', 'freeze_id', 'code_baseline', 'result_ref')}
+                if planned and global_ios_current(s, planned, {**row, 'global_ios_binding': original}):
+                    ios_bindings[row['path_id']] = original
             path = global_paths.get(row['path_id'])
             if not path or row['quality'] != 'green-passed' or not task.get('context_ref'):
                 continue

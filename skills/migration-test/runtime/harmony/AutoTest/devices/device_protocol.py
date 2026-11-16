@@ -13,6 +13,7 @@ class Screenshot:
     is_sensitive: bool = False
     screenshot_path: str = None
     foreground_bundle_id: str | None = None
+    captured_at: float | None = None
 
 
 @runtime_checkable

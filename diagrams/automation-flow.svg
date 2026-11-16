@@ -74,14 +74,14 @@
 <rect x="460" y="940" width="640" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="780.0" y="981.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">ready 绑定 → 宿主 execute_test</text>
 <text x="780.0" y="1015.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核对实际代码、环境和命令，设备缺口仅记对应 PATH</text>
-<text x="780.0" y="1044.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">内置移动 PATH 交独立宿主进程，drive 继续派发</text>
+<text x="780.0" y="1044.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">移动端独立派发，取到设备和执行名额后开始计时</text>
 <path d="M780,1065 L780,1120" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="1120" width="640" height="145" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="465" y="1125" width="630" height="135" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
 <text x="780.0" y="1157.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">逐 PATH 调用 Main（适配器随平台）</text>
 <text x="780.0" y="1191.0" font-size="20.75" fill="#4b5563" text-anchor="middle" font-weight="400">声明平台后选择内置或项目 Main，传入 query 与 result 文件</text>
 <text x="780.0" y="1220.0" font-size="17.75" fill="#4b5563" text-anchor="middle" font-weight="400">Android / iOS / Harmony → 移动端 Main（图 06），Web → web Main</text>
-<text x="780.0" y="1249.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">受限 APK / HAP 视觉可与独立编码并行，核对设备锁</text>
+<text x="780.0" y="1249.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">绑定验收制品的 APK / HAP / IPA 验证可与独立编码并行</text>
 <rect x="60" y="1080" width="340" height="190" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="230.0" y="1125.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">两层执行结果</text>
 <text x="230.0" y="1159.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">包装器 exit 0：已写回执</text>

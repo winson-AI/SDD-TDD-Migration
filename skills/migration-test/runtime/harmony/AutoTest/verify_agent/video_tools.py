@@ -6,6 +6,7 @@ ffmpeg-python 提供 Pythonic API，imageio-ffmpeg 提供跨平台 ffmpeg 二进
 """
 
 import base64
+import hashlib
 import json
 import mimetypes
 import os
@@ -305,7 +306,7 @@ def map_timestamp_to_position(timestamp: float, mapping: dict) -> float:
     return segments[-1]["merged_end"]
 
 
-def encode_video_base64(video_path: Union[str, Path]) -> str:
+def encode_video_base64(video_path: Union[str, Path], *, sha256=None) -> str:
     """
     将视频文件读取为 base64 字符串
 
@@ -321,7 +322,10 @@ def encode_video_base64(video_path: Union[str, Path]) -> str:
         raise FileNotFoundError(f"视频文件不存在: {video_path}")
 
     with open(video_path, "rb") as video_file:
-        return base64.b64encode(video_file.read()).decode("utf-8")
+        content = video_file.read()
+    if sha256 and hashlib.sha256(content).hexdigest() != sha256:
+        raise ValueError('video bytes changed before model submission')
+    return base64.b64encode(content).decode("utf-8")
 
 
 def get_video_mime_type(video_path: Union[str, Path]) -> str:
