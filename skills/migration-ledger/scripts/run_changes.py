@@ -182,10 +182,28 @@ def uses_changed_device(path, platforms):
     return not (path.get('command') and path.get('unit_report'))
 
 
+def platform_adapter_after(s, report):
+    """An isolated override can change a platform's runner without changing the shared sandbox."""
+    patch = report['context_patch']
+    if (set(patch) != {'test_adapter'} or set(patch['test_adapter'] or {}) != {'adapters'}
+            or report.get('package_sha') or report.get('contract_patch') or report.get('root_updates')
+            or report.get('global_spec_ref')):
+        return None
+    overrides = patch['test_adapter']['adapters']
+    if not isinstance(overrides, dict) or len(overrides) != 1 or not set(overrides) <= {'android', 'harmony', 'web'}:
+        return None
+    return project_context.merge(s.get('test_adapter') or {}, patch['test_adapter'])
+
+
 def global_reverify_paths(s, report, devices):
     if devices is not None:
         from integration import affected_by_device
         return {path['path_id'] for path in s['global_paths'] if affected_by_device(s, path, devices)}
+    if (adapter := platform_adapter_after(s, report)) is not None:
+        from integration import independent_of_adapter_override, scoped
+        after = {**s, 'test_adapter': adapter}
+        return {path['path_id'] for path in s['global_paths'] if not scoped(s, path)
+                and not (independent_of_adapter_override(s, path) and independent_of_adapter_override(after, path))}
     if {'runtime', 'test_adapter'} & report['context_patch'].keys():
         return {path['path_id'] for path in s['global_paths']}
     paths = (report.get('contract_patch') or {}).get('global_paths')
@@ -234,13 +252,18 @@ def pending_global_paths(s, *, revision_step=None):
 
 
 def integration_busy(s, report):
-    from integration import device_inputs, inputs, task
+    from integration import device_inputs, inputs, same_inputs, task
     active = task(s)
     if not active:
         return False
     devices = changed_devices(s, report)
     if global_reverify_paths(s, report, devices).intersection(active['path_ids']):
         return True
+    if (adapter := platform_adapter_after(s, report)) is not None:
+        after = {**s, 'test_adapter': adapter}
+        return any(path['path_id'] in active.get('inputs', {})
+                   and not same_inputs(after, path, {'integration_inputs': active['inputs'][path['path_id']]}, active['code_baseline'])
+                   for path in s['global_paths'])
     # An in-flight legacy wave must submit against its original full adapter digest.
     return bool(devices and any(path['path_id'] in active.get('inputs', {})
         and device_inputs(s, path) is not None
@@ -594,8 +617,9 @@ def handle(root, s, req, actor):
         devices = changed_devices(s, report)
         scoped = (execution_review and devices is not None
                   and all(row['action'] in ('unchanged', 'reverify') for row in report['modules']))
-        scoped_globals = devices is not None or (not patch and not report['root_updates'] and not report.get('package_sha')
-                                                 and set(report.get('contract_patch') or {}) == {'global_paths'})
+        scoped_globals = (devices is not None or platform_adapter_after(s, report) is not None or
+                          (not patch and not report['root_updates'] and not report.get('package_sha')
+                           and set(report.get('contract_patch') or {}) == {'global_paths'}))
         review = {'report_ref': p['report_ref'], 'reviewed_by': actor, 'status': 'reviewed',
                   **({'execution_review': True, 'settling_test_modules': settling} if execution_review else {}),
                   **({'device_path_review': True} if scoped else {}),
@@ -609,6 +633,7 @@ def handle(root, s, req, actor):
             'run impact review stale or missing')
     report, affected, changed_roots = validate(s, review['report_ref'])
     devices = changed_devices(s, report)
+    adapter_only = platform_adapter_after(s, report) is not None
     scoped_devices = devices if review.get('device_path_review') else None
     require(not any(blocks_switch(s, s['modules'][mid], a, scoped_devices) for mid in affected
                     for a in s['modules'][mid]['assignments'].values()), 'active assignment exists; wait for affected worker')
@@ -617,7 +642,7 @@ def handle(root, s, req, actor):
     import integration
     from ledger import global_baseline
     legacy_globals = {}
-    if devices and s.get('audit_results'):
+    if (devices or adapter_only) and s.get('audit_results'):
         try:
             before_baseline = global_baseline(s)
         except (Rejected, OSError):
@@ -625,11 +650,13 @@ def handle(root, s, req, actor):
         for path in s['global_paths'] if before_baseline else ():
             pid = path['path_id']
             row = s['audit_results'].get(pid, {})
-            if (pid not in global_reverify and row.get('quality') == 'green-passed' and not row.get('stale')
-                    and not integration.scoped(s, path) and integration.device_inputs(s, path) is not None
-                    and row.get('integration_inputs') == integration.inputs(s, path, before_baseline, legacy=True)):
+            if (pid not in global_reverify and row.get('integration_inputs')
+                    and integration.independent_of_adapter_override(s, path)
+                    and integration.current(s, path, row, before_baseline)):
                 try:
-                    legacy_globals[pid] = integration.inputs(s, path, before_baseline)
+                    scoped_inputs = integration.inputs(s, path, before_baseline)
+                    if row['integration_inputs'] != scoped_inputs:
+                        legacy_globals[pid] = scoped_inputs
                 except (Rejected, OSError):
                     pass
     decision = s['decisions'].get(p.get('decision_id'), {})
@@ -728,12 +755,12 @@ def handle(root, s, req, actor):
             group['revision'] += 1
     if new_ref:
         s['project_context_ref'] = new_ref
-        if devices is None and {'runtime', 'test_adapter'}.intersection(report['context_patch']):
+        if devices is None and not adapter_only and {'runtime', 'test_adapter'}.intersection(report['context_patch']):
             s['harmony_environment_revision'] = new_ref['sha256']
         snapshot = project_context.verify_snapshot(new_ref)
         s['new_architecture'] = snapshot['source_refs']['architecture_path']
         config = snapshot['effective_config']
-        if 'test_adapter' in report['context_patch']:
+        if 'test_adapter' in report['context_patch'] and not adapter_only:
             s['target_preview'] = revised_preview(root, s, (config.get('test_adapter') or {}).get('device') or {})
         for key in ('build', 'test_adapter', 'runtime', 'target_resources'):
             if key in report['context_patch']:
@@ -757,7 +784,7 @@ def handle(root, s, req, actor):
             scoped_inputs = legacy_globals[path['path_id']]
             try:
                 if scoped_inputs == integration.inputs(s, path, after_baseline):
-                    prior['device_continuation_inputs'] = scoped_inputs
+                    prior['integration_continuation_inputs'] = scoped_inputs
             except (Rejected, OSError):
                 pass  # Unavailable inputs remain subject to the ordinary audit checks.
     if changed_roots or report.get('global_spec_ref') or 'architecture_path' in report['context_patch']:

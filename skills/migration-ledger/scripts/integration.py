@@ -52,6 +52,16 @@ def device_inputs(s, path):
             if key == platform or platform == 'harmony' and key.startswith('harmony-')}
 
 
+def frozen_unit(path):
+    return bool(path.get('command') and (path.get('kind') == 'unit' or
+                path.get('kind') == 'automation' and path.get('unit_report')))
+
+
+def independent_of_adapter_override(s, path):
+    """The PATH has its own unit command or currently resolves to the platform's built-in runner."""
+    return frozen_unit(path) or device_inputs(s, path) is not None
+
+
 def affected_by_device(s, path, devices):
     if not devices:
         return False
@@ -77,11 +87,10 @@ def check_path_inputs(s, path):
 def managed_inputs(s, path):
     """The accepted build, environment and owner/provider closure consumed by this visual PATH."""
     from ledger import current as check_module
-    from test_validation import managed_visual_artifacts
+    from test_validation import check_managed_visual_artifacts
 
     mids = module_ids(s, path)
-    refs = managed_visual_artifacts(s, path, build_artifacts(s, path))
-    require(refs, 'managed integration build or visual environment unavailable')
+    refs = check_managed_visual_artifacts(s, path, build_artifacts(s, path))
     for mid in mids:
         m = s['modules'][mid]
         require(m['phase'] == 'completed' and not m.get('stale'), 'integration input module unsettled')
@@ -90,7 +99,7 @@ def managed_inputs(s, path):
             'modules': {mid: {k: s['modules'][mid].get(k) for k in ('code_baseline', 'freeze_id')} for mid in mids}}
 
 
-def inputs(s, path, code_baseline=None, *, legacy=False):
+def inputs(s, path, code_baseline=None, *, legacy=False, full_adapter=False):
     """A managed visual path consumes its named build. Opaque commands may inspect the whole project."""
     if not legacy:
         check_path_inputs(s, path)
@@ -98,15 +107,22 @@ def inputs(s, path, code_baseline=None, *, legacy=False):
         return digest(managed_inputs(s, path))
     common = {'path': path, 'baseline': code_baseline,
               'modules': {mid: {k: m.get(k) for k in ('freeze_id', 'build_artifacts')} for mid, m in s['modules'].items()}}
-    if not legacy and (device := device_inputs(s, path)) is not None:
+    if not legacy:
+        from test_validation import bound_native_visual, check_managed_visual_artifacts
+        if bound_native_visual(path):
+            common['visual_inputs'] = check_managed_visual_artifacts(s, path, build_artifacts(s, path), allow_boot=True)
+    adapter = s.get('test_adapter')
+    device = None if legacy else device_inputs(s, path)
+    if not legacy and not full_adapter and adapter and (device is not None or frozen_unit(path)):
+        adapter = {k: v for k, v in adapter.items() if k != 'adapters'}
+    if device is not None:
         platform = path['platform']
-        adapter = s['test_adapter']
         web_config = (s.get('target_preview') or {}).get('web_main_config')
         runtime = ({'web_config': web_config} if platform == 'web'
                    else {'environment_revision': s.get('harmony_environment_revision')})
         return digest({**common, 'device': device, 'adapter': {k: v for k, v in adapter.items() if k != 'device'},
                        'runtime': runtime, 'package_sha': s.get('package_sha')})
-    return digest({**common, 'test_adapter': s.get('test_adapter'), 'environment_revision': s.get('harmony_environment_revision')})
+    return digest({**common, 'test_adapter': adapter, 'environment_revision': s.get('harmony_environment_revision')})
 
 
 def same_inputs(s, path, previous, code_baseline, expected=None):
@@ -118,9 +134,10 @@ def same_inputs(s, path, previous, code_baseline, expected=None):
     if 'integration_inputs' in previous:
         try:
             expected = expected or inputs(s, path, code_baseline)
-            return (expected in (previous['integration_inputs'], previous.get('device_continuation_inputs'))
-                    or device_inputs(s, path) is not None
-                    and previous['integration_inputs'] == inputs(s, path, code_baseline, legacy=True))
+            original = previous['integration_inputs']
+            return (expected in (original, previous.get('device_continuation_inputs'), previous.get('integration_continuation_inputs'))
+                    or independent_of_adapter_override(s, path) and original == inputs(s, path, code_baseline, full_adapter=True)
+                    or device_inputs(s, path) is not None and original == inputs(s, path, code_baseline, legacy=True))
         except (Rejected, OSError, KeyError):
             return False
     if previous.get('code_baseline') != code_baseline:
@@ -156,11 +173,18 @@ def task(s):
     return item if item and not item.get('closed', True) else None
 
 
+def runs_by_itself(s, path):
+    from context_readiness import adapter_stated
+    from test_validation import bound_native_visual
+    return not bound_native_visual(path) and bool(path.get('command') or adapter_stated(s, path))
+
+
 def due(s, *, blocked=None, revision_step=None):
     """Prefer a ready managed wave, even when unrelated code is dirty or still being written."""
     import audit_closure
     from ledger import global_baseline
     from run_changes import next_action, pending_global_paths
+    from test_validation import bound_native_visual, check_managed_visual_artifacts
     if audit_closure.active(s) or not (s.get('audit_assignment') or {}).get('closed', True) or task(s):
         return []
     device_reviews = [change['report_ref'] for change in s.get('run_change_history', []) if change.get('device_only')]
@@ -170,18 +194,20 @@ def due(s, *, blocked=None, revision_step=None):
         revision_step = revision_step if revision_step is not None else next_action(s)
         wave_allowed = bool(revision_step and revision_step['reason'] == 'run-approval-required')
     switching = pending_global_paths(s, revision_step=revision_step)
+    needs_boot = set()
     for managed in (True, False):
         selected = []
         baseline = None
         for path in s.get('global_paths', []):
-            if path['path_id'] in switching or scoped(s, path) != managed:
+            pid = path['path_id']
+            if pid in switching or (bound_native_visual(path) != managed and pid not in needs_boot):
                 continue
             held = owners(s, path)
             if not held or not all(s['modules'][mid]['phase'] == 'completed' and not s['modules'][mid].get('stale')
                                    and not any(not a.get('closed') for a in s['modules'][mid]['assignments'].values())
                                    for mid in held):
                 continue
-            previous = s.get('audit_results', {}).get(path['path_id'])
+            previous = s.get('audit_results', {}).get(pid)
             device_retest = bool(previous and previous.get('stale') and previous.get('invalidated_by') in device_reviews
                                  and device_inputs(s, path) is not None)
             if not device_retest and (not wave_allowed or
@@ -193,15 +219,21 @@ def due(s, *, blocked=None, revision_step=None):
                 except (Rejected, OSError, KeyError):
                     return []  # Every unscoped PATH needs the shared baseline.
             try:
+                if managed and not scoped(s, path):
+                    # Missing bindings stay local. With a valid boot command, use the full baseline.
+                    check_path_inputs(s, path)
+                    check_managed_visual_artifacts(s, path, build_artifacts(s, path), allow_boot=True)
+                    needs_boot.add(pid)
+                    continue
                 expected = inputs(s, path, baseline)
             except (Rejected, OSError, KeyError) as exc:
                 if blocked is not None:
-                    blocked[path['path_id']] = str(exc)
+                    blocked[pid] = str(exc)
                 continue
             if not same_inputs(s, path, previous, baseline, expected):
                 selected.append(path)
         if selected:
-            return selected
+            return selected if managed else [path for path in selected if runs_by_itself(s, path)] or selected
     return []
 
 

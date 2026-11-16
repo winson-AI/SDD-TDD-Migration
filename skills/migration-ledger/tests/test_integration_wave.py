@@ -78,6 +78,56 @@ class WaveIntegrationTests(unittest.TestCase):
         with patch.object(ledger, 'global_baseline', side_effect=Rejected('shared code drift')):
             self.assertEqual(integration.due(s), [])
 
+    def test_rebound_visual_gap_leaves_mechanical_and_manual_waves_independent(self):
+        f = self.f
+        self.first_wave()
+        s, _ = ledger.read_events(f.root)
+        env_dir = f.root / 'runs/harmony/sandbox/environment'
+        original = f.ref(str(env_dir / 'original.json'), {'visual_capture': {'backend': 'hdc', 'device_id': 'old'}})
+        rebound = f.ref(str(env_dir / 'rebound.json'), {'visual_capture': {'backend': 'hdc', 'device_id': 'current'}})
+        rebound_path = check_ref(rebound)
+        data = rebound_path.read_bytes()
+        rebound_path.unlink()
+        manual = s['global_paths'][0]
+        visual = {**manual, 'path_id': 'VISUAL', 'kind': 'visual', 'platform': 'harmony',
+                  'build_binding': {'module_id': 'M001', 'path_id': 'BUILD'},
+                  'visual_execution': {'environment_ref': original, 'app_id': 'fixture'}}
+        web = {**manual, 'path_id': 'WEB', 'kind': 'automation', 'platform': 'web'}
+        s.update(global_paths=[visual, manual, web], test_adapter={'device': {'platforms': ['web'], 'web': {'url': 'https://example.test'}}},
+                 target_preview={'visual_environment_rebindings': {original['path']: rebound}})
+        owner = s['modules']['M001']
+        hap = f.ref(str(f.root / 'runs/build/native/app.hap'), 'accepted HAP fixture')
+        owner['plan']['paths'].append({'path_id': 'BUILD', 'kind': 'build', 'command': {'selection_ref': f.ref('native-build.md', 'Build app')}})
+        owner['build_artifacts'] = [hap]
+        owner['results']['BUILD'] = {'quality': 'green-passed', 'code_baseline': owner['code_baseline'], 'build_artifacts': [hap]}
+        step = ledger.routing(s)['global_next_step']
+        self.assertEqual(step['path_ids'], ['WEB'])
+        self.assertEqual(set(step['integration_blocked_paths']), {'VISUAL'})
+        go = {'role': 'global-orchestrator', 'instance_id': 'go'}
+        bundle = {'operation': 'integration-assign', 'payload': {'assignment_id': 'INT', 'instance_id': 'runner', 'path_ids': ['WEB', 'GP1']}}
+        with self.assertRaisesRegex(Rejected, 'exactly the due paths'):
+            integration.handle(s, bundle, go, 10)
+        bundle['payload']['path_ids'] = ['WEB']
+        integration.handle(s, bundle, go, 10)
+        self.assertTrue(ledger.routing(s)['global_next_step']['mechanical'])
+        wave = s['integration_assignment']
+        wave['closed'] = True
+        s['audit_results'] = {'WEB': {'quality': 'green-passed', 'integration_inputs': wave['inputs']['WEB']}}
+        self.assertEqual(integration.due(s), [manual])
+        rebound_path.write_text(json.dumps({'visual_capture': {'backend': 'hdc', 'device_id': 'current', 'boot': ['start-vm']}}))
+        rebindings = s['target_preview']['visual_environment_rebindings']
+        rebindings[original['path']] = file_ref(rebound_path)
+        self.assertEqual(integration.due(s), [visual, manual])
+        self.assertFalse(ledger.global_paths_run_by_themselves(s, ['VISUAL']))
+        bundle['payload'].update(assignment_id='BOOT', path_ids=['VISUAL', 'GP1'])
+        integration.handle(s, bundle, go, 11)
+        self.assertFalse(integration.task(s)['artifact_only'])
+        rebound_path.write_bytes(data)
+        self.assertTrue(integration.stale(s))
+        s['integration_assignment']['closed'] = True
+        rebindings[original['path']] = rebound
+        self.assertEqual(integration.due(s), [visual])
+
     def test_pending_device_revision_only_holds_the_affected_global_path(self):
         from unittest.mock import patch
         import run_changes

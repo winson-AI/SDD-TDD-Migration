@@ -180,9 +180,9 @@
 <rect x="460" y="2230" width="640" height="140" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <rect x="465" y="2235" width="630" height="130" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
 <text x="780.0" y="2264.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父汇总 → GO 全量收尾门禁</text>
-<text x="780.0" y="2298.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GLOBAL PATH 波次绑定已验收产物或全局快照</text>
-<text x="780.0" y="2327.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">修订等待时有效波次先提交；失效则取证回收</text>
-<text x="780.0" y="2356.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">无 worker / ready 动作，才统一启动 Auditor</text>
+<text x="780.0" y="2298.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GLOBAL 波次按受限视觉 / 代跑 / 独立 Runner 分批</text>
+<text x="780.0" y="2327.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">配置缺口按 PATH，适配器修订按实际执行输入重验</text>
+<text x="780.0" y="2356.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">有效波次先入账，全量收尾后启动 Auditor</text>
 <path d="M780,2370 L780,2410" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="2410" width="640" height="150" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="465" y="2415" width="630" height="140" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>

@@ -87,7 +87,7 @@ def automation_flow():
     d.arrow([(1540, 840), (1570, 840), (1570, 2170), (1350, 2170)], 'orange', dashed=True, end=False)
     d.arrow([(780, 2170), (780, 2230)])
     d.box(460, 2230, 640, 140, '父汇总 → GO 全量收尾门禁',
-          ['GLOBAL PATH 波次绑定已验收产物或全局快照', '修订等待时有效波次先提交；失效则取证回收', '无 worker / ready 动作，才统一启动 Auditor'], 'orange', True)
+          ['GLOBAL 波次按受限视觉 / 代跑 / 独立 Runner 分批', '配置缺口按 PATH，适配器修订按实际执行输入重验', '有效波次先入账，全量收尾后启动 Auditor'], 'orange', True)
     d.arrow([(780, 2370), (780, 2410)])
     d.box(460, 2410, 640, 150, 'Auditor · 独立闭环',
           ['审阅全宿主目标 / 代码；遗留按审计 fix / verify / human 路由', '裁决失败：结构化根因待人工；缺环境保留未验证', '按 PATH 失效阶段复测；裁决使用累计回执'], controller=True)

@@ -588,6 +588,52 @@ class PreparedRunRevisionTests(unittest.TestCase):
         state['test_adapter']['adapters'] = {'web': {'argv': ['/fixture/custom-web']}}
         self.assertEqual(run_changes.global_reverify_paths(state, report, {'android'}), {'G-android', 'G-web'})
 
+    def test_one_platform_adapter_revision_keeps_builtin_and_frozen_unit_evidence(self):
+        import sys
+        import integration
+
+        src = test_source_changes.SourceChangeTests(); self.addCleanup(src.doCleanups)
+        device = {'platforms': ['android', 'web'], 'android': {'serial': 'stable'}, 'web': {'url': 'https://example.test'}}
+        old_command = [sys.executable, '-c', 'pass']
+        paths = [{'path_id': pid, 'platform': platform, 'kind': 'automation', 'case_id': 'C1',
+                  'expected_assertions': [{'assertion_id': 'A1', 'expected': True}]}
+                 for pid, platform in [('WEB', 'web'), ('ANDROID', 'android'), ('OPAQUE', 'host')]]
+        paths.append({'path_id': 'UNIT', 'platform': 'host', 'kind': 'unit', 'case_id': 'C1',
+                      'expected_assertions': [{'assertion_id': 'EXIT', 'expected': 0}],
+                      'command': {'argv': old_command, 'cwd': str(self.f.target), 'timeout_seconds': 20,
+                                  'selection_ref': self.f.ref('unit-command.md', 'Use the frozen command')}})
+        f = self.f = src.register_root(global_paths=paths, config={'test_adapter': {
+            'device': device, 'adapters': {'web': {'argv': old_command}}}})
+        f.split(src.d.proposal(ids=('M001', 'M002'))); f.global_plan()
+        state, _ = ledger.read_events(f.root)
+        state['modules']['M001']['code_files'] = [f.ref('adapter-wave-code.py', 'value = 2')]
+        code = ledger.global_baseline(state)
+        state['audit_results'] = {}
+        originals = {}
+        for path in paths:
+            pid = path['path_id']
+            originals[pid] = integration.inputs(state, path, code, full_adapter=True)
+            state['audit_results'][pid] = {'quality': 'green-passed', 'test_run_id': pid, 'integration_inputs': originals[pid]}
+        report = self.report({'test_adapter': {'adapters': {'web': {'argv': [sys.executable, '-c', 'print(1)']}}}}, affected=())
+        self.assertEqual(run_changes.global_reverify_paths(state, report, None), {'WEB', 'OPAQUE'})
+        unit = paths[-1]
+        old_wave = {'closed': False, 'path_ids': ['UNIT'], 'code_baseline': code, 'inputs': {'UNIT': originals['UNIT']}}
+        state['integration_assignment'] = old_wave
+        self.assertTrue(run_changes.integration_busy(state, report))
+        old_wave['inputs']['UNIT'] = integration.inputs(state, unit, code)
+        self.assertFalse(run_changes.integration_busy(state, report))
+        go, host = {'role': 'global-orchestrator', 'instance_id': 'go'}, {'role': 'host', 'instance_id': 'host'}
+        run_changes.handle(f.root, state, {'operation': 'run-review', 'payload': {'report_ref': f.ref('adapter-impact.json', report)}}, go)
+        self.assertEqual(run_changes.pending_global_paths(state), {'WEB', 'OPAQUE'})
+        before_preview = state['target_preview']
+        run_changes.handle(f.root, state, {'operation': 'revise-run', 'payload': {'subject_sha256': state['run_change_review']['subject_sha256']}}, host)
+        self.assertEqual(state['target_preview'], before_preview)
+        self.assertEqual([path['path_id'] for path in ledger.audit_scope(state)['plan']['paths']], ['WEB', 'OPAQUE'])
+        for pid in ('UNIT', 'ANDROID'):
+            row = state['audit_results'][pid]
+            self.assertEqual((row['test_run_id'], row['integration_inputs']), (pid, originals[pid]))
+            self.assertTrue(row['integration_continuation_inputs'])
+
     def test_final_audit_resumes_only_blocked_and_changed_paths_after_configuration_revision(self):
         import sys
         from unittest.mock import patch

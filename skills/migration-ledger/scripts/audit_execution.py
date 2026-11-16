@@ -1,7 +1,7 @@
 """Explicit independent Test-Runner tasks beneath the one host-task Auditor assignment."""
 import copy
 from pathlib import Path
-from contracts import Drifted, Rejected, check_ref, digest, file_ref, nonempty, read_json, require, validate_result
+from contracts import Drifted, Rejected, check_ref, check_retest_chain, digest, file_ref, nonempty, read_json, require, validate_result
 
 OPS = {'audit-test-assign', 'audit-test-submit', 'audit-test-revoke'}
 INPUT_VERSION = 2
@@ -56,8 +56,14 @@ def batch_inputs(scope, path):
     from test_validation import visual_environment
 
     pid = path['path_id']
+    command = path.get('command')
+    if command and path.get('kind') in ('unit', 'automation') and path.get('unit_report'):
+        # Approval evidence is checked on each original PATH before grouping and again before execution.
+        command = {key: value for key, value in command.items() if key != 'selection_ref'}
+        command['cwd'] = str(Path(command['cwd']).resolve())
+        path = {**path, 'command': command}
     refs = sorted((ref['path'], ref['sha256']) for ref in verify_refs_in(path))
-    return (path.get('kind') or 'automation', path_device(path), path.get('command'), path.get('build_binding'),
+    return (path.get('kind') or 'automation', path_device(path), command, path.get('build_binding'),
             visual_environment(path, scope.get('visual_environment_rebindings')), refs,
             scope.get('path_test_sources', {}).get(pid), scope.get('path_build_artifacts', {}).get(pid, []))
 
@@ -82,14 +88,13 @@ def ready_paths(s, scope):
 
 def check_path_inputs(s, scope, path):
     from integration import check_path_inputs as check_frozen
-    from test_validation import bound_native_visual, managed_visual_artifacts
+    from test_validation import bound_native_visual, check_managed_visual_artifacts
 
     check_frozen(s, path)
     if bound_native_visual(path):
         # Classify by the frozen PATH even when its rebound configuration can no longer be read.
         builds = scope['path_build_artifacts'].get(path['path_id'], [])
-        require(managed_visual_artifacts(s, path, builds, allow_boot=True),
-                'effective native visual configuration or current bound APK/HAP is unavailable')
+        check_managed_visual_artifacts(s, path, builds, allow_boot=True)
 
 
 def partition_paths(s, scope, paths, *, reported=None):
@@ -279,16 +284,44 @@ def global_visual_current(s, path, previous):
         return False
 
 
+def verify_archived_observation(task, row, archives):
+    archive = archived_evidence(task, archives)
+    archive.check(task['result_ref'])
+    archive.walked.clear()
+    archive.visit(row)
+
+
+def verify_carried_visual(s, scope, path, task, report, row, receipt, archives):
+    """Keep the original batch identity when the current visual execution inputs still match."""
+    from prepared_tests import global_authors
+
+    runner = task['instance_id']
+    require(runner not in global_authors(s) and all(runner not in m.get('authors', []) for m in s['modules'].values()),
+            'carried visual Test-Runner must still be independent')
+    original = {'run_id': s['run_id'], 'module_id': 'GLOBAL', 'assignment_id': task['assignment_id'],
+                'actor_instance_id': runner, 'freeze_id': task['freeze_id'], 'code_baseline': task['code_baseline']}
+    require(all(report.get(field) == receipt.get(field) == value for field, value in original.items())
+            and (receipt['path_id'], receipt['test_run_id']) == (row['path_id'], row['test_run_id']),
+            'carried visual observation differs from its original assignment')
+    check_retest_chain(scope, path['path_id'], row)
+    require(capture_matches(s, path, row, task, archives), 'carried visual capture differs from the current device or build')
+    verify_archived_observation(task, row, archives)
+
+
 def verified_batches(s, scope, tasks, archives, *, fingerprint=False):
     """Recheck the newest selected PATH observations under the current frozen inputs."""
     from context_readiness import verify_refs
     from prepared_tests import binding
+    from test_validation import bound_native_visual
 
     paths = {path['path_id']: path for path in scope['plan']['paths']}
+    visual_paths = {path['path_id'] for path in s.get('global_paths', []) if bound_native_visual(path)} if fingerprint else set()
     batches = []
     for task in tasks:
-        if (not task.get('run_root') or task['freeze_id'] != scope['freeze_id']
-                or task['code_baseline'] != scope['code_baseline']):
+        if not task.get('run_root'):
+            continue
+        same_snapshot = (task['freeze_id'], task['code_baseline']) == (scope['freeze_id'], scope['code_baseline'])
+        if not same_snapshot and not visual_paths.intersection(task['path_ids']):
             continue
         try:
             report = proof_document(task, task['result_ref'], archives)
@@ -301,6 +334,8 @@ def verified_batches(s, scope, tasks, archives, *, fingerprint=False):
                 continue
             if fingerprint and (not row.get('executed') or row['quality'] not in ('green-passed', 'red-bug')):
                 continue
+            if not same_snapshot and (pid not in visual_paths or row['quality'] != 'green-passed'):
+                continue
             try:
                 path = paths[pid]
                 check_path_inputs(s, scope, path)
@@ -308,20 +343,22 @@ def verified_batches(s, scope, tasks, archives, *, fingerprint=False):
                 verify_refs(scope.get('path_build_artifacts', {}).get(pid, []) if path.get('build_binding') else [])
                 receipt_ref = row.get('execution_receipt')
                 receipt = proof_document(task, receipt_ref, archives) if receipt_ref else {}
+                if not same_snapshot and receipt.get('audit_inputs_version') != GLOBAL_VISUAL_INPUT_VERSION:
+                    continue
                 recorded = receipt.get('audit_inputs_sha256')
                 if fingerprint and not recorded:
                     continue
                 if recorded and recorded != receipt_fingerprint(s, scope, path, task, receipt, same_assignment=not fingerprint):
                     continue
-                try:
-                    validate_result({**report, 'paths': [row]}, task_scope(scope, {'path_ids': [pid]}), task,
-                                    run_root=task['run_root'])
-                except (Drifted, OSError):
-                    # The original submission already validated the observation and its output paths.
-                    archive = archived_evidence(task, archives)
-                    archive.check(task['result_ref'])
-                    archive.walked.clear()
-                    archive.visit(row)
+                if not same_snapshot:
+                    verify_carried_visual(s, scope, path, task, report, row, receipt, archives)
+                else:
+                    try:
+                        validate_result({**report, 'paths': [row]}, task_scope(scope, {'path_ids': [pid]}), task,
+                                        run_root=task['run_root'])
+                    except (Drifted, OSError):
+                        # The original submission already validated the observation and its output paths.
+                        verify_archived_observation(task, row, archives)
             except (OSError, ValueError, TypeError, KeyError):
                 continue
             keep.append(pid)
@@ -467,7 +504,7 @@ def evidence(s, scope=None, report=None, *, visual_bindings=None):
             receipt = proof_document(task, row['execution_receipt'], archives)
             if (receipt.get('audit_inputs_version') == GLOBAL_VISUAL_INPUT_VERSION and receipt.get('audit_inputs_sha256')
                     and capture_matches(s, path, row, task, archives)):
-                visual_bindings[row['path_id']] = {key: task[key] for key in ('run_root', 'context_ref')}
+                visual_bindings[row['path_id']] = {key: task[key] for key in ('run_root', 'context_ref', 'freeze_id', 'code_baseline')}
     if report is not None:
         ids = [row['path_id'] for row in rows]
         expected = s['audit_assignment']['path_ids']

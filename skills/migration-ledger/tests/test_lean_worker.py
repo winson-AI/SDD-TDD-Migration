@@ -443,6 +443,34 @@ class LeanWorkerTests(unittest.TestCase):
         wrong['audit_carry'][0]['context_ref'] = file_ref(native.write('other-command.json', {'stage': 'audit-execution',
             'verdict': 'ready', 'execution': {'argv': [sys.executable, str(adapter)], 'cwd': str(f.target)}}))
         self.assertEqual(audit_execution.carried(wrong, ledger.audit_scope(wrong), 'auditor'), [])
+
+        resumed = copy.deepcopy(state)
+        resumed['modules']['M002'] = copy.deepcopy(finalized['modules']['M002'])
+        resumed_scope = ledger.audit_scope(resumed)
+        self.assertNotEqual((resumed_scope['freeze_id'], resumed_scope['code_baseline']),
+                            (scope['freeze_id'], scope['code_baseline']))
+        archived = ledger.new_snapshots(f.run, {'result_ref': result_ref}, str(f.target), {})
+        self.assertEqual(audit_execution.carried(resumed, resumed_scope, 'auditor'), [])  # Require Ledger-accepted evidence.
+        with patch.object(ledger, 'read_events', return_value=(resumed, [*self.events, {'artifact_snapshots': archived}])):
+            self.assertEqual(audit_execution.waiting_paths(resumed, resumed_scope), [])
+            same_author = copy.deepcopy(resumed)
+            same_author['modules']['M002']['authors'] = ['runner']
+            self.assertEqual(audit_execution.carried(same_author, resumed_scope, 'auditor'), [])
+            latest_failure = copy.deepcopy(resumed_scope)
+            latest_failure['results']['PV'] = {'quality': 'red-bug', 'test_run_id': 'newer-failure'}
+            self.assertEqual(audit_execution.carried(resumed, latest_failure, 'auditor'), [])
+            snapshot = {mid: m['code_baseline'] for mid, m in resumed['modules'].items()}
+            resumed['audit_assignment'].update(assignment_id='RESUMED', closed=False, snapshot=snapshot)
+            verdict = {**report, 'assignment_id': 'RESUMED', 'snapshot': snapshot, 'freeze_id': resumed_scope['freeze_id'],
+                       'code_baseline': resumed_scope['code_baseline']}
+            resume_ref = file_ref(native.write('resumed-verdict.json', verdict))
+            ledger.mutate(resumed, {'operation': 'audit', 'payload': {'report_ref': resume_ref}},
+                          {'role': 'auditor', 'instance_id': 'auditor'}, [], f.run)
+        kept_result = resumed['audit_results']['PV']
+        self.assertEqual((kept_result['test_run_id'], kept_result['execution_receipt'], kept_result['code_baseline']),
+                         (receipt['test_run_id'], receipt_ref, scope['code_baseline']))
+        self.assertEqual(resumed['audit']['paths'], result['paths'])
+
         check_ref(artifact).write_bytes(b'Changed bound artifact')
         self.assertEqual(audit_execution.carried(state, ledger.audit_scope(state), 'auditor'), [])
         self.assertEqual(ledger.audit_scope(finalized)['plan']['paths'], [visual])

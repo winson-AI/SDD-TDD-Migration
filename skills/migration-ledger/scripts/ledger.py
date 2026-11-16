@@ -2789,9 +2789,13 @@ def mutate(s, req, principal, events, root=None):
                       'scope_policy': 'non-green-only', 'snapshot': snapshot,
                       **({'test_result_refs': test_refs} if test_refs else {}),
                       'execution_status': 'no-retest-needed' if not report['paths'] else 'reviewed'}
-        s.setdefault('audit_results', {}).update({r['path_id']: {**r, 'code_baseline': scope['code_baseline'],
-            **({'global_visual_binding': visual_bindings[r['path_id']]} if r['path_id'] in visual_bindings else {})}
-            for r in report['paths']})
+        results = s.setdefault('audit_results', {})
+        for row in report['paths']:
+            pid = row['path_id']
+            if binding := visual_bindings.get(pid):
+                results[pid] = {**row, 'code_baseline': binding['code_baseline'], 'global_visual_binding': binding}
+            else:
+                results[pid] = {**row, 'code_baseline': scope['code_baseline']}
         owners = {path['path_id']: mid for mid, mod in s['modules'].items() for path in mod['plan']['paths']}
         s['audit_repairs'] = {r['path_id']: {'finding': r, 'report_ref': p['report_ref'],
                                 'module_ids': [owners[r['path_id']]] if r['path_id'] in owners else [],
@@ -3514,8 +3518,7 @@ def _status(root, view='full', module_id=None, since=None, *, publish=True):
 
 def global_paths_run_by_themselves(s, path_ids):
     paths = {p['path_id']: p for p in s.get('global_paths', [])}
-    return bool(path_ids) and all(pid in paths and (paths[pid].get('command') or context_readiness.adapter_stated(s, paths[pid]))
-                                  for pid in path_ids)
+    return bool(path_ids) and all(pid in paths and integration.runs_by_itself(s, paths[pid]) for pid in path_ids)
 
 
 def run_fixed_flow(s, step):
@@ -3665,12 +3668,14 @@ def run_global(root, s, task):
     planned = {path['path_id']: path for path in paths}
     pids = task['path_ids']
     build_dir = Path(root) / 'runs/build' / aid
-    command = planned[pids[0]].get('command') if pids else None
-    junit_batch = scope is not None and len(pids) > 1 and command and all(
-        path.get('kind') in ('unit', 'automation') and path.get('unit_report') and path.get('command') == command
+    junit_batch = scope is not None and len(pids) > 1 and all(
+        path.get('kind') in ('unit', 'automation') and path.get('unit_report') and path.get('command')
         and not path.get('interaction_id') and not reference_media.assertion_refs(s, path)
         and all(asset['kind'] == 'test-source' for asset in (prepared_tests.binding(scope, path) or {}).get('assets', []))
         for path in (planned[pid] for pid in pids))
+    if junit_batch:
+        inputs = audit_execution.batch_inputs(scope, planned[pids[0]])
+        junit_batch = all(audit_execution.batch_inputs(scope, planned[pid]) == inputs for pid in pids[1:])
     if junit_batch and not any((build_dir / pid).exists() for pid in pids):
         receipts = execute(root, 'GLOBAL', aid, pids, output=build_dir / '-'.join(pids), resume_completed=True)
     else:

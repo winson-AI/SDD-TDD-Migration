@@ -411,6 +411,13 @@ def media_evidence(value, within=None):
     return [{'kind': m['kind'], 'ref': {'path': m['ref']['path'], 'sha256': m['ref']['sha256']}} for m in value]
 
 
+def check_retest_chain(module, path_id, record):
+    previous = module['results'].get(path_id)
+    if previous and (previous['quality'] != 'green-passed' or previous.get('stale') or module['stale']):
+        require(record.get('retest_of') == previous['test_run_id'], 'missing non-Green/stale retest chain')
+        require(record.get('test_run_id') != previous['test_run_id'], 'retest must be a new run')
+
+
 def validate_result(result, module, assignment, run_root=None):
     require(result.get('schema_version') == 1, 'unsupported result schema')
     for field in ('run_id', 'module_id', 'assignment_id'):
@@ -503,14 +510,11 @@ def validate_result(result, module, assignment, run_root=None):
     require(set(tests) == set(planned), 'result must account for every required path')
     for pid, record in tests.items():
         require('validation_reuse' not in record, 'validation_reuse is Ledger-owned; submit real execution receipts')
-        require(not {'device_continuation_inputs', 'integration_inputs', 'global_visual_binding'}.intersection(record),
+        require(not {'device_continuation_inputs', 'integration_continuation_inputs', 'integration_inputs', 'global_visual_binding'}.intersection(record),
                 'integration execution binding is Ledger-owned')
         quality = record.get('quality')
         require(quality in ('green-passed', 'red-bug', 'yellow-blocked'), 'invalid quality')
-        previous = module['results'].get(pid)
-        if previous and (previous['quality'] != 'green-passed' or previous.get('stale') or module['stale']):
-            require(record.get('retest_of') == previous['test_run_id'], 'missing non-Green/stale retest chain')
-            require(record.get('test_run_id') != previous['test_run_id'], 'retest must be a new run')
+        check_retest_chain(module, pid, record)
         require(record.get('test_run_id'), 'test_run_id required')
         if record.get('media_refs') is not None:  # what the run kept on film or in a frame: beside the verdict, inside the run
             media_evidence(record['media_refs'], Path(run_root) / 'runs' if run_root else None)

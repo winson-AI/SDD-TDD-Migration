@@ -173,9 +173,10 @@ def start_ready_resources(root, principal, st):
     _, handed, _, _ = dispatch_budget(root, st, [])
     steps = {s['module_id']: s for s in st['next_steps']}
     occupied = occupied_modules(st['modules'], steps, handed)
-    if len(occupied) >= st['max_parallel_modules']:
-        return False
+    started = False
     for module in st['modules'].values():
+        if len(occupied) >= st['max_parallel_modules']:
+            break
         for assignment in module['assignments'].values():
             if assignment.get('closed') or not assignment.get('resource_wait') or module.get('blocked'):
                 continue
@@ -191,8 +192,10 @@ def start_ready_resources(root, principal, st):
                              principal, publish=False)
             except (ValueError, OSError, KeyError, TypeError):
                 continue  # the final cursor reports conflicts and concurrent changes
-            return True
-    return False
+            occupied.add(module['module_id'])
+            started = True
+            break
+    return started
 
 
 def resource_pending(root, module, assignment, lines):

@@ -267,9 +267,12 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
         require(all(tv.managed_visual_artifacts(s, p, refs.get(p['path_id'], []) if refs is not None else m['build_artifacts'])
                     for p in paths), 'accepted managed visual build or environment drifted')
     if a.get('mode') == 'audit-execute':
-        from audit_execution import check_path_inputs
+        from audit_execution import batch_inputs, check_path_inputs
         for planned_path in paths:
             check_path_inputs(s, m, planned_path)
+        if batch:
+            inputs = batch_inputs(m, path)
+            require(all(batch_inputs(m, p) == inputs for p in paths[1:]), 'an audit batch requires matching execution inputs')
     for pid in pids:
         context_readiness.check_execution(s, a, argv, cwd, pid)
     require(baseline(m['code_files']) == m['code_baseline'], 'code changed before execution')

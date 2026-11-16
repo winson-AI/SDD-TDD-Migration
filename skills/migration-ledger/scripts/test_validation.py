@@ -193,6 +193,12 @@ def managed_visual_artifacts(s, path, refs, *, allow_boot=False):
     return {'environment_ref': ref, 'artifacts': artifacts} if artifacts else None
 
 
+def check_managed_visual_artifacts(s, path, refs, *, allow_boot=False):
+    value = managed_visual_artifacts(s, path, refs, allow_boot=allow_boot)
+    require(value, 'effective native visual configuration or current bound APK/HAP is unavailable')
+    return value
+
+
 def check_build_bindings(s, module, plan):
     from ledger import dependency_closure
     bindings = [path for path in plan['paths'] if 'build_binding' in path]

@@ -22,13 +22,17 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1830 | 全量通过 |
+| migration-ledger/tests | 1833 | 全量通过 |
 | migration-test/tests | 83 | 全量通过 |
 | runtime/harmony/tests | 128 | 全量通过 |
 
-三套回归用 Harmony sandbox 的 Python 3.12 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败、错误或跳过。回归使用隔离临时目录、本地模拟端口和测试子进程。已分配的独立 Test-Runner 在无关构建前交付，下一轮构建继续。最后一个叶子收尾后，Android 改绑等待批准期间独立 Web 波次仍能派发，其 Green 入账后评审保持有效。仅调整 GLOBAL 命令超时允许独立冻结叶子开工，验收断言变化仍需覆盖重审。终审核验 Android/Harmony 的生效配置和绑定 APK/HAP，局部漂移只撤对应派发。终审视觉回执在无关叶子重规划后沿用原 test_run_id，提供方、配置或绑定制品变化时重新选中对应 PATH。七叶演练保持并行预算，先交付 Runner 后需要 15 轮调度，原记录为 11 轮。本轮设备场景使用隔离夹具。
+三套回归用 Harmony sandbox 的 Python 3.12 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败、错误或跳过。Ledger 用本地缓存的 pytest-xdist 并行执行。回归使用隔离临时目录、本地模拟端口和测试子进程，设备场景使用隔离夹具。
 
-在隔离的 Harmony API 21 模拟器重跑装包，并实采 WindowManager、定向 UI 树和 PNG。前后焦点窗口一致，整窗和 PNG 均为 1320 × 2848，应用内容区从 y=132 开始。用实际采集结果复核了内容区包含关系。先前在同一 API 版本实跑的 640 DPI 深色及窗口覆盖 160 DPI 浅色资源检查记录保留。
+同一轮 `drive` 交付两个已同步资源的编码派发。生效的 Harmony 视觉配置缺失时，GLOBAL Web 仍进入可代跑批次，独立 Runner 批次可随后派发。合法启动配置的视觉进入独立 Runner 批次，配置漂移使相应派发失效。Web 适配器覆盖修订只标记实际受影响和输入不透明的 GLOBAL PATH，保留 Android 内置和冻结 Unit 的原回执。终审挂起后，无关叶子更新时保留已入账视觉 Green 的原基线与 test_run_id，归档、独立身份或输入核验失败时补验。不同审批引用的 JUnit PATH 共用命令，分别核验审批和测试 ID。
+
+七叶演练保持并行预算，本轮仍为 15 轮调度，测试留有对照早期记录 11 轮的警告。
+
+此前在隔离的 Harmony API 21 模拟器重跑装包，并实采 WindowManager、定向 UI 树和 PNG。前后焦点窗口一致，整窗和 PNG 均为 1320 × 2848，应用内容区从 y=132 开始。用实际采集结果复核了内容区包含关系。先前在同一 API 版本实跑的 640 DPI 深色及窗口覆盖 160 DPI 浅色资源检查记录保留。
 
 新版探针和真机回执用回归夹具验证了截图乱序、错误窗口、系统与窗口配置不符、等值错档、缺选档标识和同版本错误构建的处理。两台真机的配置隔离也由回归验证。实际真机接入和资源验收仍待实跑。
 
@@ -145,7 +149,7 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 | OpenSpec 投影 | global/module/projection/final 分范围核验；模块隔离、内容失真、失效后重新规划 |
 | 报告 | 全部 CASE 状态、非 Green 根因与证据进入 migration-report |
 | 执行侧骨架 | report_skeleton.py 为 Test-Runner 写 building/testing 预检（Ledger 核对的检查项已填、冻结命令已复制、环境/提供方/权限留标记）与静态审查（冻结场景逐行、反模式逐项），为 Auditor 写代码修改清单（模块/功能/CHG/测试映射已填）与 audit-code-review.json（snapshot、goal_review 的 TASK/PATH、各检查引用清单）；派发与审查步骤带命令；context-submit、audit-code-review 与静态 PATH 的审查留标记即拒，标记按解析后的 JSON 判定 | test_report_skeleton |
-| 同命令 unit 一次执行 | execute_test 的 path_id 可为冻结同一命令的多个 unit PATH：一次运行、一份日志与捕获，每个 PATH 自己的 query/result/receipt 与 JUnit 归因，回执记 batch；混入非 unit、不同命令或重复 PATH 被拒 | test_batched_units |
+| 同命令 unit 一次执行 | execute_test 的 path_id 可为冻结同一命令的多个 unit PATH：一次运行、一份日志与捕获，每个 PATH 自己的 query/result/receipt 与 JUnit 归因，回执记 batch。混入非 Unit、不同命令或重复 PATH 被拒。终审独立核验每条审批引用，实际命令、cwd、超时及执行输入相同可共用一次运行 | test_batched_units |
 | 提交证据先列、conformance 派生 | implementer/fixer 派发步骤的 submission 列出结果必备证据（任务追溯、完整 manifest、绑定、诊断、逐映射 reuse_trace、四维证据）；semantic_conformance 在冻结落点文件属于本次交付时由 Ledger 派生，带 ui_evidence 的 UI 模型仍须作者写 baseline_conformance | test_start_gates、test_semantics |
 | 无待复测的审计由 Ledger 预检 | audit_scope 为空时 audit-assign 不带 context_ref：Ledger 以 Auditor 名义写 audit-verdict 机械预检并登记；步骤标 mechanical；no-retest-needed 的 audit-review 照常裁决 | test_start_gates |
 | TASK 行按模块缺口计缺路径 | automation 统计里 TASK 行的缺路径 CASE 只计模块整体缺的 CASE，只绑 unit PATH 的任务不再把兄弟任务覆盖的 CASE 记为缺口 | test_migration_report |

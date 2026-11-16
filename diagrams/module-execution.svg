@@ -165,7 +165,7 @@
 <rect x="70" y="760" width="430" height="210" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="285.0" y="800.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">资源与 fidelity 输入</text>
 <text x="285.0" y="834.5" font-size="21.92" fill="#4b5563" text-anchor="middle" font-weight="400">API / URL / image / icon 来源追溯</text>
-<text x="285.0" y="863.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">占满可同步，资源就绪优先启动</text>
+<text x="285.0" y="863.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">占满可同步，资源就绪同轮派发</text>
 <text x="285.0" y="892.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">{qualifier} 保留同密度多档</text>
 <text x="285.0" y="921.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">限定 XML 值按配置生成</text>
 <text x="285.0" y="950.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Harmony 多设备配置分别取证</text>

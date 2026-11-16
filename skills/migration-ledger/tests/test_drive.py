@@ -143,6 +143,28 @@ class ReadyImplementerTests(unittest.TestCase):
                 rotation['operation'] = 'await-result'
                 self.assertTrue(drive.start_ready_resources(root, MO, st))
 
+    def test_one_drive_delivers_all_ready_resource_assignments_with_free_slots(self):
+        from unittest.mock import patch
+        import ledger
+        from test_iterative_spec import UpstreamPlanTests
+
+        fixture = UpstreamPlanTests()
+        fixture.setUp(); self.addCleanup(fixture.doCleanups)
+        f = fixture.f
+        fixture.freeze(fixture.t.plan('M001'))
+        fixture.t.freeze('M002')
+        proof = f.ref('both-resources-ready.json', {'status': 'SYNCED'})
+        with patch.object(drive.resource_binding, 'needs_sync', return_value=True), \
+                patch.object(drive.resource_binding, 'ready_receipt', return_value={'receipt_ref': proof, 'result_ref': proof}):
+            for mid in ('M001', 'M002'):
+                f.call('assign', {'role': 'implementer', 'assignment_id': 'waiting-' + mid, 'instance_id': 'coder-' + mid,
+                                  'resource_sync_deferred': True}, module=mid)
+            lines = drive.drive(f.root, MO)
+        workers = {line['module_id'] for line in lines if line['kind'] == 'running' and line['role'] == 'implementer'}
+        self.assertEqual(workers, {'M001', 'M002'})
+        _, events = ledger.read_events(f.root)
+        self.assertEqual([event['module_id'] for event in events if event['operation'] == 'resource-start'], ['M001', 'M002'])
+
     def test_resource_sync_is_delivered_after_independent_dispatch_and_conflicts_are_local(self):
         from unittest.mock import patch
         import ledger

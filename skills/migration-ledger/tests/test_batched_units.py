@@ -69,6 +69,7 @@ class BatchedUnitTests(unittest.TestCase):
         self.assertEqual(read_json(m['results']['U1']['execution_receipt']['path'])['batch']['path_ids'], ['U1', 'U2'])
 
     def test_final_audit_runs_the_same_frozen_junit_command_once(self):
+        import audit_execution
         import ledger
         import test_context_readiness
         import test_ledger
@@ -79,11 +80,11 @@ class BatchedUnitTests(unittest.TestCase):
 
         def initialize(op, payload=None, **kwargs):
             if op == 'init':
-                command = {'argv': self.inner.fixture.unit_argv(), 'cwd': str(f.target), 'timeout_seconds': 20,
-                           'selection_ref': f.ref('selection.md', 'Both tests execute in the same JUnit invocation')}
-                path = {**payload['global_paths'][0], 'kind': 'unit', 'command': command,
+                command = {'argv': self.inner.fixture.unit_argv(), 'cwd': str(f.target), 'timeout_seconds': 20}
+                path = {**payload['global_paths'][0], 'kind': 'unit',
                         'expected_assertions': [{'assertion_id': 'A1', 'expected': True}]}
                 payload = {**payload, 'global_paths': [{**path, 'path_id': pid,
+                    'command': {**command, 'selection_ref': f.ref(f'selection-{pid}.md', f'Approved invocation for {test_id}')},
                     'unit_report': {'format': 'junit', 'patterns': ['reports/TEST-*.xml'], 'required_test_ids': [test_id]}}
                     for pid, test_id in ids.items()]}
             return original(op, payload, **kwargs)
@@ -91,6 +92,21 @@ class BatchedUnitTests(unittest.TestCase):
         f.call = initialize
         f.setUp(); self.addCleanup(f.doCleanups)
         f.completed(); test_ledger.code_review(f)
+        s = f.state()
+        scope = ledger.audit_scope(s)
+        paths = [path for path in scope['plan']['paths'] if path['path_id'] in ids]
+        for changed in ({'timeout_seconds': 30}, {'cwd': str(f.base)}):
+            other = {**paths[1], 'command': {**paths[1]['command'], **changed}}
+            self.assertNotEqual(audit_execution.batch_inputs(scope, paths[0]), audit_execution.batch_inputs(scope, other))
+        selection = Path(paths[1]['command']['selection_ref']['path'])
+        approved = selection.read_bytes()
+        selection.write_text('Changed approval')
+        try:
+            ready, blocked = audit_execution.partition_paths(s, scope, paths)
+            self.assertEqual(ready, ['U1'])
+            self.assertEqual(set(blocked), {'U2'})
+        finally:
+            selection.write_bytes(approved)
         ledger.advance_run(f.root, {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'})
         s = f.state()
         self.assertEqual(s['quality'], 'green-passed')
@@ -101,7 +117,10 @@ class BatchedUnitTests(unittest.TestCase):
         self.assertNotEqual(first['test_run_id'], second['test_run_id'])
         for receipt in (first, second):
             query = read_json(receipt['query_ref']['path'])
-            self.assertEqual(query['unit_report']['required_test_ids'], [ids[receipt['path_id']]])
+            pid = receipt['path_id']
+            self.assertEqual(query['unit_report']['required_test_ids'], [ids[pid]])
+            self.assertEqual(query['command']['selection_ref'],
+                             next(path['command']['selection_ref'] for path in paths if path['path_id'] == pid))
 
     def test_a_missing_required_test_is_that_paths_finding_alone(self):
         self.second = 'SearchTest#missing'

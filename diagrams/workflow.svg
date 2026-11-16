@@ -125,7 +125,7 @@
 <rect x="100" y="2080" width="1020" height="150" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
 <text x="610.0" y="2119.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">独立审阅收尾 → 全局报告</text>
 <text x="610.0" y="2153.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">叶子与 GLOBAL PATH 用同一清单，按执行输入分批入账</text>
-<text x="610.0" y="2182.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">配置修订后沿用有效批次，受管 GLOBAL 视觉核对原执行绑定</text>
+<text x="610.0" y="2182.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">配置修订后沿用有效批次，挂起前的独立视觉 Green 可复核</text>
 <text x="610.0" y="2211.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">覆盖齐全后裁决，全部通过即 Green</text>
 <rect x="1210" y="190" width="330" height="280" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="1375.0" y="251.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">全局读取视野</text>
@@ -147,7 +147,7 @@
 <text x="1375.0" y="912.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Ledger · 唯一总线</text>
 <text x="1375.0" y="946.5" font-size="21.23" fill="#4b5563" text-anchor="middle" font-weight="400">分配包 / 事件 / 状态 / 证据</text>
 <text x="1375.0" y="975.5" font-size="21.25" fill="#4b5563" text-anchor="middle" font-weight="400">planning_context：全局视野</text>
-<text x="1375.0" y="1004.5" font-size="19.47" fill="#4b5563" text-anchor="middle" font-weight="400">GLOBAL 波次与终审按 PATH 复测</text>
+<text x="1375.0" y="1004.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GLOBAL 波次按执行方式分批</text>
 <text x="1375.0" y="1033.5" font-size="20.20" fill="#4b5563" text-anchor="middle" font-weight="400">待生效修订暂停受影响波次 PATH</text>
 <text x="1375.0" y="1062.5" font-size="21.44" fill="#4b5563" text-anchor="middle" font-weight="400">独立波次 Green 保留有效评审</text>
 <text x="1375.0" y="1091.5" font-size="21.43" fill="#4b5563" text-anchor="middle" font-weight="400">叶子收尾后待批，独立波次继续</text>
@@ -158,7 +158,7 @@
 <text x="1375.0" y="1267.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">宿主执行层</text>
 <text x="1375.0" y="1301.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">父 MO 就绪切片先交付一次</text>
 <text x="1375.0" y="1330.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">平台专题按当前 PATH 列出</text>
-<text x="1375.0" y="1359.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">资源就绪优先用未预留空位</text>
+<text x="1375.0" y="1359.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">资源就绪的编码派发同轮交付</text>
 <text x="1375.0" y="1388.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">就绪规划、实现、修复先派发</text>
 <text x="1375.0" y="1417.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同 Run 修订就绪后先交付</text>
 <text x="1375.0" y="1446.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">验证批次入账即回 drive</text>
