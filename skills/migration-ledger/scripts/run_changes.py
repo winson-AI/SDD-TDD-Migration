@@ -181,10 +181,25 @@ def uses_changed_device(path, platforms):
 
 
 def global_reverify_paths(s, report, devices):
-    if devices is None:
-        return {path['path_id'] for path in s['global_paths']} if {'runtime', 'test_adapter'} & report['context_patch'].keys() else set()
-    from integration import affected_by_device
-    return {path['path_id'] for path in s['global_paths'] if affected_by_device(s, path, devices)}
+    if devices is not None:
+        from integration import affected_by_device
+        return {path['path_id'] for path in s['global_paths'] if affected_by_device(s, path, devices)}
+    if {'runtime', 'test_adapter'} & report['context_patch'].keys():
+        return {path['path_id'] for path in s['global_paths']}
+    paths = (report.get('contract_patch') or {}).get('global_paths')
+    if paths is None:
+        return set()
+    proposed = {path['path_id']: path for path in paths}
+    return {path['path_id'] for path in s['global_paths'] if proposed.get(path['path_id']) != path}
+
+
+def pending_global_paths(s):
+    review = s.get('run_change_review') or {}
+    if review.get('status') != 'reviewed' or not s.get('global_paths'):
+        return set()
+    report = read_json(check_ref(review['report_ref']))
+    impacted = global_reverify_paths(s, report, changed_devices(s, report))
+    return impacted if impacted and review['subject_sha256'] == review_subject(s, review) else set()
 
 
 def integration_busy(s, report):

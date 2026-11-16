@@ -1861,7 +1861,8 @@ def scope_of(s, global_paths, leftovers, module_ids=None):
                 if previous and (previous.get('stale') or previous['quality'] != 'green-passed'):
                     selected.append(path)
                     if prepared_tests.source(m): path_test_sources[path['path_id']] = prepared_tests.source(m)
-                    path_build_artifacts[path['path_id']] = list(m.get('build_artifacts', []))
+                    path_build_artifacts[path['path_id']] = (tv.bound_build_artifacts(s, path) if path.get('build_binding')
+                                                             else list(m.get('build_artifacts', [])))
                     if m['plan'].get('dimension_analysis_ref'):
                         path_dimension_analysis_refs[path['path_id']] = m['plan']['dimension_analysis_ref']
                     results[path['path_id']] = previous
@@ -1983,12 +1984,16 @@ def start_work(m, a):
 
 
 def settle_global_preflight(s, actor, receipt):
-    """A run-level Test-Runner's report inside its own dispatch (a wave's integration, the audit's retest): a ready one
-    is bound to the task it was given."""
+    """Authorize the assigned runner or record the environment gap before an audit runner can start."""
+    audit = s.get('audit_assignment') or {}
     for task in (integration.task(s), s.get('audit_test_assignment')):
         if task and not task.get('closed', True) and task.get('instance_id') == actor['instance_id'] \
-                and receipt['stage'] == 'audit-execution' and receipt['verdict'] == 'ready' and not task.get('context_ref'):
-            task['context_ref'] = copy.deepcopy(receipt['report_ref'])
+                and receipt['stage'] == 'audit-execution' and not task.get('context_ref'):
+            if receipt['verdict'] == 'ready':
+                task['context_ref'] = copy.deepcopy(receipt['report_ref'])
+            elif (context_readiness.enabled(s) and not audit.get('closed', True)
+                  and task.get('audit_assignment_id') == audit['assignment_id']):
+                audit_execution.return_unstarted(task, receipt)
 
 
 def settle_preflight(m, actor, receipt):
@@ -2745,6 +2750,8 @@ def mutate(s, req, principal, events, root=None):
             require(p['instance_id'] not in mod['authors'], 'Auditor must be independent')
             current(mod)
         require(s.get('audit_attempts', 0) < workflow.audit_budget(s), 'audit budget exhausted; audit-recover requires decision in this run')
+        if p.get('context_ref') and p['context_ref'] == tv.audit_resume_context(s):
+            s['audit'].pop('deferred_preflight_blocks', None)
         s['audit_attempts'] = s.get('audit_attempts', 0) + 1
         s.setdefault('audit_assignment_ids', []).append(p['assignment_id'])
         audit_usage = model_routing.record(p, role='auditor')
@@ -3249,11 +3256,14 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     recovery_step = workflow.audit_recovery_step(s)
     wave = integration.task(s)
     wave_blocked = {}
-    pause_ids = s.get('audit', {}).get('deferred_path_ids') if audit.get('closed') and tv.final_deferred_current(s) else None
+    deferred = tv.final_deferred_current(s)
+    resume_context = tv.audit_resume_context(s) if deferred and not observed else None
+    pause_ids = s.get('audit', {}).get('deferred_path_ids') if audit.get('closed') and deferred else None
     pause_blocked = {}
     if pause_ids and not observed:
         waiting = [path for path in audit_scope(s)['plan']['paths'] if path['path_id'] in pause_ids]
-        ready, blocked = audit_execution.partition_paths(s, waiting)
+        reported = None if resume_context else audit_execution.environment_blocks(s)
+        ready, blocked = audit_execution.partition_paths(s, waiting, reported=reported)
         pause_blocked = blocked if not ready else {}
     if audit_closure.active(s):
         global_next = audit_closure.global_step(s)
@@ -3270,15 +3280,19 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
             if task.get('audit_assignment_id') == audit['assignment_id'] and not task.get('closed', True):
                 task_paths = audit_execution.task_scope(scope, task)['plan']['paths']
                 _, blocked = audit_execution.partition_paths(s, task_paths)
-                if blocked:
+                if blocked and (task.get('context_ref') or not context_readiness.enabled(s)):
                     global_next.update(operation='audit-revoke', role='host', ready=True,
                                        reason='audit-path-inputs-unavailable', audit_blocked_paths=blocked,
                                        payload={'assignment_id': audit['assignment_id']})
                 else:
-                    mechanical = audit_execution.mechanical_paths(s, task_paths) == task['path_ids']
+                    mechanical = not blocked and audit_execution.mechanical_paths(s, task_paths) == task['path_ids']
                     global_next.update(operation='audit-test-submit', role='test-runner', path_ids=task['path_ids'],
                                        instance_id=task['instance_id'], assignment_id=task['assignment_id'],
                                        ready=mechanical, mechanical=mechanical)
+                    if task.get('test_scope'):
+                        global_next['test_scope'] = task['test_scope']
+                    if blocked:
+                        global_next['audit_blocked_paths'] = blocked
             else:
                 ready, blocked = audit_execution.ready_paths(s, scope)
                 if ready:
@@ -3297,7 +3311,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
                        'payload': {'assignment_id': wave['assignment_id'], 'fencing_token': wave['fencing_token']},
                        'path_ids': wave['path_ids'], 'reason': 'integration-inputs-stale-stop-worker',
                        'continue_modules': rounds['ready_modules']}
-    elif revision_step and not (wave and revision_step.get('waiting_integration') and not revision_step.get('ready')):
+    elif revision_step and (not s.get('global_plan') or revision_step['operation'] == 'revise-run' and revision_step['ready']):
         global_next = {**revision_step, 'continue_modules': rounds['ready_modules']}
     elif recovery_step:
         global_next = recovery_step
@@ -3320,6 +3334,8 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     elif (wave_paths := integration.due(s, blocked=wave_blocked)):
         global_next = {'operation': 'integration-assign', 'role': 'global-orchestrator', 'ready': True, 'reason': 'wave-complete',
                        'path_ids': [x['path_id'] for x in wave_paths], 'continue_modules': rounds['ready_modules']}
+    elif revision_step:
+        global_next = {**revision_step, 'continue_modules': rounds['ready_modules']}
     elif rounds['all_settled'] and not audit_code_review.current(s, ref_check):
         global_next = {'operation': 'audit-code-review', 'role': 'auditor', 'ready': True,
                        'reason': 'review-whole-change-before-defects', 'snapshot': audit_code_review.snapshot(s)}
@@ -3350,7 +3366,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     elif pause_blocked:
         global_next = {'operation': None, 'role': 'host', 'ready': False, 'reason': 'audit-path-inputs-unavailable',
                        'audit_blocked_paths': pause_blocked}
-    elif tv.final_deferred_current(s) and not pause_ids and not observed and not tv.audit_resume_context(s):
+    elif deferred and not pause_ids and not observed and not resume_context:
         global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False,
                        'reason': 'completed-with-unverified-tests', 'quality': 'yellow-blocked'}
     elif user_paths.unverified_only(s) and not observed:
@@ -3369,7 +3385,6 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
                        'scope_policy': 'non-green-only',
                        'path_ids': [p['path_id'] for p in paths],
                        **({'audit_blocked_paths': blocked} if blocked else {})}
-        resume_context = tv.audit_resume_context(s)
         if ready and resume_context:
             global_next.update(reason='automation-environment-restored',
                                payload={'context_ref': resume_context,
@@ -3512,7 +3527,7 @@ def verdict_in_review(s, step):
             and all(row.get('conclusion') == 'satisfied' for row in review['goal_review']['requirements']))
 
 
-def advance_run(root, principal, workers=None, *, defer_commands=False, publish=True):
+def advance_run(root, principal, workers=None, *, defer_commands=False, publish=True, yield_after_test=False):
     """Submit the run's mechanical steps (see run_fixed_flow), each in the name of the role it belongs to."""
     import integration
     applied, workers = [], workers or {}
@@ -3558,6 +3573,8 @@ def advance_run(root, principal, workers=None, *, defer_commands=False, publish=
         ack = apply(root, {'schema_version': 1, 'request_id': f'advance-run-{sequence}', 'run_id': st['run_id'], 'module_id': None,
                            'expected_revision': s['revision'], 'operation': op, 'payload': payload}, actor, publish=False)
         applied.append({'operation': op, 'event_id': ack['event_id']})
+        if yield_after_test and op in ('integration-submit', 'audit-test-submit'):
+            break
     if publish:
         status(root)
     return applied
@@ -3741,7 +3758,7 @@ def frozen_tests(root, s, module_id, assignment_id):
 
 
 def advance(root, principal, module_id, workers=None, *, pause_for_rotation=False, defer_commands=False, defer_resources=False, publish=True,
-            can_assign=None):
+            can_assign=None, yield_after_test=False):
     """Submit, as the module orchestrator, every step of one module (or parent) the cursor marks mechanical: accepting a
     settled result, dispatching a worker, freezing on a recorded review or decision, completing a module the DoD guard
     admits and summarizing a parent whose children settled; and, in its worker's name, running a test dispatch whose
@@ -3802,6 +3819,8 @@ def advance(root, principal, module_id, workers=None, *, pause_for_rotation=Fals
                            'operation': step['operation'], 'payload': payload}, actor, publish=False)
         applied.append({'operation': step['operation'], 'event_id': ack['event_id'],
                         **{k: payload[k] for k in ('assignment_id', 'role', 'instance_id', 'test_scope', 'artifact_only') if k in payload}})
+        if yield_after_test and step['operation'] == 'submit':
+            break  # The next drive pass accepts this result and checks other ready work before starting commands.
         if not defer_resources and step['operation'] == 'assign' and payload.get('role') in ('implementer', 'fixer'):
             import resource_binding  # the frozen plan's copies and parameter file, written in the coder's name before it codes
             aid = payload['assignment_id']

@@ -124,7 +124,7 @@
 <path d="M610,2020 L610,2080" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="100" y="2080" width="1020" height="150" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
 <text x="610.0" y="2119.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">独立审阅收尾 → 全局报告</text>
-<text x="610.0" y="2153.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">叶子与 GLOBAL PATH 用同一清单分批派发和执行</text>
+<text x="610.0" y="2153.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">叶子与 GLOBAL PATH 用同一清单，按执行输入分批入账</text>
 <text x="610.0" y="2182.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">配置修订后沿用有效批次，补验未执行或受影响路径</text>
 <text x="610.0" y="2211.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">覆盖齐全后裁决，全部通过即 Green</text>
 <rect x="1210" y="190" width="330" height="280" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
@@ -144,14 +144,15 @@
 <text x="1375.0" y="746.0" font-size="21.44" fill="#4b5563" text-anchor="middle" font-weight="400">起步门禁即冻结；design 按需</text>
 <text x="1375.0" y="775.0" font-size="20.39" fill="#4b5563" text-anchor="middle" font-weight="400">真实未决 / 语义授权变化交人工</text>
 <rect x="1210" y="880" width="330" height="310" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
-<text x="1375.0" y="941.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Ledger · 唯一总线</text>
-<text x="1375.0" y="975.5" font-size="21.23" fill="#4b5563" text-anchor="middle" font-weight="400">分配包 / 事件 / 状态 / 证据</text>
-<text x="1375.0" y="1004.5" font-size="21.25" fill="#4b5563" text-anchor="middle" font-weight="400">planning_context：全局视野</text>
-<text x="1375.0" y="1033.5" font-size="19.47" fill="#4b5563" text-anchor="middle" font-weight="400">GLOBAL 波次与终审按 PATH 复测</text>
-<text x="1375.0" y="1062.5" font-size="21.44" fill="#4b5563" text-anchor="middle" font-weight="400">预检：Ledger 代写或骨架起笔</text>
-<text x="1375.0" y="1091.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已有事实代填；被拒列全问题</text>
-<text x="1375.0" y="1120.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">就绪即开工，按阶段补欠项</text>
-<text x="1375.0" y="1149.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">父聚合颜色不回写子模块</text>
+<text x="1375.0" y="927.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">Ledger · 唯一总线</text>
+<text x="1375.0" y="961.0" font-size="21.23" fill="#4b5563" text-anchor="middle" font-weight="400">分配包 / 事件 / 状态 / 证据</text>
+<text x="1375.0" y="990.0" font-size="21.25" fill="#4b5563" text-anchor="middle" font-weight="400">planning_context：全局视野</text>
+<text x="1375.0" y="1019.0" font-size="19.47" fill="#4b5563" text-anchor="middle" font-weight="400">GLOBAL 波次与终审按 PATH 复测</text>
+<text x="1375.0" y="1048.0" font-size="20.20" fill="#4b5563" text-anchor="middle" font-weight="400">待生效修订暂停受影响波次 PATH</text>
+<text x="1375.0" y="1077.0" font-size="21.44" fill="#4b5563" text-anchor="middle" font-weight="400">预检：Ledger 代写或骨架起笔</text>
+<text x="1375.0" y="1106.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已有事实代填；被拒列全问题</text>
+<text x="1375.0" y="1135.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">就绪即开工，按阶段补欠项</text>
+<text x="1375.0" y="1164.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">父聚合颜色不回写子模块</text>
 <rect x="1210" y="1230" width="330" height="320" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="1375.0" y="1267.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">宿主执行层</text>
 <text x="1375.0" y="1301.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">实际派发执行角色并绑定身份</text>
@@ -159,7 +160,7 @@
 <text x="1375.0" y="1359.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">资源就绪优先用未预留空位</text>
 <text x="1375.0" y="1388.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">就绪规划、实现、修复先派发</text>
 <text x="1375.0" y="1417.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同 Run 修订就绪后先交付</text>
-<text x="1375.0" y="1446.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">drive：操作带修订号</text>
+<text x="1375.0" y="1446.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">验证批次入账即回 drive</text>
 <text x="1375.0" y="1475.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编码会话轮换保留派发名额</text>
 <text x="1375.0" y="1504.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">历史留痕，仅执行当前 SPEC</text>
 <text x="1375.0" y="1533.5" font-size="21.90" fill="#4b5563" text-anchor="middle" font-weight="400">遵守 DAG / 写锁 / 累计预算</text>

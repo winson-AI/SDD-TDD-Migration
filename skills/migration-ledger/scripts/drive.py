@@ -47,7 +47,7 @@ def row(step, card=None):
     if step.get('artifact_only'):
         out.update({key: step[key] for key in ('artifact_only', 'test_scope', 'instance_id', 'fencing_token', 'path_ids') if key in step})
     elif step.get('operation') in ('audit-test-assign', 'audit-test-submit', 'audit-unavailable'):
-        out.update({key: step[key] for key in ('instance_id', 'path_ids') if key in step})
+        out.update({key: step[key] for key in ('test_scope', 'instance_id', 'path_ids') if key in step})
     if step.get('report_ref'):
         out['report'] = step['report_ref']['path']
     if step.get('worker_role'):
@@ -95,11 +95,11 @@ def tick(root, principal, workers=None):
         for step in steps:
             if step.get('mechanical') and step.get('ready') and step['operation'] == 'await-result':
                 actions = ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True, defer_resources=True,
-                                         publish=False, can_assign=can_assign)['applied']
+                                         publish=False, can_assign=can_assign, yield_after_test=True)['applied']
                 if actions:
                     break
         else:
-            actions = ledger.advance_run(root, principal, workers, publish=False)
+            actions = ledger.advance_run(root, principal, workers, publish=False, yield_after_test=True)
         started |= any(a['operation'] == 'assign' and a.get('role') in ('implementer', 'fixer') for a in actions)
         if not actions:
             break

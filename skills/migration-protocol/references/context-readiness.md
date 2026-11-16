@@ -25,6 +25,8 @@ GO 发现/规划、父 MO 拆分、子 SPEC 冻结、Coding/Testing/Fixer 开工
 
 审计复测与波次集成先派发，独立 Test-Runner 在派发内提交 audit-execution ready 预检后才执行与提交；不沿用 Auditor 的预检。审计期间下游 Fixer/Testing 仍分别通过 fixing/testing，不沿用 Auditor 的报告。
 
+终审 Runner 尚未获得执行授权且仅 `test-environment` 受阻时，用 `checks.test-environment.path_ids` 列出本批缺环境的路径，单路径可由派发推断。Ledger 释放派发，保留逐 PATH 未执行缺口，其余就绪路径可继续派发。见[审计范围协议](audit-scope.md#收尾的实际执行契约)。
+
 ## 3. 报告与传递
 
 只有 worker 阶段（building、testing、fixing、audit-testing/audit-execution）由执行者写报告，building/testing 从派发步骤 `report_skeleton` 写出的骨架起笔；模板：[context-readiness.json](../../../template/context-readiness.json)。stage、subject_sha256 与检查项取自步骤视图的 `context`，checks 的键与 required_checks 一致；同一文件多次引用时在顶层 `refs` 写一次，`evidence_refs` 写其 id。
@@ -80,7 +82,7 @@ blocked 报告保留缺失项，不自动把 MO 标记收尾。例外分流：�
 
 source-target 检查落为目标画像（逐功能状态与证据）：拆分据此设脚手架，目标已有代码而未复用/适配的叶子记欠项。global-discovery/global-planning/decomposition/planning 必需检查 feature-inventory；global-plan 接受最终清单与叶子归属后，planning_context 和 module_inputs 提供 feature_inventory_ref/feature_ids 作为后续预检必读输入。疑问不是 ready，按[切片规约](../../migration-global/references/slicing.md#用例来源与切片抓手)交人工。
 
-同一 assignment 需运行多个构建命令或最终审计混合路径时，可在 execution.commands 按 path_id 保存各自 argv/cwd；环境证据仍由 environment_ref 绑定。execute_test 逐路径校验该命令，build 另核对冻结 command。
+同一 assignment 需要逐路径绑定命令时，可在 execution.commands 按 path_id 保存各自 argv/cwd。环境证据由 environment_ref 绑定。execute_test 逐路径校验命令，build 另核对冻结 command。
 
 收尾 audit-assign 的阶段由 Ledger 实际选集决定：有路径用 audit-testing；无待验证路径用 audit-verdict，由 Ledger 机械预检（audit-assign 不带 context_ref），不要求设备/自动化环境。空 global_paths 不影响此选择。见 [审计范围协议](audit-scope.md)。
 

@@ -219,7 +219,7 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
     With no `argv` the command is resolved from the frozen PATH or the project's adapters (`adapter_for`)."""
     require(output, 'output required')
     root = Path(root).resolve()
-    s = status(root)
+    s = status(root, publish=False)
     pids = [path_id] if isinstance(path_id, str) else list(path_id)
     require(pids and len(set(pids)) == len(pids), 'path_id required, each once')
     batch = len(pids) > 1
@@ -365,7 +365,7 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
         s.get('project_context_ref') and module_id != 'GLOBAL' and all(p.get('kind') in ('build', 'unit') for p in paths)) else None
     audit_inputs = {}
     if module_id == 'GLOBAL' and a.get('mode') == 'audit-execute':
-        from audit_execution import input_fingerprint
+        from audit_execution import INPUT_VERSION, input_fingerprint
         audit_inputs = {pid: input_fingerprint(s, m, planned[pid], root, argv, cwd) for pid in pids}
     started = datetime.now(timezone.utc).isoformat()
     termination, proc, aborted = None, None, None
@@ -473,6 +473,7 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
                    'frozen_test_sources': sources[pid]}
         if audit_inputs.get(pid):
             receipt['audit_inputs_sha256'] = audit_inputs[pid]
+            receipt['audit_inputs_version'] = INPUT_VERSION
         if termination:
             receipt['termination'] = termination
         if pid != path_id and bindings[pid]:

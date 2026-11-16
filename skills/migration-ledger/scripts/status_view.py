@@ -103,7 +103,7 @@ def _step(st, module_id, since=None):
     out = {'view': 'step', 'run_id': st['run_id'], 'last_sequence': st['last_sequence'], 'step': slim, 'cards': cards,
            # The envelope of the request this step asks for.
            'request': {'schema_version': 1, 'run_id': st['run_id'], 'module_id': module_id, 'expected_revision': revision,
-                       'operation': operation}}
+                       'operation': 'context-submit' if operation == 'audit-test-submit' and gate else operation}}
     open_rows, standing = issues.of_module(st, module_id)
     out['open_issues'], out['open_issue_count'] = issues.listed(open_rows)
     out['open_issue_families'] = issues.families(open_rows)  # every open issue counted, even past the rows the step lists

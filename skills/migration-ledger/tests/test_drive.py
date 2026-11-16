@@ -260,6 +260,18 @@ class MechanicalHandoffTests(unittest.TestCase):
         ledger.advance(f.root, MO, 'M001', defer_commands=True)
         self.assignment = next(a for a in f.state()['modules']['M001']['assignments'].values() if not a['closed'])
 
+    def test_leaf_executor_returns_to_drive_after_one_batch_without_publishing(self):
+        from unittest.mock import patch
+        import ledger
+
+        with patch.object(ledger, 'project_outcome', wraps=ledger.project_outcome) as project:
+            work = ledger.advance(self.f.root, MO, 'M001', publish=False, yield_after_test=True)
+            self.assertEqual([event['operation'] for event in work['applied']], ['submit'])
+            project.assert_not_called()
+        self.assertEqual(self.f.state()['next_steps'][0]['operation'], 'accept')
+        drive.drive(self.f.root, MO)
+        self.assertEqual(self.f.state()['modules']['M001']['results']['M001-B']['quality'], 'green-passed')
+
     def test_ready_fixer_is_returned_before_the_independent_build(self):
         from unittest.mock import patch
         import ledger

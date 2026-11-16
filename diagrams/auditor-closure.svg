@@ -112,7 +112,7 @@
 <text x="400.0" y="1869.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">叶子与 GLOBAL PATH 的派发、预检与执行范围一致</text>
 <text x="400.0" y="1898.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">有冻结命令或适配器的就绪 PATH 先跑</text>
 <text x="400.0" y="1927.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">其余就绪项由独立 Test-Runner 执行</text>
-<text x="400.0" y="1956.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">新批次只选尚待验证的 PATH</text>
+<text x="400.0" y="1956.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按独立执行输入分批，每批先入账再续跑</text>
 <path d="M1200,1735 L1200,1795" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <rect x="890" y="1795" width="620" height="155" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="1200.0" y="1837.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">人工批准 → GO 释放批次 → 受控恢复</text>
@@ -121,7 +121,7 @@
 <text x="1200.0" y="1929.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">再次满足全量收尾门禁，才可创建新审计批次</text>
 <path d="M710,1855 L790,1855 L790,2080 L890,2080" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
 <rect x="777.0" y="1972" width="90" height="27" rx="4" fill="white" opacity="0.97"/>
-<text x="822" y="1990" font-size="18.00" fill="#ea580c" text-anchor="middle" font-weight="400">配置缺口</text>
+<text x="822" y="1990" font-size="18.00" fill="#ea580c" text-anchor="middle" font-weight="400">环境缺口</text>
 <path d="M890,2165 L750,2165 L750,1925 L710,1925" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <path d="M400,1975 L400,2030" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="90" y="2030" width="620" height="185" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
@@ -129,13 +129,14 @@
 <text x="400.0" y="2121.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核对完整覆盖，原样采用新旧批次观察</text>
 <text x="400.0" y="2150.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Red / Yellow 保留根因，按责任模块处理</text>
 <text x="400.0" y="2179.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全通过 → 全局 Green → 按授权交付</text>
-<rect x="890" y="2030" width="620" height="185" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
-<text x="1200.0" y="2072.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">配置缺口 → 挂起 → 同 Run 修订</text>
-<text x="1200.0" y="2106.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">就绪批次收尾后，Auditor 释放审计快照</text>
-<text x="1200.0" y="2135.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">沿用冻结、代码及执行输入仍匹配的回执</text>
-<text x="1200.0" y="2164.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">保留原 Green / Red 与 test_run_id</text>
-<text x="1200.0" y="2193.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅补验未执行或输入变化的 PATH</text>
-<text x="800" y="2270" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">活动 Test-Runner 的输入失效时，Host 核实停止或隔离后再撤销派发。</text>
+<rect x="890" y="2030" width="620" height="205" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
+<text x="1200.0" y="2068.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">按 PATH 记录缺口 → 同 Run 恢复</text>
+<text x="1200.0" y="2102.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">未获授权的 Runner 按 PATH 退回环境缺口</text>
+<text x="1200.0" y="2131.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">其余批次入账后，Auditor 挂起缺口并释放快照</text>
+<text x="1200.0" y="2160.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">回执核对原预检命令、环境与绑定制品</text>
+<text x="1200.0" y="2189.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">沿用有效 Green / Red 与原 test_run_id</text>
+<text x="1200.0" y="2218.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只补验未执行或输入变化的 PATH</text>
+<text x="800" y="2270" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已获授权的 Runner 输入失效时，宿主核实停止或隔离，再撤销派发。</text>
 <path d="M65,2320 L113,2320" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <text x="125" y="2327" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">流程推进</text>
 <path d="M345,2320 L393,2320" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>

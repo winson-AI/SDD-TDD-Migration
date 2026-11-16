@@ -133,7 +133,7 @@
 <rect x="550" y="2095" width="500" height="125" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="800.0" y="2122.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">机械验证恢复</text>
 <text x="800.0" y="2156.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同一派发核验已完成的 PATH 回执</text>
-<text x="800.0" y="2185.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">原 test_run_id 提交，下一组接续</text>
+<text x="800.0" y="2185.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">沿用原 test_run_id，批次入账后回 drive</text>
 <text x="800.0" y="2214.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">证据不完整时核实停止或隔离</text>
 <rect x="1110" y="1750" width="410" height="250" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1315.0" y="1781.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">阻塞与明确收尾</text>

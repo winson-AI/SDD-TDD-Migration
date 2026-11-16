@@ -652,9 +652,13 @@ def requirements(s):
 
 
 def annotate(s, mid, step):
-    waiting = step.get('operation') == 'await-result'
-    stage = (owed(s, mid, step) if waiting else
-             requirement(step.get('operation'), {'role': step.get('worker_role'), 'test_scope': step.get('test_scope'), 'mode': step.get('mode')}, s))
+    operation = step.get('operation')
+    waiting = operation in ('await-result', 'audit-test-submit')
+    if operation == 'audit-test-submit':
+        stage = None if s['audit_test_assignment'].get('context_ref') else 'audit-execution'
+    else:
+        stage = (owed(s, mid, step) if waiting else
+                 requirement(operation, {'role': step.get('worker_role'), 'test_scope': step.get('test_scope'), 'mode': step.get('mode')}, s))
     if not enabled(s) or not stage:
         return step
     step = copy.deepcopy(step)

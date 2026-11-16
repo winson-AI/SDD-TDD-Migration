@@ -57,7 +57,7 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | audit-code-review | Auditor | report_ref；Ledger 预检；步骤带 `report_skeleton`，留标记即拒；全部 MO 收尾后、audit-collect 前提交，见[代码治理](audit-code-review.md#ledger-接口) |
 | plan | Spec-Designer | plan_ref；Ledger 预检；先 `preview`；[stage-plan](../../../template/stage-plan.json)（Ledger 补全 test_design_ref、PATH、任务范围、spec 与 checklist）；不抄写全局上下文与分配包 |
 | plan-review / planning-reopen | MO | 无人要求时机械：Ledger 写评审记录（reports/plan-review）由 advance 提交；被要求时 review_ref 绑定 plan_hash、独立 MO 与边界判断，证据含裁决、阻塞缺陷、issue、未过门禁（review_gates）；编码前重规划留 reason_ref，已派实现走 CR |
-| audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id 与游标的本批 path_ids，机械派发。派发内可补交 context_ref，执行后提交 result_ref |
+| audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id 与游标的本批 path_ids，机械派发。派发内走 audit-execution 预检，获授权后执行并提交 result_ref。未获授权且只有环境缺口时，按 PATH 退回该批 |
 | audit-unavailable | Auditor | context_ref 指向受阻的 audit-testing 预检。活动终审只剩配置缺口且 Runner 已收尾时挂起并释放快照 |
 | integration-assign / integration-submit | GO / Test-Runner | wave-complete 时派发就绪 GLOBAL PATH；按当前执行输入验收，结果进 audit_results，Red 入 audit_repairs |
 | integration-revoke | Host | 核实旧进程停止或已隔离后提交 assignment_id、fencing_token、stopped_worker_ref；重新计算波次或审计路径 |

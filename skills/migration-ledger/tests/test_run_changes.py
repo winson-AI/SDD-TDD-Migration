@@ -643,6 +643,7 @@ with open(args.result_file, 'w') as target:
             first = before['audit_test_assignment']
             refs, rows = audit_execution.evidence(before)
             self.assertEqual([row['path_id'] for row in rows], ['ANDROID', 'GREEN', 'RED'])
+            self.assertEqual(first['path_ids'], ['GREEN', 'RED'])
             self.assertEqual(before['global_next_step']['path_ids'], ['WEB'])
             self.assertEqual(before['global_next_step']['operation'], 'audit-unavailable')
             f.raw('audit-unavailable', {'context_ref': blocked}, role='auditor', module=None)
@@ -659,17 +660,18 @@ with open(args.result_file, 'w') as target:
             resumed = f.state()
             self.assertEqual(resumed['run_id'], before['run_id'])
             self.assertNotEqual(resumed['audit_assignment']['assignment_id'], before['audit_assignment']['assignment_id'])
-            self.assertEqual(resumed['audit_test_assignment']['path_ids'], ['WEB', 'ANDROID'])
+            self.assertEqual(resumed['audit_test_history'][-1]['path_ids'], ['WEB'])
+            self.assertEqual(resumed['audit_test_assignment']['path_ids'], ['ANDROID'])
             self.assertEqual(resumed['audit_attempts'], 1)
             self.assertFalse(resumed['audit_assignment']['closed'])  # The independent verdict must explicitly handle Red.
             resumed_refs, resumed_rows = audit_execution.evidence(resumed)
-            self.assertEqual(resumed_refs[0], refs[0])
+            self.assertEqual(resumed_refs[0], refs[1])
             self.assertEqual(resumed_rows[:2], rows[1:])
             self.assertNotEqual(resumed_rows[-1]['test_run_id'], rows[0]['test_run_id'])
 
             # A mutated dependency cannot retain its earlier accepted observations.
             tampered = copy.deepcopy(resumed)
-            tampered['audit_carry'][0]['result_ref'] = {**first['result_ref'], 'sha256': '0' * 64}
+            tampered['audit_carry'][1]['result_ref'] = {**first['result_ref'], 'sha256': '0' * 64}
             self.assertEqual(audit_execution.ready_paths(tampered, ledger.audit_scope(tampered))[0], ['GREEN', 'RED'])
 
             f.raw('audit', {'report_ref': ledger.verdict_from_review(f.root, resumed)}, role='auditor', module=None)

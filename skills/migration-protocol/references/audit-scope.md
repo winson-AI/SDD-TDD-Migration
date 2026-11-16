@@ -26,7 +26,9 @@ work_modules 包含发现模块、根因 owner 与受影响下游。audit-retest
 
 ## 收尾的实际执行契约
 
-Ledger 以 GO 名义 `audit-test-assign`，从同一应验清单选取叶子与 GLOBAL PATH。先派发有冻结命令或已声明 automation 适配器的就绪 PATH，由 `advance_run` 预检并代跑。其余就绪 PATH 交独立 Test-Runner，在派发内预检，经 `execute_test` 执行并提交 `audit-test-submit`。每批派发、预检、执行与结果验收使用相同的 `path_ids`。
+Ledger 以 GO 名义 `audit-test-assign`，从同一应验清单选取叶子与 GLOBAL PATH，按执行类型、命令、环境、冻结引用和绑定制品分批。先派有冻结命令或已声明 automation 适配器的就绪批次，由 `advance_run` 预检并代跑。其余交独立 Test-Runner，在派发内预检，经 `execute_test` 执行并提交 `audit-test-submit`。每批使用同一组 `path_ids` 派发、预检、执行与验收，入账后回到 `drive`。
+
+终审 Runner 尚未获执行授权时，可用 `context-submit` 交回仅有 `test-environment` 受阻的 `audit-execution` 报告。`checks.test-environment.path_ids` 列出本批缺环境的 PATH，单路径可从派发推断。Ledger 释放派发并登记缺口，其他就绪 PATH 继续派发。
 
 Auditor 的报告用 `test_result_ref` 或 `test_result_refs` 绑定所用批次，原样引用当前应验 PATH 的观察。含沿用批次时只引用该批输入仍匹配的 PATH。复测全绿、代码审查无发现且目标全部满足时，Ledger 以 Auditor 名义按审查与观察提交结论。见[宿主目标审计](audit-code-review.md#宿主目标审计)。
 
@@ -36,7 +38,7 @@ Auditor 的报告用 `test_result_ref` 或 `test_result_refs` 绑定所用批次
 - `path_ids`：当前模块结果为 Red/Yellow 的 PATH；已由问题闭环复核通过的不再加入。
 - 运行级 global_paths 只加入其中非 Green、从未验证或代码基线已失效的路径；未验证保留待验证，有效 Green 直接复用。
 - 波次集成在持有 GLOBAL PATH 用例的叶子完成且执行输入就绪时，Ledger 以 GO 名义 `integration-assign` 给独立 Test-Runner。派发内提交 audit-execution 预检，`integration-submit` 提交 kind=tests。带 build binding 的受限 Android/Harmony 视觉路径绑定当前验收产物、冻结 PATH、环境及 owner/提供方闭包。冻结命令和自定义适配器按全局快照处理，可由 advance_run 代跑。持有叶子基线未变时，其他叶子导致全局快照失效的路径留到统一审计复测。结果与执行输入摘要进入 audit_results，输入一致时复用 Green。Red 进入 audit_repairs 交 owner MO。
-- 活动派发的输入变化时，宿主核实进程停止或已隔离，再凭 assignment_id、fencing_token 和 stopped_worker_ref 提交 `integration-revoke`。Ledger 保留旧派发及停工证据，随后重算波次或审计清单。Run 修订等待波次时，仍有效的派发先完成提交。
+- 活动派发的输入变化时，宿主核实进程停止或已隔离，再凭 assignment_id、fencing_token 和 stopped_worker_ref 提交 `integration-revoke`。Ledger 保留旧派发及停工证据，随后重算波次或审计清单。待生效的 Run 修订暂停受影响 GLOBAL PATH 的新派发，仍有效的活动派发可先完成提交。
 - 有效构建 Green 不因自动化缺测被重跑或覆盖。对原 automation-deferred 模块补验时合并 PATH 结果，保留原构建证据。
 
 | 清单 | 上下文门禁 | 动作与报告 |
@@ -49,9 +51,9 @@ Auditor 的报告用 `test_result_ref` 或 `test_result_refs` 绑定所用批次
 
 ## 活动审计的游标恢复
 
-读取 `module_rounds`、`global_next_step`、`context_gate` 后按下一动作提交事件。就绪批次均已提交且只剩配置缺口时，当前 Auditor 提交仅 `test-environment` 受阻的 `audit-testing`，再用 `audit-unavailable {context_ref}` 挂起剩余 PATH、释放快照。暂停发生在裁决前，本轮审计预算可留给续跑。
+读取 `module_rounds`、`global_next_step`、`context_gate` 后按下一动作提交事件。就绪批次均已提交且只剩配置缺口时，当前 Auditor 提交仅 `test-environment` 受阻的 `audit-testing`，再用 `audit-unavailable {context_ref}` 挂起剩余 PATH、释放快照。暂停发生在裁决前，本轮审计预算可留给续跑。Runner 退回的环境缺口可通过新的就绪 `audit-testing` 或同 Run 修订后重做预检解除。
 
-活动 audit 快照过期或在途 PATH 无法继续时，宿主核实停止或隔离后用 `audit-revoke` 留证，活动 Runner 另附 `test_worker_stopped_ref`。撤销沿用原预算规则。配置恢复或经同 Run 修订后重新派发终审，只有原独立身份、冻结、代码、PATH、执行输入和可核验回执仍匹配的 Green/Red 才沿用，并保有原 `test_run_id`。其余应验路径从当前输入补跑，Auditor 核对完整覆盖后裁决。
+活动 audit 快照过期或已获授权的在途 PATH 无法继续时，宿主核实停止或隔离后用 `audit-revoke` 留证，活动 Runner 另附 `test_worker_stopped_ref`。撤销沿用原预算规则。配置恢复或同 Run 修订后，沿用原独立身份、冻结、代码、PATH 与执行输入仍可核验的 Green/Red 和原 `test_run_id`。内置 Web 核对浏览器配置和明确绑定的制品。绑定构建的受管视觉核对原预检批准的实际 argv/cwd、有效设备环境和对应验收制品。其余应验路径从当前输入补跑，Auditor 核对完整覆盖后裁决。
 
 ## 宿主统一审计
 

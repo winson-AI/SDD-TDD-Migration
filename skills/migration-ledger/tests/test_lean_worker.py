@@ -336,6 +336,72 @@ class LeanWorkerTests(unittest.TestCase):
         with self.assertRaisesRegex(Rejected, 'accepted current build'):
             validate_result(result, module, task, run_root=self.f.run)
 
+    def test_audit_reuses_the_approved_visual_command_and_bound_artifact(self):
+        import audit_execution
+
+        f, native = self.f, native_fixtures.NativeContractTests()
+        native.root, native.android, native.target = f.base, f.legacy, f.target
+        alignment = native.alignment()
+        alignment.update(required_interactions=[], interaction_checks=[])
+        artifact = file_ref(native.write(str(f.run / 'runs/build/visual/app.hap'), b'hap'))
+        alignment['rounds'][0]['hap'] = artifact
+        code = [file_ref(self.write(f.target / 'Main.kt', 'fun main() = Unit\n'))]
+        code_baseline = baseline(code)
+        _, frozen_visual = native.bind_execution(alignment, code_baseline, run_root=f.run, assignment={'assignment_id': 'AT'})
+        alignment_path = native.write('target/audit-alignment.json', alignment)
+        env = file_ref(native.write(str(f.run / 'runs/harmony/sandbox/environment/audit.json'),
+                                    {'visual_capture': {'backend': 'hdc', 'device_id': 'device-1'}}))
+        visual = {'path_id': 'PV', 'kind': 'visual', 'platform': 'harmony', 'coverage': frozen_visual['coverage'],
+                  'node_ids': ['node:settings.root'], 'baseline_ref': frozen_visual['baseline_refs'][0],
+                  'visual_evidence': frozen_visual, 'expected_assertions': [{'assertion_id': 'VISUAL', 'expected': True}],
+                  'visual_execution': {'environment_ref': env, 'app_id': 'app'},
+                  'build_binding': {'module_id': 'M001', 'path_id': 'PB'}}
+        module = {'module_id': 'M001', 'freeze_id': 'F', 'phase': 'completed', 'stale': False, 'authors': [], 'assignments': {},
+                  'code_files': code, 'code_baseline': code_baseline, 'build_artifacts': [artifact],
+                  'plan': {'definitions': [], 'paths': [{'path_id': 'PB', 'kind': 'build'}]},
+                  'results': {'PB': {'quality': 'green-passed', 'code_baseline': code_baseline, 'build_artifacts': [artifact]}}}
+        state = {**self.state, 'context_readiness_required': True, 'modules': {'M001': module}, 'global_paths': [visual],
+                 'audit_assignment': {'assignment_id': 'AUDIT', 'instance_id': 'auditor', 'closed': False, 'path_ids': ['PV'],
+                                      'snapshot': {'M001': code_baseline}}}
+        go, runner = {'role': 'global-orchestrator', 'instance_id': 'go'}, {'role': 'test-runner', 'instance_id': 'runner'}
+        scope = ledger.audit_scope(state)
+        audit_execution.handle(state, {'operation': 'audit-test-assign', 'payload': {
+            'assignment_id': 'AT', 'instance_id': 'runner', 'path_ids': ['PV']}}, go, scope, f.run)
+        task = state['audit_test_assignment']
+        device_request = {'request_id': 'verify-device', 'operation': 'visual-install', 'module_id': 'GLOBAL',
+                          'assignment_id': 'AT', 'args': {'path_id': 'PV'}}
+        with patch.object(ledger, 'read_events', return_value=(state, [])):
+            with self.assertRaisesRegex(Rejected, 'audit execution preflight required'):
+                lean_worker.run(f.run, device_request, runner)
+        adapter = Path(lean_worker.__file__).with_name('lean_visual_adapter.py')
+        argv = [sys.executable, str(adapter), '--alignment', str(alignment_path), '--target-root', str(f.target)]
+        task['context_ref'] = file_ref(native.write('audit-command.json', {'stage': 'audit-execution', 'verdict': 'ready',
+            'execution': {'argv': argv, 'cwd': str(f.target), 'environment_ref': env}}))
+        with patch.object(execute_test, 'status', return_value=state):
+            receipt_ref = execute_test.execute(f.run, 'GLOBAL', 'AT', 'PV', argv, str(f.target),
+                                               f.run / 'runs/harmony/automation/audit-visual')
+        receipt = read_json(check_ref(receipt_ref))
+        self.assertEqual(receipt['audit_inputs_version'], audit_execution.INPUT_VERSION)
+        result = {'schema_version': 1, 'kind': 'tests', 'run_id': state['run_id'], 'module_id': 'GLOBAL',
+                  'assignment_id': 'AT', 'actor_instance_id': 'runner', 'freeze_id': scope['freeze_id'],
+                  'code_baseline': scope['code_baseline'], 'paths': [{**test_completion.interpret(receipt, visual),
+                      'path_id': 'PV', 'test_run_id': receipt['test_run_id'], 'execution_receipt': receipt_ref}]}
+        self.assertEqual(result['paths'][0]['quality'], 'green-passed')
+        audit_execution.handle(state, {'operation': 'audit-test-submit', 'payload': {
+            'result_ref': file_ref(native.write('audit-visual-result.json', result))}}, runner, scope, f.run)
+        audit_execution.hold(state)
+        state['audit_assignment']['closed'] = True
+        module['build_artifacts'].append(file_ref(native.write(str(f.run / 'runs/build/other/other.hap'), b'unused')))
+        state['test_adapter'] = {'device': {'platforms': ['web'], 'web': {'url': 'https://changed.test'}}}
+        kept = audit_execution.carried(state, ledger.audit_scope(state), 'auditor')
+        self.assertEqual([batch['path_ids'] for batch in kept], [['PV']])
+        wrong = copy.deepcopy(state)
+        wrong['audit_carry'][0]['context_ref'] = file_ref(native.write('other-command.json', {'stage': 'audit-execution',
+            'verdict': 'ready', 'execution': {'argv': [sys.executable, str(adapter)], 'cwd': str(f.target)}}))
+        self.assertEqual(audit_execution.carried(wrong, ledger.audit_scope(wrong), 'auditor'), [])
+        check_ref(artifact).write_bytes(b'Changed bound artifact')
+        self.assertEqual(audit_execution.carried(state, ledger.audit_scope(state), 'auditor'), [])
+
 
 if __name__ == '__main__':
     unittest.main()

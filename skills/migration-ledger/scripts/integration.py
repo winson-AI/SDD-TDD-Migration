@@ -138,15 +138,17 @@ def due(s, *, blocked=None):
     """Prefer a ready managed wave, even when unrelated code is dirty or still being written."""
     import audit_closure
     from ledger import global_baseline
+    from run_changes import pending_global_paths
     if audit_closure.active(s) or not (s.get('audit_assignment') or {}).get('closed', True) or task(s):
         return []
     device_reviews = [change['report_ref'] for change in s.get('run_change_history', []) if change.get('device_only')]
     leaves_working = work_remaining(s)
+    switching = pending_global_paths(s)
     for managed in (True, False):
         selected = []
         baseline = None
         for path in s.get('global_paths', []):
-            if scoped(s, path) != managed:
+            if path['path_id'] in switching or scoped(s, path) != managed:
                 continue
             held = owners(s, path)
             if not held or not all(s['modules'][mid]['phase'] == 'completed' and not s['modules'][mid].get('stale')

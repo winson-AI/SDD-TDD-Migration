@@ -66,25 +66,34 @@ json.dump({'assertions':[{'assertion_id':'A1','expected':2,'actual':2,'passed':T
         self.assertIn(script, refs)
         test_ledger.code_review(f)
         f.call('audit-assign', {'assignment_id': 'AUD', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
-        test_ledger.start_audit_test(f, 'AUD')
-        s = f.state(); scope = ledger.audit_scope(s); records = []
+        s = f.state(); scope = ledger.audit_scope(s); records, refs = [], []
         for path in scope['plan']['paths']:
-            ref = execute(f.root, 'GLOBAL', 'AUD-TEST', path['path_id'], f.test_argv, f.target, f.base/('audit-'+path['path_id']))
+            pid = path['path_id']
+            step = f.state()['global_next_step']
+            self.assertEqual((step['operation'], step['path_ids']), ('audit-test-assign', [pid]))
+            aid, runner = f'AUD-TEST-{pid}', 'independent-audit-test'
+            f.raw('audit-test-assign', {'assignment_id': aid, 'instance_id': runner, 'path_ids': [pid]},
+                  role='global-orchestrator', module=None)
+            f.record(f.report('audit-execution', module=None, instance=runner))
+            ref = execute(f.root, 'GLOBAL', aid, pid, f.test_argv, f.target, f.base / aid)
             receipt = read_json(check_ref(ref))
-            if path['path_id'] == 'P1':
+            if pid == 'P1':
                 self.assertEqual(receipt['test_asset_binding']['freeze_id'], owner['freeze_id'])
                 self.assertEqual(receipt['test_asset_usage']['entrypoint_ids'], ['SCRIPT'])
                 bad = {**receipt, 'test_asset_binding': {**receipt['test_asset_binding'], 'freeze_id': 'wrong'}}
                 with self.assertRaisesRegex(Rejected, 'binding mismatch'):
                     prepared_tests.validate_receipt(scope, path, bad, 'green-passed')
-            records.append({'path_id': path['path_id'], 'test_run_id': receipt['test_run_id'], 'executed': True,
-                'quality': 'green-passed', 'execution_receipt': ref,
-                'assertions': read_json(check_ref(receipt['result_ref']))['assertions'],
-                'retest_of': scope['results'].get(path['path_id'], {}).get('test_run_id')})
+            result = test_split_testing.stage_result(f.root, 'GLOBAL', aid, [ref])
+            self.assertEqual([(row['path_id'], row['quality']) for row in result['paths']], [(pid, 'green-passed')])
+            result_ref = f.ref(f'audit-result-{pid}.json', result)
+            f.raw('audit-test-submit', {'result_ref': result_ref}, role='test-runner', instance=runner, module=None)
+            refs.append(result_ref)
+            records.extend(result['paths'])
         report = {'schema_version': 1, 'kind': 'tests', 'run_id': s['run_id'], 'module_id': 'GLOBAL',
             'assignment_id': 'AUD', 'actor_instance_id': 'auditor', 'freeze_id': scope['freeze_id'],
-            'code_baseline': scope['code_baseline'], 'snapshot': s['audit_assignment']['snapshot'], 'paths': records}
-        f.call('audit', {'report_ref': f.ref('audit.json', test_ledger.accept_audit_test(f, report))}, role='auditor', module=None)
+            'code_baseline': scope['code_baseline'], 'snapshot': s['audit_assignment']['snapshot'], 'paths': records,
+            'test_result_refs': refs, 'review_ref': f.ref('audit-review.md', 'Independently reviewed both accepted batches')}
+        f.call('audit', {'report_ref': f.ref('audit.json', report)}, role='auditor', module=None)
         self.assertEqual(f.state()['modules']['M001']['phase'], 'dod')
         f.call('complete', {'dod_ref': f.ref('post-audit-dod.md', 'Build and restored automation independently passed')})
         self.assertEqual(f.state()['quality'], 'green-passed')

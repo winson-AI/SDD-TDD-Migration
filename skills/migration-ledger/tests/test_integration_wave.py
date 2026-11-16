@@ -64,6 +64,38 @@ class WaveIntegrationTests(unittest.TestCase):
         with patch.object(ledger, 'global_baseline', side_effect=Rejected('shared code drift')):
             self.assertEqual(integration.due(s), [])
 
+    def test_pending_device_revision_only_holds_the_affected_global_path(self):
+        import run_changes
+
+        f = self.f
+        self.first_wave()
+        s, _ = ledger.read_events(f.root)
+        original = s['global_paths'][0]
+        s['global_paths'] = [{**original, 'path_id': platform, 'platform': platform, 'kind': 'automation'}
+                             for platform in ('android', 'web')]
+        s['test_adapter'] = {'device': {'platforms': ['android', 'web'], 'android': {'serial': 'old'},
+                                       'web': {'url': 'https://example.test'}}}
+        report = {'context_patch': {'test_adapter': {'device': {'android': {'serial': 'new'}}}}, 'root_updates': [],
+                  'boundary_review': {'semantic_change': False, 'authorization_change': True, 'unresolved_questions': [],
+                                      'reason': 'Device access requires approval', 'evidence_refs': [f.ref('authorization.md', 'Access review')]},
+                  'modules': [{'module_id': mid, 'action': 'unchanged'} for mid in s['modules']]}
+        review = {'status': 'reviewed', 'report_ref': f.ref('pending-android.json', report)}
+        review['subject_sha256'] = run_changes.review_subject(s, review)
+        s['run_change_review'] = review
+        routes = ledger.routing(s)
+        self.assertEqual(routes['run_change_next_step']['reason'], 'run-approval-required')
+        self.assertEqual((routes['global_next_step']['operation'], routes['global_next_step']['path_ids']),
+                         ('integration-assign', ['web']))
+        go = {'role': 'global-orchestrator', 'instance_id': 'go'}
+        dispatch = {'operation': 'integration-assign', 'payload': {'assignment_id': 'WEB', 'instance_id': 'runner', 'path_ids': ['android']}}
+        with self.assertRaisesRegex(Rejected, 'exactly the due paths'):
+            integration.handle(s, dispatch, go, 99)
+        dispatch['payload']['path_ids'] = ['web']
+        integration.handle(s, dispatch, go, 99)
+        self.assertEqual(ledger.routing(s)['global_next_step']['operation'], 'integration-submit')
+        s['decisions']['A'] = {'decision_id': 'A', 'decision': 'approved', 'module_id': None, 'subject_sha256': review['subject_sha256']}
+        self.assertEqual(ledger.routing(s)['global_next_step']['operation'], 'revise-run')
+
     def run_gp1(self, aid, passing=True):
         f = self.f; scope = integration.scope(f.state())
         adapter = f.base / f'wave-{aid}.py'

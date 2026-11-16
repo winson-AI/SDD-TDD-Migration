@@ -4,6 +4,7 @@ from pathlib import Path
 from contracts import Rejected, check_ref, digest, file_ref, nonempty, read_json, require, validate_result
 
 OPS = {'audit-test-assign', 'audit-test-submit'}
+INPUT_VERSION = 2
 
 
 def submitted(s):
@@ -35,19 +36,41 @@ def mechanical_paths(s, paths):
             or (path.get('kind') or 'automation') == 'automation' and adapter_stated(s, path)]
 
 
+def batch_inputs(scope, path):
+    """Group PATHs that depend on the same command, environment and frozen execution references."""
+    from context_readiness import verify_refs_in
+    from project_context import path_device
+    from test_validation import visual_environment
+
+    pid = path['path_id']
+    refs = sorted((ref['path'], ref['sha256']) for ref in verify_refs_in(path))
+    return (path.get('kind') or 'automation', path_device(path), path.get('command'), path.get('build_binding'),
+            visual_environment(path, scope.get('visual_environment_rebindings')), refs,
+            scope.get('path_test_sources', {}).get(pid), scope.get('path_build_artifacts', {}).get(pid, []))
+
+
 def ready_paths(s, scope):
     """Dispatch runnable commands first, then give the remaining ready paths to an independent worker."""
     waiting = waiting_paths(s, scope)
-    ready, blocked = partition_paths(s, waiting)
-    mechanical = mechanical_paths(s, [path for path in waiting if path['path_id'] in ready])
-    return mechanical or ready, blocked
+    ready, blocked = partition_paths(s, waiting, reported=environment_blocks(s))
+    available = [path for path in waiting if path['path_id'] in ready]
+    mechanical = mechanical_paths(s, available)
+    if mechanical:
+        available = [path for path in available if path['path_id'] in mechanical]
+    if not available:
+        return [], blocked
+    inputs = batch_inputs(scope, available[0])
+    return [path['path_id'] for path in available if batch_inputs(scope, path) == inputs], blocked
 
 
-def partition_paths(s, paths):
+def partition_paths(s, paths, *, reported=None):
     from integration import check_path_inputs
     ready, blocked = [], {}
     for path in paths:
         pid = path['path_id']
+        if reported and pid in reported:
+            blocked[pid] = reported[pid]['summary']
+            continue
         try:
             check_path_inputs(s, path)
         except (Rejected, OSError, KeyError) as exc:
@@ -61,14 +84,43 @@ def task_scope(scope, task):
     return {**scope, 'plan': {**scope['plan'], 'paths': [p for p in scope['plan']['paths'] if p['path_id'] in task['path_ids']]}}
 
 
-def input_fingerprint(s, scope, path, root, argv=None, cwd=None):
+def return_unstarted(task, receipt):
+    """Hand back a dispatch whose environment preflight never authorized any command."""
+    report = read_json(check_ref(receipt['report_ref']))
+    checks = report['checks']
+    if {name for name, check in checks.items() if check['status'] == 'blocked'} != {'test-environment'}:
+        return
+    issue = checks['test-environment']
+    assigned = task['path_ids']
+    paths = issue.get('path_ids', assigned if len(assigned) == 1 else [])
+    require(isinstance(paths, list) and paths and all(pid in assigned for pid in paths) and len(set(paths)) == len(paths),
+            'blocked audit preflight must name distinct PATHs within its assignment')
+    task.update(closed=True, environment_blocks={pid: {'summary': issue['summary'], 'report_ref': receipt['report_ref']}
+                                               for pid in paths})
+
+
+def environment_blocks(s):
+    from test_validation import final_deferred_current
+
+    audit = s.get('audit_assignment') or {}
+    previous = s['audit'].get('deferred_preflight_blocks', {}) if final_deferred_current(s) else {}
+    if audit.get('closed', True):
+        return previous
+    reported = dict(previous)
+    for task in [*s.get('audit_test_history', []), s.get('audit_test_assignment') or {}]:
+        if task.get('audit_assignment_id') == audit['assignment_id']:
+            reported.update(task.get('environment_blocks', {}))
+    return reported
+
+
+def input_fingerprint(s, scope, path, root, argv=None, cwd=None, *, version=INPUT_VERSION):
     """Bind an observation to its frozen PATH, actual command and current platform inputs."""
     from context_readiness import verify_refs
-    from execute_test import adapter_for
-    from integration import inputs
+    from execute_test import adapter_for, builtin_platform
+    from integration import check_path_inputs, device_inputs, inputs
     from prepared_tests import binding
     from reference_media import assertion_refs
-    from test_validation import visual_environment
+    from test_validation import check_visual_command, managed_visual_artifacts, managed_visual_environment, visual_environment
 
     pid = path['path_id']
     try:
@@ -79,16 +131,47 @@ def input_fingerprint(s, scope, path, root, argv=None, cwd=None):
         if not executable.is_absolute():
             return None
         cwd = Path(cwd).resolve(strict=True)
+        code = scope['code_baseline']
+        builds = scope['path_build_artifacts'].get(pid, [])
+        if version == INPUT_VERSION and (path.get('kind') or 'automation') == 'automation' and builtin_platform(s, path) == 'web':
+            check_path_inputs(s, path)
+            execution = {'path': path, 'baseline': code, 'device': device_inputs(s, path),
+                         'web_config': (s.get('target_preview') or {}).get('web_main_config')}
+            if not path.get('build_binding'):
+                builds = []
+        elif version == INPUT_VERSION and path.get('build_binding') and managed_visual_environment(s, path):
+            check_visual_command(argv)
+            visual = managed_visual_artifacts(s, path, builds)
+            require(visual, 'managed audit visual build is unavailable')
+            execution = {'path': path, 'baseline': code, 'environment_ref': visual['environment_ref']}
+            builds = visual['artifacts']
+        else:
+            execution = inputs(s, path, code)
         refs = {'test_assets': binding(scope, path), 'media': assertion_refs(s, path),
-                'builds': scope['path_build_artifacts'].get(pid, []),
+                'builds': builds,
                 'visual_environment': visual_environment(path, scope.get('visual_environment_rebindings'))}
         verify_refs(refs)
         tools = [file_ref(executable), *(file_ref(cwd / arg) for arg in argv[1:] if (cwd / arg).is_file())]
-        return digest({'inputs': inputs(s, path, scope['code_baseline']), 'freeze': scope['freeze_id'],
+        return digest({'inputs': execution, 'freeze': scope['freeze_id'],
                        'runtime': s.get('runtime'), 'build': s.get('build'), 'package': s.get('package_sha'),
                        'argv': argv, 'cwd': str(cwd), 'tools': tools, 'refs': refs})
     except (OSError, ValueError, TypeError, KeyError, IndexError):
         return None  # An ordinary execution can proceed without proof suitable for a future assignment.
+
+
+def receipt_fingerprint(s, scope, path, task, receipt):
+    from context_readiness import check_execution, enabled
+    from test_validation import check_visual_command, managed_visual_environment
+
+    version = receipt.get('audit_inputs_version', 1)
+    if version not in (1, INPUT_VERSION):
+        return None
+    argv = cwd = None
+    if path.get('build_binding') and managed_visual_environment(s, path) and enabled(s) and task.get('context_ref'):
+        argv, cwd = receipt['requested_argv'], receipt['cwd']
+        check_visual_command(argv)
+        check_execution(s, task, argv, cwd, path['path_id'])
+    return input_fingerprint(s, scope, path, task['run_root'], argv, cwd, version=version)
 
 
 def carried(s, scope, auditor, exclude=()):
@@ -115,7 +198,7 @@ def carried(s, scope, auditor, exclude=()):
             try:
                 receipt = read_json(check_ref(row['execution_receipt']))
                 recorded = receipt.get('audit_inputs_sha256')
-                if not recorded or recorded != input_fingerprint(s, scope, paths[pid], task['run_root']):
+                if not recorded or recorded != receipt_fingerprint(s, scope, paths[pid], task, receipt):
                     continue
                 validate_result({**report, 'paths': [row]}, task_scope(scope, {'path_ids': [pid]}), task,
                                 run_root=task['run_root'])
@@ -153,17 +236,24 @@ def defer(s, req, actor, scope, report):
     require(blocked and not ready, 'only unresolved unavailable audit PATHs may be deferred')
     context = req['payload']['context_ref']
     refs, rows = evidence(s, scope)
+    reported = environment_blocks(s)
     for path in scope['plan']['paths']:
         if (pid := path['path_id']) in blocked:
             previous = scope['results'].get(pid)
-            rows.append(previous if previous and tv.observed_failure(previous) else
-                        tv.untested(path, context, report, req['request_id'], previous, scope['code_baseline']))
+            if previous and tv.observed_failure(previous):
+                rows.append(previous)
+                continue
+            row = tv.untested(path, context, report, req['request_id'], previous, scope['code_baseline'])
+            if pid in reported:
+                row['root_cause']['evidence_refs'].append(reported[pid]['report_ref'])
+            rows.append(row)
     hold(s)
     audit.update(closed=True, deferral_ref=context)
     # An unavailable input interrupted this audit before its independent verdict.
     s['audit_attempts'] -= 1
     s['audit'] = {'quality': 'red-bug' if any(tv.observed_failure(row) for row in rows) else 'yellow-blocked',
                   'environment_deferred': True, 'deferred_path_ids': list(blocked), 'snapshot': audit['snapshot'],
+                  'deferred_preflight_blocks': {pid: reported[pid] for pid in blocked if pid in reported},
                   'report_ref': context, 'test_result_refs': refs, 'paths': rows,
                   'execution_status': 'waiting-for-test-environment'}
 
@@ -194,10 +284,11 @@ def handle(s, req, actor, scope, root):
             s.setdefault('audit_test_history', []).append(copy.deepcopy(s['audit_test_assignment']))
         import model_routing
         usage = model_routing.record(p, role='test-runner')
+        kind = task_scope(scope, p)['plan']['paths'][0].get('kind') or 'automation'
         s['audit_test_assignment'] = {**copy.deepcopy(p), **(usage or {}), 'context_ref': context, 'role': 'test-runner', 'mode': 'audit-execute',
             'run_id': s['run_id'], 'run_root': str(root), 'module_id': 'GLOBAL', 'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],
             'audit_assignment_id': audit['assignment_id'], 'scope_policy': 'non-green-only', 'snapshot': copy.deepcopy(audit['snapshot']),
-            'closed': False, 'audit_snapshot_sha256': digest(audit['snapshot'])}
+            'test_scope': kind, 'closed': False, 'audit_snapshot_sha256': digest(audit['snapshot'])}
     else:
         role(actor, 'test-runner')
         task = s.get('audit_test_assignment', {})

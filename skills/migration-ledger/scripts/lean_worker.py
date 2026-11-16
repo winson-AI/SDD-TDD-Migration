@@ -100,7 +100,7 @@ def assignment(state, request, actor, planned=True):
     if wave and wave.get('artifact_only') and wave['assignment_id'] == request.get('assignment_id'):
         module, task = wave_scope(state), wave
     elif mid == 'GLOBAL':
-        module = ledger.audit_scope(state)
+        module = {**ledger.audit_scope(state), 'module_id': 'GLOBAL'}
         task = state.get('audit_test_assignment', {})
         require(not state.get('audit_assignment', {}).get('closed', True) and task.get('role') == 'test-runner' and task.get('scope_policy') == 'non-green-only'
                 and task.get('snapshot') == {k: v['code_baseline'] for k, v in state['modules'].items()},
@@ -163,7 +163,14 @@ def run(root, request, actor):
         else:
             scopes = ('automation', 'visual') if operation == 'visual-install' else ('visual',)
             require(task['role'] == 'auditor' or task.get('test_scope') in scopes, 'visual testing assignment required')
-            if task['role'] == 'test-runner' and task.get('mode') != 'integration':
+            if task.get('mode') == 'audit-execute':
+                import context_readiness
+                import test_validation
+                if context_readiness.enabled(state):
+                    require(task.get('context_ref'), 'audit execution preflight required')
+                    check_ref(task['context_ref'])
+                require(all(test_validation.available(m) for m in state['modules'].values()), 'audit modules no longer ready')
+            elif task['role'] == 'test-runner' and task.get('mode') != 'integration':
                 import test_validation
                 require(module.get('phase') == 'testing', 'test execution phase required')
                 if operation == 'visual-install':

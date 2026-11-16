@@ -69,7 +69,7 @@ with open(sys.argv[sys.argv.index('--result-file') + 1], 'w') as target:
                 command = {'argv': [sys.executable, fixture['path']], 'cwd': str(f.target)}
                 web = {**payload['global_paths'][0], 'path_id': 'WEB', 'kind': 'automation', 'platform': 'web'}
                 payload = {**payload, 'test_adapter': {'device': {'platforms': ['web'], 'web': {'url': 'https://example.test'}}},
-                           'global_paths': [web, {**web, 'path_id': 'READY', 'platform': 'host', 'command': command}]}
+                           'global_paths': [{**web, 'path_id': 'READY', 'platform': 'host', 'command': command}, web]}
             return original(op, payload, **kwargs)
 
         f.call = initialize
@@ -79,11 +79,15 @@ with open(sys.argv[sys.argv.index('--result-file') + 1], 'w') as target:
         state = f.state()
         archived = check_ref(state['target_preview']['web_main_config'])
         contents = archived.read_bytes()
-        archived.unlink()
         mo = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
-        ledger.advance_run(f.root, mo)
+        ledger.advance_run(f.root, mo, yield_after_test=True)
         state = f.state()
-        self.assertEqual(state['audit_assignment']['path_ids'], ['WEB', 'READY'])
+        self.assertEqual(state['audit_test_assignment']['path_ids'], ['READY'])
+        self.assertTrue(state['audit_test_assignment']['closed'])
+        self.assertEqual((state['global_next_step']['operation'], state['global_next_step']['path_ids']), ('audit-test-assign', ['WEB']))
+        archived.unlink()  # The Web configuration disappears after the other batch is already accepted.
+        state = f.state()
+        self.assertEqual(state['audit_assignment']['path_ids'], ['READY', 'WEB'])
         self.assertEqual(state['global_next_step']['reason'], 'audit-path-inputs-unavailable')
         self.assertEqual(set(state['global_next_step']['audit_blocked_paths']), {'WEB'})
         refs, rows = audit_execution.evidence(state)
@@ -91,7 +95,7 @@ with open(sys.argv[sys.argv.index('--result-file') + 1], 'w') as target:
         with self.assertRaisesRegex(Rejected, 'every required PATH'):
             audit_execution.evidence(state, ledger.audit_scope(state), {'paths': rows, 'test_result_ref': refs[0]})
         archived.write_bytes(contents)
-        command = state['global_paths'][1]['command']
+        command = state['global_paths'][0]['command']
         with patch.object(execute_test, 'builtin_main', return_value={'argv': command['argv']}):
             ledger.advance_run(f.root, mo)
         state = f.state()
@@ -151,6 +155,96 @@ with open(sys.argv[sys.argv.index('--result-file') + 1], 'w') as target:
         ledger.advance_run(f.root, actor)
         self.assertEqual([(row['path_id'], row['quality']) for row in f.state()['audit']['paths']],
                          [('P1', 'green-passed'), ('GP1', 'green-passed')])
+
+    def test_unstarted_runner_returns_only_the_reported_paths(self):
+        import sys
+        from execute_test import execute
+        from harmony_stage import build
+
+        f = test_context_readiness.ContextReadinessTests()
+        call = f.call
+
+        def initialize(op, payload=None, **kwargs):
+            if op == 'init':
+                original = payload['global_paths'][0]
+                payload = {**payload, 'global_paths': [{**original, 'path_id': pid} for pid in ('MISSING', 'PEER')]}
+            return call(op, payload, **kwargs)
+
+        f.call = initialize
+        f.setUp(); self.addCleanup(f.doCleanups)
+        f.completed(); test_ledger.code_review(f)
+        f.call('audit-assign', {'assignment_id': 'AUDIT', 'instance_id': 'auditor'}, role='global-orchestrator', module=None)
+        f.raw('audit-test-assign', {'assignment_id': 'FIRST', 'instance_id': 'runner', 'path_ids': ['MISSING', 'PEER']},
+              role='global-orchestrator', module=None)
+        step = ledger.status(f.root, view='step')
+        self.assertEqual(step['request']['operation'], 'context-submit')
+        self.assertEqual(step['context']['stage'], 'audit-execution')
+        blocked = f.report('audit-execution', module=None, instance='runner', blocked='test-environment')
+        issue = blocked['checks']['test-environment']
+        issue['path_ids'] = ['FOREIGN']
+        with self.assertRaisesRegex(Rejected, 'within its assignment'):
+            f.record(blocked)
+        issue['path_ids'] = ['MISSING']
+        gap = f.record(blocked)
+        state = f.state()
+        self.assertTrue(state['audit_test_assignment']['closed'])
+        self.assertEqual(state['global_next_step']['path_ids'], ['PEER'])
+        self.assertEqual(set(state['global_next_step']['audit_blocked_paths']), {'MISSING'})
+
+        f.raw('audit-test-assign', {'assignment_id': 'SECOND', 'instance_id': 'runner', 'path_ids': ['PEER']},
+              role='global-orchestrator', module=None)
+        script = f.ref('peer-driver.py', '''import json
+import sys
+with open(sys.argv[sys.argv.index('--result-file') + 1], 'w') as target:
+    json.dump({'assertions': [{'assertion_id': 'A1', 'expected': 2, 'actual': 2, 'passed': True}]}, target)
+''')
+        f.test_argv = [sys.executable, script['path']]
+        f.record(f.report('audit-execution', module=None, instance='runner'))
+        late_gap = f.report('audit-execution', module=None, instance='runner', blocked='test-environment')
+        f.record(late_gap)
+        self.assertFalse(f.state()['audit_test_assignment']['closed'])  # An authorized runner still holds its assignment.
+        f.record(f.report('audit-execution', module=None, instance='runner'))
+        receipt = execute(f.root, 'GLOBAL', 'SECOND', 'PEER', f.test_argv, str(f.target), f.base / 'peer-audit')
+        f.raw('audit-test-submit', {'result_ref': f.ref('peer-audit.json', build(f.root, 'GLOBAL', 'SECOND', [receipt]))},
+              role='test-runner', instance='runner', module=None)
+        self.assertEqual(f.state()['global_next_step']['operation'], 'audit-unavailable')
+
+        auditor_report = f.record(f.report('audit-testing', module=None, instance='auditor', blocked='test-environment'))
+        f.raw('audit-unavailable', {'context_ref': auditor_report}, role='auditor', module=None)
+        paused = f.state()
+        self.assertTrue(paused['audit_assignment']['closed'])
+        self.assertEqual(paused['audit']['deferred_path_ids'], ['MISSING'])
+        self.assertEqual(paused['global_next_step']['reason'], 'audit-path-inputs-unavailable')
+        omission = next(row for row in paused['audit']['paths'] if row['path_id'] == 'MISSING')
+        self.assertFalse(omission['executed'])
+        self.assertIn(gap, omission['root_cause']['evidence_refs'])
+        ready = f.record(f.report('audit-testing', module=None, instance='auditor'))
+        self.assertEqual(f.state()['global_next_step']['reason'], 'automation-environment-restored')
+        f.raw('audit-assign', {'assignment_id': 'RESTORED', 'instance_id': 'auditor', 'context_ref': ready},
+              role='global-orchestrator', module=None)
+        self.assertNotIn('deferred_preflight_blocks', f.state()['audit'])
+
+    def test_builtin_web_receipt_fingerprint_ignores_unbound_native_artifacts(self):
+        import audit_execution
+
+        f = self.fixture(); f.completed()
+        s = f.state()
+        config = f.ref('web-execution.json', {'headless': True})
+        web = {'path_id': 'WEB', 'kind': 'automation', 'platform': 'web'}
+        s['global_paths'] = [web]
+        s['target_preview'] = {'web_main_config': config}
+        s['test_adapter'] = {'device': {'platforms': ['web'], 'web': {'url': 'https://example.test'}}}
+        original = ledger.audit_scope(s)
+        stamp = audit_execution.input_fingerprint(s, original, web, f.root)
+        legacy = audit_execution.input_fingerprint(s, original, web, f.root, version=1)
+        self.assertIsNotNone(stamp)
+        self.assertIsNotNone(legacy)
+        s['modules']['M001']['build_artifacts'] = [f.ref('native.hap', 'Unrelated build output')]
+        current = ledger.audit_scope(s)
+        self.assertEqual(audit_execution.input_fingerprint(s, current, web, f.root), stamp)
+        self.assertNotEqual(audit_execution.input_fingerprint(s, current, web, f.root, version=1), legacy)
+        s['target_preview']['web_main_config'] = f.ref('new-web.json', {'headless': False})
+        self.assertNotEqual(audit_execution.input_fingerprint(s, current, web, f.root), stamp)
 
     def test_empty_global_does_not_block_cross_module_repair_and_retest(self):
         f = self.fixture(test_audit_closure.ClosureTests)

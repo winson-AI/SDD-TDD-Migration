@@ -14,7 +14,7 @@ from test_completion import interpret
 
 
 def build(root, module_id, assignment_id, receipts):
-    s = status(root)
+    s = status(root, publish=False)
     import integration
     wave = module_id == 'GLOBAL' and (integration.task(s) or {}).get('assignment_id') == assignment_id
     m = integration.scope(s) if wave else audit_scope(s) if module_id == 'GLOBAL' else s['modules'][module_id]
