@@ -26,7 +26,9 @@ work_modules 包含发现模块、根因 owner 与受影响下游。audit-retest
 
 ## 收尾的实际执行契约
 
-独立 Test-Runner 执行，Auditor 消费原始证据并裁决，见[宿主目标审计](audit-code-review.md#宿主目标审计)。audit-assign 后，Ledger 以 GO 名义 audit-test-assign 给非任何作者的 Test-Runner（先派发，其预检在派发内提交；所选 PATH 都有冻结命令或适配器时 Auditor 与 Test-Runner 的预检由 Ledger 写、执行由 advance_run 代跑），Test-Runner 经 execute_test 执行并 audit-test-submit；Ledger 保留完整的审计复测清单，配置缺口按 PATH 报告。独立 Test-Runner 先执行就绪路径。补齐配置后只派发仍待验的路径。Auditor 报告用 test_result_ref（单批）或 test_result_refs（多批）绑定全部接受的结果，原样引用 PATH 观察。复测全绿且代码审查无发现、目标全部满足时，结论由 Ledger 以 Auditor 名义按审查与观察提交。
+Ledger 以 GO 名义 `audit-test-assign`，从同一应验清单选取叶子与 GLOBAL PATH。先派发有冻结命令或已声明 automation 适配器的就绪 PATH，由 `advance_run` 预检并代跑。其余就绪 PATH 交独立 Test-Runner，在派发内预检，经 `execute_test` 执行并提交 `audit-test-submit`。每批派发、预检、执行与结果验收使用相同的 `path_ids`。
+
+Auditor 的报告用 `test_result_ref` 或 `test_result_refs` 绑定所用批次，原样引用当前应验 PATH 的观察。含沿用批次时只引用该批输入仍匹配的 PATH。复测全绿、代码审查无发现且目标全部满足时，Ledger 以 Auditor 名义按审查与观察提交结论。见[宿主目标审计](audit-code-review.md#宿主目标审计)。
 
 `audit-assign` 不检查 global_paths 非空。Ledger 的 `audit_scope(state)` 生成本轮执行集合，并固定到 assignment：
 
@@ -39,15 +41,17 @@ work_modules 包含发现模块、根因 owner 与受影响下游。audit-retest
 
 | 清单 | 上下文门禁 | 动作与报告 |
 | --- | --- | --- |
-| 非空 | audit-testing | 独立执行 assignment.path_ids；`kind=tests`，完整提交本清单结果和 snapshot |
+| 非空 | audit-testing，全部证据可沿用时为 audit-verdict | 执行待验 PATH，合并沿用的有效批次观察，`kind=tests` 完整提交本清单结果和 snapshot |
 | 空 | audit-verdict | 核验已接受模块/问题闭环证据；`kind=audit-review`、`paths=[]`、`execution_status=no-retest-needed`、`review_ref` 和 snapshot；不启动测试、不要求自动化环境 |
-| 非空、仅自动化环境不可用 | blocked audit-testing | `audit-unavailable` 记录选中路径 Yellow/未执行并收尾，保留已有 Green；不宣称功能通过 |
+| 非空，派发前仅自动化环境不可用 | blocked audit-testing | `audit-unavailable` 记录选中路径 Yellow/未执行并收尾，保留已有 Green |
 
 空清单仍需独立 Auditor 审阅（该 Auditor 的代码审查无发现、目标全部 satisfied 时即为审阅，结论由 advance_run 以其名义提交）；`audit-review` 不能关闭尚有待复核路径的 assignment，`tests` 报告不能用空 paths 冒充测试（模板 [audit-review.json](../../../template/audit-review.json)）。quality 是证据裁决，execution_status 区分是否实际执行，no-retest-needed 不是"全部独立复测通过"。
 
 ## 活动审计的游标恢复
 
-读取 `module_rounds`、`global_next_step`、`context_gate` 后按下一动作提交事件；活动 audit 快照过期时游标给出 audit-revoke，宿主确认旧 worker 已停止并留证后撤销再创建新 assignment，不得边运行旧审计边替换范围，撤销不返还既有预算。宿主仍负责启动 subagent、加载 skills、执行脚本及绑定真实身份；Ledger 只治理状态、范围、证据与门禁。
+读取 `module_rounds`、`global_next_step`、`context_gate` 后按下一动作提交事件。就绪批次均已提交且只剩配置缺口时，当前 Auditor 提交仅 `test-environment` 受阻的 `audit-testing`，再用 `audit-unavailable {context_ref}` 挂起剩余 PATH、释放快照。暂停发生在裁决前，本轮审计预算可留给续跑。
+
+活动 audit 快照过期或在途 PATH 无法继续时，宿主核实停止或隔离后用 `audit-revoke` 留证，活动 Runner 另附 `test_worker_stopped_ref`。撤销沿用原预算规则。配置恢复或经同 Run 修订后重新派发终审，只有原独立身份、冻结、代码、PATH、执行输入和可核验回执仍匹配的 Green/Red 才沿用，并保有原 `test_run_id`。其余应验路径从当前输入补跑，Auditor 核对完整覆盖后裁决。
 
 ## 宿主统一审计
 

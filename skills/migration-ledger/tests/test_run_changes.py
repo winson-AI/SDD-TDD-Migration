@@ -587,6 +587,96 @@ class PreparedRunRevisionTests(unittest.TestCase):
         state['test_adapter']['adapters'] = {'web': {'argv': ['/fixture/custom-web']}}
         self.assertEqual(run_changes.global_reverify_paths(state, report, {'android'}), {'G-android', 'G-web'})
 
+    def test_final_audit_resumes_only_blocked_and_changed_paths_after_configuration_revision(self):
+        import sys
+        from unittest.mock import patch
+        import audit_execution
+        import execute_test
+        from test_ledger import code_review
+        from test_run_rehearsal import MO
+
+        src = test_source_changes.SourceChangeTests(); self.addCleanup(src.doCleanups)
+        device = {'platforms': ['android', 'harmony', 'web'], 'android': {'serial': 'before'},
+                  'harmony': {'serial': 'stable'}, 'web': {'url': 'https://example.test'}}
+        paths = [{'path_id': pid, 'platform': platform, 'kind': 'automation', 'case_id': 'C1', 'name': pid,
+                  'expected_assertions': [{'assertion_id': 'A1', 'expected': True}]}
+                 for pid, platform in [('WEB', 'web'), ('ANDROID', 'android'), ('GREEN', 'harmony'), ('RED', 'harmony')]]
+        f = self.f = src.register_root(global_paths=paths, config={'test_adapter': {'device': device}})
+        f.split(src.d.proposal(ids=('M001', 'M002'))); f.global_plan()
+        plan = src.plan
+
+        def host_plan(mid):
+            draft = plan(mid)
+            draft['paths'][0]['platform'] = 'host'
+            return draft
+
+        src.plan = host_plan
+        for mid in ('M001', 'M002'):
+            src.freeze(mid); src.implement_and_test(mid)
+        ledger.advance(f.root, MO, 'M010')
+        code_review(f)
+        driver = f.ref('audit-fixture.py', '''import argparse
+import json
+
+parser = argparse.ArgumentParser()
+for name in ('device', 'config', 'query-file', 'result-file'):
+    parser.add_argument('--' + name)
+args = parser.parse_args()
+with open(args.query_file) as source:
+    passed = json.load(source)['path_id'] != 'RED'
+with open(args.result_file, 'w') as target:
+    json.dump({'assertions': [{'assertion_id': 'A1', 'expected': True, 'actual': passed, 'passed': passed}]}, target)
+''')
+
+        def adapter(platform, _root, serial, web_config):
+            option = ['--config', str(check_ref(web_config))] if platform == 'web' else ['--device', serial]
+            return {'argv': [sys.executable, driver['path'], *option]}
+
+        check_ref(f.state()['target_preview']['web_main_config']).unlink()
+        with patch.object(execute_test, 'builtin_main', side_effect=adapter):
+            ledger.advance_run(f.root, MO, defer_commands=True)
+            blocked = f.record(f.report('audit-testing', module=None, instance='auditor', blocked='test-environment'))
+            with self.assertRaisesRegex(Rejected, 'Test-Runner still active'):
+                f.raw('audit-unavailable', {'context_ref': blocked}, role='auditor', module=None)
+            ledger.advance_run(f.root, MO)
+            before = f.state()
+            first = before['audit_test_assignment']
+            refs, rows = audit_execution.evidence(before)
+            self.assertEqual([row['path_id'] for row in rows], ['ANDROID', 'GREEN', 'RED'])
+            self.assertEqual(before['global_next_step']['path_ids'], ['WEB'])
+            self.assertEqual(before['global_next_step']['operation'], 'audit-unavailable')
+            f.raw('audit-unavailable', {'context_ref': blocked}, role='auditor', module=None)
+            paused = f.state()
+            self.assertTrue(paused['audit_assignment']['closed'])
+            self.assertEqual(paused['audit']['deferred_path_ids'], ['WEB'])
+            self.assertEqual(paused['quality'], 'red-bug')
+            self.assertEqual(paused['audit_attempts'], 0)
+
+            revision = self.report({'test_adapter': {'device': {'web': {'headless': False}, 'android': {'serial': 'after'}}}}, affected=())
+            f.raw('revise-run', self.review(revision), role='host', module=None)
+            code_review(f, modules=[])
+            ledger.advance_run(f.root, MO)
+            resumed = f.state()
+            self.assertEqual(resumed['run_id'], before['run_id'])
+            self.assertNotEqual(resumed['audit_assignment']['assignment_id'], before['audit_assignment']['assignment_id'])
+            self.assertEqual(resumed['audit_test_assignment']['path_ids'], ['WEB', 'ANDROID'])
+            self.assertEqual(resumed['audit_attempts'], 1)
+            self.assertFalse(resumed['audit_assignment']['closed'])  # The independent verdict must explicitly handle Red.
+            resumed_refs, resumed_rows = audit_execution.evidence(resumed)
+            self.assertEqual(resumed_refs[0], refs[0])
+            self.assertEqual(resumed_rows[:2], rows[1:])
+            self.assertNotEqual(resumed_rows[-1]['test_run_id'], rows[0]['test_run_id'])
+
+            # A mutated dependency cannot retain its earlier accepted observations.
+            tampered = copy.deepcopy(resumed)
+            tampered['audit_carry'][0]['result_ref'] = {**first['result_ref'], 'sha256': '0' * 64}
+            self.assertEqual(audit_execution.ready_paths(tampered, ledger.audit_scope(tampered))[0], ['GREEN', 'RED'])
+
+            f.raw('audit', {'report_ref': ledger.verdict_from_review(f.root, resumed)}, role='auditor', module=None)
+        settled = f.state()
+        self.assertEqual(set(settled['audit_repairs']), {'RED'})
+        self.assertEqual(settled['audit_results']['GREEN']['test_run_id'], rows[1]['test_run_id'])
+
     def test_device_switch_rebuilds_only_the_missing_gradle_path_through_acceptance(self):
         from unittest.mock import patch
         from test_run_rehearsal import MO, RunWalk
@@ -637,12 +727,21 @@ class PreparedRunRevisionTests(unittest.TestCase):
             f.raw('revise-run', self.review(report), role='host', module=None)
             state = f.state()['modules']['M001']
             self.assertEqual(state['retained_build_paths'], ['M001-B'])
+            import task_revalidation
+            trial, _ = ledger.read_events(f.root)
+            leaf = trial['modules']['M001']
+            proof = f.ref('partial-build-revision.md', 'Only the test fixture changes')
+            ledger.open_change(trial, leaf, {'request_ref': proof, 'impact_ref': proof, 'pending_test_assets': True})
+            commands = [p for p in leaf['plan']['paths'] if p['kind'] in ('build', 'unit')]
+            self.assertIsNone(leaf['build_baseline'])
+            self.assertEqual(task_revalidation.command_receipts(trial, leaf, f.root, commands), ['M001-B'])
+            with patch.dict('os.environ', {'SDD_BUILD_TOOLCHAIN': 'changed'}):
+                self.assertEqual(task_revalidation.command_receipts(trial, leaf, f.root, commands), [])
             ledger.advance(f.root, MO, 'M001')
             state = f.state()['modules']['M001']
             self.assertTrue(tv.build_ready(state))
             self.assertEqual(state['results']['M001-B']['test_run_id'], good['test_run_id'])
             self.assertNotEqual(state['results']['M001-B2']['test_run_id'], bad['test_run_id'])
-            import task_revalidation
             state = f.state()
             module = state['modules']['M001']
             module['change_request'] = {'from_freeze_id': module['freeze_id']}

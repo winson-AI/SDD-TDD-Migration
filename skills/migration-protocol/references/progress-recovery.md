@@ -55,7 +55,7 @@ OpenSpec 当前视图撤下旧受管定义，显示“Replanning required”；�
 
 ## 4. 自动化缺测出口
 
-当前代码已接受且 build Green，仅自动化环境无法启动时：Test-Runner 提交仅 `test-environment=blocked` 的 testing 报告 → MO `automation-unavailable` → `automation-deferred`，逐 PATH Yellow/未执行；独立模块和可消费当前构建代码的下游继续。全部模块本轮结束后 Auditor 仍审查缺测证据，最终仅缺环境时 blocked audit-testing 报告 → `audit-unavailable` → `completed-with-unverified-tests`：本轮结束但质量 Yellow，不等待人工，也不声称功能验证通过；环境恢复后重新预检和正式复测。守卫见[构建与自动化协议](build-automation.md#4-自动化环境缺失直接记-yellow-并继续)。
+当前代码已接受且 build Green，仅自动化环境无法启动时，Test-Runner 提交 `test-environment=blocked` 的 testing 报告，MO 以 `automation-unavailable` 进入 `automation-deferred`，逐 PATH 记录 Yellow 和未执行。独立模块及能消费当前构建代码的下游继续。Auditor 审查缺测证据后按[构建与自动化协议](build-automation.md#4-自动化环境缺失直接记-yellow-并继续)处理。活动终审遇到配置缺口时按[游标恢复](audit-scope.md#活动审计的游标恢复)执行同 Run 修订和续跑。
 
 ## 授权改码、投影恢复与文件锁等待
 

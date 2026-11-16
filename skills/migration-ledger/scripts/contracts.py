@@ -480,7 +480,8 @@ def validate_result(result, module, assignment, run_root=None):
     planned = {p['path_id']: p for p in module['plan']['paths']}
     import test_validation as tv
     reviewed = False
-    if tv.split(module) and assignment.get('role') == 'test-runner':
+    audit_batch = assignment.get('module_id') == 'GLOBAL' and assignment.get('mode') == 'audit-execute'
+    if tv.split(module) and assignment.get('role') == 'test-runner' and not audit_batch:
         scope = assignment.get('test_scope')
         require(scope in ('build', 'automation', 'visual'), 'test scope required')
         reviewed = scope == 'automation' and tv.review_first(module)  # the static closure ahead of the functional paths

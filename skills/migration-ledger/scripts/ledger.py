@@ -2035,9 +2035,12 @@ def mutate(s, req, principal, events, root=None):
         require(m is not None, 'module not registered')
         if mid in s.get('module_groups', {}):
             require(op in ('module-summary', 'session', 'redecompose', 'redecompose-accept', 'realloc-request'), 'parent MO only coordinates/summarizes; execute code and tests in child modules')
-    audit_preflight = op == 'context-submit' and read_json(check_ref(p.get('report_ref'))).get('stage') == 'audit-execution'
-    if workflow.audit_locks(s, mid) and not audit_preflight and op not in ('audit', 'audit-revoke', 'decision', 'audit-test-assign', 'audit-test-submit'):
-        raise Rejected('audit snapshot locked; close or revoke audit before mutation')
+    if workflow.audit_locks(s, mid) and op not in ('audit', 'audit-revoke', 'audit-unavailable', 'decision', *audit_execution.OPS):
+        report = read_json(check_ref(p.get('report_ref'))) if op == 'context-submit' else {}
+        audit_preflight = report.get('stage') == 'audit-execution'
+        audit_deferral = (report.get('stage') == 'audit-testing' and report.get('verdict') == 'blocked'
+                          and principal['instance_id'] == s['audit_assignment']['instance_id'])
+        require(audit_preflight or audit_deferral, 'audit snapshot locked; close or revoke audit before mutation')
     if audit_closure.active(s) and op not in audit_closure.OPS | {'decision', 'assign', 'submit', 'accept', 'complete', 'checkpoint', 'revoke', 'session', 'module-summary', 'context-submit', 'automation-unavailable'}:
         raise Rejected('audit closure active; complete verification or obtain human review')
     if op in ('audit-assign', 'audit-collect'):
@@ -2303,7 +2306,6 @@ def mutate(s, req, principal, events, root=None):
             m['approved_acceptance'] = control_policy.acceptance_hash(m)
         m['approved_acceptance_digests'] = control_policy.acceptance_digests(m['plan']['paths'])
         if m.get('change_request'):
-            m.pop('retained_build_paths', None)
             asset_revalidation, reused_paths = task_revalidation.retain_after_test_assets(s, m, root)
             revalidation = asset_revalidation or task_revalidation.prepare(m, p.get('review_ref'))
             prior_execution = {key: copy.deepcopy(m.get(key)) for key in
@@ -2313,6 +2315,7 @@ def mutate(s, req, principal, events, root=None):
             rebuilt = bool(retained) and retained == {t['task_id'] for t in m['plan']['tasks']} and bool(m.get('code_baseline'))
             if rebuilt and not asset_revalidation:
                 reused_paths = task_revalidation.reusable_build(s, m, root)
+            m.pop('retained_build_paths', None)
             builds = {path['path_id'] for path in tv.paths(m, 'build')}
             kept_builds = builds.intersection(reused_paths)
             reused_build = bool(reused_paths) and builds <= kept_builds
@@ -2719,7 +2722,7 @@ def mutate(s, req, principal, events, root=None):
         m.pop('trace_dependency_baseline', None)
         m.pop('asset_dependency_baseline', None)
     elif op in audit_execution.OPS:
-        audit_execution.handle(s, req, principal, audit_scope(s))
+        audit_execution.handle(s, req, principal, audit_scope(s), root)
     elif op in integration.OPS:
         integration.handle(s, req, principal, len(events) + 1, root)
     elif op == 'audit-assign':
@@ -2794,6 +2797,7 @@ def mutate(s, req, principal, events, root=None):
                 if not all(mod['results'][x['path_id']]['quality'] == 'green-passed' for x in tv.paths(mod, 'build')):
                     mod['build_baseline'] = None
         assignment['closed'] = True
+        s.pop('audit_carry', None)
     elif op == 'audit-route':
         role(principal, 'global-orchestrator')
         item = s.get('audit_repairs', {}).get(p.get('path_id'))
@@ -2827,6 +2831,7 @@ def mutate(s, req, principal, events, root=None):
         if not task.get('closed', True) and task.get('audit_assignment_id') == assignment['assignment_id']:
             check_ref(p.get('test_worker_stopped_ref'))
             task['closed'] = True
+        audit_execution.hold(s)
         assignment['closed'] = True
     else:
         raise Rejected(f'unsupported operation: {op}')
@@ -3244,6 +3249,12 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     recovery_step = workflow.audit_recovery_step(s)
     wave = integration.task(s)
     wave_blocked = {}
+    pause_ids = s.get('audit', {}).get('deferred_path_ids') if audit.get('closed') and tv.final_deferred_current(s) else None
+    pause_blocked = {}
+    if pause_ids and not observed:
+        waiting = [path for path in audit_scope(s)['plan']['paths'] if path['path_id'] in pause_ids]
+        ready, blocked = audit_execution.partition_paths(s, waiting)
+        pause_blocked = blocked if not ready else {}
     if audit_closure.active(s):
         global_next = audit_closure.global_step(s)
     elif audit and not audit.get('closed'):
@@ -3257,22 +3268,29 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
         if fresh and audit['path_ids']:
             task = s.get('audit_test_assignment', {})
             if task.get('audit_assignment_id') == audit['assignment_id'] and not task.get('closed', True):
-                _, blocked = audit_execution.partition_paths(s, audit_execution.task_scope(scope, task)['plan']['paths'])
+                task_paths = audit_execution.task_scope(scope, task)['plan']['paths']
+                _, blocked = audit_execution.partition_paths(s, task_paths)
                 if blocked:
-                    global_next.update(operation=None, reason='audit-path-inputs-unavailable', audit_blocked_paths=blocked)
+                    global_next.update(operation='audit-revoke', role='host', ready=True,
+                                       reason='audit-path-inputs-unavailable', audit_blocked_paths=blocked,
+                                       payload={'assignment_id': audit['assignment_id']})
                 else:
+                    mechanical = audit_execution.mechanical_paths(s, task_paths) == task['path_ids']
                     global_next.update(operation='audit-test-submit', role='test-runner', path_ids=task['path_ids'],
-                                       assignment_id=task['assignment_id'])
+                                       instance_id=task['instance_id'], assignment_id=task['assignment_id'],
+                                       ready=mechanical, mechanical=mechanical)
             else:
                 ready, blocked = audit_execution.ready_paths(s, scope)
-                if ready or blocked:
-                    global_next.update(operation='audit-test-assign' if ready else None, role='global-orchestrator',
-                                       ready=bool(ready), path_ids=ready)
+                if ready:
+                    global_next.update(operation='audit-test-assign', role='global-orchestrator', ready=True, path_ids=ready)
                     if blocked:
-                        global_next.update(reason='audit-path-inputs-unavailable' if not ready else 'audit-running',
-                                           audit_blocked_paths=blocked)
+                        global_next['audit_blocked_paths'] = blocked
+                elif blocked:
+                    global_next.update(operation='audit-unavailable', role='auditor', ready=True,
+                                       instance_id=audit['instance_id'], path_ids=list(blocked),
+                                       reason='audit-path-inputs-unavailable', audit_blocked_paths=blocked)
                 else:
-                    refs = [item['result_ref'] for item in audit_execution.completed(s)]
+                    refs = [item['result_ref'] for item in audit_execution.completed(s, scope)]
                     global_next.update(ready=True, **({'test_result_ref': refs[0]} if len(refs) == 1 else {'test_result_refs': refs}))
     elif wave and integration.stale(s):
         global_next = {'operation': 'integration-revoke', 'role': 'host', 'ready': True, 'assignment_id': wave['assignment_id'],
@@ -3329,7 +3347,10 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
                        'reason': 'repair-owner-required' if unassigned else 'await-module-repair-acceptance'}
     elif s['quality'] == 'green-passed' and not observed:
         global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False, 'reason': 'await-delivery-authorization'}
-    elif tv.final_deferred_current(s) and not observed and not tv.audit_resume_context(s):
+    elif pause_blocked:
+        global_next = {'operation': None, 'role': 'host', 'ready': False, 'reason': 'audit-path-inputs-unavailable',
+                       'audit_blocked_paths': pause_blocked}
+    elif tv.final_deferred_current(s) and not pause_ids and not observed and not tv.audit_resume_context(s):
         global_next = {'operation': None, 'role': 'global-orchestrator', 'ready': False,
                        'reason': 'completed-with-unverified-tests', 'quality': 'yellow-blocked'}
     elif user_paths.unverified_only(s) and not observed:
@@ -3339,8 +3360,9 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
                                             if user_paths.gaps(m.get('plan'))}}
     elif cursor and all(tv.available(m) for m in s['modules'].values()) and not observed:
         ready = rounds['all_settled'] and s.get('audit_attempts', 0) < workflow.audit_budget(s)
-        paths = audit_scope(s)['plan']['paths']
-        _, blocked = audit_execution.partition_paths(s, paths) if ready else ([], {})
+        scope = audit_scope(s)
+        paths = scope['plan']['paths']
+        _, blocked = audit_execution.ready_paths(s, scope) if ready and paths else ([], {})
         global_next = {'operation': 'audit-assign' if rounds['all_settled'] else None, 'role': 'global-orchestrator', 'ready': ready,
                        'reason': 'await-parent-summaries' if not rounds['all_settled'] else None if ready else 'audit-budget-exhausted',
                        'continue_modules': rounds['ready_modules'],
@@ -3464,9 +3486,6 @@ def run_fixed_flow(s, step):
     paths due (a wave's, the audit's retest) to an independent Test-Runner, and running those the run's adapter or their
     frozen commands drive - by `advance_run`."""
     op, gate = step.get('operation'), step.get('context_gate') or {}
-    if op == 'audit-test-submit' and global_paths_run_by_themselves(s, step.get('path_ids')):
-        step.update(ready=True, mechanical=True)  # the audit's retest of global paths that run by themselves
-        return
     if not step.get('ready'):
         return
     if op == 'audit-assign' and (not context_readiness.enabled(s) or gate.get('mechanical')):
@@ -3534,7 +3553,7 @@ def advance_run(root, principal, workers=None, *, defer_commands=False, publish=
             if context_readiness.enabled(s) and not task.get('context_ref'):  # the preflight of commands that run by themselves
                 op, payload = 'context-submit', {'report_ref': global_preflight(root, s, task)}
             else:
-                payload = {'result_ref': run_global(root, task)}
+                payload = {'result_ref': run_global(root, s, task)}
             actor = {'role': 'test-runner', 'instance_id': task['instance_id']}
         ack = apply(root, {'schema_version': 1, 'request_id': f'advance-run-{sequence}', 'run_id': st['run_id'], 'module_id': None,
                            'expected_revision': s['revision'], 'operation': op, 'payload': payload}, actor, publish=False)
@@ -3587,14 +3606,14 @@ def global_preflight(root, s, task):
     the frozen paths or the run's adapter state, in the environment the project context states."""
     from execute_test import adapter_for
     root = Path(root).resolve()
-    paths = {p['path_id']: p for p in s.get('global_paths', [])}
-    commands = {pid: {k: adapter_for(s, paths[pid], root)[k] for k in ('argv', 'cwd')} for pid in task['path_ids']}
+    paths = audit_scope(s)['plan']['paths'] if task.get('mode') == 'audit-execute' else s['global_paths']
+    commands = {path['path_id']: adapter_for(s, path, root) for path in paths if path['path_id'] in task['path_ids']}
     execution = {**commands[task['path_ids'][0]], 'commands': commands, 'environment_ref': s.get('project_context_ref') or s['global_spec']}
     return context_readiness.mechanical_report(root, s, None, 'audit-execution', {'role': 'test-runner', 'instance_id': task['instance_id']},
                                                execution=execution)
 
 
-def run_global(root, task):
+def run_global(root, s, task):
     """Run a wave's global paths with the run's adapter and stage the result where its worker would."""
     scripts = str(Path(__file__).resolve().parents[2] / 'migration-test/scripts')
     if scripts not in sys.path:
@@ -3602,8 +3621,13 @@ def run_global(root, task):
     import harmony_stage
     from execute_test import execute
     aid = task['assignment_id']
-    receipts = [execute(root, 'GLOBAL', aid, pid, output=Path(root) / 'runs/harmony/automation' / aid / pid,
-                        resume_completed=True) for pid in task['path_ids']]
+    paths = audit_scope(s)['plan']['paths'] if task.get('mode') == 'audit-execute' else s['global_paths']
+    planned = {path['path_id']: path for path in paths}
+    receipts = []
+    for pid in task['path_ids']:
+        path = planned[pid]
+        area = 'runs/build' if path.get('kind') in ('build', 'unit') or path.get('unit_report') else 'runs/harmony/automation'
+        receipts.append(execute(root, 'GLOBAL', aid, pid, output=Path(root) / area / aid / pid, resume_completed=True))
     out = Path(root).resolve() / 'staging/test-runner' / (aid + '-result.json')
     out.parent.mkdir(parents=True, exist_ok=True)
     atomic(out, harmony_stage.build(root, 'GLOBAL', aid, receipts))

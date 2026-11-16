@@ -377,7 +377,7 @@ def build(root, s, sequence, ref_check=check_ref):
     stage = ('completed' if settled and reviewed and not invalid and s.get('quality') == 'green-passed' and
              all(c['quality'] == 'green-passed' for c in cases) else
              'completed-with-unverified-tests' if settled and reviewed and not invalid
-             and (tv.final_deferred_current(s) or user_paths.unverified_only(s)) else
+             and (tv.final_deferred_current(s) and not s['audit'].get('deferred_path_ids') or user_paths.unverified_only(s)) else
              'awaiting-human' if batch.get('status') == 'awaiting-human' else 'in-progress')
     visual, limitations, pictures = fidelity(s, rows, ref_check)
     import automation_report

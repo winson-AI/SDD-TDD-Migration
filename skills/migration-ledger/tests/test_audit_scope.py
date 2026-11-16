@@ -101,6 +101,57 @@ with open(sys.argv[sys.argv.index('--result-file') + 1], 'w') as target:
         self.assertEqual(report['test_result_refs'][0], refs[0])
         self.assertEqual([row['path_id'] for row in report['paths']], ['READY', 'WEB'])
 
+    def test_frozen_leaf_path_runs_before_manual_global_path(self):
+        import sys
+        import test_split_testing
+        from contracts import check_ref, read_json
+        from execute_test import execute
+        from harmony_stage import build
+
+        fixture = test_split_testing.SplitTestingTests()
+        fixture.setUp(); self.addCleanup(fixture.doCleanups)
+        f = fixture.f
+        script = f.ref('audit-driver.py', '''import json
+import sys
+with open(sys.argv[sys.argv.index('--result-file') + 1], 'w') as target:
+    json.dump({'assertions': [{'assertion_id': 'A1', 'expected': 2, 'actual': 2, 'passed': True}]}, target)
+''')
+        plan = f.plan
+
+        def with_command():
+            draft = plan()
+            draft['paths'][0]['command'] = {'argv': [sys.executable, script['path']], 'cwd': str(f.target)}
+            return draft
+
+        f.plan = with_command
+        fixture.prepare(); fixture.compile(); fixture.defer()
+        test_ledger.code_review(f)
+        actor = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
+        ledger.advance_run(f.root, actor, defer_commands=True)
+        state = ledger.status(f.root, view='step')
+        self.assertEqual([path['path_id'] for path in state['audit_input']['paths']], ['P1'])
+        task = f.state()['audit_test_assignment']
+        self.assertEqual(task['path_ids'], ['P1'])
+        self.assertTrue(f.state()['global_next_step']['mechanical'])
+
+        ledger.advance_run(f.root, actor)
+        state = f.state()
+        first, manual = state['audit_test_history'][-1], state['audit_test_assignment']
+        self.assertEqual(first['path_ids'], ['P1'])
+        self.assertEqual(set(read_json(check_ref(first['context_ref']))['execution']['commands']), {'P1'})
+        self.assertEqual(manual['path_ids'], ['GP1'])
+        self.assertFalse(state['global_next_step']['mechanical'])
+        self.assertNotEqual(manual['instance_id'], state['audit_assignment']['instance_id'])
+        f.test_argv = [sys.executable, script['path']]
+        f.record(f.report('audit-execution', module=None, instance=manual['instance_id']))
+        aid = manual['assignment_id']
+        receipt = execute(f.root, 'GLOBAL', aid, 'GP1', f.test_argv, str(f.target), f.base / 'manual-audit')
+        f.raw('audit-test-submit', {'result_ref': f.ref('manual-audit.json', build(f.root, 'GLOBAL', aid, [receipt]))},
+              role='test-runner', instance=manual['instance_id'], module=None)
+        ledger.advance_run(f.root, actor)
+        self.assertEqual([(row['path_id'], row['quality']) for row in f.state()['audit']['paths']],
+                         [('P1', 'green-passed'), ('GP1', 'green-passed')])
+
     def test_empty_global_does_not_block_cross_module_repair_and_retest(self):
         f = self.fixture(test_audit_closure.ClosureTests)
         f.test_cross_module_fix_then_owner_and_source_verification()

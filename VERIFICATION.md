@@ -22,11 +22,11 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1814 | 全量通过 |
+| migration-ledger/tests | 1817 | 全量通过 |
 | migration-test/tests | 83 | 全量通过 |
 | runtime/harmony/tests | 128 | 全量通过 |
 
-三套回归用 Harmony sandbox 的 Python 3.12 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败、错误或跳过。回归使用隔离临时目录、本地模拟端口和测试子进程。专项覆盖资源已就绪的派发优先取得未预留名额、提供方与消费者在纯设备变更中按同一旧状态保留回执、补测试资产时保留有效 Build 并仅重跑缺失回执的 Unit，以及终审按就绪 PATH 分批验收并只补跑配置已恢复的缺口。
+三套回归用 Harmony sandbox 的 Python 3.12 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败、错误或跳过。回归使用隔离临时目录、本地模拟端口和测试子进程。专项核验两种同 Run 修订均先于待执行的构建交付，增量 CR 只沿用部分构建中输入和制品仍匹配的回执，终审先跑冻结的叶子 PATH 再派发手动 GLOBAL PATH。配置修订用例只补验恢复的 Web 和换绑的 Android PATH，保留原 Harmony 批次的 Green、Red 和 test_run_id，证据摘要被篡改时恢复该 PATH 的重验。
 
 在隔离的 Harmony API 21 模拟器重跑装包，并实采 WindowManager、定向 UI 树和 PNG。前后焦点窗口一致，整窗和 PNG 均为 1320 × 2848，应用内容区从 y=132 开始。用实际采集结果复核了内容区包含关系。先前在同一 API 版本实跑的 640 DPI 深色及窗口覆盖 160 DPI 浅色资源检查记录保留。
 

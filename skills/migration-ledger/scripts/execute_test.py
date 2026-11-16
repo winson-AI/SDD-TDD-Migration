@@ -363,6 +363,10 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
     # reuse what was bound in the original receipt. Batched Unit PATHs share it.
     revalidation_inputs = runner_storage.revalidation_inputs(s, root, cwd, argv) if (
         s.get('project_context_ref') and module_id != 'GLOBAL' and all(p.get('kind') in ('build', 'unit') for p in paths)) else None
+    audit_inputs = {}
+    if module_id == 'GLOBAL' and a.get('mode') == 'audit-execute':
+        from audit_execution import input_fingerprint
+        audit_inputs = {pid: input_fingerprint(s, m, planned[pid], root, argv, cwd) for pid in pids}
     started = datetime.now(timezone.utc).isoformat()
     termination, proc, aborted = None, None, None
     capture = Capture(out, {
@@ -467,6 +471,8 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
         receipt = {**shared, 'path_id': pid, 'test_run_id': run_ids[pid], 'query_ref': file_ref(out / named('query', pid)),
                    'result_ref': file_ref(out / named('result', pid)) if (out / named('result', pid)).is_file() else None,
                    'frozen_test_sources': sources[pid]}
+        if audit_inputs.get(pid):
+            receipt['audit_inputs_sha256'] = audit_inputs[pid]
         if termination:
             receipt['termination'] = termination
         if pid != path_id and bindings[pid]:

@@ -77,7 +77,7 @@ Test-Runner 经 `context-submit` 提交 testing 报告，仅 `test-environment=b
 
 审计修复或复核期间再次缺自动化环境，MO 同样提交 automation-unavailable；该分支记录到批次 automation_deferred，其他分支继续。Auditor 裁决保留 unverified_findings，不能写入 resolved_findings；仅因缺测不进入 awaiting-human，批次可完成为 completed-with-unverified-tests。
 
-最终独立自动化环境也不可用时，Auditor 提交 blocked audit-testing 报告并执行 **audit-unavailable**：门禁仍要求全量收尾、独立实例、无其他待处理缺陷/审计批次；Ledger 保存未执行路径清单与 Yellow 最终报告，global_next_step.reason=completed-with-unverified-tests，不得称独立审计通过。环境可用则 audit-assign/audit 只复核尚未验证的路径；清单为空只做独立 audit-review。
+终审派发前若独立自动化环境也不可用，Auditor 提交 blocked audit-testing 报告并执行 `audit-unavailable`。满足全量收尾、独立实例与治理门禁后，Ledger 保存未执行路径清单与 Yellow 最终报告，`global_next_step.reason=completed-with-unverified-tests`。已有活动终审时，按[游标恢复](audit-scope.md#活动审计的游标恢复)挂起缺口并续跑。清单为空时提交独立 `audit-review`。
 
 环境恢复时，新 testing ready 报告 → MO **automation-resume** → 新 assignment → Main 逐路径复测；不额外请求人工恢复批准。旧 Yellow 和缺测证据保留，新结果链接 retest_of。代码/构建已变化则先走正常重建，不直接恢复自动测试。所有完整路径真实 Green 后才完成 DoD；全局 Green 仍需最终独立审计。同一份代码最多恢复 `max_yellow_retries` 次（默认 2）；环境反复失效用尽后游标不再建议恢复，模块保留缺测 Yellow 收尾；计数按代码基线，代码变化后重新计数。
 

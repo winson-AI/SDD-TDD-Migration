@@ -43,14 +43,18 @@ WORKERS = {'implementer': 'coding', 'test-runner': 'testing', 'fixer': 'fixing'}
 MECHANICAL = {'implementer': 'coding', 'fixer': 'fixing'}  # dispatches whose preflight the Ledger writes
 
 
-def audit_ready(s):
-    """Whether the ready paths of an audit can be preflighted mechanically."""
+def audit_mechanical_paths(s):
+    import audit_execution
     from ledger import audit_scope
-    paths = audit_scope(s)['plan']['paths']
-    from audit_execution import partition_paths
-    ready, _ = partition_paths(s, paths)
-    paths = [p for p in paths if p['path_id'] in ready]
-    return bool(paths) and all(path.get('command') or adapter_stated(s, path) for path in paths)
+    scope = audit_scope(s)
+    ready, _ = audit_execution.ready_paths(s, scope)
+    paths = audit_execution.task_scope(scope, {'path_ids': ready})['plan']['paths']
+    return paths if ready and audit_execution.mechanical_paths(s, paths) == ready else []
+
+
+def audit_ready(s):
+    """Whether the next audit batch can be preflighted mechanically."""
+    return bool(audit_mechanical_paths(s))
 
 
 def adapter_stated(s, path):
@@ -74,18 +78,13 @@ def runs_by_itself(s, m, assignment):
 
 
 def audit_execution(s, root):
-    """The commands an audit's retest runs, as a preflight states them: every selected PATH's frozen command or the run's
-    adapter for its platform; None when one of them has neither (the Auditor then reports what it plans to run)."""
-    from ledger import audit_scope
+    """The commands of the same audit batch selected for mechanical dispatch."""
     from execute_test import adapter_for
-    from audit_execution import partition_paths
-    paths = audit_scope(s)['plan']['paths']
-    ready, _ = partition_paths(s, paths)
-    paths = [p for p in paths if p['path_id'] in ready]
-    if not paths or not all(path.get('command') or adapter_stated(s, path) for path in paths):
+    paths = audit_mechanical_paths(s)
+    if not paths:
         return None
     try:
-        commands = {path['path_id']: {k: adapter_for(s, path, root)[k] for k in ('argv', 'cwd')} for path in paths}
+        commands = {path['path_id']: adapter_for(s, path, root) for path in paths}
     except (Rejected, KeyError, OSError, ValueError, TypeError):
         return None
     return {**commands[paths[0]['path_id']], 'commands': commands, 'environment_ref': s.get('project_context_ref') or s['global_spec']}
@@ -239,6 +238,8 @@ def subject(s, mid, stage, read=CURRENT):
         value['global_paths'] = s['global_paths']
         value['audit_assignment'] = s.get('audit_assignment')
         value['audit_code_review'] = s.get('audit_code_review')
+        if stage == 'audit-execution' and not (task := s.get('audit_test_assignment') or {}).get('closed', True):
+            value['audit_test_assignment'] = {k: task[k] for k in ('assignment_id', 'path_ids')}
     return digest(value)
 
 
@@ -535,8 +536,9 @@ def submit(s, req, actor, run_root=None):
 def requirement(op, p, s=None):
     if op in ('audit-test-assign', 'integration-assign'): return 'audit-execution'
     if op == 'audit-assign' and s is not None:
+        from audit_execution import waiting_paths
         from ledger import audit_scope
-        return 'audit-testing' if audit_scope(s)['plan']['paths'] else 'audit-verdict'
+        return 'audit-testing' if waiting_paths(s, audit_scope(s)) else 'audit-verdict'
     if op == 'assign':
         return 'building' if p.get('role') == 'test-runner' and p.get('test_scope') == 'build' else WORKERS.get(p.get('role'))
     return {'register': 'global-discovery', 'global-plan': 'global-planning', 'source-review': 'global-planning', 'run-review': 'global-planning',
@@ -677,6 +679,10 @@ def annotate(s, mid, step):
             pass
     step['context_gate']['ready_receipts'] = available
     if step.get('ready') and not available:
+        mechanical_audit = step.get('operation') == 'audit-assign' and (stage == 'audit-verdict' or audit_ready(s))
+        if mechanical_audit:
+            step['context_gate'].update(with_operation=True, mechanical=True)
+            return step
         if stage in ('testing', 'audit-testing'):
             import test_validation as tv
             for receipt in scope(s, mid).get('context_receipts', {}).values():
@@ -692,7 +698,7 @@ def annotate(s, mid, step):
                     return step
                 except (Rejected, OSError, ValueError):
                     pass
-        if step.get('operation') in SELF_REPORTED or step.get('operation') == 'audit-assign' and (stage == 'audit-verdict' or audit_ready(s)):
+        if step.get('operation') in SELF_REPORTED:
             step['context_gate'].update(with_operation=True, mechanical=True)  # the Ledger preflights what the actor submits; a report of its own may ride as context_ref
             return step
         if step.get('operation') in ('assign', 'integration-assign', 'audit-test-assign'):

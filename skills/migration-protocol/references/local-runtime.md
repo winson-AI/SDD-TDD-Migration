@@ -57,7 +57,8 @@ hash：`contracts.digest(value)` 为排序键、无多余空格、UTF-8 JSON 的
 | audit-code-review | Auditor | report_ref；Ledger 预检；步骤带 `report_skeleton`，留标记即拒；全部 MO 收尾后、audit-collect 前提交，见[代码治理](audit-code-review.md#ledger-接口) |
 | plan | Spec-Designer | plan_ref；Ledger 预检；先 `preview`；[stage-plan](../../../template/stage-plan.json)（Ledger 补全 test_design_ref、PATH、任务范围、spec 与 checklist）；不抄写全局上下文与分配包 |
 | plan-review / planning-reopen | MO | 无人要求时机械：Ledger 写评审记录（reports/plan-review）由 advance 提交；被要求时 review_ref 绑定 plan_hash、独立 MO 与边界判断，证据含裁决、阻塞缺陷、issue、未过门禁（review_gates）；编码前重规划留 reason_ref，已派实现走 CR |
-| audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id、本批全部就绪 path_ids，机械派发；context_ref 可在派发内补交，提交结果前必须有；结果以 result_ref 提交，Auditor 原样消费 |
+| audit-test-assign / audit-test-submit | GO / Test-Runner | 独立 instance、assignment_id 与游标的本批 path_ids，机械派发。派发内可补交 context_ref，执行后提交 result_ref |
+| audit-unavailable | Auditor | context_ref 指向受阻的 audit-testing 预检。活动终审只剩配置缺口且 Runner 已收尾时挂起并释放快照 |
 | integration-assign / integration-submit | GO / Test-Runner | wave-complete 时派发就绪 GLOBAL PATH；按当前执行输入验收，结果进 audit_results，Red 入 audit_repairs |
 | integration-revoke | Host | 核实旧进程停止或已隔离后提交 assignment_id、fencing_token、stopped_worker_ref；重新计算波次或审计路径 |
 | freeze | MO | 清晰规划用 review_ref；人工决定用 decision_id（获批后只改措辞另附 review_ref）；边界内变更 change_class=within-envelope + impact_ref；批量信封另需 review_ref，见[批量冻结](module-decomposition.md#父级批量冻结信封) |
@@ -126,7 +127,7 @@ execute_test.py --root <run> --module M001 --assignment TEST-001 --path-id PATH-
 
 每条执行使用新目录，不覆盖历史。`receipt.json` 包含 test_run_id、代码/SPEC/路径绑定、实际 argv/cwd、时间、退出码及 result/log/query refs。执行结束不直接推进 Ledger：Test-Runner 整理完整 paths 后 submit，MO 再 accept。缺报告、超时、适配器异常保留日志并报告 Yellow；同基线 flaky 结果不得择优记绿（`flaky=true` 拒绝 Green）。
 
-全局审计由 Global audit-assign 后，使用 `--module GLOBAL --assignment <audit-id>` 仅对 audit_assignment.path_ids 分别执行。报告 kind=tests、module_id=GLOBAL，freeze_id/code_baseline 来自 `ledger.audit_scope(state)`，另带 `snapshot={module_id: code_baseline}`。非 Green 报告生成 audit_repairs，路由与重开见[收尾的实际执行契约](audit-scope.md#收尾的实际执行契约)；Auditor 不改源码。
+全局终审以 `--module GLOBAL --assignment <audit-test-assignment-id>` 执行本批 `path_ids`，包含本次选中的叶子与 GLOBAL PATH。报告 `kind=tests`、`module_id=GLOBAL`，freeze_id 和 code_baseline 来自 `ledger.audit_scope(state)`，另带 `snapshot={module_id: code_baseline}`。Auditor 以原始观察与当前覆盖裁决，非 Green 路由与重开见[收尾的实际执行契约](audit-scope.md#收尾的实际执行契约)。
 
 ## 恢复与预算
 

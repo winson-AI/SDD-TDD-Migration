@@ -617,11 +617,12 @@ def handle(s, req, actor):
     op, p, mid = req['operation'], req['payload'], req.get('module_id')
     if op == 'audit-unavailable':
         import audit_code_review
+        import audit_execution
         audit_code_review.require_current(s, actor['instance_id'])
         require(not audit_code_review.pending(s), 'code governance findings require closure before final audit')
         workflow.role(actor, 'auditor')
         workflow.planning_guard(s)
-        require(not ac.active(s) and not workflow.audit_active(s) and not ac.collection_blockers(s), 'audit barrier not settled')
+        require(not ac.active(s) and not ac.collection_blockers(s), 'audit barrier not settled')
         from ledger import pending_repairs, audit_scope
         require(not pending_repairs(s), 'resolve pending audit repairs first')
         require(not ac.leftovers(s) and not s.get('audit_queue'), 'resolve non-environment findings first')
@@ -629,6 +630,9 @@ def handle(s, req, actor):
         require(all(actor['instance_id'] not in m['authors'] for m in s['modules'].values()), 'Auditor must be independent')
         report = blocked_report(s, None, p.get('context_ref'), 'audit-testing', actor['instance_id'])
         scope = audit_scope(s)
+        if workflow.audit_active(s):
+            return audit_execution.defer(s, req, actor, scope, report)
+        require(not s.get('audit', {}).get('deferred_path_ids'), 'resume the interrupted audit after restoring its PATH inputs')
         require(scope['plan']['paths'], 'no unresolved paths; submit independent audit-review')
         require(not any(observed_failure(r) for r in scope['results'].values()),
                 'cannot conceal observed failure as missing environment')

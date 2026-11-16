@@ -307,6 +307,30 @@ class MechanicalHandoffTests(unittest.TestCase):
             run.assert_called_once()
         self.assertEqual(self.f.state()['modules']['M001']['results']['M001-B']['quality'], 'green-passed')
 
+    def test_ready_revisions_are_delivered_once_before_the_pending_build(self):
+        from unittest.mock import patch
+        import ledger
+        import run_changes
+        import source_changes
+
+        # First deliver the unrelated leaf's plan so only the revision can preempt the build.
+        drive.drive(self.f.root, MO)
+        revision = {'role': 'host', 'operation': 'revise-run', 'ready': True, 'reason': 'run-context-switch-ready',
+                    'subject_sha256': 'context-v2', 'payload': {'subject_sha256': 'context-v2'}}
+        sources = {**revision, 'operation': 'reconfigure-sources', 'reason': 'source-context-switch-ready',
+                   'subject_sha256': 'sources-v2', 'payload': {'subject_sha256': 'sources-v2', 'decision_id': 'approval'}}
+        with patch.object(run_changes, 'next_action', return_value=revision), \
+                patch.object(source_changes, 'next_action', return_value=sources), \
+                patch.object(ledger, 'frozen_tests', wraps=ledger.frozen_tests) as run:
+            lines = drive.drive(self.f.root, MO)
+            host = [line for line in lines if line['kind'] == 'host']
+            self.assertEqual([line['operation'] for line in host], ['revise-run', 'reconfigure-sources'])
+            self.assertEqual([line['payload'] for line in host], [revision['payload'], sources['payload']])
+            run.assert_not_called()
+            drive.drive(self.f.root, MO)
+            run.assert_called_once()
+        self.assertEqual(self.f.state()['modules']['M001']['results']['M001-B']['quality'], 'green-passed')
+
     def test_ready_coding_rotation_is_delivered_once_before_the_pending_build(self):
         from unittest.mock import patch
         import ledger

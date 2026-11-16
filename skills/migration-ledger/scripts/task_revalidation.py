@@ -232,14 +232,25 @@ def prior_green_receipt(m, path_id):
 def command_receipts(s, m, root, paths):
     import unit_reports
 
-    matches = command_fingerprints(s, root)
-    if not m.get('build_baseline') or m['build_baseline'] != m['code_baseline']:
+    complete_build = m.get('build_baseline') and m['build_baseline'] == m['code_baseline']
+    carried_builds = set(m.get('retained_build_paths', ()))
+    if not complete_build and not carried_builds:
         return []
     try:
         if baseline(m['code_files']) != m['code_baseline']:
             return []
+        if not complete_build:
+            change = m['change_request']
+            previous = change['previous_plan']
+            source = {**m, 'plan': previous['plan'], 'plan_hash': previous['plan_hash'],
+                      'freeze_id': change['from_freeze_id'], 'task_revalidation': change.get('previous_revalidation')}
+            current(source)
+            candidates = {p['path_id'] for p in paths if p['kind'] == 'build' and p['path_id'] in carried_builds
+                          and all(ref in m['build_artifacts'] for ref in m['results'][p['path_id']].get('build_artifacts', []))}
+            return sorted(current_build_paths(s, source, root, candidates))
     except (Rejected, OSError, ValueError, TypeError, KeyError):
         return []
+    matches = command_fingerprints(s, root)
     retained = []
     for path in paths:
         try:

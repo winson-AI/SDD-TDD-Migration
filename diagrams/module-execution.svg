@@ -113,7 +113,7 @@
 <text x="800.0" y="1930.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅补执行资产：保留已验收实现</text>
 <text x="800.0" y="1959.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">有效旧证据继续供代码依赖方使用</text>
 <text x="800.0" y="1988.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">首次 Build / Unit 记录输入指纹</text>
-<text x="800.0" y="2017.5" font-size="21.95" fill="#4b5563" text-anchor="middle" font-weight="400">测试资产 / 四维 ID 变更：逐 PATH 复用回执</text>
+<text x="800.0" y="2017.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">部分 Build 待补跑时，CR 仍保留有效回执</text>
 <text x="800.0" y="2046.5" font-size="20.59" fill="#4b5563" text-anchor="middle" font-weight="400">static 审新 SPEC；复测受影响及非 Green 路径</text>
 <text x="800.0" y="2075.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">共享影响 / 无证明回退全验；过期漏报拒收</text>
 <rect x="70" y="1750" width="430" height="230" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>

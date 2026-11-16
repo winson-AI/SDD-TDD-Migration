@@ -30,6 +30,7 @@ import resource_binding
 
 POLL_SECONDS = 1
 PERSON = ('human-decision-required', 'run-approval-required', 'source-approval-required')
+REVISIONS = ('revise-run', 'reconfigure-sources')
 ENDS = {  # the run's end, by why it ended: nothing is left to dispatch, and what the user is told
     'await-delivery-authorization': 'the run passed its audit: give the user the report and ask whether to deliver (merge, /sdd-archive)',
     'completed-with-unverified-tests': 'the run ended with paths it could not run: give the user the report and the unverified cases'}
@@ -45,6 +46,8 @@ def row(step, card=None):
                                 'approval_kind', 'detail', 'root_ids', 'session_id', 'session_affinity', 'model_tier') if step.get(k) is not None}
     if step.get('artifact_only'):
         out.update({key: step[key] for key in ('artifact_only', 'test_scope', 'instance_id', 'fencing_token', 'path_ids') if key in step})
+    elif step.get('operation') in ('audit-test-assign', 'audit-test-submit', 'audit-unavailable'):
+        out.update({key: step[key] for key in ('instance_id', 'path_ids') if key in step})
     if step.get('report_ref'):
         out['report'] = step['report_ref']['path']
     if step.get('worker_role'):
@@ -70,10 +73,13 @@ def tick(root, principal, workers=None):
     started = False
     for _ in range(50):
         st = ledger.status(root, publish=False)
+        _, handed, _, _ = dispatch_budget(root, st, [])
+        if any(handed.get(step['operation']) != [step['subject_sha256']]
+               for step in revision_steps(st) if ready_revision(step)):
+            break  # Deliver the switch before a command or a new audit can take the run lock.
         if start_ready_resources(root, principal, st):
             break
         steps = st['next_steps']
-        _, handed, _, _ = dispatch_budget(root, st, [])
         can_assign = assignment_budget(handed)
         actions = []
         for step in steps:
@@ -99,9 +105,15 @@ def tick(root, principal, workers=None):
             break
     st = ledger.status(root, 'full')  # read by this script, not by a model
     lines, resource_lines = [], []
-    changes = [x for x in (st.get('run_change_next_step'), st.get('source_change_next_step')) if x]  # same-run revisions, new sources
+    changes = revision_steps(st)
+    delivered = set()
     for step in st['next_steps'] + [st['global_next_step']] + changes:
         operation = step.get('operation')
+        if ready_revision(step):
+            key = (operation, step['subject_sha256'])
+            if key in delivered:
+                continue  # The global cursor can also present the separate run revision step.
+            delivered.add(key)
         rotation = step.get('session_rotate') or {}
         if rotation.get('ready') or step.get('role') == 'host' and step.get('ready') and not step.get('human_required'):
             mid = step.get('module_id')
@@ -204,6 +216,15 @@ def resource_pending(root, module, assignment, lines):
     return True
 
 
+def revision_steps(st):
+    return [step for key in ('run_change_next_step', 'source_change_next_step') if (step := st.get(key))]
+
+
+def ready_revision(step):
+    return (step.get('operation') in REVISIONS and step.get('role') == 'host'
+            and step.get('ready') and not step.get('human_required') and step.get('subject_sha256'))
+
+
 def ready_handoff_to_deliver(root, st):
     """Deliver ready plans and coding session handoffs once per step revision."""
     candidates = []
@@ -246,7 +267,10 @@ def dispatch_budget(root, st, lines):
     busy = occupied_modules(modules, steps, handed)
     order = sorted((line for line in lines if line['kind'] in ('dispatch', 'rotate') and line.get('module_id') in modules),
                    key=lambda line: (line['module_id'] not in busy, depth(line['module_id']), list(modules).index(line['module_id'])))
-    held, kept = set(), {}
+    held, kept = set(), {
+        line['operation']: [line['payload']['subject_sha256']] for line in lines
+        if line['kind'] == 'host' and line.get('operation') in REVISIONS and (line.get('payload') or {}).get('subject_sha256')
+    }  # A standing revision stays actionable, but only interrupts command scheduling once per reviewed subject.
     for line in order:
         mid = line['module_id']
         if mid in busy or len(busy) < st['max_parallel_modules']:
