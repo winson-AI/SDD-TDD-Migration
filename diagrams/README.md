@@ -11,7 +11,7 @@ Test-Runner 的预检与静态审查从 Ledger 骨架起笔，冻结同一命令
 | 03 · 统一 Auditor 宿主审计 | 宿主目标和代码治理、遗留路由、按 PATH 失效阶段复测。终审按独立输入分批，绑定视觉 PATH 核对生效配置和 APK/HAP。挂起前已入账的独立受管 GLOBAL 视觉 Green 可跨无关叶子更新沿用原回执。实际执行输入一致的冻结 JUnit PATH 共用一次执行，分别核验审批与测试 ID。未获授权的 Runner 按 PATH 退回环境缺口。已获授权的 Runner 遇到局部漂移时核实停工后只撤当前派发。按 PATH 核验当前输入和同哈希归档，沿用有效回执，Auditor 核对完整覆盖后裁决 | [Auditor](auditor-closure.svg) |
 | 04 · 二方库语义与复用 | 来源评审 → 语义抽取 → 四类复用决策 → API 与数据契约 → 冻结 → Coding → 真实依赖验证；提供方证据变化后的恢复 | [二方库](reuse-dependencies.svg) |
 | 05 · Automation 外层闭环 | 冻结用例与测试源（须能失败）、构建只跑 PATH 平台、先派资产齐备的 PATH，欠资产的 PATH 在同 Run 修订后派发、派发后预检（骨架起笔）、声明平台未写适配器即用内置 Main、进程内 JUnit 或设备 / 脚本逐 PATH 证据、三类反馈及成功/复用统计；缺测旁路；GLOBAL PATH 在持有叶子完成且执行输入就绪时可提前验证，按执行方式分批；PATH 可录屏，媒体随结果入 Ledger | [自动化](automation-flow.svg) |
-| 06 · Android/Harmony 单 PATH 内核 | Planner / Executor / Verify、录制回放、媒体断言、观察落盘与三态汇总；snapshot / recording 媒体任务只留媒体不判定 | [内核](automation-engine.svg) |
+| 06 · 移动端单 PATH 内核 | Android ADB、iOS WDA、Harmony HDC 共用 Planner、Executor 与 Verify。snapshot 和 recording 保存媒体证据 | [内核](automation-engine.svg) |
 
 自动化输入输出的字段、JSON 示例、调用方法和当前实现边界见 [自动化测试说明](automation-input-output.md)。
 

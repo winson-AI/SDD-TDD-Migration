@@ -1,15 +1,16 @@
-# Android/Harmony：独立 uv 自动化测试环境
+# Android、iOS 与 Harmony 自动化测试环境
 
-两端保留 `runtime/harmony`、`harmony_adapter.py`、`runs/harmony` 的兼容命名。冻结 PATH 填 `kind=automation`、`platform=android|harmony`、`task_type=test`；同 CASE 两端分别建 PATH，不能互相替代验收。`task_type=snapshot|recording` 是媒体任务：按冻结步骤走到终点，snapshot 保存连续两帧一致的终帧与布局，recording 保留整段 final.mp4；不调用 verify、不判通过，走不到终点记 needs-review。引擎把结果写成报告目录下的 `media_outcome.json`，adapter 据此产出媒体回执（status=reached|needs-review|blocked、snapshot_ref/layout_ref/recording_ref），只供存量预览捕获与录屏取证，不是 PATH 结果。test PATH 的 query 带 `record_video: true` 时强制录屏并把 final.mp4 列入 `media_refs`。
+三端共用 `runtime/harmony`、`harmony_adapter.py` 和 `runs/harmony`。冻结 PATH 填 `kind=automation`、`platform=android|ios|harmony`、`task_type=test`。同一 CASE 的各设备要求用独立 PATH 验收。snapshot 和 recording 沿冻结步骤执行，分别保存稳定终帧和布局，或整段 final.mp4。媒体回执的状态为 reached、needs-review 或 blocked。test PATH 可用 `record_video: true` 随结果保存 `media_refs`。
 
 共享配置可补充以下字段（models 沿用已有配置）：
 
 ```json
 {
   "platform": "harmony",
-  "devices": {"android": "ANDROID_SERIAL", "harmony": "HARMONY_SERIAL"},
+  "devices": {"android": "ANDROID_SERIAL", "ios": "http://127.0.0.1:8100", "harmony": "HARMONY_SERIAL"},
   "apps": {
     "android": {"name": "MyApp", "package": "com.example.android"},
+    "ios": {"name": "MyApp", "package": "com.example.ios"},
     "harmony": {"name": "MyApp", "package": "com.example.harmony", "ability": "EntryAbility"}
   }
 }
@@ -23,7 +24,26 @@ Android adapter 示例，Harmony 改 platform 和 serial：
   --output /workspace/migration/.sdd-runs/run-demo/runs/harmony/sandbox/android-adapter.json
 ```
 
-Test-Runner automation 将该 adapter 交 `execute_test.py`，再用 `harmony_stage.py` 汇总本 scope 全部 PATH，经 Ledger submit/accept；审计复测使用相同链路。`sandbox.py test` 内部固定 test，不以 snapshot/recording 判通过。宿主 testing 预检绑定安装 APK/HAP、baseline 和 fixture；不隐式重置页面/应用。uiautomator2 首次连接会部署设备端测试服务；Android 录屏用 screenrecord，缺失时用本机 scrcpy，证据缺失仍 Yellow。离线回归不替代真机业务验收。
+Test-Runner 经 `execute_test.py` 执行，由 `harmony_stage.py` 汇总 PATH 后交 Ledger submit/accept。审计复测沿用同一链路。宿主预检绑定已安装构建、当前代码基线和 fixture。Android uiautomator2 首次连接会部署设备端测试服务。Android 录屏用 screenrecord 或本机 scrcpy。
+
+## iOS 接入
+
+在运行时目录执行 `uv sync --locked --extra ios`。宿主用 Xcode 在目标模拟器或真机启动 [WebDriverAgent](https://github.com/appium/WebDriverAgent)，部署当前构建并准备已冻结的应用状态。项目可声明以下设备配置。Ledger 据此为 `platform: ios` 的 automation PATH 选择内置 Main。
+
+```json
+{
+  "test_adapter": {
+    "device": {
+      "platforms": ["ios"],
+      "ios": {"wda_url": "http://127.0.0.1:8100", "app_id": "com.example.ios"}
+    }
+  }
+}
+```
+
+真机可使用宿主已转发的 WDA 端口。选 general 或 glm 执行器。用例可直接写目标 Bundle ID，也可用上面的 `apps.ios` 配置已确认的显示名。调试时 `sandbox.py doctor` 和 `sandbox.py adapter` 接受 `--platform ios --device <WDA-URL>`。iOS 回执记录 WDA 返回的设备 UUID，截图保留设备分辨率，手势用 WDA 逻辑坐标。
+
+本机录屏需给设备配置增加 `udid`，调试可传 `--ios-udid`。模拟器使用 simctl，真机使用 macOS AVFoundation，并核对实际采集设备。使用 iOS 照片或视频 fixture 时由宿主预置。iOS 的截图与参考图验证走移动端 automation PATH。IPA 安装、原生存量捕获和受管视觉制品对齐由宿主或项目适配器提供。
 
 该目录现在是独立 uv 项目：Python 3.12、独立 `.venv`、可提交的 `uv.lock`、默认 LLM 参考配置与 run 级共享 sandbox 配置。不需要借用 MobileAgenticOperator 的虚拟环境或源码路径。
 
@@ -63,7 +83,7 @@ Test-Runner automation 将该 adapter 交 `execute_test.py`，再用 `harmony_st
 
 ## 2. 安装独立环境
 
-前置：uv；真机执行另需 Android ADB/uiautomator2 或 Harmony HDC、明确设备、模型服务、fixture 和与 code_baseline 对应的 App。已迁入 MobileAgenticOperator 的 Android/Harmony test 能力，不包含 iOS/WDA。
+前置为 uv、明确的测试设备、模型服务、fixture 和与 code_baseline 对应的应用。Android 使用 ADB/uiautomator2，Harmony 使用 HDC，iOS 使用 WDA。
 
 ```sh
 cd /absolute/SDD-TDD-Migration/skills/migration-test/runtime/harmony
@@ -102,12 +122,12 @@ cp -n config.default.json /workspace/migration/.sdd-migration/harmony/config.jso
 
 - 显式 `--config` 是首次复制的完整来源，不做深合并；既有 Run 不跟随来源更新。不同内容会拒绝，配置变化走同 Run 环境修订后重新预检。
 - 任意密钥字段可写 `{"env":"MY_MODEL_KEY"}` 或 `{"env":["ROLE_KEY","COMMON_KEY"]}`。后者按顺序取第一个非空值。
-- 设备优先级：`--device` → `devices[platform]` → 同平台 `device` → `ANDROID_DEVICE/HARMONY_DEVICE`；不自动选设备。
-- Android 用 general/glm，Harmony 可用四种执行器；不自动降级。配置改变须重新完成环境预检。
+- 设备依次取 `--device`、`devices[platform]`、同平台 `device` 和环境变量 `ANDROID_DEVICE`、`IOS_DEVICE` 或 `HARMONY_DEVICE`。
+- Android 和 iOS 使用 general 或 glm，Harmony 可用四种执行器。配置变更后重新预检。
 - UI 执行不要求 XMind 转换密钥；XMind 导入也不要求 Executor/Verify 密钥或设备。
 - `recording_ref/knowledge_ref` 沿用 `{path,sha256}`。回放只复用导航，每次断言仍采集本轮证据。
 
-默认配置参考 MobileAgenticOperator；早期 Harmony 内核叠加其 Android 驱动与 test 分支，来源和修订见 UPSTREAM.json。源项目提示词不成为外层编排指令。
+默认配置、Android 与 iOS 驱动来源和修订见 [UPSTREAM.json](UPSTREAM.json)。
 
 ## 4. 本轮共享配置与离线检查
 

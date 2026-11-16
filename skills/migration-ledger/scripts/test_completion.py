@@ -14,16 +14,26 @@ def load_content(ref):
         return None, type(exc).__name__ + ': ' + str(exc)
 
 
-def mobile_binding(planned, query, report):
+def mobile_binding(planned, query, report, output):
     require(query.get('platform') == planned.get('platform'), 'mobile PATH platform changed')
     require(query.get('task_type', 'test') == planned.get('task_type', 'test'), 'mobile PATH task type changed')
     if report.get('quality') != 'green-passed': return
-    require(report.get('platform') in ('android', 'harmony') and report.get('task_type') == planned.get('task_type', 'test') == 'test',
-            'mobile Green requires Android/Harmony test mode')
+    require(report.get('platform') in ('android', 'ios', 'harmony') and report.get('task_type') == planned.get('task_type', 'test') == 'test',
+            'mobile Green requires Android, iOS or Harmony test mode')
     require(not planned.get('platform') or report['platform'] == planned['platform'], 'mobile report platform mismatch')
-    environment = read_json(check_ref(report.get('environment_ref')))
+    environment_path = check_ref(report.get('environment_ref'))
+    environment = read_json(environment_path)
     require(environment.get('platform') == report['platform'] and environment.get('task_type') == 'test'
             and environment.get('device'), 'mobile execution environment mismatch')
+    if report['platform'] == 'ios':
+        observed_path = check_ref(environment.get('device_observation_ref'))
+        require(environment_path.resolve().is_relative_to(Path(output).resolve())
+                and observed_path.resolve().parent == environment_path.resolve().parent,
+                'iOS device evidence must belong to the current execution output')
+        observed = read_json(observed_path)
+        require(isinstance(observed, dict) and observed.get('endpoint') == environment['device']
+                and isinstance(observed.get('wda_uuid'), str)
+                and observed['wda_uuid'] not in ('', 'unknown'), 'iOS Green requires matching WebDriverAgent device evidence')
 
 
 def web_steps(query, trace, observations, check):
@@ -79,7 +89,7 @@ def interpret(receipt, planned):
             import unit_reports
             unit_reports.validate(receipt, planned, report)
     if known and report['producer'] == 'harmony-adapter':
-        mobile_binding(planned, query, report)
+        mobile_binding(planned, query, report, Path(receipt['result_ref']['path']).parent)
         for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
             if key in report: require(report[key] == receipt.get(key), 'Harmony context mismatch')
             else: known = False

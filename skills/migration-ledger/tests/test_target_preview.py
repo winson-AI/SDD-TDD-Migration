@@ -17,6 +17,27 @@ DEVICE = {'platforms': ['android', 'web'], 'android': {'serial': 'emulator-5554'
 
 
 class TargetPreviewTests(unittest.TestCase):
+    def test_ios_statement_routes_frozen_automation_to_wda_with_explicit_device_inputs(self):
+        import execute_test
+        import integration
+
+        preview = {'wda_url': 'http://127.0.0.1:8100/', 'udid': 'test-simulator', 'app_id': 'com.example.target'}
+        device = {'platforms': ['android', 'ios', 'harmony'], 'android': {'serial': 'a'}, 'ios': preview,
+                  'harmony': {'serial': 'h'}}
+        adapter = {'device': device}
+        pc.validate({'test_adapter': adapter})
+        state = {'test_adapter': adapter, 'target_root': '/target'}
+        path = {'kind': 'automation', 'platform': 'ios'}
+        argv = execute_test.adapter_for(state, path, Path('/run'))['argv']
+        for flag, value in (('--platform', 'ios'), ('--device', 'http://127.0.0.1:8100'),
+                            ('--ios-udid', 'test-simulator'), ('--ios-bundle-id', 'com.example.target')):
+            self.assertEqual(argv[argv.index(flag) + 1], value)
+        self.assertTrue(integration.affected_by_device(state, path, {'ios'}))
+        self.assertFalse(integration.affected_by_device(state, {**path, 'platform': 'android'}, {'ios'}))
+        self.assertIsNone(execute_test.builtin_platform(state, {**path, 'kind': 'visual'}))
+        with self.assertRaisesRegex(Rejected, 'without credentials'):
+            pc.target_preview('ios', {**preview, 'wda_url': 'http://user:secret@localhost:8100'})
+
     def test_the_statement_names_each_platforms_preview_and_nothing_else(self):
         self.assertEqual(pc.validate({'test_adapter': {'device': DEVICE}})['test_adapter']['device'], DEVICE)
         pc.validate({'test_adapter': {'device': {'platforms': ['harmony'], 'harmony': {'serial': 'hdc-1', 'tool': '/opt/sdk/hdc', 'boot': {'argv': ['/opt/emu'], 'timeout_seconds': 60},

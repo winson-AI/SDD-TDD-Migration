@@ -33,8 +33,12 @@ from ..devices.hdc import APP_PACKAGES
 
 
 def get_app_packages():
-    if getattr(get_device(), 'platform', 'harmony') == 'android':
+    platform = getattr(get_device(), 'platform', 'harmony')
+    if platform == 'android':
         from ..devices.adb.apps import APP_PACKAGES as packages
+        return packages
+    if platform == 'ios':
+        from ..devices.ios.apps import APP_PACKAGES as packages
         return packages
     return APP_PACKAGES
 

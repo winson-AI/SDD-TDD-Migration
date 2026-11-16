@@ -265,11 +265,11 @@ class DeviceProtocol(Protocol):
 
 
 def skill_driver(context):
-    """Bridge normalized skill gestures to Android while retaining Harmony drivers."""
+    """Bridge normalized skill gestures to Android and iOS while retaining Harmony drivers."""
     import time
     from types import SimpleNamespace
     device = getattr(context, 'device', None)
-    if getattr(device, 'platform', 'harmony') == 'android':
+    if getattr(device, 'platform', 'harmony') in ('android', 'ios'):
         width, height = device.get_display_size()
         def point(xy): return int(xy[0] * width), int(xy[1] * height)
         return SimpleNamespace(click=lambda xy: device.tap(*point(xy)), wait=time.sleep,

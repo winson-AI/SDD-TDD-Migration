@@ -68,7 +68,7 @@ def platform_keys(s, m, step):
         platforms = set(((s.get('test_adapter') or {}).get('device') or {}).get('platforms') or [])
     else:
         platforms = {p.get('platform') for p in paths if (p.get('kind') or 'automation') == 'automation' and not p.get('command')}
-    return [key for key, members in (('web', {'web'}), ('device', {'android', 'harmony'})) if platforms & members]
+    return [key for key, members in (('web', {'web'}), ('device', {'android', 'ios', 'harmony'})) if platforms & members]
 
 
 def platform_sections(s, m, step):
@@ -252,7 +252,7 @@ def skill_sections(path, test_scope=None):
     card: a step names the templates it instantiates itself."""
     names = re.findall(r'(?m)^## (.*)$', (PACKAGE / path).read_text())
     keep = [n for n in names if n not in ('1. 定位', '4. 接口契约', '6. 配套资产')
-            and (not n.startswith('7. Android/Harmony') or test_scope in ('automation', 'visual'))]
+            and (not n.startswith('7. 移动端自动化测试') or test_scope in ('automation', 'visual'))]
     return [(path, n) for n in keep]
 
 

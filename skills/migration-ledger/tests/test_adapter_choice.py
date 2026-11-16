@@ -18,9 +18,11 @@ WEB = {'argv': ['/opt/py/bin/python', '/opt/pkg/skills/migration-test/scripts/we
 
 class AdapterChoiceTests(unittest.TestCase):
     def test_the_project_states_one_adapter_per_platform(self):
-        config = {'test_adapter': {'adapters': {'web': WEB, 'android': {'argv': ['/opt/py/bin/python', '/opt/pkg/sandbox.py', 'test'], 'cwd': '/opt/target'}}}}
-        self.assertEqual(pc.validate(dict(config))['test_adapter']['adapters']['web'], WEB)
-        for bad in ({'ios': WEB}, {'web': {'argv': ['python']}}, {'web': {'argv': []}}, {'web': {'argv': WEB['argv'], 'cwd': 'relative'}},
+        ios = {'argv': ['/opt/py/bin/python', '/opt/pkg/sandbox.py', 'test', '--platform', 'ios']}
+        config = {'test_adapter': {'adapters': {'web': WEB, 'ios': ios, 'android': {
+            'argv': ['/opt/py/bin/python', '/opt/pkg/sandbox.py', 'test'], 'cwd': '/opt/target'}}}}
+        self.assertEqual(pc.validate(dict(config))['test_adapter']['adapters'], config['test_adapter']['adapters'])
+        for bad in ({'tvos': WEB}, {'web': {'argv': ['python']}}, {'web': {'argv': []}}, {'web': {'argv': WEB['argv'], 'cwd': 'relative'}},
                     {'web': {'argv': WEB['argv'], 'timeout_seconds': 0}}, {'web': {'argv': WEB['argv'], 'extra': 1}}, {'web': WEB['argv']}):
             with self.assertRaisesRegex(Rejected, 'test_adapter.adapters'):
                 pc.validate({'test_adapter': {'adapters': bad}})

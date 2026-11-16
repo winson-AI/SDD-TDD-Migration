@@ -1,6 +1,6 @@
 ---
 name: migration-test
-description: SDD-TDD-Migration 的测试设计、构建与自动化执行；支持项目 Main 及 Android/Harmony test 模式、截图/视频断言、回放、证据和三态归档。
+description: SDD-TDD-Migration 测试设计、构建与自动化执行，支持 Android、iOS、Harmony 的 test 模式、媒体断言、回放和三态归档。
 ---
 
 # migration-test
@@ -29,9 +29,9 @@ description: SDD-TDD-Migration 的测试设计、构建与自动化执行；支�
 ## 6. 配套资产
 使用 [主要模板](../../template/test-paths.json)。
 
-## 7. Android/Harmony 自动化测试
+## 7. 移动端自动化测试
 
-两端 UI/端到端 PATH 按 [移动端运行协议](references/harmony-runtime.md#3-execute一条-path-到-main)，走 MobileAgenticOperator 的 test 流程（Planner → Executor → Verify，保留验证、回放、重规划和报告）；冻结 platform=android|harmony、task_type=test，不支持 iOS 或以 snapshot/recording 验收。
+移动端 PATH 按 [运行协议](references/harmony-runtime.md#3-execute一条-path-到-main) 走 Planner → Executor → Verify。冻结 platform=android|ios|harmony、task_type=test。snapshot 和 recording 只产出媒体证据。
 
 - 用例导入：用 [harmony_design.py](scripts/harmony_design.py) 导入 MD/XMind，审核完整用例并补齐冻结 ASSERT 描述、类型、匹配规则与 after_step。
 - execute：通过 host execute_test 调用 [harmony_adapter.py](scripts/harmony_adapter.py)，再用 [harmony_stage.py](scripts/harmony_stage.py) 组装全路径结果，按 Ledger submit/accept。

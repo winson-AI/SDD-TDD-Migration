@@ -1,0 +1,34 @@
+{
+  "system_apps": {
+    "设置": "com.apple.Preferences",
+    "Settings": "com.apple.Preferences",
+    "Safari": "com.apple.mobilesafari",
+    "浏览器": "com.apple.mobilesafari",
+    "信息": "com.apple.MobileSMS",
+    "短信": "com.apple.MobileSMS",
+    "邮件": "com.apple.mobilemail",
+    "Mail": "com.apple.mobilemail",
+    "健康": "com.apple.Health",
+    "Health": "com.apple.Health",
+    "备忘录": "com.apple.mobilenotes",
+    "Notes": "com.apple.mobilenotes",
+    "地图": "com.apple.Maps",
+    "Maps": "com.apple.Maps",
+    "照片": "com.apple.mobileslideshow",
+    "Photos": "com.apple.mobileslideshow",
+    "计算器": "com.apple.calculator",
+    "Calculator": "com.apple.calculator",
+    "时钟": "com.apple.mobiletimer",
+    "Clock": "com.apple.mobiletimer",
+    "日历": "com.apple.mobilecal",
+    "Calendar": "com.apple.mobilecal",
+    "相机": "com.apple.camera",
+    "Camera": "com.apple.camera",
+    "App Store": "com.apple.AppStore"
+  },
+  "third_party": {
+    "WeLink": "com.huawei.works",
+    "welink": "com.huawei.works",
+    "华为云WeLink": "com.huawei.works"
+  }
+}

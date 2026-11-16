@@ -1,15 +1,15 @@
-# Android/Harmony 自动测试接入
+# Android、iOS 与 Harmony 自动测试接入
 
 ## 定位与读取
 
-Test-Runner 的 Android/Harmony UI/端到端 Main；构建/单测仍用项目 adapter。入口 [harmony_adapter.py](../scripts/harmony_adapter.py)，内核 [runtime/harmony](../runtime/harmony/main.py)；按节点取本页小节，诊断时才加载内核源码/提示词。外层仍走 SPEC 冻结→代码接受→Test-Runner assignment→execute_test→Ledger→MO/审计；Planner/Executor/Verify 是同一 assignment 内的执行组件，只产出证据，不派 Fixer、不改 SPEC/状态，跨角色共享经 Ledger。
+Test-Runner 的移动端 UI 与端到端 Main，构建和单测使用项目 adapter。入口 [harmony_adapter.py](../scripts/harmony_adapter.py)，内核 [runtime/harmony](../runtime/harmony/main.py)。按节点取小节，诊断时才打开内核源码和提示词。外层依次走 SPEC 冻结、代码接受、Test-Runner assignment、execute_test、Ledger 和验收。Planner、Executor、Verify 在同一 assignment 内产出证据，跨角色共享经 Ledger。
 
 ## 源能力与迁移位置
 
 | 能力 | 保留内容 / 接入点 |
 | --- | --- |
 | 分层执行 | 原 `decision`、`planner_agent`、`decision_hooks`；单步 Observe/Act/反馈、最大步数、任务超时，不以失败后重启掩盖问题 |
-| 执行器 | Android 的 ADB/uiautomator2，Harmony 的 HDC/Hypium；general、GLM 与 Harmony MCP 执行器 |
+| 执行器 | Android ADB/uiautomator2、iOS WebDriverAgent、Harmony HDC/Hypium。Android 和 iOS 用 general 或 GLM，Harmony 另支持 MCP 执行器 |
 | 验证 | 原 Verify 选择器与单图/双图/跨步骤/参考图/视频五类工具；冻结 verification 指定类型，auto 保留动态路由 |
 | 视频 | 录制分段、时间映射、拼接、裁剪、阈值压缩、动态 UI 验证；保留原片、裁剪片、mapping |
 | 记忆 | CompressedSession、上下文压缩、定期反思、XPath 层级缓存、调用录制、去冗余 |
@@ -18,13 +18,13 @@ Test-Runner 的 Android/Harmony UI/端到端 Main；构建/单测仍用项目 ad
 | 知识 / 报告 | `knowledge_ref` 显式传入已接受的知识工件并按 hash 校验；原 HTML/Markdown/JSON 时间线、截图、布局、视频、工具反馈、token 统计与组合报告，增加 path/ASSERT/代码/冻结版本绑定 |
 | 运行隔离 | 每条 PATH 一个宿主子进程、一个新证据目录、设备互斥锁；超时杀进程组，保留已有日志 |
 
-早期 HarmonyAgenticTesting 内核叠加 MobileAgenticOperator 的 Android 驱动、平台路由及 test 分支；来源 commit 与逐文件摘要见 [UPSTREAM.json](../runtime/harmony/UPSTREAM.json)。保留 Apache LICENSE；不迁入 iOS/WDA、凭证或历史报告/记忆。原生 CLI 仅兼容入口，正式验收走 adapter。
+内核吸收同一 MobileAgenticOperator 提交的 Android 和 iOS 驱动、平台路由及任务模式。来源 commit 与逐文件摘要见 [UPSTREAM.json](../runtime/harmony/UPSTREAM.json)。保留 Apache LICENSE。原生 CLI 用于调试，正式验收走 adapter。
 
 ## 1. 用例导入与冻结
 
 [harmony_design.py](../scripts/harmony_design.py) 在工作流内接受 `--root <run_root> --input <MD或XMind绝对路径> --module M001 --output <run_root>/runs/harmony/sandbox/test-designer/<新请求>`；独立导入可从同样结构的输出路径推导 run_root；XMind 另需 `--config <配置JSON> --app-name <被测应用>`，只运行转换模型，不连设备。输出保留输入摘要/原文、Markdown、XMind 树及 draft-not-executable 候选，不复用过期同名转换或补造验收；设计者补齐 CASE/REQ、参数实例 PATH 与断言时序，审核时对齐全局 ID，冻结后稳定。
 
-使用 [harmony-test-path.json](../../../template/harmony-test-path.json)，冻结 kind=automation、platform=android|harmony、task_type=test（snapshot/recording 为媒体任务，见 [运行时 README](../runtime/harmony/README.md)）；同 CASE 两端分别编号 PATH，旧 PATH 沿用配置平台。每个 assertion：`assertion_id`（唯一稳定）、`expected: true`（具体谓词成立，不是"返回 true"）、`description`（来自 SPEC 的非空期望）、`matcher: exact | semantic`（不自动放宽）、`verification: one_image_assert | multi_image_assert | cross_step_image_assert | refer_image_assert | video_assert | auto`、`after_step`（第几个冻结步骤后立即验证）。expected=true 须有冻结业务含义，数值/字符串经项目脚本或 CR 转为谓词；after_step 由步骤回执绑定，语义仍须真实设备验证。
+使用 [harmony-test-path.json](../../../template/harmony-test-path.json) 冻结 kind=automation、platform=android|ios|harmony、task_type=test。同 CASE 按实际要求为各平台编号 PATH，snapshot 和 recording 产出媒体证据。每个 assertion 包含唯一的 `assertion_id`、具体谓词为真的 `expected: true`、来自 SPEC 的 `description`、`matcher: exact | semantic`、`verification: one_image_assert | multi_image_assert | cross_step_image_assert | refer_image_assert | video_assert | auto` 和立即验证的 `after_step`。数值和字符串经项目脚本或 CR 转为谓词，after_step 由步骤回执绑定。
 
 ## 2. 宿主配置
 
@@ -33,6 +33,7 @@ Test-Runner 的 Android/Harmony UI/端到端 Main；构建/单测仍用项目 ad
 - Python ≥ 3.10；SDK、Hypium/HDC、图像/视频依赖见 [requirements.txt](../runtime/harmony/requirements.txt)（wheel 已保留，安装时 cwd 为其所在目录）；机器专属的 Hypium 开发包路径由宿主提供。
 - `models` 用原 `AppConfig` 字段，密钥用 `{"env":"变量名"}` 或 `{"env":["角色变量","公共变量"]}` 按顺序回退，运行时解析不写入模板；支持多 Planner 模型、执行器选择、Verify、压缩、反思与 special_test 配置；sandbox 加载指定 `.env` 且不覆盖进程同名变量。XMind 导入只读取转换所需模型配置。
 - Android 需 ADB/uiautomator2（general/glm），Harmony 需 HDC/Hypium（四种原执行器）；拒绝不兼容 provider，不静默切换。设备优先级 `--device` → `devices[platform]` → 同平台 `device` → `ANDROID_DEVICE/HARMONY_DEVICE`；`--platform` 须与冻结 PATH 一致，未传时取 PATH 再取配置；GO 锁与 adapter 本机端口租约共同隔离，同一 Android serial 不因 Harmony ip/port 不同而解除互斥。
+- iOS 使用显式 WDA URL 和 general/glm。宿主先启动 WDA、部署当前构建并预置 fixture。本机录屏绑定配置的 UDID，iOS Green 需要同一执行目录内的 WDA 设备回执。安装与命令见 [iOS 接入](../runtime/harmony/README.md#ios-接入)。
 - `video_assert` 必须开视频，默认模板开启且 adapter 保留原始视频。任务预算原引擎默认 1800 秒，host adapter 模板 1860 秒；内部导航重规划不增加代码修复轮次。
 - skills/自定义工具有设备动作与脚本执行能力，宿主约束其权限与范围；测试数据不是 shell 指令；应用重置、fixture 创建写入冻结前置/步骤，不把原批量入口的自动关 App 施加到所有测试。
 - 可给 `apps.android={name,package}`、`apps.harmony={name,package,ability}` 补入包名映射并记录 environment；适配器不部署 App、不自动清空前置状态。宿主预检绑定已安装 APK/HAP 与 code_baseline、fixture、设备及模型连通性。
@@ -90,7 +91,7 @@ recording_ref 校验 hash/任务文本，知识变化也改变任务文本；新
 
 ## 验证边界
 
-离线模拟只证明接线、三态、报告/录制及 Ledger 门禁，不证明业务 App 真机通过。正式验收需已部署构建、冻结 PATH、真实模型与 Android/Harmony 设备；对照源版核查验证类型、回放、输入、临时控件、视频映射、逐 ASSERT 证据及误报/遗漏。
+离线回归覆盖接线、三态、报告、录制及 Ledger 门禁。正式业务验收使用已部署构建、真实设备和模型，逐冻结 PATH 与 ASSERT 取证。
 
 ## 编译与自动化环境分离
 

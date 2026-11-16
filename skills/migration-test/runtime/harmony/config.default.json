@@ -1,6 +1,6 @@
 {
   "platform": "harmony",
-  "devices": {"android": "", "harmony": ""},
+  "devices": {"android": "", "ios": "", "harmony": ""},
   "device": "",
   "ip": "127.0.0.1",
   "port": 8710,

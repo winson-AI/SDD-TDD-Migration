@@ -23,7 +23,7 @@ def load_environment(path):
     load(path)
 
 
-def doctor(config_path, device=None, platform=None, adapters=None):
+def doctor(config_path, device=None, platform=None, adapters=None, *, ios_udid=None, ios_bundle_id=None):
     """Offline check only: never contact a model or operate a device."""
     checks = []
     for module in ('openai', 'agents', 'hypium', 'hypium_mcp', 'cv2', 'PIL',
@@ -51,15 +51,21 @@ def doctor(config_path, device=None, platform=None, adapters=None):
                 checks.append({'name': 'adapter-web-playwright', 'status': 'blocked', 'reason': type(exc).__name__})
     try:
         from harmony_adapter import configure, execution_config
-        config = execution_config(json.loads(Path(config_path).read_text()), platform=platform, device=device)
+        config = execution_config(json.loads(Path(config_path).read_text()), platform=platform, device=device,
+                                  ios_udid=ios_udid, ios_bundle_id=ios_bundle_id)
         cfg = configure(config['models'])
         checks.append({'name': 'llm-configuration', 'status': 'ready',
                        'planner': [m['name'] for m in cfg.decision_models],
                        'executor': cfg.execute_model_name, 'verify': cfg.verify_model_name,
                        'provider': cfg.execute_provider})
         checks.append({'name': 'explicit-device', 'status': 'ready', 'platform': config['platform']})
-        command = 'adb' if config['platform'] == 'android' else 'hdc'
-        checks.append({'name': command + '-on-path', 'status': 'ready' if shutil.which(command) else 'blocked'})
+        if config['platform'] == 'ios':
+            checks.append({'name': 'facebook-wda', 'status': 'ready' if importlib.util.find_spec('wda') else 'blocked'})
+            if config.get('ios_udid') and cfg.verify_video_enable:
+                checks.append({'name': 'xcrun-on-path', 'status': 'ready' if shutil.which('xcrun') else 'blocked'})
+        else:
+            command = 'adb' if config['platform'] == 'android' else 'hdc'
+            checks.append({'name': command + '-on-path', 'status': 'ready' if shutil.which(command) else 'blocked'})
         if config['platform'] == 'android':
             importlib.import_module('uiautomator2')
             checks.append({'name': 'uiautomator2', 'status': 'ready'})
@@ -72,6 +78,9 @@ def doctor(config_path, device=None, platform=None, adapters=None):
 
 
 def main():
+    sys.path.insert(0, str(SCRIPTS))
+    from harmony_contract import MOBILE_PLATFORMS
+
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest='command', required=True)
     for name in ('prepare', 'doctor', 'test', 'design', 'adapter'):
@@ -83,7 +92,9 @@ def main():
             c.add_argument('--adapters', help='JSON: the project test_adapter.adapters (or a project context holding it) to probe')
         if name != 'design':
             c.add_argument('--device')
-            c.add_argument('--platform', choices=('android', 'harmony'))
+            c.add_argument('--platform', choices=MOBILE_PLATFORMS)
+            c.add_argument('--ios-udid')
+            c.add_argument('--ios-bundle-id')
         if name == 'test':
             c.add_argument('--query-file', required=True)
             c.add_argument('--result-file', required=True)
@@ -94,7 +105,6 @@ def main():
             c.add_argument('--output', required=True)
             c.add_argument('--timeout', type=int, default=1860)
     a = p.parse_args()
-    sys.path.insert(0, str(SCRIPTS))
     sys.path.insert(0, str(SCRIPTS.parents[1] / 'migration-ledger/scripts'))
     from runner_storage import harmony_output, scope
     if a.command in ('prepare', 'doctor'):
@@ -109,7 +119,8 @@ def main():
         argv = [sys.executable, str(SCRIPTS / 'harmony_adapter.py'),
                 '--query-file', str(Path(a.query_file).resolve()),
                 '--result-file', str(output), '--root', str(run_root)]
-        for flag, value in (('--config', a.config), ('--env-file', a.env_file), ('--device', a.device), ('--platform', a.platform)):
+        for flag, value in (('--config', a.config), ('--env-file', a.env_file), ('--device', a.device), ('--platform', a.platform),
+                            ('--ios-udid', a.ios_udid), ('--ios-bundle-id', a.ios_bundle_id)):
             if value: argv += [flag, value]
         os.execv(sys.executable, argv)
     from harmony_environment import prepare_environment
@@ -127,6 +138,8 @@ def main():
                 '--env-file', env_file]
         if a.device: argv += ['--device', a.device]
         if a.platform: argv += ['--platform', a.platform]
+        if a.ios_udid: argv += ['--ios-udid', a.ios_udid]
+        if a.ios_bundle_id: argv += ['--ios-bundle-id', a.ios_bundle_id]
         argv += ['--root', str(run_root)]
         out = output
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -139,7 +152,7 @@ def main():
     if a.command == 'doctor':
         output.mkdir(parents=True, exist_ok=False)
         with scope(output):
-            result = doctor(config, a.device, a.platform, adapters)
+            result = doctor(config, a.device, a.platform, adapters, ios_udid=a.ios_udid, ios_bundle_id=a.ios_bundle_id)
         (output / 'doctor.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result['status'] == 'ready-for-live-preflight' else 2

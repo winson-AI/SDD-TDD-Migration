@@ -21,7 +21,7 @@
 
 GO/父 MO 划分 scope 和全量 CASE → 子 MO 拆 TASK → SPEC 与路径审核冻结 → Implementer → build/unit/static → automation → 反馈分流与复测 → 统一 Auditor。叶子满足起步门禁即可开工，欠项在需要它的阶段前补齐。实现错误交 Fixer，范围内的规划缺口在同一 Run 内用 CR 修订，分配范围不足才上溯父 MO/GO。见 [变更控制](skills/migration-protocol/references/openspec.md#变更控制)。
 
-按三层编排阅读 [完整图集](diagrams/README.md)：[总览](diagrams/workflow.svg) → [子 MO 执行与修复](diagrams/module-execution.svg) → [Auditor 跨模块处理](diagrams/auditor-closure.svg)，另见贯穿各阶段的 [二方库语义与复用](diagrams/reuse-dependencies.svg)。SVG 入库，PNG 由源文件在本地再生成。自动化详见 [外层执行闭环](diagrams/automation-flow.svg) 与 [Android/Harmony 单 PATH 内核](diagrams/automation-engine.svg)。
+按三层编排阅读 [完整图集](diagrams/README.md)。主线从 [总览](diagrams/workflow.svg) 经 [子 MO 执行与修复](diagrams/module-execution.svg) 到 [Auditor 跨模块处理](diagrams/auditor-closure.svg)，另见 [二方库语义与复用](diagrams/reuse-dependencies.svg)。SVG 入库，PNG 在本地生成。自动化详见 [外层执行闭环](diagrams/automation-flow.svg) 与 [移动端单 PATH 内核](diagrams/automation-engine.svg)。
 
 ## 目录
 
@@ -150,14 +150,14 @@ Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试�
 | 本地控制器与游标 | 单写事件事务、`status` 游标与阅读卡、Ledger 起稿的计划集与执行侧报告骨架、恢复与显式追加预算 | [本地运行](skills/migration-protocol/references/local-runtime.md)、[宿主接入](skills/migration-protocol/references/host-integration.md) |
 | 并行 MO 与统一收尾 | 各 MO 独立推进；全量收尾后统一审计 | [状态机](skills/migration-protocol/references/state-machine.md#模块隔离与全量收尾) |
 | Auditor | 先整体代码治理，再复核遗留；修复后验证，失败待人工 | [审计范围](skills/migration-protocol/references/audit-scope.md)、[代码治理](skills/migration-protocol/references/audit-code-review.md) |
-| Android/Harmony 自动测试 | MobileAgenticOperator test 模式，逐 PATH/ASSERT 证据接入 Ledger；snapshot / recording 媒体任务供存量捕获与录屏取证，PATH 可录屏 | [移动端运行](skills/migration-test/references/harmony-runtime.md) |
+| Android、iOS 与 Harmony 自动测试 | 吸收 MobileAgenticOperator 驱动，按冻结 PATH 选择 ADB、WDA 或 HDC，逐 ASSERT 证据接入 Ledger。snapshot 和 recording 提供媒体证据 | [移动端运行](skills/migration-test/references/harmony-runtime.md)、[iOS 接入](skills/migration-test/runtime/harmony/README.md#ios-接入) |
 | 切片与功能清单 | 叶子是功能树上的子业务流（页面是 TASK，3–30 条 CASE），自带四维分析与实现 SPEC；无用例先读源码建树再派生用例，有用例以用例范围为抓手；清单完整可追溯，疑问交人工；一条 CASE 一个验收切片；往次切分经验生成技能，供后续 Run 的 GO/MO 加载 | [切片规约](skills/migration-global/references/slicing.md) |
 | 项目上下文 | 首次保存，增量更新，每次运行 prepare 固化快照；三条只有人能给的声明（存量怎样跑、目标在哪些设备上怎样预览、资源怎样进目标）问到为止，目标预览（可带目标 app_id / launch）由 init 写成运行环境文件并预填 visual PATH，`harmony_reference` 让 init 备好 Harmony sandbox；知识文档可查，缺的知识登 knowledge-need 交人补充 | [项目上下文](skills/migration-protocol/references/project-context.md) |
 | 目标画像 | GO 逐功能记目标状态（absent/shell-only/partial/existing）；脚手架只在缺外壳处，持有代码的叶子欠复用说明 | [父子拆分](skills/migration-protocol/references/module-decomposition.md) |
 | 用户参考媒体 | 存量截图/录屏与目标预期随项目上下文固化、下发到持有叶子：截图是 user-reference 视觉基线，录屏是交互预期，目标预期取代存量基线；规划步骤列尚未引用的媒体，未引用即欠项；截图可作断言参考图，录屏可标时间段；诊断/修复并列预期与实际媒体 |
 | 存量预览与捕获 | 项目声明存量怎样跑（Android 设备 / 模拟器 / 虚拟机、鸿蒙设备、浏览器 / 不能跑；没有真机时由我们启动声明的模拟器）；legacy-capture 在包内装机、走冻结动作把界面写成参考记录，走不成确定性动作的界面由声明的 navigator 走到后再按选择器捕获；浏览器按同一滚动契约捕获，web / 鸿蒙存量的 UI 树从运行时索引派生；规划步骤带 capture_due，无法捕获时在冻结前记录原因和证据；Android 目标装 APK、web 目标以页面声明的构建哈希进入同一视觉对齐；测试结果带截图 / 录屏证据 | [项目上下文](skills/migration-protocol/references/project-context.md#存量预览)、[视觉执行](skills/migration-protocol/references/visual-execution.md) | [项目上下文](skills/migration-protocol/references/project-context.md#用户参考媒体)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 上下文就绪 | 规划与审计者随操作登记预检，coding 与无待复测的审计由 Ledger 机械预检；worker 的 building/testing 从 Ledger 骨架起笔，ready 才开工；worker 只读执行所需 | [上下文就绪](skills/migration-protocol/references/context-readiness.md) |
-| 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual；自动化缺失仅 Yellow；PATH 可声明 record_video，录屏随结果入 Ledger；Android/Harmony 走内置 Harmony Main，web 走内置 web Main（冻结的确定性步骤与 DOM 谓词或用户截图，plan 时按形状校验，真实浏览器执行、每步截图，表单动作与谓词齐全，谓词有界重读、多次尝试识别 flaky），适配器按 PATH 平台自动选取，项目适配器只需写断言 | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
+| 构建、单测、静态审查、自动化、视觉 | build → unit → static → automation → visual。内置 Main 按 PATH 平台选择移动端三平台或 Web，缺环境记录 Yellow。录屏随 PATH 结果入 Ledger。Web 使用冻结步骤和 DOM 谓词或用户截图，保留逐步证据并识别 flaky | [构建与自动化](skills/migration-protocol/references/build-automation.md)、[UI 保真](skills/migration-protocol/references/ui-fidelity.md) |
 | 资源与参数搬运 | 文件资源按清单原样复制、按 accessor 引用；布局、图层与代码里的取值记成参数表，生成到目标后按键取用；Spec 只写例外，验收比对字节与引用；登记 UI/Resource 分配前对约定定论（声明，或写明目标不接收的原因） | [搬运](skills/migration-protocol/references/resource-transfer.md#总则) |
 | 图片与图标对齐 | 图片来源逐条记录并入资源闭包；树上每处静态图片都上屏核对或带证据豁免：存量资源离线渲染为参考，目标屏幕节点与之比较（另有文本与节点检查），结论由 Ledger 重算；手工替换的图片须测量或获批偏差 | [图片与图标对齐](skills/migration-protocol/references/ui-fidelity.md#图片与图标对齐) |
 | 四维切片与语义模型 | UI → Logic → Adhesive → Resource 逐层映射到 TASK/PATH/ASSERT | [四维](skills/migration-protocol/references/dimension-slicing.md)、[语义抽取](skills/migration-protocol/references/semantic-extraction.md) |
@@ -191,6 +191,7 @@ Ledger 按宿主任务、模块和 TASK 汇总 automation 的应测、已尝试�
 
 | 日期 | 主要变化 |
 | --- | --- |
+| 2026-11-16 | 吸收 MobileAgenticOperator 的 iOS WDA 驱动。Android、iOS 与 Harmony 按冻结 PATH 选择内置 Main，共用逐步断言、媒体证据和 Ledger 回执。 |
 | 2026-11-16 | 资源已就绪的编码派发同轮交付。GLOBAL 波次按执行方式分批，单条配置缺口局部报告，单平台适配器覆盖按实际输入重验。终审挂起前的独立受管视觉 Green 可跨无关叶子更新沿用，实际命令相同的 JUnit PATH 共用执行。 |
 | 2026-11-16 | 已分配的独立 Test-Runner 先交付。叶子收尾之后，等待局部修订批准期间独立 GLOBAL 波次继续。只改 GLOBAL 命令超时可保留独立冻结叶子的开工条件。终审按生效配置与绑定 APK/HAP 派发，受管 GLOBAL 视觉沿用可核验的执行回执。 |
 | 2026-11-16 | 父 MO 就绪切片先交付，独立 GLOBAL 波次的有效 Green 入账后保留修订评审。终审局部撤派，回执失效时按 PATH 补验，同批相同冻结 JUnit 命令只执行一次。 |

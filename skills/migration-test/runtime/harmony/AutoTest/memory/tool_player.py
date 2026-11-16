@@ -2211,13 +2211,15 @@ class ToolPlayer:
             label: str = ""
     ):
         """Find xpath candidates and choose the one nearest to cached bounds or coordinate."""
-        if getattr(self.device, 'platform', 'harmony') == 'android':
+        platform = getattr(self.device, 'platform', 'harmony')
+        if platform in ('android', 'ios'):
             from types import SimpleNamespace
-            elements = driver.xpath(xpath).all()
-            if not elements: return None
+            selector = driver.xpath(xpath)
+            centers = [e.center() for e in selector.all()] if platform == 'android' else [
+                e.bounds.center for e in selector.find_elements()]
+            if not centers: return None
             target = self._parse_bounds_center(bounds) or self._normalize_cached_point(fallback_x, fallback_y)
-            element = min(elements, key=lambda e: sum((a-b)**2 for a,b in zip(e.center(), target))) if target else elements[0]
-            x, y = element.center()
+            x, y = min(centers, key=lambda point: sum((a-b)**2 for a,b in zip(point, target))) if target else centers[0]
             return SimpleNamespace(getBoundsCenter=lambda: SimpleNamespace(X=x, Y=y))
         locator = BY.xpath(xpath)
         candidates = []
@@ -2279,8 +2281,8 @@ class ToolPlayer:
             成功时返回 JSON 字符串结果，失败时返回 None
         """
         try:
-            if getattr(self.device, 'platform', 'harmony') == 'android':
-                # Cached Android actions use the same normalized coordinates, without Hypium MCP.
+            if getattr(self.device, 'platform', 'harmony') in ('android', 'ios'):
+                # Cached actions use this backend's display coordinates.
                 width, height = self.device.get_display_size()
                 def point(xy): return int(xy[0] * width / 1000), int(xy[1] * height / 1000)
                 if tool_name in ('click', 'double_click', 'long_click'):

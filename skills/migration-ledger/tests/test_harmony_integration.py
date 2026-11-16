@@ -84,7 +84,13 @@ s.record('[ASSERT:A1]',value==2,'observed fixture value','one_image_assert',[med
 r=s.report()
 platform = '''+repr(report_platform)+''' or q.get('platform', 'harmony')
 environment=out/'environment.json'
-write(environment,{'platform':platform,'task_type':''' + repr(task_type) + ''','device':'fixture'})
+device={'platform':platform,'task_type':''' + repr(task_type) + ''','device':'fixture'}
+if platform == 'ios':
+    proof = out/'ios-device.json'
+    device['device'] = 'http://127.0.0.1:8100'
+    write(proof,{'endpoint':device['device'],'wda_uuid':'fixture-wda'})
+    device['device_observation_ref']=ref(proof)
+write(environment,device)
 r.update(mobile_contract_version=1,platform=platform,task_type=''' + repr(task_type) + ''',environment_ref=ref(environment))
 if ''' + repr(omit_step_proof) + ''':
     r.pop('step_contract_version',None);r.pop('step_trace_ref',None)
@@ -208,3 +214,14 @@ class AndroidLedgerTests(HarmonyLedgerTests):
 
 class ExplicitHarmonyLedgerTests(HarmonyLedgerTests):
     platform = 'harmony'
+
+
+class IosLedgerTests(HarmonyLedgerTests):
+    platform = 'ios'
+
+    def test_changed_wda_observation_is_rejected_on_submit(self):
+        result = self.run_adapter()
+        (self.outputs / 'exec/ios-device.json').write_text('{"wda_uuid":"different-device"}')
+        assignment = self.f.state()['modules']['M001']['assignments']['H1']
+        with self.assertRaises(Rejected):
+            self.f.submit(result, assignment)

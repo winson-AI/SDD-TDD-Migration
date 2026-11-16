@@ -1,19 +1,19 @@
 # 自动化测试：输入、输出与完整控制流
 
-核对日期：2026-10-15。范围为本包当前协议、模板、宿主执行脚本和内置 Android/Harmony test 内核；这是现状说明，不更改运行协议。以下 JSON 是格式示例，占位摘要、路径和执行结果均不是实际测试证据。
+内置移动端 Main 覆盖 Android、iOS 和 Harmony。以下 JSON 展示协议、模板和宿主执行的输入输出格式。
 
 ## 1. 自动化在整个迁移流程中的位置
 
 **GO/父 MO 分配 scope/全量 CASE → 子 MO 拆 TASK → Spec-Designer 形成 SPEC/PATH 并由 MO 冻结 → Implementer/Coding 接受 → build/unit → 核对测试资产 → automation 派发与预检（模型执行时可与 static 同派，static 在前） → 逐 PATH 执行 → visual（适用时）→ 反馈分流 / DoD → 全量收尾后统一 Auditor。**
 
 - 预期路径来自上游用例和 SPEC，Test-Runner 的独立 design 按需协助。正式自动化在代码接受且当前 build/unit 通过后执行。通常先完成 static，静态闭合等待调用方代码时，可先执行当前模块的自动化。
-- `Main` 是项目实际验证入口，不是固定文件名。`execute_test.py` 是宿主包装器，内置移动端 adapter 支持 Android/Harmony 的 test 模式（不含 iOS）；其他执行入口需真实项目 adapter。
+- `execute_test.py` 调用当前 PATH 的 Main。Android、iOS 和 Harmony 可选内置移动端入口，项目适配器可提供自己的验证命令。
 - Test-Runner 执行和产出证据；模块 CASE 由 MO 唯一验收，审计 CASE 由 Auditor 唯一验收。实现错误交 Fixer；规划缺口走 CR 更新 SPEC，再由 Implementer 更新已有代码；范围不足上溯父 MO/GO。测试执行器和 Auditor 不修改源码/验收标准。
 - **自动化环境不可用可以结束本轮调度，但仍是 Yellow/未验证。** 它不让其他独立 MO 失败，也不取消可执行下游。
 
 ![自动化外层流程](automation-flow.svg)
 
-[Android/Harmony 内核详图](automation-engine.svg)
+[移动端内核详图](automation-engine.svg)
 
 ## 2. 输入分层：用户提供什么，系统生成什么
 
@@ -139,9 +139,9 @@ python3 /work/SDD-TDD-Migration/skills/migration-ledger/scripts/execute_test.py 
 
 **注意两层退出码**：Harmony 子进程为 0/1/2，含义分别为 Green/Red/Yellow，记录在 receipt.exit_code。外层 `execute_test.py` CLI 正常完成回执写入时返回 0，即使子进程测试失败；宿主必须读取 receipt/result，不能把包装器退出成功当测试成功。
 
-### 3.2 Android/Harmony 内部过程
+### 3.2 移动端内部过程
 
-![Android/Harmony 内核](automation-engine.svg)
+![移动端内核](automation-engine.svg)
 
 1. 校验 query、配置、依赖、设备；获取设备文件锁，在本次 `harmony/` 目录运行。
 2. 把前置、参数、步骤和断言转为交错任务文本；每条断言使用单个 `[ASSERT:id]`。已校验知识只辅助执行，不改预期。

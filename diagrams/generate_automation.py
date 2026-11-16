@@ -1,4 +1,4 @@
-"""Render automation contracts and the Harmony inner loop; no runtime changes."""
+"""Render the automation contracts and the mobile execution loop."""
 from generate_workflows import Diagram, COLORS, TINTS
 
 
@@ -44,7 +44,7 @@ def automation_flow():
           ['scope=automation；重验代码 / 环境 / 命令', '进程内 PATH 跑冻结命令 + JUnit；设备 / 浏览器 PATH 调 Main'])
     d.arrow([(780, 1065), (780, 1120)])
     d.box(460, 1120, 640, 145, '逐 PATH 调用 Main（适配器随平台）',
-          ['声明了平台未写适配器即用内置 Main；--query-file / --result-file', 'Android / Harmony → Harmony Main（图 06）；web → web Main', '受限 APK / HAP 视觉派发可与独立编码并行；设备锁保留'], controller=True)
+          ['声明平台后选择内置或项目 Main，传入 query 与 result 文件', 'Android / iOS / Harmony → 移动端 Main（图 06），Web → web Main', '受限 APK / HAP 视觉可与独立编码并行，核对设备锁'], controller=True)
     d.box(60, 1080, 340, 190, '两层执行结果',
           ['包装器 exit 0：已写回执', '不等于 CASE 通过', '超时 124 / 启动失败 127', '以 receipt / assertions 为准'], 'orange')
     d.arrow([(780, 1265), (780, 1320)])
@@ -99,7 +99,7 @@ def automation_flow():
 
 
 def automation_engine():
-    d = Diagram('automation-engine', 2230, '06', 'Android / Harmony · 单 PATH 自动化内核',
+    d = Diagram('automation-engine', 2230, '06', 'Android / iOS / Harmony · 单 PATH 自动化内核',
                 '内核属于同一次 Test-Runner 执行；只负责设备操作与断言取证，不承担外层修复或验收权限')
     artifact(d, 440, 190, 720, 130, '完整 query + 引擎配置',
              ['冻结步骤 / 参数 / ASSERT / after_step / 当前代码身份', '设备 / 三类模型 / 预算 / 可选 knowledge_ref 与 recording_ref'])
@@ -114,7 +114,7 @@ def automation_engine():
     d.arrow([(635, 780), (380, 780), (380, 880)]); d.label(490, 760, '无录制')
     d.arrow([(965, 780), (1220, 780), (1220, 880)]); d.label(1100, 760, '有效录制')
     d.box(80, 880, 600, 140, 'Planner → Executor',
-          ['Observe → 单步工具 / execute → 实际反馈', 'Android ADB / Harmony hdc；general / glm / MCP / Hypium', '压缩上下文 / 可选反思 / 技能 / XPath 缓存'], controller=True)
+          ['Observe → 单步执行 → 实际反馈', 'Android ADB / iOS WDA / Harmony HDC', '压缩上下文 / 可选反思 / 技能 / XPath 缓存'], controller=True)
     d.box(920, 880, 600, 140, 'ToolPlayer · 导航回放',
           ['坐标 / XPath / 输入 / 进度条 / 临时控件', '意外弹窗处理；验证不复用旧通过结果', '失败时携带历史，在剩余预算内重规划'], controller=True)
     d.label(580, 865, '入口 C', 'purple')

@@ -321,8 +321,9 @@ class ReadingCardTests(unittest.TestCase):
         self.assertIn((skill, '2. 核心规约'), build)
         self.assertNotIn((skill, '1. 定位'), build)
         self.assertNotIn((skill, '4. 接口契约'), build)
-        self.assertFalse([h for p, h in build if p == skill and (h or '').startswith('7. Android/Harmony')])
-        self.assertTrue([h for p, h in reading.entries('test-runner', 'automation') if p == skill and (h or '').startswith('7. Android/Harmony')])
+        mobile = (skill, '7. 移动端自动化测试')
+        self.assertNotIn(mobile, build)
+        self.assertIn(mobile, reading.entries('test-runner', 'automation'))
 
     def test_operation_rows_deliver_one_row_of_the_matrix(self):
         text = reading.section(reading.P + 'local-runtime.md', '操作矩阵@accept,submit')

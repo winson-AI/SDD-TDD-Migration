@@ -1,7 +1,7 @@
 [project]
 name = "sdd-harmony-sandbox"
 version = "0.1.0"
-description = "Isolated Android/Harmony test runtime for SDD-TDD-Migration"
+description = "Isolated Android, iOS and Harmony test runtime for SDD-TDD-Migration"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "openai==2.15.0",
@@ -30,3 +30,6 @@ constraint-dependencies = [
 
 [tool.uv.sources]
 hypium-mcp = { path = "resources/hypium_mcp-0.6.5-py3-none-any.whl" }
+
+[project.optional-dependencies]
+ios = ["facebook-wda==1.5.4"]

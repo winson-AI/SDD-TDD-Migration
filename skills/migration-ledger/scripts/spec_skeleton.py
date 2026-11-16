@@ -213,6 +213,15 @@ def plans(s, m, out, documents):
                                                         'verification': 'dom', 'after_step': 2, 'scenario_ids': [],
                                                         'predicate': {'kind': 'text', 'selector': todo('CSS 选择器'), 'equals': todo('页面显示的文本')}}]))
                 continue
+            if platforms[0] == 'ios':
+                hint = f'（UI 树节点 id：{", ".join(nodes)}）' if nodes else ''
+                steps = [todo('冻结 WDA 操作步骤' + hint)]
+                assertion = {'assertion_id': 'ASSERT-' + pid, 'expected': True, 'description': todo('上游预期'),
+                             'matcher': 'exact', 'verification': 'one_image_assert', 'after_step': 1, 'scenario_ids': []}
+                paths.append(path(pid, 'automation', cid, case_name(cid), platform='ios', task_type='test',
+                                  preconditions=[todo('宿主已部署构建及用例前置状态')], steps=steps,
+                                  expected_assertions=[assertion]))
+                continue
             paths.append(path(pid, 'automation', cid, case_name(cid), platform=platforms[0]))
             if nodes:
                 cls = case_class(cid, 'UiTest')

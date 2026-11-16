@@ -1,4 +1,4 @@
-"""Android/Harmony test-mode integration with simulated device/model I/O, never live acceptance."""
+"""Mobile test-mode integration with simulated device and model I/O."""
 import asyncio
 import importlib.util
 import json
@@ -20,15 +20,18 @@ from test_harmony import query
 
 class MobileContractTests(unittest.TestCase):
     def test_platform_bound_device_selection_and_no_silent_provider_fallback(self):
-        raw = {'devices': {'android': 'A', 'harmony': 'H'}, 'models': {'execute_provider': 'general'}}
-        for platform, serial in [('android', 'A'), ('harmony', 'H')]:
+        raw = {'devices': {'android': 'A', 'ios': 'http://localhost:8100', 'harmony': 'H'},
+               'models': {'execute_provider': 'general'}}
+        for platform, serial in [('android', 'A'), ('ios', 'http://localhost:8100'), ('harmony', 'H')]:
             result = execution_config(raw, {'platform': platform})
             self.assertEqual((result['device'], result['platform'], result['task_type']), (serial, platform, 'test'))
         self.assertEqual(execution_config(raw, platform='android', device='override')['device'], 'override')
         with self.assertRaisesRegex(ValueError, 'frozen PATH'):
             execution_config(raw, {'platform': 'android'}, platform='harmony')
-        for bad in ('ios', 'snapshot'):
+        for bad in ('web', 'snapshot'):
             with self.assertRaises(ValueError): execution_config(raw, platform=bad)
+        with self.assertRaisesRegex(ValueError, 'WebDriverAgent HTTP'):
+            execution_config(raw, platform='ios', device='bare-udid')
         for mode in ('snapshot', 'recording'):  # media tasks: accepted, and never with a test's assertions
             self.assertEqual(execution_config(raw, {'task_type': mode})['task_type'], mode)
             with self.assertRaisesRegex(ValueError, 'carry no assertions'): validate_query({**query(), 'task_type': mode})
@@ -42,6 +45,12 @@ class MobileContractTests(unittest.TestCase):
         with device_lock('mobile-fixture', '127.0.0.1', 8710, 'android'):
             with self.assertRaises(ValueError):
                 with device_lock('mobile-fixture', 'different-host', 7777, 'android'): pass
+
+    def test_ios_device_lock_catches_aliases_and_second_forward_to_same_udid(self):
+        with device_lock('http://localhost:8182', None, None, 'ios', udid='DESIGNATED-UDID'):
+            for endpoint, udid in [('http://127.0.0.1:8182/', None), ('http://localhost:8183', 'designated-udid')]:
+                with self.subTest(endpoint=endpoint), self.assertRaisesRegex(ValueError, 'device busy'):
+                    with device_lock(endpoint, None, None, 'ios', udid=udid): pass
 
     def test_recordings_for_the_same_steps_are_separated_by_platform(self):
         self.assertNotEqual(task_text({**query(), 'platform': 'android'}), task_text({**query(), 'platform': 'harmony'}))
@@ -133,7 +142,7 @@ class MobileNativeTests(unittest.TestCase):
         with patch.object(native, 'HDCDevice') as hdc:
             native.create_device(args, None, SimpleNamespace(execute_provider='general'))
             hdc.assert_called_once_with('H', 'localhost', 8710, report_generator=None, config=unittest.mock.ANY)
-        for platform, mode in [('ios', 'test'), ('android', 'preview')]:
+        for platform, mode in [('web', 'test'), ('android', 'preview')]:
             args.platform, args.task_type = platform, mode
             with self.assertRaises(ValueError): native.create_device(args, None, SimpleNamespace(execute_provider='general'))
         args.platform, args.task_type = 'android', 'snapshot'
@@ -151,6 +160,65 @@ class MobileNativeTests(unittest.TestCase):
         driver = Mock(); driver.UiTree.dump_page_info.side_effect = OSError('disconnected')
         with scope(self.out), self.assertRaisesRegex(RuntimeError, 'screenshot unavailable'):
             screenshot.get_screenshot(driver)
+
+    @unittest.skipUnless(importlib.util.find_spec('wda'), 'optional iOS dependencies required')
+    def test_ios_launch_capture_and_assertion_use_wda_points_and_managed_evidence(self):
+        from io import BytesIO
+        import base64
+        from PIL import Image
+        from AutoTest.layered_agent_cli.agent_registry import agent_registry
+        from AutoTest.layered_agent_cli import mcp_tools
+        from AutoTest.verify_agent.agent import VerifyAgent
+        from AutoTest.devices.ios import apps
+        from test_step_execution import drive_fixture_steps
+
+        endpoint = 'http://127.0.0.1:8184'
+        client = Mock()
+        client.device_info.return_value = {'uuid': 'wda-fixture', 'model': 'iPhone', 'isSimulator': True}
+        client._unsafe_window_size.return_value = (100, 200)
+        client.screenshot.return_value = Image.new('RGB', (300, 600), 'green')
+        client.source.return_value = '<XCUIElementTypeApplication name="Fixture"/>'
+        client.app_current.return_value = {'bundleId': 'com.example.fixture'}
+        q = {**query(), 'platform': 'ios'}
+        sink = ObservationSink(q, self.out)
+
+        def planner(config, device, reporter):
+            agent_registry.set_executor_agent(SimpleNamespace(device=device))
+            return SimpleNamespace(name='fixture')
+
+        async def runner(*args, **kwargs):
+            device = agent_registry.get_executor_agent().device
+            def action(number):
+                if number == 1:
+                    self.assertIn('successfully', mcp_tools._start_app('Fixture'))
+                else:
+                    device.tap(50, 100)
+            await drive_fixture_steps(sink, action)
+            shot = device.get_screenshot()
+            self.assertEqual((shot.width, shot.height), (100, 200))
+            with Image.open(BytesIO(base64.b64decode(shot.base64_data))) as image:
+                self.assertEqual(image.size, (300, 600))
+            with patch.object(VerifyAgent, '_verify', return_value=(True, 'observed', 'one_image_assert', [shot.screenshot_path])):
+                self.assertTrue(agent_registry.get_verify_agent().verify('[ASSERT:A1]')[0])
+            client.screenshot.side_effect = OSError('unavailable')
+            with self.assertRaisesRegex(RuntimeError, 'screenshot or UI tree unavailable'):
+                device.get_screenshot()
+            return SimpleNamespace(final_output='test passed')
+
+        config = {'platform': 'ios', 'device': endpoint, 'ios_bundle_id': 'com.example.fixture',
+                  'apps': {'ios': {'name': 'Fixture', 'package': 'com.example.fixture'}},
+                  'models': {'decision_models': [{'name': 'fixture', 'base_url': 'https://example.invalid', 'api_key': 'unused'}],
+                             'execute_model_name': 'fixture', 'execute_provider': 'general', 'verify_model_name': 'fixture'}}
+        with scope(self.out), patch.dict(apps.APP_PACKAGES), patch('wda.Client', return_value=client), \
+             patch('AutoTest.layered_agent_cli.decision.create_planner_agent', side_effect=planner), \
+             patch('AutoTest.layered_agent_cli.decision.Runner.run', side_effect=runner), patch.object(mcp_tools.time, 'sleep'):
+            asyncio.run(run_engine(q, config, self.out, sink))
+        client.app_launch.assert_called_once_with('com.example.fixture')
+        client.tap.assert_called_once_with(50, 100)
+        client.home.assert_not_called()
+        self.assertEqual(sink.report()['quality'], 'green-passed')
+        proof = json.loads((self.out / 'ios-device.json').read_text())
+        self.assertEqual((proof['endpoint'], proof['wda_uuid']), (endpoint, 'wda-fixture'))
 
     def test_android_recording_storage_checked_before_device_io(self):
         from AutoTest.devices.adb import screenshot

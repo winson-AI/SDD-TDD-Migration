@@ -22,9 +22,19 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1833 | 全量通过 |
-| migration-test/tests | 83 | 全量通过 |
+| migration-ledger/tests | 1844 | 全量通过 |
+| migration-test/tests | 85 | 全量通过 |
 | runtime/harmony/tests | 128 | 全量通过 |
+
+### iOS 自动化接入
+
+三套回归使用已安装 iOS 可选依赖的运行时 Python 3.12。Ledger 使用 pytest-xdist，保留七叶演练 15 轮对照早期 11 轮的警告。Migration Test 报告了上游 facebook-wda 1.5.4 的字符串转义警告。
+
+在一次性 iOS 26.5 模拟器上用 Xcode 27.2 启动 WebDriverAgent v13.3.0。运行时通过 WDA 启动系统设置并滑动，保存 1206 × 2622 的截图和 168 节点的 UI 树，手势按 402 × 874 的逻辑坐标执行。simctl 录屏已成功解码视频帧。冒烟覆盖设备驱动和媒体采集，模拟 PATH 回归覆盖逐步断言与 Ledger 验收。另通过 sandbox 正式入口验证 WDA 不可达时只给该 PATH 返回 Yellow。
+
+真机 AVFoundation 录屏及迁移业务 App 的正式验收需在已部署构建和实际设备上取证。
+
+### 此前的控制流回归
 
 三套回归用 Harmony sandbox 的 Python 3.12 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败、错误或跳过。Ledger 用本地缓存的 pytest-xdist 并行执行。回归使用隔离临时目录、本地模拟端口和测试子进程，设备场景使用隔离夹具。
 

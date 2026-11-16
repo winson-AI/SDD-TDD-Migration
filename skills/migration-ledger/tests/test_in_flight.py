@@ -26,9 +26,9 @@ DECLINED = {'declined': {'copy': 'the target bundles no files', 'parameters': 'v
 
 class DeviceStatementTests(unittest.TestCase):
     def test_a_project_states_the_platforms_or_why_there_is_none(self):
-        for device in ({'platforms': ['android']}, {'platforms': ['harmony', 'android']}, NO_DEVICE):
+        for device in ({'platforms': ['android']}, {'platforms': ['harmony', 'android', 'ios']}, NO_DEVICE):
             self.assertEqual(pc.validate({'test_adapter': {'device': device}})['test_adapter']['device'], device)
-        for bad in ({'platforms': []}, {'platforms': ['ios']}, {'platforms': ['android', 'android']}, {'unavailable': ' '},
+        for bad in ({'platforms': []}, {'platforms': ['tvos']}, {'platforms': ['android', 'android']}, {'unavailable': ' '},
                     {'platforms': ['android'], 'unavailable': 'both'}, {}, 'android'):
             with self.subTest(bad=bad), self.assertRaisesRegex(Rejected, r'test_adapter\.device'):
                 pc.validate({'test_adapter': {'device': bad}})

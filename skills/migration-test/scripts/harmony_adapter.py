@@ -2,7 +2,7 @@
 """Main adapter. Invoke ONLY through execute_test.py after Ledger authorization."""
 import argparse
 import asyncio
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 import hashlib
 import importlib.util
 import importlib.metadata
@@ -14,22 +14,24 @@ import shutil
 import sys
 import socket
 from types import SimpleNamespace
+from urllib.parse import urlsplit
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'migration-ledger/scripts'))
 from runner_storage import harmony_output, scope
 from run_storage import checked_path
-from harmony_contract import ObservationSink, digest, ref, task_text, validate_query, write
+from harmony_contract import MOBILE_PLATFORMS, ObservationSink, digest, ref, task_text, validate_query, write
+from project_context import wda_endpoint
 
 ENGINE = Path(__file__).resolve().parents[1] / 'runtime/harmony'
 
 
-def execution_config(raw, query=None, platform=None, device=None):
+def execution_config(raw, query=None, platform=None, device=None, *, ios_udid=None, ios_bundle_id=None):
     """Resolve a frozen platform and explicit device without cross-platform fallback."""
     q = query or {}
     selected = platform or q.get('platform') or raw.get('platform', 'harmony')
-    if selected not in ('android', 'harmony'):
-        raise ValueError('supported platform required: android or harmony')
+    if selected not in MOBILE_PLATFORMS:
+        raise ValueError('supported platform required: android, ios or harmony')
     if q.get('platform') and q['platform'] != selected:
         raise ValueError('execution platform differs from frozen PATH')
     task_type = q.get('task_type', 'test')
@@ -41,9 +43,18 @@ def execution_config(raw, query=None, platform=None, device=None):
     serial = serial or os.environ.get(selected.upper() + '_DEVICE', '')
     if not isinstance(serial, str) or not serial.strip():
         raise ValueError('explicit device serial required for ' + selected)
-    if selected == 'android' and raw.get('models', {}).get('execute_provider') not in ('general', 'glm'):
-        raise ValueError('Android requires general or glm executor; no provider fallback')
-    return {**raw, 'platform': selected, 'task_type': task_type, 'device': serial}
+    if selected in ('android', 'ios') and raw.get('models', {}).get('execute_provider') not in ('general', 'glm'):
+        raise ValueError(selected.capitalize() + ' requires general or glm executor; no provider fallback')
+    settings = {**raw, 'platform': selected, 'task_type': task_type, 'device': serial}
+    if selected == 'ios':
+        settings['device'] = wda_endpoint(serial)
+        settings['ios_udid'] = ios_udid or raw.get('ios_udid') or os.environ.get('IOS_UDID') or None
+        settings['ios_bundle_id'] = ios_bundle_id or raw.get('ios_bundle_id')
+        for key, pattern in (('ios_udid', r'[A-Za-z0-9-]+'), ('ios_bundle_id', r'[A-Za-z0-9.-]+')):
+            value = settings[key]
+            if value is not None and (not isinstance(value, str) or not re.fullmatch(pattern, value)):
+                raise ValueError('a valid ' + key + ' is required')
+    return settings
 
 
 def resolve_env(value):
@@ -71,13 +82,22 @@ def public_config(value):
 
 
 @contextmanager
-def device_lock(device, ip, port, platform='harmony'):
+def device_lock(device, ip, port, platform='harmony', *, udid=None):
     # A machine-wide lease without a persistent /tmp lock inode. Binding is
     # atomic and the OS releases it even on SIGKILL; collisions fail closed.
-    key = digest(['android', device] if platform == 'android' else [device, ip, port])
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as lease:
-        try: lease.bind(('127.0.0.1', 20000 + int(key[:8], 16) % 30000))
-        except OSError as exc: raise ValueError('device busy: local device lease unavailable') from exc
+    keys = [['android', device]] if platform == 'android' else [[device, ip, port]]
+    if platform == 'ios':
+        endpoint = urlsplit(wda_endpoint(device))
+        host = 'loopback' if endpoint.hostname in ('localhost', '127.0.0.1', '::1') else endpoint.hostname
+        keys = [['ios', host, endpoint.port or (443 if endpoint.scheme == 'https' else 80)]]
+        if udid:
+            keys.append(['ios-udid', udid.lower()])
+    ports = {20000 + int(digest(key)[:8], 16) % 30000 for key in keys}
+    with ExitStack() as leases:
+        for number in sorted(ports):
+            lease = leases.enter_context(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+            try: lease.bind(('127.0.0.1', number))
+            except OSError as exc: raise ValueError('device busy: local device lease unavailable') from exc
         yield
 
 
@@ -176,21 +196,30 @@ async def run_engine(q, config, out, sink):
     # main already resolved CLI overrides; do not let devices[platform] undo them.
     config = execution_config(config, q, device=config.get('device'))
     sys.path.insert(0, str(ENGINE))
-    app = config.get('apps', {}).get(config['platform'])
+    platform = config['platform']
+    app = config.get('apps', {}).get(platform)
     if app:
         if not all(isinstance(app.get(k), str) and app[k] for k in ('name', 'package')):
             raise ValueError('explicit app name/package required')
-        module = importlib.import_module('AutoTest.devices.' + ('adb' if config['platform'] == 'android' else 'hdc') + '.apps')
-        if config['platform'] == 'harmony':
+        backend = {'android': 'adb', 'ios': 'ios', 'harmony': 'hdc'}[platform]
+        module = importlib.import_module('AutoTest.devices.' + backend + '.apps')
+        if platform == 'ios' and config['ios_bundle_id'] and app['package'] != config['ios_bundle_id']:
+            raise ValueError('iOS app mapping must use the configured target bundle ID')
+        if platform == 'harmony':
             if not app.get('ability'): raise ValueError('explicit Harmony app ability required')
             module.APP_ABILITIES[app['package']] = app['ability']
         module.APP_PACKAGES[app['name']] = app['package']
     from AutoTest.logger import configure_logger
     cfg = configure(config['models'])
+    video_assertion = any(a['verification'] == 'video_assert' for a in q.get('expected_assertions', []))
+    if platform == 'ios' and not config['ios_udid']:
+        if video_assertion or config['task_type'] == 'recording' or q.get('record_video'):
+            raise ValueError('explicit iOS UDID required for recording and video assertions')
+        cfg.verify_video_enable = False
     if config['task_type'] == 'recording' or q.get('record_video'):  # keep the walk on film: the deliverable, or evidence beside the verdict
         cfg.verify_video_enable = True
         cfg.keep_raw_video = True
-    if any(a['verification'] == 'video_assert' for a in q.get('expected_assertions', [])) and not cfg.verify_video_enable:
+    if video_assertion and not cfg.verify_video_enable:
         raise ValueError('frozen video assertion requires verify_video_enable')
     configure_logger(log_file=str(out / 'engine.log'))
     spec = importlib.util.spec_from_file_location('sdd_harmony_main', ENGINE / 'main.py')
@@ -198,8 +227,8 @@ async def run_engine(q, config, out, sink):
     spec.loader.exec_module(native)
     native.VerifyAgent = observing_verifier(native.VerifyAgent, sink)
     task = task_text(q)
-    if config['platform'] == 'android' and not q.get('platform'):
-        task = '平台：android；任务类型：' + config['task_type'] + '\n' + task
+    if platform != 'harmony' and not q.get('platform'):
+        task = '平台：' + platform + '；任务类型：' + config['task_type'] + '\n' + task
     from AutoTest.layered_agent_cli.agent_registry import agent_registry
     knowledge = config.get('knowledge_ref')
     if knowledge:
@@ -214,6 +243,9 @@ async def run_engine(q, config, out, sink):
                            report_dir=str(out / 'reports'), device=config['device'],
                            ip=config.get('ip','127.0.0.1'), port=config.get('port',8710),
                            memory_dir=str(out / 'memory'))
+    if platform == 'ios':
+        args.ios_udid = config['ios_udid']
+        args.ios_device_observation = out / 'ios-device.json'
     Path(args.memory_dir).mkdir()
     replay = config.get('recording_ref')
     if replay:
@@ -274,8 +306,10 @@ def main():
     for key in ('query-file','result-file'): p.add_argument('--' + key, required=True)
     p.add_argument('--config', help='Initial reference configuration for this run')
     p.add_argument('--env-file', help='Initial credential source for this run')
-    p.add_argument('--platform', choices=('android', 'harmony'))
-    p.add_argument('--device', help='Explicit serial; overrides platform config/environment')
+    p.add_argument('--platform', choices=MOBILE_PLATFORMS)
+    p.add_argument('--device', help='Explicit serial or iOS WDA URL; overrides platform config/environment')
+    p.add_argument('--ios-udid')
+    p.add_argument('--ios-bundle-id')
     p.add_argument('--root', help='Run root; otherwise inferred from the canonical result path')
     a = p.parse_args()
     # A standalone invocation also owns its descendants; never signal the user's shell group.
@@ -307,20 +341,21 @@ def main():
         config_path, env_path = prepare_environment(run_root, a.config, a.env_file, q['module_id'])
         load_environment(env_path)
         config = json.loads(config_path.read_text())
-        config = execution_config(config, q, a.platform, a.device)
+        config = execution_config(config, q, a.platform, a.device, ios_udid=a.ios_udid, ios_bundle_id=a.ios_bundle_id)
         environment.update({'config_ref':ref(config_path), 'device':config.get('device'),
                             'platform':config['platform'], 'task_type':config['task_type'],
                             'ip':config.get('ip','127.0.0.1'), 'port':config.get('port',8710),
                             'recording_ref':config.get('recording_ref'), 'knowledge_ref':config.get('knowledge_ref')})
         environment['configuration'] = public_config(config)
         environment['packages'] = {}
-        for name in ('openai','openai-agents','hypium','hypium-mcp','uiautomator2','opencv-python','imageio-ffmpeg'):
+        for name in ('openai','openai-agents','hypium','hypium-mcp','uiautomator2','opencv-python','imageio-ffmpeg','facebook-wda'):
             try: environment['packages'][name] = importlib.metadata.version(name)
             except importlib.metadata.PackageNotFoundError: environment['packages'][name] = None
         if not config.get('device'): raise ValueError('explicit device serial required')
         write(out / 'environment.json', environment)
         # Native relative media/memory files are contained in the attempt directory.
-        with device_lock(config['device'], config.get('ip','127.0.0.1'), config.get('port',8710), config['platform']):
+        with device_lock(config['device'], config.get('ip','127.0.0.1'), config.get('port',8710), config['platform'],
+                         udid=config.get('ios_udid')):
             with scope(out):
                 sink.final_output = asyncio.run(run_engine(q, config, out, sink))
                 if not sink.final_output or str(sink.final_output).startswith('Error:'):
@@ -340,6 +375,9 @@ def main():
     else:
         report = media_report(q, out, sink.error)
     report.update(mobile_contract_version=2, platform=environment.get('platform'), task_type=task_type)
+    observation = out / 'ios-device.json'
+    if environment.get('platform') == 'ios' and observation.is_file():
+        environment['device_observation_ref'] = ref(observation)
     write(out / 'environment.json', environment)
     report['environment_hash'] = digest(environment)
     report['environment_ref'] = ref(out / 'environment.json')

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import re
 import sys
+from urllib.parse import urlsplit
 sys.dont_write_bytecode = True
 
 import package_version
@@ -22,6 +23,7 @@ FIELDS = {'package_root', 'legacy_root', 'target_root', 'architecture_path', 're
           'escalation_timeout_hours', 'module_slicing', 'defaults', 'knowledge_paths', 'reuse_sources', 'build', 'workspace_root', 'watchdog',
           'target_resources', 'experience_root', 'reference_media', 'legacy_preview', 'scope_statement', 'dependency_changes'}
 DOCUMENTS = ('architecture_path', 'requirements_path', 'test_cases_path', 'project_rules_path')
+TEST_PLATFORMS = {'android', 'ios', 'harmony', 'web'}
 BUDGETS = {'max_parallel_modules': 5, 'max_fix_rounds': 3, 'max_audit_rounds': 3, 'max_no_progress_rounds': 2,
            'max_yellow_retries': 2}
 
@@ -178,7 +180,7 @@ def validate(config):
                 'test_adapter.harmony_reference takes the absolute config (and env_file) the Harmony sandbox is prepared from')
     adapters = adapter.get('adapters')  # which adapter runs the device PATHs of each platform; {run_root} in an argv is the run when it executes
     if adapters is not None:
-        require(isinstance(adapters, dict) and set(adapters) <= {'android', 'harmony', 'web'}, 'test_adapter.adapters maps android, harmony and/or web to the adapter that runs their PATHs')
+        require(isinstance(adapters, dict) and set(adapters) <= TEST_PLATFORMS, 'test_adapter.adapters maps android, ios, harmony and/or web to the adapter that runs their PATHs')
         for platform, row in adapters.items():
             require(isinstance(row, dict) and set(row) <= {'argv', 'cwd', 'timeout_seconds'} and isinstance(row.get('argv'), list) and row['argv']
                     and all(isinstance(x, str) and x for x in row['argv']) and Path(row['argv'][0]).is_absolute()
@@ -192,7 +194,7 @@ def validate(config):
         if 'platforms' in device:
             platforms = device['platforms']
             require(isinstance(platforms, list) and platforms and len(set(platforms)) == len(platforms)
-                    and set(platforms) <= {'android', 'harmony', 'web'}, 'test_adapter.device.platforms lists android, harmony and/or web')
+                    and set(platforms) <= TEST_PLATFORMS, 'test_adapter.device.platforms lists android, ios, harmony and/or web')
             require(set(device) <= {'platforms', *platforms}, 'test_adapter.device describes only the platforms it lists')
             for platform in platforms:
                 if device.get(platform) is not None:
@@ -253,10 +255,30 @@ def path_device(path):
     return f'harmony-{profile}' if harmony_profile_kind(profile) else path.get('platform')
 
 
+def wda_endpoint(value):
+    """A provisioned iOS WebDriverAgent endpoint can be recorded in a run without credentials."""
+    message = 'iOS requires an explicit WebDriverAgent HTTP(S) URL without credentials, query or fragment'
+    require(isinstance(value, str) and value and not any(c.isspace() for c in value), message)
+    try:
+        url = urlsplit(value)
+        port = url.port
+    except ValueError:
+        require(False, message)
+    require(url.scheme in ('http', 'https') and url.hostname and '@' not in url.netloc
+            and '?' not in value and '#' not in value and port != 0, message)
+    return value.rstrip('/')
+
+
 def target_preview(platform, value):
     """Where the target of one platform is previewed: the adb/hdc serial (and how its emulator boots), or the served url."""
     text = lambda key: isinstance(value.get(key), str) and bool(value[key].strip())
     label = 'test_adapter.device.' + platform
+    if platform == 'ios':
+        require(isinstance(value, dict) and set(value) <= {'wda_url', 'udid', 'app_id'}
+                and all(value.get(key) is None or text(key) for key in ('app_id', 'udid')),
+                label + ' takes wda_url, optional UDID and target bundle ID (app_id)')
+        wda_endpoint(value.get('wda_url'))
+        return
     if platform == 'web':
         require(isinstance(value, dict) and set(value) <= {'url', 'viewport', 'browser', 'headless', 'record_video'} and text('url')
                 and value['url'].startswith(('http://', 'https://')), label + ' names the url the target is served at (viewport, browser, headless, record_video optional)')
@@ -329,7 +351,7 @@ def target_preview_files(root, device, *, revision=False):
         return file_ref(path)
 
     for platform, preview in device_inputs(device).items():
-        if preview is None or platform == 'harmony' and not preview.get('serial'):
+        if preview is None or platform == 'ios' or platform == 'harmony' and not preview.get('serial'):
             continue
         folder.mkdir(parents=True, exist_ok=True)
         if platform == 'web':
@@ -396,7 +418,7 @@ def legacy_preview_config(value):
 
 INTAKE = (
     ('legacy_preview', '存量预览', '存量应用怎样跑给我们看？android-device / android-emulator / vm（设备 serial、app_id、APK 路径或构建命令、启动 activity；没有真机时给模拟器的 avd 名或启动命令 boot.argv，未连接时由我们启动）、harmony-device（hdc 看到的 serial、bundleName、HAP 路径或构建命令、ability；没有真机时给 boot.argv）、browser（url，可选 viewport）、或 none（说明不能跑的原因；没有账号时登录前的界面——引导、登录页——通常仍能跑，能跑就不选 none）', list(PREVIEW_KINDS)),
-    ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证、怎样预览？platforms（android / harmony / web）并按平台给预览：android {serial，没有真机时 avd 或 boot.argv}、harmony {serial，没有真机时 boot.argv（鸿蒙没有标准命令行模拟器）}，两者可带目标 app_id 与 launch（包名 / bundleName 与启动 activity / ability，视觉路径据此预填）、web {url 目标页面地址，可选 viewport / headless / record_video}；或 unavailable（原因）。运行环境文件由我们按此写出', ['android', 'harmony', 'web', 'unavailable']),
+    ('test_adapter.device', '目标验证设备', '目标在哪些设备上验证、怎样预览？platforms（android / ios / harmony / web）并按平台给预览。android {serial, avd 或 boot.argv}、harmony {serial, boot.argv} 可带 app_id 与 launch 预填视觉路径。ios {wda_url, udid 可选, app_id 为目标 bundle ID} 用于移动端自动化。web {url, viewport / headless / record_video 可选}。无设备时给 unavailable 和原因', ['android', 'ios', 'harmony', 'web', 'unavailable']),
     ('scope_statement', '迁移范围', '这次迁移包括什么、不包括什么？summary（一句话范围），includes / excludes（如登录前的引导页、欢迎页、错误与重试是否在内）；给了用例文件时说明它是否覆盖这些入口',
      ['summary', 'includes', 'excludes']),
     ('dependency_changes', '依赖与工具链', '目标工程能否为这次迁移升级工具链或新增二方库（如 Kotlin 版本、状态机框架）？allowed（true / false），libraries（允许的名称或坐标），notes',

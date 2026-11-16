@@ -95,7 +95,10 @@ def generate_random_gradient_video(width=1920, height=1080, duration=5, fps=30, 
 
 def send_file_to_media(driver: UiDriver, file_path: str):
     file_name = os.path.basename(file_path)
-    if getattr(get_device(), 'platform', 'harmony') == 'android':
+    platform = getattr(get_device(), 'platform', 'harmony')
+    if platform == 'ios':
+        raise ValueError('a host-prepared iOS media fixture is required')
+    if platform == 'android':
         target = '/sdcard/Pictures/SDD/' + file_name
         driver.shell(['mkdir', '-p', '/sdcard/Pictures/SDD'])
         driver.adb_device.sync.push(file_path, target)

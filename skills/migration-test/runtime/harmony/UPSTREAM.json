@@ -86,9 +86,10 @@
     {
       "path": "AutoTest/devices/device_protocol.py",
       "source_sha256": "c3a94e9a86098e82069beb32e17282c45f51180b0eeac62c62afe47324f03bf6",
-      "vendored_sha256": "94c0850248d0086f065de0be1131835d195b9637a303a6ff313016c4cfe224de",
+      "vendored_sha256": "c8f1f8d73f7f4a6655266b501eb9279d78891f9dd6440f37b7e1d10b970b0c15",
       "local_changes": [
-        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS.",
+        "Share normalized skill gestures with the iOS backend."
       ]
     },
     {
@@ -130,6 +131,57 @@
       "local_changes": [
         "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths.",
         "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+      ]
+    },
+    {
+      "path": "AutoTest/devices/ios/__init__.py",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "686c97b8008c23fabf8fec5e7d142b1d83052b39c33916a0c485137d280e3231",
+      "vendored_sha256": "686c97b8008c23fabf8fec5e7d142b1d83052b39c33916a0c485137d280e3231"
+    },
+    {
+      "path": "AutoTest/devices/ios/apps.py",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "f201de8f36f5b3c77620ecfd4aaae5bd3e5de54e095ffd0340d85c1001a9f09f",
+      "vendored_sha256": "070b504295dde92887233ff65d686485221f5156a681b639227bd2febdb155c9",
+      "local_changes": [
+        "Accept a confirmed bundle ID as well as names from the upstream app map."
+      ]
+    },
+    {
+      "path": "AutoTest/devices/ios/device.py",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "03f626498a35de1d265d3dba19720b95210d72221ce6717e8bc4ed5898d74826",
+      "vendored_sha256": "21f4832a2ed2cca81cfeec5344c904c5dcf447f09156fce6f5256f2f9a2a6c9e",
+      "local_changes": [
+        "Propagate unavailable foreground state and avoid implicit alert handling."
+      ]
+    },
+    {
+      "path": "AutoTest/devices/ios/input.py",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "c3ade632f88ce377e9016e8d42fc9068535e5e55ddcb8ad6bd62d765dcaea851",
+      "vendored_sha256": "76169833607d63786157bcef307988cf5e56b8600394674f19934cc10576ffa1",
+      "local_changes": [
+        "Propagate failed keystrokes to the current step."
+      ]
+    },
+    {
+      "path": "AutoTest/devices/ios/screenshot.py",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "d8351a39a62c91f91255b109a713495d1e78cafef7e2e76519eefba295204fca",
+      "vendored_sha256": "42ad097c9cd05d556ead8e2a9f4f281679d7cf43452b1a34786e784f28a4b3aa",
+      "local_changes": [
+        "Keep managed captures, WDA points, and recording bound to the designated simulator or capture source."
+      ]
+    },
+    {
+      "path": "AutoTest/devices/ios_device.py",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "cdd4efa1891f2037deb628523dfc9d8900fd4baf7a3cfb8e27e7ff102df4133e",
+      "vendored_sha256": "5e4717c894a4298f005c78eb9377aff15de9bb2dfcfa269967ca6a9c425b99ab",
+      "local_changes": [
+        "Use an explicit WDA endpoint and record device UUID. Keep the approved fixture and managed recording output."
       ]
     },
     {
@@ -295,11 +347,12 @@
     {
       "path": "AutoTest/layered_agent_cli/mcp_tools.py",
       "source_sha256": "f3a48a1def7c9dd3764e78379d29d481e939024484fed8c26c0e54ee1e69231d",
-      "vendored_sha256": "b93c2b7afdf15e1b21e2ae2417fa7965da3a889b0e66bc7869421999491f73c1",
+      "vendored_sha256": "af0d4999312ac7c3f379746de0771edc38d7b467568f32dfff4475630676f7dd",
       "local_changes": [
         "Constrain CLI/extension outputs to managed Harmony runners; preserve execution and report semantics.",
         "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths.",
-        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS.",
+        "Resolve confirmed bundle IDs from the selected iOS app map."
       ]
     },
     {
@@ -357,9 +410,10 @@
     {
       "path": "AutoTest/memory/tool_player.py",
       "source_sha256": "d397526c582981798297b55de11415d4187439794a2773d4ea23f6b385db4f0d",
-      "vendored_sha256": "a3b2d1388d20cdd78c25879a725d669faf1c7696c59f7c064049737c1feebad1",
+      "vendored_sha256": "4261a9fd1a78d6e5e4a921045ffa9a527a899baa684d4a3e485e0c666c124871",
       "local_changes": [
-        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS."
+        "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS.",
+        "Use WDA selectors and device coordinates in iOS playback."
       ]
     },
     {
@@ -518,14 +572,21 @@
       "vendored_sha256": "fd4ba5993c7fd2d7f0dfe6fcebc93f0636cbf341293af723e8d130db9cb9d522"
     },
     {
+      "path": "knowledge/app_packages/ios.json",
+      "source": "MobileAgenticOperator",
+      "source_sha256": "e918bfc62849a258a324dfe80df5ddfd23f3fd3d1591ba9fc16e8c2ed774d9b7",
+      "vendored_sha256": "e918bfc62849a258a324dfe80df5ddfd23f3fd3d1591ba9fc16e8c2ed774d9b7"
+    },
+    {
       "path": "main.py",
       "source_sha256": "5a2451b6df3f308b780818b79be5e084dd28a3290cafd46e373664118e39835e",
-      "vendored_sha256": "c289747794be1f4eea76cda8271bc6eac8a3748bee58c4ab75b4352d00aea25b",
+      "vendored_sha256": "4dde6292ec10d633ba0fca0d9b4e1c5e2ee057b3d333d9600653df5767f08305",
       "local_changes": [
         "Route new runtime output into the owning Harmony run; retain historical inputs as read-only sources.",
         "Copy native reference configuration and credentials into the shared run sandbox before execution.",
         "Android/Harmony test-mode integration: platform dispatch, managed evidence, explicit fixtures, device-neutral skills/replay; no iOS.",
-        "Port MobileAgenticOperator 0.3.0 snapshot/recording task types: no verify, stable final frame, kept final.mp4; the outcome is a managed media_outcome.json the SDD adapter reads."
+        "Port MobileAgenticOperator 0.3.0 snapshot/recording task types: no verify, stable final frame, kept final.mp4; the outcome is a managed media_outcome.json the SDD adapter reads.",
+        "Select the iOS backend on demand and pass managed device observation and recording inputs."
       ]
     },
     {
@@ -536,10 +597,11 @@
     {
       "path": "mcp_tools/media_generator.py",
       "source_sha256": "309bcfea0820b58d06457412e14ad4db11b318c13193e9bd45bdf127cc9d724b",
-      "vendored_sha256": "7f5574b996a2ec2b3375e3c61d4ec1ff4526ab5e149f9fab2c65403fc0c6ec54",
+      "vendored_sha256": "5a33d2eae1ca1d033eae5b700439f6e3856e78f30f16413786d11d9114d431f1",
       "local_changes": [
         "Enforce managed run storage at native write/delete boundaries; regression fixtures use canonical run paths.",
-        "Use Android media fixture upload without clearing unrelated gallery files."
+        "Use Android media fixture upload without clearing unrelated gallery files.",
+        "Use host-prepared iOS media fixtures."
       ]
     },
     {
@@ -630,8 +692,7 @@
     "runtime credentials/config.yaml",
     "historical reports/screenshots/memory/knowledge",
     "local environments and lockfile with developer absolute paths",
-    "obsolete 0.5.21 wheel (Git LFS pointer)",
-    "MobileAgenticOperator iOS drivers, iOS package maps, facebook-wda"
+    "obsolete 0.5.21 wheel (Git LFS pointer)"
   ],
   "local_additions": [
     "AutoTest/storage.py"
@@ -642,6 +703,7 @@
     "snapshot_date": "2026-10-05",
     "platforms": [
       "android",
+      "ios",
       "harmony"
     ],
     "task_type": [
@@ -649,7 +711,7 @@
       "snapshot",
       "recording"
     ],
-    "strategy": "Add Android drivers; port shared platform dispatch and explicit test branch onto the existing SDD evidence/storage fork. Other shared test/verify engines are retained.",
+    "strategy": "Port the Android and iOS device backends and shared task modes into the SDD runtime, which retains frozen PATH execution, managed storage and Ledger receipts.",
     "source_files": [
       {
         "path": "main.py",
@@ -698,6 +760,34 @@
       {
         "path": "knowledge/app_packages/android_launchers.json",
         "sha256": "fd4ba5993c7fd2d7f0dfe6fcebc93f0636cbf341293af723e8d130db9cb9d522"
+      },
+      {
+        "path": "AutoTest/devices/ios/__init__.py",
+        "sha256": "686c97b8008c23fabf8fec5e7d142b1d83052b39c33916a0c485137d280e3231"
+      },
+      {
+        "path": "AutoTest/devices/ios/apps.py",
+        "sha256": "f201de8f36f5b3c77620ecfd4aaae5bd3e5de54e095ffd0340d85c1001a9f09f"
+      },
+      {
+        "path": "AutoTest/devices/ios/device.py",
+        "sha256": "03f626498a35de1d265d3dba19720b95210d72221ce6717e8bc4ed5898d74826"
+      },
+      {
+        "path": "AutoTest/devices/ios/input.py",
+        "sha256": "c3ade632f88ce377e9016e8d42fc9068535e5e55ddcb8ad6bd62d765dcaea851"
+      },
+      {
+        "path": "AutoTest/devices/ios/screenshot.py",
+        "sha256": "d8351a39a62c91f91255b109a713495d1e78cafef7e2e76519eefba295204fca"
+      },
+      {
+        "path": "AutoTest/devices/ios_device.py",
+        "sha256": "cdd4efa1891f2037deb628523dfc9d8900fd4baf7a3cfb8e27e7ff102df4133e"
+      },
+      {
+        "path": "knowledge/app_packages/ios.json",
+        "sha256": "e918bfc62849a258a324dfe80df5ddfd23f3fd3d1591ba9fc16e8c2ed774d9b7"
       }
     ]
   }

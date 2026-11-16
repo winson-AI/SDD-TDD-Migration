@@ -18,6 +18,7 @@ import test_validation as tv
 import run_storage
 import runner_storage
 import prepared_tests
+import project_context
 from execution_capture import Capture
 
 from contracts import baseline, check_ref, file_ref, read_json, require
@@ -126,9 +127,9 @@ def selfcheck(argv, cwd, output, root=None, module_id=None, path_id=None):
     return code
 
 
-def builtin_main(platform, root, device=None, web_config=None):
+def builtin_main(platform, root, device=None, web_config=None, *, ios_preview=None):
     """The package's own Main for a device platform the project states without an adapter: the Harmony kernel drives
-    android and harmony, web_main a browser."""
+    android, ios and harmony, web_main a browser."""
     package = Path(__file__).resolve().parents[2]
     env = Path(root) / 'runs/harmony/sandbox/environment'
     python = package / 'migration-test/runtime/harmony/.venv/bin/python'
@@ -139,6 +140,11 @@ def builtin_main(platform, root, device=None, web_config=None):
                          *(['--config', str(config_path)] if config_path.is_file() else [])], 'timeout_seconds': 600}
     files = [arg for name in ('config.json', '.env') if (env / name).is_file()
              for arg in ('--config' if name == 'config.json' else '--env-file', str(env / name))]
+    if platform == 'ios' and ios_preview:
+        device = project_context.wda_endpoint(ios_preview['wda_url'])
+        for field, flag in (('udid', '--ios-udid'), ('app_id', '--ios-bundle-id')):
+            if ios_preview.get(field):
+                files.extend((flag, ios_preview[field]))
     return {'argv': [python, str(package / 'migration-test/runtime/harmony/sandbox.py'), 'test', '--root', str(root),
                      '--platform', platform, *(['--device', device] if device else []), *files], 'timeout_seconds': 1860}
 
@@ -147,7 +153,8 @@ def builtin_platform(s, path):
     adapter = s.get('test_adapter') or {}
     platform = path.get('platform')
     if (not path.get('command') and not (adapter.get('adapters') or {}).get(platform)
-            and not adapter.get('executable') and platform in ('web', 'android', 'harmony')
+            and not adapter.get('executable') and platform in project_context.TEST_PLATFORMS
+            and (platform != 'ios' or (path.get('kind') or 'automation') == 'automation')
             and platform in ((adapter.get('device') or {}).get('platforms') or ())):
         return platform
     return None
@@ -167,7 +174,10 @@ def adapter_for(s, path, root):
     if row is None and builtin_platform(s, path):
         preview = ((adapter.get('device') or {}).get(platform) or {})
         web_config = (s.get('target_preview') or {}).get('web_main_config')
-        row = builtin_main(platform, root, preview.get('serial'), web_config)
+        if platform == 'ios':
+            row = builtin_main(platform, root, ios_preview=preview)
+        else:
+            row = builtin_main(platform, root, preview.get('serial'), web_config)
     require(row, 'no adapter runs platform ' + str(platform) + ' PATHs: state test_adapter.adapters.' + str(platform) + ' in the project context, or pass --adapter')
     return {'argv': [a.replace('{run_root}', str(root)) for a in row['argv']], 'cwd': (row.get('cwd') or s['target_root']).replace('{run_root}', str(root)),
             'timeout': row.get('timeout_seconds') or 300}
@@ -327,7 +337,7 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
     named = lambda stem, pid: stem + ('.' + pid if batch else '') + '.json'
     query = {**path, 'run_id': s['run_id'], 'module_id': module_id,
              'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'execution_contract_version': 2}
-    if path.get('kind', 'automation') == 'automation' and path.get('platform') in ('android', 'harmony'):
+    if path.get('kind', 'automation') == 'automation' and path.get('platform') in ('android', 'ios', 'harmony'):
         query['step_contract_version'] = 1
     if prepared: query['frozen_test_assets'] = prepared
     if test_binding: query['test_asset_binding'] = test_binding

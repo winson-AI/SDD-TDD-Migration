@@ -555,7 +555,7 @@ def validate_result(result, module, assignment, run_root=None):
                 continue
         else:
             captured = read_json(check_ref(receipt.get('result_ref')))
-            require(captured.get('producer') != 'harmony-adapter' and planned[pid].get('platform') not in ('android', 'harmony'),
+            require(captured.get('producer') != 'harmony-adapter' and planned[pid].get('platform') not in ('android', 'ios', 'harmony'),
                     'current mobile completion requires host normalization')
         require(record.get('executed') is True, 'execution evidence required')
         if planned[pid].get('kind') in ('build', 'unit') or planned[pid].get('unit_report'):
@@ -583,7 +583,8 @@ def validate_result(result, module, assignment, run_root=None):
                     'scenario review requires spec-closure adapter')
         if captured.get('producer') == 'harmony-adapter':
             from test_completion import mobile_binding
-            mobile_binding(planned[pid], read_json(check_ref(receipt['query_ref'])), captured)
+            mobile_binding(planned[pid], read_json(check_ref(receipt['query_ref'])), captured,
+                           Path(receipt['result_ref']['path']).parent)
             require(captured.get('quality') == quality and captured.get('flaky') == record.get('flaky', False),
                     'Harmony classification cannot be overridden')
             query = read_json(check_ref(receipt.get('query_ref')))

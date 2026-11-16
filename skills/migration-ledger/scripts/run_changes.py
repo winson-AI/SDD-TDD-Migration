@@ -190,7 +190,7 @@ def platform_adapter_after(s, report):
             or report.get('global_spec_ref')):
         return None
     overrides = patch['test_adapter']['adapters']
-    if not isinstance(overrides, dict) or len(overrides) != 1 or not set(overrides) <= {'android', 'harmony', 'web'}:
+    if not isinstance(overrides, dict) or len(overrides) != 1 or not set(overrides) <= project_context.TEST_PLATFORMS:
         return None
     return project_context.merge(s.get('test_adapter') or {}, patch['test_adapter'])
 

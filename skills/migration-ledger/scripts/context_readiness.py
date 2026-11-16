@@ -63,7 +63,8 @@ def adapter_stated(s, path):
     adapter = s.get('test_adapter') or {}
     platform = path.get('platform')
     return bool((adapter.get('adapters') or {}).get(platform) or adapter.get('executable')
-                or platform in ((adapter.get('device') or {}).get('platforms') or []))
+                or (platform != 'ios' or (path.get('kind') or 'automation') == 'automation')
+                and platform in ((adapter.get('device') or {}).get('platforms') or []))
 
 
 def runs_by_itself(s, m, assignment):

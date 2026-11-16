@@ -33,13 +33,14 @@ def write(path, value):
         temporary.unlink(missing_ok=True)
 
 
+MOBILE_PLATFORMS = ('android', 'ios', 'harmony')
 MEDIA_TASKS = ('snapshot', 'recording')
 
 
 def validate_query(q):
     task_type = q.get('task_type', 'test')
-    if q.get('platform', 'harmony') not in ('android', 'harmony') or task_type not in ('test', *MEDIA_TASKS):
-        raise ValueError('android/harmony platform and task_type test, snapshot or recording required')
+    if q.get('platform', 'harmony') not in MOBILE_PLATFORMS or task_type not in ('test', *MEDIA_TASKS):
+        raise ValueError('android, ios or harmony platform and task_type test, snapshot or recording required')
     if task_type in MEDIA_TASKS:  # a media task walks frozen steps and keeps what it saw; it verifies nothing
         for key in ('run_id', 'module_id', 'name'):
             if not q.get(key):

@@ -5,7 +5,7 @@
   "requirement_id": "REQ-M001-001",
   "scope": "module",
   "kind": "automation",
-  "platform": "{{android-or-harmony}}",
+  "platform": "{{android-ios-or-harmony}}",
   "task_type": "test",
   "preconditions": ["{{approved-fixture-and-app-state}}"],
   "steps": ["{{action-1}}", "{{action-2}}"],

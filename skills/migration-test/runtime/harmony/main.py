@@ -36,19 +36,23 @@ from AutoTest.layered_agent_cli.planner_agent import create_planner_agent
 
 
 def create_device(args, report_generator, config):
-    """MobileAgenticOperator device dispatch, restricted to the two SDD targets."""
+    """Load the selected MobileAgenticOperator backend for this attempt."""
     platform = getattr(args, 'platform', 'harmony')
     if getattr(args, 'task_type', 'test') not in ('test', 'snapshot', 'recording'):
         raise ValueError('SDD automation task_type must be test, snapshot or recording')
     if not args.device:
-        raise ValueError('explicit device serial required')
+        raise ValueError('explicit device serial or WDA endpoint required')
+    if platform in ('android', 'ios') and config.execute_provider not in ('general', 'glm'):
+        raise ValueError(platform.capitalize() + ' requires general or glm executor')
     if platform == 'android':
-        if config.execute_provider not in ('general', 'glm'):
-            raise ValueError('Android requires general or glm executor')
         from AutoTest.devices.adb_device import AdbDevice
         return AdbDevice(args.device, report_generator=report_generator, config=config)
+    if platform == 'ios':
+        from AutoTest.devices.ios_device import IosDevice
+        return IosDevice(args.device, report_generator=report_generator, config=config, udid=getattr(args, 'ios_udid', None),
+                         observation=getattr(args, 'ios_device_observation', None))
     if platform != 'harmony':
-        raise ValueError('supported platforms: android, harmony')
+        raise ValueError('supported platforms: android, ios, harmony')
     return HDCDevice(args.device, args.ip, args.port, report_generator=report_generator, config=config)
 
 
@@ -289,10 +293,11 @@ def parse_task_file(file_path, knowledge_path):
 
 async def main():
     parser = argparse.ArgumentParser(description="AutoGLM Layered Agent CLI")
-    parser.add_argument('--platform', choices=['android', 'harmony'], default='harmony')
+    parser.add_argument('--platform', choices=['android', 'ios', 'harmony'], default='harmony')
     parser.add_argument('--task-type', choices=['test', 'snapshot', 'recording'], default='test',
                         help='test judges pass/fail; snapshot keeps a stable final frame; recording keeps the whole walk on film')
-    parser.add_argument("--device", default=None, help="Device serial number (e.g., emulator-5554)")
+    parser.add_argument("--device", default=None, help="Device serial or iOS WebDriverAgent HTTP(S) endpoint")
+    parser.add_argument("--ios-udid", help="UDID of the locally attached iOS recorder")
     parser.add_argument("--ip", default="127.0.0.1", help="Device ip")
     parser.add_argument("--port", default=8710, help="Device port")
     parser.add_argument("--task", help="Task description")
@@ -357,6 +362,8 @@ async def run_native(args, log_file):
     load_environment(env_path)
     config_manager.load_file_config(str(config_path.parent / 'config.native.yaml'))
     config = config_manager.get_effective_config()
+    if args.platform == 'ios' and not args.ios_udid:
+        config.verify_video_enable = False
 
     configure_logger(console_level="DEBUG" if config.verbose else "INFO", log_file=log_file)
 
@@ -391,7 +398,11 @@ async def run_native(args, log_file):
         total_start_time = asyncio.get_event_loop().time()
 
         # 创建临时设备实例用于关闭应用
-        temp_driver = create_device(args, None, config)
+        if args.platform == 'ios':
+            from dataclasses import replace
+            temp_driver = create_device(args, None, replace(config, verify_video_enable=False))
+        else:
+            temp_driver = create_device(args, None, config)
 
         def parse_case_result(task_result: str) -> str:
             """根据 task_result 解析用例执行结果: PASS / FAIL / UNKNOWN"""
