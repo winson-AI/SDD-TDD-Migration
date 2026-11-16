@@ -43,18 +43,22 @@ def module_ids(s, path):
 def device_inputs(s, path):
     """The device portion of the inputs used by the built-in GLOBAL automation runner."""
     from execute_test import builtin_platform
-    from project_context import device_inputs as configured_devices
+    from project_context import device_inputs as configured_devices, path_device
 
     if path.get('kind', 'automation') != 'automation' or not (platform := builtin_platform(s, path)):
         return None
     device = s['test_adapter']['device']
     return {key: config for key, config in configured_devices(device).items()
-            if key == platform or platform == 'harmony' and key.startswith('harmony-')}
+            if key == path_device(path) or platform == 'harmony' and key.startswith('harmony-')}
 
 
 def frozen_unit(path):
     return bool(path.get('command') and (path.get('kind') == 'unit' or
                 path.get('kind') == 'automation' and path.get('unit_report')))
+
+
+def host_junit(path):
+    return bool(path.get('unit_report') and frozen_unit(path))
 
 
 def independent_of_adapter_override(s, path):
@@ -63,7 +67,7 @@ def independent_of_adapter_override(s, path):
 
 
 def affected_by_device(s, path, devices):
-    if not devices:
+    if not devices or host_junit(path):
         return False
     if scoped(s, path):
         from project_context import path_device
@@ -78,6 +82,13 @@ def check_path_inputs(s, path):
     from execute_test import builtin_platform
 
     verify_refs(path)
+    if builtin_platform(s, path) == 'ios' and path.get('ios_device_profile'):
+        selected = next(iter(device_inputs(s, path).values()), None)
+        require(selected and selected.get('wda_url'), 'iOS ' + path['ios_device_profile'] + ' PATH needs its WDA device binding')
+        if path['ios_device_profile'] == 'physical':
+            require(selected.get('deployment_ref'), 'iOS physical PATH needs its deployment receipt')
+        if selected.get('deployment_ref'):
+            check_ref(selected['deployment_ref'])
     if builtin_platform(s, path) == 'web':
         config = (s.get('target_preview') or {}).get('web_main_config')
         if config:
@@ -99,7 +110,7 @@ def managed_inputs(s, path):
             'modules': {mid: {k: s['modules'][mid].get(k) for k in ('code_baseline', 'freeze_id')} for mid in mids}}
 
 
-def inputs(s, path, code_baseline=None, *, legacy=False, full_adapter=False):
+def inputs(s, path, code_baseline=None, *, legacy=False, full_adapter=False, unit_with_device=False):
     """A managed visual path consumes its named build. Opaque commands may inspect the whole project."""
     if not legacy:
         check_path_inputs(s, path)
@@ -112,6 +123,8 @@ def inputs(s, path, code_baseline=None, *, legacy=False, full_adapter=False):
         if bound_native_visual(path):
             common['visual_inputs'] = check_managed_visual_artifacts(s, path, build_artifacts(s, path), allow_boot=True)
     adapter = s.get('test_adapter')
+    if not legacy and not full_adapter and not unit_with_device and host_junit(path) and adapter:
+        adapter = {k: v for k, v in adapter.items() if k != 'device'}
     device = None if legacy else device_inputs(s, path)
     if not legacy and not full_adapter and adapter and (device is not None or frozen_unit(path)):
         adapter = {k: v for k, v in adapter.items() if k != 'adapters'}
@@ -136,6 +149,7 @@ def same_inputs(s, path, previous, code_baseline, expected=None):
             expected = expected or inputs(s, path, code_baseline)
             original = previous['integration_inputs']
             return (expected in (original, previous.get('device_continuation_inputs'), previous.get('integration_continuation_inputs'))
+                    or host_junit(path) and original == inputs(s, path, code_baseline, unit_with_device=True)
                     or independent_of_adapter_override(s, path) and original == inputs(s, path, code_baseline, full_adapter=True)
                     or device_inputs(s, path) is not None and original == inputs(s, path, code_baseline, legacy=True))
         except (Rejected, OSError, KeyError):
@@ -182,6 +196,7 @@ def runs_by_itself(s, path):
 def due(s, *, blocked=None, revision_step=None):
     """Prefer a ready managed wave, even when unrelated code is dirty or still being written."""
     import audit_closure
+    from execute_test import builtin_mobile
     from ledger import global_baseline
     from run_changes import next_action, pending_global_paths
     from test_validation import bound_native_visual, check_managed_visual_artifacts
@@ -233,7 +248,11 @@ def due(s, *, blocked=None, revision_step=None):
             if not same_inputs(s, path, previous, baseline, expected):
                 selected.append(path)
         if selected:
-            return selected if managed else [path for path in selected if runs_by_itself(s, path)] or selected
+            if managed:
+                return selected
+            automatic = [path for path in selected if runs_by_itself(s, path)]
+            quick = [path for path in automatic if not builtin_mobile(s, path)]
+            return quick or automatic[:1] or selected
     return []
 
 

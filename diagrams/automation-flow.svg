@@ -73,8 +73,8 @@
 <text x="780" y="910" font-size="20.00" fill="#6b7280" text-anchor="middle" font-weight="400">ready</text>
 <rect x="460" y="940" width="640" height="125" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="780.0" y="981.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">ready 绑定 → 宿主 execute_test</text>
-<text x="780.0" y="1015.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">scope=automation；重验代码 / 环境 / 命令</text>
-<text x="780.0" y="1044.5" font-size="19.70" fill="#4b5563" text-anchor="middle" font-weight="400">进程内 PATH 跑冻结命令 + JUnit；设备 / 浏览器 PATH 调 Main</text>
+<text x="780.0" y="1015.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核对实际代码、环境和命令，设备缺口仅记对应 PATH</text>
+<text x="780.0" y="1044.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">内置移动 PATH 交独立宿主进程，drive 继续派发</text>
 <path d="M780,1065 L780,1120" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="1120" width="640" height="145" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <rect x="465" y="1125" width="630" height="135" rx="10" fill="none" stroke="#2563eb" stroke-opacity="0.28"/>
@@ -180,8 +180,8 @@
 <rect x="460" y="2230" width="640" height="140" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <rect x="465" y="2235" width="630" height="130" rx="10" fill="none" stroke="#ea580c" stroke-opacity="0.28"/>
 <text x="780.0" y="2264.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">父汇总 → GO 全量收尾门禁</text>
-<text x="780.0" y="2298.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GLOBAL 波次按受限视觉 / 代跑 / 独立 Runner 分批</text>
-<text x="780.0" y="2327.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">配置缺口按 PATH，适配器修订按实际执行输入重验</text>
+<text x="780.0" y="2298.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">GLOBAL 波次按执行方式分批，内置移动端逐 PATH 入账</text>
+<text x="780.0" y="2327.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">配置缺口按 PATH，纯设备切换保留有效冻结 JUnit</text>
 <text x="780.0" y="2356.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">有效波次先入账，全量收尾后启动 Auditor</text>
 <path d="M780,2370 L780,2410" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="460" y="2410" width="640" height="150" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>

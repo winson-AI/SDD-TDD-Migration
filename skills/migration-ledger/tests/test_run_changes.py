@@ -638,6 +638,7 @@ class PreparedRunRevisionTests(unittest.TestCase):
         import sys
         from unittest.mock import patch
         import audit_execution
+        import drive
         import execute_test
         from test_ledger import code_review
         from test_run_rehearsal import MO
@@ -685,12 +686,15 @@ with open(args.result_file, 'w') as target:
             blocked = f.record(f.report('audit-testing', module=None, instance='auditor', blocked='test-environment'))
             with self.assertRaisesRegex(Rejected, 'Test-Runner still active'):
                 f.raw('audit-unavailable', {'context_ref': blocked}, role='auditor', module=None)
+            mobile = next(line for line in drive.drive(f.root, MO) if line.get('operation') == 'mobile-test')
+            self.assertEqual(mobile['path_ids'], ['ANDROID'])
+            drive.execute_mobile(f.root, MO, *mobile['test_execute'])
             ledger.advance_run(f.root, MO)
             before = f.state()
             first = before['audit_test_assignment']
             refs, rows = audit_execution.evidence(before)
             self.assertEqual([row['path_id'] for row in rows], ['ANDROID', 'GREEN', 'RED'])
-            self.assertEqual(first['path_ids'], ['GREEN', 'RED'])
+            self.assertEqual(first['path_ids'], ['RED'])
             self.assertEqual(before['global_next_step']['path_ids'], ['WEB'])
             self.assertEqual(before['global_next_step']['operation'], 'audit-unavailable')
             f.raw('audit-unavailable', {'context_ref': blocked}, role='auditor', module=None)
@@ -712,14 +716,15 @@ with open(args.result_file, 'w') as target:
             self.assertEqual(resumed['audit_attempts'], 1)
             self.assertFalse(resumed['audit_assignment']['closed'])  # The independent verdict must explicitly handle Red.
             resumed_refs, resumed_rows = audit_execution.evidence(resumed)
-            self.assertEqual(resumed_refs[0], refs[1])
+            self.assertEqual(resumed_refs[:2], refs[1:])
             self.assertEqual(resumed_rows[:2], rows[1:])
             self.assertNotEqual(resumed_rows[-1]['test_run_id'], rows[0]['test_run_id'])
 
             # A mutated dependency cannot retain its earlier accepted observations.
             tampered = copy.deepcopy(resumed)
-            tampered['audit_carry'][1]['result_ref'] = {**first['result_ref'], 'sha256': '0' * 64}
-            self.assertEqual(audit_execution.ready_paths(tampered, ledger.audit_scope(tampered))[0], ['GREEN', 'RED'])
+            green = next(task for task in tampered['audit_carry'] if task['path_ids'] == ['GREEN'])
+            green['result_ref'] = {**green['result_ref'], 'sha256': '0' * 64}
+            self.assertEqual(audit_execution.ready_paths(tampered, ledger.audit_scope(tampered))[0], ['GREEN'])
 
             f.raw('audit', {'report_ref': ledger.verdict_from_review(f.root, resumed)}, role='auditor', module=None)
         settled = f.state()
@@ -825,6 +830,38 @@ with open(args.result_file, 'w') as target:
         self.assertEqual(row['integration_inputs'], old)
         self.assertEqual(ledger.audit_scope(state)['plan']['paths'], [])
         self.assertFalse(integration.current(state, web, row, 'different-code'))
+
+    def test_provisioning_ios_physical_carries_global_junit_receipt(self):
+        import integration
+
+        src = test_source_changes.SourceChangeTests(); self.addCleanup(src.doCleanups)
+        device = {'platforms': ['ios'], 'ios': {'profiles': {
+            'simulator': {'wda_url': 'http://127.0.0.1:8100'}, 'physical': {}}}}
+        base = {'case_id': 'C1', 'name': 'verification', 'expected_assertions': [{'assertion_id': 'A1', 'expected': True}]}
+        unit = {**base, 'path_id': 'G-unit', 'kind': 'unit', 'command': {'argv': ['/usr/bin/true'], 'cwd': '/'},
+                'unit_report': {'required_test_ids': ['Fixture#assertion']}}
+        physical = {**base, 'path_id': 'G-phone', 'kind': 'automation', 'platform': 'ios', 'ios_device_profile': 'physical'}
+        f = src.register_root(global_paths=[unit, physical], config={'test_adapter': {'device': device}})
+        self.f = f
+        f.split(src.d.proposal(ids=('M001', 'M002'))); f.global_plan()
+        state, _ = ledger.read_events(f.root)
+        state['modules']['M001']['code_files'] = [f.ref('wave-code.py', 'value = 2')]
+        code = ledger.global_baseline(state)
+        old = integration.inputs(state, unit, code, unit_with_device=True)
+        row = {'quality': 'green-passed', 'test_run_id': 'UNIT-OLD', 'integration_inputs': old}
+        state['audit_results'] = {'G-unit': row}
+        report = self.report({'test_adapter': {'device': {'ios': {'profiles': {
+            'physical': {'wda_url': 'http://127.0.0.1:8101'}}}}}}, affected=())
+        self.assertEqual(run_changes.changed_devices(state, report), {'ios-physical'})
+        self.assertEqual(run_changes.global_reverify_paths(state, report, {'ios-physical'}), {'G-phone'})
+        go = {'role': 'global-orchestrator', 'instance_id': 'go'}
+        run_changes.handle(f.root, state, {'operation': 'run-review', 'payload': {'report_ref': f.ref('switch.json', report)}}, go)
+        request = {'operation': 'revise-run', 'payload': {'subject_sha256': state['run_change_review']['subject_sha256']}}
+        run_changes.handle(f.root, state, request, {'role': 'host', 'instance_id': 'host'})
+        self.assertEqual(row['test_run_id'], 'UNIT-OLD')
+        self.assertEqual(row['integration_inputs'], old)
+        self.assertEqual([p['path_id'] for p in ledger.audit_scope(state)['plan']['paths']], ['G-phone'])
+        self.assertFalse(integration.current(state, unit, row, 'different-code'))
 
     def test_unrelated_run_revision_keeps_an_audit_scope_request_open(self):
         import audit_closure

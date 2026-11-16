@@ -7,11 +7,11 @@
 三套测试相互独立，均在临时目录中构造隔离的 legacy/target/run，不读取包内 `.env`、不连接真机或外部 LLM。使用 Python 3.11+（`foundation-verify` 需要 tomllib，视觉比较需要 Pillow，矢量参考渲染另用 `rsvg-convert`、未安装时对应测试跳过，可直接用 Harmony sandbox 的解释器）；禁用字节码、pytest 插件自动加载与缓存，不安装依赖。
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q -p no:cacheprovider skills/migration-ledger/tests
+PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 skills/migration-test/runtime/harmony/.venv/bin/python -m pytest -q -p no:cacheprovider -p xdist.plugin -n 10 skills/migration-ledger/tests
 ```
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q -p no:cacheprovider skills/migration-test/tests
+PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 skills/migration-test/runtime/harmony/.venv/bin/python -m pytest -q -p no:cacheprovider skills/migration-test/tests
 ```
 
 ```bash
@@ -22,13 +22,23 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1844 | 全量通过 |
-| migration-test/tests | 85 | 全量通过 |
+| migration-ledger/tests | 1847 | 全量通过 |
+| migration-test/tests | 88 | 全量通过 |
 | runtime/harmony/tests | 128 | 全量通过 |
 
-### iOS 自动化接入
+三套回归使用已安装 iOS 可选依赖的运行时 Python 3.12。Ledger 使用 pytest-xdist，七叶演练仍为 15 轮，对照历史 11 轮记录保留警告。Migration Test 保留 facebook-wda 1.5.4 的字符串转义警告。
 
-三套回归使用已安装 iOS 可选依赖的运行时 Python 3.12。Ledger 使用 pytest-xdist，保留七叶演练 15 轮对照早期 11 轮的警告。Migration Test 报告了上游 facebook-wda 1.5.4 的字符串转义警告。
+### 移动端派发与 iOS 取证
+
+Ledger 回归验证宿主独立执行移动端波次与终审派发，同一派发重复启动时沿用已入账结果。缺少真机配置时模拟器仍可派发，填入真机档位后仅其 PATH 待验证。纯设备修订沿用历史 GLOBAL JUnit 原回执与 `test_run_id`。终审跨配置修订保留有效的独立批次，篡改其中一条回执后只补验该 PATH。
+
+移动端回归验证同设备排队、其他设备可继续，设备不可用时返回当前 PATH 的环境 Yellow。iOS 夹具覆盖真机与模拟器错接、已装旧构建、前台应用与检查点 UI 树、普通截图配有 UDID 时跳过录屏、视频来源错配及断言区间不足。
+
+在一次性 iOS 26.5 模拟器上实跑当前录屏后端，得到 7.28 秒的 MP4，首末帧可解码，视频哈希与回执一致。此冒烟覆盖 simctl 与媒体回执，WDA 身份使用夹具。
+
+当前宿主的 CoreDevice 枚举无可用 iOS 真机。签名业务 App 的真机部署、正式业务 PATH 与 AVFoundation 采集仍待在可用设备上实跑。
+
+### 此前的 iOS 接入冒烟
 
 在一次性 iOS 26.5 模拟器上用 Xcode 27.2 启动 WebDriverAgent v13.3.0。运行时通过 WDA 启动系统设置并滑动，保存 1206 × 2622 的截图和 168 节点的 UI 树，手势按 402 × 874 的逻辑坐标执行。simctl 录屏已成功解码视频帧。冒烟覆盖设备驱动和媒体采集，模拟 PATH 回归覆盖逐步断言与 Ledger 验收。另通过 sandbox 正式入口验证 WDA 不可达时只给该 PATH 返回 Yellow。
 

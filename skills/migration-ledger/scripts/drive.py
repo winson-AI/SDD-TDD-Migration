@@ -27,6 +27,8 @@ import experience
 import ledger
 import reading
 import resource_binding
+import run_storage
+from contracts import Rejected, digest, require
 
 POLL_SECONDS = 1
 PERSON = ('human-decision-required', 'run-approval-required', 'source-approval-required')
@@ -94,13 +96,13 @@ def tick(root, principal, workers=None):
         if started or ready_handoff_to_deliver(root, st, handed):
             break
         for step in steps:
-            if step.get('mechanical') and step.get('ready') and step['operation'] == 'await-result':
+            if step.get('mechanical') and step.get('ready') and step['operation'] == 'await-result' and not step.get('mobile_test'):
                 actions = ledger.advance(root, principal, step['module_id'], workers, pause_for_rotation=True, defer_resources=True,
                                          publish=False, can_assign=can_assign, yield_after_test=True)['applied']
                 if actions:
                     break
         else:
-            actions = ledger.advance_run(root, principal, workers, publish=False, yield_after_test=True)
+            actions = ledger.advance_run(root, principal, workers, publish=False, yield_after_test=True, defer_mobile=True)
         started |= any(a['operation'] == 'assign' and a.get('role') in ('implementer', 'fixer') for a in actions)
         if not actions:
             break
@@ -128,6 +130,10 @@ def tick(root, principal, workers=None):
         elif operation == 'resource-start' and step.get('assignment_id'):
             module = st['modules'][step['module_id']]
             resource_pending(root, module, module['assignments'][step['assignment_id']], resource_lines)
+        elif step.get('mobile_test'):
+            lines.append({'kind': 'running', **row(step), 'operation': 'mobile-test',
+                          **{key: step[key] for key in ('path_ids', 'instance_id', 'fencing_token') if key in step},
+                          'test_execute': [step.get('module_id') or 'GLOBAL', step['assignment_id']]})
         elif not operation or step.get('mechanical') and step.get('ready'):
             continue
         elif step.get('human_required') or step.get('reason') in PERSON:
@@ -230,9 +236,9 @@ def ready_revision(step):
 
 
 def runner_handoff(step):
-    operation = step.get('operation')
+    operation = 'mobile-test' if step.get('mobile_test') else step.get('operation')
     if (step.get('role') == 'test-runner' and step.get('assignment_id')
-            and operation in ('await-result', 'integration-submit')):
+            and operation in ('await-result', 'integration-submit', 'mobile-test')):
         return 'test-runner:' + (step.get('module_id') or 'GLOBAL'), [operation, step['assignment_id']]
     return None
 
@@ -244,7 +250,7 @@ def new_runner_handoff(step, handed):
 
 def ready_handoff_to_deliver(root, st, handed):
     """Hand off ready planning and newly assigned test work before starting unrelated commands."""
-    if any(not step.get('mechanical') and not (step.get('session_rotate') or {}).get('ready')
+    if any((step.get('mobile_test') or not step.get('mechanical')) and not (step.get('session_rotate') or {}).get('ready')
            and (step.get('operation') == 'await-result' or step.get('ready')) and new_runner_handoff(step, handed)
            for step in [*st['next_steps'], st['global_next_step']]):
         return True
@@ -400,17 +406,92 @@ def drive(root, principal, workers=None, wait=None):
                      **({'modules_waiting': waiting} if waiting else {})}]
 
 
+def execute_mobile(root, principal, module_id, assignment_id):
+    """Run a frozen mobile dispatch in a separate host process under its original assignment."""
+    import integration
+    import audit_execution
+    from execute_test import builtin_mobile
+
+    ledger.role(principal, 'module-orchestrator', 'host')
+    root = Path(root).resolve()
+    staging = run_storage.checked_path(root / 'staging/test-runner', root)
+    staging.mkdir(parents=True, exist_ok=True)
+    lock = staging / ('.mobile-' + digest([module_id, assignment_id]) + '.lock')
+    with run_storage.file_lock(lock, timeout=0.05):
+        state = ledger.read_events(root)[0]
+        require(state, 'run not initialized')
+        if module_id == 'GLOBAL':
+            wave = state.get('integration_assignment') or {}
+            integration_run = wave.get('assignment_id') == assignment_id
+            task = wave if integration_run else state.get('audit_test_assignment') or {}
+            require(task.get('assignment_id') == assignment_id, 'current GLOBAL test assignment required')
+            if task.get('closed') and task.get('result_ref'):
+                return {'result_ref': task['result_ref']}
+            require(not task['closed'], 'GLOBAL test assignment closed')
+            paths = (integration.scope(state) if integration_run else ledger.audit_scope(state))['plan']['paths']
+            selected = [p for p in paths if p['path_id'] in task['path_ids']]
+            op = 'integration-submit' if integration_run else 'audit-test-submit'
+            require((not task.get('artifact_only') and ledger.global_paths_run_by_themselves(state, task['path_ids']))
+                    if integration_run else audit_execution.mechanical_paths(state, selected) == task['path_ids'],
+                    'assignment requires an independent Test-Runner')
+        else:
+            module = state['modules'][module_id]
+            task = module['assignments'][assignment_id]
+            if assignment_id in module['submissions']:
+                return {'assignment_id': assignment_id, 'status': 'submitted'}
+            require(not task['closed'] and ledger.context_readiness.runs_by_itself(state, module, task),
+                    'active automatic test assignment required')
+            selected = [p for p in module['plan']['paths'] if p['path_id'] in task['execution_contract']['path_ids']]
+            op = 'submit'
+        require(any(builtin_mobile(state, p) for p in selected), 'assignment has no built-in mobile PATH')
+        actor = {'role': 'test-runner', 'instance_id': task['instance_id']}
+
+        def submit(operation, payload):
+            for attempt in range(3):
+                current = ledger.read_events(root)[0]
+                scope = current if module_id == 'GLOBAL' else current['modules'][module_id]
+                try:
+                    return ledger.apply(root, {'schema_version': 1, 'run_id': current['run_id'],
+                        'module_id': None if module_id == 'GLOBAL' else module_id, 'expected_revision': scope['revision'],
+                        'request_id': 'mobile-' + digest([module_id, assignment_id, operation]),
+                        'operation': operation, 'payload': payload}, actor, publish=False)
+                except Rejected as exc:
+                    if attempt == 2 or not str(exc).startswith('stale revision:'):
+                        raise
+
+        if module_id == 'GLOBAL':
+            if ledger.context_readiness.enabled(state) and not task.get('context_ref'):
+                submit('context-submit', {'report_ref': ledger.global_preflight(root, state, task)})
+                state = ledger.read_events(root)[0]
+                task = state['integration_assignment' if integration_run else 'audit_test_assignment']
+                require(task['assignment_id'] == assignment_id and not task['closed'], 'GLOBAL test assignment changed')
+            payload = {'result_ref': ledger.run_global(root, state, task)}
+        else:
+            require(task.get('context_ref') or not ledger.context_readiness.enabled(state), 'test preflight required')
+            payload = ledger.frozen_tests(root, state, module_id, assignment_id)
+        return submit(op, payload)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--root', required=True)
     parser.add_argument('--host-context', required=True, help='the module orchestrator principal JSON the host submits as')
     parser.add_argument('--worker', action='append', default=[], metavar='ROLE=INSTANCE')
     parser.add_argument('--wait', type=float, help='seconds to follow the journal when nothing is to dispatch')
-    parser.add_argument('--resource-sync', nargs=2, metavar=('MODULE', 'ASSIGNMENT'), help='run the fenced host resource synchronization')
+    actions = parser.add_mutually_exclusive_group()
+    actions.add_argument('--resource-sync', nargs=2, metavar=('MODULE', 'ASSIGNMENT'), help='run the fenced host resource synchronization')
+    actions.add_argument('--test-execute', nargs=2, metavar=('MODULE', 'ASSIGNMENT'), help='execute the built-in mobile assignment outside the drive loop')
     args = parser.parse_args()
     workers = dict(item.split('=', 1) for item in args.worker)
     try:
         principal = json.loads(args.host_context)
+        if args.test_execute:
+            try:
+                result = execute_mobile(args.root, principal, *args.test_execute)
+            except run_storage.LockTimeout:
+                result = {'status': 'running', 'assignment_id': args.test_execute[1]}
+            print(json.dumps(result, ensure_ascii=False))
+            return 0
         if args.resource_sync:
             ledger.role(principal, 'module-orchestrator', 'host')
             state = ledger.read_events(Path(args.root))[0]

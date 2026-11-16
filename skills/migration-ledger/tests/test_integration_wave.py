@@ -45,6 +45,22 @@ class WaveIntegrationTests(unittest.TestCase):
         _, handed = drive.dispatch_history(self.f.root)
         self.assertEqual(handed['test-runner:GLOBAL'], ['integration-submit', wave['assignment_id']])
 
+    def test_missing_physical_ios_keeps_mobile_paths_independent(self):
+        self.first_wave()
+        state = ledger.read_events(self.f.root)[0]
+        base = {**state['global_paths'][0], 'kind': 'automation', 'platform': 'ios'}
+        simulator = {**base, 'path_id': 'SIM', 'ios_device_profile': 'simulator'}
+        physical = {**base, 'path_id': 'PHONE', 'ios_device_profile': 'physical'}
+        android = {**base, 'path_id': 'ANDROID', 'platform': 'android'}
+        state['global_paths'] = [physical, simulator, android]
+        state['test_adapter'] = {'device': {'platforms': ['ios', 'android'], 'ios': {'profiles': {
+            'simulator': {'wda_url': 'http://127.0.0.1:8100'}, 'physical': {}}}}}
+        blocked = {}
+        self.assertEqual(integration.due(state, blocked=blocked), [simulator])
+        self.assertEqual(set(blocked), {'PHONE'})
+        self.assertFalse(integration.affected_by_device(state, simulator, {'ios-physical'}))
+        self.assertTrue(integration.affected_by_device(state, physical, {'ios-physical'}))
+
     def test_missing_web_config_does_not_block_the_ready_android_path(self):
         from unittest.mock import patch
         import progress_signals
@@ -328,6 +344,23 @@ class MechanicalWaveTests(unittest.TestCase):
         s = f.state()
         self.assertEqual(s['audit_results']['GP1']['quality'], 'green-passed')
         self.assertTrue(s['integration_assignment']['closed'])
+
+    def test_mobile_wave_can_be_executed_by_a_separate_host_call(self):
+        from unittest.mock import patch
+        import drive
+        from test_rehearsal import MO
+
+        self.first_wave()
+        with patch('execute_test.builtin_mobile', return_value=True), patch.object(ledger, 'run_global', wraps=ledger.run_global) as run:
+            line = next(line for line in drive.drive(self.f.root, MO) if line.get('operation') == 'mobile-test')
+            self.assertEqual(line['kind'], 'running')
+            self.assertEqual(line['path_ids'], ['GP1'])
+            drive.drive(self.f.root, MO)
+            run.assert_not_called()
+            drive.execute_mobile(self.f.root, MO, *line['test_execute'])
+            drive.execute_mobile(self.f.root, MO, *line['test_execute'])
+            run.assert_called_once()
+        self.assertEqual(self.f.state()['audit_results']['GP1']['quality'], 'green-passed')
 
 
 if __name__ == '__main__':

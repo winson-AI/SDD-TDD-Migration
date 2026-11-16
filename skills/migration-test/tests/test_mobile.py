@@ -52,6 +52,25 @@ class MobileContractTests(unittest.TestCase):
                 with self.subTest(endpoint=endpoint), self.assertRaisesRegex(ValueError, 'device busy'):
                     with device_lock(endpoint, None, None, 'ios', udid=udid): pass
 
+    def test_assigned_runner_waits_for_same_device_and_others_can_run(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Event
+
+        started = Event()
+
+        def second():
+            started.set()
+            with device_lock('shared-test-device', None, None, 'android', wait=True):
+                return 'executed'
+
+        with ThreadPoolExecutor(1) as pool:
+            with device_lock('shared-test-device', None, None, 'android'):
+                result = pool.submit(second)
+                self.assertTrue(started.wait(1))
+                with device_lock('independent-test-device', None, None, 'android'):
+                    self.assertFalse(result.done())
+            self.assertEqual(result.result(timeout=2), 'executed')
+
     def test_recordings_for_the_same_steps_are_separated_by_platform(self):
         self.assertNotEqual(task_text({**query(), 'platform': 'android'}), task_text({**query(), 'platform': 'harmony'}))
 
@@ -75,6 +94,7 @@ class MobileContractTests(unittest.TestCase):
             self.assertEqual(report['quality'], 'yellow-blocked')
             self.assertIsNone(report['assertions'][0]['actual'])
             self.assertIn('serial required', report['root_cause']['summary'])
+            self.assertEqual(report['root_cause']['reason_code'], 'mobile-test-environment')
 
 
 @unittest.skipUnless(importlib.util.find_spec('uiautomator2') and importlib.util.find_spec('agents'), 'mobile dependencies required')
@@ -162,6 +182,57 @@ class MobileNativeTests(unittest.TestCase):
             screenshot.get_screenshot(driver)
 
     @unittest.skipUnless(importlib.util.find_spec('wda'), 'optional iOS dependencies required')
+    def test_physical_ios_receipt_checks_wda_device_and_current_installed_build(self):
+        from AutoTest.devices.ios_device import IosDevice
+        from contracts import file_ref
+        from ios_evidence import check_device
+
+        endpoint, baseline = 'http://127.0.0.1:8100', 'accepted-code'
+        artifact = self.out / 'signed.ipa'
+        artifact.write_bytes(b'fixture')
+        receipt = self.out / 'deployment.json'
+        receipt.write_text(json.dumps({'schema_version': 1, 'wda_url': endpoint, 'wda_uuid': 'observed-uuid', 'udid': 'PHONE',
+                                       'bundle_id': 'com.example.app', 'build_version': '42',
+                                       'code_baseline': baseline, 'artifact_ref': file_ref(artifact)}))
+        binding = {'profile': 'physical', 'wda_url': endpoint, 'udid': 'PHONE', 'app_id': 'com.example.app',
+                   'deployment_ref': file_ref(receipt)}
+        client = Mock()
+        client.http.get.return_value.value = {'uuid': 'observed-uuid', 'isSimulator': False, 'name': 'iPhone'}
+        observed = self.out / 'device.json'
+        with scope(self.out), patch('wda.Client', return_value=client), \
+             patch('AutoTest.devices.ios.screenshot.physical_device', return_value={'identifier': 'CORE'}) as lookup, \
+             patch('AutoTest.devices.ios.screenshot.physical_installation') as installation:
+            installation.return_value = {'udid': 'PHONE', 'bundle_id': 'com.example.app', 'build_version': '41', 'core_device_id': 'CORE'}
+            with self.assertRaisesRegex(ValueError, 'differs from deployment'):
+                IosDevice(endpoint, udid='PHONE', observation=observed, execution=(binding, baseline))
+            installation.return_value['build_version'] = '42'
+            IosDevice(endpoint, udid='PHONE', observation=observed, execution=(binding, baseline))
+            lookup.assert_called_with('PHONE')
+            check_device(binding, baseline, json.loads(observed.read_text()))
+            client.http.get.return_value.value['isSimulator'] = True
+            with self.assertRaisesRegex(ValueError, 'frozen profile'):
+                IosDevice(endpoint, udid='PHONE', execution=(binding, baseline))
+
+    def test_ios_video_evidence_covers_the_assertion_on_the_same_device(self):
+        from contracts import file_ref, Rejected
+        from ios_evidence import check_video
+
+        trace = {'steps': [{'before_device': {'captured_at': 15}, 'after_device': {'captured_at': 17}}]}
+        assertion = {'after_step': 1}
+        device = {'configured_udid': 'PHONE', 'wda_uuid': 'WDA', 'is_simulator': False, 'installed': {'core_device_id': 'CORE'}}
+        video = self.out / 'segment.mp4'
+        video.write_bytes(b'media fixture')
+        capture = self.out / 'segment.ios-capture.json'
+        facts = {'video_ref': file_ref(video), 'decoded_duration': 5, 'started_at': 14, 'ended_at': 19,
+                 'udid': 'PHONE', 'wda_uuid': 'WDA', 'backend': 'avfoundation', 'core_device_id': 'CORE'}
+        capture.write_text(json.dumps(facts))
+        check_video([file_ref(capture)], trace, assertion, device, self.out)
+        for change, reason in [({'ended_at': 16}, 'assertion interval'), ({'core_device_id': 'OTHER'}, 'source differs')]:
+            capture.write_text(json.dumps({**facts, **change}))
+            with self.assertRaisesRegex(Rejected, reason):
+                check_video([file_ref(capture)], trace, assertion, device, self.out)
+
+    @unittest.skipUnless(importlib.util.find_spec('wda'), 'optional iOS dependencies required')
     def test_ios_launch_capture_and_assertion_use_wda_points_and_managed_evidence(self):
         from io import BytesIO
         import base64
@@ -172,14 +243,15 @@ class MobileNativeTests(unittest.TestCase):
         from AutoTest.devices.ios import apps
         from test_step_execution import drive_fixture_steps
 
-        endpoint = 'http://127.0.0.1:8184'
+        endpoint = 'http://192.0.2.40:8184'
         client = Mock()
-        client.device_info.return_value = {'uuid': 'wda-fixture', 'model': 'iPhone', 'isSimulator': True}
+        client.http.get.return_value.value = {'uuid': 'wda-fixture', 'model': 'iPhone', 'isSimulator': True}
         client._unsafe_window_size.return_value = (100, 200)
         client.screenshot.return_value = Image.new('RGB', (300, 600), 'green')
         client.source.return_value = '<XCUIElementTypeApplication name="Fixture"/>'
         client.app_current.return_value = {'bundleId': 'com.example.fixture'}
-        q = {**query(), 'platform': 'ios'}
+        q = {**query(), 'platform': 'ios', 'ios_device_profile': 'simulator',
+             'ios_execution': {'profile': 'simulator', 'wda_url': endpoint, 'app_id': 'com.example.fixture'}}
         sink = ObservationSink(q, self.out)
 
         def planner(config, device, reporter):
@@ -205,14 +277,17 @@ class MobileNativeTests(unittest.TestCase):
                 device.get_screenshot()
             return SimpleNamespace(final_output='test passed')
 
-        config = {'platform': 'ios', 'device': endpoint, 'ios_bundle_id': 'com.example.fixture',
+        config = {'platform': 'ios', 'device': endpoint, 'ios_bundle_id': 'com.example.fixture', 'ios_udid': 'SIM-UDID',
                   'apps': {'ios': {'name': 'Fixture', 'package': 'com.example.fixture'}},
                   'models': {'decision_models': [{'name': 'fixture', 'base_url': 'https://example.invalid', 'api_key': 'unused'}],
-                             'execute_model_name': 'fixture', 'execute_provider': 'general', 'verify_model_name': 'fixture'}}
+                             'execute_model_name': 'fixture', 'execute_provider': 'general', 'verify_model_name': 'fixture',
+                             'verify_video_enable': True}}
         with scope(self.out), patch.dict(apps.APP_PACKAGES), patch('wda.Client', return_value=client), \
              patch('AutoTest.layered_agent_cli.decision.create_planner_agent', side_effect=planner), \
              patch('AutoTest.layered_agent_cli.decision.Runner.run', side_effect=runner), patch.object(mcp_tools.time, 'sleep'):
             asyncio.run(run_engine(q, config, self.out, sink))
+        from ios_evidence import check_checkpoints
+        check_checkpoints(q['ios_execution'], q, sink.step_trace, self.out)
         client.app_launch.assert_called_once_with('com.example.fixture')
         client.tap.assert_called_once_with(50, 100)
         client.home.assert_not_called()

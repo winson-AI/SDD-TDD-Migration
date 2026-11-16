@@ -139,8 +139,8 @@ class ObservationSink:
         raw_ref = ref(self.output / 'observations.json')
         expected = {a['assertion_id']: a for a in self.query['expected_assertions']}
         rows, blocked, failed, flaky = [], [], [], False
-        if self.error:
-            blocked.append(self.error)
+        if error := getattr(self, 'environment_error', None) or self.error:
+            blocked.append(error)
         if hasattr(self, 'step_trace'):
             from path_execution import inspect
             def check(value):
@@ -178,6 +178,9 @@ class ObservationSink:
                      'confidence': 'observed' if not blocked else 'suspected',
                      'owner': self.query['module_id'], 'suspected_owner': self.query['module_id'],
                      'evidence_refs': [raw_ref], 'next_action': 'diagnose'}
+            if getattr(self, 'environment_error', None):
+                cause.update(category='environment', reason_code='mobile-test-environment', confidence='confirmed',
+                             next_action='restore the device environment and rerun this PATH')
         report = {'schema_version': 1, 'producer': 'harmony-adapter',
                 **{k:self.query[k] for k in ('run_id','module_id','path_id','freeze_id','code_baseline')},
                 'query_sha256': digest(self.query), 'quality': quality, 'flaky': flaky,

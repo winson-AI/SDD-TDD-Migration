@@ -160,6 +160,10 @@ def builtin_platform(s, path):
     return None
 
 
+def builtin_mobile(s, path):
+    return builtin_platform(s, path) in ('android', 'ios', 'harmony')
+
+
 def adapter_for(s, path, root):
     """What runs a PATH when the host names nothing: build, unit and in-process functional PATHs have their frozen command;
     a device PATH runs the adapter the project states for its platform (test_adapter.adapters), else the project's one
@@ -175,7 +179,8 @@ def adapter_for(s, path, root):
         preview = ((adapter.get('device') or {}).get(platform) or {})
         web_config = (s.get('target_preview') or {}).get('web_main_config')
         if platform == 'ios':
-            row = builtin_main(platform, root, ios_preview=preview)
+            ios_preview = project_context.device_inputs(adapter['device']).get(project_context.path_device(path))
+            row = builtin_main(platform, root, ios_preview=ios_preview)
         else:
             row = builtin_main(platform, root, preview.get('serial'), web_config)
     require(row, 'no adapter runs platform ' + str(platform) + ' PATHs: state test_adapter.adapters.' + str(platform) + ' in the project context, or pass --adapter')
@@ -339,6 +344,12 @@ def execute(root, module_id, assignment_id, path_id, argv=None, cwd=None, output
              'freeze_id': m['freeze_id'], 'code_baseline': m['code_baseline'], 'execution_contract_version': 2}
     if path.get('kind', 'automation') == 'automation' and path.get('platform') in ('android', 'ios', 'harmony'):
         query['step_contract_version'] = 1
+    if builtin_platform(s, path) == 'ios':
+        device = project_context.path_device(path)
+        query['ios_execution'] = dict(project_context.device_inputs(s['test_adapter']['device']).get(device) or {})
+        if path.get('ios_device_profile'):
+            query['ios_execution']['profile'] = path['ios_device_profile']
+        query.update(assignment_id=assignment_id, test_run_id=run_ids[path_id])
     if prepared: query['frozen_test_assets'] = prepared
     if test_binding: query['test_asset_binding'] = test_binding
     if path.get('unit_report'):

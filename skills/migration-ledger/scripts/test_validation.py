@@ -417,6 +417,9 @@ def plan_check(plan, target, static_required=False, unit_required=False):
             'every module case needs an automation path; build/visual cannot cover a business case')
     require(all(p.get('record_video') in (None, False) or p['record_video'] is True and p['kind'] in ('automation', 'visual') for p in plan['paths']),
             'record_video is a flag of an automation or visual PATH: the run keeps the walk on film beside the verdict')
+    from project_context import check_ios_path
+    for path in plan['paths']:
+        check_ios_path(path)
     import web_contract
     for path in [p for p in plan['paths'] if p.get('kind') == 'automation' and p.get('platform') == 'web' and not p.get('command')]:
         try:  # the built-in web Main runs frozen objects: a step or predicate it cannot run is refused before anyone codes against it

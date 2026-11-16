@@ -7,7 +7,7 @@
 **GO/父 MO 分配 scope/全量 CASE → 子 MO 拆 TASK → Spec-Designer 形成 SPEC/PATH 并由 MO 冻结 → Implementer/Coding 接受 → build/unit → 核对测试资产 → automation 派发与预检（模型执行时可与 static 同派，static 在前） → 逐 PATH 执行 → visual（适用时）→ 反馈分流 / DoD → 全量收尾后统一 Auditor。**
 
 - 预期路径来自上游用例和 SPEC，Test-Runner 的独立 design 按需协助。正式自动化在代码接受且当前 build/unit 通过后执行。通常先完成 static，静态闭合等待调用方代码时，可先执行当前模块的自动化。
-- `execute_test.py` 调用当前 PATH 的 Main。Android、iOS 和 Harmony 可选内置移动端入口，项目适配器可提供自己的验证命令。
+- `execute_test.py` 调用当前 PATH 的 Main。内置 Android、iOS 和 Harmony 派发由宿主按 `test_execute` 独立运行并提交回执。项目适配器可提供自己的验证命令。 [宿主接入](../skills/migration-protocol/references/host-integration.md#内置移动端验证)
 - Test-Runner 执行和产出证据；模块 CASE 由 MO 唯一验收，审计 CASE 由 Auditor 唯一验收。实现错误交 Fixer；规划缺口走 CR 更新 SPEC，再由 Implementer 更新已有代码；范围不足上溯父 MO/GO。测试执行器和 Auditor 不修改源码/验收标准。
 - **自动化环境不可用可以结束本轮调度，但仍是 Yellow/未验证。** 它不让其他独立 MO 失败，也不取消可执行下游。
 
@@ -148,7 +148,7 @@ python3 /work/SDD-TDD-Migration/skills/migration-ledger/scripts/execute_test.py 
 3. 无录制走 Planner；有显式有效录制走 ToolPlayer。回放复用坐标/XPath/动作，但 Verify 仍操作本轮媒体；失败可在剩余预算内触发 Planner 重规划。
 4. Planner 单步调用 Executor、技能/工具或 Verify。Executor 观察页面、操作设备并反馈；压缩上下文、XPath 缓存、工具录制及可选反思支持后续决策。
 5. Verify wrapper 用 ASSERT ID 找回冻结描述与匹配规则，再由内核选择媒体/步骤进行验证。保留单图、双图、跨步骤、参考图、视频能力。
-6. `task_type=snapshot|recording` 是媒体任务：走到终点留稳定终帧或 final.mp4，不调用 Verify、不判定，走不到终点记 needs-review；adapter 以 `media_outcome.json` 产出媒体回执，只供存量捕获与录屏取证。test PATH 带 `record_video` 时强制录屏并把 final.mp4 列入 `media_refs`。
+6. `task_type=snapshot|recording` 走到终点后保留稳定终帧或录屏，生成 `media_outcome.json` 供捕获与取证。走不到终点记 needs-review。测试 PATH 声明 `record_video` 时将有效录屏列入 `media_refs`。iOS 对 `video_assert`、`record_video` 和录屏任务按需开启采集，保留各片段的设备绑定和可解码区间。 [iOS 接入](../skills/migration-test/runtime/harmony/README.md#ios-接入)
 6. 每次观察立刻写 observations；记录 ASSERT ID、顺序、工具、布尔结果、理由、媒体路径和摘要。
 7. `ObservationSink.report()` 汇总全部观察，生成三态、断言列表、root_cause；附环境快照、媒体/报告/录制引用。最终自然语言文本只作为报告内容。
 

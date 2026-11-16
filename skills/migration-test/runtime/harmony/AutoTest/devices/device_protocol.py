@@ -12,6 +12,7 @@ class Screenshot:
     height: int
     is_sensitive: bool = False
     screenshot_path: str = None
+    foreground_bundle_id: str | None = None
 
 
 @runtime_checkable

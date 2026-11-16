@@ -70,6 +70,7 @@ def batch_inputs(scope, path):
 
 def ready_paths(s, scope):
     """Dispatch runnable commands first, then give the remaining ready paths to an independent worker."""
+    from execute_test import builtin_mobile
     reported = environment_blocks(s)
     waiting = waiting_paths(s, scope, verify=False)
     ready, blocked = partition_paths(s, scope, waiting, reported=reported)
@@ -82,6 +83,10 @@ def ready_paths(s, scope):
         available = [path for path in available if path['path_id'] in mechanical]
     if not available:
         return [], blocked
+    quick = [path for path in available if not builtin_mobile(s, path)]
+    if not quick:
+        return [available[0]['path_id']], blocked
+    available = quick
     inputs = batch_inputs(scope, available[0])
     return [path['path_id'] for path in available if batch_inputs(scope, path) == inputs], blocked
 
@@ -146,7 +151,7 @@ def environment_blocks(s):
     return reported
 
 
-def input_fingerprint(s, scope, path, root, argv=None, cwd=None, *, version=INPUT_VERSION):
+def input_fingerprint(s, scope, path, root, argv=None, cwd=None, *, version=INPUT_VERSION, unit_with_device=False):
     """Bind an observation to its frozen PATH, actual command and current platform inputs."""
     from context_readiness import verify_refs
     from execute_test import adapter_for, builtin_platform
@@ -189,7 +194,7 @@ def input_fingerprint(s, scope, path, root, argv=None, cwd=None, *, version=INPU
                 execution = {'path': path, 'baseline': code, 'environment_ref': visual['environment_ref']}
                 builds = visual['artifacts']
             else:
-                execution = inputs(s, path, code)
+                execution = inputs(s, path, code, unit_with_device=unit_with_device)
             settings.update(freeze=scope['freeze_id'], build=s.get('build'))
             refs.update(test_assets=binding(scope, path), builds=builds,
                         visual_environment=visual_environment(path, scope.get('visual_environment_rebindings')))
@@ -232,7 +237,21 @@ def receipt_fingerprint(s, scope, path, task, receipt, *, same_assignment=False)
         argv, cwd = receipt['requested_argv'], receipt['cwd']
         check_visual_command(argv)
         check_execution(s, task, argv, cwd, path['path_id'])
-    return input_fingerprint(s, scope, path, task['run_root'], argv, cwd, version=version)
+    stamp = input_fingerprint(s, scope, path, task['run_root'], argv, cwd, version=version)
+    from integration import host_junit
+    if stamp != receipt.get('audit_inputs_sha256') and host_junit(path) and task.get('context_ref'):
+        from project_context import verify_snapshot
+        preflight = read_json(check_ref(task['context_ref']))
+        environment = (preflight.get('execution') or {}).get('environment_ref')
+        if environment:
+            old_adapter = verify_snapshot(environment)['effective_config'].get('test_adapter') or {}
+            adapter = dict(s.get('test_adapter') or {})
+            adapter.pop('device', None)
+            if 'device' in old_adapter:
+                adapter['device'] = old_adapter['device']
+            old = {**s, 'test_adapter': adapter}
+            return input_fingerprint(old, scope, path, task['run_root'], argv, cwd, version=version, unit_with_device=True)
+    return stamp
 
 
 def archived_evidence(task, archives):

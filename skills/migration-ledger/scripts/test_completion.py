@@ -17,7 +17,9 @@ def load_content(ref):
 def mobile_binding(planned, query, report, output):
     require(query.get('platform') == planned.get('platform'), 'mobile PATH platform changed')
     require(query.get('task_type', 'test') == planned.get('task_type', 'test'), 'mobile PATH task type changed')
-    if report.get('quality') != 'green-passed': return
+    ios_execution = 'ios_execution' in query
+    if report.get('quality') != 'green-passed' and not (ios_execution and report.get('quality') == 'red-bug'):
+        return
     require(report.get('platform') in ('android', 'ios', 'harmony') and report.get('task_type') == planned.get('task_type', 'test') == 'test',
             'mobile Green requires Android, iOS or Harmony test mode')
     require(not planned.get('platform') or report['platform'] == planned['platform'], 'mobile report platform mismatch')
@@ -34,6 +36,17 @@ def mobile_binding(planned, query, report, output):
         require(isinstance(observed, dict) and observed.get('endpoint') == environment['device']
                 and isinstance(observed.get('wda_uuid'), str)
                 and observed['wda_uuid'] not in ('', 'unknown'), 'iOS Green requires matching WebDriverAgent device evidence')
+        if ios_execution:
+            from ios_evidence import check_checkpoints, check_device, check_video
+            require(report.get('mobile_contract_version') == 3, 'iOS deployment evidence contract required')
+            check_device(query['ios_execution'], query['code_baseline'], observed)
+            trace = read_json(check_ref(report.get('step_trace_ref')))
+            check_checkpoints(query['ios_execution'], query, trace, output)
+            assertions = keyed(query['expected_assertions'], 'assertion_id')
+            for item in read_json(check_ref(report.get('observations_ref'))):
+                if item.get('tool') == 'video_assert':
+                    assertion = assertions[item['assertion_ids'][0]]
+                    check_video(item['evidence_refs'], trace, assertion, observed, output)
 
 
 def web_steps(query, trace, observations, check):
@@ -75,6 +88,8 @@ def interpret(receipt, planned):
             'host execution contract version mismatch')
     for key in ('run_id', 'module_id', 'path_id', 'freeze_id', 'code_baseline'):
         require(query.get(key) == receipt.get(key), 'completion query context mismatch')
+    if 'ios_execution' in query:
+        require(all(query.get(key) == receipt.get(key) for key in ('assignment_id', 'test_run_id')), 'iOS execution identity mismatch')
     require(query.get('expected_assertions') == planned['expected_assertions'], 'completion acceptance changed')
     expected = keyed(planned['expected_assertions'], 'assertion_id')
     report, error = load_content(receipt['result_ref']) if receipt.get('result_ref') else (None, 'missing result')
@@ -82,6 +97,7 @@ def interpret(receipt, planned):
     if receipt.get('result_ref'): evidence.append(receipt['result_ref'])
     known = isinstance(report, dict) and report.get('producer') in ('harmony-adapter', 'build-executor', 'lean-visual-adapter', 'spec-closure-check', 'web-main')
     generic = isinstance(report, dict) and not known  # a project adapter: its assertions are read as the documented contract, nothing else is trusted
+    require(not generic or 'ios_execution' not in query, 'built-in iOS execution requires a mobile evidence report')
     step_issues = []
     if known and report['producer'] == 'build-executor':
         require(planned.get('kind') in ('build', 'unit') or planned.get('unit_report'), 'build report cannot replace automation')
@@ -167,7 +183,7 @@ def interpret(receipt, planned):
             complete = (not abnormal and not step_issues and all(a.get('actual') is not None for a in assertions)
                         and isinstance(observations, list) and all(not e.get('error') for e in observations))
             row['execution_status'] = 'completed' if complete else 'incomplete'
-        if step_issues:
+        if step_issues and (row.get('root_cause') or {}).get('reason_code') != 'mobile-test-environment':
             previous = row.get('root_cause')
             row['quality'] = 'yellow-blocked'
             steps = query.get('steps')

@@ -50,7 +50,7 @@ def create_device(args, report_generator, config):
     if platform == 'ios':
         from AutoTest.devices.ios_device import IosDevice
         return IosDevice(args.device, report_generator=report_generator, config=config, udid=getattr(args, 'ios_udid', None),
-                         observation=getattr(args, 'ios_device_observation', None))
+                         observation=getattr(args, 'ios_device_observation', None), execution=getattr(args, 'ios_execution', None))
     if platform != 'harmony':
         raise ValueError('supported platforms: android, ios, harmony')
     return HDCDevice(args.device, args.ip, args.port, report_generator=report_generator, config=config)

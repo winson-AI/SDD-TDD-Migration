@@ -13,11 +13,13 @@ GLOBAL_OPERATIONS = {'global-plan', 'audit-recover'}
 
 
 def global_paths_check(paths, case_ids):
+    from project_context import check_ios_path
     require(isinstance(paths, list), 'global paths must be an array')
     if paths:
         paths = keyed(paths, 'path_id')
         require({v.get('case_id') for v in paths.values()} <= set(case_ids), 'global path case is not registered')
         for path in paths.values():
+            check_ios_path(path)
             if path.get('test_design_ref'):
                 import prepared_tests
                 prepared_tests.binding({'path_test_sources': {path['path_id']: prepared_tests.global_source(path)}}, path)

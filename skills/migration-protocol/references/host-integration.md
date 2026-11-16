@@ -12,6 +12,16 @@
 
 每个机械验证批次提交后，`drive` 重新检查验收游标和就绪派发，再开始下一批命令。父 MO 就绪的 `decompose` 和 `redecompose` 按步骤修订提前交付一次。已分配且需要宿主启动的独立 Test-Runner 按 assignment 提前交付一次。待生效的 Run 修订只暂停受影响 GLOBAL PATH。最后一个叶子收尾后，已评审的局部修订等待批准期间，独立波次可继续派发。终审游标交付 `audit-test-revoke` 时，宿主核实当前 Runner 已停止或隔离，再带停止证据提交。
 
+### 内置移动端验证
+
+`drive` 用 `running` 行交付内置 Android、iOS 和 Harmony 测试。看到 `test_execute` 时，取其中的模块 ID（集成和终审为 `GLOBAL`）及 assignment ID，使用与本轮相同的 MO 或宿主身份。用 `run_command.py start` 启动以下命令，并继续运行 `drive`。同一 assignment 的活动进程只启动一次。
+
+```text
+drive.py --root <run> --host-context '<MO 身份>' --test-execute <module_id> <assignment_id>
+```
+
+进程在原派发下沿用已完成的 PATH 回执，按原 Test-Runner 身份提交 Ledger。进程退出后读取其回执或拒绝原因，完整回执可通过同命令恢复提交。中断且已有不完整执行目录时，先核实设备进程确已停止或隔离，再按当前派发的撤销规则处理。同一设备由执行进程排队，其他设备和编码派发继续推进。
+
 ## 总则
 
 宿主要真实走完控制流：每步提交真实 Ledger 事件，各角色由宿主实际派发并执行。推进前按动作选 `/sdd-verify` 范围：全局基础 global，模块推进 module（本模块、祖先和实际依赖），全量投影 projection，最终交付 final；只阻断核验失败的相关范围，不把无关模块错误扩散到全部 MO。核验只证明记录与投影一致；派发、构建/设备执行和行为通过须各自的执行证据，hash 链不能证明。

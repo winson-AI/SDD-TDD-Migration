@@ -16,7 +16,7 @@ from run_storage import atomic_bytes
 class IosDevice(DeviceProtocol):
     platform = "ios"
 
-    def __init__(self, endpoint, report_generator=None, config=None, *, udid=None, observation=None):
+    def __init__(self, endpoint, report_generator=None, config=None, *, udid=None, observation=None, execution=None):
         self._endpoint = wda_endpoint(endpoint)
         self._url = urlsplit(self._endpoint)
         self._client = wda.Client(self._endpoint)
@@ -24,15 +24,35 @@ class IosDevice(DeviceProtocol):
         self._report_generator = report_generator
         self._recording = None
         self._teardown_callbacks = []
+        self._execution = execution
+        self._physical = None
         if not self._client.is_ready():
             raise ValueError("a reachable WebDriverAgent is required on the stated iOS device")
-        self._info = self._client.device_info()
+        self._info = (self._client.http.get("/wda/device/info", timeout=3).value if execution is not None
+                      else self._client.device_info())
         identity = self._info.get("uuid")
         if not isinstance(identity, str) or identity in ("", "unknown"):
             raise ValueError("WebDriverAgent device UUID is required for iOS evidence")
+        evidence = {"endpoint": self._endpoint, "wda_uuid": identity, "configured_udid": udid,
+                    "model": self._info.get("model"), "is_simulator": self._info.get("isSimulator")}
+        if execution is not None:
+            from ios_evidence import check_device, deployment
+            binding, baseline = execution
+            if binding.get("profile") and evidence["is_simulator"] is not (binding["profile"] == "simulator"):
+                raise ValueError("iOS device does not match the frozen profile")
+            if evidence["is_simulator"] is False or binding.get("deployment_ref"):
+                receipt = deployment(binding, baseline)
+                if identity != receipt["wda_uuid"] or self._endpoint != wda_endpoint(receipt["wda_url"]):
+                    raise ValueError("WDA is not attached to the provisioned iOS deployment")
+                from .ios.screenshot import physical_device, physical_installation, simulator_installation
+                if evidence["is_simulator"]:
+                    evidence["installed"] = simulator_installation(receipt["udid"], receipt["bundle_id"])
+                else:
+                    self._physical = physical_device(receipt["udid"])
+                    evidence["installed"] = physical_installation(self._physical, receipt["bundle_id"])
+                evidence["deployment_ref"] = binding["deployment_ref"]
+            check_device(binding, baseline, evidence)
         if observation:
-            evidence = {"endpoint": self._endpoint, "wda_uuid": identity, "configured_udid": udid,
-                        "model": self._info.get("model"), "is_simulator": self._info.get("isSimulator")}
             atomic_bytes(output_path(observation), json.dumps(evidence).encode() + b"\n")
         # Device state comes from the authorized fixture and frozen steps.
         if config and config.verify_video_enable:
@@ -63,14 +83,26 @@ class IosDevice(DeviceProtocol):
             raise RuntimeError("iOS logical screen size unavailable")
         return width, height
 
-    def get_screenshot(self, timeout=10, save_to_report=True):
+    def get_screenshot(self, timeout=10, save_to_report=True, *, checkpoint=False):
+        bundle = self._foreground_bundle() if checkpoint and self._execution is not None else None
         screenshot = ios.get_screenshot(self._client, *self.get_display_size())
+        if bundle:
+            if self._foreground_bundle() != bundle:
+                raise RuntimeError("iOS foreground App changed during checkpoint capture")
+            screenshot.foreground_bundle_id = bundle
         if save_to_report and self._report_generator:
             events = self._report_generator.events
             screenshot.screenshot_path = self._report_generator.save_screenshot(
                 screenshot.base64_data, layout_data=screenshot.layout_data,
                 prefix=f"step_{events[-1].step_number if events else 0}")
         return screenshot
+
+    def _foreground_bundle(self):
+        info = self._client.app_current()
+        bundle = info.get("bundleId") if info else None
+        if not isinstance(bundle, str) or not bundle:
+            raise RuntimeError("iOS checkpoint foreground bundle ID unavailable")
+        return bundle
 
     def tap(self, x, y, delay=None):
         ios.tap(self._client, x, y, delay)
@@ -131,7 +163,7 @@ class IosDevice(DeviceProtocol):
             raise RuntimeError("iOS screen recording already active")
         if self._url.hostname not in ("localhost", "127.0.0.1", "::1"):
             raise ValueError("a local WDA endpoint and its attached iOS device are required for recording")
-        self._recording = ios.start_screen_record(self._udid, self._info)
+        self._recording = ios.start_screen_record(self._udid, self._info, self._physical)
 
     def stop_screen_record(self, path=None):
         if self._recording is None:

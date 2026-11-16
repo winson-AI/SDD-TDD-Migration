@@ -13,4 +13,7 @@ description: /sdd-resume <run-id> [module-id] [decision.json绝对路径] — �
 3. 宿主执行一次 `drive.py`（同 [/sdd-run](sdd-run.md) 的循环）接上：`running` 行是中断前已派的 worker，确认存活或撤销后重派；人工决定经 Escalation 整理、宿主提交 decision，下一轮 drive 自动 resume；无答复也可恢复 crashed/pending 任务，缺必需决定的 waiting-human 继续挂起；重获锁、验证代码/SPEC，非 Green 必须复测。
 
 ## 3. 契约与规格
+
+带 `test_execute` 的移动端派发按原 assignment 启动或恢复。同派发已有完整回执时，验证并提交已有结果。 [内置移动端验证](../skills/migration-protocol/references/host-integration.md#内置移动端验证)
+
 目标角色 [Global-Orchestrator](../Agents/global-orchestrator.md)；[恢复与预算](../skills/migration-protocol/references/local-runtime.md#恢复与预算)、[进度恢复](../skills/migration-protocol/references/progress-recovery.md#总则)。模块预算耗尽用 host decision → MO recover，审计预算用 GO audit-recover，同任务调整用 run-review → revise-run，会话替换用 session + checkpoint；派发规则同 [/sdd-run](sdd-run.md)。

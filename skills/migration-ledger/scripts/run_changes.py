@@ -252,7 +252,7 @@ def pending_global_paths(s, *, revision_step=None):
 
 
 def integration_busy(s, report):
-    from integration import device_inputs, inputs, same_inputs, task
+    from integration import device_inputs, host_junit, inputs, same_inputs, task
     active = task(s)
     if not active:
         return False
@@ -264,11 +264,19 @@ def integration_busy(s, report):
         return any(path['path_id'] in active.get('inputs', {})
                    and not same_inputs(after, path, {'integration_inputs': active['inputs'][path['path_id']]}, active['code_baseline'])
                    for path in s['global_paths'])
-    # An in-flight legacy wave must submit against its original full adapter digest.
-    return bool(devices and any(path['path_id'] in active.get('inputs', {})
-        and device_inputs(s, path) is not None
-        and active['inputs'][path['path_id']] == inputs(s, path, active['code_baseline'], legacy=True)
-        for path in s['global_paths']))
+    # A legacy active wave whose digest still contains the device must finish against its original inputs.
+    for path in s['global_paths'] if devices else ():
+        original = (active.get('inputs') or {}).get(path['path_id'])
+        if not original or not (device_inputs(s, path) is not None or host_junit(path)):
+            continue
+        stamp = {'integration_inputs': original}
+        try:
+            canonical = inputs(s, path, active['code_baseline'])
+        except (Rejected, OSError, KeyError):
+            continue  # independent evidence drift is handled by integration-revoke
+        if original != canonical and same_inputs(s, path, stamp, active['code_baseline'], canonical):
+            return True
+    return False
 
 
 

@@ -24,6 +24,7 @@ FIELDS = {'package_root', 'legacy_root', 'target_root', 'architecture_path', 're
           'target_resources', 'experience_root', 'reference_media', 'legacy_preview', 'scope_statement', 'dependency_changes'}
 DOCUMENTS = ('architecture_path', 'requirements_path', 'test_cases_path', 'project_rules_path')
 TEST_PLATFORMS = {'android', 'ios', 'harmony', 'web'}
+IOS_PROFILES = ('simulator', 'physical')
 BUDGETS = {'max_parallel_modules': 5, 'max_fix_rounds': 3, 'max_audit_rounds': 3, 'max_no_progress_rounds': 2,
            'max_yellow_retries': 2}
 
@@ -241,6 +242,12 @@ def harmony_profile_kind(name):
 
 def device_inputs(device):
     inputs = {platform: device.get(platform) for platform in device.get('platforms', [])}
+    if 'ios' in inputs:
+        ios = inputs['ios'] or {}
+        inputs['ios'] = {key: value for key, value in ios.items() if key != 'profiles'} if ios.get('wda_url') else None
+        for profile in IOS_PROFILES:
+            row = (ios.get('profiles') or {}).get(profile)
+            inputs['ios-' + profile] = ({'app_id': ios.get('app_id'), **row} if row else None)
     if 'harmony' in inputs and isinstance(inputs['harmony'], dict):
         harmony = inputs['harmony']
         inputs['harmony'] = {k: v for k, v in harmony.items() if k != 'profiles'}
@@ -251,8 +258,17 @@ def device_inputs(device):
 
 
 def path_device(path):
+    if path.get('platform') == 'ios' and path.get('ios_device_profile') in IOS_PROFILES:
+        return 'ios-' + path['ios_device_profile']
     profile = path.get('harmony_device_profile')
     return f'harmony-{profile}' if harmony_profile_kind(profile) else path.get('platform')
+
+
+def check_ios_path(path):
+    if 'ios_device_profile' in path:
+        require(path.get('kind', 'automation') == 'automation' and path.get('platform') == 'ios'
+                and path['ios_device_profile'] in IOS_PROFILES and not path.get('command'),
+                'ios_device_profile is simulator or physical on an iOS device automation PATH')
 
 
 def wda_endpoint(value):
@@ -274,10 +290,24 @@ def target_preview(platform, value):
     text = lambda key: isinstance(value.get(key), str) and bool(value[key].strip())
     label = 'test_adapter.device.' + platform
     if platform == 'ios':
-        require(isinstance(value, dict) and set(value) <= {'wda_url', 'udid', 'app_id'}
+        require(isinstance(value, dict) and set(value) <= {'wda_url', 'udid', 'app_id', 'deployment_ref', 'profiles'}
                 and all(value.get(key) is None or text(key) for key in ('app_id', 'udid')),
-                label + ' takes wda_url, optional UDID and target bundle ID (app_id)')
+                label + ' takes wda_url, optional UDID, target bundle ID (app_id), deployment_ref and profiles')
+        if 'profiles' in value:
+            profiles = value['profiles']
+            require(isinstance(profiles, dict) and profiles and set(profiles) <= set(IOS_PROFILES),
+                    label + '.profiles names simulator and/or physical')
+            for row in profiles.values():
+                require(isinstance(row, dict) and 'profiles' not in row, 'invalid iOS profile')
+                if row:
+                    target_preview(platform, {'app_id': value.get('app_id'), **row})
+            if 'wda_url' not in value:
+                require(not {'udid', 'deployment_ref'}.intersection(value), label + ' default binding needs its own WDA endpoint')
+                return
         wda_endpoint(value.get('wda_url'))
+        if value.get('deployment_ref'):
+            require(text('udid') and text('app_id'), label + ' deployment needs UDID and target bundle ID')
+            check_ref(value['deployment_ref'])
         return
     if platform == 'web':
         require(isinstance(value, dict) and set(value) <= {'url', 'viewport', 'browser', 'headless', 'record_video'} and text('url')
@@ -351,7 +381,7 @@ def target_preview_files(root, device, *, revision=False):
         return file_ref(path)
 
     for platform, preview in device_inputs(device).items():
-        if preview is None or platform == 'ios' or platform == 'harmony' and not preview.get('serial'):
+        if preview is None or platform.startswith('ios') or platform == 'harmony' and not preview.get('serial'):
             continue
         folder.mkdir(parents=True, exist_ok=True)
         if platform == 'web':

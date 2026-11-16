@@ -41,9 +41,19 @@ Test-Runner 经 `execute_test.py` 执行，由 `harmony_stage.py` 汇总 PATH �
 }
 ```
 
-真机可使用宿主已转发的 WDA 端口。选 general 或 glm 执行器。用例可直接写目标 Bundle ID，也可用上面的 `apps.ios` 配置已确认的显示名。调试时 `sandbox.py doctor` 和 `sandbox.py adapter` 接受 `--platform ios --device <WDA-URL>`。iOS 回执记录 WDA 返回的设备 UUID，截图保留设备分辨率，手势用 WDA 逻辑坐标。
+选 general 或 glm 执行器。用例可直接写目标 Bundle ID，也可用 `apps.ios` 配置已确认的显示名。调试时 `sandbox.py doctor` 和 `sandbox.py adapter` 接受 `--platform ios --device <WDA-URL>`。
 
-本机录屏需给设备配置增加 `udid`，调试可传 `--ios-udid`。模拟器使用 simctl，真机使用 macOS AVFoundation，并核对实际采集设备。使用 iOS 照片或视频 fixture 时由宿主预置。iOS 的截图与参考图验证走移动端 automation PATH。IPA 安装、原生存量捕获和受管视觉制品对齐由宿主或项目适配器提供。
+上游要求同一 CASE 覆盖两种设备时，分别冻结 `ios_device_profile: simulator` 与 `ios_device_profile: physical` 的 PATH，给各自独立的 PATH ID。在 `test_adapter.device.ios.profiles` 下设置 `simulator` 与 `physical`，每个已配置项使用自己的 `wda_url`、`udid` 和适用的 `deployment_ref`。两者可继承 `ios.app_id`。待配置项可填 `{}`。配置变更按受影响档位补验。
+
+真机正式验收由已配对设备所在的 macOS 宿主执行。宿主部署与当前代码基线匹配的签名构建，在指定硬件 UDID 上启动 WDA，记录转发地址与该 WDA 返回的 UUID，再用 `contracts.py ref` 取部署 JSON 的引用作为 `deployment_ref`。部署 JSON 含以下字段。
+
+- `schema_version: 1`、`udid`、`wda_url` 和 `wda_uuid`。
+- `bundle_id`、`build_version`（该构建的唯一 `CFBundleVersion`）和 `code_baseline`（当前派发接受的源码基线）。
+- `artifact_ref` 为已部署签名包的文件引用，含绝对路径和 SHA-256。
+
+Runner 比对 WDA 实测设备类型和 UUID，并从 CoreDevice 核对硬件 UDID、已装包和构建版本。模拟器配置了部署回执时用 simctl 核对已装包。断言前核对检查点的实际前台 Bundle ID，保留截图与 UI 树。测试系统应用的断言可在 SPEC 显式冻结自己的 `foreground_bundle_id`。设备或部署错配按对应 PATH 的环境缺口处理。
+
+声明 `video_assert`、`record_video: true` 或录屏任务时启动本机录屏，需要相应 `udid`。模拟器使用 simctl。真机使用部署绑定的 WDA 及 CoreDevice 硬件 UDID 定位唯一 AVFoundation 采集源。录屏回执保存视频引用和可解码帧的时间范围，视频断言逐条核对冻结检查点区间。截图和快照直接使用 WDA。使用照片或视频 fixture 时由宿主预置。
 
 该目录现在是独立 uv 项目：Python 3.12、独立 `.venv`、可提交的 `uv.lock`、默认 LLM 参考配置与 run 级共享 sandbox 配置。不需要借用 MobileAgenticOperator 的虚拟环境或源码路径。
 

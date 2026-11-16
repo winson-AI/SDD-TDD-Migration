@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 import json
 import os
+from pathlib import Path
 import signal
 import threading
 import time
@@ -76,14 +77,24 @@ class Steps:
         self.flush()
         self.deadline.arm(self.config.step_timeout, f'step {number}')
         try:
-            def capture(label):
+            def capture(phase):
                 from AutoTest.reporter.reporter_types import Step
-                shot = verifier.device.get_screenshot(save_to_report=True)
+                if 'ios_execution' in sink.query:
+                    try:
+                        shot = verifier.device.get_screenshot(save_to_report=True, checkpoint=True)
+                        layout = verifier.report.layout_dir / Path(shot.screenshot_path).with_suffix('.json').name
+                        row[phase + '_device'] = {'foreground_bundle_id': shot.foreground_bundle_id, 'layout_ref': ref(layout),
+                                                  'captured_at': time.time()}
+                    except (ValueError, OSError, RuntimeError):
+                        sink.environment_error = 'iOS checkpoint media or foreground unavailable'
+                        raise
+                else:
+                    shot = verifier.device.get_screenshot(save_to_report=True)
                 index = len(verifier.report.step_content)
-                verifier.report.step_content.append(Step(index=index, step_type='frozen_step', title=label,
+                verifier.report.step_content.append(Step(index=index, step_type='frozen_step', title=f'step {number} {phase}',
                     timestamp=time.time(), screenshot_path=shot.screenshot_path))
                 return index, ref(shot.screenshot_path)
-            row['before_index'], row['before_ref'] = capture(f'step {number} before')
+            row['before_index'], row['before_ref'] = capture('before')
             self.flush()
             start = len(verifier.report.events)
             step = sink.query['steps'][number - 1]
@@ -99,7 +110,7 @@ class Steps:
             action_file = sink.output / f'step-{number}-actions.json'
             write(action_file, {'result': result, 'events': events})
             row['action_ref'] = ref(action_file)
-            row['after_index'], row['after_ref'] = capture(f'step {number} after')
+            row['after_index'], row['after_ref'] = capture('after')
             parsed = json.loads(result)
             ok = parsed.get('success') is True
             row['status'] = 'executed' if ok and row['actions'] else 'already-satisfied' if ok and allow else 'blocked'

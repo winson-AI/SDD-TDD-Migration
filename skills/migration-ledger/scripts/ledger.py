@@ -1238,6 +1238,11 @@ def _next_step(s, m):
             step['mechanical'] = True
         elif not submitted and context_readiness.runs_by_itself(s, m, active) and (active.get('context_ref') or not context_readiness.enabled(s)):
             step.update(mechanical=True, ready=True, reason='frozen-commands')  # advance runs them and submits the result in the worker's name
+            from execute_test import builtin_mobile
+            assigned = set(active['execution_contract']['path_ids'])
+            if any(builtin_mobile(s, p) for p in m['plan']['paths'] if p['path_id'] in assigned):
+                step.update(mobile_test=True, path_ids=active['execution_contract']['path_ids'],
+                            instance_id=active['instance_id'], fencing_token=active['fencing_token'])
     elif m.get('decomposition_submission'):
         step.update(operation='decompose-accept', role='global-orchestrator', ready=True)
     elif m.get('decomposition_required') and m['phase'] in ('context', 'specifying', 'clarifying'):
@@ -3534,6 +3539,11 @@ def run_fixed_flow(s, step):
         step['mechanical'] = True  # the paths due, to a Test-Runner no module's author is: it reports inside its dispatch
     elif op == 'integration-submit' and not step.get('artifact_only') and global_paths_run_by_themselves(s, step.get('path_ids')):
         step['mechanical'] = True
+    if step.get('mechanical') and op in ('integration-submit', 'audit-test-submit'):
+        from execute_test import builtin_mobile
+        paths = s['global_paths'] if op == 'integration-submit' else audit_scope(s)['plan']['paths']
+        if any(builtin_mobile(s, p) for p in paths if p['path_id'] in step['path_ids']):
+            step['mobile_test'] = True
 
 
 def verdict_in_review(s, step):
@@ -3552,7 +3562,7 @@ def verdict_in_review(s, step):
             and all(row.get('conclusion') == 'satisfied' for row in review['goal_review']['requirements']))
 
 
-def advance_run(root, principal, workers=None, *, defer_commands=False, publish=True, yield_after_test=False):
+def advance_run(root, principal, workers=None, *, defer_commands=False, publish=True, yield_after_test=False, defer_mobile=False):
     """Submit the run's mechanical steps (see run_fixed_flow), each in the name of the role it belongs to."""
     import integration
     applied, workers = [], workers or {}
@@ -3561,7 +3571,8 @@ def advance_run(root, principal, workers=None, *, defer_commands=False, publish=
         step = st['global_next_step']
         if not (step.get('mechanical') and step.get('ready')):
             break
-        if defer_commands and step['operation'] in ('integration-submit', 'audit-test-submit'):
+        if (defer_mobile and step.get('mobile_test')
+                or defer_commands and step['operation'] in ('integration-submit', 'audit-test-submit')):
             break
         s, sequence, op = read_events(root)[0], st['last_sequence'] + 1, step['operation']
         go = {'role': 'global-orchestrator', 'instance_id': workers.get('global-orchestrator') or 'global-orchestrator'}

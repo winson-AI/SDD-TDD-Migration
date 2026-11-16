@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 from contextlib import ExitStack, contextmanager
+from errno import EADDRINUSE
 import hashlib
 import importlib.util
 import importlib.metadata
@@ -13,6 +14,8 @@ import re
 import shutil
 import sys
 import socket
+import subprocess
+import time
 from types import SimpleNamespace
 from urllib.parse import urlsplit
 
@@ -26,6 +29,10 @@ from project_context import wda_endpoint
 ENGINE = Path(__file__).resolve().parents[1] / 'runtime/harmony'
 
 
+class DeviceUnavailable(ValueError):
+    """The selected PATH cannot run on its provisioned device."""
+
+
 def execution_config(raw, query=None, platform=None, device=None, *, ios_udid=None, ios_bundle_id=None):
     """Resolve a frozen platform and explicit device without cross-platform fallback."""
     q = query or {}
@@ -37,23 +44,36 @@ def execution_config(raw, query=None, platform=None, device=None, *, ios_udid=No
     task_type = q.get('task_type', 'test')
     if task_type not in ('test', 'snapshot', 'recording') or raw.get('task_type', 'test') not in ('test', task_type):
         raise ValueError('task_type test, snapshot or recording required for automation')
+    binding = (q.get('ios_execution') or {}) if selected == 'ios' else {}
+    if selected == 'ios' and q.get('ios_device_profile'):
+        if binding.get('profile') != q['ios_device_profile'] or not binding.get('wda_url'):
+            raise DeviceUnavailable('iOS ' + q['ios_device_profile'] + ' PATH needs its WDA device binding')
+        if binding['profile'] == 'physical' and not binding.get('deployment_ref'):
+            raise DeviceUnavailable('iOS physical PATH needs its deployment receipt')
+    if binding.get('wda_url'):
+        if device and wda_endpoint(device) != wda_endpoint(binding['wda_url']):
+            raise DeviceUnavailable('iOS PATH endpoint differs from its frozen input')
+        device = binding['wda_url']
     serial = device or raw.get('devices', {}).get(selected)
     if not serial and selected == raw.get('platform', 'harmony'):
         serial = raw.get('device')
     serial = serial or os.environ.get(selected.upper() + '_DEVICE', '')
     if not isinstance(serial, str) or not serial.strip():
-        raise ValueError('explicit device serial required for ' + selected)
+        raise DeviceUnavailable('explicit device serial required for ' + selected)
     if selected in ('android', 'ios') and raw.get('models', {}).get('execute_provider') not in ('general', 'glm'):
-        raise ValueError(selected.capitalize() + ' requires general or glm executor; no provider fallback')
+        raise DeviceUnavailable(selected.capitalize() + ' requires general or glm executor; no provider fallback')
     settings = {**raw, 'platform': selected, 'task_type': task_type, 'device': serial}
     if selected == 'ios':
-        settings['device'] = wda_endpoint(serial)
-        settings['ios_udid'] = ios_udid or raw.get('ios_udid') or os.environ.get('IOS_UDID') or None
-        settings['ios_bundle_id'] = ios_bundle_id or raw.get('ios_bundle_id')
+        try:
+            settings['device'] = wda_endpoint(serial)
+        except ValueError as exc:
+            raise DeviceUnavailable(str(exc)) from exc
+        settings['ios_udid'] = binding.get('udid') or ios_udid or raw.get('ios_udid') or os.environ.get('IOS_UDID') or None
+        settings['ios_bundle_id'] = binding.get('app_id') or ios_bundle_id or raw.get('ios_bundle_id')
         for key, pattern in (('ios_udid', r'[A-Za-z0-9-]+'), ('ios_bundle_id', r'[A-Za-z0-9.-]+')):
             value = settings[key]
             if value is not None and (not isinstance(value, str) or not re.fullmatch(pattern, value)):
-                raise ValueError('a valid ' + key + ' is required')
+                raise DeviceUnavailable('a valid ' + key + ' is required')
     return settings
 
 
@@ -82,7 +102,7 @@ def public_config(value):
 
 
 @contextmanager
-def device_lock(device, ip, port, platform='harmony', *, udid=None):
+def device_lock(device, ip, port, platform='harmony', *, udid=None, wait=False):
     # A machine-wide lease without a persistent /tmp lock inode. Binding is
     # atomic and the OS releases it even on SIGKILL; collisions fail closed.
     keys = [['android', device]] if platform == 'android' else [[device, ip, port]]
@@ -96,8 +116,14 @@ def device_lock(device, ip, port, platform='harmony', *, udid=None):
     with ExitStack() as leases:
         for number in sorted(ports):
             lease = leases.enter_context(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
-            try: lease.bind(('127.0.0.1', number))
-            except OSError as exc: raise ValueError('device busy: local device lease unavailable') from exc
+            while True:
+                try:
+                    lease.bind(('127.0.0.1', number))
+                    break
+                except OSError as exc:
+                    if not wait or exc.errno != EADDRINUSE:
+                        raise DeviceUnavailable('device busy: local device lease unavailable') from exc
+                    time.sleep(0.2)  # An assigned runner waits within its host command timeout.
         yield
 
 
@@ -141,6 +167,13 @@ def observing_verifier(base, sink):
                 if number != a['after_step'] or sink.step_trace['steps'][number - 1]['status'] not in ('executed', 'already-satisfied'):
                     sink.record(description, None, 'assertion outside frozen checkpoint', '', [], 'step mismatch')
                     return False, 'execute the frozen step before this assertion; do not backfill old checkpoints'
+                if 'ios_execution' in sink.query:
+                    bundle = (sink.step_trace['steps'][number - 1].get('after_device') or {}).get('foreground_bundle_id')
+                    expected = a.get('foreground_bundle_id') or sink.query['ios_execution'].get('app_id')
+                    if not bundle or (expected and bundle != expected):
+                        sink.environment_error = 'iOS checkpoint App mismatch'
+                        sink.record(description, None, sink.environment_error, '', [], sink.environment_error)
+                        return False, sink.environment_error
             frozen = f"[ASSERT:{ids[0]}] {a['description']}\n匹配规则：{a['matcher']}；exact 必须精确匹配，semantic 仅按冻结描述的语义判断。"
             try:
                 if hasattr(sink, 'deadline'): sink.deadline.arm(self.config.step_timeout, 'verification')
@@ -152,6 +185,15 @@ def observing_verifier(base, sink):
                     error = 'verification infrastructure/parse failure'
                 if a['verification'] != 'auto' and tool != a['verification']:
                     error = 'selected verification mode differs from frozen mode'
+                if tool == 'video_assert' and 'ios_execution' in sink.query and not error:
+                    from ios_evidence import check_video
+                    captures = sorted(Path(self.report.video_dir).glob('*.ios-capture.json'))
+                    device = json.loads((sink.output / 'ios-device.json').read_text())
+                    try:
+                        check_video([ref(path) for path in captures], sink.step_trace, a, device, sink.output)
+                    except (ValueError, OSError, KeyError):
+                        error = sink.environment_error = 'iOS recording lacks a device-bound assertion interval'
+                    media = [*media, *captures]
                 sink.record(description, result, reason, tool, media, error)
                 return result if not error else False, reason
             except Exception as exc:
@@ -212,10 +254,10 @@ async def run_engine(q, config, out, sink):
     from AutoTest.logger import configure_logger
     cfg = configure(config['models'])
     video_assertion = any(a['verification'] == 'video_assert' for a in q.get('expected_assertions', []))
-    if platform == 'ios' and not config['ios_udid']:
-        if video_assertion or config['task_type'] == 'recording' or q.get('record_video'):
-            raise ValueError('explicit iOS UDID required for recording and video assertions')
-        cfg.verify_video_enable = False
+    if platform == 'ios':
+        cfg.verify_video_enable = bool(video_assertion or config['task_type'] == 'recording' or q.get('record_video'))
+        if cfg.verify_video_enable and not config['ios_udid']:
+            raise DeviceUnavailable('explicit iOS UDID required for recording and video assertions')
     if config['task_type'] == 'recording' or q.get('record_video'):  # keep the walk on film: the deliverable, or evidence beside the verdict
         cfg.verify_video_enable = True
         cfg.keep_raw_video = True
@@ -226,6 +268,16 @@ async def run_engine(q, config, out, sink):
     native = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(native)
     native.VerifyAgent = observing_verifier(native.VerifyAgent, sink)
+    create_device = native.create_device
+
+    def checked_device(*args):
+        try:
+            return create_device(*args)
+        except (ImportError, OSError, RuntimeError, ValueError, KeyError, subprocess.SubprocessError) as exc:
+            detail = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
+            raise DeviceUnavailable(f'{platform} device setup failed: {detail}') from exc
+
+    native.create_device = checked_device
     task = task_text(q)
     if platform != 'harmony' and not q.get('platform'):
         task = '平台：' + platform + '；任务类型：' + config['task_type'] + '\n' + task
@@ -246,6 +298,8 @@ async def run_engine(q, config, out, sink):
     if platform == 'ios':
         args.ios_udid = config['ios_udid']
         args.ios_device_observation = out / 'ios-device.json'
+        if 'ios_execution' in q:
+            args.ios_execution = (q['ios_execution'], q['code_baseline'])
     Path(args.memory_dir).mkdir()
     replay = config.get('recording_ref')
     if replay:
@@ -295,9 +349,12 @@ def media_report(q, out, error=None):
     return report
 
 
-def recording_refs(out):
+def recording_refs(out, *, ios=False):
     """The screen recording a test PATH kept when asked (record_video): evidence beside the verdict, not part of it."""
     reports = out / 'reports'
+    if ios:
+        return [{'kind': 'recording', 'ref': json.loads(path.read_text())['video_ref']}
+                for path in sorted(reports.rglob('*.ios-capture.json'))]
     return [{'kind': 'recording', 'ref': ref(path)} for path in sorted(reports.rglob('final.mp4'))] if reports.exists() else []
 
 
@@ -355,11 +412,13 @@ def main():
         write(out / 'environment.json', environment)
         # Native relative media/memory files are contained in the attempt directory.
         with device_lock(config['device'], config.get('ip','127.0.0.1'), config.get('port',8710), config['platform'],
-                         udid=config.get('ios_udid')):
+                         udid=config.get('ios_udid'), wait=q.get('execution_contract_version') == 2):
             with scope(out):
                 sink.final_output = asyncio.run(run_engine(q, config, out, sink))
                 if not sink.final_output or str(sink.final_output).startswith('Error:'):
                     sink.error = 'engine stopped without a complete run; inspect engine.log'
+    except DeviceUnavailable as exc:
+        sink.error = sink.environment_error = str(exc)
     except Exception as exc:
         # Do not copy model exception text (may include credentials) into public receipts.
         detail = str(exc) if isinstance(exc, (ImportError, FileNotFoundError)) else 'engine unavailable or invalid configuration; inspect host environment'
@@ -369,12 +428,16 @@ def main():
         sink.error = f'{type(exc).__name__}: {detail}'
     task_type = q.get('task_type', 'test')
     if task_type == 'test':
+        media = recording_refs(out, ios=q.get('platform') == 'ios') if q.get('record_video') else None
+        if q.get('platform') == 'ios' and q.get('record_video') and not media:
+            sink.environment_error = 'iOS PATH requires a decodable screen recording'
         report = sink.report()
-        if q.get('record_video'):
-            report['media_refs'] = recording_refs(out)
+        if media is not None:
+            report['media_refs'] = media
     else:
         report = media_report(q, out, sink.error)
-    report.update(mobile_contract_version=2, platform=environment.get('platform'), task_type=task_type)
+    report.update(mobile_contract_version=3 if 'ios_execution' in q else 2,
+                  platform=environment.get('platform'), task_type=task_type)
     observation = out / 'ios-device.json'
     if environment.get('platform') == 'ios' and observation.is_file():
         environment['device_observation_ref'] = ref(observation)

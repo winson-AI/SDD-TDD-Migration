@@ -41,7 +41,8 @@ def automation_flow():
           ['automation-unavailable', '→ automation-deferred', '逐 PATH：Yellow / 未执行', '保留 build Green，不耗修复轮次', '不能掩盖已观察到的 Red'], 'orange', True)
     d.arrow([(780, 865), (780, 940)]); d.label(780, 910, 'ready')
     d.box(460, 940, 640, 125, 'ready 绑定 → 宿主 execute_test',
-          ['scope=automation；重验代码 / 环境 / 命令', '进程内 PATH 跑冻结命令 + JUnit；设备 / 浏览器 PATH 调 Main'])
+          ['核对实际代码、环境和命令，设备缺口仅记对应 PATH',
+           '内置移动 PATH 交独立宿主进程，drive 继续派发'])
     d.arrow([(780, 1065), (780, 1120)])
     d.box(460, 1120, 640, 145, '逐 PATH 调用 Main（适配器随平台）',
           ['声明平台后选择内置或项目 Main，传入 query 与 result 文件', 'Android / iOS / Harmony → 移动端 Main（图 06），Web → web Main', '受限 APK / HAP 视觉可与独立编码并行，核对设备锁'], controller=True)
@@ -87,7 +88,9 @@ def automation_flow():
     d.arrow([(1540, 840), (1570, 840), (1570, 2170), (1350, 2170)], 'orange', dashed=True, end=False)
     d.arrow([(780, 2170), (780, 2230)])
     d.box(460, 2230, 640, 140, '父汇总 → GO 全量收尾门禁',
-          ['GLOBAL 波次按受限视觉 / 代跑 / 独立 Runner 分批', '配置缺口按 PATH，适配器修订按实际执行输入重验', '有效波次先入账，全量收尾后启动 Auditor'], 'orange', True)
+          ['GLOBAL 波次按执行方式分批，内置移动端逐 PATH 入账',
+           '配置缺口按 PATH，纯设备切换保留有效冻结 JUnit',
+           '有效波次先入账，全量收尾后启动 Auditor'], 'orange', True)
     d.arrow([(780, 2370), (780, 2410)])
     d.box(460, 2410, 640, 150, 'Auditor · 独立闭环',
           ['审阅全宿主目标 / 代码；遗留按审计 fix / verify / human 路由', '裁决失败：结构化根因待人工；缺环境保留未验证', '按 PATH 失效阶段复测；裁决使用累计回执'], controller=True)
@@ -105,14 +108,18 @@ def automation_engine():
              ['冻结步骤 / 参数 / ASSERT / after_step / 当前代码身份', '设备 / 三类模型 / 预算 / 可选 knowledge_ref 与 recording_ref'])
     d.arrow([(800, 320), (800, 375)])
     d.box(440, 375, 720, 125, 'adapter 校验与隔离',
-          ['校验字段 / hash / 平台 → 设备互斥锁 → 本次独立目录', 'platform=android|harmony；test 注册 Verify，媒体任务只留媒体'])
+          ['核对冻结 PATH 与实际环境，同设备排队，证据存入本次目录',
+           'Android / iOS / Harmony 各走实际设备绑定'])
+    d.arrow([(1160, 438), (1220, 438)], 'blue')
+    d.box(1220, 365, 320, 200, 'iOS 取证',
+          ['模拟器与真机独立 PATH', 'WDA 与设备 UDID 绑定', '核对已安装包及构建版本', '检查点前台应用和 UI 树'], 'gray')
     d.arrow([(800, 500), (800, 555)])
     d.box(440, 555, 720, 110, 'task_text：步骤与冻结断言交错',
           ['每条 verify 使用单个 [ASSERT:id]；知识只辅助执行'])
     d.arrow([(800, 665), (800, 715)])
-    d.diamond(800, 780, 330, 130, '显式录制？', 'hash / 任务文本须匹配')
-    d.arrow([(635, 780), (380, 780), (380, 880)]); d.label(490, 760, '无录制')
-    d.arrow([(965, 780), (1220, 780), (1220, 880)]); d.label(1100, 760, '有效录制')
+    d.diamond(800, 780, 330, 130, '显式导航回放？', 'hash / 任务文本须匹配')
+    d.arrow([(635, 780), (380, 780), (380, 880)]); d.label(490, 760, '无回放记录')
+    d.arrow([(965, 780), (1220, 780), (1220, 880)]); d.label(1100, 760, '有效回放记录')
     d.box(80, 880, 600, 140, 'Planner → Executor',
           ['Observe → 单步执行 → 实际反馈', 'Android ADB / iOS WDA / Harmony HDC', '压缩上下文 / 可选反思 / 技能 / XPath 缓存'], controller=True)
     d.box(920, 880, 600, 140, 'ToolPlayer · 导航回放',
@@ -127,7 +134,8 @@ def automation_engine():
           ['ASSERT ID 找回冻结谓词与 matcher，防止改写期望', '固定 verification 强制保留；auto 才动态选择'])
     d.arrow([(800, 1250), (800, 1300)])
     d.box(440, 1300, 720, 135, '真实媒体验证',
-          ['单图 / 双图 / 跨步骤 / 参考图 / 视频', '时间线取证；视频录制 / 时间映射 / 裁剪 / 压缩', '输出布尔结果 + 原始理由 + 实际工具 + 媒体引用'])
+          ['单图 / 双图 / 跨步骤 / 参考图 / 视频',
+           'iOS 按需录屏，视频绑定采集设备和可解码断言区间', '输出布尔结果、原始理由、实际工具与媒体引用'])
     d.arrow([(800, 1435), (800, 1485)])
     artifact(d, 440, 1485, 720, 120, 'ObservationSink · 每次立即落盘',
              ['sequence / ASSERT ID / result / reason / tool / error', 'evidence_refs = 实际媒体路径 + SHA256'])
