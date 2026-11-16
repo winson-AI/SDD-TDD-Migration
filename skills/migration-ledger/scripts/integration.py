@@ -62,13 +62,25 @@ def affected_by_device(s, path, devices):
     return bound is None or bool(devices.intersection(bound))
 
 
+def check_path_inputs(s, path):
+    """Validate frozen adapter and PATH references independently of the shared code baseline."""
+    from context_readiness import verify_refs
+    from execute_test import builtin_platform
+
+    verify_refs(path)
+    if builtin_platform(s, path) == 'web':
+        config = (s.get('target_preview') or {}).get('web_main_config')
+        if config:
+            check_ref(config)
+
+
 def inputs(s, path, code_baseline=None, *, legacy=False):
     """A managed visual path consumes its named build. Opaque commands may inspect the whole project."""
+    if not legacy:
+        check_path_inputs(s, path)
     if scoped(s, path):
-        from context_readiness import verify_refs
         from ledger import current as check_module
         from test_validation import managed_visual_artifacts
-        verify_refs(path)
         mids = module_ids(s, path)
         refs = managed_visual_artifacts(s, path, build_artifacts(s, path))
         require(refs, 'managed integration build or visual environment unavailable')
@@ -84,8 +96,6 @@ def inputs(s, path, code_baseline=None, *, legacy=False):
         platform = path['platform']
         adapter = s['test_adapter']
         web_config = (s.get('target_preview') or {}).get('web_main_config')
-        if platform == 'web' and web_config:
-            check_ref(web_config)
         runtime = ({'web_config': web_config} if platform == 'web'
                    else {'environment_revision': s.get('harmony_environment_revision')})
         return digest({**common, 'device': device, 'adapter': {k: v for k, v in adapter.items() if k != 'device'},

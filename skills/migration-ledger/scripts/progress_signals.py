@@ -134,6 +134,9 @@ def build(root, state, events, steps, global_step, at=None):
     for pid, detail in global_step.get('integration_blocked_paths', {}).items():
         signals.append({'module_id': None, 'reason': 'integration-path-inputs-unavailable', 'owner': 'host', 'severity': 'action',
                         'next_action': f'{pid}: {detail}', 'evidence': {'path_id': pid, 'detail': detail}})
+    for pid, detail in global_step.get('audit_blocked_paths', {}).items():
+        signals.append({'module_id': None, 'reason': 'audit-path-inputs-unavailable', 'owner': 'host', 'severity': 'action',
+                        'next_action': f'{pid}: {detail}', 'evidence': {'path_id': pid, 'detail': detail}})
     for step in steps + [{'module_id': None, **global_step}]:
         mid, reason = step.get('module_id'), step.get('reason')
         if step.get('ready'):
@@ -144,7 +147,8 @@ def build(root, state, events, steps, global_step, at=None):
                       'await-auditor', 'dependency-incomplete', 'dependency-verification-pending'):
             continue
         # A barrier itself is not a failure; report concrete child causes below.
-        if mid is None and reason in ('await-all-module-rounds', 'await-parent-summaries', 'module-work-remaining', 'module-decomposition-required'):
+        if mid is None and reason in ('await-all-module-rounds', 'await-parent-summaries', 'module-work-remaining',
+                                      'module-decomposition-required', 'audit-path-inputs-unavailable'):
             continue
         human = reason in ('human-decision-required', 'human-review-required', 'finding-awaits-human',
                            'approval-or-impact-review-required', 'budget-exhausted', 'audit-budget-exhausted',

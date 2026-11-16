@@ -70,6 +70,8 @@ def tick(root, principal, workers=None):
     started = False
     for _ in range(50):
         st = ledger.status(root, publish=False)
+        if start_ready_resources(root, principal, st):
+            break
         steps = st['next_steps']
         _, handed, _, _ = dispatch_budget(root, st, [])
         can_assign = assignment_budget(handed)
@@ -83,8 +85,6 @@ def tick(root, principal, workers=None):
         if actions:
             continue
         if started or ready_handoff_to_deliver(root, st):
-            break
-        if start_ready_resources(root, principal, st):
             break
         for step in steps:
             if step.get('mechanical') and step.get('ready') and step['operation'] == 'await-result':

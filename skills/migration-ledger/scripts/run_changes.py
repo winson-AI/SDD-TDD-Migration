@@ -295,9 +295,8 @@ def retain_verification(s, m, devices, root=None):
     return retained
 
 
-def reverify(s, m, devices, review, root=None):
+def reverify(m, retained, review):
     import test_validation as tv
-    retained = retain_verification(s, m, devices, root) if devices is not None else None
     if retained is not None and retained == {path['path_id'] for path in m['plan']['paths']}:
         return  # No accepted result in this leaf needs another attempt.
     m.setdefault('verification_history', []).append({'review_ref': review, 'results': copy.deepcopy(m['results'])})
@@ -588,6 +587,10 @@ def handle(root, s, req, actor):
         require(decision.get('decision') == 'approved' and decision.get('module_id') is None and not decision.get('consumed', True)
             and decision.get('subject_sha256') == p['subject_sha256'], 'run revision requires exact human decision')
         check_ref(decision['human_source_ref'])
+    # A provider entering its own retest must not change a consumer's reuse
+    # decision in this transaction. All leaves read the pre-switch evidence.
+    retained_by_module = {row['module_id']: retain_verification(s, s['modules'][row['module_id']], scoped_devices, root)
+                          for row in report['modules'] if scoped_devices is not None and row['action'] == 'reverify'}
     previous = s.get('project_context_ref')
     previous_spec = s['global_spec']
     previous_contract = {key: copy.deepcopy(s[key]) for key in CONTRACT_KEYS}
@@ -636,7 +639,10 @@ def handle(root, s, req, actor):
     for mid, m in s['modules'].items():
         if mid in affected:
             if rows[mid]['action'] == 'reverify':
-                reverify(s, m, devices, review['report_ref'], root=root)
+                kept = retained_by_module.get(mid)
+                if devices is not None and scoped_devices is None:
+                    kept = retain_verification(s, m, devices, root)
+                reverify(m, kept, review['report_ref'])
                 m.pop('execution_context_ref', None)
             elif rows[mid]['action'] == 'revise':
                 open_change(s, m, {'request_ref': review['report_ref'], 'impact_ref': review['report_ref'], 'upstream': True})

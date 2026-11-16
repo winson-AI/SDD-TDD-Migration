@@ -49,6 +49,58 @@ class AuditScopeTests(unittest.TestCase):
         self.assertEqual(s['modules']['M001']['results'], original)
         self.assertEqual(s['global_next_step']['reason'], 'await-delivery-authorization')
 
+    def test_final_audit_preserves_ready_path_evidence_until_a_blocked_peer_recovers(self):
+        import sys
+        from unittest.mock import patch
+        import audit_execution
+        import execute_test
+        from contracts import check_ref, read_json
+
+        f = test_context_readiness.ContextReadinessTests()
+        original = f.call
+
+        def initialize(op, payload=None, **kwargs):
+            if op == 'init':
+                fixture = f.ref('global-runner.py', '''import json
+import sys
+with open(sys.argv[sys.argv.index('--result-file') + 1], 'w') as target:
+    json.dump({'assertions': [{'assertion_id': 'A1', 'expected': 2, 'actual': 2, 'passed': True}]}, target)
+''')
+                command = {'argv': [sys.executable, fixture['path']], 'cwd': str(f.target)}
+                web = {**payload['global_paths'][0], 'path_id': 'WEB', 'kind': 'automation', 'platform': 'web'}
+                payload = {**payload, 'test_adapter': {'device': {'platforms': ['web'], 'web': {'url': 'https://example.test'}}},
+                           'global_paths': [web, {**web, 'path_id': 'READY', 'platform': 'host', 'command': command}]}
+            return original(op, payload, **kwargs)
+
+        f.call = initialize
+        f.setUp(); self.addCleanup(f.doCleanups)
+        f.completed()
+        test_ledger.code_review(f)
+        state = f.state()
+        archived = check_ref(state['target_preview']['web_main_config'])
+        contents = archived.read_bytes()
+        archived.unlink()
+        mo = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
+        ledger.advance_run(f.root, mo)
+        state = f.state()
+        self.assertEqual(state['audit_assignment']['path_ids'], ['WEB', 'READY'])
+        self.assertEqual(state['global_next_step']['reason'], 'audit-path-inputs-unavailable')
+        self.assertEqual(set(state['global_next_step']['audit_blocked_paths']), {'WEB'})
+        refs, rows = audit_execution.evidence(state)
+        self.assertEqual([(row['path_id'], row['quality']) for row in rows], [('READY', 'green-passed')])
+        with self.assertRaisesRegex(Rejected, 'every required PATH'):
+            audit_execution.evidence(state, ledger.audit_scope(state), {'paths': rows, 'test_result_ref': refs[0]})
+        archived.write_bytes(contents)
+        command = state['global_paths'][1]['command']
+        with patch.object(execute_test, 'builtin_main', return_value={'argv': command['argv']}):
+            ledger.advance_run(f.root, mo)
+        state = f.state()
+        self.assertEqual(state['quality'], 'green-passed')
+        self.assertEqual(state['audit_results']['READY']['test_run_id'], rows[0]['test_run_id'])
+        report = read_json(check_ref(state['audit']['report_ref']))
+        self.assertEqual(report['test_result_refs'][0], refs[0])
+        self.assertEqual([row['path_id'] for row in report['paths']], ['READY', 'WEB'])
+
     def test_empty_global_does_not_block_cross_module_repair_and_retest(self):
         f = self.fixture(test_audit_closure.ClosureTests)
         f.test_cross_module_fix_then_owner_and_source_verification()

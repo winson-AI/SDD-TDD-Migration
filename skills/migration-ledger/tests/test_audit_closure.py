@@ -61,7 +61,8 @@ class AuditPathEvidenceTests(unittest.TestCase):
             device_revision = copy.deepcopy(module)
             device_revision['results']['B1']['executed'] = True
             with patch.object(ledger, 'current'), patch.object(ledger, 'dependencies_ready'):
-                run_changes.reverify(state, device_revision, {'harmony-physical'}, file_ref(context), root=base)
+                retained = run_changes.retain_verification(state, device_revision, {'harmony-physical'}, root=base)
+                run_changes.reverify(device_revision, retained, file_ref(context))
             self.assertEqual(device_revision['retained_build_paths'], ['B1'])
             self.assertFalse(device_revision['results']['B1'].get('stale'))
             self.assertTrue(device_revision['results']['B2']['stale'])

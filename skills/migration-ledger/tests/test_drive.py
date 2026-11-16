@@ -83,6 +83,35 @@ class ReadyImplementerTests(unittest.TestCase):
                     self.assertFalse(any(line.get('module_id') == 'M001' and line['kind'] == 'running'
                                          for line in drive.drive(f.root, MO)))
 
+    def test_ready_resources_take_the_free_slot_before_a_fresh_assignment(self):
+        from unittest.mock import patch
+        import ledger
+        from test_iterative_spec import UpstreamPlanTests
+
+        fixture = UpstreamPlanTests()
+        fixture.setUp(); self.addCleanup(fixture.doCleanups)
+        f = fixture.f
+        fixture.freeze(fixture.t.plan('M001'))
+        fixture.t.freeze('M002')
+        proof = f.ref('res-ready.json', {'status': 'SYNCED'})
+        replay = ledger.read_events
+
+        def one_slot(*args, **kwargs):
+            state, events = replay(*args, **kwargs)
+            state['max_parallel_modules'] = 1
+            return state, events
+
+        with patch.object(ledger, 'read_events', side_effect=one_slot), \
+                patch.object(drive.resource_binding, 'needs_sync', side_effect=lambda m, _: m['module_id'] == 'M001'), \
+                patch.object(drive.resource_binding, 'ready_receipt', return_value={'receipt_ref': proof, 'result_ref': proof}):
+            f.call('assign', {'role': 'implementer', 'assignment_id': 'waiting', 'instance_id': 'coder',
+                              'resource_sync_deferred': True})
+            lines = drive.drive(f.root, MO)
+            self.assertTrue(any(row.get('assignment_id') == 'waiting' and row['kind'] == 'running' for row in lines))
+            s = f.state()
+            self.assertFalse(s['modules']['M001']['assignments']['waiting']['resource_wait'])
+            self.assertFalse(s['modules']['M002']['assignments'])
+
     def test_resource_start_respects_a_delivered_rotation_until_coding_is_assigned(self):
         from tempfile import TemporaryDirectory
         from unittest.mock import patch

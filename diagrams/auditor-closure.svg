@@ -16,7 +16,7 @@
 <rect x="340" y="195" width="920" height="115" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="800.0" y="231.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">入口：GO 全量收尾门禁已满足</text>
 <text x="800.0" y="265.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全部子 MO 本轮结束 + 所有父汇总有效 + 无活动 worker / 可推进动作</text>
-<text x="800.0" y="294.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">波次配置缺口按 PATH 隔离，审计仍追踪待验路径</text>
+<text x="800.0" y="294.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">波次与终审均按 PATH 隔离配置缺口</text>
 <path d="M800,310 L800,370" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="500" y="370" width="600" height="135" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="800.0" y="402.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">整体代码审查 → 分批收集</text>
@@ -109,7 +109,7 @@
 <path d="M400,1735 L400,1795" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="90" y="1795" width="620" height="155" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
 <text x="400.0" y="1837.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">独立审阅收尾 → 全局报告</text>
-<text x="400.0" y="1871.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">复测由 Ledger 派发并代预检；空清单只审阅</text>
+<text x="400.0" y="1871.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">分批运行就绪 PATH，恢复后补验缺口</text>
 <text x="400.0" y="1900.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全通过 → 全局 Green → 按授权交付</text>
 <text x="400.0" y="1929.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">仅缺自动化环境 → Yellow / 未执行报告收尾</text>
 <path d="M1200,1735 L1200,1795" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>

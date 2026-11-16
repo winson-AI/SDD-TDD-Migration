@@ -26,7 +26,7 @@ work_modules 包含发现模块、根因 owner 与受影响下游。audit-retest
 
 ## 收尾的实际执行契约
 
-独立 Test-Runner 执行，Auditor 消费原始证据并裁决，见[宿主目标审计](audit-code-review.md#宿主目标审计)。audit-assign 后，Ledger 以 GO 名义 audit-test-assign 给非任何作者的 Test-Runner（先派发，其预检在派发内提交；所选 PATH 都有冻结命令或适配器时 Auditor 与 Test-Runner 的预检由 Ledger 写、执行由 advance_run 代跑），Test-Runner 经 execute_test 执行并 audit-test-submit；Auditor 报告绑定 test_result_ref，原样引用 PATH 观察。复测全绿且代码审查无发现、目标全部满足时，结论由 Ledger 以 Auditor 名义按审查与观察提交。
+独立 Test-Runner 执行，Auditor 消费原始证据并裁决，见[宿主目标审计](audit-code-review.md#宿主目标审计)。audit-assign 后，Ledger 以 GO 名义 audit-test-assign 给非任何作者的 Test-Runner（先派发，其预检在派发内提交；所选 PATH 都有冻结命令或适配器时 Auditor 与 Test-Runner 的预检由 Ledger 写、执行由 advance_run 代跑），Test-Runner 经 execute_test 执行并 audit-test-submit；Ledger 保留完整的审计复测清单，配置缺口按 PATH 报告。独立 Test-Runner 先执行就绪路径。补齐配置后只派发仍待验的路径。Auditor 报告用 test_result_ref（单批）或 test_result_refs（多批）绑定全部接受的结果，原样引用 PATH 观察。复测全绿且代码审查无发现、目标全部满足时，结论由 Ledger 以 Auditor 名义按审查与观察提交。
 
 `audit-assign` 不检查 global_paths 非空。Ledger 的 `audit_scope(state)` 生成本轮执行集合，并固定到 assignment：
 

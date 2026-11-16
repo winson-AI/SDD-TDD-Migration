@@ -284,6 +284,9 @@ def dispatch_paths(m, scope):
         selected = [p for p in selected if not path_green(m, p['path_id'])]
     if scope == 'build' and m.get('retained_build_paths'):
         selected = [p for p in selected if p['path_id'] not in m['retained_build_paths']]
+    if scope == 'build' and m.get('task_revalidation', {}).get('mode') == 'partial':
+        selected = [p for p in selected if not path_green(m, p['path_id'])
+                    or p['kind'] == 'build' and not build_ready(m)]
     pending = set(pending_paths(selected))
     if not pending:
         return selected

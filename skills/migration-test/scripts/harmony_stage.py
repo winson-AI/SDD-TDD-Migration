@@ -25,7 +25,7 @@ def build(root, module_id, assignment_id, receipts):
     staged = module_id != 'GLOBAL' and tv.split(m)
     pre = staged and a['test_scope'] == 'build'  # one result carries build, unit tests and the static review
     selected = ([p for kind in tv.PRE for p in tv.paths(m, kind)] if pre else tv.scope_paths(m, a['test_scope'])) if staged else m['plan']['paths']
-    assigned = (a.get('execution_contract') or {}).get('path_ids', [p['path_id'] for p in selected])
+    assigned = (a.get('execution_contract') or {}).get('path_ids', a['path_ids'] if retest else [p['path_id'] for p in selected])
     paths = {p['path_id']: p for p in selected if p['path_id'] in assigned}
     rows = {}
     for receipt_ref in receipts:

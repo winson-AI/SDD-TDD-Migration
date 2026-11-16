@@ -236,20 +236,29 @@ def command_receipts(s, m, root, paths):
     if not m.get('build_baseline') or m['build_baseline'] != m['code_baseline']:
         return []
     try:
-        if baseline(m['code_files']) != m['code_baseline'] or any(file_ref(ref['path']) != ref for ref in m['build_artifacts']):
+        if baseline(m['code_files']) != m['code_baseline']:
             return []
-        retained = []
-        for path in paths:
+    except (Rejected, OSError, ValueError, TypeError, KeyError):
+        return []
+    retained = []
+    for path in paths:
+        try:
             pid = path['path_id']
             receipt = prior_green_receipt(m, pid)
             if not receipt or not matches(path['command'], receipt):
                 continue
+            if path['kind'] == 'build':
+                artifacts = m['results'][pid].get('build_artifacts', [])
+                result = read_json(check_ref(receipt['result_ref']))
+                if (result.get('build_artifacts', []) != artifacts
+                        or any(ref not in m['build_artifacts'] or file_ref(ref['path']) != ref for ref in artifacts)):
+                    continue
             if path.get('unit_report'):
                 unit_reports.validate(receipt, path, read_json(check_ref(receipt['result_ref'])))
             retained.append(pid)
-        return retained
-    except (Rejected, OSError, ValueError, TypeError, KeyError):
-        return []  # Unavailable or drifted evidence falls back to the ordinary verification gates.
+        except (Rejected, OSError, ValueError, TypeError, KeyError):
+            continue  # A bad receipt or artifact only expires this PATH.
+    return retained
 
 
 def command_fingerprints(s, root):
@@ -317,8 +326,7 @@ def reusable_build(s, m, root):
     if not documentation_delta(m):
         return []
     paths = [p for p in m['plan']['paths'] if p.get('kind') in ('build', 'unit')]
-    retained = command_receipts(s, m, root, paths)
-    return retained if len(retained) == len(paths) else []
+    return command_receipts(s, m, root, paths)
 
 
 def retain_after_test_assets(s, m, root):
@@ -350,7 +358,7 @@ def retain_after_test_assets(s, m, root):
     return {'mode': 'partial', 'reason': 'test-assets-only', 'proof_ref': m['plan_ref'],
             'plan_hash': m['plan_hash'], 'from_freeze_id': change['from_freeze_id'],
             'retained_task_ids': list(m['accepted_task_ids']), 'retained_path_ids': keep,
-            'protected_refs': list(m['code_files'])}, (commands + static if same_inputs else [])
+            'protected_refs': list(m['code_files'])}, commands + static
 
 
 def carry(m, previous, retained_build=()):

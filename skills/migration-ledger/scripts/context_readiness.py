@@ -44,9 +44,12 @@ MECHANICAL = {'implementer': 'coding', 'fixer': 'fixing'}  # dispatches whose pr
 
 
 def audit_ready(s):
-    """Whether every PATH an audit retests runs by itself, so the Ledger can preflight the Auditor's dispatch."""
+    """Whether the ready paths of an audit can be preflighted mechanically."""
     from ledger import audit_scope
     paths = audit_scope(s)['plan']['paths']
+    from audit_execution import partition_paths
+    ready, _ = partition_paths(s, paths)
+    paths = [p for p in paths if p['path_id'] in ready]
     return bool(paths) and all(path.get('command') or adapter_stated(s, path) for path in paths)
 
 
@@ -75,7 +78,10 @@ def audit_execution(s, root):
     adapter for its platform; None when one of them has neither (the Auditor then reports what it plans to run)."""
     from ledger import audit_scope
     from execute_test import adapter_for
+    from audit_execution import partition_paths
     paths = audit_scope(s)['plan']['paths']
+    ready, _ = partition_paths(s, paths)
+    paths = [p for p in paths if p['path_id'] in ready]
     if not paths or not all(path.get('command') or adapter_stated(s, path) for path in paths):
         return None
     try:
@@ -374,8 +380,12 @@ def standing_refs(s, mid, stage, read=CURRENT):
         refs += [m['plan']['reuse_plan_ref'] for m in s['modules'].values() if (m.get('plan') or {}).get('reuse_plan_ref')]
         if stage == 'audit-execution':
             import prepared_tests
+            task = s.get('audit_test_assignment') or {}
+            selected = set(task['path_ids']) if not task.get('closed', True) else None
             for module in s['modules'].values():
                 for path in (module.get('plan') or {}).get('paths', []):
+                    if selected is not None and path['path_id'] not in selected:
+                        continue
                     previous = module.get('results', {}).get(path['path_id'])
                     if previous and (previous.get('stale') or previous['quality'] != 'green-passed'):
                         binding = prepared_tests.binding(module, path)
@@ -383,6 +393,8 @@ def standing_refs(s, mid, stage, read=CURRENT):
                             refs.append(binding['test_design_ref'])
                             refs.extend(a['ref'] for a in binding['assets'])
             for path in s.get('global_paths', []):
+                if selected is not None and path['path_id'] not in selected:
+                    continue
                 if path.get('test_design_ref'):
                     refs.append(path['test_design_ref'])
                     refs.extend(a['ref'] for a in prepared_tests.assets(read_json(check_ref(path['test_design_ref'])))

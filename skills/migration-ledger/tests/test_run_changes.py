@@ -388,6 +388,20 @@ class PreparedRunRevisionTests(unittest.TestCase):
         report = self.report({'test_adapter': {'device': {'android': {'serial': 'new-device'}}}})
         for row in report['modules']:
             row['action'] = 'reverify'
+        ref = f.ref('dependency-device-review.json', report)
+        for order in (('M001', 'M002'), ('M002', 'M001')):
+            trial, _ = ledger.read_events(f.root)
+            trial['modules'] = {mid: trial['modules'][mid] for mid in order}
+            trial['modules']['M002']['dependencies'] = ['M001']
+            trial['global_plan']['registry_hash'] = digest(workflow.registry(trial))
+            run_changes.handle(f.root.resolve(), trial, {'operation': 'run-review', 'payload': {'report_ref': ref}},
+                               {'role': 'global-orchestrator', 'instance_id': 'go'})
+            payload = {'subject_sha256': trial['run_change_review']['subject_sha256']}
+            run_changes.handle(f.root.resolve(), trial, {'operation': 'revise-run', 'payload': payload},
+                               {'role': 'host', 'instance_id': 'host'})
+            downstream = trial['modules']['M002']
+            self.assertEqual(downstream['build_baseline'], old['build_baseline'])
+            self.assertEqual({pid for pid, value in downstream['results'].items() if value.get('stale')}, {'M002-P'})
         f.raw('revise-run', self.review(report), role='host', module=None)
         state = f.state(); current = state['modules']['M002']
         self.assertEqual((current['freeze_id'], current['code_baseline'], current['build_baseline']),
@@ -501,7 +515,8 @@ class PreparedRunRevisionTests(unittest.TestCase):
         Path(bad['path']).write_text('drifted')
         with patch.object(ledger, 'current'), patch.object(ledger, 'dependencies_ready'), \
                 patch.object(task_revalidation, 'current_build_paths', side_effect=lambda _s, _m, _root, ids: ids):
-            run_changes.reverify({'run_id': 'demo'}, module, {'harmony-physical-a'}, proof, root=f.root)
+            retained = run_changes.retain_verification({'run_id': 'demo'}, module, {'harmony-physical-a'}, root=f.root)
+            run_changes.reverify(module, retained, proof)
         self.assertEqual(module['retained_build_paths'], ['B1'])
         self.assertFalse(module['results']['V1'].get('stale', False))
         self.assertTrue(module['results']['V2']['stale'])

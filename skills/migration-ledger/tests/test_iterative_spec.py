@@ -201,6 +201,16 @@ class UpstreamPlanTests(unittest.TestCase):
         self.assertFalse(receipts)
         self.assertFalse(proof['retained_path_ids'])
         step = next(row for row in f.state()['next_steps'] if row['module_id'] == 'M001')
+        trial, events = ledger.read_events(f.root)
+        trial['modules']['M001']['results']['M001-U']['execution_receipt'] = {
+            'path': str(f.root / 'missing-unit-receipt.json'), 'sha256': 'missing'}
+        ledger.mutate(trial, {'operation': 'freeze', 'module_id': 'M001', 'payload': step['payload']},
+                      {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}, events, f.root)
+        partial = trial['modules']['M001']
+        self.assertEqual(partial['build_baseline'], old['code_baseline'])
+        self.assertFalse(partial['results']['M001-B']['stale'])
+        self.assertTrue(partial['results']['M001-U']['stale'])
+        self.assertEqual(ledger.next_step(trial, partial)['payload']['path_ids'], ['M001-U'])
         f.call('freeze', step['payload'])
         state = f.state(); m = state['modules']['M001']
         self.assertEqual((m['code_baseline'], m['accepted_task_ids']), (old['code_baseline'], ['T1']))
@@ -216,7 +226,8 @@ class UpstreamPlanTests(unittest.TestCase):
         self.assertEqual(run_changes.retain_verification(state, m, {'android'}, f.root), set(old['results']) - {'M001-P'})
         self.assertEqual(task_revalidation.current_build_paths(state, m, f.root, {'M001-B'}), {'M001-B'})
         switched = copy.deepcopy(m)
-        run_changes.reverify(state, switched, {'android'}, f.ref('device-impact.json', {}), root=f.root)
+        retained = run_changes.retain_verification(state, switched, {'android'}, f.root)
+        run_changes.reverify(switched, retained, f.ref('device-impact.json', {}))
         self.assertEqual(switched['results']['M001-U'], m['results']['M001-U'])
         self.assertTrue(switched['results']['M001-P']['stale'])
         drifted = copy.deepcopy(m)
