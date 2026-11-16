@@ -540,7 +540,8 @@ class PreparedRunRevisionTests(unittest.TestCase):
         host = {'role': 'host', 'instance_id': 'host'}
         run_changes.handle(f.root, state, {'operation': 'run-review', 'payload': {'report_ref': f.ref('device-impact.json', report)}}, go)
         request = {'operation': 'revise-run', 'payload': {'subject_sha256': state['run_change_review']['subject_sha256']}}
-        state['integration_assignment'] = {'closed': False, 'path_ids': ['G-android'], 'assignment_id': 'INT1'}
+        state['integration_assignment'] = {'closed': False, 'path_ids': ['G-android'], 'assignment_id': 'INT1',
+                                           'instance_id': 'integration-test-runner', 'fencing_token': 1}
         self.assertFalse(run_changes.next_action(state)['ready'])
         from unittest.mock import patch
         with patch('integration.stale', return_value=False):
@@ -882,6 +883,40 @@ with open(args.result_file, 'w') as target:
         self.assertIsNone(state['modules']['M001']['freeze_id'])
         f.global_plan()
         decomposition.check_module_plan(f.state(), f.state()['modules']['M002'], old['plan'])
+
+    def test_only_global_command_timeout_can_keep_local_dispatch_before_new_coverage(self):
+        import sys
+
+        original = {'path_id': 'G', 'case_id': 'C1', 'kind': 'automation', 'name': 'Cross-module case',
+                    'expected_assertions': [{'assertion_id': 'A1', 'expected': 2}],
+                    'command': {'argv': [sys.executable, '-c', 'pass'], 'cwd': str(self.f.target), 'timeout_seconds': 20,
+                                'selection_ref': self.f.ref('global-command.md', 'Fixture command selected for G')}}
+        for acceptance_changed in (False, True):
+            with self.subTest(acceptance_changed=acceptance_changed):
+                src = test_source_changes.SourceChangeTests(); self.addCleanup(src.doCleanups)
+                f = self.f = src.register_root(global_paths=[original])
+                f.split(src.d.proposal(ids=('M001', 'M002'))); f.global_plan()
+                src.freeze('M002')
+                freeze_id = f.state()['modules']['M002']['freeze_id']
+                new = copy.deepcopy(original)
+                new['command']['timeout_seconds'] = 40
+                if acceptance_changed:
+                    new['expected_assertions'][0]['expected'] = 3
+                report = self.report({}, affected=())
+                report.update(global_spec_ref=f.ref('revised-global-command.md', 'Reviewed G execution correction'),
+                              contract_patch={'global_paths': [new]})
+                decision = self.review(report)
+                f.raw('revise-run', decision, role='host', module=None)
+                state = f.state()
+                self.assertEqual(state['modules']['M002']['freeze_id'], freeze_id)
+                self.assertIsNone(state['global_plan'])
+                with self.assertRaisesRegex(Rejected, 'global coverage review required'):
+                    workflow.planning_guard(state)
+                cursor = next(row for row in state['next_steps'] if row['module_id'] == 'M002')
+                self.assertEqual(cursor['ready'], not acceptance_changed)
+                if not acceptance_changed:
+                    f.call('assign', {'role': 'implementer', 'assignment_id': 'I2', 'instance_id': 'coder'}, module='M002')
+                    self.assertEqual(f.state()['modules']['M002']['phase'], 'implementing')
 
     def test_a_consumer_of_a_leaf_that_plans_again_keeps_its_plan(self):
         src, f = self.source, self.f

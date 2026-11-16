@@ -135,7 +135,8 @@ def subject(s, report_ref, *, execution_review=False, device_path_review=False, 
                 return None
 
         def settled(pid, row):
-            if pid not in paths or not row.get('integration_inputs') or row.get('quality') != 'green-passed' or row.get('stale'):
+            if (pid not in paths or not (row.get('integration_inputs') or row.get('global_visual_binding'))
+                    or row.get('quality') != 'green-passed' or row.get('stale')):
                 return False
             path = paths[pid]
             if integration.scoped(s, path):
@@ -194,13 +195,42 @@ def global_reverify_paths(s, report, devices):
     return {path['path_id'] for path in s['global_paths'] if proposed.get(path['path_id']) != path}
 
 
-def pending_global_paths(s):
+def global_execution_parameters_only(s, report):
+    """A reviewed timeout correction preserves the business and allocation inputs of frozen leaves."""
+    patch = report.get('contract_patch') or {}
+    if (set(patch) != {'global_paths'} or report['context_patch'] or report['root_updates']
+            or report.get('package_sha') or not report.get('global_spec_ref')
+            or control_policy.boundary(report['boundary_review'])):
+        return False
+    before, after = s['global_paths'], patch['global_paths']
+    if len(before) != len(after) or digest(before) == digest(after):
+        return False
+    for old, new in zip(before, after):
+        if digest(old) == digest(new):
+            continue
+        if digest({k: v for k, v in old.items() if k != 'command'}) != digest({k: v for k, v in new.items() if k != 'command'}):
+            return False
+        previous, proposed = old.get('command'), new.get('command')
+        if not isinstance(previous, dict) or not isinstance(proposed, dict):
+            return False
+        timeout = proposed.get('timeout_seconds')
+        if type(timeout) is not int or timeout <= 0:
+            return False
+        if digest({k: v for k, v in previous.items() if k != 'timeout_seconds'}) != digest({k: v for k, v in proposed.items() if k != 'timeout_seconds'}):
+            return False
+    return True
+
+
+def pending_global_paths(s, *, revision_step=None):
     review = s.get('run_change_review') or {}
     if review.get('status') != 'reviewed' or not s.get('global_paths'):
         return set()
     report = read_json(check_ref(review['report_ref']))
     impacted = global_reverify_paths(s, report, changed_devices(s, report))
-    return impacted if impacted and review['subject_sha256'] == review_subject(s, review) else set()
+    if not impacted:
+        return set()
+    current = revision_step['operation'] == 'revise-run' if revision_step is not None else review['subject_sha256'] == review_subject(s, review)
+    return impacted if current else set()
 
 
 def integration_busy(s, report):
@@ -622,10 +652,10 @@ def handle(root, s, req, actor):
             'retired_path_results': {r['id']: copy.deepcopy(s.get('audit_results', {}).get(r['id']))
                 for r in report['retirements'] if r['kind'] == 'global-path'}}
     previous_plan = copy.deepcopy(s.get('global_plan'))
-    local = None
-    if changed_roots and not (report['context_patch'] or report.get('global_spec_ref')
-                              or report.get('contract_patch') or report.get('package_sha')):
-        local = workflow.local_coverage_before(s, affected, review['report_ref'])
+    execution_parameters_only = global_execution_parameters_only(s, report)
+    allocation_only = changed_roots and not (report['context_patch'] or report.get('global_spec_ref')
+                                             or report.get('contract_patch') or report.get('package_sha'))
+    local = workflow.local_coverage_before(s, affected, review['report_ref']) if execution_parameters_only or allocation_only else None
     import design_stage
     continuations = {mid: {'subject_sha256': design_stage.subject(s, m),
         'allocation_sha256': digest({key: m.get(key) for key in (*decomposition.ALLOCATION_KEYS, 'dependencies')}),
@@ -733,6 +763,8 @@ def handle(root, s, req, actor):
     if changed_roots or report.get('global_spec_ref') or 'architecture_path' in report['context_patch']:
         s['global_plan'] = None
         if local:
+            if execution_parameters_only:
+                local['boundary'] = workflow.coverage_boundary(s)
             s['local_coverage'] = local
         else:
             s.pop('local_coverage', None)

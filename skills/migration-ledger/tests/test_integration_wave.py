@@ -31,6 +31,20 @@ class WaveIntegrationTests(unittest.TestCase):
         f.implement('M001', 'I1'); f.verify_module('M001', 'T1'); f.complete('M001')
         return f.state()['global_next_step']
 
+    def test_drive_delivers_the_assigned_manual_wave_with_its_identity_and_paths(self):
+        import drive
+        from test_rehearsal import MO
+
+        self.first_wave()
+        lines = drive.drive(self.f.root, MO)
+        wave = integration.task(self.f.state())
+        line = next(row for row in lines if row.get('operation') == 'integration-submit')
+        self.assertEqual((line['kind'], line['role']), ('dispatch', 'test-runner'))
+        for key in ('assignment_id', 'instance_id', 'path_ids', 'fencing_token'):
+            self.assertEqual(line[key], wave[key])
+        _, handed = drive.dispatch_history(self.f.root)
+        self.assertEqual(handed['test-runner:GLOBAL'], ['integration-submit', wave['assignment_id']])
+
     def test_missing_web_config_does_not_block_the_ready_android_path(self):
         from unittest.mock import patch
         import progress_signals
@@ -70,12 +84,15 @@ class WaveIntegrationTests(unittest.TestCase):
 
         f = self.f
         self.first_wave()
+        self.second_wave()
         s, _ = ledger.read_events(f.root)
         original = s['global_paths'][0]
         s['global_paths'] = [{**original, 'path_id': platform, 'platform': platform, 'kind': 'automation'}
                              for platform in ('android', 'web')]
         s['test_adapter'] = {'device': {'platforms': ['android', 'web'], 'android': {'serial': 'old'},
                                        'web': {'url': 'https://example.test'}}}
+        self.assertFalse(integration.work_remaining(s))
+        self.assertEqual(integration.due(s), [])  # normally the final audit owns these paths
         report = {'context_patch': {'test_adapter': {'device': {'android': {'serial': 'new'}}}}, 'root_updates': [],
                   'boundary_review': {'semantic_change': False, 'authorization_change': True, 'unresolved_questions': [],
                                       'reason': 'Device access requires approval', 'evidence_refs': [f.ref('authorization.md', 'Access review')]},
@@ -108,6 +125,7 @@ class WaveIntegrationTests(unittest.TestCase):
         s['audit_results']['web'] = green
         s['decisions']['A'] = {'decision_id': 'A', 'decision': 'approved', 'module_id': None, 'subject_sha256': review['subject_sha256']}
         self.assertEqual(ledger.routing(s)['global_next_step']['operation'], 'revise-run')
+        self.assertEqual(integration.due(s), [])
 
     def run_gp1(self, aid, passing=True):
         f = self.f; scope = integration.scope(f.state())

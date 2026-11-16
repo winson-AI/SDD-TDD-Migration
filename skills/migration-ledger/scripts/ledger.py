@@ -1844,9 +1844,8 @@ def scope_of(s, global_paths, leftovers, module_ids=None):
     selected, frozen_interactions, path_build_artifacts, path_dimension_analysis_refs = [], {}, {}, {}
     for path in global_paths:
         selected.append(path)
-        if path.get('test_design_ref'):
-            path_test_sources[path['path_id']] = {'module_id': 'GLOBAL', 'freeze_id': digest(path),
-                'test_design_ref': path['test_design_ref'], 'contract_version': 1}
+        if source := prepared_tests.global_source(path):
+            path_test_sources[path['path_id']] = source
         if path.get('build_binding'):
             path_build_artifacts[path['path_id']] = integration.build_artifacts(s, path)
         if path.get('kind') in ('automation', 'visual') and path.get('interaction_id'):
@@ -1861,7 +1860,7 @@ def scope_of(s, global_paths, leftovers, module_ids=None):
                 if previous and (previous.get('stale') or previous['quality'] != 'green-passed'):
                     selected.append(path)
                     if prepared_tests.source(m): path_test_sources[path['path_id']] = prepared_tests.source(m)
-                    path_build_artifacts[path['path_id']] = (tv.bound_build_artifacts(s, path) if path.get('build_binding')
+                    path_build_artifacts[path['path_id']] = (integration.build_artifacts(s, path) if path.get('build_binding')
                                                              else list(m.get('build_artifacts', [])))
                     if m['plan'].get('dimension_analysis_ref'):
                         path_dimension_analysis_refs[path['path_id']] = m['plan']['dimension_analysis_ref']
@@ -2774,9 +2773,9 @@ def mutate(s, req, principal, events, root=None):
         scope = audit_scope(s)
         require(assignment.get('scope_policy') == 'non-green-only', 'legacy full audit assignment; revoke and reassign')
         require(assignment['path_ids'] == [p['path_id'] for p in scope['plan']['paths']], 'audit selection changed')
-        test_refs = []
+        test_refs, visual_bindings = [], {}
         if scope['plan']['paths']:
-            test_refs, _ = audit_execution.evidence(s, scope, report)
+            test_refs, _ = audit_execution.evidence(s, scope, report, visual_bindings=visual_bindings)
             require(report.get('schema_version') == 1 and report.get('kind') == 'tests', 'audit report schema/kind mismatch')
             for field, value in (('run_id', s['run_id']), ('module_id', 'GLOBAL'), ('assignment_id', assignment['assignment_id']),
                 ('actor_instance_id', principal['instance_id']), ('freeze_id', scope['freeze_id']), ('code_baseline', scope['code_baseline'])):
@@ -2790,7 +2789,9 @@ def mutate(s, req, principal, events, root=None):
                       'scope_policy': 'non-green-only', 'snapshot': snapshot,
                       **({'test_result_refs': test_refs} if test_refs else {}),
                       'execution_status': 'no-retest-needed' if not report['paths'] else 'reviewed'}
-        s.setdefault('audit_results', {}).update({r['path_id']: {**r, 'code_baseline': scope['code_baseline']} for r in report['paths']})
+        s.setdefault('audit_results', {}).update({r['path_id']: {**r, 'code_baseline': scope['code_baseline'],
+            **({'global_visual_binding': visual_bindings[r['path_id']]} if r['path_id'] in visual_bindings else {})}
+            for r in report['paths']})
         owners = {path['path_id']: mid for mid, mod in s['modules'].items() for path in mod['plan']['paths']}
         s['audit_repairs'] = {r['path_id']: {'finding': r, 'report_ref': p['report_ref'],
                                 'module_ids': [owners[r['path_id']]] if r['path_id'] in owners else [],
@@ -3280,9 +3281,10 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
     pause_ids = s.get('audit', {}).get('deferred_path_ids') if audit.get('closed') and deferred else None
     pause_blocked = {}
     if pause_ids and not observed:
-        waiting = [path for path in audit_scope(s)['plan']['paths'] if path['path_id'] in pause_ids]
+        scope = audit_scope(s)
+        waiting = [path for path in scope['plan']['paths'] if path['path_id'] in pause_ids]
         reported = None if resume_context else audit_execution.environment_blocks(s)
-        ready, blocked = audit_execution.partition_paths(s, waiting, reported=reported)
+        ready, blocked = audit_execution.partition_paths(s, scope, waiting, reported=reported)
         pause_blocked = blocked if not ready else {}
     if audit_closure.active(s):
         global_next = audit_closure.global_step(s)
@@ -3298,7 +3300,7 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
             task = s.get('audit_test_assignment', {})
             if task.get('audit_assignment_id') == audit['assignment_id'] and not task.get('closed', True):
                 task_paths = audit_execution.task_scope(scope, task)['plan']['paths']
-                _, blocked = audit_execution.partition_paths(s, task_paths)
+                _, blocked = audit_execution.partition_paths(s, scope, task_paths)
                 if blocked and (task.get('context_ref') or not context_readiness.enabled(s)):
                     global_next.update(operation='audit-test-revoke', role='host', ready=True,
                                        reason='audit-path-inputs-unavailable', audit_blocked_paths=blocked,
@@ -3346,12 +3348,12 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
             global_next.update(mechanical=True, reason='coverage-from-registrations')
     elif wave:
         global_next = {'operation': 'integration-submit', 'role': 'test-runner', 'ready': True, 'assignment_id': wave['assignment_id'],
-                       'path_ids': wave['path_ids'], 'reason': 'integration-running', 'continue_modules': rounds['ready_modules']}
+                       'path_ids': wave['path_ids'], 'instance_id': wave['instance_id'], 'fencing_token': wave['fencing_token'],
+                       'reason': 'integration-running', 'continue_modules': rounds['ready_modules']}
         wave_blocked = wave.get('blocked_paths') or {}
         if wave.get('artifact_only'):
-            global_next.update(artifact_only=True, test_scope='visual', instance_id=wave['instance_id'],
-                               fencing_token=wave['fencing_token'])
-    elif (wave_paths := integration.due(s, blocked=wave_blocked)):
+            global_next.update(artifact_only=True, test_scope='visual')
+    elif (wave_paths := integration.due(s, blocked=wave_blocked, revision_step=revision_step)):
         global_next = {'operation': 'integration-assign', 'role': 'global-orchestrator', 'ready': True, 'reason': 'wave-complete',
                        'path_ids': [x['path_id'] for x in wave_paths], 'continue_modules': rounds['ready_modules']}
     elif revision_step:

@@ -338,6 +338,7 @@ class LeanWorkerTests(unittest.TestCase):
 
     def test_audit_reuses_the_approved_visual_command_and_bound_artifact(self):
         import audit_execution
+        import migration_report
 
         f, native = self.f, native_fixtures.NativeContractTests()
         native.root, native.android, native.target = f.base, f.legacy, f.target
@@ -351,18 +352,20 @@ class LeanWorkerTests(unittest.TestCase):
         alignment_path = native.write('target/audit-alignment.json', alignment)
         env = file_ref(native.write(str(f.run / 'runs/harmony/sandbox/environment/audit.json'),
                                     {'visual_capture': {'backend': 'hdc', 'device_id': 'device-1'}}))
-        visual = {'path_id': 'PV', 'kind': 'visual', 'platform': 'harmony', 'coverage': frozen_visual['coverage'],
+        visual = {'path_id': 'PV', 'case_id': 'C1', 'kind': 'visual', 'platform': 'harmony', 'coverage': frozen_visual['coverage'],
                   'node_ids': ['node:settings.root'], 'baseline_ref': frozen_visual['baseline_refs'][0],
                   'visual_evidence': frozen_visual, 'expected_assertions': [{'assertion_id': 'VISUAL', 'expected': True}],
                   'visual_execution': {'environment_ref': env, 'app_id': 'app'},
                   'build_binding': {'module_id': 'M001', 'path_id': 'PB'}}
-        module = {'module_id': 'M001', 'freeze_id': 'F', 'phase': 'completed', 'stale': False, 'authors': [], 'assignments': {},
+        build = {'path_id': 'PB', 'case_id': 'C1', 'kind': 'build', 'command': {'selection_ref': file_ref(alignment_path)}}
+        module = {'module_id': 'M001', 'case_ids': ['C1'], 'dependencies': [], 'freeze_id': 'F', 'phase': 'completed',
+                  'stale': False, 'authors': [], 'assignments': {},
                   'code_files': code, 'code_baseline': code_baseline, 'build_artifacts': [artifact],
-                  'plan': {'definitions': [], 'paths': [{'path_id': 'PB', 'kind': 'build'}]},
+                  'plan': {'definitions': [], 'paths': [build]},
                   'results': {'PB': {'quality': 'green-passed', 'code_baseline': code_baseline, 'build_artifacts': [artifact]}}}
         state = {**self.state, 'context_readiness_required': True, 'modules': {'M001': module}, 'global_paths': [visual],
                  'audit_assignment': {'assignment_id': 'AUDIT', 'instance_id': 'auditor', 'closed': False, 'path_ids': ['PV'],
-                                      'snapshot': {'M001': code_baseline}}}
+                                      'scope_policy': 'non-green-only', 'snapshot': {'M001': code_baseline}}}
         go, runner = {'role': 'global-orchestrator', 'instance_id': 'go'}, {'role': 'test-runner', 'instance_id': 'runner'}
         scope = ledger.audit_scope(state)
         audit_execution.handle(state, {'operation': 'audit-test-assign', 'payload': {
@@ -381,14 +384,55 @@ class LeanWorkerTests(unittest.TestCase):
             receipt_ref = execute_test.execute(f.run, 'GLOBAL', 'AT', 'PV', argv, str(f.target),
                                                f.run / 'runs/harmony/automation/audit-visual')
         receipt = read_json(check_ref(receipt_ref))
-        self.assertEqual(receipt['audit_inputs_version'], audit_execution.INPUT_VERSION)
+        self.assertEqual(receipt['audit_inputs_version'], audit_execution.GLOBAL_VISUAL_INPUT_VERSION)
         result = {'schema_version': 1, 'kind': 'tests', 'run_id': state['run_id'], 'module_id': 'GLOBAL',
                   'assignment_id': 'AT', 'actor_instance_id': 'runner', 'freeze_id': scope['freeze_id'],
                   'code_baseline': scope['code_baseline'], 'paths': [{**test_completion.interpret(receipt, visual),
                       'path_id': 'PV', 'test_run_id': receipt['test_run_id'], 'execution_receipt': receipt_ref}]}
         self.assertEqual(result['paths'][0]['quality'], 'green-passed')
-        audit_execution.handle(state, {'operation': 'audit-test-submit', 'payload': {
-            'result_ref': file_ref(native.write('audit-visual-result.json', result))}}, runner, scope, f.run)
+        result_ref = file_ref(native.write('audit-visual-result.json', result))
+        audit_execution.handle(state, {'operation': 'audit-test-submit', 'payload': {'result_ref': result_ref}}, runner, scope, f.run)
+        finalized = copy.deepcopy(state)
+        report = {**result, 'assignment_id': 'AUDIT', 'actor_instance_id': 'auditor', 'test_result_ref': result_ref,
+                  'snapshot': state['audit_assignment']['snapshot'], 'review_ref': file_ref(native.write('audit-review.md', b'Independent review'))}
+        ledger.mutate(finalized, {'operation': 'audit', 'payload': {'report_ref': file_ref(native.write('audit-verdict.json', report))}},
+                      {'role': 'auditor', 'instance_id': 'auditor'}, [], f.run)
+        accepted = finalized['audit_results']['PV']
+        self.assertEqual(accepted['global_visual_binding']['context_ref'], task['context_ref'])
+        self.assertEqual((accepted['test_run_id'], accepted['execution_receipt']), (receipt['test_run_id'], receipt_ref))
+        legacy = copy.deepcopy(finalized)
+        legacy['audit_results']['PV'].pop('global_visual_binding')
+        self.assertEqual(ledger.audit_scope(legacy)['plan']['paths'], [])
+        legacy['audit'] = {}
+        self.assertEqual(ledger.audit_scope(legacy)['plan']['paths'], [visual])
+
+        sibling_files = [file_ref(self.write(f.target / 'Sibling.kt', 'fun sibling() = 1\n'))]
+        finalized['modules']['M002'] = {**copy.deepcopy(module), 'module_id': 'M002', 'case_ids': ['C2'],
+                                        'code_files': sibling_files, 'code_baseline': baseline(sibling_files), 'freeze_id': 'changed'}
+        finalized['test_adapter'] = {'device': {'platforms': ['web'], 'web': {'url': 'https://changed.test'}}}
+        self.assertNotEqual(ledger.global_baseline(finalized), scope['code_baseline'])
+        self.assertEqual(ledger.audit_scope(finalized)['plan']['paths'], [])
+
+        revising = copy.deepcopy(finalized)
+        revising['audit'] = {}
+        revising['modules']['M002'].update(phase='specifying', stale=True)
+        rows = migration_report.build(f.run, revising, len(self.events))['paths']
+        visual_row = next(row for row in rows if row['path_id'] == 'PV')
+        self.assertEqual((visual_row['quality'], visual_row['test_run_id']), ('green-passed', receipt['test_run_id']))
+
+        provider_changed = copy.deepcopy(finalized)
+        provider_changed['modules']['M001']['dependencies'] = ['M002']
+        self.assertEqual(ledger.audit_scope(provider_changed)['plan']['paths'], [visual])
+        device_changed = copy.deepcopy(finalized)
+        new_environment = file_ref(native.write(str(f.run / 'runs/harmony/sandbox/environment/other.json'),
+                                                {'visual_capture': {'backend': 'hdc', 'device_id': 'device-2'}}))
+        device_changed['target_preview'] = {'visual_environment_rebindings': {env['path']: new_environment}}
+        self.assertEqual(ledger.audit_scope(device_changed)['plan']['paths'], [visual])
+        new_product = file_ref(native.write(str(f.run / 'runs/build/visual/other.hap'), b'new build'))
+        build_changed = copy.deepcopy(finalized)
+        owner = build_changed['modules']['M001']
+        owner['results']['PB']['build_artifacts'] = owner['build_artifacts'] = [new_product]
+        self.assertEqual(ledger.audit_scope(build_changed)['plan']['paths'], [visual])
         audit_execution.hold(state)
         state['audit_assignment']['closed'] = True
         module['build_artifacts'].append(file_ref(native.write(str(f.run / 'runs/build/other/other.hap'), b'unused')))
@@ -401,6 +445,7 @@ class LeanWorkerTests(unittest.TestCase):
         self.assertEqual(audit_execution.carried(wrong, ledger.audit_scope(wrong), 'auditor'), [])
         check_ref(artifact).write_bytes(b'Changed bound artifact')
         self.assertEqual(audit_execution.carried(state, ledger.audit_scope(state), 'auditor'), [])
+        self.assertEqual(ledger.audit_scope(finalized)['plan']['paths'], [visual])
 
 
 if __name__ == '__main__':

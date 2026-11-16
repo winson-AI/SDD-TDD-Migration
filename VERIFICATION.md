@@ -22,11 +22,11 @@ cd skills/migration-test/runtime/harmony && PYTHONDONTWRITEBYTECODE=1 PYTEST_DIS
 
 | 测试集 | 通过 | 本次核验 |
 | --- | ---: | --- |
-| migration-ledger/tests | 1826 | 全量通过 |
+| migration-ledger/tests | 1830 | 全量通过 |
 | migration-test/tests | 83 | 全量通过 |
 | runtime/harmony/tests | 128 | 全量通过 |
 
-三套回归用 Harmony sandbox 的 Python 3.12 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败、错误或跳过。回归使用隔离临时目录、本地模拟端口和测试子进程。专项核验父 MO 切片与重切先于无关构建交付，一次交接后构建可继续。Android 改绑等待授权时，独立 Web Green 入账后原评审保持有效，失效输入和 Red 触发复核。获授权 Runner 的局部环境漂移由宿主留停止证据后只撤当前派发，其余 PATH 在本轮继续。回执失效时先核对归档。原件与归档均无法核验的 PATH 单独补跑，其他 PATH 保留原 test_run_id。JUnit 用例的两个 PATH 共用一个执行日志，各保留测试 ID 和回执。本轮设备场景使用隔离夹具，真机验证待实跑。
+三套回归用 Harmony sandbox 的 Python 3.12 解释器经 pytest 执行（`PYTHONDONTWRITEBYTECODE=1`），零失败、错误或跳过。回归使用隔离临时目录、本地模拟端口和测试子进程。已分配的独立 Test-Runner 在无关构建前交付，下一轮构建继续。最后一个叶子收尾后，Android 改绑等待批准期间独立 Web 波次仍能派发，其 Green 入账后评审保持有效。仅调整 GLOBAL 命令超时允许独立冻结叶子开工，验收断言变化仍需覆盖重审。终审核验 Android/Harmony 的生效配置和绑定 APK/HAP，局部漂移只撤对应派发。终审视觉回执在无关叶子重规划后沿用原 test_run_id，提供方、配置或绑定制品变化时重新选中对应 PATH。七叶演练保持并行预算，先交付 Runner 后需要 15 轮调度，原记录为 11 轮。本轮设备场景使用隔离夹具。
 
 在隔离的 Harmony API 21 模拟器重跑装包，并实采 WindowManager、定向 UI 树和 PNG。前后焦点窗口一致，整窗和 PNG 均为 1320 × 2848，应用内容区从 y=132 开始。用实际采集结果复核了内容区包含关系。先前在同一 API 版本实跑的 640 DPI 深色及窗口覆盖 160 DPI 浅色资源检查记录保留。
 

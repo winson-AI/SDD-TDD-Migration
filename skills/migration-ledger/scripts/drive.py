@@ -47,8 +47,8 @@ def row(step, card=None):
                                 'approval_kind', 'detail', 'root_ids', 'session_id', 'session_affinity', 'model_tier') if step.get(k) is not None}
     if step.get('artifact_only'):
         out.update({key: step[key] for key in ('artifact_only', 'test_scope', 'instance_id', 'fencing_token', 'path_ids') if key in step})
-    elif step.get('operation') in ('audit-test-assign', 'audit-test-submit', 'audit-test-revoke', 'audit-unavailable'):
-        out.update({key: step[key] for key in ('test_scope', 'instance_id', 'path_ids') if key in step})
+    elif step.get('operation') in ('integration-submit', 'audit-test-assign', 'audit-test-submit', 'audit-test-revoke', 'audit-unavailable'):
+        out.update({key: step[key] for key in ('test_scope', 'instance_id', 'path_ids', 'fencing_token') if key in step})
     if step.get('report_ref'):
         out['report'] = step['report_ref']['path']
     if step.get('worker_role'):
@@ -70,7 +70,7 @@ def card(root, step, instance=None):
 
 
 def tick(root, principal, workers=None):
-    """Make ready coding assignments visible before executing unrelated frozen commands."""
+    """Make ready worker handoffs visible before executing unrelated frozen commands."""
     started = False
     for _ in range(50):
         st = ledger.status(root, publish=False)
@@ -91,7 +91,7 @@ def tick(root, principal, workers=None):
         started |= any(a['operation'] == 'assign' and a.get('role') in ('implementer', 'fixer') for a in actions)
         if actions:
             continue
-        if started or ready_handoff_to_deliver(root, st):
+        if started or ready_handoff_to_deliver(root, st, handed):
             break
         for step in steps:
             if step.get('mechanical') and step.get('ready') and step['operation'] == 'await-result':
@@ -226,8 +226,25 @@ def ready_revision(step):
             and step.get('ready') and not step.get('human_required') and step.get('subject_sha256'))
 
 
-def ready_handoff_to_deliver(root, st):
-    """Deliver ready planning and coding session handoffs once per step revision."""
+def runner_handoff(step):
+    operation = step.get('operation')
+    if (step.get('role') == 'test-runner' and step.get('assignment_id')
+            and operation in ('await-result', 'integration-submit')):
+        return 'test-runner:' + (step.get('module_id') or 'GLOBAL'), [operation, step['assignment_id']]
+    return None
+
+
+def new_runner_handoff(step, handed):
+    stamp = runner_handoff(step)
+    return stamp is not None and handed.get(stamp[0]) != stamp[1]
+
+
+def ready_handoff_to_deliver(root, st, handed):
+    """Hand off ready planning and newly assigned test work before starting unrelated commands."""
+    if any(not step.get('mechanical') and not (step.get('session_rotate') or {}).get('ready')
+           and (step.get('operation') == 'await-result' or step.get('ready')) and new_runner_handoff(step, handed)
+           for step in [*st['next_steps'], st['global_next_step']]):
+        return True
     candidates = []
     for step in st['next_steps']:
         rotation = (step.get('session_rotate') or {}).get('ready')
@@ -257,12 +274,17 @@ def capped(root, st, lines):
     return [line for line in lines if not (line['kind'] in ('dispatch', 'rotate') and line.get('module_id') in held)], len(held)
 
 
-def dispatch_budget(root, st, lines):
+def dispatch_history(root):
     path = Path(root) / 'reports/drive-dispatched.json'
     try:
         handed = json.loads(path.read_text())
     except (OSError, ValueError):
         handed = {}
+    return path, handed
+
+
+def dispatch_budget(root, st, lines):
+    path, handed = dispatch_history(root)
     modules, steps = st['modules'], {s['module_id']: s for s in st['next_steps']}
     def depth(mid, trail=()):
         return 1 + max((depth(d, (*trail, mid)) for d in modules[mid].get('dependencies', []) if d in modules and d not in trail), default=0)
@@ -277,6 +299,8 @@ def dispatch_budget(root, st, lines):
         mid = line.get('module_id')
         if mid in steps and mid not in modules and line['kind'] in ('dispatch', 'rotate') and line.get('operation') in PARENT_SLICING:
             kept[mid] = [line['operation'], steps[mid].get('expected_revision')]
+        if line['kind'] in ('running', 'dispatch') and (stamp := runner_handoff(line)):
+            kept[stamp[0]] = stamp[1]
     for line in order:
         mid = line['module_id']
         if mid in busy or len(busy) < st['max_parallel_modules']:
@@ -359,8 +383,10 @@ def wake_stamp(root):
 
 def drive(root, principal, workers=None, wait=None):
     before = wake_stamp(root) if wait else None
+    handed = dispatch_history(root)[1] if wait else {}
     lines, sequence, waiting = tick(root, principal, workers)
-    if wait and wake_stamp(root) == before and not any(line['kind'] in ('dispatch', 'rotate', 'host') for line in lines):
+    if wait and wake_stamp(root) == before and not any(
+            line['kind'] in ('dispatch', 'rotate', 'host') or line['kind'] == 'running' and new_runner_handoff(line, handed) for line in lines):
         size, deadline = before, time.monotonic() + wait
         while wake_stamp(root) == size and time.monotonic() < deadline:
             time.sleep(POLL_SECONDS)

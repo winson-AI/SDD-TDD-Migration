@@ -26,7 +26,7 @@ work_modules 包含发现模块、根因 owner 与受影响下游。audit-retest
 
 ## 收尾的实际执行契约
 
-Ledger 以 GO 名义 `audit-test-assign`，从同一应验清单选取叶子与 GLOBAL PATH，按执行类型、命令、环境、冻结引用和绑定制品分批。先派有冻结命令或已声明 automation 适配器的就绪批次，由 `advance_run` 预检并代跑。其余交独立 Test-Runner，在派发内预检，经 `execute_test` 执行并提交 `audit-test-submit`。每批使用同一组 `path_ids` 派发、预检、执行与验收，入账后回到 `drive`。
+Ledger 以 GO 名义 `audit-test-assign`，从同一应验清单选取叶子与 GLOBAL PATH，按执行类型、命令、环境、冻结引用和绑定制品分批。先派有冻结命令或已声明 automation 适配器的就绪批次，由 `advance_run` 预检并代跑。其余交独立 Test-Runner，在派发内预检，经 `execute_test` 执行并提交 `audit-test-submit`。每批使用同一组 `path_ids` 派发、预检、执行与验收，入账后回到 `drive`。绑定构建的 Android/Harmony 视觉 PATH 按生效配置和当前验收的 APK/HAP 判断就绪。
 
 同批 JUnit PATH 的冻结命令和执行条件一致、所带测试资产均为冻结测试源码时，可以共用一次执行。每条 PATH 按各自的测试 ID 留回执和判定。
 
@@ -40,7 +40,8 @@ Auditor 的报告用 `test_result_ref` 或 `test_result_refs` 绑定所用批次
 - `path_ids`：当前模块结果为 Red/Yellow 的 PATH；已由问题闭环复核通过的不再加入。
 - 运行级 global_paths 只加入其中非 Green、从未验证或代码基线已失效的路径；未验证保留待验证，有效 Green 直接复用。
 - 波次集成在持有 GLOBAL PATH 用例的叶子完成且执行输入就绪时，Ledger 以 GO 名义 `integration-assign` 给独立 Test-Runner。派发内提交 audit-execution 预检，`integration-submit` 提交 kind=tests。带 build binding 的受限 Android/Harmony 视觉路径绑定当前验收产物、冻结 PATH、环境及 owner/提供方闭包。冻结命令和自定义适配器按全局快照处理，可由 advance_run 代跑。持有叶子基线未变时，其他叶子导致全局快照失效的路径留到统一审计复测。结果与执行输入摘要进入 audit_results，输入一致时复用 Green。Red 进入 audit_repairs 交 owner MO。
-- 活动派发的输入变化时，宿主核实进程停止或已隔离，再凭 assignment_id、fencing_token 和 stopped_worker_ref 提交 `integration-revoke`。Ledger 保留旧派发及停工证据，随后重算波次或审计清单。待生效的 Run 修订暂停受影响 GLOBAL PATH 的新派发，仍有效的活动派发可先完成提交。设备换绑或仅调整 GLOBAL PATH 时，范围外同输入的 Green 入账后原评审继续有效。
+- 活动派发的输入变化时，宿主核实进程停止或已隔离，再凭 assignment_id、fencing_token 和 stopped_worker_ref 提交 `integration-revoke`。Ledger 保留旧派发及停工证据，随后重算波次或审计清单。待生效的 Run 修订暂停受影响 GLOBAL PATH 的新派发，仍有效的活动派发可先完成提交。设备换绑或仅调整 GLOBAL PATH 时，范围外同输入的 Green 入账后原评审继续有效。已评审的局部修订等待人工批准期间，独立波次可在全部叶子收尾后继续。
+- 终审验收的受管 GLOBAL 视觉结果保留原回执和执行绑定。修订后核对原批准命令、冻结 PATH、实际环境、验收制品及 owner／提供方闭包。结果可核验时沿用原 test_run_id，缺绑定或输入变化时仅将对应 PATH 纳入待验。
 - 有效构建 Green 不因自动化缺测被重跑或覆盖。对原 automation-deferred 模块补验时合并 PATH 结果，保留原构建证据。
 
 | 清单 | 上下文门禁 | 动作与报告 |

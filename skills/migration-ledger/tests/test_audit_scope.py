@@ -168,6 +168,66 @@ with open(sys.argv[sys.argv.index('--result-file')+1], 'w') as target:
         self.assertEqual((s['quality'], s['audit_attempts']), ('green-passed', 1))
         self.assertEqual(s['audit_results']['PEER']['test_run_id'], rows[0]['test_run_id'])
 
+    def test_native_visual_readiness_uses_rebound_environment_and_current_bound_build(self):
+        import audit_execution
+        from contracts import check_ref
+
+        f = self.fixture(); f.completed()
+        s = f.state(); mod = s['modules']['M001']
+        for platform, backend, suffix in (('android', 'adb', 'apk'), ('harmony', 'hdc', 'hap')):
+            with self.subTest(platform=platform):
+                state = copy.deepcopy(s); owner = state['modules']['M001']
+                env_dir = f.root / 'runs/harmony/sandbox/environment'
+                env_dir.mkdir(parents=True, exist_ok=True)
+                frozen = f.ref(str(env_dir / f'{platform}-old.json'), {'visual_capture': {'backend': backend, 'device_id': 'old'}})
+                actual = f.ref(str(env_dir / f'{platform}-new.json'), {'visual_capture': {'backend': backend, 'device_id': 'new'}})
+                state['target_preview'] = {'visual_environment_rebindings': {frozen['path']: actual}}
+                out = f.root / 'runs/build/accepted'; out.mkdir(parents=True, exist_ok=True)
+                build = f.ref(str(out / f'app.{suffix}'), 'accepted build')
+                wrong = f.ref(str(out / f'{platform}.zip'), 'unusable build')
+                new_path = {'path_id': 'V', 'kind': 'visual', 'platform': platform, 'case_id': 'C1',
+                            'build_binding': {'module_id': 'M001', 'path_id': 'B'},
+                            'visual_execution': {'environment_ref': frozen, 'app_id': 'fixture'}}
+                peer = {'path_id': 'PEER', 'kind': 'automation', 'case_id': 'C1'}
+                state['global_paths'] = [new_path, peer]
+                owner['plan']['paths'].append({'path_id': 'B', 'kind': 'build'})
+                row = owner['results']['B'] = {'quality': 'green-passed', 'code_baseline': mod['code_baseline']}
+
+                def set_artifact(ref):
+                    owner['build_artifacts'] = row['build_artifacts'] = [ref]
+
+                for ref in (wrong, build):
+                    set_artifact(ref)
+                    config = check_ref(actual)
+                    data = config.read_bytes()
+                    if ref == build:
+                        config.unlink()
+                    scope = ledger.audit_scope(state)
+                    ready, blocked = audit_execution.ready_paths(state, scope)
+                    self.assertEqual((ready, set(blocked)), (['PEER'], {'V'}))
+                    config.write_bytes(data)
+
+                audit = {'assignment_id': 'A', 'instance_id': 'auditor', 'closed': False, 'scope_policy': 'non-green-only',
+                         'path_ids': ['V', 'PEER'], 'snapshot': {'M001': owner['code_baseline']}}
+                state.update(audit_assignment=audit, audit_attempts=1)
+                scope = ledger.audit_scope(state)
+                go = {'role': 'global-orchestrator', 'instance_id': 'go'}
+                audit_execution.handle(state, {'operation': 'audit-test-assign', 'payload': {
+                    'assignment_id': 'AT', 'instance_id': 'runner', 'path_ids': ['V']}}, go, scope, f.root)
+                task = state['audit_test_assignment']
+                task['context_ref'] = f.ref(f'{platform}-preflight.json', {'verdict': 'ready'})
+                product = check_ref(build)
+                product.unlink()
+                cursor = ledger.routing(state)['global_next_step']
+                self.assertEqual((cursor['operation'], set(cursor['audit_blocked_paths'])), ('audit-test-revoke', {'V'}))
+                stop = f.ref(f'{platform}-stop.md', 'Host confirmed the Runner stopped')
+                audit_execution.handle(state, {'operation': 'audit-test-revoke', 'payload': {
+                    **cursor['payload'], 'stopped_worker_ref': stop}}, {'role': 'host', 'instance_id': 'host'}, scope, f.root)
+                self.assertEqual((task['closed'], state['audit_assignment'], state['audit_attempts']), (True, audit, 1))
+                self.assertEqual(audit_execution.ready_paths(state, scope)[0], ['PEER'])
+                product.write_text('accepted build')
+                self.assertEqual(audit_execution.ready_paths(state, scope)[0], ['V'])
+
     def test_only_the_path_with_unrecoverable_accepted_evidence_is_retested(self):
         import audit_execution
         from contracts import check_ref

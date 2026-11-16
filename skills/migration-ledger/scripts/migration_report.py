@@ -272,9 +272,9 @@ def build(root, s, sequence, ref_check=check_ref):
                                                         or m.get('stale') and not scoped_device_reverify)
         last_execution_stale = bool(last_execution and
             (execution_scope_stale or last_execution.get('code_baseline') != current_baseline))
+        scoped_global = record.get('global_visual_binding') or (record.get('integration_inputs') and integration.scoped(s, path or {}))
         stale = (execution_scope_stale or not tv.task_revalidation.valid(m, record)) if m else (
-                 (invalid and not (integration.scoped(s, path or {}) and record.get('integration_inputs')))
-                 or not integration.same_inputs(s, path or {}, record, global_baseline))
+                 (invalid and not scoped_global) or not integration.same_inputs(s, path or {}, record, global_baseline))
         # Environment omissions have no executed baseline to expire.
         stale = bool(stale and record.get('executed'))
         q = record.get('quality', 'yellow-blocked')

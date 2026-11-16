@@ -125,7 +125,7 @@
 <rect x="100" y="2080" width="1020" height="150" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
 <text x="610.0" y="2119.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">独立审阅收尾 → 全局报告</text>
 <text x="610.0" y="2153.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">叶子与 GLOBAL PATH 用同一清单，按执行输入分批入账</text>
-<text x="610.0" y="2182.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">配置修订后沿用有效批次，补验未执行或受影响路径</text>
+<text x="610.0" y="2182.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">配置修订后沿用有效批次，受管 GLOBAL 视觉核对原执行绑定</text>
 <text x="610.0" y="2211.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">覆盖齐全后裁决，全部通过即 Green</text>
 <rect x="1210" y="190" width="330" height="280" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
 <text x="1375.0" y="251.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">全局读取视野</text>
@@ -150,8 +150,8 @@
 <text x="1375.0" y="1004.5" font-size="19.47" fill="#4b5563" text-anchor="middle" font-weight="400">GLOBAL 波次与终审按 PATH 复测</text>
 <text x="1375.0" y="1033.5" font-size="20.20" fill="#4b5563" text-anchor="middle" font-weight="400">待生效修订暂停受影响波次 PATH</text>
 <text x="1375.0" y="1062.5" font-size="21.44" fill="#4b5563" text-anchor="middle" font-weight="400">独立波次 Green 保留有效评审</text>
-<text x="1375.0" y="1091.5" font-size="21.44" fill="#4b5563" text-anchor="middle" font-weight="400">预检：Ledger 代写或骨架起笔</text>
-<text x="1375.0" y="1120.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已有事实代填；被拒列全问题</text>
+<text x="1375.0" y="1091.5" font-size="21.43" fill="#4b5563" text-anchor="middle" font-weight="400">叶子收尾后待批，独立波次继续</text>
+<text x="1375.0" y="1120.5" font-size="21.44" fill="#4b5563" text-anchor="middle" font-weight="400">预检：Ledger 代写或骨架起笔</text>
 <text x="1375.0" y="1149.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">就绪即开工，按阶段补欠项</text>
 <text x="1375.0" y="1178.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">父聚合颜色不回写子模块</text>
 <rect x="1210" y="1230" width="330" height="320" rx="14" fill="#f9fafb" stroke="#6b7280" stroke-width="1.7"/>
@@ -163,7 +163,7 @@
 <text x="1375.0" y="1417.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同 Run 修订就绪后先交付</text>
 <text x="1375.0" y="1446.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">验证批次入账即回 drive</text>
 <text x="1375.0" y="1475.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">编码会话轮换保留派发名额</text>
-<text x="1375.0" y="1504.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">历史留痕，仅执行当前 SPEC</text>
+<text x="1375.0" y="1504.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已分配独立 Runner 先交付</text>
 <text x="1375.0" y="1533.5" font-size="21.90" fill="#4b5563" text-anchor="middle" font-weight="400">遵守 DAG / 写锁 / 累计预算</text>
 <rect x="1210" y="1570" width="330" height="280" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.7"/>
 <text x="1375.0" y="1616.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">收尾 ≠ 全部通过</text>

@@ -319,6 +319,38 @@ class MechanicalHandoffTests(unittest.TestCase):
             run.assert_called_once()
         self.assertEqual(self.f.state()['modules']['M001']['results']['M001-B']['quality'], 'green-passed')
 
+    def test_assigned_test_runner_is_delivered_once_before_the_independent_build(self):
+        from unittest.mock import patch
+        import ledger
+        from test_run_rehearsal import RunWalk
+
+        f = self.f
+        original_plan = self.fixture.t.plan
+
+        def separate_plan(mid):
+            plan = original_plan(mid)
+            next(p for p in plan['paths'] if p['kind'] == 'build')['command']['argv'][-1] = 'pass # separate build unit'
+            return plan
+
+        with patch.object(self.fixture.t, 'plan', side_effect=separate_plan):
+            self.fixture.t.freeze('M002')
+        f.call('assign', {'role': 'implementer', 'assignment_id': 'I2', 'instance_id': 'coder2'}, module='M002')
+        walk = RunWalk(); walk.f = f; walk.t = self.fixture.t
+        walk.model_turn(next(step for step in f.state()['next_steps'] if step['module_id'] == 'M002'))
+        f.call('accept', {'assignment_id': 'I2'}, module='M002')
+        ledger.advance(f.root, MO, 'M002')
+        step = next(step for step in f.state()['next_steps'] if step['module_id'] == 'M002')
+        self.assertEqual((step['operation'], step['role'], step['reason']), ('await-result', 'test-runner', 'worker-running'))
+        with patch.object(ledger, 'frozen_tests', wraps=ledger.frozen_tests) as run, patch.object(drive.time, 'sleep') as sleep:
+            lines = drive.drive(f.root, MO, wait=0.1)
+            self.assertTrue(any(row['kind'] == 'running' and row.get('assignment_id') == step['assignment_id']
+                                and row.get('instance_id') == 'test-runner-M002' for row in lines))
+            run.assert_not_called()
+            sleep.assert_not_called()
+            drive.drive(f.root, MO)
+            run.assert_called_once()
+        self.assertEqual(f.state()['modules']['M001']['results']['M001-B']['quality'], 'green-passed')
+
     def test_ready_parent_slicing_is_delivered_once_before_the_pending_build(self):
         from unittest.mock import patch
         import ledger

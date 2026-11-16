@@ -5,6 +5,7 @@ from contracts import Drifted, Rejected, check_ref, digest, file_ref, nonempty, 
 
 OPS = {'audit-test-assign', 'audit-test-submit', 'audit-test-revoke'}
 INPUT_VERSION = 2
+GLOBAL_VISUAL_INPUT_VERSION = 3
 
 
 def submitted(s):
@@ -65,10 +66,10 @@ def ready_paths(s, scope):
     """Dispatch runnable commands first, then give the remaining ready paths to an independent worker."""
     reported = environment_blocks(s)
     waiting = waiting_paths(s, scope, verify=False)
-    ready, blocked = partition_paths(s, waiting, reported=reported)
+    ready, blocked = partition_paths(s, scope, waiting, reported=reported)
     if not ready and submitted(s):
         waiting = waiting_paths(s, scope)
-        ready, blocked = partition_paths(s, waiting, reported=reported)
+        ready, blocked = partition_paths(s, scope, waiting, reported=reported)
     available = [path for path in waiting if path['path_id'] in ready]
     mechanical = mechanical_paths(s, available)
     if mechanical:
@@ -79,8 +80,19 @@ def ready_paths(s, scope):
     return [path['path_id'] for path in available if batch_inputs(scope, path) == inputs], blocked
 
 
-def partition_paths(s, paths, *, reported=None):
-    from integration import check_path_inputs
+def check_path_inputs(s, scope, path):
+    from integration import check_path_inputs as check_frozen
+    from test_validation import bound_native_visual, managed_visual_artifacts
+
+    check_frozen(s, path)
+    if bound_native_visual(path):
+        # Classify by the frozen PATH even when its rebound configuration can no longer be read.
+        builds = scope['path_build_artifacts'].get(path['path_id'], [])
+        require(managed_visual_artifacts(s, path, builds, allow_boot=True),
+                'effective native visual configuration or current bound APK/HAP is unavailable')
+
+
+def partition_paths(s, scope, paths, *, reported=None):
     ready, blocked = [], {}
     for path in paths:
         pid = path['path_id']
@@ -88,7 +100,7 @@ def partition_paths(s, paths, *, reported=None):
             blocked[pid] = reported[pid]['summary']
             continue
         try:
-            check_path_inputs(s, path)
+            check_path_inputs(s, scope, path)
         except (Rejected, OSError, KeyError) as exc:
             blocked[pid] = str(exc)
         else:
@@ -133,10 +145,11 @@ def input_fingerprint(s, scope, path, root, argv=None, cwd=None, *, version=INPU
     """Bind an observation to its frozen PATH, actual command and current platform inputs."""
     from context_readiness import verify_refs
     from execute_test import adapter_for, builtin_platform
-    from integration import check_path_inputs, device_inputs, inputs
-    from prepared_tests import binding
+    from integration import check_path_inputs as check_frozen
+    from integration import device_inputs, inputs, managed_inputs
+    from prepared_tests import binding, global_source
     from reference_media import assertion_refs
-    from test_validation import check_visual_command, managed_visual_artifacts, managed_visual_environment, visual_environment
+    from test_validation import bound_native_visual, check_visual_command, managed_visual_artifacts, managed_visual_environment, visual_environment
 
     pid = path['path_id']
     try:
@@ -147,32 +160,52 @@ def input_fingerprint(s, scope, path, root, argv=None, cwd=None, *, version=INPU
         if not executable.is_absolute():
             return None
         cwd = Path(cwd).resolve(strict=True)
-        code = scope['code_baseline']
-        builds = scope['path_build_artifacts'].get(pid, [])
-        if version == INPUT_VERSION and (path.get('kind') or 'automation') == 'automation' and builtin_platform(s, path) == 'web':
-            check_path_inputs(s, path)
-            execution = {'path': path, 'baseline': code, 'device': device_inputs(s, path),
-                         'web_config': (s.get('target_preview') or {}).get('web_main_config')}
-            if not path.get('build_binding'):
-                builds = []
-        elif version == INPUT_VERSION and path.get('build_binding') and managed_visual_environment(s, path):
+        settings = {'runtime': s.get('runtime'), 'package': s.get('package_sha')}
+        refs = {'media': assertion_refs(s, path)}
+        if version == GLOBAL_VISUAL_INPUT_VERSION:
+            require(bound_native_visual(path), 'scoped audit binding requires a managed GLOBAL visual PATH')
             check_visual_command(argv)
-            visual = managed_visual_artifacts(s, path, builds)
-            require(visual, 'managed audit visual build is unavailable')
-            execution = {'path': path, 'baseline': code, 'environment_ref': visual['environment_ref']}
-            builds = visual['artifacts']
+            check_frozen(s, path)
+            execution = managed_inputs(s, path)
+            refs['test_assets'] = binding({'path_test_sources': {pid: global_source(path)}}, path)
         else:
-            execution = inputs(s, path, code)
-        refs = {'test_assets': binding(scope, path), 'media': assertion_refs(s, path),
-                'builds': builds,
-                'visual_environment': visual_environment(path, scope.get('visual_environment_rebindings'))}
+            code = scope['code_baseline']
+            builds = scope['path_build_artifacts'].get(pid, [])
+            if version == INPUT_VERSION and (path.get('kind') or 'automation') == 'automation' and builtin_platform(s, path) == 'web':
+                check_frozen(s, path)
+                execution = {'path': path, 'baseline': code, 'device': device_inputs(s, path),
+                             'web_config': (s.get('target_preview') or {}).get('web_main_config')}
+                if not path.get('build_binding'):
+                    builds = []
+            elif version == INPUT_VERSION and path.get('build_binding') and managed_visual_environment(s, path):
+                check_visual_command(argv)
+                visual = managed_visual_artifacts(s, path, builds)
+                require(visual, 'managed audit visual build is unavailable')
+                execution = {'path': path, 'baseline': code, 'environment_ref': visual['environment_ref']}
+                builds = visual['artifacts']
+            else:
+                execution = inputs(s, path, code)
+            settings.update(freeze=scope['freeze_id'], build=s.get('build'))
+            refs.update(test_assets=binding(scope, path), builds=builds,
+                        visual_environment=visual_environment(path, scope.get('visual_environment_rebindings')))
         verify_refs(refs)
         tools = [file_ref(executable), *(file_ref(cwd / arg) for arg in argv[1:] if (cwd / arg).is_file())]
-        return digest({'inputs': execution, 'freeze': scope['freeze_id'],
-                       'runtime': s.get('runtime'), 'build': s.get('build'), 'package': s.get('package_sha'),
+        return digest({'inputs': execution, **settings,
                        'argv': argv, 'cwd': str(cwd), 'tools': tools, 'refs': refs})
     except (OSError, ValueError, TypeError, KeyError, IndexError):
         return None  # An ordinary execution can proceed without proof suitable for a future assignment.
+
+
+def receipt_inputs(s, scope, path, task, root, argv, cwd):
+    from context_readiness import enabled
+    from test_validation import bound_native_visual
+
+    if bound_native_visual(path) and path in s['global_paths'] and enabled(s) and task.get('context_ref'):
+        stamp = input_fingerprint(s, scope, path, root, argv, cwd, version=GLOBAL_VISUAL_INPUT_VERSION)
+        if stamp:
+            return {'audit_inputs_version': GLOBAL_VISUAL_INPUT_VERSION, 'audit_inputs_sha256': stamp}
+    stamp = input_fingerprint(s, scope, path, root, argv, cwd)
+    return {'audit_inputs_version': INPUT_VERSION, 'audit_inputs_sha256': stamp} if stamp else {}
 
 
 def receipt_fingerprint(s, scope, path, task, receipt, *, same_assignment=False):
@@ -180,10 +213,15 @@ def receipt_fingerprint(s, scope, path, task, receipt, *, same_assignment=False)
     from test_validation import check_visual_command, managed_visual_environment
 
     version = receipt.get('audit_inputs_version', 1)
-    if version not in (1, INPUT_VERSION):
+    if version not in (1, INPUT_VERSION, GLOBAL_VISUAL_INPUT_VERSION):
         return None
     argv = cwd = None
-    if same_assignment:
+    if version == GLOBAL_VISUAL_INPUT_VERSION:
+        if not enabled(s) or not task.get('context_ref'):
+            return None
+        argv, cwd = receipt['requested_argv'], receipt['cwd']
+        check_execution(s, task, argv, cwd, path['path_id'])
+    elif same_assignment:
         argv, cwd = receipt['requested_argv'], receipt['cwd']
     elif path.get('build_binding') and managed_visual_environment(s, path) and enabled(s) and task.get('context_ref'):
         argv, cwd = receipt['requested_argv'], receipt['cwd']
@@ -210,10 +248,40 @@ def proof_document(task, ref, archives):
         return read_json(archived_evidence(task, archives).check(ref))
 
 
+def capture_matches(s, path, row, task, archives):
+    from test_validation import visual_environment
+
+    try:
+        ref = visual_environment(path, (s.get('target_preview') or {}).get('visual_environment_rebindings'))
+        device = read_json(check_ref(ref))['visual_capture']['device_id']
+        proof = row['visual_alignment']
+        captures = proof.get('capture_evidence', [])[-1:]
+        if image := proof.get('image_parity'):
+            captures = [*captures, image['capture_evidence']]
+        expected = device, path['visual_execution']['app_id'], proof['hap_ref']
+        return bool(captures) and all((record['device_id'], record['app_id'], record['artifact_ref']) == expected
+            for record in (proof_document(task, capture['capture_execution_ref'], archives) for capture in captures))
+    except (OSError, ValueError, TypeError, KeyError):
+        return False
+
+
+def global_visual_current(s, path, previous):
+    """Recheck only the execution already accepted for this PATH, against its current named inputs."""
+    task = previous['global_visual_binding']
+    try:
+        receipt = proof_document(task, previous['execution_receipt'], {})
+        stamp = receipt.get('audit_inputs_sha256')
+        return (bool(stamp) and receipt.get('audit_inputs_version') == GLOBAL_VISUAL_INPUT_VERSION
+                and (receipt['run_id'], receipt['module_id'], receipt['path_id'], receipt['test_run_id'])
+                    == (s['run_id'], 'GLOBAL', path['path_id'], previous['test_run_id'])
+                and stamp == receipt_fingerprint(s, None, path, task, receipt))
+    except (OSError, ValueError, TypeError, KeyError):
+        return False
+
+
 def verified_batches(s, scope, tasks, archives, *, fingerprint=False):
     """Recheck the newest selected PATH observations under the current frozen inputs."""
     from context_readiness import verify_refs
-    from integration import check_path_inputs
     from prepared_tests import binding
 
     paths = {path['path_id']: path for path in scope['plan']['paths']}
@@ -235,7 +303,7 @@ def verified_batches(s, scope, tasks, archives, *, fingerprint=False):
                 continue
             try:
                 path = paths[pid]
-                check_path_inputs(s, path)
+                check_path_inputs(s, scope, path)
                 verify_refs(binding(scope, path))
                 verify_refs(scope.get('path_build_artifacts', {}).get(pid, []) if path.get('build_binding') else [])
                 receipt_ref = row.get('execution_receipt')
@@ -363,7 +431,7 @@ def handle(s, req, actor, scope, root):
         for module in s['modules'].values():
             current(module)
         check_ref(p['stopped_worker_ref'])
-        _, blocked = partition_paths(s, task_scope(scope, task)['plan']['paths'])
+        _, blocked = partition_paths(s, scope, task_scope(scope, task)['plan']['paths'])
         task.update(closed=True, stopped_worker_ref=p['stopped_worker_ref'], blocked_paths=blocked)
     else:
         role(actor, 'test-runner')
@@ -378,17 +446,28 @@ def handle(s, req, actor, scope, root):
         task.update(closed=True, result_ref=p['result_ref'])
 
 
-def evidence(s, scope=None, report=None):
+def evidence(s, scope=None, report=None, *, visual_bindings=None):
     """Gather exact accepted batch observations in their submission order."""
     from ledger import audit_scope
+    from test_validation import bound_native_visual
     archives = {}
     tasks = completed(s, scope if scope is not None else audit_scope(s), archives=archives)
+    global_paths = ({path['path_id']: path for path in s['global_paths'] if bound_native_visual(path)}
+                    if visual_bindings is not None else {})
     refs, rows = [], []
     for task in tasks:
         result = proof_document(task, task['result_ref'], archives)
         rows_in_scope = [row for row in result['paths'] if row['path_id'] in task['path_ids']]
         refs.append(task['result_ref'])
         rows.extend(rows_in_scope)
+        for row in rows_in_scope:
+            path = global_paths.get(row['path_id'])
+            if not path or row['quality'] != 'green-passed' or not task.get('context_ref'):
+                continue
+            receipt = proof_document(task, row['execution_receipt'], archives)
+            if (receipt.get('audit_inputs_version') == GLOBAL_VISUAL_INPUT_VERSION and receipt.get('audit_inputs_sha256')
+                    and capture_matches(s, path, row, task, archives)):
+                visual_bindings[row['path_id']] = {key: task[key] for key in ('run_root', 'context_ref')}
     if report is not None:
         ids = [row['path_id'] for row in rows]
         expected = s['audit_assignment']['path_ids']

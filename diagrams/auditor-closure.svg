@@ -107,12 +107,13 @@
 <text x="1200.0" y="1675.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">awaiting-human：保留各次断言、证据与问题归属</text>
 <text x="1200.0" y="1704.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">审核决定绑定当前报告摘要；不自动追加修复</text>
 <path d="M400,1735 L400,1795" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
-<rect x="90" y="1795" width="620" height="180" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
-<text x="400.0" y="1835.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">终审 · 独立 Test-Runner 按批执行</text>
-<text x="400.0" y="1869.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同批 PATH 的派发、预检与执行范围一致</text>
-<text x="400.0" y="1898.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">冻结命令或适配器先跑，每批独立入账</text>
-<text x="400.0" y="1927.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同输入 JUnit 命令只启动一次，逐测试 ID 留证</text>
-<text x="400.0" y="1956.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">沿用有效回执，失效 PATH 单独补验</text>
+<rect x="90" y="1795" width="620" height="194" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
+<text x="400.0" y="1827.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">终审 · 独立 Test-Runner 按批执行</text>
+<text x="400.0" y="1861.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同批 PATH 的派发、预检与执行范围一致</text>
+<text x="400.0" y="1890.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">视觉派发核对生效配置与绑定 APK / HAP</text>
+<text x="400.0" y="1919.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">冻结命令或适配器先跑，每批独立入账</text>
+<text x="400.0" y="1948.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同输入 JUnit 命令只启动一次，逐测试 ID 留证</text>
+<text x="400.0" y="1977.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">沿用有效回执，失效 PATH 单独补验</text>
 <path d="M1200,1735 L1200,1795" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <rect x="890" y="1795" width="620" height="155" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="1200.0" y="1837.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">人工批准 → GO 释放批次 → 受控恢复</text>
@@ -123,12 +124,13 @@
 <rect x="777.0" y="1972" width="90" height="27" rx="4" fill="white" opacity="0.97"/>
 <text x="822" y="1990" font-size="18.00" fill="#ea580c" text-anchor="middle" font-weight="400">环境缺口</text>
 <path d="M890,2165 L750,2165 L750,1925 L710,1925" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
-<path d="M400,1975 L400,2030" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M400,1989 L400,2030" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="90" y="2030" width="620" height="185" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.7"/>
-<text x="400.0" y="2087.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">独立裁决 → 全局报告</text>
-<text x="400.0" y="2121.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核对完整覆盖，原样采用新旧批次观察</text>
-<text x="400.0" y="2150.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Red / Yellow 保留根因，按责任模块处理</text>
-<text x="400.0" y="2179.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全通过 → 全局 Green → 按授权交付</text>
+<text x="400.0" y="2072.5" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">独立裁决 → 全局报告</text>
+<text x="400.0" y="2106.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">核对完整覆盖，原样采用新旧批次观察</text>
+<text x="400.0" y="2135.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">受管 GLOBAL 视觉保留原执行绑定供修订核验</text>
+<text x="400.0" y="2164.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">Red / Yellow 保留根因，按责任模块处理</text>
+<text x="400.0" y="2193.5" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">全通过 → 全局 Green → 按授权交付</text>
 <rect x="890" y="2030" width="620" height="205" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="1200.0" y="2068.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">按 PATH 记录缺口 → 同 Run 恢复</text>
 <text x="1200.0" y="2102.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">未获授权的 Runner 按 PATH 退回环境缺口</text>

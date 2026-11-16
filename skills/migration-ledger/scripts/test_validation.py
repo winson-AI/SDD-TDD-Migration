@@ -145,7 +145,12 @@ def validate_visual_profile(path):
     harmony_resource_probe.contract(path)
 
 
-def managed_visual_environment(s, path):
+def bound_native_visual(path):
+    return (path.get('kind') == 'visual' and not path.get('command')
+            and path.get('platform') in ('android', 'harmony') and bool(path.get('build_binding')))
+
+
+def managed_visual_environment(s, path, *, allow_boot=False):
     """A frozen native capture without a project boot command can use the artifact-only lane."""
     if path.get('kind') != 'visual' or path.get('command') or path.get('platform') not in ('android', 'harmony'):
         return None
@@ -162,7 +167,7 @@ def managed_visual_environment(s, path):
         env = run_storage.checked_path(check_ref(environment), root / 'runs/harmony/sandbox/environment')
         device = read_json(env).get('visual_capture') or {}
         backend = 'adb' if path['platform'] == 'android' else 'hdc'
-        if (device.get('backend') == backend and device.get('device_id') and not device.get('boot')
+        if (device.get('backend') == backend and device.get('device_id') and (allow_boot or not device.get('boot'))
                 and device.get('harmony_device_profile') == path.get('harmony_device_profile')):
             return root, environment
     except (Rejected, OSError, ValueError, KeyError, TypeError, AttributeError):
@@ -170,9 +175,9 @@ def managed_visual_environment(s, path):
     return None
 
 
-def managed_visual_artifacts(s, path, refs):
+def managed_visual_artifacts(s, path, refs, *, allow_boot=False):
     """Only accepted runner output qualifies for concurrent coding."""
-    environment = managed_visual_environment(s, path)
+    environment = managed_visual_environment(s, path, allow_boot=allow_boot)
     if not environment:
         return None
     import run_storage

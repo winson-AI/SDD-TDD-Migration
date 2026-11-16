@@ -20,9 +20,7 @@ def global_paths_check(paths, case_ids):
         for path in paths.values():
             if path.get('test_design_ref'):
                 import prepared_tests
-                prepared_tests.binding({'path_test_sources': {path['path_id']: {
-                    'module_id': 'GLOBAL', 'freeze_id': digest(path),
-                    'test_design_ref': path['test_design_ref'], 'contract_version': 1}}}, path)
+                prepared_tests.binding({'path_test_sources': {path['path_id']: prepared_tests.global_source(path)}}, path)
             assertions = keyed(path.get('expected_assertions'), 'assertion_id')
             require(all('expected' in a for a in assertions.values()), 'global assertion expected value required')
             device_interaction = path.get('kind') in ('automation', 'visual') and path.get('interaction_id')

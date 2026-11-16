@@ -129,6 +129,11 @@ def source(module):
             'contract_version': module['plan'].get('test_asset_contract_version', 0)} if ref else None
 
 
+def global_source(path):
+    ref = path.get('test_design_ref')
+    return {'module_id': 'GLOBAL', 'freeze_id': digest(path), 'test_design_ref': ref, 'contract_version': 1} if ref else None
+
+
 def binding(module, path):
     owner = (module.get('path_test_sources') or {}).get(path['path_id']) if 'path_test_sources' in module else source(module)
     if not owner: return None

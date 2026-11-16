@@ -74,22 +74,28 @@ def check_path_inputs(s, path):
             check_ref(config)
 
 
+def managed_inputs(s, path):
+    """The accepted build, environment and owner/provider closure consumed by this visual PATH."""
+    from ledger import current as check_module
+    from test_validation import managed_visual_artifacts
+
+    mids = module_ids(s, path)
+    refs = managed_visual_artifacts(s, path, build_artifacts(s, path))
+    require(refs, 'managed integration build or visual environment unavailable')
+    for mid in mids:
+        m = s['modules'][mid]
+        require(m['phase'] == 'completed' and not m.get('stale'), 'integration input module unsettled')
+        check_module(m)
+    return {'path': path, 'build': refs,
+            'modules': {mid: {k: s['modules'][mid].get(k) for k in ('code_baseline', 'freeze_id')} for mid in mids}}
+
+
 def inputs(s, path, code_baseline=None, *, legacy=False):
     """A managed visual path consumes its named build. Opaque commands may inspect the whole project."""
     if not legacy:
         check_path_inputs(s, path)
     if scoped(s, path):
-        from ledger import current as check_module
-        from test_validation import managed_visual_artifacts
-        mids = module_ids(s, path)
-        refs = managed_visual_artifacts(s, path, build_artifacts(s, path))
-        require(refs, 'managed integration build or visual environment unavailable')
-        for mid in mids:
-            m = s['modules'][mid]
-            require(m['phase'] == 'completed' and not m.get('stale'), 'integration input module unsettled')
-            check_module(m)
-        return digest({'path': path, 'build': refs,
-                       'modules': {mid: {k: s['modules'][mid].get(k) for k in ('code_baseline', 'freeze_id')} for mid in mids}})
+        return digest(managed_inputs(s, path))
     common = {'path': path, 'baseline': code_baseline,
               'modules': {mid: {k: m.get(k) for k in ('freeze_id', 'build_artifacts')} for mid, m in s['modules'].items()}}
     if not legacy and (device := device_inputs(s, path)) is not None:
@@ -106,6 +112,9 @@ def inputs(s, path, code_baseline=None, *, legacy=False):
 def same_inputs(s, path, previous, code_baseline, expected=None):
     if not previous or previous.get('stale'):
         return False
+    if previous.get('global_visual_binding'):
+        from audit_execution import global_visual_current
+        return global_visual_current(s, path, previous)
     if 'integration_inputs' in previous:
         try:
             expected = expected or inputs(s, path, code_baseline)
@@ -114,8 +123,21 @@ def same_inputs(s, path, previous, code_baseline, expected=None):
                     and previous['integration_inputs'] == inputs(s, path, code_baseline, legacy=True))
         except (Rejected, OSError, KeyError):
             return False
-    # Older receipts carry the whole baseline. An owner match alone cannot prove what a command read.
-    return previous.get('code_baseline') == code_baseline
+    if previous.get('code_baseline') != code_baseline:
+        return False
+    from test_validation import bound_native_visual, managed_visual_artifacts
+    if not bound_native_visual(path):
+        return True
+    # Legacy native results can still describe the current final verdict. A revision clears that verdict.
+    verdict = s.get('audit') or {}
+    if (verdict.get('snapshot') != {mid: m.get('code_baseline') for mid, m in s['modules'].items()}
+            or not any(row['path_id'] == path['path_id'] and row.get('test_run_id') == previous.get('test_run_id')
+                       for row in verdict.get('paths', []))):
+        return False
+    if previous.get('quality') != 'green-passed':
+        return True
+    visual = managed_visual_artifacts(s, path, build_artifacts(s, path), allow_boot=True)
+    return bool(visual and (previous.get('visual_alignment') or {}).get('hap_ref') in visual['artifacts'])
 
 
 def current(s, path, previous, code_baseline):
@@ -134,16 +156,20 @@ def task(s):
     return item if item and not item.get('closed', True) else None
 
 
-def due(s, *, blocked=None):
+def due(s, *, blocked=None, revision_step=None):
     """Prefer a ready managed wave, even when unrelated code is dirty or still being written."""
     import audit_closure
     from ledger import global_baseline
-    from run_changes import pending_global_paths
+    from run_changes import next_action, pending_global_paths
     if audit_closure.active(s) or not (s.get('audit_assignment') or {}).get('closed', True) or task(s):
         return []
     device_reviews = [change['report_ref'] for change in s.get('run_change_history', []) if change.get('device_only')]
-    leaves_working = work_remaining(s)
-    switching = pending_global_paths(s)
+    wave_allowed = work_remaining(s)
+    if not wave_allowed and s.get('global_plan') and (s.get('run_change_review') or {}).get('global_path_review'):
+        # The final audit is waiting for approval. The existing wave can still verify other PATHs.
+        revision_step = revision_step if revision_step is not None else next_action(s)
+        wave_allowed = bool(revision_step and revision_step['reason'] == 'run-approval-required')
+    switching = pending_global_paths(s, revision_step=revision_step)
     for managed in (True, False):
         selected = []
         baseline = None
@@ -158,7 +184,7 @@ def due(s, *, blocked=None):
             previous = s.get('audit_results', {}).get(path['path_id'])
             device_retest = bool(previous and previous.get('stale') and previous.get('invalidated_by') in device_reviews
                                  and device_inputs(s, path) is not None)
-            if not device_retest and (not leaves_working or
+            if not device_retest and (not wave_allowed or
                     (not managed and previous and previous.get('owner_baselines') == owner_baselines(s, path))):
                 continue  # Leave ordinary whole-snapshot retests to the final audit.
             if not managed and baseline is None:
