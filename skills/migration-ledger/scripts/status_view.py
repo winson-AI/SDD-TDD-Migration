@@ -130,15 +130,16 @@ def _step(st, module_id, since=None):
         submission = (m.get('submissions') or {}).get(step.get('assignment_id'))
         if submission:
             out['submission'] = submission
-    if module_id is None and operation in ('audit', 'audit-assign', 'audit-unavailable', 'audit-test-assign', 'audit-test-submit', 'integration-assign', 'integration-submit'):
+    audit_stage = ('audit-test-assign', 'audit-test-submit', 'audit-test-revoke', 'audit-unavailable')
+    if module_id is None and operation in ('audit', 'audit-assign', *audit_stage, 'integration-assign', 'integration-submit'):
         import audit_execution
         import integration
         import ledger
         wave = operation.startswith('integration-')
-        assignment = st.get('integration_assignment') if wave else st.get('audit_test_assignment') if operation == 'audit-test-submit' else st.get('audit_assignment')
+        assignment = st.get('integration_assignment') if wave else st.get('audit_test_assignment') if operation in ('audit-test-submit', 'audit-test-revoke') else st.get('audit_assignment')
         if assignment: out['assignment'] = {k: assignment[k] for k in ASSIGNMENT_KEYS if assignment.get(k) is not None}
         scope = integration.scope(st) if wave else ledger.audit_scope(st)
-        if step.get('path_ids') is not None and operation in ('audit-test-assign', 'audit-test-submit', 'audit-unavailable'):
+        if step.get('path_ids') is not None and operation in audit_stage:
             scope = audit_execution.task_scope(scope, step)
             scope['results'] = {pid: row for pid, row in scope['results'].items() if pid in step['path_ids']}
         out['audit_input'] = {'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],

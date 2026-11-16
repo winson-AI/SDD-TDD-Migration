@@ -65,6 +65,7 @@ class WaveIntegrationTests(unittest.TestCase):
             self.assertEqual(integration.due(s), [])
 
     def test_pending_device_revision_only_holds_the_affected_global_path(self):
+        from unittest.mock import patch
         import run_changes
 
         f = self.f
@@ -79,20 +80,32 @@ class WaveIntegrationTests(unittest.TestCase):
                   'boundary_review': {'semantic_change': False, 'authorization_change': True, 'unresolved_questions': [],
                                       'reason': 'Device access requires approval', 'evidence_refs': [f.ref('authorization.md', 'Access review')]},
                   'modules': [{'module_id': mid, 'action': 'unchanged'} for mid in s['modules']]}
-        review = {'status': 'reviewed', 'report_ref': f.ref('pending-android.json', report)}
-        review['subject_sha256'] = run_changes.review_subject(s, review)
-        s['run_change_review'] = review
+        go = {'role': 'global-orchestrator', 'instance_id': 'go'}
+        report_ref = f.ref('pending-android.json', report)
+        with patch.object(run_changes, 'validate', return_value=(report, set(), set())):
+            run_changes.handle(f.root, s, {'operation': 'run-review', 'payload': {'report_ref': report_ref}}, go)
+        review = s['run_change_review']
         routes = ledger.routing(s)
         self.assertEqual(routes['run_change_next_step']['reason'], 'run-approval-required')
         self.assertEqual((routes['global_next_step']['operation'], routes['global_next_step']['path_ids']),
                          ('integration-assign', ['web']))
-        go = {'role': 'global-orchestrator', 'instance_id': 'go'}
         dispatch = {'operation': 'integration-assign', 'payload': {'assignment_id': 'WEB', 'instance_id': 'runner', 'path_ids': ['android']}}
         with self.assertRaisesRegex(Rejected, 'exactly the due paths'):
             integration.handle(s, dispatch, go, 99)
         dispatch['payload']['path_ids'] = ['web']
         integration.handle(s, dispatch, go, 99)
         self.assertEqual(ledger.routing(s)['global_next_step']['operation'], 'integration-submit')
+        wave = s['integration_assignment']
+        wave['closed'] = True
+        green = {'quality': 'green-passed', 'test_run_id': 'WEB', 'integration_inputs': wave['inputs']['web']}
+        s['audit_results'] = {'web': green}
+        self.assertEqual(run_changes.next_action(s)['reason'], 'run-approval-required')
+        self.assertEqual(run_changes.pending_global_paths(s), {'android'})
+        s['audit_results']['web'] = {**green, 'quality': 'red-bug'}
+        self.assertEqual(run_changes.next_action(s)['reason'], 'run-review-stale')
+        s['audit_results']['web'] = {**green, 'integration_inputs': 'drifted'}
+        self.assertEqual(run_changes.next_action(s)['reason'], 'run-review-stale')
+        s['audit_results']['web'] = green
         s['decisions']['A'] = {'decision_id': 'A', 'decision': 'approved', 'module_id': None, 'subject_sha256': review['subject_sha256']}
         self.assertEqual(ledger.routing(s)['global_next_step']['operation'], 'revise-run')
 

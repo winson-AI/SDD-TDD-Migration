@@ -105,6 +105,121 @@ with open(sys.argv[sys.argv.index('--result-file') + 1], 'w') as target:
         self.assertEqual(report['test_result_refs'][0], refs[0])
         self.assertEqual([row['path_id'] for row in report['paths']], ['READY', 'WEB'])
 
+    def test_authorized_runner_with_local_input_drift_releases_only_its_dispatch(self):
+        import sys
+        import audit_execution
+        from contracts import check_ref
+        from unittest.mock import patch
+
+        f = test_context_readiness.ContextReadinessTests()
+        original = f.call
+
+        def initialize(op, payload=None, **kwargs):
+            if op == 'init':
+                script = f.ref('peer.py', '''import json,sys
+with open(sys.argv[sys.argv.index('--result-file')+1], 'w') as target:
+    json.dump({'assertions': [{'assertion_id':'A1','expected':2,'actual':2,'passed':True}]}, target)
+''')
+                web = {**payload['global_paths'][0], 'path_id': 'WEB', 'kind': 'automation', 'platform': 'web'}
+                peer = {**web, 'path_id': 'PEER', 'platform': 'host',
+                        'command': {'argv': [sys.executable, script['path']], 'cwd': str(f.target)}}
+                payload = {**payload, 'global_paths': [web, peer], 'max_audit_rounds': 1,
+                           'test_adapter': {'device': {'platforms': ['web'], 'web': {'url': 'https://example.test'}}}}
+            return original(op, payload, **kwargs)
+
+        f.call = initialize
+        f.setUp(); self.addCleanup(f.doCleanups)
+        f.completed(); test_ledger.code_review(f)
+        mo = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
+        ledger.advance_run(f.root, mo, defer_commands=True)
+        s = f.state()
+        audit, task = s['audit_assignment'], s['audit_test_assignment']
+        self.assertEqual(task['path_ids'], ['WEB'])
+        runner = {'role': 'test-runner', 'instance': task['instance_id'], 'module': None}
+        f.raw('context-submit', {'report_ref': ledger.global_preflight(f.root, s, task)}, **runner)
+        config = check_ref(s['target_preview']['web_main_config'])
+        data = config.read_bytes()
+        config.unlink()
+        step = f.state()['global_next_step']
+        self.assertEqual((step['operation'], step['assignment_id']), ('audit-test-revoke', task['assignment_id']))
+        self.assertEqual(set(step['audit_blocked_paths']), {'WEB'})
+        host = {'role': 'host', 'module': None}
+        with self.assertRaises(Rejected):
+            f.raw('audit-test-revoke', step['payload'], **host)
+        proof = f.ref('isolated.md', 'Host verified this Test-Runner stopped before reusing the browser environment')
+        f.raw('audit-test-revoke', {**step['payload'], 'stopped_worker_ref': proof}, **host)
+        s = f.state()
+        self.assertEqual(s['audit_assignment'], audit)
+        self.assertEqual(s['audit_attempts'], 1)
+        self.assertEqual(set(s['audit_test_assignment']['blocked_paths']), {'WEB'})
+        self.assertEqual(s['audit_test_assignment']['stopped_worker_ref'], proof)
+        with self.assertRaisesRegex(Rejected, 'inactive/mismatch'):
+            f.raw('audit-test-submit', {'result_ref': proof}, **runner)
+        ledger.advance_run(f.root, mo, yield_after_test=True)
+        s = f.state()
+        _, rows = audit_execution.evidence(s)
+        self.assertEqual([row['path_id'] for row in rows], ['PEER'])
+        self.assertEqual(s['global_next_step']['operation'], 'audit-unavailable')
+        config.write_bytes(data)
+        command = s['global_paths'][1]['command']
+        with patch('execute_test.builtin_main', return_value={'argv': command['argv']}):
+            ledger.advance_run(f.root, mo)
+        s = f.state()
+        self.assertEqual((s['quality'], s['audit_attempts']), ('green-passed', 1))
+        self.assertEqual(s['audit_results']['PEER']['test_run_id'], rows[0]['test_run_id'])
+
+    def test_only_the_path_with_unrecoverable_accepted_evidence_is_retested(self):
+        import audit_execution
+        from contracts import check_ref
+        import sys
+
+        f = test_context_readiness.ContextReadinessTests()
+        original = f.call
+
+        def initialize(op, payload=None, **kwargs):
+            if op == 'init':
+                script = f.ref('runner.py', '''import json,sys
+with open(sys.argv[sys.argv.index('--result-file')+1], 'w') as target:
+    json.dump({'assertions': [{'assertion_id':'A1','expected':2,'actual':2,'passed':True}]}, target)
+''')
+                command = {'argv': [sys.executable, script['path']], 'cwd': str(f.target)}
+                path = {**payload['global_paths'][0], 'kind': 'automation', 'platform': 'host', 'command': command}
+                payload = {**payload, 'global_paths': [{**path, 'path_id': pid} for pid in ('LOST', 'KEEP')]}
+            return original(op, payload, **kwargs)
+
+        f.call = initialize
+        f.setUp(); self.addCleanup(f.doCleanups)
+        f.completed(); test_ledger.code_review(f)
+        mo = {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'}
+        ledger.advance_run(f.root, mo, yield_after_test=True)
+        s, events = ledger.read_events(f.root)
+        audit = s['audit_assignment']
+        [first_report], rows = audit_execution.evidence(s)
+        old = {row['path_id']: row for row in rows}
+        archives = ledger.artifact_index(events)
+        for row in rows:
+            check_ref(row['execution_receipt']).unlink()
+        self.assertEqual(audit_execution.evidence(f.state()), ([first_report], rows))
+        lost_ref = old['LOST']['execution_receipt']
+        archive, _ = archives[(lost_ref['path'], lost_ref['sha256'])]
+        check_ref(archive).unlink()
+        manifest_archive, _ = archives[(first_report['path'], first_report['sha256'])]
+        manifest_path = check_ref(manifest_archive)
+        manifest_path.unlink()
+        step = f.state()['global_next_step']
+        self.assertEqual((step['operation'], step['path_ids']), ('audit-test-assign', ['LOST']))
+        ledger.advance_run(f.root, mo)
+        s = f.state()
+        self.assertEqual((s['quality'], s['audit_assignment']['assignment_id'], s['audit_attempts']),
+                         ('green-passed', audit['assignment_id'], 1))
+        self.assertEqual(s['audit_results']['KEEP']['test_run_id'], old['KEEP']['test_run_id'])
+        self.assertNotEqual(s['audit_results']['LOST']['test_run_id'], old['LOST']['test_run_id'])
+        self.assertEqual(s['audit']['test_result_refs'][0], first_report)
+        self.assertEqual(check_ref(manifest_archive), manifest_path)
+        from verify_openspec import inspect
+        result = inspect(f.root, scope='final')
+        self.assertFalse([failure for failure in result['failures'] if failure['check'] == 'acceptance-evidence'])
+
     def test_frozen_leaf_path_runs_before_manual_global_path(self):
         import sys
         import test_split_testing

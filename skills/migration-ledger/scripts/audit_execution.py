@@ -1,9 +1,9 @@
 """Explicit independent Test-Runner tasks beneath the one host-task Auditor assignment."""
 import copy
 from pathlib import Path
-from contracts import Rejected, check_ref, digest, file_ref, nonempty, read_json, require, validate_result
+from contracts import Drifted, Rejected, check_ref, digest, file_ref, nonempty, read_json, require, validate_result
 
-OPS = {'audit-test-assign', 'audit-test-submit'}
+OPS = {'audit-test-assign', 'audit-test-submit', 'audit-test-revoke'}
 INPUT_VERSION = 2
 
 
@@ -13,19 +13,31 @@ def submitted(s):
             if task.get('audit_assignment_id') == audit.get('assignment_id') and task.get('closed') and task.get('result_ref')]
 
 
-def completed(s, scope):
-    batches = submitted(s)
+def latest_batches(batches):
+    seen, latest = set(), []
+    for task in reversed(batches):
+        paths = [pid for pid in task['path_ids'] if pid not in seen]
+        seen.update(paths)
+        if paths:
+            latest.append({**task, 'path_ids': paths})
+    return list(reversed(latest))
+
+
+def completed(s, scope, *, verify=True, archives=None):
+    batches = latest_batches(submitted(s))
     done = {pid for task in batches for pid in task['path_ids']}
     auditor = (s.get('audit_assignment') or {}).get('instance_id')
+    if verify:
+        batches = verified_batches(s, scope, batches, {} if archives is None else archives)
     return carried(s, scope, auditor, exclude=done) + batches
 
 
-def waiting_paths(s, scope):
+def waiting_paths(s, scope, *, verify=True):
     audit = s.get('audit_assignment') or {}
     if audit.get('closed', True):
         batches = carried(s, scope, s.get('audit_code_review', {}).get('auditor_instance_id'))
     else:
-        batches = completed(s, scope)
+        batches = completed(s, scope, verify=verify)
     done = {pid for task in batches for pid in task['path_ids']}
     return [path for path in scope['plan']['paths'] if path['path_id'] not in done]
 
@@ -51,8 +63,12 @@ def batch_inputs(scope, path):
 
 def ready_paths(s, scope):
     """Dispatch runnable commands first, then give the remaining ready paths to an independent worker."""
-    waiting = waiting_paths(s, scope)
-    ready, blocked = partition_paths(s, waiting, reported=environment_blocks(s))
+    reported = environment_blocks(s)
+    waiting = waiting_paths(s, scope, verify=False)
+    ready, blocked = partition_paths(s, waiting, reported=reported)
+    if not ready and submitted(s):
+        waiting = waiting_paths(s, scope)
+        ready, blocked = partition_paths(s, waiting, reported=reported)
     available = [path for path in waiting if path['path_id'] in ready]
     mechanical = mechanical_paths(s, available)
     if mechanical:
@@ -159,7 +175,7 @@ def input_fingerprint(s, scope, path, root, argv=None, cwd=None, *, version=INPU
         return None  # An ordinary execution can proceed without proof suitable for a future assignment.
 
 
-def receipt_fingerprint(s, scope, path, task, receipt):
+def receipt_fingerprint(s, scope, path, task, receipt, *, same_assignment=False):
     from context_readiness import check_execution, enabled
     from test_validation import check_visual_command, managed_visual_environment
 
@@ -167,52 +183,95 @@ def receipt_fingerprint(s, scope, path, task, receipt):
     if version not in (1, INPUT_VERSION):
         return None
     argv = cwd = None
-    if path.get('build_binding') and managed_visual_environment(s, path) and enabled(s) and task.get('context_ref'):
+    if same_assignment:
+        argv, cwd = receipt['requested_argv'], receipt['cwd']
+    elif path.get('build_binding') and managed_visual_environment(s, path) and enabled(s) and task.get('context_ref'):
         argv, cwd = receipt['requested_argv'], receipt['cwd']
         check_visual_command(argv)
         check_execution(s, task, argv, cwd, path['path_id'])
     return input_fingerprint(s, scope, path, task['run_root'], argv, cwd, version=version)
 
 
-def carried(s, scope, auditor, exclude=()):
-    """Keep original result authorship; admit only the still current observations of each batch."""
-    if not s.get('audit_carry'):
-        return []
+def archived_evidence(task, archives):
+    from ledger import read_events
+    from verify_openspec import AcceptanceEvidence
+
+    root = Path(task['run_root'])
+    if root not in archives:
+        state, events = read_events(root)
+        archives[root] = AcceptanceEvidence(root, events, state['target_root'], prefer_live=True)
+    return archives[root]
+
+
+def proof_document(task, ref, archives):
+    try:
+        return read_json(check_ref(ref))
+    except (Drifted, OSError):
+        return read_json(archived_evidence(task, archives).check(ref))
+
+
+def verified_batches(s, scope, tasks, archives, *, fingerprint=False):
+    """Recheck the newest selected PATH observations under the current frozen inputs."""
+    from context_readiness import verify_refs
+    from integration import check_path_inputs
+    from prepared_tests import binding
+
     paths = {path['path_id']: path for path in scope['plan']['paths']}
-    seen, batches = set(exclude), []
-    for task in reversed(s.get('audit_carry', [])):
-        if (not task.get('run_root') or task['instance_id'] == auditor or task['freeze_id'] != scope['freeze_id']
+    batches = []
+    for task in tasks:
+        if (not task.get('run_root') or task['freeze_id'] != scope['freeze_id']
                 or task['code_baseline'] != scope['code_baseline']):
             continue
         try:
-            report = read_json(check_ref(task['result_ref']))
-        except (OSError, ValueError, TypeError):
+            report = proof_document(task, task['result_ref'], archives)
+        except (OSError, ValueError, TypeError, KeyError):
             continue
         keep = []
         for row in report['paths']:
             pid = row['path_id']
-            if (pid not in paths or pid not in task['path_ids'] or pid in seen or not row.get('executed')
-                    or row['quality'] not in ('green-passed', 'red-bug')):
+            if pid not in paths or pid not in task['path_ids']:
                 continue
-            seen.add(pid)  # A stale newer observation never reinstates an older one.
+            if fingerprint and (not row.get('executed') or row['quality'] not in ('green-passed', 'red-bug')):
+                continue
             try:
-                receipt = read_json(check_ref(row['execution_receipt']))
+                path = paths[pid]
+                check_path_inputs(s, path)
+                verify_refs(binding(scope, path))
+                verify_refs(scope.get('path_build_artifacts', {}).get(pid, []) if path.get('build_binding') else [])
+                receipt_ref = row.get('execution_receipt')
+                receipt = proof_document(task, receipt_ref, archives) if receipt_ref else {}
                 recorded = receipt.get('audit_inputs_sha256')
-                if not recorded or recorded != receipt_fingerprint(s, scope, paths[pid], task, receipt):
+                if fingerprint and not recorded:
                     continue
-                validate_result({**report, 'paths': [row]}, task_scope(scope, {'path_ids': [pid]}), task,
-                                run_root=task['run_root'])
+                if recorded and recorded != receipt_fingerprint(s, scope, path, task, receipt, same_assignment=not fingerprint):
+                    continue
+                try:
+                    validate_result({**report, 'paths': [row]}, task_scope(scope, {'path_ids': [pid]}), task,
+                                    run_root=task['run_root'])
+                except (Drifted, OSError):
+                    # The original submission already validated the observation and its output paths.
+                    archive = archived_evidence(task, archives)
+                    archive.check(task['result_ref'])
+                    archive.walked.clear()
+                    archive.visit(row)
             except (OSError, ValueError, TypeError, KeyError):
                 continue
             keep.append(pid)
         if keep:
             batches.append({**task, 'path_ids': keep})
-    return list(reversed(batches))
+    return batches
+
+
+def carried(s, scope, auditor, exclude=()):
+    """Keep original result authorship and validate the original execution fingerprint."""
+    tasks = [{**task, 'path_ids': [pid for pid in task['path_ids'] if pid not in exclude]}
+             for task in latest_batches(s.get('audit_carry', [])) if task['instance_id'] != auditor]
+    return verified_batches(s, scope, tasks, {}, fingerprint=True)
 
 
 def hold(s):
     """Retain accepted observations when the whole-task audit releases its execution lock."""
-    accepted = submitted(s)
+    accepted = latest_batches(submitted(s))
     done = {pid for task in accepted for pid in task['path_ids']}
     batches = [{**task, 'path_ids': [pid for pid in task['path_ids'] if pid not in done]}
                for task in s.get('audit_carry', [])] + accepted
@@ -259,7 +318,7 @@ def defer(s, req, actor, scope, report):
 
 
 def handle(s, req, actor, scope, root):
-    from ledger import role
+    from ledger import current, role
     p = req['payload']; audit = s.get('audit_assignment', {})
     require((not audit.get('closed', True)) and (audit.get('mode') != 'problem'),
             'whole-task audit assignment required')
@@ -289,6 +348,23 @@ def handle(s, req, actor, scope, root):
             'run_id': s['run_id'], 'run_root': str(root), 'module_id': 'GLOBAL', 'freeze_id': scope['freeze_id'], 'code_baseline': scope['code_baseline'],
             'audit_assignment_id': audit['assignment_id'], 'scope_policy': 'non-green-only', 'snapshot': copy.deepcopy(audit['snapshot']),
             'test_scope': kind, 'closed': False, 'audit_snapshot_sha256': digest(audit['snapshot'])}
+    elif req['operation'] == 'audit-test-revoke':
+        role(actor, 'host')
+        import context_readiness
+        import test_validation as tv
+        task = s.get('audit_test_assignment') or {}
+        require(set(p) == {'assignment_id', 'stopped_worker_ref'} and not task.get('closed', True)
+                and p['assignment_id'] == task['assignment_id'] and task['audit_assignment_id'] == audit['assignment_id'],
+                'audit test task inactive/mismatch')
+        require(task.get('context_ref') or not context_readiness.enabled(s), 'audit test runner is not authorized')
+        require(audit['path_ids'] == [path['path_id'] for path in scope['plan']['paths']]
+                and task['freeze_id'] == scope['freeze_id'] and all(tv.available(m) for m in s['modules'].values()),
+                'audit selection or snapshot changed; revoke the whole audit')
+        for module in s['modules'].values():
+            current(module)
+        check_ref(p['stopped_worker_ref'])
+        _, blocked = partition_paths(s, task_scope(scope, task)['plan']['paths'])
+        task.update(closed=True, stopped_worker_ref=p['stopped_worker_ref'], blocked_paths=blocked)
     else:
         role(actor, 'test-runner')
         task = s.get('audit_test_assignment', {})
@@ -305,14 +381,12 @@ def handle(s, req, actor, scope, root):
 def evidence(s, scope=None, report=None):
     """Gather exact accepted batch observations in their submission order."""
     from ledger import audit_scope
-    tasks = completed(s, scope if scope is not None else audit_scope(s))
+    archives = {}
+    tasks = completed(s, scope if scope is not None else audit_scope(s), archives=archives)
     refs, rows = [], []
     for task in tasks:
-        result = read_json(check_ref(task['result_ref']))
+        result = proof_document(task, task['result_ref'], archives)
         rows_in_scope = [row for row in result['paths'] if row['path_id'] in task['path_ids']]
-        if scope is not None:
-            validate_result({**result, 'paths': rows_in_scope}, task_scope(scope, task), task,
-                            run_root=task.get('run_root'))
         refs.append(task['result_ref'])
         rows.extend(rows_in_scope)
     if report is not None:

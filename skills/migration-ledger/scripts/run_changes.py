@@ -98,7 +98,7 @@ def execution_review_module(m):
     return view
 
 
-def subject(s, report_ref, *, execution_review=False, device_path_review=False):
+def subject(s, report_ref, *, execution_review=False, device_path_review=False, global_path_review=False):
     report = read_json(check_ref(report_ref))
     affected = {row['module_id'] for row in report['modules'] if row['action'] != 'unchanged'}
     def affected_module(m):
@@ -120,12 +120,13 @@ def subject(s, report_ref, *, execution_review=False, device_path_review=False):
         return view
 
     audit = {k: v for k, v in s.items() if k.startswith('audit')}
-    if devices is not None:
+    if devices is not None or global_path_review:
         import integration
         from functools import cache
         from ledger import global_baseline
 
-        paths = {p['path_id']: p for p in s['global_paths'] if not integration.affected_by_device(s, p, devices)}
+        affected_paths = global_reverify_paths(s, report, changed_devices(s, report) if global_path_review else devices)
+        paths = {p['path_id']: p for p in s['global_paths'] if p['path_id'] not in affected_paths}
         @cache
         def baseline():
             try:
@@ -522,7 +523,8 @@ def revise_context(root, s, patch, review, decision):
 
 def review_subject(s, review):
     return subject(s, review['report_ref'], execution_review=review.get('execution_review', False),
-                   device_path_review=review.get('device_path_review', False))
+                   device_path_review=review.get('device_path_review', False),
+                   global_path_review=review.get('global_path_review', False))
 
 
 def blocks_switch(s, m, assignment, devices):
@@ -559,11 +561,15 @@ def handle(root, s, req, actor):
                             and not human_required(s, report))
         settling = sorted(mid for mid in affected if any(a['role'] == 'test-runner' and not a.get('closed')
                           for a in s['modules'][mid]['assignments'].values())) if execution_review else []
-        scoped = (execution_review and changed_devices(s, report) is not None
+        devices = changed_devices(s, report)
+        scoped = (execution_review and devices is not None
                   and all(row['action'] in ('unchanged', 'reverify') for row in report['modules']))
+        scoped_globals = devices is not None or (not patch and not report['root_updates'] and not report.get('package_sha')
+                                                 and set(report.get('contract_patch') or {}) == {'global_paths'})
         review = {'report_ref': p['report_ref'], 'reviewed_by': actor, 'status': 'reviewed',
                   **({'execution_review': True, 'settling_test_modules': settling} if execution_review else {}),
-                  **({'device_path_review': True} if scoped else {})}
+                  **({'device_path_review': True} if scoped else {}),
+                  **({'global_path_review': True} if scoped_globals else {})}
         s['run_change_review'] = {**review, 'subject_sha256': review_subject(s, review)}
         return
     role(actor, 'host')

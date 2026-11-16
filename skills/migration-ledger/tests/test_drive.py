@@ -319,6 +319,30 @@ class MechanicalHandoffTests(unittest.TestCase):
             run.assert_called_once()
         self.assertEqual(self.f.state()['modules']['M001']['results']['M001-B']['quality'], 'green-passed')
 
+    def test_ready_parent_slicing_is_delivered_once_before_the_pending_build(self):
+        from unittest.mock import patch
+        import ledger
+
+        route = ledger.routing
+        parent = {'module_id': 'M002', 'operation': 'decompose', 'role': 'module-orchestrator',
+                  'expected_revision': 1, 'ready': True}
+
+        def parent_ready(*args, **kwargs):
+            routes = route(*args, **kwargs)
+            routes['next_steps'] = [step for step in routes['next_steps'] if step['module_id'] != 'M002'] + [dict(parent)]
+            return routes
+
+        with patch.object(ledger, 'routing', side_effect=parent_ready), patch.object(ledger, 'frozen_tests', wraps=ledger.frozen_tests) as run:
+            for mid, operation in [('M002', 'decompose'), ('M010', 'redecompose')]:
+                parent.update(module_id=mid, operation=operation)
+                lines = drive.drive(self.f.root, MO)
+                self.assertTrue(any(row['kind'] == 'dispatch' and row['operation'] == operation
+                                    and row.get('module_id') == mid for row in lines))
+                run.assert_not_called()
+            drive.drive(self.f.root, MO)
+            run.assert_called_once()
+        self.assertEqual(self.f.state()['modules']['M001']['results']['M001-B']['quality'], 'green-passed')
+
     def test_ready_revisions_are_delivered_once_before_the_pending_build(self):
         from unittest.mock import patch
         import ledger

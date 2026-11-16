@@ -68,6 +68,41 @@ class BatchedUnitTests(unittest.TestCase):
         self.assertEqual({pid: m['results'][pid]['quality'] for pid in ('B1', 'U1', 'U2')}, dict.fromkeys(('B1', 'U1', 'U2'), 'green-passed'))
         self.assertEqual(read_json(m['results']['U1']['execution_receipt']['path'])['batch']['path_ids'], ['U1', 'U2'])
 
+    def test_final_audit_runs_the_same_frozen_junit_command_once(self):
+        import ledger
+        import test_context_readiness
+        import test_ledger
+
+        f = test_context_readiness.ContextReadinessTests()
+        original = f.call
+        ids = {'U1': 'SearchTest#query', 'U2': 'SearchTest#other'}
+
+        def initialize(op, payload=None, **kwargs):
+            if op == 'init':
+                command = {'argv': self.inner.fixture.unit_argv(), 'cwd': str(f.target), 'timeout_seconds': 20,
+                           'selection_ref': f.ref('selection.md', 'Both tests execute in the same JUnit invocation')}
+                path = {**payload['global_paths'][0], 'kind': 'unit', 'command': command,
+                        'expected_assertions': [{'assertion_id': 'A1', 'expected': True}]}
+                payload = {**payload, 'global_paths': [{**path, 'path_id': pid,
+                    'unit_report': {'format': 'junit', 'patterns': ['reports/TEST-*.xml'], 'required_test_ids': [test_id]}}
+                    for pid, test_id in ids.items()]}
+            return original(op, payload, **kwargs)
+
+        f.call = initialize
+        f.setUp(); self.addCleanup(f.doCleanups)
+        f.completed(); test_ledger.code_review(f)
+        ledger.advance_run(f.root, {'role': 'module-orchestrator', 'instance_id': 'module-orchestrator'})
+        s = f.state()
+        self.assertEqual(s['quality'], 'green-passed')
+        first, second = (read_json(s['audit_results'][pid]['execution_receipt']['path']) for pid in ids)
+        self.assertEqual(first['log_ref'], second['log_ref'])
+        self.assertEqual(first['batch'], second['batch'])
+        self.assertEqual(first['batch']['path_ids'], list(ids))
+        self.assertNotEqual(first['test_run_id'], second['test_run_id'])
+        for receipt in (first, second):
+            query = read_json(receipt['query_ref']['path'])
+            self.assertEqual(query['unit_report']['required_test_ids'], [ids[receipt['path_id']]])
+
     def test_a_missing_required_test_is_that_paths_finding_alone(self):
         self.second = 'SearchTest#missing'
         self.compiled(); f = self.f

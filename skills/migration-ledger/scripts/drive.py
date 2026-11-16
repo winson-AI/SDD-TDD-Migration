@@ -31,6 +31,7 @@ import resource_binding
 POLL_SECONDS = 1
 PERSON = ('human-decision-required', 'run-approval-required', 'source-approval-required')
 REVISIONS = ('revise-run', 'reconfigure-sources')
+PARENT_SLICING = ('decompose', 'redecompose')
 ENDS = {  # the run's end, by why it ended: nothing is left to dispatch, and what the user is told
     'await-delivery-authorization': 'the run passed its audit: give the user the report and ask whether to deliver (merge, /sdd-archive)',
     'completed-with-unverified-tests': 'the run ended with paths it could not run: give the user the report and the unverified cases'}
@@ -46,7 +47,7 @@ def row(step, card=None):
                                 'approval_kind', 'detail', 'root_ids', 'session_id', 'session_affinity', 'model_tier') if step.get(k) is not None}
     if step.get('artifact_only'):
         out.update({key: step[key] for key in ('artifact_only', 'test_scope', 'instance_id', 'fencing_token', 'path_ids') if key in step})
-    elif step.get('operation') in ('audit-test-assign', 'audit-test-submit', 'audit-unavailable'):
+    elif step.get('operation') in ('audit-test-assign', 'audit-test-submit', 'audit-test-revoke', 'audit-unavailable'):
         out.update({key: step[key] for key in ('test_scope', 'instance_id', 'path_ids') if key in step})
     if step.get('report_ref'):
         out['report'] = step['report_ref']['path']
@@ -226,7 +227,7 @@ def ready_revision(step):
 
 
 def ready_handoff_to_deliver(root, st):
-    """Deliver ready plans and coding session handoffs once per step revision."""
+    """Deliver ready planning and coding session handoffs once per step revision."""
     candidates = []
     for step in st['next_steps']:
         rotation = (step.get('session_rotate') or {}).get('ready')
@@ -238,7 +239,8 @@ def ready_handoff_to_deliver(root, st):
     priority = {step['module_id'] for step in st['next_steps']
                 if (step.get('session_rotate') or {}).get('ready')
                 and (step.get('worker_role') or step.get('role')) in ('implementer', 'fixer')}
-    priority.update(line['module_id'] for line in candidates if line['kind'] == 'dispatch' and line['operation'] == 'plan')
+    priority.update(line['module_id'] for line in candidates
+                    if line['operation'] in PARENT_SLICING or (line['kind'] == 'dispatch' and line['operation'] == 'plan'))
     if not priority:
         return False
     _, handed, kept, _ = dispatch_budget(root, st, candidates)
@@ -271,6 +273,10 @@ def dispatch_budget(root, st, lines):
         line['operation']: [line['payload']['subject_sha256']] for line in lines
         if line['kind'] == 'host' and line.get('operation') in REVISIONS and (line.get('payload') or {}).get('subject_sha256')
     }  # A standing revision stays actionable, but only interrupts command scheduling once per reviewed subject.
+    for line in lines:
+        mid = line.get('module_id')
+        if mid in steps and mid not in modules and line['kind'] in ('dispatch', 'rotate') and line.get('operation') in PARENT_SLICING:
+            kept[mid] = [line['operation'], steps[mid].get('expected_revision')]
     for line in order:
         mid = line['module_id']
         if mid in busy or len(busy) < st['max_parallel_modules']:

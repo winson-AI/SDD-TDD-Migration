@@ -109,10 +109,10 @@
 <path d="M400,1735 L400,1795" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <rect x="90" y="1795" width="620" height="180" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/>
 <text x="400.0" y="1835.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">终审 · 独立 Test-Runner 按批执行</text>
-<text x="400.0" y="1869.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">叶子与 GLOBAL PATH 的派发、预检与执行范围一致</text>
-<text x="400.0" y="1898.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">有冻结命令或适配器的就绪 PATH 先跑</text>
-<text x="400.0" y="1927.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">其余就绪项由独立 Test-Runner 执行</text>
-<text x="400.0" y="1956.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">按独立执行输入分批，每批先入账再续跑</text>
+<text x="400.0" y="1869.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同批 PATH 的派发、预检与执行范围一致</text>
+<text x="400.0" y="1898.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">冻结命令或适配器先跑，每批独立入账</text>
+<text x="400.0" y="1927.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">同输入 JUnit 命令只启动一次，逐测试 ID 留证</text>
+<text x="400.0" y="1956.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">沿用有效回执，失效 PATH 单独补验</text>
 <path d="M1200,1735 L1200,1795" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-purple)"/>
 <rect x="890" y="1795" width="620" height="155" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="1200.0" y="1837.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">人工批准 → GO 释放批次 → 受控恢复</text>
@@ -132,11 +132,11 @@
 <rect x="890" y="2030" width="620" height="205" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.7"/>
 <text x="1200.0" y="2068.0" font-size="26.00" fill="#111827" text-anchor="middle" font-weight="650">按 PATH 记录缺口 → 同 Run 恢复</text>
 <text x="1200.0" y="2102.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">未获授权的 Runner 按 PATH 退回环境缺口</text>
-<text x="1200.0" y="2131.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">其余批次入账后，Auditor 挂起缺口并释放快照</text>
-<text x="1200.0" y="2160.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">回执核对原预检命令、环境与绑定制品</text>
-<text x="1200.0" y="2189.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">沿用有效 Green / Red 与原 test_run_id</text>
-<text x="1200.0" y="2218.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">只补验未执行或输入变化的 PATH</text>
-<text x="800" y="2270" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已获授权的 Runner 输入失效时，宿主核实停止或隔离，再撤销派发。</text>
+<text x="1200.0" y="2131.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">已获授权的 Runner 局部漂移，核实停工后只撤该派发</text>
+<text x="1200.0" y="2160.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">其余批次入账后，Auditor 挂起缺口并释放快照</text>
+<text x="1200.0" y="2189.0" font-size="20.88" fill="#4b5563" text-anchor="middle" font-weight="400">核对同哈希归档，沿用有效 Green / Red 与原 test_run_id</text>
+<text x="1200.0" y="2218.0" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">补验未执行、输入变化或证据失效的 PATH</text>
+<text x="800" y="2270" font-size="22.00" fill="#4b5563" text-anchor="middle" font-weight="400">审计快照或应验清单失效时，宿主核实停止或隔离，再撤销整个审计。</text>
 <path d="M65,2320 L113,2320" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
 <text x="125" y="2327" font-size="19.00" fill="#6b7280" text-anchor="start" font-weight="400">流程推进</text>
 <path d="M345,2320 L393,2320" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>

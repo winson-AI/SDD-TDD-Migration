@@ -2774,8 +2774,9 @@ def mutate(s, req, principal, events, root=None):
         scope = audit_scope(s)
         require(assignment.get('scope_policy') == 'non-green-only', 'legacy full audit assignment; revoke and reassign')
         require(assignment['path_ids'] == [p['path_id'] for p in scope['plan']['paths']], 'audit selection changed')
+        test_refs = []
         if scope['plan']['paths']:
-            audit_execution.evidence(s, scope, report)
+            test_refs, _ = audit_execution.evidence(s, scope, report)
             require(report.get('schema_version') == 1 and report.get('kind') == 'tests', 'audit report schema/kind mismatch')
             for field, value in (('run_id', s['run_id']), ('module_id', 'GLOBAL'), ('assignment_id', assignment['assignment_id']),
                 ('actor_instance_id', principal['instance_id']), ('freeze_id', scope['freeze_id']), ('code_baseline', scope['code_baseline'])):
@@ -2787,6 +2788,7 @@ def mutate(s, req, principal, events, root=None):
         quality = 'red-bug' if 'red-bug' in qualities else 'yellow-blocked' if 'yellow-blocked' in qualities else 'green-passed'
         s['audit'] = {'quality': quality, 'report_ref': p['report_ref'], 'paths': report['paths'],
                       'scope_policy': 'non-green-only', 'snapshot': snapshot,
+                      **({'test_result_refs': test_refs} if test_refs else {}),
                       'execution_status': 'no-retest-needed' if not report['paths'] else 'reviewed'}
         s.setdefault('audit_results', {}).update({r['path_id']: {**r, 'code_baseline': scope['code_baseline']} for r in report['paths']})
         owners = {path['path_id']: mid for mid, mod in s['modules'].items() for path in mod['plan']['paths']}
@@ -2864,12 +2866,13 @@ def artifact_index(events):
     return index
 
 
-def new_snapshots(root, payload, target_root, index, externals=()):
+def new_snapshots(root, payload, target_root, index, externals=(), *, audit_report_ref=None):
     """Archive every ref of a payload; list what this event adds to the cumulative index.
 
     An artifact some earlier event already archived is found through that event, so it is not listed
     again. Drift and historical-snapshot records describe this event and are always kept."""
-    return [item for item in preserve_refs(root, payload, target_root=target_root, accepted=index, externals=externals)
+    return [item for item in preserve_refs(root, payload, target_root=target_root, accepted=index, externals=externals,
+                                           audit_report_ref=audit_report_ref)
             if item.get('status') in ('drifted-or-missing-live-target-code', 'historical-snapshot')
             or (item.get('source_path'), item.get('sha256')) not in index]
 
@@ -2911,14 +2914,14 @@ def external(path, externals):
     return any(p.is_relative_to(r) for r in externals or ()) or any(part in DEPENDENCY_STORES for part in p.parts)
 
 
-def historical_tool_ref(root, value, accepted, nested=False):
-    """Resolve only a nested controller/protocol reference from a verified committed event index.
+def historical_tool_ref(root, value, accepted, nested=False, *, audit_evidence=False):
+    """Resolve committed historical tool references or verified audit observations.
 
     The caller obtains `accepted` with artifact_index(read_events(root)[1]); raw state is not archive proof.
     Current inputs and redirected source paths never use this historical exception.
     """
     source = Path(value['path'])
-    if not nested or source.resolve() != source or not any(source.is_relative_to(p) for p in HISTORICAL_TOOL_ROOTS):
+    if not nested or source.resolve() != source or not (audit_evidence or any(source.is_relative_to(p) for p in HISTORICAL_TOOL_ROOTS)):
         return None
     historical = (accepted or {}).get((value['path'], value['sha256']))
     if not historical:
@@ -2955,7 +2958,8 @@ def prior_run_artifact(root, value, nested, prior_runs):
     return check_ref({'path': str(archive), 'sha256': value['sha256']}), previous.name, event
 
 
-def preserve_refs(root, value, seen=None, nested=False, target_root=None, accepted=None, externals=(), prior_runs=None):
+def preserve_refs(root, value, seen=None, nested=False, target_root=None, accepted=None, externals=(), prior_runs=None,
+                  audit_report_ref=None, audit_evidence=None):
     """Archive evidence bytes before commit; keep live refs for stale-code detection.
 
     Nested historical controller/protocol refs may read an exact archive from a prior committed event;
@@ -2987,7 +2991,7 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
             try:
                 path = imported[0] if imported else check_ref(value)
             except ValueError:
-                historical = historical_tool_ref(root, value, accepted, nested)
+                historical = historical_tool_ref(root, value, accepted, nested, audit_evidence=bool(audit_evidence))
                 if historical:
                     path, source_event = historical
                 else:
@@ -3012,20 +3016,33 @@ def preserve_refs(root, value, seen=None, nested=False, target_root=None, accept
                           **({'status': 'accepted-prior-run-artifact', 'accepted_run_id': imported[1],
                               'accepted_event': imported[2]} if imported else {}),
                           **({'status': 'historical-snapshot', 'accepted_event': source_event} if historical else {})})
-            if Path(value['path']).suffix == '.json' and not imported:
+            if Path(value['path']).suffix == '.json' and not imported and audit_evidence != 'manifest':
                 try:
                     nested_value = read_json(path)
                 except Rejected:
                     raise  # a document that cites an id its refs table lacks is wrong, not merely not JSON
                 except ValueError:
                     nested_value = None
-                saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root, accepted=accepted, externals=externals, prior_runs=prior_runs))
+                if value == audit_report_ref and isinstance(nested_value, dict):
+                    # A batch manifest identifies the submission. Only the observations selected by the verdict
+                    # contribute proof, so an obsolete PATH in that manifest is not re-archived.
+                    batch_refs = nested_value.get('test_result_refs', [nested_value.get('test_result_ref')])
+                    saved.extend(preserve_refs(root, batch_refs, seen, True, target_root, accepted, externals, prior_runs,
+                                              audit_evidence='manifest'))
+                    saved.extend(preserve_refs(root, nested_value['paths'], seen, True, target_root, accepted, externals, prior_runs,
+                                              audit_evidence='observation'))
+                    nested_value = {k: v for k, v in nested_value.items() if k not in ('paths', 'test_result_ref', 'test_result_refs')}
+                saved.extend(preserve_refs(root, nested_value, seen, nested=True, target_root=target_root, accepted=accepted,
+                                          externals=externals, prior_runs=prior_runs, audit_report_ref=audit_report_ref,
+                                          audit_evidence=audit_evidence))
         else:
             for item in value.values():
-                saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted, externals, prior_runs))
+                saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted, externals, prior_runs,
+                                          audit_report_ref, audit_evidence))
     elif isinstance(value, list):
         for item in value:
-            saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted, externals, prior_runs))
+            saved.extend(preserve_refs(root, item, seen, nested, target_root, accepted, externals, prior_runs,
+                                      audit_report_ref, audit_evidence))
     return saved
 
 
@@ -3222,12 +3239,14 @@ def _judge(root, req, principal, *, publish=True):
             change = {'patch': {'set': changed, 'del': removed}}
             apply_change(before, change)
             require(before == after, 'journal patch does not reproduce the committed state')
+        audit_report_ref = s['audit']['report_ref'] if req['operation'] == 'audit' and s['audit'].get('test_result_refs') else None
         e = {'schema_version': 1, 'event_id': f'E{len(events)+1:08d}', 'sequence': len(events)+1,
              'timestamp': now(), 'request_id': req['request_id'], 'request_hash': request_hash,
              'actor': principal, 'operation': req['operation'], 'module_id': req.get('module_id'),
              'previous_hash': events[-1]['sha256'] if events else None, **change,
              'artifact_snapshots': new_snapshots(root, {'payload': req.get('payload', {}), 'history_refs': history_refs},
-                                               s.get('target_root'), artifact_index(events), external_roots(s))}
+                                               s.get('target_root'), artifact_index(events), external_roots(s),
+                                               audit_report_ref=audit_report_ref)}
         e['sha256'] = digest(e)
         journal = run_storage.checked_path(root / 'ledger/events.jsonl', root)
         journal.parent.mkdir(exist_ok=True)
@@ -3281,9 +3300,10 @@ def routing(s, observed_invalidations=(), ref_check=check_ref):
                 task_paths = audit_execution.task_scope(scope, task)['plan']['paths']
                 _, blocked = audit_execution.partition_paths(s, task_paths)
                 if blocked and (task.get('context_ref') or not context_readiness.enabled(s)):
-                    global_next.update(operation='audit-revoke', role='host', ready=True,
+                    global_next.update(operation='audit-test-revoke', role='host', ready=True,
                                        reason='audit-path-inputs-unavailable', audit_blocked_paths=blocked,
-                                       payload={'assignment_id': audit['assignment_id']})
+                                       assignment_id=task['assignment_id'], instance_id=task['instance_id'],
+                                       path_ids=task['path_ids'], payload={'assignment_id': task['assignment_id']})
                 else:
                     mechanical = not blocked and audit_execution.mechanical_paths(s, task_paths) == task['path_ids']
                     global_next.update(operation='audit-test-submit', role='test-runner', path_ids=task['path_ids'],
@@ -3631,20 +3651,32 @@ def global_preflight(root, s, task):
 
 
 def run_global(root, s, task):
-    """Run a wave's global paths with the run's adapter and stage the result where its worker would."""
+    """Run the assigned global batch and stage the result where its worker would."""
     scripts = str(Path(__file__).resolve().parents[2] / 'migration-test/scripts')
     if scripts not in sys.path:
         sys.path.append(scripts)
     import harmony_stage
     from execute_test import execute
     aid = task['assignment_id']
-    paths = audit_scope(s)['plan']['paths'] if task.get('mode') == 'audit-execute' else s['global_paths']
+    scope = audit_scope(s) if task.get('mode') == 'audit-execute' else None
+    paths = scope['plan']['paths'] if scope is not None else s['global_paths']
     planned = {path['path_id']: path for path in paths}
-    receipts = []
-    for pid in task['path_ids']:
-        path = planned[pid]
-        area = 'runs/build' if path.get('kind') in ('build', 'unit') or path.get('unit_report') else 'runs/harmony/automation'
-        receipts.append(execute(root, 'GLOBAL', aid, pid, output=Path(root) / area / aid / pid, resume_completed=True))
+    pids = task['path_ids']
+    build_dir = Path(root) / 'runs/build' / aid
+    command = planned[pids[0]].get('command') if pids else None
+    junit_batch = scope is not None and len(pids) > 1 and command and all(
+        path.get('kind') in ('unit', 'automation') and path.get('unit_report') and path.get('command') == command
+        and not path.get('interaction_id') and not reference_media.assertion_refs(s, path)
+        and all(asset['kind'] == 'test-source' for asset in (prepared_tests.binding(scope, path) or {}).get('assets', []))
+        for path in (planned[pid] for pid in pids))
+    if junit_batch and not any((build_dir / pid).exists() for pid in pids):
+        receipts = execute(root, 'GLOBAL', aid, pids, output=build_dir / '-'.join(pids), resume_completed=True)
+    else:
+        receipts = []
+        for pid in pids:
+            path = planned[pid]
+            area = 'runs/build' if path.get('kind') in ('build', 'unit') or path.get('unit_report') else 'runs/harmony/automation'
+            receipts.append(execute(root, 'GLOBAL', aid, pid, output=Path(root) / area / aid / pid, resume_completed=True))
     out = Path(root).resolve() / 'staging/test-runner' / (aid + '-result.json')
     out.parent.mkdir(parents=True, exist_ok=True)
     atomic(out, harmony_stage.build(root, 'GLOBAL', aid, receipts))

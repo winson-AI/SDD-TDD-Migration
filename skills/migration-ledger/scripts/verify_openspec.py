@@ -21,7 +21,7 @@ import openspec_projection
 import project_context
 import run_storage
 import workflow_hub
-from contracts import Rejected, check_ref, require
+from contracts import Drifted, Rejected, check_ref, require
 
 ERRORS = (Rejected, OSError, ValueError, KeyError, TypeError, AttributeError)
 SCOPES = ('global', 'module', 'projection', 'final')
@@ -74,9 +74,10 @@ class AcceptanceEvidence:
     bytes, not today's target contents, are the source for this historical check.
     This does not relax current SPEC/code checks or attest real execution.
     """
-    def __init__(self, root, events, target_root):
+    def __init__(self, root, events, target_root, *, prefer_live=False):
         self.root = root
         self.target_root = Path(target_root).resolve()
+        self.prefer_live = prefer_live
         self.index, self.drifted, self.legacy = {}, set(), set()
         self.resolved, self.walked = {}, set()
         self.legacy_live, self.unarchived_target = set(), set()
@@ -108,7 +109,12 @@ class AcceptanceEvidence:
             archive = run_storage.checked_path(self.root / 'artifacts' / ref['sha256'], self.root / 'artifacts')
             require(entry.get('path') == str(archive), 'event artifact location differs from managed archive')
             # An explicitly promised archive must exist, even if live bytes survive.
-            path = check_ref({'path': str(archive), 'sha256': ref['sha256']})
+            try:
+                path = check_ref(ref if self.prefer_live else {'path': str(archive), 'sha256': ref['sha256']})
+            except (Drifted, OSError):
+                if not self.prefer_live:
+                    raise
+                path = check_ref({'path': str(archive), 'sha256': ref['sha256']})
         else:
             require(key in self.legacy, 'accepted evidence has no event archive entry: ' + ref['path'])
             path = check_ref(ref)
@@ -405,6 +411,13 @@ def inspect(run_root, scope='projection', module_id=None):
             compare(root / 'reports/migration-report.json', report, 'migration-report', structured=True)
             compare(root / 'reports/migration-report.md', migration_report.render(report), 'migration-report')
             if evidence:
+                # A verdict cites whole manifest identities and incorporates only the selected PATH observations.
+                for ref in state.get('audit', {}).get('test_result_refs', []):
+                    try:
+                        evidence.check(ref)
+                        evidence.walked.add((ref['path'], ref['sha256']))
+                    except ERRORS as exc:
+                        fail('acceptance-evidence', exc, 'final', recovery=EVIDENCE_RECOVERY)
                 for mid, roots in _acceptance_roots(state, report):
                     try:
                         evidence.visit(roots)
